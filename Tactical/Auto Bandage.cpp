@@ -340,7 +340,7 @@ static BOOLEAN CreateAutoBandageString( void )
 
 	if (ubDoctors == 1)
 	{
-		swprintf( sAutoBandageString, Message[STR_IS_APPLYING_FIRST_AID], MercPtrs[ubDoctor[0]]->name );
+		sgp_swprintf( sAutoBandageString, uiDoctorNameStringLength, Message[STR_IS_APPLYING_FIRST_AID], MercPtrs[ubDoctor[0]]->name );
 	}
 	else
 	{
@@ -367,7 +367,7 @@ static BOOLEAN CreateAutoBandageString( void )
 				}
 			}
 		}
-		swprintf( sAutoBandageString, Message[STR_ARE_APPLYING_FIRST_AID], sTemp, MercPtrs[ubDoctor[ubDoctors - 1]]->name );
+		sgp_swprintf( sAutoBandageString, uiDoctorNameStringLength, Message[STR_ARE_APPLYING_FIRST_AID], sTemp, MercPtrs[ubDoctor[ubDoctors - 1]]->name );
 		MemFree( sTemp );
 	}
 
