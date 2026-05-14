@@ -1586,7 +1586,7 @@ UINT8 GetRangeOfMapScreenMessages( void )
 }
 
 // OJW - 20090426 - only show certain messages in the tactical / message overlay
-void SetTacticalMessageFilter( UINT ubPriority )
+void SetTacticalMessageFilter( UINT32 ubPriority )
 {
 	gTacticalMsgFilterPriority = ubPriority;
 }

@@ -82,7 +82,7 @@ void SetString(ScrollStringStPtr pStringSt, STR16 String);
 // will go and clear all displayed strings off the screen
 void ClearDisplayedListOfTacticalStrings( void );
 // OJW - 20090426
-void SetTacticalMessageFilter( UINT ubPriority );
+void SetTacticalMessageFilter( UINT32 ubPriority );
 void RemoveTacticalMessageFilter ( void );
 
 // clear ALL strings in the tactical Message Queue
