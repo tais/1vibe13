@@ -1151,8 +1151,13 @@ void MapScreenMessageScrollBarCallBack( MOUSE_REGION *pRegion, INT32 iReason )
 		if ( ubNumMessages > MAX_MESSAGES_ON_MAP_BOTTOM )
 		{
 			// where is the mouse?
+#ifdef _WIN32
 			GetCursorPos( &MousePos );
 			ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+			MousePos.x = gusMouseXPos;
+			MousePos.y = gusMouseYPos;
+#endif
 
 			ubMouseYOffset = (UINT8) MousePos.y - MESSAGE_SCROLL_AREA_START_Y;
 

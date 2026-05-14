@@ -21,6 +21,14 @@ extern INT8 Test = 0;
 INTRO_NAMES_VALUES zVideoFile[255];
 UINT32 iStringToUseLua = -1;
 
+#ifdef _WIN32
+// The intro-screen implementation here is built on Smacker/Bink and
+// the Win32 window handle. On non-Windows it's gated out entirely;
+// the screen isn't switched to from gameplay (the MAP_EXIT_TO_INTRO_
+// SCREEN switch is commented out) and the only external reference is
+// a Lua call to PrepareToExitIntroScreen via reflection. Phase 8 will
+// replace this with libsmacker + SDL.
+
 // BF
 class VideoPlayer
 {
@@ -723,3 +731,4 @@ void DisplaySirtechSplashScreen()
 	InvalidateScreen();
 	RefreshScreen( NULL );
 }
+#endif // _WIN32

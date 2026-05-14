@@ -1246,7 +1246,7 @@ void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLE
 		// if this option is turned on, a small message will show us how opinions have changed
 		if ( gGameExternalOptions.fDynamicOpinionsShowChange )
 		{
-			ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, gDynamicOpinionEvent[usEvent].sOpinionModifier >= 0 ? L"%s: %s +%d" : L"%s: %s %d", gMercProfiles[usProfileA].zNickname, gMercProfiles[usProfileB].zNickname, gDynamicOpinionEvent[usEvent].sOpinionModifier );
+			ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, (STR16)(gDynamicOpinionEvent[usEvent].sOpinionModifier >= 0 ? L"%s: %s +%d" : L"%s: %s %d"), gMercProfiles[usProfileA].zNickname, gMercProfiles[usProfileB].zNickname, gDynamicOpinionEvent[usEvent].sOpinionModifier );
 		}
 
 		// if dialogue is allowed, set up dialogue

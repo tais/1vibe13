@@ -753,12 +753,12 @@ void AddPreReadEmailTypeXML( INT32 iMessageOffset, INT32 iMessageLength, UINT8 u
 	UINT8 subjectLine = 0;
 	if ( EmailType == TYPE_EMAIL_AIM_AVAILABLE )
 	{
-		if (EmailMercAvailableText[subjectLine].szSubject !='\0')
+		if (EmailMercAvailableText[subjectLine].szSubject[0] != L'\0')
 			wcscpy( pSubject, EmailMercAvailableText[ubSender].szSubject );
 	}
 	else if ( EmailType == TYPE_EMAIL_MERC_LEVEL_UP )
 	{
-		if (EmailMercLevelUpText[subjectLine].szSubject !='\0')
+		if (EmailMercLevelUpText[subjectLine].szSubject[0] != L'\0')
 			wcscpy( pSubject, EmailMercLevelUpText[ubSender].szSubject );
 	}
 
@@ -781,12 +781,12 @@ void AddEmailTypeXML( INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender
 
 	if ( EmailType == TYPE_EMAIL_AIM_AVAILABLE )
 	{
-		if (EmailMercAvailableText[ubSender].szSubject !='\0')
+		if (EmailMercAvailableText[ubSender].szSubject[0] != L'\0')
 			wcscpy( pSubject, EmailMercAvailableText[ubSender].szSubject );
 	}
 	else if ( EmailType == TYPE_EMAIL_MERC_LEVEL_UP )
 	{
-		if (EmailMercLevelUpText[ubSender].szSubject !='\0')
+		if (EmailMercLevelUpText[ubSender].szSubject[0] != L'\0')
 			wcscpy( pSubject, EmailMercLevelUpText[ubSender].szSubject );
 	}
 
@@ -1659,7 +1659,7 @@ static void DrawSender(INT32 iCounter, UINT8 ubSender, BOOLEAN fRead, UINT8 Emai
 
 	if ( EmailType == TYPE_EMAIL_AIM_AVAILABLE || EmailType == TYPE_EMAIL_MERC_LEVEL_UP )
 	{
-		if (gMercProfiles[ ubSender ].zNickname !='\0')
+		if (gMercProfiles[ ubSender ].zNickname[0] != L'\0')
 		mprintf(SENDER_X,(( UINT16 )( 4 + MIDDLE_Y + iCounter * MIDDLE_WIDTH ) ) ,gMercProfiles[ ubSender ].zNickname);
 		else
 		mprintf(SENDER_X,(( UINT16 )( 4 + MIDDLE_Y + iCounter * MIDDLE_WIDTH ) ) ,L"None");
@@ -1670,7 +1670,7 @@ static void DrawSender(INT32 iCounter, UINT8 ubSender, BOOLEAN fRead, UINT8 Emai
 	}
 	else if ( EmailType == TYPE_EMAIL_EMAIL_EDT_NAME_MERC )
 	{
-		if (gMercProfiles[ ubSender ].zNickname !='\0')
+		if (gMercProfiles[ ubSender ].zNickname[0] != L'\0')
 		mprintf(SENDER_X,(( UINT16 )( 4 + MIDDLE_Y + iCounter * MIDDLE_WIDTH ) ) ,gMercProfiles[ ubSender ].zNickname);
 		else
 		mprintf(SENDER_X,(( UINT16 )( 4 + MIDDLE_Y + iCounter * MIDDLE_WIDTH ) ) ,L"None");
@@ -3171,7 +3171,7 @@ void DisplayEmailMessageSubjectDateFromLines( EmailPtr pMail , INT32 iViewerY)
 	// the actual from info
 	if ( pMail->EmailVersion == TYPE_EMAIL_AIM_AVAILABLE || pMail->EmailVersion == TYPE_EMAIL_MERC_LEVEL_UP )
 	{
-		if (gMercProfiles[ pMail->ubSender ].zNickname !='\0')
+		if (gMercProfiles[ pMail->ubSender ].zNickname[0] != L'\0')
 		mprintf( MESSAGE_HEADER_X+MESSAGE_HEADER_WIDTH-13, MESSAGE_FROM_Y + iViewerY, gMercProfiles[ pMail->ubSender ].zNickname);
 		else
 		mprintf( MESSAGE_HEADER_X+MESSAGE_HEADER_WIDTH-13, MESSAGE_FROM_Y + iViewerY, L"None");
@@ -3182,7 +3182,7 @@ void DisplayEmailMessageSubjectDateFromLines( EmailPtr pMail , INT32 iViewerY)
 	}
 	else if ( pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT_NAME_MERC )
 	{
-		if (gMercProfiles[ pMail->ubSender ].zNickname !='\0')
+		if (gMercProfiles[ pMail->ubSender ].zNickname[0] != L'\0')
 		mprintf( MESSAGE_HEADER_X+MESSAGE_HEADER_WIDTH-13, MESSAGE_FROM_Y + iViewerY, gMercProfiles[ pMail->ubSender ].zNickname);
 		else
 		mprintf( MESSAGE_HEADER_X+MESSAGE_HEADER_WIDTH-13, MESSAGE_FROM_Y + iViewerY, L"None");

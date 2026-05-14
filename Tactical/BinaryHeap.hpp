@@ -325,7 +325,7 @@ insert:
 
 	int findData(const T data, const KEY key) const
 	{
-		register int current;
+		int current;
 		if ((BinaryHeap[1].key + BinaryHeap[heapCount-1].key)>>1 > key) {
 			for (current = 1; current <= heapCount-1; ++current) {
 				if (BinaryHeap[current].data == data && BinaryHeap[current].key == key) {

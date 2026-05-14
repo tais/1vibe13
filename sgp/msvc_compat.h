@@ -58,9 +58,15 @@ inline int WideCharToMultiByte(UINT, DWORD, const wchar_t*, int,
 // since boot; the standard-library steady_clock has an unspecified
 // origin which is fine for the relative-interval use cases in JA2.
 #include <chrono>
+#include <thread>
 inline DWORD GetTickCount() {
     auto t = std::chrono::steady_clock::now().time_since_epoch();
     return (DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(t).count();
+}
+
+// Win32 Sleep takes milliseconds.
+inline void Sleep(DWORD ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 #endif
 
