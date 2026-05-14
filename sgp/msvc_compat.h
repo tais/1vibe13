@@ -154,6 +154,17 @@ inline wchar_t* _itow_impl(long value, wchar_t* buf, int radix) {
 }
 inline wchar_t* _itow(int value, wchar_t* buf, int radix) { return _itow_impl(value, buf, radix); }
 inline wchar_t* _ltow(long value, wchar_t* buf, int radix) { return _itow_impl(value, buf, radix); }
+
+// Wide-string to int. MSVC's _wtoi is wcstol with radix 10.
+inline int _wtoi(const wchar_t* s) { return (int)wcstol(s, nullptr, 10); }
+
+// MSVC's 2-arg wcstok keeps state in a thread-unsafe global. Provide
+// the same shape on top of POSIX's reentrant 3-arg wcstok.
+inline wchar_t* wcstok_2arg(wchar_t* str, const wchar_t* delim) {
+    static wchar_t* state = nullptr;
+    return ::wcstok(str, delim, &state);
+}
+#define wcstok(str, delim) ::wcstok_2arg((str), (delim))
 #endif
 
 // MSVC's legacy swprintf signature is swprintf(buf, fmt, ...). The
