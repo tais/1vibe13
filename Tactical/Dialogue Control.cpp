@@ -2519,7 +2519,7 @@ BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, 
 			LoadEncryptedDataFromFile( pFilename, zDialogueText, usQuoteNum * iDataSize, iDataSize );
 			if(zDialogueText[0] == 0)
 			{
-				swprintf( zDialogueText, L"I have no text in the EDT file ( %d ) %S", usQuoteNum, pFilename );
+				sgp_swprintf( zDialogueText, iDataSize / sizeof(CHAR16), L"I have no text in the EDT file ( %d ) %S", usQuoteNum, pFilename );
 
 #ifndef JA2BETAVERSION
 				return( FALSE );
@@ -2530,7 +2530,7 @@ BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, 
 		}
 		else
 		{
-			swprintf( zDialogueText, L"I have no text in the file ( %d ) %S", usQuoteNum , pFilename );
+			sgp_swprintf( zDialogueText, iDataSize / sizeof(CHAR16), L"I have no text in the file ( %d ) %S", usQuoteNum , pFilename );
 
 #ifndef JA2BETAVERSION
 			return( FALSE );
@@ -2669,7 +2669,7 @@ BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iData
 
 			if(zDialogueText[0] == 0)
 			{
-				swprintf( zDialogueText, L"I have no text in the EDT file ( %d ) %S", usQuoteNum, pFilename1 );
+				sgp_swprintf( zDialogueText, iDataSize / sizeof(CHAR16), L"I have no text in the EDT file ( %d ) %S", usQuoteNum, pFilename1 );
 
 #ifndef JA2BETAVERSION
 				return( FALSE );
@@ -2680,7 +2680,7 @@ BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iData
 		}
 		else
 		{
-			swprintf( zDialogueText, L"I have no text in the file ( %d ) %S", usQuoteNum , pFilename1 );
+			sgp_swprintf( zDialogueText, iDataSize / sizeof(CHAR16), L"I have no text in the file ( %d ) %S", usQuoteNum , pFilename1 );
 
 #ifndef JA2BETAVERSION
 			return( FALSE );
