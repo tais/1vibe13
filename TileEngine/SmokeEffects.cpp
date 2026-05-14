@@ -1138,7 +1138,7 @@ void UpdateSmokeEffectGraphics( )
 	}
 }
 
-BOOL GetRandomSignalSmokeGridNo(INT32* psGridNo)
+BOOLEAN GetRandomSignalSmokeGridNo(INT32* psGridNo)
 {
 	UINT32		uiCnt;
 	//SMOKEEFFECT *pSmoke;

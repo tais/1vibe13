@@ -1511,7 +1511,7 @@ void ExplosiveDamageGridNo( INT32 sGridNo, INT16 sWoundAmt, UINT32 uiDist,
 }
 
 
-BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGridNo, INT16 sWoundAmt, INT16 sBreathAmt, UINT32 uiDist, UINT16 usItem, INT16 sSubsequent, BOOL fFromRemoteClient )
+BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGridNo, INT16 sWoundAmt, INT16 sBreathAmt, UINT32 uiDist, UINT16 usItem, INT16 sSubsequent, BOOLEAN fFromRemoteClient )
 {
 	// OJW - 20091028
 	if (is_networked && is_client)
@@ -1898,7 +1898,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	return( TRUE );
 }
 
-BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner, BOOL fFromRemoteClient )
+BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner, BOOLEAN fFromRemoteClient )
 {
 					// OJW - 20091028
 	if (is_networked && is_client)
@@ -2918,7 +2918,7 @@ void GetRayStopInfo( UINT32 uiNewSpot, UINT8 ubDir, INT8 bLevel, BOOLEAN fSmokeE
 
 
 
-void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwner, BOOLEAN fSubsequent, INT8 bLevel, INT32 iSmokeEffectID, BOOL fFromRemoteClient, BOOL fNewSmokeEffect  )
+void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwner, BOOLEAN fSubsequent, INT8 bLevel, INT32 iSmokeEffectID, BOOLEAN fFromRemoteClient, BOOLEAN fNewSmokeEffect  )
 {
 	if (is_networked && is_client)
 	{
@@ -3763,7 +3763,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 
 }
 
-void AddBombToQueue( UINT32 uiWorldBombIndex, UINT32 uiTimeStamp, BOOL fFromRemoteClient )
+void AddBombToQueue( UINT32 uiWorldBombIndex, UINT32 uiTimeStamp, BOOLEAN fFromRemoteClient )
 {
 	if (gubElementsOnExplosionQueue == MAX_BOMB_QUEUE)
 	{
