@@ -68,22 +68,32 @@ add_subdirectory("ext/export/src")
 # static libraries whose translation units don't rely on Application preprocessor definitions.
 add_subdirectory(lua)
 add_subdirectory(Multiplayer)
-add_subdirectory(wine)
+if(WIN32)
+  add_subdirectory(wine)
+endif()
 
 set(Ja2_Libraries
-"${CMAKE_SOURCE_DIR}/binkw32.lib"
-"${CMAKE_SOURCE_DIR}/libexpatMT.lib"
-"${CMAKE_SOURCE_DIR}/lua51.lib"
-"${CMAKE_SOURCE_DIR}/lua51.vc9.lib"
-"${CMAKE_SOURCE_DIR}/SMACKW32.LIB"
-"Dbghelp.lib"
-"Winmm.lib"
-"ws2_32.lib"
 bfVFS
 Lua
 Multiplayer
-wine
 )
+
+# Windows-only legacy and system libraries. Replaced cross-platform in
+# later phases (Lua/Expat from source, FMOD -> SDL_mixer, Smacker/Bink
+# -> libsmacker, ddraw -> SDL3).
+if(WIN32)
+  list(APPEND Ja2_Libraries
+    "${CMAKE_SOURCE_DIR}/binkw32.lib"
+    "${CMAKE_SOURCE_DIR}/libexpatMT.lib"
+    "${CMAKE_SOURCE_DIR}/lua51.lib"
+    "${CMAKE_SOURCE_DIR}/lua51.vc9.lib"
+    "${CMAKE_SOURCE_DIR}/SMACKW32.LIB"
+    "Dbghelp.lib"
+    "Winmm.lib"
+    "ws2_32.lib"
+    wine
+  )
+endif()
 
 # static libraries whose translation units rely on Application preprocessor definitions.
 set(Ja2_Libs
@@ -139,9 +149,13 @@ foreach(app IN LISTS ApplicationTargets)
   foreach(lang IN LISTS LangTargets)
     # executable for an application/language combination, e.g. JA2_ENGLISH.exe
     set(exe ${app}_${lang})
+    set(exe_platform_sources)
+    if(WIN32)
+      list(APPEND exe_platform_sources Ja2/Res/ja2.rc)
+    endif()
     add_executable(${exe} WIN32
       sgp/sgp.cpp
-      Ja2/Res/ja2.rc
+      ${exe_platform_sources}
     )
     target_link_libraries(${exe} PRIVATE ${Ja2_Libraries} $<IF:${usingMsBuild},legacy_stdio_definitions.lib,>)
     target_link_options(${exe} PRIVATE $<IF:${usingMsBuild},/SAFESEH:NO,>)
@@ -161,7 +175,9 @@ foreach(app IN LISTS ApplicationTargets)
   endforeach()
 
   # for SGP only
-  target_link_libraries(${app}_sgp PRIVATE "ddraw.lib" "${PROJECT_SOURCE_DIR}/fmodvc.lib")
+  if(WIN32)
+    target_link_libraries(${app}_sgp PRIVATE "ddraw.lib" "${PROJECT_SOURCE_DIR}/fmodvc.lib")
+  endif()
   target_link_libraries(${app}_sgp PRIVATE libpng)
   target_compile_definitions(${app}_sgp PRIVATE ${compilationFlags} ${debugFlags} NO_ZLIB_COMPRESSION)
 endforeach()
