@@ -18,7 +18,6 @@
 #include <fcntl.h>
 #include <share.h>
 #include <sys/stat.h>
-#include <malloc.h>
 #include <stdlib.h>
 
 #include "DEBUG.H"

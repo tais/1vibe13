@@ -26,7 +26,6 @@
 //**************************************************************************
 	#include "types.h"
 	#include <stdlib.h>
-	#include <malloc.h>
 	#include <stdio.h>
 	#include <direct.h>
 	

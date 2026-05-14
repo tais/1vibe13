@@ -20,7 +20,6 @@
 
 	#include "types.h"
 	#include <windows.h>
-	#include <malloc.h>
 	#include <stdlib.h>
 	#include <string.h>
 	#include "MemMan.h"

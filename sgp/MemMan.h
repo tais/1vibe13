@@ -83,7 +83,7 @@ extern void		ShutdownMemoryManager( void );
 		#define new NEW(_NORMAL_BLOCK, __FILE__, __LINE__)
 	#else
 		//Release build verison
-		#include <malloc.h>
+		#include <stdlib.h>
 		#define		MemAlloc( size )				malloc( (size) )
 		#define		MemFree( ptr )					free( (ptr) )
 		#define		MemRealloc( ptr, size )	realloc( (ptr), (size) )

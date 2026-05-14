@@ -3,7 +3,7 @@
 #include "types.h"
 #include <stdio.h>
 #include <stdarg.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <windows.h>
 #include <windowsx.h>
 #include <stdarg.h>
