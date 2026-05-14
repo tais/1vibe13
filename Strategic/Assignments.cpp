@@ -8416,7 +8416,7 @@ void BuildIntelInfoArray()
 				intelarray[i] = helivector[cnt];
 		}
 		// next size of our team: POWs
-		else if ( i < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID )
+		else if ( i < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID )
 		{
 			int ubID = i - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() );
 
@@ -8427,9 +8427,9 @@ void BuildIntelInfoArray()
 				intelarray[i] = ubID;
 		}
 		// next 6: terrorist locations
-		else if ( i < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 )
+		else if ( i < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 )
 		{
-			int cnt = i - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID );
+			int cnt = i - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID );
 			
 			int profile = SLAY;
 			if ( cnt == 1 )	profile = ANNIE;
@@ -8450,9 +8450,9 @@ void BuildIntelInfoArray()
 			}
 		}
 		// next 3: raids
-		else if ( i < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 + 3 )
+		else if ( i < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 + 3 )
 		{
-			int raidtype = i - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 );
+			int raidtype = i - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 );
 
 			if ( raidtype == 0 )
 			{
@@ -8553,21 +8553,21 @@ void GetIntelInfoTextAndPrice(int aInfoNumber, STR16 aString, int& arIntelCost )
 		wcscpy( aString, szIntelText[9] );
 		arIntelCost = 30;
 	}
-	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID )
+	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID )
 	{
 		wcscpy( aString, szIntelText[10] );
 		arIntelCost = 30;
 	}
 	// next 6: terrorist locations
-	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 )
+	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 )
 	{
 		wcscpy( aString, szIntelText[11] );
 		arIntelCost = 20;
 	}
 	// next 3: raids
-	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 + 3 )
+	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 + 3 )
 	{
-		int raidtype = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 );
+		int raidtype = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 );
 
 		if ( raidtype == 0 )
 		{
@@ -8602,7 +8602,7 @@ void BuyIntelInfo( int aInfoNumber )
 	{
 		BuyHeliInfoWithIntel( aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal ) );
 	}
-	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID )
+	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID )
 	{
 		int ubID = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() );
 
@@ -8612,16 +8612,16 @@ void BuyIntelInfo( int aInfoNumber )
 			pSoldier->usSoldierFlagMask2 |= SOLDIER_MERC_POW_LOCATIONKNOWN;
 	}
 	// next 6: terrorist locations
-	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 )
+	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 )
 	{
-		int cnt = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID );
+		int cnt = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID );
 
 		SetFactTrue( FACT_TERRORIST_LOCATION_KNOWN_SLAY + cnt );
 	}
 	// next 3: raids
-	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 + 3 )
+	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 + 3 )
 	{
-		int raidtype = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + gTacticalStatus.Team[gbPlayerNum].bLastID - gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 );
+		int raidtype = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 );
 
 		SetFactTrue( FACT_RAID_KNOWN_BLOODCATS + raidtype );
 	}

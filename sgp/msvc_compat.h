@@ -74,6 +74,40 @@ inline int WideCharToMultiByte(UINT, DWORD, const wchar_t*, int,
 #define _strnicmp  strncasecmp
 #define _wcsicmp   wcscasecmp
 
+#ifndef MAXUINT8
+#define MAXUINT8  ((uint8_t)0xff)
+#endif
+#ifndef MAXUINT16
+#define MAXUINT16 ((uint16_t)0xffff)
+#endif
+#ifndef MAXUINT32
+#define MAXUINT32 ((uint32_t)0xffffffff)
+#endif
+
+// In-place uppercase/lowercase conversions for ASCII-range only;
+// matches MSVC behavior for the JA2 call sites that don't deal with
+// locale-sensitive characters.
+#ifdef __cplusplus
+#include <cctype>
+#include <cwctype>
+inline char* _strupr(char* s) {
+    for (char* p = s; *p; ++p) *p = (char)toupper((unsigned char)*p);
+    return s;
+}
+inline char* _strlwr(char* s) {
+    for (char* p = s; *p; ++p) *p = (char)tolower((unsigned char)*p);
+    return s;
+}
+inline wchar_t* _wcsupr(wchar_t* s) {
+    for (wchar_t* p = s; *p; ++p) *p = (wchar_t)towupper(*p);
+    return s;
+}
+inline wchar_t* _wcslwr(wchar_t* s) {
+    for (wchar_t* p = s; *p; ++p) *p = (wchar_t)towlower(*p);
+    return s;
+}
+#endif
+
 // MSVC's legacy swprintf signature is swprintf(buf, fmt, ...). The
 // POSIX/standard signature is swprintf(buf, count, fmt, ...). JA2's
 // 3000+ call sites all pass fixed-size CHAR16 arrays as the buffer,
