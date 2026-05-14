@@ -107,22 +107,8 @@
 #define		AIM_SORT_SORT_BY_WIDTH				394
 #define		AIM_SORT_SORT_BY_HEIGHT				81
 
-UINT16		AimSortCheckBoxLoc[]={
-							(AIM_SORT_SORT_BY_X + 9), (AIM_SORT_SORT_BY_Y + 34),
-							(AIM_SORT_SORT_BY_X + 9), (AIM_SORT_SORT_BY_Y + 47),
-							(AIM_SORT_SORT_BY_X + 9), (AIM_SORT_SORT_BY_Y + 60),
-							(AIM_SORT_SORT_BY_X + 105), (AIM_SORT_SORT_BY_Y + 34),
-							(AIM_SORT_SORT_BY_X + 105), (AIM_SORT_SORT_BY_Y + 47),
-							(AIM_SORT_SORT_BY_X + 105), (AIM_SORT_SORT_BY_Y + 60),
-							(AIM_SORT_SORT_BY_X + 201), (AIM_SORT_SORT_BY_Y + 34),
-							(AIM_SORT_SORT_BY_X + 201), (AIM_SORT_SORT_BY_Y + 47),
-							(AIM_SORT_SORT_BY_X + 201), (AIM_SORT_SORT_BY_Y + 60),
-							(AIM_SORT_SORT_BY_X + 297), (AIM_SORT_SORT_BY_Y + 34),
-							(AIM_SORT_SORT_BY_X + 297), (AIM_SORT_SORT_BY_Y + 47),
-							(AIM_SORT_SORT_BY_X + 297), (AIM_SORT_SORT_BY_Y + 60),
-							(AIM_SORT_SORT_BY_X + 9), (AIM_SORT_SORT_BY_Y + 21),
-							(AIM_SORT_SORT_BY_X + 372), (AIM_SORT_SORT_BY_Y + 4),
-							(AIM_SORT_SORT_BY_X + 372), (AIM_SORT_SORT_BY_Y + 17)};
+// Populated by EnterAimSort() before first use.
+UINT16		AimSortCheckBoxLoc[30];
 
 UINT8			gubCurrentSortMode;
 UINT8			gubOldSortMode;
