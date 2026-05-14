@@ -843,7 +843,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	SetButtonFastHelpText( iActionIcons[ RUN_ICON ], pTacticalPopupButtonStrings[ RUN_ICON ] );
 	//SetButtonSavedRect( iActionIcons[ RUN_ICON ] );
-	ButtonList[ iActionIcons[ RUN_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ RUN_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	if ( pSoldier->MercInWater( ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
 	{
@@ -869,7 +869,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 		SetButtonFastHelpText( iActionIcons[ WALK_ICON ], pTacticalPopupButtonStrings[ WALK_ICON ] );
 	}
 
-	ButtonList[ iActionIcons[ WALK_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ WALK_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
 	{
@@ -890,7 +890,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	SetButtonFastHelpText( iActionIcons[ SNEAK_ICON ], pTacticalPopupButtonStrings[ SNEAK_ICON ] );
 	//SetButtonSavedRect( iActionIcons[ SNEAK_ICON ] );
-	ButtonList[ iActionIcons[ SNEAK_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ SNEAK_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	// Check if this is a valid stance, diable if not!
 	if ( !IsValidStance( pSoldier, ANIM_CROUCH ) )
@@ -908,7 +908,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	SetButtonFastHelpText( iActionIcons[ CRAWL_ICON ], pTacticalPopupButtonStrings[ CRAWL_ICON ] );
 	//SetButtonSavedRect( iActionIcons[ CRAWL_ICON ] );
-	ButtonList[ iActionIcons[ CRAWL_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ CRAWL_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	// Check if this is a valid stance, diable if not!
 	if ( !IsValidStance( pSoldier, ANIM_PRONE ) )
@@ -927,7 +927,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	SetButtonFastHelpText( iActionIcons[ LOOK_ICON ], TacticalStr[ LOOK_CURSOR_POPUPTEXT ] );
 	//SetButtonSavedRect( iActionIcons[ LOOK_ICON ] );
-	ButtonList[ iActionIcons[ LOOK_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ LOOK_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
@@ -1033,7 +1033,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	//SetButtonSavedRect( iActionIcons[ ACTIONC_ICON ] );
 	SetButtonFastHelpText( iActionIcons[ ACTIONC_ICON ], zActionString );
-	ButtonList[ iActionIcons[ ACTIONC_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ ACTIONC_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	if ( fDisableAction )
 	{
@@ -1051,7 +1051,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	//SetButtonSavedRect( iActionIcons[ TALK_ICON ] );
 	SetButtonFastHelpText( iActionIcons[ TALK_ICON ], pTacticalPopupButtonStrings[ TALK_ICON ] );
-	ButtonList[ iActionIcons[ TALK_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ TALK_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
@@ -1069,7 +1069,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	//SetButtonSavedRect( iActionIcons[ HAND_ICON ] );
 	SetButtonFastHelpText( iActionIcons[ HAND_ICON ], pTacticalPopupButtonStrings[ HAND_ICON ] );
-	ButtonList[ iActionIcons[ HAND_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ HAND_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
@@ -1086,7 +1086,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	//SetButtonSavedRect( iActionIcons[ CANCEL_ICON ] );
 	SetButtonFastHelpText( iActionIcons[ CANCEL_ICON ], pTacticalPopupButtonStrings[ CANCEL_ICON ] );
-	ButtonList[ iActionIcons[ CANCEL_ICON ] ]->UserData[0] = (UINT32)pUIEvent;
+	ButtonList[ iActionIcons[ CANCEL_ICON ] ]->UserData[0] = (UINT32)(uintptr_t)pUIEvent;
 
 	//LockTacticalInterface( );
 
@@ -1916,7 +1916,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	{
 		if ( gfUIMouseOnValidCatcher == 1 && pSoldier->ubID == gubUIValidCatcherID )
 		{
-			swprintf( NameStr, TacticalStr[ CATCH_STR ] );
+			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,TacticalStr[ CATCH_STR ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
 			mprintf( sX, sY, NameStr );
@@ -1924,7 +1924,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 		else if ( gfUIMouseOnValidCatcher == 3 && pSoldier->ubID == gubUIValidCatcherID )
 		{
-			swprintf( NameStr, TacticalStr[ RELOAD_STR ] );
+			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,TacticalStr[ RELOAD_STR ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
 			mprintf( sX, sY, NameStr );
@@ -1932,7 +1932,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 		else if ( gfUIMouseOnValidCatcher == 4 && pSoldier->ubID == gubUIValidCatcherID )
 		{
-			swprintf( NameStr, pMessageStrings[ MSG_PASS ] );
+			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,pMessageStrings[ MSG_PASS ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
 			mprintf( sX, sY, NameStr );
@@ -1941,7 +1941,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		// anv: if soldier is in vehicle, write its name instead of "vehicle"
 		else if ( pSoldier->bAssignment == VEHICLE )
 		{
-			swprintf( NameStr, L"(%s)", GetSoldierStructureForVehicle( pSoldier->iVehicleId )->GetName() );
+			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"(%s)", GetSoldierStructureForVehicle( pSoldier->iVehicleId )->GetName() );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
 			mprintf( sX, sY, NameStr );
@@ -1950,7 +1950,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		else if ( pSoldier->bAssignment >= ON_DUTY )
 		{
 			SetFontForeground( FONT_YELLOW );
-			swprintf( NameStr, L"(%s)", pAssignmentStrings[ pSoldier->bAssignment ] );
+			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"(%s)", pAssignmentStrings[ pSoldier->bAssignment ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
 			mprintf( sX, sY, NameStr );
@@ -1959,9 +1959,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		else if ( pSoldier->bTeam == gbPlayerNum &&	pSoldier->bAssignment < ON_DUTY && pSoldier->bAssignment != CurrentSquad() && !( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
 		{
 			if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < gSquadNameVector.size() )
-				swprintf( NameStr, gSquadNameVector[pSoldier->bAssignment].c_str() );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gSquadNameVector[pSoldier->bAssignment].c_str() );
 			else
-				swprintf( NameStr, gzLateLocalizedString[ 34 ], ( pSoldier->bAssignment + 1 ) );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gzLateLocalizedString[ 34 ], ( pSoldier->bAssignment + 1 ) );
 
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
@@ -1990,23 +1990,23 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			//legion2 jazz
 			if ( pSoldier->ubBodyType == ROBOTNOWEAPON && pSoldier->bTeam == ENEMY_TEAM )
 			{
-				swprintf( NameStr, zGrod[0] );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,zGrod[0] );
 			}
 			//Legion	
 			else if ( ARMED_VEHICLE( pSoldier ) )
 			{
 				if ( pSoldier->bVehicleID >= 0 && pVehicleList )
-					swprintf( NameStr, gNewVehicle[pVehicleList[pSoldier->bVehicleID].ubVehicleType].NewVehicleStrings );
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[pVehicleList[pSoldier->bVehicleID].ubVehicleType].NewVehicleStrings );
 				else
-					swprintf( NameStr, gNewVehicle[TANK_CAR].NewVehicleStrings );
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[TANK_CAR].NewVehicleStrings );
 			}
 			else if ( zHiddenNames[pSoldier->ubProfile].Hidden == TRUE )
 			{
-				swprintf( NameStr, L"???" );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"???" );
 			}
 			else
 			{
-				swprintf( NameStr, L"%s", pSoldier->name );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", pSoldier->name );
 			}
 
 			INT16 sNameY = fRaiseName ? sYPos - 10 : sYPos;
@@ -2098,7 +2098,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				SetFontBackground( FONT_MCOLOR_BLACK );
 				SetFontForeground( FONT_MCOLOR_WHITE );
 
-				swprintf( NameStr, TacticalStr[ GIVE_STR ] );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,TacticalStr[ GIVE_STR ] );
 				FindFontCenterCoordinates( sXPos, (INT16)(sYPos + 10 ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 				gprintfdirty( sX, sY, NameStr );
 				mprintf( sX, sY, NameStr );
@@ -2222,7 +2222,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				SetFontBackground( FONT_MCOLOR_BLACK );
 				SetFontForeground( FONT_YELLOW );
 
-				swprintf( NameStr, gzLateLocalizedString[ 15 ] );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gzLateLocalizedString[ 15 ] );
 				FindFontCenterCoordinates( sXPos, (INT16)(sYPos + 10), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 				gprintfdirty( sX, sY, NameStr );
 				mprintf( sX, sY, NameStr );
@@ -2623,8 +2623,13 @@ BOOLEAN DrawCTHIndicator()
 	INT16 sStartScreenY;
 
 	POINT	MousePos;
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!	
+	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	sStartScreenX = (INT16)MousePos.x - 1;	// sevenfm: fix (-1) for cursor mismatch
 	sStartScreenY = (INT16)MousePos.y - 1;
@@ -5972,23 +5977,23 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 		{
 			if( showExactInfo && gGameExternalOptions.fShowEnemyExtendedInfo )
 			{	// in range, show exact armour name
-				swprintf( NameStr, L"%s", ItemNames[ usItemID ] );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", ItemNames[ usItemID ] );
 			}
 			else
 			{	// show general armour type
 				switch( pSelectedSoldier->bAimShotLocation )
 				{
 				case AIM_SHOT_HEAD:
-					swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_HELMET] );
-					//swprintf( NameStr, L"%s", L"Helmet" );
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_HELMET] );
+					//sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", L"Helmet" );
 					break;
 				case AIM_SHOT_TORSO:
-					swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_VEST] );
-					//swprintf( NameStr, L"%s", L"Vest" );
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_VEST] );
+					//sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", L"Vest" );
 					break;
 				case AIM_SHOT_LEGS:
-					swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_LEGGINGS] );
-					//swprintf( NameStr, L"%s", L"Leggings" );
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_LEGGINGS] );
+					//sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", L"Leggings" );
 					break;
 				}								
 			}
@@ -6040,7 +6045,7 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 			{
 				if ( showExactInfo )
 				{
-					swprintf( NameStr, L"%s", ShortItemNames[ pTargetSoldier->inv[ HANDPOS ].usItem ] );
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", ShortItemNames[ pTargetSoldier->inv[ HANDPOS ].usItem ] );
 				}
 				else
 				{
@@ -6048,25 +6053,25 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 					switch( Weapon[pTargetSoldier->inv[ HANDPOS ].usItem].ubWeaponClass )
 					{
 					case HANDGUNCLASS:
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_HANDGUN] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_HANDGUN] );
 						break;
 					case SMGCLASS:
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_SMG] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_SMG] );
 						break;
 					case RIFLECLASS:
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_RIFLE] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_RIFLE] );
 						break;
 					case MGCLASS:
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_MG] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_MG] );
 						break;
 					case SHOTGUNCLASS:
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_SHOTGUN] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_SHOTGUN] );
 						break;
 					case KNIFECLASS:
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_KNIFE] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_KNIFE] );
 						break;
 					default:
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_HEAVY_WEAPON] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_HEAVY_WEAPON] );
 						break;
 					}
 				}
@@ -6076,16 +6081,16 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 				if( showExactInfo )
 				{							
 					if( pTargetSoldier->inv[ HANDPOS ].usItem )
-						swprintf( NameStr, L"%s", Item[ pTargetSoldier->inv[ HANDPOS ].usItem ].szItemName );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", Item[ pTargetSoldier->inv[ HANDPOS ].usItem ].szItemName );
 					else
-						swprintf( NameStr, L"%s", gzTooltipStrings[STR_TT_NO_WEAPON] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_NO_WEAPON] );
 				}
 				else
 				{
 					if( pTargetSoldier->inv[ HANDPOS ].usItem )
-						swprintf( NameStr, L"%s", TacticalStr[ GENERAL_INFO_ITEM ] );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", TacticalStr[ GENERAL_INFO_ITEM ] );
 					else
-						swprintf( NameStr, L"%s", L"" );
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", L"" );
 				}								
 			}
 		}
@@ -6128,7 +6133,7 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
 		SetFont( TINYFONT1 );
 		SetFontBackground( FONT_MCOLOR_BLACK );		
 
-		swprintf( NameStr, L"" );
+		sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"" );
 		GetEnemyInfoString( pSelectedSoldier, pTargetSoldier, showExactInfo, NameStr );
 		usTotalWidth = StringPixLength ( NameStr, TINYFONT1 );
 		sX -= usTotalWidth/2;
