@@ -1943,7 +1943,7 @@ public:
 	BOOLEAN		HasBackgroundFlag( UINT64 aFlag );
 	INT16		GetBackgroundValue( UINT16 aNr );
 
-	const std::vector<INT16>& SOLDIERTYPE::GetBackgroundValueVector(BackgroundVectorTypes backgroundVectorType) const;
+	const std::vector<INT16>& GetBackgroundValueVector(BackgroundVectorTypes backgroundVectorType) const;
 
 	INT8		GetSuppressionResistanceBonus();			// bonus to resistance against suppression
 	INT16		GetMeleeDamageBonus();

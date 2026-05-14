@@ -600,7 +600,7 @@ BOOLEAN FileLoad( STR strFilename, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiB
 #endif
 
 
-BOOLEAN _cdecl FilePrintf( HWFILE hFile, STR8	strFormatted, ... )
+BOOLEAN FilePrintf( HWFILE hFile, STR8	strFormatted, ... )
 {
 	CHAR8		strToSend[160]; /* itemdescription of item 0 will NOT fit if only 80 Chars per Line!, Sergeant_Kolja, 2007-06-10 */
 	va_list	argptr;

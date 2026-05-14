@@ -20,7 +20,9 @@
 //**************************************************************************
 
 #include "types.h"
+#ifdef _WIN32
 #include "windows.h"
+#endif
 
 
 
@@ -58,11 +60,13 @@
 #define FILE_IS_OFFLINE					256
 
 
+#ifdef _WIN32
 // Snap, Kaiden: This define duplicates a standard MFC define
 // Added to resolve some intractable issue with MSVC6
 #define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
 
 typedef	FILETIME				SGP_FILETIME;
+#endif
 
 //**************************************************************************
 //
@@ -93,7 +97,7 @@ extern BOOLEAN	FileReadLine( HWFILE hFile, std::string* pDest );
 extern BOOLEAN	FileWrite( HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, UINT32 *puiBytesWritten );
 extern BOOLEAN	FileLoad( STR filename, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiBytesRead );
 
-extern BOOLEAN _cdecl FilePrintf( HWFILE hFile, STR8	strFormatted, ... );
+extern BOOLEAN FilePrintf( HWFILE hFile, STR8	strFormatted, ... );
 
 extern BOOLEAN	FileSeek( HWFILE, UINT32 uiDistance, UINT8 uiHow );
 extern INT32	FileGetPos( HWFILE );

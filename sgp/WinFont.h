@@ -1,5 +1,7 @@
 #ifndef __WINFONT_
 #define __WINFONT_
+
+#ifdef _WIN32
 #include <windows.h>
 
 void InitWinFonts( );
@@ -47,5 +49,6 @@ WIN_LASTFONT
 extern INT32 WinFontMap[MAX_WINFONTMAP];
 extern INT32 TOOLTIP_IFONT;
 extern INT32 TOOLTIP_IFONT_BOLD;
+#endif // _WIN32
 
 #endif
