@@ -22,6 +22,7 @@
 
 #include <cstdint>			// fixed-width integer types
 #include <wchar.h>			// for wide-character strings
+#include "msvc_compat.h"	// portable shims for MSVC-only names
 
 // *** SIR-TECH TYPE DEFINITIONS ***
 
