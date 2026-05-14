@@ -111,7 +111,6 @@
 #include "transfer_rules.h"
 
 #include "Keys.h"
-#include "new.h"
 #include "types.h"
 #include "connect.h"
 #include "message.h"
