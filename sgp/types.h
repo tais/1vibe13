@@ -93,6 +93,15 @@ typedef struct
 
 } SGPRectangle;
 
+#ifndef _WIN32
+// Portable equivalent of Win32 POINT struct for non-Windows builds.
+typedef struct
+{
+	INT32 x;
+	INT32 y;
+} POINT;
+#endif
+
 typedef struct
 { 
 	INT32 iLeft;
