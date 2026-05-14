@@ -4306,6 +4306,11 @@ void FreeGameExternalOptions()
 {
 }
 
+#ifdef _WIN32
+// CD-ROM detection and INI lookup, Win32-specific. The whole block
+// goes away when GameSettings is migrated to a portable settings
+// backend; for non-Windows builds the stubs below let callers
+// proceed assuming the data is on disk.
 BOOLEAN GetCDLocation( )
 {
 	UINT32	uiStrngLength = 0;
@@ -4601,6 +4606,14 @@ BOOLEAN IsDriveLetterACDromDrive( STR pDriveLetter )
 
 	return( FALSE );
 }
+#else // !_WIN32
+BOOLEAN GetCDLocation( )                                  { gzCdDirectory[0] = '.'; return TRUE; }
+BOOLEAN GetCDromDriveLetter( STR8 pString )               { if (pString) pString[0] = '\0'; return FALSE; }
+BOOLEAN CheckIfGameCdromIsInCDromDrive()                  { return TRUE; }
+BOOLEAN GetCdromLocationFromIniFile( STR pRootOfCdromDrive ) { if (pRootOfCdromDrive) pRootOfCdromDrive[0] = '\0'; return FALSE; }
+void    CDromEjectionErrorMessageBoxCallBack( UINT8 )     { }
+BOOLEAN IsDriveLetterACDromDrive( STR )                   { return FALSE; }
+#endif // _WIN32
 
 void DisplayGameSettings( )
 {

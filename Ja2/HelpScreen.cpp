@@ -972,8 +972,13 @@ void	GetHelpScreenUserInput()
 	InputAtom Event;
 	POINT	MousePos;
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	while( DequeueEvent( &Event ) )
 	{

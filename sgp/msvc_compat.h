@@ -35,6 +35,7 @@ typedef unsigned char  UCHAR;
 typedef void*          HANDLE;
 typedef void*          LPVOID;
 typedef struct { DWORD dwLowDateTime, dwHighDateTime; } FILETIME;
+typedef struct { LONG left, top, right, bottom; } RECT;
 
 // Win32 string conversion constants and functions, stubbed for
 // non-Windows. These code paths need real cross-platform replacements
@@ -52,6 +53,10 @@ inline int MultiByteToWideChar(UINT, DWORD, const char*, int,
                                wchar_t*, int) { return 0; }
 inline int WideCharToMultiByte(UINT, DWORD, const wchar_t*, int,
                                char*, int, const char*, BOOL*) { return 0; }
+#endif
+
+#ifndef _countof
+#define _countof(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
 #ifndef __min
