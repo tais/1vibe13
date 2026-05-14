@@ -219,7 +219,7 @@ BOOLEAN EnterBobbyR()
 		gShipmentTable.erase(gShipmentTable.begin(), gShipmentTable.end());
 	}
 
-	RefToDestinationListIterator dli = gPostalService.LookupDestinationList().begin();
+	DestinationList::const_iterator dli = gPostalService.LookupDestinationList().begin();
 
 	while (dli != gPostalService.LookupDestinationList().end())
 	{
@@ -228,7 +228,7 @@ BOOLEAN EnterBobbyR()
 
 	}
 
-	RefToShipmentListIterator sli = gPostalService.LookupShipmentList().begin();
+	ShipmentListIterator sli = gPostalService.LookupShipmentList().begin();
 
 	while (sli != gPostalService.LookupShipmentList().end())
 	{
@@ -250,11 +250,27 @@ BOOLEAN EnterBobbyR()
 	}
 	//End Dealtar's Airport Externalization.
 	// an array of mouse regions for the bobbies signs.	Top Left corner, bottom right corner
-	UINT16	usMouseRegionPosArray[] = {BOBBIES_USED_SIGN_X, BOBBIES_USED_SIGN_Y, BOBBIES_USED_SIGN_X+BOBBIES_USED_SIGN_WIDTH, BOBBIES_USED_SIGN_Y+BOBBIES_USED_SIGN_HEIGHT,
-																	BOBBIES_MISC_SIGN_X, BOBBIES_MISC_SIGN_Y, BOBBIES_MISC_SIGN_X+BOBBIES_MISC_SIGN_WIDTH, BOBBIES_MISC_SIGN_Y+BOBBIES_MISC_SIGN_HEIGHT,
-																	BOBBIES_GUNS_SIGN_X, BOBBIES_GUNS_SIGN_Y, BOBBIES_GUNS_SIGN_X+BOBBIES_GUNS_SIGN_WIDTH, BOBBIES_GUNS_SIGN_Y+BOBBIES_GUNS_SIGN_HEIGHT,
-																	BOBBIES_AMMO_SIGN_X, BOBBIES_AMMO_SIGN_Y, BOBBIES_AMMO_SIGN_X+BOBBIES_AMMO_SIGN_WIDTH, BOBBIES_AMMO_SIGN_Y+BOBBIES_AMMO_SIGN_HEIGHT,
-																	BOBBIES_ARMOUR_SIGN_X, BOBBIES_ARMOUR_SIGN_Y, BOBBIES_ARMOUR_SIGN_X+BOBBIES_ARMOUR_SIGN_WIDTH, BOBBIES_ARMOUR_SIGN_Y+BOBBIES_ARMOUR_SIGN_HEIGHT};
+	UINT16	usMouseRegionPosArray[20];
+	usMouseRegionPosArray[0]  = BOBBIES_USED_SIGN_X;
+	usMouseRegionPosArray[1]  = BOBBIES_USED_SIGN_Y;
+	usMouseRegionPosArray[2]  = BOBBIES_USED_SIGN_X + BOBBIES_USED_SIGN_WIDTH;
+	usMouseRegionPosArray[3]  = BOBBIES_USED_SIGN_Y + BOBBIES_USED_SIGN_HEIGHT;
+	usMouseRegionPosArray[4]  = BOBBIES_MISC_SIGN_X;
+	usMouseRegionPosArray[5]  = BOBBIES_MISC_SIGN_Y;
+	usMouseRegionPosArray[6]  = BOBBIES_MISC_SIGN_X + BOBBIES_MISC_SIGN_WIDTH;
+	usMouseRegionPosArray[7]  = BOBBIES_MISC_SIGN_Y + BOBBIES_MISC_SIGN_HEIGHT;
+	usMouseRegionPosArray[8]  = BOBBIES_GUNS_SIGN_X;
+	usMouseRegionPosArray[9]  = BOBBIES_GUNS_SIGN_Y;
+	usMouseRegionPosArray[10] = BOBBIES_GUNS_SIGN_X + BOBBIES_GUNS_SIGN_WIDTH;
+	usMouseRegionPosArray[11] = BOBBIES_GUNS_SIGN_Y + BOBBIES_GUNS_SIGN_HEIGHT;
+	usMouseRegionPosArray[12] = BOBBIES_AMMO_SIGN_X;
+	usMouseRegionPosArray[13] = BOBBIES_AMMO_SIGN_Y;
+	usMouseRegionPosArray[14] = BOBBIES_AMMO_SIGN_X + BOBBIES_AMMO_SIGN_WIDTH;
+	usMouseRegionPosArray[15] = BOBBIES_AMMO_SIGN_Y + BOBBIES_AMMO_SIGN_HEIGHT;
+	usMouseRegionPosArray[16] = BOBBIES_ARMOUR_SIGN_X;
+	usMouseRegionPosArray[17] = BOBBIES_ARMOUR_SIGN_Y;
+	usMouseRegionPosArray[18] = BOBBIES_ARMOUR_SIGN_X + BOBBIES_ARMOUR_SIGN_WIDTH;
+	usMouseRegionPosArray[19] = BOBBIES_ARMOUR_SIGN_Y + BOBBIES_ARMOUR_SIGN_HEIGHT;
 
 	InitBobbyRWoodBackground();
 
