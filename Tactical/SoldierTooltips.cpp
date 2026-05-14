@@ -1,5 +1,4 @@
 #include "types.h"
-#include "windows.h"
 #include "input.h"
 #include "english.h"
 #include "Isometric Utils.h"

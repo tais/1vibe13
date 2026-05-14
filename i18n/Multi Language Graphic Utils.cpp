@@ -1,6 +1,5 @@
 #include "builddefines.h"
 #include "stdio.h"
-#include "windows.h"
 #include "types.h"
 #include "Multi Language Graphic Utils.h"
 

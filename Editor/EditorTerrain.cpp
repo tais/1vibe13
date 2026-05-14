@@ -2,7 +2,6 @@
 
 #ifdef JA2EDITOR
 
-	#include <windows.h>
 	#include "tiledef.h"
 	#include "edit_sys.h"
 	#include "vsurface.h"
