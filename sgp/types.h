@@ -20,26 +20,21 @@
 
 
 
+#include <cstdint>			// fixed-width integer types
 #include <wchar.h>			// for wide-character strings
 
 // *** SIR-TECH TYPE DEFINITIONS ***
 
-// These two types are defined by VC6 and were causing redefinition
-// problems, but JA2 is compiled with VC5
-
-// HEY WIZARDRY DUDES, JA2 ISN'T THE ONLY PROGRAM WE COMPILE! :-)
-
-typedef unsigned int		UINT32;
-typedef signed __int64		INT64;		// WANNE - BMP: Used for Big Maps
-typedef signed int			INT32;
-typedef unsigned __int64	UINT64;
-//typedef unsigned long long	UINT128;  //Madd:  Doing away with this redundant type
+typedef uint32_t	UINT32;
+typedef int64_t		INT64;		// WANNE - BMP: Used for Big Maps
+typedef int32_t		INT32;
+typedef uint64_t	UINT64;
 
 // integers
-typedef unsigned char	UINT8;
-typedef signed char		INT8;
-typedef unsigned short	UINT16;
-typedef signed short	INT16;
+typedef uint8_t		UINT8;
+typedef int8_t		INT8;
+typedef uint16_t	UINT16;
+typedef int16_t		INT16;
 // floats
 typedef float			FLOAT;
 typedef double			DOUBLE;
