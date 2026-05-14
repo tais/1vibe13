@@ -256,8 +256,13 @@ void GetPlayerKeyBoardInputForIMPHomePage( void )
 	InputAtom					InputEvent;
 	POINT	MousePos;
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	while (DequeueSpecificEvent(&InputEvent, KEY_DOWN|KEY_UP|KEY_REPEAT))
 	{

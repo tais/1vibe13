@@ -788,23 +788,23 @@ void GetDirectiveEffect(const RebelCommandDirectives directive, STR16 text)
 	case RCD_HVT_STRIKES:
 	case RCD_SPOTTERS:
 	case RCD_RAID_MINES:
-		swprintf(text, szRebelCommandDirectivesText[directive * 4 + 1], rebelCommandSaveInfo.directives[directive].GetValue1());
+		sgp_swprintf(text, 500,szRebelCommandDirectivesText[directive * 4 + 1], rebelCommandSaveInfo.directives[directive].GetValue1());
 		break;
 
 	case RCD_TRAIN_MILITIA:
-		swprintf(text, szRebelCommandDirectivesText[directive * 4 + 1], rebelCommandSaveInfo.directives[directive].GetValue1(), (100.f + rebelCommandSaveInfo.directives[directive].GetValue2()) / 100.f);
+		sgp_swprintf(text, 500,szRebelCommandDirectivesText[directive * 4 + 1], rebelCommandSaveInfo.directives[directive].GetValue1(), (100.f + rebelCommandSaveInfo.directives[directive].GetValue2()) / 100.f);
 		break;
 
 	case RCD_CREATE_TURNCOATS:
-		swprintf(text, szRebelCommandDirectivesText[directive * 4 + 1], rebelCommandSaveInfo.directives[directive].GetValue1(), gRebelCommandSettings.fCreateTurncoatsIntelCost);
+		sgp_swprintf(text, 500,szRebelCommandDirectivesText[directive * 4 + 1], rebelCommandSaveInfo.directives[directive].GetValue1(), gRebelCommandSettings.fCreateTurncoatsIntelCost);
 		break;
 
 	case RCD_DRAFT:
-		swprintf(text, szRebelCommandDirectivesText[directive * 4 + 1], (rebelCommandSaveInfo.directives[directive].GetValue1() * CurrentPlayerProgressPercentage()));
+		sgp_swprintf(text, 500,szRebelCommandDirectivesText[directive * 4 + 1], (rebelCommandSaveInfo.directives[directive].GetValue1() * CurrentPlayerProgressPercentage()));
 		break;
 
 	default:
-		swprintf(text, L"Unrecognised directive id: %d. Do you need to add it to GetDirectiveEffect?", directive);
+		sgp_swprintf(text, 500,L"Unrecognised directive id: %d. Do you need to add it to GetDirectiveEffect?", directive);
 		break;
 	}
 }
@@ -835,7 +835,7 @@ void ImproveDirective(const RebelCommandDirectives directive)
 	}
 
 	CHAR16 text[200];
-	swprintf(text, szRebelCommandText[RCT_IMPROVE_DIRECTIVE_PROMPT], cost);
+	sgp_swprintf(text, 500,szRebelCommandText[RCT_IMPROVE_DIRECTIVE_PROMPT], cost);
 	DoLapTopMessageBox(MSG_BOX_LAPTOP_DEFAULT, text, LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, [](UINT8 exitValue) {
 		if (exitValue == MSG_BOX_RETURN_YES)
 		{
@@ -931,7 +931,7 @@ void SetupAdminActionBox(const UINT8 actionIndex, const UINT16 descriptionText, 
 		else // show button
 		{
 			const UINT8 level = rebelCommandSaveInfo.regions[iCurrentRegionId].GetLevel(actionIndex);
-			swprintf(text, szRebelCommandText[level == 0 ? RCT_ADMIN_ACTION_ESTABLISH : RCT_ADMIN_ACTION_IMPROVE], szRebelCommandAdminActionsText[buttonText]);
+			sgp_swprintf(text, 500,szRebelCommandText[level == 0 ? RCT_ADMIN_ACTION_ESTABLISH : RCT_ADMIN_ACTION_IMPROVE], szRebelCommandAdminActionsText[buttonText]);
 			const INT32 btnId = CreateTextButton(text, FONT10ARIAL, FONT_MCOLOR_LTYELLOW, FONT_BLACK, BUTTON_USE_DEFAULT, x, y, 140, 18, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, [](GUI_BUTTON* btn, INT32 reason)
 				{
 					ButtonHelper(btn, reason, [btn]() { PurchaseAdminAction(MSYS_GetBtnUserData(btn, 0), MSYS_GetBtnUserData(btn, 1)); });
@@ -944,7 +944,7 @@ void SetupAdminActionBox(const UINT8 actionIndex, const UINT16 descriptionText, 
 		}
 
 		y += 22;
-		swprintf(text, szRebelCommandText[RCT_ADMIN_ACTION_TIER], rebelCommandSaveInfo.regions[iCurrentRegionId].GetLevel(actionIndex));
+		sgp_swprintf(text, 500,szRebelCommandText[RCT_ADMIN_ACTION_TIER], rebelCommandSaveInfo.regions[iCurrentRegionId].GetLevel(actionIndex));
 		DrawTextToScreen(text, x, y, 0, FONT10ARIAL, FONT_MCOLOR_BLACK, FONT_MCOLOR_BLACK, FALSE, 0);
 
 		// show on/off switch for toggleable actions
@@ -1087,7 +1087,7 @@ void SetupAdminActionBox(const UINT8 actionIndex, const UINT16 descriptionText, 
 					}
 
 					CHAR16 text[200];
-					swprintf(text, szRebelCommandText[RCT_CONFIRM_CHANGE_ADMIN_ACTION_PROMPT], ADMIN_ACTION_CHANGE_COST);
+					sgp_swprintf(text, 500,szRebelCommandText[RCT_CONFIRM_CHANGE_ADMIN_ACTION_PROMPT], ADMIN_ACTION_CHANGE_COST);
 					DoLapTopMessageBox(MSG_BOX_LAPTOP_DEFAULT, text, LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, [](UINT8 exitValue) {
 						if (exitValue == MSG_BOX_RETURN_YES)
 						{
@@ -1119,24 +1119,24 @@ void SetupAdminActionBox(const UINT8 actionIndex, const UINT16 descriptionText, 
 			{
 			case RCAA_SAFEHOUSES:
 				// 1 tile range
-				swprintf(text, szRebelCommandHelpText[RCHT_AA_TOWN_PLUS_ONE]);
+				sgp_swprintf(text, 500,szRebelCommandHelpText[RCHT_AA_TOWN_PLUS_ONE]);
 				break;
 
 			case RCAA_SUPPLY_DISRUPTION:
 			case RCAA_PATHFINDERS:
 			case RCAA_HARRIERS:
 				// 1-2 tile range
-				swprintf(text, szRebelCommandHelpText[RCHT_AA_TOWN_PLUS_TWO]);
+				sgp_swprintf(text, 500,szRebelCommandHelpText[RCHT_AA_TOWN_PLUS_TWO]);
 				break;
 
 			case RCAA_SCOUTS:
 				// 2-3 tile range
-				swprintf(text, szRebelCommandHelpText[RCHT_AA_TOWN_PLUS_THREE]);
+				sgp_swprintf(text, 500,szRebelCommandHelpText[RCHT_AA_TOWN_PLUS_THREE]);
 				break;
 
 			default:
 				// apply in cities only
-				swprintf(text, szRebelCommandHelpText[RCHT_AA_TOWN_ONLY]);
+				sgp_swprintf(text, 500,szRebelCommandHelpText[RCHT_AA_TOWN_ONLY]);
 				break;
 			}
 
@@ -1470,7 +1470,7 @@ void RenderNationalOverview()
 
 				// base income
 				const INT32 base = static_cast<INT32>(CurrentPlayerProgressPercentage() * gRebelCommandSettings.fIncomeModifier);
-				swprintf(text, szRebelCommandHelpText[RCHT_SUPPLIES_INCOME], base);
+				sgp_swprintf(text, 500,szRebelCommandHelpText[RCHT_SUPPLIES_INCOME], base);
 
 				// admin action upkeep
 				const INT32 supplyUpkeep = static_cast<INT32>(gRebelCommandSettings.fIncomeModifier + 0.5f);
@@ -1491,7 +1491,7 @@ void RenderNationalOverview()
 					if (upkeepCount > 0)
 					{
 						const INT32 totalUpkeep = upkeepCount * supplyUpkeep;
-						swprintf(text, L"%s\n-%d (%s)", text, totalUpkeep, pTownNames[a]);
+						sgp_swprintf(text, 500,L"%s\n-%d (%s)", text, totalUpkeep, pTownNames[a]);
 					}
 				}
 
@@ -2426,7 +2426,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 			CHAR16 text[100];
 			floatModifier = max(floatModifier, gRebelCommandSettings.fDisruptAsdIncomeReductionModifier);
 			floatModifier *= 100.f;
-			swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_ASD_INCOME_REDUCTION], floatModifier, L"%s", locSkillText[floatModifierSkill]);
+			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_ASD_INCOME_REDUCTION], floatModifier, L"%s", locSkillText[floatModifierSkill]);
 			agentBonusText.push_back(text);
 
 			if (gGameOptions.fNewTraitSystem)
@@ -2436,14 +2436,14 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 				case MissionHelpers::DISRUPT_ASD_STEAL_FUEL:
 				{
 					const UINT8 townId = GetTownIdForSector(BOBBYR_SHIPPING_DEST_SECTOR_X, BOBBYR_SHIPPING_DEST_SECTOR_Y);
-					swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_STEAL_FUEL], pTownNames[townId], locSkillText[TECHNICIAN_NT]);
+					sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_STEAL_FUEL], pTownNames[townId], locSkillText[TECHNICIAN_NT]);
 					agentBonusText.push_back(text);
 				}
 				break;
 
 				case MissionHelpers::DISRUPT_ASD_DESTROY_RESERVES:
 				{
-					swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_DESTROY_RESERVES], locSkillText[DEMOLITIONS_NT]);
+					sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_DESTROY_RESERVES], locSkillText[DEMOLITIONS_NT]);
 					agentBonusText.push_back(text);
 				}
 				break;
@@ -2485,7 +2485,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 			floatModifier = max(floatModifier, gRebelCommandSettings.fReduceUnlaertedEnemyVisionModifier);
 			floatModifier *= 100.f;
 			CHAR16 text[100];
-			swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_UNALERTED_VISION_PENALTY], floatModifier, L"%s", locSkillText[floatModifierSkill]);
+			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_UNALERTED_VISION_PENALTY], floatModifier, L"%s", locSkillText[floatModifierSkill]);
 			agentBonusText.push_back(text);
 		}
 		break;
@@ -2494,7 +2494,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 		{
 			intModifier = max(intModifier, gRebelCommandSettings.iSabotageInfantryEquipmentModifier);
 			CHAR16 text[100];
-			swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_INFANTRY_GEAR_QUALITY], intModifier, locSkillText[intModifierSkill]);
+			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_INFANTRY_GEAR_QUALITY], intModifier, locSkillText[intModifierSkill]);
 			agentBonusText.push_back(text);
 		}
 		break;
@@ -2503,7 +2503,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 		{
 			intModifier = max(intModifier, gRebelCommandSettings.iSabotageMechanicalUnitsStatLoss);
 			CHAR16 text[100];
-			swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_MECHANICAL_STAT_LOSS], intModifier, locSkillText[intModifierSkill]);
+			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_MECHANICAL_STAT_LOSS], intModifier, locSkillText[intModifierSkill]);
 			agentBonusText.push_back(text);
 		}
 		break;
@@ -2525,24 +2525,24 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 			{
 				floatModifier *= 100;
 				floatModifier -= 100;
-				swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_PAYOUT], floatModifier, L"%s", locSkillText[floatModifierSkill]);
+				sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_PAYOUT], floatModifier, L"%s", locSkillText[floatModifierSkill]);
 				agentBonusText.push_back(text);
 			}
 
 			if (intModifier > 0)
 			{
-				swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_PAYOUT_LIMIT_INCREASE], intModifier, locSkillText[intModifierSkill]);
+				sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_PAYOUT_LIMIT_INCREASE], intModifier, locSkillText[intModifierSkill]);
 				agentBonusText.push_back(text);
 			}
 
 			if (extraBits == MissionHelpers::SOLDIER_BOUNTIES_KINGPIN_OFFICER_PAYOUTS)
 			{
-				swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_OFFICER_PAYOUT], locSkillText[floatModifierSkill]);
+				sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_OFFICER_PAYOUT], locSkillText[floatModifierSkill]);
 				agentBonusText.push_back(text);
 			}
 			else if (extraBits == MissionHelpers::SOLDIER_BOUNTIES_KINGPIN_VEHICLE_PAYOUTS)
 			{
-				swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_VEHICLE_PAYOUT], locSkillText[floatModifierSkill]);
+				sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_VEHICLE_PAYOUT], locSkillText[floatModifierSkill]);
 				agentBonusText.push_back(text);
 			}
 		}
@@ -2552,7 +2552,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 		{
 			intModifier = max(intModifier, 1);
 			CHAR16 text[100];
-			swprintf(text, szRebelCommandText[RCT_MISSION_BONUS_MAX_TRAINERS], intModifier, locSkillText[intModifierSkill]);
+			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_BONUS_MAX_TRAINERS], intModifier, locSkillText[intModifierSkill]);
 			agentBonusText.push_back(text);
 		}
 		break;
@@ -2952,21 +2952,21 @@ void PrepareMission(INT8 index)
 		missionDuration += durationBonus;
 	}
 
-	swprintf(text, szRebelCommandText[RCT_MISSION_POPUP_PART1], szRebelCommandAgentMissionsText[missionTitle], cost);
+	sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_POPUP_PART1], szRebelCommandAgentMissionsText[missionTitle], cost);
 
 	if (agentIndex[index] == mercs.size())
 	{
 		// sent a generic rebel
 		MissionHelpers::missionParam = SerialiseMissionFirstEvent(TRUE, 0 /* no profile needed */, static_cast<RebelCommandAgentMissions>(rebelCommandSaveInfo.availableMissions[index]), missionDuration, 0 /* no extra data */);
-		swprintf(text, szRebelCommandText[RCT_MISSION_POPUP_PART2_GENERIC], text);
+		sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_POPUP_PART2_GENERIC], text);
 	}
 	else
 	{
 		MissionHelpers::missionParam = SerialiseMissionFirstEvent(FALSE, mercs[agentIndex[index]]->ubProfile, static_cast<RebelCommandAgentMissions>(rebelCommandSaveInfo.availableMissions[index]), missionDuration, static_cast<UINT8>(extraBits));
 		if (merc->bSex == MALE)
-			swprintf(text, szRebelCommandText[RCT_MISSION_POPUP_PART2_MALE], text, merc->zNickname, gRebelCommandSettings.iMissionPrepTime);
+			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_POPUP_PART2_MALE], text, merc->zNickname, gRebelCommandSettings.iMissionPrepTime);
 		else
-			swprintf(text, szRebelCommandText[RCT_MISSION_POPUP_PART2_FEMALE], text, merc->zNickname, gRebelCommandSettings.iMissionPrepTime);
+			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_POPUP_PART2_FEMALE], text, merc->zNickname, gRebelCommandSettings.iMissionPrepTime);
 	}
 
 	DoLapTopMessageBox(MSG_BOX_LAPTOP_DEFAULT, text, LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, [](UINT8 exitValue) {
@@ -3580,7 +3580,7 @@ void RaidMines(INT32 &playerIncome, INT32 &enemyIncome)
 	if (stolenIncome > 0)
 	{
 		CHAR16 text[200];
-		swprintf(text, szRebelCommandText[RCT_MINE_RAID_SUCCESSFUL], stolenIncome);
+		sgp_swprintf(text, 500,szRebelCommandText[RCT_MINE_RAID_SUCCESSFUL], stolenIncome);
 		ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s", text);
 	}
 }
@@ -3878,7 +3878,7 @@ void DailyUpdate()
 
 	if (intelGain > 0)
 	{
-		swprintf(text, szRebelCommandText[RCT_DEAD_DROP_INCOME], intelGain);
+		sgp_swprintf(text, 500,szRebelCommandText[RCT_DEAD_DROP_INCOME], intelGain);
 		ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s", text);
 
 		AddIntel(intelGain, FALSE);
@@ -3886,7 +3886,7 @@ void DailyUpdate()
 
 	if (supplyGain > 0)
 	{
-		swprintf(text, szRebelCommandText[RCT_SMUGGLER_INCOME], supplyGain);
+		sgp_swprintf(text, 500,szRebelCommandText[RCT_SMUGGLER_INCOME], supplyGain);
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s", text );
 
 		rebelCommandSaveInfo.iSupplies += supplyGain;
@@ -4420,7 +4420,7 @@ void UpgradeMilitiaStats()
 	}
 
 	CHAR16 text[200];
-	swprintf(text, szRebelCommandText[RCT_MILITIA_UPGRADE_STATS_PROMPT], cost);
+	sgp_swprintf(text, 500,szRebelCommandText[RCT_MILITIA_UPGRADE_STATS_PROMPT], cost);
 	DoLapTopMessageBox(MSG_BOX_LAPTOP_DEFAULT, text, LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, [](UINT8 exitValue) {
 		if (exitValue == MSG_BOX_RETURN_YES)
 		{

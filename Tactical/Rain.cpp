@@ -242,10 +242,10 @@ void CreateRainDrops()
 
 		if( pCurr->fAlive )continue;
 
-		uiIndRand	= (((UINT32)pCurr) / sizeof(TRainDrop) ) % 20;
+		uiIndRand	= (((UINT32)(uintptr_t)pCurr) / sizeof(TRainDrop) ) % 20;
 
-		fpDropLength = fpCurrDropLength + ( (((UINT32)pCurr) / sizeof(TRainDrop) ) % 7 ) * DROP_LENGTH_RAND / 6;
-		fpDropSpeed = fpCurrDropSpeed + ( ( ((UINT32)pCurr) / sizeof(TRainDrop) + 43 ) % 13 ) * DROP_SPEED_RAND / 12;
+		fpDropLength = fpCurrDropLength + ( (((UINT32)(uintptr_t)pCurr) / sizeof(TRainDrop) ) % 7 ) * DROP_LENGTH_RAND / 6;
+		fpDropSpeed = fpCurrDropSpeed + ( ( ((UINT32)(uintptr_t)pCurr) / sizeof(TRainDrop) + 43 ) % 13 ) * DROP_SPEED_RAND / 12;
 
 		pCurr->fAlive = TRUE;
 

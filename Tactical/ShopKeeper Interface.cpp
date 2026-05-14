@@ -1646,8 +1646,13 @@ void		GetShopKeeperInterfaceUserInput()
 	InputAtom Event;
 	POINT MousePos;
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	while (DequeueSpecificEvent(&Event, KEY_DOWN|KEY_UP|KEY_REPEAT))
 	{
@@ -7133,7 +7138,7 @@ void BuildRepairTimeString( CHAR16 sString[], UINT32 uiTimeInMinutesToFixItem )
 	if ( uiTimeInMinutesToFixItem <= 90 )
 	{
 		// show minutes
-		swprintf( sString, SKI_Text[ SKI_TEXT_MINUTES ], uiTimeInMinutesToFixItem );
+		sgp_swprintf( sString, 64, SKI_Text[ SKI_TEXT_MINUTES ], uiTimeInMinutesToFixItem );
 	}
 	else
 	{
@@ -7144,7 +7149,7 @@ void BuildRepairTimeString( CHAR16 sString[], UINT32 uiTimeInMinutesToFixItem )
 
 		if ( usNumberOfHoursToFixItem > 1 )
 		{
-			swprintf( sString, SKI_Text[ SKI_TEXT_PLURAL_HOURS ], usNumberOfHoursToFixItem );
+			sgp_swprintf( sString, 64, SKI_Text[ SKI_TEXT_PLURAL_HOURS ], usNumberOfHoursToFixItem );
 		}
 		else
 		{
@@ -7198,11 +7203,11 @@ void BuildDoneWhenTimeString( CHAR16 sString[], UINT8 ubArmsDealer, INVENTORY_IN
 	// only show day if it's gonna take overnight
 	if ( GetWorldDay() != uiDay )
 	{
-		swprintf( sString, L"%s %d %02d:%02d", pDayStrings[ 0 ], uiDay, uiHour, uiMin );
+		sgp_swprintf( sString, 64, L"%s %d %02d:%02d", pDayStrings[ 0 ], uiDay, uiHour, uiMin );
 	}
 	else
 	{
-		swprintf( sString, L"%02d:%02d", uiHour, uiMin );
+		sgp_swprintf( sString, 64, L"%02d:%02d", uiHour, uiMin );
 	}
 }
 
@@ -7220,7 +7225,7 @@ void BuildItemHelpTextString( CHAR16 sString[], INVENTORY_IN_SLOT *pInv, UINT8 u
 				 ( armsDealerInfo[ gbSelectedArmsDealerID ].ubTypeOfArmsDealer == ARMS_DEALER_REPAIRS ) )
 		{
 			BuildRepairTimeString( zRepairTime, CalculateObjectItemRepairTime( gbSelectedArmsDealerID, &( pInv->ItemObject ) ) );
-			swprintf( sString, L"%s\n(%s: %s)", zHelpText, gzLateLocalizedString[ 44 ], zRepairTime );
+			sgp_swprintf( sString, 1024, L"%s\n(%s: %s)", zHelpText, gzLateLocalizedString[ 44 ], zRepairTime );
 		}
 		else
 		{
