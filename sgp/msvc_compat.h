@@ -24,10 +24,12 @@
 // Win32 unsized typedefs that JA2 source uses without including
 // windows.h (relying on transitive includes that we're trimming).
 typedef int            BOOL;
+typedef int            INT;
 typedef unsigned int   UINT;
 typedef unsigned long  ULONG;
 typedef long           LONG;
 typedef unsigned short WORD;
+typedef unsigned short USHORT;
 typedef unsigned int   DWORD;
 typedef unsigned char  BYTE;
 typedef char           CHAR;
@@ -73,6 +75,10 @@ inline DWORD GetTickCount() {
 inline void Sleep(DWORD ms) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
+
+// Win32 ZeroMemory is a thin memset wrapper.
+#include <cstring>
+inline void ZeroMemory(void* dst, size_t len) { std::memset(dst, 0, len); }
 #endif
 
 #ifndef _countof

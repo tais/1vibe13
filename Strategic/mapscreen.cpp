@@ -2339,7 +2339,7 @@ void DrawPay(INT16 sCharNumber)
 	SetFontBackground( FONT_BLACK );
 
 	// parse salary
-	swprintf( sString, L"%d", uiSalary );
+	sgp_swprintf( sString, 32,L"%d", uiSalary );
 
 	// right justify salary
 	const auto x = UI_CHARPANEL.Text.Pay.x;
@@ -2434,7 +2434,7 @@ void DrawCharStats( INT16 sCharNum )
 	SetFontBackground(FONT_BLACK);
 
 	// strength
-	swprintf( sString, L"%d", pSoldier->stats.bStrength + pSoldier->bExtraStrength );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bStrength + pSoldier->bExtraStrength );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if ( ( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_STRENGTH] > 0 )) || ( UsingFoodSystem() && pSoldier->usStarveDamageStrength > 0) )
@@ -2472,7 +2472,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.STR.iY,CHAR_FONT );
 
 	// dexterity
-	swprintf( sString, L"%d", pSoldier->stats.bDexterity + pSoldier->bExtraDexterity );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bDexterity + pSoldier->bExtraDexterity );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_DEXTERITY] > 0 ))
@@ -2510,7 +2510,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.DEX.iY,CHAR_FONT );
 
 	// agility
-	swprintf( sString, L"%d", pSoldier->stats.bAgility + pSoldier->bExtraAgility );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bAgility + pSoldier->bExtraAgility );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_AGILITY] > 0 ))
@@ -2548,7 +2548,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.AGL.iY,CHAR_FONT );
 
 	// wisdom
-	swprintf( sString, L"%d", pSoldier->stats.bWisdom + pSoldier->bExtraWisdom );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bWisdom + pSoldier->bExtraWisdom );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_WISDOM] > 0 ))
@@ -2586,7 +2586,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.WIS.iY,CHAR_FONT );
 
 	// leadership
-	swprintf( sString, L"%d", pSoldier->stats.bLeadership );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bLeadership );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_LEADERSHIP] > 0 ))
@@ -2620,7 +2620,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.LDR.iY,CHAR_FONT );
 
 	// experience level
-	swprintf( sString, L"%d", pSoldier->stats.bExpLevel + pSoldier->bExtraExpLevel );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bExpLevel + pSoldier->bExtraExpLevel );
 
 	if( ( GetJA2Clock() < CHANGE_STAT_RECENTLY_DURATION + pSoldier->timeChanges.uiChangeLevelTime)&&( pSoldier->timeChanges.uiChangeLevelTime != 0 ) )
 	{
@@ -2653,7 +2653,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.LVL.iY,CHAR_FONT );
 
 	// marksmanship
-	swprintf( sString, L"%d", pSoldier->stats.bMarksmanship );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bMarksmanship );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MARKSMANSHIP] > 0 ))
@@ -2687,7 +2687,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.MRK.iY,CHAR_FONT );
 
 	// mechanical
-	swprintf( sString, L"%d", pSoldier->stats.bMechanical );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bMechanical );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MECHANICAL] > 0 ))
@@ -2721,7 +2721,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.MEC.iY,CHAR_FONT );
 	
 	// explosives
-	swprintf( sString, L"%d", pSoldier->stats.bExplosive );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bExplosive );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_EXPLOSIVES] > 0 ))
@@ -2755,7 +2755,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.EXP.iY,CHAR_FONT );
 
 	// medical
-	swprintf( sString, L"%d", pSoldier->stats.bMedical );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bMedical );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MEDICAL] > 0 ))
@@ -2811,7 +2811,7 @@ void DrawCharHealth( INT16 sCharNum )
 	if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
 	{
 		// find starting X coordinate by centering all 3 substrings together, then print them separately (different colors)!
-		swprintf( sString, L"%d/%d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax );
+		sgp_swprintf( sString, 32,L"%d/%d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax );
 		FindFontCenterCoordinates(x, y, width, height, sString, CHAR_FONT, &usX, &usY);
 
 
@@ -2845,7 +2845,7 @@ void DrawCharHealth( INT16 sCharNum )
 		}
 
 		// current life
-		swprintf( sString, L"%d", pSoldier->stats.bLife );
+		sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bLife );
 		DrawString( sString, usX, y, CHAR_FONT );
 		usX += StringPixLength( sString, CHAR_FONT );
 
@@ -2877,14 +2877,14 @@ void DrawCharHealth( INT16 sCharNum )
 		}
 
 		// maximum life
-		swprintf( sString, L"%d", pSoldier->stats.bLifeMax );
+		sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bLifeMax );
 		DrawString( sString, usX, y, CHAR_FONT );
 	}
 	else
 	{
 		// POW - health unknown
 		SetFontForeground(CHAR_TEXT_FONT_COLOR);
-		swprintf( sString, pPOWStrings[ 1 ] );
+		sgp_swprintf( sString, 32,pPOWStrings[ 1 ] );
 		FindFontCenterCoordinates(x, y, width, height, sString, CHAR_FONT, &usX, &usY);
 		DrawString(sString, usX, y, CHAR_FONT);
 	}
@@ -2974,7 +2974,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	}
 		else
 		{
-		swprintf(sString, L"%s%s", GetRankTitle(pSoldier->stats.bExpLevel), gMercProfiles[usMercProfileID].zName);
+		sgp_swprintf(sString, 32,L"%s%s", GetRankTitle(pSoldier->stats.bExpLevel), gMercProfiles[usMercProfileID].zName);
 		}
  	}
 
@@ -2993,7 +2993,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	else
 	{
 		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < min(ON_DUTY, gSquadNameVector.size()) )
-			swprintf( sString, L"%s", gSquadNameVector[pSoldier->bAssignment].c_str() );
+			sgp_swprintf( sString, 32,L"%s", gSquadNameVector[pSoldier->bAssignment].c_str() );
 		else
 			wcscpy( sString, pAssignmentStrings[ pSoldier->bAssignment ] );
 	}
@@ -3105,7 +3105,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	// dead?
 	if( pSoldier->stats.bLife <= 0 )
 	{
-		swprintf( sString, L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
+		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 	// what kind of merc
 	else if(pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC || pSoldier->ubProfile == SLAY )
@@ -3138,7 +3138,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 				SetFontForeground(FONT_LTGREEN);
 			}
 
-			swprintf(sString, L"%.1f%s/%d%s", dTimeLeft, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], pSoldier->iTotalContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+			sgp_swprintf(sString, 32,L"%.1f%s/%d%s", dTimeLeft, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], pSoldier->iTotalContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
 		}
 		else
 		{
@@ -3165,18 +3165,18 @@ void DrawCharacterInfo(INT16 sCharNumber)
 				SetFontForeground(FONT_RED);
 			}
 
-		swprintf(sString, L"%d%s/%d%s",iTimeRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->iTotalContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+		sgp_swprintf(sString, 32,L"%d%s/%d%s",iTimeRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->iTotalContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
 		}
 	}
 	else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
 	{
 		INT32 iBeenHiredFor = ( GetWorldTotalMin( ) / NUM_MIN_IN_DAY ) - pSoldier->iStartContractTime;
 
-		swprintf(sString, L"%d%s/%d%s",gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], iBeenHiredFor, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
+		sgp_swprintf(sString, 32,L"%d%s/%d%s",gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], iBeenHiredFor, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
 	}
 	else
 	{
-		swprintf( sString, L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
+		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 
 
@@ -3244,7 +3244,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 /*
 	// life insurance
-	swprintf(sString, L"%d", Menptr[ gCharactersList[ sCharNumber ].usSolID ].usLifeInsuranceAmount );
+	sgp_swprintf(sString, 32,L"%d", Menptr[ gCharactersList[ sCharNumber ].usSolID ].usLifeInsuranceAmount );
 	InsertCommasForDollarFigure( sString );
 	InsertDollarSignInToString( sString );
 	FindFontRightCoordinates(CHAR_LIFE_INSUR_X, CHAR_LIFE_INSUR_Y, CHAR_LIFE_INSUR_WID, CHAR_LIFE_INSUR_HEI, sString, CHAR_FONT, &usX, &usY);
@@ -3266,7 +3266,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	else
 	{
 		// POW - morale unknown
-		swprintf( sString, pPOWStrings[ 1 ] );
+		sgp_swprintf( sString, 32,pPOWStrings[ 1 ] );
 	}
 
 	{
@@ -6627,8 +6627,13 @@ UINT32 HandleMapUI( )
 				{
 					sX = ( GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID	) % MAP_WORLD_X );
 					sY = ( GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID	) / MAP_WORLD_X );
+#ifdef _WIN32
 					GetCursorPos(&MousePos);
 					ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+					MousePos.x = gusMouseXPos;
+					MousePos.y = gusMouseYPos;
+#endif
 					RestoreBackgroundForMapGrid( sX, sY );
 					// fMapPanelDirty = TRUE;
 				}
@@ -8975,8 +8980,13 @@ BOOLEAN GetMouseMapXY( INT16 *psMapWorldX, INT16 *psMapWorldY )
 		return( FALSE );
 	}
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	return( GetMapXY( (INT16)MousePos.x, (INT16)MousePos.y, psMapWorldX, psMapWorldY ) );
 }
@@ -9668,19 +9678,19 @@ void BltCharInvPanel()
 		const auto width = UI_CHARINV.Text.PercentWidth;
 		const auto height = UI_CHARINV.Text.PercentHeight;
 		// display armor value
-		swprintf( sString, L"%3d", ArmourPercent( pSoldier ) );
+		sgp_swprintf( sString, 32,L"%3d", ArmourPercent( pSoldier ) );
 		FindFontRightCoordinates( UI_CHARINV.Text.Armor.iX, UI_CHARINV.Text.Armor.iY, width, height, sString, BLOCKFONT2, &usX, &usY );
 		mprintf( usX, usY, sString ); 
 
 		// Display weight value
-		swprintf( sString, L"%3d", CalculateCarriedWeight( pSoldier ) );
+		sgp_swprintf( sString, 32,L"%3d", CalculateCarriedWeight( pSoldier ) );
 		FindFontRightCoordinates(UI_CHARINV.Text.Weight.iX, UI_CHARINV.Text.Weight.iY, width, height, sString, BLOCKFONT2, &usX, &usY);
 		mprintf( usX, usY, sString ); 
 		
 		ApplyEquipmentBonuses(pSoldier);
 
 		// Display camo value
-		swprintf( sString, L"%3d", max(0, min(max((pSoldier->bCamo + pSoldier->wornCamo), max((pSoldier->urbanCamo+pSoldier->wornUrbanCamo), max((pSoldier->desertCamo+pSoldier->wornDesertCamo), (pSoldier->snowCamo+pSoldier->wornSnowCamo)))),100)) );
+		sgp_swprintf( sString, 32,L"%3d", max(0, min(max((pSoldier->bCamo + pSoldier->wornCamo), max((pSoldier->urbanCamo+pSoldier->wornUrbanCamo), max((pSoldier->desertCamo+pSoldier->wornDesertCamo), (pSoldier->snowCamo+pSoldier->wornSnowCamo)))),100)) );
 		FindFontRightCoordinates(UI_CHARINV.Text.Camo.iX, UI_CHARINV.Text.Camo.iY, width, height, sString, BLOCKFONT2, &usX, &usY);
 		mprintf( usX, usY, sString );
 
@@ -12205,8 +12215,13 @@ BOOLEAN IsCursorWithInRegion(INT16 sLeft, INT16 sRight, INT16 sTop, INT16 sBotto
 	POINT MousePos;
 
 	// get cursor position
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	// is it within region?
 
@@ -15903,9 +15918,9 @@ void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, STR16 sString )
 	uiMin = uiTimeInMin - ((uiDay * NUM_MIN_IN_DAY) + (uiHour * NUM_MIN_IN_HOUR));
 
 	// there ain't enough room to show both the day and ETA: and without ETA it's confused as the current time
-	//	swprintf( sString, L"%s %s %d, %02d:%02d", pEtaString[ 0 ], pDayStrings[ 0 ], uiDay, uiHour, uiMin );
-	//	swprintf( sString, L"%s %d, %02d:%02d", pDayStrings[ 0 ], uiDay, uiHour, uiMin );
-	swprintf( sString, L"%02d:%02d", uiHour, uiMin );
+	//	sgp_swprintf( sString, 32,L"%s %s %d, %02d:%02d", pEtaString[ 0 ], pDayStrings[ 0 ], uiDay, uiHour, uiMin );
+	//	sgp_swprintf( sString, 32,L"%s %d, %02d:%02d", pDayStrings[ 0 ], uiDay, uiHour, uiMin );
+	sgp_swprintf( sString, 64, L"%02d:%02d", uiHour, uiMin );
 }
 
 void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, STR16 sString )
@@ -15913,7 +15928,7 @@ void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, STR16 sString )
 	CHAR16 timestring[64];
 	ConvertMinTimeToDayHourMinString( uiTimeInMin, timestring );
 
-	swprintf( sString, L"%s %s", pEtaString[0], timestring );
+	sgp_swprintf( sString, 128, L"%s %s", pEtaString[0], timestring );
 }
 
 
@@ -16412,7 +16427,7 @@ void HandleMilitiaRedistributionClick( void )
 			else
 			{
 				// can't have militia in this town
-				swprintf( sString, pMapErrorString[ 31 ], pTownNames [ bTownId ] );
+				sgp_swprintf( sString, 32,pMapErrorString[ 31 ], pTownNames [ bTownId ] );
 				DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 			}
 		}
@@ -16626,7 +16641,7 @@ void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 	else
 	{
 		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < min(ON_DUTY, gSquadNameVector.size() ) )
-			swprintf( sString, L" %s", gSquadNameVector[pSoldier->bAssignment].c_str() );
+			sgp_swprintf( sString, 32,L" %s", gSquadNameVector[pSoldier->bAssignment].c_str() );
 		else if(pSoldier->bVehicleID != 0 && pSoldier->bAssignment == ASSIGNMENT_DEAD)
 			wcscpy(sString, L"Wrecked");
 		else
@@ -16656,24 +16671,24 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 		if ( pSoldier->bAssignment == ASSIGNMENT_POW && !( pSoldier->usSoldierFlagMask2 & SOLDIER_MERC_POW_LOCATIONKNOWN ))
 		{
 			// POW - location unknown
-			swprintf( sString, L"%s", pPOWStrings[ 1 ] );
+			sgp_swprintf( sString, 32,L"%s", pPOWStrings[ 1 ] );
 		}
 		else if ( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT )
 		{
 			// mini event - unknown location, use the same string as POWs
-			swprintf( sString, L"%s", pPOWStrings[ 1 ] );
+			sgp_swprintf( sString, 32,L"%s", pPOWStrings[ 1 ] );
 		}
 		else if (pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND)
 		{
 			// on a rebel command mission
-			swprintf( sString, L"%s%s*", pMapVertIndex[pSoldier->sSectorY], pMapHortIndex[pSoldier->sSectorX] );
+			sgp_swprintf( sString, 32,L"%s%s*", pMapVertIndex[pSoldier->sSectorY], pMapHortIndex[pSoldier->sSectorX] );
 		}
 		else if ( SPY_LOCATION( pSoldier->bAssignment ) )
 		{
 			swprintf( pTempString, L"%s%s%s",
 				pMapVertIndex[pSoldier->sSectorY], pMapHortIndex[pSoldier->sSectorX], pMapDepthIndex[max(0, pSoldier->bSectorZ - 10)] );
 
-			swprintf( sString, L"%s*", pTempString );
+			sgp_swprintf( sString, 32,L"%s*", pTempString );
 		}
 		else
 		{
@@ -16683,7 +16698,7 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 			if ( pSoldier->flags.fBetweenSectors )
 			{
 				// put brackets around it when he's between sectors!
-				swprintf( sString, L"(%s)", pTempString );
+				sgp_swprintf( sString, 32,L"(%s)", pTempString );
 			}
 			else
 			{
@@ -16751,7 +16766,7 @@ void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] 
 	}
 
 
-	swprintf( sString, L"%s%s", pMapVertIndex[ iSectorY ], pMapHortIndex[ iSectorX ] );
+	sgp_swprintf( sString, 32,L"%s%s", pMapVertIndex[ iSectorY ], pMapHortIndex[ iSectorX ] );
 }
 
 
@@ -16768,7 +16783,7 @@ void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], U
 	if( ( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC && pSoldier->ubProfile != SLAY ) || pSoldier->stats.bLife == 0 )
 #endif
 	{
-		swprintf( sString, L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
+		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 	else
 	{
@@ -16791,7 +16806,7 @@ void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], U
 
 			*pubFontColor = FONT_LTGREEN;
 
-			swprintf(sString, L"%d%s", iDaysRemaining, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
+			sgp_swprintf(sString, 32,L"%d%s", iDaysRemaining, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
 		}
 		else	// less than 3 days
 		{
@@ -16814,7 +16829,7 @@ void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], U
 			*pubFontColor = FONT_RED;
 		}
 
-		swprintf(sString, L"%d%s", iHoursRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ] );
+		sgp_swprintf(sString, 32,L"%d%s", iHoursRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ] );
 		}
 	}
 }

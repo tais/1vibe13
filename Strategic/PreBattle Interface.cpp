@@ -1876,39 +1876,39 @@ void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, STR16 szCondition, UINT8 *p
 	//Go from the worst condition to the best.
 	if( !pSoldier->stats.bLife )
 	{ //0 life
-		swprintf( szCondition, pConditionStrings[ COND_DEAD ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_DEAD ] );
 	}
 	else if( pSoldier->stats.bLife < OKLIFE && pSoldier->bBleeding )
 	{ //life less than OKLIFE and bleeding
-		swprintf( szCondition, pConditionStrings[ COND_DYING ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_DYING ] );
 	}
 	else if( pSoldier->bBreath < OKBREATH && pSoldier->bCollapsed )
 	{ //breath less than OKBREATH
-		swprintf( szCondition, pConditionStrings[ COND_UNCONCIOUS ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_UNCONCIOUS ] );
 	}
 	else if( pSoldier->bBleeding > MIN_BLEEDING_THRESHOLD)
 	{ //bleeding
-		swprintf( szCondition, pConditionStrings[ COND_BLEEDING ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_BLEEDING ] );
 	}
 	else if( pSoldier->stats.bLife*100 < pSoldier->stats.bLifeMax*50 )
 	{ //less than 50% life
-		swprintf( szCondition, pConditionStrings[ COND_WOUNDED ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_WOUNDED ] );
 	}
 	else if( pSoldier->bBreath < 50 )
 	{ //breath less than half
-		swprintf( szCondition, pConditionStrings[ COND_FATIGUED ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_FATIGUED ] );
 	}
 	else if( pSoldier->stats.bLife*100 < pSoldier->stats.bLifeMax*67 )
 	{ //less than 67% life
-		swprintf( szCondition, pConditionStrings[ COND_FAIR ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_FAIR ] );
 	}
 	else if( pSoldier->stats.bLife*100 < pSoldier->stats.bLifeMax*86 )
 	{ //less than 86% life
-		swprintf( szCondition, pConditionStrings[ COND_GOOD ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_GOOD ] );
 	}
 	else
 	{ //86%+ life
-		swprintf( szCondition, pConditionStrings[ COND_EXCELLENT ] );
+		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_EXCELLENT ] );
 	}
 }
 

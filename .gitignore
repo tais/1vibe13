@@ -9,3 +9,6 @@
 /CMakePresets.json
 /CMakeSettings.json
 /lib/
+
+# Claude Code
+/.claude/

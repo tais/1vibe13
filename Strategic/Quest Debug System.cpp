@@ -1301,8 +1301,13 @@ void		GetUserInput()
 	UINT8	ubPanelMercShouldUse = WhichPanelShouldTalkingMercUse( /*giSelectedMercCurrentQuote*/ ); // doesn't take parameters (jonathanl)
 
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	while( DequeueSpecificEvent(&Event, KEY_DOWN|KEY_UP|KEY_REPEAT) )
 	{

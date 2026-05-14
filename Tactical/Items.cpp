@@ -14570,7 +14570,7 @@ BOOLEAN UseTotalMedicalKitPoints( SOLDIERTYPE * pSoldier, UINT16 usPointsToConsu
 		return( TRUE );
 }
 
-static UINT16 OldWayOfCalculatingScopeBonus(SOLDIERTYPE *pSoldier)
+UINT16 OldWayOfCalculatingScopeBonus(SOLDIERTYPE *pSoldier)
 {
 	// Yes, this may look stupid, maybe it IS stupid, but this is purely an option
 	// to use code that was checked in before.

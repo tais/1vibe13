@@ -1441,7 +1441,7 @@ void ProcessTransactionString(STR16 pString, FinanceUnitPtr pFinance)
 
 		case DEPOSIT_FROM_GOLD_MINE:
 		case DEPOSIT_FROM_SILVER_MINE:
-			swprintf( pString, pTransactionText[ 16 ] );
+			sgp_swprintf( pString, 512, pTransactionText[ 16 ] );
 			break;
 
 		case PURCHASED_FLOWERS:
@@ -1461,7 +1461,7 @@ void ProcessTransactionString(STR16 pString, FinanceUnitPtr pFinance)
 			break;
 
 		case TRANSFER_FUNDS_TO_MERC:
-			swprintf(pString,pTransactionText[ TRANSFER_FUNDS_TO_MERC ],	gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512, pTransactionText[ TRANSFER_FUNDS_TO_MERC ],	gMercProfiles[pFinance->ubSecondCode].zNickname);
 			break;
 		case TRANSFER_FUNDS_FROM_MERC:
 			sgp_swprintf(pString, 512,pTransactionText[ TRANSFER_FUNDS_FROM_MERC ], gMercProfiles[pFinance->ubSecondCode].zNickname);
@@ -1501,7 +1501,7 @@ void ProcessTransactionString(STR16 pString, FinanceUnitPtr pFinance)
 		case PMC_CONTRACT:
 		case SAM_REPAIR:
 		case WORKERS_TRAINED:
-			swprintf( pString, L"%s", pTransactionText[pFinance->ubCode] );
+			sgp_swprintf( pString, 512, L"%s", pTransactionText[pFinance->ubCode] );
 			break;
 
 		case PROMOTE_MILITIA:

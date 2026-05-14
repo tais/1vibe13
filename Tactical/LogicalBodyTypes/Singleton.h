@@ -3,6 +3,7 @@
 #define _LBT_SINGLETON__H_
 
 #include <cassert>
+#include <cstdlib>
 
 /*
 Not thread safe. Copied from the codeproject (Author: Lai Shiaw San Kent)

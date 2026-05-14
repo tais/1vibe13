@@ -3608,7 +3608,7 @@ enum {
 
 // this struct is used to store the location of the best item of a category, we use it to later easily retrieve it from the sector inventory
 struct ItemSearchStruct {
-	ItemSearchStruct::ItemSearchStruct() : found(FALSE), done(FALSE), pos(0), slot(0), soldierslot(0), val(0) {}
+	ItemSearchStruct() : found(FALSE), done(FALSE), pos(0), slot(0), soldierslot(0), val(0) {}
 	BOOLEAN found;			// has any item been found for this?
 	BOOLEAN done;			// are we done evaluating this item?
 	UINT32 pos;				// position in pWorldItem of this object
@@ -3725,7 +3725,7 @@ typedef std::map<UINT8, UINT32>	AmmoType_BulletCountMap;					// used to count ho
 typedef std::map<UINT8, AmmoType_BulletCountMap> Calibre_BulletCountMap;	// this map stores a map containing all the different ammotypes and how many bulltes we have for them
 
 struct LauncherHelpStruct {
-	LauncherHelpStruct::LauncherHelpStruct() : fNeedsAmmo(TRUE), ammocount(0) {}
+	LauncherHelpStruct() : fNeedsAmmo(TRUE), ammocount(0) {}
 	BOOLEAN fNeedsAmmo;		// the launcher isn't singleshot (LAW), it needs ammo
 	UINT16	ammocount;		// so much ammo found for this
 };
