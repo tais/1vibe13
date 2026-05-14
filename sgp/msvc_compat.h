@@ -93,4 +93,21 @@ namespace sgp_compat {
 
 #endif // !_WIN32
 
+// Portable swprintf wrapper for sites that hold a buffer as a pointer
+// (and thus can't ride the macro that infers the array extent). The
+// caller must pass the buffer's element count explicitly. Available on
+// every platform; on Windows it routes through vswprintf which has
+// taken the standard 3-arg signature for many MSVC releases.
+#ifdef __cplusplus
+#include <cstdarg>
+#include <wchar.h>
+inline int sgp_swprintf(wchar_t* buf, size_t count, const wchar_t* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    int r = vswprintf(buf, count, fmt, args);
+    va_end(args);
+    return r;
+}
+#endif
+
 #endif // _SGP_MSVC_COMPAT_H

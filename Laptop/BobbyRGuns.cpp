@@ -4229,7 +4229,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 			// If the feature is deactivated, the attachStr will simply be empty at this point 
 			// (remember? we emptied it earlier!).
 			INT8 accuracy = (UsingNewCTHSystem()==true?Weapon[ usItemNumber ].nAccuracy:Weapon[ usItemNumber ].bAccuracy);
-			swprintf( pzStr, L"%s (%s)\n%s %d\n%s %d\n%s %d\n%s (%d) %s\n%s %1.1f %s%s",
+			sgp_swprintf( pzStr, 5000, L"%s (%s)\n%s %d\n%s %d\n%s %d\n%s (%d) %s\n%s %1.1f %s%s",
 				ItemNames[ usItemNumber ],
 				AmmoCaliber[ Weapon[ usItemNumber ].ubCalibre ],
 				gWeaponStatsDesc[ 9 ],					//Accuracy String
@@ -4287,7 +4287,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 			else
 				wcscat( apStr, L" / -" );
 			
-			swprintf( pzStr, L"%s\n%s %d\n%s %d\n%s %d\n%s (%d) %s\n%s %1.1f %s",
+			sgp_swprintf( pzStr, 5000, L"%s\n%s %d\n%s %d\n%s %d\n%s (%d) %s\n%s %1.1f %s",
 				ItemNames[ usItemNumber ],
 				gWeaponStatsDesc[ 9 ],					//Accuracy String
 				accuracy,								//Accuracy
@@ -4315,7 +4315,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 			OBJECTTYPE pObject;
 
 			CreateItem(usItemNumber, 100, &pObject);
-			swprintf( pzStr, L"%s\n%s %d\n%s %d\n%s %1.1f %s",
+			sgp_swprintf( pzStr, 5000, L"%s\n%s %d\n%s %d\n%s %1.1f %s",
 				ItemNames[ usItemNumber ],
 				gWeaponStatsDesc[ 11 ],					//Damage String
 				GetDamage(&pObject),					//Melee damage
@@ -4330,7 +4330,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 
 	case IC_AMMO:
 		{
-			swprintf( pzStr, L"%s\n%s %1.1f %s",
+			sgp_swprintf( pzStr, 5000, L"%s\n%s %1.1f %s",
 				ItemNames[ usItemNumber ],	//Item long name
 				gWeaponStatsDesc[ 12 ],			//Weight String
 				fWeight,						//Weight
@@ -4338,7 +4338,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 				);
 
 			//Lal: do not delete, commented out for next version
-			//swprintf( pzStr, L"%s %s %s %d [%d rnds]\n%s %1.1f %s", 				
+			//sgp_swprintf( pzStr, 5000, L"%s %s %s %d [%d rnds]\n%s %1.1f %s", 				
 			//	AmmoCaliber[ Magazine[ Item[usItem].ubClassIndex ].ubCalibre ],			//Ammo calibre
 			//	AmmoTypes[Magazine[ Item[usItem].ubClassIndex ].ubAmmoType].ammoName,	//Ammo type
 			//	MagNames[Magazine[ Item[usItem].ubClassIndex ].ubMagType],				//Magazine type
@@ -4372,7 +4372,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 			UINT16 explStunDamage = (UINT16) GetModifiedExplosiveDamage( Explosive[Item[ usItemNumber ].ubClassIndex].ubStunDamage, 1 );
 
 
-			swprintf( pzStr, L"%s\n%s %d\n%s %d\n%s %1.1f %s",
+			sgp_swprintf( pzStr, 5000, L"%s\n%s %d\n%s %d\n%s %1.1f %s",
 				ItemNames[ usItemNumber ],
 				gWeaponStatsDesc[ 11 ],		//Damage String
 				explDamage,					//Expl damage
@@ -4410,7 +4410,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 				break;
 			}
 
-			swprintf( pzStr, L"%s\n%s %d%% (%d)\n%s %d%%\n%s %1.1f %s",
+			sgp_swprintf( pzStr, 5000, L"%s\n%s %d%% (%d)\n%s %d%%\n%s %1.1f %s",
 				ItemNames[ usItemNumber ],									//Item long name
 				pInvPanelTitleStrings[ 4 ],										//Protection string
 				iProtection,													//Protection rating in % based on best armor
@@ -4546,7 +4546,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 				}
 			}
 
-			swprintf(pzStr, L"%s\n%s %1.1f %s%s",
+			sgp_swprintf(pzStr, 5000, L"%s\n%s %1.1f %s%s",
 				ItemNames[usItemNumber],	//Item long name
 				gWeaponStatsDesc[12],		//Weight String
 				fWeight,					//Weight
@@ -4563,7 +4563,7 @@ void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
 	default:
 		// The final, and typical case, is that of an item with a percent status
 		{
-			swprintf( pzStr, L"%s\n%s %1.1f %s",
+			sgp_swprintf( pzStr, 5000, L"%s\n%s %1.1f %s",
 				ItemNames[ usItemNumber ],	//Item long name
 				gWeaponStatsDesc[ 12 ],			//Weight String
 				fWeight,						//Weight

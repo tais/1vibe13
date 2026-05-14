@@ -64,9 +64,12 @@
 // Snap, Kaiden: This define duplicates a standard MFC define
 // Added to resolve some intractable issue with MSVC6
 #define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
-
-typedef	FILETIME				SGP_FILETIME;
 #endif
+
+// On Windows, FILETIME is from windows.h. On other platforms, it's a
+// stub struct from msvc_compat.h. SGP_FILETIME aliases either; the
+// SLF on-disk timestamp format is layout-compatible with FILETIME.
+typedef	FILETIME				SGP_FILETIME;
 
 //**************************************************************************
 //
