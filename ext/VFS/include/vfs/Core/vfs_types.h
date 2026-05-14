@@ -26,13 +26,13 @@
 
 #include <vfs/Core/vfs_string.h>
 
-#ifdef __linux__
+#ifndef _WIN32
 #	include <stdint.h>
 #endif
 
 namespace vfs
 {
-#ifdef WIN32
+#ifdef _WIN32
 	typedef unsigned __int64	UInt64;
 	typedef unsigned __int32	UInt32;
 	typedef unsigned __int16	UInt16;
@@ -44,7 +44,7 @@ namespace vfs
 	typedef __int16				Int16;
 	typedef __int8				Int8;
 	typedef __int8				Byte;
-#elif __linux__
+#else
 	typedef uint64_t			UInt64;
 	typedef uint32_t  			UInt32;
 	typedef uint16_t			UInt16;
