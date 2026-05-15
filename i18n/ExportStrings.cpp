@@ -15,6 +15,18 @@
 #include <vfs/Tools/vfs_parser_tools.h>
 #include <vfs/Tools/vfs_property_container.h>
 
+namespace
+{
+	// vfs::PropertyContainer::{write,init}FromXMLFile takes its TagMap
+	// argument by non-const reference. MSVC accepted a TagMap() rvalue;
+	// clang doesn't. Bind a single per-TU empty instance and reuse it.
+	vfs::PropertyContainer::TagMap& EmptyTagMap()
+	{
+		static vfs::PropertyContainer::TagMap m;
+		return m;
+	}
+}
+
 namespace Loc
 {
 	bool Translate(vfs::String::char_t* str, int len, Language lang);
@@ -549,7 +561,7 @@ void Loc::ExportMercBio()
 		Loc::Translate(pAddInfo, SIZE_MERC_ADDITIONAL_INFO, lang);
 		props.setStringProperty(L"Add", vfs::toString<wchar_t>(i), pAddInfo);
 	}
-	props.writeToXMLFile(L"Localization/AimBiographies.xml", vfs::PropertyContainer::TagMap());
+	props.writeToXMLFile(L"Localization/AimBiographies.xml", EmptyTagMap());
 }
 
 void Loc::ExportAIMHistory()
@@ -570,7 +582,7 @@ void Loc::ExportAIMHistory()
 		Loc::Translate(pHistLine, AIM_HISTORY_LINE_SIZE, lang);
 		props.setStringProperty(L"Line", vfs::toString<wchar_t>(i), pHistLine);
 	}
-	props.writeToXMLFile(L"Localization/AimHistory.xml", vfs::PropertyContainer::TagMap());
+	props.writeToXMLFile(L"Localization/AimHistory.xml", EmptyTagMap());
 }
 	
 	
@@ -592,7 +604,7 @@ void Loc::ExportAIMPolicy()
 		Loc::Translate(pPolLine, AIM_HISTORY_LINE_SIZE, lang);
 		props.setStringProperty(L"Line", vfs::toString<wchar_t>(i), pPolLine);
 	}
-	props.writeToXMLFile(L"Localization/AimPolicy.xml", vfs::PropertyContainer::TagMap());
+	props.writeToXMLFile(L"Localization/AimPolicy.xml", EmptyTagMap());
 }
 
 void Loc::ExportAlumniName()
@@ -613,7 +625,7 @@ void Loc::ExportAlumniName()
 		Loc::Translate(pAlumniName, AIM_ALUMNI_NAME_SIZE, lang);
 		props.setStringProperty(L"Line", vfs::toString<wchar_t>(i), pAlumniName);
 	}
-	props.writeToXMLFile(L"Localization/AlumniName.xml", vfs::PropertyContainer::TagMap());
+	props.writeToXMLFile(L"Localization/AlumniName.xml", EmptyTagMap());
 }
 
 #include <vfs/Core/vfs.h>
@@ -652,7 +664,7 @@ void Loc::ExportDialogues()
 		}
 		vfs::Path x(L"Localization/Dialogue");
 		x += vfs::Path(file.getName().c_wcs() + L".xml");
-		props.writeToXMLFile(x, vfs::PropertyContainer::TagMap());
+		props.writeToXMLFile(x, EmptyTagMap());
 	}
 }
 
@@ -700,6 +712,6 @@ void Loc::ExportNPCDialogues()
 		}
 		vfs::Path x(L"Localization/NpcDialogue");
 		x += vfs::Path(file.getName().c_wcs() + L".xml");
-		props.writeToXMLFile(x, vfs::PropertyContainer::TagMap());
+		props.writeToXMLFile(x, EmptyTagMap());
 	}
 }

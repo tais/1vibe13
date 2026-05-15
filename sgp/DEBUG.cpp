@@ -24,7 +24,9 @@
 
 
 	#include "types.h"
+#ifdef _WIN32
 	#include <windows.h>
+#endif
 	#include <stdio.h>
 	#include <string>
 	#include <sstream>

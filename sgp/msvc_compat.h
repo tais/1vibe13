@@ -85,6 +85,12 @@ inline void Sleep(DWORD ms) {
 #include <cstring>
 inline void ZeroMemory(void* dst, size_t len) { std::memset(dst, 0, len); }
 
+// Win32 OutputDebugString -- emit to stderr on non-Windows.
+#include <cstdio>
+inline void OutputDebugStringA(const char* s) { if (s) std::fputs(s, stderr); }
+inline void OutputDebugStringW(const wchar_t* s) { if (s) std::fputws(s, stderr); }
+#define OutputDebugString OutputDebugStringA
+
 // MSVC's _abs64 is the standard llabs (absolute value of long long).
 #include <cstdlib>
 inline long long _abs64(long long v) { return llabs(v); }

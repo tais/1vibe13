@@ -3,6 +3,18 @@
 #include <vfs/Tools/vfs_tools.h>
 #include <vfs/Tools/vfs_property_container.h>
 
+namespace
+{
+	// initFromXMLFile takes its TagMap argument by non-const reference;
+	// MSVC accepted a TagMap() rvalue, clang doesn't. Bind a single
+	// per-TU empty instance.
+	vfs::PropertyContainer::TagMap& EmptyTagMap()
+	{
+		static vfs::PropertyContainer::TagMap m;
+		return m;
+	}
+}
+
 bool g_bUseXML_Strings = false;
 
 namespace Loc
@@ -86,13 +98,13 @@ void Loc::Init(Topic t, vfs::String const& section)
 	_PropState& state = _topicFiles[t][L"_ALL"];
 	if(!state.filename.empty() && !state.loaded)
 	{
-		_localizedStrings[t].initFromXMLFile(state.filename, vfs::PropertyContainer::TagMap());
+		_localizedStrings[t].initFromXMLFile(state.filename, EmptyTagMap());
 		state.loaded = true;
 	}
 	state = _topicFiles[t][section];
 	if(!state.filename.empty() && !state.loaded)
 	{
-		_localizedStrings[t].initFromXMLFile(state.filename, vfs::PropertyContainer::TagMap());
+		_localizedStrings[t].initFromXMLFile(state.filename, EmptyTagMap());
 		state.loaded = true;
 	}
 }
