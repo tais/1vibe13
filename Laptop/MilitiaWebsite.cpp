@@ -246,6 +246,16 @@ void FilterIndividualMilitia( InidivualMilitiaLifeState aLifeState, InidivualMil
 	}
 }
 
+// Forward declarations of TestTableTemplate specializations defined
+// later in the file. clang needs these visible before the first
+// implicit instantiation (around EnterMilitiaWebsiteMain).
+template<> void TestTableTemplate<1>::SetRefresh();
+template<> void TestTableTemplate<2>::SetRefresh();
+template<> void TestTableTemplate<3>::SetRefresh();
+template<> void TestTableTemplate<1>::Init(UINT16, UINT16, UINT16, UINT16);
+template<> void TestTableTemplate<2>::Init(UINT16, UINT16, UINT16, UINT16);
+template<> void TestTableTemplate<3>::Init(UINT16, UINT16, UINT16, UINT16);
+
 // on dropdown change, redraw and redo filter selection
 template<>	void	DropDownTemplate<DROPDOWN_MILTIAWEBSITE_FILTER_DEAD>::SetRefresh( )	{ gfMilitiaWebsiteMainRedraw = TRUE; gfMilitiaWebsiteRedoFilters = TRUE; }
 template<>	void	DropDownTemplate<DROPDOWN_MILTIAWEBSITE_FILTER_RANK>::SetRefresh( )	{ gfMilitiaWebsiteMainRedraw = TRUE; gfMilitiaWebsiteRedoFilters = TRUE; }

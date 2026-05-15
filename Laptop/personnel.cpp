@@ -766,7 +766,7 @@ void RenderPersonnelStats( INT32 iId, INT32 iSlot )
 
 // ID -> fortlaufende ID, und nicht die mercID
 // -> bei aktuellen Merc passt es
-// -> bei departed Merc wird die MercId anstatt der fortlaufenden ID übergeben!!
+// -> bei departed Merc wird die MercId anstatt der fortlaufenden ID ï¿½bergeben!!
 void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFired, BOOLEAN fOther )
 {
 	// Get the profile id (from profileId or slotId)
@@ -1362,7 +1362,7 @@ static void PrintStatChange(const INT16 change, const INT32 x, const INT32 y, co
 	{
 		INT16 sX, sY;
 
-		swprintf( sString, change > 0 ? L"( +%d )" : L"( %d )", change );
+		sgp_swprintf( sString, 32, change > 0 ? L"( +%d )" : L"( %d )", change );
 		FindFontRightCoordinates( (INT16)(x + TEXT_BOX_WIDTH - 20 + TEXT_DELTA_OFFSET), 0, 30, 0, sString, PERS_FONT, &sX, &sY );
 		mprintf( sX, y, sString );
 	}
@@ -2673,7 +2673,7 @@ void DisplayFaceOfDisplayedMerc( )
 
 		DisplayHighLightBox();
 
-		// Hier dürfte der Aufruf falsch sein
+		// Hier dï¿½rfte der Aufruf falsch sein
 
 		RenderPersonnelFace(	GetIdOfPastMercInSlot( iCurrentPersonSelectedId ), 0, IsPastMercDead( iCurrentPersonSelectedId ), IsPastMercFired( iCurrentPersonSelectedId ), IsPastMercOther( iCurrentPersonSelectedId ) );
 		DisplayDepartedCharName(	GetIdOfPastMercInSlot( iCurrentPersonSelectedId ), 0, GetTheStateOfDepartedMerc( GetIdOfPastMercInSlot( iCurrentPersonSelectedId	) ) );
@@ -5793,8 +5793,13 @@ void HandleSliderBarClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		}
 
 		// find the x,y on the slider bar
+#ifdef _WIN32
 		GetCursorPos(&MousePos);
 		ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+		MousePos.x = gusMouseXPos;
+		MousePos.y = gusMouseYPos;
+#endif
 
 		// get the subregion sizes
 		sSizeOfEachSubRegion = ( INT16 )( ( INT32 )( Y_SIZE_OF_PERSONNEL_SCROLL_REGION - SIZE_OF_PERSONNEL_CURSOR ) / ( INT32 )( iNumberOfItems	) );
@@ -5957,8 +5962,13 @@ void HandlePersonnelKeyboard( void )
 	InputAtom					InputEvent;
 	POINT	MousePos;
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	//while (DequeueSpecificEvent(&InputEvent, KEY_DOWN|KEY_UP|KEY_REPEAT))
 	while (DequeueEvent(&InputEvent) == TRUE)
@@ -6577,7 +6587,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 		{
 			case AUTO_WEAPONS_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubAWBonusCtHAssaultRifles != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[0], ( gSkillTraitValues.ubAWBonusCtHAssaultRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -6623,7 +6633,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case HEAVY_WEAPONS_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubHWGrenadeLaunchersAPsReduction != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[0], ( gSkillTraitValues.ubHWGrenadeLaunchersAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -6674,7 +6684,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case SNIPER_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubSNBonusCtHRifles != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[0], ( gSkillTraitValues.ubSNBonusCtHRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -6749,7 +6759,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case RANGER_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubRABonusCtHRifles != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[0], ( gSkillTraitValues.ubRABonusCtHRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -6807,7 +6817,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case GUNSLINGER_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubGSFiringSpeedBonusPistols != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[0], ( gSkillTraitValues.ubGSFiringSpeedBonusPistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -6872,7 +6882,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case MARTIAL_ARTS_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubMAPunchAPsReduction != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[0], ( gSkillTraitValues.ubMAPunchAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7004,7 +7014,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case SQUADLEADER_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubSLBonusAPsPercent != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[0], ( gSkillTraitValues.ubSLBonusAPsPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7069,7 +7079,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case TECHNICIAN_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.usTERepairSpeedBonus != 0 )
 				{
 					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[0], ( gSkillTraitValues.usTERepairSpeedBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7136,7 +7146,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			case DOCTOR_NT:
 			{
 				BOOLEAN fCanSurgery = FALSE;
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubDONumberTraitsNeededForSurgery != 0 && ((gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop) > 0))
 				{
 					if( gSkillTraitValues.ubDONumberTraitsNeededForSurgery <= (fExpertLevel ? 2 : 1))
@@ -7192,7 +7202,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case AMBIDEXTROUS_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubAMPenaltyDoubleReduction != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[0], gSkillTraitValues.ubAMPenaltyDoubleReduction, sSpecialCharacters[0]);
@@ -7237,7 +7247,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case MELEE_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubMEBladesAPsReduction != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[0], gSkillTraitValues.ubMEBladesAPsReduction, sSpecialCharacters[0]);
@@ -7292,7 +7302,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case THROWING_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubTHBladesAPsReduction != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[0], gSkillTraitValues.ubTHBladesAPsReduction, sSpecialCharacters[0]);
@@ -7361,7 +7371,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case NIGHT_OPS_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubNOeSightRangeBonusInDark != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsNightOps[0], gSkillTraitValues.ubNOeSightRangeBonusInDark, sSpecialCharacters[0]);
@@ -7391,7 +7401,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case STEALTHY_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubSTStealthModeSpeedBonus != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsStealthy[0], gSkillTraitValues.ubSTStealthModeSpeedBonus, sSpecialCharacters[0]);
@@ -7421,7 +7431,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case ATHLETICS_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubATAPsMovementReduction != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsAthletics[0], gSkillTraitValues.ubATAPsMovementReduction, sSpecialCharacters[0]);
@@ -7436,7 +7446,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case BODYBUILDING_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubBBDamageResistance != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsBodybuilding[0], gSkillTraitValues.ubBBDamageResistance, sSpecialCharacters[0]);
@@ -7461,7 +7471,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case DEMOLITIONS_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubDEDamageOfBombsAndMines != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsDemolitions[0], gSkillTraitValues.ubDEDamageOfBombsAndMines, sSpecialCharacters[0]);
@@ -7491,7 +7501,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case TEACHING_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubTGBonusToTrainMilitia != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsTeaching[0], gSkillTraitValues.ubTGBonusToTrainMilitia, sSpecialCharacters[0]);
@@ -7521,7 +7531,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case SCOUTING_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gSkillTraitValues.ubSCSightRangebonusWithScopes != 0 )
 				{
 					swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[0], gSkillTraitValues.ubSCSightRangebonusWithScopes, sSpecialCharacters[0]);
@@ -7564,7 +7574,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case COVERT_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[0]);
 				wcscat( apStr, atStr );
 
@@ -7602,7 +7612,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			// Flugente: Radio Operator
 			case RADIO_OPERATOR_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[0]);
 				wcscat( apStr, atStr );
 				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[1]);
@@ -7619,7 +7629,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case SNITCH_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[0]);
 				wcscat( apStr, atStr );
 				swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[1]);
@@ -7644,7 +7654,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case SURVIVAL_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 
 				if ( gSkillTraitValues.ubSVGroupTimeSpentForTravellingFoot != 0 )
 				{
@@ -7722,7 +7732,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case NO_SKILLTRAIT_NT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPMajorTraitsHelpTextsNone[0] );
 				wcscat( apStr, atStr );
 				break;
@@ -7735,7 +7745,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 		{
 			case LOCKPICKING_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gbSkillTraitBonus[LOCKPICKING_OT] != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[0], ( gbSkillTraitBonus[LOCKPICKING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7745,7 +7755,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case HANDTOHAND_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gbSkillTraitBonus[HANDTOHAND_OT] != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[1], (  gbSkillTraitBonus[HANDTOHAND_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7759,14 +7769,14 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case ELECTRONICS_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[4] );
 				wcscat( apStr, atStr );
 				break;
 			}
 			case NIGHTOPS_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[5], (fExpertLevel ? 2 : 1));
 				wcscat( apStr, atStr );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[6], (fExpertLevel ? 2 : 1));
@@ -7781,7 +7791,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case THROWING_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gbSkillTraitBonus[THROWING_OT] != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[10], (  gbSkillTraitBonus[THROWING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7795,7 +7805,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case TEACHING_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gGameExternalOptions.ubTeachBonusToTrain != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[13], (  gGameExternalOptions.ubTeachBonusToTrain * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7810,7 +7820,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case HEAVY_WEAPS_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gbSkillTraitBonus[HEAVY_WEAPS_OT] != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[15], (  gbSkillTraitBonus[HEAVY_WEAPS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7820,7 +7830,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case AUTO_WEAPS_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[16], (  2 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
 				wcscat( apStr, atStr );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[17] );
@@ -7829,7 +7839,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case STEALTHY_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[18], (  25 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
 				wcscat( apStr, atStr );
 				if( gGameExternalOptions.ubStealthTraitCoverValue != 0 )
@@ -7841,14 +7851,14 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case AMBIDEXT_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[20] );
 				wcscat( apStr, atStr );
 				break;
 			}
 			case MARTIALARTS_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gbSkillTraitBonus[MARTIALARTS_OT] != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[28], (  gbSkillTraitBonus[MARTIALARTS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7870,7 +7880,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case KNIFING_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gbSkillTraitBonus[KNIFING_OT] != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[21], (  gbSkillTraitBonus[KNIFING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7886,7 +7896,7 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case PROF_SNIPER_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				if( gbSkillTraitBonus[PROF_SNIPER_OT] != 0 )
 				{
 					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[25], (  gbSkillTraitBonus[PROF_SNIPER_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
@@ -7898,14 +7908,14 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			}
 			case CAMOUFLAGED_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[27] );
 				wcscat( apStr, atStr );
 				break;
 			}
 			case NO_SKILLTRAIT_OT:
 			{
-				swprintf( apStr, L"" );
+				sgp_swprintf( apStr, 5000, L"" );
 				swprintf( atStr, gzIMPMajorTraitsHelpTextsNone[0] );
 				wcscat( apStr, atStr );
 				break;
