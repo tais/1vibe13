@@ -1,6 +1,7 @@
 #ifndef	__DirectDraw_Calls_H__
 #define	__DirectDraw_Calls_H__
 
+#ifdef _WIN32
 #include "DirectX Common.h"
 #include <ddraw.h>
 #include "sgp.h"
@@ -94,5 +95,7 @@ HRESULT BltDDSurfaceUsingSoftware( LPDIRECTDRAWSURFACE2 pDestSurface, LPRECT pDe
 }
 #endif
 
+
+#endif // _WIN32
 
 #endif	// __DirectDraw_Calls_H__

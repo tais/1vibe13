@@ -35,7 +35,9 @@ UINT32 MPPreRandom( UINT32 uiRange )
 
 #ifdef BMP_RANDOM//dnl ch55 111009
 
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 UINT32 guiPreRandomIndex;
 UINT32 guiPreRandomNums[MAX_PREGENERATED_NUMS];
@@ -71,7 +73,11 @@ UINT32 GetRndNum(UINT32 maxnum)
 
 	if(!(cnt++%RAND_MAX))
 	{
+#ifdef _WIN32
 		GetCursorPos(&pt);// Get cursor location
+#else
+		pt.x = 0; pt.y = 0;
+#endif
 		srand(maxnum ^ rnd ^ pt.x ^ pt.y ^ GetTickCount());
 	}
 	if(maxnum == 0)

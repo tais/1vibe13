@@ -981,10 +981,21 @@ BOOLEAN CheckIfFileIsAlreadyOpen( STR pFileName, INT16 sLibraryID )
 
 	CHAR8	sTempName[ 70 ];
 
+#ifdef _WIN32
 	_splitpath( pFileName, sDrive, sPath, sName, sExt);
 
 	strcpy( sTempName, sName );
 	strcat( sTempName, sExt );
+#else
+	// POSIX equivalent: take everything after the last '/' or '\\'.
+	const char* base = pFileName;
+	for (const char* p = pFileName; *p; ++p) {
+		if (*p == '/' || *p == '\\') base = p + 1;
+	}
+	strncpy( sTempName, base, sizeof(sTempName) - 1 );
+	sTempName[sizeof(sTempName) - 1] = '\0';
+	sDrive[0] = sPath[0] = sName[0] = sExt[0] = '\0';
+#endif
 
 	//loop through all the open files to see if 'new' file to open is already open
 	for( usLoop1=1; usLoop1 < gFileDataBase.pLibraries[ sLibraryID ].iSizeOfOpenFileArray ; usLoop1++ )

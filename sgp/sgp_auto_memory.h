@@ -50,32 +50,32 @@ namespace sgp
 	public:
 		AutoArray(size_t size)
 		{
-			_array = new T[size];
+			this->_array = new T[size];
 		}
 		~AutoArray()
 		{
-			if(_array)
+			if(this->_array)
 			{
-				delete[] _array;
+				delete[] this->_array;
 			}
 		}
 	};
 
 	/************************************************************/
 
-	template<typename T, typename void*(*Alloc)(size_t) = malloc, typename void(*Dealloc)(void*) = free>
+	template<typename T, void*(*Alloc)(size_t) = malloc, void(*Dealloc)(void*) = free>
 	class AutoCArray : public TAutoArray<T>
 	{
 	public:
 		AutoCArray(size_t size = 1, size_t sizeof_elem=1)
 		{
-			_array = (T*)Alloc( size * sizeof_elem );
+			this->_array = (T*)Alloc( size * sizeof_elem );
 		}
 		~AutoCArray()
 		{
-			if(_array)
+			if(this->_array)
 			{
-				Dealloc(_array);
+				Dealloc(this->_array);
 			}
 		}
 	};
@@ -95,13 +95,13 @@ namespace sgp
 	public:
 		AutoMMArray(size_t size, size_t sizeof_elem=1)
 		{
-			_array = (T*)MemAlloc( size * sizeof_elem );
+			this->_array = (T*)MemAlloc( size * sizeof_elem );
 		}
 		~AutoMMArray()
 		{
-			if(_array)
+			if(this->_array)
 			{
-				MemFree(_array);
+				MemFree(this->_array);
 			}
 		}
 	};

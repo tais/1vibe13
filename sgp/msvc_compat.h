@@ -230,6 +230,40 @@ inline BOOL WriteFile(HANDLE, const void*, DWORD, LPDWORD bytesWritten, void*) {
 inline DWORD SetFilePointer(HANDLE, LONG, LONG*, DWORD) {
     return 0xFFFFFFFFu;
 }
+inline DWORD GetFileSize(HANDLE, LPDWORD) { return 0xFFFFFFFFu; }
+inline DWORD GetFileAttributesA(const char*) { return 0xFFFFFFFFu; }
+#define GetFileAttributes GetFileAttributesA
+
+// Win32 virtual-memory APIs used by MemMan.cpp's locked-allocator
+// path. Stubbed to plain malloc/free -- the locking semantics aren't
+// meaningful on POSIX in this context.
+#ifndef MEM_COMMIT
+#define MEM_COMMIT       0x00001000
+#define MEM_RESERVE      0x00002000
+#define MEM_RELEASE      0x00008000
+#define PAGE_READWRITE   0x04
+#endif
+inline LPVOID VirtualAlloc(LPVOID, size_t size, DWORD, DWORD) { return std::malloc(size); }
+inline BOOL   VirtualFree(LPVOID ptr, size_t, DWORD) { std::free(ptr); return 1; }
+inline BOOL   VirtualLock(LPVOID, size_t) { return 1; }
+inline BOOL   VirtualUnlock(LPVOID, size_t) { return 1; }
+struct MEMORYSTATUS {
+    DWORD dwLength, dwMemoryLoad;
+    size_t dwTotalPhys, dwAvailPhys, dwTotalPageFile, dwAvailPageFile;
+    size_t dwTotalVirtual, dwAvailVirtual;
+};
+inline void GlobalMemoryStatus(MEMORYSTATUS* ms) {
+    if (ms) {
+        ms->dwLength = sizeof(MEMORYSTATUS);
+        ms->dwMemoryLoad = 0;
+        ms->dwTotalPhys = ms->dwAvailPhys = ms->dwTotalPageFile =
+            ms->dwAvailPageFile = ms->dwTotalVirtual = ms->dwAvailVirtual = 0;
+    }
+}
+
+// MSVC _splitpath -- gate at call site, not in compat header (cleaner
+// than wrapping POSIX dirname/basename which have different semantics).
+// Callers wrap in #ifdef _WIN32.
 inline DWORD FormatMessageA(DWORD, const void*, DWORD, DWORD, char* buf, DWORD bufSize, void*) {
     if (buf && bufSize > 0) buf[0] = '\0';
     return 0;
