@@ -1,4 +1,9 @@
 #include "types.h"
+
+#ifdef _WIN32
+// Entire DirectDraw-based video subsystem is Win32-only. Phase 5
+// replaces this with an SDL3-backed renderer that uploads the RGB565
+// framebuffer as an SDL_Texture.
 #include "video.h"
 #include "vobject_blitters.h"
 #include "sgp.h"
@@ -3315,3 +3320,4 @@ void RefreshMovieCache( )
 		SGP_ERROR(ex.what());
 	}
 }
+#endif // _WIN32

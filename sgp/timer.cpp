@@ -1,5 +1,7 @@
 	#include "types.h"
+#ifdef _WIN32
 	#include <windows.h>
+#endif
 		#include "video.h"
 	#include "timer.h"
 
@@ -10,6 +12,7 @@
 UINT32 guiStartupTime;
 UINT32 guiCurrentTime;
 
+#ifdef _WIN32
 void CALLBACK Clock( HWND hWindow, UINT uMessage, UINT idEvent, DWORD dwTime )
 {
 	guiCurrentTime = GetTickCount();
@@ -22,13 +25,16 @@ void CALLBACK Clock( HWND hWindow, UINT uMessage, UINT idEvent, DWORD dwTime )
 	guiCurrentTime = guiCurrentTime - guiStartupTime;
 	}
 }
+#endif
 
 BOOLEAN InitializeClockManager(void)
 {
 
 	// Register the start time (use WIN95 API call)
 	guiCurrentTime = guiStartupTime = GetTickCount();
+#ifdef _WIN32
 	SetTimer(ghWindow, MAIN_TIMER_ID, 10, (TIMERPROC)Clock);
+#endif
 
 
 	return TRUE;
@@ -38,7 +44,9 @@ void	ShutdownClockManager(void)
 {
 
 	// Make sure we kill the timer
+#ifdef _WIN32
 	KillTimer(ghWindow, MAIN_TIMER_ID);
+#endif
 
 }
 

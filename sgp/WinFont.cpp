@@ -1,6 +1,10 @@
 ﻿
 //#define UNICODE
 #include "types.h"
+
+#ifdef _WIN32
+// GDI-backed TrueType font rasterizer. Replaced by stb_truetype in
+// Phase 9; the WinFont.h non-Windows branch provides matching stubs.
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -511,3 +515,5 @@ if(g_lang == i18n::Lang::zh) { //zwwooooo: Correct tactical interface font heigh
 }
 	return pWinFont->Height;
 }
+
+#endif // _WIN32

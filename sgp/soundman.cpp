@@ -1563,7 +1563,7 @@ UINT32 uiSoundID;
 		pSoundList[uiChannel].uiPriority=PRIORITY_MAX;
 
 	// Callback at end of playback
-	if((pParms!=NULL) && ((UINT32)pParms->EOSCallback!=SOUND_PARMS_DEFAULT))
+	if((pParms!=NULL) && ((UINT32)(uintptr_t)pParms->EOSCallback!=SOUND_PARMS_DEFAULT))
 	{
 		pSoundList[uiChannel].EOSCallback=pParms->EOSCallback;
 		pSoundList[uiChannel].pCallbackData=pParms->pCallbackData;
@@ -1657,7 +1657,7 @@ UINT32 uiSoundID;
 		pSoundList[uiChannel].uiPriority=SOUND_PARMS_DEFAULT;
 
 	// Callback at end of playback
-	if((pParms!=NULL) && ((UINT32)pParms->EOSCallback!=SOUND_PARMS_DEFAULT))
+	if((pParms!=NULL) && ((UINT32)(uintptr_t)pParms->EOSCallback!=SOUND_PARMS_DEFAULT))
 	{
 		pSoundList[uiChannel].EOSCallback=pParms->EOSCallback;
 		pSoundList[uiChannel].pCallbackData=pParms->pCallbackData;
@@ -1679,25 +1679,25 @@ UINT32 uiSoundID;
 // ------------------------
 // Callbacks implementation
 // ========================
-static void * F_CALLBACKAPI SoundFileOpen(const STR8 pName)
+void * F_CALLBACKAPI SoundFileOpen(const STR8 pName)
 {
 	return((void*)FileOpen(pName, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE));
 }
 
-static void F_CALLBACKAPI SoundFileClose(void *uiHandle)
+void F_CALLBACKAPI SoundFileClose(void *uiHandle)
 {
-	FileClose((UINT32)uiHandle);
+	FileClose((HWFILE)(uintptr_t)uiHandle);
 }
 
-static INT F_CALLBACKAPI SoundFileRead(void *pBuffer, INT iSize, void *uiHandle)
+INT F_CALLBACKAPI SoundFileRead(void *pBuffer, INT iSize, void *uiHandle)
 {
 	UINT32 uiActuallyRead;
 
-	FileRead((UINT32)uiHandle, pBuffer, iSize, &uiActuallyRead);
+	FileRead((HWFILE)(uintptr_t)uiHandle, pBuffer, iSize, &uiActuallyRead);
 	return(uiActuallyRead);
 }
 
-static INT F_CALLBACKAPI SoundFileSeek(void *uiHandle, INT iPos, signed char cMode)
+INT F_CALLBACKAPI SoundFileSeek(void *uiHandle, INT iPos, signed char cMode)
 {
 	UINT8	uiHow;
 
@@ -1713,12 +1713,12 @@ static INT F_CALLBACKAPI SoundFileSeek(void *uiHandle, INT iPos, signed char cMo
 		uiHow = FILE_SEEK_FROM_START;
 	}
 
-	return(!FileSeek((UINT32)uiHandle, iPos, uiHow));
+	return(!FileSeek((HWFILE)(uintptr_t)uiHandle, iPos, uiHow));
 }
 
-static INT F_CALLBACKAPI SoundFileTell(void *uiHandle)
+INT F_CALLBACKAPI SoundFileTell(void *uiHandle)
 {
-	return(FileGetPos((UINT32)uiHandle));
+	return(FileGetPos((HWFILE)(uintptr_t)uiHandle));
 }
 
 //*******************************************************************************

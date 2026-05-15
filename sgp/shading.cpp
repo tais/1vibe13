@@ -106,6 +106,7 @@ void FindIndecies(SGPPaletteEntry *pSrcPalette, SGPPaletteEntry *pMapPalette, UI
 UINT16 usCurIndex, usCurDelta, usCurCount;
 UINT32 *pSavedPtr;
 
+#ifdef _WIN32
 __asm {
 
 // Assumes:
@@ -181,6 +182,7 @@ NotThisCol:
 		dec		usCurCount
 		jnz		DoNextIndex
 	}
+#endif
 }
 
 /**********************************************************************************************
