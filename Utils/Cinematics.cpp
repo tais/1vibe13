@@ -12,6 +12,11 @@
 //#include "LocalCodeAll.h"
 
 #include "types.h"
+
+#ifdef _WIN32
+// The Smacker cinematic player is built on Win32 file/sound/graphics
+// APIs (io.h, share.h, ddraw.h, SMACK.H). Gated to Windows until
+// Phase 8 replaces it with libsmacker.
 #include <stdio.h>
 #include <io.h>
 #include <string.h>
@@ -324,3 +329,4 @@ void SmkShutdownVideo(void)
 //DEF:
 //	CinematicModeOff();
 }
+#endif // _WIN32

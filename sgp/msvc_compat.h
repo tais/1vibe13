@@ -35,6 +35,7 @@ typedef unsigned char  BYTE;
 typedef char           CHAR;
 typedef wchar_t        WCHAR;
 typedef unsigned char  UCHAR;
+typedef void           VOID;
 typedef void*          HANDLE;
 typedef void*          LPVOID;
 typedef char*          LPSTR;

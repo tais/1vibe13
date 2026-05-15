@@ -1698,10 +1698,15 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 	static BOOLEAN	fAltDown = FALSE;
 	INT32 usMapPos;
 	
-	CHAR16	zString[128]; 
+	CHAR16	zString[128];
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	GetMouseMapPos( &usMapPos );
 
@@ -6969,7 +6974,7 @@ void SeperateItems()
 						LBENODE * lbePtr = gWorldItems[uiLoop].object.GetLBEPointer(x);
 
 						for (auto lbeInvIter = lbePtr->inv.begin(); lbeInvIter != lbePtr->inv.end(); lbeInvIter++) {
-							OBJECTTYPE * LBEStack = lbeInvIter._Ptr;
+							OBJECTTYPE * LBEStack = &(*lbeInvIter);
 							
 							if (LBEStack->usItem != 0 && LBEStack->exists()) {
 								AddItemToPool(gWorldItems[uiLoop].sGridNo, LBEStack, 1, gWorldItems[uiLoop].ubLevel, WORLD_ITEM_REACHABLE, -1);

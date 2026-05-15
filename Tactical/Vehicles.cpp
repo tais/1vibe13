@@ -2417,7 +2417,7 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 						{
 							// ! The id of the soldier was saved in the passenger pointer.	The passenger pointer is converted back
 							// ! to a UINT8 so we can get the REAL pointer to the soldier.
-							pVehicleList[cnt].pPassengers[ubPassengerCnt] = FindSoldierByProfileID( (UINT8)(pVehicleList[cnt].pPassengers[ ubPassengerCnt ]), FALSE );
+							pVehicleList[cnt].pPassengers[ubPassengerCnt] = FindSoldierByProfileID( (UINT8)(uintptr_t)(pVehicleList[cnt].pPassengers[ ubPassengerCnt ]), FALSE );
 						}
 					}
 					else
@@ -2426,7 +2426,7 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 						{
 							// ! The id of the soldier was saved in the passenger pointer.	The passenger pointer is converted back
 							// ! to a UINT8 so we can get the REAL pointer to the soldier.
-							pVehicleList[cnt].pPassengers[ubPassengerCnt] = FindSoldierByProfileID( (UINT8)(pVehicleList[cnt].pPassengers[ ubPassengerCnt ]), FALSE );
+							pVehicleList[cnt].pPassengers[ubPassengerCnt] = FindSoldierByProfileID( (UINT8)(uintptr_t)(pVehicleList[cnt].pPassengers[ ubPassengerCnt ]), FALSE );
 						}
 						else
 						{

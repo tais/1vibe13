@@ -1,4 +1,9 @@
 #include "types.h"
+
+#ifdef _WIN32
+// The Bink cinematic player is built on Win32 file/sound/graphics
+// APIs (io.h, share.h, ddraw.h, SMACK.H, Mss.h). Gated to Windows
+// until Phase 8 replaces it.
 #include <stdio.h>
 #include <io.h>
 #include <string.h>
@@ -410,3 +415,4 @@ UINT16 GetNumberOfBits( UINT32 uiMask )
 void				BinkShutdownVideo(void)
 {
 }
+#endif // _WIN32
