@@ -101,6 +101,9 @@ inline void __debugbreak() { __builtin_trap(); }
 // resolution -- not meaningful on POSIX where high-res clocks are
 // always available. Stubbed to no-ops.
 typedef UINT MMRESULT;
+#ifndef TIMERR_NOERROR
+#define TIMERR_NOERROR 0
+#endif
 inline MMRESULT timeBeginPeriod(UINT) { return 0; }
 inline MMRESULT timeEndPeriod(UINT)   { return 0; }
 inline DWORD    timeGetTime()         { return GetTickCount(); }
@@ -109,6 +112,62 @@ inline MMRESULT timeGetDevCaps(TIMECAPS* tc, UINT) {
     if (tc) { tc->wPeriodMin = 1; tc->wPeriodMax = 1000000; }
     return 0;
 }
+// timeSetEvent/timeKillEvent: Win32 multimedia timer callbacks.
+// Stubbed -- the game's Timer Control will not get periodic
+// callbacks on non-Windows yet. Phase 2 ports to std::thread +
+// std::chrono.
+typedef void (__attribute__((__unused__)) *LPTIMECALLBACK)(UINT, UINT, DWORD, DWORD, DWORD);
+#ifndef TIME_PERIODIC
+#define TIME_PERIODIC 1
+#endif
+inline MMRESULT timeSetEvent(UINT, UINT, LPTIMECALLBACK, DWORD, UINT) { return 1; }
+inline MMRESULT timeKillEvent(UINT) { return 0; }
+
+// Win32 CRITICAL_SECTION / Event / Thread stubs. The non-Windows
+// builds don't run the JA2 clock or notify threads -- timer
+// callbacks just won't fire until Phase 2 rebuilds this on
+// std::thread + std::mutex + std::condition_variable.
+struct CRITICAL_SECTION { int _stub; };
+inline void InitializeCriticalSection(CRITICAL_SECTION*) {}
+inline void DeleteCriticalSection(CRITICAL_SECTION*) {}
+inline void EnterCriticalSection(CRITICAL_SECTION*) {}
+inline void LeaveCriticalSection(CRITICAL_SECTION*) {}
+inline BOOL TryEnterCriticalSection(CRITICAL_SECTION*) { return 1; }
+#ifndef WAIT_OBJECT_0
+#define WAIT_OBJECT_0     0x00000000L
+#define WAIT_ABANDONED    0x00000080L
+#define WAIT_ABANDONED_0  0x00000080L
+#define WAIT_TIMEOUT      0x00000102L
+#define WAIT_FAILED       0xFFFFFFFFL
+#define INFINITE          0xFFFFFFFFL
+#endif
+inline HANDLE CreateEvent(void*, BOOL, BOOL, const char*) { return (HANDLE)1; }
+inline BOOL   SetEvent(HANDLE)   { return 1; }
+inline BOOL   ResetEvent(HANDLE) { return 1; }
+inline DWORD  WaitForSingleObject(HANDLE, DWORD) { return WAIT_TIMEOUT; }
+inline DWORD  WaitForMultipleObjectsEx(DWORD, const HANDLE*, BOOL, DWORD, BOOL) { return WAIT_TIMEOUT; }
+inline DWORD  WaitForMultipleObjects(DWORD, const HANDLE*, BOOL, DWORD) { return WAIT_TIMEOUT; }
+inline DWORD  GetCurrentThreadId() { return 1; }
+typedef union { LONGLONG QuadPart; struct { DWORD LowPart; LONG HighPart; }; } LARGE_INTEGER;
+inline BOOL QueryPerformanceFrequency(LARGE_INTEGER* freq) {
+    if (freq) freq->QuadPart = 1000000;
+    return 1;
+}
+inline BOOL QueryPerformanceCounter(LARGE_INTEGER* count) {
+    auto t = std::chrono::steady_clock::now().time_since_epoch();
+    if (count) count->QuadPart = (LONGLONG)std::chrono::duration_cast<std::chrono::microseconds>(t).count();
+    return 1;
+}
+inline BOOL   CloseHandle(HANDLE) { return 1; }
+typedef DWORD (*LPTHREAD_START_ROUTINE)(LPVOID);
+inline HANDLE CreateThread(void*, size_t, LPTHREAD_START_ROUTINE, LPVOID, DWORD, DWORD*) { return (HANDLE)0; }
+inline void   YieldProcessor() { /* no-op */ }
+#ifndef CALLBACK
+#define CALLBACK
+#endif
+#ifndef WINAPI
+#define WINAPI
+#endif
 
 // Win32 process heap stubs -- route through malloc/calloc/free.
 #ifndef HEAP_ZERO_MEMORY

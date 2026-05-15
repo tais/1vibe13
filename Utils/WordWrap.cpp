@@ -2118,7 +2118,7 @@ BOOLEAN ReduceStringLength( STR16 pString, UINT32 uiWidthToFitIn, INT32 iFont )
 
 
 	//combine the temp string and the '...' to form the finished string
-	swprintf( pString, L"%s%s", zTemp, zStrDots );
+	sgp_swprintf( pString, 1024, L"%s%s", zTemp, zStrDots );
 
 	return( TRUE );
 }

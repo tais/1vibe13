@@ -1,6 +1,8 @@
 	#include "types.h"
 	#include <stdio.h>
+#ifdef _WIN32
 	#include <windows.h>
+#endif
 	#include "sgp.h"
 	#include "time.h"
 	#include "vobject.h"
@@ -72,20 +74,20 @@ BOOLEAN PerformTimeLimitedCheck();
 // WANNE: Replaces german	specific characters
 //STR8 ReplaceGermanSpecialCharacters(STR8 text)
 //{
-//	// ä
-//	text = Replace(text, "Ã¤", "ä");
-//	// Ä
-//	text = Replace(text, "Ã„", "Ä");
-//	// ö
-//	text = Replace(text, "Ã¶", "ö");
-//	// Ö
-//	text = Replace(text, "Ã–", "Ö");
-//	// ü
-//	text = Replace(text, "Ã¼", "ü");
-//	// Ü
-//	text = Replace(text, "Ãœ", "Ü");
-//	// ß
-//	text = Replace(text, "ÃŸ", "ß");
+//	// ï¿½
+//	text = Replace(text, "Ã¤", "ï¿½");
+//	// ï¿½
+//	text = Replace(text, "Ã„", "ï¿½");
+//	// ï¿½
+//	text = Replace(text, "Ã¶", "ï¿½");
+//	// ï¿½
+//	text = Replace(text, "Ã–", "ï¿½");
+//	// ï¿½
+//	text = Replace(text, "Ã¼", "ï¿½");
+//	// ï¿½
+//	text = Replace(text, "Ãœ", "ï¿½");
+//	// ï¿½
+//	text = Replace(text, "ÃŸ", "ï¿½");
 //
 //	return text;
 //}
@@ -224,7 +226,7 @@ BOOLEAN	WrapString( STR16 pStr, STR16 pStr2, UINT16 usWidth, INT32 uiFont )
 			if( !fLineSplit)
 			{
 				//We completed the check for a space, but failed, so use the hyphen method.
-				swprintf( pStr2, L"-%s", &(pStr[uiHyphenLet]) );
+				sgp_swprintf( pStr2, 20, L"-%s", &(pStr[uiHyphenLet]) );
 				pStr[uiHyphenLet] = (INT16)'\0';
 				fLineSplit = TRUE;	//hyphen method
 				// HEADROCK HAM 3.6: This is erroneous. At this point, the function should RETURN, otherwise it
@@ -245,6 +247,22 @@ BOOLEAN	WrapString( STR16 pStr, STR16 pStr2, UINT16 usWidth, INT32 uiFont )
 }
 
 
+// gCheckFilenames is consumed by both the Win32 CD checks and by
+// DoJA2FilesExistsOnDrive, which is portable -- so it lives outside
+// the _WIN32 gate.
+SGPFILENAME gCheckFilenames[] =
+{
+	"DATA\\INTRO.SLF",
+	"DATA\\LOADSCREENS.SLF",
+	"DATA\\MAPS.SLF",
+	"DATA\\NPC_SPEECH.SLF",
+	"DATA\\SPEECH.SLF",
+};
+
+#ifdef _WIN32
+// The OS-version checks, demo run-counter and CD-presence check below
+// are all Win32-specific. Non-Windows builds get pass-through stubs at
+// the end of this _WIN32 block.
 BOOLEAN IfWinNT(void)
 {
 	OSVERSIONINFO OsVerInfo;
@@ -332,16 +350,6 @@ void HandleLimitedNumExecutions( )
 }
 
 
-SGPFILENAME	gCheckFilenames[] =
-{
-	"DATA\\INTRO.SLF",
-	"DATA\\LOADSCREENS.SLF",
-	"DATA\\MAPS.SLF",
-	"DATA\\NPC_SPEECH.SLF",
-	"DATA\\SPEECH.SLF",
-};
-
-
 UINT32 gCheckFileMinSizes[] =
 {
 	68000000,
@@ -409,6 +417,15 @@ BOOLEAN PerformTimeLimitedCheck()
 	return( TRUE );
 #endif
 }
+
+#else // !_WIN32
+BOOLEAN IfWinNT(void) { return FALSE; }
+BOOLEAN IfWin95(void) { return FALSE; }
+void HandleLimitedNumExecutions() { /* demo run-counter is Win32-only */ }
+BOOLEAN HandleJA2CDCheck()    { return TRUE; }
+BOOLEAN HandleJA2CDCheckTwo() { return TRUE; }
+BOOLEAN PerformTimeLimitedCheck() { return TRUE; }
+#endif // _WIN32
 
 BOOLEAN DoJA2FilesExistsOnDrive( CHAR8 *zCdLocation )
 {

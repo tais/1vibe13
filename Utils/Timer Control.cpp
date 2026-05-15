@@ -322,11 +322,13 @@ BOOLEAN IsTimerActive(void)
 	return GetNextCounterDoneTime() <= FASTFORWARDTIMESLICE ? TRUE : FALSE;
 }
 
-DWORD WINAPI JA2ClockThread( LPVOID lpParam ) 
+DWORD WINAPI JA2ClockThread( LPVOID lpParam )
 {
+#ifdef _MSC_VER
 	__try
 	{
-		for(;;) 
+#endif
+		for(;;)
 		{
 			TimeProc(0, 0, 0, 0, 0);
 
@@ -337,7 +339,7 @@ DWORD WINAPI JA2ClockThread( LPVOID lpParam )
 
 			// Sleep for a couple of milliseconds if not in fast forward mode
 			if (!IsFastForwardMode()) {
-				
+
 				giSleepTime = TIME_US_TO_MS(GetNextCounterDoneTime());
 
 				// monitor the returned sleep times, if we try to sleep for more than 2 secs then somehing must be very wrong.
@@ -347,13 +349,15 @@ DWORD WINAPI JA2ClockThread( LPVOID lpParam )
 
 				Sleep(giSleepTime);
 			}
-		} 
+		}
+#ifdef _MSC_VER
 	}
 	__except( EXCEPTION_EXECUTE_HANDLER  )
 	{
 		// Unhandled exception just exit
 		__debugbreak();
 	}
+#endif
 	return 0L;
 }
 
@@ -725,11 +729,12 @@ static void InnerTimerNotify(INT32 timer)
 static void BroadcastTimerNotify(INT32 timer)
 {
 	EnterCriticalSection(&gcsNotifyLock);
+#ifdef _MSC_VER
 	__try
 	{
 		__try { InnerTimerNotify(timer); }
 		__except( EXCEPTION_EXECUTE_HANDLER  )
-		{ /*  Not sure.  exit? */ 
+		{ /*  Not sure.  exit? */
 			__debugbreak();
 			DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "BroadcastTimerNotify Failed!");
 		}
@@ -738,6 +743,13 @@ static void BroadcastTimerNotify(INT32 timer)
 	{
 		LeaveCriticalSection(&gcsNotifyLock);
 	}
+#else
+	try { InnerTimerNotify(timer); }
+	catch (...) {
+		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "BroadcastTimerNotify Failed!");
+	}
+	LeaveCriticalSection(&gcsNotifyLock);
+#endif
 }
 
 BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft)
