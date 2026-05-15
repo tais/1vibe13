@@ -552,7 +552,7 @@ bullets_table bTable[11][50];
 
 char client_names[4][30];
 
-char team_names[][30];//hayden need client_names with AI
+char team_names[1][30];//hayden need client_names with AI
 
 // OJW - 20081204
 int	 client_ready[4];

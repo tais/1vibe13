@@ -231,10 +231,12 @@ BOOLEAN	InitializeFonts( )
 	gfFontsInit = TRUE;
 
   // ATE: Init WinFont System and any winfonts we wish...
+#ifdef _WIN32
     if ( iUseWinFonts ) {
 	    InitWinFonts( );
     }
 	InitTooltipFonts();
+#endif
 
 	return( TRUE );
 }
@@ -264,10 +266,12 @@ void ShutdownFonts( )
 	#endif
 
   // ATE: Shutdown any win fonts
+#ifdef _WIN32
   if ( iUseWinFonts ) {
 	ShutdownWinFonts();
   }
   ShutdownTooltipFonts();
+#endif
 }
 
 // Set shades for fonts

@@ -60,6 +60,7 @@ CIniReader::CIniReader(const STR8	szFileName)
 		}
 	}
 	// check for override file
+#ifdef _WIN32
 	{
 		CHAR8 OvrFileName[256], Drive[128], Dir[128], Name[128], Ext[128];
 		_splitpath(szFileName, Drive, Dir, Name, Ext);
@@ -67,6 +68,7 @@ CIniReader::CIniReader(const STR8	szFileName)
 		if(getVFS()->fileExists(OvrFileName))
 			m_oProps.initFromIniFile(vfs::Path(OvrFileName));
 	}
+#endif
 }
 
 CIniReader::CIniReader(const STR8	szFileName, BOOLEAN Force_Custom_Data_Path)

@@ -28,6 +28,8 @@ typedef int            INT;
 typedef unsigned int   UINT;
 typedef unsigned long  ULONG;
 typedef long           LONG;
+typedef long long      LONGLONG;
+typedef unsigned long long ULONGLONG;
 typedef unsigned short WORD;
 typedef unsigned short USHORT;
 typedef unsigned int   DWORD;
@@ -44,6 +46,7 @@ typedef wchar_t*       LPWSTR;
 typedef const wchar_t* LPCWSTR;
 typedef struct { DWORD dwLowDateTime, dwHighDateTime; } FILETIME;
 typedef struct { LONG left, top, right, bottom; } RECT;
+typedef struct { BYTE rgbBlue, rgbGreen, rgbRed, rgbReserved; } RGBQUAD;
 typedef struct { WORD wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds; } SYSTEMTIME;
 
 // Win32 string conversion constants and functions, stubbed for
@@ -90,6 +93,50 @@ inline long long _abs64(long long v) { return llabs(v); }
 // so return 0 ("success" / "no error info") and let callers fall
 // through to their generic error path.
 inline DWORD GetLastError() { return 0; }
+
+// MSVC __debugbreak intrinsic -> compiler trap on clang/gcc.
+inline void __debugbreak() { __builtin_trap(); }
+
+// Win32 mmsystem timer-resolution APIs. These bump the system timer
+// resolution -- not meaningful on POSIX where high-res clocks are
+// always available. Stubbed to no-ops.
+typedef UINT MMRESULT;
+inline MMRESULT timeBeginPeriod(UINT) { return 0; }
+inline MMRESULT timeEndPeriod(UINT)   { return 0; }
+inline DWORD    timeGetTime()         { return GetTickCount(); }
+struct TIMECAPS { UINT wPeriodMin, wPeriodMax; };
+inline MMRESULT timeGetDevCaps(TIMECAPS* tc, UINT) {
+    if (tc) { tc->wPeriodMin = 1; tc->wPeriodMax = 1000000; }
+    return 0;
+}
+
+// Win32 process heap stubs -- route through malloc/calloc/free.
+#ifndef HEAP_ZERO_MEMORY
+#define HEAP_ZERO_MEMORY 0x00000008
+#endif
+inline HANDLE GetProcessHeap() { return (HANDLE)1; }
+inline LPVOID HeapAlloc(HANDLE, DWORD flags, size_t size) {
+    return (flags & HEAP_ZERO_MEMORY) ? std::calloc(1, size) : std::malloc(size);
+}
+inline BOOL HeapFree(HANDLE, DWORD, LPVOID ptr) { std::free(ptr); return 1; }
+
+// Win32 GetPrivateProfileString stub. Returns 0 (no value) and
+// writes the default string into the buffer. Real INI handling is
+// done by INIReader; the legacy Win32 path is only used in a few
+// places that fall back to defaults when the call returns nothing.
+inline DWORD GetPrivateProfileStringA(const char*, const char*,
+                                      const char* def, char* out,
+                                      DWORD outSize, const char*) {
+    if (out && outSize > 0) {
+        size_t n = def ? std::strlen(def) : 0;
+        if (n >= outSize) n = outSize - 1;
+        if (n > 0) std::memcpy(out, def, n);
+        out[n] = '\0';
+        return (DWORD)n;
+    }
+    return 0;
+}
+#define GetPrivateProfileString GetPrivateProfileStringA
 #endif
 
 // A handful of Win32 ERROR_* values used at call sites that compare

@@ -301,7 +301,7 @@ UINT32 MusicGetVolume(void)
 //	Returns:	TRUE if the music was stopped, FALSE if an error occurred
 //
 //********************************************************************************
-static BOOLEAN MusicStop(void)
+BOOLEAN MusicStop(void)
 {
 	// WANNE: We want music in windowed mode
 	//if( 1==iScreenMode ) /* on Windowed mode, skip the music? was coded for WINDOWED_MODE that way...*/
@@ -329,7 +329,7 @@ static BOOLEAN MusicStop(void)
 //	Returns:	TRUE if the music has begun fading, FALSE if an error occurred
 //
 //********************************************************************************
-static BOOLEAN MusicFadeOut(void)
+BOOLEAN MusicFadeOut(void)
 {
 	if(uiMusicHandle != NO_SAMPLE)
 	{
@@ -347,7 +347,7 @@ static BOOLEAN MusicFadeOut(void)
 //	Returns:	TRUE if the music has begun fading in, FALSE if an error occurred
 //
 //********************************************************************************
-static BOOLEAN MusicFadeIn(void)
+BOOLEAN MusicFadeIn(void)
 {
 	if(uiMusicHandle != NO_SAMPLE)
 	{
@@ -508,7 +508,7 @@ static BOOLEAN SetMusicMode(UINT8 ubMusicMode, BOOLEAN fForce)
 	return TRUE;
 }
 
-static BOOLEAN StartMusicBasedOnMode(void)
+BOOLEAN StartMusicBasedOnMode(void)
 {
 	switch(gubMusicMode)
 	{
@@ -607,7 +607,7 @@ BOOLEAN SetMusicMode(UINT8 ubMusicMode)
 }
 
 
-static void MusicStopCallback(void *pData)
+void MusicStopCallback(void *pData)
 {
 	//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Music EndCallback %d %d", uiMusicHandle, gubMusicMode	) );
 

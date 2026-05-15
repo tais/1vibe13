@@ -4,7 +4,6 @@
 	#include "Font Control.h"
 	#include "message.h"
 	#include "memory.h"
-	#include "mbstring.h"
 	#include "Timer Control.h"
 	#include "Render Dirty.h"
 	#include "renderworld.h"

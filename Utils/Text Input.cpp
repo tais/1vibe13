@@ -276,12 +276,12 @@ void AddTextInputField( INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, IN
 	{
 		pNode->ubStrLen = (UINT8)wcslen( szInitText );
 		Assert( pNode->ubStrLen <= ubMaxChars );
-		swprintf( pNode->szString, szInitText );
+		sgp_swprintf( pNode->szString, (size_t)ubMaxChars + 1, L"%s", szInitText );
 	}
 	else
 	{
 		pNode->ubStrLen = 0;
-		swprintf( pNode->szString, L"" );
+		pNode->szString[0] = L'\0';
 	}
 	pNode->ubMaxChars = ubMaxChars; //max string length
 
@@ -400,12 +400,12 @@ void SetInputFieldStringWith16BitString( UINT8 ubField, const STR16 szNewText )
 			{
 				curr->ubStrLen = (UINT8)wcslen( szNewText );
 				Assert( curr->ubStrLen <= curr->ubMaxChars );
-				swprintf( curr->szString, szNewText );
+				sgp_swprintf( curr->szString, (size_t)curr->ubMaxChars + 1, L"%s", szNewText );
 			}
 			else if( !curr->fUserField )
 			{
 				curr->ubStrLen = 0;
-				swprintf( curr->szString, L"");
+				curr->szString[0] = L'\0';
 			}
 			else
 			{
@@ -429,12 +429,12 @@ void SetInputFieldStringWith8BitString( UINT8 ubField, const STR8 szNewText )
 			{
 				curr->ubStrLen = (UINT8)strlen( szNewText );
 				Assert( curr->ubStrLen <= curr->ubMaxChars );
-				swprintf( curr->szString, L"%S", szNewText );
+				sgp_swprintf( curr->szString, (size_t)curr->ubMaxChars + 1, L"%S", szNewText );
 			}
 			else if( !curr->fUserField )
 			{
 				curr->ubStrLen = 0;
-				swprintf( curr->szString, L"" );
+				curr->szString[0] = L'\0';
 			}
 			else
 			{
@@ -477,7 +477,7 @@ void Get16BitStringFromField( UINT8 ubField, STR16 szString, UINT32 uiBufferSize
 		if( curr->ubID == ubField )
 		{
 			size_t len = __min(uiBufferSize, wcslen(curr->szString)+1);
-			swprintf( szString, len, curr->szString );
+			sgp_swprintf( szString, len, L"%s", curr->szString );
 			return;
 		}
 		curr = curr->next;
@@ -526,14 +526,14 @@ void SetInputFieldStringWithNumericStrictValue( UINT8 ubField, INT32 iNumber )
 			if( curr->fUserField )
 				AssertMsg( 0, String( "Attempting to illegally set text into user field %d", curr->ubID ) );
 			if( iNumber < 0 ) //negative number converts to blank string
-				swprintf( curr->szString, L"" );
+				curr->szString[0] = L'\0';
 			else
 			{
 				INT32 iMax = (INT32)pow( 10.0, curr->ubMaxChars );
 				if( iNumber > iMax ) //set string to max value based on number of chars.
-					swprintf( curr->szString, L"%d", iMax - 1 );
+					sgp_swprintf( curr->szString, (size_t)curr->ubMaxChars + 1, L"%d", iMax - 1 );
 				else	//set string to the number given
-					swprintf( curr->szString, L"%d", iNumber );
+					sgp_swprintf( curr->szString, (size_t)curr->ubMaxChars + 1, L"%d", iNumber );
 			}
 			curr->ubStrLen = (UINT8)wcslen( curr->szString );
 			return;
@@ -1863,7 +1863,10 @@ void DoublePercentileCharacterFromStringIntoString( STR16 pSrcString, STR16 pDst
 	pDstString[ iDstIndex ] = 0;
 }
 
+#ifdef _WIN32
 // OJW - 20090427 - Paste clipboard text
+// Clipboard integration is Win32-only here; Phase 4 replaces these
+// two functions with SDL_GetClipboardText / SDL_SetClipboardText.
 UINT32 PasteClipboardText()
 {
 	// get the window handle of the window which currently holds the clipboard
@@ -1948,6 +1951,11 @@ void CopyToClipboard( void )
 		}
 
 		// finish up
-		CloseClipboard();	
+		CloseClipboard();
 	}
 }
+#else
+// Non-Windows placeholder. Phase 4 wires these up to SDL clipboard.
+UINT32 PasteClipboardText() { return 0; }
+void CopyToClipboard( void ) { }
+#endif // _WIN32

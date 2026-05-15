@@ -189,7 +189,7 @@ void WriteSTIFile( INT8 *pData, SGPPaletteEntry *pPalette, INT16 sWidth, INT16 s
 	{
 		if(Header.uiAppDataSize > 0)
 			for(uiLoop=0; uiLoop<Header.uiAppDataSize; uiLoop++)
-				FileWrite(hFile, "", 1, NULL);
+				FileWrite(hFile, (PTR)"", 1, NULL);
 	}
 	else
 		FileWrite(hFile, Image.pAppData, Header.uiAppDataSize, NULL);

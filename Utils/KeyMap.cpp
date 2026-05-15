@@ -1,8 +1,13 @@
 #include "KeyMap.h"
-#include <windows.h>
 #include "Text.h"
 
-static Str8EnumLookupType gKeyTable[] = 
+#ifdef _WIN32
+// VK_* virtual-key code table from Win32. Phase 4 (input migration)
+// will replace this with an SDL3-scancode-based table that exports
+// the same VK_* numeric values for save-game compatibility.
+#include <windows.h>
+
+static Str8EnumLookupType gKeyTable[] =
 {
 	{VK_LBUTTON, "LBUTTON"},
 	{VK_RBUTTON, "RBUTTON"},
@@ -268,3 +273,4 @@ extern int ParseKeyString(const STR value)
 	}
 	return iresult;
 }
+#endif // _WIN32

@@ -62,8 +62,8 @@ namespace vfs
 		VFS_API bool			writeToIniFile(vfs::Path const& sFileName, bool bCreateNew = false);
 
 		// these functions are not implemented
-		bool					initFromXMLFile(vfs::Path const& sFileName, TagMap& tagmap);
-		bool					writeToXMLFile(vfs::Path const& sFileName, TagMap& tagmap);
+		bool					initFromXMLFile(vfs::Path const& sFileName, TagMap const& tagmap);
+		bool					writeToXMLFile(vfs::Path const& sFileName, TagMap const& tagmap);
 
 		VFS_API void			printProperties(std::ostream &out);
 

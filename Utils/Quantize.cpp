@@ -1,9 +1,7 @@
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
 #include "types.h"
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include "Quantize.h"
 #include "types.h"
 #include "himage.h"

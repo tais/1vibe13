@@ -399,8 +399,13 @@ static void TacticalPlacementScrollBarCallBack( MOUSE_REGION *pRegion, INT32 iRe
 		if ( giPlacements > MaxRenderedFaces() )
 		{
 			// where is the mouse?
+#ifdef _WIN32
 			GetCursorPos( &MousePos );
 			ScreenToClient( ghWindow, &MousePos ); // In window coords!
+#else
+			MousePos.x = gusMouseXPos;
+			MousePos.y = gusMouseYPos;
+#endif
 
 			const UINT16 ubMouseXOffset = (UINT16)MousePos.x - gScrollAreaXStart;
 

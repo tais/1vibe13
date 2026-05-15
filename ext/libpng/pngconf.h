@@ -412,10 +412,10 @@
  */
 
 #ifdef PNG_FLOATING_POINT_SUPPORTED
-#  ifdef MACOS
-     /* We need to check that <math.h> hasn't already been included earlier
-      * as it seems it doesn't agree with <fp.h>, yet we should really use
-      * <fp.h> if possible.
+#  if defined(MACOS) && !defined(__APPLE__)
+     /* Classic Mac OS pre-X used <fp.h>. Modern Apple platforms
+      * (where __APPLE__ is set) ship <math.h> in the standard
+      * location.
       */
 #    if !defined(__MATH_H__) && !defined(__MATH_H) && !defined(__cmath__)
 #      include <fp.h>

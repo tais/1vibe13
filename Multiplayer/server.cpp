@@ -646,7 +646,7 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 		if (strcmp(clinf->client_version,MPVERSION)!=0)
 		{
 			CHAR16 verErrMsg[255];
-			swprintf(verErrMsg,255, MPClientMessage[66], clinf->client_version,MPVERSION);
+			sgp_swprintf(verErrMsg, 255, MPClientMessage[66], clinf->client_version,MPVERSION);
 
 			// send disconnect reason only to this client
 			server->RPC("recieveDISCONNECTREASON",(const char*)&verErrMsg, (int)sizeof(CHAR16)*255*8, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, false, 0, UNASSIGNED_NETWORK_ID,0);
@@ -878,7 +878,7 @@ void start_server (void)
 		// Read from ja2_mp.ini
 		// ----------------------------
 
-		CIniReader iniReader(JA2MP_INI_FILENAME);	// Wird nur für Strings gebraucht
+		CIniReader iniReader(JA2MP_INI_FILENAME);	// Wird nur fï¿½r Strings gebraucht
 		strncpy(cServerName, iniReader.ReadString(JA2MP_INI_INITIAL_SECTION, JA2MP_SERVER_NAME, "My JA2 Server"), 30 );				
 		strncpy(gKitBag, iniReader.ReadString(JA2MP_INI_INITIAL_SECTION,JA2MP_KIT_BAG, ""), 100);
 		
