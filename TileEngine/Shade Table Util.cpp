@@ -179,7 +179,7 @@ BOOLEAN SaveShadeTable( HVOBJECT pObj, UINT32 uiTileTypeIndex )
 	
 	// BF
 	//strcpy( ShadeFileName, TileSurfaceFilenames[ uiTileTypeIndex ] );
-	sprintf_s( ShadeFileName, "%s\\%s", SHADE_TABLE_DIR, TileSurfaceFilenames[ uiTileTypeIndex ] );
+	sprintf_s( ShadeFileName, 100, "%s\\%s", SHADE_TABLE_DIR, TileSurfaceFilenames[ uiTileTypeIndex ] );
 
 	ptr = strstr( ShadeFileName, "." );
 	if( !ptr )

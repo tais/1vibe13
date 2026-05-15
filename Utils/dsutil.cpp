@@ -2,6 +2,10 @@
 // TAKEN FROM MS SAMPLES FOR DirectSound
 
 	#include "types.h"
+
+#ifdef _WIN32
+// DirectSound utility -- Win32-only. Phase 7 replaces it with
+// SDL3_mixer (or SoLoud / miniaudio).
 	#include <windows.h>
 	#include <mmsystem.h>
 	#include <dsound.h>
@@ -370,3 +374,4 @@ BOOL DSParseWaveResource(void *pvRes, WAVEFORMATEX **ppWaveHeader, BYTE **ppbWav
 exit:
 	return FALSE;
 }
+#endif // _WIN32
