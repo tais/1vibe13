@@ -84,6 +84,24 @@ inline void ZeroMemory(void* dst, size_t len) { std::memset(dst, 0, len); }
 // MSVC's _abs64 is the standard llabs (absolute value of long long).
 #include <cstdlib>
 inline long long _abs64(long long v) { return llabs(v); }
+
+// Win32 GetLastError. We have no per-thread error state to surface,
+// so return 0 ("success" / "no error info") and let callers fall
+// through to their generic error path.
+inline DWORD GetLastError() { return 0; }
+#endif
+
+// A handful of Win32 ERROR_* values used at call sites that compare
+// against GetLastError(). The values match the official Win32 SDK so
+// any code conditioning on them stays semantically equivalent.
+#ifndef ERROR_SUCCESS
+#define ERROR_SUCCESS              0L
+#endif
+#ifndef ERROR_NOT_READY
+#define ERROR_NOT_READY            21L
+#endif
+#ifndef ERROR_INSUFFICIENT_BUFFER
+#define ERROR_INSUFFICIENT_BUFFER  122L
 #endif
 
 #ifndef _countof

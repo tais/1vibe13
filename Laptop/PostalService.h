@@ -46,7 +46,7 @@ typedef DestinationStruct* PDestinationStruct;
 typedef list<DestinationStruct> DestinationList;
 typedef list<DestinationStruct>& RefToDestinationList;
 typedef DestinationList::const_iterator& RefToDestinationListIterator;
-inline RefToDestinationStruct DESTINATION(RefToDestinationListIterator dli)
+inline RefToDestinationStruct DESTINATION(DestinationList::const_iterator dli)
 {
 	return ( (RefToDestinationStruct) *dli );
 }
@@ -159,7 +159,7 @@ inline BOOLEAN SHIPMENT_ID_LOWER(RefToShipmentStruct s1, RefToShipmentStruct s2)
 }
 #define SHIPMENT_LIST_ASCENDING SHIPMENT_ID_LOWER
 
-inline RefToShipmentStruct SHIPMENT(RefToShipmentListIterator sli)
+inline RefToShipmentStruct SHIPMENT(ShipmentListIterator sli)
 {
 	return ( (RefToShipmentStruct) *sli );
 }

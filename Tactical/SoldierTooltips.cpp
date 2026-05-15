@@ -647,7 +647,7 @@ void DisplayWeaponInfo( SOLDIERTYPE* pSoldier, CHAR16* pStrInfo, UINT8 ubSlot, U
 	if ( ubTooltipDetailLevel >= DL_Full )
 	{
 		// display exact weapon model
-		swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo,
+		sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo,
 			WeaponInHand( pSoldier ) ? ItemNames[ pSoldier->inv[ubSlot].usItem ] : gzTooltipStrings[STR_TT_NO_WEAPON] );
 
 #ifdef ENCYCLOPEDIA_WORKS
@@ -664,32 +664,32 @@ void DisplayWeaponInfo( SOLDIERTYPE* pSoldier, CHAR16* pStrInfo, UINT8 ubSlot, U
 			switch( Weapon[pSoldier->inv[ubSlot].usItem].ubWeaponClass )
 			{
 				case HANDGUNCLASS:
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_HANDGUN] );
+					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_HANDGUN] );
 					break;
 				case SMGCLASS:
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_SMG] );
+					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_SMG] );
 					break;
 				case RIFLECLASS:
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_RIFLE] );
+					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_RIFLE] );
 					break;
 				case MGCLASS:
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_MG] );
+					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_MG] );
 					break;
 				case SHOTGUNCLASS:
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_SHOTGUN] );
+					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_SHOTGUN] );
 					break;
 				case KNIFECLASS:
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_KNIFE] );
+					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_KNIFE] );
 					break;
 				default:
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_HEAVY_WEAPON] );
+					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_HEAVY_WEAPON] );
 					break;
 			}
 		}
 		else
 		{
 			// display general weapon type
-			swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo,
+			sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo,
 				WeaponInHand( pSoldier) ? WeaponType[Weapon[pSoldier->inv[ubSlot].usItem].ubWeaponType] : gzTooltipStrings[STR_TT_NO_WEAPON] );
 		}
 	}
@@ -745,9 +745,13 @@ void DrawMouseTooltip()
 	extern void DisplayTooltipString( const STR16 pStringA, INT16 sX, INT16 sY );
 	extern void j_log(PTR,...);
 
+#ifdef _WIN32
 	UINT16 fontHeight = isTooltipScalingEnabled()
 		? GetWinFontHeight(TOOLTIP_IFONT)
 		: GetFontHeight(FONT10ARIAL);
+#else
+	UINT16 fontHeight = GetFontHeight(FONT10ARIAL);
+#endif
 
 	iX = mouseTT.iX;iY = mouseTT.iY;
 	iW = (INT32)(GetWidthOfString(mouseTT.FastHelpText) + 10 * fTooltipScaleFactor);

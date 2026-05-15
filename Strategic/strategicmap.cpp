@@ -1893,7 +1893,7 @@ void InitializeSAMSites( void )
 void GetShortSectorString( INT16 sMapX, INT16 sMapY, STR16 sString )
 {
 	// OK, build string id like J11
-	swprintf( sString, L"%S%S", pVertStrings[sMapY], pHortStrings[sMapX] );
+	sgp_swprintf( sString, 16, L"%S%S", pVertStrings[sMapY], pHortStrings[sMapX] );
 }
 
 
@@ -3491,7 +3491,7 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zSt
 
 	if ( sSectorX <= 0 || sSectorY <= 0 || bSectorZ < 0 )
 	{
-		//swprintf( zString, L"%s", pErrorStrings[0] );
+		//sgp_swprintf( zString, 60, L"%s", pErrorStrings[0] );
 	}
 	else if ( bSectorZ != 0 ) // UNDERGROUND SECTORS
 	{
@@ -3507,7 +3507,7 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zSt
 		AssertLT( ubSectorID, 256 );
 		pSector = &SectorInfo[ubSectorID];
 		ubLandType = pSector->ubTraversability[4];
-		swprintf( zString, L"%c%d: ", 'A' + sSectorY - 1, sSectorX );
+		sgp_swprintf( zString, 60, L"%c%d: ", 'A' + sSectorY - 1, sSectorX );
 
 		BOOLEAN fSectorHasXMLNames = TRUE;
 		CHAR16 zUnexploredUnderground[MAX_SECTOR_NAME_LENGTH];
@@ -3549,7 +3549,7 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zSt
 				bMineIndex = GetIdOfMineForSector( sSectorX, sSectorY, bSectorZ );
 				if ( bMineIndex != -1 )
 				{
-					swprintf( zString, L"%c%d: %s %s", 'A' + sSectorY - 1, sSectorX, pTownNames[GetTownAssociatedWithMine( bMineIndex )], pwMineStrings[0] );
+					sgp_swprintf( zString, 60, L"%c%d: %s %s", 'A' + sSectorY - 1, sSectorX, pTownNames[GetTownAssociatedWithMine( bMineIndex )], pwMineStrings[0] );
 				}
 				else if ( pUnderground->fVisited )
 				{
@@ -3575,9 +3575,9 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zSt
 				}
 
 				if ( pUnderground->ubNumCreatures )
-					swprintf( zString, L"%c%d: %s", 'A' + sSectorY - 1, sSectorX, pLandTypeStrings[CREATURE_LAIR] );
+					sgp_swprintf( zString, 60, L"%c%d: %s", 'A' + sSectorY - 1, sSectorX, pLandTypeStrings[CREATURE_LAIR] );
 				//else
-				//	swprintf( zString, L"%c%d-%d", 'A' + sSectorY - 1, sSectorX, bSectorZ );
+				//	sgp_swprintf( zString, 60, L"%c%d-%d", 'A' + sSectorY - 1, sSectorX, bSectorZ );
 			}
 		}
 		else // UNDERGROUND HARDCODED
@@ -3588,30 +3588,30 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zSt
 				bMineIndex = GetIdOfMineForSector( sSectorX, sSectorY, bSectorZ );
 				if ( bMineIndex != -1 )
 				{
-					swprintf( zString, L"%c%d: %s %s", 'A' + sSectorY - 1, sSectorX, pTownNames[GetTownAssociatedWithMine( bMineIndex )], pwMineStrings[0] );
+					sgp_swprintf( zString, 60, L"%c%d: %s %s", 'A' + sSectorY - 1, sSectorX, pTownNames[GetTownAssociatedWithMine( bMineIndex )], pwMineStrings[0] );
 				}
 				else switch ( SECTOR( sSectorX, sSectorY ) )
 				{
 				case SEC_A10:
-					swprintf( zString, L"A10: %s", pLandTypeStrings[REBEL_HIDEOUT] );
+					sgp_swprintf( zString, 60, L"A10: %s", pLandTypeStrings[REBEL_HIDEOUT] );
 					break;
 				case SEC_J9:
-					swprintf( zString, L"J9: %s", pLandTypeStrings[TIXA_DUNGEON] );
+					sgp_swprintf( zString, 60, L"J9: %s", pLandTypeStrings[TIXA_DUNGEON] );
 					break;
 				case SEC_K4:
-					swprintf( zString, L"K4: %s", pLandTypeStrings[ORTA_BASEMENT] );
+					sgp_swprintf( zString, 60, L"K4: %s", pLandTypeStrings[ORTA_BASEMENT] );
 					break;
 				case SEC_O3:
-					swprintf( zString, L"O3: %s", pLandTypeStrings[TUNNEL] );
+					sgp_swprintf( zString, 60, L"O3: %s", pLandTypeStrings[TUNNEL] );
 					break;
 				case SEC_P3:
-					swprintf( zString, L"P3: %s", pLandTypeStrings[SHELTER] );
+					sgp_swprintf( zString, 60, L"P3: %s", pLandTypeStrings[SHELTER] );
 					break;
 				default:
 					if ( pUnderground->ubNumCreatures )
-						swprintf( zString, L"%c%d: %s", 'A' + sSectorY - 1, sSectorX, pLandTypeStrings[CREATURE_LAIR] );
+						sgp_swprintf( zString, 60, L"%c%d: %s", 'A' + sSectorY - 1, sSectorX, pLandTypeStrings[CREATURE_LAIR] );
 					else
-						swprintf( zString, L"%c%d-%d", 'A' + sSectorY - 1, sSectorX, bSectorZ );
+						sgp_swprintf( zString, 60, L"%c%d-%d", 'A' + sSectorY - 1, sSectorX, bSectorZ );
 					break;
 				}
 			}
@@ -3639,7 +3639,7 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zSt
 		AssertLT( ubSectorID, 256 );
 		pSector = &SectorInfo[ubSectorID];
 		ubLandType = pSector->ubTraversability[4];
-		swprintf( zString, L"%c%d: ", 'A' + sSectorY - 1, sSectorX );
+		sgp_swprintf( zString, 60, L"%c%d: ", 'A' + sSectorY - 1, sSectorX );
 
 		////////////////////////////////////
 		// Read and verify XML sector names
@@ -3796,7 +3796,7 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zSt
 							UINT8 ubMineIndex = GetMineIndexForSector( sSectorX, sSectorY );
 							if ( gMineStatus[ubMineIndex].sSectorX == sSectorX && gMineStatus[ubMineIndex].sSectorY == sSectorY )
 							{
-							swprintf( zString, L" %s", MineralsName[gMineStatus[ubMineIndex].ubMineType].sType );
+							sgp_swprintf( zString, 60, L" %s", MineralsName[gMineStatus[ubMineIndex].ubMineType].sType );
 							}
 							*/
 							switch ( ubSectorID )
@@ -6312,16 +6312,16 @@ void GetLoadedSectorString( STR16 pString )
 {
 	if ( !gfWorldLoaded )
 	{
-		swprintf( pString, L"" );
+		sgp_swprintf( pString, 10, L"" );
 		return;
 	}
 	if ( gbWorldSectorZ )
 	{
-		swprintf( pString, L"%c%d_b%d", gWorldSectorY + 'A' - 1, gWorldSectorX, gbWorldSectorZ );
+		sgp_swprintf( pString, 10, L"%c%d_b%d", gWorldSectorY + 'A' - 1, gWorldSectorX, gbWorldSectorZ );
 	}
 	else if ( !gbWorldSectorZ )
 	{
-		swprintf( pString, L"%c%d", gWorldSectorY + 'A' - 1, gWorldSectorX );
+		sgp_swprintf( pString, 10, L"%c%d", gWorldSectorY + 'A' - 1, gWorldSectorX );
 	}
 }
 
