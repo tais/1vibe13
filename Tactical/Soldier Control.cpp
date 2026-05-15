@@ -1704,7 +1704,7 @@ BOOLEAN gfCalcTranslucency = FALSE;
 
 INT16		gsFullTileDirections[MAX_FULLTILE_DIRECTIONS] =
 {
-	-1, -WORLD_COLS - 1, -WORLD_COLS
+	(INT16)-1, (INT16)(-WORLD_COLS - 1), (INT16)-WORLD_COLS
 
 };
 
@@ -2446,7 +2446,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 
 	if ( this->ubBodyType == QUEENMONSTER )
 	{
-		this->iPositionSndID = NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER, (UINT32)this, QUEEN_AMBIENT_NOISE, 15 );
+		this->iPositionSndID = NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER, (UINT32)(uintptr_t)this, QUEEN_AMBIENT_NOISE, 15 );
 	}
 
 
