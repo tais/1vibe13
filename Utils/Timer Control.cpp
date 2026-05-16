@@ -1,24 +1,23 @@
-#ifdef _WIN32
-	#include <windows.h>
-	#include <mmsystem.h>
-#endif
-	#include <string.h>
-	#include "stdlib.h"
-	#include "DEBUG.H"
-	#include "Timer Control.h"
-	#include "Overhead.h"
-	#include "handle items.h"
-	#include "worlddef.h"
-	#include "renderworld.h"
-	#include "Interface Control.h"
-	#include "KeyMap.h"
-
-#ifndef WIN32_LEAN_AND_MEAN
-	#define WIN32_LEAN_AND_MEAN
-#endif
+#include <string.h>
+#include "stdlib.h"
+#include "DEBUG.H"
+#include "Timer Control.h"
+#include "Overhead.h"
+#include "handle items.h"
+#include "worlddef.h"
+#include "renderworld.h"
+#include "Interface Control.h"
+#include "KeyMap.h"
 
 #include "Soldier Control.h"
 #include "connect.h"
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <list>
+#include <mutex>
+#include <thread>
 
 // Base resolution of callback timer
 static INT32 BASETIMESLICE = 10;
@@ -44,11 +43,7 @@ const inline UINT32 TIME_MS_TO_US(UINT32 value) { return value * 1000; }
 UINT32   giFastForwardPeriod = FASTFORWARDTIMESLICE;
 BOOLEAN giFastForwardMode = FALSE;
 INT32   giFastForwardKey = 0;
-UINT32  guiTimeSlice = 0;
 FLOAT gfClockSpeedPercent = 1.0;
-LARGE_INTEGER gliPerfFreq = {0};
-LARGE_INTEGER gliPerfCount = {0};
-LARGE_INTEGER gliPerfCountNext = {0};
 
 
 INT32		giTimerIntervals[ NUMTIMERS ] =
@@ -92,38 +87,29 @@ INT32		giTimerTeamTurnUpdate			= 0;
 
 CUSTOMIZABLE_TIMER_CALLBACK gpCustomizableTimerCallback = NULL;
 
-// Clock Callback event ID
-MMRESULT	gTimerID;
+// Game clock now runs on std::chrono::steady_clock. The Win32
+// QueryPerformanceCounter LARGE_INTEGER pair is replaced by a pair of
+// time_points and a duration, all kept in microseconds so the
+// GetJA2Microseconds() return contract is preserved.
+using SteadyClock = std::chrono::steady_clock;
+static SteadyClock::time_point gPerfCount = SteadyClock::now();
+static SteadyClock::time_point gPerfCountNext = SteadyClock::now();
 
-TIMECAPS	gtc;
-
-HANDLE		ghClockThread;
-DWORD		gdwClockThreadId;
-HANDLE		ghClockThreadShutdown;
-
-HANDLE		ghNotifyThread;
-DWORD		gdwNotifyThreadId;
-HANDLE		ghNotifyThreadEvent;
-HANDLE		ghNotifyThreadShutdownComplete;
-
-// GLOBALS FOR CALLBACK
-UINT32				gCNT;
-SOLDIERTYPE		*gPSOLDIER;
-
-// GLobal for displaying time diff ( DIAG )
-UINT32		guiClockDiff = 0;
-UINT32		guiClockStart = 0;
-
-// BOB: made global to help track freeze issue
+// BOB: made global to help track freeze issue. These were observable
+// in the debugger on Windows; preserving the names eases parity with
+// older save-game / debug output.
 LONGLONG gliTimestampDiff = 0;
 LONGLONG gliWaitTime = 0;
 LONGLONG giIncrement = 0;
 UINT32 giSleepTime = 0;
 
+// GLobal for displaying time diff ( DIAG )
+UINT32		guiClockDiff = 0;
+UINT32		guiClockStart = 0;
+
 
 extern UINT32 guiCompressionStringBaseTime;
 extern INT32 giFlashHighlightedItemBaseTime;
-//extern INT32 giCompatibleItemBaseTime;//Moa:removed (see HandleMouseInCompatableItemForMapSectorInventory)
 extern INT32 giAnimateRouteBaseTime;
 extern INT32 giPotHeliPathBaseTime;
 extern INT32 giPotMilitiaPathBaseTime;
@@ -148,24 +134,50 @@ struct TIMER_NOTIFY_ITEM
 typedef std::list<TIMER_NOTIFY_ITEM> TIMER_NOTIFY_ITEM_LIST;
 typedef TIMER_NOTIFY_ITEM_LIST::iterator TIMER_NOTIFY_ITEM_ITERATOR;
 static TIMER_NOTIFY_ITEM_LIST glNotifyCallbacks;
-static CRITICAL_SECTION gcsNotifyLock;
+static std::mutex gNotifyMutex;
+
+// Clock / notify thread state. std::thread + std::atomic<bool> for
+// shutdown signaling, std::condition_variable for the
+// notify-when-counter-finishes hand-off. Replaces the four Win32
+// HANDLEs from the original (ghClockThreadShutdown, ghClockThread,
+// ghNotifyThreadEvent, ghNotifyThread, ghNotifyThreadShutdownComplete).
+static std::thread gClockThread;
+static std::thread gNotifyThread;
+static std::atomic<bool> gShutdownRequested{false};
+static std::atomic<bool> gNotifyPending{false};
+static std::mutex gNotifyCvMutex;
+static std::condition_variable gNotifyCv;
+static std::thread::id gClockThreadId;
+
+// Current period of the non-hispeed clock tick in milliseconds. The
+// portable rewrite drops Win32's gtc.wPeriodMin (system timer
+// resolution); std::chrono is always microsecond-precise so the
+// fast-forward branch can sleep for 1ms directly.
+static std::atomic<UINT32> gClockTickPeriodMs{10};
 
 static bool HasTimerNotifyCallbacks( );
 static void BroadcastTimerNotify(INT32 );
+
+// Local function-pointer alias matching the legacy mmsystem
+// LPTIMECALLBACK signature. Used only by InitializeJA2TimerCallback
+// (which is now an empty stub returning 1). Declared locally so this
+// TU no longer needs <mmsystem.h>.
+typedef void (*JA2TimerProcFn)(UINT, UINT, DWORD, DWORD, DWORD);
+void FlashItem( UINT uiID, UINT uiMsg, DWORD uiUser, DWORD uiDw1, DWORD uiDw2 );
 static BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft );
 static BOOLEAN UpdateCounter( INT32 counter, INT32 &iTimeLeft);
 static void UpdateTimer();
 void ResetJA2ClockGlobalTimers(void);
 
-UINT32 InitializeJA2TimerCallback( UINT32 uiDelay, LPTIMECALLBACK TimerProc, UINT32 uiUser );
+static LONGLONG NowMicroseconds()
+{
+	auto t = SteadyClock::now().time_since_epoch();
+	return (LONGLONG)std::chrono::duration_cast<std::chrono::microseconds>(t).count();
+}
 
-// CALLBACKS
-void CALLBACK FlashItem( UINT uiID, UINT uiMsg, DWORD uiUser, DWORD uiDw1, DWORD uiDw2 );
-
-void CALLBACK TimeProc( UINT uID,	UINT uMsg, DWORD dwUser, DWORD dw1,	DWORD dw2	)
+static void TimeProc()
 {
 	static BOOLEAN fInFunction = FALSE;
-	//SOLDIERTYPE		*pSoldier;
 
 	if ( !fInFunction )
 	{
@@ -175,16 +187,18 @@ void CALLBACK TimeProc( UINT uID,	UINT uMsg, DWORD dwUser, DWORD dw1,	DWORD dw2	
 		BOOLEAN tickTime = FALSE;
 		INT32 iTimeLeft = 0;
 
-		// Use QPC to check if BASETIMESLICE (in ms) has passed
+		// Mirror QPC behaviour: in hispeed mode only advance once
+		// sufficient real time has passed since the previous tick;
+		// in normal mode the tick rate is governed by the clock
+		// thread's sleep cadence and we tick every call.
 		if (IsHiSpeedClockMode())
 		{
-			// Only advance time when sufficient time has passed to exceed next time
-			QueryPerformanceCounter(&gliPerfCount);
-			if (gliPerfCount.QuadPart > gliPerfCountNext.QuadPart)
+			gPerfCount = SteadyClock::now();
+			if (gPerfCount > gPerfCountNext)
 			{
 				INT32 iNext = IsFastForwardMode() ? giFastForwardPeriod : UPDATETIMESLICE;
-				giIncrement = (iNext * gliPerfFreq.QuadPart) / FREQUENCY_CONST;
-				gliPerfCountNext.QuadPart = gliPerfCount.QuadPart + giIncrement;
+				giIncrement = iNext;
+				gPerfCountNext = gPerfCount + std::chrono::microseconds(iNext);
 				iTimeLeft = iNext;
 				timerDone = IsFastForwardMode();
 				tickTime = TRUE;
@@ -192,10 +206,10 @@ void CALLBACK TimeProc( UINT uID,	UINT uMsg, DWORD dwUser, DWORD dw1,	DWORD dw2	
 		}
 		else
 		{
-			// When using millisecond timer, advance time everytime this function is called
 			tickTime = TRUE;
 			timerDone = !IsFastForwardMode();
 		}
+
 		if (tickTime)
 		{
 			guiBaseJA2NoPauseClock += BASETIMESLICE;
@@ -214,16 +228,16 @@ void CALLBACK TimeProc( UINT uID,	UINT uMsg, DWORD dwUser, DWORD dw1,	DWORD dw2	
 				if (uiOldClock > guiBaseJA2Clock)
 				{
 					MapScreenMessage(162, 0, L"guiBaseJA2Clock overflow detected!");
-					for (gCNT = 0; gCNT < TOTAL_SOLDIERS; gCNT++)
+					for (UINT32 cnt = 0; cnt < TOTAL_SOLDIERS; cnt++)
 					{
-						if (MercPtrs[gCNT])
-							MercPtrs[gCNT]->ResetSoldierChangeStatTimer();
+						if (MercPtrs[cnt])
+							MercPtrs[cnt]->ResetSoldierChangeStatTimer();
 					}
 				}
 
-				for ( gCNT = 0; gCNT < NUMTIMERS; gCNT++ )
+				for ( UINT32 cnt = 0; cnt < NUMTIMERS; cnt++ )
 				{
-					timerDone |= UpdateCounter( gCNT, iTimeLeft  );
+					timerDone |= UpdateCounter( cnt, iTimeLeft  );
 				}
 
 				// Update some specialized countdown timers...
@@ -239,39 +253,35 @@ void CALLBACK TimeProc( UINT uID,	UINT uMsg, DWORD dwUser, DWORD dw1,	DWORD dw2	
 
 #ifndef BOUNDS_CHECKER
 
-				// If mapscreen...
 				if( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN )
 				{
-					// IN Mapscreen, loop through player's team.....
-					for ( gCNT = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; gCNT <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; gCNT++ )
+					for ( UINT32 cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; cnt <= (UINT32)gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++ )
 					{
-						gPSOLDIER = MercPtrs[ gCNT ];
-						timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.PortraitFlashCounter, iTimeLeft );
-						timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.PanelAnimateCounter, iTimeLeft );
+						SOLDIERTYPE* pSoldier = MercPtrs[ cnt ];
+						timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
+						timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
 					}
 				}
 				else
 				{
-					// Set update flags for soldiers
-					////////////////////////////
-					for ( gCNT = 0; gCNT < guiNumMercSlots; gCNT++ )
+					for ( UINT32 cnt = 0; cnt < guiNumMercSlots; cnt++ )
 					{
-						gPSOLDIER = MercSlots[ gCNT ];
+						SOLDIERTYPE* pSoldier = MercSlots[ cnt ];
 
-						if ( gPSOLDIER != NULL )
+						if ( pSoldier != NULL )
 						{
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.UpdateCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.DamageCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.ReloadCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.FlashSelCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.BlinkSelCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.PortraitFlashCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.AICounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.FadeCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.NextTileCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( gPSOLDIER->timeCounters.PanelAnimateCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.UpdateCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.DamageCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.ReloadCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.FlashSelCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.BlinkSelCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.AICounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.FadeCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.NextTileCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
 #ifdef JA2UB
-							timerDone |= UpdateTimeCounter( gPSOLDIER->GetupFromJA25StartCounter, iTimeLeft );
+							timerDone |= UpdateTimeCounter( pSoldier->GetupFromJA25StartCounter, iTimeLeft );
 #endif
 						}
 					}
@@ -281,178 +291,143 @@ void CALLBACK TimeProc( UINT uID,	UINT uMsg, DWORD dwUser, DWORD dw1,	DWORD dw2	
 		}
 
 		if (timerDone)
-			SetEvent(ghNotifyThreadEvent);
+		{
+			{
+				std::lock_guard<std::mutex> lk(gNotifyCvMutex);
+				gNotifyPending = true;
+			}
+			gNotifyCv.notify_one();
+		}
 		fInFunction = FALSE;
 	}
 }
 
-static UINT32 MIN_TIMER(UINT32 timer, UINT32 other)
-{
-	UINT32 value = TIME_MS_TO_US(timer);
-	return ( value && value < other ? value : other );
-}
-
-// checks if the clock based on QueryPerformanceCounter is using sane values
-static inline bool TimerSanityCheck() {
-	// quick and drity check for messed up gliPerfCountNext - if the high part is ahead by more than 2, something very bad is going on.
-	return !( gliPerfCountNext.HighPart > gliPerfCount.HighPart + 1L );
-}
-
-// Returns the smallest time interval for a counter currently in use
+// Returns the smallest time interval (microseconds) until the next
+// counter expires. Reads the chrono time_points directly instead of
+// computing QPC tick deltas; the LONGLONG diagnostic globals are
+// updated in microseconds to preserve their old observable values.
 UINT32 GetNextCounterDoneTime(void)
 {
-	QueryPerformanceCounter(&gliPerfCount);
-	gliTimestampDiff = gliPerfCountNext.QuadPart - gliPerfCount.QuadPart;
-	gliWaitTime = (gliTimestampDiff * FREQUENCY_CONST) / gliPerfFreq.QuadPart;
+	gPerfCount = SteadyClock::now();
+	auto diff = std::chrono::duration_cast<std::chrono::microseconds>(
+		gPerfCountNext - gPerfCount).count();
+	gliTimestampDiff = (LONGLONG)diff;
+	gliWaitTime = (LONGLONG)diff;
 
-	// if the wait time is too long, or the "missed" step gets too long, re-evaluate the timer and try waiting 125ms
+	// Same sanity-check shape as before: if the next-tick deadline is
+	// pathologically far ahead or behind, snap it to "wake again in
+	// 125 ms" so we don't sleep forever or busy-loop.
 	if (gliWaitTime > 15000 || gliWaitTime < -15000) {
-		gliWaitTime = 125; // in mili-seconds
-
-		QueryPerformanceFrequency(&gliPerfFreq);
-		gliPerfCountNext.QuadPart = gliPerfCount.QuadPart + ((125 * gliPerfFreq.QuadPart) / FREQUENCY_CONST);
+		gliWaitTime = 125;
+		gPerfCountNext = gPerfCount + std::chrono::milliseconds(125);
 	}
 
 	return (UINT32)((gliWaitTime > 0) ? gliWaitTime : 0);
 }
 
-// Function to test if there are any outstanding timers.  Used in fast forward routines
 BOOLEAN IsTimerActive(void)
 {
 	return GetNextCounterDoneTime() <= FASTFORWARDTIMESLICE ? TRUE : FALSE;
 }
 
-DWORD WINAPI JA2ClockThread( LPVOID lpParam )
+static void ClockThreadMain()
 {
-#ifdef _MSC_VER
-	__try
+	for (;;)
 	{
-#endif
-		for(;;)
+		if (gShutdownRequested.load(std::memory_order_acquire)) break;
+
+		if (IsHiSpeedClockMode())
 		{
-			TimeProc(0, 0, 0, 0, 0);
+			TimeProc();
+			if (gShutdownRequested.load(std::memory_order_acquire)) break;
+			std::this_thread::yield();
 
-			DWORD dwResult = WaitForSingleObject(ghClockThreadShutdown, 0);
-			if (dwResult == WAIT_OBJECT_0 || dwResult == WAIT_ABANDONED)
-				break;
-			YieldProcessor();
-
-			// Sleep for a couple of milliseconds if not in fast forward mode
-			if (!IsFastForwardMode()) {
-
-				giSleepTime = TIME_US_TO_MS(GetNextCounterDoneTime());
-
-				// monitor the returned sleep times, if we try to sleep for more than 2 secs then somehing must be very wrong.
-				if (giSleepTime > 2000) {
-					giSleepTime = 250;
-				}
-
-				Sleep(giSleepTime);
-			}
-		}
-#ifdef _MSC_VER
-	}
-	__except( EXCEPTION_EXECUTE_HANDLER  )
-	{
-		// Unhandled exception just exit
-		__debugbreak();
-	}
-#endif
-	return 0L;
-}
-
-DWORD WINAPI JA2NotifyThread( LPVOID lpParam )
-{
-	HANDLE waitHandles[] = {ghClockThreadShutdown, ghNotifyThreadEvent};
-	for(;;) 
-	{
-		DWORD dwResult = WaitForSingleObject(ghClockThreadShutdown, 0);
-		if (dwResult == WAIT_OBJECT_0 || dwResult == WAIT_ABANDONED)
-			break;
-
-		DWORD waitTime = (!IsFastForwardMode()) ? max(TIME_US_TO_MS(MIN_NOTIFY_TIME), TIME_US_TO_MS( GetNextCounterDoneTime() ) ) : 0;
-		dwResult = WaitForMultipleObjectsEx(_countof(waitHandles), waitHandles, FALSE, waitTime, FALSE);
-		if (dwResult == WAIT_OBJECT_0)
-			break;
-		if (dwResult >= WAIT_ABANDONED_0 && dwResult <= (WAIT_ABANDONED_0 + _countof(waitHandles)))
-			break;
-		if ( dwResult == WAIT_FAILED || dwResult == WAIT_TIMEOUT || (dwResult-WAIT_OBJECT_0) == 1)
-		{
-			if (HasTimerNotifyCallbacks())
+			if (!IsFastForwardMode())
 			{
-				BroadcastTimerNotify(-1);
+				giSleepTime = TIME_US_TO_MS(GetNextCounterDoneTime());
+				if (giSleepTime > 2000) giSleepTime = 250;
+				if (giSleepTime > 0)
+					std::this_thread::sleep_for(std::chrono::milliseconds(giSleepTime));
 			}
 		}
 		else
 		{
-			// unexpected failure
-			DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "JA2NotifyThread failed!");
-			__debugbreak();
+			TimeProc();
+			UINT32 ms = gClockTickPeriodMs.load(std::memory_order_relaxed);
+			if (ms == 0) ms = 1;
+			std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 		}
-	} 
-	SetEvent(ghNotifyThreadShutdownComplete);
-	return 0L;
+	}
 }
 
+static void NotifyThreadMain()
+{
+	while (!gShutdownRequested.load(std::memory_order_acquire))
+	{
+		UINT32 waitMs = (!IsFastForwardMode())
+			? std::max<UINT32>(TIME_US_TO_MS(MIN_NOTIFY_TIME),
+			                   TIME_US_TO_MS(GetNextCounterDoneTime()))
+			: 0;
+
+		std::unique_lock<std::mutex> lk(gNotifyCvMutex);
+		if (waitMs == 0)
+		{
+			gNotifyCv.wait(lk, []{
+				return gNotifyPending.load() ||
+				       gShutdownRequested.load();
+			});
+		}
+		else
+		{
+			gNotifyCv.wait_for(lk,
+				std::chrono::milliseconds(waitMs),
+				[]{
+					return gNotifyPending.load() ||
+					       gShutdownRequested.load();
+				});
+		}
+		bool pending = gNotifyPending.exchange(false);
+		lk.unlock();
+
+		if (gShutdownRequested.load(std::memory_order_acquire)) break;
+
+		// Fire the broadcast on either an explicit notify or a wait
+		// timeout (the original Win32 path treated both the same).
+		(void)pending;
+		if (HasTimerNotifyCallbacks())
+		{
+			BroadcastTimerNotify(-1);
+		}
+	}
+}
 
 
 BOOLEAN InitializeJA2Clock()
 {
 #ifdef CALLBACKTIMER
-	MMRESULT	mmResult;
-	INT32			cnt;
-
-	// Init timer delays
-	for ( cnt = 0; cnt < NUMTIMERS; cnt++ )
+	for ( INT32 cnt = 0; cnt < NUMTIMERS; cnt++ )
 	{
 		giTimerCounters[ cnt ] = giTimerIntervals[ cnt ];
 	}
 
+	gPerfCount = SteadyClock::now();
+	gPerfCountNext = gPerfCount;
 
-	// First get timer resolutions
-	mmResult = timeGetDevCaps( &gtc, sizeof( gtc ) );
+	gShutdownRequested.store(false);
+	gNotifyPending.store(false);
 
-	if ( mmResult != TIMERR_NOERROR )
-	{
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Could not get timer properties");
-	}
-
-	if ( !QueryPerformanceFrequency(&gliPerfFreq) )
-	{
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Could not get performance frequency");
-	}
-	if ( !QueryPerformanceCounter(&gliPerfCount) )
-	{
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Could not get performance frequency");
-	}
-
-	timeBeginPeriod(gtc.wPeriodMin);
-
-	InitializeCriticalSection(&gcsNotifyLock);
+	UpdateTimer();
 
 	if (IsHiSpeedClockMode())
 	{
-		ghClockThreadShutdown = CreateEvent(NULL, TRUE, FALSE, NULL);
-		ghNotifyThreadEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-		ghNotifyThreadShutdownComplete = CreateEvent(NULL, TRUE, FALSE, NULL);
-		ghClockThread = CreateThread( 
-			NULL,              // default security attributes
-			0,                 // use default stack size  
-			JA2ClockThread,    // thread function 
-			NULL,              // argument to thread function 
-			0,                 // use default creation flags 
-			&gdwClockThreadId);// returns the thread identifier 
-		ghNotifyThread = CreateThread( 
-			NULL,              // default security attributes
-			0,                 // use default stack size  
-			JA2NotifyThread,    // thread function 
-			NULL,              // argument to thread function 
-			0,                 // use default creation flags 
-			&gdwNotifyThreadId);// returns the thread identifier 
+		gClockThread = std::thread(ClockThreadMain);
+		gClockThreadId = gClockThread.get_id();
+		gNotifyThread = std::thread(NotifyThreadMain);
 	}
 	else
 	{
-		UpdateTimer();
+		gClockThread = std::thread(ClockThreadMain);
+		gClockThreadId = gClockThread.get_id();
 	}
 #endif
 
@@ -462,65 +437,30 @@ BOOLEAN InitializeJA2Clock()
 
 void	ShutdownJA2Clock(void)
 {
-	if (IsHiSpeedClockMode())
+	gShutdownRequested.store(true, std::memory_order_release);
 	{
-		SetEvent(ghClockThreadShutdown);
-		WaitForSingleObject(ghNotifyThreadShutdownComplete, 2000);
-		HANDLE waitHandles[] = {ghClockThread, ghNotifyThread};
-		WaitForMultipleObjects(_countof(waitHandles), waitHandles, TRUE, 1000);
-		CloseHandle(ghClockThreadShutdown);
-		CloseHandle(ghClockThread);
-		CloseHandle(ghNotifyThreadEvent);
-		CloseHandle(ghNotifyThread);
-		// During ungraceful shutdowns notify lock may be in use in notify thread
-		if (TryEnterCriticalSection(&gcsNotifyLock))
-		{
-			LeaveCriticalSection(&gcsNotifyLock);
-			DeleteCriticalSection(&gcsNotifyLock);
-		}
+		std::lock_guard<std::mutex> lk(gNotifyCvMutex);
+		gNotifyPending = true;
 	}
-	else
-	{
-		// Make sure we kill the timer
-#ifdef CALLBACKTIMER
-		timeKillEvent( gTimerID );
-#endif
-	}
+	gNotifyCv.notify_all();
 
-	timeEndPeriod(gtc.wPeriodMin);
+	if (gClockThread.joinable())  gClockThread.join();
+	if (gNotifyThread.joinable()) gNotifyThread.join();
 }
 
 
-UINT32 InitializeJA2TimerCallback( UINT32 uiDelay, LPTIMECALLBACK TimerProc, UINT32 uiUser )
+UINT32 InitializeJA2TimerCallback( UINT32 /*uiDelay*/, JA2TimerProcFn /*TimerProc*/, UINT32 /*uiUser*/ )
 {
-	MMRESULT	mmResult;
-	MMRESULT	TimerID;
-
-
-	// First get timer resolutions
-	mmResult = timeGetDevCaps( &gtc, sizeof( gtc ) );
-
-	if ( mmResult != TIMERR_NOERROR )
-	{
-		__debugbreak();
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Could not get timer properties");
-	}
-
-	// Set timer at lowest resolution. Could use middle of lowest/highest, we'll see how this performs first
-	TimerID = timeSetEvent( (UINT)uiDelay, (UINT)uiDelay, TimerProc, (DWORD)uiUser, TIME_PERIODIC );
-
-	if ( !TimerID )
-	{
-		__debugbreak();
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Could not create timer callback");
-	}
-
-	return ( (UINT32)TimerID );
+	// The only customer of this in the codebase is FlashItem, which
+	// is an empty body. The Win32 multimedia timeSetEvent path is
+	// gone -- if a real periodic callback is ever needed, route it
+	// through AddTimerNotifyCallback. Returning 1 keeps the legacy
+	// "non-zero = success" contract for any caller that checks.
+	return 1;
 }
 
-void RemoveJA2TimerCallback( UINT32 uiTimer )
+void RemoveJA2TimerCallback( UINT32 /*uiTimer*/ )
 {
-	timeKillEvent( uiTimer );
 }
 
 
@@ -529,24 +469,15 @@ UINT32 InitializeJA2TimerID( UINT32 uiDelay, UINT32 uiCallbackID, UINT32 uiUser 
 	switch( uiCallbackID )
 	{
 	case ITEM_LOCATOR_CALLBACK:
-
-		return( InitializeJA2TimerCallback( uiDelay, FlashItem, uiUser ) );
-		break;
-
+		return InitializeJA2TimerCallback( uiDelay, FlashItem, uiUser );
 	}
-
-	// invalid callback id
 	Assert( FALSE );
-	return( 0 );
+	return 0;
 }
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////
-// TIMER CALLBACK S
-//////////////////////////////////////////////////////////////////////////////////////////////
-void CALLBACK FlashItem( UINT uiID, UINT uiMsg, DWORD uiUser, DWORD uiDw1, DWORD uiDw2 )
+void FlashItem( UINT /*uiID*/, UINT /*uiMsg*/, DWORD /*uiUser*/, DWORD /*uiDw1*/, DWORD /*uiDw2*/ )
 {
-
 }
 
 
@@ -561,7 +492,6 @@ void SetCustomizableTimerCallbackAndDelay( INT32 iDelay, CUSTOMIZABLE_TIMER_CALL
 	{
 		if ( !fReplace )
 		{
-			// replace callback but call the current callback first
 			gpCustomizableTimerCallback();
 		}
 	}
@@ -576,11 +506,7 @@ void CheckCustomizableTimer( void )
 	{
 		if ( TIMECOUNTERDONE( giTimerCustomizable, 0 ) )
 		{
-			// set the callback to a temp variable so we can reset the global variable
-			// before calling the callback, so that if the callback sets up another
-			// instance of the timer, we don't reset it afterwards
 			CUSTOMIZABLE_TIMER_CALLBACK pTempCallback;
-
 			pTempCallback = gpCustomizableTimerCallback;
 			gpCustomizableTimerCallback = NULL;
 			pTempCallback();
@@ -596,7 +522,6 @@ void ResetJA2ClockGlobalTimers( void )
 
 	guiCompressionStringBaseTime = uiCurrentTime;
 	giFlashHighlightedItemBaseTime = uiCurrentTime;
-	//giCompatibleItemBaseTime = uiCurrentTime;//Moa: removed (see HandleMouseInCompatableItemForMapSectorInventory)
 	giAnimateRouteBaseTime = uiCurrentTime;
 	giPotHeliPathBaseTime = uiCurrentTime;
 	giPotMilitiaPathBaseTime = uiCurrentTime;
@@ -630,14 +555,10 @@ void SetFastForwardKey(INT32 key)
 
 BOOLEAN IsFastForwardKeyPressed()
 {
-	// WANNE: In a multiplayer game it is not allowed for the "pure" client to do fast forward
-	// Only the server is allowed to do, because the AI is generated on the server
 	if (is_networked)
 	{
-		if (!is_server)				// It is not allowed when we are not the server
-			return false;
-		else if (gTacticalStatus.ubCurrentTeam != 1)	// It is not allowed, when it is not the enemy turn!
-			return false;
+		if (!is_server) return false;
+		else if (gTacticalStatus.ubCurrentTeam != 1) return false;
 	}
 
 	return giFastForwardKey && IsKeyPressed(giFastForwardKey);
@@ -656,12 +577,12 @@ BOOLEAN IsFastForwardMode()
 
 LONGLONG GetJA2Microseconds()
 {
-	return gliPerfCount.QuadPart * FREQUENCY_CONST / gliPerfFreq.QuadPart;
+	return NowMicroseconds();
 }
 
 void AddTimerNotifyCallback( TIMER_NOTIFY_CALLBACK callback, PTR state )
 {
-	EnterCriticalSection(&gcsNotifyLock);
+	std::lock_guard<std::mutex> lk(gNotifyMutex);
 	BOOL addItem = TRUE;
 	for (TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); ++itr) {
 		if ( callback == (*itr).callback && state == (*itr).state ){
@@ -676,80 +597,51 @@ void AddTimerNotifyCallback( TIMER_NOTIFY_CALLBACK callback, PTR state )
 		item.state = state;
 		glNotifyCallbacks.push_back(item);
 	}
-	LeaveCriticalSection(&gcsNotifyLock);
 }
 
 void RemoveTimerNotifyCallback( TIMER_NOTIFY_CALLBACK callback, PTR state )
 {
-	EnterCriticalSection(&gcsNotifyLock);
-	for ( TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); ) 
+	std::lock_guard<std::mutex> lk(gNotifyMutex);
+	for ( TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); )
 	{
 		if ( callback == (*itr).callback && state == (*itr).state )
 			itr = glNotifyCallbacks.erase(itr);
 		else
 			++itr;
 	}
-	LeaveCriticalSection(&gcsNotifyLock);
 }
 
 void ClearTimerNotifyCallbacks()
 {
-	// If we cannot get the lock it is likely due to exception while handling notification and we are shutting down
-	if ( TryEnterCriticalSection(&gcsNotifyLock) )
+	std::unique_lock<std::mutex> lk(gNotifyMutex, std::try_to_lock);
+	if (lk.owns_lock())
 	{
 		glNotifyCallbacks.clear();
-		LeaveCriticalSection(&gcsNotifyLock);
 	}
 }
 
 static bool HasTimerNotifyCallbacks( )
 {
+	std::lock_guard<std::mutex> lk(gNotifyMutex);
 	return !glNotifyCallbacks.empty();
 }
 
 
-// Call timer notify routine
-//   Separate the callback notifies with normal try/catch
-//   as SEH __try/__except are incompatible with C++ exceptions
-static void InnerTimerNotify(INT32 timer)
-{
-   try
-   {
-	  for (TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); ++itr)
-	  {
-		 if ( NULL != (*itr).callback)
-			(*itr).callback( timer, (*itr).state );
-	  }
-   }
-   catch (...)   {
-	   __debugbreak();
-	   DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "InnerTimerNotify Failed!");
-   }
-}
 static void BroadcastTimerNotify(INT32 timer)
 {
-	EnterCriticalSection(&gcsNotifyLock);
-#ifdef _MSC_VER
-	__try
+	std::lock_guard<std::mutex> lk(gNotifyMutex);
+	try
 	{
-		__try { InnerTimerNotify(timer); }
-		__except( EXCEPTION_EXECUTE_HANDLER  )
-		{ /*  Not sure.  exit? */
-			__debugbreak();
-			DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "BroadcastTimerNotify Failed!");
+		for (TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); ++itr)
+		{
+			if ( NULL != (*itr).callback)
+				(*itr).callback( timer, (*itr).state );
 		}
 	}
-	__finally
+	catch (...)
 	{
-		LeaveCriticalSection(&gcsNotifyLock);
-	}
-#else
-	try { InnerTimerNotify(timer); }
-	catch (...) {
 		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "BroadcastTimerNotify Failed!");
 	}
-	LeaveCriticalSection(&gcsNotifyLock);
-#endif
 }
 
 BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft)
@@ -765,7 +657,6 @@ BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft)
 			iTimeLeft = counter;
 		return FALSE;
 	}
-	return FALSE;
 }
 
 BOOLEAN UpdateCounter( INT32 counterIdx, INT32 &iTimeLeft )
@@ -807,7 +698,7 @@ void ZeroTimeCounter(INT32& timer)
 
 BOOLEAN IsJA2TimerThread()
 {
-	return (GetCurrentThreadId() == gdwClockThreadId);
+	return (std::this_thread::get_id() == gClockThreadId);
 }
 
 #ifndef GetJA2Clock
@@ -848,21 +739,16 @@ void SetClockSpeedPercent(FLOAT value)
 
 void UpdateTimer()
 {
-	// Set timer at lowest resolution. Could use middle of lowest/highest, we'll see how this performs first
 	if (!IsHiSpeedClockMode())
 	{
-		UINT uiTimeSlice = giFastForwardMode ? gtc.wPeriodMin : max(gtc.wPeriodMin, TIME_US_TO_MS(UPDATETIMESLICE));
-		if (uiTimeSlice != guiTimeSlice)
-		{
-			guiTimeSlice = uiTimeSlice;
-			if (gTimerID != 0) timeKillEvent(gTimerID);
-			gTimerID = timeSetEvent( uiTimeSlice, uiTimeSlice, TimeProc, (DWORD)0, TIME_PERIODIC );
-			if ( !gTimerID )
-			{
-				__debugbreak();
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Could not create timer callback");
-			}
-		}
+		// Pick the same target slice the old code did: fast-forward
+		// drops to the smallest tick (1 ms now that std::chrono has
+		// us-precision and there's no system-wide period to negotiate),
+		// otherwise use UPDATETIMESLICE (microseconds) converted to ms
+		// with a 1 ms floor.
+		UINT32 uiTimeSlice = giFastForwardMode
+			? 1u
+			: std::max<UINT32>(1u, TIME_US_TO_MS(UPDATETIMESLICE));
+		gClockTickPeriodMs.store(uiTimeSlice, std::memory_order_relaxed);
 	}
 }
-

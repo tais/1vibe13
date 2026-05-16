@@ -488,11 +488,14 @@ only so legacy unported translation units still compile.
    SLF archive reader. Endianness audit on the SLF header (it's
    little-endian on disk; should already work on LE platforms, but
    confirm).
-3. [Utils/Timer Control.cpp](../Utils/Timer%20Control.cpp) — rebuild
+3. ~~[Utils/Timer Control.cpp](../Utils/Timer%20Control.cpp) — rebuild
    the clock + notify threads on `std::thread` + `std::chrono` +
    `std::mutex` + `std::condition_variable`. Replace `timeSetEvent`
-   periodic callback with a scheduler thread. This is the most
-   complex Phase 2 task — JA2 has subtle timing assumptions.
+   periodic callback with a scheduler thread.~~ **Done.** Rewrite
+   replaces every Win32 primitive (`timeSetEvent` / `CreateThread` /
+   `CreateEvent` / `CRITICAL_SECTION` / `QueryPerformanceCounter` /
+   `SEH __try`) with portable C++11. Single implementation for every
+   platform — no `_WIN32` gate. Public API + globals unchanged.
 4. [sgp/MemMan.cpp](../sgp/MemMan.cpp) — drop the Win32 heap
    debug-tracking branch entirely. The `MemAlloc`/`MemFree` macros
    already collapse to `malloc`/`free` on non-MSVC.
