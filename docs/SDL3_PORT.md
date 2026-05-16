@@ -484,10 +484,15 @@ only so legacy unported translation units still compile.
    `std::ofstream` / `std::filesystem`.~~ **Not needed** — already
    abstracted through bfVFS, which has working POSIX paths. macOS
    exec-path gap patched.
-2. [sgp/LibraryDataBase.cpp](../sgp/LibraryDataBase.cpp) — port the
-   SLF archive reader. Endianness audit on the SLF header (it's
-   little-endian on disk; should already work on LE platforms, but
-   confirm).
+2. ~~[sgp/LibraryDataBase.cpp](../sgp/LibraryDataBase.cpp) — port the
+   SLF archive reader. Endianness audit on the SLF header.~~
+   **Not needed.** bfVFS has its own SLF reader
+   (`ext/VFS/src/Ext/slf/vfs_slf_library.cpp`, enabled by `VFS_WITH_SLF`)
+   and that's what `InitVirtualFileSystem` actually mounts. The legacy
+   `LibraryDataBase.cpp` is only kept alive by a single
+   `ShutDownFileDatabase()` cleanup call which is a no-op against an
+   uninitialised database. bfVFS's reader does no byte-swapping —
+   correct for all current LE targets (x86_64, arm64).
 3. ~~[Utils/Timer Control.cpp](../Utils/Timer%20Control.cpp) — rebuild
    the clock + notify threads on `std::thread` + `std::chrono` +
    `std::mutex` + `std::condition_variable`. Replace `timeSetEvent`

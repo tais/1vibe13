@@ -130,36 +130,16 @@ inline DWORD GetLastError() { return 0; }
 // MSVC __debugbreak intrinsic -> compiler trap on clang/gcc.
 inline void __debugbreak() { __builtin_trap(); }
 
-// Win32 mmsystem timer-resolution APIs. These bump the system timer
-// resolution -- not meaningful on POSIX where high-res clocks are
-// always available. Stubbed to no-ops.
-typedef UINT MMRESULT;
-#ifndef TIMERR_NOERROR
-#define TIMERR_NOERROR 0
-#endif
-inline MMRESULT timeBeginPeriod(UINT) { return 0; }
-inline MMRESULT timeEndPeriod(UINT)   { return 0; }
-inline DWORD    timeGetTime()         { return GetTickCount(); }
-struct TIMECAPS { UINT wPeriodMin, wPeriodMax; };
-inline MMRESULT timeGetDevCaps(TIMECAPS* tc, UINT) {
-    if (tc) { tc->wPeriodMin = 1; tc->wPeriodMax = 1000000; }
-    return 0;
-}
-// timeSetEvent/timeKillEvent: Win32 multimedia timer callbacks.
-// Stubbed -- the game's Timer Control will not get periodic
-// callbacks on non-Windows yet. Phase 2 ports to std::thread +
-// std::chrono.
-typedef void (__attribute__((__unused__)) *LPTIMECALLBACK)(UINT, UINT, DWORD, DWORD, DWORD);
-#ifndef TIME_PERIODIC
-#define TIME_PERIODIC 1
-#endif
-inline MMRESULT timeSetEvent(UINT, UINT, LPTIMECALLBACK, DWORD, UINT) { return 1; }
-inline MMRESULT timeKillEvent(UINT) { return 0; }
+// (Win32 mmsystem timer stubs -- timeBeginPeriod / timeEndPeriod /
+// timeGetDevCaps / timeSetEvent / timeKillEvent / TIMECAPS / MMRESULT /
+// LPTIMECALLBACK -- were removed once Timer Control was rewritten on
+// std::thread + std::chrono. Add them back if a Windows-only header
+// pulled into a portable TU starts referencing them.)
 
-// Win32 CRITICAL_SECTION / Event / Thread stubs. The non-Windows
-// builds don't run the JA2 clock or notify threads -- timer
-// callbacks just won't fire until Phase 2 rebuilds this on
-// std::thread + std::mutex + std::condition_variable.
+// Win32 CRITICAL_SECTION / Event stubs. These are still referenced
+// from a handful of non-portable translation units that haven't been
+// SDL3-ified yet (notably input.cpp's Win32 hook path); once those
+// land they can go too.
 struct CRITICAL_SECTION { int _stub; };
 inline void InitializeCriticalSection(CRITICAL_SECTION*) {}
 inline void DeleteCriticalSection(CRITICAL_SECTION*) {}
