@@ -749,18 +749,22 @@ What landed:
 3. ~~Add `sdl_video.cpp` + `sgp_portable_globals.cpp` +
    `sgp_portable_stubs.cpp` to `sgpSrc` unconditionally.~~ done.
 4. ~~Drop `ddraw.lib` from the Windows `Ja2_Libraries` list.~~ done.
-**Still pending in Phase 5b:**
-
-5. `WinMain` in [sgp/sgp.cpp](../sgp/sgp.cpp) at ~line 690 still owns
-   ~900 lines of Win32 plumbing: `WNDCLASSEX` / `CreateWindowEx` /
-   `TranslateMessage` + `DispatchMessage` pump, `WindowProcedure` /
-   `SyncWindowProcedure`, cnc-ddraw detection, single-instance mutex,
-   `HandledWinMain` SEH wrapper. The clean fix is to delete all of
-   that and have a single portable `main()` (the one currently under
-   `#ifndef _WIN32`) on every platform — SDL3's SDL_main shim handles
-   Windows entry. The game-init flow (`InitializeStandardGamingPlatform`,
-   `InitializeJA2`, `GameLoop`) moves out into a portable function
-   the unified main can call.
+5. ~~`WinMain` in [sgp/sgp.cpp](../sgp/sgp.cpp) at ~line 690 still owns
+   ~900 lines of Win32 plumbing.~~ **Done** (commit `e2e93b60`).
+   `WinMain` / `HandledWinMain` / `WindowProcedure` /
+   `SyncWindowProcedure` / `CreateStandardGamingPlatform` /
+   `SGPExceptionFilter` retired (gated `#if 0` for archeology).
+   `InitializeStandardGamingPlatform` is no-arg now; the void
+   `InitializeVideoManager` is the only video init.
+   `RegisterWindowMessage(MSH_MOUSEWHEEL)` gone (SDL_EVENT_MOUSE_WHEEL).
+   `CRITICAL_SECTION gcsGameLoop` → `std::mutex gGameLoopMutex`.
+   `__try`/`__except` SEH replaced by plain `try`/`catch` in
+   `SafeSGPExit` + `CallGameLoop`. `SGPExit` MessageBox → stderr.
+   Win32 `GetCommandLineW` parse rewritten as portable argc/argv
+   scan. Unified `int main(int, char**)` drives `SDL_PollEvent` +
+   `CallGameLoop` directly. macOS arm64 build clean; Windows builds
+   need to absorb the remaining `_WIN32`-only references in
+   WinFont/vobject_blitters as part of items 6+7 below.
 6. `WinFont.cpp`'s DD-using GDI text-rendering block
    ([sgp/WinFont.cpp:425-466](../sgp/WinFont.cpp#L425-L466)) calls
    `GetVideoSurfaceDDSurface` / `IDirectDrawSurface2_GetDC` /
@@ -770,7 +774,17 @@ What landed:
    the DD getters are gone, but Windows builds aren't being verified.
 7. `vobject_blitters.cpp` inline-asm blocks (still `_WIN32`-gated):
    MSVC-syntax `__asm { }`. On clang these wouldn't compile anyway;
-   they only kick in on MSVC. Replace with portable C in Phase 6.
+   they only kick in on MSVC. Two ports landed as Phase 6 toehold
+   (commit `800f2bc2`): `blendWithAlpha` (now does real RGB565
+   alpha math instead of returning 0/black) and `Blt16BPPTo16BPP`
+   (row-by-row memcpy). The remaining ~70 inline-asm bodies
+   (Blt8BPPDataTo16BPPBuffer* variants with Z-buffer / clip /
+   translucent / mono-shadow / mirror / pixelate / color-tint
+   permutations) still resolve to "return TRUE without writing
+   anything" on macOS. They need a single portable ETRLE row-
+   decoder that each variant calls with a per-pixel callback;
+   that's the right architecture but a substantial future
+   session.
 
 **Exit criterion (Phase 5 full)**: game boots into main menu on all
 three platforms and renders correctly via the existing RGB565
