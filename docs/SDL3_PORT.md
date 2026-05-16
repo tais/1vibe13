@@ -607,33 +607,32 @@ not crashing) on macOS.
 
 Replace DirectInput / Win32 keyboard & mouse messages with SDL events.
 
-**Status (2026-05-16):** first cut landed as
-[sgp/sdl_input.cpp](../sgp/sdl_input.cpp) + sdl_input.h. SDL_Event ->
-JA2 event translation (scancode -> VK_*, mouse-coord packing into
-LPARAM-shaped UINT32, button + wheel handling) now lives in its own
-TU. `sgp.cpp`'s main calls `SgpHandleSDLEvent()`.
+**Status (2026-05-16):** ✅ done end-to-end. SDL_Event → JA2 event
+translation lives in [sgp/sdl_input.cpp](../sgp/sdl_input.cpp) +
+sdl_input.h. `sgp.cpp`'s main calls `SgpHandleSDLEvent()` which calls
+input.cpp's real `QueueEvent` and updates `gfKeyState` /
+`gfLeftButtonState` / `gusMouseXPos` / `gsMouseWheelDeltaValue`
+directly. The local stderr debug stub is gone.
 
-The translation currently dispatches into a local `DispatchToInputQueue`
-that prints to stderr; calling input.cpp's real `QueueEvent` triggers
-a 55-symbol link cascade (video.cpp / vsurface.cpp / Intro.cpp /
-soundman.cpp / mousesystem -- input.cpp's KeyDown/KeyUp bodies call
-PrintScreen, BltVideoSurface, IntroScreen*, SoundLoadSample, etc.) and
-several of the referenced classes have private headers that pull in
-DirectDraw. So the wire-up is blocked behind Phase 5 (video) and the
-remaining gated subsystems; the swap is a one-line change in
-sdl_input.cpp once those land.
-
-**Additional gotcha discovered while attempting a stub-driven cascade
-clear:** providing empty stub bodies for the 55 unresolved symbols
-makes the linker reach further into the JA2 libraries and surfaces
-~13 pre-existing **duplicate symbol** definitions across
-`JA2_Ja2` / `JA2_Laptop` (`guiNextButton`, `FireBullet`,
-`TrashAllSoldiers`, `lockui`, several mercs-screen globals, etc.).
-These are real bugs in the legacy code — multiple TUs defining the
-same global — that the MSVC linker historically swallowed.
-Phase 5 needs to dedupe these as part of its cleanup pass; bringing
-the cascade down via stubs in a single shot will not work until that
-happens.
+To clear the 55-symbol link cascade that originally blocked this
+wire-up:
+1. Stub bodies for video.cpp / vsurface.cpp / Intro.cpp / soundman /
+   mousesystem / KeyMap symbols live in
+   [sgp/sgp_non_win32_stubs.cpp](../sgp/sgp_non_win32_stubs.cpp) — all
+   declared via public headers (vsurface.h, vobject_blitters.h,
+   video.h, Intro.h, soundman.h, KeyMap.h, connect.h) so they don't
+   need to include `vsurface_private.h` (the one that pulls in
+   DirectDraw). As each Phase replaces a subsystem, its stub block
+   here gets deleted.
+2. 13 cross-library duplicate symbols dedup'd: 9 from
+   `Multiplayer/mp_stubs.cpp` (real bodies already exist in JA2 libs;
+   stubs removed), and 4 genuine legacy collisions where two
+   independent TUs each defined a same-named UI/data global —
+   `guiNextButton` / `guiPrevButton` (SaveLoadScreen.cpp vs
+   mercs Files.cpp), `GlowColorsA` (mapscreen.cpp vs IMP Gear.cpp,
+   different types!), `guiGalleryButton` (florist.cpp vs
+   florist Gallery.cpp, scalar vs array) — fixed by making each
+   definition `static` since no other TU extern's them.
 
 **Source changes:**
 

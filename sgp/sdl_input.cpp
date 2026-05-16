@@ -1,58 +1,14 @@
 #include "sdl_input.h"
 #include "types.h"
+#include "input.h"
 
 #include <SDL3/SDL.h>
-#include <cstdio>
 
-// Phase 4 first-cut SDL3 input source. This TU owns the SDL_Event ->
-// JA2 event translation (scancode mapping, mouse-coord packing, JA2
-// VK_* values) so the rest of the SDL3 main loop in sgp.cpp can stay
-// tiny.
-//
-// In a properly-wired build the bottom of the file would call
-// input.cpp's real QueueEvent and update gfKeyState / gusMouse{X,Y}Pos
-// directly. Doing that today drags in ~55 unresolved symbols from
-// video.cpp / vsurface.cpp / Intro.cpp / soundman.cpp / mousesystem
-// because input.cpp's KeyDown / KeyUp bodies (and therefore the whole
-// TU) reference PrintScreen / BltVideoSurface / IntroScreen* /
-// SoundLoadSample / ... -- and several of those define classes whose
-// private headers pull in DirectDraw. That cascade gets cleared as
-// each phase lands its SDL3 rewrite of the underlying subsystem;
-// until then we keep the JA2 input queue out of the loop and just
-// print translated events to stderr.
-
-// JA2 event-code constants. Mirror input.h's #defines locally so this
-// TU stays decoupled from input.cpp until the wire-up lands.
-#define KEY_DOWN                  0x0001
-#define KEY_UP                    0x0002
-#define LEFT_BUTTON_DOWN          0x0008
-#define LEFT_BUTTON_UP            0x0010
-#define RIGHT_BUTTON_DOWN         0x0080
-#define RIGHT_BUTTON_UP           0x0100
-#define MOUSE_POS                 0x0400
-#define MOUSE_WHEEL_UP            0x0800
-#define MOUSE_WHEEL_DOWN          0x1000
-#define MIDDLE_BUTTON_DOWN        0x2000
-#define MIDDLE_BUTTON_UP          0x4000
-#define X1_BUTTON_DOWN            0x8010
-#define X1_BUTTON_UP              0x8020
-#define X2_BUTTON_DOWN            0x8040
-#define X2_BUTTON_UP              0x8050
-
-// Mouse-position cache. When the wire-up lands these get pointed at
-// input.cpp's gusMouseXPos / gusMouseYPos extern globals.
-static INT16 sMouseXPos = 0;
-static INT16 sMouseYPos = 0;
-
-static void DispatchToInputQueue(UINT16 ev, UINT32 usParam, UINT32 uiParam)
-{
-	// Debug-only sink while the real input.cpp wire-up is blocked
-	// behind Phase 5. The translation is correct; the events just go
-	// to stderr instead of into the JA2 event queue.
-	std::fprintf(stderr,
-	             "[sdl-input] ev=0x%04x usParam=%u uiParam=0x%08x\n",
-	             ev, usParam, uiParam);
-}
+// SDL3 input source. Translates a single SDL_Event into JA2 input
+// atoms by calling input.cpp's QueueEvent and updating the global
+// gfKeyState / button-state / wheel-delta tables. Replaces the Win32
+// KeyboardHandler / MouseHandler hooks; the existing input atom
+// queue and string-input redirection are reused unchanged.
 
 // Translate SDL_Scancode + SDL_Keycode to JA2's persisted VK_* code.
 // JA2 stores these in savegames and config files so SDL scancodes
@@ -124,20 +80,30 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 
 	case SDL_EVENT_KEY_DOWN: {
 		UINT16 vk = sdl_to_vk(ev->key.scancode, ev->key.key);
-		if (vk) DispatchToInputQueue(KEY_DOWN, vk, 0);
+		if (vk) {
+			// Update gfKeyState directly instead of calling KeyDown,
+			// which has a JA2BETAVERSION-only Ctrl+F12 PrintScreen
+			// path that pulls in the video subsystem. The queue +
+			// _KeyDown(vk) callers see the same state either way.
+			gfKeyState[vk & 0xFF] = TRUE;
+			QueueEvent(KEY_DOWN, vk, 0);
+		}
 		break;
 	}
 	case SDL_EVENT_KEY_UP: {
 		UINT16 vk = sdl_to_vk(ev->key.scancode, ev->key.key);
-		if (vk) DispatchToInputQueue(KEY_UP, vk, 0);
+		if (vk) {
+			gfKeyState[vk & 0xFF] = FALSE;
+			QueueEvent(KEY_UP, vk, 0);
+		}
 		break;
 	}
 
 	case SDL_EVENT_MOUSE_MOTION: {
-		sMouseXPos = (INT16)ev->motion.x;
-		sMouseYPos = (INT16)ev->motion.y;
-		DispatchToInputQueue(MOUSE_POS, 0,
-		                     pack_xy((int)ev->motion.x, (int)ev->motion.y));
+		gusMouseXPos = (INT16)ev->motion.x;
+		gusMouseYPos = (INT16)ev->motion.y;
+		QueueEvent(MOUSE_POS, 0,
+		           pack_xy((int)ev->motion.x, (int)ev->motion.y));
 		break;
 	}
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -146,20 +112,34 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		const UINT32 xy = pack_xy((int)ev->button.x, (int)ev->button.y);
 		UINT16 jaev = 0;
 		switch (ev->button.button) {
-		case SDL_BUTTON_LEFT:   jaev = down ? LEFT_BUTTON_DOWN   : LEFT_BUTTON_UP;   break;
-		case SDL_BUTTON_RIGHT:  jaev = down ? RIGHT_BUTTON_DOWN  : RIGHT_BUTTON_UP;  break;
-		case SDL_BUTTON_MIDDLE: jaev = down ? MIDDLE_BUTTON_DOWN : MIDDLE_BUTTON_UP; break;
-		case SDL_BUTTON_X1:     jaev = down ? X1_BUTTON_DOWN     : X1_BUTTON_UP;     break;
-		case SDL_BUTTON_X2:     jaev = down ? X2_BUTTON_DOWN     : X2_BUTTON_UP;     break;
+		case SDL_BUTTON_LEFT:
+			gfLeftButtonState = down ? TRUE : FALSE;
+			jaev = down ? LEFT_BUTTON_DOWN : LEFT_BUTTON_UP;
+			break;
+		case SDL_BUTTON_RIGHT:
+			gfRightButtonState = down ? TRUE : FALSE;
+			jaev = down ? RIGHT_BUTTON_DOWN : RIGHT_BUTTON_UP;
+			break;
+		case SDL_BUTTON_MIDDLE:
+			gfMiddleButtonState = down ? TRUE : FALSE;
+			jaev = down ? MIDDLE_BUTTON_DOWN : MIDDLE_BUTTON_UP;
+			break;
+		case SDL_BUTTON_X1: jaev = down ? X1_BUTTON_DOWN : X1_BUTTON_UP; break;
+		case SDL_BUTTON_X2: jaev = down ? X2_BUTTON_DOWN : X2_BUTTON_UP; break;
 		default: break;
 		}
-		if (jaev) DispatchToInputQueue(jaev, 0, xy);
+		if (jaev) QueueEvent(jaev, 0, xy);
 		break;
 	}
 	case SDL_EVENT_MOUSE_WHEEL: {
-		const UINT32 xy = pack_xy(sMouseXPos, sMouseYPos);
-		if (ev->wheel.y > 0) DispatchToInputQueue(MOUSE_WHEEL_UP,   0, xy);
-		if (ev->wheel.y < 0) DispatchToInputQueue(MOUSE_WHEEL_DOWN, 0, xy);
+		const UINT32 xy = pack_xy(gusMouseXPos, gusMouseYPos);
+		if (ev->wheel.y > 0) {
+			gsMouseWheelDeltaValue = 120;
+			QueueEvent(MOUSE_WHEEL_UP, 0, xy);
+		} else if (ev->wheel.y < 0) {
+			gsMouseWheelDeltaValue = -120;
+			QueueEvent(MOUSE_WHEEL_DOWN, 0, xy);
+		}
 		break;
 	}
 	default: break;

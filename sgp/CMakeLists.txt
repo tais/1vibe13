@@ -36,6 +36,7 @@ set(sgpSrc
 )
 if(NOT WIN32)
   list(APPEND sgpSrc
-    "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_globals.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_globals.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_stubs.cpp")
 endif()
 set(sgpSrc ${sgpSrc} PARENT_SCOPE)

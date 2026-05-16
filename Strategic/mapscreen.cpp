@@ -379,8 +379,9 @@ struct popbox
 typedef struct popbox PopUpBox;
 typedef PopUpBox *PopUpBoxPtr;
 
-// TABLES
-RGBCOLOR GlowColorsA[]={
+// TABLES. File-private to avoid name collision with the
+// rgbcolorImpGear[] table of the same name in Laptop/IMP Gear.cpp.
+static RGBCOLOR GlowColorsA[]={
 	{0,0,0},
 	{25,0,0},
 	{50,0,0},

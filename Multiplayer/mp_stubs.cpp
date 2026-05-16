@@ -42,7 +42,8 @@ bool auto_retry        = false;
 bool Sawarded          = false;
 
 INT16   serverSyncClientsDirectory = 0;
-int     PLAYER_TEAM_TIMER_SEC_PER_TICKS = 0;
+// PLAYER_TEAM_TIMER_SEC_PER_TICKS lives in Tactical/Interface.cpp;
+// stub removed -- the real definition gets pulled in.
 int     CLIENT_NUM = 0;
 int     numreadyteams = 0;
 int     giNumTries = 0;
@@ -66,7 +67,7 @@ UINT8   gRandomMercs = 0;
 UINT8   gMaxEnemiesEnabled = 0;
 UINT8   cAllowMercEquipment = 0;
 UINT8   cMaxMercs = 0;
-UINT8   gubCheatLevel = 0;
+// gubCheatLevel lives in Strategic/Game_Init.cpp.
 UINT8   cWeaponReadyBonus = 0;
 UINT8   cDisableSpectatorMode = 0;
 UINT8   cDisableMorale = 0;
@@ -88,11 +89,11 @@ char      cClientName[30]          = {0};
 char      client_names[4][30]      = {{0}};
 player_stats gMPPlayerStats[5]     = {};
 
-BOOLEAN   gfUIInterfaceSetBusy     = FALSE;
+// gfUIInterfaceSetBusy lives in Tactical/Handle_UI.cpp.
 BOOLEAN   fClientReceivedAllFiles  = FALSE;
 
 // ---- Function stubs ---------------------------------------------------------
-void lockui (bool) {}
+// lockui lives in TileEngine/Tactical_Placement_GUI.cpp.
 void start_battle ( void ) {}
 void DropOffItemsInSector( UINT8 ) {}
 void mp_help (void) {}
@@ -108,7 +109,7 @@ void server_packet ( void ) {}
 void NetworkAutoStart() {}
 void server_disconnect (void) {}
 void client_disconnect (void) {}
-void DialogRemoved( UINT8 ) {}
+// DialogRemoved lives in TileEngine/Tactical_Placement_GUI.cpp.
 void manual_overide(void) {}
 void send_path ( SOLDIERTYPE*, INT32, UINT16, BOOLEAN, BOOLEAN ) {}
 void send_stance ( SOLDIERTYPE*, UINT8 ) {}
@@ -134,7 +135,7 @@ void send_gasdamage( SOLDIERTYPE*, UINT16, INT16, BOOLEAN, INT16, INT16, Soldier
 void send_explosivedamage( SoldierID, SoldierID, INT32, INT16, INT16, UINT32, UINT16, INT16 ) {}
 void send_disarm_explosive( UINT32, UINT32, SoldierID ) {}
 void OpenChatMsgBox(void) {}
-INT8 FireBullet( SoldierID, BULLET*, BOOLEAN ) { return 0; }
+// FireBullet lives in Tactical/LOS.cpp.
 void reapplySETTINGS() {}
 void send_settings() {}
 void send_mapchange() {}
@@ -144,7 +145,7 @@ bool can_teamchange() { return false; }
 void game_over( void ) {}
 
 // fresh_header.h additional functions
-BOOLEAN DisplayMercsInventory(UINT8) { return FALSE; }
+// DisplayMercsInventory lives in Laptop/AimMembers.cpp.
 void send_door( SOLDIERTYPE*, INT32, BOOLEAN ) {}
 void send_changestate( EV_S_CHANGESTATE* ) {}
 void send_death( SOLDIERTYPE* ) {}
@@ -153,12 +154,12 @@ void send_hitwindow( EV_S_WINDOWHIT* ) {}
 void send_miss( EV_S_MISS* ) {}
 void unlock(void) {}
 void UpdateSoldierToNetwork( SOLDIERTYPE* ) {}
-void TrashAllSoldiers() {}
+// TrashAllSoldiers lives in Tactical/Soldier_Create.cpp.
 void kick_player(void) {}
 void overide_turn(void) {}
 void send_fireweapon( EV_S_FIREWEAPON* ) {}
 void end_interrupt( BOOLEAN ) {}
-void EndInterrupt( BOOLEAN ) {}
+// EndInterrupt lives in Tactical/TeamTurns.cpp.
 void sendRT(void) {}
 void startCombat(UINT8) {}
 void intAI( SOLDIERTYPE* ) {}

@@ -205,7 +205,9 @@ UINT32	guiSlgSaveLoadBtn;
 INT32	guiSaveLoadImage;
 
 INT32 guiNewButtonImage;
-INT32 guiPrevButton, guiNextButton;
+// File-private to avoid a name collision with the same-named UI
+// globals in Laptop/mercs Files.cpp. Neither file extern's them.
+static INT32 guiPrevButton, guiNextButton;
 void BtnNewPrevButtonCallback(GUI_BUTTON *btn,INT32 reason);
 void BtnNewNextButtonCallback(GUI_BUTTON *btn,INT32 reason);
 UINT16 PAGE_SLOT = 0;

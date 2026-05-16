@@ -68,7 +68,9 @@ BOOLEAN		FloristGallerySubPagesVisitedFlag[ 4 ];
 //Floral buttons
 extern INT32	guiGalleryButtonImage; // symbol already defined in florist.cpp (jonathanl)
 void			BtnGalleryFlowerButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32			guiGalleryButton[ FLOR_GALLERY_NUMBER_FLORAL_BUTTONS ];
+// File-private: same name is used as a scalar UINT32 in
+// Laptop/florist.cpp (different size + meaning).
+static UINT32	guiGalleryButton[ FLOR_GALLERY_NUMBER_FLORAL_BUTTONS ];
 
 //Next Previous buttons
 INT32		guiFloralGalleryButtonImage;

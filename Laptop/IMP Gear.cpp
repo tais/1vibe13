@@ -38,7 +38,9 @@ struct rgbcolorImpGear
 	UINT8 ubGreen;
 	UINT8 ubBlue;
 };
-rgbcolorImpGear GlowColorsA[] = {
+// File-private to avoid name collision with Strategic/mapscreen.cpp's
+// RGBCOLOR GlowColorsA[] (a different type and different palette).
+static rgbcolorImpGear GlowColorsA[] = {
 	{0,0,0},
 	{25,0,0},
 	{50,0,0},

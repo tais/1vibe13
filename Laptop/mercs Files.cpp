@@ -221,14 +221,15 @@ extern BOOLEAN fMercHireOverPlayerLimitMerc;
 // Buttons
 //
 
-// The Prev button
+// The Prev button. File-private to avoid name collision with the
+// same-named UI globals in Ja2/SaveLoadScreen.cpp.
 void BtnMercPrevButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32	guiPrevButton;
+static UINT32	guiPrevButton;
 INT32		guiButtonImage;
 
 // The Next button
 void BtnMercNextButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32	guiNextButton;
+static UINT32	guiNextButton;
 
 // The Hire button
 void BtnMercHireButtonCallback(GUI_BUTTON *btn,INT32 reason);
