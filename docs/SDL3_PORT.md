@@ -496,9 +496,16 @@ only so legacy unported translation units still compile.
    `CreateEvent` / `CRITICAL_SECTION` / `QueryPerformanceCounter` /
    `SEH __try`) with portable C++11. Single implementation for every
    platform — no `_WIN32` gate. Public API + globals unchanged.
-4. [sgp/MemMan.cpp](../sgp/MemMan.cpp) — drop the Win32 heap
-   debug-tracking branch entirely. The `MemAlloc`/`MemFree` macros
-   already collapse to `malloc`/`free` on non-MSVC.
+4. ~~[sgp/MemMan.cpp](../sgp/MemMan.cpp) — drop the Win32 heap
+   debug-tracking branch entirely.~~ **Done.** Removed
+   `VirtualAlloc`/`VirtualLock` from `MemAllocLocked`/`MemFreeLocked`
+   (collapses to `malloc`/`free`) and dropped the
+   `MEMORYSTATUS`/`GlobalMemoryStatus` call in
+   `MemGetFree`/`MemGetTotalSystem` (now returns 0; only used for
+   diagnostic ScreenMsg). The MSVC `_DEBUG` leak-tracking branch is
+   left in place — it only activates on MSVC debug builds and gives
+   real value there. The corresponding stubs in `msvc_compat.h` were
+   dropped along with the call sites.
 5. [sgp/DEBUG.cpp](../sgp/DEBUG.cpp), [sgp/debug_win_util.cpp](../sgp/debug_win_util.cpp) — portable logging (`sgp_logger` already
    handles most of it). The stack-trace helpers in
    `debug_win_util.cpp` should be gated `_WIN32`; non-Windows can use
