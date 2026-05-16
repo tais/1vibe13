@@ -1522,9 +1522,33 @@ int main(int /*argc*/, char** /*argv*/)
 		return 1;
 	}
 
-	std::printf("JA2 SDL3 port -- window open. "
-	            "Input events route into QueueEvent. "
-	            "Close the window or press Esc to exit.\n");
+	// Phase 5 first cut: an RGB565 streaming texture sized to JA2's
+	// logical resolution. We render a test pattern into it each frame
+	// to prove the upload path works end-to-end. The Phase 5 proper
+	// commit replaces the test-pattern fill with a memcpy from JA2's
+	// real RGB565 framebuffer (gpFrameData / pBuffer in video.cpp).
+	constexpr int kFbW = 640;
+	constexpr int kFbH = 480;
+	SDL_Texture* framebuffer = SDL_CreateTexture(
+		renderer,
+		SDL_PIXELFORMAT_RGB565,
+		SDL_TEXTUREACCESS_STREAMING,
+		kFbW, kFbH);
+	if (!framebuffer) {
+		std::fprintf(stderr, "SDL_CreateTexture(RGB565) failed: %s\n",
+		             SDL_GetError());
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(window);
+		SDL_Quit();
+		return 1;
+	}
+	SDL_SetTextureScaleMode(framebuffer, SDL_SCALEMODE_NEAREST);
+
+	std::printf("JA2 SDL3 port -- window open at %dx%d (RGB565). "
+	            "Input events route into sdl_queue_event (debug stub). "
+	            "Close the window or press Esc to exit.\n", kFbW, kFbH);
+
+	UINT32 frame = 0;
 
 	bool running = true;
 	while (running) {
@@ -1580,13 +1604,36 @@ int main(int /*argc*/, char** /*argv*/)
 			default: break;
 			}
 		}
-		// Stand-in clear: solid dark background until Phase 5 wires
-		// the JA2 framebuffer up as an SDL_Texture.
-		SDL_SetRenderDrawColor(renderer, 16, 16, 32, 255);
+		// Lock the streaming texture, write a test pattern, present.
+		// Pattern: animated diagonal stripes in RGB565. When Phase 5
+		// proper lands, this lock/unlock dance gets pointed at JA2's
+		// framebuffer instead.
+		void* pixels = nullptr;
+		int pitch = 0;
+		if (SDL_LockTexture(framebuffer, nullptr, &pixels, &pitch)) {
+			Uint16* row = static_cast<Uint16*>(pixels);
+			const int stride = pitch / 2; // RGB565 = 2 bytes/pixel
+			for (int y = 0; y < kFbH; ++y) {
+				for (int x = 0; x < kFbW; ++x) {
+					const int v = (x + y + (int)frame) & 0xFF;
+					// RGB565: rrrrr gggggg bbbbb
+					const Uint16 r = (v >> 3) & 0x1F;
+					const Uint16 g = (((v + 64) & 0xFF) >> 2) & 0x3F;
+					const Uint16 b = (((v + 128) & 0xFF) >> 3) & 0x1F;
+					row[y * stride + x] = (Uint16)((r << 11) | (g << 5) | b);
+				}
+			}
+			SDL_UnlockTexture(framebuffer);
+		}
+
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
+		SDL_RenderTexture(renderer, framebuffer, nullptr, nullptr);
 		SDL_RenderPresent(renderer);
+		++frame;
 	}
 
+	SDL_DestroyTexture(framebuffer);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
