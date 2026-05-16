@@ -623,6 +623,18 @@ DirectDraw. So the wire-up is blocked behind Phase 5 (video) and the
 remaining gated subsystems; the swap is a one-line change in
 sdl_input.cpp once those land.
 
+**Additional gotcha discovered while attempting a stub-driven cascade
+clear:** providing empty stub bodies for the 55 unresolved symbols
+makes the linker reach further into the JA2 libraries and surfaces
+~13 pre-existing **duplicate symbol** definitions across
+`JA2_Ja2` / `JA2_Laptop` (`guiNextButton`, `FireBullet`,
+`TrashAllSoldiers`, `lockui`, several mercs-screen globals, etc.).
+These are real bugs in the legacy code — multiple TUs defining the
+same global — that the MSVC linker historically swallowed.
+Phase 5 needs to dedupe these as part of its cleanup pass; bringing
+the cascade down via stubs in a single shot will not work until that
+happens.
+
 **Source changes:**
 
 1. [sgp/input.cpp](../sgp/input.cpp) — `KeyboardHandler` /
