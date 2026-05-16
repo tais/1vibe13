@@ -18,11 +18,29 @@ static UINT8 g_AlphaTimesValueCache[256][256];
 static const unsigned short maxChar = 0xff;
 unsigned short blendWithAlpha(unsigned int rgb565New, unsigned int rgb565Old, unsigned int alpha)
 {
+#ifndef _WIN32
+	// Portable C implementation. The Win32 inline-asm version below
+	// did the same math in fixed-point assembly; on macOS that block
+	// would never compile (clang has no __asm) and the function used
+	// to return 0 unconditionally, which is why every alpha-blended
+	// UI element rendered as black on the SDL3 build.
+	const unsigned int oldR = (rgb565Old >> 11) & 0x1F;
+	const unsigned int oldG = (rgb565Old >> 5)  & 0x3F;
+	const unsigned int oldB = (rgb565Old)       & 0x1F;
+	const unsigned int newR = (rgb565New >> 11) & 0x1F;
+	const unsigned int newG = (rgb565New >> 5)  & 0x3F;
+	const unsigned int newB = (rgb565New)       & 0x1F;
+	const unsigned int a = alpha & 0xFF;
+	const unsigned int ia = 255 - a;
+	const unsigned int outR = (oldR * ia + newR * a + 128) / 255;
+	const unsigned int outG = (oldG * ia + newG * a + 128) / 255;
+	const unsigned int outB = (oldB * ia + newB * a + 128) / 255;
+	return (unsigned short)((outR << 11) | (outG << 5) | outB);
+#else
 	unsigned short value = 0;
 	float alphaF;
 	unsigned short oldR, oldG, oldB, newR, newG, newB, outR, outG, outB;
 	unsigned short alphaC = (unsigned short)alpha;
-#ifdef _WIN32
 	__asm {
 		xor		ebx, ebx
 		xor		ecx, ecx
@@ -114,8 +132,8 @@ unsigned short blendWithAlpha(unsigned int rgb565New, unsigned int rgb565Old, un
 		add		eax, ebx
 		mov		value, ax
 	}
-#endif
 	return value;
+#endif
 }
 
 class InitAlphaTimesValueCache
@@ -2065,6 +2083,16 @@ BlitDwords:
 
 BlitDone:
 
+	}
+#else
+	// Portable C path: row-by-row memcpy. The asm above did the same
+	// thing with movsd/movsw; this is simpler and almost as fast given
+	// modern memcpy() is vectorized.
+	for (UINT32 y = 0; y < uiHeight; ++y)
+	{
+		std::memcpy(pDestPtr, pSrcPtr, (size_t)uiWidth * 2);
+		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiDestPitch);
+		pSrcPtr  = (UINT16*)((UINT8*)pSrcPtr  + uiSrcPitch);
 	}
 #endif
 
