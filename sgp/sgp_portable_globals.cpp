@@ -6,17 +6,11 @@
 
 #include "types.h"
 
-// ---- sgp.cpp (Phase 3) -----------------------------------------------------
-BOOLEAN gfProgramIsRunning   = TRUE;
-BOOLEAN gfDontUseDDBlits     = FALSE;
-BOOLEAN gfApplicationActive  = TRUE;
-BOOLEAN gfGameInitialized    = FALSE;
-BOOLEAN gfIgnoreMessages     = FALSE;
-CHAR8   gzCommandLine[100]   = {0};
-CHAR8   gzErrorMsg[2048]     = {0};
-int     iWindowedMode        = 0;
-UINT32  guiMouseWheelMsg     = 0;
-bool    g_bUseXML_Structures = false;
+// (sgp.cpp's globals -- gfProgramIsRunning, gfApplicationActive,
+// gfGameInitialized, gzCommandLine, gzErrorMsg, iWindowedMode,
+// guiMouseWheelMsg, g_bUseXML_Structures, gfDontUseDDBlits,
+// gfIgnoreMessages -- now live in sgp.cpp directly; the WinMain
+// rewrite made that TU unconditional.)
 
 // ---- video.cpp (Phase 5) ---------------------------------------------------
 UINT32  CurrentSurface          = 0;
