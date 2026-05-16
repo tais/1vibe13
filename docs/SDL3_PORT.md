@@ -24,7 +24,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 0 | Branch + plan doc | ✅ Done |
 | 1 | Build system portability — configures, compiles, and links on macOS | ✅ Done |
 | 2 | Portable file I/O / time / memory / debug | Partial via compat shims; real porting pending |
-| 3 | SDL3 window + event loop, drop WinMain | 🟡 Started — SDL3 wired into CMake, minimal window+event-loop main() on non-Windows. JA2 game loop not yet dispatched. |
+| 3 | SDL3 window + event loop, drop WinMain | 🟡 Started — SDL3 wired into CMake, minimal window+event-loop main() on non-Windows. JA2 game loop not yet dispatched; SDL event translation lives in main() but routes to a local debug stub instead of the real `QueueEvent`. |
 | 4 | SDL3 input, drop DirectInput / Win32 hooks | Not started |
 | 5 | SDL3 video (RGB565 transitional), retire DirectDraw | 🟡 Started — RGB565 SDL_Texture upload path working with a test pattern in sgp.cpp's main(). Needs the JA2 framebuffer wired in. |
 | 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | Not started |
@@ -518,10 +518,31 @@ named after.
 
 1. ✅ Done (minimal): Non-Windows `main()` in [sgp/sgp.cpp](../sgp/sgp.cpp)
    now initializes SDL3, opens a window, runs an `SDL_PollEvent`
-   loop that exits on quit / Escape, and clears to dark blue each
-   frame. **Still TODO**: fan `SDL_PollEvent` into JA2's
-   `QueueEvent`, call `GameLoop` from the loop, route the
-   framebuffer to an `SDL_Texture` (Phase 5).
+   loop that exits on quit / Escape, presents an RGB565
+   `SDL_Texture` with a test pattern, and translates
+   `SDL_EVENT_KEY_*` / `SDL_EVENT_MOUSE_*` events into JA2 event
+   codes via a local stub. **Still TODO**: route the translated
+   events into JA2's real `QueueEvent`, call `GameLoop` from the
+   loop, point the SDL_Texture at the real framebuffer.
+
+**The link-cascade gotcha** (learned the hard way): pulling
+JA2_sgp.a's `input.cpp` into the executable's link surface (via
+`extern "C" void QueueEvent(...)`) drags ~57 unresolved function
+symbols with it -- every video/vsurface/intro/winfont/sound/debug
+function that other (un-gated) translation units call. Stubbing all
+57 in one shot is fragile (signature mismatches, includes that pull
+in DirectDraw types, etc.). The right path is to land the SDL3-
+backed rewrites of those subsystems first (Phases 4 proper / 5 /
+8 / 9), letting each one delete its `_WIN32` gate as it goes.
+Then `QueueEvent` is reachable naturally.
+
+Foundation pieces already in place to support that work:
+- [sgp/sgp_non_win32_globals.cpp](../sgp/sgp_non_win32_globals.cpp)
+  defines the bare *global variables* that gated subsystems
+  exposed via extern. Each phase moves its globals out of this
+  stub and into the new SDL3 implementation.
+- SDL3, Expat, and Lua 5.1.5 all build from source on every
+  platform now; no Windows-only `.lib` blobs in the link path.
 2. Replace `MessageBoxW` / `MessageBox` call sites with
    `SDL_ShowSimpleMessageBox`. ~20-30 sites; mostly in
    FatalError paths.

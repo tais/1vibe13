@@ -1445,6 +1445,11 @@ static bool CallGameLoop(bool wait)
 #define MIDDLE_BUTTON_DOWN        0x2000
 #define MIDDLE_BUTTON_UP          0x4000
 
+// Local mouse-position cache + QueueEvent debug stub. Wiring SDL
+// events into JA2's real input.cpp is blocked behind ~57 unresolved
+// function symbols across video / vsurface / intro / winfont /
+// sound / debug -- those clear as each phase rewrites its subsystem
+// on SDL3 and the gates come down.
 static INT16 gusMouseXPos = 0;
 static INT16 gusMouseYPos = 0;
 
