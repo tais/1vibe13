@@ -10,3 +10,6 @@ add_library(Lua
 "lwstring.cpp"
 )
 target_include_directories(Lua PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# Pull in the Lua 5.1 C library built from source in the top-level
+# CMakeLists. Replaces the Windows lua51.lib link.
+target_link_libraries(Lua PUBLIC lua51)

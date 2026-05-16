@@ -90,6 +90,60 @@ if(NOT TARGET SDL3::SDL3)
   FetchContent_MakeAvailable(SDL3)
 endif()
 
+# Lua 5.1.5 from source. JA2 mods rely on Lua 5.1 semantics so we
+# can't just bump to 5.4. Upstream Lua 5.1 doesn't ship a CMakeLists,
+# so we fetch the canonical tarball and build it with a tiny in-tree
+# wrapper. Windows historically linked the prebuilt lua51.lib /
+# lua51.vc9.lib -- those blobs are dropped from the Ja2_Libraries
+# list once this builds clean on Windows.
+find_package(Lua 5.1 EXACT QUIET)
+if(NOT TARGET lua51)
+  include(FetchContent)
+  FetchContent_Declare(
+    lua515
+    URL https://www.lua.org/ftp/lua-5.1.5.tar.gz
+    URL_HASH SHA256=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
+  )
+  FetchContent_MakeAvailable(lua515)
+  file(GLOB LUA51_SRC
+    "${lua515_SOURCE_DIR}/src/lapi.c"
+    "${lua515_SOURCE_DIR}/src/lauxlib.c"
+    "${lua515_SOURCE_DIR}/src/lbaselib.c"
+    "${lua515_SOURCE_DIR}/src/lcode.c"
+    "${lua515_SOURCE_DIR}/src/ldblib.c"
+    "${lua515_SOURCE_DIR}/src/ldebug.c"
+    "${lua515_SOURCE_DIR}/src/ldo.c"
+    "${lua515_SOURCE_DIR}/src/ldump.c"
+    "${lua515_SOURCE_DIR}/src/lfunc.c"
+    "${lua515_SOURCE_DIR}/src/lgc.c"
+    "${lua515_SOURCE_DIR}/src/linit.c"
+    "${lua515_SOURCE_DIR}/src/liolib.c"
+    "${lua515_SOURCE_DIR}/src/llex.c"
+    "${lua515_SOURCE_DIR}/src/lmathlib.c"
+    "${lua515_SOURCE_DIR}/src/lmem.c"
+    "${lua515_SOURCE_DIR}/src/loadlib.c"
+    "${lua515_SOURCE_DIR}/src/lobject.c"
+    "${lua515_SOURCE_DIR}/src/lopcodes.c"
+    "${lua515_SOURCE_DIR}/src/loslib.c"
+    "${lua515_SOURCE_DIR}/src/lparser.c"
+    "${lua515_SOURCE_DIR}/src/lstate.c"
+    "${lua515_SOURCE_DIR}/src/lstring.c"
+    "${lua515_SOURCE_DIR}/src/lstrlib.c"
+    "${lua515_SOURCE_DIR}/src/ltable.c"
+    "${lua515_SOURCE_DIR}/src/ltablib.c"
+    "${lua515_SOURCE_DIR}/src/ltm.c"
+    "${lua515_SOURCE_DIR}/src/lundump.c"
+    "${lua515_SOURCE_DIR}/src/lvm.c"
+    "${lua515_SOURCE_DIR}/src/lzio.c"
+  )
+  add_library(lua51 STATIC ${LUA51_SRC})
+  target_include_directories(lua51 PUBLIC "${lua515_SOURCE_DIR}/src")
+  if(UNIX)
+    target_compile_definitions(lua51 PRIVATE LUA_USE_POSIX LUA_USE_DLOPEN)
+    target_link_libraries(lua51 PRIVATE dl m)
+  endif()
+endif()
+
 # Expat (XML parser). Windows historically linked the prebuilt
 # libexpatMT.lib; we now build from source on every platform so the
 # Win32 .lib blobs can eventually be deleted from the repo.
@@ -131,13 +185,13 @@ Multiplayer
 # later phases (Lua/Expat from source, FMOD -> SDL_mixer, Smacker/Bink
 # -> libsmacker, ddraw -> SDL3).
 if(WIN32)
-  # libexpatMT.lib is no longer listed -- we build Expat from source
-  # via FetchContent on every platform now, and the FetchContent
-  # target is linked further down (see SDL3::SDL3 / EXPAT block).
+  # libexpatMT.lib / lua51.lib / lua51.vc9.lib are no longer listed
+  # -- Expat and Lua are now built from source via FetchContent on
+  # every platform. The Lua target is linked transitively through
+  # the JA2 Lua wrapper library; Expat is linked at executable
+  # level alongside SDL3.
   list(APPEND Ja2_Libraries
     "${CMAKE_SOURCE_DIR}/binkw32.lib"
-    "${CMAKE_SOURCE_DIR}/lua51.lib"
-    "${CMAKE_SOURCE_DIR}/lua51.vc9.lib"
     "${CMAKE_SOURCE_DIR}/SMACKW32.LIB"
     "Dbghelp.lib"
     "Winmm.lib"
