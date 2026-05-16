@@ -506,10 +506,18 @@ only so legacy unported translation units still compile.
    left in place — it only activates on MSVC debug builds and gives
    real value there. The corresponding stubs in `msvc_compat.h` were
    dropped along with the call sites.
-5. [sgp/DEBUG.cpp](../sgp/DEBUG.cpp), [sgp/debug_win_util.cpp](../sgp/debug_win_util.cpp) — portable logging (`sgp_logger` already
+5. ~~[sgp/DEBUG.cpp](../sgp/DEBUG.cpp), [sgp/debug_win_util.cpp](../sgp/debug_win_util.cpp) — portable logging (`sgp_logger` already
    handles most of it). The stack-trace helpers in
    `debug_win_util.cpp` should be gated `_WIN32`; non-Windows can use
-   `<stacktrace>` (C++23, not universally available yet) or libunwind.
+   `<stacktrace>` (C++23, not universally available yet) or libunwind.~~
+   **Done.** `debug_win_util.cpp` was already `_MSC_VER`-gated (compiles
+   to an empty TU on clang/gcc). Added a portable `StackTrace::StackTrace`
+   / `PrintBacktrace` / `OutputToStream` body in `debug_util.cpp` that
+   uses `<execinfo.h>` (`backtrace` + `backtrace_symbols`, available on
+   macOS and glibc Linux). `DEBUG.cpp`'s `<windows.h>` include + the
+   inline Win32 message pump in `_FailMessage` were already
+   `_WIN32`-gated; `OutputDebugString` routes to stderr via the compat
+   layer.
 6. ~~[sgp/timer.cpp](../sgp/timer.cpp) — replace the `SetTimer`-driven
    game clock with a `std::chrono`-driven equivalent. Tiny file.~~
    **Done.** Dropped the SetTimer/KillTimer dance; `GetClock()` now

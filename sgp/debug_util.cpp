@@ -34,4 +34,44 @@ void StackTrace::PrintBacktrace(const char* msg)
 {
 }
 
+#elif !defined(_MSC_VER)
+// Portable backtrace via execinfo.h. macOS, glibc, and the BSDs ship
+// backtrace() / backtrace_symbols(); musl notably does not, so a
+// non-glibc Linux build would need a different path.
+#include <execinfo.h>
+#include <cstdio>
+#include <cstdlib>
+
+StackTrace::StackTrace()
+{
+	constexpr int kMaxFrames = 64;
+	void* frames[kMaxFrames];
+	int count = backtrace(frames, kMaxFrames);
+	if (count > 0) {
+		trace_.assign(frames, frames + count);
+	}
+}
+
+void StackTrace::PrintBacktrace(const char* msg)
+{
+	if (msg && *msg) std::fprintf(stderr, "Backtrace: %s\n", msg);
+	if (trace_.empty()) {
+		std::fprintf(stderr, "  (no frames captured)\n");
+		return;
+	}
+	char** syms = backtrace_symbols(trace_.data(), (int)trace_.size());
+	for (size_t i = 0; i < trace_.size(); ++i) {
+		std::fprintf(stderr, "  %s\n", syms ? syms[i] : "(symbol resolution failed)");
+	}
+	std::free(syms);
+}
+
+void StackTrace::OutputToStream(const char* msg, sgp::Logger::LogInstance* /*os*/)
+{
+	// The sgp::Logger overload path was wired up to the MSVC
+	// DbgHelp / SymFromAddr machinery; the portable execinfo path
+	// just dumps to stderr so we don't need to thread the symbol
+	// strings through the logger stream operators here.
+	PrintBacktrace(msg);
+}
 #endif
