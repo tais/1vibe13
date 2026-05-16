@@ -717,3 +717,316 @@ BOOLEAN PixelateVideoSurfaceRect(UINT32, INT32, INT32, INT32, INT32)
 
 BOOLEAN SetClipList(HVSURFACE, SGPRect*, UINT16) { return TRUE; }
 
+///////////////////////////////////////////////////////////////////////////////
+// Blitters
+///////////////////////////////////////////////////////////////////////////////
+//
+// All blitting on the SDL3 path is CPU-side. The DD-era "UsingDD"
+// function name is preserved as an alias so legacy call sites don't
+// have to be touched -- it's just a CPU memcpy / color-keyed loop now.
+
+namespace {
+
+// Clip a src-rect blit against the destination surface bounds.
+// On entry, SrcRect / DestRect are integer pixel coords. On exit,
+// they're adjusted so the copy is fully in-bounds, or returns false
+// if there's nothing to copy.
+bool ClipBlitRect(HVSURFACE hDst, HVSURFACE hSrc,
+                  INT32& iDestX, INT32& iDestY,
+                  INT32& iSrcL, INT32& iSrcT, INT32& iSrcR, INT32& iSrcB)
+{
+	const INT32 dW = (INT32)hDst->usWidth;
+	const INT32 dH = (INT32)hDst->usHeight;
+	(void)hSrc;
+	INT32 w = iSrcR - iSrcL;
+	INT32 h = iSrcB - iSrcT;
+	if (w <= 0 || h <= 0) return false;
+	if (iDestX >= dW || iDestY >= dH) return false;
+	if (iDestX + w <= 0 || iDestY + h <= 0) return false;
+	if (iDestX + w > dW) { INT32 d = (iDestX + w) - dW; iSrcR -= d; }
+	if (iDestY + h > dH) { INT32 d = (iDestY + h) - dH; iSrcB -= d; }
+	if (iDestX < 0)      { iSrcL -= iDestX; iDestX = 0; }
+	if (iDestY < 0)      { iSrcT -= iDestY; iDestY = 0; }
+	return (iSrcR > iSrcL) && (iSrcB > iSrcT);
+}
+
+void Blit16_Opaque(UINT16* dst, UINT32 dstPitchBytes,
+                   const UINT16* src, UINT32 srcPitchBytes,
+                   INT32 dstX, INT32 dstY,
+                   INT32 srcX, INT32 srcY,
+                   INT32 w, INT32 h)
+{
+	UINT8* dstRow = (UINT8*)dst + dstY * dstPitchBytes + dstX * 2;
+	const UINT8* srcRow = (const UINT8*)src + srcY * srcPitchBytes + srcX * 2;
+	for (INT32 y = 0; y < h; ++y)
+	{
+		std::memcpy(dstRow, srcRow, (size_t)w * 2);
+		dstRow += dstPitchBytes;
+		srcRow += srcPitchBytes;
+	}
+}
+
+void Blit16_ColorKey(UINT16* dst, UINT32 dstPitchBytes,
+                     const UINT16* src, UINT32 srcPitchBytes,
+                     INT32 dstX, INT32 dstY,
+                     INT32 srcX, INT32 srcY,
+                     INT32 w, INT32 h, UINT16 key)
+{
+	for (INT32 y = 0; y < h; ++y)
+	{
+		UINT16* dstP = (UINT16*)((UINT8*)dst + (dstY + y) * dstPitchBytes) + dstX;
+		const UINT16* srcP = (const UINT16*)((const UINT8*)src + (srcY + y) * srcPitchBytes) + srcX;
+		for (INT32 x = 0; x < w; ++x)
+		{
+			UINT16 v = srcP[x];
+			if (v != key) dstP[x] = v;
+		}
+	}
+}
+
+void Blit8_Opaque(UINT8* dst, UINT32 dstPitchBytes,
+                  const UINT8* src, UINT32 srcPitchBytes,
+                  INT32 dstX, INT32 dstY,
+                  INT32 srcX, INT32 srcY,
+                  INT32 w, INT32 h)
+{
+	UINT8* dstRow = dst + dstY * dstPitchBytes + dstX;
+	const UINT8* srcRow = src + srcY * srcPitchBytes + srcX;
+	for (INT32 y = 0; y < h; ++y)
+	{
+		std::memcpy(dstRow, srcRow, (size_t)w);
+		dstRow += dstPitchBytes;
+		srcRow += srcPitchBytes;
+	}
+}
+
+void FillRect16(UINT16* dst, UINT32 dstPitchBytes,
+                INT32 x, INT32 y, INT32 w, INT32 h, UINT16 colour)
+{
+	for (INT32 yy = 0; yy < h; ++yy)
+	{
+		UINT16* row = (UINT16*)((UINT8*)dst + (y + yy) * dstPitchBytes) + x;
+		for (INT32 xx = 0; xx < w; ++xx) row[xx] = colour;
+	}
+}
+
+} // namespace
+
+BOOLEAN ColorFillVideoSurfaceArea(UINT32 uiDestVSurface,
+                                  INT32 iDestX1, INT32 iDestY1,
+                                  INT32 iDestX2, INT32 iDestY2,
+                                  UINT16 Color16BPP)
+{
+	HVSURFACE hDst = nullptr;
+	if (!GetVideoSurface(&hDst, uiDestVSurface) || !hDst) return FALSE;
+	if (hDst->ubBitDepth != 16) return FALSE;
+
+	// Normalise + clip.
+	if (iDestX2 < iDestX1) std::swap(iDestX1, iDestX2);
+	if (iDestY2 < iDestY1) std::swap(iDestY1, iDestY2);
+	if (iDestX1 < 0) iDestX1 = 0;
+	if (iDestY1 < 0) iDestY1 = 0;
+	if (iDestX2 > (INT32)hDst->usWidth)  iDestX2 = hDst->usWidth;
+	if (iDestY2 > (INT32)hDst->usHeight) iDestY2 = hDst->usHeight;
+	if (iDestX1 >= iDestX2 || iDestY1 >= iDestY2) return TRUE;
+
+	UINT32 dstPitch = 0;
+	UINT16* dstBuf = (UINT16*)LockVideoSurfaceBuffer(hDst, &dstPitch);
+	if (!dstBuf) return FALSE;
+	FillRect16(dstBuf, dstPitch, iDestX1, iDestY1,
+	           iDestX2 - iDestX1, iDestY2 - iDestY1, Color16BPP);
+	UnLockVideoSurfaceBuffer(hDst);
+	return TRUE;
+}
+
+BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
+                                      UINT16 usIndex, INT32 iDestX, INT32 iDestY,
+                                      INT32 fBltFlags, blt_vs_fx* pBltFx)
+{
+	if (!hDst || !hSrc) return FALSE;
+	if (hDst->ubBitDepth != hSrc->ubBitDepth) return FALSE;
+
+	// Color-fill rect via the dedicated entry point.
+	if (fBltFlags & VS_BLT_COLORFILLRECT)
+	{
+		if (!pBltFx) return FALSE;
+		return ColorFillVideoSurfaceArea(
+			PRIMARY_SURFACE, // unused -- we go through GetVideoSurface dispatch below
+			pBltFx->FillRect.iLeft, pBltFx->FillRect.iTop,
+			pBltFx->FillRect.iRight, pBltFx->FillRect.iBottom,
+			(UINT16)pBltFx->ColorFill) ? TRUE : FALSE;
+	}
+	if (fBltFlags & VS_BLT_COLORFILL)
+	{
+		if (!pBltFx) return FALSE;
+		UINT32 pitch = 0;
+		UINT16* buf = (UINT16*)LockVideoSurfaceBuffer(hDst, &pitch);
+		if (!buf) return FALSE;
+		FillRect16(buf, pitch, 0, 0, hDst->usWidth, hDst->usHeight,
+		           (UINT16)pBltFx->ColorFill);
+		UnLockVideoSurfaceBuffer(hDst);
+		return TRUE;
+	}
+
+	// Source rect: VS_BLT_SRCREGION (region table index), VS_BLT_SRCSUBRECT
+	// (rect in pBltFx->SrcRect), or default (whole source surface).
+	INT32 sL, sT, sR, sB;
+	if (fBltFlags & VS_BLT_SRCREGION)
+	{
+		VSURFACE_REGION region{};
+		if (!GetVSurfaceRegion(hSrc, usIndex, &region)) return FALSE;
+		sL = region.RegionCoords.iLeft;
+		sT = region.RegionCoords.iTop;
+		sR = region.RegionCoords.iRight;
+		sB = region.RegionCoords.iBottom;
+	}
+	else if (fBltFlags & VS_BLT_SRCSUBRECT)
+	{
+		if (!pBltFx) return FALSE;
+		sL = pBltFx->SrcRect.iLeft;
+		sT = pBltFx->SrcRect.iTop;
+		sR = pBltFx->SrcRect.iRight;
+		sB = pBltFx->SrcRect.iBottom;
+	}
+	else
+	{
+		sL = 0; sT = 0; sR = hSrc->usWidth; sB = hSrc->usHeight;
+	}
+
+	if (!ClipBlitRect(hDst, hSrc, iDestX, iDestY, sL, sT, sR, sB)) return TRUE;
+
+	UINT32 srcPitch = 0, dstPitch = 0;
+	BYTE* srcBuf = LockVideoSurfaceBuffer(hSrc, &srcPitch);
+	BYTE* dstBuf = LockVideoSurfaceBuffer(hDst, &dstPitch);
+	if (!srcBuf || !dstBuf)
+	{
+		UnLockVideoSurfaceBuffer(hSrc);
+		UnLockVideoSurfaceBuffer(hDst);
+		return FALSE;
+	}
+
+	const INT32 w = sR - sL;
+	const INT32 h = sB - sT;
+	if (hDst->ubBitDepth == 16)
+	{
+		if (fBltFlags & VS_BLT_USECOLORKEY)
+		{
+			Blit16_ColorKey((UINT16*)dstBuf, dstPitch,
+			                (const UINT16*)srcBuf, srcPitch,
+			                iDestX, iDestY, sL, sT, w, h,
+			                (UINT16)hSrc->TransparentColor);
+		}
+		else
+		{
+			Blit16_Opaque((UINT16*)dstBuf, dstPitch,
+			              (const UINT16*)srcBuf, srcPitch,
+			              iDestX, iDestY, sL, sT, w, h);
+		}
+	}
+	else if (hDst->ubBitDepth == 8)
+	{
+		Blit8_Opaque((UINT8*)dstBuf, dstPitch,
+		             (const UINT8*)srcBuf, srcPitch,
+		             iDestX, iDestY, sL, sT, w, h);
+	}
+
+	UnLockVideoSurfaceBuffer(hSrc);
+	UnLockVideoSurfaceBuffer(hDst);
+	return TRUE;
+}
+
+BOOLEAN BltVideoSurface(UINT32 uiDest, UINT32 uiSrc, UINT16 usRegionIndex,
+                        INT32 iDestX, INT32 iDestY, UINT32 fBltFlags,
+                        blt_vs_fx* pBltFx)
+{
+	HVSURFACE hDst = nullptr, hSrc = nullptr;
+	if (!GetVideoSurface(&hDst, uiDest) || !hDst) return FALSE;
+	if (!GetVideoSurface(&hSrc, uiSrc)  || !hSrc) return FALSE;
+	return BltVideoSurfaceToVideoSurface(hDst, hSrc, usRegionIndex,
+	                                     iDestX, iDestY,
+	                                     (INT32)fBltFlags, pBltFx);
+}
+
+BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
+                               INT32 /*iDestX*/, INT32 /*iDestY*/,
+                               UINT32 /*fBltFlags*/,
+                               SGPRect* SrcRect, SGPRect* DestRect)
+{
+	if (!SrcRect || !DestRect) return FALSE;
+	HVSURFACE hDst = nullptr, hSrc = nullptr;
+	if (!GetVideoSurface(&hDst, uiDest) || !hDst) return FALSE;
+	if (!GetVideoSurface(&hSrc, uiSrc)  || !hSrc) return FALSE;
+	if (hDst->ubBitDepth != 16 || hSrc->ubBitDepth != 16) return FALSE;
+
+	const INT32 sW = SrcRect->iRight - SrcRect->iLeft;
+	const INT32 sH = SrcRect->iBottom - SrcRect->iTop;
+	const INT32 dW = DestRect->iRight - DestRect->iLeft;
+	const INT32 dH = DestRect->iBottom - DestRect->iTop;
+	if (sW <= 0 || sH <= 0 || dW <= 0 || dH <= 0) return TRUE;
+
+	UINT32 srcPitch = 0, dstPitch = 0;
+	UINT16* srcBuf = (UINT16*)LockVideoSurfaceBuffer(hSrc, &srcPitch);
+	UINT16* dstBuf = (UINT16*)LockVideoSurfaceBuffer(hDst, &dstPitch);
+	if (!srcBuf || !dstBuf)
+	{
+		UnLockVideoSurfaceBuffer(hSrc);
+		UnLockVideoSurfaceBuffer(hDst);
+		return FALSE;
+	}
+
+	// Nearest-neighbour stretch. Integer ratios; good enough for the
+	// UI panels JA2 stretches. Phase 6 / shaders can do better.
+	for (INT32 dy = 0; dy < dH; ++dy)
+	{
+		INT32 absDstY = DestRect->iTop + dy;
+		if (absDstY < 0 || absDstY >= (INT32)hDst->usHeight) continue;
+		const INT32 sy = SrcRect->iTop + (dy * sH) / dH;
+		const UINT16* srcRow = (const UINT16*)((const UINT8*)srcBuf + sy * srcPitch);
+		UINT16* dstRow = (UINT16*)((UINT8*)dstBuf + absDstY * dstPitch);
+		for (INT32 dx = 0; dx < dW; ++dx)
+		{
+			INT32 absDstX = DestRect->iLeft + dx;
+			if (absDstX < 0 || absDstX >= (INT32)hDst->usWidth) continue;
+			const INT32 sx = SrcRect->iLeft + (dx * sW) / dW;
+			dstRow[absDstX] = srcRow[sx];
+		}
+	}
+
+	UnLockVideoSurfaceBuffer(hSrc);
+	UnLockVideoSurfaceBuffer(hDst);
+	return TRUE;
+}
+
+// BltVSurfaceUsingDD: the "UsingDD" name is vestigial -- the SDL3 path
+// has no DirectDraw blits, so this is just an alias for the CPU blit.
+// RECT* parameter (Win32 type) preserved for ABI; mapped to the same
+// fields BltVideoSurfaceToVideoSurface expects.
+BOOLEAN BltVSurfaceUsingDD(HVSURFACE hDst, HVSURFACE hSrc, UINT32 fBltFlags,
+                           INT32 iDestX, INT32 iDestY, RECT* SrcRect)
+{
+	blt_vs_fx fx{};
+	UINT32 flags = fBltFlags;
+	if (SrcRect)
+	{
+		fx.SrcRect.iLeft   = SrcRect->left;
+		fx.SrcRect.iTop    = SrcRect->top;
+		fx.SrcRect.iRight  = SrcRect->right;
+		fx.SrcRect.iBottom = SrcRect->bottom;
+		flags |= VS_BLT_SRCSUBRECT;
+	}
+	return BltVideoSurfaceToVideoSurface(hDst, hSrc, 0, iDestX, iDestY,
+	                                     (INT32)flags, &fx);
+}
+
+// Image-tile fill, alpha shadow, and the low-percent-table darken
+// operations need the same blender math the inline-asm blocks in
+// vobject_blitters.cpp provide. They're not exercised yet in the
+// macOS startup path; once a real game loop drives them the real
+// implementations come in alongside the Phase 6 RGB565-asm
+// retirement.
+BOOLEAN ImageFillVideoSurfaceArea(UINT32, INT32, INT32, INT32, INT32,
+                                  HVOBJECT, UINT16, INT16, INT16) { return FALSE; }
+BOOLEAN ShadowVideoSurfaceRect(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
+BOOLEAN ShadowVideoSurfaceImage(UINT32, HVOBJECT, INT32, INT32) { return FALSE; }
+BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
+

@@ -23,16 +23,11 @@
 
 #include <cstdarg>
 
-// ---- vsurface.cpp blitters (manager moved into sdl_vsurface.cpp) ----------
-BOOLEAN BltVideoSurface(UINT32, UINT32, UINT16, INT32, INT32, UINT32, blt_vs_fx*) { return FALSE; }
-BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE, HVSURFACE, UINT16, INT32, INT32, INT32, blt_vs_fx*) { return FALSE; }
-BOOLEAN BltStretchVideoSurface(UINT32, UINT32, INT32, INT32, UINT32, SGPRect*, SGPRect*) { return FALSE; }
-BOOLEAN BltVSurfaceUsingDD(HVSURFACE, HVSURFACE, UINT32, INT32, INT32, RECT*) { return FALSE; }
-BOOLEAN ColorFillVideoSurfaceArea(UINT32, INT32, INT32, INT32, INT32, UINT16) { return FALSE; }
-BOOLEAN ImageFillVideoSurfaceArea(UINT32, INT32, INT32, INT32, INT32, HVOBJECT, UINT16, INT16, INT16) { return FALSE; }
-BOOLEAN ShadowVideoSurfaceRect(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
-BOOLEAN ShadowVideoSurfaceImage(UINT32, HVOBJECT, INT32, INT32) { return FALSE; }
-BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
+// (Blitter stubs moved into sdl_vsurface.cpp: BltVideoSurface,
+// BltVideoSurfaceToVideoSurface, BltStretchVideoSurface,
+// BltVSurfaceUsingDD, ColorFillVideoSurfaceArea got CPU
+// implementations; ImageFillVideoSurfaceArea / Shadow* still return
+// FALSE pending the Phase 6 RGB565 blender retirement.)
 
 // (video.cpp stubs moved into sdl_video.cpp -- it now provides real
 // SDL3-backed implementations of FatalError, DirtyCursor, PrintScreen,
