@@ -15,7 +15,7 @@ This lives on the `sdl3-port` branch. `master` is left untouched.
 | 2 | Portable file I/O / time / memory / debug | Partial via compat shims; real porting pending |
 | 3 | SDL3 window + event loop, drop WinMain | 🟡 Started — SDL3 wired into CMake, minimal window+event-loop main() on non-Windows. JA2 game loop not yet dispatched. |
 | 4 | SDL3 input, drop DirectInput / Win32 hooks | Not started |
-| 5 | SDL3 video (RGB565 transitional), retire DirectDraw | Not started |
+| 5 | SDL3 video (RGB565 transitional), retire DirectDraw | 🟡 Started — RGB565 SDL_Texture upload path working with a test pattern in sgp.cpp's main(). Needs the JA2 framebuffer wired in. |
 | 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | Not started |
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | Not started |
 | 8 | Cinematics — libsmacker, decide on Bink | Not started |
