@@ -21,15 +21,11 @@ bool    g_bUseXML_Structures = false;
 // ---- video.cpp (Phase 5) ---------------------------------------------------
 UINT32  CurrentSurface          = 0;
 INT32   giNumFrames             = 0;
-INT32   giMemUsedInSurfaces     = 0;
 BOOLEAN gfNextRefreshFullScreen = FALSE;
 // gpFrameData (the framebuffer) -- not defined here; Phase 5 will
 // allocate it when the SDL_Texture-backed renderer lands.
 
-// ---- vsurface.cpp (Phase 5) -----------------------------------------------
-// HVSURFACE is a typedef for SGPVSurface*; defined here as nullptr.
-struct SGPVSurface; // forward decl
-SGPVSurface* ghFrameBuffer = nullptr;
+// (giMemUsedInSurfaces + ghFrameBuffer are now owned by sdl_vsurface.cpp.)
 
 // ---- Intro.cpp (Phase 8) ---------------------------------------------------
 UINT32  gbIntroScreenMode     = 0;

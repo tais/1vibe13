@@ -23,10 +23,7 @@
 
 #include <cstdarg>
 
-// ---- vsurface.cpp ----------------------------------------------------------
-BOOLEAN AddStandardVideoSurface(VSURFACE_DESC*, UINT32*) { return FALSE; }
-BOOLEAN GetVideoSurface(HVSURFACE*, UINT32) { return FALSE; }
-BOOLEAN DeleteVideoSurfaceFromIndex(UINT32) { return FALSE; }
+// ---- vsurface.cpp blitters (manager moved into sdl_vsurface.cpp) ----------
 BOOLEAN BltVideoSurface(UINT32, UINT32, UINT16, INT32, INT32, UINT32, blt_vs_fx*) { return FALSE; }
 BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE, HVSURFACE, UINT16, INT32, INT32, INT32, blt_vs_fx*) { return FALSE; }
 BOOLEAN BltStretchVideoSurface(UINT32, UINT32, INT32, INT32, UINT32, SGPRect*, SGPRect*) { return FALSE; }
@@ -36,14 +33,6 @@ BOOLEAN ImageFillVideoSurfaceArea(UINT32, INT32, INT32, INT32, INT32, HVOBJECT, 
 BOOLEAN ShadowVideoSurfaceRect(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
 BOOLEAN ShadowVideoSurfaceImage(UINT32, HVOBJECT, INT32, INT32) { return FALSE; }
 BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
-BOOLEAN SetVideoSurfaceTransparency(UINT32, COLORVAL) { return FALSE; }
-BOOLEAN GetVSurfacePaletteEntries(HVSURFACE, SGPPaletteEntry*) { return FALSE; }
-BYTE*   LockVideoSurface(UINT32, UINT32*) { return nullptr; }
-void    UnLockVideoSurface(UINT32) {}
-
-// (SurfaceData:: and ClipRectangle:: bodies moved into sdl_vsurface.cpp
-// -- they're pure C++ with no DirectDraw dependency and lift verbatim
-// from the legacy vsurface.cpp.)
 
 // (video.cpp stubs moved into sdl_video.cpp -- it now provides real
 // SDL3-backed implementations of FatalError, DirtyCursor, PrintScreen,
