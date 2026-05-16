@@ -37,7 +37,6 @@
 #include <excpt.h>
 #include "INIReader.h"
 #include "connect.h"
-#include "wine.h"
 #include "Intro.h"
 #include <Music Control.h>
 #include <language.hpp>
@@ -738,17 +737,9 @@ int PASCAL HandledWinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR pC
 	HWND			hPrevInstanceWindow;
 	UINT32			uiTimer = 0;
 
-	// Make sure the game works out of the box on Linux/macOS/Android (WINE)
-	if (wine_add_dll_overrides())
-	{
-		/* newly added dll overrides only work after a restart */
-		char exe_path[MAX_PATH] = { 0 };
-		GetModuleFileNameA(NULL, exe_path, _countof(exe_path));
-
-		ShellExecuteA(NULL, "open", exe_path, pCommandLine, NULL, sCommandShow);
-		return 0;
-	}
-
+	// The Wine cnc-ddraw override dance is gone -- SDL3 replaces
+	// DirectDraw on every platform, so there is nothing left to coax
+	// Wine into preferring.
 	vfs::Log::setSharedString( getGameID() );
 	//if(!vfs::Aspects::getMutexFactory())
 	//{

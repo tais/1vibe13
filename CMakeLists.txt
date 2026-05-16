@@ -171,9 +171,6 @@ add_subdirectory("ext/export/src")
 # static libraries whose translation units don't rely on Application preprocessor definitions.
 add_subdirectory(lua)
 add_subdirectory(Multiplayer)
-if(WIN32)
-  add_subdirectory(wine)
-endif()
 
 set(Ja2_Libraries
 bfVFS
@@ -196,7 +193,6 @@ if(WIN32)
     "Dbghelp.lib"
     "Winmm.lib"
     "ws2_32.lib"
-    wine
   )
 endif()
 

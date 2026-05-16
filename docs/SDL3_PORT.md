@@ -503,9 +503,14 @@ only so legacy unported translation units still compile.
    handles most of it). The stack-trace helpers in
    `debug_win_util.cpp` should be gated `_WIN32`; non-Windows can use
    `<stacktrace>` (C++23, not universally available yet) or libunwind.
-6. [sgp/timer.cpp](../sgp/timer.cpp) — replace the `SetTimer`-driven
-   game clock with a `std::chrono`-driven equivalent. Tiny file.
-7. Delete `wine/`. (The non-Win32 builds already exclude it.)
+6. ~~[sgp/timer.cpp](../sgp/timer.cpp) — replace the `SetTimer`-driven
+   game clock with a `std::chrono`-driven equivalent. Tiny file.~~
+   **Done.** Dropped the SetTimer/KillTimer dance; `GetClock()` now
+   samples `std::chrono::steady_clock` directly.
+7. ~~Delete `wine/`.~~ **Done.** The Wine cnc-ddraw override is
+   obsolete now that SDL3 replaces DirectDraw everywhere. Removed the
+   subdirectory, its CMakeLists entry, and the call site in
+   `sgp.cpp`'s WinMain.
 8. Remove the now-redundant Win32 file I/O stubs from msvc_compat.h.
 
 **Exit criterion**: the non-video, non-input, non-audio parts of SGP

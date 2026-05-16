@@ -1,71 +1,57 @@
-	#include "types.h"
-#ifdef _WIN32
-	#include <windows.h>
-#endif
-		#include "video.h"
-	#include "timer.h"
+#include "types.h"
+#include "timer.h"
 
-#ifndef WIN32_LEAN_AND_MEAN
-	#define WIN32_LEAN_AND_MEAN
-#endif
+#include <chrono>
+
+// SGP's simple clock manager. The original used Win32 SetTimer +
+// KillTimer to drive a periodic Clock() callback that updated
+// guiCurrentTime from GetTickCount. That was always redundant -- the
+// callback recomputed the same delta that GetClock could compute on
+// demand. The rewrite drops the timer entirely and just samples
+// std::chrono::steady_clock when callers ask for the time. Public
+// API is unchanged.
 
 UINT32 guiStartupTime;
 UINT32 guiCurrentTime;
 
-#ifdef _WIN32
-void CALLBACK Clock( HWND hWindow, UINT uMessage, UINT idEvent, DWORD dwTime )
+using SteadyClock = std::chrono::steady_clock;
+static SteadyClock::time_point gStartTimePoint;
+
+static UINT32 NowMs()
 {
-	guiCurrentTime = GetTickCount();
-	if (guiCurrentTime < guiStartupTime)
-	{ // Adjust guiCurrentTime because of loopback on the timer value
-	guiCurrentTime = guiCurrentTime + (0xffffffff - guiStartupTime);
-	}
-	else
-	{ // Adjust guiCurrentTime because of loopback on the timer value
-	guiCurrentTime = guiCurrentTime - guiStartupTime;
-	}
+	auto t = SteadyClock::now() - gStartTimePoint;
+	return (UINT32)std::chrono::duration_cast<std::chrono::milliseconds>(t).count();
 }
-#endif
 
 BOOLEAN InitializeClockManager(void)
 {
-
-	// Register the start time (use WIN95 API call)
-	guiCurrentTime = guiStartupTime = GetTickCount();
-#ifdef _WIN32
-	SetTimer(ghWindow, MAIN_TIMER_ID, 10, (TIMERPROC)Clock);
-#endif
-
-
+	gStartTimePoint = SteadyClock::now();
+	guiStartupTime  = 0;
+	guiCurrentTime  = 0;
 	return TRUE;
 }
 
-void	ShutdownClockManager(void)
+void ShutdownClockManager(void)
 {
-
-	// Make sure we kill the timer
-#ifdef _WIN32
-	KillTimer(ghWindow, MAIN_TIMER_ID);
-#endif
-
 }
 
-TIMER	GetClock(void)
+TIMER GetClock(void)
 {
+	guiCurrentTime = NowMs();
 	return guiCurrentTime;
 }
 
-TIMER	SetCountdownClock(UINT32 uiTimeToElapse)
+TIMER SetCountdownClock(UINT32 uiTimeToElapse)
 {
-	return (guiCurrentTime + uiTimeToElapse);
+	return (GetClock() + uiTimeToElapse);
 }
 
 UINT32 ClockIsTicking(TIMER uiTimer)
 {
-	if (uiTimer > guiCurrentTime)
-	{ // Well timer still hasn't elapsed
-	return (uiTimer - guiCurrentTime);
+	UINT32 now = GetClock();
+	if (uiTimer > now)
+	{
+		return (uiTimer - now);
 	}
-	// Time's up
 	return 0;
 }
