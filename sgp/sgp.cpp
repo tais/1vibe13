@@ -1419,16 +1419,66 @@ static bool CallGameLoop(bool wait)
 
 
 #ifndef _WIN32
-// Phase 3 will replace this with an SDL_main entry point that
-// initializes SDL3, creates the window, and dispatches into the
-// game loop. For now the non-Windows executable links but exits
-// immediately -- enough to verify the build hits 100%.
+// Phase 3 SDL3 entry point. Opens a window and runs a minimal event
+// loop until the user quits. Game-loop dispatch isn't wired up yet
+// because rendering (Phase 5), input fan-out into the JA2 queue
+// (Phase 4), and audio (Phase 7) are all gated out. This proves the
+// SDL3 dependency works end-to-end and gives the executable
+// something visible to do.
+#include <SDL3/SDL.h>
 #include <cstdio>
+
 int main(int /*argc*/, char** /*argv*/)
 {
-	std::fprintf(stderr,
-		"JA2 SDL3 port: non-Windows entry point not yet implemented.\n"
-		"This stub exists so the build links; Phase 3 wires SDL3 in.\n");
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
+		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+		return 1;
+	}
+
+	SDL_Window* window = SDL_CreateWindow(
+		"Jagged Alliance 2 1.13 (SDL3 port -- pre-Phase-5)",
+		640, 480,
+		SDL_WINDOW_RESIZABLE);
+	if (!window) {
+		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
+	if (!renderer) {
+		std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
+		SDL_DestroyWindow(window);
+		SDL_Quit();
+		return 1;
+	}
+
+	std::printf("JA2 SDL3 port -- window open. "
+	            "Game loop wiring lands in Phase 4/5. "
+	            "Close the window to exit.\n");
+
+	bool running = true;
+	while (running) {
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			if (event.type == SDL_EVENT_QUIT) {
+				running = false;
+			}
+			if (event.type == SDL_EVENT_KEY_DOWN &&
+			    event.key.key == SDLK_ESCAPE) {
+				running = false;
+			}
+		}
+		// Stand-in clear: solid dark background until Phase 5 wires
+		// the JA2 framebuffer up as an SDL_Texture.
+		SDL_SetRenderDrawColor(renderer, 16, 16, 32, 255);
+		SDL_RenderClear(renderer);
+		SDL_RenderPresent(renderer);
+	}
+
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
 	return 0;
 }
 #endif

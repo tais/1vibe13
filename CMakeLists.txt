@@ -69,6 +69,27 @@ add_subdirectory("ext/zlib")
 add_subdirectory("ext/VFS")
 target_link_libraries(bfVFS PRIVATE 7z)
 
+# SDL3: window/input/audio backend for non-Windows builds (Phase 3+).
+# Windows still uses the legacy DirectDraw/Win32 path during the
+# transition; SDL3 only becomes mandatory once Phase 5 retires
+# DirectDraw. Use system SDL3 if present, else fetch from upstream.
+if(NOT WIN32)
+  find_package(SDL3 QUIET CONFIG)
+  if(NOT TARGET SDL3::SDL3)
+    include(FetchContent)
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+      SDL3
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+      GIT_TAG release-3.2.16
+      GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(SDL3)
+  endif()
+endif()
+
 # ja2export utility
 add_subdirectory("ext/export/src")
 
@@ -165,6 +186,9 @@ foreach(app IN LISTS ApplicationTargets)
       ${exe_platform_sources}
     )
     target_link_libraries(${exe} PRIVATE ${Ja2_Libraries} $<IF:${usingMsBuild},legacy_stdio_definitions.lib,>)
+    if(NOT WIN32)
+      target_link_libraries(${exe} PRIVATE SDL3::SDL3)
+    endif()
     target_link_options(${exe} PRIVATE $<IF:${usingMsBuild},/SAFESEH:NO,>)
     target_compile_definitions(${exe} PRIVATE ${compilationFlags} ${debugFlags})
 
