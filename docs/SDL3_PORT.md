@@ -607,13 +607,30 @@ not crashing) on macOS.
 
 Replace DirectInput / Win32 keyboard & mouse messages with SDL events.
 
+**Status (2026-05-16):** first cut landed as
+[sgp/sdl_input.cpp](../sgp/sdl_input.cpp) + sdl_input.h. SDL_Event ->
+JA2 event translation (scancode -> VK_*, mouse-coord packing into
+LPARAM-shaped UINT32, button + wheel handling) now lives in its own
+TU. `sgp.cpp`'s main calls `SgpHandleSDLEvent()`.
+
+The translation currently dispatches into a local `DispatchToInputQueue`
+that prints to stderr; calling input.cpp's real `QueueEvent` triggers
+a 55-symbol link cascade (video.cpp / vsurface.cpp / Intro.cpp /
+soundman.cpp / mousesystem -- input.cpp's KeyDown/KeyUp bodies call
+PrintScreen, BltVideoSurface, IntroScreen*, SoundLoadSample, etc.) and
+several of the referenced classes have private headers that pull in
+DirectDraw. So the wire-up is blocked behind Phase 5 (video) and the
+remaining gated subsystems; the swap is a one-line change in
+sdl_input.cpp once those land.
+
 **Source changes:**
 
 1. [sgp/input.cpp](../sgp/input.cpp) — `KeyboardHandler` /
    `MouseHandler` Win32 hook procs replaced with an
    `SDL_EVENT_KEY_DOWN` / `SDL_EVENT_KEY_UP` /
    `SDL_EVENT_MOUSE_*` dispatch driven by Phase 3's `SDL_PollEvent`
-   loop.
+   loop. **First cut done** in `sdl_input.cpp` (translation layer);
+   full wire-up to `input.cpp::QueueEvent` blocked on Phase 5.
 2. [Utils/KeyMap.cpp](../Utils/KeyMap.cpp) — rebuild the keycode
    translation. **The numeric VK_* values must be preserved** for
    savegame compatibility (they're persisted in hotkey config). Build

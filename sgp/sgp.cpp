@@ -1418,76 +1418,7 @@ static bool CallGameLoop(bool wait)
 #include <SDL3/SDL.h>
 #include <cstdio>
 #include "types.h"
-
-// JA2 event-code constants. Re-declared locally rather than via
-// "input.h" because that pull cascades into video/vsurface/intro/
-// winfont APIs that are still _WIN32-gated. Once Phase 5 + Phase 8
-// + Phase 9 land SDL3-backed rewrites of those subsystems the
-// include can be restored and this stub layer deleted.
-#define KEY_DOWN                  0x0001
-#define KEY_UP                    0x0002
-#define LEFT_BUTTON_DOWN          0x0008
-#define LEFT_BUTTON_UP            0x0010
-#define RIGHT_BUTTON_DOWN         0x0080
-#define RIGHT_BUTTON_UP           0x0100
-#define MOUSE_POS                 0x0400
-#define MOUSE_WHEEL_UP            0x0800
-#define MOUSE_WHEEL_DOWN          0x1000
-#define MIDDLE_BUTTON_DOWN        0x2000
-#define MIDDLE_BUTTON_UP          0x4000
-
-// Local mouse-position cache + QueueEvent debug stub. Wiring SDL
-// events into JA2's real input.cpp is blocked behind ~57 unresolved
-// function symbols across video / vsurface / intro / winfont /
-// sound / debug -- those clear as each phase rewrites its subsystem
-// on SDL3 and the gates come down.
-static INT16 gusMouseXPos = 0;
-static INT16 gusMouseYPos = 0;
-
-static void QueueEvent(UINT16 ev, UINT32 usParam, UINT32 uiParam)
-{
-	std::fprintf(stderr, "[sdl-input] ev=0x%04x usParam=%u uiParam=0x%08x\n",
-	             ev, usParam, uiParam);
-}
-
-// Pack mouse coords the same way the Win32 hook used to: y<<16 | x.
-static UINT32 pack_xy(int x, int y)
-{
-	return (UINT32)((y & 0xFFFF) << 16) | (UINT32)(x & 0xFFFF);
-}
-
-// Translate SDL_Scancode to JA2's persisted VK_* values. JA2 stores
-// these in savegames and config files, so we can't just hand SDL
-// scancodes through. Phase 4 expands this into a proper table built
-// from Utils/KeyMap.cpp; for now the small subset below is enough to
-// drive menus.
-static UINT16 sdl_to_vk(SDL_Scancode sc, SDL_Keycode key)
-{
-	switch (sc) {
-		case SDL_SCANCODE_ESCAPE: return 0x1B; // VK_ESCAPE
-		case SDL_SCANCODE_RETURN: return 0x0D; // VK_RETURN
-		case SDL_SCANCODE_SPACE:  return 0x20; // VK_SPACE
-		case SDL_SCANCODE_TAB:    return 0x09; // VK_TAB
-		case SDL_SCANCODE_BACKSPACE: return 0x08; // VK_BACK
-		case SDL_SCANCODE_LEFT:   return 0x25; // VK_LEFT
-		case SDL_SCANCODE_UP:     return 0x26; // VK_UP
-		case SDL_SCANCODE_RIGHT:  return 0x27; // VK_RIGHT
-		case SDL_SCANCODE_DOWN:   return 0x28; // VK_DOWN
-		case SDL_SCANCODE_LSHIFT: return 0xA0; // VK_LSHIFT
-		case SDL_SCANCODE_RSHIFT: return 0xA1; // VK_RSHIFT
-		case SDL_SCANCODE_LCTRL:  return 0xA2; // VK_LCONTROL
-		case SDL_SCANCODE_RCTRL:  return 0xA3; // VK_RCONTROL
-		case SDL_SCANCODE_LALT:   return 0xA4; // VK_LMENU (alt)
-		case SDL_SCANCODE_RALT:   return 0xA5; // VK_RMENU
-		default: break;
-	}
-	// ASCII printable: just hand the keycode (matches Win32 VK_* for
-	// alphanumerics).
-	if (key >= 0x20 && key < 0x7F) {
-		return (UINT16)(key >= 'a' && key <= 'z' ? key - 32 : key);
-	}
-	return 0;
-}
+#include "sdl_input.h"
 
 int main(int /*argc*/, char** /*argv*/)
 {
@@ -1546,54 +1477,16 @@ int main(int /*argc*/, char** /*argv*/)
 	while (running) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			switch (event.type) {
-			case SDL_EVENT_QUIT:
+			if (SgpHandleSDLEvent(&event)) {
 				running = false;
-				break;
-
-			case SDL_EVENT_KEY_DOWN: {
-				if (event.key.key == SDLK_ESCAPE) running = false;
-				UINT16 vk = sdl_to_vk(event.key.scancode, event.key.key);
-				if (vk) QueueEvent(KEY_DOWN, vk, 0);
-				break;
+				continue;
 			}
-			case SDL_EVENT_KEY_UP: {
-				UINT16 vk = sdl_to_vk(event.key.scancode, event.key.key);
-				if (vk) QueueEvent(KEY_UP, vk, 0);
-				break;
-			}
-
-			case SDL_EVENT_MOUSE_MOTION: {
-				gusMouseXPos = (INT16)event.motion.x;
-				gusMouseYPos = (INT16)event.motion.y;
-				QueueEvent(MOUSE_POS, 0,
-				           pack_xy((int)event.motion.x, (int)event.motion.y));
-				break;
-			}
-			case SDL_EVENT_MOUSE_BUTTON_DOWN:
-			case SDL_EVENT_MOUSE_BUTTON_UP: {
-				const bool down = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN;
-				const UINT32 xy = pack_xy((int)event.button.x, (int)event.button.y);
-				UINT16 ev = 0;
-				switch (event.button.button) {
-				case SDL_BUTTON_LEFT:   ev = down ? LEFT_BUTTON_DOWN   : LEFT_BUTTON_UP;   break;
-				case SDL_BUTTON_RIGHT:  ev = down ? RIGHT_BUTTON_DOWN  : RIGHT_BUTTON_UP;  break;
-				case SDL_BUTTON_MIDDLE: ev = down ? MIDDLE_BUTTON_DOWN : MIDDLE_BUTTON_UP; break;
-				// X1/X2: not in the local minimal table; map to middle.
-				case SDL_BUTTON_X1:
-				case SDL_BUTTON_X2:     ev = down ? MIDDLE_BUTTON_DOWN : MIDDLE_BUTTON_UP; break;
-				default: break;
-				}
-				if (ev) QueueEvent(ev, 0, xy);
-				break;
-			}
-			case SDL_EVENT_MOUSE_WHEEL: {
-				const UINT32 xy = pack_xy(gusMouseXPos, gusMouseYPos);
-				if (event.wheel.y > 0) QueueEvent(MOUSE_WHEEL_UP,   0, xy);
-				if (event.wheel.y < 0) QueueEvent(MOUSE_WHEEL_DOWN, 0, xy);
-				break;
-			}
-			default: break;
+			// Treat Escape as a quit shortcut while there's no game
+			// loop driving the close path on its own.
+			if (event.type == SDL_EVENT_KEY_DOWN &&
+			    event.key.key == SDLK_ESCAPE)
+			{
+				running = false;
 			}
 		}
 		// Lock the streaming texture, write a test pattern, present.
