@@ -114,7 +114,7 @@ extern UINT32		MemDebugCounter;
 	extern BOOL		bScreenModeCmdLine;
 
 extern	BOOLEAN		CheckIfGameCdromIsInCDromDrive();
-extern	void		sdl_queue_event(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
+extern	void		QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
 
 // Prototype Declarations
 INT32 FAR PASCAL	WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam);
@@ -199,7 +199,7 @@ INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LP
 	// ATE: This is for older win95 or NT 3.51 to get MOUSE_WHEEL Messages
 	//if ( Message == guiMouseWheelMsg )
 	//{
-	//	sdl_queue_event(MOUSE_WHEEL, wParam, lParam);
+	//	QueueEvent(MOUSE_WHEEL, wParam, lParam);
 	//	return( 0L );
 	//}
 
@@ -214,7 +214,7 @@ INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LP
 /*dnl kick this out, because in input.sgp MouseHandler() hook has priority so it will process same event twice, someone force MouseHandler() hook to always return unhandled events status so what ever mouse event you process in WindowProcedure() be aware that this event is already occur in MouseHandler() (mouse clicks, move etc.) Probably this is done because when you lost focus even if you click back on window region this will not restore them, so need condition in MouseHandler to restore window focus
 //		case WM_MOUSEWHEEL:
 //			{
-//				sdl_queue_event(MOUSE_WHEEL, wParam, lParam);
+//				QueueEvent(MOUSE_WHEEL, wParam, lParam);
 //				break;
 //			}
 */		
@@ -1428,32 +1428,29 @@ static bool CallGameLoop(bool wait)
 #include <cstdio>
 #include "types.h"
 
-// JA2 input event codes. Re-declared locally instead of #include "input.h"
-// to avoid pulling JA2_sgp.a's heavy transitive deps (FMOD, Expat,
-// FatalError, ...) into the link surface before Phase 5/7 are done.
-// Next slice routes these into the real QueueEvent path once the
-// dependency graph is clean.
-#define JA2_KEY_DOWN              0x0001
-#define JA2_KEY_UP                0x0002
-#define JA2_LEFT_BUTTON_DOWN      0x0008
-#define JA2_LEFT_BUTTON_UP        0x0010
-#define JA2_RIGHT_BUTTON_DOWN     0x0080
-#define JA2_RIGHT_BUTTON_UP       0x0100
-#define JA2_MOUSE_POS             0x0400
-#define JA2_MOUSE_WHEEL_UP        0x0800
-#define JA2_MOUSE_WHEEL_DOWN      0x1000
-#define JA2_MIDDLE_BUTTON_DOWN    0x2000
-#define JA2_MIDDLE_BUTTON_UP      0x4000
+// JA2 event-code constants. Re-declared locally rather than via
+// "input.h" because that pull triggers a large link cascade
+// (JA2_sgp.a -> input.cpp -> video globals -> Intro/Lua/etc.)
+// while the SDL3 replacements for those subsystems aren't built
+// yet. Phase 4 proper rewrites input.cpp on SDL3 and removes this
+// stub layer.
+#define KEY_DOWN                  0x0001
+#define KEY_UP                    0x0002
+#define LEFT_BUTTON_DOWN          0x0008
+#define LEFT_BUTTON_UP            0x0010
+#define RIGHT_BUTTON_DOWN         0x0080
+#define RIGHT_BUTTON_UP           0x0100
+#define MOUSE_POS                 0x0400
+#define MOUSE_WHEEL_UP            0x0800
+#define MOUSE_WHEEL_DOWN          0x1000
+#define MIDDLE_BUTTON_DOWN        0x2000
+#define MIDDLE_BUTTON_UP          0x4000
 
-// Local mouse-position cache. Real path: input.cpp's g_sdl_mouse_x /
-// g_sdl_mouse_y globals -- wired up once link surface is clean.
-static INT16 g_sdl_mouse_x = 0;
-static INT16 g_sdl_mouse_y = 0;
+static INT16 gusMouseXPos = 0;
+static INT16 gusMouseYPos = 0;
 
-static void sdl_queue_event(UINT16 ev, UINT32 usParam, UINT32 uiParam)
+static void QueueEvent(UINT16 ev, UINT32 usParam, UINT32 uiParam)
 {
-	// Phase 4 next slice: forward to the real QueueEvent. For now,
-	// just trace -- proves the event mapping is right.
 	std::fprintf(stderr, "[sdl-input] ev=0x%04x usParam=%u uiParam=0x%08x\n",
 	             ev, usParam, uiParam);
 }
@@ -1545,7 +1542,7 @@ int main(int /*argc*/, char** /*argv*/)
 	SDL_SetTextureScaleMode(framebuffer, SDL_SCALEMODE_NEAREST);
 
 	std::printf("JA2 SDL3 port -- window open at %dx%d (RGB565). "
-	            "Input events route into sdl_queue_event (debug stub). "
+	            "Input events route into QueueEvent (debug stub). "
 	            "Close the window or press Esc to exit.\n", kFbW, kFbH);
 
 	UINT32 frame = 0;
@@ -1562,19 +1559,19 @@ int main(int /*argc*/, char** /*argv*/)
 			case SDL_EVENT_KEY_DOWN: {
 				if (event.key.key == SDLK_ESCAPE) running = false;
 				UINT16 vk = sdl_to_vk(event.key.scancode, event.key.key);
-				if (vk) sdl_queue_event(JA2_KEY_DOWN, vk, 0);
+				if (vk) QueueEvent(KEY_DOWN, vk, 0);
 				break;
 			}
 			case SDL_EVENT_KEY_UP: {
 				UINT16 vk = sdl_to_vk(event.key.scancode, event.key.key);
-				if (vk) sdl_queue_event(JA2_KEY_UP, vk, 0);
+				if (vk) QueueEvent(KEY_UP, vk, 0);
 				break;
 			}
 
 			case SDL_EVENT_MOUSE_MOTION: {
-				g_sdl_mouse_x = (INT16)event.motion.x;
-				g_sdl_mouse_y = (INT16)event.motion.y;
-				sdl_queue_event(JA2_MOUSE_POS, 0,
+				gusMouseXPos = (INT16)event.motion.x;
+				gusMouseYPos = (INT16)event.motion.y;
+				QueueEvent(MOUSE_POS, 0,
 				           pack_xy((int)event.motion.x, (int)event.motion.y));
 				break;
 			}
@@ -1584,21 +1581,21 @@ int main(int /*argc*/, char** /*argv*/)
 				const UINT32 xy = pack_xy((int)event.button.x, (int)event.button.y);
 				UINT16 ev = 0;
 				switch (event.button.button) {
-				case SDL_BUTTON_LEFT:   ev = down ? JA2_LEFT_BUTTON_DOWN   : JA2_LEFT_BUTTON_UP;   break;
-				case SDL_BUTTON_RIGHT:  ev = down ? JA2_RIGHT_BUTTON_DOWN  : JA2_RIGHT_BUTTON_UP;  break;
-				case SDL_BUTTON_MIDDLE: ev = down ? JA2_MIDDLE_BUTTON_DOWN : JA2_MIDDLE_BUTTON_UP; break;
+				case SDL_BUTTON_LEFT:   ev = down ? LEFT_BUTTON_DOWN   : LEFT_BUTTON_UP;   break;
+				case SDL_BUTTON_RIGHT:  ev = down ? RIGHT_BUTTON_DOWN  : RIGHT_BUTTON_UP;  break;
+				case SDL_BUTTON_MIDDLE: ev = down ? MIDDLE_BUTTON_DOWN : MIDDLE_BUTTON_UP; break;
 				// X1/X2: not in the local minimal table; map to middle.
 				case SDL_BUTTON_X1:
-				case SDL_BUTTON_X2:     ev = down ? JA2_MIDDLE_BUTTON_DOWN : JA2_MIDDLE_BUTTON_UP; break;
+				case SDL_BUTTON_X2:     ev = down ? MIDDLE_BUTTON_DOWN : MIDDLE_BUTTON_UP; break;
 				default: break;
 				}
-				if (ev) sdl_queue_event(ev, 0, xy);
+				if (ev) QueueEvent(ev, 0, xy);
 				break;
 			}
 			case SDL_EVENT_MOUSE_WHEEL: {
-				const UINT32 xy = pack_xy(g_sdl_mouse_x, g_sdl_mouse_y);
-				if (event.wheel.y > 0) sdl_queue_event(JA2_MOUSE_WHEEL_UP,   0, xy);
-				if (event.wheel.y < 0) sdl_queue_event(JA2_MOUSE_WHEEL_DOWN, 0, xy);
+				const UINT32 xy = pack_xy(gusMouseXPos, gusMouseYPos);
+				if (event.wheel.y > 0) QueueEvent(MOUSE_WHEEL_UP,   0, xy);
+				if (event.wheel.y < 0) QueueEvent(MOUSE_WHEEL_DOWN, 0, xy);
 				break;
 			}
 			default: break;

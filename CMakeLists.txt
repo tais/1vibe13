@@ -69,25 +69,46 @@ add_subdirectory("ext/zlib")
 add_subdirectory("ext/VFS")
 target_link_libraries(bfVFS PRIVATE 7z)
 
-# SDL3: window/input/audio backend for non-Windows builds (Phase 3+).
-# Windows still uses the legacy DirectDraw/Win32 path during the
-# transition; SDL3 only becomes mandatory once Phase 5 retires
-# DirectDraw. Use system SDL3 if present, else fetch from upstream.
-if(NOT WIN32)
-  find_package(SDL3 QUIET CONFIG)
-  if(NOT TARGET SDL3::SDL3)
-    include(FetchContent)
-    set(SDL_SHARED ON CACHE BOOL "" FORCE)
-    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
-    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-    FetchContent_Declare(
-      SDL3
-      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-      GIT_TAG release-3.2.16
-      GIT_SHALLOW TRUE
-    )
-    FetchContent_MakeAvailable(SDL3)
-  endif()
+# SDL3: window/input/audio backend on every platform. The end state
+# of this port is that SDL3 fully replaces Win32 + DirectDraw + FMOD
+# + GDI; during the strangler-fig transition Windows continues to use
+# the legacy path while non-Windows is on SDL3, but the dependency
+# itself is now built on every platform so Windows can pick it up
+# subsystem-by-subsystem as Phases 3-9 land.
+find_package(SDL3 QUIET CONFIG)
+if(NOT TARGET SDL3::SDL3)
+  include(FetchContent)
+  set(SDL_SHARED ON CACHE BOOL "" FORCE)
+  set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+  set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.2.16
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(SDL3)
+endif()
+
+# Expat (XML parser). Windows historically linked the prebuilt
+# libexpatMT.lib; we now build from source on every platform so the
+# Win32 .lib blobs can eventually be deleted from the repo.
+find_package(EXPAT QUIET)
+if(NOT TARGET EXPAT::EXPAT)
+  include(FetchContent)
+  set(EXPAT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+  set(EXPAT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(EXPAT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(EXPAT_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+  set(EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    expat
+    GIT_REPOSITORY https://github.com/libexpat/libexpat.git
+    GIT_TAG R_2_6_4
+    SOURCE_SUBDIR expat
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(expat)
 endif()
 
 # ja2export utility
@@ -110,9 +131,11 @@ Multiplayer
 # later phases (Lua/Expat from source, FMOD -> SDL_mixer, Smacker/Bink
 # -> libsmacker, ddraw -> SDL3).
 if(WIN32)
+  # libexpatMT.lib is no longer listed -- we build Expat from source
+  # via FetchContent on every platform now, and the FetchContent
+  # target is linked further down (see SDL3::SDL3 / EXPAT block).
   list(APPEND Ja2_Libraries
     "${CMAKE_SOURCE_DIR}/binkw32.lib"
-    "${CMAKE_SOURCE_DIR}/libexpatMT.lib"
     "${CMAKE_SOURCE_DIR}/lua51.lib"
     "${CMAKE_SOURCE_DIR}/lua51.vc9.lib"
     "${CMAKE_SOURCE_DIR}/SMACKW32.LIB"
@@ -186,8 +209,11 @@ foreach(app IN LISTS ApplicationTargets)
       ${exe_platform_sources}
     )
     target_link_libraries(${exe} PRIVATE ${Ja2_Libraries} $<IF:${usingMsBuild},legacy_stdio_definitions.lib,>)
-    if(NOT WIN32)
-      target_link_libraries(${exe} PRIVATE SDL3::SDL3)
+    target_link_libraries(${exe} PRIVATE SDL3::SDL3)
+    if(TARGET EXPAT::EXPAT)
+      target_link_libraries(${exe} PRIVATE EXPAT::EXPAT)
+    elseif(TARGET expat)
+      target_link_libraries(${exe} PRIVATE expat)
     endif()
     target_link_options(${exe} PRIVATE $<IF:${usingMsBuild},/SAFESEH:NO,>)
     target_compile_definitions(${exe} PRIVATE ${compilationFlags} ${debugFlags})

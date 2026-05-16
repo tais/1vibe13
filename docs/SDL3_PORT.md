@@ -6,6 +6,17 @@ rendering pipeline.
 
 This lives on the `sdl3-port` branch. `master` is left untouched.
 
+**End state — important**: SDL3 fully replaces the Win32 + DirectDraw +
+FMOD + GDI stack **on every platform**, including Windows. There is no
+permanent two-path build. The `#ifdef _WIN32` gates that appeared all
+over `sgp/` during Phase 1 are **transitional scaffolding** — they
+exist only because the Win32 implementations are still the only ones
+that work today. Each phase deletes a chunk of Win32 code AND its
+`_WIN32` gates on its way out, replacing them with the portable SDL3
+implementation. By Phase 10 there should be zero `_WIN32` gates left
+in the codebase (other than packaging differences in CMake), and the
+pre-built `.lib` blobs at the repo root are deleted.
+
 ## Status at a glance
 
 | Phase | Description | State |
@@ -31,9 +42,14 @@ named phase below**; that's the work plan.
 
 ## Goals
 
-- Native builds on Windows, macOS, and Linux (all first-class).
+- Native builds on Windows, macOS, and Linux (all first-class), all
+  using the same SDL3-backed implementation. No Windows-only legacy
+  path past Phase 10.
 - No DirectX, no Win32 GUI/audio APIs, no Wine workarounds, no cnc-ddraw
-  shim. The `wine/` subdirectory goes away.
+  shim. The `wine/` subdirectory goes away. **On Windows** the
+  message pump, window class, DirectDraw rendering, DirectSound, GDI
+  fonts, Win32 file I/O, and Win32 input hooks all get deleted as
+  their phase swaps them for SDL3.
 - Internal rendering pipeline is RGBA8888 (32-bit). RGB565 surfaces,
   16-bit palette LUTs, and the inline-asm RGB565 alpha blender are
   retired.
@@ -492,10 +508,11 @@ named after.
 
 - SDL3 is pulled in via `find_package(SDL3 CONFIG)` with a
   `FetchContent` fallback against `release-3.2.16`. Linked to the
-  executable on non-Windows only.
-- Windows continues to use the legacy DirectDraw/Win32 path during
-  the transition. SDL3 only becomes mandatory on Windows once Phase
-  5 retires DirectDraw entirely.
+  executable on every platform.
+- Expat is built from source on every platform now too (the prebuilt
+  `libexpatMT.lib` is dropped from the Windows Ja2_Libraries list).
+  This means non-Windows builds get a working XML parser without
+  any platform-specific binary blobs.
 
 **Source changes:**
 
