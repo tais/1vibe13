@@ -1,13 +1,8 @@
-// Non-Windows-only definitions for globals that live in subsystems
-// currently gated behind _WIN32 (video.cpp, sgp.cpp, Intro.cpp,
-// WinFont.cpp). Non-gated code references these by extern; without
-// definitions the link fails when the executable pulls JA2_sgp.
-//
-// As each Phase replaces its gated subsystem with an SDL3-backed
-// implementation, the corresponding globals get moved out of this
-// stub file and into the new implementation files.
-
-#ifndef _WIN32
+// Definitions for globals that the JA2 codebase reads by extern but
+// whose owning subsystem hasn't been ported off DirectDraw/Win32 yet.
+// As each Phase replaces a subsystem with an SDL3-backed
+// implementation, the corresponding globals move out of this file
+// into the new implementation TUs.
 
 #include "types.h"
 
@@ -48,5 +43,3 @@ INT32   TOOLTIP_IFONT_BOLD    = -1;
 #define MAX_WINFONTMAP 25
 #endif
 INT32   WinFontMap[MAX_WINFONTMAP] = {0};
-
-#endif // !_WIN32

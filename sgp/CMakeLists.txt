@@ -6,8 +6,8 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/DEBUG.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/debug_util.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/debug_win_util.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/DirectDraw Calls.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/DirectX Common.cpp"
+# DirectDraw Calls.cpp / DirectX Common.cpp dropped: SDL3 replaces
+# DirectDraw on every platform.
 "${CMAKE_CURRENT_SOURCE_DIR}/English.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FileMan.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Font.cpp"
@@ -22,23 +22,19 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/PngLoader.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Random.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/sdl_input.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/sdl_video.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/sdl_vsurface.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/sgp_logger.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_globals.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_stubs.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/shading.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/soundman.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/STCI.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/stringicmp.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/timer.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/video.cpp"
+# video.cpp / vsurface.cpp replaced by sdl_video.cpp / sdl_vsurface.cpp.
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_blitters.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/vsurface.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/WinFont.cpp"
 )
-if(NOT WIN32)
-  list(APPEND sgpSrc
-    "${CMAKE_CURRENT_SOURCE_DIR}/sdl_video.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sdl_vsurface.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_globals.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_stubs.cpp")
-endif()
 set(sgpSrc ${sgpSrc} PARENT_SCOPE)

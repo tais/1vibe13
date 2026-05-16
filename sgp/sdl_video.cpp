@@ -17,8 +17,6 @@
 // As subsequent slices land, the stubs in sgp_non_win32_stubs.cpp for
 // their respective subsystems get deleted.
 
-#ifndef _WIN32
-
 #include "types.h"
 #include "video.h"
 #include "vsurface.h"
@@ -291,4 +289,3 @@ void FatalError(const STR8 fmt, ...)
 	std::abort();
 }
 
-#endif // !_WIN32

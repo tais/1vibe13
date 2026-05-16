@@ -282,8 +282,11 @@ foreach(app IN LISTS ApplicationTargets)
   endforeach()
 
   # for SGP only
+  # ddraw.lib dropped: SDL3 replaces DirectDraw on every platform.
+  # fmodvc.lib stays Windows-only until Phase 7 replaces FMOD with
+  # SDL3_mixer / SoLoud.
   if(WIN32)
-    target_link_libraries(${app}_sgp PRIVATE "ddraw.lib" "${PROJECT_SOURCE_DIR}/fmodvc.lib")
+    target_link_libraries(${app}_sgp PRIVATE "${PROJECT_SOURCE_DIR}/fmodvc.lib")
   endif()
   target_link_libraries(${app}_sgp PRIVATE libpng)
   target_link_libraries(${app}_sgp PRIVATE SDL3::SDL3)

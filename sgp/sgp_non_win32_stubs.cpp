@@ -1,15 +1,15 @@
-// Non-Windows stub bodies for symbols whose real implementations live
-// inside _WIN32-gated subsystems (vsurface.cpp, video.cpp, Intro.cpp,
-// soundman.cpp, mousesystem). The bodies are intentionally empty /
-// return defaults -- nothing on the non-Windows path drives the game
-// loop yet, so these symbols are referenced (via input.cpp pulling
-// transitively) but never actually called.
+// Stub bodies for symbols whose real implementations still live
+// inside DirectDraw / Win32-specific subsystems that haven't been
+// rewritten on SDL3 yet (the SGPVSurface manager + blitters in
+// vsurface.cpp, intro video, audio sample loaders, KeyMap, the
+// multiplayer connect surface). The bodies are intentionally empty /
+// return defaults -- nothing in the current path actually drives them
+// yet, so these symbols are referenced (via input.cpp pulling
+// transitively) but never called.
 //
-// As each Phase replaces its gated subsystem with an SDL3-backed
-// implementation, the corresponding stub block below gets deleted and
+// As each Phase replaces its subsystem with a portable SDL3-backed
+// implementation, the corresponding stub block here gets deleted and
 // the real implementation provides the symbol.
-
-#ifndef _WIN32
 
 #include "types.h"
 #include "vsurface.h"
@@ -74,5 +74,3 @@ void   DisplaySirtechSplashScreen() {}
 
 // ---- connect.h (Multiplayer) -----------------------------------------------
 bool can_edgechange()            { return false; }
-
-#endif // !_WIN32

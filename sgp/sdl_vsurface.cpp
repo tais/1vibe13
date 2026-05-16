@@ -18,8 +18,6 @@
 //   - LockVideoSurface / UnLockVideoSurface
 //   - SetVideoSurfaceTransparency / GetVSurfacePaletteEntries
 
-#ifndef _WIN32
-
 #include "types.h"
 #include "vsurface.h"
 #include "vobject_blitters.h"
@@ -214,4 +212,3 @@ ClipRectangle::ClipType ClipRectangle::Clip(int& x1, int& y1, int& x2, int& y2)
 	return PartialClip;
 }
 
-#endif // !_WIN32
