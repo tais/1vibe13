@@ -37,6 +37,7 @@ set(sgpSrc
 if(NOT WIN32)
   list(APPEND sgpSrc
     "${CMAKE_CURRENT_SOURCE_DIR}/sdl_video.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sdl_vsurface.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_globals.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_stubs.cpp")
 endif()

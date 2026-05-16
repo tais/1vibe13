@@ -41,18 +41,9 @@ BOOLEAN GetVSurfacePaletteEntries(HVSURFACE, SGPPaletteEntry*) { return FALSE; }
 BYTE*   LockVideoSurface(UINT32, UINT32*) { return nullptr; }
 void    UnLockVideoSurface(UINT32) {}
 
-namespace SurfaceData {
-	BYTE* SetApplicationData(BYTE*)      { return nullptr; }
-	void  ReleaseApplicationData(BYTE*)  {}
-	tID   GetSurfaceID(BYTE*)            { return 0; }
-}
-
-ClipRectangle::ClipRectangle() {}
-void ClipRectangle::SetRect(SGPRect const&) {}
-void ClipRectangle::SetRect(unsigned int, unsigned int, int, int) {}
-ClipRectangle::ClipType ClipRectangle::Clip(int&, int&, unsigned int&, unsigned int&) { return NoClip; }
-ClipRectangle::ClipType ClipRectangle::Clip(int&, int&, int&, int&) { return NoClip; }
-void ClipRectangle::Set(int, int, int, int) {}
+// (SurfaceData:: and ClipRectangle:: bodies moved into sdl_vsurface.cpp
+// -- they're pure C++ with no DirectDraw dependency and lift verbatim
+// from the legacy vsurface.cpp.)
 
 // (video.cpp stubs moved into sdl_video.cpp -- it now provides real
 // SDL3-backed implementations of FatalError, DirtyCursor, PrintScreen,
