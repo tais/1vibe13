@@ -19,6 +19,7 @@
 //   - Restore/Backup logic (no DD restore semantics on SDL3 path).
 
 #include "types.h"
+#include "vobject.h"  // VO_BLT_SRCTRANSPARENCY
 #include "vsurface.h"
 #include "vobject_blitters.h"
 #include "himage.h"
@@ -949,7 +950,7 @@ BOOLEAN BltVideoSurface(UINT32 uiDest, UINT32 uiSrc, UINT16 usRegionIndex,
 
 BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
                                INT32 /*iDestX*/, INT32 /*iDestY*/,
-                               UINT32 /*fBltFlags*/,
+                               UINT32 fBltFlags,
                                SGPRect* SrcRect, SGPRect* DestRect)
 {
 	if (!SrcRect || !DestRect) return FALSE;
@@ -974,6 +975,14 @@ BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
 		return FALSE;
 	}
 
+	// If the caller asked for VO_BLT_SRCTRANSPARENCY (the menu / UI
+	// panel path does), skip source pixels equal to the source
+	// surface's TransparentColor (typically RGB(0,0,0) = 0x0000 in
+	// RGB565). Without this, layered images like the JA2 logo over
+	// the flag background get rendered as opaque rectangles.
+	const bool transparent = (fBltFlags & VO_BLT_SRCTRANSPARENCY) != 0;
+	const UINT16 transColor = (UINT16)hSrc->TransparentColor;
+
 	// Nearest-neighbour stretch. Integer ratios; good enough for the
 	// UI panels JA2 stretches. Phase 6 / shaders can do better.
 	for (INT32 dy = 0; dy < dH; ++dy)
@@ -988,7 +997,9 @@ BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
 			INT32 absDstX = DestRect->iLeft + dx;
 			if (absDstX < 0 || absDstX >= (INT32)hDst->usWidth) continue;
 			const INT32 sx = SrcRect->iLeft + (dx * sW) / dW;
-			dstRow[absDstX] = srcRow[sx];
+			const UINT16 px = srcRow[sx];
+			if (transparent && px == transColor) continue;
+			dstRow[absDstX] = px;
 		}
 	}
 
