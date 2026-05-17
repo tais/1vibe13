@@ -2662,78 +2662,41 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( UINT16 *pBuffer, UINT32 uiDestPit
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-BlitDispatch:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-		xor		eax, eax
-
-BlitNTL4:
-
-		mov		ax, [ebx]
-		cmp		ax, usZValue
-		ja		BlitNTL5
-
-		xor		ah, ah
-		mov		al, [esi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-		jmp		BlitNTL6
-
-BlitNTL5:
-		mov		ax, usColor
-		mov		[edi], ax
-
-BlitNTL6:
-		inc		esi
-		inc		edi
-		inc		ebx
-		inc		edi
-		inc		ebx
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		add		ebx, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-		jmp		BlitDispatch
-
-
-BlitDone:
+	// Portable TransZNBColor: when Z passes (sprite in front) draw
+	// the normal palette colour; when Z fails (obscured) draw the
+	// silhouette in usColor. Z buffer is never updated (NB).
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT16* zbuf = (UINT16*)ZPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					if (*rowZ <= usZValue) {
+						*rowDest = p16BPPPalette[*src];
+					} else {
+						*rowDest = usColor;
+					}
+					++src;
+					++rowDest;
+					++rowZ;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+		}
 	}
-#endif
 
 	return(TRUE);
 
