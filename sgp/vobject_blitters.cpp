@@ -6561,102 +6561,40 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadow( UINT16 *pBuffer, UINT32 uiDestPitchB
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		xor		ebx, ebx
-		xor		ecx, ecx
-
-BlitDispatch:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-		xor		ebx, ebx
-
-BlitNTL4:
-
-		mov		bl, [esi]
-		cmp		bl, 1
-		jb		BlitNTL5
-
-		// write a black shadow
-		xor		ax, ax
-		mov		[edi], ax
-
-		inc		esi
-		add		edi, 2
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-BlitNTL5:
-		or		bl, bl
-		jz		BlitNTL6
-
-		mov		ax, usForeground
-		mov		[edi], ax
-
-		inc		esi
-		add		edi, 2
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-BlitNTL6:
-		cmp		usBackground, 0
-		je		BlitNTL7
-
-		mov		ax, usBackground
-		mov		[edi], ax
-
-BlitNTL7:
-		inc		esi
-		add		edi, 2
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-BlitTransparent:
-		and		ecx, 07fH
-
-		mov		ax, usBackground
-		or		ax, ax
-		jz		BTrans1
-
-		rep		stosw
-		jmp		BlitDispatch
-
-BTrans1:
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		jmp		BlitDispatch
-
-
-BlitDone:
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					if (usBackground != 0) {
+						for (UINT8 i = 0; i < n; ++i) *rowDest++ = usBackground;
+					} else {
+						rowDest += n;
+					}
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					const UINT8 v = *src++;
+					if (v >= 1) {
+						*rowDest = 0;
+					} else if (usBackground != 0) {
+						*rowDest = usBackground;
+					}
+					++rowDest;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
+		(void)usForeground;
+		(void)p16BPPPalette;
+		(void)LineSkip;
 	}
-#endif
 
 	return(TRUE);
 
