@@ -49,9 +49,12 @@ BOOLEAN IsKeyPressed(INT32)      { return FALSE; }
 INT32   ParseKeyString(STR8)     { return 0; }
 
 // ---- Intro (Ja2/Intro.cpp) -------------------------------------------------
-UINT32 IntroScreenInit()         { return 0; }
+// Phase 8 will land real cinematic playback. Until then these need to
+// return TRUE on init/shutdown (the screen registration loop treats
+// FALSE as a fatal error) and a benign screen id on handle.
+UINT32 IntroScreenInit()         { return 1; }
 UINT32 IntroScreenHandle()       { return 0; }
-UINT32 IntroScreenShutdown()     { return 0; }
+UINT32 IntroScreenShutdown()     { return 1; }
 void   SetIntroType(INT8)        {}
 void   StopIntroVideo()          {}
 void   DisplaySirtechSplashScreen() {}

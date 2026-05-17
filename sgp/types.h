@@ -56,7 +56,14 @@ typedef void *			PTR;
 typedef unsigned short	HNDL;
 typedef UINT8			BYTE;
 typedef CHAR8			STRING512[512];
-typedef UINT32			HWFILE;
+// HWFILE has historically been UINT32 -- that worked when the VFS
+// backend in FileMan.cpp packed a 32-bit handle, but the SGP layer now
+// stores a vfs::IBaseFile* in it, which is 64 bits on every modern
+// target. Widen to uintptr_t to stop the cast from truncating real
+// pointers and segfaulting in FileClose. The legacy bit-packed
+// LibraryDataBase usage (lower 22 bits = file id, rest = library id)
+// continues to work since uintptr_t is also an integer type.
+typedef uintptr_t		HWFILE;
 
 #define SGPFILENAME_LEN 100
 typedef CHAR8 SGPFILENAME[SGPFILENAME_LEN];	
