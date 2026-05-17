@@ -914,6 +914,62 @@ Phase 5 (tag the commit) vs Phase 6, diff the buffers.
 **Exit criterion**: game is visually identical (or better) to Phase 5
 on all three platforms.
 
+### 6c. Game-data load + first runtime pass (✅ for boot, ⚠️ for render)
+
+The macOS binary now boots all the way through asset loading and into
+the SDL3 main loop. Key fixes during the first run-through:
+
+- **HWFILE was `UINT32`** but `FileMan.cpp` packs a `vfs::IBaseFile*`
+  into it; the cast truncated the top 32 bits of every file handle
+  and `FileClose` segfaulted on the first opened file. Widened to
+  `uintptr_t`. (commit bee8c0e0)
+- **IntroScreenInit stub** returned 0, which the screen-registration
+  loop treats as fatal. Now returns 1; `IntroScreenHandle` sets
+  `gfDoneWithSplashScreen = TRUE` and returns `INIT_SCREEN` (matches
+  the legacy `INTRO_SPLASH` path). (commit 04ca186a)
+- **Modern expat's billion-laughs DoS protection** halted
+  `AnimationSurfaces.xml` parsing halfway through (the data file
+  legitimately expands ~15 large external entities). Forward-declare
+  and call `XML_SetBillionLaughsAttackProtectionMaximumAmplification`
+  in `Tactical/LogicalBodyTypes/AbstractXMLLoader.cpp`. (commit
+  04ca186a)
+- **`sizeof(pointer) * 256` palette copies smashed the heap** on
+  64-bit (worked on 32-bit Windows by coincidence). Swept across 6
+  files in `Tactical/`. (commit 18b0a59f)
+- **Quit-path backstops**: `SIGINT`/`SIGTERM` handlers, plus `ESC`
+  and `Cmd+Q` in the SDL event handler. `FatalError` switched from
+  `abort()` to `exit(1)` so controlled exits don't pop a crash
+  dialog.
+
+What still isn't right (next session):
+
+- **Black window in practice**. A debug fill pattern confirmed the
+  upload/present pipeline works end-to-end (red+green checker showed
+  up reliably; ~890k of 1.05M framebuffer pixels were non-zero
+  during init, so JA2's renderer IS writing). But the cleaned-up
+  binary shows a fully black window. Suspicion: either the
+  framebuffer-to-texture upload misses the right surface (we route
+  `LockFrameBuffer` / `LockBackBuffer` / `LockPrimarySurface` to the
+  same `gFrameBuffer` heap buffer, which might not be where the
+  game actually draws once it's past the loading screen — back vs.
+  primary distinction needs auditing in
+  [sgp/sdl_vsurface.cpp](../sgp/sdl_vsurface.cpp)), or
+  `RefreshScreen` is being called without a valid dirty rect during
+  the steady-state.
+- **macOS "broken application" crash report when closing via the red
+  X**. The `SDL_EVENT_WINDOW_CLOSE_REQUESTED` path returns true and
+  flips `gfProgramIsRunning` — but something on the way to `exit(0)`
+  (most likely in `SGPExit()` registered via `atexit`, or in the
+  timer-thread `NotifyThreadMain` which races against shutdown) is
+  hitting UB. Add a clean shutdown sequence that joins the timer
+  thread, calls `ShutdownVideoManager`, and only then returns from
+  `main()`.
+- **Input not visibly wired**. `sdl_input.cpp` translates SDL events
+  and pushes them into JA2's queue via `QueueEvent`, but it's
+  unverified that the legacy mouse system actually consumes them.
+  Probably needs a tracing pass once the render side shows
+  something.
+
 ---
 
 ## Phase 7 — Audio: SFX & music
