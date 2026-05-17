@@ -35,9 +35,7 @@ UINT32 MPPreRandom( UINT32 uiRange )
 
 #ifdef BMP_RANDOM//dnl ch55 111009
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#include <SDL3/SDL_mouse.h>
 
 UINT32 guiPreRandomIndex;
 UINT32 guiPreRandomNums[MAX_PREGENERATED_NUMS];
@@ -69,16 +67,17 @@ UINT32 GetRndNum(UINT32 maxnum)
 		return MPPreRandom(maxnum);
 
 	static UINT32 rnd=0, cnt=0;
-	POINT pt;
 
 	if(!(cnt++%RAND_MAX))
 	{
-#ifdef _WIN32
-		GetCursorPos(&pt);// Get cursor location
-#else
-		pt.x = 0; pt.y = 0;
-#endif
-		srand(maxnum ^ rnd ^ pt.x ^ pt.y ^ GetTickCount());
+		// Pull a few bits of entropy from the global mouse position;
+		// not load-bearing -- the Mersenne Twister in NewRandom is the
+		// real RNG -- but preserves the legacy seeding rhythm.
+		float mx = 0.0f, my = 0.0f;
+		SDL_GetGlobalMouseState(&mx, &my);
+		const INT32 px = (INT32)mx;
+		const INT32 py = (INT32)my;
+		srand(maxnum ^ rnd ^ (UINT32)px ^ (UINT32)py ^ GetTickCount());
 	}
 	if(maxnum == 0)
 		return(0);
