@@ -1,5 +1,6 @@
 	#include "DirectDraw Calls.h"
 	#include <stdio.h>
+	#include <cstring>
 	#include "DEBUG.H"
 		#include "video.h"													// JA2
 	#include "himage.h"
@@ -2095,38 +2096,18 @@ SGPRect *clipregion=NULL;
 	uiLineSkipDest=uiDestPitch;//+((BlitLength-1)*2);
 	uiLineSkipSrc=uiSrcPitch-(BlitLength*2);
 
-#ifdef _WIN32
-__asm {
-	mov		esi, pSrcPtr
-	mov		edi, pDestPtr
-	mov		ebx, BlitHeight
-
-BlitNewLine:
-
-	mov		ecx, BlitLength
-	//add	edi, ecx
-	//add	edi, ecx
-
-BlitNTL2:
-
-	mov		ax, [esi]
-	mov		[edi], ax
-	inc		esi
-	dec		edi
-	inc		esi
-	dec		edi
-	dec		ecx
-	jnz		BlitNTL2
-
-	add		edi, BlitLength
-	add		esi, uiLineSkipSrc
-	add		edi, BlitLength
-	add		edi, uiLineSkipDest
-	dec		ebx
-	jnz		BlitNewLine
-
+	// Portable 16bpp mirrored copy. pDestPtr starts at the rightmost
+	// pixel of the visible row; pSrcPtr walks forward; dest walks
+	// backward.
+	for (INT32 row = 0; row < BlitHeight; ++row) {
+		UINT16* rowSrc  = pSrcPtr;
+		UINT16* rowDest = pDestPtr;
+		for (INT32 i = 0; i < BlitLength; ++i) {
+			*rowDest-- = *rowSrc++;
+		}
+		pSrcPtr  = (UINT16*)((UINT8*)pSrcPtr  + uiSrcPitch);
+		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiDestPitch);
 	}
-#endif
 
 	return(TRUE);
 }
@@ -2152,43 +2133,12 @@ UINT32 uiLineSkipDest, uiLineSkipSrc;
 	uiLineSkipDest=uiDestPitch-(uiWidth);
 	uiLineSkipSrc=uiSrcPitch-(uiWidth);
 
-#ifdef _WIN32
-__asm {
-	mov		esi, pSrcPtr
-	mov		edi, pDestPtr
-	mov		ebx, uiHeight
-	cld
-
-BlitNewLine:
-	mov		ecx, uiWidth
-
-	clc
-	rcr		ecx, 1
-	jnc		Blit2
-	movsb
-
-Blit2:
-	clc
-	rcr		ecx, 1
-	jnc		Blit3
-
-	movsw
-
-Blit3:
-	or		ecx, ecx
-	jz		BlitLineDone
-
-	rep		movsd
-
-BlitLineDone:
-
-	add		edi, uiLineSkipDest
-	add		esi, uiLineSkipSrc
-	dec		ebx
-	jnz		BlitNewLine
-
+	// Portable 8bpp row-by-row memcpy.
+	for (UINT32 y = 0; y < uiHeight; ++y) {
+		std::memcpy(pDestPtr, pSrcPtr, uiWidth);
+		pDestPtr += uiDestPitch;
+		pSrcPtr  += uiSrcPitch;
 	}
-#endif
 
 	return(TRUE);
 }
