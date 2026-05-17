@@ -2482,114 +2482,46 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZAlpha(UINT16 *pBuffer, UINT32 uiDest
 	ZPtr = (UINT8 *)pZBuffer + (uiDestPitchBYTES*iTempY) + (iTempX * 2);
 	LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-		BlitDispatch :
-
-		mov		cl, [esi]
-			inc		esi
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-			or cl, cl
-			js		BlitTransparent
-			jz		BlitDoneLine
-
-			//BlitNonTransLoop:
-
-			BlitNTL4 :
-
-		mov		ax, [ebx]
-			cmp		ax, usZValue
-			jae		BlitNTL5
-
-			mov		ax, usZValue
-			mov[ebx], ax
-
-			xor		eax, eax
-			mov		al, [esi]
-			cmp		al, 254
-			jne		BlitNTL6
-
-			mov		al, fIgnoreShadows
-			cmp		al, 0
-			jne		BlitNTL5
-
-			mov		ax, [edi]
-			mov		ax, ShadeTable[eax * 2]
-			mov[edi], ax
-			jmp		BlitNTL5
-
-
-			BlitNTL6 :
-		mov		ax, [edx + eax * 2]
-
-			push	edx
-			push	ecx
-			push	ebx
-			push	esi
-			mov		esi, AlphaPtr
-			xor		ebx, ebx
-			mov		bl, [esi]
-			pop		esi
-			push	ebx
-			push[edi]
-			push	eax
-			call    blendWithAlpha
-			add     esp, 12
-			pop		ebx
-			pop		ecx
-			pop		edx
-
-			mov[edi], ax
-
-			BlitNTL5 :
-		inc		esi
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-			add		edi, 2
-			add		ebx, 2
-			dec		cl
-			jnz		BlitNTL4
-
-			jmp		BlitDispatch
-
-
-			BlitTransparent :
-
-		and		ecx, 07fH
-			//		shl		ecx, 1
-			add	ecx, ecx
-			add		edi, ecx
-			add		ebx, ecx
-			jmp		BlitDispatch
-
-
-			BlitDoneLine :
-
-		dec		usHeight
-			jz		BlitDone
-			add		edi, LineSkip
-			add		ebx, LineSkip
-			jmp		BlitDispatch
-
-
-			BlitDone :
+	// Portable TransShadowZAlpha: alpha-blended sprite with Z test +
+	// Z update. Alpha mask stream is byte-for-byte parallel to src.
+	{
+		const UINT8* src   = SrcPtr;
+		const UINT8* alpha = AlphaPtr;
+		UINT16*      dest  = (UINT16*)DestPtr;
+		UINT16*      zbuf  = (UINT16*)ZPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				++alpha;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					const UINT8 v = *src++;
+					const UINT8 a = *alpha++;
+					if (usZValue >= *rowZ) {
+						if (v == 254) {
+							if (!fIgnoreShadows) *rowDest = ShadeTable[*rowDest];
+						} else {
+							*rowDest = blendWithAlpha(p16BPPPalette[v], *rowDest, a);
+						}
+						*rowZ = usZValue;
+					}
+					++rowDest;
+					++rowZ;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+		}
 	}
-#endif
 
 	return(TRUE);
 
