@@ -160,7 +160,13 @@ extern bool	gfDebugTopics[MAX_TOPICS_ALLOTED];
 // the actual debug functions directly
 
 // Force a breakpoint in the debugger
-#define DebugBreakpoint()						__asm { int 3 }
+#if defined(__clang__) || defined(__GNUC__)
+#  define DebugBreakpoint()					__builtin_debugtrap()
+#elif defined(_MSC_VER)
+#  define DebugBreakpoint()					__debugbreak()
+#else
+#  define DebugBreakpoint()					((void)0)
+#endif
 
 
 #define DbgMessage(a, b, c)			(gfDebugTopics[(a)] ? DbgMessageReal((a), TOPIC_MESSAGE, (b), (c) ) : _Null())
