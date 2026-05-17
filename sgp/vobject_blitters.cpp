@@ -1785,201 +1785,63 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( UINT16 *pBuffer, UINT32 uiDestPi
 	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*(iTempY+TopSkip)) + ((iTempX+LeftSkip)*2);
 	LineSkip=(uiDestPitchBYTES-(BlitLength*2));
 
-#ifdef _WIN32
-	__asm {
+	// Portable ETRLE row decoder with clipping + mono palette mapping.
+	// Per-pixel rule (matching the legacy asm):
+	//   src byte 0 -> background (only written if usBackground != 0)
+	//   src byte 1 -> shadow     (only written if usShadow     != 0)
+	//   src byte >1 -> foreground
+	// Transparent runs (high-bit-set commands) write usBackground
+	// when non-zero, otherwise just skip. Used by WinFont when GDI
+	// rasterizes glyphs and needs to flatten them into the surface.
+	{
+		const UINT8* src = SrcPtr;
+		for (INT32 i = 0; i < TopSkip; ++i) {
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (!(cmd & 0x80)) src += cmd;
+			}
+		}
 
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		xor		eax, eax
-		xor		ecx, ecx
-
-		cmp		TopSkip, 0							// check for nothing clipped on top
-		je		LeftSkipSetup
-
-TopSkipLoop:										// Skips the number of lines clipped at the top
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		TopSkipLoop
-		jz		TSEndLine
-
-		add		esi, ecx
-		jmp		TopSkipLoop
-
-TSEndLine:
-		dec		TopSkip
-		jnz		TopSkipLoop
-
-LeftSkipSetup:
-
-		mov		Unblitted, 0
-		mov		eax, LeftSkip
-		mov		LSCount, eax
-		or		eax, eax
-		jz		BlitLineSetup
-
-LeftSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-
-		or		cl, cl
-		js		LSTrans
-
-		cmp		ecx, LSCount
-		je		LSSkip2								// if equal, skip whole, and start blit with new run
-		jb		LSSkip1								// if less, skip whole thing
-
-		add		esi, LSCount							// skip partial run, jump into normal loop for rest
-		sub		ecx, LSCount
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitNonTransLoop
-
-LSSkip2:
-		add		esi, ecx							// skip whole run, and start blit with new run
-		jmp		BlitLineSetup
-
-
-LSSkip1:
-		add		esi, ecx							// skip whole run, continue skipping
-		sub		LSCount, ecx
-		jmp		LeftSkipLoop
-
-
-LSTrans:
-		and		ecx, 07fH
-		cmp		ecx, LSCount
-		je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-		jb		LSTrans1							// if less, skip whole thing
-
-		sub		ecx, LSCount							// skip partial run, jump into normal loop for rest
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitTransparent
-
-
-LSTrans1:
-		sub		LSCount, ecx							// skip whole run, continue skipping
-		jmp		LeftSkipLoop
-
-
-BlitLineSetup:									// Does any actual blitting (trans/non) for the line
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-
-BlitDispatch:
-
-		cmp		LSCount, 0							// Check to see if we're done blitting
-		je		RightSkipLoop
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-
-BlitNonTransLoop:								// blit non-transparent pixels
-
-		cmp		ecx, LSCount
-		jbe		BNTrans1
-
-		sub		ecx, LSCount
-		mov		Unblitted, ecx
-		mov		ecx, LSCount
-
-BNTrans1:
-		sub		LSCount, ecx
-
-BlitNTL1:
-		xor		eax, eax
-		mov		al, [esi]
-		cmp		al, 1
-		jne		BlitNTL3
-
-		// write shadow pixel
-		mov		ax, usShadow
-
-		// only write if not zero
-		cmp		ax, 0
-		je		BlitNTL2
-
-		mov		[edi], ax
-		jmp		BlitNTL2
-
-BlitNTL3:
-		or		al, al
-		jz		BlitNTL4
-
-		// write foreground pixel
-		mov		ax, usForeground
-		mov		[edi], ax
-		jmp		BlitNTL2
-
-BlitNTL4:
-		cmp		usBackground, 0
-		je		BlitNTL2
-
-		mov		ax, usBackground
-		mov		[edi], ax
-
-BlitNTL2:
-		inc		esi
-		add		edi, 2
-		dec		cl
-		jnz		BlitNTL1
-
-//BlitLineEnd:
-		add		esi, Unblitted
-		jmp		BlitDispatch
-
-BlitTransparent:											// skip transparent pixels
-
-		and		ecx, 07fH
-		cmp		ecx, LSCount
-		jbe		BTrans1
-
-		mov		ecx, LSCount
-
-BTrans1:
-		sub		LSCount, ecx
-
-		mov		ax, usBackground
-		or		ax, ax
-		jz		BTrans2
-
-		rep		stosw
-		jmp		BlitDispatch
-
-BTrans2:
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		jmp		BlitDispatch
-
-
-RightSkipLoop:												// skip along until we hit and end-of-line marker
-
-
-RSLoop1:
-		mov		al, [esi]
-		inc		esi
-		or		al, al
-		jnz		RSLoop1
-
-		dec		BlitHeight
-		jz		BlitDone
-		add		edi, LineSkip
-
-		jmp		LeftSkipSetup
-
-
-BlitDone:
+		const INT32 rightEdge = (INT32)usWidth - RightSkip;
+		UINT16* rowBase = (UINT16*)DestPtr;
+		for (INT32 row = 0; row < BlitHeight; ++row) {
+			INT32 srcX = 0;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					if (usBackground != 0) {
+						for (UINT8 i = 0; i < n; ++i, ++srcX) {
+							if (srcX >= LeftSkip && srcX < rightEdge) {
+								rowBase[srcX - LeftSkip] = usBackground;
+							}
+						}
+					} else {
+						srcX += n;
+					}
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i, ++srcX) {
+					if (srcX >= LeftSkip && srcX < rightEdge) {
+						const UINT8 v = *src;
+						UINT16 colour = 0; bool write = false;
+						if (v == 0) {
+							if (usBackground != 0) { colour = usBackground; write = true; }
+						} else if (v == 1) {
+							if (usShadow != 0)     { colour = usShadow;     write = true; }
+						} else {
+							colour = usForeground; write = true;
+						}
+						if (write) rowBase[srcX - LeftSkip] = colour;
+					}
+					++src;
+				}
+			}
+			rowBase = (UINT16*)((UINT8*)rowBase + uiDestPitchBYTES);
+		}
 	}
-#endif
 
 	return(TRUE);
 
