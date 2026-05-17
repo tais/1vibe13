@@ -6425,212 +6425,39 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip( UINT16 *pBuffer, UINT32 uiDestPitchB
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(BlitLength*2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, OFFSET ShadeTable
-		xor		eax, eax
-		mov		ebx, TopSkip
-		xor		ecx, ecx
-
-		or		ebx, ebx							// check for nothing clipped on top
-		jz		LeftSkipSetup
-
-TopSkipLoop:										// Skips the number of lines clipped at the top
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		TopSkipLoop
-		jz		TSEndLine
-
-		add		esi, ecx
-		jmp		TopSkipLoop
-
-TSEndLine:
-		dec		ebx
-		jnz		TopSkipLoop
-
-
-
-
-LeftSkipSetup:
-
-		mov		Unblitted, 0
-		mov		ebx, LeftSkip					// check for nothing clipped on the left
-		or		ebx, ebx
-		jz		BlitLineSetup
-
-LeftSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-
-		or		cl, cl
-		js		LSTrans
-
-		cmp		ecx, ebx
-		je		LSSkip2								// if equal, skip whole, and start blit with new run
-		jb		LSSkip1								// if less, skip whole thing
-
-		add		esi, ebx							// skip partial run, jump into normal loop for rest
-		sub		ecx, ebx
-		mov		ebx, BlitLength
-		mov		Unblitted, 0
-		jmp		BlitNonTransLoop
-
-LSSkip2:
-		add		esi, ecx							// skip whole run, and start blit with new run
-		jmp		BlitLineSetup
-
-
-LSSkip1:
-		add		esi, ecx							// skip whole run, continue skipping
-		sub		ebx, ecx
-		jmp		LeftSkipLoop
-
-
-LSTrans:
-		and		ecx, 07fH
-		cmp		ecx, ebx
-		je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-		jb		LSTrans1							// if less, skip whole thing
-
-		sub		ecx, ebx							// skip partial run, jump into normal loop for rest
-		mov		ebx, BlitLength
-		jmp		BlitTransparent
-
-
-LSTrans1:
-		sub		ebx, ecx							// skip whole run, continue skipping
-		jmp		LeftSkipLoop
-
-
-
-
-BlitLineSetup:									// Does any actual blitting (trans/non) for the line
-		mov		ebx, BlitLength
-		mov		Unblitted, 0
-
-BlitDispatch:
-
-		or		ebx, ebx							// Check to see if we're done blitting
-		jz		RightSkipLoop
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-
-BlitNonTransLoop:
-
-		cmp		ecx, ebx
-		jbe		BNTrans1
-
-		sub		ecx, ebx
-		mov		Unblitted, ecx
-		mov		ecx, ebx
-
-BNTrans1:
-		sub		ebx, ecx
-
-		clc
-		rcr		cl, 1
-		jnc		BlitNTL2
-
-		mov		ax, [edi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-		inc		esi
-		add		edi, 2
-
-BlitNTL2:
-		clc
-		rcr		cl, 1
-		jnc		BlitNTL3
-
-		mov		ax, [edi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-		mov		ax, [edi+2]
-		mov		ax, [edx+eax*2]
-		mov		[edi+2], ax
-
-		add		esi, 2
-		add		edi, 4
-
-BlitNTL3:
-
-		or		cl, cl
-		jz		BlitLineEnd
-
-BlitNTL4:
-
-		mov		ax, [edi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-		mov		ax, [edi+2]
-		mov		ax, [edx+eax*2]
-		mov		[edi+2], ax
-
-		mov		ax, [edi+4]
-		mov		ax, [edx+eax*2]
-		mov		[edi+4], ax
-
-		mov		ax, [edi+6]
-		mov		ax, [edx+eax*2]
-		mov		[edi+6], ax
-
-		add		esi, 4
-		add		edi, 8
-		dec		cl
-		jnz		BlitNTL4
-
-BlitLineEnd:
-		add		esi, Unblitted
-		jmp		BlitDispatch
-
-BlitTransparent:
-
-		and		ecx, 07fH
-		cmp		ecx, ebx
-		jbe		BTrans1
-
-		mov		ecx, ebx
-
-BTrans1:
-
-		sub		ebx, ecx
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		jmp		BlitDispatch
-
-
-RightSkipLoop:
-
-
-RSLoop1:
-		mov		al, [esi]
-		inc		esi
-		or		al, al
-		jnz		RSLoop1
-
-		dec		BlitHeight
-		jz		BlitDone
-		add		edi, LineSkip
-
-		jmp		LeftSkipSetup
-
-
-BlitDone:
+	// Portable ShadowClip: clipped variant of ShadowNoZ. Darkens dest.
+	{
+		const UINT8* src = SrcPtr;
+		for (INT32 i = 0; i < TopSkip; ++i) {
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (!(cmd & 0x80)) src += cmd;
+			}
+		}
+		const INT32 rightEdge = (INT32)usWidth - RightSkip;
+		UINT16* rowDest = (UINT16*)DestPtr;
+		for (INT32 row = 0; row < BlitHeight; ++row) {
+			INT32 srcX = 0;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					srcX += (cmd & 0x7F);
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i, ++srcX) {
+					++src;  // skip palette index byte (unused for shadow)
+					if (srcX >= LeftSkip && srcX < rightEdge) {
+						const INT32 dx = srcX - LeftSkip;
+						rowDest[dx] = ShadeTable[rowDest[dx]];
+					}
+				}
+			}
+			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+		}
+		(void)p16BPPPalette;
 	}
-#endif
 
 	return(TRUE);
 
