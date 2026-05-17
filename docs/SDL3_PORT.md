@@ -857,6 +857,36 @@ The 8bpp→16bpp palette LUT (`p16BPPPalette`) is still RGB565 and the
 Z-buffer is still `UINT16`. Pixel-format conversion to RGBA8888 is
 the remaining Phase 6 work.
 
+The remaining inline-asm sites outside `vobject_blitters.cpp` are also
+gone:
+
+- `sgp/shading.cpp` `FindIndecies` (a brute-force nearest-color
+  palette lookup) is now portable C.
+- `DebugBreakpoint()` in `sgp/DEBUG.H` switched from `__asm { int 3 }`
+  to `__builtin_debugtrap` / `__debugbreak`.
+- The vendor headers (`sgp/RAD.H`, `sgp/Mss.h`, `sgp/Mss-old.h`) still
+  hold `__emit` / `int 3` macros but nothing in the live build
+  includes them; they get deleted alongside their subsystem in Phase
+  7/8.
+
+Same pass deleted the dead DirectDraw subsystem files (their SDL3
+replacements have been in place since Phase 5):
+
+- `sgp/video.cpp` (~3300 lines, entirely `#ifdef _WIN32`)
+- `sgp/vsurface.cpp` (~2800 lines, ditto)
+- `sgp/DirectDraw Calls.cpp` and `sgp/DirectX Common.cpp` (not in the
+  build; replaced by the SDL3 manager files)
+
+The matching `*.h` files survive for now -- a few of the typedefs
+(`LPDIRECTDRAWSURFACE2`, etc.) are still referenced from `WinFont.cpp`
+and `vsurface_private.h`, so they get retired alongside Phase 9 font
+work. A pile of leftover `#ifdef _WIN32 #include <windows.h> #endif`
+gates in small SGP files (`Font.cpp`, `mousesystem.cpp`, `DEBUG.cpp`,
+`Button System.cpp`, `FileMan.cpp`, `LibraryDataBase.cpp`) was also
+stripped where the file no longer uses anything from `<windows.h>`,
+and `Random.cpp`'s legacy `GetCursorPos` entropy was replaced with
+`SDL_GetGlobalMouseState`.
+
 ### 6b. RGBA8888 conversion (pending)
 
 1. Change `PIXEL_DEPTH` in [Ja2/local.h](../Ja2/local.h) from 16 to 32.
@@ -872,8 +902,9 @@ the remaining Phase 6 work.
    per-channel arithmetic (consider SDL_SIMD intrinsics).
 5. Update SDL texture format to `SDL_PIXELFORMAT_ARGB8888` or
    matching endianness.
-6. Update saveable surfaces / screenshot writers
-   ([sgp/video.cpp](../sgp/video.cpp) TGA path).
+6. Re-add the saveable surfaces / screenshot writer (the original TGA
+   path lived in the now-deleted `sgp/video.cpp`; needs to live in
+   `sgp/sdl_video.cpp` or a sibling).
 7. Z-buffer stays `UINT16` (it's a depth value, not a color).
 
 **Risk**: this is the phase where game-rendering regressions hide.
