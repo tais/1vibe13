@@ -2143,86 +2143,44 @@ ETRLEObject *pTrav;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 	uiLineFlag=(iTempY&1);
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-		mov		edx, p16BPPPalette
-
-BlitDispatch:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-BlitNTL4:
-
-		test	uiLineFlag, 1
-		jz		BlitNTL6
-
-		test	edi, 2
-		jz		BlitNTL5
-		jmp		BlitNTL7
-
-BlitNTL6:
-		test	edi, 2
-		jnz		BlitNTL5
-
-BlitNTL7:
-		mov		ax, [ebx]
-		cmp		ax, usZValue
-		ja		BlitNTL5
-
-		// ATE: DONOT WRITE Z VALUE
-		//mov		ax, usZValue
-		//mov		[ebx], ax
-
-		xor		eax, eax
-		mov		al, [esi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-BlitNTL5:
-		inc		esi
-		add		edi, 2
-		add		ebx, 2
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		add		ebx, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-		xor		uiLineFlag, 1
-		jmp		BlitDispatch
-
-
-BlitDone:
+	// Portable TransZNBPixelate: checkerboard, Z-test, no Z update.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT16* zbuf = (UINT16*)ZPtr;
+		UINT32 lineFlag = uiLineFlag;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			INT32 xparity = iTempX & 1;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					xparity ^= (n & 1);
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					if (lineFlag == (UINT32)xparity) {
+						if (*rowZ <= usZValue) {
+							*rowDest = p16BPPPalette[*src];
+						}
+					}
+					++src;
+					++rowDest;
+					++rowZ;
+					xparity ^= 1;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+			lineFlag ^= 1;
+		}
 	}
-#endif
 
 	return(TRUE);
 
