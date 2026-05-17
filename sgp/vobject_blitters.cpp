@@ -10053,118 +10053,31 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror( UINT16 *pBuffer, UINT32 uiDestPitch
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	uiDestSkip=(uiDestPitchBYTES+(usWidth*2));
 
-#ifdef _WIN32
-	__asm {
-// esi = pointer to source data
-// edi = pointer to destination buffer
-// eax = 16bpp pixel
-// ebx = 8bpp pixel
-// ecx = repeat count
-// edx = pointer to 8->16bpp conversion table
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		xor		ebx, ebx
-		xor		ecx, ecx
-
-BlitDispatch:
-
-// pick up a new byte
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-// if bit 7 is set, the run is transparent
-		js		BlitTransparent
-// if the byte is zero, it marks the end of current line
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-// else we have a normal run of non-transparent bytes
-// blit one byte of the count
-		clc
-		rcr		cl, 1
-		jnc		BlitNTL2
-
-		mov		bl, [esi]
-		mov		ax, [edx+ebx*2]
-		mov		[edi], ax
-
-		inc		esi
-		sub		edi, 2
-
-// blit one word of the count
-BlitNTL2:
-		clc
-		rcr		cl, 1
-		jnc		BlitNTL3
-
-		mov		bl, [esi]
-		mov		ax, [edx+ebx*2]
-		mov		[edi], ax
-
-		mov		bl, [esi+1]
-		mov		ax, [edx+ebx*2]
-		mov		[edi-2], ax
-
-		add		esi, 2
-		sub		edi, 4
-
-// blit the rest four at a time (unrolled loop)
-BlitNTL3:
-
-		or		cl, cl
-		jz		BlitDispatch
-
-		xor		ebx, ebx
-
-BlitNTL4:
-
-		mov		bl, [esi]
-		mov		ax, [edx+ebx*2]
-		mov		[edi], ax
-
-		mov		bl, [esi+1]
-		mov		ax, [edx+ebx*2]
-		mov		[edi-2], ax
-
-		mov		bl, [esi+2]
-		mov		ax, [edx+ebx*2]
-		mov		[edi-4], ax
-
-		mov		bl, [esi+3]
-		mov		ax, [edx+ebx*2]
-		mov		[edi-6], ax
-
-		add		esi, 4
-		sub		edi, 8
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add	ecx, ecx
-		sub		edi, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight
-		jz		BlitDone
-		add		edi, uiDestSkip
-		jmp		BlitDispatch
-
-
-BlitDone:
+	// Portable ETRLE row decoder, mirrored. DestPtr already points at
+	// the rightmost pixel of the first row; we write right-to-left
+	// (dest--) for each opaque pixel, skip left for transparent runs,
+	// and jump to the next row's rightmost pixel at end-of-row.
+	// No clipping in this variant.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					rowDest -= (cmd & 0x7F);
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					*rowDest-- = p16BPPPalette[*src++];
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
 	}
-#endif
 
 	return(TRUE);
 
