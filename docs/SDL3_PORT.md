@@ -797,32 +797,34 @@ What landed:
    delete the asm block and paste a portable ETRLE decoder where
    it was. Typical diff: ~30 lines added, ~170 lines removed.
 
-   Additional ports:
-   - `TransShadow{,Z,ZNB,Clip,ZClip,ZNBClip}` (merc-with-shadow,
-     all four Z/clip combinations)
-   - `TransZ{,NB,Clip,NBClip}Translucent` (50% lo-bit-strip blend,
-     all four Z/clip combinations)
+   Additional ports (cumulative through commit `ff151100`):
+   - `TransShadow{,Z,ZNB,Clip,ZClip,ZNBClip,ClipAlpha,ZClipAlpha,
+     ZNBClipAlpha}` (merc-with-shadow, all clip/Z/alpha combinations)
+   - `TransZ{,NB,Clip,NBClip}Translucent` (50% lo-bit-strip blend)
    - `TransZ{,NB,Clip,NBClip}Pixelate` + `TransZPixelateObscured`
-     (checkerboard pattern, all four Z/clip combinations +
-      occluded variant)
+     (checkerboard)
    - `TransZNBColor`, `TransZNBClipColor` (silhouette tint)
    - `Blt16BPPDataTo16BPPBufferTransZClip` (8bpp ETRLE despite name)
-   - `Blt16BPPDataTo16BPPBufferTransparentClip` (true 16bpp ETRLE,
-     2 bytes per opaque pixel)
+   - `Blt16BPPDataTo16BPPBufferTransparentClip` (true 16bpp ETRLE)
    - `TransShadowAlpha`, `TransShadowZAlpha`, `TransShadowZNBAlpha`
      (parallel alpha-mask stream + blendWithAlpha per pixel)
-   - `TransShadowZNBObscured` (in-front normal + obscured
-     checkerboard silhouette)
+   - `TransShadowZNBObscured{,Test,Alpha,Clip,ClipAlpha}`
+     (in-front normal sprite + obscured checkerboard silhouette,
+     all alpha/clip combinations)
    - Residual `#ifdef _WIN32` dropped from `blendWithAlpha` and
      `Blt16BPPTo16BPP` (toehold cleanup).
 
-   ~38 inline-asm blocks remain (TransShadowZNBObscuredTest /
-   TransShadowZNBObscuredAlpha / TransShadowZNBObscuredClip /
-   TransShadowZNBObscuredClipAlpha variants, the clip-Alpha variants
-   for TransShadow + TransShadowZ + TransShadowZNB, and a few
-   16BPPData siblings). Pattern is fully mechanical now -- each is
-   the ETRLE row decoder with different per-pixel logic + a Z-test
-   variant; future sessions can crank through them.
+   **~31 inline-asm blocks remain** out of the original ~76 -- the
+   file shrunk from 15057 to 10654 lines, ~4400 lines of dead asm
+   purged. Remaining categories: BlitZRect (Z buffer fill);
+   Blt8BPPDataTo16BPPBuffer{,Half,HalfRect,Mask,Shadow,ShadowClip,
+   FullTransparent,MonoShadow}; Blt8BPPDataSubTo16BPPBuffer;
+   Blt16BPPBufferPixelateRectWithColor /
+   Blt16BPPBufferShadowRect{,AlternateTable}; FillRect16BPP;
+   eight `Outline*` variants; six `Intensity*` variants;
+   TransShadowBelowOrEqualZNBClip; TransZClipPixelateObscured.
+   Pattern is fully mechanical -- each is the ETRLE row decoder
+   with different per-pixel logic; future sessions can finish them.
 
 **Exit criterion (Phase 5 full)**: game boots into main menu on all
 three platforms and renders correctly via the existing RGB565
