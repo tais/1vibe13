@@ -5232,40 +5232,23 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16 *pBuffer, UINT32 uiDestPitchB
 	CHECKF(width >=1);
 	CHECKF(height >=1);
 
-#ifdef _WIN32
-	__asm {
-		mov		esi, Pattern				// Pointer to pixel pattern
-		mov		edi, DestPtr				// Pointer to top left of rect area
-		mov		ax, usColor				// color of pixel
-		xor		ebx, ebx						// pattern column index
-		xor		edx, edx						// pattern row index
-
-
-BlitNewLine:
-		mov		ecx, width
-
-BlitLine:
-		cmp	[esi+ebx], 0
-		je	BlitLine2
-
-		mov		[edi], ax
-
-BlitLine2:
-		add		edi, 2
-		inc		ebx
-		and		ebx, 07H
-		or		ebx, edx
-		dec		ecx
-		jnz		BlitLine
-
-		add		edi, LineSkip
-		xor		ebx, ebx
-		add		edx, 08H
-		and		edx, 38H
-		dec		height
-		jnz		BlitNewLine
+	// Tile the 8x8 Pattern over the rect (anchored at the rect's
+	// origin, not the buffer's): for each dest pixel at column x, row
+	// y within the rect, write usColor iff Pattern[y%8][x%8] is set.
+	{
+		const UINT8* pat = &Pattern[0][0];
+		UINT16* rowDest = DestPtr;
+		for (INT32 y = 0; y < height; ++y) {
+			const UINT8* patRow = pat + ((y & 7) * 8);
+			for (INT32 x = 0; x < width; ++x) {
+				if (patRow[x & 7] != 0) {
+					rowDest[x] = usColor;
+				}
+			}
+			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+		}
+		(void)LineSkip;
 	}
-#endif
 
 	return(TRUE);
 }
