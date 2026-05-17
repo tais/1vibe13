@@ -4991,48 +4991,23 @@ BOOLEAN Blt8BPPDataTo16BPPBufferHalf( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, 
 	LineSkip=(uiDestPitchBYTES-(usWidth&0xfffffffe));
 	uiSrcSkip=(uiSrcPitch*2)-(usWidth&0xfffffffe);
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr					// pointer to current line start address in source
-		mov		edi, DestPtr				// pointer to current line start address in destination
-		mov		ebx, usHeight				// line counter (goes top to bottom)
-		shr		ebx, 1							// half the rows
-		mov		edx, p16BPPPalette
-
-		xor		eax, eax
-
-BlitSetup:
-		mov		ecx, usWidth
-		shr		ecx, 1							// divide the width by 2
-
-ReadMask:
-		mov		al, [esi]
-		xor		ah, ah
-		inc		esi									// skip one source byte
-		inc		esi
-
-		shl		eax, 1							// make it into a word index
-		mov		ax, [edx+eax]				// get 16-bit version of 8-bit pixel
-		mov		[edi], ax						// store it in destination buffer
-		inc		edi									// next pixel
-		inc		edi
-
-		dec		ecx
-		jnz		ReadMask
-
-
-//DoneRow:
-
-		add		esi, uiSrcSkip			// move source pointer down one line
-		add		edi, LineSkip
-
-		dec		ebx									// check line counter
-		jnz		BlitSetup						// done blitting, exit
-
-//DoneBlit:											// finished blit
+	// 2x downscale: sample every other pixel in X and every other row
+	// in Y. Output dims are (usWidth/2, usHeight/2).
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		const UINT32 outW = usWidth / 2;
+		const UINT32 outH = usHeight / 2;
+		for (UINT32 row = 0; row < outH; ++row) {
+			for (UINT32 x = 0; x < outW; ++x) {
+				dest[x] = p16BPPPalette[src[x * 2]];
+			}
+			src  += uiSrcPitch * 2;
+			dest  = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
+		(void)LineSkip;
+		(void)uiSrcSkip;
 	}
-#endif
 
 	return( TRUE );
 
@@ -5088,48 +5063,25 @@ BOOLEAN Blt8BPPDataTo16BPPBufferHalfRect( UINT16 *pBuffer, UINT32 uiDestPitchBYT
 	LineSkip			= (uiDestPitchBYTES-(usWidth&0xfffffffe));
 	uiSrcSkip			= (uiSrcPitch*2)-(usWidth&0xfffffffe);
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr					// pointer to current line start address in source
-		mov		edi, DestPtr				// pointer to current line start address in destination
-		mov		ebx, usHeight				// line counter (goes top to bottom)
-		shr		ebx, 1							// half the rows
-		mov		edx, p16BPPPalette
-
-		xor		eax, eax
-
-BlitSetup:
-		mov		ecx, usWidth
-		shr		ecx, 1							// divide the width by 2
-
-ReadMask:
-		mov		al, [esi]
-		xor		ah, ah
-		inc		esi									// skip one source byte
-		inc		esi
-
-		shl		eax, 1							// make it into a word index
-		mov		ax, [edx+eax]				// get 16-bit version of 8-bit pixel
-		mov		[edi], ax						// store it in destination buffer
-		inc		edi									// next pixel
-		inc		edi
-
-		dec		ecx
-		jnz		ReadMask
-
-
-//DoneRow:
-
-		add		esi, uiSrcSkip			// move source pointer down one line
-		add		edi, LineSkip
-
-		dec		ebx									// check line counter
-		jnz		BlitSetup						// done blitting, exit
-
-//DoneBlit:											// finished blit
+	// 2x downscale of a subrect: SrcPtr already points at pRect's
+	// origin in source, so the same every-other-pixel/every-other-row
+	// pattern as Half applies, just with usWidth/usHeight derived from
+	// the rect.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		const UINT32 outW = usWidth / 2;
+		const UINT32 outH = usHeight / 2;
+		for (UINT32 row = 0; row < outH; ++row) {
+			for (UINT32 x = 0; x < outW; ++x) {
+				dest[x] = p16BPPPalette[src[x * 2]];
+			}
+			src  += uiSrcPitch * 2;
+			dest  = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
+		(void)LineSkip;
+		(void)uiSrcSkip;
 	}
-#endif
 
 	return( TRUE );
 
