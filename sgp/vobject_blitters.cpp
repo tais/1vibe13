@@ -5234,101 +5234,22 @@ BOOLEAN Blt8BPPDataTo16BPPBuffer( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, HVSU
 	p16BPPPalette = hSrcVSurface->p16BPPPalette;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr					// pointer to current line start address in source
-		mov		edi, DestPtr				// pointer to current line start address in destination
-		mov		ecx, usHeight				// line counter (goes top to bottom)
-		mov		rows, ecx
-		mov		edx, p16BPPPalette
-
-		sub		eax, eax
-		sub		ecx, ecx
-
-		mov		ebx, usWidth				// column counter (goes right to left)
-		dec		ebx
-
-ReadMask:
-		test	usWidth, 1
-		jz		BlitWord
-
-		xor		eax, eax						// clear out the top 24 bits
-		mov		al, [esi+ebx]
-
-		shl		eax, 1							// make it into a word index
-		mov		ax, [edx+eax]				// get 16-bit version of 8-bit pixel
-		mov		[edi+ebx*2], ax			// store it in destination buffer
-
-		dec		ebx
-		js		DoneRow
-
-BlitWord:
-
-		test	usWidth, 2
-		jz		SetupDwords
-
-
-		mov		ax, [esi+ebx-1]
-		mov		cl, ah
-		sub		ah, ah
-		and		ecx, 0ffH
-		shl		eax, 1
-		shl		ecx, 1
-		mov		ax, [edx+eax]
-		mov		cx, [edx+ecx]
-		shl		ecx, 16
-		mov		cx, ax
-		mov		[edi+ebx*2-2], ecx
-
-		sub		ebx, 2
-		js		DoneRow
-
-SetupDwords:
-
-
-BlitDwords:
-
-		mov		ax, [esi+ebx-1]
-		mov		cl, ah
-		sub		ah, ah
-		and		ecx, 0ffH
-		shl		eax, 1
-		shl		ecx, 1
-		mov		ax, [edx+eax]
-		mov		cx, [edx+ecx]
-		shl		ecx, 16
-		mov		cx, ax
-		mov		[edi+ebx*2-2], ecx
-
-		mov		ax, [esi+ebx-3]
-		mov		cl, ah
-		sub		ah, ah
-		and		ecx, 0ffH
-		shl		eax, 1
-		shl		ecx, 1
-		mov		ax, [edx+eax]
-		mov		cx, [edx+ecx]
-		shl		ecx, 16
-		mov		cx, ax
-		mov		[edi+ebx*2-6], ecx
-
-		sub		ebx, 4							// decrement column counter
-		jns		BlitDwords					// loop until one line is done
-
-DoneRow:
-		dec		rows									// check line counter
-		jz		DoneBlit						// done blitting, exit
-
-		add		esi, usWidth			// move line pointers down one line
-		add		edi, uiDestPitchBYTES
-		mov		ebx, usWidth			// column counter (goes right to left)
-		dec		ebx
-		jmp		ReadMask
-
-DoneBlit:											// finished blit
+	// Portable Blt8BPPDataTo16BPPBuffer: not ETRLE -- pSrcBuffer is a
+	// raw 8bpp pixel buffer (usWidth*usHeight bytes). Convert each
+	// pixel through p16BPPPalette and write opaque to dest.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT32 _rows = usHeight;
+		while (_rows-- > 0) {
+			UINT16* rowDest = dest;
+			for (UINT32 x = 0; x < usWidth; ++x) {
+				*rowDest++ = p16BPPPalette[*src++];
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
+		(void)rows;  // silence unused-variable warning
 	}
-#endif
 
 	return( TRUE );
 
