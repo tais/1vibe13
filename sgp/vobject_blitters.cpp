@@ -2395,107 +2395,41 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowAlpha(UINT16 *pBuffer, UINT32 uiDestP
 	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX * 2);
 	LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		xor		ecx, ecx
-
-		BlitDispatch :
-
-		mov		cl, [esi]
-			inc		esi
-
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-
-			or cl, cl
-			js		BlitTransparent
-			jz		BlitDoneLine
-
-			//BlitNonTransLoop:
-
-			BlitNTL4 :
-
-		xor		eax, eax
-			mov		al, [esi]
-			cmp		al, 254
-			jne		BlitNTL6
-
-			mov		al, fIgnoreShadows
-			cmp		al, 0
-			jne		BlitNTL5
-
-			mov		ax, [edi]
-			mov		ax, ShadeTable[eax * 2]
-			mov[edi], ax
-			jmp		BlitNTL5
-
-
-			BlitNTL6 :
-		mov		ax, [edx + eax * 2]
-
-			push	edx
-			push	ecx
-			push	ebx
-			push	esi
-			mov		esi, AlphaPtr
-			xor		ebx, ebx
-			mov		bl, [esi]
-			pop		esi
-			push	ebx
-			push[edi]
-			push	eax
-			call    blendWithAlpha
-			add     esp, 12
-			pop		ebx
-			pop		ecx
-			pop		edx
-
-			mov[edi], ax
-
-			BlitNTL5 :
-		inc		esi
-
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-
-			add		edi, 2
-			dec		cl
-			jnz		BlitNTL4
-
-			jmp		BlitDispatch
-
-
-			BlitTransparent :
-
-		and		ecx, 07fH
-			//		shl		ecx, 1
-			add	ecx, ecx
-			add		edi, ecx
-			jmp		BlitDispatch
-
-
-			BlitDoneLine :
-
-		dec		usHeight
-			jz		BlitDone
-			add		edi, LineSkip
-			jmp		BlitDispatch
-
-
-			BlitDone :
+	// Portable TransShadowAlpha: alpha mask vobject is a byte-for-byte
+	// parallel stream to the source ETRLE -- the legacy asm advances
+	// AlphaPtr once per command byte and once per opaque payload byte,
+	// matching the source stride exactly. Per opaque pixel: src 254 =
+	// shadow darken (ignore alpha); else blendWithAlpha(palette[src],
+	// existing dest, alpha-byte).
+	{
+		const UINT8* src   = SrcPtr;
+		const UINT8* alpha = AlphaPtr;
+		UINT16*      dest  = (UINT16*)DestPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				++alpha; // consume one alpha byte per command byte
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					rowDest += (cmd & 0x7F);
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					const UINT8 v = *src++;
+					const UINT8 a = *alpha++;
+					if (v == 254) {
+						if (!fIgnoreShadows) *rowDest = ShadeTable[*rowDest];
+					} else {
+						*rowDest = blendWithAlpha(p16BPPPalette[v], *rowDest, a);
+					}
+					++rowDest;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
 	}
-#endif
 
 	return(TRUE);
 
