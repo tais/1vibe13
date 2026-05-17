@@ -797,10 +797,18 @@ What landed:
    delete the asm block and paste a portable ETRLE decoder where
    it was. Typical diff: ~30 lines added, ~170 lines removed.
 
-   ~62 inline-asm blocks remain. The pattern is now fully
-   mechanical (each is the same ETRLE row decoder skeleton with
-   different per-pixel logic + a Z-test variant); future sessions
-   can crank through them.
+   Additional ports:
+   - `TransShadow{,Z,ZNB,Clip,ZClip,ZNBClip}` (merc-with-shadow,
+     all four Z/clip combinations)
+   - `TransZ{,NB,Clip,NBClip}Translucent` (50% lo-bit-strip blend,
+     all four Z/clip combinations)
+
+   ~52 inline-asm blocks remain (Pixelate, Color, TransShadowAlpha,
+   Obscured, 16BPPData clip variants, Blt16BPPTo16BPP cleanup of
+   the residual #ifdef left in place by the Phase 6 toehold). The
+   pattern is fully mechanical now -- each is the same ETRLE row
+   decoder skeleton with different per-pixel logic + a Z-test
+   variant; future sessions can crank through them.
 
 **Exit criterion (Phase 5 full)**: game boots into main menu on all
 three platforms and renders correctly via the existing RGB565
