@@ -286,6 +286,9 @@ void FatalError(const STR8 fmt, ...)
 		va_end(ap);
 		std::fputc('\n', stderr);
 	}
-	std::abort();
+	// std::exit instead of std::abort so the OS doesn't pop a crash
+	// report dialog -- this path is the normal "we hit something we
+	// can't recover from" route, not an unexpected segfault.
+	std::exit(1);
 }
 
