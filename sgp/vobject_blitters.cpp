@@ -4036,300 +4036,61 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClipAlpha(UINT16 *pBuffer,
 	ZPtr = (UINT8 *)pZBuffer + (uiDestPitchBYTES*(iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
 	LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-		cmp		TopSkip, 0							// check for nothing clipped on top
-		je		LeftSkipSetup
-
-		TopSkipLoop :										// Skips the number of lines clipped at the top
-
-		mov		cl, [esi]
-			inc		esi
-
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-
-			or cl, cl
-			js		TopSkipLoop
-			jz		TSEndLine
-
-			add		esi, ecx
-
-			push	esi
-			mov		esi, AlphaPtr
-			add		esi, ecx
-			mov		AlphaPtr, esi
-			pop		esi
-
-			jmp		TopSkipLoop
-
-			TSEndLine :
-
-		xor		uiLineFlag, 1
-			dec		TopSkip
-			jnz		TopSkipLoop
-
-			LeftSkipSetup :
-
-		mov		Unblitted, 0
-			mov		eax, LeftSkip
-			mov		LSCount, eax
-			or eax, eax
-			jz		BlitLineSetup
-
-			LeftSkipLoop :
-
-		mov		cl, [esi]
-			inc		esi
-
-			or cl, cl
-			js		LSTrans
-
-			cmp		ecx, LSCount
-			je		LSSkip2								// if equal, skip whole, and start blit with new run
-			jb		LSSkip1								// if less, skip whole thing
-
-			add		esi, LSCount							// skip partial run, jump into normal loop for rest
-
-			push	esi
-			mov		esi, AlphaPtr
-			add		esi, LSCount
-			mov		AlphaPtr, esi
-			pop		esi
-
-			sub		ecx, LSCount
-			mov		eax, BlitLength
-			mov		LSCount, eax
-			mov		Unblitted, 0
-			jmp		BlitNonTransLoop
-
-			LSSkip2 :
-		add		esi, ecx							// skip whole run, and start blit with new run
-
-			push	esi
-			mov		esi, AlphaPtr
-			add		esi, ecx
-			mov		AlphaPtr, esi
-			pop		esi
-
-			jmp		BlitLineSetup
-
-
-			LSSkip1 :
-		add		esi, ecx							// skip whole run, continue skipping
-
-			push	esi
-			mov		esi, AlphaPtr
-			add		esi, ecx
-			mov		AlphaPtr, esi
-			pop		esi
-
-			sub		LSCount, ecx
-			jmp		LeftSkipLoop
-
-
-			LSTrans :
-		and		ecx, 07fH
-			cmp		ecx, LSCount
-			je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-			jb		LSTrans1							// if less, skip whole thing
-
-			sub		ecx, LSCount							// skip partial run, jump into normal loop for rest
-			mov		eax, BlitLength
-			mov		LSCount, eax
-			mov		Unblitted, 0
-			jmp		BlitTransparent
-
-
-			LSTrans1 :
-		sub		LSCount, ecx							// skip whole run, continue skipping
-			jmp		LeftSkipLoop
-
-
-			BlitLineSetup :									// Does any actual blitting (trans/non) for the line
-		mov		eax, BlitLength
-			mov		LSCount, eax
-			mov		Unblitted, 0
-
-			BlitDispatch :
-
-			cmp		LSCount, 0							// Check to see if we're done blitting
-			je		RightSkipLoop
-
-			mov		cl, [esi]
-			inc		esi
-
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-
-			or cl, cl
-			js		BlitTransparent
-
-			BlitNonTransLoop :								// blit non-transparent pixels
-
-		cmp		ecx, LSCount
-			jbe		BNTrans1
-
-			sub		ecx, LSCount
-			mov		Unblitted, ecx
-			mov		ecx, LSCount
-
-			BNTrans1 :
-		sub		LSCount, ecx
-
-			BlitNTL1 :
-
-		mov		ax, [ebx]
-			cmp		ax, usZValue
-			ja		BlitPixellate
-
-			xor		eax, eax
-			mov		al, [esi]
-			cmp		al, 254
-			jne		BlitNTL3
-
-			mov		ax, [ebx]
-			cmp		ax, usZValue
-			jae		BlitNTL2
-
-			mov		al, fIgnoreShadows
-			cmp		al, 0
-			jne		BlitNTL2
-
-			mov		ax, [edi]
-			mov		ax, ShadeTable[eax * 2]
-			mov[edi], ax
-			jmp		BlitNTL2
-
-			BlitPixellate :
-
-		xor		eax, eax
-			mov		al, [esi]
-			cmp		al, 254
-			je		BlitNTL2
-
-			test	uiLineFlag, 1
-			jz		BlitNTL9
-
-			test	edi, 2
-			jz		BlitNTL2
-			jmp		BlitNTL3
-
-			BlitNTL9 :
-		test	edi, 2
-			jnz		BlitNTL2
-
-
-			BlitNTL3 :
-
-		xor		eax, eax
-			mov		al, [esi]
-			mov		ax, [edx + eax * 2]
-
-			push	edx
-			push	ecx
-			push	ebx
-			push	esi
-			mov		esi, AlphaPtr
-			xor		ebx, ebx
-			mov		bl, [esi]
-			pop		esi
-			push	ebx
-			push[edi]
-			push	eax
-			call    blendWithAlpha
-			add     esp, 12
-			pop		ebx
-			pop		ecx
-			pop		edx
-
-			mov[edi], ax
-
-			BlitNTL2 :
-		inc		esi
-
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-
-			add		edi, 2
-			add		ebx, 2
-			dec		cl
-			jnz		BlitNTL1
-
-			//BlitLineEnd:
-			add		esi, Unblitted
-
-			push	esi
-			mov		esi, AlphaPtr
-			add		esi, Unblitted
-			mov		AlphaPtr, esi
-			pop		esi
-
-			jmp		BlitDispatch
-
-			BlitTransparent :											// skip transparent pixels
-
-		and		ecx, 07fH
-			cmp		ecx, LSCount
-			jbe		BTrans1
-
-			mov		ecx, LSCount
-
-			BTrans1 :
-
-		sub		LSCount, ecx
-			//		shl		ecx, 1
-			add	ecx, ecx
-			add		edi, ecx
-			add		ebx, ecx
-			jmp		BlitDispatch
-
-
-			RightSkipLoop :												// skip along until we hit and end-of-line marker
-
-
-	RSLoop1:
-		mov		al, [esi]
-			inc		esi
-
-			push	esi
-			mov		esi, AlphaPtr
-			inc		esi
-			mov		AlphaPtr, esi
-			pop		esi
-
-			or al, al
-			jnz		RSLoop1
-
-			xor		uiLineFlag, 1
-			dec		BlitHeight
-			jz		BlitDone
-			add		edi, LineSkip
-			add		ebx, LineSkip
-
-			jmp		LeftSkipSetup
-
-
-			BlitDone :
+	// Portable TransShadowZNBObscuredClipAlpha: clipped, alpha-blended,
+	// Obscured (in-front alpha sprite / obscured checkerboard alpha
+	// silhouette).
+	{
+		const UINT8* src   = SrcPtr;
+		const UINT8* alpha = AlphaPtr;
+		for (INT32 i = 0; i < TopSkip; ++i) {
+			for (;;) {
+				const UINT8 cmd = *src++;
+				++alpha;
+				if (cmd == 0) break;
+				if (!(cmd & 0x80)) { src += cmd; alpha += cmd; }
+			}
+		}
+		UINT32 lineFlag = (UINT32)((iTempY + TopSkip) & 1);
+		const INT32 rightEdge = (INT32)usWidth - RightSkip;
+		UINT16* rowDest = (UINT16*)DestPtr;
+		UINT16* rowZ    = (UINT16*)ZPtr;
+		for (INT32 row = 0; row < BlitHeight; ++row) {
+			INT32 srcX = 0;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				++alpha;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					srcX += (cmd & 0x7F);
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i, ++srcX) {
+					const UINT8 v = *src++;
+					const UINT8 a = *alpha++;
+					if (srcX >= LeftSkip && srcX < rightEdge) {
+						const INT32 dx = srcX - LeftSkip;
+						const INT32 absX = iTempX + LeftSkip + dx;
+						if (rowZ[dx] <= usZValue) {
+							if (v == 254) {
+								if (rowZ[dx] < usZValue && !fIgnoreShadows) {
+									rowDest[dx] = ShadeTable[rowDest[dx]];
+								}
+							} else {
+								rowDest[dx] = blendWithAlpha(p16BPPPalette[v], rowDest[dx], a);
+							}
+						} else {
+							if (v != 254 && lineFlag == (UINT32)(absX & 1)) {
+								rowDest[dx] = blendWithAlpha(p16BPPPalette[v], rowDest[dx], a);
+							}
+						}
+					}
+				}
+			}
+			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
+			lineFlag ^= 1;
+		}
 	}
-#endif
 
 	return(TRUE);
 
