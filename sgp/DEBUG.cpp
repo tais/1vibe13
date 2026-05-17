@@ -24,9 +24,6 @@
 
 
 	#include "types.h"
-#ifdef _WIN32
-	#include <windows.h>
-#endif
 	#include <stdio.h>
 	#include <string>
 	#include <sstream>
@@ -450,36 +447,15 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 		SaveGame( SAVE__ASSERTION_FAILURE, L"Assertion Failure Auto Save" );
 	}
 
-#ifdef _WIN32
-	// Asserts re-enter the Win32 message pump so the OS stays alive
-	// while the error screen is shown. The SDL3 port will replace this
-	// with SDL_PollEvent in Phase 3.
-	MSG Message;
-	while (gfProgramIsRunning)
-	{
-		if (PeekMessage(&Message, NULL, 0, 0, PM_NOREMOVE))
-		{ // We have a message on the WIN95 queue, let's get it
-			if (!GetMessage(&Message, NULL, 0, 0))
-			{ // It's quitting time
-				continue;
-			}
-			// Ok, now that we have the message, let's handle it
-			TranslateMessage(&Message);
-			DispatchMessage(&Message);
-		}
-		else
-		{ // Windows hasn't processed any messages, therefore we handle the rest
-			GameLoop();
-			gfSGPInputReceived  =  FALSE;
-		}
-	}
-#else
+	// Spin a minimal game loop while the assert error screen is up.
+	// SDL event pumping happens in main()'s top-level loop; this nested
+	// loop only fires from inside an assert handler, so it suffices to
+	// keep calling GameLoop() until gfProgramIsRunning flips false.
 	while (gfProgramIsRunning)
 	{
 		GameLoop();
 		gfSGPInputReceived = FALSE;
 	}
-#endif
 
 	alreadyInThisFunction = false;
 	exit(0);
@@ -633,11 +609,7 @@ sgp::Exception::Exception(WString const& msg, std::exception& ex SGP_CALLER_LOCA
 }
 
 
-#if defined(_WIN32) || defined(WIN64)
-#	define ENDL "\r\n"
-#else
-#	define ENDL "\n"
-#endif
+#define ENDL "\n"
 
 static std::string gs_exception_string;
 

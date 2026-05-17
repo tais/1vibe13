@@ -3,9 +3,6 @@
 	#include <stdio.h>
 	#include <stdarg.h>
 	#include <stdlib.h>
-#ifdef _WIN32
-	#include <windows.h>
-#endif
 	#include <wchar.h>
 	#include "sgp.h"
 	#include "pcx.h"
