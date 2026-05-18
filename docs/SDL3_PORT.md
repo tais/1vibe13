@@ -976,12 +976,58 @@ What still isn't right (next session):
   shutdown) is hitting UB. Add a clean shutdown sequence that joins
   the timer thread, calls `ShutdownVideoManager`, and only then
   returns from `main()`.
-- **Input not visibly wired**. `sdl_input.cpp` translates SDL events
-  and pushes them into JA2's queue via `QueueEvent`, but it's
-  unverified that the legacy mouse system actually consumes them.
-  Pick up here once the screen-transition artifacts above are
-  resolved -- without a clean menu it's hard to confirm a click
-  actually hit the "New Game" hotspot.
+- **Input wired through** (resolved 2026-05-18, commit 25bf772d).
+  `sdl_input.cpp` now updates `gusMouseXPos`/`gusMouseYPos` on motion
+  but does NOT call `QueueEvent(MOUSE_POS, ...)`. The legacy
+  `DequeueSpecificEvent` peeks the queue head and bails on a mask
+  mismatch *without* advancing past the offending atom, so a
+  `MOUSE_POS` at the head pinned every `LEFT_BUTTON_DOWN/UP` behind
+  it forever. Hover state worked (the game polls the globals
+  directly); only clicks were stuck. With the change clicks reach
+  the button hooks -- "Start New Game" successfully navigates to the
+  INITIAL GAME SETTINGS screen on macOS.
+
+### 6d. Text rendering / font system (next session)
+
+Now that the game is fully interactive, the remaining first-class
+issue is text quality:
+
+- **Top-left 'A' glyph leftover.** `GetIndex` returns 0 (the 'A'
+  glyph slot) for any wchar_t not found in the legacy English
+  translation table -- a debugging marker the original devs left in
+  on purpose. On macOS this fires for some characters that
+  presumably matched on Windows; the cause is most likely a
+  `wchar_t` width mismatch (32-bit on macOS vs 16-bit on Win32) in
+  a code path that reads the source string element-by-element.
+- **Truncated button labels** ("Save Anyti" instead of "Save
+  Anytime", "1.13 Feat" instead of "1.13 Features"). Same flavour
+  -- some text widths reach a limit early. Probably a
+  fixed-size-buffer copy that confuses byte-count for char-count, or
+  a font-width measurement that walks the string as `char[]` rather
+  than `wchar_t[]`.
+- **Empty dialog message panels.** Yes/No confirm dialogs render
+  their buttons but the body text is blank. Likely the `vswprintf`
+  call path produces an empty string for those format/arg combos on
+  POSIX (`%s` vs `%S` semantics for wchar_t arguments differ from
+  Microsoft's vswprintf -- the InitScreen version line had the same
+  problem in earlier traces).
+
+Concrete next steps for a focused session:
+
+1. Audit `vswprintf` and `swprintf` call sites for `%s`/`%S`
+   correctness against the actual wchar_t / char* arg types.
+   Microsoft's printf treats `%s` as wchar_t* in wide-printf
+   functions; POSIX treats it as char*. The opposite is true for
+   `%S`. Most legacy JA2 format strings use `%s` for wide args
+   because they were authored on Windows.
+2. Sweep for sites that compute string lengths in bytes vs chars
+   (`strlen` on a wchar_t buffer; `sizeof(buf)` where char-count was
+   meant).
+3. Check `GetIndex` traffic to see which specific characters fail
+   to find a translation. If it's punctuation or non-ASCII, extend
+   the English table. If it's plain ASCII letters, the issue is
+   higher up the chain (the input wchar value is wrong before it
+   ever reaches the lookup).
 
 ---
 
