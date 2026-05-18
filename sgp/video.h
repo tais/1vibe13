@@ -51,6 +51,13 @@ extern void				 InvalidateRegions(SGPRect *pArrayOfRegions, UINT32 uiRegionCount
 extern void				 InvalidateScreen(void);
 extern void				 InvalidateFrameBuffer(void);
 extern void				 SetFrameBufferRefreshOverride(PTR pFrameBufferRefreshOverride);
+
+// SDL3 port: SDL-side shift of the framebuffer that mirrors stracciatella's
+// ScrollJA2Background. Must be called AFTER ScrollWorld committed the camera
+// move (which sets gsScrollX/YIncrement + guiScrollDirection) and BEFORE
+// RenderWorld paints the new view -- so the shifted previous-frame pixels
+// serve as a clean fallback for any iso tile gap.
+extern void				 Sgp_ShiftFrameBufferForScroll(void);
 extern PTR					LockPrimarySurface(UINT32 *uiPitch);
 extern void				 UnlockPrimarySurface(void);
 extern PTR					LockBackBuffer(UINT32 *uiPitch);

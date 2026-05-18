@@ -24,6 +24,31 @@
 #include "input.h"   // gusMouseXPos / gusMouseYPos for cursor composite
 #include "DEBUG.H"
 
+// Scroll-shift integration: these globals live in TileEngine and let
+// us know how far the camera moved between the previous frame and the
+// upcoming render. JA2 1.13's ScrollBackground accumulates the scroll
+// magnitude (always positive) into gsScrollX/YIncrement and records
+// the direction(s) bitwise in guiScrollDirection (SCROLL_LEFT bit
+// 0x08, SCROLL_RIGHT 0x04, SCROLL_UP 0x01, SCROLL_DOWN 0x02). We
+// reconstruct the signed delta from those, then shift the previous
+// frame's pixels accordingly so JA2's static-world render can paint
+// over them cleanly with no trail at the old screen positions.
+extern INT16 gsScrollXIncrement;
+extern INT16 gsScrollYIncrement;
+extern INT32 guiScrollDirection;
+extern BOOLEAN gfRenderScroll;
+extern INT16 gsVIEWPORT_START_X;
+extern INT16 gsVIEWPORT_END_X;
+extern INT16 gsVIEWPORT_WINDOW_START_Y;
+extern INT16 gsVIEWPORT_WINDOW_END_Y;
+
+// Pulled from renderworld.h's SCROLL_* defines (we don't include the
+// header to keep video <- tile-engine dependencies one-way).
+#define SCROLL_UP    0x00000001
+#define SCROLL_DOWN  0x00000002
+#define SCROLL_RIGHT 0x00000004
+#define SCROLL_LEFT  0x00000008
+
 #include <SDL3/SDL.h>
 
 #include <cstdio>
@@ -272,8 +297,40 @@ BOOLEAN Set8BPPPalette(SGPPaletteEntry* pal)
 	return TRUE;
 }
 
+// SDL3 port: scroll-shift was an attempt to mirror stracciatella's
+// ScrollJA2Background -- copy the previous frame's viewport pixels by
+// the camera delta so the iso tile pass writes over correctly-aligned
+// prev content with no trail. In practice trails still appeared because
+// the iso pass doesn't fully cover the viewport (tall building tops,
+// map-edge tiles outside the world bounds, dynamic-pass leftovers),
+// so shifted-old content kept leaking through. We've replaced this
+// with the simpler model: ColorFill the viewport BLACK at the top of
+// every RenderWorld (see TileEngine/renderworld.cpp), and rely on the
+// FULL flag re-render to paint the new frame. Where the render leaves
+// a gap, it shows as BLACK (clearly a coverage bug, not a hidden
+// trail). Kept as no-op so callers (gamescreen.cpp) still link; the
+// accumulated scroll-delta globals are zeroed here too so they don't
+// pile up between frames.
+static void ShiftFrameBufferForScroll()
+{
+	gsScrollXIncrement = 0;
+	gsScrollYIncrement = 0;
+	gfRenderScroll = FALSE;
+	guiScrollDirection = 0;
+}
+
 void StartFrameBufferRender(void) {}
 void EndFrameBufferRender(void)   {}
+
+// Explicit hook called from gamescreen.cpp's HandleTacticalScreen
+// between ScrollWorld() (which COMMITS the scroll and sets
+// gsScrollX/YIncrement + guiScrollDirection) and RenderWorld() (which
+// paints the new camera position into gFrameBuffer). Doing it here
+// instead of StartFrameBufferRender ensures the shift matches the
+// SAME frame's scroll delta -- not one frame stale.
+void Sgp_ShiftFrameBufferForScroll(void) {
+	ShiftFrameBufferForScroll();
+}
 
 // Cursor save buffer for the pixels we're about to overdraw, so we can
 // restore them after the SDL upload and keep gFrameBuffer clean across

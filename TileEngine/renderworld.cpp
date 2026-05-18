@@ -24,6 +24,7 @@
 
 #include "Utilities.h"
 
+
 UINT32 guiShieldGraphic = 0;
 BOOLEAN fShieldGraphicInit = FALSE;
 #define WALLDAMAGEGRAPHICS_MAX		2
@@ -345,19 +346,17 @@ UINT8	gubNewScrollIDSpeeds[ ]		= { 10, 10, 20, 20,  20 };
 UINT8	gubScrollSpeedStartID		= 2;
 UINT8	gubScrollSpeedEndID			= 4;
 UINT8	gubCurScrollSpeedID			= 1;
-// SDL3 port: default to non-video scroll. The "video" scroll path
-// (ScrollBackground at line ~3098) is a DirectDraw-era optimization
-// that shifts the back-buffer contents sideways and re-renders only
-// the newly-revealed edge strip -- it assumes the surface preserves
-// pixels between flips, which our streaming-texture pipeline does
-// not. Sprites stationary in world coords get drawn at one screen
-// position per frame; without the shift-blit, the previous-frame
-// pixels at the OLD screen position aren't moved with the camera and
-// you see them as motion-blur trails on every scroll step. Forcing
-// the !gfDoVideoScroll branch makes ScrollBackground do a full
-// RenderStaticWorldRect each step, killing the trail at the cost of
-// using the slightly larger non-video step table (40-200 vs 20-80).
-BOOLEAN	gfDoVideoScroll				= FALSE;
+// SDL3 port: keep gfDoVideoScroll=TRUE so ScrollBackground takes its
+// "accumulate scroll delta" branch (which avoids the eager
+// RenderStaticWorldRect that the FALSE branch does on EVERY input event,
+// which would do a partial render and pollute FB). The actual screen
+// blit-shift that the legacy DirectDraw video.cpp did at present time
+// is now a no-op on our SDL3 path: every frame we ColorFill the entire
+// viewport and rely on RenderWorld's RENDER_FLAG_FULL pass to repaint
+// it from scratch. This is the cleanest model -- "clear view, redraw
+// everything" -- and removes the entire class of "stale prev-frame
+// pixels leaking through coverage gaps" bug.
+BOOLEAN	gfDoVideoScroll				= TRUE;
 BOOLEAN	gfDoSubtileScroll			= FALSE;
 BOOLEAN	gfScrollPending				= FALSE;
 UINT32	uiLayerUsedFlags			= 0xffffffff;
@@ -1198,7 +1197,6 @@ MONSTERS BE HERE!
 */
 static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY_M, INT32 iStartPointX_S, INT32 iStartPointY_S, INT32 iEndXS, INT32 iEndYS, UINT8 ubNumLevels, UINT32 *puiLevels, UINT16 *psLevelIDs)
 {
-
 	//#if 0
 
 	LEVELNODE		*pNode; //, *pLand, *pStruct; //*pObject, *pTopmost, *pMerc;
@@ -1380,7 +1378,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 					uiTileIndex = iTileMapPos[uiMapPosIndex];
 					uiMapPosIndex++;
 
-					//if ( 0 )					
+					//if ( 0 )
 					if (!TileIsOutOfBounds(uiTileIndex))
 					{
 						// OK, we're searching through this loop anyway, might as well check for mouse position
@@ -1442,15 +1440,38 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 							if (fCheckForRedundency)
 							{
-								if ((gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REDUNDENT))
-								{
-									// IF WE DONOT WANT TO RE-EVALUATE FIRST
-									if (!(gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REEVALUATE_REDUNDENCY) && !(gTacticalStatus.uiFlags & NOHIDE_REDUNDENCY))
-									{
-										pNode = NULL;
-										break;
-									}
-								}
+								// SDL3 port: skip the LAND-tile-hidden-by-structure
+								// optimization. Under DirectDraw the back-buffer
+								// preserved pixels across frames, so it was safe to
+								// SKIP rendering a LAND tile that was previously
+								// found to be fully covered by a structure above
+								// it (set in MAPELEMENT_REDUNDENT by IsTileRedundent
+								// at line ~8683). With our streaming-texture pipeline
+								// we clear the viewport every frame -- so any
+								// "redundent" LAND tile that doesn't re-render shows
+								// through as a coverage gap wherever the structure
+								// above happens to have transparent pixels (eg.
+								// roof seams, wall corners, building eaves). This
+								// turned out to be the primary cause of "scroll
+								// trails" and "missing ground" the user reported:
+								// the iso pass was iterating 5000+ LAND nodes but
+								// only blitting 4 because thousands were marked
+								// REDUNDENT during the merc-arrival fastrope (which
+								// triggers a redundency re-eval pass that left a
+								// large slice marked redundent for the rest of the
+								// session). Force-render every LAND tile every
+								// frame -- the few extra blits cost nothing on a
+								// modern GPU pipeline, and the visual is correct.
+								//
+								// Legacy short-circuit kept for reference:
+								// if ((gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REDUNDENT))
+								// {
+								//     if (!(gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REEVALUATE_REDUNDENCY) && !(gTacticalStatus.uiFlags & NOHIDE_REDUNDENCY))
+								//     {
+								//         pNode = NULL;
+								//         break;
+								//     }
+								// }
 							}
 
 							// Force z-buffer blitting for marked tiles ( even ground!)
@@ -3178,21 +3199,26 @@ UINT32 cnt = 0;
 	// texture upload we have to repaint every frame.
 	SetRenderFlags(RENDER_FLAG_FULL);
 
-	// During active scrolling pre-fill the viewport. The iso tile pass
-	// doesn't fully cover the viewport during a scroll step (LAND tile
-	// coverage is partial when camera moves), so uncovered pixels
-	// otherwise keep last frame's content and accumulate as permanent
-	// stacked-trail artifacts. Fill with a dim terrain-ish brown rather
-	// than pure black -- gaps then look like dim ground instead of a
-	// glaring void. Steady-state frames (no scroll, no inertia) skip
-	// this so initial load and idle look pristine.
-	if ( gfScrollInertia || gfScrollPending )
-	{
-		ColorFillVideoSurfaceArea( FRAME_BUFFER,
-			gsVIEWPORT_START_X, gsVIEWPORT_WINDOW_START_Y,
-			gsVIEWPORT_END_X,   gsVIEWPORT_WINDOW_END_Y,
-			Get16BPPColor( FROMRGB( 32, 24, 16 ) ) );
-	}
+	// SDL3 port: clear the tactical viewport to BLACK BEFORE the static
+	// world render. The legacy engine relied on the DirectDraw back-buffer
+	// surface persisting pixels between flips, so it could safely skip
+	// re-rendering "redundent" tiles (LAND blocks fully hidden by a
+	// structure above) and tiles that were unchanged since the previous
+	// frame. Our streaming-texture pipeline doesn't preserve anything
+	// between frames; without an explicit clear the prev frame's content
+	// would bleed into any iso pass that doesn't write 100% of pixels
+	// (and the redundency optimization at RenderTiles guarantees it
+	// doesn't).
+	//
+	// Pairs with the MAPELEMENT_REDUNDENT bypass below at line ~1516 --
+	// together those changes mean every LAND tile renders every frame,
+	// and any gap shows as black (which is what the iso engine expects
+	// "above ground level" pixels to look like anyway). This is the same
+	// thing the user diagnosed: "clear the view, redraw everything".
+	ColorFillVideoSurfaceArea( FRAME_BUFFER,
+		gsVIEWPORT_START_X, gsVIEWPORT_WINDOW_START_Y,
+		gsVIEWPORT_END_X,   gsVIEWPORT_WINDOW_END_Y,
+		Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
 
 
 	// FOR NOW< HERE, UPDATE ANIMATED TILES

@@ -806,6 +806,13 @@ UINT32	MainGameScreenHandle(void)
 	// Handle Scroll Of World
 	ScrollWorld( );
 
+	// SDL3 port: shift previous-frame framebuffer pixels by the camera
+	// delta that ScrollWorld just committed, so RenderWorld's static-
+	// world pass paints fresh content over correctly-aligned shifted
+	// previous content (instead of leaving stale unscrolled pixels in
+	// any iso tile gap).
+	Sgp_ShiftFrameBufferForScroll( );
+
 	// SDL3 port: RenderWorld itself sets RENDER_FLAG_FULL on every entry
 	// (see TileEngine/renderworld.cpp) so we don't need a redundant
 	// SetRenderFlags() call here.
