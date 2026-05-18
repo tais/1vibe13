@@ -16,14 +16,28 @@
 #include <strings.h>  // strcasecmp, strncasecmp
 #include <wchar.h>    // wcscasecmp on glibc; <wctype.h> on macOS
 #include <cstdint>
-// Pull in <algorithm> early so std::min/std::max templates are declared
-// BEFORE the legacy min/max macros below take effect. Otherwise libstdc++'s
-// algorithmfwd.h sees `min(const _Tp&, const _Tp&)` while our macro is
-// active, and the compile blows up with "too many arguments to function-like
-// macro" / "redefinition of 'min'" errors. Apple Clang/libc++ happens to
-// avoid the collision via different declaration syntax; the GCC headers
-// used in Linux CI do not.
+// Pre-include the stdlib headers that internally use std::min/std::max so
+// they parse BEFORE the legacy min/max macros below are defined. The macros
+// are function-style and the C preprocessor expands them whenever the bare
+// identifier `min` or `max` appears followed by `(` -- including in
+// `std::min(...)` / `std::max(...)` calls inside libstdc++ template code
+// (sstream, istream, etc). Apple Clang/libc++ phrases its internal helpers
+// differently and dodges the collision; the GCC headers used in Linux CI do
+// not. The proper long-term fix is to drop the legacy macros and audit the
+// ~1600 bare min/max call sites in JA2 source, but until then this pre-load
+// keeps the libstdc++ template instantiations parseable.
 #include <algorithm>
+#include <sstream>
+#include <istream>
+#include <ostream>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+#include <set>
+#include <chrono>
+#include <numeric>
+#include <limits>
 
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
