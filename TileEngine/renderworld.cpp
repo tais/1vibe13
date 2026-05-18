@@ -3178,17 +3178,21 @@ UINT32 cnt = 0;
 	// texture upload we have to repaint every frame.
 	SetRenderFlags(RENDER_FLAG_FULL);
 
-	// Belt-and-braces: pre-clear the viewport to black. RenderStaticWorld's
-	// tile pass covers the diamond grid but a scroll step can leave pixels
-	// from the previous camera position that aren't covered by any tile
-	// (edges, viewport corners, gaps between layers). Without this clear,
-	// scrolling during animations produces stacked-ghost trails of buildings.
-	// Cost: ~640KB memset per frame at 800x600.
-	ColorFillVideoSurfaceArea( FRAME_BUFFER,
-		gsVIEWPORT_START_X, gsVIEWPORT_WINDOW_START_Y,
-		gsVIEWPORT_END_X,   gsVIEWPORT_WINDOW_END_Y,
-		Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-
+	// During active scrolling pre-fill the viewport. The iso tile pass
+	// doesn't fully cover the viewport during a scroll step (LAND tile
+	// coverage is partial when camera moves), so uncovered pixels
+	// otherwise keep last frame's content and accumulate as permanent
+	// stacked-trail artifacts. Fill with a dim terrain-ish brown rather
+	// than pure black -- gaps then look like dim ground instead of a
+	// glaring void. Steady-state frames (no scroll, no inertia) skip
+	// this so initial load and idle look pristine.
+	if ( gfScrollInertia || gfScrollPending )
+	{
+		ColorFillVideoSurfaceArea( FRAME_BUFFER,
+			gsVIEWPORT_START_X, gsVIEWPORT_WINDOW_START_Y,
+			gsVIEWPORT_END_X,   gsVIEWPORT_WINDOW_END_Y,
+			Get16BPPColor( FROMRGB( 32, 24, 16 ) ) );
+	}
 
 
 	// FOR NOW< HERE, UPDATE ANIMATED TILES
