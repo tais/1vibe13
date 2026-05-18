@@ -88,10 +88,107 @@ typedef struct { WORD wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, 
 #endif
 
 #ifdef __cplusplus
-inline int MultiByteToWideChar(UINT, DWORD, const char*, int,
-                               wchar_t*, int) { return 0; }
-inline int WideCharToMultiByte(UINT, DWORD, const wchar_t*, int,
-                               char*, int, const char*, BOOL*) { return 0; }
+// Real UTF-8 -> wchar_t conversion. Win32's MultiByteToWideChar lets
+// the caller pass the source byte count (cbMultiByte) or -1 to mean
+// "null-terminated". The destination size (cchWideChar) being 0 means
+// "return the required wide-char count (including terminator)".
+//
+// JA2 only ever invokes this with CP_UTF8 (the XML loader path); the
+// Code Page argument is therefore ignored. JA2's XML strings are
+// short and ASCII-heavy in practice, but we decode full UTF-8 so any
+// non-ASCII glyph that does make it through ends up as the correct
+// Unicode codepoint (and the Font.cpp GetIndex translation table can
+// then decide whether to render it).
+inline int MultiByteToWideChar(UINT /*CodePage*/, DWORD /*dwFlags*/,
+                               const char* lpMultiByteStr, int cbMultiByte,
+                               wchar_t* lpWideCharStr, int cchWideChar)
+{
+    if (!lpMultiByteStr) return 0;
+    // cbMultiByte = -1 means treat lpMultiByteStr as a null-terminated
+    // C string and INCLUDE the terminator in the wide output.
+    const bool includeTerminator = (cbMultiByte < 0);
+    int srcLen = cbMultiByte;
+    if (cbMultiByte < 0) {
+        srcLen = 0;
+        while (lpMultiByteStr[srcLen]) ++srcLen;
+        ++srcLen;  // include trailing NUL
+    }
+
+    int outCount = 0;
+    int i = 0;
+    while (i < srcLen) {
+        unsigned char c0 = (unsigned char)lpMultiByteStr[i];
+        unsigned int cp;
+        int extra;
+        if (c0 < 0x80)        { cp = c0;          extra = 0; }
+        else if ((c0 & 0xE0) == 0xC0) { cp = c0 & 0x1F; extra = 1; }
+        else if ((c0 & 0xF0) == 0xE0) { cp = c0 & 0x0F; extra = 2; }
+        else if ((c0 & 0xF8) == 0xF0) { cp = c0 & 0x07; extra = 3; }
+        else                   { cp = '?';        extra = 0; }
+
+        // Bail if a multibyte sequence would run past the input.
+        if (i + 1 + extra > srcLen) { cp = '?'; extra = 0; }
+        for (int j = 0; j < extra; ++j) {
+            unsigned char cn = (unsigned char)lpMultiByteStr[i + 1 + j];
+            if ((cn & 0xC0) != 0x80) { cp = '?'; extra = 0; break; }
+            cp = (cp << 6) | (cn & 0x3F);
+        }
+        i += 1 + extra;
+
+        if (cchWideChar > 0) {
+            if (outCount >= cchWideChar) {
+                // truncated -- ensure final wchar is NUL when the source was
+                // a C string (matches Win32 MultiByteToWideChar behavior).
+                if (includeTerminator && cchWideChar > 0) {
+                    lpWideCharStr[cchWideChar - 1] = 0;
+                }
+                return 0;  // Win32 returns 0 on insufficient buffer
+            }
+            lpWideCharStr[outCount] = (wchar_t)cp;
+        }
+        ++outCount;
+        if (cp == 0 && includeTerminator) break;
+    }
+    return outCount;
+}
+
+inline int WideCharToMultiByte(UINT /*CodePage*/, DWORD /*dwFlags*/,
+                               const wchar_t* lpWideCharStr, int cchWideChar,
+                               char* lpMultiByteStr, int cbMultiByte,
+                               const char* /*lpDefaultChar*/, BOOL* /*lpUsedDefaultChar*/)
+{
+    if (!lpWideCharStr) return 0;
+    const bool includeTerminator = (cchWideChar < 0);
+    int srcLen = cchWideChar;
+    if (cchWideChar < 0) {
+        srcLen = 0;
+        while (lpWideCharStr[srcLen]) ++srcLen;
+        ++srcLen;
+    }
+    int outCount = 0;
+    for (int i = 0; i < srcLen; ++i) {
+        unsigned int cp = (unsigned int)lpWideCharStr[i];
+        unsigned char buf[4];
+        int n;
+        if (cp < 0x80) { buf[0] = (unsigned char)cp; n = 1; }
+        else if (cp < 0x800) { buf[0] = (unsigned char)(0xC0 | (cp >> 6));
+                               buf[1] = (unsigned char)(0x80 | (cp & 0x3F)); n = 2; }
+        else if (cp < 0x10000) { buf[0] = (unsigned char)(0xE0 | (cp >> 12));
+                                 buf[1] = (unsigned char)(0x80 | ((cp >> 6) & 0x3F));
+                                 buf[2] = (unsigned char)(0x80 | (cp & 0x3F)); n = 3; }
+        else { buf[0] = (unsigned char)(0xF0 | (cp >> 18));
+               buf[1] = (unsigned char)(0x80 | ((cp >> 12) & 0x3F));
+               buf[2] = (unsigned char)(0x80 | ((cp >> 6) & 0x3F));
+               buf[3] = (unsigned char)(0x80 | (cp & 0x3F)); n = 4; }
+        if (cbMultiByte > 0) {
+            if (outCount + n > cbMultiByte) return 0;
+            for (int j = 0; j < n; ++j) lpMultiByteStr[outCount + j] = (char)buf[j];
+        }
+        outCount += n;
+        if (cp == 0 && includeTerminator) break;
+    }
+    return outCount;
+}
 
 // Monotonic milliseconds counter. Win32 GetTickCount returns msecs
 // since boot; the standard-library steady_clock has an unspecified
