@@ -35,9 +35,19 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
+#include <functional>
+#include <deque>
+#include <queue>
+#include <stack>
+#include <list>
+#include <memory>
 #include <chrono>
 #include <numeric>
 #include <limits>
+#include <type_traits>
+#include <iterator>
 
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
