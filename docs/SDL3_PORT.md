@@ -1029,6 +1029,24 @@ Concrete next steps for a focused session:
    higher up the chain (the input wchar value is wrong before it
    ever reaches the lookup).
 
+**Prior art — ja2-stracciatella.** Their port went the wholesale
+route: dropped `wchar_t` and `vswprintf` entirely, switched to a
+custom `ST::String` UTF-32 type (`char32_t`-based), and rewrote
+`GetGlyphIndex(char32_t c)` to look up a translation table keyed on
+Unicode codepoints with a `'?'` fallback rather than the legacy 'A'
+fallback. That's the "correct" long-term shape but it's a
+multi-thousand-call-site sweep, far beyond a single phase. A
+pragmatic interim for 1.13 would be:
+
+- A `vswprintf` shim that pre-translates Microsoft's wide-printf
+  `%s` (= wchar_t*) to POSIX `%S` and vice versa, so the legacy
+  format strings keep working without touching every call site.
+- Switch the `'A'` GetIndex fallback to a less visually distracting
+  glyph (or a question mark) until the chars-not-in-table set is
+  enumerated.
+
+A worktree-scale experimental shim is the right way to scope this.
+
 ---
 
 ## Phase 7 — Audio: SFX & music
