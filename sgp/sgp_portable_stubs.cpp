@@ -37,12 +37,10 @@
 // SetMouseCursorProperties, SetCurrentCursor, LockMouseBuffer,
 // UnlockMouseBuffer, and the rest of video.h's public surface.)
 
-// ---- soundman.cpp (extends the existing non-Win32 stubs there) -------------
-UINT32 SoundLoadSample(STR)      { return 0xFFFFFFFFu; }
-UINT32 SoundLockSample(STR)      { return 0xFFFFFFFFu; }
-UINT32 SoundUnlockSample(STR)    { return 0xFFFFFFFFu; }
-void   SoundRemoveSampleFlags(UINT32, UINT32) {}
-void   ResetSoundMap()           {}
+// soundman.cpp stubs were here during the Phase 6 strangler-fig period
+// (FMOD-only Windows path + silent macOS/Linux stubs). They moved into
+// the real SDL3_mixer-backed soundman.cpp in Phase 6r, so this block
+// is gone.
 
 // ---- KeyMap (Utils/KeyMap.cpp) --------------------------------------------
 BOOLEAN IsKeyPressed(INT32)      { return FALSE; }

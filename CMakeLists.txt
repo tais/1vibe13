@@ -44,6 +44,53 @@ set(usingMsBuild $<STREQUAL:${CMAKE_VS_PLATFORM_NAME},Win32>)
 # TODO: build our own Lua 5.1.2 from source so we can use whichever
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+# SDL3: window/input/audio backend on every platform. The end state
+# of this port is that SDL3 fully replaces Win32 + DirectDraw + FMOD
+# + GDI. We fetch SDL3 and SDL3_mixer BEFORE adding our own global
+# include_directories / add_compile_definitions, because FetchContent
+# subprojects (especially SDL3_mixer's vendored decoders like opus)
+# inherit those globals -- and opus's `#include "debug.h"` ends up
+# matching JA2's `sgp/DEBUG.H` on case-insensitive filesystems (APFS,
+# NTFS), which then includes our types.h which expects to be inside
+# the JA2 build.
+find_package(SDL3 QUIET CONFIG)
+if(NOT TARGET SDL3::SDL3)
+  include(FetchContent)
+  set(SDL_SHARED ON CACHE BOOL "" FORCE)
+  set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+  set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    # SDL3_mixer (pinned to main below) uses SDL3-main APIs like
+    # SDL_ALIGNED that aren't in tagged release-3.2.16, so we track
+    # main here too. Re-pin to a release tag once both libraries cut
+    # compatible stable releases.
+    GIT_TAG main
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(SDL3)
+endif()
+
+# SDL3_mixer: audio backend on every platform. Replaces FMOD entirely
+# -- the Win32-only fmodvc.lib path is gone in Phase 6r. Handles WAV
+# (incl. IMA ADPCM, which JA2 SFX uses) + OGG + MP3 + FLAC + Opus
+# decoding and mixing with vendored decoders.
+# Pinned to a recent main snapshot because SDL3_mixer hasn't cut a
+# release tag yet (the SDL3 line is still pre-3.0 stable).
+find_package(SDL3_mixer QUIET CONFIG)
+if(NOT TARGET SDL3_mixer::SDL3_mixer)
+  include(FetchContent)
+  set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    SDL3_mixer
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(SDL3_mixer)
+endif()
+
 add_compile_definitions(CINTERFACE XML_STATIC VFS_STATIC VFS_WITH_SLF VFS_WITH_7ZIP _CRT_SECURE_NO_DEPRECATE)
 include_directories(
   "${CMAKE_SOURCE_DIR}/Ja2"
@@ -68,27 +115,6 @@ add_subdirectory("ext/libpng")
 add_subdirectory("ext/zlib")
 add_subdirectory("ext/VFS")
 target_link_libraries(bfVFS PRIVATE 7z)
-
-# SDL3: window/input/audio backend on every platform. The end state
-# of this port is that SDL3 fully replaces Win32 + DirectDraw + FMOD
-# + GDI; during the strangler-fig transition Windows continues to use
-# the legacy path while non-Windows is on SDL3, but the dependency
-# itself is now built on every platform so Windows can pick it up
-# subsystem-by-subsystem as Phases 3-9 land.
-find_package(SDL3 QUIET CONFIG)
-if(NOT TARGET SDL3::SDL3)
-  include(FetchContent)
-  set(SDL_SHARED ON CACHE BOOL "" FORCE)
-  set(SDL_STATIC OFF CACHE BOOL "" FORCE)
-  set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    SDL3
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG release-3.2.16
-    GIT_SHALLOW TRUE
-  )
-  FetchContent_MakeAvailable(SDL3)
-endif()
 
 # Lua 5.1.5 from source. JA2 mods rely on Lua 5.1 semantics so we
 # can't just bump to 5.4. Upstream Lua 5.1 doesn't ship a CMakeLists,
@@ -242,7 +268,14 @@ foreach(app IN LISTS ApplicationTargets)
   foreach(lib IN LISTS Ja2_Libs)
     # library for an application, e.g. JA2UB_sgp
     set(game_library ${app}_${lib})
-    add_library(${game_library})
+    # STATIC: the JA2 internal libs have cyclic symbol references
+    # between them (Tactical -> TileEngine -> sgp -> Tactical, etc.).
+    # macOS's two-level-namespace dylib linker can't resolve those
+    # the way it can with static archives. SDL3_mixer's CMakeLists
+    # turns BUILD_SHARED_LIBS on globally when it builds, which used
+    # to make these default to SHARED -- explicit STATIC keeps the
+    # final executable a clean single-archive link.
+    add_library(${game_library} STATIC)
     target_sources(${game_library} PRIVATE ${${lib}Src})
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
   endforeach()
@@ -270,7 +303,7 @@ foreach(app IN LISTS ApplicationTargets)
 
     # language library for an application, e.g. JA2MAPEDITOR_ENGLISH_i18n
     set(language_library ${exe}_i18n)
-    add_library(${language_library})
+    add_library(${language_library} STATIC)
     target_sources(${language_library} PRIVATE ${i18nSrc})
     target_compile_definitions(${language_library} PRIVATE ${compilationFlags} ${debugFlags} ${lang})
     target_link_libraries(${exe} PRIVATE ${language_library})
@@ -283,12 +316,10 @@ foreach(app IN LISTS ApplicationTargets)
 
   # for SGP only
   # ddraw.lib dropped: SDL3 replaces DirectDraw on every platform.
-  # fmodvc.lib stays Windows-only until Phase 7 replaces FMOD with
-  # SDL3_mixer / SoLoud.
-  if(WIN32)
-    target_link_libraries(${app}_sgp PRIVATE "${PROJECT_SOURCE_DIR}/fmodvc.lib")
-  endif()
+  # fmodvc.lib dropped (Phase 6r): SDL3_mixer replaces FMOD on every
+  # platform too. JA2 is now fully SDL3-backed for video + audio.
   target_link_libraries(${app}_sgp PRIVATE libpng)
   target_link_libraries(${app}_sgp PRIVATE SDL3::SDL3)
+  target_link_libraries(${app}_sgp PRIVATE SDL3_mixer::SDL3_mixer)
   target_compile_definitions(${app}_sgp PRIVATE ${compilationFlags} ${debugFlags} NO_ZLIB_COMPRESSION)
 endforeach()

@@ -1,4 +1,4 @@
-add_library(Lua
+add_library(Lua STATIC
 "lua.cpp"
 "lua_class_interface.cpp"
 "lua_env.cpp"
