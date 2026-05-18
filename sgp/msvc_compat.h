@@ -18,6 +18,9 @@
 #include <cstdint>
 #include <algorithm>     // std::min/std::max
 #include <type_traits>   // std::common_type for global ::min/::max overloads
+#include <math.h>        // bare log/sqrt/sin/cos/pow/floor/ceil/etc.
+                         // libstdc++'s <cmath> exposes them in std:: only;
+                         // JA2 calls them unqualified everywhere.
 
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
