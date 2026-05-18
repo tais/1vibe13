@@ -1669,8 +1669,19 @@ void SimulateMouseMovement( UINT32 uiNewXPos, UINT32 uiNewYPos )
 	ClientToScreen( ghWindow, &newmouse);
 	SetCursorPos( newmouse.x, newmouse.y);
 #else
-	gusMouseXPos = (INT16)uiNewXPos;
-	gusMouseYPos = (INT16)uiNewYPos;
+	// SDL3 port: do nothing. On Win32 this used SetCursorPos to physically
+	// warp the OS cursor so the game's idea of cursor position and the OS
+	// cursor stayed in sync. Our port hides the OS cursor (we render our
+	// own from gusMouseX/YPos, which are driven by SDL_MOUSEMOTION events)
+	// and we don't have a way to push the OS cursor to a programmatic
+	// position cross-platform without surprising the user. Writing
+	// gusMouseX/YPos here would jump the in-game cursor sprite to the
+	// warp target while the OS pointer stayed put -- exactly the
+	// "cursor location resets to center when a popup appears" symptom.
+	// Callers expecting auto-centering on dialog buttons just don't
+	// get it; the user moves the mouse the normal way.
+	(void)uiNewXPos;
+	(void)uiNewYPos;
 #endif
 }
 
