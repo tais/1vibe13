@@ -806,7 +806,16 @@ UINT32	MainGameScreenHandle(void)
 	// Handle Scroll Of World
 	ScrollWorld( );
 
-	//SetRenderFlags( RENDER_FLAG_FULL );
+	// SDL3 port: force full world repaint every frame. The legacy
+	// DirectDraw back-buffer preserved pixels between frames, so the
+	// game only re-rendered tiles inside marked-dirty regions. Our
+	// streaming-texture path uploads the entire framebuffer each
+	// present, and any pixel left from a previous frame (a moved
+	// soldier, a dismissed right-click menu, a scrolled status
+	// widget, etc.) shows up as a ghost. RENDER_FLAG_FULL makes
+	// RenderTacticalScreen re-render the static world over the whole
+	// viewport before sprites/UI draw on top.
+	SetRenderFlags( RENDER_FLAG_FULL );
 
 	RenderWorld( );
 

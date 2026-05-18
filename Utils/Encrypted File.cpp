@@ -5,13 +5,41 @@
 // anv: for selecting random line
 #include "random.h"
 
+#include <vector>
+
+// EDT files (AIMHISTORY, EMAIL, HELP, MERCBIOS, AIMBIOS) store
+// 16-bit-per-char strings -- they were authored on Win32 where wchar_t
+// is 2 bytes. macOS/Linux have wchar_t = 4 bytes, so a raw FileRead
+// straight into the wchar_t* destination smashes two file-chars into
+// each in-memory wchar_t and the screen ends up showing junk codepoints
+// (mostly mapping to glyph 0 / a single visible character per line).
+//
+// Widen-on-read: pull the bytes into a temporary UINT16[] buffer and
+// zero-extend each codepoint into the caller's CHAR16/wchar_t buffer.
+// The caller-supplied byte count refers to the *file* layout (i.e.
+// chars * 2), matching the legacy AIM_HISTORY_LINE_SIZE = 400 * 2.
+static BOOLEAN ReadAndWidenEncrypted(HWFILE hFile, STR16 pDestString, UINT32 uiByteCount)
+{
+	const UINT32 charCount = uiByteCount / 2;
+	std::vector<UINT16> tmp(charCount);
+	UINT32 uiBytesRead = 0;
+	if (!FileRead(hFile, tmp.data(), uiByteCount, &uiBytesRead))
+		return FALSE;
+	for (UINT32 i = 0; i < charCount; ++i)
+		pDestString[i] = (CHAR16)tmp[i];
+	// Don't NUL-terminate past charCount: callers size their buffer as
+	// exactly the number of source chars (e.g. CHAR16 sSlogan[400] for
+	// uiByteCount=800). The EDT records carry their own trailing NUL
+	// within the data, and DecodeString stops on the first zero entry.
+	return TRUE;
+}
+
 // anv: loading random line from the file
 BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, STR16 pDestString, UINT32 uiSeekAmount)
 {
-	HWFILE		hFile;	
-	UINT32		uiBytesRead;
+	HWFILE		hFile;
 	UINT32		uiSeekFrom;
- 
+
 	hFile = FileOpen(pFileName, FILE_ACCESS_READ, FALSE);
 	if ( !hFile )
 	{
@@ -28,14 +56,16 @@ BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, STR16 pDestString, UI
 		return( FALSE );
 	}
 
-	if( !FileRead( hFile, pDestString, uiSeekAmount, &uiBytesRead) )
+	if( !ReadAndWidenEncrypted( hFile, pDestString, uiSeekAmount ) )
 	{
 		FileClose(hFile);
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "LoadEncryptedDataFromFile: Failed FileRead");
 		return( FALSE );
 	}
 
-	DecodeString(pDestString, uiSeekAmount);
+	// DecodeString indexes wchar_t entries; uiSeekAmount is the file
+	// byte count (2 bytes per source char). Pass the char count.
+	DecodeString(pDestString, uiSeekAmount / 2);
 
 	FileClose(hFile);
 	return(TRUE);
@@ -43,9 +73,7 @@ BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, STR16 pDestString, UI
 
 BOOLEAN LoadEncryptedDataFromFile(STR pFileName, STR16 pDestString, UINT32 uiSeekFrom, UINT32 uiSeekAmount)
 {
-	HWFILE		hFile;	
-	UINT32		uiBytesRead;
-
+	HWFILE		hFile;
 
 	hFile = FileOpen(pFileName, FILE_ACCESS_READ, FALSE);
 	if ( !hFile )
@@ -61,7 +89,7 @@ BOOLEAN LoadEncryptedDataFromFile(STR pFileName, STR16 pDestString, UINT32 uiSee
 		return( FALSE );
 	}
 
-	if( !FileRead( hFile, pDestString, uiSeekAmount, &uiBytesRead) )
+	if( !ReadAndWidenEncrypted( hFile, pDestString, uiSeekAmount ) )
 	{
 		FileClose(hFile);
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "LoadEncryptedDataFromFile: Failed FileRead");
@@ -79,7 +107,9 @@ BOOLEAN LoadEncryptedDataFromFile(STR pFileName, STR16 pDestString, UINT32 uiSee
 
 	//}
 
-	DecodeString(pDestString, uiSeekAmount);
+	// DecodeString indexes wchar_t entries; uiSeekAmount is the file
+	// byte count (2 bytes per source char). Pass the char count.
+	DecodeString(pDestString, uiSeekAmount / 2);
 
 	FileClose(hFile);
 	return(TRUE);
@@ -99,19 +129,19 @@ void DecodeString(STR16 pDestString, UINT32 uiSeekAmount)
 		//#ifdef GERMAN
   //             //switch( pDestString[ i ] )
   //             //{
-  //             //     // ü
+  //             //     // ï¿½
   //             //     case 252:          pDestString[i] = 252;          break;
-  //             //     // Ü
+  //             //     // ï¿½
   //             //     case 220:          pDestString[i] = 220;          break;
-  //             //     // ä
+  //             //     // ï¿½
   //             //     case 228:          pDestString[i] = 228;          break;
-  //             //     // Ä
+  //             //     // ï¿½
   //             //     case 196:          pDestString[i] = 196;          break;
-  //             //     // ö
+  //             //     // ï¿½
   //             //     case 246:          pDestString[i] = 246;          break;
-  //             //     // Ö
+  //             //     // ï¿½
   //             //     case 214:          pDestString[i] = 214;          break;
-  //             //     // ß
+  //             //     // ï¿½
   //             //     case 223:          pDestString[i] = 223;          break;
   //             //}
 		//#endif
@@ -158,12 +188,12 @@ void DecodeString(STR16 pDestString, UINT32 uiSeekAmount)
 		//		case 184:          pDestString[ i ] = 1105;  break; //U+0451           d1 91     CYRILLIC SMALL LETTER IO
 				//case 185:          pDestString[ i ] = 8470;  break;		// ?
 				//case 178:          pDestString[ i ] = 1030;  break;		// ?
-				//case 161:          pDestString[ i ] = 1038;  break;		// í
+				//case 161:          pDestString[ i ] = 1038;  break;		// ï¿½
 				//case 179:          pDestString[ i ] = 1110;  break;		// ?
-				//case 162:          pDestString[ i ] = 1118;  break;		// ó
-				//case 165:          pDestString[ i ] = 1168;  break;		// Ñ
-				//case 170:          pDestString[ i ] = 1028;  break;		// ¬
-				//case 175:          pDestString[ i ] = 1031;  break;		// »
+				//case 162:          pDestString[ i ] = 1118;  break;		// ï¿½
+				//case 165:          pDestString[ i ] = 1168;  break;		// ï¿½
+				//case 170:          pDestString[ i ] = 1028;  break;		// ï¿½
+				//case 175:          pDestString[ i ] = 1031;  break;		// ï¿½
 				//case 180:          pDestString[ i ] = 1169;  break;		// ?
 				//case 186:          pDestString[ i ] = 1108;  break;		// ?
 				//case 191:          pDestString[ i ] = 1111;  break;		// ?

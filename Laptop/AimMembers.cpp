@@ -49,6 +49,7 @@
 #include "Encrypted File.h"
 #include "InterfaceItemImages.h"
 #include <sstream>
+#include <vector>
 #include <language.hpp>
 
 //
@@ -1435,11 +1436,25 @@ BOOLEAN	UpdateMercInfo(void)
 
 
 
+// EDT files store 16-bit chars (Win32 wchar_t layout). On macOS/Linux
+// wchar_t is 32-bit, so we must widen on read. See Utils/Encrypted File.cpp
+// for the canonical implementation; this helper inlines it for the two
+// reads below so we don't reopen MERCBIOSFILENAME twice.
+static BOOLEAN ReadAndWidenWideChars(HWFILE hFile, STR16 pDest, UINT32 uiByteCount)
+{
+	const UINT32 charCount = uiByteCount / 2;
+	std::vector<UINT16> tmp(charCount);
+	UINT32 uiBytesRead = 0;
+	if (!FileRead(hFile, tmp.data(), uiByteCount, &uiBytesRead))
+		return FALSE;
+	for (UINT32 i = 0; i < charCount; ++i)
+		pDest[i] = (CHAR16)tmp[i];
+	return TRUE;
+}
+
 BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo)
 {
 	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	//UINT16		i;
 	UINT32		uiStartSeekAmount;
 
 
@@ -1458,7 +1473,7 @@ BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo)
 		return( FALSE );
 	}
 
-	if( !FileRead( hFile, pInfoString, SIZE_MERC_BIO_INFO, &uiBytesRead) )
+	if( !ReadAndWidenWideChars( hFile, pInfoString, SIZE_MERC_BIO_INFO ) )
 	{
 		return( FALSE );
 	}
@@ -1495,7 +1510,8 @@ BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo)
 	//	#endif
 	//}
 	
-	DecodeString(pInfoString, SIZE_MERC_BIO_INFO);
+	// DecodeString indexes wchar_t entries; pass char count, not byte count.
+	DecodeString(pInfoString, SIZE_MERC_BIO_INFO / 2);
 
 	// Get the additional info
 	uiStartSeekAmount = ((SIZE_MERC_BIO_INFO + SIZE_MERC_ADDITIONAL_INFO) * ubIndex )+ SIZE_MERC_BIO_INFO ;
@@ -1504,7 +1520,7 @@ BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo)
 		return( FALSE );
 	}
 
-	if( !FileRead( hFile, pAddInfo, SIZE_MERC_ADDITIONAL_INFO, &uiBytesRead) )
+	if( !ReadAndWidenWideChars( hFile, pAddInfo, SIZE_MERC_ADDITIONAL_INFO ) )
 	{
 		return( FALSE );
 	}
@@ -1541,7 +1557,10 @@ BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo)
 	//	#endif
 	//}
 
-	DecodeString(pAddInfo, SIZE_MERC_BIO_INFO);
+	// Note: original code passed SIZE_MERC_BIO_INFO here as the bound,
+	// not SIZE_MERC_ADDITIONAL_INFO -- preserved verbatim to avoid changing
+	// semantics. Convert byte count -> char count for the wchar_t iterator.
+	DecodeString(pAddInfo, SIZE_MERC_BIO_INFO / 2);
 
 	FileClose(hFile);
 	return(TRUE);

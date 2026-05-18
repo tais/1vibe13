@@ -1203,17 +1203,25 @@ void ChooseMapEdgepoints( MAPEDGEPOINTINFO *pMapEdgepointInfo, UINT8 ubStrategic
 			}
 			else switch( ubStrategicInsertionCode )
 			{
+				// These were AssertMsg(0, ...) calls but legitimately many
+				// maps don't have all four edge entry points (Omerta A9 has
+				// no east entry, for example). The code at line ~1221 below
+				// handles empty edge arrays gracefully by returning 0 spawn
+				// points, so the caller (AddEnemiesToBattle et al.) just
+				// gets no spawns from that direction. Downgrade to a debug
+				// trace so the diagnostic survives without crashing Beta
+				// builds during normal play.
 				case INSERTION_CODE_NORTH:
-					AssertMsg( 0, "This map doesn't have any north mapedgepoints.	Possibly because there is no north entry point. (LC : 1)" );
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ChooseMapEdgepoints: no NORTH edgepoints on this map (no north entry)" );
 					break;
 				case INSERTION_CODE_EAST:
-					AssertMsg( 0, "This map doesn't have any east mapedgepoints.	Possibly because there is no east entry point. (LC : 1)" );
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ChooseMapEdgepoints: no EAST edgepoints on this map (no east entry)" );
 					break;
 				case INSERTION_CODE_SOUTH:
-					AssertMsg( 0, "This map doesn't have any south mapedgepoints.	Possibly because there is no south entry point. (LC : 1)" );
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ChooseMapEdgepoints: no SOUTH edgepoints on this map (no south entry)" );
 					break;
 				case INSERTION_CODE_WEST:
-					AssertMsg( 0, "This map doesn't have any west mapedgepoints.	Possibly because there is no west entry point.	NOTE:	Teleportation always uses the west entrypoint.	Some maps shouldn't have west entrypoints. (LC : 1)" );
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ChooseMapEdgepoints: no WEST edgepoints on this map (no west entry)" );
 					break;
 			}
 		}

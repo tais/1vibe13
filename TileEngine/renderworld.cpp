@@ -3990,7 +3990,13 @@ void ScrollWorld( )
 
 	if ( gfIgnoreScrollDueToCenterAdjust )
 	{
-		//	gfIgnoreScrollDueToCenterAdjust = FALSE;
+		// The flag is a one-frame guard set by SetRenderCenter() to
+		// skip scrolling on the same frame the view recentered. The
+		// reset line was commented out which made it sticky: once set
+		// (e.g. on initial tactical screen entry), scrolling stayed
+		// disabled permanently and arrow keys + mouse-edge pan never
+		// did anything.
+		gfIgnoreScrollDueToCenterAdjust = FALSE;
 		return;
 	}
 

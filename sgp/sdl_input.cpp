@@ -10,30 +10,37 @@
 // KeyboardHandler / MouseHandler hooks; the existing input atom
 // queue and string-input redirection are reused unchanged.
 
-// Translate SDL_Scancode + SDL_Keycode to JA2's persisted VK_* code.
-// JA2 stores these in savegames and config files so SDL scancodes
-// can't be handed through directly. Covers the keys the menu / game
-// systems actually look at; alphanumerics fall through to the
-// keycode path below.
+// Translate SDL_Scancode + SDL_Keycode to JA2's gfKeyState[] index.
+//
+// Critically: gfKeyState is indexed by JA2's *english.h symbolic* key
+// codes (UPARROW=253, DNARROW=248, HOME=252, etc.) -- not by Win32 VK
+// codes. The original Win32 keyboard handler in input.cpp's KeyChange()
+// translates Win32 VK codes to those symbolic indices before storing
+// state. Polling code uses _KeyDown(UPARROW) which is gfKeyState[253],
+// so the SDL side must produce the same indices for the polls to fire.
+// Alphanumerics and a handful of control keys (ESC/RET/TAB/BS/space)
+// happen to share the same numeric value across VK and english.h, so
+// they pass through unchanged.
 static UINT16 sdl_to_vk(SDL_Scancode sc, SDL_Keycode key)
 {
 	switch (sc) {
-		case SDL_SCANCODE_ESCAPE:    return 0x1B;
-		case SDL_SCANCODE_RETURN:    return 0x0D;
-		case SDL_SCANCODE_KP_ENTER:  return 0x0D;
-		case SDL_SCANCODE_SPACE:     return 0x20;
-		case SDL_SCANCODE_TAB:       return 0x09;
-		case SDL_SCANCODE_BACKSPACE: return 0x08;
-		case SDL_SCANCODE_DELETE:    return 0x2E;
-		case SDL_SCANCODE_INSERT:    return 0x2D;
-		case SDL_SCANCODE_HOME:      return 0x24;
-		case SDL_SCANCODE_END:       return 0x23;
-		case SDL_SCANCODE_PAGEUP:    return 0x21;
-		case SDL_SCANCODE_PAGEDOWN:  return 0x22;
-		case SDL_SCANCODE_LEFT:      return 0x25;
-		case SDL_SCANCODE_UP:        return 0x26;
-		case SDL_SCANCODE_RIGHT:     return 0x27;
-		case SDL_SCANCODE_DOWN:      return 0x28;
+		case SDL_SCANCODE_ESCAPE:    return 27;   // ESC
+		case SDL_SCANCODE_RETURN:    return 13;   // ENTER
+		case SDL_SCANCODE_KP_ENTER:  return 13;
+		case SDL_SCANCODE_SPACE:     return 32;   // SPACE
+		case SDL_SCANCODE_TAB:       return 9;    // TAB
+		case SDL_SCANCODE_BACKSPACE: return 8;    // BACKSPACE
+		// english.h symbolic codes (sgp/english.h):
+		case SDL_SCANCODE_INSERT:    return 245;  // INSERT
+		case SDL_SCANCODE_DELETE:    return 246;  // DEL
+		case SDL_SCANCODE_END:       return 247;  // END
+		case SDL_SCANCODE_DOWN:      return 248;  // DNARROW
+		case SDL_SCANCODE_PAGEDOWN:  return 249;  // PGDN
+		case SDL_SCANCODE_LEFT:      return 250;  // LEFTARROW
+		case SDL_SCANCODE_RIGHT:     return 251;  // RIGHTARROW
+		case SDL_SCANCODE_HOME:      return 252;  // HOME
+		case SDL_SCANCODE_UP:        return 253;  // UPARROW
+		case SDL_SCANCODE_PAGEUP:    return 254;  // PGUP
 		case SDL_SCANCODE_LSHIFT:    return 0xA0;
 		case SDL_SCANCODE_RSHIFT:    return 0xA1;
 		case SDL_SCANCODE_LCTRL:     return 0xA2;
@@ -79,11 +86,11 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		return true;
 
 	case SDL_EVENT_KEY_DOWN: {
-		// Backstop quit path while the in-game menus aren't wired up
-		// yet: ESC closes the window. Cmd+Q on macOS is normally
-		// SDL_EVENT_QUIT but we accept it explicitly in case the
-		// translation gets dropped.
-		if (ev->key.key == SDLK_ESCAPE) return true;
+		// Cmd+Q on macOS is normally translated by the OS into
+		// SDL_EVENT_QUIT, but we accept it explicitly in case the
+		// translation gets dropped. ESC is NOT a quit path -- it
+		// queues as VK_ESCAPE so per-screen handlers (laptop, popups,
+		// game UI, etc.) can close their own thing.
 		if ((ev->key.key == SDLK_Q) && (ev->key.mod & SDL_KMOD_GUI)) return true;
 
 		UINT16 vk = sdl_to_vk(ev->key.scancode, ev->key.key);
