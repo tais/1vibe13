@@ -1,12 +1,21 @@
 name: build
 
+# NB: while the SDL3 port branch is in flight, the Windows / MSBuild
+# legacy pipeline is gated behind a manual dispatch -- the Windows
+# build is known broken (no DirectDraw / no FMOD on the SDL3 path)
+# and we don't want every push to burn CI time on a guaranteed-red
+# build. The build_unix.yml workflow runs on every push and covers
+# the Linux + macOS CMake/SDL3 path that's actively being worked on.
+
 on:
-  push:
-    branches:
-      - '**'
-    tags:
-      - 'v*'
-  # allows to manually trigger a build
+  # The Windows / MSBuild pipeline is currently manual-only. Re-enable
+  # the push trigger here once the SDL3 conversion phases retire the
+  # Win32 dependencies and the Windows build is expected to pass.
+  # push:
+  #   branches:
+  #     - '**'
+  #   tags:
+  #     - 'v*'
   workflow_dispatch:
     inputs:
       build_all_languages:

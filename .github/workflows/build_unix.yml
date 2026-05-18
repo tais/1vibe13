@@ -1,0 +1,82 @@
+name: build (unix)
+
+# Compile-check on Linux + macOS using the CMake / SDL3 path that the
+# sdl3-port branch is being developed on. Single language (English) and
+# the main JA2 application only -- the editor + UB targets ride the
+# same source tree, so a clean English build catches most regressions.
+# No assemble / release / gamedir merge -- that's still Windows-only
+# until the SDL3 port can drive a real gameplay session end-to-end.
+
+on:
+  workflow_call:
+  push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  compile:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Linux build deps
+        if: matrix.platform == 'linux'
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libx11-dev libxext-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libxrandr-dev libxss-dev libxkbcommon-dev \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
+            libibus-1.0-dev
+
+      - name: Install macOS build deps
+        if: matrix.platform == 'macos'
+        run: |
+          set -eux
+          brew install cmake ninja
+          # Everything else SDL3 needs (Cocoa, Metal, CoreAudio, ...)
+          # ships with Xcode Command Line Tools, which is pre-installed
+          # on github runners.
+
+      - name: Configure
+        run: |
+          set -eux
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DLanguages=ENGLISH \
+            -DApplications=JA2
+
+      - name: Build
+        run: cmake --build build -- -v
+
+      - name: List build artifacts
+        run: |
+          set -eux
+          ls -la build/
+          find build/ -maxdepth 2 -type f -name 'JA2*' -o -name 'ja2*' | head -20
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ja2-${{ matrix.platform }}
+          path: |
+            build/JA2_ENGLISH
+            build/JA2_ENGLISH.app/**
+          if-no-files-found: warn
