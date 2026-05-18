@@ -428,7 +428,10 @@ inline UINT8 GetBrightness(const UINT8& ubLightLevel)
 * @param pSoldier
 * @return stealth percentage, capped to 100.
 */
-inline INT8 GetStealth( SOLDIERTYPE* pSoldier )
+// Not inline: declared `extern` in LOS.h, used from other TUs (e.g.
+// Tactical/DisplayCover.cpp). Marking it inline here meant clang -O2 felt
+// free to skip emitting the symbol, breaking the release link on macOS CI.
+INT8 GetStealth( SOLDIERTYPE* pSoldier )
 {
 	INT16 stealth = GetWornStealth( pSoldier );
 	// SANDRO - this only counts with old traits

@@ -16,6 +16,14 @@
 #include <strings.h>  // strcasecmp, strncasecmp
 #include <wchar.h>    // wcscasecmp on glibc; <wctype.h> on macOS
 #include <cstdint>
+// Pull in <algorithm> early so std::min/std::max templates are declared
+// BEFORE the legacy min/max macros below take effect. Otherwise libstdc++'s
+// algorithmfwd.h sees `min(const _Tp&, const _Tp&)` while our macro is
+// active, and the compile blows up with "too many arguments to function-like
+// macro" / "redefinition of 'min'" errors. Apple Clang/libc++ happens to
+// avoid the collision via different declaration syntax; the GCC headers
+// used in Linux CI do not.
+#include <algorithm>
 
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
