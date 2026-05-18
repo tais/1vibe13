@@ -1196,6 +1196,18 @@ all three platforms.
 
 ---
 
+## Known UI bugs (post-Phase 6k)
+
+- **Laptop hover tooltips have transparent backgrounds.** Tooltip box
+  renders text but the fill underneath is see-through, so the laptop
+  background bleeds through. Likely the `SaveBackgroundRect` /
+  `RestoreBackgroundRects` pair isn't capturing the laptop tiles
+  cleanly (the save happens against `guiSAVEBUFFER`, which may be
+  stale because the laptop screen doesn't `UpdateSaveBuffer()` after
+  each redraw the way `RENDER_FLAG_FULL` does in tactical). To
+  investigate: trace `RegisterBackgroundRect` from the tooltip path
+  and check what's in `guiSAVEBUFFER` at the moment of save.
+
 ## Open questions / decisions still pending
 
 1. **Lua 5.1 vs Lua 5.4** — the master-branch TODO mentions building

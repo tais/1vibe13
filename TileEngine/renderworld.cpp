@@ -345,7 +345,19 @@ UINT8	gubNewScrollIDSpeeds[ ]		= { 10, 10, 20, 20,  20 };
 UINT8	gubScrollSpeedStartID		= 2;
 UINT8	gubScrollSpeedEndID			= 4;
 UINT8	gubCurScrollSpeedID			= 1;
-BOOLEAN	gfDoVideoScroll				= TRUE;
+// SDL3 port: default to non-video scroll. The "video" scroll path
+// (ScrollBackground at line ~3098) is a DirectDraw-era optimization
+// that shifts the back-buffer contents sideways and re-renders only
+// the newly-revealed edge strip -- it assumes the surface preserves
+// pixels between flips, which our streaming-texture pipeline does
+// not. Sprites stationary in world coords get drawn at one screen
+// position per frame; without the shift-blit, the previous-frame
+// pixels at the OLD screen position aren't moved with the camera and
+// you see them as motion-blur trails on every scroll step. Forcing
+// the !gfDoVideoScroll branch makes ScrollBackground do a full
+// RenderStaticWorldRect each step, killing the trail at the cost of
+// using the slightly larger non-video step table (40-200 vs 20-80).
+BOOLEAN	gfDoVideoScroll				= FALSE;
 BOOLEAN	gfDoSubtileScroll			= FALSE;
 BOOLEAN	gfScrollPending				= FALSE;
 UINT32	uiLayerUsedFlags			= 0xffffffff;
@@ -3157,8 +3169,25 @@ UINT32 cnt = 0;
 		SetRenderFlags(RENDER_FLAG_FULL);
 	}
 
+	// SDL3 port: force full world repaint on EVERY entry to RenderWorld,
+	// not just from the main game loop. Scripted animation/cutscene/event
+	// paths (helicopter intro, kill-cam, mercenary arrival cinematics,
+	// fade transitions, etc.) call RenderWorld from outside gamescreen's
+	// HandleTacticalScreen. Under DirectDraw the back-buffer preserved
+	// pixels and incremental re-renders just worked; with our streaming-
+	// texture upload we have to repaint every frame.
+	SetRenderFlags(RENDER_FLAG_FULL);
 
-//	SetRenderFlags(RENDER_FLAG_FULL);
+	// Belt-and-braces: pre-clear the viewport to black. RenderStaticWorld's
+	// tile pass covers the diamond grid but a scroll step can leave pixels
+	// from the previous camera position that aren't covered by any tile
+	// (edges, viewport corners, gaps between layers). Without this clear,
+	// scrolling during animations produces stacked-ghost trails of buildings.
+	// Cost: ~640KB memset per frame at 800x600.
+	ColorFillVideoSurfaceArea( FRAME_BUFFER,
+		gsVIEWPORT_START_X, gsVIEWPORT_WINDOW_START_Y,
+		gsVIEWPORT_END_X,   gsVIEWPORT_WINDOW_END_Y,
+		Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
 
 
 
