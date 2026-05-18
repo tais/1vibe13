@@ -52,8 +52,14 @@ protected:
 class popupDefContent{
 public:
 	popupDefContent();
-	~popupDefContent();
-	
+	// NB: virtual. popupDef::~popupDef walks content[] and does
+	// `delete <popupDefContent*>` -- prior to this, the destructor
+	// was non-virtual so the derived destructors (popupDefOption,
+	// popupDefSubPopupOption) never ran and their `name` /
+	// `content` members leaked. macOS's malloc guard caught the
+	// resulting mismatch and SIGTRAP'd at process exit.
+	virtual ~popupDefContent();
+
 	virtual BOOLEAN addToBox(POPUP * popup) = 0;
 
 };

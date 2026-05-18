@@ -2357,6 +2357,10 @@ UINT32 LaptopScreenHandle()
 	EnterLaptop();
 	CreateLaptopButtons();
 	gfEnterLapTop=FALSE;
+	// SDL3 port: ensure the laptop background paints on first entry.
+	// In the Win32 build the DirectDraw flip cycle effectively forced a
+	// redraw here; without this flag we land in laptop with a black canvas.
+	fReDrawScreenFlag = TRUE;
 	}
 
 	if( gfStartMapScreenToLaptopTransition )

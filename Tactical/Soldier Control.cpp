@@ -1309,8 +1309,13 @@ MERCPROFILESTRUCT& MERCPROFILESTRUCT::operator=(const OLD_MERCPROFILESTRUCT_101&
 		CopyOldInventoryToNew( src );
 
 		//arrays
-		memcpy( &(this->zName), &(src.zName), sizeof(CHAR16)* NAME_LENGTH );
-		memcpy( &(this->zNickname), &(src.zNickname), sizeof(CHAR16)* NICKNAME_LENGTH );
+		// On-disk OLD struct stores 16-bit chars (matches Win32 wchar_t); our
+		// in-memory CHAR16 is wchar_t which is 32-bit on macOS/Linux. Widen
+		// per character rather than memcpy'ing the raw 16-bit data.
+		for ( int i = 0; i < NAME_LENGTH; ++i )
+			this->zName[i] = (CHAR16)src.zName[i];
+		for ( int i = 0; i < NICKNAME_LENGTH; ++i )
+			this->zNickname[i] = (CHAR16)src.zNickname[i];
 		memcpy( &(this->PANTS), &(src.PANTS), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->VEST), &(src.VEST), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->SKIN), &(src.SKIN), sizeof(PaletteRepID) );	// 30

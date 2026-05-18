@@ -1324,22 +1324,26 @@ static void SGPGameLoop()
 	}
 	catch(sgp::Exception &ex)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] sgp::Exception: %s\n", ex.what()); std::fflush(stderr);
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
 	}
 	catch(vfs::Exception &ex)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] vfs::Exception: %s\n", ex.what()); std::fflush(stderr);
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
 	}
 	catch(std::exception &ex)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] std::exception: %s\n", ex.what()); std::fflush(stderr);
 		sgp::Exception nex(ex.what());
 		SGP_ERROR(nex.what());
 		SHOWEXCEPTION(nex);
 	}
 	catch(const char* msg)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] const char*: %s\n", msg); std::fflush(stderr);
 		sgp::Exception ex(msg);
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
@@ -1361,9 +1365,16 @@ static bool CallGameLoop(bool wait)
 		SGPGameLoop();
 		numUnsuccessfulTries = 0;
 	}
+	catch (std::exception& ex) {
+		std::fprintf(stderr, "[CallGameLoop] std::exception: %s\n", ex.what()); std::fflush(stderr);
+		++numUnsuccessfulTries;
+	}
+	catch (const char* msg) {
+		std::fprintf(stderr, "[CallGameLoop] const char* exception: %s\n", msg); std::fflush(stderr);
+		++numUnsuccessfulTries;
+	}
 	catch (...) {
-		// SGPGameLoop already absorbs its own C++ exceptions, so this
-		// only catches the truly unexpected.
+		std::fprintf(stderr, "[CallGameLoop] unknown exception type\n"); std::fflush(stderr);
 		++numUnsuccessfulTries;
 	}
 

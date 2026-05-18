@@ -17,10 +17,25 @@
 	popupDef::popupDef(){}
 
 	popupDef::~popupDef(){
-		for(std::vector<popupDefContent*>::iterator content=this->content.begin(); content != this->content.end(); ++content)
-		{
-			delete *content;
-		}
+		// NB: leak content[] on purpose.
+		//
+		// The XML loader (Tactical/XML_LBEPocketPopup.cpp) does
+		//     LBEPocketPopup[id] = *pData->curPocketPopup;
+		// which shallow-copies the content* pointers into the map
+		// AND keeps them alive in the source `*curPocketPopup`
+		// (which the loader never deletes -- it just allocates a
+		// fresh popupDef for the next <popup>). The map's static
+		// destructor at process exit then tries to free the same
+		// pointers that the (now-leaked) source popupDef would
+		// also be responsible for if its destructor ever ran, and
+		// macOS's malloc guard SIGTRAPs.
+		//
+		// Real fixes: deep-copy via a clone() virtual, or change
+		// LBEPocketPopup to hold popupDef* / unique_ptr<popupDef>.
+		// For now, leak: LBEPocketPopup is process-global, the
+		// number of popup defs is bounded by the XML file (a few
+		// dozen), and the OS reclaims the memory when the process
+		// exits.
 	}
 
 	BOOLEAN popupDef::applyToBox(POPUP* popup){
@@ -223,9 +238,13 @@
 	/* defined in header file
 	popupDefContentGenerator::popupDefContentGenerator(){}
 	popupDefContentGenerator::popupDefContentGenerator( UINT16 generatorId ){}
-	
-	popupDefContentGenerator::~popupDefContentGenerator(){}
 	*/
+
+	// The destructor is virtual (inherited from popupDefContent --
+	// recently made virtual to silence the macOS malloc guard's
+	// SIGTRAP on delete-via-base-pointer). It's the key function
+	// that anchors popupDefContentGenerator's vtable in this TU.
+	popupDefContentGenerator::~popupDefContentGenerator(){}
 
 	BOOLEAN popupDefContentGenerator::addToBox(POPUP * popup){
 	

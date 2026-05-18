@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include <cstdio>
 	#include "jascreens.h"
 	#include "laptop.h"
 	#include "worlddef.h"
@@ -527,7 +528,7 @@ void ShutdownStrategicLayer()
 extern void DebugQuestInfo(STR szOutput);
 
 BOOLEAN InitNewGame( BOOLEAN fReset )
-{	
+{
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"InitNewGame");
 
 	if( fReset )
@@ -535,19 +536,19 @@ BOOLEAN InitNewGame( BOOLEAN fReset )
 		gubScreenCount = 0;
 		return( TRUE );
 	}
-	
+
 	if( gubScreenCount == 0 )
-	{	
+	{
 		IniLuaGlobal();//Lua
 	}
-	
+
 	//reset autosave
 	AutoSaveToSlot[0] = FALSE;
 	AutoSaveToSlot[1] = FALSE;
 	AutoSaveToSlot[2] = FALSE;
 	AutoSaveToSlot[3] = FALSE;
 	AutoSaveToSlot[4] = FALSE;
-	
+
 	gGameExternalOptions.gfAllowReinforcements = zDiffSetting[gGameOptions.ubDifficultyLevel].bAllowReinforcements;
 	
 #ifdef JA2UB
@@ -787,7 +788,7 @@ fFirstTimeInMapScreen = TRUE;
 			SetPendingNewScreen(LAPTOP_SCREEN);
 			#endif
 		}
-		
+
 		gubScreenCount = 1;
 
 #ifdef JA2UB		

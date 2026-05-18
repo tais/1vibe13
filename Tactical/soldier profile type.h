@@ -560,8 +560,11 @@ class OLD_MERCPROFILESTRUCT_101
 public:
 	// Constructor
 	OLD_MERCPROFILESTRUCT_101();
-	CHAR16	zName[ NAME_LENGTH ];
-	CHAR16	zNickname[ NICKNAME_LENGTH ];
+	// On-disk format uses 16-bit characters; the in-memory MERCPROFILESTRUCT
+	// uses CHAR16 (wchar_t, which is 32-bit on macOS/Linux) so we cannot
+	// memcpy directly. Operator= below converts these to wchar_t.
+	UINT16	zName[ NAME_LENGTH ];
+	UINT16	zNickname[ NICKNAME_LENGTH ];
 	UINT32	uiAttnSound;
 	UINT32	uiCurseSound;
 	UINT32	uiDieSound;
