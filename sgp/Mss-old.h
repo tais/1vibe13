@@ -2500,18 +2500,8 @@ void MSSBreakPoint();
 // High-level support services
 //
 
-#ifdef IS_DOS
-
-#ifdef IS_WATCOM
-
-#if !defined(max) // Watcom stdlib.h doesn't define these for C++
-#define max(a,b)  (((a) > (b)) ? (a) : (b))
-#endif
-#if !defined(min)
-#define min(a,b)  (((a) < (b)) ? (a) : (b))
-#endif
-
-#endif
+// Note: legacy `#define min/max` shims removed — call sites now use
+// `std::min` / `std::max` directly.
 
 #ifdef __SW_3R
 extern S32 AILCALL AIL_startup_reg			   (void);

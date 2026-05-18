@@ -1089,7 +1089,7 @@ void RenderMercCompareMatrix( )
 		}
 
 		UINT16 spacepermerc = (LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X) / (squadvector.size() + 1);
-		spacepermerc = min( spacepermerc , 65);
+		spacepermerc = std::min<int>( spacepermerc , 65);
 
 		// now loop over the squadmembers and fill out the table
 		std::vector<UINT8>::iterator itend = squadvector.end( );

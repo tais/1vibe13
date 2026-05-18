@@ -1292,7 +1292,7 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	//Display the mercs name
 	mprintf( sX + iSlot*IMAGE_BOX_WIDTH, CHAR_NAME_Y, sString );
 
-	if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < min(ON_DUTY, gSquadNameVector.size() ) )
+	if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < std::min<size_t>(ON_DUTY, gSquadNameVector.size() ) )
 		swprintf( sString, L"%s", gSquadNameVector[pSoldier->bAssignment].c_str() );
 	else
 		swprintf( sString, L"%s", pPersonnelAssignmentStrings[pSoldier->bAssignment]);
@@ -1847,7 +1847,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 										   if ( sX <= iMinimumX )
 										   {
 											   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[19].x + (iSlot*TEXT_BOX_WIDTH) + TEXT_BOX_WIDTH - 20 + TEXT_DELTA_OFFSET), 0, 30, 0, sString, FONT10ARIALBOLD, &sX, &sY );
-											   sX = (INT16)max( sX, iMinimumX );
+											   sX = (INT16)std::max<INT32>( sX, iMinimumX );
 										   }
 										   sY = (INT16)(pPersonnelScreenPoints[19].y + (ubCnt * 12));
 
@@ -1861,7 +1861,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 										   if ( sX <= iMinimumX )
 										   {
 											   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[19].x + (iSlot*TEXT_BOX_WIDTH) + TEXT_BOX_WIDTH - 20 + TEXT_DELTA_OFFSET), 0, 30, 0, sString, PERS_FONT, &sX, &sY );
-											   sX = (INT16)max( sX, iMinimumX );
+											   sX = (INT16)std::max<INT32>( sX, iMinimumX );
 										   }
 										   sY = (INT16)(pPersonnelScreenPoints[19].y + (ubCnt * 12));
 
@@ -1904,7 +1904,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 								   if ( sX <= iMinimumX )
 								   {
 									   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[19].x + (iSlot*TEXT_BOX_WIDTH) + TEXT_BOX_WIDTH - 20 + TEXT_DELTA_OFFSET), 0, 30, 0, sString, PERS_FONT, &sX, &sY );
-									   sX = (INT16)max( sX, iMinimumX );
+									   sX = (INT16)std::max<INT32>( sX, iMinimumX );
 								   }
 								   sY = (INT16)(pPersonnelScreenPoints[19].y + 36);
 
@@ -1944,7 +1944,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 							   if ( sX <= iMinimumX )
 							   {
 								   FindFontRightCoordinates( (INT16)(x + TEXT_BOX_WIDTH - 20 + TEXT_DELTA_OFFSET), 0, 30, 0, sString, PERS_FONT, &sX, &sY );
-								   sX = (INT16)max( sX, iMinimumX );
+								   sX = (INT16)std::max<INT32>( sX, iMinimumX );
 							   }
 
 							   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
@@ -1979,7 +1979,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 
 								   //KM: April 16, 1999
 								   //Perform the potential overrun check
-								   sX = (INT16)max( sX, iMinimumX );
+								   sX = (INT16)std::max<INT32>( sX, iMinimumX );
 								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
 
 								   // Add specific region for fast help window
@@ -2013,7 +2013,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 
 								   //KM: April 16, 1999
 								   //Perform the potential overrun check
-								   sX = (INT16)max( sX, iMinimumX );
+								   sX = (INT16)std::max<INT32>( sX, iMinimumX );
 								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
 
 								   // Add specific region for fast help window
@@ -8426,7 +8426,7 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 	{
 		uiMercPercentage = (UINT32)(100.0f * (FLOAT)uiMercPoints / (FLOAT)ulTotalMercPoints + 0.5f);
 
-		uiMercPercentage = min( 100, uiMercPercentage );
+		uiMercPercentage = std::min<UINT32>( 100, uiMercPercentage );
 
 		return( (UINT8)(uiMercPercentage) );
 	}

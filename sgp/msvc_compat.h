@@ -16,42 +16,8 @@
 #include <strings.h>  // strcasecmp, strncasecmp
 #include <wchar.h>    // wcscasecmp on glibc; <wctype.h> on macOS
 #include <cstdint>
-// Pre-include the stdlib headers that internally use std::min/std::max so
-// they parse BEFORE the legacy min/max macros below are defined. The macros
-// are function-style and the C preprocessor expands them whenever the bare
-// identifier `min` or `max` appears followed by `(` -- including in
-// `std::min(...)` / `std::max(...)` calls inside libstdc++ template code
-// (sstream, istream, etc). Apple Clang/libc++ phrases its internal helpers
-// differently and dodges the collision; the GCC headers used in Linux CI do
-// not. The proper long-term fix is to drop the legacy macros and audit the
-// ~1600 bare min/max call sites in JA2 source, but until then this pre-load
-// keeps the libstdc++ template instantiations parseable.
-#include <algorithm>
-#include <sstream>
-#include <istream>
-#include <ostream>
-#include <iostream>
-#include <string>
-#include <vector>
-#include <map>
-#include <set>
-#include <unordered_map>
-#include <unordered_set>
-#include <functional>
-#include <deque>
-#include <queue>
-#include <stack>
-#include <list>
-#include <memory>
-#include <chrono>
-#include <numeric>
-#include <limits>
-#include <type_traits>
-#include <iterator>
-#include <cmath>      // pulls in <bits/specfun.h> + tr1/* on libstdc++
-#include <random>     // <random> uses std::max in distribution code
-#include <complex>
-#include <valarray>
+#include <algorithm>     // std::min/std::max
+#include <type_traits>   // std::common_type for global ::min/::max overloads
 
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
@@ -413,6 +379,9 @@ inline DWORD GetPrivateProfileStringA(const char*, const char*,
 #define _countof(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
+// MSVC-specific double-underscore synonyms still used in a couple of
+// places (e.g. TileEngine/Smell.cpp). These don't collide with stdlib
+// names, so the macro form is fine.
 #ifndef __min
 #define __min(a, b) (((a) < (b)) ? (a) : (b))
 #endif
@@ -421,12 +390,34 @@ inline DWORD GetPrivateProfileStringA(const char*, const char*,
 #define __max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#ifndef min
-#define min(a, b) (((a) < (b)) ? (a) : (b))
-#endif
-
-#ifndef max
-#define max(a, b) (((a) > (b)) ? (a) : (b))
+#ifdef __cplusplus
+// Global `::min` / `::max` template overloads that handle mixed integer
+// types via std::common_type. JA2 source has thousands of bare
+// `min(int_literal, sized_int)` calls that won't compile against
+// std::min<T>(T const&, T const&) because deduction fails on
+// dissimilar argument types. These overloads pick up those cases via
+// ADL/unqualified lookup; for same-type calls in code that does
+// `using namespace std;`, std::min<T> is more specialized and wins
+// overload resolution, so it remains the preferred path.
+//
+// Function-style `#define min/max` macros are intentionally NOT defined
+// because they corrupt `min(...)` / `max(...)` inside
+// libstdc++'s own template code (sstream/istream/hashtable/specfun/...)
+// on Linux clang.
+template <typename A, typename B>
+constexpr auto min(A const& a, B const& b)
+    -> typename std::common_type<A, B>::type
+{
+    using T = typename std::common_type<A, B>::type;
+    return T(a) < T(b) ? T(a) : T(b);
+}
+template <typename A, typename B>
+constexpr auto max(A const& a, B const& b)
+    -> typename std::common_type<A, B>::type
+{
+    using T = typename std::common_type<A, B>::type;
+    return T(a) > T(b) ? T(a) : T(b);
+}
 #endif
 
 #define _stricmp   strcasecmp

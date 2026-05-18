@@ -5759,7 +5759,7 @@ void WeaponKitSelectionUpdate(UINT8 selectedInventory = 0)
 			// If it's armour
 			if ( Item[ usItem ].usItemClass & IC_ARMOUR )
 			{
-				gMercProfiles[gbCurrentSoldier].bArmourAttractiveness = min(128,Armour[ Item[ usItem ].ubClassIndex ].ubProtection);
+				gMercProfiles[gbCurrentSoldier].bArmourAttractiveness = std::min<int>(128, Armour[ Item[ usItem ].ubClassIndex ].ubProtection);
 			}
 		}
 	}

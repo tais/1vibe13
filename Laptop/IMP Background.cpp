@@ -561,7 +561,7 @@ void UpdateDisplaySkills( BOOLEAN fIncrease )
 	if ( fIncrease )
 	{
 		// the last item of our new selection
-		lastitem  = min(found , gBackgroundLastItem + IMP_BACKGROUND_DISPLAYED_CHOICES - 1);
+		lastitem  = std::min<int>(found , gBackgroundLastItem + IMP_BACKGROUND_DISPLAYED_CHOICES - 1);
 		firstitem = max(0, lastitem - IMP_BACKGROUND_DISPLAYED_CHOICES + 1);
 	}
 	// select previous items
@@ -569,7 +569,7 @@ void UpdateDisplaySkills( BOOLEAN fIncrease )
 	{
 		// the first item of our new selection
 		firstitem = max(0, gBackgroundFirstItem - IMP_BACKGROUND_DISPLAYED_CHOICES + 1);
-		lastitem  = min(found , firstitem + IMP_BACKGROUND_DISPLAYED_CHOICES - 1);
+		lastitem  = std::min<int>(found , firstitem + IMP_BACKGROUND_DISPLAYED_CHOICES - 1);
 	}
 
 	UINT16 i = 0;

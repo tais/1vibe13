@@ -93,11 +93,8 @@ enum
 
 #define SEE_THRU_COVER_THRESHOLD		5		// min chance to get through
 
-#undef min
-#define min(a,b) ((a) < (b) ? (a) : (b))
-
-#undef max
-#define max(a,b) ((a) > (b) ? (a) : (b))
+// Note: legacy `#define min/max` shims removed — call sites use
+// `std::min` / `std::max` directly.
 
 // Added by feynman - remove all the ugly #ifdefs printf combinations for required for DebugAI
 //#define DEBUGAI

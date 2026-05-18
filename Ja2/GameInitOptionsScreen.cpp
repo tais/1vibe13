@@ -2389,7 +2389,7 @@ void DoneFadeOutForExitGameInitOptionScreen( void )
 		
 	gGameUBOptions.fTexAndJohn = GetCurrentTexAndJohnButtonSetting();
 	
-	gGameOptions.ubProgressSpeedOfItemsChoices = min( GIO_PROGRESS_VERY_FAST, iCurrentProgressSetting );
+	gGameOptions.ubProgressSpeedOfItemsChoices = std::min<int>( GIO_PROGRESS_VERY_FAST, iCurrentProgressSetting );
 	
 	gubGIOExitScreen = INIT_SCREEN;
 	
@@ -4633,7 +4633,7 @@ void DoneFadeOutForExitGameInitOptionScreen( void )
 	gGameOptions.fGunNut = GetCurrentGunButtonSetting();
 	gGameOptions.ubGameStyle = GetCurrentGameStyleButtonSetting();
 	
-	gGameOptions.ubDifficultyLevel = min( MaxDifficultySettingsValues, ( max( 1, (iCurrentDifficulty + 1)) ));
+	gGameOptions.ubDifficultyLevel = std::min<int>( MaxDifficultySettingsValues, max( 1, (iCurrentDifficulty + 1) ) );
 	
 	gGameOptions.fTurnTimeLimit = FALSE;
 		
@@ -4679,7 +4679,7 @@ void DoneFadeOutForExitGameInitOptionScreen( void )
 	
 	// SANDRO - added following:
 	gGameOptions.fNewTraitSystem = GetCurrentTraitsOptionButtonSetting();
-	gGameOptions.ubProgressSpeedOfItemsChoices = min( GIO_PROGRESS_VERY_FAST, iCurrentProgressSetting );
+	gGameOptions.ubProgressSpeedOfItemsChoices = std::min<int>( GIO_PROGRESS_VERY_FAST, iCurrentProgressSetting );
 	
 	gubGIOExitScreen = INTRO_SCREEN;
 

@@ -132,14 +132,14 @@ void cdp_statusbar_func_dummy( UINT32 aId, UINT16& arCol1, UINT16& arVal1, UINT1
 void
 ColumnDataProvider::CalcRequiredLength( )
 {
-	mRequiredLength = max( mRequiredLength, 6 * wcslen( mName ) );
+	mRequiredLength = std::max<UINT32>( mRequiredLength, 6 * wcslen( mName ) );
 
 	switch ( GetProviderType() )
 	{
 	case CDP_STRING:
 		for ( UINT32 i = 0; i < mNumberOfEntries; ++i )
 		{
-			mRequiredLength = max( mRequiredLength, 6 * wcslen( GetString( i ) ) );
+			mRequiredLength = std::max<UINT32>( mRequiredLength, 6 * wcslen( GetString( i ) ) );
 		}
 		break;
 		
@@ -151,7 +151,7 @@ ColumnDataProvider::CalcRequiredLength( )
 		break;
 
 	case CDP_STATUSBAR:
-		mRequiredLength = max( mRequiredLength, 4);
+		mRequiredLength = std::max<UINT32>( mRequiredLength, 4);
 		break;
 	}
 }
@@ -723,7 +723,7 @@ TestTable::RegionMoveCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 			// if mouse is outside of the bar, simply move bar up or down
 			if ( pRegion->MouseYPos < mScrollRegion.RegionTopLeftY )
 			{
-				mLastEntryShown = max( 0, mLastEntryShown - 1 );
+				mLastEntryShown = std::max<int>( 0, (int)mLastEntryShown - 1 );
 			}
 			else if ( pRegion->MouseYPos > mScrollRegion.RegionBottomRightY )
 			{

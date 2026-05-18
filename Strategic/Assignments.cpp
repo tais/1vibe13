@@ -4143,8 +4143,8 @@ void HandleDoctorMilitia()
 			// character is in sector, check if can doctor, if so...heal people
 			if ( EnoughTimeOnAssignment( pSoldier ) && CanCharacterDoctorMilitia( pSoldier ) )
 			{
-				UINT16 max = 0;
-				UINT16 healpoints = CalculateHealingPointsForDoctor( pSoldier, &max, TRUE );
+				UINT16 maxHealPoints = 0;
+				UINT16 healpoints = CalculateHealingPointsForDoctor( pSoldier, &maxHealPoints, TRUE );
 
 				// how good is the doctor?
 				INT8	sDoctortraits = gGameOptions.fNewTraitSystem ? NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) : 0;
@@ -6653,8 +6653,8 @@ void HandleStrategicDiseaseAndBurial()
 				MakeSureMedKitIsInHand( pSoldier );
 
 				// get available healing pts
-				UINT16 max = 0;
-				UINT16 ptsavailable = CalculateHealingPointsForDoctor( pSoldier, &max, TRUE );
+				UINT16 maxHealPoints = 0;
+				UINT16 ptsavailable = CalculateHealingPointsForDoctor( pSoldier, &maxHealPoints, TRUE );
 
 				ptsavailable = ( ptsavailable * ( 100 + pSoldier->GetBackgroundValue( BG_PERC_DISEASE_TREAT ) ) ) / 100;
 

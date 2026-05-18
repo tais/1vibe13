@@ -59,7 +59,7 @@ DDBox::Init( UINT16 sX, UINT16 sY )
 	SetX_Text( GetX( ) + MYBOX_FACE_OFFSET );
 	SetY_Text( WidgetBase::GetY( ) );
 
-	musWidth = min( MYBOX_TEXT_MAXWIDTH, StringPixLength( mText, MYBOX_FONT_DEF ) );
+	musWidth = std::min<int>( MYBOX_TEXT_MAXWIDTH, StringPixLength( mText, MYBOX_FONT_DEF ) );
 
 	musHeight = IanWrappedStringHeight( GetX_Text( ), GetY_Text( ) + 7, musWidth, 2, MYBOX_FONT_DEF, FONT_BLACK, mText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
@@ -322,7 +322,7 @@ void RefreshBoxes( )
 		// if we are scrolling, don't redraw the boxes as often
 		if (gfScrollPending || gfScrollInertia)
 		{
-			UINT32 timepassednotdisplaying = max(0, GetJA2Clock() - lasttimenhere);
+			UINT32 timepassednotdisplaying = std::max<INT32>(0, GetJA2Clock() - lasttimenhere);
 
 			if (timepassednotdisplaying < 100)
 			{
@@ -364,7 +364,7 @@ void RefreshBoxes( )
 	{
 		// Our dynamic dialogue boxes are destroyed as time progresses. As we do not display them at the moment, we have to update their creation and end time.
 		// As a result, no time will be lost for our dialogues if we are in a different screen
-		UINT32 timepassednotdisplaying = max( 0, GetJA2Clock( ) - lasttimenhere );
+		UINT32 timepassednotdisplaying = std::max<INT32>( 0, GetJA2Clock( ) - lasttimenhere );
 
 		if ( timepassednotdisplaying )
 			DelayBoxDestructionBy( timepassednotdisplaying );
@@ -441,7 +441,7 @@ IMPDialogueChooseBox::Init( UINT16 sX, UINT16 sY )
 
 	for ( size_t i = 0, size = mEntryVector.size(); i < size; ++i )
 	{
-		musWidth = max( musWidth, StringPixLength( mEntryVector[i].second, MYBOX_FONT_DEF ) );
+		musWidth = std::max<UINT16>( musWidth, StringPixLength( mEntryVector[i].second, MYBOX_FONT_DEF ) );
 	}
 
 	musFontHeight = GetFontHeight( MYBOX_FONT_DEF );	// does not work on init of static objects, as the fonts do not yet exist!
@@ -510,7 +510,7 @@ IMPDialogueChooseBox::Display( )
 		return;
 
 	//  we draw a line that shows us how much time we have for the decision
-	UINT32 totaltime = max( 0, musEndTime - musCreationTime );
+	UINT32 totaltime = std::max<INT32>( 0, musEndTime - musCreationTime );
 
 	if ( totaltime )
 	{
@@ -567,7 +567,7 @@ void
 IMPDialogueChooseBox::DrawTopEntry( )
 {
 	// make sure we don't get bogus values
-	mSelectedEntry = min( mSelectedEntry, mEntryVector.size( ) - 1 );
+	mSelectedEntry = std::min<size_t>( mSelectedEntry, mEntryVector.size( ) - 1 );
 
 	UINT16 sY = GetY( ) + IMPDIALOGUECHOOSEBOX_BAR_Y_OFFSET;
 

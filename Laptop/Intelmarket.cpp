@@ -632,8 +632,8 @@ void HandleIntelmarket_Sell()
 		// fill vector with list of all verified facts
 		LuaGetPhotoData( PHOTOFACT_VERIFIED );
 		
-		gPhotoFactsCurrentTaken = gPhotoFactsTakenVector.empty() ? -1 : min( gPhotoFactsCurrentTaken, gPhotoFactsTakenVector.size() - 1);
-		gPhotoFactsCurrentVerified = gPhotoFactsVerifiedVector.empty() ? -1 : min( gPhotoFactsCurrentVerified, gPhotoFactsVerifiedVector.size() - 1 );
+		gPhotoFactsCurrentTaken = gPhotoFactsTakenVector.empty() ? -1 : std::min<size_t>( gPhotoFactsCurrentTaken, gPhotoFactsTakenVector.size() - 1);
+		gPhotoFactsCurrentVerified = gPhotoFactsVerifiedVector.empty() ? -1 : std::min<size_t>( gPhotoFactsCurrentVerified, gPhotoFactsVerifiedVector.size() - 1 );
 
 		RenderIntelmarket_Sell();
 

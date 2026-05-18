@@ -591,7 +591,7 @@ INT8 NumAvailableMinorTraits()
 
 	bNumMinorTraits = gSkillTraitValues.ubMaxNumberOfTraitsForIMP - bNumMajorTraits;
 
-	bNumMinorTraits = max( 0, bNumMinorTraits );
+	bNumMinorTraits = std::max<int>( 0, bNumMinorTraits );
 
 	return(bNumMinorTraits);
 }
