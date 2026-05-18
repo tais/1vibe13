@@ -1,6 +1,7 @@
 #include "sdl_input.h"
 #include "types.h"
 #include "input.h"
+#include "video.h"  // InvalidateScreen()
 
 #include <SDL3/SDL.h>
 
@@ -84,6 +85,17 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 	case SDL_EVENT_QUIT:
 	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 		return true;
+
+	case SDL_EVENT_WINDOW_FOCUS_GAINED:
+	case SDL_EVENT_WINDOW_EXPOSED:
+	case SDL_EVENT_WINDOW_RESTORED:
+		// macOS will re-show the system arrow on focus events and may
+		// drop the streaming texture's stored content. Re-hide the OS
+		// cursor and force a full-screen invalidate so the next frame
+		// re-uploads everything cleanly.
+		SDL_HideCursor();
+		InvalidateScreen();
+		break;
 
 	case SDL_EVENT_KEY_DOWN: {
 		// Cmd+Q on macOS is normally translated by the OS into

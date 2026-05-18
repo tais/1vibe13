@@ -21,6 +21,7 @@
 #include "video.h"
 #include "vsurface.h"
 #include "himage.h"
+#include "input.h"   // gusMouseXPos / gusMouseYPos for cursor composite
 #include "DEBUG.H"
 
 #include <SDL3/SDL.h>
@@ -47,6 +48,20 @@ static UINT16* gBackBuffer  = nullptr;
 static UINT16* gMouseBuf    = nullptr;
 static int     gMouseBufW   = MAX_CURSOR_WIDTH;
 static int     gMouseBufH   = MAX_CURSOR_HEIGHT;
+// Hotspot offset within gMouseBuf -- the "click point" of the cursor
+// sprite relative to its top-left. Captured by SetMouseCursorProperties
+// from the cursor database; composited at (mouseX - hotX, mouseY - hotY).
+static INT16   gMouseCursorHotX = 0;
+static INT16   gMouseCursorHotY = 0;
+
+// Magenta-ish sentinel in RGB565 marking "transparent" pixels in
+// gMouseBuf. ETRLE blits only write opaque pixels; surrounding area
+// keeps this value and the composite below skips it. Chosen to be a
+// colour real cursor sprites don't contain (full red + full blue, no
+// green) so the cursor's black outline pixels are preserved -- using
+// 0x0000 as the key ate them and left the cursor looking fragmented
+// against dark backgrounds.
+static constexpr UINT16 kCursorTransparent = 0xF81F;
 
 // Accumulated dirty rect (in framebuffer pixels). Empty when L>=R.
 static INT32 gDirtyL = 0, gDirtyT = 0, gDirtyR = 0, gDirtyB = 0;
@@ -124,6 +139,13 @@ BOOLEAN InitializeVideoManager(void)
 		return FALSE;
 	}
 	SDL_SetTextureScaleMode(gFrameTex, SDL_SCALEMODE_NEAREST);
+
+	// JA2 renders its own cursor (crosshairs, walk, look, etc.) into
+	// gMouseBuf and we composite it onto the framebuffer below; hide
+	// the OS arrow so it doesn't double up on top.
+	if (!SDL_HideCursor()) {
+		std::fprintf(stderr, "[video] SDL_HideCursor() failed: %s\n", SDL_GetError());
+	}
 
 	const size_t fbBytes = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(UINT16);
 	gFrameBuffer = (UINT16*)std::calloc(1, fbBytes);
@@ -225,7 +247,13 @@ void UnlockBackBuffer(void)            {}
 PTR  LockFrameBuffer(UINT32* pitch)    { if (pitch) *pitch = SCREEN_WIDTH * sizeof(UINT16); return gFrameBuffer; }
 void UnlockFrameBuffer(void)           {}
 
-PTR  LockMouseBuffer(UINT32* pitch)    { if (pitch) *pitch = gMouseBufW * sizeof(UINT16); return gMouseBuf; }
+// Fixed pitch -- gMouseBuf is always allocated at MAX_CURSOR_WIDTH so
+// every cursor (regardless of its declared width via
+// SetMouseCursorProperties) lives in the same backing layout. Returning
+// a pitch that tracks gMouseBufW would have ETRLE write small-stride
+// data into a 64-wide allocation, causing the next row to overlap the
+// previous row's tail and producing sheared/"mirrored"-looking cursors.
+PTR  LockMouseBuffer(UINT32* pitch)    { if (pitch) *pitch = MAX_CURSOR_WIDTH * sizeof(UINT16); return gMouseBuf; }
 void UnlockMouseBuffer(void)           {}
 
 BOOLEAN GetRGBDistribution(void) { return TRUE; }
@@ -247,26 +275,98 @@ BOOLEAN Set8BPPPalette(SGPPaletteEntry* pal)
 void StartFrameBufferRender(void) {}
 void EndFrameBufferRender(void)   {}
 
-// Push the dirty region of gFrameBuffer to the streaming texture and
-// present. If the override callback is set (the game uses this for
-// in-flight overlays / fades), call it first.
+// Cursor save buffer for the pixels we're about to overdraw, so we can
+// restore them after the SDL upload and keep gFrameBuffer clean across
+// frames. The main menu / laptop / map screens don't repaint their
+// background every frame, so without save/restore the cursor would
+// leave a trail wherever the mouse has been.
+static UINT16 gCursorSavePixels[MAX_CURSOR_WIDTH * MAX_CURSOR_HEIGHT];
+static INT32  gCursorSaveX0 = 0, gCursorSaveY0 = 0;
+static INT32  gCursorSaveX1 = 0, gCursorSaveY1 = 0;
+static INT32  gCursorStampDstX = 0, gCursorStampDstY = 0;
+
+// Stamp gMouseBuf onto gFrameBuffer at the current mouse position using
+// 0x0000 as the transparency key. Records the affected region so
+// RestoreCursorPixels() can undo the write right after the SDL upload.
+static void CompositeCursorOntoFramebuffer()
+{
+	gCursorSaveX0 = gCursorSaveX1 = 0;
+	if (!gMouseBuf || !gFrameBuffer) return;
+	if (gMouseBufW <= 0 || gMouseBufH <= 0) return;
+
+	const INT32 dstX = (INT32)gusMouseXPos - (INT32)gMouseCursorHotX;
+	const INT32 dstY = (INT32)gusMouseYPos - (INT32)gMouseCursorHotY;
+
+	const INT32 srcX0 = (dstX < 0) ? -dstX : 0;
+	const INT32 srcY0 = (dstY < 0) ? -dstY : 0;
+	const INT32 srcX1 = (dstX + gMouseBufW > (INT32)SCREEN_WIDTH)
+	                    ? ((INT32)SCREEN_WIDTH - dstX) : gMouseBufW;
+	const INT32 srcY1 = (dstY + gMouseBufH > (INT32)SCREEN_HEIGHT)
+	                    ? ((INT32)SCREEN_HEIGHT - dstY) : gMouseBufH;
+	if (srcX0 >= srcX1 || srcY0 >= srcY1) return;
+
+	// Save the framebuffer rect first so we can restore after upload.
+	gCursorSaveX0 = srcX0; gCursorSaveY0 = srcY0;
+	gCursorSaveX1 = srcX1; gCursorSaveY1 = srcY1;
+	gCursorStampDstX = dstX; gCursorStampDstY = dstY;
+	for (INT32 sy = srcY0; sy < srcY1; ++sy) {
+		const UINT16* fbRow = gFrameBuffer + (size_t)(dstY + sy) * SCREEN_WIDTH + dstX;
+		UINT16* saveRow = gCursorSavePixels + (size_t)sy * MAX_CURSOR_WIDTH;
+		for (INT32 sx = srcX0; sx < srcX1; ++sx) saveRow[sx] = fbRow[sx];
+	}
+
+	// Stamp with color-key transparency. gMouseBuf is always laid out at
+	// MAX_CURSOR_WIDTH stride (matches the LockMouseBuffer pitch ETRLE
+	// blits use); the actual cursor sprite occupies only the top-left
+	// gMouseBufW x gMouseBufH region.
+	for (INT32 sy = srcY0; sy < srcY1; ++sy) {
+		const UINT16* srcRow = gMouseBuf + (size_t)sy * MAX_CURSOR_WIDTH;
+		UINT16* dstRow = gFrameBuffer + (size_t)(dstY + sy) * SCREEN_WIDTH + dstX;
+		for (INT32 sx = srcX0; sx < srcX1; ++sx) {
+			const UINT16 px = srcRow[sx];
+			if (px != kCursorTransparent) dstRow[sx] = px;
+		}
+	}
+}
+
+// Reverse of CompositeCursorOntoFramebuffer: put the saved pixels back
+// so gFrameBuffer matches whatever the game wrote, with no cursor
+// artifact. Called right after SDL_UpdateTexture so the texture (and
+// thus the on-screen frame) does include the cursor.
+static void RestoreCursorPixels()
+{
+	if (gCursorSaveX0 >= gCursorSaveX1 || gCursorSaveY0 >= gCursorSaveY1) return;
+	for (INT32 sy = gCursorSaveY0; sy < gCursorSaveY1; ++sy) {
+		const UINT16* saveRow = gCursorSavePixels + (size_t)sy * MAX_CURSOR_WIDTH;
+		UINT16* fbRow = gFrameBuffer + (size_t)(gCursorStampDstY + sy) * SCREEN_WIDTH + gCursorStampDstX;
+		for (INT32 sx = gCursorSaveX0; sx < gCursorSaveX1; ++sx) fbRow[sx] = saveRow[sx];
+	}
+}
+
+// Push gFrameBuffer to the streaming texture and present. If the
+// override callback is set (the game uses this for in-flight overlays
+// / fades), call it first.
 void RefreshScreen(void* /*dummy*/)
 {
 	if (!gRenderer || !gFrameTex || !gFrameBuffer) return;
 
+	// macOS sometimes lets the OS arrow reappear (after window focus
+	// changes, etc.). Re-hide each frame so it stays consistently off
+	// over our SDL-rendered surface.
+	if (SDL_CursorVisible()) SDL_HideCursor();
+
 	if (gRefreshOverride) gRefreshOverride();
 
-	// Always upload the entire framebuffer. The legacy game only
-	// invalidates incremental dirty rects (a popup, a tooltip), but
-	// the streaming texture's initial state is undefined and the
-	// renderer doesn't preserve our last-frame content across the
-	// non-dirty parts -- without a full upload, anything that was
-	// drawn before the first dirty rect stays invisible. Phase 6b
-	// can refine this to a back-buffer-mirroring scheme once we
-	// switch to RGBA8888.
+	// Stamp -> upload -> un-stamp. The texture sees the cursor; the
+	// framebuffer ends up unchanged so non-tactical screens don't get
+	// a cursor trail across frames.
+	CompositeCursorOntoFramebuffer();
+
 	SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
 	                  SCREEN_WIDTH * sizeof(UINT16));
 	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;
+
+	RestoreCursorPixels();
 
 	SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(gRenderer);
@@ -278,14 +378,30 @@ void RefreshScreen(void* /*dummy*/)
 
 // ---- Mouse cursor & misc (minimal so the stubs go away) -------------------
 
-BOOLEAN EraseMouseCursor(void) { return TRUE; }
-BOOLEAN SetMouseCursorProperties(INT16, INT16, UINT16 w, UINT16 h) {
-	if (w > 0 && w <= MAX_CURSOR_WIDTH)  gMouseBufW = w;
-	if (h > 0 && h <= MAX_CURSOR_HEIGHT) gMouseBufH = h;
+BOOLEAN EraseMouseCursor(void) {
+	if (!gMouseBuf) return TRUE;
+	const size_t n = (size_t)MAX_CURSOR_WIDTH * MAX_CURSOR_HEIGHT;
+	for (size_t i = 0; i < n; ++i) gMouseBuf[i] = kCursorTransparent;
+	return TRUE;
+}
+BOOLEAN SetMouseCursorProperties(INT16 hotX, INT16 hotY, UINT16 usCursorHeight, UINT16 usCursorWidth) {
+	// NB: the legacy header argument order is (hotX, hotY, HEIGHT, WIDTH)
+	// -- height comes first. Earlier we had the last two reversed and
+	// the resulting stride mismatch made ETRLE-decoded cursors wrap
+	// every gMouseBufW pixels, producing fragmented/skewed sprites.
+	gMouseCursorHotX = hotX;
+	gMouseCursorHotY = hotY;
+	if (usCursorWidth  > 0 && usCursorWidth  <= MAX_CURSOR_WIDTH)  gMouseBufW = usCursorWidth;
+	if (usCursorHeight > 0 && usCursorHeight <= MAX_CURSOR_HEIGHT) gMouseBufH = usCursorHeight;
 	return TRUE;
 }
 BOOLEAN SetMouseCursorFromObject(UINT32, UINT16, UINT16, UINT16) { return TRUE; }
-BOOLEAN HideMouseCursor(void) { return TRUE; }
+BOOLEAN HideMouseCursor(void) {
+	// Cursor visibility is implicit -- gMouseBuf with all-transparent
+	// pixels composites to nothing. HideMouseCursor() callers also call
+	// EraseMouseCursor() first, which already wipes the buffer.
+	return TRUE;
+}
 BOOLEAN LoadCursorFile(STR8) { return TRUE; }
 BOOLEAN SetCurrentCursor(UINT16, UINT16, UINT16) { return TRUE; }
 BOOLEAN BltToMouseCursor(UINT32, UINT16, UINT16, UINT16) { return TRUE; }
