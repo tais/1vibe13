@@ -600,13 +600,17 @@ INT16 StringPixLength(const STR16 string, INT32 UseFont)
 	}
 
 	Cur=0;
-	curletter = (UINT16 *)string;
-
-	while((*curletter) != L'\0')
+	// NB: was '(UINT16*)string'. wchar_t is 16-bit on Windows but
+	// 32-bit on macOS/Linux, so casting a wchar_t string through
+	// UINT16* hits the high-byte zero of every wide char after the
+	// first and bails out of the loop. Iterate as CHAR16 (wchar_t)
+	// directly so the stride matches the actual element size.
+	for (const CHAR16* curletter16 = (const CHAR16*)string; *curletter16 != L'\0'; ++curletter16)
 	{
-		transletter=GetIndex(*curletter++);
-		Cur+=GetWidth(FontObjs[UseFont], transletter);
+		UINT16 transletter = GetIndex(*curletter16);
+		Cur += GetWidth(FontObjs[UseFont], transletter);
 	}
+	(void)curletter;
 	return((INT16)Cur);
 }
 

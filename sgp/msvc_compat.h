@@ -382,16 +382,77 @@ inline wchar_t* wcstok_2arg(wchar_t* str, const wchar_t* delim) {
 namespace sgp_compat {
     template<size_t N>
     constexpr size_t arrsize(const wchar_t (&)[N]) { return N; }
+
+    // MSVC vs POSIX wide-printf swap '%s' and '%S' semantics:
+    //   MSVC:   %s = wchar_t*, %S = char*
+    //   POSIX:  %s = char*,    %S = wchar_t*
+    // Legacy JA2 was written under MSVC conventions; ~all format
+    // strings use %s for wchar_t args. Translate to the unambiguous
+    // %ls (wide) / %hs (narrow) forms which mean the same on both
+    // platforms so the legacy call sites keep working:
+    //   %s -> %ls (force wide)
+    //   %S -> %hs (force narrow)
+    // Returns true if the format was rewritten, false otherwise.
+    // 'out' must have at least (wcslen(fmt) + count_of_%s%S + 1) wide
+    // chars of space; for safety the call sites use a 1024-wchar buffer.
+    inline void msvc_wfmt_to_posix(const wchar_t* fmt, wchar_t* out, size_t outN)
+    {
+        size_t o = 0;
+        for (size_t i = 0; fmt[i] && o + 2 < outN; ++i) {
+            if (fmt[i] == L'%') {
+                // copy run of flags/width up to the conversion specifier
+                size_t j = i;
+                out[o++] = L'%';
+                ++j;
+                // skip flags / width / precision / length modifiers
+                while (fmt[j] && !((fmt[j] >= L'a' && fmt[j] <= L'z') ||
+                                   (fmt[j] >= L'A' && fmt[j] <= L'Z')) &&
+                       o + 1 < outN) {
+                    out[o++] = fmt[j++];
+                }
+                if (!fmt[j]) { i = j - 1; continue; }
+                wchar_t conv = fmt[j];
+                if (conv == L's' && o + 1 < outN) {
+                    out[o++] = L'l'; out[o++] = L's';   // %s -> %ls (wide)
+                } else if (conv == L'S' && o + 1 < outN) {
+                    out[o++] = L'h'; out[o++] = L's';   // %S -> %hs (narrow)
+                } else {
+                    out[o++] = conv;
+                }
+                i = j;
+            } else {
+                out[o++] = fmt[i];
+            }
+        }
+        out[(o < outN) ? o : outN - 1] = 0;
+    }
 }
-#define swprintf(buf, ...) ::swprintf((buf), ::sgp_compat::arrsize(buf), __VA_ARGS__)
+// Portable swprintf that pre-translates MSVC %s/%S to POSIX-
+// unambiguous %ls/%hs before calling ::swprintf.
+namespace sgp_compat {
+    inline int swprintf_msvc(wchar_t* buf, size_t n, const wchar_t* fmt, ...) {
+        wchar_t fixed[1024];
+        msvc_wfmt_to_posix(fmt, fixed, 1024);
+        va_list args;
+        va_start(args, fmt);
+        int r = ::vswprintf(buf, n, fixed, args);
+        va_end(args);
+        return r;
+    }
+}
+#define swprintf(buf, ...) ::sgp_compat::swprintf_msvc((buf), ::sgp_compat::arrsize(buf), __VA_ARGS__)
 
 // vswprintf has the same MSVC 3-arg / POSIX 4-arg split. Solved as a
 // template overload at global scope so call sites with array buffers
 // pick this up automatically. Pointer-buffer sites fail to compile,
-// same as the swprintf macro.
+// same as the swprintf macro. Also pre-translates the MSVC %s/%S
+// convention to POSIX-unambiguous %ls/%hs so legacy format strings
+// (authored under MSVC) keep their semantics.
 template<size_t N>
 inline int vswprintf(wchar_t (&buf)[N], const wchar_t* fmt, va_list args) {
-    return ::vswprintf(buf, N, fmt, args);
+    wchar_t fixed[1024];
+    ::sgp_compat::msvc_wfmt_to_posix(fmt, fixed, 1024);
+    return ::vswprintf(buf, N, fixed, args);
 }
 #endif
 
