@@ -107,10 +107,15 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 	}
 
 	case SDL_EVENT_MOUSE_MOTION: {
+		// NB: do NOT QueueEvent(MOUSE_POS, ...) here. The legacy Win32
+		// mouse hook only queued button/wheel atoms and let the game
+		// poll gusMouseXPos/gusMouseYPos directly. DequeueSpecificEvent
+		// in Ja2/gameloop.cpp peeks the queue head and bails when it
+		// doesn't match the mask, so a MOUSE_POS at the head would
+		// pin button events behind it forever (clicks would register
+		// in gfLeftButtonState but the button-system hooks never run).
 		gusMouseXPos = (INT16)ev->motion.x;
 		gusMouseYPos = (INT16)ev->motion.y;
-		QueueEvent(MOUSE_POS, 0,
-		           pack_xy((int)ev->motion.x, (int)ev->motion.y));
 		break;
 	}
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
