@@ -1035,17 +1035,60 @@ custom `ST::String` UTF-32 type (`char32_t`-based), and rewrote
 `GetGlyphIndex(char32_t c)` to look up a translation table keyed on
 Unicode codepoints with a `'?'` fallback rather than the legacy 'A'
 fallback. That's the "correct" long-term shape but it's a
-multi-thousand-call-site sweep, far beyond a single phase. A
-pragmatic interim for 1.13 would be:
+multi-thousand-call-site sweep, far beyond a single phase.
 
-- A `vswprintf` shim that pre-translates Microsoft's wide-printf
-  `%s` (= wchar_t*) to POSIX `%S` and vice versa, so the legacy
-  format strings keep working without touching every call site.
-- Switch the `'A'` GetIndex fallback to a less visually distracting
-  glyph (or a question mark) until the chars-not-in-table set is
-  enumerated.
+**Actually applied (2026-05-18).** Three pragmatic shims, no
+mass-rewrite:
 
-A worktree-scale experimental shim is the right way to scope this.
+1. `swprintf`/`vswprintf` macros in `sgp/msvc_compat.h` route through
+   a translator that rewrites Microsoft-convention wide-printf
+   specifiers to POSIX-unambiguous ones: `%s` → `%ls` (wide), `%S` →
+   `%hs` (narrow). The two conventions are *swapped* across the
+   platforms; legacy JA2 format strings were authored under MSVC.
+   This unblocked button labels like "Great (2)" being rendered as
+   "G (2)" because the first byte of `"G\0r\0..."` looked like a
+   null-terminated narrow string to POSIX vswprintf.
+2. `Font.cpp::StringPixLength` was iterating its input as
+   `(UINT16*)wchar_t*` — fine on 16-bit-wchar Windows, broken on
+   32-bit-wchar POSIX where the second byte of each wide char is
+   zero and terminates the loop. Iterate as `CHAR16` (wchar_t)
+   directly. Fixes button-text width measurement, which had been
+   clipping labels mid-word ("Save Anyti" instead of "Save
+   Anytime").
+3. `MultiByteToWideChar` / `WideCharToMultiByte` in `msvc_compat.h`
+   were returning 0 and doing nothing. JA2's XML loaders all run
+   UTF-8 char data through these, so every XML-sourced wide string
+   was empty (Difficulty Level dropdown blank; YES/NO confirmation
+   dialog with no body). Replace with self-contained UTF-8
+   decoders.
+
+(Commits `8e9c32fb`, `1088ccb4`.) After these the macOS build can
+navigate the main menu, open INITIAL GAME SETTINGS, change
+difficulty, click Start, accept the confirmation dialog.
+
+### 6e. Post-"Start New Game": black laptop screen (next session)
+
+After accepting the confirmation dialog the game transitions to
+`LAPTOP_SCREEN` (the mercenary hiring laptop). On macOS that
+currently renders as a black window -- clicks don't trigger
+anything, ESC closes via the backstop quit handler. The transition
+itself happens (`gubScreenCount` advances from 0 to 1 inside
+`Strategic/Game Init.cpp::InitNewGame`), so the screen handler is
+running.
+
+Likely culprits, in decreasing probability:
+
+- `EnterLaptop()` (Laptop/laptop.cpp:877) loads a pile of VObjects
+  for the laptop UI; if any one fails silently the framebuffer stays
+  black. Trace which `CreateVideoObject` calls return NULL.
+- The laptop's transition animation path
+  (`gfStartMapScreenToLaptopTransition`) is keyed on a flag that's
+  FALSE on the first entry from the New Game path, so the alternate
+  "just show the laptop" code path takes over -- worth confirming
+  that path even paints the background image before bailing.
+- A resolution-specific layout: laptop screen logic has explicit
+  cases for 640x480 / 800x600 / 1024x768 and a default; at 1366x768
+  the default fires and may compute wrong offsets.
 
 ---
 
