@@ -22,7 +22,14 @@
 #include "vsurface.h"
 #include "himage.h"
 #include "input.h"   // gusMouseXPos / gusMouseYPos for cursor composite
+#include "sysutil.h" // guiSAVEBUFFER
 #include "DEBUG.H"
+
+// RenderStaticWorldRect: tile-engine entry point we use to paint the
+// new strip that scrolled into view (lives in TileEngine/renderworld.cpp).
+// Declared here instead of including the header to keep the video <-
+// tile-engine dependency loose.
+extern void RenderStaticWorldRect(INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, BOOLEAN fDynamicsToo);
 
 // Scroll-shift integration: these globals live in TileEngine and let
 // us know how far the camera moved between the previous frame and the
@@ -297,26 +304,60 @@ BOOLEAN Set8BPPPalette(SGPPaletteEntry* pal)
 	return TRUE;
 }
 
-// SDL3 port: scroll-shift was an attempt to mirror stracciatella's
-// ScrollJA2Background -- copy the previous frame's viewport pixels by
-// the camera delta so the iso tile pass writes over correctly-aligned
-// prev content with no trail. In practice trails still appeared because
-// the iso pass doesn't fully cover the viewport (tall building tops,
-// map-edge tiles outside the world bounds, dynamic-pass leftovers),
-// so shifted-old content kept leaking through. We've replaced this
-// with the simpler model: ColorFill the viewport BLACK at the top of
-// every RenderWorld (see TileEngine/renderworld.cpp), and rely on the
-// FULL flag re-render to paint the new frame. Where the render leaves
-// a gap, it shows as BLACK (clearly a coverage bug, not a hidden
-// trail). Kept as no-op so callers (gamescreen.cpp) still link; the
-// accumulated scroll-delta globals are zeroed here too so they don't
-// pile up between frames.
+// "Scroll happened" hook. When the camera is moving (scroll inertia)
+// we promote that into a RENDER_FLAG_FULL on the engine's render-flag
+// bitmask so RenderWorld this frame does a full repaint -- the
+// streaming-texture pipeline has no persistent back-buffer for the
+// engine's incremental render to rely on across camera shifts.
+//
+// We check ALL three scroll-active conditions because they fire on
+// different frames within a single user-held-arrow-key:
+//   - gfRenderScroll: set by ScrollBackground on the frames where
+//     NEXTSCROLL counter actually commits a scroll step (1 per N
+//     frames -- the camera advances in discrete steps).
+//   - gfScrollInertia: TRUE throughout the entire scroll, including
+//     the in-between frames where the camera hasn't advanced yet
+//     (we still need FULL on those frames because the engine's
+//     RenderDynamicWorld will compute merc screen positions from the
+//     CURRENT camera, and if RenderStaticWorld isn't keeping pace the
+//     merc visibly drifts over a stale background -- exactly the
+//     "merc warps with a trail" symptom).
+//   - gfScrollPending: TRUE on the very first scroll-input frame
+//     before inertia kicks in.
+//
+// We deliberately do NOT memmove the framebuffer pixels in lockstep
+// with the camera the way stracciatella's ScrollJA2Background does --
+// screen-fixed overlays drawn into FRAME_BUFFER outside of the world
+// render (ScrollString status messages, merc dialogue face + text,
+// etc.) get shifted along with everything else and leave ghosts. A
+// full re-render every scroll frame is heavier but visually clean.
+//
+// All scroll-delta globals get reset here so they don't accumulate
+// between frames.
+extern BOOLEAN gfScrollInertia;
+extern BOOLEAN gfScrollPending;
+
 static void ShiftFrameBufferForScroll()
 {
+	const bool scrolled = (gfRenderScroll
+		|| gfScrollInertia
+		|| gfScrollPending
+		|| gsScrollXIncrement != 0
+		|| gsScrollYIncrement != 0);
 	gsScrollXIncrement = 0;
 	gsScrollYIncrement = 0;
 	gfRenderScroll = FALSE;
 	guiScrollDirection = 0;
+	if (scrolled) {
+		// RENDER_FLAG_FULL = 0x1 (renderworld.h). NOTE: an earlier draft
+		// of this hook hard-coded the value as 0x4, which is actually
+		// RENDER_FLAG_MARKED -- the symptom was "merc warps with a trail,
+		// map only updates when scroll stops" because RenderWorld took
+		// the MARKED branch (RenderMarkedWorld renders nothing unless
+		// MAPELEMENT_REDRAW is set on a tile) instead of the FULL branch.
+		extern void SetRenderFlags(UINT32 uiFlags);
+		SetRenderFlags(0x00000001 /*RENDER_FLAG_FULL*/);
+	}
 }
 
 void StartFrameBufferRender(void) {}
