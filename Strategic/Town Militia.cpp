@@ -1,5 +1,7 @@
 #include "builddefines.h"
 
+#include <math.h>  // log() — libstdc++ doesn't bring it into the global namespace transitively
+
 	#include "Town Militia.h"
 	#include "Militia Control.h"
 	#include "Campaign Types.h"
