@@ -48,6 +48,10 @@
 #include <limits>
 #include <type_traits>
 #include <iterator>
+#include <cmath>      // pulls in <bits/specfun.h> + tr1/* on libstdc++
+#include <random>     // <random> uses std::max in distribution code
+#include <complex>
+#include <valarray>
 
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
