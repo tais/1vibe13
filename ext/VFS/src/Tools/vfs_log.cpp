@@ -199,8 +199,8 @@ vfs::Log& vfs::Log::operator<<(vfs::Int8 const& t)
 	VFS_LOCK(_mutex);
 	return pushNumber(t);
 }
-#ifdef _MSC_VER
-	vfs::Log& vfs::Log::operator<<(DWORD const& t)
+#ifdef _WIN32
+	vfs::Log& vfs::Log::operator<<(unsigned long const& t)
 	{
 		VFS_LOCK(_mutex);
 		return pushNumber(t);

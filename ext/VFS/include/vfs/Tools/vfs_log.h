@@ -106,8 +106,15 @@ namespace vfs
 		Log& operator<<(vfs::Int16 const& t);
 		Log& operator<<(vfs::Int8  const& t);
 
-#ifdef _MSC_VER
-		Log& operator<<(DWORD const& t);
+// Windows is LLP64: `unsigned long` is 32-bit and distinct from
+// UInt32 (unsigned int) and UInt64 (unsigned long long). DWORD is a
+// typedef for unsigned long, so callers passing a DWORD (e.g.
+// GetLastError() return) need this overload. Spell it as
+// `unsigned long` so we don't need <windows.h>. On LP64 platforms
+// (Linux/macOS) `unsigned long` is 64-bit and overlaps with our
+// UInt64 overload, so gate this to Windows.
+#ifdef _WIN32
+		Log& operator<<(unsigned long const& t);
 #endif
 		Log& operator<<(float const& t);
 		Log& operator<<(double const& t);
