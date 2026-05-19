@@ -95,31 +95,18 @@ endif()
 # binkw32.lib + Smacker-via-binkw32 path (Phase 6u). All JA2 cinematics
 # (intro, helicopter flyby, meanwhile scenes) ship as .SMK files, so
 # this covers the actual asset set; .BIK (Bink proprietary) support
-# stays stubbed since the data doesn't include any. Upstream
-# libsmacker is a 2-file C library released on SourceForge with no
-# CMakeLists of its own, so we fetch the tarball and wrap it with our
-# own static-library target.
-include(FetchContent)
-FetchContent_Declare(
-  libsmacker
-  URL https://downloads.sourceforge.net/project/libsmacker/libsmacker-1.2/libsmacker-1.2.0r43.tar.gz
-  URL_HASH MD5=9c8d1a521e89a0481f7c868ad2d23d7b
-  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_GetProperties(libsmacker)
-if(NOT libsmacker_POPULATED)
-  FetchContent_Populate(libsmacker)
-endif()
-add_library(libsmacker STATIC "${libsmacker_SOURCE_DIR}/smacker.c")
-target_include_directories(libsmacker PUBLIC "${libsmacker_SOURCE_DIR}")
-# libsmacker is upstream C89; quiet the warnings so our build stays
-# clean. The library itself is well-tested and stable.
-target_compile_options(libsmacker PRIVATE -w)
+# stays stubbed since the data doesn't include any.
+#
+# Vendored in ext/libsmacker rather than FetchContent'd from upstream
+# SourceForge -- SF has had availability issues and the project is
+# barely maintained, so a local copy keeps the build reproducible
+# offline.
+add_subdirectory("ext/libsmacker")
 # Expose smacker.h + SDL3 headers on the JA2 include search path so
 # Utils/Cinematics.cpp (which lives in JA2_Utils, not JA2_sgp) can pick
 # them up. The targets' PUBLIC include_directories only propagates to
 # direct linkers; the JA2_* libraries link via the final executable.
-include_directories("${libsmacker_SOURCE_DIR}")
+include_directories("${CMAKE_SOURCE_DIR}/ext/libsmacker")
 # SDL3's installed header layout is `<SDL3/SDL.h>` style. The fetched
 # source has it at `${sdl3_SOURCE_DIR}/include/SDL3/SDL.h`, plus the
 # generated build_config under `${sdl3_BINARY_DIR}/include-revision`.
