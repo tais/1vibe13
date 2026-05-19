@@ -1,11 +1,15 @@
-name: build (unix)
+name: build
 
-# Compile-check on Linux + macOS using the CMake / SDL3 path that the
-# sdl3-port branch is being developed on. Single language (English) and
-# the main JA2 application only -- the editor + UB targets ride the
-# same source tree, so a clean English build catches most regressions.
-# No assemble / release / gamedir merge -- that's still Windows-only
-# until the SDL3 port can drive a real gameplay session end-to-end.
+# CMake/SDL3 compile-check on every platform we ship -- Linux, macOS,
+# Windows. Single language (English) and the main JA2 application only;
+# the editor + UB targets ride the same source tree, so a clean English
+# build catches most regressions.
+#
+# This replaces the legacy MSBuild Windows pipeline (build.yml, now
+# manual-dispatch only) for the SDL3 port. Every platform now drives
+# the same CMake/Ninja/clang build; on Windows we use clang-cl through
+# the LLVM toolchain that ships with Visual Studio 2022 on the
+# windows-latest runner image.
 
 on:
   workflow_call:
@@ -26,6 +30,8 @@ jobs:
             platform: linux
           - os: macos-latest
             platform: macos
+          - os: windows-latest
+            platform: windows
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -62,22 +68,41 @@ jobs:
           # ships with Xcode Command Line Tools, which is pre-installed
           # on github runners.
 
-      - name: Configure
+      - name: Set up MSVC environment (Windows)
+        if: matrix.platform == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Select clang-cl toolchain (Windows)
+        if: matrix.platform == 'windows'
+        shell: bash
         run: |
-          set -eux
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DLanguages=ENGLISH \
-            -DApplications=JA2
+          # clang-cl is the LLVM clang driver in MSVC-compatible mode.
+          # It accepts `-Wno-error=address-of-temporary` (clang-only)
+          # the same as Linux/macOS clang, and links against the
+          # standard MSVC runtime so the resulting .exe doesn't need
+          # extra runtime DLLs alongside the SDL3/mixer ones.
+          echo "CC=clang-cl"  >> $GITHUB_ENV
+          echo "CXX=clang-cl" >> $GITHUB_ENV
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLanguages=ENGLISH -DApplications=JA2
 
       - name: Build
-        run: cmake --build build -- -v
+        run: cmake --build build
 
-      - name: List build artifacts
+      - name: List build artifacts (unix)
+        if: matrix.platform != 'windows'
         run: |
           set -eux
           ls -la build/
-          find build/ -maxdepth 2 -type f -name 'JA2*' -o -name 'ja2*' | head -20
+          find build/ -maxdepth 2 -type f \( -name 'JA2*' -o -name 'ja2*' \) | head -20
+
+      - name: List build artifacts (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem build/ | Format-Table -AutoSize
+          Get-ChildItem -Recurse build/ -Filter 'JA2_ENGLISH*' | Format-Table FullName
 
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -85,5 +110,8 @@ jobs:
           name: ja2-${{ matrix.platform }}
           path: |
             build/JA2_ENGLISH
+            build/JA2_ENGLISH.exe
+            build/JA2_ENGLISH.pdb
             build/JA2_ENGLISH.app/**
+            build/*.dll
           if-no-files-found: warn

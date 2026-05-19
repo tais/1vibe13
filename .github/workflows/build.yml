@@ -1,11 +1,12 @@
-name: build
+name: build (legacy msbuild)
 
-# NB: while the SDL3 port branch is in flight, the Windows / MSBuild
-# legacy pipeline is gated behind a manual dispatch -- the Windows
-# build is known broken (no DirectDraw / no FMOD on the SDL3 path)
-# and we don't want every push to burn CI time on a guaranteed-red
-# build. The build_unix.yml workflow runs on every push and covers
-# the Linux + macOS CMake/SDL3 path that's actively being worked on.
+# Legacy Windows MSBuild pipeline. Currently broken on the SDL3 port
+# branch -- the .vcxproj files reference files we've deleted
+# (video.cpp, vsurface.cpp, DirectDraw Calls.cpp) and link FMOD /
+# Smacker which we've replaced with SDL3_mixer / libsmacker. Gated to
+# manual-dispatch only; build_unix.yml (now named "build") covers
+# Linux + macOS + Windows via CMake/clang and is the path that's
+# actively being worked on.
 
 on:
   # The Windows / MSBuild pipeline is currently manual-only. Re-enable
