@@ -91,6 +91,31 @@ if(NOT TARGET SDL3_mixer::SDL3_mixer)
   FetchContent_MakeAvailable(SDL3_mixer)
 endif()
 
+# libsmacker: Smacker (.SMK) video decoder. Replaces the Win32-only
+# binkw32.lib + Smacker-via-binkw32 path (Phase 6u). All JA2 cinematics
+# (intro, helicopter flyby, meanwhile scenes) ship as .SMK files, so
+# this covers the actual asset set; .BIK (Bink proprietary) support
+# stays stubbed since the data doesn't include any. Upstream
+# libsmacker is a 2-file C library released on SourceForge with no
+# CMakeLists of its own, so we fetch the tarball and wrap it with our
+# own static-library target.
+include(FetchContent)
+FetchContent_Declare(
+  libsmacker
+  URL https://downloads.sourceforge.net/project/libsmacker/libsmacker-1.2/libsmacker-1.2.0r43.tar.gz
+  URL_HASH MD5=9c8d1a521e89a0481f7c868ad2d23d7b
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_GetProperties(libsmacker)
+if(NOT libsmacker_POPULATED)
+  FetchContent_Populate(libsmacker)
+endif()
+add_library(libsmacker STATIC "${libsmacker_SOURCE_DIR}/smacker.c")
+target_include_directories(libsmacker PUBLIC "${libsmacker_SOURCE_DIR}")
+# libsmacker is upstream C89; quiet the warnings so our build stays
+# clean. The library itself is well-tested and stable.
+target_compile_options(libsmacker PRIVATE -w)
+
 add_compile_definitions(CINTERFACE XML_STATIC VFS_STATIC VFS_WITH_SLF VFS_WITH_7ZIP _CRT_SECURE_NO_DEPRECATE)
 include_directories(
   "${CMAKE_SOURCE_DIR}/Ja2"
@@ -321,5 +346,6 @@ foreach(app IN LISTS ApplicationTargets)
   target_link_libraries(${app}_sgp PRIVATE libpng)
   target_link_libraries(${app}_sgp PRIVATE SDL3::SDL3)
   target_link_libraries(${app}_sgp PRIVATE SDL3_mixer::SDL3_mixer)
+  target_link_libraries(${app}_sgp PRIVATE libsmacker)
   target_compile_definitions(${app}_sgp PRIVATE ${compilationFlags} ${debugFlags} NO_ZLIB_COMPRESSION)
 endforeach()
