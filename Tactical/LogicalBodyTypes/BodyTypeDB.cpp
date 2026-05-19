@@ -1,5 +1,7 @@
 #include "BodyTypeDB.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcmp the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 	BodyTypeDB::BodyTypeDB(void) : AbstractXMLLoader(StartElementHandle, EndElementHandle, CharacterDataHandle, MakeParseData) {

@@ -1,6 +1,7 @@
 #include "Layers.h"
 #include <iostream>
 #include <fstream>
+#include <cstring>  // libstdc++ doesn't transitively expose strcpy/strcmp the way MSVC's STL does
 
 namespace LogicalBodyTypes {
 

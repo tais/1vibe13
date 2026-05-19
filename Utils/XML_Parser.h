@@ -4,6 +4,7 @@
 #include "expat.h"
 //#include "XML.h"
 #include <string>
+#include <cstring>  // strcmp -- libstdc++ doesn't transitively expose it via <string>
 
 template<typename OperandType>
 class LazyCondition

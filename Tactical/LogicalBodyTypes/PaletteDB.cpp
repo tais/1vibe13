@@ -1,5 +1,7 @@
 #include "PaletteDB.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcmp/memset/memcpy the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 PaletteDB::PaletteDB(void) : AbstractXMLLoader(StartElementHandle, EndElementHandle, CharacterDataHandle) {

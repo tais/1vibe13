@@ -3,6 +3,7 @@
 	#include "GameSettings.h"
 	// sevenfm
 	#include <codecvt>
+	#include <locale>   // wstring_convert lives here in libstdc++; libc++ pulls it in via <codecvt>
 	#include <string>
 
 auto FormatMoney(INT32 iNumber) -> std::wstring

@@ -1,5 +1,7 @@
 #include "EnumeratorDB.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strlen/strcpy/strtok the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 EnumeratorDB::EnumeratorDB() {

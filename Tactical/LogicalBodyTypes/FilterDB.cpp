@@ -1,5 +1,7 @@
 #include "FilterDB.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcmp/strtok the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 	FilterDB::FilterDB(void) : AbstractXMLLoader(StartElementHandle, EndElementHandle, CharacterDataHandle, MakeParseData) {

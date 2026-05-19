@@ -1,5 +1,7 @@
 ﻿#include "SurfaceDB.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcmp/strlen/strcpy/memset the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 SurfaceDB::SurfaceDB(void) : AbstractXMLLoader(StartElementHandle, EndElementHandle, CharacterDataHandle) {

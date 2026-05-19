@@ -1,5 +1,7 @@
 #include "AbstractXMLLoader.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strlen/strcpy/strcmp the way MSVC's STL does
+
 // The in-tree sgp/expat.h is from expat 1.95.7 (vendored with the
 // original JA2 source), but the build links against modern expat
 // (2.6+, fetched via FetchContent). The billion-laughs-DoS guard added

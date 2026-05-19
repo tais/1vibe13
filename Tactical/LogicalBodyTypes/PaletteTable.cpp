@@ -1,5 +1,7 @@
 #include "PaletteTable.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcpy/memset/memcpy the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 PaletteTable::PaletteTable() {
