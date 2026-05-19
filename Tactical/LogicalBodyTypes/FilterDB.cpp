@@ -181,9 +181,9 @@ namespace LogicalBodyTypes {
 			strncpy(text, str, len);
 			text[len] = '\0';
 			if (data->criterionType & Filter::_TYPE_STRING) {
-				STR16 wStr = NULL;
+				CHAR16 *wStr = NULL;
 				int len = MultiByteToWideChar(CP_UTF8, 0, text, -1, wStr, 0);
-				wStr = (STR16)MemAlloc(len * sizeof(CHAR16));
+				wStr = (CHAR16 *)MemAlloc(len * sizeof(CHAR16));
 				MultiByteToWideChar(CP_UTF8, 0, text, -1, wStr, len);
 				if (data->criterionType & Filter::_TYPE_LIST) {
 					Filter::StringList list;

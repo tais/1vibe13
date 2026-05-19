@@ -54,10 +54,10 @@ BOOLEAN gNoRedraw = FALSE;
 
 //*******	Local Function Prototypes ***********************************
 
-CHAR16* GetTerrainName( const UINT8& ubTerrainType );
+STR16 GetTerrainName( const UINT8& ubTerrainType );
 
 // anv: additional tile properties
-CHAR16* GetDetailedTerrainName( ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties );
+STR16 GetDetailedTerrainName( ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties );
 
 void	AddCoverObjectToWorld( INT32 sGridNo, UINT16 usGraphic, BOOLEAN fRoof, BOOLEAN fNightTime );
 void	RemoveCoverObjectFromWorld( INT32 sGridNo, UINT16 usGraphic, BOOLEAN fRoof );
@@ -208,7 +208,7 @@ void GetGridNoForViewPort( const INT32& ubX, const INT32& ubY, INT32& sGridNo )
 	sGridNo = MAPROWCOLTOPOS( ubY, ubX );
 }
 
-CHAR16* GetTerrainName( const UINT8& ubTerrainType )
+STR16 GetTerrainName( const UINT8& ubTerrainType )
 {
 	switch(ubTerrainType) {
 		case LOW_GRASS:
@@ -227,7 +227,7 @@ CHAR16* GetTerrainName( const UINT8& ubTerrainType )
 	}
 }
 
-CHAR16* GetDetailedTerrainName( ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties )
+STR16 GetDetailedTerrainName( ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties )
 {
 	if(zGivenTileProperties.bWoodCamoAffinity >= 50)
 	{

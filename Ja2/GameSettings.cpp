@@ -4608,9 +4608,9 @@ BOOLEAN IsDriveLetterACDromDrive( STR pDriveLetter )
 }
 #else // !_WIN32
 BOOLEAN GetCDLocation( )                                  { gzCdDirectory[0] = '.'; return TRUE; }
-BOOLEAN GetCDromDriveLetter( STR8 pString )               { if (pString) pString[0] = '\0'; return FALSE; }
+BOOLEAN GetCDromDriveLetter( CHAR8 *pString )             { if (pString) pString[0] = '\0'; return FALSE; }
 BOOLEAN CheckIfGameCdromIsInCDromDrive()                  { return TRUE; }
-BOOLEAN GetCdromLocationFromIniFile( STR pRootOfCdromDrive ) { if (pRootOfCdromDrive) pRootOfCdromDrive[0] = '\0'; return FALSE; }
+BOOLEAN GetCdromLocationFromIniFile( CHAR8 *pRootOfCdromDrive ) { if (pRootOfCdromDrive) pRootOfCdromDrive[0] = '\0'; return FALSE; }
 void    CDromEjectionErrorMessageBoxCallBack( UINT8 )     { }
 BOOLEAN IsDriveLetterACDromDrive( STR )                   { return FALSE; }
 #endif // _WIN32

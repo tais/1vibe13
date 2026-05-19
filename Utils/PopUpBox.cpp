@@ -359,7 +359,7 @@ void SetBackGroundSurface( INT32 hBoxHandle, INT32 iBackGroundSurfaceIndex )
 // Adds a string to the first available slot in the column
 void AddMonoString( UINT32 *hStringHandle, STR16 pString, UINT8 column )
 {
-	STR16 pLocalString = NULL;
+	CHAR16 *pLocalString = NULL;
 	POPUPSTRINGPTR pStringSt = NULL;
 	INT32 iCounter = 0;
 
@@ -384,7 +384,7 @@ void AddMonoString( UINT32 *hStringHandle, STR16 pString, UINT8 column )
 	if ( pStringSt == NULL )
 		return;
 
-	pLocalString = (STR16)MemAlloc( (wcslen( pString ) + 1) * sizeof( CHAR16 ) );
+	pLocalString = (CHAR16 *)MemAlloc( (wcslen( pString ) + 1) * sizeof( CHAR16 ) );
 	if ( pLocalString == NULL )
 		return;
 
@@ -408,7 +408,7 @@ void AddMonoString( UINT32 *hStringHandle, STR16 pString, UINT8 column )
 // Adds string to the current popup box 2nd column. !!! String's position is the LAST used position in the 1st column !!!
 void AddSecondColumnMonoString( UINT32 *hStringHandle, STR16 pString )
 {
-	STR16 pLocalString = NULL;
+	CHAR16 *pLocalString = NULL;
 	POPUPSTRINGPTR pStringSt = NULL;
 	INT32 iCounter = 0;
 
@@ -433,7 +433,7 @@ void AddSecondColumnMonoString( UINT32 *hStringHandle, STR16 pString )
 	if ( pStringSt == NULL )
 		return;
 
-	pLocalString = (STR16)MemAlloc( (wcslen( pString ) + 1) * sizeof( CHAR16 ) );
+	pLocalString = (CHAR16 *)MemAlloc( (wcslen( pString ) + 1) * sizeof( CHAR16 ) );
 	if ( pLocalString == NULL )
 		return;
 
@@ -457,7 +457,7 @@ void AddSecondColumnMonoString( UINT32 *hStringHandle, STR16 pString )
 // Adds a COLORED first column string to the CURRENT box
 void AddColorString( INT32 *hStringHandle, STR16 pString, UINT8 column )
 {
-	STR16 pLocalString;
+	CHAR16 *pLocalString;
 	POPUPSTRINGPTR pStringSt = NULL;
 	INT32 iCounter = 0;
 
@@ -482,7 +482,7 @@ void AddColorString( INT32 *hStringHandle, STR16 pString, UINT8 column )
 	if ( pStringSt == NULL )
 		return;
 
-	pLocalString = (STR16)MemAlloc( (wcslen( pString ) + 1) * sizeof( CHAR16 ) );
+	pLocalString = (CHAR16 *)MemAlloc( (wcslen( pString ) + 1) * sizeof( CHAR16 ) );
 	if ( pLocalString == NULL )
 		return;
 

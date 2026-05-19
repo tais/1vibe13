@@ -11,9 +11,9 @@
 BOOLEAN CreateSGPPaletteFromCOLFile( SGPPaletteEntry *pPalette, SGPFILENAME ColFile );
 BOOLEAN DisplayPaletteRep( PaletteRepID aPalRep, UINT8 ubXPos, UINT8 ubYPos, UINT32 uiDestSurface );
 
-void FilenameForBPP(STR pFilename, STR pDestination);
+void FilenameForBPP(STR pFilename, CHAR8 *pDestination);
 
-BOOLEAN	WrapString( STR16 pStr, STR16 pStr2, UINT16 usWidth, INT32 uiFont );
+BOOLEAN	WrapString( CHAR16 *pStr, CHAR16 *pStr2, UINT16 usWidth, INT32 uiFont );
 
 BOOLEAN IfWinNT(void);
 BOOLEAN IfWin95(void);

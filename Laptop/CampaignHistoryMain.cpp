@@ -211,7 +211,7 @@ void RemoveCampaignHistoryDefaults()
 		MSYS_RemoveRegion( &gCampaignHistoryLinkRegion[i]);
 }
 
-void GetCampaignHistoryText( UINT8 ubNumber, STR16 pString )
+void GetCampaignHistoryText( UINT8 ubNumber, CHAR16 *pString )
 {
 	UINT32	uiStartLoc=0;
 	CHAR16		sText[800];

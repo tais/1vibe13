@@ -11,7 +11,7 @@ TILE_IMAGERY *LoadTileSurface(  STR8 cFilename );
 
 void DeleteTileSurface( PTILE_IMAGERY	pTileSurf );
 
-void SetRaisedObjectFlag( char *cFilename, TILE_IMAGERY *pTileSurf );
+void SetRaisedObjectFlag( const CHAR8 *cFilename, TILE_IMAGERY *pTileSurf );
 
 
 #endif

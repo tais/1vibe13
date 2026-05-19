@@ -76,6 +76,6 @@ INT32 GetFundsOnMerc( SOLDIERTYPE *pSoldier );
 
 BOOLEAN RemoveNewlyHiredMercFromPersonnelDepartedList( UINT8 ubProfile );
 
-void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLevel, BOOLEAN fRegMale, STR16 apStr );
+void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLevel, BOOLEAN fRegMale, CHAR16 *apStr );
 
 #endif

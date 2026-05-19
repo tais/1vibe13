@@ -2994,7 +2994,7 @@ BOOLEAN JA2EncryptedFileWrite( HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, U
 
 }
 
-void GetMapTempFileName( UINT32 uiType, STR pMapName, INT16 sMapX, INT16 sMapY, INT8 bMapZ )
+void GetMapTempFileName( UINT32 uiType, CHAR8 *pMapName, INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
 	CHAR	zTempName[512];
 

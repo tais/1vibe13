@@ -176,7 +176,7 @@ ScrollStringStPtr AddString(STR16 pString, UINT16 usColor, UINT32 uiFont, BOOLEA
 void SetString(ScrollStringStPtr pStringSt, STR16 pString)
 {
 	// ARM: Why x2 + 4 ???
-	pStringSt->pString16=(STR16)MemAlloc((wcslen(pString)+2)*sizeof(CHAR16));
+	pStringSt->pString16=(CHAR16 *)MemAlloc((wcslen(pString)+2)*sizeof(CHAR16));
 	wcsncpy(pStringSt->pString16, pString, wcslen(pString));
 	pStringSt->pString16[wcslen(pString)]=0;
 }
@@ -1398,7 +1398,7 @@ BOOLEAN LoadMapScreenMessagesFromSaveGameFile( HWFILE hFile )
 			}
 
 			//allocate space for the new string
-			gMapScreenMessageList[ uiCount ]->pString16 = (STR16) MemAlloc( uiSizeOfString );
+			gMapScreenMessageList[ uiCount ]->pString16 = (CHAR16 *) MemAlloc( uiSizeOfString );
 			if( gMapScreenMessageList[ uiCount ]->pString16 == NULL )
 				return( FALSE );
 

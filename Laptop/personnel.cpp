@@ -1356,7 +1356,7 @@ Moved so the name of the town will be in the same line as the name
 	return;
 }
 
-static void PrintStatChange(const INT16 change, const INT32 x, const INT32 y, const STR16 sString)
+static void PrintStatChange(const INT16 change, const INT32 x, const INT32 y, CHAR16 *sString)
 {
 	if ( change )
 	{
@@ -6576,7 +6576,7 @@ INT32 CalcTimeLeftOnMercContract( SOLDIERTYPE *pSoldier )
 }
 
 // SANDRO - Popup text windows for traits
-void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLevel, BOOLEAN fRegMale, STR16 apStr )
+void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLevel, BOOLEAN fRegMale, CHAR16 *apStr )
 {
 	//CHAR16	apStr[ 5000 ];
 	CHAR16	atStr[ 1500 ];

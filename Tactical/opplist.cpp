@@ -4691,7 +4691,7 @@ void DebugSoldierPage3( )
 
 }
 
-void AppendAttachmentCode( UINT16 usItem, STR16 str )
+void AppendAttachmentCode( UINT16 usItem, CHAR16 *str )
 {
 	switch( usItem )
 	{

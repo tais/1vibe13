@@ -12,7 +12,7 @@ typedef struct PROGRESSBAR
 	BOOLEAN fPanel;
 	UINT16 usPanelLeft, usPanelTop, usPanelRight, usPanelBottom;
 	UINT16 usColor, usLtColor, usDkColor;
-	STR16 swzTitle;
+	CHAR16 *swzTitle;
 	UINT16 usTitleFont;
 	UINT8 ubTitleFontForeColor, ubTitleFontShadowColor;
 	UINT16 usMsgFont;

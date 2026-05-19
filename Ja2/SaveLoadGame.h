@@ -67,12 +67,12 @@ typedef struct
 extern	UINT32		guiScreenToGotoAfterLoadingSavedGame;
 extern UINT32 guiCurrentSaveGameVersion;
 
-void			CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, STR pzNewFileName );
+void			CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName );
 
 
 BOOLEAN InitSaveDir();
 
-BOOLEAN SaveGame( int ubSaveGameID, STR16 pGameDesc );
+BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc );
 BOOLEAN LoadSavedGame( int ubSavedGameID );
 
 BOOLEAN CopySavedSoldierInfoToNewSoldier( SOLDIERTYPE *pDestSourceInfo, SOLDIERTYPE *pSourceInfo );

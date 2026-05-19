@@ -386,7 +386,7 @@ void AdditionalTacticalCharacterDialogue_AllInSectorRadiusCall( UINT8 ausIgnoreP
 void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString );
 
 // Flugente: replace text with other text
-BOOLEAN ReplaceTextWithOtherText( CHAR16 *pFinishedString, CHAR16 compare[32], CHAR16 replace[32] );
+BOOLEAN ReplaceTextWithOtherText( CHAR16 *pFinishedString, const CHAR16 *compare, const CHAR16 *replace );
 
 // A higher level function used for tactical quotes
 BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum );

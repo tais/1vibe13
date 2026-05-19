@@ -8533,7 +8533,7 @@ void GetIntelInfoOfferings( int aInfo[] )
 	}
 }
 
-void GetIntelInfoTextAndPrice(int aInfoNumber, STR16 aString, int& arIntelCost )
+void GetIntelInfoTextAndPrice(int aInfoNumber, CHAR16 *aString, int& arIntelCost )
 {
 	wcscpy( aString, szIntelText[6] );
 	arIntelCost = 0;

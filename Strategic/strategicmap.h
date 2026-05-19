@@ -103,19 +103,19 @@ BOOLEAN ReadInStrategicMapSectorTownNames(STR fileName, BOOLEAN localizedVersion
 BOOLEAN WriteInStrategicMapSectorTownNames(STR fileName);
 
 // get short sector name without town name
-void GetShortSectorString( INT16 sMapX,INT16 sMapY, STR16 sString );
+void GetShortSectorString( INT16 sMapX,INT16 sMapY, CHAR16 *sString );
 
 //NEW!
 //Calculates the name of the sector based on the loaded sector values.
-//Examples:		A9		
-//						A10_B1		
+//Examples:		A9
+//						A10_B1
 //						J9_B2_A ( >= BETAVERSION ) else J9_B2 (release equivalent)
-void GetLoadedSectorString( STR16 pString );
+void GetLoadedSectorString( CHAR16 *pString );
 
 // This will get an ID string like A9- OMERTA...
-void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ , STR16 zString, BOOLEAN fDetailed );
+void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ , CHAR16 *zString, BOOLEAN fDetailed );
 
-void GetMapFileName(INT16 sMapX,INT16 sMapY, INT8 bSectorZ, STR8 bString, BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter );
+void GetMapFileName(INT16 sMapX,INT16 sMapY, INT8 bSectorZ, CHAR8 *bString, BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter );
 
 // Called from within tactical.....
 void JumpIntoAdjacentSector( UINT8 ubDirection, UINT8 ubJumpCode, INT32 sAdditionalData );//dnl ch56 151009

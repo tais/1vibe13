@@ -207,7 +207,7 @@ BOOLEAN WriteAmmoStats()
 		{
 			FilePrintf(hFile,"\t<AMMO>\r\n");
 
-			STR16 szRemainder = AmmoCaliber[cnt]; //the remaining string to be output (for making valid XML)
+			CHAR16 *szRemainder = AmmoCaliber[cnt]; //the remaining string to be output (for making valid XML)
 
 			FilePrintf(hFile,"\t\t<AmmoCaliber>");
 			while(szRemainder[0] != '\0')

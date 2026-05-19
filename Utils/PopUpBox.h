@@ -17,7 +17,7 @@
 #define POPUP_BOX_FLAG_RESIZE 4
 #define POPUP_BOX_FLAG_CAN_HIGHLIGHT_SHADED_LINES 8
 struct popupstring{
-	STR16 pString;
+	CHAR16 *pString;
 	UINT8 ubForegroundColor;
 	UINT8 ubBackgroundColor;
 	UINT8 ubHighLight;

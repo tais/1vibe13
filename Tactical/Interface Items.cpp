@@ -738,7 +738,7 @@ void hideOtherAttachmentPopups(UINT32 cnt){
 
 
 
-BOOLEAN AttemptToAddSubstring( STR16 zDest, STR16 zTemp, UINT32 * puiStringLength, UINT32 uiPixLimit )
+BOOLEAN AttemptToAddSubstring( CHAR16 *zDest, STR16 zTemp, UINT32 * puiStringLength, UINT32 uiPixLimit )
 {
 	UINT32 uiRequiredStringLength, uiTempStringLength;
 
@@ -765,7 +765,7 @@ BOOLEAN AttemptToAddSubstring( STR16 zDest, STR16 zTemp, UINT32 * puiStringLengt
 	}
 }
 
-void GenerateProsString( STR16 zItemPros, OBJECTTYPE * pObject, UINT32 uiPixLimit )
+void GenerateProsString( CHAR16 *zItemPros, OBJECTTYPE * pObject, UINT32 uiPixLimit )
 {
 	UINT32			uiStringLength = 0;
 	STR16		zTemp;
@@ -916,7 +916,7 @@ void GenerateProsString( STR16 zItemPros, OBJECTTYPE * pObject, UINT32 uiPixLimi
 	}
 }
 
-void GenerateConsString( STR16 zItemCons, OBJECTTYPE * pObject, UINT32 uiPixLimit )
+void GenerateConsString( CHAR16 *zItemCons, OBJECTTYPE * pObject, UINT32 uiPixLimit )
 {
 	UINT32			uiStringLength = 0;
 	STR16		zTemp;
@@ -12121,7 +12121,7 @@ void RemoveMoney()
 }
 
 
-void GetHelpTextForItem( STR16 pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier, int subObject )
+void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier, int subObject )
 {
 	CHAR16	pStr[ 500 ];
 	UINT16	usItem = pObject->usItem;

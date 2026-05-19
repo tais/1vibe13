@@ -419,7 +419,7 @@ typedef EmailMessage *MessagePtr;
 
 struct email
 {
-	STR16		pSubject;
+	CHAR16		*pSubject;
 	UINT16	usOffset;
 	UINT16	usLength;
 	UINT8		ubSender;

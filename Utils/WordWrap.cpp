@@ -81,7 +81,7 @@ WRAPPED_STRING *LineWrapForSingleCharWords(INT32 iFont, UINT16 usLineWidthPixels
 
 			//allocate memory for the string
 			pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-			pWrappedString->pNextWrappedString->sString = (STR16) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
+			pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
 			if( pWrappedString->pNextWrappedString->sString == NULL)
 				return (NULL);
 
@@ -110,7 +110,7 @@ WRAPPED_STRING *LineWrapForSingleCharWords(INT32 iFont, UINT16 usLineWidthPixels
 
 			//allocate memory for the string
 			pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc(sizeof(WRAPPED_STRING));
-			pWrappedString->pNextWrappedString->sString = (STR16) MemAlloc((wcslen(DestString) +2 )* sizeof(CHAR16) );
+			pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc((wcslen(DestString) +2 )* sizeof(CHAR16) );
 
 			//Copy the string into the new struct
 			wcscpy(pWrappedString->pNextWrappedString->sString, DestString);
@@ -211,7 +211,7 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 
 			//allocate memory for the string
 			pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-			pWrappedString->pNextWrappedString->sString = (STR16) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
+			pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
 			if( pWrappedString->pNextWrappedString->sString == NULL)
 			{
 				DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: done"));
@@ -317,7 +317,7 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 			{
 				//allocate memory for the string
 				pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-				pWrappedString->pNextWrappedString->sString = (STR16) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
+				pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
 				if( pWrappedString->pNextWrappedString->sString == NULL)
 				{
 					DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: done"));
@@ -358,7 +358,7 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 
 					//allocate memory for the string
 					pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-					pWrappedString->pNextWrappedString->sString = (STR16) MemAlloc( (wcslen(DestString) + 2) * sizeof(CHAR16) );
+					pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) + 2) * sizeof(CHAR16) );
 					if( pWrappedString->pNextWrappedString->sString == NULL)
 						return (NULL);
 
@@ -372,7 +372,7 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 
 					//allocate memory for the string
 					pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc(sizeof(WRAPPED_STRING));
-					pWrappedString->pNextWrappedString->sString = (STR16) MemAlloc((wcslen(pNullString) +2 )* sizeof(CHAR16) );
+					pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc((wcslen(pNullString) +2 )* sizeof(CHAR16) );
 					wcscpy(pWrappedString->pNextWrappedString->sString, pNullString);
 					pWrappedString->pNextWrappedString->pNextWrappedString = NULL;
 					}
@@ -1038,7 +1038,7 @@ if(g_lang != i18n::Lang::zh) {
 
 
 
-void CleanOutControlCodesFromString(STR16 pSourceString, STR16 pDestString)
+void CleanOutControlCodesFromString(STR16 pSourceString, CHAR16 *pDestString)
 {
 	INT32		iSourceCounter=0;
 	INT32		iDestCounter=0;
@@ -2053,7 +2053,7 @@ FileStringPtr GetFirstStringOnThisPage( FileStringPtr RecordList, INT32 iFont, U
 	return ( CurrentRecord );
 }
 
-BOOLEAN ReduceStringLength( STR16 pString, UINT32 uiWidthToFitIn, INT32 iFont )
+BOOLEAN ReduceStringLength( CHAR16 *pString, UINT32 uiWidthToFitIn, INT32 iFont )
 {
 	CHAR16			OneChar[2];
 	CHAR16			zTemp[ 1024 ];

@@ -1796,12 +1796,12 @@ extern	STR16		zMarksMapScreenText[];
 #define	SIZE_ITEM_PROS						160
 #define	SIZE_ITEM_CONS						160
 
-BOOLEAN LoadItemInfo(UINT16 ubIndex, STR16 pNameString, STR16 pInfoString );
+BOOLEAN LoadItemInfo(UINT16 ubIndex, CHAR16 *pNameString, CHAR16 *pInfoString );
 extern void LoadAllExternalText( void );
-BOOLEAN LoadShortNameItemInfo(UINT16 ubIndex, STR16 pNameString );
-BOOLEAN LoadItemProsAndCons( UINT16 usIndex, STR16 pProsString, STR16 pConsString );
-BOOLEAN LoadBRDesc(UINT16 ubIndex, STR16 pDescString );
-BOOLEAN LoadBRName(UINT16 ubIndex, STR16 pNameString );
+BOOLEAN LoadShortNameItemInfo(UINT16 ubIndex, CHAR16 *pNameString );
+BOOLEAN LoadItemProsAndCons( UINT16 usIndex, CHAR16 *pProsString, CHAR16 *pConsString );
+BOOLEAN LoadBRDesc(UINT16 ubIndex, CHAR16 *pDescString );
+BOOLEAN LoadBRName(UINT16 ubIndex, CHAR16 *pNameString );
 
 // convert UTF-8 string to wstring
 std::wstring utf8_to_wstring(const std::string& str);

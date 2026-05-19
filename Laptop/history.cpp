@@ -117,7 +117,7 @@ void DisplayHistoryListBackground( void );
 void DrawAPageofHistoryRecords( void );
 BOOLEAN IncrementCurrentPageHistoryDisplay( void );
 void DisplayPageNumberAndDateRange( void );
-void ProcessHistoryTransactionString(STR16 pString, HistoryUnitPtr pHistory);
+void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory);
 void SetHistoryButtonStates( void );
 BOOLEAN LoadInHistoryRecords( UINT32 uiPage );
 BOOLEAN LoadNextHistoryPage( void );
@@ -126,8 +126,8 @@ void SetLastPageInHistoryRecords( void );
 UINT32 ReadInLastElementOfHistoryListAndReturnIdNumber( void );
 BOOLEAN AppendHistoryToEndOfFile( HistoryUnitPtr pHistory );
 BOOLEAN WriteOutHistoryRecords( UINT32 uiPage );
-void		GetQuestStartedString( UINT8 ubQuestValue, STR16 sQuestString );
-void		GetQuestEndedString( UINT8 ubQuestValue, STR16 sQuestString );
+void		GetQuestStartedString( UINT8 ubQuestValue, CHAR16 *sQuestString );
+void		GetQuestEndedString( UINT8 ubQuestValue, CHAR16 *sQuestString );
 INT32		GetNumberOfHistoryPages();
 
 
@@ -1067,7 +1067,7 @@ void DisplayPageNumberAndDateRange( void )
 }
 
 
-void ProcessHistoryTransactionString(STR16 pString, HistoryUnitPtr pHistory)
+void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory)
 {
 	CHAR16 sString[ 128 ];
 
@@ -1770,7 +1770,7 @@ UINT32 GetTimeQuestWasStarted( UINT8 ubCode )
 	return( uiTime );
 }
 
-void GetQuestStartedString( UINT8 ubQuestValue, STR16 sQuestString )
+void GetQuestStartedString( UINT8 ubQuestValue, CHAR16 *sQuestString )
 {
 	// open the file and copy the string
 #ifdef JA2UB
@@ -1788,7 +1788,7 @@ void GetQuestStartedString( UINT8 ubQuestValue, STR16 sQuestString )
 }
 
 
-void GetQuestEndedString( UINT8 ubQuestValue, STR16 sQuestString )
+void GetQuestEndedString( UINT8 ubQuestValue, CHAR16 *sQuestString )
 {
 	// open the file and copy the string
 #ifdef JA2UB

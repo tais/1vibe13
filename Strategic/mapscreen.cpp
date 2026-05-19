@@ -2894,7 +2894,7 @@ void DrawCharHealth( INT16 sCharNum )
 	SetFontForeground(CHAR_TEXT_FONT_COLOR);
 }
 
-CHAR16* GetRankTitle(INT8 explevel)
+STR16 GetRankTitle(INT8 explevel)
 {
 	if (explevel < 1) explevel = 0;
 	if (explevel > 10) explevel = 10;
@@ -15910,7 +15910,7 @@ void CancelPathsOfAllSelectedCharacters()
 }
 
 
-void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, STR16 sString )
+void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString )
 {
 	UINT32 uiDay, uiHour, uiMin;
 
@@ -15924,7 +15924,7 @@ void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, STR16 sString )
 	sgp_swprintf( sString, 64, L"%02d:%02d", uiHour, uiMin );
 }
 
-void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, STR16 sString )
+void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString )
 {
 	CHAR16 timestring[64];
 	ConvertMinTimeToDayHourMinString( uiTimeInMin, timestring );

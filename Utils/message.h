@@ -10,7 +10,7 @@
 
 struct stringstruct{
 
-	STR16	pString16;
+	CHAR16 *pString16;
 	INT32	iVideoOverlay;
 	UINT32	uiFont;
 	UINT16	usColor;

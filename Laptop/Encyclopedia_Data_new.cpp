@@ -148,7 +148,7 @@ extern BOOLEAN IsThereAMineInThisSector( INT16 sX, INT16 sY );
 extern BOOLEAN IsMercMercAvailable( UINT8 ubMercID );
 extern BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo);
 extern void GetQuestStartedString( UINT8 ubQuestValue, STR16 sQuestString );
-extern void GetQuestEndedString( UINT8 ubQuestValue, STR16 sQuestString );
+extern void GetQuestEndedString( UINT8 ubQuestValue, CHAR16 *sQuestString );
 //////////////
 // helper functions
 

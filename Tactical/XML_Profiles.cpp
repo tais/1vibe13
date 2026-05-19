@@ -1325,7 +1325,7 @@ BOOLEAN WriteMercProfiles()
 
 			FilePrintf(hFile,"\t\t<zName>");
 
-			STR16 szRemainder = gMercProfiles[cnt].zName; //the remaining string to be output (for making valid XML)
+			CHAR16 *szRemainder = gMercProfiles[cnt].zName; //the remaining string to be output (for making valid XML)
 
 			while(szRemainder[0] != '\0')
 			{
@@ -1444,7 +1444,7 @@ BOOLEAN WriteMercProfiles()
 
 			FilePrintf(hFile,"\t\t<PANTS>");
 
-			STR8 zRemainder = gMercProfiles[cnt].PANTS;
+			CHAR8 *zRemainder = gMercProfiles[cnt].PANTS;
 			//strcpy(zRemainder, gMercProfiles[cnt].PANTS); //the remaining string to be output (for making valid XML)
 
 			while(zRemainder[0] != '\0')

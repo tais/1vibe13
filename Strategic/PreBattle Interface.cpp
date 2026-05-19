@@ -123,7 +123,7 @@ void AutoResolveBattleCallback( GUI_BUTTON *btn, INT32 reason );
 void GoToSectorCallback( GUI_BUTTON *btn, INT32 reason );
 void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason );
 
-void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, STR16 szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent );
+void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, CHAR16 *szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent );
 
 void CheckForRobotAndIfItsControlled( void );
 
@@ -1868,7 +1868,7 @@ enum
 	COND_DEAD
 };
 
-void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, STR16 szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent )
+void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, CHAR16 *szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent )
 {
 	Assert( pSoldier );
 	*pubHPPercent = (UINT8)(pSoldier->stats.bLife * 100 / pSoldier->stats.bLifeMax);

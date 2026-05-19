@@ -199,7 +199,7 @@ void LuaUnderground::GetLoadscreen(INT16 x, INT16 y, INT16 z, std::string& loads
 // Calls into Lua script in order to request a sector name for a given sector.
 // pSector can be null, e.g. when saveloadscreen requests sector names;
 // in this case we didn't initialize the sector list nor have we loaded it from savegame yet.
-void LuaUnderground::GetSectorName(INT16 x, INT16 y, INT16 z, const UNDERGROUND_SECTORINFO* pSector, STR16 buffer, ::size_t bufSizeInWChar, BOOLEAN fDetailed)
+void LuaUnderground::GetSectorName(INT16 x, INT16 y, INT16 z, const UNDERGROUND_SECTORINFO* pSector, CHAR16 *buffer, ::size_t bufSizeInWChar, BOOLEAN fDetailed)
 {
 	const std::string coords = XYZtoString(x, y, z);
 	LuaState L = GetLuaState();

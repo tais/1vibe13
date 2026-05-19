@@ -1904,7 +1904,7 @@ BOOLEAN WriteItemStats()
 			LoadShortNameItemInfo( (UINT16)cnt, str );
 
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: itemname");
-			STR16 szRemainder = str; //the remaining string to be output (for making valid XML)
+			CHAR16 *szRemainder = str; //the remaining string to be output (for making valid XML)
 
 			FilePrintf(hFile,"\t<ITEM>\r\n");
 			FilePrintf(hFile,"\t\t<uiIndex>%d</uiIndex>\r\n",									cnt);

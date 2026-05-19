@@ -29,7 +29,7 @@
 #define NUMBER_MERC_FACES_AUTOBANDAGE_BOX 4
 
 
-STR16		sAutoBandageString		= NULL;
+CHAR16		*sAutoBandageString		= NULL;
 INT32		giBoxId							= -1;
 UINT16	gusTextBoxWidth					= 0;
 UINT16	gusTextBoxHeight			= 0;
@@ -303,7 +303,7 @@ static BOOLEAN CreateAutoBandageString( void )
     // WDS - make number of mercenaries, etc. be configurable
 	UINT16				ubDoctor[CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS], ubDoctors = 0;
 	UINT32				uiDoctorNameStringLength = 1; // for end-of-string character
-	STR16				sTemp;
+	CHAR16				*sTemp;
 
 	SoldierID pSoldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	for ( ; pSoldier <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++pSoldier )
@@ -332,7 +332,7 @@ static BOOLEAN CreateAutoBandageString( void )
 		uiDoctorNameStringLength += wcslen( Message[STR_ARE_APPLYING_FIRST_AID] );
 	}
 
-	sAutoBandageString =	(STR16) MemRealloc( sAutoBandageString, uiDoctorNameStringLength * sizeof( CHAR16 ) );
+	sAutoBandageString =	(CHAR16 *) MemRealloc( sAutoBandageString, uiDoctorNameStringLength * sizeof( CHAR16 ) );
 	if (!sAutoBandageString)
 	{
 		return( FALSE );
@@ -345,7 +345,7 @@ static BOOLEAN CreateAutoBandageString( void )
 	else
 	{
 		// make a temporary string to hold most of the doctors names joined by commas
-		sTemp =	(STR16) MemAlloc( uiDoctorNameStringLength * sizeof( CHAR16 ) );
+		sTemp =	(CHAR16 *) MemAlloc( uiDoctorNameStringLength * sizeof( CHAR16 ) );
 	//	sTemp = MemAlloc( 1000 );
 		if (!sTemp)
 		{

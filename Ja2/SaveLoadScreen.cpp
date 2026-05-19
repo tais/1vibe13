@@ -214,7 +214,7 @@ UINT16 PAGE_SLOT = 0;
 UINT16 VAL_SLOT_START = 0;
 UINT16 VAL_SLOT_END = 0;
 BOOLEAN	RenderImage = TRUE;
-BOOLEAN DoAutoSave( int ubSaveGameID, STR16 pGameDesc );
+BOOLEAN DoAutoSave( int ubSaveGameID, CHAR16 *pGameDesc );
 BOOLEAN AutoSaveToSlot[5];
 
 // WANNE: Used For auto save games
@@ -2684,7 +2684,7 @@ void FailedLoadingGameCallBack( UINT8 bExitValue )
 	}
 }
 
-BOOLEAN DoAutoSave( int ubSaveGameID, STR16 pGameDesc )
+BOOLEAN DoAutoSave( int ubSaveGameID, CHAR16 *pGameDesc )
 {
 	if( !SaveGame( ubSaveGameID, pGameDesc ) )
 	{

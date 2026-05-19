@@ -287,7 +287,7 @@ BOOLEAN CIniReader::ReadBoolean(const STR8 szSection, const STR8 szKey, bool def
 //	memset(test_ini_string, 0x00, 255);
 //	iniReader.ReadString("JA2 Game Settings" , "TEST_STRING" , "default string" , test_ini_string , 255 );
 
-void CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue, STR8 input_buffer, size_t buffer_size)
+void CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue, CHAR8 *input_buffer, size_t buffer_size)
 {
 	std::string s = m_oProps.getStringProperty(szSection, szKey, szDefaultValue).utf8();
 	int len = std::min<unsigned int>(s.length(),buffer_size-1);
@@ -296,10 +296,10 @@ void CIniReader::ReadString(const char* szSection, const char* szKey, const char
 }
 
 // WANNE - MP: Old version, currently used by Multiplayer
-STR8	CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue)
+CHAR8 *	CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue)
 {
 	// >>>>> Memory Leak <<<<<
-	STR8	szResult = new char[255];
+	CHAR8 *	szResult = new char[255];
 	memset(szResult, 0x00, 255);
 	std::string s = m_oProps.getStringProperty(szSection, szKey, szDefaultValue).utf8();
 	strncpy(szResult, s.c_str(), std::min<int>(s.length(),254));

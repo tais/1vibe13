@@ -1226,7 +1226,7 @@ void RenderImpGearSelectionChoices(UINT32 pocket)
 		const auto itemIndex = gIMPPossibleItems[pocket][i].first;
 		if (itemIndex != 0)
 		{
-			extern void GetHelpTextForItemInLaptop(STR16 pzStr, UINT16 usItemNumber);
+			extern void GetHelpTextForItemInLaptop(CHAR16 *pzStr, UINT16 usItemNumber);
 			GetHelpTextForItemInLaptop(tooltipText, itemIndex);
 
 			wcscat(tooltipText, L"\n");

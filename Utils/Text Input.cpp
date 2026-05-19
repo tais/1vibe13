@@ -17,7 +17,7 @@
 	#include "Sound Control.h"
 
 
-STR16 szClipboard;
+CHAR16 *szClipboard;
 BOOLEAN gfNoScroll = FALSE;
 
 //The internal callback functions assigned to each text field.
@@ -34,7 +34,7 @@ UINT32 PasteClipboardText();
 void CopyToClipboard( void );
 
 
-void DoublePercentileCharacterFromStringIntoString( STR16 pSrcString, STR16 pDstString );
+void DoublePercentileCharacterFromStringIntoString( STR16 pSrcString, CHAR16 *pDstString );
 
 //All exclusive input types are handled in this function.
 void HandleExclusiveInput( UINT32 uiKey );
@@ -65,7 +65,7 @@ typedef struct TEXTINPUTNODE{
 	UINT8 ubID;
 	UINT16 usInputType;
 	UINT8 ubMaxChars;
-	STR16 szString;
+	CHAR16 *szString;
 	UINT8 ubStrLen;
 	BOOLEAN fEnabled;
 	BOOLEAN fUserField;
@@ -270,7 +270,7 @@ void AddTextInputField( INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, IN
 	if( usInputType == INPUTTYPE_EXCLUSIVE_24HOURCLOCK )
 		ubMaxChars = 6;
 	//Allocate and copy the string.
-	pNode->szString = (STR16) MemAlloc( (ubMaxChars+1)*sizeof(CHAR16) );
+	pNode->szString = (CHAR16 *) MemAlloc( (ubMaxChars+1)*sizeof(CHAR16) );
 	Assert( pNode->szString );
 	if( szInitText )
 	{
@@ -447,7 +447,7 @@ void SetInputFieldStringWith8BitString( UINT8 ubField, const STR8 szNewText )
 }
 
 //Allows external functions to access the strings within the fields at anytime.
-void Get8BitStringFromField( UINT8 ubField, STR8 szString, UINT32 uiBufferSize )
+void Get8BitStringFromField( UINT8 ubField, CHAR8 *szString, UINT32 uiBufferSize )
 {
 	TEXTINPUTNODE *curr;
 	curr = gpTextInputHead;
@@ -468,7 +468,7 @@ void Get8BitStringFromField( UINT8 ubField, STR8 szString, UINT32 uiBufferSize )
 	szString[0] = '\0';
 }
 
-void Get16BitStringFromField( UINT8 ubField, STR16 szString, UINT32 uiBufferSize )
+void Get16BitStringFromField( UINT8 ubField, CHAR16 *szString, UINT32 uiBufferSize )
 {
 	TEXTINPUTNODE *curr;
 	curr = gpTextInputHead;
@@ -1676,7 +1676,7 @@ void ExecuteCopyCommand()
 			ubEnd = gubStartHilite;
 		}
 		ubCount = (UINT8)(ubEnd - ubStart);
-		szClipboard = (STR16)MemAlloc( ( ubCount + 1 ) * sizeof(CHAR16) );
+		szClipboard = (CHAR16 *)MemAlloc( ( ubCount + 1 ) * sizeof(CHAR16) );
 		Assert( szClipboard );
 		for( ubCount = ubStart; ubCount < ubEnd; ubCount++ )
 		{
@@ -1847,7 +1847,7 @@ void SetExclusive24HourTimeValue( UINT8 ubField, UINT16 usTime )
 	}
 }
 
-void DoublePercentileCharacterFromStringIntoString( STR16 pSrcString, STR16 pDstString )
+void DoublePercentileCharacterFromStringIntoString( STR16 pSrcString, CHAR16 *pDstString )
 {
 	INT32 iSrcIndex = 0, iDstIndex = 0;
 	while( pSrcString[ iSrcIndex ] != 0 )

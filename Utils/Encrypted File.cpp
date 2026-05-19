@@ -18,7 +18,7 @@
 // zero-extend each codepoint into the caller's CHAR16/wchar_t buffer.
 // The caller-supplied byte count refers to the *file* layout (i.e.
 // chars * 2), matching the legacy AIM_HISTORY_LINE_SIZE = 400 * 2.
-static BOOLEAN ReadAndWidenEncrypted(HWFILE hFile, STR16 pDestString, UINT32 uiByteCount)
+static BOOLEAN ReadAndWidenEncrypted(HWFILE hFile, CHAR16 *pDestString, UINT32 uiByteCount)
 {
 	const UINT32 charCount = uiByteCount / 2;
 	std::vector<UINT16> tmp(charCount);
@@ -35,7 +35,7 @@ static BOOLEAN ReadAndWidenEncrypted(HWFILE hFile, STR16 pDestString, UINT32 uiB
 }
 
 // anv: loading random line from the file
-BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, STR16 pDestString, UINT32 uiSeekAmount)
+BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, CHAR16 *pDestString, UINT32 uiSeekAmount)
 {
 	HWFILE		hFile;
 	UINT32		uiSeekFrom;
@@ -71,7 +71,7 @@ BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, STR16 pDestString, UI
 	return(TRUE);
 }
 
-BOOLEAN LoadEncryptedDataFromFile(STR pFileName, STR16 pDestString, UINT32 uiSeekFrom, UINT32 uiSeekAmount)
+BOOLEAN LoadEncryptedDataFromFile(STR pFileName, CHAR16 *pDestString, UINT32 uiSeekFrom, UINT32 uiSeekAmount)
 {
 	HWFILE		hFile;
 
@@ -116,7 +116,7 @@ BOOLEAN LoadEncryptedDataFromFile(STR pFileName, STR16 pDestString, UINT32 uiSee
 }
 
 
-void DecodeString(STR16 pDestString, UINT32 uiSeekAmount)
+void DecodeString(CHAR16 *pDestString, UINT32 uiSeekAmount)
 {
 	UINT32		i;
 

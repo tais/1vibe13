@@ -349,7 +349,7 @@ INT16 GetTrainWorkerPts(SOLDIERTYPE *pSoldier);
 void BuildIntelInfoArray();
 void CalcIntelInfoOfferings();
 void GetIntelInfoOfferings( int aInfo[] );
-void GetIntelInfoTextAndPrice( int aInfoNumber, STR16 aString, int& arIntelCost );
+void GetIntelInfoTextAndPrice( int aInfoNumber, CHAR16 *aString, int& arIntelCost );
 void BuyIntelInfo( int aInfoNumber );
 
 // get bonus tarining pts due to an instructor for this student

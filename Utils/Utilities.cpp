@@ -95,7 +95,7 @@ BOOLEAN PerformTimeLimitedCheck();
 
 
 //#define	TIME_LIMITED_VERSION
-void FilenameForBPP(STR pFilename, STR pDestination)
+void FilenameForBPP(STR pFilename, CHAR8 *pDestination)
 {
 	strcpy(pDestination, pFilename);
 }
@@ -174,7 +174,7 @@ BOOLEAN DisplayPaletteRep( PaletteRepID aPalRep, UINT8 ubXPos, UINT8 ubYPos, UIN
 }
 
 
-BOOLEAN	WrapString( STR16 pStr, STR16 pStr2, UINT16 usWidth, INT32 uiFont )
+BOOLEAN	WrapString( CHAR16 *pStr, CHAR16 *pStr2, UINT16 usWidth, INT32 uiFont )
 {
 	UINT32 Cur, uiLet, uiNewLet, uiHyphenLet;
 	STR16 curletter;

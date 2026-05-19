@@ -197,7 +197,7 @@ void SetProgressBarTitle( UINT32 ubID, STR16 pString, UINT32 usFont, UINT8 ubFor
 	if( pString && wcslen( pString ) )
 	{
 		size_t titleLen = wcslen( pString ) + 1;
-		pCurr->swzTitle = (STR16) MemAlloc( (UINT32) ( sizeof( CHAR16 ) * titleLen ) );
+		pCurr->swzTitle = (CHAR16 *) MemAlloc( (UINT32) ( sizeof( CHAR16 ) * titleLen ) );
 		sgp_swprintf( pCurr->swzTitle, titleLen, L"%s", pString );
 	}
 	pCurr->usTitleFont = (UINT16)usFont;

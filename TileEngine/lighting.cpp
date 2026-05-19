@@ -80,7 +80,7 @@ INT16					LightMapLeft[MAX_LIGHT_TEMPLATES];
 INT16					LightMapTop[MAX_LIGHT_TEMPLATES];
 INT16					LightMapRight[MAX_LIGHT_TEMPLATES];
 INT16					LightMapBottom[MAX_LIGHT_TEMPLATES];
-STR						pLightNames[MAX_LIGHT_TEMPLATES];
+CHAR8					*pLightNames[MAX_LIGHT_TEMPLATES];
 
 // Sprite data
 LIGHT_SPRITE	LightSprites[MAX_LIGHT_SPRITES];
@@ -2036,7 +2036,7 @@ INT32 LightCreateOmni(UINT8 ubIntensity, INT16 iRadius)
 		LightGenerateElliptical(iLight, ubIntensity, (INT16)(iRadius*DISTANCE_SCALE), (INT16)(iRadius*DISTANCE_SCALE));
 
 		sprintf(usName, "LTO%d.LHT", iRadius);
-		pLightNames[iLight]= (STR) MemAlloc(strlen(usName)+1);
+		pLightNames[iLight]= (CHAR8 *) MemAlloc(strlen(usName)+1);
 		strcpy(pLightNames[iLight], usName);
 	}
 
@@ -2060,7 +2060,7 @@ INT32 LightCreateSquare(UINT8 ubIntensity, INT16 iRadius1, INT16 iRadius2)
 		LightGenerateSquare(iLight, ubIntensity, (INT16)(iRadius1*DISTANCE_SCALE), (INT16)(iRadius2*DISTANCE_SCALE));
 
 		sprintf(usName, "LTS%d-%d.LHT", iRadius1, iRadius2);
-		pLightNames[iLight]= (STR) MemAlloc(strlen(usName)+1);
+		pLightNames[iLight]= (CHAR8 *) MemAlloc(strlen(usName)+1);
 		strcpy(pLightNames[iLight], usName);
 	}
 
@@ -2084,7 +2084,7 @@ INT32 LightCreateElliptical(UINT8 ubIntensity, INT16 iRadius1, INT16 iRadius2)
 		LightGenerateElliptical(iLight, ubIntensity, (INT16)(iRadius1*DISTANCE_SCALE), (INT16)(iRadius2*DISTANCE_SCALE));
 
 		sprintf(usName, "LTE%d-%d.LHT", iRadius1, iRadius2);
-		pLightNames[iLight]= (STR) MemAlloc(strlen(usName)+1);
+		pLightNames[iLight]= (CHAR8 *) MemAlloc(strlen(usName)+1);
 		strcpy(pLightNames[iLight], usName);
 	}
 
@@ -2995,7 +2995,7 @@ INT32 LightLoad(STR pFilename)
 
 		FileClose(hFile);
 
-		pLightNames[iLight]= (STR) MemAlloc(strlen(pFilename)+1);
+		pLightNames[iLight]= (CHAR8 *) MemAlloc(strlen(pFilename)+1);
 		strcpy(pLightNames[iLight], pFilename);
 	}
 	else

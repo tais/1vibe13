@@ -3374,7 +3374,7 @@ BOOLEAN InitSaveDir()
 extern bool alreadySaving = false;
 extern bool bHideTopMessage;
 
-BOOLEAN SaveGame( int ubSaveGameID, STR16 pGameDesc )
+BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 {
 	UINT32	uiNumBytesWritten=0;
 	HWFILE	hFile=0;
@@ -7504,7 +7504,7 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 		pTempEmail->iId = SavedEmail.iId;
 		pTempEmail->fRead = SavedEmail.fRead;
 		pTempEmail->fNew = SavedEmail.fNew;
-		pTempEmail->pSubject = (STR16) pData;
+		pTempEmail->pSubject = (CHAR16 *) pData;
 		pTempEmail->iFirstData = SavedEmail.iFirstData;
 		pTempEmail->uiSecondData = SavedEmail.uiSecondData;
 		pTempEmail->iThirdData = SavedEmail.iThirdData;
@@ -7753,7 +7753,7 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 		cntFromIni[3] = (int)gGameExternalOptions.ubGameMaximumNumberOfRebels;
 		cntFromIni[4] = (int)gGameExternalOptions.ubGameMaximumNumberOfCivilians;
 		
-		CHAR16 *errMsgTxt[] = {L"Mercenary / Vehicle", L"Enemy", L"Creature", L"Militia", L"Civilian"};
+		const CHAR16 *errMsgTxt[] = {L"Mercenary / Vehicle", L"Enemy", L"Creature", L"Militia", L"Civilian"};
 		errMsgTxt[0] = Additional113Text[ERROR_MAX_MERCSVEHICLES];
 		errMsgTxt[1] = Additional113Text[ERROR_MAX_ENEMIES];
 		errMsgTxt[2] = Additional113Text[ERROR_MAX_CREATURES];
@@ -8111,7 +8111,7 @@ BOOLEAN LoadWatchedLocsFromSavedGame( HWFILE hFile )
 	return( TRUE );
 }
 
-void CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, STR pzNewFileName )
+void CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName )
 {
 	//if we are creating the QuickSave file
 	if( ubSaveGameID == 0 )

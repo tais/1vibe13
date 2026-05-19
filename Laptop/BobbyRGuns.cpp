@@ -349,7 +349,7 @@ UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID( INT16 sItemID );
 void BobbyrRGunsHelpTextDoneCallBack( void );
 
 //Buggler: Seperated function for easy code reuse
-void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber );
+void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber );
 
 #ifdef JA2BETAVERSION
 	void ReportBobbyROrderError( UINT16 usItemNumber, UINT8 ubPurchaseNum, UINT8 ubQtyOnHand, UINT8 ubNumPurchasing );
@@ -361,7 +361,7 @@ void HandleBobbyRayMouseWheel(void);
 
 // Appends source STR16 to target STR16 using decorators ("\n" and "...").
 // Returns TRUE if everything fits target, FALSE otherwise.
-static BOOLEAN DecorateAppendString(STR16 target, size_t targetCapacity, STR16 source, UINT32 frontDecoratorsCnt = 1)
+static BOOLEAN DecorateAppendString(CHAR16 *target, size_t targetCapacity, STR16 source, UINT32 frontDecoratorsCnt = 1)
 {
 	const CHAR16 DECORATOR0[] = L"\n";
 	const CHAR16 DECORATOR1[] = L"\n...";
@@ -4103,7 +4103,7 @@ void HandleBobbyRayMouseWheel(void)
 	}
 }
 
-void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber )
+void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber )
 {
 	const size_t ATTACHMENTS_STRBUF_SIZE = 3800;
 	CHAR16	zItemName[ SIZE_ITEM_NAME ];

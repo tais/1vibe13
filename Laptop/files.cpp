@@ -744,7 +744,7 @@ UINT32 ProcessAndEnterAFilesRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubFormat 
 	{
 	if((pFirstPicFile[0]) != 0)
 		{
-		pFiles->pPicFileNameList[0] = (STR8) MemAlloc(strlen(pFirstPicFile) + 1 );
+		pFiles->pPicFileNameList[0] = (CHAR8 *) MemAlloc(strlen(pFirstPicFile) + 1 );
 	 strcpy( pFiles->pPicFileNameList[0], pFirstPicFile);
 			pFiles->pPicFileNameList[0][strlen(pFirstPicFile)] = 0;
 		}
@@ -756,7 +756,7 @@ UINT32 ProcessAndEnterAFilesRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubFormat 
 	{
 	if((pSecondPicFile[0]) != 0)
 		{
-	 pFiles->pPicFileNameList[1] = (STR8) MemAlloc(strlen(pSecondPicFile) + 1 );
+	 pFiles->pPicFileNameList[1] = (CHAR8 *) MemAlloc(strlen(pSecondPicFile) + 1 );
 	 strcpy( pFiles->pPicFileNameList[1], pSecondPicFile);
 			pFiles->pPicFileNameList[1][ strlen( pSecondPicFile ) ] = 0;
 		}
@@ -1830,7 +1830,7 @@ void AddStringToFilesList( STR16 pString )
 
 
 	// alloc string and copy
-	pFileString->pString = (STR16) MemAlloc( ( wcslen( pString ) * sizeof(CHAR16) ) + 2 );
+	pFileString->pString = (CHAR16 *) MemAlloc( ( wcslen( pString ) * sizeof(CHAR16) ) + 2 );
 	wcscpy( pFileString->pString, pString );
 	pFileString->pString[ wcslen( pString ) ] = 0;
 

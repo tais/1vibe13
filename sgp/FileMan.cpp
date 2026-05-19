@@ -486,7 +486,7 @@ BOOLEAN FileReadLine( HWFILE hFile, std::string* pDest )
 //
 //**************************************************************************
 
-BOOLEAN FileWrite( HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, UINT32 *puiBytesWritten )
+BOOLEAN FileWrite( HWFILE hFile, const void *pDest, UINT32 uiBytesToWrite, UINT32 *puiBytesWritten )
 {
 	if(uiBytesToWrite == 0)//dnl ch38 110909
 	{
@@ -830,7 +830,7 @@ BOOLEAN GetExecutableDirectory( STRING512 pcDirectory )
 }
 
 static vfs::CVirtualFileSystem::Iterator file_iter; 
-BOOLEAN GetFileFirst( CHAR8 * pSpec, GETFILESTRUCT *pGFStruct )
+BOOLEAN GetFileFirst( const CHAR8 *pSpec, GETFILESTRUCT *pGFStruct )
 {
 	CHECKF( pSpec != NULL );
 	CHECKF( pGFStruct != NULL );
@@ -926,7 +926,7 @@ UINT32 FileSize(STR strFilename)
 
 
 // Flugente: simple wrapper to check whether an audio file in mp3/ogg/wav format exists
-BOOLEAN	SoundFileExists( STR strFilename, STR zFoundFilename )
+BOOLEAN	SoundFileExists( STR strFilename, CHAR8 *zFoundFilename )
 {
 	sprintf( zFoundFilename, "%s.mp3", strFilename );
 	if ( !FileExists( zFoundFilename ) )

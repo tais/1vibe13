@@ -676,7 +676,7 @@ void			EndMercTalking();
 void			EnableFactMouseRegions();
 void			DisableFactMouseRegions();
 INT32		GetMaxNumberOfQuotesToPlay( );
-void			GetDebugLocationString( UINT16 usProfileID, STR16 pzText );
+void			GetDebugLocationString( UINT16 usProfileID, CHAR16 *pzText );
 
 //ppp
 
@@ -4056,7 +4056,7 @@ INT32	GetMaxNumberOfQuotesToPlay( )
 }
 
 
-void GetDebugLocationString( UINT16 usProfileID, STR16 pzText )
+void GetDebugLocationString( UINT16 usProfileID, CHAR16 *pzText )
 {
 	SOLDIERTYPE *pSoldier;
 

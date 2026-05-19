@@ -120,7 +120,7 @@ BOOLEAN gfInitAnimateLoading = FALSE;
 
 // Local Functions
 BOOLEAN LoadTileSurfaces( char pTileSurfaceFilenames[][32], UINT8 ubTilesetID );
-BOOLEAN AddTileSurface( SGPFILENAME cFilename, UINT32 ubType, UINT8 ubTilesetID, BOOLEAN fGetFromRoot );
+BOOLEAN AddTileSurface( const CHAR8 *cFilename, UINT32 ubType, UINT8 ubTilesetID, BOOLEAN fGetFromRoot );
 void DestroyTileSurfaces( void );
 BOOLEAN IsRoofVisibleForWireframe( INT32 sMapPos );
 
@@ -131,7 +131,7 @@ INT32						giOldTilesetUsed;
 
 INT8 IsHiddenTileMarkerThere( INT32 sGridNo );
 extern void SetInterfaceHeightLevel( );
-extern void GetRootName( STR8 pDestStr, const STR8 pSrcStr );
+extern void GetRootName( CHAR8 *pDestStr, const STR8 pSrcStr );
 
 
 void SaveMapLights( HWFILE hfile );
@@ -552,7 +552,7 @@ BOOLEAN LoadTileSurfaces( char ppTileSurfaceFilenames[][32], UINT8 ubTilesetID )
 	return( TRUE );
 }
 
-BOOLEAN AddTileSurface( STR8  cFilename, UINT32 ubType, UINT8 ubTilesetID, BOOLEAN fGetFromRoot )
+BOOLEAN AddTileSurface( const CHAR8 *cFilename, UINT32 ubType, UINT8 ubTilesetID, BOOLEAN fGetFromRoot )
 {
 	// Add tile surface
 	PTILE_IMAGERY	TileSurf;

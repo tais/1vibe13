@@ -25,7 +25,7 @@ CHAR8	gzCdDirectory[ SGPFILENAME_LEN ];
 
 INT			CompareFileNames( CHAR8 **arg1, FileHeaderStruct **arg2 );
 BOOLEAN	GetFileHeaderFromLibrary( INT16 sLibraryID, STR pstrFileName, FileHeaderStruct **pFileHeader );
-void		AddSlashToPath( STR pName );
+void		AddSlashToPath( CHAR8 *pName );
 HWFILE	CreateLibraryFileHandle( INT16 sLibraryID, UINT32 uiFileNum );
 BOOLEAN CheckIfFileIsAlreadyOpen( STR pFileName, INT16 sLibraryID );
 
@@ -295,7 +295,7 @@ BOOLEAN InitializeLibrary( STR pLibraryName, LibraryHeaderStruct *pLibHeader, BO
 
 
 			//allocate memory for the files name
-			pLibHeader->pFileHeader[ uiCount ].pFileName = (STR) MemAlloc( strlen( DirEntry.sFileName ) + 1 );
+			pLibHeader->pFileHeader[ uiCount ].pFileName = (CHAR8 *) MemAlloc( strlen( DirEntry.sFileName ) + 1 );
 
 			//if we couldnt allocate memory
 			if( !pLibHeader->pFileHeader[ uiCount ].pFileName )
@@ -332,13 +332,13 @@ BOOLEAN InitializeLibrary( STR pLibraryName, LibraryHeaderStruct *pLibHeader, BO
 	//if the library has a path
 	if( strlen( LibFileHeader.sPathToLibrary ) != 0 )
 	{
-		pLibHeader->sLibraryPath = (STR) MemAlloc( strlen( LibFileHeader.sPathToLibrary ) + 1 );
+		pLibHeader->sLibraryPath = (CHAR8 *) MemAlloc( strlen( LibFileHeader.sPathToLibrary ) + 1 );
 		strcpy( pLibHeader->sLibraryPath, LibFileHeader.sPathToLibrary );
 	}
 	else
 	{
 		//else the library name does not contain a path ( most likely either an error or it is the default path )
-		pLibHeader->sLibraryPath = (STR) MemAlloc( 1 );
+		pLibHeader->sLibraryPath = (CHAR8 *) MemAlloc( 1 );
 		pLibHeader->sLibraryPath[0] = '\0';
 	}
 
@@ -558,7 +558,7 @@ INT CompareFileNames( CHAR8 *arg1[], FileHeaderStruct **arg2 )
 
 
 
-void AddSlashToPath( STR pName )
+void AddSlashToPath( CHAR8 *pName )
 {
 	UINT32	uiLoop, uiCounter;
 	BOOLEAN	fDone = FALSE;

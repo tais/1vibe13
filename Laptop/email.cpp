@@ -1011,14 +1011,14 @@ void AddEmailMessage(INT32 iMessageOffset, INT32 iMessageLength,STR16 pSubject, 
 	// The text for the wildfire merc is too long (> 128 characters)!!
 	// copy subject
     int _len = wcslen(pSubject);
-    pTempEmail->pSubject = (STR16) MemAlloc( (_len + 1) * sizeof(CHAR16) );
+    pTempEmail->pSubject = (CHAR16 *) MemAlloc( (_len + 1) * sizeof(CHAR16) );
     memset( pTempEmail->pSubject, 0, sizeof( CHAR16 ) * (_len + 1) );
     wcsncpy(pTempEmail->pSubject,pSubject,_len);
     pTempEmail->pSubject[_len] = 0;
 	*/
 	
 	// copy subject
-	pTempEmail->pSubject = (STR16) MemAlloc( 128 * sizeof(CHAR16) );
+	pTempEmail->pSubject = (CHAR16 *) MemAlloc( 128 * sizeof(CHAR16) );
 	memset( pTempEmail->pSubject, 0, sizeof( CHAR16 ) * 128 );
 	wcscpy(pTempEmail->pSubject,pSubject);
 	
@@ -1465,7 +1465,7 @@ void SwapMessages(INT32 iIdA, INT32 iIdB)
     EmailPtr pA = pEmailList;
     EmailPtr pB = pEmailList;
     EmailPtr pTemp = (EmailPtr)MemAlloc(sizeof(Email));
-    pTemp->pSubject = (STR16)MemAlloc(128 * sizeof(CHAR16));
+    pTemp->pSubject = (CHAR16 *)MemAlloc(128 * sizeof(CHAR16));
 
     memset(pTemp->pSubject, 0, sizeof(CHAR16) * 128);
 

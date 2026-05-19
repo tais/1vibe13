@@ -152,7 +152,7 @@ namespace ImageFileType
 
 // This function will return NULL if it fails, and call SetLastError() to set
 // error information
-HIMAGE CreateImage( SGPFILENAME ImageFile, UINT16 fContents, ImageFileType::TestOrder order = ImageFileType::JPC_FALLBACK);
+HIMAGE CreateImage( const CHAR8 *ImageFile, UINT16 fContents, ImageFileType::TestOrder order = ImageFileType::JPC_FALLBACK);
 
 // This function destroys the HIMAGE structure as well as its contents
 BOOLEAN DestroyImage( HIMAGE hImage );

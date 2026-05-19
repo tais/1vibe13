@@ -19,7 +19,7 @@ TILE_IMAGERY *LoadTileSurface(	STR8	cFilename )
 	SGPFILENAME						cStructureFilename;
 	SGPFILENAME						cAdditionalPropertiesFilename;
 	SGPFILENAME						cCommonAdditionalPropertiesFilename;
-	STR										cEndOfName;
+	CHAR8 *									cEndOfName;
 	STRUCTURE_FILE_REF *	pStructureFileRef;
 	BOOLEAN								fOk;
 
@@ -196,10 +196,10 @@ void DeleteTileSurface( PTILE_IMAGERY	pTileSurf )
 }
 
 
-extern void GetRootName( STR8 pDestStr, const STR8 pSrcStr );
+extern void GetRootName( CHAR8 *pDestStr, const STR8 pSrcStr );
 
 
-void SetRaisedObjectFlag( STR8 cFilename, TILE_IMAGERY *pTileSurf )
+void SetRaisedObjectFlag( const CHAR8 *cFilename, TILE_IMAGERY *pTileSurf )
 {
 	INT32 cnt = 0;
 	CHAR8	cRootFile[ 128 ];

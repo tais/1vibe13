@@ -1490,7 +1490,7 @@ void InventoryScreenMaskBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 	}
 }
 
-void GetMoraleString( SOLDIERTYPE *pSoldier, STR16 sString )
+void GetMoraleString( SOLDIERTYPE *pSoldier, CHAR16 *sString )
 {
 	INT8 bMorale = pSoldier->aiData.bMorale;
 

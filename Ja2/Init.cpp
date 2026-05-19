@@ -93,7 +93,7 @@ extern	HINSTANCE					ghInstance;
 //extern OBJECTTYPE GLOCK_17_ForUseWithLOS;//dnl ch86 120214
 
 // Prepends the language prefix to the file name in a proposed path.
-static void AddLanguagePrefix(STR fileName, const STR language)
+static void AddLanguagePrefix(CHAR8 *fileName, const STR language)
 {
 	char *fileComponent;
 
@@ -112,7 +112,7 @@ static void AddLanguagePrefix(STR fileName, const STR language)
 	memmove( fileComponent, language, strlen( language) );
 }
 
-static void AddLanguagePrefix(STR fileName)
+static void AddLanguagePrefix(CHAR8 *fileName)
 {
 	AddLanguagePrefix( fileName, GetLanguagePrefix());
 }

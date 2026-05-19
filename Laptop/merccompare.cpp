@@ -84,7 +84,7 @@ void SelectLinkRegionCallBack_MercCompare( MOUSE_REGION * pRegion, INT32 iReason
 	}
 }
 
-void GetMercCompareText( UINT8 ubNumber, STR16 pString )
+void GetMercCompareText( UINT8 ubNumber, CHAR16 *pString )
 {
 	if ( ubNumber >= TEXT_MERCCOMPARE_MAX )
 		wcscpy( pString, gzMercCompare[0] );

@@ -28,6 +28,6 @@ void RenderCampaignHistory();
 BOOLEAN InitCampaignHistoryDefaults();
 void DisplayCampaignHistoryDefaults();
 void RemoveCampaignHistoryDefaults();
-void GetCampaignHistoryText( UINT8 ubNumber, STR16 pString );
+void GetCampaignHistoryText( UINT8 ubNumber, CHAR16 *pString );
 
 #endif //__CAMPAIGNHISTORY_MAIN_H

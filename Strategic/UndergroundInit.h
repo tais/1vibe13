@@ -42,7 +42,7 @@ public:
 
 	BOOLEAN InitializeSectorList();
 	void GetLoadscreen(INT16 x, INT16 y, INT16 z, std::string& buffer, std::string& format);
-	void GetSectorName(INT16 x, INT16 y, INT16 z, const UNDERGROUND_SECTORINFO* pSector, STR16 buffer, size_t bufSizeInWChar, BOOLEAN fDetailed);
+	void GetSectorName(INT16 x, INT16 y, INT16 z, const UNDERGROUND_SECTORINFO* pSector, CHAR16 *buffer, size_t bufSizeInWChar, BOOLEAN fDetailed);
 
 	LuaUnderground();
 	virtual ~LuaUnderground();

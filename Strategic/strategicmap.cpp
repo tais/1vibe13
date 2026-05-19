@@ -1890,14 +1890,14 @@ void InitializeSAMSites( void )
 
 
 // get short sector name without town name
-void GetShortSectorString( INT16 sMapX, INT16 sMapY, STR16 sString )
+void GetShortSectorString( INT16 sMapX, INT16 sMapY, CHAR16 *sString )
 {
 	// OK, build string id like J11
 	sgp_swprintf( sString, 16, L"%S%S", pVertStrings[sMapY], pHortStrings[sMapX] );
 }
 
 
-void GetMapFileName( INT16 sMapX, INT16 sMapY, INT8 bSectorZ, STR8 bString, BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter )
+void GetMapFileName( INT16 sMapX, INT16 sMapY, INT8 bSectorZ, CHAR8 *bString, BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter )
 {
 	CHAR8	 bTestString[150];
 	CHAR8	 bExtensionString[15];
@@ -3481,7 +3481,7 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 }
 
 // Get sector ID string makes a string like 'A9 - OMERTA', or just J11 if no town....
-void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, STR16 zString, BOOLEAN fDetailed )
+void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *zString, BOOLEAN fDetailed )
 {
 	SECTORINFO *pSector = NULL;
 	UNDERGROUND_SECTORINFO *pUnderground;
@@ -6308,7 +6308,7 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 }
 
 
-void GetLoadedSectorString( STR16 pString )
+void GetLoadedSectorString( CHAR16 *pString )
 {
 	if ( !gfWorldLoaded )
 	{

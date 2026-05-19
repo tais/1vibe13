@@ -247,7 +247,7 @@ BOOLEAN WriteMercOpinions()
 
 			FilePrintf(hFile,"\t\t<zNickname>");
 
-			STR16 szRemainder = gMercProfiles[cnt].zNickname; //the remaining string to be output (for making valid XML)
+			CHAR16 *szRemainder = gMercProfiles[cnt].zNickname; //the remaining string to be output (for making valid XML)
 
 			while(szRemainder[0] != '\0')
 			{

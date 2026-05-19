@@ -97,7 +97,7 @@ extern void		FileClose( HWFILE );
 
 extern BOOLEAN	FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiBytesRead );
 extern BOOLEAN	FileReadLine( HWFILE hFile, std::string* pDest );
-extern BOOLEAN	FileWrite( HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, UINT32 *puiBytesWritten );
+extern BOOLEAN	FileWrite( HWFILE hFile, const void *pDest, UINT32 uiBytesToWrite, UINT32 *puiBytesWritten );
 extern BOOLEAN	FileLoad( STR filename, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiBytesRead );
 
 extern BOOLEAN FilePrintf( HWFILE hFile, STR8	strFormatted, ... );
@@ -123,7 +123,7 @@ typedef struct _GETFILESTRUCT_TAG {
 	UINT32 uiFileAttribs;
 } GETFILESTRUCT;
 
-BOOLEAN GetFileFirst( CHAR8 * pSpec, GETFILESTRUCT *pGFStruct );
+BOOLEAN GetFileFirst( const CHAR8 *pSpec, GETFILESTRUCT *pGFStruct );
 
 BOOLEAN GetFileNext( GETFILESTRUCT *pGFStruct );
 void GetFileClose( GETFILESTRUCT *pGFStruct );
@@ -132,5 +132,5 @@ void GetFileClose( GETFILESTRUCT *pGFStruct );
 BOOLEAN	FileCheckEndOfFile( HWFILE hFile );
 
 // Flugente: simple wrapper to check whether an audio file in mp3/ogg/wav format exists
-BOOLEAN	SoundFileExists( STR strFilename, STR zFoundFilename );
+BOOLEAN	SoundFileExists( STR strFilename, CHAR8 *zFoundFilename );
 #endif

@@ -123,7 +123,7 @@ namespace ImageFileType
 	}
 };
 
-HIMAGE CreateImage( SGPFILENAME ImageFile, UINT16 fContents, ImageFileType::TestOrder order )
+HIMAGE CreateImage( const CHAR8 *ImageFile, UINT16 fContents, ImageFileType::TestOrder order )
 {
 	HIMAGE			hImage = NULL;	
 	CHAR8			ExtensionSep[] = ".";	

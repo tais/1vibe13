@@ -9114,7 +9114,7 @@ STR16 gFoodDesc[] =
 	L"."
 };
 
-CHAR16* ranks[] =
+STR16 ranks[] =
 {	L"",			//ExpLevel 0
 	L"Pvt. ",		//ExpLevel 1
 	L"Pfc. ",		//ExpLevel 2

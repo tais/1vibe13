@@ -1653,7 +1653,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	INT16			sX, sY;
 	INT32			iBack;
 	TILE_ELEMENT	TileElem;
-	CHAR16			*pStr;
+	STR16			pStr;
 	CHAR16			NameStr[ MAX_ENEMY_NAMES_CHARS ];
 	UINT16			usGraphicToUse = THIRDPOINTERS1;
 	BOOLEAN		 fRaiseName = FALSE;
@@ -4694,8 +4694,9 @@ void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString )
 	
 	if( !AddVideoObject( &VObjectDesc, &uiBAR ) )	
 	{ 
-		sprintf(fn, "Missing %s", fn);
-		AssertMsg(0, fn );	
+		CHAR8 _msg[256];
+		sprintf(_msg, "Missing %s", fn);
+		AssertMsg(0, _msg );
 	}
 	
 	if (iResolution >= _640x480 && iResolution < _800x600)
@@ -4723,8 +4724,9 @@ void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString )
 	FilenameForBPP(fn, VObjectDesc.ImageFile);
 	if( !AddVideoObject( &VObjectDesc, &uiPLAYERBAR ) )
 	{ 
-		sprintf(fn, "Missing %s", fn);
-		AssertMsg(0, fn );	
+		CHAR8 _msg[256];
+		sprintf(_msg, "Missing %s", fn);
+		AssertMsg(0, _msg );
 	}
 	
 	if (iResolution >= _640x480 && iResolution < _800x600)
@@ -4753,8 +4755,9 @@ void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString )
 	
 	if( !AddVideoObject( &VObjectDesc, &uiINTBAR ) )
 	{ 
-		sprintf(fn, "Missing %s", fn);
-		AssertMsg(0, fn );	
+		CHAR8 _msg[256];
+		sprintf(_msg, "Missing %s", fn);
+		AssertMsg(0, _msg );
 	}		
 	
 	SetFontDestBuffer( uiSurface , 0, 0, SCREEN_WIDTH , HEIGHT_PROGRESSBAR, FALSE );

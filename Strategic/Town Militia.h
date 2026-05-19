@@ -39,7 +39,7 @@ void StrategicRemoveAllStaticMilitiaFromSector( INT16 sMapX, INT16 sMapY, UINT8 
 // this will check for promotions and handle them for you
 UINT8 CheckOneMilitiaForPromotion(INT16 sMapX, INT16 sMapY, UINT8 ubCurrentRank, UINT8 ubRecentKillPts);
 
-void BuildMilitiaPromotionsString( STR16 str );
+void BuildMilitiaPromotionsString( CHAR16 *str );
 
 // HEADROCK HAM 3.3: Function to determine best leadership for militia training in a given sector.
 // Is used for both town and mobile militia.

@@ -632,7 +632,7 @@ extern void HelpTextDoneCallback( void );
 
 //tais: tooltip regions for weaponbox images
 MOUSE_REGION	gWeaponboxFasthelpRegion[WEAPONBOX_TOTAL_ITEMS];
-extern void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber );
+extern void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber );
 
 
 //*******************************************
@@ -642,7 +642,7 @@ extern void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber );
 //*******************************************
 
 BOOLEAN	UpdateMercInfo(void);
-BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo);
+BOOLEAN LoadMercBioInfo(UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo);
 BOOLEAN DisplayMercsInventory(UINT8 ubMercID);
 BOOLEAN DisplayMercsFace();
 void		DisplayMercStats();
@@ -1440,7 +1440,7 @@ BOOLEAN	UpdateMercInfo(void)
 // wchar_t is 32-bit, so we must widen on read. See Utils/Encrypted File.cpp
 // for the canonical implementation; this helper inlines it for the two
 // reads below so we don't reopen MERCBIOSFILENAME twice.
-static BOOLEAN ReadAndWidenWideChars(HWFILE hFile, STR16 pDest, UINT32 uiByteCount)
+static BOOLEAN ReadAndWidenWideChars(HWFILE hFile, CHAR16 *pDest, UINT32 uiByteCount)
 {
 	const UINT32 charCount = uiByteCount / 2;
 	std::vector<UINT16> tmp(charCount);
@@ -1452,7 +1452,7 @@ static BOOLEAN ReadAndWidenWideChars(HWFILE hFile, STR16 pDest, UINT32 uiByteCou
 	return TRUE;
 }
 
-BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo)
+BOOLEAN LoadMercBioInfo(UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo)
 {
 	HWFILE		hFile;
 	UINT32		uiStartSeekAmount;

@@ -1445,9 +1445,9 @@ void HandleDialogue( )
 	}
 }
 
-BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, STR16 zDialogueText, UINT32 *puiSoundID, CHAR8 *zSoundString );
+BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, CHAR16 *zDialogueText, UINT32 *puiSoundID, CHAR8 *zSoundString );
 
-BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, STR16 zDialogueText, UINT32 *puiSound1ID, UINT32 *puiSound2ID, UINT32 *puiSound3ID, CHAR8 zSoundFiles[][64], UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile );
+BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, CHAR16 *zDialogueText, UINT32 *puiSound1ID, UINT32 *puiSound2ID, UINT32 *puiSound3ID, CHAR8 zSoundFiles[][64], UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile );
 
 BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 {
@@ -2506,7 +2506,7 @@ static BOOLEAN SnitchDialogueDataFileExistsForProfile( UINT8 ubCharacterNum, UIN
 	return( FileExists( pFilename ) );
 }
 
-BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, STR16 zDialogueText, UINT32 *puiSoundID, CHAR8 *zSoundString )
+BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, CHAR16 *zDialogueText, UINT32 *puiSoundID, CHAR8 *zSoundString )
 {
 	STR8 pFilename;
 	BOOLEAN fTextAvailable = FALSE;
@@ -2575,7 +2575,7 @@ BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, 
 	return (*puiSoundID != NO_SAMPLE) || fTextAvailable;
 }
 
-BOOLEAN ReplaceTextWithOtherText( CHAR16 *pFinishedString, CHAR16 compare[32], CHAR16 replace[32] )
+BOOLEAN ReplaceTextWithOtherText( CHAR16 *pFinishedString, const CHAR16 *compare, const CHAR16 *replace )
 {
 	CHAR16		pTempString[320];
 	INT32		iLength = 0;
@@ -2644,7 +2644,7 @@ BOOLEAN ReplaceTextWithOtherText( CHAR16 *pFinishedString, CHAR16 compare[32], C
 }
 
 // anv: special version of GetDialogue, message is put together from parts
-BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, STR16 zDialogueText, UINT32 *puiSound1ID, UINT32 *puiSound2ID, UINT32 *puiSound3ID, CHAR8 zSoundFiles[][64], UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile )
+BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, CHAR16 *zDialogueText, UINT32 *puiSound1ID, UINT32 *puiSound2ID, UINT32 *puiSound3ID, CHAR8 zSoundFiles[][64], UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile )
 {
 	STR8 pFilename1;
 	//STR8 pFilename2;

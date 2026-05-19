@@ -250,7 +250,7 @@ UINT32 guiBioInvButton;
 
 //JMich_MMG: Mouseregion for item tooltips
 MOUSE_REGION	gMercWeaponboxFasthelpRegion[MERC_WEAPONBOX_TOTAL_ITEMS];
-extern void GetHelpTextForItemInLaptop( STR16 pzStr, UINT16 usItemNumber );
+extern void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber );
 void CreateMercWeaponBoxMouseRegions();
 extern void HelpTextDoneCallback( void );
 

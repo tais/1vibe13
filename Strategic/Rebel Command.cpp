@@ -508,7 +508,7 @@ void ClearAllButtons();
 void ClearAllHelpTextRegions();
 void DeployOrReactivateAdminTeam(INT16 regionId);
 void DropdownSetup();
-void GetDirectiveEffect(const RebelCommandDirectives directive, STR16 text);
+void GetDirectiveEffect(const RebelCommandDirectives directive, CHAR16 *text);
 INT32 GetDirectiveImprovementCost(const RebelCommandDirectives directive);
 INT32 GetMissionCost();
 INT8 GetMissionSuccessChanceBonus(const MERCPROFILESTRUCT* merc);
@@ -777,7 +777,7 @@ UINT8 GetRegionLoyalty(INT16 regionId)
 	return gTownLoyalty[regionId].ubRating;
 }
 
-void GetDirectiveEffect(const RebelCommandDirectives directive, STR16 text)
+void GetDirectiveEffect(const RebelCommandDirectives directive, CHAR16 *text)
 {
 	switch (directive)
 	{

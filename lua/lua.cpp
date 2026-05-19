@@ -198,11 +198,11 @@ void InitializeLua( )
 int EvalLua (const wchar_t* buff) {
 	int error;
 	int newlen;
-	STR8 newstr = NULL;
+	CHAR8 *newstr = NULL;
 
 	// Since we get wide chars coming in, we need to convert to UTF8
 	newlen = WideCharToMultiByte( CP_UTF8, 0, buff, -1, newstr, 0, NULL, NULL);
-	newstr = (STR8) MemAlloc( newlen);
+	newstr = (CHAR8 *) MemAlloc( newlen);
 	WideCharToMultiByte( CP_UTF8, 0, buff, -1, newstr, newlen, NULL, NULL);
 
 	error = luaL_loadbuffer(L, newstr, newlen-1, "line") ||

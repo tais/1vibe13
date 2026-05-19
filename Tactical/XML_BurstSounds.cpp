@@ -174,7 +174,7 @@ BOOLEAN WriteBurstSoundArray()
 		{
 			FilePrintf(hFile,"\t<SOUND>");
 
-			STR8 szRemainder = gzBurstSndStrings[cnt]; //the remaining string to be output (for making valid XML)
+			CHAR8 *szRemainder = gzBurstSndStrings[cnt]; //the remaining string to be output (for making valid XML)
 
 			while(szRemainder[0] != '\0')
 			{

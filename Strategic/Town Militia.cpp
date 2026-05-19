@@ -1733,7 +1733,7 @@ BOOLEAN MilitiaTrainingAllowedInTown( INT8 bTownId )
 	return( gfMilitiaAllowedInTown[bTownId] );
 }
 
-void BuildMilitiaPromotionsString( STR16 str )
+void BuildMilitiaPromotionsString( CHAR16 *str )
 {
 	CHAR16 pStr[256];
 	BOOLEAN fAddSpace = FALSE;

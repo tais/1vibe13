@@ -24,12 +24,12 @@ void luaWS_newlstr (lua_State *L, const CHAR16 *str, size_t l)
 int LuaWStringFromUTF8( lua_State *L )
 {
 	const CHAR8 *utf8 = luaL_checkstring( L, 1 );
-	STR16 str = NULL;
+	CHAR16 *str = NULL;
 	int len;
 
 	// Find out how long this needs to be
 	len = MultiByteToWideChar( CP_UTF8, 0, utf8, -1, str, 0);
-	str = (STR16) MemAlloc( len * sizeof(CHAR16));
+	str = (CHAR16 *) MemAlloc( len * sizeof(CHAR16));
 
 	// Get the string
 	MultiByteToWideChar( CP_UTF8, 0, utf8, -1, str, len);
@@ -76,7 +76,7 @@ int LuaWStringByte( lua_State* L )
 static int LuaWStringChar( lua_State *L )
 {
 	int len = lua_gettop( L) + 1;
-	STR16 str = (STR16) MemAlloc( len * sizeof( CHAR16) );
+	CHAR16 *str = (CHAR16 *) MemAlloc( len * sizeof( CHAR16) );
 	int idx;
 
 	len--;
@@ -123,7 +123,7 @@ static int LuaWStringLower( lua_State *L )
 {
 	TWString *tw = (TWString*) luaL_checkudata( L, 1, "wstring" );
 	int len = tw->len + 1;
-	STR16 str = (STR16) MemAlloc( len * sizeof( CHAR16) );
+	CHAR16 *str = (CHAR16 *) MemAlloc( len * sizeof( CHAR16) );
 	int idx;
 
 	for( idx=0; idx<len-1; idx++)
@@ -148,7 +148,7 @@ static int LuaWStringRep( lua_State *L )
 	TWString *tw = (TWString*) luaL_checkudata( L, 1, "wstring" );
 	int num = (luaL_checkint( L, 2) >= 0) ? lua_tointeger( L, 2) : 0;
 	int len = tw->len * num + 1;
-	STR16 str = (STR16) MemAlloc( len * sizeof( CHAR16) );
+	CHAR16 *str = (CHAR16 *) MemAlloc( len * sizeof( CHAR16) );
 	int idx;
 
 	if (num > 0)
@@ -170,7 +170,7 @@ static int LuaWStringReverse( lua_State *L )
 {
 	TWString *tw = (TWString*) luaL_checkudata( L, 1, "wstring" );
 	int len = tw->len + 1;
-	STR16 str = (STR16) MemAlloc( len * sizeof( CHAR16) );
+	CHAR16 *str = (CHAR16 *) MemAlloc( len * sizeof( CHAR16) );
 	int idx;
 
 	for( idx=0; idx<len-1; idx++)
@@ -194,7 +194,7 @@ static int LuaWStringUpper( lua_State *L )
 {
 	TWString *tw = (TWString*) luaL_checkudata( L, 1, "wstring" );
 	int len = tw->len + 1;
-	STR16 str = (STR16) MemAlloc( len * sizeof( CHAR16) );
+	CHAR16 *str = (CHAR16 *) MemAlloc( len * sizeof( CHAR16) );
 	int idx;
 
 	for( idx=0; idx<len-1; idx++)
@@ -213,10 +213,10 @@ static int LuaWStringToString( lua_State *L )
 {
 	TWString *tw = (TWString*) luaL_checkudata( L, 1, "wstring" );
 	int newlen;
-	STR8 newstr = NULL;
+	CHAR8 *newstr = NULL;
 
 	newlen = WideCharToMultiByte( CP_UTF8, 0, tw->data, -1, newstr, 0, NULL, NULL);
-	newstr = (STR8) MemAlloc( newlen);
+	newstr = (CHAR8 *) MemAlloc( newlen);
 	WideCharToMultiByte( CP_UTF8, 0, tw->data, -1, newstr, newlen, NULL, NULL);
 	lua_pushstring( L, newstr);
 	MemFree( newstr);

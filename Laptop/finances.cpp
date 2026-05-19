@@ -158,7 +158,7 @@ void BtnFinanceDisplayPrevPageCallBack(GUI_BUTTON *btn,INT32 reason);
 void CreateFinanceButtons( void );
 void DestroyFinanceButtons( void );
 void IncrementCurrentPageFinancialDisplay( void );
-void ProcessTransactionString(STR16 pString, FinanceUnitPtr pFinance);
+void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance);
 void DisplayFinancePageNumberAndDateRange( void );
 void GetBalanceFromDisk( void );
 BOOLEAN WriteBalanceToDisk( void );
@@ -1371,7 +1371,7 @@ void IncrementCurrentPageFinancialDisplay( void )
 	return;
 }
 
-void ProcessTransactionString(STR16 pString, FinanceUnitPtr pFinance)
+void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 {
 	switch( pFinance->ubCode)
 	{

@@ -33,7 +33,7 @@ BOOLEAN InitInsuranceDefaults();
 void DisplayInsuranceDefaults();
 void RemoveInsuranceDefaults();
 void DisplaySmallColouredLineWithShadow( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, UINT32 colour = FROMRGB( 255, 0, 0 ) );
-void GetInsuranceText( UINT8 ubNumber, STR16 pString );
+void GetInsuranceText( UINT8 ubNumber, CHAR16 *pString );
 
 
 

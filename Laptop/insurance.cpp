@@ -333,7 +333,7 @@ void DisplaySmallColouredLineWithShadow( UINT16 usStartX, UINT16 usStartY, UINT1
 	UnLockVideoSurface( FRAME_BUFFER );
 }
 
-void GetInsuranceText( UINT8 ubNumber, STR16 pString )
+void GetInsuranceText( UINT8 ubNumber, CHAR16 *pString )
 {
 	UINT32	uiStartLoc=0;
 

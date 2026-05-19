@@ -6,7 +6,7 @@
 void RadarRegionMoveCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void RadarRegionButtonCallback( MOUSE_REGION * pRegion, INT32 iReason );
 
-BOOLEAN LoadRadarScreenBitmap( CHAR8 * aFilename );
+BOOLEAN LoadRadarScreenBitmap( const CHAR8 *aFilename );
 
 // CHRISL: Changed radar coord defines to standard variables and moved definition to radar screen.cpp
 // RADAR WINDOW DEFINES

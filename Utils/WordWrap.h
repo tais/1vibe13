@@ -36,7 +36,7 @@ UINT16 IanDisplayWrappedString(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UIN
 
 typedef struct _WRAPPEDSTRING
 {
-	STR16		sString;
+	CHAR16		*sString;
 	struct _WRAPPEDSTRING *pNextWrappedString;
 } WRAPPED_STRING;
 
@@ -46,7 +46,7 @@ WRAPPED_STRING * LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLine
 UINT16 DisplayWrappedString(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UINT8 ubGap, INT32 iFont, UINT8 ubColor, STR16 pString, UINT8 ubBackGroundColor, BOOLEAN fDirty, UINT32 ulFlags);
 
 UINT16 DeleteWrappedString(WRAPPED_STRING *pWrappedString);
-void CleanOutControlCodesFromString(STR16 pSourceString, STR16 pDestString);
+void CleanOutControlCodesFromString(STR16 pSourceString, CHAR16 *pDestString);
 INT16 IanDisplayWrappedStringToPages(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UINT16 usPageHeight, UINT16 usTotalHeight, UINT16 usPageNumber,UINT8 ubGap, 
 															INT32 iFont, UINT8 ubColor, STR16 pString, 
 															UINT8 ubBackGroundColor, BOOLEAN fDirty, UINT32 uiFlags, BOOLEAN *fOnLastPageFlag);
@@ -65,7 +65,7 @@ FileStringPtr GetFirstStringOnThisPage( FileStringPtr RecordList, INT32 iFont, U
 void ShadowText(UINT32 uiDestVSurface, STR16 pString, INT32 iFont, UINT16 usPosX, UINT16 usPosY );
 
 
-BOOLEAN ReduceStringLength( STR16 pString, UINT32 uiWidthToFitIn, INT32 iFont );
+BOOLEAN ReduceStringLength( CHAR16 *pString, UINT32 uiWidthToFitIn, INT32 iFont );
 
 
 void UseSingleCharWordsForWordWrap( BOOLEAN fUseSingleCharWords );

@@ -62,7 +62,7 @@ CHAR16		AdditionalInfoString[ SIZE_MERC_BIO_INFO ];
 
 BOOLEAN bMERC;
 
-BOOLEAN LoadEncyclopediaMercBio( UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo,UINT32 Type )
+BOOLEAN LoadEncyclopediaMercBio( UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo, UINT32 Type )
 {
 	HWFILE		hFile=NULL;
 	UINT32		uiBytesRead;

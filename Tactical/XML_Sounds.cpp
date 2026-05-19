@@ -148,7 +148,7 @@ BOOLEAN WriteSoundArray()
     for(cnt = 0;cnt < NUM_SAMPLES;cnt++)
     {
         FilePrintf(hFile,"\t<SOUND>");
-        STR8 szRemainder = szSoundEffects[cnt]; //the remaining string to be output (for making valid XML)
+        CHAR8 *szRemainder = szSoundEffects[cnt]; //the remaining string to be output (for making valid XML)
         while(szRemainder[0] != '\0')
         {
             UINT32 uiCharLoc = strcspn(szRemainder,"&<>\'\"\0");

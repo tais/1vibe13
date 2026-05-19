@@ -155,7 +155,7 @@ void CopyNumEntriesIntoQuoteStruct( ) //  Not used
 }
 //--------------------------------------------------------------
 
-BOOLEAN GetCivQuoteText(UINT16 ubCivQuoteID, UINT16 ubEntryID, STR16 zQuote )
+BOOLEAN GetCivQuoteText(UINT16 ubCivQuoteID, UINT16 ubEntryID, CHAR16 *zQuote )
 {
 	CHAR8 zFileName[164];
 

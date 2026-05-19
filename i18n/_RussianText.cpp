@@ -9109,7 +9109,7 @@ STR16 gFoodDesc[] =
 	L"."
 };
 
-CHAR16* ranks[] = 
+STR16 ranks[] = 
 {	L"",			//ExpLevel 0
 	L"Рядовой ",		//ExpLevel 1
 	L"Ефрейтор ",		//ExpLevel 2

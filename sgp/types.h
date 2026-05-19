@@ -42,9 +42,13 @@ typedef double			DOUBLE;
 // strings
 typedef char			CHAR8;
 typedef wchar_t			CHAR16;
-typedef CHAR8 * 		STR;
-typedef CHAR8 *			STR8;
-typedef CHAR16 *		STR16;
+// STR/STR8/STR16 are read-only string pointer types -- they exist to
+// accept string literals at function boundaries. Use plain CHAR8 * /
+// CHAR16 * (or a typed buffer like CHAR8 buf[N]) when you actually need
+// to write through the pointer.
+typedef const CHAR8 *	STR;
+typedef const CHAR8 *	STR8;
+typedef const CHAR16 *	STR16;
 // flags (individual bits used)
 typedef unsigned char	FLAGS8;
 typedef unsigned short	FLAGS16;

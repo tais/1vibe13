@@ -24,7 +24,7 @@ auto FormatMoney(INT32 iNumber) -> std::wstring
     return L"$" + wss.str();
 }
 
-BOOLEAN LoadItemInfo(UINT16 ubIndex, STR16 pNameString, STR16 pInfoString )
+BOOLEAN LoadItemInfo(UINT16 ubIndex, CHAR16 *pNameString, CHAR16 *pInfoString )
 {
 	int j = 0;
 
@@ -43,7 +43,7 @@ BOOLEAN LoadItemInfo(UINT16 ubIndex, STR16 pNameString, STR16 pInfoString )
 	return(TRUE);
 }
 
-BOOLEAN LoadBRName(UINT16 ubIndex, STR16 pNameString )
+BOOLEAN LoadBRName(UINT16 ubIndex, CHAR16 *pNameString )
 {
 	if (pNameString != NULL)
 	{
@@ -53,7 +53,7 @@ BOOLEAN LoadBRName(UINT16 ubIndex, STR16 pNameString )
 	return TRUE;
 }
 
-BOOLEAN LoadBRDesc(UINT16 ubIndex, STR16 pDescString )
+BOOLEAN LoadBRDesc(UINT16 ubIndex, CHAR16 *pDescString )
 {
 	if (pDescString != NULL)
 	{
@@ -64,7 +64,7 @@ BOOLEAN LoadBRDesc(UINT16 ubIndex, STR16 pDescString )
 	return TRUE;
 }
 
-BOOLEAN LoadShortNameItemInfo(UINT16 ubIndex, STR16 pNameString )
+BOOLEAN LoadShortNameItemInfo(UINT16 ubIndex, CHAR16 *pNameString )
 {
 	if(pNameString != NULL)
 	{
@@ -123,16 +123,16 @@ FLOAT GetWeightBasedOnMetricOption( UINT32 uiObjectWeight )
 	return( fWeight );
 }
 
-static inline STR8 Trim(STR8 &p) { 
-	while(isspace(*p)) *p++ = 0; 
-	STR8 e = p + strlen(p) - 1;
+static inline CHAR8 *Trim(CHAR8 *&p) {
+	while(isspace(*p)) *p++ = 0;
+	CHAR8 *e = p + strlen(p) - 1;
 	while (e > p && isspace(*e)) *e-- = 0;
 	return p;
 }
 
-static inline STR16 Trim(STR16 &p) { 
-	while(iswspace(*p)) *p++ = 0; 
-	STR16 e = p + wcslen(p) - 1;
+static inline CHAR16 *Trim(CHAR16 *&p) {
+	while(iswspace(*p)) *p++ = 0;
+	CHAR16 *e = p + wcslen(p) - 1;
 	while (e > p && iswspace(*e)) *e-- = 0;
 	return p;
 }
@@ -147,18 +147,18 @@ int StringToEnum(const STR value, const Str8EnumLookupType *table)
 		if (0 == _stricmp(value, itr->name)) 
 			return itr->value;
 	}
-	STR end = NULL;
+	CHAR8 *end = NULL;
 	return (int)strtol(value, &end, 0);
 }
 
-int StringToEnum(const STR8 value, const Str16EnumLookupType *table) 
+int StringToEnum(const STR8 value, const Str16EnumLookupType *table)
 {
-	if (NULL == value || 0 == *value) 
+	if (NULL == value || 0 == *value)
 		return 0;
 
 	int result = 0;
 	int len = strlen(value)+1;
-	STR16 wval = (STR16)malloc( len*sizeof(CHAR16) );
+	CHAR16 *wval = (CHAR16 *)malloc( len*sizeof(CHAR16) );
 	mbstowcs(wval, value, len);
 	for (const Str16EnumLookupType *itr = table; itr->name != NULL; ++itr) {
 		if (0 == _wcsicmp(wval, itr->name)) {
@@ -169,14 +169,14 @@ int StringToEnum(const STR8 value, const Str16EnumLookupType *table)
 	return (result) ? result : (int)strtol(value, NULL, 0);
 }
 
-int StringToEnum(const STR16 value, const Str8EnumLookupType *table) 
+int StringToEnum(const STR16 value, const Str8EnumLookupType *table)
 {
-	if (NULL == value || 0 == *value) 
+	if (NULL == value || 0 == *value)
 		return 0;
 
 	int result = 0;
 	int len = wcslen(value)+1;
-	STR8 mval = (STR8)malloc( len*sizeof(CHAR8) );
+	CHAR8 *mval = (CHAR8 *)malloc( len*sizeof(CHAR8) );
 	wcstombs(mval, value, len);
 	for (const Str8EnumLookupType *itr = table; itr->name != NULL; ++itr) {
 		if (0 == _stricmp(mval, itr->name)) {

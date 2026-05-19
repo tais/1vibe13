@@ -187,7 +187,7 @@ extern INT16						LightMapLeft[MAX_LIGHT_TEMPLATES];
 extern INT16						LightMapTop[MAX_LIGHT_TEMPLATES];
 extern INT16						LightMapRight[MAX_LIGHT_TEMPLATES];
 extern INT16						LightMapBottom[MAX_LIGHT_TEMPLATES];
-extern STR							pLightNames[MAX_LIGHT_TEMPLATES];
+extern CHAR8						*pLightNames[MAX_LIGHT_TEMPLATES];
 
 // Sprite data
 extern LIGHT_SPRITE			LightSprites[MAX_LIGHT_SPRITES];

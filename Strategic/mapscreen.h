@@ -224,8 +224,8 @@ BOOLEAN GetLastMilitiaGroupInSector( INT16 sMapX, INT16 sMapY, UINT8& arId );
 
 BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY );
 
-void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, STR16 sString );
-void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, STR16 sString );
+void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString );
+void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString );
 
 // Flugente: bandaging during retreat
 void RetreatBandageCallback( UINT8 ubResult );
