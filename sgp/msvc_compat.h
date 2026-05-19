@@ -294,27 +294,10 @@ inline LPVOID HeapAlloc(HANDLE, DWORD flags, size_t size) {
 }
 inline BOOL HeapFree(HANDLE, DWORD, LPVOID ptr) { std::free(ptr); return 1; }
 
-// Win32 file I/O stubs. The library/SLF loader uses these directly;
-// Phase 2 will rewrite it on top of std::ifstream. The stubs let the
-// translation unit compile (and lets non-SLF code paths run).
-inline HANDLE CreateFileA(const char*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE) {
-    return INVALID_HANDLE_VALUE;
-}
-#define CreateFile CreateFileA
-inline BOOL ReadFile(HANDLE, void*, DWORD, LPDWORD bytesRead, void*) {
-    if (bytesRead) *bytesRead = 0;
-    return 0;
-}
-inline BOOL WriteFile(HANDLE, const void*, DWORD, LPDWORD bytesWritten, void*) {
-    if (bytesWritten) *bytesWritten = 0;
-    return 0;
-}
-inline DWORD SetFilePointer(HANDLE, LONG, LONG*, DWORD) {
-    return 0xFFFFFFFFu;
-}
-inline DWORD GetFileSize(HANDLE, LPDWORD) { return 0xFFFFFFFFu; }
-inline DWORD GetFileAttributesA(const char*) { return 0xFFFFFFFFu; }
-#define GetFileAttributes GetFileAttributesA
+// (Win32 file I/O stubs CreateFile / ReadFile / WriteFile /
+// SetFilePointer / GetFileSize / GetFileAttributes were removed in
+// Phase 2 -- the legacy LibraryDataBase.cpp that needed them is now
+// a stub, since bfVFS handles SLF reading on every platform.)
 
 typedef int HFILE;
 #ifndef HFILE_ERROR
