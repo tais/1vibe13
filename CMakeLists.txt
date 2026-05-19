@@ -115,10 +115,21 @@ target_include_directories(libsmacker PUBLIC "${libsmacker_SOURCE_DIR}")
 # libsmacker is upstream C89; quiet the warnings so our build stays
 # clean. The library itself is well-tested and stable.
 target_compile_options(libsmacker PRIVATE -w)
-# Expose smacker.h on the JA2 include search path so Utils/Cinematics.cpp
-# (which lives in JA2_Utils, not JA2_sgp) can pick it up. The target's
-# PUBLIC include_directories only propagates to direct linkers.
+# Expose smacker.h + SDL3 headers on the JA2 include search path so
+# Utils/Cinematics.cpp (which lives in JA2_Utils, not JA2_sgp) can pick
+# them up. The targets' PUBLIC include_directories only propagates to
+# direct linkers; the JA2_* libraries link via the final executable.
 include_directories("${libsmacker_SOURCE_DIR}")
+# SDL3's installed header layout is `<SDL3/SDL.h>` style. The fetched
+# source has it at `${sdl3_SOURCE_DIR}/include/SDL3/SDL.h`, plus the
+# generated build_config under `${sdl3_BINARY_DIR}/include-revision`.
+# Both need to be on the include path for JA2_Utils to use SDL_AudioStream.
+if(DEFINED sdl3_SOURCE_DIR)
+  include_directories("${sdl3_SOURCE_DIR}/include")
+endif()
+if(DEFINED sdl3_BINARY_DIR)
+  include_directories("${sdl3_BINARY_DIR}/include-revision")
+endif()
 
 add_compile_definitions(CINTERFACE XML_STATIC VFS_STATIC VFS_WITH_SLF VFS_WITH_7ZIP _CRT_SECURE_NO_DEPRECATE)
 include_directories(

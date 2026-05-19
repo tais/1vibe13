@@ -34,6 +34,7 @@
 extern "C" {
 #include "smacker.h"
 }
+#include <SDL3/SDL.h>
 
 #include <chrono>
 #include <cstdio>
@@ -76,6 +77,18 @@ struct SMKFLIC
 	uint64_t      uiFrameStartNs = 0;           // wall-clock ns at which the current frame started displaying
 	bool          fFirstFrame    = false;       // true == next poll calls smk_first() rather than smk_next()
 	std::vector<uint8_t> rawFile;               // backing memory for smk_open_memory; must outlive smkHandle
+	// Audio playback state. SMK can carry up to 7 audio tracks; we
+	// always play track 0 because that's where the SFX music lives in
+	// every JA2 cinematic. The stream is opened bound to the system's
+	// default playback device; data we push via SDL_PutAudioStreamData
+	// gets resampled to the device's actual format automatically.
+	SDL_AudioStream* audioStream      = nullptr;
+	UINT32           uiAudioRate      = 0;        // sample rate of track 0 (0 == no audio)
+	unsigned char    uiAudioChans     = 0;
+	unsigned char    uiAudioBits      = 0;
+	uint64_t         uiAudioBytesPush = 0;        // total raw PCM bytes pushed via SDL_PutAudioStreamData
+	uint64_t         uiAudioBytesPerSec = 0;      // rate * channels * bytes_per_sample
+	uint32_t         uiFrameIndex     = 0;        // monotonically incremented per advance; 0 == first frame
 };
 
 namespace {
@@ -137,6 +150,32 @@ void DecodeAndBlitCurrentFrame(SMKFLIC& f)
 	const unsigned char* pal = smk_get_palette(f.smkHandle);
 	const unsigned char* px  = smk_get_video(f.smkHandle);
 	if (pal && px) BlitFrameToFrameBuffer(f, pal, px);
+}
+
+// Push the just-decoded frame's audio chunk (track 0) into our open
+// SDL audio stream. libsmacker stores per-track decoded PCM bytes;
+// smk_get_audio_size tells us how many. SDL_PutAudioStreamData copies
+// the bytes into its internal queue so we can advance past the source
+// buffer safely on the next smk_next call.
+void FeedCurrentFrameAudio(SMKFLIC& f)
+{
+	if (!f.audioStream || f.uiAudioRate == 0) return;
+	int track = -1;
+	for (int t = 0; t < 7; ++t) {
+		// Same track-pick rule as in SmkOpenFlic: lowest set bit. We
+		// re-derive it here rather than caching to keep SMKFLIC small.
+		if (smk_get_audio(f.smkHandle, (unsigned char)t) != nullptr) {
+			track = t;
+			break;
+		}
+	}
+	if (track < 0) return;
+	const unsigned char* pcm = smk_get_audio(f.smkHandle, (unsigned char)track);
+	const unsigned long  sz  = smk_get_audio_size(f.smkHandle, (unsigned char)track);
+	if (pcm && sz > 0) {
+		SDL_PutAudioStreamData(f.audioStream, pcm, (int)sz);
+		f.uiAudioBytesPush += sz;
+	}
 }
 
 } // namespace
@@ -215,7 +254,43 @@ SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 	p->dUsecPerFrame = usf;
 
 	smk_enable_video(p->smkHandle, 1);
-	// Audio stays disabled until Stage C wires it through SDL3_mixer.
+
+	// Stage C: enable the first available audio track and open an
+	// SDL_AudioStream sized for its format. libsmacker reports a
+	// bitmask of populated tracks; track 0 is where every JA2 SMK
+	// puts its dialogue/SFX line, so we just pick whichever bit is
+	// lowest (the most-significant bits are 6.1-channel extras
+	// that JA2 files never use).
+	unsigned char trackMask = 0;
+	unsigned char chans[7] = {0};
+	unsigned char depth[7] = {0};
+	unsigned long rate[7]  = {0};
+	smk_info_audio(p->smkHandle, &trackMask, chans, depth, rate);
+	int track = -1;
+	for (int t = 0; t < 7; ++t) {
+		if (trackMask & (1u << t)) { track = t; break; }
+	}
+	if (track >= 0 && rate[track] > 0 && chans[track] > 0) {
+		smk_enable_audio(p->smkHandle, (unsigned char)track, 1);
+		p->uiAudioRate  = (UINT32)rate[track];
+		p->uiAudioChans = chans[track];
+		p->uiAudioBits  = depth[track];
+		SDL_AudioSpec spec;
+		spec.format   = (depth[track] == 16) ? SDL_AUDIO_S16LE : SDL_AUDIO_U8;
+		spec.channels = chans[track];
+		spec.freq     = (int)rate[track];
+		p->audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+		if (p->audioStream) {
+			p->uiAudioBytesPerSec = (uint64_t)rate[track]
+				* chans[track]
+				* (depth[track] == 16 ? 2 : 1);
+			SDL_ResumeAudioStreamDevice(p->audioStream);
+		} else {
+			std::fprintf(stderr, "[smk] SDL_OpenAudioDeviceStream failed for %s: %s\n", cFilename, SDL_GetError());
+			smk_enable_audio(p->smkHandle, (unsigned char)track, 0);
+			p->uiAudioRate = 0;
+		}
+	}
 
 	p->uiFlags     = SMK_FLIC_OPEN;
 	p->fFirstFrame = true;
@@ -242,6 +317,19 @@ void SmkSetBlitPosition(SMKFLIC* pSmack, UINT32 uiLeft, UINT32 uiTop)
 void SmkCloseFlic(SMKFLIC* pSmack)
 {
 	if (!pSmack) return;
+	if (pSmack->audioStream) {
+		// The stream owns the device since we used
+		// SDL_OpenAudioDeviceStream; destroying it releases both.
+		SDL_DestroyAudioStream(pSmack->audioStream);
+		pSmack->audioStream = nullptr;
+	}
+	pSmack->uiAudioRate       = 0;
+	pSmack->uiAudioChans      = 0;
+	pSmack->uiAudioBits       = 0;
+	pSmack->uiAudioBytesPush  = 0;
+	pSmack->uiAudioBytesPerSec = 0;
+	pSmack->uiFrameIndex      = 0;
+	pSmack->uiFrameStartNs    = 0;
 	if (pSmack->smkHandle) {
 		smk_close(pSmack->smkHandle);
 		pSmack->smkHandle = nullptr;
@@ -250,6 +338,37 @@ void SmkCloseFlic(SMKFLIC* pSmack)
 	pSmack->rawFile.shrink_to_fit();
 	pSmack->uiFlags = 0;
 	pSmack->fFirstFrame = false;
+}
+
+// Hybrid pacing. Pure wall-clock drifted audio ahead by ~1s over a
+// long intro (audio device plays at its own rate, video paces from a
+// clock that includes per-tick processing overhead). Pure audio-clock
+// stalled completely when SDL's audio queue ran dry between frame
+// advances (consumed counter freezes when nothing's playing, so the
+// "wait until audio caught up" check never fires, so no new audio
+// gets pushed -- deadlock).
+//
+// Take the max of audio_clock_us and wall_clock_us:
+//   * audio_clock_us = (bytes the audio device has consumed) / rate.
+//     Truth-source when audio is flowing.
+//   * wall_clock_us = wall ns since the first frame painted.
+//     Keeps video advancing during audio-queue starvation. Also the
+//     only timer for SMKs that have no audio track.
+// Advance when either says we're past the next frame's deadline.
+static bool ShouldAdvanceFrame(const SMKFLIC& f, uint64_t nowNs)
+{
+	const double frame_deadline_us = (double)(f.uiFrameIndex + 1) * f.dUsecPerFrame;
+	if (f.audioStream && f.uiAudioBytesPerSec > 0) {
+		const int queued = SDL_GetAudioStreamQueued(f.audioStream);
+		const uint64_t consumed = (queued < 0 || (uint64_t)queued >= f.uiAudioBytesPush)
+		                            ? 0
+		                            : f.uiAudioBytesPush - (uint64_t)queued;
+		const double consumed_us = (double)consumed * 1e6 / (double)f.uiAudioBytesPerSec;
+		if (consumed_us >= frame_deadline_us) return true;
+	}
+	const uint64_t elapsed_ns = nowNs - f.uiFrameStartNs;
+	const double wall_us = (double)elapsed_ns / 1000.0;
+	return wall_us >= f.dUsecPerFrame;
 }
 
 BOOLEAN SmkPollFlics(void)
@@ -271,13 +390,13 @@ BOOLEAN SmkPollFlics(void)
 			}
 			f.fFirstFrame    = false;
 			f.uiFrameStartNs = nowNs;
+			f.uiFrameIndex   = 0;
 			DecodeAndBlitCurrentFrame(f);
+			FeedCurrentFrameAudio(f);
 			continue;
 		}
 
-		// Has the current frame's display deadline passed?
-		const uint64_t frameNs = (uint64_t)(f.dUsecPerFrame * 1000.0);
-		if (nowNs - f.uiFrameStartNs < frameNs) continue;
+		if (!ShouldAdvanceFrame(f, nowNs)) continue;
 
 		const char rc = smk_next(f.smkHandle);
 		if (rc == SMK_DONE) {
@@ -288,7 +407,9 @@ BOOLEAN SmkPollFlics(void)
 					continue;
 				}
 				f.uiFrameStartNs = nowNs;
+				f.uiFrameIndex   = 0;
 				DecodeAndBlitCurrentFrame(f);
+				FeedCurrentFrameAudio(f);
 			} else if (f.uiFlags & SMK_FLIC_AUTOCLOSE) {
 				SmkCloseFlic(&f);
 				// Slot freed; loop iteration handled, next loop sees uiFlags=0.
@@ -300,7 +421,9 @@ BOOLEAN SmkPollFlics(void)
 			if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
 		} else {
 			f.uiFrameStartNs = nowNs;
+			++f.uiFrameIndex;
 			DecodeAndBlitCurrentFrame(f);
+			FeedCurrentFrameAudio(f);
 		}
 	}
 
