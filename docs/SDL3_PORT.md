@@ -23,15 +23,15 @@ pre-built `.lib` blobs at the repo root are deleted.
 |---|---|---|
 | 0 | Branch + plan doc | ✅ Done |
 | 1 | Build system portability — configures, compiles, and links on macOS | ✅ Done |
-| 2 | Portable file I/O / time / memory / debug | Partial via compat shims; real porting pending |
-| 3 | SDL3 window + event loop, drop WinMain | 🟡 Started — SDL3 wired into CMake, minimal window+event-loop main() on non-Windows. JA2 game loop not yet dispatched; SDL event translation lives in main() but routes to a local debug stub instead of the real `QueueEvent`. |
-| 4 | SDL3 input, drop DirectInput / Win32 hooks | Not started |
-| 5 | SDL3 video (RGB565 transitional), retire DirectDraw | 🟡 Started — RGB565 SDL_Texture upload path working with a test pattern in sgp.cpp's main(). Needs the JA2 framebuffer wired in. |
-| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | 🟡 Started — all inline x86 asm in `sgp/vobject_blitters.cpp` ported to portable C (~30 blitter variants); RGB565 still the internal format. RGBA8888 conversion + palette LUT regen pending. |
-| 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | Not started |
-| 8 | Cinematics — libsmacker, decide on Bink | Not started |
+| 2 | Portable file I/O / time / memory / debug | ✅ Done — all 8 items addressed (bfVFS handles FileMan + SLF; Timer Control + MemMan + DEBUG + timer.cpp rewritten portable; wine/ deleted; legacy LibraryDataBase + Win32 file stubs dropped). |
+| 3 | SDL3 window + event loop, drop WinMain | ✅ Done — SDL3 message pump runs the game on every platform; `_WIN32`-only WinMain gone. |
+| 4 | SDL3 input, drop DirectInput / Win32 hooks | ✅ Done — `sgp/sdl_input.cpp` translates SDL_Event → JA2 `QueueEvent`, mouse/keyboard fully on SDL3. |
+| 5 | SDL3 video (RGB565 transitional), retire DirectDraw | ✅ Done — `sgp/sdl_video.cpp` + `sgp/sdl_vsurface.cpp` own the path; legacy `video.cpp` / `vsurface.cpp` deleted (Phase 5b structural flip, 2026-05-16). |
+| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | 🟡 Most work landed (inline asm gone, tactical playable, FMOD→SDL3_mixer in 6r, Smacker→libsmacker in 6u, cursor + render + tooltip fixes). RGB565 is still the internal format; RGBA8888 conversion + palette LUT regen pending. |
+| 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
+| 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | Not started |
-| 10 | Platform packaging + CI | Not started |
+| 10 | Platform packaging + CI | 🟡 CI compile-check live on Linux + macOS (`.github/workflows/build_unix.yml`). Packaging artifacts still Windows-only. |
 | ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
@@ -531,11 +531,24 @@ only so legacy unported translation units still compile.
    obsolete now that SDL3 replaces DirectDraw everywhere. Removed the
    subdirectory, its CMakeLists entry, and the call site in
    `sgp.cpp`'s WinMain.
-8. Remove the now-redundant Win32 file I/O stubs from msvc_compat.h.
+8. ~~Remove the now-redundant Win32 file I/O stubs from
+   msvc_compat.h.~~ **Done.** The legacy `sgp/LibraryDataBase.cpp` was
+   the last consumer (~1100 lines of dead SLF-reader bodies; bfVFS
+   does the real SLF reading via `VFS_WITH_SLF`). Replaced with a
+   ~30-line stub keeping only the two symbols other TUs still touch:
+   `gzCdDirectory` (CD-root buffer, written from GameSettings.cpp)
+   and `ShutDownFileDatabase()` (no-op cleanup called once from
+   gameloop.cpp). All other public functions return FALSE / 0.
+   Dropped `CreateFileA` / `ReadFile` / `WriteFile` /
+   `SetFilePointer` / `GetFileSize` / `GetFileAttributesA` from
+   `msvc_compat.h`; SetErrorMode + SEM_* defines stay because two
+   `_WIN32`-only CD-drive paths in Options Screen and FeaturesScreen
+   parse but don't link them on non-Windows.
 
 **Exit criterion**: the non-video, non-input, non-audio parts of SGP
 do useful work on non-Windows. File I/O succeeds, the clock advances,
-SLF archives load.
+SLF archives load. ✅ Achieved as of Phase 6+ runtime — game boots,
+loads its SLF archives via bfVFS, save/load works, audio plays.
 
 ---
 
