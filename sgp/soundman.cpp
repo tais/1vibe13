@@ -33,7 +33,11 @@
 #define MAX_VOLUME              127
 
 #ifndef stricmp
-  #define stricmp(a,b) strcasecmp((a),(b))
+  #ifdef _WIN32
+    #define stricmp(a,b) _stricmp((a),(b))
+  #else
+    #define stricmp(a,b) strcasecmp((a),(b))
+  #endif
 #endif
 
 namespace {
