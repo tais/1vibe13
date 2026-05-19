@@ -42,6 +42,7 @@ jobs:
             libwayland-dev wayland-protocols libdecor-0-dev \
             libx11-dev libxext-dev libxcursor-dev libxi-dev \
             libxinerama-dev libxrandr-dev libxss-dev libxkbcommon-dev \
+            libxtst-dev libxfixes-dev \
             libgl1-mesa-dev libegl1-mesa-dev \
             libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
             libibus-1.0-dev
