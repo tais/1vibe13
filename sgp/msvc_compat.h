@@ -10,9 +10,21 @@
 #ifndef _SGP_MSVC_COMPAT_H
 #define _SGP_MSVC_COMPAT_H
 
+// MAX_PATH fallback. On Windows it normally comes from <windows.h>
+// (defined to 260); on POSIX we point it at PATH_MAX. JA2 source uses
+// MAX_PATH everywhere without including <windows.h>, so define it
+// universally before the non-_WIN32 compat shims start.
+#ifndef MAX_PATH
+#  ifdef _WIN32
+#    define MAX_PATH 260
+#  else
+#    include <climits>
+#    define MAX_PATH PATH_MAX
+#  endif
+#endif
+
 #ifndef _WIN32
 
-#include <climits>    // PATH_MAX
 #include <strings.h>  // strcasecmp, strncasecmp
 #include <wchar.h>    // wcscasecmp on glibc; <wctype.h> on macOS
 #include <cstdint>
@@ -21,10 +33,6 @@
 #include <math.h>        // bare log/sqrt/sin/cos/pow/floor/ceil/etc.
                          // libstdc++'s <cmath> exposes them in std:: only;
                          // JA2 calls them unqualified everywhere.
-
-#ifndef MAX_PATH
-#define MAX_PATH PATH_MAX
-#endif
 
 // Win32 unsized typedefs that JA2 source uses without including
 // windows.h (relying on transitive includes that we're trimming).
