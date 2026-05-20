@@ -1,4 +1,7 @@
-add_library(libpng
+# STATIC: see ext/zlib/CMakeLists.txt -- avoids the Windows DLL
+# export/import problem (libpng.dll couldn't resolve zlib's symbols)
+# and keeps these vendored helpers folded into the executable.
+add_library(libpng STATIC
 "png.c"
 "pngerror.c"
 "pnggccrd.c"
