@@ -244,7 +244,7 @@ void InitJa25StrategicAi()
 	
 	gStrategicStatus.ubHighestProgress = CurrentPlayerProgressPercentage();
 
-	//InitJohnKulbaInitialSector(); // wy³¹czone, skrypt lua
+	//InitJohnKulbaInitialSector(); // wyï¿½ï¿½czone, skrypt lua
 }
 
 
@@ -372,10 +372,10 @@ void InitJa25InitialEnemiesInSector()
 	//
 	// Set the number of enemies in each of the sectors
 	//
-	//InitNumberOfEnemiesInAboveGroundSectors( ); //wy³¹czono, skrypt lua
+	//InitNumberOfEnemiesInAboveGroundSectors( ); //wyï¿½ï¿½czono, skrypt lua
 
 	//Below Ground
-	//InitNumberOfEnemiesInUnderGroundSectors( ); //wy³¹czono, skrypt lua
+	//InitNumberOfEnemiesInUnderGroundSectors( ); //wyï¿½ï¿½czono, skrypt lua
 }
 
 void InitJa25UnderGroundSectors()
@@ -2963,13 +2963,11 @@ else if (gGameUBOptions.pJA2UB == FALSE )
 #ifdef JA2BETAVERSION
 BOOLEAN Ja25BetaDateToInvalidateExe()
 {
-	SYSTEMTIME sSystemTime;
-
-	GetSystemTime( &sSystemTime );
-
+	time_t      now = time( NULL );
+	struct tm*  lt  = localtime( &now );
 
 	//if according to the system clock, we are past May 12, 2000, quit the game
-	if( sSystemTime.wYear >= 2000 && sSystemTime.wMonth >= 5 && sSystemTime.wDay >= 12 )
+	if( lt && lt->tm_year + 1900 >= 2000 && lt->tm_mon + 1 >= 5 && lt->tm_mday >= 12 )
 	{
 		return( FALSE );
 	}
