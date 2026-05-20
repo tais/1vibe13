@@ -718,32 +718,39 @@ void RenderMapEntryPointsAndLights()
 	}
 }
 
-void BuildTriggerName( OBJECTTYPE *pItem, STR16 szItemName )
+// szItemName is a caller-owned writable buffer (SIZE_ITEM_NAME wide
+// chars). Format into a local array so the swprintf wrapper can recover
+// the buffer extent at compile time (it can't from a pointer), then
+// copy the result out.
+void BuildTriggerName( OBJECTTYPE *pItem, CHAR16* szItemName )
 {
+	CHAR16 name[ SIZE_ITEM_NAME ];
 	if( pItem->usItem == SWITCH )
 	{
 		if( (*pItem)[0]->data.misc.bFrequency == PANIC_FREQUENCY )
-			swprintf( szItemName, iBuildTriggerNameText[0] );
+			swprintf( name, iBuildTriggerNameText[0] );
 		else if( (*pItem)[0]->data.misc.bFrequency == PANIC_FREQUENCY_2 )
-			swprintf( szItemName, iBuildTriggerNameText[1] );
+			swprintf( name, iBuildTriggerNameText[1] );
 		else if( (*pItem)[0]->data.misc.bFrequency == PANIC_FREQUENCY_3 )
-			swprintf( szItemName, iBuildTriggerNameText[2] );
+			swprintf( name, iBuildTriggerNameText[2] );
 		else
-			swprintf( szItemName, iBuildTriggerNameText[3], (*pItem)[0]->data.misc.bFrequency - 50 );
+			swprintf( name, iBuildTriggerNameText[3], (*pItem)[0]->data.misc.bFrequency - 50 );
 	}
 	else
 	{ //action item
 		if( (*pItem)[0]->data.misc.bDetonatorType == BOMB_PRESSURE )
-			swprintf( szItemName, iBuildTriggerNameText[4] );
+			swprintf( name, iBuildTriggerNameText[4] );
 		else if( (*pItem)[0]->data.misc.bFrequency == PANIC_FREQUENCY )
-			swprintf( szItemName, iBuildTriggerNameText[5] );
+			swprintf( name, iBuildTriggerNameText[5] );
 		else if( (*pItem)[0]->data.misc.bFrequency == PANIC_FREQUENCY_2 )
-			swprintf( szItemName, iBuildTriggerNameText[6] );
+			swprintf( name, iBuildTriggerNameText[6] );
 		else if( (*pItem)[0]->data.misc.bFrequency == PANIC_FREQUENCY_3 )
-			swprintf( szItemName, iBuildTriggerNameText[7] );
+			swprintf( name, iBuildTriggerNameText[7] );
 		else
-			swprintf( szItemName, iBuildTriggerNameText[8], (*pItem)[0]->data.misc.bFrequency - 50 );
+			swprintf( name, iBuildTriggerNameText[8], (*pItem)[0]->data.misc.bFrequency - 50 );
 	}
+	wcsncpy( szItemName, name, SIZE_ITEM_NAME );
+	szItemName[ SIZE_ITEM_NAME - 1 ] = L'\0';
 }
 
 void RenderDoorLockInfo()

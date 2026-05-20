@@ -600,7 +600,7 @@ void ResizeWorldItems(void)//dnl ch75 271013
 		{
 			pwinew = &gWorldItems.front();
 			if(pwi != pwinew)
-				gpItem = (OBJECTTYPE *)((PSTR)pwinew + ((PSTR)gpItem - (PSTR)pwi));
+				gpItem = (OBJECTTYPE *)((char*)pwinew + ((char*)gpItem - (char*)pwi));
 		}
 #endif
 	}

@@ -188,7 +188,7 @@ void SetupTextInputForMercSchedule();
 void ExtractAndUpdateMercAttributes();
 void ExtractAndUpdateMercProfile();
 void ExtractAndUpdateMercSchedule();
-void CalcStringForValue( STR16 str, INT32 iValue, UINT32 uiMax );
+void CalcStringForValue( CHAR16* str, INT32 iValue, UINT32 uiMax );
 void ChangeBodyType( INT8 bOffset );	//+1 or -1 only
 
 //internal merc variables
@@ -1857,14 +1857,22 @@ void SetupTextInputForMercAttributes()
 //In the merc editing, all detailed placement values for generated attributes are set to -1.
 //When making a generated attribute static, we then set the value to its applicable value.
 //This function is similar to the itoa function except that -1 is converted to a null string.
-void CalcStringForValue( STR16 str, INT32 iValue, UINT32 uiMax )
+void CalcStringForValue( CHAR16* str, INT32 iValue, UINT32 uiMax )
 {
 	if( iValue < 0 )			//a blank string is determined by a negative value.
 		str[0] = '\0';
-	else if( (UINT32)iValue > uiMax )	//higher than max attribute value, so convert it to the max.
-		swprintf( str, L"%d", uiMax );
-	else										//this is a valid static value, so convert it to a string.
-		swprintf( str, L"%d", iValue );
+	else
+	{
+		// Format into a local array (the swprintf wrapper needs a known
+		// buffer extent, which it can't get from the str pointer), then
+		// copy out. Values are clamped to uiMax (<=100) so they fit.
+		CHAR16 num[16];
+		if( (UINT32)iValue > uiMax )	//higher than max attribute value, so convert it to the max.
+			swprintf( num, L"%d", uiMax );
+		else										//this is a valid static value, so convert it to a string.
+			swprintf( num, L"%d", iValue );
+		wcscpy( str, num );
+	}
 }
 
 void ExtractAndUpdateMercAttributes()
