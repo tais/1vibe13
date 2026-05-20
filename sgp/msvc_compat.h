@@ -581,6 +581,15 @@ inline int vswprintf(wchar_t (&buf)[N], const wchar_t* fmt, va_list args) {
 #ifdef __cplusplus
 #include <algorithm>     // std::min/std::max
 #include <type_traits>   // std::common_type
+// Defensive: if some header pulled in <windows.h> without NOMINMAX
+// before this point, its min/max function macros would mangle the
+// template definitions below ("expected ')'"). Clear them first.
+#ifdef min
+#  undef min
+#endif
+#ifdef max
+#  undef max
+#endif
 template <typename A, typename B>
 constexpr auto min(A const& a, B const& b)
     -> typename std::common_type<A, B>::type
