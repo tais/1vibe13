@@ -946,125 +946,33 @@ BOOLEAN CheckVideoObjectScreenCoordinateInData( HVOBJECT hSrcVObject, UINT16 usI
 
 	SrcPtr= (UINT8 *)hSrcVObject->pPixData + uiOffset;
 
-#ifdef _MSC_VER
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, iStartPos
-		xor		eax, eax
-		xor		ebx, ebx
-		xor		ecx, ecx
-
-BlitDispatch:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-		clc
-		rcr		cl, 1
-		jnc		BlitNTL2
-
-		inc		esi
-
-		// Check
-		cmp		edi, iTestPos
-		je		BlitFound
-		add		edi, 1
-
-
-BlitNTL2:
-		clc
-		rcr		cl, 1
-		jnc		BlitNTL3
-
-		add		esi, 2
-
-		// Check
-		cmp		edi, iTestPos
-		je		BlitFound
-		add		edi, 1
-
-		// Check
-		cmp		edi, iTestPos
-		je		BlitFound
-		add		edi, 1
-
-
-BlitNTL3:
-
-		or		cl, cl
-		jz		BlitDispatch
-
-		xor		ebx, ebx
-
-BlitNTL4:
-
-		add		esi, 4
-
-		// Check
-		cmp		edi, iTestPos
-		je		BlitFound
-		add		edi, 1
-
-		// Check
-		cmp		edi, iTestPos
-		je		BlitFound
-		add		edi, 1
-
-		// Check
-		cmp		edi, iTestPos
-		je		BlitFound
-		add		edi, 1
-
-		// Check
-		cmp		edi, iTestPos
-		je		BlitFound
-		add		edi, 1
-
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add		edi, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-// Here check if we have passed!
-		cmp		edi, iTestPos
-		jge		BlitDone
-
-		dec		usHeight
-		jz		BlitDone
-//		add		edi, LineSkip
-		jmp		BlitDispatch
-
-
-BlitFound:
-
-		mov		fDataFound, 1
-
-BlitDone:
+	// Portable replacement for the former MSVC __asm pixel-hit test.
+	// Walk the ETRLE counting a linear (row-major) pixel index; report a
+	// hit when iTestPos lands on a non-transparent pixel. Transparent runs
+	// advance the index without data; an end-of-line marker past iTestPos
+	// stops the scan early.
+	{
+		const UINT8* src = SrcPtr;
+		INT32 pos = iStartPos;
+		UINT32 h = usHeight;
+		for (;;) {
+			const UINT8 cmd = *src++;
+			if (cmd == 0) {                 // end of line
+				if (pos >= iTestPos) break;
+				if (--h == 0) break;
+				continue;
+			}
+			if (cmd & 0x80) {               // transparent run
+				pos += (cmd & 0x7F);
+			} else {                        // opaque run
+				for (UINT8 i = 0; i < cmd; ++i) {
+					if (pos == iTestPos) { fDataFound = TRUE; break; }
+					pos++; src++;
+				}
+				if (fDataFound) break;
+			}
+		}
 	}
-#else
-	// Pixel-hit testing of the ETRLE-compressed video object data is
-	// done by inline assembly on MSVC; on other compilers we punt
-	// (the function reports "no hit"). Mouse interaction on
-	// transparent regions of interactive tiles is slightly looser
-	// until this is ported to portable C.
-	(void)SrcPtr; (void)LineSkip; (void)iStartPos; (void)iTestPos;
-#endif
 
 	return(fDataFound);
 
