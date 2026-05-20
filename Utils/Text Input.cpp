@@ -1940,7 +1940,7 @@ void CopyToClipboard( void )
 
 			// create new DDE buffer and get exclusive lock to it
 			clipbuffer = GlobalAlloc(GMEM_DDESHARE, (wcslen(szClipboard)+1)*sizeof(CHAR16));
-			writeBuffer = (STR16)GlobalLock(clipbuffer);
+			writeBuffer = (CHAR16 *)GlobalLock(clipbuffer);
 
 			// copy the clipboard string
 			wcscpy(writeBuffer, szClipboard);
