@@ -119,6 +119,16 @@ if(DEFINED sdl3_BINARY_DIR)
 endif()
 
 add_compile_definitions(CINTERFACE XML_STATIC VFS_STATIC VFS_WITH_SLF VFS_WITH_7ZIP _CRT_SECURE_NO_DEPRECATE)
+
+# bfVFS (and a few JA2 spots) gate Windows code on bare `WIN32`, not
+# `_WIN32`. MSVC's IDE / CMake's MSVC generator define WIN32 for you,
+# but our Ninja + clang Windows build only gets the compiler-builtin
+# `_WIN32`/`_WIN64`. Define WIN32 explicitly so bfVFS takes its
+# Windows branches (e.g. vfs_os_functions.h includes <windows.h>
+# instead of POSIX <sys/dir.h>).
+if(WIN32)
+  add_compile_definitions(WIN32)
+endif()
 include_directories(
   "${CMAKE_SOURCE_DIR}/Ja2"
   "${CMAKE_SOURCE_DIR}/ext/VFS/include"
