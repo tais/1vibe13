@@ -4387,7 +4387,18 @@ UINT32	EditScreenHandle( void )
 	// Handle scrolling of the map if needed
 	if( !gfGotoGridNoUI && !gfKeyboardItemCreationUI && iDrawMode != DRAW_MODE_SHOW_TILESET && !gfSummaryWindowActive &&
 			!gfEditingDoor && !gfNoScroll && !InOverheadMap() )
+	{
 		ScrollWorld();
+
+		// SDL3 port: promote the camera move into a full RenderWorld
+		// repaint this frame (same hook HandleTacticalScreen uses). The
+		// streaming-texture pipeline has no persistent back-buffer for an
+		// incremental scroll-blit, so without this the editor map froze
+		// mid-scroll while the merc smeared a trail until the keys were
+		// released -- it only snapped to the new camera when scrolling
+		// stopped.
+		Sgp_ShiftFrameBufferForScroll();
+	}
 
 	iCurrentAction = ACTION_NULL;
 
