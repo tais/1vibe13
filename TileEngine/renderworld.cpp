@@ -4856,6 +4856,110 @@ void InvalidateWorldRedundency( )
 
 #define	Z_STRIP_DELTA_Y  ( Z_SUBLAYERS * 10 )
 
+// ----------------------------------------------------------------------------
+// Portable replacement for the 32-bit x86 __asm inner loops of the multi-Z-
+// strip ("...Inc...") blitter family. The asm bodies were gated to
+// _WIN32 && _M_IX86 with no C fallback, so on macOS/Linux (and 64-bit
+// Windows) these blitters returned without drawing -- which is why prone
+// soldiers and dead bodies (both rendered through this family) were
+// invisible.
+//
+// Each caller has already computed the clip/skip rectangle, the ETRLE
+// SrcPtr, the DestPtr/ZPtr (16bpp, byte-addressed), and the Z-strip start
+// state (usZStartLevel/usZStartCols/usZStartIndex + pZArray). This helper
+// walks the ETRLE exactly like the original asm: it advances the per-column
+// Z level by Z_SUBLAYERS every 20 columns per the object's ZStripInfo, and
+// invokes `core(src, dst, zp, zLevel, lineFlag)` for every visible
+// non-transparent pixel. The core decides the Z-test, the write, shadow
+// (254) and obscure pixelation -- matching the per-variant asm.
+namespace {
+template <typename Core>
+inline void BlitMultiZStripRun(
+	const UINT8* SrcPtr, UINT8* DestPtr, UINT8* ZPtr,
+	INT32 BlitLength, INT32 BlitHeight, INT32 LeftSkip, INT32 TopSkip,
+	UINT32 LineSkip, UINT16 usZStartLevel, UINT16 usZStartCols,
+	UINT16 usZStartIndex, const INT8* pZArray, UINT32 lineFlagInit, Core core)
+{
+	const UINT8* src = SrcPtr;
+	// Skip the source data for TopSkip clipped lines.
+	for (INT32 i = 0; i < TopSkip; ++i) {
+		for (;;) { const UINT8 c = *src++; if (c == 0) break; if (!(c & 0x80)) src += c; }
+	}
+
+	UINT8* dst = DestPtr;
+	UINT8* zp  = ZPtr;
+	UINT32 lineFlag = lineFlagInit;
+
+	for (INT32 row = 0; row < BlitHeight; ++row) {
+		UINT16 zLevel = usZStartLevel;
+		UINT16 zIndex = usZStartIndex;
+		UINT16 zCols  = usZStartCols;
+		INT32  LSCount;
+		INT32  px;
+
+		// Skip pixels hanging off the left edge, stepping the Z column
+		// counter as we go; a run that extends past the left clip jumps
+		// straight into the visible blit loop with the remainder.
+		for (LSCount = LeftSkip; LSCount > 0; LSCount -= px) {
+			px = *src++;
+			if (px & 0x80) {
+				px &= 0x7F;
+				if (px > LSCount) { px -= LSCount; LSCount = BlitLength; goto trans; }
+			} else {
+				if (px > LSCount) { src += LSCount; px -= LSCount; LSCount = BlitLength; goto nontrans; }
+				src += px;
+			}
+		}
+
+		LSCount = BlitLength;
+		while (LSCount > 0) {
+			px = *src++;
+			if (px & 0x80) {
+trans:			// transparent run: advance dest, step Z columns
+				px &= 0x7F;
+				if (px > LSCount) px = LSCount;
+				LSCount -= px;
+				dst += 2 * px;
+				zp  += 2 * px;
+				for (;;) {
+					if (px >= (INT32)zCols) {
+						px -= zCols;
+						zCols = 20;
+						const INT8 d = pZArray[zIndex++];
+						if      (d < 0) zLevel -= Z_SUBLAYERS;
+						else if (d > 0) zLevel += Z_SUBLAYERS;
+					} else {
+						zCols -= px;
+						break;
+					}
+				}
+			} else {
+nontrans:		// non-transparent run: blit each pixel via core
+				INT32 unblit;
+				if (px > LSCount) { unblit = px - LSCount; px = LSCount; } else unblit = 0;
+				LSCount -= px;
+				do {
+					core(src, (UINT16*)dst, (UINT16*)zp, zLevel, lineFlag);
+					src++; dst += 2; zp += 2;
+					if (--zCols == 0) {
+						zCols = 20;
+						const INT8 d = pZArray[zIndex++];
+						if      (d < 0) zLevel -= Z_SUBLAYERS;
+						else if (d > 0) zLevel += Z_SUBLAYERS;
+					}
+				} while (--px > 0);
+				src += unblit;
+			}
+		}
+
+		while (*src++ != 0) {}   // skip to end-of-line marker
+		lineFlag ^= 1;
+		dst += LineSkip;
+		zp  += LineSkip;
+	}
+}
+} // namespace
+
 /**********************************************************************************************
  Blt8BPPDataTo16BPPBufferTransZIncClip
 
@@ -4991,267 +5095,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( UINT16 *pBuffer, UINT32 uiDestPit
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-#if defined(_WIN32) && defined(_M_IX86)
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-		cmp		TopSkip, 0							// check for nothing clipped on top
-		je		LeftSkipSetup
-
-
-// Skips the number of lines clipped at the top
-TopSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		TopSkipLoop
-		jz		TSEndLine
-
-		add		esi, ecx
-		jmp		TopSkipLoop
-
-TSEndLine:
-		dec		TopSkip
-		jnz		TopSkipLoop
-
-
-// Start of line loop
-
-// Skips the pixels hanging outside the left-side boundry
-LeftSkipSetup:
-
-		mov		Unblitted, 0					// Unblitted counts any pixels left from a run
-		mov		eax, LeftSkip					// after we have skipped enough left-side pixels
-		mov		LSCount, eax					// LSCount counts how many pixels skipped so far
-		or		eax, eax
-		jz		BlitLineSetup					// check for nothing to skip
-
-LeftSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-
-		or		cl, cl
-		js		LSTrans
-
-		cmp		ecx, LSCount
-		je		LSSkip2								// if equal, skip whole, and start blit with new run
-		jb		LSSkip1								// if less, skip whole thing
-
-		add		esi, LSCount					// skip partial run, jump into normal loop for rest
-		sub		ecx, LSCount
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitNTL1							// *** jumps into non-transparent blit loop
-
-LSSkip2:
-		add		esi, ecx							// skip whole run, and start blit with new run
-		jmp		BlitLineSetup
-
-
-LSSkip1:
-		add		esi, ecx							// skip whole run, continue skipping
-		sub		LSCount, ecx
-		jmp		LeftSkipLoop
-
-
-LSTrans:
-		and		ecx, 07fH
-		cmp		ecx, LSCount
-		je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-		jb		LSTrans1							// if less, skip whole thing
-
-		sub		ecx, LSCount							// skip partial run, jump into normal loop for rest
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitTransparent				// *** jumps into transparent blit loop
-
-
-LSTrans1:
-		sub		LSCount, ecx					// skip whole run, continue skipping
-		jmp		LeftSkipLoop
-
-//-------------------------------------------------
-// setup for beginning of line
-
-BlitLineSetup:
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-
-BlitDispatch:
-
-		cmp		LSCount, 0							// Check to see if we're done blitting
-		je		RightSkipLoop
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		RSLoop2
-
-//--------------------------------
-// blitting non-transparent pixels
-
-		and		ecx, 07fH
-
-BlitNTL1:
-		mov		ax, [ebx]								// check z-level of pixel
-		cmp		ax, usZLevel
-		jae		BlitNTL2
-
-		mov		ax, usZLevel						// update z-level of pixel
-		mov		[ebx], ax
-
-		xor		eax, eax
-		mov		al, [esi]								// copy pixel
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-BlitNTL2:
-		inc		esi
-		add		edi, 2
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitNTL6
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitNTL5								// dir = 0 no change
-		js		BlitNTL4								// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_STRIP_DELTA_Y
-		jmp		BlitNTL5
-
-BlitNTL4:
-		sub		dx, Z_STRIP_DELTA_Y
-
-BlitNTL5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitNTL6:
-		dec		LSCount									// decrement pixel length to blit
-		jz		RightSkipLoop						// done blitting the visible line
-
-		dec		ecx
-		jnz		BlitNTL1								// continue current run
-
-		jmp		BlitDispatch						// done current run, go for another
-
-
-//----------------------------
-// skipping transparent pixels
-
-BlitTransparent:									// skip transparent pixels
-
-		and		ecx, 07fH
-
-BlitTrans2:
-
-		add		edi, 2									// move up the destination pointer
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitTrans1
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitTrans5							// dir = 0 no change
-		js		BlitTrans4							// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_STRIP_DELTA_Y
-		jmp		BlitTrans5
-
-BlitTrans4:
-		sub		dx, Z_STRIP_DELTA_Y
-
-BlitTrans5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitTrans1:
-
-		dec		LSCount									// decrement the pixels to blit
-		jz		RightSkipLoop						// done the line
-
-		dec		ecx
-		jnz		BlitTrans2
-
-		jmp		BlitDispatch
-
-//---------------------------------------------
-// Scans the ETRLE until it finds an EOL marker
-
-RightSkipLoop:
-
-
-RSLoop1:
-		mov		al, [esi]
-		inc		esi
-		or		al, al
-		jnz		RSLoop1
-
-RSLoop2:
-
-		dec		BlitHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-
-// reset all the z-level stuff for a new line
-
-		mov		ax, usZStartLevel
-		mov		usZLevel, ax
-		mov		ax, usZStartIndex
-		mov		usZIndex, ax
-		mov		ax, usZStartCols
-		mov		usZColsToGo, ax
-
-
-		jmp		LeftSkipSetup
-
-
-BlitDone:
-	}
-#endif
-
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+		usZStartLevel, usZStartCols, usZStartIndex, pZArray, 0,
+		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32) {
+			if (*z < zlev) { *z = zlev; *d = p16BPPPalette[*s]; }
+		});
 	return(TRUE);
 }
 
@@ -5391,267 +5239,12 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( UINT16 *pBuffer
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-#if defined(_WIN32) && defined(_M_IX86)
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-		cmp		TopSkip, 0							// check for nothing clipped on top
-		je		LeftSkipSetup
-
-
-// Skips the number of lines clipped at the top
-TopSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		TopSkipLoop
-		jz		TSEndLine
-
-		add		esi, ecx
-		jmp		TopSkipLoop
-
-TSEndLine:
-		dec		TopSkip
-		jnz		TopSkipLoop
-
-
-// Start of line loop
-
-// Skips the pixels hanging outside the left-side boundry
-LeftSkipSetup:
-
-		mov		Unblitted, 0					// Unblitted counts any pixels left from a run
-		mov		eax, LeftSkip					// after we have skipped enough left-side pixels
-		mov		LSCount, eax					// LSCount counts how many pixels skipped so far
-		or		eax, eax
-		jz		BlitLineSetup					// check for nothing to skip
-
-LeftSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-
-		or		cl, cl
-		js		LSTrans
-
-		cmp		ecx, LSCount
-		je		LSSkip2								// if equal, skip whole, and start blit with new run
-		jb		LSSkip1								// if less, skip whole thing
-
-		add		esi, LSCount					// skip partial run, jump into normal loop for rest
-		sub		ecx, LSCount
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitNTL1							// *** jumps into non-transparent blit loop
-
-LSSkip2:
-		add		esi, ecx							// skip whole run, and start blit with new run
-		jmp		BlitLineSetup
-
-
-LSSkip1:
-		add		esi, ecx							// skip whole run, continue skipping
-		sub		LSCount, ecx
-		jmp		LeftSkipLoop
-
-
-LSTrans:
-		and		ecx, 07fH
-		cmp		ecx, LSCount
-		je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-		jb		LSTrans1							// if less, skip whole thing
-
-		sub		ecx, LSCount							// skip partial run, jump into normal loop for rest
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitTransparent				// *** jumps into transparent blit loop
-
-
-LSTrans1:
-		sub		LSCount, ecx					// skip whole run, continue skipping
-		jmp		LeftSkipLoop
-
-//-------------------------------------------------
-// setup for beginning of line
-
-BlitLineSetup:
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-
-BlitDispatch:
-
-		cmp		LSCount, 0							// Check to see if we're done blitting
-		je		RightSkipLoop
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		RSLoop2
-
-//--------------------------------
-// blitting non-transparent pixels
-
-		and		ecx, 07fH
-
-BlitNTL1:
-		mov		ax, [ebx]								// check z-level of pixel
-		cmp		ax, usZLevel
-		ja		BlitNTL2
-
-		mov		ax, usZLevel						// update z-level of pixel
-		mov		[ebx], ax
-
-		xor		eax, eax
-		mov		al, [esi]								// copy pixel
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-BlitNTL2:
-		inc		esi
-		add		edi, 2
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitNTL6
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitNTL5								// dir = 0 no change
-		js		BlitNTL4								// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_STRIP_DELTA_Y
-		jmp		BlitNTL5
-
-BlitNTL4:
-		sub		dx, Z_STRIP_DELTA_Y
-
-BlitNTL5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitNTL6:
-		dec		LSCount									// decrement pixel length to blit
-		jz		RightSkipLoop						// done blitting the visible line
-
-		dec		ecx
-		jnz		BlitNTL1								// continue current run
-
-		jmp		BlitDispatch						// done current run, go for another
-
-
-//----------------------------
-// skipping transparent pixels
-
-BlitTransparent:									// skip transparent pixels
-
-		and		ecx, 07fH
-
-BlitTrans2:
-
-		add		edi, 2									// move up the destination pointer
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitTrans1
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitTrans5							// dir = 0 no change
-		js		BlitTrans4							// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_STRIP_DELTA_Y
-		jmp		BlitTrans5
-
-BlitTrans4:
-		sub		dx, Z_STRIP_DELTA_Y
-
-BlitTrans5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitTrans1:
-
-		dec		LSCount									// decrement the pixels to blit
-		jz		RightSkipLoop						// done the line
-
-		dec		ecx
-		jnz		BlitTrans2
-
-		jmp		BlitDispatch
-
-//---------------------------------------------
-// Scans the ETRLE until it finds an EOL marker
-
-RightSkipLoop:
-
-
-RSLoop1:
-		mov		al, [esi]
-		inc		esi
-		or		al, al
-		jnz		RSLoop1
-
-RSLoop2:
-
-		dec		BlitHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-
-// reset all the z-level stuff for a new line
-
-		mov		ax, usZStartLevel
-		mov		usZLevel, ax
-		mov		ax, usZStartIndex
-		mov		usZIndex, ax
-		mov		ax, usZStartCols
-		mov		usZColsToGo, ax
-
-
-		jmp		LeftSkipSetup
-
-
-BlitDone:
-	}
-#endif
-
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+		usZStartLevel, usZStartCols, usZStartIndex, pZArray, 0,
+		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32) {
+			// same-Z burns through: draw on <= as well
+			if (*z <= zlev) { *z = zlev; *d = p16BPPPalette[*s]; }
+		});
 	return(TRUE);
 }
 
@@ -5797,287 +5390,12 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( UINT16 *pBuffer, UINT32 ui
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-#if defined(_WIN32) && defined(_M_IX86)
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-		cmp		TopSkip, 0							// check for nothing clipped on top
-		je		LeftSkipSetup
-
-
-// Skips the number of lines clipped at the top
-TopSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		TopSkipLoop
-		jz		TSEndLine
-
-		add		esi, ecx
-		jmp		TopSkipLoop
-
-TSEndLine:
-
-		xor		uiLineFlag, 1
-		dec		TopSkip
-		jnz		TopSkipLoop
-
-
-// Start of line loop
-
-// Skips the pixels hanging outside the left-side boundry
-LeftSkipSetup:
-
-		mov		Unblitted, 0					// Unblitted counts any pixels left from a run
-		mov		eax, LeftSkip					// after we have skipped enough left-side pixels
-		mov		LSCount, eax					// LSCount counts how many pixels skipped so far
-		or		eax, eax
-		jz		BlitLineSetup					// check for nothing to skip
-
-LeftSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-
-		or		cl, cl
-		js		LSTrans
-
-		cmp		ecx, LSCount
-		je		LSSkip2								// if equal, skip whole, and start blit with new run
-		jb		LSSkip1								// if less, skip whole thing
-
-		add		esi, LSCount					// skip partial run, jump into normal loop for rest
-		sub		ecx, LSCount
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitNTL1							// *** jumps into non-transparent blit loop
-
-LSSkip2:
-		add		esi, ecx							// skip whole run, and start blit with new run
-		jmp		BlitLineSetup
-
-
-LSSkip1:
-		add		esi, ecx							// skip whole run, continue skipping
-		sub		LSCount, ecx
-		jmp		LeftSkipLoop
-
-
-LSTrans:
-		and		ecx, 07fH
-		cmp		ecx, LSCount
-		je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-		jb		LSTrans1							// if less, skip whole thing
-
-		sub		ecx, LSCount							// skip partial run, jump into normal loop for rest
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitTransparent				// *** jumps into transparent blit loop
-
-
-LSTrans1:
-		sub		LSCount, ecx					// skip whole run, continue skipping
-		jmp		LeftSkipLoop
-
-//-------------------------------------------------
-// setup for beginning of line
-
-BlitLineSetup:
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-
-BlitDispatch:
-
-		cmp		LSCount, 0							// Check to see if we're done blitting
-		je		RightSkipLoop
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		RSLoop2
-
-//--------------------------------
-// blitting non-transparent pixels
-
-		and		ecx, 07fH
-
-BlitNTL1:
-		mov		ax, [ebx]								// check z-level of pixel
-		cmp		ax, usZLevel
-		jae		BlitPixellate1
-		jmp   BlitPixel1
-
-BlitPixellate1:
-
-		// OK, DO PIXELLATE SCHEME HERE!
-		test	uiLineFlag, 1
-		jz		BlitSkip1
-
-		test	edi, 2
-		jz		BlitNTL2
-		jmp		BlitPixel1
-
-BlitSkip1:
-		test	edi, 2
-		jnz		BlitNTL2
-
-BlitPixel1:
-
-		mov		ax, usZLevel						// update z-level of pixel
-		mov		[ebx], ax
-
-		xor		eax, eax
-		mov		al, [esi]								// copy pixel
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-BlitNTL2:
-		inc		esi
-		add		edi, 2
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitNTL6
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitNTL5								// dir = 0 no change
-		js		BlitNTL4								// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_STRIP_DELTA_Y
-		jmp		BlitNTL5
-
-BlitNTL4:
-		sub		dx, Z_STRIP_DELTA_Y
-
-BlitNTL5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitNTL6:
-		dec		LSCount									// decrement pixel length to blit
-		jz		RightSkipLoop						// done blitting the visible line
-
-		dec		ecx
-		jnz		BlitNTL1								// continue current run
-
-		jmp		BlitDispatch						// done current run, go for another
-
-
-//----------------------------
-// skipping transparent pixels
-
-BlitTransparent:									// skip transparent pixels
-
-		and		ecx, 07fH
-
-BlitTrans2:
-
-		add		edi, 2									// move up the destination pointer
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitTrans1
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitTrans5							// dir = 0 no change
-		js		BlitTrans4							// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_STRIP_DELTA_Y
-		jmp		BlitTrans5
-
-BlitTrans4:
-		sub		dx, Z_STRIP_DELTA_Y
-
-BlitTrans5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitTrans1:
-
-		dec		LSCount									// decrement the pixels to blit
-		jz		RightSkipLoop						// done the line
-
-		dec		ecx
-		jnz		BlitTrans2
-
-		jmp		BlitDispatch
-
-//---------------------------------------------
-// Scans the ETRLE until it finds an EOL marker
-
-RightSkipLoop:
-
-
-RSLoop1:
-		mov		al, [esi]
-		inc		esi
-		or		al, al
-		jnz		RSLoop1
-
-RSLoop2:
-
-		xor		uiLineFlag, 1
-		dec		BlitHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-
-// reset all the z-level stuff for a new line
-
-		mov		ax, usZStartLevel
-		mov		usZLevel, ax
-		mov		ax, usZStartIndex
-		mov		usZIndex, ax
-		mov		ax, usZStartCols
-		mov		usZColsToGo, ax
-
-
-		jmp		LeftSkipSetup
-
-
-BlitDone:
-	}
-#endif
-
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
+		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32 lf) {
+			const bool draw = (*z < zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
+			if (draw) { *z = zlev; *d = p16BPPPalette[*s]; }
+		});
 	return(TRUE);
 }
 
@@ -6213,304 +5531,19 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(UINT16 *pBuffer,
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-#if defined(_WIN32) && defined(_M_IX86)
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-		cmp		TopSkip, 0							// check for nothing clipped on top
-		je		LeftSkipSetup
-
-
-// Skips the number of lines clipped at the top
-TopSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		TopSkipLoop
-		jz		TSEndLine
-
-		add		esi, ecx
-		jmp		TopSkipLoop
-
-TSEndLine:
-
-		xor		uiLineFlag, 1
-		dec		TopSkip
-		jnz		TopSkipLoop
-
-
-// Start of line loop
-
-// Skips the pixels hanging outside the left-side boundry
-LeftSkipSetup:
-
-		mov		Unblitted, 0					// Unblitted counts any pixels left from a run
-		mov		eax, LeftSkip					// after we have skipped enough left-side pixels
-		mov		LSCount, eax					// LSCount counts how many pixels skipped so far
-		or		eax, eax
-		jz		BlitLineSetup					// check for nothing to skip
-
-LeftSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-
-		or		cl, cl
-		js		LSTrans
-
-		cmp		ecx, LSCount
-		je		LSSkip2								// if equal, skip whole, and start blit with new run
-		jb		LSSkip1								// if less, skip whole thing
-
-		add		esi, LSCount					// skip partial run, jump into normal loop for rest
-		sub		ecx, LSCount
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitNTL1							// *** jumps into non-transparent blit loop
-
-LSSkip2:
-		add		esi, ecx							// skip whole run, and start blit with new run
-		jmp		BlitLineSetup
-
-
-LSSkip1:
-		add		esi, ecx							// skip whole run, continue skipping
-		sub		LSCount, ecx
-		jmp		LeftSkipLoop
-
-
-LSTrans:
-		and		ecx, 07fH
-		cmp		ecx, LSCount
-		je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-		jb		LSTrans1							// if less, skip whole thing
-
-		sub		ecx, LSCount							// skip partial run, jump into normal loop for rest
-		mov		eax, BlitLength
-		mov		LSCount, eax
-
-		mov		Unblitted, 0
-		jmp		BlitTransparent				// *** jumps into transparent blit loop
-
-
-LSTrans1:
-		sub		LSCount, ecx					// skip whole run, continue skipping
-		jmp		LeftSkipLoop
-
-//-------------------------------------------------
-// setup for beginning of line
-
-BlitLineSetup:
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-
-BlitDispatch:
-
-		cmp		LSCount, 0							// Check to see if we're done blitting
-		je		RightSkipLoop
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		RSLoop2
-
-//--------------------------------
-// blitting non-transparent pixels
-
-		and		ecx, 07fH
-
-BlitNTL1:
-		mov		ax, [ebx]								// check z-level of pixel
-		cmp		ax, usZLevel
-		//jae		BlitPixellate1 // Original comparison
-		ja		BlitPixellate1 // Due to lobot layers having the same z-level, the comparison would pixelate merc's layers against each other. Now we pixelate ONLY if the comparison is above.
-		jmp		BlitPixel1
-
-BlitPixellate1:
-
-		// OK, DO PIXELLATE SCHEME HERE!
-		test	uiLineFlag, 1
-		jz		BlitSkip1
-
-		test	edi, 2
-		jz		BlitNTL2
-		jmp		BlitPixel1
-
-BlitSkip1:
-		test	edi, 2
-		jnz		BlitNTL2
-
-BlitPixel1:
-
-		mov		ax, usZLevel						// update z-level of pixel
-		mov		[ebx], ax
-
-		// Check for shadow...
-		xor		eax, eax
-		mov		al, [esi]
-		cmp		al, 254
-		jne		BlitNTL66
-
-		mov		al, fIgnoreShadows
-		cmp		al, 0
-		jne		BlitNTL2
-
-		mov		ax, [edi]
-		mov		ax, ShadeTable[eax*2]
-		mov		[edi], ax
-		jmp		BlitNTL2
-
-BlitNTL66:
-
-		mov		ax, [edx+eax*2]					// Copy pixel
-		mov		[edi], ax
-
-BlitNTL2:
-		inc		esi
-		add		edi, 2
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitNTL6
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitNTL5								// dir = 0 no change
-		js		BlitNTL4								// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_SUBLAYERS
-		jmp		BlitNTL5
-
-BlitNTL4:
-		sub		dx, Z_SUBLAYERS
-
-BlitNTL5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitNTL6:
-		dec		LSCount									// decrement pixel length to blit
-		jz		RightSkipLoop						// done blitting the visible line
-
-		dec		ecx
-		jnz		BlitNTL1								// continue current run
-
-		jmp		BlitDispatch						// done current run, go for another
-
-
-//----------------------------
-// skipping transparent pixels
-
-BlitTransparent:									// skip transparent pixels
-
-		and		ecx, 07fH
-
-BlitTrans2:
-
-		add		edi, 2									// move up the destination pointer
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitTrans1
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitTrans5							// dir = 0 no change
-		js		BlitTrans4							// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_SUBLAYERS
-		jmp		BlitTrans5
-
-BlitTrans4:
-		sub		dx, Z_SUBLAYERS
-
-BlitTrans5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitTrans1:
-
-		dec		LSCount									// decrement the pixels to blit
-		jz		RightSkipLoop						// done the line
-
-		dec		ecx
-		jnz		BlitTrans2
-
-		jmp		BlitDispatch
-
-//---------------------------------------------
-// Scans the ETRLE until it finds an EOL marker
-
-RightSkipLoop:
-
-
-RSLoop1:
-		mov		al, [esi]
-		inc		esi
-		or		al, al
-		jnz		RSLoop1
-
-RSLoop2:
-
-		xor		uiLineFlag, 1
-		dec		BlitHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-
-// reset all the z-level stuff for a new line
-
-		mov		ax, usZStartLevel
-		mov		usZLevel, ax
-		mov		ax, usZStartIndex
-		mov		usZIndex, ax
-		mov		ax, usZStartCols
-		mov		usZColsToGo, ax
-
-
-		jmp		LeftSkipSetup
-
-
-BlitDone:
-	}
-#endif
-
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
+		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32 lf) {
+			// Not obscured -> draw; obscured (ZBuffer > z) -> pixelate on a
+			// checkerboard keyed by line parity vs dest-pixel parity.
+			const bool draw = (*z <= zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
+			if (draw) {
+				*z = zlev;
+				const UINT8 v = *s;
+				if (v == 254) { if (!fIgnoreShadows) *d = ShadeTable[*d]; }
+				else            *d = p16BPPPalette[v];
+			}
+		});
 	return(TRUE);
 }
 
@@ -7195,283 +6228,16 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(UINT16 *pBuffer, UINT32
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-#if defined(_WIN32) && defined(_M_IX86)
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-		cmp		TopSkip, 0							// check for nothing clipped on top
-		je		LeftSkipSetup
-
-
-// Skips the number of lines clipped at the top
-TopSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		TopSkipLoop
-		jz		TSEndLine
-
-		add		esi, ecx
-		jmp		TopSkipLoop
-
-TSEndLine:
-		dec		TopSkip
-		jnz		TopSkipLoop
-
-
-// Start of line loop
-
-// Skips the pixels hanging outside the left-side boundry
-LeftSkipSetup:
-
-		mov		Unblitted, 0					// Unblitted counts any pixels left from a run
-		mov		eax, LeftSkip					// after we have skipped enough left-side pixels
-		mov		LSCount, eax					// LSCount counts how many pixels skipped so far
-		or		eax, eax
-		jz		BlitLineSetup					// check for nothing to skip
-
-LeftSkipLoop:
-
-		mov		cl, [esi]
-		inc		esi
-
-		or		cl, cl
-		js		LSTrans
-
-		cmp		ecx, LSCount
-		je		LSSkip2								// if equal, skip whole, and start blit with new run
-		jb		LSSkip1								// if less, skip whole thing
-
-		add		esi, LSCount					// skip partial run, jump into normal loop for rest
-		sub		ecx, LSCount
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-		jmp		BlitNTL1							// *** jumps into non-transparent blit loop
-
-LSSkip2:
-		add		esi, ecx							// skip whole run, and start blit with new run
-		jmp		BlitLineSetup
-
-
-LSSkip1:
-		add		esi, ecx							// skip whole run, continue skipping
-		sub		LSCount, ecx
-		jmp		LeftSkipLoop
-
-
-LSTrans:
-		and		ecx, 07fH
-		cmp		ecx, LSCount
-		je		BlitLineSetup					// if equal, skip whole, and start blit with new run
-		jb		LSTrans1							// if less, skip whole thing
-
-		sub		ecx, LSCount							// skip partial run, jump into normal loop for rest
-		mov		eax, BlitLength
-		mov		LSCount, eax
-
-		mov		Unblitted, 0
-		jmp		BlitTransparent				// *** jumps into transparent blit loop
-
-
-LSTrans1:
-		sub		LSCount, ecx					// skip whole run, continue skipping
-		jmp		LeftSkipLoop
-
-//-------------------------------------------------
-// setup for beginning of line
-
-BlitLineSetup:
-		mov		eax, BlitLength
-		mov		LSCount, eax
-		mov		Unblitted, 0
-
-BlitDispatch:
-
-		cmp		LSCount, 0							// Check to see if we're done blitting
-		je		RightSkipLoop
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		RSLoop2
-
-//--------------------------------
-// blitting non-transparent pixels
-
-		and		ecx, 07fH
-
-BlitNTL1:
-		mov		ax, [ebx]								// check z-level of pixel
-		cmp		ax, usZLevel
-		ja		BlitNTL2
-
-		mov		ax, usZLevel						// update z-level of pixel
-		mov		[ebx], ax
-
-		// Check for shadow...
-		xor		eax, eax
-		mov		al, [esi]
-		cmp		al, 254
-		jne		BlitNTL66
-
-		mov		al, fIgnoreShadows
-		cmp		al, 0
-		jne		BlitNTL2
-
-		mov		ax, [edi]
-		mov		ax, ShadeTable[eax*2]
-		mov		[edi], ax
-		jmp		BlitNTL2
-
-BlitNTL66:
-
-		mov		ax, [edx+eax*2]					// Copy pixel
-		mov		[edi], ax
-
-BlitNTL2:
-		inc		esi
-		add		edi, 2
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitNTL6
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitNTL5								// dir = 0 no change
-		js		BlitNTL4								// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_SUBLAYERS
-		jmp		BlitNTL5
-
-BlitNTL4:
-		sub		dx, Z_SUBLAYERS
-
-BlitNTL5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitNTL6:
-		dec		LSCount									// decrement pixel length to blit
-		jz		RightSkipLoop						// done blitting the visible line
-
-		dec		ecx
-		jnz		BlitNTL1								// continue current run
-
-		jmp		BlitDispatch						// done current run, go for another
-
-
-//----------------------------
-// skipping transparent pixels
-
-BlitTransparent:									// skip transparent pixels
-
-		and		ecx, 07fH
-
-BlitTrans2:
-
-		add		edi, 2									// move up the destination pointer
-		add		ebx, 2
-
-		dec		usZColsToGo
-		jnz		BlitTrans1
-
-// update the z-level according to the z-table
-
-		push	edx
-		mov		edx, pZArray						// get pointer to array
-		xor		eax, eax
-		mov		ax, usZIndex						// pick up the current array index
-		add		edx, eax
-		inc		eax											// increment it
-		mov		usZIndex, ax						// store incremented value
-
-		mov		al, [edx]								// get direction instruction
-		mov		dx, usZLevel						// get current z-level
-
-		or		al, al
-		jz		BlitTrans5							// dir = 0 no change
-		js		BlitTrans4							// dir < 0 z-level down
-																	// dir > 0 z-level up (default)
-		add		dx, Z_SUBLAYERS
-		jmp		BlitTrans5
-
-BlitTrans4:
-		sub		dx, Z_SUBLAYERS
-
-BlitTrans5:
-		mov		usZLevel, dx						// store the now-modified z-level
-		mov		usZColsToGo, 20					// reset the next z-level change to 20 cols
-		pop		edx
-
-BlitTrans1:
-
-		dec		LSCount									// decrement the pixels to blit
-		jz		RightSkipLoop						// done the line
-
-		dec		ecx
-		jnz		BlitTrans2
-
-		jmp		BlitDispatch
-
-//---------------------------------------------
-// Scans the ETRLE until it finds an EOL marker
-
-RightSkipLoop:
-
-
-RSLoop1:
-		mov		al, [esi]
-		inc		esi
-		or		al, al
-		jnz		RSLoop1
-
-RSLoop2:
-
-		dec		BlitHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-
-// reset all the z-level stuff for a new line
-
-		mov		ax, usZStartLevel
-		mov		usZLevel, ax
-		mov		ax, usZStartIndex
-		mov		usZIndex, ax
-		mov		ax, usZStartCols
-		mov		usZColsToGo, ax
-
-
-		jmp		LeftSkipSetup
-
-
-BlitDone:
-	}
-#endif
-
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+		usZStartLevel, usZStartCols, usZStartIndex, pZArray, /*lineFlag*/0,
+		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32) {
+			if (*z <= zlev) {
+				*z = zlev;
+				const UINT8 v = *s;
+				if (v == 254) { if (!fIgnoreShadows) *d = ShadeTable[*d]; }
+				else            *d = p16BPPPalette[v];
+			}
+		});
 	return(TRUE);
 }
 
