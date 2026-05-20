@@ -228,9 +228,9 @@ static Str8EnumLookupType gKeyTable[] =
 	{0, NULL}
 };
 
-static inline STR Trim(STR &p) { 
-	while(isspace(*p)) *p++ = 0; 
-	TCHAR *e = p + strlen(p) - 1;
+static inline CHAR8 *Trim(CHAR8 *&p) {
+	while(isspace(*p)) *p++ = 0;
+	CHAR8 *e = p + strlen(p) - 1;
 	while (e > p && isspace(*e)) *e-- = 0;
 	return p;
 }
@@ -264,7 +264,7 @@ extern int ParseKeyString(const STR value)
 	int idx = 0;
 	UINT8* ptr = (UINT8*)&iresult;
 	const STR sDelims = "|+";
-	for ( STR key = strtok(buffer, sDelims); key != NULL; key = strtok(NULL, sDelims) )
+	for ( CHAR8 *key = strtok(buffer, sDelims); key != NULL; key = strtok(NULL, sDelims) )
 	{
 		Trim(key);
 		int ichr = StringToEnum(key, gKeyTable);
