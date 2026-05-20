@@ -1419,6 +1419,15 @@ void InitCursors( )
 
 void HandleAnimatedCursors( )
 {
+	// While a message box owns the screen it sets its own cursor
+	// (CURSOR_NORMAL). The tactical screen keeps animating underneath
+	// (e.g. combat resolving behind a surrender prompt) and would
+	// otherwise re-assert the disabled-UI WAIT cursor every frame --
+	// that alternation kept resetting WAIT's DELAY_START_CURSOR timer so
+	// it never rendered, leaving no cursor at all. Let the box own it.
+	extern BOOLEAN gfInMsgBox;
+	if ( gfInMsgBox )
+		return;
 
 	if ( COUNTERDONE( CURSORCOUNTER ) )
 	{

@@ -343,7 +343,15 @@ INT32 DoMessageBox( UINT8 ubStyle, const STR16 zString, UINT32 uiExitScreen, UIN
 	UnLockVideoSurface( FRAME_BUFFER );
 		
 	// Create top-level mouse region
-	MSYS_DefineRegion( &(gMsgBox.BackRegion), 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, MSYS_PRIORITY_HIGHEST - 1,	usCursor, MSYS_NO_CALLBACK, MsgBoxClickCallback );
+	// Modal backdrop must own the cursor. At HIGHEST-1 it lost to the
+	// tactical enemy-turn / disabled-UI regions (gUserTurnRegion /
+	// gDisableRegion, both full-screen at MSYS_PRIORITY_HIGHEST with the
+	// invisible WAIT cursor) -- so off the buttons the box showed no game
+	// cursor (e.g. the surrender prompt during the enemy turn). Use
+	// HIGHEST: MSYS inserts equal-priority regions ahead of existing
+	// ones, so this backdrop beats those tactical regions, while the box
+	// buttons (also HIGHEST, created afterwards) still beat the backdrop.
+	MSYS_DefineRegion( &(gMsgBox.BackRegion), 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, MSYS_PRIORITY_HIGHEST,	usCursor, MSYS_NO_CALLBACK, MsgBoxClickCallback );
 
 	if( gGameSettings.fOptions[ TOPTION_DONT_MOVE_MOUSE ] == FALSE )
 	{
