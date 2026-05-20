@@ -2,6 +2,7 @@ name: build
 
 # CMake/SDL3 compile-check on every platform we ship -- Linux, macOS,
 # Windows. English only for now (multi-language builds come later).
+# Optimized Release builds (NDEBUG, asserts off, no debug symbols).
 #
 # The three shipped applications -- the main game (JA2_ENGLISH),
 # Unfinished Business (JA2UB_ENGLISH) and the map editor
@@ -94,7 +95,7 @@ jobs:
           echo "CXXFLAGS=--target=x86_64-pc-windows-msvc"  >> $GITHUB_ENV
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLanguages=ENGLISH -DApplications=${{ matrix.application }}
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLanguages=ENGLISH -DApplications=${{ matrix.application }}
 
       - name: Build
         run: cmake --build build
@@ -120,6 +121,5 @@ jobs:
           path: |
             build/${{ matrix.application }}_ENGLISH
             build/${{ matrix.application }}_ENGLISH.exe
-            build/${{ matrix.application }}_ENGLISH.pdb
             build/*.dll
           if-no-files-found: warn
