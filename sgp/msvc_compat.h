@@ -403,36 +403,6 @@ inline DWORD GetPrivateProfileStringA(const char*, const char*,
 #define __max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#ifdef __cplusplus
-// Global `::min` / `::max` template overloads that handle mixed integer
-// types via std::common_type. JA2 source has thousands of bare
-// `min(int_literal, sized_int)` calls that won't compile against
-// std::min<T>(T const&, T const&) because deduction fails on
-// dissimilar argument types. These overloads pick up those cases via
-// ADL/unqualified lookup; for same-type calls in code that does
-// `using namespace std;`, std::min<T> is more specialized and wins
-// overload resolution, so it remains the preferred path.
-//
-// Function-style `#define min/max` macros are intentionally NOT defined
-// because they corrupt `min(...)` / `max(...)` inside
-// libstdc++'s own template code (sstream/istream/hashtable/specfun/...)
-// on Linux clang.
-template <typename A, typename B>
-constexpr auto min(A const& a, B const& b)
-    -> typename std::common_type<A, B>::type
-{
-    using T = typename std::common_type<A, B>::type;
-    return T(a) < T(b) ? T(a) : T(b);
-}
-template <typename A, typename B>
-constexpr auto max(A const& a, B const& b)
-    -> typename std::common_type<A, B>::type
-{
-    using T = typename std::common_type<A, B>::type;
-    return T(a) > T(b) ? T(a) : T(b);
-}
-#endif
-
 #define _stricmp   strcasecmp
 #define _strnicmp  strncasecmp
 #define _wcsicmp   wcscasecmp
@@ -504,6 +474,38 @@ inline wchar_t* wcstok_2arg(wchar_t* str, const wchar_t* delim) {
     return ::wcstok(str, delim, &state);
 }
 #define wcstok(str, delim) ::wcstok_2arg((str), (delim))
+#endif
+
+// Global `::min` / `::max` template overloads that handle mixed integer
+// types via std::common_type. JA2 source has thousands of bare
+// `min(int_literal, sized_int)` calls that won't compile against
+// std::min<T>(T const&, T const&) because deduction fails on
+// dissimilar argument types. These overloads pick up those cases via
+// ADL/unqualified lookup; for same-type calls in code that does
+// `using namespace std;`, std::min<T> is more specialized and wins.
+//
+// Needed on every platform: on POSIX there are no Win32 min/max
+// macros, and on Windows we define NOMINMAX (so <windows.h> doesn't
+// provide them either). Function-style `#define min/max` macros are
+// intentionally NOT used -- they corrupt `min(...)`/`max(...)` inside
+// libstdc++'s / MSVC STL's own template code.
+#ifdef __cplusplus
+#include <algorithm>     // std::min/std::max
+#include <type_traits>   // std::common_type
+template <typename A, typename B>
+constexpr auto min(A const& a, B const& b)
+    -> typename std::common_type<A, B>::type
+{
+    using T = typename std::common_type<A, B>::type;
+    return T(a) < T(b) ? T(a) : T(b);
+}
+template <typename A, typename B>
+constexpr auto max(A const& a, B const& b)
+    -> typename std::common_type<A, B>::type
+{
+    using T = typename std::common_type<A, B>::type;
+    return T(a) > T(b) ? T(a) : T(b);
+}
 #endif
 
 // MSVC's legacy swprintf signature is swprintf(buf, fmt, ...). The
