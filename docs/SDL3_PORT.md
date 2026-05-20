@@ -30,9 +30,9 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | 🟡 Most work landed (inline asm gone, tactical playable, FMOD→SDL3_mixer in 6r, Smacker→libsmacker in 6u, cursor + render + tooltip fixes). RGB565 is still the internal format; RGBA8888 conversion + palette LUT regen pending. |
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
-| 9 | Fonts — stb_truetype, drop GDI | Not started |
-| 10 | Platform packaging + CI | 🟡 CI compile-check live on Linux + macOS (`.github/workflows/build_unix.yml`). Packaging artifacts still Windows-only. |
-| ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely |
+| 9 | Fonts — stb_truetype, drop GDI | 🟡 GDI `WinFont.cpp` retired everywhere (no-op stubs in `WinFont.h`, `iUseWinFonts` off); stb_truetype replacement still pending. |
+| 10 | Platform packaging + CI | 🟡 CI compile-check live on **Linux + macOS + Windows** (`.github/workflows/build_unix.yml`, clang/Ninja, `--target=x86_64-pc-windows-msvc`). `JA2_ENGLISH.exe` compiles + links. Packaging/installer artifacts still pending. |
+| ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely. `Multiplayer/mp_stubs.cpp` (no-op definitions, STATIC) builds on every platform; the main-menu MP button is disabled. The 32-bit Win32 `RakNetLibStatic.lib` is unused. |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
 on macOS. The resulting binary prints a "not yet implemented" notice
