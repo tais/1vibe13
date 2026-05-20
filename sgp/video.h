@@ -29,16 +29,13 @@ extern UINT32 CurrentSurface;
 //#endif
 
 #ifdef _WIN32
+// Still referenced by Win32-gated mouse/clipboard paths (ScreenToClient,
+// OpenClipboard, ...). The DirectDraw object getters that used to live
+// here are gone -- SDL3 replaced DirectDraw, and InitializeVideoManager
+// is now the portable 0-arg form below on every platform.
 extern HWND										ghWindow;
-extern BOOLEAN				InitializeVideoManager(HINSTANCE hInstance, UINT16 usCommandShow, void *WindowProc);
-extern LPDIRECTDRAW2		GetDirectDraw2Object(void);
-extern LPDIRECTDRAWSURFACE2 GetPrimarySurfaceObject(void);
-extern LPDIRECTDRAWSURFACE2 GetBackBufferObject(void);
-extern LPDIRECTDRAWSURFACE2 GetFrameBufferObject(void);
-extern LPDIRECTDRAWSURFACE2 GetMouseBufferObject(void);
-#else
-extern BOOLEAN				InitializeVideoManager(void);
 #endif
+extern BOOLEAN				InitializeVideoManager(void);
 
 extern void				 ShutdownVideoManager(void);
 extern void				 SuspendVideoManager(void);
