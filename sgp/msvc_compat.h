@@ -617,7 +617,19 @@ constexpr auto max(A const& a, B const& b)
 inline int sgp_swprintf(wchar_t* buf, size_t count, const wchar_t* fmt, ...) {
     va_list args;
     va_start(args, fmt);
+#ifndef _WIN32
+    // Same MSVC->POSIX format fixup the swprintf macro does: legacy JA2
+    // format strings are authored under MSVC's convention where %s is a
+    // wchar_t* and %S is a char*. POSIX wide-printf is the opposite, so
+    // a wide arg passed to %s gets read as a narrow string and stops at
+    // the first character's high zero byte -- e.g. a merc name or item
+    // name renders as a single letter. Translate %s->%ls / %S->%hs.
+    wchar_t fixed[1024];
+    ::sgp_compat::msvc_wfmt_to_posix(fmt, fixed, 1024);
+    int r = vswprintf(buf, count, fixed, args);
+#else
     int r = vswprintf(buf, count, fmt, args);
+#endif
     va_end(args);
     return r;
 }
