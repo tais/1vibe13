@@ -27,7 +27,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 3 | SDL3 window + event loop, drop WinMain | ✅ Done — SDL3 message pump runs the game on every platform; `_WIN32`-only WinMain gone. |
 | 4 | SDL3 input, drop DirectInput / Win32 hooks | ✅ Done — `sgp/sdl_input.cpp` translates SDL_Event → JA2 `QueueEvent`, mouse/keyboard fully on SDL3. |
 | 5 | SDL3 video (RGB565 transitional), retire DirectDraw | ✅ Done — `sgp/sdl_video.cpp` + `sgp/sdl_vsurface.cpp` own the path; legacy `video.cpp` / `vsurface.cpp` deleted (Phase 5b structural flip, 2026-05-16). |
-| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | 🟡 Most work landed (inline asm gone, tactical playable, FMOD→SDL3_mixer in 6r, Smacker→libsmacker in 6u, cursor + render + tooltip fixes). RGB565 is still the internal format; RGBA8888 conversion + palette LUT regen pending. |
+| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | 🟡 Most work landed (ALL inline asm now ported to C — incl. the renderworld multi-Z-strip blitters that were silent no-ops on non-Windows, which had left prone soldiers, corpses and multi-tile structures invisible; tactical playable, FMOD→SDL3_mixer in 6r, Smacker→libsmacker in 6u, cursor + render + tooltip fixes). RGB565 is still the internal format; RGBA8888 conversion + palette LUT regen pending. |
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | 🟡 GDI `WinFont.cpp` retired everywhere (no-op stubs in `WinFont.h`, `iUseWinFonts` off); stb_truetype replacement still pending. |
@@ -737,11 +737,11 @@ below).
 5. ~~Delete the `ADDTEXT_16BPP_REQUIRED` error path~~ **Done
    implicitly** — sdl_video.cpp doesn't have it.
 6. The inline-asm RGB565 alpha blender at
-   [sgp/vobject_blitters.cpp:19-60](../sgp/vobject_blitters.cpp#L19-L60)
+   [sgp/vobject_blitters.cpp](../sgp/vobject_blitters.cpp)
    needs replacement with portable C — keep RGB565 math, just stop
-   using `__asm`. **Pending** — current `_WIN32` gating means the
-   asm only kicks in on MSVC, so non-Windows builds already use the
-   portable fallback. Phase 6 retires it entirely.
+   using `__asm`. **Done** (Phase 6a) — `blendWithAlpha` is portable C
+   and all inline asm has since been purged from the rendering engine
+   (vobject_blitters.cpp, renderworld.cpp, Interactive Tiles.cpp).
 
 ### Phase 5b — structural flip: SDL3 is the only video path (✅ done 2026-05-16)
 
@@ -881,6 +881,23 @@ gone:
   hold `__emit` / `int 3` macros but nothing in the live build
   includes them; they get deleted alongside their subsystem in Phase
   7/8.
+
+**Blind spot, fixed 2026-05 (commits `4eed303f` / `cb022ec4` /
+`f7e95aa8`).** The first asm pass missed the multi-Z-strip blitter
+family in `TileEngine/renderworld.cpp` (the `…TransZInc…` /
+`…TransZTransShadowInc…` blitters, `TransInvZ`, `IsTileRedundent`,
+`Zero8BPPDataTo16BPPBufferTransparent`) and the pixel-hit test in
+`TileEngine/Interactive Tiles.cpp`. Unlike the rest, these were gated
+`#if defined(_WIN32) && defined(_M_IX86)` with **no C `#else` body**, so
+on macOS/Linux (and 64-bit Windows) they `return`ed without drawing
+rather than failing to compile — a silent no-op. Everything rendered
+through the multi-tile Z-strip path was therefore invisible: prone
+soldiers, dead bodies, and multi-tile map structures (sandbags, crates,
+car wrecks). Now ported to portable C via a shared `BlitMultiZStripRun`
+helper (Z steps by `Z_SUBLAYERS` every 20 columns per the object's
+`ZStripInfo`, matching the original asm; logic cross-checked against the
+ja2-stracciatella C++ port). `grep '__asm {' TileEngine/*.cpp` returns
+zero — the rendering engine now contains **no inline assembly**.
 
 Same pass deleted the dead DirectDraw subsystem files (their SDL3
 replacements have been in place since Phase 5):
