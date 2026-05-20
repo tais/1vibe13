@@ -1884,7 +1884,7 @@ UINT32 PasteClipboardText()
 				iStrLen = wcslen(cbText);
 				if (iStrLen > 0)
 				{
-					szClipboard = (STR16)MemAlloc((iStrLen+1)*sizeof(CHAR16));
+					szClipboard = (CHAR16 *)MemAlloc((iStrLen+1)*sizeof(CHAR16));
 					wcscpy(szClipboard,cbText);
 					szClipboard[iStrLen] = L'\0';
 
@@ -1904,7 +1904,7 @@ UINT32 PasteClipboardText()
 				iStrLen = strlen(cbTextA);
 				if (iStrLen > 0)
 				{
-					szClipboard = (STR16)MemAlloc((iStrLen+1)*sizeof(CHAR16));
+					szClipboard = (CHAR16 *)MemAlloc((iStrLen+1)*sizeof(CHAR16));
 					MultiByteToWideChar( CP_UTF8, 0, cbTextA, -1, (LPWSTR)szClipboard, iStrLen);//swprintf(szClipboard,L"%S",cbTextA);
 					szClipboard[iStrLen] = L'\0';
 
@@ -1931,7 +1931,7 @@ void CopyToClipboard( void )
 	if(OpenClipboard(ghWindow))
 	{
 		HGLOBAL clipbuffer;
-		STR16 writeBuffer;
+		CHAR16 *writeBuffer;
 
 		if (IsClipboardFormatAvailable(CF_UNICODETEXT))
 		{
