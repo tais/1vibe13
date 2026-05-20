@@ -34,6 +34,7 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/timer.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_blitters.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/WinFont.cpp"
+# WinFont.cpp (GDI + DirectDraw font rasterizer) retired in the SDL3
+# port; WinFont.h now provides no-op stubs on every platform.
 )
 set(sgpSrc ${sgpSrc} PARENT_SCOPE)

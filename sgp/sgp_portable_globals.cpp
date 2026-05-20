@@ -35,15 +35,13 @@ BOOLEAN gfNextRefreshFullScreen = FALSE;
 // libsmacker took over for binkw32 and the Intro module stopped being
 // Win32-only.
 
-// ---- WinFont.cpp (Phase 9) -------------------------------------------------
-// On Windows the real WinFont.cpp (GDI font system) is still compiled
-// and owns these symbols, so only define the portable placeholders on
-// non-Windows. Phase 9 retires WinFont.cpp entirely.
-#ifndef _WIN32
+// ---- WinFont (retired) -----------------------------------------------------
+// WinFont.cpp (the GDI + DirectDraw font rasterizer) is no longer
+// compiled on any platform, so define its exported globals here. The
+// iUseWinFonts path stays off; Phase 9 brings cross-platform text.
 INT32   TOOLTIP_IFONT         = -1;
 INT32   TOOLTIP_IFONT_BOLD    = -1;
 #ifndef MAX_WINFONTMAP
 #define MAX_WINFONTMAP 25
 #endif
 INT32   WinFontMap[MAX_WINFONTMAP] = {0};
-#endif

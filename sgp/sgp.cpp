@@ -9,6 +9,12 @@
 #include "types.h"
 
 #include <SDL3/SDL.h>
+// SDL_main.h (header-only) emits the platform entry point and remaps
+// our main() to SDL_main. On Windows the executable links with
+// /subsystem:windows, whose CRT startup calls WinMain; SDL_main.h
+// supplies that WinMain so we don't have to. Include it in exactly one
+// TU -- the one that defines main, below.
+#include <SDL3/SDL_main.h>
 #include <string.h>
 #include <cstdio>
 #include <csignal>
