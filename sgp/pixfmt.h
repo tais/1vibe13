@@ -72,6 +72,28 @@ inline PIXEL PixIntensity(PIXEL p)
 #endif
 }
 
+// Expand a "logical" RGB565 colour (what the engine computes everywhere via
+// Get16BPPColor and stores in UINT16s) into a screen-format PIXEL. At 16bpp
+// this is the identity; at 32bpp it widens RGB565 -> opaque ARGB8888 so the
+// hundreds of UINT16-typed UI colours (fills, lines, boxes, hatch/pixelate)
+// land as real colours instead of near-black low bits. 0x0000 stays
+// 0x00000000 so colour-key transparency still matches.
+inline PIXEL PixFromColor16(UINT16 c)
+{
+#if SGP_PIXEL_DEPTH == 32
+	if (c == 0) return 0; // preserve transparent-black key
+	const UINT32 r5 = (c >> 11) & 0x1Fu;
+	const UINT32 g6 = (c >>  5) & 0x3Fu;
+	const UINT32 b5 =  c        & 0x1Fu;
+	const UINT32 r8 = (r5 << 3) | (r5 >> 2);
+	const UINT32 g8 = (g6 << 2) | (g6 >> 4);
+	const UINT32 b8 = (b5 << 3) | (b5 >> 2);
+	return 0xFF000000u | (r8 << 16) | (g8 << 8) | b8;
+#else
+	return c;
+#endif
+}
+
 #endif // __cplusplus
 
 #endif // SGP_PIXFMT_H

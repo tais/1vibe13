@@ -2149,7 +2149,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( PIXEL *pBuffer, UINT32 uiDestPitc
 					if (*rowZ <= usZValue) {
 						*rowDest = p16BPPPalette[*src];
 					} else {
-						*rowDest = usColor;
+						*rowDest = PixFromColor16(usColor);
 					}
 					++src;
 					++rowDest;
@@ -4851,7 +4851,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClipColor( PIXEL *pBuffer, UINT32 uiDest
 					const UINT8 v = *src++;
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
-						rowDest[dx] = (rowZ[dx] <= usZValue) ? p16BPPPalette[v] : usColor;
+						rowDest[dx] = (rowZ[dx] <= usZValue) ? p16BPPPalette[v] : PixFromColor16(usColor);
 					}
 				}
 			}
@@ -5274,13 +5274,14 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBY
 	// origin, not the buffer's): for each dest pixel at column x, row
 	// y within the rect, write usColor iff Pattern[y%8][x%8] is set.
 	{
+		const PIXEL pxColor = PixFromColor16(usColor);
 		const UINT8* pat = &Pattern[0][0];
 		PIXEL* rowDest = DestPtr;
 		for (INT32 y = 0; y < height; ++y) {
 			const UINT8* patRow = pat + ((y & 7) * 8);
 			for (INT32 x = 0; x < width; ++x) {
 				if (patRow[x & 7] != 0) {
-					rowDest[x] = usColor;
+					rowDest[x] = pxColor;
 				}
 			}
 			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
@@ -6424,9 +6425,10 @@ PIXEL		*startoffset;
 
 	// Portable FillRect16BPP.
 	{
+		const PIXEL pxColor = PixFromColor16(color);
 		PIXEL* row = startoffset;
 		for (UINT32 y = 0; y < lines; ++y) {
-			for (UINT32 x = 0; x < linelength; ++x) row[x] = color;
+			for (UINT32 x = 0; x < linelength; ++x) row[x] = pxColor;
 			row = (PIXEL*)((UINT8*)row + uiDestPitchBYTES);
 		}
 		(void)lineskip;
@@ -6570,7 +6572,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 					const UINT8 v = *src++;
 					if (v == 254) {
 						if (fDoOutline) {
-							*rowDest = (UINT16)s16BPPColor;
+							*rowDest = PixFromColor16((UINT16)s16BPPColor);
 						}
 					} else {
 						*rowDest = p16BPPPalette[v];
@@ -6681,7 +6683,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 						const INT32 dx = srcX - LeftSkip;
 						if (v == 254) {
 							if (fDoOutline) {
-								rowDest[dx] = (UINT16)s16BPPColor;
+								rowDest[dx] = PixFromColor16((UINT16)s16BPPColor);
 							}
 						} else {
 							rowDest[dx] = p16BPPPalette[v];
@@ -6804,7 +6806,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitch
 						if (usZValue >= rowZ[dx]) {
 							if (v == 254) {
 								if (fDoOutline) {
-									rowDest[dx] = (UINT16)s16BPPColor;
+									rowDest[dx] = PixFromColor16((UINT16)s16BPPColor);
 								}
 							} else {
 								rowZ[dx]    = usZValue;
@@ -6938,7 +6940,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 					}
 					if (v == 254) {
 						if (fDoOutline) {
-							rowDest[dx] = (UINT16)s16BPPColor;
+							rowDest[dx] = PixFromColor16((UINT16)s16BPPColor);
 						}
 					} else {
 						rowDest[dx] = p16BPPPalette[v];
@@ -7212,7 +7214,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 					if (usZValue >= *rowZ) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = (UINT16)s16BPPColor;
+								*rowDest = PixFromColor16((UINT16)s16BPPColor);
 							}
 						} else {
 							*rowZ    = usZValue;
@@ -7310,7 +7312,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 					if (render) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = (UINT16)s16BPPColor;
+								*rowDest = PixFromColor16((UINT16)s16BPPColor);
 							}
 						} else {
 							*rowDest = p16BPPPalette[v];
@@ -7393,7 +7395,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					if (usZValue >= *rowZ) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = (UINT16)s16BPPColor;
+								*rowDest = PixFromColor16((UINT16)s16BPPColor);
 							}
 						} else {
 							*rowDest = p16BPPPalette[v];

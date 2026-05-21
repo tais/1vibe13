@@ -782,7 +782,14 @@ void Blit16_ColorKey(PIXEL* dst, UINT32 dstPitchBytes,
 		for (INT32 x = 0; x < w; ++x)
 		{
 			PIXEL v = srcP[x];
+#if SGP_PIXEL_DEPTH == 32
+			// Compare on RGB only: 8bpp art keys transparency on palette
+			// index 0 (black), which Create32BPPPalette maps to opaque
+			// 0xFF000000 -- alpha would never equal the 0-alpha key.
+			if ((v & 0x00FFFFFFu) != (key & 0x00FFFFFFu)) dstP[x] = v;
+#else
 			if (v != key) dstP[x] = v;
+#endif
 		}
 	}
 }
@@ -804,8 +811,9 @@ void Blit8_Opaque(UINT8* dst, UINT32 dstPitchBytes,
 }
 
 void FillRect16(PIXEL* dst, UINT32 dstPitchBytes,
-                INT32 x, INT32 y, INT32 w, INT32 h, PIXEL colour)
+                INT32 x, INT32 y, INT32 w, INT32 h, UINT16 colour16)
 {
+	const PIXEL colour = PixFromColor16(colour16);
 	for (INT32 yy = 0; yy < h; ++yy)
 	{
 		PIXEL* row = (PIXEL*)((UINT8*)dst + (y + yy) * dstPitchBytes) + x;
@@ -917,7 +925,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 			Blit16_ColorKey((PIXEL*)dstBuf, dstPitch,
 			                (const PIXEL*)srcBuf, srcPitch,
 			                iDestX, iDestY, sL, sT, w, h,
-			                (UINT16)hSrc->TransparentColor);
+			                PixFromColor16((UINT16)hSrc->TransparentColor));
 		}
 		else
 		{
@@ -983,7 +991,8 @@ BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
 	// RGB565). Without this, layered images like the JA2 logo over
 	// the flag background get rendered as opaque rectangles.
 	const bool transparent = (fBltFlags & VO_BLT_SRCTRANSPARENCY) != 0;
-	const UINT16 transColor = (UINT16)hSrc->TransparentColor;
+	const PIXEL transColor = (PIXEL)hSrc->TransparentColor;
+	(void)transColor;
 
 	// Nearest-neighbour stretch. Integer ratios; good enough for the
 	// UI panels JA2 stretches. Phase 6 / shaders can do better.
@@ -999,8 +1008,14 @@ BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
 			INT32 absDstX = DestRect->iLeft + dx;
 			if (absDstX < 0 || absDstX >= (INT32)hDst->usWidth) continue;
 			const INT32 sx = SrcRect->iLeft + (dx * sW) / dW;
-			const UINT16 px = srcRow[sx];
+			const PIXEL px = srcRow[sx];
+#if SGP_PIXEL_DEPTH == 32
+			// Color-key on RGB (ignore alpha); transparent areas of the
+			// menu art are keyed black, matching the RGB565 transColor==0.
+			if (transparent && (px & 0x00FFFFFFu) == 0u) continue;
+#else
 			if (transparent && px == transColor) continue;
+#endif
 			dstRow[absDstX] = px;
 		}
 	}
