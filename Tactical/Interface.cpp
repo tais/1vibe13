@@ -1597,7 +1597,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	}
 }
 
-void DrawCTHPixelToBuffer( UINT16 *pBuffer, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sPixelX, INT16 sPixelY, UINT16 usColor )
+void DrawCTHPixelToBuffer( PIXEL *pBuffer, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sPixelX, INT16 sPixelY, UINT16 usColor )
 {
 	///////////////////////////////////////////////////////////
 	// HEADROCK HAM 4:
@@ -3240,7 +3240,7 @@ BOOLEAN DrawCTHIndicator()
 
 	// Create a pointer to the Frame Buffer which we are going to draw directly into.
 	UINT32 uiPitch;
-	UINT16 *ptrBuf = (UINT16*)LockVideoSurface( FRAME_BUFFER, &uiPitch );
+	UINT16 *ptrBuf = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
 	uiPitch >>= 1;
 
 	///////////////////////////////////////////////////////////////////////////////

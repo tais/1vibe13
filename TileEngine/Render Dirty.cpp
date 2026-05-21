@@ -318,7 +318,7 @@ BOOLEAN RestoreBackgroundRects(void)
 			{
 				if ( gBackSaves[uiCount].pSaveArea != NULL )
 				{
-					Blt16BPPTo16BPP( (UINT16*)pDestBuf, uiDestPitchBYTES, (UINT16 *)gBackSaves[uiCount].pSaveArea, gBackSaves[uiCount].sWidth*2,
+					Blt16BPPTo16BPP( (PIXEL *)pDestBuf, uiDestPitchBYTES, (UINT16 *)gBackSaves[uiCount].pSaveArea, gBackSaves[uiCount].sWidth*2,
 								gBackSaves[uiCount].sLeft , gBackSaves[uiCount].sTop,
 								0, 0,
 								gBackSaves[uiCount].sWidth, gBackSaves[uiCount].sHeight);
@@ -339,8 +339,8 @@ BOOLEAN RestoreBackgroundRects(void)
 			}
 			else
 			{
-				Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-							(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+				Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+							(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 							gBackSaves[uiCount].sLeft , gBackSaves[uiCount].sTop,
 							gBackSaves[uiCount].sLeft , gBackSaves[uiCount].sTop,
 							gBackSaves[uiCount].sWidth, gBackSaves[uiCount].sHeight);
@@ -448,7 +448,7 @@ BOOLEAN SaveBackgroundRects(void)
 				if ( gBackSaves[uiCount].pSaveArea != NULL )
 				{
 					Blt16BPPTo16BPP((UINT16 *)gBackSaves[uiCount].pSaveArea, gBackSaves[uiCount].sWidth*2,
-							(UINT16 *)pSrcBuf, uiDestPitchBYTES,
+							(PIXEL *)pSrcBuf, uiDestPitchBYTES,
 							0, 0,
 							gBackSaves[uiCount].sLeft , gBackSaves[uiCount].sTop,
 							gBackSaves[uiCount].sWidth, gBackSaves[uiCount].sHeight);
@@ -604,8 +604,8 @@ BOOLEAN UpdateSaveBuffer(void)
 	pSrcBuf = LockVideoSurface(guiRENDERBUFFER, &uiSrcPitchBYTES);
 	pDestBuf = LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
 
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				0, gsVIEWPORT_WINDOW_START_Y, 0, gsVIEWPORT_WINDOW_START_Y, usWidth, ( gsVIEWPORT_WINDOW_END_Y - gsVIEWPORT_WINDOW_START_Y )	);
 
 	UnLockVideoSurface(guiRENDERBUFFER);
@@ -632,8 +632,8 @@ BOOLEAN RestoreExternBackgroundRect( INT16 sLeft, INT16 sTop, INT16 sWidth, INT1
 	pDestBuf = LockVideoSurface(guiRENDERBUFFER, &uiDestPitchBYTES);
 	pSrcBuf = LockVideoSurface(guiSAVEBUFFER, &uiSrcPitchBYTES);
 
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				sLeft , sTop,
 				sLeft , sTop,
 				sWidth, sHeight);
@@ -673,8 +673,8 @@ BOOLEAN RestoreExternBackgroundRectGivenID( INT32 iBack )
 	pDestBuf = LockVideoSurface(guiRENDERBUFFER, &uiDestPitchBYTES);
 	pSrcBuf = LockVideoSurface(guiSAVEBUFFER, &uiSrcPitchBYTES);
 
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				sLeft , sTop,
 				sLeft , sTop,
 				sWidth, sHeight);
@@ -697,8 +697,8 @@ BOOLEAN CopyExternBackgroundRect( INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 s
 	pDestBuf = LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
 	pSrcBuf = LockVideoSurface(guiRENDERBUFFER, &uiSrcPitchBYTES);
 
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				sLeft , sTop,
 				sLeft , sTop,
 				sWidth, sHeight);
@@ -1159,7 +1159,7 @@ void SaveVideoOverlaysArea( UINT32 uiSrcBuffer )
 				Blt16BPPTo16BPP(
 					(UINT16 *)gVideoOverlays[uiCount].pSaveArea, 
 					gBackSaves[iBackIndex].sWidth * 2,
-					(UINT16 *)pSrcBuf, 
+					(PIXEL *)pSrcBuf, 
 					uiSrcPitchBYTES,
 					0, 
 					0,
@@ -1197,7 +1197,7 @@ void SaveVideoOverlayArea( UINT32 uiSrcBuffer, UINT32 uiCount )
 
 			// Save data from frame buffer!
 			Blt16BPPTo16BPP((UINT16 *)gVideoOverlays[uiCount].pSaveArea, gBackSaves[ iBackIndex ].sWidth*2,
-						(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+						(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 						0, 0,
 						gBackSaves[ iBackIndex ].sLeft , gBackSaves[ iBackIndex ].sTop,
 						gBackSaves[ iBackIndex ].sWidth, gBackSaves[ iBackIndex ].sHeight );
@@ -1298,7 +1298,7 @@ BOOLEAN RestoreShiftedVideoOverlays( INT16 sShiftX, INT16 sShiftY )
 					usHeight = sBottom - sTop;
 					usWidth	= sRight -	sLeft;
 
-					Blt16BPPTo16BPP((UINT16 *)(UINT16 *)pDestBuf, uiDestPitchBYTES,
+					Blt16BPPTo16BPP((UINT16 *)(PIXEL *)pDestBuf, uiDestPitchBYTES,
 								(UINT16 *)gVideoOverlays[uiCount].pSaveArea, gBackSaves[ iBackIndex ].sWidth*2,
 								sLeft, sTop,
 								uiLeftSkip, uiTopSkip,
@@ -1362,7 +1362,7 @@ BOOLEAN BlitBufferToBuffer(UINT32 uiSrcBuffer, UINT32 uiDestBuffer, UINT16 usSrc
 	pDestBuf = LockVideoSurface(uiDestBuffer, &uiDestPitchBYTES);
 	pSrcBuf = LockVideoSurface(uiSrcBuffer, &uiSrcPitchBYTES);
 
-	fRetVal = Blt16BPPTo16BPP( (UINT16*)pDestBuf, uiDestPitchBYTES, (UINT16*)pSrcBuf, uiSrcPitchBYTES,
+	fRetVal = Blt16BPPTo16BPP( (PIXEL *)pDestBuf, uiDestPitchBYTES, (PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 			usSrcX, usSrcY,
 			usSrcX, usSrcY,
 			usWidth, usHeight);

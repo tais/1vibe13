@@ -14166,7 +14166,7 @@ void SOLDIERTYPE::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, U
 
 UINT16 *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen )
 {
-	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
+	PIXEL *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt;
 	UINT32 rmod, gmod, bmod;
 	UINT8	 r, g, b;
@@ -14221,7 +14221,7 @@ UINT16 *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, U
 
 UINT16 *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen )
 {
-	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
+	PIXEL *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt, lumin;
 	UINT32 rmod, gmod, bmod;
 	UINT8	 r, g, b;

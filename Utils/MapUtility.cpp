@@ -214,8 +214,8 @@ UINT32 MapUtilScreenHandle(void)
 	//LOCK BUFFERS
 	dX = dStartX;
 	dY = dStartY;
-	pDestBuf = (UINT16*)LockVideoSurface(guiMiniMap, &uiDestPitchBYTES);
-	pSrcBuf = (UINT16*)LockVideoSurface(guiBigMap, &uiSrcPitchBYTES);
+	pDestBuf = (PIXEL *)LockVideoSurface(guiMiniMap, &uiDestPitchBYTES);
+	pSrcBuf = (PIXEL *)LockVideoSurface(guiBigMap, &uiSrcPitchBYTES);
 	for ( iX = 0; iX < MINIMAP_X_SIZE; iX++ )
 	{
 		dY = dStartY;
@@ -282,8 +282,8 @@ UINT32 MapUtilScreenHandle(void)
 	UnLockVideoSurface(guiMiniMap);
 	iOffsetVertical = SCREEN_HEIGHT - 480;
 	BltVideoSurface(FRAME_BUFFER, guiMiniMap, 0, iOffsetHorizontal+10, iOffsetVertical+360, VS_BLT_FAST|VS_BLT_USECOLORKEY, NULL);
-	pDestBuf = (UINT16*)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES, (UINT16 *)pSrcBuf, uiSrcPitchBYTES, 0, 0, 0, 0, min((640 * WORLD_COLS / OLD_WORLD_COLS), SCREEN_WIDTH), min((320 * WORLD_ROWS / OLD_WORLD_ROWS), SCREEN_HEIGHT - 160));
+	pDestBuf = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES, (PIXEL *)pSrcBuf, uiSrcPitchBYTES, 0, 0, 0, 0, min((640 * WORLD_COLS / OLD_WORLD_COLS), SCREEN_WIDTH), min((320 * WORLD_ROWS / OLD_WORLD_ROWS), SCREEN_HEIGHT - 160));
 	UnLockVideoSurface(guiBigMap);
 	//QUantize!
 	pDataPtr = (UINT8*)LockVideoSurface(gui8BitMiniMap, &uiSrcPitchBYTES);

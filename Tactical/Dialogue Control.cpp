@@ -3262,8 +3262,8 @@ void RenderFaceOverlay( VIDEO_OVERLAY *pBlitter )
 		pDestBuf = LockVideoSurface( pBlitter->uiDestBuff, &uiDestPitchBYTES);
 		pSrcBuf = LockVideoSurface( gpCurrentTalkingFace->uiAutoDisplayBuffer, &uiSrcPitchBYTES);
 
-		Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-					(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+		Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+					(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 					(INT16)( pBlitter->sX + 14 ), (INT16)( pBlitter->sY + 6 ),
 					0 , 0,
 					gpCurrentTalkingFace->usFaceWidth, gpCurrentTalkingFace->usFaceHeight );

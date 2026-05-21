@@ -953,7 +953,7 @@ static void DisplayTopwareGermanyAddress()
 	ClipRect.iTop = iScreenHeightOffset + 390;
 	ClipRect.iBottom = iScreenHeightOffset + 475;
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-	Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+	Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 	UnLockVideoSurface( FRAME_BUFFER );
 
 	//Draw the anti-aliased address now.
@@ -999,8 +999,8 @@ void PrintExceptionList()
 	{
 		return;
 	}
-	//Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
-	Blt16BPPBufferHatchRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+	//Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
+	Blt16BPPBufferHatchRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 	UnLockVideoSurface( FRAME_BUFFER );
 	
 	// Create string

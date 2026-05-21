@@ -220,8 +220,8 @@ BOOLEAN RenderMercPopupBox(INT16 sDestX, INT16 sDestY, UINT32 uiBuffer )
 {
 //	UINT32	uiDestPitchBYTES;
 //	UINT32	uiSrcPitchBYTES;
-//	UINT16	*pDestBuf;
-//	UINT16	*pSrcBuf;
+//	PIXEL	*pDestBuf;
+//	PIXEL	*pSrcBuf;
 	
 	// will render/transfer the image from the buffer in the data structure to the buffer specified by user
 	BOOLEAN fReturnValue = TRUE;
@@ -312,7 +312,7 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	HVSURFACE hSrcVSurface;
 	UINT32 uiDestPitchBYTES;
 	UINT32 uiSrcPitchBYTES;
-	UINT16	*pDestBuf;
+	PIXEL	*pDestBuf;
 	UINT8	*pSrcBuf;
 	UINT8		ubFontColor, ubFontShadowColor;
 	UINT16	usColorVal;
@@ -452,7 +452,7 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 		// Set source transparcenty
 		SetVideoSurfaceTransparency( pPopUpTextBox->uiSourceBufferIndex, FROMRGB(	255, 255, 0 ) );
 
-		pDestBuf = (UINT16*)LockVideoSurface( pPopUpTextBox->uiSourceBufferIndex, &uiDestPitchBYTES);
+		pDestBuf = (PIXEL *)LockVideoSurface( pPopUpTextBox->uiSourceBufferIndex, &uiDestPitchBYTES);
 
 		usColorVal = Get16BPPColor( FROMRGB( 255, 255, 0 ) );
 		usLoopEnd	= ( usWidth * usHeight );
@@ -472,7 +472,7 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 				pPopUpTextBox->uiMercTextPopUpBackground ) );
 		}
 
-		pDestBuf = (UINT16*)LockVideoSurface( pPopUpTextBox->uiSourceBufferIndex, &uiDestPitchBYTES);
+		pDestBuf = (PIXEL *)LockVideoSurface( pPopUpTextBox->uiSourceBufferIndex, &uiDestPitchBYTES);
 		pSrcBuf = LockVideoSurface( pPopUpTextBox->uiMercTextPopUpBackground, &uiSrcPitchBYTES);
 
 		Blt8BPPDataSubTo16BPPBuffer( pDestBuf,	uiDestPitchBYTES, hSrcVSurface, pSrcBuf,uiSrcPitchBYTES,0,0, &DestRect);

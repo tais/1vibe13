@@ -18,7 +18,7 @@
 #include "types.h"
 
 #ifndef SGP_PIXEL_DEPTH
-#define SGP_PIXEL_DEPTH 16
+#define SGP_PIXEL_DEPTH 32
 #endif
 
 #if SGP_PIXEL_DEPTH == 32

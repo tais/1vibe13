@@ -1521,14 +1521,14 @@ BOOLEAN PixelateVideoMercImage( BOOLEAN fUp, UINT16 usPosX, UINT16 usPosY, UINT1
 {
 	static UINT32	uiLastTime;
 	UINT32	uiCurTime = GetJA2Clock();
-	UINT16 *pBuffer=NULL, DestColor;
+	PIXEL *pBuffer=NULL, DestColor;
 	UINT32 uiPitch;
 	UINT16 i, j;
 	static UINT8 ubPixelationAmount=255;
 	BOOLEAN fReturnStatus=FALSE;
 	i=0;
 
-	pBuffer = (UINT16*)LockVideoSurface( FRAME_BUFFER, &uiPitch );
+	pBuffer = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
 	Assert( pBuffer );
 
 	if( ubPixelationAmount == 255 )
@@ -1612,14 +1612,14 @@ BOOLEAN DistortVideoMercImage( UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UIN
 {
 	UINT32 uiPitch;
 	UINT16 i, j;
-	UINT16 *pBuffer=NULL, DestColor;
+	PIXEL *pBuffer=NULL, DestColor;
 	UINT32 uiColor;
 	UINT8 red, green, blue;
 	static UINT16 usDistortionValue=255;
 	UINT8	uiReturnValue;
 	UINT16	usEndOnLine=0;
 
-	pBuffer = (UINT16*)LockVideoSurface( FRAME_BUFFER, &uiPitch );
+	pBuffer = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
 	Assert( pBuffer );
 
 	uiPitch /= 2;

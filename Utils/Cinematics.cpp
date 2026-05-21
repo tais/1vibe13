@@ -110,7 +110,7 @@ SMKFLIC* SmkGetFreeFlic()
 void BlitFrameToFrameBuffer(SMKFLIC& f, const unsigned char* palette, const unsigned char* pixels)
 {
 	UINT32 pitchBytes = 0;
-	UINT16* fb = (UINT16*)LockVideoSurface(FRAME_BUFFER, &pitchBytes);
+	UINT16* fb = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &pitchBytes);
 	if (!fb) return;
 	const int stridePx = (int)(pitchBytes / sizeof(UINT16));
 

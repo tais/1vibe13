@@ -6158,7 +6158,7 @@ BOOLEAN DrawDeskTopBackground( void )
 	HVSURFACE hSrcVSurface;
 	UINT32 uiDestPitchBYTES;
 	UINT32 uiSrcPitchBYTES;
-	UINT16	*pDestBuf;
+	PIXEL	*pDestBuf;
 	UINT8	*pSrcBuf;
 	SGPRect clip;
 
@@ -6172,7 +6172,7 @@ BOOLEAN DrawDeskTopBackground( void )
 
 
 	// get surfaces
-	pDestBuf = (UINT16*)LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES);
+	pDestBuf = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES);
 	CHECKF( GetVideoSurface( &hSrcVSurface, guiDESKTOP) );
 	pSrcBuf = LockVideoSurface( guiDESKTOP, &uiSrcPitchBYTES);
 

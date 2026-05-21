@@ -286,7 +286,7 @@ BOOLEAN ResetFontObjectPalette(INT32 iFont)
 //*****************************************************************************
 UINT16 *SetFontObjectPalette8BPP(INT32 iFont, SGPPaletteEntry *pPal8)
 {
-	UINT16 *pPal16;
+	PIXEL *pPal16;
 	Assert(IsFontLoaded(iFont));
 
 	if((pPal16=Create16BPPPalette(pPal8))==NULL)
@@ -304,7 +304,7 @@ UINT16 *SetFontObjectPalette8BPP(INT32 iFont, SGPPaletteEntry *pPal8)
 //	Sets the palette of a font, using a 16 bit palette.
 //
 //*****************************************************************************
-UINT16 *SetFontObjectPalette16BPP(INT32 iFont, UINT16 *pPal16)
+UINT16 *SetFontObjectPalette16BPP(INT32 iFont, PIXEL *pPal16)
 {
 	Assert(IsFontLoaded(iFont));
 
@@ -1044,7 +1044,7 @@ UINT8				*pDestBuf;
 			desty+=GetHeight(FontObjs[FontDefault], transletter);
 		}
 
-		Blt8BPPDataTo16BPPBufferMonoShadowClip((UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
+		Blt8BPPDataTo16BPPBufferMonoShadowClip((PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
 		destx+=GetWidth(FontObjs[FontDefault], transletter);
 	}
 
@@ -1150,7 +1150,7 @@ UINT8				*pDestBuf;
 			desty+=GetHeight(FontObjs[FontDefault], transletter);
 		}
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion );
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion );
 		destx+=GetWidth(FontObjs[FontDefault], transletter);
 	}
 
@@ -1200,7 +1200,7 @@ UINT8				*pDestBuf;
 			desty+=GetHeight(FontObjs[FontDefault], transletter);
 		}
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion );
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion );
 		destx+=GetWidth(FontObjs[FontDefault], transletter);
 	}
 
@@ -1249,7 +1249,7 @@ CHAR16	string[512];
 			desty+=GetHeight(FontObjs[FontType], transletter);
 		}
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion );
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion );
 
 		destx+=GetWidth(FontObjs[FontType], transletter);
 	}
@@ -1293,7 +1293,7 @@ CHAR16	string[512];
 			desty+=GetHeight(FontObjs[FontDefault], transletter);
 		}
 
-		Blt8BPPDataTo16BPPBufferMonoShadowClip((UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
+		Blt8BPPDataTo16BPPBufferMonoShadowClip((PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
 		destx+=GetWidth(FontObjs[FontDefault], transletter);
 	}
 
@@ -1352,7 +1352,7 @@ UINT16	usOldForeColor;
 			desty+=GetHeight(FontObjs[FontDefault], transletter);
 		}
 
-		Blt8BPPDataTo16BPPBufferMonoShadowClip((UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
+		Blt8BPPDataTo16BPPBufferMonoShadowClip((PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
 		destx+=GetWidth(FontObjs[FontDefault], transletter);
 	}
 
@@ -1423,7 +1423,7 @@ UINT8				*pDestBuf;
 			return 0;
 		}
 
-		Blt8BPPDataTo16BPPBufferMonoShadowClip((UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
+		Blt8BPPDataTo16BPPBufferMonoShadowClip((PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16 );
 		destx+=GetWidth(FontObjs[FontDefault], transletter);
 	}
 
@@ -2359,7 +2359,7 @@ SGPPaletteEntry *ConvertToPaletteEntry(UINT8 sbStart, UINT8 sbEnd, UINT8 *pOldPa
 {
 	UINT8	*pTrav;
 	UINT16 *pFrameTrav;
-	UINT16 *p16BPPPalette;
+	PIXEL *p16BPPPalette;
 	UINT16	usEffectiveWidth;
 	UINT32	uiFrameCount;
 	UINT8	amount;

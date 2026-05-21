@@ -1476,7 +1476,7 @@ void RenderInactiveTextFieldNode( TEXTINPUTNODE *pNode )
 		ClipRect.iTop = pNode->region.RegionTopLeftY;
 		ClipRect.iBottom = pNode->region.RegionBottomRightY;
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-		Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+		Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 		UnLockVideoSurface( FRAME_BUFFER );
 	}
 }

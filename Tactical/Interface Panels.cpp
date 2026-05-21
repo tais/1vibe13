@@ -2598,7 +2598,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_AGI_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_AGI_X;
 					ClipRect.iRight = SM_AGI_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// DEX
@@ -2610,7 +2610,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_DEX_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_DEX_X;
 					ClipRect.iRight = SM_DEX_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// STR
@@ -2622,7 +2622,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_STR_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_STR_X;
 					ClipRect.iRight = SM_STR_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// WIS
@@ -2634,7 +2634,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_WIS_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_WIS_X;
 					ClipRect.iRight = SM_WIS_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// MRK
@@ -2646,7 +2646,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_MRKM_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_MRKM_X;
 					ClipRect.iRight = SM_MRKM_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// LDR
@@ -2658,7 +2658,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_CHAR_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_CHAR_X;
 					ClipRect.iRight = SM_CHAR_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// MECH
@@ -2670,7 +2670,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_MECH_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_MECH_X;
 					ClipRect.iRight = SM_MECH_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// EXPLO
@@ -2682,7 +2682,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_EXPL_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_EXPL_X;
 					ClipRect.iRight = SM_EXPL_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// MED
@@ -2694,7 +2694,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_MED_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_MED_X;
 					ClipRect.iRight = SM_MED_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				// EXPLEVEL
@@ -2706,7 +2706,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 					ClipRect.iBottom = (SM_EXPLVL_Y-1) + SM_STATS_HEIGHT;
 					ClipRect.iLeft = SM_EXPLVL_X;
 					ClipRect.iRight = SM_EXPLVL_X + ubBarWidth;
-					Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+					Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 				}
 
 				UnLockVideoSurface( guiSAVEBUFFER );
@@ -3178,7 +3178,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		ClipRect.iTop		= INV_INTERFACE_START_Y;
 		ClipRect.iBottom = SCREEN_HEIGHT;
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-		Blt16BPPBufferHatchRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+		Blt16BPPBufferHatchRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 		UnLockVideoSurface( FRAME_BUFFER );
 	}
 

@@ -3356,7 +3356,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// DEX
@@ -3371,7 +3371,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// STR
@@ -3386,7 +3386,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// WIS
@@ -3401,7 +3401,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// MRK
@@ -3416,7 +3416,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// LDR
@@ -3431,7 +3431,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// MECH
@@ -3446,7 +3446,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// EXPLO
@@ -3461,7 +3461,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// MED
@@ -3476,7 +3476,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		// EXPLEVEL
@@ -3491,7 +3491,7 @@ void DisplayCharacterInfo( void )
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
 			ClipRect.iLeft = x;
 			ClipRect.iRight = x + ubBarWidth;
-			Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+			Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 		}
 
 		UnLockVideoSurface( guiSAVEBUFFER );
@@ -6355,7 +6355,7 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 		ClipRect.iBottom = ClipRect.iTop + Y_SIZE;
 		ClipRect.iLeft = UI_CHARLIST.xAssignment + 2;
 		ClipRect.iRight = UI_CHARLIST.xAssignment + ubBarWidth;
-		Blt16BPPBufferHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
+		Blt16BPPBufferHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, usColor );
 
 		UnLockVideoSurface( uiDestBuffer );
 	}
@@ -9499,7 +9499,7 @@ void CreateDestroyMapInvButton()
 void BltEmptyCharInvPanel()
 {
 	UINT32 uiDestPitchBYTES;
-	UINT16* pDestBuf;
+	PIXEL* pDestBuf;
 	HVOBJECT hCharListHandle;
 
 	UINT8 stiIndex = 0;
@@ -9508,7 +9508,7 @@ void BltEmptyCharInvPanel()
 		stiIndex = 1;
 	}
 
-	pDestBuf = (UINT16*)LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
+	pDestBuf = (PIXEL *)LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
 	GetVideoObject(&hCharListHandle, guiMAPINV);
 	Blt8BPPDataTo16BPPBufferTransparent(pDestBuf, uiDestPitchBYTES, hCharListHandle, UI_CHARINV.Region.x, UI_CHARINV.Region.y, stiIndex);
 	UnLockVideoSurface(guiSAVEBUFFER);
@@ -9518,7 +9518,7 @@ void BltEmptyCharInvPanel()
 void BltCharInvPanel()
 {
 	UINT32 uiDestPitchBYTES;
-	UINT16	*pDestBuf;
+	PIXEL	*pDestBuf;
 	HVOBJECT hCharListHandle;
 	SOLDIERTYPE	*pSoldier;
 	CHAR16 sString[ 32 ];
@@ -9583,7 +9583,7 @@ void BltCharInvPanel()
 	}
 
 
-	pDestBuf = (UINT16*)LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
+	pDestBuf = (PIXEL *)LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
 	GetVideoObject(&hCharListHandle, guiMAPINV);
 	Blt8BPPDataTo16BPPBufferTransparent( pDestBuf, uiDestPitchBYTES, hCharListHandle, UI_CHARINV.Region.x, UI_CHARINV.Region.y, mapInvIndex);
 	UnLockVideoSurface( guiSAVEBUFFER ); 
@@ -15153,7 +15153,7 @@ void CheckForAndRenderNewMailOverlay()
 					SGPRect area = { x + 2, y + 1, x + 25 - xOffset, y + 15 - yOffset };
 
 					pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-					Blt16BPPBufferHatchRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &area );
+					Blt16BPPBufferHatchRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &area );
 					UnLockVideoSurface( FRAME_BUFFER );
 				}
 

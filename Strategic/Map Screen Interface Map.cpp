@@ -991,7 +991,7 @@ UINT32 DrawMap(void)
 	{	// Aboveground sectors
 
 		UINT32 uiDestPitchBYTES;
-		UINT16 *pDestBuf = (UINT16*)LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
+		PIXEL *pDestBuf = (PIXEL *)LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
 
 		HVSURFACE hSrcVSurface;
 		CHECKF(GetVideoSurface(&hSrcVSurface, guiBIGMAP));
@@ -1599,7 +1599,7 @@ BOOLEAN ShadeMapElem( INT16 sMapX, INT16 sMapY, INT32 iColor )
 	HVSURFACE hSrcVSurface;
 	UINT32 uiDestPitchBYTES;
 	UINT32 uiSrcPitchBYTES;
-	UINT16  *pDestBuf;
+	PIXEL  *pDestBuf;
 	UINT8  *pSrcBuf;
 	SGPRect clip;
 	UINT16 *pOriginalPallette;
@@ -1635,7 +1635,7 @@ BOOLEAN ShadeMapElem( INT16 sMapX, INT16 sMapY, INT32 iColor )
 		hSrcVSurface->p16BPPPalette = pMapPalette[iColor];
 
 		// lock source and dest buffers
-		pDestBuf = (UINT16*)LockVideoSurface( guiSAVEBUFFER, &uiDestPitchBYTES );
+		pDestBuf = (PIXEL *)LockVideoSurface( guiSAVEBUFFER, &uiDestPitchBYTES );
 		CHECKF( GetVideoSurface( &hSrcVSurface, guiBIGMAP ) );
 		pSrcBuf = LockVideoSurface( guiBIGMAP, &uiSrcPitchBYTES );
 
@@ -1674,7 +1674,7 @@ BOOLEAN ShadeMapElements(const INT32(&colorMap)[ MAXIMUM_VALID_Y_COORDINATE ][ M
 	// Lock destination buffer
 	UINT32 uiDestPitch;
 	UINT16 *pDestBuffer;
-	pDestBuffer = (UINT16*)LockVideoSurface(guiSAVEBUFFER, &uiDestPitch);
+	pDestBuffer = (PIXEL *)LockVideoSurface(guiSAVEBUFFER, &uiDestPitch);
 
 	if (pDestBuffer == NULL)
 	{

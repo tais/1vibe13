@@ -3140,7 +3140,7 @@ void DrawHatchOnButton( GUI_BUTTON *b )
 	ClipRect.iTop = b->Area.RegionTopLeftY;
 	ClipRect.iBottom = b->Area.RegionBottomRightY - 1;
 	pDestBuf = LockVideoSurface( ButtonDestBuffer, &uiDestPitchBYTES );
-	Blt16BPPBufferHatchRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+	Blt16BPPBufferHatchRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 	UnLockVideoSurface( ButtonDestBuffer );
 }
 
@@ -3154,7 +3154,7 @@ void DrawShadeOnButton( GUI_BUTTON *b )
 	ClipRect.iTop = b->Area.RegionTopLeftY;
 	ClipRect.iBottom = b->Area.RegionBottomRightY-1;
 	pDestBuf = LockVideoSurface( ButtonDestBuffer, &uiDestPitchBYTES );
-	Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+	Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 	UnLockVideoSurface( ButtonDestBuffer );
 }
 
@@ -3685,7 +3685,7 @@ void DrawGenericButton(GUI_BUTTON *b)
 		else
 			ImgNum=1;
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										(INT32)(b->XLoc + (q*iBorderWidth)),
 										(INT32)b->YLoc,
@@ -3696,20 +3696,20 @@ void DrawGenericButton(GUI_BUTTON *b)
 		else
 			ImgNum=6;
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										(INT32)(b->XLoc + (q*iBorderWidth)),
 										cy, (UINT16)ImgNum, &ClipRect );
 
 	}
 	// Blit the right side corners
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										cx, (INT32)b->YLoc,
 										2, &ClipRect );
 
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										cx, cy, 7, &ClipRect );
 	// Draw the vertical members of the button's borders
@@ -3718,13 +3718,13 @@ void DrawGenericButton(GUI_BUTTON *b)
 	if(hremain!=0)
 	{
 		q=NumChunksHigh;
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										(INT32)b->XLoc,
 										(INT32)(b->YLoc + (q*iBorderHeight) - (iBorderHeight-hremain)),
 										3, &ClipRect );
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										cx,	(INT32)(b->YLoc + (q*iBorderHeight) - (iBorderHeight-hremain)),
 										4, &ClipRect );
@@ -3732,13 +3732,13 @@ void DrawGenericButton(GUI_BUTTON *b)
 
 	for(q=1;q<NumChunksHigh;q++)
 	{
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										(INT32)b->XLoc,
 										(INT32)(b->YLoc + (q*iBorderHeight)),
 										3, &ClipRect );
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (UINT16*)pDestBuf,
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf,
 										uiDestPitchBYTES, BPic,
 										cx,	(INT32)(b->YLoc + (q*iBorderHeight)),
 										4, &ClipRect );

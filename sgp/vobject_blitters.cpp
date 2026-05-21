@@ -289,7 +289,7 @@ INT32		ClipX1, ClipY1, ClipX2, ClipY2;
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -311,7 +311,7 @@ INT32		ClipX1, ClipY1, ClipX2, ClipY2;
 					++src;
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -420,7 +420,7 @@ SixteenBPPObjectInfo *	p16BPPObject;
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -438,7 +438,7 @@ SixteenBPPObjectInfo *	p16BPPObject;
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 	}
 
@@ -536,7 +536,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -560,7 +560,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -623,7 +623,7 @@ ETRLEObject *pTrav;
 	// Z-test (>) with Z update on accept.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -651,7 +651,7 @@ ETRLEObject *pTrav;
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 	}
@@ -748,7 +748,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -773,7 +773,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -833,7 +833,7 @@ ETRLEObject *pTrav;
 	// Portable TransZNBTranslucent: 50% blend, Z-test, no Z update.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -860,7 +860,7 @@ ETRLEObject *pTrav;
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 	}
@@ -1047,7 +1047,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowBase = (UINT16*)DestPtr;
+		PIXEL* rowBase = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -1393,7 +1393,7 @@ ETRLEObject *pTrav;
 	// skip. Z-tested with Z update on accept.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 lineFlag = uiLineFlag;
 		UINT32 rows = usHeight;
@@ -1424,7 +1424,7 @@ ETRLEObject *pTrav;
 					xparity ^= 1;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -1490,7 +1490,7 @@ ETRLEObject *pTrav;
 	// existing). When in front, it's a full blit. Z always updated.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 lineFlag = uiLineFlag;
 		UINT32 rows = usHeight;
@@ -1520,7 +1520,7 @@ ETRLEObject *pTrav;
 					xparity ^= 1;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -1621,7 +1621,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 		// lineFlag at first visible row = (iTempY + TopSkip) & 1
 		UINT32 lineFlag = (UINT32)((iTempY + TopSkip) & 1);
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -1646,7 +1646,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -1707,7 +1707,7 @@ ETRLEObject *pTrav;
 	// Portable TransZNBPixelate: checkerboard, Z-test, no Z update.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 lineFlag = uiLineFlag;
 		UINT32 rows = usHeight;
@@ -1737,7 +1737,7 @@ ETRLEObject *pTrav;
 					xparity ^= 1;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -1836,7 +1836,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 		}
 		UINT32 lineFlag = (UINT32)((iTempY + TopSkip) & 1);
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -1860,7 +1860,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -1922,7 +1922,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES,
 	// run-length and that many 8bpp palette indices follow, each
 	// promoted via p16BPPPalette[] into RGB565.
 	{
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		const UINT8* src = SrcPtr;
 		UINT32 rows = usHeight;
@@ -1948,7 +1948,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES,
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
@@ -2006,7 +2006,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 
 	// ETRLE row decoder, Z-tested but no Z update.
 	{
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		const UINT8* src = SrcPtr;
 		UINT32 rows = usHeight;
@@ -2031,7 +2031,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
@@ -2093,7 +2093,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( PIXEL *pBuffer, UINT32 uiDestPitc
 	// silhouette in usColor. Z buffer is never updated (NB).
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -2119,7 +2119,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( PIXEL *pBuffer, UINT32 uiDestPitc
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 	}
@@ -2177,7 +2177,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadow(PIXEL *pBuffer, UINT32 uiDestPitchBY
 	// regular palette write. No Z buffer in this variant.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -2198,7 +2198,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadow(PIXEL *pBuffer, UINT32 uiDestPitchBY
 					++rowDest;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 	}
 
@@ -2261,7 +2261,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowAlpha(PIXEL *pBuffer, UINT32 uiDestPi
 	{
 		const UINT8* src   = SrcPtr;
 		const UINT8* alpha = AlphaPtr;
-		PIXEL*      dest  = (UINT16*)DestPtr;
+		PIXEL*      dest  = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -2284,7 +2284,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowAlpha(PIXEL *pBuffer, UINT32 uiDestPi
 					++rowDest;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 	}
 
@@ -2344,7 +2344,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZAlpha(PIXEL *pBuffer, UINT32 uiDestP
 	{
 		const UINT8* src   = SrcPtr;
 		const UINT8* alpha = AlphaPtr;
-		PIXEL*      dest  = (UINT16*)DestPtr;
+		PIXEL*      dest  = (PIXEL *)DestPtr;
 		UINT16*      zbuf  = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -2375,7 +2375,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZAlpha(PIXEL *pBuffer, UINT32 uiDestP
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 	}
@@ -2434,7 +2434,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZ(PIXEL *pBuffer, UINT32 uiDestPitchB
 	// write. Z-test (>=), Z-update on accept.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -2463,7 +2463,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZ(PIXEL *pBuffer, UINT32 uiDestPitchB
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 	}
@@ -2520,7 +2520,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNB(PIXEL *pBuffer, UINT32 uiDestPitc
 	// Portable TransShadowZNB: like TransShadowZ but no Z update.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -2548,7 +2548,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNB(PIXEL *pBuffer, UINT32 uiDestPitc
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 	}
@@ -2609,7 +2609,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBAlpha(PIXEL *pBuffer, UINT32 uiDes
 	{
 		const UINT8* src   = SrcPtr;
 		const UINT8* alpha = AlphaPtr;
-		PIXEL*      dest  = (UINT16*)DestPtr;
+		PIXEL*      dest  = (PIXEL *)DestPtr;
 		UINT16*      zbuf  = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -2639,7 +2639,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBAlpha(PIXEL *pBuffer, UINT32 uiDes
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 	}
@@ -2705,7 +2705,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscured(PIXEL *pBuffer, UINT32 ui
 	// not updated.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 lineFlag = uiLineFlag;
 		UINT32 rows = usHeight;
@@ -2745,7 +2745,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscured(PIXEL *pBuffer, UINT32 ui
 					xparity ^= 1;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -2809,7 +2809,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredTest(PIXEL *pBuffer, UINT3
 	// alpha 0x7F (50%) instead of an opaque write.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 lineFlag = uiLineFlag;
 		UINT32 rows = usHeight;
@@ -2847,7 +2847,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredTest(PIXEL *pBuffer, UINT3
 					xparity ^= 1;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -2910,7 +2910,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredAlpha(PIXEL *pBuffer, UINT
 	{
 		const UINT8* src   = SrcPtr;
 		const UINT8* alpha = AlphaPtr;
-		PIXEL*      dest  = (UINT16*)DestPtr;
+		PIXEL*      dest  = (PIXEL *)DestPtr;
 		UINT16*      zbuf  = (UINT16*)ZPtr;
 		UINT32 lineFlag = uiLineFlag;
 		UINT32 rows = usHeight;
@@ -2950,7 +2950,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredAlpha(PIXEL *pBuffer, UINT
 					xparity ^= 1;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -3045,7 +3045,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZClip(PIXEL *pBuffer, UINT32 uiDestPi
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -3071,7 +3071,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZClip(PIXEL *pBuffer, UINT32 uiDestPi
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -3170,7 +3170,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZClipAlpha(PIXEL *pBuffer, UINT32 uiD
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -3198,7 +3198,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZClipAlpha(PIXEL *pBuffer, UINT32 uiD
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -3291,7 +3291,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowClip(PIXEL *pBuffer, UINT32 uiDestPit
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -3313,7 +3313,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowClip(PIXEL *pBuffer, UINT32 uiDestPit
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 	}
 
@@ -3412,7 +3412,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowClipAlpha(PIXEL *pBuffer, UINT32 uiDe
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -3436,7 +3436,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowClipAlpha(PIXEL *pBuffer, UINT32 uiDe
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 	}
 
@@ -3529,7 +3529,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBClip(PIXEL *pBuffer, UINT32 uiDest
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -3554,7 +3554,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBClip(PIXEL *pBuffer, UINT32 uiDest
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -3653,7 +3653,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBClipAlpha(PIXEL *pBuffer, UINT32 u
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -3680,7 +3680,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBClipAlpha(PIXEL *pBuffer, UINT32 u
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -3776,7 +3776,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClip(PIXEL *pBuffer, UINT3
 		}
 		UINT32 lineFlag = (UINT32)((iTempY + TopSkip) & 1);
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -3808,7 +3808,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClip(PIXEL *pBuffer, UINT3
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -3909,7 +3909,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClipAlpha(PIXEL *pBuffer, 
 		}
 		UINT32 lineFlag = (UINT32)((iTempY + TopSkip) & 1);
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -3943,7 +3943,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClipAlpha(PIXEL *pBuffer, 
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -4040,7 +4040,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowBelowOrEqualZNBClip( PIXEL *pBuffer, 
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -4067,7 +4067,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowBelowOrEqualZNBClip( PIXEL *pBuffer, 
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
@@ -4129,7 +4129,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 	// PixShade(oldDest). Z-buffer test, then update Z.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -4154,7 +4154,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -4250,7 +4250,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -4272,7 +4272,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 					++src;
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -4329,7 +4329,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYT
 	// Portable ETRLE shadow blit: Z-tested darken, no Z update.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -4353,7 +4353,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYT
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -4449,7 +4449,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZNBClip( PIXEL *pBuffer, UINT32 uiDestPitc
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -4470,7 +4470,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZNBClip( PIXEL *pBuffer, UINT32 uiDestPitc
 					++src;
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -4566,7 +4566,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZClip( PIXEL *pBuffer, UINT32 uiDestPitchBY
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -4588,7 +4588,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZClip( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					++src;
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -4682,7 +4682,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClip( PIXEL *pBuffer, UINT32 uiDestPitch
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -4703,7 +4703,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClip( PIXEL *pBuffer, UINT32 uiDestPitch
 					++src;
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -4799,7 +4799,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClipColor( PIXEL *pBuffer, UINT32 uiDest
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -4818,7 +4818,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClipColor( PIXEL *pBuffer, UINT32 uiDest
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 	}
@@ -4873,13 +4873,13 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HV
 	// Raw (non-ETRLE) 8bpp subrect copy into 16bpp via palette LUT.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		for (UINT32 row = 0; row < BlitHeight; ++row) {
 			for (UINT32 x = 0; x < BlitLength; ++x) {
 				dest[x] = p16BPPPalette[src[x]];
 			}
 			src  += uiSrcPitch;
-			dest  = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest  = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)SrcSkip;
 		(void)LineSkip;
@@ -4936,14 +4936,14 @@ BOOLEAN Blt8BPPDataTo16BPPBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVSUR
 	// pixel through p16BPPPalette and write opaque to dest.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 _rows = usHeight;
 		while (_rows-- > 0) {
 			PIXEL* rowDest = dest;
 			for (UINT32 x = 0; x < usWidth; ++x) {
 				*rowDest++ = p16BPPPalette[*src++];
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)rows;  // silence unused-variable warning
 	}
@@ -4996,7 +4996,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferHalf( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, H
 	// in Y. Output dims are (usWidth/2, usHeight/2).
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		const UINT32 outW = usWidth / 2;
 		const UINT32 outH = usHeight / 2;
 		for (UINT32 row = 0; row < outH; ++row) {
@@ -5004,7 +5004,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferHalf( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, H
 				dest[x] = p16BPPPalette[src[x * 2]];
 			}
 			src  += uiSrcPitch * 2;
-			dest  = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest  = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 		(void)uiSrcSkip;
@@ -5070,7 +5070,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferHalfRect( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 	// the rect.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		const UINT32 outW = usWidth / 2;
 		const UINT32 outH = usHeight / 2;
 		for (UINT32 row = 0; row < outH; ++row) {
@@ -5078,7 +5078,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferHalfRect( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 				dest[x] = p16BPPPalette[src[x * 2]];
 			}
 			src  += uiSrcPitch * 2;
-			dest  = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest  = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 		(void)uiSrcSkip;
@@ -5146,7 +5146,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMask(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HV
 	// the observable behavior (plain ETRLE blit) for safety.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -5161,7 +5161,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMask(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HV
 					*rowDest++ = p16BPPPalette[*src++];
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)MaskPtr;
 		(void)usMHeight;
@@ -5246,7 +5246,7 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBY
 					rowDest[x] = usColor;
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 	}
@@ -5380,7 +5380,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow( PIXEL *pBuffer, UINT32 uiDestPitchBYTES,
 	// palette indices are read past for ETRLE stride but never used.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -5397,7 +5397,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow( PIXEL *pBuffer, UINT32 uiDestPitchBYTES,
 				}
 				src += cmd;  // skip the palette payload bytes
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
 	}
@@ -5454,7 +5454,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchB
 	// legacy asm unrolled this 4-at-a-time but the compiler vectorizes
 	// a tight inner loop just fine.
 	{
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		const UINT8* src = SrcPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -5470,7 +5470,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchB
 					*rowDest++ = p16BPPPalette[*src++];
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 	}
@@ -5540,7 +5540,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror( PIXEL *pBuffer, UINT32 uiDestPitchB
 	// No clipping in this variant.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -5555,7 +5555,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror( PIXEL *pBuffer, UINT32 uiDestPitchB
 					*rowDest-- = p16BPPPalette[*src++];
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 	}
 
@@ -5649,7 +5649,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip( PIXEL *pBuffer, UINT32 uiDestPi
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowBase = (UINT16*)DestPtr;
+		PIXEL* rowBase = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -5818,7 +5818,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip( PIXEL *pBuffer, UINT32 uiDestPitchBY
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -5836,7 +5836,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
 	}
@@ -5894,7 +5894,7 @@ PIXEL *DestPtr;
 			for (INT32 x = 0; x < width; ++x) {
 				rowDest[x] = PixShade(rowDest[x]);
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 	}
@@ -5950,7 +5950,7 @@ PIXEL *DestPtr;
 			for (INT32 x = 0; x < width; ++x) {
 				rowDest[x] = PixIntensity(rowDest[x]);
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 	}
@@ -6005,7 +6005,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadow( PIXEL *pBuffer, UINT32 uiDestPitchBY
 
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -6031,7 +6031,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadow( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					++rowDest;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)usForeground;
 		(void)p16BPPPalette;
@@ -6518,7 +6518,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 	// Otherwise normal palette LUT blit.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -6541,7 +6541,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 					++rowDest;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 	}
@@ -6628,7 +6628,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -6652,7 +6652,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
 		(void)Unblitted;
@@ -6749,7 +6749,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitch
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -6777,7 +6777,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitch
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
@@ -6875,7 +6875,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		UINT32 lineFlag = uiLineFlag;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
@@ -6908,7 +6908,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -6963,7 +6963,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineShadow( PIXEL *pBuffer, UINT32 uiDestPitc
 	// (src==254) are skipped so the outline ring is left untouched.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -6982,7 +6982,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineShadow( PIXEL *pBuffer, UINT32 uiDestPitc
 					++rowDest;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
 		(void)LineSkip;
@@ -7072,7 +7072,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineShadowClip( PIXEL *pBuffer, UINT32 uiDest
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -7090,7 +7090,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineShadowClip( PIXEL *pBuffer, UINT32 uiDest
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
 		(void)LineSkip;
@@ -7155,7 +7155,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 	// obvious usZValue.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -7186,7 +7186,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
@@ -7241,7 +7241,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 	// (equal counts as front-facing). Preserved each variant's quirk.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		UINT32 lineFlag = uiLineFlag;
@@ -7283,7 +7283,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}
@@ -7336,7 +7336,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBY
 	// with outline marker.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -7366,7 +7366,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
@@ -7428,7 +7428,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZ( PIXEL *pBuffer, UINT32 uiDestPitchBY
 	// zbuf>=usZ, so write when zbuf<usZ). Z is updated on write.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -7453,7 +7453,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZ( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -7550,7 +7550,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZClip( PIXEL *pBuffer, UINT32 uiDestPit
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -7572,7 +7572,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZClip( PIXEL *pBuffer, UINT32 uiDestPit
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -7632,7 +7632,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZNB( PIXEL *pBuffer, UINT32 uiDestPitch
 	// IntensityZNB: same as IntensityZ but no Z update.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
@@ -7656,7 +7656,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZNB( PIXEL *pBuffer, UINT32 uiDestPitch
 					++rowZ;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -7752,7 +7752,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZNBClip( PIXEL *pBuffer, UINT32 uiDestP
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -7773,7 +7773,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZNBClip( PIXEL *pBuffer, UINT32 uiDestP
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
@@ -7871,7 +7871,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityClip( PIXEL *pBuffer, UINT32 uiDestPitc
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {
@@ -7889,7 +7889,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityClip( PIXEL *pBuffer, UINT32 uiDestPitc
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
 		(void)LineSkip;
@@ -7946,7 +7946,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensity( PIXEL *pBuffer, UINT32 uiDestPitchBYT
 	// PixIntensity() to dest pixels.
 	{
 		const UINT8* src = SrcPtr;
-		PIXEL* dest = (UINT16*)DestPtr;
+		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -7963,7 +7963,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensity( PIXEL *pBuffer, UINT32 uiDestPitchBYT
 					++rowDest;
 				}
 			}
-			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)p16BPPPalette;
 		(void)LineSkip;
@@ -8066,7 +8066,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
-		PIXEL* rowDest = (UINT16*)DestPtr;
+		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		UINT32 lineFlag = (uiLineFlag ^ ((UINT32)TopSkip & 1u));
 		for (INT32 row = 0; row < BlitHeight; ++row) {
@@ -8096,7 +8096,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					}
 				}
 			}
-			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 			rowZ    = (UINT16*)((UINT8*)rowZ    + uiDestPitchBYTES);
 			lineFlag ^= 1;
 		}

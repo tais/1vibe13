@@ -462,7 +462,7 @@ UINT32	MainGameScreenHandle(void)
 
 		pDestBuf = LockVideoSurface(guiRENDERBUFFER, &uiDestPitchBYTES);
 
-		Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
+		Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
 					(UINT16 *)pData, uiPitch,
 					0 , 0,
 					0 , 0,

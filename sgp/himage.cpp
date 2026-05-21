@@ -342,7 +342,7 @@ BOOLEAN CopyImageToBuffer( HIMAGE hImage, UINT32 fBufferType, BYTE *pDestBuf, UI
 	if ( hImage->ubBitDepth == 32 && fBufferType == BUFFER_16BPP )
 	{
 		DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, "Copying 32 BPP Imagery to 16BPP Buffer." );
-		return Blt32BPPTo16BPPTrans((UINT16*)pDestBuf, usDestWidth * sizeof(UINT16), hImage->p32BPPData, usDestWidth*sizeof(UINT32), 0,0,0,0,usDestWidth, usDestHeight);
+		return Blt32BPPTo16BPPTrans((PIXEL *)pDestBuf, usDestWidth * sizeof(UINT16), hImage->p32BPPData, usDestWidth*sizeof(UINT32), 0,0,0,0,usDestWidth, usDestHeight);
 	}
 
 	return( FALSE );

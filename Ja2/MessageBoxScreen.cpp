@@ -333,8 +333,8 @@ INT32 DoMessageBox( UINT8 ubStyle, const STR16 zString, UINT32 uiExitScreen, UIN
 	pDestBuf = LockVideoSurface( gMsgBox.uiSaveBuffer, &uiDestPitchBYTES);
 	pSrcBuf = LockVideoSurface( FRAME_BUFFER, &uiSrcPitchBYTES);
 
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				0 , 0,
 				gMsgBox.sX , gMsgBox.sY,
 				usTextBoxWidth, usTextBoxHeight );
@@ -1367,8 +1367,8 @@ UINT32	ExitMsgBox( INT8 ubExitCode )
 		pSrcBuf = LockVideoSurface( gMsgBox.uiSaveBuffer, &uiSrcPitchBYTES);
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES);
 
-		Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-					(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+		Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+					(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 					gMsgBox.sX , gMsgBox.sY,
 					0, 0,
 					gMsgBox.usWidth, gMsgBox.usHeight );
@@ -1462,8 +1462,8 @@ UINT32	MessageBoxScreenHandle( )
 			pDestBuf = LockVideoSurface( gMsgBox.uiSaveBuffer, &uiDestPitchBYTES);
 			pSrcBuf = LockVideoSurface( FRAME_BUFFER, &uiSrcPitchBYTES);
 
-			Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-						(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+			Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+						(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 						0 , 0,
 						gMsgBox.sX , gMsgBox.sY,
 						gMsgBox.usWidth, gMsgBox.usHeight );
