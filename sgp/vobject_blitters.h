@@ -42,7 +42,7 @@ extern SGPRect		ClippingRect;
 extern UINT32			guiTranslucentMask;
 extern PIXEL			White16BPPPalette[ 256 ];
 
-unsigned short blendWithAlpha(unsigned int rgb565New, unsigned int rgb565Old, unsigned int alpha);
+PIXEL blendWithAlpha(unsigned int colNew, unsigned int colOld, unsigned int alpha);
 
 extern void SetClippingRect(SGPRect *clip);
 void GetClippingRect(SGPRect *clip);

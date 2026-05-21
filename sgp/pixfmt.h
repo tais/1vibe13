@@ -94,6 +94,19 @@ inline PIXEL PixFromColor16(UINT16 c)
 #endif
 }
 
+// 50% blend of a source pixel over a destination pixel (the translucency
+// blitters' lo-bit-strip trick). At 16bpp this is the classic
+// "(s>>1)+(d>>1)" with the 5/6/5 carry mask (guiTranslucentMask, 0x3DEF);
+// at 32bpp it is the per-channel equivalent with an 8/8/8 carry mask.
+inline PIXEL PixBlend50(PIXEL src, PIXEL dst)
+{
+#if SGP_PIXEL_DEPTH == 32
+	return 0xFF000000u | ((((UINT32)src >> 1) & 0x7F7F7Fu) + (((UINT32)dst >> 1) & 0x7F7F7Fu));
+#else
+	return (PIXEL)((((UINT32)src >> 1) & 0x3DEFu) + (((UINT32)dst >> 1) & 0x3DEFu));
+#endif
+}
+
 #endif // __cplusplus
 
 #endif // SGP_PIXFMT_H

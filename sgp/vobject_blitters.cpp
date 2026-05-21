@@ -18,20 +18,35 @@ std::map<UINT32,ClipRectangle> g_SurfaceRectangle;
 static UINT8 g_AlphaTimesValueCache[256][256];
 
 static const unsigned short maxChar = 0xff;
-unsigned short blendWithAlpha(unsigned int rgb565New, unsigned int rgb565Old, unsigned int alpha)
+PIXEL blendWithAlpha(unsigned int colNew, unsigned int colOld, unsigned int alpha)
 {
-	const unsigned int oldR = (rgb565Old >> 11) & 0x1F;
-	const unsigned int oldG = (rgb565Old >> 5)  & 0x3F;
-	const unsigned int oldB = (rgb565Old)       & 0x1F;
-	const unsigned int newR = (rgb565New >> 11) & 0x1F;
-	const unsigned int newG = (rgb565New >> 5)  & 0x3F;
-	const unsigned int newB = (rgb565New)       & 0x1F;
 	const unsigned int a = alpha & 0xFF;
 	const unsigned int ia = 255 - a;
+#if SGP_PIXEL_DEPTH == 32
+	// Both colours are ARGB8888 (palette LUT + dest are 32bpp). Blend per
+	// 8-bit channel; result is opaque.
+	const unsigned int oldR = (colOld >> 16) & 0xFF;
+	const unsigned int oldG = (colOld >>  8) & 0xFF;
+	const unsigned int oldB =  colOld        & 0xFF;
+	const unsigned int newR = (colNew >> 16) & 0xFF;
+	const unsigned int newG = (colNew >>  8) & 0xFF;
+	const unsigned int newB =  colNew        & 0xFF;
+	const unsigned int outR = (oldR * ia + newR * a + 128) / 255;
+	const unsigned int outG = (oldG * ia + newG * a + 128) / 255;
+	const unsigned int outB = (oldB * ia + newB * a + 128) / 255;
+	return 0xFF000000u | (outR << 16) | (outG << 8) | outB;
+#else
+	const unsigned int oldR = (colOld >> 11) & 0x1F;
+	const unsigned int oldG = (colOld >> 5)  & 0x3F;
+	const unsigned int oldB = (colOld)       & 0x1F;
+	const unsigned int newR = (colNew >> 11) & 0x1F;
+	const unsigned int newG = (colNew >> 5)  & 0x3F;
+	const unsigned int newB = (colNew)       & 0x1F;
 	const unsigned int outR = (oldR * ia + newR * a + 128) / 255;
 	const unsigned int outG = (oldG * ia + newG * a + 128) / 255;
 	const unsigned int outB = (oldB * ia + newB * a + 128) / 255;
 	return (unsigned short)((outR << 11) | (outG << 5) | outB);
+#endif
 }
 
 class InitAlphaTimesValueCache
@@ -589,10 +604,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
 						if (rowZ[dx] < usZValue) {
-							const UINT16 srcRGB = p16BPPPalette[v];
-							const UINT32 sH = ((UINT32)srcRGB >> 1) & guiTranslucentMask;
-							const UINT32 dH = ((UINT32)rowDest[dx] >> 1) & guiTranslucentMask;
-							rowDest[dx] = (UINT16)(sH + dH);
+							rowDest[dx] = PixBlend50(p16BPPPalette[v], rowDest[dx]);
 						}
 					}
 				}
@@ -678,10 +690,7 @@ ETRLEObject *pTrav;
 				for (UINT8 i = 0; i < cmd; ++i) {
 					if (*rowZ < usZValue) {
 						*rowZ = usZValue;
-						const UINT16 srcRGB = p16BPPPalette[*src];
-						const UINT32 sH = ((UINT32)srcRGB >> 1) & guiTranslucentMask;
-						const UINT32 dH = ((UINT32)*rowDest >> 1) & guiTranslucentMask;
-						*rowDest = (UINT16)(sH + dH);
+						*rowDest = PixBlend50(p16BPPPalette[*src], *rowDest);
 					}
 					++src;
 					++rowDest;
@@ -802,10 +811,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 						const INT32 dx = srcX - LeftSkip;
 						if (rowZ[dx] < usZValue) {
 							rowZ[dx] = usZValue;
-							const UINT16 srcRGB = p16BPPPalette[v];
-							const UINT32 sH = ((UINT32)srcRGB >> 1) & guiTranslucentMask;
-							const UINT32 dH = ((UINT32)rowDest[dx] >> 1) & guiTranslucentMask;
-							rowDest[dx] = (UINT16)(sH + dH);
+							rowDest[dx] = PixBlend50(p16BPPPalette[v], rowDest[dx]);
 						}
 					}
 				}
@@ -887,10 +893,7 @@ ETRLEObject *pTrav;
 				}
 				for (UINT8 i = 0; i < cmd; ++i) {
 					if (*rowZ < usZValue) {
-						const UINT16 srcRGB = p16BPPPalette[*src];
-						const UINT32 sH = ((UINT32)srcRGB >> 1) & guiTranslucentMask;
-						const UINT32 dH = ((UINT32)*rowDest >> 1) & guiTranslucentMask;
-						*rowDest = (UINT16)(sH + dH);
+						*rowDest = PixBlend50(p16BPPPalette[*src], *rowDest);
 					}
 					++src;
 					++rowDest;
