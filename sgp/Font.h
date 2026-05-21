@@ -94,9 +94,9 @@ void SetRGBFontForeground( UINT16 usFontForeground16 );
 void SetRGBFontShadow( UINT16 usFontShadow16 );
 
 BOOLEAN ResetFontObjectPalette(INT32 iFont);
-UINT16 *SetFontObjectPalette8BPP(INT32 iFont, SGPPaletteEntry *pPal8);
-UINT16 *SetFontObjectPalette16BPP(INT32 iFont, UINT16 *pPal16);
-UINT16 *GetFontObjectPalette16BPP(INT32 iFont);
+PIXEL *SetFontObjectPalette8BPP(INT32 iFont, SGPPaletteEntry *pPal8);
+PIXEL *SetFontObjectPalette16BPP(INT32 iFont, PIXEL *pPal16);
+PIXEL *GetFontObjectPalette16BPP(INT32 iFont);
 
 void DestroyEnglishTransTable( void );
 

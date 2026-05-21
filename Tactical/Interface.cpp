@@ -3240,7 +3240,7 @@ BOOLEAN DrawCTHIndicator()
 
 	// Create a pointer to the Frame Buffer which we are going to draw directly into.
 	UINT32 uiPitch;
-	UINT16 *ptrBuf = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
+	PIXEL *ptrBuf = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
 	uiPitch >>= 1;
 
 	///////////////////////////////////////////////////////////////////////////////
@@ -6460,7 +6460,7 @@ void NCTHImprovedAPColor( SOLDIERTYPE* pSoldier, OBJECTTYPE* pWeapon )
 	}
 }
 
-void NCTHDrawLaserDot( UINT16* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, FLOAT fLaserBonus, FLOAT fBrightnessModifier, FLOAT fEffectiveLaserRatio, FLOAT zOffset )
+void NCTHDrawLaserDot( PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, FLOAT fLaserBonus, FLOAT fBrightnessModifier, FLOAT fEffectiveLaserRatio, FLOAT zOffset )
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 0 )
 	{
@@ -6583,7 +6583,7 @@ void NCTHShowAimLevels( SOLDIERTYPE* pSoldier, INT16 curX, INT16 curY )
 	}
 }
 
-void NCTHShowMounted( SOLDIERTYPE* pSoldier, UINT16* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, INT16 zOffset )
+void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, INT16 zOffset )
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 2 )
 	{

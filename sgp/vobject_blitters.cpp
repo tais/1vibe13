@@ -64,7 +64,7 @@ BOOLEAN Blt32BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, UINT32 *pSrc, UIN
 	pSrcPtr			= (UINT32 *)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*4));
 	uiLineSkipSrc	= uiSrcPitch-(uiWidth*4);
 
-	pDestPtr		= (UINT16 *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*2));
+	pDestPtr		= (PIXEL *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*2));
 	uiLineSkipDest	= uiDestPitch-(uiWidth*2);
 
 	UINT8 alpha, dst_channel, src_channel;
@@ -106,7 +106,7 @@ BOOLEAN Blt32BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, UINT32 *pSrc, UIN
 		}
 		while (--w != 0);
 		pSrcPtr  = (UINT32*)((UINT8*)pSrcPtr  + uiLineSkipSrc);
-		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiLineSkipDest);
+		pDestPtr = (PIXEL *)((UINT8 *)pDestPtr + uiLineSkipDest);
 	}
 	while (--uiHeight != 0);
 
@@ -1142,8 +1142,8 @@ UINT32 uiLineSkipDest, uiLineSkipSrc;
 		return false;
 	}
 
-	pSrcPtr=(UINT16 *)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*2));
-	pDestPtr=(UINT16 *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*2));
+	pSrcPtr=(PIXEL *)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*2));
+	pDestPtr=(PIXEL *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*2));
 	uiLineSkipDest=uiDestPitch-(uiWidth*2);
 	uiLineSkipSrc=uiSrcPitch-(uiWidth*2);
 
@@ -1152,8 +1152,8 @@ UINT32 uiLineSkipDest, uiLineSkipSrc;
 	for (UINT32 y = 0; y < uiHeight; ++y)
 	{
 		std::memcpy(pDestPtr, pSrcPtr, (size_t)uiWidth * 2);
-		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiDestPitch);
-		pSrcPtr  = (UINT16*)((UINT8*)pSrcPtr  + uiSrcPitch);
+		pDestPtr = (PIXEL *)((UINT8 *)pDestPtr + uiDestPitch);
+		pSrcPtr  = (PIXEL *)((UINT8 *)pSrcPtr  + uiSrcPitch);
 	}
 
 	return(TRUE);
@@ -1176,8 +1176,8 @@ BOOLEAN Blt16BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT
 	Assert(pDest!=NULL);
 	Assert(pSrc!=NULL);
 
-	pSrcPtr			= (UINT16*)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*2));
-	pDestPtr		= (UINT16*)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*2));
+	pSrcPtr			= (PIXEL *)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*2));
+	pDestPtr		= (PIXEL *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*2));
 	uiLineSkipDest	= uiDestPitch - (uiWidth*2);
 	uiLineSkipSrc	= uiSrcPitch - (uiWidth*2);
 	do
@@ -1190,8 +1190,8 @@ BOOLEAN Blt16BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT
 			pDestPtr++;
 		}
 		while (--w != 0);
-		pSrcPtr  = (UINT16*)((UINT8*)pSrcPtr  + uiLineSkipSrc);
-		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiLineSkipDest);
+		pSrcPtr  = (PIXEL *)((UINT8 *)pSrcPtr  + uiLineSkipSrc);
+		pDestPtr = (PIXEL *)((UINT8 *)pDestPtr + uiLineSkipDest);
 	}
 	while (--uiHeight != 0);
 	return(TRUE);
@@ -1205,8 +1205,8 @@ BOOLEAN Blt16BPPTo16BPPTransShadow(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc
 	Assert(pDest != NULL);
 	Assert(pSrc  != NULL);
 
-	pSrcPtr			= (UINT16*)((UINT8 *)pSrc  + (iSrcYPos  * uiSrcPitch)  + (iSrcXPos  * 2));
-	pDestPtr		= (UINT16*)((UINT8 *)pDest + (iDestYPos * uiDestPitch) + (iDestXPos * 2));
+	pSrcPtr			= (PIXEL *)((UINT8 *)pSrc  + (iSrcYPos  * uiSrcPitch)  + (iSrcXPos  * 2));
+	pDestPtr		= (PIXEL *)((UINT8 *)pDest + (iDestYPos * uiDestPitch) + (iDestXPos * 2));
 	uiLineSkipDest	= uiDestPitch - (uiWidth * 2);
 	uiLineSkipSrc	= uiSrcPitch  - (uiWidth * 2);
 	do
@@ -1222,8 +1222,8 @@ BOOLEAN Blt16BPPTo16BPPTransShadow(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc
 			pDestPtr++;
 		}
 		while (--w != 0);
-		pSrcPtr  = (UINT16*)((UINT8*)pSrcPtr  + uiLineSkipSrc);
-		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiLineSkipDest);
+		pSrcPtr  = (PIXEL *)((UINT8 *)pSrcPtr  + uiLineSkipSrc);
+		pDestPtr = (PIXEL *)((UINT8 *)pDestPtr + uiLineSkipDest);
 	}
 	while (--uiHeight != 0);
 	return TRUE;
@@ -1288,8 +1288,8 @@ SGPRect *clipregion=NULL;
 	if((TopSkip >=(INT32)uiHeight) || (BottomSkip >=(INT32)uiHeight))
 		return(TRUE);
 
-	pSrcPtr=(UINT16 *)((UINT8 *)pSrc+(TopSkip*uiSrcPitch)+(RightSkip*2));
-	pDestPtr=(UINT16 *)((UINT8 *)pDest+(iTempY*uiDestPitch)+(iTempX*2)+((BlitLength-1)*2));
+	pSrcPtr=(PIXEL *)((UINT8 *)pSrc+(TopSkip*uiSrcPitch)+(RightSkip*2));
+	pDestPtr=(PIXEL *)((UINT8 *)pDest+(iTempY*uiDestPitch)+(iTempX*2)+((BlitLength-1)*2));
 	uiLineSkipDest=uiDestPitch;//+((BlitLength-1)*2);
 	uiLineSkipSrc=uiSrcPitch-(BlitLength*2);
 
@@ -1302,8 +1302,8 @@ SGPRect *clipregion=NULL;
 		for (INT32 i = 0; i < BlitLength; ++i) {
 			*rowDest-- = *rowSrc++;
 		}
-		pSrcPtr  = (UINT16*)((UINT8*)pSrcPtr  + uiSrcPitch);
-		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiDestPitch);
+		pSrcPtr  = (PIXEL *)((UINT8 *)pSrcPtr  + uiSrcPitch);
+		pDestPtr = (PIXEL *)((UINT8 *)pDestPtr + uiDestPitch);
 	}
 
 	return(TRUE);
@@ -6121,7 +6121,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferFullTransparent( HVOBJECT hDestVObject, HVOBJECT
 				pDest[x] = p16BPPPalette[pSrc[x]];
 			}
 			pSrc  += uiSrcPitch;   // pSrc is UINT8*
-			pDest = (UINT16*)((UINT8*)pDest + uiDestPitch);
+			pDest = (PIXEL *)((UINT8 *)pDest + uiDestPitch);
 		}
 	}
 
@@ -6365,7 +6365,7 @@ BOOLEAN FillRect16BPP(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 y
 {
 INT32		x1real, y1real, x2real, y2real;
 UINT32	linelength, lines, lineskip;
-UINT16		*startoffset;
+PIXEL		*startoffset;
 
 	// check parameters
 	Assert(pBuffer!=NULL);

@@ -52,7 +52,7 @@ CHAR8 BltIsClippedOrOffScreen( HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 
 
 
 UINT16 *InitZBuffer(UINT32 uiPitch, UINT32 uiHeight);
-BOOLEAN ShutdownZBuffer(PIXEL *pBuffer);
+BOOLEAN ShutdownZBuffer(UINT16 *pBuffer);
 
 
 // 8-Bit to 16-Bit Blitters

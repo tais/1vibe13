@@ -1039,7 +1039,7 @@ void RenderSetShadows(BOOLEAN fShadows)
 
 inline static UINT16 * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, SOLDIERTYPE * pPaletteTable, UINT32 uiFlags, INT16 * gsForceSoldierZLevel)
 {
-	UINT16 * pShadeTable;
+	PIXEL * pShadeTable;
 	// Shade guy always lighter than scene default!
 	{
 		const auto GridNo = pSoldier->sGridNo;

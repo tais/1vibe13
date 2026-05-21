@@ -1673,7 +1673,7 @@ BOOLEAN ShadeMapElements(const INT32(&colorMap)[ MAXIMUM_VALID_Y_COORDINATE ][ M
 
 	// Lock destination buffer
 	UINT32 uiDestPitch;
-	UINT16 *pDestBuffer;
+	PIXEL *pDestBuffer;
 	pDestBuffer = (PIXEL *)LockVideoSurface(guiSAVEBUFFER, &uiDestPitch);
 
 	if (pDestBuffer == NULL)

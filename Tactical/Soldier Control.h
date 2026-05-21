@@ -1249,9 +1249,9 @@ public:
 
 	SGPPaletteEntry	*p8BPPPalette; // 4
 	UINT16			*p16BPPPalette;
-	UINT16			*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
-	UINT16			*pGlowShades[ 20 ]; // 
-	UINT16			*pCurrentShade;
+	PIXEL			*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
+	PIXEL			*pGlowShades[ 20 ]; // 
+	PIXEL			*pCurrentShade;
 	UINT8			ubFadeLevel;
 	UINT8			ubServiceCount;
 	SoldierID		ubServicePartner;
@@ -1342,7 +1342,7 @@ public:
 	UINT8			ubHitLocation;
 	UINT8			bAimMeleeLocation;
 
-	UINT16			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
+	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
 	UINT8			ubPlannedUIAPCost;
 	INT16			sPlannedTargetX;
@@ -2479,9 +2479,9 @@ public:
 
 	SGPPaletteEntry							*p8BPPPalette; // 4
 	UINT16											*p16BPPPalette;
-	UINT16											*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
-	UINT16											*pGlowShades[ 20 ]; // 
-	UINT16											*pCurrentShade;
+	PIXEL											*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
+	PIXEL											*pGlowShades[ 20 ]; // 
+	PIXEL											*pCurrentShade;
 	INT8												bMedical;
 	BOOLEAN											fBeginFade;
 	UINT8												ubFadeLevel;
@@ -2676,7 +2676,7 @@ public:
 	UINT8												bAimShotLocation;
 	UINT8												ubHitLocation;
 
-	UINT16											*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
+	PIXEL											*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
 	UINT8												ubPlannedUIAPCost;
 	INT16												sPlannedTargetX;

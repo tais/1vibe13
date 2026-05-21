@@ -284,7 +284,7 @@ BOOLEAN ResetFontObjectPalette(INT32 iFont)
 // the appropriate 16-bit palette, and assigned to the HVOBJECT).
 //
 //*****************************************************************************
-UINT16 *SetFontObjectPalette8BPP(INT32 iFont, SGPPaletteEntry *pPal8)
+PIXEL *SetFontObjectPalette8BPP(INT32 iFont, SGPPaletteEntry *pPal8)
 {
 	PIXEL *pPal16;
 	Assert(IsFontLoaded(iFont));
@@ -304,7 +304,7 @@ UINT16 *SetFontObjectPalette8BPP(INT32 iFont, SGPPaletteEntry *pPal8)
 //	Sets the palette of a font, using a 16 bit palette.
 //
 //*****************************************************************************
-UINT16 *SetFontObjectPalette16BPP(INT32 iFont, PIXEL *pPal16)
+PIXEL *SetFontObjectPalette16BPP(INT32 iFont, PIXEL *pPal16)
 {
 	Assert(IsFontLoaded(iFont));
 
@@ -321,7 +321,7 @@ UINT16 *SetFontObjectPalette16BPP(INT32 iFont, PIXEL *pPal16)
 //	Sets the palette of a font, using a 16 bit palette.
 //
 //*****************************************************************************
-UINT16 *GetFontObjectPalette16BPP(INT32 iFont)
+PIXEL *GetFontObjectPalette16BPP(INT32 iFont)
 {
 	Assert(IsFontLoaded(iFont));
 
