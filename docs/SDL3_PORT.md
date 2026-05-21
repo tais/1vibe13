@@ -1254,6 +1254,28 @@ naturally with the Phase 6b RGBA8888 work.
 
 ---
 
+## Testing (future — separate task)
+
+There is **no test framework** in the repo yet. Standing up one (and wiring it
+into CI via ctest on all three platforms) is its own task. First, highest-value
+coverage once it exists:
+
+1. **Save/load round-trip tests.** Build representative game-state structs
+   (a merc with a non-ASCII name, full inventory, world items, militia, …),
+   run them through the save serializer, read them back, and assert field
+   equality — the automated stand-in for "save → quit → reload" playtesting.
+   Pairs directly with the [save-format v2 work](SAVE_FORMAT.md).
+2. **Golden-byte tests for the save format.** Assert the exact little-endian
+   bytes produced for known values. Running identically on Win/Lin/Mac in CI
+   *proves* cross-platform save parity instead of assuming it. (The
+   `SaveWriter`/`SaveReader` can be made memory-buffer-backed for this.)
+3. Beyond saves: unit tests for the pure-logic utilities (math, string,
+   pathfinding helpers) that have no engine/global dependencies.
+
+Until this lands, save-format changes are verified by playtesting.
+
+---
+
 ## Build hygiene — warning cleanup
 
 Tracked on branch `warning-cleanup` (off `master` after the SDL3-port

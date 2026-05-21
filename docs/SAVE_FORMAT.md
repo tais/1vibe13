@@ -184,3 +184,14 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   `int`/`long`/`enum`/`BOOLEAN` and raw struct blobs.
 - ☐ Bump `SAVE_GAME_VERSION`; verify save→quit→reload + round-trip diff on macOS;
   cross-check a save loads on Windows/Linux.
+
+### Verification
+
+There is no test framework in the repo yet (that's a separate task). Until then,
+verification is by **playtesting**: save → quit → reload, and confirm a save made
+on one OS loads on another. When a test framework lands, the ideal coverage for
+this work is (a) serializer round-trip tests (write → read → assert-equal for
+every primitive incl. non-ASCII `wstr`) and (b) **golden-byte tests** that assert
+the exact little-endian bytes for known values — those run in CI on Win/Lin/Mac
+and would *prove* cross-platform format parity rather than assuming it. The
+serializer is easy to make memory-buffer-backed for that.
