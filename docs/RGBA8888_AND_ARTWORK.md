@@ -49,6 +49,36 @@ conversion.
 
 The Z-buffer stays **16-bit** throughout (it stores depth, not colour).
 
+#### Caveat: `Get16BPPColor`-sourced colours are still RGB565-precision (an open end)
+
+This shim is a pragmatic compatibility choice, and it leaves one **deliberate,
+known limitation**. Any colour that originates from `Get16BPPColor()` is
+quantized to RGB565 (5 bits red, 6 green, 5 blue) *before* `PixFromColor16()`
+expands it back to 8-bit channels. The round-trip is lossy: e.g. an intended
+`RGB(155,155,155)` grey lands as roughly `RGB(152,155,156)`. For the flat solid
+colours these calls produce (UI fills, lines, box borders, mono-font text,
+cover tints) this is visually indistinguishable — but it is **not true 8-bit**
+for those specific sources.
+
+It does **not** affect the things where colour fidelity actually shows:
+
+- **8-bit indexed art** (tiles, mercs, items, most sprites) → full 8-bit ARGB
+  straight from the source palette via the LUT, never touches `Get16BPPColor`.
+- **Blending** (translucency, shadows, lighting) → now per-channel 8-bit.
+- **True-colour PNGs** (§4–5) → full fidelity end-to-end.
+
+So the RGBA8888 conversion is **functionally complete** — everything renders
+correctly and the high-value fidelity wins are realised. What remains is this
+**fidelity loose end**: the ~557 `Get16BPPColor` call sites still think in
+RGB565. Closing it fully would mean introducing a true-colour colour generator
+(e.g. a `GetScreenColor()` returning `PIXEL`/ARGB) and migrating those call
+sites and the `UINT16` colour variables/struct fields they flow through — a
+large, mechanical, separate effort that was not worth it for flat UI colours.
+Until then, treat it as the one intentionally-incomplete corner of the
+otherwise-complete pipeline conversion.
+
+The Z-buffer stays **16-bit** throughout (it stores depth, not colour).
+
 ---
 
 ## 2. What the 32-bit pipeline buys us
