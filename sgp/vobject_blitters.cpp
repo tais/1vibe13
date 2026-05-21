@@ -1095,7 +1095,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 					if (usBackground != 0) {
 						for (UINT8 i = 0; i < n; ++i, ++srcX) {
 							if (srcX >= LeftSkip && srcX < rightEdge) {
-								rowBase[srcX - LeftSkip] = usBackground;
+								rowBase[srcX - LeftSkip] = PixFromColor16(usBackground);
 							}
 						}
 					} else {
@@ -1114,7 +1114,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 						} else {
 							colour = usForeground; write = true;
 						}
-						if (write) rowBase[srcX - LeftSkip] = colour;
+						if (write) rowBase[srcX - LeftSkip] = PixFromColor16(colour);
 					}
 					++src;
 				}
