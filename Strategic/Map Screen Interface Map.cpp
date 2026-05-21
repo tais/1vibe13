@@ -380,7 +380,7 @@ INT32 iCurrentMapSectorZ = 0;
 
 // the palettes
 // Flugente: unified palette code
-UINT16* pMapPalette[MAP_SHADE_MAX];
+PIXEL* pMapPalette[MAP_SHADE_MAX];
 
 // the map border eta pop up
 UINT32 guiMapBorderEtaPopUp;

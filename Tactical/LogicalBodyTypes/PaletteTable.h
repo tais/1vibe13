@@ -10,8 +10,8 @@
 extern UINT8 gRedGlowR[];
 extern UINT8 gOrangeGlowR[];
 extern UINT8 gOrangeGlowG[];
-extern UINT16* CreateEnemyGlow16BPPPalette(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen);
-extern UINT16* CreateEnemyGreyGlow16BPPPalette(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen);
+extern PIXEL* CreateEnemyGlow16BPPPalette(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen);
+extern PIXEL* CreateEnemyGreyGlow16BPPPalette(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen);
 
 namespace LogicalBodyTypes {
 
