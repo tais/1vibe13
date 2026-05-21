@@ -196,15 +196,19 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   PaletteRepID → `str8`, inventory vectors, `STRUCT_Records`, dynamic-opinion
   2D arrays, growth modifiers as full INT16). The legacy/encrypted Prof.dat
   load path (`forceLoadOldVersion=true`) is preserved untouched.
-- ☐ **`SOLDIERTYPE` — the central struct, still TODO and the largest single
-  piece.** ~300 POD fields + 7 sub-structs (`STRUCT_AIData`/`Flags`/
-  `TimeChanges`/`TimeCounters`/`DRUGS`/`Statistics`/`Pathing`) ≈ 550 fields,
-  with ~20 pointer members interleaved in the POD (transient → skip on save,
-  re-derived by `InitializeExtraData()` on load). All-or-nothing: a partial
-  migration desyncs Save/Load. Use the field visitor; classify every pointer
-  as transient-vs-data while migrating. Best done as its own reviewed pass.
-- ☐ Audit top-level `SaveLoadGame` `FileWrite`/`FileRead` for bare
-  `int`/`long`/`enum`/`BOOLEAN` and raw struct blobs.
+- ☑ **`SOLDIERTYPE`** (the central struct) + its 7 sub-structs
+  (`STRUCT_AIData`/`Flags`/`TimeChanges`/`TimeCounters`/`DRUGS`/`Statistics`/
+  `Pathing`), ~550 fields, via the field visitor. ~20 interleaved runtime
+  pointers use `ar.ptr()` (written as nothing, NULL on load — re-derived by
+  `InitializeExtraData()`/palette+world rebuild, matching old behaviour which
+  only persisted garbage pointer values). `signed long` pinned to 32-bit via
+  `ar.slong`; `SoldierID` via its UINT16 `.i`. Builds on JA2/JA2UB/MAPEDITOR.
+- ☐ Audit the **rest of the save stream** in `SaveLoadGame.cpp` and the other
+  save modules (`Tactical Save`, strategic/laptop/finance/history/email/quest
+  blobs, sector data) for bare `int`/`long`/`enum`/`BOOLEAN` and raw struct
+  blobs written via direct `FileWrite`/`FileRead`. The wide-char-bearing
+  structs (the portability priority) are now all migrated; this is the
+  remaining breadth.
 - ☐ Bump `SAVE_GAME_VERSION`; verify save→quit→reload + round-trip diff on macOS;
   cross-check a save loads on Windows/Linux.
 
