@@ -21,6 +21,7 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/PCX.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PngLoader.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Random.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/SaveSerializer.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/sdl_input.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/sdl_video.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/sdl_vsurface.cpp"

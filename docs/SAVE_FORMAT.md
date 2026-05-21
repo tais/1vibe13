@@ -159,13 +159,28 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   serializer in Option B is agnostic: it can write to a raw `HWFILE` today and a
   zlib stream later without changing any per-struct `Serialize()`.
 
-## Open questions for sign-off
+## Decisions (locked)
 
-- **Backward compatibility:** do we need to *read* existing (current-build) mac
-  saves after the switch, or is a clean break at the new version acceptable?
-  (Clean break is far simpler and these are dev saves.)
-- **Cross-platform parity with Windows saves** a goal, or just "stable on each
-  platform"? Option B gives parity for free, but it only matters if you intend
-  to share saves between OSes.
-- Scope: save games only, or also the shipped `Prof.dat`/map readers in the same
-  pass? (Same helper; can be staged after.)
+- **Clean break — no backward compatibility.** We do *not* read pre-migration
+  saves. The new format is save-version-gated; old saves are rejected. (These
+  are dev saves; "kick the game into the next generation" > preserve old saves.)
+- **Cross-platform parity is a goal.** The format is fully defined (little-
+  endian, fixed widths, 16-bit wide chars) so a save is byte-identical on
+  Win/Lin/Mac and shareable between them.
+- **Scope = save games only.** Shipped `Prof.dat` and map readers stay as-is for
+  now (tracked separately; reuse the `wstr` helper when we get to them).
+- **Compression deferred.** Saves stay uncompressed for now; the serializer is
+  written stream-agnostic so a zlib layer (and a `1.2.8 → 1.3.1` bump) can be
+  added later without touching per-struct code.
+
+## Implementation status
+
+- ☐ Serializer core (`sgp/SaveSerializer.{h,cpp}`) — portable LE primitives +
+  `wstr` (16-bit on disk ↔ `wchar_t` in memory).
+- ☐ Migrate leaf structs (OBJECTTYPE, REAL_OBJECT, INVENTORY_IN_SLOT, WORLDITEM,
+  MILITIA), then MERCPROFILESTRUCT / SOLDIERCREATE_STRUCT / SOLDIERTYPE, then
+  containers / sector data.
+- ☐ Audit top-level `SaveLoadGame` `FileWrite`/`FileRead` for bare
+  `int`/`long`/`enum`/`BOOLEAN` and raw struct blobs.
+- ☐ Bump `SAVE_GAME_VERSION`; verify save→quit→reload + round-trip diff on macOS;
+  cross-check a save loads on Windows/Linux.
