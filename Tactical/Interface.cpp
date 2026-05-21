@@ -3241,7 +3241,7 @@ BOOLEAN DrawCTHIndicator()
 	// Create a pointer to the Frame Buffer which we are going to draw directly into.
 	UINT32 uiPitch;
 	PIXEL *ptrBuf = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
-	uiPitch >>= 1;
+	uiPitch /= sizeof(PIXEL);
 
 	///////////////////////////////////////////////////////////////////////////////
 	// Begin drawing
