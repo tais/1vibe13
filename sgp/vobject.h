@@ -87,14 +87,14 @@ typedef struct TAG_HVOBJECT
 	UINT32					uiSizePixData;						// ETRLE data size
 	SGPPaletteEntry			*pPaletteEntry;						// 8BPP Palette						  
 	COLORVAL				TransparentColor;					// Defaults to 0,0,0
-	UINT16					*p16BPPPalette;						// A 16BPP palette used for 8->16 blits
-	
+	PIXEL					*p16BPPPalette;						// palette used for 8->screen-depth blits (PIXEL: RGB565 or ARGB8888)
+
 	PTR						pPixData;							// ETRLE pixel data
 	ETRLEObject				*pETRLEObject;						// Object offset data etc
 	SixteenBPPObjectInfo	*p16BPPObject;
-	UINT16					*pShades[HVOBJECT_SHADE_TABLES];	// Shading tables
-	UINT16					*pShadeCurrent;
-	UINT16					*pGlow;								// glow highlight table
+	PIXEL					*pShades[HVOBJECT_SHADE_TABLES];	// Shading tables (per-shade palettes)
+	PIXEL					*pShadeCurrent;
+	PIXEL					*pGlow;								// glow highlight table
 	UINT8					*pShade8;							// 8-bit shading index table
 	UINT8					*pGlow8;							// 8-bit glow table
 	ZStripInfo				**ppZStripInfo;						// Z-value strip info arrays

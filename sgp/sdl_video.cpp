@@ -74,10 +74,10 @@ static SDL_Renderer* gRenderer  = nullptr;
 static SDL_Texture*  gFrameTex  = nullptr;
 
 // Heap RGB565 buffers, one per logical surface. Pitch is always
-// SCREEN_WIDTH * sizeof(UINT16) (no row padding).
-static UINT16* gFrameBuffer = nullptr;
-static UINT16* gBackBuffer  = nullptr;
-static UINT16* gMouseBuf    = nullptr;
+// SCREEN_WIDTH * sizeof(PIXEL) (no row padding).
+static PIXEL* gFrameBuffer = nullptr;
+static PIXEL* gBackBuffer  = nullptr;
+static PIXEL* gMouseBuf    = nullptr;
 static int     gMouseBufW   = MAX_CURSOR_WIDTH;
 static int     gMouseBufH   = MAX_CURSOR_HEIGHT;
 // Hotspot offset within gMouseBuf -- the "click point" of the cursor
@@ -93,7 +93,11 @@ static INT16   gMouseCursorHotY = 0;
 // green) so the cursor's black outline pixels are preserved -- using
 // 0x0000 as the key ate them and left the cursor looking fragmented
 // against dark backgrounds.
-static constexpr UINT16 kCursorTransparent = 0xF81F;
+#if SGP_PIXEL_DEPTH == 32
+static constexpr PIXEL kCursorTransparent = 0xFFFF00FFu;  // ARGB8888 opaque magenta
+#else
+static constexpr PIXEL kCursorTransparent = 0xF81F;       // RGB565 magenta
+#endif
 
 // Accumulated dirty rect (in framebuffer pixels). Empty when L>=R.
 static INT32 gDirtyL = 0, gDirtyT = 0, gDirtyR = 0, gDirtyB = 0;
@@ -162,11 +166,15 @@ BOOLEAN InitializeVideoManager(void)
 	}
 
 	gFrameTex = SDL_CreateTexture(gRenderer,
+#if SGP_PIXEL_DEPTH == 32
+		SDL_PIXELFORMAT_ARGB8888,
+#else
 		SDL_PIXELFORMAT_RGB565,
+#endif
 		SDL_TEXTUREACCESS_STREAMING,
 		SCREEN_WIDTH, SCREEN_HEIGHT);
 	if (!gFrameTex) {
-		std::fprintf(stderr, "SDL_CreateTexture(RGB565) failed: %s\n",
+		std::fprintf(stderr, "SDL_CreateTexture failed: %s\n",
 		             SDL_GetError());
 		return FALSE;
 	}
@@ -179,10 +187,10 @@ BOOLEAN InitializeVideoManager(void)
 		std::fprintf(stderr, "[video] SDL_HideCursor() failed: %s\n", SDL_GetError());
 	}
 
-	const size_t fbBytes = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(UINT16);
-	gFrameBuffer = (UINT16*)std::calloc(1, fbBytes);
-	gBackBuffer  = (UINT16*)std::calloc(1, fbBytes);
-	gMouseBuf    = (UINT16*)std::calloc(1, (size_t)gMouseBufW * gMouseBufH * sizeof(UINT16));
+	const size_t fbBytes = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
+	gFrameBuffer = (PIXEL*)std::calloc(1, fbBytes);
+	gBackBuffer  = (PIXEL*)std::calloc(1, fbBytes);
+	gMouseBuf    = (PIXEL*)std::calloc(1, (size_t)gMouseBufW * gMouseBufH * sizeof(PIXEL));
 	if (!gFrameBuffer || !gBackBuffer || !gMouseBuf) {
 		std::fprintf(stderr, "video: heap buffer alloc failed\n");
 		return FALSE;
@@ -270,13 +278,13 @@ void SetFrameBufferRefreshOverride(PTR cb)
 // primary/back distinction on the SDL3 path because the renderer
 // owns presentation; the buffers are kept separate to preserve the
 // game's expectations and to leave room for a later split if needed.
-PTR  LockPrimarySurface(UINT32* pitch) { if (pitch) *pitch = SCREEN_WIDTH * sizeof(UINT16); return gFrameBuffer; }
+PTR  LockPrimarySurface(UINT32* pitch) { if (pitch) *pitch = SCREEN_WIDTH * sizeof(PIXEL); return gFrameBuffer; }
 void UnlockPrimarySurface(void)        {}
 
-PTR  LockBackBuffer(UINT32* pitch)     { if (pitch) *pitch = SCREEN_WIDTH * sizeof(UINT16); return gBackBuffer; }
+PTR  LockBackBuffer(UINT32* pitch)     { if (pitch) *pitch = SCREEN_WIDTH * sizeof(PIXEL); return gBackBuffer; }
 void UnlockBackBuffer(void)            {}
 
-PTR  LockFrameBuffer(UINT32* pitch)    { if (pitch) *pitch = SCREEN_WIDTH * sizeof(UINT16); return gFrameBuffer; }
+PTR  LockFrameBuffer(UINT32* pitch)    { if (pitch) *pitch = SCREEN_WIDTH * sizeof(PIXEL); return gFrameBuffer; }
 void UnlockFrameBuffer(void)           {}
 
 // Fixed pitch -- gMouseBuf is always allocated at MAX_CURSOR_WIDTH so
@@ -285,7 +293,7 @@ void UnlockFrameBuffer(void)           {}
 // a pitch that tracks gMouseBufW would have ETRLE write small-stride
 // data into a 64-wide allocation, causing the next row to overlap the
 // previous row's tail and producing sheared/"mirrored"-looking cursors.
-PTR  LockMouseBuffer(UINT32* pitch)    { if (pitch) *pitch = MAX_CURSOR_WIDTH * sizeof(UINT16); return gMouseBuf; }
+PTR  LockMouseBuffer(UINT32* pitch)    { if (pitch) *pitch = MAX_CURSOR_WIDTH * sizeof(PIXEL); return gMouseBuf; }
 void UnlockMouseBuffer(void)           {}
 
 BOOLEAN GetRGBDistribution(void) { return TRUE; }
@@ -378,7 +386,7 @@ void Sgp_ShiftFrameBufferForScroll(void) {
 // frames. The main menu / laptop / map screens don't repaint their
 // background every frame, so without save/restore the cursor would
 // leave a trail wherever the mouse has been.
-static UINT16 gCursorSavePixels[MAX_CURSOR_WIDTH * MAX_CURSOR_HEIGHT];
+static PIXEL gCursorSavePixels[MAX_CURSOR_WIDTH * MAX_CURSOR_HEIGHT];
 static INT32  gCursorSaveX0 = 0, gCursorSaveY0 = 0;
 static INT32  gCursorSaveX1 = 0, gCursorSaveY1 = 0;
 static INT32  gCursorStampDstX = 0, gCursorStampDstY = 0;
@@ -408,8 +416,8 @@ static void CompositeCursorOntoFramebuffer()
 	gCursorSaveX1 = srcX1; gCursorSaveY1 = srcY1;
 	gCursorStampDstX = dstX; gCursorStampDstY = dstY;
 	for (INT32 sy = srcY0; sy < srcY1; ++sy) {
-		const UINT16* fbRow = gFrameBuffer + (size_t)(dstY + sy) * SCREEN_WIDTH + dstX;
-		UINT16* saveRow = gCursorSavePixels + (size_t)sy * MAX_CURSOR_WIDTH;
+		const PIXEL* fbRow = gFrameBuffer + (size_t)(dstY + sy) * SCREEN_WIDTH + dstX;
+		PIXEL* saveRow = gCursorSavePixels + (size_t)sy * MAX_CURSOR_WIDTH;
 		for (INT32 sx = srcX0; sx < srcX1; ++sx) saveRow[sx] = fbRow[sx];
 	}
 
@@ -418,10 +426,10 @@ static void CompositeCursorOntoFramebuffer()
 	// blits use); the actual cursor sprite occupies only the top-left
 	// gMouseBufW x gMouseBufH region.
 	for (INT32 sy = srcY0; sy < srcY1; ++sy) {
-		const UINT16* srcRow = gMouseBuf + (size_t)sy * MAX_CURSOR_WIDTH;
-		UINT16* dstRow = gFrameBuffer + (size_t)(dstY + sy) * SCREEN_WIDTH + dstX;
+		const PIXEL* srcRow = gMouseBuf + (size_t)sy * MAX_CURSOR_WIDTH;
+		PIXEL* dstRow = gFrameBuffer + (size_t)(dstY + sy) * SCREEN_WIDTH + dstX;
 		for (INT32 sx = srcX0; sx < srcX1; ++sx) {
-			const UINT16 px = srcRow[sx];
+			const PIXEL px = srcRow[sx];
 			if (px != kCursorTransparent) dstRow[sx] = px;
 		}
 	}
@@ -435,7 +443,7 @@ static void RestoreCursorPixels()
 {
 	if (gCursorSaveX0 >= gCursorSaveX1 || gCursorSaveY0 >= gCursorSaveY1) return;
 	for (INT32 sy = gCursorSaveY0; sy < gCursorSaveY1; ++sy) {
-		const UINT16* saveRow = gCursorSavePixels + (size_t)sy * MAX_CURSOR_WIDTH;
+		const PIXEL* saveRow = gCursorSavePixels + (size_t)sy * MAX_CURSOR_WIDTH;
 		UINT16* fbRow = gFrameBuffer + (size_t)(gCursorStampDstY + sy) * SCREEN_WIDTH + gCursorStampDstX;
 		for (INT32 sx = gCursorSaveX0; sx < gCursorSaveX1; ++sx) fbRow[sx] = saveRow[sx];
 	}
@@ -461,7 +469,7 @@ void RefreshScreen(void* /*dummy*/)
 	CompositeCursorOntoFramebuffer();
 
 	SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
-	                  SCREEN_WIDTH * sizeof(UINT16));
+	                  SCREEN_WIDTH * sizeof(PIXEL));
 	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;
 
 	RestoreCursorPixels();
