@@ -610,7 +610,7 @@ void DrawExplosionWarning( INT32 sGridno, INT8 sLevel, INT8 sDelay )
 	// make sure to check for these boundaries later on, and only draw inside them
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, gsVIEWPORT_START_X, gsVIEWPORT_WINDOW_START_Y, gsVIEWPORT_END_X, gsVIEWPORT_WINDOW_END_Y );
 
-	UINT16 red = Get16BPPColor( FROMRGB( 255, 0, 0 ) );
+	PIXEL red = Get16BPPColor( FROMRGB( 255, 0, 0 ) );
 
 	INT16 numcircles = max( 1, 4 - sDelay);
 

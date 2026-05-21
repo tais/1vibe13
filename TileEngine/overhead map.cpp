@@ -1408,7 +1408,7 @@ void RenderOverheadOverlays()
 	if ( PlayerTeamIsScanning() && SectorJammed() )
 		showjammers = TRUE;
 
-	UINT16 jamcolour = Get16BPPColor( FROMRGB( 36, 219, 151 ) );
+	PIXEL jamcolour = Get16BPPColor( FROMRGB( 36, 219, 151 ) );
 
 	BOOLEAN marklastenemy = FALSE;
 	if ( (gGameSettings.fOptions[TOPTION_SHOW_LAST_ENEMY] && gGameExternalOptions.ubMarkerMode && gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector <= gGameExternalOptions.ubSoldiersLeft)
@@ -1657,14 +1657,14 @@ void RenderOverheadOverlays()
 	if( !gfTacticalPlacementGUIActive )
 	{
 		// colours
-		UINT16 red		= Get16BPPColor(FROMRGB(255, 0, 0));
-		UINT16 black	= Get16BPPColor(FROMRGB(0, 0, 0));
-		UINT16 blue		= Get16BPPColor(FROMRGB(0, 0, 255));
-		UINT16 green	= Get16BPPColor(FROMRGB(0, 255, 0));
-		UINT16 white	= Get16BPPColor(FROMRGB(255, 255, 255));
-		UINT16 red_dull = Get16BPPColor( FROMRGB( 142, 0, 0 ) );
-		UINT16 blue_dull = Get16BPPColor( FROMRGB( 0, 0, 248 ) );
-		UINT16 green_dull = Get16BPPColor( FROMRGB( 0, 127, 0 ) );
+		PIXEL red		= Get16BPPColor(FROMRGB(255, 0, 0));
+		PIXEL black	= Get16BPPColor(FROMRGB(0, 0, 0));
+		PIXEL blue		= Get16BPPColor(FROMRGB(0, 0, 255));
+		PIXEL green	= Get16BPPColor(FROMRGB(0, 255, 0));
+		PIXEL white	= Get16BPPColor(FROMRGB(255, 255, 255));
+		PIXEL red_dull = Get16BPPColor( FROMRGB( 142, 0, 0 ) );
+		PIXEL blue_dull = Get16BPPColor( FROMRGB( 0, 0, 248 ) );
+		PIXEL green_dull = Get16BPPColor( FROMRGB( 0, 127, 0 ) );
 		
 		// Flugente: exploration assignment
 		bool explored = false;

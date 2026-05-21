@@ -2585,7 +2585,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				UINT32 uiDestPitchBYTES = 0;
 				SGPRect ClipRect;
 				UINT8 ubBarWidth;
-				UINT16 usColor = Get16BPPColor( FROMRGB( gGameExternalOptions.ubStatProgressBarsRed, gGameExternalOptions.ubStatProgressBarsGreen, gGameExternalOptions.ubStatProgressBarsBlue ) );
+				PIXEL usColor = Get16BPPColor( FROMRGB( gGameExternalOptions.ubStatProgressBarsRed, gGameExternalOptions.ubStatProgressBarsGreen, gGameExternalOptions.ubStatProgressBarsBlue ) );
 				//pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 				pDestBuf = LockVideoSurface( guiSAVEBUFFER, &uiDestPitchBYTES );
 

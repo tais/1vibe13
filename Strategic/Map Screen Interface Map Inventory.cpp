@@ -707,7 +707,7 @@ BOOLEAN RenderItemInPoolSlot( INT32 iCurrentSlot, INT32 iFirstSlotOnPage )
 		if ( pInventoryPoolList[ iCurrentSlot + iFirstSlotOnPage ].object.exists() == true)
 		{
 			// colour depends on flag
-			UINT16 usMilitia_EQColor = Get16BPPColor( FROMRGB( 0, 150, 215 ) );
+			PIXEL usMilitia_EQColor = Get16BPPColor( FROMRGB( 0, 150, 215 ) );
 			if ( pInventoryPoolList[ iCurrentSlot + iFirstSlotOnPage ].usFlags & WORLD_ITEM_TABOO_FOR_MILITIA_EQ_BLUE )
 				usMilitia_EQColor = Get16BPPColor( FROMRGB( 0, 110, 245 ) );
 			if ( pInventoryPoolList[ iCurrentSlot + iFirstSlotOnPage ].usFlags & WORLD_ITEM_TABOO_FOR_MILITIA_EQ_ELITE )
@@ -724,7 +724,7 @@ BOOLEAN RenderItemInPoolSlot( INT32 iCurrentSlot, INT32 iFirstSlotOnPage )
 		if ( pInventoryPoolList[ iCurrentSlot + iFirstSlotOnPage ].object.exists() == true)
 		{
 			// colour depends on flag
-			UINT16 usColor = Get16BPPColor( FROMRGB( 254, 190, 133 ) );
+			PIXEL usColor = Get16BPPColor( FROMRGB( 254, 190, 133 ) );
 
 			DrawHatchOnInventory_MilitiaAccess( guiSAVEBUFFER, sX, sY, MAP_INVEN_SLOT_WIDTH, MAP_INVEN_SLOT_IMAGE_HEIGHT , usColor);
 		}
@@ -1304,7 +1304,7 @@ void MapInvenPoolSlotsMove( MOUSE_REGION * pRegion, INT32 iReason  )
 			left = ( INT16 )( MAP_INVENTORY_POOL_SLOT_OFFSET_X + MAP_INVENTORY_POOL_SLOT_START_X + ( MAP_INVEN_SPACE_BTWN_SLOTS * x ) );
 			right = ( INT16 )( MAP_INVENTORY_POOL_SLOT_OFFSET_X + MAP_INVENTORY_POOL_SLOT_START_X + ( MAP_INVEN_SPACE_BTWN_SLOTS * (x+1) ) );
 
-			INT16 sColor = Get16BPPColor( FROMRGB( 255, 255, 255 ) );
+			PIXEL sColor = Get16BPPColor( FROMRGB( 255, 255, 255 ) );
 			DrawItemOutlineZoomedInventory( left, top, right, bottom, sColor, guiSAVEBUFFER );
 		}
 		*/

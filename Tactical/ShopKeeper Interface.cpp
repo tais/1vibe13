@@ -1298,9 +1298,9 @@ void HandleShopKeeperInterface()
 // Internal function to draw shop keeper inventory boxes
 void DrawShopKeeperInventoryBox( INT32 usPosX, INT32 usPosY )
 {
-	static const UINT16 col_itembox = Get16BPPColor( FROMRGB( 74, 65, 49 ) );
-	static const UINT16 col_itemdescription = Get16BPPColor( FROMRGB( 181, 150, 74 ) );
-	static const UINT16 col_itemstatusbar = Get16BPPColor( FROMRGB( 57, 56, 41 ) );
+	static const PIXEL col_itembox = Get16BPPColor( FROMRGB( 74, 65, 49 ) );
+	static const PIXEL col_itemdescription = Get16BPPColor( FROMRGB( 181, 150, 74 ) );
+	static const PIXEL col_itemstatusbar = Get16BPPColor( FROMRGB( 57, 56, 41 ) );
 
 	// draw background for status bar
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY, usPosX + 4, usPosY + 28, col_itemstatusbar );
@@ -1332,8 +1332,8 @@ BOOLEAN RenderShopKeeperInterface()
 									 SKI_TOTAL_END_Y - SKI_TOTAL_BEGIN_Y );
 	}
 		
-	UINT16 col_tradescreenmargin	= Get16BPPColor( FROMRGB( 64, 64, 64 ) );
-	UINT16 col_tradescreen			= Get16BPPColor( FROMRGB( 255, 0, 255 ) );
+	PIXEL col_tradescreenmargin	= Get16BPPColor( FROMRGB( 64, 64, 64 ) );
+	PIXEL col_tradescreen			= Get16BPPColor( FROMRGB( 255, 0, 255 ) );
 
 	// we need to do the colouring twice to colour the margin differently
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, SKI_TOTAL_BEGIN_X, SKI_TOTAL_BEGIN_Y,

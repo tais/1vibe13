@@ -1173,7 +1173,14 @@ void ConvertRGBDistribution565ToAny( UINT16 * p16BPPData, UINT32 uiNumberOfPixel
 		uiBlue = (*pPixel & 0x001F);
 		uiTemp = FROMRGB(uiRed,uiGreen,uiBlue);
 		// then convert the 32-bit RGB value to whatever 16 bit format is used
+#if SGP_PIXEL_DEPTH == 32
+		// 16bpp image buffer stays standard RGB565 (expanded to ARGB later by
+		// Copy16BPPImageTo16BPPBuffer). Get16BPPColor would yield ARGB here.
+		(void)uiTemp;
+		*pPixel = (UINT16)((uiRed << 11) | (uiGreen << 5) | uiBlue);
+#else
 		*pPixel = Get16BPPColor( uiTemp );
+#endif
 		pPixel++;
 	}
 }

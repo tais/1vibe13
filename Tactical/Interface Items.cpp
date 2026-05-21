@@ -2769,7 +2769,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 		//shadooow: hatch all pockets that we cannot put item into due to insufficient action points with red
 		if (fHatchItOut == 2)
 		{
-			UINT16 usColor = Get16BPPColor(FROMRGB(150, 0, 50));
+			PIXEL usColor = Get16BPPColor(FROMRGB(150, 0, 50));
 			UINT32 uiWhichBuffer = (guiCurrentItemDescriptionScreen == MAP_SCREEN) ? guiSAVEBUFFER : guiRENDERBUFFER;
 			DrawHatchOnInventory_MilitiaAccess(uiWhichBuffer, sX, sY, (UINT16)(gSMInvData[sPocket].sWidth - 1), (UINT16)(gSMInvData[sPocket].sHeight - 1), usColor);
 		}
@@ -2782,7 +2782,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 	// Flugente: if we are currently trading, hatch all items that the trade won't accept anyway in red. That way the player doesn't have to manually find out
 	else if ( (guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE) && pObject->exists( ) && DoesCurrentDealerRefuseToTradeItem( pObject->usItem ) )
 	{
-		UINT16 usColor = Get16BPPColor( FROMRGB( 150, 0, 50 ) );
+		PIXEL usColor = Get16BPPColor( FROMRGB( 150, 0, 50 ) );
 
 		UINT32 uiWhichBuffer = (guiCurrentItemDescriptionScreen == MAP_SCREEN) ? guiSAVEBUFFER : guiRENDERBUFFER;
 		DrawHatchOnInventory_MilitiaAccess( uiWhichBuffer, sX, sY, (UINT16)(gSMInvData[sPocket].sWidth - 1), (UINT16)(gSMInvData[sPocket].sHeight - 1), usColor );
@@ -3961,7 +3961,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				UINT32 red, green, blue;
 				UINT8 TemperatureStringNum = GetTemperatureString( overheatjampercentage, &red, &green, &blue );
 
-				UINT16 colour = Get16BPPColor( FROMRGB( red, green, blue ) );
+				PIXEL colour = Get16BPPColor( FROMRGB( red, green, blue ) );
 
 				DrawItemUIBarEx( pObjShown, DRAW_ITEM_TEMPERATURE, sX, sY + sHeight-1, ITEMDESC_ITEM_STATUS_WIDTH, sHeight-1, colour, colour, TRUE, guiSAVEBUFFER );								
 			}
@@ -3978,7 +3978,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 					UINT32 green = (UINT32) ( 54 + 200 * min(1.0f, condition ) );	//54 + 201 * ( min(1.0f, condition ) )
 					UINT32 blue  = 0;
 										
-					UINT16 colour = Get16BPPColor( FROMRGB( red, green, blue ) );
+					PIXEL colour = Get16BPPColor( FROMRGB( red, green, blue ) );
 
 					DrawItemUIBarEx( pObject, DRAW_ITEM_TEMPERATURE, sX, sY + sHeight-1, ITEMDESC_ITEM_STATUS_WIDTH, (INT16)((sHeight-1)*(1-condition)), colour, colour, TRUE, guiSAVEBUFFER);
 				}
@@ -7076,7 +7076,7 @@ void RenderItemDescriptionBox( )
 					UINT32 red, green, blue;
 					UINT8 TemperatureStringNum = GetTemperatureString( overheatjampercentage, &red, &green, &blue );
 
-					UINT16 colour = Get16BPPColor( FROMRGB( red, green, blue ) );
+					PIXEL colour = Get16BPPColor( FROMRGB( red, green, blue ) );
 
 					DrawItemUIBarEx( &(*iter), DRAW_ITEM_TEMPERATURE, sCenX+4, sCenY, ITEM_BAR_WIDTH, ITEM_BAR_HEIGHT, colour, colour, TRUE, guiSAVEBUFFER );
 				}

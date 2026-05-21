@@ -1465,7 +1465,7 @@ void GlowImpInvPoolItem(void)
 	const auto width = 60;
 	const auto height = 24;
 
-	UINT16 usColor = Get16BPPColor(FROMRGB(GlowColorsA[iColorNum].ubRed, GlowColorsA[iColorNum].ubGreen, GlowColorsA[iColorNum].ubBlue));
+	PIXEL usColor = Get16BPPColor(FROMRGB(GlowColorsA[iColorNum].ubRed, GlowColorsA[iColorNum].ubGreen, GlowColorsA[iColorNum].ubBlue));
 	pDestBuf = LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
 	SetClippingRegionAndImageWidth(uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 

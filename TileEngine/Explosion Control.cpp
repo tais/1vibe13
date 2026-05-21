@@ -4380,7 +4380,7 @@ void HandleExplosionWarningAnimations( )
 		}
 	}
 
-	UINT16 usBlue = Get16BPPColor(FROMRGB(0, 0, 255));
+	PIXEL usBlue = Get16BPPColor(FROMRGB(0, 0, 255));
 	UINT16 usColor;
 	INT32 sRadius;
 
