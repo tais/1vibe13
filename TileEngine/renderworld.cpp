@@ -6781,7 +6781,7 @@ BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitch
 
 
 	SrcPtr= (UINT8 *)hSrcVObject->pPixData + uiOffset;
-	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*2);
+	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*sizeof(PIXEL));
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
 	// Portable replacement for the former 32-bit x86 __asm. Walks the
@@ -6841,7 +6841,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( PIXEL *pBuffer, UINT32 uiDestPitchBYT
 
 
 	SrcPtr= (UINT8 *)hSrcVObject->pPixData + uiOffset;
-	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*2);
+	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*sizeof(PIXEL));
 	ZPtr = (UINT8 *)pZBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*2);
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));

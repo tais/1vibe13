@@ -14173,7 +14173,7 @@ PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UI
 
 	Assert( pPalette != NULL );
 
-	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(UINT16)* 256 );
+	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(PIXEL)* 256 );
 
 	for ( cnt = 0; cnt < 256; ++cnt )
 	{
@@ -14191,6 +14191,12 @@ PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UI
 		g = (UINT8)__min( gmod, 255 );
 		b = (UINT8)__min( bmod, 255 );
 
+#if SGP_PIXEL_DEPTH == 32
+		usColor = 0xFF000000u | ((UINT32)r << 16) | ((UINT32)g << 8) | (UINT32)b;
+		// Prevent creation of pure black color
+		if ( ((usColor & 0x00FFFFFFu) == 0) && ((r + g + b) != 0) )
+			usColor = 0xFF000001u;
+#else
 		if ( gusRedShift < 0 )
 			r16 = ((UINT16)r >> (-gusRedShift));
 		else
@@ -14212,6 +14218,7 @@ PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UI
 
 		if ( (usColor == 0) && ((r + g + b) != 0) )
 			usColor = 0x0001;
+#endif
 
 		p16BPPPalette[cnt] = usColor;
 	}
@@ -14228,7 +14235,7 @@ PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale
 
 	Assert( pPalette != NULL );
 
-	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(UINT16)* 256 );
+	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(PIXEL)* 256 );
 
 	for ( cnt = 0; cnt < 256; cnt++ )
 	{
@@ -14251,6 +14258,12 @@ PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale
 		g = (UINT8)__min( gmod, 255 );
 		b = (UINT8)__min( bmod, 255 );
 
+#if SGP_PIXEL_DEPTH == 32
+		usColor = 0xFF000000u | ((UINT32)r << 16) | ((UINT32)g << 8) | (UINT32)b;
+		// Prevent creation of pure black color
+		if ( ((usColor & 0x00FFFFFFu) == 0) && ((r + g + b) != 0) )
+			usColor = 0xFF000001u;
+#else
 		if ( gusRedShift < 0 )
 			r16 = ((UINT16)r >> (-gusRedShift));
 		else
@@ -14272,6 +14285,7 @@ PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale
 
 		if ( (usColor == 0) && ((r + g + b) != 0) )
 			usColor = 0x0001;
+#endif
 
 		p16BPPPalette[cnt] = usColor;
 	}

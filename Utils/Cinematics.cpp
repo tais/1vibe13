@@ -112,7 +112,7 @@ void BlitFrameToFrameBuffer(SMKFLIC& f, const unsigned char* palette, const unsi
 	UINT32 pitchBytes = 0;
 	PIXEL* fb = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &pitchBytes);
 	if (!fb) return;
-	const int stridePx = (int)(pitchBytes / sizeof(UINT16));
+	const int stridePx = (int)(pitchBytes / sizeof(PIXEL));
 
 	const int dstX0 = (int)f.uiLeft;
 	const int dstY0 = (int)f.uiTop;
@@ -139,7 +139,11 @@ void BlitFrameToFrameBuffer(SMKFLIC& f, const unsigned char* palette, const unsi
 			const unsigned char r8 = palette[idx * 3 + 0];
 			const unsigned char g8 = palette[idx * 3 + 1];
 			const unsigned char b8 = palette[idx * 3 + 2];
+#if SGP_PIXEL_DEPTH == 32
+			dstRow[x] = 0xFF000000u | ((UINT32)r8 << 16) | ((UINT32)g8 << 8) | (UINT32)b8;
+#else
 			dstRow[x] = (UINT16)(((r8 >> 3) << 11) | ((g8 >> 2) << 5) | (b8 >> 3));
+#endif
 		}
 	}
 	UnLockVideoSurface(FRAME_BUFFER);
