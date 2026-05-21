@@ -897,7 +897,12 @@ void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
 		png::png_bytep row_i = rows[i];
 		for(unsigned int sx = 0, dx = 0; sx < 3*info->width; sx+=3, dx+=1)
 		{
-			dest_row[dx] = Get16BPPColor( FROMRGB(row_i[sx], row_i[sx+1], row_i[sx+2]) );
+			// This HIMAGE is 16bpp (p16BPPData); pack RGB565 directly. (Get16BPPColor
+			// now yields true ARGB, which doesn't belong in a 16bpp image buffer --
+			// Copy16BPPImageTo16BPPBuffer expands these to screen format later.)
+			dest_row[dx] = (UINT16)( (((UINT16)row_i[sx]   >> 3) << 11)
+			                       | (((UINT16)row_i[sx+1] >> 2) << 5)
+			                       |  ((UINT16)row_i[sx+2] >> 3) );
 		}
 	}
 	hImage->fFlags |= IMAGE_BITMAPDATA;

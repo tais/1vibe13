@@ -1054,7 +1054,7 @@ void HandleFaceHilights( FACETYPE *pFace, UINT32 uiBuffer, INT16 sFaceX, INT16 s
 {
 	UINT32					uiDestPitchBYTES;
 	UINT8						*pDestBuf;
-	UINT16					usLineColor;
+	PIXEL					usLineColor;
 	INT32						iFaceIndex;
 
 	iFaceIndex = pFace->iID;
@@ -1581,7 +1581,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 	INT16						sX1, sY1, sY2, sX2;
 	UINT32					uiDestPitchBYTES;
 	UINT8						*pDestBuf;
-	UINT16					usLineColor;
+	PIXEL					usLineColor;
 	INT8			bNumRightIcons = 0;
 	
 	BOOLEAN			fDoIcon_legion = FALSE; //legion

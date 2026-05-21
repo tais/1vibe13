@@ -315,7 +315,7 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	PIXEL	*pDestBuf;
 	UINT8	*pSrcBuf;
 	UINT8		ubFontColor, ubFontShadowColor;
-	UINT16	usColorVal;
+	PIXEL	usColorVal;
 	UINT16	usLoopEnd;
 	INT16		sDispTextXPos;
 	MercPopUpBox *pPopUpTextBox = NULL;

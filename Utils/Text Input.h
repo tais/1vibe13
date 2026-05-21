@@ -146,13 +146,13 @@ INT16 GetActiveFieldID();
 //that all text input boxes are exactly the same color scheme.	However, these colors can be set at anytime,
 //but will effect all of the colors.
 void SetTextInputFont( UINT16 usFont );
-void Set16BPPTextFieldColor( UINT16 usTextFieldColor );
+void Set16BPPTextFieldColor( PIXEL usTextFieldColor );
 void SetTextInputRegularColors( UINT8 ubForeColor, UINT8 ubShadowColor );
 void SetTextInputHilitedColors( UINT8 ubForeColor, UINT8 ubShadowColor, UINT8 ubBackColor );
 //optional color setups
-void SetDisabledTextFieldColors( UINT8 ubForeColor, UINT8 ubShadowColor, UINT16 usTextFieldColor );
-void SetBevelColors( UINT16 usBrighterColor, UINT16 usDarkerColor );
-void SetCursorColor( UINT16 usCursorColor );
+void SetDisabledTextFieldColors( UINT8 ubForeColor, UINT8 ubShadowColor, PIXEL usTextFieldColor );
+void SetBevelColors( PIXEL usBrighterColor, PIXEL usDarkerColor );
+void SetCursorColor( PIXEL usCursorColor );
 
 //All CTRL and ALT keys combinations, F1-F12 keys, ENTER and ESC are ignored allowing 
 //processing to be done with your own input handler.	Otherwise, the keyboard event

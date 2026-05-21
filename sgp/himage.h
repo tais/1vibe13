@@ -193,7 +193,9 @@ BOOLEAN GetETRLEImageData( HIMAGE hImage, ETRLEData *pBuffer );
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
 PIXEL *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono);
 PIXEL *Create16BPPPalette( SGPPaletteEntry *pPalette );
-UINT16 Get16BPPColor( UINT32 RGBValue );
+// Screen-format colour: true ARGB8888 at 32bpp, RGB565 at 16bpp. Returns a
+// PIXEL (not UINT16); colour-storage call sites are typed PIXEL to match.
+PIXEL Get16BPPColor( UINT32 RGBValue );
 UINT32 GetRGBColor( UINT16 Value16BPP );
 
 // 32bpp (ARGB8888) equivalents -- Phase 6b RGBA8888 pipeline.

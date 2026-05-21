@@ -147,7 +147,10 @@ void BuildShadeTable(void)
 	UINT16 red, green, blue;
 	UINT16 index = 0;
 
-
+#if SGP_PIXEL_DEPTH != 32
+	// 64K RGB565 -> shaded-RGB565 LUT. At 32bpp this table is unused
+	// (PixShade darkens per channel) and the index would be a 32-bit ARGB
+	// value -> out of bounds, so it's only built at 16bpp.
 	for(red=0; red < 256; red+=4)
 		for(green=0; green < 256; green+=4)
 			for(blue=0; blue < 256; blue+=4)
@@ -155,6 +158,9 @@ void BuildShadeTable(void)
 				index=Get16BPPColor(FROMRGB(red, green, blue));
 				ShadeTable[index]=Get16BPPColor(FROMRGB(red*guiShadePercent, green*guiShadePercent, blue*guiShadePercent));
 			}
+#else
+	(void)index; (void)red; (void)green; (void)blue;
+#endif
 
 	memset( White16BPPPalette, 65535, sizeof( White16BPPPalette ) );
 }
@@ -182,6 +188,8 @@ void BuildIntensityTable(void)
 
 
 
+#if SGP_PIXEL_DEPTH != 32
+	// 16bpp-only LUT (see BuildShadeTable); unused and unsafe at 32bpp.
 	for(red=0; red < 256; red+=4)
 		for(green=0; green < 256; green+=4)
 			for(blue=0; blue < 256; blue+=4)
@@ -189,6 +197,9 @@ void BuildIntensityTable(void)
 				index=Get16BPPColor(FROMRGB(red, green, blue));
 				IntensityTable[index]=Get16BPPColor(FROMRGB(red*dShadedPercent, green*dShadedPercent, blue*dShadedPercent));
 			}
+#else
+	(void)index; (void)red; (void)green; (void)blue; (void)dShadedPercent;
+#endif
 
 }
 

@@ -1597,7 +1597,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	}
 }
 
-void DrawCTHPixelToBuffer( PIXEL *pBuffer, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sPixelX, INT16 sPixelY, UINT16 usColor )
+void DrawCTHPixelToBuffer( PIXEL *pBuffer, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sPixelX, INT16 sPixelY, PIXEL usColor )
 {
 	///////////////////////////////////////////////////////////
 	// HEADROCK HAM 4:
@@ -2441,13 +2441,13 @@ BOOLEAN DrawCTHIndicator()
 	UINT8 ColorsGreen[10] = { 0, 50, 81, 101, 133, 174, 211, 243, 255, 255 };
 
 	// Select the color of the indicator circles
-	UINT16 usCApertureBar;
+	PIXEL usCApertureBar;
 
 	// CHRISL: Instead of shigting the color based on MuzzleSwayPercent, let's move this line and base it on the final iAperture value
 	// Indicator changes color from red to yellow to green, based on how well the gun is aimed.
 	//usCApertureBar		= Get16BPPColor( FROMRGB( ColorsRed[gCTHDisplay.MuzzleSwayPercentage/10], ColorsGreen[gCTHDisplay.MuzzleSwayPercentage/10], 0 ) ); // Crosshair color shifts from red (longshot) to green (Accurate shot)
 
-	UINT16 usCApertureBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) ); // Boundaries in dark color.
+	PIXEL usCApertureBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) ); // Boundaries in dark color.
 
 	//////////////////////////////////
 	// Calculate Aperture
@@ -3295,7 +3295,7 @@ BOOLEAN DrawCTHIndicator()
 		if ( pTarget )
 		{
 
-			UINT16 usCApertureMove = 0;
+			PIXEL usCApertureMove = 0;
 			FLOAT dMuzzleOffsetX = 0;
 			DOUBLE dShootingAngle = atan2( dDeltaY, dDeltaX );
 
@@ -3516,7 +3516,7 @@ void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sW
 	UINT8											*pDestBuf;
 	INT8											bBandage;
 	INT16		color8;
-	INT16		color16;
+	PIXEL		color16;
 
 	// Draw new size
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
@@ -5783,7 +5783,7 @@ void RenderTopmostMultiPurposeLocator( )
 	BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO, gbMultiPurposeLocatorFrame, sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 }
 
-void DrawBar( INT32 x, INT32 y, INT32 width, INT32 height, UINT16 color8, UINT16 color16, UINT8 *pDestBuf )
+void DrawBar( INT32 x, INT32 y, INT32 width, INT32 height, UINT16 color8, PIXEL color16, UINT8 *pDestBuf )
 {
 	if( width > 0 )
 	{
@@ -6471,9 +6471,9 @@ void NCTHDrawLaserDot( PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, I
 			usLaserBonus = 100 * fBrightnessModifier * fEffectiveLaserRatio;
 		else
 			usLaserBonus = 0;
-		UINT16 usCLaserDot = Get16BPPColor( FROMRGB( 130 + usLaserBonus, 0, 0 ) );
-		UINT16 usCLaserDotHigh = Get16BPPColor( FROMRGB( 150 + usLaserBonus, 0, 0 ) );
-		UINT16 usCLaserDotLow = Get16BPPColor( FROMRGB( 100 + usLaserBonus, 0, 0 ) );
+		PIXEL usCLaserDot = Get16BPPColor( FROMRGB( 130 + usLaserBonus, 0, 0 ) );
+		PIXEL usCLaserDotHigh = Get16BPPColor( FROMRGB( 150 + usLaserBonus, 0, 0 ) );
+		PIXEL usCLaserDotLow = Get16BPPColor( FROMRGB( 100 + usLaserBonus, 0, 0 ) );
 
 		// if laser visibility is at least 10%
 		if(!gfCannotGetThrough && usLaserBonus > 10)
@@ -6493,7 +6493,7 @@ void NCTHDrawLaserDot( PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, I
 	}
 }
 
-void NCTHCorrectMaxAperture( FLOAT& iAperture, FLOAT& iDistanceAperture, UINT16& usCApertureBar )
+void NCTHCorrectMaxAperture( FLOAT& iAperture, FLOAT& iDistanceAperture, PIXEL& usCApertureBar )
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 0 )
 	{
@@ -6589,8 +6589,8 @@ void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT1
 	{
 		OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
 		INVTYPE	*pItem = &Item[ pWeapon->usItem ];
-		UINT16 usCMountedBar	= Get16BPPColor( FROMRGB( 192, 0, 0 ) );
-		UINT16 usCMountedBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) );
+		PIXEL usCMountedBar	= Get16BPPColor( FROMRGB( 192, 0, 0 ) );
+		PIXEL usCMountedBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) );
 		if ( gGameExternalOptions.fWeaponResting && !gfCannotGetThrough && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier->IsWeaponMounted() )
 		{			
 			for(INT32 cnt=-5;cnt<=5;cnt++)

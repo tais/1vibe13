@@ -811,7 +811,7 @@ void Blit8_Opaque(UINT8* dst, UINT32 dstPitchBytes,
 }
 
 void FillRect16(PIXEL* dst, UINT32 dstPitchBytes,
-                INT32 x, INT32 y, INT32 w, INT32 h, UINT16 colour16)
+                INT32 x, INT32 y, INT32 w, INT32 h, PIXEL colour16)
 {
 	const PIXEL colour = PixFromColor16(colour16);
 	for (INT32 yy = 0; yy < h; ++yy)
@@ -826,7 +826,7 @@ void FillRect16(PIXEL* dst, UINT32 dstPitchBytes,
 BOOLEAN ColorFillVideoSurfaceArea(UINT32 uiDestVSurface,
                                   INT32 iDestX1, INT32 iDestY1,
                                   INT32 iDestX2, INT32 iDestY2,
-                                  UINT16 Color16BPP)
+                                  PIXEL Color16BPP)
 {
 	HVSURFACE hDst = nullptr;
 	if (!GetVideoSurface(&hDst, uiDestVSurface) || !hDst) return FALSE;

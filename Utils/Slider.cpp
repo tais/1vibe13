@@ -36,7 +36,7 @@ typedef struct TAG_SLIDER
 
 	UINT16				usCurrentIncrement;
 
-	UINT16				usBackGroundColor;
+	PIXEL				usBackGroundColor;
 
 	MOUSE_REGION	ScrollAreaMouseRegion;
 
@@ -91,7 +91,7 @@ void		SelectedSliderMovementCallBack(MOUSE_REGION * pRegion, INT32 reason );
 //
 ///////////////////////////////////////////////////
 
-void OptDisplayLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, INT16 iColor );
+void OptDisplayLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, PIXEL iColor );
 
 void RenderSelectedSliderBar( SLIDER *pSlider );
 void CalculateNewSliderBoxPosition( SLIDER *pSlider );
@@ -665,7 +665,7 @@ void CalculateNewSliderIncrement( UINT32 uiSliderID, UINT16 usPos )
 
 
 
-void OptDisplayLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, INT16 iColor )
+void OptDisplayLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, PIXEL iColor )
 {
 	UINT32 uiDestPitchBYTES;
 	UINT8 *pDestBuf;

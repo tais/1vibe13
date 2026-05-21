@@ -22,8 +22,8 @@ extern FACETYPE *gpCurrentTalkingFace;
 // whether we are showing the inventory pool graphic
 extern BOOLEAN fShowMapInventoryPool;
 
-extern void Display2Line2ShadowVertical( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 usColor1, UINT16 usColor2 );
-extern void Display2Line2ShadowHorizontal( UINT16 usStartX, UINT16 usStartY, UINT16 EndY, UINT16 usColor1, UINT16 usColor2 );
+extern void Display2Line2ShadowVertical( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, PIXEL usColor1, PIXEL usColor2 );
+extern void Display2Line2ShadowHorizontal( UINT16 usStartX, UINT16 usStartY, UINT16 EndY, PIXEL usColor1, PIXEL usColor2 );
 
 #define		MYBOX_NUMBER							10
 
@@ -519,8 +519,8 @@ IMPDialogueChooseBox::Display( )
 
 		UINT32 maxwidth = min( IMPDIALOGUECHOOSEBOX_BAR_MAXLENGTH, SCREEN_WIDTH / 2 );
 
-		UINT16 colour = Get16BPPColor( FROMRGB( 255 * (1 - factor), 255 * factor, 0 ) );
-		UINT16 colourshadow = Get16BPPColor( FROMRGB( 127 * (1 - factor), 127 * factor, 0 ) );
+		PIXEL colour = Get16BPPColor( FROMRGB( 255 * (1 - factor), 255 * factor, 0 ) );
+		PIXEL colourshadow = Get16BPPColor( FROMRGB( 127 * (1 - factor), 127 * factor, 0 ) );
 
 		Display2Line2ShadowHorizontal( GetX_Text( ) + maxwidth / 2 - factor * maxwidth / 2, GetY( ), GetX_Text( ) + maxwidth / 2 + factor * maxwidth / 2, colour, colourshadow );
 	}

@@ -146,7 +146,7 @@ extern void SetClippingRegionAndImageWidth(
 	int iClipWidth,
 	int iClipHeight
 );
-extern void RectangleDraw(BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, UINT8* ScreenPtr);
+extern void RectangleDraw(BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, PIXEL Color, UINT8* ScreenPtr);
 void GlowImpInvPoolItem(void);
 void IMPGearHandleMousePageScroll(void);
 void RenderIMPGearBodytype(void);

@@ -23,7 +23,7 @@
 UINT32	guGoldArrowImages = 0;
 
 // helpful draw functions, as adding sti objects to paint boundaries is... lets say, inefficient
-void DisplaySmallLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, UINT16 usColor )
+void DisplaySmallLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, PIXEL usColor )
 {
 	UINT32 uiDestPitchBYTES;
 	UINT8 *pDestBuf;
@@ -39,7 +39,7 @@ void DisplaySmallLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 End
 	UnLockVideoSurface( FRAME_BUFFER );
 }
 
-void Display2Line2ShadowHorizontal( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 usColor1, UINT16 usColor2 )
+void Display2Line2ShadowHorizontal( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, PIXEL usColor1, PIXEL usColor2 )
 {
 	DisplaySmallLine( usStartX, usStartY, EndX, usStartY, usColor1 );
 	DisplaySmallLine( usStartX, usStartY + 1, EndX, usStartY + 1, usColor1 );
@@ -47,7 +47,7 @@ void Display2Line2ShadowHorizontal( UINT16 usStartX, UINT16 usStartY, UINT16 End
 	DisplaySmallLine( usStartX, usStartY + 3, EndX, usStartY + 3, usColor2 );
 }
 
-void Display2Line2ShadowVertical( UINT16 usStartX, UINT16 usStartY, UINT16 EndY, UINT16 usColor1, UINT16 usColor2 )
+void Display2Line2ShadowVertical( UINT16 usStartX, UINT16 usStartY, UINT16 EndY, PIXEL usColor1, PIXEL usColor2 )
 {
 	DisplaySmallLine( usStartX, usStartY, usStartX, EndY, usColor1 );
 	DisplaySmallLine( usStartX + 1, usStartY, usStartX + 1, EndY, usColor1 );

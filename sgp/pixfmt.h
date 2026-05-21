@@ -78,9 +78,13 @@ inline PIXEL PixIntensity(PIXEL p)
 // hundreds of UINT16-typed UI colours (fills, lines, boxes, hatch/pixelate)
 // land as real colours instead of near-black low bits. 0x0000 stays
 // 0x00000000 so colour-key transparency still matches.
-inline PIXEL PixFromColor16(UINT16 c)
+inline PIXEL PixFromColor16(UINT32 c)
 {
 #if SGP_PIXEL_DEPTH == 32
+	// A colour may already be full ARGB8888 (its alpha/high bits set) now that
+	// Get16BPPColor returns true colour. RGB565 tokens are always 0..0xFFFF, so
+	// a non-zero top half means "already expanded" -> pass through unchanged.
+	if (c & 0xFFFF0000u) return c;
 	if (c == 0) return 0; // preserve transparent-black key
 	const UINT32 r5 = (c >> 11) & 0x1Fu;
 	const UINT32 g6 = (c >>  5) & 0x3Fu;

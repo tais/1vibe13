@@ -169,8 +169,8 @@ UINT8 cdp_textcolour_func_dummy( UINT32 aNum );
 typedef void( *cdp_image_func )(UINT32 aNum, UINT32& arImageLib, UINT16& arImage );
 void cdp_image_func_dummy( UINT32 aNum, UINT32& arImageLib, UINT16& arImage );
 
-typedef void( *cdp_statusbar_func )(UINT32 aId, UINT16& arCol1, UINT16& arVal1, UINT16& arCol2, UINT16& arVal2, UINT16& arCol3, UINT16& arVal3, UINT16& arCol4, UINT16& arVal4);
-void cdp_statusbar_func_dummy( UINT32 aId, UINT16& arCol1, UINT16& arVal1, UINT16& arCol2, UINT16& arVal2, UINT16& arCol3, UINT16& arVal3, UINT16& arCol4, UINT16& arVal4 );
+typedef void( *cdp_statusbar_func )(UINT32 aId, PIXEL& arCol1, UINT16& arVal1, PIXEL& arCol2, UINT16& arVal2, PIXEL& arCol3, UINT16& arVal3, PIXEL& arCol4, UINT16& arVal4);
+void cdp_statusbar_func_dummy( UINT32 aId, PIXEL& arCol1, UINT16& arVal1, PIXEL& arCol2, UINT16& arVal2, PIXEL& arCol3, UINT16& arVal3, PIXEL& arCol4, UINT16& arVal4 );
 
 #define COLUMNDATAPROVIDER_MOUSEREGIONS	50
 
@@ -229,7 +229,7 @@ public:
 
 	// functions for handling healthbars
 	void				SetMethodStatusBar( cdp_statusbar_func afunc )	{ mFuncStatusBar = afunc; SetProviderType( CDP_STATUSBAR ); CalcRequiredLength( ); }
-	void				GetStatusBarData( UINT32 aId, UINT16& arCol1, UINT16& arVal1, UINT16& arCol2, UINT16& arVal2, UINT16& arCol3, UINT16& arVal3, UINT16& arCol4, UINT16& arVal4 )
+	void				GetStatusBarData( UINT32 aId, PIXEL& arCol1, UINT16& arVal1, PIXEL& arCol2, UINT16& arVal2, PIXEL& arCol3, UINT16& arVal3, PIXEL& arCol4, UINT16& arVal4 )
 	{
 		return mFuncStatusBar( aId, arCol1, arVal1, arCol2, arVal2, arCol3, arVal3, arCol4, arVal4 );
 	}
@@ -359,8 +359,8 @@ public:
 	/*
 	* Color of separating line element
 	*/
-	void SetColorSeparator( UINT16 aCol )	{ mColorSeparator = aCol; }
-	UINT16 GetColorSeparator()				{ return mColorSeparator; }
+	void SetColorSeparator( PIXEL aCol )	{ mColorSeparator = aCol; }
+	PIXEL GetColorSeparator()				{ return mColorSeparator; }
 
 private:
 	void	CreateScrollAreaButtons( );
@@ -382,7 +382,7 @@ private:
 	UINT32				mFirstEntryShown;
 	UINT32				mLastEntryShown;
 
-	UINT16				mColorSeparator;
+	PIXEL				mColorSeparator;
 
 	std::vector<ColumnDataProvider>		mColumnDataProviderVector;
 };

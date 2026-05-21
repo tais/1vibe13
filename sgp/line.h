@@ -56,14 +56,14 @@ void SetClippingRegionAndImageWidth(
 //	Don't send fClip==TRUE to LineDraw if you don't have to. So if you know
 //	that your line will be within the region you want it to be in, set
 //	fClip == FALSE.
-void PixelDraw( BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pScreen );
+void PixelDraw( BOOLEAN fClip, INT32 xp, INT32 yp, PIXEL sColor, UINT8 *pScreen );
 
 // Flugente: alter the colour of existing pixels instead of fully replacing the colour
-void PixelAlterColour( BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pScreen );
+void PixelAlterColour( BOOLEAN fClip, INT32 xp, INT32 yp, PIXEL sColor, UINT8 *pScreen );
 
-void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, UINT8 *ScreenPtr);
-void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, UINT8 *ScreenPtr);
-void RectangleDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, UINT8 *ScreenPtr);
+void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, PIXEL Color, UINT8 *ScreenPtr);
+void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, PIXEL Color, UINT8 *ScreenPtr);
+void RectangleDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, PIXEL Color, UINT8 *ScreenPtr);
 
 // *****************************************************************************
 

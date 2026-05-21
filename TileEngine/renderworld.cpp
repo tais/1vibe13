@@ -103,15 +103,15 @@ enum
 
 #define	NUM_ITEM_CYCLE_COLORS				60
 
-UINT16	us16BPPItemCycleWhiteColors[ NUM_ITEM_CYCLE_COLORS ];
-UINT16	us16BPPItemCycleRedColors[ NUM_ITEM_CYCLE_COLORS ];
-UINT16	us16BPPItemCycleYellowColors[ NUM_ITEM_CYCLE_COLORS ];
+PIXEL	us16BPPItemCycleWhiteColors[ NUM_ITEM_CYCLE_COLORS ];
+PIXEL	us16BPPItemCycleRedColors[ NUM_ITEM_CYCLE_COLORS ];
+PIXEL	us16BPPItemCycleYellowColors[ NUM_ITEM_CYCLE_COLORS ];
 
-INT16	gsLobOutline;
-INT16	gsThrowOutline;
-INT16	gsGiveOutline;
-INT16	gusNormalItemOutlineColor;
-INT16	gusYellowItemOutlineColor;
+PIXEL	gsLobOutline;
+PIXEL	gsThrowOutline;
+PIXEL	gsGiveOutline;
+PIXEL	gusNormalItemOutlineColor;
+PIXEL	gusYellowItemOutlineColor;
 INT16	gsRenderHeight				= 0;
 BOOLEAN	gfRenderFullThisFrame		= 0;
 
@@ -1243,7 +1243,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 	UINT32			cnt;
 	static			UINT8				ubLevelNodeStartIndex[NUM_RENDER_FX_TYPES];
 	BOOLEAN			bItemOutline;
-	UINT16			usOutlineColor = 0;
+	PIXEL			usOutlineColor = 0;
 
 	static			INT32				iTileMapPos[500];
 	INT32			uiMapPosIndex;

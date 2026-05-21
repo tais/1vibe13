@@ -1007,7 +1007,7 @@ UINT32 uiLineSkip, usWidth, usHeight;
 	transparency is used for the background.
 
 **********************************************************************************************/
-BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, UINT16 usForeground, UINT16 usBackground, UINT16 usShadow )
+BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, PIXEL usForeground, PIXEL usBackground, PIXEL usShadow )
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -1109,7 +1109,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 				for (UINT8 i = 0; i < cmd; ++i, ++srcX) {
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const UINT8 v = *src;
-						UINT16 colour = 0; bool write = false;
+						PIXEL colour = 0; bool write = false;
 						if (v == 0) {
 							if (usBackground != 0) { colour = usBackground; write = true; }
 						} else if (v == 1) {
@@ -2092,7 +2092,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 	to with the specified color value.
 
 **********************************************************************************************/
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, UINT16 usColor)
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL usColor)
 {
 	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
@@ -4763,7 +4763,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClip( PIXEL *pBuffer, UINT32 uiDestPitch
 	specified pixel value.
 
 **********************************************************************************************/
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClipColor( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, UINT16 usColor)
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClipColor( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, PIXEL usColor)
 {
 	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
@@ -5249,7 +5249,7 @@ void GetClippingRect(SGPRect *clip)
 	This was the only internal modification I made other than adding the usColor argument.
 
 *********************************************************************************************/
-BOOLEAN Blt16BPPBufferPixelateRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect *area, UINT8 Pattern[8][8], UINT16 usColor )
+BOOLEAN Blt16BPPBufferPixelateRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect *area, UINT8 Pattern[8][8], PIXEL usColor )
 {
 	INT32	width, height;
 	UINT32 LineSkip;
@@ -5311,7 +5311,7 @@ BOOLEAN Blt16BPPBufferPixelateRect(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPR
 		of the specified color
 
 *********************************************************************************************/
-BOOLEAN Blt16BPPBufferHatchRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect *area, UINT16 usColor )
+BOOLEAN Blt16BPPBufferHatchRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect *area, PIXEL usColor )
 {
 	UINT8 Pattern[8][8] =
 	{
@@ -5344,7 +5344,7 @@ BOOLEAN Blt16BPPBufferHatchRect(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect
 	return Blt16BPPBufferPixelateRectWithColor( pBuffer, uiDestPitchBYTES, area, Pattern, 0 );
 }
 
-BOOLEAN Blt16BPPBufferLooseHatchRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect *area, UINT16 usColor )
+BOOLEAN Blt16BPPBufferLooseHatchRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect *area, PIXEL usColor )
 {
 	UINT8 Pattern[8][8] =
 	{
@@ -6402,7 +6402,7 @@ BOOLEAN UpdateBackupSurface( HVOBJECT hVObject )
 */
 
 
-BOOLEAN FillRect16BPP(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 y1, INT32 x2, INT32 y2, UINT16 color)
+BOOLEAN FillRect16BPP(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 y1, INT32 x2, INT32 y2, PIXEL color)
 {
 INT32		x1real, y1real, x2real, y2real;
 UINT32	linelength, lines, lineskip;
@@ -6520,7 +6520,7 @@ CHAR8 BltIsClippedOrOffScreen( HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 
 
 // Blt8BPPDataTo16BPPBufferOutline
 // ATE New blitter for rendering a differrent color for value 254. Can be transparent if fDoOutline is FALSE
-BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, INT16 s16BPPColor, BOOLEAN fDoOutline )
+BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth;
@@ -6594,7 +6594,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 
 
 // ATE New blitter for rendering a differrent color for value 254. Can be transparent if fDoOutline is FALSE
-BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, INT16 s16BPPColor, BOOLEAN fDoOutline, SGPRect *clipregion )
+BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL s16BPPColor, BOOLEAN fDoOutline, SGPRect *clipregion )
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -6706,7 +6706,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 }
 
 
-BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, INT16 s16BPPColor, BOOLEAN fDoOutline, SGPRect *clipregion )
+BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL s16BPPColor, BOOLEAN fDoOutline, SGPRect *clipregion )
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -6832,7 +6832,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitch
 }
 
 
-BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, INT16 s16BPPColor, BOOLEAN fDoOutline, SGPRect *clipregion )
+BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL s16BPPColor, BOOLEAN fDoOutline, SGPRect *clipregion )
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -7144,7 +7144,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineShadowClip( PIXEL *pBuffer, UINT32 uiDest
 }
 
 
-BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, INT16 s16BPPColor, BOOLEAN fDoOutline )
+BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {
 	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
@@ -7239,7 +7239,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 }
 
 
-BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, INT16 s16BPPColor, BOOLEAN fDoOutline )
+BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {
 	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
@@ -7338,7 +7338,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 
 
 // This is the same as above, but DONOT WRITE to Z!
-BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, INT16 s16BPPColor, BOOLEAN fDoOutline )
+BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {
 	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;

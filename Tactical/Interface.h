@@ -552,7 +552,7 @@ void HandleMultiPurposeLocator( );
 void RenderTopmostMultiPurposeLocator( );
 
 // sevenfm: draw lines in health bar
-void DrawBar( INT32 x, INT32 y, INT32 width, INT32 height, UINT16 color8, UINT16 color16, UINT8 *pDestBuf );
+void DrawBar( INT32 x, INT32 y, INT32 width, INT32 height, UINT16 color8, PIXEL color16, UINT8 *pDestBuf );
 // draw health bar over enemy
 void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLines, INT32 iBarWidth, INT32 iBarHeight );
 
@@ -572,7 +572,7 @@ void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier );
 
 void NCTHImprovedAPColor( SOLDIERTYPE* pSoldier, OBJECTTYPE* pWeapon );
 void NCTHDrawLaserDot( PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, FLOAT fLaserBonus, FLOAT fBrightnessModifier, FLOAT fEffectiveLaserRatio, FLOAT zOffset );
-void NCTHCorrectMaxAperture( FLOAT& iAperture, FLOAT& iDistanceAperture, UINT16& usCApertureBar );
+void NCTHCorrectMaxAperture( FLOAT& iAperture, FLOAT& iDistanceAperture, PIXEL& usCApertureBar );
 void NCTHDrawScopeModeIcon( SOLDIERTYPE *pSoldier, INT16 sNewX, INT16 sNewY );
 void NCTHShowAimLevels( SOLDIERTYPE* pSoldier, INT16 curX, INT16 curY );
 void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, INT16 zOffset );

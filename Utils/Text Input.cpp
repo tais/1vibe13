@@ -43,19 +43,19 @@ typedef struct TextInputColors
 {
 	//internal values that contain all of the colors for the text editing fields.
 	UINT16 usFont;
-	UINT16 usTextFieldColor;
+	PIXEL usTextFieldColor;
 	UINT8 ubForeColor, ubShadowColor;
 	UINT8 ubHiForeColor, ubHiShadowColor, ubHiBackColor;
 	//optional -- no bevelling by default
 	BOOLEAN	fBevelling;
-	UINT16 usBrighterColor, usDarkerColor;
+	PIXEL usBrighterColor, usDarkerColor;
 	//optional -- cursor color defaults to black
-	UINT16 usCursorColor;
+	PIXEL usCursorColor;
 	//optional colors for disabled fields (defaults to 25% darker shading)
 	BOOLEAN fUseDisabledAutoShade;
 	UINT8	ubDisabledForeColor;
 	UINT8	ubDisabledShadowColor;
-	UINT16 usDisabledTextFieldColor;
+	PIXEL usDisabledTextFieldColor;
 }TextInputColors;
 
 TextInputColors *pColors = NULL;
@@ -673,7 +673,7 @@ void SetTextInputFont( UINT16 usFont )
 	pColors->usFont = usFont;
 }
 
-void Set16BPPTextFieldColor( UINT16 usTextFieldColor )
+void Set16BPPTextFieldColor( PIXEL usTextFieldColor )
 {
 	pColors->usTextFieldColor = usTextFieldColor;
 }
@@ -691,7 +691,7 @@ void SetTextInputHilitedColors( UINT8 ubForeColor, UINT8 ubShadowColor, UINT8 ub
 	pColors->ubHiBackColor = ubBackColor;
 }
 
-void SetDisabledTextFieldColors( UINT8 ubForeColor, UINT8 ubShadowColor, UINT16 usTextFieldColor )
+void SetDisabledTextFieldColors( UINT8 ubForeColor, UINT8 ubShadowColor, PIXEL usTextFieldColor )
 {
 	pColors->fUseDisabledAutoShade = FALSE;
 	pColors->ubDisabledForeColor = ubForeColor;
@@ -699,14 +699,14 @@ void SetDisabledTextFieldColors( UINT8 ubForeColor, UINT8 ubShadowColor, UINT16 
 	pColors->usDisabledTextFieldColor = usTextFieldColor;
 }
 
-void SetBevelColors( UINT16 usBrighterColor, UINT16 usDarkerColor )
+void SetBevelColors( PIXEL usBrighterColor, PIXEL usDarkerColor )
 {
 	pColors->fBevelling = TRUE;
 	pColors->usBrighterColor = usBrighterColor;
 	pColors->usDarkerColor = usDarkerColor;
 }
 
-void SetCursorColor( UINT16 usCursorColor )
+void SetCursorColor( PIXEL usCursorColor )
 {
 	pColors->usCursorColor = usCursorColor;
 }

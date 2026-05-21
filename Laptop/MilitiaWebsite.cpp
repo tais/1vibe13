@@ -646,7 +646,7 @@ void TraitImage3( UINT32 aNum, UINT32& arImageLib, UINT16& arImage )
 	arImage = 3 * militia.traits[2];
 }*/
 
-void MilitiaHealthBar( UINT32 aId, UINT16& arCol1, UINT16& arVal1, UINT16& arCol2, UINT16& arVal2, UINT16& arCol3, UINT16& arVal3, UINT16& arCol4, UINT16& arVal4 )
+void MilitiaHealthBar( UINT32 aId, PIXEL& arCol1, UINT16& arVal1, PIXEL& arCol2, UINT16& arVal2, PIXEL& arCol3, UINT16& arVal3, PIXEL& arCol4, UINT16& arVal4 )
 {
 	if ( aId < gIndividualMilitiaFilteredIdsVector.size() )
 	{

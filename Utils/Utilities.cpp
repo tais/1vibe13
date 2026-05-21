@@ -141,7 +141,7 @@ BOOLEAN CreateSGPPaletteFromCOLFile( SGPPaletteEntry *pPalette, SGPFILENAME ColF
 
 BOOLEAN DisplayPaletteRep( PaletteRepID aPalRep, UINT8 ubXPos, UINT8 ubYPos, UINT32 uiDestSurface )
 {
-	UINT16										us16BPPColor;
+	PIXEL										us16BPPColor;
 	UINT32										cnt1;
 	UINT8											ubSize, ubType;
 	INT16											sTLX, sTLY, sBRX, sBRY;

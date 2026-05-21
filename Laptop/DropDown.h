@@ -11,9 +11,9 @@
 /*
  * helpful draw functions that used to draw the boundaries of the dropdown. The old way of adding sti objects to paint boundaries is... lets say, inefficient
  */
-void DisplaySmallLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, UINT16 usColor );
-void Display2Line2ShadowVertical( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 usColor1, UINT16 usColor2 );
-void Display2Line2ShadowHorizontal( UINT16 usStartX, UINT16 usStartY, UINT16 EndY, UINT16 usColor1, UINT16 usColor2 );
+void DisplaySmallLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, PIXEL usColor );
+void Display2Line2ShadowVertical( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, PIXEL usColor1, PIXEL usColor2 );
+void Display2Line2ShadowHorizontal( UINT16 usStartX, UINT16 usStartY, UINT16 EndY, PIXEL usColor1, PIXEL usColor2 );
 
 /*
 * A simple class that takes coordinates and colors.
@@ -43,26 +43,26 @@ public:
 	/*
 	* Color of boundary line
 	*/
-	void SetColorLine( UINT16 aCol )		{ mColorLine = aCol; }
-	UINT16 GetColorLine( )					{ return mColorLine; }
+	void SetColorLine( PIXEL aCol )		{ mColorLine = aCol; }
+	PIXEL GetColorLine( )					{ return mColorLine; }
 
 	/*
 	* Color of boundary line shadow
 	*/
-	void SetColorLineShadow( UINT16 aCol )	{ mColorLineShadow = aCol; }
-	UINT16 GetColorLineShadow( )			{ return mColorLineShadow; }
+	void SetColorLineShadow( PIXEL aCol )	{ mColorLineShadow = aCol; }
+	PIXEL GetColorLineShadow( )			{ return mColorLineShadow; }
 
 	/*
 	* background color of selected entry
 	*/
-	void SetColorMarked( UINT16 aCol )		{ mColorMarked = aCol; }
-	UINT16 GetColorMarked( )				{ return mColorMarked; }
+	void SetColorMarked( PIXEL aCol )		{ mColorMarked = aCol; }
+	PIXEL GetColorMarked( )				{ return mColorMarked; }
 
 	/*
 	* Color of highlighted element
 	*/
-	void SetColorHighLight( UINT16 aCol )	{ mColorHighLight = aCol; }
-	UINT16 GetColorHighLight( )				{ return mColorHighLight; }
+	void SetColorHighLight( PIXEL aCol )	{ mColorHighLight = aCol; }
+	PIXEL GetColorHighLight( )				{ return mColorHighLight; }
 	
 private:
 	// declare but don't define
@@ -76,10 +76,10 @@ private:
 	UINT16	musStartX_Text;
 	UINT16	musStartY_Text;
 
-	UINT16	mColorLine;			// color of boundary lines
-	UINT16	mColorLineShadow;	// color of boundary line shadows
-	UINT16	mColorMarked;		// color of marked entries
-	UINT16	mColorHighLight;	// color of bar highlighting
+	PIXEL	mColorLine;			// color of boundary lines
+	PIXEL	mColorLineShadow;	// color of boundary line shadows
+	PIXEL	mColorMarked;		// color of marked entries
+	PIXEL	mColorHighLight;	// color of bar highlighting
 };
 
 // the maximum number of entries that can be shown at once. Increase requires recompilation!

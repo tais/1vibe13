@@ -1121,15 +1121,15 @@ UINT32 MiniGame_Handle_Tetris()
 
 				// draw stuff
 				{
-					UINT16 col_red = Get16BPPColor( FROMRGB( 255, 0, 0 ) );
-					UINT16 col_green = Get16BPPColor( FROMRGB( 0, 255, 0 ) );
-					UINT16 col_blue = Get16BPPColor( FROMRGB( 0, 0, 255 ) );
-					UINT16 col_yellow = Get16BPPColor( FROMRGB( 255, 255, 0 ) );
-					UINT16 col_violet = Get16BPPColor( FROMRGB( 127, 0, 127 ) );
-					UINT16 col_cyan = Get16BPPColor( FROMRGB( 0, 127, 127 ) );
-					UINT16 col_orange = Get16BPPColor( FROMRGB( 255, 127, 0 ) );
-					UINT16 col_pink = Get16BPPColor( FROMRGB( 255, 0, 255 ) );
-					UINT16 col_grey = Get16BPPColor( FROMRGB( 55, 55, 55 ) );
+					PIXEL col_red = Get16BPPColor( FROMRGB( 255, 0, 0 ) );
+					PIXEL col_green = Get16BPPColor( FROMRGB( 0, 255, 0 ) );
+					PIXEL col_blue = Get16BPPColor( FROMRGB( 0, 0, 255 ) );
+					PIXEL col_yellow = Get16BPPColor( FROMRGB( 255, 255, 0 ) );
+					PIXEL col_violet = Get16BPPColor( FROMRGB( 127, 0, 127 ) );
+					PIXEL col_cyan = Get16BPPColor( FROMRGB( 0, 127, 127 ) );
+					PIXEL col_orange = Get16BPPColor( FROMRGB( 255, 127, 0 ) );
+					PIXEL col_pink = Get16BPPColor( FROMRGB( 255, 0, 255 ) );
+					PIXEL col_grey = Get16BPPColor( FROMRGB( 55, 55, 55 ) );
 
 					// draw blocks
 					{
@@ -1145,8 +1145,8 @@ UINT32 MiniGame_Handle_Tetris()
 									UINT16 x = MINIGAME_TETRIS_X_LOW + j * TETRIS_BLOCKLENGTH;
 									UINT16 y = MINIGAME_TETRIS_Y_LOW + i * TETRIS_BLOCKLENGTH;
 
-									UINT16 colour1 = 0;
-									UINT16 colour2 = col_grey;
+									PIXEL colour1 = 0;
+									PIXEL colour2 = col_grey;
 
 									switch ( gTetrisBlock[i][j].blocktype )
 									{
@@ -1182,8 +1182,8 @@ UINT32 MiniGame_Handle_Tetris()
 
 						TETRIS_BLOCK_ORIENTATION previeworientation = gTetrisOrientation[gTetrisNextTile][0];
 
-						UINT16 colour1 = 0;
-						UINT16 colour2 = col_grey;
+						PIXEL colour1 = 0;
+						PIXEL colour2 = col_grey;
 
 						switch ( gTetrisNextTile )
 						{
@@ -2357,8 +2357,8 @@ UINT32 MiniGame_Handle_Pong()
 
 			// draw stuff
 			{
-				UINT16 col_green = Get16BPPColor( FROMRGB( 0, 255, 0 ) );
-				UINT16 col_white = Get16BPPColor( FROMRGB( 255, 255, 255 ) );
+				PIXEL col_green = Get16BPPColor( FROMRGB( 0, 255, 0 ) );
+				PIXEL col_white = Get16BPPColor( FROMRGB( 255, 255, 255 ) );
 
 				// background
 				ColorFillVideoSurfaceArea( FRAME_BUFFER, MINIGAME_PONG_X_LOW, MINIGAME_PONG_Y_LOW, MINIGAME_PONG_X_HIGH, MINIGAME_PONG_Y_HIGH, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );

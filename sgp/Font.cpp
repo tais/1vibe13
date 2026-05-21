@@ -57,9 +57,9 @@ SGPRect		FontDestRegion={0,0,SCREEN_WIDTH,SCREEN_HEIGHT};
 
 
 BOOLEAN		FontDestWrap=FALSE;
-UINT16		FontForeground16=0;
-UINT16		FontBackground16=0;
-UINT16		FontShadow16=DEFAULT_SHADOW;
+PIXEL		FontForeground16=0;
+PIXEL		FontBackground16=0;
+PIXEL		FontShadow16=DEFAULT_SHADOW;
 UINT8			FontForeground8=0;
 UINT8			FontBackground8=0;
 
@@ -73,9 +73,9 @@ UINT32		SaveFontDestBPP=16;
 SGPRect		SaveFontDestRegion={0,0,SCREEN_WIDTH,SCREEN_HEIGHT};
 
 BOOLEAN		SaveFontDestWrap=FALSE;
-UINT16		SaveFontForeground16=0;
-UINT16		SaveFontShadow16=0;
-UINT16		SaveFontBackground16=0;
+PIXEL		SaveFontForeground16=0;
+PIXEL		SaveFontShadow16=0;
+PIXEL		SaveFontBackground16=0;
 UINT8			SaveFontForeground8=0;
 UINT8			SaveFontBackground8=0;
 
@@ -1306,7 +1306,7 @@ INT32		destx, desty;
 CHAR16	*curletter, transletter;
 va_list argptr;
 CHAR16	string[512];
-UINT16	usOldForeColor;
+PIXEL	usOldForeColor;
 
 	Assert(pFontString!=NULL);
 
@@ -1366,7 +1366,7 @@ INT32		destx, desty;
 CHAR16	*curletter, transletter;
 va_list argptr;
 CHAR16	string[512];
-UINT16	usOldForeColor;
+PIXEL	usOldForeColor;
 UINT32			uiDestPitchBYTES;
 UINT8				*pDestBuf;
 

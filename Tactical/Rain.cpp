@@ -371,7 +371,7 @@ void BlankRainRenderSurface()
 	ColorFillVideoSurfaceArea( guiRainRenderSurface, gRainRegion.left, gRainRegion.top, gRainRegion.right, gRainRegion.bottom, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
 }
 
-UINT16 GetDropColor()
+PIXEL GetDropColor()
 {
 	UINT32 uiRGBPart = 32 + ( 15 - GetTimeOfDayAmbientLightLevel() ) * 8;
 
@@ -404,7 +404,7 @@ void RenderRainOnSurface()
 	UINT8 *pDestBuf;
 	UINT32 uiDestPitchBYTES;
 	UINT32 uiIndex;
-	UINT16 sDropsColor = GetDropColor();
+	PIXEL sDropsColor = GetDropColor();
 
 	pDestBuf = LockVideoSurface( guiRainRenderSurface, &uiDestPitchBYTES );
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, gsVIEWPORT_WINDOW_START_Y, SCREEN_WIDTH, gsVIEWPORT_WINDOW_END_Y - gsVIEWPORT_WINDOW_START_Y );

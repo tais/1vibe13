@@ -124,7 +124,7 @@ void cdp_image_func_dummy( UINT32 aNum, UINT32& arImageLib, UINT16& arImage )
 
 }
 
-void cdp_statusbar_func_dummy( UINT32 aId, UINT16& arCol1, UINT16& arVal1, UINT16& arCol2, UINT16& arVal2, UINT16& arCol3, UINT16& arVal3, UINT16& arCol4, UINT16& arVal4 )
+void cdp_statusbar_func_dummy( UINT32 aId, PIXEL& arCol1, UINT16& arVal1, PIXEL& arCol2, UINT16& arVal2, PIXEL& arCol3, UINT16& arVal3, PIXEL& arCol4, UINT16& arVal4 )
 {
 
 }
@@ -595,7 +595,7 @@ TestTable::Display( )
 				}
 				else if ( it->GetProviderType() == ColumnDataProvider::CDP_STATUSBAR )
 				{
-					UINT16 col1 = 0, col2 = 0, col3 = 0, col4 = 0, val1 = 0, val2 = 0, val3 = 0, val4 = 0;
+					PIXEL col1 = 0, col2 = 0, col3 = 0, col4 = 0; UINT16 val1 = 0, val2 = 0, val3 = 0, val4 = 0;
 
 					it->GetStatusBarData( i, col1, val1, col2, val2, col3, val3, col4, val4 );
 
@@ -607,7 +607,7 @@ TestTable::Display( )
 					UINT16 endY = usPosY + heightperrow - 1;
 
 					// first a grey background (that way we get a grey 'border' for our bar, then the content
-					UINT16 bg = Get16BPPColor( FROMRGB( 158, 158, 158 ) );
+					PIXEL bg = Get16BPPColor( FROMRGB( 158, 158, 158 ) );
 					DisplaySmallLine( usPosX + 0, usPosY, usPosX + 0, endY, bg );
 					DisplaySmallLine( usPosX + 1, usPosY, usPosX + 1, endY, bg );
 					DisplaySmallLine( usPosX + 2, usPosY, usPosX + 2, endY, bg );

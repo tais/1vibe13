@@ -670,7 +670,7 @@ void EndConfirmMapMoveMode( void );
 void CancelMapUIMessage( void );
 void MonitorMapUIMessage( void );
 
-void RenderMapHighlight( INT16 sMapX, INT16 sMapY, UINT16 usLineColor, BOOLEAN fStationary );
+void RenderMapHighlight( INT16 sMapX, INT16 sMapY, PIXEL usLineColor, BOOLEAN fStationary );
 void ShadeMapElem( INT16 sMapX, INT16 sMapY );
 void PopupText( UINT16 *pFontString, ... );
 void DrawString(STR16 pString, UINT16 uiX, UINT16 uiY, UINT32 uiFont);
@@ -1911,7 +1911,7 @@ void ContractBoxGlow( void )
  static INT32 iColorNum=10;
  static BOOLEAN fDelta=FALSE;
  static BOOLEAN fOldContractGlow = FALSE;
- UINT16 usColor;
+ PIXEL usColor;
  UINT32 uiDestPitchBYTES;
  UINT8	*pDestBuf;
 
@@ -1973,7 +1973,7 @@ void ContractListRegionBoxGlow( UINT16 usCount )
 {
 	static INT32 iColorNum =10;
 	static BOOLEAN fDelta=FALSE;
-	UINT16 usColor;
+	PIXEL usColor;
 	UINT32 uiDestPitchBYTES;
 	UINT8	*pDestBuf;
 	INT16 usY = 0;
@@ -2067,7 +2067,7 @@ void GlowFace( void )
 		iColorNum--;
 
 	// glow contract box
-	UINT16 usColor=Get16BPPColor( FROMRGB( GlowColorsA[iColorNum].ubRed, GlowColorsA[iColorNum].ubGreen, GlowColorsA[iColorNum].ubBlue ) );
+	PIXEL usColor=Get16BPPColor( FROMRGB( GlowColorsA[iColorNum].ubRed, GlowColorsA[iColorNum].ubGreen, GlowColorsA[iColorNum].ubBlue ) );
 	UINT32 uiDestPitchBYTES;
 	UINT8 *pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -2088,7 +2088,7 @@ void GlowItem( void )
 	static INT32 iColorNum =10;
 	static BOOLEAN fDelta=FALSE;
 	static BOOLEAN fOldItemGlow = FALSE;
-	UINT16 usColor;
+	PIXEL usColor;
 	UINT32 uiDestPitchBYTES;
 	UINT8	*pDestBuf;
 
@@ -2189,7 +2189,7 @@ void GlowTrashCan( void )
 	fOldTrashCanGlow = TRUE;
 
 	// glow contract box
-	UINT16 usColor=Get16BPPColor( FROMRGB( GlowColorsA[iColorNum].ubRed, GlowColorsA[iColorNum].ubGreen, GlowColorsA[iColorNum].ubBlue ) );
+	PIXEL usColor=Get16BPPColor( FROMRGB( GlowColorsA[iColorNum].ubRed, GlowColorsA[iColorNum].ubGreen, GlowColorsA[iColorNum].ubBlue ) );
 	UINT32 uiDestPitchBYTES;
 	UINT8* pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -3338,7 +3338,7 @@ void DisplayCharacterInfo( void )
 		UINT32 uiDestPitchBYTES = 0;
 		SGPRect ClipRect;
 		UINT8 ubBarWidth = 0;
-		UINT16 usColor = Get16BPPColor( FROMRGB( gGameExternalOptions.ubStatProgressBarsRed, gGameExternalOptions.ubStatProgressBarsGreen, gGameExternalOptions.ubStatProgressBarsBlue ) );
+		PIXEL usColor = Get16BPPColor( FROMRGB( gGameExternalOptions.ubStatProgressBarsRed, gGameExternalOptions.ubStatProgressBarsGreen, gGameExternalOptions.ubStatProgressBarsBlue ) );
 		//pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 		pDestBuf = LockVideoSurface( guiSAVEBUFFER, &uiDestPitchBYTES );
 
@@ -3690,7 +3690,7 @@ void HighLightAssignLine()
 {
 	UINT32 uiDestPitchBYTES;
 	UINT8	*pDestBuf;
-	UINT16 usColor;
+	PIXEL usColor;
 	static INT32 iColorNum = STARTING_COLOR_NUM;
 	static BOOLEAN fDelta=FALSE;
 	static INT32 uiOldHighlight = giMAXIMUM_NUMBER_OF_PLAYER_SLOTS + 1;
@@ -3772,7 +3772,7 @@ void HighLightDestLine()
 {
 	UINT32 uiDestPitchBYTES;
 	UINT8	*pDestBuf;
-	UINT16 usColor;
+	PIXEL usColor;
 	static INT32 iColorNum = STARTING_COLOR_NUM;
 	static BOOLEAN fDelta=FALSE;
 	static INT32 uiOldHighlight = giMAXIMUM_NUMBER_OF_PLAYER_SLOTS + 1;
@@ -3853,7 +3853,7 @@ void HighLightSleepLine()
 {
 	UINT32 uiDestPitchBYTES;
 	UINT8	*pDestBuf;
-	UINT16 usColor;
+	PIXEL usColor;
 	static INT32 iColorNum = STARTING_COLOR_NUM;
 	static BOOLEAN fDelta=FALSE;
 	static INT32 uiOldHighlight = giMAXIMUM_NUMBER_OF_PLAYER_SLOTS + 1;
@@ -6285,7 +6285,7 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 		UINT32 uiDestPitchBYTES = 0;
 		SGPRect ClipRect;
 		UINT8 ubBarWidth;
-		UINT16 usColor = Get16BPPColor( FROMRGB( gGameExternalOptions.ubStatProgressBarsRed, gGameExternalOptions.ubStatProgressBarsGreen, gGameExternalOptions.ubStatProgressBarsBlue ) );
+		PIXEL usColor = Get16BPPColor( FROMRGB( gGameExternalOptions.ubStatProgressBarsRed, gGameExternalOptions.ubStatProgressBarsGreen, gGameExternalOptions.ubStatProgressBarsBlue ) );
 
 		if( ( fShowAssignmentMenu == TRUE ) && ( fTeamPanelDirty == FALSE ) )
 		{
@@ -6427,7 +6427,7 @@ void RenderMapCursorsIndexesAnims( )
 {
 	BOOLEAN fSelectedSectorHighlighted = FALSE;
 	BOOLEAN fSelectedCursorIsYellow = TRUE;
-	UINT16 usCursorColor;
+	PIXEL usCursorColor;
 	UINT32 uiDeltaTime;
 	static INT16 sPrevHighlightedMapX = -1, sPrevHighlightedMapY = -1;
 	static INT16 sPrevSelectedMapX = -1, sPrevSelectedMapY = -1;
@@ -9026,7 +9026,7 @@ BOOLEAN GetMapXY( INT16 sX, INT16 sY, INT16 *psMapWorldX, INT16 *psMapWorldY )
 
 
 
-void RenderMapHighlight( INT16 sMapX, INT16 sMapY, UINT16 usLineColor, BOOLEAN fStationary )
+void RenderMapHighlight( INT16 sMapX, INT16 sMapY, PIXEL usLineColor, BOOLEAN fStationary )
 {
 	INT16												sScreenX, sScreenY;
 	UINT32										uiDestPitchBYTES;

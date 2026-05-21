@@ -27,9 +27,9 @@ int giClipYMin=0;
 int giClipYMax=0;
 
 void DrawHorizontalRun(UINT8 **ScreenPtr, int XAdvance, int RunLength,
-						int Color, int ScreenWidth);
+						PIXEL Color, int ScreenWidth);
 void DrawVerticalRun(UINT8 **ScreenPtr, int XAdvance, int RunLength,
-						int Color, int ScreenWidth);
+						PIXEL Color, int ScreenWidth);
 
 
 void SetClippingRegionAndImageWidth(
@@ -137,12 +137,12 @@ BOOL Clip2D( int *ix0, int *iy0, int *ix1, int *iy1 )
 	return( visible );
 }
 
-void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, UINT8 *ScreenPtr)
+void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, PIXEL Color, UINT8 *ScreenPtr)
 {
 	int Temp, AdjUp, AdjDown, ErrorTerm, XAdvance, XDelta, YDelta;
 	int WholeStep, InitialPixelCount, FinalPixelCount, i, RunLength;
 	int ScreenWidth=giImageWidth/sizeof(PIXEL);
-	const PIXEL px = PixFromColor16((UINT16)Color);
+	const PIXEL px = PixFromColor16(Color);
 
 	if ( fClip )
 	{
@@ -336,7 +336,7 @@ void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Col
 }
 
 //Draws a pixel in the specified color
-void PixelDraw( BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pScreen )
+void PixelDraw( BOOLEAN fClip, INT32 xp, INT32 yp, PIXEL sColor, UINT8 *pScreen )
 {
 	if ( fClip && !ClipPoint( xp, yp ) )
 		return;
@@ -344,11 +344,11 @@ void PixelDraw( BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pScreen 
 	// point to the bitmap address first pixel to draw
 	pScreen += yp * giImageWidth + xp * sizeof(PIXEL);
 
-	*(PIXEL*)pScreen = PixFromColor16((UINT16)sColor);
+	*(PIXEL*)pScreen = PixFromColor16(sColor);
 }
 
 // Flugente: alter the colour of existing pixels instead of fully replacing the colour
-void PixelAlterColour(BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pScreen)
+void PixelAlterColour(BOOLEAN fClip, INT32 xp, INT32 yp, PIXEL sColor, UINT8 *pScreen)
 {
 	if ( fClip && !ClipPoint( xp, yp ) )
 		return;
@@ -356,17 +356,17 @@ void PixelAlterColour(BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pS
 	// point to the bitmap address first pixel to draw
 	pScreen += yp * giImageWidth + xp * sizeof(PIXEL);
 
-	*(PIXEL*)pScreen |= PixFromColor16((UINT16)sColor);
+	*(PIXEL*)pScreen |= PixFromColor16(sColor);
 }
 
 /* Draws a horizontal run of pixels, then advances the bitmap pointer to
 	the first pixel of the next run. */
 void DrawHorizontalRun(UINT8 **ScreenPtr, int XAdvance,
-	int RunLength, int Color, int ScreenWidth)
+	int RunLength, PIXEL Color, int ScreenWidth)
 {
 	int i;
 	UINT8 *WorkingScreenPtr = *ScreenPtr;
-	const PIXEL px = PixFromColor16((UINT16)Color);
+	const PIXEL px = PixFromColor16(Color);
 
 	for (i=0; i<RunLength; i++)
 	{
@@ -381,11 +381,11 @@ void DrawHorizontalRun(UINT8 **ScreenPtr, int XAdvance,
 /* Draws a vertical run of pixels, then advances the bitmap pointer to
 	the first pixel of the next run. */
 void DrawVerticalRun(UINT8 **ScreenPtr, int XAdvance,
-	int RunLength, int Color, int ScreenWidth)
+	int RunLength, PIXEL Color, int ScreenWidth)
 {
 	int i;
 	UINT8 *WorkingScreenPtr = *ScreenPtr;
-	const PIXEL px = PixFromColor16((UINT16)Color);
+	const PIXEL px = PixFromColor16(Color);
 
 	for (i=0; i<RunLength; i++)
 	{
@@ -399,7 +399,7 @@ void DrawVerticalRun(UINT8 **ScreenPtr, int XAdvance,
 
 
 /* Draws a rectangle between the specified endpoints in color Color. */
-void RectangleDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Color, UINT8 *ScreenPtr)
+void RectangleDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, PIXEL Color, UINT8 *ScreenPtr)
 {
 	LineDraw( fClip, XStart, YStart, XEnd,	YStart, Color, ScreenPtr);
 	LineDraw( fClip, XStart, YEnd,	XEnd,	YEnd,	Color, ScreenPtr);
