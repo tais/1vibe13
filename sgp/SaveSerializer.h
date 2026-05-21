@@ -101,9 +101,13 @@ public:
 	void i32(INT32&  v) { w.i32(v); }   void i64(INT64&  v) { w.i64(v); }
 	void f32(float&  v) { w.f32(v); }   void f64(double& v) { w.f64(v); }
 	void boolean(BOOLEAN& v) { w.boolean(v); }
+	// `long` is 32-bit on Win32 but 64-bit on macOS/Linux: pin it to 32 bits.
+	void slong(signed long& v) { w.i32((INT32)v); }
 	void wstr(CHAR16* p, UINT32 n) { w.wstr(p, n); }
 	void str8(CHAR8*  p, UINT32 n) { w.str8(p, n); }
 	void bytes(void*  p, UINT32 n) { w.bytes(p, n); }
+	// runtime pointer: not persisted (writes nothing; reader clears it).
+	template<class T> void ptr(T*& ) {}
 	bool good() const { return w.good(); }
 	static const bool isLoading = false;
 private:
@@ -120,9 +124,12 @@ public:
 	void i32(INT32&  v) { v = r.i32(); }   void i64(INT64&  v) { v = r.i64(); }
 	void f32(float&  v) { v = r.f32(); }   void f64(double& v) { v = r.f64(); }
 	void boolean(BOOLEAN& v) { v = r.boolean(); }
+	void slong(signed long& v) { v = (signed long)(INT32)r.i32(); }
 	void wstr(CHAR16* p, UINT32 n) { r.wstr(p, n); }
 	void str8(CHAR8*  p, UINT32 n) { r.str8(p, n); }
 	void bytes(void*  p, UINT32 n) { r.bytes(p, n); }
+	// runtime pointer: was never meaningfully persisted; clear it on load.
+	template<class T> void ptr(T*& p) { p = NULL; }
 	bool good() const { return r.good(); }
 	static const bool isLoading = true;
 private:
