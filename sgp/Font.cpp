@@ -151,7 +151,15 @@ UINT32 uiRed, uiGreen, uiBlue;
 	uiGreen=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubShadow].peGreen;
 	uiBlue=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubShadow].peBlue;
 
-	FontShadow16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+	// 0 == "no shadow" (see the usShadow!=0 test in the blitter). Black used to
+	// collapse to 0 in RGB565; with true-colour Get16BPPColor it is 0xFF000000,
+	// which would draw an unwanted black drop-shadow halo around every glyph.
+	// Keep "black shadow == none"; the bump below still makes a *requested*
+	// (ubShadow!=0) black shadow drawable as 1.
+	if ( uiRed == 0 && uiGreen == 0 && uiBlue == 0 )
+		FontShadow16 = 0;
+	else
+		FontShadow16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
 
 	if ( ubShadow != 0 )
 	{
