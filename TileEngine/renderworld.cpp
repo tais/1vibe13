@@ -584,7 +584,7 @@ void DeleteFromWorld( UINT16 usTileIndex, UINT32 uiRenderTiles, UINT16 usIndex )
 
 
 // Flugente: display a riot shield
-static void ShowRiotShield( SOLDIERTYPE* pSoldier, UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue )
+static void ShowRiotShield( SOLDIERTYPE* pSoldier, PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue )
 {
 	if (pSoldier)
 	{
@@ -698,7 +698,7 @@ static bool SetupBackgroundRectanglesForDecal( UINT32 uiFlags, INT16 *pSaveArea,
 }
 
 // Flugente: display decal
-static void ShowDecal( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, INT32 sGridNo )
+static void ShowDecal( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, INT32 sGridNo )
 {
 	// we mark locations with decals with the 'DAMAGED' flag for easier filtering
 	if ( gGameExternalOptions.fAdditionalDecals 
@@ -3349,7 +3349,7 @@ UINT32 cnt = 0;
 	{
 		// COPY Z BUFFER TO FRAME BUFFER
 		UINT32	uiDestPitchBYTES;
-		UINT16		*pDestBuf;
+		PIXEL		*pDestBuf;
 		UINT32	cnt;
 		INT16		zVal;
 
@@ -4970,9 +4970,9 @@ nontrans:		// non-transparent run: blit each pixel via core
 	must be the same dimensions (including Pitch) as the destination.
 
 **********************************************************************************************/
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion)
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion)
 {
-	UINT16 *p16BPPPalette;
+	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
 	UINT8	 *SrcPtr, *DestPtr, *ZPtr;
@@ -5097,7 +5097,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( UINT16 *pBuffer, UINT32 uiDestPit
 
 	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, 0,
-		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32) {
+		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 			if (*z < zlev) { *z = zlev; *d = p16BPPPalette[*s]; }
 		});
 	return(TRUE);
@@ -5114,9 +5114,9 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( UINT16 *pBuffer, UINT32 uiDestPit
 	must be the same dimensions (including Pitch) as the destination.
 
 **********************************************************************************************/
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 usZStripIndex )
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 usZStripIndex )
 {
-	UINT16 *p16BPPPalette;
+	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
 	UINT8	 *SrcPtr, *DestPtr, *ZPtr;
@@ -5241,7 +5241,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( UINT16 *pBuffer
 
 	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, 0,
-		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32) {
+		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 			// same-Z burns through: draw on <= as well
 			if (*z <= zlev) { *z = zlev; *d = p16BPPPalette[*s]; }
 		});
@@ -5262,9 +5262,9 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( UINT16 *pBuffer
 	// render at all
 
 **********************************************************************************************/
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion)
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion)
 {
-	UINT16 *p16BPPPalette;
+	PIXEL *p16BPPPalette;
 	UINT32 uiOffset, uiLineFlag;
 	UINT32 usHeight, usWidth, Unblitted;
 	UINT8	 *SrcPtr, *DestPtr, *ZPtr;
@@ -5392,7 +5392,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( UINT16 *pBuffer, UINT32 ui
 
 	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
-		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32 lf) {
+		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
 			const bool draw = (*z < zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
 			if (draw) { *z = zlev; *d = p16BPPPalette[*s]; }
 		});
@@ -5406,7 +5406,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( UINT16 *pBuffer, UINT32 ui
 // 3 ) clipped
 // 4 ) trans shadow - if value is 254, makes a shadow
 //
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, UINT16 *p16BPPPalette, BOOLEAN fIgnoreShadows) 
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows) 
 {
 	UINT32 uiOffset, uiLineFlag;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -5533,14 +5533,14 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(UINT16 *pBuffer,
 
 	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
-		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32 lf) {
+		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
 			// Not obscured -> draw; obscured (ZBuffer > z) -> pixelate on a
 			// checkerboard keyed by line parity vs dest-pixel parity.
 			const bool draw = (*z <= zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
 			if (draw) {
 				*z = zlev;
 				const UINT8 v = *s;
-				if (v == 254) { if (!fIgnoreShadows) *d = ShadeTable[*d]; }
+				if (v == 254) { if (!fIgnoreShadows) *d = PixShade(*d); }
 				else            *d = p16BPPPalette[v];
 			}
 		});
@@ -5554,7 +5554,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(UINT16 *pBuffer,
 // 3 ) clipped
 // 4 ) trans shadow - if value is 254, makes a shadow
 //
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, UINT16 *p16BPPPalette, BOOLEAN fIgnoreShadows)
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows)
 {
 	UINT32 uiOffset, uiLineFlag;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -5689,12 +5689,12 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(UINT16 *pBu
 		const UINT8* const alphaBase = AlphaPtr;
 		BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 			usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
-			[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32 lf) {
+			[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
 				const bool draw = (*z < zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
 				if (draw) {
 					*z = zlev;
 					const UINT8 v = *s;
-					if (v == 254) { if (!fIgnoreShadows) *d = ShadeTable[*d]; }
+					if (v == 254) { if (!fIgnoreShadows) *d = PixShade(*d); }
 					else            *d = blendWithAlpha(p16BPPPalette[v], *d, alphaBase[s - srcBase]);
 				}
 			});
@@ -5746,7 +5746,7 @@ void CorrectRenderCenter( INT16 sRenderX, INT16 sRenderY, INT16 *pSNewX, INT16 *
 // 3 ) clipped
 // 4 ) trans shadow - if value is 254, makes a shadow
 //
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, UINT16 *p16BPPPalette, BOOLEAN fIgnoreShadows) 
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows) 
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -5871,11 +5871,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(UINT16 *pBuffer, UINT32
 
 	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, /*lineFlag*/0,
-		[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32) {
+		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 			if (*z <= zlev) {
 				*z = zlev;
 				const UINT8 v = *s;
-				if (v == 254) { if (!fIgnoreShadows) *d = ShadeTable[*d]; }
+				if (v == 254) { if (!fIgnoreShadows) *d = PixShade(*d); }
 				else            *d = p16BPPPalette[v];
 			}
 		});
@@ -5889,7 +5889,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(UINT16 *pBuffer, UINT32
 // 3 ) clipped
 // 4 ) trans shadow - if value is 254, makes a shadow
 //
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, UINT16 *p16BPPPalette, BOOLEAN fIgnoreShadows)
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows)
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth, Unblitted;
@@ -6024,11 +6024,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(UINT16 *pBuffer, U
 		const UINT8* const alphaBase = AlphaPtr;
 		BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 			usZStartLevel, usZStartCols, usZStartIndex, pZArray, /*lineFlag*/0,
-			[&](const UINT8* s, UINT16* d, UINT16* z, UINT16 zlev, UINT32) {
+			[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 				if (*z <= zlev) {
 					*z = zlev;
 					const UINT8 v = *s;
-					if (v == 254) { if (!fIgnoreShadows) *d = ShadeTable[*d]; }
+					if (v == 254) { if (!fIgnoreShadows) *d = PixShade(*d); }
 					else            *d = blendWithAlpha(p16BPPPalette[v], *d, alphaBase[s - srcBase]);
 				}
 			});
@@ -6743,7 +6743,7 @@ void ResetRenderParameters(  )
 
 
 
-BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
+BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
 {
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth;
@@ -6802,9 +6802,9 @@ BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( UINT16 *pBuffer, UINT32 uiDestPitc
 }
 
 
-BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
+BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
 {
-	UINT16 *p16BPPPalette;
+	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth;
 	UINT8	 *SrcPtr, *DestPtr, *ZPtr;
@@ -6869,7 +6869,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( UINT16 *pBuffer, UINT32 uiDestPitchBY
 
 BOOLEAN IsTileRedundent( UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
 {
-	UINT16 *p16BPPPalette;
+	PIXEL *p16BPPPalette;
 	UINT32 uiOffset;
 	UINT32 usHeight, usWidth;
 	UINT8	 *SrcPtr, *ZPtr;
