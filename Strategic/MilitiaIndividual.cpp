@@ -12,6 +12,7 @@
 #include "strategicmap.h"
 #include "GameVersion.h"
 #include "SaveLoadGame.h"
+#include "SaveSerializer.h"
 #include "CampaignStats.h"
 #include "Town Militia.h"
 #include "message.h"
@@ -34,82 +35,50 @@ MILITIA::MILITIA()
 BOOLEAN
 MILITIA::Save( HWFILE hFile )
 {
-	UINT32 uiNumBytesWritten = 0;
-	
-	if ( !FileWrite( hFile, this, SIZEOF_MILITIA_POD, &uiNumBytesWritten ) )
-		return(FALSE);
+	// Portable save-format v2 (see docs/SAVE_FORMAT.md).
+	SaveWriter w(hFile);
+	w.u32(id);          w.u32(flagmask);
+	w.u8 (origin);      w.u8 (originsector); w.u8(sector); w.u8(age);
+	w.u8 (militiarank); w.u8 (bodytype);     w.u8(skin);   w.u8(hair);
+	w.u16(forename);    w.u16(surname);      w.u16(callsign);
+	w.f32(healthratio);
+	w.u16(kills);       w.u16(assists);
+	w.f32(promotionpoints);
 
-	// in order to save a vector, we first save its size and then its content
-	UINT32 size = history.size( );
-	if ( !FileWrite( hFile, &size, sizeof(UINT32), &uiNumBytesWritten ) )
-		return(FALSE);
-
-	std::vector<MILITIA_BATTLEREPORT>::iterator itend = history.end( );
-	for ( std::vector<MILITIA_BATTLEREPORT>::iterator it = history.begin( ); it != itend; ++it )
+	// a vector is stored as its size followed by its elements
+	w.u32((UINT32)history.size());
+	for ( std::vector<MILITIA_BATTLEREPORT>::iterator it = history.begin(); it != history.end(); ++it )
 	{
-		if ( !FileWrite( hFile, &(*it), sizeof(MILITIA_BATTLEREPORT), &uiNumBytesWritten ) )
-			return(FALSE);
+		w.u32(it->id);
+		w.u32(it->flagmask);
 	}
-
-	return(TRUE);
+	return w.good() ? TRUE : FALSE;
 }
 
 BOOLEAN
 MILITIA::Load( HWFILE hwFile )
 {
-	if ( guiCurrentSaveGameVersion >= INDIVIDUAL_MILITIA )
+	SaveReader r(hwFile);
+	id          = r.u32(); flagmask    = r.u32();
+	origin      = r.u8();  originsector= r.u8();  sector = r.u8(); age = r.u8();
+	militiarank = r.u8();  bodytype    = r.u8();  skin   = r.u8(); hair = r.u8();
+	forename    = r.u16(); surname     = r.u16(); callsign = r.u16();
+	healthratio = r.f32();
+	kills       = r.u16(); assists     = r.u16();
+	promotionpoints = r.f32();
+
+	UINT32 size = r.u32();
+	if (!r.good() || size > 100000) return FALSE;
+
+	history.clear();
+	for ( UINT32 i = 0; i < size; ++i )
 	{
-		UINT32 numBytesRead = 0;
-				
-		numBytesRead = ReadFieldByField( hwFile, &id, sizeof(id), sizeof(UINT32), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &flagmask, sizeof(flagmask), sizeof(UINT32), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &origin, sizeof(origin), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &originsector, sizeof(originsector), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &sector, sizeof(sector), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &age, sizeof(age), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &militiarank, sizeof(militiarank), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &bodytype, sizeof(bodytype), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &skin, sizeof(skin), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &hair, sizeof(hair), sizeof(UINT8), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &forename, sizeof(forename), sizeof(UINT16), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &surname, sizeof(surname), sizeof(UINT16), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &callsign, sizeof(callsign), sizeof(UINT16), numBytesRead );	
-		numBytesRead = ReadFieldByField( hwFile, &healthratio, sizeof(healthratio), sizeof(FLOAT), numBytesRead );
-		numBytesRead = ReadFieldByField( hwFile, &kills, sizeof(kills), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hwFile, &assists, sizeof(assists), sizeof(UINT16), numBytesRead );
-
-		// promotionpoints has been changed from UINT16 to FLOAT, so we need changes here
-		if ( guiCurrentSaveGameVersion >= INDIVIDUAL_MILITIA_EXP_FLOAT )
-		{
-			numBytesRead = ReadFieldByField( hwFile, &promotionpoints, sizeof( promotionpoints ), sizeof( FLOAT ), numBytesRead );
-		}
-		else
-		{
-			UINT16 tmp;
-			numBytesRead = ReadFieldByField( hwFile, &tmp, sizeof( tmp ), sizeof( UINT16 ), numBytesRead );
-
-			promotionpoints = tmp;
-
-			numBytesRead = ReadFieldByField( hwFile, &tmp, sizeof( tmp ), sizeof( UINT16 ), numBytesRead );
-		}
-		
-		if ( numBytesRead != SIZEOF_MILITIA_POD )
-			return(FALSE);
-
-		UINT32 size = 0;
-		numBytesRead = ReadFieldByField( hwFile, &size, sizeof(size), sizeof(UINT32), numBytesRead );
-
-		for ( UINT32 i = 0; i < size; ++i )
-		{
-			MILITIA_BATTLEREPORT data;
-			if ( !FileRead( hwFile, &data, sizeof(MILITIA_BATTLEREPORT), &numBytesRead ) )
-				return(FALSE);
-			
-			history.push_back( data );
-		}
+		MILITIA_BATTLEREPORT data;
+		data.id       = r.u32();
+		data.flagmask = r.u32();
+		history.push_back( data );
 	}
-
-	return(TRUE);
+	return r.good() ? TRUE : FALSE;
 }
 
 

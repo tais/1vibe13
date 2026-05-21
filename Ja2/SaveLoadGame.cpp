@@ -855,11 +855,14 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 
 BOOLEAN DEALER_SPECIAL_ITEM::Save(HWFILE hFile)
 {
-	UINT32 uiNumBytesWritten;
-	if ( !FileWrite( hFile, this, SIZEOF_DEALER_SPECIAL_ITEM_POD, &uiNumBytesWritten ) )
-	{
-		return FALSE;
-	}
+	SaveWriter w(hFile);
+	w.i16(bItemCondition);
+	w.u32(uiRepairDoneTime);
+	w.u8 (ubOwnerProfileId);
+	w.u32(uiOrderArrivalTime);
+	w.u8 (ubQtyOnOrder);
+	if (!w.good()) return FALSE;
+
 	if ( !this->object.Save(hFile, FALSE) )
 	{
 		return FALSE;
@@ -869,23 +872,17 @@ BOOLEAN DEALER_SPECIAL_ITEM::Save(HWFILE hFile)
 
 BOOLEAN DEALER_SPECIAL_ITEM::Load(HWFILE hFile)
 {
-	UINT32 uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
+	SaveReader r(hFile);
+	bItemCondition    = r.i16();
+	uiRepairDoneTime  = r.u32();
+	ubOwnerProfileId  = r.u8();
+	uiOrderArrivalTime= r.u32();
+	ubQtyOnOrder      = r.u8();
+	if (!r.good()) return FALSE;
+
+	if ( !this->object.Load(hFile) )
 	{
-		if ( !FileRead( hFile, this, SIZEOF_DEALER_SPECIAL_ITEM_POD, &uiNumBytesRead ) )
-		{
-			return FALSE;
-		}
-		if ( !this->object.Load(hFile) )
-		{
-			return FALSE;
-		}
-	}
-	else
-	{
-		//this will never be loaded from sometime before the first change
-		AssertGE(guiCurrentSaveGameVersion, NIV_SAVEGAME_DATATYPE_CHANGE);
+		return FALSE;
 	}
 	return TRUE;
 }
