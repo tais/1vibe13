@@ -120,9 +120,10 @@ UINT32 MapUtilScreenHandle(void)
 	SGPPaletteEntry pPalette[256];
 	CHAR8 zFilename[260], zFilename2[260];
 	UINT8 *pDataPtr, ubMinorMapVersion;
-	UINT16 *pDestBuf, *pSrcBuf;
+	PIXEL *pDestBuf, *pSrcBuf;
 	UINT32 uiDestPitchBYTES, uiSrcPitchBYTES, uiRGBColor, bR, bG, bB, bAvR, bAvG, bAvB;
-	INT16 s16BPPSrc, sDest16BPPColor, sX1, sX2, sY1, sY2, sTop, sBottom, sLeft, sRight;
+	PIXEL  s16BPPSrc; INT32 sDest16BPPColor;
+	INT16 sX1, sX2, sY1, sY2, sTop, sBottom, sLeft, sRight;
 	INT32 cnt, iX, iY, iSubX1, iSubY1, iSubX2, iSubY2, iWindowX, iWindowY, iCount;
 	FLOAT dX, dY, dStartX, dStartY, dMajorMapVersion;
 
@@ -241,13 +242,20 @@ UINT32 MapUtilScreenHandle(void)
 					//Buggler: interim code for radar map sti creation <= 360x360 based on DBrot bigger overview code					
 					if ( iWindowX >= iOffsetHorizontal && iWindowX < (iOffsetHorizontal + (640 * WORLD_COLS / OLD_WORLD_COLS)) && iWindowY >= iOffsetVertical && iWindowY < (iOffsetVertical + (320 * WORLD_ROWS / OLD_WORLD_ROWS)) )
 					{
-						s16BPPSrc = pSrcBuf[ ( iWindowY * (uiSrcPitchBYTES/2) ) + iWindowX ];
+						s16BPPSrc = pSrcBuf[ ( iWindowY * (uiSrcPitchBYTES/sizeof(PIXEL)) ) + iWindowX ];
 
+#if SGP_PIXEL_DEPTH == 32
+						// source is ARGB8888
+						bR += (s16BPPSrc >> 16) & 0xFF;
+						bG += (s16BPPSrc >>  8) & 0xFF;
+						bB +=  s16BPPSrc        & 0xFF;
+						(void)uiRGBColor;
+#else
 						uiRGBColor = GetRGBColor( s16BPPSrc );
-
 						bR += SGPGetRValue( uiRGBColor );
 						bG += SGPGetGValue( uiRGBColor );
 						bB += SGPGetBValue( uiRGBColor );
+#endif
 
 						// Average!
 						iCount++;
@@ -265,11 +273,11 @@ UINT32 MapUtilScreenHandle(void)
 			}
 
 			//Write into dest!
-			pDestBuf[ ( iY * (uiDestPitchBYTES/2) ) + iX ] = sDest16BPPColor;
+			pDestBuf[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ] = sDest16BPPColor;
 
-			p24BitValues[ ( iY * (uiDestPitchBYTES/2) ) + iX ].r = (UINT8)bAvR;
-			p24BitValues[ ( iY * (uiDestPitchBYTES/2) ) + iX ].g = (UINT8)bAvG;
-			p24BitValues[ ( iY * (uiDestPitchBYTES/2) ) + iX ].b = (UINT8)bAvB;
+			p24BitValues[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ].r = (UINT8)bAvR;
+			p24BitValues[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ].g = (UINT8)bAvG;
+			p24BitValues[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ].b = (UINT8)bAvB;
 
 			//Increment
 			dY += gdYStep;

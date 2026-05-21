@@ -1483,14 +1483,14 @@ void RenderSummaryWindow()
 					ClipRect.iLeft = MAP_LEFT + x*13;
 					ClipRect.iRight = ClipRect.iLeft + 12;
 					pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-					Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+					Blt16BPPBufferShadowRect( (PIXEL*)pDestBuf, uiDestPitchBYTES, &ClipRect );
 					if( giCurrentViewLevel == BASEMENT1_LEVEL_MASK ||
 						  giCurrentViewLevel == BASEMENT2_LEVEL_MASK ||
 							giCurrentViewLevel == BASEMENT3_LEVEL_MASK || 
 							giCurrentViewLevel == ALTERNATE_B1_MASK		 ||
 							giCurrentViewLevel == ALTERNATE_B2_MASK		 ||
 							giCurrentViewLevel == ALTERNATE_B3_MASK		 )
-						Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+						Blt16BPPBufferShadowRect( (PIXEL*)pDestBuf, uiDestPitchBYTES, &ClipRect );
 					UnLockVideoSurface( FRAME_BUFFER );
 				}
 			}

@@ -2759,8 +2759,8 @@ void RenderSelectedMercsInventory()
 			yp = mercRects[ i ].iTop + MERCPANEL_Y;
 			pDst = LockVideoSurface( FRAME_BUFFER,							&uiDstPitchBYTES );
 			pSrc = LockVideoSurface( guiMercInvPanelBuffers[i], &uiSrcPitchBYTES );
-			Blt16BPPTo16BPPTrans( (UINT16*)pDst, uiDstPitchBYTES,
-				(UINT16 *)pSrc, uiSrcPitchBYTES, xp, yp, 0, 0, i<3 ? 22 : 44, 15, 0 );
+			Blt16BPPTo16BPPTrans( (PIXEL*)pDst, uiDstPitchBYTES,
+				(PIXEL *)pSrc, uiSrcPitchBYTES, xp, yp, 0, 0, i<3 ? 22 : 44, 15, 0 );
 			UnLockVideoSurface( FRAME_BUFFER );
 			UnLockVideoSurface( guiMercInvPanelBuffers[i] );
 			LoadItemInfo( gpMercSlotItem[i]->usItem, pItemName, NULL );
