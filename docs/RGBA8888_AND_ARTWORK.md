@@ -49,33 +49,43 @@ conversion.
 
 The Z-buffer stays **16-bit** throughout (it stores depth, not colour).
 
-#### Caveat: `Get16BPPColor`-sourced colours are still RGB565-precision (an open end)
+#### `Get16BPPColor` now returns true ARGB8888 (loose end closed in Phase 6c)
 
-This shim is a pragmatic compatibility choice, and it leaves one **deliberate,
-known limitation**. Any colour that originates from `Get16BPPColor()` is
-quantized to RGB565 (5 bits red, 6 green, 5 blue) *before* `PixFromColor16()`
-expands it back to 8-bit channels. The round-trip is lossy: e.g. an intended
-`RGB(155,155,155)` grey lands as roughly `RGB(152,155,156)`. For the flat solid
-colours these calls produce (UI fills, lines, box borders, mono-font text,
-cover tints) this is visually indistinguishable — but it is **not true 8-bit**
-for those specific sources.
+Originally `Get16BPPColor()` produced an RGB565 token (16-bit) that was
+expanded to ARGB8888 only at the write site (`PixFromColor16()`), so UI
+colours sourced through it were quantized to RGB565 precision. **Phase 6c
+closed this:** at 32bpp `Get16BPPColor()` now returns full ARGB8888 (it forwards
+to `Get32BPPColor`), so every UI colour — fills, lines, box borders, fonts,
+cursors, cover/CtH tints — carries true 8-bit-per-channel fidelity.
 
-It does **not** affect the things where colour fidelity actually shows:
+How the migration was done (recorded here because the technique is reusable):
 
-- **8-bit indexed art** (tiles, mercs, items, most sprites) → full 8-bit ARGB
-  straight from the source palette via the LUT, never touches `Get16BPPColor`.
-- **Blending** (translucency, shadows, lighting) → now per-channel 8-bit.
-- **True-colour PNGs** (§4–5) → full fidelity end-to-end.
+- `Get16BPPColor` return type → `PIXEL`. `PixFromColor16()` was made
+  dual-mode: it detects an already-ARGB value (non-zero top 16 bits) and passes
+  it through, while still expanding a genuine RGB565 value (≤ `0xFFFF`). That
+  keeps the write path correct for both UI colours (now ARGB) **and** real
+  RGB565 image data (`PngLoader`, `Copy16BPPImageTo16BPPBuffer`), which is
+  unchanged.
+- Every place a colour is *stored* or *passed* was widened `UINT16 → PIXEL`:
+  the `line.cpp` draw API, `ColorFillVideoSurfaceArea`/`FillRect16`/`FillRect16BPP`,
+  `Display2Line2Shadow*`, `DisplaySmallLine`/`OptDisplayLine`, `DrawBar`,
+  `DrawCTHPixelToBuffer`, the mono-font blitter, the outline blitters /
+  `BltVideoObjectOutline*`, pixelate/hatch, the `Font` fore/back/shadow globals,
+  `Text Input` bevel/cursor setters, the `BaseTable` status-bar callback chain,
+  `DropDown` members, `renderworld` item-cycle/outline colour globals, and the
+  assorted UI locals.
+- Enumeration was **compiler-guided**: build with `-Wimplicit-int-conversion`,
+  diff the narrowing warnings against a pre-change baseline to isolate the
+  colour-truncation sites from the codebase's thousands of pre-existing legacy
+  narrowings, widen them, rebuild, repeat until zero (244 → 0). This also
+  surfaced two real hazards beyond precision: the 64K `ShadeTable`/
+  `IntensityTable` build in `shading.cpp` (an ARGB value used as a table index
+  → out of bounds; the build is now guarded to 16bpp, where the tables are
+  actually used), and `PngLoader` (which packs a genuine 16bpp image and now
+  packs RGB565 explicitly instead of borrowing `Get16BPPColor`).
 
-So the RGBA8888 conversion is **functionally complete** — everything renders
-correctly and the high-value fidelity wins are realised. What remains is this
-**fidelity loose end**: the ~557 `Get16BPPColor` call sites still think in
-RGB565. Closing it fully would mean introducing a true-colour colour generator
-(e.g. a `GetScreenColor()` returning `PIXEL`/ARGB) and migrating those call
-sites and the `UINT16` colour variables/struct fields they flow through — a
-large, mechanical, separate effort that was not worth it for flat UI colours.
-Until then, treat it as the one intentionally-incomplete corner of the
-otherwise-complete pipeline conversion.
+Fidelity that was already correct before 6c and remains so: 8-bit indexed art
+(via the palette LUT), blending (per-channel), and true-colour PNGs.
 
 The Z-buffer stays **16-bit** throughout (it stores depth, not colour).
 
