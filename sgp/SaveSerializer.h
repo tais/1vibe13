@@ -81,4 +81,52 @@ private:
 	void raw(void* p, UINT32 n);
 };
 
+// ---------------------------------------------------------------------------
+// Field-visitor adapters.
+//
+// For very large structs (MERCPROFILESTRUCT, SOLDIERTYPE) writing separate
+// Save and Load field lists invites drift: one field added/reordered on only
+// one side silently corrupts saves. These adapters expose the same by-
+// reference method names over a SaveWriter or a SaveReader, so a single
+// templated field list (`template<class Ar> void Xfer(Ar&, T&)`) serves both
+// directions. Call Xfer with a SaveFieldWriter to save, a SaveFieldReader to
+// load. `isLoading` lets a field list special-case the rare asymmetric spot.
+class SaveFieldWriter
+{
+public:
+	explicit SaveFieldWriter(SaveWriter& w_) : w(w_) {}
+	void u8 (UINT8&  v) { w.u8 (v); }   void u16(UINT16& v) { w.u16(v); }
+	void u32(UINT32& v) { w.u32(v); }   void u64(UINT64& v) { w.u64(v); }
+	void i8 (INT8&   v) { w.i8 (v); }   void i16(INT16&  v) { w.i16(v); }
+	void i32(INT32&  v) { w.i32(v); }   void i64(INT64&  v) { w.i64(v); }
+	void f32(float&  v) { w.f32(v); }   void f64(double& v) { w.f64(v); }
+	void boolean(BOOLEAN& v) { w.boolean(v); }
+	void wstr(CHAR16* p, UINT32 n) { w.wstr(p, n); }
+	void str8(CHAR8*  p, UINT32 n) { w.str8(p, n); }
+	void bytes(void*  p, UINT32 n) { w.bytes(p, n); }
+	bool good() const { return w.good(); }
+	static const bool isLoading = false;
+private:
+	SaveWriter& w;
+};
+
+class SaveFieldReader
+{
+public:
+	explicit SaveFieldReader(SaveReader& r_) : r(r_) {}
+	void u8 (UINT8&  v) { v = r.u8 (); }   void u16(UINT16& v) { v = r.u16(); }
+	void u32(UINT32& v) { v = r.u32(); }   void u64(UINT64& v) { v = r.u64(); }
+	void i8 (INT8&   v) { v = r.i8 (); }   void i16(INT16&  v) { v = r.i16(); }
+	void i32(INT32&  v) { v = r.i32(); }   void i64(INT64&  v) { v = r.i64(); }
+	void f32(float&  v) { v = r.f32(); }   void f64(double& v) { v = r.f64(); }
+	void boolean(BOOLEAN& v) { v = r.boolean(); }
+	void wstr(CHAR16* p, UINT32 n) { r.wstr(p, n); }
+	void str8(CHAR8*  p, UINT32 n) { r.str8(p, n); }
+	void bytes(void*  p, UINT32 n) { r.bytes(p, n); }
+	bool good() const { return r.good(); }
+	static const bool isLoading = true;
+private:
+	SaveReader& r;
+};
+
 #endif // SGP_SAVE_SERIALIZER_H

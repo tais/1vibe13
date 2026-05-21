@@ -1275,467 +1275,149 @@ BOOLEAN SOLDIERCREATE_STRUCT::Load(HWFILE hFile, int versionToLoad, bool loadChe
 
 // WANNE - BMP: DONE!
 // Changed by ADB, rev 1513
+// --- Portable (save-format v2) field lists, shared by save and load. ---
+// One field list per struct, visited by SaveFieldWriter or SaveFieldReader,
+// so the on-disk order can never drift between saving and loading.
+template<class Ar> static void XferRecords( Ar& ar, STRUCT_Records& r )
+{
+	ar.u16(r.usKillsElites);   ar.u16(r.usKillsRegulars); ar.u16(r.usKillsAdmins);
+	ar.u16(r.usKillsHostiles); ar.u16(r.usKillsCreatures);ar.u16(r.usKillsZombies);
+	ar.u16(r.usKillsTanks);    ar.u16(r.usKillsOthers);
+	ar.u16(r.usAssistsMercs);  ar.u16(r.usAssistsMilitia);ar.u16(r.usAssistsOthers);
+	ar.u16(r.usShotsFired);    ar.u16(r.usMissilesLaunched);ar.u16(r.usGrenadesThrown);
+	ar.u16(r.usKnivesThrown);  ar.u16(r.usBladeAttacks);  ar.u16(r.usHtHAttacks);
+	ar.u16(r.usShotsHit);
+	ar.u16(r.usBattlesTactical);ar.u16(r.usBattlesAutoresolve);ar.u16(r.usBattlesRetreated);
+	ar.u16(r.usAmbushesExperienced);ar.u16(r.usLargestBattleFought);
+	ar.u16(r.usTimesWoundedShot);ar.u16(r.usTimesWoundedStabbed);ar.u16(r.usTimesWoundedPunched);
+	ar.u16(r.usTimesWoundedBlasted);ar.u16(r.usTimesStatDamaged);ar.u16(r.usTimesSurgeryUndergoed);
+	ar.u16(r.usFacilityAccidents);
+	ar.u16(r.usLocksPicked);   ar.u16(r.usLocksBreached); ar.u16(r.usTrapsRemoved);
+	ar.u16(r.usExpDetonated);  ar.u16(r.usItemsRepaired); ar.u16(r.usItemsCombined);
+	ar.u16(r.usItemsStolen);   ar.u16(r.usMercsBandaged);ar.u16(r.usSurgeriesMade);
+	ar.u16(r.usMilitiaTrained);ar.u16(r.usNPCsDiscovered);ar.u16(r.usSectorsDiscovered);
+	ar.u8 (r.ubQuestsHandled);
+	ar.u16(r.usInterrogations);ar.u32(r.usDamageTaken);   ar.u32(r.usDamageDealt);
+	ar.u16(r.usTimesInfected); ar.u16(r.zFiller7);        ar.u32(r.usPointsHealed);
+}
+
+template<class Ar> static void XferMercProfile( Ar& ar, MERCPROFILESTRUCT& p )
+{
+	int i, j;
+	ar.wstr(p.zName, NAME_LENGTH);
+	ar.wstr(p.zNickname, NICKNAME_LENGTH);
+	ar.u32(p.uiAttnSound); ar.u32(p.uiCurseSound); ar.u32(p.uiDieSound); ar.u32(p.uiGoodSound);
+	ar.u32(p.uiGruntSound); ar.u32(p.uiGrunt2Sound); ar.u32(p.uiOkSound);
+	ar.u8 (p.ubFaceIndex);
+	ar.str8(p.PANTS, sizeof(p.PANTS)); ar.str8(p.VEST, sizeof(p.VEST));
+	ar.str8(p.SKIN, sizeof(p.SKIN));   ar.str8(p.HAIR, sizeof(p.HAIR));
+	ar.i8 (p.bSex); ar.i8(p.bArmourAttractiveness); ar.u8(p.ubMiscFlags2);
+	ar.boolean(p.fRegresses);
+	ar.u8 (p.ubMiscFlags); ar.u8(p.bSexist); ar.u8(p.bLearnToHate);
+	ar.i8 (p.bStealRate); ar.i8(p.bVocalVolume); ar.u8(p.ubQuoteRecord); ar.i8(p.bDeathRate); ar.i8(p.bScientific);
+	ar.i16(p.sExpLevelGain); ar.i16(p.sLifeGain); ar.i16(p.sAgilityGain); ar.i16(p.sDexterityGain);
+	ar.i16(p.sWisdomGain); ar.i16(p.sMarksmanshipGain); ar.i16(p.sMedicalGain); ar.i16(p.sMechanicGain);
+	ar.i16(p.sExplosivesGain);
+	ar.u8 (p.ubBodyType); ar.i8(p.bMedical);
+	ar.u16(p.usEyesX); ar.u16(p.usEyesY); ar.u16(p.usMouthX); ar.u16(p.usMouthY);
+	ar.u32(p.uiEyeDelay); ar.u32(p.uiMouthDelay); ar.u32(p.uiBlinkFrequency); ar.u32(p.uiExpressionFrequency);
+	ar.u16(p.sSectorX); ar.u16(p.sSectorY);
+	ar.u32(p.uiDayBecomesAvailable);
+	ar.i8 (p.bStrength); ar.i8(p.bLifeMax); ar.i8(p.bExpLevelDelta); ar.i8(p.bLifeDelta);
+	ar.i8 (p.bAgilityDelta); ar.i8(p.bDexterityDelta); ar.i8(p.bWisdomDelta); ar.i8(p.bMarksmanshipDelta);
+	ar.i8 (p.bMedicalDelta); ar.i8(p.bMechanicDelta); ar.i8(p.bExplosivesDelta); ar.i8(p.bStrengthDelta);
+	ar.i8 (p.bLeadershipDelta);
+	ar.u16(p.usTotalDaysServed);
+	ar.i16(p.sLeadershipGain); ar.i16(p.sStrengthGain);
+	ar.u32(p.uiBodyTypeSubFlags);
+	ar.i16(p.sSalary); ar.i8(p.bLife); ar.i8(p.bDexterity); ar.i8(p.bDisability);
+	for (i = 0; i < 30; ++i) ar.i8(p.bSkillTraits[i]);
+	ar.i8 (p.bReputationTolerance); ar.i8(p.bExplosive); ar.i8(p.bLeadership);
+	for (i = 0; i < 5; ++i) ar.u8(p.bBuddy[i]);
+	for (i = 0; i < 5; ++i) ar.u8(p.bHated[i]);
+	ar.i8 (p.bExpLevel); ar.i8(p.bMarksmanship); ar.u8(p.bMinService); ar.i8(p.bWisdom);
+	ar.u8 (p.bResigned); ar.u8(p.bActive);
+	for (i = 0; i < 4; ++i) ar.u16(p.usApproachFactor[i]);
+	ar.i8 (p.bMainGunAttractiveness); ar.i8(p.bAgility);
+	ar.boolean(p.fUseProfileInsertionInfo);
+	ar.i16(p._old_sGridNo); ar.u8(p.ubQuoteActionID); ar.i8(p.bMechanical); ar.u8(p.ubInvUndroppable);
+	for (i = 0; i < 2; ++i) ar.u16(p.usRoomRangeStart[i]);
+	for (i = 0; i < 20; ++i) ar.i8(p.bMercTownReputation[i]);
+	for (i = 0; i < 12; ++i) ar.u16(p.usStatChangeChances[i]);
+	for (i = 0; i < 12; ++i) ar.u16(p.usStatChangeSuccesses[i]);
+	ar.u8 (p.ubStrategicInsertionCode);
+	for (i = 0; i < 2; ++i) ar.u16(p.usRoomRangeEnd[i]);
+	ar.u8 (p.ubLastQuoteSaid);
+	ar.i8 (p.bRace); ar.i8(p.bNationality); ar.i8(p.bAppearance); ar.i8(p.bAppearanceCareLevel);
+	ar.i8 (p.bRefinement); ar.i8(p.bRefinementCareLevel); ar.i8(p.bHatedNationality);
+	ar.i8 (p.bHatedNationalityCareLevel); ar.i8(p.bRacist);
+	ar.u32(p.uiWeeklySalary); ar.u32(p.uiBiWeeklySalary);
+	ar.i8 (p.bMedicalDeposit); ar.i8(p.bAttitude); ar.i8(p.bCharacterTrait); ar.i8(p.bBaseMorale);
+	ar.u16(p.sMedicalDepositAmount);
+	ar.u8 (p.bLearnToLike);
+	for (i = 0; i < 4; ++i) ar.u8(p.ubApproachVal[i]);
+	for (i = 0; i < 3; ++i) for (j = 0; j < 4; ++j) ar.u8(p.ubApproachMod[i][j]);
+	ar.i8 (p.bTown); ar.i8(p.bTownAttachment); ar.u16(p.usOptionalGearCost);
+	for (i = 0; i < NUMBER_OF_OPINIONS; ++i) ar.i8(p.bMercOpinion[i]);
+	ar.i8 (p.bApproached); ar.i8(p.bMercStatus);
+	for (i = 0; i < 5; ++i) ar.i8(p.bHatedTime[i]);
+	ar.i8 (p.bLearnToLikeTime); ar.i8(p.bLearnToHateTime);
+	for (i = 0; i < 5; ++i) ar.i8(p.bHatedCount[i]);
+	ar.i8 (p.bLearnToLikeCount); ar.i8(p.bLearnToHateCount);
+	ar.u8 (p.ubLastDateSpokenTo); ar.u8(p.bLastQuoteSaidWasSpecial); ar.i8(p.bSectorZ);
+	ar.u32(p.usStrategicInsertionData);
+	ar.i8 (p.bFriendlyOrDirectDefaultResponseUsedRecently);
+	ar.i8 (p.bRecruitDefaultResponseUsedRecently);
+	ar.i8 (p.bThreatenDefaultResponseUsedRecently);
+	ar.i8 (p.bNPCData);
+	ar.i32(p.iBalance); ar.i16(p.sTrueSalary);
+	ar.u8 (p.ubCivilianGroup); ar.u8(p.ubNeedForSleep); ar.u32(p.uiMoney); ar.i8(p.bNPCData2);
+	ar.u8 (p.ubMiscFlags3); ar.u8(p.ubDaysOfMoraleHangover); ar.u8(p.ubNumTimesDrugUseInLifetime);
+	ar.u32(p.uiPrecedentQuoteSaid); ar.u32(p.uiProfileChecksum);
+	ar.i16(p._old_sPreCombatGridNo); ar.u8(p.ubTimeTillNextHatedComplaint); ar.u8(p.ubSuspiciousDeath);
+	ar.i32(p.iMercMercContractLength); ar.u32(p.uiTotalCostToDate);
+	ar.i32(p.sGridNo); ar.i32(p.sPreCombatGridNo);
+
+	// --- post-POD (object/vector) fields, matching the legacy save order ---
+	INT32 invSize = (INT32)p.inv.size();
+	ar.i32(invSize);
+	if (Ar::isLoading) { p.inv.resize(invSize); p.bInvStatus.resize(invSize); p.bInvNumber.resize(invSize); }
+	for (INT32 x = 0; x < invSize; ++x) {
+		ar.i32(p.inv[x]); ar.i32(p.bInvStatus[x]); ar.i32(p.bInvNumber[x]);
+	}
+	XferRecords(ar, p.records);
+	ar.u16(p.usBackground);
+	ar.u8 (p.ubSnitchExposedCooldown);
+	for (i = 0; i < NUM_PROFILES; ++i)
+		for (j = 0; j < OPINION_FLAGMASKS_NUMBER; ++j)
+			ar.u32(p.usDynamicOpinionFlagmask[i][j]);
+	for (i = 0; i < NUM_PROFILES; ++i) ar.i8(p.sDynamicOpinionLongTerm[i]);
+	ar.u32(p.usVoiceIndex);
+	ar.u32(p.Type);
+	ar.i16(p.bGrowthModifierLife);        ar.i16(p.bGrowthModifierStrength);
+	ar.i16(p.bGrowthModifierAgility);     ar.i16(p.bGrowthModifierDexterity);
+	ar.i16(p.bGrowthModifierWisdom);      ar.i16(p.bGrowthModifierMarksmanship);
+	ar.i16(p.bGrowthModifierExplosive);   ar.i16(p.bGrowthModifierLeadership);
+	ar.i16(p.bGrowthModifierMedical);     ar.i16(p.bGrowthModifierMechanical);
+	ar.i16(p.bGrowthModifierExpLevel);
+}
+
 //BOOLEAN MERCPROFILESTRUCT::Load(HWFILE hFile, bool forceLoadOldVersion)
 BOOLEAN MERCPROFILESTRUCT::Load(HWFILE hFile, bool forceLoadOldVersion, bool forceLoadOldEncryption, bool wasSavedWithEncryption)
 {
 	UINT32	uiNumBytesRead;
-	INT32	numBytesRead = 0, temp = 0, buffer = 0;
-	UINT8	filler = 0;
 	this->initialize();
 
 	//if we are at the most current version, then fine
 	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE && forceLoadOldVersion == false)
 	{
-		// WANNE - BMP: DONE!
-//		if ( !FileRead( hFile, this, SIZEOF_MERCPROFILESTRUCT_POD, &uiNumBytesRead ) )
-//		{
-//			return(FALSE);
-//		}
-		FileRead( hFile, this->zName, sizeof(this->zName), &uiNumBytesRead);
-		numBytesRead += uiNumBytesRead;
-		numBytesRead = ReadFieldByField( hFile, this->zNickname, sizeof(this->zNickname), sizeof(CHAR16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiAttnSound, sizeof(this->uiAttnSound), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiCurseSound, sizeof(this->uiCurseSound), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiDieSound, sizeof(this->uiDieSound), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiGoodSound, sizeof(this->uiGoodSound), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiGruntSound, sizeof(this->uiGruntSound), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiGrunt2Sound, sizeof(this->uiGrunt2Sound), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiOkSound, sizeof(this->uiOkSound), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubFaceIndex, sizeof(this->ubFaceIndex), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->PANTS, sizeof(this->PANTS), sizeof(CHAR8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->VEST, sizeof(this->VEST), sizeof(CHAR8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->SKIN, sizeof(this->SKIN), sizeof(CHAR8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->HAIR, sizeof(this->HAIR), sizeof(CHAR8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bSex, sizeof(this->bSex), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bArmourAttractiveness, sizeof(this->bArmourAttractiveness), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubMiscFlags2, sizeof(this->ubMiscFlags2), sizeof(UINT8), numBytesRead);
-		if (guiCurrentSaveGameVersion < GROWTH_MODIFIERS)
-		{
-			numBytesRead = ReadFieldByField( hFile, &this->fRegresses, sizeof(this->fRegresses), sizeof(INT8), numBytesRead);
-			// convert old evolution to regresses boolean
-			this->fRegresses = this->fRegresses == 2 ? TRUE : FALSE; // 2 == CharacterEvolution::DEVOLVES
-		}
-		else
-		{
-			numBytesRead = ReadFieldByField( hFile, &this->fRegresses, sizeof(this->fRegresses), sizeof(INT8), numBytesRead);
-		}
-		numBytesRead = ReadFieldByField( hFile, &this->ubMiscFlags, sizeof(this->ubMiscFlags), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bSexist, sizeof(this->bSexist), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLearnToHate, sizeof(this->bLearnToHate), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bStealRate, sizeof(this->bStealRate), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bVocalVolume, sizeof(this->bVocalVolume), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubQuoteRecord, sizeof(this->ubQuoteRecord), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bDeathRate, sizeof(this->bDeathRate), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bScientific, sizeof(this->bScientific), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sExpLevelGain, sizeof(this->sExpLevelGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sLifeGain, sizeof(this->sLifeGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sAgilityGain, sizeof(this->sAgilityGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sDexterityGain, sizeof(this->sDexterityGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sWisdomGain, sizeof(this->sWisdomGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sMarksmanshipGain, sizeof(this->sMarksmanshipGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sMedicalGain, sizeof(this->sMedicalGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sMechanicGain, sizeof(this->sMechanicGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sExplosivesGain, sizeof(this->sExplosivesGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubBodyType, sizeof(this->ubBodyType), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMedical, sizeof(this->bMedical), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->usEyesX, sizeof(this->usEyesX), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->usEyesY, sizeof(this->usEyesY), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->usMouthX, sizeof(this->usMouthX), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->usMouthY, sizeof(this->usMouthY), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiEyeDelay, sizeof(this->uiEyeDelay), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiMouthDelay, sizeof(this->uiMouthDelay), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiBlinkFrequency, sizeof(this->uiBlinkFrequency), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiExpressionFrequency, sizeof(this->uiExpressionFrequency), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sSectorX, sizeof(this->sSectorX), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sSectorY, sizeof(this->sSectorY), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiDayBecomesAvailable, sizeof(this->uiDayBecomesAvailable), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bStrength, sizeof(this->bStrength), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLifeMax, sizeof(this->bLifeMax), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bExpLevelDelta, sizeof(this->bExpLevelDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLifeDelta, sizeof(this->bLifeDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bAgilityDelta, sizeof(this->bAgilityDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bDexterityDelta, sizeof(this->bDexterityDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bWisdomDelta, sizeof(this->bWisdomDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMarksmanshipDelta, sizeof(this->bMarksmanshipDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMedicalDelta, sizeof(this->bMedicalDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMechanicDelta, sizeof(this->bMechanicDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bExplosivesDelta, sizeof(this->bExplosivesDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bStrengthDelta, sizeof(this->bStrengthDelta), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLeadershipDelta, sizeof(this->bLeadershipDelta), sizeof(INT8), numBytesRead);
-		if(guiCurrentSaveGameVersion < STOMP12_SAVEGAME_DATATYPE_CHANGE)
-		{	// No longer included but need to read them anyway
-			temp = numBytesRead;
-			temp = ReadFieldByField( hFile, &this->records.usKillsRegulars, sizeof(UINT16), sizeof(UINT16), temp);
-			temp = ReadFieldByField( hFile, &this->records.usAssistsMercs, sizeof(UINT16), sizeof(UINT16), temp);
-			temp = ReadFieldByField( hFile, &this->records.usShotsFired, sizeof(UINT16), sizeof(UINT16), temp);
-			temp = ReadFieldByField( hFile, &this->records.usShotsHit, sizeof(UINT16), sizeof(UINT16), temp);
-			temp = ReadFieldByField( hFile, &this->records.usBattlesTactical, sizeof(UINT16), sizeof(UINT16), temp);
-			temp = ReadFieldByField( hFile, &this->records.usTimesWoundedShot, sizeof(UINT16), sizeof(UINT16), temp);
-			numBytesRead++;
-		}
-		numBytesRead = ReadFieldByField( hFile, &this->usTotalDaysServed, sizeof(this->usTotalDaysServed), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sLeadershipGain, sizeof(this->sLeadershipGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sStrengthGain, sizeof(this->sStrengthGain), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiBodyTypeSubFlags, sizeof(this->uiBodyTypeSubFlags), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sSalary, sizeof(this->sSalary), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLife, sizeof(this->bLife), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bDexterity, sizeof(this->bDexterity), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bDisability, sizeof(this->bDisability), sizeof(INT8), numBytesRead);
-		if(guiCurrentSaveGameVersion >= STOMP12_SAVEGAME_DATATYPE_CHANGE2)
-			numBytesRead = ReadFieldByField( hFile, this->bSkillTraits, sizeof(this->bSkillTraits), sizeof(INT8), numBytesRead);
-		else	//CHRISL: Prior to STOMP12_SAVEGAME_DATATYPE_CHANGE2, bSkillTraits was only a single INT8 value
-			numBytesRead = ReadFieldByField( hFile, this->bSkillTraits, sizeof(INT8), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bReputationTolerance, sizeof(this->bReputationTolerance), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bExplosive, sizeof(this->bExplosive), sizeof(INT8), numBytesRead);
-		if(guiCurrentSaveGameVersion < STOMP12_SAVEGAME_DATATYPE_CHANGE2 && guiCurrentSaveGameVersion >= STOMP12_SAVEGAME_DATATYPE_CHANGE)
-		{	//CHRISL: These two variables no longer exist but we should read them into bSKillTraits[1] and [2]
-			numBytesRead = ReadFieldByField( hFile, &this->bSkillTraits[1], sizeof(INT8), sizeof(INT8), numBytesRead);
-			numBytesRead = ReadFieldByField( hFile, &this->bSkillTraits[2], sizeof(INT8), sizeof(INT8), numBytesRead);
-			numBytesRead += 27;
-		}
-		else if(guiCurrentSaveGameVersion < STOMP12_SAVEGAME_DATATYPE_CHANGE)
-		{
-			numBytesRead = ReadFieldByField( hFile, &this->bSkillTraits[1], sizeof(INT8), sizeof(INT8), numBytesRead);
-			numBytesRead += 28;
-		}
-		numBytesRead = ReadFieldByField( hFile, &this->bLeadership, sizeof(this->bLeadership), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->bBuddy, sizeof(this->bBuddy), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->bHated, sizeof(this->bHated), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bExpLevel, sizeof(this->bExpLevel), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMarksmanship, sizeof(this->bMarksmanship), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMinService, sizeof(this->bMinService), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bWisdom, sizeof(this->bWisdom), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bResigned, sizeof(this->bResigned), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bActive, sizeof(this->bActive), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->usApproachFactor, sizeof(this->usApproachFactor), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMainGunAttractiveness, sizeof(this->bMainGunAttractiveness), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bAgility, sizeof(this->bAgility), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->fUseProfileInsertionInfo, sizeof(this->fUseProfileInsertionInfo), sizeof(BOOLEAN), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->_old_sGridNo, sizeof(this->_old_sGridNo), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubQuoteActionID, sizeof(this->ubQuoteActionID), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMechanical, sizeof(this->bMechanical), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubInvUndroppable, sizeof(this->ubInvUndroppable), sizeof(UINT8), numBytesRead);
-		//DBrot: More rooms
-		numBytesRead = ReadFieldByField( hFile, this->usRoomRangeStart, sizeof(this->usRoomRangeStart), sizeof(UINT16), numBytesRead);
-		
-		
-		numBytesRead = ReadFieldByField( hFile, this->bMercTownReputation, sizeof(this->bMercTownReputation), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->usStatChangeChances, sizeof(this->usStatChangeChances), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->usStatChangeSuccesses, sizeof(this->usStatChangeSuccesses), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubStrategicInsertionCode, sizeof(this->ubStrategicInsertionCode), sizeof(UINT8), numBytesRead);
-		//DBrot: More rooms
-		numBytesRead = ReadFieldByField( hFile, this->usRoomRangeEnd, sizeof(this->usRoomRangeEnd), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubLastQuoteSaid, sizeof(this->ubLastQuoteSaid), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bRace, sizeof(this->bRace), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bNationality, sizeof(this->bNationality), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bAppearance, sizeof(this->bAppearance), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bAppearanceCareLevel, sizeof(this->bAppearanceCareLevel), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bRefinement, sizeof(this->bRefinement), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bRefinementCareLevel, sizeof(this->bRefinementCareLevel), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bHatedNationality, sizeof(this->bHatedNationality), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bHatedNationalityCareLevel, sizeof(this->bHatedNationalityCareLevel), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bRacist, sizeof(this->bRacist), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiWeeklySalary, sizeof(this->uiWeeklySalary), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiBiWeeklySalary, sizeof(this->uiBiWeeklySalary), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMedicalDeposit, sizeof(this->bMedicalDeposit), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bAttitude, sizeof(this->bAttitude), sizeof(INT8), numBytesRead);
-		if(guiCurrentSaveGameVersion >= STOMP12_SAVEGAME_DATATYPE_CHANGE)
-			numBytesRead = ReadFieldByField( hFile, &this->bCharacterTrait, sizeof(this->bCharacterTrait), sizeof(INT8), numBytesRead);
-		else
-			numBytesRead++;
-		numBytesRead = ReadFieldByField( hFile, &this->bBaseMorale, sizeof(this->bBaseMorale), sizeof(INT8), numBytesRead);
-		if(guiCurrentSaveGameVersion < STOMP12_SAVEGAME_DATATYPE_CHANGE)
-			ReadFieldByField( hFile, &filler, sizeof(UINT8), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sMedicalDepositAmount, sizeof(this->sMedicalDepositAmount), sizeof(UINT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLearnToLike, sizeof(this->bLearnToLike), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->ubApproachVal, sizeof(this->ubApproachVal), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->ubApproachMod, sizeof(this->ubApproachMod), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bTown, sizeof(this->bTown), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bTownAttachment, sizeof(this->bTownAttachment), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->usOptionalGearCost, sizeof(this->usOptionalGearCost), sizeof(UINT16), numBytesRead);
-		
-		if ( guiCurrentSaveGameVersion >=  ENLARGED_OPINIONS )
-		{
-			numBytesRead = ReadFieldByField( hFile, this->bMercOpinion, sizeof(this->bMercOpinion), sizeof(INT8), numBytesRead);
-		}
-		else
-		{
-			// Flugente: for old savegames, only read the number of old opinions, and then add a buffer value to get fitting sizes
-			numBytesRead = ReadFieldByField( hFile, this->bMercOpinion, NUMBER_OF_OPINIONS_OLD, sizeof(INT8), numBytesRead);
-
-			for(int i = 0; i < sizeof(this->bMercOpinion) - NUMBER_OF_OPINIONS_OLD; ++i)
-				++buffer;
-		}
-
-		numBytesRead = ReadFieldByField( hFile, &this->bApproached, sizeof(this->bApproached), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bMercStatus, sizeof(this->bMercStatus), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->bHatedTime, sizeof(this->bHatedTime), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLearnToLikeTime, sizeof(this->bLearnToLikeTime), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLearnToHateTime, sizeof(this->bLearnToHateTime), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, this->bHatedCount, sizeof(this->bHatedCount), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLearnToLikeCount, sizeof(this->bLearnToLikeCount), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLearnToHateCount, sizeof(this->bLearnToHateCount), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubLastDateSpokenTo, sizeof(this->ubLastDateSpokenTo), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bLastQuoteSaidWasSpecial, sizeof(this->bLastQuoteSaidWasSpecial), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bSectorZ, sizeof(this->bSectorZ), sizeof(INT8), numBytesRead);
-
-		if ( guiCurrentSaveGameVersion >= MERC_PROFILE_INSERTION_DATA )
-		{
-			numBytesRead = ReadFieldByField( hFile, &this->usStrategicInsertionData, sizeof( this->usStrategicInsertionData ), sizeof( UINT32 ), numBytesRead );
-		}
-		else
-		{
-			numBytesRead = ReadFieldByField( hFile, &this->usStrategicInsertionData, sizeof(UINT16), sizeof(UINT16), numBytesRead);
-			buffer += 4; // To make numBytesRead check match the struct size. 2 bytes from uint32 - uint16 and 2 bytes due to struct memory layout change when usStrategicInsertionData was increased to uint32
-		}
-
-		numBytesRead = ReadFieldByField( hFile, &this->bFriendlyOrDirectDefaultResponseUsedRecently, sizeof(this->bFriendlyOrDirectDefaultResponseUsedRecently), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bRecruitDefaultResponseUsedRecently, sizeof(this->bRecruitDefaultResponseUsedRecently), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bThreatenDefaultResponseUsedRecently, sizeof(this->bThreatenDefaultResponseUsedRecently), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bNPCData, sizeof(this->bNPCData), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->iBalance, sizeof(this->iBalance), sizeof(INT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sTrueSalary, sizeof(this->sTrueSalary), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubCivilianGroup, sizeof(this->ubCivilianGroup), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubNeedForSleep, sizeof(this->ubNeedForSleep), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiMoney, sizeof(this->uiMoney), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->bNPCData2, sizeof(this->bNPCData2), sizeof(INT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubMiscFlags3, sizeof(this->ubMiscFlags3), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubDaysOfMoraleHangover, sizeof(this->ubDaysOfMoraleHangover), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubNumTimesDrugUseInLifetime, sizeof(this->ubNumTimesDrugUseInLifetime), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiPrecedentQuoteSaid, sizeof(this->uiPrecedentQuoteSaid), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiProfileChecksum, sizeof(this->uiProfileChecksum), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->_old_sPreCombatGridNo, sizeof(this->_old_sPreCombatGridNo), sizeof(INT16), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubTimeTillNextHatedComplaint, sizeof(this->ubTimeTillNextHatedComplaint), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->ubSuspiciousDeath, sizeof(this->ubSuspiciousDeath), sizeof(UINT8), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->iMercMercContractLength, sizeof(this->iMercMercContractLength), sizeof(INT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->uiTotalCostToDate, sizeof(this->uiTotalCostToDate), sizeof(UINT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sGridNo, sizeof(this->sGridNo), sizeof(INT32), numBytesRead);
-		numBytesRead = ReadFieldByField( hFile, &this->sPreCombatGridNo, sizeof(this->sPreCombatGridNo), sizeof(INT32), numBytesRead);
-		//numBytesRead = ReadFieldByField( hFile, &this->endOfPOD, sizeof(this->endOfPOD), sizeof(char), numBytesRead);
-		while( (numBytesRead % 2) != 0 )
-			numBytesRead = ReadFieldByField(hFile, &filler, sizeof(filler), sizeof(UINT8), numBytesRead);
-		
-		//DBrot: More rooms
-		int size = 0;
-		if ( numBytesRead + buffer != SIZEOF_MERCPROFILESTRUCT_POD )
-		{
+		// Portable save-format v2 (savegame path). The legacy/encrypted
+		// Prof.dat path is the else branch below (forceLoadOldVersion).
+		SaveReader rd(hFile);
+		SaveFieldReader ar(rd);
+		XferMercProfile(ar, *this);
+		if (!rd.good())
 			return(FALSE);
-		}
-
-		if ( !FileRead( hFile, &size, sizeof(int), &uiNumBytesRead ) )
-		{
-			return(FALSE);
-		}
-		
-		inv.resize(size);
-		bInvStatus.resize(size);
-		bInvNumber.resize(size);
-		int item;
-		int status;
-		int number;
-		for (int x = 0; x < size; ++x) {
-			if ( !FileRead( hFile, &item, sizeof(int), &uiNumBytesRead ) )
-			{
-				return(FALSE);
-			}
-			if ( !FileRead( hFile, &status, sizeof(int), &uiNumBytesRead ) )
-			{
-				return(FALSE);
-			}
-			if ( !FileRead( hFile, &number, sizeof(int), &uiNumBytesRead ) )
-			{
-				return(FALSE);
-			}
-			inv[x] = item;
-			bInvStatus[x] = status;
-			bInvNumber[x] = number;
-		}
-		// SANDRO - read records
-		if(guiCurrentSaveGameVersion >= STOMP12_SAVEGAME_DATATYPE_CHANGE)
-		{
-			if ( !FileRead( hFile, &this->records, sizeof(STRUCT_Records), &uiNumBytesRead ) )
-			{
-				return(FALSE);
-			}
-
-			// Flugente: backgrounds
-			if(guiCurrentSaveGameVersion >= BACKGROUNDS)
-			{
-				if(guiCurrentSaveGameVersion >= BACKGROUNDS_FIX_UINT8)
-				{
-					if ( !FileRead( hFile, &this->usBackground, sizeof(UINT16), &uiNumBytesRead ) )
-					{
-						return(FALSE);
-					}
-				}
-				else
-				{
-					if ( !FileRead( hFile, &this->usBackground, sizeof(UINT8), &uiNumBytesRead ) )
-					{
-						return(FALSE);
-					}
-				}
-			}
-
-			if(guiCurrentSaveGameVersion >= SNITCH_TRAIT_EXTENDED)
-			{
-				//if ( !FileRead( hFile, &this->ubExposedInSector, sizeof(ubExposedInSector), &uiNumBytesRead ) )
-				//{
-				//	return(FALSE);
-				//}
-				if ( !FileRead( hFile, &this->ubSnitchExposedCooldown, sizeof(ubSnitchExposedCooldown), &uiNumBytesRead ) )
-				{
-					return(FALSE);
-				}
-			}
-
-			if ( guiCurrentSaveGameVersion >= DYNAMIC_OPINIONS )
-			{
-				if ( guiCurrentSaveGameVersion >= DYNAMIC_DIALOGUE )
-				{
-					if ( guiCurrentSaveGameVersion >= DRUG_SYSTEM_REDONE )
-					{
-						if ( !FileRead( hFile, &this->usDynamicOpinionFlagmask, sizeof(usDynamicOpinionFlagmask), &uiNumBytesRead ) )
-						{
-							return(FALSE);
-						}
-					}
-					else
-					{
-						UINT32 tmp[NUM_PROFILES][5];
-						if ( !FileRead( hFile, &tmp, sizeof(tmp), &uiNumBytesRead ) )
-						{
-							return(FALSE);
-						}
-
-						for ( UINT16 profile = 0; profile < NUM_PROFILES; ++profile )
-						{
-							UINT8 i = 0;
-							for ( i = 0; i < 5; ++i )
-							{
-								this->usDynamicOpinionFlagmask[profile][i] = tmp[profile][i];
-							}
-
-							for ( ; i < OPINION_FLAGMASKS_NUMBER; ++i )
-							{
-								this->usDynamicOpinionFlagmask[profile][i] = tmp[profile][i];
-							}
-						}
-					}
-
-					if ( !FileRead( hFile, &this->sDynamicOpinionLongTerm, sizeof(sDynamicOpinionLongTerm), &uiNumBytesRead ) )
-					{
-						return(FALSE);
-					}
-				}
-				else
-				{
-					UINT32 tmp[NUM_PROFILES][3];
-					if ( !FileRead( hFile, &tmp, sizeof(tmp), &uiNumBytesRead ) )
-					{
-						return(FALSE);
-					}
-
-					for ( UINT16 profile = 0; profile < NUM_PROFILES; ++profile )
-					{
-						UINT8 i = 0;
-						for ( i = 0; i < 3; ++i )
-						{
-							this->usDynamicOpinionFlagmask[profile][i] = tmp[profile][i];
-						}
-
-						for ( ; i < OPINION_FLAGMASKS_NUMBER; ++i )
-						{
-							this->usDynamicOpinionFlagmask[profile][i] = tmp[profile][i];
-						}
-
-						sDynamicOpinionLongTerm[profile] = 0;
-					}
-				}
-			}
-
-			// Flugente: voice set
-			if ( guiCurrentSaveGameVersion >= SEPARATE_VOICESETS )
-			{
-				if ( !FileRead( hFile, &this->usVoiceIndex, sizeof(UINT32), &uiNumBytesRead ) )
-				{
-					return(FALSE);
-				}
-			}
-
-			// Flugente: if this is a an case of older file, load from separate structure
-			if ( guiCurrentSaveGameVersion >= PROFILETYPE_STORED )
-			{
-				if ( !FileRead( hFile, &this->Type, sizeof( UINT32 ), &uiNumBytesRead ) )
-				{
-					return( FALSE );
-				}
-			}
-
-			// rftr: growth modifiers
-			if (guiCurrentSaveGameVersion >= GROWTH_MODIFIERS)
-			{
-				if (!FileRead(hFile, &this->bGrowthModifierLife, sizeof(INT8), &uiNumBytesRead))
-				{
-					return(FALSE);
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierStrength, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierAgility, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierDexterity, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierWisdom, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierMarksmanship, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierExplosive, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierLeadership, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierMedical, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierMechanical, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-				if ( !FileRead( hFile, &this->bGrowthModifierExpLevel, sizeof(INT8), &uiNumBytesRead) )
-				{
-					return( FALSE );
-				}
-			}
-			else
-			{
-				// zero out growth modifiers for upgrading savegames
-				this->bGrowthModifierLife = 0;
-				this->bGrowthModifierStrength = 0;
-				this->bGrowthModifierAgility = 0;
-				this->bGrowthModifierDexterity = 0;
-				this->bGrowthModifierWisdom = 0;
-				this->bGrowthModifierMarksmanship = 0;
-				this->bGrowthModifierExplosive = 0;
-				this->bGrowthModifierLeadership = 0;
-				this->bGrowthModifierMedical = 0;
-				this->bGrowthModifierMechanical = 0;
-				this->bGrowthModifierExpLevel = 0;
-			}
-		}
 
 		if ( this->uiProfileChecksum != this->GetChecksum() )
 		{
@@ -1778,127 +1460,13 @@ BOOLEAN MERCPROFILESTRUCT::Load(HWFILE hFile, bool forceLoadOldVersion, bool for
 
 BOOLEAN MERCPROFILESTRUCT::Save(HWFILE hFile)
 {
-	//for now the MERCPROFILESTRUCT remains unchanged
-	//it does not have any data types that need their own saving function
-	//if that ever changes this will make updating saves easier
-	UINT32 uiNumBytesWritten;
+	// Portable save-format v2: one shared field list (XferMercProfile) drives
+	// both save and load, so the on-disk order can never drift between them.
 	this->uiProfileChecksum = this->GetChecksum();
-	if ( !FileWrite( hFile, this, SIZEOF_MERCPROFILESTRUCT_POD, &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-	int size = inv.size();
-	if ( !FileWrite( hFile, &size, sizeof(int), &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-	for (int x = 0; x < size; ++x) {
-		int item = inv[x];
-		int status = bInvStatus[x];
-		int number = bInvNumber[x];
-		if ( !FileWrite( hFile, &item, sizeof(int), &uiNumBytesWritten ) )
-		{
-			return(FALSE);
-		}
-		if ( !FileWrite( hFile, &status, sizeof(int), &uiNumBytesWritten ) )
-		{
-			return(FALSE);
-		}
-		if ( !FileWrite( hFile, &number, sizeof(int), &uiNumBytesWritten ) )
-		{
-			return(FALSE);
-		}
-	}
-	// SANDRO - save records
-	if ( !FileWrite( hFile, &this->records, sizeof(STRUCT_Records), &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-
-	// Flugente: background
-	if ( !FileWrite( hFile, &this->usBackground, sizeof(UINT16), &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-
-	//if ( !FileWrite( hFile, &this->ubExposedInSector, sizeof(ubExposedInSector), &uiNumBytesWritten ) )
-	//{
-	//	return(FALSE);
-	//}
-
-	if ( !FileWrite( hFile, &this->ubSnitchExposedCooldown, sizeof(ubSnitchExposedCooldown), &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-
-	if ( !FileWrite( hFile, &this->usDynamicOpinionFlagmask, sizeof(usDynamicOpinionFlagmask), &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-
-	if ( !FileWrite( hFile, &this->sDynamicOpinionLongTerm, sizeof(sDynamicOpinionLongTerm), &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-
-	// Flugente: voice set used
-	if ( !FileWrite( hFile, &this->usVoiceIndex, sizeof(UINT32), &uiNumBytesWritten ) )
-	{
-		return(FALSE);
-	}
-
-	if ( !FileWrite( hFile, &this->Type, sizeof( UINT32 ), &uiNumBytesWritten ) )
-	{
-		return( FALSE );
-	}
-
-	// rftr: growth modifiers
-	if (!FileWrite(hFile, &this->bGrowthModifierLife, sizeof(INT8), &uiNumBytesWritten))
-	{
-		return(FALSE);
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierStrength, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierAgility, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierDexterity, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierWisdom, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierMarksmanship, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierExplosive, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierLeadership, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierMedical, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierMechanical, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	if ( !FileWrite( hFile, &this->bGrowthModifierExpLevel, sizeof(INT8), &uiNumBytesWritten) )
-	{
-		return( FALSE );
-	}
-	
-	return TRUE;
+	SaveWriter wr(hFile);
+	SaveFieldWriter ar(wr);
+	XferMercProfile(ar, *this);
+	return wr.good() ? TRUE : FALSE;
 }
 
 BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
