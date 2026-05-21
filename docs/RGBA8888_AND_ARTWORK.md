@@ -89,6 +89,37 @@ Fidelity that was already correct before 6c and remains so: 8-bit indexed art
 
 The Z-buffer stays **16-bit** throughout (it stores depth, not colour).
 
+#### ⚠️ Gotcha: colour `0` is a "transparent / none" sentinel — and black used to alias to it
+
+This is the single most important thing to know before touching colour code or
+replacing art. Throughout the engine, a colour value of **`0` means "transparent
+/ draw nothing"** — and in RGB565, **pure black `(0,0,0)` encodes as `0x0000`**.
+So historically *black* and *no-colour* were the **same value**, and a lot of
+code leans on that coincidence with an `if (colour != 0)` "should I draw this?"
+test.
+
+True-colour `Get16BPPColor` breaks the coincidence: black is now
+`0xFF000000` (opaque, **non-zero**). Every `!= 0` / `== 0` sentinel that a
+caller fed black into therefore flipped behaviour — black "none" started drawing
+as an opaque black box/halo, or a black "transparent key" stopped keying. Three
+instances surfaced during 6c playtesting, all fixed the same way (map pure
+black back to `0` at the source, *or* compare on RGB ignoring alpha):
+
+| Symptom | Where | Fix |
+|---|---|---|
+| Opaque black bars behind UI text | `SetFontBackground` / `SetRGBFontBackground` (`Font.cpp`) — `usBackground != 0` in the mono blitter | pure-black background → `0` |
+| Fuzzy black drop-shadow halo around glyphs (looked like "bad AA"), esp. the laptop | `SetFontShadow` (`Font.cpp`) — `usShadow != 0` in the mono blitter | pure-black shadow → `0` (the `ubShadow!=0` bump still draws a *requested* black shadow as `1`) |
+| 8bpp sprite transparency (palette index 0 → opaque `0xFF000000`, not `0`) | `Blit16_ColorKey` (`sdl_vsurface.cpp`), `BltStretchVideoSurface` | colour-key compares on **RGB only**, ignoring alpha |
+
+**If you ever see a stray black box, halo, or a sprite that lost its
+transparency, this is almost certainly the cause** — find the `colour == 0` /
+`colour != 0` sentinel in that path and apply the same treatment. The same
+applies when authoring true-colour PNG replacements: don't rely on black to mean
+"transparent"; use a real alpha channel (the `Blt32BPPTo16BPP*` blitters read
+`alpha = src>>24`).
+
+The Z-buffer stays **16-bit** throughout (it stores depth, not colour).
+
 ---
 
 ## 2. What the 32-bit pipeline buys us
