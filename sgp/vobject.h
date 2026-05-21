@@ -51,7 +51,7 @@ typedef struct
 
 typedef struct
 {
-	UINT16 *		p16BPPData;
+	PIXEL *			p16BPPData;
 	UINT16			usRegionIndex;
 	UINT8			ubShadeLevel;
 	UINT16			usWidth;
@@ -87,14 +87,14 @@ typedef struct TAG_HVOBJECT
 	UINT32					uiSizePixData;						// ETRLE data size
 	SGPPaletteEntry			*pPaletteEntry;						// 8BPP Palette						  
 	COLORVAL				TransparentColor;					// Defaults to 0,0,0
-	UINT16					*p16BPPPalette;						// A 16BPP palette used for 8->16 blits
-	
+	PIXEL					*p16BPPPalette;						// palette used for 8->screen-depth blits (PIXEL: RGB565 or ARGB8888)
+
 	PTR						pPixData;							// ETRLE pixel data
 	ETRLEObject				*pETRLEObject;						// Object offset data etc
 	SixteenBPPObjectInfo	*p16BPPObject;
-	UINT16					*pShades[HVOBJECT_SHADE_TABLES];	// Shading tables
-	UINT16					*pShadeCurrent;
-	UINT16					*pGlow;								// glow highlight table
+	PIXEL					*pShades[HVOBJECT_SHADE_TABLES];	// Shading tables (per-shade palettes)
+	PIXEL					*pShadeCurrent;
+	PIXEL					*pGlow;								// glow highlight table
 	UINT8					*pShade8;							// 8-bit shading index table
 	UINT8					*pGlow8;							// 8-bit glow table
 	ZStripInfo				**ppZStripInfo;						// Z-value strip info arrays
@@ -243,7 +243,7 @@ extern BOOLEAN gfVideoObjectsInit;
 // These blitting functions more-or less encapsolate all of the functionality of DirectDraw
 // Blitting, giving an API layer for portability. 
 
-BOOLEAN BltVideoObjectToBuffer( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags, blt_fx *pBltFx );
+BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags, blt_fx *pBltFx );
 
 HVOBJECT GetPrimaryVideoObject( );
 HVOBJECT GetBackBufferVideoObject( );
@@ -254,7 +254,7 @@ BOOLEAN GetVideoObjectETRLESubregionProperties( UINT32 uiVideoObject, UINT16 usI
 
 BOOLEAN SetVideoObjectPalette8BPP(INT32 uiVideoObject, SGPPaletteEntry *pPal8);
 BOOLEAN SetVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16 *pPal16);
-BOOLEAN GetVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16 **ppPal16);
+BOOLEAN GetVideoObjectPalette16BPP(INT32 uiVideoObject, PIXEL **ppPal16);
 BOOLEAN CopyVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16 *ppPal16);
 
 BOOLEAN ConvertVObjectRegionTo16BPP( HVOBJECT hVObject, UINT16 usRegionIndex, UINT8 ubShadeLevel );

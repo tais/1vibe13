@@ -1746,8 +1746,8 @@ UINT8 CalcScreamVolume( SOLDIERTYPE * pSoldier, UINT8 ubCombinedLoss );
 void PlaySoldierFootstepSound( SOLDIERTYPE *pSoldier );
 void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC );
 
-UINT16 *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen );
-UINT16 *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen );
+PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen );
+PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen );
 
 void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed );
 INT32 CheckBleeding( SOLDIERTYPE *pSoldier );
@@ -14164,16 +14164,16 @@ void SOLDIERTYPE::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, U
 
 
 
-UINT16 *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen )
+PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen )
 {
-	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
+	PIXEL *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt;
 	UINT32 rmod, gmod, bmod;
 	UINT8	 r, g, b;
 
 	Assert( pPalette != NULL );
 
-	p16BPPPalette = (UINT16 *)MemAlloc( sizeof(UINT16)* 256 );
+	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(PIXEL)* 256 );
 
 	for ( cnt = 0; cnt < 256; ++cnt )
 	{
@@ -14191,6 +14191,12 @@ UINT16 *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, U
 		g = (UINT8)__min( gmod, 255 );
 		b = (UINT8)__min( bmod, 255 );
 
+#if SGP_PIXEL_DEPTH == 32
+		usColor = 0xFF000000u | ((UINT32)r << 16) | ((UINT32)g << 8) | (UINT32)b;
+		// Prevent creation of pure black color
+		if ( ((usColor & 0x00FFFFFFu) == 0) && ((r + g + b) != 0) )
+			usColor = 0xFF000001u;
+#else
 		if ( gusRedShift < 0 )
 			r16 = ((UINT16)r >> (-gusRedShift));
 		else
@@ -14212,6 +14218,7 @@ UINT16 *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, U
 
 		if ( (usColor == 0) && ((r + g + b) != 0) )
 			usColor = 0x0001;
+#endif
 
 		p16BPPPalette[cnt] = usColor;
 	}
@@ -14219,16 +14226,16 @@ UINT16 *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, U
 }
 
 
-UINT16 *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen )
+PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen )
 {
-	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
+	PIXEL *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt, lumin;
 	UINT32 rmod, gmod, bmod;
 	UINT8	 r, g, b;
 
 	Assert( pPalette != NULL );
 
-	p16BPPPalette = (UINT16 *)MemAlloc( sizeof(UINT16)* 256 );
+	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(PIXEL)* 256 );
 
 	for ( cnt = 0; cnt < 256; cnt++ )
 	{
@@ -14251,6 +14258,12 @@ UINT16 *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscal
 		g = (UINT8)__min( gmod, 255 );
 		b = (UINT8)__min( bmod, 255 );
 
+#if SGP_PIXEL_DEPTH == 32
+		usColor = 0xFF000000u | ((UINT32)r << 16) | ((UINT32)g << 8) | (UINT32)b;
+		// Prevent creation of pure black color
+		if ( ((usColor & 0x00FFFFFFu) == 0) && ((r + g + b) != 0) )
+			usColor = 0xFF000001u;
+#else
 		if ( gusRedShift < 0 )
 			r16 = ((UINT16)r >> (-gusRedShift));
 		else
@@ -14272,6 +14285,7 @@ UINT16 *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscal
 
 		if ( (usColor == 0) && ((r + g + b) != 0) )
 			usColor = 0x0001;
+#endif
 
 		p16BPPPalette[cnt] = usColor;
 	}

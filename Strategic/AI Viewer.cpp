@@ -898,8 +898,8 @@ void RenderViewer()
 						pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 						ClipRect.iLeft = VIEWER_LEFT + x*VIEWER_CELLW;
 						ClipRect.iRight = ClipRect.iLeft + VIEWER_CELLW - 1;
-						Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
-						Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+						Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
+						Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 						UnLockVideoSurface( FRAME_BUFFER );
 					}
 				}

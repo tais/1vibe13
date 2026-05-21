@@ -1521,12 +1521,12 @@ void DeleteImpGearSelection(void)
 	return;
 }
 
-extern BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex);
+extern BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex);
 
 void RenderImpGearSelection(void)
 {
 	UINT32 uiDestPitchBYTES;
-	UINT16* pDestBuf;
+	PIXEL* pDestBuf;
 	HVOBJECT hCharListHandle;
 
 	UINT8 stiIndex = 0;
@@ -1535,7 +1535,7 @@ void RenderImpGearSelection(void)
 		stiIndex = 5;
 	}
 
-	pDestBuf = (UINT16*)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
+	pDestBuf = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
 	GetVideoObject(&hCharListHandle, gIMPINVENTORY);
 	Blt8BPPDataTo16BPPBufferTransparent(pDestBuf, uiDestPitchBYTES, hCharListHandle, gIMPGearLayout.x, gIMPGearLayout.y, stiIndex);
 	UnLockVideoSurface(FRAME_BUFFER);
@@ -1544,12 +1544,12 @@ void RenderImpGearSelection(void)
 void RenderImpGearSelectionGrid(void)
 {
 	UINT32 uiDestPitchBYTES;
-	UINT16* pDestBuf;
+	PIXEL* pDestBuf;
 	HVOBJECT hCharListHandle;
 
 	UINT8 stiIndex = 1;
 
-	pDestBuf = (UINT16*)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
+	pDestBuf = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
 	GetVideoObject(&hCharListHandle, gIMPINVENTORY);
 	Blt8BPPDataTo16BPPBufferTransparent(pDestBuf, uiDestPitchBYTES, hCharListHandle, gIMPInvPoolLayout.x, gIMPInvPoolLayout.y, stiIndex);
 	UnLockVideoSurface(FRAME_BUFFER);

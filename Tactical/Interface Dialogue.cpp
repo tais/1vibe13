@@ -770,8 +770,8 @@ void RenderTalkingMenu( )
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES);
 		pSrcBuf = LockVideoSurface( gTalkPanel.uiSaveBuffer, &uiSrcPitchBYTES);
 
-		Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+		Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				(INT16)(gTalkPanel.sX + TALK_PANEL_FACE_X), (INT16)(gTalkPanel.sY + TALK_PANEL_FACE_Y),
 				0 , 0,
 				pFace->usFaceWidth, pFace->usFaceHeight );

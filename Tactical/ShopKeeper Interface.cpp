@@ -1360,12 +1360,12 @@ BOOLEAN RenderShopKeeperInterface()
 		HVSURFACE hSrcVSurface;
 		UINT32 uiDestPitchBYTES;
 		UINT32 uiSrcPitchBYTES;
-		UINT16	*pDestBuf;
+		PIXEL	*pDestBuf;
 		UINT8	*pSrcBuf;
 		SGPRect clip;
 						
 		// get surfaces
-		pDestBuf = (UINT16*)LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
+		pDestBuf = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 		GetVideoSurface( &hSrcVSurface, guiMainTradeScreenImage );
 		pSrcBuf = LockVideoSurface( guiMainTradeScreenImage, &uiSrcPitchBYTES );
 		
@@ -1471,7 +1471,7 @@ BOOLEAN RenderShopKeeperInterface()
 			UINT32								uiPitch;
 
 			// Lock video surface
-			UINT16* pBuffer = (UINT16*)LockVideoSurface( FRAME_BUFFER, &uiPitch );
+			PIXEL* pBuffer = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
 
 			if ( pBuffer != NULL )
 			{
@@ -3095,10 +3095,10 @@ void DrawHatchOnInventory( UINT32 uiSurface, UINT16 usPosX, UINT16 usPosY, UINT1
 
 	pDestBuf = LockVideoSurface( uiSurface, &uiDestPitchBYTES );
 	if(usColor == 0){
-		Blt16BPPBufferPixelateRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern );
+		Blt16BPPBufferPixelateRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern );
 	}
 	else{
-		Blt16BPPBufferPixelateRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern, usColor );
+		Blt16BPPBufferPixelateRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern, usColor );
 	}
 	UnLockVideoSurface( uiSurface );
 }
@@ -3127,10 +3127,10 @@ void DrawHatchOnInventory_MilitiaAccess( UINT32 uiSurface, UINT16 usPosX, UINT16
 
 	pDestBuf = LockVideoSurface( uiSurface, &uiDestPitchBYTES );	
 	if(usColor == 0){
-		Blt16BPPBufferPixelateRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern );
+		Blt16BPPBufferPixelateRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern );
 	}
 	else{
-		Blt16BPPBufferPixelateRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern, usColor );
+		Blt16BPPBufferPixelateRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect, Pattern, usColor );
 	}
 	UnLockVideoSurface( uiSurface );
 }

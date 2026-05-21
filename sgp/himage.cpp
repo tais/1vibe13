@@ -342,7 +342,7 @@ BOOLEAN CopyImageToBuffer( HIMAGE hImage, UINT32 fBufferType, BYTE *pDestBuf, UI
 	if ( hImage->ubBitDepth == 32 && fBufferType == BUFFER_16BPP )
 	{
 		DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, "Copying 32 BPP Imagery to 16BPP Buffer." );
-		return Blt32BPPTo16BPPTrans((UINT16*)pDestBuf, usDestWidth * sizeof(UINT16), hImage->p32BPPData, usDestWidth*sizeof(UINT32), 0,0,0,0,usDestWidth, usDestHeight);
+		return Blt32BPPTo16BPPTrans((PIXEL *)pDestBuf, usDestWidth * sizeof(PIXEL), hImage->p32BPPData, usDestWidth*sizeof(UINT32), 0,0,0,0,usDestWidth, usDestHeight);
 	}
 
 	return( FALSE );
@@ -440,8 +440,8 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UIN
 	UINT32		uiLine;
 	UINT32		uiCol;
 
-	UINT16 *	pDest;
-	UINT16 *	pDestTemp;
+	PIXEL *	pDest;
+	PIXEL *	pDestTemp;
 	UINT32		uiDestStart;
 
 	UINT8 *		pScanLine;
@@ -450,7 +450,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UIN
 	PTR				pDecompPtr;
 	UINT32		uiDecompressed;
 
-	UINT16 *	p16BPPPalette;
+	PIXEL *	p16BPPPalette;
 
 	// Assertions
 	Assert( hImage != NULL );
@@ -474,7 +474,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UIN
 	Assert( usDestWidth >= uiLineSize );
 	Assert( usDestHeight >= uiNumLines );
 
-	pDest = (UINT16 *) pDestBuf;
+	pDest = (PIXEL *) pDestBuf;
 	pDest += uiDestStart;
 	DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, String( "Start Copying at %p", pDest ) );
 
@@ -587,7 +587,8 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDes
 {
 	UINT32 uiSrcStart, uiDestStart, uiNumLines, uiLineSize;
 	UINT32 cnt;
-	UINT16 *pDest, *pSrc;
+	PIXEL  *pDest;
+	UINT16 *pSrc;
 
 	Assert( hImage != NULL );
 	Assert( hImage->p16BPPData != NULL );
@@ -609,18 +610,28 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDes
 	CHECKF( usDestWidth >= uiLineSize );
 	CHECKF( usDestHeight >= uiNumLines );
 
-	// Copy line by line
-	pDest = ( UINT16*)pDestBuf + uiDestStart;
+	// Copy line by line. The source is 16bpp RGB565; at 32bpp it must be
+	// expanded per pixel (a raw memcpy would pack two RGB565 pixels into
+	// one ARGB pixel -- halving the width and scrambling colours).
+	pDest = ( PIXEL*)pDestBuf + uiDestStart;
 	pSrc =	hImage->p16BPPData + uiSrcStart;
 
 	for( cnt = 0; cnt < uiNumLines-1; cnt++ )
 	{
+#if SGP_PIXEL_DEPTH == 32
+		for ( UINT32 i = 0; i < uiLineSize; ++i ) pDest[i] = PixFromColor16( pSrc[i] );
+#else
 		memcpy( pDest, pSrc, uiLineSize * 2 );
+#endif
 		pDest += usDestWidth;
 		pSrc	+= hImage->usWidth;
 	}
 	// Do last line
+#if SGP_PIXEL_DEPTH == 32
+	for ( UINT32 i = 0; i < uiLineSize; ++i ) pDest[i] = PixFromColor16( pSrc[i] );
+#else
 	memcpy( pDest, pSrc, uiLineSize * 2 );
+#endif
 
 	return( TRUE );
 
@@ -644,8 +655,8 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 	UINT32 uiSrcStart, uiDestStart, uiNumLines, uiLineSize;
 	UINT32 rows, cols;
 	UINT8	*pSrc, *pSrcTemp;
-	UINT16 *pDest, *pDestTemp;
-	UINT16 *p16BPPPalette;
+	PIXEL *pDest, *pDestTemp;
+	PIXEL *p16BPPPalette;
 
 
 	p16BPPPalette = hImage->pui16BPPPalette;
@@ -673,7 +684,7 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 	CHECKF( usDestHeight >= uiNumLines );
 
 	// Convert to Pixel specification
-	pDest = ( UINT16*)pDestBuf + uiDestStart;
+	pDest = ( PIXEL*)pDestBuf + uiDestStart;
 	pSrc =	hImage->p8BPPData + uiSrcStart;
 	DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, String( "Start Copying at %p", pDest ) );
 
@@ -700,8 +711,11 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 
 }
 
-UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette )
+PIXEL *Create16BPPPalette( SGPPaletteEntry *pPalette )
 {
+#if SGP_PIXEL_DEPTH == 32
+	return Create32BPPPalette( pPalette );
+#else
 	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt;
 	UINT8	r,g,b;
@@ -747,6 +761,7 @@ UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette )
 	}
 
 	return( p16BPPPalette );
+#endif
 }
 
 /**********************************************************************************************
@@ -773,8 +788,11 @@ UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette )
 	4) For gamma correction, pass in weighted values for each color.
 
 **********************************************************************************************/
-UINT16 *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono)
+PIXEL *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono)
 {
+#if SGP_PIXEL_DEPTH == 32
+	return Create32BPPPaletteShaded( pPalette, rscale, gscale, bscale, mono );
+#else
 	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt, lumin;
 	UINT32 rmod, gmod, bmod;
@@ -835,6 +853,73 @@ UINT16 *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT
 		p16BPPPalette[ cnt ] = usColor;
 	}
 	return( p16BPPPalette );
+#endif
+}
+
+// ---- 32bpp (ARGB8888) palette/color generators (Phase 6b) -----------------
+// Mirrors the RGB565 versions above but packs full 8-bit-per-channel ARGB
+// with opaque alpha. The internal pixel is 0xAARRGGBB (SDL_PIXELFORMAT_
+// ARGB8888). RGBValue passed by callers is FROMRGB-packed (0x00BBGGRR), so
+// extract via the SGPGet*Value accessors exactly like Get16BPPColor.
+
+UINT32 Get32BPPColor( UINT32 RGBValue )
+{
+	return 0xFF000000u
+	     | ((UINT32)SGPGetRValue( RGBValue ) << 16)
+	     | ((UINT32)SGPGetGValue( RGBValue ) << 8)
+	     |  (UINT32)SGPGetBValue( RGBValue );
+}
+
+UINT32 *Create32BPPPalette( SGPPaletteEntry *pPalette )
+{
+	UINT32 *pal;
+	UINT32 cnt;
+
+	Assert( pPalette != NULL );
+
+	pal = (UINT32 *) MemAlloc( sizeof( UINT32 ) * 256 );
+	for ( cnt = 0; cnt < 256; cnt++ )
+	{
+		pal[ cnt ] = 0xFF000000u
+		           | ((UINT32)pPalette[ cnt ].peRed   << 16)
+		           | ((UINT32)pPalette[ cnt ].peGreen << 8)
+		           |  (UINT32)pPalette[ cnt ].peBlue;
+	}
+	return( pal );
+}
+
+UINT32 *Create32BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono )
+{
+	UINT32 *pal;
+	UINT32 cnt, lumin, rmod, gmod, bmod;
+	UINT8  r, g, b;
+
+	Assert( pPalette != NULL );
+
+	pal = (UINT32 *) MemAlloc( sizeof( UINT32 ) * 256 );
+	for ( cnt = 0; cnt < 256; cnt++ )
+	{
+		if ( mono )
+		{
+			lumin = (pPalette[ cnt ].peRed*299/1000) + (pPalette[ cnt ].peGreen*587/1000) + (pPalette[ cnt ].peBlue*114/1000);
+			rmod = (rscale*lumin)/256;
+			gmod = (gscale*lumin)/256;
+			bmod = (bscale*lumin)/256;
+		}
+		else
+		{
+			rmod = (rscale*pPalette[ cnt ].peRed/256);
+			gmod = (gscale*pPalette[ cnt ].peGreen/256);
+			bmod = (bscale*pPalette[ cnt ].peBlue/256);
+		}
+
+		r = (UINT8)__min(rmod, 255);
+		g = (UINT8)__min(gmod, 255);
+		b = (UINT8)__min(bmod, 255);
+
+		pal[ cnt ] = 0xFF000000u | ((UINT32)r << 16) | ((UINT32)g << 8) | (UINT32)b;
+	}
+	return( pal );
 }
 
 // Convert from RGB to 16 bit value

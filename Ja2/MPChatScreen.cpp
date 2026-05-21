@@ -296,8 +296,8 @@ INT32 DoChatBox( bool bIncludeChatLog, const STR16 zString, UINT32 uiExitScreen,
 	pDestBuf = LockVideoSurface( gChatBox.uiSaveBuffer, &uiDestPitchBYTES);
 	pSrcBuf = LockVideoSurface( FRAME_BUFFER, &uiSrcPitchBYTES);
 
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				0 , 0,
 				gChatBox.sX , gChatBox.sY,
 				usTextBoxWidth, usTextBoxHeight );
@@ -577,8 +577,8 @@ UINT32	ExitChatBox( INT8 ubExitCode )
 		pSrcBuf = LockVideoSurface( gChatBox.uiSaveBuffer, &uiSrcPitchBYTES);
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES);
 
-		Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-					(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+		Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+					(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 					gChatBox.sX , gChatBox.sY,
 					0, 0,
 					gChatBox.usWidth, gChatBox.usHeight );

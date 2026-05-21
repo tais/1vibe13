@@ -1384,14 +1384,14 @@ void RenderTacticalPlacementGUI()
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 		
 		if (!gfCenter || ((gGameExternalOptions.ubSkyriderHotLZ == 1 || gGameExternalOptions.ubSkyriderHotLZ == 3) && gbSelectedMercID >= 0 && !(gMercPlacement[ gbSelectedMercID ].pSoldier->usSoldierFlagMask & SOLDIER_AIRDROP)) )
-			Blt16BPPBufferLooseHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &gTPClipRect, usHatchColor );
+			Blt16BPPBufferLooseHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &gTPClipRect, usHatchColor );
 		// WANNE - MP: Center
 		else
 		{
-			Blt16BPPBufferLooseHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterLeft, usHatchColor );
-			Blt16BPPBufferLooseHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterTop, usHatchColor );
-			Blt16BPPBufferLooseHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterRight, usHatchColor );
-			Blt16BPPBufferLooseHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterBottom, usHatchColor );
+			Blt16BPPBufferLooseHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterLeft, usHatchColor );
+			Blt16BPPBufferLooseHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterTop, usHatchColor );
+			Blt16BPPBufferLooseHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterRight, usHatchColor );
+			Blt16BPPBufferLooseHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &gTPClipRectCenterBottom, usHatchColor );
 		}
 
 		SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );

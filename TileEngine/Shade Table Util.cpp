@@ -147,11 +147,21 @@ BOOLEAN LoadShadeTable( HVOBJECT pObj, UINT32 uiTileTypeIndex )
 
 	//MISSING:	Compare time stamps.
 
+	// Each shade is a 256-entry palette of screen-format pixels. At 32bpp
+	// that's 1024 bytes/shade; a legacy 16bpp cache (512 bytes/shade) has
+	// the wrong size and format, so reject it and let the caller rebuild.
+	const UINT32 uiShadeBytes = 256 * sizeof( PIXEL );
+	if( FileGetSize( hfile ) != uiShadeBytes * 16 )
+	{
+		FileClose( hfile );
+		return FALSE;
+	}
+
 	for( i = 0; i < 16; i++ )
 	{
-		pObj->pShades[ i ] = (UINT16 *) MemAlloc( 512 );
+		pObj->pShades[ i ] = (PIXEL *) MemAlloc( uiShadeBytes );
 		Assert( pObj->pShades[ i ] );
-		FileRead( hfile, pObj->pShades[ i ], 512, &uiNumBytesRead );
+		FileRead( hfile, pObj->pShades[ i ], uiShadeBytes, &uiNumBytesRead );
 	}
 
 	//The file exists, now make sure the
@@ -196,9 +206,10 @@ BOOLEAN SaveShadeTable( HVOBJECT pObj, UINT32 uiTileTypeIndex )
 		AssertMsg( 0, String( "Can't create %s", ShadeFileName ) );
 		return FALSE;
 	}
+	const UINT32 uiShadeBytes = 256 * sizeof( PIXEL );
 	for( i = 0; i < 16; i++ )
 	{
-		FileWrite( hfile, pObj->pShades[ i ], 512, &uiNumBytesWritten );
+		FileWrite( hfile, pObj->pShades[ i ], uiShadeBytes, &uiNumBytesWritten );
 	}
 
 	FileClose( hfile );

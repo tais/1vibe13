@@ -333,13 +333,13 @@ void FadeFrameBufferVersionOne( )
 {
 	INT32		cX, cY;
 	UINT32	uiDestPitchBYTES;
-	UINT16	*pBuf;
+	PIXEL	*pBuf;
 	INT16		bR, bG, bB;
 	UINT32	uiRGBColor;
 	UINT16		s16BPPSrc;
 
 
-	pBuf = (UINT16*)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
+	pBuf = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
 
 	// LOCK FRAME BUFFER
 	for ( cX = 0; cX < SCREEN_WIDTH; cX++ )
@@ -381,14 +381,14 @@ void FadeInBackBufferVersionOne( )
 {
 	INT32		cX, cY;
 	UINT32	uiDestPitchBYTES, uiSrcPitchBYTES;
-	UINT16	*pSrcBuf, *pDestBuf;
+	PIXEL	*pSrcBuf, *pDestBuf;
 	INT16		bR, bG, bB;
 	UINT32	uiRGBColor;
 	UINT16		s16BPPSrc;
 	INT16		bFadeVal = ( gsFadeLimit - gsFadeCount ) * gbFadeValue;
 
-	pDestBuf = (UINT16*)LockVideoSurface(BACKBUFFER, &uiDestPitchBYTES);
-	pSrcBuf = (UINT16*)LockVideoSurface(FRAME_BUFFER, &uiSrcPitchBYTES);
+	pDestBuf = (PIXEL *)LockVideoSurface(BACKBUFFER, &uiDestPitchBYTES);
+	pSrcBuf = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &uiSrcPitchBYTES);
 
 	// LOCK FRAME BUFFER
 	for ( cX = 0; cX < SCREEN_WIDTH; cX++ )
@@ -432,13 +432,13 @@ void FadeFrameBufferVersionFaster( INT8 bFadeValue )
 {
 	INT32		cX, cY, iStartX, iStartY;
 	UINT32	uiDestPitchBYTES;
-	UINT16	*pBuf;
+	PIXEL	*pBuf;
 	INT16		bR, bG, bB;
 	UINT32	uiRGBColor;
 	UINT16		s16BPPSrc;
 
 
-	pBuf = (UINT16*)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
+	pBuf = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
 
 	iStartX = gsFadeCount % 2;
 	iStartY = 0;
@@ -681,8 +681,8 @@ BOOLEAN UpdateSaveBufferWithBackbuffer(void)
 	pSrcBuf = LockVideoSurface(FRAME_BUFFER, &uiSrcPitchBYTES);
 	pDestBuf = LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
 
-	Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES,
-				(UINT16 *)pSrcBuf, uiSrcPitchBYTES,
+	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+				(PIXEL *)pSrcBuf, uiSrcPitchBYTES,
 				0, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
 
 	UnLockVideoSurface(FRAME_BUFFER);

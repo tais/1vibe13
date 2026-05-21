@@ -102,7 +102,7 @@ typedef struct
 																				// pSavedSurfaceData is used to hold all video memory Surfaces so that they my be restored
 	UINT32					fFlags;								// Used to describe memory usage, etc
 	PTR							pPalette;						// A void pointer, but for this implementation a DDPalette
-	UINT16					*p16BPPPalette;				// A 16BPP palette used for 8->16 blits
+	PIXEL					*p16BPPPalette;				// A 16BPP palette used for 8->16 blits
 	COLORVAL				TransparentColor;			// Defaults to 0,0,0
 	PTR							pClipper;							// A void pointer encapsolated as a clipper Surface
 	std::vector<VSURFACE_REGION> RegionList; // A List of regions within the video Surface

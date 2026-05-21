@@ -1050,11 +1050,11 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 						// RENDER!
 						//BltVideoObjectFromIndex(	FRAME_BUFFER, SGR1, gSmallTileDatabase[ gpWorldLevelData[ usTileIndex ].pLandHead->usIndex ], sX, sY, VO_BLT_SRCTRANSPARENCY, NULL );
 						//BltVideoObjectFromIndex(	FRAME_BUFFER, SGR1, 0, sX, sY, VO_BLT_SRCTRANSPARENCY, NULL );
-						Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
+						Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
 						if(sHeight != gsRenderHeight)//dnl ch82 061213 incorrect but better then nothing approximation to fill black area in height ground maps
 						{
 							sY = sTempPosY_S;
-							Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex);
+							Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex);
 						}
 						pNode = pNode->pPrevNode;
 					}
@@ -1150,7 +1150,7 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 								pTile->vo->pShadeCurrent= gSmTileSurf[ pTile->fType ].vo->pShades[pNode->ubShadeLevel];
 
 								// RENDER!
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
 							}
 						}
 						pNode = pNode->pNext;
@@ -1176,7 +1176,7 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 							pTile->vo->pShadeCurrent= gSmTileSurf[ pTile->fType ].vo->pShades[pNode->ubShadeLevel];
 
 							// RENDER!
-							Blt8BPPDataTo16BPPBufferShadow((UINT16*)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
+							Blt8BPPDataTo16BPPBufferShadow((PIXEL *)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
 						}
 						pNode = pNode->pNext;
 					}
@@ -1208,7 +1208,7 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 								pTile->vo->pShadeCurrent= gSmTileSurf[ pTile->fType ].vo->pShades[pNode->ubShadeLevel];
 
 								// RENDER!
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
 							}
 						}
 						pNode = pNode->pNext;
@@ -1297,7 +1297,7 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 								pTile->vo->pShadeCurrent= gSmTileSurf[ pTile->fType ].vo->pShades[pNode->ubShadeLevel];
 
 								// RENDER!
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, pTile->vo, sX, sY, pTile->usSubIndex );
 							}
 						}
 						pNode = pNode->pNext;
@@ -1340,7 +1340,7 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 		//dnl ch82 090114
 		pSrcBuf = LockVideoSurface(uiBigMap, &uiSrcPitchBYTES);
 		pDestBuf = LockVideoSurface(uiVSurface, &uiDestPitchBYTES);
-		Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES, (UINT16 *)pSrcBuf, uiSrcPitchBYTES, sStartPointX_S, sStartPointY_S, sStartPointX_S+StartX_M_Offset*4, sStartPointY_S+StartX_M_Offset*2, sEndXS-sStartPointX_S-EndXS_Offset, sEndYS-sStartPointY_S-EndYS_Offset);
+		Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES, (PIXEL *)pSrcBuf, uiSrcPitchBYTES, sStartPointX_S, sStartPointY_S, sStartPointX_S+StartX_M_Offset*4, sStartPointY_S+StartX_M_Offset*2, sEndXS-sStartPointX_S-EndXS_Offset, sEndYS-sStartPointY_S-EndYS_Offset);
 		UnLockVideoSurface(uiBigMap);
 		UnLockVideoSurface(uiVSurface);
 		if(gMapInformation.ubRestrictedScrollID != 0)// OK, blacken out edges of smaller maps...
@@ -1368,7 +1368,7 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 		GetCurrentVideoSettings(&usWidth, &usHeight, &ubBitDepth);
 		pSrcBuf = LockVideoSurface(guiRENDERBUFFER, &uiSrcPitchBYTES);
 		pDestBuf = LockVideoSurface(guiSAVEBUFFER, &uiDestPitchBYTES);
-		Blt16BPPTo16BPP((UINT16 *)pDestBuf, uiDestPitchBYTES, (UINT16 *)pSrcBuf, uiSrcPitchBYTES, 0, 0, 0, 0, usWidth, usHeight);
+		Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES, (PIXEL *)pSrcBuf, uiSrcPitchBYTES, 0, 0, 0, 0, usWidth, usHeight);
 		UnLockVideoSurface(guiRENDERBUFFER);
 		UnLockVideoSurface(guiSAVEBUFFER);
 	}
@@ -1451,7 +1451,7 @@ void RenderOverheadOverlays()
 						colour = jamcolour;
 
 					RectangleDraw(TRUE, HostileArea.iLeft, HostileArea.iTop, HostileArea.iRight, HostileArea.iBottom, colour, pDestBuf);
-					Blt16BPPBufferLooseHatchRectWithColor( (UINT16*)pDestBuf, uiDestPitchBYTES, &HostileArea, colour );
+					Blt16BPPBufferLooseHatchRectWithColor( (PIXEL *)pDestBuf, uiDestPitchBYTES, &HostileArea, colour );
 				}
 			}
 		}
@@ -1533,7 +1533,7 @@ void RenderOverheadOverlays()
 #ifdef JA2EDITOR
 		if( gfEditMode && gpSelected && gpSelected->pSoldier == pSoldier )
 		{ //editor:	show the selected edited merc as the yellow one.
-			Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 0 );
+			Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 0 );
 		}
 		else
 #endif
@@ -1551,43 +1551,43 @@ void RenderOverheadOverlays()
 						{
 							// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
 							if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
 							else
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, CIV_TEAM );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, CIV_TEAM );
 						}
 						// Enemy (red)
 						else
-							Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, ENEMY_TEAM );
+							Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, ENEMY_TEAM );
 					}
 
 					// Other clients
 					if(pSoldier->bSide==0)
 					{
 						int personIndex = pSoldier->bTeam + 4;
-						Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, personIndex );
+						Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, personIndex );
 					}
 				}
 				else 
 					// Color depends on the bTeam
-					Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+					Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
 			}
 			else
 			{
 				// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
 				if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
-					Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
+					Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
 				else if ( pSoldier->bTeam == CIV_TEAM && gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->aiData.bNeutral && pSoldier->ubProfile != NO_PROFILE && !zHiddenNames[pSoldier->ubProfile].Hidden )
-					Blt8BPPDataTo16BPPBufferTransparent( (UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, PLAYER_PLAN );
+					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, PLAYER_PLAN );
 				// Flugente 18-04-15: observed an odd bug: if we play with a release build and see a creature for the first time, their overhead/radar map pins do not have the correct colour.
 				// Bizarrely enough, the issue seems dependent on the colour value (pink, RGB: 255/0/255) itself.
 				// Saving and reloading solves the issue, but I am not sure why. As a fix we now use a slightly dampened pink.
 				else if ( pSoldier->bTeam == CREATURE_TEAM )
 				{
-					Blt8BPPDataTo16BPPBufferTransparent( (UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 12 );
+					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 12 );
 				}
 				else
 				{
-					Blt8BPPDataTo16BPPBufferTransparent( (UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
 				}
 
 				RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, sX, sY, (INT16)(sX + 3), (INT16)(sY + 9));
@@ -1595,7 +1595,7 @@ void RenderOverheadOverlays()
 		}
 		else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{ //vehicle
-			Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 9 );
+			Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 9 );
 			RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, (INT16)(sX-6), (INT16)(sY), (INT16)(sX + 9), (INT16)(sY + 10));
 		}
 		//else if( pSoldier->flags.uiStatusFlags & (SOLDIER_PASSENGER | SOLDIER_DRIVER) )
@@ -1604,12 +1604,12 @@ void RenderOverheadOverlays()
 		//}
 		else if( gpTacticalPlacementSelectedSoldier == pSoldier )
 		{ //tactical placement selected merc
-			Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 7 );
+			Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 7 );
 			RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, (INT16)(sX-2), (INT16)(sY-2), (INT16)(sX + 5), (INT16)(sY + 11));
 		}
 		else if( gpTacticalPlacementHilightedSoldier == pSoldier && pSoldier->flags.uiStatusFlags )
 		{ //tactical placement hilighted merc
-			Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 8 );
+			Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 8 );
 			RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, (INT16)(sX-2), (INT16)(sY-2), (INT16)(sX + 5), (INT16)(sY + 11));
 		}
 		else
@@ -1627,18 +1627,18 @@ void RenderOverheadOverlays()
 					if(pSoldier->bSide==0)
 					{
 						int personIndex = pSoldier->bTeam + 4;
-						Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, personIndex );
+						Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, personIndex );
 					}
 				}
 				else
 				{
 					// Color depends on the bTeam
-					Blt8BPPDataTo16BPPBufferTransparent( (UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
 				}
 			}
 			else
 			{
-				Blt8BPPDataTo16BPPBufferTransparent( (UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+				Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
 			}
 
 			RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, sX, sY, (INT16)(sX + 3), (INT16)(sY + 9));
@@ -1956,21 +1956,21 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 							#ifdef JA2EDITOR
 							if( gfEditMode && gpSelected && gpSelected->pSoldier == pSoldier )
 							{ //editor:	show the selected edited merc as the yellow one.
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 0 );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 0 );
 							}
 							else
 							#endif
 							if( gfTacticalPlacementGUIActive && gpTacticalPlacementSelectedSoldier == pSoldier )
 							{ //tactical placement selected merc
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 7 );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 7 );
 							}
 							else if( gfTacticalPlacementGUIActive && gpTacticalPlacementHilightedSoldier == pSoldier )
 							{ //tactical placement selected merc
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 8 );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 8 );
 							}
 							else
 							{ //normal
-								Blt8BPPDataTo16BPPBufferTransparent((UINT16*)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
 							}
 							RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, (INT16)(sX-2), (INT16)(sY-2), (INT16)(sX + 5), (INT16)(sY + 11));
 						}

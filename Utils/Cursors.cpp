@@ -1488,16 +1488,16 @@ void DrawMouseGraphicsNCTH( )
 		// is unfortunately not doable with the cursor system, so this code is now commented out.
 
 		// HEADROCK (HAM): Made several changes here to allow multi-shot CtH display for bursts.
-		UINT16 * ptrBuf;
+		PIXEL * ptrBuf;
 		UINT32 uiPitch;
 		UINT32 cnt, i;
 		UINT32 actualPct		= __min(gbCtH[0],99);
-		UINT16 usCBorderTop		= Get16BPPColor( FROMRGB( 155, 155, 155 ) );
-		UINT16 usCBorderBottom	= Get16BPPColor( FROMRGB( 120, 120, 120 ) );
-		UINT16 usCBar			= Get16BPPColor( FROMRGB( 255, 255-255*actualPct/99, 0 ) );
-		UINT16 usCBack			= Get16BPPColor( FROMRGB( 155, 155-155*actualPct/99, 0 ) );
-		UINT16 usCBar2			= Get16BPPColor( FROMRGB( 180, 140-140*actualPct/99, 0 ) );
-		UINT16 usCBack2			= Get16BPPColor( FROMRGB( 110, 100-100*actualPct/99, 0 ) );
+		PIXEL usCBorderTop		= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155, 155 ) ));
+		PIXEL usCBorderBottom	= PixFromColor16(Get16BPPColor( FROMRGB( 120, 120, 120 ) ));
+		PIXEL usCBar			= PixFromColor16(Get16BPPColor( FROMRGB( 255, 255-255*actualPct/99, 0 ) ));
+		PIXEL usCBack			= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155-155*actualPct/99, 0 ) ));
+		PIXEL usCBar2			= PixFromColor16(Get16BPPColor( FROMRGB( 180, 140-140*actualPct/99, 0 ) ));
+		PIXEL usCBack2			= PixFromColor16(Get16BPPColor( FROMRGB( 110, 100-100*actualPct/99, 0 ) ));
 		UINT32 barLength		= __min(35,gsCurMouseWidth);
 		//UINT32 barY				= gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
 		UINT32 barY;
@@ -1526,8 +1526,8 @@ void DrawMouseGraphicsNCTH( )
 		{
 			actualPct		= __min(gbCtH[ i ],99);
 
-			ptrBuf = (UINT16 *) LockMouseBuffer( &uiPitch );
-			uiPitch >>= 1;
+			ptrBuf = (PIXEL *) LockMouseBuffer( &uiPitch );
+			uiPitch /= sizeof(PIXEL);
 
 			for(cnt = gsCurMouseOffsetX+barLength/2;cnt > gsCurMouseOffsetX-barLength/2+1; --cnt)
 			{
@@ -1571,16 +1571,16 @@ void DrawMouseGraphics( )
 	if(gfUICtHBar)
 	{
 		// HEADROCK (HAM): Made several changes here to allow multi-shot CtH display for bursts.
-		UINT16 * ptrBuf;
+		PIXEL * ptrBuf;
 		UINT32 uiPitch;
 		UINT32 cnt, i;
 		UINT32 actualPct		= __min( gbCtH[0], 99 );
-		UINT16 usCBorderTop		= Get16BPPColor( FROMRGB( 155, 155, 155 ) );
-		UINT16 usCBorderBottom	= Get16BPPColor( FROMRGB( 120, 120, 120 ) );
-		UINT16 usCBar			= Get16BPPColor( FROMRGB( 255, 255 - 255 * actualPct / 99, 0 ) );
-		UINT16 usCBack			= Get16BPPColor( FROMRGB( 155, 155 - 155 * actualPct / 99, 0 ) );
-		UINT16 usCBar2			= Get16BPPColor( FROMRGB( 180, 140 - 140 * actualPct / 99, 0 ) );
-		UINT16 usCBack2			= Get16BPPColor( FROMRGB( 110, 100 - 100 * actualPct / 99, 0 ) );
+		PIXEL usCBorderTop		= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155, 155 ) ));
+		PIXEL usCBorderBottom	= PixFromColor16(Get16BPPColor( FROMRGB( 120, 120, 120 ) ));
+		PIXEL usCBar			= PixFromColor16(Get16BPPColor( FROMRGB( 255, 255 - 255 * actualPct / 99, 0 ) ));
+		PIXEL usCBack			= PixFromColor16(Get16BPPColor( FROMRGB( 155, 155 - 155 * actualPct / 99, 0 ) ));
+		PIXEL usCBar2			= PixFromColor16(Get16BPPColor( FROMRGB( 180, 140 - 140 * actualPct / 99, 0 ) ));
+		PIXEL usCBack2			= PixFromColor16(Get16BPPColor( FROMRGB( 110, 100 - 100 * actualPct / 99, 0 ) ));
 		UINT32 barLength		= __min( 35, gsCurMouseWidth );
 		//UINT32 barY				= gsCurMouseOffsetY-__min(35,gsCurMouseHeight)/2;
 		UINT32 barY;
@@ -1609,8 +1609,8 @@ void DrawMouseGraphics( )
 		{
 			actualPct		= __min(gbCtH[ i ],99);
 
-			ptrBuf = (UINT16 *) LockMouseBuffer( &uiPitch );
-			uiPitch >>= 1;
+			ptrBuf = (PIXEL *) LockMouseBuffer( &uiPitch );
+			uiPitch /= sizeof(PIXEL);
 
 			for(cnt = gsCurMouseOffsetX+barLength/2;cnt > gsCurMouseOffsetX-barLength/2+1; --cnt)
 			{

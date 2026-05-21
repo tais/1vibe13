@@ -1,4 +1,5 @@
 	#include "line.h"
+	#include "pixfmt.h"   // PIXEL / PixFromColor16 (Phase 6b)
 
 //**************************************************************************
 //
@@ -140,9 +141,8 @@ void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Col
 {
 	int Temp, AdjUp, AdjDown, ErrorTerm, XAdvance, XDelta, YDelta;
 	int WholeStep, InitialPixelCount, FinalPixelCount, i, RunLength;
-	int ScreenWidth=giImageWidth/2;
-	char col2 = Color>>8;
-	char col1 = Color & 0x00FF;
+	int ScreenWidth=giImageWidth/sizeof(PIXEL);
+	const PIXEL px = PixFromColor16((UINT16)Color);
 
 	if ( fClip )
 	{
@@ -162,7 +162,7 @@ void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Col
 	}
 
 	// point to the bitmap address first pixel to draw
-	ScreenPtr = ScreenPtr + YStart*giImageWidth + XStart*2;
+	ScreenPtr = ScreenPtr + YStart*giImageWidth + XStart*sizeof(PIXEL);
 
 	/*	Figure out whether we're going left or right, and how far we're
 		going horizontally */
@@ -185,8 +185,7 @@ void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Col
 		/* Vertical line */
 		for (i=0; i<=YDelta; i++)
 		{
-			ScreenPtr[0] = col1;
-			ScreenPtr[1] = col2;
+			*(PIXEL*)ScreenPtr = px;
 			ScreenPtr += giImageWidth;
 		}
 		return;
@@ -196,9 +195,8 @@ void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Col
 		/* Horizontal line */
 		for (i=0; i<=XDelta; i++)
 		{
-			ScreenPtr[0] = col1;
-			ScreenPtr[1] = col2;
-			ScreenPtr += XAdvance*2;
+			*(PIXEL*)ScreenPtr = px;
+			ScreenPtr += XAdvance*sizeof(PIXEL);
 		}
 		return;
 	}
@@ -207,9 +205,8 @@ void LineDraw( BOOL fClip, int XStart, int YStart, int XEnd, int YEnd, short Col
 		/* Diagonal line */
 		for (i=0; i<=XDelta; i++)
 		{
-			ScreenPtr[0] = col1;
-			ScreenPtr[1] = col2;
-			ScreenPtr += (XAdvance*2) + giImageWidth;
+			*(PIXEL*)ScreenPtr = px;
+			ScreenPtr += (XAdvance*sizeof(PIXEL)) + giImageWidth;
 		}
 		return;
 	}
@@ -345,13 +342,9 @@ void PixelDraw( BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pScreen 
 		return;
 	
 	// point to the bitmap address first pixel to draw
-	pScreen += yp * giImageWidth + xp * 2;
+	pScreen += yp * giImageWidth + xp * sizeof(PIXEL);
 
-	INT8 col2 = sColor >> 8;
-	INT8 col1 = sColor & 0x00ff;
-
-	pScreen[ 0 ] = col1;
-	pScreen[ 1 ] = col2;
+	*(PIXEL*)pScreen = PixFromColor16((UINT16)sColor);
 }
 
 // Flugente: alter the colour of existing pixels instead of fully replacing the colour
@@ -361,13 +354,9 @@ void PixelAlterColour(BOOLEAN fClip, INT32 xp, INT32 yp, INT16 sColor, UINT8 *pS
 		return;
 	
 	// point to the bitmap address first pixel to draw
-	pScreen += yp * giImageWidth + xp * 2;
-	
-	INT8 col2 = sColor >> 8;
-	INT8 col1 = sColor & 0x00ff;
-	
-	pScreen[0] |= col1;
-	pScreen[1] |= col2;
+	pScreen += yp * giImageWidth + xp * sizeof(PIXEL);
+
+	*(PIXEL*)pScreen |= PixFromColor16((UINT16)sColor);
 }
 
 /* Draws a horizontal run of pixels, then advances the bitmap pointer to
@@ -377,14 +366,12 @@ void DrawHorizontalRun(UINT8 **ScreenPtr, int XAdvance,
 {
 	int i;
 	UINT8 *WorkingScreenPtr = *ScreenPtr;
-	UINT8 col2 = Color>>8;
-	UINT8 col1 = Color & 0x00FF;
+	const PIXEL px = PixFromColor16((UINT16)Color);
 
 	for (i=0; i<RunLength; i++)
 	{
-		WorkingScreenPtr[0] = col1;
-		WorkingScreenPtr[1] = col2;
-		WorkingScreenPtr += XAdvance*2;
+		*(PIXEL*)WorkingScreenPtr = px;
+		WorkingScreenPtr += XAdvance*sizeof(PIXEL);
 	}
 	/* Advance to the next scan line */
 	WorkingScreenPtr += giImageWidth;
@@ -398,17 +385,15 @@ void DrawVerticalRun(UINT8 **ScreenPtr, int XAdvance,
 {
 	int i;
 	UINT8 *WorkingScreenPtr = *ScreenPtr;
-	UINT8 col2 = Color>>8;
-	UINT8 col1 = Color & 0x00FF;
+	const PIXEL px = PixFromColor16((UINT16)Color);
 
 	for (i=0; i<RunLength; i++)
 	{
-		WorkingScreenPtr[0] = col1;
-		WorkingScreenPtr[1] = col2;
+		*(PIXEL*)WorkingScreenPtr = px;
 		WorkingScreenPtr += giImageWidth;
 	}
 	/* Advance to the next column */
-	WorkingScreenPtr += XAdvance*2;
+	WorkingScreenPtr += XAdvance*sizeof(PIXEL);
 	*ScreenPtr = WorkingScreenPtr;
 }
 

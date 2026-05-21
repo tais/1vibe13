@@ -681,7 +681,7 @@ UINT32 AutoResolveScreenHandle()
 		ClipRect.iBottom = SCREEN_HEIGHT;
 
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-		Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+		Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 		UnLockVideoSurface( FRAME_BUFFER );
 		//BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, 0, 0, 640, 480 );
 		BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
@@ -1284,7 +1284,7 @@ void RenderSoldierCell( SOLDIERCELL *pCell )
 		ClipRect.iRight = pCell->xp+33+x;
 		ClipRect.iBottom = pCell->yp+29;
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-		Blt16BPPBufferShadowRect( (UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect );
+		Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 		UnLockVideoSurface( FRAME_BUFFER );
 	}
 
@@ -3635,8 +3635,8 @@ void RenderSoldierCellHealth( SOLDIERCELL *pCell )
 	pSrcBuf = LockVideoSurface( gpAR->iInterfaceBuffer, &uiSrcPitchBYTES );
 	xp = pCell->xp + 2;
 	yp = pCell->yp + 32;
-	Blt16BPPTo16BPP( (UINT16*)pDestBuf, uiDestPitchBYTES,
-			(UINT16*)pSrcBuf, uiSrcPitchBYTES, xp, yp, xp-gpAR->Rect.iLeft, yp-gpAR->Rect.iTop, 46, 10 );
+	Blt16BPPTo16BPP( (PIXEL *)pDestBuf, uiDestPitchBYTES,
+			(PIXEL *)pSrcBuf, uiSrcPitchBYTES, xp, yp, xp-gpAR->Rect.iLeft, yp-gpAR->Rect.iTop, 46, 10 );
 	UnLockVideoSurface( gpAR->iInterfaceBuffer );
 	UnLockVideoSurface( FRAME_BUFFER );
 

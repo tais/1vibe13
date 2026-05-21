@@ -257,7 +257,9 @@ UINT32 guiVSurfaceTotalAdded = 0;
 
 UINT32 BytesPerPixelFor(UINT8 bpp)
 {
-	return (bpp <= 8) ? 1u : 2u;  // SDL3 path is 8bpp source or RGB565 dest only
+	// 8bpp source surfaces stay 1 byte; everything else is a render-format
+	// surface stored at the screen pixel width (RGB565=2, RGBA8888=4).
+	return (bpp <= 8) ? 1u : (UINT32)sizeof(PIXEL);
 }
 
 UINT32 BufferBytes(UINT16 w, UINT16 h, UINT8 bpp)
@@ -751,36 +753,43 @@ bool ClipBlitRect(HVSURFACE hDst, HVSURFACE hSrc,
 	return (iSrcR > iSrcL) && (iSrcB > iSrcT);
 }
 
-void Blit16_Opaque(UINT16* dst, UINT32 dstPitchBytes,
-                   const UINT16* src, UINT32 srcPitchBytes,
+void Blit16_Opaque(PIXEL* dst, UINT32 dstPitchBytes,
+                   const PIXEL* src, UINT32 srcPitchBytes,
                    INT32 dstX, INT32 dstY,
                    INT32 srcX, INT32 srcY,
                    INT32 w, INT32 h)
 {
-	UINT8* dstRow = (UINT8*)dst + dstY * dstPitchBytes + dstX * 2;
-	const UINT8* srcRow = (const UINT8*)src + srcY * srcPitchBytes + srcX * 2;
+	UINT8* dstRow = (UINT8*)dst + dstY * dstPitchBytes + dstX * sizeof(PIXEL);
+	const UINT8* srcRow = (const UINT8*)src + srcY * srcPitchBytes + srcX * sizeof(PIXEL);
 	for (INT32 y = 0; y < h; ++y)
 	{
-		std::memcpy(dstRow, srcRow, (size_t)w * 2);
+		std::memcpy(dstRow, srcRow, (size_t)w * sizeof(PIXEL));
 		dstRow += dstPitchBytes;
 		srcRow += srcPitchBytes;
 	}
 }
 
-void Blit16_ColorKey(UINT16* dst, UINT32 dstPitchBytes,
-                     const UINT16* src, UINT32 srcPitchBytes,
+void Blit16_ColorKey(PIXEL* dst, UINT32 dstPitchBytes,
+                     const PIXEL* src, UINT32 srcPitchBytes,
                      INT32 dstX, INT32 dstY,
                      INT32 srcX, INT32 srcY,
-                     INT32 w, INT32 h, UINT16 key)
+                     INT32 w, INT32 h, PIXEL key)
 {
 	for (INT32 y = 0; y < h; ++y)
 	{
-		UINT16* dstP = (UINT16*)((UINT8*)dst + (dstY + y) * dstPitchBytes) + dstX;
-		const UINT16* srcP = (const UINT16*)((const UINT8*)src + (srcY + y) * srcPitchBytes) + srcX;
+		PIXEL* dstP = (PIXEL*)((UINT8*)dst + (dstY + y) * dstPitchBytes) + dstX;
+		const PIXEL* srcP = (const PIXEL*)((const UINT8*)src + (srcY + y) * srcPitchBytes) + srcX;
 		for (INT32 x = 0; x < w; ++x)
 		{
-			UINT16 v = srcP[x];
+			PIXEL v = srcP[x];
+#if SGP_PIXEL_DEPTH == 32
+			// Compare on RGB only: 8bpp art keys transparency on palette
+			// index 0 (black), which Create32BPPPalette maps to opaque
+			// 0xFF000000 -- alpha would never equal the 0-alpha key.
+			if ((v & 0x00FFFFFFu) != (key & 0x00FFFFFFu)) dstP[x] = v;
+#else
 			if (v != key) dstP[x] = v;
+#endif
 		}
 	}
 }
@@ -801,12 +810,13 @@ void Blit8_Opaque(UINT8* dst, UINT32 dstPitchBytes,
 	}
 }
 
-void FillRect16(UINT16* dst, UINT32 dstPitchBytes,
-                INT32 x, INT32 y, INT32 w, INT32 h, UINT16 colour)
+void FillRect16(PIXEL* dst, UINT32 dstPitchBytes,
+                INT32 x, INT32 y, INT32 w, INT32 h, UINT16 colour16)
 {
+	const PIXEL colour = PixFromColor16(colour16);
 	for (INT32 yy = 0; yy < h; ++yy)
 	{
-		UINT16* row = (UINT16*)((UINT8*)dst + (y + yy) * dstPitchBytes) + x;
+		PIXEL* row = (PIXEL*)((UINT8*)dst + (y + yy) * dstPitchBytes) + x;
 		for (INT32 xx = 0; xx < w; ++xx) row[xx] = colour;
 	}
 }
@@ -832,7 +842,7 @@ BOOLEAN ColorFillVideoSurfaceArea(UINT32 uiDestVSurface,
 	if (iDestX1 >= iDestX2 || iDestY1 >= iDestY2) return TRUE;
 
 	UINT32 dstPitch = 0;
-	UINT16* dstBuf = (UINT16*)LockVideoSurfaceBuffer(hDst, &dstPitch);
+	PIXEL* dstBuf = (PIXEL*)LockVideoSurfaceBuffer(hDst, &dstPitch);
 	if (!dstBuf) return FALSE;
 	FillRect16(dstBuf, dstPitch, iDestX1, iDestY1,
 	           iDestX2 - iDestX1, iDestY2 - iDestY1, Color16BPP);
@@ -861,7 +871,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 	{
 		if (!pBltFx) return FALSE;
 		UINT32 pitch = 0;
-		UINT16* buf = (UINT16*)LockVideoSurfaceBuffer(hDst, &pitch);
+		PIXEL* buf = (PIXEL*)LockVideoSurfaceBuffer(hDst, &pitch);
 		if (!buf) return FALSE;
 		FillRect16(buf, pitch, 0, 0, hDst->usWidth, hDst->usHeight,
 		           (UINT16)pBltFx->ColorFill);
@@ -912,15 +922,15 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 	{
 		if (fBltFlags & VS_BLT_USECOLORKEY)
 		{
-			Blit16_ColorKey((UINT16*)dstBuf, dstPitch,
-			                (const UINT16*)srcBuf, srcPitch,
+			Blit16_ColorKey((PIXEL*)dstBuf, dstPitch,
+			                (const PIXEL*)srcBuf, srcPitch,
 			                iDestX, iDestY, sL, sT, w, h,
-			                (UINT16)hSrc->TransparentColor);
+			                PixFromColor16((UINT16)hSrc->TransparentColor));
 		}
 		else
 		{
-			Blit16_Opaque((UINT16*)dstBuf, dstPitch,
-			              (const UINT16*)srcBuf, srcPitch,
+			Blit16_Opaque((PIXEL*)dstBuf, dstPitch,
+			              (const PIXEL*)srcBuf, srcPitch,
 			              iDestX, iDestY, sL, sT, w, h);
 		}
 	}
@@ -966,8 +976,8 @@ BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
 	if (sW <= 0 || sH <= 0 || dW <= 0 || dH <= 0) return TRUE;
 
 	UINT32 srcPitch = 0, dstPitch = 0;
-	UINT16* srcBuf = (UINT16*)LockVideoSurfaceBuffer(hSrc, &srcPitch);
-	UINT16* dstBuf = (UINT16*)LockVideoSurfaceBuffer(hDst, &dstPitch);
+	PIXEL* srcBuf = (PIXEL*)LockVideoSurfaceBuffer(hSrc, &srcPitch);
+	PIXEL* dstBuf = (PIXEL*)LockVideoSurfaceBuffer(hDst, &dstPitch);
 	if (!srcBuf || !dstBuf)
 	{
 		UnLockVideoSurfaceBuffer(hSrc);
@@ -981,7 +991,8 @@ BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
 	// RGB565). Without this, layered images like the JA2 logo over
 	// the flag background get rendered as opaque rectangles.
 	const bool transparent = (fBltFlags & VO_BLT_SRCTRANSPARENCY) != 0;
-	const UINT16 transColor = (UINT16)hSrc->TransparentColor;
+	const PIXEL transColor = (PIXEL)hSrc->TransparentColor;
+	(void)transColor;
 
 	// Nearest-neighbour stretch. Integer ratios; good enough for the
 	// UI panels JA2 stretches. Phase 6 / shaders can do better.
@@ -990,15 +1001,21 @@ BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
 		INT32 absDstY = DestRect->iTop + dy;
 		if (absDstY < 0 || absDstY >= (INT32)hDst->usHeight) continue;
 		const INT32 sy = SrcRect->iTop + (dy * sH) / dH;
-		const UINT16* srcRow = (const UINT16*)((const UINT8*)srcBuf + sy * srcPitch);
-		UINT16* dstRow = (UINT16*)((UINT8*)dstBuf + absDstY * dstPitch);
+		const PIXEL* srcRow = (const PIXEL*)((const UINT8*)srcBuf + sy * srcPitch);
+		PIXEL* dstRow = (PIXEL*)((UINT8*)dstBuf + absDstY * dstPitch);
 		for (INT32 dx = 0; dx < dW; ++dx)
 		{
 			INT32 absDstX = DestRect->iLeft + dx;
 			if (absDstX < 0 || absDstX >= (INT32)hDst->usWidth) continue;
 			const INT32 sx = SrcRect->iLeft + (dx * sW) / dW;
-			const UINT16 px = srcRow[sx];
+			const PIXEL px = srcRow[sx];
+#if SGP_PIXEL_DEPTH == 32
+			// Color-key on RGB (ignore alpha); transparent areas of the
+			// menu art are keyed black, matching the RGB565 transColor==0.
+			if (transparent && (px & 0x00FFFFFFu) == 0u) continue;
+#else
 			if (transparent && px == transColor) continue;
+#endif
 			dstRow[absDstX] = px;
 		}
 	}
@@ -1056,21 +1073,29 @@ BOOLEAN ShadowVideoSurfaceRect(UINT32 uiDestVSurface, INT32 X1, INT32 Y1, INT32 
 {
 	if (X2 <= X1 || Y2 <= Y1) return FALSE;
 	UINT32 pitchBytes = 0;
-	UINT16* pBuf = (UINT16*)LockVideoSurface(uiDestVSurface, &pitchBytes);
+	PIXEL* pBuf = (PIXEL*)LockVideoSurface(uiDestVSurface, &pitchBytes);
 	if (!pBuf) return FALSE;
-	const INT32 stridePx = (INT32)(pitchBytes / sizeof(UINT16));
+	const INT32 stridePx = (INT32)(pitchBytes / sizeof(PIXEL));
 	const INT32 xL = X1 < 0 ? 0 : X1;
 	const INT32 yT = Y1 < 0 ? 0 : Y1;
 	const INT32 xR = X2 > (INT32)SCREEN_WIDTH  ? (INT32)SCREEN_WIDTH  : X2;
 	const INT32 yB = Y2 > (INT32)SCREEN_HEIGHT ? (INT32)SCREEN_HEIGHT : Y2;
 	for (INT32 y = yT; y < yB; ++y) {
-		UINT16* row = pBuf + y * stridePx;
+		PIXEL* row = pBuf + y * stridePx;
 		for (INT32 x = xL; x < xR; ++x) {
-			const UINT16 p = row[x];
+			const PIXEL p = row[x];
+#if SGP_PIXEL_DEPTH == 32
+			const UINT32 a =  p & 0xFF000000u;
+			const UINT32 r = (p >> 16) & 0xFFu;
+			const UINT32 g = (p >>  8) & 0xFFu;
+			const UINT32 b =  p        & 0xFFu;
+			row[x] = a | ((r >> 1) << 16) | ((g >> 1) << 8) | (b >> 1);
+#else
 			const UINT16 r = (p >> 11) & 0x1F;
 			const UINT16 g = (p >>  5) & 0x3F;
 			const UINT16 b =  p        & 0x1F;
 			row[x] = (UINT16)(((r >> 1) << 11) | ((g >> 1) << 5) | (b >> 1));
+#endif
 		}
 	}
 	UnLockVideoSurface(uiDestVSurface);
