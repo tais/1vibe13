@@ -1062,26 +1062,54 @@ BOOLEAN ITEM_CURSOR_SAVE_INFO::Save(HWFILE hFile)
 }
 
 //dnl ch42 250909
+// Platform-identical scalar fields shared by SOLDIERCREATE_STRUCT and its
+// on-disk mirror MAPDISK_SOLDIERCREATE_STRUCT. name (CHAR16<->UINT16),
+// pExistingSoldier (pointer) and the char-array palettes / sPatrolGrid are
+// copied separately by the converters in Load/Save.
+#define MAPDISK_SC_SCALARS(X) \
+	X(fStatic) X(ubProfile) X(fPlayerMerc) X(fPlayerPlan) X(fCopyProfileItemsOver) \
+	X(sSectorX) X(sSectorY) X(ubDirection) X(sInsertionGridNo) \
+	X(bTeam) X(ubBodyType) X(bAttitude) X(bOrders) \
+	X(bLifeMax) X(bLife) X(bAgility) X(bDexterity) X(bExpLevel) X(bMarksmanship) \
+	X(bMedical) X(bMechanical) X(bExplosive) X(bLeadership) X(bStrength) X(bWisdom) \
+	X(bMorale) X(bAIMorale) \
+	X(bPatrolCnt) X(fVisible) X(ubSoldierClass) X(fOnRoof) X(bSectorZ) \
+	X(fUseExistingSoldier) X(ubCivilianGroup) X(fKillSlotIfOwnerDies) X(ubScheduleID) \
+	X(fUseGivenVehicle) X(bUseGivenVehicleID) X(fHasKeys)
+
 BOOLEAN SOLDIERCREATE_STRUCT::Save(HWFILE hFile, bool fSavingMap, FLOAT dMajorMapVersion, UINT8 ubMinorMapVersion)
 {
 	if (fSavingMap)
 	{
-		// Map files keep the legacy raw-blob layout (read back via Load(INT8**)).
-		PTR pData = this;
-		UINT32 uiBytesToWrite = SIZEOF_SOLDIERCREATE_STRUCT_POD;
-		OLD_SOLDIERCREATE_STRUCT_101 OldSoldierCreateStruct;
+		// Map files keep the legacy on-disk layout. Vanilla maps use the
+		// OLD_..._101 record; everything else uses the on-disk mirror with
+		// 16-bit name + 4-byte pointer slot so 64-bit CHAR16/pointer widths
+		// don't corrupt the format (symmetric with Load above).
 		if(dMajorMapVersion == VANILLA_MAJOR_MAP_VERSION && ubMinorMapVersion == VANILLA_MINOR_MAP_VERSION)
 		{
+			OLD_SOLDIERCREATE_STRUCT_101 OldSoldierCreateStruct;
 			OldSoldierCreateStruct = *this;
-			pData = &OldSoldierCreateStruct;
-			uiBytesToWrite = SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD;
+			UINT32 uiBytesWritten = 0;
+			FileWrite(hFile, &OldSoldierCreateStruct, SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD, &uiBytesWritten);
+			return (uiBytesWritten == SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD) ? TRUE : FALSE;
 		}
+		MAPDISK_SOLDIERCREATE_STRUCT disk;
+		memset(&disk, 0, sizeof(disk));
+		#define X(f) disk.f = this->f;
+		MAPDISK_SC_SCALARS(X)
+		#undef X
+		memcpy(disk.HeadPal,  this->HeadPal,  sizeof(disk.HeadPal));
+		memcpy(disk.PantsPal, this->PantsPal, sizeof(disk.PantsPal));
+		memcpy(disk.VestPal,  this->VestPal,  sizeof(disk.VestPal));
+		memcpy(disk.SkinPal,  this->SkinPal,  sizeof(disk.SkinPal));
+		memcpy(disk.MiscPal,  this->MiscPal,  sizeof(disk.MiscPal));
+		for(int i=0; i<MAXPATROLGRIDS; ++i) disk.sPatrolGrid[i] = this->sPatrolGrid[i];
+		for(int i=0; i<10; ++i) disk.name[i] = (UINT16)this->name[i];
+		disk.pExistingSoldier = 0;
 		UINT32 uiBytesWritten = 0;
-		FileWrite(hFile, pData, uiBytesToWrite, &uiBytesWritten);
-		if(uiBytesToWrite == uiBytesWritten)
+		FileWrite(hFile, &disk, SIZEOF_MAPDISK_SOLDIERCREATE_STRUCT_POD, &uiBytesWritten);
+		if(uiBytesWritten == SIZEOF_MAPDISK_SOLDIERCREATE_STRUCT_POD)
 		{
-			if(dMajorMapVersion == VANILLA_MAJOR_MAP_VERSION && ubMinorMapVersion == VANILLA_MINOR_MAP_VERSION)
-				return(TRUE);
 			if(Inv.Save(hFile, fSavingMap))
 				return(TRUE);
 		}
@@ -1133,7 +1161,26 @@ BOOLEAN SOLDIERCREATE_STRUCT::Load(INT8 **hBuffer, FLOAT dMajorMapVersion, UINT8
 			*this = OldSoldierCreateStruct;
 		}
 		else
-			LOADDATA(this, *hBuffer, SIZEOF_SOLDIERCREATE_STRUCT_POD);
+		{
+			// Read the on-disk mirror (16-bit name, 4-byte pointer slot) and
+			// widen into the in-memory struct. A raw blob LOADDATA into `this`
+			// scrambled every field after `name` on 64-bit/non-Windows builds
+			// (CHAR16 is 4 bytes, the pointer 8), which lost editor-placed
+			// NPCs. The on-disk map format is unchanged.
+			MAPDISK_SOLDIERCREATE_STRUCT disk;
+			LOADDATA(&disk, *hBuffer, SIZEOF_MAPDISK_SOLDIERCREATE_STRUCT_POD);
+			#define X(f) this->f = disk.f;
+			MAPDISK_SC_SCALARS(X)
+			#undef X
+			memcpy(this->HeadPal,  disk.HeadPal,  sizeof(this->HeadPal));
+			memcpy(this->PantsPal, disk.PantsPal, sizeof(this->PantsPal));
+			memcpy(this->VestPal,  disk.VestPal,  sizeof(this->VestPal));
+			memcpy(this->SkinPal,  disk.SkinPal,  sizeof(this->SkinPal));
+			memcpy(this->MiscPal,  disk.MiscPal,  sizeof(this->MiscPal));
+			for(int i=0; i<MAXPATROLGRIDS; ++i) this->sPatrolGrid[i] = disk.sPatrolGrid[i];
+			for(int i=0; i<10; ++i) this->name[i] = (CHAR16)disk.name[i];
+			this->pExistingSoldier = NULL;
+		}
 		this->Inv.Load(hBuffer, dMajorMapVersion, ubMinorMapVersion);
 	}
 	else 
