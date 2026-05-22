@@ -222,3 +222,115 @@ every primitive incl. non-ASCII `wstr`) and (b) **golden-byte tests** that asser
 the exact little-endian bytes for known values — those run in CI on Win/Lin/Mac
 and would *prove* cross-platform format parity rather than assuming it. The
 serializer is easy to make memory-buffer-backed for that.
+
+**Status (macOS playtest):** a save written by the migrated build loads
+end-to-end into the strategic view — soldiers (incl. inventory), merc profiles,
+and world items all deserialize correctly (per-soldier and per-profile checksums
+validate). Getting the *first* full load to complete on 64-bit also flushed out a
+batch of **pre-existing** latent bugs in the surrounding (non-serializer) load
+path; see [Latent bugs uncovered](#latent-6432-bugs-uncovered-during-first-full-load).
+
+---
+
+## Format specification (v2)
+
+The on-disk format is **positional and schema-less**: there are no per-field tags
+or lengths. A struct's bytes are the concatenation of its fields in the order the
+serializer visits them, so the reader must call the exact same sequence as the
+writer. Cross-platform identity comes from defining every primitive's byte
+encoding explicitly (below) rather than from struct memory layout.
+
+### Primitive encodings (`sgp/SaveSerializer.{h,cpp}`)
+
+`SaveWriter` / `SaveReader` wrap an `HWFILE` and define the byte layout:
+
+| Primitive | On disk | Notes |
+|---|---|---|
+| `u8` / `i8` | 1 byte | |
+| `u16` / `i16` | 2 bytes, **little-endian** | written byte-by-byte, host-endian-independent |
+| `u32` / `i32` | 4 bytes, LE | |
+| `u64` / `i64` | 8 bytes, LE | |
+| `f32` | 4 bytes | IEEE-754 bit pattern reinterpreted as `u32` (LE) |
+| `f64` | 8 bytes | bit pattern as `u64` (LE) |
+| `boolean` | 1 byte | `0`/`1` |
+| `wstr(p, n)` | `n × u16` (2n bytes) | **the CHAR16 chokepoint**: each wide char is narrowed to 16-bit on write, widened back into `wchar_t` (2 or 4 bytes in memory) on read |
+| `str8(p, n)` / `bytes(p, n)` | `n` bytes verbatim | fixed `CHAR8[]` / `UINT8[]` fields |
+| `skip(n)` | `n` zero bytes | reserved / dropped-field placeholder |
+
+Everything is little-endian regardless of host (byte-swaps on a big-endian host;
+none of the targets are, but the format is defined regardless).
+
+### Field-visitor adapters
+
+For large structs, `SaveFieldWriter` / `SaveFieldReader` expose the same
+by-reference method names over a writer or reader. A single
+`template<class Ar> Xfer(Ar&, T&)` field list per struct is visited by **either**
+adapter, so save and load can never drift out of order. Extra methods:
+
+- `ptr(T*&)` — **runtime pointers are never persisted**: writes nothing, sets the
+  pointer `NULL` on load. The game rebuilds them after load (palette/shade tables,
+  `LEVELNODE*`, `AnimCache`, `pMercPath`, `pGroup`, …). This matches the legacy
+  behaviour, which only ever persisted meaningless pointer *values*.
+- `slong(signed long&)` — pins `long` to **32 bits** on disk (`long` is 32-bit on
+  Win32 but 64-bit on macOS/Linux).
+- `isLoading` — compile-time bool for the rare asymmetric spot (e.g. `vector`
+  resize-then-read).
+
+### Type & layout conventions
+
+- **Wide chars** (`CHAR16`/`wchar_t`): 16-bit on disk via `wstr`. Single source of
+  the wide-char portability fix.
+- **`SoldierID`**: serialized through its public `UINT16 i` member (`field.i`).
+- **`std::vector`s**: written as an `i32`/`u32` element count followed by the
+  elements; the reader resizes (with a sanity bound) before reading.
+- **Anonymous POD unions** (e.g. `ObjectData`'s gun/money/bomb/key/owner/lbe
+  union): written as a fixed canonical byte block of `offsetof(struct, next_field)`
+  bytes. Portable because every union member is a fixed-width, naturally-aligned
+  scalar whose layout is byte-identical on all targets.
+- **Float-typed game fields** (`FLOAT`/`real`/`vector_3`): `f32` per component.
+- **Maps are untouched.** Structs shared between savegames and `.map` files
+  (`OBJECTTYPE`, `WORLDITEM`, `StackedObjectData`, `LBENODE`, `SOLDIERCREATE_STRUCT`)
+  branch on the `fSavingMap` flag in `Save()`: the v2 format is used only for
+  savegames; map writes keep the legacy raw-blob path, and map reads are the
+  separate `Load(INT8**, dMajorMapVersion, …)` overload, both left as-is.
+- **Legacy/encrypted readers preserved.** `MERCPROFILESTRUCT::Load(…,
+  forceLoadOldVersion=true)` (the shipped `Prof.dat` path) and the pre-`NIV`
+  encrypted branches are kept verbatim; only the modern savegame branch is v2.
+
+### Where each struct's layout lives
+
+There is no separate schema file — the layout *is* the per-struct field list:
+
+- Item/object chain, soldiers, profiles, dealer/militia leaves:
+  `Ja2/SaveLoadGame.cpp` (`Xfer*` templates + the `Save`/`Load` methods).
+- `MILITIA`: `Strategic/MilitiaIndividual.cpp`.
+- Serializer + visitor adapters: `sgp/SaveSerializer.{h,cpp}`.
+
+### Versioning
+
+`SAVE_GAME_VERSION` (in `Ja2/GameVersion.h`) gates old vs new format at load. A
+clean-break bump (rejecting pre-migration saves) is **still pending** — until then
+old/intermediate dev saves are not distinguishable by version and will mis-load.
+
+---
+
+## Latent (64/32-bit) bugs uncovered during first full load
+
+The migration let a savegame load run to completion for the first time on the
+64-bit SDL3 port, which surfaced a string of **pre-existing** bugs in the
+surrounding load/render code (none in the new serializer). Found with
+**AddressSanitizer**, using a load-scoped render bypass to avoid ASan/Guard-Malloc
+false positives in the Apple Metal/GCD allocator path. All are fixed:
+
+| # | Location | Bug | Fix |
+|---|---|---|---|
+| 1 | `WriteTempFileNameToFile` (SaveLoadGame.cpp) | param typed `HFILE` (32-bit `int`) truncated the 64-bit `HWFILE` pointer → `FileGetPos` map lookup on a garbage key → crash | use `HWFILE` |
+| 2 | `gzPlayerHandleField` (MPJoinScreen.cpp) | `CHAR16[10+1]` but every caller passes capacity `12` → 1-element global overflow at startup | size buffer `[11+1]` |
+| 3 | `gubElementsOnExplosionQueue` (Explosion Control.cpp) | `UINT8` global saved/loaded as `sizeof(UINT32)` → 3-byte global overflow (the heap corruptor behind the late `trace trap`) | go through a `UINT32` temp |
+| 4 | map-screen messages (message.cpp) | byte size computed as `len*2` (hard-coded old wchar size) instead of `len*sizeof(CHAR16)` → string written half-size / unterminated on 4-byte-`wchar_t` platforms | use `sizeof(CHAR16)`; load hardened to bound + force-terminate + size alloc to actual string |
+| 5 | `OBJECTTYPE::operator=(OLD_OBJECTTYPE_101&)` (Item Types.cpp) | reads `ugYucky.bStatus[x]` for stacks `> OLD_MAX_OBJECTS_PER_SLOT_101` (8) → over-read | clamp index to the old 8-element bound |
+| 6 | `RestrictMouseCursor` (input.cpp) | `memcpy(sizeof(gCursorClipRect))` where `gCursorClipRect` is a Win32 `RECT` (32 bytes on 64-bit, `LONG==long`) but the source is a 16-byte `SGPRect` → over-read | copy `sizeof(*pRectangle)` |
+
+The recurring theme is the same one the format work targets: **hard-coded
+2-byte wide chars and 32-bit-wide assumptions** that only break once a 64-bit
+build actually exercises the code.
