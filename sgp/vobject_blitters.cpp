@@ -6575,7 +6575,13 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 					const UINT8 v = *src++;
 					if (v == 254) {
 						if (fDoOutline) {
-							*rowDest = PixFromColor16((UINT16)s16BPPColor);
+							// Pass the full PIXEL: s16BPPColor is already a
+							// screen-format colour (true-colour ARGB8888 at
+							// 32bpp). Truncating it to UINT16 here dropped the
+							// high half, so PixFromColor16 decoded the low bits
+							// as an RGB565 token -- which turned the grey
+							// item-glow ramp into a rainbow.
+							*rowDest = PixFromColor16(s16BPPColor);
 						}
 					} else {
 						*rowDest = p16BPPPalette[v];
@@ -6686,7 +6692,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 						const INT32 dx = srcX - LeftSkip;
 						if (v == 254) {
 							if (fDoOutline) {
-								rowDest[dx] = PixFromColor16((UINT16)s16BPPColor);
+								rowDest[dx] = PixFromColor16(s16BPPColor);
 							}
 						} else {
 							rowDest[dx] = p16BPPPalette[v];
@@ -6809,7 +6815,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitch
 						if (usZValue >= rowZ[dx]) {
 							if (v == 254) {
 								if (fDoOutline) {
-									rowDest[dx] = PixFromColor16((UINT16)s16BPPColor);
+									rowDest[dx] = PixFromColor16(s16BPPColor);
 								}
 							} else {
 								rowZ[dx]    = usZValue;
@@ -6943,7 +6949,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 					}
 					if (v == 254) {
 						if (fDoOutline) {
-							rowDest[dx] = PixFromColor16((UINT16)s16BPPColor);
+							rowDest[dx] = PixFromColor16(s16BPPColor);
 						}
 					} else {
 						rowDest[dx] = p16BPPPalette[v];
@@ -7217,7 +7223,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 					if (usZValue >= *rowZ) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = PixFromColor16((UINT16)s16BPPColor);
+								*rowDest = PixFromColor16(s16BPPColor);
 							}
 						} else {
 							*rowZ    = usZValue;
@@ -7315,7 +7321,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 					if (render) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = PixFromColor16((UINT16)s16BPPColor);
+								*rowDest = PixFromColor16(s16BPPColor);
 							}
 						} else {
 							*rowDest = p16BPPPalette[v];
@@ -7398,7 +7404,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					if (usZValue >= *rowZ) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = PixFromColor16((UINT16)s16BPPColor);
+								*rowDest = PixFromColor16(s16BPPColor);
 							}
 						} else {
 							*rowDest = p16BPPPalette[v];
