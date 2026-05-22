@@ -78,9 +78,33 @@ static UINT32 pack_xy(int x, int y)
 	return (UINT32)((y & 0xFFFF) << 16) | (UINT32)(x & 0xFFFF);
 }
 
+// Modifier-state globals (defined in input.cpp). The original Win32
+// KeyDown() kept these in sync; the SDL3 path updates gfKeyState directly
+// and never called KeyDown, so they stayed FALSE -- which meant every
+// queued event got usKeyState 0 and ALL Ctrl/Alt/Shift shortcuts (cheat
+// keys, and lots of normal gameplay combos) silently lost their modifier.
+// We refresh them from SDL's live modifier state on every event below.
+extern UINT16 gfShiftState;
+extern UINT16 gfCtrlState;
+extern UINT16 gfAltState;
+
 bool SgpHandleSDLEvent(const SDL_Event* ev)
 {
 	if (!ev) return false;
+
+	// Keep the JA2 modifier-state globals current for QueueEvent's
+	// usKeyState (= gfShiftState | gfCtrlState | gfAltState). Driven off
+	// SDL_GetModState() so it covers keyboard *and* mouse events (e.g.
+	// Ctrl+click). On macOS SDL maps Control->KMOD_CTRL and Option->
+	// KMOD_ALT, matching JA2's Ctrl/Alt; Command (KMOD_GUI) is left for
+	// the Cmd+Q quit handling only.
+	{
+		const SDL_Keymod mod = SDL_GetModState();
+		gfShiftState = (mod & SDL_KMOD_SHIFT) ? SHIFT_DOWN : 0;
+		gfCtrlState  = (mod & SDL_KMOD_CTRL)  ? CTRL_DOWN  : 0;
+		gfAltState   = (mod & SDL_KMOD_ALT)   ? ALT_DOWN   : 0;
+	}
+
 	switch (ev->type) {
 	case SDL_EVENT_QUIT:
 	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
