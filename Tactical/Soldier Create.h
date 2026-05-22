@@ -449,6 +449,70 @@ public:
 #define SIZEOF_SOLDIERCREATE_STRUCT_POD offsetof( SOLDIERCREATE_STRUCT, endOfPOD )
 #define _OLD_SIZEOF_SOLDIERCREATE_STRUCT_POD offsetof( _OLD_SOLDIERCREATE_STRUCT, endOfPOD )
 
+// On-disk mirror of the v7.0+/v8.0 SOLDIERCREATE_STRUCT POD, exactly as the
+// original 32-bit engine wrote it into map (.dat) files: CHAR16 -> 16-bit,
+// and the pExistingSoldier pointer -> a 4-byte slot. Every other member is
+// already platform-identical (<=4-byte scalars and char arrays), so a
+// 64-bit compiler lays this struct out byte-for-byte like the 32-bit
+// on-disk record (same default alignment + padding). Reading/writing maps
+// through this preserves the legacy/1.13/mod map format exactly; only the
+// in-memory SOLDIERCREATE_STRUCT differs (wchar_t CHAR16 == 4 bytes here,
+// 8-byte pointer), which is what made the raw-blob LOADDATA scramble every
+// field after `name` on macOS/Linux and lose editor-placed NPCs.
+// Field order MUST match SOLDIERCREATE_STRUCT's POD region verbatim.
+struct MAPDISK_SOLDIERCREATE_STRUCT
+{
+	BOOLEAN  fStatic;
+	UINT8    ubProfile;
+	BOOLEAN  fPlayerMerc;
+	BOOLEAN  fPlayerPlan;
+	BOOLEAN  fCopyProfileItemsOver;
+	INT16    sSectorX;
+	INT16    sSectorY;
+	UINT8    ubDirection;
+	INT32    sInsertionGridNo;
+	INT8     bTeam;
+	INT8     ubBodyType;
+	INT8     bAttitude;
+	INT8     bOrders;
+	INT8     bLifeMax;
+	INT8     bLife;
+	INT8     bAgility;
+	INT8     bDexterity;
+	INT8     bExpLevel;
+	INT8     bMarksmanship;
+	INT8     bMedical;
+	INT8     bMechanical;
+	INT8     bExplosive;
+	INT8     bLeadership;
+	INT8     bStrength;
+	INT8     bWisdom;
+	INT8     bMorale;
+	INT8     bAIMorale;
+	PaletteRepID HeadPal;
+	PaletteRepID PantsPal;
+	PaletteRepID VestPal;
+	PaletteRepID SkinPal;
+	PaletteRepID MiscPal;
+	INT32    sPatrolGrid[MAXPATROLGRIDS];
+	INT8     bPatrolCnt;
+	BOOLEAN  fVisible;
+	UINT16   name[ 10 ];          // CHAR16 in memory (wchar_t)
+	UINT8    ubSoldierClass;
+	BOOLEAN  fOnRoof;
+	INT8     bSectorZ;
+	UINT32   pExistingSoldier;    // runtime pointer on disk slot; ignored on load
+	BOOLEAN  fUseExistingSoldier;
+	UINT8    ubCivilianGroup;
+	BOOLEAN  fKillSlotIfOwnerDies;
+	UINT8    ubScheduleID;
+	BOOLEAN  fUseGivenVehicle;
+	INT8     bUseGivenVehicleID;
+	BOOLEAN  fHasKeys;
+	char     endOfPOD;
+};
+#define SIZEOF_MAPDISK_SOLDIERCREATE_STRUCT_POD offsetof( MAPDISK_SOLDIERCREATE_STRUCT, endOfPOD )
+
 
 //Original functions currently used throughout the game.
 BOOLEAN TacticalRemoveSoldier( SoldierID usSoldierIndex );
