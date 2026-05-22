@@ -227,10 +227,10 @@ BOOLEAN HandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, INT8 bInvPos, BOOLEAN fOn
 //	Last parameter used mainly for when mouse is over item
 
 void RenderBulletIcon(OBJECTTYPE *pObject, UINT32 ubStatusIndex = 0);
-void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE	*pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, INT16 sOutlineColor, UINT8 iter = 0 );
+void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE	*pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, PIXEL sOutlineColor, UINT8 iter = 0 );
 void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel );
 // HEADROCK HAM 5: Drawing a large item pic with extra data.
-void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, INT16 sOutlineColor );
+void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, PIXEL sOutlineColor );
 // CHRISL: Add a new function that will be used to render a pocket silhouette
 void INVRenderSilhouette( UINT32 uiBugger, INT16 PocketIndex, INT16 SilIndex, INT16 sX, INT16 sY, INT16 sWideth, INT16 sHeight);
 // CHRISL: New function to handle display of inventory quantities based on item current in cursor
@@ -291,7 +291,7 @@ extern OBJECTTYPE		*gpItemPointer;
 extern OBJECTTYPE		gItemPointer;
 extern SOLDIERTYPE		*gpItemPointerSoldier;
 extern UINT16				usItemSnapCursor;
-extern UINT16				us16BPPItemCyclePlacedItemColors[ 20 ];
+extern PIXEL				us16BPPItemCyclePlacedItemColors[ 20 ];
 extern BOOLEAN				gfItemPointerDifferentThanDefault;
 
 

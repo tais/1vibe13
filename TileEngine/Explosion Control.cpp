@@ -4381,7 +4381,7 @@ void HandleExplosionWarningAnimations( )
 	}
 
 	PIXEL usBlue = Get16BPPColor(FROMRGB(0, 0, 255));
-	UINT16 usColor;
+	PIXEL usColor;
 	INT32 sRadius;
 
 	// show focus area if skill is active

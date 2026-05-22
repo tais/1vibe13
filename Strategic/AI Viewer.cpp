@@ -175,9 +175,9 @@ BOOLEAN gfRenderMap;
 BOOLEAN gfViewEnemies = TRUE;
 INT8		gbViewLevel = 0;
 
-UINT16 gusBlue;
-UINT16 gusLtBlue;
-UINT16 gusDkBlue;
+PIXEL gusBlue;
+PIXEL gusLtBlue;
+PIXEL gusDkBlue;
 
 INT16 gsAINumAdmins = -1;
 INT16 gsAINumTroops = -1;

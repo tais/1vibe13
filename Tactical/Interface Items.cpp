@@ -552,7 +552,7 @@ MOUSE_REGION		gKeyRingPanel;
 MOUSE_REGION		gSMInvCamoRegion;
 INT8						gbCompatibleAmmo[ NUM_INV_SLOTS ];
 INT8						gbInvalidPlacementSlot[ NUM_INV_SLOTS ];
-UINT16					us16BPPItemCyclePlacedItemColors[ 20 ];
+PIXEL					us16BPPItemCyclePlacedItemColors[ 20 ];
 // Kaiden: Vehicle Inventory change - Increase this from 4-2 to 5-2
 UINT32					guiBodyInvVO[ 5 ][ 2 ];
 UINT32					guiGoldKeyVO;
@@ -2562,7 +2562,8 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 	INT16	sBarX, sBarY;
 	OBJECTTYPE  *pObject;
 	BOOLEAN	fOutline = FALSE;
-	INT16		sOutlineColor = 0, lbePocket = ITEM_NOT_FOUND;
+	PIXEL		sOutlineColor = 0;
+	INT16		lbePocket = ITEM_NOT_FOUND;
 	UINT8		fRenderDirtyLevel;
 	BOOLEAN fHatchItOut = FALSE;
 	UINT32		iClass;
@@ -3718,7 +3719,7 @@ UINT8 GetTemperatureString( FLOAT overheatpercentage, UINT32* apRed, UINT32* apG
 	return 8;
 }
 
-void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, INT16 sOutlineColor, UINT8 iter )
+void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, PIXEL sOutlineColor, UINT8 iter )
 {
 	UINT16								uiStringLength;
 	INVTYPE								*pItem;
@@ -4478,7 +4479,7 @@ void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDI
 // This function works largely like the one above it, with several exceptions. For one, the BigItemPic is used,
 // which allows us to add lots of data. Since this is only used in the sector inventory, we can forgo things
 // like dirtylevels and just draw everything here.
-void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, INT16 sOutlineColor )
+void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, PIXEL sOutlineColor )
 {
 	UINT16 uiStringLength;
 	INVTYPE	*pItem;

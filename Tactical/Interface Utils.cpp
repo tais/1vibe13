@@ -523,7 +523,7 @@ void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLE
 }
 
 // HEADROCK HAM 5: This function draws a rectangle around the item image in the zoomed inventory
-void DrawItemOutlineZoomedInventory( INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, INT16 sColor, UINT32 uiBuffer )
+void DrawItemOutlineZoomedInventory( INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, PIXEL sColor, UINT32 uiBuffer )
 {
 	UINT32 uiDestPitchBYTES;
 	UINT8 *pDestBuf;

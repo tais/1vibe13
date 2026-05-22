@@ -502,7 +502,7 @@ INT16 sSectorMilitiaMapSectorOutline = -1;
 // have any nodes in the current path list been deleted?
 BOOLEAN fDeletedNode = FALSE;
 
-UINT16 gusUndergroundNearBlack;
+PIXEL gusUndergroundNearBlack;
 
 BOOLEAN gfMilitiaPopupCreated = FALSE;
 
@@ -4917,7 +4917,7 @@ void BlitTownGridMarkers( void )
 	INT16 sScreenX = 0, sScreenY = 0;
 	UINT32										uiDestPitchBYTES;
 	UINT8											*pDestBuf;
-	UINT16 usColor = 0;
+	PIXEL usColor = 0;
 	INT32 iCounter = 0;
 	INT16 sWidth = 0, sHeight = 0;
 
@@ -4981,7 +4981,7 @@ void BlitMineGridMarkers( void )
 	INT16 sScreenX = 0, sScreenY = 0;
 	UINT32										uiDestPitchBYTES;
 	UINT8											*pDestBuf;
-	UINT16 usColor = 0;
+	PIXEL usColor = 0;
 	INT32 iCounter = 0;
 	INT16 sWidth = 0, sHeight = 0;
 
@@ -7307,7 +7307,7 @@ void BlitSAMGridMarkers( void )
 	INT16 sScreenX = 0, sScreenY = 0;
 	UINT32										uiDestPitchBYTES;
 	UINT8											*pDestBuf;
-	UINT16 usColor = 0;
+	PIXEL usColor = 0;
 	INT32 iCounter = 0;
 	INT16 sWidth = 0, sHeight = 0;
 

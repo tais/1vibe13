@@ -456,7 +456,7 @@ BOOLEAN		gfQuestDebugExit = FALSE;
 
 BOOLEAN		gfRedrawQuestDebugSystem = TRUE;
 
-UINT16 gusQuestDebugBlue;
+PIXEL gusQuestDebugBlue;
 UINT16 gusQuestDebugLtBlue;
 UINT16 gusQuestDebugDkBlue;
 

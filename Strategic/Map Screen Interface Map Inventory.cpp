@@ -585,7 +585,7 @@ BOOLEAN RenderItemInPoolSlot( INT32 iCurrentSlot, INT32 iFirstSlotOnPage )
 	ETRLEObject		*pTrav;
 	CHAR16 sString[ 80 ];
 	INT16 sWidth = 0, sHeight = 0;
-	INT16 sOutLine = 0;
+	PIXEL sOutLine = 0;
 	BOOLEAN fOutLine = FALSE;
 
 	// check if anything there

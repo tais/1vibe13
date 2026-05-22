@@ -1382,7 +1382,7 @@ void RenderOverheadOverlays()
 	HVOBJECT		hVObject;
 	INT16				sX, sY;
 	SoldierID			id, end;
-	UINT16			usLineColor=0;
+	PIXEL			usLineColor=0;
 	UINT8				*pDestBuf;
 	UINT8				ubPassengers = 0;
 
@@ -1847,7 +1847,7 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 	UINT32			uiDestPitchBYTES;
 	UINT8				*pDestBuf;
 	LEVELNODE		*pNode;
-	UINT16			usLineColor;
+	PIXEL			usLineColor;
 	INT16				sHeight;
 	SOLDIERTYPE	*pSoldier;
 	HVOBJECT hVObject;

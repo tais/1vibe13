@@ -376,7 +376,7 @@ void RenderRadarScreen( )
 
 	UINT32										uiDestPitchBYTES;
 	UINT8											*pDestBuf;
-	UINT16										usLineColor;
+	PIXEL										usLineColor;
 	UINT32											cnt;
 	INT16											sHeight, sWidth, sX, sY;
 	INT32											iCounter = 0;

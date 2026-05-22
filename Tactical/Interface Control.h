@@ -71,6 +71,6 @@ void DrawExplosionWarning( INT32 sGridno, INT8 sLevel, INT8 sDelay );
 
 // Flugente: draw a circle around a gridno
 // For now, we aren't using usColour, but that will likely change in the future
-void DrawTraitRadius( INT32 sGridno, INT8 sLevel, INT32 sRadius, INT16 sThickness, UINT16 usColour );
+void DrawTraitRadius( INT32 sGridno, INT8 sLevel, INT32 sRadius, INT16 sThickness, PIXEL usColour );
 
 #endif

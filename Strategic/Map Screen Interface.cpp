@@ -2902,7 +2902,7 @@ void DisplayFastHelpRegions( FASTHELPREGION *pRegion, INT32 iSize )
 // show one region
 void DisplayUserDefineHelpTextRegions( FASTHELPREGION *pRegion )
 {
-	UINT16 usFillColor;
+	PIXEL usFillColor;
 	INT32 iX,iY,iW,iH;
 	UINT8 *pDestBuf;
 	UINT32 uiDestPitchBYTES;
