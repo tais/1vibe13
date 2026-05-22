@@ -139,6 +139,13 @@ UINT8 ubBloodGraphicLUT [ ] = {	3, 3,	2,	2,	1,	1,	0, 0 };
 
 void RemoveBlood( INT32 sGridNo, INT8 bLevel )
 {
+	// Corpses near a map edge produce structure-tile gridnos that fall
+	// off-map (e.g. a corpse at gridno ~3 + a tile one row up = -157),
+	// which indexed gpWorldLevelData out of bounds. Win32 tolerated the
+	// stray read; on 64-bit it faults. There is no blood off-map, so skip.
+	if ( TileIsOutOfBounds( sGridNo ) )
+		return;
+
 	//gpWorldLevelData[ sGridNo ].ubBloodInfo = 0;
 	if (bLevel > 0)
 		(gpWorldLevelData[sGridNo].ubBloodInfo) &= ~(0xE0);
