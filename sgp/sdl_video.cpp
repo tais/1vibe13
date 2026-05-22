@@ -150,10 +150,16 @@ BOOLEAN InitializeVideoManager(void)
 		return FALSE;
 	}
 
+	// HIGH_PIXEL_DENSITY: on a Retina/HiDPI display, ask SDL for a
+	// window whose renderer targets the full *physical* pixel backing
+	// (e.g. 1280x960 behind a 640x480 logical window at 2x) instead of
+	// letting the OS compositor blur a 640x480 image up to the panel.
+	// Combined with the integer logical presentation set below, this is
+	// what makes the bitmap glyphs land on real pixels and read crisp.
 	gWindow = SDL_CreateWindow(
 		"Jagged Alliance 2 1.13 (SDL3 port)",
 		SCREEN_WIDTH, SCREEN_HEIGHT,
-		SDL_WINDOW_RESIZABLE);
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (!gWindow) {
 		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		return FALSE;
@@ -163,6 +169,20 @@ BOOLEAN InitializeVideoManager(void)
 	if (!gRenderer) {
 		std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
 		return FALSE;
+	}
+
+	// Establish a fixed 640x480 (logical) coordinate space and present it
+	// scaled by whole-number multiples only, letterboxed when the window
+	// isn't an exact multiple. INTEGER_SCALE keeps every source pixel an
+	// equal-sized block of destination pixels, so glyph stems stay a
+	// uniform width instead of the uneven 2px/3px jitter you get from
+	// fractional NEAREST stretching -- crisp text, original art untouched.
+	// Mouse coordinates are mapped back into this logical space in the
+	// event pump via SDL_ConvertEventToRenderCoordinates.
+	if (!SDL_SetRenderLogicalPresentation(gRenderer, SCREEN_WIDTH, SCREEN_HEIGHT,
+	                                      SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)) {
+		std::fprintf(stderr, "[video] SDL_SetRenderLogicalPresentation failed: %s\n",
+		             SDL_GetError());
 	}
 
 	gFrameTex = SDL_CreateTexture(gRenderer,
@@ -232,6 +252,10 @@ void ShutdownVideoManager(void)
 	if (gRenderer) { SDL_DestroyRenderer(gRenderer); gRenderer = nullptr; }
 	if (gWindow)   { SDL_DestroyWindow(gWindow);   gWindow   = nullptr; }
 }
+
+// Exposed so the event pump (sgp.cpp) can map window-space mouse
+// coordinates into the renderer's logical 640x480 space.
+SDL_Renderer* SGP_GetSDLRenderer(void) { return gRenderer; }
 
 void    SuspendVideoManager(void) {}
 BOOLEAN RestoreVideoManager(void) { return TRUE; }

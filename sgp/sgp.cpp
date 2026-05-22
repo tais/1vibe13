@@ -1452,6 +1452,11 @@ int main(int argc, char** argv)
 	while (gfProgramIsRunning) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
+			// Rewrite mouse/touch coordinates from window space into the
+			// renderer's logical 640x480 space so the game (which works
+			// entirely in 640x480) sees correct positions regardless of
+			// window size / HiDPI scale / integer-scale letterboxing.
+			SDL_ConvertEventToRenderCoordinates(SGP_GetSDLRenderer(), &event);
 			if (SgpHandleSDLEvent(&event)) {
 				gfProgramIsRunning = FALSE;
 			}
