@@ -519,17 +519,34 @@ BOOLEAN SCHEDULENODE::Load(INT8** hBuffer, FLOAT dMajorMapVersion)
 		*this = OldScheduleNode;
 	}
 	else
-		LOADDATA(this, *hBuffer, sizeof(SCHEDULENODE));
+	{
+		// Read through the on-disk mirror (4-byte `next` slot) and copy the
+		// schedule data across. A raw blob load into `this` shifted every
+		// field by 4 bytes on 64-bit builds (the in-memory `next` pointer is
+		// 8 bytes), corrupting NPC schedules. next/ubScheduleID/ubSoldierID
+		// are reassigned by the caller after load.
+		MAPDISK_SCHEDULENODE disk;
+		LOADDATA(&disk, *hBuffer, sizeof(MAPDISK_SCHEDULENODE));
+		this->next = NULL;
+		for(int i=0; i<MAX_SCHEDULE_ACTIONS; ++i)
+		{
+			this->usTime[i]   = disk.usTime[i];
+			this->usData1[i]  = disk.usData1[i];
+			this->usData2[i]  = disk.usData2[i];
+			this->ubAction[i] = disk.ubAction[i];
+		}
+		this->ubScheduleID = disk.ubScheduleID;
+		this->ubSoldierID  = disk.ubSoldierID;
+		this->usFlags      = disk.usFlags;
+	}
 	return(TRUE);
 }
 
 BOOLEAN SCHEDULENODE::Save(HWFILE hFile, FLOAT dMajorMapVersion, UINT8 ubMinorMapVersion)
 {
-	PTR pData = this;
-	UINT32 uiBytesToWrite = sizeof(SCHEDULENODE);
-	_OLD_SCHEDULENODE OldScheduleNode;
 	if(dMajorMapVersion == VANILLA_MAJOR_MAP_VERSION && ubMinorMapVersion == VANILLA_MINOR_MAP_VERSION)
 	{
+		_OLD_SCHEDULENODE OldScheduleNode;
 		OldScheduleNode.next = NULL;
 		TranslateArrayFields(OldScheduleNode.usTime, usTime, OLD_MAX_SCHEDULE_ACTIONS, UINT16_UINT16);
 		TranslateArrayFields(OldScheduleNode.usData1, usData1, OLD_MAX_SCHEDULE_ACTIONS, INT32_INT16);
@@ -538,14 +555,28 @@ BOOLEAN SCHEDULENODE::Save(HWFILE hFile, FLOAT dMajorMapVersion, UINT8 ubMinorMa
 		OldScheduleNode.ubScheduleID = ubScheduleID;
 		OldScheduleNode.ubSoldierID = ubSoldierID;
 		OldScheduleNode.usFlags = usFlags;
-		pData = &OldScheduleNode;
-		uiBytesToWrite = sizeof(_OLD_SCHEDULENODE);
+		UINT32 uiBytesWritten = 0;
+		FileWrite(hFile, &OldScheduleNode, sizeof(_OLD_SCHEDULENODE), &uiBytesWritten);
+		return (uiBytesWritten == sizeof(_OLD_SCHEDULENODE)) ? TRUE : FALSE;
 	}
+	// Write through the on-disk mirror (4-byte `next` slot) so the 64-bit
+	// pointer width doesn't corrupt the v8.0 map format (symmetric with Load).
+	MAPDISK_SCHEDULENODE disk;
+	memset(&disk, 0, sizeof(disk));
+	disk.next = 0;
+	for(int i=0; i<MAX_SCHEDULE_ACTIONS; ++i)
+	{
+		disk.usTime[i]   = usTime[i];
+		disk.usData1[i]  = usData1[i];
+		disk.usData2[i]  = usData2[i];
+		disk.ubAction[i] = ubAction[i];
+	}
+	disk.ubScheduleID = ubScheduleID;
+	disk.ubSoldierID  = ubSoldierID;
+	disk.usFlags      = usFlags;
 	UINT32 uiBytesWritten = 0;
-	FileWrite(hFile, pData, uiBytesToWrite, &uiBytesWritten);
-	if(uiBytesToWrite == uiBytesWritten)
-		return(TRUE);
-	return(FALSE);
+	FileWrite(hFile, &disk, sizeof(MAPDISK_SCHEDULENODE), &uiBytesWritten);
+	return (uiBytesWritten == sizeof(MAPDISK_SCHEDULENODE)) ? TRUE : FALSE;
 }
 
 void LoadSchedules(INT8** hBuffer, FLOAT dMajorMapVersion)

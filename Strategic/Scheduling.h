@@ -84,6 +84,25 @@ public:
 	BOOLEAN Save(HWFILE hFile, FLOAT dMajorMapVersion, UINT8 ubMinorMapVersion);
 };
 
+// On-disk mirror of the v8.0 SCHEDULENODE, exactly as the original 32-bit
+// engine wrote it: the leading `next` pointer is a 4-byte slot (it's a
+// transient runtime link, rebuilt on load). Every other member is already
+// platform-identical, so a 64-bit compiler reproduces the 32-bit on-disk
+// layout. A raw-blob load into SCHEDULENODE (8-byte pointer on 64-bit) put
+// every field 4 bytes past where it belonged, corrupting NPC schedules
+// (e.g. the Omerta escort routes). The on-disk map format is unchanged.
+struct MAPDISK_SCHEDULENODE
+{
+	UINT32    next;                            // pointer slot on disk (ignored)
+	UINT16    usTime[MAX_SCHEDULE_ACTIONS];
+	UINT32    usData1[MAX_SCHEDULE_ACTIONS];
+	UINT32    usData2[MAX_SCHEDULE_ACTIONS];
+	UINT8     ubAction[MAX_SCHEDULE_ACTIONS];
+	UINT8     ubScheduleID;
+	SoldierID ubSoldierID;
+	UINT16    usFlags;
+};
+
 extern UINT8				gubScheduleID;
 extern SCHEDULENODE *gpScheduleList;
 
