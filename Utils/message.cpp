@@ -1273,7 +1273,10 @@ BOOLEAN SaveMapScreenMessagesToSaveGameFile( HWFILE hFile )
 	{
 		if( gMapScreenMessageList[ uiCount ] )
 		{
-			uiSizeOfString = ( wcslen( gMapScreenMessageList[ uiCount ]->pString16 ) + 1 ) * 2;
+			// sizeof(CHAR16), not a hardcoded 2: CHAR16/wchar_t is 4 bytes on
+			// macOS/Linux, so *2 wrote only half the string and no full null
+			// terminator, leaving the loaded string unterminated.
+			uiSizeOfString = ( wcslen( gMapScreenMessageList[ uiCount ]->pString16 ) + 1 ) * sizeof( CHAR16 );
 		}
 		else
 			uiSizeOfString = 0;
@@ -1366,12 +1369,20 @@ BOOLEAN LoadMapScreenMessagesFromSaveGameFile( HWFILE hFile )
 		//if there is a message
 		if( uiSizeOfString )
 		{
-			//	Read the message from the file
+			//	Read the message from the file. Guard against corrupt/oversized
+			//	lengths (would overflow SavedString) and force null-termination
+			//	(saves written with the old *2 byte-size bug stored no full
+			//	4-byte terminator, leaving the string unterminated on load).
+			if( uiSizeOfString > sizeof( SavedString ) - sizeof( CHAR16 ) )
+			{
+				return(FALSE);
+			}
 			FileRead( hFile, SavedString, uiSizeOfString, &uiNumBytesRead );
 			if( uiNumBytesRead != uiSizeOfString )
 			{
 				return(FALSE);
 			}
+			SavedString[ uiSizeOfString / sizeof( CHAR16 ) ] = 0;
 
 			//if there is an existing string,delete it
 			if( gMapScreenMessageList[ uiCount ] )
@@ -1397,12 +1408,15 @@ BOOLEAN LoadMapScreenMessagesFromSaveGameFile( HWFILE hFile )
 				gMapScreenMessageList[ uiCount ] = sScroll;
 			}
 
-			//allocate space for the new string
-			gMapScreenMessageList[ uiCount ]->pString16 = (CHAR16 *) MemAlloc( uiSizeOfString );
+			//allocate space for the new string, sized to the actual terminated
+			//string so there is always room for the null terminator (the stored
+			//uiSizeOfString can be wrong for old/cross-platform saves).
+			UINT32 uiAllocBytes = ( wcslen( SavedString ) + 1 ) * sizeof( CHAR16 );
+			gMapScreenMessageList[ uiCount ]->pString16 = (CHAR16 *) MemAlloc( uiAllocBytes );
 			if( gMapScreenMessageList[ uiCount ]->pString16 == NULL )
 				return( FALSE );
 
-			memset( gMapScreenMessageList[ uiCount ]->pString16, 0, uiSizeOfString);
+			memset( gMapScreenMessageList[ uiCount ]->pString16, 0, uiAllocBytes );
 
 			//copy the string over
 			wcscpy( gMapScreenMessageList[ uiCount ]->pString16, SavedString );

@@ -539,7 +539,7 @@ void	HandleOldBobbyRMailOrders();
 	void			LoadGameFilePosition( INT32 iPos, STR pMsg );
 
 
-	void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HFILE hSaveFile );
+	void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HWFILE hSaveFile );
 	void InitShutDownMapTempFileTest( BOOLEAN fInit, STR pNameOfFile, UINT8 ubSaveGameID	);
 #endif
 
@@ -8463,7 +8463,7 @@ void InitShutDownMapTempFileTest( BOOLEAN fInit, STR pNameOfFile, UINT8 ubSaveGa
 	}
 }
 
-void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HFILE hSaveFile )
+void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HWFILE hSaveFile )
 {
 	HWFILE	hFile;
 	CHAR8		zTempString[512];

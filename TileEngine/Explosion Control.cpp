@@ -5043,8 +5043,11 @@ BOOLEAN SaveExplosionTableToSaveGameFile( HWFILE hFile )
 	//
 
 
-	//Write the number of explosion queues
-	FileWrite( hFile, &gubElementsOnExplosionQueue, sizeof( UINT32 ), &uiNumBytesWritten );
+	//Write the number of explosion queues. gubElementsOnExplosionQueue is a
+	//UINT8; the on-disk field is 4 bytes, so go through a UINT32 temp instead
+	//of reading/writing 4 bytes straight off the 1-byte global (OOB).
+	UINT32 uiElementsOnExplosionQueue = gubElementsOnExplosionQueue;
+	FileWrite( hFile, &uiElementsOnExplosionQueue, sizeof( UINT32 ), &uiNumBytesWritten );
 	if( uiNumBytesWritten != sizeof( UINT32 ) )
 	{
 		FileClose( hFile );
@@ -5123,12 +5126,14 @@ BOOLEAN LoadExplosionTableFromSavedGameFile( HWFILE hFile )
 	//Clear the Explosion queue
 	memset( gExplosionQueue, 0, sizeof( ExplosionQueueElement ) * MAX_BOMB_QUEUE );
 
-	//Read the number of explosions queue's
-	FileRead( hFile, &gubElementsOnExplosionQueue, sizeof( UINT32 ), &uiNumBytesRead );
+	//Read the number of explosions queue's (4-byte on-disk field -> UINT8 global)
+	UINT32 uiElementsOnExplosionQueue = 0;
+	FileRead( hFile, &uiElementsOnExplosionQueue, sizeof( UINT32 ), &uiNumBytesRead );
 	if( uiNumBytesRead != sizeof( UINT32 ) )
 	{
 		return( FALSE );
 	}
+	gubElementsOnExplosionQueue = (UINT8)uiElementsOnExplosionQueue;
 
 
 	//loop through read all the active explosions fro the file

@@ -1778,7 +1778,10 @@ OBJECTTYPE& OBJECTTYPE::operator=(const OLD_OBJECTTYPE_101& src)
 			memcpy(&ugYucky, &src.ugYucky, __min(SIZEOF_OLD_OBJECTTYPE_101_UNION,sizeof(ObjectData)));
 
 			for (int x = 0; x < max(ubNumberOfObjects, 1); ++x) {
-				(*this)[x]->data.objectStatus = ugYucky.bStatus[x];
+				// The old union only held OLD_MAX_OBJECTS_PER_SLOT_101 (8) statuses;
+				// stacks larger than that (possible in the new system) must not read
+				// past bStatus[]. Reuse the last stored status for the overflow.
+				(*this)[x]->data.objectStatus = ugYucky.bStatus[ x < OLD_MAX_OBJECTS_PER_SLOT_101 ? x : OLD_MAX_OBJECTS_PER_SLOT_101 - 1 ];
 				(*this)[x]->data.bTrap = src.bTrap;		// 1-10 exp_lvl to detect
 				(*this)[x]->data.ubImprintID = src.ubImprintID;	// ID of merc that item is imprinted on
 				(*this)[x]->data.fUsed = src.fUsed;				// flags for whether the item is used or not

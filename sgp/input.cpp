@@ -1600,8 +1600,11 @@ void RestrictMouseToXYXY(UINT16 usX1, UINT16 usY1, UINT16 usX2, UINT16 usY2)
 
 void RestrictMouseCursor(SGPRect *pRectangle)
 {
-	// Make a copy of our rect....
-	memcpy( &gCursorClipRect, pRectangle, sizeof( gCursorClipRect ) );
+	// Make a copy of our rect. Copy the SOURCE size: gCursorClipRect is a Win32
+	// RECT (32 bytes on 64-bit, LONG==long), but pRectangle is a 16-byte SGPRect;
+	// sizeof(gCursorClipRect) would over-read the source. (gCursorClipRect is only
+	// consumed under _WIN32, where RECT and SGPRect are both 16 bytes.)
+	memcpy( &gCursorClipRect, pRectangle, sizeof( *pRectangle ) );
 #ifdef _WIN32
 	ClientToScreen( ghWindow, (LPPOINT)&gCursorClipRect);
 	ClientToScreen( ghWindow, ((LPPOINT)&gCursorClipRect)+1);

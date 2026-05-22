@@ -113,7 +113,7 @@ UINT32		gubMPJExitScreen = MP_JOIN_SCREEN;	// The screen that is in control next
 UINT32		guiMPJMainBackGroundImage;
 
 // Wide-char strings that will hold the variables until they are transferred to the CHAR ascii fields
-CHAR16		gzPlayerHandleField[ 10+1 ] = {0} ;
+CHAR16		gzPlayerHandleField[ 11+1 ] = {0} ;	// capacity 12: every caller passes 12 (and default "Player Name" is 11 chars + null)
 CHAR16		gzServerIPField[ 15+1 ] = {0} ;
 CHAR16		gzServerPortField[ 5+1 ] = {0} ;
 
