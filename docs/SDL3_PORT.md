@@ -27,7 +27,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 3 | SDL3 window + event loop, drop WinMain | ✅ Done — SDL3 message pump runs the game on every platform; `_WIN32`-only WinMain gone. |
 | 4 | SDL3 input, drop DirectInput / Win32 hooks | ✅ Done — `sgp/sdl_input.cpp` translates SDL_Event → JA2 `QueueEvent`, mouse/keyboard fully on SDL3. |
 | 5 | SDL3 video (RGB565 transitional), retire DirectDraw | ✅ Done — `sgp/sdl_video.cpp` + `sgp/sdl_vsurface.cpp` own the path; legacy `video.cpp` / `vsurface.cpp` deleted (Phase 5b structural flip, 2026-05-16). |
-| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | 🟡 Most work landed (ALL inline asm now ported to C — incl. the renderworld multi-Z-strip blitters that were silent no-ops on non-Windows, which had left prone soldiers, corpses and multi-tile structures invisible; tactical playable, FMOD→SDL3_mixer in 6r, Smacker→libsmacker in 6u, cursor + render + tooltip fixes). RGB565 is still the internal format; RGBA8888 conversion + palette LUT regen pending. |
+| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | ✅ Done — ALL inline asm ported to C (incl. the renderworld multi-Z-strip blitters that were silent no-ops on non-Windows, which had left prone soldiers, corpses and multi-tile structures invisible; tactical playable, FMOD→SDL3_mixer in 6r, Smacker→libsmacker in 6u, cursor + render + tooltip fixes). Internal format is now **RGBA8888** (`SGP_PIXEL_DEPTH 32` in `sgp/pixfmt.h`; `Get16BPPColor`→`Get32BPPColor`; `PixShade`/`PixIntensity`/`PixBlend50` do per-channel arithmetic in place of the 16-bit LUTs; ARGB8888 streaming texture). The `Get16BPPColor`-into-`UINT16` colour-truncation tail was swept across `phase-6c-truecolor-ui`, `fix-truecolor-item-glow`, and `fix-truecolor-ui-remainder`. RGB565 now only survives at asset-decode boundaries (STCI/himage expand stored 16-bit pixels to ARGB on load) and in 16bpp-only-guarded LUTs. |
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | 🟡 GDI `WinFont.cpp` retired everywhere (no-op stubs in `WinFont.h`, `iUseWinFonts` off); stb_truetype replacement still pending. |
@@ -866,9 +866,10 @@ actually used as a mask — dead-code preserved), and the
 update Z; obscured pixels render only on a checkerboard mask, no Z
 update).
 
-The 8bpp→16bpp palette LUT (`p16BPPPalette`) is still RGB565 and the
-Z-buffer is still `UINT16`. Pixel-format conversion to RGBA8888 is
-the remaining Phase 6 work.
+(Historical note: at the time of the asm port the 8bpp palette LUT was
+still RGB565. The pixel-format conversion to RGBA8888 has since landed —
+see 6b below. The Z-buffer remains `UINT16`, which is correct: it stores
+depth, not colour.)
 
 The remaining inline-asm sites outside `vobject_blitters.cpp` are also
 gone:
@@ -917,32 +918,46 @@ stripped where the file no longer uses anything from `<windows.h>`,
 and `Random.cpp`'s legacy `GetCursorPos` entropy was replaced with
 `SDL_GetGlobalMouseState`.
 
-### 6b. RGBA8888 conversion (pending)
+### 6b. RGBA8888 conversion (✅ done)
 
-1. Change `PIXEL_DEPTH` in [Ja2/local.h](../Ja2/local.h) from 16 to 32.
-2. Wide-rename `UINT16* pBuffer` → `UINT32* pBuffer` across every
-   blitter and caller. Adjust pitch math (bytes-per-pixel doubles).
-3. Regenerate the 8bpp→32bpp palette LUTs in
-   [sgp/himage.cpp](../sgp/himage.cpp). The shading, fade-to-black,
-   fade-to-white, translucency, and night-vision tables in
-   [sgp/shading.cpp](../sgp/shading.cpp) all need RGBA8888
-   equivalents.
-4. Rewrite the portable-C blitter inner loops to operate on `UINT32`
-   pixels; replace `blendWithAlpha` and `IntensityTable` with portable
-   per-channel arithmetic (consider SDL_SIMD intrinsics).
-5. Update SDL texture format to `SDL_PIXELFORMAT_ARGB8888` or
-   matching endianness.
-6. Re-add the saveable surfaces / screenshot writer (the original TGA
-   path lived in the now-deleted `sgp/video.cpp`; needs to live in
-   `sgp/sdl_video.cpp` or a sibling).
-7. Z-buffer stays `UINT16` (it's a depth value, not a color).
+Landed across the `phase-6b-rgba8888` and `phase-6c-truecolor-ui`
+branches, with the colour-truncation tail closed on
+`fix-truecolor-item-glow` and `fix-truecolor-ui-remainder`. How it maps
+to the original plan:
 
-**Risk**: this is the phase where game-rendering regressions hide.
-Plan golden-image regression testing — render a known scene under
-Phase 5 (tag the commit) vs Phase 6, diff the buffers.
+1. ✅ Depth flag is `SGP_PIXEL_DEPTH` in
+   [sgp/pixfmt.h](../sgp/pixfmt.h) (not the old `Ja2/local.h
+   PIXEL_DEPTH`), set to `32`. `typedef UINT32 PIXEL`.
+2. ✅ Buffers/blitters/callers use `PIXEL` throughout; pitch math is
+   `sizeof(PIXEL)`. The SDL streaming texture is `SDL_PIXELFORMAT_ARGB8888`.
+3. ✅ `Get16BPPColor` returns true ARGB8888 (`Get32BPPColor`). The
+   16-bit shade/intensity LUTs are bypassed at 32bpp —
+   [sgp/pixfmt.h](../sgp/pixfmt.h)'s `PixShade` / `PixIntensity` /
+   `PixBlend50` inlines do per-channel arithmetic instead, and the 64K
+   `ShadeTable`/`IntensityTable` builders in
+   [sgp/shading.cpp](../sgp/shading.cpp) are `#if SGP_PIXEL_DEPTH != 32`
+   only.
+4. ✅ Portable-C blitter loops operate on `PIXEL`. Legacy "logical
+   RGB565 token" colours pass through `PixFromColor16`, which widens a
+   genuine RGB565 token to ARGB but passes an already-expanded ARGB
+   value through unchanged.
+5. ✅ Texture format is `SDL_PIXELFORMAT_ARGB8888` (see
+   [sgp/sdl_video.cpp](../sgp/sdl_video.cpp)).
+6. ⏳ Screenshot/TGA writer not yet re-added (minor; tracked separately).
+7. ✅ Z-buffer stays `UINT16` (depth, not colour).
 
-**Exit criterion**: game is visually identical (or better) to Phase 5
-on all three platforms.
+**Colour-truncation gotcha (closed).** The migration's main hazard was
+storing/passing an ARGB `Get16BPPColor` result through a `UINT16`/`INT16`
+hop — `PixFromColor16` then re-decoded the low bits as RGB565, giving
+wrong/faded/rainbow colours. Phase 6c swept 27 sites; later passes fixed
+the rest (outline blitters' item glow, life/breath/morale + item-status
+bars, trait-radius circles, radar/overhead-map lines, mapscreen
+fill/outline, debug viewers). A tight `= Get16BPPColor` → 16-bit-decl
+scan is now clean except two intentional non-bugs (`shading.cpp index`,
+16bpp-only; `vobject_blitters` `us16BPP*TransColor`, dead commented code).
+
+**Exit criterion (met):** game renders correctly on macOS through
+extended playtesting; CI compiles on Linux/macOS/Windows.
 
 ### 6c. Game-data load + first runtime pass (✅ for boot, ⚠️ for render)
 
