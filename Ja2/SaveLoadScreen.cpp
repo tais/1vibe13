@@ -1790,8 +1790,7 @@ BOOLEAN LoadSavedGameHeader( INT32 bEntry, SAVED_GAME_HEADER *pSaveGameHeader )
 		}
 
 		//Load the Save Game header file
-		FileRead( hFile, pSaveGameHeader, sizeof( SAVED_GAME_HEADER ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( SAVED_GAME_HEADER ) )
+		if( !LoadSaveGameHeaderFromFile( hFile, *pSaveGameHeader ) )
 		{
 			FileClose( hFile );
 			gbSaveGameArray[ VAL_SLOT_START + bEntry ] = FALSE;

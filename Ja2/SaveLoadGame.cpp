@@ -2428,6 +2428,54 @@ BOOLEAN InitSaveDir()
 	return TRUE;
 }
 
+// --- Portable (save-format v2) serialization of the save-game header. ---
+// The header is the first thing in the file and is read before the version is
+// known (the save/load screen reads every slot's header), so its portable form
+// is unconditional rather than version-gated. CHAR16 description via wstr; the
+// embedded GAME_OPTIONS is scalar-only so it stays a byte block; the legacy
+// ubFiller is preserved as reserved headroom.
+template<class Ar> static void XferSaveGameHeader( Ar& ar, SAVED_GAME_HEADER& h )
+{
+	ar.u32 (h.uiSavedGameVersion);
+	ar.str8(h.zGameVersionNumber, GAME_VERSION_LENGTH);
+	ar.wstr(h.sSavedGameDesc, SIZE_OF_SAVE_GAME_DESC);
+	ar.u32 (h.uiFlags);
+#ifdef CRIPPLED_VERSION
+	ar.bytes(h.ubCrippleFiller, sizeof(h.ubCrippleFiller));
+#endif
+	ar.u32 (h.uiDay);
+	ar.u8  (h.ubHour);
+	ar.u8  (h.ubMin);
+	ar.i16 (h.sSectorX);
+	ar.i16 (h.sSectorY);
+	ar.i8  (h.bSectorZ);
+	ar.u16 (h.ubNumOfMercsOnPlayersTeam);
+	ar.i32 (h.iCurrentBalance);
+	ar.u32 (h.uiCurrentScreen);
+	ar.boolean(h.fAlternateSector);
+	ar.boolean(h.fWorldLoaded);
+	ar.u8  (h.ubLoadScreenID);
+	ar.bytes(&h.sInitialGameOptions, sizeof(GAME_OPTIONS)); // scalar-only -> portable
+	ar.u32 (h.uiRandom);
+	ar.bytes(h.ubFiller, sizeof(h.ubFiller));               // reserved headroom
+}
+
+BOOLEAN SaveSaveGameHeaderToFile( HWFILE hFile, SAVED_GAME_HEADER& h )
+{
+	SaveWriter w(hFile);
+	SaveFieldWriter ar(w);
+	XferSaveGameHeader(ar, h);
+	return w.good() ? TRUE : FALSE;
+}
+
+BOOLEAN LoadSaveGameHeaderFromFile( HWFILE hFile, SAVED_GAME_HEADER& h )
+{
+	SaveReader r(hFile);
+	SaveFieldReader ar(r);
+	XferSaveGameHeader(ar, h);
+	return r.good() ? TRUE : FALSE;
+}
+
 // WDS - Automatically try to save when an assertion failure occurs
 extern bool alreadySaving = false;
 extern bool bHideTopMessage;
@@ -2740,8 +2788,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 
 
-	FileWrite( hFile, &SaveGameHeader, sizeof( SAVED_GAME_HEADER ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( SAVED_GAME_HEADER ) )
+	if( !SaveSaveGameHeaderToFile( hFile, SaveGameHeader ) )
 	{
 		ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR, L"ERROR writing save game header");
 		goto FAILED_TO_SAVE;
@@ -3744,8 +3791,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 
 
 	//Load the Save Game header file
-	FileRead( hFile, &SaveGameHeader, sizeof( SAVED_GAME_HEADER ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( SAVED_GAME_HEADER ) )
+	if( !LoadSaveGameHeaderFromFile( hFile, SaveGameHeader ) )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Loading Save Game Header failed" ) );
 		FileClose( hFile );
