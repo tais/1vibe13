@@ -118,6 +118,33 @@ UINT32 LoadSampleFromFile(STR pFilename)
 		return NO_SAMPLE;
 	}
 
+	// Sanitize a malformed RIFF/WAVE header. Many of the original JA2
+	// speech assets (SPEECH\*.wav) store a RIFF chunk size that is a
+	// couple of dozen bytes smaller than the actual file -- a known quirk
+	// of the era's authoring tools. SDL3_mixer's WAV decoder clamps the
+	// believed file length to that RIFF size and then rejects the data
+	// chunk as starting past EOF ("Audio data is in unknown/unsupported/
+	// corrupt format"). The audio payload itself is fine; only the size
+	// field lies. Patch it to (size - 8) -- the canonical "everything
+	// after the RIFF id + size fields" value -- when the stored value is
+	// too small, so the decoder trusts the whole file.
+	if (size >= 12) {
+		const unsigned char* b = static_cast<const unsigned char*>(buffer);
+		if (b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F' &&
+		    b[8] == 'W' && b[9] == 'A' && b[10] == 'V' && b[11] == 'E') {
+			UINT32 riffSize = (UINT32)b[4]        | ((UINT32)b[5] << 8) |
+			                  ((UINT32)b[6] << 16) | ((UINT32)b[7] << 24);
+			UINT32 expected = size - 8;
+			if (riffSize < expected) {
+				unsigned char* w = static_cast<unsigned char*>(buffer);
+				w[4] = (unsigned char)( expected        & 0xFF);
+				w[5] = (unsigned char)((expected >> 8)  & 0xFF);
+				w[6] = (unsigned char)((expected >> 16) & 0xFF);
+				w[7] = (unsigned char)((expected >> 24) & 0xFF);
+			}
+		}
+	}
+
 	// SDL_IOFromMem doesn't take ownership of the buffer. With
 	// predecode=true the IO is consumed during MIX_LoadAudio_IO, but
 	// closeio=true asks SDL3_mixer to also close it after -- which
