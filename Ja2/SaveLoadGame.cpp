@@ -3759,6 +3759,19 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	guiCurrentSaveGameVersion = SaveGameHeader.uiSavedGameVersion;
 	guiBrokenSaveGameVersion = SaveGameHeader.uiSavedGameVersion;
 
+	// Save-format v2 is a clean break: saves older than PORTABLE_SAVE_FORMAT were
+	// written with the old raw-memory-dump layout and cannot be read by the
+	// portable deserializers. Reject them here, up front, before any
+	// format-dependent reads -- otherwise their bytes would be mis-read as v2 and
+	// corrupt memory / crash. (uiSavedGameVersion is the first field in the file,
+	// so it reads correctly regardless of the rest of the header layout.)
+	if( guiCurrentSaveGameVersion < PORTABLE_SAVE_FORMAT )
+	{
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Save is older than the portable save format (v%d < %d) -- rejected", guiCurrentSaveGameVersion, PORTABLE_SAVE_FORMAT ) );
+		FileClose( hFile );
+		return(FALSE);
+	}
+
 	// WANNE: Store the info
 	lastLoadedSaveGameDay = SaveGameHeader.uiDay;
 	lastLoadedSaveGameHour = SaveGameHeader.ubHour;

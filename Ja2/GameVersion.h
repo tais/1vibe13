@@ -20,8 +20,16 @@ extern	CHAR16		zBuildInformation[256];
 
 //ADB:	I needed these here so I moved them, and why put them in *.cpp anyways?
 //
-//		Keeps track of the saved game version.	Increment the saved game version whenever 
+//		Keeps track of the saved game version.	Increment the saved game version whenever
 //	you will invalidate the saved game file
+
+// Explicit little-endian, CHAR16-portable save format (save-format v2). A clean
+// break from the upstream raw-memory-dump layout, so it jumps well clear of
+// upstream's sequential numbering (which tops out around 186) both to signal the
+// new generation and to avoid colliding with future 1.13 increments. Saves older
+// than this are rejected at load time (their bytes are the old, non-portable
+// layout and cannot be read by the v2 deserializers).
+#define			PORTABLE_SAVE_FORMAT							1000
 
 #define			INCREASED_TEAMSIZES								186 // Asdow: SOLDIERTYPE ubID changed from UINT8 -> UINT16
 #define			MERC_PROFILE_INSERTION_DATA					    185 // Bigmap support for AddProfileToMap function
@@ -107,7 +115,7 @@ extern	CHAR16		zBuildInformation[256];
 #define			AP100_SAVEGAME_DATATYPE_CHANGE					105	// Before this, we didn't have the 100AP structure changes
 #define			NIV_SAVEGAME_DATATYPE_CHANGE					102	// Before this, we used the old structure system
 
-#define			SAVE_GAME_VERSION								INCREASED_TEAMSIZES
+#define			SAVE_GAME_VERSION								PORTABLE_SAVE_FORMAT
 
 //#define RUSSIANGOLD
 #ifdef __cplusplus
