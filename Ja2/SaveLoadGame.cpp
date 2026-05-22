@@ -6422,8 +6422,10 @@ BOOLEAN SaveEmailToSavedGame( HWFILE hFile )
 	pEmail = pEmailList;
 	for( cnt=0; cnt<uiNumOfEmails; ++cnt)
 	{
-		//Get the strng length of the subject
-		uiStringLength = ( wcslen( pEmail->pSubject ) + 1 ) * 2;
+		//Get the strng length of the subject. sizeof(CHAR16), not a hardcoded 2:
+		//CHAR16/wchar_t is 4 bytes on macOS/Linux, so *2 truncated the subject to
+		//half length and stored no full terminator.
+		uiStringLength = ( wcslen( pEmail->pSubject ) + 1 ) * sizeof( CHAR16 );
 
 		//write the length of the current emails subject to the saved game file
 		FileWrite( hFile, &uiStringLength, sizeof( UINT32 ), &uiNumBytesWritten );
@@ -6519,7 +6521,13 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 			return( FALSE );
 		memset( pData, 0, EMAIL_SUBJECT_LENGTH * sizeof( CHAR16 ) );
 
-		//Get the subject
+		//Get the subject. Guard against a stored length that would overflow the
+		//fixed buffer (corrupt or cross-platform save); the memset above keeps it
+		//null-terminated.
+		if( uiSizeOfSubject > EMAIL_SUBJECT_LENGTH * sizeof( CHAR16 ) )
+		{
+			return(FALSE);
+		}
 		FileRead( hFile, pData, uiSizeOfSubject, &uiNumBytesRead );
 		if( uiNumBytesRead != uiSizeOfSubject )
 		{
