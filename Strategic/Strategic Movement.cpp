@@ -1,6 +1,7 @@
 	#include "builddefines.h"
 	#include <stdlib.h>
 	#include "Strategic Movement.h"
+	#include "SaveSerializer.h"
 	#include "MemMan.h"
 	#include "DEBUG.H"
 	#include "Campaign Types.h"
@@ -4028,6 +4029,42 @@ void SetGroupPosition( UINT8 ubNextX, UINT8 ubNextY, UINT8 ubPrevX, UINT8 ubPrev
 	}
 }
 
+// Portable (save-format v2) field list for a GROUP node. The runtime pointers
+// (pWaypoints, the pPlayerList/pEnemyGroup union, next) are not persisted -- the
+// waypoint list, player list and enemy struct are saved separately right after
+// each node, and 'next' is rebuilt while re-linking the list on load. Everything
+// else is fixed-width scalar.
+template<class Ar> static void XferGroupNode( Ar& ar, GROUP& g )
+{
+	ar.boolean(g.fDebugGroup);
+	ar.u8 (g.usGroupTeam);
+	ar.boolean(g.fVehicle);
+	ar.boolean(g.fPersistant);
+	ar.u8 (g.ubGroupID);
+	ar.u16(g.ubGroupSize);
+	ar.u8 (g.ubSectorX); ar.u8(g.ubSectorY); ar.u8(g.ubSectorZ);
+	ar.u8 (g.ubNextX); ar.u8(g.ubNextY);
+	ar.u8 (g.ubPrevX); ar.u8(g.ubPrevY);
+	ar.u8 (g.ubOriginalSector);
+	ar.boolean(g.fBetweenSectors);
+	ar.u8 (g.ubMoveType);
+	ar.u8 (g.ubNextWaypointID);
+	ar.u8 (g.ubFatigueLevel);
+	ar.u8 (g.ubRestAtFatigueLevel);
+	ar.u8 (g.ubRestToFatigueLevel);
+	ar.u32(g.uiArrivalTime);
+	ar.u32(g.uiTraverseTime);
+	ar.boolean(g.fRestAtNight);
+	ar.boolean(g.fWaypointsCancelled);
+	// pWaypoints not persisted (saved separately)
+	ar.u8 (g.ubTransportationMask);
+	ar.u32(g.uiFlags);
+	ar.u8 (g.ubCreatedSectorID);
+	ar.u8 (g.ubSectorIDOfLastReassignment);
+	ar.bytes(g.bPadding, sizeof(g.bPadding));
+	// pPlayerList/pEnemyGroup union + next not persisted
+}
+
 BOOLEAN SaveStrategicMovementGroupsToSaveGameFile( HWFILE hFile )
 {
 	GROUP *pGroup=NULL;
@@ -4056,12 +4093,16 @@ BOOLEAN SaveStrategicMovementGroupsToSaveGameFile( HWFILE hFile )
 	//Loop through the linked lists and add each node
 	while( pGroup )
 	{
-		// Save each node in the LL
-		FileWrite( hFile, pGroup, sizeof( GROUP ), &uiNumBytesWritten );
-		if( uiNumBytesWritten != sizeof( GROUP ) )
+		// Save each node in the LL (portable v2)
 		{
-			//Error Writing group node to disk
-			return( FALSE );
+			SaveWriter w(hFile);
+			SaveFieldWriter ar(w);
+			XferGroupNode(ar, *pGroup);
+			if( !w.good() )
+			{
+				//Error Writing group node to disk
+				return( FALSE );
+			}
 		}
 
 		//
@@ -4144,12 +4185,16 @@ BOOLEAN LoadStrategicMovementGroupsFromSavedGameFile( HWFILE hFile )
 			return( FALSE );
 		memset( pTemp, 0, sizeof( GROUP ) );
 
-		//Read in the node
-		FileRead( hFile, pTemp, sizeof( GROUP ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( GROUP ) )
+		//Read in the node (portable v2; pointers/next set below)
 		{
-			//Error Writing size of L.L. to disk
-			return( FALSE );
+			SaveReader r(hFile);
+			SaveFieldReader ar(r);
+			XferGroupNode(ar, *pTemp);
+			if( !r.good() )
+			{
+				//Error Writing size of L.L. to disk
+				return( FALSE );
+			}
 		}
 
 		// Flugente: Up to now, GROUPs were either player-controlled (fPlayer = TRUE) or enemy-controlled (fPlayer = FALSE).
@@ -4495,12 +4540,16 @@ BOOLEAN SaveWayPointList( HWFILE hFile, GROUP *pGroup )
 		pWayPoints = pGroup->pWaypoints;
 		for(cnt=0; cnt<uiNumberOfWayPoints; ++cnt)
 		{
-			//Save the waypoint node
-			FileWrite( hFile, pWayPoints, sizeof( WAYPOINT ), &uiNumBytesWritten );
-			if( uiNumBytesWritten != sizeof( WAYPOINT ) )
+			//Save the waypoint node (portable v2: x/y only; 'next' rebuilt on load)
 			{
-				//Error Writing size of L.L. to disk
-				return( FALSE );
+				SaveWriter w(hFile);
+				w.u8(pWayPoints->x);
+				w.u8(pWayPoints->y);
+				if( !w.good() )
+				{
+					//Error Writing size of L.L. to disk
+					return( FALSE );
+				}
 			}
 
 			//Advance to the next waypoint
@@ -4540,12 +4589,16 @@ BOOLEAN LoadWayPointList(HWFILE hFile, GROUP *pGroup )
 				return( FALSE );
 			memset( pTemp, 0, sizeof( WAYPOINT ) );
 
-			//Load the waypoint node
-			FileRead( hFile, pTemp, sizeof( WAYPOINT ), &uiNumBytesRead );
-			if( uiNumBytesRead != sizeof( WAYPOINT ) )
+			//Load the waypoint node (portable v2: x/y only)
 			{
-				//Error Writing size of L.L. to disk
-				return( FALSE );
+				SaveReader r(hFile);
+				pTemp->x = r.u8();
+				pTemp->y = r.u8();
+				if( !r.good() )
+				{
+					//Error Writing size of L.L. to disk
+					return( FALSE );
+				}
 			}
 
 			pTemp->next = NULL;
