@@ -104,7 +104,7 @@ void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWi
 
 	UINT32										uiDestPitchBYTES;
 	UINT8											*pDestBuf;
-	UINT16										usLineColor;
+	PIXEL										usLineColor;
 	INT8											bBandage;
 
 	// Erase what was there
@@ -191,7 +191,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 
 	UINT32										uiDestPitchBYTES;
 	UINT8										*pDestBuf;
-	UINT16										usLineColor;
+	PIXEL										usLineColor;
 	HVOBJECT									hHandle;
 
 	// Erase what was there
@@ -303,7 +303,7 @@ void DrawMoraleUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 
 	UINT32										uiDestPitchBYTES;
 	UINT8											*pDestBuf;
-	UINT16										usLineColor;
+	PIXEL										usLineColor;
 
 	// Erase what was there
 	if ( fErase )
@@ -338,14 +338,14 @@ void DrawMoraleUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 }
 
 
-void DrawItemUIBarEx( OBJECTTYPE *pObject, UINT8 ubStatus, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, INT16 sColor1, INT16 sColor2, BOOLEAN fErase, UINT32 uiBuffer, UINT8 iter )
+void DrawItemUIBarEx( OBJECTTYPE *pObject, UINT8 ubStatus, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, PIXEL sColor1, PIXEL sColor2, BOOLEAN fErase, UINT32 uiBuffer, UINT8 iter )
 {
 	FLOAT										dStart, dEnd, dPercentage;
 	//UINT16										usLineColor;
 
 	UINT32										uiDestPitchBYTES;
 	UINT8										*pDestBuf;
-	UINT16										usLineColor;
+	PIXEL										usLineColor;
 	INT16										sValue;
 	
 	if ( ubStatus >= DRAW_ITEM_STATUS_ATTACHMENT1 )
