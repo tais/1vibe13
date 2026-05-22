@@ -308,9 +308,14 @@ There is no separate schema file — the layout *is* the per-struct field list:
 
 ### Versioning
 
-`SAVE_GAME_VERSION` (in `Ja2/GameVersion.h`) gates old vs new format at load. A
-clean-break bump (rejecting pre-migration saves) is **still pending** — until then
-old/intermediate dev saves are not distinguishable by version and will mis-load.
+`SAVE_GAME_VERSION` (in `Ja2/GameVersion.h`) gates old vs new format at load. It is
+now `PORTABLE_SAVE_FORMAT = 1000` — a generational jump clear of upstream's
+sequential numbering (~186), marking the clean break and avoiding collisions with
+future 1.13 increments. `LoadSavedGame` **rejects any save below 1000** up front
+(before any format-dependent read), so pre-migration saves fail cleanly instead of
+mis-reading old bytes as v2. `uiSavedGameVersion` is the first field in the file,
+so the gate reads correctly regardless of the rest of the (not-yet-portable)
+header layout.
 
 ---
 
@@ -334,3 +339,64 @@ false positives in the Apple Metal/GCD allocator path. All are fixed:
 The recurring theme is the same one the format work targets: **hard-coded
 2-byte wide chars and 32-bit-wide assumptions** that only break once a 64-bit
 build actually exercises the code.
+
+---
+
+## Save-stream audit (remaining serialization beyond the migrated structs)
+
+The structs migrated to v2 (soldiers/profiles/items/etc.) are the bulk of save
+data and the wide-char-heavy part. The **rest** of the save stream is still a mix
+of ad-hoc length-prefixed strings and raw struct blobs. Audited in two buckets:
+
+### Same-platform crash / corruption risks (priority — these actually bite)
+
+The dangerous patterns are (a) a *file-controlled* length read into a fixed/typed
+buffer, and (b) a scalar global serialized with a wrong-width `sizeof`. Found and
+fixed:
+
+- **map-screen messages** (`Utils/message.cpp`) — `*2` wchar size + unbounded
+  read into a fixed buffer. *(fixed)*
+- **explosion queue count** (`TileEngine/Explosion Control.cpp`) — `UINT8` global
+  read/written as `sizeof(UINT32)` → 3-byte global overflow. *(fixed)*
+- **email subject** (`Ja2/SaveLoadGame.cpp`) — `*2` wchar size; load read now
+  bounded against the fixed `EMAIL_SUBJECT_LENGTH` buffer. *(fixed)*
+
+Greps for the same shapes elsewhere came up clean (e.g. `gubModderLuaData` is a
+misleadingly-named `INT32[]`, correctly serialized). Exhaustive crash-hunting is
+best continued by **ASan playtesting** across more screens (laptop/email/Bobby
+Ray/sectors), since file-controlled reads are hard to enumerate statically.
+
+### Cross-platform parity (DONE)
+
+The remaining save stream was a mix of raw `FileWrite(&s, sizeof(s))` blobs.
+Auditing the candidate structs precisely (reading each definition, not the noisy
+grep) showed **~70% were already portable**: pure fixed-width-scalar structs are
+byte-identical on all our targets because the only types whose size/alignment
+differ between the **32-bit Windows** build and 64-bit mac/Linux are **pointers
+(4 vs 8), `long` (4 vs 8) and `CHAR16`/`wchar_t` (2 vs 4)** — `UINT*`/`INT*`/
+`FLOAT`/`double`/`BOOLEAN`/`enum` are identical. So the Shipment structs,
+`SavedEmailStruct`, `ENEMYGROUP`, `GENERAL_SAVE_INFO`, `KEY_ON_RING`,
+`ROTTING_CORPSE_DEFINITION`, contract/air-raid/team-turn structs, etc. needed
+**no change**.
+
+The structs that actually carried breakers were all migrated to field-by-field
+serialization (no padding ever written — byte-block shortcuts are unsafe because
+pointer-alignment padding differs between 32- and 64-bit):
+
+| Struct | Breaker | Handling |
+|---|---|---|
+| `SAVED_GAME_HEADER` | CHAR16 desc + GAME_OPTIONS | `wstr` desc; scalar GAME_OPTIONS as bytes; read before version gate |
+| `TacticalStatusType` | CHAR16 top-message | `wstr`; SoldierID via `.i`; scalar `Team[]` as bytes |
+| `MERCPROFILESTRUCT`, `SOLDIERTYPE`, `SOLDIERCREATE_STRUCT` | CHAR16 names | (original migration) `wstr` |
+| email subject, map-screen messages | CHAR16 `*2` | `sizeof(CHAR16)` + bounded reads |
+| `VEHICLETYPE` | ptrs (pMercPath, pPassengers) | skip; passenger profile IDs as fixed `u32` |
+| `PathSt` (vehicle/militia/merc paths) | ptrs (pNext/pPrev) | shared node helper; links rebuilt |
+| `STRATEGICEVENT`, `UNDERGROUND_SECTORINFO` | linked-list `next` | skip; rebuilt on load |
+| `LaptopSaveInfoStruct` | 2 array ptrs | skip (arrays saved separately); scalars/sub-structs as bytes |
+| `BULLET` | ptrs (firer/tracer/anitiles) | skip; firer re-derived from ID |
+| `GROUP` + `WAYPOINT` | ptrs (waypoints/union/next) | skip; sub-lists saved separately, links rebuilt |
+
+`signed long` fields (e.g. SOLDIERTYPE's `lUnregainableBreath`) are pinned to
+32-bit (`ar.slong`). Same-platform saves were always fine; this pass makes saves
+**shareable across Win/Lin/Mac**. Verification remains by playtest until a test
+framework lands (golden-byte cross-platform tests are the ideal coverage).

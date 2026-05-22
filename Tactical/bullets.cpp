@@ -1,4 +1,5 @@
 	#include <string.h>
+	#include "SaveSerializer.h"
 	#include "worlddef.h"
 	#include <Isometric Utils.h>
 	#include "WCheck.h"
@@ -551,6 +552,48 @@ void AddMissileTrail( BULLET *pBullet, FIXEDPT qCurrX, FIXEDPT qCurrY, FIXEDPT q
 }
 
 
+// Portable (save-format v2) field list for a BULLET. Runtime pointers (tracer
+// pNodes[], pFirer, pAniTile, pShadowAniTile) are not persisted -- pFirer is
+// re-derived from ubFirerID on load and the rest are NULL (memset) -- so their
+// 4-vs-8-byte size doesn't break parity. FIXEDPT is INT64; everything else is
+// fixed-width scalar.
+template<class Ar> static void XferBullet( Ar& ar, BULLET& b )
+{
+	int i;
+	for (i = 0; i < BULLET_TRACER_MAX_LENGTH; ++i) ar.ptr(b.pNodes[i]);
+	ar.i32(b.iBullet);
+	ar.u16(b.ubFirerID.i);
+	ar.u16(b.ubTargetID.i);
+	ar.i8 (b.bStartCubesAboveLevelZ); ar.i8(b.bEndCubesAboveLevelZ);
+	ar.i32(b.sGridNo);
+	ar.i16(b.sUnused);
+	ar.u16(b.usLastStructureHit);
+	ar.i64(b.qCurrX); ar.i64(b.qCurrY); ar.i64(b.qCurrZ);
+	ar.i64(b.qIncrX); ar.i64(b.qIncrY); ar.i64(b.qIncrZ);
+	ar.f64(b.ddHorizAngle);
+	ar.i32(b.iCurrTileX); ar.i32(b.iCurrTileY);
+	ar.i8 (b.bLOSIndexX); ar.i8(b.bLOSIndexY);
+	ar.boolean(b.fCheckForRoof);
+	ar.i32(b.iCurrCubesZ);
+	ar.i32(b.iLoop);
+	ar.boolean(b.fAllocated); ar.boolean(b.fToDelete); ar.boolean(b.fLocated);
+	ar.boolean(b.fReal); ar.boolean(b.fAimed);
+	ar.u32(b.uiLastUpdate);
+	ar.u8 (b.ubTilesPerUpdate);
+	ar.u16(b.usClockTicksPerUpdate);
+	ar.ptr(b.pFirer);
+	ar.i32(b.sOrigGridNo);
+	ar.i32(b.sTargetGridNo);
+	ar.i16(b.sHitBy);
+	ar.i32(b.iImpact); ar.i32(b.iImpactReduction); ar.i32(b.iRange); ar.i32(b.iDistanceLimit);
+	ar.u16(b.usFlags);
+	ar.ptr(b.pAniTile); ar.ptr(b.pShadowAniTile);
+	ar.u16(b.ubItemStatus); ar.u16(b.fromItem);
+	ar.i32(b.flash);
+	ar.boolean(b.fTracer);
+	ar.boolean(b.fFragment);
+}
+
 BOOLEAN SaveBulletStructureToSaveGameFile( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten;
@@ -581,9 +624,11 @@ BOOLEAN SaveBulletStructureToSaveGameFile( HWFILE hFile )
 			//if the bullet is active, save it
 			if( gBullets[ usCnt ].fAllocated )
 			{
-				//Save the the Bullet structure
-				FileWrite( hFile, &gBullets[usCnt], sizeof( BULLET ), &uiNumBytesWritten );
-				if( uiNumBytesWritten != sizeof( BULLET ) )
+				//Save the the Bullet structure (portable v2)
+				SaveWriter w(hFile);
+				SaveFieldWriter ar(w);
+				XferBullet(ar, gBullets[usCnt]);
+				if( !w.good() )
 				{
 					return( FALSE );
 				}
@@ -612,11 +657,15 @@ BOOLEAN LoadBulletStructureFromSavedGameFile( HWFILE hFile )
 
 	for( usCnt=0; usCnt<guiNumBullets; usCnt++ )
 	{
-		//Load the the Bullet structure
-		FileRead( hFile, &gBullets[usCnt], sizeof( BULLET ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( BULLET ) )
+		//Load the the Bullet structure (portable v2; pointers cleared by memset above)
 		{
-			return( FALSE );
+			SaveReader r(hFile);
+			SaveFieldReader ar(r);
+			XferBullet(ar, gBullets[usCnt]);
+			if( !r.good() )
+			{
+				return( FALSE );
+			}
 		}
 
 		//Set some parameters

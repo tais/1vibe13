@@ -75,6 +75,15 @@ BOOLEAN InitSaveDir();
 BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc );
 BOOLEAN LoadSavedGame( int ubSavedGameID );
 
+// Portable (save-format v2) header read/write -- see SaveLoadGame.cpp.
+BOOLEAN SaveSaveGameHeaderToFile( HWFILE hFile, SAVED_GAME_HEADER& h );
+BOOLEAN LoadSaveGameHeaderFromFile( HWFILE hFile, SAVED_GAME_HEADER& h );
+
+// Portable (save-format v2) PathSt node (path data only; links re-built on load).
+struct path;
+BOOLEAN SavePathNodeToFile( HWFILE hFile, struct path* p );
+BOOLEAN LoadPathNodeFromFile( HWFILE hFile, struct path* p );
+
 BOOLEAN CopySavedSoldierInfoToNewSoldier( SOLDIERTYPE *pDestSourceInfo, SOLDIERTYPE *pSourceInfo );
 
 BOOLEAN		SaveFilesToSavedGame( STR pSrcFileName, HWFILE hFile );

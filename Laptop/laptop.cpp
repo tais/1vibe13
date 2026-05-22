@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include "SaveSerializer.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "Render Dirty.h"
@@ -7156,16 +7157,76 @@ void ClearOutTempLaptopFiles( void )
 }
 
 
+// Portable (save-format v2) field list for LaptopSaveInfoStruct. All members are
+// fixed-width scalars (serialized individually, arrays/sub-structs as byte
+// blocks -- portable since they contain no pointers/long/CHAR16) except two
+// runtime array pointers (BobbyRayOrdersOnDeliveryArray, pLifeInsurancePayouts)
+// whose arrays are saved separately; those are skipped (NULL on load).
+template<class Ar> static void XferLaptopSaveInfo( Ar& ar, LaptopSaveInfoStruct& s )
+{
+	ar.boolean(s.gfNewGameLaptop);
+	ar.bytes(s.fVisitedBookmarkAlready, sizeof(s.fVisitedBookmarkAlready));
+	ar.bytes(s.iBookMarkList, sizeof(s.iBookMarkList));
+	ar.i32(s.iCurrentBalance);
+	ar.boolean(s.fIMPCompletedFlag); ar.boolean(s.fSentImpWarningAlready);
+	ar.bytes(s.ubDeadCharactersList, sizeof(s.ubDeadCharactersList));
+	ar.bytes(s.ubLeftCharactersList, sizeof(s.ubLeftCharactersList));
+	ar.bytes(s.ubOtherCharactersList, sizeof(s.ubOtherCharactersList));
+	ar.u8 (s.gubPlayersMercAccountStatus); ar.u32(s.guiPlayersMercAccountNumber); ar.u8(s.gubLastMercIndex);
+	ar.bytes(s.BobbyRayInventory, sizeof(s.BobbyRayInventory));
+	ar.bytes(s.BobbyRayUsedInventory, sizeof(s.BobbyRayUsedInventory));
+	ar.ptr(s.BobbyRayOrdersOnDeliveryArray);
+	ar.u8 (s.usNumberOfBobbyRayOrderItems); ar.u8(s.usNumberOfBobbyRayOrderUsed);
+	ar.ptr(s.pLifeInsurancePayouts);
+	ar.u8 (s.ubNumberLifeInsurancePayouts); ar.u8(s.ubNumberLifeInsurancePayoutUsed);
+	ar.boolean(s.fBobbyRSiteCanBeAccessed);
+	ar.u8 (s.ubPlayerBeenToMercSiteStatus);
+	ar.boolean(s.fFirstVisitSinceServerWentDown); ar.boolean(s.fNewMercsAvailableAtMercSite);
+	ar.boolean(s.fSaidGenericOpeningInMercSite); ar.boolean(s.fSpeckSaidFloMarriedCousinQuote);
+	ar.boolean(s.fHasAMercDiedAtMercSite);
+#ifdef CRIPPLED_VERSION
+	ar.bytes(s.ubCrippleFiller, sizeof(s.ubCrippleFiller));
+#endif
+	ar.i8 (s.gbNumDaysTillFirstMercArrives); ar.i8(s.gbNumDaysTillSecondMercArrives);
+	ar.i8 (s.gbNumDaysTillThirdMercArrives); ar.i8(s.gbNumDaysTillFourthMercArrives);
+	ar.u32(s.guiNumberOfMercPaymentsInDays);
+	ar.bytes(s.usInventoryListLength, sizeof(s.usInventoryListLength));
+	ar.i32(s.iIMPIndex);
+	ar.u8 (s.ubHaveBeenToBobbyRaysAtLeastOnceWhileUnderConstruction);
+	ar.boolean(s.fMercSiteHasGoneDownYet);
+	ar.u8 (s.ubSpeckCanSayPlayersLostQuote);
+	ar.bytes(&s.sLastHiredMerc, sizeof(s.sLastHiredMerc));
+	ar.i32(s.iCurrentHistoryPage); ar.i32(s.iCurrentFinancesPage); ar.i32(s.iCurrentEmailPage);
+	ar.u32(s.uiSpeckQuoteFlags);
+	ar.u32(s.uiFlowerOrderNumber);
+	ar.u32(s.uiTotalMoneyPaidToSpeck);
+	ar.u8 (s.ubLastMercAvailableId);
+	ar.u32(s.uiJohnEscortedDate);
+	ar.boolean(s.bJohnEscorted);
+	ar.u8 (s.ubJohnPossibleMissedFlights);
+	ar.f32(s.dMilitiaVolunteerPool);
+	ar.f32(s.dMilitiaGunPool); ar.f32(s.dMilitiaArmourPool); ar.f32(s.dMilitiaMiscPool);
+	ar.f32(s.dIntelPool);
+	ar.u32(s.usMapIntelFlags);
+	ar.bytes(s.sIntelInfoForThisHour, sizeof(s.sIntelInfoForThisHour));
+	ar.i32(s.sRaidBloodcats); ar.i32(s.sRaidZombies); ar.i32(s.sRaidBandits);
+	ar.bytes(s.bPadding, sizeof(s.bPadding));
+}
+
 BOOLEAN SaveLaptopInfoToSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten=0;
 	UINT32	uiSize;
 
 	// Save The laptop information
-	FileWrite( hFile, &LaptopSaveInfo, sizeof( LaptopSaveInfoStruct ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( LaptopSaveInfoStruct ) )
 	{
-		return(FALSE);
+		SaveWriter w(hFile);
+		SaveFieldWriter ar(w);
+		XferLaptopSaveInfo(ar, LaptopSaveInfo);
+		if( !w.good() )
+		{
+			return(FALSE);
+		}
 	}
 
 	//If there is anything in the Bobby Ray Orders on Delivery
@@ -7228,10 +7289,14 @@ BOOLEAN LoadLaptopInfoFromSavedGame( HWFILE hFile )
 	}
 
 	// Load The laptop information
-	FileRead( hFile, &LaptopSaveInfo, sizeof( LaptopSaveInfoStruct ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( LaptopSaveInfoStruct ) )
 	{
-		return(FALSE);
+		SaveReader r(hFile);
+		SaveFieldReader ar(r);
+		XferLaptopSaveInfo(ar, LaptopSaveInfo);
+		if( !r.good() )
+		{
+			return(FALSE);
+		}
 	}
 
 	//If there is anything in the Bobby Ray Orders on Delivery

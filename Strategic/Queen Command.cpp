@@ -1,6 +1,7 @@
 //Queen Command.c
 
 	#include "Queen Command.h"
+	#include "SaveSerializer.h"
 	#include "Overhead Types.h"
 	#include "strategicmap.h"
 	#include "Soldier Init List.h"
@@ -2609,6 +2610,37 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 }
 
 
+// Portable (save-format v2) field list for an UNDERGROUND_SECTORINFO node. The
+// 'next' linked-list pointer is rebuilt while re-linking the list on load, so it
+// is not persisted (and its 4-vs-8-byte size would otherwise break parity);
+// everything else is fixed-width scalar.
+template<class Ar> static void XferUndergroundSector( Ar& ar, UNDERGROUND_SECTORINFO& s )
+{
+	int i;
+	ar.u32(s.uiFlags);
+	ar.u8 (s.ubSectorX); ar.u8(s.ubSectorY); ar.u8(s.ubSectorZ);
+	ar.u16(s.ubNumElites); ar.u16(s.ubNumTroops); ar.u16(s.ubNumAdmins); ar.u16(s.ubNumCreatures);
+	ar.u8 (s.fVisited);
+	ar.i8 (s.ubTravelRating);
+	ar.u32(s.uiTimeCurrentSectorWasLastLoaded);
+	// 'next' not persisted
+	ar.u16(s.ubNumBloodcats);
+	ar.u8 (s.ubCreatureHabitat);
+	ar.u16(s.ubElitesInBattle); ar.u16(s.ubTroopsInBattle); ar.u16(s.ubAdminsInBattle); ar.u16(s.ubCreaturesInBattle);
+	ar.u8 (s.ubMusicMode); ar.u8(s.ubUnsed);
+	ar.u32(s.uiNumberOfWorldItemsInTempFileThatCanBeSeenByPlayer);
+#ifdef JA2UB
+	ar.boolean(s.fCustomSector); ar.boolean(s.fCampaignSector);
+#endif
+	for (i = 0; i < PRISONER_MAX; ++i) ar.u16(s.uiNumberOfPrisonersOfWar[i]);
+	ar.u16(s.ubNumTanks); ar.u16(s.ubTanksInBattle);
+	ar.f32(s.dFortification_MaxPossible); ar.f32(s.dFortification_UnappliedProgress);
+	ar.u16(s.ubNumJeeps); ar.u16(s.ubJeepsInBattle);
+	ar.u8 (s.usExplorationProgress);
+	ar.u16(s.ubNumRobots); ar.u16(s.ubRobotsInBattle);
+	ar.bytes(s.bPadding, sizeof(s.bPadding));
+}
+
 BOOLEAN SaveUnderGroundSectorInfoToSaveGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten;
@@ -2635,10 +2667,14 @@ BOOLEAN SaveUnderGroundSectorInfoToSaveGame( HWFILE hFile )
 	//Go through each node and save it.
 	while( TempNode )
 	{
-		FileWrite( hFile, TempNode, sizeof( UNDERGROUND_SECTORINFO ), &uiNumBytesWritten );
-		if( uiNumBytesWritten != sizeof( UNDERGROUND_SECTORINFO ) )
 		{
-			return(FALSE);
+			SaveWriter w(hFile);
+			SaveFieldWriter ar(w);
+			XferUndergroundSector(ar, *TempNode);
+			if( !w.good() )
+			{
+				return(FALSE);
+			}
 		}
 
 		TempNode = TempNode->next;
@@ -2674,11 +2710,16 @@ BOOLEAN LoadUnderGroundSectorInfoFromSavedGame( HWFILE hFile )
 			return( FALSE );
 
 
-		//read in the new node
-		FileRead( hFile, TempNode, sizeof( UNDERGROUND_SECTORINFO ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( UNDERGROUND_SECTORINFO ) )
+		//read in the new node (portable v2; 'next' set during re-linking below)
 		{
-			return(FALSE);
+			SaveReader r(hFile);
+			SaveFieldReader ar(r);
+			XferUndergroundSector(ar, *TempNode);
+			TempNode->next = NULL;
+			if( !r.good() )
+			{
+				return(FALSE);
+			}
 		}
 
 		//If its the first time in, assign the node to the list

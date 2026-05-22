@@ -2,6 +2,7 @@
 	#include <stdio.h>
 	#include "types.h"
 	#include "Game Events.h"
+	#include "SaveSerializer.h"
 	#include "Game Clock.h"
 	#include "MemMan.h"
 	#include "DEBUG.H"
@@ -721,14 +722,21 @@ BOOLEAN SaveStrategicEventsToSavedGame( HWFILE hFile )
 	pTempEvent = gpEventList;
 	while( pTempEvent )
 	{
-		//save the current structure
-		memcpy( &sGameEvent, pTempEvent, sizeof( STRATEGICEVENT ) );
-
-		//write the current strategic event
-		FileWrite( hFile, &sGameEvent, sizeof( STRATEGICEVENT ), &uiNumBytesWritten );
-		if( uiNumBytesWritten != sizeof( STRATEGICEVENT ) )
+		//write the current strategic event (portable v2; 'next' is a runtime
+		//linked-list pointer, rebuilt on load -> not persisted)
 		{
-			return(FALSE);
+			SaveWriter w(hFile);
+			w.u32(pTempEvent->uiTimeStamp);
+			w.u32(pTempEvent->uiParam);
+			w.u32(pTempEvent->uiTimeOffset);
+			w.u8 (pTempEvent->ubEventType);
+			w.u8 (pTempEvent->ubCallbackID);
+			w.u8 (pTempEvent->ubFlags);
+			w.bytes(pTempEvent->bPadding, sizeof(pTempEvent->bPadding));
+			if( !w.good() )
+			{
+				return(FALSE);
+			}
 		}
 
 		pTempEvent = pTempEvent->next;
@@ -772,15 +780,22 @@ BOOLEAN LoadStrategicEventsFromSavedGame( HWFILE hFile )
 		if( pTempEvent == NULL )
 			return( FALSE );
 
-		//Read the current strategic event
-		FileRead( hFile, &sGameEvent, sizeof( STRATEGICEVENT ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( STRATEGICEVENT ) )
+		//Read the current strategic event (portable v2; 'next' rebuilt below)
 		{
-			return(FALSE);
+			SaveReader r(hFile);
+			pTempEvent->next         = NULL;
+			pTempEvent->uiTimeStamp  = r.u32();
+			pTempEvent->uiParam      = r.u32();
+			pTempEvent->uiTimeOffset = r.u32();
+			pTempEvent->ubEventType  = r.u8();
+			pTempEvent->ubCallbackID = r.u8();
+			pTempEvent->ubFlags      = r.u8();
+			r.bytes(pTempEvent->bPadding, sizeof(pTempEvent->bPadding));
+			if( !r.good() )
+			{
+				return(FALSE);
+			}
 		}
-
-
-		memcpy( pTempEvent, &sGameEvent, sizeof( STRATEGICEVENT ) );
 
 		// Add the new node to the list
 

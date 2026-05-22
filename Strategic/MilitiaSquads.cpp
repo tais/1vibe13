@@ -1,5 +1,6 @@
 	#include "Town Militia.h"
 	#include "Militia Control.h"
+	#include "SaveLoadGame.h"
 	#include "Campaign Types.h"
 	#include "strategic.h"
 	#include "strategicmap.h"
@@ -1624,9 +1625,8 @@ BOOLEAN SaveMilitiaMovementInformationToSaveGameFile( HWFILE hFile )
 		//loop through nodes and save all the nodes
 		while ( pTempPath )
 		{
-			//Save the number of the nodes
-			FileWrite( hFile, pTempPath, sizeof(PathSt), &uiNumBytesWritten );
-			if ( uiNumBytesWritten != sizeof(PathSt) )
+			//Save the node (path data only; links rebuilt on load)
+			if ( !SavePathNodeToFile( hFile, pTempPath ) )
 			{
 				return(FALSE);
 			}
@@ -1699,9 +1699,8 @@ BOOLEAN LoadMilitiaMovementInformationFromSavedGameFile( HWFILE hFile, UINT32 ui
 
 			memset( pTemp, 0, sizeof(PathSt) );
 
-			//Load the node
-			FileRead( hFile, pTemp, sizeof(PathSt), &uiNumBytesRead );
-			if ( uiNumBytesRead != sizeof(PathSt) )
+			//Load the node (path data only; links rebuilt below)
+			if ( !LoadPathNodeFromFile( hFile, pTemp ) )
 			{
 				MemFree( pTemp );
 				pTempPath = MoveToBeginningOfPathList( pTempPath );

@@ -1,4 +1,6 @@
 	#include "Vehicles.h"
+	#include "SaveLoadGame.h"
+	#include "SaveSerializer.h"
 	#include "Strategic Pathing.h"
 	#include "Assignments.h"
 	#include "Strategic Movement.h"
@@ -2271,7 +2273,6 @@ BOOLEAN SaveVehicleInformationToSaveGameFile( HWFILE hFile )
 	PathStPtr	pTempPathPtr;
 	UINT32		uiNodeCount=0;
 	UINT8		cnt;
-	VEHICLETYPE	TempVehicle;
 	UINT8			ubPassengerCnt=0;
 
 	//Save the number of elements
@@ -2293,33 +2294,34 @@ BOOLEAN SaveVehicleInformationToSaveGameFile( HWFILE hFile )
 
 		if( pVehicleList[cnt].fValid )
 		{
-			// copy the node into the temp vehicle buffer ( need to do this because we cant save the pointers
-			// to the soldier, therefore save the soldier ubProfile
-			memcpy( &TempVehicle, &pVehicleList[cnt], sizeof( VEHICLETYPE ) );
-
-			//loop through the passengers
-			for( ubPassengerCnt=0; ubPassengerCnt<10; ubPassengerCnt++)
+			// Portable save-format v2: write the vehicle field-by-field. pMercPath
+			// is a runtime pointer (path saved separately below); pPassengers hold
+			// soldier pointers, persisted as their profile IDs (NO_PROFILE if empty)
+			// at a fixed 32-bit width rather than as platform-sized pointers.
+			VEHICLETYPE& v = pVehicleList[cnt];
+			SaveWriter w(hFile);
+			w.u8 (v.ubMovementGroup);
+			w.u8 (v.ubVehicleType);
+			w.i16(v.sSectorX); w.i16(v.sSectorY); w.i16(v.sSectorZ);
+			w.boolean(v.fBetweenSectors);
+			w.i32(v.sGridNo);
+			for( ubPassengerCnt = 0; ubPassengerCnt < MAXPASSENGERS; ++ubPassengerCnt )
 			{
-				TempVehicle.pPassengers[ ubPassengerCnt ] = ( SOLDIERTYPE * )NO_PROFILE;
-
-				//if there is a passenger here
-				if( pVehicleList[cnt].pPassengers[ ubPassengerCnt ] )
-				{
-					//assign the passengers profile to the struct
-					// ! The pointer to the passenger is converted to a byte so that the Id of the soldier can be saved.
-					// ! This means that the pointer contains a bogus pointer, but a real ID for the soldier.
-					// ! When reloading, this bogus pointer is converted to a byte to contain the id of the soldier so
-					// ! we can get the REAL pointer to the soldier
-					TempVehicle.pPassengers[ ubPassengerCnt ] = ( SOLDIERTYPE * ) pVehicleList[cnt].pPassengers[ ubPassengerCnt ]->ubProfile;
-				}
+				UINT32 uiPassengerID = v.pPassengers[ ubPassengerCnt ]
+					? (UINT32)v.pPassengers[ ubPassengerCnt ]->ubProfile
+					: (UINT32)(uintptr_t)NO_PROFILE;
+				w.u32(uiPassengerID);
 			}
+			w.u16(v.ubDriver.i);
+			for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) w.i16(v.sInternalHitLocations[i]);
+			w.i16(v.sArmourType);
+			for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) w.i16(v.sExternalArmorLocationsStatus[i]);
+			for( UINT8 i = 0; i < NUMBER_OF_INTERNAL_HIT_LOCATIONS_IN_VEHICLE; ++i ) w.i16(v.sCriticalHits[i]);
+			w.i32(v.iOnSound); w.i32(v.iOffSound); w.i32(v.iMoveSound); w.i32(v.iOutOfSound);
+			w.boolean(v.fFunctional); w.boolean(v.fDestroyed);
+			w.i32(v.iMovementSoundID);
+			w.u8 (v.ubProfileID);
 
-			//save the vehicle info
-			FileWrite( hFile, &TempVehicle, sizeof( VEHICLETYPE ), &uiNumBytesWritten );
-			if( uiNumBytesWritten != sizeof( VEHICLETYPE ) )
-			{
-				return( FALSE );
-			}
 			//count the number of nodes in the vehicles path
 			uiNodeCount=0;
 			pTempPathPtr = pVehicleList[cnt].pMercPath;
@@ -2330,23 +2332,20 @@ BOOLEAN SaveVehicleInformationToSaveGameFile( HWFILE hFile )
 			}
 
 			//Save the number of nodes
-			FileWrite( hFile, &uiNodeCount, sizeof( UINT32 ), &uiNumBytesWritten );
-			if( uiNumBytesWritten != sizeof( UINT32 ) )
+			w.u32(uiNodeCount);
+			if( !w.good() )
 			{
 				return( FALSE );
 			}
 
-			//save all the nodes
+			//save all the nodes (path data only; links rebuilt on load)
 			pTempPathPtr = pVehicleList[cnt].pMercPath;
 			while( pTempPathPtr )
 			{
-				//Save the node
-				FileWrite( hFile, pTempPathPtr, sizeof( PathSt ), &uiNumBytesWritten );
-				if( uiNumBytesWritten != sizeof( PathSt ) )
+				if( !SavePathNodeToFile( hFile, pTempPathPtr ) )
 				{
 					return( FALSE );
 				}
-
 				pTempPathPtr = pTempPathPtr->pNext;
 			}
 		}
@@ -2397,11 +2396,33 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 
 			if( pVehicleList[cnt].fValid )
 			{
-				//load the vehicle info
-				FileRead( hFile, &pVehicleList[cnt], sizeof( VEHICLETYPE ), &uiNumBytesRead );
-				if( uiNumBytesRead != sizeof( VEHICLETYPE ) )
+				//load the vehicle info (portable v2 -- matches SaveVehicleInformation...)
 				{
-					return( FALSE );
+					VEHICLETYPE& v = pVehicleList[cnt];
+					SaveReader r(hFile);
+					v.ubMovementGroup = r.u8();
+					v.ubVehicleType   = r.u8();
+					v.sSectorX = r.i16(); v.sSectorY = r.i16(); v.sSectorZ = r.i16();
+					v.fBetweenSectors = r.boolean();
+					v.sGridNo = r.i32();
+					// passenger profile IDs reconstructed into the pointer slots; the
+					// fixup loop below converts them to real SOLDIERTYPE* pointers.
+					for( ubPassengerCnt = 0; ubPassengerCnt < MAXPASSENGERS; ++ubPassengerCnt )
+						v.pPassengers[ ubPassengerCnt ] = (SOLDIERTYPE*)(uintptr_t)r.u32();
+					v.ubDriver.i = r.u16();
+					for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) v.sInternalHitLocations[i] = r.i16();
+					v.sArmourType = r.i16();
+					for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) v.sExternalArmorLocationsStatus[i] = r.i16();
+					for( UINT8 i = 0; i < NUMBER_OF_INTERNAL_HIT_LOCATIONS_IN_VEHICLE; ++i ) v.sCriticalHits[i] = r.i16();
+					v.iOnSound = r.i32(); v.iOffSound = r.i32(); v.iMoveSound = r.i32(); v.iOutOfSound = r.i32();
+					v.fFunctional = r.boolean(); v.fDestroyed = r.boolean();
+					v.iMovementSoundID = r.i32();
+					v.ubProfileID = r.u8();
+					v.pMercPath = NULL; // rebuilt from the saved nodes below
+					if( !r.good() )
+					{
+						return( FALSE );
+					}
 				}
 
 				//
@@ -2458,9 +2479,8 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 							return( FALSE );
 						memset( pTempPath, 0, sizeof( PathSt ) );
 
-						//Load all the nodes
-						FileRead( hFile, pTempPath, sizeof( PathSt ), &uiNumBytesRead );
-						if( uiNumBytesRead != sizeof( PathSt ) )
+						//Load all the nodes (path data only; links rebuilt below)
+						if( !LoadPathNodeFromFile( hFile, pTempPath ) )
 						{
 							return( FALSE );
 						}
