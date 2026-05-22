@@ -67,6 +67,11 @@ extern INT16 gsVIEWPORT_WINDOW_END_Y;
 extern UINT16 SCREEN_WIDTH;
 extern UINT16 SCREEN_HEIGHT;
 
+// Resolved from the Ja2.ini SCREEN_MODE_WINDOWED key (and /WINDOWED,
+// /FULLSCREEN command-line overrides) in GetRuntimeSettings(), which
+// runs before InitializeVideoManager(). 1 == windowed, 0 == fullscreen.
+extern int iScreenMode;
+
 // ---- State -----------------------------------------------------------------
 
 static SDL_Window*   gWindow    = nullptr;
@@ -156,10 +161,18 @@ BOOLEAN InitializeVideoManager(void)
 	// letting the OS compositor blur a 640x480 image up to the panel.
 	// Combined with the logical presentation set below, this is what
 	// makes the bitmap glyphs land on real pixels and read crisp.
+	//
+	// Honour the Ja2.ini windowed/fullscreen setting (iScreenMode 0 ==
+	// fullscreen). SDL_WINDOW_FULLSCREEN in SDL3 is borderless desktop
+	// fullscreen by default (no exclusive video-mode switch), which is
+	// what we want: the logical presentation + letterbox below scales the
+	// 640x480 content to the display and the OS keeps its resolution.
+	SDL_WindowFlags winFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+	if (iScreenMode == 0) winFlags |= SDL_WINDOW_FULLSCREEN;
 	gWindow = SDL_CreateWindow(
 		"Jagged Alliance 2 1.13 (SDL3 port)",
 		SCREEN_WIDTH, SCREEN_HEIGHT,
-		SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+		winFlags);
 	if (!gWindow) {
 		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		return FALSE;
