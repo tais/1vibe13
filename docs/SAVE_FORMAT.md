@@ -308,9 +308,14 @@ There is no separate schema file — the layout *is* the per-struct field list:
 
 ### Versioning
 
-`SAVE_GAME_VERSION` (in `Ja2/GameVersion.h`) gates old vs new format at load. A
-clean-break bump (rejecting pre-migration saves) is **still pending** — until then
-old/intermediate dev saves are not distinguishable by version and will mis-load.
+`SAVE_GAME_VERSION` (in `Ja2/GameVersion.h`) gates old vs new format at load. It is
+now `PORTABLE_SAVE_FORMAT = 1000` — a generational jump clear of upstream's
+sequential numbering (~186), marking the clean break and avoiding collisions with
+future 1.13 increments. `LoadSavedGame` **rejects any save below 1000** up front
+(before any format-dependent read), so pre-migration saves fail cleanly instead of
+mis-reading old bytes as v2. `uiSavedGameVersion` is the first field in the file,
+so the gate reads correctly regardless of the rest of the (not-yet-portable)
+header layout.
 
 ---
 
@@ -334,3 +339,49 @@ false positives in the Apple Metal/GCD allocator path. All are fixed:
 The recurring theme is the same one the format work targets: **hard-coded
 2-byte wide chars and 32-bit-wide assumptions** that only break once a 64-bit
 build actually exercises the code.
+
+---
+
+## Save-stream audit (remaining serialization beyond the migrated structs)
+
+The structs migrated to v2 (soldiers/profiles/items/etc.) are the bulk of save
+data and the wide-char-heavy part. The **rest** of the save stream is still a mix
+of ad-hoc length-prefixed strings and raw struct blobs. Audited in two buckets:
+
+### Same-platform crash / corruption risks (priority — these actually bite)
+
+The dangerous patterns are (a) a *file-controlled* length read into a fixed/typed
+buffer, and (b) a scalar global serialized with a wrong-width `sizeof`. Found and
+fixed:
+
+- **map-screen messages** (`Utils/message.cpp`) — `*2` wchar size + unbounded
+  read into a fixed buffer. *(fixed)*
+- **explosion queue count** (`TileEngine/Explosion Control.cpp`) — `UINT8` global
+  read/written as `sizeof(UINT32)` → 3-byte global overflow. *(fixed)*
+- **email subject** (`Ja2/SaveLoadGame.cpp`) — `*2` wchar size; load read now
+  bounded against the fixed `EMAIL_SUBJECT_LENGTH` buffer. *(fixed)*
+
+Greps for the same shapes elsewhere came up clean (e.g. `gubModderLuaData` is a
+misleadingly-named `INT32[]`, correctly serialized). Exhaustive crash-hunting is
+best continued by **ASan playtesting** across more screens (laptop/email/Bobby
+Ray/sectors), since file-controlled reads are hard to enumerate statically.
+
+### Cross-platform parity (lower urgency — silent, no same-platform crash)
+
+~40 structs are still written as **raw `FileWrite(&s, sizeof(s))` blobs**. The
+pure fixed-width-scalar ones are already byte-identical on our targets (LP64
+mac/Linux, LLP64 Win share alignment for ≤4-byte types). The real cross-platform
+breakers are blobs carrying **`CHAR16` / pointers / `long` / `enum`**, notably:
+
+- `SAVED_GAME_HEADER` — `CHAR16 sSavedGameDesc[]` + an embedded `GAME_OPTIONS`;
+  the save **description** shown on the load screen would be garbage cross-OS.
+  (Must stay readable *before* the version is known, so its portable form is the
+  v2 baseline rather than version-gated.)
+- `TacticalStatusType` — `CHAR16 zTopMessageString[20]`.
+- Others to vet for `CHAR16`/pointers: `GENERAL_SAVE_INFO`, `LaptopSaveInfoStruct`,
+  the strategic `GROUP`/garrison/patrol structs, Bobby Ray / shipment structs, etc.
+
+Migrating all of these to the field visitor is a **large effort comparable to the
+original struct migration**, and only matters for *sharing saves across OSes*
+(same-platform saves already round-trip). It is intentionally left as a tracked
+follow-up rather than bundled here.
