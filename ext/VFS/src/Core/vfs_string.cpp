@@ -162,7 +162,7 @@ void vfs::String::as_utf16(std::string const& str, vfs::String::str_t &str16)
 	}
 	catch(utf8::invalid_utf8& ex)
 	{
-		utf8::uint8_t c = ex.utf8_octet();
+		utf8::utfchar8_t c = ex.utf8_octet();
 		VFS_THROW( _BS(L"Invalid UTF8 character '") << (wchar_t)c << L"'=" << (unsigned char)c <<_BS::wget );
 	}
 	catch(utf8::not_enough_room &ex)
@@ -206,7 +206,7 @@ void vfs::String::as_utf16(const char* str, vfs::String::str_t &str16)
 	}
 	catch(utf8::invalid_utf8& ex)
 	{
-		utf8::uint8_t c = ex.utf8_octet();
+		utf8::utfchar8_t c = ex.utf8_octet();
 		//VFS_THROW( _BS(L"Invalid UTF8 character '") << (wchar_t)c << L"'=" << (unsigned char)c << _BS::wget );
 		VFS_THROW(_BS(L"Invalid UTF8 character '") << (wchar_t)c << L"'=" << (unsigned char)c << L" str16:" << buf16 << _BS::wget);
 	}
