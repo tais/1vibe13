@@ -442,11 +442,21 @@ static UINT32 SoundPlayInternal(STR pFilename, SOUNDPARMS* pParms, bool useEOSCa
 	ApplyPan(ch.track, pan);
 
 	// Legacy semantics: loop count 1 == play once; 0 == loop forever.
-	// SDL3_mixer's loops field is the number of EXTRA plays after the first
-	// (negative == infinite), so map (legacy 0 -> mixer -1) / (legacy N -> mixer N-1).
-	MIX_SetTrackLoops(ch.track, (loop == 0) ? -1 : (int)loop - 1);
-
-	if (!MIX_PlayTrack(ch.track, 0)) {
+	// SDL3_mixer's loop value is EXTRA plays after the first (negative ==
+	// infinite), so map (legacy 0 -> mixer -1) / (legacy N -> mixer N-1).
+	//
+	// The loop count MUST be supplied to MIX_PlayTrack via MIX_PROP_PLAY_LOOPS_NUMBER:
+	// MIX_SetTrackLoops has "no effect on a track that is stopped", and starting
+	// a stopped track resets the count to the default 0 (== play once). The old
+	// SetTrackLoops-then-PlayTrack(0) sequence therefore dropped the loop, so
+	// every looping sound (the arrival helicopter, ambient loops, ...) played
+	// just once and stopped.
+	const int mixLoops = (loop == 0) ? -1 : (int)loop - 1;
+	SDL_PropertiesID opts = SDL_CreateProperties();
+	SDL_SetNumberProperty(opts, MIX_PROP_PLAY_LOOPS_NUMBER, mixLoops);
+	const bool played = MIX_PlayTrack(ch.track, opts);
+	SDL_DestroyProperties(opts);
+	if (!played) {
 		std::fprintf(stderr, "[sound] MIX_PlayTrack('%s') failed: %s\n", pFilename, SDL_GetError());
 		return NO_SAMPLE;
 	}
