@@ -1261,11 +1261,57 @@ naturally with the Phase 6b RGBA8888 work.
    sharpen/upscale filter — integer scaling, a scanline/CRT look, or an
    xBR/Scale2x-style shader — so an upscaled image reads crisp rather
    than blurry or blocky.
-3. **Render certain screens larger when window space allows.**
-   *Research item.* e.g. the laptop phase could use more of a large
-   window instead of the fixed game-resolution viewport. Needs a look at
-   how those screens are laid out (fixed lo-res / 640-based coords) and
-   whether a screen can scale independently of the tactical viewport.
+3. **Scalable UI + zoomable tactical view (decouple interface scale from world scale).**
+   *Bigger research item — investigated, not built.* The dream: scale the
+   interface to a comfortable/readable size while being able to zoom the
+   tactical map (ideally zoom **out** to see more, in-game). Findings from
+   tracing the render path:
+
+   - **Architectural constraint.** The tactical view is 2D isometric
+     **sprite-blitting at a fixed `WORLD_TILE_X 40 × WORLD_TILE_Y 20`**
+     ([worlddef.h](../TileEngine/worlddef.h)); `RenderWorld()`
+     ([renderworld.cpp](../TileEngine/renderworld.cpp)) has **no scale/zoom
+     parameter** (the only `gdScale` there is for the radar minimap). The
+     whole pipeline — blitters (the asm→C ones), mouse↔gridno math
+     (`GetMouseMapPos`), LOS, shadows, soldier/roof Z-layering, dirty-rect
+     refresh — assumes 1:1 tiles. That assumption gradients the difficulty.
+
+   - **Tier 1 — scale the UI for readability (feasible, incremental).** The
+     bottom tactical bar, strategic screen, laptop and other panels are
+     fixed-coordinate **overlays** = the laptop problem repeated per screen:
+     render the panel to an offscreen surface, `BltStretchVideoSurface` it
+     into a larger rect, and remap mouse input by the inverse scale while
+     that screen is active. The laptop is the natural first template — note
+     it **already** renders to `guiSAVEBUFFER` and stretch-blits to the
+     screen for its open/close zoom ([laptop.cpp ~2449](../Laptop/laptop.cpp)),
+     so the mechanism exists; making it persistent is repurposing that plus
+     input remap. Merc labels are just text and can be drawn at a chosen
+     font size independent of world scale. Wire a `LAPTOP_SCALE_FACTOR`-style
+     ini knob (mirrors the existing `TOOLTIP_SCALE_FACTOR`).
+
+   - **Tier 2 — zoom *in* on tactical (feasible, low payoff).** Render the
+     viewport offscreen at 1:1, stretch bigger, inverse-map the mouse. Same
+     trick; but you see *less* map, magnified and soft. Limited usefulness.
+
+   - **Tier 3 — zoom *out* on tactical (major engine project).** To show more
+     map in the same window you must render more tiles at a smaller size,
+     which means either downscale-blitting every tile/sprite/shadow/roof (a
+     big rewrite of the 1:1-optimized blitters, slower, lossy on fixed-res
+     art) or rendering a larger-than-screen 1:1 offscreen and downscaling
+     (2×+ cost/memory, fights the incremental dirty-rect renderer). Plus
+     mouse↔gridno, scroll bounds, LOS/cursor/glow overlays all hardcode the
+     fixed projection and must become scale-aware. **This is why the original
+     devs shipped a separate `overhead map.cpp` (schematic zoom-out) instead
+     of true zoom — same wall.** Weeks of render surgery, not an afternoon.
+
+   - **Pragmatic path (~80% of the dream).** Do Tier 1 (readable, scalable UI)
+     and lean on / enrich the existing **overhead map** as the "zoom out"
+     view — that sidesteps the downscaled-tile wall. A *uniform* whole-screen
+     zoom (UI + world together) is trivial via `SDL_SetRenderLogicalPresentation`
+     but doesn't decouple the two and can't reveal more map, so it isn't what
+     this asks for. True free pan-zoom tactical (Tier 3) is a deliberate
+     multi-week decision; spike it to put real numbers on the cost before
+     committing.
 
 ---
 
