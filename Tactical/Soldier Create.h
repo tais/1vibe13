@@ -427,7 +427,11 @@ public:
 	
 	//Kris:	Additions November 16, 1997 (padding down to 129 from 150)
 	BOOLEAN						fVisible;
-	CHAR16						name[ 10 ];
+	// 16-bit on disk (the original 32-bit engine's CHAR16/wchar_t). Kept 16-bit
+	// so this v6.x record's POD region matches the on-disk layout byte-for-byte;
+	// the in-memory CHAR16 is 4 bytes on macOS/Linux, which would scramble every
+	// field after `name` on a raw blob read. Widened at the conversion operator.
+	UINT16						name[ 10 ];
 
 	UINT8						ubSoldierClass;	//army, administrator, elite
 
@@ -435,15 +439,17 @@ public:
 
 	INT8						bSectorZ;
 
-	SOLDIERTYPE					*pExistingSoldier;
+	// 4-byte slot mirroring the original 32-bit on-disk pointer width (the live
+	// pExistingSoldier pointer is 8 bytes on 64-bit and is never persisted).
+	UINT32						pExistingSoldier;
 	BOOLEAN						fUseExistingSoldier;
 	UINT8						ubCivilianGroup;
 
 	BOOLEAN						fKillSlotIfOwnerDies;
 	UINT8						ubScheduleID;
 
-	BOOLEAN						fUseGivenVehicle;				
-	INT8						bUseGivenVehicleID;				
+	BOOLEAN						fUseGivenVehicle;
+	INT8						bUseGivenVehicleID;
 	BOOLEAN						fHasKeys;
 
 	//

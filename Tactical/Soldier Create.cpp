@@ -356,7 +356,8 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const _OLD_SOLDIERCREATE_S
 	if((void*)this != (void*)&src)
 	{
 		Inv = src.Inv;
-		memcpy(name, src.name, sizeof(CHAR16)*10);
+		// widen the 16-bit on-disk name into the in-memory CHAR16 (wchar_t)
+		for(int i=0; i<10; ++i) name[i] = (CHAR16)src.name[i];
 		memcpy(&HeadPal, &src.HeadPal, sizeof(PaletteRepID));
 		memcpy(&PantsPal, &src.PantsPal, sizeof(PaletteRepID));
 		memcpy(&VestPal, &src.VestPal, sizeof(PaletteRepID));
@@ -395,7 +396,7 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const _OLD_SOLDIERCREATE_S
 		fUseExistingSoldier = src.fUseExistingSoldier;
 		fUseGivenVehicle = src.fUseGivenVehicle;
 		fVisible = src.fVisible;
-		pExistingSoldier = src.pExistingSoldier;
+		pExistingSoldier = NULL; // runtime pointer - never persisted (4-byte on-disk slot)
 		sInsertionGridNo = src.sInsertionGridNo;
 		sSectorX = src.sSectorX;
 		sSectorY = src.sSectorY;
