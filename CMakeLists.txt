@@ -207,26 +207,25 @@ if(NOT TARGET lua51)
   endif()
 endif()
 
-# Expat (XML parser). Windows historically linked the prebuilt
-# libexpatMT.lib; we now build from source on every platform so the
-# Win32 .lib blobs can eventually be deleted from the repo.
-find_package(EXPAT QUIET)
-if(NOT TARGET EXPAT::EXPAT)
-  include(FetchContent)
-  set(EXPAT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-  set(EXPAT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  set(EXPAT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(EXPAT_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-  set(EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    expat
-    GIT_REPOSITORY https://github.com/libexpat/libexpat.git
-    GIT_TAG R_2_6_4
-    SOURCE_SUBDIR expat
-    GIT_SHALLOW TRUE
-  )
-  FetchContent_MakeAvailable(expat)
-endif()
+# Expat (XML parser). Always built from the pinned source on every platform
+# (no find_package fallback to the OS copy): the system expat's patch level
+# varies by platform/OS version, so building R_2_8_1 ourselves guarantees the
+# security fixes through that release everywhere, and matches how the other
+# vendored deps (zlib/libpng/utfcpp/7z) are handled. Re-pin GIT_TAG to bump.
+include(FetchContent)
+set(EXPAT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(EXPAT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(EXPAT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(EXPAT_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  expat
+  GIT_REPOSITORY https://github.com/libexpat/libexpat.git
+  GIT_TAG R_2_8_1
+  SOURCE_SUBDIR expat
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(expat)
 
 # ja2export utility
 add_subdirectory("ext/export/src")
