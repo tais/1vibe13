@@ -59,7 +59,10 @@ namespace szExt
 	} CVfsFileInStream;
 
 
-	static sz::SRes VfsFileInStream_Read(void *pp, void *buf, ::size_t *size)
+	// LZMA SDK 26.01: ISeekInStream callbacks take a const ISeekInStreamPtr
+	// (was void*). `s` is the first member of CVfsFileInStream, so the address
+	// of the interface is the address of the container.
+	static sz::SRes VfsFileInStream_Read(sz::ISeekInStreamPtr pp, void *buf, ::size_t *size)
 	{
 		CVfsFileInStream *p = (CVfsFileInStream *)pp;
 		::size_t to_read = *size;
@@ -77,7 +80,7 @@ namespace szExt
 		return res;
 	}
 
-	static sz::SRes VfsFileInStream_Seek(void *pp, sz::Int64 *pos, sz::ESzSeek origin)
+	static sz::SRes VfsFileInStream_Seek(sz::ISeekInStreamPtr pp, sz::Int64 *pos, sz::ESzSeek origin)
 	{
 		CVfsFileInStream *p = (CVfsFileInStream *)pp;
 
@@ -159,33 +162,40 @@ bool vfs::CUncompressed7zLibrary::init()
 	try
 	{
 		szExt::CVfsFileInStream		archiveStream;
-		sz::CLookToRead				lookStream;
+		sz::CLookToRead2			lookStream;
 		sz::CSzArEx					db;
 		sz::SRes					res;
-		sz::ISzAlloc				allocImp;
-		sz::ISzAlloc				allocTempImp;
+		// LZMA SDK 26.01: ISzAlloc::Alloc/Free take ISzAllocPtr; aggregate-init
+		// from the SDK's stock allocators.
+		sz::ISzAlloc				allocImp     = { sz::SzAlloc, sz::SzFree };
+		sz::ISzAlloc				allocTempImp = { sz::SzAllocTemp, sz::SzFreeTemp };
 
 		vfs::COpenReadFile rfile(m_libraryFile);
 
 		archiveStream.file.file = m_libraryFile;
 
 		szExt::VfsFileInStream_CreateVTable(&archiveStream);
-		sz::LookToRead_CreateVTable(&lookStream, False);
 
+		// CLookToRead -> CLookToRead2: the caller must now supply the read
+		// buffer. realStream is the ISeekInStream; SzArEx_Open takes the
+		// ILookInStream `vt`.
+		const size_t kLookBufSize = (size_t)1 << 16;
+		lookStream.buf = (sz::Byte*)allocImp.Alloc(&allocImp, kLookBufSize);
+		if(!lookStream.buf)
+		{
+			VFS_THROW(_BS(L"Out of memory opening 7z archive [") << m_libraryFile->getPath() << L"]" << _BS::wget);
+		}
+		lookStream.bufSize    = kLookBufSize;
 		lookStream.realStream = &archiveStream.s;
-		sz::LookToRead_Init(&lookStream);
-
-		allocImp.Alloc = sz::SzAlloc;
-		allocImp.Free = sz::SzFree;
-
-		allocTempImp.Alloc = sz::SzAllocTemp;
-		allocTempImp.Free = sz::SzFreeTemp;
+		sz::LookToRead2_CreateVTable(&lookStream, False);
+		LookToRead2_INIT(&lookStream);
 
 		sz::CrcGenerateTable();
 
 		sz::SzArEx_Init(&db);
-		if( SZ_OK != (res = sz::SzArEx_Open(&db, &lookStream.s, &allocImp, &allocTempImp)) )
+		if( SZ_OK != (res = sz::SzArEx_Open(&db, &lookStream.vt, &allocImp, &allocTempImp)) )
 		{
+			allocImp.Free(&allocImp, lookStream.buf);
 			VFS_THROW(_BS(L"Could not open 7z archive [") << m_libraryFile->getPath() << L"]" << _BS::wget);
 		}
 
@@ -196,10 +206,11 @@ bool vfs::CUncompressed7zLibrary::init()
 		const size_t FBUFFER_SIZE = 1024;
 		std::vector<vfs::UInt16> fname_buffer;
 		fname_buffer.resize(FBUFFER_SIZE);
-		for(vfs::UInt32 i = 0; i < db.db.NumFiles; i++)
+		for(vfs::UInt32 i = 0; i < db.NumFiles; i++)
 		{
-			sz::CSzFileItem *f = db.db.Files + i;
-			if (f->IsDir)
+			// LZMA SDK 26.01 removed the CSzFileItem array (db.db.Files); files
+			// are now described by parallel arrays + accessor macros.
+			if (SzArEx_IsDir(&db, i))
 			{
 				continue;
 			}
@@ -218,13 +229,18 @@ bool vfs::CUncompressed7zLibrary::init()
 				oDirPath += oDir;
 			}
 
-			// determine offset and size
-			sz::UInt32 folderIndex = db.FileIndexToFolderIndexMap[i];
+			// determine offset and size (uncompressed/copy archives: one file
+			// per folder, so folder unpack size == file size and the folder
+			// stream pos == the file's raw data offset)
+			sz::UInt32 folderIndex = db.FileToFolder[i];
 
-			sz::CSzFolder *folder = db.db.Folders + folderIndex;
-			sz::UInt64 unpackSizeSpec = sz::SzFolder_GetUnpackSize(folder);
+			sz::UInt64 unpackSizeSpec = sz::SzAr_GetFolderUnpackSize(&db.db, folderIndex);
 			size_t unpackSize = (size_t)unpackSizeSpec;
-			sz::UInt64 startOffset = sz::SzArEx_GetFolderStreamPos(&db, folderIndex, 0);
+			// SzArEx_GetFolderStreamPos is only declared (never defined) in SDK
+			// 26.01, so compute the folder's raw data offset the way the SDK does
+			// internally: archive data base + the folder's first pack-stream pos.
+			sz::UInt64 startOffset = db.dataPos
+				+ db.db.PackPositions[db.db.FoStartPackStreamIndex[folderIndex]];
 
 			//const sz::UInt64 *packSizes = db.db.PackSizes + db.FolderStartPackStreamIndex[folderIndex];
 
@@ -257,6 +273,10 @@ bool vfs::CUncompressed7zLibrary::init()
 			// link file data struct to file object
 			m_fileData.insert(std::make_pair(pFile,SFileData(unpackSize, (vfs::size_t)startOffset)));
 		}
+		// offsets/sizes are cached in m_fileData, so the parsed archive index
+		// and the lookahead buffer can be released now.
+		sz::SzArEx_Free(&db, &allocImp);
+		allocImp.Free(&allocImp, lookStream.buf);
 		return true;
 	}
 	catch(std::exception& ex)

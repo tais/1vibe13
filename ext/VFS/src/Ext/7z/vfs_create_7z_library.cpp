@@ -41,6 +41,24 @@ extern "C"
 }
 };
 
+// LZMA SDK 26.01 moved the 7z property-ID enum out of the public 7z.h into a
+// file-static enum inside 7zArcIn.c. These IDs are part of the on-disk 7z
+// format (stable), so re-declare the ones this uncompressed-archive writer
+// emits (the SDK's k7zIdWinAttrib is spelled k7zIdWinAttributes here to match
+// existing call sites; same value/order as the format spec).
+namespace sz
+{
+	enum
+	{
+		k7zIdEnd, k7zIdHeader, k7zIdArchiveProperties, k7zIdAdditionalStreamsInfo,
+		k7zIdMainStreamsInfo, k7zIdFilesInfo, k7zIdPackInfo, k7zIdUnpackInfo,
+		k7zIdSubStreamsInfo, k7zIdSize, k7zIdCRC, k7zIdFolder, k7zIdCodersUnpackSize,
+		k7zIdNumUnpackStream, k7zIdEmptyStream, k7zIdEmptyFile, k7zIdAnti, k7zIdName,
+		k7zIdCTime, k7zIdATime, k7zIdMTime, k7zIdWinAttributes, k7zIdComment,
+		k7zIdEncodedHeader, k7zIdStartPos, k7zIdDummy
+	};
+}
+
 #include <vector>
 #include <sstream>
 

@@ -1,80 +1,34 @@
 
 ## 7-zip
 
-if(WIN32)
-  option(BFVFS_7ZIP_MT "multi-threading support" OFF)
-  mark_as_advanced(BFVFS_7ZIP_MT)
-endif()
-
-set(INCLUDE_7z
-  src/7z.h
-  src/7zBuf.h
-  src/7zCrc.h
-  src/7zFile.h
-  src/7zVersion.h
-  src/Alloc.h
-  src/Bcj2.h
-  src/Bra.h
-  src/CpuArch.h
-  src/Delta.h
-  src/LzFind.h
-  src/LzHash.h
-  src/Lzma2Dec.h
-  src/Lzma2Enc.h
-  src/Lzma86.h
-  src/LzmaEnc.h
-  src/LzmaLib.h
-  src/Ppmd.h
-  src/Sha256.h
-  src/types.h
-#  src/Xz.h
-#  src/XzEnc.h
-  src/7zAlloc.h
-)
-if(WIN32 AND BFVFS_7ZIP_MT)
-  set(INCLUDE_7z ${INCLUDE_7z}
-    src/LzFindMt.h
-    src/MtCoder.h
-    src/Threads.h
-  )
-endif()
+# LZMA SDK 26.01 (upgraded from 9.22 beta). bfVFS only reads uncompressed
+# (copy-method) 7z archives by direct offset, but 7z *headers* may be LZMA/PPMd
+# compressed, so we vendor the decode-only source set (extract-only, single
+# thread, PPMd enabled). All headers are vendored (interdependent); the .c set
+# is the SDK's own 7zdec decoder objects (see C/Util/7z/makefile.gcc), minus
+# OS file I/O (bfVFS supplies its own stream) and the asm LZMA fast path.
+file(GLOB INCLUDE_7z "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
 set(SOURCE_7z
+  src/7zAlloc.c
+  src/7zArcIn.c
   src/7zBuf.c
   src/7zBuf2.c
   src/7zCrc.c
   src/7zCrcOpt.c
   src/7zDec.c
-  src/7zFile.c
-  src/7zIn.c
   src/7zStream.c
-  src/Alloc.c
   src/Bcj2.c
   src/Bra.c
   src/Bra86.c
+  src/BraIA64.c
   src/CpuArch.c
   src/Delta.c
-  src/LzFind.c
   src/Lzma2Dec.c
-  src/Lzma86Dec.c
-  src/Lzma86Enc.c
   src/LzmaDec.c
-  src/LzmaEnc.c
-  src/Sha256.c
-#  src/Xz.c
-#  src/XzDec.c
-#  src/XzEnc.c
-#  src/XzIn.c
-  src/7zAlloc.c
+  src/Ppmd7.c
+  src/Ppmd7Dec.c
 )
-if(WIN32 AND BFVFS_7ZIP_MT)
-  set(SOURCE_7z ${SOURCE_7z}
-    src/LzFindMt.c
-    src/Lzma2Enc.c
-    src/MtCoder.c
-    src/Threads.c    
-  )
-endif()
 
 source_group("" FILES ${INCLUDE_7z} ${SOURCE_7z})
 
@@ -90,9 +44,9 @@ else()
   set(DEFINITIONS ${DEFINITIONS} -DSZIP_STATIC)
 endif()
 
-if(NOT WIN32 OR NOT BFVFS_7ZIP_MT)
-  add_definitions(-D_7ZIP_ST)
-endif()
+# Single-thread (_7ZIP_ST still maps to Z7_ST in 26.01), decode-only build,
+# with PPMd decoding compiled in (7z headers/streams may use PPMd).
+add_definitions(-D_7ZIP_ST -DZ7_EXTRACT_ONLY -DZ7_PPMD_SUPPORT)
 
 set(BFVFS_7ZIP_TARGET "7z" CACHE INTERNAL "")
 
