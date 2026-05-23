@@ -23,14 +23,27 @@ namespace png
 const vfs::String::str_t CONST_DOTPNG(L".png");
 const vfs::String::str_t CONST_DOTXML(L".xml");
 
-void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info);
-void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info);
-void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info);
+// libpng 1.5+ made png_struct/png_info opaque, so the old `info->width`
+// direct field access no longer compiles. We pull the handful of fields the
+// loader needs through the public png_get_*() accessors (once, into this POD)
+// and pass it around instead of the png_infop.
+struct PngMeta
+{
+	png::png_uint_32 width = 0, height = 0;
+	png::png_uint_32 x_offset = 0, y_offset = 0;
+	int channels = 0, bit_depth = 0;
+	int num_palette = 0;
+	png::png_colorp palette = nullptr;
+};
+
+void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info);
+void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info);
+void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info);
 
 
 void user_read_data(png::png_structp png_ptr, png::png_bytep data, png::png_size_t length)
 {
-	SGP_TRYCATCH_RETHROW( static_cast<vfs::tReadableFile*>(png_ptr->io_ptr)->read((vfs::Byte*)data,length),
+	SGP_TRYCATCH_RETHROW( static_cast<vfs::tReadableFile*>(png_get_io_ptr(png_ptr))->read((vfs::Byte*)data,length),
 		L"error during png file reading");
 }
 
@@ -599,6 +612,20 @@ public:
 	{
 		return _info;
 	}
+	// Pull the fields the loader needs through the public accessors (the
+	// structs are opaque in libpng 1.5+). Call after Load().
+	PngMeta Meta()
+	{
+		PngMeta m;
+		m.width     = png_get_image_width(_struct, _info);
+		m.height    = png_get_image_height(_struct, _info);
+		m.x_offset  = png_get_x_offset_pixels(_struct, _info);
+		m.y_offset  = png_get_y_offset_pixels(_struct, _info);
+		m.channels  = png_get_channels(_struct, _info);
+		m.bit_depth = png_get_bit_depth(_struct, _info);
+		png_get_PLTE(_struct, _info, &m.palette, &m.num_palette);
+		return m;
+	}
 private:
 	vfs::tReadableFile* _file;
 	png::png_structp	_struct;
@@ -615,23 +642,24 @@ bool LoadPNGFileToImage(HIMAGE hImage, UINT16 fContents)
 		return false;
 	}
 
-	if(fpng.Info()->channels == 4 && fpng.Info()->bit_depth == 8)
+	PngMeta meta = fpng.Meta();
+	if(meta.channels == 4 && meta.bit_depth == 8)
 	{
-		Load32bppPNGImage(hImage, fpng.Rows(), fpng.Info());
+		Load32bppPNGImage(hImage, fpng.Rows(), meta);
 	}
-	else if(fpng.Info()->channels == 3 && fpng.Info()->bit_depth == 8)
+	else if(meta.channels == 3 && meta.bit_depth == 8)
 	{
-		Load24bppPNGImage(hImage, fpng.Rows(), fpng.Info());
+		Load24bppPNGImage(hImage, fpng.Rows(), meta);
 	}
-	else if(fpng.Info()->channels == 1 && fpng.Info()->bit_depth == 8)
+	else if(meta.channels == 1 && meta.bit_depth == 8)
 	{
-		LoadPalettedPNGImage(hImage, fpng.Rows(), fpng.Info());
+		LoadPalettedPNGImage(hImage, fpng.Rows(), meta);
 	}
 	else
 	{
 		std::wstringstream wss;
-		wss << L"Unknown image datatype : channels = " << (int)(fpng.Info()->channels) 
-			<< L", bit depth = " << (int)(fpng.Info()->bit_depth);
+		wss << L"Unknown image datatype : channels = " << (int)(meta.channels)
+			<< L", bit depth = " << (int)(meta.bit_depth);
 		SGP_THROW(wss.str().c_str());
 	}
 
@@ -719,23 +747,24 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 	
 			if(bLoadS)
 			{
-				if(lpng.Info()->channels == 4 && lpng.Info()->bit_depth == 8)
+				PngMeta meta = lpng.Meta();
+				if(meta.channels == 4 && meta.bit_depth == 8)
 				{
-					Load32bppPNGImage(hImage, lpng.Rows(), lpng.Info());
+					Load32bppPNGImage(hImage, lpng.Rows(), meta);
 				}
-				else if(lpng.Info()->channels == 3 && lpng.Info()->bit_depth == 8)
+				else if(meta.channels == 3 && meta.bit_depth == 8)
 				{
-					Load24bppPNGImage(hImage, lpng.Rows(), lpng.Info());
+					Load24bppPNGImage(hImage, lpng.Rows(), meta);
 				}
-				else if(lpng.Info()->channels == 1 && lpng.Info()->bit_depth == 8)
+				else if(meta.channels == 1 && meta.bit_depth == 8)
 				{
-					LoadPalettedPNGImage(hImage, lpng.Rows(), lpng.Info());
+					LoadPalettedPNGImage(hImage, lpng.Rows(), meta);
 				}
 				else
 				{
 					std::wstringstream wss;
-					wss << L"Unknown image datatype : channels = " << (int)(lpng.Info()->channels)
-						<< L", bit depth = " << (int)(lpng.Info()->bit_depth);
+					wss << L"Unknown image datatype : channels = " << (int)(meta.channels)
+						<< L", bit depth = " << (int)(meta.bit_depth);
 					SGP_THROW(wss.str().c_str());
 				}
 				return true;
@@ -771,21 +800,22 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 				bool bLoadS = lpng.Load();
 				if(bLoadS)
 				{
-					if(lpng.Info()->channels == 1 && lpng.Info()->bit_depth == 8)
+					PngMeta meta = lpng.Meta();
+					if(meta.channels == 1 && meta.bit_depth == 8)
 					{
 						if(!bHasPalette)
 						{
-							SGP_THROW_IFFALSE(lpng.Info()->num_palette == 256, L"size of palette is not 256");
-							image.setPalette(lpng.Info()->palette, lpng.Info()->num_palette);
+							SGP_THROW_IFFALSE(meta.num_palette == 256, L"size of palette is not 256");
+							image.setPalette(meta.palette, meta.num_palette);
 							bHasPalette = true;
 						}
-						UINT32 SIZE = lpng.Info()->height * lpng.Info()->width;
+						UINT32 SIZE = meta.height * meta.width;
 						std::vector<UINT8> data(SIZE,0);
-						for(unsigned int i = 0; i < lpng.Info()->height; ++i)
+						for(unsigned int i = 0; i < meta.height; ++i)
 						{
-							memcpy(&data[i*lpng.Info()->width],lpng.Rows()[i],lpng.Info()->width);
+							memcpy(&data[i*meta.width],lpng.Rows()[i],meta.width);
 						}
-						image.addImage(&data[0], SIZE, lpng.Info()->width, lpng.Info()->height, lpng.Info()->x_offset, lpng.Info()->y_offset);
+						image.addImage(&data[0], SIZE, meta.width, meta.height, meta.x_offset, meta.y_offset);
 					}
 					else
 					{
@@ -812,7 +842,7 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 }
 
 
-void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
+void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 {
 	hImage->pETRLEObject = (ETRLEObject*)MemAlloc(1 * sizeof(ETRLEObject));
 	if(!hImage->pETRLEObject)
@@ -821,18 +851,18 @@ void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
 	}
 	memset(hImage->pETRLEObject, 0, sizeof(ETRLEObject));
 	hImage->usNumberOfObjects = 1;
-	
-	hImage->pETRLEObject[0].usHeight = (UINT16)info->height;
-	hImage->pETRLEObject[0].usWidth  = (UINT16)info->width;
-	
-	hImage->pETRLEObject[0].sOffsetX = (INT16)info->x_offset;
-	hImage->pETRLEObject[0].sOffsetY = (INT16)info->y_offset;
-	
-	hImage->usHeight   = (UINT16)info->height;
-	hImage->usWidth    = (UINT16)info->width;
+
+	hImage->pETRLEObject[0].usHeight = (UINT16)info.height;
+	hImage->pETRLEObject[0].usWidth  = (UINT16)info.width;
+
+	hImage->pETRLEObject[0].sOffsetX = (INT16)info.x_offset;
+	hImage->pETRLEObject[0].sOffsetY = (INT16)info.y_offset;
+
+	hImage->usHeight   = (UINT16)info.height;
+	hImage->usWidth    = (UINT16)info.width;
 	hImage->ubBitDepth = 32;
-	
-	UINT32 SIZE = info->height * info->width * sizeof(UINT32);
+
+	UINT32 SIZE = info.height * info.width * sizeof(UINT32);
 	hImage->p32BPPData = (UINT32*)MemAlloc(SIZE);
 	if(!hImage->p32BPPData)
 	{
@@ -846,18 +876,18 @@ void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
 
 	UINT32* dest_row = NULL;
 	UINT32 rgbcolor = 0;
-	for(unsigned int i=0; i<info->height; ++i)
+	for(unsigned int i=0; i<info.height; ++i)
 	{
-		dest_row = &(hImage->p32BPPData[i*info->width]);
+		dest_row = &(hImage->p32BPPData[i*info.width]);
 		png::png_bytep row_i = rows[i];
-		memcpy(dest_row,row_i,info->width * sizeof(UINT32));
+		memcpy(dest_row,row_i,info.width * sizeof(UINT32));
 	}
 
 	hImage->fFlags |= IMAGE_BITMAPDATA;
 }
 
 
-void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
+void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 {
 	hImage->pETRLEObject = (ETRLEObject*)MemAlloc(1 * sizeof(ETRLEObject));
 	if(!hImage->pETRLEObject)
@@ -866,18 +896,18 @@ void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
 	}
 	memset(hImage->pETRLEObject, 0, sizeof(ETRLEObject));
 	hImage->usNumberOfObjects = 1;
-	
-	hImage->pETRLEObject[0].usHeight = (UINT16)info->height;
-	hImage->pETRLEObject[0].usWidth  = (UINT16)info->width;
-	
-	hImage->pETRLEObject[0].sOffsetX = (UINT16)info->x_offset;
-	hImage->pETRLEObject[0].sOffsetY = (UINT16)info->y_offset;
-	
-	hImage->usHeight   = (UINT16)info->height;
-	hImage->usWidth    = (UINT16)info->width;
+
+	hImage->pETRLEObject[0].usHeight = (UINT16)info.height;
+	hImage->pETRLEObject[0].usWidth  = (UINT16)info.width;
+
+	hImage->pETRLEObject[0].sOffsetX = (UINT16)info.x_offset;
+	hImage->pETRLEObject[0].sOffsetY = (UINT16)info.y_offset;
+
+	hImage->usHeight   = (UINT16)info.height;
+	hImage->usWidth    = (UINT16)info.width;
 	hImage->ubBitDepth = 16;
-	
-	UINT32 SIZE = info->height * info->width * sizeof(UINT16);
+
+	UINT32 SIZE = info.height * info.width * sizeof(UINT16);
 	hImage->p16BPPData = (UINT16*)MemAlloc(SIZE);
 	if(!hImage->p16BPPData)
 	{
@@ -891,11 +921,11 @@ void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
 
 	UINT16* dest_row = NULL;
 	UINT32 rgbcolor = 0;
-	for(unsigned int i=0; i<info->height; ++i)
+	for(unsigned int i=0; i<info.height; ++i)
 	{
-		dest_row = &(hImage->p16BPPData[i*info->width]);
+		dest_row = &(hImage->p16BPPData[i*info.width]);
 		png::png_bytep row_i = rows[i];
-		for(unsigned int sx = 0, dx = 0; sx < 3*info->width; sx+=3, dx+=1)
+		for(unsigned int sx = 0, dx = 0; sx < 3*info.width; sx+=3, dx+=1)
 		{
 			// This HIMAGE is 16bpp (p16BPPData); pack RGB565 directly. (Get16BPPColor
 			// now yields true ARGB, which doesn't belong in a 16bpp image buffer --
@@ -908,10 +938,10 @@ void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
 	hImage->fFlags |= IMAGE_BITMAPDATA;
 }
 
-void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop info)
+void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 {
 	CHAR8 errorText[512];
-	UINT32 SIZE = info->height * info->width * sizeof(UINT8);
+	UINT32 SIZE = info.height * info.width * sizeof(UINT8);
 	UINT8 *data = (UINT8*)MemAlloc(SIZE);
 	if(!data)
 	{
@@ -921,9 +951,9 @@ void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop in
 		SGP_THROW(errorText);
 	}
 	memset(data,0,SIZE);
-	for(unsigned int i = 0; i < info->height; ++i)
+	for(unsigned int i = 0; i < info.height; ++i)
 	{
-		memcpy(&data[i*info->width],rows[i],info->width);
+		memcpy(&data[i*info.width],rows[i],info.width);
 	}
 
 	hImage->usNumberOfObjects = 1;
@@ -938,10 +968,10 @@ void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop in
 	memset(hImage->pETRLEObject,0, hImage->usNumberOfObjects * sizeof(ETRLEObject));
 
 	ETRLEObject &subimage = hImage->pETRLEObject[0];
-	subimage.sOffsetX = (INT16)  info->x_offset;;
-	subimage.sOffsetY = (INT16)  info->y_offset;
-	subimage.usWidth  = (UINT16) info->width;
-	subimage.usHeight = (UINT16) info->height;
+	subimage.sOffsetX = (INT16)  info.x_offset;;
+	subimage.sOffsetY = (INT16)  info.y_offset;
+	subimage.usWidth  = (UINT16) info.width;
+	subimage.usHeight = (UINT16) info.height;
 
 	// why allocate so much? because in in the worst case we need one TAG and one DATAVALUE per pixel
 	UINT32 RESIZE = 3*SIZE;
@@ -966,7 +996,7 @@ void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop in
 	subim.usHeight = subimage.usHeight;
 	subim.usWidth = subimage.usWidth;
 
-	UINT32 etrle_size = ETRLECompressSubImage( hImage->p8BPPData, RESIZE, data, (UINT16)info->width, (UINT16)info->height, &subim);
+	UINT32 etrle_size = ETRLECompressSubImage( hImage->p8BPPData, RESIZE, data, (UINT16)info.width, (UINT16)info.height, &subim);
 	SGP_THROW_IFFALSE( etrle_size > 0, L"ETRLE compression of PNG image failed" );
 	subim.sOffsetX = subimage.sOffsetX;
 	subim.sOffsetY = subimage.sOffsetY;
@@ -978,21 +1008,21 @@ void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, png::png_infop in
 	//hImage->uiSizePixData = compressed_size;
 	hImage->uiSizePixData = etrle_size;
 
-	hImage->usHeight = (UINT16)info->height;
-	hImage->usWidth = (UINT16)info->width;
+	hImage->usHeight = (UINT16)info.height;
+	hImage->usWidth = (UINT16)info.width;
 
 	hImage->fFlags |= IMAGE_TRLECOMPRESSED;
 	hImage->fFlags |= IMAGE_BITMAPDATA;
-	
+
 	// palette
-	SGP_THROW_IFFALSE(info->num_palette == 256, L"palette has size != 256");
+	SGP_THROW_IFFALSE(info.num_palette == 256, L"palette has size != 256");
 
 	hImage->pPalette = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) *256);
 	for(int i=0; i<256; ++i)
 	{
-		hImage->pPalette[i].peRed   = info->palette[i].red;
-		hImage->pPalette[i].peGreen = info->palette[i].green;
-		hImage->pPalette[i].peBlue  = info->palette[i].blue;
+		hImage->pPalette[i].peRed   = info.palette[i].red;
+		hImage->pPalette[i].peGreen = info.palette[i].green;
+		hImage->pPalette[i].peBlue  = info.palette[i].blue;
 		hImage->pPalette[i].peFlags = 0;
 	}
 	hImage->fFlags |= IMAGE_PALETTE;
