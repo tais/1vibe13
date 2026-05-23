@@ -5267,9 +5267,13 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 		// Flugente: the bullet icon has a very limited colour choice because its a .sti picture. So we change the display, always use the same default picture but use the colour for the text instead
 		//sForeColour = ITEMDESC_AMMO_FORE;
 		
-		sForeColour = (INT16)Get16BPPColor( FROMRGB( AmmoTypes[( *gpItemDescObject )[ubStatusIndex]->data.gun.ubGunAmmoType].red,
+		// Store an RGB565 token (not a truncated true-colour Get16BPPColor result):
+		// this colour lands in the button's INT16 text-colour field and is widened
+		// back by PixFromColor16 at draw time. Truncating the 32bpp true colour here
+		// is what made the ammo readout render as the wrong colour (e.g. green).
+		sForeColour = (INT16)Get16BPPColorToken( AmmoTypes[( *gpItemDescObject )[ubStatusIndex]->data.gun.ubGunAmmoType].red,
 			AmmoTypes[( *gpItemDescObject )[ubStatusIndex]->data.gun.ubGunAmmoType].green,
-			AmmoTypes[( *gpItemDescObject )[ubStatusIndex]->data.gun.ubGunAmmoType].blue ) );
+			AmmoTypes[( *gpItemDescObject )[ubStatusIndex]->data.gun.ubGunAmmoType].blue );
 		
 		// silversurfer: This should never happen but some maps may contain items with invalid ammo types and this leads to graphical glitches
 		// because the game cannot find the right ammo icon in infobox.sti and then uses index 0. Index 0 is the info box itself.
@@ -6044,9 +6048,11 @@ void RenderBulletIcon(OBJECTTYPE *pObject, UINT32 ubStatusIndex)
 	SpecifyButtonText( giItemDescAmmoButton, pStr );
 
 	// Flugente: redo the ammo colour, as it might have changed
-	INT16 sForeColour = (INT16)Get16BPPColor( FROMRGB( AmmoTypes[( *pObject )[ubStatusIndex]->data.gun.ubGunAmmoType].red,
+	// RGB565 token, not a truncated true-colour Get16BPPColor result -- see note at
+	// the matching site in InternalInitItemDescriptionBox.
+	INT16 sForeColour = (INT16)Get16BPPColorToken( AmmoTypes[( *pObject )[ubStatusIndex]->data.gun.ubGunAmmoType].red,
 		AmmoTypes[( *pObject )[ubStatusIndex]->data.gun.ubGunAmmoType].green,
-		AmmoTypes[( *pObject )[ubStatusIndex]->data.gun.ubGunAmmoType].blue ) );
+		AmmoTypes[( *pObject )[ubStatusIndex]->data.gun.ubGunAmmoType].blue );
 
 	SpecifyButtonUpTextColors( giItemDescAmmoButton, sForeColour, -1 );
 }

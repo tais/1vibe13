@@ -11,7 +11,12 @@
 	class popupCallback{
 	public:
 		popupCallback(void){}
-		~popupCallback(void){}
+		// MUST be virtual: callers hold derived popupCallbackFunction<...> objects
+		// through a popupCallback* and `delete` them (e.g. POPUP_OPTION::~POPUP_OPTION).
+		// With a non-virtual base dtor that is undefined behaviour - the derived dtor
+		// is skipped and `operator delete` is handed the base size, which trips
+		// macOS/libc++ sized-deallocation guards (EXC_BREAKPOINT) on teardown.
+		virtual ~popupCallback(void){}
 
 		virtual void bind(void* newFun) = 0;
 		virtual bool call(void) = 0;

@@ -448,13 +448,24 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 
 	if ( pPopUpTextBox->uiFlags & MERC_POPUP_PREPARE_FLAGS_TRANS_BACK )
 	{
-		// Zero with yellow,
-		// Set source transparcenty
-		SetVideoSurfaceTransparency( pPopUpTextBox->uiSourceBufferIndex, FROMRGB(	255, 255, 0 ) );
+		// Fill the interior with an unused colour-key sentinel (yellow) and mark
+		// that colour transparent, so the box background blits out leaving only the
+		// border + (white) text. Two constraints:
+		//  1) the fill must equal what the colour-key blitter derives from the
+		//     surface's TransparentColor -- PixFromColor16 of its low 16 bits, NOT
+		//     Get16BPPColor's true ARGB8888. At 32bpp those disagreed, so the key
+		//     never matched and the box rendered as an opaque yellow rectangle.
+		//  2) the sentinel must be a colour the text/border never use. It must stay
+		//     YELLOW: the text is FONT_MCOLOR_WHITE, so a white key would key the
+		//     text out too (box went see-through but text vanished).
+		// Feeding the blitter the RGB565 yellow *token* (low 16 bits) and filling
+		// with its expansion satisfies both: key == fill == opaque yellow, != white.
+		const UINT16 transToken = Get16BPPColorToken( 255, 255, 0 );	// RGB565 yellow
+		SetVideoSurfaceTransparency( pPopUpTextBox->uiSourceBufferIndex, transToken );
 
 		pDestBuf = (PIXEL *)LockVideoSurface( pPopUpTextBox->uiSourceBufferIndex, &uiDestPitchBYTES);
 
-		usColorVal = Get16BPPColor( FROMRGB( 255, 255, 0 ) );
+		usColorVal = PixFromColor16( transToken );
 		usLoopEnd	= ( usWidth * usHeight );
 
 		for ( i = 0; i <usLoopEnd; ++i )
