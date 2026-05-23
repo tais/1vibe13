@@ -1018,12 +1018,12 @@ void HandleImportantPBIQuote( SOLDIERTYPE *pSoldier, GROUP *pInitiatingBattleGro
 	if( pSoldier->flags.fMercAsleep )
 	{
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_SLEEP, 0,0 );
-		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE, (UINT32)(uintptr_t)pInitiatingBattleGroup, 0 );
+		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE, (pInitiatingBattleGroup ? pInitiatingBattleGroup->ubGroupID : 0), 0 );
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_SLEEP, 1,0 );
 	}
 	else
 	{
-		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE, (UINT32)(uintptr_t)pInitiatingBattleGroup, 0 );
+		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE, (pInitiatingBattleGroup ? pInitiatingBattleGroup->ubGroupID : 0), 0 );
 	}
 }
 
@@ -1422,7 +1422,11 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 void TriggerPrebattleInterface( UINT8 ubResult )
 {
 	StopTimeCompression();
-	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE, (UINT32)(uintptr_t)gpInitPrebattleGroup, 0, 0, 0, 0 );
+	// Pass the group *ID* (not the pointer) through the UINT32 dialogue-event
+	// data field -- a 64-bit GROUP* truncated to 32 bits and was cast back to a
+	// garbage pointer, crashing InitPreBattleInterface. The reader rebuilds it
+	// via GetGroup(). (See the matching read site in Dialogue Control.cpp.)
+	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE, (gpInitPrebattleGroup ? gpInitPrebattleGroup->ubGroupID : 0), 0, 0, 0, 0 );
 	gpInitPrebattleGroup = NULL;
 }
 
