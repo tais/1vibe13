@@ -190,9 +190,12 @@ extern void SetQuoteRecordAsUsed( UINT8 ubNPC, UINT8 ubRecord );
 
 INT32 GetEffectiveApproachValue( UINT8 usProfile, UINT8 usApproach, CHAR16* apStr );
 
-// uiApproachData is used for approach things like giving items, etc.
+// uiApproachData is used for approach things like giving items, etc. It often
+// carries an OBJECTTYPE* (e.g. APPROACH_GIVINGITEM), so it must be pointer-wide
+// (uintptr_t) - a UINT32 truncated the pointer on 64-bit and crashed on the
+// cast back (see ReturnItemToPlayerIfNecessary / Converse).
 extern UINT8 CalcDesireToTalk( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach );
-extern void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, UINT32 uiApproachData );
+extern void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachData );
 
 extern BOOLEAN NPCOkToGiveItem( UINT8 ubNPC, UINT8 ubMerc, UINT16 usItem );
 extern void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere );

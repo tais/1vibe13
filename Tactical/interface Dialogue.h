@@ -49,7 +49,9 @@ extern NPC_DIALOGUE_TYPE		gTalkPanel;
 
 
 
-BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, UINT32 uiApproachData );
+// uiApproachData is pointer-wide: APPROACH_GIVINGITEM passes an OBJECTTYPE*
+// through it, so a UINT32 truncated the pointer on 64-bit (crash on cast back).
+BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData );
 
 // THis fuction will allocate and setup an NPCDiaogue structure. Loads the face for the character..
 BOOLEAN InitTalkingMenu( UINT8 ubCharacterNum, INT32 sGridNo );

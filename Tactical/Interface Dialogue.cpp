@@ -163,7 +163,7 @@ void DoneTalkingButtonClickCallback(GUI_BUTTON *btn, INT32 reason );
 void CalculatePopupTextPosition( INT16 sWidth, INT16 sHeight );
 void CalculatePopupTextOrientation( INT16 sWidth, INT16 sHeight );
 void HandleNPCTrigger( );
-BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, UINT32 uiApproachData );
+BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData );
 
 
 extern void EndGameMessageBoxCallBack( UINT8 ubExitValue );
@@ -232,7 +232,7 @@ BOOLEAN							gfConversationPending = FALSE;
 SOLDIERTYPE					*gpPendingDestSoldier;
 SOLDIERTYPE					*gpPendingSrcSoldier;
 INT8								gbPendingApproach;
-UINT32							guiPendingApproachData;
+uintptr_t						guiPendingApproachData;
 extern BOOLEAN			fMapPanelDirty;
 
 INT32 giHospitalTempBalance; // stores amount of money for current doctoring
@@ -255,9 +255,9 @@ enum
 	HOSPITAL_RANDOM_FREEBIE,
 };
 
-BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, UINT32 uiApproachData )
+BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
 {
-	DebugQuestInfo(String("InitiateConversation: from [%d] to [%d] %d data %d", pSrcSoldier->ubID, pDestSoldier->ubID, bApproach, uiApproachData));
+	DebugQuestInfo(String("InitiateConversation: from [%d] to [%d] %d data %d", pSrcSoldier->ubID, pDestSoldier->ubID, bApproach, (UINT32)uiApproachData));
 
 	// ATE: OK, let's check the status of the Q
 	// If it has something in it....delay this until after....
@@ -303,7 +303,7 @@ void HandlePendingInitConv( )
 }
 
 
-BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, UINT32 uiApproachData )
+BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
 {
 	// OK, init talking menu
 	BOOLEAN	fFromPending;

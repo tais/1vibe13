@@ -547,7 +547,7 @@ BOOLEAN SCHEDULENODE::Save(HWFILE hFile, FLOAT dMajorMapVersion, UINT8 ubMinorMa
 	if(dMajorMapVersion == VANILLA_MAJOR_MAP_VERSION && ubMinorMapVersion == VANILLA_MINOR_MAP_VERSION)
 	{
 		_OLD_SCHEDULENODE OldScheduleNode;
-		OldScheduleNode.next = NULL;
+		OldScheduleNode.next = 0;
 		TranslateArrayFields(OldScheduleNode.usTime, usTime, OLD_MAX_SCHEDULE_ACTIONS, UINT16_UINT16);
 		TranslateArrayFields(OldScheduleNode.usData1, usData1, OLD_MAX_SCHEDULE_ACTIONS, INT32_INT16);
 		TranslateArrayFields(OldScheduleNode.usData2, usData2, OLD_MAX_SCHEDULE_ACTIONS, INT32_INT16);

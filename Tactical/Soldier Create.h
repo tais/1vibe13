@@ -215,7 +215,13 @@ public:
 	
 	//Kris:	Additions November 16, 1997 (padding down to 129 from 150)
 	BOOLEAN						fVisible;
-	CHAR16						name[ 10 ];
+	// On-disk this is a 16-bit CHAR16 (the original 32-bit engine's wchar_t).
+	// Keep it 16-bit here so OLD_SOLDIERCREATE_STRUCT_101's POD region is laid
+	// out byte-for-byte like the vanilla (v5.0) map record. On macOS/Linux the
+	// in-memory CHAR16 is 4 bytes, which used to make the raw blob read scramble
+	// every field after `name` and lose editor-placed NPCs. Widened/narrowed at
+	// the conversion operators. The on-disk map format is unchanged.
+	UINT16						name[ 10 ];
 
 	UINT8							ubSoldierClass;	//army, administrator, elite
 
@@ -223,7 +229,10 @@ public:
 
 	INT8							bSectorZ;
 
-	SOLDIERTYPE				*pExistingSoldier;
+	// 4-byte slot mirroring the original 32-bit on-disk pointer width (the live
+	// pExistingSoldier pointer is 8 bytes on 64-bit and is never meaningfully
+	// persisted - it's ignored on load and zeroed on save).
+	UINT32						pExistingSoldier;
 	BOOLEAN						fUseExistingSoldier;
 	UINT8							ubCivilianGroup;
 

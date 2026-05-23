@@ -44,7 +44,11 @@ enum
 // WANNE - BMP: DONE!
 typedef struct _OLD_SCHEDULENODE
 {
-	struct _OLD_SCHEDULENODE *next;
+	// 4-byte slot mirroring the original 32-bit on-disk pointer width. The live
+	// `next` link is 8 bytes on 64-bit; reading the raw blob into a pointer slot
+	// shifted every field after it by 4 bytes and corrupted vanilla (v<7.0) NPC
+	// schedules. It's a transient link rebuilt on load, so it's ignored here.
+	UINT32 next;
 	UINT16 usTime[OLD_MAX_SCHEDULE_ACTIONS];	//converted to minutes 12:30PM would be 12*60 + 30 = 750
 	UINT16 usData1[OLD_MAX_SCHEDULE_ACTIONS]; //typically the gridno, but depends on the action
 	UINT16 usData2[OLD_MAX_SCHEDULE_ACTIONS]; //secondary information, not used by most actions
@@ -56,7 +60,9 @@ typedef struct _OLD_SCHEDULENODE
 
 typedef struct _OLD_SCHEDULENODE_PRE_ITS
 {
-	struct _OLD_SCHEDULENODE_PRE_ITS* next;
+	// 4-byte slot mirroring the original 32-bit on-disk pointer width (see
+	// _OLD_SCHEDULENODE above). Transient link, ignored on load.
+	UINT32 next;
 	UINT16 usTime[MAX_SCHEDULE_ACTIONS];	// Converted to minutes 12:30PM would be 12*60 + 30 = 750
 	UINT32 usData1[MAX_SCHEDULE_ACTIONS];	// Typically the gridno, but depends on the action
 	UINT32 usData2[MAX_SCHEDULE_ACTIONS];	// Secondary information, not used by most actions

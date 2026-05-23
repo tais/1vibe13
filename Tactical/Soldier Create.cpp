@@ -119,7 +119,8 @@ OLD_SOLDIERCREATE_STRUCT_101& OLD_SOLDIERCREATE_STRUCT_101::operator=(SOLDIERCRE
 		this->DO_NOT_USE_Inv[OldInventory::SMALLPOCK7POS] = src.Inv[SMALLPOCK7POS];
 		this->DO_NOT_USE_Inv[OldInventory::SMALLPOCK8POS] = src.Inv[SMALLPOCK8POS];
 
-		memcpy(&(this->name), &(src.name), sizeof(CHAR16)*10);
+		// narrow the in-memory CHAR16 name into the 16-bit on-disk slot
+		for(int i=0; i<10; ++i) this->name[i] = (UINT16)src.name[i];
 		memcpy(&(this->HeadPal), &(src.HeadPal), sizeof(PaletteRepID));
 		memcpy(&(this->PantsPal), &(src.PantsPal), sizeof(PaletteRepID));
 		memcpy(&(this->VestPal), &(src.VestPal), sizeof(PaletteRepID));
@@ -159,7 +160,7 @@ OLD_SOLDIERCREATE_STRUCT_101& OLD_SOLDIERCREATE_STRUCT_101::operator=(SOLDIERCRE
 		this->fUseExistingSoldier = src.fUseExistingSoldier;
 		this->fUseGivenVehicle = src.fUseGivenVehicle;
 		this->fVisible = src.fVisible;
-		this->pExistingSoldier = src.pExistingSoldier;
+		this->pExistingSoldier = 0; // runtime pointer - never persisted
 		this->sInsertionGridNo = src.sInsertionGridNo;
 		this->sSectorX = src.sSectorX;
 		this->sSectorY = src.sSectorY;
@@ -193,7 +194,8 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const OLD_SOLDIERCREATE_ST
 	if ((void*)this != (void*)&src) {
 		this->Inv = src.Inv;
 
-		memcpy( &(this->name), &(src.name), sizeof(CHAR16) * 10 );
+		// widen the 16-bit on-disk name into the in-memory CHAR16 (wchar_t)
+		for(int i=0; i<10; ++i) this->name[i] = (CHAR16)src.name[i];
 		memcpy( &(this->HeadPal), &(src.HeadPal), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->PantsPal), &(src.PantsPal), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->VestPal), &(src.VestPal), sizeof(PaletteRepID) );	// 30
@@ -232,7 +234,7 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const OLD_SOLDIERCREATE_ST
 		this->fUseExistingSoldier = src.fUseExistingSoldier;
 		this->fUseGivenVehicle = src.fUseGivenVehicle;
 		this->fVisible = src.fVisible;
-		this->pExistingSoldier = src.pExistingSoldier;
+		this->pExistingSoldier = 0; // runtime pointer - never persisted
 		this->sInsertionGridNo = src.sInsertionGridNo;
 		this->sSectorX = src.sSectorX;
 		this->sSectorY = src.sSectorY;
