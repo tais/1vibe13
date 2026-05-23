@@ -585,7 +585,15 @@ INT8 DecideActionBoxerEnteringRing(SOLDIERTYPE *pSoldier)
 		else
 		{
 			// move to starting spot
-			pSoldier->aiData.usActionData = FindClosestBoxingRingSpot( pSoldier, TRUE );
+			INT32 sRingSpot = FindClosestBoxingRingSpot( pSoldier, TRUE );
+			if ( TileIsOutOfBounds( sRingSpot ) )
+			{
+				// No legal spot in the ring this pass: end the turn rather than
+				// issue a GET_CLOSER toward NOWHERE, which the AI would otherwise
+				// re-decide every tick and hang the match.
+				return( AI_ACTION_ABSOLUTELY_NONE );
+			}
+			pSoldier->aiData.usActionData = sRingSpot;
 			return( AI_ACTION_GET_CLOSER );
 		}
 	}

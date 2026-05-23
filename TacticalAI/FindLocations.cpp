@@ -2541,7 +2541,13 @@ INT32 FindClosestBoxingRingSpot( SOLDIERTYPE * pSoldier, BOOLEAN fInRing )
 			if (!TileIsOutOfBounds(sGridNo) &&
 				InARoom(sGridNo, &usRoom))
 			{
-				if ((fInRing && usRoom == BOXING_RING) || (!fInRing && usRoom != BOXING_RING) &&
+				// NB the parentheses around the ring test matter: && binds tighter
+				// than ||, so without them the LegalNPCDestination() check only
+				// applied to the "leave ring" case. The "move into ring" case then
+				// accepted illegal/unreachable ring tiles, and the boxer would
+				// GET_CLOSER toward a spot it could never stand on -> turn never
+				// completes -> boxing match hangs.
+				if (((fInRing && usRoom == BOXING_RING) || (!fInRing && usRoom != BOXING_RING)) &&
 					LegalNPCDestination(pSoldier, sGridNo, IGNORE_PATH, NOWATER, 0))
 				{
 					// sevenfm: for player merc, find spot closest to Darren
