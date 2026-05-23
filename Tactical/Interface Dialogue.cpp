@@ -1379,7 +1379,12 @@ void CalculatePopupTextPosition( INT16 sWidth, INT16 sHeight )
 
 BOOLEAN	TalkingMenuGiveItem( UINT8 ubNPC, OBJECTTYPE *pObject, INT8 bInvPos )
 {
-	CHECKF( SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_GIVE_ITEM, (UINT32) ubNPC, (UINT32)(uintptr_t)pObject, (UINT32) bInvPos, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI ) != FALSE );
+	// pObject is intentionally NOT forwarded through the dialogue event: it would
+	// be truncated into the UINT32 uiSpecialEventData2 field and come back as a
+	// garbage pointer on 64-bit. HandleNPCItemGiven re-derives the object from
+	// ubNPC + bInvPos (both round-trip the queue intact).
+	(void)pObject;
+	CHECKF( SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_GIVE_ITEM, (UINT32) ubNPC, 0, (UINT32) bInvPos, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI ) != FALSE );
 
 	return( TRUE );
 }
@@ -1457,8 +1462,19 @@ BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
 }
 
 
-void HandleNPCItemGiven( UINT8 ubNPC, OBJECTTYPE *pObject, INT8 bInvPos )
+void HandleNPCItemGiven( UINT8 ubNPC, INT8 bInvPos )
 {
+	// Re-derive the gift object from the NPC's own inventory rather than trusting a
+	// pointer smuggled through the UINT32 dialogue field (it truncated on 64-bit).
+	// ubNPC + bInvPos survive the queue intact; the drop branch below already
+	// reconstructed the object this way.
+	SOLDIERTYPE * pNPC = FindSoldierByProfileID( ubNPC, FALSE );
+	if ( pNPC == NULL )
+	{
+		return;
+	}
+	OBJECTTYPE * pObject = &(pNPC->inv[ bInvPos ]);
+
 	DebugQuestInfo(String("HandleNPCItemGiven: <%d> item %d inv %d", ubNPC, pObject->usItem, bInvPos));
 	// Give it to the NPC soldier
 //	AutoPlaceObject( gpDestSoldier, pObject, FALSE );
@@ -1466,18 +1482,9 @@ void HandleNPCItemGiven( UINT8 ubNPC, OBJECTTYPE *pObject, INT8 bInvPos )
 	// OK< if the timer is < 5000, use who was last in the talk panel box.
 	if ( !SourceSoldierPointerIsValidAndReachableForGive( gpDestSoldier ) )
 	{
-		// just drop it
-
-		// have to walk up to the merc closest to ubNPC
-
-		SOLDIERTYPE *		pNPC;
-
-		pNPC = FindSoldierByProfileID( ubNPC, FALSE );
-		if ( pNPC )
-		{
-			AddItemToPool( pNPC->sGridNo, &(pNPC->inv[bInvPos]), TRUE, 0, 0, 0 );
-			TriggerNPCWithGivenApproach( ubNPC, APPROACH_DONE_GIVING_ITEM, TRUE );
-		}
+		// just drop it (walk up to the merc closest to ubNPC)
+		AddItemToPool( pNPC->sGridNo, &(pNPC->inv[bInvPos]), TRUE, 0, 0, 0 );
+		TriggerNPCWithGivenApproach( ubNPC, APPROACH_DONE_GIVING_ITEM, TRUE );
 	}
 	else
 	{
