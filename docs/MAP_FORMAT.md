@@ -157,3 +157,86 @@ in-memory field to a fixed-width on-disk slot and convert at the boundary — th
 on-disk format is unchanged. Full breakdown, the audit of which records are
 scalar-safe, and the per-install map-version inventory live in
 [`SAVE_FORMAT.md` → "Map-file version-branched loaders"](SAVE_FORMAT.md).
+
+---
+
+## Future direction — hybrid text + binary format (idea, not built)
+
+> **Status: thinking-out-loud, nothing implemented.** Captured here so the idea
+> isn't lost. The current format above is frozen and stays the source of truth
+> until/unless this is actually pursued.
+
+### Motivation
+
+The format's two weaknesses are (1) it serializes raw in-memory struct blobs, so
+on-disk layout is hostage to compiler/platform ABI (the entire 64-bit bug class
+this engine just fixed), and (2) it's opaque to modders — sector content lives in
+a binary blob only the map editor can touch. The bulk of a map is the **tile grid**
+(25,600+ cells × heights + up to 6 layers), which is compact in binary and not
+human-editable anyway. The *interesting* part for modding — placements, doors,
+exit grids, schedules, map info — is small.
+
+So the proposal is **not** "make the whole map text." Pure JSON/YAML would bloat
+maps 5–10× and turn a near-`memcpy` tile read into a slow parse, for zero benefit
+on the part nobody hand-edits. The sweet spot is a **hybrid**:
+
+- **tile grid stays compact binary** (the existing packed/RLE encoding, embedded
+  as a chunk or a base64+zlib blob), and
+- **metadata + entity records become structured text** (placements, doors,
+  exit grids, schedules, flags, version) — diffable, code-reviewable, mod-patchable.
+
+This is exactly what mature map editors do: **Tiled** (TMX/TMJ) keeps the document
+text but stores each tile layer as base64+zlib or CSV; Godot `.tscn` is text with
+binary-capable resources.
+
+### This pattern is already half-real in 1.13
+
+The engine already overlays per-sector content from XML at load time, parsed with
+the vendored **expat** (the same stack behind `Cities.xml`, `HeliSites.xml`, etc.):
+
+- `Strategic/XML_ExtraItems.cpp` → **`ExtraItems.xml`** — places items by
+  `item` / `quantity` / `condition` / `gridno` / `visible`, keyed per sector
+  (`gX`/`gY`/`gZ`). Literally XML-driven item placement onto map gridnos.
+- `Strategic/XML_Creatures.cpp` → **`CreaturePlacements.xml`**
+- `Strategic/XML_Bloodcats.cpp` → **`BloodcatPlacements.xml`**
+
+So modders already author sector placements in text; the `.dat` just holds the
+tile grid + the *base* placements. The proposal is to **formalize and extend**
+that existing split rather than invent something foreign to the ecosystem.
+
+### Rough shape
+
+```
+<sector>.json (or .xml)        # text: version, flags, mapinfo, placements,
+                               #       doors, exitgrids, schedules
+  └─ tiles: <sector>.tiles     # binary chunk: heights + packed layer streams
+     (or an embedded base64+zlib string)
+```
+
+Records would serialize **field-by-field** (reuse the `SaveWriter`/`SaveReader`
+core from [`SAVE_FORMAT.md`](SAVE_FORMAT.md)) so layout never touches disk — same
+serializer for saves and maps, killing the ABI bug class structurally. An integer
+format version replaces the `FLOAT` major/minor.
+
+### Migration
+
+- Keep today's loader as **import-only** (read any v5/v6/v7/v8 → in-memory model).
+- New writer emits the hybrid format; ship a **batch converter** for the existing
+  corpus (261 vanilla maps + 1.13/UB/mods).
+- **Golden-byte CI tests** to prove cross-platform parity.
+
+### Open questions before committing
+
+- One file with an embedded tile blob, or split text + sidecar `.tiles`?
+- JSON (simple/fast, no comments → JSON5) vs reuse the existing **XML/expat** stack
+  for ecosystem consistency.
+- How base placements in the `.dat` reconcile with the XML overlays modders
+  already use — unify them, or keep "base in map, extras in overlay"?
+- Editor round-trip: does the map editor read/write the new format directly?
+- Worth benchmarking the size/load delta on a real map (e.g. `A9`) before
+  committing — the tile-blob encoding choice drives both.
+
+The ROI case rests on **modding/tooling** being a goal. If the only driver is
+load speed/footprint, staying binary (and just routing records through the field
+serializer + adding skippable sections) captures most of the robustness win at a
+fraction of the cost.
