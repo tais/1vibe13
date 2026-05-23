@@ -3768,11 +3768,19 @@ void CheckGridNoOfItemsInMapScreenMapInventory()
 
 void SortSectorInventory( std::vector<WORLDITEM>& pInventory, UINT32 uiSizeOfArray )
 {
-#if _ITERATOR_DEBUG_LEVEL > 1//dnl ch75 061113 under debug VS2010 throws exceptions after qsort but not under VS2005 and VS2008, all release version seems to work fine
-	std::sort(pInventory.begin(), pInventory.begin() + uiSizeOfArray);
-#else
-	qsort((LPVOID)&pInventory.front(), (size_t)uiSizeOfArray, sizeof(WORLDITEM), MapScreenSectorInventoryCompare);
-#endif
+	// MUST NOT use qsort here. WORLDITEM embeds an OBJECTTYPE whose objectStack is a
+	// std::list (and attachments lists below it). qsort reorders elements with byte-wise
+	// memcpy/memmove, which shallow-copies those lists: the moved nodes keep pointing at
+	// the relocated/overwritten sentinel, so a later list operation walks a garbage
+	// __prev_/__next_ and crashes (seen as EXC_BAD_ACCESS in OBJECTTYPE::SpliceData ->
+	// list::clear during the sector ammo-sort). This was latent on the old MSVC build only
+	// because the previous std::sort path was gated behind _ITERATOR_DEBUG_LEVEL > 1.
+	// std::sort relocates elements through proper value semantics. The comparator mirrors
+	// the old MapScreenSectorInventoryCompare ordering exactly (empty slots sort last).
+	if (uiSizeOfArray > pInventory.size())
+		uiSizeOfArray = (UINT32)pInventory.size();
+	std::stable_sort(pInventory.begin(), pInventory.begin() + uiSizeOfArray,
+		[](const WORLDITEM& a, const WORLDITEM& b) { return MapScreenSectorInventoryCompare(&a, &b) < 0; });
 }
 
 INT32 MapScreenSectorInventoryCompare( const void *pNum1, const void *pNum2)

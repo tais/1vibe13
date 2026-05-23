@@ -198,6 +198,17 @@ PIXEL *Create16BPPPalette( SGPPaletteEntry *pPalette );
 PIXEL Get16BPPColor( UINT32 RGBValue );
 UINT32 GetRGBColor( UINT16 Value16BPP );
 
+// Pack 8-bit RGB into the engine's 16-bit colour *token* (RGB565). Use this when
+// a colour must live in a UINT16/INT16 field (e.g. button text colours) that is
+// later widened by PixFromColor16. Do NOT store a (UINT16)-truncated
+// Get16BPPColor() there: at 32bpp Get16BPPColor returns true ARGB8888, whose low
+// 16 bits are not a valid colour. (565 matches both the 16bpp screen format and
+// PixFromColor16's decode.)
+inline UINT16 Get16BPPColorToken( UINT8 r, UINT8 g, UINT8 b )
+{
+	return (UINT16)( ((UINT16)( r >> 3 ) << 11) | ((UINT16)( g >> 2 ) << 5) | (UINT16)( b >> 3 ) );
+}
+
 // 32bpp (ARGB8888) equivalents -- Phase 6b RGBA8888 pipeline.
 UINT32 *Create32BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono);
 UINT32 *Create32BPPPalette( SGPPaletteEntry *pPalette );
