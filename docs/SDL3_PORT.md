@@ -1373,15 +1373,11 @@ runtime; the other two are paper UB that compilers honor in practice.
 
 ## Known UI bugs (post-Phase 6k)
 
-- **Laptop hover tooltips have transparent backgrounds.** Tooltip box
-  renders text but the fill underneath is see-through, so the laptop
-  background bleeds through. Likely the `SaveBackgroundRect` /
-  `RestoreBackgroundRects` pair isn't capturing the laptop tiles
-  cleanly (the save happens against `guiSAVEBUFFER`, which may be
-  stale because the laptop screen doesn't `UpdateSaveBuffer()` after
-  each redraw the way `RENDER_FLAG_FULL` does in tactical). To
-  investigate: trace `RegisterBackgroundRect` from the tooltip path
-  and check what's in `guiSAVEBUFFER` at the moment of save.
+_None currently open._
+
+- ~~**Laptop hover tooltips have transparent backgrounds.**~~ ✅ Resolved —
+  this was a fallout of the RGBA8888 conversion (Phase 6) and is no longer
+  reproducible; tooltip backgrounds render solid again.
 
 ## Open questions / decisions still pending
 
