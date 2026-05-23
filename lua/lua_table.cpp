@@ -328,7 +328,7 @@ bool LuaTable::setValue<bool>(int index, bool const& value)
 
 int LuaTable::length()
 {
-	return (int)lua_objlen(_L(), _off);
+	return (int)lua_rawlen(_L(), _off);
 }
 
 bool LuaTable::is_valid()

@@ -10,7 +10,7 @@ LuaState::LuaState(lua_State* state, bool own) : _L(state), _own(own), _registry
 
 LuaState::LuaState() : _L(NULL), _own(true), _registry(NULL)
 {
-	//_L = lua_open();
+	//_L = luaL_newstate();
 	//_registry._L = _L;
 }
 
@@ -22,7 +22,7 @@ void LuaState::init(bool init_libs)
 {
 	if(!_L)
 	{
-		_L = lua_open();
+		_L = luaL_newstate();
 		if(init_libs)
 		{
 			luaL_openlibs(_L);

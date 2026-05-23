@@ -177,7 +177,7 @@ void NewLuaObject( lua_State *L, STR8 ClsName, void *Ptr )
 
 void InitializeLua( )
 {
-	L = lua_open();
+	L = luaL_newstate();
 	luaL_openlibs(L);
 
 	// Create the accessor metatable

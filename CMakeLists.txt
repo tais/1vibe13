@@ -153,59 +153,34 @@ add_subdirectory("ext/zlib")
 add_subdirectory("ext/VFS")
 target_link_libraries(bfVFS PRIVATE 7z)
 
-# Lua 5.1.5 from source. JA2 mods rely on Lua 5.1 semantics so we
-# can't just bump to 5.4. Upstream Lua 5.1 doesn't ship a CMakeLists,
-# so we fetch the canonical tarball and build it with a tiny in-tree
-# wrapper. Windows historically linked the prebuilt lua51.lib /
-# lua51.vc9.lib -- those blobs are dropped from the Ja2_Libraries
-# list once this builds clean on Windows.
-find_package(Lua 5.1 EXACT QUIET)
-if(NOT TARGET lua51)
-  include(FetchContent)
-  FetchContent_Declare(
-    lua515
-    URL https://www.lua.org/ftp/lua-5.1.5.tar.gz
-    URL_HASH SHA256=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
-  )
-  FetchContent_MakeAvailable(lua515)
-  file(GLOB LUA51_SRC
-    "${lua515_SOURCE_DIR}/src/lapi.c"
-    "${lua515_SOURCE_DIR}/src/lauxlib.c"
-    "${lua515_SOURCE_DIR}/src/lbaselib.c"
-    "${lua515_SOURCE_DIR}/src/lcode.c"
-    "${lua515_SOURCE_DIR}/src/ldblib.c"
-    "${lua515_SOURCE_DIR}/src/ldebug.c"
-    "${lua515_SOURCE_DIR}/src/ldo.c"
-    "${lua515_SOURCE_DIR}/src/ldump.c"
-    "${lua515_SOURCE_DIR}/src/lfunc.c"
-    "${lua515_SOURCE_DIR}/src/lgc.c"
-    "${lua515_SOURCE_DIR}/src/linit.c"
-    "${lua515_SOURCE_DIR}/src/liolib.c"
-    "${lua515_SOURCE_DIR}/src/llex.c"
-    "${lua515_SOURCE_DIR}/src/lmathlib.c"
-    "${lua515_SOURCE_DIR}/src/lmem.c"
-    "${lua515_SOURCE_DIR}/src/loadlib.c"
-    "${lua515_SOURCE_DIR}/src/lobject.c"
-    "${lua515_SOURCE_DIR}/src/lopcodes.c"
-    "${lua515_SOURCE_DIR}/src/loslib.c"
-    "${lua515_SOURCE_DIR}/src/lparser.c"
-    "${lua515_SOURCE_DIR}/src/lstate.c"
-    "${lua515_SOURCE_DIR}/src/lstring.c"
-    "${lua515_SOURCE_DIR}/src/lstrlib.c"
-    "${lua515_SOURCE_DIR}/src/ltable.c"
-    "${lua515_SOURCE_DIR}/src/ltablib.c"
-    "${lua515_SOURCE_DIR}/src/ltm.c"
-    "${lua515_SOURCE_DIR}/src/lundump.c"
-    "${lua515_SOURCE_DIR}/src/lvm.c"
-    "${lua515_SOURCE_DIR}/src/lzio.c"
-  )
-  add_library(lua51 STATIC ${LUA51_SRC})
-  target_include_directories(lua51 PUBLIC "${lua515_SOURCE_DIR}/src")
-  if(UNIX)
-    target_compile_definitions(lua51 PRIVATE LUA_USE_POSIX LUA_USE_DLOPEN)
-    target_link_libraries(lua51 PRIVATE dl m)
-  endif()
+# Lua 5.5.0 built from source (upgraded from 5.1.5). The shipped 1.13 scripts
+# are 5.5-clean (no setfenv/table.getn/unpack/loadstring, no `global` identifier
+# or for-var reassignment); mods migrate per docs/LUA_5.x_MIGRATION.md. Built
+# ourselves on every platform (no system Lua) so the version is identical across
+# Win/Lin/Mac, like the other vendored deps. Upstream Lua ships no CMakeLists,
+# so glob the library .c (excluding the standalone interpreter/compiler mains
+# lua.c/luac.c) into a tiny static lib. NB: lua.org still flags 5.4.8 as the
+# "current" recommended release; re-pin the tarball/hash below to change line.
+include(FetchContent)
+FetchContent_Declare(
+  lua
+  URL https://www.lua.org/ftp/lua-5.5.0.tar.gz
+  URL_HASH SHA256=57ccc32bbbd005cab75bcc52444052535af691789dba2b9016d5c50640d68b3d
+)
+FetchContent_MakeAvailable(lua)
+file(GLOB LUA_SRC "${lua_SOURCE_DIR}/src/*.c")
+list(FILTER LUA_SRC EXCLUDE REGEX "/(lua|luac|onelua)[.]c$")
+add_library(lua STATIC ${LUA_SRC})
+target_include_directories(lua PUBLIC "${lua_SOURCE_DIR}/src")
+if(UNIX)
+  target_compile_definitions(lua PRIVATE LUA_USE_POSIX LUA_USE_DLOPEN)
+  target_link_libraries(lua PRIVATE dl m)
 endif()
+# JA2 modules outside the `Lua` wrapper include "lua.h" directly and used to
+# pick it up from the globally-included lua/ dir (which held stale 5.1 header
+# copies). Those were removed in the upgrade, so put the fetched Lua src on the
+# global include path for every target defined after this point.
+include_directories("${lua_SOURCE_DIR}/src")
 
 # Expat (XML parser). Always built from the pinned source on every platform
 # (no find_package fallback to the OS copy): the system expat's patch level

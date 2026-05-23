@@ -64,7 +64,7 @@ public:
 		void *ptr = LuaInterface::luaIsOfType(L, index, T::luaClassName);
 		if( !ptr )
 		{
-			luaL_typerror(L(), index, T::luaClassName);
+			luaL_typeerror(L(), index, T::luaClassName);
 		}
 
 		T** ppNode = (T**)(ptr);

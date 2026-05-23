@@ -31,7 +31,7 @@ LuaMines g_luaMines;
 LuaMines::LuaMines()
 	: m_log(L"initmines.log", false)
 {
-	m_L = lua_open();
+	m_L = luaL_newstate();
 	luaL_openlibs(m_L);
 }
 

@@ -48,8 +48,8 @@ int LuaWStringByte( lua_State* L )
 	TWString *tw;
 
 	tw = (TWString*) luaL_checkudata( L, 1, "wstring" );
-	start = luaL_optint( L, 2, 1 );
-	stop = luaL_optint( L, 3, 1 );
+	start = luaL_optinteger( L, 2, 1 );
+	stop = luaL_optinteger( L, 3, 1 );
 
 	// This function in the char strings will return nothing if the params are out of bounds.
 	if (start < 1 || start >= tw->len ||
@@ -82,7 +82,7 @@ static int LuaWStringChar( lua_State *L )
 	len--;
 	for( idx=0; idx<len; idx++)
 	{
-		str[ idx ] = (CHAR16) luaL_checkint( L, idx + 1 );
+		str[ idx ] = (CHAR16) luaL_checkinteger( L, idx + 1 );
 	}
 	str[ idx ] = 0;
 
@@ -146,7 +146,7 @@ static int LuaWStringMatch( lua_State *L )
 static int LuaWStringRep( lua_State *L )
 {
 	TWString *tw = (TWString*) luaL_checkudata( L, 1, "wstring" );
-	int num = (luaL_checkint( L, 2) >= 0) ? lua_tointeger( L, 2) : 0;
+	int num = (luaL_checkinteger( L, 2) >= 0) ? lua_tointeger( L, 2) : 0;
 	int len = tw->len * num + 1;
 	CHAR16 *str = (CHAR16 *) MemAlloc( len * sizeof( CHAR16) );
 	int idx;
