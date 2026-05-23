@@ -73,7 +73,7 @@ BEGIN
 			VALUE "FileDescription", "Jagged Alliance 2 Gold"
 			VALUE "FileVersion", "1, 0, 0, 6"
 			VALUE "InternalName", "Jagged Alliance 2"
-			VALUE "LegalCopyright", "Copyright © 1998"
+			VALUE "LegalCopyright", "Copyright ï¿½ 1998"
 			VALUE "OriginalFilename", "Ja2.exe"
 			VALUE "ProductName", "Jagged Alliance 2 Gold"
 			VALUE "ProductVersion", "1, 0, 0, 6"
@@ -94,6 +94,13 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ICON1				ICON					"jagged3.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Manifest (DPI awareness -- required by SDL3, which no longer sets it at
+// runtime). 1 = CREATEPROCESS_MANIFEST_RESOURCE_ID, 24 = RT_MANIFEST.
+//
+1 24 "ja2.manifest"
 #endif	// English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <!--
+    Declare the process DPI-aware. SDL3 removed the runtime DPI-awareness
+    hint (SDL_HINT_WINDOWS_DPI_AWARENESS) and now requires the application
+    manifest to set it. Without this the exe defaults to DPI-unaware, so on
+    a scaled display (e.g. 1366x768 game on a 4K/150% desktop) Windows
+    virtualizes window/mouse coordinates while SDL_WINDOW_HIGH_PIXEL_DENSITY
+    asks for physical pixels -- the two disagree and the mouse position maps
+    outside the logical canvas (no hover, dead menu, software cursor drawn in
+    the wrong place). PerMonitorV2 makes coordinates physical and consistent.
+  -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>
