@@ -1,0 +1,175 @@
+name: release
+
+# Tagged-release pipeline. Push a tag like `v0.1.0` (or run manually) and
+# this builds the three shipped apps -- JA2_ENGLISH, JA2UB_ENGLISH,
+# JA2MAPEDITOR_ENGLISH -- on Linux, macOS and Windows, bundles each
+# platform's executables together with the matching SDL3 / SDL3_mixer
+# runtime libraries, and attaches a per-platform archive to a GitHub
+# Release.
+#
+# The build steps deliberately mirror build_unix.yml (the per-commit
+# compile-check) so the toolchain stays identical; the extra work here
+# is staging + packaging + publishing.
+#
+# IMPORTANT: we ship the SDL3 libraries our OWN build produced, not
+# downloaded releases. We fetch SDL3/SDL3_mixer from `main` (see
+# CMakeLists.txt), which is ahead of any tagged SDL release, so a
+# mismatched SDL3.dll/.dylib/.so causes subtle ABI breakage (e.g. mouse
+# event coordinates reading as garbage -> dead menus). Bundling the
+# matching libs is the whole point.
+#
+# These archives contain the ENGINE only -- no game Data. Drop them into
+# an existing JA2 1.13 install (which provides Data/) to run.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional label for a manual (non-tag) package build'
+        required: false
+
+permissions:
+  contents: write   # create/update the GitHub Release + upload assets
+
+jobs:
+  package:
+    name: package (${{ matrix.platform.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: ubuntu-latest,  name: linux }
+          - { os: macos-latest,   name: macos }
+          - { os: windows-latest, name: windows }
+    runs-on: ${{ matrix.platform.os }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ---- toolchain / build deps (identical to build_unix.yml) ----
+      - name: Install Linux build deps
+        if: matrix.platform.name == 'linux'
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libx11-dev libxext-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libxrandr-dev libxss-dev libxkbcommon-dev \
+            libxtst-dev libxfixes-dev \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
+            libibus-1.0-dev
+          echo "CC=clang"   >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+
+      - name: Install macOS build deps
+        if: matrix.platform.name == 'macos'
+        run: |
+          set -eux
+          brew install cmake ninja
+
+      - name: Set up MSVC environment (Windows)
+        if: matrix.platform.name == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Select clang toolchain (Windows)
+        if: matrix.platform.name == 'windows'
+        shell: bash
+        run: |
+          echo "CC=clang"                                  >> $GITHUB_ENV
+          echo "CXX=clang++"                               >> $GITHUB_ENV
+          echo "CFLAGS=--target=x86_64-pc-windows-msvc"    >> $GITHUB_ENV
+          echo "CXXFLAGS=--target=x86_64-pc-windows-msvc"  >> $GITHUB_ENV
+
+      # ---- configure (all three apps in one tree) + build ----
+      - name: Configure
+        shell: bash
+        run: |
+          set -eux
+          # Bake an rpath so the bundled SDL libs are found next to the
+          # executable on a clean machine (no system SDL install). Windows
+          # has no rpath -- DLLs in the exe's directory are found anyway.
+          RPATH_ARGS=()
+          case "${{ matrix.platform.name }}" in
+            linux) RPATH_ARGS=(-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON '-DCMAKE_INSTALL_RPATH=$ORIGIN') ;;
+            macos) RPATH_ARGS=(-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON '-DCMAKE_INSTALL_RPATH=@loader_path') ;;
+          esac
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLanguages=ENGLISH \
+            "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
+            "${RPATH_ARGS[@]}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build
+
+      # ---- stage: executables + matching SDL runtime libs + readme ----
+      - name: Stage payload (unix)
+        if: matrix.platform.name != 'windows'
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p dist
+          for app in JA2 JA2UB JA2MAPEDITOR; do
+            cp "build/${app}_ENGLISH" dist/
+          done
+          # -a preserves the SONAME symlink chain (libSDL3.so -> .so.0 -> .so.0.x.y)
+          cp -a build/_deps/sdl3-build/libSDL3*       dist/
+          cp -a build/_deps/sdl3_mixer-build/libSDL3_mixer* dist/
+
+      - name: Stage payload (windows)
+        if: matrix.platform.name == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($app in 'JA2','JA2UB','JA2MAPEDITOR') {
+            Copy-Item "build/$($app)_ENGLISH.exe" dist/
+          }
+          Copy-Item build/_deps/sdl3-build/SDL3.dll dist/
+          Copy-Item build/_deps/sdl3_mixer-build/SDL3_mixer.dll dist/
+
+      # ---- archive per platform (.zip everywhere) ----
+      - name: Resolve package name
+        shell: bash
+        run: |
+          set -eux
+          REF="${{ github.event.inputs.tag }}"
+          if [ -z "$REF" ]; then REF="${GITHUB_REF_NAME}"; fi
+          echo "PKG=ja2-sdl3-${{ matrix.platform.name }}-${REF}" >> "$GITHUB_ENV"
+
+      - name: Archive (unix)
+        if: matrix.platform.name != 'windows'
+        shell: bash
+        run: |
+          set -eux
+          ( cd dist && zip -r "../${PKG}.zip" . )
+          echo "ASSET=${PKG}.zip" >> "$GITHUB_ENV"
+
+      - name: Archive (windows)
+        if: matrix.platform.name == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/* -DestinationPath "$env:PKG.zip"
+          "ASSET=$env:PKG.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ja2-sdl3-${{ matrix.platform.name }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+
+      # ---- publish to the GitHub Release (tag pushes only) ----
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET }}
+          fail_on_unmatched_files: true
