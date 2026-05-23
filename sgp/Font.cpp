@@ -757,23 +757,34 @@ UINT16 GetFontHeight(INT32 FontNum)
 //*****************************************************************************
 INT16 GetIndex(CHAR16 siChar)
 {
-	UINT16 *pTrav;
-	UINT16 ssCount=0;
-	UINT16	usNumberOfSymbols = pFManager->pTranslationTable->usNumberOfSymbols;
+	// Reverse map: codepoint -> glyph index. Built once from the translation
+	// table (rebuilt only if the table pointer/size changes), replacing the old
+	// O(n) linear scan that ran for *every* character of *every* measured and
+	// printed string -- a per-frame cost in all the centering/word-wrap/tooltip
+	// layout paths. The table stores 16-bit codepoints, so a 64K reverse map
+	// gives O(1) lookups; anything above the BMP can't be in it. First-match
+	// semantics are preserved (only the first index for a codepoint is kept).
+	static const UINT16* sCachedArray = NULL;
+	static UINT16        sCachedCount = 0;
+	static INT16         sReverse[0x10000];
 
-//inshy: We don't need anymore ANSI convertation to UNICODE.
-//siChar = GetUnicodeChar(siChar);
-
-	// search the Translation Table and return the index for the font
-	pTrav = pFManager->pTranslationTable->DynamicArrayOf16BitValues;
-	while (ssCount < usNumberOfSymbols )
+	const FontTranslationTable* tt = pFManager->pTranslationTable;
+	if (tt->DynamicArrayOf16BitValues != sCachedArray || tt->usNumberOfSymbols != sCachedCount)
 	{
-		if (siChar == *pTrav)
+		for (INT32 i = 0; i < 0x10000; ++i) sReverse[i] = -1;
+		for (UINT16 i = 0; i < tt->usNumberOfSymbols; ++i)
 		{
-		return ssCount;
+			UINT16 cp = tt->DynamicArrayOf16BitValues[i];
+			if (sReverse[cp] < 0) sReverse[cp] = (INT16)i;   // keep first match
+		}
+		sCachedArray = tt->DynamicArrayOf16BitValues;
+		sCachedCount = tt->usNumberOfSymbols;
 	}
-		ssCount++;
-		pTrav++;
+
+	if ((UINT32)siChar < 0x10000)
+	{
+		INT16 idx = sReverse[(UINT16)siChar];
+		if (idx >= 0) return idx;
 	}
 
 	// If here, present warning and give the first index
