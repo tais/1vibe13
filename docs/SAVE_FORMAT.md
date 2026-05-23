@@ -400,3 +400,64 @@ pointer-alignment padding differs between 32- and 64-bit):
 32-bit (`ar.slong`). Same-platform saves were always fine; this pass makes saves
 **shareable across Win/Lin/Mac**. Verification remains by playtest until a test
 framework lands (golden-byte cross-platform tests are the ideal coverage).
+
+---
+
+## Map-file (`.dat` / `Maps.slf`) version-branched loaders
+
+Separate from the savegame stream: each map record is loaded through a
+`::Load(hBuffer, dMajorMapVersion, ubMinorMapVersion)` that branches on the map
+version and blob-reads an era-specific "OLD" struct. **The on-disk map format is
+frozen** — legacy/1.13/UB/mod maps must keep loading byte-for-byte — so every fix
+here is read-side only: where an OLD struct embeds a `CHAR16` (2 bytes on disk,
+4 in memory on mac/Linux) or a pointer (4 on disk, 8 in memory), the in-memory
+field is narrowed to a fixed-width on-disk slot (`UINT16` / `UINT32`) and
+widened/zeroed at the conversion operator, so the struct's POD region matches the
+original 32-bit layout exactly. This is the same breaker set as the save work,
+in the map path.
+
+These bugs manifested as the **Omerta intro being unplayable** on the port: the
+kid + Fatima never spawned in A9, and giving Fatima the letter crashed.
+
+### Fixes (merged)
+
+| Version path | Struct | Breaker | Fix |
+|---|---|---|---|
+| v5.0 detailed placement | `OLD_SOLDIERCREATE_STRUCT_101` | `CHAR16 name[10]` + `SOLDIERTYPE* pExistingSoldier` scrambled every field after `name` → `LoadSoldiersFromMap` derailed at first CIV → no NPCs | `UINT16 name` + `UINT32` slot; widen/NULL at operators |
+| v<8.0 NPC schedules | `_OLD_SCHEDULENODE`, `_OLD_SCHEDULENODE_PRE_ITS` | leading `next` pointer (8 vs 4) shifted every schedule field by 4 | `next` → `UINT32` slot (transient link, rebuilt on load) |
+| give-item dialogue | `uiApproachData` carrier | smuggles an `OBJECTTYPE*` but typed `UINT32` → pointer truncated at `InitiateConversation`, crash on cast-back in `Converse`/`ReturnItemToPlayerIfNecessary` | widen to `uintptr_t` end-to-end |
+| v6.0.27–6.0.30 detailed placement | `_OLD_SOLDIERCREATE_STRUCT` | same `CHAR16 name` + `SOLDIERTYPE*` as v5.0 | `UINT16 name` + `UINT32` slot (branch `fix-v6x-map-soldier-load`) |
+
+### Audit — version-branched map structs verified safe (no change needed)
+
+All other structs blob-loaded in a version branch are scalar-only (pure
+fixed-width members, no `CHAR16`/pointer/`long`/vtable), so they're byte-identical
+on every target: `MAPCREATE_STRUCT`, `BASIC_SOLDIERCREATE_STRUCT`, `DOOR`,
+`EXITGRID`, the `WORLDITEM` family, `OBJECTTYPE` (5-byte POD), `LBENODE`. Note
+`SoldierID` is a 2-byte `UINT16` wrapper with no vtable, so it serializes safely
+where it appears.
+
+### Install map-version inventory (test game, 2026-05-23)
+
+Parsed from each `.dat` header (`FLOAT major @0`, `UINT8 minor @4`):
+
+| Source | Count | Versions |
+|---|---|---|
+| `Data/Maps.slf` | 261 | 127× v5.0.24, 134× v5.0.25 |
+| `Data/Maps` (loose) | 9 | v5.0.25 |
+| `Data-1.13/Maps` | 7 | 1× v5.0.25, 5× v7.0.31, 1× v8.0.31 |
+| `Data-UB/Maps` | 24 | 19× v5.0.25, **5× v6.0.26** (`I10A`, `I13`, `I13_B1`, `J13_B1`, `K16`) |
+
+### ⚠️ Pending runtime verification
+
+- **UB v6.0.26 maps** are untested at runtime. They do **not** exercise the v6.x
+  fix: the soldier loader gate is `major>=6.0 && minor>26` (strict), so minor=26
+  routes through the already-verified `OLD_SOLDIERCREATE_STRUCT_101` (v5.0) path.
+  They should "just work" — confirm by entering UB sectors I10/I13/J13/K16
+  (+ basements).
+- **The v6.x `_OLD_SOLDIERCREATE_STRUCT` path** (v6.0.27–6.0.30) is not present in
+  this install, so the fix is mechanically identical to the verified v5.0 one but
+  never runtime-exercised. Needs a mod shipping v6.0.27+ maps to confirm.
+
+Verified working so far: the full Omerta intro (kid + Fatima in A9, letter handoff,
+escort through A10 + A10 basement which is a v7.0 map, Ira recruited).
