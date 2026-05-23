@@ -22,3 +22,12 @@ add_library(zlib STATIC
 "trees.c"
 )
 target_include_directories(zlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Tell zlib it has <unistd.h> on POSIX (what zlib's own ./configure does).
+# zconf.h then includes it so gzread.c's read()/close()/SEEK_* are declared;
+# without it modern clang errors on the implicit declarations. Replaces the
+# old in-source gzguts.h patch so future zlib bumps stay drop-in. Not on
+# Windows (no unistd.h there; zlib uses <io.h>).
+if(NOT WIN32)
+  target_compile_definitions(zlib PUBLIC Z_HAVE_UNISTD_H)
+endif()
