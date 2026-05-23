@@ -2424,7 +2424,7 @@ BOOLEAN LuaCheckFact ( UINT16 usFact, UINT8 ubProfileID , UINT32 Init )
 	FileRead(file, buffer, size, &bytesRead);
 	FileClose(file);
 
-	lua_State *L = lua_open();
+	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 
 	lua_register(L, "CheckForMissingHospitalSupplies", l_CheckForMissingHospitalSupplies);
@@ -2473,7 +2473,7 @@ BOOLEAN LuaCheckForKingpinsMoneyMissing( BOOLEAN fFirstCheck, UINT8 Init)
 	FileRead(file, buffer, size, &bytesRead);
 	FileClose(file);
 
-	lua_State *L = lua_open();
+	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 
 	//init function
@@ -2523,7 +2523,7 @@ BOOLEAN LuaHandleDelayedItemsArrival( UINT32 uiReason, UINT8 Init)
 	FileRead(file, buffer, size, &bytesRead);
 	FileClose(file);
 
-	lua_State *L = lua_open();
+	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 
 	//init function
@@ -2574,7 +2574,7 @@ BOOLEAN LuaHandleQuestCodeOnSectorEntry( INT16 sSectorX, INT16 sSectorY, INT8 bS
 	FileRead(file, buffer, size, &bytesRead);
 	FileClose(file);
 
-	lua_State *L = lua_open();
+	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 
 	//init function
@@ -2917,7 +2917,7 @@ BOOLEAN LuaHandleNPCDoAction(UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuo
 	FileClose(file);
 
 
-	lua_State* L = lua_open();
+	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
 
 	//init function
@@ -7661,7 +7661,7 @@ BOOLEAN LetLuaHandleNPCSystemEvent( UINT32 uiEvent, UINT8 Init)
 	FileClose(file);
 
 
-	lua_State *L = lua_open();
+	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 
 	//init function
