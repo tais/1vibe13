@@ -304,6 +304,14 @@ foreach(app IN LISTS ApplicationTargets)
     )
     target_link_libraries(${exe} PRIVATE SDL3::SDL3)
     target_link_options(${exe} PRIVATE $<IF:${usingMsBuild},/SAFESEH:NO,>)
+    if(WIN32)
+      # Fold our DPI-awareness settings into the linker's auto-generated
+      # embedded manifest (CMake already passes /MANIFEST:EMBED). Embedding the
+      # manifest as a separate ja2.rc resource instead collides with that one
+      # (lld-link: "duplicate resource: type MANIFEST id 1"). /MANIFESTINPUT
+      # merges our windowsSettings into the single generated manifest.
+      target_link_options(${exe} PRIVATE "LINKER:/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/Ja2/Res/ja2.manifest")
+    endif()
     target_compile_definitions(${exe} PRIVATE ${compilationFlags} ${debugFlags})
 
     # language library for an application, e.g. JA2MAPEDITOR_ENGLISH_i18n

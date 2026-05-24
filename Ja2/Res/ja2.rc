@@ -94,13 +94,6 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ICON1				ICON					"jagged3.ico"
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Manifest (DPI awareness -- required by SDL3, which no longer sets it at
-// runtime). 1 = CREATEPROCESS_MANIFEST_RESOURCE_ID, 24 = RT_MANIFEST.
-//
-1 24 "ja2.manifest"
 #endif	// English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
