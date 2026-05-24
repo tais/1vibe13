@@ -6628,13 +6628,8 @@ UINT32 HandleMapUI( )
 				{
 					sX = ( GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID	) % MAP_WORLD_X );
 					sY = ( GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID	) / MAP_WORLD_X );
-#ifdef _WIN32
-					GetCursorPos(&MousePos);
-					ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 					MousePos.x = gusMouseXPos;
 					MousePos.y = gusMouseYPos;
-#endif
 					RestoreBackgroundForMapGrid( sX, sY );
 					// fMapPanelDirty = TRUE;
 				}
@@ -8981,13 +8976,8 @@ BOOLEAN GetMouseMapXY( INT16 *psMapWorldX, INT16 *psMapWorldY )
 		return( FALSE );
 	}
 
-#ifdef _WIN32
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 	MousePos.x = gusMouseXPos;
 	MousePos.y = gusMouseYPos;
-#endif
 
 	return( GetMapXY( (INT16)MousePos.x, (INT16)MousePos.y, psMapWorldX, psMapWorldY ) );
 }
@@ -12216,13 +12206,8 @@ BOOLEAN IsCursorWithInRegion(INT16 sLeft, INT16 sRight, INT16 sTop, INT16 sBotto
 	POINT MousePos;
 
 	// get cursor position
-#ifdef _WIN32
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 	MousePos.x = gusMouseXPos;
 	MousePos.y = gusMouseYPos;
-#endif
 
 	// is it within region?
 

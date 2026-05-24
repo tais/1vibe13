@@ -451,16 +451,8 @@ void GetIntroScreenUserInput()
 	InputAtom Event;
 	POINT	MousePos;
 
-#ifdef _WIN32
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
-	// SDL3 port: gusMouseX/YPos is the in-window position, kept up to
-	// date by sgp/sdl_input.cpp's SDL_MOUSEMOTION handler -- no need to
-	// translate from screen coords.
 	MousePos.x = gusMouseXPos;
 	MousePos.y = gusMouseYPos;
-#endif
 
 	while( DequeueEvent( &Event ) )
 	{
