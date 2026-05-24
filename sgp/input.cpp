@@ -274,10 +274,16 @@ BOOLEAN InitializeInputManager(void)
 
 	InitializeCriticalSection(&gcsInputQueueLock);
 
-#ifdef _WIN32
-	ghMouseHook = SetWindowsHookEx(WH_MOUSE, (HOOKPROC) MouseHandler, (HINSTANCE) 0, GetCurrentThreadId());
-	DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set mouse hook returned %d", ghMouseHook));
-#endif
+	// NB: the legacy Win32 WH_MOUSE hook (MouseHandler) is intentionally NOT
+	// installed. In the SDL3 port all input comes from SDL events
+	// (sgp/sdl_input.cpp), which set gusMouseX/YPos in window-relative,
+	// logical coordinates. MouseHandler read GLOBAL desktop coords
+	// (MOUSEHOOKSTRUCT.pt) and "converted" them via ScreenToClient(ghWindow),
+	// but ghWindow no longer refers to a live window, so the conversion was a
+	// no-op -- it clobbered gusMouseX/YPos with desktop coordinates on every
+	// mouse message. For motion the SDL handler overwrote it correctly right
+	// after, but on a click-without-movement the global value stuck, so clicks
+	// hit-tested at desktop coords and the cursor composited off-canvas.
 	return TRUE;
 }
 
@@ -286,10 +292,7 @@ void ShutdownInputManager(void)
 	// There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
 	// mouse hooks will be destroyed
 	UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
-#ifdef _WIN32
-//	UnhookWindowsHookEx(ghKeyboardHook);
-	UnhookWindowsHookEx(ghMouseHook);
-#endif
+	// (WH_MOUSE hook is no longer installed -- see InitializeInputManager.)
 
 	DeleteCriticalSection(&gcsInputQueueLock);
 }
