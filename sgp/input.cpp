@@ -274,10 +274,16 @@ BOOLEAN InitializeInputManager(void)
 
 	InitializeCriticalSection(&gcsInputQueueLock);
 
-#ifdef _WIN32
-	ghMouseHook = SetWindowsHookEx(WH_MOUSE, (HOOKPROC) MouseHandler, (HINSTANCE) 0, GetCurrentThreadId());
-	DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set mouse hook returned %d", ghMouseHook));
-#endif
+	// NB: the legacy Win32 WH_MOUSE hook (MouseHandler) is intentionally NOT
+	// installed. In the SDL3 port all input comes from SDL events
+	// (sgp/sdl_input.cpp), which set gusMouseX/YPos in window-relative,
+	// logical coordinates. MouseHandler read GLOBAL desktop coords
+	// (MOUSEHOOKSTRUCT.pt) and "converted" them via ScreenToClient(ghWindow),
+	// but ghWindow no longer refers to a live window, so the conversion was a
+	// no-op -- it clobbered gusMouseX/YPos with desktop coordinates on every
+	// mouse message. For motion the SDL handler overwrote it correctly right
+	// after, but on a click-without-movement the global value stuck, so clicks
+	// hit-tested at desktop coords and the cursor composited off-canvas.
 	return TRUE;
 }
 
@@ -286,10 +292,7 @@ void ShutdownInputManager(void)
 	// There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
 	// mouse hooks will be destroyed
 	UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
-#ifdef _WIN32
-//	UnhookWindowsHookEx(ghKeyboardHook);
-	UnhookWindowsHookEx(ghMouseHook);
-#endif
+	// (WH_MOUSE hook is no longer installed -- see InitializeInputManager.)
 
 	DeleteCriticalSection(&gcsInputQueueLock);
 }
@@ -976,13 +979,8 @@ void KeyChange(UINT32 usParam, UINT32 uiParam, UINT8 ufKeyState)
 		}
 	}
 
-#ifdef _WIN32
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 	MousePos.x = gusMouseXPos;
 	MousePos.y = gusMouseYPos;
-#endif
 
 	uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
 
@@ -1150,13 +1148,8 @@ void GetMousePos(SGPPoint *Point)
 {
 	POINT MousePos;
 
-#ifdef _WIN32
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 	MousePos.x = gusMouseXPos;
 	MousePos.y = gusMouseYPos;
-#endif
 
 	Point->iX = (UINT32) MousePos.x;
 	Point->iY = (UINT32) MousePos.y;
@@ -1665,27 +1658,16 @@ BOOLEAN IsCursorRestricted( void )
 
 void SimulateMouseMovement( UINT32 uiNewXPos, UINT32 uiNewYPos )
 {
-#ifdef _WIN32
-	POINT newmouse;
-	newmouse.x = uiNewXPos;
-	newmouse.y = uiNewYPos;
-	ClientToScreen( ghWindow, &newmouse);
-	SetCursorPos( newmouse.x, newmouse.y);
-#else
-	// SDL3 port: do nothing. On Win32 this used SetCursorPos to physically
-	// warp the OS cursor so the game's idea of cursor position and the OS
-	// cursor stayed in sync. Our port hides the OS cursor (we render our
-	// own from gusMouseX/YPos, which are driven by SDL_MOUSEMOTION events)
-	// and we don't have a way to push the OS cursor to a programmatic
-	// position cross-platform without surprising the user. Writing
-	// gusMouseX/YPos here would jump the in-game cursor sprite to the
-	// warp target while the OS pointer stayed put -- exactly the
-	// "cursor location resets to center when a popup appears" symptom.
-	// Callers expecting auto-centering on dialog buttons just don't
-	// get it; the user moves the mouse the normal way.
+	// SDL3 port: do nothing on every platform. On Win32 this used
+	// ClientToScreen(ghWindow) + SetCursorPos to physically warp the OS cursor
+	// onto a dialog's default button. ghWindow is no longer a live window in
+	// the SDL3 port, so ClientToScreen was a no-op and SetCursorPos warped the
+	// OS cursor to window-relative coordinates interpreted as global desktop
+	// coordinates -- jumping the pointer out of the window when a popup
+	// appeared. We render our own cursor from gusMouseX/YPos (SDL-driven) and
+	// don't auto-warp; the user moves the mouse the normal way.
 	(void)uiNewXPos;
 	(void)uiNewYPos;
-#endif
 }
 
 
@@ -1740,13 +1722,8 @@ void HandleSingleClicksAndButtonRepeats( void )
 			UINT32 uiTmpLParam;
 			POINT	MousePos;
 
-#ifdef _WIN32
-			GetCursorPos(&MousePos);
-			ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 			MousePos.x = gusMouseXPos;
 			MousePos.y = gusMouseYPos;
-#endif
 			uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
 			QueueEvent(LEFT_BUTTON_REPEAT, 0, uiTmpLParam);
 			guiLeftButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
@@ -1766,13 +1743,8 @@ void HandleSingleClicksAndButtonRepeats( void )
 			UINT32 uiTmpLParam;
 			POINT	MousePos;
 
-#ifdef _WIN32
-			GetCursorPos(&MousePos);
-			ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 			MousePos.x = gusMouseXPos;
 			MousePos.y = gusMouseYPos;
-#endif
 			uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
 			QueueEvent(RIGHT_BUTTON_REPEAT, 0, uiTmpLParam);
 			guiRightButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;

@@ -37,6 +37,7 @@ extern "C" {
 #include <SDL3/SDL.h>
 
 #include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
@@ -47,6 +48,20 @@ static uint64_t NowNs()
 {
 	using namespace std::chrono;
 	return (uint64_t)duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
+}
+
+// Opt-in video diagnostics (set JA2_VIDEO_DEBUG): append milestones to
+// ja2_video_debug.log in the working dir. Windows GUI apps have no visible
+// stderr, so this breadcrumb file is how we locate a crash in the flic
+// transition path -- the last line written is the last step reached.
+static void VidLog(const char* fmt, ...)
+{
+	static const bool on = (SDL_getenv("JA2_VIDEO_DEBUG") != nullptr);
+	if (!on) return;
+	static FILE* f = std::fopen("ja2_video_debug.log", "w");
+	if (!f) return;
+	va_list ap; va_start(ap, fmt); std::vfprintf(f, fmt, ap); va_end(ap);
+	std::fputc('\n', f); std::fflush(f);
 }
 
 extern UINT16 SCREEN_WIDTH;
@@ -208,6 +223,7 @@ void SmkShutdown(void)
 
 SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 {
+	VidLog("SmkOpenFlic enter '%s'", cFilename ? cFilename : "(null)");
 	SMKFLIC* p = SmkGetFreeFlic();
 	if (!p) {
 		std::fprintf(stderr, "[smk] no free flic slots\n");
@@ -245,6 +261,7 @@ SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 		p->rawFile.clear();
 		return nullptr;
 	}
+	VidLog("SmkOpenFlic smk_open_memory ok (%u bytes)", (unsigned)size);
 
 	unsigned long w = 0, h_ = 0;
 	unsigned char y_scale = 0;
@@ -296,8 +313,14 @@ SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 		}
 	}
 
+	VidLog("SmkOpenFlic audio: track=%d rate=%u chans=%u bits=%u stream=%p",
+	       track, (unsigned)p->uiAudioRate, (unsigned)p->uiAudioChans,
+	       (unsigned)p->uiAudioBits, (void*)p->audioStream);
+
 	p->uiFlags     = SMK_FLIC_OPEN;
 	p->fFirstFrame = true;
+	VidLog("SmkOpenFlic done flic=%p %ux%u fc=%u", (void*)p,
+	       (unsigned)p->uiWidth, (unsigned)p->uiHeight, (unsigned)p->uiFrameCount);
 	return p;
 }
 
@@ -321,6 +344,8 @@ void SmkSetBlitPosition(SMKFLIC* pSmack, UINT32 uiLeft, UINT32 uiTop)
 void SmkCloseFlic(SMKFLIC* pSmack)
 {
 	if (!pSmack) return;
+	VidLog("SmkCloseFlic enter flic=%p audioStream=%p smkHandle=%p",
+	       (void*)pSmack, (void*)pSmack->audioStream, (void*)pSmack->smkHandle);
 	if (pSmack->audioStream) {
 		// The stream owns the device since we used
 		// SDL_OpenAudioDeviceStream; destroying it releases both.
@@ -342,6 +367,7 @@ void SmkCloseFlic(SMKFLIC* pSmack)
 	pSmack->rawFile.shrink_to_fit();
 	pSmack->uiFlags = 0;
 	pSmack->fFirstFrame = false;
+	VidLog("SmkCloseFlic done flic=%p", (void*)pSmack);
 }
 
 // Hybrid pacing. Pure wall-clock drifted audio ahead by ~1s over a
@@ -387,6 +413,7 @@ BOOLEAN SmkPollFlics(void)
 
 		// First poll: prime the decoder on frame 0 and draw it.
 		if (f.fFirstFrame) {
+			VidLog("poll first-frame: smk_first flic=%p", (void*)&f);
 			if (smk_first(f.smkHandle) < 0) {
 				std::fprintf(stderr, "[smk] smk_first failed\n");
 				if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
@@ -395,8 +422,11 @@ BOOLEAN SmkPollFlics(void)
 			f.fFirstFrame    = false;
 			f.uiFrameStartNs = nowNs;
 			f.uiFrameIndex   = 0;
+			VidLog("poll first-frame: decode+blit");
 			DecodeAndBlitCurrentFrame(f);
+			VidLog("poll first-frame: feed audio");
 			FeedCurrentFrameAudio(f);
+			VidLog("poll first-frame: done");
 			continue;
 		}
 

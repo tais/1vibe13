@@ -1700,13 +1700,8 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 	
 	CHAR16	zString[128];
 
-#ifdef _WIN32
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
-#else
 	MousePos.x = gusMouseXPos;
 	MousePos.y = gusMouseYPos;
-#endif
 
 	GetMouseMapPos( &usMapPos );
 
