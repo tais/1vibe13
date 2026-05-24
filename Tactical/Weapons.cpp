@@ -3395,7 +3395,9 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		//OBJECTTYPE* pAttachment = FindAttachment( pObjUsed, GUN_BARREL_EXTENDER );
 		OBJECTTYPE* pAttachment = FindAttachmentByAttachmentClass( pObjUsed, AC_EXTENDER );
 
-		if ( pAttachment->exists() )
+		// FindAttachmentByAttachmentClass returns NULL when the gun has no such
+		// attachment (here: no barrel extender) -- guard before dereferencing.
+		if ( pAttachment && pAttachment->exists() )
 		{
 			// reduce status and see if it falls off
 			INT8 reduction = (INT8) Random( 2 );

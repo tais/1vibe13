@@ -1688,6 +1688,11 @@ void CalculateWeapondata()
 		if ( pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
 		{
 			pObjUsed = FindAttachment_GrenadeLauncher(&pSoldier->inv[HANDPOS]);
+			// GL weapon-mode can desync from the actual attachment; FindAttachment_*
+			// returns NULL if no launcher is really attached. Fall back to the platform
+			// weapon so the pObjUsed->usItem / GunRange(pObjUsed) derefs below are safe.
+			if ( !pObjUsed )
+				pObjUsed = pObjPlatform;
 		}
 		else
 		{

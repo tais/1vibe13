@@ -3802,6 +3802,10 @@ INT8 FindAmmoToReload( SOLDIERTYPE * pSoldier, INT8 bWeaponIn, INT8 bExcludeSlot
 	{
 		pObj = FindAttachment_GrenadeLauncher(&pSoldier->inv[bWeaponIn]);
 		AssertMsg(pObj, "FindAmmoToReload: could not find attached grenade launcher.");
+		// AssertMsg is a no-op in release; FindAttachment_* can return NULL if the
+		// GL weapon-mode desynced from the actual attachment. Bail rather than deref.
+		if ( pObj == NULL )
+			return( NO_SLOT );
 	}
 	else
 	{
@@ -5045,12 +5049,15 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 		//CHRISL: This section of code is also needed it we add any attachment that changes the valid attachments our item can use, so we should run it whenever we
 		//	add an attachment in NAS
 		//if (FindAttachment_GrenadeLauncher(this)->exists() && attachmentObject.exists())
-		if (attachmentObject.exists() && attachmentObject[0]->attachments.size() > 0 && FindAttachment(this, attachmentObject.usItem, subObject)->exists())
+		// FindAttachment returns NULL when 'this' doesn't actually hold the item
+		// as an attachment -- capture once and null-guard before dereferencing.
+		OBJECTTYPE* pFoundAttachment = FindAttachment(this, attachmentObject.usItem, subObject);
+		if (attachmentObject.exists() && attachmentObject[0]->attachments.size() > 0 && pFoundAttachment && pFoundAttachment->exists())
 		{
 			//Make sure it's actually on that gun..
 			//if(FindAttachment_GrenadeLauncher(this)->usItem == attachmentObject.usItem){
 			// Flugente: if we attach a gun to another gun, do not transfer attachments
-			if( Item[attachmentObject.usItem].usItemClass != IC_GUN  && FindAttachment(this, attachmentObject.usItem, subObject)->usItem == attachmentObject.usItem)
+			if( Item[attachmentObject.usItem].usItemClass != IC_GUN  && pFoundAttachment->usItem == attachmentObject.usItem)
 			{
 				// transfer the grenade from the grenade launcher to the gun
 
