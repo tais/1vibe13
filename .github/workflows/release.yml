@@ -46,9 +46,17 @@ jobs:
           - { os: windows-latest, name: windows }
     runs-on: ${{ matrix.platform.os }}
 
+    # sccache caches compiled objects (SDL3 + deps + engine) across runs, so
+    # release builds don't recompile the world every tag. See build_unix.yml.
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
 
       # ---- toolchain / build deps (identical to build_unix.yml) ----
       - name: Install Linux build deps
@@ -104,11 +112,18 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLanguages=ENGLISH \
             "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             "${RPATH_ARGS[@]}"
 
       - name: Build
         shell: bash
         run: cmake --build build
+
+      - name: sccache stats
+        if: always()
+        shell: bash
+        run: sccache --show-stats
 
       # ---- stage: executables + matching SDL runtime libs + readme ----
       - name: Stage payload (unix)
