@@ -3,21 +3,21 @@ name: publish-debug
 # One-off helper: copy an already-built Windows artifact from a release.yml run
 # onto the `debug-master` pre-release, entirely on a GitHub runner (artifact ->
 # release transfer stays inside GitHub's network -- avoids flaky local CDN
-# downloads). Dispatch with the source run id.
+# downloads). Push-triggered (not workflow_dispatch) so it runs from this branch
+# without needing to live on the default branch; the paths filter makes it fire
+# only when this file itself is pushed. Edit RUN_ID below and push to publish.
 
 on:
-  workflow_dispatch:
-    inputs:
-      run_id:
-        description: 'release.yml run id that produced the ja2-sdl3-windows artifact'
-        required: true
-      asset_name:
-        description: 'asset filename to publish (must match the release asset)'
-        required: false
-        default: 'ja2-sdl3-windows-debug-master-1.zip'
+  push:
+    branches: [debug-build-master]
+    paths: ['.github/workflows/publish-debug.yml']
 
 permissions:
   contents: write
+
+env:
+  RUN_ID: "26370361771"
+  ASSET_NAME: "ja2-sdl3-windows-debug-master-1.zip"
 
 jobs:
   publish:
@@ -28,8 +28,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eux
-          gh run download "${{ github.event.inputs.run_id }}" \
-            -n ja2-sdl3-windows -R "${{ github.repository }}" -D dl
-          mv dl/*.zip "${{ github.event.inputs.asset_name }}"
-          gh release upload debug-master "${{ github.event.inputs.asset_name }}" \
-            --clobber -R "${{ github.repository }}"
+          gh run download "$RUN_ID" -n ja2-sdl3-windows -R "${{ github.repository }}" -D dl
+          mv dl/*.zip "$ASSET_NAME"
+          gh release upload debug-master "$ASSET_NAME" --clobber -R "${{ github.repository }}"
