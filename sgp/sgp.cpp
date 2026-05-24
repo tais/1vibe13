@@ -1391,12 +1391,48 @@ static bool CallGameLoop(bool wait)
 	return true;
 }
 
+#ifdef _WIN32
+// Make the process DPI-aware at startup. SDL3 no longer sets DPI awareness
+// itself and we can't embed a manifest (lld-link's manifest merger rejects
+// /MANIFESTINPUT on the VS-bundled LLVM, and a ja2.rc-embedded manifest
+// collides with CMake's auto-generated one). Without awareness, Windows
+// virtualizes window/mouse coordinates on a scaled display while SDL's
+// HIGH_PIXEL_DENSITY asks for physical pixels -- the two disagree and the
+// mouse maps outside the logical canvas (dead menu, cursor in the wrong
+// place). Set it programmatically before any window exists; resolve the API
+// dynamically so we don't depend on a particular Windows SDK header level.
+static void MakeProcessDpiAware(void)
+{
+	if (HMODULE hUser32 = GetModuleHandleW(L"user32.dll")) {
+		typedef BOOL (WINAPI *PFN_SetCtx)(HANDLE);
+		if (auto p = (PFN_SetCtx)GetProcAddress(hUser32, "SetProcessDpiAwarenessContext")) {
+			// DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == (HANDLE)-4 (Win10 1703+),
+			// PER_MONITOR_AWARE == (HANDLE)-3 as a fallback.
+			if (p((HANDLE)-4)) return;
+			if (p((HANDLE)-3)) return;
+		}
+	}
+	if (HMODULE hShcore = LoadLibraryW(L"Shcore.dll")) {
+		typedef HRESULT (WINAPI *PFN_SetAwareness)(int);
+		auto p = (PFN_SetAwareness)GetProcAddress(hShcore, "SetProcessDpiAwareness");
+		if (p) { p(2); /* PROCESS_PER_MONITOR_DPI_AWARE */ FreeLibrary(hShcore); return; }
+		FreeLibrary(hShcore);
+	}
+	SetProcessDPIAware(); // Vista+ system-DPI fallback
+}
+#endif
+
 // Portable entry point. Replaces WinMain + the SDL_PollEvent stub
 // main that lived under #ifndef _WIN32. SDL3 ships SDL_main.h on
 // Windows, so this same `int main(int, char**)` runs as a real
 // SDL_main on every platform.
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+	// Must run before SDL_Init / any window creation.
+	MakeProcessDpiAware();
+#endif
+
 	g_argc = argc;
 	g_argv = argv;
 
