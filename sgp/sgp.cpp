@@ -1452,11 +1452,45 @@ int main(int argc, char** argv)
 	while (gfProgramIsRunning) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
+			// Opt-in mouse-coordinate diagnostics (set JA2_MOUSE_DEBUG): dump
+			// the window / render / logical coordinate spaces once, then log
+			// raw-vs-converted mouse positions, to ja2_mouse_debug.log in the
+			// working dir. Used to pin down HiDPI / scaling coordinate bugs.
+			static const bool mouseDbg = (SDL_getenv("JA2_MOUSE_DEBUG") != nullptr);
+			static FILE* dbgf = nullptr;
+			if (mouseDbg && !dbgf) {
+				dbgf = std::fopen("ja2_mouse_debug.log", "w");
+				if (dbgf) {
+					SDL_Renderer* r = SGP_GetSDLRenderer();
+					SDL_Window*   w = r ? SDL_GetRenderWindow(r) : nullptr;
+					int ww=0,wh=0, pw=0,ph=0, ow=0,oh=0, lw=0,lh=0;
+					SDL_RendererLogicalPresentation lp = SDL_LOGICAL_PRESENTATION_DISABLED;
+					SDL_FRect lr{};
+					if (w) { SDL_GetWindowSize(w,&ww,&wh); SDL_GetWindowSizeInPixels(w,&pw,&ph); }
+					if (r) { SDL_GetCurrentRenderOutputSize(r,&ow,&oh);
+					         SDL_GetRenderLogicalPresentation(r,&lw,&lh,&lp);
+					         SDL_GetRenderLogicalPresentationRect(r,&lr); }
+					std::fprintf(dbgf,
+						"config: window=%dx%d windowPx=%dx%d renderOut=%dx%d logical=%dx%d mode=%d rect=(%.1f,%.1f %.1fx%.1f)\n",
+						ww,wh, pw,ph, ow,oh, lw,lh, (int)lp, lr.x,lr.y,lr.w,lr.h);
+					std::fflush(dbgf);
+				}
+			}
+			float rawx = 0.f, rawy = 0.f;
+			const bool isMotion = (event.type == SDL_EVENT_MOUSE_MOTION);
+			if (isMotion) { rawx = event.motion.x; rawy = event.motion.y; }
+
 			// Rewrite mouse/touch coordinates from window space into the
 			// renderer's logical 640x480 space so the game (which works
 			// entirely in 640x480) sees correct positions regardless of
 			// window size / HiDPI scale / integer-scale letterboxing.
 			SDL_ConvertEventToRenderCoordinates(SGP_GetSDLRenderer(), &event);
+
+			if (mouseDbg && dbgf && isMotion) {
+				std::fprintf(dbgf, "motion raw=(%.1f,%.1f) -> conv=(%.1f,%.1f)\n",
+				             rawx, rawy, event.motion.x, event.motion.y);
+				std::fflush(dbgf);
+			}
 			if (SgpHandleSDLEvent(&event)) {
 				gfProgramIsRunning = FALSE;
 			}
