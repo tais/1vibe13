@@ -1514,7 +1514,10 @@ int main(int argc, char** argv)
 			}
 			float rawx = 0.f, rawy = 0.f;
 			const bool isMotion = (event.type == SDL_EVENT_MOUSE_MOTION);
+			const bool isButton = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+			                       event.type == SDL_EVENT_MOUSE_BUTTON_UP);
 			if (isMotion) { rawx = event.motion.x; rawy = event.motion.y; }
+			if (isButton) { rawx = event.button.x; rawy = event.button.y; }
 
 			// Rewrite mouse/touch coordinates from window space into the
 			// renderer's logical 640x480 space so the game (which works
@@ -1525,6 +1528,13 @@ int main(int argc, char** argv)
 			if (mouseDbg && dbgf && isMotion) {
 				std::fprintf(dbgf, "motion raw=(%.1f,%.1f) -> conv=(%.1f,%.1f)\n",
 				             rawx, rawy, event.motion.x, event.motion.y);
+				std::fflush(dbgf);
+			}
+			if (mouseDbg && dbgf && isButton) {
+				std::fprintf(dbgf, "button %s raw=(%.1f,%.1f) -> conv=(%.1f,%.1f)  gusMouse=(%d,%d)\n",
+				             event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? "DOWN" : "UP",
+				             rawx, rawy, event.button.x, event.button.y,
+				             (int)gusMouseXPos, (int)gusMouseYPos);
 				std::fflush(dbgf);
 			}
 			if (SgpHandleSDLEvent(&event)) {
