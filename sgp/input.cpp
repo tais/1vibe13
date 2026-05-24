@@ -1593,28 +1593,33 @@ void RestrictMouseToXYXY(UINT16 usX1, UINT16 usY1, UINT16 usX2, UINT16 usY2)
 
 void RestrictMouseCursor(SGPRect *pRectangle)
 {
-	// Make a copy of our rect. Copy the SOURCE size: gCursorClipRect is a Win32
-	// RECT (32 bytes on 64-bit, LONG==long), but pRectangle is a 16-byte SGPRect;
-	// sizeof(gCursorClipRect) would over-read the source. (gCursorClipRect is only
-	// consumed under _WIN32, where RECT and SGPRect are both 16 bytes.)
+	// Keep the requested clip rect for bookkeeping (IsCursorRestricted /
+	// GetRestrictedClipCursor), but DO NOT physically confine the OS cursor.
+	//
+	// The legacy path did ClientToScreen(ghWindow) + ClipCursor() to trap the
+	// cursor inside the given rect. On the SDL3 port ghWindow is a dead nullptr,
+	// so ClientToScreen was a no-op and ClipCursor confined the physical cursor
+	// to the rect interpreted as *desktop* pixels. The rects passed here are in
+	// the game's logical framebuffer space (gsVIEWPORT_*, SCREEN_WIDTH/HEIGHT),
+	// which roughly equals the minimum window size -- so e.g. a tactical
+	// rubber-band drag got trapped in a ~SCREEN_WIDTH x SCREEN_HEIGHT desktop box
+	// at the top-left, capping the selection box and shrinking it relative to a
+	// larger/scaled window. Dropping the physical clip lets gusMouseX/YPos track
+	// the full logical viewport; the band-select math and viewport clipping
+	// already bound the actual result.
 	memcpy( &gCursorClipRect, pRectangle, sizeof( *pRectangle ) );
-#ifdef _WIN32
-	ClientToScreen( ghWindow, (LPPOINT)&gCursorClipRect);
-	ClientToScreen( ghWindow, ((LPPOINT)&gCursorClipRect)+1);
-	ClipCursor(&gCursorClipRect);
-#endif
 	fCursorWasClipped = TRUE;
 }
 
 void FreeMouseCursor( BOOLEAN fLockForTacticalWindowedMode )
 {
-#ifdef _WIN32
-	ClipCursor(NULL);
-#endif
+	// No physical OS-cursor clip on the SDL3 port (see RestrictMouseCursor).
 	fCursorWasClipped = FALSE;
 
-	// Buggler: Need to relock for fullscreen mode as ClipCursor release mouse boundary to full desktop resolution on multi-monitor setup &&
-	// for windowed mode, lockscreen only when player activates feature in tactical screen due to mouse restriction applies to desktop too!
+	// Preserve the original bookkeeping: in fullscreen, or windowed mode with the
+	// border-lock feature active, "re-lock" to the full screen rect. This is now a
+	// bookkeeping no-op clip, but keeps gCursorClipRect / IsCursorRestricted
+	// consistent for callers that query them.
 	if ( !iWindowedMode || ( iWindowedMode && gfMouseLockedOnBorder && fLockForTacticalWindowedMode ) )
 	{
 		SGPRect			LJDRect;
@@ -1629,26 +1634,17 @@ void FreeMouseCursor( BOOLEAN fLockForTacticalWindowedMode )
 
 void RestoreCursorClipRect( void )
 {
-	if ( fCursorWasClipped )
-	{
-#ifdef _WIN32
-		ClipCursor( &gCursorClipRect );
-#endif
-	}
+	// Was ClipCursor(&gCursorClipRect) on Win32 -- which would re-trap the OS
+	// cursor to the (dead-ghWindow) desktop rect on a focus-restore event.
+	// No physical clip on the SDL3 port, so nothing to restore.
 }
 
 void GetRestrictedClipCursor( SGPRect *pRectangle )
 {
-#ifdef _WIN32
-	GetClipCursor((RECT *) pRectangle );
-	ScreenToClient( ghWindow, (LPPOINT)pRectangle);
-	ScreenToClient( ghWindow, ((LPPOINT)pRectangle)+1);
-#else
-	if (pRectangle) {
-		pRectangle->iLeft = 0; pRectangle->iTop = 0;
-		pRectangle->iRight = 0; pRectangle->iBottom = 0;
-	}
-#endif
+	// Report the last requested clip rect (logical coords); we no longer query
+	// the OS for a physical clip region.
+	if (pRectangle)
+		memcpy( pRectangle, &gCursorClipRect, sizeof( *pRectangle ) );
 }
 
 BOOLEAN IsCursorRestricted( void )
