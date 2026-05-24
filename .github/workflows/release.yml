@@ -47,13 +47,23 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     # sccache caches compiled objects (SDL3 + deps + engine) across runs, so
-    # release builds don't recompile the world every tag. See build_unix.yml.
+    # release builds don't recompile the world every tag. Persist sccache's
+    # local disk cache via first-party actions/cache (sccache's own GHA
+    # backend targets the retired v1 cache API). See build_unix.yml.
     env:
-      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_DIR: ${{ github.workspace }}/.sccache
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Cache sccache storage
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.sccache
+          key: sccache-${{ matrix.platform.name }}-rel-${{ github.run_id }}
+          restore-keys: |
+            sccache-${{ matrix.platform.name }}-
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.6

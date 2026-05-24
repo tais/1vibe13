@@ -41,16 +41,28 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     # sccache caches compiled object files (SDL3, SDL3_mixer, opus, expat,
-    # lua, AND the engine) in the GitHub Actions cache, keyed by content +
-    # compiler + flags. After the first run populates it, unchanged deps (the
-    # bulk of the ~20min build) are cache hits, so jobs only recompile what
-    # actually changed.
+    # lua, AND the engine) keyed by content + compiler + flags. After the
+    # first run populates it, unchanged deps (the bulk of the ~20min build)
+    # are cache hits, so jobs only recompile what actually changed.
+    #
+    # We persist sccache's LOCAL disk cache via first-party actions/cache
+    # rather than sccache's own GitHub Actions backend -- the latter still
+    # targets the retired v1 cache API (artifactcache.actions.githubusercontent.com)
+    # and hard-fails the compile when it can't reach it.
     env:
-      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_DIR: ${{ github.workspace }}/.sccache
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Cache sccache storage
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.sccache
+          key: sccache-${{ matrix.platform.name }}-${{ matrix.application }}-${{ github.run_id }}
+          restore-keys: |
+            sccache-${{ matrix.platform.name }}-
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.6
