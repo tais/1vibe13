@@ -4899,7 +4899,12 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 
 		//WarmSteel - Attachment swapping prevents multiple objects that are the same to be attached.
 		//This takes away freedom, which is bad. This is why I turned it off in NAS (If you want to turn it back on, it also doesn't work properly because it needs to swap xml slot indexes aswell).
-		if (pAttachmentPosition->exists()) {
+		// ValidItemAttachmentSlot() only sets pAttachmentPosition when the target slot
+		// already holds an attachment; for a valid but EMPTY slot it returns TRUE and
+		// leaves the pointer NULL. Guard the deref so the empty-slot case falls through
+		// to the "new attachment" branch below instead of dereferencing NULL (this was
+		// a latent crash hit on Windows via CreateObjectForDealer -> AttachDefaultAttachments).
+		if (pAttachmentPosition && pAttachmentPosition->exists()) {
 			//we are swapping the attachments, and we know we do NOT need to worry about attachment stack size
 			//CHRISL: Actually, we do need to worry about attachment stack size since we might have a stack in our cursor.
 			//	Rather then doing a simple swap, try moving the existing attachment to our cursor stack, then attach one item
