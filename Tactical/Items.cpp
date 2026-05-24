@@ -5691,7 +5691,10 @@ std::vector<UINT16> GetItemSlots(OBJECTTYPE* pObj, UINT8 subObject, BOOLEAN fAtt
 	UINT64				fItemLayout = 0;
 	BOOLEAN				fIsLBE = FALSE;
 
-	if( !UsingNewAttachmentSystem() || !pObj->exists() )
+	// pObj may legitimately be NULL (e.g. RenderItemDescriptionBox passes
+	// gpItemDescObject, which can be null -- the description box renders for an
+	// empty/cleared slot). Guard before dereferencing: a null object has no slots.
+	if( !UsingNewAttachmentSystem() || !pObj || !pObj->exists() )
 		return tempItemSlots;
 
 	//CHRISL: We no longer need the ItemSlotAssign.xml file but we do still need to figure out which slots an item can have
