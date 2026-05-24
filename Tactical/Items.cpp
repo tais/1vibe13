@@ -1979,7 +1979,7 @@ UINT8 CountThrowableGrenades(SOLDIERTYPE * pSoldier, UINT8 ubGrenadeType, UINT8 
 
 INT16 FindAttachmentSlot( OBJECTTYPE* pObj, UINT16 usItem, UINT8 subObject)
 {
-	if(UsingNewAttachmentSystem()==false || pObj->exists() == false)
+	if(UsingNewAttachmentSystem()==false || !pObj || pObj->exists() == false)
 		return -1;
 
 	UINT8 loop = 0;
