@@ -6291,9 +6291,9 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	UINT32					uiItemPos, ubStatusIndex;
 	static BOOLEAN	fRightDown = FALSE;
 
-	if ( gfItemDescObjectIsAttachment || !gpItemDescObject->exists() )
+	if ( gfItemDescObjectIsAttachment || !gpItemDescObject || !gpItemDescObject->exists() )
 	{
-		// screen out completely
+		// screen out completely (gpItemDescObject can be NULL -- see GetItemSlots fix)
 		return;
 	}
 
