@@ -515,17 +515,18 @@ void GetIntroScreenUserInput()
 		}
 	}
 
-	// Advance to the next flic on a button PRESS (rising edge), not for
-	// every frame the button stays down. The old level-triggered check fired
-	// once per frame while held, so a single click skipped as many flics as
-	// there were frames during the press -- frame-rate (hence platform)
-	// dependent: macOS skipped ~one flic, Windows skipped several and ran off
-	// the end of the intro straight into the next screen, which crashed.
+	// One button PRESS skips the WHOLE intro: stop the current flic and exit
+	// the intro screen, rather than advancing flic-by-flic. Edge-triggered so a
+	// single press fires once -- the old per-frame level test stopped a flic
+	// every frame the button was held, churning through every flic + its SDL
+	// audio stream in a few frames (frame-rate / platform dependent), which
+	// crashed on Windows. Exiting straight away also closes only the current
+	// flic (no rapid open/close storm), so it's clean on every platform.
 	const BOOLEAN fIntroSkipNow = ( gfLeftButtonState || gfRightButtonState );
 	if( fIntroSkipNow && !gfIntroSkipButtonHeld )
 	{
-		//advance to the next flic
 		s_VP.stopVideo();
+		PrepareToExitIntroScreen();
 	}
 	gfIntroSkipButtonHeld = fIntroSkipNow;
 }
