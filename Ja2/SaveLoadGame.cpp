@@ -2660,7 +2660,8 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	wcscpy( SaveGameHeader.sSavedGameDesc, pGameDesc );
 	strcpy( SaveGameHeader.zGameVersionNumber, czVersionString );
 
-	SaveGameHeader.uiFlags;
+	// (removed a no-op `SaveGameHeader.uiFlags;` statement -- the header is
+	//  memset to 0 above, so uiFlags is already 0; the line did nothing.)
 
 	//The following will be used to quickly access info to display in the save/load screen
 	SaveGameHeader.uiDay = GetWorldDay();

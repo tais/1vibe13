@@ -3296,7 +3296,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	strcpy(gzLastLoadedFile, puiFilename);
 	LoadRadarScreenBitmap(puiFilename);
 	RenderProgressBar(0, 80);
-	sprintf(gubFilename, puiFilename);
+	strcpy(gubFilename, puiFilename);	// was sprintf(dst, puiFilename): non-literal format string (a '%' in the name would corrupt/overflow)
 	gfWorldLoaded = TRUE;
 #ifdef JA2TESTVERSION
 	uiLoadWorldTime = GetJA2Clock() - uiLoadWorldStartTime;
