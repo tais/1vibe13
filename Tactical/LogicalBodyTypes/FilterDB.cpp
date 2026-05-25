@@ -206,7 +206,7 @@ namespace LogicalBodyTypes {
 					while (token != NULL) {
 						INT32 val;
 						if (!ConvertStringToINT32(token, &val)) {
-							delete text;
+							delete[] text;
 							throw XMLParseException("Invalid value!", data->criterionName.c_str(), data->pParser);
 						}
 						list.push_back(val);
@@ -214,7 +214,7 @@ namespace LogicalBodyTypes {
 					}
 					if (data->criterionType & Filter::_TYPE_PAIR) {
 						if (list.size() != 2) {
-							delete text;
+							delete[] text;
 							throw XMLParseException("Exactly 2 operands must be specified for 'between' operator!", data->criterionName.c_str(), data->pParser);
 						}
 						data->currentFilter->AddCriterion(data->operationFlags | data->criterionType, list.front(), list.back());
@@ -226,7 +226,7 @@ namespace LogicalBodyTypes {
 				else {
 					INT32 val;
 					if (!ConvertStringToINT32(text, &val)) {
-						delete text;
+						delete[] text;
 						throw XMLParseException("Invalid value!", data->criterionName.c_str(), data->pParser);
 					}
 					data->currentFilter->AddCriterion(data->operationFlags | data->criterionType, val);
@@ -242,18 +242,19 @@ namespace LogicalBodyTypes {
 					data->currentFilter->AddCriterion(data->operationFlags | data->criterionType, ord);
 				}
 				else {
-					delete text;
+					delete[] text;
 					throw XMLParseException("Can't find specified enumerator!", data->criterionName.c_str(), data->pParser);
 				}
 			}
 			else if (data->criterionType & Filter::_TYPE_FILTER) {
 				Filter* f = Instance().FindFilter(text);
 				if (f == NULL) {
+					delete[] text;  // match the cleanup the other throw paths do
 					throw XMLParseException("Can't find specified filter. Make sure it is defined before the filter that references it!", data->criterionName.c_str(), data->pParser);
 				}
 				data->currentFilter->AddCriterion(data->operationFlags | data->criterionType, f);
 			}
-			delete text;
+			delete[] text;
 			break;
 		}
 	}

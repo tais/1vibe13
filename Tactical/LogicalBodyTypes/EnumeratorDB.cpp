@@ -38,7 +38,7 @@ void EnumeratorDB::AddEnum(std::string enumName, int num, const char *strEnumera
 	}
 
 	va_end(vl);
-	delete str;
+	delete[] str;  // str came from new char[]
 }
 
 bool EnumeratorDB::GetEnumeratorStr(const char* enumeration, int enumerator, std::string& str) {
