@@ -895,7 +895,7 @@ void DrawHistoryRecordsText( void )
 
 
 	// loop through record list
-	for(iCounter; iCounter <NUM_RECORDS_PER_PAGE; ++iCounter)
+	for( ; iCounter <NUM_RECORDS_PER_PAGE; ++iCounter)
 	{
 		if( pCurHistory->ubColor == 0 )
 		{

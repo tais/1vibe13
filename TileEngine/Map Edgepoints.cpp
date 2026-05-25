@@ -641,7 +641,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 		{
 			x = 0 + i;
 			y = WORLD_ROWS/2-1 + i;
-			for(x, y; x<WORLD_COLS/2+i; x++, y--)
+			for( ; x<WORLD_COLS/2+i; x++, y--)
 			{
 				sGridNo = x + y * WORLD_COLS;
 				if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))
@@ -665,7 +665,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 		{
 			x = WORLD_COLS/2 - i;
 			y = 0 + i;
-			for(x, y; x<WORLD_COLS-i; x++, y++)
+			for( ; x<WORLD_COLS-i; x++, y++)
 			{
 				sGridNo = x + y * WORLD_COLS;
 				if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))
@@ -689,7 +689,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 		{
 			x = WORLD_COLS-1 - i;
 			y = WORLD_ROWS/2 - i;
-			for(x, y; x>=WORLD_COLS/2-i; x--, y++)
+			for( ; x>=WORLD_COLS/2-i; x--, y++)
 			{
 				sGridNo = x + y * WORLD_COLS;
 				if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))
@@ -713,7 +713,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 		{
 			x = WORLD_COLS/2-1 + i;
 			y = WORLD_ROWS-1 - i;
-			for(x, y; x>=0+i; x--, y--)
+			for( ; x>=0+i; x--, y--)
 			{
 				sGridNo = x + y * WORLD_COLS;
 				if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))
@@ -742,7 +742,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 			{
 				x = 0 + i;
 				y = WORLD_ROWS/2-1 + i;
-				for(x, y; x<WORLD_COLS/2+i; x++, y--)
+				for( ; x<WORLD_COLS/2+i; x++, y--)
 				{
 					sGridNo = x + y * WORLD_COLS;
 					if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))
@@ -766,7 +766,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 			{
 				x = WORLD_COLS/2 - i;
 				y = 0 + i;
-				for(x, y; x<WORLD_COLS-i; x++, y++)
+				for( ; x<WORLD_COLS-i; x++, y++)
 				{
 					sGridNo = x + y * WORLD_COLS;
 					if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))
@@ -790,7 +790,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 			{
 				x = WORLD_COLS-1 - i;
 				y = WORLD_ROWS/2 - i;
-				for(x, y; x>=WORLD_COLS/2-i; x--, y++)
+				for( ; x>=WORLD_COLS/2-i; x--, y++)
 				{
 					sGridNo = x + y * WORLD_COLS;
 					if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))
@@ -814,7 +814,7 @@ void GenerateMapEdgepoints(BOOLEAN fValidate)
 			{
 				x = WORLD_COLS/2-1 + i;
 				y = WORLD_ROWS-1 - i;
-				for(x, y; x>=0+i; x--, y--)
+				for( ; x>=0+i; x--, y--)
 				{
 					sGridNo = x + y * WORLD_COLS;
 					if(gpWorldLevelData[sGridNo].uiFlags & MAPELEMENT_REACHABLE && (!gusWorldRoomInfo[sGridNo] || gfBasement))

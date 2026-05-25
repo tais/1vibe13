@@ -131,7 +131,7 @@ bool vfs::CReadLine::fromBuffer(std::string& line)
 				if(*temp == '\r')
 				{
 					// the \r is most probably followed by \n. 'swallow' both characters
-					*temp++;
+					temp++;	// was *temp++; deref result was unused
 					_buffer_pos++;
 					if( (_buffer_pos < BUFFER_SIZE) && (*temp == '\n' || *temp == 0) )
 					{

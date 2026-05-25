@@ -419,9 +419,9 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 
 	//Build the output strings
 	if( message )
-		sprintf( gubAssertString, message );	
+		sprintf( gubAssertString, "%s", message );	// message is an assert string, not a format string
 	else
-		sprintf( gubAssertString, "" );
+		gubAssertString[0] = '\0';
 
 	//Output to debugger
 	if (gfRecordToDebugger)

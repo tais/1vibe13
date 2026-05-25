@@ -1140,7 +1140,7 @@ void HandleRisksForSoldier( SOLDIERTYPE *pSoldier )
 	}
 
 	// Test for triggers related to any AMBIENT facility in the same sector.
-	for (iCounterB; iCounterB < NUM_FACILITY_TYPES; iCounterB++)
+	for ( ; iCounterB < NUM_FACILITY_TYPES; iCounterB++)
 	{
 		if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][iCounterB].fFacilityHere)
 		{
@@ -1167,7 +1167,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 
 	UINT16 usColor = FONT_MCOLOR_LTRED;
 
-	for (iCounter; iCounter < NUM_RISKS; iCounter++)
+	for ( ; iCounter < NUM_RISKS; iCounter++)
 	{
 		fBadResult = FALSE;
 

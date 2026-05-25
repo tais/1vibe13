@@ -842,7 +842,7 @@ BOOLEAN GetFileFirst( const CHAR8 *pSpec, GETFILESTRUCT *pGFStruct )
 		std::string s = path.to_string();
 		::size_t size = s.length();
 		size = std::min< ::size_t>(size,260-1);
-		sprintf( pGFStruct->zFileName, s.c_str());
+		snprintf( pGFStruct->zFileName, size + 1, "%s", s.c_str());	// was sprintf(dst, s.c_str()): non-literal format + copied full string past the 260 cap (overflow)
 		pGFStruct->zFileName[size] = 0;
 		
 		pGFStruct->iFindHandle = 0;
@@ -866,7 +866,7 @@ BOOLEAN GetFileNext( GETFILESTRUCT *pGFStruct )
 		std::string s = path.to_string();
 		::size_t size = s.length();
 		size = std::min< ::size_t>(size,260-1);
-		sprintf( pGFStruct->zFileName, s.c_str());
+		snprintf( pGFStruct->zFileName, size + 1, "%s", s.c_str());	// was sprintf(dst, s.c_str()): non-literal format + copied full string past the 260 cap (overflow)
 		pGFStruct->zFileName[size] = 0;
 
 		pGFStruct->iFindHandle = 0;

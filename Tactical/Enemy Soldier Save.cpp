@@ -401,7 +401,7 @@ BOOLEAN LoadEnemySoldiersFromTempFile()
 
 	if( ubStrategicCreatures > ubNumCreatures )
 	{
-		ubStrategicCreatures;	//not sure if this wil ever happen.	If so, needs to be handled.
+		//ubStrategicCreatures;	//not sure if this wil ever happen.	If so, needs to be handled.
 	}
 
 	//successful
@@ -1036,7 +1036,7 @@ BOOLEAN NewWayOfLoadingEnemySoldiersFromTempFile()
 
 	if( ubStrategicCreatures > ubNumCreatures )
 	{
-		ubStrategicCreatures;	//not sure if this wil ever happen.	If so, needs to be handled.
+		//ubStrategicCreatures;	//not sure if this wil ever happen.	If so, needs to be handled.
 	}
 
 	//set the number of enemies in the sector

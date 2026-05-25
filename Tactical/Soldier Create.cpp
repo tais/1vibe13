@@ -290,11 +290,11 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	memcpy( this->sPatrolGrid, Soldier.aiData.sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
 
 	//copy colors for soldier based on the body type.
-	sprintf( this->HeadPal,		Soldier.HeadPal );
-	sprintf( this->VestPal,		Soldier.VestPal );
-	sprintf( this->SkinPal,		Soldier.SkinPal );
-	sprintf( this->PantsPal,	Soldier.PantsPal );
-	sprintf( this->MiscPal,		Soldier.MiscPal );
+	strcpy(this->HeadPal, Soldier.HeadPal);
+	strcpy(this->VestPal, Soldier.VestPal);
+	strcpy(this->SkinPal, Soldier.SkinPal);
+	strcpy(this->PantsPal, Soldier.PantsPal);
+	strcpy(this->MiscPal, Soldier.MiscPal);
 
 	//copy soldier's inventory
 	this->Inv = Soldier.inv;
@@ -1812,10 +1812,10 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 
 	if( pCreateStruct->fVisible )
 	{
-		sprintf( pSoldier->HeadPal, pCreateStruct->HeadPal );
-		sprintf( pSoldier->PantsPal, pCreateStruct->PantsPal );
-		sprintf( pSoldier->VestPal, pCreateStruct->VestPal );
-		sprintf( pSoldier->SkinPal, pCreateStruct->SkinPal );
+		strcpy(pSoldier->HeadPal, pCreateStruct->HeadPal);
+		strcpy(pSoldier->PantsPal, pCreateStruct->PantsPal);
+		strcpy(pSoldier->VestPal, pCreateStruct->VestPal);
+		strcpy(pSoldier->SkinPal, pCreateStruct->SkinPal);
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2803,10 +2803,10 @@ void CreateDetailedPlacementGivenStaticDetailedPlacementAndBasicPlacementInfo(
 	pp->fVisible = spp->fVisible;
 	if( spp->fVisible )
 	{
-		sprintf( pp->HeadPal, spp->HeadPal );
-		sprintf( pp->PantsPal, spp->PantsPal );
-		sprintf( pp->VestPal, spp->VestPal );
-		sprintf( pp->SkinPal, spp->SkinPal );
+		strcpy(pp->HeadPal, spp->HeadPal);
+		strcpy(pp->PantsPal, spp->PantsPal);
+		strcpy(pp->VestPal, spp->VestPal);
+		strcpy(pp->SkinPal, spp->SkinPal);
 	}
 
 	//This isn't perfect, however, it blindly brings over the items from the static

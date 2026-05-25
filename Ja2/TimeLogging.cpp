@@ -56,7 +56,7 @@ void TimingLogWrite(const CHAR8* text)
 {
 	if (fp_timelog)
 	{
-		fprintf(fp_timelog, text);
+		fprintf(fp_timelog, "%s", text);	// text is caller-supplied, not a format string
 	}
 }
 
