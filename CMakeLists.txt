@@ -233,9 +233,10 @@ if(WIN32)
   # every platform. The Lua target is linked transitively through
   # the JA2 Lua wrapper library; Expat is linked at executable
   # level alongside SDL3.
+  # binkw32.lib / SMACKW32.LIB removed: the proprietary Bink/Smacker path is
+  # gone (libsmacker handles SMK, Bink is stubbed -- Phase 6u), so no symbols
+  # from those libs are referenced. Only the system libs remain.
   list(APPEND Ja2_Libraries
-    "${CMAKE_SOURCE_DIR}/binkw32.lib"
-    "${CMAKE_SOURCE_DIR}/SMACKW32.LIB"
     "Dbghelp.lib"
     "Winmm.lib"
     "ws2_32.lib"
