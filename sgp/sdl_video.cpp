@@ -183,6 +183,15 @@ BOOLEAN InitializeVideoManager(void)
 	// SDL's render-command queue half-built and tripped an assertion.
 	SDL_SetWindowMinimumSize(gWindow, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+	// In windowed mode, lock the window to the game's aspect ratio so a
+	// user resize keeps proportions instead of producing a stretched window
+	// with uneven letterbox bars. Passing the same value as both the min and
+	// max aspect pins it exactly. Ignored in fullscreen (iScreenMode 0).
+	if (iScreenMode != 0) {
+		const float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
+		SDL_SetWindowAspectRatio(gWindow, aspect, aspect);
+	}
+
 	gRenderer = SDL_CreateRenderer(gWindow, nullptr);
 	if (!gRenderer) {
 		std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
