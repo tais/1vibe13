@@ -1461,6 +1461,9 @@ static BOOLEAN TraitTileHasAdjTile(const INT32 startIndex, const bool onRoof)
 			}
 		}
 	}
+
+	// No adjacent trait tile found. (Previously fell off the end -> UB / garbage return.)
+	return FALSE;
 }
 
 // ----------------------------- tracker display after this ----------------------------------------
