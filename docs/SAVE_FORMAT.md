@@ -309,9 +309,11 @@ There is no separate schema file — the layout *is* the per-struct field list:
 ### Versioning
 
 `SAVE_GAME_VERSION` (in `Ja2/GameVersion.h`) gates old vs new format at load. It is
-now `PORTABLE_SAVE_FORMAT = 1000` — a generational jump clear of upstream's
+now `PORTABLE_SAVE_FORMAT = 1001` — a generational jump clear of upstream's
 sequential numbering (~186), marking the clean break and avoiding collisions with
-future 1.13 increments. `LoadSavedGame` **rejects any save below 1000** up front
+future 1.13 increments. (1000 was the initial portable format; 1001 added
+field-by-field `ROTTING_CORPSE_DEFINITION` serialization — see below.) `LoadSavedGame`
+**rejects any save below the current `PORTABLE_SAVE_FORMAT`** up front
 (before any format-dependent read), so pre-migration saves fail cleanly instead of
 mis-reading old bytes as v2. `uiSavedGameVersion` is the first field in the file,
 so the gate reads correctly regardless of the rest of the (not-yet-portable)
@@ -376,8 +378,15 @@ differ between the **32-bit Windows** build and 64-bit mac/Linux are **pointers
 (4 vs 8), `long` (4 vs 8) and `CHAR16`/`wchar_t` (2 vs 4)** — `UINT*`/`INT*`/
 `FLOAT`/`double`/`BOOLEAN`/`enum` are identical. So the Shipment structs,
 `SavedEmailStruct`, `ENEMYGROUP`, `GENERAL_SAVE_INFO`, `KEY_ON_RING`,
-`ROTTING_CORPSE_DEFINITION`, contract/air-raid/team-turn structs, etc. needed
-**no change**.
+contract/air-raid/team-turn structs, etc. needed **no change**.
+
+> **Correction (save format 1001):** `ROTTING_CORPSE_DEFINITION` was originally
+> mis-classified here as already-portable. It is **not** — it ends in
+> `CHAR16 name[10]`, so the raw `FileWrite(&def, sizeof(def))` dumped 2 bytes/char
+> on Win32 but 4 on macOS/Linux (plus padding). It is now serialized field-by-field
+> via `Save/LoadRottingCorpseDefinition` (`Tactical/Rotting Corpses.cpp`, one
+> `XferRottingCorpseDef` field list), `name` written 16-bit on disk. This is the
+> change that bumped the format to 1001.
 
 The structs that actually carried breakers were all migrated to field-by-field
 serialization (no padding ever written — byte-block shortcuts are unsafe because
