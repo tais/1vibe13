@@ -550,7 +550,7 @@ INT32	AddRottingCorpse( ROTTING_CORPSE_DEFINITION *pCorpseDef )
 	AniParams.uiFlags							= ANITILE_CACHEDTILE | ANITILE_PAUSED | ANITILE_OPTIMIZEFORSLOWMOVING | ANITILE_ANIMATE_Z | ANITILE_ERASEITEMFROMSAVEBUFFFER | uiDirectionUseFlag;
 
 	// use the x,y coordinates provided in the definition when adding a corpse
-	if (pCorpse->def.usFlags |= ROTTING_CORPSE_USE_XY_PROVIDED)
+	if (pCorpse->def.usFlags & ROTTING_CORPSE_USE_XY_PROVIDED)
 	{
 		AniParams.sX = pCorpse->def.dXPos;
 		AniParams.sY = pCorpse->def.dYPos;

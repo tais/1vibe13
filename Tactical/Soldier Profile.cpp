@@ -488,13 +488,13 @@ void RandomStartSalary()
 			pProfile = &(gMercProfiles[cnt]);
 			SalaryMod =  1 + (FLOAT) RandomPercentRange( SalaryPercentMod, Type ) / 100;
 			// random non-zero salary 
-			if ( pProfile->sSalary |= 0 )
+			if ( pProfile->sSalary != 0 )
 				pProfile->sSalary = RoundOffSalary( (UINT32)( pProfile->sSalary * SalaryMod ) );
-			if ( pProfile->uiWeeklySalary |= 0 )
+			if ( pProfile->uiWeeklySalary != 0 )
 				pProfile->uiWeeklySalary = RoundOffSalary( (UINT32)( pProfile->uiWeeklySalary * SalaryMod ) );
-			if ( pProfile->uiBiWeeklySalary |= 0 )
+			if ( pProfile->uiBiWeeklySalary != 0 )
 				pProfile->uiBiWeeklySalary = RoundOffSalary( (UINT32)( pProfile->uiBiWeeklySalary * SalaryMod ) );
-			if ( pProfile->sTrueSalary |= 0 )
+			if ( pProfile->sTrueSalary != 0 )
 				pProfile->sTrueSalary = RoundOffSalary( (UINT32)( pProfile->sTrueSalary * SalaryMod ) );
 		}
 	}

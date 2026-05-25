@@ -155,16 +155,16 @@ INT32 GetSpreadPattern( OBJECTTYPE * pObj )
 	}
 
 	//The object's own spread pattern, if it has one.
-	if( n=Item[pObj->usItem].spreadPattern )
+	if( ( n = Item[pObj->usItem].spreadPattern ) != 0 )
 		return n;
 
 	//If a gun, and don't have a pattern yet, check it's ammo.
 	if( IC_GUN & Item[pObj->usItem].usItemClass ){
 		//Check for the ammo first.
-		if( n=Item[ pObj[0][0]->data.gun.usGunAmmoItem ].spreadPattern )
+		if( ( n = Item[ pObj[0][0]->data.gun.usGunAmmoItem ].spreadPattern ) != 0 )
 			return n;
 		//If no pattern for the ammo, try the ammo type.
-		if( n=AmmoTypes[pObj[0][0]->data.gun.ubGunAmmoType].spreadPattern )
+		if( ( n = AmmoTypes[pObj[0][0]->data.gun.ubGunAmmoType].spreadPattern ) != 0 )
 			return n;
 	}
 
