@@ -699,7 +699,7 @@ void DrawRecordsBackGround( void )
 
 
 	// now the columns
-	for(iCounter; iCounter <35; iCounter++)
+	for( ; iCounter <35; iCounter++)
 	{
 		// get and blt middle background to screen
 	GetVideoObject(&hHandle, guiLISTCOLUMNS);
@@ -794,7 +794,7 @@ void DrawRecordsText( void )
 	}
 
 	// loop through record list
-	for(iCounter; iCounter <NUM_RECORDS_PER_PAGE; iCounter++)
+	for( ; iCounter <NUM_RECORDS_PER_PAGE; iCounter++)
 	{
 		// get and write the date
 		swprintf(sString, L"%d", pCurFinance->uiDate / ( 24*60 ) );

@@ -353,7 +353,7 @@ void HandleIMPAttributeSelection( void )
 			{
 				// positive, increment stat
 		iCounter = iNewValue - iCurrentAttributeValue;
-				for( iCounter; iCounter > 0; iCounter--)
+				for( ; iCounter > 0; iCounter--)
 				{
 					IncrementStat( giCurrentlySelectedStat );
 				}
@@ -362,7 +362,7 @@ void HandleIMPAttributeSelection( void )
 			{
 				// negative, decrement stat
 		iCounter = iCurrentAttributeValue - iNewValue;
-				for( iCounter; iCounter > 0; iCounter--)
+				for( ; iCounter > 0; iCounter--)
 				{
 					DecrementStat( giCurrentlySelectedStat );
 				}
@@ -1636,7 +1636,7 @@ void SliderRegionButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			{
 				// positive, increment stat
 				iCounter = iNewValue - iCurrentAttributeValue;
-				for( iCounter; iCounter > 0; iCounter--)
+				for( ; iCounter > 0; iCounter--)
 				{
 					IncrementStat( iAttribute );
 				}
@@ -1645,7 +1645,7 @@ void SliderRegionButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			{
 				// negative, decrement stat
 				iCounter = iCurrentAttributeValue - iNewValue;
-				for( iCounter; iCounter > 0; iCounter--)
+				for( ; iCounter > 0; iCounter--)
 				{
 					DecrementStat( iAttribute );
 				}

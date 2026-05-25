@@ -25228,7 +25228,7 @@ BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo )
 		if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->bActive && pSoldier->bInSector && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
 		{
 			*psTargetGridNo = pSoldier->sGridNo;
-			pSoldier->bSide;
+			//pSoldier->bSide;
 			return TRUE;
 		}
 	}
@@ -25248,7 +25248,7 @@ BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo )
 			if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->bActive && pSoldier->bInSector && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
 			{
 				*psTargetGridNo = pSoldier->sGridNo;
-				pSoldier->bSide;
+				//pSoldier->bSide;
 				return TRUE;
 			}
 		}

@@ -4953,7 +4953,7 @@ void DisplayPastMercsPortraits( void )
 
 	if( iStartArray == 0 ) {
 	// run through list and display
-		for( iCounterA ; iCounter < MAX_MERCS_ON_SCREEN && iCounterA < 256; iCounterA++ ) {
+		for( ; iCounter < MAX_MERCS_ON_SCREEN && iCounterA < 256; iCounterA++ ) {
 			// show dead pictures
 			if( LaptopSaveInfo.ubDeadCharactersList[ iCounterA ] != -1 ) {
 				DisplayPortraitOfPastMerc( LaptopSaveInfo.ubDeadCharactersList[ iCounterA ], iCounter, TRUE, FALSE, FALSE );
@@ -4965,7 +4965,7 @@ void DisplayPastMercsPortraits( void )
 		iCounterA = 0;
 	}
 	if( iStartArray <= 1 ) {
-		for( iCounterA ; ( iCounter < MAX_MERCS_ON_SCREEN	&& iCounterA < 256 ); iCounterA++) {
+		for( ; ( iCounter < MAX_MERCS_ON_SCREEN	&& iCounterA < 256 ); iCounterA++) {
 			// show fired pics
 			if( LaptopSaveInfo.ubLeftCharactersList[ iCounterA ] != -1 ) {
 				DisplayPortraitOfPastMerc( LaptopSaveInfo.ubLeftCharactersList[ iCounterA ], iCounter, FALSE, TRUE, FALSE );
@@ -4976,7 +4976,7 @@ void DisplayPastMercsPortraits( void )
 		iCounterA = 0;
 	}
 
-	for( iCounterA ; ( iCounter < MAX_MERCS_ON_SCREEN	&& iCounterA < 256 ); iCounterA++ ) {
+	for( ; ( iCounter < MAX_MERCS_ON_SCREEN	&& iCounterA < 256 ); iCounterA++ ) {
 		// show other pics
 		if( LaptopSaveInfo.ubOtherCharactersList[ iCounterA ] != -1 ) {
 			DisplayPortraitOfPastMerc( LaptopSaveInfo.ubOtherCharactersList[ iCounterA ], iCounter, FALSE, FALSE, TRUE );

@@ -9291,7 +9291,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 		// If there's any distance left, each tile moved will actually DECREASE the penalty, thus
 		// moving the shooting point back towards the target. The more tiles the target moves now,
 		// the easier it is to hit.
-		for (usNumPenaltiesAdded; usNumPenaltiesAdded < sDistanceMoved; usNumPenaltiesAdded++ )
+		for ( ; usNumPenaltiesAdded < sDistanceMoved; usNumPenaltiesAdded++ )
 		{
 			// Improve aim by 1/2 the specified penalty per tile moved. Yes, the penalty diminishes SLOWER than
 			// it was gained. The target needs to move 3x as much as the uiTileForMaxPenaltyValue for our shooter
