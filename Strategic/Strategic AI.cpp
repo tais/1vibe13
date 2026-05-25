@@ -4133,22 +4133,22 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 		//the walls.
 		if( !gubFact[ FACT_QUEEN_DEAD ] && gMercProfiles[ QUEEN ].bSectorZ == 1 )
 		{
-		if( gbWorldSectorZ != 1 || gWorldSectorX != 16 || gWorldSectorY != 3 )
-		{ //We aren't in the basement sector
-			gMercProfiles[ QUEEN ].fUseProfileInsertionInfo = FALSE;
-		}
-		else
-		{ //We are in the basement sector, relocate queen to proper position.
-			for( SoldierID i = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++i )
-			{
-				if( i->ubProfile == QUEEN )
-				{ //Found queen, relocate her to 16866
-					BumpAnyExistingMerc( 16866 );
-					TeleportSoldier( i, 16866, TRUE );
-					break;
+			if( gbWorldSectorZ != 1 || gWorldSectorX != 16 || gWorldSectorY != 3 )
+			{ //We aren't in the basement sector
+				gMercProfiles[ QUEEN ].fUseProfileInsertionInfo = FALSE;
+			}
+			else
+			{ //We are in the basement sector, relocate queen to proper position.
+				for( SoldierID i = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++i )
+				{
+					if( i->ubProfile == QUEEN )
+					{ //Found queen, relocate her to 16866
+						BumpAnyExistingMerc( 16866 );
+						TeleportSoldier( i, 16866, TRUE );
+						break;
+					}
 				}
 			}
-		}
 		}
 	}
 	if( ubSAIVersion < 25 )
