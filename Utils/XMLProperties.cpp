@@ -215,12 +215,14 @@ bool vfs::PropertyContainer::initFromXMLFile(vfs::Path const& sFileName, vfs::Pr
 	{
 		std::wstringstream wss;
 		wss << L"XML Parser Error in Groups.xml: "
-			<< vfs::String::as_utf16(XML_ErrorString(XML_GetErrorCode(parser))) 
+			<< vfs::String::as_utf16(XML_ErrorString(XML_GetErrorCode(parser)))
 			<< L" at line "
 			<< XML_GetCurrentLineNumber(parser);
+		XML_ParserFree(parser);  // grabParser() only re-points callbacks; nothing else frees it
 		SGP_THROW(wss.str().c_str());
 		//return false;
 	}
 
+	XML_ParserFree(parser);
 	return true;
 }
