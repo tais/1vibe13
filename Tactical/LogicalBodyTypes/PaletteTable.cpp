@@ -58,10 +58,12 @@ bool PaletteTable::CreateSGPPaletteFromActFile(SGPPaletteEntry *pPalette, std::s
 	strcpy(colFileName, fileName.c_str());
 	if (!FileExists(colFileName)) {
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot find COL file");
+		delete[] colFileName;
 		return false;
 	}
 	if ((hFileHandle = FileOpen(colFileName, FILE_ACCESS_READ, FALSE)) == 0) {
 		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Cannot open COL file");
+		delete[] colFileName;
 		return false;
 	}
 	for (cnt = 0; cnt < 256; cnt++) {
