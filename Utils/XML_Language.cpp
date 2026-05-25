@@ -194,6 +194,7 @@ BOOLEAN ReadInLanguageLocation(STR fileName, BOOLEAN localizedVersion, LANGUAGE_
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 

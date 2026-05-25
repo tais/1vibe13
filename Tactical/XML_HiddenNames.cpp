@@ -161,6 +161,7 @@ BOOLEAN ReadInHiddenNamesStats(HIDDEN_NAMES_VALUES *pHiddenNames, STR fileName)
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 

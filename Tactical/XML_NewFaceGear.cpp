@@ -184,6 +184,7 @@ BOOLEAN ReadInFaceGear( FACE_GEAR_VALUES *pFaceGear, STR fileName ) //, BOOLEAN 
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 

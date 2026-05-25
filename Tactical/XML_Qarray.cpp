@@ -199,6 +199,7 @@ BOOLEAN ReadInMercQuotes(QARRAY_VALUES *pQarray, STR fileName)
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 

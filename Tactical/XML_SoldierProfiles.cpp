@@ -200,6 +200,7 @@ BOOLEAN ReadInSoldierProfiles(SOLDIER_PROFILE_VALUES* pProfiles, STR fileName)
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 
