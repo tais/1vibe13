@@ -108,7 +108,14 @@ namespace LogicalBodyTypes {
 					data->filter = FilterDB::Instance().FindFilter(aFilter);
 					if (data->filter == NULL) throw XMLParseException("Unknown filter specified!", name, data->pParser);
 				}
-				if (aPalette != NULL && strcmp(aFilter, "") != 0 && strcmp(aFilter, "default") != 0) {
+				// NB: this must test the *palette* attribute, not the filter. The
+				// original code copy-pasted the filter checks from above, so a
+				// LayerProp with an empty filter but a real palette (e.g. the
+				// HELIDROP rope, filter="" palette="hats") never had its palette
+				// resolved -- paletteTable stayed NULL and the layer fell back to
+				// the merc's shade table, painting the rope with the merc's
+				// unreplaced orange/red ramp instead of its own tan colours.
+				if (aPalette != NULL && strcmp(aPalette, "") != 0 && strcmp(aPalette, "default") != 0) {
 					data->paletteTable = PaletteDB::Instance().FindPaletteTable(aPalette);
 					if (data->paletteTable == NULL) throw XMLParseException("Unknown palette specified!", name, data->pParser);
 				}
