@@ -1,5 +1,5 @@
 
-# Jagged Alliance 2 v1.13 — SDL3 port
+# 1vibe13, a vibecoded Jagged Alliance 2 v1.13
 
 <br />
 <br />
