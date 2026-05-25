@@ -578,7 +578,7 @@ Campaign_Stats::GetObject()
 void
 Campaign_Stats::clear()
 {
-	memset(this, 0, SIZEOF_CAMPAIGN_STATS_POD);
+	memset((void*)this, 0, SIZEOF_CAMPAIGN_STATS_POD);
 
 	mIncidentVector.clear();
 }

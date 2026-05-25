@@ -505,7 +505,12 @@ public:
 	ObjectData& operator=(const ObjectData_PRE_ITS&);
 
 
-	void	initialize() {memset(this, 0, sizeof(ObjectData));};
+	// ObjectData has only POD data members (the union + trailing scalars); it is
+	// "non-trivially copyable" solely because of its user-declared copy ctor /
+	// operator= above, so zeroing the whole struct is safe. (void*) silences the
+	// (false-positive) -Wnontrivial-memcall -- which fans out to ~430 warnings
+	// since this header is included almost everywhere.
+	void	initialize() {memset((void*)this, 0, sizeof(ObjectData));};
 	void	DeleteLBE();
 	void	DuplicateLBE();
 	bool operator==(ObjectData& compare);

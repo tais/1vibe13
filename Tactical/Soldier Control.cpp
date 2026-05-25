@@ -277,7 +277,7 @@ MERCPROFILEGEAR::MERCPROFILEGEAR( )
 // Assignment operator
 MERCPROFILEGEAR& MERCPROFILEGEAR::operator=(const MERCPROFILEGEAR& src) {
 	if ( this != &src ) {
-		memcpy( this, &src, SIZEOF_MERCPROFILEGEAR_POD );
+		memcpy( (void*)this, &src, SIZEOF_MERCPROFILEGEAR_POD );
 		inv = src.inv;
 		iStatus = src.iStatus;
 		iDrop = src.iDrop;
@@ -296,7 +296,7 @@ MERCPROFILEGEAR& MERCPROFILEGEAR::operator=(const MERCPROFILEGEAR& src) {
 MERCPROFILEGEAR::MERCPROFILEGEAR(const MERCPROFILEGEAR& src)
 {
 	if (this != &src) {
-		memcpy(this, &src, SIZEOF_MERCPROFILEGEAR_POD);
+		memcpy((void*)this, &src, SIZEOF_MERCPROFILEGEAR_POD);
 		inv = src.inv;
 		iStatus = src.iStatus;
 		iDrop = src.iDrop;
@@ -318,7 +318,7 @@ MERCPROFILEGEAR::~MERCPROFILEGEAR( ) {
 //  Use this instead of the old method of calling memset!
 //  Note that the constructor does this automatically.
 void MERCPROFILEGEAR::initialize( ) {
-	memset( this, 0, SIZEOF_MERCPROFILEGEAR_POD );
+	memset( (void*)this, 0, SIZEOF_MERCPROFILEGEAR_POD );
 	clearInventory( );
 }
 
@@ -1113,7 +1113,7 @@ UINT32 SOLDIERTYPE::GetChecksum( )
 //  Note that the constructor does this automatically.
 void SOLDIERTYPE::initialize( )
 {
-	memset( this, 0, SIZEOF_SOLDIERTYPE_POD );
+	memset( (void*)this, 0, SIZEOF_SOLDIERTYPE_POD );
 	inv.clear( );
 	ai_masterplan_ = 0;
 	this->iVehicleId = (-1);
@@ -1284,7 +1284,7 @@ UINT32 MERCPROFILESTRUCT::GetChecksum( )
 
 OLD_MERCPROFILESTRUCT_101::OLD_MERCPROFILESTRUCT_101( )
 {
-	memset( this, 0, SIZEOF_OLD_MERCPROFILESTRUCT_101_POD );
+	memset( (void*)this, 0, SIZEOF_OLD_MERCPROFILESTRUCT_101_POD );
 }
 
 MERCPROFILESTRUCT::MERCPROFILESTRUCT( )
@@ -1295,7 +1295,7 @@ MERCPROFILESTRUCT::MERCPROFILESTRUCT( )
 // Copy Constructor
 MERCPROFILESTRUCT::MERCPROFILESTRUCT( const MERCPROFILESTRUCT& src )
 {
-	memcpy( this, &src, SIZEOF_MERCPROFILESTRUCT_POD );
+	memcpy( (void*)this, &src, SIZEOF_MERCPROFILESTRUCT_POD );
 	inv = src.inv;
 	bInvStatus = src.bInvStatus;
 	bInvNumber = src.bInvNumber;
@@ -1559,7 +1559,7 @@ MERCPROFILESTRUCT& MERCPROFILESTRUCT::operator=(const OLD_MERCPROFILESTRUCT_101&
 MERCPROFILESTRUCT& MERCPROFILESTRUCT::operator=(const MERCPROFILESTRUCT& src)
 {
 	if ( this != &src ) {
-		memcpy( this, &src, SIZEOF_MERCPROFILESTRUCT_POD );
+		memcpy( (void*)this, &src, SIZEOF_MERCPROFILESTRUCT_POD );
 		inv = src.inv;
 		bInvStatus = src.bInvStatus;
 		bInvNumber = src.bInvNumber;
@@ -1577,7 +1577,7 @@ MERCPROFILESTRUCT::~MERCPROFILESTRUCT( )
 //  Note that the constructor does this automatically.
 void MERCPROFILESTRUCT::initialize( )
 {
-	memset( this, 0, SIZEOF_MERCPROFILESTRUCT_POD );
+	memset( (void*)this, 0, SIZEOF_MERCPROFILESTRUCT_POD );
 	clearInventory( );
 	// SANDRO - added this
 	memset( &records, 0, sizeof(STRUCT_Records) );

@@ -96,7 +96,7 @@ void ARMS_DEALER_STATUS::initialize()
 
 void DEALER_SPECIAL_ITEM::initialize()
 {
-	memset(this, 0, SIZEOF_DEALER_SPECIAL_ITEM_POD);
+	memset((void*)this, 0, SIZEOF_DEALER_SPECIAL_ITEM_POD);
 	object.initialize();
 }
 

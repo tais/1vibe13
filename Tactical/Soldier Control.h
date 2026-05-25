@@ -2251,7 +2251,7 @@ public:
 
 	// Copy Constructor
 	OLDSOLDIERTYPE_101(const OLDSOLDIERTYPE_101& src) {
-		memcpy(this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // FIXME: memcpy std::vector
+		memcpy((void*)this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members copied below); (void*) silences -Wnontrivial-memcall
 		inv = src.inv;
 		bNewItemCount = src.bNewItemCount;
 		bNewItemCycleCount = src.bNewItemCycleCount;
@@ -2261,7 +2261,7 @@ public:
 	OLDSOLDIERTYPE_101& operator=(const OLDSOLDIERTYPE_101& src)
 	{
 		if (this != &src) {
-			memcpy(this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // FIXME: memcpy std::vector
+			memcpy((void*)this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members copied below); (void*) silences -Wnontrivial-memcall
 			inv = src.inv;
 			bNewItemCount = src.bNewItemCount;
 			bNewItemCycleCount = src.bNewItemCycleCount;
@@ -2277,7 +2277,7 @@ public:
 	//	Use this instead of the old method of calling memset!
 	//	Note that the constructor does this automatically.
 	void initialize() {
-		memset( this, 0, SIZEOF_OLDSOLDIERTYPE_101_POD); // FIXME: memcpy std::vector
+		memset( (void*)this, 0, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members reset below); (void*) silences -Wnontrivial-memcall
 		inv.clear();
 		for (int idx=0; idx < (int)inv.size(); ++idx) {
 			bNewItemCount[idx] = 0;

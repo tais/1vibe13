@@ -10780,7 +10780,7 @@ class ITEM_PICKUP_MENU_STRUCT
 {
 public:
 	ITEM_PICKUP_MENU_STRUCT() {initialize();};
-	void	initialize() {memset(this, 0, SIZEOF_ITEM_PICKUP_MENU_STRUCT_POD); CompAmmoObject.initialize();};
+	void	initialize() {memset((void*)this, 0, SIZEOF_ITEM_PICKUP_MENU_STRUCT_POD); CompAmmoObject.initialize();};
 	ITEM_POOL			*pItemPool;
 	INT16					sX;
 	INT16					sY;

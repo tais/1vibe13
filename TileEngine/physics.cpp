@@ -113,7 +113,7 @@ BOOLEAN CheckForCatcher( REAL_OBJECT *pObject, UINT16 usStructureID );
 
 void REAL_OBJECT::initialize()
 {
-	memset(this, 0, SIZEOF_REAL_OBJECT_POD);
+	memset((void*)this, 0, SIZEOF_REAL_OBJECT_POD);
 	this->Obj.initialize();
 }
 

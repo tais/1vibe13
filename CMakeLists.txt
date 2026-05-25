@@ -35,6 +35,15 @@ else()
   #   practice; pervasive in the popup / menu code. To-be-cleaned-up
   #   when those APIs migrate to const& / by-value.
   add_compile_options(-Wno-error=address-of-temporary)
+  # - invalid-offsetof: the engine deliberately uses offsetof(T, endOfPod) on
+  #   structs that have non-trivially-copyable (STL) members after the marker,
+  #   to memset/memcpy only the POD prefix (see SIZEOF_*_POD). That's an
+  #   intentional, reviewed idiom, so the warning is pure noise here (and
+  #   fanned out across every TU including those headers). Silence it. We KEEP
+  #   -Wnontrivial-memcall active (it catches careless memset of whole STL
+  #   structs -- a real crash class); the known-good POD-prefix sites cast the
+  #   pointer to (void*) instead.
+  add_compile_options(-Wno-invalid-offsetof)
 endif()
 
 # whether we are using MSBuild as a generator

@@ -78,7 +78,7 @@ OLD_SOLDIERCREATE_STRUCT_101::OLD_SOLDIERCREATE_STRUCT_101() {
 
 // Copy Constructor
 OLD_SOLDIERCREATE_STRUCT_101::OLD_SOLDIERCREATE_STRUCT_101(const OLD_SOLDIERCREATE_STRUCT_101& src) {
-	memcpy(this, &src, SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD);
+	memcpy((void*)this, &src, SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD);
 	this->Inv = src.Inv;
 }
 
@@ -86,7 +86,7 @@ OLD_SOLDIERCREATE_STRUCT_101::OLD_SOLDIERCREATE_STRUCT_101(const OLD_SOLDIERCREA
 OLD_SOLDIERCREATE_STRUCT_101& OLD_SOLDIERCREATE_STRUCT_101::operator=(const OLD_SOLDIERCREATE_STRUCT_101& src)
 {
 	if (this != &src) {
-		memcpy(this, &src, SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD);
+		memcpy((void*)this, &src, SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD);
 		this->Inv = src.Inv;
 	}
 	return *this;
@@ -180,7 +180,7 @@ OLD_SOLDIERCREATE_STRUCT_101::~OLD_SOLDIERCREATE_STRUCT_101() {
 //	Use this instead of the old method of calling memset!
 //	Note that the constructor does this automatically.
 void OLD_SOLDIERCREATE_STRUCT_101::initialize() {
-	memset( this, 0, SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD);
+	memset( (void*)this, 0, SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD);
 	Inv.clear();
 }
 
@@ -336,7 +336,7 @@ SOLDIERCREATE_STRUCT::SOLDIERCREATE_STRUCT() {
 
 // Copy Constructor
 SOLDIERCREATE_STRUCT::SOLDIERCREATE_STRUCT(const SOLDIERCREATE_STRUCT& src) {
-	memcpy(this, &src, SIZEOF_SOLDIERCREATE_STRUCT_POD);
+	memcpy((void*)this, &src, SIZEOF_SOLDIERCREATE_STRUCT_POD);
 	this->Inv = src.Inv;
 }
 
@@ -344,7 +344,7 @@ SOLDIERCREATE_STRUCT::SOLDIERCREATE_STRUCT(const SOLDIERCREATE_STRUCT& src) {
 SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERCREATE_STRUCT& src)
 {
 	if (this != &src) {
-		memcpy(this, &src, SIZEOF_SOLDIERCREATE_STRUCT_POD);
+		memcpy((void*)this, &src, SIZEOF_SOLDIERCREATE_STRUCT_POD);
 		this->Inv = src.Inv;
 	}
 	return *this;
@@ -416,7 +416,7 @@ SOLDIERCREATE_STRUCT::~SOLDIERCREATE_STRUCT() {
 //	Use this instead of the old method of calling memset!
 //	Note that the constructor does this automatically.
 void SOLDIERCREATE_STRUCT::initialize() {
-	memset( this, 0, SIZEOF_SOLDIERCREATE_STRUCT_POD);
+	memset( (void*)this, 0, SIZEOF_SOLDIERCREATE_STRUCT_POD);
 	this->bAIMorale = MORALE_NORMAL;
 	Inv.clear();
 }

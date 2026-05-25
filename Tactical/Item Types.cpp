@@ -488,17 +488,17 @@ BOOLEAN MoveItemFromLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, OBJECTTYPE
 }
 
 LBETYPE::LBETYPE(){
-	memset(this, 0, SIZEOF_LBETYPE);
+	memset((void*)this, 0, SIZEOF_LBETYPE);
 	lbePocketIndex.clear();
 	lbePocketIndex.resize(MAX_ITEMS_IN_LBE);
 }
 LBETYPE::LBETYPE(const LBETYPE& src) {
-	memcpy(this, &src, SIZEOF_LBETYPE);
+	memcpy((void*)this, &src, SIZEOF_LBETYPE);
 	lbePocketIndex = src.lbePocketIndex;
 }
 LBETYPE& LBETYPE::operator=(const LBETYPE& src){
     if (this != &src) {
-		memcpy(this, &src, SIZEOF_LBETYPE);
+		memcpy((void*)this, &src, SIZEOF_LBETYPE);
 		lbePocketIndex = src.lbePocketIndex;
     }
     return *this;
@@ -506,17 +506,17 @@ LBETYPE& LBETYPE::operator=(const LBETYPE& src){
 LBETYPE::~LBETYPE(){
 }
 POCKETTYPE::POCKETTYPE(){
-	memset(this, 0, SIZEOF_POCKETTYPE);
+	memset((void*)this, 0, SIZEOF_POCKETTYPE);
 	ItemCapacityPerSize.resize(gGameExternalOptions.guiMaxItemSize+1);//JMich
 }
 POCKETTYPE::POCKETTYPE(const POCKETTYPE& src){
-	memcpy(this, &src, SIZEOF_POCKETTYPE);
+	memcpy((void*)this, &src, SIZEOF_POCKETTYPE);
 	ItemCapacityPerSize.resize(gGameExternalOptions.guiMaxItemSize+1);//JMich
 	ItemCapacityPerSize = src.ItemCapacityPerSize;
 }
 POCKETTYPE& POCKETTYPE::operator=(const POCKETTYPE& src){
     if (this != &src) {
-		memcpy(this, &src, SIZEOF_POCKETTYPE);
+		memcpy((void*)this, &src, SIZEOF_POCKETTYPE);
 		ItemCapacityPerSize = src.ItemCapacityPerSize;
     }
     return *this;
@@ -1382,7 +1382,7 @@ OBJECTTYPE::OBJECTTYPE()
 void OBJECTTYPE::initialize()
 {
 
-	memset(this, 0, SIZEOF_OBJECTTYPE_POD);
+	memset((void*)this, 0, SIZEOF_OBJECTTYPE_POD);
 
 	//this is an easy way to init it and get rid of attachments
 	objectStack.clear();
