@@ -66,6 +66,7 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 	hFile = FileOpen(fileNameFull, FILE_ACCESS_READ, FALSE);
 	if (!hFile) {
 		sprintf(errorBuf, "Can't open %s", fileNameFull);
+		XML_ParserFree(parser);
 		delete data;
 		return false;
 	}
@@ -74,6 +75,8 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 	if (!FileRead(hFile, lpcBuffer, uiFSize, &uiBytesRead)) {
 		sprintf(errorBuf, "Error reading %s to buffer", fileNameFull);
 		MemFree(lpcBuffer);
+		FileClose(hFile);
+		XML_ParserFree(parser);
 		delete data;
 		return false;
 	}
@@ -96,10 +99,11 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 			sprintf(errorBuf, "XML Parser Error in %s[%d]: %s", fileNameFull, XML_GetCurrentLineNumber(parser), XML_ErrorString(XML_GetErrorCode(parser)));
 			LiveMessage(errorBuf);
 			MemFree(lpcBuffer);
+			XML_ParserFree(parser);
 			delete data;
 			return false;
 		}
-	} catch (XMLParseException e) {
+	} catch (const XMLParseException& e) {
 		sprintf(errorBuf, "XML Parser Exception in %s[%d]: %s", fileNameFull, e._LINE, e.what());
 		LiveMessage(errorBuf);
 		MemFree(lpcBuffer);
@@ -151,9 +155,10 @@ int XMLCALL AbstractXMLLoader::ExternalEntityHandler(XML_Parser args, const XML_
 			sprintf(errorBuf, "XML Parser Error in external entity %s[%d]: %s", systemId, XML_GetCurrentLineNumber(extParser), XML_ErrorString(XML_GetErrorCode(extParser)));
 			LiveMessage(errorBuf);
 			MemFree(lpcBuffer);
+			XML_ParserFree(extParser);
 			return XML_STATUS_ERROR;
 		}
-	} catch (XMLParseException e) {
+	} catch (const XMLParseException& e) {
 		CHAR8 errorBuf[512];
 		sprintf(errorBuf, "XML Parser Exception in external entity %s[%d]: %s", systemId, e._LINE, e.what());
 		LiveMessage(errorBuf);

@@ -40,8 +40,14 @@ void XMLCALL PaletteDB::StartElementHandle(void* userData, const XML_Char* name,
 				XML_Char const* aFileName = GetAttribute("filename", atts);
 				if (aFileName == NULL || aName == NULL) throw XMLParseException("Mandatory attribute missing!", name, data->pParser);
 				PaletteTable* paletteTable = new PaletteTable();
-				if (!paletteTable->Load(aFileName)) throw XMLParseException("Palette table could not be loaded from the specified file!", name, data->pParser);
-				Instance().AddPaletteTable(aName, paletteTable);
+				if (!paletteTable->Load(aFileName)) {
+					delete paletteTable;
+					throw XMLParseException("Palette table could not be loaded from the specified file!", name, data->pParser);
+				}
+				if (!Instance().AddPaletteTable(aName, paletteTable)) {
+					delete paletteTable;  // duplicate name: not stored, so we own it
+					throw XMLParseException("Palette table defined twice!", name, data->pParser);
+				}
 				break;
 			}
 		default:

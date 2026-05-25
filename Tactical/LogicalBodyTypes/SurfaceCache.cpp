@@ -93,7 +93,7 @@ bool SurfaceCache::LoadSurface(AnimationSurfaceType* animSurfaceType, STRUCTURE_
 	VOBJECT_DESC VObjectDesc;
 	HVOBJECT hVObject;
 	HIMAGE hImage;
-	CHAR8 sFilename[48];
+	CHAR8 sFilename[64];  // must hold animSurfaceType->Filename[50] in full (FilenameForBPP is a plain strcpy); was [48] and could overflow for the 48-49 char names the loader allows
 	// Create video object
 	FilenameForBPP(animSurfaceType->Filename, sFilename);
 	AnimDebugMsg(String("SurfaceCache::LoadSurface, %s", sFilename));

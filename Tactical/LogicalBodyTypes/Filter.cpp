@@ -139,7 +139,7 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 			orReq = true;
 			operation = _REQ_OR;
 		}
-		char sgn;
+		int sgn;  // holds std::wstring::compare()'s result too; a char would truncate a wide-char diff that is a multiple of 256 to 0 (false "equal")
 		if (r & _TYPE_INTEGER) {
 			INT32 cmp_val;
 			UINT32 q = r & ~_UNSET_FLAGS;
