@@ -130,7 +130,11 @@ namespace LogicalBodyTypes {
 				if (aSurface == NULL || (aAnimState == NULL && aPhysSurface == NULL)) {
 					throw XMLParseException("Mandatory attribute missing!", name, data->pParser);
 				}
-				if (aAnimState == NULL && aPhysSurface == NULL) {
+				// Reject a Surface that specifies *both* animstate and animsurface.
+				// (The both-absent case is already handled by the check above; this
+				// originally repeated that same condition by copy-paste, making it
+				// dead code -- it must test for both being present instead.)
+				if (aAnimState != NULL && aPhysSurface != NULL) {
 					// we could allow this
 					// but we should than make 2 seperate animation surface type instances (that are equivalent) which is not nice
 					// we could use the same instance, but it has to bee ascertained that the cache can handle it first!
