@@ -126,6 +126,7 @@ BOOLEAN ReadInSoundArray(STR fileName)
         sprintf(errorBuf, "XML Parser Error in %s.xml: %s at line %d", SOUNDSFILENAME, XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
         LiveMessage(errorBuf);
         MemFree(lpcBuffer);
+        XML_ParserFree(parser);
         return FALSE;
     }
     MemFree(lpcBuffer);

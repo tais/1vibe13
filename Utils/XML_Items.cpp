@@ -1867,6 +1867,7 @@ BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion )
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 
