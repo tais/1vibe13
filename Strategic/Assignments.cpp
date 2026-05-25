@@ -6556,11 +6556,10 @@ void HandleStrategicDiseaseAndBurial()
 									// if we chang anything, we save the now reduced array					
 									for ( UINT32 cnt = 0; cnt < uiNumberOfCorpses; ++cnt )
 									{
-										// Load the Rotting corpses info
-										FileRead( hFile, &def, sizeof( ROTTING_CORPSE_DEFINITION ), &uiNumBytesRead );
-										if ( uiNumBytesRead != sizeof( ROTTING_CORPSE_DEFINITION ) )
+										// Load the Rotting corpses info (portable field-by-field)
+										if ( !LoadRottingCorpseDefinition( hFile, def ) )
 										{
-											//Error Writing size of array to disk
+											//Error reading from disk
 											continue;
 										}
 

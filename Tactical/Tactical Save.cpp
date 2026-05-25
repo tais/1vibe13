@@ -1725,11 +1725,10 @@ BOOLEAN SaveRottingCorpsesToTempCorpseFile( INT16 sMapX, INT16 sMapY, INT8 bMapZ
 	//Loop through all the carcases in the array and save the active ones
 	for( std::vector<ROTTING_CORPSE_DEFINITION>::iterator it = aCorpseDefVector.begin(); it != aCorpseDefVector.end(); ++it )
 	{
-		//Save the RottingCorpse info array
-		FileWrite( hFile, &(*it), sizeof( ROTTING_CORPSE_DEFINITION ), &uiNumBytesWritten );
-		if ( uiNumBytesWritten != sizeof( ROTTING_CORPSE_DEFINITION ) )
+		//Save the RottingCorpse info array (portable field-by-field; CHAR16 name -> 16-bit)
+		if ( !SaveRottingCorpseDefinition( hFile, *it ) )
 		{
-			//Error Writing size of array to disk
+			//Error Writing to disk
 			FileClose( hFile );
 			return( FALSE );
 		}
@@ -1810,11 +1809,10 @@ BOOLEAN LoadRottingCorpsesFromTempCorpseFile( INT16 sMapX, INT16 sMapY, INT8 bMa
 
 	for( cnt=0; cnt<uiNumberOfCorpses; ++cnt )
 	{
-		// Load the Rotting corpses info
-		FileRead( hFile, &def, sizeof( ROTTING_CORPSE_DEFINITION ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( ROTTING_CORPSE_DEFINITION ) )
+		// Load the Rotting corpses info (portable field-by-field)
+		if( !LoadRottingCorpseDefinition( hFile, def ) )
 		{
-			//Error Writing size of array to disk
+			//Error reading from disk
 			FileClose( hFile );
 			return( FALSE );
 		}
@@ -2389,11 +2387,10 @@ BOOLEAN AddRottingCorpseToUnloadedSectorsRottingCorpseFile( INT16 sMapX, INT16 s
 		// load existing corpses
 		for ( UINT32 cnt = 0; cnt < uiNumberOfCorpses; ++cnt )
 		{
-			// Load the Rotting corpses info
-			FileRead( hFile, &def, sizeof( ROTTING_CORPSE_DEFINITION ), &uiNumBytesRead );
-			if ( uiNumBytesRead != sizeof( ROTTING_CORPSE_DEFINITION ) )
+			// Load the Rotting corpses info (portable field-by-field)
+			if ( !LoadRottingCorpseDefinition( hFile, def ) )
 			{
-				//Error Writing size of array to disk
+				//Error reading from disk
 				continue;
 			}
 

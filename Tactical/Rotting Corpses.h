@@ -160,6 +160,12 @@ typedef struct
 
 INT32	AddRottingCorpse( ROTTING_CORPSE_DEFINITION *pCorpseDef );
 
+// Portable savegame (de)serialization of a corpse definition. A single field
+// list drives both directions (so save/load can't drift) and writes the
+// CHAR16 name as 16-bit on disk, so corpse temp files are cross-platform.
+bool SaveRottingCorpseDefinition( HWFILE hFile, ROTTING_CORPSE_DEFINITION& def );
+bool LoadRottingCorpseDefinition( HWFILE hFile, ROTTING_CORPSE_DEFINITION& def );
+
 void RemoveCorpse( INT32 iCorpseID );
 void RemoveCorpses( );
 

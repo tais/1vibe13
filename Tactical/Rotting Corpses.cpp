@@ -9,6 +9,7 @@
 	#include "worlddef.h"
 	#include "worldman.h"
 	#include "Rotting Corpses.h"
+	#include "SaveSerializer.h"
 	#include "Tile Cache.h"
 	#include "Isometric Utils.h"
 	#include "Animation Control.h"
@@ -51,6 +52,50 @@
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
 class SOLDIERTYPE;
+
+// Single field list for a corpse definition, visited by either the writer or
+// the reader adapter, so save and load are by construction symmetric. Replaces
+// the old raw `FileWrite(&def, sizeof(ROTTING_CORPSE_DEFINITION))`, which dumped
+// the struct's `CHAR16 name[10]` at 2 bytes/char on Win32 but 4 on macOS/Linux
+// (non-portable) plus ABI padding. PaletteRepID is CHAR8[30].
+template<class Ar>
+static void XferRottingCorpseDef( Ar& ar, ROTTING_CORPSE_DEFINITION& d )
+{
+	ar.u8 ( d.ubType );          ar.u8 ( d.ubBodyType );
+	ar.i32( d.sGridNo );
+	ar.f32( d.dXPos );           ar.f32( d.dYPos );
+	ar.i16( d.sHeightAdjustment );
+	ar.str8( d.HeadPal,  sizeof( d.HeadPal ) );
+	ar.str8( d.PantsPal, sizeof( d.PantsPal ) );
+	ar.str8( d.VestPal,  sizeof( d.VestPal ) );
+	ar.str8( d.SkinPal,  sizeof( d.SkinPal ) );
+	ar.u8 ( d.ubDirection );
+	ar.u32( d.uiTimeOfDeath );
+	ar.u32( d.usFlags );
+	ar.i8 ( d.bLevel );          ar.i8 ( d.bVisible );
+	ar.i8 ( d.bNumServicingCrows );
+	ar.u8 ( d.ubProfile );
+	ar.boolean( d.fHeadTaken );
+	ar.u8 ( d.ubAIWarningValue );
+	ar.bytes( d.ubFiller, sizeof( d.ubFiller ) );
+	ar.wstr( d.name, 10 );
+}
+
+bool SaveRottingCorpseDefinition( HWFILE hFile, ROTTING_CORPSE_DEFINITION& def )
+{
+	SaveWriter w( hFile );
+	SaveFieldWriter ar( w );
+	XferRottingCorpseDef( ar, def );
+	return w.good();
+}
+
+bool LoadRottingCorpseDefinition( HWFILE hFile, ROTTING_CORPSE_DEFINITION& def )
+{
+	SaveReader r( hFile );
+	SaveFieldReader ar( r );
+	XferRottingCorpseDef( ar, def );
+	return r.good();
+}
 
 #define		CORPSE_INDEX_OFFSET		10000
 

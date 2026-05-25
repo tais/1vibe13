@@ -29,7 +29,10 @@ extern	CHAR16		zBuildInformation[256];
 // new generation and to avoid colliding with future 1.13 increments. Saves older
 // than this are rejected at load time (their bytes are the old, non-portable
 // layout and cannot be read by the v2 deserializers).
-#define			PORTABLE_SAVE_FORMAT							1000
+// 1001: ROTTING_CORPSE_DEFINITION now serialized field-by-field (CHAR16 name
+//       written 16-bit) instead of a raw struct blob, so corpse temp files are
+//       cross-platform. Bumping this also rejects <1001 saves at the gate.
+#define			PORTABLE_SAVE_FORMAT							1001
 
 #define			INCREASED_TEAMSIZES								186 // Asdow: SOLDIERTYPE ubID changed from UINT8 -> UINT16
 #define			MERC_PROFILE_INSERTION_DATA					    185 // Bigmap support for AddProfileToMap function
