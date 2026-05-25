@@ -2,6 +2,7 @@
 #define __ANIMATED_PROGRESSBAR_H
 
 #include "types.h"
+#include "pixfmt.h"		// PIXEL (32-bit on the SDL3 port)
 
 #define MAX_PROGRESSBARS 4
 
@@ -11,7 +12,10 @@ typedef struct PROGRESSBAR
 	UINT16 usBarLeft, usBarTop, usBarRight, usBarBottom;
 	BOOLEAN fPanel;
 	UINT16 usPanelLeft, usPanelTop, usPanelRight, usPanelBottom;
-	UINT16 usColor, usLtColor, usDkColor;
+	// PIXEL, not UINT16: these are assigned Get16BPPColor() results (a full
+	// 32-bit PIXEL on the SDL3 port) and passed to ColorFillVideoSurfaceArea
+	// (PIXEL). A UINT16 field truncated the colour -> wrong progress-bar colours.
+	PIXEL usColor, usLtColor, usDkColor;
 	CHAR16 *swzTitle;
 	UINT16 usTitleFont;
 	UINT8 ubTitleFontForeColor, ubTitleFontShadowColor;
