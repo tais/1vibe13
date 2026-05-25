@@ -1036,7 +1036,11 @@ void IssueHeadMinerQuote( INT8 bMineIndex, UINT8 ubQuoteType )
 	Assert( CheckFact( FACT_MINERS_PLACED, 0 ) );
 
 	ubHeadMinerIndex = GetHeadMinerIndexForMine( bMineIndex );
-	if (ubHeadMinerIndex == -1)
+	// GetHeadMinerIndexForMine returns -1 ("no head miner at this mine") but its
+	// return type is UINT8, so -1 arrives as 255. Comparing UINT8 == -1 is always
+	// false, so this guard never fired and we indexed gHeadMinerData[255] (OOB).
+	// Compare against the truncated sentinel.
+	if (ubHeadMinerIndex == (UINT8)-1)
 		return;
 	usHeadMinerProfileId = gHeadMinerData[ ubHeadMinerIndex ].usProfileId;
 
