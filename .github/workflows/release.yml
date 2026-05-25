@@ -11,12 +11,10 @@ name: release
 # compile-check) so the toolchain stays identical; the extra work here
 # is staging + packaging + publishing.
 #
-# IMPORTANT: we ship the SDL3 libraries our OWN build produced, not
-# downloaded releases. We fetch SDL3/SDL3_mixer from `main` (see
-# CMakeLists.txt), which is ahead of any tagged SDL release, so a
-# mismatched SDL3.dll/.dylib/.so causes subtle ABI breakage (e.g. mouse
-# event coordinates reading as garbage -> dead menus). Bundling the
-# matching libs is the whole point.
+# SDL3, SDL3_mixer and their vendored codecs are linked statically into
+# each executable (BUILD_SHARED_LIBS=OFF / SDL_STATIC in CMakeLists), so
+# the archives are just the self-contained executables -- no SDL .dll /
+# .dylib / .so to ship, and no ABI-mismatch risk from a stray system SDL.
 #
 # These archives contain the ENGINE only -- no game Data. Drop them into
 # an existing JA2 1.13 install (which provides Data/) to run.
@@ -110,21 +108,16 @@ jobs:
         shell: bash
         run: |
           set -eux
-          # Bake an rpath so the bundled SDL libs are found next to the
-          # executable on a clean machine (no system SDL install). Windows
-          # has no rpath -- DLLs in the exe's directory are found anyway.
-          RPATH_ARGS=()
-          case "${{ matrix.platform.name }}" in
-            linux) RPATH_ARGS=(-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON '-DCMAKE_INSTALL_RPATH=$ORIGIN') ;;
-            macos) RPATH_ARGS=(-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON '-DCMAKE_INSTALL_RPATH=@loader_path') ;;
-          esac
+          # SDL3, SDL3_mixer and their vendored codecs are linked statically
+          # (BUILD_SHARED_LIBS=OFF / SDL_STATIC in CMakeLists), so the
+          # executables are self-contained and no rpath / bundled libs are
+          # needed.
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DLanguages=ENGLISH \
             "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
-            "${RPATH_ARGS[@]}"
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build
         shell: bash
@@ -135,7 +128,8 @@ jobs:
         shell: bash
         run: sccache --show-stats
 
-      # ---- stage: executables + matching SDL runtime libs + readme ----
+      # ---- stage: self-contained executables (SDL3/SDL3_mixer + codecs are
+      # statically linked in, so no runtime libs to ship) ----
       - name: Stage payload (unix)
         if: matrix.platform.name != 'windows'
         shell: bash
@@ -145,9 +139,6 @@ jobs:
           for app in JA2 JA2UB JA2MAPEDITOR; do
             cp "build/${app}_ENGLISH" dist/
           done
-          # -a preserves the SONAME symlink chain (libSDL3.so -> .so.0 -> .so.0.x.y)
-          cp -a build/_deps/sdl3-build/libSDL3*       dist/
-          cp -a build/_deps/sdl3_mixer-build/libSDL3_mixer* dist/
 
       - name: Stage payload (windows)
         if: matrix.platform.name == 'windows'
@@ -157,8 +148,6 @@ jobs:
           foreach ($app in 'JA2','JA2UB','JA2MAPEDITOR') {
             Copy-Item "build/$($app)_ENGLISH.exe" dist/
           }
-          Copy-Item build/_deps/sdl3-build/SDL3.dll dist/
-          Copy-Item build/_deps/sdl3_mixer-build/SDL3_mixer.dll dist/
 
       # ---- archive per platform (.zip everywhere) ----
       - name: Resolve package name

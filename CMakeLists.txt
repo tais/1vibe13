@@ -62,11 +62,18 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 # matching JA2's `sgp/DEBUG.H` on case-insensitive filesystems (APFS,
 # NTFS), which then includes our types.h which expects to be inside
 # the JA2 build.
+# Build everything statically so the shipped executable is self-contained
+# (no SDL3 / SDL3_mixer / vendored-codec / zlib / png dylibs to ship). This
+# must be set before any FetchContent_MakeAvailable so the fetched
+# subprojects (SDL3_mixer's vendored decoders, lua, expat, zlib, png) pick
+# it up. SDL3 itself uses SDL_SHARED/SDL_STATIC rather than BUILD_SHARED_LIBS.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
 find_package(SDL3 QUIET CONFIG)
 if(NOT TARGET SDL3::SDL3)
   include(FetchContent)
-  set(SDL_SHARED ON CACHE BOOL "" FORCE)
-  set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+  set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+  set(SDL_STATIC ON CACHE BOOL "" FORCE)
   set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
   FetchContent_Declare(
     SDL3
