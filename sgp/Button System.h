@@ -104,7 +104,9 @@ typedef struct _GUI_BUTTON {
 	UINT32				uiOldFlags;				// Old flags from previous render loop
 	INT16					XLoc;							// Coordinates where button is on the screen
 	INT16					YLoc;
-	INT32					UserData[4];			// Place holder for user data etc.
+	uintptr_t				UserData[4];			// Place holder for user data etc. Pointer-wide
+																	// (was INT32) so callbacks can stash a pointer here
+																	// without truncating it on 64-bit; still 32-bit on Win32.
 	INT16					Group;						// Group this button belongs to (see DOCs)
 	INT8					bDefaultStatus;
 	//Button disabled style
