@@ -2056,7 +2056,11 @@ public:
 	BOOLEAN		CanDragPerson(SoldierID usID, BOOLEAN fCheckStance = FALSE);
 	BOOLEAN		CanDragCorpse(UINT16 usCorpseNum, BOOLEAN fCheckStance = FALSE);
 	BOOLEAN		CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance = FALSE);
-	BOOLEAN		IsDragging(bool aStopIfConditionNotSatisfied = true);
+	// Default is a pure query. Pass true only where you want the side effect of
+	// cancelling an in-progress drag when its conditions are no longer met (e.g.
+	// MoveMerc); the old default of true made ordinary query calls silently abort
+	// drags, causing "ghost" dragging behaviour.
+	BOOLEAN		IsDragging(bool aStopIfConditionNotSatisfied = false);
 	void		SetDragOrderPerson( SoldierID usID );
 	void		SetDragOrderCorpse( UINT32 uiCorpseID );
 	void		SetDragOrderStructure( INT32 sGridNo );
