@@ -1015,7 +1015,7 @@ void RenderOverheadMap( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStart
 		//ColorFillVideoSurfaceArea( FRAME_BUFFER, 0, 0, (INT16)(640), (INT16)(gsVIEWPORT_WINDOW_END_Y), Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
 		pDestBuf = LockVideoSurface(uiBigMap, &uiDestPitchBYTES);//dnl ch77 211113
 
-		// Nur Karte und position der gebäude
+		// Nur Karte und position der gebï¿½ude
 		do
 		{
 			fEndRenderRow = FALSE;
@@ -2103,7 +2103,7 @@ BOOLEAN GetOverheadScreenXYFromGridNo(INT32 sGridNo, INT16* psScreenX, INT16* ps
 	GetWorldXYAbsoluteScreenXY((sX/CELL_X_SIZE), (sY/CELL_Y_SIZE), &sWorldScreenX, &sWorldScreenY);
 	//DBrot: big maps
 	if(gfUseBiggerOverview){
-		//there must be proper values to check for a 360² map, but I have no idea what they are
+		//there must be proper values to check for a 360ï¿½ map, but I have no idea what they are
 		//for now, we just pray that it works and only catch negatives 
 		if(sWorldScreenX < 0 || /*sWorldScreenX > NORMAL_MAP_SCREEN_WIDTH ||*/ sWorldScreenY < 0 /*|| sWorldScreenY > NORMAL_MAP_SCREEN_HEIGHT*/)
 		return(FALSE);
@@ -2224,6 +2224,13 @@ BOOLEAN GetOverheadMouseGridNoForFullSoldiersGridNo( INT32 *psGridNo )
 
 		// Get gridNo
 		(*psGridNo ) = MAPROWCOLTOPOS( ( uiCellY / CELL_Y_SIZE ), ( uiCellX / CELL_X_SIZE ) );
+
+		// MAPROWCOLTOPOS returns -1 when the mouse maps off the world; without this
+		// guard the height lookup below indexes gpWorldLevelData out of bounds and
+		// crashes (matches the guard in the sibling overhead-mouse function above).
+		if ((*psGridNo) == -1) {
+			return(FALSE);
+		}
 
 		// Adjust for height.....
 		sWorldScreenY = sWorldScreenY + gpWorldLevelData[ (*psGridNo) ].sHeight;
