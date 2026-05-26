@@ -39,10 +39,19 @@ void RenderSquadList( void );
 void TacticalSquadListMvtCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void TacticalSquadListBtnCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
-// the squad list font
+// the squad list font (COMPFONT, 8px tall -> 9px row pitch). The old overlap/
+// misalignment came from the row pitch, not the font: the list now spaces rows
+// by the font height and only lists squads present on the map, so COMPFONT fits.
 #define SQUAD_FONT COMPFONT
 
-#define SQUAD_REGION_HEIGHT 2 * RADAR_WINDOW_HEIGHT
+// The squad-panel art (Squadpanel.sti) is a fixed 102x120 bitmap, blitted 1:1.
+// RADAR_WINDOW_WIDTH/HEIGHT are fixed constants (88/44, see InitRadarScreenCoords)
+// and do NOT vary by resolution -- only the panel's screen position (RADAR_WINDOW_
+// TM_X/Y) does, which the layout already keys off. So this height is a plain pixel
+// budget bounded by the 120px art (8px bottom border), independent of resolution.
+// At COMPFONT's 9px row pitch this fits 10 rows per column = 20 squads, with
+// room to spare inside the 120px panel art.
+#define SQUAD_REGION_HEIGHT 90
 #define SQUAD_WINDOW_TM_Y RADAR_WINDOW_TM_Y + GetFontHeight( SQUAD_FONT )
 
 // subtractor for squad list from size of radar view region height
@@ -75,6 +84,33 @@ BOOLEAN		fAllowRadarMovementVer = TRUE;
 
 
 MOUSE_REGION gRadarRegionSquadList[ NUMBER_OF_SQUADS ];
+
+// number of squad-list mouse regions currently defined (only squads present on
+// the current tactical map get a row, so this is <= NUMBER_OF_SQUADS)
+INT16			gsNumSquadListRegions = 0;
+
+// Compact squad-list layout. The radar area can't fit NUMBER_OF_SQUADS rows at a
+// readable size, so only squads on the current tactical map are listed; they are
+// packed top-to-bottom one font-height per row, filling the left column then the
+// right. Returns the pixel rect of the sVisibleIndex-th listed squad. Both the
+// region-creation and the render loop use this, so the clickable bands always
+// line up with the drawn names.
+static void GetSquadListSlotRect( INT16 sVisibleIndex, INT16* psX0, INT16* psY0, INT16* psX1, INT16* psY1 )
+{
+	const INT16 sPitch      = (INT16)( GetFontHeight( SQUAD_FONT ) + 1 );
+	const INT16 sRowsPerCol = (INT16)( ( SQUAD_REGION_HEIGHT / sPitch ) > 0 ? ( SQUAD_REGION_HEIGHT / sPitch ) : 1 );
+	const INT16 sCol        = sVisibleIndex / sRowsPerCol;
+	const INT16 sRow        = sVisibleIndex % sRowsPerCol;
+
+	// nudge the whole list up a few pixels (the SQUAD_WINDOW_TM_Y base leaves a
+	// full font-height of top padding, which sat a touch low)
+	const INT16 sTopAdjust = 8;
+
+	*psX0 = (INT16)( RADAR_WINDOW_TM_X + sCol * ( RADAR_WINDOW_WIDTH / 2 ) );
+	*psX1 = (INT16)( *psX0 + RADAR_WINDOW_WIDTH / 2 - 1 );
+	*psY0 = (INT16)( SQUAD_WINDOW_TM_Y - sTopAdjust + sRow * sPitch );
+	*psY1 = (INT16)( *psY0 + sPitch );
+}
 
 void InitRadarScreenCoords( )
 {
@@ -780,29 +816,25 @@ BOOLEAN CreateDestroyMouseRegionsForSquadList( void )
 		BltVideoObject( guiSAVEBUFFER, hHandle, 0, xCoord, gsVIEWPORT_END_Y, VO_BLT_SRCTRANSPARENCY,NULL );
 		RestoreExternBackgroundRect(xCoord, gsVIEWPORT_END_Y, 102,( INT16 ) ( SCREEN_HEIGHT - gsVIEWPORT_END_Y ) );
 
+		INT16 sVisible = 0;
 		for( sCounter = 0; sCounter < NUMBER_OF_SQUADS; sCounter++ )
 		{
-			// run through list of squads and place appropriatly
-			if( sCounter < NUMBER_OF_SQUADS / 2 )
-			{
-				// left half of list
-				// CHRISL:
-				MSYS_DefineRegion( &gRadarRegionSquadList[ sCounter ], RADAR_WINDOW_TM_X , ( INT16 )( SQUAD_WINDOW_TM_Y + ( sCounter * (  ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / ( NUMBER_OF_SQUADS / 2 ) ) ) ), RADAR_WINDOW_TM_X + RADAR_WINDOW_WIDTH / 2 - 1, ( INT16 )( SQUAD_WINDOW_TM_Y + ( ( sCounter + 1 ) * ( ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / ( NUMBER_OF_SQUADS / 2 ) ) ) ) ,MSYS_PRIORITY_HIGHEST,
-							0, TacticalSquadListMvtCallback, TacticalSquadListBtnCallBack );
-			}
-			else
-			{
+			// only squads present on the current tactical map are listed and selectable
+			if( IsSquadOnCurrentTacticalMap( sCounter ) == FALSE )
+				continue;
 
-				// right half of list
-				// CHRISL:
-				MSYS_DefineRegion( &gRadarRegionSquadList[ sCounter ], RADAR_WINDOW_TM_X + RADAR_WINDOW_WIDTH / 2, ( INT16 )( SQUAD_WINDOW_TM_Y + ( ( sCounter - ( NUMBER_OF_SQUADS / 2) ) * ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), RADAR_WINDOW_TM_X + RADAR_WINDOW_WIDTH  - 1, ( INT16 )( SQUAD_WINDOW_TM_Y + ( ( ( sCounter + 1 ) - ( NUMBER_OF_SQUADS / 2) )* ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), MSYS_PRIORITY_HIGHEST,
+			INT16 sX0, sY0, sX1, sY1;
+			GetSquadListSlotRect( sVisible, &sX0, &sY0, &sX1, &sY1 );
+
+			MSYS_DefineRegion( &gRadarRegionSquadList[ sVisible ], sX0, sY0, sX1, sY1, MSYS_PRIORITY_HIGHEST,
 						0, TacticalSquadListMvtCallback, TacticalSquadListBtnCallBack );
-			}
 
-			// set user data
-			MSYS_SetRegionUserData( &gRadarRegionSquadList[ sCounter ],0,sCounter);
+			// store the real squad index, so the mvt/btn callbacks select correctly
+			MSYS_SetRegionUserData( &gRadarRegionSquadList[ sVisible ], 0, sCounter );
 
+			sVisible++;
 		}
+		gsNumSquadListRegions = sVisible;
 
 		DeleteVideoObjectFromIndex( uiHandle );
 
@@ -816,10 +848,11 @@ BOOLEAN CreateDestroyMouseRegionsForSquadList( void )
 	{
 		// destroy regions
 
-		for( sCounter = 0; sCounter < NUMBER_OF_SQUADS; sCounter++ )
+		for( sCounter = 0; sCounter < gsNumSquadListRegions; sCounter++ )
 		{
 		MSYS_RemoveRegion( &gRadarRegionSquadList[ sCounter ] );
 		}
+		gsNumSquadListRegions = 0;
 
 		// set fact regions are destroyed
 		fCreated = FALSE;
@@ -865,77 +898,39 @@ void RenderSquadList( void )
 	// set font
 	SetFont( SQUAD_FONT );
 
+	INT16 sVisible = 0;
 	for( sCounter = 0; sCounter < NUMBER_OF_SQUADS; sCounter++ )
 	{
-		// run through list of squads and place appropriatly
-			if( sCounter < NUMBER_OF_SQUADS / 2 )
-			{
-				// CHRISL:
-				if ( gGameExternalOptions.fUseXMLSquadNames && sCounter < gSquadNameVector.size() )
-				{
-					swprintf( sString, L"%s", gSquadNameVector[sCounter].c_str() );
+		// only squads present on the current tactical map are listed (matches the
+		// clickable regions built in CreateDestroyMouseRegionsForSquadList)
+		if( IsSquadOnCurrentTacticalMap( sCounter ) == FALSE )
+			continue;
 
-					FindFontCenterCoordinates( RADAR_WINDOW_TM_X, (INT16)( SQUAD_WINDOW_TM_Y + ( sCounter * ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), RADAR_WINDOW_WIDTH / 2 - 1, (INT16)( ( ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), sString, SQUAD_FONT, &sX, &sY );
-				}
-				else
-					FindFontCenterCoordinates( RADAR_WINDOW_TM_X , ( INT16 )( SQUAD_WINDOW_TM_Y + ( sCounter * ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), RADAR_WINDOW_WIDTH / 2 - 1, ( INT16 )( (  ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ) , pSquadMenuStrings[ sCounter ] , SQUAD_FONT, &sX, &sY);
-			}
-			else
-			{
-				// CHRISL:
-				if ( gGameExternalOptions.fUseXMLSquadNames && sCounter < gSquadNameVector.size() )
-				{
-					swprintf( sString, L"%s", gSquadNameVector[sCounter].c_str() );
+		// the name to display for this squad
+		const STR16 pName = ( gGameExternalOptions.fUseXMLSquadNames && sCounter < (INT16)gSquadNameVector.size() )
+								? ( swprintf( sString, L"%s", gSquadNameVector[sCounter].c_str() ), sString )
+								: pSquadMenuStrings[ sCounter ];
 
-					FindFontCenterCoordinates( RADAR_WINDOW_TM_X + RADAR_WINDOW_WIDTH / 2, (INT16)( SQUAD_WINDOW_TM_Y + ( ( sCounter - ( NUMBER_OF_SQUADS / 2 ) ) * ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), RADAR_WINDOW_WIDTH / 2 - 1, (INT16)( ( ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), sString, SQUAD_FONT, &sX, &sY );
-				}
-				else
-					FindFontCenterCoordinates(RADAR_WINDOW_TM_X + RADAR_WINDOW_WIDTH / 2, ( INT16 )( SQUAD_WINDOW_TM_Y + ( ( sCounter - ( NUMBER_OF_SQUADS / 2) ) * ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), RADAR_WINDOW_WIDTH / 2 - 1, ( INT16 )(   ( ( 2 * ( SQUAD_REGION_HEIGHT - SUBTRACTOR_FOR_SQUAD_LIST ) / NUMBER_OF_SQUADS ) ) ), pSquadMenuStrings[ sCounter ] , SQUAD_FONT, &sX, &sY);
-			}
+		// position: same packed slot the mouse region uses, so text lines up with hover
+		INT16 sX0, sY0, sX1, sY1;
+		GetSquadListSlotRect( sVisible, &sX0, &sY0, &sX1, &sY1 );
+		sVisible++;
 
-			// highlight line?
-			if( sSelectedSquadLine == sCounter)
-			{
-				SetFontForeground( FONT_WHITE );
-			}
-			else
-			{
-				if( IsSquadOnCurrentTacticalMap( ( INT32 ) sCounter ) == TRUE )
-				{
-					if( CurrentSquad( ) == ( INT32 ) sCounter )
-					{
-						SetFontForeground( FONT_LTGREEN );
-					}
-					else
-					{
-						SetFontForeground(	FONT_DKGREEN);
-					}
-				}
-				else
-				{
-					SetFontForeground( FONT_BLACK );
-				}
-			}
+		// vertically center within the row, then left-align with a small inset
+		FindFontCenterCoordinates( sX0, sY0, RADAR_WINDOW_WIDTH / 2 - 1, (INT16)( sY1 - sY0 ), pName, SQUAD_FONT, &sX, &sY );
+		sX = (INT16)( sX0 + 2 );
 
-			SetFontBackground( FONT_BLACK );
+		// colour: hovered = white, current squad = light green, otherwise dark green
+		if( sSelectedSquadLine == sCounter )
+			SetFontForeground( FONT_WHITE );
+		else if( CurrentSquad( ) == ( INT32 ) sCounter )
+			SetFontForeground( FONT_LTGREEN );
+		else
+			SetFontForeground( FONT_DKGREEN );
 
-			if( sCounter < NUMBER_OF_SQUADS / 2 )
-			{
-				sX = RADAR_WINDOW_TM_X + 2; 
-			}
-			else
-			{
-				sX = RADAR_WINDOW_TM_X + ( RADAR_WINDOW_WIDTH / 2 ) - 2;
-			}
+		SetFontBackground( FONT_BLACK );
 
-			if ( gGameExternalOptions.fUseXMLSquadNames && sCounter < gSquadNameVector.size() )
-			{ 
-				swprintf( sString, L"%s", gSquadNameVector[sCounter].c_str() );
-
-				mprintf( sX, sY , sString );
-			}
-			else
-				mprintf( sX, sY , pSquadMenuStrings[ sCounter ]);
+		mprintf( sX, sY, pName );
 	}
 }
 
