@@ -157,7 +157,8 @@ HIMAGE CreateImage( const CHAR8 *ImageFile, UINT16 fContents, ImageFileType::Tes
 	//hImage->pui16BPPPalette = NULL;
 
 	// Set filename and loader
-	strncpy( hImage->ImageFile, /*ImageFile*/filename.c_str(), filename.length() );
+	strncpy( hImage->ImageFile, /*ImageFile*/filename.c_str(), sizeof( hImage->ImageFile ) - 1 );
+	hImage->ImageFile[ sizeof( hImage->ImageFile ) - 1 ] = '\0';
 	hImage->iFileLoader = iFileLoader;
 
 	if ( !LoadImageData( hImage, fContents ) )

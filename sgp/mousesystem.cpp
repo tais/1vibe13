@@ -443,6 +443,7 @@ INT32 MSYS_GetNewID(void)
 			{
 				if(node->IDNumber == Current)
 					found=TRUE;
+				node = node->next;
 			}
 
 			if(found && Current < MSYS_ID_MAX)	// Current ID is in use, and their are more to scan

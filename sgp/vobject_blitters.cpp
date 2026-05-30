@@ -1208,7 +1208,7 @@ UINT32 uiLineSkipDest, uiLineSkipSrc;
 	not copied.
 
 **********************************************************************************************/
-BOOLEAN Blt16BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans)
+BOOLEAN Blt16BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, PIXEL usTrans)
 {
 	PIXEL *pSrcPtr, *pDestPtr;
 	UINT32 uiLineSkipDest, uiLineSkipSrc;
@@ -1237,7 +1237,7 @@ BOOLEAN Blt16BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT
 	return(TRUE);
 }
 
-BOOLEAN Blt16BPPTo16BPPTransShadow(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans)
+BOOLEAN Blt16BPPTo16BPPTransShadow(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, PIXEL usTrans)
 {
 	PIXEL *pSrcPtr, *pDestPtr;
 	UINT32 uiLineSkipDest, uiLineSkipSrc;
@@ -1328,10 +1328,12 @@ SGPRect *clipregion=NULL;
 	if((TopSkip >=(INT32)uiHeight) || (BottomSkip >=(INT32)uiHeight))
 		return(TRUE);
 
-	pSrcPtr=(PIXEL *)((UINT8 *)pSrc+(TopSkip*uiSrcPitch)+(RightSkip*2));
-	pDestPtr=(PIXEL *)((UINT8 *)pDest+(iTempY*uiDestPitch)+(iTempX*2)+((BlitLength-1)*2));
-	uiLineSkipDest=uiDestPitch;//+((BlitLength-1)*2);
-	uiLineSkipSrc=uiSrcPitch-(BlitLength*2);
+	// PIXEL is 4 bytes here, so byte offsets use sizeof(PIXEL), not the old
+	// 16bpp literal 2 (which misaligned every start offset on 32bpp).
+	pSrcPtr=(PIXEL *)((UINT8 *)pSrc+(TopSkip*uiSrcPitch)+(RightSkip*sizeof(PIXEL)));
+	pDestPtr=(PIXEL *)((UINT8 *)pDest+(iTempY*uiDestPitch)+(iTempX*sizeof(PIXEL))+((BlitLength-1)*sizeof(PIXEL)));
+	uiLineSkipDest=uiDestPitch;
+	uiLineSkipSrc=uiSrcPitch-(BlitLength*sizeof(PIXEL));
 
 	// Portable 16bpp mirrored copy. pDestPtr starts at the rightmost
 	// pixel of the visible row; pSrcPtr walks forward; dest walks
@@ -6925,7 +6927,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 		const INT32 rightEdge = BlitLength + LeftSkip;
 		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
-		UINT32 lineFlag = uiLineFlag;
+		// First rendered row is absolute Y = iTempY + TopSkip, so fold TopSkip into
+		// the checkerboard line parity (every other clipped-pixelate variant does
+		// this). Omitting it inverted the stipple phase on top-clipped sprites.
+		UINT32 lineFlag = (uiLineFlag ^ ((UINT32)TopSkip & 1u));
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
 			for (;;) {

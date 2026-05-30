@@ -3136,9 +3136,10 @@ void ScrollBackground(UINT32 uiDirection, INT16 sScrollXIncrement, INT16 sScroll
 
 	if ( !gfDoVideoScroll )
 	{
-		// Clear z-buffer
-		memset(gpZBuffer, LAND_Z_LEVEL, SCREEN_WIDTH*2* gsVIEWPORT_END_Y );
-
+		// (Z-buffer is cleared inside RenderStaticWorldRect below, at the correct
+		// framebuffer byte pitch. The old pre-clear here used SCREEN_WIDTH*2 -- the
+		// 16bpp stride -- which under-cleared the lower viewport on 32bpp; removed
+		// as both wrong and redundant.)
 		RenderStaticWorldRect( gsVIEWPORT_START_X, gsVIEWPORT_START_Y, gsVIEWPORT_END_X, gsVIEWPORT_END_Y, FALSE );
 
 		FreeBackgroundRectType(BGND_FLAG_ANIMATED);

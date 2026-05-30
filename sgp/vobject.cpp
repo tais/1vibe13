@@ -611,14 +611,21 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 				}
 				memset(hVObject->p16BPPObject, 0, sizeof(SixteenBPPObjectInfo));
 
-				int SIZE = hImage->pETRLEObject[0].usHeight * hImage->pETRLEObject[0].usWidth * sizeof(UINT16);
+				const UINT32 PIXELS = (UINT32)hImage->pETRLEObject[0].usHeight * hImage->pETRLEObject[0].usWidth;
+				UINT32 SIZE = PIXELS * sizeof(PIXEL);
 				hVObject->p16BPPObject->p16BPPData = (PIXEL *)MemAlloc(SIZE);
 				if(!hVObject->p16BPPObject->p16BPPData)
 				{
 					MemFree(hVObject->p16BPPObject);
 					SGP_THROW(L"bad alloc");
 				}
-				memcpy(hVObject->p16BPPObject->p16BPPData, hImage->p16BPPData, SIZE);
+				// p16BPPData is a native PIXEL (ARGB8888) buffer that the 32bpp
+				// blitters read 4 bytes at a time. The source is 2-byte RGB565, so
+				// expand it once here instead of a raw memcpy -- a byte copy would
+				// both under-allocate (sizeof(UINT16)) and feed packed 565 to code
+				// that reads 32-bit pixels (heap over-read + scrambled colour).
+				for (UINT32 i = 0; i < PIXELS; ++i)
+					hVObject->p16BPPObject->p16BPPData[i] = PixFromColor16(hImage->p16BPPData[i]);
 
 				hVObject->p16BPPObject->sOffsetX		= hImage->pETRLEObject[0].sOffsetX;
 				hVObject->p16BPPObject->sOffsetY		= hImage->pETRLEObject[0].sOffsetY;
@@ -940,16 +947,19 @@ BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 				image = &hSrcVObject->p16BPPObject[usIndex];
 				if ( fBltFlags & VO_BLT_SRCTRANSPARENCY	)
 				{
-					Blt16BPPTo16BPPTrans( pBuffer, uiDestPitchBYTES, 
-						image->p16BPPData, image->usWidth * sizeof(UINT16),
-						iDestX, iDestY, 
-						0, 0, image->usWidth, image->usHeight, 0x1F ); // 0x1f = 5 bits of blue
+					// p16BPPData is now native ARGB8888 (expanded at load), so the
+					// source pitch is sizeof(PIXEL) and the colour key must be the
+					// expanded form of the original RGB565 transparent value (0x1F).
+					Blt16BPPTo16BPPTrans( pBuffer, uiDestPitchBYTES,
+						image->p16BPPData, image->usWidth * sizeof(PIXEL),
+						iDestX, iDestY,
+						0, 0, image->usWidth, image->usHeight, PixFromColor16(0x1F) ); // 0x1f = 5 bits of blue
 				}
 				else
 				{
-					Blt16BPPTo16BPP( pBuffer, uiDestPitchBYTES, 
-						image->p16BPPData, image->usWidth * sizeof(UINT16),
-						iDestX, iDestY, 
+					Blt16BPPTo16BPP( pBuffer, uiDestPitchBYTES,
+						image->p16BPPData, image->usWidth * sizeof(PIXEL),
+						iDestX, iDestY,
 						0, 0, image->usWidth, image->usHeight );
 				}
 
@@ -1581,8 +1591,8 @@ BOOLEAN BltVideoObjectOutlineShadowFromIndex(UINT32 uiDestVSurface, UINT32 uiSrc
 		sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
 		SGP_THROW_IFFALSE(usIndex < hSrcVObject->usNumberOf16BPPObjects, errorText);
 		SixteenBPPObjectInfo &image = hSrcVObject->p16BPPObject[0];
-		Blt16BPPTo16BPPTransShadow(pBuffer, uiPitch, image.p16BPPData, image.usWidth * sizeof(UINT16),
-			iDestX, iDestY, 0, 0, image.usWidth, image.usHeight, 0x1F);
+		Blt16BPPTo16BPPTransShadow(pBuffer, uiPitch, image.p16BPPData, image.usWidth * sizeof(PIXEL),
+			iDestX, iDestY, 0, 0, image.usWidth, image.usHeight, PixFromColor16(0x1F));
 	}
 	else if(hSrcVObject->ubBitDepth == 32)
 	{

@@ -115,8 +115,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip( PIXEL *pBuffer, UINT32 uiDestPitchBY
 
 BOOLEAN Blt8BPPTo8BPP(UINT8 *pDest, UINT32 uiDestPitch, UINT8 *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight);
 BOOLEAN Blt16BPPTo16BPP(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight);
-BOOLEAN Blt16BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans);
-BOOLEAN Blt16BPPTo16BPPTransShadow(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans);
+BOOLEAN Blt16BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, PIXEL usTrans);
+BOOLEAN Blt16BPPTo16BPPTransShadow(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight, PIXEL usTrans);
 BOOLEAN Blt16BPPTo16BPPMirror(PIXEL *pDest, UINT32 uiDestPitch, PIXEL *pSrc, UINT32 uiSrcPitch, INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos, UINT32 uiWidth, UINT32 uiHeight);
 
 
