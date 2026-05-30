@@ -12,7 +12,7 @@
 extern BOOLEAN gfFakeLights;
 extern GUI_BUTTON *gpPersistantButton;
 
-extern UINT16 GenericButtonFillColors[40];
+extern PIXEL GenericButtonFillColors[40];
 
 // WANNE: 05.10.2010
 extern BOOLEAN fNewMapSaved;
@@ -57,7 +57,7 @@ void HideEditorToolbar( INT32 iOldTaskMode );
 
 void ProcessSelectionArea();
 
-extern UINT16 GenericButtonFillColors[40];
+extern PIXEL GenericButtonFillColors[40];
 
 //These go together.	The taskbar has a specific color scheme.
 extern UINT16 gusEditorTaskbarColor;

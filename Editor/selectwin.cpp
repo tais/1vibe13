@@ -27,7 +27,7 @@ extern INT32 iEditorToolbar;
 
 extern BOOLEAN fDontUseRandom;
 
-extern UINT16 GenericButtonFillColors[40];
+extern PIXEL GenericButtonFillColors[40];
 
 struct SelectionWindow
 {
@@ -862,7 +862,7 @@ void RenderSelectionWindow( void )
 {
 	GUI_BUTTON *button;
 	INT32 iSX,iSY,iEX,iEY;
-	UINT16 usFillColor;
+	PIXEL usFillColor;
 	static UINT8 usFillGreen = 0;
 	static UINT8 usDir = 5;
 

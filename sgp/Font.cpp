@@ -1278,7 +1278,7 @@ CHAR16	string[512];
 			desty+=GetHeight(FontObjs[FontType], transletter);
 		}
 
-		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault], destx, desty, transletter, &FontDestRegion );
+		Blt8BPPDataTo16BPPBufferTransparentClip( (PIXEL *)pDestBuf, uiDestPitchBYTES, FontObjs[FontType], destx, desty, transletter, &FontDestRegion );
 
 		destx+=GetWidth(FontObjs[FontType], transletter);
 	}
@@ -1363,13 +1363,16 @@ PIXEL	usOldForeColor;
 		if ( (*curletter) == 180 )
 		{
 			curletter++;
+			if ( (*curletter) == 0 ) break;
 			SetFontForeground( (UINT8)(*curletter) );
 			curletter++;
+			if ( (*curletter) == 0 ) break;
 		}
 		else if ( (*curletter) == 181 )
 		{
 			FontForeground16 = usOldForeColor;
 			curletter++;
+			if ( (*curletter) == 0 ) break;
 		}
 
 		transletter=GetIndex(*curletter++);
@@ -1426,13 +1429,16 @@ UINT8				*pDestBuf;
 		if ( (*curletter) == 180 )
 		{
 			curletter++;
+			if ( (*curletter) == 0 ) break;
 			SetFontForeground( (UINT8)(*curletter) );
 			curletter++;
+			if ( (*curletter) == 0 ) break;
 		}
 		else if ( (*curletter) == 181 )
 		{
 			FontForeground16 = usOldForeColor;
 			curletter++;
+			if ( (*curletter) == 0 ) break;
 		}
 
 		transletter=GetIndex(*curletter++);

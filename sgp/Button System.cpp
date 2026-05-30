@@ -132,7 +132,7 @@ HVOBJECT GenericButtonOffHilite[MAX_GENERIC_PICS];
 HVOBJECT GenericButtonOnNormal[MAX_GENERIC_PICS];
 HVOBJECT GenericButtonOnHilite[MAX_GENERIC_PICS];
 HVOBJECT GenericButtonBackground[MAX_GENERIC_PICS];
-UINT16 GenericButtonFillColors[MAX_GENERIC_PICS];
+PIXEL GenericButtonFillColors[MAX_GENERIC_PICS];
 UINT16 GenericButtonBackgroundIndex[MAX_GENERIC_PICS];
 INT16 GenericButtonOffsetX[MAX_GENERIC_PICS];
 INT16 GenericButtonOffsetY[MAX_GENERIC_PICS];
@@ -2540,7 +2540,7 @@ void AllowDisabledButtonFastHelp( INT32 iButtonID, BOOLEAN fAllow )
 void SetButtonFastHelpText(INT32 iButton, STR16 Text)
 {
 	GUI_BUTTON *b;
-	if(iButton<0 || iButton>MAX_BUTTONS)
+	if(iButton<0 || iButton>=MAX_BUTTONS)
 		return;
 	b = ButtonList[iButton];
 	AssertMsg( b, "Called SetButtonFastHelpText() with a non-existant button." );
@@ -2550,7 +2550,7 @@ void SetButtonFastHelpText(INT32 iButton, STR16 Text)
 void SetBtnHelpEndCallback( INT32 iButton, MOUSE_HELPTEXT_DONE_CALLBACK CallbackFxn )
 {
 	GUI_BUTTON *b;
-	if(iButton<0 || iButton>MAX_BUTTONS)
+	if(iButton<0 || iButton>=MAX_BUTTONS)
 		return;
 	b = ButtonList[iButton];
 	AssertMsg( b, "Called SetBtnHelpEndCallback() with a non-existant button." );
@@ -3001,7 +3001,7 @@ void PausedMarkButtonsDirty( void )
 BOOLEAN DrawButton(INT32 iButtonID )
 {
 	// Fail if button handle out of range
-	if( iButtonID < 0 || iButtonID > MAX_BUTTONS )
+	if( iButtonID < 0 || iButtonID >= MAX_BUTTONS )
 		return FALSE;
 
 	// Fail if button handle is invalid

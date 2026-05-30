@@ -821,7 +821,7 @@ INT32 GetFreeVideoOverlay(void)
 			return((INT32)uiCount);
 	}
 
-	if( guiNumVideoOverlays < BACKGROUND_BUFFERS )
+	if( guiNumVideoOverlays < VIDEO_OVERLAYS )
 		return((INT32)guiNumVideoOverlays++);
 
 	return(-1);

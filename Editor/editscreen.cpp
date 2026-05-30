@@ -834,7 +834,7 @@ void ShowCurrentDrawingMode( void )
 	ETRLEObject *pETRLEObject;
 	UINT32			uiDestPitchBYTES;
 	UINT8				*pDestBuf;
-	UINT16			usFillColor;
+	PIXEL			usFillColor;
 	INT32				iIndexToUse;
 
 	// Set up a clipping rectangle for the display window.
