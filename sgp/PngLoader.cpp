@@ -278,6 +278,7 @@ void CAppDataParser::onStartElement(const XML_Char* name, const XML_Char** atts)
 	{
 		int index = -1;
 		SGP_THROW_IFFALSE(getAttributeAsInt("index",atts,index), L"could not read attribute \"index\"");
+		SGP_THROW_IFFALSE(index >= 0 && (unsigned int)index < m_hImage->usNumberOfObjects, L"SubImage index out of range");
 		m_iCurrentIndex = index;
 		if(index >= (int)m_vAppData.size())
 		{
@@ -383,7 +384,7 @@ void CAppDataParser::onEndElement(const XML_Char* name)
 			memcpy(&((AuxObjectData*)m_hImage->pAppData)[i],&m_vAppData[i],sizeof(AuxObjectData));
 		}
 		m_hImage->uiAppDataSize = iAppDataSize;
-		unsigned int aaa = std::max<int>(m_hImage->usNumberOfObjects,m_vAppData.size());
+		unsigned int aaa = std::min<unsigned int>(m_hImage->usNumberOfObjects,m_vAppData.size());
 		for(unsigned int i = 0; i < aaa; ++i)
 		{
 			if(m_vAppData[i].offset._override)

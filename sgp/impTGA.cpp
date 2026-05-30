@@ -139,6 +139,7 @@ BOOLEAN ReadUncompRGBImage( HIMAGE hImage, HWFILE hFile, UINT8 uiImgID, UINT8 ui
 {
 	UINT8		*pBMData;
 	UINT8		*pBMPtr;
+	UINT8		*pBMBase = NULL;
 
 	UINT16	uiColMapOrigin;
 	UINT16	uiColMapLength;
@@ -211,6 +212,9 @@ BOOLEAN ReadUncompRGBImage( HIMAGE hImage, HWFILE hFile, UINT8 uiImgID, UINT8 ui
 			// Get data pointer
 			pBMData = hImage->p8BPPData;
 
+			// Remember the allocation base for freeing on error
+			pBMBase = pBMData;
+
 			// Start at end
 			pBMData += uiWidth * ( uiHeight - 1 ) * (uiImagePixelSize / 8);
 
@@ -243,6 +247,9 @@ BOOLEAN ReadUncompRGBImage( HIMAGE hImage, HWFILE hFile, UINT8 uiImgID, UINT8 ui
 
 			// Get data pointer
 			pBMData = (UINT8*)hImage->p8BPPData;
+
+			// Remember the allocation base for freeing on error
+			pBMBase = pBMData;
 
 			// Start at end
 			pBMPtr = pBMData + uiWidth * ( uiHeight - 1 ) * 3;
@@ -277,7 +284,7 @@ end:
 	return( FALSE );
 
 freeEnd:
-	MemFree( pBMData );
+	MemFree( pBMBase );
 	return( FALSE );
 }
 

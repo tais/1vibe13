@@ -50,9 +50,18 @@ BOOLEAN LoadPCXFileToImage( HIMAGE hImage, UINT16 fContents )
 		// Allocate memory for buffer
 		hImage->p8BPPData = (UINT8 *) MemAlloc( hImage->usWidth * hImage->usHeight );
 
+		if ( hImage->p8BPPData == NULL )
+		{
+			MemFree( pPcxObject->pPcxBuffer );
+			MemFree( pPcxObject );
+			return( FALSE );
+		}
+
 		if ( !BlitPcxToBuffer( pPcxObject, hImage->p8BPPData, hImage->usWidth, hImage->usHeight, 0, 0, FALSE ) )
 		{
 			MemFree( hImage->p8BPPData );
+			MemFree( pPcxObject->pPcxBuffer );
+			MemFree( pPcxObject );
 			return( FALSE );
 		}
 	}
@@ -91,7 +100,16 @@ PcxObject *LoadPcx(STR8 pFilename)
 	uiFileSize = FileGetSize(hFileHandle);
 	if (uiFileSize == 0)
 	{ // we failed to size up the file
+	FileClose( hFileHandle );
 	return NULL;
+	}
+
+	// File must be large enough to hold the header plus the 768-byte palette,
+	// otherwise the buffer-size computation below underflows.
+	if ( uiFileSize < sizeof(PcxHeader) + 768 )
+	{
+		FileClose( hFileHandle );
+		return( NULL );
 	}
 
 	// Create enw pCX object
@@ -99,6 +117,7 @@ PcxObject *LoadPcx(STR8 pFilename)
 
 	if ( pCurrentPcxObject == NULL )
 	{
+		FileClose( hFileHandle );
 		return( NULL );
 	}
 
@@ -106,6 +125,8 @@ PcxObject *LoadPcx(STR8 pFilename)
 
 	if ( pCurrentPcxObject->pPcxBuffer == NULL )
 	{
+		MemFree( pCurrentPcxObject );
+		FileClose( hFileHandle );
 		return( NULL );
 	}
 
@@ -116,6 +137,7 @@ PcxObject *LoadPcx(STR8 pFilename)
 	// Delete the object
 	MemFree( pCurrentPcxObject->pPcxBuffer );
 		MemFree( pCurrentPcxObject );
+	FileClose( hFileHandle );
 	return( NULL );
 	}
 
@@ -159,6 +181,11 @@ BOOLEAN BlitPcxToBuffer( PcxObject *pCurrentPcxObject, UINT8 *pBuffer, UINT16 us
 
 	pPcxBuffer = pCurrentPcxObject->pPcxBuffer;
 
+	// usWidth/usHeight come straight from the (unvalidated) PCX header, so the RLE
+	// decode below can run past the end of the source buffer on a truncated/corrupt
+	// file. Bound every source read against pEnd. The caller frees + bails on FALSE.
+	const UINT8 *pEnd = pPcxBuffer + pCurrentPcxObject->uiBufferSize;
+
 	if (((pCurrentPcxObject->usWidth + usX) == usBufferWidth)&&((pCurrentPcxObject->usHeight + usY)== usBufferHeight))
 	{ // Pre-compute PCX blitting aspects.
 	uiImageSize = usBufferWidth * usBufferHeight;
@@ -173,10 +200,12 @@ BOOLEAN BlitPcxToBuffer( PcxObject *pCurrentPcxObject, UINT8 *pBuffer, UINT16 us
 		{
 		if (ubMode == PCX_NORMAL)
 		{
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (ubCurrentByte > 0x0BF)
 			{
 			ubRepCount = ubCurrentByte & 0x03F;
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (--ubRepCount > 0)
 			{
@@ -203,10 +232,12 @@ BOOLEAN BlitPcxToBuffer( PcxObject *pCurrentPcxObject, UINT8 *pBuffer, UINT16 us
 		{
 		if (ubMode == PCX_NORMAL)
 		{
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (ubCurrentByte > 0x0BF)
 			{
 			ubRepCount = ubCurrentByte & 0x03F;
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (--ubRepCount > 0)
 			{
@@ -259,10 +290,12 @@ BOOLEAN BlitPcxToBuffer( PcxObject *pCurrentPcxObject, UINT8 *pBuffer, UINT16 us
 		{
 		if (ubMode == PCX_NORMAL)
 		{
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (ubCurrentByte > 0x0BF)
 			{
 			ubRepCount = ubCurrentByte & 0x03F;
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (--ubRepCount > 0)
 			{
@@ -297,10 +330,12 @@ BOOLEAN BlitPcxToBuffer( PcxObject *pCurrentPcxObject, UINT8 *pBuffer, UINT16 us
 
 		if (ubMode == PCX_NORMAL)
 		{
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (ubCurrentByte > 0x0BF)
 			{
 			ubRepCount = ubCurrentByte & 0x03F;
+			if (pPcxBuffer + uiOffset >= pEnd) return( FALSE );
 			ubCurrentByte = *(pPcxBuffer + uiOffset++);
 			if (--ubRepCount > 0)
 			{
