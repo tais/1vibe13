@@ -6943,8 +6943,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 					if (frontFacing) {
 						rowZ[dx] = usZValue;
 					} else {
-						const UINT32 destParity =
-							((UINT32)(uintptr_t)(rowDest + dx) >> 1) & 1u;
+						// Absolute pixel-X parity (see the non-outline clipped
+						// variant): with PIXEL 4 bytes, (addr >> 1) & 1 is constant
+						// per row and produced horizontal lines instead of dots.
+						const UINT32 destParity = (UINT32)(iTempX + LeftSkip + dx) & 1u;
 						if (lineFlag != destParity) continue;
 					}
 					if (v == 254) {
@@ -7314,8 +7316,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 					if (frontFacing) {
 						*rowZ = usZValue;
 					} else {
-						const UINT32 destParity =
-							((UINT32)(uintptr_t)rowDest >> 1) & 1u;
+						// Absolute pixel-X parity (iTempX + column). With PIXEL
+						// 4 bytes, (addr >> 1) & 1 is constant per row and produced
+						// horizontal lines instead of the obscured checkerboard.
+						const UINT32 destParity = (UINT32)(iTempX + col) & 1u;
 						render = (lineFlag == destParity);
 					}
 					if (render) {
@@ -8135,8 +8139,12 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 						rowZ[dx] = usZValue;
 						render = true;
 					} else {
-						const UINT32 destParity =
-							((UINT32)(uintptr_t)(rowDest + dx) >> 1) & 1u;
+						// Column parity must come from the absolute pixel X, not the
+						// dest byte address: PIXEL is 4 bytes (ARGB8888) on this port,
+						// so (addr >> 1) & 1 no longer alternates per pixel -- it's
+						// constant across a row, which collapsed the obscured
+						// checkerboard into horizontal lines.
+						const UINT32 destParity = (UINT32)(iTempX + LeftSkip + dx) & 1u;
 						render = (lineFlag == destParity);
 					}
 					if (render) {

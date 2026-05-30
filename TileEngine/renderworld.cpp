@@ -5401,7 +5401,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( PIXEL *pBuffer, UINT32 uiD
 	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
 		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
-			const bool draw = (*z < zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
+			// Obscured pixels draw on a checkerboard. The column bit is the
+			// address bit that flips once per pixel: sizeof(PIXEL) (was a
+			// literal 2 for 16bpp; 4 now). A literal 2 stays constant across a
+			// 4-byte-pixel row, which rendered the stipple as horizontal lines.
+			const bool draw = (*z < zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & sizeof(PIXEL)) != 0));
 			if (draw) { *z = zlev; *d = p16BPPPalette[*s]; }
 		});
 	return(TRUE);
@@ -5543,8 +5547,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(PIXEL *pBuffer, 
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
 		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
 			// Not obscured -> draw; obscured (ZBuffer > z) -> pixelate on a
-			// checkerboard keyed by line parity vs dest-pixel parity.
-			const bool draw = (*z <= zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
+			// checkerboard keyed by line parity vs dest-pixel parity. The column
+			// bit is sizeof(PIXEL) (the address bit that flips once per pixel) --
+			// a literal 2 is constant across a 4-byte-pixel row, giving lines.
+			const bool draw = (*z <= zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & sizeof(PIXEL)) != 0));
 			if (draw) {
 				*z = zlev;
 				const UINT8 v = *s;
@@ -5698,7 +5704,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(PIXEL *pBuf
 		BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
 			usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
 			[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
-				const bool draw = (*z < zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & 2) != 0));
+				// Obscured checkerboard column bit = sizeof(PIXEL), the address
+				// bit that flips once per pixel (was a literal 2 for 16bpp). A
+				// literal 2 is constant across a 4-byte-pixel row -> lines.
+				const bool draw = (*z < zlev) || (((lf & 1) != 0) == ((((uintptr_t)d) & sizeof(PIXEL)) != 0));
 				if (draw) {
 					*z = zlev;
 					const UINT8 v = *s;
