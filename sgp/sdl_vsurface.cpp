@@ -865,7 +865,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 			PRIMARY_SURFACE, // unused -- we go through GetVideoSurface dispatch below
 			pBltFx->FillRect.iLeft, pBltFx->FillRect.iTop,
 			pBltFx->FillRect.iRight, pBltFx->FillRect.iBottom,
-			(UINT16)pBltFx->ColorFill) ? TRUE : FALSE;
+			pBltFx->ColorFill) ? TRUE : FALSE;
 	}
 	if (fBltFlags & VS_BLT_COLORFILL)
 	{
@@ -874,7 +874,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 		PIXEL* buf = (PIXEL*)LockVideoSurfaceBuffer(hDst, &pitch);
 		if (!buf) return FALSE;
 		FillRect16(buf, pitch, 0, 0, hDst->usWidth, hDst->usHeight,
-		           (UINT16)pBltFx->ColorFill);
+		           pBltFx->ColorFill);
 		UnLockVideoSurfaceBuffer(hDst);
 		return TRUE;
 	}
