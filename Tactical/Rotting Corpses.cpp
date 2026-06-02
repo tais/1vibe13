@@ -524,6 +524,13 @@ INT32	AddRottingCorpse( ROTTING_CORPSE_DEFINITION *pCorpseDef )
 		return( -1 );
 	}
 
+	// ubType is data-driven (UINT8) and indexes the filename tables below;
+	// reject out-of-range values to avoid an OOB read of zCorpseFilenames[].
+	if ( pCorpseDef->ubType >= NUM_CORPSES )
+	{
+		return( -1 );
+	}
+
 	if( ( iIndex = GetFreeRottingCorpse() )==(-1) )
 		return(-1);
 
@@ -755,13 +762,36 @@ void RemoveCorpse( INT32 iCorpseID )
 	// Remove!
 	gRottingCorpse[ iCorpseID ].fActivated = FALSE;
 
+	// Remember this corpse's OWN structure before deleting the ani tile.
+	// For level-0 corpses DeleteAniTile() (ANI_STRUCT_LEVEL) already removes the
+	// structure via RemoveStructFromLevelNode(); for roof corpses (ANI_ONROOF_LEVEL)
+	// it does not. We must therefore remove exactly this corpse's structure, and only
+	// if it still exists - never a second/wrong structure (which would double-free or
+	// clobber another corpse stacked on the same gridno).
+	const auto sGridNo = gRottingCorpse[iCorpseID].def.sGridNo;
+	BOOLEAN fHadStructure = FALSE;
+	UINT16 usStructureID = 0;
+	if ( gRottingCorpse[iCorpseID].pAniTile != NULL &&
+	     gRottingCorpse[iCorpseID].pAniTile->pLevelNode != NULL &&
+	     gRottingCorpse[iCorpseID].pAniTile->pLevelNode->pStructureData != NULL )
+	{
+		fHadStructure = TRUE;
+		usStructureID = gRottingCorpse[iCorpseID].pAniTile->pLevelNode->pStructureData->usStructureID;
+	}
+
 	DeleteAniTile( gRottingCorpse[ iCorpseID ].pAniTile );
 
 	FreeCorpsePalettes( &( gRottingCorpse[ iCorpseID ] ) );
 
-	const auto sGridNo = gRottingCorpse[iCorpseID].def.sGridNo;
-	auto pStructure = FindLastStructure(sGridNo, STRUCTURE_CORPSE);
-	DeleteStructureFromWorld(pStructure);
+	// Only delete this corpse's own structure, and only if DeleteAniTile() left it behind.
+	if ( fHadStructure )
+	{
+		STRUCTURE *pStructure = FindStructureByID( sGridNo, usStructureID );
+		if ( pStructure != NULL )
+		{
+			DeleteStructureFromWorld( pStructure );
+		}
+	}
 }
 
 BOOLEAN CreateCorpsePalette( ROTTING_CORPSE *pCorpse )
