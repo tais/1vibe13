@@ -1245,8 +1245,13 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		}
 		else
 		{
-			// Flugente: no need to calculate this multiple times
-			BOOLEAN fLimitedVision = SoldierHasLimitedVision(pSoldier);
+			// Flugente: no need to calculate this multiple times.
+			// SoldierHasLimitedVision(pSoldier) is exactly
+			//   gGameExternalOptions.gfAllowLimitedVision || GetPercentTunnelVision(pSoldier) > 0
+			// and every DistanceVisible caller already passes
+			// tunnelVision == GetPercentTunnelVision(pSoldier), so reuse it instead of
+			// re-scanning the soldier's inventory inside GetPercentTunnelVision again.
+			BOOLEAN fLimitedVision = ( gGameExternalOptions.gfAllowLimitedVision || tunnelVision > 0 );
 
 			// Lesh: added this
 			if( fLimitedVision )
