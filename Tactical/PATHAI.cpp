@@ -775,7 +775,13 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	ResetAStarList();
 
 	//Start the main loop and get a path
+	// M-PF2: the AStar() neighbour loop calls EstimateActionPointCost on every
+	// candidate tile, which recomputes FindBackpackOnSoldier (an inner inventory
+	// double-loop) each time. The soldier's inventory is fixed for this search, so
+	// cache that path-invariant result once and reuse it for every neighbour.
+	BeginPathingBackpackCache( pSoldier );
 	int bestPath = AStar();
+	EndPathingBackpackCache();
 
 	gubNPCAPBudget = 0;
 	gubNPCDistLimitSq = 0;
