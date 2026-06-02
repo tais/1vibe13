@@ -3,6 +3,8 @@
 #ifndef BINARY_HEAP_HPP
 #define BINARY_HEAP_HPP
 
+#include <vector>
+
 template <typename KEY = int, class T = int>
 class HEAP
 {
@@ -18,45 +20,36 @@ public:
 	}
 };
 
-template <typename KEY = int, class T = int>
+// CBinaryHeap. With TrackIndex == true the heap also maintains a data -> heap-index
+// map (m_index, keyed by (int)data) so findData(data) is O(1) instead of an O(n)
+// linear scan -- this turns the A* decrease-key (editElement) from O(n) into
+// O(log n), the single biggest tactical-pathfinding win on open maps.
+//
+// It is opt-in: TrackIndex defaults to false, so heaps over non-integer data
+// (e.g. the strategic CSmallPoint pathfinder) compile and run byte-for-byte as
+// before and pay nothing (every map update is behind `if constexpr (TrackIndex)`,
+// so it isn't even instantiated, and no std::hash<T> is required).
+//
+// When enabled the caller must guarantee: (a) (int)data is a stable index in
+// [0, maxSize] -- true for the tactical gridno heap (gridno < WORLD_MAX == maxSize);
+// and (b) each data value is in the heap at most once (the A* invariant: a node is
+// inserted once, then decrease-key'd in place). m_index[data]==0 means "not in the
+// heap" (heap slot 0 is unused), matching findData's not-found return of 0.
+template <typename KEY = int, class T = int, bool TrackIndex = false>
 class CBinaryHeap
 {
-	/*
-	CBinaryHeap						();
-	CBinaryHeap						(int size);
-	~CBinaryHeap					();
-
-	HEAP<KEY, T>	popTopHeap		();
-	HEAP<KEY, T>	popTopHeap		(int& returnSize);
-	HEAP<KEY, T>	peekTopHeap		() const;
-	HEAP<KEY, T>	peekElement		(int index) const;
-	int				size			() const;
-	int				getMaxSize		() const;
-	int				insertElement	(const T data, const KEY key);
-	HEAP<KEY, T>	removeElement	(const T data, const KEY key);
-	HEAP<KEY, T>	removeElement	(const T data);
-	bool			editElement		(const T oldData, const T newData,
-									const KEY oldKey, const KEY newKey);
-	bool			editElement		(const T data, const KEY key);
-	int				findData		(const T data) const;
-	int				findData		(const T data, const KEY key) const;
-	void			clear			(){heapCount = 1; return;};
-
-private:
-	int				moveUp			(int index, KEY newKey);
-	int				moveDown		(int index, KEY newKey);
-
-	int				heapCount;
-	int				maxSize;
-	HEAP<KEY, T>*	BinaryHeap;
-*/
-
-
 public:
 	typedef HEAP<KEY, T> CBinaryHeap_t;
 
 	void clear ()
 	{
+		if constexpr (TrackIndex)
+		{
+			// Only the entries currently in the heap are non-zero, so reset just
+			// those -- O(size), not O(maxSize) -- leaving m_index all-zero again.
+			for (int i = 1; i < heapCount; ++i)
+				m_index[(int)BinaryHeap[i].data] = 0;
+		}
 		heapCount = 1;
 		return;
 	}
@@ -70,12 +63,15 @@ public:
 		BinaryHeap = new HEAP<KEY, T>[size+1];
 		maxSize = size;
 		heapCount = 1;
+		if constexpr (TrackIndex) {
+			m_index.assign(size+1, 0);
+		}
 		return;
 	}
 
 	~CBinaryHeap()
 	{
-		delete BinaryHeap;
+		delete[] BinaryHeap;
 	}
 
 	CBinaryHeap_t removeElement(const T data)
@@ -85,7 +81,8 @@ public:
 		if (index) {
 			returnHeap = BinaryHeap[index];
 			--heapCount;
-			BinaryHeap[moveDown(index, BinaryHeap[heapCount].key)] = BinaryHeap[heapCount];
+			placeAt( moveDown(index, BinaryHeap[heapCount].key), BinaryHeap[heapCount] );
+			forget(data);
 		}
 		return (returnHeap);
 	}
@@ -97,7 +94,8 @@ public:
 		if (index) {
 			returnHeap = BinaryHeap[index];
 			--heapCount;
-			BinaryHeap[moveDown(index, BinaryHeap[heapCount].key)] = BinaryHeap[heapCount];
+			placeAt( moveDown(index, BinaryHeap[heapCount].key), BinaryHeap[heapCount] );
+			forget(data);
 		}
 		return (returnHeap);
 	}
@@ -108,7 +106,7 @@ public:
 			int current2 = index>>1;//divided by 2
 			if (BinaryHeap[current2].key > newKey) {
 				//move parent down
-				BinaryHeap[index] = BinaryHeap[current2];
+				placeAt(index, BinaryHeap[current2]);
 				index = current2;
 			}
 			else {
@@ -127,7 +125,7 @@ public:
 				current2 += (BinaryHeap[current2].key > BinaryHeap[current2+1].key);
 				if (currentKey > BinaryHeap[current2].key) {
 					//move child up
-					BinaryHeap[index] = BinaryHeap[current2];
+					placeAt(index, BinaryHeap[current2]);
 					index = current2;
 					current2 += current2;//times 2
 				}
@@ -137,7 +135,7 @@ public:
 			}
 			else {
 				if (currentKey > BinaryHeap[current2].key) {
-					BinaryHeap[index] = BinaryHeap[current2];
+					placeAt(index, BinaryHeap[current2]);
 					index =  current2;
 				}
 				return index;
@@ -152,13 +150,16 @@ public:
 		if (index) {
 			if (oldKey < newKey) {
 				index = moveDown(index, newKey);
-				BinaryHeap[index].key = newKey;
 			}
 			else if (oldKey > newKey) {
 				index = moveUp(index, newKey);
-				BinaryHeap[index].key = newKey;
 			}
-			BinaryHeap[index].data = newData;
+			// reuse placeAt so the index map tracks both the (possible) data change
+			// and the slot it ended up in.
+			if constexpr (TrackIndex) {
+				if (newData != oldData) m_index[(int)oldData] = 0;
+			}
+			placeAt(index, newData, newKey);
 			return true;
 		}
 		return false;
@@ -171,13 +172,11 @@ public:
 			int oldKey = BinaryHeap[index].key;
 			if (oldKey < key) {
 				index = moveDown(index, key);
-				BinaryHeap[index].data = data;
-				BinaryHeap[index].key = key;
+				placeAt(index, data, key);
 			}
 			else if (oldKey > key) {
 				index = moveUp(index, key);
-				BinaryHeap[index].data = data;
-				BinaryHeap[index].key = key;
+				placeAt(index, data, key);
 			}
 			return true;
 		}
@@ -194,52 +193,15 @@ public:
 			int current2 = index>>1;//divided by 2
 			if (BinaryHeap[current2].key > key) {
 				//move parent down
-				BinaryHeap[index] = BinaryHeap[current2];
+				placeAt(index, BinaryHeap[current2]);
 				index = current2;
 			}
 			else {
 				break;
 			}
 		}
-		BinaryHeap[index].data = data;
-		BinaryHeap[index].key = key;
+		placeAt(index, data, key);
 		return (heapCount++);
-		
-		/*
-		if (heapCount > maxSize) {
-			return 0;
-		}
-	__asm {
-		mov		ecx, [this]
-		mov		eax, [ecx]CBinaryHeap.heapCount
-		mov		ecx, [ecx]CBinaryHeap.BinaryHeap
-		mov     edx, key
-		cmp     eax, 1
-		jle     short insert
-
-moveParentDown:
-		mov		esi, eax
-		sar     esi, 1
-		cmp     [ecx+esi*8], edx
-		jle     short insert//if parent key is higher, insert at current index
-		cmp     esi, 1
-		mov     ebx, [ecx+esi*8]
-		mov     [ecx+eax*8], ebx
-		mov     ebx, [ecx+esi*8+4]
-		mov     [ecx+eax*8+4], ebx
-		mov		eax, esi
-		jg      short moveParentDown
-
-insert:
-		mov     esi, data
-		mov     [ecx+eax*8+4], esi
-		mov     [ecx+eax*8], edx
-		mov		ecx, [this]
-		mov     eax, [ecx]CBinaryHeap.heapCount//++heapCount
-		mov		edx, eax
-		inc		edx
-		mov     [ecx]CBinaryHeap.heapCount, edx//BinaryHeap.heapCount = heapCount
-	}*/
 	}
 
 	CBinaryHeap_t popTopHeap(int& returnSize)
@@ -266,7 +228,7 @@ insert:
 					//choose child to possibly move
 					if (currentKey > BinaryHeap[current2].key) {
 						//move child up
-						BinaryHeap[index] = BinaryHeap[current2];
+						placeAt(index, BinaryHeap[current2]);
 						index = current2;
 						current2 += current2;//times 2
 					}
@@ -276,13 +238,16 @@ insert:
 				}
 				else {
 					if (currentKey > BinaryHeap[current2].key) {
-						BinaryHeap[index] = BinaryHeap[current2];
+						placeAt(index, BinaryHeap[current2]);
 						index =  current2;
 					}
 					break;
 				}
 			}
-			BinaryHeap[index] = BinaryHeap[heapCount];
+			placeAt(index, BinaryHeap[heapCount]);
+			// remove the popped element LAST: if the heap is now empty the line
+			// above re-stamped its data at slot 1, so clear it after.
+			forget(returnHeap.data);
 		}
 		return (returnHeap);
 	}
@@ -314,6 +279,10 @@ insert:
 
 	int findData(const T data) const
 	{
+		if constexpr (TrackIndex) {
+			// O(1): the index map gives the heap slot directly (0 == not present).
+			return m_index[(int)data];
+		}
 		int current;
 		for (current = heapCount-1; current > 0; --current) {
 			if (BinaryHeap[current].data == data) {
@@ -342,9 +311,28 @@ insert:
 	}
 
 private:
+	// Write an element into a heap slot, keeping the index map in sync. All slot
+	// writes go through placeAt so m_index can never drift from the heap.
+	inline void placeAt(int index, const CBinaryHeap_t& elem)
+	{
+		BinaryHeap[index] = elem;
+		if constexpr (TrackIndex) m_index[(int)elem.data] = index;
+	}
+	inline void placeAt(int index, const T& data, const KEY& key)
+	{
+		BinaryHeap[index].data = data;
+		BinaryHeap[index].key  = key;
+		if constexpr (TrackIndex) m_index[(int)data] = index;
+	}
+	inline void forget(const T& data)
+	{
+		if constexpr (TrackIndex) m_index[(int)data] = 0;
+	}
+
 	int				heapCount;
 	int				maxSize;
 	CBinaryHeap_t*	BinaryHeap;
+	std::vector<int> m_index;   // data -> heap index, only used when TrackIndex
 };
 
 #endif
