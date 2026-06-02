@@ -2894,6 +2894,7 @@ BOOLEAN DrawCTHIndicator()
 				{
 					// Set it.
 					uiMaxAutofire = uiCurBullet;
+					break;
 				}
 
 				//Decrement until zero.
@@ -3321,8 +3322,9 @@ BOOLEAN DrawCTHIndicator()
 		// Draw outer circle
 		for (INT32 iCurPoint = 0; iCurPoint < Circ; iCurPoint++)
 		{
-			curX = (INT16)(iDistanceAperture * cos((iCurPoint * RADIANS_IN_CIRCLE)/Circ));
-			curY = (INT16)((iDistanceAperture * dVerticalBias) * sin((iCurPoint * RADIANS_IN_CIRCLE)/Circ));
+			const FLOAT dAngle = (iCurPoint * RADIANS_IN_CIRCLE)/Circ;
+			curX = (INT16)(iDistanceAperture * cos(dAngle));
+			curY = (INT16)((iDistanceAperture * dVerticalBias) * sin(dAngle));
 			INT16 firstX = curX;
 			INT16 firstY = curY;
 
@@ -3347,8 +3349,9 @@ BOOLEAN DrawCTHIndicator()
 		// Draw inner circle
 		for (INT32 iCurPoint = 0; iCurPoint < Circ; iCurPoint++)
 		{
-			curX = (INT16)(iAperture * cos((iCurPoint * RADIANS_IN_CIRCLE)/Circ));
-			curY = (INT16)((iAperture * dVerticalBias) * sin((iCurPoint * RADIANS_IN_CIRCLE)/Circ));
+			const FLOAT dAngle = (iCurPoint * RADIANS_IN_CIRCLE)/Circ;
+			curX = (INT16)(iAperture * cos(dAngle));
+			curY = (INT16)((iAperture * dVerticalBias) * sin(dAngle));
 			INT16 firstX = curX;
 			INT16 firstY = curY;
 
