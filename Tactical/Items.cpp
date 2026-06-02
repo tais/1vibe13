@@ -2279,7 +2279,7 @@ BOOLEAN ValidAttachment( UINT16 usAttachment, UINT16 usItem, UINT8 * pubAPCost )
 	return FALSE;
 }
 
-BOOLEAN ValidAttachment( UINT16 usAttachment, OBJECTTYPE * pObj, UINT8 * pubAPCost, UINT8 subObject, std::vector<UINT16> usAttachmentSlotIndexVector)
+BOOLEAN ValidAttachment( UINT16 usAttachment, OBJECTTYPE * pObj, UINT8 * pubAPCost, UINT8 subObject, const std::vector<UINT16>& usAttachmentSlotIndexVectorParam)
 {
 	if ( !pObj->exists() )
 		return FALSE;
@@ -2293,9 +2293,16 @@ BOOLEAN ValidAttachment( UINT16 usAttachment, OBJECTTYPE * pObj, UINT8 * pubAPCo
 	{
 		BOOLEAN foundValidAttachment = FALSE;
 
-		//It's possible we've entered this function without being passed the usAttachmentSlotIndexVector parameter
-		if(usAttachmentSlotIndexVector.empty())
-			usAttachmentSlotIndexVector = GetItemSlots(pObj);
+		//It's possible we've entered this function without being passed the usAttachmentSlotIndexVector parameter.
+		//The parameter is a const ref now, so fall back into a local instead of reassigning it.
+		std::vector<UINT16> usAttachmentSlotIndexVectorLocal;
+		const std::vector<UINT16>* pSlots = &usAttachmentSlotIndexVectorParam;
+		if( usAttachmentSlotIndexVectorParam.empty() )
+		{
+			usAttachmentSlotIndexVectorLocal = GetItemSlots(pObj);
+			pSlots = &usAttachmentSlotIndexVectorLocal;
+		}
+		const std::vector<UINT16>& usAttachmentSlotIndexVector = *pSlots;
 
 		//Still no slots means nothing will ever be valid
 		if(usAttachmentSlotIndexVector.empty())
@@ -2368,7 +2375,7 @@ UINT8 AttachmentAPCost( UINT16 usAttachment, UINT16 usItem, SOLDIERTYPE * pSoldi
 }
 
 //Also need one with pObj, for the one with usItem is not always correct.
-UINT8 AttachmentAPCost( UINT16 usAttachment, OBJECTTYPE * pObj, SOLDIERTYPE * pSoldier, UINT8 subObject, std::vector<UINT16> usAttachmentSlotIndexVector )
+UINT8 AttachmentAPCost( UINT16 usAttachment, OBJECTTYPE * pObj, SOLDIERTYPE * pSoldier, UINT8 subObject, const std::vector<UINT16>& usAttachmentSlotIndexVector )
 {
 	UINT8 ubAPCost;
 
@@ -2409,7 +2416,7 @@ UINT8 AttachmentAPCost( UINT16 usAttachment, OBJECTTYPE * pObj, SOLDIERTYPE * pS
 //Determine if this slot can receive this attachment.  This is different, in that it may
 //be possible to have this attachment on this item, but may already have an attachment
 //in the slot we're trying to attach to.
-BOOLEAN ValidItemAttachmentSlot( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage, UINT8 subObject, INT16 slotCount, BOOLEAN fIgnoreAttachmentInSlot, OBJECTTYPE ** ppAttachInSlot, std::vector<UINT16> usAttachmentSlotIndexVector)
+BOOLEAN ValidItemAttachmentSlot( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage, UINT8 subObject, INT16 slotCount, BOOLEAN fIgnoreAttachmentInSlot, OBJECTTYPE ** ppAttachInSlot, const std::vector<UINT16>& usAttachmentSlotIndexVectorParam)
 {
 	BOOLEAN		fSimilarItems = FALSE, fSameItem = FALSE;
 	UINT16		usSimilarItem = NOTHING;
@@ -2425,9 +2432,16 @@ BOOLEAN ValidItemAttachmentSlot( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN
 	//if (!Item[usAttachment].attachment && !Item[usAttachment].hiddenaddon)
 		//return FALSE;
 
-	//It's possible we could get here without being sent the usAttachmentSlotIndexVector parameter
-	if(usAttachmentSlotIndexVector.empty())
-		usAttachmentSlotIndexVector = GetItemSlots(pObj, subObject);
+	//It's possible we could get here without being sent the usAttachmentSlotIndexVector parameter.
+	//The parameter is a const ref now, so fall back into a local instead of reassigning it.
+	std::vector<UINT16> usAttachmentSlotIndexVectorLocal;
+	const std::vector<UINT16>* pSlots = &usAttachmentSlotIndexVectorParam;
+	if( usAttachmentSlotIndexVectorParam.empty() )
+	{
+		usAttachmentSlotIndexVectorLocal = GetItemSlots(pObj, subObject);
+		pSlots = &usAttachmentSlotIndexVectorLocal;
+	}
+	const std::vector<UINT16>& usAttachmentSlotIndexVector = *pSlots;
 
 	//No slots means nothing will ever be valid, also a slotCount outside this vector will never be valid either.
 	if ( (INT16)usAttachmentSlotIndexVector.size() <= slotCount)
@@ -2574,7 +2588,7 @@ BOOLEAN ValidItemAttachmentSlot( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN
 //Determine if this item can receive this attachment.  This is different, in that it may
 //be possible to have this attachment on this item, but may already have an attachment on
 //it which doesn't work simultaneously with the new attachment (like a silencer and duckbill).
-BOOLEAN ValidItemAttachment( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage, UINT8 subObject, std::vector<UINT16> usAttachmentSlotIndexVector)
+BOOLEAN ValidItemAttachment( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage, UINT8 subObject, const std::vector<UINT16>& usAttachmentSlotIndexVector)
 {
 	if (pObj->exists() == false)
 		return FALSE;

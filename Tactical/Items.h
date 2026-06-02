@@ -165,12 +165,12 @@ BOOLEAN ItemHasAttachments( OBJECTTYPE *pItem, SOLDIERTYPE * pSoldier = NULL, UI
 //Determine if this item can receive this attachment.	This is different, in that it may
 //be possible to have this attachment on this item, but may already have an attachment on
 //it which doesn't work simultaneously with the new attachment (like a silencer and duckbill).
-BOOLEAN ValidItemAttachment( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage = TRUE, UINT8 subObject = 0, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
+BOOLEAN ValidItemAttachment( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage = TRUE, UINT8 subObject = 0, const std::vector<UINT16>& usAttachmentSlotIndexVector = std::vector<UINT16>());
 //Return true if usAttachment would fit on an item with usItem, without considering possible other attachments on this gun. This may be inaccurate for NAS, because slots can change.
 BOOLEAN ValidAttachment( UINT16 usAttachment, UINT16 usItem, UINT8* ubAPCost = NULL );
 //This function does the same as the above, but is more accurate.
-BOOLEAN ValidAttachment( UINT16 usAttachment, OBJECTTYPE * pObj, UINT8* ubAPCost = NULL, UINT8 subObject = 0, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
-BOOLEAN ValidItemAttachmentSlot( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage = TRUE, UINT8 subObject = 0, INT16 slotCount = -1, BOOLEAN fIgnoreAttachmentInSlot = FALSE, OBJECTTYPE ** ppAttachInSlot = NULL, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
+BOOLEAN ValidAttachment( UINT16 usAttachment, OBJECTTYPE * pObj, UINT8* ubAPCost = NULL, UINT8 subObject = 0, const std::vector<UINT16>& usAttachmentSlotIndexVector = std::vector<UINT16>());
+BOOLEAN ValidItemAttachmentSlot( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage = TRUE, UINT8 subObject = 0, INT16 slotCount = -1, BOOLEAN fIgnoreAttachmentInSlot = FALSE, OBJECTTYPE ** ppAttachInSlot = NULL, const std::vector<UINT16>& usAttachmentSlotIndexVector = std::vector<UINT16>());
 
 // Determines if it is possible to merge an item with any item whose class 
 // is the same as the indicated item
@@ -254,7 +254,7 @@ BOOLEAN ItemProvidesRobotLaserBonus(UINT16 usItem);
 //them from the editor.
 
 UINT8 AttachmentAPCost( UINT16 usAttachment, UINT16 usItem, SOLDIERTYPE * pSoldier ); // SANDRO - added argument
-UINT8 AttachmentAPCost( UINT16 usAttachment, OBJECTTYPE * pObj, SOLDIERTYPE * pSoldier, UINT8 subObject = 0, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>() );
+UINT8 AttachmentAPCost( UINT16 usAttachment, OBJECTTYPE * pObj, SOLDIERTYPE * pSoldier, UINT8 subObject = 0, const std::vector<UINT16>& usAttachmentSlotIndexVector = std::vector<UINT16>() );
 
 
 BOOLEAN ValidLaunchable( UINT16 usLaunchable, UINT16 usItem );
