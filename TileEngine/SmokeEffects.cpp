@@ -1062,6 +1062,13 @@ BOOLEAN LoadSmokeEffectsFromMapTempFile( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 		return( FALSE );
 	}
 
+	//Reject a corrupt/oversized count that would overflow gSmokeEffectData
+	if( guiNumSmokeEffects > NUM_SMOKE_EFFECT_SLOTS )
+	{
+		FileClose( hFile );
+		return( FALSE );
+	}
+
 	//loop through and load the list
 	for( uiCnt=0; uiCnt<guiNumSmokeEffects;uiCnt++)
 	{
