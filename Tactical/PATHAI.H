@@ -59,7 +59,9 @@ public:
 
 private:
 	static	AStarPathfinder* pThis;
-	CBinaryHeap<int, INT32>	OpenHeap;
+	// TrackIndex=true: maintain a gridno->heap-index map so the A* decrease-key
+	// (editElement) does O(1) findData instead of an O(n) linear scan.
+	CBinaryHeap<int, INT32, true>	OpenHeap;
 
 	// The "closed list" is the AStarData array below which is also the path backtrace when a path is found.
 
