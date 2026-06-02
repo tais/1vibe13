@@ -6191,7 +6191,11 @@ INT16 ubMinAPCost;
 		{
 			sBestCover = FindBestNearbyCover(pSoldier, pSoldier->aiData.bAIMorale, &iCoverPercentBetter);
 		}		
-		DebugAI(AI_MSG_INFO, pSoldier, String("Found cover spot %d percent better %d movement mode %d", sBestCover, iCoverPercentBetter, DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER)));
+		// DetermineMovementMode can consume the deterministic RNG (Random) for some
+		// bodytypes, so evaluate it unconditionally into a local: the DebugAI macro skips
+		// its argument evaluation when logging is off, which must not drop the RNG draw.
+		UINT16 usDbgMoveMode = DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER);
+		DebugAI(AI_MSG_INFO, pSoldier, String("Found cover spot %d percent better %d movement mode %d", sBestCover, iCoverPercentBetter, usDbgMoveMode));
 	}
 
 
@@ -10357,6 +10361,9 @@ extern UINT32 guiArrived;
 
 void LogDecideInfo(SOLDIERTYPE *pSoldier)
 {
+	if (!gfLogsEnabled)
+		return;
+
 	DebugAI(AI_MSG_INFO, pSoldier, String("Turn num %d aware %d", guiTurnCnt, gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition));
 	DebugAI(AI_MSG_INFO, pSoldier, String("current team %d interrupt occurred %d", gTacticalStatus.ubCurrentTeam, gTacticalStatus.fInterruptOccurred));
 	DebugAI(AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]));

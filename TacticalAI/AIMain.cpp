@@ -114,7 +114,7 @@ extern time_t gtTimeSinceMercAIStart;
 
 void EndAIGuysTurn( SOLDIERTYPE *pSoldier );
 
-void DebugAI( STR szOutput )
+void DebugAI_( STR szOutput )
 {
 #ifdef DEBUGDECISIONS
 	// Send regular debug msg AND AI debug message
@@ -211,7 +211,7 @@ UINT32 guiAIStartCounter = 0, guiAILastCounter = 0;
 //UINT8 gubAISelectedSoldier = NOBODY;
 BOOLEAN gfLogsEnabled = TRUE;
 
-void DebugAI( INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction )
+void DebugAI_( INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction )
 {
 	FILE*	DebugFile;
 	CHAR8	msg[1024];

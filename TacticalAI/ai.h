@@ -180,9 +180,11 @@ INT32 ClosestPC( SOLDIERTYPE *pSoldier, INT32 * psDistance );
 INT32 ClosestUnDisguisedPC( SOLDIERTYPE *pSoldier, INT32 * psDistance );	// Flugente: like ClosestPC(...), but does not account for covert or not visible mercs
 BOOLEAN CanAutoBandage( BOOLEAN fDoFullCheck );
 
-void DebugAI( STR szOutput );
+void DebugAI_( STR szOutput );
 enum { AI_MSG_START, AI_MSG_DECIDE, AI_MSG_INFO, AI_MSG_TOPIC };
-void DebugAI(INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction = -1);
+void DebugAI_(INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction = -1);
+extern BOOLEAN gfLogsEnabled;
+#define DebugAI(...) do { if (gfLogsEnabled) DebugAI_(__VA_ARGS__); } while (0)
 void DebugQuestInfo(STR szOutput);
 INT8 DecideAction(SOLDIERTYPE *pSoldier);
 INT8 DecideActionBlack(SOLDIERTYPE *pSoldier);
