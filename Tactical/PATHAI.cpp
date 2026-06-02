@@ -591,7 +591,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	DestNode = dest;
 	fFlags |= gubGlobalPathFlags;	
 
-	if (StartNode < 0 || StartNode > WORLD_MAX) 
+	if (StartNode < 0 || StartNode >= WORLD_MAX)
 	{
 		#ifdef JA2BETAVERSION
 			ScreenMsg( FONT_MCOLOR_RED, MSG_TESTVERSION, L"ERROR!  Trying to calculate path from off-world gridno %d to %d", StartNode, DestNode );
@@ -1256,7 +1256,7 @@ INT16 AStarPathfinder::CalcStartingAP()
 	// WANNE - BMP: We have to reset the CurrentNode.
 	// This can happen, if the previous savegame was on a big map
 	// and now we are on a "normal" map.
-	if (CurrentNode > WORLD_MAX)
+	if (CurrentNode < 0 || CurrentNode >= WORLD_MAX)
 		CurrentNode = 0;
 
 	// We should reduce points for starting to run if first tile is a fence...
@@ -3994,7 +3994,7 @@ void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius )
 		for ( iX = -bRadius; iX <= bRadius; iX++ )
 		{
 			iCurrentGridNo = sStartGridNo + iX + iY * MAXCOL;
-			if ( iCurrentGridNo >= 0 && iCurrentGridNo <= WORLD_MAX )
+			if ( iCurrentGridNo >= 0 && iCurrentGridNo < WORLD_MAX )
 			{
 				gpWorldLevelData[ iCurrentGridNo ].uiFlags &= ~( MAPELEMENT_REACHABLE );
 			}
