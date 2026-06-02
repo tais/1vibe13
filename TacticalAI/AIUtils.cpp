@@ -2793,6 +2793,7 @@ INT16 RoamingRange(SOLDIERTYPE *pSoldier, INT32 * pusFromGridNo)
 	// sevenfm: no limits for zombies
 	if (pSoldier->IsZombie())
 	{
+		*pusFromGridNo = pSoldier->sGridNo; // from current position!
 		return(MAX_ROAMING_RANGE);
 	}
 	if (pSoldier->aiData.bOrders == POINTPATROL || pSoldier->aiData.bOrders == RNDPTPATROL)
