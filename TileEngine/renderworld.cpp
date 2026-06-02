@@ -1195,6 +1195,23 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 /* 
 MONSTERS BE HERE!
 */
+
+// Per-frame memo for bodyTypeDB->Find(pSoldier), keyed by pSoldier->ubID.
+// RenderTiles calls Find() per merc-node per merc-layer every frame (an author-flagged
+// hotspot). Find() reads only per-soldier state (body type, team, class, stats, inventory,
+// profile, anim state) plus immutable global tables; none of that is mutated during
+// rendering, so within a single frame Find() is a pure function of ubID. We clear this
+// memo at the top of each merc-rendering pass (RenderDynamicWorld and RenderStaticWorldRect)
+// so it lives exactly one render, guaranteeing a cache hit equals the value Find() would
+// return that pass.
+static LogicalBodyTypes::BodyType * gpBodyTypeFindCache[TOTAL_SOLDIERS] = { NULL };
+static BOOLEAN gfBodyTypeFindCached[TOTAL_SOLDIERS] = { FALSE };
+
+static void ClearBodyTypeFindCache()
+{
+	memset( gfBodyTypeFindCached, 0, sizeof( gfBodyTypeFindCached ) );
+}
+
 static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY_M, INT32 iStartPointX_S, INT32 iStartPointY_S, INT32 iEndXS, INT32 iEndYS, UINT8 ubNumLevels, UINT32 *puiLevels, UINT16 *psLevelIDs)
 {
 	//#if 0
@@ -2190,15 +2207,24 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 								using namespace LogicalBodyTypes;
 								static BodyTypeDB * bodyTypeDB = &BodyTypeDB::Instance();
-								static Layers::LayerPropertiesVector::size_type numLayers = max(1, Layers::Instance().GetCount()); //defaults to 1 in case the layers.xml file could not be read
-								// TODO: should find a better place to determine the logical body type. This function gets called like a gazillion times
-								// every render cycle and the find provedure will get quite expensive at later stages (lots of logical body types, animations and filters!)
-								// Should only be done once every cycle, or better yet, only and directly after a SOLDIERTYPE object has been altered (if at all possible)!
+								// This function gets called like a gazillion times every render cycle and Find() is expensive
+								// (lots of logical body types, animations and filters!). Memoize Find() per-frame keyed by
+								// pSoldier->ubID; the cache is cleared at the top of each merc-rendering pass (see
+								// ClearBodyTypeFindCache callers), so within one render a cache hit equals what Find() would return.
 								BodyType * bt = NULL;
 								if ((gGameSettings.fOptions[TOPTION_USE_LOGICAL_BODYTYPES] == TRUE)
 									&& (uiRowFlags == TILES_DYNAMIC_MERCS || uiRowFlags == TILES_DYNAMIC_HIGHMERCS || uiRowFlags == TILES_DYNAMIC_STRUCT_MERCS))
 								{
-									bt = bodyTypeDB->Find(pSoldier);
+									if (gfBodyTypeFindCached[pSoldier->ubID])
+									{
+										bt = gpBodyTypeFindCache[pSoldier->ubID];
+									}
+									else
+									{
+										bt = bodyTypeDB->Find(pSoldier);
+										gpBodyTypeFindCache[pSoldier->ubID] = bt;
+										gfBodyTypeFindCached[pSoldier->ubID] = TRUE;
+									}
 								}
 								PIXEL * pDefaultShadeTable = pShadeTable;
 								RECT backRect; // Actually only needed if uiFlags & TILES_DIRTY, but must be initialized with values that make sense for the comparisons.
@@ -3381,6 +3407,12 @@ void RenderStaticWorldRect(INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom,
 	UINT32		uiDestPitchBYTES;
 	UINT8		*pDestBuf=NULL;
 
+	// The per-frame logical-BodyType memo must start fresh for every merc-layer
+	// render, not only RenderDynamicWorld's: this function also renders the merc
+	// layers below (e.g. on the gfDoVideoScroll==FALSE scroll path), so clear the
+	// cache here too or it would serve a stale BodyType* from the previous frame.
+	ClearBodyTypeFindCache();
+
 	// Calculate render starting parameters
 	CalcRenderParameters( sLeft, sTop, sRight, sBottom );
 
@@ -3596,6 +3628,9 @@ void RenderDynamicWorld(  )
 	UINT8		ubNumLevels;
 	UINT32	uiLevelFlags[ 10 ];
 	UINT16	sLevelIDs[ 10 ];
+
+	// Reset the per-frame bodyTypeDB->Find() memo so it lives exactly one frame (see RenderTiles).
+	ClearBodyTypeFindCache();
 
 	CalcRenderParameters( gsVIEWPORT_START_X, gsVIEWPORT_START_Y, gsVIEWPORT_END_X, gsVIEWPORT_END_Y );
 
