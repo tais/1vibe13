@@ -153,6 +153,24 @@ void SetPalettes(HVOBJECT *hVObject, UINT32 uiIndex)
 {
 	SGPPaletteEntry	Pal[256];
 
+	// This is called per-frame for face-gear icons (DoRightIcon_FaceGear ->
+	// GetXYForRightIconPlacement_FaceGear), so free the shade palettes left from a
+	// previous call before overwriting the slots below -- otherwise the six
+	// Create16BPPPaletteShaded buffers (256 PIXELs each) leaked every frame.
+	// On the first call for a freshly-created VObject these slots are NULL, so the
+	// guarded free is a no-op there.
+	const UINT32 uiShadeSlots[] = { FLASH_PORTRAIT_NOSHADE, FLASH_PORTRAIT_STARTSHADE,
+		FLASH_PORTRAIT_ENDSHADE, FLASH_PORTRAIT_DARKSHADE, FLASH_PORTRAIT_LITESHADE,
+		FLASH_PORTRAIT_GRAYSHADE };
+	for ( UINT32 uiSlot = 0; uiSlot < sizeof(uiShadeSlots)/sizeof(uiShadeSlots[0]); ++uiSlot )
+	{
+		if ( (*hVObject)->pShades[ uiShadeSlots[uiSlot] ] != NULL )
+		{
+			MemFree( (*hVObject)->pShades[ uiShadeSlots[uiSlot] ] );
+			(*hVObject)->pShades[ uiShadeSlots[uiSlot] ] = NULL;
+		}
+	}
+
 	// Build a grayscale palette! ( for testing different looks )
 	for (UINT32 uiCount = 0; uiCount < 256; uiCount++)
 	{
