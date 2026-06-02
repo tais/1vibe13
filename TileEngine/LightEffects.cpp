@@ -490,6 +490,13 @@ BOOLEAN LoadLightEffectsFromMapTempFile( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 		return( FALSE );
 	}
 
+	//Reject a corrupt/oversized count to prevent writing past gLightEffectData
+	if( guiNumLightEffects > NUM_LIGHT_EFFECT_SLOTS )
+	{
+		FileClose( hFile );
+		return( FALSE );
+	}
+
 	//loop through and load the list
 	for( uiCnt=0; uiCnt<guiNumLightEffects;uiCnt++)
 	{
