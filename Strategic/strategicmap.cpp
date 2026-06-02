@@ -195,6 +195,9 @@ BOOLEAN fSamSiteFoundOrig[MAX_NUMBER_OF_SAMS];
 // sectors with sam sites
 INT16 pSamList[MAX_NUMBER_OF_SAMS];
 
+// cached per-SAM max covered-sector distance (GetSAMMaxDistanceToCoveredSector); -1 = not yet computed
+FLOAT g_samMaxDistCache[MAX_NUMBER_OF_SAMS];
+
 // girdno's of control terminal of sam site
 INT32 pSamGridNoAList[MAX_NUMBER_OF_SAMS];
 INT32 pSamGridNoBList[MAX_NUMBER_OF_SAMS];
@@ -723,6 +726,11 @@ BOOLEAN ReadInSAMInfo( STR fileName )
 
 	memset( &pData, 0, sizeof(pData) );
 	NUMBER_OF_SAMS = 0;
+
+	// invalidate cached per-SAM max distances: SAM list / ubSAMControlledSectors are about to be (re)loaded
+	for ( int samidx = 0; samidx < MAX_NUMBER_OF_SAMS; ++samidx )
+		g_samMaxDistCache[samidx] = -1.0f;
+
 	XML_SetUserData( parser, &pData );
 
 
@@ -5325,6 +5333,10 @@ FLOAT GetSAMMaxDistanceToCoveredSector( UINT8 usSam )
 
 	if ( usSam < NUMBER_OF_SAMS )
 	{
+		// return cached value if already computed for this SAM
+		if ( g_samMaxDistCache[usSam] >= 0.0f )
+			return g_samMaxDistCache[usSam];
+
 		UINT8 samsector = pSamList[usSam];
 		UINT8 sam_x = SECTORX( samsector );
 		UINT8 sam_y = SECTORY( samsector );
@@ -5342,6 +5354,8 @@ FLOAT GetSAMMaxDistanceToCoveredSector( UINT8 usSam )
 				}
 			}
 		}
+
+		g_samMaxDistCache[usSam] = maxdist;
 	}
 
 	return maxdist;
