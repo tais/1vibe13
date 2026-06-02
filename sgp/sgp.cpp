@@ -18,6 +18,11 @@
 #include <string.h>
 #include <cstdio>
 #include <csignal>
+#ifdef _WIN32
+#include <direct.h>   // _chdir
+#else
+#include <unistd.h>   // chdir
+#endif
 #include "sgp.h"
 #include "vobject.h"
 #include "Font.h"
@@ -1435,6 +1440,32 @@ int main(int argc, char** argv)
 
 	g_argc = argc;
 	g_argv = argv;
+
+	// Working-directory rescue. A bare executable launched from Finder (macOS) or
+	// Explorer (Windows) -- as opposed to a terminal sitting in the game folder --
+	// runs with the working directory set to "/" or the user's home, not the game
+	// folder. The first thing the game reads is the relative path Ja2.ini, followed
+	// by vfs_config.ini and the Data/ tree, so none of them are found and the game
+	// dies looking for files. The executable itself lives in the game folder, so
+	// chdir to its directory. We only do this when the current directory does NOT
+	// already contain Ja2.ini, so an explicit, already-working cwd (a terminal
+	// launch from the game folder, CI, a custom install layout) is left untouched.
+	{
+		SDL_PathInfo iniInfo;
+		if (!SDL_GetPathInfo(GAME_INI_FILE, &iniInfo))
+		{
+			const char* base = SDL_GetBasePath(); // executable's directory (trailing slash); owned by SDL, do not free
+			if (base && *base)
+			{
+#ifdef _WIN32
+				_chdir(base);
+#else
+				if (chdir(base) != 0)
+					std::fprintf(stderr, "Warning: could not change directory to '%s'\n", base);
+#endif
+			}
+		}
+	}
 
 	// Stitch argv back into a single command-line string for legacy
 	// helpers (ProcessJa2CommandLineBeforeInitialization).
