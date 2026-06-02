@@ -390,17 +390,15 @@ INT16 TerrainBreathPoints(SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bDir, UINT
 }
 
 
-INT16 ActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode )
+// Internal AP-cost math given an already-computed terrain tile cost. Split out so
+// EstimateActionPointCost (which has already called TerrainActionPoints for this
+// tile/dir) doesn't pay for it a second time on every A* neighbour. TerrainActionPoints
+// is the expensive part (hidden-struct / fence / door / backpack checks); the cheap
+// gubWorldMovementCosts lookup below is left in place. Precondition: sTileCost != -1.
+static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode, INT16 sTileCost )
 {
-	INT16 sTileCost, sSwitchValue;
+	INT16 sSwitchValue;
 	FLOAT sPoints = 0;
-
-	// get the tile cost for that tile based on WALKING
-	sTileCost = TerrainActionPoints( pSoldier, sGridNo, bDir, pSoldier->pathing.bLevel );
-	if (sTileCost == -1)
-	{
-		return 100;
-	}
 
 
 
@@ -645,6 +643,17 @@ INT16 ActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 u
 	return( (INT16)(sPoints + 0.5f) );
 }
 
+INT16 ActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode )
+{
+	// Compute the terrain tile cost once, then run the shared AP math.
+	INT16 sTileCost = TerrainActionPoints( pSoldier, sGridNo, bDir, pSoldier->pathing.bLevel );
+	if (sTileCost == -1)
+	{
+		return 100;
+	}
+	return ActionPointCostFromTileCost( pSoldier, sGridNo, bDir, usMovementMode, sTileCost );
+}
+
 INT16 EstimateActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode, INT8 bPathIndex, INT8 bPathLength )
 {
 	// This action point cost code includes the penalty for having to change
@@ -716,7 +725,9 @@ INT16 EstimateActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, 
 		}
 	}
 
-	sPoints += ActionPointCost( pSoldier, sGridNo, bDir, usMovementMode );
+	// sTileCost was already computed above (and is guaranteed != -1 here -- the
+	// -1 case early-returned), so reuse it instead of recomputing TerrainActionPoints.
+	sPoints += ActionPointCostFromTileCost( pSoldier, sGridNo, bDir, usMovementMode, sTileCost );
 
 	return (sPoints);
 }
