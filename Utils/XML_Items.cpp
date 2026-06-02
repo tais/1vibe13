@@ -1823,8 +1823,6 @@ BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion )
 	UINT32		uiFSize;
 	CHAR8 *		lpcBuffer;
 
-	XML_Parser	parser = XML_ParserCreate(NULL);
-	
 	itemParseData pData;
 	
 	localizedTextOnly = localizedVersion;
@@ -1836,6 +1834,8 @@ BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion )
 	if ( !hFile )
 		return( localizedVersion );
 	
+	XML_Parser	parser = XML_ParserCreate(NULL);
+	
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
 
@@ -1843,6 +1843,8 @@ BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion )
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
+		FileClose( hFile );
+		XML_ParserFree(parser);
 		return( FALSE );
 	}
 
