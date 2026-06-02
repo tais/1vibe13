@@ -5306,11 +5306,9 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 
 	INT8 bGroundVolumeModifier = 0;
 	INT8 bGroundStealthDifficultyModifier = 0;
-	ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties;
-	memset(&zGivenTileProperties, 0, sizeof(zGivenTileProperties));
 	if (gGameExternalOptions.fAdditionalTileProperties)
 	{
-		zGivenTileProperties = GetAllAdditonalTilePropertiesForGrid(pSoldier->sGridNo, pSoldier->pathing.bLevel);
+		ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties = GetAllAdditonalTilePropertiesForGrid(pSoldier->sGridNo, pSoldier->pathing.bLevel);
 		bGroundVolumeModifier = zGivenTileProperties.bSoundModifier;
 		bGroundStealthDifficultyModifier = zGivenTileProperties.bStealthDifficultyModifer;
 	}
