@@ -620,8 +620,14 @@ void HandleFencePartnerCheck( INT32 sStructGridNo )
 			// Find level node.....
 			pFenceBaseStructure = FindBaseStructure( pFenceStructure );
 
+			if ( pFenceBaseStructure == NULL )
+				return;
+
 			// Get LEVELNODE for struct and remove!
 			pFenceNode = FindLevelNodeBasedOnStructure( pFenceBaseStructure->sGridNo, pFenceBaseStructure );
+
+			if ( pFenceNode == NULL )
+				return;
 
 			// Get type from index...
 			GetTileType( pFenceNode->usIndex, &uiFenceType );
