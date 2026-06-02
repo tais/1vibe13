@@ -2790,8 +2790,8 @@ UINT32 DisplayInvSlot( UINT16 ubSlotNum, UINT16 usItemIndex, UINT16 usPosX, UINT
 	// bfant: Display item name, limited to displayable characters (space constraints)
 	if ( pItem->szItemName != 0 )
 	{
-		wcsncpy( zTemp, pItem->szItemName, sizeof( zTemp ) / 2 );
-		zTemp[63] = '\0';  // make sure it is null-terminated
+		wcsncpy( zTemp, pItem->szItemName, sizeof( zTemp ) / sizeof( zTemp[0] ) - 1 );
+		zTemp[ sizeof( zTemp ) / sizeof( zTemp[0] ) - 1 ] = L'\0';  // make sure it is null-terminated
 		ReduceStringLength( zTemp, SKI_INV_SLOT_WIDTH - 2, BLOCKFONTNARROW );
 		DrawTextToScreen( zTemp, usPosX, usPosY + 1, SKI_INV_SLOT_WIDTH, BLOCKFONTNARROW, SKI_ITEM_PRICE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
 	}
