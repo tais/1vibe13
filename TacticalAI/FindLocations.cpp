@@ -678,6 +678,15 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 
 	iBestCoverValue = -1;
 
+	// RangeChangeDesire(pSoldier) is invariant across this whole cover search;
+	// compute it once instead of 2-4 times (it scans the enemy teams via
+	// GuySawEnemy + AICheckHasGun/ShortWeaponRange). It is also the only consumer
+	// of the per-tile prone-sight-cover LOS raycasts (used only when < 4, i.e.
+	// defending posture), so when it is >= 4 those raycasts are dead work --
+	// fWantProneCover gates them.
+	const INT32 iRangeChangeDesire = RangeChangeDesire( pSoldier );
+	const BOOLEAN fWantProneCover = ( gGameExternalOptions.fAIBetterCover && iRangeChangeDesire < 4 );
+
 #if defined( _DEBUG ) && defined( COVER_DEBUG )
 	if (gfDisplayCoverValues)
 	{
@@ -780,15 +789,15 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 			// add this opponent's cover value to our current total cover value
 			iCurrentCoverValue += CalcCoverValue(pSoldier,pSoldier->sGridNo,iMyThreatValue,pSoldier->bActionPoints,uiLoop,Threat[uiLoop].iOrigRange,morale,&iCurrentScale);
 		}
-		// sevenfm: sight test
-		if( gGameExternalOptions.fAIBetterCover )
+		// sevenfm: sight test -- only matters when defending (fWantProneCover); and
+		// once any threat sees the prone spot, fProneCover is decided, so stop testing.
+		if( fWantProneCover && fProneCover )
 		{
 			if ( LocationToLocationLineOfSightTest( Threat[uiLoop].sGridNo, Threat[uiLoop].pOpponent->pathing.bLevel, pSoldier->sGridNo, pSoldier->pathing.bLevel, TRUE, MAX_VISION_RANGE, STANDING_LOS_POS, PRONE_LOS_POS ) )
-			//if ( SoldierToVirtualSoldierLineOfSightTest( Threat[uiLoop].pOpponent, pSoldier->sGridNo, pSoldier->pathing.bLevel, ANIM_PRONE, TRUE, NO_DISTANCE_LIMIT ) )
 			{
 				fProneCover = FALSE;
 			}
-		}		
+		}
 		//sprintf(tempstr,"iCurrentCoverValue after opponent %d is now %d",iLoop,iCurrentCoverValue);
 		//PopMessage(tempstr);
 	}
@@ -808,11 +817,11 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	if( gGameExternalOptions.fAIBetterCover )
 	{
 		// sevenfm: when defending (range change <= 3), prefer locations with sight cover
-		if( RangeChangeDesire(pSoldier) < 4 )
+		if( iRangeChangeDesire < 4 )
 		{
 			if( fProneCover )
 			{
-				iCurrentCoverValue += abs(iCurrentCoverValue) / __max(2, 2*RangeChangeDesire(pSoldier));
+				iCurrentCoverValue += abs(iCurrentCoverValue) / __max(2, 2*iRangeChangeDesire);
 			}
 		}
 
@@ -1046,11 +1055,11 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 						uiLoop,iThreatRange,morale,&iCoverScale);
 				}
 
-				// sevenfm: sight test
-				if( gGameExternalOptions.fAIBetterCover )
+				// sevenfm: sight test -- only matters when defending (fWantProneCover);
+				// stop once fProneCover is decided for this tile.
+				if( fWantProneCover && fProneCover )
 				{
 					if ( LocationToLocationLineOfSightTest( Threat[uiLoop].sGridNo, Threat[uiLoop].pOpponent->pathing.bLevel, sGridNo, pSoldier->pathing.bLevel, TRUE, MAX_VISION_RANGE, STANDING_LOS_POS, PRONE_LOS_POS ) )
-					//if ( SoldierToVirtualSoldierLineOfSightTest( Threat[uiLoop].pOpponent, sGridNo, pSoldier->pathing.bLevel, ANIM_PRONE, TRUE, -1 ) != 0 )
 					{
 						fProneCover = FALSE;
 					}
@@ -1075,10 +1084,10 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 			if( gGameExternalOptions.fAIBetterCover )
 			{
 				// sevenfm: when defending (range change <= 3), prefer locations with sight cover
-				if( RangeChangeDesire(pSoldier) < 4 )
+				if( iRangeChangeDesire < 4 )
 				{
 					if( fProneCover )
-						iCoverValue += abs(iCoverValue) / __max(2, 2*RangeChangeDesire(pSoldier));
+						iCoverValue += abs(iCoverValue) / __max(2, 2*iRangeChangeDesire);
 				}
 
 				// sevenfm: check for nearby friends in 10 radius, add bonus/penalty 10%
