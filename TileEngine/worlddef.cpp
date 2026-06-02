@@ -1558,7 +1558,7 @@ static void CompileTileMovementCosts( INT32 usGridNo )
 
 void RecompileLocalMovementCosts( INT32 sCentreGridNo )
 {
-	INT32		usGridNo;
+	UINT32		usGridNo;
 	INT16		sGridX, sGridY;
 	INT16		sCentreGridX, sCentreGridY;
 	INT8		bDirLoop;
@@ -1600,7 +1600,7 @@ void RecompileLocalMovementCosts( INT32 sCentreGridNo )
 
 void RecompileLocalMovementCostsFromRadius( INT32 sCentreGridNo, INT8 bRadius )
 {
-	INT32		usGridNo;
+	UINT32		usGridNo;
 	INT16		sGridX, sGridY;
 	INT16		sCentreGridX, sCentreGridY;
 	INT8		bDirLoop;
@@ -1695,7 +1695,7 @@ void AddTileToRecompileArea( INT32 sGridNo )
 
 void RecompileLocalMovementCostsInAreaWithFlags( void )
 {
-	INT32		usGridNo;
+	UINT32		usGridNo;
 	INT16		sGridX, sGridY;
 	INT8		bDirLoop;
 
