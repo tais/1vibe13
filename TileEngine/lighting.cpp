@@ -826,6 +826,11 @@ BOOLEAN fFake;
 	if(!(uiFlags&LIGHT_ROOF_ONLY) || (uiFlags&LIGHT_EVERYTHING))
 	{
 		pStruct = gpWorldLevelData[uiTile].pStructHead;
+		// LightTileHasWall depends only on (iSrcX,iSrcY,iX,iY) -- invariant across the
+		// structure-node loop -- and is a pure query (atan8 + movement-cost lookup).
+		// Compute it once per tile instead of once per node; the old code already
+		// called it repeatedly with these same args, so the result is identical.
+		const BOOLEAN fHasWall = LightTileHasWall(iSrcX, iSrcY, iX, iY);
 		while(pStruct!=NULL)
 		{
 			if ( pStruct->usIndex < giNumberOfTiles )
@@ -836,7 +841,7 @@ BOOLEAN fFake;
 						LightAddTileNode(pStruct, uiLightType, ubShadeAdd, FALSE);
 					else if(LightIlluminateWall(iSrcX, iSrcY, iX, iY, pStruct))
 					{
-						if(LightTileHasWall(iSrcX, iSrcY, iX, iY))
+						if(fHasWall)
 							fLitWall=TRUE;
 
 						// ATE: Limit shade for walls if in caves
@@ -969,6 +974,11 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 	if(!(uiFlags&LIGHT_ROOF_ONLY) || (uiFlags&LIGHT_EVERYTHING))
 	{
 		pStruct = gpWorldLevelData[uiTile].pStructHead;
+		// LightTileHasWall depends only on (iSrcX,iSrcY,iX,iY) -- invariant across the
+		// structure-node loop -- and is a pure query (atan8 + movement-cost lookup).
+		// Compute it once per tile instead of once per node; the old code already
+		// called it repeatedly with these same args, so the result is identical.
+		const BOOLEAN fHasWall = LightTileHasWall(iSrcX, iSrcY, iX, iY);
 		while(pStruct!=NULL)
 		{
 			if ( pStruct->usIndex < giNumberOfTiles )
@@ -979,7 +989,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 						LightSubtractTileNode(pStruct, uiLightType, ubShadeSubtract, FALSE);
 					else if(LightIlluminateWall(iSrcX, iSrcY, iX, iY, pStruct))
 					{
-						if(LightTileHasWall( iSrcX, iSrcY, iX, iY))
+						if(fHasWall)
 							fLitWall=TRUE;
 
 						// ATE: Limit shade for walls if in caves
