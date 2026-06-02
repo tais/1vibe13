@@ -3563,7 +3563,7 @@ void DrawTextOnButton(GUI_BUTTON *b)
 		{
 			yp+= b->bTextYSubOffSet;
 			xp+= b->bTextXSubOffSet;
-			mprintf(xp, yp, b->string);
+			mprintf(xp, yp, L"%s", b->string);
 		}
 		// Restore the old text printing settings
 	}
