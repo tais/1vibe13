@@ -284,6 +284,10 @@ INT16 BaseAPsToShootOrStabNoModifier( INT16 bAPs, INT16 bAimSkill, OBJECTTYPE * 
 INT16 TerrainActionPoints( SOLDIERTYPE *pSoldier, INT32 sGridno, INT8 bDir, INT8 bLevel );
 INT16 ActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode	);
 INT16 EstimateActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode, INT8 bPathIndex, INT8 bPathLength );
+// M-PF2: bracket one A* pathfinding search to cache the path-invariant
+// FindBackpackOnSoldier() result used by the per-neighbour AP cost helpers.
+void BeginPathingBackpackCache( SOLDIERTYPE* pSoldier );
+void EndPathingBackpackCache( void );
 BOOLEAN SelectedMercCanAffordMove(	);
 
 BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLEAN fDisplayMsg );

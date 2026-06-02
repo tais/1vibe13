@@ -47,6 +47,44 @@ extern UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndRead
 
 INT16 GetBreathPerAP( SOLDIERTYPE *pSoldier, UINT16 usAnimState );
 
+// --- A*-search-scoped FindBackpackOnSoldier cache (M-PF2) ---------------------
+// FindBackpackOnSoldier() does an inner double-loop over the whole inventory and
+// is the path-invariant soldier fact recomputed on every A* neighbour (via
+// TerrainActionPoints / ActionPointCostFromTileCost). A soldier's inventory never
+// changes during a single pathfinding search, so the result is constant for the
+// duration of that search. The modern A* search brackets one search with
+// BeginPathingBackpackCache()/EndPathingBackpackCache(); within that window the
+// helper below returns the cached slot instead of recomputing it.
+//
+// IMPORTANT: this cache is OFF unless explicitly enabled, and is consulted only
+// when the queried soldier matches the one it was primed for. Every other caller
+// (combat AP, UI estimates, RecalculatePathCost, ...) therefore computes exactly
+// as before -- bit-identical results.
+static const SOLDIERTYPE*	gpPathingBackpackCacheSoldier	= NULL;
+static INT8					gbPathingBackpackCacheSlot		= ITEM_NOT_FOUND;
+
+void BeginPathingBackpackCache( SOLDIERTYPE* pSoldier )
+{
+	gpPathingBackpackCacheSoldier	= pSoldier;
+	gbPathingBackpackCacheSlot		= FindBackpackOnSoldier( pSoldier );
+}
+
+void EndPathingBackpackCache( void )
+{
+	gpPathingBackpackCacheSoldier	= NULL;
+	gbPathingBackpackCacheSlot		= ITEM_NOT_FOUND;
+}
+
+// Returns FindBackpackOnSoldier(pSoldier), served from the A*-search cache when it
+// is active for exactly this soldier; otherwise computed fresh (identical result).
+static inline INT8 PathingFindBackpackOnSoldier( SOLDIERTYPE* pSoldier )
+{
+	if ( pSoldier == gpPathingBackpackCacheSoldier )
+		return gbPathingBackpackCacheSlot;
+	return FindBackpackOnSoldier( pSoldier );
+}
+
+
 INT16 TerrainActionPoints( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, INT8 bLevel )
 {
 	// SANDRO - Note: this procedure was changed a bit
@@ -178,7 +216,7 @@ INT16 TerrainActionPoints( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, INT8
 		}
 		// CHRISL: 
 		// SANDRO - some little changes here
-		if((UsingNewInventorySystem() == true) && FindBackpackOnSoldier( pSoldier ) != ITEM_NOT_FOUND)
+		if((UsingNewInventorySystem() == true) && PathingFindBackpackOnSoldier( pSoldier ) != ITEM_NOT_FOUND)
 			return( GetAPsToJumpFence( pSoldier, TRUE ) );
 		else
 			return( GetAPsToJumpFence( pSoldier, FALSE ) );
@@ -536,7 +574,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 		if (usMovementMode == RUNNING && pSoldier->usAnimState != RUNNING)
 		{
 			// CHRISL
-			if ((UsingNewInventorySystem() == true) && FindBackpackOnSoldier(pSoldier) != ITEM_NOT_FOUND)
+			if ((UsingNewInventorySystem() == true) && PathingFindBackpackOnSoldier(pSoldier) != ITEM_NOT_FOUND)
 			{
 				sPoints += GetAPsStartRun(pSoldier) + 2; // changed by SANDRO
 			}
@@ -593,7 +631,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 		// Moa: apply penalty for heavily packed backpack (wobble penalty)
 		if ( UsingNewInventorySystem() == true && gGameExternalOptions.fBackPackWeightLowersAP )
 		{
-			INT8 bSlot= FindBackpackOnSoldier( pSoldier );
+			INT8 bSlot= PathingFindBackpackOnSoldier( pSoldier );
 			if ( bSlot != ITEM_NOT_FOUND )
 			{
 				UINT16 usBPPenalty = APBPConstants[AP_MODIFIER_PACK];
