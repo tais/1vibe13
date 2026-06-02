@@ -4,11 +4,25 @@
 
 // ---- SaveWriter -----------------------------------------------------------
 
+void SaveWriter::flush() const
+{
+	if (bufLen == 0) return;
+	UINT32 wrote = 0;
+	if (!FileWrite(hFile, buf, bufLen, &wrote) || wrote != bufLen) ok = false;
+	bufLen = 0;
+}
+
 void SaveWriter::raw(const void* p, UINT32 n)
 {
 	if (!ok || n == 0) return;
-	UINT32 wrote = 0;
-	if (!FileWrite(hFile, p, n, &wrote) || wrote != n) ok = false;
+	const UINT8* s = static_cast<const UINT8*>(p);
+	while (n > 0)
+	{
+		if (bufLen == kBufSize) { flush(); if (!ok) return; }
+		const UINT32 take = (n < kBufSize - bufLen) ? n : (kBufSize - bufLen);
+		std::memcpy(buf + bufLen, s, take);
+		bufLen += take; s += take; n -= take;
+	}
 }
 
 void SaveWriter::u8(UINT8 v) { raw(&v, 1); }
