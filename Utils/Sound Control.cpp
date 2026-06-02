@@ -1080,9 +1080,9 @@ void SetPositionSndsVolumeAndPanning()
 
 					if ( pPositionSnd->uiFlags & POSITION_SOUND_FROM_SOLDIER )
 					{
-						pSoldier = (SOLDIERTYPE *)pPositionSnd->uiData;
+						pSoldier = MercPtrs[ pPositionSnd->uiData ];
 
-						if ( pSoldier->bVisible == -1 )
+						if ( pSoldier != NULL && pSoldier->bVisible == -1 )
 						{
 							// Limit volume,,,
 							if ( bVolume > 10 )
