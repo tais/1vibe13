@@ -22,8 +22,16 @@
 class SaveWriter
 {
 public:
-	explicit SaveWriter(HWFILE f) : hFile(f), ok(true) {}
-	bool good() const { return ok; }
+	explicit SaveWriter(HWFILE f) : hFile(f), bufLen(0), ok(true) {}
+	// Flush on destruction so the buffered bytes reach the shared HWFILE before
+	// the next writer / FileGetPos / seek runs (writers are used one record at a
+	// time, so each record's bytes land before the next operation).
+	~SaveWriter() { flush(); }
+	// good() flushes first: the helpers check good() while the writer is still
+	// alive (e.g. `if(!w.good()) return FALSE;`), so it must report the actual
+	// FileWrite result, not just whether the in-memory buffering succeeded.
+	// Idempotent -- after a flush the buffer is empty, so extra calls are no-ops.
+	bool good() const { flush(); return ok; }
 
 	void u8 (UINT8  v);
 	void u16(UINT16 v);
@@ -46,8 +54,16 @@ public:
 	void skip(UINT32 n);
 
 private:
-	HWFILE hFile;
-	bool   ok;
+	// Coalesce field writes into one FileWrite per flush instead of one FileWrite
+	// per field (per character for wstr/skip) -- on an unbuffered HWFILE backend
+	// that is 1-2 orders of magnitude fewer I/O calls per save. On-disk bytes are
+	// identical; only the call batching changes.
+	static const UINT32 kBufSize = 8192;
+	HWFILE         hFile;
+	mutable UINT32 bufLen;
+	mutable bool   ok;
+	mutable UINT8  buf[kBufSize];
+	void flush() const;
 	void raw(const void* p, UINT32 n);
 };
 
