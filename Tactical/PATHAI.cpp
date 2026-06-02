@@ -2159,12 +2159,7 @@ INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMov
 
 	if (gGameSettings.fOptions[TOPTION_ALT_PATHFINDING])
 	{
-		CHAR8 errorBuf[511]; UINT32 b,e;
-		b=GetJA2Clock();//return s->sGridNo+6;
-	
 		int retVal = ASTAR::AStarPathfinder::GetInstance().GetPath(s, sDestination, bLevel, usMovementMode, bCopy, fFlags);
-
-		e=GetJA2Clock();sprintf(errorBuf, "timefind bestpath= %d",e-b );LiveMessage(errorBuf);
 
 		if (retVal || TileIsOutOfBounds(sDestination)) {
 			return retVal;
