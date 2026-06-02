@@ -9906,17 +9906,20 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 	if (iSightRange == 0) {	// didn't do a bodypart-based test or can't see specific body part aimed at
 		iSightRange = SoldierTo3DLocationLineOfSightTest( pShooter, pShooter->sTargetGridNo, pShooter->bTargetLevel, pShooter->bTargetCubeLevel, TRUE, NO_DISTANCE_LIMIT, false );
 	}
-	if (iSightRange == 0) {	// Can't see the target but we still need to know what the sight range would be if we could so we can deal with cover penalties
+	if (iSightRange == 0 && ubTargetID != NOBODY) {	// Can't see the target but we still need to know what the sight range would be if we could so we can deal with cover penalties
 		iSightRange = SoldierToSoldierLineOfSightTest( pShooter, ubTargetID, TRUE, NO_DISTANCE_LIMIT, pShooter->bAimShotLocation, false, true );
 	}
 
 	// Modify iSightRange for scope use
 	iSightRange = (INT32)(iSightRange / scopeRangeMod);
 
-	if (pShooter->aiData.bOppList[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] == SEEN_CURRENTLY)
-		iSightRange *= 2;
-	else if(pShooter->aiData.bOppList[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] != SEEN_CURRENTLY)
-		iSightRange *= 4;
+	if (ubTargetID != NOBODY)
+	{
+		if (pShooter->aiData.bOppList[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] == SEEN_CURRENTLY)
+			iSightRange *= 2;
+		else if(pShooter->aiData.bOppList[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] != SEEN_CURRENTLY)
+			iSightRange *= 4;
+	}
 
 	// CHRISL: Divide physical range by sight range.  Not the other way around.  We wan't CFA to go down if someone appears to be further
 	//	then they are because of terrain or the fact that we can't see them.
