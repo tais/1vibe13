@@ -94,7 +94,7 @@ BOOLEAN ReadInSoundArray(STR fileName)
     UINT32		uiBytesRead;
     UINT32		uiFSize;
     CHAR8 *		lpcBuffer;
-    XML_Parser	parser = XML_ParserCreate(NULL);
+    XML_Parser	parser;
     soundParseData pData;
     DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("Loading %s",SOUNDSFILENAME ) );
 
@@ -103,12 +103,16 @@ BOOLEAN ReadInSoundArray(STR fileName)
     if ( !hFile )
         return( FALSE );
 
+    parser = XML_ParserCreate(NULL);
+
     uiFSize = FileGetSize(hFile);
     lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
     //Read in block
     if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
     {
         MemFree(lpcBuffer);
+        FileClose( hFile );
+        XML_ParserFree(parser);
         return( FALSE );
     }
     lpcBuffer[uiFSize] = 0; //add a null terminator
