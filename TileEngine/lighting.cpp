@@ -2168,6 +2168,9 @@ BOOLEAN fOnlyWalls;
 	}
 */
 
+	const UINT32 uiSpriteFlags = LightSprites[uiSprite].uiFlags;
+	const BOOLEAN fSpriteOnRoof = (BOOLEAN)((uiSpriteFlags&LIGHT_SPR_ONROOF) != 0);
+
 	iOldX = iX;
 	iOldY = iY;
 
@@ -2182,7 +2185,7 @@ BOOLEAN fOnlyWalls;
 
 			pLight=pLightList[iLight]+(usNodeIndex&(~LIGHT_BACKLIGHT));
 
-			if(!(LightSprites[uiSprite].uiFlags&LIGHT_SPR_ONROOF))
+			if(!fSpriteOnRoof)
 			{
 				if(LightTileBlocked( (INT16)iOldX, (INT16)iOldY, (INT16)(iX+pLight->iDX), (INT16)(iY+pLight->iDY)))
 				{
@@ -2196,9 +2199,9 @@ BOOLEAN fOnlyWalls;
 			if(!(pLight->uiFlags&LIGHT_NODE_DRAWN) && (pLight->ubLight) )
 			{
 				uiFlags=(UINT32)(usNodeIndex&LIGHT_BACKLIGHT);
-				if (LightSprites[uiSprite].uiFlags & MERC_LIGHT)
+				if (uiSpriteFlags & MERC_LIGHT)
 					uiFlags |= LIGHT_FAKE;
-				if(LightSprites[uiSprite].uiFlags&LIGHT_SPR_ONROOF)
+				if(fSpriteOnRoof)
 					uiFlags|=LIGHT_ROOF_ONLY;
 
 				LightAddTile(uiLightType, (INT16)iOldX, (INT16)iOldY, (INT16)(iX+pLight->iDX), (INT16)(iY+pLight->iDY), pLight->ubLight, uiFlags, fOnlyWalls );
@@ -2800,6 +2803,9 @@ BOOLEAN fOnlyWalls;
 		pLight->uiFlags&=(~LIGHT_NODE_DRAWN);
 	}
 
+	const UINT32 uiSpriteFlags = LightSprites[uiSprite].uiFlags;
+	const BOOLEAN fSpriteOnRoof = (BOOLEAN)((uiSpriteFlags&LIGHT_SPR_ONROOF) != 0);
+
 	iOldX = iX;
 	iOldY = iY;
 
@@ -2813,7 +2819,7 @@ BOOLEAN fOnlyWalls;
 
 			pLight=pLightList[iLight]+(usNodeIndex&(~LIGHT_BACKLIGHT));
 
-			if(!(LightSprites[uiSprite].uiFlags&LIGHT_SPR_ONROOF))
+			if(!fSpriteOnRoof)
 			{
 				if(LightTileBlocked( (INT16)iOldX, (INT16)iOldY, (INT16)(iX+pLight->iDX), (INT16)(iY+pLight->iDY)))
 				{
@@ -2827,9 +2833,9 @@ BOOLEAN fOnlyWalls;
 			if(!(pLight->uiFlags&LIGHT_NODE_DRAWN) && (pLight->ubLight) )
 			{
 				uiFlags=(UINT32)(usNodeIndex&LIGHT_BACKLIGHT);
-				if (LightSprites[uiSprite].uiFlags & MERC_LIGHT)
+				if (uiSpriteFlags & MERC_LIGHT)
 					uiFlags |= LIGHT_FAKE;
-				if(LightSprites[uiSprite].uiFlags&LIGHT_SPR_ONROOF)
+				if(fSpriteOnRoof)
 					uiFlags|=LIGHT_ROOF_ONLY;
 
 				LightSubtractTile(uiLightType, (INT16)iOldX, (INT16)iOldY, (INT16)(iX+pLight->iDX), (INT16)(iY+pLight->iDY), pLight->ubLight, uiFlags, fOnlyWalls );
