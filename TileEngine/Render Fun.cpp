@@ -209,7 +209,7 @@ void ExamineGridNoForSlantRoofExtraGraphic( INT32 sCheckGridNo )
 		{
 			ppTile = pBase->pDBStructureRef->ppTile;
 			sGridNo = AddPosRelToBase(pBase->sGridNo, ppTile[ubLoop]);
-			if (sGridNo < 0 || sGridNo > WORLD_MAX)
+			if (sGridNo < 0 || sGridNo >= WORLD_MAX)
 			{
 				continue;
 			}

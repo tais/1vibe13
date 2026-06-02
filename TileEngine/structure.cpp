@@ -645,7 +645,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 
 	ppTile = pDBStructureRef->ppTile;
 	sGridNo = AddPosRelToBase(sBaseGridNo, ppTile[ubTileIndex]);
-	if (sGridNo < 0 || sGridNo > WORLD_MAX)
+	if (sGridNo < 0 || sGridNo >= WORLD_MAX)
 	{
 		return( FALSE );
 	}
