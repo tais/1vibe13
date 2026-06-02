@@ -228,7 +228,17 @@ INT32	CreatePhysicalObject( OBJECTTYPE *pGameObj, real dLifeLength, real xPos, r
 	pObject->initialize();
 
 	// OK, GET OBJECT DATA AND COPY
-	pObject->Obj = *pGameObj;
+	// For test objects only usItem is read during the trajectory sim
+	// (all deep-Obj consumers are gated behind !fTestObject), so skip
+	// the OBJECTTYPE deep copy of attachment lists etc.
+	if ( fTestObject != NO_TEST_OBJECT )
+	{
+		pObject->Obj.usItem = pGameObj->usItem;
+	}
+	else
+	{
+		pObject->Obj = *pGameObj;
+	}
 
 	// Get mass
 	mass =	CALCULATE_OBJECT_MASS( Item[pGameObj->usItem ].ubWeight );
