@@ -307,6 +307,10 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 	BOOLEAN		 fTrapsFound = FALSE;
 
 	pBaseStructure = FindBaseStructure( pStructure );
+	if ( pBaseStructure == NULL )
+	{
+		return;
+	}
 
 	if ( fDoor )
 	{
