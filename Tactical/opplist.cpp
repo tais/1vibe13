@@ -3368,14 +3368,17 @@ void InitSoldierOppList(SOLDIERTYPE *pSoldier)
 
 void BetweenTurnsVisibilityAdjustments(void)
 {
-	INT32 cnt;
+	UINT32 cnt;
 	SOLDIERTYPE *pSoldier;
 
 
 	// make all soldiers on other teams that are no longer seen not visible
-	for (cnt = 0, pSoldier = Menptr; cnt < MAXMERCS; cnt++,pSoldier++)
+	// iterate only the active merc slots (skips the ~1200 inactive Menptr slots)
+	for (cnt = 0; cnt < guiNumMercSlots; cnt++)
 	{
-		if (pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife)
+		pSoldier = MercSlots[ cnt ];
+
+		if (pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife)
 		{
 			BOOLEAN SEE_MENT = FALSE;
 
