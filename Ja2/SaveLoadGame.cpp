@@ -6362,25 +6362,33 @@ BOOLEAN SaveFilesToSavedGame( STR pSrcFileName, HWFILE hFile )
 	//Get the file size of the source data file
 	uiFileSize = FileGetSize( hSrcFile );
 	if( uiFileSize == 0 )
+	{
+		FileClose( hSrcFile );
 		return( FALSE );
+	}
 
 	// Write the the size of the file to the saved game file
 	FileWrite( hFile, &uiFileSize, sizeof( UINT32 ), &uiNumBytesWritten );
 	if( uiNumBytesWritten != sizeof( UINT32 ) )
 	{
+		FileClose( hSrcFile );
 		return(FALSE);
 	}
 
 	//Allocate a buffer to read the data into
 	pData = (UINT8 *) MemAlloc( uiFileSize );
 	if( pData == NULL )
+	{
+		FileClose( hSrcFile );
 		return( FALSE );
+	}
 	memset( pData, 0, uiFileSize);
 
 	// Read the saource file into the buffer
 	FileRead( hSrcFile, pData, uiFileSize, &uiNumBytesRead );
 	if( uiNumBytesRead != uiFileSize )
 	{
+		FileClose( hSrcFile );
 		//Free the buffer
 		MemFree( pData );
 
@@ -6391,6 +6399,7 @@ BOOLEAN SaveFilesToSavedGame( STR pSrcFileName, HWFILE hFile )
 	FileWrite( hFile, pData, uiFileSize, &uiNumBytesWritten );
 	if( uiNumBytesWritten != uiFileSize )
 	{
+		FileClose( hSrcFile );
 		//Free the buffer
 		MemFree( pData );
 
