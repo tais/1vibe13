@@ -2451,7 +2451,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 
 	if ( this->ubBodyType == QUEENMONSTER )
 	{
-		this->iPositionSndID = NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER, (UINT32)(uintptr_t)this, QUEEN_AMBIENT_NOISE, 15 );
+		this->iPositionSndID = NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER, (UINT32)this->ubID, QUEEN_AMBIENT_NOISE, 15 );
 	}
 
 
