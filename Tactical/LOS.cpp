@@ -1318,7 +1318,13 @@ INT32 LineOfSightTest( FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX,
 	INT32						iStepsToTravelY;
 	INT32						iStepsToTravel;
 	BOOLEAN					fResolveHit;
-	DOUBLE					ddHorizAngle;
+	// atan2 is only needed when a ray actually terminates on a wall (the minority
+	// of LOS tests -- clear lines and tree-only lines never use it). Compute it
+	// lazily at the first ResolveHitOnWall rather than eagerly for every ray.
+	// dDeltaX/dDeltaY are the constant ray delta, so the value is bit-identical to
+	// the old eager computation.
+	DOUBLE					ddHorizAngle = 0.0;
+	bool					fHorizAngleComputed = false;
 	INT32						iStructureHeight;
 
 	FIXEDPT					qWallHeight;
@@ -1380,7 +1386,7 @@ INT32 LineOfSightTest( FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX,
 		return( 0 );
 	}
 
-	ddHorizAngle = atan2( dDeltaY, dDeltaX );
+	// ddHorizAngle is computed lazily on the first wall hit (see decl above).
 
 #ifdef LOS_DEBUG
 	memset( &gLOSTestResults, 0, sizeof( LOSResults ) );
@@ -1738,6 +1744,7 @@ INT32 LineOfSightTest( FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX,
 											{
 												DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("LineOfSightTest: checking thru wall, thermal = %d",fSmell));
 												// possibly at corner in which case we should let it pass
+												if ( !fHorizAngleComputed ) { ddHorizAngle = atan2( dDeltaY, dDeltaX ); fHorizAngleComputed = true; }
 												fResolveHit = ResolveHitOnWall( pStructure, iGridNo, bLOSIndexX, bLOSIndexY, ddHorizAngle );
 											}
 											else
@@ -1823,6 +1830,7 @@ INT32 LineOfSightTest( FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX,
 											if (pStructure->fFlags & STRUCTURE_WALLSTUFF)
 											{
 												// possibly shooting at corner in which case we should let it pass
+												if ( !fHorizAngleComputed ) { ddHorizAngle = atan2( dDeltaY, dDeltaX ); fHorizAngleComputed = true; }
 												fResolveHit = ResolveHitOnWall( pStructure, iGridNo, bLOSIndexX, bLOSIndexY, ddHorizAngle );
 											}
 											else
