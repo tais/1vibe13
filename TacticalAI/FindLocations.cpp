@@ -2720,8 +2720,6 @@ INT32 FindFlankingSpot(SOLDIERTYPE *pSoldier, INT32 sPos, INT8 bAction )
 		{
 			// calculate the next potential gridno
 			sGridNo = pSoldier->sGridNo + sXOffset + (MAXCOL * sYOffset);
-			sTempDir = GetDirectionFromGridNo ( sGridNo, pSoldier );
-			sTempDist = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo , sGridNo );
 
 			//NumMessage("Testing gridno #",gridno);
 			if ( !(sGridNo >=0 && sGridNo < WORLD_MAX) )
@@ -2744,6 +2742,9 @@ INT32 FindFlankingSpot(SOLDIERTYPE *pSoldier, INT32 sPos, INT8 bAction )
 			{
 				continue;
 			}
+
+			sTempDir = GetDirectionFromGridNo ( sGridNo, pSoldier );
+			sTempDist = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo , sGridNo );
 
 			// sevenfm: don't go into deep water for flanking
 			if (!AllowDeepWaterFlanking(pSoldier) &&
