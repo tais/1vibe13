@@ -626,7 +626,6 @@ BOOLEAN ReadInInventoryStats(DEALER_POSSIBLE_INV *pInv, STR fileName)
 	UINT32		uiBytesRead;
 	UINT32		uiFSize;
 	CHAR8 *		lpcBuffer;
-	parser = XML_ParserCreate(NULL);
 	gFileName = fileName;
 
 	inventoryParseData pData;
@@ -638,6 +637,8 @@ BOOLEAN ReadInInventoryStats(DEALER_POSSIBLE_INV *pInv, STR fileName)
 	if ( !hFile )
 		return( FALSE );
 
+	parser = XML_ParserCreate(NULL);
+
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
 
@@ -645,6 +646,8 @@ BOOLEAN ReadInInventoryStats(DEALER_POSSIBLE_INV *pInv, STR fileName)
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
+		FileClose(hFile);
+		XML_ParserFree(parser);
 		return( FALSE );
 	}
 
