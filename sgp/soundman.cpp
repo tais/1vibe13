@@ -547,8 +547,14 @@ UINT32 SoundGetPosition(UINT32 uiSoundID)
 {
 	UINT32 idx = FindChannelByID(uiSoundID);
 	if (idx == NO_SAMPLE || !gChannels[idx].track) return 0;
+	// MIX_GetTrackPlaybackPosition() is in sample frames, but callers
+	// (PollAudioGap) expect milliseconds to compare against .gap timings.
+	// Convert frames->ms via the track's input sample rate. Both helpers
+	// return -1 on error, which we clamp to 0.
 	Sint64 frames = MIX_GetTrackPlaybackPosition(gChannels[idx].track);
-	return (UINT32)((frames < 0) ? 0 : frames);
+	if (frames < 0) return 0;
+	Sint64 ms = MIX_TrackFramesToMS(gChannels[idx].track, frames);
+	return (UINT32)((ms < 0) ? 0 : ms);
 }
 
 // ---- Public API: service loop --------------------------------------------
