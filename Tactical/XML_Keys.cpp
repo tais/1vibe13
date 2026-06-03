@@ -83,7 +83,7 @@ keyEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if(num_found_key < pData->maxArraySize)
+			if(pData->curIndex < pData->maxArraySize)
 			{
 
 				pData->curArray[pData->curIndex] = pData->curKey;

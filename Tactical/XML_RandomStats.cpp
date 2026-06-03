@@ -97,8 +97,10 @@ RandomStatsEndElementHandle(void *userData, const XML_Char *name)
 		}
 		else if(strcmp(name, "PROFILE") == 0)
 		{
-			pData->curElement = ELEMENT_LIST;	
-			
+			pData->curElement = ELEMENT_LIST;
+
+			if (pData->curRandomStats.uiIndex < (sizeof(gRandomStatsValue)/sizeof(gRandomStatsValue[0])))
+			{
 					gRandomStatsValue[pData->curRandomStats.uiIndex].Enabled = pData->curRandomStats.Enabled;
 					gRandomStatsValue[pData->curRandomStats.uiIndex].BaseAttribute = pData->curRandomStats.BaseAttribute;
 					gRandomStatsValue[pData->curRandomStats.uiIndex].RandomExpLevel = pData->curRandomStats.RandomExpLevel;
@@ -113,6 +115,8 @@ RandomStatsEndElementHandle(void *userData, const XML_Char *name)
 					gRandomStatsValue[pData->curRandomStats.uiIndex].RandomExplosive = pData->curRandomStats.RandomExplosive;
 					gRandomStatsValue[pData->curRandomStats.uiIndex].RandomMedical = pData->curRandomStats.RandomMedical;
 					gRandomStatsValue[pData->curRandomStats.uiIndex].RandomScientific = pData->curRandomStats.RandomScientific;
+			}
+			// else: skip malformed/out-of-range index to avoid OOB write into gRandomStatsValue[]
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{

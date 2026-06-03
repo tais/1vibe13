@@ -90,11 +90,11 @@ lockEndElementHandle(void *userData, const XML_Char *name)
 			pData->curElement = ELEMENT_LIST;	
 			
 			//if(pData->curLock.uiIndex < pData->maxArraySize)
-			if(num_found_lock < pData->maxArraySize)
+			if(pData->curIndex < pData->maxArraySize)
 			{
 				pData->curArray[pData->curIndex] = pData->curLock;
 				num_found_lock++;
-			}	
+			}
 		}
 		else if(strcmp(name, "ubLockID") == 0)
 		{

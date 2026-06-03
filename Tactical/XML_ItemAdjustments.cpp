@@ -133,8 +133,12 @@ transformEndElementHandle(void *userData, const XML_Char *name)
 		else if(strstr(name, "usResult") != NULL)
 		{
 			pData->curElement = ELEMENT;
-			pData->curTransform.usResult[pData->curResultIndex] = (UINT16) atol(pData->szCharData);
-			pData->curResultIndex++;
+			if (pData->curResultIndex < MAX_NUM_TRANSFORMATION_RESULTS)
+			{
+				pData->curTransform.usResult[pData->curResultIndex] = (UINT16) atol(pData->szCharData);
+				pData->curResultIndex++;
+			}
+			// else: ignore extra <usResult> tags to avoid OOB write into usResult[]
 		}
 		else if(strcmp(name, "usAPCost") == 0)
 		{

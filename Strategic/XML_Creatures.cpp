@@ -337,7 +337,7 @@ creatureplacementEndElementHandle(void *userData, const XML_Char *name)
 
 			pData->curIndex = atol(pData->szCharData);
 			// CompIndex starts at 0
-			if ( pData->curIndex < 0 || pData->curIndex > MAX_NUMBER_OF_CREATURE_COMPOSITIONS )
+			if ( pData->curIndex < 0 || pData->curIndex >= MAX_NUMBER_OF_CREATURE_COMPOSITIONS )
 			{
 				pData->curIndex = INVALID_COMPOSITION_INDEX;
 			}
