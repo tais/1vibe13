@@ -201,6 +201,12 @@ void ExamineGridNoForSlantRoofExtraGraphic( INT32 sCheckGridNo )
 		// We have a slanted roof here ... find base and remove...
 		pBase = FindBaseStructure( pStructure );
 
+		if( pBase == NULL )
+		{
+			Assert( 0 );
+			return;
+		}
+
 		// Get LEVELNODE for struct and remove!
 		pNode = FindLevelNodeBasedOnStructure( pBase->sGridNo, pBase );
 
