@@ -348,7 +348,7 @@ AMMOTYPE AmmoTypes[MAXITEMS];
 
 // the amount of momentum reduction for the head, torso, and legs
 // used to determine whether the bullet will go through someone
-UINT8 BodyImpactReduction[4] = { 0, 15, 30, 23 };
+UINT8 BodyImpactReduction[5] = { 0, 15, 30, 23, 0 };
 
 bool gbForceWeaponNotReady = false;
 bool gbForceWeaponReady = false;
