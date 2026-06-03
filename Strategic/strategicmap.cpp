@@ -5345,7 +5345,7 @@ FLOAT GetSAMMaxDistanceToCoveredSector( UINT8 usSam )
 		{
 			for ( int y = 1; y < MAP_WORLD_Y - 1; ++y )
 			{
-				if ( ubSAMControlledSectors[y][x] & (1 << usSam) )
+				if ( ubSAMControlledSectors[y][x] & ( usSam < 32 ? ( 1U << usSam ) : 0U ) )
 				{
 					FLOAT dist = sqrt( FLOAT((sam_x - x)*(sam_x - x) + (sam_y - y)*(sam_y - y)) );
 
@@ -5370,7 +5370,7 @@ BOOLEAN DoesSamCoverSector( UINT8 usSam, UINT8 usSector, BOOLEAN* apSamIsWorking
 	if ( usSam < NUMBER_OF_SAMS )
 	{
 		// can this sam control this sector in principle?
-		if ( ubSAMControlledSectors[SECTORY( usSector )][SECTORX( usSector )] & (1 << usSam) )
+		if ( ubSAMControlledSectors[SECTORY( usSector )][SECTORX( usSector )] & ( usSam < 32 ? ( 1U << usSam ) : 0U ) )
 		{
 			UINT8 samsector = pSamList[usSam];
 
