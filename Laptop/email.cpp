@@ -1018,8 +1018,9 @@ void AddEmailMessage(INT32 iMessageOffset, INT32 iMessageLength,STR16 pSubject, 
 	*/
 	
 	// copy subject
-	pTempEmail->pSubject = (CHAR16 *) MemAlloc( 128 * sizeof(CHAR16) );
-	memset( pTempEmail->pSubject, 0, sizeof( CHAR16 ) * 128 );
+	const size_t subjLen = wcslen(pSubject);
+	pTempEmail->pSubject = (CHAR16 *) MemAlloc( (subjLen + 1) * sizeof(CHAR16) );
+	memset( pTempEmail->pSubject, 0, sizeof( CHAR16 ) * (subjLen + 1) );
 	wcscpy(pTempEmail->pSubject,pSubject);
 	
 	pTempEmail->EmailVersion = EmailType;
@@ -1030,8 +1031,7 @@ void AddEmailMessage(INT32 iMessageOffset, INT32 iMessageLength,STR16 pSubject, 
 	pTempEmail->usOffset =(UINT16)iMessageOffset;
 	pTempEmail->usLength =(UINT16)iMessageLength;
 
-	// null out last byte of subject
-	pTempEmail->pSubject[wcslen(pSubject)+1]=0;
+	// subject terminator already written by wcscpy above
 
 	pTempEmail->iCurrentIMPPosition = iCurrentIMPPosition;
 
