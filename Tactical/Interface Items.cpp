@@ -5902,7 +5902,9 @@ void UpdateAttachmentTooltips(OBJECTTYPE *pObject, UINT8 ubStatusIndex)
 					// If the attachment is not hidden
 					if (usAttachment > 0 && !ItemIsHiddenAddon(usAttachment) && !ItemIsHiddenAttachment(usAttachment))
 					{
-						if (wcslen( attachStr3 ) + wcslen(Item[usAttachment].szItemName) > 3600)
+						// Reserve room in attachStr3 for the leading "\n", the name, the trailing NUL,
+						// and the "\n..." overflow suffix appended on the early-out path.
+						if (wcslen( attachStr3 ) + wcslen(Item[usAttachment].szItemName) + 1 > (sizeof(attachStr3)/sizeof(attachStr3[0])) - 1 - 4)
 						{
 							// End list early to avoid overflow
 							wcscat( attachStr3, L"\n..." );
