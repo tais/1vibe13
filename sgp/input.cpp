@@ -379,8 +379,9 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	if ( (ubInputEvent == LEFT_BUTTON_UP) )
 	{
 		// Do we have a double click
-		if ( ( uiTimer - guiSingleClickTimer ) < DBL_CLK_TIME )
+		if ( ( uiTimer - guiSingleClickTimer ) < DBL_CLK_TIME && gusQueueCount <= 254 )
 		{
+			// This path enqueues TWO events, so ensure room for both before writing
 			guiSingleClickTimer = 0;
 
 			// Add a button up first...
