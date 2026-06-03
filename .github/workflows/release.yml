@@ -130,14 +130,27 @@ jobs:
 
       # ---- stage: self-contained executables (SDL3/SDL3_mixer + codecs are
       # statically linked in, so no runtime libs to ship) ----
-      - name: Stage payload (unix)
-        if: matrix.platform.name != 'windows'
+      - name: Stage payload (linux)
+        if: matrix.platform.name == 'linux'
         shell: bash
         run: |
           set -eux
           mkdir -p dist
           for app in JA2 JA2UB JA2MAPEDITOR; do
             cp "build/${app}_ENGLISH" dist/
+          done
+
+      - name: Stage payload (macos)
+        if: matrix.platform.name == 'macos'
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p dist
+          # macOS targets build as .app bundles (MACOSX_BUNDLE) so they launch from
+          # Finder without a Terminal; ship the bundle directory. Game data is not
+          # inside the .app -- drop it into an existing JA2 1.13 folder to run.
+          for app in JA2 JA2UB JA2MAPEDITOR; do
+            cp -R "build/${app}_ENGLISH.app" dist/
           done
 
       - name: Stage payload (windows)

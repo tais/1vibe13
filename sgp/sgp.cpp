@@ -1454,15 +1454,36 @@ int main(int argc, char** argv)
 		SDL_PathInfo iniInfo;
 		if (!SDL_GetPathInfo(GAME_INI_FILE, &iniInfo))
 		{
-			const char* base = SDL_GetBasePath(); // executable's directory (trailing slash); owned by SDL, do not free
+			auto changeDir = [](const char* dir) -> bool {
+#ifdef _WIN32
+				return _chdir(dir) == 0;
+#else
+				return chdir(dir) == 0;
+#endif
+			};
+
+			const char* base = SDL_GetBasePath(); // exe dir; inside a macOS .app bundle this is the bundle's Resources/. Owned by SDL, do not free.
 			if (base && *base)
 			{
-#ifdef _WIN32
-				_chdir(base);
-#else
-				if (chdir(base) != 0)
+				if (!changeDir(base))
 					std::fprintf(stderr, "Warning: could not change directory to '%s'\n", base);
-#endif
+
+				// Still not found? On macOS the executable may live inside a .app bundle
+				// (so Finder launches it without opening a Terminal). The game DATA is NOT
+				// inside the bundle -- the user drops JA2_ENGLISH.app into their existing
+				// JA2 1.13 folder, next to Data/ and Ja2.ini, so SDL_GetBasePath points
+				// inside the bundle. Walk up out of it to the folder that contains the .app.
+				if (!SDL_GetPathInfo(GAME_INI_FILE, &iniInfo))
+				{
+					const std::string p(base);
+					const std::string::size_type appPos = p.find(".app/");
+					if (appPos != std::string::npos)
+					{
+						const std::string::size_type slash = p.rfind('/', appPos);
+						if (slash != std::string::npos && slash > 0)
+							changeDir(p.substr(0, slash).c_str());
+					}
+				}
 			}
 		}
 	}
