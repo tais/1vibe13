@@ -3859,12 +3859,26 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 	{
 		MemFree( gPatrolGroup );
 	}
+	/* harden giPatrolArraySize like the garrison block below: it is read
+	* unclamped from the save file and used as a MemAlloc/FileRead count.
+	*/
+	if( giPatrolArraySize<iOrigPatrolArraySize || giPatrolArraySize<1 )
+	{
+	giPatrolArraySize = iOrigPatrolArraySize;
+	}
+	if( giPatrolArraySize > SAVED_PATROL_GROUPS )
+	{
+	giPatrolArraySize = SAVED_PATROL_GROUPS;
+	}
+
 	gPatrolGroup = (PATROL_GROUP*)MemAlloc( giPatrolArraySize * sizeof( PATROL_GROUP ) );
+	Assert( gPatrolGroup );
 	FileRead( hFile, gPatrolGroup, giPatrolArraySize * sizeof( PATROL_GROUP ), &uiNumBytesRead );
 	if( uiNumBytesRead != giPatrolArraySize * sizeof( PATROL_GROUP ) )
 		return FALSE;
+	/* if the Savegame File contains more Patrols then our Array, toss the remaining ones */
 	i = SAVED_PATROL_GROUPS - giPatrolArraySize;
-	while( i-- )
+	while( i-- > 0 ) /* prevent underrun */
 	{
 		FileRead( hFile, &gTempPatrolGroup, sizeof( PATROL_GROUP ), &uiNumBytesRead );
 		if( uiNumBytesRead != sizeof( PATROL_GROUP ) )
