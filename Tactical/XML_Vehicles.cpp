@@ -220,7 +220,7 @@ newCarEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT;
 
-			if(MAX_MAIN_VEHICLE_CHARS >= strlen(pData->szCharData))
+			if(MAX_MAIN_VEHICLE_CHARS > strlen(pData->szCharData))
 				strcpy(pData->curNewCar.szIconFace,pData->szCharData);
 			else
 			{
@@ -251,6 +251,9 @@ newCarEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
 			pData->curSeatIndex = (int) atol(pData->szCharData);
+			// Guard against a malformed/out-of-range SeatIndex from the XML to avoid an OOB write into VehicleSeats[].
+			if (pData->curSeatIndex < 0 || pData->curSeatIndex >= (int)(sizeof(pData->curNewCar.VehicleSeats)/sizeof(pData->curNewCar.VehicleSeats[0])))
+				pData->curSeatIndex = 0;
 			pData->curNewCar.VehicleSeats[pData->curSeatIndex].ubSeatIndex = pData->curSeatIndex;
 		}
 		else if(strcmp(name, "SeatName") == 0)
