@@ -4194,7 +4194,16 @@ void LoadMapLights( INT8 **hBuffer )
 
 	// read in the light colors!
 	LOADDATA( &ubNumColors, *hBuffer, 1 );
-	LOADDATA( LColors, *hBuffer, sizeof(SGPPaletteEntry)*ubNumColors );
+	{
+		// Copy only as many colors as LColors can hold, but advance the buffer
+		// past every on-disk entry so parsing stays byte-aligned.
+		UINT32 uiDiskBytes = sizeof(SGPPaletteEntry) * ubNumColors;
+		UINT32 uiCopyBytes = uiDiskBytes;
+		if( uiCopyBytes > sizeof(LColors) )
+			uiCopyBytes = sizeof(LColors);
+		memcpy( LColors, *hBuffer, uiCopyBytes );
+		*hBuffer += uiDiskBytes;
+	}
 
 	LOADDATA( &usNumLights, *hBuffer, 2 );
 
@@ -4233,10 +4242,19 @@ void LoadMapLights( INT8 **hBuffer )
 
 		if( ubStrLen )
 		{
-			LOADDATA( str, *hBuffer, ubStrLen );
+			// Copy at most sizeof(str)-1 chars into the fixed buffer, but advance
+			// the stream by the full on-disk length to stay byte-aligned.
+			UINT8 ubCopyLen = ubStrLen;
+			if( ubCopyLen > sizeof(str) - 1 )
+				ubCopyLen = sizeof(str) - 1;
+			memcpy( str, *hBuffer, ubCopyLen );
+			*hBuffer += ubStrLen;
+			str[ ubCopyLen ] = 0;
 		}
-
-		str[ ubStrLen ] = 0;
+		else
+		{
+			str[ 0 ] = 0;
+		}
 
 		iLSprite = LightSpriteCreate( str, TmpLight.uiLightType );
 		//if this fails, then we will ignore the light.
