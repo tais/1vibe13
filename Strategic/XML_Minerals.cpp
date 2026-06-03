@@ -86,7 +86,11 @@ mineralsEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if (!Minerals_TextOnly)
+			if (pData->curMinerals.uiIndex >= (sizeof(MineralsName)/sizeof(MineralsName[0])))
+			{
+				// skip malformed/out-of-range index to avoid OOB write into MineralsName[]
+			}
+			else if (!Minerals_TextOnly)
 			{
 				wcscpy(MineralsName[pData->curMinerals.uiIndex].sMinerals, pData->curMinerals.sMinerals);
 				wcscpy(MineralsName[pData->curMinerals.uiIndex].sType, pData->curMinerals.sType);
