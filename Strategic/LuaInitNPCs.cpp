@@ -4365,7 +4365,8 @@ static int l_gubFact(lua_State* L)
 		UINT32 Fact = lua_tointeger(L, 1);
 		BOOLEAN Bool = lua_toboolean(L, 2);
 
-		gubFact[Fact] = Bool;
+		if (Fact < NUM_FACTS)
+			gubFact[Fact] = Bool;
 	}
 
 	return 0;
@@ -4384,7 +4385,7 @@ static int l_GetgubFact(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 Fact = lua_tointeger(L, 1);
-		BOOLEAN Bool = gubFact[Fact];
+		BOOLEAN Bool = (Fact < NUM_FACTS) ? gubFact[Fact] : FALSE;
 		lua_pushboolean(L, Bool);
 	}
 
@@ -8855,12 +8856,15 @@ static int l_gubQuest(lua_State* L)
 		UINT8 quest = lua_tointeger(L, 1);
 
 		UINT8 Bool = 0;
-		if (gubQuest[quest] == QUESTNOTSTARTED)
-			Bool = 0;
-		else if (gubQuest[quest] == QUESTINPROGRESS)
-			Bool = 1;
-		else if (gubQuest[quest] == QUESTDONE)
-			Bool = 2;
+		if (quest < MAX_QUESTS)
+		{
+			if (gubQuest[quest] == QUESTNOTSTARTED)
+				Bool = 0;
+			else if (gubQuest[quest] == QUESTINPROGRESS)
+				Bool = 1;
+			else if (gubQuest[quest] == QUESTDONE)
+				Bool = 2;
+		}
 		lua_pushinteger(L, Bool);
 	}
 
@@ -8875,7 +8879,7 @@ static int l_SetgubQuest(lua_State* L)
 		 UINT8 quest = lua_tointeger(L, 1);
 		 UINT8 stat = lua_tointeger(L, 2);
 
-		if (stat == 0 || stat == 1 || stat == 2)
+		if ((stat == 0 || stat == 1 || stat == 2) && quest < MAX_QUESTS)
 			gubQuest[quest] = stat;
 	}
 

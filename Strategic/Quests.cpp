@@ -669,6 +669,8 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Quests");
 
 BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 {
+	if ( usFact >= NUM_FACTS )
+		return FALSE;
 
 
 //	LuaCheckFact ( usFact, ubProfileID, 0 );
@@ -1371,7 +1373,10 @@ void SetFact( UINT16 usFact, UINT8 aVal )
 
 UINT8 GetFact( UINT16 usFact )
 {
-	return gubFact[usFact];
+	if ( usFact < NUM_FACTS )
+		return gubFact[usFact];
+
+	return FALSE;
 }
 
 void StartQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY )
