@@ -1221,6 +1221,10 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 				UNDERGROUND_SECTORINFO *pUnderground;
 				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
 				Assert( pUnderground );
+				if( !pUnderground )
+				{
+					break;
+				}
 				if( pUnderground->ubNumElites )
 				{
 					pUnderground->ubNumElites--;
@@ -1255,6 +1259,10 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 				UNDERGROUND_SECTORINFO *pUnderground;
 				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
 				Assert( pUnderground );
+				if( !pUnderground )
+				{
+					break;
+				}
 				if( pUnderground->ubNumElites )
 				{
 					pUnderground->ubNumElites--;
@@ -1283,6 +1291,10 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 				UNDERGROUND_SECTORINFO *pUnderground;
 				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
 				Assert( pUnderground );
+				if( !pUnderground )
+				{
+					break;
+				}
 				if( pUnderground->ubNumTanks)
 				{
 					pUnderground->ubNumTanks--;
@@ -1312,6 +1324,10 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 				UNDERGROUND_SECTORINFO *pUnderground;
 				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
 				Assert( pUnderground );
+				if( !pUnderground )
+				{
+					break;
+				}
 				if ( pUnderground->ubNumJeeps )
 				{
 					pUnderground->ubNumJeeps--;
