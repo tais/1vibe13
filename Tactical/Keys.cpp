@@ -1516,7 +1516,6 @@ void SyncronizeDoorStatusToStructureData( DOOR_STATUS *pDoorStatus )
 	if (pStructure)
 	{
 		pBaseStructure = FindBaseStructure( pStructure );
-		sBaseGridNo	= pBaseStructure->sGridNo;
 	}
 	else
 	{
@@ -1528,6 +1527,8 @@ void SyncronizeDoorStatusToStructureData( DOOR_STATUS *pDoorStatus )
 		ComplainAboutMissingDoorStructure(pDoorStatus->sGridNo);
 		return;
 	}
+
+	sBaseGridNo	= pBaseStructure->sGridNo;
 
 	pNode = FindLevelNodeBasedOnStructure( sBaseGridNo, pBaseStructure );
 	if (!pNode)
@@ -1598,7 +1599,6 @@ void InternalUpdateDoorGraphicFromStatus( DOOR_STATUS *pDoorStatus, BOOLEAN fUse
 	if (pStructure)
 	{
 		pBaseStructure = FindBaseStructure( pStructure );
-		sBaseGridNo	= pBaseStructure->sGridNo;
 	}
 	else
 	{
@@ -1610,6 +1610,8 @@ void InternalUpdateDoorGraphicFromStatus( DOOR_STATUS *pDoorStatus, BOOLEAN fUse
 		ComplainAboutMissingDoorStructure(pDoorStatus->sGridNo);
 		return;
 	}
+
+	sBaseGridNo	= pBaseStructure->sGridNo;
 
 	pNode = FindLevelNodeBasedOnStructure( sBaseGridNo, pBaseStructure );
 	if (!pNode)

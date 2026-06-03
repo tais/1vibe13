@@ -7374,8 +7374,11 @@ static void RemoveStaticEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 bM
 		UNDERGROUND_SECTORINFO *pSectorInfo;
 
 		pSectorInfo = FindUnderGroundSector( sMapX, sMapY, bMapZ );
-		pSectorInfo->ubNumAdmins = pSectorInfo->ubNumTroops = pSectorInfo->ubNumElites = pSectorInfo->ubNumTanks = pSectorInfo->ubNumJeeps = pSectorInfo->ubNumRobots = 0;
-		pSectorInfo->ubAdminsInBattle = pSectorInfo->ubTroopsInBattle = pSectorInfo->ubElitesInBattle = pSectorInfo->ubTanksInBattle = pSectorInfo->ubJeepsInBattle = pSectorInfo->ubRobotsInBattle = 0;
+		if( pSectorInfo )
+		{
+			pSectorInfo->ubNumAdmins = pSectorInfo->ubNumTroops = pSectorInfo->ubNumElites = pSectorInfo->ubNumTanks = pSectorInfo->ubNumJeeps = pSectorInfo->ubNumRobots = 0;
+			pSectorInfo->ubAdminsInBattle = pSectorInfo->ubTroopsInBattle = pSectorInfo->ubElitesInBattle = pSectorInfo->ubTanksInBattle = pSectorInfo->ubJeepsInBattle = pSectorInfo->ubRobotsInBattle = 0;
+		}
 	}
 }
 
