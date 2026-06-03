@@ -1199,7 +1199,7 @@ BOOLEAN ExtractFilenameFromFields(void)
 {
 	Get16BitStringFromField(0, gzFilename, FILENAME_BUFLEN);
 	size_t len = wcslen(gzFilename);
-	if(gzFilename[len-4] != L'.' && len < (FILENAME_BUFLEN-4))
+	if((len >= 4 ? gzFilename[len-4] != L'.' : len > 0) && len < (FILENAME_BUFLEN-4))
 		wcscat(gzFilename, L".dat");
 	return(ValidFilename());
 }
