@@ -315,10 +315,23 @@ foreach(app IN LISTS ApplicationTargets)
     if(WIN32)
       list(APPEND exe_platform_sources Ja2/Res/ja2.rc)
     endif()
-    add_executable(${exe} WIN32
+    add_executable(${exe} WIN32 MACOSX_BUNDLE
       sgp/sgp.cpp
       ${exe_platform_sources}
     )
+    if(APPLE)
+      # Build the macOS executable as a .app bundle so Finder launches it GUI-style
+      # (no Terminal window). The game DATA is NOT bundled: the .app is just the
+      # binary + Info.plist, dropped into an existing JA2 1.13 folder next to Data/
+      # and Ja2.ini; the working-directory rescue in sgp.cpp walks out of the bundle
+      # to find that folder. (MACOSX_BUNDLE is ignored on non-Apple platforms, like
+      # the WIN32 keyword above.)
+      set_target_properties(${exe} PROPERTIES
+        MACOSX_BUNDLE_BUNDLE_NAME "${exe}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.ja2v113.${exe}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1.13"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.13")
+    endif()
     target_link_libraries(${exe} PRIVATE SDL3::SDL3)
     target_link_options(${exe} PRIVATE $<IF:${usingMsBuild},/SAFESEH:NO,>)
     target_compile_definitions(${exe} PRIVATE ${compilationFlags} ${debugFlags})
