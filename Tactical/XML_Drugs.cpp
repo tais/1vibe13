@@ -188,8 +188,13 @@ drugsEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->uiIndex = (UINT8)atol( pData->szCharData );
-			pData->curArray[pData->uiIndex].uiIndex = pData->uiIndex;
+			UINT32 newIndex = (UINT32)atol( pData->szCharData );
+			if ( newIndex < pData->maxArraySize )
+			{
+				pData->uiIndex = (UINT8)newIndex;
+				pData->curArray[pData->uiIndex].uiIndex = pData->uiIndex;
+			}
+			// else: reject out-of-range index to avoid OOB write into NewDrug[]
 		}
 		else if(strcmp(name, "szName") == 0)
 		{

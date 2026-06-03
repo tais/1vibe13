@@ -88,9 +88,13 @@ enemyRankEndElementHandle(void *userData, const XML_Char *name)
 		}
 		else if(strcmp(name, "RANK") == 0)
 		{
-			pData->curElement = ELEMENT_LIST;	
-			
-			if (!EnemyRank_TextOnly)
+			pData->curElement = ELEMENT_LIST;
+
+			if (pData->curEnemyRank.uiIndex >= (sizeof(zEnemyRank)/sizeof(zEnemyRank[0])))
+				{
+					// skip malformed/out-of-range index to avoid OOB write into zEnemyRank[]
+				}
+			else if (!EnemyRank_TextOnly)
 				{
 					wcscpy(zEnemyRank[pData->curEnemyRank.uiIndex].szCurRank, pData->curEnemyRank.szCurRank);
 					zEnemyRank[pData->curEnemyRank.uiIndex].Enabled = pData->curEnemyRank.Enabled;
@@ -102,8 +106,8 @@ enemyRankEndElementHandle(void *userData, const XML_Char *name)
 				else
 				{
 					wcscpy(zEnemyRank[pData->curEnemyRank.uiIndex].szCurRank, pData->curEnemyRank.szCurRank);
-				}		
-		
+				}
+
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
