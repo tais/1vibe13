@@ -399,14 +399,14 @@ void GameInitBobbyRGuns()
 	guiCurrentMiscFilterMode = -1;
 	guiCurrentMiscSubFilterMode = -1;
 
-	memset(&BobbyRayPurchases, 0, gGameExternalOptions.ubBobbyRayMaxPurchaseAmount);
+	memset(BobbyRayPurchases, 0, sizeof(BobbyRayPurchases));
 }
 
 void EnterInitBobbyRGuns()
 {
 	guiTempCurrentMode=0;
 
-	memset(&BobbyRayPurchases, 0, gGameExternalOptions.ubBobbyRayMaxPurchaseAmount);
+	memset(BobbyRayPurchases, 0, sizeof(BobbyRayPurchases));
 }
 
 
