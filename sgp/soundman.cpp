@@ -559,7 +559,24 @@ UINT32 SoundGetPosition(UINT32 uiSoundID)
 
 // ---- Public API: service loop --------------------------------------------
 
-BOOLEAN SoundServiceStreams(void) { return TRUE; } // SDL3_mixer services internally
+BOOLEAN SoundServiceStreams(void)
+{
+	// SDL3_mixer streams audio internally, so there are no decode buffers to
+	// refill here. BUT finished tracks are reaped lazily on the main thread
+	// (LazyReapChannel) -- and that only happened when something new was played
+	// (GetFreeChannel). Music loops by relying on its end-of-song EOS callback
+	// (gfMusicEnded) firing during that reap; with no other audio activity a song
+	// would END and the next one would not start until the player next triggered
+	// a sound (e.g. clicked) -- music "stops when idle, resumes on click".
+	// MusicPoll() calls us every frame, so reap finished channels here too: a
+	// finished music track's EOS callback then fires promptly and the next song
+	// starts on its own. Main-thread only (same as GetFreeChannel), so the
+	// thread-safety reason LazyReap exists is preserved.
+	for (UINT32 i = 0; i < SOUND_MAX_CHANNELS; ++i) {
+		if (gChannels[i].track) LazyReapChannel(gChannels[i]);
+	}
+	return TRUE;
+} // SDL3_mixer services internally; we only reap finished channels (music EOS)
 BOOLEAN SoundServiceRandom(void)  { return TRUE; } // random ambient TBD
 
 void ResetSoundMap(void) {}
