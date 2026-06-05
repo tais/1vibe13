@@ -515,7 +515,14 @@ BOOLEAN SoundStopAll(void)
 	return TRUE;
 }
 
-BOOLEAN SoundStopAllRandom(void) { return SoundStopAll(); }
+// Random/ambient sounds are stubbed in this port (SoundPlayRandom no-ops), so
+// there are NONE to stop. Crucially this must NOT fall through to SoundStopAll(),
+// which stops EVERY channel including the streamed music: StopAmbients() calls
+// this on entering the options / laptop / features screens (and on any option
+// toggle that refreshes the options screen), and that was killing the music.
+// No-op until the random-ambient subsystem actually lands (then it must stop
+// only random-category channels, never music/SFX).
+BOOLEAN SoundStopAllRandom(void) { return TRUE; }
 
 // ---- Public API: per-instance controls -----------------------------------
 
