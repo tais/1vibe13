@@ -45,8 +45,15 @@ namespace {
 struct SoundSample {
 	char     name[260] = {0};
 	MIX_Audio* audio   = nullptr;
-	UINT32   flags     = 0;          // SAMPLE_ALLOCATED / SAMPLE_LOCKED / ...
+	UINT32   flags     = 0;          // SAMPLE_ALLOCATED / SAMPLE_LOCKED / SAMPLE_RANDOM ...
 	UINT32   instances = 0;          // active tracks referencing this audio
+	// Random-ambient scheduling (SAMPLE_RANDOM): re-trigger this sample at a
+	// random interval, volume and pan, up to uiMaxInstances concurrent plays.
+	UINT32   uiTimeMin = 0, uiTimeMax = 0;          // ms between (re)plays
+	UINT32   uiVolMin  = MAX_VOLUME, uiVolMax = MAX_VOLUME;
+	UINT32   uiPanMin  = 64, uiPanMax = 64;         // 0..127, 64 == center
+	UINT32   uiMaxInstances = 1;
+	Uint64   uiTimeNext = 0;                          // SDL_GetTicks() of next play
 };
 
 struct SoundChannel {
@@ -484,12 +491,44 @@ UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
 	return SoundPlayInternal(pFilename, pParms, /*useEOSCallback=*/true);
 }
 
-UINT32 SoundPlayRandom(STR /*pFilename*/, RANDOMPARMS* /*pParms*/)
+// Cosmetic RNG for ambient jitter. Deliberately NOT the game's deterministic
+// Random() -- that feeds gameplay/saves/MP and must not be perturbed by audio.
+// SDL_rand keeps its own global state. Returns 0..n-1 (0 when n==0).
+static UINT32 SoundRandRange(UINT32 n) { return n ? (UINT32)SDL_rand((Sint32)n) : 0u; }
+
+// Register a sector ambient to be (re)played at random intervals. The sample is
+// cached + locked and flagged SAMPLE_RANDOM; SoundServiceRandom() (every frame
+// from MusicPoll) fires the instances. Callers memset RANDOMPARMS to 0xff and set
+// only the fields they care about, so an unset field arrives as 0xffffffff
+// ("default"). Music/SFX are untouched.
+UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms)
 {
-	// Random ambient sounds (looping per-tick re-trigger with timing/volume
-	// randomization) live on top of the basic mixer. Returns NO_SAMPLE so
-	// the rest of the random subsystem stays silent until we add it.
-	return NO_SAMPLE;
+	if (!gMixer || !gSoundEnabled || !pFilename || !pParms) return NO_SAMPLE;
+
+	UINT32 idx = SoundLoadSample(pFilename);
+	if (idx == NO_SAMPLE) return NO_SAMPLE;
+
+	SoundSample& s = gSamples[idx];
+	s.flags |= (SAMPLE_RANDOM | SAMPLE_LOCKED);
+
+	const UINT32 DEF = 0xffffffffu; // RANDOMPARMS memset(0xff) sentinel == "unset"
+	s.uiTimeMin = (pParms->uiTimeMin == DEF) ? 0u : pParms->uiTimeMin;
+	s.uiTimeMax = (pParms->uiTimeMax == DEF) ? s.uiTimeMin : pParms->uiTimeMax;
+	if (s.uiTimeMax < s.uiTimeMin) s.uiTimeMax = s.uiTimeMin;
+	s.uiVolMin = (pParms->uiVolMin == DEF) ? gDefaultVolume
+	                                       : (pParms->uiVolMin > MAX_VOLUME ? (UINT32)MAX_VOLUME : pParms->uiVolMin);
+	s.uiVolMax = (pParms->uiVolMax == DEF) ? gDefaultVolume
+	                                       : (pParms->uiVolMax > MAX_VOLUME ? (UINT32)MAX_VOLUME : pParms->uiVolMax);
+	if (s.uiVolMax < s.uiVolMin) s.uiVolMax = s.uiVolMin;
+	s.uiPanMin = (pParms->uiPanMin == DEF) ? 64u : (pParms->uiPanMin > 127 ? 127u : pParms->uiPanMin);
+	s.uiPanMax = (pParms->uiPanMax == DEF) ? 64u : (pParms->uiPanMax > 127 ? 127u : pParms->uiPanMax);
+	if (s.uiPanMax < s.uiPanMin) s.uiPanMax = s.uiPanMin;
+	s.uiMaxInstances = (pParms->uiMaxInstances == DEF || pParms->uiMaxInstances == 0)
+	                 ? 1u : pParms->uiMaxInstances;
+	s.instances = 0;
+	// First play after a random delay in [timeMin, timeMax], like the original.
+	s.uiTimeNext = SDL_GetTicks() + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
+	return idx;
 }
 
 BOOLEAN SoundIsPlaying(UINT32 uiSoundID)
@@ -515,14 +554,30 @@ BOOLEAN SoundStopAll(void)
 	return TRUE;
 }
 
-// Random/ambient sounds are stubbed in this port (SoundPlayRandom no-ops), so
-// there are NONE to stop. Crucially this must NOT fall through to SoundStopAll(),
-// which stops EVERY channel including the streamed music: StopAmbients() calls
-// this on entering the options / laptop / features screens (and on any option
-// toggle that refreshes the options screen), and that was killing the music.
-// No-op until the random-ambient subsystem actually lands (then it must stop
-// only random-category channels, never music/SFX).
-BOOLEAN SoundStopAllRandom(void) { return TRUE; }
+// Stop ONLY channels playing a SAMPLE_RANDOM (ambient) sample -- never the music
+// or ordinary SFX -- then unregister the random samples so they stop being
+// serviced and can leave the cache. (The migration had wrongly aliased this to
+// SoundStopAll(), which stopped EVERY channel including the streamed music, so
+// entering options/laptop/features or changing sector killed the music.)
+BOOLEAN SoundStopAllRandom(void)
+{
+	for (UINT32 i = 0; i < SOUND_MAX_CHANNELS; ++i) {
+		SoundChannel& ch = gChannels[i];
+		if (ch.track && ch.uiSoundID != 0 &&
+		    ch.uiSampleIdx != NO_SAMPLE && ch.uiSampleIdx < SOUND_MAX_CACHED &&
+		    (gSamples[ch.uiSampleIdx].flags & SAMPLE_RANDOM)) {
+			MIX_StopTrack(ch.track, 0);
+			LazyReapChannel(ch); // free the slot + decrement the sample's instance count now
+		}
+	}
+	for (UINT32 i = 0; i < SOUND_MAX_CACHED; ++i) {
+		if (gSamples[i].flags & SAMPLE_RANDOM) {
+			gSamples[i].flags    &= ~(SAMPLE_RANDOM | SAMPLE_LOCKED);
+			gSamples[i].instances = 0;
+		}
+	}
+	return TRUE;
+}
 
 // ---- Public API: per-instance controls -----------------------------------
 
@@ -584,7 +639,30 @@ BOOLEAN SoundServiceStreams(void)
 	}
 	return TRUE;
 } // SDL3_mixer services internally; we only reap finished channels (music EOS)
-BOOLEAN SoundServiceRandom(void)  { return TRUE; } // random ambient TBD
+BOOLEAN SoundServiceRandom(void)
+{
+	// Fire each registered ambient (SAMPLE_RANDOM) whose timer is due and that is
+	// below its concurrent-instance cap, then reschedule it. One-shot per play; the
+	// timer re-triggers. Runs every frame from MusicPoll, AFTER SoundServiceStreams()
+	// has reaped finished instances, so .instances is current.
+	const Uint64 now = SDL_GetTicks();
+	for (UINT32 i = 0; i < SOUND_MAX_CACHED; ++i) {
+		SoundSample& s = gSamples[i];
+		if (!s.audio || !(s.flags & SAMPLE_RANDOM) || (s.flags & SAMPLE_RANDOM_MANUAL)) continue;
+		if (now < s.uiTimeNext) continue;
+		if (s.instances < s.uiMaxInstances) {
+			SOUNDPARMS sp;
+			std::memset(&sp, 0xff, sizeof(sp));
+			sp.uiVolume = s.uiVolMin + SoundRandRange(s.uiVolMax - s.uiVolMin);
+			sp.uiPan    = s.uiPanMin + SoundRandRange(s.uiPanMax - s.uiPanMin);
+			sp.uiLoop   = 1; // one-shot; the random timer re-triggers it
+			SoundPlay(s.name, &sp); // increments s.instances; reaped later -> decrements
+		}
+		// Reschedule whether or not a channel was free, so we wait the interval.
+		s.uiTimeNext = now + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
+	}
+	return TRUE;
+}
 
 void ResetSoundMap(void) {}
 
