@@ -534,10 +534,10 @@ static void DoTransitionFromPreBattleInterfaceToAutoResolve()
 	RenderButtons();
 	RenderButtonsFastHelp();
 	//save it
-	BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, (UINT16)SrcRect.iLeft, (UINT16)SrcRect.iTop, (UINT16)SrcRect.iRight, (UINT16)SrcRect.iBottom );
+	BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, (UINT16)SrcRect.iLeft, (UINT16)SrcRect.iTop, (UINT16)(SrcRect.iRight - SrcRect.iLeft + 1), (UINT16)(SrcRect.iBottom - SrcRect.iTop + 1) );
 
 	//hide the autoresolve
-	BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, (UINT16)SrcRect.iLeft, (UINT16)SrcRect.iTop, (UINT16)SrcRect.iRight, (UINT16)SrcRect.iBottom );
+	BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, (UINT16)SrcRect.iLeft, (UINT16)SrcRect.iTop, (UINT16)(SrcRect.iRight - SrcRect.iLeft + 1), (UINT16)(SrcRect.iBottom - SrcRect.iTop + 1) );
 
 	PlayJA2SampleFromFile( "SOUNDS\\Laptop power up (8-11).wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 	while( iPercentage < 100	)

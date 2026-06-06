@@ -1145,7 +1145,7 @@ void DoTransitionFromMapscreenToPreBattleInterface()
 	gfRenderPBInterface = TRUE;
 
 	//hide the prebattle interface
-	BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, 0 + xOffset, 0 + yOffset, PREBATTLE_INTERFACE_WIDTH + xOffset, iPrebattleInterfaceHeight + yOffset );
+	BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, 0 + xOffset, 0 + yOffset, PREBATTLE_INTERFACE_WIDTH, iPrebattleInterfaceHeight );
 	PlayJA2SampleFromFile( "SOUNDS\\Laptop power up (8-11).wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 	InvalidateScreen();
 	RefreshScreen( NULL );
