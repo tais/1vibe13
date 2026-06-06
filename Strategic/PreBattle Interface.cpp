@@ -1145,7 +1145,7 @@ void DoTransitionFromMapscreenToPreBattleInterface()
 	gfRenderPBInterface = TRUE;
 
 	//hide the prebattle interface
-	BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, 0 + xOffset, 0 + yOffset, PREBATTLE_INTERFACE_WIDTH + xOffset, iPrebattleInterfaceHeight + yOffset );
+	BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, 0 + xOffset, 0 + yOffset, PREBATTLE_INTERFACE_WIDTH, iPrebattleInterfaceHeight );
 	PlayJA2SampleFromFile( "SOUNDS\\Laptop power up (8-11).wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 	InvalidateScreen();
 	RefreshScreen( NULL );
@@ -1179,9 +1179,15 @@ void DoTransitionFromMapscreenToPreBattleInterface()
 		InvalidateScreen();
 		RefreshScreen( NULL );
 
-		//Restore the previous rect.
-		BlitBufferToBuffer(guiEXTRABUFFER, FRAME_BUFFER, (UINT16)PrevRect.iLeft, (UINT16)PrevRect.iTop,
-			(UINT16)PrevRect.iRight, (UINT16)PrevRect.iBottom);
+		//Restore the previous rect -- but NOT on the final (full-size) frame. There is no
+		//next frame to clean up for, and restoring here erases part of the completed
+		//interface in FRAME_BUFFER, which the full-screen save below then copies into
+		//guiSAVEBUFFER -> a corrupt frame flashes during the handoff to the static interface.
+		if ( iPercentage < 100 )
+		{
+			BlitBufferToBuffer(guiEXTRABUFFER, FRAME_BUFFER, (UINT16)PrevRect.iLeft, (UINT16)PrevRect.iTop,
+				(UINT16)(PrevRect.iRight - PrevRect.iLeft), (UINT16)(PrevRect.iBottom - PrevRect.iTop));
+		}
 
 		PrevRect.iLeft = DstRect.iLeft;
 		PrevRect.iRight = DstRect.iRight;
