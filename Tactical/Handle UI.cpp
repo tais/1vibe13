@@ -1674,7 +1674,10 @@ UINT32 UIHandleMOnTerrain( UI_EVENT *pUIEvent )
 			}
 
 			// ATE: Draw invalidc cursor if heights different
-			if ( gpWorldLevelData[ usMapPos ].sHeight != gpWorldLevelData[ pSoldier->sGridNo ].sHeight )
+			// A just-killed selected merc still drives this handler before the bLife<OKLIFE
+			// reselect below runs; its sGridNo is then NOWHERE -> gpWorldLevelData OOB. Guard it.
+			if ( !TileIsOutOfBounds( pSoldier->sGridNo ) &&
+			     gpWorldLevelData[ usMapPos ].sHeight != gpWorldLevelData[ pSoldier->sGridNo ].sHeight )
 			{
 				// ERASE PATH
 				ErasePath( TRUE );
