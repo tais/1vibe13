@@ -3477,7 +3477,10 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 				}
 			}
 			// If no insertion direction exists, this is bad!
-			if ( pSoldier->sInsertionGridNo == -1 )
+			// catch ANY off-world insertion gridno (e.g. the unguarded INSERTION_CODE_GRIDNO
+			// case forwarding usStrategicInsertionData), not only NOWHERE(-1), so a counted
+			// enemy is never inserted off the map (ghost/invisible enemy).
+			if ( TileIsOutOfBounds( pSoldier->sInsertionGridNo ) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Insertion gridno for direction %d not added to map sector %d %d", pSoldier->ubStrategicInsertionCode, sSectorX, sSectorY ) );
 				pSoldier->sInsertionGridNo = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;//12880
