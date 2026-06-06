@@ -2422,6 +2422,15 @@ INT32 FindNearbyPointOnEdgeOfMap( SOLDIERTYPE * pSoldier, INT8 * pbDirection )
 
 	bClosestDirection = -1;
 
+	// An invalid origin -- an unplaced / off-world scheduled NPC whose sGridNo is
+	// NOWHERE, or a gridno past this sector's map -- would index gpWorldLevelData
+	// out of bounds below. Return NOWHERE (the not-found sentinel callers already
+	// handle) instead of crashing.
+	if ( pSoldier->sGridNo < 0 || pSoldier->sGridNo >= WORLD_MAX )
+	{
+		return( NOWHERE );
+	}
+
 	// Call FindBestPath to set flags in all locations that we can
 	// walk into within range.	We have to set some things up first...
 
