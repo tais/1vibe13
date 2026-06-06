@@ -1212,6 +1212,25 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				
 				// WANNE: ASSERTION: Removed the assertion until we find the bug!
 				//Assert(0);
+				// An off-world insertion gridno places a COUNTED enemy off the map:
+				// NumCapableEnemyInSector still counts it (so the battle never ends) but it
+				// has no render node -> invisible & unkillable (ghost enemy). Re-point so the
+				// soldier always materializes: prefer the soldier's INTENDED entry edge (so a
+				// south-inserting enemy still shows at the south edge, not teleported to the
+				// middle of the map), and fall back to map center only if that edge's
+				// entrypoint is itself unset.
+				INT16 sRecover;
+				switch( pSoldier->ubStrategicInsertionCode )
+				{
+					case INSERTION_CODE_NORTH: sRecover = gMapInformation.sNorthGridNo; break;
+					case INSERTION_CODE_SOUTH: sRecover = gMapInformation.sSouthGridNo; break;
+					case INSERTION_CODE_EAST:  sRecover = gMapInformation.sEastGridNo;  break;
+					case INSERTION_CODE_WEST:  sRecover = gMapInformation.sWestGridNo;  break;
+					default:                   sRecover = gMapInformation.sCenterGridNo; break;
+				}
+				if( TileIsOutOfBounds( sRecover ) ) sRecover = gMapInformation.sCenterGridNo;
+				if( TileIsOutOfBounds( sRecover ) ) sRecover = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;
+				pSoldier->sInsertionGridNo = sRecover;
 			}
 			if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 			{

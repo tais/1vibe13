@@ -1872,8 +1872,17 @@ void AddPossiblePendingEnemiesToBattle()
 	{
 		ubNumRobots = ubNumElites = ubNumTroops = ubNumAdmins = ubNumTanks = ubNumJeeps = 0;
 
-		ubNumAvailable = pSector->ubNumRobots + pSector->ubNumElites + pSector->ubNumTroops + pSector->ubNumAdmins + pSector->ubNumTanks + pSector->ubNumJeeps
-			- pSector->ubRobotsInBattle - pSector->ubElitesInBattle - pSector->ubTroopsInBattle - pSector->ubAdminsInBattle - pSector->ubTanksInBattle - pSector->ubJeepsInBattle;
+		// Per-class clamped to >=0 (UINT16 underflow guard): summing all Num then
+		// subtracting all InBattle wraps to ~65533 when InBattle > Num (group-counter
+		// drift), making the loop below spawn phantom reinforcements that never let the
+		// battle end. Sum only the genuinely-available count per class.
+		ubNumAvailable =
+			( pSector->ubNumRobots > pSector->ubRobotsInBattle ? pSector->ubNumRobots - pSector->ubRobotsInBattle : 0 )
+			+ ( pSector->ubNumElites > pSector->ubElitesInBattle ? pSector->ubNumElites - pSector->ubElitesInBattle : 0 )
+			+ ( pSector->ubNumTroops > pSector->ubTroopsInBattle ? pSector->ubNumTroops - pSector->ubTroopsInBattle : 0 )
+			+ ( pSector->ubNumAdmins > pSector->ubAdminsInBattle ? pSector->ubNumAdmins - pSector->ubAdminsInBattle : 0 )
+			+ ( pSector->ubNumTanks > pSector->ubTanksInBattle ? pSector->ubNumTanks - pSector->ubTanksInBattle : 0 )
+			+ ( pSector->ubNumJeeps > pSector->ubJeepsInBattle ? pSector->ubNumJeeps - pSector->ubJeepsInBattle : 0 );
 		while( ubNumAvailable && ubSlots )
 		{
 			// So they just magically appear out of nowhere from the edge?
