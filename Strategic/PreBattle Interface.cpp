@@ -1181,7 +1181,7 @@ void DoTransitionFromMapscreenToPreBattleInterface()
 
 		//Restore the previous rect.
 		BlitBufferToBuffer(guiEXTRABUFFER, FRAME_BUFFER, (UINT16)PrevRect.iLeft, (UINT16)PrevRect.iTop,
-			(UINT16)PrevRect.iRight, (UINT16)PrevRect.iBottom);
+			(UINT16)(PrevRect.iRight - PrevRect.iLeft), (UINT16)(PrevRect.iBottom - PrevRect.iTop));
 
 		PrevRect.iLeft = DstRect.iLeft;
 		PrevRect.iRight = DstRect.iRight;
