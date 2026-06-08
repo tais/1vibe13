@@ -4902,7 +4902,7 @@ void InvalidateWorldRedundency( )
 // SrcPtr, the DestPtr/ZPtr (16bpp, byte-addressed), and the Z-strip start
 // state (usZStartLevel/usZStartCols/usZStartIndex + pZArray). This helper
 // walks the ETRLE exactly like the original asm: it advances the per-column
-// Z level by Z_SUBLAYERS every 20 columns per the object's ZStripInfo, and
+// Z level by zStripDelta (Z_STRIP_DELTA_Y=80 for walls/structs, Z_SUBLAYERS=8 for
 // invokes `core(src, dst, zp, zLevel, lineFlag)` for every visible
 // non-transparent pixel. The core decides the Z-test, the write, shadow
 // (254) and obscure pixelation -- matching the per-variant asm.
@@ -4911,7 +4911,7 @@ template <typename Core>
 inline void BlitMultiZStripRun(
 	const UINT8* SrcPtr, UINT8* DestPtr, UINT8* ZPtr,
 	INT32 BlitLength, INT32 BlitHeight, INT32 LeftSkip, INT32 TopSkip,
-	UINT32 LineSkip, UINT16 usZStartLevel, UINT16 usZStartCols,
+	UINT32 LineSkip, UINT16 zStripDelta, UINT16 usZStartLevel, UINT16 usZStartCols,
 	UINT16 usZStartIndex, const INT8* pZArray, UINT32 lineFlagInit, Core core)
 {
 	const UINT8* src = SrcPtr;
@@ -4967,8 +4967,8 @@ trans:			// transparent run: advance dest, step Z columns
 						px -= zCols;
 						zCols = 20;
 						const INT8 d = pZArray[zIndex++];
-						if      (d < 0) zLevel -= Z_SUBLAYERS;
-						else if (d > 0) zLevel += Z_SUBLAYERS;
+						if      (d < 0) zLevel -= zStripDelta;
+						else if (d > 0) zLevel += zStripDelta;
 					} else {
 						zCols -= px;
 						break;
@@ -4985,8 +4985,8 @@ nontrans:		// non-transparent run: blit each pixel via core
 					if (--zCols == 0) {
 						zCols = 20;
 						const INT8 d = pZArray[zIndex++];
-						if      (d < 0) zLevel -= Z_SUBLAYERS;
-						else if (d > 0) zLevel += Z_SUBLAYERS;
+						if      (d < 0) zLevel -= zStripDelta;
+						else if (d > 0) zLevel += zStripDelta;
 					}
 				} while (--px > 0);
 				src += unblit;
@@ -5136,7 +5136,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( PIXEL *pBuffer, UINT32 uiDestPitc
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip, Z_STRIP_DELTA_Y,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, 0,
 		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 			if (*z < zlev) { *z = zlev; *d = p16BPPPalette[*s]; }
@@ -5280,7 +5280,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( PIXEL *pBuffer,
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip, Z_STRIP_DELTA_Y,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, 0,
 		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 			// same-Z burns through: draw on <= as well
@@ -5431,7 +5431,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( PIXEL *pBuffer, UINT32 uiD
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip, Z_STRIP_DELTA_Y,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
 		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
 			// Obscured pixels draw on a checkerboard. The column bit is the
@@ -5576,7 +5576,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(PIXEL *pBuffer, 
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip, Z_SUBLAYERS,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
 		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
 			// Not obscured -> draw; obscured (ZBuffer > z) -> pixelate on a
@@ -5734,7 +5734,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(PIXEL *pBuf
 	{
 		const UINT8* const srcBase   = SrcPtr;
 		const UINT8* const alphaBase = AlphaPtr;
-		BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+		BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip, Z_SUBLAYERS,
 			usZStartLevel, usZStartCols, usZStartIndex, pZArray, uiLineFlag,
 			[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32 lf) {
 				// Obscured checkerboard column bit = sizeof(PIXEL), the address
@@ -5919,7 +5919,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(PIXEL *pBuffer, UINT32 
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
-	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+	BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip, Z_SUBLAYERS,
 		usZStartLevel, usZStartCols, usZStartIndex, pZArray, /*lineFlag*/0,
 		[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 			if (*z <= zlev) {
@@ -6072,7 +6072,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(PIXEL *pBuffer, UI
 	{
 		const UINT8* const srcBase   = SrcPtr;
 		const UINT8* const alphaBase = AlphaPtr;
-		BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip,
+		BlitMultiZStripRun(SrcPtr, DestPtr, ZPtr, BlitLength, BlitHeight, LeftSkip, TopSkip, LineSkip, Z_SUBLAYERS,
 			usZStartLevel, usZStartCols, usZStartIndex, pZArray, /*lineFlag*/0,
 			[&](const UINT8* s, PIXEL* d, UINT16* z, UINT16 zlev, UINT32) {
 				if (*z <= zlev) {
