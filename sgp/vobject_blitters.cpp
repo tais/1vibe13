@@ -603,7 +603,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					const UINT8 v = *src++;
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
-						if (rowZ[dx] < usZValue) {
+						if (rowZ[dx] <= usZValue) {
 							rowDest[dx] = PixBlend50(p16BPPPalette[v], rowDest[dx]);
 						}
 					}
@@ -688,7 +688,7 @@ ETRLEObject *pTrav;
 					continue;
 				}
 				for (UINT8 i = 0; i < cmd; ++i) {
-					if (*rowZ < usZValue) {
+					if (*rowZ <= usZValue) {
 						*rowZ = usZValue;
 						*rowDest = PixBlend50(p16BPPPalette[*src], *rowDest);
 					}
@@ -809,7 +809,7 @@ INT32	ClipX1, ClipY1, ClipX2, ClipY2;
 					const UINT8 v = *src++;
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
-						if (rowZ[dx] < usZValue) {
+						if (rowZ[dx] <= usZValue) {
 							rowZ[dx] = usZValue;
 							rowDest[dx] = PixBlend50(p16BPPPalette[v], rowDest[dx]);
 						}
@@ -892,7 +892,7 @@ ETRLEObject *pTrav;
 					continue;
 				}
 				for (UINT8 i = 0; i < cmd; ++i) {
-					if (*rowZ < usZValue) {
+					if (*rowZ <= usZValue) {
 						*rowDest = PixBlend50(p16BPPPalette[*src], *rowDest);
 					}
 					++src;

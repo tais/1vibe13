@@ -6972,6 +6972,7 @@ BOOLEAN IsTileRedundent( UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZVa
 					if (!fHidden) break;
 				}
 			}
+			zp += LineSkip;  // per-row Z stride -- the asm does 'add ebx, LineSkip' at BlitDoneLine
 		}
 	}
 
