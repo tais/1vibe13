@@ -1245,12 +1245,12 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 UINT8 GetAvailableMercIndex(UINT8 gubCurMercIndex)
 {
 	UINT8 returnID = 0;
-	if( gubCurMercIndex <= NUM_PROFILES )
+	if( gubCurMercIndex < NUM_PROFILES )
 	{
 		UINT8 availableID = 0;
 		UINT8 ID = 0;
 		//go through mercs, but only consider those unlocked
-		while( availableID < gubCurMercIndex )
+		while( availableID < gubCurMercIndex && ID < NUM_PROFILES - 1 )
 		{
 			ID++;
 			if( gConditionsForMercAvailability[ ID ].StartMercsAvailable == TRUE )
@@ -1266,7 +1266,7 @@ UINT8 GetAvailableMercIndex(UINT8 gubCurMercIndex)
 		if ( HasLarryRelapsed() )
 		{
 			// Drunken Larry
-			if (gConditionsForMercAvailability[ returnID ].uiIndex <= NUM_PROFILES)
+			if (gConditionsForMercAvailability[ returnID ].uiIndex < NUM_PROFILES)
 			{
 				returnID = gConditionsForMercAvailability[ returnID ].uiIndex;
 			}
@@ -1299,7 +1299,7 @@ UINT8 GetMercIDFromMERCArray(UINT8 ubMercID)
 		if ( HasLarryRelapsed() )
 		{
 			// Drunken Larry
-			if (gConditionsForMercAvailability[ ubMercID ].uiIndex <= NUM_PROFILES)
+			if (gConditionsForMercAvailability[ ubMercID ].uiIndex < NUM_PROFILES)
 			{
 				return( gubMercArray[ gConditionsForMercAvailability[ ubMercID ].uiIndex ] );
 			}
@@ -1316,7 +1316,7 @@ UINT8 GetMercIDFromMERCArray(UINT8 ubMercID)
 		}
 	}
 	// Merc is not drunken
-	else if( ubMercID <= NUM_PROFILES )
+	else if( ubMercID < NUM_PROFILES )
 	{
 		return( gubMercArray[ ubMercID ] );
 	}
@@ -3187,7 +3187,7 @@ void NewMercsAvailableAtMercSiteCallBack()
 					{
 						// Previous merc has alternate (drunk) merc, skip his one!						
 						//LaptopSaveInfo.gubLastMercIndex = LaptopSaveInfo.gubLastMercIndex + 2;
-						LaptopSaveInfo.gubLastMercIndex = LaptopSaveInfo.gubLastMercIndex++;
+						LaptopSaveInfo.gubLastMercIndex++;
 					}
 					else
 					{
