@@ -1280,6 +1280,22 @@ facilitytypeEndElementHandle(void *userData, const XML_Char *name)
 			pData->curAssignmentData.Risk[pData->curRisk].valueVectors[FacilityRiskVectorTypes::RISK_DRUG_ITEMS].push_back(drugValue);
 		}
 
+		else
+		{
+			// Recognized-but-unhandled leaf close (e.g. ubMaximumFatigue, empty <drugitems>) -- pop
+			// curElement back to its parent container so the rest of this record is not silently
+			// skipped/zeroed, and clear any stuck generic (vector) sub-state.
+			switch (pData->curElement)
+			{
+				case FACILITYTYPE_ELEMENT:            pData->curElement = FACILITYTYPE_TYPE;        break;
+				case FACILITYTYPE_ASSIGNMENT_ELEMENT: pData->curElement = FACILITYTYPE_ASSIGNMENT;   break;
+				case FACILITYTYPE_CONDITIONS_ELEMENT: pData->curElement = FACILITYTYPE_CONDITIONS;   break;
+				case FACILITYTYPE_RISK_ELEMENT:       pData->curElement = FACILITYTYPE_RISK;         break;
+				case FACILITYTYPE_PRODUCTION_ELEMENT: pData->curElement = FACILITYTYPE_PRODUCTION;   break;
+				default: break;
+			}
+			pData->curGenericElement = ELEMENT_NONE;
+		}
 		pData->maxReadDepth--;
 	}
 

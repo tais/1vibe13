@@ -313,6 +313,16 @@ newCarEndElementHandle(void *userData, const XML_Char *name)
 			pData->curNewCar.VehicleSeats[pData->curSeatIndex].usMountedGun = (UINT32) atol(pData->szCharData);
 		}
 
+		else
+		{
+			// Recognized-but-unhandled leaf close (e.g. VehicleBodyType/VehicleTypeProfileID) -- pop
+			// curElement back to its parent so the rest of this <VEHICLE> record is not silently
+			// skipped (or committed with stale values from the previously parsed record).
+			if(pData->curElement == ELEMENT_PROPERTY)
+				pData->curElement = ELEMENT;
+			else if(pData->curElement == ELEMENT_SUBLIST_PROPERTY)
+				pData->curElement = ELEMENT_SUBLIST;
+		}
 		pData->maxReadDepth--;
 
 	}

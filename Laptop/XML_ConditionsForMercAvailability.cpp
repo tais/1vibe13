@@ -192,6 +192,12 @@ mercAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 			pData->curMercAvailability.uiAlternateIndex	= (UINT8) atol(pData->szCharData);
 		}
 		
+		else if(pData->curElement == ELEMENT_PROPERTY)
+		{
+			// Recognized-but-unhandled leaf close (e.g. <Available>) -- pop back to ELEMENT so the
+			// rest of this <MERC> record is not silently skipped/zeroed.
+			pData->curElement = ELEMENT;
+		}
 		pData->maxReadDepth--;
 	}
 	pData->currentDepth--;
