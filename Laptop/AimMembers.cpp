@@ -1470,11 +1470,13 @@ BOOLEAN LoadMercBioInfo(UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo)
 
 	if ( FileSeek( hFile, uiStartSeekAmount, FILE_SEEK_FROM_START ) == FALSE )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
 
 	if( !ReadAndWidenWideChars( hFile, pInfoString, SIZE_MERC_BIO_INFO ) )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
 
@@ -1517,11 +1519,13 @@ BOOLEAN LoadMercBioInfo(UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo)
 	uiStartSeekAmount = ((SIZE_MERC_BIO_INFO + SIZE_MERC_ADDITIONAL_INFO) * ubIndex )+ SIZE_MERC_BIO_INFO ;
 	if ( FileSeek( hFile, uiStartSeekAmount, FILE_SEEK_FROM_START ) == FALSE )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
 
 	if( !ReadAndWidenWideChars( hFile, pAddInfo, SIZE_MERC_ADDITIONAL_INFO ) )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
 

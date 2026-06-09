@@ -301,7 +301,7 @@ void RenderBobbyRShipments()
 	{
 		ShipmentPackageList::iterator spli = gShipmentTable[giBobbyRShipmentSelectedShipment]->ShipmentPackages.begin();
 		int j;
-		for(unsigned i = 0; i < gShipmentTable[giBobbyRShipmentSelectedShipment]->ShipmentPackages.size(); i++, spli++)
+		for(unsigned i = 0; i < gShipmentTable[giBobbyRShipmentSelectedShipment]->ShipmentPackages.size() && i < 100; i++, spli++)
 		{
 			brps[i].bItemQuality = ((ShipmentPackageStruct)*spli).bItemQuality;
 			brps[i].ubNumberPurchased = ((ShipmentPackageStruct)*spli).ubNumber;

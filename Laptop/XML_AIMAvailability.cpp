@@ -86,6 +86,8 @@ aimAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
+			if (pData->curAimAvailability.uiIndex < NUM_PROFILES)
+			{
 			if (!AimAvailability_TextOnly)
 				{		
 					gAimAvailability[pData->curAimAvailability.uiIndex].uiIndex = pData->curAimAvailability.uiIndex;
@@ -110,6 +112,7 @@ aimAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].ubAimArrayID = pData->curAimAvailability.uiIndex;
 					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].AimBio = pData->curAimAvailability.AimBio;
 				}		
+			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
