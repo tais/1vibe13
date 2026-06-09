@@ -903,7 +903,7 @@ BOOLEAN EnterAIMMembers()
 		SetButtonCursor(giNextButton, CURSOR_WWW );
 	}
 
-	gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+	gbCurrentSoldier = AimMercArray[gbCurrentIndex];
 	gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 
 	//tais: nsgi create kit selection buttons
@@ -1759,7 +1759,7 @@ void BtnWeaponboxSelectButtonCallback( GUI_BUTTON *btn, INT32 reason )
 	{
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
-			gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+			gbCurrentSoldier = AimMercArray[gbCurrentIndex];
 
 			//tais: handle selected kit
 			for ( int i = 0; i < NUM_MERCSTARTINGGEAR_KITS; ++i )
@@ -1773,7 +1773,7 @@ void BtnWeaponboxSelectButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 			gfRedrawScreen = TRUE;
-			gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+			gbCurrentSoldier = AimMercArray[gbCurrentIndex];
 			gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 			InvalidateRegion(btn->Area.RegionTopLeftX, btn->Area.RegionTopLeftY, btn->Area.RegionBottomRightX, btn->Area.RegionBottomRightY);
 		}
@@ -1804,7 +1804,7 @@ void PreviousAimMember(void)
 	gfRedrawScreen = TRUE;
 
 	//			gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-	gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+	gbCurrentSoldier = AimMercArray[gbCurrentIndex];
 	gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 
 	gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
@@ -1827,7 +1827,7 @@ void NextAimMember(void)
 		gbCurrentIndex = 0;
 
 	//			gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-	gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+	gbCurrentSoldier = AimMercArray[gbCurrentIndex];
 
 	gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 
@@ -2348,7 +2348,7 @@ if (LaptopSaveInfo.iCurrentBalance == 4500001) {
 	while (hired < OUR_TEAM_SIZE_NO_VEHICLE) {
 		if (AimMemberHireMerc()) {
 //    	  giIdOfLastHiredMerc = AimMercArray[gbCurrentIndex];
-		  giIdOfLastHiredMerc = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+		  giIdOfLastHiredMerc = AimMercArray[gbCurrentIndex];
 		  ++hired;
 		}
 		++gbCurrentIndex;
@@ -2393,7 +2393,7 @@ if (LaptopSaveInfo.iCurrentBalance == 4500001) {
 					SpecifyDisabledButtonStyle( giBuyEquipmentButton[1], DISABLED_STYLE_NONE );
 
 //					giIdOfLastHiredMerc = AimMercArray[gbCurrentIndex];
-					giIdOfLastHiredMerc = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+					giIdOfLastHiredMerc = AimMercArray[gbCurrentIndex];
 				}
 			}
 /*
@@ -2428,7 +2428,7 @@ INT8 AimMemberHireMerc()
 {
 	MERC_HIRE_STRUCT HireMercStruct;
 //	UINT8		ubCurrentSoldier = AimMercArray[gbCurrentIndex];
-	UINT8		ubCurrentSoldier =  gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+	UINT8		ubCurrentSoldier =  AimMercArray[gbCurrentIndex];
 	INT8			bReturnCode;
 	SoldierID	sSoldierID = NOBODY;
 	INT8			bTypeOfContract=0;
@@ -4961,7 +4961,7 @@ BOOLEAN QuickHireMerc()
 	INT8	bReturnCode;
 	MERC_HIRE_STRUCT HireMercStruct;
 //	UINT8		ubCurrentSoldier = AimMercArray[gbCurrentIndex];
-	UINT8	ubCurrentSoldier = 	gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+	UINT8	ubCurrentSoldier = 	AimMercArray[gbCurrentIndex];
 
 	giContractAmount = 0;
 
@@ -5056,7 +5056,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = MAX_NUMBER_MERCS - 1;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
@@ -5078,7 +5078,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = 0;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
@@ -5100,7 +5100,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = MAX_NUMBER_MERCS - 1;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
@@ -5122,7 +5122,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = 0;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
@@ -5178,7 +5178,7 @@ void HandleAimMemberKeyBoardInput()
 				case '5':
 					if((gGameExternalOptions.gfUseNewStartingGearInterface) && (UsingNewInventorySystem() == true))
 					{
-						gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId;
+						gbCurrentSoldier = AimMercArray[gbCurrentIndex];
 
 						if ( !(gMercProfiles[gbCurrentSoldier].ubMiscFlags & PROFILE_MISC_FLAG_ALREADY_USED_ITEMS) || gGameExternalOptions.fGearKitsAlwaysAvailable )
 						{
@@ -5226,7 +5226,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = MAX_NUMBER_MERCS - 1;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
@@ -5243,7 +5243,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = 0;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
@@ -5260,7 +5260,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = MAX_NUMBER_MERCS - 1;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
@@ -5277,7 +5277,7 @@ void HandleAimMemberKeyBoardInput()
 						gbCurrentIndex = 0;
 
 					//gbCurrentSoldier = AimMercArray[gbCurrentIndex];
-					gbCurrentSoldier = gAimAvailability[AimMercArray[gbCurrentIndex]].ProfilId; 			
+					gbCurrentSoldier = AimMercArray[gbCurrentIndex]; 			
 					gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 					gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 
