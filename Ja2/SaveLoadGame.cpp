@@ -6528,8 +6528,8 @@ BOOLEAN SaveEmailToSavedGame( HWFILE hFile )
 	//loop through all the email to find out the total number
 	while(pEmail)
 	{
-		gEmailT[ uiNumOfEmails ].EmailVersion = 0; //reset
-		gEmailT[ uiNumOfEmails ].EmailVersion = pEmail->EmailVersion;
+		if ( uiNumOfEmails < EMAIL_VAL ) gEmailT[ uiNumOfEmails ].EmailVersion = 0; //reset
+		if ( uiNumOfEmails < EMAIL_VAL ) gEmailT[ uiNumOfEmails ].EmailVersion = pEmail->EmailVersion;
 		pEmail=pEmail->Next;
 		uiNumOfEmails++;
 	}

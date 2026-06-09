@@ -1044,8 +1044,8 @@ void AddEmailMessage(INT32 iMessageOffset, INT32 iMessageLength,STR16 pSubject, 
 	pTempEmail->iId=iId+1;
 	else
 		pTempEmail->iId=0;
-	gEmailT[ (UINT32)pTempEmail->iId ].EmailVersion = EmailType;		
-	gEmailT[ (UINT32)pTempEmail->iId ].EmailType = EmailAIM;
+	if ( (UINT32)pTempEmail->iId < EMAIL_VAL ) gEmailT[ (UINT32)pTempEmail->iId ].EmailVersion = EmailType;		
+	if ( (UINT32)pTempEmail->iId < EMAIL_VAL ) gEmailT[ (UINT32)pTempEmail->iId ].EmailType = EmailAIM;
 
 	// copy date and sender id's
 	pTempEmail->iDate=iDate;
@@ -1106,7 +1106,7 @@ void RemoveEmailMessage(INT32 iId)
 	// look for message
 	pEmail = GetEmailMessage( iId );
 	
-	gEmailT[ (UINT32)iId ].EmailType = 0;
+	if ( (UINT32)iId < EMAIL_VAL ) gEmailT[ (UINT32)iId ].EmailType = 0;
 	
 	//while((pEmail->iId !=iId)&&(pEmail->Next))
 	//	pEmail=pEmail->Next;
@@ -6296,7 +6296,7 @@ BOOLEAN LoadNewEmailDataFromLoadGameFile( HWFILE hFile )
 		uiNumOfEmails++;
 	}
 	
-	for( UINT32 cnt=0; cnt<uiNumOfEmails; cnt++)
+	for( UINT32 cnt=0; cnt<uiNumOfEmails && cnt<EMAIL_VAL; cnt++)
 	{
 		if ( ReadXMLEmail == FALSE )
 		{
@@ -6316,7 +6316,7 @@ BOOLEAN LoadNewEmailDataFromLoadGameFile( HWFILE hFile )
 */
 	while(pEmail)
 	{
-		pEmail->EmailVersion = gEmailT[ uiNumOfEmails ].EmailVersion;
+		if ( uiNumOfEmails < EMAIL_VAL ) pEmail->EmailVersion = gEmailT[ uiNumOfEmails ].EmailVersion;
 		pEmail=pEmail->Next;
 		++uiNumOfEmails;
 	}
