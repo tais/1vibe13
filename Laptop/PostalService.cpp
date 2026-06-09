@@ -115,7 +115,7 @@ void CPostalService::Clear(bool clearDataOnly)
 
 UINT16 CPostalService::CreateNewShipment(UINT16 usDestinationID, UINT8  ubDeliveryMethodIndex, INT16 sSenderID)
 {
-	if(	usDestinationID > _UsedDestinationIDList.size() ||
+	if(	usDestinationID >= _UsedDestinationIDList.size() ||
 		!_UsedDestinationIDList[usDestinationID] ||
 		ubDeliveryMethodIndex > _DeliveryMethods.size() )
 	{
@@ -1073,11 +1073,11 @@ RefToShipmentList CPostalService::LookupShipmentList(void) const
 
 RefToDestinationStruct CPostalService::GetDestination(UINT16 usDestinationID) const
 {
-	if(	usDestinationID > _UsedDestinationIDList.size() ||
+	if(	usDestinationID >= _UsedDestinationIDList.size() ||
 		!_UsedDestinationIDList[usDestinationID])
 	{
 		Assert(0);
-		return DESTINATION(_Destinations.end());
+		return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
 	}
 
 	DestinationList::const_iterator dli = _Destinations.begin();
@@ -1087,7 +1087,7 @@ RefToDestinationStruct CPostalService::GetDestination(UINT16 usDestinationID) co
 		if(dli == _Destinations.end())
 		{
 			Assert(0);
-			return DESTINATION(_Destinations.end());
+			return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
 		}
 		dli++;
 	}
@@ -1141,7 +1141,7 @@ UINT16 CPostalService::SetDestinationDeliveryInfo(UINT8 ubDeliveryMethodIndex, U
 UINT16 CPostalService::GetDestinationFee(UINT8 ubDeliveryMethodIndex, UINT16 usDestinationID)
 {
 	if(_UsedDestinationIDList.empty() || 
-		usDestinationID > _UsedDestinationIDList.size() ||
+		usDestinationID >= _UsedDestinationIDList.size() ||
 		!_UsedDestinationIDList[usDestinationID])
 	{
 		Assert(0);
@@ -1153,11 +1153,11 @@ UINT16 CPostalService::GetDestinationFee(UINT8 ubDeliveryMethodIndex, UINT16 usD
 
 RefToDestinationStruct CPostalService::_GetDestination(UINT16 usDestinationID)
 {
-	if(	usDestinationID > _UsedDestinationIDList.size() ||
+	if(	usDestinationID >= _UsedDestinationIDList.size() ||
 		!_UsedDestinationIDList[usDestinationID])
 	{
 		Assert(0);
-		return DESTINATION(_Destinations.end());
+		return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
 	}
 
 	DestinationList::const_iterator dli = _Destinations.begin();
@@ -1167,7 +1167,7 @@ RefToDestinationStruct CPostalService::_GetDestination(UINT16 usDestinationID)
 		if(dli == _Destinations.end())
 		{
 			Assert(0);
-			return DESTINATION(_Destinations.end());
+			return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
 		}
 		dli++;
 	}

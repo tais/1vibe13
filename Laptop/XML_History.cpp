@@ -89,6 +89,8 @@ mercHistoryEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
+			if ( pData->curMercHistorys.uiIndex < 500 )
+			{
 			if (!MercHistory_TextOnly)
 				{
 					wcscpy(HistoryName[pData->curMercHistorys.uiIndex].sHistory, pData->curMercHistorys.sHistory);	
@@ -99,6 +101,7 @@ mercHistoryEndElementHandle(void *userData, const XML_Char *name)
 					wcscpy(HistoryName[pData->curMercHistorys.uiIndex].sHistory, pData->curMercHistorys.sHistory);
 					//wcscpy(pHistoryStrings[pData->curMercHistorys.uiIndex], pData->curMercHistorys.sHistory);					
 				}		
+			}
 		
 		}
 		else if(strcmp(name, "uiIndex") == 0)
@@ -138,7 +141,7 @@ BOOLEAN ReadInHistorys(STR fileName, BOOLEAN localizedVersion)
 	// Open file
 	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
 	if ( !hFile )
-		return( localizedVersion );
+		{ XML_ParserFree(parser); return( localizedVersion ); }
 
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
@@ -147,7 +150,7 @@ BOOLEAN ReadInHistorys(STR fileName, BOOLEAN localizedVersion)
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
-		return( FALSE );
+		{ XML_ParserFree(parser); return( FALSE ); }
 	}
 
 	lpcBuffer[uiFSize] = 0; //add a null terminator
@@ -171,7 +174,7 @@ BOOLEAN ReadInHistorys(STR fileName, BOOLEAN localizedVersion)
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
-		return FALSE;
+		{ XML_ParserFree(parser); return FALSE; }
 	}
 
 	MemFree(lpcBuffer);
