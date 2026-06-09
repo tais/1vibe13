@@ -3893,7 +3893,7 @@ void SetBookMark(INT32 iBookId)
 	INT32 iCounter=0;
 	if(iBookId!=-2)
 	{
-		while(LaptopSaveInfo.iBookMarkList[iCounter]!=-1)
+		while(LaptopSaveInfo.iBookMarkList[iCounter]!=-1 && iCounter < MAX_BOOKMARKS)
 		{
 			// move through list until empty
 			if( LaptopSaveInfo.iBookMarkList[iCounter]==iBookId)
@@ -3912,7 +3912,7 @@ void SetBookMark(INT32 iBookId)
 BOOLEAN	IsBookMarkSet( INT32 iBookId )
 {
 	INT32 iCounter = 0;
-	while ( LaptopSaveInfo.iBookMarkList[iCounter] != -1 )
+	while ( LaptopSaveInfo.iBookMarkList[iCounter] != -1  && iCounter < MAX_BOOKMARKS)
 	{
 		// move through list until empty
 		if ( LaptopSaveInfo.iBookMarkList[iCounter] == iBookId )
@@ -3933,7 +3933,7 @@ BOOLEAN RemoveBookMark( INT32 iBookId )
 	INT32 iCounter=0;
 
 	//Loop through the bookmarks to get to the desired bookmark
-	while( LaptopSaveInfo.iBookMarkList[iCounter] != iBookId )
+	while( LaptopSaveInfo.iBookMarkList[iCounter] != iBookId  && iCounter < MAX_BOOKMARKS)
 	{
 		++iCounter;
 	}
@@ -4018,7 +4018,7 @@ void DisplayBookMarks( void )
 	SetFontDestBuffer(FRAME_BUFFER ,BOOK_X, BOOK_TOP_Y,BOOK_X+BOOK_WIDTH-10,SCREEN_HEIGHT, FALSE);
 
 	// blt in book mark background
-	while( LaptopSaveInfo.iBookMarkList[iCounter-1]!=-1)
+	while( LaptopSaveInfo.iBookMarkList[iCounter-1]!=-1 && iCounter <= MAX_BOOKMARKS)
 	{
 		if(iHighLightBookLine==iCounter-1)
 		{
@@ -4089,7 +4089,7 @@ void RemoveBookmark(INT32 iBookId)
 	if(iBookId==-2)
 		return;
 
-	while( LaptopSaveInfo.iBookMarkList[iCounter]!=-1)
+	while( LaptopSaveInfo.iBookMarkList[iCounter]!=-1 && iCounter < MAX_BOOKMARKS)
 	{
 		if( LaptopSaveInfo.iBookMarkList[iCounter]==iBookId)
 		{
@@ -4164,7 +4164,7 @@ void CreateBookMarkMouseRegions()
 {
 	INT32 iCounter=0;
 	// creates regions based on number of entries
-	while( LaptopSaveInfo.iBookMarkList[iCounter] != -1 )
+	while( LaptopSaveInfo.iBookMarkList[iCounter] != -1  && iCounter < MAX_BOOKMARKS)
 	{
 		MSYS_DefineRegion(&gBookmarkMouseRegions[iCounter],(INT16)BOOK_X, (UINT16)(BOOK_TOP_Y+((iCounter+1)*(BOOK_HEIGHT+6))+6), BOOK_X+BOOK_WIDTH ,(INT16)(BOOK_TOP_Y+((iCounter+2)*(BOOK_HEIGHT+6))+6),
 			MSYS_PRIORITY_HIGHEST - 2,CURSOR_LAPTOP_SCREEN, BookmarkMvtCallBack, BookmarkCallBack );
@@ -4191,7 +4191,7 @@ void DeleteBookmarkRegions()
 {
 	INT32 iCounter=0;
 	//deletes bookmark regions
-	while( LaptopSaveInfo.iBookMarkList[iCounter] != -1 )
+	while( LaptopSaveInfo.iBookMarkList[iCounter] != -1  && iCounter < MAX_BOOKMARKS)
 	{
 		MSYS_RemoveRegion(&gBookmarkMouseRegions[iCounter]);
 		++iCounter;

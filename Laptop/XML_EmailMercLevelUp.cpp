@@ -87,6 +87,8 @@ emailMercLevelUpEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
+			if ( pData->curEmailMercLevelUp.uiIndex < NUM_PROFILES )
+			{
 			if (!EmailMercLevelUp_TextOnly)
 				{
 					wcscpy(EmailMercLevelUpText[pData->curEmailMercLevelUp.uiIndex].szSubject, pData->curEmailMercLevelUp.szSubject);
@@ -97,6 +99,7 @@ emailMercLevelUpEndElementHandle(void *userData, const XML_Char *name)
 					wcscpy(EmailMercLevelUpText[pData->curEmailMercLevelUp.uiIndex].szSubject, pData->curEmailMercLevelUp.szSubject);
 					wcscpy(EmailMercLevelUpText[pData->curEmailMercLevelUp.uiIndex].szMessage, pData->curEmailMercLevelUp.szMessage);
 				}		
+			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
@@ -139,7 +142,7 @@ BOOLEAN ReadInEmailMercLevelUp(STR fileName, BOOLEAN localizedVersion)
 	// Open file
 	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
 	if ( !hFile )
-		return( localizedVersion );
+		{ XML_ParserFree(parser); return( localizedVersion ); }
 
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
@@ -148,7 +151,7 @@ BOOLEAN ReadInEmailMercLevelUp(STR fileName, BOOLEAN localizedVersion)
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
-		return( FALSE );
+		{ XML_ParserFree(parser); return( FALSE ); }
 	}
 
 	lpcBuffer[uiFSize] = 0; //add a null terminator
@@ -172,7 +175,7 @@ BOOLEAN ReadInEmailMercLevelUp(STR fileName, BOOLEAN localizedVersion)
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
-		return FALSE;
+		{ XML_ParserFree(parser); return FALSE; }
 	}
 
 	MemFree(lpcBuffer);

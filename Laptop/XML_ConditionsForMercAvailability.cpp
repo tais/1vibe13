@@ -93,6 +93,8 @@ mercAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
+			if ( pData->curMercAvailability.uiIndex < NUM_PROFILES && pData->curMercAvailability.ProfilId < NUM_PROFILES )
+			{
 			if (!MercAvailability_TextOnly)
 				{		
 					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].uiIndex = pData->curMercAvailability.uiIndex;
@@ -142,6 +144,7 @@ mercAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].uiAlternateIndex = pData->curMercAvailability.uiAlternateIndex;
 
 				}		
+			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
