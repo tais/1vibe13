@@ -4038,13 +4038,13 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 	return( FALSE );
 }
 
-INT8 GetAttachmentComboMerge( OBJECTTYPE * pObj, UINT8 subObject )
+INT32 GetAttachmentComboMerge( OBJECTTYPE * pObj, UINT8 subObject )
 {
-	INT8		bIndex = 0;
+	INT32		bIndex = 0;
 	INT8		bAttachLoop;
 
 	/* check the whole Array of possible Attachements, while there are still entries ... */
-	while( AttachmentComboMerge[ bIndex ].usItem != NOTHING )
+	while( bIndex <= MAXITEMS && AttachmentComboMerge[ bIndex ].usItem != NOTHING )
 	{
 		/* if we found our current Object as "basic hand" item, then
      * we have found at least ONE entry of our item (may be there are more)
@@ -4094,7 +4094,7 @@ INT8 GetAttachmentComboMerge( OBJECTTYPE * pObj, UINT8 subObject )
 
 
 
-void PerformAttachmentComboMerge( OBJECTTYPE * pObj, INT8 bAttachmentComboMerge )
+void PerformAttachmentComboMerge( OBJECTTYPE * pObj, INT32 bAttachmentComboMerge )
 {
 	INT8		bAttachLoop;
 	UINT32	uiStatusTotal = 0;
@@ -4155,7 +4155,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 	UINT8		ubType, ubAPCost;
 	INT32		iCheckResult;
 	INT32		bAttachInfoIndex = -1;
-	INT8		bAttachComboMerge;
+	INT32		bAttachComboMerge;
 	BOOLEAN		fValidLaunchable = FALSE;
 	UINT16		oldMagSize = 0;
 
@@ -4769,7 +4769,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 	UINT8		ubType, ubAPCost;
 	INT32		iCheckResult;
 	INT32		bAttachInfoIndex = -1;
-	INT8		bAttachComboMerge;
+	INT32		bAttachComboMerge;
 	BOOLEAN		fValidLaunchable = FALSE;
 	BOOLEAN		fValidItemAttachment = FALSE;
 	INT32		curSlot = 0;

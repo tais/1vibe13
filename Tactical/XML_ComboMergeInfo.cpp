@@ -107,8 +107,8 @@ attachmentcombomergeEndElementHandle(void *userData, const XML_Char *name)
 		else if(strstr(name, "usAttachment") != NULL)
 		{
 			pData->curElement = ELEMENT;
-			pData->curAttachmentComboMerge.usAttachment[pData->curAttIndex] = (UINT16) atol(pData->szCharData);
-			pData->curAttIndex++;
+			if (pData->curAttIndex < MAX_DEFAULT_ATTACHMENTS)
+				pData->curAttachmentComboMerge.usAttachment[pData->curAttIndex++] = (UINT16) atol(pData->szCharData);
 		}
 		else if(strcmp(name, "usResult") == 0)
 		{
