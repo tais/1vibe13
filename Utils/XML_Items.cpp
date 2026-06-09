@@ -324,7 +324,7 @@ itemStartElementHandle(void *userData, const XML_Char *name, const XML_Char **at
 				strcmp(name, "EmptyBloodbag" ) == 0 ||
 				strcmp(name, "MedicalSplint" ) == 0 ||
 				strcmp(name, "sFireResistance" ) == 0 ||
-				strcmp(name, "usAdministrationModifier" ) == 0) ||
+				strcmp(name, "usAdministrationModifier" ) == 0 ||
 				strcmp(name, "RobotDamageReduction") == 0 ||
 				strcmp(name, "RobotStrBonus") == 0 ||
 				strcmp(name, "RobotAgiBonus") == 0 ||
@@ -338,7 +338,7 @@ itemStartElementHandle(void *userData, const XML_Char *name, const XML_Char **at
 				strcmp(name, "DiseaseSystemExclusive") == 0 ||
 				strcmp(name, "TransportGroupMinProgress") == 0 ||
 				strcmp(name, "TransportGroupMaxProgress") == 0
-				)
+				))
 		{
 			pData->curElement = ELEMENT_PROPERTY;
 			//DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("itemStartElementHandle: going into element, name = %s",name) );
@@ -1805,6 +1805,18 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT;
 			pData->curItem.iTransportGroupMaxProgress = (INT8)atoi(pData->szCharData);
+		}
+		else
+		{
+			// A tag recognized in the start handler (so maxReadDepth was advanced and curElement
+			// pushed to a *_PROPERTY level) but with no case here -- e.g. the legacy/mod tags
+			// <ItemFlag>, <fFlags>, <Detonator>, <RemoteDetonator>. Without popping curElement we
+			// stay stuck at *_PROPERTY and then silently skip every following field in this item
+			// (zeroing graphic/weight/size/price/...). Pop back to the parent level.
+			if ( pData->curElement == ELEMENT_PROPERTY )
+				pData->curElement = ELEMENT;
+			else if ( pData->curElement == ELEMENT_SUBLIST_PROPERTY )
+				pData->curElement = ELEMENT_SUBLIST;
 		}
 
 		--pData->maxReadDepth;
