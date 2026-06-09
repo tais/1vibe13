@@ -693,17 +693,17 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "BR_NewInventory")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			StoreInventory[pData->curItem.uiIndex][0] = (UINT8) atol(pData->szCharData);
+			if (pData->curItem.uiIndex < MAXITEMS) StoreInventory[pData->curItem.uiIndex][0] = (UINT8) atol(pData->szCharData);
 		}
 		else if(strcmp(name, "BR_UsedInventory")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			StoreInventory[pData->curItem.uiIndex][1] = (UINT8) atol(pData->szCharData);
+			if (pData->curItem.uiIndex < MAXITEMS) StoreInventory[pData->curItem.uiIndex][1] = (UINT8) atol(pData->szCharData);
 		}
 		else if(strcmp(name, "BR_ROF")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-		 	WeaponROF[pData->curItem.uiIndex] = (INT16) atol(pData->szCharData);
+		 	if (pData->curItem.uiIndex < MAXITEMS) WeaponROF[pData->curItem.uiIndex] = (INT16) atol(pData->szCharData);
 		}
 		else if(strcmp(name, "CamoBonus")	 == 0)
 		{
