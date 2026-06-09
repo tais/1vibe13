@@ -622,6 +622,13 @@ difficultySettingsEndElementHandle(void *userData, const XML_Char *name)
 			pData->curElement = ELEMENT;
 			pData->curDifficultySettings.fCTHSettingsBaseDifficultyPlayer	= (FLOAT) atol(pData->szCharData);
 		}			
+		else if(pData->curElement == ELEMENT_PROPERTY)
+		{
+			// Recognized-but-unhandled leaf close (e.g. SectorK4B2NumElites/SectorO3B2NumElites: gated
+			// in the start handler but with no end case) -- pop back to ELEMENT so the rest of this
+			// <DIFFICULTY> record is not silently skipped/zeroed.
+			pData->curElement = ELEMENT;
+		}
 		pData->maxReadDepth--;
 	}
 	pData->currentDepth--;

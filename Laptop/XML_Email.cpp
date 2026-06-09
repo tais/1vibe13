@@ -136,6 +136,12 @@ EmailOtherEndElementHandle(void* userData, const XML_Char* name)
             }
         }
 
+        else if (pData->curElement == ELEMENT_PROPERTY)
+        {
+            // Recognized-but-unhandled leaf close (e.g. <Index>) -- pop back to ELEMENT so the
+            // rest of this <EMAIL> record is not silently skipped/zeroed.
+            pData->curElement = ELEMENT;
+        }
         pData->maxReadDepth--;
     }
     pData->currentDepth--;
