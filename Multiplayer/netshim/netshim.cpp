@@ -270,6 +270,17 @@ void NetShimPeerState::HandleFileFrame( const unsigned char* body, unsigned int 
 		return;
 	FileListTransferCBInterface* cb = hit->second;
 
+	if ( setCount == 0 )
+	{
+		// Empty file set: real RakNet still sent the set header, and the receiver
+		// completed at once. Without this the joining client waits forever when the
+		// host's sync directory is empty.
+		fs->rx.erase( setID );
+		fs->rxDone.erase( setID );
+		cb->OnDownloadComplete();
+		return;
+	}
+
 	RxFile& rx = fs->rx[setID];
 	if ( offset == 0 )
 	{
@@ -722,6 +733,21 @@ void FileListTransfer::Send( FileList* fileList, RakPeerInterface* rakPeer, Syst
 	unsigned int setTotal = 0;
 	for ( const FileList::FileEntry& e : fileList->files )
 		setTotal += (unsigned int)e.data.size();
+
+	if ( setCount == 0 )
+	{
+		std::vector<unsigned char> body;
+		PutU16( body, setID );
+		PutU32( body, 0 );   // fileIndex
+		PutU32( body, 0 );   // setCount == 0 -> empty-set marker
+		PutU32( body, 0 );   // setTotal
+		PutU16( body, 0 );   // nameLen
+		PutU32( body, 0 );   // fileLen
+		PutU32( body, 0 );   // offset
+		PutU32( body, 0 );   // chunkLen
+		ps->SendFrame( c, FT_FILE, body.data(), (unsigned int)body.size() );
+		return;
+	}
 
 	for ( unsigned int fi = 0; fi < setCount && c->open; ++fi )
 	{

@@ -229,6 +229,15 @@ int main( int, char** )
 		CHECK( cap.files == 2, "both files delivered" );
 		CHECK( cap.progress >= (int)( f1.size() / 5000 ), "per-chunk progress callbacks fired" );
 		CHECK( cap.lastName == "Data/tiny.txt" && memcmp( cap.lastData.data(), f2, 9 ) == 0, "file order + bytes exact" );
+		// empty file set (host sync dir empty) must still complete -- the
+		// joining client otherwise hangs forever on the download screen
+		FtCap capEmpty;
+		unsigned short setE = fltR.SetupReceive( &capEmpty, false, SystemAddress() );
+		FileList flEmpty;
+		fltS.Send( &flEmpty, srv, aOnSrv, setE, MEDIUM_PRIORITY, 0, false, 0, 5000 );
+		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return capEmpty.complete >= 1; } ), "empty file set completes immediately" );
+		CHECK( capEmpty.files == 0, "empty set delivered zero files" );
+
 		srv->DetachPlugin( &fltS );
 		clA->DetachPlugin( &fltR );
 	}
