@@ -4133,6 +4133,18 @@ void DrawMPPlayerList ()
 
 	if (is_networked && is_client && is_connected)
 	{
+		// Restore the whole lobby panel from the saved buffer each frame before
+		// redrawing: the team / compass / game-info columns below are drawn with
+		// raw DrawString, so without this the glyphs stack over the previous
+		// frame's text (garbled "Game Type" box, ghost values after map changes).
+		{
+			int iPanelBack = RegisterBackgroundRect( BGND_FLAG_SINGLE, NULL,
+				(INT16)MP_PLAYER_X, (INT16)MP_ROWSTART_Y,
+				(INT16)( MP_GAMEINFO_X + MP_GAMEINFO_W ),
+				(INT16)( MP_ROWSTART_Y + 8 * Y_SIZE ) );
+			SetBackgroundRectFilled( iPanelBack );
+		}
+
 		wchar_t szPlayerName[30];
 		wchar_t szTeam[20];
 		wchar_t szCompass[2];
