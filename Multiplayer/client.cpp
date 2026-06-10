@@ -4817,7 +4817,8 @@ void connect_client ( void )
 		ScreenMsg( FONT_BEIGE, MSG_MPSYSTEM, MPClientMessage[0] );
 			
 		client = RakNetworkFactory::GetRakPeerInterface();
-		bool b = client->Startup(1,30,&SocketDescriptor(), 1);
+		SocketDescriptor sd;
+		bool b = client->Startup(1,30,&sd, 1);
 
 		//RPC's
 		REGISTER_STATIC_RPC(client, recievePATH);
