@@ -75,6 +75,19 @@ extern int iScreenMode;
 // ---- State -----------------------------------------------------------------
 
 static SDL_Window*   gWindow    = nullptr;
+
+// While the game window is focused, confine the cursor (edge pixels stay
+// reachable -- the tactical screen scrolls by pushing the mouse to the edge)
+// and drop the RESIZABLE flag so the OS never shows resize arrows over our
+// hidden cursor. On focus loss both revert, so the window can be moved and
+// resized normally from the desktop.
+void ApplyFocusMouseLock(SDL_Window* win, bool focused)
+{
+	if (!win) return;
+	if (SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN) return;
+	SDL_SetWindowMouseGrab(win, focused);
+	SDL_SetWindowResizable(win, !focused);
+}
 static SDL_Renderer* gRenderer  = nullptr;
 static SDL_Texture*  gFrameTex  = nullptr;
 
@@ -190,6 +203,12 @@ BOOLEAN InitializeVideoManager(void)
 	if (iScreenMode != 0) {
 		const float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
 		SDL_SetWindowAspectRatio(gWindow, aspect, aspect);
+
+		// Confine the cursor to the window while it has focus, like the
+		// original fullscreen game felt: no accidental clicks onto the
+		// desktop mid-firefight. Focus loss (Cmd/Alt-Tab) releases the
+		// grab in sdl_input.cpp, so getting out is always possible.
+		ApplyFocusMouseLock(gWindow, true);
 	}
 
 	gRenderer = SDL_CreateRenderer(gWindow, nullptr);
