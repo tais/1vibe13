@@ -498,6 +498,22 @@ BOOLEAN LightningEndOfTurn( UINT8 ubTeam );
 
 void BeginTeamTurn( UINT8 ubTeam )
 {
+
+	// MP safety sweep: no remote copy should be auto-walking across a turn boundary --
+	// a copy whose stop event was missed cycles its walk anim (footsteps) forever.
+	if ( is_networked )
+	{
+		for ( SoldierID id = 0; id < TOTAL_SOLDIERS; ++id )
+		{
+			SOLDIERTYPE* pStop = MercPtrs[ id ];
+			if ( pStop && pStop->bActive && pStop->bInSector && pStop->bTeam >= LAN_TEAM_ONE
+				&& pStop->sGridNo >= 0 && pStop->sGridNo < WORLD_MAX
+				&& ( gAnimControl[ pStop->usAnimState ].uiFlags & ANIM_MOVING ) )
+			{
+				pStop->EVENT_StopMerc( pStop->sGridNo, pStop->ubDirection );
+			}
+		}
+	}
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"BeginTeamTurn");
 	SOLDIERTYPE		*pSoldier;
 
@@ -1247,6 +1263,18 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 		// change team
 		gTacticalStatus.ubCurrentTeam	= pSoldier->bTeam;
+
+		// MP: tell the interrupted player's machine the interrupt is over. The
+		// complete handshake for this (end_interrupt -> "endINTERRUPT" relay ->
+		// resume_turn -> EndInterrupt) has existed since 1.13 MP was written but
+		// the sender was never called from anywhere -- so the moving side stayed
+		// frozen forever re-detecting interrupts (the historical "press ALT+E on
+		// the server" hang). Only the holder sends: the interrupted soldier is on
+		// another player's team here.
+		if ( is_networked && is_client && pSoldier->bTeam != gbPlayerNum )
+		{
+			end_interrupt( fMarkInterruptOccurred );
+		}
 
 		// switch appropriate messages & flags
 		if ( pSoldier->bTeam == OUR_TEAM)

@@ -110,6 +110,7 @@ void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct );
 void send_stop (EV_S_STOP_MERC *SStopMerc);
 
 void send_interrupt(SOLDIERTYPE *pSoldier);
+void end_interrupt( BOOLEAN fMarkInterruptOccurred );
 
 // OJW - 20091002 - explosives
 void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yPos, float zPos, float xForce, float yForce, float zForce, UINT32 sTargetGridNo, SoldierID ubOwner, UINT8 ubActionCode, UINT32 uiActionData, INT32 iRealObjectID, bool bIsThrownGrenade);
