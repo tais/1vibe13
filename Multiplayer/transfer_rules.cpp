@@ -48,6 +48,10 @@ bool CTransferRules::initFromTxtFile(vfs::tReadableFile* pFile)
 			{
 				// remove leading white spaces
 				::size_t iStart = sBuffer.find_first_not_of(" \t",0);
+			if(iStart == std::string::npos)
+			{
+				continue;	// whitespace-only line: at(npos) would throw out of server startup
+			}
 				char first = sBuffer.at(iStart);
 				switch(first)
 				{

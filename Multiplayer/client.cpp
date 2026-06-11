@@ -548,7 +548,7 @@ typedef struct
 	UINT32		uiPreRandomIndex;
 } explosiondamage_struct;
 
-bullets_table bTable[11][50];
+bullets_table bTable[MAXTEAMS][NUM_BULLET_SLOTS];	// rows=global teams, cols=sender bullet slot (audit [40]/[48])
 
 char client_names[4][30];
 
@@ -564,7 +564,8 @@ int	 client_downloading[4];
 int	 client_progress[4];
 int		TEAM;
 
-UINT8	netbTeam;
+UINT8	netbTeam;
+
 UINT16	ubID_prefix;
 
 bool is_connected=false;
@@ -802,6 +803,10 @@ void recievePATH(RPCParameters *rpcParameters)
 	EV_S_SENDPATHTONETWORK* SNetPath = (EV_S_SENDPATHTONETWORK*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = SNetPath->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 
 
 	memcpy(pSoldier->pathing.usPathingData, SNetPath->usPathData,sizeof(UINT16)*30);
@@ -863,6 +868,10 @@ void recieveSTANCE(RPCParameters *rpcParameters)
 		EV_S_CHANGESTANCE* SChangeStance = (EV_S_CHANGESTANCE*)rpcParameters->input;
 	
 		SOLDIERTYPE *pSoldier = SChangeStance->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 	
 		pSoldier->ChangeSoldierStance( SChangeStance->ubNewStance );
 
@@ -906,6 +915,10 @@ void recieveDIR(RPCParameters *rpcParameters)
 			
 
 		SOLDIERTYPE *pSoldier = SSetDesiredDirection->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 
 		pSoldier->EVENT_SetSoldierDesiredDirection( SSetDesiredDirection->usDesiredDirection );
 
@@ -945,6 +958,10 @@ void recieveFIRE(RPCParameters *rpcParameters)
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"SendBeginFireWeaponEvent" );
 
 	SOLDIERTYPE *pSoldier = SBeginFireWeapon->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 
 	pSoldier->sTargetGridNo = SBeginFireWeapon->sTargetGridNo;
 	pSoldier->bTargetLevel = SBeginFireWeapon->bTargetLevel;
@@ -998,11 +1015,19 @@ void recieveHIT(RPCParameters *rpcParameters)
 
 	if(SWeaponHit->fStopped)
 	{
-		INT8 bTeam=pSoldier->bTeam;
+		// bTable rows are written keyed by the FIRER's team with the raw wire id
+		// (recieveBULLET); key the read the same way, bounded. The old code keyed
+		// by the untranslated VICTIM -- wrong row, and pSoldier can be NULL here.
+		SOLDIERTYPE *pFirer = ( SWeaponHit->ubAttackerID != NOBODY ) ? (SOLDIERTYPE*)SWeaponHit->ubAttackerID : NULL;
+		if ( pFirer != NULL && pFirer->bTeam >= 0 && pFirer->bTeam < 11
+			&& SWeaponHit->iBullet >= 0 && SWeaponHit->iBullet < NUM_BULLET_SLOTS )
+		{
+		INT8 bTeam=pFirer->bTeam;
 		INT32 iBullet = bTable[bTeam][SWeaponHit->iBullet].local_id;
 				
 		StopBullet( iBullet );
 		RemoveBullet(iBullet);
+		}
 
 		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"removed bullet" );	
 	}		
@@ -1056,10 +1081,10 @@ void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContrac
 	{
 		int item=kit[cnt];
 
-		if(item != 0)
+		if(item > 0 && item < (int)gMAXITEMS_READ)
 		{
-			CreateItem( item, 100, &Object );
-			AutoPlaceObject( pSoldier, &Object, TRUE );
+			if ( CreateItem( (UINT16)item, 100, &Object ) )
+				AutoPlaceObject( pSoldier, &Object, TRUE );
 		}
 	}
 
@@ -1071,7 +1096,15 @@ void recieveDISMISS(RPCParameters *rpcParameters)
 	send_dismiss_struct* sDismissMerc = (send_dismiss_struct*)rpcParameters->input;
 
 	// Get soldier we should dismiss
+	if ( sDismissMerc->ubProfileID >= TOTAL_SOLDIERS )
+	{
+		return;	// MP wire guard (mp_audit_findings.json)
+	}
 	SOLDIERTYPE * pSoldier=MercPtrs[ sDismissMerc->ubProfileID ];
+	if ( pSoldier == NULL || !pSoldier->bActive )
+	{
+		return;
+	}
 
 	TacticalRemoveSoldier( pSoldier->ubID );
 }
@@ -1084,6 +1117,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	SoldierID	iNewIndex;
 
 	SOLDIERCREATE_STRUCT		MercCreateStruct;
+	memset( (void*)&MercCreateStruct, 0, SIZEOF_SOLDIERCREATE_STRUCT_POD );
 	BOOLEAN fReturn = FALSE;
 	
 	MercCreateStruct.ubProfile						= sHireMerc->ubProfileID;
@@ -1094,16 +1128,23 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	MercCreateStruct.bTeam								= sHireMerc->bTeam;
 	MercCreateStruct.fCopyProfileItemsOver			= sHireMerc->fCopyProfileItemsOver;
 
-	TacticalCreateSoldier( &MercCreateStruct, &iNewIndex ) ;
+	if ( TacticalCreateSoldier( &MercCreateStruct, &iNewIndex ) == NULL || iNewIndex == NOBODY )
+	{
+		return;	// creation refused (e.g. client-side AI skip) -- do not touch MercPtrs[NOBODY]
+	}
 
 	pSoldier = iNewIndex;
 	pSoldier->flags.uiStatusFlags |= SOLDIER_PC;
+	if ( cGameType == MP_TYPE_DEATHMATCH && pSoldier->bTeam >= LAN_TEAM_ONE )
+		pSoldier->bSide = 1;	// LAN squads must read as hostile side in DM (audit: morale)
+	pSoldier->aiData.bNeutral = FALSE;
 	gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
 	
 	if(!cSameMercAllowed)
 		gMercProfiles[ pSoldier->ubProfile ].bMercStatus = MERC_WORKING_ELSEWHERE;
 
 	pSoldier->bSide=0; //default coop only
+	pSoldier->aiData.bNeutral = FALSE;
 	gTacticalStatus.Team[MercCreateStruct.bTeam	].bSide=0;
 
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
@@ -1170,6 +1211,15 @@ void recieveguiPOS(RPCParameters *rpcParameters)
 
 	SOLDIERTYPE *pSoldier = gnPOS->usSoldierID;
 
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		// Sector-load / placement race: the other player already broadcasts GUI
+		// position/facing sync while this machine is still loading the sector --
+		// the soldier slot may be inactive (stale pLevelNode garbage -> crash in
+		// AddMercStructureInfoFromAnimSurface). Drop the cosmetic update.
+		return;
+	}
+
 	INT32 sNewGridNo;
 
 	sNewGridNo = GETWORLDINDEXFROMWORLDCOORDS(gnPOS->dNewXPos, gnPOS->dNewYPos );
@@ -1195,7 +1245,21 @@ void recieveguiDIR(RPCParameters *rpcParameters)
 	gui_dir* gnDIR = (gui_dir*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = gnDIR->usSoldierID;
-	
+
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		// Sector-load / placement race: the other player already broadcasts GUI
+		// position/facing sync while this machine is still loading the sector --
+		// the soldier slot may be inactive (stale pLevelNode garbage -> crash in
+		// AddMercStructureInfoFromAnimSurface). Drop the cosmetic update.
+		return;
+	}
+
+	if ( gnDIR->usNewDirection >= NUM_WORLD_DIRECTIONS )
+	{
+		return;   // direction off the wire must be 0..7
+	}
+
 	pSoldier->EVENT_SetSoldierDirection( gnDIR->usNewDirection );
 }
 
@@ -1293,7 +1357,9 @@ void recieveAI (RPCParameters *rpcParameters)
 	SOLDIERTYPE *pSoldier;
 	AI_STRUCT* send_inv = (AI_STRUCT*)rpcParameters->input;
 
-	SOLDIERCREATE_STRUCT new_standard_data; //as originally my soldiercreate_struct would get its INV mangled through the RPC, so i send it packaged with it, then create a new struct and add in the bits that are still ok from the original struct, along with the packaged INV components...
+	SOLDIERCREATE_STRUCT new_standard_data;
+	memset( (void*)&new_standard_data, 0, SIZEOF_SOLDIERCREATE_STRUCT_POD );
+	//as originally my soldiercreate_struct would get its INV mangled through the RPC, so i send it packaged with it, then create a new struct and add in the bits that are still ok from the original struct, along with the packaged INV components...
 
 	new_standard_data.bAgility = send_inv->standard_data.bAgility;
 	new_standard_data.bAIMorale = send_inv->standard_data.bAIMorale;
@@ -1332,7 +1398,8 @@ void recieveAI (RPCParameters *rpcParameters)
 	memcpy( new_standard_data.MiscPal , send_inv->standard_data.MiscPal, sizeof( PaletteRepID ));
 	memcpy( new_standard_data.name , send_inv->standard_data.name, sizeof( CHAR16 ) * 10 );
 	memcpy( new_standard_data.PantsPal , send_inv->standard_data.PantsPal, sizeof( PaletteRepID ));
-	new_standard_data.pExistingSoldier = send_inv->standard_data.pExistingSoldier;
+	new_standard_data.pExistingSoldier = NULL;   // raw pointer from the sender's address space -- never dereference
+	new_standard_data.fUseExistingSoldier = FALSE;
 	new_standard_data.sInsertionGridNo = send_inv->standard_data.sInsertionGridNo;
 	memcpy( new_standard_data.SkinPal , send_inv->standard_data.SkinPal, sizeof( PaletteRepID ));
 	memcpy( new_standard_data.sPatrolGrid, send_inv->standard_data.sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );//dnl ch27 230909
@@ -1352,7 +1419,10 @@ void recieveAI (RPCParameters *rpcParameters)
 
 	new_standard_data.fPlayerPlan=1;
 
-	TacticalCreateSoldier( &new_standard_data, &iNewIndex );
+	if ( TacticalCreateSoldier( &new_standard_data, &iNewIndex ) == NULL || iNewIndex == NOBODY )
+	{
+		return;	// creation refused -- do not touch MercPtrs[NOBODY]
+	}
 	pSoldier = iNewIndex;
 	pSoldier->flags.uiStatusFlags |= SOLDIER_PC;
 
@@ -1899,9 +1969,19 @@ void recieveSTOP (RPCParameters *rpcParameters)
 	EV_S_STOP_MERC* SStopMerc =(EV_S_STOP_MERC*)rpcParameters->input;
 	
 	SOLDIERTYPE *pSoldier = SStopMerc->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 		
 	pSoldier->EVENT_InternalSetSoldierPosition( SStopMerc->sXPos, SStopMerc->sYPos,FALSE, FALSE, FALSE );
 	pSoldier->EVENT_SetSoldierDirection( SStopMerc->ubDirection );
+	if ( SStopMerc->fset && pSoldier->bTeam >= LAN_TEAM_ONE
+		&& pSoldier->sGridNo >= 0 && pSoldier->sGridNo < WORLD_MAX
+		&& ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
+	{
+		pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+	}
 	pSoldier->AdjustNoAPToFinishMove( SStopMerc->fset );
 	pSoldier->flags.bTurningFromPronePosition = FALSE;	
 }
@@ -1940,9 +2020,14 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 #ifdef INTERRUPT_MP_DEADLOCK_FIX
 	void recieveINTERRUPT (RPCParameters *rpcParameters)
 	{
+		{
+			INT_STRUCT* INTlog = (INT_STRUCT*)rpcParameters->input;
+		}
 		if (cGameType == MP_TYPE_COOP)
 		{
 			INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
+			if ( INT->gubOutOfTurnPersons >= MAXMERCS )
+				INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
 			SOLDIERTYPE* pOpponent = INT->Interrupted;
 
 			if( INT->bTeam == netbTeam || is_server)//its for us or we are server and its for AI which we control
@@ -2002,6 +2087,8 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		else
 		{
 			INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
+			if ( INT->gubOutOfTurnPersons >= MAXMERCS )
+				INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
 			SOLDIERTYPE* pOpponent = INT->Interrupted;
 
 			if(INT->bTeam==netbTeam)//for us
@@ -2060,6 +2147,8 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 	void recieveINTERRUPT (RPCParameters *rpcParameters)
 	{
 		INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
+		if ( INT->gubOutOfTurnPersons >= MAXMERCS )
+			INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
 		SOLDIERTYPE* pOpponent = MercPtrs[ INT->Interrupted];
 
 		if(INT->bTeam==netbTeam)//for us
@@ -2157,6 +2246,8 @@ void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 void resume_turn(RPCParameters *rpcParameters)
 {
 	INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
+	if ( INT->gubOutOfTurnPersons >= MAXMERCS )
+		INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
 
 	if(is_server)
 		Sawarded=false;
@@ -2390,9 +2481,14 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 	int startingEdge = MP_EDGE_NORTH;
 
 	settings_struct* cl_lan = (settings_struct*)rpcParameters->input;
+	if ( cl_lan->client_num < 1 || cl_lan->client_num > 4 )
+	{
+		return;	// client_names[4] / Team[6..9] only valid for 1..4 (audit [36])
+	}
 
 	char szDefault[30];
-	sprintf(szDefault, "%s",cl_lan->client_name);
+	cl_lan->client_name[sizeof(cl_lan->client_name)-1] = 0;
+	snprintf(szDefault, sizeof(szDefault), "%s", cl_lan->client_name);
 
 	// OJW - 20081204
 	// get complete client data from the server
@@ -2414,7 +2510,8 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 
 		memcpy( client_names , cl_lan->client_names, sizeof( char ) * 4 * 30 );
 		
-		strcpy(client_names[cl_lan->client_num-1],szDefault);
+		if ( cl_lan->client_num >= 1 && cl_lan->client_num <= 4 )
+			strcpy(client_names[cl_lan->client_num-1],szDefault);
 
 		// OJW - 20081204
 		strcpy(cServerName,cl_lan->server_name);
@@ -2438,7 +2535,8 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 		int cnt;
 		int numnum = 0;
 		int kitnum = 0;
-		char tempstring[4];
+		char tempstring[8];
+	memset( tempstring, 0, sizeof( tempstring ) );	// first token must parse from a clean buffer
 		memset( &kit, 0, sizeof( int )*20 );
 	
 		if (strcmp(cKitBag, "") != 0)
@@ -2457,9 +2555,10 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 				{
 					numnum=0;
 
-					kit[kitnum]=atoi(tempstring);
+					if (kitnum < 20) kit[kitnum]=atoi(tempstring);
+				memset( tempstring, 0, sizeof( tempstring ) );
 
-					memset( &tempstring, 0, sizeof( char )*4 );
+					memset( tempstring, 0, sizeof( tempstring ) );
 
 					kitnum++;
 					continue;
@@ -2467,12 +2566,15 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 			
 				else if( _strnicmp(&tempc, "]",1) == 0)
 				{
-					kit[kitnum]=atoi(tempstring);
+					if (kitnum < 20) kit[kitnum]=atoi(tempstring);
 					break;
 				}
 				else
 				{
-				strncpy(&tempstring[numnum],&tempc,1);
+				if (numnum < (int)sizeof(tempstring) - 1)
+					strncpy(&tempstring[numnum],&tempc,1);
+				else
+					continue;	// drop excess digits
 				numnum++;
 				}
 			}
@@ -2645,7 +2747,8 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 			
 			fDrawCharacterList = true; // set the character list to be redrawn
 	
-			strcpy(client_names[cl_lan->client_num-1],szDefault);
+			if ( cl_lan->client_num >= 1 && cl_lan->client_num <= 4 )
+				strcpy(client_names[cl_lan->client_num-1],szDefault);
 
 			// OJW - 20091024 - extract random table
 			if (!is_server)
@@ -2662,7 +2765,8 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 
 		ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, MPClientMessage[26],cl_lan->client_num,szDefault );
 			
-		strcpy(client_names[cl_lan->client_num-1],szDefault);				
+		if ( cl_lan->client_num >= 1 && cl_lan->client_num <= 4 )
+			strcpy(client_names[cl_lan->client_num-1],szDefault);				
 	}
 }
 
@@ -3238,7 +3342,7 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 		if ((pSoldier->bTeam == 1 && is_server) || IsOurSoldier(pSoldier))
 		{
 			// find the appropriate world bomb for the world item
-			UINT8 uiBombIndex = -1;
+			INT32 uiBombIndex = -1;
 			UINT32 uiCount;
 			for(uiCount=0; uiCount < guiNumWorldBombs; uiCount++)
 			{
@@ -3352,7 +3456,7 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 		if ((pSoldier->bTeam == 1 && is_server) || IsOurSoldier(pSoldier))
 		{
 			// find the appropriate world bomb for the world item
-			UINT8 uiBombIndex = -1;
+			INT32 uiBombIndex = -1;
 			UINT32 uiCount;
 			for(uiCount=0; uiCount < guiNumWorldBombs; uiCount++)
 			{
@@ -3726,6 +3830,10 @@ void recieveBULLET(RPCParameters *rpcParameters)
 	netb_struct* netb = (netb_struct*)rpcParameters->input;
 
 	INT32 net_iBullet=netb->net_bullet.iBullet;
+	if ( net_iBullet < 0 || net_iBullet >= NUM_BULLET_SLOTS )
+	{
+		return;	// wire bullet slot out of range
+	}
 
 	SOLDIERTYPE * pFirer = NULL;
 	INT8 bTeam = OUR_TEAM;
@@ -3772,7 +3880,10 @@ void recieveBULLET(RPCParameters *rpcParameters)
 	pBullet->bEndCubesAboveLevelZ=netb->net_bullet.bEndCubesAboveLevelZ;
 	pBullet->iDistanceLimit=netb->net_bullet.iDistanceLimit;
 
-	FireBullet( pFirer->ubID, pBullet, FALSE );
+	if ( pFirer != NULL )
+		FireBullet( pFirer->ubID, pBullet, FALSE );
+	else
+		FireBullet( NOBODY, pBullet, FALSE );	// NOBODY-firer bullets are legal (bullets.h)
 }
 
 void send_changestate (EV_S_CHANGESTATE * SChangeState)
@@ -3792,6 +3903,10 @@ void recieveSTATE(RPCParameters *rpcParameters)
 	EV_S_CHANGESTATE*	new_state = (EV_S_CHANGESTATE*)rpcParameters->input;
 
 	SOLDIERTYPE * pSoldier = new_state->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 
 	if(pSoldier->bActive)
 	{
@@ -3828,6 +3943,15 @@ void recieveSTATE(RPCParameters *rpcParameters)
 			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
 		}
 
+		// MP echo guard: already collapsed locally -- don't stand him up and replay
+		// the fall (anim + thump + AP/BP) when the owner's collapse echo arrives. (audit [27])
+		if ( pSoldier->bCollapsed &&
+			gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE &&
+			gAnimControl[ new_state->usNewState ].ubEndHeight == ANIM_PRONE &&
+			gAnimControl[ new_state->usNewState ].ubHeight != ANIM_PRONE )
+		{
+			return;
+		}
 		pSoldier->EVENT_InitNewSoldierAnim( new_state->usNewState, new_state->usStartingAniCode, new_state->fForce );
 	}
 }
@@ -3950,6 +4074,10 @@ void recieveDEATH (RPCParameters *rpcParameters)
 {
 	death_struct* nDeath = (death_struct*)rpcParameters->input;
 	SOLDIERTYPE * pSoldier = nDeath->soldier_id;
+	if ( pSoldier == NULL )
+	{
+		return;	// MP wire guard: unknown victim id (mp_audit_findings.json)
+	}
 
 	SoldierID ubAttackerID;
 	if((nDeath->attacker_id >= ubID_prefix) && (nDeath->attacker_id < (ubID_prefix+6)))
@@ -4241,6 +4369,10 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 	EV_S_UPDATENETWORKSOLDIER* SUpdateNetworkSoldier = (EV_S_UPDATENETWORKSOLDIER*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = SUpdateNetworkSoldier->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 	pSoldier->bBreath=SUpdateNetworkSoldier->bBreath;
 	pSoldier->stats.bLife=SUpdateNetworkSoldier->bLife;
 
@@ -4422,6 +4554,10 @@ void recieve_fireweapon (RPCParameters *rpcParameters)
 	EV_S_FIREWEAPON* SFireWeapon = (EV_S_FIREWEAPON*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = SFireWeapon->usSoldierID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 
 	pSoldier->sTargetGridNo = SFireWeapon->sTargetGridNo;
 	pSoldier->bTargetLevel = SFireWeapon->bTargetLevel;
@@ -4447,6 +4583,10 @@ void recieve_door (RPCParameters *rpcParameters)
 	doors* sDoor = (doors*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = sDoor->ubID;
+	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
+	{
+		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
+	}
 	BOOLEAN fNoAnimations = FALSE;
 
 	if ( !AllMercsLookForDoor( sDoor->sGridNo, FALSE ) )//check for los
@@ -4539,7 +4679,8 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 void recieveDISCONNECTREASON(RPCParameters *rpcParameters )
 {
 	CHAR16* reason = (CHAR16*)rpcParameters->input;
-	wcscpy(gszDisconnectReason,reason);
+	wcsncpy(gszDisconnectReason, reason, 254);
+	gszDisconnectReason[254] = L'\0';
 
 	is_connected=false;
 	auto_retry = false;

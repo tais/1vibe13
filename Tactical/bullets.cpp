@@ -15,7 +15,7 @@
 
 // Defines
 // HEADROCK HAM 5: Increasing... with the hope of making spectacular fragmenting explosives.
-#define		NUM_BULLET_SLOTS					1000		// Flugente: 200 -> 100
+// NUM_BULLET_SLOTS now lives in bullets.h (shared with the MP bullet table)
 
 
 // GLOBAL FOR FACES LISTING

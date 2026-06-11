@@ -226,20 +226,26 @@ void sendFIRE(RPCParameters *rpcParameters)
 void sendHIT(RPCParameters *rpcParameters)
 {
 	EV_S_WEAPONHIT* hit = (EV_S_WEAPONHIT*)rpcParameters->input;
-	
-	int team = hit->ubAttackerID->bTeam;
-	
-	// AI
-	if (team == 1) 
-		team = 4;
-	// Client
-	else if (team >= 6) 
-		team -= 6;
-	else if (team == 0) 
-		team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
-    Assert(team<5); // FIXME
-	gMPPlayerStats[team].hits++;
+	// MP wire guard: the attacker id is raw wire data; the slot can be empty or
+	// the sentinel NOBODY -- never deref unchecked (mp_audit_findings.json)
+	SOLDIERTYPE* pAtt = ( hit->ubAttackerID != NOBODY ) ? (SOLDIERTYPE*)hit->ubAttackerID : NULL;
+	if ( pAtt != NULL )
+	{
+		int team = pAtt->bTeam;
+
+		// AI
+		if (team == 1)
+			team = 4;
+		// Client
+		else if (team >= 6)
+			team -= 6;
+		else if (team == 0)
+			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
+
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].hits++;
+	}
 
 	server->RPC("recieveHIT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
@@ -373,7 +379,7 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 {
 	EV_S_STRUCTUREHIT* miss = (EV_S_STRUCTUREHIT*)rpcParameters->input;
 	
-	if ( miss->ubAttackerID != NOBODY)
+	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
 	{
 		int team = miss->ubAttackerID->bTeam;
 		
@@ -387,7 +393,8 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
         Assert(team<5); // FIXME
-		gMPPlayerStats[team].misses++;
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].misses++;
 	}
 
 	server->RPC("recievehitSTRUCT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
@@ -397,7 +404,7 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 	EV_S_WINDOWHIT* miss = (EV_S_WINDOWHIT*)rpcParameters->input;
 	
 
-	if ( miss->ubAttackerID != NOBODY)
+	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
 	{
 		int team = miss->ubAttackerID->bTeam;
 		
@@ -411,7 +418,8 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
         Assert(team<5); // FIXME
-		gMPPlayerStats[team].misses++;
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].misses++;
 	}
 
 	server->RPC("recievehitWINDOW",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
@@ -420,7 +428,7 @@ void sendMISS(RPCParameters *rpcParameters)
 {
 	EV_S_MISS* miss = (EV_S_MISS*)rpcParameters->input;
 
-	if ( miss->ubAttackerID != NOBODY)
+	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
 	{
 		int team = miss->ubAttackerID->bTeam;
 		
@@ -434,7 +442,8 @@ void sendMISS(RPCParameters *rpcParameters)
 			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
         Assert(team<5); // FIXME
-		gMPPlayerStats[team].misses++;
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].misses++;
 	}
 
 	server->RPC("recieveMISS",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
