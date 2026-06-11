@@ -128,14 +128,36 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		gfAltState   = (mod & SDL_KMOD_ALT)   ? ALT_DOWN   : 0;
 	}
 
+	static bool sWindowFocused = true;
+
 	switch (ev->type) {
 	case SDL_EVENT_QUIT:
 	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 		return true;
 
+	case SDL_EVENT_WINDOW_FOCUS_LOST:
+		// While in the background, the game must neither see mouse input
+		// (gated below) nor keep stale button state (a press held across
+		// the focus change would otherwise stick down forever).
+		sWindowFocused = false;
+		gfLeftButtonState = FALSE;
+		gfRightButtonState = FALSE;
+		gfMiddleButtonState = FALSE;
+		{
+			extern void ApplyFocusMouseLock(SDL_Window*, bool);
+			ApplyFocusMouseLock(SDL_GetWindowFromID(ev->window.windowID), false);
+		}
+		break;
+
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 	case SDL_EVENT_WINDOW_EXPOSED:
 	case SDL_EVENT_WINDOW_RESTORED:
+		if (ev->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+			sWindowFocused = true;
+			// re-confine the cursor (windowed-mode grab; no-op in fullscreen)
+			extern void ApplyFocusMouseLock(SDL_Window*, bool);
+			ApplyFocusMouseLock(SDL_GetWindowFromID(ev->window.windowID), true);
+		}
 		// macOS will re-show the system arrow on focus events and may
 		// drop the streaming texture's stored content. Re-hide the OS
 		// cursor and force a full-screen invalidate so the next frame
@@ -173,6 +195,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 	}
 
 	case SDL_EVENT_MOUSE_MOTION: {
+		if (!sWindowFocused) break;
 		// NB: do NOT QueueEvent(MOUSE_POS, ...) here. The legacy Win32
 		// mouse hook only queued button/wheel atoms and let the game
 		// poll gusMouseXPos/gusMouseYPos directly. DequeueSpecificEvent
@@ -186,6 +209,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 	}
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 	case SDL_EVENT_MOUSE_BUTTON_UP: {
+		if (!sWindowFocused) break;
 		const bool down = ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN;
 		const UINT32 xy = pack_xy((int)ev->button.x, (int)ev->button.y);
 		UINT16 jaev = 0;
@@ -210,6 +234,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		break;
 	}
 	case SDL_EVENT_MOUSE_WHEEL: {
+		if (!sWindowFocused) break;
 		const UINT32 xy = pack_xy(gusMouseXPos, gusMouseYPos);
 		if (ev->wheel.y > 0) {
 			gsMouseWheelDeltaValue = 120;
