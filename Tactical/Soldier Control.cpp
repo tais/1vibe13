@@ -4898,7 +4898,12 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 									 PythSpacesAway( this->sGridNo, pEnemy->sGridNo ) < pEnemy->GetMaxDistanceVisible( this->sGridNo, this->pathing.bLevel ) )
 								{
 									// AGILITY (5):  Soldier snuck 1 square past unaware enemy
-									StatChange( this, AGILAMT, 5, FALSE );
+									// MP: skip -- a deathmatch opener (long run, many unaware
+									// enemies) turns this trickle into a stat firehose.
+									if ( !is_networked )
+									{
+										StatChange( this, AGILAMT, 5, FALSE );
+									}
 									// Keep looping, we'll give'em 1 point for EACH such enemy!
 								}
 							}
