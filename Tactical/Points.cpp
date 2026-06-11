@@ -831,6 +831,16 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 
 void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ubInterruptType )
 {
+	// MP: remote players' copies (LAN teams 6..9) replay movement/fire events but never
+	// get the owner's per-turn breath refresh -- their breath drains to 0 and they
+	// collapse from exhaustion while the owner's instance shows them fine (playtest:
+	// "Len constantly collapses on contact", brth0/100 in the logs). Breath is
+	// owner-authoritative; never spend it on copies.
+	if ( is_networked && pSoldier != NULL && pSoldier->bTeam >= LAN_TEAM_ONE )
+	{
+		iBPCost = 0;
+	}
+
 	INT16 sNewAP = 0;
 	INT8	bNewBreath;
 

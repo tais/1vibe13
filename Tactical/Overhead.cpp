@@ -6466,6 +6466,36 @@ void EnterCombatMode( UINT8 ubStartingTeam )
     SOLDIERTYPE     *pTeamSoldier;
     DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"EnterCombatMode");
 
+    // MP: remote players' copies have no locomotion driver -- a copy mid-walk when
+    // combat engages keeps cycling its walk anim in place forever (endless footstep
+    // sounds). Stop any moving LAN-team copy explicitly; the owner re-syncs real
+    // positions/states through the normal event stream.
+    if ( is_networked )
+    {
+        for ( SoldierID id = 0; id < TOTAL_SOLDIERS; ++id )
+        {
+            SOLDIERTYPE* pStop = MercPtrs[ id ];
+            if ( pStop == NULL || !pStop->bActive || !pStop->bInSector
+                || pStop->sGridNo < 0 || pStop->sGridNo >= WORLD_MAX
+                || !( gAnimControl[ pStop->usAnimState ].uiFlags & ANIM_MOVING ) )
+            {
+                continue;
+            }
+            if ( pStop->bTeam == gbPlayerNum )
+            {
+                // our own movers: stop like single-player does on sighting -- a
+                // realtime path must not keep executing into turn-based and burn
+                // the whole turn's APs. This also broadcasts the stop, so the
+                // other instances halt our copies in sync.
+                pStop->HaultSoldierFromSighting( FALSE );
+            }
+            else if ( pStop->bTeam >= LAN_TEAM_ONE )
+            {
+                pStop->EVENT_StopMerc( pStop->sGridNo, pStop->ubDirection );
+            }
+        }
+    }
+
     if ( gTacticalStatus.uiFlags & INCOMBAT )
     {
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Can't enter combat when already in combat" );
