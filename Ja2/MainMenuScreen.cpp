@@ -304,10 +304,8 @@ BOOLEAN InitMainMenu( )
 		DisableButton( iMenuButtons[ LOAD_GAME ] );
 		
 		
-	// Multiplayer is deferred indefinitely in the SDL3 port (the only
-	// RakNet we have is a prebuilt 32-bit Win32 lib; see
-	// docs/SDL3_PORT.md). Disable the button so single-player still works.
-	DisableButton( iMenuButtons[ NEW_MP_GAME ] );
+	// Multiplayer is live again (RakNet-compat netshim over SDL3_net);
+	// the button is enabled like any other.
 
 	gbHandledMainMenu = 0;
 	fInitialRender		= TRUE;
@@ -682,11 +680,6 @@ BOOLEAN CreateDestroyMainMenuButtons( BOOLEAN fCreate )
 		iMenuImages[ NEW_GAME ]	= LoadButtonImage( filename, 0,0, 1, 2 ,-1 );
 #endif
 			
-		// Grayed = -1: the MP title image has no pre-rendered grayed
-		// frame, so let the disabled path fall through to the shaded
-		// style below (multiplayer is permanently disabled in the SDL3
-		// port). With Grayed=0 the button blitted its normal frame and
-		// looked enabled even while non-interactive.
 		iMenuImages[ NEW_MP_GAME ] = LoadButtonImage( filenameMP, -1, 0, 1, 2, -1 );
 
 		sSlot = 0;
@@ -725,9 +718,6 @@ BOOLEAN CreateDestroyMainMenuButtons( BOOLEAN fCreate )
 			ButtonList[ iMenuButtons[ cnt ] ]->UserData[0] = cnt;
 		}
 
-		// Multiplayer is permanently disabled in the SDL3 port; shade
-		// the button so it reads as greyed-out like a disabled LOAD_GAME.
-		SpecifyDisabledButtonStyle( iMenuButtons[ NEW_MP_GAME ], DISABLED_STYLE_SHADED );
 
 		fButtonsCreated = TRUE;
 	}
