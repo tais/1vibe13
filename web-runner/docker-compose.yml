@@ -1,0 +1,27 @@
+# Browser-playable JA2 (single persistent session).
+#
+#   GAME_DIR=/srv/ja2  XPRA_PASSWORD=changeme  docker compose up -d --build
+#
+# Then open  http://<host>:10000/  in a browser.
+services:
+  ja2-web:
+    build: .
+    image: ja2-web-runner
+    container_name: ja2-web
+    init: true                      # proper PID-1 signal handling / zombie reaping
+    # The persistent session: keep the container (and the in-RAM game) alive across
+    # daemon restarts. A crash/redeploy still loses RAM state -> rely on JA2 autosave.
+    restart: unless-stopped
+    ports:
+      - "${XPRA_PORT:-10000}:10000"
+    volumes:
+      # Your Linux JA2 install (x86_64 JA2_ENGLISH + Data/ + ja2.ini). Writable so
+      # saves / ShadeTables / settings persist to the host.
+      - "${GAME_DIR:?set GAME_DIR to your JA2 install dir on the host}:/game"
+    environment:
+      GAME_BIN: "${GAME_BIN:-JA2_ENGLISH}"
+      XPRA_PORT: "10000"
+      # Set a password! Empty = anyone reaching the port can play and drive the host.
+      XPRA_PASSWORD: "${XPRA_PASSWORD:-}"
+    # SDL/X/PulseAudio are happier with a bit of shared memory.
+    shm_size: "512m"
