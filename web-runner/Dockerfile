@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
       xpra-server xpra-x11 xpra-html5 xpra-audio-server xpra-codecs xvfb \
       # audio: a session PulseAudio + the gstreamer codecs Xpra encodes speaker with
       pulseaudio pulseaudio-utils \
-      gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-tools \
+      gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-tools \
       # runtime libs SDL3 dlopens at launch (it's statically linked into the binary,
       # but still opens the system X11 / audio / dbus client libs at runtime)
       libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxinerama1 \
@@ -36,8 +36,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
       # the game needs the keyboard) + dbus so the audio session / dbus-launch is clean
       x11-xkb-utils xkb-data dbus dbus-x11 \
       libpulse0 libasound2 libdbus-1-3 \
-      # software GL just in case SDL probes it (we force the software renderer anyway)
-      libgl1 libegl1 libgl1-mesa-dri \
+      # GL loaders for SDL's runtime GL probe. The heavy llvmpipe driver
+      # (libgl1-mesa-dri -> libllvm15 ~140MB) is pulled by Xvfb's GLX regardless, so
+      # keeping these costs ~nothing and avoids any SDL libGL.so.1 load failure --
+      # we still force the software renderer and never create a GL context.
+      libgl1 libegl1 \
       fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
