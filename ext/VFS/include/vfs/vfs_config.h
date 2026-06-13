@@ -24,6 +24,12 @@
 #ifndef _VFS_CONFIG_H_
 #define _VFS_CONFIG_H_
 
+// bfVFS (2010) uses bare NULL across ~26 files but never includes its definition;
+// older toolchains pulled it in transitively, newer libstdc++/clang (e.g. Debian
+// bookworm clang 14) do not -> "use of undeclared identifier 'NULL'". This common
+// config header is included by every VFS source, so provide it here for all of them.
+#include <cstddef>
+
 #ifdef WIN32
 #ifdef _MSC_VER
 #	ifndef PRINT_DLL_INTERFACE_WARNING
