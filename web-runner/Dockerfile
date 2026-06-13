@@ -20,8 +20,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
  && echo "deb [signed-by=/usr/share/keyrings/xpra.gpg] https://xpra.org/ bookworm main" \
       > /etc/apt/sources.list.d/xpra.list \
  && apt-get update && apt-get install -y --no-install-recommends \
-      # Xpra server + its HTML5 web client + a virtual X server it drives
-      xpra xpra-html5 xvfb \
+      # Xpra 6.x is modular: install the server, the X11/seamless component, the
+      # html5 web client, SERVER-SIDE audio forwarding, and the CPU picture/video
+      # codecs explicitly (the bare `xpra` meta pulls these only via Recommends,
+      # which --no-install-recommends skips -> "you must install xpra-x11").
+      xpra-server xpra-x11 xpra-html5 xpra-audio-server xpra-codecs xvfb \
       # audio: a session PulseAudio + the gstreamer codecs Xpra encodes speaker with
       pulseaudio pulseaudio-utils \
       gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-tools \
@@ -29,6 +32,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
       # but still opens the system X11 / audio / dbus client libs at runtime)
       libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxinerama1 \
       libxss1 libxkbcommon0 libxfixes3 libxtst6 \
+      # keyboard keymap data (xpra warns "XKB bindings not available" without it --
+      # the game needs the keyboard) + dbus so the audio session / dbus-launch is clean
+      x11-xkb-utils xkb-data dbus dbus-x11 \
       libpulse0 libasound2 libdbus-1-3 \
       # software GL just in case SDL probes it (we force the software renderer anyway)
       libgl1 libegl1 libgl1-mesa-dri \
