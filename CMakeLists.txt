@@ -98,6 +98,12 @@ find_package(SDL3_mixer QUIET CONFIG)
 if(NOT TARGET SDL3_mixer::SDL3_mixer)
   include(FetchContent)
   set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
+  # Drop the mpg123 MP3 backend: on arm64 its vendored build selects OPT_NEON64
+  # together with REAL_IS_FIXED -- an invalid combo that hard-#errors ("Bad decoder
+  # choice together with fixed point math!"), breaking the linux-arm64 build. dr_mp3
+  # (pure C, every arch, stays ON) still provides MP3 decoding, so MP3 audio is
+  # unaffected on all platforms.
+  set(SDLMIXER_MP3_MPG123 OFF CACHE BOOL "" FORCE)
   FetchContent_Declare(
     SDL3_mixer
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
