@@ -34,12 +34,20 @@ extern unsigned int setID;
 #define JA2MP_SAME_MERC					"SAME_MERC_ALLOWED"
 #define JA2MP_SERVER_IP					"SERVER_IP"
 #define JA2MP_SERVER_NAME				"SERVER_NAME"
+#define JA2MP_ADMIN_PASSWORD			"ADMIN_PASSWORD"
 #define JA2MP_SERVER_PORT				"SERVER_PORT"
 #define JA2MP_STARTING_BALANCE			"STARTING_CASH"
 #define JA2MP_SYNC_CLIENTS_MP_DIR		"SYNC_GAME_DIRECTORY"
 #define JA2MP_TIMED_TURN_SECS_PER_TICK	"TIMED_TURNS"
 #define JA2MP_TIME						"STARTING_TIME"
 #define	JA2MP_NEW_TRAITS				"SKILL_TRAITS"
+
+// dedicated-server admin protocol (client -> server)
+typedef struct
+{
+	UINT8 cmd;
+	char  password[64];
+} admin_cmd_struct;
 
 typedef struct
 {

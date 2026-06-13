@@ -1,4 +1,7 @@
-	#include "types.h"
+	#include <filesystem>
+#include <string>
+#include <system_error>
+#include "types.h"
 	#include "MPHostScreen.h"
 	#include "GameSettings.h"
 	#include "Utilities.h"
@@ -2521,8 +2524,45 @@ BOOLEAN		ExitMPHScreen()
 }
 
 
+static void DedicatedAutoStartHost( void )
+{
+	// all options come from Profiles/UserProfile/ja2_mp.ini; the sync
+	// directory must exist or validation refuses to start
+	{
+		std::error_code ec;
+		std::filesystem::create_directories( std::filesystem::path( std::wstring( gzFileTransferDirectory ) ), ec );
+	}
+	if ( ValidateMPSettings() )
+	{
+		gubMPHScreenHandler = MPH_START;
+		SaveMPSettings();
+		SGP_TRYCATCH_RETHROW( ja2::mp::InitializeMultiplayerProfile(vfs::Path(gzFileTransferDirectory)), L"" );
+		gGameOptions.ubDifficultyLevel = iMPHDifficulty + 1;
+		LoadExternalGameplayData(TABLEDATA_DIRECTORY, true);
+		InitDependingGameStyleOptions();
+		printf( "[dedicated] hosting game (settings from ja2_mp.ini)\n" );
+		fflush( stdout );
+	}
+	else
+	{
+		printf( "[dedicated] ERROR: MP settings failed validation -- check ja2_mp.ini\n" );
+		fflush( stdout );
+	}
+}
+
 void			HandleMPHScreen()
 {
+	{	// dedicated server: press Start automatically once the screen settled
+		extern BOOLEAN gfDedicatedServer;
+		static BOOLEAN fDedicatedAutoStart = FALSE;
+		static UINT32 uiDedicatedTicks = 0;
+		if ( gfDedicatedServer && !fDedicatedAutoStart && gubMPHScreenHandler == MPH_NOTHING && ++uiDedicatedTicks > 30 )
+		{
+			fDedicatedAutoStart = TRUE;
+			DedicatedAutoStartHost();
+		}
+	}
+
 	if( gubMPHScreenHandler != MPH_NOTHING )
 	{
 		switch( gubMPHScreenHandler )

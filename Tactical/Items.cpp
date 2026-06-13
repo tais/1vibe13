@@ -3574,9 +3574,17 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 				(*pGun)[subObject]->data.gun.usGunAmmoItem = usNewAmmoItem;
 				if (fReloadingWithStack)
 				{
-					// add to end of stack
+					// add to end of stack -- only if the ejected mag is the same item as
+					// the stack (or the stack just emptied); a different mag type cannot
+					// be merged (asserts in AddObjectsToStack, e.g. reload-all with mixed
+					// magazines). Otherwise autoplace it, or drop it at our feet.
 					if ( gTempObject.exists( ) )
-						pAmmo->AddObjectsToStack( gTempObject, 1 );
+					{
+						if ( !pAmmo->exists() || gTempObject.usItem == pAmmo->usItem )
+							pAmmo->AddObjectsToStack( gTempObject, 1 );
+						else if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
+							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0 , -1 );
+					}
 				}
 				else
 				{
@@ -7922,8 +7930,24 @@ UINT16 UseKitPoints( OBJECTTYPE * pObj, UINT16 usPoints, SOLDIERTYPE *pSoldier )
 
 UINT16 MagazineClassIndexToItemType(UINT16 usMagIndex)
 {
-	// sun_alf: uiIndex is according itemId now 
-	return Magazine[usMagIndex].uiIndex;
+	// sun_alf: uiIndex is according itemId now -- but only in NEW-style Magazines.xml.
+	// OLD-style data (e.g. stock 1.13 installs) carries the table ROW in uiIndex, so
+	// returning it as an item id maps magazines onto arbitrary items (a 30-rd mag came
+	// back as "Traps Kit", whose ubClassIndex 0 then filled new guns from Magazine[0]
+	// = 6 rounds -- the "mercs start with 6/30" bug). Trust uiIndex only when it
+	// really names the matching ammo item; otherwise resolve old-style via the
+	// Item[].ubClassIndex back-reference.
+	UINT16 usItem = (UINT16)Magazine[usMagIndex].uiIndex;
+	if ( usItem < MAXITEMS && ( Item[usItem].usItemClass & IC_AMMO ) && Item[usItem].ubClassIndex == usMagIndex )
+		return usItem;
+
+	for ( UINT32 i = 1; i < MAXITEMS && i <= gMAXITEMS_READ; i++ )
+	{
+		if ( ( Item[i].usItemClass & IC_AMMO ) && Item[i].ubClassIndex == usMagIndex )
+			return (UINT16)i;
+	}
+
+	return usItem;	// last resort: previous behavior
 }
 
 

@@ -66,6 +66,9 @@ extern UINT8 cMaxMercs;
 void lockui (bool unlock);
 
 void start_battle ( void );
+enum { ADMIN_CMD_AUTH = 1, ADMIN_CMD_START = 2 };
+void send_admin_cmd(UINT8 cmd, const char* password);
+extern bool gfIAmAdmin;
 void DropOffItemsInSector( UINT8 ubOrderNum );
 
 void mp_help (void);
@@ -110,6 +113,17 @@ void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct );
 void send_stop (EV_S_STOP_MERC *SStopMerc);
 
 void send_interrupt(SOLDIERTYPE *pSoldier);
+void end_interrupt( BOOLEAN fMarkInterruptOccurred );
+
+// non-zero while the server arbiter has paused our turn for an enemy interrupt;
+// holds the interrupting team. AddTopMessage uses it to keep the turn banner off
+// green "PLAYER'S TURN" until the arbiter resumes us (see client.cpp definition).
+extern int gMpEnemyInterruptTeam;
+
+// diagnostic logging to the coordinator (printed when LOG_LEVEL >= verbose)
+void mp_log_event( const char* msg );
+void mp_log_soldier( SOLDIERTYPE* pSoldier, const char* event );
+void mp_log_sighting( SOLDIERTYPE* pSighter, SOLDIERTYPE* pSeen, int range );
 
 // OJW - 20091002 - explosives
 void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yPos, float zPos, float xForce, float yForce, float zForce, UINT32 sTargetGridNo, SoldierID ubOwner, UINT8 ubActionCode, UINT32 uiActionData, INT32 iRealObjectID, bool bIsThrownGrenade);

@@ -4607,6 +4607,19 @@ BOOLEAN AddTopMessage( UINT8 ubType, STR16 pzString )
 	UINT32	cnt;
 	BOOLEAN	fFound = FALSE;
 
+	// MP: while the server arbiter has paused our turn for an enemy interrupt, our
+	// local turn machine (StartPlayerTeamTurn, the per-frame turn timer, a late
+	// EndInterrupt) keeps trying to re-assert the green "PLAYER'S TURN" bar, which
+	// made the GUI claim we could act when we were actually frozen (clock cursor).
+	// This is the single funnel for the banner, so force any such green back to the
+	// enemy-interrupt bar. gMpEnemyInterruptTeam is held from the interrupt grant
+	// until resume_turn / a new turn, so it wins regardless of caller ordering.
+	if ( is_networked && gMpEnemyInterruptTeam != 0 && ubType == PLAYER_TURN_MESSAGE )
+	{
+		ubType   = COMPUTER_INTERRUPT_MESSAGE;
+		pzString = TeamTurnString[ gMpEnemyInterruptTeam ];
+	}
+
 	// Set time of last update
 	gTopMessage.uiTimeOfLastUpdate = GetJA2Clock( );
 

@@ -2580,7 +2580,12 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 			// Debug msg
 			ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"FAILED: add struct info for merc %d (%s), at %d direction %d", pSoldier->ubID, pSoldier->name, sGridNo, pSoldier->ubDirection );
 
-			if ( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ].pDBStructure->ubNumberOfTiles > 1 )
+			// pDBStructure can be NULL here (and ubDirection may index a direction the
+			// structure file has no variant for) -- this failure path crashed when a
+			// remote placement collided with an occupied tile.
+			if ( pSoldier->ubDirection < NUM_WORLD_DIRECTIONS
+				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ].pDBStructure != NULL
+				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ].pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
 				pSoldier->flags.uiStatusFlags |= SOLDIER_MULTITILE_Z;

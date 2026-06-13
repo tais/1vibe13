@@ -4754,7 +4754,7 @@ BOOLEAN DisplayLoadPending( void )
 	// if total time is exceeded, return (TRUE)
 	if(iBaseTime==0)
 	{
-	iBaseTime=GetJA2Clock();
+	iBaseTime=GetJA2NoPauseClock();
 	}
 
 
@@ -4774,7 +4774,7 @@ BOOLEAN DisplayLoadPending( void )
 	}
 
 
-	iDifference=GetJA2Clock()-iBaseTime;
+	iDifference=GetJA2NoPauseClock()-iBaseTime;
 
 
 
@@ -4783,7 +4783,7 @@ BOOLEAN DisplayLoadPending( void )
 	{
 		// LONG ENOUGH TIME PASSED
 		iCounter=0;
-		iBaseTime=GetJA2Clock();
+		iBaseTime=GetJA2NoPauseClock();
 		iTotalTime+=iDifference;
 	iTempTime=iTotalTime;
 

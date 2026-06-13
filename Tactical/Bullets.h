@@ -1,5 +1,6 @@
 #ifndef __BULLETS_H
 #define __BULLETS_H
+#define NUM_BULLET_SLOTS 1000
 
 #include "types.h"
 #include "Soldier Control.h"

@@ -135,6 +135,10 @@ static bool CallGameLoop(bool wait);
 #include <mutex>
 static std::mutex gGameLoopMutex;
 
+// Dedicated multiplayer host: --dedicated runs the full game headless on
+// SDL's offscreen/dummy drivers; the MP screens auto-drive to the lobby.
+BOOLEAN gfDedicatedServer = FALSE;
+
 // Argv cached for PopulateSectionFromCommandLine.
 static int    g_argc = 0;
 static char** g_argv = nullptr;
@@ -955,6 +959,11 @@ void GetRuntimeSettings( )
 	
 	iWindowedMode = (int)oProps.getIntProperty(L"Ja2 Settings", L"SCREEN_MODE_WINDOWED", -1);
 
+	// Opt-in: confine the cursor to the window while it is focused (windowed mode).
+	// Absent/0 in Ja2.ini -> never locked, so the default behaviour is unchanged.
+	extern bool gfLockMouseToWindow;
+	gfLockMouseToWindow = oProps.getBoolProperty(L"Ja2 Settings", L"LOCK_MOUSE_TO_WINDOW", false);
+
 	vfs::Settings::setUseUnicode( !oProps.getBoolProperty(L"Ja2 Settings", L"VFS_NO_UNICODE", false) );
 
 	std::list<vfs::String> ini_list;
@@ -1440,6 +1449,18 @@ int main(int argc, char** argv)
 
 	g_argc = argc;
 	g_argv = argv;
+
+	for (int i = 1; i < argc; ++i) {
+		if (SDL_strcasecmp(argv[i], "--dedicated") == 0) {
+			gfDedicatedServer = TRUE;
+			SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
+			SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+			SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
+			std::printf("[dedicated] headless multiplayer host mode\n");
+			std::fflush(stdout);
+			break;
+		}
+	}
 
 	// Working-directory rescue. A bare executable launched from Finder (macOS) or
 	// Explorer (Windows) -- as opposed to a terminal sitting in the game folder --

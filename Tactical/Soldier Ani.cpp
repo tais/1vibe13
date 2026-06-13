@@ -4091,7 +4091,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 									gMercProfiles[ ubAttacker->ubProfile ].records.usKillsOthers++;
 
 									// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-									if (gGameExternalOptions.fDynamicOpinions && pSoldier->bTeam != OUR_TEAM && (pSoldier->aiData.bNeutral || pSoldier->bSide == ubAttacker->bSide) )
+									if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->bTeam >= LAN_TEAM_ONE) && pSoldier->bTeam != OUR_TEAM && (pSoldier->aiData.bNeutral || pSoldier->bSide == ubAttacker->bSide) )
 									{
 										// not for killing animals though...
 										if ( pSoldier->ubBodyType != CROW && pSoldier->ubBodyType != COW )
@@ -4105,7 +4105,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 						gStrategicStatus.usPlayerKills++;
 
 						// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-						if (gGameExternalOptions.fDynamicOpinions)
+						if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->bTeam >= LAN_TEAM_ONE))
 						{
 							if (pSoldier->bTeam != OUR_TEAM && (pSoldier->aiData.bNeutral || pSoldier->bSide == ubAttacker->bSide))
 							{

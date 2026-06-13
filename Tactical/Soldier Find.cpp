@@ -662,6 +662,15 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 			return;
 		}
 
+		// dead/removed soldiers can carry sGridNo == NOWHERE (or garbage) -- indexing
+		// gpWorldLevelData with it reads far out of bounds (wipeout-cascade crash)
+		if ( pSoldier->sGridNo < 0 || pSoldier->sGridNo >= WORLD_MAX )
+		{
+			*psScreenX = 0;
+			*psScreenY = 0;
+			return;
+		}
+
 		// Get 'TRUE' merc position
 		dOffsetX = pSoldier->dXPos - gsRenderCenterX;
 		dOffsetY = pSoldier->dYPos - gsRenderCenterY;
@@ -705,6 +714,15 @@ void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *ps
 		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
 
 		if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
+		{
+			*psScreenX = 0;
+			*psScreenY = 0;
+			return;
+		}
+
+		// dead/removed soldiers can carry sGridNo == NOWHERE (or garbage) -- indexing
+		// gpWorldLevelData with it reads far out of bounds (wipeout-cascade crash)
+		if ( pSoldier->sGridNo < 0 || pSoldier->sGridNo >= WORLD_MAX )
 		{
 			*psScreenX = 0;
 			*psScreenY = 0;

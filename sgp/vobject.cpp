@@ -921,11 +921,10 @@ BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 
 	if ( hSrcVObject == NULL )
 	{
-		//int breakpoint=0;
+		// Missing graphic (e.g. an AIM-page sprite that failed to load): skip the
+		// blit instead of raising the fatal error screen and locking the laptop.
+		return( FALSE );
 	}
-
-	//Assert( hSrcVObject != NULL );
-	SGP_THROW_IFFALSE( hSrcVObject != NULL, L"No Source Object" )
 
 	SixteenBPPObjectInfo *image = NULL;
 	// Check For Flags and bit depths

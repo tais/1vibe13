@@ -216,7 +216,11 @@ UINT32	MPScoreScreenShutdown( void )
 
 BOOLEAN		EnterMPSScreen()
 {
-	gfMPSScoreScreenCanContinue = FALSE;
+	// Coordinator MP has no host game-instance to press Continue, and this screen
+	// only ever appears at game-over, so let the client leave it on its own instead
+	// of waiting forever for a "server" that no longer exists. (Cancel already worked;
+	// this un-hides Continue too.)
+	gfMPSScoreScreenCanContinue = TRUE;
 
 	VOBJECT_DESC	VObjectDesc;
 
