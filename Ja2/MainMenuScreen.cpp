@@ -98,6 +98,19 @@ UINT32	MainMenuScreenInit( )
 
 UINT32	MainMenuScreenHandle( )
 {
+	extern BOOLEAN gfDedicatedServer;
+	if ( gfDedicatedServer )
+	{
+		// headless host: pick Multiplayer exactly like the 'm' hotkey, once the
+		// splash (4s) and fade have certainly finished
+		static BOOLEAN fDedicatedAutoMP = FALSE;
+		if ( !fDedicatedAutoMP && guiSplashStartTime + 6000 < GetJA2Clock() )
+		{
+			fDedicatedAutoMP = TRUE;
+			gbHandledMainMenu = NEW_MP_GAME;
+			HandleMainMenuInput();
+		}
+	}
 	UINT32 cnt;
 	UINT32 uiTime;
 

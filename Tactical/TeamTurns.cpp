@@ -610,9 +610,11 @@ void BeginTeamTurn( UINT8 ubTeam )
 			// ( they could have blead to death above )
 			if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
 			{
-				StartPlayerTeamTurn( TRUE, FALSE );
-			/*	if(is_server && !net_turn) send_EndTurn(ubTeam);
-				if(net_turn == true) net_turn = false;*/
+				extern BOOLEAN gfDedicatedServer;
+				// Coordinator host has no mercs and no UI to end a turn -- never run
+				// its own player turn; just advance the round to the real players.
+				if ( !gfDedicatedServer )
+					StartPlayerTeamTurn( TRUE, FALSE );
 				if(is_server) 
 				{
 					numreadyteams =0;//beginning round 
@@ -1526,14 +1528,10 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	INT8						bDir;
 	SOLDIERTYPE *		pOpponent;
 
-#ifdef DISABLE_MP_INTERRUPTS_IN_COOP
-	
-	if (is_networked == TRUE && cGameType == MP_TYPE_COOP)
-	{
-		return ( FALSE );
-	}
-
-#endif
+	// Server-arbitrated interrupts (ja2server is the authority): interrupt DETECTION
+	// is re-enabled in MP; the client requests the interrupt and the coordinator
+	// grants at most one at a time, so the out-of-turn stack can't diverge. To go
+	// back to interrupt-free combat, restore `if (is_networked) return FALSE;` here.
 
 	if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && !(gubSightFlags & SIGHT_INTERRUPT) )
 	{
@@ -2390,6 +2388,17 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 					gTacticalStatus.fInterruptOccurred = TRUE;
 
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"You have interrupted %s", TeamNameStrings[npSoldier->bTeam]);
+				}
+				// Coordinator MP: OUR merc (nbTeam==0) gets the interrupt during the
+				// opponent's turn. There is no is_server host to award it, so REQUEST it
+				// from the coordinator and WAIT -- do NOT take control locally. We act on
+				// the server's recieveINTERRUPT grant (it grants one at a time, so turn
+				// ownership can't diverge). Without this a pure client just ClearIntList'd
+				// and interrupts never fired over the standalone server.
+				else if ( is_networked && !is_server && nbTeam == 0 )
+				{
+					mp_log_soldier( npSoldier, "REQUESTING interrupt from the server" );
+					send_interrupt( npSoldier );
 				}
 				else
 				{

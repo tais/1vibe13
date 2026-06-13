@@ -611,6 +611,24 @@ void UnHideMessagesDuringNPCDialogue( void )
 
 void ScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ...)
 {
+	extern BOOLEAN gfDedicatedServer;
+	if ( gfDedicatedServer )
+	{
+		va_list apTee;
+		va_start( apTee, pStringA );
+		wchar_t wzTee[512];
+		vswprintf( wzTee, 512, pStringA, apTee );
+		va_end( apTee );
+		// stdout is byte-oriented (printf is used elsewhere); wprintf would fail
+		// silently once the orientation is set, so convert to plain bytes.
+		char szTee[1024];
+		size_t i = 0;
+		for ( ; i < sizeof( szTee ) - 1 && wzTee[i]; ++i )
+			szTee[i] = ( wzTee[i] < 128 ) ? (char)wzTee[i] : '?';
+		szTee[i] = 0;
+		printf( "%s\n", szTee );
+		fflush( stdout );
+	}
 	//__try
 	//{
 		CHAR16	DestString[512];

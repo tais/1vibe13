@@ -4109,6 +4109,7 @@ void DisplayCharacterList()
 	// draw multiplayer player list
 	if (is_networked && is_client)
 		DrawMPPlayerList();
+
 	HandleDisplayOfSelectedMercArrows( );
 	SetFontDestBuffer(FRAME_BUFFER ,0,0,SCREEN_WIDTH,SCREEN_HEIGHT,FALSE);
 
@@ -7014,6 +7015,15 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 			if ( gfPauseDueToPlayerGamePause )
 			{
 				HandlePlayerPauseUnPauseOfGame( );
+				continue;
+			}
+
+			// dedicated-server admin: 'G' starts the game (remote host control)
+			if ( is_networked && gfIAmAdmin && !is_game_started
+				&& ( InputEvent.usParam == 'G' || InputEvent.usParam == 'g' ) )
+			{
+				send_admin_cmd( ADMIN_CMD_START, NULL );
+				ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"Start requested..." );
 				continue;
 			}
 

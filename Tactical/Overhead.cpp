@@ -1217,6 +1217,43 @@ BOOLEAN ExecuteOverhead( )
                 // Get the path update, if there is 1
                 if (pSoldier->flags.fSoldierUpdatedFromNetwork)
                     UpdateSoldierFromNetwork(pSoldier);
+
+                // Endless-footstep guard. A remote LAN-team copy has no locomotion
+                // driver of its own -- it "walks" via streamed position updates from
+                // the owner. If the owner's final stop never arrives/sticks, the copy
+                // cycles its walk anim (re-triggering footstep sounds) in place
+                // forever -- only a hard state change (e.g. getting shot) clears it.
+                // A genuine walk advances a tile every few frames, so a copy stuck in
+                // a MOVING anim with an UNCHANGED gridno across many frames is wedged:
+                // stop it explicitly. (EVENT_StopMerc on LAN copies is used the same
+                // way at combat entry / sighting halt / the per-turn sweep.)
+                if ( is_networked && pSoldier->bTeam >= LAN_TEAM_ONE
+                    && pSoldier->bActive && pSoldier->bInSector
+                    && pSoldier->sGridNo >= 0 && pSoldier->sGridNo < WORLD_MAX
+                    && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE )
+                    && !pSoldier->flags.fPauseAllAnimation
+                    && ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
+                {
+                    static INT16  s_lanLastGrid[ TOTAL_SOLDIERS ];
+                    static UINT16 s_lanStuckFrames[ TOTAL_SOLDIERS ];
+                    UINT8 ubLanId = pSoldier->ubID;
+                    if ( ubLanId < TOTAL_SOLDIERS )
+                    {
+                        if ( s_lanLastGrid[ ubLanId ] == pSoldier->sGridNo )
+                        {
+                            if ( ++s_lanStuckFrames[ ubLanId ] > 30 )   // ~stuck (a real walk changes tiles)
+                            {
+                                s_lanStuckFrames[ ubLanId ] = 0;
+                                pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+                            }
+                        }
+                        else
+                        {
+                            s_lanLastGrid[ ubLanId ] = pSoldier->sGridNo;
+                            s_lanStuckFrames[ ubLanId ] = 0;
+                        }
+                    }
+                }
 #endif
 
                 // Check if we are moving and we deduct points and we have no points

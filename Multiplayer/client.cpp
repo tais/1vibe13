@@ -367,6 +367,15 @@ ClientTransferCB transferCBClient;
 // OJW - 20081222
 player_stats gMPPlayerStats[5];
 
+// Arbiter-driven banner state: when the server grants an enemy interrupt against
+// us, our turn is paused but our LOCAL turn machine (StartPlayerTeamTurn, the
+// per-frame turn timer, a late EndInterrupt) keeps trying to re-assert the green
+// "PLAYER'S TURN" bar -- which made the GUI lie that we could still act (the bug
+// only showed on the FIRST interrupt of a turn, a pure ordering race). This holds
+// the interrupting team (0 = not interrupted); AddTopMessage forces any green bar
+// to the enemy-interrupt bar while it is non-zero. Cleared on resume_turn / new turn.
+int gMpEnemyInterruptTeam = 0;
+
 // OJW - 20090503 - get rid of compile error
 #pragma pack (1)
 
@@ -564,8 +573,8 @@ int	 client_downloading[4];
 int	 client_progress[4];
 int		TEAM;
 
-UINT8	netbTeam;
-
+UINT8	netbTeam;
+
 UINT16	ubID_prefix;
 
 bool is_connected=false;
@@ -580,6 +589,7 @@ UINT32 giNextRetryTime = 0;
 bool requested=false;
 int kit[20];
 bool allowlaptop=false;
+bool gfIAmAdmin=false;   // dedicated-server admin (this client controls the lobby)
 bool recieved_settings=false;
 // OJW - 20090422
 bool recieved_transfer_settings = false;
@@ -1054,6 +1064,8 @@ void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContrac
 
 	SOLDIERTYPE *pSoldier = iNewIndex;
 
+	mp_log_soldier( pSoldier, "hired (joined the team)" );   // -> coordinator log (verbose+)
+
 	UINT8 sectorEdge = cStartingSectorEdge;
 	
 	// WANNE - MP: Center
@@ -1134,6 +1146,20 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	}
 
 	pSoldier = iNewIndex;
+
+	// Spawn the enemy copy at its OWNER's starting edge (from the settings), not the
+	// zeroed default -- otherwise every copy lands near OUR edge and the LOS engine
+	// "sees" it at point-blank range, falsely triggering turn-based at game start.
+	// (Exact tiles still re-sync via guiPOS once the owner moves.) Same field send_hire
+	// sets on the owner's own merc.
+	{
+		int ownerIdx = (int)sHireMerc->bTeam - LAN_TEAM_ONE;   // 0..3 for LAN teams 6..9
+		if ( ownerIdx >= 0 && ownerIdx < 5 )
+		{
+			UINT8 edge = (UINT8)client_edges[ ownerIdx ];
+			pSoldier->ubStrategicInsertionCode = ( edge == MP_EDGE_CENTER ) ? (UINT8)INSERTION_CODE_CENTER : edge;
+		}
+	}
 	pSoldier->flags.uiStatusFlags |= SOLDIER_PC;
 	if ( cGameType == MP_TYPE_DEATHMATCH && pSoldier->bTeam >= LAN_TEAM_ONE )
 		pSoldier->bSide = 1;	// LAN squads must read as hostile side in DM (audit: morale)
@@ -1290,7 +1316,11 @@ void recieveEndTurn(RPCParameters *rpcParameters)
 	UINT8 ubTeam;
 	sender_bTeam=tStruct->tsnetbTeam;
 	ubTeam=tStruct->tsubNextTeam;
-	
+
+	// a fresh turn boundary means any enemy interrupt against us is done -> let the
+	// banner go green again (safety net in case a resume_turn was missed/reordered).
+	gMpEnemyInterruptTeam = 0;
+
 	if(is_server)
 		Sawarded=false;
 	
@@ -1536,7 +1566,14 @@ void recieveREADY (RPCParameters *rpcParameters)
 			if (client_names[i] != NULL && strcmp(client_names[i],"") != 0)
 				iPlayersConnected++;
 
-		cMaxClients = iPlayersConnected;
+		{
+			// Coordinator model: a dedicated host is NOT a playing participant, so
+			// it must not be counted among the players that ready / place / load.
+			// Every barrier checks numready==cMaxClients; excluding the host here
+			// means those barriers are satisfied by the real players alone.
+			extern BOOLEAN gfDedicatedServer;
+			cMaxClients = iPlayersConnected - ( gfDedicatedServer ? 1 : 0 );
+		}
 	}
 }
 
@@ -1668,6 +1705,21 @@ void recieveGUI (RPCParameters *rpcParameters)
 	}
 }
 
+void recieveADMIN(RPCParameters *rpcParameters)
+{
+	gfIAmAdmin = true;
+	ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"You are the server admin. Press 'G' to start the game once everyone has joined and readied." );
+}
+
+void send_admin_cmd(UINT8 cmd, const char* password)
+{
+	admin_cmd_struct ac;
+	memset( &ac, 0, sizeof( ac ) );
+	ac.cmd = cmd;
+	if ( password ) strncpy( ac.password, password, 63 );
+	client->RPC("adminCmd",(const char*)&ac, (int)sizeof(admin_cmd_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+}
+
 void allowlaptop_callback ( UINT8 ubResult )
 {
 	if(ubResult==2)
@@ -1691,10 +1743,37 @@ void allowlaptop_callback ( UINT8 ubResult )
 			if (client_names[i] != NULL && strcmp(client_names[i],"") != 0)
 				iPlayersConnected++;
 
-		cMaxClients = iPlayersConnected;
+		{
+			// Coordinator model: a dedicated host is NOT a playing participant, so
+			// it must not be counted among the players that ready / place / load.
+			// Every barrier checks numready==cMaxClients; excluding the host here
+			// means those barriers are satisfied by the real players alone.
+			extern BOOLEAN gfDedicatedServer;
+			cMaxClients = iPlayersConnected - ( gfDedicatedServer ? 1 : 0 );
+		}
 
 		client->RPC("sendREADY",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 	}
+}
+
+// Coordinator force-start. The admin pressing START is the authority to begin the
+// battle, but the dedicated host never readies, so the auto-barrier (numready ==
+// cMaxClients in recieveREADY) never trips. The admin path used to only call
+// start_battle() on the host -- which loaded the host's empty sector while the real
+// clients waited forever, because nothing ever broadcast the go-ahead to THEM.
+// This mirrors the laptop-unlock broadcast above (allowlaptop_callback): send
+// ready_stage=1 through the loopback client so the server re-broadcasts recieveREADY
+// to every real client, whose recieveREADY(stage==1) then loads the sector locally.
+// Called from the dedicated server's adminCmd START handler (server.cpp).
+void mp_broadcast_force_start ( void )
+{
+	ready_struct info;
+	memset( &info, 0, sizeof(info) );
+	info.client_num = CLIENT_NUM;
+	info.ready_stage = 1;   // "go ahead, load the level"
+	info.status = 1;
+	printf( "[dedicated] broadcasting force-start (ready_stage=1) to all clients\n" ); fflush( stdout );
+	client->RPC("sendREADY",(const char*)&info, (int)sizeof(ready_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
 
 void StartBattleChatBoxClosedCallback(void)
@@ -1706,6 +1785,16 @@ void StartBattleChatBoxClosedCallback(void)
 
 void start_battle ( void )
 { 
+	{
+		extern BOOLEAN gfDedicatedServer;
+		if ( gfDedicatedServer )
+		{
+			int n = 0;
+			for ( int i = 0; i < 4; i++ ) if ( strcmp( client_names[i], "" ) != 0 ) n++;
+			printf( "[dedicated] start_battle: allowlaptop=%d players=%d goahead=%d\n", allowlaptop?1:0, n, goahead );
+			fflush( stdout );
+		}
+	}
 	if(!is_client)
 	{
 		ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, MPClientMessage[14] );
@@ -1763,13 +1852,24 @@ void start_battle ( void )
 		// Go to "ready" state!
 		if (numPlayersValid && clientsFinishedDownloading && teamsValid)
 		{
-			SGPRect CenterRect = { 100 + xResOffset, 100 + yResOffset, SCREEN_WIDTH - 100 - xResOffset, 300 + yResOffset };
-			DoMessageBox( MSG_BOX_BASIC_STYLE, MPClientMessage[35],  guiCurrentScreen, MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT, allowlaptop_callback,  &CenterRect );
+			extern BOOLEAN gfDedicatedServer;
+			if ( gfDedicatedServer )
+			{
+				// headless host: no one to answer the "start & allow laptops?"
+				// prompt -- confirm it directly so clients get their laptop.
+				allowlaptop_callback( 2 );
+			}
+			else
+			{
+				SGPRect CenterRect = { 100 + xResOffset, 100 + yResOffset, SCREEN_WIDTH - 100 - xResOffset, 300 + yResOffset };
+				DoMessageBox( MSG_BOX_BASIC_STYLE, MPClientMessage[35],  guiCurrentScreen, MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT, allowlaptop_callback,  &CenterRect );
+			}
 		}
 	}
 	else if(allowlaptop)
 	{
-		if ( NumberOfMercsOnPlayerTeam() ==0)
+		extern BOOLEAN gfDedicatedServer;
+		if ( !gfDedicatedServer && NumberOfMercsOnPlayerTeam() ==0)
 		{
 			ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, MPClientMessage[15] );
 		}
@@ -1786,7 +1886,7 @@ void start_battle ( void )
 			numready=0;
 
 			// Find first active soldier. This is needed, because if the soldier is dismissed it does not belong to any group
-			SOLDIERTYPE *pSoldier;
+			SOLDIERTYPE *pSoldier = NULL;
 			for (int i = 0; i <= 19; i++)
 			{
 				if (MercPtrs[ i ]->bActive)
@@ -1796,18 +1896,26 @@ void start_battle ( void )
 				}
 			}
 
-			//SOLDIERTYPE *pSoldier = MercPtrs[ 0 ];
-            Assert(pSoldier);
-			UINT8 ubGroupID = pSoldier->ubGroupID;
-
-			GROUP *pGroup;
-			pGroup = GetGroup( ubGroupID ); 
-			gpBattleGroup = pGroup;
-			gubPBSectorX = gpBattleGroup->ubSectorX;
-			gubPBSectorY = gpBattleGroup->ubSectorY;
-			gubPBSectorZ = gpBattleGroup->ubSectorZ;
-
-			gfEnterTacticalPlacementGUI = 1;
+			extern BOOLEAN gfDedicatedServer;
+			if ( pSoldier != NULL )
+			{
+				gpBattleGroup = GetGroup( pSoldier->ubGroupID );
+				gubPBSectorX = gpBattleGroup->ubSectorX;
+				gubPBSectorY = gpBattleGroup->ubSectorY;
+				gubPBSectorZ = gpBattleGroup->ubSectorZ;
+				gfEnterTacticalPlacementGUI = 1;
+			}
+			else
+			{
+				// Dedicated/non-playing host: no mercs of our own. The battle
+				// sector is the shared MP arrival sector; we load it as the world
+				// authority but have nothing to place ourselves.
+				gpBattleGroup = NULL;
+				gubPBSectorX = gsMercArriveSectorX;
+				gubPBSectorY = gsMercArriveSectorY;
+				gubPBSectorZ = 0;
+				gfEnterTacticalPlacementGUI = 0;
+			}
 			// OJW - 20090205
 			iTeamsWiped = 0; // reset the number of wiped teams to Zero
 
@@ -1986,6 +2094,55 @@ void recieveSTOP (RPCParameters *rpcParameters)
 	pSoldier->flags.bTurningFromPronePosition = FALSE;	
 }
 
+// ---- diagnostic logging to the coordinator (serverLog RPC) -------------------
+// Clients narrate things only they know (who sighted, who interrupts, ranges).
+// The coordinator prints these centrally when VERBOSE_LOG is on.
+void mp_log_event( const char* msg )
+{
+	if (!is_networked || !is_client || !client) return;
+	char buf[256];
+	strncpy( buf, msg, sizeof(buf) - 1 ); buf[sizeof(buf) - 1] = 0;
+	client->RPC("serverLog", buf, (int)(strlen(buf) + 1) * 8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+}
+void mp_log_soldier( SOLDIERTYPE* pSoldier, const char* event )
+{
+	if (!is_networked || !is_client || !client || pSoldier == NULL) return;
+	char name[32]; int i = 0;
+	for (; pSoldier->name[i] && i < 31; i++) name[i] = (pSoldier->name[i] < 128) ? (char)pSoldier->name[i] : '?';
+	name[i] = 0;
+	char buf[256];
+	snprintf( buf, sizeof(buf), "client#%d '%s' (id %d, team %d) %s",
+	          CLIENT_NUM, name, (int)pSoldier->ubID, (int)pSoldier->bTeam, event );
+	mp_log_event( buf );
+}
+
+// Rich sighting log: which team/merc saw which enemy team/merc, and at what range.
+// pSeen may be NULL (saw an enemy but the closest-seen lookup came up empty).
+void mp_log_sighting( SOLDIERTYPE* pSighter, SOLDIERTYPE* pSeen, int range )
+{
+	if (!is_networked || !is_client || !client || pSighter == NULL) return;
+	char sn[32], en[32]; int i;
+	for (i = 0; pSighter->name[i] && i < 31; i++) sn[i] = (pSighter->name[i] < 128) ? (char)pSighter->name[i] : '?';
+	sn[i] = 0;
+	char buf[256];
+	if (pSeen)
+	{
+		for (i = 0; pSeen->name[i] && i < 31; i++) en[i] = (pSeen->name[i] < 128) ? (char)pSeen->name[i] : '?';
+		en[i] = 0;
+		snprintf( buf, sizeof(buf),
+		          "SIGHTING -> turn-based: client#%d team %d '%s'(id %d) sighted enemy team %d '%s'(id %d) at range %d",
+		          CLIENT_NUM, (int)pSighter->bTeam, sn, (int)pSighter->ubID,
+		          (int)pSeen->bTeam, en, (int)pSeen->ubID, range );
+	}
+	else
+	{
+		snprintf( buf, sizeof(buf),
+		          "SIGHTING -> turn-based: client#%d team %d '%s'(id %d) sighted an enemy",
+		          CLIENT_NUM, (int)pSighter->bTeam, sn, (int)pSighter->ubID );
+	}
+	mp_log_event( buf );
+}
+
 void send_interrupt (SOLDIERTYPE *pSoldier)
 {
 	INT_STRUCT INT;
@@ -2091,6 +2248,22 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
 			SOLDIERTYPE* pOpponent = INT->Interrupted;
 
+			// MP: an interrupt freezes the action, so no remote LAN copy should still be
+			// mid-stride. The halt below only stops one merc (INT->ubID); any OTHER moving
+			// copy -- e.g. the mover we just interrupted, still cycling walk frames 703/704
+			// in place on the interrupter's screen -- replays footsteps forever (endless
+			// walking sound). Stop every moving LAN copy the instant the grant lands.
+			for ( SoldierID _sid = 0; _sid < TOTAL_SOLDIERS; ++_sid )
+			{
+				SOLDIERTYPE* _s = MercPtrs[ _sid ];
+				if ( _s && _s->bActive && _s->bInSector && _s->bTeam >= LAN_TEAM_ONE
+					&& _s->sGridNo >= 0 && _s->sGridNo < WORLD_MAX
+					&& ( gAnimControl[ _s->usAnimState ].uiFlags & ANIM_MOVING ) )
+				{
+					_s->EVENT_StopMerc( _s->sGridNo, _s->ubDirection );
+				}
+			}
+
 			if(INT->bTeam==netbTeam)//for us
 			{
 				INT->bTeam=0;
@@ -2117,7 +2290,20 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				SOLDIERTYPE* pMerc = INT->ubID;
 				pMerc->HaultSoldierFromSighting(TRUE);
 				FreezeInterfaceForEnemyTurn();
+				// HARD-obey the arbiter: hand turn ownership to the interrupting team so
+				// the engine's real not-your-turn lock engages (the cosmetic freeze alone
+				// let us keep acting -> "both sides act"). EndInterrupt restores it on resume.
+				gTacticalStatus.ubCurrentTeam = INT->bTeam;
 				InitEnemyUIBar( 0, 0 );
+				// Flip the top banner off green "PLAYER'S TURN": the freeze + ubCurrentTeam
+				// hand-over already block input (clock cursor), but InitEnemyUIBar only sets
+				// the progress counters -- the banner stayed PLAYER_TURN_MESSAGE, so the GUI
+				// lied that we could still act. Latch the interrupting team so AddTopMessage
+				// keeps overriding any late green re-assert (StartPlayerTeamTurn / the
+				// per-frame timer) for the whole interrupt -- a one-shot set here loses the
+				// race on the first interrupt of a turn. Cleared on resume_turn / new turn.
+				gMpEnemyInterruptTeam = INT->bTeam;
+				AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ INT->bTeam ] );
 				fInterfacePanelDirty = DIRTYLEVEL2;
 				gTacticalStatus.fInterruptOccurred = TRUE;
 
@@ -2248,6 +2434,10 @@ void resume_turn(RPCParameters *rpcParameters)
 	INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
 	if ( INT->gubOutOfTurnPersons >= MAXMERCS )
 		INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
+
+	// arbiter says the interrupt is over -> stop forcing the enemy-interrupt bar.
+	// Cleared before EndInterrupt below so its InitPlayerUIBar(2) can restore green.
+	gMpEnemyInterruptTeam = 0;
 
 	if(is_server)
 		Sawarded=false;
@@ -2507,6 +2697,20 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 
 		netbTeam = (CLIENT_NUM)+5;
 		ubID_prefix = gTacticalStatus.Team[ netbTeam ].bFirstID;//over here now
+
+		{
+			// if this client carries an ADMIN_PASSWORD in its own ja2_mp.ini, offer
+			// it to claim admin on a password-protected server (sent once)
+			static bool fSentAuth = false;
+			if ( !fSentAuth )
+			{
+				fSentAuth = true;
+				CIniReader adminIni(JA2MP_INI_FILENAME);
+				const char* pw = adminIni.ReadString(JA2MP_INI_INITIAL_SECTION, JA2MP_ADMIN_PASSWORD, "");
+				if ( pw && pw[0] != 0 )
+					send_admin_cmd( ADMIN_CMD_AUTH, pw );
+			}
+		}
 
 		memcpy( client_names , cl_lan->client_names, sizeof( char ) * 4 * 30 );
 		
@@ -4811,6 +5015,12 @@ void startCombat(UINT8 ubStartingTeam)
 
 void teamwiped ( void )
 {
+	extern BOOLEAN gfDedicatedServer;
+	// Coordinator host is not a participant -- it has no team to be wiped, and must
+	// not broadcast a spurious wipe (which would corrupt scoring / end the game).
+	if ( gfDedicatedServer )
+		return;
+
 	isOwnTeamWipedOut = true;
 
 	sc_struct data;
@@ -4963,6 +5173,7 @@ void connect_client ( void )
 
 		//RPC's
 		REGISTER_STATIC_RPC(client, recievePATH);
+		REGISTER_STATIC_RPC(client, recieveADMIN);
 		REGISTER_STATIC_RPC(client, recieveSTANCE);
 		REGISTER_STATIC_RPC(client, recieveDIR);
 		REGISTER_STATIC_RPC(client, recieveFIRE);

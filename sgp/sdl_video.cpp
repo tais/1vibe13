@@ -72,6 +72,11 @@ extern UINT16 SCREEN_HEIGHT;
 // runs before InitializeVideoManager(). 1 == windowed, 0 == fullscreen.
 extern int iScreenMode;
 
+// Opt-in cursor confinement. Set from Ja2.ini [Ja2 Settings] LOCK_MOUSE_TO_WINDOW
+// in GetRuntimeSettings() (sgp.cpp). Default false -- if the key is absent or 0 the
+// cursor is never grabbed, so windowed play feels exactly as it did before.
+bool gfLockMouseToWindow = false;
+
 // ---- State -----------------------------------------------------------------
 
 static SDL_Window*   gWindow    = nullptr;
@@ -81,10 +86,19 @@ static SDL_Window*   gWindow    = nullptr;
 // and drop the RESIZABLE flag so the OS never shows resize arrows over our
 // hidden cursor. On focus loss both revert, so the window can be moved and
 // resized normally from the desktop.
+//
+// Gated behind LOCK_MOUSE_TO_WINDOW (default off): when disabled we make sure the
+// window is left ungrabbed and freely resizable and do nothing else.
 void ApplyFocusMouseLock(SDL_Window* win, bool focused)
 {
 	if (!win) return;
 	if (SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN) return;
+	if (!gfLockMouseToWindow)
+	{
+		SDL_SetWindowMouseGrab(win, false);
+		SDL_SetWindowResizable(win, true);
+		return;
+	}
 	SDL_SetWindowMouseGrab(win, focused);
 	SDL_SetWindowResizable(win, !focused);
 }

@@ -334,6 +334,11 @@ UINT32	IntroScreenShutdown( void )
 
 UINT32	IntroScreenHandle( void )
 {
+	extern BOOLEAN gfDedicatedServer;
+	if ( gfDedicatedServer )
+	{
+		PrepareToExitIntroScreen();
+	}
 	if( gfIntroScreenEntry )
 	{
 		EnterIntroScreen();
