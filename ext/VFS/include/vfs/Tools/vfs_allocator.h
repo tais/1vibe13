@@ -26,6 +26,7 @@
 
 #include <vfs/vfs_config.h>
 #include <vector>
+#include <cstddef>	// NULL -- not transitively provided by <vector> on newer libstdc++/clang
 
 namespace vfs
 {

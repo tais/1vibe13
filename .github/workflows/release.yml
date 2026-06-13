@@ -39,9 +39,10 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { os: ubuntu-latest,  name: linux }
-          - { os: macos-latest,   name: macos }
-          - { os: windows-latest, name: windows }
+          - { os: ubuntu-latest,    name: linux,       family: linux }
+          - { os: ubuntu-24.04-arm, name: linux-arm64, family: linux }
+          - { os: macos-latest,     name: macos,       family: macos }
+          - { os: windows-latest,   name: windows,     family: windows }
     runs-on: ${{ matrix.platform.os }}
 
     # sccache caches compiled objects (SDL3 + deps + engine) across runs, so
@@ -68,7 +69,7 @@ jobs:
 
       # ---- toolchain / build deps (identical to build_unix.yml) ----
       - name: Install Linux build deps
-        if: matrix.platform.name == 'linux'
+        if: matrix.platform.family == 'linux'
         run: |
           set -eux
           sudo apt-get update
@@ -131,7 +132,7 @@ jobs:
       # ---- stage: self-contained executables (SDL3/SDL3_mixer + codecs are
       # statically linked in, so no runtime libs to ship) ----
       - name: Stage payload (linux)
-        if: matrix.platform.name == 'linux'
+        if: matrix.platform.family == 'linux'
         shell: bash
         run: |
           set -eux
