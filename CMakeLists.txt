@@ -89,9 +89,11 @@ if(NOT TARGET SDL3::SDL3)
     # SDL3_mixer (pinned to main below) uses SDL3-main APIs like
     # SDL_ALIGNED that aren't in tagged release-3.2.16, so we track
     # main here too. Re-pin to a release tag once both libraries cut
-    # compatible stable releases.
-    GIT_TAG main
-    GIT_SHALLOW TRUE
+    # compatible stable releases. PINNED to a current main snapshot for
+    # reproducibility (a moving 'main' silently broke our linux builds once);
+    # bump deliberately. GIT_SHALLOW must be FALSE to fetch a bare commit SHA.
+    GIT_TAG 9b230dfb36d21f6c0133ecadcb4860ebefe6b1a2  # libsdl-org/SDL main snapshot
+    GIT_SHALLOW FALSE
   )
   FetchContent_MakeAvailable(SDL3)
 endif()
@@ -115,8 +117,9 @@ if(NOT TARGET SDL3_mixer::SDL3_mixer)
   FetchContent_Declare(
     SDL3_mixer
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-    GIT_TAG main
-    GIT_SHALLOW TRUE
+    # PINNED for reproducibility (see SDL3 above). GIT_SHALLOW FALSE for a bare SHA.
+    GIT_TAG 4aab76ed760ce521501e36b07962ba18d4a73e34  # libsdl-org/SDL_mixer main snapshot
+    GIT_SHALLOW FALSE
   )
   FetchContent_MakeAvailable(SDL3_mixer)
 endif()
