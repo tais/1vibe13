@@ -8,10 +8,14 @@
 ;-----------------------------------------------------------------------------
 ; SERVER_NAME      Name shown to clients in the join list.            [My JA2 Server]
 ; SERVER_PORT      TCP port clients connect to (--port overrides).    [60005]
+; SERVER_BIND      Interface the game listener binds to.              [127.0.0.1]
+;                  Default loopback keeps the server private; set "0.0.0.0" for
+;                  real LAN/public play.
 ; ADMIN_PASSWORD   If set, the admin must authenticate to start.      [empty = first client is admin]
 ;-----------------------------------------------------------------------------
 SERVER_NAME    = My JA2 Server
 SERVER_PORT    = 60005
+SERVER_BIND    = 127.0.0.1
 ADMIN_PASSWORD =
 
 ;-----------------------------------------------------------------------------
@@ -40,11 +44,18 @@ STARTING_TIME = 1
 ; LOG_LEVEL       Console verbosity: 0 = normal, 1 = verbose, 2 = debug.   [0]
 ;                 (--verbose = 1, --debug = 2, --loglevel <n> override this.)
 ; DASHBOARD_PORT  Web status panel port; 0 = disabled (--dashboard <n>).   [0]
-;                 The dashboard is UNAUTHENTICATED -- trusted LAN only.
+; DASHBOARD_BIND  Interface the dashboard binds to.                        [127.0.0.1]
+;                 Default loopback; set "0.0.0.0" to reach it from the LAN.
+; DASHBOARD_TOKEN Secret required for write actions (save config / reset / [empty]
+;                 kick). Empty = the dashboard is READ-ONLY (status only).
+;                 When set, open the panel as  http://host:port/?token=SECRET
+;                 (sent as the X-Auth-Token header). Read views stay open.
 ; REPORT_HIRED_MERC_NAME  1 = log who hired which merc (verbose+).         [1]
 ;-----------------------------------------------------------------------------
 LOG_LEVEL              = 0
 DASHBOARD_PORT         = 0
+DASHBOARD_BIND         = 127.0.0.1
+DASHBOARD_TOKEN        =
 REPORT_HIRED_MERC_NAME = 1
 
 ;-----------------------------------------------------------------------------

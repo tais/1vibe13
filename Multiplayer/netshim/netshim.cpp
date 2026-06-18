@@ -673,7 +673,24 @@ bool RakPeerInterface::Startup( unsigned short maxConnections, int /*threadSleep
 	unsigned short port = socketDescriptors ? socketDescriptors->port : 0;
 	if ( port != 0 )
 	{
-		state->listener = NET_CreateServer( nullptr, port, 0 );
+		// Honor an explicit bind address (SocketDescriptor::hostAddress) when set, so a
+		// caller can restrict the listener to e.g. 127.0.0.1 instead of all interfaces.
+		// Empty / "0.0.0.0" / "::" / "*" keep the all-interfaces behavior (nullptr).
+		NET_Address* bindAddr = nullptr;
+		const char* host = socketDescriptors->hostAddress;
+		if ( host && host[0] &&
+		     strcmp( host, "0.0.0.0" ) != 0 && strcmp( host, "::" ) != 0 && strcmp( host, "*" ) != 0 )
+		{
+			bindAddr = NET_ResolveHostname( host );
+			if ( bindAddr && NET_WaitUntilResolved( bindAddr, 5000 ) != NET_SUCCESS )
+			{
+				NET_UnrefAddress( bindAddr );
+				bindAddr = nullptr;
+			}
+		}
+		state->listener = NET_CreateServer( bindAddr, port, 0 );
+		if ( bindAddr )
+			NET_UnrefAddress( bindAddr );
 		if ( !state->listener )
 		{
 			NetUnref();
