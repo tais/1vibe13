@@ -2638,10 +2638,17 @@ void recieveDOWNLOADSTATUS(RPCParameters *rpcParameters)
 }
 
 // WANNE: FILE TRANSFER: Get executable Directory from Server. This is used to get corret file location on client side
+//
+// DESIGN NOTE (so this isn't re-misdiagnosed as the cause of a laptop "Downloading"
+// freeze): this is a CONNECT-TIME handshake -- requestFILE_TRANSFER_SETTINGS() is sent
+// exactly once, from ID_CONNECTION_REQUEST_ACCEPTED, NOT when the laptop / AIM / Bobby
+// Ray opens. And syncClientsDirectory == 0 is the INTENTIONAL "no file sync, no download
+// dialog" mode, not a failure: we record the value and return; only == 1 does any sync.
+// There is no "0 == fatal VFS error" path and no connect semaphore left dangling here.
 void recieveFILE_TRANSFER_SETTINGS (RPCParameters *rpcParameters)
 {
 	if (!is_server && recieved_transfer_settings == 0)
-	{		
+	{
 		filetransfersettings_struct* fts = (filetransfersettings_struct*)rpcParameters->input;
 
 		gCurrentTransferBytes = 0;

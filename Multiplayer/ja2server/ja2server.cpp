@@ -718,6 +718,22 @@ static void BroadcastTurn(UINT8 team)
 // then broadcast the grant (recieveINTERRUPT) to EVERYONE -- the requester acts on
 // the grant, the others pause. endINTERRUPT = the RELEASE -> resume the paused turn.
 // One holder at a time means turn ownership can never diverge.
+//
+// DESIGN NOTE (so this isn't re-misdiagnosed as a "blind relay" that should compute
+// interrupt weights): the server is a deliberate SERIALIZER, not an arbiter of *who*
+// wins a duel. JA2's interrupt resolution -- interrupt points from exp/sight/stamina/
+// lighting/RNG, producing the out-of-turn order -- is computed CLIENT-SIDE and shipped
+// in the packet (INT_STRUCT.gubOutOfTurnOrder/gubOutOfTurnPersons). The coordinator
+// holds no tactical state and MUST NOT recompute weights or add a time-window vote:
+// that would add latency and duplicate client math it cannot actually perform.
+// The single-threaded "grant only if none active" below also means it can never grant
+// two interrupts at once (RPCs dispatch sequentially) -- so double-turns are impossible
+// here, contrary to a common report.
+// KNOWN LIMITATION: two *different* sighting clients interrupting in the same instant ->
+// the second request is DROPPED (logged below), not merged into one combined out-of-turn
+// order. The correct fix is to QUEUE/MERGE concurrent interrupt sequences here; it needs
+// a 2-client repro to validate, so it is intentionally left as a follow-up, not a blind
+// server-side weight/window arbiter.
 static void sendINTERRUPT(RPCParameters* p)
 {
 	if (g_interruptActive)
@@ -1293,7 +1309,17 @@ static void HttpShutdown()
 
 int main(int argc, char** argv)
 {
-	setvbuf(stdout, NULL, _IOLBF, 0);   // line-buffered: logs appear promptly when piped to a file/terminal
+	// Make server logs appear promptly when piped to a file/terminal.
+	// NB: the MSVC runtime rejects _IOLBF with a 0-size buffer as an invalid
+	// parameter -> its invalid-parameter handler aborts the process before main()
+	// does anything (a SILENT startup crash on Windows -- which is why the MSVC
+	// ja2server.exe never started). _IONBF (unbuffered) is valid on every CRT and
+	// is, if anything, promter; use it on Windows.
+#ifdef _WIN32
+	setvbuf(stdout, NULL, _IONBF, 0);
+#else
+	setvbuf(stdout, NULL, _IOLBF, 0);
+#endif
 	const char* iniPath = "ja2_mp.ini";
 	int portOverride = 0;
 	int dashOverride = -1;
