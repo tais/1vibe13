@@ -217,6 +217,15 @@ BOOLEAN InitializeVideoManager(void)
 		return FALSE;
 	}
 
+	// Cap presentation to the display's refresh (vsync) by default. JA2 is a 2D
+	// game whose logic runs off its own clock; without this the render loop
+	// presents as fast as it can spin -- thousands of frames/second of a single
+	// textured quad -- which pegs the GPU and tears. Opt out with JA2_VSYNC=0.
+	{
+		const char* v = std::getenv("JA2_VSYNC");
+		if (!(v && v[0] == '0')) SDL_SetRenderVSync(gRenderer, 1);
+	}
+
 	// Establish a fixed 640x480 (logical) coordinate space. Default mode
 	// is LETTERBOX: aspect-correct, scales smoothly as the window
 	// resizes, crisp at the native integer multiples (e.g. exact 2x on a
@@ -530,6 +539,23 @@ static void RestoreCursorPixels()
 void RefreshScreen(void* /*dummy*/)
 {
 	if (!gRenderer || !gFrameTex || !gFrameBuffer) return;
+
+	// Frame-rate cap -- default 60 FPS, which is plenty for this 2D game (vanilla
+	// JA2 effectively ran capped). Without it the loop presents uncapped: it pegs
+	// the CPU (the loop spins) and the GPU (a present every spin), and on a
+	// high-refresh panel vsync alone would still run well above 60. Override with
+	// env JA2_MAX_FPS (e.g. 144 for a high-refresh panel, or 0 to uncap).
+	static const Uint64 sMinFrameNS = []{
+		const char* s = std::getenv("JA2_MAX_FPS");
+		const int fps = s ? std::atoi(s) : 60;
+		return fps > 0 ? (Uint64)(1000000000ull / (unsigned)fps) : (Uint64)0;
+	}();
+	if (sMinFrameNS) {
+		static Uint64 sNextPresentNS = 0;
+		const Uint64 now = SDL_GetTicksNS();
+		if (now < sNextPresentNS) SDL_DelayNS(sNextPresentNS - now);
+		sNextPresentNS = SDL_GetTicksNS() + sMinFrameNS;
+	}
 
 	// Don't render while minimized or when the drawable has collapsed to
 	// zero (can happen transiently mid-resize on macOS). A render pass
