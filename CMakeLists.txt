@@ -34,7 +34,15 @@ else()
   #   that copy out of the pointee before the temp dies. Safe in
   #   practice; pervasive in the popup / menu code. To-be-cleaned-up
   #   when those APIs migrate to const& / by-value.
-  add_compile_options(-Wno-error=address-of-temporary)
+  # NB: -Waddress-of-temporary is a CLANG-ONLY diagnostic. GCC has no such
+  #   warning and rejects the unknown flag -- merely a warning for our .cpp TUs
+  #   but a FATAL cc1 error for vendored ASM builds (SDL3_mixer's wavpack
+  #   pack_x64.S / unpack_x64.S). The catch: the ASM language's compiler defaults
+  #   to /usr/bin/cc (GCC) even when CC/CXX=clang, so a C++-compiler guard alone
+  #   does NOT keep the flag off the asm. Scope it to C++ translation units only.
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-error=address-of-temporary>)
+  endif()
   # - invalid-offsetof: the engine deliberately uses offsetof(T, endOfPod) on
   #   structs that have non-trivially-copyable (STL) members after the marker,
   #   to memset/memcpy only the POD prefix (see SIZEOF_*_POD). That's an
