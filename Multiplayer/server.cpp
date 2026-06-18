@@ -104,6 +104,10 @@ unsigned char SpacketIdentifier;
 
 RakPeerInterface *server;
 
+// PR-1: central short-frame guard -- bail before a (Struct*)cast if the wire
+// payload is smaller than the struct the handler reads (heap over-read otherwise).
+#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(((p)->numberOfBitsOfData)+7)/8) < (long)sizeof(T) ) return; }while(0)
+
 // WANNE: FILE TRANSFER
 FileListTransfer fltServer;	// flt1
 IncrementalReadInterface incrementalReadInterface;
@@ -355,12 +359,17 @@ void sendSTATE(RPCParameters *rpcParameters)
 
 void sendDEATH(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, death_struct);	// short-frame guard (H12/H13)
 	// the master copy of the scoreboard is kept on the server
 	death_struct* nDeath = (death_struct*)rpcParameters->input;
 
 	// Save Stats on the server side
-	gMPPlayerStats[nDeath->soldier_team-1].deaths++;
-	gMPPlayerStats[nDeath->attacker_team-1].kills++;
+	// H12: wire team-1 indexes gMPPlayerStats[5]; team==0 underflows to [-1], >5 overflows.
+	// Clamp the same way sendHIT does before touching the scoreboard.
+	if ( nDeath->soldier_team >= 1 && nDeath->soldier_team <= 5 )
+		gMPPlayerStats[nDeath->soldier_team-1].deaths++;
+	if ( nDeath->attacker_team >= 1 && nDeath->attacker_team <= 5 )
+		gMPPlayerStats[nDeath->attacker_team-1].kills++;
 	
 	// get the client number of the client sending the message
 	int iCLnum = f_rec_num(3,rpcParameters->sender)+1;
@@ -693,11 +702,17 @@ void adminCmd(RPCParameters *rpcParameters)
 
 void requestSETTINGS(RPCParameters *rpcParameters )
 {
+	RPC_REQUIRE_BYTES(rpcParameters, client_info);	// short-frame guard (H14/H13)
 	// dont generate or send settings to a new user if they are about to be disconnected
 	// because no more players can join the the game
 	if (can_joingame())
 	{
 		client_info* clinf = (client_info*)rpcParameters->input;
+
+		// L3: wire name/version are strcmp'd and strcpy'd -- force NUL-termination so a
+		// non-terminated field can't over-read past the fixed buffers.
+		clinf->client_version[29] = 0;
+		clinf->client_name[29] = 0;
 
 		// OJW - 20090507
 		// Disconnect if version is wrong
