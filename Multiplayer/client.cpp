@@ -485,6 +485,14 @@ typedef struct
 	INT32 RealObjectID; // the local ID on the initiating client
 	bool IsThrownGrenade; // could be mortar
 	UINT32 uiPreRandomIndex;
+	// M12 - short-term inventory/ammo replication: carry the real thrown-object
+	// state instead of reconstructing it from item defaults on the receiver.
+	INT16 sItemStatus;       // (*pGameObj)[0]->data.objectStatus (status %)
+	UINT16 usShotsLeft;      // (*pGameObj)[0]->data.gun.ubGunShotsLeft (loaded launcher shells)
+	UINT8 ubNumberOfObjects; // stack count thrown / consumed
+	// L1 - sequence number so a dropped/duplicated/out-of-order grenade event
+	// cannot silently drift guiPreRandomIndex on the receiver.
+	UINT32 uiGrenadeEventSeq;
 } physics_object;
 
 typedef struct
@@ -558,6 +566,13 @@ typedef struct
 } explosiondamage_struct;
 
 bullets_table bTable[MAXTEAMS][NUM_BULLET_SLOTS];	// rows=global teams, cols=sender bullet slot (audit [40]/[48])
+
+// L1 - grenade pre-random sync: each side keeps a monotonic counter. The sender
+// stamps every grenade event; the receiver only adopts the event's
+// guiPreRandomIndex when its sequence is newer than the last one applied, so a
+// dropped/duplicated/reordered event can no longer drift the shared RNG cursor.
+static UINT32 guiGrenadeEventSeqOut = 0;       // next seq to stamp on outgoing grenade events
+static UINT32 guiLastGrenadeEventSeqIn = 0;    // highest seq adopted from incoming grenade events
 
 char client_names[4][30];
 
@@ -3260,6 +3275,28 @@ void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yP
 			gren.IsThrownGrenade = bIsThrownGrenade;
 			gren.uiPreRandomIndex = guiPreRandomIndex;
 
+			// M12 - transmit the real thrown-object state so the receiver no longer
+			// rebuilds it as CreateItem(usItem,99,...) (default status, default
+			// magazine). This is the structural root of the "fires the wrong round
+			// count"/phantom-item reports. objectStatus is the top-level union value
+			// (status %); ubGunShotsLeft lives in the gun sub-struct (a different
+			// offset) and matters for loaded shells thrown from a launcher.
+			if ( (*pGameObj)[0] != NULL )
+			{
+				gren.sItemStatus = (*pGameObj)[0]->data.objectStatus;
+				gren.usShotsLeft = (*pGameObj)[0]->data.gun.ubGunShotsLeft;
+			}
+			else
+			{
+				gren.sItemStatus = 99;
+				gren.usShotsLeft = 0;
+			}
+			gren.ubNumberOfObjects = pGameObj->ubNumberOfObjects;
+
+			// L1 - stamp a monotonic sequence so the receiver can reject
+			// dropped/duplicated/reordered events that would drift guiPreRandomIndex.
+			gren.uiGrenadeEventSeq = ++guiGrenadeEventSeqOut;
+
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
 			sprintf(tmpMPDbgString,"MP - send_grenade ( usItem : %i , sGridNo : %i , ubSoldierID : %i , uiPreRandomIndex : %i )\n",gren.usItem, gren.sTargetGridNo , gren.ubID.i , guiPreRandomIndex );
@@ -3281,8 +3318,16 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 	SOLDIERTYPE* pThrower =  gren->ubID;
 	if (pThrower != NULL)
 	{
-		guiPreRandomIndex = gren->uiPreRandomIndex;
-		
+		// L1 - only adopt the sender's pre-random cursor for an in-order, not-yet-seen
+		// event. A dropped event never advances guiLastGrenadeEventSeqIn, so a later
+		// event still applies; a duplicate/stale event is ignored instead of silently
+		// rewinding/advancing guiPreRandomIndex out of step with the RNG we consumed.
+		if ( gren->uiGrenadeEventSeq > guiLastGrenadeEventSeqIn )
+		{
+			guiLastGrenadeEventSeqIn = gren->uiGrenadeEventSeq;
+			guiPreRandomIndex = gren->uiPreRandomIndex;
+		}
+
 		// grenade wasnt thrown by one of our guys, so we should do it on the client
 		if (!IsOurSoldier(pThrower) && (pThrower->bTeam != 1 || !is_server))
 		{
@@ -3293,10 +3338,34 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			gfMPDebugOutputRandoms = true;
 #endif
 
-			// this is a bit of a hack until we do the inventory sync
+			// M12 - short-term inventory/ammo replication: rebuild the thrown object
+			// with the real status, round count and stack size sent over the wire,
+			// instead of the old CreateItem(usItem,99,...) that always reconstructed
+			// item defaults (the "fires the wrong round count"/phantom-item root).
+			// The full periodic per-soldier inventory-delta sync is a follow-up.
 			OBJECTTYPE* newObj = new OBJECTTYPE();
-			CreateItem( gren->usItem, 99, newObj );
+			INT16 sItemStatus = gren->sItemStatus;
+			// guard against an old/corrupt peer sending a zeroed status
+			if ( sItemStatus <= 0 || sItemStatus > 100 )
+				sItemStatus = 99;
+			UINT8 ubNumObjects = ( gren->ubNumberOfObjects > 0 ) ? gren->ubNumberOfObjects : 1;
+			CreateItems( gren->usItem, sItemStatus, ubNumObjects, newObj );
+			// Restore the loaded round count for launcher shells. ubGunShotsLeft lives
+			// at a distinct offset in the data union, so it does not disturb the status
+			// already written above; CreateItems leaves it at the item default.
+			if ( (*newObj)[0] != NULL )
+				(*newObj)[0]->data.gun.ubGunShotsLeft = gren->usShotsLeft;
 			OBJECTTYPE::CopyToOrCreateAt(&pThrower->pTempObject, newObj);
+
+			// M12 - broadcast item consumption: mirror the throwing client, which
+			// removed the thrown stack from its hand (Weapons.cpp:5064). Without this
+			// the remote copy of the thrower keeps a phantom grenade in hand. Only
+			// touch the hand slot when it still holds the same item, so a diverged
+			// inventory is left untouched rather than corrupted.
+			if ( pThrower->inv[ HANDPOS ].exists() && pThrower->inv[ HANDPOS ].usItem == gren->usItem )
+			{
+				pThrower->inv[ HANDPOS ].RemoveObjectsFromStack( ubNumObjects );
+			}
 			// this will create a grenade and launch it
 			INT32 i = CreatePhysicalObject( pThrower->pTempObject, gren->dLifeSpan, gren->dX, gren->dY, gren->dZ, gren->dForceX, gren->dForceY, gren->dForceZ, pThrower->ubID, gren->ubActionCode, gren->uiActionData, false);
 			// save extra state info so we can check and feed it result later
