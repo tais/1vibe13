@@ -346,8 +346,14 @@ static void ClockThreadMain()
 			{
 				giSleepTime = TIME_US_TO_MS(GetNextCounterDoneTime());
 				if (giSleepTime > 2000) giSleepTime = 250;
-				if (giSleepTime > 0)
-					std::this_thread::sleep_for(std::chrono::milliseconds(giSleepTime));
+				// Floor at 1ms. When the next timer is <1ms out, TIME_US_TO_MS
+				// rounds to 0 and the original skipped the sleep entirely, so this
+				// thread busy-spun on yield() at 100% CPU -- pegging a core AND
+				// starving the main game thread, which shows up as tactical
+				// "stuck"/jank (worst on few-core or heavily-loaded hosts). 1ms
+				// granularity is far finer than any game timer needs.
+				if (giSleepTime < 1) giSleepTime = 1;
+				std::this_thread::sleep_for(std::chrono::milliseconds(giSleepTime));
 			}
 		}
 		else

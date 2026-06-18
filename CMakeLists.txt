@@ -34,7 +34,15 @@ else()
   #   that copy out of the pointee before the temp dies. Safe in
   #   practice; pervasive in the popup / menu code. To-be-cleaned-up
   #   when those APIs migrate to const& / by-value.
-  add_compile_options(-Wno-error=address-of-temporary)
+  # NB: -Waddress-of-temporary is a CLANG-ONLY diagnostic. GCC has no such
+  #   warning and rejects the unknown flag -- merely a warning for our .cpp TUs
+  #   but a FATAL cc1 error for vendored ASM builds (SDL3_mixer's wavpack
+  #   pack_x64.S / unpack_x64.S). The catch: the ASM language's compiler defaults
+  #   to /usr/bin/cc (GCC) even when CC/CXX=clang, so a C++-compiler guard alone
+  #   does NOT keep the flag off the asm. Scope it to C++ translation units only.
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-error=address-of-temporary>)
+  endif()
   # - invalid-offsetof: the engine deliberately uses offsetof(T, endOfPod) on
   #   structs that have non-trivially-copyable (STL) members after the marker,
   #   to memset/memcpy only the POD prefix (see SIZEOF_*_POD). That's an
@@ -81,9 +89,11 @@ if(NOT TARGET SDL3::SDL3)
     # SDL3_mixer (pinned to main below) uses SDL3-main APIs like
     # SDL_ALIGNED that aren't in tagged release-3.2.16, so we track
     # main here too. Re-pin to a release tag once both libraries cut
-    # compatible stable releases.
-    GIT_TAG main
-    GIT_SHALLOW TRUE
+    # compatible stable releases. PINNED to a current main snapshot for
+    # reproducibility (a moving 'main' silently broke our linux builds once);
+    # bump deliberately. GIT_SHALLOW must be FALSE to fetch a bare commit SHA.
+    GIT_TAG 9b230dfb36d21f6c0133ecadcb4860ebefe6b1a2  # libsdl-org/SDL main snapshot
+    GIT_SHALLOW FALSE
   )
   FetchContent_MakeAvailable(SDL3)
 endif()
@@ -98,11 +108,18 @@ find_package(SDL3_mixer QUIET CONFIG)
 if(NOT TARGET SDL3_mixer::SDL3_mixer)
   include(FetchContent)
   set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
+  # Drop the mpg123 MP3 backend: on arm64 its vendored build selects OPT_NEON64
+  # together with REAL_IS_FIXED -- an invalid combo that hard-#errors ("Bad decoder
+  # choice together with fixed point math!"), breaking the linux-arm64 build. dr_mp3
+  # (pure C, every arch, stays ON) still provides MP3 decoding, so MP3 audio is
+  # unaffected on all platforms.
+  set(SDLMIXER_MP3_MPG123 OFF CACHE BOOL "" FORCE)
   FetchContent_Declare(
     SDL3_mixer
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-    GIT_TAG main
-    GIT_SHALLOW TRUE
+    # PINNED for reproducibility (see SDL3 above). GIT_SHALLOW FALSE for a bare SHA.
+    GIT_TAG 4aab76ed760ce521501e36b07962ba18d4a73e34  # libsdl-org/SDL_mixer main snapshot
+    GIT_SHALLOW FALSE
   )
   FetchContent_MakeAvailable(SDL3_mixer)
 endif()
