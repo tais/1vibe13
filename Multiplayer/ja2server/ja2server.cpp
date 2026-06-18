@@ -39,15 +39,24 @@
 
 // ---- game type shim --------------------------------------------------------
 // Match sgp/types.h widths on this platform so the packet structs below have the
-// IDENTICAL byte layout the clients compile (default alignment, no #pragma pack
-// -- the game does not pack these either). Same compiler + same platform + same
-// field types == same layout, which is exactly how client<->server compat works.
+// IDENTICAL byte layout the clients compile.
+//
+// PORTABLE WIRE FORMAT (M17): the previous comment here claimed "the game does not
+// pack these either" -- that is FALSE. client.cpp sets `#pragma pack(1)` at its
+// packet-struct region (client.cpp:380) and never pops it, so the structs the client
+// ships ARE byte-packed. The server-parsed structs below happen to have only naturally
+// 1-byte-or-aligned members today, so packing made no observable difference -- but the
+// statement was misleading. The structs the server actually deserializes (client_info,
+// settings_struct, admin_cmd_struct, ready_struct, ...) use only fixed-width members,
+// and the byte-count-sensitive one (filetransfersettings_struct) now uses INT64, so the
+// layout is identical on every target. static_assert below guards the sensitive cases.
 typedef uint8_t  UINT8;
 typedef int8_t   INT8;
 typedef uint16_t UINT16;
 typedef int16_t  INT16;
 typedef uint32_t UINT32;
 typedef int32_t  INT32;
+typedef int64_t  INT64;
 typedef float    FLOAT;
 typedef unsigned char BOOLEAN;
 typedef char     STRING512[512];
@@ -122,8 +131,9 @@ typedef struct
 	STRING512 fileTransferDirectory;
 	int syncClientsDirectory;
 	char serverName[30];
-	long totalTransferBytes;
+	INT64 totalTransferBytes;       // PORTABLE WIRE FORMAT (H18): was `long` (8B/4B by ABI)
 } filetransfersettings_struct;
+static_assert(sizeof(filetransfersettings_struct) == 560, "filetransfersettings_struct wire size changed");
 
 typedef struct
 {
@@ -183,7 +193,7 @@ enum { MP_TYPE_DEATHMATCH, MP_TYPE_TEAMDEATMATCH, MP_TYPE_COOP };
 #define MP_EDGE_WEST   3
 #define MP_EDGE_CENTER 4
 
-#define MPVERSION "MP v3.1"                 // must match the client build (connect.h)
+#define MPVERSION "MP v3.2"                 // must match the client build (connect.h); v3.2 = portable wire format
 
 // ============================================================================
 //  Coordinator state

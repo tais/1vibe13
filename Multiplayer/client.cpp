@@ -415,21 +415,41 @@ typedef struct
 	UINT8 tsubNextTeam;
 } turn_struct;
 
-typedef struct
-	{
+// PORTABLE WIRE FORMAT (H17): AI_STRUCT (SOLDIERCREATE_STRUCT + OBJECTTYPE slot[55]) is gone.
+// It embedded std::vector/std::list and a SOLDIERTYPE* whose layout is STL/ABI-specific and
+// which leaked sender heap pointers over the wire. See SerializeAI/DeserializeAI below.
 
-		SOLDIERCREATE_STRUCT standard_data;
-
-		OBJECTTYPE slot[55];
-
-	} AI_STRUCT;
-
-typedef struct
+// PORTABLE WIRE FORMAT (H16): the old netb_struct shipped the WHOLE BULLET struct, which
+// embeds heap pointers (LEVELNODE* pNodes[60], SOLDIERTYPE* pFirer, ANITILE* x2) and is not
+// pack(1) -- so its size/offsets differ 32<->64-bit and by ABI, AND it leaked sender heap
+// addresses over the wire. The receiver only ever reconstructs from a handful of scalars,
+// so carry exactly those in an in-memory bullet_wire and serialize it field-by-field below.
+struct bullet_wire
 {
-	BULLET net_bullet;
-	UINT16 usHandItem;
-
-}netb_struct;
+	INT32   iBullet;
+	UINT16  ubFirerID;            // SoldierID.i (already MP-encoded by the sender)
+	UINT16  usFlags;
+	UINT16  usHandItem;
+	INT8    bStartCubesAboveLevelZ;
+	INT8    bEndCubesAboveLevelZ;
+	UINT8   fCheckForRoof;
+	UINT8   fAimed;
+	UINT16  ubItemStatus;
+	INT16   sHitBy;
+	INT32   sTargetGridNo;
+	INT32   iImpact;
+	INT32   iRange;
+	INT32   iDistanceLimit;
+	INT64   qCurrX;              // FIXEDPT
+	INT64   qCurrY;
+	INT64   qCurrZ;
+	INT64   qIncrX;
+	INT64   qIncrY;
+	INT64   qIncrZ;
+	double  ddHorizAngle;
+};
+// SerializeBullet byte budget: 4 +2+2+2 +1*4 +2+2 +4*4 +8*6 +8 = 90
+#define BULLET_WIRE_BYTES 90
 
 typedef struct
 {
@@ -464,8 +484,14 @@ typedef struct
 {
 	UINT8 client_num;
 	BOOLEAN bToAll;
-	CHAR16 msg[512];
+	// PORTABLE WIRE FORMAT (H15/M4): was `CHAR16 msg[512]` == `wchar_t[512]`, which is
+	// 2048B on mac/linux (4B wchar) but 1024B on Windows (2B wchar) -- a Windows client and
+	// a Linux peer could not exchange chat at all. Carry the text as fixed-width UTF-16LE
+	// (uint16_t) and convert at the send/receive boundary (MPTextToWire / MPTextFromWire).
+	uint16_t msg[512];
 } chat_msg;
+// 1 (client_num) + 1 (bToAll) + 512*2 (msg), packed -> 1026 bytes on every target.
+static_assert(sizeof(chat_msg) == 1026, "chat_msg wire size changed");
 
 // OJW - 20091002 - explosions
 typedef struct
@@ -556,6 +582,337 @@ typedef struct
 	UINT32		uiDist;
 	UINT32		uiPreRandomIndex;
 } explosiondamage_struct;
+
+// ---------------------------------------------------------------------------
+// PORTABLE WIRE FORMAT helpers (H15/H16/H17/L6)
+//
+// The on-wire protocol must be byte-identical regardless of platform/ABI, so text and
+// multi-byte scalars are serialized field-by-field at fixed widths rather than memcpy'd.
+//
+// Text is carried as fixed-width UTF-16LE (uint16_t code units), NOT CHAR16/wchar_t whose
+// width changes per platform. Engine string buffers are wchar_t, so convert at the
+// boundary: widen on receive, narrow on send. Both helpers always NUL-terminate.
+// ---------------------------------------------------------------------------
+static void MPTextToWire( uint16_t* dst, size_t dstCount, const wchar_t* src )
+{
+	if ( dstCount == 0 )
+		return;
+	size_t i = 0;
+	for ( ; src && src[i] != L'\0' && i + 1 < dstCount; ++i )
+		dst[i] = (uint16_t)src[i];	// truncate each code unit to 16 bits (UTF-16LE)
+	dst[i] = 0;
+	// zero the tail so the wire buffer is deterministic (no sender heap leakage)
+	for ( size_t j = i + 1; j < dstCount; ++j )
+		dst[j] = 0;
+}
+
+static void MPTextFromWire( wchar_t* dst, size_t dstCount, const uint16_t* src )
+{
+	if ( dstCount == 0 )
+		return;
+	size_t i = 0;
+	for ( ; src && i + 1 < dstCount && src[i] != 0; ++i )
+		dst[i] = (wchar_t)src[i];
+	dst[i] = L'\0';
+}
+
+// ---------------------------------------------------------------------------
+// Little-endian byte cursor for explicit field-by-field (de)serialization. All MP
+// targets are little-endian today (netshim.cpp:DoEndianSwap==false); writing/reading
+// byte-by-byte in LE order keeps the wire identical regardless of host endianness or
+// struct padding. The reader is bounds-checked against the actual payload length so a
+// short/malformed frame can never over-read past the heap buffer.
+// ---------------------------------------------------------------------------
+struct MPWireWriter
+{
+	uint8_t* p;
+	size_t   cap;
+	size_t   off;
+	MPWireWriter( uint8_t* buf, size_t capacity ) : p(buf), cap(capacity), off(0) {}
+	void put8 ( uint8_t  v ) { if ( off + 1 <= cap ) { p[off] = v; } off += 1; }
+	void put16( uint16_t v ) { if ( off + 2 <= cap ) { p[off] = (uint8_t)(v); p[off+1] = (uint8_t)(v>>8); } off += 2; }
+	void put32( uint32_t v ) { if ( off + 4 <= cap ) { for (int k=0;k<4;++k) p[off+k]=(uint8_t)(v>>(8*k)); } off += 4; }
+	void put64( uint64_t v ) { if ( off + 8 <= cap ) { for (int k=0;k<8;++k) p[off+k]=(uint8_t)(v>>(8*k)); } off += 8; }
+	void putbytes( const void* src, size_t n ) { if ( off + n <= cap ) memcpy( p + off, src, n ); off += n; }
+};
+
+struct MPWireReader
+{
+	const uint8_t* p;
+	size_t         len;
+	size_t         off;
+	bool           ok;
+	MPWireReader( const void* buf, size_t length ) : p((const uint8_t*)buf), len(length), off(0), ok(true) {}
+	uint8_t  get8 () { if ( off + 1 > len ) { ok = false; return 0; } uint8_t  v = p[off]; off += 1; return v; }
+	uint16_t get16() { if ( off + 2 > len ) { ok = false; return 0; } uint16_t v = (uint16_t)(p[off] | (p[off+1]<<8)); off += 2; return v; }
+	uint32_t get32() { if ( off + 4 > len ) { ok = false; return 0; } uint32_t v = 0; for (int k=0;k<4;++k) v |= (uint32_t)p[off+k]<<(8*k); off += 4; return v; }
+	uint64_t get64() { if ( off + 8 > len ) { ok = false; return 0; } uint64_t v = 0; for (int k=0;k<8;++k) v |= (uint64_t)p[off+k]<<(8*k); off += 8; return v; }
+	void getbytes( void* dst, size_t n ) { if ( off + n > len ) { ok = false; memset( dst, 0, n ); return; } memcpy( dst, p + off, n ); off += n; }
+};
+
+// ---- INT_STRUCT wire (L6) -------------------------------------------------
+// The interrupt struct embedded gubOutOfTurnOrder[MAXMERCS] (~2.5KB) and shipped the WHOLE
+// array every time, even though only entries [0..gubOutOfTurnPersons] are ever consumed.
+// Serialize the small fixed-width header plus exactly (gubOutOfTurnPersons+1) order entries.
+// Header: ubID(u16) bTeam(u8) gubOutOfTurnPersons(u16) fMarkInterruptOccurred(u8) Interrupted(u16)
+#define INT_WIRE_HEADER_BYTES 8
+#define INT_WIRE_MAX_BYTES    (INT_WIRE_HEADER_BYTES + MAXMERCS * 2)
+
+// Returns the number of bytes written to dst (dst must be >= INT_WIRE_MAX_BYTES).
+static int SerializeINT( uint8_t* dst, size_t cap, const INT_STRUCT& src )
+{
+	UINT16 persons = src.gubOutOfTurnPersons;
+	if ( persons >= MAXMERCS )
+		persons = MAXMERCS - 1;	// never serialize past the array
+	MPWireWriter w( dst, cap );
+	w.put16( src.ubID.i );
+	w.put8 ( (uint8_t)src.bTeam );
+	w.put16( persons );
+	w.put8 ( (uint8_t)src.fMarkInterruptOccurred );
+	w.put16( src.Interrupted.i );
+	for ( int i = 0; i <= (int)persons; ++i )
+		w.put16( src.gubOutOfTurnOrder[i] );
+	return (int)w.off;
+}
+
+// Deserializes into dst. Zeroes the unused tail of gubOutOfTurnOrder so downstream loops
+// over [0..gubOutOfTurnPersons] never read stale data. Returns false on a short/bad frame.
+static bool DeserializeINT( INT_STRUCT& dst, const void* buf, size_t len )
+{
+	memset( &dst, 0, sizeof(dst) );
+	MPWireReader r( buf, len );
+	dst.ubID                  = (UINT16)r.get16();
+	dst.bTeam                 = (INT8)r.get8();
+	UINT16 persons            = r.get16();
+	dst.fMarkInterruptOccurred= (BOOLEAN)r.get8();
+	dst.Interrupted           = (UINT16)r.get16();
+	if ( !r.ok )
+		return false;
+	if ( persons >= MAXMERCS )
+		persons = MAXMERCS - 1;	// wire bound
+	dst.gubOutOfTurnPersons = persons;
+	for ( int i = 0; i <= (int)persons; ++i )
+	{
+		uint16_t v = r.get16();
+		if ( !r.ok )
+			return false;
+		dst.gubOutOfTurnOrder[i] = v;
+	}
+	return true;
+}
+
+// ---- bullet_wire serialization (H16) --------------------------------------
+// double is IEEE-754 on every target; carry its raw 64 bits in LE order.
+static int SerializeBullet( uint8_t* dst, size_t cap, const bullet_wire& b )
+{
+	double   angle = b.ddHorizAngle;	// copy out of the (packed) struct before bit-casting
+	uint64_t angleBits;
+	memcpy( &angleBits, &angle, sizeof(angleBits) );
+	MPWireWriter w( dst, cap );
+	w.put32( (uint32_t)b.iBullet );
+	w.put16( b.ubFirerID );
+	w.put16( b.usFlags );
+	w.put16( b.usHandItem );
+	w.put8 ( (uint8_t)b.bStartCubesAboveLevelZ );
+	w.put8 ( (uint8_t)b.bEndCubesAboveLevelZ );
+	w.put8 ( b.fCheckForRoof );
+	w.put8 ( b.fAimed );
+	w.put16( b.ubItemStatus );
+	w.put16( (uint16_t)b.sHitBy );
+	w.put32( (uint32_t)b.sTargetGridNo );
+	w.put32( (uint32_t)b.iImpact );
+	w.put32( (uint32_t)b.iRange );
+	w.put32( (uint32_t)b.iDistanceLimit );
+	w.put64( (uint64_t)b.qCurrX );
+	w.put64( (uint64_t)b.qCurrY );
+	w.put64( (uint64_t)b.qCurrZ );
+	w.put64( (uint64_t)b.qIncrX );
+	w.put64( (uint64_t)b.qIncrY );
+	w.put64( (uint64_t)b.qIncrZ );
+	w.put64( angleBits );
+	return (int)w.off;
+}
+
+static bool DeserializeBullet( bullet_wire& b, const void* buf, size_t len )
+{
+	memset( &b, 0, sizeof(b) );
+	MPWireReader r( buf, len );
+	b.iBullet               = (INT32)r.get32();
+	b.ubFirerID             = r.get16();
+	b.usFlags               = r.get16();
+	b.usHandItem            = r.get16();
+	b.bStartCubesAboveLevelZ= (INT8)r.get8();
+	b.bEndCubesAboveLevelZ  = (INT8)r.get8();
+	b.fCheckForRoof         = r.get8();
+	b.fAimed                = r.get8();
+	b.ubItemStatus          = r.get16();
+	b.sHitBy                = (INT16)r.get16();
+	b.sTargetGridNo         = (INT32)r.get32();
+	b.iImpact               = (INT32)r.get32();
+	b.iRange                = (INT32)r.get32();
+	b.iDistanceLimit        = (INT32)r.get32();
+	b.qCurrX                = (INT64)r.get64();
+	b.qCurrY                = (INT64)r.get64();
+	b.qCurrZ                = (INT64)r.get64();
+	b.qIncrX                = (INT64)r.get64();
+	b.qIncrY                = (INT64)r.get64();
+	b.qIncrZ                = (INT64)r.get64();
+	uint64_t angleBits      = r.get64();
+	double   angle;
+	memcpy( &angle, &angleBits, sizeof(angleBits) );
+	b.ddHorizAngle          = angle;
+	return r.ok;
+}
+
+// ---- AI_STRUCT wire (H17) -------------------------------------------------
+// The old AI_STRUCT memcpy'd a SOLDIERCREATE_STRUCT (which embeds std::vector x3 in its
+// Inventory, a SOLDIERTYPE* pExistingSoldier, and CHAR16 name[10]) plus 55 OBJECTTYPEs
+// (each embedding a std::list). sizeof and every offset are STL/ABI-specific and the wire
+// leaked sender heap pointers. The receiver only ever consumes the POD scalar prefix and
+// {usItem, ubNumberOfObjects} per slot. Serialize EXACTLY those, field-by-field, fixed-width.
+//
+// AI_WIRE_SLOTS must match the loop counts in send_AI / recieveAI (the engine Inv has 55).
+#define AI_WIRE_SLOTS 55
+// header (POD scalars) + per-slot {usItem(u16), ubNumberOfObjects(u8), fFlags(u8)}
+#define AI_WIRE_MAX_BYTES 1024
+
+static int SerializeAI( uint8_t* dst, size_t cap, SOLDIERCREATE_STRUCT* s )
+{
+	MPWireWriter w( dst, cap );
+	// --- profile / flags ---
+	w.put8 ( (uint8_t)s->fStatic );
+	w.put8 ( s->ubProfile );
+	w.put8 ( (uint8_t)s->fPlayerMerc );
+	w.put8 ( (uint8_t)s->fPlayerPlan );
+	w.put8 ( (uint8_t)s->fCopyProfileItemsOver );
+	// --- location ---
+	w.put16( (uint16_t)s->sSectorX );
+	w.put16( (uint16_t)s->sSectorY );
+	w.put8 ( s->ubDirection );
+	w.put32( (uint32_t)s->sInsertionGridNo );
+	// --- team / body / orders ---
+	w.put8 ( (uint8_t)s->bTeam );
+	w.put8 ( (uint8_t)s->ubBodyType );
+	w.put8 ( (uint8_t)s->bAttitude );
+	w.put8 ( (uint8_t)s->bOrders );
+	// --- attributes ---
+	w.put8 ( (uint8_t)s->bLifeMax );
+	w.put8 ( (uint8_t)s->bLife );
+	w.put8 ( (uint8_t)s->bAgility );
+	w.put8 ( (uint8_t)s->bDexterity );
+	w.put8 ( (uint8_t)s->bExpLevel );
+	w.put8 ( (uint8_t)s->bMarksmanship );
+	w.put8 ( (uint8_t)s->bMedical );
+	w.put8 ( (uint8_t)s->bMechanical );
+	w.put8 ( (uint8_t)s->bExplosive );
+	w.put8 ( (uint8_t)s->bLeadership );
+	w.put8 ( (uint8_t)s->bStrength );
+	w.put8 ( (uint8_t)s->bWisdom );
+	w.put8 ( (uint8_t)s->bMorale );
+	w.put8 ( (uint8_t)s->bAIMorale );
+	// --- palettes (fixed CHAR8[30] each) ---
+	w.putbytes( s->HeadPal,  sizeof(PaletteRepID) );
+	w.putbytes( s->PantsPal, sizeof(PaletteRepID) );
+	w.putbytes( s->VestPal,  sizeof(PaletteRepID) );
+	w.putbytes( s->SkinPal,  sizeof(PaletteRepID) );
+	w.putbytes( s->MiscPal,  sizeof(PaletteRepID) );
+	// --- patrol waypoints (INT32 x MAXPATROLGRIDS) ---
+	for ( int i = 0; i < MAXPATROLGRIDS; ++i )
+		w.put32( (uint32_t)s->sPatrolGrid[i] );
+	w.put8 ( (uint8_t)s->bPatrolCnt );
+	// --- misc ---
+	w.put8 ( (uint8_t)s->fVisible );
+	// name: fixed-width UTF-16LE (NOT CHAR16/wchar_t) -- H15
+	for ( int i = 0; i < 10; ++i )
+		w.put16( (uint16_t)s->name[i] );
+	w.put8 ( s->ubSoldierClass );
+	w.put8 ( (uint8_t)s->fOnRoof );
+	w.put8 ( (uint8_t)s->bSectorZ );
+	// pExistingSoldier is a sender heap pointer -- NEVER serialized; receiver forces NULL.
+	w.put8 ( (uint8_t)s->fUseExistingSoldier );
+	w.put8 ( s->ubCivilianGroup );
+	w.put8 ( (uint8_t)s->fKillSlotIfOwnerDies );
+	w.put8 ( s->ubScheduleID );
+	w.put8 ( (uint8_t)s->fUseGivenVehicle );
+	w.put8 ( (uint8_t)s->bUseGivenVehicleID );
+	w.put8 ( (uint8_t)s->fHasKeys );
+	// --- inventory: only the POD scalars the receiver rebuilds from ---
+	for ( int x = 0; x < AI_WIRE_SLOTS; ++x )
+	{
+		OBJECTTYPE& o = s->Inv[x];
+		w.put16( o.usItem );
+		w.put8 ( o.ubNumberOfObjects );
+		w.put8 ( o.fFlags );
+	}
+	return (int)w.off;
+}
+
+// Per-slot inventory tuple the receiver reconstructs an OBJECTTYPE from.
+struct ai_wire_slot { UINT16 usItem; UINT8 ubNumberOfObjects; UINT8 fFlags; };
+
+// Deserialize into a POD-zeroed SOLDIERCREATE_STRUCT prefix (caller passes one that has had
+// SIZEOF_SOLDIERCREATE_STRUCT_POD memset to 0) plus the slot tuples. Returns false on a
+// short/bad frame.
+static bool DeserializeAI( SOLDIERCREATE_STRUCT& s, ai_wire_slot* slots, const void* buf, size_t len )
+{
+	MPWireReader r( buf, len );
+	s.fStatic              = (BOOLEAN)r.get8();
+	s.ubProfile            = r.get8();
+	s.fPlayerMerc          = (BOOLEAN)r.get8();
+	s.fPlayerPlan          = (BOOLEAN)r.get8();
+	s.fCopyProfileItemsOver= (BOOLEAN)r.get8();
+	s.sSectorX             = (INT16)r.get16();
+	s.sSectorY             = (INT16)r.get16();
+	s.ubDirection          = r.get8();
+	s.sInsertionGridNo     = (INT32)r.get32();
+	s.bTeam                = (INT8)r.get8();
+	s.ubBodyType           = (INT8)r.get8();
+	s.bAttitude            = (INT8)r.get8();
+	s.bOrders              = (INT8)r.get8();
+	s.bLifeMax             = (INT8)r.get8();
+	s.bLife                = (INT8)r.get8();
+	s.bAgility             = (INT8)r.get8();
+	s.bDexterity           = (INT8)r.get8();
+	s.bExpLevel            = (INT8)r.get8();
+	s.bMarksmanship        = (INT8)r.get8();
+	s.bMedical             = (INT8)r.get8();
+	s.bMechanical          = (INT8)r.get8();
+	s.bExplosive           = (INT8)r.get8();
+	s.bLeadership          = (INT8)r.get8();
+	s.bStrength            = (INT8)r.get8();
+	s.bWisdom              = (INT8)r.get8();
+	s.bMorale              = (INT8)r.get8();
+	s.bAIMorale            = (INT8)r.get8();
+	r.getbytes( s.HeadPal,  sizeof(PaletteRepID) );
+	r.getbytes( s.PantsPal, sizeof(PaletteRepID) );
+	r.getbytes( s.VestPal,  sizeof(PaletteRepID) );
+	r.getbytes( s.SkinPal,  sizeof(PaletteRepID) );
+	r.getbytes( s.MiscPal,  sizeof(PaletteRepID) );
+	for ( int i = 0; i < MAXPATROLGRIDS; ++i )
+		s.sPatrolGrid[i] = (INT32)r.get32();
+	s.bPatrolCnt           = (INT8)r.get8();
+	s.fVisible             = (BOOLEAN)r.get8();
+	for ( int i = 0; i < 10; ++i )
+		s.name[i] = (CHAR16)r.get16();
+	s.ubSoldierClass       = r.get8();
+	s.fOnRoof              = (BOOLEAN)r.get8();
+	s.bSectorZ             = (INT8)r.get8();
+	s.pExistingSoldier     = NULL;	// never read a sender pointer
+	s.fUseExistingSoldier  = (BOOLEAN)r.get8();
+	s.ubCivilianGroup      = r.get8();
+	s.fKillSlotIfOwnerDies = (BOOLEAN)r.get8();
+	s.ubScheduleID         = r.get8();
+	s.fUseGivenVehicle     = (BOOLEAN)r.get8();
+	s.bUseGivenVehicleID   = (INT8)r.get8();
+	s.fHasKeys             = (BOOLEAN)r.get8();
+	for ( int x = 0; x < AI_WIRE_SLOTS; ++x )
+	{
+		slots[x].usItem            = r.get16();
+		slots[x].ubNumberOfObjects = r.get8();
+		slots[x].fFlags            = r.get8();
+	}
+	return r.ok;
+}
 
 bullets_table bTable[MAXTEAMS][NUM_BULLET_SLOTS];	// rows=global teams, cols=sender bullet slot (audit [40]/[48])
 
@@ -1370,81 +1727,34 @@ UINT8 numenemyLAN( UINT8 ubSectorX, UINT8 ubSectorY )
 
 void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct )
 {
-	AI_STRUCT send_inv;
-	send_inv.standard_data = *pCreateStruct;
-
-	for(int x=0;x<55;x++)
-	{
-		send_inv.slot[x] = pCreateStruct->Inv[x];
-	}
-	
-	client->RPC("sendAI",(const char*)&send_inv, (int)sizeof(AI_STRUCT)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+	// PORTABLE WIRE FORMAT (H17): serialize only the POD scalar prefix + per-slot
+	// {usItem,ubNumberOfObjects,fFlags}. No std::vector/std::list/pointers cross the wire.
+	uint8_t wire[AI_WIRE_MAX_BYTES];
+	int wireBytes = SerializeAI( wire, sizeof(wire), pCreateStruct );
+	client->RPC("sendAI",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
 
 void recieveAI (RPCParameters *rpcParameters)
 {
 	SoldierID iNewIndex;
 	SOLDIERTYPE *pSoldier;
-	AI_STRUCT* send_inv = (AI_STRUCT*)rpcParameters->input;
 
 	SOLDIERCREATE_STRUCT new_standard_data;
 	memset( (void*)&new_standard_data, 0, SIZEOF_SOLDIERCREATE_STRUCT_POD );
-	//as originally my soldiercreate_struct would get its INV mangled through the RPC, so i send it packaged with it, then create a new struct and add in the bits that are still ok from the original struct, along with the packaged INV components...
 
-	new_standard_data.bAgility = send_inv->standard_data.bAgility;
-	new_standard_data.bAIMorale = send_inv->standard_data.bAIMorale;
-	new_standard_data.bAttitude = send_inv->standard_data.bAttitude;
-	new_standard_data.ubBodyType = send_inv->standard_data.ubBodyType;
-	new_standard_data.bDexterity = send_inv->standard_data.bDexterity;
-	new_standard_data.ubDirection = send_inv->standard_data.ubDirection;
-	new_standard_data.bExpLevel = send_inv->standard_data.bExpLevel;
-	new_standard_data.bExplosive = send_inv->standard_data.bExplosive;
-	new_standard_data.bLeadership = send_inv->standard_data.bLeadership;
-	new_standard_data.bLife = send_inv->standard_data.bLife;
-	new_standard_data.bLifeMax = send_inv->standard_data.bLifeMax;
-	new_standard_data.bMarksmanship = send_inv->standard_data.bMarksmanship;
-	new_standard_data.bMechanical = send_inv->standard_data.bMechanical;
-	new_standard_data.bMedical = send_inv->standard_data.bMedical;
-	new_standard_data.bMorale = send_inv->standard_data.bMorale;
-	new_standard_data.bOrders = send_inv->standard_data.bOrders;
-	new_standard_data.bPatrolCnt = send_inv->standard_data.bPatrolCnt;
-	new_standard_data.bSectorZ = send_inv->standard_data.bSectorZ;
-	new_standard_data.bStrength = send_inv->standard_data.bStrength;
-	new_standard_data.bTeam = send_inv->standard_data.bTeam;
-	new_standard_data.bUseGivenVehicleID = send_inv->standard_data.bUseGivenVehicleID;
-	new_standard_data.bWisdom = send_inv->standard_data.bWisdom;
-	new_standard_data.endOfPOD = send_inv->standard_data.endOfPOD;
-	new_standard_data.fCopyProfileItemsOver = send_inv->standard_data.fCopyProfileItemsOver;
-	new_standard_data.fHasKeys = send_inv->standard_data.fHasKeys;
-	new_standard_data.fKillSlotIfOwnerDies = send_inv->standard_data.fKillSlotIfOwnerDies;
-	new_standard_data.fOnRoof = send_inv->standard_data.fOnRoof;
-	new_standard_data.fPlayerMerc = send_inv->standard_data.fPlayerMerc;
-	new_standard_data.fPlayerPlan = send_inv->standard_data.fPlayerPlan;
-	new_standard_data.fStatic = send_inv->standard_data.fStatic;
-	new_standard_data.fUseExistingSoldier = send_inv->standard_data.fUseExistingSoldier;
-	new_standard_data.fUseGivenVehicle = send_inv->standard_data.fUseGivenVehicle;
-	new_standard_data.fVisible = send_inv->standard_data.fVisible;
-	memcpy( new_standard_data.HeadPal , send_inv->standard_data.HeadPal, sizeof( PaletteRepID ));
-	memcpy( new_standard_data.MiscPal , send_inv->standard_data.MiscPal, sizeof( PaletteRepID ));
-	memcpy( new_standard_data.name , send_inv->standard_data.name, sizeof( CHAR16 ) * 10 );
-	memcpy( new_standard_data.PantsPal , send_inv->standard_data.PantsPal, sizeof( PaletteRepID ));
+	// PORTABLE WIRE FORMAT (H17): deserialize the POD prefix + per-slot inventory tuples
+	// from the fixed-width payload. pExistingSoldier is forced NULL (never a sender pointer);
+	// the wire carries no std::vector/std::list. Drop short/bad frames.
+	ai_wire_slot slots[AI_WIRE_SLOTS];
+	if ( !DeserializeAI( new_standard_data, slots, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+		return;
 	new_standard_data.pExistingSoldier = NULL;   // raw pointer from the sender's address space -- never dereference
 	new_standard_data.fUseExistingSoldier = FALSE;
-	new_standard_data.sInsertionGridNo = send_inv->standard_data.sInsertionGridNo;
-	memcpy( new_standard_data.SkinPal , send_inv->standard_data.SkinPal, sizeof( PaletteRepID ));
-	memcpy( new_standard_data.sPatrolGrid, send_inv->standard_data.sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );//dnl ch27 230909
-	new_standard_data.sSectorX = send_inv->standard_data.sSectorX;
-	new_standard_data.sSectorY = send_inv->standard_data.sSectorY;
-	new_standard_data.ubCivilianGroup = send_inv->standard_data.ubCivilianGroup;
-	new_standard_data.ubProfile = send_inv->standard_data.ubProfile;
-	new_standard_data.ubScheduleID = send_inv->standard_data.ubScheduleID;
-	new_standard_data.ubSoldierClass = send_inv->standard_data.ubSoldierClass;
-	memcpy( new_standard_data.VestPal , send_inv->standard_data.VestPal, sizeof( PaletteRepID ));
 
-	for(int x=0;x<55;x++)
+	for(int x=0;x<AI_WIRE_SLOTS;x++)
 	{
-		if(send_inv->slot[x].usItem != 0)
-			CreateItems( send_inv->slot[x].usItem, 100, send_inv->slot[x].ubNumberOfObjects, &new_standard_data.Inv[x] );
+		if(slots[x].usItem != 0)
+			CreateItems( slots[x].usItem, 100, slots[x].ubNumberOfObjects, &new_standard_data.Inv[x] );
 	}
 
 	new_standard_data.fPlayerPlan=1;
@@ -2168,23 +2478,27 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		}
 	}
 	
-	if(INT.bTeam !=netbTeam) 
+	if(INT.bTeam !=netbTeam)
 		gTacticalStatus.ubCurrentTeam=INT.bTeam;
-	
-	client->RPC("sendINTERRUPT",(const char*)&INT, (int)sizeof(INT_STRUCT)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+
+	// PORTABLE WIRE FORMAT (L6): serialize the fixed-width header + only the consumed
+	// (gubOutOfTurnPersons+1) order entries instead of memcpy'ing the whole MAXMERCS array.
+	uint8_t wire[INT_WIRE_MAX_BYTES];
+	int wireBytes = SerializeINT( wire, sizeof(wire), INT );
+	client->RPC("sendINTERRUPT",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
 
 #ifdef INTERRUPT_MP_DEADLOCK_FIX
 	void recieveINTERRUPT (RPCParameters *rpcParameters)
 	{
-		{
-			INT_STRUCT* INTlog = (INT_STRUCT*)rpcParameters->input;
-		}
+		// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload into a
+		// local struct (bounds-checked, gubOutOfTurnPersons clamped). Drop short/bad frames.
+		INT_STRUCT _intWire;
+		if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+			return;
+		INT_STRUCT* INT = &_intWire;
 		if (cGameType == MP_TYPE_COOP)
 		{
-			INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
-			if ( INT->gubOutOfTurnPersons >= MAXMERCS )
-				INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
 			SOLDIERTYPE* pOpponent = INT->Interrupted;
 
 			if( INT->bTeam == netbTeam || is_server)//its for us or we are server and its for AI which we control
@@ -2243,9 +2557,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		}
 		else
 		{
-			INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
-			if ( INT->gubOutOfTurnPersons >= MAXMERCS )
-				INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
+			// INT already deserialized at the top of recieveINTERRUPT (L6)
 			SOLDIERTYPE* pOpponent = INT->Interrupted;
 
 			// MP: an interrupt freezes the action, so no remote LAN copy should still be
@@ -2332,9 +2644,11 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 
 	void recieveINTERRUPT (RPCParameters *rpcParameters)
 	{
-		INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
-		if ( INT->gubOutOfTurnPersons >= MAXMERCS )
-			INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
+		// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload.
+		INT_STRUCT _intWire;
+		if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+			return;
+		INT_STRUCT* INT = &_intWire;
 		SOLDIERTYPE* pOpponent = MercPtrs[ INT->Interrupted];
 
 		if(INT->bTeam==netbTeam)//for us
@@ -2425,15 +2739,20 @@ void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 			INT.gubOutOfTurnOrder[i]=INT.gubOutOfTurnOrder[i]+ubID_prefix;
 		}
 	}
-	
-	client->RPC("endINTERRUPT",(const char*)&INT, (int)sizeof(INT_STRUCT)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+
+	// PORTABLE WIRE FORMAT (L6): serialize header + consumed order entries only.
+	uint8_t wire[INT_WIRE_MAX_BYTES];
+	int wireBytes = SerializeINT( wire, sizeof(wire), INT );
+	client->RPC("endINTERRUPT",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
 
 void resume_turn(RPCParameters *rpcParameters)
 {
-	INT_STRUCT* INT = (INT_STRUCT*)rpcParameters->input;
-	if ( INT->gubOutOfTurnPersons >= MAXMERCS )
-		INT->gubOutOfTurnPersons = MAXMERCS - 1;	// wire bound (mp_audit_findings.json)
+	// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload.
+	INT_STRUCT _intWire;
+	if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+		return;
+	INT_STRUCT* INT = &_intWire;
 
 	// arbiter says the interrupt is over -> stop forcing the enemy-interrupt bar.
 	// Cleared before EndInterrupt below so its InitPlayerUIBar(2) can restore green.
@@ -4021,43 +4340,72 @@ void recieveEXPLOSIONDAMAGE (RPCParameters *rpcParameters)
 
 
 void send_bullet(  BULLET * pBullet,UINT16 usHandItem )
-{	
-	netb_struct netb;
-	netb.net_bullet=*pBullet;
-	netb.usHandItem=usHandItem;
+{
+	// PORTABLE WIRE FORMAT (H16): copy only the consumed scalars into bullet_wire and
+	// serialize field-by-field. No heap pointers / no ABI-variant struct layout cross the
+	// wire. The firer id is MP-encoded exactly as before.
+	bullet_wire b;
+	memset( &b, 0, sizeof(b) );
+	b.iBullet                = pBullet->iBullet;
+	b.ubFirerID              = pBullet->ubFirerID.i;
+	if ( pBullet->ubFirerID < 20 )
+		b.ubFirerID = b.ubFirerID + ubID_prefix;
+	b.usFlags                = pBullet->usFlags;
+	b.usHandItem             = usHandItem;
+	b.bStartCubesAboveLevelZ = pBullet->bStartCubesAboveLevelZ;
+	b.bEndCubesAboveLevelZ   = pBullet->bEndCubesAboveLevelZ;
+	b.fCheckForRoof          = pBullet->fCheckForRoof;
+	b.fAimed                 = pBullet->fAimed;
+	b.ubItemStatus           = pBullet->ubItemStatus;
+	b.sHitBy                 = pBullet->sHitBy;
+	b.sTargetGridNo          = pBullet->sTargetGridNo;
+	b.iImpact                = pBullet->iImpact;
+	b.iRange                 = pBullet->iRange;
+	b.iDistanceLimit         = pBullet->iDistanceLimit;
+	b.qCurrX                 = pBullet->qCurrX;
+	b.qCurrY                 = pBullet->qCurrY;
+	b.qCurrZ                 = pBullet->qCurrZ;
+	b.qIncrX                 = pBullet->qIncrX;
+	b.qIncrY                 = pBullet->qIncrY;
+	b.qIncrZ                 = pBullet->qIncrZ;
+	b.ddHorizAngle           = pBullet->ddHorizAngle;
 
-	//ScreenMsg( FONT_YELLOW, MSG_MPSYSTEM, L"Sent Bullet Id: %d",pBullet->iBullet);
-
-	if(pBullet->ubTargetID < 20)netb.net_bullet.ubTargetID = netb.net_bullet.ubTargetID+ubID_prefix;
-	if(pBullet->ubFirerID < 20)netb.net_bullet.ubFirerID = netb.net_bullet.ubFirerID+ubID_prefix;
-				
-	
-	client->RPC("sendBULLET",(const char*)&netb, (int)sizeof(netb_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
-
+	uint8_t wire[BULLET_WIRE_BYTES];
+	int wireBytes = SerializeBullet( wire, sizeof(wire), b );
+	client->RPC("sendBULLET",(const char*)wire, wireBytes*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
 
 void recieveBULLET(RPCParameters *rpcParameters)
 {
-	netb_struct* netb = (netb_struct*)rpcParameters->input;
+	// PORTABLE WIRE FORMAT (H16): deserialize the fixed-width bullet payload. Drop short frames.
+	bullet_wire b;
+	if ( !DeserializeBullet( b, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
+		return;
 
-	INT32 net_iBullet=netb->net_bullet.iBullet;
+	INT32 net_iBullet=b.iBullet;
 	if ( net_iBullet < 0 || net_iBullet >= NUM_BULLET_SLOTS )
 	{
 		return;	// wire bullet slot out of range
 	}
 
+	SoldierID firerID = (UINT16)b.ubFirerID;	// run the clamping ctor on the wire id
 	SOLDIERTYPE * pFirer = NULL;
 	INT8 bTeam = OUR_TEAM;
-	if ( netb->net_bullet.ubFirerID != NOBODY )
+	if ( firerID != NOBODY )
 	{
-		pFirer = netb->net_bullet.ubFirerID;
+		pFirer = firerID;
 		bTeam=pFirer->bTeam;
 	}
+	if ( bTeam < 0 || bTeam >= MAXTEAMS )
+		return;	// wire team out of range -> would OOB bTable[]
 
 	BULLET * pBullet;
 
-	INT32 iBullet = CreateBullet( netb->net_bullet.ubFirerID, 0, netb->net_bullet.usFlags,netb->usHandItem );
-			
+	INT32 iBullet = CreateBullet( firerID, 0, b.usFlags, b.usHandItem );
+
+	if ( iBullet < 0 )
+		return;	// slot exhaustion -> GetBulletPtr(-1) would OOB (H7-adjacent)
+
 #ifdef BETAVERSION
 	if (iBullet == -1)
 	{
@@ -4068,28 +4416,28 @@ void recieveBULLET(RPCParameters *rpcParameters)
 	//add bullet to bullet table for translation
 	bTable[bTeam][net_iBullet].remote_id = net_iBullet;
 	bTable[bTeam][net_iBullet].local_id = iBullet;
-		
+
 	pBullet = GetBulletPtr( iBullet );
 
-	//ScreenMsg( FONT_YELLOW, MSG_MPSYSTEM, L"Created Bullet Id: %d",iBullet);		
+	//ScreenMsg( FONT_YELLOW, MSG_MPSYSTEM, L"Created Bullet Id: %d",iBullet);
 
-	pBullet->fCheckForRoof=netb->net_bullet.fCheckForRoof;
-	pBullet->qIncrX=netb->net_bullet.qIncrX;
-	pBullet->qIncrY=netb->net_bullet.qIncrY;
-	pBullet->qIncrZ=netb->net_bullet.qIncrZ;
-	pBullet->sHitBy=netb->net_bullet.sHitBy;
-	pBullet->ddHorizAngle=netb->net_bullet.ddHorizAngle;
-	pBullet->fAimed=netb->net_bullet.fAimed;
-	pBullet->ubItemStatus=netb->net_bullet.ubItemStatus;
-	pBullet->qCurrX=netb->net_bullet.qCurrX;
-	pBullet->qCurrY=netb->net_bullet.qCurrY;
-	pBullet->qCurrZ=netb->net_bullet.qCurrZ;
-	pBullet->iImpact=netb->net_bullet.iImpact;
-	pBullet->iRange=netb->net_bullet.iRange;
-	pBullet->sTargetGridNo=netb->net_bullet.sTargetGridNo;
-	pBullet->bStartCubesAboveLevelZ=netb->net_bullet.bStartCubesAboveLevelZ;
-	pBullet->bEndCubesAboveLevelZ=netb->net_bullet.bEndCubesAboveLevelZ;
-	pBullet->iDistanceLimit=netb->net_bullet.iDistanceLimit;
+	pBullet->fCheckForRoof=b.fCheckForRoof;
+	pBullet->qIncrX=b.qIncrX;
+	pBullet->qIncrY=b.qIncrY;
+	pBullet->qIncrZ=b.qIncrZ;
+	pBullet->sHitBy=b.sHitBy;
+	pBullet->ddHorizAngle=b.ddHorizAngle;
+	pBullet->fAimed=b.fAimed;
+	pBullet->ubItemStatus=b.ubItemStatus;
+	pBullet->qCurrX=b.qCurrX;
+	pBullet->qCurrY=b.qCurrY;
+	pBullet->qCurrZ=b.qCurrZ;
+	pBullet->iImpact=b.iImpact;
+	pBullet->iRange=b.iRange;
+	pBullet->sTargetGridNo=b.sTargetGridNo;
+	pBullet->bStartCubesAboveLevelZ=b.bStartCubesAboveLevelZ;
+	pBullet->bEndCubesAboveLevelZ=b.bEndCubesAboveLevelZ;
+	pBullet->iDistanceLimit=b.iDistanceLimit;
 
 	if ( pFirer != NULL )
 		FireBullet( pFirer->ubID, pBullet, FALSE );
@@ -4812,19 +5160,27 @@ void recieveCHATMSG(RPCParameters* rpcParameters)
 {
 	chat_msg* cmsg = (chat_msg*)rpcParameters->input;
 
+	// PORTABLE WIRE FORMAT (H15): widen fixed-width UTF-16LE back to the engine's wchar_t.
+	// MPTextFromWire always NUL-terminates, fixing the unterminated-msg over-read (M4).
+	wchar_t szChat[512];
+	MPTextFromWire(szChat, 512, cmsg->msg);
+
 	if (cGameType==MP_TYPE_TEAMDEATMATCH && cmsg->bToAll == false)
 	{
+		// wire guard (M4): client_num indexes client_teams[4]; clamp before the read
+		if (cmsg->client_num < 1 || cmsg->client_num > 4)
+			return;
 		// If Team deathmatch && msg is allies only
 		if (client_teams[cmsg->client_num-1] == TEAM)
 		{
 			// only display on an ally client
-			ChatLogMessage( CHAT_FONT_COLOR, MSG_CHAT, cmsg->msg);
+			ChatLogMessage( CHAT_FONT_COLOR, MSG_CHAT, szChat);
 		}
 	}
 	else
 	{
 		// display to all clients
-		ChatLogMessage( CHAT_FONT_COLOR, MSG_CHAT, cmsg->msg);
+		ChatLogMessage( CHAT_FONT_COLOR, MSG_CHAT, szChat);
 	}
 }
 
@@ -5613,15 +5969,21 @@ void ChatCallback( UINT8 ubResult )
 	if (ubResult == MSG_BOX_RETURN_OK && wcscmp(gszChatBoxInputString,L"") > 0)
 	{
 		chat_msg cmsg;
+		memset(&cmsg, 0, sizeof(cmsg));
 		wchar_t szPlayerName[30];
 		memset(szPlayerName,0,30*sizeof(wchar_t));
 		mbstowcs( szPlayerName,cClientName,30);
 
 		cmsg.bToAll = gbChatSendToAll;
+		// PORTABLE WIRE FORMAT (H15): format into a wchar_t buffer, then narrow to fixed-width
+		// UTF-16LE for the wire so the byte layout is identical on every platform.
+		wchar_t szChat[512];
+		szChat[0] = L'\0';
 		if (cGameType==MP_TYPE_TEAMDEATMATCH && !cmsg.bToAll)
-			swprintf(cmsg.msg,MPClientMessage[56], szPlayerName, gszChatBoxInputString);
+			swprintf(szChat,MPClientMessage[56], szPlayerName, gszChatBoxInputString);
 		else
-			swprintf(cmsg.msg,MPClientMessage[52], szPlayerName, gszChatBoxInputString);
+			swprintf(szChat,MPClientMessage[52], szPlayerName, gszChatBoxInputString);
+		MPTextToWire(cmsg.msg, 512, szChat);
 		cmsg.client_num = CLIENT_NUM;
 
 		// notify all of the chat message
