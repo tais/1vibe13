@@ -49,7 +49,14 @@ enum : unsigned char
 	FT_BYE  = 2,
 	FT_FULL = 3,
 	FT_FILE = 4,
+	FT_PING = 5,   // liveness heartbeat: empty-body frame, pure keepalive (no handler)
 };
+
+// Liveness: how often we emit a keepalive on an otherwise-idle connection.
+// Kept well below the default SetTimeoutTime so a healthy peer never trips the
+// timeout. A frozen/half-open peer stops sending bytes (incl. its own pings) and
+// is reaped once it has been silent for timeoutMs.
+const unsigned int HEARTBEAT_INTERVAL_MS = 5000;
 
 int g_netInitRefs = 0;
 
@@ -111,6 +118,8 @@ struct Conn
 	std::vector<unsigned char> in;
 	bool open = true;       // false => swept after the current pump pass
 	bool sentBye = false;
+	Uint64 lastRecvMs = 0;  // SDL_GetTicks() of the last bytes read from this peer
+	Uint64 lastPingMs = 0;  // SDL_GetTicks() of the last keepalive we emitted
 };
 
 // Receiver-side state for one incoming file-transfer set.
@@ -154,6 +163,9 @@ struct NetShimPeerState
 	FileListTransfer* flt = nullptr;
 	unsigned short nextSyntheticPort = 50000;
 	RakPeerInterface* self = nullptr;
+	// Dead-peer detection. 0 == disabled (the RakNet default until SetTimeoutTime is
+	// called). A peer that has not sent ANY bytes for timeoutMs is declared lost.
+	unsigned int timeoutMs = 0;
 
 	void Synthesize( unsigned char id, const SystemAddress& from )
 	{
@@ -210,6 +222,7 @@ struct NetShimPeerState
 	void DispatchRPC( Conn* c, const unsigned char* body, unsigned int len );
 	void HandleFileFrame( const unsigned char* body, unsigned int len );
 	void ParseFrames( Conn* c );
+	void Liveness();
 	void PumpSockets();
 };
 
@@ -352,8 +365,37 @@ void NetShimPeerState::ParseFrames( Conn* c )
 			case FT_FILE:
 				HandleFileFrame( body.data(), bodyLen );
 				break;
+			case FT_PING:
+				break;   // keepalive: arrival already refreshed lastRecvMs; nothing to do
 			default:
 				break;   // unknown frame type from a future version: skip
+		}
+	}
+}
+
+// Heartbeat + dead-peer detection. Real RakNet pings idle links and times out
+// silent peers; TCP alone does neither promptly (a half-open peer that stops
+// reading/writing leaves the socket "connected" until an OS keepalive fires
+// minutes later). We emit an FT_PING on each idle link and, when SetTimeoutTime
+// has armed a timeout, synthesize ID_CONNECTION_LOST for a peer gone silent.
+void NetShimPeerState::Liveness()
+{
+	Uint64 now = SDL_GetTicks();
+	for ( Conn* c : conns )
+	{
+		if ( !c->open || !c->sock )
+			continue;
+		// keepalive so an idle-but-healthy peer keeps refreshing OUR lastRecvMs
+		if ( now - c->lastPingMs >= HEARTBEAT_INTERVAL_MS )
+		{
+			c->lastPingMs = now;
+			SendFrame( c, FT_PING, nullptr, 0 );   // marks c closed on write failure
+		}
+		// honor SetTimeoutTime: a peer silent past the timeout is declared lost
+		if ( c->open && timeoutMs != 0 && now - c->lastRecvMs >= (Uint64)timeoutMs )
+		{
+			Synthesize( ID_CONNECTION_LOST, c->addr );
+			CloseConn( c, false, 0 );
 		}
 	}
 }
@@ -388,6 +430,7 @@ void NetShimPeerState::PumpSockets()
 			Conn* c = new Conn();
 			c->sock = connecting;
 			c->addr = serverAddr;
+			c->lastRecvMs = SDL_GetTicks();
 			conns.push_back( c );
 			connecting = nullptr;
 			Synthesize( ID_CONNECTION_REQUEST_ACCEPTED, c->addr );
@@ -424,6 +467,7 @@ void NetShimPeerState::PumpSockets()
 			Conn* c = new Conn();
 			c->sock = s;
 			c->addr = SystemAddress( AddressToU32( NET_GetStreamSocketAddress( s ) ), nextSyntheticPort++ );
+			c->lastRecvMs = SDL_GetTicks();
 			conns.push_back( c );
 			Synthesize( ID_NEW_INCOMING_CONNECTION, c->addr );
 		}
@@ -442,6 +486,7 @@ void NetShimPeerState::PumpSockets()
 			int n = NET_ReadFromStreamSocket( c->sock, tmp, (int)sizeof( tmp ) );
 			if ( n > 0 )
 			{
+				c->lastRecvMs = SDL_GetTicks();   // any traffic = peer alive
 				c->in.insert( c->in.end(), tmp, tmp + n );
 				if ( n < (int)sizeof( tmp ) )
 					break;
@@ -458,6 +503,9 @@ void NetShimPeerState::PumpSockets()
 		if ( c->open )
 			ParseFrames( c );
 	}
+
+	// 3.5 heartbeat + timeout (after reads so a peer that just spoke isn't reaped)
+	Liveness();
 
 	// 4. sweep closed connections
 	for ( size_t i = 0; i < conns.size(); )
@@ -633,8 +681,14 @@ void RakPeerInterface::SetMaximumIncomingConnections( unsigned short numberAllow
 	state->maxIncoming = numberAllowed;
 }
 
-void RakPeerInterface::SetOccasionalPing( bool ) {}                       // TCP keepalive territory; no-op
-void RakPeerInterface::SetTimeoutTime( RakNetTime, const SystemAddress ) {} // TCP handles dead peers via read errors
+void RakPeerInterface::SetOccasionalPing( bool ) {}                       // shim heartbeats unconditionally (see Liveness)
+void RakPeerInterface::SetTimeoutTime( RakNetTime timeMS, const SystemAddress )
+{
+	// Per-peer timeouts aren't modelled (the shim's only callers arm a single global
+	// timeout for UNASSIGNED_SYSTEM_ADDRESS); apply it to every connection. A silent
+	// peer is reaped after timeMS in Liveness().
+	state->timeoutMs = (unsigned int)timeMS;
+}
 
 void RakPeerInterface::CloseConnection( const SystemAddress target, bool sendDisconnectionNotification, unsigned char )
 {
