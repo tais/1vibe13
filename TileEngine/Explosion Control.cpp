@@ -1526,7 +1526,11 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 		if (pSoldier != NULL)
 		{
 			// only the owner of a merc may send damage (as this takes into account equipped armor)
-			if (IsOurSoldier(pSoldier) || (pSoldier->bTeam == 1 && is_server) && !fFromRemoteClient)
+			// Precedence fix: without the outer parens, !fFromRemoteClient bound only to the
+			// (bTeam==1 && is_server) branch (&& binds tighter than ||). So a remote-originated
+			// blast on our own soldier (IsOurSoldier && fFromRemoteClient) fell into this branch
+			// and re-applied + re-broadcast the damage instead of just replaying the wire numbers.
+			if (!fFromRemoteClient && (IsOurSoldier(pSoldier) || (pSoldier->bTeam == 1 && is_server)))
 			{
 				// let this function proceed, we will send damage towards the end
 			}
