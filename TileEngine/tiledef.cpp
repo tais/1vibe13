@@ -1044,34 +1044,26 @@ BOOLEAN MoveLandIndexToTop( UINT32 iMapIndex, UINT16 usIndex )
 // Database access functions
 BOOLEAN	GetTileType( UINT16 usIndex, UINT32 *puiType )
 {
-  TILE_ELEMENT		TileElem;
-
 	*puiType = 0xffffffff;
 
 	CHECKF( usIndex != NO_TILE );
 	CHECKF( usIndex < giNumberOfTiles ); //lal bugfix
 
-	// Get tile element
-	TileElem = gTileDatabase[ usIndex ];
-
-	*puiType = TileElem.fType;
+	// Get tile element type (read field directly to avoid copying the whole TILE_ELEMENT)
+	*puiType = gTileDatabase[ usIndex ].fType;
 
 	return( TRUE );
 }
 
 BOOLEAN	GetTileFlags( UINT16 usIndex, UINT32 *puiFlags )
 {
-  TILE_ELEMENT		TileElem;
-
-  *puiFlags = 0;
+	*puiFlags = 0;
 
 	CHECKF( usIndex != NO_TILE );
 	CHECKF( usIndex < giNumberOfTiles );
 
-	// Get tile element
-	TileElem = gTileDatabase[ usIndex ];
-
-	*puiFlags = TileElem.uiFlags;
+	// Get tile element flags (read field directly to avoid copying the whole TILE_ELEMENT)
+	*puiFlags = gTileDatabase[ usIndex ].uiFlags;
 
 	return( TRUE );
 }

@@ -1,4 +1,3 @@
-	#include <time.h>
 	#include "sgp.h"
 	#include "gameloop.h"
 	#include "Screens.h"
@@ -26,11 +25,13 @@
 
 #include "SaveLoadScreen.h"
 
-//**ddd direct link libraries
+//**ddd direct link libraries (MSVC-only; ignored by clang/gcc and the CMake build)
+#ifdef _MSC_VER
 #pragma comment (lib, "user32.lib")
 #pragma comment (lib, "gdi32.lib")
 #pragma comment (lib, "advapi32.lib")
 #pragma comment (lib, "shell32.lib")
+#endif
 
 #ifdef JA2UB
 #include "ub_config.h"
@@ -237,7 +238,6 @@ void GameLoop(void)
 	InputAtom	InputEvent;
 	POINT		MousePos;
 	UINT32		uiOldScreen=guiCurrentScreen;
-	clock_t		startTime = clock(); // decrease CPU load patch from defrog
 
 	if(_LeftButtonDown | _RightButtonDown)//dnl ch77 191113 to prevent memory corruption during resize
 		ResizeWorldItems();
