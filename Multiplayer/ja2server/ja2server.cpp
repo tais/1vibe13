@@ -26,6 +26,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <deque>
 
 #include <SDL3/SDL.h>
 #include <SDL3_net/SDL_net.h>
@@ -231,6 +232,24 @@ static bool  g_interruptActive  = false;
 static UINT8 g_preInterruptTeam = 0;        // whose turn to resume when the interrupt releases
 static bool  g_gameOver    = false;
 static bool  g_teamWiped[16] = { false };   // index by team number (6..9)
+
+// Liveness state for the interrupt arbiter. The active interrupt is held by exactly
+// one client; if that client drops (or wedges) the paused turn would never resume,
+// so we track the holder for force-release on disconnect and time out a grant that
+// is never released (stale-interrupt watchdog).
+static SystemAddress g_interruptHolder;             // addr of the client granted the active interrupt
+static Uint64        g_interruptGrantedMs = 0;       // SDL_GetTicks() when the active interrupt was granted
+static const Uint64  INTERRUPT_STALE_MS   = 30000;   // force-release an interrupt held this long with no release
+// The exact wire bytes of the active grant, kept so a force-release (holder dropped or
+// stale watchdog) can resume with the real out-of-turn order instead of a fabricated one.
+static std::vector<unsigned char> g_interruptPayload;
+
+// Concurrent interrupts must CHAIN, not drop: a second sighting client that requests
+// an interrupt while one is active already paused locally and is waiting for a grant.
+// Queue its request and grant it when the current holder releases (FIFO == arrival
+// order; a closer approximation of SP's gubOutOfTurnOrder serialization than dropping).
+struct PendingInterrupt { SystemAddress from; std::vector<unsigned char> payload; };
+static std::deque<PendingInterrupt> g_interruptQueue;
 
 // ---- settings (from ja2_mp.ini) --------------------------------------------
 static char   g_serverName[30]   = "My JA2 Server";
@@ -617,6 +636,8 @@ static void sendGAMEOVER(RPCParameters* /*p*/)
 }
 
 static void ResetGameState();   // defined below; used by the game-over rematch reset
+static bool TeamActive(UINT8 team);   // turn-authority helpers, defined below
+static UINT8 NextActiveTeam(UINT8 cur);
 
 // A merc died. death_struct carries the 1-based player indices plainly (no pointer
 // deref needed, unlike the hit/miss handlers), so the coordinator can keep the
@@ -657,10 +678,33 @@ static void sendMISS(RPCParameters* p)      { TallyShot(p, false); RelayExcept("
 static void sendhitSTRUCT(RPCParameters* p) { TallyShot(p, false); RelayExcept("recievehitSTRUCT", p); }
 static void sendhitWINDOW(RPCParameters* p) { TallyShot(p, false); RelayExcept("recievehitWINDOW", p); }
 
+// Declare the deathmatch winner when only one team is left in play (wiped out OR
+// disconnected). Over the FIXED team space {6+slot : occupied && !wiped} -- NOT
+// g_connectedCount (which counts lobby slots, ignores wipes, and mis-rotates).
+// Returns true if the game ended. Shared by sendWIPE and the in-combat disconnect path.
+static bool CheckLastStanding()
+{
+	if (g_gameType == MP_TYPE_COOP || !g_battleStarted || g_gameOver) return false;
+	int alive = 0, lastTeam = 0;
+	for (UINT8 t = 6; t < 6 + 4; t++)
+		if (TeamActive(t)) { alive++; lastTeam = t; }
+	if (alive > 1) return false;
+	g_gameOver = true;
+	g_inCombat = false;
+	printf("[ja2server] >>> GAME OVER -- team %d wins (last standing)\n", lastTeam); fflush(stdout);
+	BroadcastAll("recieveGAMEOVER", (const char*)g_scoreboard, sizeof(g_scoreboard));
+	// Re-open immediately for the rematch. Score-screen "Continue" makes each client
+	// disconnect + auto-reconnect; if one reconnects before the other has left, the old
+	// game would still be "active" (allowlaptop) and reject it. Resetting now means both
+	// reconnect into a fresh, joinable lobby.
+	ResetGameState();
+	return true;
+}
+
 // A team was wiped out (its client sent teamwiped() -> sendWIPE{ubStartingTeam}).
-// Relay the notice, then -- for deathmatch -- end the game when only one connected
-// team is left standing. The win used to be declared by the host game-instance's
-// is_server-gated path, which the coordinator now owns.
+// Relay the notice, then -- for deathmatch -- end the game when only one team is left
+// standing. The win used to be declared by the host game-instance's is_server-gated
+// path, which the coordinator now owns.
 static void sendWIPE(RPCParameters* p)
 {
 	NEED(p, sc_struct);   // H14: short-frame over-read guard
@@ -670,24 +714,7 @@ static void sendWIPE(RPCParameters* p)
 	RelayExcept("recieve_wipe", p);
 	printf("[ja2server] team %d WIPED OUT\n", team); fflush(stdout);
 
-	if (g_gameType != MP_TYPE_COOP && g_battleStarted && !g_gameOver)
-	{
-		int alive = 0, lastTeam = 0;
-		for (int i = 0; i < g_connectedCount; i++)
-			if (!g_teamWiped[6 + i]) { alive++; lastTeam = 6 + i; }
-		if (alive <= 1)
-		{
-			g_gameOver = true;
-			g_inCombat = false;
-			printf("[ja2server] >>> GAME OVER -- team %d wins (last standing)\n", lastTeam); fflush(stdout);
-			BroadcastAll("recieveGAMEOVER", (const char*)g_scoreboard, sizeof(g_scoreboard));
-			// Re-open immediately for the rematch. Score-screen "Continue" makes each
-			// client disconnect + auto-reconnect; if one reconnects before the other
-			// has left, the old game would still be "active" (allowlaptop) and reject
-			// it. Resetting now means both reconnect into a fresh, joinable lobby.
-			ResetGameState();
-		}
-	}
+	CheckLastStanding();
 }
 
 static void sendREAL(RPCParameters* p)
@@ -707,20 +734,40 @@ static void sendREAL(RPCParameters* p)
 		g_inCombat = false;
 		g_currentTeam = 0;
 		g_interruptActive = false;
+		g_interruptHolder = SystemAddress();
+		g_interruptQueue.clear();
 		BroadcastAll("gotoRT", (const char*)p->input, (p->numberOfBitsOfData + 7) / 8);
 		VLOG("[ja2server] <<< realtime (combat ended)\n"); fflush(stdout);
 	}
 }
 
 // ---- turn authority (Milestone 2) -----------------------------------------
-// The next LAN player team after `cur`, wrapping within 6 .. 5+connectedCount.
+// LAN player teams are slot-positional: slot i (0..3) owns team 6+i for the whole
+// match. A team is "active" only while its slot is still connected AND not wiped --
+// using the shrinking g_connectedCount as a modulus is wrong (it rotates onto wiped
+// or departed teams, wedging the turn, and skips higher surviving teams whose slot
+// index exceeds the count). Rotate instead over the FIXED team space and skip the dead.
+static bool TeamActive(UINT8 team)
+{
+	if (team < 6 || team >= 6 + 4) return false;
+	int slot = (int)team - 6;
+	return g_clients[slot].address.binaryAddress != 0 && !g_teamWiped[team];
+}
+// The next active LAN player team after `cur`, wrapping within the fixed {6..9} space
+// and skipping wiped/departed teams. Returns `cur` if it is the only one left, or 0
+// if none are active (caller should declare game-over).
 static UINT8 NextActiveTeam(UINT8 cur)
 {
-	int n = g_connectedCount > 0 ? g_connectedCount : 1;
-	int idx = (int)cur - 6;
-	if (idx < 0) idx = 0;
-	idx = (idx + 1) % n;
-	return (UINT8)(6 + idx);
+	int start = (int)cur - 6;
+	if (start < 0) start = 0;
+	for (int step = 1; step <= 4; step++)
+	{
+		int idx = (start + step) % 4;
+		UINT8 t = (UINT8)(6 + idx);
+		if (TeamActive(t)) return t;
+	}
+	// none of the OTHERS are active -- if cur itself still is, it keeps the turn
+	return TeamActive(cur) ? cur : 0;
 }
 // Announce whose turn it is. Stamped tsnetbTeam=6 so every client treats it as the
 // authority (client recieveEndTurn gate: is_server || sender_bTeam==6). Sent to ALL,
@@ -728,7 +775,10 @@ static UINT8 NextActiveTeam(UINT8 cur)
 static void BroadcastTurn(UINT8 team)
 {
 	g_currentTeam = team;
-	g_interruptActive = false;   // turn boundary: no interrupt should outlive a turn handoff
+	// turn boundary: no interrupt (active OR queued) should outlive a turn handoff
+	g_interruptActive = false;
+	g_interruptHolder = SystemAddress();
+	g_interruptQueue.clear();
 	turn_struct ts;
 	ts.tsnetbTeam = 6;
 	ts.tsubNextTeam = team;
@@ -752,23 +802,101 @@ static void BroadcastTurn(UINT8 team)
 // The single-threaded "grant only if none active" below also means it can never grant
 // two interrupts at once (RPCs dispatch sequentially) -- so double-turns are impossible
 // here, contrary to a common report.
-// KNOWN LIMITATION: two *different* sighting clients interrupting in the same instant ->
-// the second request is DROPPED (logged below), not merged into one combined out-of-turn
-// order. The correct fix is to QUEUE/MERGE concurrent interrupt sequences here; it needs
-// a 2-client repro to validate, so it is intentionally left as a follow-up, not a blind
-// server-side weight/window arbiter.
-static void sendINTERRUPT(RPCParameters* p)
+// CONCURRENT INTERRUPTS: two *different* sighting clients interrupting while one is active
+// no longer drop the second request (which froze that client, since it had already paused
+// locally awaiting a grant). The second is QUEUED (FIFO) and chained when the holder
+// releases. This is still a SERIALIZER, not a weight/window arbiter -- FIFO == arrival
+// order, the closest approximation of SP's gubOutOfTurnOrder the coordinator can make
+// without tactical state.
+// LIVENESS: the active grant has a tracked HOLDER, so a holder that drops (HandleDisconnect)
+// or never releases (TickInterruptWatchdog) is force-released instead of wedging the turn.
+// Broadcast a granted interrupt (recieveINTERRUPT) to EVERYONE: the requester acts,
+// the others pause. `from` becomes the holder so a disconnect can force-release it.
+static void GrantInterrupt(SystemAddress from, const unsigned char* payload, int bits)
 {
-	if (g_interruptActive)
+	g_interruptActive    = true;
+	g_interruptHolder    = from;
+	g_interruptGrantedMs = SDL_GetTicks();
+	g_preInterruptTeam   = g_currentTeam;
+	g_interruptPayload.assign(payload, payload + (size_t)((bits + 7) / 8));
+	VLOG("[ja2server]   >>> INTERRUPT GRANTED (team %d's turn paused)\n", g_currentTeam); fflush(stdout);
+	g_server->RPC("recieveINTERRUPT", (const char*)payload, (BitSize_t)bits,
+	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+}
+
+// Release the active interrupt and resume the paused turn. The resume target is taken
+// from the server-authoritative g_preInterruptTeam, NOT the relayed wire bTeam: a wrong
+// or spoofed bTeam would otherwise resume the wrong client (L5). INT_STRUCT layout is
+// { SoldierID ubID (UINT16); INT8 bTeam; ... }, so bTeam is byte offset 2 -- patch it
+// in a copy of the wire payload before forwarding so the rest (out-of-turn order) is
+// untouched. Then chain the next queued interrupt, if any (H24).
+static void ReleaseInterrupt(const unsigned char* payload, int bits)
+{
+	g_interruptActive = false;
+	g_interruptHolder = SystemAddress();
+	g_interruptPayload.clear();
+
+	size_t bytes = (size_t)((bits + 7) / 8);
+	std::vector<unsigned char> buf(payload, payload + bytes);
+	if (g_preInterruptTeam >= 6 && bytes > 2)
+		buf[2] = (unsigned char)g_preInterruptTeam;   // author resume target from server state
+	VLOG("[ja2server]   <<< INTERRUPT RELEASED (resuming team %d)\n", g_preInterruptTeam); fflush(stdout);
+	g_server->RPC("resume_turn", (const char*)buf.data(), (BitSize_t)bits,
+	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+
+	// chain: grant the oldest queued concurrent interrupt instead of dropping it (H24).
+	while (!g_interruptQueue.empty())
 	{
-		VLOG("[ja2server]   interrupt request DROPPED -- one already active\n"); fflush(stdout);
+		PendingInterrupt next = g_interruptQueue.front();
+		g_interruptQueue.pop_front();
+		if (SlotOf(next.from) < 0) continue;   // requester left while queued -- skip it
+		VLOG("[ja2server]   (chaining queued interrupt from a 2nd sighting client)\n"); fflush(stdout);
+		GrantInterrupt(next.from, next.payload.data(), (int)next.payload.size() * 8);
 		return;
 	}
-	g_interruptActive  = true;
-	g_preInterruptTeam = g_currentTeam;
-	VLOG("[ja2server]   >>> INTERRUPT GRANTED (team %d's turn paused)\n", g_currentTeam); fflush(stdout);
-	g_server->RPC("recieveINTERRUPT", (const char*)p->input, p->numberOfBitsOfData,
-	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+}
+
+// Force-release the active interrupt when its holder can no longer release it (dropped,
+// or the stale-interrupt watchdog tripped). Resume with the exact grant bytes the holder
+// originally sent -- same out-of-turn order the clients already saw -- and let
+// ReleaseInterrupt re-author the resume team from g_preInterruptTeam.
+static void ForceReleaseInterrupt()
+{
+	if (!g_interruptActive) return;
+	std::vector<unsigned char> grant = g_interruptPayload;   // copy: ReleaseInterrupt clears the source
+	if (grant.empty()) return;
+	ReleaseInterrupt(grant.data(), (int)grant.size() * 8);
+}
+
+// Per-tick watchdog: an interrupt grant whose holder never sends endINTERRUPT (wedged
+// client that survived the timeout, or a lost release packet) would pause the turn
+// forever. Force-release once it has been held longer than INTERRUPT_STALE_MS (H23).
+static void TickInterruptWatchdog()
+{
+	if (!g_interruptActive || !g_inCombat) return;
+	if (SDL_GetTicks() - g_interruptGrantedMs < INTERRUPT_STALE_MS) return;
+	printf("[ja2server] interrupt held >%llums with no release -- force-releasing (stale)\n",
+	       (unsigned long long)INTERRUPT_STALE_MS); fflush(stdout);
+	ForceReleaseInterrupt();
+}
+
+static void sendINTERRUPT(RPCParameters* p)
+{
+	size_t bytes = (size_t)((p->numberOfBitsOfData + 7) / 8);
+	if (g_interruptActive)
+	{
+		// Concurrent interrupt: the requester already paused locally and is waiting for a
+		// grant. QUEUE it (FIFO) so it is chained when the current holder releases, instead
+		// of dropping it and freezing that client forever (H24).
+		PendingInterrupt pi;
+		pi.from = p->sender;
+		pi.payload.assign((const unsigned char*)p->input, (const unsigned char*)p->input + bytes);
+		g_interruptQueue.push_back(pi);
+		VLOG("[ja2server]   interrupt request QUEUED (%zu waiting -- one already active)\n",
+		     g_interruptQueue.size()); fflush(stdout);
+		return;
+	}
+	GrantInterrupt(p->sender, (const unsigned char*)p->input, (int)p->numberOfBitsOfData);
 }
 static void endINTERRUPT(RPCParameters* p)
 {
@@ -777,10 +905,7 @@ static void endINTERRUPT(RPCParameters* p)
 		VLOG("[ja2server]   interrupt release ignored -- none active\n"); fflush(stdout);
 		return;
 	}
-	g_interruptActive = false;
-	VLOG("[ja2server]   <<< INTERRUPT RELEASED (resuming team %d)\n", g_preInterruptTeam); fflush(stdout);
-	g_server->RPC("resume_turn", (const char*)p->input, p->numberOfBitsOfData,
-	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	ReleaseInterrupt((const unsigned char*)p->input, (int)p->numberOfBitsOfData);
 }
 
 // First contact: a client switched to turn-based and is asking the authority to run
@@ -832,6 +957,8 @@ static void ResetGameState()
 	g_inCombat     = false;
 	g_currentTeam  = 0;
 	g_interruptActive = false;
+	g_interruptHolder = SystemAddress();
+	g_interruptQueue.clear();
 	g_gameOver     = false;
 	memset(g_teamWiped, 0, sizeof(g_teamWiped));
 	memset(g_scoreboard, 0, sizeof(g_scoreboard));
@@ -860,6 +987,11 @@ static void HandleDisconnect(SystemAddress who)
 	int slot = SlotOf(who);
 	if (slot < 0) return;
 	int cl_num = g_clients[slot].cl_number;
+	UINT8 droppedTeam   = (UINT8)(6 + slot);
+	bool  heldInterrupt = g_interruptActive && (who == g_interruptHolder);
+	bool  wasInCombat   = g_inCombat;
+	UINT8 currentTeam   = g_currentTeam;
+
 	BroadcastAll("recieveDISCONNECT", (const char*)&cl_num, sizeof(int));
 	g_clients[slot].address.binaryAddress = 0;
 	g_clients[slot].address.port = 0;
@@ -875,6 +1007,15 @@ static void HandleDisconnect(SystemAddress who)
 		g_adminAddr = SystemAddress();   // binaryAddress 0
 		printf("[ja2server] admin dropped -- admin slot released\n"); fflush(stdout);
 	}
+
+	// A queued (not-yet-granted) interrupt from the departing client must go too, or it
+	// would be granted to a ghost on the next release.
+	for (size_t i = 0; i < g_interruptQueue.size(); )
+	{
+		if (g_interruptQueue[i].from == who) g_interruptQueue.erase(g_interruptQueue.begin() + i);
+		else ++i;
+	}
+
 	// last one out resets the server back to a joinable lobby AND forgets the known
 	// players -- a truly empty server starts a fresh session (the game-over rematch
 	// reset, by contrast, keeps g_knownName so reconnects are recognized).
@@ -882,6 +1023,41 @@ static void HandleDisconnect(SystemAddress who)
 	{
 		ResetGameState();
 		memset(g_knownName, 0, sizeof(g_knownName));
+		return;
+	}
+
+	// ---- in-combat liveness: a drop must not wedge the match (H21/H23) ----------
+	// The slot is already cleared above, so TeamActive(droppedTeam) is now false and
+	// NextActiveTeam() will skip it. Order matters: declare game-over FIRST (it resets
+	// state), otherwise we'd hand the turn to / resume the last survivor pointlessly.
+	if (wasInCombat && CheckLastStanding())
+		return;
+
+	if (wasInCombat)
+	{
+		// The interrupt holder dropped: the paused team would never be resumed (only the
+		// holder sends endINTERRUPT). Force-release so its turn continues, reusing the
+		// holder's original grant bytes for the resume (ReleaseInterrupt re-authors bTeam
+		// from g_preInterruptTeam) and chaining any queued interrupt.
+		if (heldInterrupt)
+		{
+			printf("[ja2server] interrupt holder (team %d) dropped -- force-releasing\n", droppedTeam); fflush(stdout);
+			ForceReleaseInterrupt();
+		}
+
+		// The team whose turn it is dropped: hand the turn on so the match doesn't stall
+		// waiting for an end-turn that can never arrive. (If the holder was force-released
+		// above and happened to be the current team, the turn already moved on -- but
+		// advancing again here is harmless: NextActiveTeam skips the now-departed team.)
+		if (droppedTeam == currentTeam)
+		{
+			UINT8 next = NextActiveTeam(currentTeam);
+			if (next != 0)
+			{
+				printf("[ja2server] current-turn team %d dropped -- advancing to team %d\n", droppedTeam, next); fflush(stdout);
+				BroadcastTurn(next);
+			}
+		}
 	}
 }
 
@@ -1528,6 +1704,7 @@ int main(int argc, char** argv)
 			ResetGameState();
 			memset(g_knownName, 0, sizeof(g_knownName));   // manual reset = fresh session
 		}
+		TickInterruptWatchdog();   // force-release a wedged interrupt (stale watchdog)
 		HttpTick();   // serve at most one slice of dashboard work per tick
 		RakSleep(10);
 	}
