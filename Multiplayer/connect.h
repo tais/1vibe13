@@ -216,10 +216,14 @@ extern BOOLEAN		fClientReceivedAllFiles;
 // OJW - 20090507
 // Add basic version checking, will only work from now on
 // note: this cannot be longer than char[30]
+// PORTABLE WIRE FORMAT: v3.2 changes the on-wire protocol (chat_msg/AI_STRUCT/BULLET/
+// INT_STRUCT/filetransfersettings are now fixed-width little-endian). It is NOT compatible
+// with v3.1 peers -- the version string gate (server.cpp / ja2server.cpp) rejects mismatches
+// so a v3.1 and a v3.2 build cannot accidentally interoperate and corrupt each other.
 #ifdef JA2UB
-#define MPVERSION	"MP v3.1(UB)"
+#define MPVERSION	"MP v3.2(UB)"
 #else
-#define MPVERSION	"MP v3.1"
+#define MPVERSION	"MP v3.2"
 #endif
 
 // OJW - 2009128 - inline funcs for working with soldiers and teams
