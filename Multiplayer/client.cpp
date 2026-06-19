@@ -155,6 +155,32 @@ RakPeerInterface *client;
 // WANNE: FILE TRANSFER
 FileListTransfer fltClient;	// flt2
 
+// --- MP wire-hardening helpers (PR-1) -------------------------------------
+// Every recieveX/sendX RPC handler receives a heap buffer sized to the ACTUAL
+// wire payload (payloadLen+4), then (Struct*)casts and reads sizeof(Struct).
+// A short/malformed frame is therefore a heap over-read. RPC_REQUIRE_BYTES is
+// the central length guard: bail before the cast if the payload is too small.
+// numberOfBitsOfData is unsigned (BitSize_t); cast sizeof to long so the
+// comparison is well-defined.
+#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(((p)->numberOfBitsOfData)+7)/8) < (long)sizeof(T) ) return; }while(0)
+
+// Resolve a wire soldier id to a live merc pointer, or NULL. On a raw RPC
+// memcpy the SoldierID clamping constructor never runs, so the index is
+// attacker-controlled 0..65535; this is the only safe way to deref MercPtrs[]
+// from wire data. (MercPtrs is [TOTAL_SOLDIERS].)
+static SOLDIERTYPE* SafeMerc(UINT16 i)
+{
+	return ( i < TOTAL_SOLDIERS && MercPtrs[i] && MercPtrs[i]->bActive ) ? MercPtrs[i] : NULL;
+}
+
+// gAnimControl[] / EVENT_InitNewSoldierAnim() are indexed by animation state;
+// any wire value >= NUMANIMATIONSTATES is an OOB read / invalid anim init.
+static BOOLEAN IsValidAnimState(UINT16 s)
+{
+	return s < NUMANIMATIONSTATES;
+}
+// --------------------------------------------------------------------------
+
 char *ReplaceCharactersInString_Client(char *str, char *orig, char *rep)
 {
 	static char buffer[4096];
@@ -511,6 +537,14 @@ typedef struct
 	INT32 RealObjectID; // the local ID on the initiating client
 	bool IsThrownGrenade; // could be mortar
 	UINT32 uiPreRandomIndex;
+	// M12 - short-term inventory/ammo replication: carry the real thrown-object
+	// state instead of reconstructing it from item defaults on the receiver.
+	INT16 sItemStatus;       // (*pGameObj)[0]->data.objectStatus (status %)
+	UINT16 usShotsLeft;      // (*pGameObj)[0]->data.gun.ubGunShotsLeft (loaded launcher shells)
+	UINT8 ubNumberOfObjects; // stack count thrown / consumed
+	// L1 - sequence number so a dropped/duplicated/out-of-order grenade event
+	// cannot silently drift guiPreRandomIndex on the receiver.
+	UINT32 uiGrenadeEventSeq;
 } physics_object;
 
 typedef struct
@@ -916,6 +950,13 @@ static bool DeserializeAI( SOLDIERCREATE_STRUCT& s, ai_wire_slot* slots, const v
 
 bullets_table bTable[MAXTEAMS][NUM_BULLET_SLOTS];	// rows=global teams, cols=sender bullet slot (audit [40]/[48])
 
+// L1 - grenade pre-random sync: each side keeps a monotonic counter. The sender
+// stamps every grenade event; the receiver only adopts the event's
+// guiPreRandomIndex when its sequence is newer than the last one applied, so a
+// dropped/duplicated/reordered event can no longer drift the shared RNG cursor.
+static UINT32 guiGrenadeEventSeqOut = 0;       // next seq to stamp on outgoing grenade events
+static UINT32 guiLastGrenadeEventSeqIn = 0;    // highest seq adopted from incoming grenade events
+
 char client_names[4][30];
 
 char team_names[1][30];//hayden need client_names with AI
@@ -1167,7 +1208,12 @@ void recievePATH(RPCParameters *rpcParameters)
 {
 	//ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"Recieving new path," );
 				
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_SENDPATHTONETWORK);	// short-frame guard (H6/H13)
 	EV_S_SENDPATHTONETWORK* SNetPath = (EV_S_SENDPATHTONETWORK*)rpcParameters->input;
+
+	// H6: ubNewState indexes gAnimControl[] / EVENT_InitNewSoldierAnim() -- bound it.
+	if ( !IsValidAnimState( SNetPath->ubNewState ) )
+		return;
 
 	SOLDIERTYPE *pSoldier = SNetPath->usSoldierID;
 	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
@@ -1362,6 +1408,7 @@ void recieveHIT(RPCParameters *rpcParameters)
 {
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"recieveHIT" );
 		
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_WEAPONHIT);	// short-frame guard (H11/H13)
 	EV_S_WEAPONHIT* SWeaponHit = (EV_S_WEAPONHIT*)rpcParameters->input;
 	
 	SOLDIERTYPE *pSoldier = SWeaponHit->usSoldierID;
@@ -1377,6 +1424,12 @@ void recieveHIT(RPCParameters *rpcParameters)
 		ubAttackerID = (SWeaponHit->ubAttackerID - ubID_prefix);
 	else
 		ubAttackerID = SWeaponHit->ubAttackerID;
+
+	// H11: WeaponHit derefs the victim unconditionally (sGridNo -> gpWorldLevelData[]).
+	// The victim may not exist on this client yet (spawn-order race) or be a bad wire
+	// id -- drop the frame if it doesn't resolve to a live merc.
+	if ( SafeMerc( usSoldierID.i ) == NULL )
+		return;
 
 	WeaponHit( usSoldierID, SWeaponHit->usWeaponIndex, SWeaponHit->sDamage, SWeaponHit->sBreathLoss, SWeaponHit->usDirection, SWeaponHit->sXPos, SWeaponHit->sYPos, SWeaponHit->sZPos, SWeaponHit->sRange, ubAttackerID, SWeaponHit->fHit, SWeaponHit->ubSpecial, SWeaponHit->ubLocation );
 
@@ -1480,7 +1533,16 @@ void recieveDISMISS(RPCParameters *rpcParameters)
 
 void recieveHIRE(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, send_hire_struct);	// short-frame guard (M6/H13)
 	send_hire_struct* sHireMerc = (send_hire_struct*)rpcParameters->input;
+
+	// M6: bTeam indexes gTacticalStatus.Team[] (writes) and client_names[bTeam-6];
+	// ubProfileID indexes gMercProfiles[]. A bad wire value creates a mis-sided merc
+	// and corrupts team state -- only accept the 4 LAN teams and a valid profile.
+	if ( sHireMerc->bTeam < LAN_TEAM_ONE || sHireMerc->bTeam >= LAN_TEAM_ONE + 4 )
+		return;
+	if ( sHireMerc->ubProfileID >= NUM_PROFILES )
+		return;
 
 	SOLDIERTYPE	*pSoldier;
 	SoldierID	iNewIndex;
@@ -1668,6 +1730,7 @@ void send_EndTurn( UINT8 ubNextTeam )
 
 void recieveEndTurn(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, turn_struct);	// short-frame guard (M7/H13)
 	turn_struct* tStruct = (turn_struct*)rpcParameters->input;
 	UINT8 sender_bTeam;
 	UINT8 ubTeam;
@@ -1691,6 +1754,9 @@ void recieveEndTurn(RPCParameters *rpcParameters)
 		}
 
 		if(ubTeam==netbTeam)ubTeam=0;
+		// M7: ubTeam drives EndTurn()/BeginTeamTurn() (ubCurrentTeam -> Team[]) -- bound it.
+		if(ubTeam>=MAXTEAMS)
+			return;
 		{
 			if(!is_server && is_client)
 				EndTurnEvents();
@@ -1751,9 +1817,18 @@ void recieveAI (RPCParameters *rpcParameters)
 	new_standard_data.pExistingSoldier = NULL;   // raw pointer from the sender's address space -- never dereference
 	new_standard_data.fUseExistingSoldier = FALSE;
 
+	// M6: wire bTeam feeds TacticalCreateSoldier (Team classification); ubProfile
+	// indexes gMercProfiles[]. AI can be on any engine team, so accept any valid team
+	// but drop garbage. Validated after the portable deserialize fills new_standard_data.
+	if ( new_standard_data.bTeam < 0 || new_standard_data.bTeam >= MAXTEAMS )
+		return;
+	if ( new_standard_data.ubProfile >= NUM_PROFILES )
+		return;
+
 	for(int x=0;x<AI_WIRE_SLOTS;x++)
 	{
-		if(slots[x].usItem != 0)
+		// M6: usItem indexes Item[] inside CreateItems -- drop out-of-range items.
+		if(slots[x].usItem != 0 && slots[x].usItem < MAXITEMS)
 			CreateItems( slots[x].usItem, 100, slots[x].ubNumberOfObjects, &new_standard_data.Inv[x] );
 	}
 
@@ -1822,7 +1897,13 @@ void send_ready ( void )
 
 void recieveREADY (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, ready_struct);	// short-frame guard (H8/H13)
 	ready_struct* info = (ready_struct*)rpcParameters->input;
+
+	// H8: client_num indexes client_names[4]/client_ready[4] as [client_num-1];
+	// an out-of-range wire byte is an OOB read/write. (1-based, 1..4.)
+	if ( info->client_num < 1 || info->client_num > 4 )
+		return;
 
 	if(info->ready_stage==1)//recived ok for go ahead from server for level load
 	{
@@ -2499,7 +2580,10 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		INT_STRUCT* INT = &_intWire;
 		if (cGameType == MP_TYPE_COOP)
 		{
-			SOLDIERTYPE* pOpponent = INT->Interrupted;
+			// C1: INT->Interrupted is a wire SoldierID -- clamp before any MercPtrs[] deref.
+			SOLDIERTYPE* pOpponent = SafeMerc( INT->Interrupted.i );
+			if ( pOpponent == NULL )
+				return;
 
 			if( INT->bTeam == netbTeam || is_server)//its for us or we are server and its for AI which we control
 			{
@@ -2533,7 +2617,9 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Recieved interrupt between %s and %s.", TeamNameStrings[pOpponent->bTeam], TeamNameStrings[INT->bTeam] );
 
 				 //start interrupt turn //real interrupt code
-				SOLDIERTYPE* pSoldier = INT->ubID;
+				SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+				if ( pSoldier == NULL )
+					return;
 				ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
 				StartInterrupt();
 			}
@@ -2549,7 +2635,9 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->bTeam] );//was MPClientMessage[37], can be reconnected if text updated and translated
 
-					SOLDIERTYPE* pSoldier = INT->ubID;
+					SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+					if ( pSoldier == NULL )
+						return;
 					ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
 					StartInterrupt();
 				}
@@ -2557,8 +2645,11 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		}
 		else
 		{
-			// INT already deserialized at the top of recieveINTERRUPT (L6)
-			SOLDIERTYPE* pOpponent = INT->Interrupted;
+			// INT already deserialized at the top of recieveINTERRUPT (L6).
+			// C1: clamp wire SoldierID before MercPtrs[] deref.
+			SOLDIERTYPE* pOpponent = SafeMerc( INT->Interrupted.i );
+			if ( pOpponent == NULL )
+				return;
 
 			// MP: an interrupt freezes the action, so no remote LAN copy should still be
 			// mid-stride. The halt below only stops one merc (INT->ubID); any OTHER moving
@@ -2598,8 +2689,14 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 			// WANNE - MP: This seems to cause the HANG on AI interrupt where we have to press ALT + E on the server!
 			if(	INT->bTeam != 0)//not for our team - hayden
 			{
+				// M1: bTeam (wire INT8) latches gMpEnemyInterruptTeam and indexes the 10-row
+				// TeamTurnString[]/TeamNameStrings[] banner tables -- drop out-of-range teams.
+				if ( INT->bTeam < 0 || INT->bTeam > 9 )
+					return;
 				//stop moving merc who was interrupted and init UI bar
-				SOLDIERTYPE* pMerc = INT->ubID;
+				SOLDIERTYPE* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+				if ( pMerc == NULL )
+					return;
 				pMerc->HaultSoldierFromSighting(TRUE);
 				FreezeInterfaceForEnemyTurn();
 				// HARD-obey the arbiter: hand turn ownership to the interrupting team so
@@ -2633,7 +2730,9 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->bTeam] );//was MPClientMessage[37], can be reconnected if text updated and translated
 
-					SOLDIERTYPE* pSoldier = INT->ubID;
+					SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+					if ( pSoldier == NULL )
+						return;
 					ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
 					StartInterrupt();
 				}
@@ -2649,7 +2748,10 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
 			return;
 		INT_STRUCT* INT = &_intWire;
-		SOLDIERTYPE* pOpponent = MercPtrs[ INT->Interrupted];
+		// C1: clamp wire SoldierID before MercPtrs[] deref.
+		SOLDIERTYPE* pOpponent = SafeMerc( INT->Interrupted.i );
+		if ( pOpponent == NULL )
+			return;
 
 		if(INT->bTeam==netbTeam)//for us
 		{
@@ -2677,7 +2779,9 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		{
 			
 			//stop moving merc who was interrupted and init UI bar
-			SOLDIERTYPE* pMerc = MercPtrs[ INT->ubID ];	
+			SOLDIERTYPE* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+			if ( pMerc == NULL )
+				return;
 			pMerc->HaultSoldierFromSighting(TRUE);
 			FreezeInterfaceForEnemyTurn();
 			InitEnemyUIBar( 0, 0 );
@@ -2698,7 +2802,9 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->bTeam] );//was MPClientMessage[37], can be reconnected if text updated and translated
 
-				SOLDIERTYPE* pSoldier = MercPtrs[ INT->ubID ];
+				SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+				if ( pSoldier == NULL )
+					return;
 				ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
 				StartInterrupt();
 			}
@@ -2716,7 +2822,13 @@ void intAI (SOLDIERTYPE *pSoldier )
 
 void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 {
-	SOLDIERTYPE * pSoldier = MercPtrs[(gubOutOfTurnOrder[gubOutOfTurnPersons])];
+	// C1: gubOutOfTurnOrder[] is populated from wire interrupt data; clamp the index
+	// soldier before dereferencing MercPtrs[] to build the release packet.
+	if ( gubOutOfTurnPersons >= MAXMERCS )
+		return;
+	SOLDIERTYPE * pSoldier = SafeMerc( gubOutOfTurnOrder[gubOutOfTurnPersons] );
+	if ( pSoldier == NULL )
+		return;
 
 	INT_STRUCT INT;
 	INT.ubID = pSoldier->ubID;
@@ -2748,7 +2860,8 @@ void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 
 void resume_turn(RPCParameters *rpcParameters)
 {
-	// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload.
+	// PORTABLE WIRE FORMAT (L6): deserialize the fixed-width interrupt payload
+	// (bounds-checked, gubOutOfTurnPersons clamped). Drop short/bad frames.
 	INT_STRUCT _intWire;
 	if ( !DeserializeINT( _intWire, rpcParameters->input, (rpcParameters->numberOfBitsOfData + 7) / 8 ) )
 		return;
@@ -3478,7 +3591,11 @@ void reapplySETTINGS()
 
 void recieveTEAMCHANGE( RPCParameters *rpcParameters )
 {
+	RPC_REQUIRE_BYTES(rpcParameters, teamchange_struct);	// short-frame guard (H9/H13)
 	teamchange_struct* cl_lan = (teamchange_struct*)rpcParameters->input;
+	// H9: client_num indexes client_teams[4] as [client_num-1] -- bound it.
+	if ( cl_lan->client_num < 1 || cl_lan->client_num > 4 )
+		return;
 
 	if (!can_teamchange())
 	{
@@ -3500,7 +3617,11 @@ void recieveTEAMCHANGE( RPCParameters *rpcParameters )
 
 void recieveEDGECHANGE( RPCParameters *rpcParameters )
 {
+	RPC_REQUIRE_BYTES(rpcParameters, edgechange_struct);	// short-frame guard (H9/H13)
 	edgechange_struct* cl_lan = (edgechange_struct*)rpcParameters->input;
+	// H9: client_num indexes client_edges[5] as [client_num-1] -- bound it.
+	if ( cl_lan->client_num < 1 || cl_lan->client_num > 5 )
+		return;
 
 	if (!can_edgechange())
 	{
@@ -3579,6 +3700,28 @@ void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yP
 			gren.IsThrownGrenade = bIsThrownGrenade;
 			gren.uiPreRandomIndex = guiPreRandomIndex;
 
+			// M12 - transmit the real thrown-object state so the receiver no longer
+			// rebuilds it as CreateItem(usItem,99,...) (default status, default
+			// magazine). This is the structural root of the "fires the wrong round
+			// count"/phantom-item reports. objectStatus is the top-level union value
+			// (status %); ubGunShotsLeft lives in the gun sub-struct (a different
+			// offset) and matters for loaded shells thrown from a launcher.
+			if ( (*pGameObj)[0] != NULL )
+			{
+				gren.sItemStatus = (*pGameObj)[0]->data.objectStatus;
+				gren.usShotsLeft = (*pGameObj)[0]->data.gun.ubGunShotsLeft;
+			}
+			else
+			{
+				gren.sItemStatus = 99;
+				gren.usShotsLeft = 0;
+			}
+			gren.ubNumberOfObjects = pGameObj->ubNumberOfObjects;
+
+			// L1 - stamp a monotonic sequence so the receiver can reject
+			// dropped/duplicated/reordered events that would drift guiPreRandomIndex.
+			gren.uiGrenadeEventSeq = ++guiGrenadeEventSeqOut;
+
 #ifdef JA2BETAVERSION
 			CHAR tmpMPDbgString[512];
 			sprintf(tmpMPDbgString,"MP - send_grenade ( usItem : %i , sGridNo : %i , ubSoldierID : %i , uiPreRandomIndex : %i )\n",gren.usItem, gren.sTargetGridNo , gren.ubID.i , guiPreRandomIndex );
@@ -3593,6 +3736,7 @@ void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yP
 
 void recieveGRENADE (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, physics_object);	// short-frame guard (M8/H13)
 	physics_object* gren = (physics_object*)rpcParameters->input;
 
 	gren->ubID = MPDecodeSoldierID(gren->ubID);
@@ -3600,8 +3744,16 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 	SOLDIERTYPE* pThrower =  gren->ubID;
 	if (pThrower != NULL)
 	{
-		guiPreRandomIndex = gren->uiPreRandomIndex;
-		
+		// L1 - only adopt the sender's pre-random cursor for an in-order, not-yet-seen
+		// event. A dropped event never advances guiLastGrenadeEventSeqIn, so a later
+		// event still applies; a duplicate/stale event is ignored instead of silently
+		// rewinding/advancing guiPreRandomIndex out of step with the RNG we consumed.
+		if ( gren->uiGrenadeEventSeq > guiLastGrenadeEventSeqIn )
+		{
+			guiLastGrenadeEventSeqIn = gren->uiGrenadeEventSeq;
+			guiPreRandomIndex = gren->uiPreRandomIndex;
+		}
+
 		// grenade wasnt thrown by one of our guys, so we should do it on the client
 		if (!IsOurSoldier(pThrower) && (pThrower->bTeam != 1 || !is_server))
 		{
@@ -3612,12 +3764,46 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			gfMPDebugOutputRandoms = true;
 #endif
 
-			// this is a bit of a hack until we do the inventory sync
+			// M12 - short-term inventory/ammo replication: rebuild the thrown object
+			// with the real status, round count and stack size sent over the wire,
+			// instead of the old CreateItem(usItem,99,...) that always reconstructed
+			// item defaults (the "fires the wrong round count"/phantom-item root).
+			// The full periodic per-soldier inventory-delta sync is a follow-up.
+			// M8: usItem indexes Item[] inside CreateItems -- drop out-of-range items.
+			if ( gren->usItem == 0 || gren->usItem >= MAXITEMS )
+				return;
 			OBJECTTYPE* newObj = new OBJECTTYPE();
-			CreateItem( gren->usItem, 99, newObj );
+			INT16 sItemStatus = gren->sItemStatus;
+			// guard against an old/corrupt peer sending a zeroed status
+			if ( sItemStatus <= 0 || sItemStatus > 100 )
+				sItemStatus = 99;
+			UINT8 ubNumObjects = ( gren->ubNumberOfObjects > 0 ) ? gren->ubNumberOfObjects : 1;
+			CreateItems( gren->usItem, sItemStatus, ubNumObjects, newObj );
+			// Restore the loaded round count for launcher shells. ubGunShotsLeft lives
+			// at a distinct offset in the data union, so it does not disturb the status
+			// already written above; CreateItems leaves it at the item default.
+			if ( (*newObj)[0] != NULL )
+				(*newObj)[0]->data.gun.ubGunShotsLeft = gren->usShotsLeft;
 			OBJECTTYPE::CopyToOrCreateAt(&pThrower->pTempObject, newObj);
+
+			// M12 - broadcast item consumption: mirror the throwing client, which
+			// removed the thrown stack from its hand (Weapons.cpp:5064). Without this
+			// the remote copy of the thrower keeps a phantom grenade in hand. Only
+			// touch the hand slot when it still holds the same item, so a diverged
+			// inventory is left untouched rather than corrupted.
+			if ( pThrower->inv[ HANDPOS ].exists() && pThrower->inv[ HANDPOS ].usItem == gren->usItem )
+			{
+				pThrower->inv[ HANDPOS ].RemoveObjectsFromStack( ubNumObjects );
+			}
 			// this will create a grenade and launch it
 			INT32 i = CreatePhysicalObject( pThrower->pTempObject, gren->dLifeSpan, gren->dX, gren->dY, gren->dZ, gren->dForceX, gren->dForceY, gren->dForceZ, pThrower->ubID, gren->ubActionCode, gren->uiActionData, false);
+			// M8: CreatePhysicalObject returns -1 on slot exhaustion -> ObjectSlots[-1]
+			// OOB write. Drop the frame (free the temp object) rather than write past the array.
+			if ( i < 0 || i >= NUM_OBJECT_SLOTS )
+			{
+				delete newObj;
+				return;
+			}
 			// save extra state info so we can check and feed it result later
 			ObjectSlots[ i ].mpRealObjectID = gren->RealObjectID;
 			ObjectSlots[ i ].mpTeam = pThrower->bTeam;
@@ -4291,7 +4477,12 @@ void send_explosivedamage( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGri
 
 void recieveEXPLOSIONDAMAGE (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, explosiondamage_struct);	// short-frame guard (H5/H13)
 	explosiondamage_struct* exp = (explosiondamage_struct*)rpcParameters->input;
+
+	// H5: usItem indexes Item[]/Explosive[] (compounding OOB read) -- bound it.
+	if ( exp->usItem == 0 || exp->usItem >= MAXITEMS )
+		return;
 
 	exp->ubSoldierID = MPDecodeSoldierID(exp->ubSoldierID);
 	exp->ubAttackerID = MPDecodeSoldierID(exp->ubAttackerID);
@@ -4413,6 +4604,11 @@ void recieveBULLET(RPCParameters *rpcParameters)
 	}
 #endif
 
+	// H7: CreateBullet returns -1 on slot exhaustion; GetBulletPtr(-1) -> &gBullets[-1]
+	// OOB write. Drop the frame rather than write ~17 fields past the array.
+	if ( iBullet < 0 )
+		return;
+
 	//add bullet to bullet table for translation
 	bTable[bTeam][net_iBullet].remote_id = net_iBullet;
 	bTable[bTeam][net_iBullet].local_id = iBullet;
@@ -4459,7 +4655,13 @@ void send_changestate (EV_S_CHANGESTATE * SChangeState)
 
 void recieveSTATE(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_CHANGESTATE);	// short-frame guard (H6/H13)
 	EV_S_CHANGESTATE*	new_state = (EV_S_CHANGESTATE*)rpcParameters->input;
+
+	// H6: usNewState indexes gAnimControl[] and drives EVENT_InitNewSoldierAnim() --
+	// an out-of-range wire value is an OOB read + invalid anim init.
+	if ( !IsValidAnimState( new_state->usNewState ) )
+		return;
 
 	SOLDIERTYPE * pSoldier = new_state->usSoldierID;
 	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
@@ -4631,6 +4833,7 @@ void send_death( SOLDIERTYPE *pSoldier )
 
 void recieveDEATH (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, death_struct);	// short-frame guard (M2/H13)
 	death_struct* nDeath = (death_struct*)rpcParameters->input;
 	SOLDIERTYPE * pSoldier = nDeath->soldier_id;
 	if ( pSoldier == NULL )
@@ -4645,10 +4848,13 @@ void recieveDEATH (RPCParameters *rpcParameters)
 		ubAttackerID = nDeath->attacker_id;
 
 	SOLDIERTYPE * pAttacker = ubAttackerID;
-	INT8 pA_bTeam;
-	CHAR16	pA_name[ 10 ];
-	INT8 pS_bTeam;
-	CHAR16	pS_name[ 10 ];
+	// M2: pA_bTeam/pS_bTeam are used as client_names[x-1] indices unconditionally;
+	// default them to our own (valid) client number so a missing attacker / unset
+	// branch can't index the array with garbage.
+	INT8 pA_bTeam=CLIENT_NUM;
+	CHAR16	pA_name[ 10 ] = {0};
+	INT8 pS_bTeam=CLIENT_NUM;
+	CHAR16	pS_name[ 10 ] = {0};
 
 	if(pAttacker)
 	{
@@ -4658,6 +4864,9 @@ void recieveDEATH (RPCParameters *rpcParameters)
 		if(pA_bTeam>5)
 			pA_bTeam=pA_bTeam-5;
 		if(pA_bTeam==0)
+			pA_bTeam=CLIENT_NUM;
+		// M2: keep the client_names[pA_bTeam-1] index in range [0,3].
+		if(pA_bTeam<1 || pA_bTeam>4)
 			pA_bTeam=CLIENT_NUM;
 	}
 
@@ -4669,6 +4878,9 @@ void recieveDEATH (RPCParameters *rpcParameters)
 		if(pS_bTeam>5)
 			pS_bTeam=pS_bTeam-5;
 		if(pS_bTeam==0)
+			pS_bTeam=CLIENT_NUM;
+		// M2: keep the client_names[pS_bTeam-1] index in range [0,3].
+		if(pS_bTeam<1 || pS_bTeam>4)
 			pS_bTeam=CLIENT_NUM;
 	}
 			
@@ -4714,7 +4926,7 @@ void recieveDEATH (RPCParameters *rpcParameters)
 	
 	if (pSoldier->bTeam==1) 
 		MPDebugMsg( String ( "MPDEBUG RECV - Enemy AI #%d was killed by ('%s' - #%d) (client %d - '%s')\n",nDeath->soldier_id,a_name,nDeath->attacker_id,pA_bTeam,client_names[pA_bTeam-1]) );
-	else if (pAttacker->bTeam==1) 
+	else if (pAttacker && pAttacker->bTeam==1) 	// M2: pAttacker may be NULL here
 		MPDebugMsg( String ( "MPDEBUG RECV - '%s' (client %d - '%s') was killed by '%s' (client %d - '%s')\n",s_name,pS_bTeam,client_names[(pS_bTeam-1)],a_name,pA_bTeam,"Queens Army") );
 	else 
 		MPDebugMsg( String ( "MPDEBUG RECV - '%s' (client %d - '%s') was killed by '%s' (client %d - '%s')\n",s_name,pS_bTeam,client_names[(pS_bTeam-1)],a_name,pA_bTeam,client_names[(pA_bTeam-1)]) );
@@ -4754,8 +4966,14 @@ void send_miss(EV_S_MISS * SMiss)
 
 void recievehitSTRUCT  (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_STRUCTUREHIT);	// short-frame guard (H1/H13)
 	EV_S_STRUCTUREHIT* struct_hit = (EV_S_STRUCTUREHIT*)rpcParameters->input;
-	SOLDIERTYPE *pSoldier = struct_hit->ubAttackerID;
+	// H1: attacker is a wire SoldierID -- resolve safely, range-check before bTable[][].
+	SOLDIERTYPE *pSoldier = SafeMerc( struct_hit->ubAttackerID.i );
+	if ( pSoldier == NULL
+		|| pSoldier->bTeam < 0 || pSoldier->bTeam >= MAXTEAMS
+		|| struct_hit->iBullet < 0 || struct_hit->iBullet >= NUM_BULLET_SLOTS )
+		return;
 	INT8 bTeam=pSoldier->bTeam;
 	INT32 iBullet = bTable[bTeam][struct_hit->iBullet].local_id;
 
@@ -4770,15 +4988,25 @@ void recievehitSTRUCT  (RPCParameters *rpcParameters)
 
 void recievehitWINDOW  (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_WINDOWHIT);	// short-frame guard (H3/H13)
 	EV_S_WINDOWHIT* window_hit = (EV_S_WINDOWHIT*)rpcParameters->input;
+	// H3: wire gridno walks gpWorldLevelData[] (WORLD_MAX-sized) -- bound it.
+	if ( window_hit->sGridNo < 0 || window_hit->sGridNo >= WORLD_MAX )
+		return;
 	WindowHit( window_hit->sGridNo, window_hit->usStructureID, window_hit->fBlowWindowSouth, window_hit->fLargeForce );
 }
 
 void recieveMISS  (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_MISS);	// short-frame guard (H2/H13)
 	EV_S_MISS* shot_miss = (EV_S_MISS*)rpcParameters->input;
 
-	SOLDIERTYPE *pSoldier = shot_miss->ubAttackerID;
+	// H2: attacker is a wire SoldierID -- resolve safely, range-check before bTable[][].
+	SOLDIERTYPE *pSoldier = SafeMerc( shot_miss->ubAttackerID.i );
+	if ( pSoldier == NULL
+		|| pSoldier->bTeam < 0 || pSoldier->bTeam >= MAXTEAMS
+		|| shot_miss->iBullet < 0 || shot_miss->iBullet >= NUM_BULLET_SLOTS )
+		return;
 	INT8 bTeam=pSoldier->bTeam;
 	INT32 iBullet = bTable[bTeam][shot_miss->iBullet].local_id;
 
@@ -4903,6 +5131,7 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 				SUpdateNetworkSoldier.usSoldierID=pSoldier->ubID+ubID_prefix;
 			
 			SUpdateNetworkSoldier.sAtGridNo=pSoldier->sGridNo;
+			SUpdateNetworkSoldier.bActionPoints=pSoldier->bActionPoints;	// owner-authoritative AP, reconciled on copies (DeductPoints no longer spends AP on copies)
 			SUpdateNetworkSoldier.bBreath=pSoldier->bBreath;
 			SUpdateNetworkSoldier.ubDirection=pSoldier->ubDirection;
 
@@ -4932,6 +5161,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
+	pSoldier->bActionPoints=SUpdateNetworkSoldier->bActionPoints;	// owner-authoritative AP; DeductPoints does not spend AP on remote copies
 	pSoldier->bBreath=SUpdateNetworkSoldier->bBreath;
 	pSoldier->stats.bLife=SUpdateNetworkSoldier->bLife;
 
@@ -5158,6 +5388,7 @@ void recieve_door (RPCParameters *rpcParameters)
 
 void recieveCHATMSG(RPCParameters* rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, chat_msg);	// short-frame guard (M4/H13)
 	chat_msg* cmsg = (chat_msg*)rpcParameters->input;
 
 	// PORTABLE WIRE FORMAT (H15): widen fixed-width UTF-16LE back to the engine's wchar_t.
@@ -5188,8 +5419,15 @@ void recieveCHATMSG(RPCParameters* rpcParameters)
 // recieveDISCONNECT - Handle disconnection
 void recieveDISCONNECT(RPCParameters* rpcParameters)
 {
+	// H10: payload is a single client-number byte; require it before reading.
+	if ( ((long)((rpcParameters->numberOfBitsOfData)+7)/8) < 1 )
+		return;
 	// for starters - we shouldnt get a message for ourselves :)
 	int cl_num = (int) *rpcParameters->input; // cl_num starts at 1
+	// H10: cl_num indexes client_names[4]/client_ready[4]/client_teams[4] as [cl_num-1]
+	// and Team[cl_num+5]; an out-of-range wire byte is an OOB write/read. (1..4.)
+	if ( cl_num < 1 || cl_num > 4 )
+		return;
 
 	wchar_t szPlayerName[30];
 	memset(szPlayerName,0,30*sizeof(wchar_t));
@@ -5406,7 +5644,11 @@ void teamwiped ( void )
 
 void recieve_wipe (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, sc_struct);	// short-frame guard (M5/H13)
 	sc_struct* data = (sc_struct*)rpcParameters->input;
+	// M5: wire team indexes TeamNameStrings[] and drives EndTurn() -- bound it.
+	if ( data->ubStartingTeam >= MAXTEAMS )
+		return;
 	ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, MPClientMessage[75], TeamNameStrings[data->ubStartingTeam] );
 	if(is_server)
 	{
@@ -5434,16 +5676,16 @@ void send_heal (SOLDIERTYPE *pSoldier )
 
 void recieve_heal (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, heal);	// short-frame guard (H4/H13)
 	heal* data = (heal*)rpcParameters->input;
 
-	SoldierID healed;
+	// H4: decode via the shared helper (+7, matches the rest of the codebase; the
+	// old hand-rolled +6 mis-decoded the 7th merc) and guard the resolved pointer.
+	SoldierID healed = MPDecodeSoldierID( data->ubID );
 
-	if((data->ubID >= ubID_prefix) && (data->ubID < (ubID_prefix+6)))
-		healed = (data->ubID - ubID_prefix);
-	else
-		healed = data->ubID;
-
-	SOLDIERTYPE *pSoldier = healed;
+	SOLDIERTYPE *pSoldier = SafeMerc( healed.i );
+	if ( pSoldier == NULL )
+		return;
 	pSoldier->bBleeding=data->bBleeding;
 	pSoldier->stats.bLife=data->bLife;
 

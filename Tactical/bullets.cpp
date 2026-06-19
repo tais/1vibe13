@@ -446,7 +446,7 @@ BULLET *GetBulletPtr( INT32 iBullet )
 {
 	BULLET	*pBullet;
 
-	CHECKN( iBullet < NUM_BULLET_SLOTS );
+	CHECKN( iBullet >= 0 && iBullet < NUM_BULLET_SLOTS );	// H7: reject -1 (slot-exhaustion) -> &gBullets[-1] OOB
 
 	pBullet = &gBullets[ iBullet ];
 

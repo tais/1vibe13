@@ -26,6 +26,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <deque>
 
 #include <SDL3/SDL.h>
 #include <SDL3_net/SDL_net.h>
@@ -242,6 +243,24 @@ static UINT8 g_preInterruptTeam = 0;        // whose turn to resume when the int
 static bool  g_gameOver    = false;
 static bool  g_teamWiped[16] = { false };   // index by team number (6..9)
 
+// Liveness state for the interrupt arbiter. The active interrupt is held by exactly
+// one client; if that client drops (or wedges) the paused turn would never resume,
+// so we track the holder for force-release on disconnect and time out a grant that
+// is never released (stale-interrupt watchdog).
+static SystemAddress g_interruptHolder;             // addr of the client granted the active interrupt
+static Uint64        g_interruptGrantedMs = 0;       // SDL_GetTicks() when the active interrupt was granted
+static const Uint64  INTERRUPT_STALE_MS   = 30000;   // force-release an interrupt held this long with no release
+// The exact wire bytes of the active grant, kept so a force-release (holder dropped or
+// stale watchdog) can resume with the real out-of-turn order instead of a fabricated one.
+static std::vector<unsigned char> g_interruptPayload;
+
+// Concurrent interrupts must CHAIN, not drop: a second sighting client that requests
+// an interrupt while one is active already paused locally and is waiting for a grant.
+// Queue its request and grant it when the current holder releases (FIFO == arrival
+// order; a closer approximation of SP's gubOutOfTurnOrder serialization than dropping).
+struct PendingInterrupt { SystemAddress from; std::vector<unsigned char> payload; };
+static std::deque<PendingInterrupt> g_interruptQueue;
+
 // ---- settings (from ja2_mp.ini) --------------------------------------------
 static char   g_serverName[30]   = "My JA2 Server";
 static char   g_kitBag[100]      = "";
@@ -266,6 +285,17 @@ static float  g_startingTime     = 13.00f;
 static int    g_reportHiredMerc  = 1;
 static INT16  g_sectorX          = 9;       // A9 (Omerta) -- default MP arena
 static INT16  g_sectorY          = 1;
+
+// Bind addresses (default loopback so the server/dashboard are not exposed on all
+// interfaces by accident). Override with SERVER_BIND / DASHBOARD_BIND in ja2_mp.ini
+// (e.g. "0.0.0.0" to listen on every interface for real LAN play).
+static char   g_serverBind[64]    = "127.0.0.1";
+static char   g_dashboardBind[64] = "127.0.0.1";
+// Shared secret required on all write-capable dashboard endpoints (POST). Empty =
+// no token configured -> write endpoints are refused (401) unless DASHBOARD_TOKEN is
+// set, so an unauthenticated dashboard can never be write-capable. Read-only GETs
+// (status panel) stay open. Supply as "X-Auth-Token: <tok>" header or "?token=<tok>".
+static char   g_dashboardToken[64] = "";
 
 // ============================================================================
 //  Roster helpers (mirror server.cpp f_rec_num)
@@ -311,6 +341,11 @@ static inline void SendTo(const char* recvName, const char* data, int bytes, Sys
 	g_server->RPC(recvName, data, (BitSize_t)(bytes * 8),
 	              HIGH_PRIORITY, RELIABLE, 0, to, false, 0, UNASSIGNED_NETWORK_ID, 0);
 }
+
+// PR-1 (H14): central short-frame guard. Handlers that (Struct*)cast p->input and
+// read sizeof(Struct) must first verify the wire payload is at least that large,
+// or they over-read the heap buffer (which is sized to the actual payload).
+#define NEED(p,T) do{ if ( ((long)(((p)->numberOfBitsOfData)+7)/8) < (long)sizeof(T) ) return; }while(0)
 
 // ============================================================================
 //  Pure relay handlers (rebroadcast wire bytes). RPCParameters carries no name,
@@ -404,6 +439,7 @@ static void requestSETTINGS(RPCParameters* p)
 		g_server->CloseConnection(p->sender, true);
 		return;
 	}
+	NEED(p, client_info);   // H14: short-frame over-read guard
 	client_info* ci = (client_info*)p->input;
 	ci->client_name[29] = 0;
 	ci->client_version[29] = 0;
@@ -505,6 +541,7 @@ static void requestSETTINGS(RPCParameters* p)
 
 static void sendREADY(RPCParameters* p)
 {
+	NEED(p, ready_struct);   // H14: short-frame over-read guard
 	ready_struct* rs = (ready_struct*)p->input;
 	// relay the toggle so the other clients' lobby displays update
 	RelayExcept("recieveREADY", p);
@@ -536,6 +573,7 @@ static void sendREADY(RPCParameters* p)
 // lockui(1) -> PlaceMercs() + dismiss the dialog. Likewise stage3(done) -> stage4(go).
 static void sendGUI(RPCParameters* p)
 {
+	NEED(p, ready_struct);   // H14: short-frame over-read guard
 	ready_struct* info = (ready_struct*)p->input;
 	if (info->ready_stage == 1 && info->status)            // a client loaded the sector
 	{
@@ -574,6 +612,7 @@ static void sendGUI(RPCParameters* p)
 
 static void adminCmd(RPCParameters* p)
 {
+	NEED(p, admin_cmd_struct);   // H14: short-frame over-read guard (reads password[63])
 	admin_cmd_struct* ac = (admin_cmd_struct*)p->input;
 	ac->password[63] = 0;
 	if (ac->cmd == ADMIN_CMD_AUTH)
@@ -607,12 +646,15 @@ static void sendGAMEOVER(RPCParameters* /*p*/)
 }
 
 static void ResetGameState();   // defined below; used by the game-over rematch reset
+static bool TeamActive(UINT8 team);   // turn-authority helpers, defined below
+static UINT8 NextActiveTeam(UINT8 cur);
 
 // A merc died. death_struct carries the 1-based player indices plainly (no pointer
 // deref needed, unlike the hit/miss handlers), so the coordinator can keep the
 // kill/death scoreboard the headless host used to own. Then relay the death event.
 static void sendDEATH(RPCParameters* p)
 {
+	NEED(p, death_struct);   // H14: short-frame over-read guard
 	death_struct* d = (death_struct*)p->input;
 	if (d->soldier_team  >= 1 && d->soldier_team  <= 5) g_scoreboard[d->soldier_team  - 1].deaths++;
 	if (d->attacker_team >= 1 && d->attacker_team <= 5) g_scoreboard[d->attacker_team - 1].kills++;
@@ -646,36 +688,43 @@ static void sendMISS(RPCParameters* p)      { TallyShot(p, false); RelayExcept("
 static void sendhitSTRUCT(RPCParameters* p) { TallyShot(p, false); RelayExcept("recievehitSTRUCT", p); }
 static void sendhitWINDOW(RPCParameters* p) { TallyShot(p, false); RelayExcept("recievehitWINDOW", p); }
 
+// Declare the deathmatch winner when only one team is left in play (wiped out OR
+// disconnected). Over the FIXED team space {6+slot : occupied && !wiped} -- NOT
+// g_connectedCount (which counts lobby slots, ignores wipes, and mis-rotates).
+// Returns true if the game ended. Shared by sendWIPE and the in-combat disconnect path.
+static bool CheckLastStanding()
+{
+	if (g_gameType == MP_TYPE_COOP || !g_battleStarted || g_gameOver) return false;
+	int alive = 0, lastTeam = 0;
+	for (UINT8 t = 6; t < 6 + 4; t++)
+		if (TeamActive(t)) { alive++; lastTeam = t; }
+	if (alive > 1) return false;
+	g_gameOver = true;
+	g_inCombat = false;
+	printf("[ja2server] >>> GAME OVER -- team %d wins (last standing)\n", lastTeam); fflush(stdout);
+	BroadcastAll("recieveGAMEOVER", (const char*)g_scoreboard, sizeof(g_scoreboard));
+	// Re-open immediately for the rematch. Score-screen "Continue" makes each client
+	// disconnect + auto-reconnect; if one reconnects before the other has left, the old
+	// game would still be "active" (allowlaptop) and reject it. Resetting now means both
+	// reconnect into a fresh, joinable lobby.
+	ResetGameState();
+	return true;
+}
+
 // A team was wiped out (its client sent teamwiped() -> sendWIPE{ubStartingTeam}).
-// Relay the notice, then -- for deathmatch -- end the game when only one connected
-// team is left standing. The win used to be declared by the host game-instance's
-// is_server-gated path, which the coordinator now owns.
+// Relay the notice, then -- for deathmatch -- end the game when only one team is left
+// standing. The win used to be declared by the host game-instance's is_server-gated
+// path, which the coordinator now owns.
 static void sendWIPE(RPCParameters* p)
 {
+	NEED(p, sc_struct);   // H14: short-frame over-read guard
 	sc_struct* sc = (sc_struct*)p->input;
 	UINT8 team = sc->ubStartingTeam;
 	if (team >= 6 && team < 16) g_teamWiped[team] = true;
 	RelayExcept("recieve_wipe", p);
 	printf("[ja2server] team %d WIPED OUT\n", team); fflush(stdout);
 
-	if (g_gameType != MP_TYPE_COOP && g_battleStarted && !g_gameOver)
-	{
-		int alive = 0, lastTeam = 0;
-		for (int i = 0; i < g_connectedCount; i++)
-			if (!g_teamWiped[6 + i]) { alive++; lastTeam = 6 + i; }
-		if (alive <= 1)
-		{
-			g_gameOver = true;
-			g_inCombat = false;
-			printf("[ja2server] >>> GAME OVER -- team %d wins (last standing)\n", lastTeam); fflush(stdout);
-			BroadcastAll("recieveGAMEOVER", (const char*)g_scoreboard, sizeof(g_scoreboard));
-			// Re-open immediately for the rematch. Score-screen "Continue" makes each
-			// client disconnect + auto-reconnect; if one reconnects before the other
-			// has left, the old game would still be "active" (allowlaptop) and reject
-			// it. Resetting now means both reconnect into a fresh, joinable lobby.
-			ResetGameState();
-		}
-	}
+	CheckLastStanding();
 }
 
 static void sendREAL(RPCParameters* p)
@@ -683,6 +732,7 @@ static void sendREAL(RPCParameters* p)
 	// realtime-changeover vote: when every connected client has voted, tell all
 	// clients to switch back to realtime. (Approximation of the engine's
 	// per-active-team count, which we cannot see without game state.)
+	NEED(p, real_struct);   // H14: short-frame over-read guard
 	real_struct* rd = (real_struct*)p->input;
 	int b = (rd->bteam >= 0 && rd->bteam < 16) ? rd->bteam : 0;
 	if (!g_rtTeamVoted[b]) { g_rtTeamVoted[b] = true; g_rtVotes++; }
@@ -694,20 +744,40 @@ static void sendREAL(RPCParameters* p)
 		g_inCombat = false;
 		g_currentTeam = 0;
 		g_interruptActive = false;
+		g_interruptHolder = SystemAddress();
+		g_interruptQueue.clear();
 		BroadcastAll("gotoRT", (const char*)p->input, (p->numberOfBitsOfData + 7) / 8);
 		VLOG("[ja2server] <<< realtime (combat ended)\n"); fflush(stdout);
 	}
 }
 
 // ---- turn authority (Milestone 2) -----------------------------------------
-// The next LAN player team after `cur`, wrapping within 6 .. 5+connectedCount.
+// LAN player teams are slot-positional: slot i (0..3) owns team 6+i for the whole
+// match. A team is "active" only while its slot is still connected AND not wiped --
+// using the shrinking g_connectedCount as a modulus is wrong (it rotates onto wiped
+// or departed teams, wedging the turn, and skips higher surviving teams whose slot
+// index exceeds the count). Rotate instead over the FIXED team space and skip the dead.
+static bool TeamActive(UINT8 team)
+{
+	if (team < 6 || team >= 6 + 4) return false;
+	int slot = (int)team - 6;
+	return g_clients[slot].address.binaryAddress != 0 && !g_teamWiped[team];
+}
+// The next active LAN player team after `cur`, wrapping within the fixed {6..9} space
+// and skipping wiped/departed teams. Returns `cur` if it is the only one left, or 0
+// if none are active (caller should declare game-over).
 static UINT8 NextActiveTeam(UINT8 cur)
 {
-	int n = g_connectedCount > 0 ? g_connectedCount : 1;
-	int idx = (int)cur - 6;
-	if (idx < 0) idx = 0;
-	idx = (idx + 1) % n;
-	return (UINT8)(6 + idx);
+	int start = (int)cur - 6;
+	if (start < 0) start = 0;
+	for (int step = 1; step <= 4; step++)
+	{
+		int idx = (start + step) % 4;
+		UINT8 t = (UINT8)(6 + idx);
+		if (TeamActive(t)) return t;
+	}
+	// none of the OTHERS are active -- if cur itself still is, it keeps the turn
+	return TeamActive(cur) ? cur : 0;
 }
 // Announce whose turn it is. Stamped tsnetbTeam=6 so every client treats it as the
 // authority (client recieveEndTurn gate: is_server || sender_bTeam==6). Sent to ALL,
@@ -715,7 +785,10 @@ static UINT8 NextActiveTeam(UINT8 cur)
 static void BroadcastTurn(UINT8 team)
 {
 	g_currentTeam = team;
-	g_interruptActive = false;   // turn boundary: no interrupt should outlive a turn handoff
+	// turn boundary: no interrupt (active OR queued) should outlive a turn handoff
+	g_interruptActive = false;
+	g_interruptHolder = SystemAddress();
+	g_interruptQueue.clear();
 	turn_struct ts;
 	ts.tsnetbTeam = 6;
 	ts.tsubNextTeam = team;
@@ -739,23 +812,101 @@ static void BroadcastTurn(UINT8 team)
 // The single-threaded "grant only if none active" below also means it can never grant
 // two interrupts at once (RPCs dispatch sequentially) -- so double-turns are impossible
 // here, contrary to a common report.
-// KNOWN LIMITATION: two *different* sighting clients interrupting in the same instant ->
-// the second request is DROPPED (logged below), not merged into one combined out-of-turn
-// order. The correct fix is to QUEUE/MERGE concurrent interrupt sequences here; it needs
-// a 2-client repro to validate, so it is intentionally left as a follow-up, not a blind
-// server-side weight/window arbiter.
-static void sendINTERRUPT(RPCParameters* p)
+// CONCURRENT INTERRUPTS: two *different* sighting clients interrupting while one is active
+// no longer drop the second request (which froze that client, since it had already paused
+// locally awaiting a grant). The second is QUEUED (FIFO) and chained when the holder
+// releases. This is still a SERIALIZER, not a weight/window arbiter -- FIFO == arrival
+// order, the closest approximation of SP's gubOutOfTurnOrder the coordinator can make
+// without tactical state.
+// LIVENESS: the active grant has a tracked HOLDER, so a holder that drops (HandleDisconnect)
+// or never releases (TickInterruptWatchdog) is force-released instead of wedging the turn.
+// Broadcast a granted interrupt (recieveINTERRUPT) to EVERYONE: the requester acts,
+// the others pause. `from` becomes the holder so a disconnect can force-release it.
+static void GrantInterrupt(SystemAddress from, const unsigned char* payload, int bits)
 {
-	if (g_interruptActive)
+	g_interruptActive    = true;
+	g_interruptHolder    = from;
+	g_interruptGrantedMs = SDL_GetTicks();
+	g_preInterruptTeam   = g_currentTeam;
+	g_interruptPayload.assign(payload, payload + (size_t)((bits + 7) / 8));
+	VLOG("[ja2server]   >>> INTERRUPT GRANTED (team %d's turn paused)\n", g_currentTeam); fflush(stdout);
+	g_server->RPC("recieveINTERRUPT", (const char*)payload, (BitSize_t)bits,
+	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+}
+
+// Release the active interrupt and resume the paused turn. The resume target is taken
+// from the server-authoritative g_preInterruptTeam, NOT the relayed wire bTeam: a wrong
+// or spoofed bTeam would otherwise resume the wrong client (L5). INT_STRUCT layout is
+// { SoldierID ubID (UINT16); INT8 bTeam; ... }, so bTeam is byte offset 2 -- patch it
+// in a copy of the wire payload before forwarding so the rest (out-of-turn order) is
+// untouched. Then chain the next queued interrupt, if any (H24).
+static void ReleaseInterrupt(const unsigned char* payload, int bits)
+{
+	g_interruptActive = false;
+	g_interruptHolder = SystemAddress();
+	g_interruptPayload.clear();
+
+	size_t bytes = (size_t)((bits + 7) / 8);
+	std::vector<unsigned char> buf(payload, payload + bytes);
+	if (g_preInterruptTeam >= 6 && bytes > 2)
+		buf[2] = (unsigned char)g_preInterruptTeam;   // author resume target from server state
+	VLOG("[ja2server]   <<< INTERRUPT RELEASED (resuming team %d)\n", g_preInterruptTeam); fflush(stdout);
+	g_server->RPC("resume_turn", (const char*)buf.data(), (BitSize_t)bits,
+	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+
+	// chain: grant the oldest queued concurrent interrupt instead of dropping it (H24).
+	while (!g_interruptQueue.empty())
 	{
-		VLOG("[ja2server]   interrupt request DROPPED -- one already active\n"); fflush(stdout);
+		PendingInterrupt next = g_interruptQueue.front();
+		g_interruptQueue.pop_front();
+		if (SlotOf(next.from) < 0) continue;   // requester left while queued -- skip it
+		VLOG("[ja2server]   (chaining queued interrupt from a 2nd sighting client)\n"); fflush(stdout);
+		GrantInterrupt(next.from, next.payload.data(), (int)next.payload.size() * 8);
 		return;
 	}
-	g_interruptActive  = true;
-	g_preInterruptTeam = g_currentTeam;
-	VLOG("[ja2server]   >>> INTERRUPT GRANTED (team %d's turn paused)\n", g_currentTeam); fflush(stdout);
-	g_server->RPC("recieveINTERRUPT", (const char*)p->input, p->numberOfBitsOfData,
-	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+}
+
+// Force-release the active interrupt when its holder can no longer release it (dropped,
+// or the stale-interrupt watchdog tripped). Resume with the exact grant bytes the holder
+// originally sent -- same out-of-turn order the clients already saw -- and let
+// ReleaseInterrupt re-author the resume team from g_preInterruptTeam.
+static void ForceReleaseInterrupt()
+{
+	if (!g_interruptActive) return;
+	std::vector<unsigned char> grant = g_interruptPayload;   // copy: ReleaseInterrupt clears the source
+	if (grant.empty()) return;
+	ReleaseInterrupt(grant.data(), (int)grant.size() * 8);
+}
+
+// Per-tick watchdog: an interrupt grant whose holder never sends endINTERRUPT (wedged
+// client that survived the timeout, or a lost release packet) would pause the turn
+// forever. Force-release once it has been held longer than INTERRUPT_STALE_MS (H23).
+static void TickInterruptWatchdog()
+{
+	if (!g_interruptActive || !g_inCombat) return;
+	if (SDL_GetTicks() - g_interruptGrantedMs < INTERRUPT_STALE_MS) return;
+	printf("[ja2server] interrupt held >%llums with no release -- force-releasing (stale)\n",
+	       (unsigned long long)INTERRUPT_STALE_MS); fflush(stdout);
+	ForceReleaseInterrupt();
+}
+
+static void sendINTERRUPT(RPCParameters* p)
+{
+	size_t bytes = (size_t)((p->numberOfBitsOfData + 7) / 8);
+	if (g_interruptActive)
+	{
+		// Concurrent interrupt: the requester already paused locally and is waiting for a
+		// grant. QUEUE it (FIFO) so it is chained when the current holder releases, instead
+		// of dropping it and freezing that client forever (H24).
+		PendingInterrupt pi;
+		pi.from = p->sender;
+		pi.payload.assign((const unsigned char*)p->input, (const unsigned char*)p->input + bytes);
+		g_interruptQueue.push_back(pi);
+		VLOG("[ja2server]   interrupt request QUEUED (%zu waiting -- one already active)\n",
+		     g_interruptQueue.size()); fflush(stdout);
+		return;
+	}
+	GrantInterrupt(p->sender, (const unsigned char*)p->input, (int)p->numberOfBitsOfData);
 }
 static void endINTERRUPT(RPCParameters* p)
 {
@@ -764,16 +915,14 @@ static void endINTERRUPT(RPCParameters* p)
 		VLOG("[ja2server]   interrupt release ignored -- none active\n"); fflush(stdout);
 		return;
 	}
-	g_interruptActive = false;
-	VLOG("[ja2server]   <<< INTERRUPT RELEASED (resuming team %d)\n", g_preInterruptTeam); fflush(stdout);
-	g_server->RPC("resume_turn", (const char*)p->input, p->numberOfBitsOfData,
-	              HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
+	ReleaseInterrupt((const unsigned char*)p->input, (int)p->numberOfBitsOfData);
 }
 
 // First contact: a client switched to turn-based and is asking the authority to run
 // the turn order. The team that sighted (ubStartingTeam, 6..9) takes the first turn.
 static void startCOMBAT(RPCParameters* p)
 {
+	NEED(p, sc_struct);   // H14: short-frame over-read guard
 	sc_struct* sc = (sc_struct*)p->input;
 	if (g_inCombat)                         // first request wins; ignore the rest
 	{
@@ -790,6 +939,7 @@ static void startCOMBAT(RPCParameters* p)
 // team whose turn it actually is may advance it; hand the turn to the next active team.
 static void sendEndTurn(RPCParameters* p)
 {
+	NEED(p, turn_struct);   // H14: short-frame over-read guard
 	turn_struct* ts = (turn_struct*)p->input;
 	if (!g_inCombat)                        // an end-turn before combat formally opened
 	{
@@ -817,6 +967,8 @@ static void ResetGameState()
 	g_inCombat     = false;
 	g_currentTeam  = 0;
 	g_interruptActive = false;
+	g_interruptHolder = SystemAddress();
+	g_interruptQueue.clear();
 	g_gameOver     = false;
 	memset(g_teamWiped, 0, sizeof(g_teamWiped));
 	memset(g_scoreboard, 0, sizeof(g_scoreboard));
@@ -826,6 +978,8 @@ static void ResetGameState()
 	g_rtVotes      = 0;
 	memset(g_rtTeamVoted, 0, sizeof(g_rtTeamVoted));
 	memset(g_client_ready, 0, sizeof(g_client_ready));
+	memset(g_client_teams, 0, sizeof(g_client_teams));   // L10: were left stale across resets
+	memset(g_client_edges, 0, sizeof(g_client_edges));   //      (g_client_edges[4] was never set)
 	g_hasAdmin     = false;
 	g_adminAddr    = SystemAddress();
 	for (int i = 0; i < 4; i++)
@@ -843,6 +997,11 @@ static void HandleDisconnect(SystemAddress who)
 	int slot = SlotOf(who);
 	if (slot < 0) return;
 	int cl_num = g_clients[slot].cl_number;
+	UINT8 droppedTeam   = (UINT8)(6 + slot);
+	bool  heldInterrupt = g_interruptActive && (who == g_interruptHolder);
+	bool  wasInCombat   = g_inCombat;
+	UINT8 currentTeam   = g_currentTeam;
+
 	BroadcastAll("recieveDISCONNECT", (const char*)&cl_num, sizeof(int));
 	g_clients[slot].address.binaryAddress = 0;
 	g_clients[slot].address.port = 0;
@@ -858,6 +1017,15 @@ static void HandleDisconnect(SystemAddress who)
 		g_adminAddr = SystemAddress();   // binaryAddress 0
 		printf("[ja2server] admin dropped -- admin slot released\n"); fflush(stdout);
 	}
+
+	// A queued (not-yet-granted) interrupt from the departing client must go too, or it
+	// would be granted to a ghost on the next release.
+	for (size_t i = 0; i < g_interruptQueue.size(); )
+	{
+		if (g_interruptQueue[i].from == who) g_interruptQueue.erase(g_interruptQueue.begin() + i);
+		else ++i;
+	}
+
 	// last one out resets the server back to a joinable lobby AND forgets the known
 	// players -- a truly empty server starts a fresh session (the game-over rematch
 	// reset, by contrast, keeps g_knownName so reconnects are recognized).
@@ -865,6 +1033,41 @@ static void HandleDisconnect(SystemAddress who)
 	{
 		ResetGameState();
 		memset(g_knownName, 0, sizeof(g_knownName));
+		return;
+	}
+
+	// ---- in-combat liveness: a drop must not wedge the match (H21/H23) ----------
+	// The slot is already cleared above, so TeamActive(droppedTeam) is now false and
+	// NextActiveTeam() will skip it. Order matters: declare game-over FIRST (it resets
+	// state), otherwise we'd hand the turn to / resume the last survivor pointlessly.
+	if (wasInCombat && CheckLastStanding())
+		return;
+
+	if (wasInCombat)
+	{
+		// The interrupt holder dropped: the paused team would never be resumed (only the
+		// holder sends endINTERRUPT). Force-release so its turn continues, reusing the
+		// holder's original grant bytes for the resume (ReleaseInterrupt re-authors bTeam
+		// from g_preInterruptTeam) and chaining any queued interrupt.
+		if (heldInterrupt)
+		{
+			printf("[ja2server] interrupt holder (team %d) dropped -- force-releasing\n", droppedTeam); fflush(stdout);
+			ForceReleaseInterrupt();
+		}
+
+		// The team whose turn it is dropped: hand the turn on so the match doesn't stall
+		// waiting for an end-turn that can never arrive. (If the holder was force-released
+		// above and happened to be the current team, the turn already moved on -- but
+		// advancing again here is harmless: NextActiveTeam skips the now-departed team.)
+		if (droppedTeam == currentTeam)
+		{
+			UINT8 next = NextActiveTeam(currentTeam);
+			if (next != 0)
+			{
+				printf("[ja2server] current-turn team %d dropped -- advancing to team %d\n", droppedTeam, next); fflush(stdout);
+				BroadcastTurn(next);
+			}
+		}
 	}
 }
 
@@ -997,6 +1200,9 @@ static void ApplyIni()
 	strncpy(g_serverName, IniStr("SERVER_NAME", "My JA2 Server"), 29);
 	strncpy(g_kitBag,     IniStr("KIT_BAG", ""), 99);
 	strncpy(g_adminPassword, IniStr("ADMIN_PASSWORD", ""), 63);
+	strncpy(g_serverBind,    IniStr("SERVER_BIND", "127.0.0.1"), sizeof(g_serverBind) - 1);    g_serverBind[sizeof(g_serverBind) - 1] = 0;
+	strncpy(g_dashboardBind, IniStr("DASHBOARD_BIND", "127.0.0.1"), sizeof(g_dashboardBind) - 1); g_dashboardBind[sizeof(g_dashboardBind) - 1] = 0;
+	strncpy(g_dashboardToken, IniStr("DASHBOARD_TOKEN", ""), sizeof(g_dashboardToken) - 1);   g_dashboardToken[sizeof(g_dashboardToken) - 1] = 0;
 	g_serverPort      = IniInt("SERVER_PORT", 60005);
 	g_dashboardPort   = IniInt("DASHBOARD_PORT", 0);   // opt-in web panel
 	g_logLevel        = IniInt("LOG_LEVEL", 0);          // 0 normal / 1 verbose / 2 debug
@@ -1027,7 +1233,7 @@ static const unsigned HTTP_MAX_TICKS   = 300;     // ~3s at 10ms/tick before we 
 struct HttpClient { NET_StreamSocket* sock; std::vector<unsigned char> acc; unsigned ticks; };
 static HttpClient* g_httpClient = NULL;
 
-struct HttpReq { std::string method, path, query, body; };
+struct HttpReq { std::string method, path, query, body, token; };
 
 static std::string JsonEsc(const char* s)
 {
@@ -1192,6 +1398,9 @@ button.sec{background:#2c313c;color:var(--txt)}button.danger{background:#7a3a32;
 <script>
 let filled=false;
 const $=id=>document.getElementById(id);
+// Auth token for write actions: supply via ?token=SECRET or #SECRET in the URL.
+const TOK=new URLSearchParams(location.search).get('token')||location.hash.replace(/^#/,'')||'';
+const AUTH=TOK?{'X-Auth-Token':TOK}:{};
 function team(t){return t>=6?('Player '+(t-5)):(t||'-')}
 async function refresh(){
  try{const j=await(await fetch('/api/status')).json();
@@ -1212,19 +1421,43 @@ async function refresh(){
 }
 $('cfg').addEventListener('submit',async e=>{e.preventDefault();
  const fd=new FormData(e.target);if(!fd.get('adminPassword'))fd.delete('adminPassword');
- await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(fd)});
- $('saved').textContent='saved (next game)';setTimeout(()=>$('saved').textContent='',2500)});
-$('reset').addEventListener('click',async()=>{await fetch('/api/reset',{method:'POST'});$('acted').textContent='lobby reset';setTimeout(()=>$('acted').textContent='',2500)});
-$('kick').addEventListener('click',async()=>{if(!confirm('Kick all players and reset?'))return;await fetch('/api/reset?kick=1',{method:'POST'});$('acted').textContent='kicked + reset';setTimeout(()=>$('acted').textContent='',2500)});
+ const res=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',...AUTH},body:new URLSearchParams(fd)});
+ $('saved').textContent=res.ok?'saved (next game)':'auth required (?token=)';setTimeout(()=>$('saved').textContent='',2500)});
+$('reset').addEventListener('click',async()=>{const res=await fetch('/api/reset',{method:'POST',headers:AUTH});$('acted').textContent=res.ok?'lobby reset':'auth required (?token=)';setTimeout(()=>$('acted').textContent='',2500)});
+$('kick').addEventListener('click',async()=>{if(!confirm('Kick all players and reset?'))return;const res=await fetch('/api/reset?kick=1',{method:'POST',headers:AUTH});$('acted').textContent=res.ok?'kicked + reset':'auth required (?token=)';setTimeout(()=>$('acted').textContent='',2500)});
 refresh();setInterval(refresh,1500);
 </script></body></html>)DASH";
+
+// Token gate for write-capable endpoints. Returns true only when a token is
+// configured AND the supplied token matches. Comparison is constant-time in the
+// configured-token length to avoid leaking it via timing. An unset DASHBOARD_TOKEN
+// always fails -> write endpoints are simply unavailable.
+static bool DashTokenOk(const std::string& supplied)
+{
+	size_t n = strlen(g_dashboardToken);
+	if (n == 0) return false;                 // no token configured -> no writes
+	if (supplied.size() != n) return false;
+	unsigned char diff = 0;
+	for (size_t i = 0; i < n; ++i) diff |= (unsigned char)(supplied[i] ^ g_dashboardToken[i]);
+	return diff == 0;
+}
 
 static std::string HttpHandle(const HttpReq& r)
 {
 	if (r.method == "GET" && r.path == "/")            return HttpResponse(200, "OK", "text/html; charset=utf-8", DASH_HTML);
 	if (r.method == "GET" && r.path == "/api/status")  return HttpResponse(200, "OK", "application/json", StatusJson());
+	// All write-capable (POST) endpoints require the auth token. If DASHBOARD_TOKEN
+	// is unset, write endpoints are unavailable -- the dashboard can never be both
+	// unauthenticated AND write-capable.
+	if (r.method == "POST") {
+		if (!DashTokenOk(r.token))
+			return HttpResponse(401, "Unauthorized", "application/json", "{\"ok\":false,\"error\":\"auth\"}");
+	}
 	if (r.method == "POST" && r.path == "/api/config") {
 		int applied = ApplyConfigBody(r.body);
+		// L11: maxClients may have changed -- reflect it in the live netshim cap so
+		// the change takes effect immediately, not only on the next process start.
+		g_server->SetMaximumIncomingConnections((unsigned short)g_maxClients);
 		char b[64]; snprintf(b, sizeof(b), "{\"ok\":true,\"applied\":%d}", applied);
 		return HttpResponse(200, "OK", "application/json", b);
 	}
@@ -1252,7 +1485,11 @@ static bool HttpComplete(const std::vector<unsigned char>& a, size_t* sep, size_
 	size_t cl = h.find("content-length:");
 	if (cl != std::string::npos) {
 		*clen = (size_t)strtoul(h.c_str() + cl + 15, NULL, 10);
-		if (*clen > HTTP_MAX_REQUEST) return true;   // oversized -> let handler bail
+		// Oversized body: signal "complete" so HttpTick stops waiting for bytes
+		// that will never fit the bounded accumulator. *clen stays as advertised
+		// here; HttpParse below detects clen > HTTP_MAX_REQUEST and returns a 413
+		// WITHOUT touching the body, so the over-read can never happen.
+		if (*clen > HTTP_MAX_REQUEST) return true;
 	}
 	return a.size() >= i + 4 + *clen;
 }
@@ -1269,6 +1506,34 @@ static bool HttpParse(const std::vector<unsigned char>& a, size_t sep, size_t cl
 	size_t q = target.find('?');
 	r.path  = (q == std::string::npos) ? target : target.substr(0, q);
 	r.query = (q == std::string::npos) ? std::string() : target.substr(q + 1);
+	// Extract the auth token: "X-Auth-Token: <tok>" header (case-insensitive) or a
+	// "token=<tok>" query parameter. Used to gate write-capable endpoints.
+	{
+		std::string lh = head;
+		for (char& c : lh) c = (char)tolower((unsigned char)c);
+		size_t hp = lh.find("x-auth-token:");
+		if (hp != std::string::npos) {
+			size_t vs = hp + 13;   // skip past "x-auth-token:"
+			size_t ve = head.find("\r\n", vs);
+			std::string tok = head.substr(vs, (ve == std::string::npos ? head.size() : ve) - vs);
+			TrimInPlace(tok);
+			r.token = tok;
+		}
+		if (r.token.empty()) {
+			size_t tp = r.query.find("token=");
+			if (tp != std::string::npos && (tp == 0 || r.query[tp - 1] == '&')) {
+				size_t ve = r.query.find('&', tp + 6);
+				r.token = UrlDecode(r.query.substr(tp + 6, ve == std::string::npos ? std::string::npos : ve - (tp + 6)));
+			}
+		}
+	}
+	// Clamp the body to what the bounded accumulator actually holds. Without this,
+	// an oversized or truncated Content-Length would read past a->data() (a 64KB
+	// buffer) -- a guaranteed remote OOB read. Oversized bodies are rejected with
+	// 413 in HttpTick before this is ever reached, but clamp here too as defense.
+	if (clen > HTTP_MAX_REQUEST) return false;
+	size_t avail = (a.size() > sep + 4) ? (a.size() - (sep + 4)) : 0;
+	if (clen > avail) clen = avail;
 	if (clen) r.body.assign((const char*)a.data() + sep + 4, clen);
 	return true;
 }
@@ -1279,12 +1544,27 @@ static void HttpCloseClient()
 	if (g_httpClient->sock) NET_DestroyStreamSocket(g_httpClient->sock);
 	delete g_httpClient; g_httpClient = NULL;
 }
+// Resolve a bind string to a NET_Address the caller must NET_UnrefAddress(). Returns
+// NULL when the string is empty or means "all interfaces" (0.0.0.0 / :: / *) -- which
+// NET_CreateServer also takes as NULL -- or when resolution fails (caller falls back).
+static NET_Address* ResolveBind(const char* host)
+{
+	if (!host || !*host || !strcmp(host, "0.0.0.0") || !strcmp(host, "::") || !strcmp(host, "*"))
+		return NULL;
+	NET_Address* a = NET_ResolveHostname(host);
+	if (!a) return NULL;
+	if (NET_WaitUntilResolved(a, 5000) != NET_SUCCESS) { NET_UnrefAddress(a); return NULL; }
+	return a;
+}
 static void HttpInit()
 {
 	if (g_dashboardPort <= 0) return;
-	g_httpListener = NET_CreateServer(NULL, (Uint16)g_dashboardPort, 0);
-	if (!g_httpListener) { printf("[ja2server] dashboard: FAILED to bind port %d (%s)\n", g_dashboardPort, SDL_GetError()); return; }
-	printf("[ja2server] dashboard: http://<host>:%d  (UNAUTHENTICATED -- trusted LAN only)\n", g_dashboardPort);
+	NET_Address* bind = ResolveBind(g_dashboardBind);
+	g_httpListener = NET_CreateServer(bind, (Uint16)g_dashboardPort, 0);
+	if (bind) NET_UnrefAddress(bind);
+	if (!g_httpListener) { printf("[ja2server] dashboard: FAILED to bind %s:%d (%s)\n", g_dashboardBind, g_dashboardPort, SDL_GetError()); return; }
+	printf("[ja2server] dashboard: http://%s:%d  (%s)\n", g_dashboardBind, g_dashboardPort,
+	       g_dashboardToken[0] ? "token-gated writes" : "READ-ONLY -- set DASHBOARD_TOKEN to enable controls");
 }
 static void HttpTick()
 {
@@ -1305,8 +1585,12 @@ static void HttpTick()
 	size_t sep, clen;
 	if (!HttpComplete(g_httpClient->acc, &sep, &clen)) return;     // keep reading next tick
 	HttpReq req;
-	std::string resp = HttpParse(g_httpClient->acc, sep, clen, req)
-		? HttpHandle(req) : HttpResponse(400, "Bad Request", "text/plain", "bad request");
+	std::string resp;
+	if (clen > HTTP_MAX_REQUEST)                                   // H25: oversized body -> never touch it
+		resp = HttpResponse(413, "Payload Too Large", "text/plain", "request body too large");
+	else
+		resp = HttpParse(g_httpClient->acc, sep, clen, req)
+			? HttpHandle(req) : HttpResponse(400, "Bad Request", "text/plain", "bad request");
 	NET_WriteToStreamSocket(g_httpClient->sock, resp.data(), (int)resp.size());
 	NET_WaitUntilStreamSocketDrained(g_httpClient->sock, 250);     // flush small response (local/LAN: ~instant)
 	HttpCloseClient();
@@ -1374,7 +1658,10 @@ int main(int argc, char** argv)
 
 	g_server = RakNetworkFactory::GetRakPeerInterface();
 	g_server->SetTimeoutTime(120000, UNASSIGNED_SYSTEM_ADDRESS);
-	SocketDescriptor sd((unsigned short)g_serverPort, 0);
+	// Bind the game listener to SERVER_BIND (default 127.0.0.1). Use "0.0.0.0" for
+	// real LAN play; loopback-by-default keeps the server off public interfaces unless
+	// the operator opts in.
+	SocketDescriptor sd((unsigned short)g_serverPort, g_serverBind);
 	if (!g_server->Startup((unsigned short)g_maxClients, 30, &sd, 1))
 	{
 		fprintf(stderr, "[ja2server] FATAL: could not bind port %d\n", g_serverPort);
@@ -1386,7 +1673,7 @@ int main(int argc, char** argv)
 
 	printf("========================================================\n");
 	printf(" ja2server  '%s'\n", g_serverName);
-	printf(" listening on port %d   max players %d   game type %d\n", g_serverPort, g_maxClients, g_gameType);
+	printf(" listening on %s:%d   max players %d   game type %d\n", g_serverBind, g_serverPort, g_maxClients, g_gameType);
 	printf(" admin: %s\n", g_adminPassword[0] ? "password (ADMIN_PASSWORD)" : "first client to connect");
 	printf(" Ctrl-C to shut down.\n");
 	printf("========================================================\n");
@@ -1427,6 +1714,7 @@ int main(int argc, char** argv)
 			ResetGameState();
 			memset(g_knownName, 0, sizeof(g_knownName));   // manual reset = fresh session
 		}
+		TickInterruptWatchdog();   // force-release a wedged interrupt (stale watchdog)
 		HttpTick();   // serve at most one slice of dashboard work per tick
 		RakSleep(10);
 	}

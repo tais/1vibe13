@@ -32,6 +32,10 @@ Flags override the matching `ja2_mp.ini` keys:
 ## Notes
 
 - Clients connect with the in-game **Join** screen using the server's IP and port.
-- The web dashboard is **unauthenticated** — only enable it on a trusted LAN.
+- The server and dashboard bind to **127.0.0.1** by default. Set `SERVER_BIND` /
+  `DASHBOARD_BIND` to `0.0.0.0` (or a specific interface) for LAN/public play.
+- The dashboard status view is read-only and open; **write actions** (save config,
+  reset, kick) require `DASHBOARD_TOKEN`. With no token set the controls are
+  disabled. When set, open the panel as `http://host:port/?token=SECRET`.
 - On Linux/macOS, `kill -HUP <pid>` resets the lobby for a rematch without a
   full restart. (Windows has no SIGHUP; restart the process instead.)
