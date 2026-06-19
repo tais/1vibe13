@@ -4459,9 +4459,14 @@ BOOLEAN CheckDoorNearGridno(UINT32 usGridNo)
 BOOLEAN FindBombNearby( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistance )
 {
 	UINT32	uiBombIndex;
-	INT32	sCheckGridno;
 
-	INT16 sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
+	// sevenfm/opt: nothing to find if there are no bombs at all
+	if (guiNumWorldBombs == 0)
+	{
+		return FALSE;
+	}
+
+	INT16 sMaxLeft, sMaxRight, sMaxUp, sMaxDown;
 
 	// determine maximum horizontal limits
 	sMaxLeft  = min( ubDistance, (sGridNo % MAXCOL));
@@ -4471,28 +4476,28 @@ BOOLEAN FindBombNearby( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistance )
 	sMaxUp   = min( ubDistance, (sGridNo / MAXROW));
 	sMaxDown = min( ubDistance, MAXROW - ((sGridNo / MAXROW) + 1));
 
-	for (sYOffset = -sMaxUp; sYOffset <= sMaxDown; ++sYOffset)
+	// opt: inverted loop -- iterate the bomb list once and box-test each armed,
+	// visible, same-level bomb against [sGridNo +/- ubDistance].  Same (tile,bomb)
+	// match set and same first-match short-circuit as the original neighbour scan.
+	const INT32 sCenterCol = sGridNo % MAXCOL;
+	const INT32 sCenterRow = sGridNo / MAXROW;
+
+	for (uiBombIndex = 0; uiBombIndex < guiNumWorldBombs; ++uiBombIndex)
 	{
-		for (sXOffset = -sMaxLeft; sXOffset <= sMaxRight; ++sXOffset)
+		if (gWorldBombs[ uiBombIndex ].fExists &&
+			gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].ubLevel == pSoldier->pathing.bLevel &&
+			gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].bVisible == VISIBLE &&
+			gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].usFlags & WORLD_ITEM_ARMED_BOMB )
 		{
-			sCheckGridno = sGridNo + sXOffset + (MAXCOL * sYOffset);
+			const INT32 sBombGridNo = gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].sGridNo;
+			const INT32 sColOffset = (sBombGridNo % MAXCOL) - sCenterCol;
+			const INT32 sRowOffset = (sBombGridNo / MAXROW) - sCenterRow;
 
-			if( TileIsOutOfBounds(sCheckGridno) )
+			// inside the (edge-clamped) box that the original neighbour loop visited
+			if (sColOffset >= -sMaxLeft && sColOffset <= sMaxRight &&
+				sRowOffset >= -sMaxUp   && sRowOffset <= sMaxDown)
 			{
-				continue;
-			}
-
-			// search all bombs that we can see
-			for (uiBombIndex = 0; uiBombIndex < guiNumWorldBombs; ++uiBombIndex)
-			{
-				if (gWorldBombs[ uiBombIndex ].fExists &&
-					gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].sGridNo == sCheckGridno &&
-					gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].ubLevel == pSoldier->pathing.bLevel &&
-					gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].bVisible == VISIBLE &&
-					gWorldItems[ gWorldBombs[ uiBombIndex ].iItemIndex ].usFlags & WORLD_ITEM_ARMED_BOMB )
-				{
-					return TRUE;
-				}
+				return TRUE;
 			}
 		}
 	}

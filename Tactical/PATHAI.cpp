@@ -1500,7 +1500,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		return 0;
 	}
 
-	std::vector<THREATTYPE> Threats;
+	THREATTYPE Threats[MAXMERCS];
 	// all 32-bit integers for max. speed
 	INT32	iCurrentCoverValue;
 	INT32	iThreatCertainty;
@@ -1580,7 +1580,6 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 			continue;			// check next opponent
 		}
 
-		Threats.push_back(THREATTYPE());
 		// remember this opponent as a current threat, but DON'T REDUCE FOR COVER!
 		Threats[uiThreatCnt].iValue = CalcManThreatValue(pOpponent, NodeIndex, FALSE, pSoldier);
 
@@ -2609,6 +2608,13 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 		}
 	}
 
+	// sevenfm: moved calculations out of loop
+	// these soldier-invariant trait/equipment checks don't depend on the candidate tile/direction
+	const bool fAthleticsReduce = ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( s, ATHLETICS_NT ) );
+	const bool fHasScubaFins = ( s->inv[LEGPOS].exists() && HasItemFlag( s->inv[LEGPOS].usItem, SCUBA_FINS ) );
+	const bool fRiotShield = s->IsRiotShieldEquipped( );
+	const bool fDragging = s->IsDragging( );
+
 	do
 	{
 		//remove the first and best path so far from the que
@@ -3330,13 +3336,13 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 
 				///////////////////////////////////////////////////////////////////////////////////////////////
 				// SANDRO - STOMP traits - Athletics trait decreases movement cost
-				if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( s, ATHLETICS_NT ))
+				if ( fAthleticsReduce )
 				{
 					ubAPCost = max(1, (INT16)(ubAPCost * (100 - gSkillTraitValues.ubATAPsMovementReduction) / 100.0f + 0.5f));
 				}
 
 				// Moa: scuba fins and swimming background
-				if ( s->inv[LEGPOS].exists() && HasItemFlag( s->inv[LEGPOS].usItem, SCUBA_FINS ) )
+				if ( fHasScubaFins )
 				{
 					if ( TERRAIN_IS_HIGH_WATER( gpWorldLevelData[ newLoc ].ubTerrainID) )
 					{
@@ -3351,13 +3357,13 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 					ubAPCost = (ubAPCost * (100 + s->GetBackgroundValue(BG_SWIMMING))) / 100;
 
 				// Flugente: riot shields lower movement speed
-				if ( s->IsRiotShieldEquipped( ) )
+				if ( fRiotShield )
 				{
 					ubAPCost *= gItemSettings.fShieldMovementAPCostModifier;
 				}
 
 				// Flugente: dragging someone
-				if ( s->IsDragging( ) )
+				if ( fDragging )
 				{
 					ubAPCost *= gItemSettings.fDragAPCostModifier;
 				}

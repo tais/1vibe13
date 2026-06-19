@@ -275,7 +275,7 @@ INT8 CalcBestCTGT( SOLDIERTYPE *pSoldier, SoldierID ubOppID, INT32 sOppGridNo, I
 
 
 INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyAPsLeft,
-					UINT32 uiThreatIndex, INT32 iRange, INT32 morale, INT32 *iTotalScale)
+					UINT32 uiThreatIndex, INT32 iRange, INT32 morale, INT32 *iTotalScale, INT32 iRangeChangeDesire)
 {
 	DebugMsg(TOPIC_JA2AI,DBG_LEVEL_3,String("CalcCoverValue"));
 
@@ -516,7 +516,9 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 	// high morale prefers decreasing the range (positive factor), while very
 	// low morale (HOPELESS) prefers increasing it
 
-	iRCD = RangeChangeDesire(pMe);
+	// opt: RangeChangeDesire(pMe) is invariant across the whole cover search and is
+	// hoisted in FindBestNearbyCover; reuse it via the param instead of re-scanning.
+	iRCD = iRangeChangeDesire;
 
 	if (iRCD)
 	{
@@ -787,7 +789,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 		if (Threat[uiLoop].iOrigRange <= MAX_THREAT_RANGE)
 		{
 			// add this opponent's cover value to our current total cover value
-			iCurrentCoverValue += CalcCoverValue(pSoldier,pSoldier->sGridNo,iMyThreatValue,pSoldier->bActionPoints,uiLoop,Threat[uiLoop].iOrigRange,morale,&iCurrentScale);
+			iCurrentCoverValue += CalcCoverValue(pSoldier,pSoldier->sGridNo,iMyThreatValue,pSoldier->bActionPoints,uiLoop,Threat[uiLoop].iOrigRange,morale,&iCurrentScale,iRangeChangeDesire);
 		}
 		// sevenfm: sight test -- only matters when defending (fWantProneCover); and
 		// once any threat sees the prone spot, fProneCover is decided, so stop testing.
@@ -1052,7 +1054,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 				{
 					iCoverValue += CalcCoverValue(pSoldier,sGridNo,iMyThreatValue,
 						(pSoldier->bActionPoints - iPathCost),
-						uiLoop,iThreatRange,morale,&iCoverScale);
+						uiLoop,iThreatRange,morale,&iCoverScale,iRangeChangeDesire);
 				}
 
 				// sevenfm: sight test -- only matters when defending (fWantProneCover);

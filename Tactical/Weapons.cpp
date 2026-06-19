@@ -6551,6 +6551,9 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		// factor in scopes under their range
 		if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
 		{
+			// opt: the attacking-hand object isn't mutated here, so the highest-scope
+			// magnification is identical for the test and the penalty -- scan it once.
+			const FLOAT fHighestScope = GetHighestScopeMagnificationFactor( &(pSoldier->inv[pSoldier->ubAttackingHand]) );
 			if (fScopeMagFactor > 1.0 && iRange < (INT32)(uiBestScopeRange * gGameCTHConstants.AIM_TOO_CLOSE_THRESHOLD))
 			{
 				// Calculate how much penalty this scope should give at this range
@@ -6558,10 +6561,10 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 				FLOAT iScopePenalty = (FLOAT)(dScopePenaltyRatio * gGameCTHConstants.AIM_TOO_CLOSE_SCOPE * (fScopeMagFactor /2));
 				fAimModifier += iScopePenalty;
 			}
-			else if (fScopeMagFactor == 1.0f && GetHighestScopeMagnificationFactor( &(pSoldier->inv[pSoldier->ubAttackingHand]) ) > 1.0f )
+			else if (fScopeMagFactor == 1.0f && fHighestScope > 1.0f )
 			{
 				// Not using a scope, but it's still there. Give half the penalty based on the size of the scope.
-				FLOAT iScopePenalty = (FLOAT)(((GetHighestScopeMagnificationFactor( &(pSoldier->inv[pSoldier->ubAttackingHand]) )/2) * gGameCTHConstants.AIM_TOO_CLOSE_SCOPE)/2);
+				FLOAT iScopePenalty = (FLOAT)(((fHighestScope/2) * gGameCTHConstants.AIM_TOO_CLOSE_SCOPE)/2);
 				fAimModifier += iScopePenalty;
 			}
 		}
@@ -6589,13 +6592,17 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 		FLOAT fAimPoints = 0;
 		FLOAT fAimPointFraction = (FLOAT)((FLOAT)fMaxAimBonus / dAimFractionsDivisor);
+		// opt: the flat aim modifier is invariant across the aim-level loop -- none of its
+		// args depend on x. Compute it once; the per-iteration add stays in the same order
+		// (identical value each iteration -> bit-identical float accumulation).
+		INT32 flatModa = GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_FLATAIM );
+		INT32 flatModb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_FLATAIM );
+		FLOAT flatTerm = (FLOAT)((gGameExternalOptions.ubProneModifierPercentage * flatModa + (100 - gGameExternalOptions.ubProneModifierPercentage) * flatModb)/100);
 		for (UINT8 x = 0; x < ubAimTime; x++)
 		{
 			fAimPoints += fAimPointFraction * (ubAllowedAimingLevels-x);
 			// Add Flat Modifier from the weapon and its attachments
-			INT32 moda = GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_FLATAIM );
-			INT32 modb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_FLATAIM );
-			fAimPoints += (FLOAT)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
+			fAimPoints += flatTerm;
 		}
 
 		// Finally, add the appropriate number of CTH points to our chance-to-hit, and limit it into good values.
