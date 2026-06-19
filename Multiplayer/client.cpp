@@ -4719,6 +4719,7 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 				SUpdateNetworkSoldier.usSoldierID=pSoldier->ubID+ubID_prefix;
 			
 			SUpdateNetworkSoldier.sAtGridNo=pSoldier->sGridNo;
+			SUpdateNetworkSoldier.bActionPoints=pSoldier->bActionPoints;	// owner-authoritative AP, reconciled on copies (DeductPoints no longer spends AP on copies)
 			SUpdateNetworkSoldier.bBreath=pSoldier->bBreath;
 			SUpdateNetworkSoldier.ubDirection=pSoldier->ubDirection;
 
@@ -4748,6 +4749,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
+	pSoldier->bActionPoints=SUpdateNetworkSoldier->bActionPoints;	// owner-authoritative AP; DeductPoints does not spend AP on remote copies
 	pSoldier->bBreath=SUpdateNetworkSoldier->bBreath;
 	pSoldier->stats.bLife=SUpdateNetworkSoldier->bLife;
 
