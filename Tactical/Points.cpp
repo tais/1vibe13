@@ -2373,13 +2373,11 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 			{
 				bAPCost = (INT16)((bAPCost * (100 - gSkillTraitValues.ubAWFiringSpeedBonusLMGs ) / 100)+ 0.5);
 			}
-#if 0//dnl ch73 021013 relocate this to MinAPsToPunch
 			// Decreased APs needed for melee attacks - Melee (Blade only)
 			else if ( Item[ usUBItem ].usItemClass == IC_BLADE && ( HAS_SKILL_TRAIT( pSoldier, MELEE_NT ) ) )
 			{
 				bAPCost = (INT16)((bAPCost * (100 - gSkillTraitValues.ubMEBladesAPsReduction ) / 100)+ 0.5);
 			}
-#endif
 			// Decreased APs needed for throwing knives - Throwing
 			else if ( Item[ usUBItem ].usItemClass == IC_THROWING_KNIFE && ( HAS_SKILL_TRAIT( pSoldier, THROWING_NT ) ) )
 			{
@@ -3170,46 +3168,6 @@ INT16 GetAPsToChangeStance( SOLDIERTYPE *pSoldier, INT8 bDesiredHeight )
 	return( sAPCost );
 }
 
-// SANDRO - actually this procedure is  nowhere used in the entire JA2 code - commented out
-//INT16 GetBPsToChangeStance( SOLDIERTYPE *pSoldier, INT8 bDesiredHeight )
-//{
-//	UINT16						sBPCost = 0;
-//	INT8							bCurrentHeight;
-//
-//	bCurrentHeight = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
-//
-//	if ( bCurrentHeight == bDesiredHeight )
-//	{
-//		sBPCost = 0;
-//	}
-//
-//	if ( bCurrentHeight == ANIM_STAND && bDesiredHeight == ANIM_PRONE )
-//	{
-//		sBPCost = APBPConstants[BP_CROUCH] + APBPConstants[BP_PRONE];
-//	}
-//	if ( bCurrentHeight == ANIM_STAND && bDesiredHeight == ANIM_CROUCH )
-//	{
-//		sBPCost = APBPConstants[BP_CROUCH];
-//	}
-//	if ( bCurrentHeight == ANIM_CROUCH && bDesiredHeight == ANIM_PRONE )
-//	{
-//		sBPCost = APBPConstants[BP_PRONE];
-//	}
-//	if ( bCurrentHeight == ANIM_CROUCH && bDesiredHeight == ANIM_STAND )
-//	{
-//		sBPCost = APBPConstants[BP_CROUCH];
-//	}
-//	if ( bCurrentHeight == ANIM_PRONE && bDesiredHeight == ANIM_STAND )
-//	{
-//		sBPCost = APBPConstants[BP_PRONE] + APBPConstants[BP_CROUCH];
-//	}
-//	if ( bCurrentHeight == ANIM_PRONE && bDesiredHeight == ANIM_CROUCH )
-//	{
-//		sBPCost = APBPConstants[BP_PRONE];
-//	}
-//
-//	return( sBPCost );
-//}
 
 
 INT16 GetAPsToLook( SOLDIERTYPE *pSoldier )

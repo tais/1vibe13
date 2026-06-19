@@ -2704,61 +2704,6 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 			// hardcoded logic has been moved to Lua script
 			if ( g_luaMines.InitializeHeadMiners( ubThisMine ) )
 				SetFactTrue( FACT_MINERS_PLACED );
-#if 0
-			//if (ubThisMine != MINE_SAN_MONA) // San Mona is abandoned
-			if ( !gMineStatus[ubThisMine].fEmpty )
-			{
-				ubMinersPlaced = 0;
-
-				if ( ubThisMine != MINE_ALMA )
-				{
-					// Fred Morris is always in the first mine sector we enter, unless that's Alma (then he's randomized, too)
-					gMercProfiles[106].sSectorX = sNewSectorX;
-					gMercProfiles[106].sSectorY = sNewSectorY;
-					gMercProfiles[106].bSectorZ = 0;
-					//gMercProfiles[ 106 ].bTown = gMineLocation[ ubThisMine ].bAssociatedTown;
-					gMercProfiles[106].bTown = gMineStatus[ubThisMine].bAssociatedTown;
-
-					// mark miner as placed
-					ubRandomMiner[0] = 0;
-					ubMinersPlaced++;
-				}
-
-				// assign the remaining (3) miners randomly
-				for ( ubMine = 0; ubMine < MAX_NUMBER_OF_MINES; ubMine++ )
-				{
-					if ( ubMine == ubThisMine || ubMine == MINE_ALMA || ubMine == MINE_SAN_MONA )
-					{
-						// Alma always has Matt as a miner, and we have assigned Fred to the current mine
-						// and San Mona is abandoned
-						continue;
-					}
-
-					do
-					{
-						ubMiner = (UINT8)Random( RANDOM_HEAD_MINERS );
-					}
-					while( ubRandomMiner[ ubMiner ] == 0 );
-
-					GetMineSector( ubMine, (INT16 *)&(gMercProfiles[ubRandomMiner[ubMiner]].sSectorX),
-								   (INT16 *)&(gMercProfiles[ubRandomMiner[ubMiner]].sSectorY) );
-					gMercProfiles[ubRandomMiner[ubMiner]].bSectorZ = 0;
-					//gMercProfiles[ ubRandomMiner[ ubMiner ] ].bTown = gMineLocation[ ubMine ].bAssociatedTown;
-					gMercProfiles[ubRandomMiner[ubMiner]].bTown = gMineStatus[ubMine].bAssociatedTown;
-
-					// mark miner as placed
-					ubRandomMiner[ubMiner] = 0;
-					ubMinersPlaced++;
-
-					if ( ubMinersPlaced == RANDOM_HEAD_MINERS )
-					{
-						break;
-					}
-				}
-
-				SetFactTrue( FACT_MINERS_PLACED );
-			}
-#endif
 		}
 	}
 
@@ -3508,130 +3453,6 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 	{
 		pUnderground = FindUnderGroundSector( sSectorX, sSectorY, bSectorZ );
 
-#if 0 // reading sector names from lua now
-		////////////////////////////////////
-		// Read and verify XML sector names
-
-		INT8		bMineIndex;
-		ubSectorID = (UINT8)SECTOR( sSectorX, sSectorY );
-		AssertGE( ubSectorID, 0 );
-		AssertLT( ubSectorID, 256 );
-		pSector = &SectorInfo[ubSectorID];
-		ubLandType = pSector->ubTraversability[4];
-		sgp_swprintf( zString, 60, L"%c%d: ", 'A' + sSectorY - 1, sSectorX );
-
-		BOOLEAN fSectorHasXMLNames = TRUE;
-		CHAR16 zUnexploredUnderground[MAX_SECTOR_NAME_LENGTH];
-		CHAR16 zDetailedUnexploredUnderground[MAX_SECTOR_NAME_LENGTH];
-		CHAR16 zExploredUnderground[MAX_SECTOR_NAME_LENGTH];
-		CHAR16 zDetailedExploredUnderground[MAX_SECTOR_NAME_LENGTH];
-
-		if ( bSectorZ == 1 )
-		{
-			wcscpy( zUnexploredUnderground, gzSectorUndergroundNames1[ubSectorID][0] );
-			wcscpy( zDetailedUnexploredUnderground, gzSectorUndergroundNames1[ubSectorID][1] );
-			wcscpy( zExploredUnderground, gzSectorUndergroundNames1[ubSectorID][2] );
-			wcscpy( zDetailedExploredUnderground, gzSectorUndergroundNames1[ubSectorID][3] );
-		}
-		else if ( bSectorZ == 2 )
-		{
-			wcscpy( zUnexploredUnderground, gzSectorUndergroundNames2[ubSectorID][0] );
-			wcscpy( zDetailedUnexploredUnderground, gzSectorUndergroundNames2[ubSectorID][1] );
-			wcscpy( zExploredUnderground, gzSectorUndergroundNames2[ubSectorID][2] );
-			wcscpy( zDetailedExploredUnderground, gzSectorUndergroundNames2[ubSectorID][3] );
-		}
-		else if ( bSectorZ == 3 )
-		{
-			wcscpy( zUnexploredUnderground, gzSectorUndergroundNames3[ubSectorID][0] );
-			wcscpy( zDetailedUnexploredUnderground, gzSectorUndergroundNames3[ubSectorID][1] );
-			wcscpy( zExploredUnderground, gzSectorUndergroundNames3[ubSectorID][2] );
-			wcscpy( zDetailedExploredUnderground, gzSectorUndergroundNames3[ubSectorID][3] );
-		}
-
-		if ( zUnexploredUnderground[0] == 0 || zDetailedUnexploredUnderground[0] == 0 || zExploredUnderground[0] == 0 || zDetailedExploredUnderground[0] == 0 )
-		{
-			fSectorHasXMLNames = FALSE;
-		}
-
-		if ( fSectorHasXMLNames ) // UNDERGROUND XML
-		{
-			if ( pUnderground )
-			{
-				bMineIndex = GetIdOfMineForSector( sSectorX, sSectorY, bSectorZ );
-				if ( bMineIndex != -1 )
-				{
-					sgp_swprintf( zString, 60, L"%c%d: %s %s", 'A' + sSectorY - 1, sSectorX, pTownNames[GetTownAssociatedWithMine( bMineIndex )], pwMineStrings[0] );
-				}
-				else if ( pUnderground->fVisited )
-				{
-					if ( fDetailed )
-					{
-						wcscat( zString, zDetailedExploredUnderground );
-					}
-					else
-					{
-						wcscat( zString, zExploredUnderground );
-					}
-				}
-				else
-				{
-					if ( fDetailed )
-					{
-						wcscat( zString, zDetailedUnexploredUnderground );
-					}
-					else
-					{
-						wcscat( zString, zUnexploredUnderground );
-					}
-				}
-
-				if ( pUnderground->ubNumCreatures )
-					sgp_swprintf( zString, 60, L"%c%d: %s", 'A' + sSectorY - 1, sSectorX, pLandTypeStrings[CREATURE_LAIR] );
-				//else
-				//	sgp_swprintf( zString, 60, L"%c%d-%d", 'A' + sSectorY - 1, sSectorX, bSectorZ );
-			}
-		}
-		else // UNDERGROUND HARDCODED
-		{
-			pUnderground = FindUnderGroundSector( sSectorX, sSectorY, bSectorZ );
-			if ( pUnderground && (pUnderground->fVisited || gfGettingNameFromSaveLoadScreen) )
-			{
-				bMineIndex = GetIdOfMineForSector( sSectorX, sSectorY, bSectorZ );
-				if ( bMineIndex != -1 )
-				{
-					sgp_swprintf( zString, 60, L"%c%d: %s %s", 'A' + sSectorY - 1, sSectorX, pTownNames[GetTownAssociatedWithMine( bMineIndex )], pwMineStrings[0] );
-				}
-				else switch ( SECTOR( sSectorX, sSectorY ) )
-				{
-				case SEC_A10:
-					sgp_swprintf( zString, 60, L"A10: %s", pLandTypeStrings[REBEL_HIDEOUT] );
-					break;
-				case SEC_J9:
-					sgp_swprintf( zString, 60, L"J9: %s", pLandTypeStrings[TIXA_DUNGEON] );
-					break;
-				case SEC_K4:
-					sgp_swprintf( zString, 60, L"K4: %s", pLandTypeStrings[ORTA_BASEMENT] );
-					break;
-				case SEC_O3:
-					sgp_swprintf( zString, 60, L"O3: %s", pLandTypeStrings[TUNNEL] );
-					break;
-				case SEC_P3:
-					sgp_swprintf( zString, 60, L"P3: %s", pLandTypeStrings[SHELTER] );
-					break;
-				default:
-					if ( pUnderground->ubNumCreatures )
-						sgp_swprintf( zString, 60, L"%c%d: %s", 'A' + sSectorY - 1, sSectorX, pLandTypeStrings[CREATURE_LAIR] );
-					else
-						sgp_swprintf( zString, 60, L"%c%d-%d", 'A' + sSectorY - 1, sSectorX, bSectorZ );
-					break;
-				}
-			}
-			else
-			{ //Display nothing
-				wcscpy( zString, L"" );
-			}
-		}
-#else
 
 		// TODO: the code is riddled with (potential) buffer overruns
 		// this totally needs to be fixed sometime
@@ -3639,7 +3460,6 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 		// found calls to this function with buffers as small as 50 elements
 		g_luaUnderground.GetSectorName( sSectorX, sSectorY, bSectorZ, pUnderground, zString, 50, fDetailed );
 
-#endif
 	}
 	else // SECTORS ABOVE GROUND
 	{

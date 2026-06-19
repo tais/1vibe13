@@ -37,7 +37,6 @@ set(LaptopSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/florist Order Form.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/florist.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/funeral.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/GunEmporium.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/history.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/IMP AboutUs.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/IMP Attribute Entrance.cpp"

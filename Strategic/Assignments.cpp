@@ -4106,18 +4106,6 @@ void HandleDoctorsInSector( INT16 sX, INT16 sY, INT8 bZ )
 						HealCharacters( pTeamSoldier, sX, sY, bZ );
 					}
 				}
-				/*
-				if( IS_DOCTOR(pTeamSoldier->bAssignment) && ( pTeamSoldier->flags.fMercAsleep == FALSE ) )
-				{
-					MakeSureMedKitIsInHand( pTeamSoldier );
-				}
-
-				// character is in sector, check if can doctor, if so...heal people
-				if( CanCharacterDoctor( pTeamSoldier ) && IS_DOCTOR(pTeamSoldier->bAssignment) && ( pTeamSoldier->flags.fMercAsleep == FALSE ) && EnoughTimeOnAssignment( pTeamSoldier ) )
-				{
-					HealCharacters( pTeamSoldier, sX, sY, bZ );
-				}
-				*/
 			}
 		}
 	}

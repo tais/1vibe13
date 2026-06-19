@@ -3,7 +3,6 @@
 #include <windowsx.h>
 #include <mmsystem.h>
 #include <dsound.h>
-#include "dsutil.h"    
 #include "DEBUG.H"
 
 #include "sgp.h"

@@ -168,181 +168,13 @@ WEAPONTYPE Weapon[ MAXITEMS ];
 // MADD MARKER
 
 MAGTYPE Magazine[MAXITEMS+1];
-// =
-//{
-//	// calibre,			 mag size,			ammo type
-//	{ AMMO9,						15,					AMMO_REGULAR },
-//	{ AMMO9,						30,					AMMO_REGULAR },
-//	{ AMMO9,						15,					AMMO_AP },
-//	{ AMMO9,						30,					AMMO_AP },
-//	{ AMMO9,						15,					AMMO_HP },
-//	{ AMMO9,						30,					AMMO_HP },
-//	{ AMMO38,						 6,					AMMO_REGULAR },
-//	{ AMMO38,						 6,					AMMO_AP },
-//	{ AMMO38,						 6,					AMMO_HP },
-//	{ AMMO45,						 7,					AMMO_REGULAR },
-//	{ AMMO45,						30,					AMMO_REGULAR },
-//	{ AMMO45,						 7,					AMMO_AP },
-//	{ AMMO45,						30,					AMMO_AP },
-//	{ AMMO45,						 7,					AMMO_HP },
-//	{ AMMO45,						30,					AMMO_HP },
-//	{ AMMO357,					 6,					AMMO_REGULAR },
-//	{ AMMO357,					 9,					AMMO_REGULAR },
-//	{ AMMO357,					 6,					AMMO_AP },
-//	{ AMMO357,					 9,					AMMO_AP },
-//	{ AMMO357,					 6,					AMMO_HP },
-//	{ AMMO357,					 9,					AMMO_HP },
-//	{ AMMO545,					30,					AMMO_AP },
-//	{ AMMO545,					30,					AMMO_HP },
-//	{ AMMO556,					30,					AMMO_AP },
-//	{ AMMO556,					30,					AMMO_HP },
-//	{ AMMO762W,					10,					AMMO_AP },
-//	{ AMMO762W,					30,					AMMO_AP },
-//	{ AMMO762W,					10,					AMMO_HP },
-//	{ AMMO762W,					30,					AMMO_HP },
-//	{ AMMO762N,					 5,					AMMO_AP },
-//	{ AMMO762N,					20,					AMMO_AP },
-//	{ AMMO762N,					 5,					AMMO_HP },
-//	{ AMMO762N,					20,					AMMO_HP },
-//	{ AMMO47,						50,					AMMO_SUPER_AP },
-//	{ AMMO57,						50,					AMMO_AP },
-//	{ AMMO57,						50,					AMMO_HP },
-//	{ AMMO12G,					7,					AMMO_REGULAR },
-//	{ AMMO12G,					7,					AMMO_BUCKSHOT },
-//	{ AMMOCAWS,					10,					AMMO_SUPER_AP },
-//	{ AMMOCAWS,					10,					AMMO_BUCKSHOT },
-//	{ AMMOROCKET,				5,					AMMO_SUPER_AP },
-//	{ AMMOROCKET,				5,					AMMO_HE },
-//	{ AMMOROCKET,				5,					AMMO_HEAT },
-//	{ AMMODART,					1,					AMMO_SLEEP_DART },
-//	{ AMMOFLAME,				5,					AMMO_BUCKSHOT },
-//// MADD MARKER
-//	{ AMMO50,				11,					AMMO_SUPER_AP },
-//	{ AMMO9H,				20,					AMMO_SUPER_AP },
-//	{ AMMO9,				50,					AMMO_REGULAR },
-//	{ AMMO9,				50,					AMMO_AP },
-//	{ AMMO9,				50,					AMMO_HP },
-//	{ AMMO545,				75,					AMMO_AP },
-//	{ AMMO545,				75,					AMMO_HP },
-//	{ AMMO556,				200,					AMMO_AP },
-//	{ AMMO556,				200,					AMMO_HP },
-//	{ AMMO762N,				100,					AMMO_AP },
-//	{ AMMO762N,				100,					AMMO_HP },
-//	{ AMMO57,				20,					AMMO_AP },
-//	{ AMMO57,				20,					AMMO_HP },
-//	{ NOAMMO,						0,					0 }
-//};
 
-ARMOURTYPE Armour[MAXITEMS+1];// =
-//{
-//	//	Class					      Protection	Degradation%			Description
-//	//  -------------       ----------  ------------      ----------------
-//	{		ARMOURCLASS_VEST,				10,					25			}, /* Flak jacket     */
-//	{		ARMOURCLASS_VEST,				13,					20			}, /* Flak jacket w X */
-//	{		ARMOURCLASS_VEST,				16,					15			}, /* Flak jacket w Y */
-//	{		ARMOURCLASS_VEST,				15,					20			}, /* Kevlar jacket   */
-//	{		ARMOURCLASS_VEST,				19,					15			}, /* Kevlar jack w X */
-//	{		ARMOURCLASS_VEST,				24,					10			}, /* Kevlar jack w Y */
-//	{		ARMOURCLASS_VEST,				30,					15			}, /* Spectra jacket  */
-//	{		ARMOURCLASS_VEST,				36,					10			}, /* Spectra jack w X*/
-//	{		ARMOURCLASS_VEST,				42,					 5			}, /* Spectra jack w Y*/
-//	{		ARMOURCLASS_LEGGINGS,		15,					20			}, /* Kevlar leggings */
-//	{		ARMOURCLASS_LEGGINGS,		19,					15			}, /* Kevlar legs w X */
-//
-//	{		ARMOURCLASS_LEGGINGS,		24,					10			}, /* Kevlar legs w Y */
-//	{		ARMOURCLASS_LEGGINGS,		30,					15			}, /* Spectra leggings*/
-//	{		ARMOURCLASS_LEGGINGS,		36,					10			}, /* Spectra legs w X*/
-//	{		ARMOURCLASS_LEGGINGS,		42,					 5			}, /* Spectra legs w Y*/
-//	{		ARMOURCLASS_HELMET,			10,					 5			}, /* Steel helmet    */
-//	{		ARMOURCLASS_HELMET,			15,					20			}, /* Kevlar helmet   */
-//	{		ARMOURCLASS_HELMET,			19,					15			}, /* Kevlar helm w X */
-//	{		ARMOURCLASS_HELMET,			24,					10			}, /* Kevlar helm w Y */
-//	{		ARMOURCLASS_HELMET,			30,					15			}, /* Spectra helmet  */
-//	{		ARMOURCLASS_HELMET,			36,					10			}, /* Spectra helm w X*/
-//
-//	{		ARMOURCLASS_HELMET,			42,					 5			}, /* Spectra helm w Y*/
-//	{		ARMOURCLASS_PLATE,			15,					200			}, /* Ceramic plates  */
-//	{		ARMOURCLASS_MONST,			 3,					 0	 		}, /* Infant creature hide */
-//	{		ARMOURCLASS_MONST,			 5,					 0			}, /* Young male creature hide  */
-//	{		ARMOURCLASS_MONST,			 6,					 0			}, /* Male creature hide  */
-//	{		ARMOURCLASS_MONST,			20,					 0			}, /* Queen creature hide  */
-//	{		ARMOURCLASS_VEST,				 2,					25			}, /* Leather jacket    */
-//	{		ARMOURCLASS_VEST,				12,					30			}, /* Leather jacket w kevlar */
-//	{		ARMOURCLASS_VEST,				16,					25			}, /* Leather jacket w kevlar & compound 18 */
-//	{		ARMOURCLASS_VEST,				19,					20			}, /* Leather jacket w kevlar & queen blood */
-//
-//	{		ARMOURCLASS_MONST,			 7,					 0			}, /* Young female creature hide */
-//	{		ARMOURCLASS_MONST,			 8,					 0			}, /* Old female creature hide  */
-//	{		ARMOURCLASS_VEST,				 1,					25			}, /* T-shirt */
-//	{		ARMOURCLASS_VEST,				22,					20			}, /* Kevlar 2 jacket   */
-//	{		ARMOURCLASS_VEST,				27,					15			}, /* Kevlar 2 jack w X */
-//	{		ARMOURCLASS_VEST,				32,					10			}, /* Kevlar 2 jack w Y */
-//};
+ARMOURTYPE Armour[MAXITEMS+1];
 
-EXPLOSIVETYPE Explosive[MAXITEMS+1];// =
-//{
-//	//	Type							Yield		Yield2		Radius		Volume		Volatility	Animation			Description
-//	//										-----		-------		------		------		----------	--------- 		------------------
-//	{		EXPLOSV_STUN,			    1,			70*2,				4,				0,				0,					STUN_BLAST		/* stun grenade       */},
-//	{		EXPLOSV_TEARGAS,	    0,			20*2,				4,				0,				0,					TARGAS_EXP		/* tear gas grenade   */},
-//	{ 	EXPLOSV_MUSTGAS,	    15,			40,				4,				0,				0,					MUSTARD_EXP		/* mustard gas grenade*/},
-//	{ 	EXPLOSV_NORMAL,		    15,			7,				3,				15,				1,					BLAST_1				/* mini hand grenade  */},
-//	{ 	EXPLOSV_NORMAL,		    25,			10,				4,				25,				1,					BLAST_1				/* reg hand grenade   */},
-//	{ 	EXPLOSV_NORMAL,		    40,			12,				5,				20,				10,					BLAST_2				/* RDX                */},
-//	{ 	EXPLOSV_NORMAL,		    50,			15,				5,				50,				2,					BLAST_2				/* TNT (="explosives")*/},
-//	{ 	EXPLOSV_NORMAL,		    60,			15,				6,				60,				2,					BLAST_2				/* HMX (=RDX+TNT)     */},
-//	{ 	EXPLOSV_NORMAL,		    55,			15,				6,				55,				0,					BLAST_2				/* C1  (=RDX+min oil) */},
-//	{ 	EXPLOSV_NORMAL,		    50,			22,				6,				50,				2,					BLAST_2				/* mortar shell       */},
-//
-//	{ 	EXPLOSV_NORMAL,		    30,			30,				2,				30,				2,					BLAST_1				/* mine               */},
-//	{		EXPLOSV_NORMAL,		    65,			30,				7,				65,				0,					BLAST_1				/* C4  ("plastique")  */},
-//	{		EXPLOSV_FLARE,		    0,			0,				10,				0,				0,					BLAST_1				/* trip flare				  */},
-//	{		EXPLOSV_NOISE,		    0,			0,				50,				50,				0,					BLAST_1				/* trip klaxon        */},
-//	{		EXPLOSV_NORMAL,		    20,			0,				1,				20,				0,					BLAST_1				/* shaped charge      */},
-//	{		EXPLOSV_FLARE,		    0,			0,				10,				0,				0,					BLAST_1,			/* break light        */},
-//	{		EXPLOSV_NORMAL,		    25,			5,				4,				25,				1,					BLAST_1,			/* GL grenade					*/},
-//	{		EXPLOSV_TEARGAS,	    0,			20*2,				3,				0,				0,					TARGAS_EXP,		/* GL tear gas grenade*/},
-//	{		EXPLOSV_STUN,			    1,			60*2,				4,				0,				0,					STUN_BLAST,	  /* GL stun grenade		*/},
-//	{		EXPLOSV_SMOKE,		    0,			0,				3,				0,				0,					SMOKE_EXP,		/* GL smoke grenade		*/},
-//
-//	{		EXPLOSV_SMOKE,		    0,			0,				4,				0,				0,					SMOKE_EXP,		/* smoke grenade			*/},
-//	{ 	EXPLOSV_NORMAL,		    60,			20,				6,				60,				2,					BLAST_2,			/* Tank Shell         */},
-//	{ 	EXPLOSV_NORMAL,		    100,		0,				0,				0,				0,					BLAST_1,			/* Fake structure igniter*/},
-//	{ 	EXPLOSV_NORMAL,		    100,		0,				1,				0,				0,					BLAST_1,			/* creature cocktail */},
-//	{ 	EXPLOSV_NORMAL,		    50,			10,				5,				50,				2,					BLAST_2,			/* fake struct explosion*/},
-//	{ 	EXPLOSV_NORMAL,		    50,			10,				5,				50,				2,					BLAST_3,			/* fake vehicle explosion*/},
-//	{		EXPLOSV_TEARGAS,	    0,			40*2,				4,				0,				0,					TARGAS_EXP		/* big tear gas */},
-//	{ 	EXPLOSV_CREATUREGAS,	5,			0,				1,				0,				0,					NO_BLAST		  /* small creature gas*/},
-//	{ 	EXPLOSV_CREATUREGAS,	8,			0,				3,				0,				0,					NO_BLAST  		/* big creature gas*/},
-//	{ 	EXPLOSV_CREATUREGAS,	0,			0,				0,				0,				0,					NO_BLAST  		/* vry sm creature gas*/},
-//	{ 	EXPLOSV_NORMAL,		    55,			15,				6,				55,				0,					BLAST_2				/* RPG_HE_ROCKET */},
-//	{ 	EXPLOSV_NORMAL,		    100,		10,				3,				75,				0,					BLAST_1				/* RPG_AP_ROCKET */},
-//	{ 	EXPLOSV_NORMAL,		    25,			200,			8,				65,				0,					BLAST_2				/* RPG_FRAG_ROCKET */},
-//};
+EXPLOSIVETYPE Explosive[MAXITEMS+1];
 
 
-CHAR8 gzBurstSndStrings[MAXITEMS*2][128];// =
-//{
-//	"",													// NOAMMO
-//	"",													// 38
-//	"9mm Burst ",								// 9mm
-//	"45 Caliber Burst ",				// 45
-//	"",													// 357
-//	"",						              // 12G
-//	"Shotgun Burst ",						// CAWS
-//	"5,45 Burst ",							// 5.45
-//	"5,56 Burst ",							// 5.56
-//	"7,62 NATO Burst ",					// 7,62 N
-//	"7,62 WP Burst ",						// 7,62 W
-//	"4,7 Caliber Burst ",				// 4.7
-//	"5,7 Burst ",								// 5,7
-//	"",													// Monster
-//	"RL Automatic ",            // Rocket
-//	"",													// Dart
-//	"",													// Flame (unused)
-//	"",													// 50 Cal
-//	"",													// 9MM HEavy
-//};
+CHAR8 gzBurstSndStrings[MAXITEMS*2][128];
 
 AMMOTYPE AmmoTypes[MAXITEMS];
 
@@ -4800,32 +4632,6 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				}
 			}
 
-			// SANDRO - Enhanced Close Combat System - Add dodge animation of target if missed ninja spin kick
-			//if ( (iDiceRoll >= iHitChance) && pSoldier->usAnimState == NINJA_SPINKICK && gGameExternalOptions.fEnhancedCloseCombatSystem
-			//	&& gAnimControl[ pTargetSoldier->usAnimState ].ubHeight == ANIM_STAND && IS_MERC_BODY_TYPE( pTargetSoldier ))
-			//{
-			//	pTargetSoldier->ChangeSoldierState( DODGE_ONE, 0 , FALSE ); 
-			//	// after dodging melee attack go to apropriate stance
-			//	if ( (gAnimControl[ pTargetSoldier->usAnimState ].ubHeight == ANIM_STAND) && (Item[pTargetSoldier->inv[HANDPOS].usItem].usItemClass & (IC_NONE | IC_PUNCH)) && pTargetSoldier->stats.bLife > 30 && pTargetSoldier->bBreath > 25 )
-			//	{
-			//		if ((((NUM_SKILL_TRAITS( pTargetSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
-			//			(HAS_SKILL_TRAIT( pTargetSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) &&
-			//			 pTargetSoldier->ubBodyType == REGMALE )
-			//		{
-			//			//pTSoldier->usPendingAnimation = NINJA_GOTOBREATH;
-			//			pTargetSoldier->usPendingAnimation = NINJA_BREATH ;
-			//		}
-			//		else
-			//		{
-			//			pTargetSoldier->usPendingAnimation = PUNCH_BREATH ;
-			//		}
-			//	}
-			//	else if ( (gAnimControl[ pTargetSoldier->usAnimState ].ubHeight == ANIM_STAND) && (Item[pTargetSoldier->inv[HANDPOS].usItem].usItemClass == IC_BLADE))
-			//	{
-			//		//pTSoldier->usPendingAnimation = KNIFE_GOTOBREATH;
-			//		pTargetSoldier->usPendingAnimation = KNIFE_BREATH ;
-			//	}
-			//}
 			// WDS 07/19/2008 - Random number use fix
 #ifdef JA2UB
 //Ja25 no meanwhiles
@@ -7841,21 +7647,6 @@ INT32 CalcBodyImpactReduction( UINT8 ubAmmoType, UINT8 ubHitLocation )
 	INT32 iReduction = BodyImpactReduction[ubHitLocation];
 
 	iReduction = (INT32)(iReduction * AmmoTypes[ubAmmoType].armourImpactReductionMultiplier / max(1,AmmoTypes[ubAmmoType].armourImpactReductionDivisor));
-	//switch (ubAmmoType)
-	//{
-	//	case AMMO_HP:
-	//		iReduction = AMMO_ARMOUR_ADJUSTMENT_HP( iReduction );
-	//		break;
-	//	case AMMO_AP:
-	//	case AMMO_HEAT:
-	//		iReduction = AMMO_ARMOUR_ADJUSTMENT_AP( iReduction );
-	//		break;
-	//	case AMMO_SUPER_AP:
-	//		iReduction = AMMO_ARMOUR_ADJUSTMENT_SAP( iReduction );
-	//		break;
-	//	default:
-	//		break;
-	//}
 	return( iReduction );
 }
 
@@ -7895,21 +7686,6 @@ INT32 ArmourProtection( SOLDIERTYPE * pTarget, UINT16 ubArmourType, INT16 * pbSt
 	// adjust protection of armour due to different ammo types
 	iProtection = (INT32)(iProtection * AmmoTypes[ubAmmoType].armourImpactReductionMultiplier / max(1,AmmoTypes[ubAmmoType].armourImpactReductionDivisor) );
 
-	//switch (ubAmmoType)
-	//{
-	//	case AMMO_HP:
-	//		iProtection = AMMO_ARMOUR_ADJUSTMENT_HP( iProtection );
-	//		break;
-	//	case AMMO_AP:
-	//	case AMMO_HEAT:
-	//		iProtection = AMMO_ARMOUR_ADJUSTMENT_AP( iProtection );
-	//		break;
-	//	case AMMO_SUPER_AP:
-	//		iProtection = AMMO_ARMOUR_ADJUSTMENT_SAP( iProtection );
-	//		break;
-	//	default:
-	//		break;
-	//}
 
 	// figure out how much of the armour's protection value is necessary
 	// in defending against this bullet
