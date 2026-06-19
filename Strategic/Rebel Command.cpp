@@ -2396,7 +2396,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	std::vector<std::wstring> agentBonusText;
 	if (agentIndex[index] < static_cast<INT8>(mercs.size()))
 	{
-		const MERCPROFILESTRUCT merc = gMercProfiles[mercs[agentIndex[index]]->ubProfile];
+		const MERCPROFILESTRUCT& merc = gMercProfiles[mercs[agentIndex[index]]->ubProfile];
 		const INT8 successBonus_expLevel = GetMissionSuccessChanceBonus(&merc);
 		CHAR16 successText[100];
 		// stupid string hack to get the percent sign to display correctly
@@ -4896,7 +4896,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 		if (evt1.isMissionSuccess)
 		{
 			const RebelCommandAgentMissions mission = static_cast<RebelCommandAgentMissions>(evt1.missionId);
-			const MERCPROFILESTRUCT merc = gMercProfiles[evt1.mercProfileId];
+			const MERCPROFILESTRUCT& merc = gMercProfiles[evt1.mercProfileId];
 
 			if (!foundMerc)
 				goto MissionFailed_MercNoLongerOnTeam;

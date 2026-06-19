@@ -563,7 +563,7 @@ public:
 	OBJECTTYPE* GetAttachmentAtIndex(UINT8 index);
 	BOOLEAN	RemoveAttachmentAtIndex(UINT8 index, attachmentList::iterator * returnIter = NULL);
 	attachmentList::iterator RemoveAttachmentAtIter(attachmentList::iterator iter);
-	BOOLEAN	AddAttachmentAtIndex(UINT8 index, OBJECTTYPE pObj);
+	BOOLEAN	AddAttachmentAtIndex(UINT8 index, const OBJECTTYPE& pObj);
 	UINT16 AttachmentListSize();
 	bool operator==(StackedObjectData& compare);
 	bool operator==(const StackedObjectData& compare)const;
