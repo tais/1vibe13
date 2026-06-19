@@ -897,7 +897,15 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	}
 	*/
 
-	pSoldier->bActionPoints = sNewAP;
+	// MP: AP is owner-authoritative, exactly like breath (see the iBPCost guard above).
+	// Remote players' copies (LAN teams 6..9) replay movement/fire events with their own
+	// AP arithmetic, which drifts from the owner's instance and desyncs interrupt-eligibility,
+	// host-AI-over-copy decisions and the end-of-turn auto-stop. Never spend AP on copies;
+	// the owner's value is reconciled in via the updatenetworksoldier RPC (UpdateSoldierFromNetwork).
+	if ( !( is_networked && pSoldier->bTeam >= LAN_TEAM_ONE ) )
+	{
+		pSoldier->bActionPoints = sNewAP;
+	}
 
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Deduct Points (%d at %d) %d %d", pSoldier->ubID, pSoldier->sGridNo, sAPCost, iBPCost	) );
 

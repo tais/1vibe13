@@ -4614,7 +4614,9 @@ BOOLEAN AddTopMessage( UINT8 ubType, STR16 pzString )
 	// This is the single funnel for the banner, so force any such green back to the
 	// enemy-interrupt bar. gMpEnemyInterruptTeam is held from the interrupt grant
 	// until resume_turn / a new turn, so it wins regardless of caller ordering.
-	if ( is_networked && gMpEnemyInterruptTeam != 0 && ubType == PLAYER_TURN_MESSAGE )
+	// M1: gMpEnemyInterruptTeam is latched from a wire team id; bound it before it
+	// indexes the 10-row TeamTurnString[] banner table.
+	if ( is_networked && gMpEnemyInterruptTeam > 0 && gMpEnemyInterruptTeam <= 9 && ubType == PLAYER_TURN_MESSAGE )
 	{
 		ubType   = COMPUTER_INTERRUPT_MESSAGE;
 		pzString = TeamTurnString[ gMpEnemyInterruptTeam ];
