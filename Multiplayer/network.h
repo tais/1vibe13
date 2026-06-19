@@ -34,12 +34,20 @@ extern unsigned int setID;
 #define JA2MP_SAME_MERC					"SAME_MERC_ALLOWED"
 #define JA2MP_SERVER_IP					"SERVER_IP"
 #define JA2MP_SERVER_NAME				"SERVER_NAME"
+#define JA2MP_ADMIN_PASSWORD			"ADMIN_PASSWORD"
 #define JA2MP_SERVER_PORT				"SERVER_PORT"
 #define JA2MP_STARTING_BALANCE			"STARTING_CASH"
 #define JA2MP_SYNC_CLIENTS_MP_DIR		"SYNC_GAME_DIRECTORY"
 #define JA2MP_TIMED_TURN_SECS_PER_TICK	"TIMED_TURNS"
 #define JA2MP_TIME						"STARTING_TIME"
 #define	JA2MP_NEW_TRAITS				"SKILL_TRAITS"
+
+// dedicated-server admin protocol (client -> server)
+typedef struct
+{
+	UINT8 cmd;
+	char  password[64];
+} admin_cmd_struct;
 
 typedef struct
 {
@@ -102,11 +110,20 @@ typedef struct
 // WANNE: FILE TRANSFER
 typedef struct
 {
-	STRING512 fileTransferDirectory;	
+	STRING512 fileTransferDirectory;
 	int syncClientsDirectory;			// Does the server want to sync files to the clients
 	char serverName[30];				// The name of the server. This is used on the client side as a folder inside the client transfer directory
-	long totalTransferBytes;
+	// PORTABLE WIRE FORMAT (H18): was `long`, which is 8B (LP64 mac/linux) vs 4B (LLP64
+	// Windows). A Windows client <-> Linux server would mis-read the byte count. Use a
+	// fixed-width INT64 so the on-wire size is identical on every target. ja2server.cpp's
+	// copy of this struct must match (it does).
+	INT64 totalTransferBytes;
 } filetransfersettings_struct;
+
+// PORTABLE WIRE FORMAT (H18): lock the on-wire size so width/padding drift fails the
+// build instead of silently corrupting the byte count. char[512]+int(4)+char[30] aligns
+// the INT64 to offset 552, total 560 with 8-byte struct alignment.
+static_assert(sizeof(filetransfersettings_struct) == 560, "filetransfersettings_struct wire size changed");
 
 // added 080101 by OJW
 typedef struct

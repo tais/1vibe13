@@ -104,6 +104,10 @@ unsigned char SpacketIdentifier;
 
 RakPeerInterface *server;
 
+// PR-1: central short-frame guard -- bail before a (Struct*)cast if the wire
+// payload is smaller than the struct the handler reads (heap over-read otherwise).
+#define RPC_REQUIRE_BYTES(p,T) do{ if ( ((long)(((p)->numberOfBitsOfData)+7)/8) < (long)sizeof(T) ) return; }while(0)
+
 // WANNE: FILE TRANSFER
 FileListTransfer fltServer;	// flt1
 IncrementalReadInterface incrementalReadInterface;
@@ -127,6 +131,11 @@ typedef struct
 
 client_data client_d[4];
 int client_mercteam[4] = { 0 , 1 , 2 , 3 }; // random index of random_merc_teams per player
+
+// Dedicated-server admin: a connected client granted host-style control.
+SystemAddress gAdminAddr;
+bool          gHasAdmin = false;
+char          gAdminPassword[64] = {0};   // from ja2_mp.ini; empty => first remote client auto-admin
 
 bool inline can_joingame();
 
@@ -226,20 +235,26 @@ void sendFIRE(RPCParameters *rpcParameters)
 void sendHIT(RPCParameters *rpcParameters)
 {
 	EV_S_WEAPONHIT* hit = (EV_S_WEAPONHIT*)rpcParameters->input;
-	
-	int team = hit->ubAttackerID->bTeam;
-	
-	// AI
-	if (team == 1) 
-		team = 4;
-	// Client
-	else if (team >= 6) 
-		team -= 6;
-	else if (team == 0) 
-		team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
-    Assert(team<5); // FIXME
-	gMPPlayerStats[team].hits++;
+	// MP wire guard: the attacker id is raw wire data; the slot can be empty or
+	// the sentinel NOBODY -- never deref unchecked (mp_audit_findings.json)
+	SOLDIERTYPE* pAtt = ( hit->ubAttackerID != NOBODY ) ? (SOLDIERTYPE*)hit->ubAttackerID : NULL;
+	if ( pAtt != NULL )
+	{
+		int team = pAtt->bTeam;
+
+		// AI
+		if (team == 1)
+			team = 4;
+		// Client
+		else if (team >= 6)
+			team -= 6;
+		else if (team == 0)
+			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
+
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].hits++;
+	}
 
 	server->RPC("recieveHIT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
@@ -344,12 +359,17 @@ void sendSTATE(RPCParameters *rpcParameters)
 
 void sendDEATH(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, death_struct);	// short-frame guard (H12/H13)
 	// the master copy of the scoreboard is kept on the server
 	death_struct* nDeath = (death_struct*)rpcParameters->input;
 
 	// Save Stats on the server side
-	gMPPlayerStats[nDeath->soldier_team-1].deaths++;
-	gMPPlayerStats[nDeath->attacker_team-1].kills++;
+	// H12: wire team-1 indexes gMPPlayerStats[5]; team==0 underflows to [-1], >5 overflows.
+	// Clamp the same way sendHIT does before touching the scoreboard.
+	if ( nDeath->soldier_team >= 1 && nDeath->soldier_team <= 5 )
+		gMPPlayerStats[nDeath->soldier_team-1].deaths++;
+	if ( nDeath->attacker_team >= 1 && nDeath->attacker_team <= 5 )
+		gMPPlayerStats[nDeath->attacker_team-1].kills++;
 	
 	// get the client number of the client sending the message
 	int iCLnum = f_rec_num(3,rpcParameters->sender)+1;
@@ -373,7 +393,7 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 {
 	EV_S_STRUCTUREHIT* miss = (EV_S_STRUCTUREHIT*)rpcParameters->input;
 	
-	if ( miss->ubAttackerID != NOBODY)
+	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
 	{
 		int team = miss->ubAttackerID->bTeam;
 		
@@ -387,7 +407,8 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
         Assert(team<5); // FIXME
-		gMPPlayerStats[team].misses++;
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].misses++;
 	}
 
 	server->RPC("recievehitSTRUCT",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
@@ -397,7 +418,7 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 	EV_S_WINDOWHIT* miss = (EV_S_WINDOWHIT*)rpcParameters->input;
 	
 
-	if ( miss->ubAttackerID != NOBODY)
+	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
 	{
 		int team = miss->ubAttackerID->bTeam;
 		
@@ -411,7 +432,8 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
         Assert(team<5); // FIXME
-		gMPPlayerStats[team].misses++;
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].misses++;
 	}
 
 	server->RPC("recievehitWINDOW",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
@@ -420,7 +442,7 @@ void sendMISS(RPCParameters *rpcParameters)
 {
 	EV_S_MISS* miss = (EV_S_MISS*)rpcParameters->input;
 
-	if ( miss->ubAttackerID != NOBODY)
+	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
 	{
 		int team = miss->ubAttackerID->bTeam;
 		
@@ -434,7 +456,8 @@ void sendMISS(RPCParameters *rpcParameters)
 			team = CLIENT_NUM-1; // this case should not be possible, including as a precaution
 
         Assert(team<5); // FIXME
-		gMPPlayerStats[team].misses++;
+		if ( team >= 0 && team < 5 )
+			gMPPlayerStats[team].misses++;
 	}
 
 	server->RPC("recieveMISS",(const char*)rpcParameters->input, (*rpcParameters).numberOfBitsOfData, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, true, 0, UNASSIGNED_NETWORK_ID,0);
@@ -576,6 +599,15 @@ void HandleDisconnect(SystemAddress sender)
 			// notify all the clients of the disconnect
 			server->RPC("recieveDISCONNECT",(const char*)&cl_record.cl_number , sizeof(int)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 			f_rec_num(2,sender); // remove from server's client list
+
+			// dedicated server: if the admin dropped, release the admin slot so the
+			// next remote client (or a reconnect) can become/claim admin again.
+			if ( gHasAdmin && sender == gAdminAddr )
+			{
+				gHasAdmin = false;
+				gAdminAddr = UNASSIGNED_SYSTEM_ADDRESS;
+				printf( "[dedicated] admin (client #%d) dropped -- admin slot released\n", cl_record.cl_number ); fflush( stdout );
+			}
 			break;
 		}
 	}
@@ -633,13 +665,54 @@ void requestFILE_TRANSFER_SETTINGS(RPCParameters *rpcParameters)
 //START INTERNAL SERVER
 //*************************
 //void send_settings (void)//send server settings to client
+void adminCmd(RPCParameters *rpcParameters)
+{
+	admin_cmd_struct* ac = (admin_cmd_struct*)rpcParameters->input;
+	ac->password[63] = 0;
+	printf( "[dedicated] adminCmd received: cmd=%d (hasAdmin=%d isAdminSender=%d)\n", (int)ac->cmd, gHasAdmin?1:0, (gHasAdmin && rpcParameters->sender == gAdminAddr)?1:0 ); fflush( stdout );
+	if ( ac->cmd == ADMIN_CMD_AUTH )
+	{
+		if ( gAdminPassword[0] != 0 && strncmp( ac->password, gAdminPassword, 63 ) == 0 )
+		{
+			gAdminAddr = rpcParameters->sender;
+			gHasAdmin = true;
+			unsigned char one = 1;
+			server->RPC("recieveADMIN",(const char*)&one, 8, HIGH_PRIORITY, RELIABLE, 0, rpcParameters->sender, false, 0, UNASSIGNED_NETWORK_ID, 0);
+			ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"A client authenticated as the server admin" );
+			printf( "[dedicated] a client authenticated as admin\n" ); fflush( stdout );
+		}
+	}
+	else if ( ac->cmd == ADMIN_CMD_START )
+	{
+		if ( gHasAdmin && rpcParameters->sender == gAdminAddr )
+		{
+			extern bool allowlaptop;
+			extern bool goahead;
+			// The admin pressing START IS the "everyone is here, go" authority. Once
+			// laptops are unlocked (phase 1 done), the second START must begin the
+			// battle -- the headless host never readies, so don't wait on its vote;
+			// force the go-ahead. (cMaxClients still gates real-player placement.)
+			if ( allowlaptop )
+				goahead = true;
+			printf( "[dedicated] admin requested START (allowlaptop=%d -> goahead forced=%d)\n", allowlaptop?1:0, allowlaptop?1:0 ); fflush( stdout );
+			start_battle();
+		}
+	}
+}
+
 void requestSETTINGS(RPCParameters *rpcParameters )
 {
+	RPC_REQUIRE_BYTES(rpcParameters, client_info);	// short-frame guard (H14/H13)
 	// dont generate or send settings to a new user if they are about to be disconnected
 	// because no more players can join the the game
 	if (can_joingame())
 	{
 		client_info* clinf = (client_info*)rpcParameters->input;
+
+		// L3: wire name/version are strcmp'd and strcpy'd -- force NUL-termination so a
+		// non-terminated field can't over-read past the fixed buffers.
+		clinf->client_version[29] = 0;
+		clinf->client_name[29] = 0;
 
 		// OJW - 20090507
 		// Disconnect if version is wrong
@@ -663,6 +736,22 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 		client_d[bslot].address=sender; //record clients address
 		int new_cl_num = bslot+1;//client number to assign
 		client_d[bslot].cl_number=new_cl_num; //record clients number
+		printf( "[dedicated] client registered: cl_number=%d (pw_set=%d hasAdmin=%d)\n", new_cl_num, gAdminPassword[0]!=0, gHasAdmin?1:0 ); fflush( stdout );
+
+		{
+			extern BOOLEAN gfDedicatedServer;
+			// dedicated server, no password configured: the first REMOTE client
+			// (cl_number >= 2; #1 is the headless host's own loopback) becomes admin.
+			if ( gfDedicatedServer && !gHasAdmin && gAdminPassword[0] == 0 && new_cl_num >= 2 )
+			{
+				gAdminAddr = sender;
+				gHasAdmin = true;
+				unsigned char one = 1;
+				server->RPC("recieveADMIN",(const char*)&one, 8, HIGH_PRIORITY, RELIABLE, 0, sender, false, 0, UNASSIGNED_NETWORK_ID, 0);
+				ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"Client #%d is now the server admin", new_cl_num );
+				printf( "[dedicated] client #%d is now admin\n", new_cl_num ); fflush( stdout );
+			}
+		}
 
 		settings_struct lan;
 		
@@ -881,6 +970,7 @@ void start_server (void)
 		CIniReader iniReader(JA2MP_INI_FILENAME);	// Wird nur für Strings gebraucht
 		strncpy(cServerName, iniReader.ReadString(JA2MP_INI_INITIAL_SECTION, JA2MP_SERVER_NAME, "My JA2 Server"), 30 );				
 		strncpy(gKitBag, iniReader.ReadString(JA2MP_INI_INITIAL_SECTION,JA2MP_KIT_BAG, ""), 100);
+		strncpy(gAdminPassword, iniReader.ReadString(JA2MP_INI_INITIAL_SECTION, JA2MP_ADMIN_PASSWORD, ""), 63);
 		
 		vfs::PropertyContainer props;
 		props.initFromIniFile(JA2MP_INI_FILENAME);
@@ -1025,7 +1115,8 @@ void start_server (void)
 		server->SetTimeoutTime(120000, UNASSIGNED_SYSTEM_ADDRESS);	// 120 Seconds
 
 
-		bool b = server->Startup(gMaxClients, 30, &SocketDescriptor(serverPort,0), 1);
+		SocketDescriptor sd(serverPort,0);
+		bool b = server->Startup(gMaxClients, 30, &sd, 1);
 
 		server->SetMaximumIncomingConnections((gMaxClients));
 		server->SetOccasionalPing(true);
@@ -1068,6 +1159,7 @@ void start_server (void)
 		REGISTER_STATIC_RPC(server, sendFIREW);
 		REGISTER_STATIC_RPC(server, sendDOOR);
 		REGISTER_STATIC_RPC(server, endINTERRUPT);
+		REGISTER_STATIC_RPC(server, adminCmd);
 		REGISTER_STATIC_RPC(server, sendREAL);
 		REGISTER_STATIC_RPC(server, startCOMBAT);
 		REGISTER_STATIC_RPC(server, sendWIPE);

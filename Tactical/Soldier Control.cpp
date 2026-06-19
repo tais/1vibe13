@@ -1833,9 +1833,10 @@ void SOLDIERTYPE::AdjustNoAPToFinishMove( BOOLEAN fSet )
 		SStopMerc.sYPos = this->sY;
 
 		//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
-		if ( !is_server && this->ubID >= 20 )return;
-
-		if ( is_client )
+		// remote copy on a pure client: APPLY the halt below, but never re-broadcast
+		// (the old early-return made recieveSTOP a no-op for remote mercs -> eternal
+		// walk loops/sounds; audit [25])
+		if ( is_client && !( !is_server && this->ubID >= 20 ) )
 			send_stop( &SStopMerc );
 	}
 
@@ -4897,7 +4898,12 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 									 PythSpacesAway( this->sGridNo, pEnemy->sGridNo ) < pEnemy->GetMaxDistanceVisible( this->sGridNo, this->pathing.bLevel ) )
 								{
 									// AGILITY (5):  Soldier snuck 1 square past unaware enemy
-									StatChange( this, AGILAMT, 5, FALSE );
+									// MP: skip -- a deathmatch opener (long run, many unaware
+									// enemies) turns this trickle into a stat firehose.
+									if ( !is_networked )
+									{
+										StatChange( this, AGILAMT, 5, FALSE );
+									}
 									// Keep looping, we'll give'em 1 point for EACH such enemy!
 								}
 							}
@@ -10001,7 +10007,10 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	// Flugente: dynamic opinions
 	if (ubAttacker < NOBODY)
 	{
-		if (gGameExternalOptions.fDynamicOpinions)
+		// MP: remote players' mercs (LAN teams 6..9) share global AIM profiles with our
+		// own hires -- never classify PvP damage as friendly fire / civilian attack.
+		if (gGameExternalOptions.fDynamicOpinions
+			&& !(is_networked && (this->bTeam >= LAN_TEAM_ONE || ubAttacker->bTeam >= LAN_TEAM_ONE)))
 		{
 			AddOpinionEvent(this->ubProfile, ubAttacker->ubProfile, OPINIONEVENT_FRIENDLYFIRE);
 
@@ -13855,8 +13864,10 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 	SStopMerc.sXPos = this->sX;
 	SStopMerc.sYPos = this->sY;
 	//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
-	if ( (is_networked) && (this->ubID >= 120 || (!is_server && this->ubID >= 20)) ) return;//hayden
-	if ( is_client )send_stop( &SStopMerc );
+	if ( (is_networked) && (this->ubID >= 120) ) return;	// AI ids never replicate stops (unchanged)
+	// only the owner or host may broadcast; remote copies still run the local halt (audit [26])
+	if ( is_client && !( !is_server && this->ubID >= 20 ) )
+		send_stop( &SStopMerc );
 
 	// If we are a 'specialmove... ignore...
 	if ( (gAnimControl[this->usAnimState].uiFlags & ANIM_SPECIALMOVE) )
@@ -13926,6 +13937,15 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 	}
 	else
 	{
+		// MP: remote copies have no locomotion driver -- stop a moving copy's anim
+		// explicitly or it cycles walk frames (footsteps) in place forever.
+		if ( is_networked && this->bTeam >= LAN_TEAM_ONE
+			&& this->sGridNo >= 0 && this->sGridNo < WORLD_MAX
+			&& ( gAnimControl[ this->usAnimState ].uiFlags & ANIM_MOVING ) )
+		{
+			this->EVENT_StopMerc( this->sGridNo, this->ubDirection );
+		}
+
 		// Pause this guy from no APS
 		this->AdjustNoAPToFinishMove( TRUE );
 
@@ -14347,6 +14367,11 @@ void ContinueMercMovement( SOLDIERTYPE *pSoldier )
 
 BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 {
+	// MP: exhaustion collapse is the owner's call; copies replicate it via the
+	// sendSTATE echo. (See DeductPoints breath pinning.)
+	if ( is_networked && this->bTeam >= LAN_TEAM_ONE )
+		return( FALSE );
+
 	// Check if we are out of breath!
 	// Only check if > 70
 	if ( this->bBreathMax > 70 )
@@ -21872,6 +21897,9 @@ void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed )
 
 void SoldierCollapse( SOLDIERTYPE *pSoldier )
 {
+	// already down and lying -- don't replay the fall (MP echo / double-collapse; audit [27])
+	if ( pSoldier->bCollapsed && gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE )
+		return;
 	BOOLEAN fMerc = FALSE;
 
 	if ( pSoldier->ubBodyType <= REGFEMALE )

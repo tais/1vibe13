@@ -331,6 +331,28 @@ bool	ValidateJoinSettings(bool bSkipServerAddress, bool bSkipSyncDir)
 
 UINT32	MPJoinScreenHandle( void )
 {
+	{	// dedicated server: choose "Host" automatically (player name etc. come
+		// from ja2_mp.ini via the join-settings load)
+		extern BOOLEAN gfDedicatedServer;
+		extern UINT8 gubMPJScreenHandler;
+		static BOOLEAN fDedicatedAutoHost = FALSE;
+		static UINT32 uiDedicatedTicks = 0;
+		if ( gfDedicatedServer && !fDedicatedAutoHost && ++uiDedicatedTicks > 30 )
+		{
+			fDedicatedAutoHost = TRUE;
+			if ( ValidateJoinSettings( true, false ) )
+			{
+				SaveJoinSettings( false );
+				gubMPJScreenHandler = MPJ_HOST;
+				printf( "[dedicated] join screen -> hosting\n" );
+			}
+			else
+			{
+				printf( "[dedicated] ERROR: join settings invalid (player name in ja2_mp.ini?)\n" );
+			}
+			fflush( stdout );
+		}
+	}
 	StartFrameBufferRender();
 
 	if( gfMPJScreenEntry )

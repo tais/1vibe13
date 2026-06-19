@@ -96,6 +96,13 @@ void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 
 	if (!PTR_OURTEAM)
 		return;
 
+	extern bool is_networked;
+	// MP: no stat practice outside combat -- realtime jogging, lobby assignments,
+	// travel awards and other passive trainers would level mercs mid-match.
+	// Deliberate in-combat skill use (shooting, kills, aid, locks, ...) still counts.
+	if ( is_networked && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		return;
+
 	// ignore anything without a profile
 	if (pSoldier->ubProfile == NO_PROFILE)
 		return;

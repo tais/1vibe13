@@ -397,6 +397,17 @@ void GameLoop(void)
 		HandleNewScreenChange( uiOldScreen, guiCurrentScreen );
 		guiPreviousScreen = guiCurrentScreen;
 		guiCurrentScreen = uiOldScreen;
+
+	{	// dedicated server console: announce screen transitions
+		extern BOOLEAN gfDedicatedServer;
+		static UINT32 uiLastLoggedScreen = 0xFFFFFFFF;
+		if ( gfDedicatedServer && guiCurrentScreen != uiLastLoggedScreen )
+		{
+			uiLastLoggedScreen = guiCurrentScreen;
+			printf( "[dedicated] screen -> %u\n", (unsigned)guiCurrentScreen );
+			fflush( stdout );
+		}
+	}
 	}
 
 	// rain

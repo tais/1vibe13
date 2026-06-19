@@ -2,10 +2,10 @@ name: release
 
 # Tagged-release pipeline. Push a tag like `v0.1.0` (or run manually) and
 # this builds the three shipped apps -- JA2_ENGLISH, JA2UB_ENGLISH,
-# JA2MAPEDITOR_ENGLISH -- on Linux, macOS and Windows, bundles each
-# platform's executables together with the matching SDL3 / SDL3_mixer
-# runtime libraries, and attaches a per-platform archive to a GitHub
-# Release.
+# JA2MAPEDITOR_ENGLISH -- plus the standalone ja2server multiplayer
+# coordinator, on Linux, macOS and Windows, and attaches a per-platform
+# archive to a GitHub Release. The game apps sit at the archive root; the
+# server (with a sample ja2_mp.ini + README) is in a ja2server/ subfolder.
 #
 # The build steps deliberately mirror build_unix.yml (the per-commit
 # compile-check) so the toolchain stays identical; the extra work here
@@ -16,8 +16,9 @@ name: release
 # the archives are just the self-contained executables -- no SDL .dll /
 # .dylib / .so to ship, and no ABI-mismatch risk from a stray system SDL.
 #
-# These archives contain the ENGINE only -- no game Data. Drop them into
-# an existing JA2 1.13 install (which provides Data/) to run.
+# These archives contain the ENGINE only -- no game Data. Drop the game apps
+# into an existing JA2 1.13 install (which provides Data/) to run. The
+# ja2server/ folder is self-contained and needs no game Data.
 
 on:
   push:
@@ -117,6 +118,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLanguages=ENGLISH \
             "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
+            -DBUILD_JA2SERVER=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
@@ -140,6 +142,11 @@ jobs:
           for app in JA2 JA2UB JA2MAPEDITOR; do
             cp "build/${app}_ENGLISH" dist/
           done
+          # standalone multiplayer coordinator + its sample config / readme
+          mkdir -p dist/ja2server
+          cp build/tests/ja2server                     dist/ja2server/ja2server
+          cp Multiplayer/ja2server/ja2_mp.ini.sample   dist/ja2server/ja2_mp.ini
+          cp Multiplayer/ja2server/README.md           dist/ja2server/README.md
 
       - name: Stage payload (macos)
         if: matrix.platform.name == 'macos'
@@ -153,6 +160,11 @@ jobs:
           for app in JA2 JA2UB JA2MAPEDITOR; do
             cp -R "build/${app}_ENGLISH.app" dist/
           done
+          # standalone multiplayer coordinator (plain binary, not a .app) + config / readme
+          mkdir -p dist/ja2server
+          cp build/tests/ja2server                     dist/ja2server/ja2server
+          cp Multiplayer/ja2server/ja2_mp.ini.sample   dist/ja2server/ja2_mp.ini
+          cp Multiplayer/ja2server/README.md           dist/ja2server/README.md
 
       - name: Stage payload (windows)
         if: matrix.platform.name == 'windows'
@@ -162,6 +174,11 @@ jobs:
           foreach ($app in 'JA2','JA2UB','JA2MAPEDITOR') {
             Copy-Item "build/$($app)_ENGLISH.exe" dist/
           }
+          # standalone multiplayer coordinator + its sample config / readme
+          New-Item -ItemType Directory -Force dist/ja2server | Out-Null
+          Copy-Item "build/tests/ja2server.exe"             dist/ja2server/
+          Copy-Item "Multiplayer/ja2server/ja2_mp.ini.sample" dist/ja2server/ja2_mp.ini
+          Copy-Item "Multiplayer/ja2server/README.md"        dist/ja2server/README.md
 
       # ---- archive per platform (.zip everywhere) ----
       - name: Resolve package name

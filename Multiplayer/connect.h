@@ -66,6 +66,9 @@ extern UINT8 cMaxMercs;
 void lockui (bool unlock);
 
 void start_battle ( void );
+enum { ADMIN_CMD_AUTH = 1, ADMIN_CMD_START = 2 };
+void send_admin_cmd(UINT8 cmd, const char* password);
+extern bool gfIAmAdmin;
 void DropOffItemsInSector( UINT8 ubOrderNum );
 
 void mp_help (void);
@@ -110,6 +113,17 @@ void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct );
 void send_stop (EV_S_STOP_MERC *SStopMerc);
 
 void send_interrupt(SOLDIERTYPE *pSoldier);
+void end_interrupt( BOOLEAN fMarkInterruptOccurred );
+
+// non-zero while the server arbiter has paused our turn for an enemy interrupt;
+// holds the interrupting team. AddTopMessage uses it to keep the turn banner off
+// green "PLAYER'S TURN" until the arbiter resumes us (see client.cpp definition).
+extern int gMpEnemyInterruptTeam;
+
+// diagnostic logging to the coordinator (printed when LOG_LEVEL >= verbose)
+void mp_log_event( const char* msg );
+void mp_log_soldier( SOLDIERTYPE* pSoldier, const char* event );
+void mp_log_sighting( SOLDIERTYPE* pSighter, SOLDIERTYPE* pSeen, int range );
 
 // OJW - 20091002 - explosives
 void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yPos, float zPos, float xForce, float yForce, float zForce, UINT32 sTargetGridNo, SoldierID ubOwner, UINT8 ubActionCode, UINT32 uiActionData, INT32 iRealObjectID, bool bIsThrownGrenade);
@@ -202,10 +216,14 @@ extern BOOLEAN		fClientReceivedAllFiles;
 // OJW - 20090507
 // Add basic version checking, will only work from now on
 // note: this cannot be longer than char[30]
+// PORTABLE WIRE FORMAT: v3.2 changes the on-wire protocol (chat_msg/AI_STRUCT/BULLET/
+// INT_STRUCT/filetransfersettings are now fixed-width little-endian). It is NOT compatible
+// with v3.1 peers -- the version string gate (server.cpp / ja2server.cpp) rejects mismatches
+// so a v3.1 and a v3.2 build cannot accidentally interoperate and corrupt each other.
 #ifdef JA2UB
-#define MPVERSION	"MP v3.1(UB)"
+#define MPVERSION	"MP v3.2(UB)"
 #else
-#define MPVERSION	"MP v3.1"
+#define MPVERSION	"MP v3.2"
 #endif
 
 // OJW - 2009128 - inline funcs for working with soldiers and teams
@@ -220,11 +238,19 @@ inline SoldierID MPEncodeSoldierID( SoldierID ubID )
 		return ubID; // soldier is another teams, dont touch its ID
 }
 
-// this one can be called anywhere, even if the ID was not "encoded"
+// this one can be called anywhere, even if the ID was not "encoded".
+// Wire SoldierIDs arrive via raw memcpy, so the clamping SoldierID ctor never
+// runs on them -- ubID.i can be a fully out-of-range 0..65535. Normalise any
+// such value to NOBODY here (the receive boundary) so that, combined with the
+// NULL-returning MercPtrs[] conversion in Overhead Types.h, an out-of-range
+// wire id can never index past the array; it simply resolves to a NULL
+// SOLDIERTYPE* downstream and every existing "pSoldier == NULL" guard fires.
 inline SoldierID MPDecodeSoldierID( SoldierID ubID )
 {
 	if ( ubID >= ubID_prefix && ubID < (ubID_prefix + 7) )
 		return ubID - ubID_prefix; // soldier is ours
+	else if ( ubID.i >= TOTAL_SOLDIERS )
+		return NOBODY; // out-of-range / garbage wire id -> resolves to NULL
 	else
 		return ubID; // soldier is another teams, dont touch its ID
 }

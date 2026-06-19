@@ -1,0 +1,65 @@
+[JA2 Multiplayer Server Settings]
+
+; Configuration for the standalone ja2server coordinator.
+; Rename this file to "ja2_mp.ini" and keep it next to the ja2server executable.
+; Every value is optional -- if the file (or a key) is missing, the default shown
+; in [brackets] is used. Command-line flags override the matching keys here.
+
+;-----------------------------------------------------------------------------
+; SERVER_NAME      Name shown to clients in the join list.            [My JA2 Server]
+; SERVER_PORT      TCP port clients connect to (--port overrides).    [60005]
+; SERVER_BIND      Interface the game listener binds to.              [127.0.0.1]
+;                  Default loopback keeps the server private; set "0.0.0.0" for
+;                  real LAN/public play.
+; ADMIN_PASSWORD   If set, the admin must authenticate to start.      [empty = first client is admin]
+;-----------------------------------------------------------------------------
+SERVER_NAME    = My JA2 Server
+SERVER_PORT    = 60005
+SERVER_BIND    = 127.0.0.1
+ADMIN_PASSWORD =
+
+;-----------------------------------------------------------------------------
+; MAX_PLAYERS    Max simultaneous clients (1-4).                      [4]
+; MAX_MERCS      Mercs each player may hire.                          [6]
+; GAME_TYPE      0 = Deathmatch, 1 = Team Deathmatch, 2 = Co-op.      [0]
+; SAME_MERC_ALLOWED  1 = two players may hire the same merc.          [1]
+;-----------------------------------------------------------------------------
+MAX_PLAYERS       = 4
+MAX_MERCS         = 6
+GAME_TYPE         = 0
+SAME_MERC_ALLOWED = 1
+
+;-----------------------------------------------------------------------------
+; WEAPON_DAMAGE   0 = low (x0.2), 1 = realistic (x0.7), 2 = high (x1.0).   [1]
+; TIMED_TURNS     0 = off, 1 = fast (5s), 2 = normal (100s), 3 = slow.     [2]
+; STARTING_CASH   0 = 5k, 1 = 50k, 2 = 100k, 3 = unlimited.                [1]
+; STARTING_TIME   0 = 07:00, 1 = 13:00, 2 = 02:00.                         [1]
+;-----------------------------------------------------------------------------
+WEAPON_DAMAGE = 1
+TIMED_TURNS   = 2
+STARTING_CASH = 1
+STARTING_TIME = 1
+
+;-----------------------------------------------------------------------------
+; LOG_LEVEL       Console verbosity: 0 = normal, 1 = verbose, 2 = debug.   [0]
+;                 (--verbose = 1, --debug = 2, --loglevel <n> override this.)
+; DASHBOARD_PORT  Web status panel port; 0 = disabled (--dashboard <n>).   [0]
+; DASHBOARD_BIND  Interface the dashboard binds to.                        [127.0.0.1]
+;                 Default loopback; set "0.0.0.0" to reach it from the LAN.
+; DASHBOARD_TOKEN Secret required for write actions (save config / reset / [empty]
+;                 kick). Empty = the dashboard is READ-ONLY (status only).
+;                 When set, open the panel as  http://host:port/?token=SECRET
+;                 (sent as the X-Auth-Token header). Read views stay open.
+; REPORT_HIRED_MERC_NAME  1 = log who hired which merc (verbose+).         [1]
+;-----------------------------------------------------------------------------
+LOG_LEVEL              = 0
+DASHBOARD_PORT         = 0
+DASHBOARD_BIND         = 127.0.0.1
+DASHBOARD_TOKEN        =
+REPORT_HIRED_MERC_NAME = 1
+
+;-----------------------------------------------------------------------------
+; KIT_BAG   Extra item numbers granted to every hired merc (max 20).
+;           e.g. 201 = First Aid Kit, 214 = Canteen, 243 = Wire Cutters.
+;-----------------------------------------------------------------------------
+KIT_BAG = [201,214,243]

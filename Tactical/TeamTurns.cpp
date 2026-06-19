@@ -498,6 +498,22 @@ BOOLEAN LightningEndOfTurn( UINT8 ubTeam );
 
 void BeginTeamTurn( UINT8 ubTeam )
 {
+
+	// MP safety sweep: no remote copy should be auto-walking across a turn boundary --
+	// a copy whose stop event was missed cycles its walk anim (footsteps) forever.
+	if ( is_networked )
+	{
+		for ( SoldierID id = 0; id < TOTAL_SOLDIERS; ++id )
+		{
+			SOLDIERTYPE* pStop = MercPtrs[ id ];
+			if ( pStop && pStop->bActive && pStop->bInSector && pStop->bTeam >= LAN_TEAM_ONE
+				&& pStop->sGridNo >= 0 && pStop->sGridNo < WORLD_MAX
+				&& ( gAnimControl[ pStop->usAnimState ].uiFlags & ANIM_MOVING ) )
+			{
+				pStop->EVENT_StopMerc( pStop->sGridNo, pStop->ubDirection );
+			}
+		}
+	}
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"BeginTeamTurn");
 	SOLDIERTYPE		*pSoldier;
 
@@ -594,9 +610,11 @@ void BeginTeamTurn( UINT8 ubTeam )
 			// ( they could have blead to death above )
 			if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
 			{
-				StartPlayerTeamTurn( TRUE, FALSE );
-			/*	if(is_server && !net_turn) send_EndTurn(ubTeam);
-				if(net_turn == true) net_turn = false;*/
+				extern BOOLEAN gfDedicatedServer;
+				// Coordinator host has no mercs and no UI to end a turn -- never run
+				// its own player turn; just advance the round to the real players.
+				if ( !gfDedicatedServer )
+					StartPlayerTeamTurn( TRUE, FALSE );
 				if(is_server) 
 				{
 					numreadyteams =0;//beginning round 
@@ -1248,6 +1266,18 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		// change team
 		gTacticalStatus.ubCurrentTeam	= pSoldier->bTeam;
 
+		// MP: tell the interrupted player's machine the interrupt is over. The
+		// complete handshake for this (end_interrupt -> "endINTERRUPT" relay ->
+		// resume_turn -> EndInterrupt) has existed since 1.13 MP was written but
+		// the sender was never called from anywhere -- so the moving side stayed
+		// frozen forever re-detecting interrupts (the historical "press ALT+E on
+		// the server" hang). Only the holder sends: the interrupted soldier is on
+		// another player's team here.
+		if ( is_networked && is_client && pSoldier->bTeam != gbPlayerNum )
+		{
+			end_interrupt( fMarkInterruptOccurred );
+		}
+
 		// switch appropriate messages & flags
 		if ( pSoldier->bTeam == OUR_TEAM)
 		{
@@ -1498,14 +1528,10 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	INT8						bDir;
 	SOLDIERTYPE *		pOpponent;
 
-#ifdef DISABLE_MP_INTERRUPTS_IN_COOP
-	
-	if (is_networked == TRUE && cGameType == MP_TYPE_COOP)
-	{
-		return ( FALSE );
-	}
-
-#endif
+	// Server-arbitrated interrupts (ja2server is the authority): interrupt DETECTION
+	// is re-enabled in MP; the client requests the interrupt and the coordinator
+	// grants at most one at a time, so the out-of-turn stack can't diverge. To go
+	// back to interrupt-free combat, restore `if (is_networked) return FALSE;` here.
 
 	if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && !(gubSightFlags & SIGHT_INTERRUPT) )
 	{
@@ -2362,6 +2388,17 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 					gTacticalStatus.fInterruptOccurred = TRUE;
 
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"You have interrupted %s", TeamNameStrings[npSoldier->bTeam]);
+				}
+				// Coordinator MP: OUR merc (nbTeam==0) gets the interrupt during the
+				// opponent's turn. There is no is_server host to award it, so REQUEST it
+				// from the coordinator and WAIT -- do NOT take control locally. We act on
+				// the server's recieveINTERRUPT grant (it grants one at a time, so turn
+				// ownership can't diverge). Without this a pure client just ClearIntList'd
+				// and interrupts never fired over the standalone server.
+				else if ( is_networked && !is_server && nbTeam == 0 )
+				{
+					mp_log_soldier( npSoldier, "REQUESTING interrupt from the server" );
+					send_interrupt( npSoldier );
 				}
 				else
 				{

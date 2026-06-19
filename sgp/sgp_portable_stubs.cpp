@@ -61,4 +61,3 @@ INT32   ParseKeyString(STR8)     { return 0; }
 // IntroScreenInit / IntroScreenHandle / etc. now come from there.
 
 // ---- connect.h (Multiplayer) -----------------------------------------------
-bool can_edgechange()            { return false; }

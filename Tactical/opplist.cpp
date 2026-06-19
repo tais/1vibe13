@@ -491,13 +491,38 @@ void HandleBestSightingPositionInRealtime( void )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "HBSPIR called and there is someone in the list" );
 
+		// MP diagnostic: this realtime sighting is what triggers turn-based in networked
+		// play. Report which team/merc saw which enemy team/merc, and at what range, so
+		// it's clear what kicked off combat.
+		if ( is_networked && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		{
+			SOLDIERTYPE* pSighter = gubBestToMakeSighting[ 0 ];
+			SOLDIERTYPE* pSeen = NULL; INT16 sBest = 9999;
+			for ( UINT32 uiL = 0; uiL < guiNumMercSlots; uiL++ )
+			{
+				SOLDIERTYPE* pE = MercSlots[ uiL ];
+				if ( pE && pE->bActive && pE->bInSector && pE->stats.bLife > 0
+				    && pE->bTeam != pSighter->bTeam
+				    && pSighter->aiData.bOppList[ pE->ubID ] == SEEN_CURRENTLY )
+				{
+					INT16 d = PythSpacesAway( pSighter->sGridNo, pE->sGridNo );
+					if ( d < sBest ) { sBest = d; pSeen = pE; }
+				}
+			}
+			mp_log_sighting( pSighter, pSeen, pSeen ? (int)sBest : -1 );
+		}
+
 		//if (gfHumanSawSomeoneInRealtime)
 		{
 			if (gubBestToMakeSighting[ 1 ] == NOBODY)
 			{	// The_Bob - real time sneaking code 01/06/09
 				// if real time sneaking conditions are met...
 				// this is now in the preferences window - SANDRO				
-				if (gGameSettings.fOptions[TOPTION_ALLOW_REAL_TIME_SNEAK] && gubBestToMakeSighting[ 0 ]->bTeam == OUR_TEAM && NobodyAlerted() )
+				// MP: in PvP both clients see "MY merc spotted them" so BOTH would
+				// realtime-sneak and neither enters combat -> first-contact deadlock.
+				// Don't sneak over the network: enter combat on sight and let the
+				// server arbitrate who acts first (the startCOMBAT first-arrival guard).
+				if (gGameSettings.fOptions[TOPTION_ALLOW_REAL_TIME_SNEAK] && gubBestToMakeSighting[ 0 ]->bTeam == OUR_TEAM && NobodyAlerted() && !is_networked )
 				{
 					// get rid of the item under cursor (we gotta react FAST)
 					CancelItemPointer();
@@ -533,15 +558,25 @@ void HandleBestSightingPositionInRealtime( void )
 				}
 				else //if ( gubBestToMakeSighting[ 1 ]->aiData.bOppCnt > 0 ) // give turn to 2nd best but interrupt to 1st
 				{
-					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Entering combat mode: turn for 2nd best, int for best" );
+					if ( is_networked )
+					{
+						// MP has interrupts disabled (they desync over the relay), so don't
+						// OPEN combat with one either. Give the first sighter the turn and
+						// let the server arbitrate -- no out-of-turn interrupt state.
+						EnterCombatMode( gubBestToMakeSighting[ 0 ]->bTeam );
+					}
+					else
+					{
+						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Entering combat mode: turn for 2nd best, int for best" );
 
-					EnterCombatMode( gubBestToMakeSighting[ 1 ]->bTeam );
-					// 2nd guy loses control
-					AddToIntList( gubBestToMakeSighting[ 1 ], FALSE, TRUE);
-					// 1st guy gains control
-					AddToIntList( gubBestToMakeSighting[ 0 ], TRUE, TRUE);
-					// done
-					DoneAddingToIntList( gubBestToMakeSighting[ 0 ], TRUE, SIGHTINTERRUPT );
+						EnterCombatMode( gubBestToMakeSighting[ 1 ]->bTeam );
+						// 2nd guy loses control
+						AddToIntList( gubBestToMakeSighting[ 1 ], FALSE, TRUE);
+						// 1st guy gains control
+						AddToIntList( gubBestToMakeSighting[ 0 ], TRUE, TRUE);
+						// done
+						DoneAddingToIntList( gubBestToMakeSighting[ 0 ], TRUE, SIGHTINTERRUPT );
+					}
 				}
 			}
 		}

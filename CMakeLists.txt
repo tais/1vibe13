@@ -124,6 +124,23 @@ if(NOT TARGET SDL3_mixer::SDL3_mixer)
   FetchContent_MakeAvailable(SDL3_mixer)
 endif()
 
+# SDL3_net: transport for the revived multiplayer. Multiplayer/netshim
+# implements the RakNet-3.401 API surface the MP wrapper was written
+# against on top of SDL3_net TCP stream sockets. Pinned to the first
+# stable SDL3-line release (release-3.2.0, May 2026) -- unlike the
+# main-tracking SDL3/SDL3_mixer above, this one has a real tag.
+find_package(SDL3_net QUIET CONFIG)
+if(NOT TARGET SDL3_net::SDL3_net)
+  include(FetchContent)
+  FetchContent_Declare(
+    SDL3_net
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_net.git
+    GIT_TAG release-3.2.0
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(SDL3_net)
+endif()
+
 # libsmacker: Smacker (.SMK) video decoder. Replaces the Win32-only
 # binkw32.lib + Smacker-via-binkw32 path (Phase 6u). All JA2 cinematics
 # (intro, helicopter flyby, meanwhile scenes) ship as .SMK files, so
@@ -241,6 +258,9 @@ add_subdirectory("ext/export/src")
 # static libraries whose translation units don't rely on Application preprocessor definitions.
 add_subdirectory(lua)
 add_subdirectory(Multiplayer)
+
+enable_testing()
+add_subdirectory(tests)
 
 set(Ja2_Libraries
 bfVFS

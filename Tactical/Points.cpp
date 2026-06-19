@@ -831,6 +831,16 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 
 void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ubInterruptType )
 {
+	// MP: remote players' copies (LAN teams 6..9) replay movement/fire events but never
+	// get the owner's per-turn breath refresh -- their breath drains to 0 and they
+	// collapse from exhaustion while the owner's instance shows them fine (playtest:
+	// "Len constantly collapses on contact", brth0/100 in the logs). Breath is
+	// owner-authoritative; never spend it on copies.
+	if ( is_networked && pSoldier != NULL && pSoldier->bTeam >= LAN_TEAM_ONE )
+	{
+		iBPCost = 0;
+	}
+
 	INT16 sNewAP = 0;
 	INT8	bNewBreath;
 
@@ -887,7 +897,15 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	}
 	*/
 
-	pSoldier->bActionPoints = sNewAP;
+	// MP: AP is owner-authoritative, exactly like breath (see the iBPCost guard above).
+	// Remote players' copies (LAN teams 6..9) replay movement/fire events with their own
+	// AP arithmetic, which drifts from the owner's instance and desyncs interrupt-eligibility,
+	// host-AI-over-copy decisions and the end-of-turn auto-stop. Never spend AP on copies;
+	// the owner's value is reconciled in via the updatenetworksoldier RPC (UpdateSoldierFromNetwork).
+	if ( !( is_networked && pSoldier->bTeam >= LAN_TEAM_ONE ) )
+	{
+		pSoldier->bActionPoints = sNewAP;
+	}
 
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Deduct Points (%d at %d) %d %d", pSoldier->ubID, pSoldier->sGridNo, sAPCost, iBPCost	) );
 
@@ -928,7 +946,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		// Snap: award some health and strength for exertion
 		// Do 4 StatChange rolls for health (2 for strength) per 10 breath points spent?
 		// NB: The scale of iBPCost is 100 per breath point (APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL])
-		if ( PTR_OURTEAM && iBPCost >= APBPConstants[BP_MOVEMENT_GRASS] && ubInterruptType != DISABLED_INTERRUPT
+		if ( !is_networked && PTR_OURTEAM && iBPCost >= APBPConstants[BP_MOVEMENT_GRASS] && ubInterruptType != DISABLED_INTERRUPT
 			&& (INT32) PreRandom( 10 * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL] ) < iBPCost )
 		{
 			StatChange(pSoldier, HEALTHAMT, 4, FALSE);
