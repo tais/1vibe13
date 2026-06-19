@@ -931,8 +931,11 @@ BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 	switch( hSrcVObject->ubBitDepth )
 	{
 			case 32:
-				sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
-				SGP_THROW_IFFALSE(usIndex < hSrcVObject->usNumberOf16BPPObjects, errorText);
+				if ( !(usIndex < hSrcVObject->usNumberOf16BPPObjects) )
+				{
+					sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
+					SGP_THROW(errorText);
+				}
 				image = &hSrcVObject->p16BPPObject[usIndex];
 				Blt32BPPTo16BPPTrans( pBuffer, uiDestPitchBYTES, 
 					(UINT32*)image->p16BPPData, image->usWidth * sizeof(UINT32),
@@ -941,8 +944,11 @@ BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 				break;
 
 			case 16:
-				sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
-				SGP_THROW_IFFALSE(usIndex < hSrcVObject->usNumberOf16BPPObjects, errorText);
+				if ( !(usIndex < hSrcVObject->usNumberOf16BPPObjects) )
+				{
+					sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
+					SGP_THROW(errorText);
+				}
 				image = &hSrcVObject->p16BPPObject[usIndex];
 				if ( fBltFlags & VO_BLT_SRCTRANSPARENCY	)
 				{
@@ -965,8 +971,11 @@ BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 				break;
 
 			case 8:
-				sprintf(errorText, "Video object index is larger than the number of sub images. Filename: %s", hSrcVObject->ImageFile);
-				SGP_THROW_IFFALSE( hSrcVObject->usNumberOfObjects > usIndex, errorText);
+				if ( !(hSrcVObject->usNumberOfObjects > usIndex) )
+				{
+					sprintf(errorText, "Video object index is larger than the number of sub images. Filename: %s", hSrcVObject->ImageFile);
+					SGP_THROW(errorText);
+				}
 				// Switch based on flags given
 				do
 				{
