@@ -489,6 +489,29 @@ static INT32  gCursorSaveX0 = 0, gCursorSaveY0 = 0;
 static INT32  gCursorSaveX1 = 0, gCursorSaveY1 = 0;
 static INT32  gCursorStampDstX = 0, gCursorStampDstY = 0;
 
+// On-screen bounding box of the cursor stamped LAST frame (framebuffer
+// pixels; empty when L>=R). Retained so the partial-upload path can
+// re-upload where the previous cursor used to be -- otherwise, on a
+// static screen that doesn't invalidate that region, the old cursor
+// pixels are restored in the framebuffer but never re-uploaded to the
+// texture and the stale cursor lingers (a trail).
+static INT32 gPrevCursorL = 0, gPrevCursorT = 0, gPrevCursorR = 0, gPrevCursorB = 0;
+
+// On-screen box of the cursor stamped THIS frame, in framebuffer pixels.
+// Empty (L>=R) when no cursor was stamped. Reads the region recorded by
+// CompositeCursorOntoFramebuffer(); must be called after it.
+static void CurrentCursorBox(INT32* L, INT32* T, INT32* R, INT32* B)
+{
+	if (gCursorSaveX0 >= gCursorSaveX1 || gCursorSaveY0 >= gCursorSaveY1) {
+		*L = *T = *R = *B = 0;  // empty
+		return;
+	}
+	*L = gCursorStampDstX + gCursorSaveX0;
+	*T = gCursorStampDstY + gCursorSaveY0;
+	*R = gCursorStampDstX + gCursorSaveX1;
+	*B = gCursorStampDstY + gCursorSaveY1;
+}
+
 // Stamp gMouseBuf onto gFrameBuffer at the current mouse position using
 // 0x0000 as the transparency key. Records the affected region so
 // RestoreCursorPixels() can undo the write right after the SDL upload.
@@ -589,14 +612,88 @@ void RefreshScreen(void* /*dummy*/)
 
 	if (gRefreshOverride) gRefreshOverride();
 
+	// Snapshot the game-drawn dirty rect BEFORE the cursor stamp expands
+	// the framebuffer -- the stamp writes outside the engine's invalidated
+	// region and must be folded in explicitly (below), not via the dirty
+	// rect (which is the engine's source of truth for changed game pixels).
+	INT32 upL = gDirtyL, upT = gDirtyT, upR = gDirtyR, upB = gDirtyB;
+
 	// Stamp -> upload -> un-stamp. The texture sees the cursor; the
 	// framebuffer ends up unchanged so non-tactical screens don't get
 	// a cursor trail across frames.
 	CompositeCursorOntoFramebuffer();
 
-	SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
-	                  SCREEN_WIDTH * sizeof(PIXEL));
+	// Upload only the changed sub-rect to the streaming texture instead of
+	// the whole 640x480x4 framebuffer every present. SDL_RenderTexture
+	// below still draws the entire texture, so on-screen output is
+	// byte-identical -- the texture simply retains untouched pixels from
+	// the previous upload.
+	//
+	// The uploaded rect is the UNION of:
+	//   - the engine's accumulated dirty rect (game-drawn changes),
+	//   - this frame's cursor box (newly stamped pixels), and
+	//   - last frame's cursor box (where the cursor was -- those pixels
+	//     get restored in the framebuffer after upload, but the texture
+	//     still shows the old cursor unless we re-upload that region).
+	// Fall back to a full upload when the union is empty/invalid or
+	// already spans the whole screen (e.g. DirtyFullScreen /
+	// InvalidateScreen fired, which set the dirty rect to the full frame).
+	// When in doubt, upload more (full) rather than risk an artifact.
+	{
+		INT32 curL, curT, curR, curB;
+		CurrentCursorBox(&curL, &curT, &curR, &curB);
+
+		// Fold this frame's cursor box into the upload rect.
+		if (curL < curR && curT < curB) {
+			if (upL >= upR || upT >= upB) {
+				upL = curL; upT = curT; upR = curR; upB = curB;
+			} else {
+				if (curL < upL) upL = curL;
+				if (curT < upT) upT = curT;
+				if (curR > upR) upR = curR;
+				if (curB > upB) upB = curB;
+			}
+		}
+		// Fold last frame's cursor box (re-upload where it used to be).
+		if (gPrevCursorL < gPrevCursorR && gPrevCursorT < gPrevCursorB) {
+			if (upL >= upR || upT >= upB) {
+				upL = gPrevCursorL; upT = gPrevCursorT;
+				upR = gPrevCursorR; upB = gPrevCursorB;
+			} else {
+				if (gPrevCursorL < upL) upL = gPrevCursorL;
+				if (gPrevCursorT < upT) upT = gPrevCursorT;
+				if (gPrevCursorR > upR) upR = gPrevCursorR;
+				if (gPrevCursorB > upB) upB = gPrevCursorB;
+			}
+		}
+
+		// Clamp to the framebuffer bounds [0,W)x[0,H).
+		if (upL < 0) upL = 0;
+		if (upT < 0) upT = 0;
+		if (upR > (INT32)SCREEN_WIDTH)  upR = SCREEN_WIDTH;
+		if (upB > (INT32)SCREEN_HEIGHT) upB = SCREEN_HEIGHT;
+
+		const bool fullOrEmpty =
+			(upL >= upR || upT >= upB) ||
+			(upL <= 0 && upT <= 0 &&
+			 upR >= (INT32)SCREEN_WIDTH && upB >= (INT32)SCREEN_HEIGHT);
+
+		if (fullOrEmpty) {
+			SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
+			                  SCREEN_WIDTH * sizeof(PIXEL));
+		} else {
+			const SDL_Rect r = { upL, upT, upR - upL, upB - upT };
+			// Offset the source pointer to the rect's top-left; pitch
+			// stays the full framebuffer row stride so SDL walks each
+			// uploaded row correctly.
+			const PIXEL* src = gFrameBuffer + (size_t)upT * SCREEN_WIDTH + upL;
+			SDL_UpdateTexture(gFrameTex, &r, src, SCREEN_WIDTH * sizeof(PIXEL));
+		}
+	}
 	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;
+
+	// Remember this frame's cursor box for next frame's partial upload.
+	CurrentCursorBox(&gPrevCursorL, &gPrevCursorT, &gPrevCursorR, &gPrevCursorB);
 
 	RestoreCursorPixels();
 
