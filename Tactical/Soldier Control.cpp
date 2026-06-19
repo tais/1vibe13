@@ -4307,7 +4307,9 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	}
 
 	// Set new animation profile
-	this->HandleAnimationProfile( usNewState, FALSE );
+	// SetSoldierAnimationSurface (above) already computed and stashed the surface for usNewState in
+	// this->usAnimSurface; reuse it instead of recomputing DetermineSoldierAnimationSurface here.
+	this->HandleAnimationProfile( usNewState, this->usAnimSurface, FALSE );
 
 	// Reset some animation values
 	this->flags.fForceShade = FALSE;
@@ -8029,18 +8031,10 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 // UTILITY FUNCTIONS CALLED BY OVERHEAD.H
 UINT8		gDirectionFrom8to2[] = {0, 0, 1, 1, 0, 1, 1, 0};
 
-// Flugente: frozen soldiers do not move. We simulate this by using fixed animation frames, which we determine here
-UINT16 SOLDIERTYPE::CryoAniFrame()
+// Convert this soldier's world direction into the sprite direction for the given animation surface.
+// Shared by CryoAniFrame and ConvertAniCodeToAniFrame (was copy-pasted in both).
+UINT8 SOLDIERTYPE::SpriteDirForSurface( UINT16 usAnimSurface )
 {
-	// get anim surface and determine # of frames
-	UINT16 usAnimSurface = GetSoldierAnimationSurface( this, this->usAnimState );
-	
-	//If we are only one frame, ignore what the script is telling us!
-	if ( usAnimSurface == INVALID_ANIMATION_SURFACE || gAnimSurfaceDatabase[usAnimSurface].hVideoObject == NULL || gAnimSurfaceDatabase[usAnimSurface].ubFlags & ANIM_DATA_FLAG_NOFRAMES )
-	{
-		return 0;
-	}
-
 	// COnvert world direction into sprite direction
 	UINT8 ubTempDir = gOneCDirection[this->ubDirection];
 
@@ -8079,6 +8073,24 @@ UINT16 SOLDIERTYPE::CryoAniFrame()
 		ubTempDir = gDirectionFrom8to2[this->ubDirection];
 	}
 
+	return ubTempDir;
+}
+
+// Flugente: frozen soldiers do not move. We simulate this by using fixed animation frames, which we determine here
+UINT16 SOLDIERTYPE::CryoAniFrame()
+{
+	// get anim surface and determine # of frames
+	UINT16 usAnimSurface = GetSoldierAnimationSurface( this, this->usAnimState );
+	
+	//If we are only one frame, ignore what the script is telling us!
+	if ( usAnimSurface == INVALID_ANIMATION_SURFACE || gAnimSurfaceDatabase[usAnimSurface].hVideoObject == NULL || gAnimSurfaceDatabase[usAnimSurface].ubFlags & ANIM_DATA_FLAG_NOFRAMES )
+	{
+		return 0;
+	}
+
+	// COnvert world direction into sprite direction
+	UINT8 ubTempDir = SpriteDirForSurface( usAnimSurface );
+
 	UINT16 cryoframe = 0;
 
 	UINT16 newframe = cryoframe + (UINT16)((gAnimSurfaceDatabase[usAnimSurface].uiNumFramesPerDir * ubTempDir));
@@ -8102,49 +8114,14 @@ BOOLEAN SOLDIERTYPE::ConvertAniCodeToAniFrame( UINT16 usAniFrame )
 
 	CHECKF( usAnimSurface != INVALID_ANIMATION_SURFACE );
 
-	// COnvert world direction into sprite direction
-	ubTempDir = gOneCDirection[this->ubDirection];
-
 	//If we are only one frame, ignore what the script is telling us!
 	if ( gAnimSurfaceDatabase[usAnimSurface].ubFlags & ANIM_DATA_FLAG_NOFRAMES )
 	{
 		usAniFrame = 0;
 	}
 
-	if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 32 )
-	{
-		ubTempDir = gExtOneCDirection[this->ubHiResDirection];
-	}
-	// Check # of directions /surface, adjust if ness.
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 4 )
-	{
-		ubTempDir = ubTempDir / 2;
-	}
-	// Check # of directions /surface, adjust if ness.
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 1 )
-	{
-		ubTempDir = 0;
-	}
-	// Check # of directions /surface, adjust if ness.
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 3 )
-	{
-		if ( this->ubDirection == NORTHWEST )
-		{
-			ubTempDir = 1;
-		}
-		else if ( this->ubDirection == WEST )
-		{
-			ubTempDir = 0;
-		}
-		else if ( this->ubDirection == EAST )
-		{
-			ubTempDir = 2;
-		}
-	}
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 2 )
-	{
-		ubTempDir = gDirectionFrom8to2[this->ubDirection];
-	}
+	// COnvert world direction into sprite direction
+	ubTempDir = SpriteDirForSurface( usAnimSurface );
 
 	this->usAniFrame = usAniFrame + (UINT16)((gAnimSurfaceDatabase[usAnimSurface].uiNumFramesPerDir * ubTempDir));
 
@@ -12312,6 +12289,17 @@ void SOLDIERTYPE::ReviveSoldier( void )
 
 void SOLDIERTYPE::HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove )
 {
+	// ATE
+
+	// Get Surface Index
+	UINT16 usAnimSurface = DetermineSoldierAnimationSurface( this, usAnimState );
+
+	this->HandleAnimationProfile( usAnimState, usAnimSurface, fRemove );
+}
+
+
+void SOLDIERTYPE::HandleAnimationProfile( UINT16	usAnimState, UINT16 usAnimSurface, BOOLEAN fRemove )
+{
 	//#if 0
 	ANIM_PROF					*pProfile;
 	ANIM_PROF_DIR			*pProfileDir;
@@ -12319,12 +12307,6 @@ void SOLDIERTYPE::HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove )
 	INT8							bProfileID;
 	UINT32						iTileCount;
 	INT32 sGridNo;
-	UINT16						usAnimSurface;
-
-	// ATE
-
-	// Get Surface Index
-	usAnimSurface = DetermineSoldierAnimationSurface( this, usAnimState );
 
 	CHECKV( usAnimSurface != INVALID_ANIMATION_SURFACE );
 

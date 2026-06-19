@@ -501,7 +501,6 @@ BOOLEAN AddLandToHead( INT32 iMapIndex, UINT16 usIndex )
 {
 	LEVELNODE	*pLand		= NULL;
 	LEVELNODE	*pNextLand		= NULL;
-	TILE_ELEMENT							TileElem;
 
 	pLand = gpWorldLevelData[ iMapIndex ].pLandHead;
 
@@ -515,11 +514,8 @@ BOOLEAN AddLandToHead( INT32 iMapIndex, UINT16 usIndex )
 
 	if ( usIndex < giNumberOfTiles )
 	{
-		// Get tile element
-		TileElem = gTileDatabase[ usIndex ];
-
 		// Check for full tile
-		if ( TileElem.ubFullTile )
+		if ( gTileDatabase[ usIndex ].ubFullTile )
 		{
 			gpWorldLevelData[ iMapIndex ].pLandStart = pNextLand;
 		}
@@ -607,7 +603,6 @@ BOOLEAN AdjustForFullTile( INT32 iMapIndex )
 {
 	LEVELNODE			*pLand		 = NULL;
 	LEVELNODE			*pOldLand	 = NULL;
-	TILE_ELEMENT		TileElem;
 //	UINT32 iType;
 //	UINT16 iNewIndex;
 
@@ -620,10 +615,8 @@ BOOLEAN AdjustForFullTile( INT32 iMapIndex )
 		if ( pLand->usIndex < giNumberOfTiles )
 		{
 			// If this is a full tile, set new full tile
-			TileElem = gTileDatabase[ pLand->usIndex ];
-
 			// Check for full tile
-			if ( TileElem.ubFullTile )
+			if ( gTileDatabase[ pLand->usIndex ].ubFullTile )
 			{
 				gpWorldLevelData[ iMapIndex ].pLandStart = pLand;
 				return( TRUE );
