@@ -441,10 +441,18 @@ typedef struct SoldierID
 	SoldierID( const INT8 ) = delete;
 
 	
-	SOLDIERTYPE* operator->() { return MercPtrs[i]; }
-	const SOLDIERTYPE* operator->() const { return MercPtrs[i]; }
-	inline operator SOLDIERTYPE* () { return MercPtrs[i]; }
-	inline operator const SOLDIERTYPE*() const { return MercPtrs[i]; }
+	// The clamping ctors above pin every out-of-range value (and the
+	// sentinel NOBODY) to TOTAL_SOLDIERS, which is one past the end of the
+	// TOTAL_SOLDIERS-sized MercPtrs[] array. A bare MercPtrs[i] would then be
+	// an out-of-bounds read whose result happened to look NULL only because
+	// of post-init memory layout -- and wire ids arriving via memcpy never run
+	// any ctor at all, so i can be a fully attacker-controlled 0..65535.
+	// Returning NULL for i >= TOTAL_SOLDIERS makes the lookup sound for every
+	// possible i, so every existing "pSoldier == NULL" guard becomes reliable.
+	SOLDIERTYPE* operator->() { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
+	const SOLDIERTYPE* operator->() const { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
+	inline operator SOLDIERTYPE* () { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
+	inline operator const SOLDIERTYPE*() const { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
 	inline SoldierID &operator++()
 	{
 		i++;
