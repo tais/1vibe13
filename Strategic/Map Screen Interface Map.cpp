@@ -607,6 +607,104 @@ void SetSelectedDestChar( INT16 aVal )
 	gSquadEncumbranceCheckNecessary = true;
 }
 
+// Per-sector militia/enemy bucket for the map redraw.
+//
+// The map redraw used to call MilitiaInSectorOfRank (per sector x rank) and
+// NumNonPlayerTeamMembersInSector (per sector) over and over, each of which
+// walks the entire gpGroupList. That produced ~1500 full group-list traversals
+// per DrawMap. Instead we do ONE pass over gpGroupList here, bucketing the exact
+// same per-sector contributions, and the redraw reads the bucket.
+//
+// Each stored value reproduces, byte-for-byte, what the corresponding helper
+// would have returned for that sector: the SectorInfo stationary part (an O(1)
+// array read) plus the group-list-walk part. Integer addition is order-
+// independent, so the bucketed sums are identical to the per-call sums.
+struct MapSectorForceBucket
+{
+	// MilitiaInSectorOfRank( x, y, rank ) for rank 0/1/2 (GREEN/REGULAR/ELITE):
+	//   MilitiaInSectorOfRankStationary (SectorInfo) + MilitiaInSectorOfRankInGroups (group walk).
+	UINT16	usMilitiaOfRank[MAX_MILITIA_LEVELS];
+	// NumNonPlayerTeamMembersInSector( x, y, MILITIA_TEAM ).
+	UINT16	usMilitiaTeamMembers;
+	// NumNonPlayerTeamMembersInSector( x, y, ENEMY_TEAM ).
+	UINT16	usEnemyTeamMembers;
+	// TRUE if a moving (non-vehicle) MILITIA_TEAM group occupies this sector
+	// (the explicit group walk in HandleShowingOfEnemyForcesInSector).
+	BOOLEAN	fMilitiaGroupPresent;
+};
+
+static MapSectorForceBucket gMapSectorForceBucket[256];
+
+// Rebuild gMapSectorForceBucket from current SectorInfo + gpGroupList state.
+// Called once at the top of DrawMap, matching the cadence at which the originals
+// recomputed (every redraw).
+static void RebuildMapSectorForceBucket( void )
+{
+	// stationary (SectorInfo) part - O(1) per sector, replicates the *Stationary
+	// helpers and the SectorInfo addends of NumNonPlayerTeamMembersInSector
+	for ( INT16 sX = MINIMUM_VALID_X_COORDINATE; sX <= MAXIMUM_VALID_X_COORDINATE; ++sX )
+	{
+		for ( INT16 sY = MINIMUM_VALID_Y_COORDINATE; sY <= MAXIMUM_VALID_Y_COORDINATE; ++sY )
+		{
+			const UINT8 ubSector = SECTOR( sX, sY );
+			const SECTORINFO *const pSector = &SectorInfo[ubSector];
+			MapSectorForceBucket *const pBucket = &gMapSectorForceBucket[ubSector];
+
+			// MilitiaInSectorOfRankStationary: SectorInfo[..].ubNumberOfCivsAtLevel[rank]
+			pBucket->usMilitiaOfRank[GREEN_MILITIA]   = pSector->ubNumberOfCivsAtLevel[GREEN_MILITIA];
+			pBucket->usMilitiaOfRank[REGULAR_MILITIA] = pSector->ubNumberOfCivsAtLevel[REGULAR_MILITIA];
+			pBucket->usMilitiaOfRank[ELITE_MILITIA]   = pSector->ubNumberOfCivsAtLevel[ELITE_MILITIA];
+
+			// NumNonPlayerTeamMembersInSector( MILITIA_TEAM ): civs-at-level sum
+			pBucket->usMilitiaTeamMembers = pSector->ubNumberOfCivsAtLevel[0] + pSector->ubNumberOfCivsAtLevel[1] + pSector->ubNumberOfCivsAtLevel[2];
+
+			// NumNonPlayerTeamMembersInSector( ENEMY_TEAM ): admins+troops+elites+robots+jeeps+tanks (+LAN)
+			pBucket->usEnemyTeamMembers = pSector->ubNumAdmins + pSector->ubNumTroops + pSector->ubNumElites + pSector->ubNumRobots + pSector->ubNumJeeps + pSector->ubNumTanks;
+			if ( is_networked )
+				pBucket->usEnemyTeamMembers += numenemyLAN( (UINT8)sX, (UINT8)sY );
+
+			pBucket->fMilitiaGroupPresent = FALSE;
+		}
+	}
+
+	// group-list-walk part - ONE pass, bucketed by sector with the exact
+	// predicates the originals used.
+	GROUP *pGroup = gpGroupList;
+	while ( pGroup )
+	{
+		// SECTOR() asserts 1..16; movement groups can be parked in valid sectors
+		// only, but guard the index defensively so a stray coordinate can't write
+		// out of bounds (the originals matched only against valid loop sectors).
+		if ( pGroup->ubSectorX >= MINIMUM_VALID_X_COORDINATE && pGroup->ubSectorX <= MAXIMUM_VALID_X_COORDINATE &&
+			 pGroup->ubSectorY >= MINIMUM_VALID_Y_COORDINATE && pGroup->ubSectorY <= MAXIMUM_VALID_Y_COORDINATE )
+		{
+			MapSectorForceBucket *const pBucket = &gMapSectorForceBucket[ SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ) ];
+
+			if ( pGroup->usGroupTeam == MILITIA_TEAM )
+			{
+				// MilitiaInSectorOfRankInGroups: no fVehicle filter, adds pEnemyGroup ranks
+				pBucket->usMilitiaOfRank[GREEN_MILITIA]   += pGroup->pEnemyGroup->ubNumAdmins;
+				pBucket->usMilitiaOfRank[REGULAR_MILITIA] += pGroup->pEnemyGroup->ubNumTroops;
+				pBucket->usMilitiaOfRank[ELITE_MILITIA]   += pGroup->pEnemyGroup->ubNumElites;
+
+				// NumNonPlayerTeamMembersInSector / the explicit moving-group walk:
+				// both require !fVehicle
+				if ( !pGroup->fVehicle )
+				{
+					pBucket->usMilitiaTeamMembers += pGroup->ubGroupSize;
+					pBucket->fMilitiaGroupPresent = TRUE;
+				}
+			}
+			else if ( pGroup->usGroupTeam == ENEMY_TEAM && !pGroup->fVehicle )
+			{
+				// NumNonPlayerTeamMembersInSector( ENEMY_TEAM ): adds group size
+				pBucket->usEnemyTeamMembers += pGroup->ubGroupSize;
+			}
+		}
+		pGroup = pGroup->next;
+	}
+}
+
 //--------------Legion 2----Jazz-----------
 
 void DrawIconL(INT32 MAP_GRID_X2, INT32 MAP_GRID_Y2, INT32 i )
@@ -696,11 +794,12 @@ void HandleShowingOfEnemiesWithMilitiaOn( void )
 	{
 		for ( INT16 sY = 1; sY < (MAP_WORLD_Y - 1); ++sY )
 		{
-			// get number of each
-			iNumberOfGreens = MilitiaInSectorOfRank( sX, sY, GREEN_MILITIA );
-			iNumberOfRegulars = MilitiaInSectorOfRank( sX, sY, REGULAR_MILITIA );
-			iNumberOfElites = MilitiaInSectorOfRank( sX, sY, ELITE_MILITIA );
-			
+			// get number of each (from the per-sector bucket rebuilt at the top of DrawMap)
+			const MapSectorForceBucket *const pBucket = &gMapSectorForceBucket[ SECTOR( sX, sY ) ];
+			iNumberOfGreens = pBucket->usMilitiaOfRank[GREEN_MILITIA];
+			iNumberOfRegulars = pBucket->usMilitiaOfRank[REGULAR_MILITIA];
+			iNumberOfElites = pBucket->usMilitiaOfRank[ELITE_MILITIA];
+
 			// militia icons drawn
 			iTotalNumberOfIcons = iNumberOfGreens / 10 + iNumberOfGreens % 10 + iNumberOfRegulars / 10 + iNumberOfRegulars % 10
 				+ iNumberOfElites / 10 + iNumberOfElites % 10;
@@ -982,6 +1081,12 @@ void fillMapColoursForSamSiteAirSpace( INT32( &colorMap )[ MAXIMUM_VALID_Y_COORD
 
 UINT32 DrawMap(void)
 {
+	// Rebuild the per-sector militia/enemy bucket once for this redraw. The
+	// militia/enemy icon passes below (DrawTownMilitiaForcesOnMap,
+	// HandleShowingOfEnemiesWithMilitiaOn, HandleShowingOfEnemyForcesInSector)
+	// read it instead of re-walking gpGroupList per sector x rank.
+	RebuildMapSectorForceBucket();
+
 	MapScreenRect.iLeft = UI_MAP.ViewRegion.x + UI_MAP.GridSize.iX - 2;
 	MapScreenRect.iTop = UI_MAP.ViewRegion.y + UI_MAP.GridSize.iY - 1;
 	MapScreenRect.iRight = UI_MAP.ViewRegion.x + UI_MAP.ViewRegion.width - 1 + UI_MAP.GridSize.iX;
@@ -6524,10 +6629,11 @@ void DrawTownMilitiaForcesOnMap( void )
 		{
 			ubIconPosition = 0;
 
-			// get number of each
-			iNumberOfGreens = MilitiaInSectorOfRank( sSectorX, sSectorY, GREEN_MILITIA );
-			iNumberOfRegulars = MilitiaInSectorOfRank( sSectorX, sSectorY, REGULAR_MILITIA );
-			iNumberOfElites = MilitiaInSectorOfRank( sSectorX, sSectorY, ELITE_MILITIA );
+			// get number of each (from the per-sector bucket rebuilt at the top of DrawMap)
+			const MapSectorForceBucket *const pBucket = &gMapSectorForceBucket[ SECTOR( sSectorX, sSectorY ) ];
+			iNumberOfGreens = pBucket->usMilitiaOfRank[GREEN_MILITIA];
+			iNumberOfRegulars = pBucket->usMilitiaOfRank[REGULAR_MILITIA];
+			iNumberOfElites = pBucket->usMilitiaOfRank[ELITE_MILITIA];
 
 			// get number of icons of each
 			ub10xGreen = iNumberOfGreens / 10;
@@ -7015,9 +7121,16 @@ void HandleShowingOfEnemyForcesInSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 	{
 		return;
 	}
-	
+
+	// Read the per-sector bucket rebuilt at the top of DrawMap (replaces the
+	// repeated full gpGroupList walks below). Out-of-range coords contribute
+	// nothing, exactly as NumNonPlayerTeamMembersInSector returns 0 for them.
+	const BOOLEAN fValidSector = ( sSectorX >= MINIMUM_VALID_X_COORDINATE && sSectorX <= MAXIMUM_VALID_X_COORDINATE &&
+								   sSectorY >= MINIMUM_VALID_Y_COORDINATE && sSectorY <= MAXIMUM_VALID_Y_COORDINATE );
+	const MapSectorForceBucket *const pBucket = fValidSector ? &gMapSectorForceBucket[ SECTOR( sSectorX, sSectorY ) ] : NULL;
+
 	// Flugente: show militia in motion
-	if ( NumNonPlayerTeamMembersInSector( sSectorX, sSectorY, MILITIA_TEAM ) )
+	if ( pBucket && pBucket->usMilitiaTeamMembers )
 	{
 		ShowMilitiaInMotion( sSectorX, sSectorY );
 
@@ -7026,20 +7139,13 @@ void HandleShowingOfEnemyForcesInSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 	}
 
 	// Flugente: show moving militia groups
-	GROUP* pGroup = gpGroupList;
-	while ( pGroup )
+	if ( pBucket && pBucket->fMilitiaGroupPresent )
 	{
-		if ( pGroup->usGroupTeam == MILITIA_TEAM && !pGroup->fVehicle && pGroup->ubSectorX == sSectorX && pGroup->ubSectorY == sSectorY )
-		{
-			ShowNonPlayerGroupsInMotion( sSectorX, sSectorY, MILITIA_TEAM );
-
-			break;
-		}
-		pGroup = pGroup->next;
+		ShowNonPlayerGroupsInMotion( sSectorX, sSectorY, MILITIA_TEAM );
 	}
 
 	// get total number of badguys here
-	sNumberOfEnemies = NumNonPlayerTeamMembersInSector( sSectorX, sSectorY, ENEMY_TEAM );
+	sNumberOfEnemies = pBucket ? pBucket->usEnemyTeamMembers : 0;
 
 	if ( sNumberOfEnemies )
 	{
