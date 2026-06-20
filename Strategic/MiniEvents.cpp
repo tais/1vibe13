@@ -546,7 +546,7 @@ namespace MiniEventHelpers
 					SpendVehicleFuel(vehicle, -(100*val));
 
 					lua_pushboolean(LS, true);
-					MERCPROFILESTRUCT mps = gMercProfiles[vehicle->ubProfile];
+					const MERCPROFILESTRUCT& mps = gMercProfiles[vehicle->ubProfile];
 					CHAR8 nickname[50];
 					sprintf(nickname, "%ls", mps.zNickname);
 					lua_pushstring(LS, nickname);
@@ -596,7 +596,7 @@ namespace MiniEventHelpers
 					vehicle->stats.bLife = max(min(vehicle->stats.bLife, 100), 0);
 
 					lua_pushboolean(LS, true);
-					MERCPROFILESTRUCT mps = gMercProfiles[vehicle->ubProfile];
+					const MERCPROFILESTRUCT& mps = gMercProfiles[vehicle->ubProfile];
 					CHAR8 nickname[50];
 					sprintf(nickname, "%ls", mps.zNickname);
 					lua_pushstring(LS, nickname);
@@ -892,7 +892,7 @@ namespace MiniEventHelpers
 		{
 			const UINT8 index = Random(foundMercs.size());
 
-			MERCPROFILESTRUCT merc = gMercProfiles[foundMercs[index]->ubProfile];
+			const MERCPROFILESTRUCT& merc = gMercProfiles[foundMercs[index]->ubProfile];
 			CHAR8 nickname[50];
 			sprintf(nickname, "%ls", merc.zNickname);
 			lua_pushboolean(LS, true);
@@ -933,7 +933,7 @@ namespace MiniEventHelpers
 		{
 			for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 			{
-				MERCPROFILESTRUCT merc = gMercProfiles[(*iter)->ubProfile];
+				const MERCPROFILESTRUCT& merc = gMercProfiles[(*iter)->ubProfile];
 				if (searchAllMercs || (*iter)->ubProfile == profileId)
 				{
 					for (int i = 0; i < sizeof(merc.bSkillTraits) / sizeof(merc.bSkillTraits[0]); ++i)
@@ -960,7 +960,7 @@ namespace MiniEventHelpers
 		{
 			const UINT8 index = Random(foundMercs.size());
 
-			MERCPROFILESTRUCT merc = gMercProfiles[foundMercs[index]->ubProfile];
+			const MERCPROFILESTRUCT& merc = gMercProfiles[foundMercs[index]->ubProfile];
 			CHAR8 nickname[50];
 			sprintf(nickname, "%ls", merc.zNickname);
 			lua_pushboolean(LS, true);

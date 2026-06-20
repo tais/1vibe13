@@ -1042,7 +1042,7 @@ attachmentList::iterator StackedObjectData::RemoveAttachmentAtIter(attachmentLis
 	}
 }
 
-BOOLEAN StackedObjectData::AddAttachmentAtIndex(UINT8 index, OBJECTTYPE Attachment)
+BOOLEAN StackedObjectData::AddAttachmentAtIndex(UINT8 index, const OBJECTTYPE& Attachment)
 {
 	AssertMsg(UsingNewAttachmentSystem()==true, "Cannot use the AddAttachmentAtIndex function without NAS");
 

@@ -1202,13 +1202,6 @@ BOOLEAN ExecuteOverhead( )
                 }
 
 
-                // Check if we need to reposition light....
-                if ( pSoldier->flags.uiStatusFlags & SOLDIER_RECHECKLIGHT )
-                {
-                    pSoldier->PositionSoldierLight( );
-                    pSoldier->flags.uiStatusFlags &= (~SOLDIER_RECHECKLIGHT);
-                }
-
                 RESETTIMECOUNTER( pSoldier->timeCounters.UpdateCounter, pSoldier->sAniDelay );
 
                 fNoAPsForPendingAction = FALSE;
