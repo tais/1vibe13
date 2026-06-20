@@ -1707,6 +1707,8 @@ public:
 	// Flugente: frozen soldiers do not move. We simulate this by using fixed animation frames, which we determine here 
 	UINT16 CryoAniFrame();
 	BOOLEAN ConvertAniCodeToAniFrame( UINT16 usAniFrame );
+	// Convert this soldier's world direction into the sprite direction for the given animation surface
+	UINT8 SpriteDirForSurface( UINT16 usAnimSurface );
 	void TurnSoldier( void );
 	void ChangeSoldierStance( UINT8 ubDesiredStance );
 	void StopSoldier( void );
@@ -1783,6 +1785,8 @@ public:
 	void BeginSoldierClimbWallUp( void  ); 
 	
 	void HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove );
+	// Overload taking the already-computed animation surface (avoids recomputing DetermineSoldierAnimationSurface)
+	void HandleAnimationProfile( UINT16	usAnimState, UINT16 usAnimSurface, BOOLEAN fRemove );
 	void HandleSoldierTakeDamageFeedback( void );
 	void ChangeToFlybackAnimation( UINT8 flyBackDirection );
 	void ChangeToFallbackAnimation( UINT8 fallBackDirection );
