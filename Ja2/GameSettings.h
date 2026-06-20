@@ -329,8 +329,6 @@ typedef struct
 
 } GAME_OPTIONS;
 
-bool UsingNewInventorySystem();
-bool UsingNewAttachmentSystem();
 bool UsingNewCTHSystem();
 BOOLEAN UsingFoodSystem();
 BOOLEAN UsingBackGroundSystem();
@@ -2754,6 +2752,18 @@ extern GAME_SETTINGS		gGameSettings;
 
 //This structure will contain the Game options set at the beginning of the game.
 extern GAME_OPTIONS		gGameOptions;
+
+// these wrappers have the benefit that changing the location of the variable (gameinitoptionscreen/ini/ingame options) doesn't require huge changes throughout the code
+// additionally, turning off a feature (for UB, for MP...) can be done here without additional checks in the code
+inline bool UsingNewInventorySystem()
+{
+	return (gGameOptions.ubInventorySystem == INVENTORY_NEW);
+}
+
+inline bool UsingNewAttachmentSystem()
+{
+	return (gGameOptions.ubAttachmentSystem == ATTACHMENT_NEW);
+}
 
 // Snap: Options read from an INI file in the default of custom Data directory
 extern GAME_EXTERNAL_OPTIONS gGameExternalOptions; 

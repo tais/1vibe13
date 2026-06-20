@@ -1440,7 +1440,9 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 
 			if ( pSoldier->bTeam == CIV_TEAM )
 			{
-				iRoamRange = RoamingRange( pSoldier, &sOrigin );
+				// iRoamRange/sOrigin are loop-invariant here (RoamingRange depends only on
+				// pSoldier state, which doesn't change in this loop); reuse the values
+				// already computed above instead of recomputing per candidate tile
 				if ( PythSpacesAway( sOrigin, sGridNo ) > iRoamRange )
 				{
 					continue;

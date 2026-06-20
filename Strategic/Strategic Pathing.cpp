@@ -228,8 +228,6 @@ INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOO
 	//memset(trailCostB,255*PATHFACTOR,MAP_LENGTH);
 	memset(pathQB,0,sizeof(pathQB));
 
-	// FOLLOWING LINE COMMENTED OUT ON MARCH 7/97 BY IC
-	memset(gusMapPathingData,((UINT16)sStart), sizeof(gusMapPathingData));
 	trailStratTreedxB=0;
 
 	//set up common info
@@ -320,7 +318,7 @@ INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOO
 			{
 				if( iHelicopterVehicleId != -1 )
 				{
-					nextCost = GetTravelTimeForGroup( ( UINT8 ) ( SECTOR( ( curLoc%MAP_WORLD_X ), ( curLoc / MAP_WORLD_X ) ) ), ( UINT8 )( iCnt / 2 ), ( UINT8 )sMvtGroupNumber );
+					nextCost = GetSectorMvtTimeForGroup( ( UINT8 ) ( SECTOR( ( curLoc%MAP_WORLD_X ), ( curLoc / MAP_WORLD_X ) ) ), ( UINT8 )( iCnt / 2 ), pGroup );
 					if ( nextCost != 0xffffffff && sMvtGroupNumber == pVehicleList[ iHelicopterVehicleId].ubMovementGroup )
 					{
 						// is a heli, its pathing is determined not by time (it's always the same) but by total cost
@@ -337,7 +335,7 @@ INT32 FindStratPath(INT16 sStart, INT16 sDestination, INT16 sMvtGroupNumber, BOO
 				}
 				else
 				{
-					nextCost = GetTravelTimeForGroup( ( UINT8 ) ( SECTOR( ( curLoc%MAP_WORLD_X ), ( curLoc / MAP_WORLD_X ) ) ), ( UINT8 )( iCnt / 2 ), ( UINT8 )sMvtGroupNumber );
+					nextCost = GetSectorMvtTimeForGroup( ( UINT8 ) ( SECTOR( ( curLoc%MAP_WORLD_X ), ( curLoc / MAP_WORLD_X ) ) ), ( UINT8 )( iCnt / 2 ), pGroup );
 				}
 			}
 			else

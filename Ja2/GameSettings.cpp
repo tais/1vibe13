@@ -109,16 +109,7 @@ void		CDromEjectionErrorMessageBoxCallBack( UINT8 bExitValue );
 
 // these wrappers have the benefit that changing the location of the variable (gameinitoptionscreen/ini/ingame options) doesn't require huge changes throughout the code
 // additionally, turning off a feature (for UB, for MP...) can be done here without additional checks in the code
-bool UsingNewInventorySystem()
-{
-	return (gGameOptions.ubInventorySystem == INVENTORY_NEW);
-}
-
-bool UsingNewAttachmentSystem()
-{
-	return (gGameOptions.ubAttachmentSystem == ATTACHMENT_NEW);
-}
-
+// UsingNewInventorySystem() / UsingNewAttachmentSystem() are now inline in GameSettings.h
 bool UsingNewCTHSystem()
 {
 	// this feature is off in multiplayer
