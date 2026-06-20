@@ -1737,6 +1737,19 @@ BOOLEAN StructureDensity( STRUCTURE * pStructure, UINT8 * pubLevel0, UINT8 * pub
 	CHECKF( pubLevel1 );
 	CHECKF( pubLevel2 );
 	CHECKF( pubLevel3 );
+
+	// pShape is never mutated after load, so the density is a pure function of it; memoize the
+	// post-conversion percentages on the (immutable) structure exactly as StructureHeight memoizes
+	// ubStructureHeight. Densities can legitimately be 0, so a separate computed flag is the sentinel.
+	if (pStructure->fStructureDensityComputed)
+	{
+		*pubLevel0 = pStructure->ubStructureDensity[0];
+		*pubLevel1 = pStructure->ubStructureDensity[1];
+		*pubLevel2 = pStructure->ubStructureDensity[2];
+		*pubLevel3 = pStructure->ubStructureDensity[3];
+		return( TRUE );
+	}
+
 	*pubLevel0 = 0;
 	*pubLevel1 = 0;
 	*pubLevel2 = 0;
@@ -1773,6 +1786,12 @@ BOOLEAN StructureDensity( STRUCTURE * pStructure, UINT8 * pubLevel0, UINT8 * pub
 	*pubLevel1 *= 4;
 	*pubLevel2 *= 4;
 	*pubLevel3 *= 4;
+	// store the percentages so subsequent calls skip the full shape scan
+	pStructure->ubStructureDensity[0] = *pubLevel0;
+	pStructure->ubStructureDensity[1] = *pubLevel1;
+	pStructure->ubStructureDensity[2] = *pubLevel2;
+	pStructure->ubStructureDensity[3] = *pubLevel3;
+	pStructure->fStructureDensityComputed = TRUE;
 	return( TRUE );
 }
 

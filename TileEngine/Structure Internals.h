@@ -192,6 +192,8 @@ typedef struct TAG_STRUCTURE
 	UINT8 ubVehicleHitLocation;
 	UINT8 ubStructureHeight;// if 0, then unset; otherwise stores height of structure when last calculated
 	UINT8 ubDecalFlag;
+	UINT8 ubStructureDensity[4];// cached per-level density percentages (transient; valid only if fStructureDensityComputed)
+	BOOLEAN fStructureDensityComputed;// if FALSE, ubStructureDensity is unset (densities can legitimately be 0, so a separate flag is needed)
 }STRUCTURE;// 36 bytes
 
 typedef struct TAG_STRUCTURE_FILE_REF
