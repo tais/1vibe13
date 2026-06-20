@@ -1,13 +1,14 @@
 name: build
 
-# CMake/SDL3 compile-check on every platform we ship -- Linux, macOS,
-# Windows. English only for now (multi-language builds come later).
+# CMake/SDL3 compile-check on every platform we ship -- Linux (x64 +
+# arm64), macOS, Windows. English only for now (multi-language builds
+# come later).
 # Optimized Release builds (NDEBUG, asserts off, no debug symbols).
 #
 # The three shipped applications -- the main game (JA2_ENGLISH),
 # Unfinished Business (JA2UB_ENGLISH) and the map editor
 # (JA2MAPEDITOR_ENGLISH) -- each build in their own job, so the matrix
-# is the cross product of {application} x {platform} = 9 parallel jobs.
+# is the cross product of {application} x {platform} = 12 parallel jobs.
 # Each job re-builds the shared deps (SDL3, expat, lua, zlib, ...), but
 # running in parallel keeps wall-clock time down to a single variant
 # and isolates a failure to the exact application that broke.
@@ -35,9 +36,10 @@ jobs:
       matrix:
         application: [JA2, JA2UB, JA2MAPEDITOR]
         platform:
-          - { os: ubuntu-latest,  name: linux }
-          - { os: macos-latest,   name: macos }
-          - { os: windows-latest, name: windows }
+          - { os: ubuntu-latest,    name: linux }
+          - { os: ubuntu-24.04-arm, name: linux-arm64 }
+          - { os: macos-latest,     name: macos }
+          - { os: windows-latest,   name: windows }
     runs-on: ${{ matrix.platform.os }}
 
     # sccache caches compiled object files (SDL3, SDL3_mixer, opus, expat,
@@ -68,7 +70,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.6
 
       - name: Install Linux build deps
-        if: matrix.platform.name == 'linux'
+        if: startsWith(matrix.platform.name, 'linux')
         run: |
           set -eux
           sudo apt-get update
