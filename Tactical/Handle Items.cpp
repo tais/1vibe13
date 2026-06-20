@@ -4631,7 +4631,6 @@ void HandleFlashingItems( )
 {
 	UINT32 cnt;
 	ITEM_POOL		*pItemPool;
-	//LEVELNODE		*pObject;
 	ITEM_POOL_LOCATOR	*pLocator;
 	BOOLEAN			fDoLocator = FALSE;
 
@@ -4686,35 +4685,6 @@ void HandleFlashingItems( )
 					// UPDATE FLASH COLOR VALUE
 					pItemPool->bFlashColor--;
 
-					// Flugente: as someone commented out the changes to uiFlags, this part serves no purpose, so I'm commenting it out
-					/*if ( pItemPool->ubLevel == 0 )
-					{
-						pObject = gpWorldLevelData[ pItemPool->sGridNo ].pStructHead;
-					}
-					else
-					{
-						pObject = gpWorldLevelData[ pItemPool->sGridNo ].pOnRoofHead;
-					}
-
-					// LOOP THORUGH OBJECT LAYER
-					while( pObject != NULL )
-					{
-						if ( pObject->uiFlags & LEVELNODE_ITEM )
-						{
-							if ( pItemPool->bFlashColor == 1 )
-							{
-								//pObject->uiFlags &= (~LEVELNODE_DYNAMIC);
-								//pObject->uiFlags |= ( LEVELNODE_LASTDYNAMIC	);
-							}
-							else
-							{
-								//pObject->uiFlags |= LEVELNODE_DYNAMIC;
-							}
-
-						}
-
-						pObject = pObject->pNext;
-					}*/
 
 					if ( pItemPool->bFlashColor == 1 )
 					{

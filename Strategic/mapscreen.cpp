@@ -12074,28 +12074,6 @@ void TeamListContractRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 // marke strogg more mercs must add skipped mercs FIRSTmercTOdisplay
 	iValue = MSYS_GetRegionUserData( pRegion, 0 );
 
-#if 0
-	if( gCharactersList[ iValue ].fValid == TRUE && ValidSelectableCharForNextOrPrev(iValue + FIRSTmercTOdisplay))
-	{
-		if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
-		{
-			// select ONLY this dude
-			ChangeSelectedInfoChar( ( INT8 ) iValue + FIRSTmercTOdisplay, TRUE );
-
-			// reset character
-			giDestHighLine = -1;
-			bSelectedAssignChar = -1;
-			SetSelectedDestChar( -1 );
-			bSelectedContractChar = -1;
-			fPlotForHelicopter = FALSE;
-			fPlotForMilitia = FALSE;
-
-			fTeamPanelDirty = TRUE;
-		}
-
-		ContractRegionBtnCallback( pRegion, iReason );
-	}
-#else
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
 		if ((gCharactersList[iValue + FIRSTmercTOdisplay].fValid == TRUE))
@@ -12117,7 +12095,6 @@ void TeamListContractRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			ResetAllSelectedCharacterModes();
 		}
 	}
-#endif
 	if (iReason & MSYS_CALLBACK_REASON_RBUTTON_UP)
 	{
 		// reset selected characters

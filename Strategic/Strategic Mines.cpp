@@ -144,127 +144,6 @@ void InitializeMines( void )
 	{
 		SectorInfo[ SECTOR( gMineStatus[i].sSectorX, gMineStatus[i].sSectorY ) ].uiFlags |= SF_MINING_SITE;
 	}
-#if 0
-	UINT8 ubMineIndex;
-	MINE_STATUS_TYPE *pMineStatus;
-	UINT8 ubMineProductionIncreases;
-	UINT8 ubDepletedMineIndex;
-	UINT8 ubMinDaysBeforeDepletion = 20;
-
-
-	// set up initial mine status
-	for( ubMineIndex = 0; ubMineIndex < MAX_NUMBER_OF_MINES; ubMineIndex++ )
-	{
-		pMineStatus = &(gMineStatus[ ubMineIndex ]);
-
-		memset( pMineStatus, 0, sizeof( *pMineStatus ) );
-
-		pMineStatus->ubMineType = gubMineTypes[ ubMineIndex ];
-		pMineStatus->uiMaxRemovalRate = guiMinimumMineProduction[ ubMineIndex ];
-		pMineStatus->fEmpty = (pMineStatus->uiMaxRemovalRate == 0) ? TRUE : FALSE;
-		pMineStatus->fRunningOut = FALSE;
-		pMineStatus->fWarnedOfRunningOut = FALSE;
-//		pMineStatus->bMonsters = MINES_NO_MONSTERS;
-		pMineStatus->fShutDown = FALSE;
-		pMineStatus->fPrevInvadedByMonsters = FALSE;
-		pMineStatus->fSpokeToHeadMiner = FALSE;
-		pMineStatus->fMineHasProducedForPlayer = FALSE;
-		pMineStatus->fQueenRetookProducingMine = FALSE;
-		gMineStatus->fShutDownIsPermanent = FALSE;
-	}
-
-	// randomize the exact size each mine.	The total production is always the same and depends on the game difficulty,
-	// but some mines will produce more in one game than another, while others produce less
-
-	// adjust for game difficulty
-	switch( gGameOptions.ubDifficultyLevel )
-	{
-		case DIF_LEVEL_EASY:
-		case DIF_LEVEL_MEDIUM:
-			ubMineProductionIncreases = 25;
-			break;
-		case DIF_LEVEL_HARD:
-			ubMineProductionIncreases = 20;
-			break;
-		case DIF_LEVEL_INSANE:
-			ubMineProductionIncreases = 15;
-			break;
-		default:
-			ubMineProductionIncreases = 25;
-			//Assert( 0 );
-			return;
-	}
-
-	while (ubMineProductionIncreases > 0)
-	{
-		// pick a producing mine at random and increase its production
-		do
-		{
-			ubMineIndex = ( UINT8 ) Random(MAX_NUMBER_OF_MINES);
-		} while (gMineStatus[ubMineIndex].fEmpty);
-
-		// increase mine production by 20% of the base (minimum) rate
-		gMineStatus[ubMineIndex].uiMaxRemovalRate += (guiMinimumMineProduction[ubMineIndex] / 5);
-
-		ubMineProductionIncreases--;
-	}
-
-
-	// choose which mine will run out of production.	This will never be the Alma mine or an empty mine (San Mona)...
-	do
-	{
-		ubDepletedMineIndex = ( UINT8 ) Random(MAX_NUMBER_OF_MINES);
-		// Alma mine can't run out for quest-related reasons (see Ian)
-	} while (gMineStatus[ubDepletedMineIndex].fEmpty || (ubDepletedMineIndex == MINE_ALMA));
-
-	// HEADROCK HAM 3.1: We can now select which mine runs out, or disable mine shutdown.
-	// Make sure selection isn't 0 (no mine runs out) or invalid (San Mona, Alma)
-	if (gGameExternalOptions.bWhichMineRunsOut > 0 && 
-		gGameExternalOptions.bWhichMineRunsOut < MAX_NUMBER_OF_MINES &&
-		gGameExternalOptions.bWhichMineRunsOut-1 != MINE_SAN_MONA &&
-		gGameExternalOptions.bWhichMineRunsOut-1 != MINE_ALMA )
-	{
-		// Set depleted mine index.
-		ubDepletedMineIndex = (gGameExternalOptions.bWhichMineRunsOut-1);
-	}
-
-	for( ubMineIndex = 0; ubMineIndex < MAX_NUMBER_OF_MINES; ubMineIndex++ )
-	{
-		pMineStatus = &(gMineStatus[ ubMineIndex ]);
-
-		// HEADROCK HAM 3.1: We can disable mine shutdown, so make sure the settings aren't telling us to do so.
-		if (gGameExternalOptions.bWhichMineRunsOut != 0 && ubMineIndex == ubDepletedMineIndex)
-		{
-			if ( ubDepletedMineIndex == MINE_DRASSEN )
-			{
-				ubMinDaysBeforeDepletion = 20;
-			}
-			else
-			{
-				ubMinDaysBeforeDepletion = 10;
-			}
-
-			// the mine that runs out has only enough ore for this many days of full production
-			pMineStatus->uiRemainingOreSupply = ubMinDaysBeforeDepletion * (MINE_PRODUCTION_NUMBER_OF_PERIODS * pMineStatus->uiMaxRemovalRate);
-
-			// ore starts running out when reserves drop to less than 25% of the initial supply
-			pMineStatus->uiOreRunningOutPoint = pMineStatus->uiRemainingOreSupply / 4;
-		}
-		else
-		if (!pMineStatus->fEmpty)
-		{
-			// never runs out...
-			pMineStatus->uiRemainingOreSupply = 999999999;		// essentially unlimited
-			pMineStatus->uiOreRunningOutPoint = 0;
-		}
-		else
-		{
-			// already empty
-			pMineStatus->uiRemainingOreSupply = 0;
-			pMineStatus->uiOreRunningOutPoint = 0;
-		}
-	}
-#endif
 }
 
 
@@ -906,18 +785,6 @@ BOOLEAN SaveMineStatusToSaveGameFile( HWFILE hFile )
 {
 	return g_luaMines.Save(hFile);
 
-#if 0
-	UINT32	uiNumBytesWritten;
-
-	//Save the MineStatus
-	FileWrite( hFile, gMineStatus, sizeof( MINE_STATUS_TYPE ) * MAX_NUMBER_OF_MINES, &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( MINE_STATUS_TYPE ) * MAX_NUMBER_OF_MINES )
-	{
-		return( FALSE );
-	}
-
-	return( TRUE );
-#endif
 }
 
 
@@ -925,18 +792,6 @@ BOOLEAN LoadMineStatusFromSavedGameFile( HWFILE hFile )
 {
 	return g_luaMines.Load(hFile);
 
-#if 0
-	UINT32	uiNumBytesRead;
-
-	//Load the MineStatus
-	FileRead( hFile, gMineStatus, sizeof( MINE_STATUS_TYPE ) * MAX_NUMBER_OF_MINES, &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( MINE_STATUS_TYPE ) * MAX_NUMBER_OF_MINES )
-	{
-		return( FALSE );
-	}
-
-	return( TRUE );
-#endif
 }
 
 
@@ -1325,56 +1180,6 @@ INT8 GetIdOfMineForSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 	{
 		bMineIndex = GetMineIndexForSector( sSectorX, sSectorY );
 	}
-#if 0
-	// handle for first level
-	else if( bSectorZ == 1 )
-	{
-		switch( sSectorValue )
-		{
-			// grumm
-			case( SEC_H3 ):
-			case( SEC_I3 ):
-				bMineIndex = MINE_GRUMM;
-			break;
-			// cambria
-			case( SEC_H8 ):
-			case( SEC_H9 ):
-				bMineIndex = MINE_CAMBRIA;
-			break;
-			// alma
-			case( SEC_I14 ):
-			case( SEC_J14 ):
-				bMineIndex = MINE_ALMA;
-			break;
-			// drassen
-			case( SEC_D13 ):
-			case( SEC_E13 ):
-				bMineIndex = MINE_DRASSEN;
-			break;
-			// chitzena
-			case( SEC_B2 ):
-				bMineIndex = MINE_CHITZENA;
-			break;
-			// san mona
-			case( SEC_D4 ):
-			case( SEC_D5 ):
-				bMineIndex = MINE_SAN_MONA;
-			break;
-		}
-	}
-	else
-	{
-		// level 2
-		switch( sSectorValue )
-		{
-			case( SEC_I3 ):
-			case( SEC_H3 ):
-			case( SEC_H4 ):
-				bMineIndex = MINE_GRUMM;
-			break;
-		}
-	}
-#endif
 	for (std::vector<AssociatedMineSector>::iterator it = associatedMineSectors.begin();
 		it != associatedMineSectors.end(); ++it)
 	{
