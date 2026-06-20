@@ -410,8 +410,6 @@ BOOLEAN EmptyBackgroundRects(void)
 				gBackSaves[uiCount].fFreeMemory=FALSE;
 				gBackSaves[uiCount].fFilled=FALSE;
 				gBackSaves[uiCount].pSaveArea=NULL;
-
-				RecountBackgrounds();
 			}
 		}
 
@@ -441,10 +439,10 @@ BOOLEAN EmptyBackgroundRects(void)
 			gBackSaves[uiCount].fFilled=FALSE;
 			gBackSaves[uiCount].pSaveArea=NULL;
 			gBackSaves[uiCount].fPendingDelete = FALSE;
-
-			RecountBackgrounds();
 		}
 	}
+
+	RecountBackgrounds();
 
 	return(TRUE);
 }

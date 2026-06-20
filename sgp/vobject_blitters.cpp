@@ -1087,6 +1087,10 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
+		// Colours are loop-invariant: expand once above the row loops.
+		const PIXEL bgPix     = PixFromColor16(usBackground);
+		const PIXEL fgPix     = PixFromColor16(usForeground);
+		const PIXEL shadowPix = PixFromColor16(usShadow);
 		PIXEL* rowBase = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -1098,7 +1102,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 					if (usBackground != 0) {
 						for (UINT8 i = 0; i < n; ++i, ++srcX) {
 							if (srcX >= LeftSkip && srcX < rightEdge) {
-								rowBase[srcX - LeftSkip] = PixFromColor16(usBackground);
+								rowBase[srcX - LeftSkip] = bgPix;
 							}
 						}
 					} else {
@@ -1111,13 +1115,13 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 						const UINT8 v = *src;
 						PIXEL colour = 0; bool write = false;
 						if (v == 0) {
-							if (usBackground != 0) { colour = usBackground; write = true; }
+							if (usBackground != 0) { colour = bgPix;     write = true; }
 						} else if (v == 1) {
-							if (usShadow != 0)     { colour = usShadow;     write = true; }
+							if (usShadow != 0)     { colour = shadowPix; write = true; }
 						} else {
-							colour = usForeground; write = true;
+							colour = fgPix; write = true;
 						}
-						if (write) rowBase[srcX - LeftSkip] = PixFromColor16(colour);
+						if (write) rowBase[srcX - LeftSkip] = colour;
 					}
 					++src;
 				}
@@ -2137,6 +2141,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( PIXEL *pBuffer, UINT32 uiDestPitc
 		const UINT8* src = SrcPtr;
 		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
+		// Silhouette colour is loop-invariant: expand once above the row loop.
+		const PIXEL pxColor = PixFromColor16(usColor);
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -2154,7 +2160,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBColor( PIXEL *pBuffer, UINT32 uiDestPitc
 					if (*rowZ <= usZValue) {
 						*rowDest = p16BPPPalette[*src];
 					} else {
-						*rowDest = PixFromColor16(usColor);
+						*rowDest = pxColor;
 					}
 					++src;
 					++rowDest;
@@ -4841,6 +4847,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClipColor( PIXEL *pBuffer, UINT32 uiDest
 			}
 		}
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
+		// Silhouette colour is loop-invariant: expand once above the row loop.
+		const PIXEL pxColor = PixFromColor16(usColor);
 		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
@@ -4856,7 +4864,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClipColor( PIXEL *pBuffer, UINT32 uiDest
 					const UINT8 v = *src++;
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
-						rowDest[dx] = (rowZ[dx] <= usZValue) ? p16BPPPalette[v] : PixFromColor16(usColor);
+						rowDest[dx] = (rowZ[dx] <= usZValue) ? p16BPPPalette[v] : pxColor;
 					}
 				}
 			}
@@ -6563,6 +6571,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 	{
 		const UINT8* src = SrcPtr;
 		PIXEL* dest = (PIXEL *)DestPtr;
+		// Outline colour is loop-invariant: expand once above the row loop.
+		const PIXEL outlinePix = PixFromColor16(s16BPPColor);
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -6583,7 +6593,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutline( PIXEL *pBuffer, UINT32 uiDestPitchBYTES
 							// high half, so PixFromColor16 decoded the low bits
 							// as an RGB565 token -- which turned the grey
 							// item-glow ramp into a rainbow.
-							*rowDest = PixFromColor16(s16BPPColor);
+							*rowDest = outlinePix;
 						}
 					} else {
 						*rowDest = p16BPPPalette[v];
@@ -6678,6 +6688,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
+		// Outline colour is loop-invariant: expand once above the row loop.
+		const PIXEL outlinePix = PixFromColor16(s16BPPColor);
 		PIXEL* rowDest = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
@@ -6694,7 +6706,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 						const INT32 dx = srcX - LeftSkip;
 						if (v == 254) {
 							if (fDoOutline) {
-								rowDest[dx] = PixFromColor16(s16BPPColor);
+								rowDest[dx] = outlinePix;
 							}
 						} else {
 							rowDest[dx] = p16BPPPalette[v];
@@ -6799,6 +6811,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitch
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
+		// Outline colour is loop-invariant: expand once above the row loop.
+		const PIXEL outlinePix = PixFromColor16(s16BPPColor);
 		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
@@ -6817,7 +6831,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZClip( PIXEL *pBuffer, UINT32 uiDestPitch
 						if (usZValue >= rowZ[dx]) {
 							if (v == 254) {
 								if (fDoOutline) {
-									rowDest[dx] = PixFromColor16(s16BPPColor);
+									rowDest[dx] = outlinePix;
 								}
 							} else {
 								rowZ[dx]    = usZValue;
@@ -6925,6 +6939,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 			}
 		}
 		const INT32 rightEdge = BlitLength + LeftSkip;
+		// Outline colour is loop-invariant: expand once above the row loop.
+		const PIXEL outlinePix = PixFromColor16(s16BPPColor);
 		PIXEL* rowDest = (PIXEL *)DestPtr;
 		UINT16* rowZ    = (UINT16*)ZPtr;
 		// First rendered row is absolute Y = iTempY + TopSkip, so fold TopSkip into
@@ -6956,7 +6972,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip( PIXEL *pBuffer, UI
 					}
 					if (v == 254) {
 						if (fDoOutline) {
-							rowDest[dx] = PixFromColor16(s16BPPColor);
+							rowDest[dx] = outlinePix;
 						}
 					} else {
 						rowDest[dx] = p16BPPPalette[v];
@@ -7212,6 +7228,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 		const UINT8* src = SrcPtr;
 		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
+		// Outline colour is loop-invariant: expand once above the row loop.
+		const PIXEL outlinePix = PixFromColor16(s16BPPColor);
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -7230,7 +7248,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTE
 					if (usZValue >= *rowZ) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = PixFromColor16(s16BPPColor);
+								*rowDest = outlinePix;
 							}
 						} else {
 							*rowZ    = usZValue;
@@ -7298,6 +7316,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 		const UINT8* src = SrcPtr;
 		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
+		// Outline colour is loop-invariant: expand once above the row loop.
+		const PIXEL outlinePix = PixFromColor16(s16BPPColor);
 		UINT32 rows = usHeight;
 		UINT32 lineFlag = uiLineFlag;
 		while (rows-- > 0) {
@@ -7330,7 +7350,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( PIXEL *pBuffer, UINT32
 					if (render) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = PixFromColor16(s16BPPColor);
+								*rowDest = outlinePix;
 							}
 						} else {
 							*rowDest = p16BPPPalette[v];
@@ -7395,6 +7415,8 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBY
 		const UINT8* src = SrcPtr;
 		PIXEL* dest = (PIXEL *)DestPtr;
 		UINT16* zbuf = (UINT16*)ZPtr;
+		// Outline colour is loop-invariant: expand once above the row loop.
+		const PIXEL outlinePix = PixFromColor16(s16BPPColor);
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
@@ -7413,7 +7435,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					if (usZValue >= *rowZ) {
 						if (v == 254) {
 							if (fDoOutline) {
-								*rowDest = PixFromColor16(s16BPPColor);
+								*rowDest = outlinePix;
 							}
 						} else {
 							*rowDest = p16BPPPalette[v];
