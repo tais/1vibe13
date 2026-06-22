@@ -28,6 +28,8 @@
 
 #include <vfs/Core/Location/vfs_uncompressed_lib_base.h>
 #include <vfs/Core/File/vfs_lib_file.h>
+#include <map>
+#include <vector>
 
 namespace vfs
 {
@@ -37,12 +39,18 @@ namespace vfs
 		CUncompressed7zLibrary(tReadableFile *libraryFile,
 			vfs::Path const& mountPoint,
 			bool ownFile = false,
-			vfs::ObjBlockAllocator<vfs::CLibFile>* allocator=NULL);		
+			vfs::ObjBlockAllocator<vfs::CLibFile>* allocator=NULL);
 		virtual ~CUncompressed7zLibrary();
 
 		virtual bool init();
+
+		// 7z members can be LZMA-compressed (and laid out in arbitrary folders),
+		// so reads cannot use the base's raw archive-offset path. init() decodes
+		// every member via SzArEx_Extract and this serves from those buffers.
+		virtual vfs::size_t read(tFileType *fileHandle, vfs::Byte* data, vfs::size_t bytesToRead);
 	private:
 		vfs::ObjBlockAllocator<vfs::CLibFile>* _allocator;
+		std::map<tFileType*, std::vector<vfs::Byte> > m_decodedData;
 	};
 } // end namespace
 
