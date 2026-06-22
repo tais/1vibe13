@@ -94,12 +94,15 @@ IndexedSTIImage::~IndexedSTIImage()
 
 bool IndexedSTIImage::setPalette(SGPPaletteEntry *pPal, int iSize)
 {
-	if(iSize < 0 ||iSize > 1024)
+	if(iSize < 0 || iSize > 256)
 	{
 		return false;
 	}
 	_pal_size = iSize;
-	_palette = new STCIPaletteElement[iSize];
+	// always allocate a full 256-entry palette and zero-pad: an indexed image may
+	// ship a smaller PLTE (only the colours it uses), but writeToHIMAGE reads 256.
+	_palette = new STCIPaletteElement[256];
+	memset(_palette, 0, sizeof(STCIPaletteElement) * 256);
 	for(int i=0; i<iSize;++i)
 	{
 		_palette[i].ubBlue = pPal[i].peBlue;
@@ -111,12 +114,14 @@ bool IndexedSTIImage::setPalette(SGPPaletteEntry *pPal, int iSize)
 }
 bool IndexedSTIImage::setPalette(png::png_colorp pPal, int iSize)
 {
-	if(iSize < 0 ||iSize > 1024)
+	if(iSize < 0 || iSize > 256)
 	{
 		return false;
 	}
 	_pal_size = iSize;
-	_palette = new STCIPaletteElement[iSize];
+	// always allocate a full 256-entry palette and zero-pad (see overload above)
+	_palette = new STCIPaletteElement[256];
+	memset(_palette, 0, sizeof(STCIPaletteElement) * 256);
 	for(int i=0; i<iSize;++i)
 	{
 		_palette[i].ubBlue = pPal[i].blue;
@@ -813,7 +818,7 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 					{
 						if(!bHasPalette)
 						{
-							SGP_THROW_IFFALSE(meta.num_palette == 256, L"size of palette is not 256");
+							SGP_THROW_IFFALSE(meta.num_palette >= 1 && meta.num_palette <= 256, L"palette size must be 1..256");
 							image.setPalette(meta.palette, meta.num_palette);
 							bHasPalette = true;
 						}
@@ -1023,10 +1028,11 @@ void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& in
 	hImage->fFlags |= IMAGE_BITMAPDATA;
 
 	// palette
-	SGP_THROW_IFFALSE(info.num_palette == 256, L"palette has size != 256");
+	SGP_THROW_IFFALSE(info.num_palette >= 1 && info.num_palette <= 256, L"palette size must be 1..256");
 
 	hImage->pPalette = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) *256);
-	for(int i=0; i<256; ++i)
+	memset(hImage->pPalette, 0, sizeof(SGPPaletteEntry) * 256);
+	for(int i=0; i<info.num_palette; ++i)
 	{
 		hImage->pPalette[i].peRed   = info.palette[i].red;
 		hImage->pPalette[i].peGreen = info.palette[i].green;
