@@ -809,7 +809,7 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 
 //				LoadPngFile lpng( vfs::tReadableFile::cast(*fit) );
 				LoadPngFile lpng( vfs::tReadableFile::cast(&oTempFile) );
-	
+
 				bool bLoadS = lpng.Load();
 				if(bLoadS)
 				{

@@ -230,7 +230,17 @@ bool vfs::CUncompressed7zLibrary::init()
 			}
 			fsize = SzArEx_GetFileNameUtf16(&db, i, &fname_buffer[0]);
 			fname_buffer[fsize] = 0;
-			vfs::Path sPath((wchar_t*)&fname_buffer[0]);
+			// SzArEx_GetFileNameUtf16 writes UTF-16 (2-byte) code units, but wchar_t is
+			// 4 bytes on macOS/Linux: casting the UInt16 buffer to wchar_t* misreads every
+			// character AND runs off the end of the buffer (a 4-byte read needs 4 zero
+			// bytes to terminate, but the buffer terminator is a single 2-byte 0). Widen
+			// each UTF-16 unit to wchar_t explicitly (member names are BMP/ASCII).
+			std::wstring wname;
+			for(size_t k = 0; k < fname_buffer.size() && fname_buffer[k] != 0; ++k)
+			{
+				wname.push_back((wchar_t)fname_buffer[k]);
+			}
+			vfs::Path sPath(wname.c_str());
 			sPath.splitLast(oDir,oFile);
 			oDirPath = m_mountPoint;
 			if(!oDir.empty())
