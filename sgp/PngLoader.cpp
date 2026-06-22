@@ -463,6 +463,13 @@ bool IndexedSTIImage::writeToHIMAGE(HIMAGE pImage)
 	{
 		return false;
 	}
+	// A malformed/empty archive can leave this image with no palette or no
+	// frames; bail gracefully here instead of dereferencing a null _palette
+	// (or building a zero-object HIMAGE) further down.
+	if(_palette == NULL || _images.empty())
+	{
+		return false;
+	}
 	pImage->usNumberOfObjects = _compressed_images.size();
 	pImage->usWidth = 640;
 	pImage->usHeight = 480;

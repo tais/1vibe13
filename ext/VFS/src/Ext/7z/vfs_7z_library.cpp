@@ -28,6 +28,8 @@
 #include <vfs/Core/File/vfs_lib_file.h>
 #include <vfs/Core/vfs_file_raii.h>
 
+#include <cstring>
+
 namespace sz
 {
 extern "C"
@@ -206,6 +208,13 @@ bool vfs::CUncompressed7zLibrary::init()
 		const size_t FBUFFER_SIZE = 1024;
 		std::vector<vfs::UInt16> fname_buffer;
 		fname_buffer.resize(FBUFFER_SIZE);
+
+		// SzArEx_Extract decode cache, carried across the loop so a solid block is
+		// decoded only once. outBuffer MUST be NULL before the first call.
+		sz::UInt32 blockIndex    = 0xFFFFFFFF;
+		sz::Byte*  outBuffer     = NULL;
+		size_t     outBufferSize = 0;
+
 		for(vfs::UInt32 i = 0; i < db.NumFiles; i++)
 		{
 			// LZMA SDK 26.01 removed the CSzFileItem array (db.db.Files); files
@@ -229,30 +238,21 @@ bool vfs::CUncompressed7zLibrary::init()
 				oDirPath += oDir;
 			}
 
-			// determine offset and size (uncompressed/copy archives: one file
-			// per folder, so folder unpack size == file size and the folder
-			// stream pos == the file's raw data offset)
-			sz::UInt32 folderIndex = db.FileToFolder[i];
-
-			sz::UInt64 unpackSizeSpec = sz::SzAr_GetFolderUnpackSize(&db.db, folderIndex);
-			size_t unpackSize = (size_t)unpackSizeSpec;
-			// SzArEx_GetFolderStreamPos is only declared (never defined) in SDK
-			// 26.01, so compute the folder's raw data offset the way the SDK does
-			// internally: archive data base + the folder's first pack-stream pos.
-			sz::UInt64 startOffset = db.dataPos
-				+ db.db.PackPositions[db.db.FoStartPackStreamIndex[folderIndex]];
-
-			//const sz::UInt64 *packSizes = db.db.PackSizes + db.FolderStartPackStreamIndex[folderIndex];
-
-			//CSzCoderInfo *coder = &folder->Coders[0];
-			//if (coder->MethodID == k_Copy)
-			//{
-			//	UInt32 si = 0;
-			//	UInt64 offset;
-			//	UInt64 inSize;
-			//	offset = GetSum(packSizes, si);
-			//	inSize = packSizes[si];
-			//}
+			// Decode this member with the SDK extractor. The old code computed a
+			// raw archive offset and read bytes straight from the file, which only
+			// worked for stored/uncompressed one-file-per-folder archives.
+			// SzArEx_Extract handles ANY valid 7z -- compressed or stored, any
+			// folder layout (it decodes the member's solid block, cached above).
+			size_t fileOffset = 0, fileSize = 0;
+			if( SZ_OK != sz::SzArEx_Extract(&db, &lookStream.vt, i, &blockIndex,
+					&outBuffer, &outBufferSize, &fileOffset, &fileSize,
+					&allocImp, &allocTempImp) )
+			{
+				// a single unreadable member shouldn't sink the whole archive
+				VFS_LOG_ERROR(_BS(L"7z: could not extract member ") << (vfs::UInt32)i
+					<< L" from [" << m_libraryFile->getPath() << L"]" << _BS::wget);
+				continue;
+			}
 
 			// get or create according directory object
 			tDirCatalogue::iterator it = m_dirs.find(oDirPath);
@@ -270,11 +270,17 @@ bool vfs::CUncompressed7zLibrary::init()
 			// add file to directory
 			VFS_THROW_IFF( pLD->addFile(pFile), L"" );
 
-			// link file data struct to file object
-			m_fileData.insert(std::make_pair(pFile,SFileData(unpackSize, (vfs::size_t)startOffset)));
+			// cache the decoded bytes; read() serves from here (offset unused)
+			m_fileData.insert(std::make_pair(pFile,SFileData((vfs::size_t)fileSize, 0)));
+			std::vector<vfs::Byte>& dst = m_decodedData[pFile];
+			dst.assign(outBuffer + fileOffset, outBuffer + fileOffset + fileSize);
 		}
-		// offsets/sizes are cached in m_fileData, so the parsed archive index
-		// and the lookahead buffer can be released now.
+		// decoded bytes are cached in m_decodedData, so the parsed archive index,
+		// the decode buffer and the lookahead buffer can all be released now.
+		if(outBuffer)
+		{
+			allocImp.Free(&allocImp, outBuffer);
+		}
 		sz::SzArEx_Free(&db, &allocImp);
 		allocImp.Free(&allocImp, lookStream.buf);
 		return true;
@@ -283,6 +289,37 @@ bool vfs::CUncompressed7zLibrary::init()
 	{
 		VFS_LOG_ERROR(ex.what());
 		return false;
+	}
+}
+
+vfs::size_t vfs::CUncompressed7zLibrary::read(tFileType *fileHandle, vfs::Byte* data, vfs::size_t bytesToRead)
+{
+	try
+	{
+		tFileData::iterator fit = m_fileData.find(fileHandle);
+		std::map<tFileType*, std::vector<vfs::Byte> >::iterator dit = m_decodedData.find(fileHandle);
+		if(fit == m_fileData.end() || dit == m_decodedData.end())
+		{
+			VFS_THROW(L"invalid file handle in 7z library read");
+		}
+		SFileData&                    file  = fit->second;
+		std::vector<vfs::Byte> const& bytes = dit->second;
+
+		if( (file._currentReadPosition + bytesToRead) > file._fileSize )
+		{
+			bytesToRead = file._fileSize - file._currentReadPosition;
+		}
+		if(bytesToRead == 0)
+		{
+			return 0; // eof
+		}
+		memcpy(data, &bytes[file._currentReadPosition], bytesToRead);
+		file._currentReadPosition += bytesToRead;
+		return bytesToRead;
+	}
+	catch(std::exception& ex)
+	{
+		VFS_RETHROW(L"", ex);
 	}
 }
 
