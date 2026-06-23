@@ -5040,7 +5040,7 @@ UINT32 MapScreenHandle(void)
 					FilenameForBPP("INTERFACE\\PRISON.sti", VObjectDesc.ImageFile);
 				}
 				
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 				{
 					FilenameForBPP("INTERFACE\\PRISON.sti", VObjectDesc.ImageFile);
 				}

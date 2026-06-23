@@ -89,6 +89,10 @@ extern void		ShutdownFileManager( void );
 
 
 BOOLEAN	FileExists( STR strFilename );
+// FileExists + the externalized .jpc.7z fallback for .sti graphics. Use for
+// image/surface/VObject existence prechecks so PNG-only installs (original .sti
+// removed) still pass; STI installs are unaffected (the real file is checked first).
+BOOLEAN	GraphicFileExists( STR strFilename );
 extern BOOLEAN	FileExistsNoDB( STR strFilename );
 extern BOOLEAN	FileDelete( STR strFilename );
 extern HWFILE	FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose=FALSE, STR strProfilename=NULL );//dnl ch81 021213

@@ -108,22 +108,10 @@ void XMLCALL SurfaceDB::StartElementHandle(void* userData, const XML_Char* name,
 				if (!ConvertStringToINT8(aProf, &(sType->bProfile))) throw XMLParseException("Attribute 'profile' doesn't have a valid value!", name, data->pParser);  // was reading aFrms (framesperdir) by copy-paste
 				if (!ConvertStringToUINT32(aDirs, &(sType->uiNumDirections))) throw XMLParseException("Attribute 'directions' doesn't have a valid value!", name, data->pParser);
 				if (!ConvertStringToUINT32(aFrms, &(sType->uiNumFramesPerDir))) throw XMLParseException("Attribute 'framesperdir' doesn't have a valid value!", name, data->pParser);
-				// FileExists is a literal VFS lookup, but the surface loader
-				// (SurfaceCache::LoadSurface -> CreateImage, default JPC_FALLBACK) also
-				// loads the externalized .jpc.7z form. Accept either here, so a PNG-only
-				// install (original .sti removed) still passes this precheck instead of
-				// rejecting files the engine can actually render.
-				bool fSurfaceExists = FileExists(sType->Filename);
-				if (!fSurfaceExists) {
-					CHAR8 jpcName[64];
-					strcpy(jpcName, sType->Filename);
-					CHAR8* lastDot = strrchr(jpcName, '.');
-					if (lastDot != NULL) {
-						strcpy(lastDot, ".jpc.7z");
-						fSurfaceExists = FileExists(jpcName);
-					}
-				}
-				if (!fSurfaceExists) {
+				// GraphicFileExists accepts the externalized .jpc.7z form (a .sti may
+				// have been replaced by it); the loader below uses JPC_FALLBACK too, so
+				// this matches what the engine can actually render.
+				if (!GraphicFileExists(sType->Filename)) {
 					std::string msg = "Animation surface file does not exist: ";
 					msg += sType->Filename;
 					throw XMLParseException(msg.c_str(), name, data->pParser);
