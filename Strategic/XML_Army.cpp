@@ -724,7 +724,7 @@ compositionEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = COMPOSITION_ELEMENT_COMPOSITION_INFO;
 
-			if ( pData->curCompositionInfo.iIndex < MAX_ARMY_COMPOSITIONS )
+			if ( pData->curCompositionInfo.iIndex >= 0 && pData->curCompositionInfo.iIndex < MAX_ARMY_COMPOSITIONS )
 			{
 				gOrigArmyComp[ pData->curCompositionInfo.iIndex ].iReadability		= pData->curCompositionInfo.iIndex;
 				gOrigArmyComp[ pData->curCompositionInfo.iIndex ].bPriority			= pData->curCompositionInfo.bPriority;
@@ -739,7 +739,7 @@ compositionEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = COMPOSITION_ELEMENT_COMPOSITION;
 			pData->curCompositionInfo.iIndex = (INT32) atol(pData->szCharData);
-			if ( pData->curCompositionInfo.iIndex < MAX_ARMY_COMPOSITIONS )
+			if ( pData->curCompositionInfo.iIndex >= 0 && pData->curCompositionInfo.iIndex < MAX_ARMY_COMPOSITIONS )
 			{
 				if ( pData->curCompositionInfo.iIndex > pData->iHighestIndex )
 				{
