@@ -114,7 +114,7 @@ void SetFontForeground(UINT8 ubForeground)
 {
 UINT32 uiRed, uiGreen, uiBlue;
 
-	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
+	if((FontDefault < 0) || (FontDefault >= MAX_FONTS))
 	{
 		//return;
 		std::wstringstream wss;
@@ -142,7 +142,7 @@ void SetFontShadow(UINT8 ubShadow )
 {
 UINT32 uiRed, uiGreen, uiBlue;
 
-	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
+	if((FontDefault < 0) || (FontDefault >= MAX_FONTS))
 		return;
 
 	//FontForeground8=ubForeground;
@@ -187,7 +187,7 @@ void SetFontBackground(UINT8 ubBackground)
 {
 UINT32 uiRed, uiGreen, uiBlue;
 
-	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
+	if((FontDefault < 0) || (FontDefault >= MAX_FONTS))
 	{
 		//return;
 		std::wstringstream wss;
@@ -222,7 +222,7 @@ UINT32 uiRed, uiGreen, uiBlue;
 //			effect an 8BPP font, only 16.
 void SetRGBFontForeground( UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue )
 {
-	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
+	if((FontDefault < 0) || (FontDefault >= MAX_FONTS))
 		return;
 	FontForeground16 = Get16BPPColor( FROMRGB( uiRed, uiGreen, uiBlue ) );
 	if (iUseWinFonts) {
@@ -236,7 +236,7 @@ void SetRGBFontForeground( UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue )
 
 void SetRGBFontBackground( UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue )
 {
-	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
+	if((FontDefault < 0) || (FontDefault >= MAX_FONTS))
 		return;
 	// 0 == transparent background; preserve "black background == transparent".
 	if ( uiRed == 0 && uiGreen == 0 && uiBlue == 0 )
@@ -254,7 +254,7 @@ void SetRGBFontBackground( UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue )
 
 void SetRGBFontShadow( UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue )
 {
-	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
+	if((FontDefault < 0) || (FontDefault >= MAX_FONTS))
 		return;
 	FontShadow16 = Get16BPPColor( FROMRGB( uiRed, uiGreen, uiBlue ) );
 }
@@ -355,7 +355,7 @@ PIXEL *GetFontObjectPalette16BPP(INT32 iFont)
 BOOLEAN IsFontLoaded(INT32 iFont)
 {
 	Assert(iFont >= 0);
-	Assert(iFont <= MAX_FONTS);
+	Assert(iFont < MAX_FONTS);
 
 	return (FontObjs[iFont] != NULL);
 }
@@ -991,7 +991,7 @@ CHAR16 GetUnicodeChar(CHAR16 siChar)
 BOOLEAN SetFont(INT32 iFontIndex)
 {
 	SGP_THROW_IFFALSE( iFontIndex >= 0 ,"negative font index");
-	SGP_THROW_IFFALSE( iFontIndex <= MAX_FONTS, "font index > MAX_FONTS" );
+	SGP_THROW_IFFALSE( iFontIndex < MAX_FONTS, "font index > MAX_FONTS" );
 	SGP_THROW_IFFALSE( FontObjs[iFontIndex]!=NULL, "font is not initialized" );
     if ( iUseWinFonts ) {
 	    SET_WINFONT(WinFontMap[iFontIndex]);
