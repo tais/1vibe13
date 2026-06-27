@@ -434,11 +434,11 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 			Assert( pUnderGroundSector );
 
 			//We are underground, so no autoresolve allowed
-			if( pUnderGroundSector->ubCreaturesInBattle )
+			if( pUnderGroundSector && pUnderGroundSector->ubCreaturesInBattle )
 			{
 				SetExplicitEnemyEncounterCode( FIGHTING_CREATURES_CODE );
 			}
-			else if( pUnderGroundSector->ubAdminsInBattle || pUnderGroundSector->ubTroopsInBattle || pUnderGroundSector->ubElitesInBattle || pUnderGroundSector->ubTanksInBattle || pUnderGroundSector->ubJeepsInBattle )
+			else if( pUnderGroundSector && ( pUnderGroundSector->ubAdminsInBattle || pUnderGroundSector->ubTroopsInBattle || pUnderGroundSector->ubElitesInBattle || pUnderGroundSector->ubTanksInBattle || pUnderGroundSector->ubJeepsInBattle ) )
 			{
 				SetExplicitEnemyEncounterCode( ENTERING_ENEMY_SECTOR_CODE );
 			}
@@ -2111,11 +2111,11 @@ void CalculateNonPersistantPBIInfo()
 			UNDERGROUND_SECTORINFO *pSector = FindUnderGroundSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 			Assert( pSector );
 
-			if( pSector->ubCreaturesInBattle )
+			if( pSector && pSector->ubCreaturesInBattle )
 			{
 				SetExplicitEnemyEncounterCode( FIGHTING_CREATURES_CODE );
 			}
-			else if( pSector->ubAdminsInBattle || pSector->ubTroopsInBattle || pSector->ubElitesInBattle || pSector->ubTanksInBattle || pSector->ubJeepsInBattle || pSector->ubRobotsInBattle )
+			else if( pSector && ( pSector->ubAdminsInBattle || pSector->ubTroopsInBattle || pSector->ubElitesInBattle || pSector->ubTanksInBattle || pSector->ubJeepsInBattle || pSector->ubRobotsInBattle ) )
 			{
 				SetExplicitEnemyEncounterCode( ENTERING_ENEMY_SECTOR_CODE );
 				SetEnemyEncounterCode( ENTERING_ENEMY_SECTOR_CODE );

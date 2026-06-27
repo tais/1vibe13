@@ -456,12 +456,15 @@ void SetNumberJa25EnemiesInUnderGroundSector( INT16 sSectorX, INT16 sSectorY, IN
 	Assert( pSector );
 
 	//Set the values
-	pSector->ubNumAdmins = ubNumAdmins;
-	pSector->ubNumTroops = ubNumTroops;
-	pSector->ubNumElites = ubNumElites;
-	pSector->ubNumTanks = ubNumTanks;
-	pSector->ubNumJeeps = ubNumJeeps;
-	pSector->ubNumRobots = ubNumRobots;
+	if ( pSector )
+	{
+		pSector->ubNumAdmins = ubNumAdmins;
+		pSector->ubNumTroops = ubNumTroops;
+		pSector->ubNumElites = ubNumElites;
+		pSector->ubNumTanks = ubNumTanks;
+		pSector->ubNumJeeps = ubNumJeeps;
+		pSector->ubNumRobots = ubNumRobots;
+	}
 }
 
 void InitNumberOfEnemiesInAboveGroundSectors( )
