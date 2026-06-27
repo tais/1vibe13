@@ -250,6 +250,7 @@ NPCQuoteInfo * LoadQuoteFile( UINT8 ubNPC )
 		}
 		
 		FileClose( hFile );
+		if( pFileData_old_ == NULL ) return NULL;	// short/failed read above NULLed it; avoid the deref below
 		//check for Russian script & make a runtime conversion of it to International
 		if( *(DWORD*)pFileData_old_ == 0x00350039 )
 		{
@@ -263,6 +264,7 @@ NPCQuoteInfo * LoadQuoteFile( UINT8 ubNPC )
 		// Now it's time for conversion
 		uiFileSize = sizeof(NPCQuoteInfo) * NUM_NPC_QUOTE_RECORDS;
 		pFileData = (NPCQuoteInfo*)MemAlloc(uiFileSize);
+		if( pFileData == NULL ) { MemFree(pFileData_old_); return NULL; }
 		for(iRecord=0; iRecord<NUM_NPC_QUOTE_RECORDS; iRecord++)
 			pFileData[iRecord] = pFileData_old_[iRecord];//dnl ch46 021009
 		MemFree(pFileData_old_);
@@ -588,6 +590,7 @@ NPCQuoteInfo * LoadCivQuoteFile( UINT8 ubIndex )
 		}
 		
 		FileClose( hFile );
+		if( pFileData_old_ == NULL ) return NULL;	// short/failed read above NULLed it; avoid the deref below
 		//check for Russian script & make a runtime conversion of it to International
 		if( *(DWORD*)pFileData_old_ == 0x00350039 )
 		{
@@ -601,6 +604,7 @@ NPCQuoteInfo * LoadCivQuoteFile( UINT8 ubIndex )
 		// Now it's time for conversion
 		uiFileSize = sizeof(NPCQuoteInfo) * NUM_NPC_QUOTE_RECORDS;
 		pFileData = (NPCQuoteInfo*)MemAlloc(uiFileSize);
+		if( pFileData == NULL ) { MemFree(pFileData_old_); return NULL; }
 		for(iRecord=0; iRecord<NUM_NPC_QUOTE_RECORDS; iRecord++)
 			pFileData[iRecord] = pFileData_old_[iRecord];//dnl ch46 021009
 		MemFree(pFileData_old_);
@@ -3239,7 +3243,7 @@ BOOLEAN LoadNPCInfoFromSavedGameFile( HWFILE hFile, UINT32 uiSaveGameVersion )
 	else if( uiSaveGameVersion >= 44 )
 		uiNumberToLoad = NUM_PROFILES_v111;
 	else
-		uiNumberToLoad = MAX_NUM_SOLDIERS;
+		uiNumberToLoad = NUM_PROFILES;	// gpNPCQuoteInfoArray is NUM_PROFILES-sized; MAX_NUM_SOLDIERS would index OOB
 
 	//Loop through all the NPC quotes
 	for( cnt=0; cnt<uiNumberToLoad; cnt++ )
