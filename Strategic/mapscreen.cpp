@@ -4199,11 +4199,11 @@ void DrawMPPlayerList ()
 					if (cGameType == MP_TYPE_DEATHMATCH || cGameType == MP_TYPE_COOP)
 						wcscpy(szTeam, gszMPTeamNames[4]);
 					else
-						wcscpy(szTeam,gszMPTeamNames[client_teams[i]]);
+						wcscpy(szTeam,gszMPTeamNames[ (unsigned)client_teams[i] >= 5 ? 4 : client_teams[i] ]);
 					FindFontCenterCoordinates((short)MP_TEAM_X + 1, (short)(MP_ROWSTART_Y+(row*Y_SIZE)), (short)MP_TEAM_W, (short)Y_SIZE, szTeam, (long)MAP_SCREEN_FONT, &usX, &usY);
 					DrawString( szTeam,usX,(short)usY, MAP_SCREEN_FONT);
 
-					wcscpy(szCompass,(gRandomStartingEdge==1 ? L"?" : gszMPEdgesText[client_edges[i]]));
+					wcscpy(szCompass,(gRandomStartingEdge==1 ? L"?" : gszMPEdgesText[ (unsigned)client_edges[i] >= 5 ? 4 : client_edges[i] ]));
 					FindFontCenterCoordinates((short)MP_COMPASS_X + 1, (short)(MP_ROWSTART_Y+(row*Y_SIZE)), (short)MP_COMPASS_W, (short)Y_SIZE, szCompass, (long)MAP_SCREEN_FONT, &usX, &usY);
 					DrawString(szCompass , usX,(short)usY, MAP_SCREEN_FONT);
 
@@ -9595,7 +9595,7 @@ void BltCharInvPanel()
 		BltVideoObjectFromIndex(guiSAVEBUFFER, guiMapScreenAttachmentSlot, 1, UI_CHARINV.Text.RobotWeaponLabel.iX, UI_CHARINV.Text.RobotWeaponLabel.iY + 10, VO_BLT_SRCTRANSPARENCY, NULL);
 
 		// draw robot upgrade slots
-		for (int a = 0; a <= NUM_INV_SLOTS; ++a)
+		for (int a = 0; a < NUM_INV_SLOTS; ++a)
 			if (robotInv[a])
 				BltVideoObjectFromIndex(guiSAVEBUFFER, guiMapScreenAttachmentSlot, 1, gMapScreenInvPocketXY[a].sX - 6, gMapScreenInvPocketXY[a].sY, VO_BLT_SRCTRANSPARENCY, NULL);
 	}
