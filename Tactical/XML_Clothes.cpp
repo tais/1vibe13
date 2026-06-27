@@ -111,13 +111,15 @@ clothesEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT;
 
-			strcpy(pData->curClothes.vest, pData->szCharData);
+			strncpy(pData->curClothes.vest, pData->szCharData, sizeof(pData->curClothes.vest) - 1);
+			pData->curClothes.vest[sizeof(pData->curClothes.vest) - 1] = '\0';
 		}
 		else if(strcmp(name, "Pants") == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			strcpy(pData->curClothes.pants, pData->szCharData);
+			strncpy(pData->curClothes.pants, pData->szCharData, sizeof(pData->curClothes.pants) - 1);
+			pData->curClothes.pants[sizeof(pData->curClothes.pants) - 1] = '\0';
 		}
 
 		pData->maxReadDepth--;

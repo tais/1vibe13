@@ -76,10 +76,10 @@ soundEndElementHandle(void *userData, const XML_Char *name)
             if(pData->curIndex < pData->maxArraySize)
             {
                 char temp;
-                for(int i=0;i<min((int)strlen(pData->szCharData),255);i++)
+                for(int i=0;i<min((int)strlen(pData->szCharData),254);i++)
                 {
                     temp = pData->szCharData[i];
-                    szSoundEffects[pData->curIndex][i] = temp;
+                    szSoundEffects[pData->curIndex][i] = temp; szSoundEffects[pData->curIndex][i+1] = '\0';
                 }
             }
         }
