@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 	#include <stdio.h>
+	#include "sgp_logger.h"
 	
 	#include "worlddef.h"
 	#include "vsurface.h"
@@ -89,6 +90,10 @@ INT32 GetFreeFace(void)
 	if(guiNumFaces < NUM_FACE_SLOTS )
 		return((INT32)guiNumFaces++);
 
+	// Pool exhausted. This is normally unreachable; if it fires repeatedly it means faces are
+	// being leaked (allocated without DeleteFace) -- log it so the next occurrence is diagnosable
+	// instead of silently returning -1 into an unchecked caller.
+	SGP_WARNING( String( "GetFreeFace: face pool exhausted (NUM_FACE_SLOTS=%d all allocated) -- possible face leak", NUM_FACE_SLOTS ) );
 	return(-1);
 }
 
