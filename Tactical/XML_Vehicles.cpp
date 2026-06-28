@@ -154,6 +154,7 @@ newCarEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT;
 			pData->curNewCar.uiIndex	= (UINT8) atol(pData->szCharData);
+			if ( pData->curNewCar.uiIndex >= NUM_PROFILES ) pData->curNewCar.uiIndex = NUM_PROFILES - 1;
 		}
 		else if(strcmp(name, "MvtTypes") == 0)
 		{
