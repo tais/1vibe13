@@ -540,26 +540,19 @@ BOOLEAN InitializeStandardGamingPlatform(void)
 	return TRUE;
 }
 
-static void TimerActivatedCallback(INT32 timer, PTR state)
-{
-	if (gfApplicationActive && gfProgramIsRunning)
-	{
-		if (CallGameLoop(false))
-			YieldProcessor();
-	}
-}
-
 // CreateStandardGamingPlatform was the WM_CREATE handler that started
 // the JA2 clock and (in non-hispeed mode) set up a Win32 SetTimer.
-// Replaced with a direct InitializeJA2Clock() + notify-callback wire
-// inline in main() -- SetTimer/KillTimer have no SDL3 equivalent
-// because the SDL_PollEvent loop runs the game loop directly each
-// iteration.
+// Replaced with a direct InitializeJA2Clock() -- SetTimer/KillTimer have
+// no SDL3 equivalent because the SDL_PollEvent loop in main() runs the
+// game loop directly each iteration (the sole GameLoop driver).
+//
+// The old notify-callback wire (AddTimerNotifyCallback(TimerActivatedCallback))
+// let the clock-notify worker thread ALSO drive GameLoop via a try_lock --
+// which meant RefreshScreen -> SDL_RenderPresent could run off the main
+// thread (undefined on macOS). Removed: the main loop is now the only driver.
 static void StartJA2ClockPlatform()
 {
 	InitializeJA2Clock();
-	if (IsHiSpeedClockMode())
-		AddTimerNotifyCallback(TimerActivatedCallback, nullptr);
 }
 
 
