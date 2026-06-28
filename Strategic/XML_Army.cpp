@@ -535,6 +535,7 @@ BOOLEAN ReadInPatrolInfo(STR fileName)
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 
@@ -849,6 +850,7 @@ BOOLEAN ReadInArmyCompositionInfo(STR fileName)
 		LiveMessage(errorBuf);
 
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser);
 		return FALSE;
 	}
 
