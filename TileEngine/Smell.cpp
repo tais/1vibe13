@@ -119,7 +119,7 @@ UINT8 ubBloodGraphicLUT [ ] = {	3, 3,	2,	2,	1,	1,	0, 0 };
 	UINT8 ubRoofStrength; \
 	ubRoofStrength = BLOOD_ROOF_STRENGTH( (b) ); \
 	ubRoofStrength--; \
-	SET_BLOOD_FLOOR_STRENGTH( b, ubRoofStrength ); \
+	SET_BLOOD_ROOF_STRENGTH( b, ubRoofStrength ); \
 }
 
 #define SET_BLOOD_DELAY_TIME( b ) \
@@ -322,7 +322,7 @@ void DropSmell( SOLDIERTYPE * pSoldier )
 				// same smell; increase the strength to the bigger of the two strengths,
 				// plus 1/5 of the smaller
 				ubStrength = __max( ubStrength, ubOldStrength ) + __min( ubStrength, ubOldStrength ) / 5;
-				ubStrength = __max( ubStrength, SMELL_STRENGTH_MAX );
+				ubStrength = __min( ubStrength, SMELL_STRENGTH_MAX );
 			}
 			else
 			{
@@ -441,7 +441,7 @@ void InternalDropBlood( INT32 sGridNo, INT8 bLevel, UINT8 ubType, UINT8 ubStreng
 				// combine blood strengths!
 				ubNewStrength = __max( ubOldStrength, ubStrength ) + 1;
 				// make sure the strength is legal
-				ubNewStrength = __max( ubNewStrength, BLOOD_STRENGTH_MAX );
+				ubNewStrength = __min( ubNewStrength, BLOOD_STRENGTH_MAX );
 				SET_BLOOD_ROOF_STRENGTH( pMapElement->ubBloodInfo, ubNewStrength );
 			}
 			else
@@ -460,7 +460,7 @@ void InternalDropBlood( INT32 sGridNo, INT8 bLevel, UINT8 ubType, UINT8 ubStreng
 			// no blood on the roof yet, so drop this amount!
 			// set decay time
 			SET_BLOOD_DELAY_TIME( pMapElement->ubBloodInfo );
-			SET_BLOOD_ROOF_STRENGTH( pMapElement->ubBloodInfo, ubNewStrength );
+			SET_BLOOD_ROOF_STRENGTH( pMapElement->ubBloodInfo, ubStrength );
 			SET_BLOOD_ROOF_TYPE( pMapElement->ubSmellInfo, ubType );
 		}
 	}
