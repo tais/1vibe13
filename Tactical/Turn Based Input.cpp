@@ -7229,6 +7229,12 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	UINT8 ubGroupID = pSoldier->ubGroupID;
 	INT8 bOldPosition = GetTeamSlotFromPlayerID ( ubSourceMerc );
 	INT8 bNewPosition = bOldPosition + bDirection;
+	// bOldPosition/bNewPosition index gTeamPanel[NUM_TEAM_SLOTS] and feed SwapVehicleSeat;
+	// an edge slot pressed CTRL+LEFT/RIGHT can land out of range -> no-op the swap.
+	if ( bOldPosition < 0 || bNewPosition < 0 || bNewPosition >= NUM_TEAM_SLOTS )
+	{
+		return;
+	}
 	SOLDIERTYPE TempMenptr = Menptr[ ubSourceMerc ];
 
 	// anv: vehicle passengers are swapped differently
