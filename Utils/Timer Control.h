@@ -106,11 +106,6 @@ extern UINT32	guiBaseJA2Clock;
 extern UINT32	guiBaseJA2NoPauseClock;
 extern CUSTOMIZABLE_TIMER_CALLBACK gpCustomizableTimerCallback;
 
-typedef void (*TIMER_NOTIFY_CALLBACK) ( INT32 timer, PTR state );
-void AddTimerNotifyCallback( TIMER_NOTIFY_CALLBACK callback, PTR state );
-void RemoveTimerNotifyCallback( TIMER_NOTIFY_CALLBACK callback, PTR state );
-void ClearTimerNotifyCallbacks();
-
 BOOLEAN UpdateCounter(INT32 iTimer);
 void ResetCounter(INT32 iTimer);
 BOOLEAN CounterDone(INT32 iTimer);
