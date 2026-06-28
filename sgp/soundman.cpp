@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <chrono>
 
 // global settings
 #define SOUND_MAX_CACHED        128   // number of cache slots
@@ -72,6 +73,19 @@ SoundChannel  gChannels[SOUND_MAX_CHANNELS];
 UINT32        gNextSoundID      = 1;
 UINT32        gDefaultVolume    = MAX_VOLUME;
 bool          gSoundEnabled     = true;
+
+// Real monotonic wall-clock in milliseconds. The random-ambient timer must NOT
+// use SDL_GetTicks: this pinned SDL3 snapshot's Apple timer is broken on arm64
+// (commit 225001b53 made SDL_GetPerformanceCounter return nanoseconds, but
+// SDL_GetPerformanceFrequency still returns the mach-tick rate, denom/numer ==
+// 3/125, so SDL_GetTicks runs ~41.7x too fast -> sector ambients fire ~42x too
+// often). std::chrono::steady_clock is correct on every platform and is already
+// what the engine's own game clock (Utils/Timer Control.cpp) runs on.
+static Uint64 RealTicksMS(void)
+{
+	return (Uint64)std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 
 // ---- Cache helpers --------------------------------------------------------
 
@@ -527,7 +541,7 @@ UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms)
 	                 ? 1u : pParms->uiMaxInstances;
 	s.instances = 0;
 	// First play after a random delay in [timeMin, timeMax], like the original.
-	s.uiTimeNext = SDL_GetTicks() + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
+	s.uiTimeNext = RealTicksMS() + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
 	return idx;
 }
 
@@ -645,7 +659,7 @@ BOOLEAN SoundServiceRandom(void)
 	// below its concurrent-instance cap, then reschedule it. One-shot per play; the
 	// timer re-triggers. Runs every frame from MusicPoll, AFTER SoundServiceStreams()
 	// has reaped finished instances, so .instances is current.
-	const Uint64 now = SDL_GetTicks();
+	const Uint64 now = RealTicksMS();
 	for (UINT32 i = 0; i < SOUND_MAX_CACHED; ++i) {
 		SoundSample& s = gSamples[i];
 		if (!s.audio || !(s.flags & SAMPLE_RANDOM) || (s.flags & SAMPLE_RANDOM_MANUAL)) continue;
