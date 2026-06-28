@@ -1011,6 +1011,7 @@ void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& in
 
 	UINT32 etrle_size = ETRLECompressSubImage( hImage->p8BPPData, RESIZE, data, (UINT16)info.width, (UINT16)info.height, &subim);
 	SGP_THROW_IFFALSE( etrle_size > 0, L"ETRLE compression of PNG image failed" );
+	MemFree(data);	// de-interlace scratch buffer; consumed by ETRLECompressSubImage above, unused after
 	subim.sOffsetX = subimage.sOffsetX;
 	subim.sOffsetY = subimage.sOffsetY;
 	//subimage.uiDataLength = compressed_size;
