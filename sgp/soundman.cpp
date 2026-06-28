@@ -657,9 +657,17 @@ BOOLEAN SoundServiceRandom(void)
 			sp.uiPan    = s.uiPanMin + SoundRandRange(s.uiPanMax - s.uiPanMin);
 			sp.uiLoop   = 1; // one-shot; the random timer re-triggers it
 			SoundPlay(s.name, &sp); // increments s.instances; reaped later -> decrements
+			// Advance the timer ONLY on a successful fire -- the original FMOD
+			// SoundStartRandom semantics (uiTimeNext was set paired with the play,
+			// inside the success branch). The SDL3 rewrite moved this OUT of the
+			// branch and rescheduled on every due tick, so a sound blocked by its
+			// instance cap (only happens for the long 2.2s flock clip vs the short
+			// 20-50s interval) LOST that turn and waited a fresh full interval,
+			// stretching its cadence to 2-3x and desyncing the two ambients'
+			// independent "own agenda". Keeping it inside the branch means a capped
+			// sound stays past-due and fires the instant the cap frees.
+			s.uiTimeNext = now + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
 		}
-		// Reschedule whether or not a channel was free, so we wait the interval.
-		s.uiTimeNext = now + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
 	}
 	return TRUE;
 }
