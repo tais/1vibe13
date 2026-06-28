@@ -26,6 +26,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <map>
+#include <string>
+#include <vector>
 
 // global settings
 #define SOUND_MAX_CACHED        128   // number of cache slots
@@ -639,6 +642,43 @@ BOOLEAN SoundServiceStreams(void)
 	}
 	return TRUE;
 } // SDL3_mixer services internally; we only reap finished channels (music EOS)
+// A sector ambient (.bad) hardcodes ONE file per timer slot, so the same clip
+// replays forever (e.g. bird4.wav every ~30s) -- and some stock clips are busy
+// multi-bird recordings (bird9.wav is ~16 calls in 2.2s, a whole flock). The
+// timers are correct; the monotony and the "small army" come from replaying the
+// same fixed file. To make the soundscape varied, play a RANDOM existing numeric
+// sibling of the registered file on each fire: bird4.wav -> a random of
+// {bird1..bird9}.wav that actually exists. Time-of-day stays correct because only
+// the trailing number varies (the base "bird"/"owl"/"night_bird" is preserved, and
+// the .bad already registers the right base per time slot). Pools are probed once
+// (SoundLoadSample caches the survivors) and memoised per registered name.
+static const std::string& PickAmbientVariant(const char* name)
+{
+	static std::map<std::string, std::vector<std::string>> pools;
+	std::string key(name);
+	auto it = pools.find(key);
+	if (it == pools.end()) {
+		std::vector<std::string> pool;
+		// Trailing digit run just before the extension (".wav").
+		std::string::size_type dot = key.find_last_of('.');
+		std::string::size_type end = (dot == std::string::npos) ? key.size() : dot;
+		std::string::size_type d = end;
+		while (d > 0 && key[d-1] >= '0' && key[d-1] <= '9') --d;
+		if (d < end) {
+			const std::string prefix = key.substr(0, d);
+			const std::string suffix = key.substr(end);
+			for (int k = 1; k <= 9; ++k) {
+				std::string cand = prefix + char('0' + k) + suffix;
+				if (SoundLoadSample(cand.c_str()) != NO_SAMPLE) pool.push_back(cand);
+			}
+		}
+		if (pool.empty()) pool.push_back(key); // no numbered siblings -> the original
+		it = pools.emplace(std::move(key), std::move(pool)).first;
+	}
+	const std::vector<std::string>& pool = it->second;
+	return pool[SoundRandRange((UINT32)pool.size())];
+}
+
 BOOLEAN SoundServiceRandom(void)
 {
 	// Fire each registered ambient (SAMPLE_RANDOM) whose timer is due and that is
@@ -656,7 +696,9 @@ BOOLEAN SoundServiceRandom(void)
 			sp.uiVolume = s.uiVolMin + SoundRandRange(s.uiVolMax - s.uiVolMin);
 			sp.uiPan    = s.uiPanMin + SoundRandRange(s.uiPanMax - s.uiPanMin);
 			sp.uiLoop   = 1; // one-shot; the random timer re-triggers it
-			SoundPlay(s.name, &sp); // increments s.instances; reaped later -> decrements
+			// Play a random sibling of the registered file (variety) instead of the
+			// same fixed clip every time. Falls back to the registered name itself.
+			SoundPlay(PickAmbientVariant(s.name).c_str(), &sp);
 		}
 		// Reschedule whether or not a channel was free, so we wait the interval.
 		s.uiTimeNext = now + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
