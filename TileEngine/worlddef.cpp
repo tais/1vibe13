@@ -2293,7 +2293,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 
 	FileClose( hfile );
 
-	sprintf( gubFilename, puiFilename );
+	strcpy( gubFilename, puiFilename );
 
 
 	for(i = 0; i<WORLD_MAX; i++)
