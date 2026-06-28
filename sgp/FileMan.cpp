@@ -520,7 +520,7 @@ BOOLEAN FileWrite( HWFILE hFile, const void *pDest, UINT32 uiBytesToWrite, UINT3
 {
 	if(uiBytesToWrite == 0)//dnl ch38 110909
 	{
-		*puiBytesWritten = 0;
+		if (puiBytesWritten) *puiBytesWritten = 0;
 		return(TRUE);
 	}
 	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
@@ -818,7 +818,7 @@ BOOLEAN GetFileManCurrentDirectory( STRING512 pcDirectory )
 	{
 		vfs::Path sDir;
 		vfs::OS::getCurrentDirectory(sDir);
-		strncpy(pcDirectory, sDir.to_string().c_str(), 512);
+		strncpy(pcDirectory, sDir.to_string().c_str(), 511); pcDirectory[511] = '\0';
 	}
 	catch(vfs::Exception& ex)
 	{
@@ -855,7 +855,7 @@ BOOLEAN GetExecutableDirectory( STRING512 pcDirectory )
 {
 	vfs::Path exe_dir, exe_file;
 	vfs::OS::getExecutablePath(exe_dir, exe_file);
-	strncpy(pcDirectory, exe_dir.to_string().c_str(), 512);
+	strncpy(pcDirectory, exe_dir.to_string().c_str(), 511); pcDirectory[511] = '\0';
 	return true;
 }
 
