@@ -326,7 +326,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\SnowCamo\\%02d.sti", iFaceFileID );
 				}
 
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\%02d.sti", iFaceFileID );	
 			} 
 			else if ( ( iFaceFileID > 99 ) && ( gMercProfiles[usMercProfileID].Type == PROFILETYPE_IMP ) )
@@ -350,7 +350,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\SnowCamo\\%03d.sti", iFaceFileID );
 				}
 				
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\%03d.sti", iFaceFileID );	
 			}
 			else if( iFaceFileID < 100 )
@@ -374,7 +374,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "FACES\\SnowCamo\\%02d.sti", iFaceFileID );
 				}
 
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "FACES\\%02d.sti", iFaceFileID );	
 			}
 			else if( iFaceFileID > 99 )
@@ -398,7 +398,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "FACES\\SnowCamo\\%03d.sti", iFaceFileID );
 				}
 				
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "FACES\\%03d.sti", iFaceFileID );
 			}
 		}

@@ -210,6 +210,36 @@ BOOLEAN	FileExists( STR strFilename )
 	return getVFS()->fileExists(vfs::Path(strFilename));
 }
 
+// Like FileExists, but also accepts the externalized .jpc.7z form of a graphic.
+// The real loader (CreateImage, default JPC_FALLBACK) loads "X.jpc.7z" in place of
+// "X.sti", so existence prechecks that gate image/surface/VObject loading must too --
+// otherwise a PNG-only install (original .sti removed) rejects graphics the engine can
+// actually render. Use this instead of FileExists for any such graphic precheck.
+BOOLEAN	GraphicFileExists( STR strFilename )
+{
+	if( FileExists( strFilename ) )
+	{
+		return TRUE;
+	}
+	// Only .sti graphics fall back to the .jpc.7z form -- this mirrors CreateImage's
+	// JPC_FALLBACK, which only remaps STCI files. .pcx/.tga/etc. are loaded literally,
+	// so we must not claim a .jpc.7z stands in for them.
+	std::string alt( strFilename );
+	std::string::size_type dot = alt.find_last_of( '.' );
+	if( dot != std::string::npos && (alt.size() - dot) == 4
+		&& (alt[dot+1] == 's' || alt[dot+1] == 'S')
+		&& (alt[dot+2] == 't' || alt[dot+2] == 'T')
+		&& (alt[dot+3] == 'i' || alt[dot+3] == 'I') )
+	{
+		alt.replace( dot, std::string::npos, ".jpc.7z" );
+		if( FileExists( alt.c_str() ) )
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 //**************************************************************************
 //
 // FileExistsNoDB
