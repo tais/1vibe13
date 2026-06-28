@@ -91,6 +91,10 @@ void InvalidateRegionEx(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UI
 
 void RefreshScreen(void *DummyVariable);
 
+// Uncapped present for serial loading/progress flows (skips the per-present FPS
+// cap). Use only for non-animated progress redraws, e.g. the load/save bar.
+void PresentNow(void);
+
 
 void FatalError( const STR8 pError, ...);
 
