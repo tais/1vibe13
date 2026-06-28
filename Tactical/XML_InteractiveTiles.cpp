@@ -134,19 +134,19 @@ interactiveactionsEndElementHandle( void *userData, const XML_Char *name )
 			x = (UINT8)atol( &pData->szCharData[1] );
 			if ( x > 0 && x <= 16 && y > 0 && y <= 16 )
 			{
-				pData->curArray[pData->curIndex].sector = SECTOR( x, y );
+				if ( pData->curIndex < pData->maxArraySize ) pData->curArray[pData->curIndex].sector = SECTOR( x, y );
 			}
 		}
 		else if ( strcmp( name, "sectorlevel" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curArray[pData->curIndex].sectorlevel = min( 3, max( -1, (INT8)atol( pData->szCharData ) ) );
+			if ( pData->curIndex < pData->maxArraySize ) pData->curArray[pData->curIndex].sectorlevel = min( 3, max( -1, (INT8)atol( pData->szCharData ) ) );
 		}
 		else if ( strcmp( name, "szTileSetName" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			strncpy( pData->curArray[pData->curIndex].szTileSetName, pData->szCharData, 20 );
+			if ( pData->curIndex < pData->maxArraySize ) strncpy( pData->curArray[pData->curIndex].szTileSetName, pData->szCharData, 20 );
 		}
 		else if ( strcmp( name, "usTileIndex" ) == 0 )
 		{
@@ -161,22 +161,22 @@ interactiveactionsEndElementHandle( void *userData, const XML_Char *name )
 		else if ( strcmp( name, "sLevel" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curArray[pData->curIndex].sLevel = min( 1, max( 0, (INT8)atol( pData->szCharData ) ) );
+			if ( pData->curIndex < pData->maxArraySize ) pData->curArray[pData->curIndex].sLevel = min( 1, max( 0, (INT8)atol( pData->szCharData ) ) );
 		}
 		else if ( strcmp( name, "sActionType" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curArray[pData->curIndex].sActionType = (UINT16)atol( pData->szCharData );
+			if ( pData->curIndex < pData->maxArraySize ) pData->curArray[pData->curIndex].sActionType = (UINT16)atol( pData->szCharData );
 		}
 		else if ( strcmp( name, "difficulty" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curArray[pData->curIndex].difficulty = (INT32)atol( pData->szCharData );
+			if ( pData->curIndex < pData->maxArraySize ) pData->curArray[pData->curIndex].difficulty = (INT32)atol( pData->szCharData );
 		}
 		else if ( strcmp( name, "luaactionid" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curArray[pData->curIndex].luaactionid = (INT32)atol( pData->szCharData );
+			if ( pData->curIndex < pData->maxArraySize ) pData->curArray[pData->curIndex].luaactionid = (INT32)atol( pData->szCharData );
 		}
 
 		pData->maxReadDepth--;
