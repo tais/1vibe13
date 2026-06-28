@@ -641,25 +641,47 @@ BOOLEAN SoundServiceStreams(void)
 } // SDL3_mixer services internally; we only reap finished channels (music EOS)
 BOOLEAN SoundServiceRandom(void)
 {
-	// Fire each registered ambient (SAMPLE_RANDOM) whose timer is due and that is
-	// below its concurrent-instance cap, then reschedule it. One-shot per play; the
-	// timer re-triggers. Runs every frame from MusicPoll, AFTER SoundServiceStreams()
-	// has reaped finished instances, so .instances is current.
+	// Fire each registered ambient (SAMPLE_RANDOM) as an OCCASIONAL one-shot. The
+	// random silence gap [uiTimeMin, uiTimeMax] is measured from when the previous
+	// instance FINISHES, not from when it started. Ambient clips can be long (tens of
+	// seconds); scheduling the next play at "start + interval" makes a long clip
+	// re-fire the instant it ends (or while it's still playing), so successive clips
+	// run nearly back-to-back and the ambient sounds CONTINUOUS instead of being an
+	// occasional punctuation (e.g. a forest bird that never stops). Anchoring the gap
+	// on clip-end guarantees real silence between calls regardless of clip length.
+	//
+	// Runs every frame from MusicPoll, AFTER SoundServiceStreams() reaps finished
+	// channels, so .instances is current. uiTimeNext == 0 is the sentinel "a clip is
+	// (still) playing -- (re)arm the silence window once it finishes". SoundPlayRandom
+	// seeds uiTimeNext = now + interval at registration (so the first call is delayed),
+	// and that value is never legitimately 0.
 	const Uint64 now = SDL_GetTicks();
 	for (UINT32 i = 0; i < SOUND_MAX_CACHED; ++i) {
 		SoundSample& s = gSamples[i];
 		if (!s.audio || !(s.flags & SAMPLE_RANDOM) || (s.flags & SAMPLE_RANDOM_MANUAL)) continue;
-		if (now < s.uiTimeNext) continue;
-		if (s.instances < s.uiMaxInstances) {
-			SOUNDPARMS sp;
-			std::memset(&sp, 0xff, sizeof(sp));
-			sp.uiVolume = s.uiVolMin + SoundRandRange(s.uiVolMax - s.uiVolMin);
-			sp.uiPan    = s.uiPanMin + SoundRandRange(s.uiPanMax - s.uiPanMin);
-			sp.uiLoop   = 1; // one-shot; the random timer re-triggers it
-			SoundPlay(s.name, &sp); // increments s.instances; reaped later -> decrements
+
+		if (s.instances >= s.uiMaxInstances) {
+			// A previous call is still audible -- don't stack; the silence window is
+			// (re)armed once it finishes (next branch).
+			s.uiTimeNext = 0;
+			continue;
 		}
-		// Reschedule whether or not a channel was free, so we wait the interval.
-		s.uiTimeNext = now + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
+		if (s.uiTimeNext == 0) {
+			// The clip just finished -> begin the random silence window from now.
+			s.uiTimeNext = now + s.uiTimeMin + SoundRandRange(s.uiTimeMax - s.uiTimeMin);
+			continue;
+		}
+		if (now < s.uiTimeNext) continue;   // still within the silence window
+
+		// Free, and the silence window has elapsed -> play one shot, then re-arm the
+		// next silence window when THIS clip finishes (the uiTimeNext == 0 sentinel).
+		SOUNDPARMS sp;
+		std::memset(&sp, 0xff, sizeof(sp));
+		sp.uiVolume = s.uiVolMin + SoundRandRange(s.uiVolMax - s.uiVolMin);
+		sp.uiPan    = s.uiPanMin + SoundRandRange(s.uiPanMax - s.uiPanMin);
+		sp.uiLoop   = 1; // one-shot; the random timer re-triggers it
+		SoundPlay(s.name, &sp); // increments s.instances; reaped next frame -> decrements
+		s.uiTimeNext = 0;
 	}
 	return TRUE;
 }
