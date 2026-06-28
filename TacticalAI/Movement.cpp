@@ -970,7 +970,7 @@ INT32 TrackScent( SOLDIERTYPE * pSoldier )
 				// outside of map! might be on map further down...
 				continue;
 			}
-			else if (iYStart + iYDiff > WORLD_ROWS)
+			else if (iYStart + iYDiff >= WORLD_ROWS)
 			{
 				// outside of bottom of map! abort!
 				break;
