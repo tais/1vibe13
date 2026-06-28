@@ -107,13 +107,13 @@ EmailOtherEndElementHandle(void* userData, const XML_Char* name)
             pData->curElement = ELEMENT;
             if ( !Emails_TextOnly )
             {
-                MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, gEmails.back().Subject, sizeof(gEmails.back().Subject) / sizeof(gEmails.back().Subject[0]));
+                if (!gEmails.empty()) MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, gEmails.back().Subject, sizeof(gEmails.back().Subject) / sizeof(gEmails.back().Subject[0]));
             }
             else
             {
                 // Replace existing text with localized version
                 const auto i = pData->currentEmailIndex;
-                MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, gEmails[i].Subject, sizeof(gEmails[i].Subject) / sizeof(gEmails[i].Subject[0]));
+                if (i < gEmails.size()) MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, gEmails[i].Subject, sizeof(gEmails[i].Subject) / sizeof(gEmails[i].Subject[0]));
             }
         }
         else if (strcmp(name, "Message") == 0)
@@ -123,14 +123,14 @@ EmailOtherEndElementHandle(void* userData, const XML_Char* name)
 
             if ( !Emails_TextOnly )
             {
-                gEmails.back().Messages.emplace_back(pData->currentMessage);
+                if (!gEmails.empty()) gEmails.back().Messages.emplace_back(pData->currentMessage);
             }
             else
             {
                 // Replace existing text with localized version
                 const auto i = pData->currentEmailIndex;
                 const auto j = pData->currentMessageIndex;
-                gEmails[i].Messages[j] = pData->currentMessage;
+                if (i < gEmails.size() && j < gEmails[i].Messages.size()) gEmails[i].Messages[j] = pData->currentMessage;
 
                 pData->currentMessageIndex++;
             }
@@ -202,6 +202,7 @@ BOOLEAN ReadInExternalizedEmails(STR fileName, BOOLEAN localizedVersion)
         LiveMessage(errorBuf);
 
         MemFree(lpcBuffer);
+        XML_ParserFree(parser);
         return FALSE;
     }
 
