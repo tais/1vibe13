@@ -2027,7 +2027,7 @@ UINT32 MiniGame_Handle_Pong()
 				}
 
 				UINT16				bMercID = 0;
-				for ( pSoldier = MercPtrs[bMercID]; bMercID <= TOTAL_SOLDIERS; ++bMercID, ++pSoldier )
+				for ( pSoldier = MercPtrs[bMercID]; bMercID < TOTAL_SOLDIERS; ++bMercID, ++pSoldier )
 				{
 					// everybody other merc in the same sector gets annoyed
 					if ( bMercID != gusSelectedSoldier && pSoldier->bActive && pSoldier->bInSector )
