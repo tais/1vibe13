@@ -628,7 +628,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 //		if ( gGameExternalOptions.ubSoldierTooltipDetailLevel == DL_Debug )
 //			swprintf( pRegion->FastHelpText, L"%s\n|String |Length|: %d", pStrInfo, wcslen(pStrInfo) );
 //		else
-			wcscpy( pRegion->FastHelpText, pStrInfo );
+			wcsncpy( pRegion->FastHelpText, pStrInfo, TOOLTIP_TEXT_SIZE - 1 ); pRegion->FastHelpText[TOOLTIP_TEXT_SIZE - 1] = L'\0';
 	}
 
 	if ( gfKeyState[ ALT ] && fDrawTooltip )

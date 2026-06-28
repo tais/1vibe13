@@ -857,7 +857,7 @@ BOOLEAN DisplayMercFace( UINT8 ubMercID)
 
 void DisplayMercMemberClickOnFaceHelpText( UINT8 ubMercID )
 {
-	CHAR16 sString[ 128 ], sTemp[ 20 ];
+	CHAR16 sString[ 6000 ], sTemp[ 64 ];	// was [128]/[20]: many/long skill-trait names overflowed both
 
 	// Buggler: skills/traits tooltip on merc portrait
 	
