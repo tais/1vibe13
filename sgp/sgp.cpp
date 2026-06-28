@@ -132,9 +132,6 @@ void    SafeSGPExit(void);
 static void PopulateSectionFromCommandLine(vfs::PropertyContainer& oProps, vfs::String const& sSection, int argc, char** argv);
 static bool CallGameLoop(bool wait);
 
-#include <mutex>
-static std::mutex gGameLoopMutex;
-
 // Dedicated multiplayer host: --dedicated runs the full game headless on
 // SDL's offscreen/dummy drivers; the MP screens auto-drive to the lobby.
 BOOLEAN gfDedicatedServer = FALSE;
@@ -562,8 +559,6 @@ void ShutdownStandardGamingPlatform(void)
 	//
 	// Shut down the different components of the SGP
 	//
-
-	ClearTimerNotifyCallbacks();
 
 	// TEST
 	SoundServiceStreams();
@@ -1144,12 +1139,10 @@ static bool CallGameLoop(bool wait)
 {
 	static int numUnsuccessfulTries = 0;
 
-	std::unique_lock<std::mutex> lk(gGameLoopMutex, std::defer_lock);
-	if (wait) {
-		lk.lock();
-	} else {
-		if (!lk.try_lock()) return false;
-	}
+	// Lockless: GameLoop now runs only on the main thread (the notify-thread
+	// second driver was removed), so the gGameLoopMutex try_lock/wait dance is
+	// gone. The wait parameter is retained for the call-site signature.
+	(void)wait;
 
 	try {
 		SGPGameLoop();
