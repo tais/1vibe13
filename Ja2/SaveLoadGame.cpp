@@ -688,6 +688,13 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 			return( FALSE );
 		}
 
+		// dealers is read straight from the save; a corrupt/forward-version value would
+		// index gArmsDealersInventory (resized to NUM_ARMS_DEALERS) out of bounds below.
+		if ( dealers < 0 || dealers > NUM_ARMS_DEALERS )
+		{
+			return( FALSE );
+		}
+
 		// Flugente: regardless of the number of dealers in the old save, we need this to have the proper size from now on
 		gArmsDealersInventory.resize( NUM_ARMS_DEALERS );
 
