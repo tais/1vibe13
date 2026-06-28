@@ -731,7 +731,7 @@ void EnterInitAimMembers()
 	gfRedrawScreen = FALSE;
 	giContractAmount = 0;
 	giMercFaceIndex = 0;
-	guiLastHandleMercTime = GetJA2Clock();
+	guiLastHandleMercTime = GetJA2NoPauseClock();	// match the no-pause clock used by the snow/black VC opening animation (consistent first-frame delta)
 	gubCurrentCount = 0;
 	gfFirstTimeInContactScreen = TRUE;
 
@@ -3449,7 +3449,7 @@ BOOLEAN DisplaySnowBackground()
 	HVOBJECT	hSnowHandle;
 	UINT8	ubCount;
 
-	uiCurrentTime = GetJA2Clock();
+	uiCurrentTime = GetJA2NoPauseClock();	// no-pause: UI animation must advance even when game-time is paused, else the contact opening sticks on static forever
 
 	if(gubCurrentCount < VC_NUM_LINES_SNOW)
 	{
@@ -3492,7 +3492,7 @@ BOOLEAN DisplayBlackBackground(UINT8 ubMaxNumOfLoops)
 	UINT32		uiCurrentTime = 0;
 	UINT8			ubCount;
 
-	uiCurrentTime = GetJA2Clock();
+	uiCurrentTime = GetJA2NoPauseClock();	// no-pause: UI animation must advance even when game-time is paused, else the contact opening sticks on static forever
 
 	if(gubCurrentCount < ubMaxNumOfLoops)
 	{
