@@ -1,3 +1,4 @@
+#include "sgp_bounded_string.h"
 #include "MessageIdentifiers.h"
 #include "RakNetworkFactory.h"
 #include "RakPeerInterface.h"
@@ -756,7 +757,10 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 		settings_struct lan;
 		
 		lan.client_num = new_cl_num; //new server assigned number
-		strcpy(lan.client_name , clinf->client_name);
+		// client_name arrives off the wire (untrusted); bound the copy to the dest
+		// [30] and force NUL-termination instead of strcpy'ing a possibly-oversized
+		// or unterminated field.
+		sgp_strlcpy(lan.client_name, clinf->client_name);
 
 		lan.randomStartingEdge = gRandomStartingEdge;
 		lan.randomMercs = gRandomMercs;
