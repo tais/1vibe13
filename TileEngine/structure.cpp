@@ -383,6 +383,12 @@ static BOOLEAN CreateFileStructureArrays( STRUCTURE_FILE_REF * pFileRef, UINT32 
 			return( FALSE );
 		}
 		usIndex = ((DB_STRUCTURE *) pCurrent)->usStructureNumber;
+		// usStructureNumber is read straight from the .jsd file; reject an out-of-range
+		// index before it writes past pDBStructureRef (sized usNumberOfStructures).
+		if (usIndex >= pFileRef->usNumberOfStructures)
+		{ // freeing of memory will occur outside of the function
+			return( FALSE );
+		}
 		pDBStructureRef[usIndex].pDBStructure = (DB_STRUCTURE *) pCurrent;
 		ppTileArray = (DB_STRUCTURE_TILE **) MemAlloc( pDBStructureRef[usIndex].pDBStructure->ubNumberOfTiles * sizeof( DB_STRUCTURE_TILE *));
 		if (ppTileArray == NULL)
