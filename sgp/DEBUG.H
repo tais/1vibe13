@@ -89,6 +89,25 @@ inline void _FailMessage(const char* message, unsigned lineNum, const char* sour
 #define Assert(a)										(a) ? _Null() : _FailMessage( NULL, __LINE__, __FILE__ )
 #define AssertMsg(a,b)							(a) ? _Null() : _FailMessage(	b, __LINE__, __FILE__ )
 
+// EXPECT / EXPECT_RET -- a RECOVERABLE precondition guard for the recurring
+// "lookup-then-deref" crash class. The dominant idiom is
+//   X* p = Find/GetSoldier(...); Assert(p); p->field;
+// but Assert is live in this build and its handler shows an error screen and
+// returns, so a NULL from a legitimate edge (just-killed merc, off-world gridno,
+// modded data) still crashes on the very next deref -- a game-killing exit on
+// ordinary input. EXPECT instead LOGS the failed condition with file:line and
+// returns gracefully, converting that crash into a diagnosable log line.
+//
+// Use ONLY where a NULL/invalid result is a real (if rare) runtime edge with a
+// safe recovery, NOT for programmer invariants (keep Assert for those). Pick the
+// recovery value deliberately per site -- a wrong EXPECT_RET value trades a clean
+// failure for silent half-updated state, which is worse.
+//   EXPECT(cond);           // in a void function: log + return
+//   EXPECT_RET(cond, val);  // log + return val
+extern void _ExpectFailed(const char* cond, unsigned lineNum, const char* sourceFileName);
+#define EXPECT(cond)          do { if (!(cond)) { _ExpectFailed(#cond, __LINE__, __FILE__); return;      } } while (0)
+#define EXPECT_RET(cond, val) do { if (!(cond)) { _ExpectFailed(#cond, __LINE__, __FILE__); return (val);} } while (0)
+
 extern CHAR8			gubAssertString[512];//for long filenames
 
 
