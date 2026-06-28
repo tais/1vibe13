@@ -241,8 +241,14 @@ UINT32 SetupNewAmbientSound( UINT32 uiAmbientID )
 
 	memset(&rpParms, 0xff, sizeof(RANDOMPARMS));
 
-	rpParms.uiTimeMin		=	gAmbData[ uiAmbientID ].uiMinTime;
-	rpParms.uiTimeMax		=	gAmbData[ uiAmbientID ].uiMaxTime;
+	// The stock .bad intervals (~20-50s) -- combined with dense clips like
+	// AMBIENT\bird9.wav (a ~9-call flock recording) -- make a sector sound
+	// constantly busy/"wild" rather than an occasional forest. Stretch the
+	// interval so random sector ambients are genuinely sporadic. Single knob:
+	// raise for rarer, lower for busier.
+	const UINT32 kAmbientIntervalMult = 6;   // ~20-50s -> ~2-5 min between calls
+	rpParms.uiTimeMin		=	gAmbData[ uiAmbientID ].uiMinTime * kAmbientIntervalMult;
+	rpParms.uiTimeMax		=	gAmbData[ uiAmbientID ].uiMaxTime * kAmbientIntervalMult;
 	rpParms.uiVolMin		= CalculateSoundEffectsVolume( gAmbData[ uiAmbientID ].uiVol );
 	rpParms.uiVolMax		= CalculateSoundEffectsVolume( gAmbData[ uiAmbientID ].uiVol );
 	rpParms.uiPriority	=	GROUP_AMBIENT;
