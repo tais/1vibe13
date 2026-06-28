@@ -9,6 +9,19 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Use ccache as the compiler launcher when available -- makes branch-switch and
+# the JA2/JA2UB/MapEditor x language target-matrix rebuilds near-free. No-op if
+# ccache isn't installed, so it never breaks a build that lacks it.
+option(USE_CCACHE "Use ccache as compiler launcher if found" ON)
+if(USE_CCACHE)
+  find_program(CCACHE_PROGRAM ccache)
+  if(CCACHE_PROGRAM)
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    message(STATUS "ccache enabled: ${CCACHE_PROGRAM}")
+  endif()
+endif()
+
 option(LTO_OPTION "Enable link-time optimization if supported by compiler" OFF)
 
 include(CheckIPOSupported)
@@ -343,6 +356,29 @@ foreach(app IN LISTS ApplicationTargets)
     add_library(${game_library} STATIC)
     target_sources(${game_library} PRIVATE ${${lib}Src})
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
+
+    # Precompile a deliberately-STABLE core header set for the highest fan-in
+    # libraries. These headers are pulled (directly or transitively) by nearly
+    # every TU and change rarely, so precompiling them eliminates re-parsing tens
+    # of thousands of header lines per TU. Kept intentionally small and stable:
+    # high-churn hubs (GameSettings.h/Overhead.h/Text.h) are deliberately EXCLUDED
+    # so an edit there doesn't invalidate the PCH. Build-config only -- it cannot
+    # change emitted code; worst case is a CI-caught build break.
+    # Scoped to the top-3 fan-in libs first; roll out to the rest once measured.
+    if(${lib} STREQUAL "Tactical" OR ${lib} STREQUAL "Strategic" OR ${lib} STREQUAL "TileEngine")
+      # Absolute paths for the project headers (unambiguous, and handles the space
+      # in "Debug Control.h" which the angle-bracket form can't); angle brackets for
+      # the std headers.
+      target_precompile_headers(${game_library} PRIVATE
+        "${CMAKE_SOURCE_DIR}/Ja2/builddefines.h"
+        "${CMAKE_SOURCE_DIR}/sgp/types.h"
+        "${CMAKE_SOURCE_DIR}/sgp/sgp.h"
+        "${CMAKE_SOURCE_DIR}/Utils/Debug Control.h"
+        <string>
+        <vector>
+        <cstdint>
+      )
+    endif()
   endforeach()
 
   foreach(lang IN LISTS LangTargets)
