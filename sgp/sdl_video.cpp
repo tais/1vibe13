@@ -147,6 +147,15 @@ static constexpr PIXEL kCursorTransparent = 0xF81F;       // RGB565 magenta
 // Accumulated dirty rect (in framebuffer pixels). Empty when L>=R.
 static INT32 gDirtyL = 0, gDirtyT = 0, gDirtyR = 0, gDirtyB = 0;
 
+// Idle-frame instrumentation (perf v3 #7). Semantic "something changed since the
+// last present" flag, set by the engine's invalidation funnel (ExpandDirtyRect /
+// DirtyFullScreen) and read+reset once per present in RefreshScreenInternal. This
+// is MEASUREMENT-ONLY plumbing: a follow-up may gate the present on it, but for now
+// it only feeds the would-be-skippable counter. Single-threaded (render + game
+// logic both run on the main thread), so a plain bool is sufficient.
+static bool gFrameDirty = true;
+void MarkFrameDirty(void) { gFrameDirty = true; }
+
 // Optional frame-end callback the game uses for overlays.
 static void (*gRefreshOverride)() = nullptr;
 
@@ -167,6 +176,7 @@ static void ExpandDirtyRect(INT32 L, INT32 T, INT32 R, INT32 B)
 	if (R > (INT32)SCREEN_WIDTH)  R = SCREEN_WIDTH;
 	if (B > (INT32)SCREEN_HEIGHT) B = SCREEN_HEIGHT;
 	if (L >= R || T >= B) return;
+	MarkFrameDirty();   // a non-empty invalidation == a real visual change this frame
 	if (gDirtyL >= gDirtyR || gDirtyT >= gDirtyB) {
 		gDirtyL = L; gDirtyT = T; gDirtyR = R; gDirtyB = B;
 	} else {
@@ -179,6 +189,7 @@ static void ExpandDirtyRect(INT32 L, INT32 T, INT32 R, INT32 B)
 
 static void DirtyFullScreen()
 {
+	MarkFrameDirty();
 	gDirtyL = 0; gDirtyT = 0;
 	gDirtyR = SCREEN_WIDTH; gDirtyB = SCREEN_HEIGHT;
 }
@@ -645,6 +656,65 @@ static void RefreshScreenInternal(bool throttle)
 	// framebuffer ends up unchanged so non-tactical screens don't get
 	// a cursor trail across frames.
 	CompositeCursorOntoFramebuffer();
+
+	// ---- Idle-frame instrumentation (perf v3 #7) ------------------------------
+	// MEASUREMENT ONLY -- does NOT change what is presented. Opt in with
+	// JA2_IDLE_INSTRUMENT=1 (default off == zero overhead). Quantifies how many
+	// presents are "would-be-skippable" before any gating lands, by comparing two
+	// signals every present:
+	//   * ground truth -- an FNV-1a checksum of the about-to-be-presented pixels
+	//     (gFrameBuffer, cursor already stamped) mixed with the GPU fade alpha. An
+	//     identical checksum two frames running means nothing visibly changed, so
+	//     that present was pure waste.
+	//   * predictor    -- gFrameDirty (set by the engine's invalidation funnel),
+	//     OR the cursor box moved, OR a fade is in progress. This is the cheap flag
+	//     a future gate would test; "flag-missed-idle" counts frames the ground
+	//     truth says were idle but the flag still marked active -- i.e. how much a
+	//     flag-only gate would leave on the table (and, if it were ever 0 the other
+	//     way, where gating would drop a real frame).
+	// gFrameDirty is reset here so it measures change since the previous present.
+	{
+		static const bool sInstrument = []{
+			const char* s = std::getenv("JA2_IDLE_INSTRUMENT");
+			return s && s[0] && s[0] != '0';
+		}();
+		if (sInstrument) {
+			UINT64 hash = 1469598103934665603ull;          // FNV-1a offset basis
+			const unsigned char* fb = (const unsigned char*)gFrameBuffer;
+			const size_t nbytes = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
+			for (size_t i = 0; i < nbytes; ++i) { hash ^= fb[i]; hash *= 1099511628211ull; }
+			hash ^= (UINT64)gFrameFadeAlpha; hash *= 1099511628211ull;
+
+			INT32 cL, cT, cR, cB;
+			CurrentCursorBox(&cL, &cT, &cR, &cB);
+			const bool cursorMoved =
+				(cL != gPrevCursorL || cT != gPrevCursorT ||
+				 cR != gPrevCursorR || cB != gPrevCursorB);
+			const bool predictedActive = gFrameDirty || cursorMoved || (gFrameFadeAlpha > 0);
+
+			static UINT64 sPrevHash = 0;
+			static bool   sHavePrev = false;
+			const bool contentSame = sHavePrev && (hash == sPrevHash);
+			sPrevHash = hash; sHavePrev = true;
+
+			static UINT64 sTotal = 0, sIdentical = 0, sFlagSkippable = 0, sFlagMissedIdle = 0;
+			++sTotal;
+			if (contentSame)                    ++sIdentical;        // ground-truth idle present
+			if (!predictedActive)               ++sFlagSkippable;    // flag would skip
+			if (contentSame && predictedActive) ++sFlagMissedIdle;   // flag too conservative
+
+			if ((sTotal % 600) == 0) {
+				std::fprintf(stderr,
+					"[idle] presents=%llu identical=%llu (%.1f%%) flag-skippable=%llu flag-missed-idle=%llu\n",
+					(unsigned long long)sTotal,
+					(unsigned long long)sIdentical,
+					100.0 * (double)sIdentical / (double)sTotal,
+					(unsigned long long)sFlagSkippable,
+					(unsigned long long)sFlagMissedIdle);
+			}
+		}
+		gFrameDirty = false;   // next frame starts clean
+	}
 
 	// Upload only the changed sub-rect to the streaming texture instead of
 	// the whole 640x480x4 framebuffer every present. SDL_RenderTexture
