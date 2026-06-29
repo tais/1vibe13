@@ -458,7 +458,23 @@ using namespace ASTAR;
 
 AStarPathfinder::AStarPathfinder()
 {
+	AStarData = nullptr;
 	return;
+}
+
+// Allocate the closed-list buffer for the active world. Sized to WORLD_MAX
+// (not the ~96MB MAX_ALLOWED_WORLD_MAX worst case). new[] runs the AStar_Data
+// ctor for every entry, matching the old inline array's default-init semantics.
+void AStarPathfinder::AllocateAStarData()
+{
+	FreeAStarData();
+	AStarData = new AStar_Data[WORLD_MAX];
+}
+
+void AStarPathfinder::FreeAStarData()
+{
+	delete[] AStarData;
+	AStarData = nullptr;
 }
 
 //init the pointer to the AStarPathfinder singleton instance
@@ -2141,6 +2157,9 @@ BOOLEAN InitPathAI(void)
 	pQueueHead = &pathQ[QHEADNDX];
 	pClosedHead = &pathQ[QPOOLNDX];
 	memset(trailCostUsed, 0, WORLD_MAX);
+	// Size the A* closed-list buffer to the just-loaded world (mirrors the
+	// gpWorldLevelData / trailCost WORLD_MAX allocations done for this sector).
+	ASTAR::AStarPathfinder::GetInstance().AllocateAStarData();
 	RestorePathAIToDefaults();
 	return(TRUE);
 }
@@ -2153,6 +2172,7 @@ void ShutDownPathAI(void)
 	MemFree(trailCostUsed);
 	MemFree(trailCost);
 	MemFree(trailTree);
+	ASTAR::AStarPathfinder::GetInstance().FreeAStarData();
 }
 
 ///////////////////////////////////////////////////////////////////////
