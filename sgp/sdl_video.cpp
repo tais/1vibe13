@@ -79,6 +79,19 @@ bool gfLockMouseToWindow = false;
 
 // ---- State -----------------------------------------------------------------
 
+// Real monotonic wall-clock in nanoseconds. The frame-rate cap below must NOT
+// use SDL_GetTicksNS: this pinned SDL3 snapshot's Apple arm64 timer is broken
+// (SDL_GetPerformanceCounter returns ns but SDL_GetPerformanceFrequency returns
+// the mach-tick rate, 3/125), so SDL_GetTicks runs ~41.7x too fast -- the cap's
+// deadline is always "in the past", it never throttles, and the loop spins the
+// CPU uncapped. std::chrono::steady_clock is correct on every platform.
+#include <chrono>
+static Uint64 RealTicksNS(void)
+{
+	return (Uint64)std::chrono::duration_cast<std::chrono::nanoseconds>(
+		std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
 static SDL_Window*   gWindow    = nullptr;
 
 // While the game window is focused, confine the cursor (edge pixels stay
@@ -573,6 +586,11 @@ static void RestoreCursorPixels()
 // Push gFrameBuffer to the streaming texture and present. If the
 // override callback is set (the game uses this for in-flight overlays
 // / fades), call it first.
+// Global fade-overlay alpha (0..255, 0 == no overlay). Driven by the screen
+// fade in Ja2/Fade Screen.cpp; composited as a black quad in RefreshScreen.
+Uint8 gFrameFadeAlpha = 0;
+void SetFrameFadeAlpha(Uint8 a) { gFrameFadeAlpha = a; }
+
 static void RefreshScreenInternal(bool throttle)
 {
 	if (!gRenderer || !gFrameTex || !gFrameBuffer) return;
@@ -594,9 +612,9 @@ static void RefreshScreenInternal(bool throttle)
 	}();
 	if (throttle && sMinFrameNS) {
 		static Uint64 sNextPresentNS = 0;
-		const Uint64 now = SDL_GetTicksNS();
+		const Uint64 now = RealTicksNS();
 		if (now < sNextPresentNS) SDL_DelayNS(sNextPresentNS - now);
-		sNextPresentNS = SDL_GetTicksNS() + sMinFrameNS;
+		sNextPresentNS = RealTicksNS() + sMinFrameNS;
 	}
 
 	// Don't render while minimized or when the drawable has collapsed to
@@ -705,6 +723,17 @@ static void RefreshScreenInternal(bool throttle)
 	SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(gRenderer);
 	SDL_RenderTexture(gRenderer, gFrameTex, nullptr, nullptr);
+
+	// Smooth GPU fade overlay: a black quad blended over the whole frame at
+	// gFrameFadeAlpha (0 == off). Used by the screen fade (Ja2/Fade Screen.cpp)
+	// instead of the legacy 16bpp stipple/dither fade, which showed as
+	// "pixelated frames" once the frame cap stopped overwriting them instantly.
+	if (gFrameFadeAlpha > 0) {
+		SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, gFrameFadeAlpha);
+		SDL_RenderFillRect(gRenderer, nullptr);
+	}
+
 	SDL_RenderPresent(gRenderer);
 
 	guiFrameBufferState = BUFFER_READY;

@@ -91,6 +91,10 @@ void InvalidateRegionEx(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UI
 
 void RefreshScreen(void *DummyVariable);
 
+// Set the full-screen black fade-overlay alpha (0..255, 0 == off). Composited
+// over the frame in RefreshScreen; used for a smooth GPU screen fade.
+void SetFrameFadeAlpha(unsigned char a);
+
 // Uncapped present for serial loading/progress flows (skips the per-present FPS
 // cap). Use only for non-animated progress redraws, e.g. the load/save bar.
 void PresentNow(void);
