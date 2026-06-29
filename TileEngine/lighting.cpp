@@ -477,7 +477,7 @@ UINT32 uiTileNo, uiSrcTileNo;
 		return( FALSE );
 	}
 
-	if(gpWorldLevelData[ uiTileNo ].sHeight > gpWorldLevelData[ uiSrcTileNo ].sHeight)
+	if(GetMapElement( uiTileNo ).sHeight > GetMapElement( uiSrcTileNo ).sHeight)
 		return(TRUE);
 	{
 		UINT32 uiTileNo;
@@ -485,7 +485,7 @@ UINT32 uiTileNo, uiSrcTileNo;
 
 		uiTileNo=MAPROWCOLTOPOS(iY, iX);
 
-		pStruct = gpWorldLevelData[ uiTileNo ].pStructHead;
+		pStruct = GetMapElement( uiTileNo ).pStructHead;
 		if ( pStruct != NULL )
 		{
 			// IF WE ARE A WINDOW, DO NOT BLOCK!
@@ -668,11 +668,11 @@ UINT8 LightTrueLevel( INT32 sGridNo, INT16 bLevel )
 
 	if (bLevel == 0)
 	{
-		pNode = gpWorldLevelData[sGridNo].pLandHead;
+		pNode = GetMapElement( sGridNo ).pLandHead;
 	}
 	else
 	{
-		pNode = gpWorldLevelData[sGridNo].pRoofHead;
+		pNode = GetMapElement( sGridNo ).pRoofHead;
 	}
 
 	if (pNode == NULL)
@@ -686,7 +686,7 @@ UINT8 LightTrueLevel( INT32 sGridNo, INT16 bLevel )
 		if(gGameExternalOptions.fStaticShadowsDecreaseBrightness && ( gRenderFlags & RENDER_FLAG_SHADOWS ))
 		{
 			INT32 sNewGridNo = NewGridNo( sGridNo, (UINT16)DirectionInc( NORTH ) );
-			STRUCTURE* pStructure = gpWorldLevelData[ sNewGridNo ].pStructureHead;
+			STRUCTURE* pStructure = GetMapElement( sNewGridNo ).pStructureHead;
 			if(pStructure != NULL)
 			{
 				LEVELNODE* pShadowNode = NULL;
@@ -694,10 +694,10 @@ UINT8 LightTrueLevel( INT32 sGridNo, INT16 bLevel )
 				{
 					STRUCTURE* pBaseStructure = FindBaseStructure(pStructure);
 					if( pBaseStructure != NULL )
-						pShadowNode = gpWorldLevelData[ pBaseStructure->sGridNo ].pShadowHead;
+						pShadowNode = GetMapElement( pBaseStructure->sGridNo ).pShadowHead;
 				}
 				else
-					pShadowNode = gpWorldLevelData[ sNewGridNo ].pShadowHead;
+					pShadowNode = GetMapElement( sNewGridNo ).pShadowHead;
 				if(pShadowNode != NULL)				{
 					iSum += max( 0, (StructureHeight(pStructure) - 1 ) );
 				}
@@ -803,7 +803,7 @@ BOOLEAN fFake;
 		return( FALSE );
 	}
 
-	gpWorldLevelData[uiTile].uiFlags|=MAPELEMENT_REDRAW;
+	GetMapElement( uiTile ).uiFlags|=MAPELEMENT_REDRAW;
 
 	//if((uiFlags&LIGHT_BACKLIGHT) && !(uiFlags&LIGHT_ROOF_ONLY))
 	//	ubShadeAdd=ubShade*7/10;
@@ -825,7 +825,7 @@ BOOLEAN fFake;
 
 	if(!(uiFlags&LIGHT_ROOF_ONLY) || (uiFlags&LIGHT_EVERYTHING))
 	{
-		pStruct = gpWorldLevelData[uiTile].pStructHead;
+		pStruct = GetMapElement( uiTile ).pStructHead;
 		// LightTileHasWall depends only on (iSrcX,iSrcY,iX,iY) -- invariant across the
 		// structure-node loop -- and is a pure query (atan8 + movement-cost lookup).
 		// Compute it once per tile instead of once per node; the old code already
@@ -871,7 +871,7 @@ BOOLEAN fFake;
 
 	if ( !fOnlyWalls )
 	{
-		pLand = gpWorldLevelData[uiTile].pLandHead;
+		pLand = GetMapElement( uiTile ).pLandHead;
 
 		while( pLand )
 		{
@@ -882,7 +882,7 @@ BOOLEAN fFake;
 			pLand=pLand->pNext;
 		}
 
-		pObject = gpWorldLevelData[uiTile].pObjectHead;
+		pObject = GetMapElement( uiTile ).pObjectHead;
 		while(pObject!=NULL)
 		{
 			if ( pObject->usIndex < giNumberOfTiles )
@@ -895,7 +895,7 @@ BOOLEAN fFake;
 		if(uiFlags&LIGHT_BACKLIGHT)
 			ubShadeAdd=(UINT8)((UINT16)ubShade*7/10);
 
-		pMerc = gpWorldLevelData[uiTile].pMercHead;
+		pMerc = GetMapElement( uiTile ).pMercHead;
 		while(pMerc!=NULL)
 		{
 			LightAddTileNode(pMerc, uiLightType, ubShadeAdd, FALSE);
@@ -906,7 +906,7 @@ BOOLEAN fFake;
 
 	if((uiFlags&LIGHT_ROOF_ONLY) || (uiFlags&LIGHT_EVERYTHING))
 	{
-		pRoof = gpWorldLevelData[uiTile].pRoofHead;
+		pRoof = GetMapElement( uiTile ).pRoofHead;
 		while(pRoof!=NULL)
 		{
 			if ( pRoof->usIndex < giNumberOfTiles )
@@ -916,7 +916,7 @@ BOOLEAN fFake;
 			pRoof=pRoof->pNext;
 		}
 
-		pOnRoof = gpWorldLevelData[uiTile].pOnRoofHead;
+		pOnRoof = GetMapElement( uiTile ).pOnRoofHead;
 		while(pOnRoof!=NULL)
 		{
 			LightAddTileNode(pOnRoof, uiLightType, ubShadeAdd, FALSE);
@@ -951,7 +951,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 	}
 
 
-	gpWorldLevelData[uiTile].uiFlags|=MAPELEMENT_REDRAW;
+	GetMapElement( uiTile ).uiFlags|=MAPELEMENT_REDRAW;
 
 //	if((uiFlags&LIGHT_BACKLIGHT) && !(uiFlags&LIGHT_ROOF_ONLY))
 //		ubShadeSubtract=ubShade*7/10;
@@ -973,7 +973,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 
 	if(!(uiFlags&LIGHT_ROOF_ONLY) || (uiFlags&LIGHT_EVERYTHING))
 	{
-		pStruct = gpWorldLevelData[uiTile].pStructHead;
+		pStruct = GetMapElement( uiTile ).pStructHead;
 		// LightTileHasWall depends only on (iSrcX,iSrcY,iX,iY) -- invariant across the
 		// structure-node loop -- and is a pure query (atan8 + movement-cost lookup).
 		// Compute it once per tile instead of once per node; the old code already
@@ -1019,7 +1019,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 
 	if ( !fOnlyWalls )
 	{
-		pLand = gpWorldLevelData[uiTile].pLandHead;
+		pLand = GetMapElement( uiTile ).pLandHead;
 
 		while( pLand )
 		{
@@ -1030,7 +1030,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 			pLand=pLand->pNext;
 		}
 
-		pObject = gpWorldLevelData[uiTile].pObjectHead;
+		pObject = GetMapElement( uiTile ).pObjectHead;
 		while(pObject!=NULL)
 		{
 			if ( pObject->usIndex < giNumberOfTiles )
@@ -1043,7 +1043,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 		if(uiFlags&LIGHT_BACKLIGHT)
 			ubShadeSubtract=(UINT8) ((UINT16)ubShade*7/10);
 
-		pMerc = gpWorldLevelData[uiTile].pMercHead;
+		pMerc = GetMapElement( uiTile ).pMercHead;
 		while(pMerc!=NULL)
 		{
 			LightSubtractTileNode(pMerc, uiLightType, ubShadeSubtract, FALSE);
@@ -1054,7 +1054,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 
 	if((uiFlags&LIGHT_ROOF_ONLY) || (uiFlags&LIGHT_EVERYTHING))
 	{
-		pRoof = gpWorldLevelData[uiTile].pRoofHead;
+		pRoof = GetMapElement( uiTile ).pRoofHead;
 		while(pRoof!=NULL)
 		{
 			if ( pRoof->usIndex < giNumberOfTiles )
@@ -1064,7 +1064,7 @@ BOOLEAN fFake; // only passed in to land and roof layers; others get fed FALSE
 			pRoof=pRoof->pNext;
 		}
 
-		pOnRoof = gpWorldLevelData[uiTile].pOnRoofHead;
+		pOnRoof = GetMapElement( uiTile ).pOnRoofHead;
 		while(pOnRoof!=NULL)
 		{
 			if ( pOnRoof->usIndex < giNumberOfTiles )
@@ -1116,7 +1116,7 @@ UINT32 uiIndex;
 	ubShade=__max(SHADE_MAX, ubShade);
 	ubShade=__min(SHADE_MIN, ubShade);
 
-	pLand = gpWorldLevelData[ uiIndex ].pLandHead;
+	pLand = GetMapElement( uiIndex ).pLandHead;
 
 	while(pLand!=NULL)
 	{
@@ -1124,7 +1124,7 @@ UINT32 uiIndex;
 		pLand=pLand->pNext;
 	}
 
-	pStruct = gpWorldLevelData[ uiIndex ].pStructHead;
+	pStruct = GetMapElement( uiIndex ).pStructHead;
 
 	while(pStruct!=NULL)
 	{
@@ -1132,35 +1132,35 @@ UINT32 uiIndex;
 		pStruct=pStruct->pNext;
 	}
 
-	pObject = gpWorldLevelData[ uiIndex ].pObjectHead;
+	pObject = GetMapElement( uiIndex ).pObjectHead;
 	while(pObject!=NULL)
 	{
 		LightSetNaturalTileNode(pObject, ubShade);
 		pObject=pObject->pNext;
 	}
 
-	pRoof = gpWorldLevelData[ uiIndex ].pRoofHead;
+	pRoof = GetMapElement( uiIndex ).pRoofHead;
 	while(pRoof!=NULL)
 	{
 		LightSetNaturalTileNode(pRoof, ubShade);
 		pRoof=pRoof->pNext;
 	}
 
-	pOnRoof = gpWorldLevelData[ uiIndex ].pOnRoofHead;
+	pOnRoof = GetMapElement( uiIndex ).pOnRoofHead;
 	while(pOnRoof!=NULL)
 	{
 		LightSetNaturalTileNode(pOnRoof, ubShade);
 		pOnRoof=pOnRoof->pNext;
 	}
 
-	pTopmost = gpWorldLevelData[ uiIndex ].pTopmostHead;
+	pTopmost = GetMapElement( uiIndex ).pTopmostHead;
 	while(pTopmost!=NULL)
 	{
 		LightSetNaturalTileNode(pTopmost, ubShade);
 		pTopmost=pTopmost->pNext;
 	}
 
-	pMerc = gpWorldLevelData[ uiIndex ].pMercHead;
+	pMerc = GetMapElement( uiIndex ).pMercHead;
 	while(pMerc!=NULL)
 	{
 		LightSetNaturalTileNode(pMerc, ubShade);
@@ -1202,7 +1202,7 @@ UINT32 uiTile;
 
 	CHECKF(uiTile!=0xffffffff);
 
-	pLand = gpWorldLevelData[uiTile].pLandHead;
+	pLand = GetMapElement( uiTile ).pLandHead;
 
 	while(pLand!=NULL)
 	{
@@ -1210,7 +1210,7 @@ UINT32 uiTile;
 		pLand=pLand->pNext;
 	}
 
-	pStruct = gpWorldLevelData[ uiTile ].pStructHead;
+	pStruct = GetMapElement( uiTile ).pStructHead;
 
 	while(pStruct!=NULL)
 	{
@@ -1218,35 +1218,35 @@ UINT32 uiTile;
 		pStruct=pStruct->pNext;
 	}
 
-	pObject = gpWorldLevelData[ uiTile ].pObjectHead;
+	pObject = GetMapElement( uiTile ).pObjectHead;
 	while(pObject!=NULL)
 	{
 		LightResetTileNode(pObject);
 		pObject=pObject->pNext;
 	}
 
-	pRoof = gpWorldLevelData[ uiTile ].pRoofHead;
+	pRoof = GetMapElement( uiTile ).pRoofHead;
 	while(pRoof!=NULL)
 	{
 		LightResetTileNode(pRoof);
 		pRoof=pRoof->pNext;
 	}
 
-	pOnRoof = gpWorldLevelData[ uiTile ].pOnRoofHead;
+	pOnRoof = GetMapElement( uiTile ).pOnRoofHead;
 	while(pOnRoof!=NULL)
 	{
 		LightResetTileNode(pOnRoof);
 		pOnRoof=pOnRoof->pNext;
 	}
 
-	pTopmost = gpWorldLevelData[ uiTile ].pTopmostHead;
+	pTopmost = GetMapElement( uiTile ).pTopmostHead;
 	while(pTopmost!=NULL)
 	{
 		LightResetTileNode(pTopmost);
 		pTopmost=pTopmost->pNext;
 	}
 
-	pMerc = gpWorldLevelData[ uiTile ].pMercHead;
+	pMerc = GetMapElement( uiTile ).pMercHead;
 	while(pMerc!=NULL)
 	{
 		LightResetTileNode(pMerc);
@@ -2255,7 +2255,7 @@ BOOLEAN LightRevealWall(INT16 sX, INT16 sY, INT16 sSrcX, INT16 sSrcY)
 		return( FALSE );
 	}
 
-	pStruct=gpWorldLevelData[uiTile].pStructHead;
+	pStruct=GetMapElement( uiTile ).pStructHead;
 
 	//while(pStruct!=NULL)
 	while(pStruct!=NULL && pStruct->usIndex<giNumberOfTiles) //lal bugfix
@@ -2278,7 +2278,7 @@ BOOLEAN LightRevealWall(INT16 sX, INT16 sY, INT16 sSrcX, INT16 sSrcY)
 		pStruct=pStruct->pNext;
 	}
 
-	pStruct=gpWorldLevelData[uiTile].pStructHead;
+	pStruct=GetMapElement( uiTile ).pStructHead;
 
 	//while(pStruct!=NULL)
 	while(pStruct!=NULL && pStruct->usIndex<giNumberOfTiles) //lal bugfix
@@ -2335,7 +2335,7 @@ TILE_ELEMENT *TileElem;
 	if(sY < sSrcY)
 		fDoLeftWalls=FALSE;
 
-	pStruct=gpWorldLevelData[uiTile].pStructHead;
+	pStruct=GetMapElement( uiTile ).pStructHead;
 
 	//while(pStruct!=NULL)
 	while(pStruct!=NULL && pStruct->usIndex<giNumberOfTiles) // lal bugfix
@@ -2358,7 +2358,7 @@ TILE_ELEMENT *TileElem;
 		pStruct=pStruct->pNext;
 	}
 
-	pStruct=gpWorldLevelData[uiTile].pStructHead;
+	pStruct=GetMapElement( uiTile ).pStructHead;
 
 	//while(pStruct!=NULL)
 	while(pStruct!=NULL && pStruct->usIndex<giNumberOfTiles) //lal bugfix
@@ -2446,7 +2446,7 @@ TILE_ELEMENT *TileElem;
 	Assert(gpWorldLevelData!=NULL);
 
 	uiTile=MAPROWCOLTOPOS(sY, sX);
-	pStruct=gpWorldLevelData[uiTile].pStructHead;
+	pStruct=GetMapElement( uiTile ).pStructHead;
 
 	if((sX < sSrcX) || (sY < sSrcY))
 		fThroughWall=TRUE;
@@ -2484,14 +2484,14 @@ TILE_ELEMENT *TileElem;
 
 	//if(fRerender)
 	//{
-		pLand=gpWorldLevelData[uiTile].pLandHead;
+		pLand=GetMapElement( uiTile ).pLandHead;
 		while(pLand!=NULL)
 		{
 			pLand->ubShadeLevel=0;
 			pLand=pLand->pNext;
 		}
 
-		gpWorldLevelData[uiTile].uiFlags|=MAPELEMENT_REDRAW;
+		GetMapElement( uiTile ).uiFlags|=MAPELEMENT_REDRAW;
 		SetRenderFlags(RENDER_FLAG_MARKED);
 	//}
 
@@ -2555,7 +2555,7 @@ TILE_ELEMENT *TileElem;
 	Assert(gpWorldLevelData!=NULL);
 
 	uiTile=MAPROWCOLTOPOS(sY, sX);
-	pStruct=gpWorldLevelData[uiTile].pStructHead;
+	pStruct=GetMapElement( uiTile ).pStructHead;
 
 	while(pStruct!=NULL)
 	{
@@ -2590,14 +2590,14 @@ TILE_ELEMENT *TileElem;
 
 	//if(fRerender)
 	//{
-		pLand=gpWorldLevelData[uiTile].pLandHead;
+		pLand=GetMapElement( uiTile ).pLandHead;
 		while(pLand!=NULL)
 		{
 			pLand->ubShadeLevel=pLand->ubNaturalShadeLevel;
 			pLand=pLand->pNext;
 		}
 
-		gpWorldLevelData[uiTile].uiFlags|=MAPELEMENT_REDRAW;
+		GetMapElement( uiTile ).uiFlags|=MAPELEMENT_REDRAW;
 		SetRenderFlags(RENDER_FLAG_MARKED);
 	//}
 
@@ -2695,7 +2695,7 @@ UINT32	fTileFlags;
 		for(iCountX=iX; iCountX < (INT16)(iX+LIGHT_TREE_REVEAL); iCountX++)
 		{
 			uiTile=MAPROWCOLTOPOS(iCountY, iCountX);
-			pNode=gpWorldLevelData[uiTile].pStructHead;
+			pNode=GetMapElement( uiTile ).pStructHead;
 			while(pNode!=NULL)
 			{
 				GetTileFlags( pNode->usIndex, &fTileFlags );
@@ -2706,7 +2706,7 @@ UINT32	fTileFlags;
 					{
 						//pNode->uiFlags |= ( LEVELNODE_REVEALTREES | LEVELNODE_ERASEZ );
 						pNode->uiFlags |= ( LEVELNODE_REVEALTREES	);
-						gpWorldLevelData[uiTile].uiFlags |= MAPELEMENT_REDRAW;
+						GetMapElement( uiTile ).uiFlags |= MAPELEMENT_REDRAW;
 					}
 
 					fRerender=TRUE;
@@ -2743,7 +2743,7 @@ UINT32	fTileFlags;
 		for(iCountX=(INT16)__max(iX-LIGHT_TREE_REVEAL,0); iCountX < (INT16)__min(iX+LIGHT_TREE_REVEAL,WORLD_COLS-1); iCountX++)
 		{
 			uiTile=MAPROWCOLTOPOS(iCountY, iCountX);
-			pNode=gpWorldLevelData[uiTile].pStructHead;
+			pNode=GetMapElement( uiTile ).pStructHead;
 			while(pNode!=NULL)
 			{
 				GetTileFlags( pNode->usIndex, &fTileFlags );
@@ -2755,7 +2755,7 @@ UINT32	fTileFlags;
 					{
 						//pNode->uiFlags	&=(~( LEVELNODE_REVEALTREES | LEVELNODE_ERASEZ ) );
 						pNode->uiFlags	&=(~( LEVELNODE_REVEALTREES ) );
-						gpWorldLevelData[uiTile].uiFlags |= MAPELEMENT_REDRAW;
+						GetMapElement( uiTile ).uiFlags |= MAPELEMENT_REDRAW;
 					}
 
 					fRerender=TRUE;
