@@ -577,4 +577,14 @@ extern BOOLEAN ReadInDifficultySettings(STR fileName, BOOLEAN localizedVersion);
 
 extern const XML_Char* GetAttribute(const XML_Char* name, const XML_Char** atts);
 
+// Shared, leak-safe open/read/parse/free for expat loaders. New loaders should use
+// this instead of re-implementing the open/read/parse/free block by hand. See the
+// definition in XML.cpp. Returns false on any failure (incl. parse error, logged).
+extern bool ParseXMLFile(STR fileName,
+                         XML_StartElementHandler startHandler,
+                         XML_EndElementHandler endHandler,
+                         XML_CharacterDataHandler charHandler,
+                         void* userData,
+                         const char* pErrorContext);
+
 #endif

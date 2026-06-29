@@ -133,7 +133,7 @@ void DisplayPNGImage( SGPRect aDstRect, std::string& arStrImage, bool aStretch )
 
 	arStrImage.copy( vs_desc.ImageFile, sizeof(vs_desc.ImageFile) - 1 );
 
-	if ( FileExists( vs_desc.ImageFile ) && AddVideoSurface( &vs_desc, &uiLoadScreen ) )
+	if ( GraphicFileExists( vs_desc.ImageFile ) && AddVideoSurface( &vs_desc, &uiLoadScreen ) )
 	{
 		//Blit the background image
 		GetVideoSurface( &hVSurface, uiLoadScreen );
@@ -2027,7 +2027,7 @@ UINT32 MiniGame_Handle_Pong()
 				}
 
 				UINT16				bMercID = 0;
-				for ( pSoldier = MercPtrs[bMercID]; bMercID <= TOTAL_SOLDIERS; ++bMercID, ++pSoldier )
+				for ( pSoldier = MercPtrs[bMercID]; bMercID < TOTAL_SOLDIERS; ++bMercID, ++pSoldier )
 				{
 					// everybody other merc in the same sector gets annoyed
 					if ( bMercID != gusSelectedSoldier && pSoldier->bActive && pSoldier->bInSector )

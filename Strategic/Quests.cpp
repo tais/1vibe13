@@ -67,6 +67,8 @@ extern void DebugQuestInfo(STR szOutput);
 
 void SetFactTrue( UINT16 usFact )
 {
+	if ( usFact >= NUM_FACTS ) return;
+
 	// This function is here just for control flow purposes (debug breakpoints)
 	// and code is more readable that way
 
@@ -83,6 +85,7 @@ void SetFactTrue( UINT16 usFact )
 
 void SetFactFalse( UINT16 usFact )
 {
+	if ( usFact >= NUM_FACTS ) return;
 	gubFact[usFact] = FALSE;
 	DebugQuestInfo(String("fact %d false", usFact));
 }

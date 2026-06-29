@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 	#include <stdio.h>
+	#include "sgp_logger.h"
 	
 	#include "worlddef.h"
 	#include "vsurface.h"
@@ -89,6 +90,10 @@ INT32 GetFreeFace(void)
 	if(guiNumFaces < NUM_FACE_SLOTS )
 		return((INT32)guiNumFaces++);
 
+	// Pool exhausted. This is normally unreachable; if it fires repeatedly it means faces are
+	// being leaked (allocated without DeleteFace) -- log it so the next occurrence is diagnosable
+	// instead of silently returning -1 into an unchecked caller.
+	SGP_WARNING( String( "GetFreeFace: face pool exhausted (NUM_FACE_SLOTS=%d all allocated) -- possible face leak", NUM_FACE_SLOTS ) );
 	return(-1);
 }
 
@@ -326,7 +331,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\SnowCamo\\%02d.sti", iFaceFileID );
 				}
 
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\%02d.sti", iFaceFileID );	
 			} 
 			else if ( ( iFaceFileID > 99 ) && ( gMercProfiles[usMercProfileID].Type == PROFILETYPE_IMP ) )
@@ -350,7 +355,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\SnowCamo\\%03d.sti", iFaceFileID );
 				}
 				
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "IMPFACES\\%03d.sti", iFaceFileID );	
 			}
 			else if( iFaceFileID < 100 )
@@ -374,7 +379,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "FACES\\SnowCamo\\%02d.sti", iFaceFileID );
 				}
 
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "FACES\\%02d.sti", iFaceFileID );	
 			}
 			else if( iFaceFileID > 99 )
@@ -398,7 +403,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 					sprintf( VObjectDesc.ImageFile, "FACES\\SnowCamo\\%03d.sti", iFaceFileID );
 				}
 				
-				if (!FileExists(VObjectDesc.ImageFile))
+				if (!GraphicFileExists(VObjectDesc.ImageFile))
 					sprintf( VObjectDesc.ImageFile, "FACES\\%03d.sti", iFaceFileID );
 			}
 		}

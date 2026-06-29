@@ -132,9 +132,6 @@ void    SafeSGPExit(void);
 static void PopulateSectionFromCommandLine(vfs::PropertyContainer& oProps, vfs::String const& sSection, int argc, char** argv);
 static bool CallGameLoop(bool wait);
 
-#include <mutex>
-static std::mutex gGameLoopMutex;
-
 // Dedicated multiplayer host: --dedicated runs the full game headless on
 // SDL's offscreen/dummy drivers; the MP screens auto-drive to the lobby.
 BOOLEAN gfDedicatedServer = FALSE;
@@ -540,26 +537,19 @@ BOOLEAN InitializeStandardGamingPlatform(void)
 	return TRUE;
 }
 
-static void TimerActivatedCallback(INT32 timer, PTR state)
-{
-	if (gfApplicationActive && gfProgramIsRunning)
-	{
-		if (CallGameLoop(false))
-			YieldProcessor();
-	}
-}
-
 // CreateStandardGamingPlatform was the WM_CREATE handler that started
 // the JA2 clock and (in non-hispeed mode) set up a Win32 SetTimer.
-// Replaced with a direct InitializeJA2Clock() + notify-callback wire
-// inline in main() -- SetTimer/KillTimer have no SDL3 equivalent
-// because the SDL_PollEvent loop runs the game loop directly each
-// iteration.
+// Replaced with a direct InitializeJA2Clock() -- SetTimer/KillTimer have
+// no SDL3 equivalent because the SDL_PollEvent loop in main() runs the
+// game loop directly each iteration (the sole GameLoop driver).
+//
+// The old notify-callback wire (AddTimerNotifyCallback(TimerActivatedCallback))
+// let the clock-notify worker thread ALSO drive GameLoop via a try_lock --
+// which meant RefreshScreen -> SDL_RenderPresent could run off the main
+// thread (undefined on macOS). Removed: the main loop is now the only driver.
 static void StartJA2ClockPlatform()
 {
 	InitializeJA2Clock();
-	if (IsHiSpeedClockMode())
-		AddTimerNotifyCallback(TimerActivatedCallback, nullptr);
 }
 
 
@@ -569,8 +559,6 @@ void ShutdownStandardGamingPlatform(void)
 	//
 	// Shut down the different components of the SGP
 	//
-
-	ClearTimerNotifyCallbacks();
 
 	// TEST
 	SoundServiceStreams();
@@ -1151,12 +1139,10 @@ static bool CallGameLoop(bool wait)
 {
 	static int numUnsuccessfulTries = 0;
 
-	std::unique_lock<std::mutex> lk(gGameLoopMutex, std::defer_lock);
-	if (wait) {
-		lk.lock();
-	} else {
-		if (!lk.try_lock()) return false;
-	}
+	// Lockless: GameLoop now runs only on the main thread (the notify-thread
+	// second driver was removed), so the gGameLoopMutex try_lock/wait dance is
+	// gone. The wait parameter is retained for the call-site signature.
+	(void)wait;
 
 	try {
 		SGPGameLoop();

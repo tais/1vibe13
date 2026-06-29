@@ -108,7 +108,8 @@ lockEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT;
 			
-			strcpy( (CHAR8*)pData->curLock.ubEditorName, pData->szCharData );
+			strncpy( (CHAR8*)pData->curLock.ubEditorName, pData->szCharData, MAXLOCKDESCLENGTH - 1 );
+			pData->curLock.ubEditorName[MAXLOCKDESCLENGTH - 1] = '\0';
 		}
 		else if(strcmp(name, "usKeyItem") == 0)
 		{

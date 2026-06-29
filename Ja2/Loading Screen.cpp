@@ -385,7 +385,9 @@ static std::string FindBestFittingLoadscreenFilename(const std::string& baseName
 			return fileName + ".png";
 		}
 
-		if (FileExists((CHAR8*)((fileName + ".sti").c_str())))
+		// .sti or its externalized .jpc.7z (return the .sti name; AddVideoSurface ->
+		// CreateImage uses JPC_FALLBACK and loads the .jpc.7z in its place).
+		if (GraphicFileExists((CHAR8*)((fileName + ".sti").c_str())))
 		{
 			return fileName + ".sti";
 		}
@@ -506,7 +508,7 @@ void DisplayLoadScreenWithID( UINT8 ubLoadScreenID )
 	}
 	else
 	{
-		if (FileExists(vs_desc.ImageFile) && AddVideoSurface(&vs_desc, &uiLoadScreen))
+		if (GraphicFileExists(vs_desc.ImageFile) && AddVideoSurface(&vs_desc, &uiLoadScreen))
 		{
 			SGPRect SrcRect, DstRect;
 									

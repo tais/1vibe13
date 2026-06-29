@@ -225,11 +225,11 @@ static void DoneFadeInKilledQueen( void )
 	// Locate gridno.....
 
 	// Run NPC script
+	// EXPECT pilot: lookup-then-deref guard. FindSoldierByProfileID can legitimately
+	// return NULL (NPC 136 not present); EXPECT logs that edge (file:line) and returns
+	// gracefully -- the same recovery the hand-written guard did, now diagnosable.
 	pNPCSoldier = FindSoldierByProfileID( 136, FALSE );
-	if ( !pNPCSoldier )
-	{
-		return;
-	}
+	EXPECT( pNPCSoldier );
 
 	// Converse!
 	//InitiateConversation( pNPCSoldier, pSoldier, 0, 1 );

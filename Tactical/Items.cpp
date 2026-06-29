@@ -8172,6 +8172,9 @@ UINT16 RandomMagazine( OBJECTTYPE * pGun, UINT8 ubPercentStandard, UINT8 maxCool
 	usLoop = 0;
 	while ( Magazine[ usLoop ].ubCalibre != NOAMMO )
 	{
+		// data-driven match count: stop before overflowing usPossibleMagIndex[MAX_AMMO_TYPES_PER_GUN].
+		// The Assert below is a no-op in release; the sibling overload guards the same way.
+		if (usPossibleMagCnt >= MAX_AMMO_TYPES_PER_GUN) break;
 		loopItem = MagazineClassIndexToItemType(usLoop);
 
 		if (Magazine[usLoop].ubCalibre == pWeapon->ubCalibre &&

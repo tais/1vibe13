@@ -731,7 +731,7 @@ void EnterInitAimMembers()
 	gfRedrawScreen = FALSE;
 	giContractAmount = 0;
 	giMercFaceIndex = 0;
-	guiLastHandleMercTime = GetJA2Clock();
+	guiLastHandleMercTime = GetJA2NoPauseClock();	// match the no-pause clock used by the snow/black VC opening animation (consistent first-frame delta)
 	gubCurrentCount = 0;
 	gfFirstTimeInContactScreen = TRUE;
 
@@ -951,7 +951,14 @@ void ExitAIMMembers()
 	gubVideoConferencingMode = AIM_VIDEO_NOT_DISPLAYED_MODE;
 	InitDeleteVideoConferencePopUp( );
 
-
+	// Release the video-conference face slot so it isn't leaked across contacts. EnterAIMMembers
+	// re-creates it on re-entry; DeleteFace self-guards a -1 index.
+	if ( gfVideoFaceActive && giMercFaceIndex != -1 )
+	{
+		DeleteFace( giMercFaceIndex );
+	}
+	gfVideoFaceActive = FALSE;
+	giMercFaceIndex = -1;
 
 	DeleteVideoSurfaceFromIndex(guiVideoFaceBackground);
 
@@ -3048,8 +3055,26 @@ void BtnHangUpButtonCallback(GUI_BUTTON *btn,INT32 reason)
 // InitVideoFace() is called once to initialize things
 BOOLEAN	InitVideoFace(UINT8 ubMercID)
 {
+	// Free any still-active video face before overwriting giMercFaceIndex -- otherwise every
+	// merc contact leaks a gFacesData[] slot (and its restore surface), which accumulates across
+	// a session toward pool exhaustion. DeleteFace self-guards a -1 index.
+	if ( gfVideoFaceActive && giMercFaceIndex != -1 )
+	{
+		DeleteFace( giMercFaceIndex );
+		gfVideoFaceActive = FALSE;
+		giMercFaceIndex = -1;
+	}
+
 	//Create the facial index
 	giMercFaceIndex = InitFace( ubMercID, NOBODY, 0 );
+
+	// InitFace returns -1 when the face pool (NUM_FACE_SLOTS) is exhausted. Do NOT activate or
+	// index gFacesData[-1] with it -- bail so the contact screen degrades instead of OOB-writing.
+	if ( giMercFaceIndex == -1 )
+	{
+		gfVideoFaceActive = FALSE;
+		return(FALSE);
+	}
 
 	SetAutoFaceActive( guiVideoFaceBackground, FACE_AUTO_RESTORE_BUFFER , giMercFaceIndex, 0, 0);
 
@@ -3106,10 +3131,14 @@ BOOLEAN DisplayTalkingMercFaceForVideoPopUp(INT32	iFaceIndex)
 
 
 
+	// Guard against a -1 (pool-exhausted) face index reaching gFacesData[-1] / the auto-face handlers.
+	if ( iFaceIndex == -1 )
+		return(FALSE);
+
 	//If the answering machine graphics is up, dont handle the faces
 	if( gfIsAnsweringMachineActive )
 	{
-		gFacesData[ giMercFaceIndex ].fInvalidAnim = TRUE;
+		gFacesData[ iFaceIndex ].fInvalidAnim = TRUE;
 	}
 
 	HandleDialogue();
@@ -3449,7 +3478,7 @@ BOOLEAN DisplaySnowBackground()
 	HVOBJECT	hSnowHandle;
 	UINT8	ubCount;
 
-	uiCurrentTime = GetJA2Clock();
+	uiCurrentTime = GetJA2NoPauseClock();	// no-pause: UI animation must advance even when game-time is paused, else the contact opening sticks on static forever
 
 	if(gubCurrentCount < VC_NUM_LINES_SNOW)
 	{
@@ -3492,7 +3521,7 @@ BOOLEAN DisplayBlackBackground(UINT8 ubMaxNumOfLoops)
 	UINT32		uiCurrentTime = 0;
 	UINT8			ubCount;
 
-	uiCurrentTime = GetJA2Clock();
+	uiCurrentTime = GetJA2NoPauseClock();	// no-pause: UI animation must advance even when game-time is paused, else the contact opening sticks on static forever
 
 	if(gubCurrentCount < ubMaxNumOfLoops)
 	{
@@ -5515,7 +5544,7 @@ void DisplayPopUpBoxExplainingMercArrivalLocationAndTimeCallBack( UINT8 bExitVal
 
 void DisplayAimMemberClickOnFaceHelpText()
 {
-	CHAR16 sString[ 128 ], sTemp[ 20 ];
+	CHAR16 sString[ 6000 ], sTemp[ 64 ];	// was [128]/[20]: many/long skill-trait names overflowed both
 
 	if(gGameExternalOptions.gfUseNewStartingGearInterface)
 	{

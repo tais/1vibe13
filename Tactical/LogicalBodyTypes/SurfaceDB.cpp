@@ -108,7 +108,10 @@ void XMLCALL SurfaceDB::StartElementHandle(void* userData, const XML_Char* name,
 				if (!ConvertStringToINT8(aProf, &(sType->bProfile))) throw XMLParseException("Attribute 'profile' doesn't have a valid value!", name, data->pParser);  // was reading aFrms (framesperdir) by copy-paste
 				if (!ConvertStringToUINT32(aDirs, &(sType->uiNumDirections))) throw XMLParseException("Attribute 'directions' doesn't have a valid value!", name, data->pParser);
 				if (!ConvertStringToUINT32(aFrms, &(sType->uiNumFramesPerDir))) throw XMLParseException("Attribute 'framesperdir' doesn't have a valid value!", name, data->pParser);
-				if (!FileExists(sType->Filename)) {
+				// GraphicFileExists accepts the externalized .jpc.7z form (a .sti may
+				// have been replaced by it); the loader below uses JPC_FALLBACK too, so
+				// this matches what the engine can actually render.
+				if (!GraphicFileExists(sType->Filename)) {
 					std::string msg = "Animation surface file does not exist: ";
 					msg += sType->Filename;
 					throw XMLParseException(msg.c_str(), name, data->pParser);

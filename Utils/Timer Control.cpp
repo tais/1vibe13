@@ -125,28 +125,13 @@ extern INT32 giPotCharPathBaseTime;
 // sevenfm: display overflow detection
 extern void MapScreenMessage(UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ...);
 
-typedef void (*TIMER_NOTIFY_CALLBACK) ( INT32 timer, PTR state );
-struct TIMER_NOTIFY_ITEM
-{
-	TIMER_NOTIFY_CALLBACK callback;
-	PTR state;
-};
-typedef std::list<TIMER_NOTIFY_ITEM> TIMER_NOTIFY_ITEM_LIST;
-typedef TIMER_NOTIFY_ITEM_LIST::iterator TIMER_NOTIFY_ITEM_ITERATOR;
-static TIMER_NOTIFY_ITEM_LIST glNotifyCallbacks;
-static std::mutex gNotifyMutex;
-
-// Clock / notify thread state. std::thread + std::atomic<bool> for
-// shutdown signaling, std::condition_variable for the
-// notify-when-counter-finishes hand-off. Replaces the four Win32
-// HANDLEs from the original (ghClockThreadShutdown, ghClockThread,
-// ghNotifyThreadEvent, ghNotifyThread, ghNotifyThreadShutdownComplete).
+// Clock thread state. std::thread + std::atomic<bool> for shutdown
+// signaling. Replaces the Win32 HANDLEs from the original.
+// (The old notify thread + condition_variable hand-off was removed: its
+// sole purpose was driving GameLoop off-thread via the notify callback,
+// which is gone -- the main loop is the only GameLoop driver now.)
 static std::thread gClockThread;
-static std::thread gNotifyThread;
 static std::atomic<bool> gShutdownRequested{false};
-static std::atomic<bool> gNotifyPending{false};
-static std::mutex gNotifyCvMutex;
-static std::condition_variable gNotifyCv;
 static std::thread::id gClockThreadId;
 
 // Current period of the non-hispeed clock tick in milliseconds. The
@@ -155,8 +140,6 @@ static std::thread::id gClockThreadId;
 // fast-forward branch can sleep for 1ms directly.
 static std::atomic<UINT32> gClockTickPeriodMs{10};
 
-static bool HasTimerNotifyCallbacks( );
-static void BroadcastTimerNotify(INT32 );
 
 // Local function-pointer alias matching the legacy mmsystem
 // LPTIMECALLBACK signature. Used only by InitializeJA2TimerCallback
@@ -290,14 +273,7 @@ static void TimeProc()
 			}
 		}
 
-		if (timerDone)
-		{
-			{
-				std::lock_guard<std::mutex> lk(gNotifyCvMutex);
-				gNotifyPending = true;
-			}
-			gNotifyCv.notify_one();
-		}
+		(void)timerDone;
 		fInFunction = FALSE;
 	}
 }
@@ -366,48 +342,6 @@ static void ClockThreadMain()
 	}
 }
 
-static void NotifyThreadMain()
-{
-	while (!gShutdownRequested.load(std::memory_order_acquire))
-	{
-		UINT32 waitMs = (!IsFastForwardMode())
-			? std::max<UINT32>(TIME_US_TO_MS(MIN_NOTIFY_TIME),
-			                   TIME_US_TO_MS(GetNextCounterDoneTime()))
-			: 0;
-
-		std::unique_lock<std::mutex> lk(gNotifyCvMutex);
-		if (waitMs == 0)
-		{
-			gNotifyCv.wait(lk, []{
-				return gNotifyPending.load() ||
-				       gShutdownRequested.load();
-			});
-		}
-		else
-		{
-			gNotifyCv.wait_for(lk,
-				std::chrono::milliseconds(waitMs),
-				[]{
-					return gNotifyPending.load() ||
-					       gShutdownRequested.load();
-				});
-		}
-		bool pending = gNotifyPending.exchange(false);
-		lk.unlock();
-
-		if (gShutdownRequested.load(std::memory_order_acquire)) break;
-
-		// Fire the broadcast on either an explicit notify or a wait
-		// timeout (the original Win32 path treated both the same).
-		(void)pending;
-		if (HasTimerNotifyCallbacks())
-		{
-			BroadcastTimerNotify(-1);
-		}
-	}
-}
-
-
 BOOLEAN InitializeJA2Clock()
 {
 #ifdef CALLBACKTIMER
@@ -420,21 +354,11 @@ BOOLEAN InitializeJA2Clock()
 	gPerfCountNext = gPerfCount;
 
 	gShutdownRequested.store(false);
-	gNotifyPending.store(false);
 
 	UpdateTimer();
 
-	if (IsHiSpeedClockMode())
-	{
-		gClockThread = std::thread(ClockThreadMain);
-		gClockThreadId = gClockThread.get_id();
-		gNotifyThread = std::thread(NotifyThreadMain);
-	}
-	else
-	{
-		gClockThread = std::thread(ClockThreadMain);
-		gClockThreadId = gClockThread.get_id();
-	}
+	gClockThread = std::thread(ClockThreadMain);
+	gClockThreadId = gClockThread.get_id();
 #endif
 
 	return TRUE;
@@ -444,14 +368,8 @@ BOOLEAN InitializeJA2Clock()
 void	ShutdownJA2Clock(void)
 {
 	gShutdownRequested.store(true, std::memory_order_release);
-	{
-		std::lock_guard<std::mutex> lk(gNotifyCvMutex);
-		gNotifyPending = true;
-	}
-	gNotifyCv.notify_all();
 
 	if (gClockThread.joinable())  gClockThread.join();
-	if (gNotifyThread.joinable()) gNotifyThread.join();
 }
 
 
@@ -584,70 +502,6 @@ BOOLEAN IsFastForwardMode()
 LONGLONG GetJA2Microseconds()
 {
 	return NowMicroseconds();
-}
-
-void AddTimerNotifyCallback( TIMER_NOTIFY_CALLBACK callback, PTR state )
-{
-	std::lock_guard<std::mutex> lk(gNotifyMutex);
-	BOOL addItem = TRUE;
-	for (TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); ++itr) {
-		if ( callback == (*itr).callback && state == (*itr).state ){
-			addItem = FALSE;
-			break;
-		}
-	}
-	if (addItem)
-	{
-		TIMER_NOTIFY_ITEM item;
-		item.callback = callback;
-		item.state = state;
-		glNotifyCallbacks.push_back(item);
-	}
-}
-
-void RemoveTimerNotifyCallback( TIMER_NOTIFY_CALLBACK callback, PTR state )
-{
-	std::lock_guard<std::mutex> lk(gNotifyMutex);
-	for ( TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); )
-	{
-		if ( callback == (*itr).callback && state == (*itr).state )
-			itr = glNotifyCallbacks.erase(itr);
-		else
-			++itr;
-	}
-}
-
-void ClearTimerNotifyCallbacks()
-{
-	std::unique_lock<std::mutex> lk(gNotifyMutex, std::try_to_lock);
-	if (lk.owns_lock())
-	{
-		glNotifyCallbacks.clear();
-	}
-}
-
-static bool HasTimerNotifyCallbacks( )
-{
-	std::lock_guard<std::mutex> lk(gNotifyMutex);
-	return !glNotifyCallbacks.empty();
-}
-
-
-static void BroadcastTimerNotify(INT32 timer)
-{
-	std::lock_guard<std::mutex> lk(gNotifyMutex);
-	try
-	{
-		for (TIMER_NOTIFY_ITEM_ITERATOR itr = glNotifyCallbacks.begin(); itr != glNotifyCallbacks.end(); ++itr)
-		{
-			if ( NULL != (*itr).callback)
-				(*itr).callback( timer, (*itr).state );
-		}
-	}
-	catch (...)
-	{
-		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "BroadcastTimerNotify Failed!");
-	}
 }
 
 BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft)

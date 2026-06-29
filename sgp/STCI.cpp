@@ -344,12 +344,12 @@ BOOLEAN STCISetPalette( PTR pSTCIPalette, HIMAGE hImage )
 
 	// Allocate memory for palette
 	hImage->pPalette = (SGPPaletteEntry *) MemAlloc( sizeof( SGPPaletteEntry ) * 256 );
-	memset( hImage->pPalette, 0, ( sizeof( SGPPaletteEntry ) * 256 ) );
 
 	if ( hImage->pPalette == NULL )
 	{
 		return( FALSE );
 	}
+	memset( hImage->pPalette, 0, ( sizeof( SGPPaletteEntry ) * 256 ) );
 
 	// Initialize the proper palette entries
 	for (usIndex = 0; usIndex < 256; usIndex++)

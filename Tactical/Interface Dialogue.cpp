@@ -4205,6 +4205,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					pSoldier = ChangeSoldierTeam( pSoldier, CIV_TEAM );
 				}
                 Assert(pSoldier);
+				if ( pSoldier == NULL ) break;	// Assert is a no-op in release; FindSoldierByProfileID/ChangeSoldierTeam can return NULL
 				// remove profile from map
 				gMercProfiles[ pSoldier->ubProfile ].sSectorX = 0;
 				gMercProfiles[ pSoldier->ubProfile ].sSectorY = 0;

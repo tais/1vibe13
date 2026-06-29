@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "sgp_bounded_string.h"
 	#include "Bullets.h"
 	#include <stdio.h>
 	#include <string.h>
@@ -3157,7 +3158,8 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 			strcpy(client_names[cl_lan->client_num-1],szDefault);
 
 		// OJW - 20081204
-		strcpy(cServerName,cl_lan->server_name);
+		// server_name arrives off the wire (untrusted); bound to cServerName[30] + NUL.
+		sgp_strlcpy(cServerName, cl_lan->server_name);
 		gRandomMercs = cl_lan->randomMercs;
 		gRandomStartingEdge = cl_lan->randomStartingEdge;
 

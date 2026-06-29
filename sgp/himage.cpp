@@ -163,6 +163,7 @@ HIMAGE CreateImage( const CHAR8 *ImageFile, UINT16 fContents, ImageFileType::Tes
 
 	if ( !LoadImageData( hImage, fContents ) )
 	{
+		MemFree( hImage );
 		return( NULL );
 	}
 
@@ -678,8 +679,8 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 	// Determine memcopy coordinates
 	uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
 	uiDestStart = usY * usDestWidth + usX;
-	uiNumLines = ( srcRect->iBottom - srcRect->iTop );
-	uiLineSize = ( srcRect->iRight - srcRect->iLeft );
+	uiNumLines = ( srcRect->iBottom - srcRect->iTop ) + 1;
+	uiLineSize = ( srcRect->iRight - srcRect->iLeft ) + 1;
 
 	CHECKF( usDestWidth >= uiLineSize );
 	CHECKF( usDestHeight >= uiNumLines );
@@ -706,6 +707,14 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 		pSrc	+= hImage->usWidth;
 	}
 	// Do last line
+	pDestTemp = pDest;
+	pSrcTemp = pSrc;
+	for ( cols = 0; cols < uiLineSize; cols++ )
+	{
+		*pDestTemp = p16BPPPalette[ *pSrcTemp ];
+		pDestTemp++;
+		pSrcTemp++;
+	}
 	DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, String( "End Copying at %p", pDest ) );
 
 	return( TRUE );

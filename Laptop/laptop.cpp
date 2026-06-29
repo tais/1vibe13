@@ -2399,7 +2399,7 @@ UINT32 LaptopScreenHandle()
 
 			uiTimeRange = 1000;
 			iPercentage = iRealPercentage = 0;
-			uiStartTime = GetJA2Clock();
+			uiStartTime = GetJA2NoPauseClock();	// no-pause: this zoom is a blocking, input-less loop -- the pausable clock freezes it solid when game-time is paused
 
 			BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, iScreenWidthOffset, iScreenHeightOffset,
 				640, 480 );
@@ -2412,7 +2412,7 @@ UINT32 LaptopScreenHandle()
 				BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, iScreenWidthOffset, iScreenHeightOffset,
 					SCREEN_WIDTH - iScreenWidthOffset, SCREEN_HEIGHT - iScreenHeightOffset );
 
-				uiCurrTime = GetJA2Clock();
+				uiCurrTime = GetJA2NoPauseClock();
 				iPercentage = (uiCurrTime-uiStartTime) * 100 / uiTimeRange;
 				iPercentage = min( iPercentage, 100 );
 
@@ -3177,7 +3177,7 @@ BOOLEAN LeaveLapTopScreen( void )
 
 				uiTimeRange = 1000;
 				iPercentage = iRealPercentage = 100;
-				uiStartTime = GetJA2Clock();
+				uiStartTime = GetJA2NoPauseClock();	// no-pause: this zoom is a blocking, input-less loop -- the pausable clock freezes it solid when game-time is paused
 
 				BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, iScreenWidthOffset, iScreenHeightOffset,
 					640, 480 );
@@ -3189,7 +3189,7 @@ BOOLEAN LeaveLapTopScreen( void )
 					BlitBufferToBuffer( guiEXTRABUFFER, FRAME_BUFFER, iScreenWidthOffset, iScreenHeightOffset,
 						SCREEN_WIDTH - iScreenWidthOffset, SCREEN_HEIGHT - iScreenHeightOffset );
 
-					uiCurrTime = GetJA2Clock();
+					uiCurrTime = GetJA2NoPauseClock();
 					iPercentage = (uiCurrTime-uiStartTime) * 100 / uiTimeRange;
 					iPercentage = min( iPercentage, 100 );
 					iPercentage = 100 - iPercentage;

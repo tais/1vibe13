@@ -568,7 +568,7 @@ static void RestoreCursorPixels()
 Uint8 gFrameFadeAlpha = 0;
 void SetFrameFadeAlpha(Uint8 a) { gFrameFadeAlpha = a; }
 
-void RefreshScreen(void* /*dummy*/)
+static void RefreshScreenInternal(bool throttle)
 {
 	if (!gRenderer || !gFrameTex || !gFrameBuffer) return;
 
@@ -577,12 +577,17 @@ void RefreshScreen(void* /*dummy*/)
 	// the CPU (the loop spins) and the GPU (a present every spin), and on a
 	// high-refresh panel vsync alone would still run well above 60. Override with
 	// env JA2_MAX_FPS (e.g. 144 for a high-refresh panel, or 0 to uncap).
+	//
+	// The cap is SKIPPED when throttle==false: serial render flows that aren't an
+	// animation (the loading/progress bar) call dozens-to-hundreds of presents back
+	// to back; pacing each one to 16.6ms turns a save/load into a ~250ms artificial
+	// stall for no visual benefit (a progress bar is an indicator, not animation).
 	static const Uint64 sMinFrameNS = []{
 		const char* s = std::getenv("JA2_MAX_FPS");
 		const int fps = s ? std::atoi(s) : 60;
 		return fps > 0 ? (Uint64)(1000000000ull / (unsigned)fps) : (Uint64)0;
 	}();
-	if (sMinFrameNS) {
+	if (throttle && sMinFrameNS) {
 		static Uint64 sNextPresentNS = 0;
 		const Uint64 now = RealTicksNS();
 		if (now < sNextPresentNS) SDL_DelayNS(sNextPresentNS - now);
@@ -636,6 +641,15 @@ void RefreshScreen(void* /*dummy*/)
 
 	guiFrameBufferState = BUFFER_READY;
 }
+
+// The normal present: frame-rate capped, used by the game loop and animations.
+void RefreshScreen(void* /*dummy*/) { RefreshScreenInternal(true); }
+
+// Uncapped present for serial loading/progress flows -- no per-present pacing, so
+// many back-to-back redraws (e.g. a save/load progress bar) don't accumulate the
+// 16.6ms-per-frame stall. NOT for the game loop or fades/intro (those rely on the
+// cap as their timing/anti-spin source).
+void PresentNow(void) { RefreshScreenInternal(false); }
 
 // ---- Mouse cursor & misc (minimal so the stubs go away) -------------------
 

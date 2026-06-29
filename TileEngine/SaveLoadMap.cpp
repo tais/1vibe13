@@ -349,6 +349,7 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 	if( uiNumBytesRead != uiFileSize )
 	{
 		FileClose( hFile );
+		MemFree( pTempArrayOfMaps );
 		return( FALSE );
 	}
 
@@ -366,6 +367,10 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 	for( cnt=0; cnt< uiNumberOfElements; ++cnt )
 	{
 		pMap = &pTempArrayOfMaps[ cnt ];
+
+		// usGridNo is read raw from the (possibly corrupt) temp file and used as a
+		// gpWorldLevelData[WORLD_MAX] index throughout the dispatch below.
+		if ( pMap->usGridNo < 0 || pMap->usGridNo >= WORLD_MAX ) continue;
 
 		//Switch on the type that should either be added or removed from the map
 		switch( pMap->ubType )

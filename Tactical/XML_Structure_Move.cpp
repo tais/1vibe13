@@ -105,13 +105,13 @@ structuredemoveEndElementHandle( void *userData, const XML_Char *name )
 		{
 			pData->curElement = ELEMENT;
 
-			strncpy( pData->curArray[pData->curIndex].szTileSetDisplayName, pData->szCharData, 20 );
+			if ( pData->curIndex < pData->maxArraySize ) strncpy( pData->curArray[pData->curIndex].szTileSetDisplayName, pData->szCharData, 20 );
 		}
 		else if ( strcmp( name, "szTileSetName" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			strncpy( pData->curArray[pData->curIndex].szTileSetName, pData->szCharData, 20 );
+			if ( pData->curIndex < pData->maxArraySize ) strncpy( pData->curArray[pData->curIndex].szTileSetName, pData->szCharData, 20 );
 		}
 		else if ( strcmp( name, "allowedtile" ) == 0 )
 		{

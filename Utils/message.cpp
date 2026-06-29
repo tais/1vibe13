@@ -243,7 +243,11 @@ BOOLEAN CreateStringVideoOverlay( ScrollStringStPtr pStringSt, UINT16 usX, UINT1
 	VideoOverlayDesc.ubFontFore	= (unsigned char)pStringSt->usColor;
 	VideoOverlayDesc.sX					= VideoOverlayDesc.sLeft;
 	VideoOverlayDesc.sY					= VideoOverlayDesc.sTop;
-	swprintf( VideoOverlayDesc.pzText, pStringSt->pString16 );
+	// pString16 is runtime/data text (incl. player & MP names) -- it must NOT be the
+	// format argument, or a literal '%' in a name is interpreted as a format spec and
+	// reads nonexistent varargs (UB). Pass it as a "%ls" argument so it renders
+	// literally; the swprintf macro still bounds the write to sizeof(pzText).
+	swprintf( VideoOverlayDesc.pzText, L"%ls", pStringSt->pString16 );
 	VideoOverlayDesc.BltCallback = BlitString;
 	pStringSt->iVideoOverlay =	RegisterVideoOverlay( ( VOVERLAY_DIRTYBYTEXT ), &VideoOverlayDesc );
 

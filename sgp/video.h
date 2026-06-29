@@ -95,6 +95,10 @@ void RefreshScreen(void *DummyVariable);
 // over the frame in RefreshScreen; used for a smooth GPU screen fade.
 void SetFrameFadeAlpha(unsigned char a);
 
+// Uncapped present for serial loading/progress flows (skips the per-present FPS
+// cap). Use only for non-animated progress redraws, e.g. the load/save bar.
+void PresentNow(void);
+
 
 void FatalError( const STR8 pError, ...);
 

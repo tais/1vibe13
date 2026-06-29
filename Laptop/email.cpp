@@ -5573,7 +5573,8 @@ void PreProcessEmail( EmailPtr pMail )
 			else if ( pMail->EmailVersion == TYPE_EMAIL_XML )
 			{
 				wcscpy(pString, L"\0");
-				wcscat(pString, gEmails[pMail->usOffset].Messages[iCounter].c_str());
+				if ( pMail->usOffset < gEmails.size() && (size_t)iCounter < gEmails[pMail->usOffset].Messages.size() )
+					wcscat(pString, gEmails[pMail->usOffset].Messages[iCounter].c_str());
 			}
 
 			// ----------------

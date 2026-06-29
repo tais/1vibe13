@@ -47,6 +47,7 @@
 #include "Text.h"
 
 #include "debug_util.h"
+#include "sgp_logger.h"
 
 // These match the C++-linkage declarations in DEBUG.H. The previous
 // extern "C" wrapper here was inconsistent and clang refuses to mix
@@ -395,6 +396,22 @@ void	DbgShutdown() {};
 extern HVOBJECT FontObjs[25];
 
 #include <vfs/Core/vfs_os_functions.h>
+
+// Recoverable-guard logger backing EXPECT/EXPECT_RET (see Debug.h). Unlike
+// _FailMessage it does NOT raise the error screen -- it logs the failed
+// precondition (file:line + condition text) to the always-on game log and
+// stderr, then the macro returns gracefully. Always compiled in (shipping too)
+// so these recovered edges remain diagnosable.
+void _ExpectFailed(const char* cond, unsigned lineNum, const char* sourceFileName)
+{
+	char buf[600];
+	snprintf(buf, sizeof(buf), "EXPECT failed: (%s) at %s:%u -- recovering gracefully",
+		cond ? cond : "?", sourceFileName ? sourceFileName : "?", lineNum);
+	SGP_WARNING(buf);
+	std::fprintf(stderr, "%s\n", buf);
+	std::fflush(stderr);
+}
+
 void _FailMessage(const char* message, unsigned lineNum, const char * functionName, const char* sourceFileName)
 {
 	// This function shouldn't recurse

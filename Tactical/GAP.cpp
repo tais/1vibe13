@@ -32,6 +32,9 @@ void AudioGapListInit( const CHAR8 *zSoundFile, AudioGapList	*pGapList )
 
 	pSourceFileName= zSoundFile;
 	pDestFileName=sFileName;
+	// free any previously-attached gap list before re-initializing
+	// (multi-part speech re-inits the same list with no intervening AudioGapListDone)
+	if (pGapList->pHead) AudioGapListDone(pGapList);
 	//Initialize GapList
 	pGapList->size=0;
 	pGapList->current_time=0;
