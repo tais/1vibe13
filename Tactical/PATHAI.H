@@ -31,7 +31,12 @@ public:
 		wasBackwards = false;
 		status = AStar_Init;
 		parent = -1;
+		stamp = 0;//generation stamp: 0 != any live generation (which starts at 1)
 	};
+	// Generation stamp for lazy reset: a node's status/cost are only "live" when
+	// stamp == AStarPathfinder::currentSearchGeneration. This replaces the per-search
+	// full-array clear of ResetAStarList(). See SetAStarStatus/GetAStarStatus.
+	UINT32		stamp;
 	// h is calculated on the fly
 	INT16		cost;//G
 	//int			f;//F is also calculated on the fly
@@ -120,6 +125,11 @@ private:
 	//AStar_Data	AStarData[WORLD_MAX];
 	AStar_Data	AStarData[MAX_ALLOWED_WORLD_MAX];
 
+	// Monotonically increasing per-search id. Bumped once at the start of every
+	// pathfind (in ResetAStarList) instead of clearing the whole AStarData array.
+	// A node whose stamp != this value reads as fresh (status AStar_Init, cost 0).
+	UINT32		currentSearchGeneration;
+
 
 
 
@@ -143,9 +153,12 @@ private:
 							INT32 myThreatsiOrigRange, INT32 myThreatssGridNo, SOLDIERTYPE* myThreatspOpponent,
 							INT32 myThreatsiValue, INT32 myThreatsiAPs, INT32 myThreatsiCertainty);
 
-	eAStar	GetAStarStatus	(const INT32 node) const {return AStarData[node].status;};
+	// status/cost are virtualized by the generation stamp: a node not touched in the
+	// current search reads as AStar_Init / cost 0 (exactly what the old per-search
+	// full-array clear produced) without writing to it.
+	eAStar	GetAStarStatus	(const INT32 node) const {return AStarData[node].stamp == currentSearchGeneration ? AStarData[node].status : AStar_Init;};
 	INT32	GetAStarParent	(const INT32 node) const {return AStarData[node].parent;};
-	INT16	GetAStarG		(INT32 node) const {return AStarData[node].cost;};
+	INT16	GetAStarG		(INT32 node) const {return AStarData[node].stamp == currentSearchGeneration ? AStarData[node].cost : (INT16)0;};
 	int		GetExtraGCover	(const INT32 node) const {return AStarData[node].extraGCoverCost;};
 	//int		GetAStarF		(const INT16 node) const {return AStarData[node].f;};
 	//int		GetActionPoints	(const INT16 node) const {return AStarData[node].APCost;};
@@ -154,16 +167,19 @@ private:
 	UINT8	GetDirection	(const INT32 node) const {return AStarData[node].directionFromPrev;};
 	int		GetNumSteps		(const INT32 node) const {return AStarData[node].numSteps;};
 
-	void	SetAStarStatus	(const INT32 node, const eAStar status) {AStarData[node].status = status;};
-	void	SetAStarParent	(const INT32 node, const INT32 parent) {AStarData[node].parent = parent;};
-	void	SetAStarG		(const INT32 node, const INT16 cost) {AStarData[node].cost = cost;};
-	void	SetExtraGCover	(const INT32 node, const int extraGCoverCost) {AStarData[node].extraGCoverCost = extraGCoverCost;};
+	// Every Set* marks the node live for the current search. SetAStarStatus is always
+	// part of the write batch when a node first becomes Open/Closed, so the stamp and
+	// the status field are written together and status virtualization stays exact.
+	void	SetAStarStatus	(const INT32 node, const eAStar status) {AStarData[node].stamp = currentSearchGeneration; AStarData[node].status = status;};
+	void	SetAStarParent	(const INT32 node, const INT32 parent) {AStarData[node].stamp = currentSearchGeneration; AStarData[node].parent = parent;};
+	void	SetAStarG		(const INT32 node, const INT16 cost) {AStarData[node].stamp = currentSearchGeneration; AStarData[node].cost = cost;};
+	void	SetExtraGCover	(const INT32 node, const int extraGCoverCost) {AStarData[node].stamp = currentSearchGeneration; AStarData[node].extraGCoverCost = extraGCoverCost;};
 	//void	SetAStarF		(const INT16 node, const int f) {AStarData[node].f = f;};
 	//void	SetActionPoints	(const INT16 node, const int APCost) {AStarData[node].APCost = APCost;};
 	void	SetLoopState	(const INT32 node, const int loopState);
 	//void	SetPrevCost		(const INT16 node, const int prevCost) {AStarData[node].prevCost = prevCost;};
-	void	SetDirection	(const INT32 node, const UINT8 direction) {AStarData[node].directionFromPrev = direction;};
-	void	SetNumSteps		(const INT32 node, const int steps) {AStarData[node].numSteps = steps;};
+	void	SetDirection	(const INT32 node, const UINT8 direction) {AStarData[node].stamp = currentSearchGeneration; AStarData[node].directionFromPrev = direction;};
+	void	SetNumSteps		(const INT32 node, const int steps) {AStarData[node].stamp = currentSearchGeneration; AStarData[node].numSteps = steps;};
 
 	int		PythSpacesAway	(const INT32 node1,
 							const INT32 node2);
