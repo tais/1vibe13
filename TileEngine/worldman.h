@@ -4,6 +4,12 @@
 // memory-accounting function
 void CountLevelNodes( void );
 
+// LEVELNODE free-list pool instrumentation (perf v3 #10): in-use node count plus
+// cumulative pool-hit / MemAlloc-fallback tallies, logged once per LoadWorld.
+extern UINT32 guiLevelNodes;
+extern UINT32 guiLevelNodePoolHits;
+extern UINT32 guiLevelNodePoolMisses;
+
 
 // Object manipulation functions
 BOOLEAN RemoveObject( INT32 iMapIndex, UINT16 usIndex );
