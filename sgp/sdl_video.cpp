@@ -456,6 +456,80 @@ BOOLEAN Set8BPPPalette(SGPPaletteEntry* pal)
 extern BOOLEAN gfScrollInertia;
 extern BOOLEAN gfScrollPending;
 
+// --- Scroll-cost instrumentation (perf v3 #6, instrumentation only) --------
+// Opt-in via env JA2_SCROLL_PROFILE=1. Quantifies the suspected per-scroll-frame
+// cost (full RenderWorld re-render + ~1.2MB framebuffer upload) versus idle
+// frames, so the incremental world-texture rewrite (a separate future PR) can be
+// gated on real numbers. Disabled => the only overhead is one bool store per
+// frame; enabled => a few RealTicksNS() reads + a stderr summary every N frames.
+static bool gScrollFrameActive = false;
+bool Sgp_IsScrollFrameActive(void) { return gScrollFrameActive; }
+
+static bool ScrollProfileEnabled(void)
+{
+	static const bool on = []{
+		const char* s = std::getenv("JA2_SCROLL_PROFILE");
+		return s && std::atoi(s) != 0;
+	}();
+	return on;
+}
+
+namespace {
+struct ScrollProfBucket {
+	Uint64 frames      = 0;   // frames seen in this bucket
+	double renderMs    = 0.0; // summed RenderWorld() time
+	double uploadMs    = 0.0; // summed SDL_UpdateTexture time
+	Uint64 uploadBytes = 0;   // summed bytes pushed to the texture
+};
+} // namespace
+static ScrollProfBucket gProfScroll; // scroll-active frames
+static ScrollProfBucket gProfIdle;   // idle (non-scroll) frames
+
+// Emit a rolling summary every kReportEvery presents and reset the buckets, so
+// the log stays readable instead of one line per frame.
+static void ScrollProfileMaybeReport(void)
+{
+	static const Uint64 kReportEvery = 240;
+	const Uint64 total = gProfScroll.frames + gProfIdle.frames;
+	if (total < kReportEvery) return;
+
+	auto avg = [](double sum, Uint64 n) { return n ? sum / (double)n : 0.0; };
+	std::fprintf(stderr,
+		"[scrollprof] scroll: %llu fr  render %.3f ms/fr  upload %.3f ms/fr  %.1f KB/fr"
+		"  |  idle: %llu fr  render %.3f ms/fr  upload %.3f ms/fr  %.1f KB/fr\n",
+		(unsigned long long)gProfScroll.frames,
+		avg(gProfScroll.renderMs, gProfScroll.frames),
+		avg(gProfScroll.uploadMs, gProfScroll.frames),
+		avg((double)gProfScroll.uploadBytes, gProfScroll.frames) / 1024.0,
+		(unsigned long long)gProfIdle.frames,
+		avg(gProfIdle.renderMs, gProfIdle.frames),
+		avg(gProfIdle.uploadMs, gProfIdle.frames),
+		avg((double)gProfIdle.uploadBytes, gProfIdle.frames) / 1024.0);
+
+	gProfScroll = ScrollProfBucket();
+	gProfIdle   = ScrollProfBucket();
+}
+
+// Record this present's upload cost into the scroll/idle bucket. Increments the
+// frame count (one present == one frame for bucketing purposes), then reports.
+static void ScrollProfileRecordUpload(double ms, Uint64 bytes)
+{
+	ScrollProfBucket& b = gScrollFrameActive ? gProfScroll : gProfIdle;
+	b.frames++;
+	b.uploadMs    += ms;
+	b.uploadBytes += bytes;
+	ScrollProfileMaybeReport();
+}
+
+// Game-loop hook: fold the measured RenderWorld() time into the current frame's
+// bucket. Runs before the present (which increments the frame count), so the
+// render time lands in the same bucket the upload will.
+void Sgp_ScrollProfileRecordRender(double dMilliseconds)
+{
+	if (!ScrollProfileEnabled()) return;
+	(gScrollFrameActive ? gProfScroll : gProfIdle).renderMs += dMilliseconds;
+}
+
 static void ShiftFrameBufferForScroll()
 {
 	const bool scrolled = (gfRenderScroll
@@ -463,6 +537,10 @@ static void ShiftFrameBufferForScroll()
 		|| gfScrollPending
 		|| gsScrollXIncrement != 0
 		|| gsScrollYIncrement != 0);
+	// Latch the per-frame scroll-active flag for the instrumentation. This hook
+	// runs once per frame between ScrollWorld() and RenderWorld(), so the flag is
+	// valid for the whole frame (RenderWorld + the present that follows).
+	gScrollFrameActive = scrolled;
 	gsScrollXIncrement = 0;
 	gsScrollYIncrement = 0;
 	gfRenderScroll = FALSE;
@@ -701,9 +779,18 @@ static void RefreshScreenInternal(bool throttle)
 			(upL <= 0 && upT <= 0 &&
 			 upR >= (INT32)SCREEN_WIDTH && upB >= (INT32)SCREEN_HEIGHT);
 
+		// Scroll-cost instrumentation (perf v3 #6): time the upload and record
+		// the bytes pushed so we can compare scroll frames (which take the full
+		// path via RENDER_FLAG_FULL -> DirtyFullScreen) against idle frames
+		// (which usually take the partial path). No-op overhead when disabled.
+		const bool   prof = ScrollProfileEnabled();
+		const Uint64 t0   = prof ? RealTicksNS() : 0;
+		Uint64       uploadBytes = 0;
+
 		if (fullOrEmpty) {
 			SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
 			                  SCREEN_WIDTH * sizeof(PIXEL));
+			uploadBytes = (Uint64)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
 		} else {
 			const SDL_Rect r = { upL, upT, upR - upL, upB - upT };
 			// Offset the source pointer to the rect's top-left; pitch
@@ -711,6 +798,12 @@ static void RefreshScreenInternal(bool throttle)
 			// uploaded row correctly.
 			const PIXEL* src = gFrameBuffer + (size_t)upT * SCREEN_WIDTH + upL;
 			SDL_UpdateTexture(gFrameTex, &r, src, SCREEN_WIDTH * sizeof(PIXEL));
+			uploadBytes = (Uint64)(upR - upL) * (upB - upT) * sizeof(PIXEL);
+		}
+
+		if (prof) {
+			ScrollProfileRecordUpload((double)(RealTicksNS() - t0) / 1.0e6,
+			                          uploadBytes);
 		}
 	}
 	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;

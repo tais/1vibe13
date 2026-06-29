@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include <stdio.h>
+#include <chrono>   // scroll-cost instrumentation (perf v3 #6): RenderWorld timing
 #include "sgp.h"
 #include "gameloop.h"
 #include <Overhead Types.h>
@@ -816,7 +817,17 @@ UINT32	MainGameScreenHandle(void)
 	// SDL3 port: RenderWorld itself sets RENDER_FLAG_FULL on every entry
 	// (see TileEngine/renderworld.cpp) so we don't need a redundant
 	// SetRenderFlags() call here.
+	//
+	// Scroll-cost instrumentation (perf v3 #6, instrumentation only): time the
+	// full-world re-render so the scroll-frame vs idle-frame cost can be bucketed
+	// against the framebuffer upload in the present path. Two steady_clock reads
+	// per frame; the report is a no-op unless JA2_SCROLL_PROFILE is set.
+	const std::chrono::steady_clock::time_point tRenderStart =
+		std::chrono::steady_clock::now();
 	RenderWorld( );
+	Sgp_ScrollProfileRecordRender(
+		std::chrono::duration<double, std::milli>(
+			std::chrono::steady_clock::now() - tRenderStart).count());
 
 	if ( gRenderOverride != NULL )
 	{
