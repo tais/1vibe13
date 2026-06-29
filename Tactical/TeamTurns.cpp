@@ -776,7 +776,7 @@ void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
 	gTacticalStatus.uiTimeSinceMercAIStart = GetJA2Clock();	
 	gtTimeSinceMercAIStart = time(0);	// sevenfm: also remember system time
 
-	if ( gTacticalStatus.ubTopMessageType != COMPUTER_TURN_MESSAGE)
+	if ( gTacticalStatus.combatUI.ubTopMessageType != COMPUTER_TURN_MESSAGE)
 	{
 		// Dirty panel interface!
 		fInterfacePanelDirty = DIRTYLEVEL2;

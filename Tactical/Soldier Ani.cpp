@@ -3914,7 +3914,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		{			
 			if(pSoldier->bTeam==0) 
 				send_death(pSoldier);
-			else if(pSoldier->bTeam <6 && ((gTacticalStatus.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))
+			else if(pSoldier->bTeam <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))
 				send_death(pSoldier);						
 		}
 
@@ -4586,7 +4586,7 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier )
 		if (is_networked)
 		{
 			if(pSoldier->bTeam==0) send_death(pSoldier);
-			else if(pSoldier->bTeam <6 && ((gTacticalStatus.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))send_death(pSoldier);
+			else if(pSoldier->bTeam <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))send_death(pSoldier);
 			else if (pSoldier->bTeam < 6 && (is_server)) send_death(pSoldier);
 		}
 
