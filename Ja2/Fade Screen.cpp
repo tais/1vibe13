@@ -12,6 +12,11 @@
 
 #define	SQUARE_STEP			8
 
+// Total wall-clock duration a fade should take, spread evenly across its
+// gsFadeLimit steps. The fade is time-based (driven by the no-pause clock) so
+// it looks identical at any frame rate -- see FadeScreenHandle().
+#define	FADE_TOTAL_MS		220
+
 extern UINT32	guiExitScreen; // symbol already declared globally in laptop.cpp (jonathanl)
 BOOLEAN	gfFadeInitialized = FALSE;
 INT8		gbFadeValue;
@@ -274,23 +279,63 @@ UINT32	FadeScreenHandle( )
 	{
 		gfFirstTimeInFade = FALSE;
 
-		// Calcuate delay
-		guiTime = GetJA2Clock( );
+		// Fade start time. Use the NO-PAUSE clock: a fade is a UI animation and
+		// game-time is often paused during a sector load, which would otherwise
+		// freeze a time-based fade mid-transition.
+		guiTime = GetJA2NoPauseClock( );
 	}
 
 	// Get time
-	uiTime = GetJA2Clock( );
+	uiTime = GetJA2NoPauseClock( );
 
 	MusicPoll( TRUE );
 
-	if ( ( uiTime - guiTime ) > guiFadeDelay )
+	// --- Smooth GPU fade for the RealFade types (the game-screen fade used on
+	// sector entry, FADE_IN/OUT_REALFADE). Drives a continuous black-overlay
+	// alpha straight off the no-pause clock, so it's smooth and identical at any
+	// frame rate. Replaces the legacy 16bpp stipple/dither fade, whose dithered
+	// steps showed up as "pixelated frames in the middle" once the 60fps cap
+	// stopped overwriting them in ~1ms. The overlay is composited on the GPU in
+	// RefreshScreen (sgp/sdl_video.cpp) -- nothing is stippled into the buffer. ---
+	if ( gbFadeType == FADE_IN_REALFADE || gbFadeType == FADE_OUT_REALFADE )
 	{
-		// Fade!
-		if ( !gfFadeIn )
+		UINT32  uiElapsed  = uiTime - guiTime;
+		BOOLEAN fDone      = ( uiElapsed >= FADE_TOTAL_MS );
+		float   fProgress  = fDone ? 1.0f : (float)uiElapsed / (float)FADE_TOTAL_MS;
+
+		if ( gbFadeType == FADE_IN_REALFADE )
 		{
-			//gFadeFunction( );
+			// Reveal the saved scene: black -> clear.
+			RestoreExternBackgroundRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
+			SetFrameFadeAlpha( (UINT8)( 255.0f * ( 1.0f - fProgress ) ) );
+		}
+		else
+		{
+			// Darken the current scene: clear -> black.
+			SetFrameFadeAlpha( (UINT8)( 255.0f * fProgress ) );
 		}
 
+		InvalidateScreen();
+		RefreshScreen( NULL );
+
+		if ( fDone )
+		{
+			if ( gbFadeType == FADE_OUT_REALFADE )
+				ColorFillVideoSurfaceArea( FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+
+			SetFrameFadeAlpha( 0 );   // clear the overlay so the rest of the game isn't tinted
+			gfFadeInitialized = FALSE;
+			gfFadeIn = FALSE;
+			return( guiExitScreen );
+		}
+
+		return( FADE_SCREEN );
+	}
+
+	// --- Legacy stepped path for the other fade types (Square / VersionOne):
+	// original behaviour, one step per frame after the initial delay. ---
+	if ( ( uiTime - guiTime ) > guiFadeDelay )
+	{
 		InvalidateScreen();
 
 		if ( !gfFadeInVideo )
@@ -302,15 +347,6 @@ UINT32	FadeScreenHandle( )
 
 		if ( gsFadeCount > gsFadeLimit )
 		{
-			switch( gbFadeType )
-			{
-				case FADE_OUT_REALFADE:
-
-					// Clear framebuffer
-					ColorFillVideoSurfaceArea( FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-					break;
-			}
-
 			//End!
 			gfFadeInitialized = FALSE;
 			gfFadeIn = FALSE;

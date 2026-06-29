@@ -563,6 +563,11 @@ static void RestoreCursorPixels()
 // Push gFrameBuffer to the streaming texture and present. If the
 // override callback is set (the game uses this for in-flight overlays
 // / fades), call it first.
+// Global fade-overlay alpha (0..255, 0 == no overlay). Driven by the screen
+// fade in Ja2/Fade Screen.cpp; composited as a black quad in RefreshScreen.
+Uint8 gFrameFadeAlpha = 0;
+void SetFrameFadeAlpha(Uint8 a) { gFrameFadeAlpha = a; }
+
 void RefreshScreen(void* /*dummy*/)
 {
 	if (!gRenderer || !gFrameTex || !gFrameBuffer) return;
@@ -616,6 +621,17 @@ void RefreshScreen(void* /*dummy*/)
 	SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(gRenderer);
 	SDL_RenderTexture(gRenderer, gFrameTex, nullptr, nullptr);
+
+	// Smooth GPU fade overlay: a black quad blended over the whole frame at
+	// gFrameFadeAlpha (0 == off). Used by the screen fade (Ja2/Fade Screen.cpp)
+	// instead of the legacy 16bpp stipple/dither fade, which showed as
+	// "pixelated frames" once the frame cap stopped overwriting them instantly.
+	if (gFrameFadeAlpha > 0) {
+		SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, gFrameFadeAlpha);
+		SDL_RenderFillRect(gRenderer, nullptr);
+	}
+
 	SDL_RenderPresent(gRenderer);
 
 	guiFrameBufferState = BUFFER_READY;
