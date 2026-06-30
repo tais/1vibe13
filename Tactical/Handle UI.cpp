@@ -1357,9 +1357,11 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		{
 			if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT ) )	
 			{
-				memset( gubWorldTileInLight, FALSE, sizeof( gubWorldTileInLight ) );
- 				memset( gubIsCorpseThere, FALSE, sizeof( gubIsCorpseThere ) );
- 				memset( gubMerkCanSeeThisTile, FALSE, sizeof( gubMerkCanSeeThisTile ) );
+				// Clear only the live map (WORLD_MAX), not the MAX_ALLOWED_WORLD_MAX (4M) array
+				// ceiling -- this cleared 24MB every turn-end where ~0.9MB is touched.
+				memset( gubWorldTileInLight, FALSE, WORLD_MAX * sizeof( gubWorldTileInLight[0] ) );
+ 				memset( gubIsCorpseThere, FALSE, WORLD_MAX * sizeof( gubIsCorpseThere[0] ) );
+ 				memset( gubMerkCanSeeThisTile, FALSE, WORLD_MAX * sizeof( gubMerkCanSeeThisTile[0] ) );
 	 	 
 				//sevenfm translated: unwinding of loop. When changing WORLD_MAX to another value will need some cleaning! dangerous code! ;)
 

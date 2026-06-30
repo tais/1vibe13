@@ -147,6 +147,15 @@ static constexpr PIXEL kCursorTransparent = 0xF81F;       // RGB565 magenta
 // Accumulated dirty rect (in framebuffer pixels). Empty when L>=R.
 static INT32 gDirtyL = 0, gDirtyT = 0, gDirtyR = 0, gDirtyB = 0;
 
+// Idle-frame instrumentation (perf v3 #7). Semantic "something changed since the
+// last present" flag, set by the engine's invalidation funnel (ExpandDirtyRect /
+// DirtyFullScreen) and read+reset once per present in RefreshScreenInternal. This
+// is MEASUREMENT-ONLY plumbing: a follow-up may gate the present on it, but for now
+// it only feeds the would-be-skippable counter. Single-threaded (render + game
+// logic both run on the main thread), so a plain bool is sufficient.
+static bool gFrameDirty = true;
+void MarkFrameDirty(void) { gFrameDirty = true; }
+
 // Optional frame-end callback the game uses for overlays.
 static void (*gRefreshOverride)() = nullptr;
 
@@ -167,6 +176,7 @@ static void ExpandDirtyRect(INT32 L, INT32 T, INT32 R, INT32 B)
 	if (R > (INT32)SCREEN_WIDTH)  R = SCREEN_WIDTH;
 	if (B > (INT32)SCREEN_HEIGHT) B = SCREEN_HEIGHT;
 	if (L >= R || T >= B) return;
+	MarkFrameDirty();   // a non-empty invalidation == a real visual change this frame
 	if (gDirtyL >= gDirtyR || gDirtyT >= gDirtyB) {
 		gDirtyL = L; gDirtyT = T; gDirtyR = R; gDirtyB = B;
 	} else {
@@ -179,6 +189,7 @@ static void ExpandDirtyRect(INT32 L, INT32 T, INT32 R, INT32 B)
 
 static void DirtyFullScreen()
 {
+	MarkFrameDirty();
 	gDirtyL = 0; gDirtyT = 0;
 	gDirtyR = SCREEN_WIDTH; gDirtyB = SCREEN_HEIGHT;
 }
@@ -456,6 +467,80 @@ BOOLEAN Set8BPPPalette(SGPPaletteEntry* pal)
 extern BOOLEAN gfScrollInertia;
 extern BOOLEAN gfScrollPending;
 
+// --- Scroll-cost instrumentation (perf v3 #6, instrumentation only) --------
+// Opt-in via env JA2_SCROLL_PROFILE=1. Quantifies the suspected per-scroll-frame
+// cost (full RenderWorld re-render + ~1.2MB framebuffer upload) versus idle
+// frames, so the incremental world-texture rewrite (a separate future PR) can be
+// gated on real numbers. Disabled => the only overhead is one bool store per
+// frame; enabled => a few RealTicksNS() reads + a stderr summary every N frames.
+static bool gScrollFrameActive = false;
+bool Sgp_IsScrollFrameActive(void) { return gScrollFrameActive; }
+
+static bool ScrollProfileEnabled(void)
+{
+	static const bool on = []{
+		const char* s = std::getenv("JA2_SCROLL_PROFILE");
+		return s && std::atoi(s) != 0;
+	}();
+	return on;
+}
+
+namespace {
+struct ScrollProfBucket {
+	Uint64 frames      = 0;   // frames seen in this bucket
+	double renderMs    = 0.0; // summed RenderWorld() time
+	double uploadMs    = 0.0; // summed SDL_UpdateTexture time
+	Uint64 uploadBytes = 0;   // summed bytes pushed to the texture
+};
+} // namespace
+static ScrollProfBucket gProfScroll; // scroll-active frames
+static ScrollProfBucket gProfIdle;   // idle (non-scroll) frames
+
+// Emit a rolling summary every kReportEvery presents and reset the buckets, so
+// the log stays readable instead of one line per frame.
+static void ScrollProfileMaybeReport(void)
+{
+	static const Uint64 kReportEvery = 240;
+	const Uint64 total = gProfScroll.frames + gProfIdle.frames;
+	if (total < kReportEvery) return;
+
+	auto avg = [](double sum, Uint64 n) { return n ? sum / (double)n : 0.0; };
+	std::fprintf(stderr,
+		"[scrollprof] scroll: %llu fr  render %.3f ms/fr  upload %.3f ms/fr  %.1f KB/fr"
+		"  |  idle: %llu fr  render %.3f ms/fr  upload %.3f ms/fr  %.1f KB/fr\n",
+		(unsigned long long)gProfScroll.frames,
+		avg(gProfScroll.renderMs, gProfScroll.frames),
+		avg(gProfScroll.uploadMs, gProfScroll.frames),
+		avg((double)gProfScroll.uploadBytes, gProfScroll.frames) / 1024.0,
+		(unsigned long long)gProfIdle.frames,
+		avg(gProfIdle.renderMs, gProfIdle.frames),
+		avg(gProfIdle.uploadMs, gProfIdle.frames),
+		avg((double)gProfIdle.uploadBytes, gProfIdle.frames) / 1024.0);
+
+	gProfScroll = ScrollProfBucket();
+	gProfIdle   = ScrollProfBucket();
+}
+
+// Record this present's upload cost into the scroll/idle bucket. Increments the
+// frame count (one present == one frame for bucketing purposes), then reports.
+static void ScrollProfileRecordUpload(double ms, Uint64 bytes)
+{
+	ScrollProfBucket& b = gScrollFrameActive ? gProfScroll : gProfIdle;
+	b.frames++;
+	b.uploadMs    += ms;
+	b.uploadBytes += bytes;
+	ScrollProfileMaybeReport();
+}
+
+// Game-loop hook: fold the measured RenderWorld() time into the current frame's
+// bucket. Runs before the present (which increments the frame count), so the
+// render time lands in the same bucket the upload will.
+void Sgp_ScrollProfileRecordRender(double dMilliseconds)
+{
+	if (!ScrollProfileEnabled()) return;
+	(gScrollFrameActive ? gProfScroll : gProfIdle).renderMs += dMilliseconds;
+}
+
 static void ShiftFrameBufferForScroll()
 {
 	const bool scrolled = (gfRenderScroll
@@ -463,6 +548,10 @@ static void ShiftFrameBufferForScroll()
 		|| gfScrollPending
 		|| gsScrollXIncrement != 0
 		|| gsScrollYIncrement != 0);
+	// Latch the per-frame scroll-active flag for the instrumentation. This hook
+	// runs once per frame between ScrollWorld() and RenderWorld(), so the flag is
+	// valid for the whole frame (RenderWorld + the present that follows).
+	gScrollFrameActive = scrolled;
 	gsScrollXIncrement = 0;
 	gsScrollYIncrement = 0;
 	gfRenderScroll = FALSE;
@@ -646,6 +735,65 @@ static void RefreshScreenInternal(bool throttle)
 	// a cursor trail across frames.
 	CompositeCursorOntoFramebuffer();
 
+	// ---- Idle-frame instrumentation (perf v3 #7) ------------------------------
+	// MEASUREMENT ONLY -- does NOT change what is presented. Opt in with
+	// JA2_IDLE_INSTRUMENT=1 (default off == zero overhead). Quantifies how many
+	// presents are "would-be-skippable" before any gating lands, by comparing two
+	// signals every present:
+	//   * ground truth -- an FNV-1a checksum of the about-to-be-presented pixels
+	//     (gFrameBuffer, cursor already stamped) mixed with the GPU fade alpha. An
+	//     identical checksum two frames running means nothing visibly changed, so
+	//     that present was pure waste.
+	//   * predictor    -- gFrameDirty (set by the engine's invalidation funnel),
+	//     OR the cursor box moved, OR a fade is in progress. This is the cheap flag
+	//     a future gate would test; "flag-missed-idle" counts frames the ground
+	//     truth says were idle but the flag still marked active -- i.e. how much a
+	//     flag-only gate would leave on the table (and, if it were ever 0 the other
+	//     way, where gating would drop a real frame).
+	// gFrameDirty is reset here so it measures change since the previous present.
+	{
+		static const bool sInstrument = []{
+			const char* s = std::getenv("JA2_IDLE_INSTRUMENT");
+			return s && s[0] && s[0] != '0';
+		}();
+		if (sInstrument) {
+			UINT64 hash = 1469598103934665603ull;          // FNV-1a offset basis
+			const unsigned char* fb = (const unsigned char*)gFrameBuffer;
+			const size_t nbytes = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
+			for (size_t i = 0; i < nbytes; ++i) { hash ^= fb[i]; hash *= 1099511628211ull; }
+			hash ^= (UINT64)gFrameFadeAlpha; hash *= 1099511628211ull;
+
+			INT32 cL, cT, cR, cB;
+			CurrentCursorBox(&cL, &cT, &cR, &cB);
+			const bool cursorMoved =
+				(cL != gPrevCursorL || cT != gPrevCursorT ||
+				 cR != gPrevCursorR || cB != gPrevCursorB);
+			const bool predictedActive = gFrameDirty || cursorMoved || (gFrameFadeAlpha > 0);
+
+			static UINT64 sPrevHash = 0;
+			static bool   sHavePrev = false;
+			const bool contentSame = sHavePrev && (hash == sPrevHash);
+			sPrevHash = hash; sHavePrev = true;
+
+			static UINT64 sTotal = 0, sIdentical = 0, sFlagSkippable = 0, sFlagMissedIdle = 0;
+			++sTotal;
+			if (contentSame)                    ++sIdentical;        // ground-truth idle present
+			if (!predictedActive)               ++sFlagSkippable;    // flag would skip
+			if (contentSame && predictedActive) ++sFlagMissedIdle;   // flag too conservative
+
+			if ((sTotal % 600) == 0) {
+				std::fprintf(stderr,
+					"[idle] presents=%llu identical=%llu (%.1f%%) flag-skippable=%llu flag-missed-idle=%llu\n",
+					(unsigned long long)sTotal,
+					(unsigned long long)sIdentical,
+					100.0 * (double)sIdentical / (double)sTotal,
+					(unsigned long long)sFlagSkippable,
+					(unsigned long long)sFlagMissedIdle);
+			}
+		}
+		gFrameDirty = false;   // next frame starts clean
+	}
+
 	// Upload only the changed sub-rect to the streaming texture instead of
 	// the whole 640x480x4 framebuffer every present. SDL_RenderTexture
 	// below still draws the entire texture, so on-screen output is
@@ -701,9 +849,18 @@ static void RefreshScreenInternal(bool throttle)
 			(upL <= 0 && upT <= 0 &&
 			 upR >= (INT32)SCREEN_WIDTH && upB >= (INT32)SCREEN_HEIGHT);
 
+		// Scroll-cost instrumentation (perf v3 #6): time the upload and record
+		// the bytes pushed so we can compare scroll frames (which take the full
+		// path via RENDER_FLAG_FULL -> DirtyFullScreen) against idle frames
+		// (which usually take the partial path). No-op overhead when disabled.
+		const bool   prof = ScrollProfileEnabled();
+		const Uint64 t0   = prof ? RealTicksNS() : 0;
+		Uint64       uploadBytes = 0;
+
 		if (fullOrEmpty) {
 			SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
 			                  SCREEN_WIDTH * sizeof(PIXEL));
+			uploadBytes = (Uint64)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
 		} else {
 			const SDL_Rect r = { upL, upT, upR - upL, upB - upT };
 			// Offset the source pointer to the rect's top-left; pitch
@@ -711,6 +868,12 @@ static void RefreshScreenInternal(bool throttle)
 			// uploaded row correctly.
 			const PIXEL* src = gFrameBuffer + (size_t)upT * SCREEN_WIDTH + upL;
 			SDL_UpdateTexture(gFrameTex, &r, src, SCREEN_WIDTH * sizeof(PIXEL));
+			uploadBytes = (Uint64)(upR - upL) * (upB - upT) * sizeof(PIXEL);
+		}
+
+		if (prof) {
+			ScrollProfileRecordUpload((double)(RealTicksNS() - t0) / 1.0e6,
+			                          uploadBytes);
 		}
 	}
 	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;

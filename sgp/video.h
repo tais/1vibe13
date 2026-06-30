@@ -55,6 +55,18 @@ extern void				 SetFrameBufferRefreshOverride(PTR pFrameBufferRefreshOverride);
 // RenderWorld paints the new view -- so the shifted previous-frame pixels
 // serve as a clean fallback for any iso tile gap.
 extern void				 Sgp_ShiftFrameBufferForScroll(void);
+
+// --- Scroll-cost instrumentation (perf v3 #6, instrumentation only) --------
+// Opt-in via env JA2_SCROLL_PROFILE=1. Zero behavior change. Lets us quantify
+// the full-re-render + framebuffer-upload cost of scroll frames vs idle frames
+// BEFORE attempting the incremental world-texture rewrite. The "scroll-active"
+// flag is set by Sgp_ShiftFrameBufferForScroll() (called per frame between
+// ScrollWorld() and RenderWorld()), so it is valid for the whole frame.
+extern bool				 Sgp_IsScrollFrameActive(void);
+// Game loop reports the measured RenderWorld() duration (milliseconds) so it
+// can be bucketed alongside the upload time. No-op unless profiling is enabled.
+extern void				 Sgp_ScrollProfileRecordRender(double dMilliseconds);
+
 extern PTR					LockPrimarySurface(UINT32 *uiPitch);
 extern void				 UnlockPrimarySurface(void);
 extern PTR					LockBackBuffer(UINT32 *uiPitch);
@@ -94,6 +106,12 @@ void RefreshScreen(void *DummyVariable);
 // Set the full-screen black fade-overlay alpha (0..255, 0 == off). Composited
 // over the frame in RefreshScreen; used for a smooth GPU screen fade.
 void SetFrameFadeAlpha(unsigned char a);
+
+// Idle-frame instrumentation (perf v3 #7), MEASUREMENT ONLY -- does not change
+// rendering. Marks the current frame as "something visibly changed" so the
+// idle-frame counter in RefreshScreen can tell would-be-skippable presents from
+// active ones. Called from the engine's invalidation funnel; safe no-op cost.
+void MarkFrameDirty(void);
 
 // Uncapped present for serial loading/progress flows (skips the per-present FPS
 // cap). Use only for non-animated progress redraws, e.g. the load/save bar.

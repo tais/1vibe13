@@ -559,6 +559,14 @@ class StackedObjectData  {
 public:
 	StackedObjectData();
 	~StackedObjectData();
+	// Copy ops: explicitly defaulted to keep the current (implicit, memberwise)
+	// behaviour now that the move ops below exist (declaring a move member would
+	// otherwise delete the implicit copies).
+	StackedObjectData(const StackedObjectData&) = default;
+	StackedObjectData& operator=(const StackedObjectData&) = default;
+	// Move ops: O(1) splice of the attachment std::list instead of a deep copy.
+	StackedObjectData(StackedObjectData&&) noexcept;
+	StackedObjectData& operator=(StackedObjectData&&) noexcept;
 	void	initialize() {attachments.clear(); data.initialize();};
 	OBJECTTYPE* GetAttachmentAtIndex(UINT8 index);
 	BOOLEAN	RemoveAttachmentAtIndex(UINT8 index, attachmentList::iterator * returnIter = NULL);
@@ -590,6 +598,11 @@ public:
 	OBJECTTYPE(const OBJECTTYPE&);
 	// Assignment operator
     OBJECTTYPE& operator=(const OBJECTTYPE&);
+	// Move Constructor / assignment: O(1) splice of the objectStack std::list
+	// instead of the deep copy the copy ops perform (the user-declared copy
+	// ctor/assign/dtor would otherwise suppress the implicit moves).
+	OBJECTTYPE(OBJECTTYPE&&) noexcept;
+	OBJECTTYPE& operator=(OBJECTTYPE&&) noexcept;
 	// Destructor
 	~OBJECTTYPE();
 

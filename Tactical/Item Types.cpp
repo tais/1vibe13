@@ -7,6 +7,8 @@
 #include "message.h"		// added by BOB for missing LBE info messages
 #include "Map Screen Interface.h" // added by BOB for missing LBE info messages
 
+#include <utility>	// std::move
+
 
 int		BODYPOSFINAL		= GUNSLINGPOCKPOS;//RESET in initInventory
 int		BIGPOCKFINAL		= MEDPOCK1POS;//RESET in initInventory
@@ -988,6 +990,25 @@ StackedObjectData::~StackedObjectData()
 	attachments.clear();
 }
 
+// Move constructor: splice the attachment list (O(1)); ObjectData is POD-ish so
+// it is copied (it has no move members and no heap members of its own).
+StackedObjectData::StackedObjectData(StackedObjectData&& src) noexcept
+	: attachments(std::move(src.attachments))
+	, data(src.data)
+{
+}
+
+// Move assignment: mirror the implicit (memberwise) copy-assignment, but move
+// the attachment list instead of deep-copying it.
+StackedObjectData& StackedObjectData::operator=(StackedObjectData&& src) noexcept
+{
+	if (this != &src) {
+		attachments = std::move(src.attachments);
+		data = src.data;
+	}
+	return *this;
+}
+
 OBJECTTYPE* StackedObjectData::GetAttachmentAtIndex(UINT8 index)
 {
 	attachmentList::iterator iter = attachments.begin();
@@ -1523,6 +1544,94 @@ OBJECTTYPE& OBJECTTYPE::operator=(const OBJECTTYPE& src)
 				else if ( Item[(src)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_WEST )
 					(*this)[0]->data.ubDirection = WEST;
 				else if ( Item[(src)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_NORTHWEST )
+					(*this)[0]->data.ubDirection = NORTHWEST;
+			}
+			else
+				(*this)[0]->data.ubDirection = DIRECTION_IRRELEVANT;
+
+			(*this)[0]->data.bDefuseFrequency = 0;
+		}
+	}
+	return *this;
+}
+
+// Move Constructor: mirrors the copy ctor's set of handled members, but splices
+// the objectStack std::list (O(1)) instead of deep-copying it.
+OBJECTTYPE::OBJECTTYPE(OBJECTTYPE&& src) noexcept
+{
+	// POD prefix (usItem / ubNumberOfObjects / ubMission / fFlags up to endOfPOD)
+	memcpy((void*)this, (void*)&src, SIZEOF_OBJECTTYPE_POD);
+	// objectStack is default-constructed (empty) here; steal src's nodes
+	this->objectStack = std::move(src.objectStack);
+}
+
+// Move Assignment: mirrors the copy-assign operator (including the action-item
+// bomb hack), but moves the objectStack list instead of deep-copying it. Because
+// the list is moved into *this first, the hack reads from *this (which now holds
+// what src held before the move); reading from src is unsafe once it is moved-from.
+OBJECTTYPE& OBJECTTYPE::operator=(OBJECTTYPE&& src) noexcept
+{
+	if ((void*)this != (void*)&src) {
+		// POD prefix (usItem / ubNumberOfObjects / ubMission / fFlags up to endOfPOD)
+		memcpy((void*)this, (void*)&src, SIZEOF_OBJECTTYPE_POD);
+		this->objectStack = std::move(src.objectStack);
+
+		// Flugente fix: see the identical hack in the copy-assignment operator above.
+		// We mirror it here so a moved-into object ends up identical to a copied-into
+		// one. After the std::move above, *this owns what src used to hold, so all the
+		// reads below come from *this.
+		if ( this->usItem == ACTION_ITEM && (*this)[0]->data.misc.bActionValue == ACTION_ITEM_BLOW_UP )
+		{
+			(*this)[0]->data.misc.bDetonatorType = (*this)[0]->data.misc.bDetonatorType;
+			(*this)[0]->data.misc.usBombItem = (*this)[0]->data.misc.usBombItem;
+			(*this)[0]->data.misc.bDelay = (*this)[0]->data.misc.bDelay;	// includes bFrequency
+			(*this)[0]->data.misc.ubBombOwner = (*this)[0]->data.misc.ubBombOwner;
+			(*this)[0]->data.misc.bActionValue = (*this)[0]->data.misc.bActionValue;
+			(*this)[0]->data.misc.ubTolerance = (*this)[0]->data.misc.ubTolerance;	// includes ubLocationID
+			(*this)[0]->data.ubWireNetworkFlag = TRIPWIRE_NETWORK_OWNER_ENEMY;	// it is always assumed that preplated traps are of hostile origin
+
+			// if the item has any tripwire action item flags, use them, otherwise, use default values
+			if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_ANY )
+			{
+				if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_NET_1 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_NET_1;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_NET_2 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_NET_2;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_NET_3 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_NET_3;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_NET_4 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_NET_4;
+
+				if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_LVL_1 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_LVL_1;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_LVL_2 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_LVL_2;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_LVL_3 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_LVL_3;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_TRIPWIRE_NETWORK_LVL_4 )
+					(*this)[0]->data.ubWireNetworkFlag |= TRIPWIRE_NETWORK_LVL_4;
+			}
+			else
+				(*this)[0]->data.ubWireNetworkFlag |= (TRIPWIRE_NETWORK_NET_1|TRIPWIRE_NETWORK_LVL_1);
+
+			// if the item has any directional action item flag, use them, otherwise, direction does not matter
+			if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_ANY )
+			{
+				if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_NORTH )
+					(*this)[0]->data.ubDirection = NORTH;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_NORTHEAST )
+					(*this)[0]->data.ubDirection = NORTHEAST;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_EAST )
+					(*this)[0]->data.ubDirection = EAST;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_SOUTHEAST )
+					(*this)[0]->data.ubDirection = SOUTHEAST;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_SOUTH )
+					(*this)[0]->data.ubDirection = SOUTH;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_SOUTHWEST )
+					(*this)[0]->data.ubDirection = SOUTHWEST;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_WEST )
+					(*this)[0]->data.ubDirection = WEST;
+				else if ( Item[(*this)[0]->data.misc.usBombItem].usActionItemFlag & ITEM_DIRECTION_NORTHWEST )
 					(*this)[0]->data.ubDirection = NORTHWEST;
 			}
 			else

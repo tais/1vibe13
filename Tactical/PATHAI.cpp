@@ -458,7 +458,27 @@ using namespace ASTAR;
 
 AStarPathfinder::AStarPathfinder()
 {
+	AStarData = nullptr;
+	// Generation 0 is reserved as "never touched": every AStar_Data starts at stamp 0,
+	// and ResetAStarList() bumps to 1 before the first search, so no node reads as live
+	// until it is actually written this search.
+	currentSearchGeneration = 0;
 	return;
+}
+
+// Allocate the closed-list buffer for the active world. Sized to WORLD_MAX
+// (not the ~96MB MAX_ALLOWED_WORLD_MAX worst case). new[] runs the AStar_Data
+// ctor for every entry, matching the old inline array's default-init semantics.
+void AStarPathfinder::AllocateAStarData()
+{
+	FreeAStarData();
+	AStarData = new AStar_Data[WORLD_MAX];
+}
+
+void AStarPathfinder::FreeAStarData()
+{
+	delete[] AStarData;
+	AStarData = nullptr;
 }
 
 //init the pointer to the AStarPathfinder singleton instance
@@ -501,21 +521,25 @@ void AStarPathfinder::ResetAStarList()
 	//}
 	//comm by ddd}
 
-	//ddd{
-
-	INT32 node;
-	for (node = 0; node < (WORLD_MAX & ~3); node+=4) //ddd loop unwinding
+	// Generation-stamp reset: instead of writing status+cost on every one of the
+	// ~WORLD_MAX nodes before each pathfind (the old unrolled loop below), just bump
+	// the search generation. GetAStarStatus()/GetAStarG() treat any node whose stamp
+	// doesn't match the current generation as fresh (AStar_Init / cost 0), and every
+	// Set* stamps the node it touches. This is bit-identical to the full clear but
+	// O(1) instead of O(WORLD_MAX) (~614KB written) per search.
+	if (++currentSearchGeneration == 0)
 	{
-		AStarData[node].status = AStarData[node+1].status
-			= AStarData[node+2].status = AStarData[node+3].status = AStar_Init; 
-
-		AStarData[node+3].cost = AStarData[node+2].cost =
-		 AStarData[node+1].cost = AStarData[node].cost = 0;
+		// 2^32-search wraparound: stamp 0 means "never touched", so reclaim it by
+		// clearing every node, then start the next generation at 1. Hit at most once
+		// per ~4 billion pathfinds. Bound is WORLD_MAX (the AStarData heap buffer's
+		// actual size after the right-size change) -- NOT MAX_ALLOWED_WORLD_MAX, which
+		// would write ~96MB past the end of the now WORLD_MAX-sized allocation.
+		for (INT32 node = 0; node < WORLD_MAX; node++)
+		{
+			AStarData[node].stamp = 0;
+		}
+		currentSearchGeneration = 1;
 	}
-	for(node=(WORLD_MAX & ~3); node < WORLD_MAX; node++)
-	{AStarData[node].status = AStar_Init;  AStarData[node].cost = 0;}
-		////ddd}
-
 
 	//ClosedList.clear();
 	OpenHeap.clear();
@@ -525,11 +549,12 @@ void AStarPathfinder::ResetAStarList()
 void AStarPathfinder::SetLoopState(const INT32 node,
 								int const loopState)
 {
-	if ( loopState == LOOPING_REVERSE ) 
+	AStarData[node].stamp = currentSearchGeneration;
+	if ( loopState == LOOPING_REVERSE )
 	{
 		AStarData[node].wasBackwards = STEP_BACKWARDS;
 	}
-	else 
+	else
 	{
 		AStarData[node].wasBackwards = false;
 	}
@@ -915,6 +940,10 @@ INT16 AStarPathfinder::AStar()
 
 	// Since the startup cost is always charged for the first node, why not make it the source node's cost?
 	//init the starting node's data that hasn't been reset
+	// Stamp the start node as AStar_Init for this generation. The old full-array clear
+	// left every node (incl. the start) at AStar_Init; with the generation stamp the
+	// following Set* calls would otherwise mark it live with a stale status field.
+	SetAStarStatus(StartNode, AStar_Init);
 	SetAStarParent(StartNode, -1);
 	SetNumSteps(StartNode, 0);
 	SetAStarG( StartNode, CalcStartingAP());
@@ -2141,6 +2170,9 @@ BOOLEAN InitPathAI(void)
 	pQueueHead = &pathQ[QHEADNDX];
 	pClosedHead = &pathQ[QPOOLNDX];
 	memset(trailCostUsed, 0, WORLD_MAX);
+	// Size the A* closed-list buffer to the just-loaded world (mirrors the
+	// gpWorldLevelData / trailCost WORLD_MAX allocations done for this sector).
+	ASTAR::AStarPathfinder::GetInstance().AllocateAStarData();
 	RestorePathAIToDefaults();
 	return(TRUE);
 }
@@ -2153,6 +2185,7 @@ void ShutDownPathAI(void)
 	MemFree(trailCostUsed);
 	MemFree(trailCost);
 	MemFree(trailTree);
+	ASTAR::AStarPathfinder::GetInstance().FreeAStarData();
 }
 
 ///////////////////////////////////////////////////////////////////////
