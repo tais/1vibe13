@@ -1191,7 +1191,7 @@ INT16 MaxNormalDistanceVisible( void )
 	return( STRAIGHT * 2 );
 }
 
-INT16 SOLDIERTYPE::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsType)
+INT16 SOLDIERTYPE::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsType, SOLDIERTYPE *pKnownSubject)
 {
 	if (sGridNo == NOWHERE)
 	{
@@ -1205,18 +1205,21 @@ INT16 SOLDIERTYPE::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsT
 
 	if (calcAsType == CALC_FROM_ALL_DIRS)
 	{
-		return DistanceVisible( this, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this) );
+		return DistanceVisible( this, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject );
 	}
 
-	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing.bDesiredDirection : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this));
+	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing.bDesiredDirection : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject);
 }
 
-INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision)
+INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, SOLDIERTYPE *pKnownSubject)
 {
 	INT16	sDistVisible;
 	INT8	bLightLevel;
 	BOOLEAN sideViewLimit = FALSE;
-	SOLDIERTYPE* pSubject = SimpleFindSoldier( sSubjectGridNo, bLevel );
+	// When the caller already holds the subject standing at sSubjectGridNo/bLevel
+	// (e.g. ManLooksForMan passing pOpponent), reuse it instead of re-walking the
+	// tile's structure list via SimpleFindSoldier()/WhoIsThere2().
+	SOLDIERTYPE* pSubject = pKnownSubject ? pKnownSubject : SimpleFindSoldier( sSubjectGridNo, bLevel );
 	INT16 tunnelVisionInPercent = 0;
 
 	if (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER)
@@ -2099,7 +2102,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 		//sDistVisible = DistanceVisible(pSoldier, (SoldierHasLimitedVision(pSoldier) ? pSoldier->bDesiredDirection : DIRECTION_IRRELEVANT), 0, pOpponent->sGridNo, pOpponent->bLevel, pOpponent );
 		//if the code below says CALC_FROM_ALL_DIRS, then the opponent will NOT be greyed out if a merc sees him and a second merc turns away from him
 		//calcing from the wanted dir will make the opponent be greyed out, which I think is the intended effect
-		sDistVisible = pSoldier->GetMaxDistanceVisible( pOpponent->sGridNo, pOpponent->pathing.bLevel, CALC_FROM_WANTED_DIR );
+		sDistVisible = pSoldier->GetMaxDistanceVisible( pOpponent->sGridNo, pOpponent->pathing.bLevel, CALC_FROM_WANTED_DIR, pOpponent );
 		//if (pSoldier->ubID == 0)
 		//sprintf(gDebugStr,"ALREADY KNOW: ME %d him %d val %d",pSoldier->ubID,pOpponent->ubID,pSoldier->bOppList[pOpponent->ubID]);
 	}
@@ -2110,7 +2113,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 		// BIG NOTE: must use desdir instead of direction, since in a projected
 		// situation, the direction may still be changing if it's one of the first
 		// few animation steps when this guy's turn to do his stepped look comes up
-		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pOpponent->sGridNo, pOpponent->pathing.bLevel, pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
+		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pOpponent->sGridNo, pOpponent->pathing.bLevel, pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier), pOpponent);
 		//if (pSoldier->ubID == 0)
 		//sprintf(gDebugStr,"dist visible %d: my dir %d to him %d",sDistVisible,pSoldier->bDesiredDirection,bDir);
 	}
