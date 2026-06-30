@@ -458,11 +458,27 @@ using namespace ASTAR;
 
 AStarPathfinder::AStarPathfinder()
 {
+	AStarData = nullptr;
 	// Generation 0 is reserved as "never touched": every AStar_Data starts at stamp 0,
 	// and ResetAStarList() bumps to 1 before the first search, so no node reads as live
 	// until it is actually written this search.
 	currentSearchGeneration = 0;
 	return;
+}
+
+// Allocate the closed-list buffer for the active world. Sized to WORLD_MAX
+// (not the ~96MB MAX_ALLOWED_WORLD_MAX worst case). new[] runs the AStar_Data
+// ctor for every entry, matching the old inline array's default-init semantics.
+void AStarPathfinder::AllocateAStarData()
+{
+	FreeAStarData();
+	AStarData = new AStar_Data[WORLD_MAX];
+}
+
+void AStarPathfinder::FreeAStarData()
+{
+	delete[] AStarData;
+	AStarData = nullptr;
 }
 
 //init the pointer to the AStarPathfinder singleton instance
@@ -515,8 +531,10 @@ void AStarPathfinder::ResetAStarList()
 	{
 		// 2^32-search wraparound: stamp 0 means "never touched", so reclaim it by
 		// clearing every node, then start the next generation at 1. Hit at most once
-		// per ~4 billion pathfinds.
-		for (INT32 node = 0; node < MAX_ALLOWED_WORLD_MAX; node++)
+		// per ~4 billion pathfinds. Bound is WORLD_MAX (the AStarData heap buffer's
+		// actual size after the right-size change) -- NOT MAX_ALLOWED_WORLD_MAX, which
+		// would write ~96MB past the end of the now WORLD_MAX-sized allocation.
+		for (INT32 node = 0; node < WORLD_MAX; node++)
 		{
 			AStarData[node].stamp = 0;
 		}
@@ -2152,6 +2170,9 @@ BOOLEAN InitPathAI(void)
 	pQueueHead = &pathQ[QHEADNDX];
 	pClosedHead = &pathQ[QPOOLNDX];
 	memset(trailCostUsed, 0, WORLD_MAX);
+	// Size the A* closed-list buffer to the just-loaded world (mirrors the
+	// gpWorldLevelData / trailCost WORLD_MAX allocations done for this sector).
+	ASTAR::AStarPathfinder::GetInstance().AllocateAStarData();
 	RestorePathAIToDefaults();
 	return(TRUE);
 }
@@ -2164,6 +2185,7 @@ void ShutDownPathAI(void)
 	MemFree(trailCostUsed);
 	MemFree(trailCost);
 	MemFree(trailTree);
+	ASTAR::AStarPathfinder::GetInstance().FreeAStarData();
 }
 
 ///////////////////////////////////////////////////////////////////////

@@ -54,6 +54,7 @@ class AStarPathfinder
 {
 public:
 	AStarPathfinder			();
+	~AStarPathfinder		()	{ delete[] AStarData; AStarData = nullptr; }
 	static AStarPathfinder&	GetInstance();
 	int				GetPath	(SOLDIERTYPE *s ,
 							INT32 dest,
@@ -61,6 +62,11 @@ public:
 							INT16 usMovementMode,
 							INT8 bCopy,
 							UINT8 fFlags );
+
+	// The AStarData closed-list buffer is sized to the active world (WORLD_MAX),
+	// allocated/freed alongside the world by InitPathAI()/ShutDownPathAI().
+	void			AllocateAStarData	();
+	void			FreeAStarData		();
 
 private:
 	static	AStarPathfinder* pThis;
@@ -123,7 +129,10 @@ private:
 
 	// WANNE - BMP: DONE!
 	//AStar_Data	AStarData[WORLD_MAX];
-	AStar_Data	AStarData[MAX_ALLOWED_WORLD_MAX];
+	// Right-sized: heap buffer of WORLD_MAX entries instead of a ~96MB inline
+	// MAX_ALLOWED_WORLD_MAX array. new[]/delete[] so the AStar_Data ctor still
+	// runs (preserves the extraGCoverCost == -1 "not visited" default).
+	AStar_Data*	AStarData;
 
 	// Monotonically increasing per-search id. Bumped once at the start of every
 	// pathfind (in ResetAStarList) instead of clearing the whole AStarData array.
