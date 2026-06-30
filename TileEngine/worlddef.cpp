@@ -3305,6 +3305,9 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	// Remove this rather large chunk of memory from the system now!
 	MemFree(pBufferHead);
 	MemFree(bCounts);
+	// LEVELNODE pool instrumentation (perf v3 #10): one line per LoadWorld so the
+	// alloc-count drop is visible (pool-hits should dominate after the first sector).
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "LevelNode pool: %d in use, %d pool-hits, %d malloc-fallback", guiLevelNodes, guiLevelNodePoolHits, guiLevelNodePoolMisses ) );
 	return(TRUE);
 }
 
