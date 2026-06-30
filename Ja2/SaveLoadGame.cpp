@@ -2884,7 +2884,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	// sevenfm: enable fInTopMessage if top bar is hidden, to correctly show it after loading game 
 	if (bHideTopMessage)
-		gTacticalStatus.fInTopMessage = TRUE;
+		gTacticalStatus.combatUI.fInTopMessage = TRUE;
 
 	if( !SaveTacticalStatusToSavedGame( hFile ) )
 	{
@@ -6802,9 +6802,9 @@ template<class Ar> static void XferTacticalStatus( Ar& ar, TacticalStatusType& s
 	ar.i8 (s.bNumEnemiesFoughtInBattleUnused);
 	ar.u16(s.ubEngagedInConvFromActionMercID);
 	ar.u16(s.usTactialTurnLimitCounter);
-	ar.boolean(s.fInTopMessage);
-	ar.u8 (s.ubTopMessageType);
-	ar.wstr(s.zTopMessageString, 20);
+	ar.boolean(s.combatUI.fInTopMessage);
+	ar.u8 (s.combatUI.ubTopMessageType);
+	ar.wstr(s.combatUI.zTopMessageString, 20);
 	ar.u16(s.usTactialTurnLimitMax);
 	ar.u32(s.uiTactialTurnLimitClock);
 	ar.boolean(s.fTactialTurnLimitStartedBeep);

@@ -5141,7 +5141,7 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 			SUpdateNetworkSoldier.bBleeding=pSoldier->bBleeding;
 			SUpdateNetworkSoldier.ubNewStance= gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
 			
-			if((gTacticalStatus.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE || ((gTacticalStatus.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE || gTacticalStatus.ubTopMessageType == COMPUTER_TURN_MESSAGE )&& is_server)) && (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))//update progress bar, not supporting coop yet...
+			if((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE || ((gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_TURN_MESSAGE )&& is_server)) && (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))//update progress bar, not supporting coop yet...
 			{
 				SUpdateNetworkSoldier.usTactialTurnLimitCounter = gTacticalStatus.usTactialTurnLimitCounter;
 				SUpdateNetworkSoldier.usTactialTurnLimitMax = gTacticalStatus.usTactialTurnLimitMax;
@@ -5186,7 +5186,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 		
 	pSoldier->bBleeding=SUpdateNetworkSoldier->bBleeding;
 
-	if( (SUpdateNetworkSoldier->usTactialTurnLimitCounter != 9999) && (gTacticalStatus.ubTopMessageType != PLAYER_TURN_MESSAGE) && (gTacticalStatus.ubTopMessageType != PLAYER_INTERRUPT_MESSAGE))
+	if( (SUpdateNetworkSoldier->usTactialTurnLimitCounter != 9999) && (gTacticalStatus.combatUI.ubTopMessageType != PLAYER_TURN_MESSAGE) && (gTacticalStatus.combatUI.ubTopMessageType != PLAYER_INTERRUPT_MESSAGE))
 	{
 		gTacticalStatus.usTactialTurnLimitCounter = SUpdateNetworkSoldier->usTactialTurnLimitCounter;
 		gTacticalStatus.usTactialTurnLimitMax = SUpdateNetworkSoldier->usTactialTurnLimitMax;

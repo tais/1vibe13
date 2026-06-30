@@ -58,6 +58,16 @@ enum
 #define NUM_PANIC_TRIGGERS      3
 #define ENEMY_OFFERED_SURRENDER 0x01
 
+// First slice of the gTacticalStatus decomposition (roadmap v2 #6): the
+// "top message" banner state is a self-contained UI cluster, so it is grouped
+// into its own named sub-struct. Access stays gTacticalStatus.combatUI.<field>.
+struct CombatUIState
+{
+    BOOLEAN                 fInTopMessage;
+    UINT8                   ubTopMessageType;
+    CHAR16                  zTopMessageString[20];
+};
+
 struct TacticalStatusType
 {
     UINT32                  uiFlags;
@@ -97,9 +107,7 @@ struct TacticalStatusType
     INT8                    bNumEnemiesFoughtInBattleUnused;
     UINT16                  ubEngagedInConvFromActionMercID;
     UINT16                  usTactialTurnLimitCounter;
-    BOOLEAN                 fInTopMessage;
-    UINT8                   ubTopMessageType;
-    CHAR16                  zTopMessageString[20];
+    CombatUIState           combatUI;
     UINT16                  usTactialTurnLimitMax;
     UINT32                  uiTactialTurnLimitClock;
     BOOLEAN                 fTactialTurnLimitStartedBeep;

@@ -799,7 +799,7 @@ void SetUIMouseCursor( )
 		!TileIsOutOfBounds(usGridNo) &&
 		NorthSpot(usGridNo, gsInterfaceLevel) &&
 		!bHideTopMessage &&
-		gTacticalStatus.fInTopMessage)
+		gTacticalStatus.combatUI.fInTopMessage)
 	{
 		bHideTopMessage = true;
 		EndTopMessage();
@@ -810,7 +810,7 @@ void SetUIMouseCursor( )
 		!gfUIFullTargetFound &&
 		bHideTopMessage)
 	{
-		gTacticalStatus.fInTopMessage = TRUE;
+		gTacticalStatus.combatUI.fInTopMessage = TRUE;
 		bHideTopMessage = false;
 	}
 

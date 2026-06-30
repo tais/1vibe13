@@ -4648,11 +4648,11 @@ BOOLEAN AddTopMessage( UINT8 ubType, STR16 pzString )
 	{
 		gTopMessage.bCurrentMessage = (INT8)cnt;
 
-		gTacticalStatus.ubTopMessageType = ubType;
-		gTacticalStatus.fInTopMessage = TRUE;
+		gTacticalStatus.combatUI.ubTopMessageType = ubType;
+		gTacticalStatus.combatUI.fInTopMessage = TRUE;
 
 		// Copy string
-		wcsncpy( gTacticalStatus.zTopMessageString, pzString, 19 );
+		wcsncpy( gTacticalStatus.combatUI.zTopMessageString, pzString, 19 );
 
 		CreateTopMessage( gTopMessage.uiSurface, ubType, pzString );
 
@@ -4898,11 +4898,11 @@ void TurnExpiredCallBack( UINT8 bExitValue )
 
 void CheckForAndHandleEndPlayerTimeLimit( )
 {
-	if ( gTacticalStatus.fInTopMessage )
+	if ( gTacticalStatus.combatUI.fInTopMessage )
 	{
 		if ( gGameOptions.fTurnTimeLimit )
 		{
-			if ( gTacticalStatus.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE )
+			if ( gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE )
 			{
 				if ( gTacticalStatus.usTactialTurnLimitCounter == ( gTacticalStatus.usTactialTurnLimitMax - 1 ) )
 				{
@@ -4928,7 +4928,7 @@ void HandleTopMessages( )
 	blt_vs_fx BltFx;
 
 	// OK, is out current count > 0 ?
-		if ( gTacticalStatus.fInTopMessage )
+		if ( gTacticalStatus.combatUI.fInTopMessage )
 	{
 		//gfTopMessageDirty = TRUE;
 
@@ -4939,13 +4939,13 @@ void HandleTopMessages( )
 		if ( !gTopMessage.fCreated )
 		{
 			gfTopMessageDirty = TRUE;
-			AddTopMessage( gTacticalStatus.ubTopMessageType, gTacticalStatus.zTopMessageString );
+			AddTopMessage( gTacticalStatus.combatUI.ubTopMessageType, gTacticalStatus.combatUI.zTopMessageString );
 		}
 
-		if ( gTacticalStatus.ubTopMessageType == COMPUTER_TURN_MESSAGE ||
-				gTacticalStatus.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE ||
-				gTacticalStatus.ubTopMessageType == MILITIA_INTERRUPT_MESSAGE ||
-				gTacticalStatus.ubTopMessageType == AIR_RAID_TURN_MESSAGE )
+		if ( gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_TURN_MESSAGE ||
+				gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE ||
+				gTacticalStatus.combatUI.ubTopMessageType == MILITIA_INTERRUPT_MESSAGE ||
+				gTacticalStatus.combatUI.ubTopMessageType == AIR_RAID_TURN_MESSAGE )
 		{
 			// OK, update timer.....
 			if ( TIMECOUNTERDONE( giTimerTeamTurnUpdate, PLAYER_TEAM_TIMER_SEC_PER_TICKS ) )
@@ -4967,12 +4967,12 @@ void HandleTopMessages( )
 				
 				}
 
-				CreateTopMessage( gTopMessage.uiSurface, gTacticalStatus.ubTopMessageType, gTacticalStatus.zTopMessageString );
+				CreateTopMessage( gTopMessage.uiSurface, gTacticalStatus.combatUI.ubTopMessageType, gTacticalStatus.combatUI.zTopMessageString );
 			}
 		}
 		else if ( gGameOptions.fTurnTimeLimit )
 		{
-			if ( gTacticalStatus.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE )
+			if ( gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE )
 			{
 				if ( !gfUserTurnRegionActive && !AreWeInAUIMenu() )
 				{
@@ -5011,7 +5011,7 @@ void HandleTopMessages( )
 									gTacticalStatus.usTactialTurnLimitCounter++;
 								}
 
-								CreateTopMessage( gTopMessage.uiSurface, gTacticalStatus.ubTopMessageType, gTacticalStatus.zTopMessageString );
+								CreateTopMessage( gTopMessage.uiSurface, gTacticalStatus.combatUI.ubTopMessageType, gTacticalStatus.combatUI.zTopMessageString );
 
 								// Have we reached max?
 								if ( gTacticalStatus.usTactialTurnLimitCounter == ( gTacticalStatus.usTactialTurnLimitMax - 1) )
@@ -5093,7 +5093,7 @@ void EndTopMessage( )
 
 
 	// OK, end the topmost message!
-	if ( gTacticalStatus.fInTopMessage )
+	if ( gTacticalStatus.combatUI.fInTopMessage )
 	{
 		// Are we the last?
 		//if ( gTopMessage.bCurrentMessage == 1 )
@@ -5101,7 +5101,7 @@ void EndTopMessage( )
 			// We are....
 			// Re-render our strip and then copy to the save buffer...
 			gsVIEWPORT_WINDOW_START_Y = 0;
-			gTacticalStatus.fInTopMessage = FALSE;
+			gTacticalStatus.combatUI.fInTopMessage = FALSE;
 
 			SetRenderFlags( RENDER_FLAG_FULL );
 			//RenderStaticWorldRect( 0, 0, 640, 20, TRUE );
@@ -5137,7 +5137,7 @@ void EndTopMessage( )
 
 BOOLEAN InTopMessageBarAnimation( )
 {
-	if ( gTacticalStatus.fInTopMessage )
+	if ( gTacticalStatus.combatUI.fInTopMessage )
 	{
 		if ( 	gTopMessage.bAnimate != 0 )
 		{
@@ -5192,12 +5192,12 @@ void UpdateEnemyUIBar( )
 	}
 
 	// Do we have an active enemy bar?
-	if ( gTacticalStatus.fInTopMessage )
+	if ( gTacticalStatus.combatUI.fInTopMessage )
 	{
-		if ( gTacticalStatus.ubTopMessageType == COMPUTER_TURN_MESSAGE )
+		if ( gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_TURN_MESSAGE )
 		{
 			// Update message!
-			CreateTopMessage( gTopMessage.uiSurface, COMPUTER_TURN_MESSAGE, gTacticalStatus.zTopMessageString );
+			CreateTopMessage( gTopMessage.uiSurface, COMPUTER_TURN_MESSAGE, gTacticalStatus.combatUI.zTopMessageString );
 		}
 	}
 }
