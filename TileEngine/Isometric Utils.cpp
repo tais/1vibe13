@@ -1221,6 +1221,13 @@ INT16 MapY( INT32 sGridNo )
 bool GridNoOnWalkableWorldTile(INT32 sGridNo)
 {
 	if (AreInMeanwhile() || gbWorldSectorZ != 0) return true;
+	// Defensive bounds-guard -- its sibling tile queries already have this. A corrupt or
+	// stale sGridNo / sCenterGridNo (e.g. gMapInformation left unset, sCenterGridNo == -1,
+	// during a cutscene->strategic handoff where no tactical world is loaded) must not
+	// wild-index gpWorldLevelData and segfault. Degrade to "walkable", matching the
+	// meanwhile / non-tactical early-out above. [worldmax-offbyone class]
+	if (TileIsOutOfBounds(sGridNo) || gpWorldLevelData == NULL || TileIsOutOfBounds(gMapInformation.sCenterGridNo))
+		return true;
 	//Shadooow: this will compare sGridNo height with height of the center grid of the map, as long as the center of the map is on a walkable height it will work properly
 	MAP_ELEMENT *pMapElement = &(gpWorldLevelData[sGridNo]);
 	MAP_ELEMENT *pMapElementCenter = &(gpWorldLevelData[gMapInformation.sCenterGridNo]);
