@@ -331,6 +331,15 @@ static void ClockThreadMain()
 				if (giSleepTime < 1) giSleepTime = 1;
 				std::this_thread::sleep_for(std::chrono::milliseconds(giSleepTime));
 			}
+			else
+			{
+				// Fast-forward (auto-enabled every non-player turn) still needs a
+				// sleep floor. TimeProc()+yield() with no sleep here pegged a full
+				// core for ZERO net speedup: the clock already outruns the 60fps main
+				// thread that consumes the AI events it unblocks, so that thread is
+				// the limiter, not this one. 1ms stops the peg without slowing the turn.
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
 		}
 		else
 		{
