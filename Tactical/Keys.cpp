@@ -33,6 +33,7 @@
 	#include "Dialogue Control.h" // added by Flugente
 
 #include "GameVersion.h"
+#include "SaveSerializer.h"
 
 DOOR_STATUS		*gpDoorStatus = NULL;
 UINT8					gubNumDoorStatus=0;
@@ -2022,14 +2023,28 @@ BOOLEAN LoadDoorStatusArrayFromDoorStatusTempFile()
 }
 
 
+// Portable (save-format v2) field list for one KeyTable entry. Every field is a
+// fixed-width scalar -- no pointers, no wide strings -- so the same list drives
+// both save and load and the on-disk bytes are identical on every platform
+// (replaces the raw sizeof(KEY) dump, which captured ABI struct padding).
+template<class Ar> static void XferKey( Ar& ar, KEY& k )
+{
+	ar.u16(k.usItem);
+	ar.u8 (k.fFlags);
+	ar.u16(k.usSectorFound);
+	ar.u16(k.usDateFound);
+}
+
 BOOLEAN SaveKeyTableToSaveGameFile( HWFILE hFile )
 {
-	UINT32	uiNumBytesWritten=0;
-
-
-	// Save the KeyTable
-	FileWrite( hFile, KeyTable, sizeof( KEY ) * NUM_KEYS, &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( KEY ) * NUM_KEYS )
+	// Save the KeyTable (portable v2; field-by-field)
+	SaveWriter w(hFile);
+	SaveFieldWriter ar(w);
+	for( UINT32 uiCnt = 0; uiCnt < NUM_KEYS; uiCnt++ )
+	{
+		XferKey(ar, KeyTable[uiCnt]);
+	}
+	if( !w.good() )
 	{
 		return( FALSE );
 	}
@@ -2039,25 +2054,19 @@ BOOLEAN SaveKeyTableToSaveGameFile( HWFILE hFile )
 
 BOOLEAN LoadKeyTableFromSaveedGameFile( HWFILE hFile, UINT32 uiSaveGameVersion )
 {
-	UINT32	uiNumBytesRead=0;
+	// Pre-MORE_LOCKS_AND_KEYS saves only stored the smaller table.
+	const UINT32 uiNumKeys = ( uiSaveGameVersion < MORE_LOCKS_AND_KEYS ) ? NUM_KEYS_OLD : NUM_KEYS;
 
-	if( uiSaveGameVersion < MORE_LOCKS_AND_KEYS )
+	// Load the KeyTable (portable v2; field-by-field)
+	SaveReader r(hFile);
+	SaveFieldReader ar(r);
+	for( UINT32 uiCnt = 0; uiCnt < uiNumKeys; uiCnt++ )
 	{
-		// Load the KeyTable
-		FileRead( hFile, KeyTable, sizeof( KEY ) * NUM_KEYS_OLD, &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( KEY ) * NUM_KEYS_OLD )
-		{
-			return( FALSE );
-		}
+		XferKey(ar, KeyTable[uiCnt]);
 	}
-	else
+	if( !r.good() )
 	{
-		// Load the KeyTable
-		FileRead( hFile, KeyTable, sizeof( KEY ) * NUM_KEYS, &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( KEY ) * NUM_KEYS )
-		{
-			return( FALSE );
-		}
+		return( FALSE );
 	}
 
 	return( TRUE );
