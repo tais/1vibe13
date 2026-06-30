@@ -107,6 +107,12 @@ void RefreshScreen(void *DummyVariable);
 // over the frame in RefreshScreen; used for a smooth GPU screen fade.
 void SetFrameFadeAlpha(unsigned char a);
 
+// Idle-frame instrumentation (perf v3 #7), MEASUREMENT ONLY -- does not change
+// rendering. Marks the current frame as "something visibly changed" so the
+// idle-frame counter in RefreshScreen can tell would-be-skippable presents from
+// active ones. Called from the engine's invalidation funnel; safe no-op cost.
+void MarkFrameDirty(void);
+
 // Uncapped present for serial loading/progress flows (skips the per-present FPS
 // cap). Use only for non-animated progress redraws, e.g. the load/save bar.
 void PresentNow(void);
