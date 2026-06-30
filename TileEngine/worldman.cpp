@@ -40,11 +40,32 @@ BOOLEAN RemoveLandEx( INT32 iMapIndex, UINT16 usIndex );
 
 UINT32 guiLevelNodes = 0;
 
+// LEVELNODE free-list pool (perf v3 #10, first slice). CreateLevelNode used to
+// MemAlloc+memset a node on every call (~tens of thousands per sector). Nodes are
+// freed mid-game (sector churn, structure removal, UI elems), so this is a free-list,
+// NOT a bump arena: pop on create, push on free. Parked nodes re-use their own pNext
+// field for the chain; the LEVELNODE layout is unchanged and every issued node is
+// fully memset by CreateLevelNode before use.
+static LEVELNODE *	gpLevelNodeFreeList = NULL;
+UINT32				guiLevelNodePoolHits = 0;	// served from the free-list
+UINT32				guiLevelNodePoolMisses = 0;	// fell back to MemAlloc
+
 // LEVEL NODE MANIPLULATION FUNCTIONS
 BOOLEAN	CreateLevelNode( LEVELNODE **ppNode )
 {
-	*ppNode = (LEVELNODE *)MemAlloc( sizeof( LEVELNODE ) );
-	CHECKF( *ppNode != NULL );
+	if ( gpLevelNodeFreeList != NULL )
+	{
+		// Recycle a parked node from the pool
+		*ppNode = gpLevelNodeFreeList;
+		gpLevelNodeFreeList = gpLevelNodeFreeList->pNext;
+		guiLevelNodePoolHits++;
+	}
+	else
+	{
+		*ppNode = (LEVELNODE *)MemAlloc( sizeof( LEVELNODE ) );
+		CHECKF( *ppNode != NULL );
+		guiLevelNodePoolMisses++;
+	}
 
 	// Clear all values
 	memset( *ppNode, 0, sizeof( LEVELNODE ) );
@@ -60,6 +81,19 @@ BOOLEAN	CreateLevelNode( LEVELNODE **ppNode )
 	guiLevelNodes++;
 
 	return( TRUE );
+}
+
+// Return a node to the free-list pool instead of MemFree()ing it. Its storage is
+// retained and re-issued by the next CreateLevelNode(); the caller still decrements
+// guiLevelNodes (the in-use count) exactly as it did around the old MemFree(). NULL
+// is tolerated to mirror MemFree().
+static void FreeLevelNode( LEVELNODE *pNode )
+{
+	if ( pNode == NULL )
+		return;
+
+	pNode->pNext = gpLevelNodeFreeList;
+	gpLevelNodeFreeList = pNode;
 }
 
 void CountLevelNodes( void )
@@ -317,7 +351,7 @@ BOOLEAN RemoveObject( INT32 iMapIndex, UINT16 usIndex )
 			CheckForAndDeleteTileCacheStructInfo( pObject, usIndex );
 
 			// Delete memory assosiated with item
-			MemFree( pObject );
+			FreeLevelNode( pObject );
 			guiLevelNodes--;
 
 			//Add the index to the maps temp file so we can remove it after reloading the map
@@ -582,7 +616,7 @@ BOOLEAN RemoveLandEx( INT32 iMapIndex, UINT16 usIndex )
 			}
 
 			// Delete memory assosiated with item
-			MemFree( pLand );
+			FreeLevelNode( pLand );
 			guiLevelNodes--;
 
 			break;
@@ -1088,7 +1122,7 @@ LEVELNODE *AddStructToTailCommon( INT32 iMapIndex, UINT16 usIndex, BOOLEAN fAddS
 				{
 					if (AddStructureToWorld( iMapIndex, 0, gTileDatabase[usIndex].pDBStructureRef, pNextStruct ) == FALSE)
 					{
-						MemFree( pNextStruct );
+						FreeLevelNode( pNextStruct );
 						guiLevelNodes--;
 						return( NULL );
 					}
@@ -1126,7 +1160,7 @@ LEVELNODE *AddStructToTailCommon( INT32 iMapIndex, UINT16 usIndex, BOOLEAN fAddS
 				{
 					if (AddStructureToWorld( iMapIndex, 0, gTileDatabase[usIndex].pDBStructureRef, pNextStruct ) == FALSE)
 					{
-						MemFree( pNextStruct );
+						FreeLevelNode( pNextStruct );
 						guiLevelNodes--;
 						return( NULL );
 					}
@@ -1197,7 +1231,7 @@ BOOLEAN AddStructToHead( INT32 iMapIndex, UINT16 usIndex )
 		{
 			if (AddStructureToWorld( iMapIndex, 0, gTileDatabase[usIndex].pDBStructureRef, pNextStruct ) == FALSE)
 			{
-				MemFree( pNextStruct );
+				FreeLevelNode( pNextStruct );
 				guiLevelNodes--;
 				return( FALSE );
 			}
@@ -1287,7 +1321,7 @@ BOOLEAN InsertStructIndex( INT32 iMapIndex, UINT16 usIndex, UINT8 ubLevel )
 	// Check if level has been macthed
 	if ( !CanInsert )
 	{
-		MemFree( pNextStruct );
+		FreeLevelNode( pNextStruct );
 		guiLevelNodes--;
 		return( FALSE );
 	}
@@ -1298,7 +1332,7 @@ BOOLEAN InsertStructIndex( INT32 iMapIndex, UINT16 usIndex, UINT8 ubLevel )
 		{
 			if (AddStructureToWorld( iMapIndex, 0, gTileDatabase[usIndex].pDBStructureRef, pNextStruct ) == FALSE)
 			{
-				MemFree( pNextStruct );
+				FreeLevelNode( pNextStruct );
 				guiLevelNodes--;
 				return( FALSE );
 			}
@@ -1369,7 +1403,7 @@ BOOLEAN RemoveStructFromTailCommon( INT32 iMapIndex, BOOLEAN fRemoveStructDBInfo
 			RemoveStructFromMapTempFile( iMapIndex, usIndex );
 
 
-			MemFree( pStruct );
+			FreeLevelNode( pStruct );
 			guiLevelNodes--;
 
 			if ( usIndex < giNumberOfTiles )
@@ -1443,7 +1477,7 @@ BOOLEAN RemoveStruct( INT32 iMapIndex, UINT16 usIndex )
 					RemoveShadow( iMapIndex, gTileDatabase[ usIndex ].sBuddyNum );
 				}
 			}
-			MemFree( pStruct );
+			FreeLevelNode( pStruct );
 			--guiLevelNodes;
 
 			return( TRUE );
@@ -1563,7 +1597,7 @@ BOOLEAN RemoveOnRoofStruct( INT32 iMapIndex, UINT16 usIndex )
 					RemoveShadow( iMapIndex, gTileDatabase[usIndex].sBuddyNum );
 				}
 			}
-			MemFree( pStruct );
+			FreeLevelNode( pStruct );
 			--guiLevelNodes;
 
 			return(TRUE);
@@ -1611,7 +1645,7 @@ BOOLEAN RemoveRoofAdjustSavefile( INT32 iMapIndex, UINT16 usIndex )
 			//If we have to, make sure to remove this node when we reload the map from a saved game
 			RemoveRoofFromMapTempFile( iMapIndex, usIndex );
 
-			MemFree( pStruct );
+			FreeLevelNode( pStruct );
 			--guiLevelNodes;
 
 			return(TRUE);
@@ -1658,7 +1692,7 @@ BOOLEAN RemoveOnRoofAdjustSavefile( INT32 iMapIndex, UINT16 usIndex )
 			//If we have to, make sure to remove this node when we reload the map from a saved game
 			RemoveOnRoofFromMapTempFile( iMapIndex, usIndex );
 
-			MemFree( pStruct );
+			FreeLevelNode( pStruct );
 			--guiLevelNodes;
 
 			return(TRUE);
@@ -1717,7 +1751,7 @@ BOOLEAN RemoveStructFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode )
 					RemoveShadow( iMapIndex, gTileDatabase[ usIndex ].sBuddyNum );
 				}
 			}
-			MemFree( pStruct );
+			FreeLevelNode( pStruct );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -2287,7 +2321,7 @@ BOOLEAN RemoveShadow( INT32 iMapIndex, UINT16 usIndex )
 				pOldShadow->pNext = pShadow->pNext;
 			}
 			// Delete memory assosiated with item
-			MemFree( pShadow );
+			FreeLevelNode( pShadow );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -2331,7 +2365,7 @@ BOOLEAN RemoveShadowFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode )
 			}
 
 			// Delete memory assosiated with item
-			MemFree( pShadow );
+			FreeLevelNode( pShadow );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -2375,7 +2409,7 @@ BOOLEAN RemoveStructShadowPartner( INT32 iMapIndex, UINT16 usIndex )
 			}
 
 			// Delete memory assosiated with item
-			MemFree( pShadow );
+			FreeLevelNode( pShadow );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -2726,7 +2760,7 @@ BOOLEAN RemoveMerc( INT32 iMapIndex, SOLDIERTYPE *pSoldier, BOOLEAN fPlaceHolder
 				}
 
 				// Delete memory assosiated with item
-				MemFree( pMerc );
+				FreeLevelNode( pMerc );
 				guiLevelNodes--;
 
 				return( TRUE );
@@ -2765,7 +2799,7 @@ LEVELNODE *AddRoofToTail( INT32 iMapIndex, UINT16 usIndex )
 			{
 				if (AddStructureToWorld( iMapIndex, 1, gTileDatabase[usIndex].pDBStructureRef, pRoof ) == FALSE)
 				{
-					MemFree( pRoof );
+					FreeLevelNode( pRoof );
 					guiLevelNodes--;
 					return( FALSE );
 				}
@@ -2792,7 +2826,7 @@ LEVELNODE *AddRoofToTail( INT32 iMapIndex, UINT16 usIndex )
 					{
 						if (AddStructureToWorld( iMapIndex, 1, gTileDatabase[usIndex].pDBStructureRef, pNextRoof ) == FALSE)
 						{
-							MemFree( pNextRoof );
+							FreeLevelNode( pNextRoof );
 							guiLevelNodes--;
 							return( FALSE );
 						}
@@ -2835,7 +2869,7 @@ BOOLEAN AddRoofToHead( INT32 iMapIndex, UINT16 usIndex )
 		{
 			if (AddStructureToWorld( iMapIndex, 1, gTileDatabase[usIndex].pDBStructureRef, pNextRoof ) == FALSE)
 			{
-				MemFree( pNextRoof );
+				FreeLevelNode( pNextRoof );
 				guiLevelNodes--;
 				return( FALSE );
 			}
@@ -2881,7 +2915,7 @@ BOOLEAN RemoveRoof( INT32 iMapIndex, UINT16 usIndex )
 			}
 			// Delete memory assosiated with item
 			DeleteStructureFromWorld( pRoof->pStructureData );
-			MemFree( pRoof );
+			FreeLevelNode( pRoof );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -3118,7 +3152,7 @@ LEVELNODE *AddOnRoofToTail( INT32 iMapIndex, UINT16 usIndex )
 			{
 				if (AddStructureToWorld( iMapIndex, 1, gTileDatabase[usIndex].pDBStructureRef, pOnRoof ) == FALSE)
 				{
-					MemFree( pOnRoof );
+					FreeLevelNode( pOnRoof );
 					guiLevelNodes--;
 					return( FALSE );
 				}
@@ -3147,7 +3181,7 @@ LEVELNODE *AddOnRoofToTail( INT32 iMapIndex, UINT16 usIndex )
 					{
 						if (AddStructureToWorld( iMapIndex, 1, gTileDatabase[usIndex].pDBStructureRef, pNextOnRoof ) == FALSE)
 						{
-							MemFree( pNextOnRoof );
+							FreeLevelNode( pNextOnRoof );
 							guiLevelNodes--;
 							return( NULL );
 						}
@@ -3187,7 +3221,7 @@ BOOLEAN AddOnRoofToHead( INT32 iMapIndex, UINT16 usIndex )
 		{
 			if (AddStructureToWorld( iMapIndex, 1, gTileDatabase[usIndex].pDBStructureRef, pNextOnRoof ) == FALSE)
 			{
-				MemFree( pNextOnRoof );
+				FreeLevelNode( pNextOnRoof );
 				guiLevelNodes--;
 				return( FALSE );
 			}
@@ -3233,7 +3267,7 @@ BOOLEAN RemoveOnRoof( INT32 iMapIndex, UINT16 usIndex )
 			}
 
 			// REMOVE ONROOF!
-			MemFree( pOnRoof );
+			FreeLevelNode( pOnRoof );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -3277,7 +3311,7 @@ BOOLEAN RemoveOnRoofFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode )
 			}
 
 			// REMOVE ONROOF!
-			MemFree( pOnRoof );
+			FreeLevelNode( pOnRoof );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -3521,7 +3555,7 @@ BOOLEAN RemoveTopmost( INT32 iMapIndex, UINT16 usIndex )
 			}
 
 			// Delete memory assosiated with item
-			MemFree( pTopmost );
+			FreeLevelNode( pTopmost );
 			guiLevelNodes--;
 
 			return( TRUE );
@@ -3568,7 +3602,7 @@ BOOLEAN RemoveTopmostFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode )
 			}
 
 			// Delete memory assosiated with item
-			MemFree( pTopmost );
+			FreeLevelNode( pTopmost );
 			guiLevelNodes--;
 
 			return( TRUE );

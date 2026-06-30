@@ -1,0 +1,26 @@
+name: lint
+
+# Fast, build-free static guards that run on every push/PR. Cheap enough
+# to gate merges without waiting on the ~20min cross-platform compile.
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  string-sinks:
+    name: string-format sink ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Ratchet sprintf / strcpy / strcat
+        # Fails only when a change ADDS a new unbounded sink above the
+        # committed baseline (tools/string_sink_baseline.json). Lower the
+        # baseline by running `tools/lint_string_sinks.py --update` after
+        # converting a legacy site to snprintf / strlcpy / strlcat.
+        run: python3 tools/lint_string_sinks.py

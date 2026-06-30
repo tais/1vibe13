@@ -5459,6 +5459,39 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow( PIXEL *pBuffer, UINT32 uiDestPitchBYTES,
 
 
 /**********************************************************************************************
+ ETRLE_DecodeRow
+
+	Decodes ONE ETRLE row-command stream starting at *src, advancing src past the row's
+	terminating 0 byte. The ETRLE per-row encoding is a sequence of commands until a 0 byte:
+	  - cmd & 0x80  : transparent run of (cmd & 0x7F) pixels (no source bytes follow)
+	  - cmd != 0    : opaque run of cmd pixels, followed by cmd palette-index bytes
+
+	For each transparent run it calls onSkip(count); for each opaque run it calls
+	onRun(indices, count) where 'indices' points at the run's count source bytes, then
+	advances src past those bytes. Both callbacks are template parameters so they inline
+	with no call overhead -- this stays equivalent to the hand-unrolled per-row loop.
+
+	Extracted so sibling blitters share one decoder for the row-command stream instead of
+	each re-open-coding the cmd/0x80/0x7F walk (roadmap v2 #2, first slice).
+
+**********************************************************************************************/
+template <typename SkipFn, typename RunFn>
+static inline void ETRLE_DecodeRow( const UINT8*& src, SkipFn onSkip, RunFn onRun )
+{
+	for (;;) {
+		const UINT8 cmd = *src++;
+		if (cmd == 0) break;
+		if (cmd & 0x80) {
+			onSkip((UINT8)(cmd & 0x7F));
+			continue;
+		}
+		onRun(src, cmd);
+		src += cmd;
+	}
+}
+
+
+/**********************************************************************************************
  Blt8BPPDataTo16BPPBufferTransparent
 
 	Blits an image into the destination buffer, using an ETRLE brush as a source, and a 16-bit
@@ -5503,24 +5536,21 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchB
 
 	// ETRLE row decoder, no Z-buffer. Workhorse UI sprite blit -- the
 	// legacy asm unrolled this 4-at-a-time but the compiler vectorizes
-	// a tight inner loop just fine.
+	// a tight inner loop just fine. Shares ETRLE_DecodeRow for the
+	// row-command walk; the lambdas inline so this stays the same code.
 	{
 		PIXEL* dest = (PIXEL *)DestPtr;
 		const UINT8* src = SrcPtr;
 		UINT32 rows = usHeight;
 		while (rows-- > 0) {
 			PIXEL* rowDest = dest;
-			for (;;) {
-				const UINT8 cmd = *src++;
-				if (cmd == 0) break;
-				if (cmd & 0x80) {
-					rowDest += (cmd & 0x7F);
-					continue;
-				}
-				for (UINT8 i = 0; i < cmd; ++i) {
-					*rowDest++ = p16BPPPalette[*src++];
-				}
-			}
+			ETRLE_DecodeRow(src,
+				[&](UINT8 count) { rowDest += count; },
+				[&](const UINT8* idx, UINT8 count) {
+					for (UINT8 i = 0; i < count; ++i) {
+						*rowDest++ = p16BPPPalette[idx[i]];
+					}
+				});
 			dest = (PIXEL *)((UINT8 *)dest + uiDestPitchBYTES);
 		}
 		(void)LineSkip;
@@ -5688,35 +5718,30 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip( PIXEL *pBuffer, UINT32 uiDestPi
 	// Portable ETRLE row decoder with clipping. Skip TopSkip rows of
 	// input without writing, then for BlitHeight rows write pixels
 	// whose source-X falls inside [LeftSkip, usWidth - RightSkip).
+	// Shares ETRLE_DecodeRow for the row-command walk (it advances src
+	// past each opaque run, which is exactly the TopSkip discard logic).
 	{
 		const UINT8* src = SrcPtr;
 
 		for (INT32 i = 0; i < TopSkip; ++i) {
-			for (;;) {
-				const UINT8 cmd = *src++;
-				if (cmd == 0) break;
-				if (!(cmd & 0x80)) src += cmd;
-			}
+			ETRLE_DecodeRow(src,
+				[](UINT8) {},
+				[](const UINT8*, UINT8) {});
 		}
 
 		const INT32 rightEdge = (INT32)usWidth - RightSkip;
 		PIXEL* rowBase = (PIXEL *)DestPtr;
 		for (INT32 row = 0; row < BlitHeight; ++row) {
 			INT32 srcX = 0;
-			for (;;) {
-				const UINT8 cmd = *src++;
-				if (cmd == 0) break;
-				if (cmd & 0x80) {
-					srcX += (cmd & 0x7F);
-					continue;
-				}
-				for (UINT8 i = 0; i < cmd; ++i, ++srcX) {
-					if (srcX >= LeftSkip && srcX < rightEdge) {
-						rowBase[srcX - LeftSkip] = p16BPPPalette[*src];
+			ETRLE_DecodeRow(src,
+				[&](UINT8 count) { srcX += count; },
+				[&](const UINT8* idx, UINT8 count) {
+					for (UINT8 i = 0; i < count; ++i, ++srcX) {
+						if (srcX >= LeftSkip && srcX < rightEdge) {
+							rowBase[srcX - LeftSkip] = p16BPPPalette[idx[i]];
+						}
 					}
-					++src;
-				}
-			}
+				});
 			rowBase = (PIXEL *)((UINT8 *)rowBase + uiDestPitchBYTES);
 		}
 	}

@@ -141,7 +141,9 @@ bool DbgGetLogFileName( STRING512 pcName )
 		return false;
 	}
 
-	strcat( pcName, "\\debug.txt" );
+	// bounded: pcName is STRING512 and the guard above guarantees room,
+	// so strncat copies the full literal -- identical result, no overflow.
+	strncat( pcName, "\\debug.txt", 512 - strlen( pcName ) - 1 );
 #endif
 
 	return true;

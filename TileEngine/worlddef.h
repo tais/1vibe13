@@ -283,6 +283,16 @@ typedef struct
 extern MAP_ELEMENT			*gpWorldLevelData;
 extern UINT8 (*gubWorldMovementCosts)[MAXDIR][2];//dnl ch43 260909
 
+// Thin accessor seam over the gpWorldLevelData global. This is NOT a new data
+// structure -- it simply lets call sites read/write a tile's MAP_ELEMENT through
+// a named function instead of indexing the raw global directly, giving us a single
+// place to evolve world-tile storage later. Behaviour-identical to
+// gpWorldLevelData[ usGridNo ].
+static inline MAP_ELEMENT& GetMapElement( const UINT32 usGridNo )
+{
+	return gpWorldLevelData[ usGridNo ];
+}
+
 //dnl ch44 290909 Translation routine
 class MAPTRANSLATION
 {
