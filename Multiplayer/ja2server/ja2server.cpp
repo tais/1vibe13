@@ -859,7 +859,8 @@ static void ReleaseInterrupt(const unsigned char* payload, int bits)
 	{
 		PendingInterrupt next = g_interruptQueue.front();
 		g_interruptQueue.pop_front();
-		if (SlotOf(next.from) < 0) continue;   // requester left while queued -- skip it
+		int nslot = SlotOf(next.from);
+		if (nslot < 0 || g_teamWiped[6 + nslot]) continue;   // requester left OR its team was wiped -- skip
 		VLOG("[ja2server]   (chaining queued interrupt from a 2nd sighting client)\n"); fflush(stdout);
 		GrantInterrupt(next.from, next.payload.data(), (int)next.payload.size() * 8);
 		return;
@@ -874,7 +875,17 @@ static void ForceReleaseInterrupt()
 {
 	if (!g_interruptActive) return;
 	std::vector<unsigned char> grant = g_interruptPayload;   // copy: ReleaseInterrupt clears the source
-	if (grant.empty()) return;
+	if (grant.empty())
+	{
+		// Never no-op a force-release: with no stored payload we can't author a wire resume,
+		// so clear the grant and resume the paused team by number so the turn can't wedge.
+		// (sendINTERRUPT now rejects short frames, so this is defense-in-depth.)
+		g_interruptActive = false;
+		g_interruptHolder = SystemAddress();
+		g_interruptQueue.clear();
+		if (g_preInterruptTeam >= 6) BroadcastTurn(g_preInterruptTeam);
+		return;
+	}
 	ReleaseInterrupt(grant.data(), (int)grant.size() * 8);
 }
 
@@ -893,6 +904,23 @@ static void TickInterruptWatchdog()
 static void sendINTERRUPT(RPCParameters* p)
 {
 	size_t bytes = (size_t)((p->numberOfBitsOfData + 7) / 8);
+	// H14: reject a short/empty frame. An empty grant can't be resumed (ReleaseInterrupt
+	// patches byte 2; ForceReleaseInterrupt no-ops on an empty payload) and would wedge the
+	// turn until the 30s watchdog. A valid frame is the 8-byte INT_STRUCT header + >=1 order
+	// entry = 10 bytes.
+	if (bytes < 10)
+	{
+		VLOG("[ja2server] sendINTERRUPT dropped -- short frame (%zu bytes)\n", bytes); fflush(stdout);
+		return;
+	}
+	// An interrupt only makes sense in a turn-based fight. A grant while !g_inCombat records
+	// g_preInterruptTeam=0 (no valid resume), and both the watchdog and disconnect
+	// force-release are gated on g_inCombat, so it could never be cleaned up.
+	if (!g_inCombat)
+	{
+		VLOG("[ja2server] sendINTERRUPT dropped -- not in combat\n"); fflush(stdout);
+		return;
+	}
 	if (g_interruptActive)
 	{
 		// Concurrent interrupt: the requester already paused locally and is waiting for a
@@ -1045,13 +1073,15 @@ static void HandleDisconnect(SystemAddress who)
 
 	if (wasInCombat)
 	{
-		// The interrupt holder dropped: the paused team would never be resumed (only the
-		// holder sends endINTERRUPT). Force-release so its turn continues, reusing the
-		// holder's original grant bytes for the resume (ReleaseInterrupt re-authors bTeam
-		// from g_preInterruptTeam) and chaining any queued interrupt.
-		if (heldInterrupt)
+		// Force-release on ANY disconnect during an active interrupt, not only the holder:
+		// if the PAUSED team drops, the turn-advance below BroadcastTurns (clearing the
+		// interrupt) with no resume_turn, stranding the still-present interrupter. Releasing
+		// resumes g_preInterruptTeam and chains any queued interrupt. (heldInterrupt implies
+		// g_interruptActive, so the holder-dropped case is still covered.)
+		if (g_interruptActive)
 		{
-			printf("[ja2server] interrupt holder (team %d) dropped -- force-releasing\n", droppedTeam); fflush(stdout);
+			printf("[ja2server] disconnect during interrupt (dropped team %d, holder %s) -- force-releasing\n",
+			       droppedTeam, heldInterrupt ? "dropped" : "still present"); fflush(stdout);
 			ForceReleaseInterrupt();
 		}
 
