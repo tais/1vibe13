@@ -125,7 +125,7 @@ typedef struct
 void ClearIntList( void )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"ClearIntList");
-	memset( &gubOutOfTurnOrder, 0, MAXMERCS );
+	memset( gubOutOfTurnOrder, 0, sizeof(gubOutOfTurnOrder) );   // UINT16[] -> byte size, not element count (was half-cleared)
 	gubOutOfTurnOrder[0] = END_OF_INTERRUPTS;
 	gubOutOfTurnPersons = 0;
 }
@@ -722,10 +722,15 @@ void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
 	gfPlotNewMovement = TRUE;
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"about to call AdjustNoAPToFinishMove");
-	// Stop our guy....
-	MercPtrs[ LATEST_INTERRUPT_GUY ]->AdjustNoAPToFinishMove( TRUE );
-	// Stop him from going to prone position if doing a turn while prone
-	MercPtrs[ LATEST_INTERRUPT_GUY ]->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+	// Stop our guy.... (guard the raw index: LATEST_INTERRUPT_GUY is the END_OF_INTERRUPTS
+	// sentinel when the list is empty, and NOBODY==TOTAL_SOLDIERS is one-past-end of MercPtrs)
+	if ( LATEST_INTERRUPT_GUY != END_OF_INTERRUPTS && LATEST_INTERRUPT_GUY < TOTAL_SOLDIERS
+		&& MercPtrs[ LATEST_INTERRUPT_GUY ] )
+	{
+		MercPtrs[ LATEST_INTERRUPT_GUY ]->AdjustNoAPToFinishMove( TRUE );
+		// Stop him from going to prone position if doing a turn while prone
+		MercPtrs[ LATEST_INTERRUPT_GUY ]->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+	}
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"about to call AddTopMessage");
 	// get rid of any old overlay message
@@ -1114,7 +1119,7 @@ void StartInterrupt( void )
 	{
 		// Stop this guy....
 		if ( LATEST_INTERRUPT_GUY != END_OF_INTERRUPTS // BOB: is this just a blank?
-			&& LATEST_INTERRUPT_GUY <= TOTAL_SOLDIERS  // BOB: sanity check
+			&& LATEST_INTERRUPT_GUY < TOTAL_SOLDIERS  // BOB: sanity check (NOBODY==TOTAL_SOLDIERS is one-past-end)
 			&& MercPtrs[LATEST_INTERRUPT_GUY]->exists()	//MM: this was crashing if the LATEST_INTERRUPT_GUY wasn't set
 			)
 		{
@@ -2169,6 +2174,8 @@ void AddToIntList( UINT16 ubID, BOOLEAN fGainControl, BOOLEAN fCommunicate )
 	}
 
 	// increment total (making index valid) and add him to list
+	if ( gubOutOfTurnPersons + 1 >= MAXMERCS )   // never grow past the fixed-size queue (OOB write)
+		return;
 	gubOutOfTurnPersons++;
 	gubOutOfTurnOrder[gubOutOfTurnPersons] = ubID;
 
