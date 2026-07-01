@@ -804,13 +804,16 @@ BOOLEAN EveryoneInInterruptListOnSameTeam( void )
 
 	for (ubLoop = 1; ubLoop <= gubOutOfTurnPersons; ubLoop++)
 	{
+		UINT16 ubID = gubOutOfTurnOrder[ ubLoop ];
+		if ( ubID >= TOTAL_SOLDIERS || MercPtrs[ ubID ] == NULL )   // skip sentinel/NOBODY/empty slots (list can be wire-fed)
+			continue;
 		if ( ubTeam == 255 )
 		{
-			ubTeam = MercPtrs[ gubOutOfTurnOrder[ ubLoop ] ]->bTeam;
+			ubTeam = MercPtrs[ ubID ]->bTeam;
 		}
 		else
 		{
-			if ( MercPtrs[ gubOutOfTurnOrder[ ubLoop ] ]->bTeam != ubTeam )
+			if ( MercPtrs[ ubID ]->bTeam != ubTeam )
 			{
 				return( FALSE );
 			}
