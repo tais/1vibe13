@@ -240,6 +240,7 @@ static UINT8 g_currentTeam = 0;             // 6..9 while in combat, 0 otherwise
 // clients can never both hold control ("both act" is impossible by construction).
 static bool  g_interruptActive  = false;
 static UINT8 g_preInterruptTeam = 0;        // whose turn to resume when the interrupt releases
+static bool  g_pendingEndTurn   = false;    // an end-turn raced an active interrupt -> apply it on release
 static bool  g_gameOver    = false;
 static bool  g_teamWiped[16] = { false };   // index by team number (6..9)
 
@@ -787,6 +788,7 @@ static void BroadcastTurn(UINT8 team)
 	g_currentTeam = team;
 	// turn boundary: no interrupt (active OR queued) should outlive a turn handoff
 	g_interruptActive = false;
+	g_pendingEndTurn  = false;   // a new turn started -> any deferred end-turn is moot
 	g_interruptHolder = SystemAddress();
 	g_interruptQueue.clear();
 	turn_struct ts;
@@ -863,6 +865,17 @@ static void ReleaseInterrupt(const unsigned char* payload, int bits)
 		VLOG("[ja2server]   (chaining queued interrupt from a 2nd sighting client)\n"); fflush(stdout);
 		GrantInterrupt(next.from, next.payload.data(), (int)next.payload.size() * 8);
 		return;
+	}
+
+	// No interrupt chained -> if an end-turn was deferred during this one (sendEndTurn),
+	// apply it now that the paused team has been resumed. Bounded: a never-released
+	// interrupt is force-released by TickInterruptWatchdog, which routes here too, so the
+	// deferred end-turn can never wedge the turn.
+	if (g_pendingEndTurn)
+	{
+		g_pendingEndTurn = false;
+		VLOG("[ja2server]   (applying end-turn deferred during the interrupt)\n"); fflush(stdout);
+		BroadcastTurn(NextActiveTeam(g_currentTeam));
 	}
 }
 
@@ -953,6 +966,17 @@ static void sendEndTurn(RPCParameters* p)
 		       ts->tsnetbTeam, g_currentTeam); fflush(stdout);
 		return;
 	}
+	if (g_interruptActive)
+	{
+		// An interrupt is paused on this team's turn (a sighting from its last move raced
+		// the End Turn). Advancing now would BroadcastTurn -> clear the interrupt with NO
+		// resume_turn, stranding the interrupter mid-action. Defer: apply once the interrupt
+		// releases (ReleaseInterrupt). The stale-interrupt watchdog bounds the wait, so this
+		// can never wedge the turn.
+		g_pendingEndTurn = true;
+		VLOG("[ja2server] endturn from team %d DEFERRED (interrupt active)\n", ts->tsnetbTeam); fflush(stdout);
+		return;
+	}
 	VLOG("[ja2server] endturn ACCEPTED from team %d\n", ts->tsnetbTeam); fflush(stdout);
 	BroadcastTurn(NextActiveTeam(g_currentTeam));
 }
@@ -969,6 +993,7 @@ static void ResetGameState()
 	g_interruptActive = false;
 	g_interruptHolder = SystemAddress();
 	g_interruptQueue.clear();
+	g_pendingEndTurn = false;
 	g_gameOver     = false;
 	memset(g_teamWiped, 0, sizeof(g_teamWiped));
 	memset(g_scoreboard, 0, sizeof(g_scoreboard));
