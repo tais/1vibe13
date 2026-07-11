@@ -8431,7 +8431,7 @@ static int l_WhichBuddy(lua_State* L)
 {
 	if (lua_gettop(L) >= 2)
 	{
-		INT8 bBuddyIndex;
+		INT8 bBuddyIndex = -1;	// no-buddy default; was uninitialized when the sector check below is false -> garbage pushed to Lua
 
 		SoldierID ubID1 = lua_tointeger(L, 1);
 		SoldierID ubID2 = lua_tointeger(L, 2);
