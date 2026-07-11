@@ -537,7 +537,7 @@ void LogMouseOverInteractiveTile( INT32 sGridNo )
 						gCurIntTile.fFound = TRUE;
 
 						// Only if we are not currently cycling....
-						if ( !gfCycleIntTile )
+						if ( !gfCycleIntTile && gCurIntTileStack.bNum < MAX_INTTILE_STACK )   // don't overflow the fixed bTiles[MAX_INTTILE_STACK]
 						{
 							// Accumulate them!
 							gCurIntTileStack.bTiles[ gCurIntTileStack.bNum ].pFoundNode		= pNode;
