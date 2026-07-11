@@ -723,6 +723,8 @@ static bool DeserializeINT( INT_STRUCT& dst, const void* buf, size_t len )
 	dst.Interrupted           = (UINT16)r.get16();
 	if ( !r.ok )
 		return false;
+	if ( dst.bTeam < 0 || dst.bTeam > 9 )   // valid team range (banner tables are 10 rows [0..9])
+		return false;
 	if ( persons >= MAXMERCS )
 		persons = MAXMERCS - 1;	// wire bound
 	dst.gubOutOfTurnPersons = persons;
@@ -730,6 +732,8 @@ static bool DeserializeINT( INT_STRUCT& dst, const void* buf, size_t len )
 	{
 		uint16_t v = r.get16();
 		if ( !r.ok )
+			return false;
+		if ( v >= TOTAL_SOLDIERS )   // reject NOBODY/garbage ids that would OOB MercPtrs downstream (real ids + the 255 sentinel pass)
 			return false;
 		dst.gubOutOfTurnOrder[i] = v;
 	}
