@@ -305,6 +305,8 @@ void SortBuildingLayout( INT32 iMapIndex )
 
 void PasteMapElementToNewMapElement( INT32 iSrcGridNo, INT32 iDstGridNo )
 {
+	if ( iDstGridNo < 0 || iDstGridNo >= WORLD_MAX )   // a pasted/moved building layout can cross the map edge -> OOB gpWorldLevelData free+write
+		return;
 	MAP_ELEMENT			*pSrcMapElement;
 	LEVELNODE				*pNode;
 	//UINT16					usType;//dnl ch86 110214

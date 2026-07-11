@@ -229,6 +229,11 @@ void Fill( INT32 x, INT32 y )
 		Count--;
 		return;
 	}
+	if( gpWorldLevelData[ iMapIndex ].pLandHead == NULL )   // visible-but-empty tile -> NULL pLandHead deref
+	{
+		Count--;
+		return;
+	}
 	GetTileType( gpWorldLevelData[ iMapIndex ].pLandHead->usIndex , &uiCheckType );
 	if( guiSearchType == uiCheckType )
 	{
