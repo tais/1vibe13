@@ -44,13 +44,16 @@ void AudioGapListInit( const CHAR8 *zSoundFile, AudioGapList	*pGapList )
 	pPreviousGap=pCurrentGap=0;
 	//DebugMsg(TOPIC_JA2, DBG_LEVEL_3,String("File is %s", szSoundEffects[uiSampleNum]));
 	// Get filename
-	strcpy(pDestFileName, pSourceFileName);
+	strncpy(pDestFileName, pSourceFileName, sizeof(sFileName)-5);	// bounded; leave room for ".gap\0" (was unbounded strcpy -> sFileName[256] overflow)
+	pDestFileName[sizeof(sFileName)-5]='\0';
 	// strip .wav and change to .gap
 
-	while(pDestFileName[counter] !='.')
+	while(pDestFileName[counter] && pDestFileName[counter] !='.')	// stop at NUL too (was unbounded scan past end when no '.')
 	{
 			counter++;
 	}
+	if(pDestFileName[counter] != '.')	// no extension found -> can't build a ".gap" name
+		return;
 
 	pDestFileName[counter+1]='g';
 	pDestFileName[counter+2]='a';
@@ -68,7 +71,11 @@ void AudioGapListInit( const CHAR8 *zSoundFile, AudioGapList	*pGapList )
 		// now read in the AUDIO_GAPs
 
 		//fread(&Start,sizeof(UINT32), 1, pFile);
-		FileRead( pFile, &Start,sizeof(UINT32), &uiNumBytesRead );
+		if( !FileRead( pFile, &Start,sizeof(UINT32), &uiNumBytesRead ) || uiNumBytesRead != sizeof(UINT32) )
+		{	// empty/truncated .gap file -> no gaps (was: used uninitialized Start)
+			FileClose( pFile );
+			return;
+		}
 
 
 		//	while ( !feof(pFile) )
@@ -76,10 +83,13 @@ void AudioGapListInit( const CHAR8 *zSoundFile, AudioGapList	*pGapList )
 			{
 				// can read the first element, there exists a second
 					//fread(&End, sizeof(UINT32),1,pFile);
-				FileRead( pFile, &End, sizeof(UINT32), &uiNumBytesRead );
+				if( !FileRead( pFile, &End, sizeof(UINT32), &uiNumBytesRead ) || uiNumBytesRead != sizeof(UINT32) )
+					break;	// truncated -> stop (was: used uninitialized End)
 
 				// allocate space for AUDIO_GAP
 				pCurrentGap = (AUDIO_GAP *)MemAlloc( sizeof(AUDIO_GAP) );
+				if (pCurrentGap == NULL)
+					break;	// OOM -> stop (was: NULL deref below)
 				if (pPreviousGap !=0)
 						pPreviousGap->pNext=pCurrentGap;
 				else
@@ -99,7 +109,8 @@ void AudioGapListInit( const CHAR8 *zSoundFile, AudioGapList	*pGapList )
 				pPreviousGap=pCurrentGap;
 
 				//	fread(&Start,sizeof(UINT32), 1, pFile);
-				FileRead( pFile, &Start, sizeof(UINT32), &uiNumBytesRead );
+				if( !FileRead( pFile, &Start, sizeof(UINT32), &uiNumBytesRead ) || uiNumBytesRead != sizeof(UINT32) )
+					break;	// truncated -> stop
 			}
 
 			pGapList->audio_gap_active=FALSE;
