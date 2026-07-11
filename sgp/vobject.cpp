@@ -659,7 +659,13 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 			hVObject->ubBitDepth				= hImage->ubBitDepth;
 
 			// Get TRLE data
-			CHECKF( GetETRLEImageData( hImage, &TempETRLEData ) );
+			if ( !GetETRLEImageData( hImage, &TempETRLEData ) )
+			{
+				// leak: free hVObject + hImage on GetETRLEImageData error path
+				MemFree( hVObject );
+				DestroyImage( hImage );
+				return( NULL );
+			}
 
 			// Set values
 			hVObject->usNumberOfObjects	= TempETRLEData.usNumberOfObjects;

@@ -67,6 +67,9 @@ TILE_IMAGERY *LoadTileSurface(	STR8	cFilename )
 		{
 			DestroyImage( hImage );
 			DeleteVideoObject( hVObject );
+			// leak: free structure file ref on count-mismatch error path
+			if (pStructureFileRef != NULL)
+				FreeStructureFile( pStructureFileRef );
 			SET_ERROR(	"Structure file error: %s", cStructureFilename );
 			return( NULL );
 		}

@@ -157,7 +157,10 @@ BOOLEAN ReadInGarrisonInfo(STR fileName)
 	// Open weapons file
 	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
 	if ( !hFile )
+	{
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( FALSE );
+	}
 
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
@@ -166,6 +169,7 @@ BOOLEAN ReadInGarrisonInfo(STR fileName)
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( FALSE );
 	}
 
@@ -502,7 +506,10 @@ BOOLEAN ReadInPatrolInfo(STR fileName)
 	// Open weapons file
 	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
 	if ( !hFile )
+	{
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( FALSE );
+	}
 
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
@@ -511,6 +518,7 @@ BOOLEAN ReadInPatrolInfo(STR fileName)
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( FALSE );
 	}
 
@@ -817,7 +825,10 @@ BOOLEAN ReadInArmyCompositionInfo(STR fileName)
 	// Open weapons file
 	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
 	if ( !hFile )
+	{
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( FALSE );
+	}
 
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
@@ -826,6 +837,7 @@ BOOLEAN ReadInArmyCompositionInfo(STR fileName)
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( FALSE );
 	}
 
