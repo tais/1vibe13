@@ -358,7 +358,7 @@ void DrawItemUIBarEx( OBJECTTYPE *pObject, UINT8 ubStatus, INT16 sXPos, INT16 sY
 
 			if( Item[ pAttachment->usItem ].usItemClass & IC_AMMO )
 			{
-				sValue = sValue * 100 / Magazine[ Item[ pObject->usItem ].ubClassIndex ].ubMagSize;
+				sValue = sValue * 100 / Magazine[ Item[ pAttachment->usItem ].ubClassIndex ].ubMagSize;   // was pObject (parent) -> wrong/OOB Magazine index for the ammo attachment
 				sValue = max(0, min(100, sValue));
 			}
 		}

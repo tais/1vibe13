@@ -374,9 +374,11 @@ UINT32 GetNumUsedWorldBombs( void )
 
 INT32 AddBombToWorld( INT32 iItemIndex )
 {
-	UINT32	iBombIndex;
+	INT32	iBombIndex;
 
 	iBombIndex = GetFreeWorldBombIndex( );
+	if ( iBombIndex < 0 )   // allocation failed -> don't write gWorldBombs[(UINT32)-1] OOB
+		return( -1 );
 
 	//Add the new world item to the table.
 	gWorldBombs[ iBombIndex ].fExists										= TRUE;
