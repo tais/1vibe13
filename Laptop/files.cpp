@@ -2236,6 +2236,9 @@ BOOLEAN HandleSpecialTerroristFile( INT32 iFileNumber, STR sPictureName )
 	VOBJECT_DESC VObjectDesc;
 	CHAR sTemp[ 128 ];
 
+	if ( iFileNumber < 0 || iFileNumber > LAST_JA2_VANILLA_FILE )   // bounds the 7-element ubFileOffsets/ubFileRecordsLength + the +1 profile-id array below
+		return( FALSE );
+
 	iOffset = ubFileOffsets[ iFileNumber ] ;
 
 	// grab width list

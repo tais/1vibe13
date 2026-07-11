@@ -161,12 +161,11 @@ BOOLEAN gfWaitingForInput = FALSE;
 static WAYPOINT* GetWaypointAtIndex( WAYPOINT *waypoints, UINT8 index)
 {
 	WAYPOINT *wp = waypoints;
-	while ( index-- )
-	{ //Traverse through the waypoint list to the next waypoint ID
-		Assert( wp );
+	while ( index-- && wp )
+	{ //Traverse to the next waypoint ID, stopping at the end of the list instead of walking
+	  //off it (the Assert here was a no-op in release -> NULL deref). May return NULL.
 		wp = wp->next;
 	}
-	Assert( wp );
 	return wp;
 }
 
@@ -1476,7 +1475,8 @@ void CalculateNextMoveIntention( GROUP *pGroup )
 	wp = GetWaypointAtIndex( pGroup->pWaypoints, pGroup->ubNextWaypointID );
 
 	//We have the next waypoint, now check if we are actually there.
-	if( pGroup->ubSectorX == wp->x && pGroup->ubSectorY == wp->y )
+	//(wp can be NULL if ubNextWaypointID runs past the list -> we're not at any waypoint.)
+	if( wp && pGroup->ubSectorX == wp->x && pGroup->ubSectorY == wp->y )
 	{ //We have reached the next waypoint, so now determine what the next waypoint is.
 		switch( pGroup->ubMoveType )
 		{
@@ -2620,7 +2620,7 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 
 	// Flugente: for unknown reasons, it is possible for waypoints to be filled with complete garbage. In this case we cannot use them.
 	// As we have no idea as to where this group was originally intended to go, and wandering around aimlessly would potentially be bad, we just stop moving...
-	if ( wp->x < 1 || wp->x > 16 || wp->y < 1 || wp->y > 16 )
+	if ( !wp || wp->x < 1 || wp->x > 16 || wp->y < 1 || wp->y > 16 )
 	{
 		ScreenMsg( FONT_YELLOW, MSG_ERROR, L"Group %d has corrupted waypoints. Cancelling movement!", pGroup->ubGroupID );
 		
