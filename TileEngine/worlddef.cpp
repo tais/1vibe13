@@ -4313,6 +4313,14 @@ BOOLEAN IsRoofVisibleForWireframe( INT32 sMapPos )
 //dnl ch43 260909
 void SetWorldSize(INT32 nWorldRows, INT32 nWorldCols)
 {
+	// Clamp file-supplied dimensions to the supported range: a corrupt map with absurd/negative
+	// rows or cols would size WORLD_MAX past MAX_ALLOWED_WORLD_MAX, MemAlloc would fail, and the
+	// memsets below would write to NULL.
+	if ( nWorldRows < 1 ) nWorldRows = 1;
+	if ( nWorldRows > WORLD_ROWS_MAX ) nWorldRows = WORLD_ROWS_MAX;
+	if ( nWorldCols < 1 ) nWorldCols = 1;
+	if ( nWorldCols > WORLD_COLS_MAX ) nWorldCols = WORLD_COLS_MAX;
+
 	gMapTrn.ResizeTrnCfg(WORLD_ROWS, WORLD_COLS, nWorldRows, nWorldCols);//dnl ch45 011009
 
 	INT32 o_WORLD_MAX = WORLD_MAX;

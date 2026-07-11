@@ -1262,7 +1262,10 @@ BOOLEAN GridNoOnEdgeOfMap( INT32 sGridNo, INT8 * pbDirection )
 
 	for (bDir = NORTHEAST; bDir < NUM_WORLD_DIRECTIONS; bDir += 2 )
 	{
-		if (gubWorldMovementCosts[ (sGridNo + DirectionInc( bDir ) ) ][ bDir ][ 0 ] == TRAVELCOST_OFF_MAP)
+		INT32 sNeighbor = sGridNo + DirectionInc( bDir );   // the diagonal neighbor can run off the WORLD_MAX-sized array near the map edge
+		if ( sNeighbor < 0 || sNeighbor >= WORLD_MAX )
+			continue;
+		if (gubWorldMovementCosts[ sNeighbor ][ bDir ][ 0 ] == TRAVELCOST_OFF_MAP)
 		//if ( !GridNoOnVisibleWorldTile( (INT16) (sGridNo + DirectionInc( bDir ) ) ) )
 		{
 			*pbDirection = bDir;
