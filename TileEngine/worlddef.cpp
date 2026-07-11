@@ -2436,9 +2436,24 @@ BOOLEAN EvaluateWorld(STR8 pSector, UINT8 ubLevel)
 	if(!hfile)
 		return(FALSE);
 	uiFileSize = FileGetSize(hfile);
+	if(uiFileSize < sizeof(FLOAT))
+	{
+		FileClose(hfile);
+		return(FALSE);
+	}
 	pBuffer = (INT8*)MemAlloc(uiFileSize);
+	if(!pBuffer)
+	{
+		FileClose(hfile);
+		return(FALSE);
+	}
 	pBufferHead = pBuffer;
-	FileRead(hfile, pBuffer, uiFileSize, &uiBytesRead);
+	if(!FileRead(hfile, pBuffer, uiFileSize, &uiBytesRead) || uiBytesRead != uiFileSize)
+	{
+		MemFree(pBufferHead);
+		FileClose(hfile);
+		return(FALSE);
+	}
 	FileClose(hfile);
 	swprintf(str, L"Analyzing map %S", szFilename);
 	if(!gfUpdatingNow)
@@ -2856,9 +2871,25 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	}
 	// Get the file size and alloc one huge buffer for it. We will use this buffer to transfer all of the data from.
 	uiFileSize = FileGetSize(hfile);
-	pBuffer = (INT8*)MemAlloc(uiFileSize);
+	pBuffer = (uiFileSize > 0) ? (INT8*)MemAlloc(uiFileSize) : NULL;
+	if(!pBuffer)
+	{
+		FileClose(hfile);
+#ifndef JA2EDITOR
+		SET_ERROR("Map file %S is empty or could not be allocated", aFilename);
+#endif
+		return(FALSE);
+	}
 	pBufferHead = pBuffer;
-	FileRead(hfile, pBuffer, uiFileSize, &uiBytesRead);
+	if(!FileRead(hfile, pBuffer, uiFileSize, &uiBytesRead) || uiBytesRead != uiFileSize)
+	{
+		FileClose(hfile);
+		MemFree(pBufferHead);
+#ifndef JA2EDITOR
+		SET_ERROR("Could not read map file %S", aFilename);
+#endif
+		return(FALSE);
+	}
 	FileClose(hfile);
 
 	// RESET FLAGS FOR OUTDOORS/INDOORS
