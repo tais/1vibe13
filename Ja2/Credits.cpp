@@ -546,7 +546,7 @@ BOOLEAN	AddCreditNode( UINT32 uiType, UINT32 uiFlags, STR16 pString )
 {
 	CRDT_NODE	*pNodeToAdd=NULL;
 	CRDT_NODE	*pTemp=NULL;
-	UINT32	uiSizeOfString = ( wcslen( pString ) + 2 ) * 2;
+	UINT32	uiSizeOfString = ( wcslen( pString ) + 2 ) * sizeof(CHAR16);   // bytes, not *2: wchar_t is 4 bytes on mac/linux (wcscpy writes 4/char) -> was a heap overflow
 	UINT32	uiFontToUse;
 	UINT8		uiColorToUse;
 
