@@ -195,6 +195,11 @@ BOOLEAN ReadUncompRGBImage( HIMAGE hImage, HWFILE hFile, UINT8 uiImgID, UINT8 ui
 
 	// Allocate memory based on bpp, height, width
 
+	// Reject absurd/overflowing dimensions from the file header before allocating: uiWidth*uiHeight
+	// can integer-overflow to a tiny allocation that the per-row FileReads below then write far past.
+	if ( uiWidth == 0 || uiHeight == 0 || uiWidth > 8192 || uiHeight > 8192 )
+		goto end;
+
 	// Only do if contents flag is appropriate
 	if ( fContents & IMAGE_BITMAPDATA )
 	{

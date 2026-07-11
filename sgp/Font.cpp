@@ -457,10 +457,8 @@ UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
 	// Assertions
 	Assert( hSrcVObject != NULL );
 
-	if ( ssIndex < 0 || ssIndex > 92 )
-	{
-		//int breakpoint=0;
-	}
+	if ( ssIndex < 0 || ssIndex >= hSrcVObject->usNumberOfObjects )   // was a dead (empty-body) guard -> pETRLEObject[ssIndex] OOB read
+		return 0;
 
 	// Get Offsets from Index into structure
 	pTrav = &(hSrcVObject->pETRLEObject[ ssIndex ] );

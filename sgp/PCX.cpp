@@ -68,7 +68,12 @@ BOOLEAN LoadPCXFileToImage( HIMAGE hImage, UINT16 fContents )
 
 	if ( fContents & IMAGE_PALETTE )
 	{
-		SetPcxPalette( pPcxObject, hImage );
+		if ( !SetPcxPalette( pPcxObject, hImage ) )   // don't feed a NULL palette to Create16BPPPalette (its Assert is a no-op in release -> NULL deref)
+		{
+			MemFree( pPcxObject->pPcxBuffer );
+			MemFree( pPcxObject );
+			return( FALSE );
+		}
 
 		// Create 16 BPP palette if flags and BPP justify
 		hImage->pui16BPPPalette = Create16BPPPalette( hImage->pPalette );
