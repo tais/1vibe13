@@ -648,6 +648,7 @@ static void sendGAMEOVER(RPCParameters* /*p*/)
 static void ResetGameState();   // defined below; used by the game-over rematch reset
 static bool TeamActive(UINT8 team);   // turn-authority helpers, defined below
 static UINT8 NextActiveTeam(UINT8 cur);
+static void BroadcastTurn(UINT8 team);   // announce whose turn it is (defined below)
 
 // A merc died. death_struct carries the 1-based player indices plainly (no pointer
 // deref needed, unlike the hit/miss handlers), so the coordinator can keep the
@@ -724,7 +725,25 @@ static void sendWIPE(RPCParameters* p)
 	RelayExcept("recieve_wipe", p);
 	printf("[ja2server] team %d WIPED OUT\n", team); fflush(stdout);
 
-	CheckLastStanding();
+	// Declare game-over FIRST (it resets state) -- mirrors the in-combat disconnect path.
+	if (CheckLastStanding())
+		return;
+
+	// A wipe removes a team exactly like a disconnect does. If the WIPED team held the
+	// turn, advance it -- otherwise g_currentTeam pins on the now-dead team forever and
+	// the whole match wedges (nobody can act, no end-turn can arrive for a dead team).
+	// HandleDisconnect already does this for a dropped current-turn team; sendWIPE was
+	// missing the symmetric advance. g_teamWiped[team] is set above, so NextActiveTeam()
+	// skips the just-wiped team.
+	if (g_inCombat && team == g_currentTeam)
+	{
+		UINT8 next = NextActiveTeam(g_currentTeam);
+		if (next != 0)
+		{
+			printf("[ja2server] current-turn team %d wiped -- advancing to team %d\n", team, next); fflush(stdout);
+			BroadcastTurn(next);
+		}
+	}
 }
 
 static void sendREAL(RPCParameters* p)
