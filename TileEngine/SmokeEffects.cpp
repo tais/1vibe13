@@ -915,6 +915,8 @@ BOOLEAN LoadSmokeEffectsFromLoadGameFile( HWFILE hFile )
 
 
 		//loop through and load the list
+		if( guiNumSmokeEffects > NUM_SMOKE_EFFECT_SLOTS )   // legacy load path lacked the count clamp -> gSmokeEffectData overflow
+			return( FALSE );
 		for( uiCnt=0; uiCnt<guiNumSmokeEffects;uiCnt++)
 		{
 			//Load the Smoke effect Data
