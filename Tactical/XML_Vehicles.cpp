@@ -165,6 +165,10 @@ newCarEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT;
 			pData->curNewCar.iNewSeatingCapacities	= (INT32) atol(pData->szCharData);
+			if ( pData->curNewCar.iNewSeatingCapacities > MAXPASSENGERS )   // clamp: drives passenger-array [MAXPASSENGERS] indexing
+				pData->curNewCar.iNewSeatingCapacities = MAXPASSENGERS;
+			if ( pData->curNewCar.iNewSeatingCapacities < 0 )
+				pData->curNewCar.iNewSeatingCapacities = 0;
 		}	
 		else if(strcmp(name, "EnterVehicleSndID") == 0)
 		{			

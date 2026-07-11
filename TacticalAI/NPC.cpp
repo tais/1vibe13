@@ -2808,6 +2808,9 @@ void TriggerNPCRecordImmediately( UINT8 ubTriggerNPC, UINT8 ubTriggerNPCRec )
 
 	DebugQuestInfo(String("TriggerNPCRecordImmediately: <%d> record %d", ubTriggerNPC, ubTriggerNPCRec));
 
+	if ( ubTriggerNPC >= NUM_PROFILES || ubTriggerNPCRec >= NUM_NPC_QUOTE_RECORDS )   // unbounded ids -> OOB gpNPCQuoteInfoArray (twin of TriggerNPCRecord)
+		return;
+
 	if (EnsureQuoteFileLoaded( ubTriggerNPC ) == FALSE)
 	{
 		// error!!!

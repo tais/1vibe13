@@ -77,7 +77,7 @@ BOOLEAN LoadEnemySoldiersFromTempFile()
 	INT32 slots = 0;
 	UINT32 uiNumBytesRead;
 	UINT32 uiTimeStamp;
-	HWFILE hfile;
+	HWFILE hfile = 0;   // init -> FileClose(0) is a safe no-op if an early error-goto runs before FileOpen
 	INT16 sSectorX, sSectorY;
 	CHAR8		zMapName[ 128 ];
 	#ifdef JA2TESTVERSION
@@ -430,7 +430,7 @@ BOOLEAN SaveEnemySoldiersToTempFile( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 	INT32	iSlotsAlreadyInUse=0;
 	UINT32 uiNumBytesWritten;
 	UINT32 uiTimeStamp;
-	HWFILE hfile;
+	HWFILE hfile = 0;   // init -> FileClose(0) is a safe no-op if an early error-goto runs before FileOpen
 	SCHEDULENODE *pSchedule;
 	CHAR8		zMapName[ 128 ];
 	UINT8 ubSectorID;
@@ -672,7 +672,7 @@ BOOLEAN NewWayOfLoadingEnemySoldiersFromTempFile()
 	INT32 slots = 0;
 	UINT32 uiNumBytesRead;
 	UINT32 uiTimeStamp;
-	HWFILE hfile;
+	HWFILE hfile = 0;   // init -> FileClose(0) is a safe no-op if an early error-goto runs before FileOpen
 	INT16 sSectorX, sSectorY;
 	CHAR8		zMapName[ 128 ];
 	#ifdef JA2TESTVERSION
@@ -1101,7 +1101,7 @@ BOOLEAN NewWayOfLoadingCiviliansFromTempFile()
 	UINT32 uiNumBytesRead;
 	UINT32 uiTimeStamp;
 	UINT32 uiTimeSinceLastLoaded;
-	HWFILE hfile;
+	HWFILE hfile = 0;   // init -> FileClose(0) is a safe no-op if an early error-goto runs before FileOpen
 	INT16 sSectorX, sSectorY;
 //	CHAR8		zTempName[ 128 ];
 	CHAR8		zMapName[ 128 ];
@@ -1383,7 +1383,7 @@ BOOLEAN NewWayOfSavingEnemyAndCivliansToTempFile( INT16 sSectorX, INT16 sSectorY
 	INT32 slots = 0;
 	UINT32 uiNumBytesWritten;
 	UINT32 uiTimeStamp;
-	HWFILE hfile;
+	HWFILE hfile = 0;   // init -> FileClose(0) is a safe no-op if an early error-goto runs before FileOpen
 //	CHAR8		zTempName[ 128 ];
 	CHAR8		zMapName[ 128 ];
 	UINT8 ubSectorID;
@@ -1630,7 +1630,7 @@ BOOLEAN CountNumberOfElitesRegularsAdminsAndCreaturesFromEnemySoldiersTempFile( 
 	INT32 slots = 0;
 	UINT32 uiNumBytesRead;
 	UINT32 uiTimeStamp;
-	HWFILE hfile;
+	HWFILE hfile = 0;   // init -> FileClose(0) is a safe no-op if an early error-goto runs before FileOpen
 	INT16 sSectorX, sSectorY;
 	CHAR8		zMapName[ 128 ];
 	#ifdef JA2TESTVERSION
