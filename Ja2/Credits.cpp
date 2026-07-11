@@ -1177,6 +1177,18 @@ BOOLEAN	GetNextCreditFromTextFile()
 		//Retrive all the codes from the string
 		pzEndCode = wcsstr( zOriginalString, CRDT_END_CODE );
 
+		//Malformed '@' line with no ';' (CRDT_END_CODE) terminator: wcsstr returned NULL, so
+		//the index math below ( pzEndCode - zOriginalString ) is a wild pointer difference and
+		//the zCodes[...] = 0 write smashes the stack -- a long-standing credits-screen crash on
+		//any codeless '@' line in Credits.edt / a mod credits file. Emit the whole line as a
+		//plain (codeless) string node and skip code parsing instead of crashing.
+		if( pzEndCode == NULL )
+		{
+			wcscpy( zString, zOriginalString );
+			AddCreditNode( CRDT_NODE_DEFAULT, 0, zString );
+			return( TRUE );
+		}
+
 		//Make a string for the codes
 		wcscpy( zCodes, zOriginalString );
 
