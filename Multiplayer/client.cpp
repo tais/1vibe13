@@ -2319,7 +2319,8 @@ void start_battle ( void )
 			for(i=0; i<4;i++)
 			{	
 				CHAR16 name[30];
-				int nm = mbstowcs( name, client_names[i], sizeof (char)*30 );
+				int nm = mbstowcs( name, client_names[i], 30 - 1 );
+				name[29] = L'\0';   // mbstowcs may leave a full buffer non-NUL-terminated -> bound the later %s
 				//copy in client specified name for the player turn bar :)
 				if(nm)
 				{
@@ -3010,7 +3011,7 @@ void allowDownloadCallback( UINT8 ubResult )
 		char buffer[3];
 		sprintf(buffer, "%i", setID);
 
-		client->RPC("receiveSETID", (const char*) buffer, (int)sizeof(char*), HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
+		client->RPC("receiveSETID", (const char*) buffer, (int)((strlen(buffer)+1)*8), HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 	}
 	else
 	{
@@ -3791,6 +3792,8 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			if ( (*newObj)[0] != NULL )
 				(*newObj)[0]->data.gun.ubGunShotsLeft = gren->usShotsLeft;
 			OBJECTTYPE::CopyToOrCreateAt(&pThrower->pTempObject, newObj);
+			delete newObj;   // copied into pTempObject; the throw below uses pTempObject (was leaked on the success path)
+			newObj = NULL;   // the error-path delete below is now a safe no-op
 
 			// M12 - broadcast item consumption: mirror the throwing client, which
 			// removed the thrown stack from its hand (Weapons.cpp:5064). Without this
@@ -3887,6 +3890,7 @@ void send_grenade_result (float xPos, float yPos, float zPos, INT32 sGridNo, Sol
 
 void recieveGRENADERESULT (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, grenade_result);   // short-frame over-read guard (sibling handlers have it)
 	grenade_result* gres = (grenade_result*)rpcParameters->input;
 
 	gres->ubOwnerID = MPDecodeSoldierID(gres->ubOwnerID);
@@ -5490,8 +5494,10 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 void recieveDISCONNECTREASON(RPCParameters *rpcParameters )
 {
 	CHAR16* reason = (CHAR16*)rpcParameters->input;
-	wcsncpy(gszDisconnectReason, reason, 254);
-	gszDisconnectReason[254] = L'\0';
+	size_t availChars = (size_t)((rpcParameters->numberOfBitsOfData + 7) / 8) / sizeof(CHAR16);   // don't over-read past the frame
+	size_t n = (availChars < 254) ? availChars : 254;
+	wcsncpy(gszDisconnectReason, reason, n);
+	gszDisconnectReason[n] = L'\0';
 
 	is_connected=false;
 	auto_retry = false;
@@ -5761,6 +5767,8 @@ void send_gameover()
 
 void recieveGAMEOVER(RPCParameters *rpcParameters)
 {
+	if ( (INT32)((rpcParameters->numberOfBitsOfData + 7) / 8) < (INT32)(sizeof(player_stats) * 5) )   // short-frame over-read guard
+		return;
 	player_stats* data= (player_stats*)rpcParameters->input;
 	memcpy(gMPPlayerStats,data,sizeof(player_stats)*5);
 
