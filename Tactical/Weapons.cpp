@@ -8818,7 +8818,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 			resistchance = 0;
 
 		// killchance gets lowered if garotte is in bad shape
-		instakillchance *= ( (*pObj)[0]->data.objectStatus / 100 );
+		instakillchance = instakillchance * (*pObj)[0]->data.objectStatus / 100;   // was *= (status/100) which integer-truncates to 0 for any garotte below 100% status
 
 		if ( Random(instakillchance) >= Random(resistchance) )
 			iImpact += 500;
@@ -9291,7 +9291,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	if ((iDefRating > 0) && (pDefender->bBreath < 100))
 		iDefRating -= (iDefRating * (100 - pDefender->bBreath)) / 200;
 
-	if ( usInHand == CREATURE_QUEEN_TENTACLES && pDefender->ubBodyType == LARVAE_MONSTER || pDefender->ubBodyType == INFANT_MONSTER )
+	if ( usInHand == CREATURE_QUEEN_TENTACLES && (pDefender->ubBodyType == LARVAE_MONSTER || pDefender->ubBodyType == INFANT_MONSTER) )   // && binds tighter than || -> was protecting ALL infants regardless of weapon
 	{
 		// try to prevent queen from killing the kids, ever!
 		iDefRating += 10000;

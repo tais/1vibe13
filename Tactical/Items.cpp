@@ -7858,13 +7858,13 @@ UINT16 UseKitPoints( OBJECTTYPE * pObj, UINT16 usPoints, SOLDIERTYPE *pSoldier )
 		else if (ItemIsCanteen(pObj->usItem) == TRUE )
 		{
 			// consume this kit totally
-			usPoints -= (((*pObj)[bLoop]->data.objectStatus - 1) / ((max( 0, (100 - Item[pObj->usItem].percentstatusdrainreduction))) /100));
+			usPoints -= ((*pObj)[bLoop]->data.objectStatus - 1) * 100 / max( 1, (100 - Item[pObj->usItem].percentstatusdrainreduction) );   // was /((100-reduction)/100) == /0 for reduction 1..100
 			(*pObj)[bLoop]->data.objectStatus = 1;
 		}
 		else
 		{
 			// consume this kit totally
-			usPoints -= (((*pObj)[bLoop]->data.objectStatus) / ((max( 0, (100 - Item[pObj->usItem].percentstatusdrainreduction))) /100));
+			usPoints -= (*pObj)[bLoop]->data.objectStatus * 100 / max( 1, (100 - Item[pObj->usItem].percentstatusdrainreduction) );   // was /((100-reduction)/100) == /0 for reduction 1..100
 			(*pObj)[bLoop]->data.objectStatus = 0;
 
 			pObj->ubNumberOfObjects--;
@@ -10197,7 +10197,7 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 
 		// use up 8-12 percent of batteries
 		if ( Item[pBatteries->usItem].percentstatusdrainreduction > 0 )
-			(*pBatteries)[0]->data.objectStatus -= (INT8)( (8 + Random( 5 )) * (100 - Item[(*pBatteries)[0]->data.objectStatus].percentstatusdrainreduction)/100 );
+			(*pBatteries)[0]->data.objectStatus -= (INT8)( (8 + Random( 5 )) * (100 - Item[pBatteries->usItem].percentstatusdrainreduction)/100 );   // was Item[objectStatus] (wrong index) -> wrong drain-reduction
 		else
 			(*pBatteries)[0]->data.objectStatus -= (INT8)( (8 + Random( 5 )) );
 		if ( (*pBatteries)[0]->data.objectStatus <= 0 )
@@ -12709,7 +12709,8 @@ INT16 GetWornCamo( SOLDIERTYPE * pSoldier )
 			if ( pSoldier->inv[bLoop].exists() )
 			{
 				ttl += GetCamoBonus(&pSoldier->inv[bLoop]);
-				if ( UsingNewInventorySystem() ) {
+				if ( UsingNewInventorySystem() )
+ {
 					if ( bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists() )
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -12769,7 +12770,8 @@ INT16 GetWornUrbanCamo( SOLDIERTYPE * pSoldier )
 			if (pSoldier->inv[bLoop].exists())
 			{
 				ttl += GetUrbanCamoBonus(&pSoldier->inv[bLoop]);
-				if (UsingNewInventorySystem()) {
+				if (UsingNewInventorySystem())
+ {
 					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -12829,7 +12831,8 @@ INT16 GetWornDesertCamo( SOLDIERTYPE * pSoldier )
 			if (pSoldier->inv[bLoop].exists() == true)
 			{
 				ttl += GetDesertCamoBonus(&pSoldier->inv[bLoop]);
-				if (UsingNewInventorySystem()) {
+				if (UsingNewInventorySystem())
+ {
 					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -12888,7 +12891,8 @@ INT16 GetWornSnowCamo( SOLDIERTYPE * pSoldier )
 			if (pSoldier->inv[bLoop].exists() == true)
 			{
 				ttl += GetSnowCamoBonus(&pSoldier->inv[bLoop]);
-				if (UsingNewInventorySystem()) {
+				if (UsingNewInventorySystem())
+ {
 					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -14603,7 +14607,7 @@ BOOLEAN UseTotalMedicalKitPoints( SOLDIERTYPE * pSoldier, UINT16 usPointsToConsu
 				else
 				{
 					// consume this kit totally
-					usPointsToConsume -= (((*pObj)[bLoop]->data.objectStatus) / (max( 0, (100 - Item[pObj->usItem].percentstatusdrainreduction))) /100);
+					usPointsToConsume -= (*pObj)[bLoop]->data.objectStatus * 100 / max( 1, (100 - Item[pObj->usItem].percentstatusdrainreduction) );   // was /(100-reduction)/100 -> /0 at reduction>=100 and near-zero result
 					(*pObj)[bLoop]->data.objectStatus = 0;
 
 					pObj->ubNumberOfObjects--;
