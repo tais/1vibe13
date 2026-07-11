@@ -2222,7 +2222,11 @@ void VerifyOutOfTurnOrderArray()
 
 	for (ubLoop = 1; ubLoop <= gubOutOfTurnPersons; ubLoop++)
 	{
+		if ( gubOutOfTurnOrder[ ubLoop ] >= TOTAL_SOLDIERS )   // skip sentinel/garbage entries (list can be save/wire-fed) -> Menptr OOB
+			continue;
 		ubTeam = Menptr[ gubOutOfTurnOrder[ ubLoop ] ].bTeam;
+		if ( ubTeam >= MAXTEAMS )   // corrupt bTeam would overrun the MAXTEAMS-sized ubTeamHighest[]
+			continue;
 		if (ubTeamHighest[ ubTeam ] > 0)
 		{
 			// check the other teams to see if any of them are between our last team's mention in
@@ -2680,6 +2684,10 @@ BOOLEAN	LoadTeamTurnsFromTheSavedGameFile( HWFILE hFile )
 	}
 
 	gubOutOfTurnPersons = TeamTurnStruct.ubOutOfTurnPersons;
+	// Corrupt/tampered save: an out-of-turn count past the fixed queue would OOB-index
+	// gubOutOfTurnOrder / Menptr downstream. Drop the whole interrupt queue rather than trust it.
+	if ( gubOutOfTurnPersons >= MAXMERCS )
+		ClearIntList();
 
 	InterruptOnlyGuynum = TeamTurnStruct.InterruptOnlyGuynum;
 	gsWhoThrewRock = TeamTurnStruct.sWhoThrewRock;

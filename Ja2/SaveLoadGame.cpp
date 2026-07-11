@@ -622,6 +622,7 @@ BOOLEAN	LBENODE::Load( INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMapV
 		}
 		int size;
 		LOADDATA( &size, *hBuffer, sizeof(int) );
+		if (size < 0 || size >= 512) return FALSE;   // reject a corrupt/oversized count (matches sibling loaders) before resize
 		inv.resize(size);
 		for (std::vector<OBJECTTYPE>::iterator iter = inv.begin(); iter != inv.end(); ++iter) {
 			iter->Load(hBuffer, dMajorMapVersion, ubMinorMapVersion);
@@ -723,6 +724,7 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 				return( FALSE );
 			}
 
+			if (size < 0 || size >= MAXITEMS) return( FALSE );   // reject a corrupt/oversized dealer-inventory count before resize
 			gArmsDealersInventory[ubArmsDealer].resize(size);
 
 			//loop through this dealer's individual items
@@ -2116,6 +2118,7 @@ BOOLEAN StackedObjectData::Load( INT8** hBuffer, float dMajorMapVersion, UINT8 u
 		}
 		
 		LOADDATA(&size, *hBuffer, sizeof(int) );
+		if (size < 0 || size > 512) return FALSE;   // reject a corrupt/oversized attachment count before resize
 		attachments.resize(size);
 		for (attachmentList::iterator iter = attachments.begin(); iter != attachments.end(); ++iter) {
 			if (! iter->Load( hBuffer, dMajorMapVersion, ubMinorMapVersion ) ) {
@@ -2272,6 +2275,7 @@ BOOLEAN OBJECTTYPE::Load( INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorM
 		int size;
 		LOADDATA(this, *hBuffer, SIZEOF_OBJECTTYPE_POD );
 		LOADDATA(&size, *hBuffer, sizeof(int) );
+		if (size < 0 || size >= 512) return FALSE;   // reject a corrupt/oversized objectStack count before resize
 		objectStack.resize(size);
 		int x = 0;
 		for (StackedObjects::iterator iter = objectStack.begin(); iter != objectStack.end(); ++iter, ++x) {

@@ -178,7 +178,7 @@ lbepocketParseData * pData = (lbepocketParseData *)userData;
 			pData->curElement = ELEMENT_LIST;
 			if ( !onlyLocalizedText )
 				LBEPocketType.push_back(pData->curLBEPocket);
-			else
+			else if ( pData->curLBEPocket.pIndex < LBEPocketType.size() )   // guard vector OOB write (localized pass, XML-driven index)
 				wcscpy(LBEPocketType[pData->curLBEPocket.pIndex].pName,pData->curLBEPocket.pName);
 		}
 		else if(strcmp(name, "pIndex") == 0)

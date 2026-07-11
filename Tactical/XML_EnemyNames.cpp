@@ -87,6 +87,7 @@ enemyNamesEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
+			if (pData->curEnemyNames.uiIndex < 500)   // guard XML-driven index -> zEnemyName[500] OOB write
 			if (!EnemyName_TextOnly)
 				{
 					wcscpy(zEnemyName[pData->curEnemyNames.uiIndex].szCurGroup, pData->curEnemyNames.szCurGroup);

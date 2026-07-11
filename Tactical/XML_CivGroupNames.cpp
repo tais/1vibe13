@@ -90,6 +90,7 @@ civGroupNamesEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;
 				
+			if (pData->curCivGroupNames.uiIndex < NUM_CIV_GROUPS)   // guard XML-driven index -> zCivGroupName[NUM_CIV_GROUPS] OOB write
 			if (!CivGroupNames_TextOnly)
 				{
 					wcscpy(zCivGroupName[pData->curCivGroupNames.uiIndex].szCurGroup, pData->curCivGroupNames.szCurGroup);

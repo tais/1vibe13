@@ -437,7 +437,7 @@ creatureplacementEndElementHandle(void *userData, const XML_Char *name)
 			pData->curElement = CREATURE_ELEMENT_PLACEMENT;
 
 			pData->curIndex = atol(pData->szCharData);
-			if ( !pData->curIndex || pData->curIndex > MAX_NUMBER_OF_INFECTIBLE_SITES + 1 )
+			if ( !pData->curIndex || pData->curIndex > MAX_NUMBER_OF_INFECTIBLE_SITES )   // off-by-one: array is [0..MAX], id MAX+1 was an OOB write
 			{
 				pData->curIndex = INVALID_CREATURESITE_INDEX;
 			}

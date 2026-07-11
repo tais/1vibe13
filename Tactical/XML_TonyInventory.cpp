@@ -279,8 +279,8 @@ inventoryCharacterDataHandle(void *userData, const XML_Char *str, int len)
 
 
 static bool CheckArmsDealerIndex(inventoryParseData &pData) {
-	if (pData.armsDealerIndex == NOARMSDEALERID) {
-		DisplayAndLogParserError("No ARMSDEALERINDEX yet", "");
+	if (pData.armsDealerIndex == NOARMSDEALERID || pData.armsDealerIndex >= NUM_ARMS_DEALERS) {
+		DisplayAndLogParserError("No or out-of-range ARMSDEALERINDEX", "");   // range-check too: a bad index would OOB-write armsDealerInfo[]
 		return false;
 	} else {
 		return true;
