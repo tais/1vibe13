@@ -655,6 +655,8 @@ BOOLEAN LoadBulletStructureFromSavedGameFile( HWFILE hFile )
 		return( FALSE );
 	}
 
+	if( guiNumBullets > NUM_BULLET_SLOTS )   // corrupt save: unbounded count -> gBullets[NUM_BULLET_SLOTS] overflow
+		return( FALSE );
 	for( usCnt=0; usCnt<guiNumBullets; usCnt++ )
 	{
 		//Load the the Bullet structure (portable v2; pointers cleared by memset above)

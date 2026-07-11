@@ -5144,6 +5144,8 @@ BOOLEAN LoadExplosionTableFromSavedGameFile( HWFILE hFile )
 		return( FALSE );
 	}
 	gubElementsOnExplosionQueue = (UINT8)uiElementsOnExplosionQueue;
+	if( gubElementsOnExplosionQueue > MAX_BOMB_QUEUE )   // corrupt save: bomb-queue count -> gExplosionQueue[MAX_BOMB_QUEUE] overflow
+		return( FALSE );
 
 
 	//loop through read all the active explosions fro the file
@@ -5170,6 +5172,8 @@ BOOLEAN LoadExplosionTableFromSavedGameFile( HWFILE hFile )
 	}
 
 
+	if( guiNumExplosions > NUM_EXPLOSION_SLOTS )   // corrupt save: unbounded count -> gExplosionData[NUM_EXPLOSION_SLOTS] overflow
+		return( FALSE );
 	//loop through and load all the active explosions
 	for( uiCnt=0; uiCnt< guiNumExplosions; uiCnt++)
 	{
