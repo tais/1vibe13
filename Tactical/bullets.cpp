@@ -756,7 +756,7 @@ void PointsPath(int sx1, int sy1, int ex2, int ey2)
 	gridX = x0 >> 3; 
 	gridY = y0 >> 3; 
 
-	if ((sx1==ex2) &&(sy1=ey2))
+	if ((sx1==ex2) &&(sy1==ey2))
 		return;
 
 	if (dx > dy) 

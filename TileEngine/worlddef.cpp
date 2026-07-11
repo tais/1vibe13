@@ -2605,6 +2605,8 @@ BOOLEAN EvaluateWorld(STR8 pSector, UINT8 ubLevel)
 				pTeam = &pSummary->CivTeam;
 				break;
 			}
+			if ( pTeam == NULL )   // corrupt map: basic.bTeam matched no case -> skip (was a NULL deref below)
+				continue;
 			if(basic.bOrders == RNDPTPATROL || basic.bOrders == POINTPATROL)
 			{
 				//make sure the placement has at least one waypoint.
