@@ -124,7 +124,7 @@ namespace MiniEventHelpers
 	{
 		const INT32 currentBalance = LaptopSaveInfo.iCurrentBalance;
 		const INT32 amount = lua_tointeger(LS, 1);
-		bool forceToZero;
+		bool forceToZero = false;	// default when the optional 2nd arg is omitted (was uninitialized -> nondeterministic below)
 
 		if (lua_gettop(LS) == 2)
 			forceToZero = lua_toboolean(LS, 2);
@@ -184,8 +184,7 @@ namespace MiniEventHelpers
 			lua_pushboolean(LS, true);
 		}
 
-		lua_pushboolean(LS, true);
-		return 1;
+		return 1;	// was preceded by an unconditional lua_pushboolean(true) that masked the real success/fail result pushed above
 	}
 
 	static int l_AddSkill(lua_State* LS)
