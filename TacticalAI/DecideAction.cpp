@@ -3066,7 +3066,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				ENEMYROBOT(pSoldier) ||
 				AnyCoverAtSpot(pSoldier, pSoldier->sGridNo) ||
 				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || BestShot.ubOpponent->sLastTarget == pSoldier->sGridNo) ||	// return fire
-				Chance(100 * (GunRange(&pSoldier->inv[BestShot.bWeaponIn], pSoldier) / CELL_X_SIZE) / PythSpacesAway(pSoldier->sGridNo, BestShot.sTarget))) &&
+				(PythSpacesAway(pSoldier->sGridNo, BestShot.sTarget) <= 0 || Chance(100 * (GunRange(&pSoldier->inv[BestShot.bWeaponIn], pSoldier) / CELL_X_SIZE) / PythSpacesAway(pSoldier->sGridNo, BestShot.sTarget)))) &&
 				// check that we have spare ammo
 				(fExtraClip || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumMagSize))
 			{

@@ -4289,7 +4289,7 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 				if (gGameExternalOptions.gfShowBackpackOwner &&
 					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
 					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY)
+					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
 					swprintf(pStr, L"%s (%d) (%s)", ShortItemNames[gWorldItems[pTempItemPool->iItemIndex].object.usItem], gWorldItems[pTempItemPool->iItemIndex].object.ubNumberOfObjects, gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
 				else
 					swprintf( pStr, L"%s (%d)", ShortItemNames[ gWorldItems[ pTempItemPool->iItemIndex ].object.usItem ], gWorldItems[ pTempItemPool->iItemIndex ].object.ubNumberOfObjects );
@@ -4299,7 +4299,7 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 				if (gGameExternalOptions.gfShowBackpackOwner &&
 					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
 					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY)
+					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
 					swprintf(pStr, L"%s (%s)", ShortItemNames[gWorldItems[pTempItemPool->iItemIndex].object.usItem], gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
 				else
 					swprintf( pStr, L"%s", ShortItemNames[ gWorldItems[ pTempItemPool->iItemIndex ].object.usItem ] );
@@ -4408,7 +4408,7 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 				if (gGameExternalOptions.gfShowBackpackOwner &&
 					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
 					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY)
+					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
 					swprintf(pStr, L"%s (%d) (%s)", ShortItemNames[gWorldItems[pItemPool->iItemIndex].object.usItem], gWorldItems[pItemPool->iItemIndex].object.ubNumberOfObjects, gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
 				else
 					swprintf( pStr, L"%s (%d)", ShortItemNames[ gWorldItems[ pItemPool->iItemIndex ].object.usItem ], gWorldItems[ pItemPool->iItemIndex ].object.ubNumberOfObjects );
@@ -4418,7 +4418,7 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 				if (gGameExternalOptions.gfShowBackpackOwner &&
 					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
 					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY)
+					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
 					swprintf(pStr, L"%s (%s)", ShortItemNames[gWorldItems[pItemPool->iItemIndex].object.usItem], gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
 				else
 					swprintf( pStr, L"%s", ShortItemNames[ gWorldItems[ pItemPool->iItemIndex ].object.usItem ] );
