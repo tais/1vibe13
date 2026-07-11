@@ -3231,7 +3231,8 @@ BOOLEAN SendReinforcementsForGarrison( INT32 iDstGarrisonID, UINT16 usDefencePoi
 	{
 		iSrcGarrisonID = ChooseSuitableGarrisonToProvideReinforcements( iDstGarrisonID, iReinforcementsRequested );
 		// WDS 08/01/2008 - Fix 0 reinforcement problem
-		iReinforcementsAvailable = ReinforcementsAvailable( iSrcGarrisonID );
+		// guard: iSrcGarrisonID == -1 ("no suitable garrison") must not reach ReinforcementsAvailable -> gGarrisonGroup[-1] OOB
+		iReinforcementsAvailable = ( iSrcGarrisonID == -1 ) ? 0 : ReinforcementsAvailable( iSrcGarrisonID );
 		if( (iSrcGarrisonID == -1) || (iReinforcementsAvailable == 0) )
 		{
 			ValidateWeights( 15 );
@@ -5283,11 +5284,12 @@ void ExecuteStrategicAIAction( UINT16 usActionCode, INT16 sSectorX, INT16 sSecto
 					}
 					Assert(adminsThisSquad + troopsThisSquad + elitesThisSquad == soldiersThisSquad);
 					pGroup0 = CreateNewEnemyGroupDepartingFromSector( ubSourceSectorID, adminsThisSquad, soldiersThisSquad, elitesThisSquad, robotsThisSquad, tanksThisSquad, jeepsThisSquad );
-					if( !gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID ) {
+					if( SectorInfo[ ubTargetSectorID ].ubGarrisonID == NO_GARRISON || !gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID ) {	// NO_GARRISON(255): short-circuit before the OOB gGarrisonGroup[255] read (cf. the SAM case guard)
 						pGroup0->pEnemyGroup->ubIntention = STAGE;
 						if (groupCnt > 2) {
 							pGroup0->pEnemyGroup->ubIntention = REINFORCEMENTS;
-							gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID = pGroup0->ubGroupID;
+							if ( SectorInfo[ ubTargetSectorID ].ubGarrisonID != NO_GARRISON )	// no garrison slot to record the pending group into
+								gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID = pGroup0->ubGroupID;
 						}
 					} else {
 						pGroup0->pEnemyGroup->ubIntention = PURSUIT;
@@ -5352,11 +5354,12 @@ void ExecuteStrategicAIAction( UINT16 usActionCode, INT16 sSectorX, INT16 sSecto
 
 					Assert(adminsThisSquad + troopsThisSquad + elitesThisSquad == soldiersThisSquad);
 					pGroup0 = CreateNewEnemyGroupDepartingFromSector( ubSourceSectorID, adminsThisSquad, soldiersThisSquad, elitesThisSquad, 0, 0, 0 );
-					if( !gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID ) {
+					if( SectorInfo[ ubTargetSectorID ].ubGarrisonID == NO_GARRISON || !gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID ) {	// NO_GARRISON(255): short-circuit before the OOB gGarrisonGroup[255] read (cf. the SAM case guard)
 						pGroup0->pEnemyGroup->ubIntention = STAGE;
 						if (groupCnt > 2) {
 							pGroup0->pEnemyGroup->ubIntention = REINFORCEMENTS;
-							gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID = pGroup0->ubGroupID;
+							if ( SectorInfo[ ubTargetSectorID ].ubGarrisonID != NO_GARRISON )	// no garrison slot to record the pending group into
+								gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID = pGroup0->ubGroupID;
 						}
 					} else {
 						pGroup0->pEnemyGroup->ubIntention = PURSUIT;
