@@ -812,8 +812,10 @@ void OpenAndReadFilesFile( void )
 		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
 
 	FileRead( hFileHandle, &pFirstFilePath,	128, (UINT32 *)&iBytesRead );
+	pFirstFilePath[127] = '\0';   // FILES.DAT field may not be NUL-terminated -> bound the strlen/strcpy below
 
 	FileRead( hFileHandle, &pSecondFilePath,	128, (UINT32 *)&iBytesRead );
+	pSecondFilePath[127] = '\0';
 
 		FileRead( hFileHandle, &ubFormat,	sizeof(UINT8), (UINT32 *)&iBytesRead );
 

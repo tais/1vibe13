@@ -6159,6 +6159,12 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 
 			if( ubOne )
 			{
+				// The save flag says this soldier had a keyring, but a recreated non-player
+				// soldier's pKeyRing is NULL -> FileRead into NULL would crash. Allocate it.
+				if ( Menptr[ cnt ].pKeyRing == NULL )
+					Menptr[ cnt ].pKeyRing = (KEY_ON_RING *) MemAlloc( NUM_KEYS * sizeof( KEY_ON_RING ) );
+				if ( Menptr[ cnt ].pKeyRing == NULL )
+					return( FALSE );
 				// WANNE - BMP: Check -> We get an assert here!
 				// Now Load the ....
 				if( guiCurrentSaveGameVersion < MORE_LOCKS_AND_KEYS )

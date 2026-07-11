@@ -329,7 +329,7 @@ BOOLEAN LoadSoldiersFromMap(INT8** hBuffer, FLOAT dMajorMapVersion, UINT8 ubMino
 				AssertMsg(0, "Failed to allocate memory for new detailed placement in LoadSoldiersFromMap.");
 				return(FALSE);
 			}
-			if(tempDetailedPlacement.ubProfile != NO_PROFILE)
+			if(tempDetailedPlacement.ubProfile != NO_PROFILE && tempDetailedPlacement.ubProfile < NUM_PROFILES)   // ubProfile==255 (from a bad map) is one-past-end of gMercProfiles
 			{
 				pNode->pDetailedPlacement->ubCivilianGroup = gMercProfiles[tempDetailedPlacement.ubProfile].ubCivilianGroup;
 				pNode->pBasicPlacement->ubCivilianGroup = gMercProfiles[tempDetailedPlacement.ubProfile].ubCivilianGroup;
