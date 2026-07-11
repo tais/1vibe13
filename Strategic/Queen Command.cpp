@@ -2547,7 +2547,8 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 		{
 			ubNumElites--;
 			ubTotalSoldiers--;
-			Assert( pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_ELITE_MILITIA, gWorldSectorX, gWorldSectorY ) );
+			pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_ELITE_MILITIA, gWorldSectorX, gWorldSectorY );
+			if ( !pSoldier ) break;   // soldier pool exhausted -> stop (assignment-in-Assert was a no-op in release -> NULL/uninit deref)
 			if ( pGroup )
 			{
 				pSoldier->ubGroupID = pGroup->ubGroupID;
@@ -2570,7 +2571,8 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 		{
 			ubNumRegulars--;
 			ubTotalSoldiers--;
-			Assert( pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_REG_MILITIA, gWorldSectorX, gWorldSectorY ) );
+			pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_REG_MILITIA, gWorldSectorX, gWorldSectorY );
+			if ( !pSoldier ) break;   // soldier pool exhausted -> stop (assignment-in-Assert was a no-op in release -> NULL/uninit deref)
 			if ( pGroup )
 			{
 				pSoldier->ubGroupID = pGroup->ubGroupID;
@@ -2593,7 +2595,8 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 		{
 			ubNumGreens--;
 			ubTotalSoldiers--;
-			Assert( pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_GREEN_MILITIA, gWorldSectorX, gWorldSectorY ) );
+			pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_GREEN_MILITIA, gWorldSectorX, gWorldSectorY );
+			if ( !pSoldier ) break;   // soldier pool exhausted -> stop (assignment-in-Assert was a no-op in release -> NULL/uninit deref)
 			if ( pGroup )
 			{
 				pSoldier->ubGroupID = pGroup->ubGroupID;
