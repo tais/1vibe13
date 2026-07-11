@@ -24981,8 +24981,8 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 				{
 					AddToIntList( pSoldier->ubID, FALSE, TRUE );
 				}
-				ubaInterruptersList[ubInterruptersFound] = pInterrupter->ubID;
-				ubInterruptersFound++;
+				if ( ubInterruptersFound < 64 )   // guard the fixed 64-entry stack buffer (OOB write)
+					ubaInterruptersList[ubInterruptersFound++] = pInterrupter->ubID;
 
 				// add the observer who got the interrupt
 				AddToIntList( pInterrupter->ubID, TRUE, TRUE );
@@ -25049,8 +25049,8 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 							}
 							if ( PreChance( usColIntChance ) )
 							{
-								ubaInterruptersList[ubInterruptersFound] = pTeammate->ubID;
-								ubInterruptersFound++;
+								if ( ubInterruptersFound < 64 )   // guard the fixed 64-entry stack buffer (OOB write)
+									ubaInterruptersList[ubInterruptersFound++] = pTeammate->ubID;
 								// if he can react on collective interrupt, give it to him
 								AddToIntList( pTeammate->ubID, TRUE, TRUE );
 								// reset the counter for him
