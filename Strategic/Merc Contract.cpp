@@ -1418,6 +1418,10 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 
 	gfFirstMercSayQuote = FALSE;
 
+	// rebuild the renewal list from scratch: not resetting this let stale entries from a
+	// previous call accumulate and eventually write past the fixed-size ContractRenewalList
+	ubNumContractRenewals = 0;
+
 	pSoldier = &Menptr[ 0 ];
 	iNumberOnTeam =gTacticalStatus.Team[ OUR_TEAM ].bLastID;
 

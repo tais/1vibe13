@@ -43,15 +43,18 @@ enum
 
 INT8 gbCallPriority[NUM_CREATURE_CALLS][NUM_CREATURE_CALLERS] =
 {
-	{0, 0, 0 },//CALL_NONE
-	{3, 5, 12},//CALL_1_PREY
-	{5, 9, 12},//CALL_MULTIPLE_PREY
-	{4, 7, 12},//CALL_ATTACKED
-	{6, 9, 12},//CALL_CRIPPLED
+	// columns: CALLER_FEMALE, CALLER_MALE, (unused), CALLER_QUEEN -- the 4th (QUEEN) column was
+	// missing so every row defaulted queen's priority to 0 (queen calls broadcast at lowest priority)
+	{0, 0, 0,  0},//CALL_NONE
+	{3, 5, 12, 12},//CALL_1_PREY
+	{5, 9, 12, 12},//CALL_MULTIPLE_PREY
+	{4, 7, 12, 12},//CALL_ATTACKED
+	{6, 9, 12, 12},//CALL_CRIPPLED
 };
 
 INT8 gbHuntCallPriority[NUM_CREATURE_CALLS] =
-{
+{	// indexed by call type; CALL_NONE(0) row was missing so every priority was shifted one call up
+	0, //CALL_NONE
 	4, //CALL_1_PREY
 	5, //CALL_MULTIPLE_PREY
 	7, //CALL_ATTACKED
