@@ -4996,7 +4996,7 @@ INT32 GetIdOfPastMercInSlot( INT32 iSlot )
 
 	INT32 iCounter =-1;
 	INT32 iCounterA =0;
-	if( iSlot > ( ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) - giCurrentUpperLeftPortraitNumber ) )
+	if( iSlot >= ( ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) - giCurrentUpperLeftPortraitNumber ) )	// >= : slot == total is one past the last valid entry (OOB scan/index below)
 	{
 		// invalid slot
 		return iCurrentPersonSelectedId;
