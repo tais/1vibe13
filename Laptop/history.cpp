@@ -1071,6 +1071,12 @@ void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory)
 {
 	CHAR16 sString[ 128 ];
 
+	// Corrupt/tampered HISTORY.DAT can carry an out-of-range ubSecondCode which is used
+	// unguarded as gMercProfiles[ubSecondCode] in ~20 places in the switch below -> OOB read.
+	// Clamp it once here so every downstream index is bounded.
+	if ( pHistory->ubSecondCode >= NUM_PROFILES )
+		pHistory->ubSecondCode = 0;
+
 	switch( pHistory->ubCode)
 	{
 		case HISTORY_ENTERED_HISTORY_MODE:
