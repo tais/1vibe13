@@ -4637,7 +4637,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 					bNewAttackIndex = 2;
 				}
 
-				if ( bAttackIndex != -1 )
+				if ( bAttackIndex != -1 && bNewAttackIndex != -1 )	// bNewAttackIndex stays -1 when all 3 hit-slots are full -> was an OOB usNextHit[-1]/pAttacker[-1] write
 				{
 					pAnotherTarget->usNextHit[bNewAttackIndex] = pTarget->usNextHit[bAttackIndex];
 					pAnotherTarget->pAttacker[bNewAttackIndex] = pAttacker;

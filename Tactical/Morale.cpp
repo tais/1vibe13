@@ -551,7 +551,7 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 			}
 
 		}
-		else if ( bMoraleMod != MORALE_PSYCHO_UNABLE_TO_PSYCHO && bMoraleMod != MORALE_MALICIOUS_HIT)
+		else if ( bMoraleEvent != MORALE_PSYCHO_UNABLE_TO_PSYCHO && bMoraleEvent != MORALE_MALICIOUS_HIT)	// compare the EVENT, not the modifier value: these are MORALE_EVENT enum indices (cf. the switch cases below)
 		{
 			switch( pProfile->bAttitude )
 			{
