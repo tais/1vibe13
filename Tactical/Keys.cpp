@@ -729,6 +729,10 @@ BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
 	INT8	bSlot;
 	BOOLEAN fSuccess = FALSE;
 
+	// an unopenable lock can't be blown open either; guards the OOB LockTable[LOCK_UNOPENABLE] access below (matches the crowbar/smash/pick paths)
+	if (pDoor->ubLockID == LOCK_UNOPENABLE)
+		return fSuccess;
+
 	bSlot = FindLockBomb(pSoldier);
 	if (bSlot == NO_SLOT)
 	{
