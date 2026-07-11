@@ -7970,6 +7970,12 @@ INT32	CheckForCollision( FLOAT dX, FLOAT dY, FLOAT dZ, FLOAT dDeltaX, FLOAT dDel
 	}
 
 	// check a particular tile
+	// Bounds-guard the world index. The original guard above was commented out AND wrong
+	// (it used > WORLD_COLS off-by-one and compared the row against WORLD_COLS): an off-map
+	// sX/sY here wild-indexes gpWorldLevelData -> crash.
+	if ( sX < 0 || sX >= WORLD_COLS || sY < 0 || sY >= WORLD_ROWS )
+		return( COLLISION_NONE );
+
 	// retrieve values from world for this particular tile
 	pMapElement = &(gpWorldLevelData[ sX + sY * WORLD_COLS] );
 	iLandHeight = CONVERT_PIXELS_TO_HEIGHTUNITS( pMapElement->sHeight );

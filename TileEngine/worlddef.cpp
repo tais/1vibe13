@@ -3058,7 +3058,9 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 			if(ubMinorMapVersion <= 25)
 			{
 				// Check patching for phantom menace struct data...
-				if(gTileDatabase[usTileIndex].uiFlags & UNDERFLOW_FILLER)
+				// Bound usTileIndex first: GetTileIndexFromTypeSubIndex leaves it 0xffff for an
+				// out-of-range type/subindex from the map file -> gTileDatabase[] OOB read.
+				if(usTileIndex < giNumberOfTiles && (gTileDatabase[usTileIndex].uiFlags & UNDERFLOW_FILLER))
 					GetTileIndexFromTypeSubIndex(ubType, 1, &usTileIndex);
 			}
 			// Add layer
