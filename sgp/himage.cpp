@@ -1075,6 +1075,9 @@ BOOLEAN GetETRLEImageData( HIMAGE hImage, ETRLEData *pBuffer )
 	pBuffer->pPixData = MemAlloc( hImage->uiSizePixData );
 	if(!pBuffer->pPixData)
 	{
+		// leak: free pETRLEObject on pPixData alloc-failure path
+		MemFree( pBuffer->pETRLEObject );
+		pBuffer->pETRLEObject = NULL;
 		return false;
 	}
 	CHECKF( pBuffer->pPixData != NULL );
