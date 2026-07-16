@@ -535,23 +535,20 @@ namespace MiniEventHelpers
 			return 2;
 		}
 
-		for (int index = 0; index < ubNumberOfVehicles; ++index)
+		if (vehicleId >= 0 && vehicleId < ubNumberOfVehicles && pVehicleList[vehicleId].fValid == TRUE)
 		{
-			if (pVehicleList[index].fValid == TRUE)
+			SOLDIERTYPE* vehicle = GetSoldierStructureForVehicle(vehicleId);	// the merc's own vehicle, not the first valid one
+
+			if (vehicle)
 			{
-				SOLDIERTYPE* vehicle = GetSoldierStructureForVehicle(index);
+				SpendVehicleFuel(vehicle, -(100*val));
 
-				if (vehicle)
-				{
-					SpendVehicleFuel(vehicle, -(100*val));
-
-					lua_pushboolean(LS, true);
-					const MERCPROFILESTRUCT& mps = gMercProfiles[vehicle->ubProfile];
-					CHAR8 nickname[50];
-					sprintf(nickname, "%ls", mps.zNickname);
-					lua_pushstring(LS, nickname);
-					return 2;
-				}
+				lua_pushboolean(LS, true);
+				const MERCPROFILESTRUCT& mps = gMercProfiles[vehicle->ubProfile];
+				CHAR8 nickname[50];
+				sprintf(nickname, "%ls", mps.zNickname);
+				lua_pushstring(LS, nickname);
+				return 2;
 			}
 		}
 
@@ -584,24 +581,21 @@ namespace MiniEventHelpers
 			return 2;
 		}
 
-		for (int index = 0; index < ubNumberOfVehicles; ++index)
+		if (vehicleId >= 0 && vehicleId < ubNumberOfVehicles && pVehicleList[vehicleId].fValid == TRUE)
 		{
-			if (pVehicleList[index].fValid == TRUE)
+			SOLDIERTYPE* vehicle = GetSoldierStructureForVehicle(vehicleId);	// the merc's own vehicle, not the first valid one
+
+			if (vehicle)
 			{
-				SOLDIERTYPE* vehicle = GetSoldierStructureForVehicle(index);
+				vehicle->stats.bLife += val;
+				vehicle->stats.bLife = max(min(vehicle->stats.bLife, 100), 0);
 
-				if (vehicle)
-				{
-					vehicle->stats.bLife += val;
-					vehicle->stats.bLife = max(min(vehicle->stats.bLife, 100), 0);
-
-					lua_pushboolean(LS, true);
-					const MERCPROFILESTRUCT& mps = gMercProfiles[vehicle->ubProfile];
-					CHAR8 nickname[50];
-					sprintf(nickname, "%ls", mps.zNickname);
-					lua_pushstring(LS, nickname);
-					return 2;
-				}
+				lua_pushboolean(LS, true);
+				const MERCPROFILESTRUCT& mps = gMercProfiles[vehicle->ubProfile];
+				CHAR8 nickname[50];
+				sprintf(nickname, "%ls", mps.zNickname);
+				lua_pushstring(LS, nickname);
+				return 2;
 			}
 		}
 
