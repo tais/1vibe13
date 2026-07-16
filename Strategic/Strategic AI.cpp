@@ -5282,7 +5282,7 @@ void ExecuteStrategicAIAction( UINT16 usActionCode, INT16 sSectorX, INT16 sSecto
 						elitesThisSquad = soldiersThisSquad - troopsThisSquad - adminsThisSquad; // The rest
 					}
 					Assert(adminsThisSquad + troopsThisSquad + elitesThisSquad == soldiersThisSquad);
-					pGroup0 = CreateNewEnemyGroupDepartingFromSector( ubSourceSectorID, adminsThisSquad, soldiersThisSquad, elitesThisSquad, robotsThisSquad, tanksThisSquad, jeepsThisSquad );
+					pGroup0 = CreateNewEnemyGroupDepartingFromSector( ubSourceSectorID, adminsThisSquad, troopsThisSquad, elitesThisSquad, robotsThisSquad, tanksThisSquad, jeepsThisSquad );
 					if( !gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID ) {
 						pGroup0->pEnemyGroup->ubIntention = STAGE;
 						if (groupCnt > 2) {
@@ -5351,7 +5351,7 @@ void ExecuteStrategicAIAction( UINT16 usActionCode, INT16 sSectorX, INT16 sSecto
 					unsigned elitesThisSquad = soldiersThisSquad - troopsThisSquad - adminsThisSquad; // The rest
 
 					Assert(adminsThisSquad + troopsThisSquad + elitesThisSquad == soldiersThisSquad);
-					pGroup0 = CreateNewEnemyGroupDepartingFromSector( ubSourceSectorID, adminsThisSquad, soldiersThisSquad, elitesThisSquad, 0, 0, 0 );
+					pGroup0 = CreateNewEnemyGroupDepartingFromSector( ubSourceSectorID, adminsThisSquad, troopsThisSquad, elitesThisSquad, 0, 0, 0 );
 					if( !gGarrisonGroup[ SectorInfo[ ubTargetSectorID ].ubGarrisonID ].ubPendingGroupID ) {
 						pGroup0->pEnemyGroup->ubIntention = STAGE;
 						if (groupCnt > 2) {
