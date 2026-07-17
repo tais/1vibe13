@@ -66,10 +66,18 @@ bool PaletteTable::CreateSGPPaletteFromActFile(SGPPaletteEntry *pPalette, std::s
 		delete[] colFileName;
 		return false;
 	}
+	// Zero the whole palette first so a short/truncated .col file degrades
+	// to black instead of leaving entries uninitialized.
+	memset(pPalette, 0, sizeof(SGPPaletteEntry) * 256);
 	for (cnt = 0; cnt < 256; cnt++) {
-		FileRead(hFileHandle, &pPalette[cnt].peRed, sizeof(UINT8), NULL);
-		FileRead(hFileHandle, &pPalette[cnt].peGreen, sizeof(UINT8), NULL);
-		FileRead(hFileHandle, &pPalette[cnt].peBlue, sizeof(UINT8), NULL);
+		if (!FileRead(hFileHandle, &pPalette[cnt].peRed, sizeof(UINT8), NULL) ||
+			!FileRead(hFileHandle, &pPalette[cnt].peGreen, sizeof(UINT8), NULL) ||
+			!FileRead(hFileHandle, &pPalette[cnt].peBlue, sizeof(UINT8), NULL)) {
+			DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Short read on COL file");
+			FileClose(hFileHandle);
+			delete[] colFileName;
+			return false;
+		}
 	}
 	FileClose(hFileHandle);
 	delete[] colFileName;

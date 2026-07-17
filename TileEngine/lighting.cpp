@@ -2991,26 +2991,55 @@ INT32 LightLoad(STR pFilename)
 
 	if((hFile=FileOpen(pFilename, FILE_ACCESS_READ, FALSE))!=0)
 	{
-		FileRead(hFile, &usTemplateSize[iLight], sizeof(UINT16), NULL);
+		if(!FileRead(hFile, &usTemplateSize[iLight], sizeof(UINT16), NULL))
+		{
+			usTemplateSize[iLight]=0;
+			FileClose(hFile);
+			return(-1);
+		}
 		if((pLightList[iLight]= (LIGHT_NODE *) MemAlloc(usTemplateSize[iLight]*sizeof(LIGHT_NODE)))==NULL)
 		{
 			usTemplateSize[iLight]=0;
-			FileClose(hFile); // leak: close open file on alloc-failure path
+			FileClose(hFile);
 			return(-1);
 		}
-		FileRead(hFile, pLightList[iLight], sizeof(LIGHT_NODE)*usTemplateSize[iLight], NULL);
+		if(!FileRead(hFile, pLightList[iLight], sizeof(LIGHT_NODE)*usTemplateSize[iLight], NULL))
+		{
+			MemFree(pLightList[iLight]);
+			pLightList[iLight]=NULL;
+			usTemplateSize[iLight]=0;
+			FileClose(hFile);
+			return(-1);
+		}
 
-		FileRead(hFile, &usRaySize[iLight], sizeof(UINT16), NULL);
+		if(!FileRead(hFile, &usRaySize[iLight], sizeof(UINT16), NULL))
+		{
+			MemFree(pLightList[iLight]);
+			pLightList[iLight]=NULL;
+			usTemplateSize[iLight]=0;
+			FileClose(hFile);
+			return(-1);
+		}
 		if((pLightRayList[iLight]= (UINT16 *) MemAlloc(usRaySize[iLight]*sizeof(UINT16)))==NULL)
 		{
 			usTemplateSize[iLight]=0;
 			usRaySize[iLight]=0;
 			MemFree(pLightList[iLight]);
-			pLightList[iLight]=NULL; // leak: avoid dangling freed pointer
-			FileClose(hFile); // leak: close open file on alloc-failure path
+			pLightList[iLight]=NULL;
+			FileClose(hFile);
 			return(-1);
 		}
-		FileRead(hFile, pLightRayList[iLight], sizeof(UINT16)*usRaySize[iLight], NULL);
+		if(!FileRead(hFile, pLightRayList[iLight], sizeof(UINT16)*usRaySize[iLight], NULL))
+		{
+			MemFree(pLightRayList[iLight]);
+			pLightRayList[iLight]=NULL;
+			MemFree(pLightList[iLight]);
+			pLightList[iLight]=NULL;
+			usTemplateSize[iLight]=0;
+			usRaySize[iLight]=0;
+			FileClose(hFile);
+			return(-1);
+		}
 
 		FileClose(hFile);
 

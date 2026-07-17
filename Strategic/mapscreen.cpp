@@ -6970,10 +6970,34 @@ void InitializeWorldSize(INT16 sSectorX, INT16 sSectorY , INT8 bSectorZ)
 		//Get the file size and alloc one huge buffer for it.
 		//We will use this buffer to transfer all of the data from.
 		uiFileSize = FileGetSize( hfile );
+
+		// Guard a truncated/corrupt map: we read at least the version header
+		// (FLOAT + UINT8) plus, for new-format maps, two INT32 dimensions.
+		if ( uiFileSize < sizeof( FLOAT ) + sizeof( UINT8 ) + 2 * sizeof( INT32 ) )
+		{
+			FileClose( hfile );
+			SetWorldSize(OLD_WORLD_ROWS, OLD_WORLD_COLS);
+			return;
+		}
+
 		pBuffer = (INT8*)MemAlloc( uiFileSize );
+		if ( !pBuffer )
+		{
+			FileClose( hfile );
+			SetWorldSize(OLD_WORLD_ROWS, OLD_WORLD_COLS);
+			return;
+		}
 		pBufferHead = pBuffer;
+		uiBytesRead = 0;
 		FileRead( hfile, pBuffer, uiFileSize, &uiBytesRead );
 		FileClose( hfile );
+
+		if ( uiBytesRead < uiFileSize )
+		{
+			MemFree( pBufferHead );
+			SetWorldSize(OLD_WORLD_ROWS, OLD_WORLD_COLS);
+			return;
+		}
 
 		// Read JA2 Version ID
 		LOADDATA( &dMajorMapVersion, pBuffer, sizeof( FLOAT ) );
@@ -6989,6 +7013,8 @@ void InitializeWorldSize(INT16 sSectorX, INT16 sSectorY , INT8 bSectorZ)
 			LOADDATA( &iColSize, pBuffer, sizeof( INT32 ) );
 			SetWorldSize(iRowSize, iColSize);
 		}
+
+		MemFree( pBufferHead );	// was leaked on every call
 	}
 }
 
