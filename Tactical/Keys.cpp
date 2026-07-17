@@ -804,7 +804,8 @@ BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
 			// award experience points? ... SANDRO - sure!
 			StatChange(pSoldier, EXPLODEAMT, (10), FALSE);
 			// also add to records - door successfully breached
-			gMercProfiles[pSoldier->ubProfile].records.usLocksBreached++;
+			if ( pSoldier->ubProfile != NO_PROFILE )	// guard gMercProfiles[NO_PROFILE] OOB (the crowbar/smash/pick siblings guard this)
+				gMercProfiles[pSoldier->ubProfile].records.usLocksBreached++;
 
 			fSuccess = TRUE;
 
