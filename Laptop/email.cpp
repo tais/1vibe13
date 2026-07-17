@@ -1461,73 +1461,37 @@ static void SortMessages(INT32 iCriteria)
 
 void SwapMessages(INT32 iIdA, INT32 iIdB)
 {
-    // swaps locations of messages in the linked list
+    // Swap the two messages' payload between their list nodes. The list pointers
+    // (Next/Prev) stay put; only the message fields move.
     EmailPtr pA = pEmailList;
     EmailPtr pB = pEmailList;
-    EmailPtr pTemp = (EmailPtr)MemAlloc(sizeof(Email));
-    pTemp->pSubject = (CHAR16 *)MemAlloc(128 * sizeof(CHAR16));
 
-    memset(pTemp->pSubject, 0, sizeof(CHAR16) * 128);
-
-    if ( !pA->Next )
+    if ( !pEmailList || !pEmailList->Next )
         return;
-    //find pA
-    while ( pA->iId != iIdA )
+
+    while ( pA && pA->iId != iIdA )
         pA = pA->Next;
-    // find pB
-    while ( pB->iId != iIdB )
+    while ( pB && pB->iId != iIdB )
         pB = pB->Next;
+    if ( !pA || !pB )   // id not found -> was a NULL walk-off
+        return;
 
-    // swap
-
-    // pTemp becomes pA
-    pTemp->iId = pA->iId;
-    pTemp->fRead = pA->fRead;
-    pTemp->fNew = pA->fNew;
-    pTemp->usOffset = pA->usOffset;
-    pTemp->EmailVersion = pA->EmailVersion;
-    pTemp->usLength = pA->usLength;
-    pTemp->iDate = pA->iDate;
-    pTemp->ubSender = pA->ubSender;
-
-    if ( pA->EmailVersion == TYPE_EMAIL_AIM_AVAILABLE )
-        wcscpy(pTemp->pSubject, EmailMercAvailableText[pA->ubSender].szSubject);
-    else if ( pA->EmailVersion == TYPE_EMAIL_MERC_LEVEL_UP )
-        wcscpy(pTemp->pSubject, EmailMercLevelUpText[pA->ubSender].szSubject);
-    else
-        wcscpy(pTemp->pSubject, pA->pSubject);
-
-    // pA becomes pB
-    pA->iId = pB->iId;
-    pA->fRead = pB->fRead;
-    pA->fNew = pB->fNew;
-    pA->usOffset = pB->usOffset;
-    pA->EmailVersion = pB->EmailVersion;
-    pA->usLength = pB->usLength;
-    pA->iDate = pB->iDate;
-    pA->ubSender = pB->ubSender;
-    wcscpy(pA->pSubject, pB->pSubject);
-
-    // pB becomes pTemp
-    pB->iId = pTemp->iId;
-    pB->fRead = pTemp->fRead;
-    pB->fNew = pTemp->fNew;
-    pB->usOffset = pTemp->usOffset;
-    pB->EmailVersion = pTemp->EmailVersion;
-    pB->usLength = pTemp->usLength;
-    pB->iDate = pTemp->iDate;
-    pB->ubSender = pTemp->ubSender;
-
-    if ( pB->EmailVersion == TYPE_EMAIL_AIM_AVAILABLE )
-        wcscpy(pB->pSubject, EmailMercAvailableText[pTemp->ubSender].szSubject);
-    else if ( pB->EmailVersion == TYPE_EMAIL_MERC_LEVEL_UP )
-        wcscpy(pB->pSubject, EmailMercLevelUpText[pTemp->ubSender].szSubject);
-    else
-        wcscpy(pB->pSubject, pTemp->pSubject);
-
-    // free up memory
-    MemFree(pTemp->pSubject);
-    MemFree(pTemp);
+    // Swap the same payload fields the original did, plus the pSubject POINTER.
+    // Swapping the pointer -- instead of wcscpy'ing subject contents between the
+    // two exact-size heap buffers -- removes the heap overflow that happened
+    // whenever the subjects differed in length, and drops the leaky 128-char
+    // scratch buffer (also leaked on the early return above). EmailVersion and
+    // ubSender move with pSubject, so AIM/level-up subjects stay consistent with
+    // their type without the canonical-subject rewrites.
+    std::swap( pA->iId,          pB->iId );
+    std::swap( pA->fRead,        pB->fRead );
+    std::swap( pA->fNew,         pB->fNew );
+    std::swap( pA->usOffset,     pB->usOffset );
+    std::swap( pA->EmailVersion, pB->EmailVersion );
+    std::swap( pA->usLength,     pB->usLength );
+    std::swap( pA->iDate,        pB->iDate );
+    std::swap( pA->ubSender,     pB->ubSender );
+    std::swap( pA->pSubject,     pB->pSubject );
 }
 
 static void ClearPages()
