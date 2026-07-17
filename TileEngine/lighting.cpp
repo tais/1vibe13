@@ -3086,7 +3086,7 @@ BOOLEAN LightSetColors(SGPPaletteEntry *pPal, UINT8 ubNumColors)
 
 	// we will have at least one light color
 	memcpy(&gpLightColors[0], &pPal[0], sizeof(SGPPaletteEntry));
-	memcpy(&gpOrigLights[0], &pPal[0], sizeof(SGPPaletteEntry)*2);
+	memcpy(&gpOrigLights[0], &pPal[0], sizeof(SGPPaletteEntry) * (ubNumColors >= 2 ? 2 : 1));	// only 2 entries when the caller supplied 2; a 1-colour call over-reads pPal[1]
 
 	gubNumLightColors=ubNumColors;
 
