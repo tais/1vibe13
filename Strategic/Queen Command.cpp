@@ -2446,6 +2446,22 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
+		else
+		{
+			// Reached only when the random roll picked a tank/jeep that cannot be placed because
+			// the vehicle list is full (ubNumberOfVehicles >= 9 -- a high-water mark that never
+			// decreases in this loop, so those vehicles are unplaceable this battle). Drop one so
+			// ubTotalSoldiers keeps shrinking (this was a deterministic infinite loop) and skip the
+			// freeze block below -- no pSoldier was created this iteration, so it must not run.
+			if ( ubNumTanks )
+				ubNumTanks--;
+			else if ( ubNumJeeps )
+				ubNumJeeps--;
+			else
+				break;
+			ubTotalSoldiers--;
+			continue;
+		}
 
 		// HEADROCK HAM 3.2: enemy reinforcements arrive with 0 APs.
 		if (gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 1 || gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 2)

@@ -1149,6 +1149,7 @@ BOOLEAN LoadAnimationProfiles( )
 //	if ( fread( &gubNumAnimProfiles, sizeof( gubNumAnimProfiles ), 1, pInput ) != 1 )
 	if ( FileRead(	pInput, &gubNumAnimProfiles, sizeof( gubNumAnimProfiles ), &uiBytesRead ) != 1 )
 	{
+		FileClose( pInput ); // leak: close open file on read-failure path
 		return( FALSE );
 	}
 

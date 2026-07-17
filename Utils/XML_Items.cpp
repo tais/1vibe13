@@ -1,6 +1,7 @@
 	#include "sgp.h"
 	#include "Overhead Types.h"
 	#include "Soldier Control.h"
+	#include "Drugs And Alcohol.h"
 	#include "Overhead.h"
 	#include "Event Pump.h"
 	#include "Weapons.h"
@@ -1351,6 +1352,8 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT;
 			pData->curItem.drugtype   = (UINT32) strtoul(pData->szCharData, NULL, 0);
+			if ( pData->curItem.drugtype >= NEW_DRUGS_MAX )	// clamp: unbounded DrugType -> OOB into NewDrug[NEW_DRUGS_MAX] in ApplyDrugs_New
+				pData->curItem.drugtype = 0;
 		}
 		else if(strcmp(name, "BlockIronSight")	 == 0)
 		{

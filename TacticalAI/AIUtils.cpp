@@ -4653,7 +4653,7 @@ UINT8 TerrainDensity(INT32 sSpot, INT8 bLevel, UINT8 ubDistance, BOOLEAN fGrass)
 	INT32	sCheckSpot = NOWHERE;
 	INT32	sCountSpots = 0;
 	INT32	sCountObstacles = 0;
-	UINT16	usRoom1, usRoom2;
+	UINT16	usRoom1 = 0, usRoom2 = 0;	// init: InARoom leaves the out-param untouched when it returns FALSE, and they're compared below
 
 	STRUCTURE	*pCurrent;
 	INT16	sDesiredLevel;

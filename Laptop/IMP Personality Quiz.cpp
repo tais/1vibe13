@@ -1743,7 +1743,8 @@ void MoveAheadAQuestion( void )
 {
 
 	// move ahead a question in the personality question list
-	if( giCurrentPersonalityQuizQuestion < giMaxPersonalityQuizQuestion )
+	if( giCurrentPersonalityQuizQuestion < giMaxPersonalityQuizQuestion &&
+		giCurrentPersonalityQuizQuestion < MAX_NUMBER_OF_IMP_QUESTIONS - 1 )	// giMax can exceed the array on quiz re-entry -> iQuizAnswerList[16] OOB below
 	{
 		giCurrentPersonalityQuizQuestion++;
 

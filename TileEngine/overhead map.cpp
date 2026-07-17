@@ -1814,11 +1814,11 @@ void RenderOverheadOverlays()
 								// we alter the colour of existing pixels instead of fully replacing the colour. As a result, one can still see the map regions we draw over, which looks a lot better
 								switch ( pWorldItem->bVisible )
 								{
-								case HIDDEN_ITEM:		PixelAlterColour( FALSE, x, y, blue_dull, pDestBuf );	break;
-								case BURIED:			PixelAlterColour( FALSE, x, y, red_dull, pDestBuf );	break;
-								case HIDDEN_IN_OBJECT:	PixelAlterColour( FALSE, x, y, blue_dull, pDestBuf );	break;
-								case INVISIBLE:			PixelAlterColour( FALSE, x, y, green_dull, pDestBuf );	break;
-								case VISIBLE:			PixelAlterColour( FALSE, x, y, white, pDestBuf );	break;
+								case HIDDEN_ITEM:		PixelAlterColour( TRUE, x, y, blue_dull, pDestBuf );	break;
+								case BURIED:			PixelAlterColour( TRUE, x, y, red_dull, pDestBuf );	break;
+								case HIDDEN_IN_OBJECT:	PixelAlterColour( TRUE, x, y, blue_dull, pDestBuf );	break;
+								case INVISIBLE:			PixelAlterColour( TRUE, x, y, green_dull, pDestBuf );	break;
+								case VISIBLE:			PixelAlterColour( TRUE, x, y, white, pDestBuf );	break;
 								}
 							}
 						}

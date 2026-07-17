@@ -240,7 +240,11 @@ drugsEndElementHandle(void *userData, const XML_Char *name)
 		{
 			if ( strcmp( name, "effect" ) == 0 )
 			{
-				pData->drug_effects.effect = (UINT8)atol( pData->szCharData );
+				{
+					UINT8 ubEffect = (UINT8)atol( pData->szCharData );
+					if ( ubEffect < DRUG_EFFECT_MAX )	// unbounded XML effect -> later OOB into the DRUG_EFFECT_MAX-sized newdrugs arrays
+						pData->drug_effects.effect = ubEffect;
+				}
 			}
 			else if ( strcmp( name, "duration" ) == 0 )
 			{

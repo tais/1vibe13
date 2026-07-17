@@ -97,6 +97,8 @@ impPortraitsEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
+			if ( pData->curIMPPortraits.uiIndex < NUM_PROFILES )	// unbounded XML uiIndex -> OOB write into gIMPFaceValues[NUM_PROFILES]
+			{
 			gIMPFaceValues[pData->curIMPPortraits.uiIndex].uiEyeXPositions = pData->curIMPPortraits.uiEyeXPositions;
 			gIMPFaceValues[pData->curIMPPortraits.uiIndex].uiEyeYPositions = pData->curIMPPortraits.uiEyeYPositions;
 			gIMPFaceValues[pData->curIMPPortraits.uiIndex].uiMouthXPositions = pData->curIMPPortraits.uiMouthXPositions;
@@ -108,6 +110,7 @@ impPortraitsEndElementHandle(void *userData, const XML_Char *name)
 			gIMPFaceValues[pData->curIMPPortraits.uiIndex].iCurrentHair = pData->curIMPPortraits.iCurrentHair;
 			gIMPFaceValues[pData->curIMPPortraits.uiIndex].iCurrentPants = pData->curIMPPortraits.iCurrentPants;
 			gIMPFaceValues[pData->curIMPPortraits.uiIndex].bBigBody = pData->curIMPPortraits.bBigBody;
+			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{

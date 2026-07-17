@@ -100,6 +100,8 @@ bool vfs::CSLFLibrary::init()
 		slf::LIBHEADER LibFileHeader;
 		vfs::size_t bytesRead = m_libraryFile->read((vfs::Byte*)&LibFileHeader, sizeof( slf::LIBHEADER ));
 		VFS_THROW_IFF(bytesRead == sizeof( slf::LIBHEADER ), L"");
+		VFS_THROW_IFF(LibFileHeader.iEntries >= 0, L"SLF: negative directory entry count");	// corrupt SLF: a negative count casts to ~4bn for the loop below and makes the seek offset overflow
+		LibFileHeader.sPathToLibrary[slf::FILENAME_SIZE-1] = 0;	// ensure NUL-term before the strlen() below (corrupt SLF may fill the whole field)
 
 		vfs::Path oLibPath;
 		//if the library has a path
@@ -135,6 +137,7 @@ bool vfs::CSLFLibrary::init()
 			//memset(&DirEntry,0,sizeof(DirEntry));
 			bytesRead = m_libraryFile->read((Byte*)&DirEntry, sizeof( slf::DIRENTRY ));
 			VFS_THROW_IFF(bytesRead == sizeof( slf::DIRENTRY ), L"");
+			DirEntry.sFileName[slf::FILENAME_SIZE-1] = 0;	// ensure NUL-term before as_utf16() below (corrupt SLF may fill the whole field -> OOB read)
 
 			if( DirEntry.ubState == slf::FILE_OK )
 			{

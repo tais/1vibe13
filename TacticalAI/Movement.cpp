@@ -992,7 +992,7 @@ INT32 TrackScent( SOLDIERTYPE * pSoldier )
 					// wrapped across map!
 					continue;
 				}
-				if (LegalNPCDestination(pSoldier,pSoldier->aiData.usActionData,ENSURE_PATH,WATEROK,0))
+				if (LegalNPCDestination(pSoldier,iGridNo,ENSURE_PATH,WATEROK,0))	// was usActionData (stale) -> the legality test never matched the candidate scent grid iGridNo being examined
 				{
 					// check this location out
 					pMapElement = &(gpWorldLevelData[iGridNo]);

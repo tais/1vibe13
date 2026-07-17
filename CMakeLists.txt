@@ -447,3 +447,30 @@ foreach(app IN LISTS ApplicationTargets)
   target_link_libraries(${app}_sgp PRIVATE libsmacker)
   target_compile_definitions(${app}_sgp PRIVATE ${compilationFlags} ${debugFlags} NO_ZLIB_COMPRESSION)
 endforeach()
+
+# ---- Headless engine smoke test (first slice of the engine test harness) ----
+# Links the JA2/ENGLISH engine libs into a standalone binary (proving the engine
+# is testable outside the game exe) and boots the data-free SGP subsystems.
+# Built only when the JA2 app + ENGLISH language are in the build set.
+# See tests/ja2_headless_tests.cpp.
+if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
+  add_executable(ja2_headless_tests tests/ja2_headless_tests.cpp)
+  target_compile_definitions(ja2_headless_tests PRIVATE ${debugFlags})
+  target_link_libraries(ja2_headless_tests PRIVATE SDL3::SDL3)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(ja2_headless_tests PRIVATE -Wl,--start-group)
+  endif()
+  target_link_libraries(ja2_headless_tests PRIVATE ${Ja2_Libraries} JA2_ENGLISH_i18n)
+  foreach(lib IN LISTS Ja2_Libs)
+    target_link_libraries(ja2_headless_tests PRIVATE JA2_${lib})
+  endforeach()
+  if(TARGET EXPAT::EXPAT)
+    target_link_libraries(ja2_headless_tests PRIVATE EXPAT::EXPAT)
+  elseif(TARGET expat)
+    target_link_libraries(ja2_headless_tests PRIVATE expat)
+  endif()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(ja2_headless_tests PRIVATE -Wl,--end-group)
+  endif()
+  add_test(NAME ja2_headless COMMAND ja2_headless_tests)
+endif()

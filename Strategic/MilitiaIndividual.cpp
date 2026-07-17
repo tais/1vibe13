@@ -824,7 +824,7 @@ FLOAT PromoteIndividualMilitiaInSector( UINT8 aSector, FLOAT aPointsToAdd )
 
 		SoldierID cnt = gTacticalStatus.Team[MILITIA_TEAM].bFirstID;
 		SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
-		for ( ; cnt < lastid; ++cnt )
+		for ( ; cnt <= lastid; ++cnt )	// bLastID is the last valid slot (inclusive); was '<' which skipped the last militia soldier
 		{
 			SOLDIERTYPE *pSoldier = cnt;
 			MILITIA militia;

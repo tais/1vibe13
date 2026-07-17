@@ -2421,9 +2421,10 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 						// Look for item....
 						bInvPos = FindObj( pSoldier, pQuotePtr->usGiftItem );
 
-						AssertMsg( bInvPos != NO_SLOT, "NPC.C:  Gift item does not exist in NPC." );
-
-						TalkingMenuGiveItem( ubNPC, &(pSoldier->inv[ bInvPos ] ), bInvPos );
+						// AssertMsg is a release no-op: a re-armed gift record whose item was already given
+						// leaves bInvPos == NO_SLOT -> pSoldier->inv[-1] OOB. Guard it for real.
+						if ( pSoldier != NULL && bInvPos != NO_SLOT )
+							TalkingMenuGiveItem( ubNPC, &(pSoldier->inv[ bInvPos ] ), bInvPos );
 					}
 				}
 				// Action before movement?
