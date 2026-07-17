@@ -87,14 +87,20 @@ void FillCentreGridnos(BOOLEAN fCenterOnly)
 {
 	static INT16 sectorX = -1;
 	static INT16 sectorY = -1;
+	static BOOLEAN fLastCenterOnly = FALSE;
 
-	// generate points only if current points are for a different map
-	if ( gWorldSectorX == sectorX && gWorldSectorY == sectorY )
+	// generate points only if current points are for a different map or a different center-only mode
+	// (the computed points depend on fCenterOnly, so it must be part of the cache key)
+	if ( gWorldSectorX == sectorX && gWorldSectorY == sectorY && fCenterOnly == fLastCenterOnly && statCentGrid != NULL )
 		return;
 
 	sectorX = gWorldSectorX;
 	sectorY = gWorldSectorY;
+	fLastCenterOnly = fCenterOnly;
 		
+	// free the previous sector's buffer before re-allocating (was leaked on every sector/mode change)
+	if ( statCentGrid != NULL )
+		MemFree( statCentGrid );
 	statCentGrid = (INT32*)MemAlloc( NUM_CENTER_ENTRY_POINTS * sizeof( INT32 ) );
 
 	FLOAT lenx = 0.0f;
