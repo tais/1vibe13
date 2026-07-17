@@ -822,7 +822,9 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 							image.setPalette(meta.palette, meta.num_palette);
 							bHasPalette = true;
 						}
-						UINT32 SIZE = meta.height * meta.width;
+						if ( meta.width == 0 || meta.height == 0 || (unsigned long long)meta.height * meta.width > 0xFFFFFFFFULL )
+							SGP_THROW(L"PNG too large: paletted buffer size overflows 32 bits");	// guard the multiply before it truncates
+						UINT32 SIZE = (UINT32)((unsigned long long)meta.height * meta.width);
 						std::vector<UINT8> data(SIZE,0);
 						for(unsigned int i = 0; i < meta.height; ++i)
 						{
@@ -875,7 +877,9 @@ void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 	hImage->usWidth    = (UINT16)info.width;
 	hImage->ubBitDepth = 32;
 
-	UINT32 SIZE = info.height * info.width * sizeof(UINT32);
+	if ( info.width == 0 || info.height == 0 || (unsigned long long)info.height * info.width > 0xFFFFFFFFULL / sizeof(UINT32) )
+		SGP_THROW(L"PNG too large: 32bpp buffer size overflows 32 bits");	// guard the multiply before it truncates -> under-alloc + heap overflow
+	UINT32 SIZE = (UINT32)((unsigned long long)info.height * info.width * sizeof(UINT32));
 	hImage->p32BPPData = (UINT32*)MemAlloc(SIZE);
 	if(!hImage->p32BPPData)
 	{
@@ -920,7 +924,9 @@ void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 	hImage->usWidth    = (UINT16)info.width;
 	hImage->ubBitDepth = 16;
 
-	UINT32 SIZE = info.height * info.width * sizeof(UINT16);
+	if ( info.width == 0 || info.height == 0 || (unsigned long long)info.height * info.width > 0xFFFFFFFFULL / sizeof(UINT16) )
+		SGP_THROW(L"PNG too large: 16bpp buffer size overflows 32 bits");	// guard the multiply before it truncates -> under-alloc + heap overflow
+	UINT32 SIZE = (UINT32)((unsigned long long)info.height * info.width * sizeof(UINT16));
 	hImage->p16BPPData = (UINT16*)MemAlloc(SIZE);
 	if(!hImage->p16BPPData)
 	{
@@ -954,7 +960,9 @@ void Load24bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 {
 	CHAR8 errorText[512];
-	UINT32 SIZE = info.height * info.width * sizeof(UINT8);
+	if ( info.width == 0 || info.height == 0 || (unsigned long long)info.height * info.width > 0xFFFFFFFFULL / sizeof(UINT8) )
+		SGP_THROW(L"PNG too large: paletted buffer size overflows 32 bits");	// guard the multiply before it truncates -> under-alloc + heap overflow
+	UINT32 SIZE = (UINT32)((unsigned long long)info.height * info.width * sizeof(UINT8));
 	UINT8 *data = (UINT8*)MemAlloc(SIZE);
 	if(!data)
 	{
