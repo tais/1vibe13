@@ -2024,13 +2024,15 @@ void DebugStructurePage1( void )
 	INT8					bHeight, bDens0, bDens1, bDens2, bDens3;
 	INT8					bStructures;
 
-	static CHAR16 WallOrientationString[5][15] =
+	static CHAR16 WallOrientationString[7][15] =	// sized to the full WallOrientationDefines enum (7 values) -> the ...BOTTOM_CORNER orientations no longer index past the end
 	{
 		L"None",
 		L"Inside left",
 		L"Inside right",
 		L"Outside left",
-		L"Outside right"
+		L"Outside right",
+		L"Inside corner",
+		L"Outside corner"
 	};
 
 	SetFont( LARGEFONT1 );

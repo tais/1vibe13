@@ -484,6 +484,10 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 	// Get FACE height, width
 	if( GetVideoObjectETRLEPropertiesFromIndex( uiVideoObject, &ETRLEObject, 0 ) == FALSE )
 	{
+		// leak: delete vobject + release reserved face slot on ETRLE error path
+		DeleteVideoObjectFromIndex( uiVideoObject );
+		pFace->fAllocated = FALSE;
+		RecountFaces();
 		return( -1 );
 	}
 	pFace->usFaceWidth = ETRLEObject.usWidth;
@@ -498,6 +502,10 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 		// Get EYE height, width
 		if( GetVideoObjectETRLEPropertiesFromIndex( uiVideoObject, &ETRLEObject, 1 ) == FALSE )
 		{
+			// leak: delete vobject + release reserved face slot on ETRLE error path
+			DeleteVideoObjectFromIndex( uiVideoObject );
+			pFace->fAllocated = FALSE;
+			RecountFaces();
 			return( -1 );
 		}
 		pFace->usEyesWidth = ETRLEObject.usWidth;
@@ -507,6 +515,10 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 		// Get Mouth height, width
 		if( GetVideoObjectETRLEPropertiesFromIndex( uiVideoObject, &ETRLEObject, 5 ) == FALSE )
 		{
+			// leak: delete vobject + release reserved face slot on ETRLE error path
+			DeleteVideoObjectFromIndex( uiVideoObject );
+			pFace->fAllocated = FALSE;
+			RecountFaces();
 			return( -1 );
 		}
 		pFace->usMouthWidth = ETRLEObject.usWidth;

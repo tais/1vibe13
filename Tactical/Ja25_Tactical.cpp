@@ -1764,6 +1764,9 @@ INT8 RandomSoldierIdForAnyMercInSector()
 		}
 	}
 
+	if( ubCount == 0 )	// mercs present but all unconscious/robots/in-vehicle -> would return SoldierIdArray[0]==0 (merc 0)
+		return( -1 );
+
 	return( SoldierIdArray[ Random( ubCount ) ] );
 }
 

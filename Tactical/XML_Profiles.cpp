@@ -1248,7 +1248,10 @@ BOOLEAN ReadInMercProfiles(STR fileName, BOOLEAN localizedVersion)
 	// Open merges file
 	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
 	if ( !hFile )
+	{
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( localizedVersion );
+	}
 
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
@@ -1257,6 +1260,7 @@ BOOLEAN ReadInMercProfiles(STR fileName, BOOLEAN localizedVersion)
 	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
 	{
 		MemFree(lpcBuffer);
+		XML_ParserFree(parser); // leak: free parser on error path
 		return( FALSE );
 	}
 

@@ -1186,7 +1186,8 @@ void HandleDialogue( )
 		else if ( QItem.uiSpecialEventFlag & DIALOGUE_SPECIAL_EVENT_SKYRIDERMAPSCREENEVENT )
 		{
 			// Setup face pointer
-			gpCurrentTalkingFace = &gFacesData[ QItem.iFaceIndex ];
+			if ( QItem.iFaceIndex >= 0 )	// guard: iFaceIndex is -1 when no face is allocated -> gFacesData[-1] OOB (every sibling case guards this)
+				gpCurrentTalkingFace = &gFacesData[ QItem.iFaceIndex ];
 			gubCurrentTalkingID	= QItem.ubCharacterNum;
 
 			// handle the monologue event
@@ -1560,6 +1561,10 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	{
 		return( FALSE );
 	}
+	if ( pSoldier->iFaceIndex <= -1 )	// mirror TacticalCharacterDialogue: no allocated face -> would OOB gFacesData[]
+	{
+		return( FALSE );
+	}
 
 #ifdef JA2UB
 //Ja25 no meanwhiles
@@ -1652,6 +1657,10 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 		return(FALSE); //somewhere amongst all this it causes a puase of merc movement while making the quote which throws out the movement sync between  clients... : hayden.
 	}
 	if ( pSoldier->ubProfile == NO_PROFILE )
+	{
+		return( FALSE );
+	}
+	if ( pSoldier->iFaceIndex <= -1 )	// mirror TacticalCharacterDialogue: no allocated face -> would OOB gFacesData[]
 	{
 		return( FALSE );
 	}
@@ -2169,6 +2178,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 
 BOOLEAN ExecuteSnitchCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32 iFaceIndex, UINT8 bUIHandlerID, UINT8 ubSnitchEventType, UINT8 ubSnitchTargetID, UINT8 ubSecondarySnitchTargetID )
 {
+	CHECKF( iFaceIndex != -1 );	// mirror ExecuteCharacterDialogue: a -1 face index would OOB gFacesData[] downstream
 	UINT32 uiSound1ID;
 	UINT32 uiSound2ID;
 	UINT32 uiSound3ID;
@@ -2236,7 +2246,7 @@ BOOLEAN LuaCallsToDoDialogueStuff( UINT8 ubProfile, INT32 iFaceIndex, const char
 void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString )
 {
 	// if possible, set up a proper dialogue. Otherwise just play the file
-	if ( !DialogueActive() && pSoldier->ubProfile != NO_PROFILE )
+	if ( !DialogueActive() && pSoldier->ubProfile != NO_PROFILE && pSoldier->iFaceIndex >= 0 )	// iFaceIndex >= 0: else gFacesData[-1] OOB; falls through to just playing the sound file
 	{
 		gpCurrentTalkingFace = &gFacesData[pSoldier->iFaceIndex];
 		gubCurrentTalkingID = pSoldier->ubID;

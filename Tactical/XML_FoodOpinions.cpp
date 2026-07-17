@@ -129,7 +129,8 @@ foodopinionEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "MoraleMod") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curFood.sFoodOpinion[usCurrentItem] = (INT8) atol(pData->szCharData);
+			if ( usCurrentItem < FOOD_TYPE_MAX )	// unbounded XML FoodNumber -> was a stack OOB write into sFoodOpinion[FOOD_TYPE_MAX]
+				pData->curFood.sFoodOpinion[usCurrentItem] = (INT8) atol(pData->szCharData);
 		}
 
 		pData->maxReadDepth--;

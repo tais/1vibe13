@@ -4194,7 +4194,7 @@ void DisableButtonHelpTextRestore( void )
 
 void EnableButtonHelpTextRestore( void )
 {
-	fDisableHelpTextRestoreFlag = TRUE;
+	fDisableHelpTextRestoreFlag = FALSE;	// Enable... must CLEAR the disable flag (was TRUE, identical to Disable... -> restore stayed off forever)
 }
 
 void GiveButtonDefaultStatus( INT32 iButtonID, INT32 iDefaultStatus )

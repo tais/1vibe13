@@ -2029,6 +2029,10 @@ void CreatureNightPlanning()
 {
 	//Check the populations of the mine exits, and factor a chance for them to attack at night.
 			
+	// after the queen is killed giLairID becomes -1 -> gCreaturePlacements[-1] OOB every night at 22:00
+	if ( giLairID < 0 )
+		return;
+
 	UINT8 ubSectorID = SECTOR( gCreaturePlacements[ giLairID ].sAttackSourceX, gCreaturePlacements[ giLairID ].sAttackSourceY );
 
 	// Attacksource B1 underground sector must be a valid creature habitat!

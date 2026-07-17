@@ -2995,6 +2995,7 @@ INT32 LightLoad(STR pFilename)
 		if((pLightList[iLight]= (LIGHT_NODE *) MemAlloc(usTemplateSize[iLight]*sizeof(LIGHT_NODE)))==NULL)
 		{
 			usTemplateSize[iLight]=0;
+			FileClose(hFile); // leak: close open file on alloc-failure path
 			return(-1);
 		}
 		FileRead(hFile, pLightList[iLight], sizeof(LIGHT_NODE)*usTemplateSize[iLight], NULL);
@@ -3005,6 +3006,8 @@ INT32 LightLoad(STR pFilename)
 			usTemplateSize[iLight]=0;
 			usRaySize[iLight]=0;
 			MemFree(pLightList[iLight]);
+			pLightList[iLight]=NULL; // leak: avoid dangling freed pointer
+			FileClose(hFile); // leak: close open file on alloc-failure path
 			return(-1);
 		}
 		FileRead(hFile, pLightRayList[iLight], sizeof(UINT16)*usRaySize[iLight], NULL);
@@ -3083,7 +3086,7 @@ BOOLEAN LightSetColors(SGPPaletteEntry *pPal, UINT8 ubNumColors)
 
 	// we will have at least one light color
 	memcpy(&gpLightColors[0], &pPal[0], sizeof(SGPPaletteEntry));
-	memcpy(&gpOrigLights[0], &pPal[0], sizeof(SGPPaletteEntry)*2);
+	memcpy(&gpOrigLights[0], &pPal[0], sizeof(SGPPaletteEntry) * (ubNumColors >= 2 ? 2 : 1));	// only 2 entries when the caller supplied 2; a 1-colour call over-reads pPal[1]
 
 	gubNumLightColors=ubNumColors;
 

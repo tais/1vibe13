@@ -457,6 +457,12 @@ void DisplayPreviousShipments()
 	uiNumItems = (UINT32)gPostalService.LookupShipmentList().size();
 	if(uiNumItems > BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS)
 		uiNumItems = BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS;
+	// gShipmentTable is a snapshot taken on the Bobby Ray FRONT page; placing an order grows the
+	// live list and jumps straight to this page without refreshing it, so the loop below (bounded
+	// by the LIVE list size) would index gShipmentTable[uiCnt] past its end -> wild-pointer deref.
+	// Bound by the snapshot size too.
+	if(uiNumItems > gShipmentTable.size())
+		uiNumItems = (UINT32)gShipmentTable.size();
 
 	//loop through all the shipments
 	for( uiCnt=0; uiCnt<uiNumItems; uiCnt++ )
@@ -568,7 +574,7 @@ void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason
 
 			//loop through and get the "x" iSlotID shipment
 //			for( iCnt=0; iCnt<giNumberOfNewBobbyRShipment; iCnt++ )
-			for( iCnt=0; iCnt<gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT); iCnt++ )
+			for( iCnt=0; iCnt<gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT) && iCnt<(INT32)gShipmentTable.size(); iCnt++ )	// bound by the snapshot too (same stale-gShipmentTable OOB as DisplayPreviousShipments)
 			{
 //				if( gpNewBobbyrShipments[iCnt].fActive )
 				if( gShipmentTable[iCnt]->ShipmentStatus == SHIPMENT_INTRANSIT )

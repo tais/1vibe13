@@ -465,11 +465,22 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 			}
 			if(uiBytesToRead != uiBytesRead)
 			{
+				// Zero the tail we did NOT read so a caller that ignores this FALSE return
+				// consumes defined zeros instead of uninitialized memory as data/offsets
+				// (the recurring 'ignored FileRead -> uninitialized-data-as-index' crash class).
+				if ( pDest && uiBytesRead < uiBytesToRead )
+					memset( (UINT8*)pDest + uiBytesRead, 0, uiBytesToRead - uiBytesRead );
 				return FALSE;
 			}
 			return TRUE;
 		}
 	}
+	// No readable file (NULL handle / not opened for read / not castable): nothing was written
+	// to pDest. Zero it and report 0 bytes read so the same ignored-return class stays safe.
+	if ( pDest )
+		memset( pDest, 0, uiBytesToRead );
+	if ( puiBytesRead )
+		*puiBytesRead = 0;
 	return FALSE;
 }
 
