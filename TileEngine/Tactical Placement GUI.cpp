@@ -720,7 +720,10 @@ void InitTacticalPlacementGUI()
 			
 			// WANNE: We always want to have edgepoints
 			CheckForValidMapEdge( &pSoldier->ubStrategicInsertionCode );
-			
+			// re-sync the placement copy: CheckForValidMapEdge may substitute a valid arrival side when the
+			// original has no entry point; without this the copy keeps the stale code -> placement screen soft-locks
+			gMercPlacement[ giPlacements ].ubStrategicInsertionCode = pSoldier->ubStrategicInsertionCode;
+
 			// Flugente: campaign stats
 			switch( pSoldier->ubStrategicInsertionCode )
 			{
