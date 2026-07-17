@@ -979,7 +979,7 @@ void SectorFillCanteens( void )
 
 					if ( pObj != NULL && pObj->exists() )								// ... if pointer is not obviously useless ...
 					{
-						if ( (Food[pObj->usItem].bDrinkPoints > 0) && !HasItemFlag(pObj->usItem, (WATER_DRUM)) )					// ... if item is NOT a water drum...
+						if ( (Item[pObj->usItem].foodtype > 0) && (Food[Item[pObj->usItem].foodtype].bDrinkPoints > 0) && !HasItemFlag(pObj->usItem, (WATER_DRUM)) )					// index Food[] by foodtype, not the raw item number (was OOB read)
 						{
 							INT32 canteensize = Food[Item[pObj->usItem].foodtype].bDrinkPoints;
 
