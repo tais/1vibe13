@@ -18,6 +18,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 
 #include "types.h"
 #include "MemMan.h"
@@ -35,6 +36,15 @@ BOOLEAN  gfDedicatedServer    = FALSE;
 BOOLEAN  gfDontUseDDBlits     = FALSE;
 bool     g_bUseXML_Structures = false;
 CHAR8    gzCommandLine[ 100 ] = { 0 };
+
+// The engine libs also call ShutdownWithErrorBox() (defined in sgp/sgp.cpp) on a fatal error.
+// Windows' lld-link pulls the referencing object into the test binary even though the macOS/
+// Linux archive linkers don't, so the harness must define it. Behave like a fatal handler.
+void ShutdownWithErrorBox( const CHAR8* pcMessage )
+{
+	std::fprintf( stderr, "ShutdownWithErrorBox: %s\n", pcMessage ? pcMessage : "" );
+	std::exit( 1 );
+}
 
 static int g_failures = 0;
 #define CHECK( cond, msg ) \
