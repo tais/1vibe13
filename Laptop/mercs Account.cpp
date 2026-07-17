@@ -793,7 +793,7 @@ UINT32	CalculateHowMuchPlayerOwesSpeck()
 	UINT32			uiContractCharge=0;
 	UINT16			usMercID;
 
-	for(i=0; i<(NUMBER_OF_MERCS - 1); i++)
+	for(i=0; i<NUMBER_OF_MERCS; i++)	// was < NUMBER_OF_MERCS-1, which omitted the last M.E.R.C. merc from the debt total (every other loop in this file iterates the full array)
 	{
 		// WANNE: If we have drunken merc, then skip otherwise is will exist 2 times!
 		if (gConditionsForMercAvailability[ i ].Drunk)
