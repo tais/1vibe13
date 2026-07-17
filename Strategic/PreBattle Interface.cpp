@@ -619,8 +619,10 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 					{ //Not able to retreat (calculate it for group)
 						GROUP *pTempGroup;
 						pTempGroup = GetGroup( ubGroupID );
-						Assert( pTempGroup );
-						CalculateGroupRetreatSector( pTempGroup );
+						// a groupless involved merc (doctor/repair/patient/train) has ubGroupID 0 -> GetGroup(0)==NULL;
+						// Assert only shows the error screen and RETURNS, so the deref below segfaults on ubSectorX
+						if ( pTempGroup )
+							CalculateGroupRetreatSector( pTempGroup );
 					}
 				}
 				else if( ubGroupID != pSoldier->ubGroupID )
@@ -785,7 +787,9 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 						{ 					
 							INT32 iChance;
 							// Basic chance - progress level/2 minus highest merc exp level*2, and 10% on top
-							iChance = (UINT8)( ((CurrentPlayerProgressPercentage() / 2 ) - bBestExpLevel*2 ) + 15 );
+							// no (UINT8) cast: this is intentionally allowed to go negative (floored to 1 below).
+							// The cast wrapped a negative base chance (experienced merc, low progress) to ~251 -> guaranteed ambush.
+							iChance = ((CurrentPlayerProgressPercentage() / 2 ) - bBestExpLevel*2 ) + 15;
 
 							if( pSector->uiFlags & SF_ENEMY_AMBUSH_LOCATION )
 								iChance += 20;
