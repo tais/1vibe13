@@ -2333,15 +2333,19 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 		if( pEvent->ubCallbackID == EVENT_GROUP_ARRIVAL && !(pEvent->ubFlags & SEF_DELETION_PENDING) )
 		{
 			pGroup = GetGroup( (UINT8)pEvent->uiParam );
-			Assert( pGroup );
-			if( pGroup->ubNextX == ubSectorX && pGroup->ubNextY == ubSectorY && pGroup->ubSectorZ == ubSectorZ )
+			// Assert() is a release no-op: GetGroup can return NULL for a stale event id.
+			if( pGroup && pGroup->ubNextX == ubSectorX && pGroup->ubNextY == ubSectorY && pGroup->ubSectorZ == ubSectorZ )
 			{
 				if( pGroup->fBetweenSectors )
 				{
 					GroupArrivedAtSector( (UINT8)pEvent->uiParam, FALSE, FALSE );
-					pGroup->uiFlags |= GROUPFLAG_GROUP_ARRIVED_SIMULTANEOUSLY;
+					// GroupArrivedAtSector can dissolve/free the group (e.g. a militia group merging
+					// into the sector), so re-fetch it before touching it again (was a use-after-free).
+					pGroup = GetGroup( (UINT8)pEvent->uiParam );
+					if( pGroup )
+						pGroup->uiFlags |= GROUPFLAG_GROUP_ARRIVED_SIMULTANEOUSLY;
 					++gubNumGroupsArrivedSimultaneously;
-					DeleteStrategicEvent( EVENT_GROUP_ARRIVAL, pGroup->ubGroupID );
+					DeleteStrategicEvent( EVENT_GROUP_ARRIVAL, (UINT8)pEvent->uiParam );
 					pEvent = gpEventList;
 					continue;
 				}
