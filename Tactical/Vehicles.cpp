@@ -680,7 +680,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 				// bInitialActionPoints - point in time where soldier and vehicle start sharing timeline
 				pSoldier->bInitialActionPoints = pSoldier->bActionPoints;
 				// set proper initial rotation
-				UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicleSoldier->bVehicleID ].ubVehicleType ].VehicleSeats[ ubSeatIndex ].ubRotation;
+				UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicleSoldier->bVehicleID ].ubVehicleType ].VehicleSeats[ ubFinalSeatIndex ].ubRotation;
 				pSoldier->flags.fDontChargeTurningAPs = TRUE;
 				pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicleSoldier->pathing.bDesiredDirection + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
