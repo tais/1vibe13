@@ -1208,6 +1208,13 @@ namespace MiniEventHelpers
 		}
 
 		INT8 bestStat = 0;
+		if (gAllMercs.empty())	// no mercs -> gAllMercs[0] is OOB and bestSoldier would be dereferenced below
+		{
+			lua_pushinteger(LS, 0);
+			lua_pushstring(LS, "");
+			lua_pushinteger(LS, 0);
+			return 3;
+		}
 		SOLDIERTYPE* bestSoldier = gAllMercs[0];
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{

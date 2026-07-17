@@ -1220,7 +1220,9 @@ BOOLEAN CallMilitiaReinforcements( INT16 sTargetMapX, INT16 sTargetMapY, INT16 s
 	guiDirNumber = insertioncode + 1;
 
 	// we can't move more than we are told, and can't add more than would fit into the sector
-	UINT16 possibletomove = min( sNumber, gGameExternalOptions.iMaxMilitiaPerSector - NumNonPlayerTeamMembersInSector( sTargetMapX, sTargetMapY, MILITIA_TEAM ) );
+	// clamp the room to >= 0 first: if the target is already at/over the cap the subtraction goes negative and wraps to ~65500 in the UINT16 (cf. the __max(0,...) guard used above)
+	INT32 iRoomLeft = gGameExternalOptions.iMaxMilitiaPerSector - NumNonPlayerTeamMembersInSector( sTargetMapX, sTargetMapY, MILITIA_TEAM );
+	UINT16 possibletomove = ( iRoomLeft > 0 ) ? (UINT16)min( (INT32)sNumber, iRoomLeft ) : 0;
 
 	UINT16 sMilitiaMoved = 0;
 	while ( sMilitiaMoved < possibletomove && MoveOneBestMilitiaMan( sSrcMapX, sSrcMapY, sTargetMapX, sTargetMapY ) )
