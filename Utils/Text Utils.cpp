@@ -5,6 +5,7 @@
 	#include <codecvt>
 	#include <locale>   // wstring_convert lives here in libstdc++; libc++ pulls it in via <codecvt>
 	#include <string>
+	#include <vector>
 
 auto FormatMoney(INT32 iNumber) -> std::wstring
 {
@@ -157,15 +158,17 @@ int StringToEnum(const STR8 value, const Str16EnumLookupType *table)
 		return 0;
 
 	int result = 0;
-	int len = strlen(value)+1;
-	CHAR16 *wval = (CHAR16 *)malloc( len*sizeof(CHAR16) );
-	mbstowcs(wval, value, len);
+	const size_t convertedLength = mbstowcs(NULL, value, 0);
+	if (convertedLength == (size_t)-1)
+		return (int)strtol(value, NULL, 0);
+	std::vector<CHAR16> wval(convertedLength + 1, L'\0');
+	if (mbstowcs(wval.data(), value, wval.size()) == (size_t)-1)
+		return (int)strtol(value, NULL, 0);
 	for (const Str16EnumLookupType *itr = table; itr->name != NULL; ++itr) {
-		if (0 == _wcsicmp(wval, itr->name)) {
+		if (0 == _wcsicmp(wval.data(), itr->name)) {
 			result = itr->value;
 		}
 	}
-	free(wval);
 	return (result) ? result : (int)strtol(value, NULL, 0);
 }
 
@@ -175,15 +178,17 @@ int StringToEnum(const STR16 value, const Str8EnumLookupType *table)
 		return 0;
 
 	int result = 0;
-	int len = wcslen(value)+1;
-	CHAR8 *mval = (CHAR8 *)malloc( len*sizeof(CHAR8) );
-	wcstombs(mval, value, len);
+	const size_t convertedLength = wcstombs(NULL, value, 0);
+	if (convertedLength == (size_t)-1)
+		return (int)wcstol(value, NULL, 0);
+	std::vector<CHAR8> mval(convertedLength + 1, '\0');
+	if (wcstombs(mval.data(), value, mval.size()) == (size_t)-1)
+		return (int)wcstol(value, NULL, 0);
 	for (const Str8EnumLookupType *itr = table; itr->name != NULL; ++itr) {
-		if (0 == _stricmp(mval, itr->name)) {
+		if (0 == _stricmp(mval.data(), itr->name)) {
 			result = itr->value;
 		}
 	}
-	free(mval);
 	return (result) ? result : (int)wcstol(value, NULL, 0);
 }
 
