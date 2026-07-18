@@ -447,7 +447,6 @@ void SetSSA(void)
 	CHAR8	SectorName[1024];
 	CHAR8	TownName[1024];
 	CHAR8	GenericName[1024];
-	CHAR8	UnderGround[1024];
 	BOOLEAN fUnderground = FALSE;
 	SGPFILENAME		zFileName;
 	UINT8	ubSectorID;
@@ -511,7 +510,7 @@ void SetSSA(void)
 	}
 
 	// check sector file
-	sprintf(SectorName, "%s%s", pVertStrings[gWorldSectorY], pHortStrings[gWorldSectorX]);
+	snprintf(SectorName, sizeof(SectorName), "%s%s", pVertStrings[gWorldSectorY], pHortStrings[gWorldSectorX]);
 
 	// determine underground
 	if (gbWorldSectorZ > 0)
@@ -526,27 +525,20 @@ void SetSSA(void)
 	// check generic file
 
 	// prepare name
-	strcpy(filename, "Ambient\\SSA\\");
-	strcat(filename, SectorName);
 	if (fUnderground)
 	{
-		sprintf(UnderGround, "u%d", gbWorldSectorZ + 1);
-		strcat(filename, UnderGround);
+		snprintf(filename, sizeof(filename), "Ambient\\SSA\\%su%d_", SectorName, gbWorldSectorZ + 1);
 	}
-	strcat(filename, "_");
-	if (!fUnderground)
+	else
 	{
-		if (fNight)
-			strcat(filename, "night_");
-		else
-			strcat(filename, "day_");
+		snprintf(filename, sizeof(filename), "Ambient\\SSA\\%s_%s_", SectorName, fNight ? "night" : "day");
 	}
 
 	// find number of files
 	ubNumSounds = 0;
 	for (UINT8 i = 1; i <= MAX_SSA_SOUNDS; i++)
 	{
-		sprintf(zFileName, "%s%d.ogg", filename, i);
+		snprintf(zFileName, sizeof(zFileName), "%s%d.ogg", filename, i);
 
 		if (!FileExists(zFileName))
 			break;
@@ -558,19 +550,13 @@ void SetSSA(void)
 	if (ubNumSounds == 0 && !fUnderground && ubTownID != BLANK_SECTOR)
 	{
 		// prepare name
-		strcpy(filename, "Ambient\\SSA\\");
-		strcat(filename, TownName);
-		strcat(filename, "_");
-		if (fNight)
-			strcat(filename, "night_");
-		else
-			strcat(filename, "day_");
+		snprintf(filename, sizeof(filename), "Ambient\\SSA\\%s_%s_", TownName, fNight ? "night" : "day");
 
 		// find number of files
 		ubNumSounds = 0;
 		for (UINT8 i = 1; i <= MAX_SSA_SOUNDS; i++)
 		{
-			sprintf(zFileName, "%s%d.ogg", filename, i);
+			snprintf(zFileName, sizeof(zFileName), "%s%d.ogg", filename, i);
 
 			if (!FileExists(zFileName))
 				break;
@@ -687,22 +673,14 @@ void SetSSA(void)
 		}
 
 		// prepare name
-		strcpy(filename, "Ambient\\SSA\\");
-		strcat(filename, GenericName);
-		strcat(filename, "_");
-		if (!fUnderground)
-		{
-			if (fNight)
-				strcat(filename, "night_");
-			else
-				strcat(filename, "day_");
-		}
+		snprintf(filename, sizeof(filename), "Ambient\\SSA\\%s_%s", GenericName,
+			fUnderground ? "" : (fNight ? "night_" : "day_"));
 
 		// find number of files
 		ubNumSounds = 0;
 		for (UINT8 i = 1; i <= MAX_SSA_SOUNDS; i++)
 		{
-			sprintf(zFileName, "%s%d.ogg", filename, i);
+			snprintf(zFileName, sizeof(zFileName), "%s%d.ogg", filename, i);
 
 			if (!FileExists(zFileName))
 				break;
@@ -721,7 +699,7 @@ void SetSSA(void)
 	//ubChosenSound = Random(ubNumSounds) + 1;
 
 	// make a file name
-	sprintf(zFileName, "%s%d.ogg", filename, ubChosenSound);
+	snprintf(zFileName, sizeof(zFileName), "%s%d.ogg", filename, ubChosenSound);
 
 	// start sound
 	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
