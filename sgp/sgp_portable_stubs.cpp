@@ -42,10 +42,6 @@
 // the real SDL3_mixer-backed soundman.cpp in Phase 6r, so this block
 // is gone.
 
-// ---- KeyMap (Utils/KeyMap.cpp) --------------------------------------------
-BOOLEAN IsKeyPressed(INT32)      { return FALSE; }
-INT32   ParseKeyString(STR8)     { return 0; }
-
 // ---- Intro (Ja2/Intro.cpp) -------------------------------------------------
 // Phase 8 will land real cinematic playback. Until then init/shutdown
 // just need to return TRUE (the screen registration loop treats FALSE

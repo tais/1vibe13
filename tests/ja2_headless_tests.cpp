@@ -26,6 +26,7 @@
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include "KeyMap.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 
@@ -79,6 +80,15 @@ int main( int, char** )
 	}
 
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+#ifndef _WIN32
+	{
+		const int parsed = ParseKeyString( "CTRL + F12 + A + LEFT + B" );
+		const UINT8* keys = (const UINT8*)&parsed;
+		CHECK( keys[0] == 0x11 && keys[1] == 0x7B && keys[2] == 'A' && keys[3] == 0x25,
+		       "portable key parser preserves four packed VK-compatible keys" );
+	}
+#endif
 
 	// The VFS profiler/logger timer used to have no macOS return path and its
 	// Linux timeval calculation lost whole seconds. Exercise the portable

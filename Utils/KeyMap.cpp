@@ -229,9 +229,12 @@ static Str8EnumLookupType gKeyTable[] =
 };
 
 static inline CHAR8 *Trim(CHAR8 *&p) {
-	while(isspace(*p)) *p++ = 0;
-	CHAR8 *e = p + strlen(p) - 1;
-	while (e > p && isspace(*e)) *e-- = 0;
+	while(*p && isspace((unsigned char)*p)) *p++ = 0;
+	const size_t length = strlen(p);
+	if (length == 0)
+		return p;
+	CHAR8 *e = p + length;
+	while (e > p && isspace((unsigned char)e[-1])) *--e = 0;
 	return p;
 }
 
@@ -257,6 +260,9 @@ extern BOOLEAN IsKeyPressed(int value)
 
 extern int ParseKeyString(const STR value)
 {
+	if (!value)
+		return 0;
+
 	STRING512 buffer;
 	strncpy(buffer, value, _countof(buffer));
 	buffer[_countof(buffer)-1] = 0;
@@ -264,13 +270,143 @@ extern int ParseKeyString(const STR value)
 	int idx = 0;
 	UINT8* ptr = (UINT8*)&iresult;
 	const STR sDelims = "|+";
-	for ( CHAR8 *key = strtok(buffer, sDelims); key != NULL; key = strtok(NULL, sDelims) )
+	for ( CHAR8 *key = strtok(buffer, sDelims);
+	      key != NULL && idx < (int)sizeof(iresult);
+	      key = strtok(NULL, sDelims) )
 	{
 		Trim(key);
+		if (!*key)
+			continue;
 		int ichr = StringToEnum(key, gKeyTable);
 		if (ichr > 0 && ichr <= 0xFF)
 			ptr[idx++] = (UINT8)ichr;
 	}
 	return iresult;
 }
+#else
+
+#include <SDL3/SDL.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+// Portable key polling retains the packed Win32 VK values used by existing
+// JA2 configuration strings, translating them to SDL scancodes at the edge.
+static bool IsPortableKeyPressed(UINT8 key)
+{
+	const SDL_Keymod modifiers = SDL_GetModState();
+	if (key == 0x10) return (modifiers & SDL_KMOD_SHIFT) != 0;
+	if (key == 0x11) return (modifiers & SDL_KMOD_CTRL) != 0;
+	if (key == 0x12) return (modifiers & SDL_KMOD_ALT) != 0;
+
+	SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
+	if (key >= 'A' && key <= 'Z')
+		scancode = (SDL_Scancode)(SDL_SCANCODE_A + key - 'A');
+	else if (key >= '1' && key <= '9')
+		scancode = (SDL_Scancode)(SDL_SCANCODE_1 + key - '1');
+	else if (key == '0') scancode = SDL_SCANCODE_0;
+	else if (key >= 0x70 && key <= 0x7B)
+		scancode = (SDL_Scancode)(SDL_SCANCODE_F1 + key - 0x70);
+	else
+	{
+		switch (key)
+		{
+		case 0x08: scancode = SDL_SCANCODE_BACKSPACE; break;
+		case 0x09: scancode = SDL_SCANCODE_TAB; break;
+		case 0x0D: scancode = SDL_SCANCODE_RETURN; break;
+		case 0x13: scancode = SDL_SCANCODE_PAUSE; break;
+		case 0x14: scancode = SDL_SCANCODE_CAPSLOCK; break;
+		case 0x1B: scancode = SDL_SCANCODE_ESCAPE; break;
+		case 0x20: scancode = SDL_SCANCODE_SPACE; break;
+		case 0x21: scancode = SDL_SCANCODE_PAGEUP; break;
+		case 0x22: scancode = SDL_SCANCODE_PAGEDOWN; break;
+		case 0x23: scancode = SDL_SCANCODE_END; break;
+		case 0x24: scancode = SDL_SCANCODE_HOME; break;
+		case 0x25: scancode = SDL_SCANCODE_LEFT; break;
+		case 0x26: scancode = SDL_SCANCODE_UP; break;
+		case 0x27: scancode = SDL_SCANCODE_RIGHT; break;
+		case 0x28: scancode = SDL_SCANCODE_DOWN; break;
+		case 0x2D: scancode = SDL_SCANCODE_INSERT; break;
+		case 0x2E: scancode = SDL_SCANCODE_DELETE; break;
+		default: return false;
+		}
+	}
+
+	int keyCount = 0;
+	const bool* state = SDL_GetKeyboardState(&keyCount);
+	return state && scancode > SDL_SCANCODE_UNKNOWN && (int)scancode < keyCount && state[scancode];
+}
+
+BOOLEAN IsKeyPressed(int value)
+{
+	if (!value)
+		return FALSE;
+
+	const UINT8* keys = (const UINT8*)&value;
+	for (size_t i = 0; i < sizeof(value) && keys[i]; ++i)
+	{
+		if (!IsPortableKeyPressed(keys[i]))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static UINT8 PortableKeyCode(const char* name)
+{
+	if (!name || !*name) return 0;
+	if (name[1] == '\0')
+	{
+		const unsigned char c = (unsigned char)name[0];
+		if (isalnum(c)) return (UINT8)toupper(c);
+	}
+	if (_stricmp(name, "SHIFT") == 0) return 0x10;
+	if (_stricmp(name, "CTRL") == 0 || _stricmp(name, "CONTROL") == 0) return 0x11;
+	if (_stricmp(name, "ALT") == 0) return 0x12;
+	if (_stricmp(name, "BACKSPACE") == 0 || _stricmp(name, "BACK") == 0) return 0x08;
+	if (_stricmp(name, "TAB") == 0) return 0x09;
+	if (_stricmp(name, "ENTER") == 0 || _stricmp(name, "RETURN") == 0) return 0x0D;
+	if (_stricmp(name, "PAUSE") == 0) return 0x13;
+	if (_stricmp(name, "CAPSLOCK") == 0 || _stricmp(name, "CAPS") == 0) return 0x14;
+	if (_stricmp(name, "ESC") == 0 || _stricmp(name, "ESCAPE") == 0) return 0x1B;
+	if (_stricmp(name, "SPACE") == 0) return 0x20;
+	if (_stricmp(name, "PAGEUP") == 0 || _stricmp(name, "PGUP") == 0) return 0x21;
+	if (_stricmp(name, "PAGEDOWN") == 0 || _stricmp(name, "PGDN") == 0) return 0x22;
+	if (_stricmp(name, "END") == 0) return 0x23;
+	if (_stricmp(name, "HOME") == 0) return 0x24;
+	if (_stricmp(name, "LEFT") == 0) return 0x25;
+	if (_stricmp(name, "UP") == 0) return 0x26;
+	if (_stricmp(name, "RIGHT") == 0) return 0x27;
+	if (_stricmp(name, "DOWN") == 0) return 0x28;
+	if (_stricmp(name, "INSERT") == 0 || _stricmp(name, "INS") == 0) return 0x2D;
+	if (_stricmp(name, "DELETE") == 0 || _stricmp(name, "DEL") == 0) return 0x2E;
+	if ((name[0] == 'F' || name[0] == 'f') && name[1])
+	{
+		char* end = NULL;
+		const long functionKey = strtol(name + 1, &end, 10);
+		if (end && *end == '\0' && functionKey >= 1 && functionKey <= 12)
+			return (UINT8)(0x70 + functionKey - 1);
+	}
+	return 0;
+}
+
+int ParseKeyString(const STR value)
+{
+	if (!value) return 0;
+	STRING512 buffer;
+	snprintf(buffer, sizeof(buffer), "%s", value);
+	int result = 0;
+	int index = 0;
+	UINT8* keys = (UINT8*)&result;
+	for (char* key = strtok(buffer, "|+"); key && index < (int)sizeof(result); key = strtok(NULL, "|+"))
+	{
+		while (*key && isspace((unsigned char)*key)) ++key;
+		char* end = key + strlen(key);
+		while (end > key && isspace((unsigned char)end[-1])) *--end = '\0';
+		const UINT8 code = PortableKeyCode(key);
+		if (code) keys[index++] = code;
+	}
+	return result;
+}
+
 #endif // _WIN32
