@@ -3081,6 +3081,7 @@ void recieveDOWNLOADSTATUS(RPCParameters *rpcParameters)
 // There is no "0 == fatal VFS error" path and no connect semaphore left dangling here.
 void recieveFILE_TRANSFER_SETTINGS (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, filetransfersettings_struct);
 	if (!is_server && recieved_transfer_settings == 0)
 	{
 		filetransfersettings_struct* fts = (filetransfersettings_struct*)rpcParameters->input;
@@ -3089,7 +3090,8 @@ void recieveFILE_TRANSFER_SETTINGS (RPCParameters *rpcParameters)
 		gTotalTransferBytes = fts->totalTransferBytes;
 
 		// Now get directory
-		strcpy( server_fileTransferDirectoryPath, fts->fileTransferDirectory );
+		fts->fileTransferDirectory[sizeof(fts->fileTransferDirectory) - 1] = 0;
+		sgp_strlcpy( server_fileTransferDirectoryPath, fts->fileTransferDirectory );
 		vfs::Path profileRoot = vfs::Path(gzFileTransferDirectory) + vfs::Path(server_fileTransferDirectoryPath);
 
 		/////////////////////////////////////////////////////////////////////
@@ -3109,6 +3111,7 @@ void recieveFILE_TRANSFER_SETTINGS (RPCParameters *rpcParameters)
 
 void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from server
 {
+	RPC_REQUIRE_BYTES(rpcParameters, settings_struct);
 	int startingEdge = MP_EDGE_NORTH;
 
 	settings_struct* cl_lan = (settings_struct*)rpcParameters->input;
@@ -3119,6 +3122,7 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 
 	char szDefault[30];
 	cl_lan->client_name[sizeof(cl_lan->client_name)-1] = 0;
+	cl_lan->server_name[sizeof(cl_lan->server_name)-1] = 0;
 	snprintf(szDefault, sizeof(szDefault), "%s", cl_lan->client_name);
 
 	// OJW - 20081204
@@ -3154,6 +3158,8 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 		}
 
 		memcpy( client_names , cl_lan->client_names, sizeof( char ) * 4 * 30 );
+		for ( size_t i = 0; i < 4; ++i )
+			client_names[i][sizeof(client_names[i]) - 1] = 0;
 		
 		if ( cl_lan->client_num >= 1 && cl_lan->client_num <= 4 )
 			strcpy(client_names[cl_lan->client_num-1],szDefault);
