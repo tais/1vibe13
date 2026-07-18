@@ -161,7 +161,7 @@ BOOLEAN LoadAmbientControlFile( UINT8 ubAmbientID )
 
 
 	// BUILD FILENAME
-	sprintf( zFilename, "AMBIENT\\%d.bad", ubAmbientID );
+	snprintf( zFilename, sizeof(zFilename), "AMBIENT\\%d.bad", ubAmbientID );
 
 	// OPEN, LOAD
 	hFile = FileOpen( zFilename, FILE_ACCESS_READ, FALSE);
@@ -173,6 +173,14 @@ BOOLEAN LoadAmbientControlFile( UINT8 ubAmbientID )
 	// READ #
 	if( !FileRead( hFile, &gsNumAmbData, sizeof( INT16 ), NULL ) )
 	{
+		FileClose( hFile );
+		gsNumAmbData = 0;
+		return( FALSE );
+	}
+	if ( gsNumAmbData < 0 || gsNumAmbData > MAX_AMBIENT_SOUNDS )
+	{
+		FileClose( hFile );
+		gsNumAmbData = 0;
 		return( FALSE );
 	}
 
@@ -181,11 +189,14 @@ BOOLEAN LoadAmbientControlFile( UINT8 ubAmbientID )
 	{
 		if( !FileRead( hFile, &(gAmbData[ cnt ]), sizeof( AMBIENTDATA_STRUCT ), NULL ) )
 		{
+			FileClose( hFile );
+			gsNumAmbData = 0;
 			return( FALSE );
 		}
 
-		sprintf( zFilename, "AMBIENT\\%s", gAmbData[ cnt ].zFilename );
-		strcpy( gAmbData[ cnt ].zFilename, zFilename );
+		gAmbData[ cnt ].zFilename[sizeof(gAmbData[cnt].zFilename) - 1] = 0;
+		snprintf( zFilename, sizeof(zFilename), "AMBIENT\\%s", gAmbData[ cnt ].zFilename );
+		snprintf( gAmbData[ cnt ].zFilename, sizeof(gAmbData[cnt].zFilename), "%s", zFilename );
 	}
 
 	FileClose( hFile );
