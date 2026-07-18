@@ -65,7 +65,7 @@ public:
 
 	// The AStarData closed-list buffer is sized to the active world (WORLD_MAX),
 	// allocated/freed alongside the world by InitPathAI()/ShutDownPathAI().
-	void			AllocateAStarData	();
+	bool			AllocateAStarData	();
 	void			FreeAStarData		();
 
 private:
