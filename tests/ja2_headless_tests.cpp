@@ -27,6 +27,7 @@
 #include "vobject.h"
 #include "vsurface.h"
 #include <vfs/Tools/vfs_hp_timer.h>
+#include <vfs/Tools/vfs_profiler.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
 // libraries reference. This harness supplies its own main() instead of linking
@@ -90,6 +91,21 @@ int main( int, char** )
 		timer.stopTimer();
 		CHECK( timer.ticks() > 0, "HPTimer reports positive monotonic ticks" );
 		CHECK( timer.getElapsedTimeInSeconds() > 0.0, "HPTimer reports stopped elapsed time" );
+	}
+
+	// Registration used to write past a fixed 1,024-element marker array.
+	// Exceed that boundary under ASan and exercise both valid and invalid IDs.
+	{
+		vfs::Profiler& profiler = vfs::Profiler::getProfiler();
+		profiler.clear();
+		vfs::Profiler::tMarkerID marker = 0;
+		for ( int i = 0; i < 1100; ++i )
+			marker = profiler.registerMarker( "headless-marker" );
+		CHECK( marker == 1099, "Profiler grows beyond 1024 markers" );
+		profiler.startMarker( marker );
+		profiler.stopMarker( marker, true );
+		profiler.startMarker( 999999 );
+		profiler.stopMarker( 999999, false );
 	}
 
 	// --- best-effort: the video managers. They need an SDL video backend; the
