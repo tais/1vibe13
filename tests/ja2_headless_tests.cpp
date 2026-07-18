@@ -27,6 +27,9 @@
 #include "vobject.h"
 #include "vsurface.h"
 #include "KeyMap.h"
+#include "input.h"
+#include "sdl_input.h"
+#include "english.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 
@@ -89,6 +92,22 @@ int main( int, char** )
 		       "portable key parser preserves four packed VK-compatible keys" );
 	}
 #endif
+
+	{
+		CHECK( InitializeInputManager(), "InitializeInputManager()" );
+		SDL_Event keyEvent = {};
+		keyEvent.type = SDL_EVENT_KEY_DOWN;
+		keyEvent.key.scancode = SDL_SCANCODE_F1;
+		keyEvent.key.key = SDLK_F1;
+		SgpHandleSDLEvent( &keyEvent );
+		InputAtom atom = {};
+		CHECK( DequeueEvent( &atom ) && atom.usEvent == KEY_DOWN && atom.usParam == F1,
+		       "SDL F1 queues the JA2 symbolic function-key value" );
+		keyEvent.type = SDL_EVENT_KEY_UP;
+		SgpHandleSDLEvent( &keyEvent );
+		DequeueEvent( &atom );
+		ShutdownInputManager();
+	}
 
 	// The VFS profiler/logger timer used to have no macOS return path and its
 	// Linux timeval calculation lost whole seconds. Exercise the portable
