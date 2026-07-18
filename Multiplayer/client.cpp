@@ -4005,6 +4005,7 @@ void send_plant_explosive (SoldierID ubID,UINT16 usItem,UINT8 ubItemStatus,UINT1
 
 void recievePLANTEXPLOSIVE (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, explosive_obj);
 	explosive_obj* exp = (explosive_obj*)rpcParameters->input;
 
 	exp->ubID = MPDecodeSoldierID( exp->ubID );
@@ -4142,6 +4143,7 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 
 void recieveDETONATEEXPLOSIVE (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, detonate_struct);
 	detonate_struct* det = (detonate_struct*)rpcParameters->input;
 
 	det->ubID = MPDecodeSoldierID(det->ubID);
@@ -4255,6 +4257,7 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 
 void recieveDISARMEXPLOSIVE (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, disarm_struct);
 	disarm_struct* disarm = (disarm_struct*)rpcParameters->input; 
 
 	disarm->ubID = MPDecodeSoldierID(disarm->ubID);
@@ -4339,6 +4342,7 @@ void send_spreadeffect ( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID
 
 void recieveSPREADEFFECT (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, spreadeffect_struct);
 	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->input;
 
 	sef->ubOwner = MPDecodeSoldierID(sef->ubOwner);
@@ -4423,6 +4427,7 @@ void send_newsmokeeffect(INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ub
 
 void recieveNEWSMOKEEFFECT (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, spreadeffect_struct);
 	spreadeffect_struct* sef = (spreadeffect_struct*)rpcParameters->input;
 
 	// translate any of our soldier ids back to the correct local copy
