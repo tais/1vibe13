@@ -48,18 +48,36 @@ void BtnIMPVoicesPreviousCallback(GUI_BUTTON *btn,INT32 reason);
 void BtnIMPVoicesDoneCallback(GUI_BUTTON *btn,INT32 reason);
 void IMPPortraitRegionButtonCallback(MOUSE_REGION * pRegion, INT32 iReason );
 
-void EnterIMPVoices( void )
+static bool VoiceMatchesCharacter(size_t index)
 {
-	// Set the initial voice
-	for ( int i = 0; i < gIMPVoice.size(); ++i )
+	if (index >= gIMPVoice.size() || !gIMPVoice[index].exists)
 	{
-		// MALE is 0, FEMALE is 1, thus the negation
-		if ( gIMPVoice[i].exists && !fCharacterIsMale == gIMPVoice[i].bSex )
+		return false;
+	}
+
+	const BOOLEAN selectedSex = fCharacterIsMale ? MALE : FEMALE;
+	return gIMPVoice[index].bSex == selectedSex;
+}
+
+static void SelectFirstMatchingVoice()
+{
+	for (size_t i = 0; i < gIMPVoice.size(); ++i)
+	{
+		if (VoiceMatchesCharacter(i))
 		{
-			iCurrentVoice = i;
-			break;
+			iCurrentVoice = (INT32)i;
+			return;
 		}
 	}
+
+	// Preserve the legacy behavior for incomplete mod data: use the first
+	// available voice rather than leaving an out-of-range stale selection.
+	iCurrentVoice = 0;
+}
+
+void EnterIMPVoices( void )
+{
+	SelectFirstMatchingVoice();
 	
 	// create buttons
 	CreateIMPVoicesButtons( );
@@ -118,23 +136,17 @@ void HandleIMPVoices( void )
 
 void IncrementVoice()
 {
-	++iCurrentVoice;
-	
-	for ( int i = iCurrentVoice; i < gIMPVoice.size( ); ++i )
+	if (gIMPVoice.empty())
 	{
-		if ( gIMPVoice[i].exists && !fCharacterIsMale == gIMPVoice[i].bSex )
-		{
-			iCurrentVoice = i;
-			return;
-		}
+		return;
 	}
 
-	// still here? Start from the beginning then
-	for ( int i = 0; i < gIMPVoice.size( ); ++i )
+	for (size_t offset = 1; offset <= gIMPVoice.size(); ++offset)
 	{
-		if ( gIMPVoice[i].exists && !fCharacterIsMale == gIMPVoice[i].bSex )
+		const size_t candidate = ((size_t)iCurrentVoice + offset) % gIMPVoice.size();
+		if (VoiceMatchesCharacter(candidate))
 		{
-			iCurrentVoice = i;
+			iCurrentVoice = (INT32)candidate;
 			return;
 		}
 	}
@@ -142,23 +154,18 @@ void IncrementVoice()
 
 void DecrementVoice( void )
 {
-	--iCurrentVoice;
-
-	for ( int i = iCurrentVoice; i > 0; --i )
+	if (gIMPVoice.empty())
 	{
-		if ( gIMPVoice[i].exists && !fCharacterIsMale == gIMPVoice[i].bSex )
-		{
-			iCurrentVoice = i;
-			return;
-		}
+		return;
 	}
 
-	// still here? Start from the beginning then
-	for ( int i = gIMPVoice.size( ) - 1; i > 0; --i )
+	const size_t current = iCurrentVoice >= 0 ? (size_t)iCurrentVoice : 0;
+	for (size_t offset = 1; offset <= gIMPVoice.size(); ++offset)
 	{
-		if ( gIMPVoice[i].exists && !fCharacterIsMale == gIMPVoice[i].bSex )
+		const size_t candidate = (current + gIMPVoice.size() - (offset % gIMPVoice.size())) % gIMPVoice.size();
+		if (VoiceMatchesCharacter(candidate))
 		{
-			iCurrentVoice = i;
+			iCurrentVoice = (INT32)candidate;
 			return;
 		}
 	}
@@ -318,6 +325,10 @@ void BtnIMPVoicesDoneCallback( GUI_BUTTON *btn, INT32 reason )
 			// Changed to continue to color choosing - SANDRO
 			iCurrentImpPage = IMP_COLOR_CHOICE_PAGE;
 			
+			if (iCurrentVoice < 0 || (size_t)iCurrentVoice >= gIMPVoice.size())
+			{
+				return;
+			}
 			iSelectedIMPVoiceSet = gIMPVoice[iCurrentVoice].voiceset;
 
 			// set button up image	pending
@@ -340,13 +351,21 @@ BOOLEAN CameBackToVoicePageButNotFinished( )
 
 UINT32 PlayVoice( void )
 {
+	if (iCurrentVoice < 0 || (size_t)iCurrentVoice >= gIMPVoice.size())
+	{
+		return SOUND_ERROR;
+	}
+
 	CHAR8 zFileName[164];
 	CHAR8 zFileNameHelp[164];
 
 	UINT16 iSlot = gIMPVoice[iCurrentVoice].voiceset;
-	Assert( (iSlot >= 0) && (iSlot <= 999) );
+	if (iSlot > 999)
+	{
+		return SOUND_ERROR;
+	}
 
-	sprintf( zFileNameHelp, "Speech\\%03d_001", iSlot );
+	snprintf( zFileNameHelp, sizeof(zFileNameHelp), "Speech\\%03u_001", (unsigned)iSlot );
 
 	SoundFileExists( zFileNameHelp, zFileName );
 
