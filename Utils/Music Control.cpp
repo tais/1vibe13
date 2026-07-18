@@ -83,7 +83,7 @@ static void AddMusicToList(STR fileName, NewMusicList mode)
 	UINT8 constexpr buf = 64;
 	CHAR8 musicFile[buf];
 
-	if (SoundFileExists(fileName, musicFile))
+	if (SoundFileExists(fileName, musicFile, sizeof(musicFile)))
 	{
 		CHAR8 *music = (CHAR8 *)MemAlloc(buf * sizeof(CHAR8));
 		if (!music)
@@ -116,7 +116,7 @@ void InitializeMusicLists()
 	AddMusicToList(szMusicList[TENSOR_C_MUSIC], MUSICLIST_TACTICAL_ENEMYPRESENT);
 
 	AddMusicToList(szMusicList[BATTLE_A_MUSIC], MUSICLIST_TACTICAL_BATTLE);
-	if (SoundFileExists(szMusicList[BATTLE_B_MUSIC], fileName))
+	if (SoundFileExists(szMusicList[BATTLE_B_MUSIC], fileName, sizeof(fileName)))
 	{
 		AddMusicToList(szMusicList[BATTLE_B_MUSIC], MUSICLIST_TACTICAL_BATTLE);
 	}

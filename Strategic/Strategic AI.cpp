@@ -5480,7 +5480,7 @@ void LogStrategicMsg( STR8	str, ... )
 	va_list argptr;
 	CHAR8	string[512];
 	va_start(argptr, str );
-	vsprintf( string, str, argptr);
+	vsnprintf( string, sizeof(string), str, argptr);
 	va_end(argptr);
 
 	SGP_LOG(s_stratD.id, string);
@@ -5500,7 +5500,7 @@ void LogStrategicEvent( STR8	str, ... )
 	va_list argptr;
 	CHAR8	string[512];
 	va_start(argptr, str );
-	vsprintf( string, str, argptr);
+	vsnprintf( string, sizeof(string), str, argptr);
 	va_end(argptr);
 
 	SGP_LOG(s_stratD.id) << sgp::endl << WORLDTIMESTR << ":" << sgp::endl << string << sgp::endl;

@@ -3495,7 +3495,7 @@ void NpcRecordLogging( UINT8 ubApproach, STR pStringA, ...)
 
 
 	va_start(argptr, pStringA);			// Set up variable argument pointer
-	vsprintf(TempString, pStringA, argptr);	// process gprintf string (get output str)
+	vsnprintf(TempString, sizeof(TempString), pStringA, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
 
 
@@ -3515,7 +3515,7 @@ void NpcRecordLogging( UINT8 ubApproach, STR pStringA, ...)
 		return;
 	}
 
-	sprintf( DestString, "\n\t\t%s", TempString );
+	snprintf( DestString, sizeof(DestString), "\n\t\t%s", TempString );
 
 	//append to file
 	if( !FileWrite( hFile, DestString, strlen(DestString), &uiByteWritten ) )

@@ -438,7 +438,7 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 
 	//Build the output strings
 	if( message )
-		sprintf( gubAssertString, "%s", message );	// message is an assert string, not a format string
+		snprintf( gubAssertString, sizeof(gubAssertString), "%s", message );	// message is an assert string, not a format string
 	else
 		gubAssertString[0] = '\0';
 
@@ -453,9 +453,9 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 	// WDS - Automatically try to save when an assertion failure occurs
 	if (gGameExternalOptions.autoSaveOnAssertionFailure &&
 		!alreadySaving) {
-		sprintf( gubErrorText, "%s. Attempting to do a debug save as SaveGame%d.sav (this may fail)", basicInformation.str().c_str(), SAVE__ASSERTION_FAILURE );
+		snprintf( gubErrorText, sizeof(gubErrorText), "%s. Attempting to do a debug save as SaveGame%d.sav (this may fail)", basicInformation.str().c_str(), SAVE__ASSERTION_FAILURE );
 	} else {
-		sprintf( gubErrorText, "%s", basicInformation.str().c_str());
+		snprintf( gubErrorText, sizeof(gubErrorText), "%s", basicInformation.str().c_str());
 	}
 	SetPendingNewScreen( ERROR_SCREEN );
 	SetCurrentScreen( ERROR_SCREEN );
@@ -499,7 +499,7 @@ STR8 String(const STR8 String, ...)
   }
 
   va_start(ArgPtr, String);
-  vsprintf( gbTmpDebugString[usIndex], String, ArgPtr);
+	vsnprintf( gbTmpDebugString[usIndex], sizeof(gbTmpDebugString[usIndex]), String, ArgPtr);
   va_end(ArgPtr);
 
   return gbTmpDebugString[usIndex];

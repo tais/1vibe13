@@ -967,15 +967,35 @@ UINT32 FileSize(STR strFilename)
 
 
 // Flugente: simple wrapper to check whether an audio file in mp3/ogg/wav format exists
-BOOLEAN	SoundFileExists( STR strFilename, CHAR8 *zFoundFilename )
+BOOLEAN	SoundFileExists( STR strFilename, CHAR8 *zFoundFilename, size_t foundFilenameSize )
 {
-	sprintf( zFoundFilename, "%s.mp3", strFilename );
+	if (!strFilename || !zFoundFilename || foundFilenameSize == 0)
+	{
+		return FALSE;
+	}
+
+	int result = snprintf( zFoundFilename, foundFilenameSize, "%s.mp3", strFilename );
+	if (result < 0 || (size_t)result >= foundFilenameSize)
+	{
+		zFoundFilename[0] = '\0';
+		return FALSE;
+	}
 	if ( !FileExists( zFoundFilename ) )
 	{
-		sprintf( zFoundFilename, "%s.ogg", strFilename );
+		result = snprintf( zFoundFilename, foundFilenameSize, "%s.ogg", strFilename );
+		if (result < 0 || (size_t)result >= foundFilenameSize)
+		{
+			zFoundFilename[0] = '\0';
+			return FALSE;
+		}
 		if ( !FileExists( zFoundFilename ) )
 		{
-			sprintf( zFoundFilename, "%s.wav", strFilename );
+			result = snprintf( zFoundFilename, foundFilenameSize, "%s.wav", strFilename );
+			if (result < 0 || (size_t)result >= foundFilenameSize)
+			{
+				zFoundFilename[0] = '\0';
+				return FALSE;
+			}
 		}
 	}
 

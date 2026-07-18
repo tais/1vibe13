@@ -136,5 +136,10 @@ void GetFileClose( GETFILESTRUCT *pGFStruct );
 BOOLEAN	FileCheckEndOfFile( HWFILE hFile );
 
 // Flugente: simple wrapper to check whether an audio file in mp3/ogg/wav format exists
-BOOLEAN	SoundFileExists( STR strFilename, CHAR8 *zFoundFilename );
+BOOLEAN	SoundFileExists( STR strFilename, CHAR8 *zFoundFilename, size_t foundFilenameSize );
+template <size_t N>
+inline BOOLEAN SoundFileExists( STR strFilename, CHAR8 (&zFoundFilename)[N] )
+{
+	return SoundFileExists( strFilename, zFoundFilename, N );
+}
 #endif
