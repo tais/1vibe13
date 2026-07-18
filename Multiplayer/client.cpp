@@ -1275,6 +1275,7 @@ void send_stance ( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance )
 
 void recieveSTANCE(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_CHANGESTANCE);
 
 
 		EV_S_CHANGESTANCE* SChangeStance = (EV_S_CHANGESTANCE*)rpcParameters->input;
@@ -1322,6 +1323,7 @@ void send_dir ( SOLDIERTYPE *pSoldier, UINT16 usDesiredDirection )
 
 void recieveDIR(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_SETDESIREDDIRECTION);
 
 		EV_S_SETDESIREDDIRECTION* SSetDesiredDirection = (EV_S_SETDESIREDDIRECTION*)rpcParameters->input;			
 			
@@ -1365,7 +1367,8 @@ void send_fire( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 }
 
 void recieveFIRE(RPCParameters *rpcParameters)
-{		
+{
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_BEGINFIREWEAPON);
 	EV_S_BEGINFIREWEAPON* SBeginFireWeapon = (EV_S_BEGINFIREWEAPON*)rpcParameters->input;
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"SendBeginFireWeaponEvent" );
 
@@ -1514,6 +1517,7 @@ void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContrac
 
 void recieveDISMISS(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, send_dismiss_struct);
 	send_dismiss_struct* sDismissMerc = (send_dismiss_struct*)rpcParameters->input;
 
 	// Get soldier we should dismiss
@@ -1651,6 +1655,7 @@ void send_gui_pos(SOLDIERTYPE *pSoldier,  FLOAT dNewXPos, FLOAT dNewYPos)
 
 void recieveguiPOS(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, gui_pos);
 	gui_pos* gnPOS = (gui_pos*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = gnPOS->usSoldierID;
@@ -1686,6 +1691,7 @@ void send_gui_dir(SOLDIERTYPE *pSoldier, UINT16	usNewDirection)
 
 void recieveguiDIR(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, gui_dir);
 	gui_dir* gnDIR = (gui_dir*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = gnDIR->usSoldierID;
@@ -2465,6 +2471,7 @@ void send_stop (EV_S_STOP_MERC *SStopMerc) // used to stop a merc when he spots 
 
 void recieveSTOP (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_STOP_MERC);
 	EV_S_STOP_MERC* SStopMerc =(EV_S_STOP_MERC*)rpcParameters->input;
 	
 	SOLDIERTYPE *pSoldier = SStopMerc->usSoldierID;
@@ -5178,6 +5185,7 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 
 void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_UPDATENETWORKSOLDIER);
 	EV_S_UPDATENETWORKSOLDIER* SUpdateNetworkSoldier = (EV_S_UPDATENETWORKSOLDIER*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = SUpdateNetworkSoldier->usSoldierID;
@@ -5364,6 +5372,7 @@ void send_fireweapon (EV_S_FIREWEAPON  *SFireWeapon)
 
 void recieve_fireweapon (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, EV_S_FIREWEAPON);
 	EV_S_FIREWEAPON* SFireWeapon = (EV_S_FIREWEAPON*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = SFireWeapon->usSoldierID;
@@ -5393,6 +5402,7 @@ void send_door ( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fNoAnimations )
 
 void recieve_door (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, doors);
 	doors* sDoor = (doors*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = sDoor->ubID;
