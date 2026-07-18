@@ -22,9 +22,11 @@ BOOLEAN InitTileCache(	)
 {
 	UINT32				cnt;
 	GETFILESTRUCT FileInfo;
-	INT16					sFiles = 0;
+	UINT32					sFiles = 0;
 
 	gpTileCache = (TILE_CACHE_ELEMENT *)MemAlloc( sizeof( TILE_CACHE_ELEMENT ) * guiMaxTileCacheSize );
+	if ( gpTileCache == NULL )
+		return FALSE;
 
 	// Zero entries
 	for ( cnt = 0; cnt < guiMaxTileCacheSize; cnt++ )
@@ -40,10 +42,10 @@ BOOLEAN InitTileCache(	)
 	// load any we find....
 	if( GetFileFirst("TILECACHE\\*.jsd", &FileInfo) )
 	{
-		while( GetFileNext(&FileInfo) )
+		do
 		{
 			sFiles++;
-		}
+		} while( GetFileNext(&FileInfo) );
 		GetFileClose(&FileInfo);
 	}
 
@@ -55,13 +57,24 @@ BOOLEAN InitTileCache(	)
 		guiNumTileCacheStructs = sFiles;
 
 		gpTileCacheStructInfo = (TILE_CACHE_STRUCT *)MemAlloc( sizeof( TILE_CACHE_STRUCT ) * sFiles );
+		if ( gpTileCacheStructInfo == NULL )
+		{
+			MemFree( gpTileCache );
+			gpTileCache = NULL;
+			guiNumTileCacheStructs = 0;
+			return FALSE;
+		}
 
 		// Loop through and set filenames
 		if( GetFileFirst("TILECACHE\\*.jsd", &FileInfo) )
 		{
-			while( GetFileNext(&FileInfo) )
+			do
 			{
-				sprintf( gpTileCacheStructInfo[ cnt ].Filename, "TILECACHE\\%s", FileInfo.zFileName );
+				// The directory can change between the count and load passes.
+				if ( cnt >= guiNumTileCacheStructs )
+					break;
+				snprintf( gpTileCacheStructInfo[ cnt ].Filename,
+					sizeof(gpTileCacheStructInfo[cnt].Filename), "TILECACHE\\%s", FileInfo.zFileName );
 
 				// Get root name
 				GetRootName( gpTileCacheStructInfo[ cnt ].zRootName, gpTileCacheStructInfo[ cnt ].Filename );
@@ -81,7 +94,8 @@ BOOLEAN InitTileCache(	)
 		}
 
 				cnt++;
-			}
+			} while( GetFileNext(&FileInfo) );
+			guiNumTileCacheStructs = cnt;
 			GetFileClose(&FileInfo);
 		}
 	}
