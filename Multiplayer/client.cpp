@@ -3775,6 +3775,19 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			// M8: usItem indexes Item[] inside CreateItems -- drop out-of-range items.
 			if ( gren->usItem == 0 || gren->usItem >= MAXITEMS )
 				return;
+
+			// A second throw cannot safely replace animation state that is still in
+			// use. Allocate before mutating inventory or creating the physical object
+			// so an out-of-memory failure also leaves the remote soldier untouched.
+			THROW_PARAMS* pRemoteThrowParams = NULL;
+			if ( gren->IsThrownGrenade )
+			{
+				if ( pThrower->pThrowParams != NULL )
+					return;
+				pRemoteThrowParams = (THROW_PARAMS*)malloc( sizeof( THROW_PARAMS ) );
+				if ( pRemoteThrowParams == NULL )
+					return;
+			}
 			OBJECTTYPE* newObj = new OBJECTTYPE();
 			INT16 sItemStatus = gren->sItemStatus;
 			// guard against an old/corrupt peer sending a zeroed status
@@ -3806,7 +3819,8 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			// OOB write. Drop the frame (free the temp object) rather than write past the array.
 			if ( i < 0 || i >= NUM_OBJECT_SLOTS )
 			{
-				delete newObj;
+				OBJECTTYPE::DeleteMe( &pThrower->pTempObject );
+				free( pRemoteThrowParams );
 				return;
 			}
 			// save extra state info so we can check and feed it result later
@@ -3820,11 +3834,9 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			if (gren->IsThrownGrenade)
 			{
 				{
-					Assert(pThrower->pThrowParams == NULL);
-
 					// not a mem leak
 					// will be freed in AdjustToNextAnimationFrame(SOLDIERTYPE*), case 461
-					pThrower->pThrowParams = (THROW_PARAMS*) malloc(sizeof(THROW_PARAMS));
+					pThrower->pThrowParams = pRemoteThrowParams;
 					pThrower->pThrowParams->dForceX = gren->dForceX;
 					pThrower->pThrowParams->dForceY = gren->dForceY;
 					pThrower->pThrowParams->dForceZ = gren->dForceZ;
