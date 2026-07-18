@@ -182,22 +182,6 @@ static BOOLEAN IsValidAnimState(UINT16 s)
 }
 // --------------------------------------------------------------------------
 
-char *ReplaceCharactersInString_Client(char *str, char *orig, char *rep)
-{
-	static char buffer[4096];
-	char *p;
-
-	if(!(p = strstr(str, orig)))  // Is 'orig' even in 'str'?
-		return str;
-
-	strncpy(buffer, str, p-str); // Copy characters from 'str' start to 'orig' st$
-	buffer[p-str] = '\0';
-
-	sprintf(buffer+(p-str), "%s%s", rep, p+strlen(orig));
-
-	return buffer;
-}
-
 class ClientTransferCB : public FileListTransferCBInterface
 {
 	public:
@@ -278,8 +262,18 @@ class ClientTransferCB : public FileListTransferCBInterface
 
 			if (guiBaseJA2NoPauseClock >= iNextTransferProgressUpdateTime)
 			{
-				char *relativeFname = ReplaceCharactersInString_Client(onFileStruct->fileName, server_fileTransferDirectoryPath,"");
-				strcpy(gCurrentTransferFilename,relativeFname);
+				// Display a server-relative name when the advertised filename really
+				// starts with that prefix. The old generic replacement helper used an
+				// unbounded sprintf into a static buffer and removed matches from the
+				// middle of paths as well.
+				const char* relativeFname = onFileStruct->fileName;
+				const size_t serverPrefixLength = strlen(server_fileTransferDirectoryPath);
+				if (serverPrefixLength > 0 &&
+				    strncmp(relativeFname, server_fileTransferDirectoryPath, serverPrefixLength) == 0)
+				{
+					relativeFname += serverPrefixLength;
+				}
+				snprintf(gCurrentTransferFilename, sizeof(gCurrentTransferFilename), "%s", relativeFname);
 
 				iNextTransferProgressUpdateTime = guiBaseJA2NoPauseClock + 100;
 				// update all clients of our file transfer progress
@@ -3008,8 +3002,10 @@ void allowDownloadCallback( UINT8 ubResult )
 		// begin downloading of files
 		setID = fltClient.SetupReceive(&transferCBClient, false, serverAddr);
 
-		char buffer[3];
-		sprintf(buffer, "%i", setID);
+		// Decimal UINT16 plus terminator ("65535\0"). The legacy 3-byte
+		// buffer overflowed as soon as the transfer set ID reached 100.
+		char buffer[6];
+		snprintf(buffer, sizeof(buffer), "%u", (unsigned)setID);
 
 		client->RPC("receiveSETID", (const char*) buffer, (int)((strlen(buffer)+1)*8), HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 	}
@@ -4101,7 +4097,7 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 
 #ifdef JA2BETAVERSION
 				CHAR tmpMPDbgString[512];
-				sprintf(tmpMPDbgString,"MP - send_detonate_explosive ( MPTeam : %i , uiWorldIndex : %i , uiPreRandomIndex : %i )\n",det.ubMPTeamIndex, det.uiWorldItemIndex , det.uiPreRandomIndex );
+				snprintf(tmpMPDbgString, sizeof(tmpMPDbgString), "MP - send_detonate_explosive ( MPTeam : %i , uiWorldIndex : %i , uiPreRandomIndex : %i )\n",det.ubMPTeamIndex, det.uiWorldItemIndex , det.uiPreRandomIndex );
 				MPDebugMsg(tmpMPDbgString);
 				gfMPDebugOutputRandoms = true;
 #endif
@@ -4111,7 +4107,7 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 			else
 			{
 				char tmpMsg1[128];
-				sprintf(tmpMsg1,"ERROR! - Cant find a local WorldBomb for WorldIndex (locally) %i in send_detonate_explosive()",uiWorldIndex);
+				snprintf(tmpMsg1, sizeof(tmpMsg1), "ERROR! - Cant find a local WorldBomb for WorldIndex (locally) %i in send_detonate_explosive()",uiWorldIndex);
 				//ScreenMsg(FONT_RED,MSG_MPSYSTEM,tmpMsg);
 				MPDebugMsg(tmpMsg1);
 			}
@@ -4214,7 +4210,7 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 
 	#ifdef JA2BETAVERSION
 				CHAR tmpMPDbgString[512];
-				sprintf(tmpMPDbgString,"MP - send_disarm_explosive ( MPTeam : %i , uiWorldIndex : %i , uiPreRandomIndex : %i , sGridNo : %i )\n", disarm.ubMPTeamIndex, disarm.uiWorldItemIndex , disarm.uiPreRandomIndex, disarm.sGridNo);
+				snprintf(tmpMPDbgString, sizeof(tmpMPDbgString), "MP - send_disarm_explosive ( MPTeam : %i , uiWorldIndex : %i , uiPreRandomIndex : %i , sGridNo : %i )\n", disarm.ubMPTeamIndex, disarm.uiWorldItemIndex , disarm.uiPreRandomIndex, disarm.sGridNo);
 				MPDebugMsg(tmpMPDbgString);
 				gfMPDebugOutputRandoms = true;
 	#endif
@@ -4224,7 +4220,7 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 			else
 			{
 				char tmpMsg1[128];
-				sprintf(tmpMsg1,"ERROR! - Cant find a local WorldBomb for WorldIndex (locally) %i in send_disarm_explosive()",uiWorldItem);
+				snprintf(tmpMsg1, sizeof(tmpMsg1), "ERROR! - Cant find a local WorldBomb for WorldIndex (locally) %i in send_disarm_explosive()",uiWorldItem);
 				//ScreenMsg(FONT_RED,MSG_MPSYSTEM,tmpMsg);
 				MPDebugMsg(tmpMsg1);
 			}
@@ -5445,7 +5441,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, MPClientMessage[47], szPlayerName );
 
 	// clear our records from this client
-	memset(client_names[cl_num-1],NULL,sizeof(char)*30);
+	memset(client_names[cl_num-1], 0, sizeof(client_names[cl_num-1]));
 	memset(&client_ready[cl_num-1],0,sizeof(int));
 	memset(&client_teams[cl_num-1],0,sizeof(int));
 
@@ -5862,9 +5858,9 @@ void connect_client ( void )
 
 		memset( &readyteamreg , 0 , sizeof (int) * 10);
 		//OJW - 20081204
-		memset ( &client_names,NULL,sizeof(int)*4);
-		memset ( &client_ready,0,sizeof(int)*4);
-		memset ( &client_teams,0,sizeof(int)*4);
+		memset( client_names, 0, sizeof(client_names) );
+		memset( client_ready, 0, sizeof(client_ready) );
+		memset( client_teams, 0, sizeof(client_teams) );
 
 		if (!gRandomStartingEdge)
 			memset ( &client_edges,0,sizeof(int)*5);
