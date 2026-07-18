@@ -69,17 +69,29 @@ void vfs::Profiler::clear()
 
 vfs::Profiler::tMarkerID vfs::Profiler::registerMarker(const char *marker)
 {
-	m_vMarker[_nextMarker].markername = marker;
+	if (_nextMarker >= m_vMarker.size())
+	{
+		m_vMarker.resize(m_vMarker.empty() ? 64 : m_vMarker.size() * 2);
+	}
+	m_vMarker[_nextMarker].markername = marker ? marker : "";
 	return _nextMarker++;
 }
 
 void vfs::Profiler::startMarker(tMarkerID id)
 {
+	if (id >= _nextMarker)
+	{
+		return;
+	}
 	m_vMarker[id].timer.startTimer();
 }
 
 void vfs::Profiler::stopMarker(tMarkerID id, bool success)
 {
+	if (id >= _nextMarker)
+	{
+		return;
+	}
 	m_vMarker[id].timer.stopTimer();
 	m_vMarker[id].time += m_vMarker[id].timer.getElapsedTimeInSeconds();
 	m_vMarker[id].call_count++;
@@ -100,6 +112,10 @@ inline std::string multChar(std::string::value_type c, unsigned int multiplicity
 
 inline long double perCent(unsigned long value, unsigned long ref)
 {
+	if (ref == 0)
+	{
+		return 0.0;
+	}
 	return 100.0 * ((double)(value)/double(ref));
 }
 
@@ -119,7 +135,7 @@ bool vfs::Profiler::printProfilerState(vfs::Path const& file)
 	// get largest value
 	long double max_time = 0;
 	std::string::size_type max_prefix = 0;
-	for(unsigned int i=0; i<m_vMarker.size(); ++i)
+	for(unsigned int i=0; i<_nextMarker; ++i)
 	{
 		if(m_vMarker[i].time > max_time)
 		{
@@ -134,7 +150,7 @@ bool vfs::Profiler::printProfilerState(vfs::Path const& file)
 	const unsigned int WIDTH = 40;
 	std::stringstream line;
 	long double ld_success, ld_failure;
-	for(unsigned int i=0; i<m_vMarker.size(); ++i)
+	for(unsigned int i=0; i<_nextMarker; ++i)
 	{
 		if(m_vMarker[i].markername.empty())
 		{
