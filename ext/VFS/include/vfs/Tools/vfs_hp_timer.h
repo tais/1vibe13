@@ -25,12 +25,7 @@
 #define _VFS_HP_TIMER_
 
 #include <vfs/vfs_config.h>
-
-#ifdef WIN32
-	#include <windows.h>
-#elif __linux__
-  #include <sys/time.h>
-#endif
+#include <chrono>
 
 namespace vfs
 {
@@ -48,13 +43,11 @@ namespace vfs
 
 		double		getElapsedTimeInSeconds();
 	protected:
-		bool			is_running;
-	#ifdef WIN32
-		LARGE_INTEGER	ticksPerSecond;
-		LARGE_INTEGER	tick,tick2;
-	#elif __linux__
-		timeval			t1,t2;
-	#endif
+		using Clock = std::chrono::steady_clock;
+
+		bool              is_running;
+		Clock::time_point start;
+		Clock::time_point stop;
 	};
 }
 

@@ -23,12 +23,8 @@
 
 #include <vfs/Tools/vfs_hp_timer.h>
 
-vfs::HPTimer::HPTimer() : is_running(false)
-{
-#ifdef WIN32
-	QueryPerformanceFrequency(&ticksPerSecond);
-#endif
-}
+vfs::HPTimer::HPTimer() : is_running(false), start(), stop()
+{}
 
 vfs::HPTimer::~HPTimer()
 {
@@ -36,58 +32,33 @@ vfs::HPTimer::~HPTimer()
 
 void vfs::HPTimer::startTimer()
 {
-#ifdef WIN32
-	QueryPerformanceCounter(&tick);
-#elif __linux__
-	gettimeofday(&t1,0);
-#endif
+	start = Clock::now();
+	stop = start;
 	is_running = true;
 }
 
 long long vfs::HPTimer::ticks()
 {
-	if(is_running)
-	{
-#ifdef WIN32
-		QueryPerformanceCounter(&tick2);
-		return tick2.QuadPart - tick.QuadPart;
-#elif __linux__
-		gettimeofday(&t2,0);
-		return t2.tv_usec - t1.tv_usec;
-#endif
-	}
-	return 0;
+	const Clock::time_point end = is_running ? Clock::now() : stop;
+	return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 }
+
 double vfs::HPTimer::running()
 {
-	if(is_running)
-	{
-#ifdef WIN32
-		QueryPerformanceCounter(&tick2);
-		return (double)(tick2.QuadPart - tick.QuadPart)/(double)ticksPerSecond.QuadPart;
-#elif __linux__
-		gettimeofday(&t2,0);
-		return (double)(t2.tv_usec - t1.tv_usec)/1000000.0;
-#endif
-	}
-	return 0;
+	if (!is_running)
+		return 0.0;
+	return std::chrono::duration<double>(Clock::now() - start).count();
 }
 
 void vfs::HPTimer::stopTimer()
 {
-#ifdef WIN32
-	QueryPerformanceCounter(&tick2);
-#elif __linux__
-	gettimeofday(&t2,0);
-#endif
+	if (is_running)
+		stop = Clock::now();
 	is_running = false;
 }
 
 double vfs::HPTimer::getElapsedTimeInSeconds()
 {
-#ifdef WIN32
-	return (double)(tick2.QuadPart - tick.QuadPart)/(double)ticksPerSecond.QuadPart;
-#elif __linux__
-	return (double)(t2.tv_usec - t1.tv_usec)/1000000.0;
-#endif
+	const Clock::time_point end = is_running ? Clock::now() : stop;
+	return std::chrono::duration<double>(end - start).count();
 }

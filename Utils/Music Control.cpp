@@ -86,7 +86,10 @@ static void AddMusicToList(STR fileName, NewMusicList mode)
 	if (SoundFileExists(fileName, musicFile))
 	{
 		CHAR8 *music = (CHAR8 *)MemAlloc(buf * sizeof(CHAR8));
-		Assert(music);
+		if (!music)
+		{
+			return;
+		}
 		memset(music, 0, sizeof(CHAR8) * buf);
 		strcpy(music, musicFile);
 
@@ -173,7 +176,7 @@ void InitializeMusicLists()
 
 		for (size_t i = 0; i < 100; i++)
 		{
-			sprintf(fileName, "%s%02d", baseFilename, i);
+			snprintf(fileName, sizeof(fileName), "%s%02zu", baseFilename, i);
 			AddMusicToList(fileName, static_cast<NewMusicList>(j));
 		}
 	}
@@ -181,6 +184,10 @@ void InitializeMusicLists()
 
 static STR PickRandomSongFromList(NewMusicList mode)
 {
+	if (mode >= MAX_MUSIC || MusicLists[mode].empty())
+	{
+		return NULL;
+	}
 	return MusicLists[mode][Random(MusicLists[mode].size())];
 }
 
@@ -203,6 +210,11 @@ BOOLEAN MusicFadeIn(void);
 //********************************************************************************
 static BOOLEAN MusicPlay(STR zFileName)
 {
+	if (!zFileName)
+	{
+		return FALSE;
+	}
+
 	SOUNDPARMS spParms;
 
 	if (fMusicPlaying)
