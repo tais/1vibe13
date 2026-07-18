@@ -26,6 +26,7 @@
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include <vfs/Tools/vfs_hp_timer.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
 // libraries reference. This harness supplies its own main() instead of linking
@@ -77,6 +78,19 @@ int main( int, char** )
 	}
 
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+	// The VFS profiler/logger timer used to have no macOS return path and its
+	// Linux timeval calculation lost whole seconds. Exercise the portable
+	// monotonic implementation without depending on a wall-clock epoch.
+	{
+		vfs::HPTimer timer;
+		timer.startTimer();
+		SDL_Delay( 10 );
+		CHECK( timer.running() > 0.0, "HPTimer reports running elapsed time" );
+		timer.stopTimer();
+		CHECK( timer.ticks() > 0, "HPTimer reports positive monotonic ticks" );
+		CHECK( timer.getElapsedTimeInSeconds() > 0.0, "HPTimer reports stopped elapsed time" );
+	}
 
 	// --- best-effort: the video managers. They need an SDL video backend; the
 	//     dummy driver may or may not provide a renderer depending on platform,
