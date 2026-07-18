@@ -424,7 +424,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
 					SET_PALETTEREP_ID( pSoldier->HeadPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->HeadPal, pSoldier->HeadPal );
+					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->HeadPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 1:
@@ -436,7 +436,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
 					SET_PALETTEREP_ID( pSoldier->HeadPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->HeadPal, pSoldier->HeadPal );
+					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->HeadPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 
@@ -449,7 +449,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
 					SET_PALETTEREP_ID( pSoldier->SkinPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->SkinPal, pSoldier->SkinPal );
+					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->SkinPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 3:
@@ -461,7 +461,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
 					SET_PALETTEREP_ID( pSoldier->SkinPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->SkinPal, pSoldier->SkinPal );
+					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->SkinPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 
@@ -474,7 +474,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
 					SET_PALETTEREP_ID( pSoldier->VestPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->VestPal, pSoldier->VestPal );
+					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->VestPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 5:
@@ -486,7 +486,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
 					SET_PALETTEREP_ID( pSoldier->VestPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->VestPal, pSoldier->VestPal );
+					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->VestPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 
@@ -499,7 +499,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
 					SET_PALETTEREP_ID( pSoldier->PantsPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->PantsPal, pSoldier->PantsPal );
+					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->PantsPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 7:
@@ -511,7 +511,7 @@ void ProcessMercEditing()
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
 					SET_PALETTEREP_ID( pSoldier->PantsPal, gpPalRep[ ubPaletteRep ].ID );
-					sprintf( gpSelected->pDetailedPlacement->PantsPal, pSoldier->PantsPal );
+					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->PantsPal );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 			}
@@ -1147,10 +1147,10 @@ void MercsToggleColorModeCallback( GUI_BUTTON *btn, INT32 reason )
 		{
 			EnableEditorButtons( FIRST_MERCS_COLOR_BUTTON, LAST_MERCS_COLOR_BUTTON );
 			gpSelected->pDetailedPlacement->fVisible = TRUE;
-			sprintf( gpSelected->pDetailedPlacement->HeadPal, gpSelected->pSoldier->HeadPal );
-			sprintf( gpSelected->pDetailedPlacement->SkinPal, gpSelected->pSoldier->SkinPal );
-			sprintf( gpSelected->pDetailedPlacement->VestPal, gpSelected->pSoldier->VestPal );
-			sprintf( gpSelected->pDetailedPlacement->PantsPal, gpSelected->pSoldier->PantsPal );
+			snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", gpSelected->pSoldier->HeadPal );
+			snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", gpSelected->pSoldier->SkinPal );
+			snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", gpSelected->pSoldier->VestPal );
+			snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", gpSelected->pSoldier->PantsPal );
 		}
 		else //button is unchecked.
 		{
