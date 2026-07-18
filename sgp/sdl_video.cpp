@@ -137,6 +137,10 @@ static int     gMouseBufH   = MAX_CURSOR_HEIGHT;
 // from the cursor database; composited at (mouseX - hotX, mouseY - hotY).
 static INT16   gMouseCursorHotX = 0;
 static INT16   gMouseCursorHotY = 0;
+// Cursor pixels live outside the normal framebuffer invalidation funnel. Track
+// changes explicitly so a stationary, unchanged cursor does not force a texture
+// upload on every idle frame.
+static bool    gCursorDirty = true;
 
 // Magenta-ish sentinel in RGB565 marking "transparent" pixels in
 // gMouseBuf. ETRLE blits only write opaque pixels; surrounding area
@@ -835,8 +839,16 @@ static void RefreshScreenInternal(bool throttle)
 		INT32 curL, curT, curR, curB;
 		CurrentCursorBox(&curL, &curT, &curR, &curB);
 
-		// Fold this frame's cursor box into the upload rect.
-		if (curL < curR && curT < curB) {
+		const bool cursorMoved =
+			curL != gPrevCursorL || curT != gPrevCursorT ||
+			curR != gPrevCursorR || curB != gPrevCursorB;
+		const bool cursorChanged = gCursorDirty || cursorMoved;
+
+		// A changed cursor needs both its new and previous boxes uploaded. A
+		// stationary cursor is already present in the texture; ordinary dirty
+		// framebuffer uploads still contain its freshly stamped pixels wherever
+		// their rectangles overlap it.
+		if (cursorChanged && curL < curR && curT < curB) {
 			if (upL >= upR || upT >= upB) {
 				upL = curL; upT = curT; upR = curR; upB = curB;
 			} else {
@@ -847,7 +859,7 @@ static void RefreshScreenInternal(bool throttle)
 			}
 		}
 		// Fold last frame's cursor box (re-upload where it used to be).
-		if (gPrevCursorL < gPrevCursorR && gPrevCursorT < gPrevCursorB) {
+		if (cursorChanged && gPrevCursorL < gPrevCursorR && gPrevCursorT < gPrevCursorB) {
 			if (upL >= upR || upT >= upB) {
 				upL = gPrevCursorL; upT = gPrevCursorT;
 				upR = gPrevCursorR; upB = gPrevCursorB;
@@ -865,8 +877,8 @@ static void RefreshScreenInternal(bool throttle)
 		if (upR > (INT32)SCREEN_WIDTH)  upR = SCREEN_WIDTH;
 		if (upB > (INT32)SCREEN_HEIGHT) upB = SCREEN_HEIGHT;
 
-		const bool fullOrEmpty =
-			(upL >= upR || upT >= upB) ||
+		const bool empty = upL >= upR || upT >= upB;
+		const bool full = !empty &&
 			(upL <= 0 && upT <= 0 &&
 			 upR >= (INT32)SCREEN_WIDTH && upB >= (INT32)SCREEN_HEIGHT);
 
@@ -878,7 +890,11 @@ static void RefreshScreenInternal(bool throttle)
 		const Uint64 t0   = prof ? RealTicksNS() : 0;
 		Uint64       uploadBytes = 0;
 
-		if (fullOrEmpty) {
+		if (empty) {
+			// The texture already contains the exact framebuffer + cursor image.
+			// Rendering it again may still be required for fades/window exposure,
+			// but no CPU-to-GPU pixel transfer is necessary.
+		} else if (full) {
 			SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
 			                  SCREEN_WIDTH * sizeof(PIXEL));
 			uploadBytes = (Uint64)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
@@ -896,6 +912,7 @@ static void RefreshScreenInternal(bool throttle)
 			ScrollProfileRecordUpload((double)(RealTicksNS() - t0) / 1.0e6,
 			                          uploadBytes);
 		}
+		gCursorDirty = false;
 	}
 	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;
 
@@ -938,6 +955,7 @@ BOOLEAN EraseMouseCursor(void) {
 	if (!gMouseBuf) return TRUE;
 	const size_t n = (size_t)MAX_CURSOR_WIDTH * MAX_CURSOR_HEIGHT;
 	for (size_t i = 0; i < n; ++i) gMouseBuf[i] = kCursorTransparent;
+	gCursorDirty = true;
 	return TRUE;
 }
 BOOLEAN SetMouseCursorProperties(INT16 hotX, INT16 hotY, UINT16 usCursorHeight, UINT16 usCursorWidth) {
@@ -949,6 +967,7 @@ BOOLEAN SetMouseCursorProperties(INT16 hotX, INT16 hotY, UINT16 usCursorHeight, 
 	gMouseCursorHotY = hotY;
 	if (usCursorWidth  > 0 && usCursorWidth  <= MAX_CURSOR_WIDTH)  gMouseBufW = usCursorWidth;
 	if (usCursorHeight > 0 && usCursorHeight <= MAX_CURSOR_HEIGHT) gMouseBufH = usCursorHeight;
+	gCursorDirty = true;
 	return TRUE;
 }
 BOOLEAN SetMouseCursorFromObject(UINT32, UINT16, UINT16, UINT16) { return TRUE; }
@@ -961,8 +980,8 @@ BOOLEAN HideMouseCursor(void) {
 BOOLEAN LoadCursorFile(STR8) { return TRUE; }
 BOOLEAN SetCurrentCursor(UINT16, UINT16, UINT16) { return TRUE; }
 BOOLEAN BltToMouseCursor(UINT32, UINT16, UINT16, UINT16) { return TRUE; }
-void    DirtyCursor(void) {}
-void    EnableCursor(BOOLEAN) {}
+void    DirtyCursor(void) { gCursorDirty = true; }
+void    EnableCursor(BOOLEAN) { gCursorDirty = true; }
 
 void VideoCaptureToggle(void) {}
 
