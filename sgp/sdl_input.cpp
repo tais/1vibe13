@@ -53,18 +53,20 @@ static UINT16 sdl_to_vk(SDL_Scancode sc, SDL_Keycode key)
 		case SDL_SCANCODE_RCTRL:     return 17;
 		case SDL_SCANCODE_LALT:      return 18;   // ALT
 		case SDL_SCANCODE_RALT:      return 18;
-		case SDL_SCANCODE_F1:        return 0x70;
-		case SDL_SCANCODE_F2:        return 0x71;
-		case SDL_SCANCODE_F3:        return 0x72;
-		case SDL_SCANCODE_F4:        return 0x73;
-		case SDL_SCANCODE_F5:        return 0x74;
-		case SDL_SCANCODE_F6:        return 0x75;
-		case SDL_SCANCODE_F7:        return 0x76;
-		case SDL_SCANCODE_F8:        return 0x77;
-		case SDL_SCANCODE_F9:        return 0x78;
-		case SDL_SCANCODE_F10:       return 0x79;
-		case SDL_SCANCODE_F11:       return 0x7A;
-		case SDL_SCANCODE_F12:       return 0x7B;
+		// JA2 reserves 124-135 for F1-F12; the Windows virtual-key range
+		// (0x70-0x7B) overlaps printable keys in the game's input protocol.
+		case SDL_SCANCODE_F1:        return 124;
+		case SDL_SCANCODE_F2:        return 125;
+		case SDL_SCANCODE_F3:        return 126;
+		case SDL_SCANCODE_F4:        return 127;
+		case SDL_SCANCODE_F5:        return 128;
+		case SDL_SCANCODE_F6:        return 129;
+		case SDL_SCANCODE_F7:        return 130;
+		case SDL_SCANCODE_F8:        return 131;
+		case SDL_SCANCODE_F9:        return 132;
+		case SDL_SCANCODE_F10:       return 133;
+		case SDL_SCANCODE_F11:       return 134;
+		case SDL_SCANCODE_F12:       return 135;
 		default: break;
 	}
 	// ASCII printable -> VK_* for alphanumerics matches up (Win32
