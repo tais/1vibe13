@@ -361,11 +361,11 @@ BOOLEAN LoadTileSurfaces( char ppTileSurfaceFilenames[][32], UINT8 ubTilesetID )
 
 	// Adjust Current Dir
 	// CHECK IF DEFAULT INI OVERRIDE FILE EXISTS
-	sprintf( INIFile, "%s\\engine.ini", ExeDir );
+	snprintf( INIFile, sizeof(INIFile), "%s\\engine.ini", ExeDir );
 	if ( !FileExists( INIFile )	)
 	{
 		// USE PER TILESET BASIS
-		sprintf( INIFile, "%s\\engine%d.ini", ExeDir, ubTilesetID );
+		snprintf( INIFile, sizeof(INIFile), "%s\\engine%d.ini", ExeDir, ubTilesetID );
 	}
 
 	// If no Tileset filenames are given, return error
@@ -575,11 +575,11 @@ BOOLEAN AddTileSurface( const CHAR8 *cFilename, UINT32 ubType, UINT8 ubTilesetID
 	if ( !fGetFromRoot )
 	{
 		// Adjust for tileset position
-		sprintf( cAdjustedFile, "TILESETS\\%d\\%s", ubTilesetID, cFileBPP );
+		snprintf( cAdjustedFile, sizeof(cAdjustedFile), "TILESETS\\%d\\%s", ubTilesetID, cFileBPP );
 	}
 	else
 	{
-		sprintf( cAdjustedFile, "%s", cFileBPP );
+		snprintf( cAdjustedFile, sizeof(cAdjustedFile), "%s", cFileBPP );
 	}
 
 	TileSurf = LoadTileSurface( cAdjustedFile );
@@ -653,7 +653,7 @@ void BuildTileShadeTables(  )
 	////////////	AssertMsg( 0, "Can't set the directory to Data\\ShadeTable.	Kris' big problem!" );
 	////////////}
 	CHAR8 sIgnoreShadeTables[50];
-	sprintf( sIgnoreShadeTables, "%s\\%s", "ShadeTables", "IgnoreShadeTables.txt");
+	snprintf( sIgnoreShadeTables, sizeof(sIgnoreShadeTables), "%s\\%s", "ShadeTables", "IgnoreShadeTables.txt");
 	//hfile = FileOpen( sIgnoreShadeTables, FILE_ACCESS_READ, FALSE );
 	//if( hfile )
 	//{
@@ -2861,9 +2861,9 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 
 	// Append exension to filename!
 	if(gfForceLoad)
-		sprintf(aFilename, "MAPS\\%s", gzForceLoadFile);
+		snprintf(aFilename, sizeof(aFilename), "MAPS\\%s", gzForceLoadFile);
 	else
-		sprintf(aFilename, "MAPS\\%s", puiFilename);
+		snprintf(aFilename, sizeof(aFilename), "MAPS\\%s", puiFilename);
 	// Open file
 #ifdef JA2EDITOR
 	if(guiCurrentScreen == LOADSAVE_SCREEN)
@@ -3564,7 +3564,7 @@ void TrashWorld( void )
 
 	//gfBlitBattleSectorLocator = FALSE;
 	gfWorldLoaded = FALSE;
-	sprintf( gubFilename, "none" );
+	snprintf( gubFilename, sizeof(gubFilename), "none" );
 }
 
 
@@ -3726,7 +3726,7 @@ BOOLEAN SaveMapTileset( INT32 iTilesetID )
 	if ( iTilesetID == 0 )
 		return( TRUE );
 
-	sprintf( zTilesetName, "TSET%04d.SET", iTilesetID );
+	snprintf( zTilesetName, sizeof(zTilesetName), "TSET%04d.SET", iTilesetID );
 
 	// Open file
 	hTSet = FileOpen( zTilesetName, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE );
@@ -4145,7 +4145,7 @@ void ReloadTileset( UINT8 ubID )
 	LoadWorld( TEMP_FILE_FOR_TILESET_CHANGE );
 
 	// Delete file
-	sprintf( aFilename, "MAPS\\%s", TEMP_FILE_FOR_TILESET_CHANGE );
+	snprintf( aFilename, sizeof(aFilename), "MAPS\\%s", TEMP_FILE_FOR_TILESET_CHANGE );
 
 	FileDelete( aFilename );
 
