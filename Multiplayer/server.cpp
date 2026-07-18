@@ -635,11 +635,13 @@ void requestFILE_TRANSFER_SETTINGS(RPCParameters *rpcParameters)
 {
 	SystemAddress sender = rpcParameters->sender;//get senders address
 
-	filetransfersettings_struct fts;
+	// The complete struct is sent over the wire. Clear padding as well as fields
+	// so the packet never exposes stale stack bytes.
+	filetransfersettings_struct fts = {};
 
 	fts.syncClientsDirectory = gSyncGameDirectory;
-	strcpy(fts.fileTransferDirectory, s_ServerId.getServerId(vfs::Path(gzFileTransferDirectory)).utf8().c_str());
-	strcpy(fts.serverName, cServerName);
+	sgp_strlcpy(fts.fileTransferDirectory, s_ServerId.getServerId(vfs::Path(gzFileTransferDirectory)).utf8().c_str());
+	sgp_strlcpy(fts.serverName, cServerName);
 	fts.totalTransferBytes = fileListTotalBytes;
 
 	// OJW - 200907819 - Only send to the client that asked for it
@@ -738,7 +740,9 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 			}
 		}
 
-		settings_struct lan;
+		// This is serialized byte-for-byte, including padding and fields that are
+		// conditional below. Value-initialize it to make the wire data deterministic.
+		settings_struct lan = {};
 		
 		lan.client_num = new_cl_num; //new server assigned number
 		// client_name arrives off the wire (untrusted); bound the copy to the dest
@@ -844,7 +848,7 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 		lan.disableSpectatorMode = gDisableSpectatorMode;
 
 		// OJW - 20081204
-		strcpy(lan.server_name , cServerName);
+		sgp_strlcpy(lan.server_name, cServerName);
 		memcpy(lan.client_edges,client_edges,sizeof(int)*5);
 		memcpy(lan.client_teams,client_teams,sizeof(int)*4);
 
@@ -853,7 +857,7 @@ void requestSETTINGS(RPCParameters *rpcParameters )
 
 		// OJW - 20090507
 		// send server version to client
-		strcpy(lan.server_version,MPVERSION);
+		sgp_strlcpy(lan.server_version, MPVERSION);
 
 		server->RPC("recieveSETTINGS",(const char*)&lan, (int)sizeof(settings_struct)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 
