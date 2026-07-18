@@ -2418,17 +2418,26 @@ BOOLEAN EvaluateWorld(STR8 pSector, UINT8 ubLevel)
 	UINT8 ubCombine, ubMinorMapVersion;
 	UINT8 (*bCounts)[8] = NULL;
 	// Make sure the file exists... if not, then return false
-	sprintf(szFilename, pSector);
+	snprintf(szFilename, sizeof(szFilename), "%s", pSector ? pSector : "");
 	if(ubLevel % 4)
-		sprintf(szFilename+strlen(szFilename), "_b%d", ubLevel%4);
+	{
+		size_t used = strlen(szFilename);
+		snprintf(szFilename + used, sizeof(szFilename) - used, "_b%d", ubLevel%4);
+	}
 	if(ubLevel >= 4)
-		strcat(szFilename, "_a");
-	strcat(szFilename, ".dat");
+	{
+		size_t used = strlen(szFilename);
+		snprintf(szFilename + used, sizeof(szFilename) - used, "_a");
+	}
+	{
+		size_t used = strlen(szFilename);
+		snprintf(szFilename + used, sizeof(szFilename) - used, ".dat");
+	}
 	CHAR16 szFileName[FILENAME_BUFLEN];//dnl ch81 021213
 	swprintf(szFileName, L"%S", pSector);
 	if(ValidMapFileName(szFileName))
-		strcpy(szFilename, pSector);
-	sprintf(szDirFilename, "MAPS\\%s", szFilename);
+		snprintf(szFilename, sizeof(szFilename), "%s", pSector ? pSector : "");
+	snprintf(szDirFilename, sizeof(szDirFilename), "MAPS\\%s", szFilename);
 	if(guiCurrentScreen == LOADSAVE_SCREEN)
 		hfile = FileOpen(szDirFilename, FILE_ACCESS_READ, FALSE, gzProfileName);
 	else
