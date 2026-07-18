@@ -140,22 +140,6 @@ char          gAdminPassword[64] = {0};   // from ja2_mp.ini; empty => first rem
 
 bool inline can_joingame();
 
-char *ReplaceCharactersInString_Server(char *str, char *orig, char *rep)
-{
-	static char buffer[4096];
-	char *p;
-
-	if(!(p = strstr(str, orig)))  // Is 'orig' even in 'str'?
-		return str;
-
-	strncpy(buffer, str, p-str); // Copy characters from 'str' start to 'orig' st$
-	buffer[p-str] = '\0';
-
-	sprintf(buffer+(p-str), "%s%s", rep, p+strlen(orig));
-
-	return buffer;
-}
-
 int f_rec_num(int mode, SystemAddress sender)//from client data
 {
 	int x;
