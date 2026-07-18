@@ -63,6 +63,8 @@ extern INT16 gsVIEWPORT_WINDOW_END_Y;
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <memory>
+#include <new>
 
 extern UINT16 SCREEN_WIDTH;
 extern UINT16 SCREEN_HEIGHT;
@@ -118,8 +120,13 @@ void ApplyFocusMouseLock(SDL_Window* win, bool focused)
 static SDL_Renderer* gRenderer  = nullptr;
 static SDL_Texture*  gFrameTex  = nullptr;
 
-// Heap RGB565 buffers, one per logical surface. Pitch is always
-// SCREEN_WIDTH * sizeof(PIXEL) (no row padding).
+// Owned RGB565 buffers, one per logical surface. The raw aliases preserve the
+// legacy lock API, while the unique_ptrs make partial initialization and
+// repeated shutdown safe. Pitch is always SCREEN_WIDTH * sizeof(PIXEL) (no row
+// padding).
+static std::unique_ptr<PIXEL[]> gFrameBufferStorage;
+static std::unique_ptr<PIXEL[]> gBackBufferStorage;
+static std::unique_ptr<PIXEL[]> gMouseBufferStorage;
 static PIXEL* gFrameBuffer = nullptr;
 static PIXEL* gBackBuffer  = nullptr;
 static PIXEL* gMouseBuf    = nullptr;
@@ -226,6 +233,7 @@ BOOLEAN InitializeVideoManager(void)
 		winFlags);
 	if (!gWindow) {
 		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+		ShutdownVideoManager();
 		return FALSE;
 	}
 	// The whole UI is laid out for 640x480; never let the window shrink
@@ -252,6 +260,7 @@ BOOLEAN InitializeVideoManager(void)
 	gRenderer = SDL_CreateRenderer(gWindow, nullptr);
 	if (!gRenderer) {
 		std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
+		ShutdownVideoManager();
 		return FALSE;
 	}
 
@@ -294,6 +303,7 @@ BOOLEAN InitializeVideoManager(void)
 	if (!gFrameTex) {
 		std::fprintf(stderr, "SDL_CreateTexture failed: %s\n",
 		             SDL_GetError());
+		ShutdownVideoManager();
 		return FALSE;
 	}
 	SDL_SetTextureScaleMode(gFrameTex, SDL_SCALEMODE_NEAREST);
@@ -305,14 +315,22 @@ BOOLEAN InitializeVideoManager(void)
 		std::fprintf(stderr, "[video] SDL_HideCursor() failed: %s\n", SDL_GetError());
 	}
 
-	const size_t fbBytes = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
-	gFrameBuffer = (PIXEL*)std::calloc(1, fbBytes);
-	gBackBuffer  = (PIXEL*)std::calloc(1, fbBytes);
-	gMouseBuf    = (PIXEL*)std::calloc(1, (size_t)gMouseBufW * gMouseBufH * sizeof(PIXEL));
-	if (!gFrameBuffer || !gBackBuffer || !gMouseBuf) {
+	const size_t framePixels = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT;
+	const size_t mousePixels = (size_t)gMouseBufW * gMouseBufH;
+	auto frameBuffer = std::unique_ptr<PIXEL[]>(new (std::nothrow) PIXEL[framePixels]());
+	auto backBuffer  = std::unique_ptr<PIXEL[]>(new (std::nothrow) PIXEL[framePixels]());
+	auto mouseBuffer = std::unique_ptr<PIXEL[]>(new (std::nothrow) PIXEL[mousePixels]());
+	if (!frameBuffer || !backBuffer || !mouseBuffer) {
 		std::fprintf(stderr, "video: heap buffer alloc failed\n");
+		ShutdownVideoManager();
 		return FALSE;
 	}
+	gFrameBufferStorage = std::move(frameBuffer);
+	gBackBufferStorage  = std::move(backBuffer);
+	gMouseBufferStorage = std::move(mouseBuffer);
+	gFrameBuffer = gFrameBufferStorage.get();
+	gBackBuffer  = gBackBufferStorage.get();
+	gMouseBuf    = gMouseBufferStorage.get();
 
 	// Initialize the RGB565 mask + shift globals from himage.cpp. The
 	// legacy code queried DirectDraw for these and JA2's color /
@@ -343,9 +361,12 @@ BOOLEAN InitializeVideoManager(void)
 
 void ShutdownVideoManager(void)
 {
-	std::free(gFrameBuffer); gFrameBuffer = nullptr;
-	std::free(gBackBuffer);  gBackBuffer  = nullptr;
-	std::free(gMouseBuf);    gMouseBuf    = nullptr;
+	gFrameBuffer = nullptr;
+	gBackBuffer  = nullptr;
+	gMouseBuf    = nullptr;
+	gFrameBufferStorage.reset();
+	gBackBufferStorage.reset();
+	gMouseBufferStorage.reset();
 	if (gFrameTex) { SDL_DestroyTexture(gFrameTex); gFrameTex = nullptr; }
 	if (gRenderer) { SDL_DestroyRenderer(gRenderer); gRenderer = nullptr; }
 	if (gWindow)   { SDL_DestroyWindow(gWindow);   gWindow   = nullptr; }
@@ -968,4 +989,3 @@ void FatalError(const STR8 fmt, ...)
 	// can't recover from" route, not an unexpected segfault.
 	std::exit(1);
 }
-
