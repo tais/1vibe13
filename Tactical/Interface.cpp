@@ -4708,7 +4708,7 @@ void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString )
 	if( !AddVideoObject( &VObjectDesc, &uiBAR ) )	
 	{ 
 		CHAR8 _msg[256];
-		sprintf(_msg, "Missing %s", fn);
+		snprintf(_msg, sizeof(_msg), "Missing %s", fn);
 		AssertMsg(0, _msg );
 	}
 	
@@ -4738,7 +4738,7 @@ void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString )
 	if( !AddVideoObject( &VObjectDesc, &uiPLAYERBAR ) )
 	{ 
 		CHAR8 _msg[256];
-		sprintf(_msg, "Missing %s", fn);
+		snprintf(_msg, sizeof(_msg), "Missing %s", fn);
 		AssertMsg(0, _msg );
 	}
 	
@@ -4769,7 +4769,7 @@ void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString )
 	if( !AddVideoObject( &VObjectDesc, &uiINTBAR ) )
 	{ 
 		CHAR8 _msg[256];
-		sprintf(_msg, "Missing %s", fn);
+		snprintf(_msg, sizeof(_msg), "Missing %s", fn);
 		AssertMsg(0, _msg );
 	}		
 	
