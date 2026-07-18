@@ -2039,7 +2039,10 @@ void send_donegui ( UINT8 ubResult )
 
 void recieveGUI (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, ready_struct);
 	ready_struct* info = (ready_struct*)rpcParameters->input;
+	if ( info->client_num < 1 || info->client_num > 4 || info->ready_stage > 4 )
+		return;
 
 	if(info->ready_stage==1 && info->status==1)
 	{
@@ -3061,7 +3064,10 @@ void requestSETTINGS(void)
 // OJW: FILE TRANSFER: Clients get notified of other clients transfer progress
 void recieveDOWNLOADSTATUS(RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, progress_struct);
 	progress_struct* prog = (progress_struct*)rpcParameters->input;
+	if ( prog->client_num < 1 || prog->client_num > 4 || prog->downloading > 1 )
+		return;
 	int i = prog->client_num - 1;
 
 	if (client_downloading[i] != prog->downloading)
@@ -5285,7 +5291,10 @@ void kick_callback (UINT8 ubResult)
 
 void null_team (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, kickR);
 	kickR* kick = (kickR*)rpcParameters->input;
+	if ( kick->ubResult < 6 || kick->ubResult > 9 )
+		return;
 	ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, MPClientMessage[29],(kick->ubResult-5),client_names[kick->ubResult-6] );
 	SoldierID fID = gTacticalStatus.Team[ kick->ubResult ].bFirstID;
 	SoldierID lID = gTacticalStatus.Team[ kick->ubResult ].bLastID;
@@ -5750,6 +5759,7 @@ void requestAIint(SOLDIERTYPE *pSoldier )
 
 void awardINT (RPCParameters *rpcParameters)
 {
+	RPC_REQUIRE_BYTES(rpcParameters, AIint);
 	AIint* data= (AIint*)rpcParameters->input;
 
 	SOLDIERTYPE *pSoldier = data->ubID;
