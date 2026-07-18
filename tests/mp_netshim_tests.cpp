@@ -4,6 +4,7 @@
 // MP wrapper depends on (see RakPeerInterface.h).
 
 #include <cstdio>
+#include <chrono>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -17,7 +18,17 @@
 static int g_failures = 0;
 #define CHECK( cond, msg ) do { if ( !( cond ) ) { ++g_failures; printf( "FAIL %s:%d  %s\n", __FILE__, __LINE__, msg ); } else { printf( "ok   %s\n", msg ); } } while ( 0 )
 
-static const unsigned short PORT = 42117;
+static unsigned short g_port = 0;
+
+static bool BytesEqual( const std::vector<unsigned char>& actual, const void* expected, size_t size )
+{
+	return actual.size() >= size && memcmp( actual.data(), expected, size ) == 0;
+}
+
+static bool BytesEqual( const std::vector<char>& actual, const void* expected, size_t size )
+{
+	return actual.size() >= size && memcmp( actual.data(), expected, size ) == 0;
+}
 
 struct PeerLog
 {
@@ -111,8 +122,24 @@ int main( int, char** )
 
 	// ---------- 1. handshake: accept + connect events ----------
 	RakPeerInterface* srv = RakNetworkFactory::GetRakPeerInterface();
-	SocketDescriptor sd( PORT, 0 );
-	CHECK( srv->Startup( 4, 30, &sd, 1 ), "server Startup binds listener" );
+	// A fixed port makes concurrent CI jobs and an immediately repeated test run
+	// contend with one another. Pick a high per-run starting point and probe a
+	// small range. Startup() is explicitly retry-safe after a bind failure.
+	const Uint64 seed = (Uint64)std::chrono::steady_clock::now().time_since_epoch().count();
+	bool serverStarted = false;
+	for ( unsigned int attempt = 0; attempt < 128 && !serverStarted; ++attempt )
+	{
+		g_port = (unsigned short)( 40000 + ( seed + attempt ) % 20000 );
+		SocketDescriptor sd( g_port, "127.0.0.1" );
+		serverStarted = srv->Startup( 4, 30, &sd, 1 );
+	}
+	CHECK( serverStarted, "server Startup binds listener" );
+	if ( !serverStarted )
+	{
+		RakNetworkFactory::DestroyRakPeerInterface( srv );
+		SDL_Quit();
+		return 1;
+	}
 	srv->SetMaximumIncomingConnections( 2 );
 	srv->SetOccasionalPing( true );
 	srv->SetTimeoutTime( 120000, UNASSIGNED_SYSTEM_ADDRESS );
@@ -123,12 +150,22 @@ int main( int, char** )
 	SocketDescriptor sd0;
 	CHECK( clA->Startup( 1, 30, &sd0, 1 ), "client A Startup" );
 	clA->RegisterAsRemoteProcedureCall( "clPONG", clPONG_A );
-	CHECK( clA->Connect( "127.0.0.1", PORT, 0, 0 ), "client A Connect initiated" );
+	CHECK( clA->Connect( "127.0.0.1", g_port, 0, 0 ), "client A Connect initiated" );
 
 	PeerLog L_srv{ srv }, L_A{ clA };
-	CHECK( PumpUntil( { &L_srv, &L_A }, [&] {
+	const bool handshakeComplete = PumpUntil( { &L_srv, &L_A }, [&] {
 		return L_srv.Got( ID_NEW_INCOMING_CONNECTION ) && L_A.Got( ID_CONNECTION_REQUEST_ACCEPTED );
-	} ), "handshake events on both sides" );
+	} );
+	CHECK( handshakeComplete, "handshake events on both sides" );
+	if ( !handshakeComplete )
+	{
+		clA->Shutdown( 0 );
+		srv->Shutdown( 0 );
+		RakNetworkFactory::DestroyRakPeerInterface( clA );
+		RakNetworkFactory::DestroyRakPeerInterface( srv );
+		SDL_Quit();
+		return 1;
+	}
 
 	// the wrapper's empty-slot sentinel must stay valid: real peers are nonzero/non-UNASSIGNED
 	SystemAddress aOnSrv;
@@ -143,8 +180,10 @@ int main( int, char** )
 	          UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 );
 	CHECK( PumpUntil( { &L_srv, &L_A }, [&] { return g_capSrv.count >= 1; } ), "RPC reached server handler" );
 	CHECK( g_capSrv.bits == sizeof( pay ) * 8, "numberOfBitsOfData exact" );
-	CHECK( memcmp( g_capSrv.bytes.data(), &pay, sizeof( pay ) ) == 0, "payload byte-exact" );
-	CHECK( g_capSrv.bytes[sizeof( pay )] == 0 && g_capSrv.bytes[sizeof( pay ) + 1] == 0, "input zero-padded past payload" );
+	CHECK( BytesEqual( g_capSrv.bytes, &pay, sizeof( pay ) ), "payload byte-exact" );
+	CHECK( g_capSrv.bytes.size() >= sizeof( pay ) + 2 &&
+	       g_capSrv.bytes[sizeof( pay )] == 0 && g_capSrv.bytes[sizeof( pay ) + 1] == 0,
+	       "input zero-padded past payload" );
 	CHECK( g_capSrv.sender == aOnSrv, "RPCParameters::sender == accept-time address" );
 
 	// relay went back out broadcast-except-sender; A must NOT get its own echo
@@ -156,7 +195,7 @@ int main( int, char** )
 	RakPeerInterface* clB = RakNetworkFactory::GetRakPeerInterface();
 	CHECK( clB->Startup( 1, 30, &sd0, 1 ), "client B Startup" );
 	clB->RegisterAsRemoteProcedureCall( "clPONG", clPONG_B );
-	clB->Connect( "127.0.0.1", PORT, 0, 0 );
+	clB->Connect( "127.0.0.1", g_port, 0, 0 );
 	PeerLog L_B{ clB };
 	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return L_B.Got( ID_CONNECTION_REQUEST_ACCEPTED ); } ), "client B connected" );
 
@@ -165,7 +204,7 @@ int main( int, char** )
 	          UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 );
 	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return g_capB.count >= 1; } ), "relay delivered to client B" );
 	CHECK( g_capA.count == 0, "relay still excludes sender A" );
-	CHECK( memcmp( g_capB.bytes.data(), &pay, sizeof( pay ) ) == 0, "relayed payload byte-exact" );
+	CHECK( BytesEqual( g_capB.bytes, &pay, sizeof( pay ) ), "relayed payload byte-exact" );
 
 	// ---------- 4. targeted send (broadcast=false) ----------
 	g_capA = Captured(); g_capB = Captured();
@@ -187,7 +226,7 @@ int main( int, char** )
 	// ---------- 6. server full: third client refused ----------
 	RakPeerInterface* clC = RakNetworkFactory::GetRakPeerInterface();
 	CHECK( clC->Startup( 1, 30, &sd0, 1 ), "client C Startup" );
-	clC->Connect( "127.0.0.1", PORT, 0, 0 );
+	clC->Connect( "127.0.0.1", g_port, 0, 0 );
 	PeerLog L_C{ clC };
 	CHECK( PumpUntil( { &L_srv, &L_A, &L_B, &L_C }, [&] { return L_C.Got( ID_NO_FREE_INCOMING_CONNECTIONS ); } ),
 	       "third client got ID_NO_FREE_INCOMING_CONNECTIONS" );
@@ -202,7 +241,7 @@ int main( int, char** )
 		clA->RPC( "srvPING", big.data(), (unsigned int)big.size() * 8, HIGH_PRIORITY, RELIABLE, 0,
 		          UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0 );
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return g_capSrv.count >= 1; }, 10000 ), "256KB RPC arrived" );
-		CHECK( g_capSrv.bits == big.size() * 8 && memcmp( g_capSrv.bytes.data(), big.data(), big.size() ) == 0,
+		CHECK( g_capSrv.bits == big.size() * 8 && BytesEqual( g_capSrv.bytes, big.data(), big.size() ),
 		       "256KB payload byte-exact" );
 	}
 
@@ -228,7 +267,7 @@ int main( int, char** )
 		CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return cap.complete >= 1; }, 10000 ), "file set completed" );
 		CHECK( cap.files == 2, "both files delivered" );
 		CHECK( cap.progress >= (int)( f1.size() / 5000 ), "per-chunk progress callbacks fired" );
-		CHECK( cap.lastName == "Data/tiny.txt" && memcmp( cap.lastData.data(), f2, 9 ) == 0, "file order + bytes exact" );
+		CHECK( cap.lastName == "Data/tiny.txt" && BytesEqual( cap.lastData, f2, 9 ), "file order + bytes exact" );
 		// empty file set (host sync dir empty) must still complete -- the
 		// joining client otherwise hangs forever on the download screen
 		FtCap capEmpty;

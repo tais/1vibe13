@@ -165,10 +165,10 @@ endif()
 # barely maintained, so a local copy keeps the build reproducible
 # offline.
 add_subdirectory("ext/libsmacker")
-# Expose smacker.h + SDL3 headers on the JA2 include search path so
-# Utils/Cinematics.cpp (which lives in JA2_Utils, not JA2_sgp) can pick
-# them up. The targets' PUBLIC include_directories only propagates to
-# direct linkers; the JA2_* libraries link via the final executable.
+# Keep the legacy global smacker include available to targets created below.
+# JA2_Utils also links its actual dependencies directly (see the application
+# target loop), which is what makes both vendored and find_package(SDL3) builds
+# reliable.
 include_directories("${CMAKE_SOURCE_DIR}/ext/libsmacker")
 # SDL3's installed header layout is `<SDL3/SDL.h>` style. The fetched
 # source has it at `${sdl3_SOURCE_DIR}/include/SDL3/SDL.h`, plus the
@@ -356,6 +356,14 @@ foreach(app IN LISTS ApplicationTargets)
     add_library(${game_library} STATIC)
     target_sources(${game_library} PRIVATE ${${lib}Src})
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
+
+	# Cinematics.cpp is compiled as part of Utils and directly consumes both
+	# SDL3 and libsmacker headers/APIs. Express that relationship on the target
+	# instead of relying on FetchContent-only global include directories. This
+	# also works when SDL3 is supplied by an installed CMake package.
+	if(${lib} STREQUAL "Utils")
+	  target_link_libraries(${game_library} PRIVATE SDL3::SDL3 libsmacker)
+	endif()
 
     # Precompile a deliberately-STABLE core header set for the highest fan-in
     # libraries. These headers are pulled (directly or transitively) by nearly
