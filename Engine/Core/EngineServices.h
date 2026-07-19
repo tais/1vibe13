@@ -11,19 +11,17 @@
 // table without linking SDL, VFS, or legacy game globals.
 struct EngineServices
 {
-	MonotonicTimeSource& time;
-	RandomSource& random;
-	ByteStorage& storage;
-	LogSink& log;
+	// Default member bindings keep aggregate initialization source-compatible
+	// as new optional services are appended to this table. Existing hosts may
+	// supply only the services they override; omitted services remain inert.
+	MonotonicTimeSource& time = ZeroTimeSource::instance();
+	RandomSource& random = ZeroRandomSource::instance();
+	ByteStorage& storage = NullByteStorage::instance();
+	LogSink& log = NullLogSink::instance();
 
 	static EngineServices defaults()
 	{
-		return EngineServices{
-			ZeroTimeSource::instance(),
-			ZeroRandomSource::instance(),
-			NullByteStorage::instance(),
-			NullLogSink::instance()
-		};
+		return EngineServices{};
 	}
 };
 

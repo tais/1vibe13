@@ -30,6 +30,15 @@ public:
 	{
 	}
 
+	// PackageRegistry keeps references to this runtime's ContentRegistry.
+	// Copying or moving the aggregate would leave those references pointing at
+	// the source runtime (and eventually dangling), so runtime identity is
+	// deliberately stable for its entire lifetime.
+	EngineRuntime(const EngineRuntime&) = delete;
+	EngineRuntime& operator=(const EngineRuntime&) = delete;
+	EngineRuntime(EngineRuntime&&) = delete;
+	EngineRuntime& operator=(EngineRuntime&&) = delete;
+
 	EngineServices& services() { return services_; }
 	const EngineServices& services() const { return services_; }
 	LogSink& log() { return services_.log; }

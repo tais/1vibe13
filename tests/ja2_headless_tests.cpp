@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <type_traits>
 #include <utility>
 
 #include "types.h"
@@ -133,6 +134,10 @@ int main( int, char** )
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
 
 	{
+		static_assert( !std::is_copy_constructible<EngineRuntime<unsigned>>::value,
+		               "engine runtime must retain stable internal references" );
+		static_assert( !std::is_move_constructible<EngineRuntime<unsigned>>::value,
+		               "engine runtime must retain stable internal references" );
 		EngineRuntime<unsigned> runtime;
 		runtime.screens().reset( 7 );
 		CHECK( runtime.screens().current() && runtime.screens().current()->state == 7,
