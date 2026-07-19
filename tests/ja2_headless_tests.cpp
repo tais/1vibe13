@@ -29,6 +29,7 @@
 #include "vsurface.h"
 #include "../Engine/Core/UniqueResourceHandle.h"
 #include "../Engine/Core/DeterministicCommandQueue.h"
+#include "../Engine/Core/BinaryArchive.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -136,6 +137,32 @@ int main( int, char** )
 		const auto replay = commands.drainThrough( 20 );
 		CHECK( replay.size() == 2 && replay[0].command == 150 && replay[1].command == 200,
 		       "recorded simulation commands replay deterministically" );
+	}
+
+	{
+		BinaryWriter writer;
+		WritePersistenceHeader( writer, PersistenceHeader{ 0x32414A31u, 2 } );
+		writer.writeU32( 0x12345678u );
+		writer.writeString( "Arulco" );
+		BinaryReader reader( writer.bytes() );
+		PersistenceHeader header = {};
+		std::uint32_t value = 0;
+		std::string text;
+		CHECK( ReadPersistenceHeader( reader, 0x32414A31u, 1, 2, header ) &&
+		       reader.readU32( value ) && reader.readString( text ) &&
+		       value == 0x12345678u && text == "Arulco" && reader.remaining() == 0,
+		       "versioned persistence round-trips portable values" );
+		std::vector<std::uint8_t> truncated = writer.bytes();
+		truncated.pop_back();
+		BinaryReader truncatedReader( truncated );
+		ReadPersistenceHeader( truncatedReader, 0x32414A31u, 1, 2, header );
+		truncatedReader.readU32( value );
+		const std::size_t stringPosition = truncatedReader.position();
+		CHECK( !truncatedReader.readString( text ) && truncatedReader.position() == stringPosition,
+		       "persistence reader rejects truncated fields without consuming input" );
+		BinaryReader versionReader( writer.bytes() );
+		CHECK( !ReadPersistenceHeader( versionReader, 0x32414A31u, 3, 4, header ),
+		       "persistence reader rejects unsupported schema versions" );
 	}
 
 	// --- hard asserts: the fully data-free managers ---
