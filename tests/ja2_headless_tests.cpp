@@ -28,6 +28,7 @@
 #include "vobject.h"
 #include "vsurface.h"
 #include "../Engine/Core/UniqueResourceHandle.h"
+#include "../Engine/Core/DeterministicCommandQueue.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -119,6 +120,22 @@ int main( int, char** )
 		}
 		CHECK( g_releasedResource == 126 && g_resourceReleaseCount == 2,
 		       "resource handle destructor releases exactly once" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 20, 200 );
+		commands.enqueue( 10, 100 );
+		commands.enqueue( 10, 101 );
+		const auto firstTick = commands.drainThrough( 10 );
+		CHECK( firstTick.size() == 2 && firstTick[0].command == 100 && firstTick[1].command == 101,
+		       "simulation commands order by tick then insertion sequence" );
+		CHECK( commands.size() == 1, "future simulation commands remain queued" );
+		CHECK( commands.enqueueRecorded( 15, 50, 150 ) && !commands.enqueueRecorded( 15, 50, 999 ),
+		       "recorded simulation commands reject duplicate sequence IDs" );
+		const auto replay = commands.drainThrough( 20 );
+		CHECK( replay.size() == 2 && replay[0].command == 150 && replay[1].command == 200,
+		       "recorded simulation commands replay deterministically" );
 	}
 
 	// --- hard asserts: the fully data-free managers ---
