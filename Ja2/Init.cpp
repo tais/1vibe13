@@ -31,6 +31,7 @@
 #include "Exit Grids.h"
 #include "Summary Info.h"
 #include "GameSettings.h"
+#include "GameContext.h"
 #include "Game Init.h"
 #include "Init.h"
 #include "jascreens.h"
@@ -1412,6 +1413,13 @@ if( g_lang != i18n::Lang::en ) {
 
 UINT32 InitializeJA2(void)
 {
+	GameContext& gameContext = GetGameContext();
+	GameInitializationGuard initialization(gameContext);
+	if (!initialization)
+	{
+		return ERROR_SCREEN;
+	}
+
 	HandleJA2CDCheck( );
 
 	gfWorldLoaded = FALSE;
@@ -1612,13 +1620,16 @@ UINT32 InitializeJA2(void)
 #endif
 
 //Lua
-IniLuaGlobal();
+	IniLuaGlobal();
+	initialization.markRunning();
 	return( INIT_SCREEN );
 }
 
 
 void ShutdownJA2(void)
 {
+	GameContext& gameContext = GetGameContext();
+	gameContext.beginShutdown();
 	UINT32 uiIndex;
 
 	// Clear screen....
@@ -1672,6 +1683,7 @@ void ShutdownJA2(void)
 	RemoveTextMercPopupImages( );
 
 	ClearOutVehicleList();
+	gameContext.markStopped();
 }
 
 

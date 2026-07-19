@@ -32,6 +32,7 @@
 #include "input.h"
 #include "sdl_input.h"
 #include "english.h"
+#include "GameContext.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 
@@ -79,6 +80,25 @@ int main( int, char** )
 	// Run headless: no window server / audio device required.
 	SDL_SetHint( SDL_HINT_VIDEO_DRIVER, "dummy" );
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
+
+	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		GameContext context( settings, options );
+		CHECK( &context.settings() == &settings && &context.options() == &options,
+		       "game context exposes bound legacy state" );
+		CHECK( context.beginInitialization() && context.markRunning(),
+		       "game context enters running lifecycle" );
+		CHECK( !context.beginInitialization(), "game context rejects duplicate initialization" );
+		CHECK( context.beginShutdown() && context.markStopped(),
+		       "game context completes shutdown lifecycle" );
+		{
+			GameInitializationGuard initialization( context );
+			CHECK( initialization, "game initialization guard starts from stopped state" );
+		}
+		CHECK( context.lifecycle() == GameLifecycle::Stopped,
+		       "game initialization guard rolls back incomplete initialization" );
+	}
 
 	{
 		g_resourceReleaseCount = 0;
