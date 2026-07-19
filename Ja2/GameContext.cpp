@@ -1,5 +1,6 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
+#include "PlatformAssets.h"
 #include "PlatformLog.h"
 #include "PlatformInput.h"
 #include "PlatformAudio.h"
@@ -17,7 +18,7 @@ GameContext& GetGameContext()
 		EngineServices{GetPlatformTimeSource(), GetGameRandomSource(),
 		               GetPlatformByteStorage(), GetPlatformLogSink(),
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
-		               GetPlatformFramePresenter()});
+		               GetPlatformFramePresenter(), GetPlatformAssetSource()});
 	static const bool packageActivated = [] {
 		LegacyCampaignPackage& package = GetCompiledCampaignPackage();
 		GameContext& game = context;

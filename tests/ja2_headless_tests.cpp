@@ -38,6 +38,7 @@
 #include "../Engine/Core/PersistenceService.h"
 #include "PlatformFileSystem.h"
 #include "PlatformFramePresenter.h"
+#include "PlatformAssets.h"
 #include "PlatformInput.h"
 #include "PlatformAudio.h"
 #include "PlatformLog.h"
@@ -108,6 +109,9 @@ public:
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
+		AssetData asset;
+		if (context.services.assets.read("Data/Rules/weapons.bin", asset))
+			observedAssetProvenance = asset.provenance;
 		bootstrapCalls.push_back(static_cast<int>(phase));
 		return static_cast<int>(phase) != failPhase_;
 	}
@@ -121,6 +125,7 @@ public:
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
+	std::string observedAssetProvenance;
 
 private:
 	PackageDescriptor descriptor_;
@@ -266,6 +271,26 @@ int main( int, char** )
 	}
 
 	{
+		MemoryAssetSource campaignAssets( "campaign.arulco" );
+		MemoryAssetSource modAssets( "mod.example" );
+		CHECK( campaignAssets.put( "Data/Items.xml", { 1 } ) &&
+		       campaignAssets.put( "Data/Maps/A9.dat", { 9 } ) &&
+		       modAssets.put( "Data/Items.xml", { 2 } ),
+		       "memory asset sources register deterministic fixtures" );
+		CompositeAssetSource layeredAssets;
+		CHECK( layeredAssets.mount( campaignAssets ) && layeredAssets.mount( modAssets ) &&
+		       !layeredAssets.mount( modAssets ),
+		       "asset overlay has deterministic unique mount order" );
+		AssetData asset;
+		CHECK( layeredAssets.read( "Data/Items.xml", asset ) && asset.bytes[0] == 2 &&
+		       asset.provenance == "mod.example",
+		       "later package assets override the campaign with provenance" );
+		CHECK( layeredAssets.read( "Data/Maps/A9.dat", asset ) && asset.bytes[0] == 9 &&
+		       asset.provenance == "campaign.arulco",
+		       "asset overlay falls back to lower-priority campaign content" );
+	}
+
+	{
 		ContentRegistry content( ContentApiVersion{ 1, 0 } );
 		PackageRegistry packages( content );
 		LegacyCampaignPackage arulco( GameCapabilities{} );
@@ -302,7 +327,8 @@ int main( int, char** )
 		       &compiledContext.services().storage == &GetPlatformByteStorage() &&
 		       &compiledContext.services().input == &GetPlatformInputSource() &&
 		       &compiledContext.services().audio == &GetPlatformAudioOutput() &&
-		       &compiledContext.services().frames == &GetPlatformFramePresenter(),
+		       &compiledContext.services().frames == &GetPlatformFramePresenter() &&
+		       &compiledContext.services().assets == &GetPlatformAssetSource(),
 		       "application composition root binds platform service adapters" );
 	}
 
@@ -316,8 +342,9 @@ int main( int, char** )
 		MemoryInputSource packageInput;
 		RecordingAudioOutput packageAudio;
 		RecordingFramePresenter packageFrames;
+		MemoryAssetSource packageAssets( "rules.test" );
 		EngineServices services{packageTime, packageRandom, packageStorage, logSink, packageInput,
-		                        packageAudio, packageFrames};
+		                        packageAudio, packageFrames, packageAssets};
 		packageInput.push( EngineInputEvent{ 17, 2, 1, 65, 0 } );
 		EngineInputEvent injectedInput;
 		CHECK( services.input.poll( injectedInput ) && injectedInput.timestamp == 17 &&
@@ -336,6 +363,17 @@ int main( int, char** )
 		       packageFrames.presentations()[0] == FramePresentMode::Paced &&
 		       packageFrames.presentations()[1] == FramePresentMode::Immediate,
 		       "engine services expose captureable headless frame presentation" );
+		CHECK( packageAssets.put( "Data\\Rules//weapons.bin", { 1, 2, 3 } ),
+		       "asset source accepts normalized package-relative paths" );
+		AssetData packageAsset;
+		CHECK( services.assets.read( "Data/Rules/weapons.bin", packageAsset ) &&
+		       packageAsset.logicalPath == "Data/Rules/weapons.bin" &&
+		       packageAsset.provenance == "rules.test" &&
+		       packageAsset.bytes == std::vector<std::uint8_t>({ 1, 2, 3 }),
+		       "engine services expose package assets with provenance" );
+		CHECK( !services.assets.exists( "../outside.bin" ) &&
+		       !services.assets.exists( "/absolute/path.bin" ),
+		       "asset sources reject traversal and absolute paths" );
 		PackageRegistry packages( content, services );
 		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
 		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,
@@ -346,7 +384,8 @@ int main( int, char** )
 		packages.activate( "rules.failing" );
 		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) == PackageBootstrapError::None &&
 		       packages.completedBootstrapPhases() == 1 && first.observedContentApi.major == 1 &&
-		       first.observedTime == 42000 && first.observedRandom == 73,
+		       first.observedTime == 42000 && first.observedRandom == 73 &&
+		       first.observedAssetProvenance == "rules.test",
 		       "package bootstrap advances through ordered phases" );
 		CHECK( packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
 		       PackageBootstrapError::OutOfOrder,

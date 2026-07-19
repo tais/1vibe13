@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_ENGINE_SERVICES_H
 #define ENGINE_CORE_ENGINE_SERVICES_H
 
+#include <Engine/Core/AssetSource.h>
 #include <Engine/Core/AudioOutput.h>
 #include <Engine/Core/ByteStorage.h>
 #include <Engine/Core/FramePresenter.h>
@@ -24,6 +25,7 @@ struct EngineServices
 	InputSource& input = NullInputSource::instance();
 	AudioOutput& audio = NullAudioOutput::instance();
 	FramePresenter& frames = NullFramePresenter::instance();
+	AssetSource& assets = NullAssetSource::instance();
 
 	static EngineServices defaults()
 	{
