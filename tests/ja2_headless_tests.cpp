@@ -144,9 +144,17 @@ int main( int, char** )
 	if ( InitializeVideoManager() )
 	{
 		std::printf( "ok    InitializeVideoManager() [headless]\n" );
+		UINT32 framePitch = 0;
+		UINT32 backPitch = 0;
+		CHECK( LockFrameBuffer( &framePitch ) != NULL && framePitch == SCREEN_WIDTH * sizeof( PIXEL ),
+		       "framebuffer ownership exposes the expected legacy lock view" );
+		CHECK( LockBackBuffer( &backPitch ) != NULL && backPitch == SCREEN_WIDTH * sizeof( PIXEL ),
+		       "backbuffer ownership exposes the expected legacy lock view" );
 		if ( InitializeVideoObjectManager() )  std::printf( "ok    InitializeVideoObjectManager()\n" );
 		if ( InitializeVideoSurfaceManager() ) std::printf( "ok    InitializeVideoSurfaceManager()\n" );
 		ShutdownVideoManager();
+		CHECK( LockFrameBuffer( NULL ) == NULL && LockBackBuffer( NULL ) == NULL,
+		       "video shutdown clears legacy buffer views" );
 	}
 	else
 	{
