@@ -59,6 +59,7 @@
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "Soldier Control.h"
+#include "MovementDestinationPolicy.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 #include <vfs/Tools/vfs_property_container.h>
@@ -363,6 +364,44 @@ int main( int, char** )
 		CHECK( runtime.beginInitialization() && runtime.markRunning() &&
 		       runtime.beginShutdown() && runtime.markStopped(),
 		       "campaign-independent engine runtime owns lifecycle" );
+	}
+
+	{
+		const auto shouldRetain = []( BOOLEAN fPolicyEnabled, UINT16 usAnimState )
+		{
+			return ShouldRetainMovementAnimationAtDestination(
+				fPolicyEnabled, usAnimState, gAnimControl[ usAnimState ] );
+		};
+		const UINT16 crouchedLocomotion[] = {
+			SWATTING, SWAT_BACKWARDS, SWATTING_WK, SWAT_BACKWARDS_WK,
+			SWAT_BACKWARDS_NOTHING, SIDE_STEP_CROUCH_RIFLE, SIDE_STEP_CROUCH_PISTOL,
+			SIDE_STEP_CROUCH_DUAL, CROUCHEDMOVE_RIFLE_READY,
+			CROUCHEDMOVE_PISTOL_READY, CROUCHEDMOVE_DUAL_READY
+		};
+		bool crouchedMovementSettles = true;
+		for ( const UINT16 animation : crouchedLocomotion )
+		{
+			crouchedMovementSettles =
+				!shouldRetain( TRUE, animation ) &&
+				crouchedMovementSettles;
+		}
+		CHECK( crouchedMovementSettles,
+		       "crouched locomotion settles into a stationary crouch at its destination" );
+		const UINT16 retainedLegacyAnimations[] = {
+			WALKING, CROUCHING, RUNNING, CRAWLING, END_HURT_WALKING, RUNNING_W_PISTOL,
+			SIDE_STEP_WEAPON_RDY, SIDE_STEP_DUAL_RDY, WALKING_WEAPON_RDY,
+			WALKING_DUAL_RDY, WALKING_ALTERNATIVE_RDY, SIDE_STEP_ALTERNATIVE_RDY
+		};
+		bool legacyMovementRetained = true;
+		for ( const UINT16 animation : retainedLegacyAnimations )
+		{
+			legacyMovementRetained = shouldRetain( TRUE, animation ) && legacyMovementRetained;
+		}
+		CHECK( legacyMovementRetained,
+		       "standing, running, prone, and stationary-crouch legacy behavior is preserved" );
+		CHECK( !shouldRetain( FALSE, RUNNING ) && !shouldRetain( FALSE, SWATTING ) &&
+		       !shouldRetain( TRUE, STANDING ),
+		       "disabled or ineligible destination animation retention settles normally" );
 	}
 
 	{
