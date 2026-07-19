@@ -92,6 +92,20 @@ struct TestResourceReleaser
 };
 using TestResourceHandle = UniqueResourceHandle<TestResourceTag, TestResourceReleaser>;
 
+class FailingAssetSource final : public AssetSource
+{
+protected:
+	bool existsNormalized(const std::string& logicalPath) const override
+	{
+		return logicalPath == "data/items.xml";
+	}
+	AssetReadResult readNormalized(const std::string& logicalPath, AssetData&,
+		std::size_t) const override
+	{
+		return existsNormalized(logicalPath) ? AssetReadResult::IoError : AssetReadResult::NotFound;
+	}
+};
+
 class TestLifecyclePackage final : public EnginePackage
 {
 public:
@@ -110,7 +124,8 @@ public:
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
 		AssetData asset;
-		if (context.services.assets.read("Data/Rules/weapons.bin", asset))
+		if (context.services.assets.read("Data/Rules/weapons.bin", asset) ==
+			AssetReadResult::Success)
 			observedAssetProvenance = asset.provenance;
 		bootstrapCalls.push_back(static_cast<int>(phase));
 		return static_cast<int>(phase) != failPhase_;
@@ -273,21 +288,56 @@ int main( int, char** )
 	{
 		MemoryAssetSource campaignAssets( "campaign.arulco" );
 		MemoryAssetSource modAssets( "mod.example" );
-		CHECK( campaignAssets.put( "Data/Items.xml", { 1 } ) &&
+		CHECK( campaignAssets.put( "Data/Items.XML", { 1 } ) &&
 		       campaignAssets.put( "Data/Maps/A9.dat", { 9 } ) &&
-		       modAssets.put( "Data/Items.xml", { 2 } ),
+		       campaignAssets.put( "Data/Empty.bin", {} ) &&
+		       modAssets.put( "data/items.xml", { 2 } ) &&
+		       modAssets.put( "DATA//./ITEMS.xml", { 3 } ),
 		       "memory asset sources register deterministic fixtures" );
 		CompositeAssetSource layeredAssets;
-		CHECK( layeredAssets.mount( campaignAssets ) && layeredAssets.mount( modAssets ) &&
-		       !layeredAssets.mount( modAssets ),
+		CHECK( layeredAssets.mount( "campaign.arulco", campaignAssets ) &&
+		       layeredAssets.mount( "mod.example", modAssets ) &&
+		       !layeredAssets.mount( "mod.duplicate", modAssets ) &&
+		       !layeredAssets.mount( "self", layeredAssets ),
 		       "asset overlay has deterministic unique mount order" );
 		AssetData asset;
-		CHECK( layeredAssets.read( "Data/Items.xml", asset ) && asset.bytes[0] == 2 &&
+		CHECK( layeredAssets.read( "Data/Items.xml", asset ) == AssetReadResult::Success &&
+		       asset.logicalPath == "data/items.xml" && asset.bytes[0] == 3 &&
 		       asset.provenance == "mod.example",
-		       "later package assets override the campaign with provenance" );
-		CHECK( layeredAssets.read( "Data/Maps/A9.dat", asset ) && asset.bytes[0] == 9 &&
+		       "later package assets override case-insensitively with trusted provenance" );
+		CHECK( layeredAssets.read( "Data/Maps/A9.dat", asset ) == AssetReadResult::Success &&
+		       asset.bytes[0] == 9 &&
 		       asset.provenance == "campaign.arulco",
 		       "asset overlay falls back to lower-priority campaign content" );
+		CHECK( layeredAssets.read( "data/empty.bin", asset ) == AssetReadResult::Success &&
+		       asset.bytes.empty(), "asset source preserves empty assets" );
+
+		CompositeAssetSource firstComposite;
+		CompositeAssetSource secondComposite;
+		CHECK( firstComposite.mount( "second", secondComposite ) &&
+		       !secondComposite.mount( "first", firstComposite ),
+		       "asset overlays reject transitive mount cycles" );
+
+		FailingAssetSource brokenOverride;
+		CompositeAssetSource corruptedAssets;
+		CHECK( corruptedAssets.mount( "campaign.arulco", campaignAssets ) &&
+		       corruptedAssets.mount( "mod.broken", brokenOverride ) &&
+		       corruptedAssets.read( "data/items.xml", asset ) == AssetReadResult::IoError &&
+		       asset.logicalPath.empty() && asset.bytes.empty(),
+		       "broken high-priority assets never resurrect lower-priority content" );
+
+		asset = AssetData{ "stale", "stale", { 7 } };
+		const std::string controlPath = std::string("data/") + static_cast<char>(1) + "bad";
+		CHECK( layeredAssets.read( "../outside.bin", asset ) == AssetReadResult::InvalidPath &&
+		       asset.logicalPath.empty() && asset.provenance.empty() && asset.bytes.empty() &&
+		       layeredAssets.read( "C:\\absolute.bin", asset ) == AssetReadResult::InvalidPath &&
+		       layeredAssets.read( "\\\\server\\asset", asset ) == AssetReadResult::InvalidPath &&
+		       layeredAssets.read( controlPath, asset ) == AssetReadResult::InvalidPath,
+		       "invalid asset reads reject traversal, drives, UNC, and control characters cleanly" );
+		CHECK( layeredAssets.unmount( "mod.example" ) &&
+		       layeredAssets.read( "data/items.xml", asset ) == AssetReadResult::Success &&
+		       asset.bytes[0] == 1 && !layeredAssets.unmount( "mod.example" ),
+		       "asset mounts can be removed before package destruction" );
 	}
 
 	{
@@ -366,11 +416,15 @@ int main( int, char** )
 		CHECK( packageAssets.put( "Data\\Rules//weapons.bin", { 1, 2, 3 } ),
 		       "asset source accepts normalized package-relative paths" );
 		AssetData packageAsset;
-		CHECK( services.assets.read( "Data/Rules/weapons.bin", packageAsset ) &&
-		       packageAsset.logicalPath == "Data/Rules/weapons.bin" &&
+		CHECK( services.assets.read( "Data/Rules/weapons.bin", packageAsset ) ==
+		       AssetReadResult::Success &&
+		       packageAsset.logicalPath == "data/rules/weapons.bin" &&
 		       packageAsset.provenance == "rules.test" &&
 		       packageAsset.bytes == std::vector<std::uint8_t>({ 1, 2, 3 }),
 		       "engine services expose package assets with provenance" );
+		CHECK( services.assets.read( "Data/Rules/weapons.bin", packageAsset, 2 ) ==
+		       AssetReadResult::TooLarge && packageAsset.bytes.empty(),
+		       "asset reads enforce host-provided whole-file size limits" );
 		CHECK( !services.assets.exists( "../outside.bin" ) &&
 		       !services.assets.exists( "/absolute/path.bin" ),
 		       "asset sources reject traversal and absolute paths" );

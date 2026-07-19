@@ -54,8 +54,9 @@ the engine must not contain SDL types in its public domain model.
   SDL/VFS/legacy adapters. Headless and replay hosts can inject deterministic
   memory input, capture audio requests, and record frame presentation without devices.
 - `AssetSource` exposes normalized, read-only logical content with provenance
-  and deterministic overlays. Campaigns and mods can replace assets without
-  receiving writable save storage or importing the legacy VFS API.
+  and deterministic, case-insensitive overlays. It is the engine seam through
+  which package lifecycle mounting will let campaigns and mods replace assets
+  without receiving writable save storage or importing the legacy VFS API.
 - `EngineRuntime` owns campaign-independent lifecycle, screen state, content,
   packages, and service bindings. `GameContext` is now a JA2 compatibility
   facade around that reusable composition root plus legacy settings/options.

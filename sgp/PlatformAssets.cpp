@@ -2,6 +2,7 @@
 
 #include "FileMan.h"
 
+#include <new>
 #include <utility>
 
 namespace
@@ -14,23 +15,44 @@ protected:
 		return FileExists(const_cast<char*>(logicalPath.c_str()));
 	}
 
-	bool readNormalized(const std::string& logicalPath, AssetData& asset) const override
+	AssetReadResult readNormalized(const std::string& logicalPath, AssetData& asset,
+		std::size_t maximumBytes) const override
 	{
-		const HWFILE file = FileOpen(const_cast<char*>(logicalPath.c_str()),
-			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
-		if (!file) return false;
+		if (!FileExists(const_cast<char*>(logicalPath.c_str()))) return AssetReadResult::NotFound;
 
-		const UINT32 size = FileGetSize(file);
-		std::vector<std::uint8_t> bytes(size);
+		class ScopedFile
+		{
+		public:
+			explicit ScopedFile(HWFILE file) : file_(file) {}
+			~ScopedFile() { if (file_) FileClose(file_); }
+			HWFILE get() const { return file_; }
+		private:
+			HWFILE file_;
+		};
+
+		ScopedFile file(FileOpen(const_cast<char*>(logicalPath.c_str()),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING));
+		if (!file.get()) return AssetReadResult::IoError;
+
+		const UINT32 size = FileGetSize(file.get());
+		if (size > maximumBytes) return AssetReadResult::TooLarge;
+		std::vector<std::uint8_t> bytes;
+		try
+		{
+			bytes.resize(size);
+		}
+		catch (const std::bad_alloc&)
+		{
+			return AssetReadResult::IoError;
+		}
 		UINT32 bytesRead = 0;
 		const bool success = size == 0 ||
-			(FileRead(file, bytes.data(), size, &bytesRead) && bytesRead == size);
-		FileClose(file);
-		if (!success) return false;
+			(FileRead(file.get(), bytes.data(), size, &bytesRead) && bytesRead == size);
+		if (!success) return AssetReadResult::IoError;
 
 		asset.provenance = "legacy-vfs";
 		asset.bytes = std::move(bytes);
-		return true;
+		return AssetReadResult::Success;
 	}
 };
 }
