@@ -3,6 +3,7 @@
 
 #include "GameSettings.h"
 #include "GameCapabilities.h"
+#include "../Engine/Core/StateStack.h"
 
 enum class GameLifecycle
 {
@@ -28,6 +29,8 @@ public:
 	GAME_OPTIONS& options() { return options_; }
 	const GAME_OPTIONS& options() const { return options_; }
 	const GameCapabilities& capabilities() const { return capabilities_; }
+	StateStack<UINT32>& screens() { return screens_; }
+	const StateStack<UINT32>& screens() const { return screens_; }
 	bool setCapabilities(GameCapabilities capabilities)
 	{
 		if (lifecycle_ != GameLifecycle::Stopped) return false;
@@ -46,6 +49,7 @@ private:
 	GAME_SETTINGS& settings_;
 	GAME_OPTIONS& options_;
 	GameCapabilities capabilities_;
+	StateStack<UINT32> screens_;
 	GameLifecycle lifecycle_ = GameLifecycle::Stopped;
 };
 

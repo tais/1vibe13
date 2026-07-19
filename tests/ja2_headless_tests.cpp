@@ -30,6 +30,7 @@
 #include "../Engine/Core/UniqueResourceHandle.h"
 #include "../Engine/Core/DeterministicCommandQueue.h"
 #include "../Engine/Core/BinaryArchive.h"
+#include "../Engine/Core/StateStack.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -163,6 +164,18 @@ int main( int, char** )
 		BinaryReader versionReader( writer.bytes() );
 		CHECK( !ReadPersistenceHeader( versionReader, 0x32414A31u, 3, 4, header ),
 		       "persistence reader rejects unsupported schema versions" );
+	}
+
+	{
+		StateStack<int> screens;
+		screens.reset( 1 );
+		CHECK( screens.pushOverlay( 2 ) && screens.current()->overlay && screens.underlay()->state == 1,
+		       "state stack preserves a screen beneath an overlay" );
+		CHECK( screens.popOverlay() && screens.current()->state == 1,
+		       "state stack returns to the underlay when an overlay closes" );
+		screens.replace( 3 );
+		CHECK( screens.size() == 1 && screens.current()->state == 3 && !screens.popOverlay(),
+		       "state replacement does not create false navigation history" );
 	}
 
 	// --- hard asserts: the fully data-free managers ---
