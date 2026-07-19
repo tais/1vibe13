@@ -1,28 +1,54 @@
 #include "PlatformInput.h"
 
-#include "input.h"
+#include <cstddef>
+#include <deque>
+#include <mutex>
+#include <utility>
 
 namespace
 {
-class LegacyInputSource final : public InputSource
+class MirroredInputSource final : public InputSource
 {
 public:
 	bool poll(EngineInputEvent& event) override
 	{
-		InputAtom legacy{};
-		if (!DequeueEvent(&legacy)) return false;
-		event.timestamp = legacy.uiTimeStamp;
-		event.modifiers = legacy.usKeyState;
-		event.type = legacy.usEvent;
-		event.primary = legacy.usParam;
-		event.secondary = legacy.uiParam;
+		std::lock_guard<std::mutex> lock(mutex_);
+		if (events_.empty()) return false;
+		event = std::move(events_.front());
+		events_.pop_front();
 		return true;
 	}
+
+	void publish(EngineInputEvent event)
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		// Keep this observer bounded even while no engine/package consumer is
+		// active. A continuously polling runtime sees every accepted event;
+		// a late consumer receives the newest window instead of stale startup
+		// input or unbounded memory growth.
+		if (events_.size() == capacity_) events_.pop_front();
+		events_.push_back(std::move(event));
+	}
+
+private:
+	static constexpr std::size_t capacity_ = 256;
+	std::mutex mutex_;
+	std::deque<EngineInputEvent> events_;
 };
+
+MirroredInputSource& platformInputSource()
+{
+	static MirroredInputSource source;
+	return source;
+}
+}
+
+void PublishPlatformInputEvent(EngineInputEvent event)
+{
+	platformInputSource().publish(std::move(event));
 }
 
 InputSource& GetPlatformInputSource()
 {
-	static LegacyInputSource source;
-	return source;
+	return platformInputSource();
 }

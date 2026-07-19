@@ -456,11 +456,17 @@ int main( int, char** )
 		keyEvent.key.scancode = SDL_SCANCODE_F1;
 		keyEvent.key.key = SDLK_F1;
 		SgpHandleSDLEvent( &keyEvent );
+		EngineInputEvent engineAtom = {};
 		InputAtom atom = {};
+		CHECK( GetPlatformInputSource().poll( engineAtom ) && engineAtom.type == KEY_DOWN &&
+		       engineAtom.primary == F1,
+		       "platform input mirrors SDL events for engine consumers" );
 		CHECK( DequeueEvent( &atom ) && atom.usEvent == KEY_DOWN && atom.usParam == F1,
-		       "SDL F1 queues the JA2 symbolic function-key value" );
+		       "engine input polling does not steal the legacy UI event" );
 		keyEvent.type = SDL_EVENT_KEY_UP;
 		SgpHandleSDLEvent( &keyEvent );
+		CHECK( GetPlatformInputSource().poll( engineAtom ) && engineAtom.type == KEY_UP,
+		       "platform input preserves mirrored key-up transitions" );
 		DequeueEvent( &atom );
 		ShutdownInputManager();
 	}
