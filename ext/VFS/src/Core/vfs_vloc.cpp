@@ -97,6 +97,11 @@ bool vfs::CVirtualLocation::getIsExclusive()
 
 void vfs::CVirtualLocation::addFile(vfs::IBaseFile* file, vfs::String const& profileName)
 {
+	addFile(file, profileName, true);
+}
+
+void vfs::CVirtualLocation::addFile(vfs::IBaseFile* file, vfs::String const& profileName, bool replaceExisting)
+{
 	vfs::CVirtualFile *pVFile = NULL;
 	tVFiles::iterator it = m_VFiles.find(file->getName());
 	if(it == m_VFiles.end())
@@ -106,7 +111,7 @@ void vfs::CVirtualLocation::addFile(vfs::IBaseFile* file, vfs::String const& pro
 		pVFile = vfs::CVirtualFile::create(fp,stack);
 		it = m_VFiles.insert(m_VFiles.end(), std::pair<vfs::Path,vfs::CVirtualFile*>(file->getName(),pVFile));
 	}
-	it->second->add(file,profileName,true);
+	it->second->add(file,profileName,replaceExisting);
 }
 
 vfs::IBaseFile* vfs::CVirtualLocation::getFile(vfs::Path const& filename, vfs::String const& profileName) const

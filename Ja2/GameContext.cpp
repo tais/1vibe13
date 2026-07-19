@@ -1,53 +1,31 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
+#include "PackageHost.h"
+#include "PlatformAssets.h"
 #include "PlatformLog.h"
+#include "PlatformInput.h"
+#include "PlatformAudio.h"
 #include "PlatformFileSystem.h"
+#include "PlatformFramePresenter.h"
 #include "PlatformTime.h"
 #include "random.h"
 
-bool GameContext::beginInitialization()
-{
-	if (lifecycle_ != GameLifecycle::Stopped) return false;
-	lifecycle_ = GameLifecycle::Initializing;
-	return true;
-}
-
-bool GameContext::markRunning()
-{
-	if (lifecycle_ != GameLifecycle::Initializing) return false;
-	lifecycle_ = GameLifecycle::Running;
-	return true;
-}
-
-bool GameContext::cancelInitialization()
-{
-	if (lifecycle_ != GameLifecycle::Initializing) return false;
-	lifecycle_ = GameLifecycle::Stopped;
-	return true;
-}
-
-bool GameContext::beginShutdown()
-{
-	if (lifecycle_ != GameLifecycle::Running && lifecycle_ != GameLifecycle::Initializing) return false;
-	lifecycle_ = GameLifecycle::ShuttingDown;
-	return true;
-}
-
-bool GameContext::markStopped()
-{
-	if (lifecycle_ != GameLifecycle::ShuttingDown) return false;
-	lifecycle_ = GameLifecycle::Stopped;
-	return true;
-}
-
 GameContext& GetGameContext()
 {
+	// External package objects are non-owningly referenced by GameContext's
+	// registry. Construct their application owner first so it is destroyed last.
+	(void)GetStartupPackageHost();
+	// Construct the application-owned package first so it also outlives the
+	// registry's non-owning package and asset references during static teardown.
+	(void)GetCompiledCampaignPackage();
 	static GameContext context(
 		gGameSettings,
 		gGameOptions,
 		GetCompiledGameCapabilities(),
 		EngineServices{GetPlatformTimeSource(), GetGameRandomSource(),
-		               GetPlatformByteStorage(), GetPlatformLogSink()});
+		               GetPlatformByteStorage(), GetPlatformLogSink(),
+		               GetPlatformInputSource(), GetPlatformAudioOutput(),
+		               GetPlatformFramePresenter(), GetPlatformAssetSource()});
 	static const bool packageActivated = [] {
 		LegacyCampaignPackage& package = GetCompiledCampaignPackage();
 		GameContext& game = context;

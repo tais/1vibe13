@@ -11,6 +11,7 @@
 #include "Assignments.h"
 #include "Animation Control.h"
 #include "Animation Data.h"
+#include "MovementDestinationPolicy.h"
 #include "Isometric Utils.h"
 #include "Event Pump.h"
 #include "Timer Control.h"
@@ -1641,62 +1642,33 @@ BOOLEAN ExecuteOverhead( )
 
                                             if ( !fAimAfterMove ) // SANDRO - don't do this after movement with weapon raised
                                             {
-                                                // Flugente: if in turnbased combat and option is selected, do not go to standing animation
-                                                // By this, we wont have to spend additional APs when we continue to run
-												if ((gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) &&
-													(pSoldier->flags.uiStatusFlags & SOLDIER_PC) &&	// sevenfm: this option works only for player
-													gGameExternalOptions.fNoStandingAnimAdjustInCombat &&
-													!pSoldier->bCollapsed && 
-													!pSoldier->bBreathCollapsed)
+                                                // Retaining eligible locomotion avoids the AP cost of
+                                                // starting another run. Crouched locomotion is excluded
+                                                // by the policy because it has no restart surcharge and
+                                                // otherwise freezes on its final stride frame.
+                                                const BOOLEAN fRetainMovementAnimation =
+                                                    ShouldRetainMovementAnimationAtDestination(
+                                                        ( gTacticalStatus.uiFlags & TURNBASED ) &&
+                                                        ( gTacticalStatus.uiFlags & INCOMBAT ) &&
+                                                        ( pSoldier->flags.uiStatusFlags & SOLDIER_PC ) &&
+                                                        gGameExternalOptions.fNoStandingAnimAdjustInCombat &&
+                                                        !pSoldier->bCollapsed &&
+                                                        !pSoldier->bBreathCollapsed,
+                                                        pSoldier->usAnimState,
+                                                        gAnimControl[ pSoldier->usAnimState ] );
+
+                                                if ( fRetainMovementAnimation )
                                                 {
-                                                    // Flugente: We have to decide depending on the animation we have, otherwise we can cause bugs if we do this after being hit by an explosion etc.
-                                                    BOOLEAN dontadjustanim = FALSE;
-                                                    switch ( pSoldier->usAnimState )
-                                                    {
-                                                        case WALKING:
-                                                        case CROUCHING:
-                                                        case SWATTING:
-                                                        case RUNNING:
-                                                        case CRAWLING:
-                                                        case END_HURT_WALKING:
-                                                        case SWAT_BACKWARDS:
-                                                        case SWATTING_WK:
-                                                        case SWAT_BACKWARDS_WK:
-                                                        case SWAT_BACKWARDS_NOTHING:
-                                                        case RUNNING_W_PISTOL:
-                                                        case SIDE_STEP_WEAPON_RDY:
-                                                        case SIDE_STEP_DUAL_RDY:
-														case SIDE_STEP_CROUCH_RIFLE:
-														case SIDE_STEP_CROUCH_PISTOL:
-														case SIDE_STEP_CROUCH_DUAL:
-                                                        case WALKING_WEAPON_RDY:
-                                                        case WALKING_DUAL_RDY:
-                                                        case WALKING_ALTERNATIVE_RDY:
-                                                        case SIDE_STEP_ALTERNATIVE_RDY:
-														case CROUCHEDMOVE_RIFLE_READY:
-														case CROUCHEDMOVE_PISTOL_READY:
-														case CROUCHEDMOVE_DUAL_READY:
-                                                            dontadjustanim = TRUE;
-                                                            break;
-                                                    }
+                                                    pSoldier->AdjustNoAPToFinishMove( TRUE );
 
-                                                    if ( dontadjustanim )
-                                                    {
-                                                        pSoldier->AdjustNoAPToFinishMove( TRUE );
-
-                                                        pSoldier->usPendingAnimation        = NO_PENDING_ANIMATION;
-                                                        pSoldier->ubPendingDirection        = NO_PENDING_DIRECTION;
-                                                        pSoldier->aiData.ubPendingAction    = NO_PENDING_ACTION;
-                                                    }
-													else
-													{
-														pSoldier->SoldierGotoStationaryStance();
-													}
+                                                    pSoldier->usPendingAnimation        = NO_PENDING_ANIMATION;
+                                                    pSoldier->ubPendingDirection        = NO_PENDING_DIRECTION;
+                                                    pSoldier->aiData.ubPendingAction    = NO_PENDING_ACTION;
                                                 }
-												else
-												{
-													pSoldier->SoldierGotoStationaryStance();
-												}
+                                                else
+                                                {
+                                                    pSoldier->SoldierGotoStationaryStance();
+                                                }
                                             }
                                         }
                                     }

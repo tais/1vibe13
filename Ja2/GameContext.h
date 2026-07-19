@@ -3,18 +3,10 @@
 
 #include "GameSettings.h"
 #include "GameCapabilities.h"
-#include "../Engine/Core/StateStack.h"
-#include "../Engine/Core/ContentApi.h"
-#include "../Engine/Core/PackageApi.h"
-#include "../Engine/Core/EngineServices.h"
+#include <Engine/Core/EngineRuntime.h>
 
-enum class GameLifecycle
-{
-	Stopped,
-	Initializing,
-	Running,
-	ShuttingDown
-};
+// Compatibility name retained while callers migrate to EngineRuntime.
+using GameLifecycle = EngineLifecycle;
 
 // Incremental composition root for engine-wide services. References initially
 // point at the legacy globals so systems can migrate without changing save data
@@ -24,8 +16,7 @@ class GameContext
 public:
 	GameContext(GAME_SETTINGS& settings, GAME_OPTIONS& options, GameCapabilities capabilities = {},
 	            EngineServices services = EngineServices::defaults())
-		: settings_(settings), options_(options), capabilities_(capabilities), services_(services),
-		  packages_(content_, services_)
+		: settings_(settings), options_(options), capabilities_(capabilities), runtime_(services)
 	{
 	}
 
@@ -34,38 +25,36 @@ public:
 	GAME_OPTIONS& options() { return options_; }
 	const GAME_OPTIONS& options() const { return options_; }
 	const GameCapabilities& capabilities() const { return capabilities_; }
-	EngineServices& services() { return services_; }
-	const EngineServices& services() const { return services_; }
-	LogSink& log() { return services_.log; }
-	StateStack<UINT32>& screens() { return screens_; }
-	const StateStack<UINT32>& screens() const { return screens_; }
-	ContentRegistry& content() { return content_; }
-	const ContentRegistry& content() const { return content_; }
-	PackageRegistry& packages() { return packages_; }
-	const PackageRegistry& packages() const { return packages_; }
+	EngineRuntime<UINT32>& runtime() { return runtime_; }
+	const EngineRuntime<UINT32>& runtime() const { return runtime_; }
+	EngineServices& services() { return runtime_.services(); }
+	const EngineServices& services() const { return runtime_.services(); }
+	LogSink& log() { return runtime_.log(); }
+	StateStack<UINT32>& screens() { return runtime_.screens(); }
+	const StateStack<UINT32>& screens() const { return runtime_.screens(); }
+	ContentRegistry& content() { return runtime_.content(); }
+	const ContentRegistry& content() const { return runtime_.content(); }
+	PackageRegistry& packages() { return runtime_.packages(); }
+	const PackageRegistry& packages() const { return runtime_.packages(); }
 	bool setCapabilities(GameCapabilities capabilities)
 	{
-		if (lifecycle_ != GameLifecycle::Stopped) return false;
+		if (runtime_.lifecycle() != EngineLifecycle::Stopped) return false;
 		capabilities_ = capabilities;
 		return true;
 	}
 
-	GameLifecycle lifecycle() const { return lifecycle_; }
-	bool beginInitialization();
-	bool cancelInitialization();
-	bool markRunning();
-	bool beginShutdown();
-	bool markStopped();
+	GameLifecycle lifecycle() const { return runtime_.lifecycle(); }
+	bool beginInitialization() { return runtime_.beginInitialization(); }
+	bool cancelInitialization() { return runtime_.cancelInitialization(); }
+	bool markRunning() { return runtime_.markRunning(); }
+	bool beginShutdown() { return runtime_.beginShutdown(); }
+	bool markStopped() { return runtime_.markStopped(); }
 
 private:
 	GAME_SETTINGS& settings_;
 	GAME_OPTIONS& options_;
 	GameCapabilities capabilities_;
-	EngineServices services_;
-	StateStack<UINT32> screens_;
-	ContentRegistry content_{ContentApiVersion{1, 0}};
-	PackageRegistry packages_;
-	GameLifecycle lifecycle_ = GameLifecycle::Stopped;
+	EngineRuntime<UINT32> runtime_;
 };
 
 class GameInitializationGuard

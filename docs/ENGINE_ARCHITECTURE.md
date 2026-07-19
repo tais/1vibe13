@@ -35,13 +35,41 @@ the engine must not contain SDL types in its public domain model.
   will replace them service by service without changing save layouts en masse.
 - `GameCapabilities` moves JA2/UB/editor decisions from preprocessing toward
   startup-selected runtime policy.
-- `ContentRegistry` validates package identity and required engine API version.
-- `PackageRegistry` owns package validation and activation policy while package
-  objects remain application-owned. Only one campaign may be active, whereas
-  rules, extensions, and tools can be composed around it.
+- `ContentRegistry` validates package identity, required engine API version,
+  and ordered package requirements. Requirements may target packages that have
+  not been discovered yet, so registration order never determines validity.
+- `PackageRegistry` owns package validation, dependency planning, and activation
+  policy while package objects remain application-owned. Its iterative planner
+  produces a stable topological activation delta: requirement declaration order
+  and requested-root order both run from lower to higher overlay priority, and
+  shared diamond dependencies activate once. The whole multi-root graph is
+  checked before callbacks run. Activation is transactional; a callback, asset
+  mount, or exception failure reverses only packages newly activated by that
+  request and preserves the pre-existing active set. Batch activation of an
+  already-active closure is therefore an idempotent success with an empty
+  result delta, while the legacy single-package call reports `AlreadyActive`.
+  Only one campaign may be active, whereas rules, extensions, and tools can be
+  composed around it.
+- Active packages protect their direct requirements from removal, which in turn
+  protects the complete active closure. Dependencies are not automatically
+  pruned when a consumer is removed; the host chooses explicit teardown order.
+  Package activation returning false must leave that package inactive and
+  holding no lifecycle resources.
+- Requirements currently express only mandatory package identity and an
+  optional exact version. Versions are opaque, case-sensitive strings rather
+  than SemVer ranges. Optional dependencies, conflicts, and ordering-only
+  relationships are intentionally deferred until package discovery/catalog
+  policy has a concrete host.
 - `LegacyCampaignPackage` exposes the compiled JA2 or UB campaign through that
   runtime contract. It is the compatibility bridge to replace with discovered
   package manifests and campaign bootstrap hooks incrementally.
+- `PackageHost` provides the first optional, data-only discovery adapter around
+  that bridge. [Data Package v1](DATA_PACKAGES.md) validates manifests and
+  dependency graphs at startup, then mounts legacy-format assets in resolved
+  overlay order. With no package configuration it is a strict no-op: existing
+  `Data-*` trees and `vfs_config.ini` behavior remain unchanged. This version
+  deliberately has no native-code loading, runtime rescan/unload, or
+  disk-discovered campaign bootstrap.
 - Package bootstrap advances through ordered configure, content-load, and
   runtime-start phases. A failed phase rolls back in reverse package order;
   shutdown unwinds completed phases in reverse before legacy engine teardown.
@@ -50,7 +78,27 @@ the engine must not contain SDL types in its public domain model.
   and `Engine/Core` never depends on SDL or the legacy debug manager.
 - `EngineServices` is the non-owning service table assembled by `GameContext`.
   Packages receive engine contracts for time, randomness, byte storage, and
-  logging while the application retains ownership of SDL/VFS/legacy adapters.
+  logging, input, audio, and frame presentation while the application retains ownership of
+  SDL/VFS/legacy adapters. Headless and replay hosts can inject deterministic
+  memory input, capture audio requests, and record frame presentation without devices.
+- `AssetSource` exposes normalized, read-only logical content with provenance
+  and deterministic, case-insensitive overlays. `PackageRegistry` mounts an
+  active package's optional source above the trusted host source, in activation
+  order, and removes it before package teardown. This lets campaigns and mods
+  replace assets without receiving writable save storage or importing the
+  legacy VFS API. Package asset sources are application-owned and must retain a
+  stable identity for their active lifetime. Package IDs and trusted asset
+  provenance use portable ASCII letters, digits, `.`, `_`, and `-` only.
+  Registry lifecycle operations are serialized and reject reentrant package
+  callbacks; hosts must likewise serialize lifecycle changes with asset reads.
+  This source-built alpha API has no stable binary plugin ABI yet; package
+  binaries must be rebuilt with the engine. Content API 1.1 identifies packages
+  that depend on lifecycle-mounted asset sources; 1.2 adds ordered package
+  requirements. Packages using requirements must declare 1.2 explicitly, while
+  1.0 and 1.1 content remain valid when they do not use newer contracts.
+- `EngineRuntime` owns campaign-independent lifecycle, screen state, content,
+  packages, and service bindings. `GameContext` is now a JA2 compatibility
+  facade around that reusable composition root plus legacy settings/options.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
@@ -75,7 +123,8 @@ not accidentally.
 4. `SOLDIERTYPE` data is not reordered until a versioned entity serializer has
    replaced raw layout persistence.
 5. Content API major versions signal breaking contracts. A package may require
-   an engine minor version no newer than the running engine supports.
+   an engine minor version no newer than the running engine supports. Exact
+   package requirements compare their opaque version strings byte-for-byte.
 6. Deterministic simulation code cannot read wall-clock or render timing as an
    input to rules decisions.
 

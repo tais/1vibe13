@@ -13,14 +13,14 @@ LegacyCampaignPackage::LegacyCampaignPackage(GameCapabilities capabilities)
 {
 }
 
-bool LegacyCampaignPackage::activate()
+bool LegacyCampaignPackage::activate() noexcept
 {
 	if (active_) return false;
 	active_ = true;
 	return true;
 }
 
-void LegacyCampaignPackage::deactivate()
+void LegacyCampaignPackage::deactivate() noexcept
 {
 	active_ = false;
 }

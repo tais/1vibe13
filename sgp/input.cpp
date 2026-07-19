@@ -15,6 +15,7 @@
 	#include <memory.h>
 	#include "DEBUG.H"
 	#include "input.h"
+	#include "PlatformInput.h"
 	#include "MemMan.h"
 	#include "english.h"
 		#include "video.h"
@@ -237,6 +238,7 @@ LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
 
 BOOLEAN InitializeInputManager(void)
 {
+	ResetPlatformInputEvents();
 	// Link to debugger
 	RegisterDebugTopic(TOPIC_INPUT, "Input Manager");
 	// Initialize the gfKeyState table to FALSE everywhere
@@ -293,8 +295,29 @@ void ShutdownInputManager(void)
 	// mouse hooks will be destroyed
 	UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
 	// (WH_MOUSE hook is no longer installed -- see InitializeInputManager.)
+	ResetPlatformInputEvents();
 
 	DeleteCriticalSection(&gcsInputQueueLock);
+}
+
+static void AppendQueuedInputEvent(UINT16 eventType, UINT32 primary, UINT32 secondary,
+	UINT32 timestamp, UINT16 keyState)
+{
+	InputAtom& event = gEventQueue[gusTailIndex];
+	event.uiTimeStamp = timestamp;
+	event.usKeyState = keyState;
+	event.usEvent = eventType;
+	event.usParam = primary;
+	event.uiParam = secondary;
+
+	++gusQueueCount;
+	gusTailIndex = gusTailIndex == 255 ? 0 : gusTailIndex + 1;
+
+	// The compatibility queue is authoritative. Mirroring is non-throwing and
+	// happens only after that queue has accepted the event.
+	PublishPlatformInputEvent(EngineInputEvent{
+		timestamp, keyState, eventType, primary, secondary
+	});
 }
 
 void QueuePureEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
@@ -312,27 +335,7 @@ void QueuePureEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 		return;
 	}
 
-	// Okey Dokey, we can queue up the event, so we do it
-	gEventQueue[gusTailIndex].uiTimeStamp = uiTimer;
-	gEventQueue[gusTailIndex].usKeyState = usKeyState;
-	gEventQueue[gusTailIndex].usEvent = ubInputEvent;
-	gEventQueue[gusTailIndex].usParam = usParam;
-	gEventQueue[gusTailIndex].uiParam = uiParam;
-
-	// Increment the number of items on the input queue
-	gusQueueCount++;
-
-	// Increment the gusTailIndex pointer
-	if (gusTailIndex == 255)
-	{
-		// The gusTailIndex is about to wrap around the queue ring
-		gusTailIndex = 0;
-	}
-	else
-	{
-		// We simply increment the gusTailIndex
-		gusTailIndex++;
-	}
+	AppendQueuedInputEvent(ubInputEvent, usParam, uiParam, uiTimer, usKeyState);
 }
 
 void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
@@ -384,49 +387,11 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 			// This path enqueues TWO events, so ensure room for both before writing
 			guiSingleClickTimer = 0;
 
-			// Add a button up first...
-			gEventQueue[gusTailIndex].uiTimeStamp = uiTimer;
-			gEventQueue[gusTailIndex].usKeyState = gusRecordedKeyState;
-			gEventQueue[gusTailIndex].usEvent = LEFT_BUTTON_UP;
-			gEventQueue[gusTailIndex].usParam = usParam;
-			gEventQueue[gusTailIndex].uiParam = uiParam;
-
-			// Increment the number of items on the input queue
-			gusQueueCount++;
-
-			// Increment the gusTailIndex pointer
-			if (gusTailIndex == 255)
-			{
-				// The gusTailIndex is about to wrap around the queue ring
-				gusTailIndex = 0;
-			}
-			else
-			{
-				// We simply increment the gusTailIndex
-				gusTailIndex++;
-			}
-
-			// Now do double click
-			gEventQueue[gusTailIndex].uiTimeStamp = uiTimer;
-			gEventQueue[gusTailIndex].usKeyState = gusRecordedKeyState ;
-			gEventQueue[gusTailIndex].usEvent = LEFT_BUTTON_DBL_CLK;
-			gEventQueue[gusTailIndex].usParam = usParam;
-			gEventQueue[gusTailIndex].uiParam = uiParam;
-
-			// Increment the number of items on the input queue
-			gusQueueCount++;
-
-			// Increment the gusTailIndex pointer
-			if (gusTailIndex == 255)
-			{
-				// The gusTailIndex is about to wrap around the queue ring
-				gusTailIndex = 0;
-			}
-			else
-			{
-				// We simply increment the gusTailIndex
-				gusTailIndex++;
-			}
+			// Add a button up first, then its synthetic double-click atom.
+			AppendQueuedInputEvent(LEFT_BUTTON_UP, usParam, uiParam, uiTimer,
+				gusRecordedKeyState);
+			AppendQueuedInputEvent(LEFT_BUTTON_DBL_CLK, usParam, uiParam, uiTimer,
+				gusRecordedKeyState);
 			return;
 		}
 		else
@@ -436,27 +401,7 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 		}
 	}
 
-	// Okey Dokey, we can queue up the event, so we do it
-	gEventQueue[gusTailIndex].uiTimeStamp = uiTimer;
-	gEventQueue[gusTailIndex].usKeyState = usKeyState;
-	gEventQueue[gusTailIndex].usEvent = ubInputEvent;
-	gEventQueue[gusTailIndex].usParam = usParam;
-	gEventQueue[gusTailIndex].uiParam = uiParam;
-
-	// Increment the number of items on the input queue
-	gusQueueCount++;
-
-	// Increment the gusTailIndex pointer
-	if (gusTailIndex == 255)
-	{
-		// The gusTailIndex is about to wrap around the queue ring
-		gusTailIndex = 0;
-	}
-	else
-	{
-		// We simply increment the gusTailIndex
-		gusTailIndex++;
-	}
+	AppendQueuedInputEvent(ubInputEvent, usParam, uiParam, uiTimer, usKeyState);
 }
 
 

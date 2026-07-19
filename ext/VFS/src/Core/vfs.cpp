@@ -387,6 +387,11 @@ vfs::CVirtualFileSystem::Iterator vfs::CVirtualFileSystem::begin(vfs::Path const
 
 bool vfs::CVirtualFileSystem::addLocation(vfs::IBaseLocation* pLocation, vfs::CVirtualProfile *pProfile)
 {
+	return addLocation(pLocation, pProfile, true);
+}
+
+bool vfs::CVirtualFileSystem::addLocation(vfs::IBaseLocation* pLocation, vfs::CVirtualProfile *pProfile, bool replaceExisting)
+{
 	VFS_THROW_IFF(pLocation != NULL, L"Invalid location object");
 	VFS_THROW_IFF(pProfile!= NULL, L"Invalid location object");
 
@@ -407,7 +412,7 @@ bool vfs::CVirtualFileSystem::addLocation(vfs::IBaseLocation* pLocation, vfs::CV
 		sPath.splitLast(dir,file);
 		
 		CVirtualLocation* pLoc = this->getVirtualLocation(dir,true);
-		pLoc->addFile(pFile, pProfile->cName);
+		pLoc->addFile(pFile, pProfile->cName, replaceExisting);
 	}
 	return true;
 }

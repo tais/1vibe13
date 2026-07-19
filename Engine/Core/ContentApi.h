@@ -4,8 +4,11 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include <Engine/Core/Identifier.h>
 
 struct ContentApiVersion
 {
@@ -13,11 +16,26 @@ struct ContentApiVersion
 	std::uint16_t minor;
 };
 
+// 1.1 adds package-owned AssetSource overlays; 1.2 adds exact or unversioned
+// package requirements. Older manifests remain valid when they do not depend
+// on those optional contracts.
+constexpr ContentApiVersion CurrentContentApiVersion{1, 2};
+constexpr ContentApiVersion PackageRequirementsContentApiVersion{1, 2};
+
+struct ContentRequirement
+{
+	std::string id;
+	// Versions are deliberately opaque and case-sensitive for now. Empty means
+	// any registered version; non-empty means exact equality, not SemVer.
+	std::string exactVersion;
+};
+
 struct ContentManifest
 {
 	std::string id;
 	std::string version;
 	ContentApiVersion requiredApi;
+	std::vector<ContentRequirement> requirements;
 };
 
 enum class ContentRegistrationError
@@ -25,7 +43,8 @@ enum class ContentRegistrationError
 	None,
 	InvalidManifest,
 	IncompatibleApi,
-	DuplicateId
+	DuplicateId,
+	InvalidRequirement
 };
 
 class ContentRegistry
@@ -35,13 +54,39 @@ public:
 
 	ContentRegistrationError registerContent(ContentManifest manifest)
 	{
-		if (manifest.id.empty() || manifest.version.empty()) return ContentRegistrationError::InvalidManifest;
+		if (!IsValidEngineIdentifier(manifest.id) || manifest.version.empty())
+			return ContentRegistrationError::InvalidManifest;
 		if (manifest.requiredApi.major != supportedApi_.major || manifest.requiredApi.minor > supportedApi_.minor)
 			return ContentRegistrationError::IncompatibleApi;
+		if (!manifest.requirements.empty() &&
+			(manifest.requiredApi.major != PackageRequirementsContentApiVersion.major ||
+			 manifest.requiredApi.minor < PackageRequirementsContentApiVersion.minor))
+			return ContentRegistrationError::InvalidRequirement;
+		std::unordered_set<std::string> requirementIds;
+		requirementIds.reserve(manifest.requirements.size());
+		for (const ContentRequirement& requirement : manifest.requirements)
+		{
+			if (!IsValidEngineIdentifier(requirement.id) || requirement.id == manifest.id ||
+				!requirementIds.insert(requirement.id).second)
+				return ContentRegistrationError::InvalidRequirement;
+		}
 		if (byId_.find(manifest.id) != byId_.end()) return ContentRegistrationError::DuplicateId;
 		const std::size_t index = manifests_.size();
-		byId_.emplace(manifest.id, index);
 		manifests_.push_back(std::move(manifest));
+		try
+		{
+			const auto inserted = byId_.emplace(manifests_.back().id, index);
+			if (!inserted.second)
+			{
+				manifests_.pop_back();
+				return ContentRegistrationError::DuplicateId;
+			}
+		}
+		catch (...)
+		{
+			manifests_.pop_back();
+			throw;
+		}
 		return ContentRegistrationError::None;
 	}
 

@@ -510,7 +510,7 @@ void GameLoop(void)
 		// end rain
 
 		//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: refresh screen");
-		RefreshScreen( NULL );
+		GetGameContext().services().frames.present(FramePresentMode::Paced);
 
 	guiGameCycleCounter++;
 

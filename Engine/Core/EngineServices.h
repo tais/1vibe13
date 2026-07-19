@@ -1,7 +1,11 @@
 #ifndef ENGINE_CORE_ENGINE_SERVICES_H
 #define ENGINE_CORE_ENGINE_SERVICES_H
 
+#include <Engine/Core/AssetSource.h>
+#include <Engine/Core/AudioOutput.h>
 #include <Engine/Core/ByteStorage.h>
+#include <Engine/Core/FramePresenter.h>
+#include <Engine/Core/InputSource.h>
 #include <Engine/Core/LogSink.h>
 #include <Engine/Core/RandomSource.h>
 #include <Engine/Core/TimeSource.h>
@@ -11,19 +15,21 @@
 // table without linking SDL, VFS, or legacy game globals.
 struct EngineServices
 {
-	MonotonicTimeSource& time;
-	RandomSource& random;
-	ByteStorage& storage;
-	LogSink& log;
+	// Default member bindings keep aggregate initialization source-compatible
+	// as new optional services are appended to this table. Existing hosts may
+	// supply only the services they override; omitted services remain inert.
+	MonotonicTimeSource& time = ZeroTimeSource::instance();
+	RandomSource& random = ZeroRandomSource::instance();
+	ByteStorage& storage = NullByteStorage::instance();
+	LogSink& log = NullLogSink::instance();
+	InputSource& input = NullInputSource::instance();
+	AudioOutput& audio = NullAudioOutput::instance();
+	FramePresenter& frames = NullFramePresenter::instance();
+	const AssetSource& assets = NullAssetSource::instance();
 
 	static EngineServices defaults()
 	{
-		return EngineServices{
-			ZeroTimeSource::instance(),
-			ZeroRandomSource::instance(),
-			NullByteStorage::instance(),
-			NullLogSink::instance()
-		};
+		return EngineServices{};
 	}
 };
 

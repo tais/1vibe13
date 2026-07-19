@@ -191,6 +191,11 @@ bool vfs_init::initWriteProfile(vfs::CVirtualProfile &rProf)
 
 bool vfs_init::initVirtualFileSystem(vfs_init::VfsConfig const& conf)
 {
+	return initVirtualFileSystem(conf, true);
+}
+
+bool vfs_init::initVirtualFileSystem(vfs_init::VfsConfig const& conf, bool replaceExisting)
+{
 	VFS_LOG_INFO(L"Initializing Virtual File System");
 
 	vfs::CVirtualFileSystem *pVFS = getVFS();
@@ -289,7 +294,7 @@ bool vfs_init::initVirtualFileSystem(vfs_init::VfsConfig const& conf)
 					else
 					{
 						pProf->addLocation(pLib);
-						pVFS->addLocation(vfs::tReadLocation::cast(pLib), pProf);
+						pVFS->addLocation(vfs::tReadLocation::cast(pLib), pProf, replaceExisting);
 					}
 				}
 				else
@@ -325,7 +330,7 @@ bool vfs_init::initVirtualFileSystem(vfs_init::VfsConfig const& conf)
 				else
 				{
 					pProf->addLocation(pDirLocation);
-					pVFS->addLocation(pDirLocation, pProf);
+					pVFS->addLocation(pDirLocation, pProf, replaceExisting);
 				}
 			}
 		}

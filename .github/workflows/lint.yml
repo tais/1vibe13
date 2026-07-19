@@ -24,3 +24,10 @@ jobs:
         # baseline by running `tools/lint_string_sinks.py --update` after
         # converting a legacy site to snprintf / strlcpy / strlcat.
         run: python3 tools/lint_string_sinks.py
+
+      - name: Validate release metadata stamping
+        run: |
+          python3 tools/stamp_game_version.py \
+            --source Ja2/GameVersion.cpp \
+            --version v0.9.0-test \
+            --build "EN v0.9.0-test GitHub test/repository 01234567"

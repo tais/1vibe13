@@ -50,6 +50,7 @@ namespace vfs
 		bool				getIsExclusive();
 
 		void				addFile(vfs::IBaseFile* pile, vfs::String const& profileName);
+		void				addFile(vfs::IBaseFile* pile, vfs::String const& profileName, bool replaceExisting);
 		vfs::IBaseFile*		getFile(vfs::Path const& filename, vfs::String const& profileName = "") const;
 		vfs::CVirtualFile*	getVirtualFile(vfs::Path const& filename);
 
