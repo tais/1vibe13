@@ -16,6 +16,22 @@ public:
 	virtual bool writeAll(const std::string& path, const std::vector<std::uint8_t>& bytes) = 0;
 };
 
+class NullByteStorage final : public ByteStorage
+{
+public:
+	static NullByteStorage& instance()
+	{
+		static NullByteStorage storage;
+		return storage;
+	}
+	bool exists(const std::string&) const override { return false; }
+	bool readAll(const std::string&, std::vector<std::uint8_t>&) const override { return false; }
+	bool writeAll(const std::string&, const std::vector<std::uint8_t>&) override { return false; }
+
+private:
+	NullByteStorage() = default;
+};
+
 class MemoryByteStorage final : public ByteStorage
 {
 public:

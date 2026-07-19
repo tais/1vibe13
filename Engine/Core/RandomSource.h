@@ -13,6 +13,20 @@ public:
 	virtual std::uint32_t next(std::uint32_t upperBound) = 0;
 };
 
+class ZeroRandomSource final : public RandomSource
+{
+public:
+	static ZeroRandomSource& instance()
+	{
+		static ZeroRandomSource source;
+		return source;
+	}
+	std::uint32_t next(std::uint32_t) override { return 0; }
+
+private:
+	ZeroRandomSource() = default;
+};
+
 class SequenceRandomSource final : public RandomSource
 {
 public:

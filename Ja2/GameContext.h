@@ -6,7 +6,7 @@
 #include "../Engine/Core/StateStack.h"
 #include "../Engine/Core/ContentApi.h"
 #include "../Engine/Core/PackageApi.h"
-#include "../Engine/Core/LogSink.h"
+#include "../Engine/Core/EngineServices.h"
 
 enum class GameLifecycle
 {
@@ -23,8 +23,9 @@ class GameContext
 {
 public:
 	GameContext(GAME_SETTINGS& settings, GAME_OPTIONS& options, GameCapabilities capabilities = {},
-	            LogSink& log = NullLogSink::instance())
-		: settings_(settings), options_(options), capabilities_(capabilities), log_(log), packages_(content_, log_)
+	            EngineServices services = EngineServices::defaults())
+		: settings_(settings), options_(options), capabilities_(capabilities), services_(services),
+		  packages_(content_, services_)
 	{
 	}
 
@@ -33,7 +34,9 @@ public:
 	GAME_OPTIONS& options() { return options_; }
 	const GAME_OPTIONS& options() const { return options_; }
 	const GameCapabilities& capabilities() const { return capabilities_; }
-	LogSink& log() { return log_; }
+	EngineServices& services() { return services_; }
+	const EngineServices& services() const { return services_; }
+	LogSink& log() { return services_.log; }
 	StateStack<UINT32>& screens() { return screens_; }
 	const StateStack<UINT32>& screens() const { return screens_; }
 	ContentRegistry& content() { return content_; }
@@ -58,7 +61,7 @@ private:
 	GAME_SETTINGS& settings_;
 	GAME_OPTIONS& options_;
 	GameCapabilities capabilities_;
-	LogSink& log_;
+	EngineServices services_;
 	StateStack<UINT32> screens_;
 	ContentRegistry content_{ContentApiVersion{1, 0}};
 	PackageRegistry packages_;

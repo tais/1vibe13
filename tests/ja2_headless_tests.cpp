@@ -37,6 +37,8 @@
 #include "../Engine/Core/PersistenceService.h"
 #include "PlatformFileSystem.h"
 #include "PlatformLog.h"
+#include "PlatformTime.h"
+#include "random.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -100,6 +102,8 @@ public:
 	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
 		observedContentApi = context.content.supportedApi();
+		observedTime = context.services.time.nowMicroseconds();
+		observedRandom = context.services.random.next( 100 );
 		bootstrapCalls.push_back(static_cast<int>(phase));
 		return static_cast<int>(phase) != failPhase_;
 	}
@@ -111,6 +115,8 @@ public:
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
 	ContentApiVersion observedContentApi{};
+	std::uint64_t observedTime = 0;
+	std::uint32_t observedRandom = 0;
 
 private:
 	PackageDescriptor descriptor_;
@@ -268,12 +274,21 @@ int main( int, char** )
 		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
 		CHECK( &compiledContext.log() == &GetPlatformLogSink(),
 		       "application composition root binds the SDL logging adapter" );
+		CHECK( &compiledContext.services().time == &GetPlatformTimeSource() &&
+		       &compiledContext.services().random == &GetGameRandomSource() &&
+		       &compiledContext.services().storage == &GetPlatformByteStorage(),
+		       "application composition root binds time, random, and VFS adapters" );
 	}
 
 	{
 		ContentRegistry content( ContentApiVersion{ 1, 0 } );
 		MemoryLogSink logSink;
-		PackageRegistry packages( content, logSink );
+		ManualTimeSource packageTime;
+		packageTime.setMicroseconds( 42000 );
+		SequenceRandomSource packageRandom( { 73 } );
+		MemoryByteStorage packageStorage;
+		EngineServices services{packageTime, packageRandom, packageStorage, logSink};
+		PackageRegistry packages( content, services );
 		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
 		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,
 		                              static_cast<int>(PackageBootstrapPhase::LoadContent) );
@@ -282,7 +297,8 @@ int main( int, char** )
 		packages.activate( "rules.first" );
 		packages.activate( "rules.failing" );
 		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) == PackageBootstrapError::None &&
-		       packages.completedBootstrapPhases() == 1 && first.observedContentApi.major == 1,
+		       packages.completedBootstrapPhases() == 1 && first.observedContentApi.major == 1 &&
+		       first.observedTime == 42000 && first.observedRandom == 73,
 		       "package bootstrap advances through ordered phases" );
 		CHECK( packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
 		       PackageBootstrapError::OutOfOrder,

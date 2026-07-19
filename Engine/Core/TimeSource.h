@@ -10,6 +10,20 @@ public:
 	virtual std::uint64_t nowMicroseconds() const = 0;
 };
 
+class ZeroTimeSource final : public MonotonicTimeSource
+{
+public:
+	static ZeroTimeSource& instance()
+	{
+		static ZeroTimeSource source;
+		return source;
+	}
+	std::uint64_t nowMicroseconds() const override { return 0; }
+
+private:
+	ZeroTimeSource() = default;
+};
+
 class ManualTimeSource final : public MonotonicTimeSource
 {
 public:

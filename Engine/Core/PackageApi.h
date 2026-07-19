@@ -6,7 +6,7 @@
 #include <vector>
 
 #include <Engine/Core/ContentApi.h>
-#include <Engine/Core/LogSink.h>
+#include <Engine/Core/EngineServices.h>
 
 enum class PackageKind
 {
@@ -29,7 +29,7 @@ enum class PackageBootstrapPhase
 struct PackageBootstrapContext
 {
 	ContentRegistry& content;
-	LogSink& log;
+	EngineServices& services;
 };
 
 struct PackageDescriptor
@@ -80,8 +80,8 @@ enum class PackageBootstrapError
 class PackageRegistry
 {
 public:
-	explicit PackageRegistry(ContentRegistry& content, LogSink& log = NullLogSink::instance())
-		: content_(content), log_(log) {}
+	explicit PackageRegistry(ContentRegistry& content, EngineServices services = EngineServices::defaults())
+		: content_(content), services_(services) {}
 
 	PackageRegistrationError registerPackage(EnginePackage& package)
 	{
@@ -128,11 +128,11 @@ public:
 		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
 			return PackageBootstrapError::OutOfOrder;
 
-		PackageBootstrapContext context{content_, log_};
+		PackageBootstrapContext context{content_, services_};
 		for (std::size_t index = 0; index < active_.size(); ++index)
 		{
 			if (packages_.at(active_[index])->bootstrap(context, phase)) continue;
-			log_.write(LogRecord{LogSeverity::Error, "packages",
+			services_.log.write(LogRecord{LogSeverity::Error, "packages",
 				"Bootstrap callback failed: " + active_[index]});
 			// The failing callback may have acquired part of its phase resources,
 			// so include it in the reverse rollback contract.
@@ -146,7 +146,7 @@ public:
 
 	void shutdownBootstrap()
 	{
-		PackageBootstrapContext context{content_, log_};
+		PackageBootstrapContext context{content_, services_};
 		while (completedBootstrapPhases_ > 0)
 		{
 			const PackageBootstrapPhase phase =
@@ -188,7 +188,7 @@ private:
 	}
 
 	ContentRegistry& content_;
-	LogSink& log_;
+	EngineServices services_;
 	std::unordered_map<std::string, EnginePackage*> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;

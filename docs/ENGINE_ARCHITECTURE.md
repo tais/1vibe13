@@ -48,6 +48,9 @@ the engine must not contain SDL types in its public domain model.
 - `LogSink` gives engine and package code a structured, captureable logging
   contract. The application binds an SDL sink; tests use an in-memory sink,
   and `Engine/Core` never depends on SDL or the legacy debug manager.
+- `EngineServices` is the non-owning service table assembled by `GameContext`.
+  Packages receive engine contracts for time, randomness, byte storage, and
+  logging while the application retains ownership of SDL/VFS/legacy adapters.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
