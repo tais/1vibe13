@@ -36,6 +36,12 @@ the engine must not contain SDL types in its public domain model.
 - `GameCapabilities` moves JA2/UB/editor decisions from preprocessing toward
   startup-selected runtime policy.
 - `ContentRegistry` validates package identity and required engine API version.
+- `PackageRegistry` owns package validation and activation policy while package
+  objects remain application-owned. Only one campaign may be active, whereas
+  rules, extensions, and tools can be composed around it.
+- `LegacyCampaignPackage` exposes the compiled JA2 or UB campaign through that
+  runtime contract. It is the compatibility bridge to replace with discovered
+  package manifests and campaign bootstrap hooks incrementally.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.

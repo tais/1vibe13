@@ -5,6 +5,7 @@
 #include "GameCapabilities.h"
 #include "../Engine/Core/StateStack.h"
 #include "../Engine/Core/ContentApi.h"
+#include "../Engine/Core/PackageApi.h"
 
 enum class GameLifecycle
 {
@@ -34,6 +35,8 @@ public:
 	const StateStack<UINT32>& screens() const { return screens_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
+	PackageRegistry& packages() { return packages_; }
+	const PackageRegistry& packages() const { return packages_; }
 	bool setCapabilities(GameCapabilities capabilities)
 	{
 		if (lifecycle_ != GameLifecycle::Stopped) return false;
@@ -54,6 +57,7 @@ private:
 	GameCapabilities capabilities_;
 	StateStack<UINT32> screens_;
 	ContentRegistry content_{ContentApiVersion{1, 0}};
+	PackageRegistry packages_{content_};
 	GameLifecycle lifecycle_ = GameLifecycle::Stopped;
 };
 

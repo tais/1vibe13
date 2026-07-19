@@ -41,6 +41,7 @@
 #include "sdl_input.h"
 #include "english.h"
 #include "GameContext.h"
+#include "CampaignPackage.h"
 #include "Soldier Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
@@ -199,6 +200,38 @@ int main( int, char** )
 		const ContentManifest* manifest = content.find( "core" );
 		CHECK( manifest && manifest->version == "0.9.0",
 		       "content registry resolves the validated manifest" );
+	}
+
+	{
+		ContentRegistry content( ContentApiVersion{ 1, 0 } );
+		PackageRegistry packages( content );
+		LegacyCampaignPackage arulco( GameCapabilities{} );
+		GameCapabilities ubCapabilities;
+		ubCapabilities.campaign = GameCampaign::UnfinishedBusiness;
+		LegacyCampaignPackage unfinishedBusiness( ubCapabilities );
+		CHECK( packages.registerPackage( arulco ) == PackageRegistrationError::None &&
+		       packages.registerPackage( unfinishedBusiness ) == PackageRegistrationError::None,
+		       "campaign packages register through the versioned engine API" );
+		CHECK( packages.activate( "ja2.arulco" ) == PackageActivationError::None && arulco.active(),
+		       "campaign package activation is selected at runtime" );
+		CHECK( packages.activate( "ja2.unfinished-business" ) ==
+		       PackageActivationError::CampaignAlreadyActive,
+		       "package registry prevents conflicting active campaigns" );
+		CHECK( packages.deactivate( "ja2.arulco" ) &&
+		       packages.activate( "ja2.unfinished-business" ) == PackageActivationError::None &&
+		       unfinishedBusiness.active(),
+		       "campaign packages can be switched without compile-time selection" );
+	}
+
+	{
+		GameContext& compiledContext = GetGameContext();
+		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
+		const std::string& packageId = compiledPackage.descriptor().content.id;
+		CHECK( compiledContext.packages().activeCampaign() == packageId &&
+		       compiledContext.packages().isActive( packageId ) && compiledPackage.active(),
+		       "legacy compiled campaign is bound through the runtime package registry" );
+		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
+		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
 	}
 
 	{
