@@ -16,12 +16,18 @@
 #define SDL_MAIN_HANDLED   // this file owns main(), not SDL
 #include <SDL3/SDL.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <list>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "types.h"
 #include "MemMan.h"
@@ -51,9 +57,11 @@
 #include "english.h"
 #include "GameContext.h"
 #include "CampaignPackage.h"
+#include "PackageHost.h"
 #include "Soldier Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
+#include <vfs/Tools/vfs_property_container.h>
 #include <vfs/Core/vfs_init.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
@@ -79,6 +87,122 @@ static int g_failures = 0;
 #define CHECK( cond, msg ) \
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
+
+class ScopedPackageFixture
+{
+public:
+	ScopedPackageFixture()
+	{
+		static std::uint64_t sequence = 0;
+		const std::uint64_t timestamp = static_cast<std::uint64_t>(
+			std::chrono::steady_clock::now().time_since_epoch().count() );
+		root_ = std::filesystem::temp_directory_path() /
+			( "ja2-package-host-" + std::to_string( timestamp ) + "-" +
+			  std::to_string( sequence++ ) );
+		std::filesystem::create_directories( root_ );
+	}
+
+	~ScopedPackageFixture()
+	{
+		std::error_code ignored;
+		std::filesystem::remove_all( root_, ignored );
+	}
+
+	ScopedPackageFixture( const ScopedPackageFixture& ) = delete;
+	ScopedPackageFixture& operator=( const ScopedPackageFixture& ) = delete;
+
+	const std::filesystem::path& root() const { return root_; }
+
+	bool write( const std::filesystem::path& relative, const std::string& contents ) const
+	{
+		const std::filesystem::path path = root_ / relative;
+		std::error_code error;
+		std::filesystem::create_directories( path.parent_path(), error );
+		if ( error ) return false;
+		std::ofstream output( path, std::ios::binary | std::ios::trunc );
+		output.write( contents.data(), static_cast<std::streamsize>( contents.size() ) );
+		return static_cast<bool>( output );
+	}
+
+	bool makeDirectory( const std::filesystem::path& relative ) const
+	{
+		std::error_code error;
+		std::filesystem::create_directories( root_ / relative, error );
+		return !error;
+	}
+
+private:
+	std::filesystem::path root_;
+};
+
+static std::string PackageFixtureManifest(
+	const std::string& id, const std::string& requirements = {},
+	const std::string& assetRoot = "Data" )
+{
+	std::string manifest =
+		"[Package]\n"
+		"MANIFEST_VERSION = 1\n"
+		"ID = " + id + "\n"
+		"VERSION = 1.0.0\n"
+		"CONTENT_API = " + std::string( requirements.empty() ? "1.1" : "1.2" ) + "\n"
+		"TYPE = extension\n"
+		"ASSET_ROOT = " + assetRoot + "\n";
+	if ( !requirements.empty() ) manifest += "REQUIRES = " + requirements + "\n";
+	return manifest;
+}
+
+static bool AddPackageFixture(
+	const ScopedPackageFixture& fixture, const std::string& directory,
+	const std::string& id, const std::string& requirements = {} )
+{
+	return fixture.makeDirectory( directory + "/Data" ) &&
+		fixture.write( directory + "/package.ini",
+		               PackageFixtureManifest( id, requirements ) );
+}
+
+class RecordingPackageAssetMounter final : public PackageAssetMounter
+{
+public:
+	bool preflight( const std::string& packageId,
+	                const std::filesystem::path&, std::string& error ) const override
+	{
+		preflighted.push_back( packageId );
+		if ( packageId != failPreflightId ) return true;
+		error = "injected preflight failure";
+		return false;
+	}
+
+	bool mount( const std::string& packageId,
+	            const std::filesystem::path&, std::string& error ) override
+	{
+		mounted.push_back( packageId );
+		if ( packageId != failMountId ) return true;
+		error = "injected mount failure";
+		return false;
+	}
+
+	mutable std::vector<std::string> preflighted;
+	std::vector<std::string> mounted;
+	std::string failPreflightId;
+	std::string failMountId;
+};
+
+static bool ReadFileManagerText( const std::string& logicalPath, std::string& contents )
+{
+	contents.clear();
+	HWFILE file = FileOpen( const_cast<char*>( logicalPath.c_str() ),
+	                        FILE_ACCESS_READ | FILE_OPEN_EXISTING );
+	if ( !file ) return false;
+	const UINT32 size = FileGetSize( file );
+	contents.resize( size );
+	UINT32 bytesRead = 0;
+	const bool read = size == 0 ||
+		( FileRead( file, &contents[0], size, &bytesRead ) && bytesRead == size );
+	FileClose( file );
+	if ( read ) return true;
+	contents.clear();
+	return false;
+}
 
 struct TestResourceTag {};
 static UINT32 g_releasedResource = 0;
@@ -984,6 +1108,298 @@ int main( int, char** )
 	}
 
 	{
+		vfs::PropertyContainer emptyProperties;
+		char executable[] = "ja2";
+		char* emptyArguments[] = { executable };
+		const PackageStartupOptions disabled =
+			ReadPackageStartupOptions( emptyProperties, 1, emptyArguments );
+		CHECK( !disabled.enabled && disabled.roots.empty() && disabled.selected.empty(),
+		       "data packages remain disabled when configuration and command line are empty" );
+		PackageHost disabledHost;
+		EngineRuntime<unsigned> disabledRuntime;
+		RecordingPackageAssetMounter disabledMounter;
+		CHECK( disabledHost.initialize(
+		       disabledRuntime.packages(), disabled, disabledMounter ) &&
+		       !disabledHost.attempted() && disabledMounter.preflighted.empty() &&
+		       disabledMounter.mounted.empty(),
+		       "disabled package-host initialization is a state-free no-op" );
+
+		vfs::PropertyContainer configuredProperties;
+		configuredProperties.setStringProperty(
+			L"Ja2 Settings", L"PACKAGE_ROOTS", L"ignored/ini/root" );
+		configuredProperties.setStringProperty(
+			L"Ja2 Settings", L"PACKAGE_SELECTION", L"ignored.ini.package" );
+		const std::filesystem::path absoluteRoot =
+			std::filesystem::absolute( "package-root-with-slashes" );
+		std::vector<std::string> arguments = {
+			"ja2",
+			"--package=fixture.consumer,fixture.tools",
+			"--package", "fixture.patch",
+			"--package-root", absoluteRoot.generic_u8string(),
+			"--package-root=relative/second-root"
+		};
+		std::vector<char*> argumentPointers;
+		for ( std::string& argument : arguments ) argumentPointers.push_back( &argument[0] );
+		const PackageStartupOptions overridden = ReadPackageStartupOptions(
+			configuredProperties, static_cast<int>( argumentPointers.size() ),
+			argumentPointers.data() );
+		CHECK( overridden.enabled && overridden.selected == std::vector<std::string>({
+		       "fixture.consumer", "fixture.tools", "fixture.patch" }) &&
+		       overridden.roots == std::vector<std::filesystem::path>({
+		       absoluteRoot, std::filesystem::path( "relative/second-root" ) }),
+		       "repeated package CLI options override INI lists and preserve absolute slash paths" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		// Create in reverse order to prove discovery does not inherit directory
+		// iteration order. Package directory names provide the stable order.
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "z-consumer", "fixture.consumer", "fixture.base" ) &&
+			fixture.write( "z-consumer/Data/rULES/aCTUALcASE.bin", "consumer" ) &&
+			AddPackageFixture( fixture, "a-base", "fixture.base" ) &&
+			fixture.write( "a-base/Data/Rules/ActualCase.BIN", "base" ) &&
+			fixture.write( "a-base/Data/Mixed/OnlyHere.Dat", "base-only" ) &&
+			fixture.makeDirectory( "m-not-a-package" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.consumer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		AssetData overriddenAsset;
+		AssetData baseAsset;
+		const AssetReadResult overrideRead = runtime.services().assets.read(
+			"RULES/actualcase.BIN", overriddenAsset );
+		const AssetReadResult baseRead = runtime.services().assets.read(
+			"MIXED/onlyhere.dat", baseAsset );
+		CHECK( fixtureReady && result &&
+		       result.discovered == std::vector<std::string>({
+		       "fixture.base", "fixture.consumer" }) &&
+		       host.discoveredPackageIds() == result.discovered,
+		       "package discovery is deterministic and ignores directories without manifests" );
+		CHECK( result.activated == std::vector<std::string>({
+		       "fixture.base", "fixture.consumer" }) &&
+		       mounter.preflighted == result.activated && mounter.mounted == result.activated &&
+		       runtime.packages().activationOrder() == result.activated,
+		       "package dependencies activate and mount before their consumers" );
+		CHECK( overrideRead == AssetReadResult::Success &&
+		       std::string( overriddenAsset.bytes.begin(), overriddenAsset.bytes.end() ) ==
+		       "consumer" && overriddenAsset.provenance == "fixture.consumer" &&
+		       baseRead == AssetReadResult::Success &&
+		       std::string( baseAsset.bytes.begin(), baseAsset.bytes.end() ) == "base-only" &&
+		       baseAsset.provenance == "fixture.base",
+		       "directory packages preserve actual file casing while consumer assets override dependencies" );
+		const PackageHostResult repeated = host.initialize( runtime.packages(), options, mounter );
+		CHECK( repeated.error == PackageHostError::AlreadyInitialized && host.attempted() &&
+		       mounter.mounted == std::vector<std::string>({
+		       "fixture.base", "fixture.consumer" }),
+		       "a package host attempts startup exactly once" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady = fixture.makeDirectory( "bad/Data" ) &&
+			fixture.write( "bad/package.ini",
+			               PackageFixtureManifest( "fixture.traversal", {}, "../Data" ) );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.traversal" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::InvalidManifest &&
+		       result.packageId == "fixture.traversal" &&
+		       runtime.packages().find( "fixture.traversal" ) == nullptr &&
+		       mounter.preflighted.empty() && mounter.mounted.empty(),
+		       "package manifests reject asset-root traversal before registration" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady = fixture.makeDirectory( "malformed/Data" ) &&
+			fixture.write( "malformed/package.ini",
+				"[Package]\n"
+				"MANIFEST_VERSION = 1\n"
+				"ID = fixture.malformed\n"
+				"VERSION = 1.0.0\n"
+				"CONTENT_API = 1.1\n"
+				"ASSET_ROOT = Data\n" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.malformed" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::InvalidManifest &&
+		       runtime.packages().find( "fixture.malformed" ) == nullptr,
+		       "package discovery rejects incomplete manifests transactionally" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady = AddPackageFixture(
+			fixture, "bad-requirement", "fixture.bad-requirement", "fixture.base@" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.bad-requirement" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::InvalidManifest &&
+		       result.packageId == "fixture.bad-requirement" &&
+		       runtime.packages().find( "fixture.bad-requirement" ) == nullptr,
+		       "package manifests reject a dependency with an empty @ version" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady = fixture.makeDirectory( "backslash/Data/Nested" ) &&
+			fixture.write( "backslash/package.ini",
+			               PackageFixtureManifest(
+				               "fixture.backslash", {}, "Data\\Nested" ) );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.backslash" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::InvalidManifest &&
+		       result.packageId == "fixture.backslash" &&
+		       runtime.packages().find( "fixture.backslash" ) == nullptr,
+		       "package manifests reject platform-ambiguous backslash asset roots" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		const bool fixtureReady = fixture.makeDirectory( "symlink/RealData" ) &&
+			fixture.write( "symlink/package.ini",
+			               PackageFixtureManifest( "fixture.symlink" ) );
+		std::error_code symlinkError;
+		if ( fixtureReady )
+			std::filesystem::create_directory_symlink(
+				fixture.root() / "symlink/RealData",
+				fixture.root() / "symlink/Data", symlinkError );
+		if ( fixtureReady && !symlinkError )
+		{
+			PackageHost host;
+			EngineRuntime<unsigned> runtime;
+			RecordingPackageAssetMounter mounter;
+			PackageStartupOptions options;
+			options.enabled = true;
+			options.roots = { fixture.root() };
+			options.selected = { "fixture.symlink" };
+			const PackageHostResult result =
+				host.initialize( runtime.packages(), options, mounter );
+			CHECK( result.error == PackageHostError::InvalidManifest &&
+			       result.packageId == "fixture.symlink" &&
+			       runtime.packages().find( "fixture.symlink" ) == nullptr,
+			       "package manifests reject a symbolic-link asset root" );
+		}
+		else
+		{
+			std::printf( "skip  package symbolic-link test (host disallows symlink creation)\n" );
+		}
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady = AddPackageFixture(
+			fixture, "needs-missing", "fixture.needs-missing", "fixture.absent" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.needs-missing" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::ResolutionFailed &&
+		       result.packageId == "fixture.absent" &&
+		       result.diagnosticPath == std::vector<std::string>({
+		       "fixture.needs-missing", "fixture.absent" }) &&
+		       !runtime.packages().isActive( "fixture.needs-missing" ) &&
+		       runtime.packages().activationOrder().empty() &&
+		       mounter.preflighted.empty() && mounter.mounted.empty(),
+		       "missing package dependencies fail with a diagnostic path before mount preflight" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		mounter.failPreflightId = "fixture.preflight-consumer";
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "a-base", "fixture.preflight-base" ) &&
+			AddPackageFixture( fixture, "b-consumer", "fixture.preflight-consumer",
+			                   "fixture.preflight-base" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.preflight-consumer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::MountPreflightFailed &&
+		       result.packageId == "fixture.preflight-consumer" &&
+		       mounter.preflighted == std::vector<std::string>({
+		       "fixture.preflight-base", "fixture.preflight-consumer" }) &&
+		       mounter.mounted.empty() && runtime.packages().activationOrder().empty() &&
+		       !runtime.packages().isActive( "fixture.preflight-base" ) &&
+		       !runtime.packages().isActive( "fixture.preflight-consumer" ),
+		       "mount preflight completes before invoking any package activation" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		mounter.failMountId = "fixture.mount-consumer";
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "a-base", "fixture.mount-base" ) &&
+			fixture.write( "a-base/Data/rollback.bin", "base" ) &&
+			AddPackageFixture( fixture, "b-consumer", "fixture.mount-consumer",
+			                   "fixture.mount-base" ) &&
+			fixture.write( "b-consumer/Data/rollback.bin", "consumer" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.mount-consumer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		AssetData rolledBackAsset;
+		const AssetReadResult rolledBackRead =
+			runtime.services().assets.read( "rollback.bin", rolledBackAsset );
+		CHECK( fixtureReady && result.error == PackageHostError::MountFailed &&
+		       result.packageId == "fixture.mount-consumer" &&
+		       mounter.preflighted == std::vector<std::string>({
+		       "fixture.mount-base", "fixture.mount-consumer" }) &&
+		       mounter.mounted == mounter.preflighted &&
+		       runtime.packages().activationOrder().empty() &&
+		       !runtime.packages().isActive( "fixture.mount-base" ) &&
+		       !runtime.packages().isActive( "fixture.mount-consumer" ) &&
+		       rolledBackRead == AssetReadResult::NotFound,
+		       "a late mount failure rolls back the newly activated registry closure and assets" );
+	}
+
+	{
 		ManualTimeSource time;
 		time.setMicroseconds( 1000 );
 		time.advanceMicroseconds( 250 );
@@ -1036,6 +1452,23 @@ int main( int, char** )
 	// FileMan is a facade over the VFS. The full game configures its profiles
 	// during application boot; this standalone harness supplies the smallest
 	// equivalent writable profile so storage integration follows the real path.
+	ScopedPackageFixture vfsPrecedenceFixture;
+	const std::string vfsPriorityToken =
+		std::to_string( static_cast<unsigned long long>( SDL_GetTicksNS() ) );
+	const std::string packageOverlayPath =
+		"package-vfs-overlay-" + vfsPriorityToken + ".txt";
+	const std::string writableOverlayPath =
+		"package-vfs-writable-" + vfsPriorityToken + ".txt";
+	const bool vfsPrecedenceFixtureReady =
+		vfsPrecedenceFixture.write( "legacy/" + packageOverlayPath, "legacy" ) &&
+		vfsPrecedenceFixture.write( "package/" + packageOverlayPath, "package" ) &&
+		vfsPrecedenceFixture.write( "legacy/" + writableOverlayPath, "legacy" ) &&
+		vfsPrecedenceFixture.write( "package/" + writableOverlayPath, "package" );
+	{
+		std::ofstream writableOverlay( writableOverlayPath,
+		                                std::ios::binary | std::ios::trunc );
+		writableOverlay << "writable";
+	}
 	vfs_init::VfsConfig vfsConfig;
 	vfs_init::Profile* testProfile = new vfs_init::Profile();
 	testProfile->m_name = L"headless-tests";
@@ -1044,6 +1477,45 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+	{
+		auto mountReadOnlyDirectory = []( const std::string& profileName,
+		                                  const std::filesystem::path& root )
+		{
+			vfs_init::VfsConfig config;
+			vfs_init::Profile* profile = new vfs_init::Profile();
+			profile->m_name = vfs::String( profileName.c_str() );
+			profile->m_root = vfs::Path( root.generic_u8string() );
+			profile->m_writable = false;
+			vfs_init::Location* location = new vfs_init::Location();
+			location->m_optional = false;
+			location->m_type = L"DIRECTORY";
+			profile->addLocation( location, true );
+			config.addProfile( profile, true );
+			return vfs_init::initVirtualFileSystem( config, false );
+		};
+
+		const bool legacyMounted = vfsPrecedenceFixtureReady &&
+			mountReadOnlyDirectory(
+				"headless-legacy-" + vfsPriorityToken,
+				vfsPrecedenceFixture.root() / "legacy" );
+		const bool packageMounted = legacyMounted &&
+			mountReadOnlyDirectory(
+				"headless-package-" + vfsPriorityToken,
+				vfsPrecedenceFixture.root() / "package" );
+		std::string packageOverlay;
+		std::string writableOverlay;
+		const bool packageRead =
+			ReadFileManagerText( packageOverlayPath, packageOverlay );
+		const bool writableRead =
+			ReadFileManagerText( writableOverlayPath, writableOverlay );
+		CHECK( packageMounted && packageRead && packageOverlay == "package",
+		       "late package VFS mounts override earlier read-only legacy content" );
+		CHECK( packageMounted && writableRead && writableOverlay == "writable",
+		       "late read-only package VFS mounts remain below writable user content" );
+		std::error_code ignored;
+		std::filesystem::remove( writableOverlayPath, ignored );
+	}
 
 	{
 		MemoryByteStorage memoryStorage;

@@ -18,6 +18,7 @@
 #include <string.h>
 #include <cstdio>
 #include <csignal>
+#include <stdexcept>
 #ifdef _WIN32
 #include <direct.h>   // _chdir
 #else
@@ -36,6 +37,7 @@
 #include "Timer Control.h"
 #include "Utilities.h"
 #include "GameSettings.h"
+#include "PackageHost.h"
 #include "video.h"
 #include "sdl_input.h"
 #include <vfs/Aspects/vfs_settings.h>
@@ -62,6 +64,7 @@ static void MAGIC(std::string const& aarrrrgggh = "")
 
 static bool			s_VfsIsInitialized = false;
 static std::list<vfs::Path> vfs_config_ini;
+static PackageStartupOptions s_packageStartupOptions;
 
 static bool			s_DebugKeyboardInput = false;
 static vfs::Path	s_CodePage;
@@ -457,6 +460,28 @@ BOOLEAN InitializeStandardGamingPlatform(void)
 
 	s_VfsIsInitialized = true;
 
+	const PackageHostResult packageResult =
+		InitializeStartupDataPackages(s_packageStartupOptions);
+	if (!packageResult)
+	{
+		std::string message = "Initializing data packages failed: " + packageResult.message;
+		if (!packageResult.packageId.empty())
+			message += " [package: " + packageResult.packageId + "]";
+		if (!packageResult.path.empty())
+			message += " [path: " + packageResult.path.generic_u8string() + "]";
+		if (!packageResult.diagnosticPath.empty())
+		{
+			message += " [dependency path: ";
+			for (std::size_t index = 0; index < packageResult.diagnosticPath.size(); ++index)
+			{
+				if (index != 0) message += " -> ";
+				message += packageResult.diagnosticPath[index];
+			}
+			message += "]";
+		}
+		throw std::runtime_error(message);
+	}
+
 	getVFS()->getVirtualLocation(vfs::Path("Temp"),true)->setIsExclusive(true);
 	getVFS()->getVirtualLocation(vfs::Path("ShadeTables"),true)->setIsExclusive(true);
 	getVFS()->getVirtualLocation(vfs::Path(pMessageStrings[MSG_SAVEDIRECTORY]+3),true)->setIsExclusive(true);
@@ -709,6 +734,7 @@ void GetRuntimeSettings( )
 	vfs::PropertyContainer oProps;
 	oProps.initFromIniFile(GAME_INI_FILE);
 	PopulateSectionFromCommandLine(oProps, "Ja2 Settings", g_argc, g_argv);
+	s_packageStartupOptions = ReadPackageStartupOptions(oProps, g_argc, g_argv);
 	
 	vfs::String loc = oProps.getStringProperty("Ja2 Settings", L"LOCALE");
 	if(!loc.empty())

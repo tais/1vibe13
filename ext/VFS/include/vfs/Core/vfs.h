@@ -54,6 +54,7 @@ namespace vfs
 
 		vfs::CVirtualLocation*	getVirtualLocation(vfs::Path const& sPath, bool bCreate = false);
 		bool					addLocation(vfs::IBaseLocation* pLocation, vfs::CVirtualProfile *pProfile);
+		bool					addLocation(vfs::IBaseLocation* pLocation, vfs::CVirtualProfile *pProfile, bool replaceExisting);
 
 		bool					fileExists(vfs::Path const& rLocalFilePath, vfs::CVirtualFile::ESearchFile eSF = vfs::CVirtualFile::SF_TOP );
 		bool					fileExists(vfs::Path const& rLocalFilePath, std::string const& sProfileName);

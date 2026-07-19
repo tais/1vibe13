@@ -63,6 +63,13 @@ the engine must not contain SDL types in its public domain model.
 - `LegacyCampaignPackage` exposes the compiled JA2 or UB campaign through that
   runtime contract. It is the compatibility bridge to replace with discovered
   package manifests and campaign bootstrap hooks incrementally.
+- `PackageHost` provides the first optional, data-only discovery adapter around
+  that bridge. [Data Package v1](DATA_PACKAGES.md) validates manifests and
+  dependency graphs at startup, then mounts legacy-format assets in resolved
+  overlay order. With no package configuration it is a strict no-op: existing
+  `Data-*` trees and `vfs_config.ini` behavior remain unchanged. This version
+  deliberately has no native-code loading, runtime rescan/unload, or
+  disk-discovered campaign bootstrap.
 - Package bootstrap advances through ordered configure, content-load, and
   runtime-start phases. A failed phase rolls back in reverse package order;
   shutdown unwinds completed phases in reverse before legacy engine teardown.

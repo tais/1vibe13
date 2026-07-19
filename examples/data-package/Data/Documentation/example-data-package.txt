@@ -1,0 +1,5 @@
+Data Package v1 example
+
+This file is intentionally stored at a logical path the game does not consume.
+Selecting example.readme therefore exercises package discovery and mounting
+without overriding game content.

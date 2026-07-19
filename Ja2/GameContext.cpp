@@ -1,5 +1,6 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
+#include "PackageHost.h"
 #include "PlatformAssets.h"
 #include "PlatformLog.h"
 #include "PlatformInput.h"
@@ -11,6 +12,9 @@
 
 GameContext& GetGameContext()
 {
+	// External package objects are non-owningly referenced by GameContext's
+	// registry. Construct their application owner first so it is destroyed last.
+	(void)GetStartupPackageHost();
 	// Construct the application-owned package first so it also outlives the
 	// registry's non-owning package and asset references during static teardown.
 	(void)GetCompiledCampaignPackage();

@@ -77,6 +77,7 @@ namespace vfs_init
 	VFS_API bool initVirtualFileSystem(std::list<vfs::Path> const& vfs_ini_list);
 	VFS_API bool initVirtualFileSystem(vfs::PropertyContainer& props);
 	VFS_API bool initVirtualFileSystem(vfs_init::VfsConfig const& conf);
+	VFS_API bool initVirtualFileSystem(vfs_init::VfsConfig const& conf, bool replaceExisting);
 };
 
 #endif // _VFS_INIT_H_
