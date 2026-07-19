@@ -319,15 +319,27 @@ void MSYS_SGP_Mouse_Handler_Hook(UINT16 Type,UINT16 Xcoord, UINT16 Ycoord, BOOLE
 				MSYS_CurrentButtons&=(~MSYS_X2_BUTTON);
 			}
 
-			if(LeftButton)
-				MSYS_CurrentButtons|=MSYS_LEFT_BUTTON;
-			else
-				MSYS_CurrentButtons&=(~MSYS_LEFT_BUTTON);
+			// The queued event is authoritative for the button it describes.
+			// SDL can collect a DOWN and its matching UP before the legacy input
+			// queue is consumed, so LeftButton/RightButton may already contain
+			// the newer physical state.  Reapplying that state here used to undo
+			// the event above, making short clicks disappear (most visibly the
+			// second click used to confirm a tactical shot).
+			if (Type != LEFT_BUTTON_DOWN && Type != LEFT_BUTTON_UP)
+			{
+				if(LeftButton)
+					MSYS_CurrentButtons|=MSYS_LEFT_BUTTON;
+				else
+					MSYS_CurrentButtons&=(~MSYS_LEFT_BUTTON);
+			}
 
-			if(RightButton)
-				MSYS_CurrentButtons|=MSYS_RIGHT_BUTTON;
-			else
-				MSYS_CurrentButtons&=(~MSYS_RIGHT_BUTTON);
+			if (Type != RIGHT_BUTTON_DOWN && Type != RIGHT_BUTTON_UP)
+			{
+				if(RightButton)
+					MSYS_CurrentButtons|=MSYS_RIGHT_BUTTON;
+				else
+					MSYS_CurrentButtons&=(~MSYS_RIGHT_BUTTON);
+			}
 
 			if((Xcoord != MSYS_CurrentMX) || (Ycoord != MSYS_CurrentMY))
 			{
