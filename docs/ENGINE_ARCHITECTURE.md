@@ -51,6 +51,9 @@ the engine must not contain SDL types in its public domain model.
 - `EngineServices` is the non-owning service table assembled by `GameContext`.
   Packages receive engine contracts for time, randomness, byte storage, and
   logging while the application retains ownership of SDL/VFS/legacy adapters.
+- `EngineRuntime` owns campaign-independent lifecycle, screen state, content,
+  packages, and service bindings. `GameContext` is now a JA2 compatibility
+  facade around that reusable composition root plus legacy settings/options.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.

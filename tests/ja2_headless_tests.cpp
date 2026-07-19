@@ -133,11 +133,23 @@ int main( int, char** )
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
 
 	{
+		EngineRuntime<unsigned> runtime;
+		runtime.screens().reset( 7 );
+		CHECK( runtime.screens().current() && runtime.screens().current()->state == 7,
+		       "campaign-independent engine runtime owns screen state" );
+		CHECK( runtime.beginInitialization() && runtime.markRunning() &&
+		       runtime.beginShutdown() && runtime.markStopped(),
+		       "campaign-independent engine runtime owns lifecycle" );
+	}
+
+	{
 		GAME_SETTINGS settings = {};
 		GAME_OPTIONS options = {};
 		GameContext context( settings, options );
 		CHECK( &context.settings() == &settings && &context.options() == &options,
 		       "game context exposes bound legacy state" );
+		CHECK( &context.runtime().services() == &context.services(),
+		       "game context delegates reusable state to engine runtime" );
 		GameCapabilities editorCapabilities;
 		editorCapabilities.editor = true;
 		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor(),
