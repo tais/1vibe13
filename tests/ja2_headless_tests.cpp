@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <utility>
 
 #include "types.h"
 #include "MemMan.h"
@@ -26,6 +27,7 @@
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include "ResourceHandle.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -57,6 +59,19 @@ static int g_failures = 0;
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
 
+struct TestResourceTag {};
+static UINT32 g_releasedResource = 0;
+static UINT32 g_resourceReleaseCount = 0;
+struct TestResourceReleaser
+{
+	void operator()(UINT32 value) const
+	{
+		g_releasedResource = value;
+		++g_resourceReleaseCount;
+	}
+};
+using TestResourceHandle = UniqueResourceHandle<TestResourceTag, TestResourceReleaser>;
+
 int main( int, char** )
 {
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
@@ -64,6 +79,21 @@ int main( int, char** )
 	// Run headless: no window server / audio device required.
 	SDL_SetHint( SDL_HINT_VIDEO_DRIVER, "dummy" );
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
+
+	{
+		g_resourceReleaseCount = 0;
+		TestResourceHandle first( 42 );
+		TestResourceHandle second( std::move( first ) );
+		CHECK( !first && second.get() == 42, "resource handle move transfers ownership" );
+		second.reset( 84 );
+		CHECK( g_releasedResource == 42 && second.get() == 84, "resource handle reset releases previous value" );
+		CHECK( second.release() == 84 && !second, "resource handle release returns an unowned value" );
+		{
+			TestResourceHandle scoped( 126 );
+		}
+		CHECK( g_releasedResource == 126 && g_resourceReleaseCount == 2,
+		       "resource handle destructor releases exactly once" );
+	}
 
 	// --- hard asserts: the fully data-free managers ---
 	CHECK( InitializeMemoryManager(), "InitializeMemoryManager()" );

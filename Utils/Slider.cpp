@@ -4,6 +4,7 @@
 	#include	"Utilities.h"
 	#include	"WCheck.h"
 	#include	"Slider.h"
+	#include	"VideoResourceHandle.h"
 	#include	"sysutil.h"
 	#include	"line.h"
 
@@ -76,7 +77,7 @@ BOOLEAN	gfSliderInited=FALSE;
 BOOLEAN	gfCurrentSliderIsAnchored=FALSE;		//if true, the current selected slider mouse button is down
 SLIDER	*gpCurrentSlider=NULL;
 
-UINT32	guiSliderBoxImage=0;
+static UniqueVideoObjectHandle gSliderBoxImage;
 //ggg
 
 //Mouse regions for the currently selected save game
@@ -115,7 +116,8 @@ BOOLEAN InitSlider()
 	// load Slider Box Graphic graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("INTERFACE\\SliderBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSliderBoxImage ));
+	gSliderBoxImage = AddVideoObjectOwned(&VObjectDesc);
+	CHECKF(gSliderBoxImage);
 
 	gfSliderInited = TRUE;
 
@@ -142,7 +144,7 @@ void ShutDownSlider()
 
 	//if so report an errror
 	gfSliderInited = 0;
-	DeleteVideoObjectFromIndex( guiSliderBoxImage );
+	gSliderBoxImage.reset();
 }
 
 
@@ -378,7 +380,7 @@ void RenderSliderBox( SLIDER *pSlider )
 	if( pSlider->uiFlags & SLIDER_VERTICAL )
 	{
 		//display the slider box
-		GetVideoObject(&hPixHandle, guiSliderBoxImage );
+		GetVideoObject(&hPixHandle, gSliderBoxImage.get() );
 		BltVideoObject(FRAME_BUFFER, hPixHandle, 0, pSlider->LastRect.iLeft, pSlider->LastRect.iTop, VO_BLT_SRCTRANSPARENCY,NULL);
 
 		//invalidate the area
@@ -387,7 +389,7 @@ void RenderSliderBox( SLIDER *pSlider )
 	else
 	{
 		//display the slider box
-		GetVideoObject(&hPixHandle, guiSliderBoxImage );
+		GetVideoObject(&hPixHandle, gSliderBoxImage.get() );
 		BltVideoObject(FRAME_BUFFER, hPixHandle, 0, pSlider->usCurrentSliderBoxPosition, pSlider->usPosY-DEFUALT_SLIDER_SIZE, VO_BLT_SRCTRANSPARENCY,NULL);
 
 		//invalidate the area
@@ -767,5 +769,4 @@ void SetSliderValue( UINT32 uiSliderID, UINT32 uiNewValue )
 
 	CalculateNewSliderBoxPosition( pSlider );
 }
-
 
