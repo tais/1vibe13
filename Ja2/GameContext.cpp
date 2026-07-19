@@ -1,6 +1,7 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
 #include "PlatformLog.h"
+#include "PlatformInput.h"
 #include "PlatformFileSystem.h"
 #include "PlatformTime.h"
 #include "random.h"
@@ -12,7 +13,8 @@ GameContext& GetGameContext()
 		gGameOptions,
 		GetCompiledGameCapabilities(),
 		EngineServices{GetPlatformTimeSource(), GetGameRandomSource(),
-		               GetPlatformByteStorage(), GetPlatformLogSink()});
+		               GetPlatformByteStorage(), GetPlatformLogSink(),
+		               GetPlatformInputSource()});
 	static const bool packageActivated = [] {
 		LegacyCampaignPackage& package = GetCompiledCampaignPackage();
 		GameContext& game = context;

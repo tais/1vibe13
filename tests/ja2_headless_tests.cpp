@@ -37,6 +37,7 @@
 #include "../Engine/Core/RandomSource.h"
 #include "../Engine/Core/PersistenceService.h"
 #include "PlatformFileSystem.h"
+#include "PlatformInput.h"
 #include "PlatformLog.h"
 #include "PlatformTime.h"
 #include "random.h"
@@ -296,8 +297,9 @@ int main( int, char** )
 		       "application composition root binds the SDL logging adapter" );
 		CHECK( &compiledContext.services().time == &GetPlatformTimeSource() &&
 		       &compiledContext.services().random == &GetGameRandomSource() &&
-		       &compiledContext.services().storage == &GetPlatformByteStorage(),
-		       "application composition root binds time, random, and VFS adapters" );
+		       &compiledContext.services().storage == &GetPlatformByteStorage() &&
+		       &compiledContext.services().input == &GetPlatformInputSource(),
+		       "application composition root binds platform service adapters" );
 	}
 
 	{
@@ -307,7 +309,13 @@ int main( int, char** )
 		packageTime.setMicroseconds( 42000 );
 		SequenceRandomSource packageRandom( { 73 } );
 		MemoryByteStorage packageStorage;
-		EngineServices services{packageTime, packageRandom, packageStorage, logSink};
+		MemoryInputSource packageInput;
+		EngineServices services{packageTime, packageRandom, packageStorage, logSink, packageInput};
+		packageInput.push( EngineInputEvent{ 17, 2, 1, 65, 0 } );
+		EngineInputEvent injectedInput;
+		CHECK( services.input.poll( injectedInput ) && injectedInput.timestamp == 17 &&
+		       injectedInput.modifiers == 2 && injectedInput.primary == 65,
+		       "engine services expose deterministic injected input" );
 		PackageRegistry packages( content, services );
 		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
 		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,

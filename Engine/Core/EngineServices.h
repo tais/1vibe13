@@ -2,6 +2,7 @@
 #define ENGINE_CORE_ENGINE_SERVICES_H
 
 #include <Engine/Core/ByteStorage.h>
+#include <Engine/Core/InputSource.h>
 #include <Engine/Core/LogSink.h>
 #include <Engine/Core/RandomSource.h>
 #include <Engine/Core/TimeSource.h>
@@ -18,6 +19,7 @@ struct EngineServices
 	RandomSource& random = ZeroRandomSource::instance();
 	ByteStorage& storage = NullByteStorage::instance();
 	LogSink& log = NullLogSink::instance();
+	InputSource& input = NullInputSource::instance();
 
 	static EngineServices defaults()
 	{

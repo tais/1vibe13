@@ -50,7 +50,8 @@ the engine must not contain SDL types in its public domain model.
   and `Engine/Core` never depends on SDL or the legacy debug manager.
 - `EngineServices` is the non-owning service table assembled by `GameContext`.
   Packages receive engine contracts for time, randomness, byte storage, and
-  logging while the application retains ownership of SDL/VFS/legacy adapters.
+  logging/input while the application retains ownership of SDL/VFS/legacy
+  adapters. Headless and replay hosts can inject deterministic memory input.
 - `EngineRuntime` owns campaign-independent lifecycle, screen state, content,
   packages, and service bindings. `GameContext` is now a JA2 compatibility
   facade around that reusable composition root plus legacy settings/options.
