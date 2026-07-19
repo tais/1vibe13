@@ -138,6 +138,9 @@ int main( int, char** )
 		               "engine runtime must retain stable internal references" );
 		static_assert( !std::is_move_constructible<EngineRuntime<unsigned>>::value,
 		               "engine runtime must retain stable internal references" );
+		static_assert( !std::is_copy_constructible<PackageRegistry>::value &&
+		               !std::is_move_constructible<PackageRegistry>::value,
+		               "package registry must retain stable external references" );
 		EngineRuntime<unsigned> runtime;
 		runtime.screens().reset( 7 );
 		CHECK( runtime.screens().current() && runtime.screens().current()->state == 7,

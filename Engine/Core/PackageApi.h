@@ -83,6 +83,14 @@ public:
 	explicit PackageRegistry(ContentRegistry& content, EngineServices services = EngineServices::defaults())
 		: content_(content), services_(services) {}
 
+	// Registry entries and bootstrap state are tied to the referenced content
+	// registry and application-owned package objects. Preserve that identity;
+	// copying or moving would create a second registry with unsafe aliases.
+	PackageRegistry(const PackageRegistry&) = delete;
+	PackageRegistry& operator=(const PackageRegistry&) = delete;
+	PackageRegistry(PackageRegistry&&) = delete;
+	PackageRegistry& operator=(PackageRegistry&&) = delete;
+
 	PackageRegistrationError registerPackage(EnginePackage& package)
 	{
 		const std::string& id = package.descriptor().content.id;
