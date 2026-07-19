@@ -15,6 +15,8 @@ struct EngineInputEvent
 	std::uint32_t type = 0;
 	std::uint32_t primary = 0;
 	std::uint32_t secondary = 0;
+	std::uint64_t sequence = 0;
+	std::uint64_t droppedBefore = 0;
 };
 
 class InputSource

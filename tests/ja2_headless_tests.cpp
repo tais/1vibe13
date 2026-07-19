@@ -459,7 +459,8 @@ int main( int, char** )
 		EngineInputEvent engineAtom = {};
 		InputAtom atom = {};
 		CHECK( GetPlatformInputSource().poll( engineAtom ) && engineAtom.type == KEY_DOWN &&
-		       engineAtom.primary == F1,
+		       engineAtom.primary == F1 && engineAtom.sequence == 1 &&
+		       engineAtom.droppedBefore == 0,
 		       "platform input mirrors SDL events for engine consumers" );
 		CHECK( DequeueEvent( &atom ) && atom.usEvent == KEY_DOWN && atom.usParam == F1,
 		       "engine input polling does not steal the legacy UI event" );
@@ -469,6 +470,8 @@ int main( int, char** )
 		       "platform input preserves mirrored key-up transitions" );
 		DequeueEvent( &atom );
 		ShutdownInputManager();
+		CHECK( !GetPlatformInputSource().poll( engineAtom ),
+		       "platform input discards stale events across manager lifecycles" );
 	}
 
 	// The VFS profiler/logger timer used to have no macOS return path and its

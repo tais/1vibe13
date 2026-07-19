@@ -238,6 +238,7 @@ LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
 
 BOOLEAN InitializeInputManager(void)
 {
+	ResetPlatformInputEvents();
 	// Link to debugger
 	RegisterDebugTopic(TOPIC_INPUT, "Input Manager");
 	// Initialize the gfKeyState table to FALSE everywhere
@@ -294,6 +295,7 @@ void ShutdownInputManager(void)
 	// mouse hooks will be destroyed
 	UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
 	// (WH_MOUSE hook is no longer installed -- see InitializeInputManager.)
+	ResetPlatformInputEvents();
 
 	DeleteCriticalSection(&gcsInputQueueLock);
 }
@@ -308,12 +310,14 @@ static void AppendQueuedInputEvent(UINT16 eventType, UINT32 primary, UINT32 seco
 	event.usParam = primary;
 	event.uiParam = secondary;
 
+	++gusQueueCount;
+	gusTailIndex = gusTailIndex == 255 ? 0 : gusTailIndex + 1;
+
+	// The compatibility queue is authoritative. Mirroring is non-throwing and
+	// happens only after that queue has accepted the event.
 	PublishPlatformInputEvent(EngineInputEvent{
 		timestamp, keyState, eventType, primary, secondary
 	});
-
-	++gusQueueCount;
-	gusTailIndex = gusTailIndex == 255 ? 0 : gusTailIndex + 1;
 }
 
 void QueuePureEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
