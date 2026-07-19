@@ -10414,29 +10414,29 @@ BOOLEAN LoadTileGraphicForItem( INVTYPE *pItem, UINT32 *puiVo )
 
 		if ( ubGraphic < 10 )
 		{
-			sprintf( zName, "gun0%d", ubGraphic );
+			snprintf( zName, sizeof(zName), "gun0%d", ubGraphic );
 		}
 		else
 		{
-			sprintf( zName, "gun%d", ubGraphic );
+			snprintf( zName, sizeof(zName), "gun%d", ubGraphic );
 		}
 	}
 	else 
 	{
 		if ( ubGraphic < 10 )
 		{
-			sprintf( zName, "p%ditem0%d", ubGraphicType, ubGraphic );
+			snprintf( zName, sizeof(zName), "p%ditem0%d", ubGraphicType, ubGraphic );
 		}
 		else
 		{
-			sprintf( zName, "p%ditem%d", ubGraphicType, ubGraphic );
+			snprintf( zName, sizeof(zName), "p%ditem%d", ubGraphicType, ubGraphic );
 		}
 	}
 
 
 	//Load item
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-	sprintf( VObjectDesc.ImageFile, "BIGITEMS\\%s%s", zName, ext );
+	snprintf( VObjectDesc.ImageFile, sizeof(VObjectDesc.ImageFile), "BIGITEMS\\%s%s", zName, ext );
 	CHECKF( AddVideoObject( &VObjectDesc, &uiVo) );
 
 	*puiVo = uiVo;
@@ -14764,4 +14764,3 @@ void TransformationMenuPopup_DelayedGrenadeExplosion()
 		RenderItemDescriptionBox();
 	}	
 }
-
