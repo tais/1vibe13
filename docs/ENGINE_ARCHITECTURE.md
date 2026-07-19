@@ -45,6 +45,9 @@ the engine must not contain SDL types in its public domain model.
 - Package bootstrap advances through ordered configure, content-load, and
   runtime-start phases. A failed phase rolls back in reverse package order;
   shutdown unwinds completed phases in reverse before legacy engine teardown.
+- `LogSink` gives engine and package code a structured, captureable logging
+  contract. The application binds an SDL sink; tests use an in-memory sink,
+  and `Engine/Core` never depends on SDL or the legacy debug manager.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.

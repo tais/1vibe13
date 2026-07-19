@@ -1,5 +1,6 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
+#include "PlatformLog.h"
 
 bool GameContext::beginInitialization()
 {
@@ -38,7 +39,8 @@ bool GameContext::markStopped()
 
 GameContext& GetGameContext()
 {
-	static GameContext context(gGameSettings, gGameOptions, GetCompiledGameCapabilities());
+	static GameContext context(gGameSettings, gGameOptions, GetCompiledGameCapabilities(),
+	                           GetPlatformLogSink());
 	static const bool packageActivated = [] {
 		LegacyCampaignPackage& package = GetCompiledCampaignPackage();
 		GameContext& game = context;

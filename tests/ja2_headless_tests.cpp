@@ -36,6 +36,7 @@
 #include "../Engine/Core/RandomSource.h"
 #include "../Engine/Core/PersistenceService.h"
 #include "PlatformFileSystem.h"
+#include "PlatformLog.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -265,11 +266,14 @@ int main( int, char** )
 		       "legacy compiled campaign is bound through the runtime package registry" );
 		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
 		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
+		CHECK( &compiledContext.log() == &GetPlatformLogSink(),
+		       "application composition root binds the SDL logging adapter" );
 	}
 
 	{
 		ContentRegistry content( ContentApiVersion{ 1, 0 } );
-		PackageRegistry packages( content );
+		MemoryLogSink logSink;
+		PackageRegistry packages( content, logSink );
 		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
 		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,
 		                              static_cast<int>(PackageBootstrapPhase::LoadContent) );
@@ -286,7 +290,10 @@ int main( int, char** )
 		CHECK( packages.bootstrap( PackageBootstrapPhase::LoadContent ) ==
 		       PackageBootstrapError::CallbackFailed &&
 		       first.shutdownCalls == std::vector<int>{ 1 } &&
-		       failing.shutdownCalls == std::vector<int>{ 1 },
+		       failing.shutdownCalls == std::vector<int>{ 1 } &&
+		       logSink.records().size() == 1 &&
+		       logSink.records()[0].severity == LogSeverity::Error &&
+		       logSink.records()[0].category == "packages",
 		       "failed package phase rolls back including the failing callback" );
 		CHECK( packages.activate( "rules.first" ) == PackageActivationError::BootstrapInProgress &&
 		       !packages.deactivate( "rules.first" ),
