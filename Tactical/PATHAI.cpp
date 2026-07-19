@@ -36,6 +36,7 @@
 #include "BinaryHeap.hpp"
 #include "opplist.h"
 #include "Weapons.h"
+#include <new>
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -469,10 +470,11 @@ AStarPathfinder::AStarPathfinder()
 // Allocate the closed-list buffer for the active world. Sized to WORLD_MAX
 // (not the ~96MB MAX_ALLOWED_WORLD_MAX worst case). new[] runs the AStar_Data
 // ctor for every entry, matching the old inline array's default-init semantics.
-void AStarPathfinder::AllocateAStarData()
+bool AStarPathfinder::AllocateAStarData()
 {
 	FreeAStarData();
-	AStarData = new AStar_Data[WORLD_MAX];
+	AStarData = new (std::nothrow) AStar_Data[WORLD_MAX];
+	return AStarData != nullptr;
 }
 
 void AStarPathfinder::FreeAStarData()
@@ -2157,8 +2159,24 @@ void RestorePathAIToDefaults( void )
 }
 
 //dnl ch50 071009
+static void FreePathAIBuffers()
+{
+	if (guiPathingData) { MemFree(guiPathingData); guiPathingData = nullptr; }
+	if (guiPlottedPath) { MemFree(guiPlottedPath); guiPlottedPath = nullptr; }
+	if (pathQ) { MemFree(pathQ); pathQ = nullptr; }
+	if (trailCostUsed) { MemFree(trailCostUsed); trailCostUsed = nullptr; }
+	if (trailCost) { MemFree(trailCost); trailCost = nullptr; }
+	if (trailTree) { MemFree(trailTree); trailTree = nullptr; }
+	pQueueHead = nullptr;
+	pClosedHead = nullptr;
+	ASTAR::AStarPathfinder::GetInstance().FreeAStarData();
+}
+
 BOOLEAN InitPathAI(void)
 {
+	// Make reinitialization deterministic and ensure a prior partial setup cannot
+	// leak into the new world-sized allocation set.
+	FreePathAIBuffers();
 	guiPathingData = (UINT32*)MemAlloc(MAX_PATH_DATA_LENGTH * sizeof(UINT32));
 	guiPlottedPath = (UINT32*)MemAlloc(MAX_PATH_DATA_LENGTH * sizeof(UINT32));
 	pathQ = (path_t*)MemAlloc(ABSMAX_PATHQ * sizeof(path_t));
@@ -2166,26 +2184,27 @@ BOOLEAN InitPathAI(void)
 	trailCostUsed = (UINT8*)MemAlloc(WORLD_MAX);
 	trailTree = (trail_t*)MemAlloc(ABSMAX_TRAIL_TREE * sizeof(trail_t));
 	if(!guiPlottedPath || !guiPathingData || !pathQ || !trailCost || !trailCostUsed || !trailTree)
+	{
+		FreePathAIBuffers();
 		return(FALSE);
+	}
 	pQueueHead = &pathQ[QHEADNDX];
 	pClosedHead = &pathQ[QPOOLNDX];
 	memset(trailCostUsed, 0, WORLD_MAX);
 	// Size the A* closed-list buffer to the just-loaded world (mirrors the
 	// gpWorldLevelData / trailCost WORLD_MAX allocations done for this sector).
-	ASTAR::AStarPathfinder::GetInstance().AllocateAStarData();
+	if (!ASTAR::AStarPathfinder::GetInstance().AllocateAStarData())
+	{
+		FreePathAIBuffers();
+		return(FALSE);
+	}
 	RestorePathAIToDefaults();
 	return(TRUE);
 }
 
 void ShutDownPathAI(void)
 {
-	MemFree(guiPathingData);
-	MemFree(guiPlottedPath);
-	MemFree(pathQ);
-	MemFree(trailCostUsed);
-	MemFree(trailCost);
-	MemFree(trailTree);
-	ASTAR::AStarPathfinder::GetInstance().FreeAStarData();
+	FreePathAIBuffers();
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -5071,5 +5090,3 @@ UINT8 DoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMovementCos
 {
 	return( InternalDoorTravelCost( pSoldier, iGridNo, ubMovementCost, fReturnPerceivedValue, piDoorGridNo, FALSE ) );
 }
-
-
