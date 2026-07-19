@@ -31,6 +31,7 @@
 #include "../Engine/Core/DeterministicCommandQueue.h"
 #include "../Engine/Core/BinaryArchive.h"
 #include "../Engine/Core/StateStack.h"
+#include "../Engine/Core/ContentApi.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -176,6 +177,22 @@ int main( int, char** )
 		screens.replace( 3 );
 		CHECK( screens.size() == 1 && screens.current()->state == 3 && !screens.popOverlay(),
 		       "state replacement does not create false navigation history" );
+	}
+
+	{
+		ContentRegistry content( ContentApiVersion{ 1, 2 } );
+		CHECK( content.registerContent( ContentManifest{ "core", "0.9.0", { 1, 0 } } ) ==
+		       ContentRegistrationError::None,
+		       "content registry accepts a compatible versioned manifest" );
+		CHECK( content.registerContent( ContentManifest{ "future", "1.0.0", { 2, 0 } } ) ==
+		       ContentRegistrationError::IncompatibleApi,
+		       "content registry rejects incompatible API majors" );
+		CHECK( content.registerContent( ContentManifest{ "core", "0.9.1", { 1, 1 } } ) ==
+		       ContentRegistrationError::DuplicateId,
+		       "content registry rejects ambiguous duplicate IDs" );
+		const ContentManifest* manifest = content.find( "core" );
+		CHECK( manifest && manifest->version == "0.9.0",
+		       "content registry resolves the validated manifest" );
 	}
 
 	// --- hard asserts: the fully data-free managers ---
