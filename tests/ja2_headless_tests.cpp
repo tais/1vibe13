@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -106,20 +107,43 @@ protected:
 	}
 };
 
+class ThrowingContainsAssetSource final : public AssetSource
+{
+public:
+	bool containsSource(const AssetSource*) const override
+	{
+		throw "test asset composition exception";
+	}
+
+protected:
+	bool existsNormalized(const std::string&) const override { return false; }
+	AssetReadResult readNormalized(const std::string&, AssetData&,
+		std::size_t) const override { return AssetReadResult::NotFound; }
+};
+
 class TestLifecyclePackage final : public EnginePackage
 {
 public:
 	TestLifecyclePackage(std::string id, PackageKind kind, int failPhase = -1,
-	                     AssetSource* assets = nullptr)
-		: descriptor_{ContentManifest{std::move(id), "1.0",
-		                              ContentApiVersion{1, static_cast<std::uint16_t>(assets ? 1 : 0)}},
+	                     AssetSource* assets = nullptr,
+	                     std::vector<ContentRequirement> requirements = {},
+	                     std::string version = "1.0")
+		: descriptor_{ContentManifest{std::move(id), std::move(version),
+		                              ContentApiVersion{1, static_cast<std::uint16_t>(
+			                              !requirements.empty() ? 2 : (assets ? 1 : 0))},
+		                              std::move(requirements)},
 		              kind},
 		  failPhase_(failPhase), assets_(assets)
 	{
 	}
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
-	bool activate() noexcept override { ++activateCalls; active_ = true; return true; }
+	bool activate() noexcept override
+	{
+		++activateCalls;
+		active_ = activationSucceeds;
+		return active_;
+	}
 	void deactivate() noexcept override
 	{
 		++deactivateCalls;
@@ -130,6 +154,8 @@ public:
 	const AssetSource* assetSource() const noexcept override { return assets_; }
 	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
+		if (lifecycleTrace)
+			lifecycleTrace->push_back("bootstrap:" + descriptor_.content.id);
 		observedServices = &context.services;
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
@@ -140,6 +166,8 @@ public:
 			observedAssetProvenance = asset.provenance;
 		if (phase == PackageBootstrapPhase::Configure && registryDuringBootstrap)
 		{
+			nestedResolutionResult =
+				registryDuringBootstrap->resolveActivation( activateDuringBootstrap );
 			nestedActivationResult = registryDuringBootstrap->activate( activateDuringBootstrap );
 			nestedBootstrapDeactivationResult =
 				registryDuringBootstrap->deactivate( deactivateDuringBootstrap );
@@ -150,6 +178,8 @@ public:
 	}
 	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
 	{
+		if (lifecycleTrace)
+			lifecycleTrace->push_back("shutdown:" + descriptor_.content.id);
 		shutdownCalls.push_back(static_cast<int>(phase));
 	}
 
@@ -162,15 +192,18 @@ public:
 	EngineServices* observedServices = nullptr;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
+	bool activationSucceeds = true;
 	int throwPhase = -1;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
 	PackageActivationError nestedActivationResult = PackageActivationError::None;
+	PackageActivationPlan nestedResolutionResult;
 	bool nestedBootstrapDeactivationResult = true;
 	PackageRegistry* registryDuringDeactivate = nullptr;
 	std::string deactivateDuringDeactivate;
 	bool nestedDeactivateResult = true;
+	std::vector<std::string>* lifecycleTrace = nullptr;
 	bool active() const { return active_; }
 
 private:
@@ -318,6 +351,24 @@ int main( int, char** )
 		CHECK( content.registerContent( ContentManifest{ "mod/assets", "1.0.0", { 1, 0 } } ) ==
 		       ContentRegistrationError::InvalidManifest,
 		       "content registry rejects identifiers unsafe for package provenance" );
+		CHECK( content.registerContent( ContentManifest{ "self", "1.0.0", { 1, 2 },
+		                                                {{ "self", "" }} } ) ==
+		       ContentRegistrationError::InvalidRequirement &&
+		       content.registerContent( ContentManifest{ "duplicate.requirements", "1.0.0", { 1, 2 },
+		                                                {{ "core", "" }, { "core", "0.9.0" }} } ) ==
+		       ContentRegistrationError::InvalidRequirement,
+		       "content registry rejects self and duplicate package requirements" );
+		CHECK( content.registerContent( ContentManifest{ "invalid.requirement", "1.0.0", { 1, 2 },
+		                                                {{ "bad/id", "" }} } ) ==
+		       ContentRegistrationError::InvalidRequirement &&
+		       content.registerContent( ContentManifest{ "undeclared.requirement", "1.0.0", { 1, 1 },
+		                                                {{ "core", "" }} } ) ==
+		       ContentRegistrationError::InvalidRequirement,
+		       "content requirements use safe IDs and explicitly require API 1.2" );
+		CHECK( content.registerContent( ContentManifest{ "forward.requirement", "1.0.0", { 1, 2 },
+		                                                {{ "not.registered.yet", "2.0" }} } ) ==
+		       ContentRegistrationError::None,
+		       "content registry accepts forward requirements independent of discovery order" );
 		const ContentManifest* manifest = content.find( "core" );
 		CHECK( manifest && manifest->version == "0.9.0",
 		       "content registry resolves the validated manifest" );
@@ -494,6 +545,8 @@ int main( int, char** )
 		       campaign.observedServices == &runtime.services() &&
 		       campaign.observedAssetProvenance == "mod.assets" &&
 		       mod.observedAssetProvenance == "mod.assets" &&
+		       campaign.nestedResolutionResult.error ==
+		       PackageResolutionError::OperationInProgress &&
 		       campaign.nestedActivationResult == PackageActivationError::OperationInProgress &&
 		       !campaign.nestedBootstrapDeactivationResult,
 		       "package bootstrap sees composed services and rejects reentrant lifecycle changes" );
@@ -525,6 +578,314 @@ int main( int, char** )
 		       packages.activeCampaign().empty() && !sourceLess.active() &&
 		       !campaign.active() && !mod.active(),
 		       "source-less package teardown cannot remove the immutable host layer" );
+	}
+
+	{
+		MemoryAssetSource hostAssets( "graph.host" );
+		MemoryAssetSource campaignAssets( "forged.graph.campaign" );
+		MemoryAssetSource rulesAssets( "forged.graph.rules" );
+		MemoryAssetSource modAssets( "forged.graph.mod" );
+		MemoryAssetSource siblingAssets( "forged.graph.sibling" );
+		ThrowingContainsAssetSource throwingAssets;
+		CHECK( hostAssets.put( "Data/Graph/value.bin", { 0 } ) &&
+		       campaignAssets.put( "Data/Graph/value.bin", { 1 } ) &&
+		       rulesAssets.put( "Data/Graph/value.bin", { 2 } ) &&
+		       modAssets.put( "Data/Graph/value.bin", { 3 } ) &&
+		       siblingAssets.put( "Data/Graph/value.bin", { 4 } ),
+		       "dependency graph fixtures expose ordered asset overrides" );
+
+		TestLifecyclePackage campaign( "graph.campaign", PackageKind::Campaign,
+		                                -1, &campaignAssets );
+		TestLifecyclePackage rules( "graph.rules", PackageKind::Rules, -1, &rulesAssets,
+		                             {{ "graph.campaign", "1.0" }} );
+		TestLifecyclePackage mod( "graph.mod", PackageKind::Extension, -1, &modAssets,
+		                           {{ "graph.rules", "" }} );
+		TestLifecyclePackage sibling( "graph.sibling", PackageKind::Extension, -1, &siblingAssets,
+		                               {{ "graph.rules", "1.0" }} );
+		TestLifecyclePackage missing( "graph.missing", PackageKind::Extension, -1, nullptr,
+		                               {{ "graph.absent", "" }} );
+		TestLifecyclePackage mismatch( "graph.mismatch", PackageKind::Extension, -1, nullptr,
+		                                {{ "graph.rules", "2.0" }} );
+		TestLifecyclePackage cycleA( "graph.cycle-a", PackageKind::Extension, -1, nullptr,
+		                              {{ "graph.cycle-b", "" }} );
+		TestLifecyclePackage cycleB( "graph.cycle-b", PackageKind::Extension, -1, nullptr,
+		                              {{ "graph.cycle-a", "" }} );
+		TestLifecyclePackage otherCampaign( "graph.other-campaign", PackageKind::Campaign );
+		TestLifecyclePackage failing( "graph.failing", PackageKind::Extension, -1, nullptr,
+		                              {{ "graph.rules", "" }} );
+		failing.activationSucceeds = false;
+		TestLifecyclePackage assetFail( "graph.asset-fail", PackageKind::Extension,
+		                                -1, &rulesAssets, {{ "graph.rules", "" }} );
+		TestLifecyclePackage throwingAsset( "graph.throwing-asset", PackageKind::Extension,
+		                                    -1, &throwingAssets, {{ "graph.rules", "" }} );
+		TestLifecyclePackage invalidSelf( "graph.self", PackageKind::Extension, -1, nullptr,
+		                                  {{ "graph.self", "" }} );
+		TestLifecyclePackage invalidDuplicate( "graph.duplicate", PackageKind::Extension,
+		                                       -1, nullptr,
+		                                       {{ "graph.rules", "" }, { "graph.rules", "1.0" }} );
+		TestLifecyclePackage invalidRequirementId( "graph.invalid-requirement",
+		                                           PackageKind::Extension, -1, nullptr,
+		                                           {{ "graph/bad", "" }} );
+
+		TestLifecyclePackage diamondBase( "diamond.base", PackageKind::Rules );
+		TestLifecyclePackage diamondLeft( "diamond.left", PackageKind::Extension, -1, nullptr,
+		                                    {{ "diamond.base", "" }} );
+		TestLifecyclePackage diamondRight( "diamond.right", PackageKind::Extension, -1, nullptr,
+		                                     {{ "diamond.base", "" }} );
+		TestLifecyclePackage diamondRoot( "diamond.root", PackageKind::Tool, -1, nullptr,
+		                                    {{ "diamond.left", "" }, { "diamond.right", "" }} );
+
+		MemoryLogSink graphLog;
+		EngineServices defaults = EngineServices::defaults();
+		EngineServices services{defaults.time, defaults.random, defaults.storage, graphLog,
+		                        defaults.input, defaults.audio, defaults.frames, hostAssets};
+		EngineRuntime<unsigned> runtime( services );
+		PackageRegistry& packages = runtime.packages();
+
+		const PackageRegistrationError registerMod = packages.registerPackage( mod );
+		const PackageRegistrationError registerCycleB = packages.registerPackage( cycleB );
+		const PackageRegistrationError registerRules = packages.registerPackage( rules );
+		const PackageRegistrationError registerMissing = packages.registerPackage( missing );
+		const PackageRegistrationError registerOther = packages.registerPackage( otherCampaign );
+		const PackageRegistrationError registerMismatch = packages.registerPackage( mismatch );
+		const PackageRegistrationError registerCycleA = packages.registerPackage( cycleA );
+		const PackageRegistrationError registerSibling = packages.registerPackage( sibling );
+		const PackageRegistrationError registerFailing = packages.registerPackage( failing );
+		const PackageRegistrationError registerAssetFail = packages.registerPackage( assetFail );
+		const PackageRegistrationError registerThrowingAsset =
+			packages.registerPackage( throwingAsset );
+		const PackageRegistrationError registerCampaign = packages.registerPackage( campaign );
+		const PackageRegistrationError registerDiamondRoot = packages.registerPackage( diamondRoot );
+		const PackageRegistrationError registerDiamondRight = packages.registerPackage( diamondRight );
+		const PackageRegistrationError registerDiamondLeft = packages.registerPackage( diamondLeft );
+		const PackageRegistrationError registerDiamondBase = packages.registerPackage( diamondBase );
+		CHECK( registerMod == PackageRegistrationError::None &&
+		       registerCycleB == PackageRegistrationError::None &&
+		       registerRules == PackageRegistrationError::None &&
+		       registerMissing == PackageRegistrationError::None &&
+		       registerOther == PackageRegistrationError::None &&
+		       registerMismatch == PackageRegistrationError::None &&
+		       registerCycleA == PackageRegistrationError::None &&
+		       registerSibling == PackageRegistrationError::None &&
+		       registerFailing == PackageRegistrationError::None &&
+		       registerAssetFail == PackageRegistrationError::None &&
+		       registerThrowingAsset == PackageRegistrationError::None &&
+		       registerCampaign == PackageRegistrationError::None &&
+		       registerDiamondRoot == PackageRegistrationError::None &&
+		       registerDiamondRight == PackageRegistrationError::None &&
+		       registerDiamondLeft == PackageRegistrationError::None &&
+		       registerDiamondBase == PackageRegistrationError::None,
+		       "packages register independently of dependency discovery order" );
+		CHECK( packages.registerPackage( invalidSelf ) == PackageRegistrationError::InvalidRequirement &&
+		       packages.registerPackage( invalidDuplicate ) ==
+		       PackageRegistrationError::InvalidRequirement &&
+		       packages.registerPackage( invalidRequirementId ) ==
+		       PackageRegistrationError::InvalidRequirement &&
+		       packages.find( "graph.self" ) == nullptr &&
+		       packages.find( "graph.duplicate" ) == nullptr &&
+		       packages.find( "graph.invalid-requirement" ) == nullptr,
+		       "package registration rejects malformed requirement graphs transactionally" );
+
+		const PackageActivationPlan diamondPlan = packages.resolveActivation( "diamond.root" );
+		CHECK( diamondPlan && diamondPlan.order == std::vector<std::string>({
+		       "diamond.base", "diamond.left", "diamond.right", "diamond.root" }),
+		       "dependency planning is deterministic, topological, and de-duplicates diamonds" );
+		CHECK( packages.resolveActivation( std::vector<std::string>{} ).error ==
+		       PackageResolutionError::EmptyRequest &&
+		       packages.activateAll({}).error == PackageActivationError::InvalidRequest,
+		       "empty dependency requests are rejected without lifecycle work" );
+		const PackageActivationPlan missingPlan = packages.resolveActivation( "graph.missing" );
+		const PackageActivationPlan mismatchPlan = packages.resolveActivation( "graph.mismatch" );
+		const PackageActivationPlan cyclePlan = packages.resolveActivation( "graph.cycle-a" );
+		CHECK( missingPlan.error == PackageResolutionError::MissingRequirement &&
+		       missingPlan.packageId == "graph.absent" &&
+		       missingPlan.diagnosticPath ==
+		       std::vector<std::string>({ "graph.missing", "graph.absent" }) &&
+		       mismatchPlan.error == PackageResolutionError::VersionMismatch &&
+		       mismatchPlan.packageId == "graph.rules" &&
+		       mismatchPlan.diagnosticPath == std::vector<std::string>({
+		       "graph.mismatch", "graph.rules" }) &&
+		       cyclePlan.error == PackageResolutionError::DependencyCycle &&
+		       cyclePlan.diagnosticPath == std::vector<std::string>({
+		       "graph.cycle-a", "graph.cycle-b", "graph.cycle-a" }) &&
+		       missing.activateCalls == 0 && mismatch.activateCalls == 0 &&
+		       cycleA.activateCalls == 0 && cycleB.activateCalls == 0,
+		       "dependency preflight reports paths without invoking package callbacks" );
+		const PackageActivationResult batchPreflight =
+			packages.activateAll({ "diamond.root", "graph.missing" });
+		CHECK( batchPreflight.error == PackageActivationError::MissingRequirement &&
+		       batchPreflight.packageId == "graph.absent" &&
+		       batchPreflight.diagnosticPath == std::vector<std::string>({
+		       "graph.missing", "graph.absent" }) && batchPreflight.activated.empty() &&
+		       diamondBase.activateCalls == 0 && diamondLeft.activateCalls == 0 &&
+		       diamondRight.activateCalls == 0 && diamondRoot.activateCalls == 0 &&
+		       packages.activationOrder().empty(),
+		       "multi-root graph errors preserve diagnostics and preflight the whole batch" );
+
+		const PackageActivationPlan inactiveCampaignConflict =
+			packages.resolveActivation({ "graph.campaign", "graph.other-campaign" });
+		CHECK( inactiveCampaignConflict.error == PackageResolutionError::CampaignConflict &&
+		       inactiveCampaignConflict.packageId == "graph.other-campaign" &&
+		       inactiveCampaignConflict.diagnosticPath == std::vector<std::string>({
+		       "graph.campaign", "graph.other-campaign" }) &&
+		       inactiveCampaignConflict.order.empty() && campaign.activateCalls == 0 &&
+		       otherCampaign.activateCalls == 0,
+		       "a batch cannot plan two inactive campaigns" );
+
+		CHECK( packages.activate( "graph.other-campaign" ) == PackageActivationError::None,
+		       "dependency test activates an existing conflicting campaign" );
+		const PackageActivationPlan conflictPlan = packages.resolveActivation( "graph.mod" );
+		CHECK( conflictPlan.error == PackageResolutionError::CampaignConflict &&
+		       conflictPlan.diagnosticPath == std::vector<std::string>({
+		       "graph.other-campaign", "graph.campaign" }) &&
+		       packages.activate( "graph.mod" ) == PackageActivationError::CampaignAlreadyActive &&
+		       campaign.activateCalls == 0 && rules.activateCalls == 0 && mod.activateCalls == 0,
+		       "transitive campaign conflicts fail before dependency side effects" );
+		CHECK( packages.deactivate( "graph.other-campaign" ),
+		       "dependency test removes the conflicting campaign" );
+
+		std::vector<std::string> lifecycleTrace;
+		campaign.lifecycleTrace = &lifecycleTrace;
+		rules.lifecycleTrace = &lifecycleTrace;
+		mod.lifecycleTrace = &lifecycleTrace;
+		sibling.lifecycleTrace = &lifecycleTrace;
+		const PackageActivationResult activation =
+			packages.activateAll({ "graph.mod", "graph.sibling" });
+		AssetData graphAsset;
+		CHECK( activation && activation.activated == std::vector<std::string>({
+		       "graph.campaign", "graph.rules", "graph.mod", "graph.sibling" }) &&
+		       packages.activationOrder() == activation.activated &&
+		       packages.activeCampaign() == "graph.campaign" &&
+		       runtime.services().assets.read( "Data/Graph/value.bin", graphAsset ) ==
+		       AssetReadResult::Success && graphAsset.bytes == std::vector<std::uint8_t>({ 4 }) &&
+		       graphAsset.provenance == "graph.sibling" && campaign.activateCalls == 1 &&
+		       rules.activateCalls == 1 && mod.activateCalls == 1 && sibling.activateCalls == 1,
+		       "multi-root activation mounts dependencies and requested roots from low to high priority" );
+		const PackageActivationResult idempotentBatch =
+			packages.activateAll({ "graph.mod", "graph.sibling" });
+		const PackageActivationPlan activeMismatch = packages.resolveActivation( "graph.mismatch" );
+		CHECK( idempotentBatch && idempotentBatch.activated.empty() &&
+		       packages.activate( "graph.mod" ) == PackageActivationError::AlreadyActive &&
+		       activeMismatch.error == PackageResolutionError::VersionMismatch &&
+		       activeMismatch.diagnosticPath == std::vector<std::string>({
+		       "graph.mismatch", "graph.rules" }) && mismatch.activateCalls == 0,
+		       "batch activation is idempotent while legacy activation and exact versions stay strict" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) == PackageBootstrapError::None,
+		       "dependency-ordered packages bootstrap successfully" );
+		packages.shutdownBootstrap();
+		CHECK( lifecycleTrace == std::vector<std::string>({
+		       "bootstrap:graph.campaign", "bootstrap:graph.rules", "bootstrap:graph.mod",
+		       "bootstrap:graph.sibling", "shutdown:graph.sibling", "shutdown:graph.mod",
+		       "shutdown:graph.rules", "shutdown:graph.campaign" }),
+		       "bootstrap follows dependency order and shutdown reverses it" );
+
+		const PackageDeactivationResult campaignBlocked =
+			packages.deactivateDetailed( "graph.campaign" );
+		const PackageDeactivationResult rulesBlocked =
+			packages.deactivateDetailed( "graph.rules" );
+		CHECK( campaignBlocked.error == PackageDeactivationError::RequiredByActivePackage &&
+		       campaignBlocked.dependentId == "graph.rules" &&
+		       rulesBlocked.error == PackageDeactivationError::RequiredByActivePackage &&
+		       rulesBlocked.dependentId == "graph.mod",
+		       "active dependents protect their transitive package closure" );
+		const bool removedMod = packages.deactivate( "graph.mod" );
+		const PackageDeactivationResult rulesStillRequired =
+			packages.deactivateDetailed( "graph.rules" );
+		const bool removedSibling = packages.deactivate( "graph.sibling" );
+		const bool removedRules = packages.deactivate( "graph.rules" );
+		const AssetReadResult afterConsumers =
+			runtime.services().assets.read( "Data/Graph/value.bin", graphAsset );
+		const bool removedCampaign = packages.deactivate( "graph.campaign" );
+		CHECK( removedMod &&
+		       rulesStillRequired.dependentId == "graph.sibling" && removedSibling &&
+		       removedRules && afterConsumers == AssetReadResult::Success &&
+		       graphAsset.provenance == "graph.campaign" && removedCampaign &&
+		       packages.activationOrder().empty(),
+		       "dependencies remain active until every consumer is explicitly removed" );
+
+		campaign.lifecycleTrace = nullptr;
+		rules.lifecycleTrace = nullptr;
+		mod.lifecycleTrace = nullptr;
+		sibling.lifecycleTrace = nullptr;
+		CHECK( packages.activate( "graph.campaign" ) == PackageActivationError::None,
+		       "transaction test preserves an explicitly active dependency" );
+		const PackageActivationResult failedActivation =
+			packages.activateAll({ "graph.failing" });
+		CHECK( failedActivation.error == PackageActivationError::ActivationFailed &&
+		       failedActivation.packageId == "graph.failing" && failedActivation.activated.empty() &&
+		       packages.activationOrder() == std::vector<std::string>({ "graph.campaign" }) &&
+		       packages.isActive( "graph.campaign" ) && !packages.isActive( "graph.rules" ) &&
+		       !packages.isActive( "graph.failing" ) && campaign.activateCalls == 2 &&
+		       rules.activateCalls == 2 && rules.deactivateCalls == 2 &&
+		       failing.activateCalls == 1 && failing.deactivateCalls == 0 &&
+		       runtime.services().assets.read( "Data/Graph/value.bin", graphAsset ) ==
+		       AssetReadResult::Success && graphAsset.provenance == "graph.campaign",
+		       "failed activation rolls back only packages newly activated by the request" );
+		CHECK( packages.deactivate( "graph.campaign" ) && packages.activationOrder().empty(),
+		       "callback-failure transaction fixture tears down cleanly" );
+
+		const PackageActivationResult mountFailure =
+			packages.activateAll({ "graph.asset-fail" });
+		CHECK( mountFailure.error == PackageActivationError::AssetMountFailed &&
+		       mountFailure.packageId == "graph.asset-fail" &&
+		       mountFailure.diagnosticPath.empty() && mountFailure.activated.empty() &&
+		       packages.activationOrder().empty() && packages.activeCampaign().empty() &&
+		       !packages.isActive( "graph.campaign" ) && !packages.isActive( "graph.rules" ) &&
+		       !packages.isActive( "graph.asset-fail" ) && campaign.activateCalls == 3 &&
+		       campaign.deactivateCalls == 3 && rules.activateCalls == 3 &&
+		       rules.deactivateCalls == 3 && assetFail.activateCalls == 1 &&
+		       assetFail.deactivateCalls == 1 && !campaign.active() && !rules.active() &&
+		       !assetFail.active() &&
+		       runtime.services().assets.read( "Data/Graph/value.bin", graphAsset ) ==
+		       AssetReadResult::Success && graphAsset.bytes == std::vector<std::uint8_t>({ 0 }) &&
+		       graphAsset.provenance == "graph.host",
+		       "asset-mount failure rolls back a newly activated dependency closure exactly" );
+
+		bool assetCompositionThrew = false;
+		try
+		{
+			packages.activateAll({ "graph.throwing-asset" });
+		}
+		catch (...)
+		{
+			assetCompositionThrew = true;
+		}
+		CHECK( assetCompositionThrew && packages.activationOrder().empty() &&
+		       packages.activeCampaign().empty() && campaign.activateCalls == 4 &&
+		       campaign.deactivateCalls == 4 && rules.activateCalls == 4 &&
+		       rules.deactivateCalls == 4 && throwingAsset.activateCalls == 1 &&
+		       throwingAsset.deactivateCalls == 1 && !campaign.active() && !rules.active() &&
+		       !throwingAsset.active() &&
+		       runtime.services().assets.read( "Data/Graph/value.bin", graphAsset ) ==
+		       AssetReadResult::Success && graphAsset.provenance == "graph.host",
+		       "asset-source exceptions unwind the whole newly activated dependency closure" );
+	}
+
+	{
+		constexpr std::size_t chainLength = 1024;
+		std::vector<std::unique_ptr<TestLifecyclePackage>> chain;
+		chain.reserve( chainLength );
+		for (std::size_t index = 0; index < chainLength; ++index)
+		{
+			std::vector<ContentRequirement> requirements;
+			if (index > 0) requirements.push_back(
+				ContentRequirement{ "chain." + std::to_string(index - 1), "" } );
+			chain.emplace_back(new TestLifecyclePackage(
+				"chain." + std::to_string(index), PackageKind::Extension,
+				-1, nullptr, std::move(requirements) ));
+		}
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		bool registered = true;
+		for (auto package = chain.rbegin(); package != chain.rend(); ++package)
+			registered = packages.registerPackage( **package ) == PackageRegistrationError::None &&
+				registered;
+		const PackageActivationPlan chainPlan =
+			packages.resolveActivation( "chain." + std::to_string(chainLength - 1) );
+		CHECK( registered && chainPlan && chainPlan.order.size() == chainLength &&
+		       chainPlan.order.front() == "chain.0" &&
+		       chainPlan.order.back() == "chain." + std::to_string(chainLength - 1),
+		       "iterative dependency planning handles untrusted deep graphs without recursion" );
 	}
 
 	{
