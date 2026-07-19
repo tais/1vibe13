@@ -7,11 +7,17 @@
 #include <utility>
 #include <vector>
 
+#include <Engine/Core/Identifier.h>
+
 struct ContentApiVersion
 {
 	std::uint16_t major;
 	std::uint16_t minor;
 };
+
+// 1.1 adds package-owned AssetSource overlays. Version 1.0 manifests remain
+// compatible when they do not depend on that optional lifecycle contract.
+constexpr ContentApiVersion CurrentContentApiVersion{1, 1};
 
 struct ContentManifest
 {
@@ -35,13 +41,27 @@ public:
 
 	ContentRegistrationError registerContent(ContentManifest manifest)
 	{
-		if (manifest.id.empty() || manifest.version.empty()) return ContentRegistrationError::InvalidManifest;
+		if (!IsValidEngineIdentifier(manifest.id) || manifest.version.empty())
+			return ContentRegistrationError::InvalidManifest;
 		if (manifest.requiredApi.major != supportedApi_.major || manifest.requiredApi.minor > supportedApi_.minor)
 			return ContentRegistrationError::IncompatibleApi;
 		if (byId_.find(manifest.id) != byId_.end()) return ContentRegistrationError::DuplicateId;
 		const std::size_t index = manifests_.size();
-		byId_.emplace(manifest.id, index);
 		manifests_.push_back(std::move(manifest));
+		try
+		{
+			const auto inserted = byId_.emplace(manifests_.back().id, index);
+			if (!inserted.second)
+			{
+				manifests_.pop_back();
+				return ContentRegistrationError::DuplicateId;
+			}
+		}
+		catch (...)
+		{
+			manifests_.pop_back();
+			throw;
+		}
 		return ContentRegistrationError::None;
 	}
 

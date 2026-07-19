@@ -10,8 +10,8 @@ public:
 	explicit LegacyCampaignPackage(GameCapabilities capabilities);
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
-	bool activate() override;
-	void deactivate() override;
+	bool activate() noexcept override;
+	void deactivate() noexcept override;
 	bool active() const { return active_; }
 	const GameCapabilities& capabilities() const { return capabilities_; }
 

@@ -109,17 +109,28 @@ protected:
 class TestLifecyclePackage final : public EnginePackage
 {
 public:
-	TestLifecyclePackage(std::string id, PackageKind kind, int failPhase = -1)
-		: descriptor_{ContentManifest{std::move(id), "1.0", ContentApiVersion{1, 0}}, kind},
-		  failPhase_(failPhase)
+	TestLifecyclePackage(std::string id, PackageKind kind, int failPhase = -1,
+	                     AssetSource* assets = nullptr)
+		: descriptor_{ContentManifest{std::move(id), "1.0",
+		                              ContentApiVersion{1, static_cast<std::uint16_t>(assets ? 1 : 0)}},
+		              kind},
+		  failPhase_(failPhase), assets_(assets)
 	{
 	}
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
-	bool activate() override { active_ = true; return true; }
-	void deactivate() override { active_ = false; }
+	bool activate() noexcept override { ++activateCalls; active_ = true; return true; }
+	void deactivate() noexcept override
+	{
+		++deactivateCalls;
+		if (registryDuringDeactivate)
+			nestedDeactivateResult = registryDuringDeactivate->deactivate( deactivateDuringDeactivate );
+		active_ = false;
+	}
+	const AssetSource* assetSource() const noexcept override { return assets_; }
 	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
+		observedServices = &context.services;
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -127,7 +138,14 @@ public:
 		if (context.services.assets.read("Data/Rules/weapons.bin", asset) ==
 			AssetReadResult::Success)
 			observedAssetProvenance = asset.provenance;
+		if (phase == PackageBootstrapPhase::Configure && registryDuringBootstrap)
+		{
+			nestedActivationResult = registryDuringBootstrap->activate( activateDuringBootstrap );
+			nestedBootstrapDeactivationResult =
+				registryDuringBootstrap->deactivate( deactivateDuringBootstrap );
+		}
 		bootstrapCalls.push_back(static_cast<int>(phase));
+		if (static_cast<int>(phase) == throwPhase) throw "test package bootstrap exception";
 		return static_cast<int>(phase) != failPhase_;
 	}
 	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
@@ -141,10 +159,24 @@ public:
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
 	std::string observedAssetProvenance;
+	EngineServices* observedServices = nullptr;
+	int activateCalls = 0;
+	int deactivateCalls = 0;
+	int throwPhase = -1;
+	PackageRegistry* registryDuringBootstrap = nullptr;
+	std::string activateDuringBootstrap;
+	std::string deactivateDuringBootstrap;
+	PackageActivationError nestedActivationResult = PackageActivationError::None;
+	bool nestedBootstrapDeactivationResult = true;
+	PackageRegistry* registryDuringDeactivate = nullptr;
+	std::string deactivateDuringDeactivate;
+	bool nestedDeactivateResult = true;
+	bool active() const { return active_; }
 
 private:
 	PackageDescriptor descriptor_;
 	int failPhase_;
+	AssetSource* assets_;
 	bool active_ = false;
 };
 
@@ -164,6 +196,9 @@ int main( int, char** )
 		static_assert( !std::is_copy_constructible<PackageRegistry>::value &&
 		               !std::is_move_constructible<PackageRegistry>::value,
 		               "package registry must retain stable external references" );
+		static_assert( !std::is_copy_constructible<CompositeAssetSource>::value &&
+		               !std::is_move_constructible<CompositeAssetSource>::value,
+		               "asset overlay identity must remain stable to prevent graph cycles" );
 		EngineRuntime<unsigned> runtime;
 		runtime.screens().reset( 7 );
 		CHECK( runtime.screens().current() && runtime.screens().current()->state == 7,
@@ -280,6 +315,9 @@ int main( int, char** )
 		CHECK( content.registerContent( ContentManifest{ "core", "0.9.1", { 1, 1 } } ) ==
 		       ContentRegistrationError::DuplicateId,
 		       "content registry rejects ambiguous duplicate IDs" );
+		CHECK( content.registerContent( ContentManifest{ "mod/assets", "1.0.0", { 1, 0 } } ) ==
+		       ContentRegistrationError::InvalidManifest,
+		       "content registry rejects identifiers unsafe for package provenance" );
 		const ContentManifest* manifest = content.find( "core" );
 		CHECK( manifest && manifest->version == "0.9.0",
 		       "content registry resolves the validated manifest" );
@@ -311,6 +349,11 @@ int main( int, char** )
 		       "asset overlay falls back to lower-priority campaign content" );
 		CHECK( layeredAssets.read( "data/empty.bin", asset ) == AssetReadResult::Success &&
 		       asset.bytes.empty(), "asset source preserves empty assets" );
+		CompositeAssetSource hostLayer( campaignAssets );
+		CHECK( !hostLayer.unmount( "" ) &&
+		       hostLayer.read( "Data/Items.xml", asset ) == AssetReadResult::Success &&
+		       asset.provenance == "campaign.arulco" && asset.bytes[0] == 1,
+		       "asset overlays preserve immutable host fallback and its provenance" );
 
 		CompositeAssetSource firstComposite;
 		CompositeAssetSource secondComposite;
@@ -342,11 +385,11 @@ int main( int, char** )
 
 	{
 		ContentRegistry content( ContentApiVersion{ 1, 0 } );
-		PackageRegistry packages( content );
 		LegacyCampaignPackage arulco( GameCapabilities{} );
 		GameCapabilities ubCapabilities;
 		ubCapabilities.campaign = GameCampaign::UnfinishedBusiness;
 		LegacyCampaignPackage unfinishedBusiness( ubCapabilities );
+		PackageRegistry packages( content );
 		CHECK( packages.registerPackage( arulco ) == PackageRegistrationError::None &&
 		       packages.registerPackage( unfinishedBusiness ) == PackageRegistrationError::None,
 		       "campaign packages register through the versioned engine API" );
@@ -378,8 +421,110 @@ int main( int, char** )
 		       &compiledContext.services().input == &GetPlatformInputSource() &&
 		       &compiledContext.services().audio == &GetPlatformAudioOutput() &&
 		       &compiledContext.services().frames == &GetPlatformFramePresenter() &&
-		       &compiledContext.services().assets == &GetPlatformAssetSource(),
+		       &compiledContext.services().assets == &compiledContext.packages().assets() &&
+		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
+	}
+
+	{
+		MemoryAssetSource hostAssets( "host.vfs" );
+		MemoryAssetSource campaignAssets( "forged.campaign" );
+		MemoryAssetSource modAssets( "forged.mod" );
+		MemoryAssetSource invalidAssets( "forged.invalid" );
+		CHECK( hostAssets.put( "Data/Rules/weapons.bin", { 0 } ) &&
+		       hostAssets.put( "Data/Host/only.bin", { 9 } ) &&
+		       campaignAssets.put( "Data/Rules/weapons.bin", { 1 } ) &&
+		       modAssets.put( "Data/Rules/weapons.bin", { 2 } ) &&
+		       invalidAssets.put( "Data/Rules/weapons.bin", { 3 } ),
+		       "package lifecycle fixtures expose overlapping asset layers" );
+
+		TestLifecyclePackage sourceLess( "engine.host", PackageKind::Extension );
+		TestLifecyclePackage campaign( "campaign.assets", PackageKind::Campaign,
+		                                -1, &campaignAssets );
+		TestLifecyclePackage mod( "mod.assets", PackageKind::Rules, -1, &modAssets );
+		TestLifecyclePackage duplicate( "mod.duplicate", PackageKind::Extension,
+		                                 -1, &modAssets );
+		TestLifecyclePackage invalid( "mod/assets", PackageKind::Extension,
+		                               -1, &invalidAssets );
+		MemoryLogSink lifecycleLog;
+		EngineServices defaults = EngineServices::defaults();
+		EngineServices services{defaults.time, defaults.random, defaults.storage, lifecycleLog,
+		                        defaults.input, defaults.audio, defaults.frames, hostAssets};
+		EngineRuntime<unsigned> runtime( services );
+		PackageRegistry& packages = runtime.packages();
+		campaign.registryDuringBootstrap = &packages;
+		campaign.activateDuringBootstrap = "mod.duplicate";
+		campaign.deactivateDuringBootstrap = "mod.assets";
+		mod.registryDuringDeactivate = &packages;
+		mod.deactivateDuringDeactivate = "campaign.assets";
+		CHECK( packages.registerPackage( sourceLess ) == PackageRegistrationError::None &&
+		       packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+		       packages.registerPackage( mod ) == PackageRegistrationError::None &&
+		       packages.registerPackage( duplicate ) == PackageRegistrationError::None,
+		       "asset-bearing and source-less packages register without mounting content" );
+		CHECK( packages.registerPackage( invalid ) == PackageRegistrationError::InvalidManifest &&
+		       packages.find( "mod/assets" ) == nullptr && invalid.activateCalls == 0,
+		       "package registration rejects IDs that cannot become trusted provenance" );
+
+		AssetData asset;
+		CHECK( &runtime.services() == &packages.services() &&
+		       &runtime.services().assets == &packages.assets() &&
+		       packages.assets().containsSource( &hostAssets ) &&
+		       runtime.services().assets.read( "Data/Rules/weapons.bin", asset ) ==
+		       AssetReadResult::Success && asset.bytes == std::vector<std::uint8_t>({ 0 }) &&
+		       asset.provenance == "host.vfs",
+		       "engine runtime exposes the registry asset overlay with its host fallback" );
+		CHECK( packages.activate( "engine.host" ) == PackageActivationError::None &&
+		       packages.activate( "campaign.assets" ) == PackageActivationError::None &&
+		       packages.activate( "mod.assets" ) == PackageActivationError::None &&
+		       runtime.services().assets.read( "Data/Rules/weapons.bin", asset ) ==
+		       AssetReadResult::Success && asset.bytes == std::vector<std::uint8_t>({ 2 }) &&
+		       asset.provenance == "mod.assets" &&
+		       runtime.services().assets.read( "Data/Host/only.bin", asset ) ==
+		       AssetReadResult::Success && asset.bytes == std::vector<std::uint8_t>({ 9 }),
+		       "package activation overlays assets in deterministic activation order" );
+		CHECK( packages.activate( "mod.duplicate" ) == PackageActivationError::AssetMountFailed &&
+		       !duplicate.active() && duplicate.activateCalls == 1 && duplicate.deactivateCalls == 1 &&
+		       !packages.isActive( "mod.duplicate" ) && packages.activationOrder().size() == 3 &&
+		       packages.activeCampaign() == "campaign.assets" && lifecycleLog.records().size() == 1 &&
+		       runtime.services().assets.read( "Data/Rules/weapons.bin", asset ) ==
+		       AssetReadResult::Success && asset.provenance == "mod.assets",
+		       "asset mount failures roll back package activation without changing active state" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) == PackageBootstrapError::None &&
+		       campaign.observedServices == &runtime.services() &&
+		       campaign.observedAssetProvenance == "mod.assets" &&
+		       mod.observedAssetProvenance == "mod.assets" &&
+		       campaign.nestedActivationResult == PackageActivationError::OperationInProgress &&
+		       !campaign.nestedBootstrapDeactivationResult,
+		       "package bootstrap sees composed services and rejects reentrant lifecycle changes" );
+		CHECK( !packages.deactivate( "mod.assets" ) &&
+		       runtime.services().assets.read( "Data/Rules/weapons.bin", asset ) ==
+		       AssetReadResult::Success && asset.provenance == "mod.assets",
+		       "bootstrap resources freeze package membership and keep asset mounts intact" );
+		packages.shutdownBootstrap();
+		const bool modDeactivated = packages.deactivate( "mod.assets" );
+		const AssetReadResult afterMod =
+			runtime.services().assets.read( "Data/Rules/weapons.bin", asset );
+		CHECK( modDeactivated && !mod.nestedDeactivateResult &&
+		       packages.isActive( "campaign.assets" ) && afterMod == AssetReadResult::Success &&
+		       asset.bytes == std::vector<std::uint8_t>({ 1 }) &&
+		       asset.provenance == "campaign.assets",
+		       "deactivating a mod restores the campaign asset layer" );
+		const bool campaignDeactivated = packages.deactivate( "campaign.assets" );
+		const AssetReadResult afterCampaign =
+			runtime.services().assets.read( "Data/Rules/weapons.bin", asset );
+		CHECK( campaignDeactivated && afterCampaign == AssetReadResult::Success &&
+		       asset.bytes == std::vector<std::uint8_t>({ 0 }) && asset.provenance == "host.vfs",
+		       "deactivating a campaign restores the host asset layer" );
+		const bool sourceLessDeactivated = packages.deactivate( "engine.host" );
+		const AssetReadResult afterSourceLess =
+			runtime.services().assets.read( "Data/Rules/weapons.bin", asset );
+		CHECK( sourceLessDeactivated && afterSourceLess == AssetReadResult::Success &&
+		       asset.bytes == std::vector<std::uint8_t>({ 0 }) &&
+		       asset.provenance == "host.vfs" && packages.activationOrder().empty() &&
+		       packages.activeCampaign().empty() && !sourceLess.active() &&
+		       !campaign.active() && !mod.active(),
+		       "source-less package teardown cannot remove the immutable host layer" );
 	}
 
 	{
@@ -428,10 +573,11 @@ int main( int, char** )
 		CHECK( !services.assets.exists( "../outside.bin" ) &&
 		       !services.assets.exists( "/absolute/path.bin" ),
 		       "asset sources reject traversal and absolute paths" );
-		PackageRegistry packages( content, services );
 		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
 		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,
 		                              static_cast<int>(PackageBootstrapPhase::LoadContent) );
+		TestLifecyclePackage throwing( "rules.throwing", PackageKind::Rules );
+		PackageRegistry packages( content, services );
 		packages.registerPackage( first );
 		packages.registerPackage( failing );
 		packages.activate( "rules.first" );
@@ -459,6 +605,21 @@ int main( int, char** )
 		CHECK( packages.completedBootstrapPhases() == 0 &&
 		       first.shutdownCalls.back() == 0 && failing.shutdownCalls.back() == 0,
 		       "package shutdown unwinds completed phases for every active package" );
+		throwing.throwPhase = static_cast<int>(PackageBootstrapPhase::Configure);
+		CHECK( packages.registerPackage( throwing ) == PackageRegistrationError::None &&
+		       packages.activate( "rules.throwing" ) == PackageActivationError::None &&
+		       packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::CallbackFailed &&
+		       throwing.shutdownCalls == std::vector<int>{ 0 } &&
+		       logSink.records().size() == 2 &&
+		       logSink.records().back().message == "Bootstrap callback threw: rules.throwing",
+		       "package exceptions become deterministic rollback failures at the engine boundary" );
+		const bool throwingDeactivated = packages.deactivate( "rules.throwing" );
+		const bool failingDeactivated = packages.deactivate( "rules.failing" );
+		const bool firstDeactivated = packages.deactivate( "rules.first" );
+		CHECK( packages.completedBootstrapPhases() == 0 && throwingDeactivated &&
+		       failingDeactivated && firstDeactivated && packages.activationOrder().empty(),
+		       "package operation guard recovers after exceptions and permits clean teardown" );
 	}
 
 	{

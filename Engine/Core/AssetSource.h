@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include <Engine/Core/Identifier.h>
+
 constexpr std::size_t DefaultAssetReadLimit = 256u * 1024u * 1024u;
 
 inline bool NormalizeAssetPath(const std::string& input, std::string& normalized)
@@ -45,15 +47,7 @@ inline bool NormalizeAssetPath(const std::string& input, std::string& normalized
 
 inline bool IsValidAssetProvenance(const std::string& provenance)
 {
-	if (provenance.empty()) return false;
-	for (char value : provenance)
-	{
-		const bool valid = (value >= 'a' && value <= 'z') ||
-			(value >= 'A' && value <= 'Z') || (value >= '0' && value <= '9') ||
-			value == '.' || value == '_' || value == '-';
-		if (!valid) return false;
-	}
-	return true;
+	return IsValidEngineIdentifier(provenance);
 }
 
 enum class AssetReadResult
@@ -169,7 +163,22 @@ private:
 class CompositeAssetSource final : public AssetSource
 {
 public:
-	bool mount(std::string provenance, AssetSource& source)
+	CompositeAssetSource() = default;
+
+	// A host-provided base is always the lowest-priority source. Unlike named
+	// package mounts, its own provenance is preserved so existing VFS/archive
+	// diagnostics do not change merely because a registry composes packages on
+	// top of it.
+	explicit CompositeAssetSource(const AssetSource& base)
+	{
+		sources_.push_back(Mount{"", &base});
+	}
+	CompositeAssetSource(const CompositeAssetSource&) = delete;
+	CompositeAssetSource& operator=(const CompositeAssetSource&) = delete;
+	CompositeAssetSource(CompositeAssetSource&&) = delete;
+	CompositeAssetSource& operator=(CompositeAssetSource&&) = delete;
+
+	bool mount(std::string provenance, const AssetSource& source)
 	{
 		if (!IsValidAssetProvenance(provenance) || source.containsSource(this)) return false;
 		for (const Mount& mounted : sources_)
@@ -180,6 +189,8 @@ public:
 
 	bool unmount(const std::string& provenance)
 	{
+		// The empty provenance is reserved for the immutable host base.
+		if (!IsValidAssetProvenance(provenance)) return false;
 		for (auto mounted = sources_.begin(); mounted != sources_.end(); ++mounted)
 		{
 			if (mounted->provenance != provenance) continue;
@@ -189,7 +200,6 @@ public:
 		return false;
 	}
 
-	void clear() { sources_.clear(); }
 	std::size_t mountCount() const { return sources_.size(); }
 
 	bool containsSource(const AssetSource* source) const override
@@ -215,7 +225,8 @@ protected:
 		{
 			const AssetReadResult result = mounted->source->read(logicalPath, asset, maximumBytes);
 			if (result == AssetReadResult::NotFound) continue;
-			if (result == AssetReadResult::Success) asset.provenance = mounted->provenance;
+			if (result == AssetReadResult::Success && !mounted->provenance.empty())
+				asset.provenance = mounted->provenance;
 			return result;
 		}
 		return AssetReadResult::NotFound;
@@ -225,7 +236,7 @@ private:
 	struct Mount
 	{
 		std::string provenance;
-		AssetSource* source;
+		const AssetSource* source;
 	};
 	std::vector<Mount> sources_;
 };

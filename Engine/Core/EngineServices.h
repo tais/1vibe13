@@ -25,7 +25,7 @@ struct EngineServices
 	InputSource& input = NullInputSource::instance();
 	AudioOutput& audio = NullAudioOutput::instance();
 	FramePresenter& frames = NullFramePresenter::instance();
-	AssetSource& assets = NullAssetSource::instance();
+	const AssetSource& assets = NullAssetSource::instance();
 
 	static EngineServices defaults()
 	{

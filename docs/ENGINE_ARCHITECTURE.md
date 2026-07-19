@@ -54,9 +54,18 @@ the engine must not contain SDL types in its public domain model.
   SDL/VFS/legacy adapters. Headless and replay hosts can inject deterministic
   memory input, capture audio requests, and record frame presentation without devices.
 - `AssetSource` exposes normalized, read-only logical content with provenance
-  and deterministic, case-insensitive overlays. It is the engine seam through
-  which package lifecycle mounting will let campaigns and mods replace assets
-  without receiving writable save storage or importing the legacy VFS API.
+  and deterministic, case-insensitive overlays. `PackageRegistry` mounts an
+  active package's optional source above the trusted host source, in activation
+  order, and removes it before package teardown. This lets campaigns and mods
+  replace assets without receiving writable save storage or importing the
+  legacy VFS API. Package asset sources are application-owned and must retain a
+  stable identity for their active lifetime. Package IDs and trusted asset
+  provenance use portable ASCII letters, digits, `.`, `_`, and `-` only.
+  Registry lifecycle operations are serialized and reject reentrant package
+  callbacks; hosts must likewise serialize lifecycle changes with asset reads.
+  This source-built alpha API has no stable binary plugin ABI yet; package
+  binaries must be rebuilt with the engine. Content API 1.1 identifies packages
+  that depend on lifecycle-mounted asset sources while 1.0 content remains valid.
 - `EngineRuntime` owns campaign-independent lifecycle, screen state, content,
   packages, and service bindings. `GameContext` is now a JA2 compatibility
   facade around that reusable composition root plus legacy settings/options.

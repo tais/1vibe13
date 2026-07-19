@@ -25,8 +25,8 @@ class EngineRuntime
 public:
 	explicit EngineRuntime(
 		EngineServices services = EngineServices::defaults(),
-		ContentApiVersion supportedContentApi = ContentApiVersion{1, 0})
-		: services_(services), content_(supportedContentApi), packages_(content_, services_)
+		ContentApiVersion supportedContentApi = CurrentContentApiVersion)
+		: content_(supportedContentApi), packages_(content_, services)
 	{
 	}
 
@@ -39,9 +39,9 @@ public:
 	EngineRuntime(EngineRuntime&&) = delete;
 	EngineRuntime& operator=(EngineRuntime&&) = delete;
 
-	EngineServices& services() { return services_; }
-	const EngineServices& services() const { return services_; }
-	LogSink& log() { return services_.log; }
+	EngineServices& services() { return packages_.services(); }
+	const EngineServices& services() const { return packages_.services(); }
+	LogSink& log() { return services().log; }
 	StateStack<ScreenId>& screens() { return screens_; }
 	const StateStack<ScreenId>& screens() const { return screens_; }
 	ContentRegistry& content() { return content_; }
@@ -88,7 +88,6 @@ public:
 	}
 
 private:
-	EngineServices services_;
 	StateStack<ScreenId> screens_;
 	ContentRegistry content_;
 	PackageRegistry packages_;

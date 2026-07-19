@@ -11,6 +11,9 @@
 
 GameContext& GetGameContext()
 {
+	// Construct the application-owned package first so it also outlives the
+	// registry's non-owning package and asset references during static teardown.
+	(void)GetCompiledCampaignPackage();
 	static GameContext context(
 		gGameSettings,
 		gGameOptions,
