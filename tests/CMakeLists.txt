@@ -8,6 +8,12 @@ target_include_directories(mp_netshim_tests PRIVATE ${CMAKE_SOURCE_DIR}/Multipla
 target_link_libraries(mp_netshim_tests PRIVATE SDL3_net::SDL3_net SDL3::SDL3)
 add_test(NAME mp_netshim COMMAND mp_netshim_tests)
 
+add_test(
+  NAME architecture_boundaries
+  COMMAND ${CMAKE_COMMAND}
+    -DSOURCE_ROOT=${CMAKE_SOURCE_DIR}
+    -P ${CMAKE_SOURCE_DIR}/cmake/CheckArchitectureBoundaries.cmake)
+
 # Standalone multiplayer coordinator/relay server (no game engine).
 # Speaks the same netshim wire protocol as the game's MP client, so stock clients
 # connect unchanged. Built only when explicitly requested.

@@ -141,8 +141,13 @@ POPUP_OPTION::~POPUP_OPTION(void)
 
 
 POPUP_OPTION::POPUP_OPTION(std::wstring *newName, popupCallback * newFunction)
+	: POPUP_OPTION(*newName, newFunction)
 {
-	this->name = *newName;
+}
+
+POPUP_OPTION::POPUP_OPTION(const std::wstring& newName, popupCallback * newFunction)
+{
+	this->name = newName;
 
 	this->action = newFunction;
 	this->avail = 0;
@@ -162,8 +167,14 @@ POPUP_OPTION::POPUP_OPTION(std::wstring *newName, popupCallback * newFunction)
 }
 
 BOOLEAN POPUP_OPTION::setName( std::wstring * newName )
+
 {
-	this->name = *newName;
+	return setName(*newName);
+}
+
+BOOLEAN POPUP_OPTION::setName(const std::wstring& newName)
+{
+	this->name = newName;
 	return TRUE;
 }
 
@@ -236,19 +247,34 @@ BOOLEAN POPUP_OPTION::forceRun()
 //////////////////////////////////////////////////////////////////
 
 // constructor
-POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(void) : POPUP_OPTION(new std::wstring(L"Unnamed subPopup"),NULL)	//TODO: possible memmory leak!
+POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(void) : POPUP_OPTION()
 {
+	this->name = L"Unnamed subPopup";
 	this->parent = NULL;
 	this->initSubPopup();
 }
 
 POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(std::wstring* name) : POPUP_OPTION(name, NULL)
+
+{
+	this->parent = NULL;
+	this->initSubPopup();
+}
+
+POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(const std::wstring& name) : POPUP_OPTION(name, NULL)
 {
 	this->parent = NULL;
 	this->initSubPopup();
 }
 
 POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(std::wstring* newName, const POPUP * parent) : POPUP_OPTION(newName, NULL)
+
+{
+	this->parent = parent;
+	this->initSubPopup();
+}
+
+POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(const std::wstring& newName, const POPUP * parent) : POPUP_OPTION(newName, NULL)
 {
 	this->parent = parent;
 	this->initSubPopup();
@@ -257,7 +283,8 @@ POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(std::wstring* newName, const POPU
 // destructor
 POPUP_SUB_POPUP_OPTION::~POPUP_SUB_POPUP_OPTION(void)
 {
-
+	delete this->subPopup;
+	this->subPopup = NULL;
 }
 
 void POPUP_SUB_POPUP_OPTION::showPopup()
@@ -341,7 +368,7 @@ static void unShadeOpenSubPopup( POPUP_SUB_POPUP_OPTION * opt ){
 
 void POPUP_SUB_POPUP_OPTION::initSubPopup()
 {
-	this->subPopup = new POPUP( (CHAR8*) std::wstring(this->name).c_str() );
+	this->subPopup = new POPUP("Sub popup");
 	this->subPopup->setCallback(POPUP_CALLBACK_SHOW,new popupCallbackFunction<void,POPUP_SUB_POPUP_OPTION*>( &shadeOpenSubPopup, this ));
 	this->subPopup->setCallback(POPUP_CALLBACK_HIDE,new popupCallbackFunction<void,POPUP_SUB_POPUP_OPTION*>( &unShadeOpenSubPopup, this ));
 
@@ -362,7 +389,8 @@ void POPUP_SUB_POPUP_OPTION::initSubPopup()
 
 void POPUP_SUB_POPUP_OPTION::destroySubPopup()
 {
-	this->subPopup->~POPUP();
+	delete this->subPopup;
+	this->subPopup = NULL;
 }
 
   //////////////////////////////////////////////////////////////////
@@ -372,7 +400,7 @@ void POPUP_SUB_POPUP_OPTION::destroySubPopup()
 // constructors
 POPUP::POPUP(void)
 {
-	strcpy((char*) this->name, (char*) "unNamed popup");
+	snprintf(this->name, sizeof(this->name), "%s", "unNamed popup");
 	this->optionCount = 0;
 
 	this->addToIndex();
@@ -382,7 +410,7 @@ POPUP::POPUP(void)
 
 POPUP::POPUP(const CHAR8 *name)
 {
-	strcpy((char*) this->name, (const char*) name);
+	snprintf(this->name, sizeof(this->name), "%s", name ? name : "unNamed popup");
 	this->optionCount = 0;
 
 	this->addToIndex();
@@ -404,14 +432,15 @@ POPUP::~POPUP(void)
 
 	for (UINT16 i = 0; i<this->options.size(); i++)
 	{
-		this->options[i]->~POPUP_OPTION();
+		delete this->options[i];
 	}
+	this->options.clear();
 
 	for (UINT16 i = 0; i<this->subPopupOptions.size(); i++)
 	{
-		this->subPopupOptions[i]->subPopup->hide();
-		this->subPopupOptions[i]->~POPUP_SUB_POPUP_OPTION();
+		delete this->subPopupOptions[i];
 	}
+	this->subPopupOptions.clear();
 
 	#ifdef JA2TESTVERSION
 		CHAR8 debugStr[120];
@@ -421,13 +450,13 @@ POPUP::~POPUP(void)
 
 	this->removeFromIndex();
 
-	if (this->initCallback) this->initCallback->~popupCallback();
-	if (this->ShowCallback) this->ShowCallback->~popupCallback();
-	if (this->HideCallback) this->HideCallback->~popupCallback();
+	delete this->initCallback;
+	delete this->ShowCallback;
+	delete this->HideCallback;
 
 	if (this->EndCallback) {
 		this->EndCallback->call();
-		this->EndCallback->~popupCallback();
+		delete this->EndCallback;
 	}
 }
 
@@ -437,20 +466,20 @@ BOOLEAN POPUP::setCallback(UINT8 type, popupCallback * callback){
 	if(callback == NULL) return FALSE;
 
 	switch(type){
-		case POPUP_CALLBACK_INIT: 
-			if (this->initCallback) this->initCallback->~popupCallback();
+		case POPUP_CALLBACK_INIT:
+			delete this->initCallback;
 			this->initCallback = callback;
 			break;
-		case POPUP_CALLBACK_END:  
-			if (this->EndCallback) this->EndCallback->~popupCallback();
+		case POPUP_CALLBACK_END:
+			delete this->EndCallback;
 			this->EndCallback = callback;
 			break;
-		case POPUP_CALLBACK_SHOW: 
-			if (this->ShowCallback) this->ShowCallback->~popupCallback();
+		case POPUP_CALLBACK_SHOW:
+			delete this->ShowCallback;
 			this->ShowCallback = callback;
 			break;
-		case POPUP_CALLBACK_HIDE: 
-			if (this->HideCallback) this->HideCallback->~popupCallback();
+		case POPUP_CALLBACK_HIDE:
+			delete this->HideCallback;
 			this->HideCallback = callback;
 			break;
 
@@ -563,7 +592,13 @@ void POPUP::setInitialValues(void)
 // setup functions
 
 POPUP_OPTION *  POPUP::addOption(std::wstring * name, popupCallback* action)
-{	
+
+{
+	return addOption(*name, action);
+}
+
+POPUP_OPTION * POPUP::addOption(const std::wstring& name, popupCallback* action)
+{
 	if (this->optionCount < POPUP_MAX_OPTIONS)
 	{
 		this->options.push_back( new POPUP_OPTION ( name, action ) );
@@ -606,6 +641,12 @@ POPUP_OPTION * POPUP::getOption(UINT16 n)
 }
 
 POPUP * POPUP::addSubMenuOption(std::wstring * name)
+
+{
+	return addSubMenuOption(*name);
+}
+
+POPUP * POPUP::addSubMenuOption(const std::wstring& name)
 {
 	if (this->subPopupOptionCount < POPUP_MAX_SUB_POPUPS)
 	{

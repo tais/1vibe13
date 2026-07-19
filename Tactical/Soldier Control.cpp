@@ -1966,9 +1966,10 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 {
 	INT16 ubPoints, ubMaxAPs;
 	INT8  bBandage;
+	SoldierVitalsComponent soldierVitals = vitals();
 
 	// dead guys don't get any APs (they shouldn't be here asking for them!)
-	if ( !this->stats.bLife )
+	if ( !soldierVitals.alive() )
 		return(0);
 
 	// people with sleep dart drug who have collapsed get no APs
@@ -1984,7 +1985,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 	//	2 * EffectiveDexterity( this ) ) + 20) / 40);
 	ubPoints = 20 + (((10 * EffectiveExpLevel( this ) +
 		3 * EffectiveAgility( this, FALSE ) +
-		2 * this->stats.bLifeMax +
+		2 * soldierVitals.maximumHealth() +
 		2 * EffectiveDexterity( this, FALSE )) + 5) / 10);
 
 	//if (GameOption[INCREASEDAP] % 2 == 1)
@@ -1994,18 +1995,18 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 	ubPoints += GetGearAPBonus( this );
 
 	// Calculate bandage
-	bBandage = this->stats.bLifeMax - this->stats.bLife - this->bBleeding;
+	bBandage = soldierVitals.maximumHealth() - soldierVitals.health() - soldierVitals.bleeding();
 
 	// If injured, reduce action points accordingly (by up to 2/3rds)
-	if ( this->stats.bLife < this->stats.bLifeMax )
+	if ( soldierVitals.health() < soldierVitals.maximumHealth() )
 	{
-		ubPoints -= (2 * ubPoints * (this->stats.bLifeMax - this->stats.bLife + (bBandage / 2))) /
-			(3 * this->stats.bLifeMax);
+		ubPoints -= (2 * ubPoints * (soldierVitals.maximumHealth() - soldierVitals.health() + (bBandage / 2))) /
+			(3 * soldierVitals.maximumHealth());
 	}
 
 	// If tired, reduce action points accordingly (by up to 1/2)
-	if ( this->bBreath < 100 && !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(this))
-		ubPoints -= (ubPoints * (100 - this->bBreath)) / 200;
+	if ( soldierVitals.breath() < 100 && !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(this))
+		ubPoints -= (ubPoints * (100 - soldierVitals.breath())) / 200;
 
 	if ( this->sWeightCarriedAtTurnStart > 100 )
 	{

@@ -15,6 +15,7 @@
 	#include "Tactical Save.h"
 	#include "Interface.h"
 	#include "GameSettings.h"
+	#include "GameContext.h"
 	#include "Interface Control.h"
 	#include "Text.h"
 	#include "HelpScreen.h"
@@ -50,6 +51,37 @@
 UINT32 guiCurrentScreen;
 UINT32 guiPendingScreen = NO_PENDING_SCREEN;
 UINT32 guiPreviousScreen = NO_PENDING_SCREEN;
+
+static bool IsOverlayScreen(UINT32 screen)
+{
+	return screen == MSG_BOX_SCREEN || screen == MP_CHAT_SCREEN;
+}
+
+static void RecordScreenTransition(UINT32 screen)
+{
+	StateStack<UINT32>& screens = GetGameContext().screens();
+	if (screens.empty())
+	{
+		screens.reset(screen);
+		return;
+	}
+	const auto* current = screens.current();
+	if (current->state == screen) return;
+	const auto* underlay = screens.underlay();
+	if (current->overlay && underlay && underlay->state == screen)
+	{
+		screens.popOverlay();
+	}
+	else if (IsOverlayScreen(screen))
+	{
+		screens.pushOverlay(screen);
+	}
+	else
+	{
+		if (current->overlay) screens.popOverlay();
+		screens.replace(screen);
+	}
+}
 
 INT32	giStartingMemValue = 0;
 
@@ -187,8 +219,14 @@ BOOLEAN InitializeGame(void)
 	//Loads the saved (if any) general JA2 game settings
 	LoadGameSettings();
 	LoadFeatureFlags();
+	if (GetGameContext().packages().bootstrap(PackageBootstrapPhase::Configure) !=
+		PackageBootstrapError::None)
+	{
+		return FALSE;
+	}
 
 	guiCurrentScreen = INIT_SCREEN;
+	GetGameContext().screens().reset(guiCurrentScreen);
 
 	return TRUE;
 }
@@ -298,6 +336,7 @@ void GameLoop(void)
 		//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: global error");
 
 		guiCurrentScreen = ERROR_SCREEN;
+		RecordScreenTransition(guiCurrentScreen);
 	}
 
 /*
@@ -382,6 +421,7 @@ void GameLoop(void)
 
 			HandleNewScreenChange( guiPendingScreen, guiCurrentScreen );
 		}
+		RecordScreenTransition(guiPendingScreen);
 		guiCurrentScreen = guiPendingScreen;
 		guiPendingScreen = NO_PENDING_SCREEN;
 
@@ -396,6 +436,7 @@ void GameLoop(void)
 	{
 		HandleNewScreenChange( uiOldScreen, guiCurrentScreen );
 		guiPreviousScreen = guiCurrentScreen;
+		RecordScreenTransition(uiOldScreen);
 		guiCurrentScreen = uiOldScreen;
 
 	{	// dedicated server console: announce screen transitions
@@ -512,6 +553,7 @@ void GameLoop(void)
 
 void SetCurrentScreen( UINT32 uiNewScreen )
 {
+	RecordScreenTransition(uiNewScreen);
 	guiCurrentScreen = uiNewScreen;
  (*(GameScreens[guiCurrentScreen].HandleScreen))();
 
@@ -673,4 +715,3 @@ void HandleDefaultEvent(InputAtom *Event)
 		MouseSystemHook(Event->usEvent, (UINT16)MousePos.x ,(UINT16)MousePos.y ,_LeftButtonDown, _RightButtonDown);
 	}
 }
-

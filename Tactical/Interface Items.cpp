@@ -2139,13 +2139,13 @@ void addItemsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup, 
 			swprintf( pStr, L"%s (%d)", Item[ itr->first ].szItemName, numObjectsToPlace );
 
 			currPopup->addOption( 
-								&std::wstring( pStr ), 
+								std::wstring( pStr ),
 								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,SOLDIERTYPE*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier) 
 								);
 
 		} else {
 			currPopup->addOption( 
-								&std::wstring( Item[ itr->first ].szItemName ), 
+								std::wstring( Item[ itr->first ].szItemName ),
 								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,SOLDIERTYPE*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier) 
 								);		
 		}
@@ -2199,7 +2199,7 @@ void addWeaponGroupsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* 
 
 			if ( Weapon[ itr->first ].ubWeaponType == weaponTypeCtr )
 			weaponTypePopup->addOption( 
-								&std::wstring( Item[ itr->first ].szItemName ), 
+								std::wstring( Item[ itr->first ].szItemName ),
 								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,SOLDIERTYPE*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier) 
 								);
 		}
@@ -2286,7 +2286,7 @@ void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
 		{
 			UINT8 ammoFound = 0;
 
-			POPUP_OPTION * o = popup->addOption( &std::wstring( Item[ (*gun)->usItem ].szItemName ), NULL );
+			POPUP_OPTION * o = popup->addOption( std::wstring( Item[ (*gun)->usItem ].szItemName ), NULL );
 			o->color_shade = COLOR_LTGREY;
 			//o->color_background = COLOR_LTGREY;
 					
@@ -2335,7 +2335,7 @@ void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
 								static CHAR16 pStr[ 100 ];
 								swprintf( pStr, L"%s (%d)", Item[loop].szItemName,capacity );
 
-								popup->addOption( &std::wstring( pStr ), new popupCallbackFunction3<void,UINT16,UINT16,SOLDIERTYPE*>(&popupCallbackAmmo,loop,sPocket,pSoldier) );
+								popup->addOption( std::wstring( pStr ), new popupCallbackFunction3<void,UINT16,UINT16,SOLDIERTYPE*>(&popupCallbackAmmo,loop,sPocket,pSoldier) );
 
 							} // found ammo crate, crate matches mag
 						} // inv loop
@@ -2344,7 +2344,7 @@ void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
 			} // mag loop
 
 			if (!ammoFound){
-				POPUP_OPTION * o = popup->addOption( &std::wstring( gszPocketPopupText[POCKET_POPUP_NO_AMMO] ), NULL );
+				POPUP_OPTION * o = popup->addOption( std::wstring( gszPocketPopupText[POCKET_POPUP_NO_AMMO] ), NULL );
 				o->color_shade = COLOR_RED;
 			}
 
@@ -2354,7 +2354,7 @@ void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
 	} // found guns
 	else 
 	{
-		POPUP_OPTION * o = popup->addOption( &std::wstring( gszPocketPopupText[POCKET_POPUP_NO_GUNS] ), NULL );
+		POPUP_OPTION * o = popup->addOption( std::wstring( gszPocketPopupText[POCKET_POPUP_NO_GUNS] ), NULL );
 		o->color_shade = COLOR_RED;
 	}
 }
@@ -2386,7 +2386,7 @@ POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket ){
 			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,SOLDIERTYPE*>( createMagPopupAfter,pSoldier ) );
 			sPocketPopupInitialized = true;
 		} else {
-			sPocketPopup->~POPUP();
+			delete sPocketPopup;
 			sPocketPopup = new POPUP("Pocket popup");
 			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,SOLDIERTYPE*>( createMagPopupAfter,pSoldier ) );
 		}
@@ -5919,7 +5919,7 @@ void UpdateAttachmentTooltips(OBJECTTYPE *pObject, UINT8 ubStatusIndex)
 
 						if (showAttachmentPopups)
 						{	// add the current attachment to the popup assigned to this attachment slot
-							POPUP_OPTION * o = new POPUP_OPTION(	&std::wstring( Item[ usAttachment ].szItemName ), 
+							POPUP_OPTION * o = new POPUP_OPTION(	std::wstring( Item[ usAttachment ].szItemName ),
 																	new popupCallbackFunction<void,INT16>(&popupCallbackItem,(INT16)usAttachment));
 							
 							gPopupAttachmentInfos.push_back(new PopupAttachmentInfo(usAttachment, pObject, ubStatusIndex, slotCount, o, gItemDescAttachmentPopups[slotCount]));
@@ -5928,7 +5928,7 @@ void UpdateAttachmentTooltips(OBJECTTYPE *pObject, UINT8 ubStatusIndex)
 							o->setAvail(new popupCallbackFunction<bool, PopupAttachmentInfo*>(&popupCallbackItemInSector, (gPopupAttachmentInfos.back())));
 						
 							if (loop == 11 && attachList.size() > 11){ // if there's too much stuff to list, we create a subpopup for the rest
-								gItemDescAttachmentPopups[slotCount]->addSubMenuOption( &std::wstring(L"More...") );
+								gItemDescAttachmentPopups[slotCount]->addSubMenuOption( std::wstring(L"More...") );
 								POPUP_SUB_POPUP_OPTION * tmp = gItemDescAttachmentPopups[slotCount]->getSubPopupOption(0);
 
 								// positioning sub popups is handled through the option that holds them
@@ -13427,7 +13427,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 			if ((*gpItemDescObject)[0]->data.gun.bGunAmmoStatus < 0) 
 			{
 				// Add option
-				POPUP_OPTION *pOption = new POPUP_OPTION(&std::wstring( L"Unjam" ), new popupCallbackFunction<void,void>( &TransformationMenuPopup_Unjam ));
+				POPUP_OPTION *pOption = new POPUP_OPTION(std::wstring( L"Unjam" ), new popupCallbackFunction<void,void>( &TransformationMenuPopup_Unjam ));
 				gItemDescTransformPopup->addOption( *pOption );
 				fFoundTransformations = true;
 			}
@@ -13480,7 +13480,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 								CHAR16 MenuRowText[300];
 								swprintf( MenuRowText, gzTransformationMessage[ 7 ], usMagSize );
 								// Generate a new option for the menu
-								POPUP_OPTION *pOption = new POPUP_OPTION(&std::wstring( MenuRowText ), new popupCallbackFunction<void,UINT16>( TransformationMenuPopup_SplitCrate, x ) );
+								POPUP_OPTION *pOption = new POPUP_OPTION(std::wstring( MenuRowText ), new popupCallbackFunction<void,UINT16>( TransformationMenuPopup_SplitCrate, x ) );
 								// Add the option to the menu.
 								gItemDescTransformPopup->addOption( *pOption );
 								// Set this flag so we know we have at least one Transformation available.
@@ -13491,7 +13491,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 				}
 				else
 				{
-					POPUP_OPTION *pOption = new POPUP_OPTION(&std::wstring( gzTransformationMessage[ 6 ] ), new popupCallbackFunction<void,void>( TransformationMenuPopup_SplitCrateInInventory ) );
+					POPUP_OPTION *pOption = new POPUP_OPTION(std::wstring( gzTransformationMessage[ 6 ] ), new popupCallbackFunction<void,void>( TransformationMenuPopup_SplitCrateInInventory ) );
 					gItemDescTransformPopup->addOption( *pOption );
 					fFoundTransformations = true;
 				}
@@ -13544,7 +13544,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 					}
 
 					// Generate a new option for the menu
-					POPUP_OPTION *pOption = new POPUP_OPTION(&std::wstring( MenuRowText ), new popupCallbackFunction<void, OBJECTTYPE*>( &TransformationMenuPopup_Arm, gpItemDescObject ) );
+					POPUP_OPTION *pOption = new POPUP_OPTION(std::wstring( MenuRowText ), new popupCallbackFunction<void, OBJECTTYPE*>( &TransformationMenuPopup_Arm, gpItemDescObject ) );
 					// Set the function that tests whether it's valid at the moment.
 					pOption->setAvail(new popupCallbackFunction<bool,OBJECTTYPE*>( &TransformationMenuPopup_Arm_TestValid, gpItemDescObject ));
 					// Add the option to the menu.
@@ -13570,7 +13570,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 					}
 
 					// Generate a new option for the menu
-					POPUP_OPTION *pOption = new POPUP_OPTION(&std::wstring( MenuRowText ), new popupCallbackFunction<void, OBJECTTYPE*>( &TransformationMenuPopup_Arm, gpItemDescObject ) );
+					POPUP_OPTION *pOption = new POPUP_OPTION(std::wstring( MenuRowText ), new popupCallbackFunction<void, OBJECTTYPE*>( &TransformationMenuPopup_Arm, gpItemDescObject ) );
 					// Set the function that tests whether it's valid at the moment.
 					pOption->setAvail(new popupCallbackFunction<bool,OBJECTTYPE*>( &TransformationMenuPopup_Arm_TestValid, gpItemDescObject ));
 					// Add the option to the menu.
@@ -13608,7 +13608,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 					}
 
 					// Add option
-					POPUP_OPTION *pOption = new POPUP_OPTION(&std::wstring( MenuRowText ), new popupCallbackFunction<void,void>( &TransformationMenuPopup_DelayedGrenadeExplosion ));
+					POPUP_OPTION *pOption = new POPUP_OPTION(std::wstring( MenuRowText ), new popupCallbackFunction<void,void>( &TransformationMenuPopup_DelayedGrenadeExplosion ));
 					pOption->setAvail(new popupCallbackFunction<bool,OBJECTTYPE*>( &TransformationMenuPopup_DelayedGrenadeExplosion_TestValid, gpItemDescObject ));
 					gItemDescTransformPopup->addOption( *pOption );
 					fFoundTransformations = true;
@@ -13635,7 +13635,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 						}
 
 						// Generate a new option for the menu
-						POPUP_OPTION *pOption = new POPUP_OPTION(&std::wstring( MenuRowText ), new popupCallbackFunction<void,TransformInfoStruct*>( &TransformationMenuPopup_Transform, &Transform[x] ) );
+						POPUP_OPTION *pOption = new POPUP_OPTION(std::wstring( MenuRowText ), new popupCallbackFunction<void,TransformInfoStruct*>( &TransformationMenuPopup_Transform, &Transform[x] ) );
 						// Set the function that tests whether it's valid at the moment.
 						pOption->setAvail(new popupCallbackFunction<bool,TransformInfoStruct*>( &TransformationMenuPopup_TestValid, &Transform[x] ));
 						// Add the option to the menu.
@@ -13649,7 +13649,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 		
 		if (!fFoundTransformations)
 		{
-			POPUP_OPTION * pOption = new POPUP_OPTION( &std::wstring( gzTransformationMessage[ 0 ] ), new popupCallbackFunction<void,TransformInfoStruct*>( &TransformationMenuPopup_Transform, NULL ) );
+			POPUP_OPTION * pOption = new POPUP_OPTION( std::wstring( gzTransformationMessage[ 0 ] ), new popupCallbackFunction<void,TransformInfoStruct*>( &TransformationMenuPopup_Transform, NULL ) );
 			pOption->setAvail(new popupCallbackFunction<bool,TransformInfoStruct*>( &TransformationMenuPopup_TestValid, NULL ));
 			gItemDescTransformPopup->addOption( *pOption );
 		}

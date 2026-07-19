@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <utility>
 
 #include "types.h"
 #include "MemMan.h"
@@ -26,12 +27,28 @@
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include "../Engine/Core/UniqueResourceHandle.h"
+#include "../Engine/Core/DeterministicCommandQueue.h"
+#include "../Engine/Core/BinaryArchive.h"
+#include "../Engine/Core/StateStack.h"
+#include "../Engine/Core/ContentApi.h"
+#include "../Engine/Core/TimeSource.h"
+#include "../Engine/Core/RandomSource.h"
+#include "../Engine/Core/PersistenceService.h"
+#include "PlatformFileSystem.h"
+#include "PlatformLog.h"
+#include "PlatformTime.h"
+#include "random.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
 #include "english.h"
+#include "GameContext.h"
+#include "CampaignPackage.h"
+#include "Soldier Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
+#include <vfs/Core/vfs_init.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
 // libraries reference. This harness supplies its own main() instead of linking
@@ -57,6 +74,56 @@ static int g_failures = 0;
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
 
+struct TestResourceTag {};
+static UINT32 g_releasedResource = 0;
+static UINT32 g_resourceReleaseCount = 0;
+struct TestResourceReleaser
+{
+	void operator()(UINT32 value) const
+	{
+		g_releasedResource = value;
+		++g_resourceReleaseCount;
+	}
+};
+using TestResourceHandle = UniqueResourceHandle<TestResourceTag, TestResourceReleaser>;
+
+class TestLifecyclePackage final : public EnginePackage
+{
+public:
+	TestLifecyclePackage(std::string id, PackageKind kind, int failPhase = -1)
+		: descriptor_{ContentManifest{std::move(id), "1.0", ContentApiVersion{1, 0}}, kind},
+		  failPhase_(failPhase)
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() override { active_ = true; return true; }
+	void deactivate() override { active_ = false; }
+	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
+	{
+		observedContentApi = context.content.supportedApi();
+		observedTime = context.services.time.nowMicroseconds();
+		observedRandom = context.services.random.next( 100 );
+		bootstrapCalls.push_back(static_cast<int>(phase));
+		return static_cast<int>(phase) != failPhase_;
+	}
+	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
+	{
+		shutdownCalls.push_back(static_cast<int>(phase));
+	}
+
+	std::vector<int> bootstrapCalls;
+	std::vector<int> shutdownCalls;
+	ContentApiVersion observedContentApi{};
+	std::uint64_t observedTime = 0;
+	std::uint32_t observedRandom = 0;
+
+private:
+	PackageDescriptor descriptor_;
+	int failPhase_;
+	bool active_ = false;
+};
+
 int main( int, char** )
 {
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
@@ -65,8 +132,229 @@ int main( int, char** )
 	SDL_SetHint( SDL_HINT_VIDEO_DRIVER, "dummy" );
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
 
+	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		GameContext context( settings, options );
+		CHECK( &context.settings() == &settings && &context.options() == &options,
+		       "game context exposes bound legacy state" );
+		GameCapabilities editorCapabilities;
+		editorCapabilities.editor = true;
+		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor(),
+		       "game context accepts runtime capabilities before initialization" );
+		CHECK( context.beginInitialization() && context.markRunning(),
+		       "game context enters running lifecycle" );
+		CHECK( !context.setCapabilities( GameCapabilities{} ),
+		       "game context freezes runtime capabilities while running" );
+		CHECK( !context.beginInitialization(), "game context rejects duplicate initialization" );
+		CHECK( context.beginShutdown() && context.markStopped(),
+		       "game context completes shutdown lifecycle" );
+		{
+			GameInitializationGuard initialization( context );
+			CHECK( initialization, "game initialization guard starts from stopped state" );
+		}
+		CHECK( context.lifecycle() == GameLifecycle::Stopped,
+		       "game initialization guard rolls back incomplete initialization" );
+	}
+
+	{
+		g_resourceReleaseCount = 0;
+		TestResourceHandle first( 42 );
+		TestResourceHandle second( std::move( first ) );
+		CHECK( !first && second.get() == 42, "resource handle move transfers ownership" );
+		second.reset( 84 );
+		CHECK( g_releasedResource == 42 && second.get() == 84, "resource handle reset releases previous value" );
+		CHECK( second.release() == 84 && !second, "resource handle release returns an unowned value" );
+		{
+			TestResourceHandle scoped( 126 );
+		}
+		CHECK( g_releasedResource == 126 && g_resourceReleaseCount == 2,
+		       "resource handle destructor releases exactly once" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 20, 200 );
+		commands.enqueue( 10, 100 );
+		commands.enqueue( 10, 101 );
+		const auto firstTick = commands.drainThrough( 10 );
+		CHECK( firstTick.size() == 2 && firstTick[0].command == 100 && firstTick[1].command == 101,
+		       "simulation commands order by tick then insertion sequence" );
+		CHECK( commands.size() == 1, "future simulation commands remain queued" );
+		CHECK( commands.enqueueRecorded( 15, 50, 150 ) && !commands.enqueueRecorded( 15, 50, 999 ),
+		       "recorded simulation commands reject duplicate sequence IDs" );
+		const auto replay = commands.drainThrough( 20 );
+		CHECK( replay.size() == 2 && replay[0].command == 150 && replay[1].command == 200,
+		       "recorded simulation commands replay deterministically" );
+	}
+
+	{
+		BinaryWriter writer;
+		WritePersistenceHeader( writer, PersistenceHeader{ 0x32414A31u, 2 } );
+		writer.writeU32( 0x12345678u );
+		writer.writeString( "Arulco" );
+		BinaryReader reader( writer.bytes() );
+		PersistenceHeader header = {};
+		std::uint32_t value = 0;
+		std::string text;
+		CHECK( ReadPersistenceHeader( reader, 0x32414A31u, 1, 2, header ) &&
+		       reader.readU32( value ) && reader.readString( text ) &&
+		       value == 0x12345678u && text == "Arulco" && reader.remaining() == 0,
+		       "versioned persistence round-trips portable values" );
+		std::vector<std::uint8_t> truncated = writer.bytes();
+		truncated.pop_back();
+		BinaryReader truncatedReader( truncated );
+		ReadPersistenceHeader( truncatedReader, 0x32414A31u, 1, 2, header );
+		truncatedReader.readU32( value );
+		const std::size_t stringPosition = truncatedReader.position();
+		CHECK( !truncatedReader.readString( text ) && truncatedReader.position() == stringPosition,
+		       "persistence reader rejects truncated fields without consuming input" );
+		BinaryReader versionReader( writer.bytes() );
+		CHECK( !ReadPersistenceHeader( versionReader, 0x32414A31u, 3, 4, header ),
+		       "persistence reader rejects unsupported schema versions" );
+	}
+
+	{
+		StateStack<int> screens;
+		screens.reset( 1 );
+		CHECK( screens.pushOverlay( 2 ) && screens.current()->overlay && screens.underlay()->state == 1,
+		       "state stack preserves a screen beneath an overlay" );
+		CHECK( screens.popOverlay() && screens.current()->state == 1,
+		       "state stack returns to the underlay when an overlay closes" );
+		screens.replace( 3 );
+		CHECK( screens.size() == 1 && screens.current()->state == 3 && !screens.popOverlay(),
+		       "state replacement does not create false navigation history" );
+	}
+
+	{
+		ContentRegistry content( ContentApiVersion{ 1, 2 } );
+		CHECK( content.registerContent( ContentManifest{ "core", "0.9.0", { 1, 0 } } ) ==
+		       ContentRegistrationError::None,
+		       "content registry accepts a compatible versioned manifest" );
+		CHECK( content.registerContent( ContentManifest{ "future", "1.0.0", { 2, 0 } } ) ==
+		       ContentRegistrationError::IncompatibleApi,
+		       "content registry rejects incompatible API majors" );
+		CHECK( content.registerContent( ContentManifest{ "core", "0.9.1", { 1, 1 } } ) ==
+		       ContentRegistrationError::DuplicateId,
+		       "content registry rejects ambiguous duplicate IDs" );
+		const ContentManifest* manifest = content.find( "core" );
+		CHECK( manifest && manifest->version == "0.9.0",
+		       "content registry resolves the validated manifest" );
+	}
+
+	{
+		ContentRegistry content( ContentApiVersion{ 1, 0 } );
+		PackageRegistry packages( content );
+		LegacyCampaignPackage arulco( GameCapabilities{} );
+		GameCapabilities ubCapabilities;
+		ubCapabilities.campaign = GameCampaign::UnfinishedBusiness;
+		LegacyCampaignPackage unfinishedBusiness( ubCapabilities );
+		CHECK( packages.registerPackage( arulco ) == PackageRegistrationError::None &&
+		       packages.registerPackage( unfinishedBusiness ) == PackageRegistrationError::None,
+		       "campaign packages register through the versioned engine API" );
+		CHECK( packages.activate( "ja2.arulco" ) == PackageActivationError::None && arulco.active(),
+		       "campaign package activation is selected at runtime" );
+		CHECK( packages.activate( "ja2.unfinished-business" ) ==
+		       PackageActivationError::CampaignAlreadyActive,
+		       "package registry prevents conflicting active campaigns" );
+		CHECK( packages.deactivate( "ja2.arulco" ) &&
+		       packages.activate( "ja2.unfinished-business" ) == PackageActivationError::None &&
+		       unfinishedBusiness.active(),
+		       "campaign packages can be switched without compile-time selection" );
+	}
+
+	{
+		GameContext& compiledContext = GetGameContext();
+		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
+		const std::string& packageId = compiledPackage.descriptor().content.id;
+		CHECK( compiledContext.packages().activeCampaign() == packageId &&
+		       compiledContext.packages().isActive( packageId ) && compiledPackage.active(),
+		       "legacy compiled campaign is bound through the runtime package registry" );
+		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
+		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
+		CHECK( &compiledContext.log() == &GetPlatformLogSink(),
+		       "application composition root binds the SDL logging adapter" );
+		CHECK( &compiledContext.services().time == &GetPlatformTimeSource() &&
+		       &compiledContext.services().random == &GetGameRandomSource() &&
+		       &compiledContext.services().storage == &GetPlatformByteStorage(),
+		       "application composition root binds time, random, and VFS adapters" );
+	}
+
+	{
+		ContentRegistry content( ContentApiVersion{ 1, 0 } );
+		MemoryLogSink logSink;
+		ManualTimeSource packageTime;
+		packageTime.setMicroseconds( 42000 );
+		SequenceRandomSource packageRandom( { 73 } );
+		MemoryByteStorage packageStorage;
+		EngineServices services{packageTime, packageRandom, packageStorage, logSink};
+		PackageRegistry packages( content, services );
+		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
+		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,
+		                              static_cast<int>(PackageBootstrapPhase::LoadContent) );
+		packages.registerPackage( first );
+		packages.registerPackage( failing );
+		packages.activate( "rules.first" );
+		packages.activate( "rules.failing" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) == PackageBootstrapError::None &&
+		       packages.completedBootstrapPhases() == 1 && first.observedContentApi.major == 1 &&
+		       first.observedTime == 42000 && first.observedRandom == 73,
+		       "package bootstrap advances through ordered phases" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
+		       PackageBootstrapError::OutOfOrder,
+		       "package bootstrap rejects skipped phases" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::LoadContent ) ==
+		       PackageBootstrapError::CallbackFailed &&
+		       first.shutdownCalls == std::vector<int>{ 1 } &&
+		       failing.shutdownCalls == std::vector<int>{ 1 } &&
+		       logSink.records().size() == 1 &&
+		       logSink.records()[0].severity == LogSeverity::Error &&
+		       logSink.records()[0].category == "packages",
+		       "failed package phase rolls back including the failing callback" );
+		CHECK( packages.activate( "rules.first" ) == PackageActivationError::BootstrapInProgress &&
+		       !packages.deactivate( "rules.first" ),
+		       "active package set is frozen while bootstrap resources exist" );
+		packages.shutdownBootstrap();
+		CHECK( packages.completedBootstrapPhases() == 0 &&
+		       first.shutdownCalls.back() == 0 && failing.shutdownCalls.back() == 0,
+		       "package shutdown unwinds completed phases for every active package" );
+	}
+
+	{
+		ManualTimeSource time;
+		time.setMicroseconds( 1000 );
+		time.advanceMicroseconds( 250 );
+		MonotonicTimeSource& source = time;
+		CHECK( source.nowMicroseconds() == 1250,
+		       "engine time source supports deterministic injected time" );
+	}
+
+	{
+		SequenceRandomSource random( { 9, 4, 7 } );
+		CHECK( random.next( 10 ) == 9 && random.next( 3 ) == 1 && random.next( 5 ) == 2,
+		       "engine random source produces a deterministic bounded sequence" );
+		random.rewind();
+		CHECK( random.next( 10 ) == 9 && random.position() == 1,
+		       "engine random source rewinds for deterministic replay" );
+	}
+
 	// --- hard asserts: the fully data-free managers ---
 	CHECK( InitializeMemoryManager(), "InitializeMemoryManager()" );
+
+	{
+		SOLDIERTYPE soldier;
+		SoldierVitalsComponent vitals = soldier.vitals();
+		vitals.maximumHealth() = 90;
+		vitals.health() = 75;
+		vitals.breath() = 60;
+		SoldierPositionComponent position = soldier.position();
+		position.gridNo() = 1234;
+		position.level() = 1;
+		CHECK( vitals.alive() && soldier.stats.bLife == 75 && soldier.bBreath == 60,
+		       "soldier vitals component aliases the compatible serialized fields" );
+		CHECK( soldier.sGridNo == 1234 && soldier.pathing.bLevel == 1,
+		       "soldier position component aliases the compatible serialized fields" );
+	}
 
 	// MemAlloc round-trip -- exercises the allocator whose 500+ unchecked call
 	// sites this project keeps hand-guarding.
@@ -82,7 +370,47 @@ int main( int, char** )
 		}
 	}
 
+	// FileMan is a facade over the VFS. The full game configures its profiles
+	// during application boot; this standalone harness supplies the smallest
+	// equivalent writable profile so storage integration follows the real path.
+	vfs_init::VfsConfig vfsConfig;
+	vfs_init::Profile* testProfile = new vfs_init::Profile();
+	testProfile->m_name = L"headless-tests";
+	testProfile->m_root = L".";
+	testProfile->m_writable = true;
+	vfsConfig.addProfile( testProfile, true );
+	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+	{
+		MemoryByteStorage memoryStorage;
+		PersistenceService memoryPersistence( memoryStorage );
+		std::vector<std::uint8_t> emptyPayload;
+		PersistenceHeader emptyHeader = {};
+		CHECK( memoryPersistence.save( "empty", PersistenceHeader{ 0x454E4730u, 1 }, emptyPayload ) &&
+		       memoryPersistence.load( "empty", 0x454E4730u, 1, 1, emptyHeader, emptyPayload ) ==
+		       PersistenceLoadResult::Success && emptyPayload.empty(),
+		       "pure persistence service supports an empty payload" );
+		memoryStorage.writeAll( "truncated", std::vector<std::uint8_t>{ 1, 2, 3 } );
+		CHECK( memoryPersistence.load( "truncated", 0x454E4730u, 1, 1, emptyHeader, emptyPayload ) ==
+		       PersistenceLoadResult::InvalidOrUnsupported,
+		       "pure persistence service rejects a truncated header" );
+
+		const std::string path = "engine_persistence_test.bin";
+		PersistenceService persistence( GetPlatformByteStorage() );
+		const std::vector<std::uint8_t> saved = { 1, 3, 3, 7 };
+		CHECK( persistence.save( path, PersistenceHeader{ 0x454E4731u, 1 }, saved ),
+		       "platform persistence writes through FileMan" );
+		PersistenceHeader header = {};
+		std::vector<std::uint8_t> loaded;
+		CHECK( persistence.load( path, 0x454E4731u, 1, 1, header, loaded ) == PersistenceLoadResult::Success &&
+		       loaded == saved,
+		       "platform persistence reads a validated versioned payload" );
+		CHECK( persistence.load( path, 0x454E4731u, 2, 2, header, loaded ) ==
+		       PersistenceLoadResult::InvalidOrUnsupported,
+		       "platform persistence rejects unsupported content versions" );
+		FileDelete( const_cast<char*>(path.c_str()) );
+	}
 
 #ifndef _WIN32
 	{

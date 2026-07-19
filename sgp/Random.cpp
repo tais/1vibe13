@@ -89,6 +89,21 @@ UINT32 GetRndNum(UINT32 maxnum)
 	return(rnd % maxnum);
 }
 
+class LegacyGameRandomSource final : public RandomSource
+{
+public:
+	UINT32 next(UINT32 upperBound) override
+	{
+		return gGameExternalOptions.fNewRandom ? NewRandom(upperBound) : GetRndNum(upperBound);
+	}
+};
+
+RandomSource& GetGameRandomSource()
+{
+	static LegacyGameRandomSource randomSource;
+	return randomSource;
+}
+
 void InitializeRandom(void)
 {
 	// Pregenerate all of the random numbers.

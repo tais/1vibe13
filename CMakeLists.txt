@@ -193,6 +193,7 @@ if(WIN32)
   add_compile_definitions(WIN32)
 endif()
 include_directories(
+  "${CMAKE_SOURCE_DIR}"
   "${CMAKE_SOURCE_DIR}/Ja2"
   "${CMAKE_SOURCE_DIR}/ext/VFS/include"
   "${CMAKE_SOURCE_DIR}/Utils"
