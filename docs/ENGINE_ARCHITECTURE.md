@@ -42,6 +42,9 @@ the engine must not contain SDL types in its public domain model.
 - `LegacyCampaignPackage` exposes the compiled JA2 or UB campaign through that
   runtime contract. It is the compatibility bridge to replace with discovered
   package manifests and campaign bootstrap hooks incrementally.
+- Package bootstrap advances through ordered configure, content-load, and
+  runtime-start phases. A failed phase rolls back in reverse package order;
+  shutdown unwinds completed phases in reverse before legacy engine teardown.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.

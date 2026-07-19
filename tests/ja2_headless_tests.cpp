@@ -84,6 +84,39 @@ struct TestResourceReleaser
 };
 using TestResourceHandle = UniqueResourceHandle<TestResourceTag, TestResourceReleaser>;
 
+class TestLifecyclePackage final : public EnginePackage
+{
+public:
+	TestLifecyclePackage(std::string id, PackageKind kind, int failPhase = -1)
+		: descriptor_{ContentManifest{std::move(id), "1.0", ContentApiVersion{1, 0}}, kind},
+		  failPhase_(failPhase)
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() override { active_ = true; return true; }
+	void deactivate() override { active_ = false; }
+	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
+	{
+		observedContentApi = context.content.supportedApi();
+		bootstrapCalls.push_back(static_cast<int>(phase));
+		return static_cast<int>(phase) != failPhase_;
+	}
+	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
+	{
+		shutdownCalls.push_back(static_cast<int>(phase));
+	}
+
+	std::vector<int> bootstrapCalls;
+	std::vector<int> shutdownCalls;
+	ContentApiVersion observedContentApi{};
+
+private:
+	PackageDescriptor descriptor_;
+	int failPhase_;
+	bool active_ = false;
+};
+
 int main( int, char** )
 {
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
@@ -232,6 +265,36 @@ int main( int, char** )
 		       "legacy compiled campaign is bound through the runtime package registry" );
 		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
 		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
+	}
+
+	{
+		ContentRegistry content( ContentApiVersion{ 1, 0 } );
+		PackageRegistry packages( content );
+		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
+		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,
+		                              static_cast<int>(PackageBootstrapPhase::LoadContent) );
+		packages.registerPackage( first );
+		packages.registerPackage( failing );
+		packages.activate( "rules.first" );
+		packages.activate( "rules.failing" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) == PackageBootstrapError::None &&
+		       packages.completedBootstrapPhases() == 1 && first.observedContentApi.major == 1,
+		       "package bootstrap advances through ordered phases" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
+		       PackageBootstrapError::OutOfOrder,
+		       "package bootstrap rejects skipped phases" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::LoadContent ) ==
+		       PackageBootstrapError::CallbackFailed &&
+		       first.shutdownCalls == std::vector<int>{ 1 } &&
+		       failing.shutdownCalls == std::vector<int>{ 1 },
+		       "failed package phase rolls back including the failing callback" );
+		CHECK( packages.activate( "rules.first" ) == PackageActivationError::BootstrapInProgress &&
+		       !packages.deactivate( "rules.first" ),
+		       "active package set is frozen while bootstrap resources exist" );
+		packages.shutdownBootstrap();
+		CHECK( packages.completedBootstrapPhases() == 0 &&
+		       first.shutdownCalls.back() == 0 && failing.shutdownCalls.back() == 0,
+		       "package shutdown unwinds completed phases for every active package" );
 	}
 
 	{

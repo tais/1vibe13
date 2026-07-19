@@ -1442,6 +1442,11 @@ UINT32 InitializeJA2(void)
 
 	// Load external text
 	LoadAllExternalText();
+	if (gameContext.packages().bootstrap(PackageBootstrapPhase::LoadContent) !=
+		PackageBootstrapError::None)
+	{
+		return ERROR_SCREEN;
+	}
 
 	// Init JA2 sounds
 	InitJA2Sound( );
@@ -1621,6 +1626,11 @@ UINT32 InitializeJA2(void)
 
 //Lua
 	IniLuaGlobal();
+	if (gameContext.packages().bootstrap(PackageBootstrapPhase::StartRuntime) !=
+		PackageBootstrapError::None)
+	{
+		return ERROR_SCREEN;
+	}
 	initialization.markRunning();
 	return( INIT_SCREEN );
 }
@@ -1630,6 +1640,7 @@ void ShutdownJA2(void)
 {
 	GameContext& gameContext = GetGameContext();
 	gameContext.beginShutdown();
+	gameContext.packages().shutdownBootstrap();
 	UINT32 uiIndex;
 
 	// Clear screen....

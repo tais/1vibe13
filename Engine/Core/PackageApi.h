@@ -15,6 +15,21 @@ enum class PackageKind
 	Tool
 };
 
+enum class PackageBootstrapPhase
+{
+	Configure,
+	LoadContent,
+	StartRuntime
+};
+
+// Engine-owned surface passed to package hooks. New services are added here
+// as interfaces, never as SDL/SGP or campaign types, so packages do not need
+// legacy globals to participate in bootstrap.
+struct PackageBootstrapContext
+{
+	ContentRegistry& content;
+};
+
 struct PackageDescriptor
 {
 	ContentManifest content;
@@ -31,6 +46,8 @@ public:
 	virtual const PackageDescriptor& descriptor() const = 0;
 	virtual bool activate() = 0;
 	virtual void deactivate() = 0;
+	virtual bool bootstrap(PackageBootstrapContext&, PackageBootstrapPhase) { return true; }
+	virtual void shutdown(PackageBootstrapContext&, PackageBootstrapPhase) {}
 };
 
 enum class PackageRegistrationError
@@ -47,7 +64,15 @@ enum class PackageActivationError
 	NotFound,
 	AlreadyActive,
 	CampaignAlreadyActive,
+	BootstrapInProgress,
 	ActivationFailed
+};
+
+enum class PackageBootstrapError
+{
+	None,
+	OutOfOrder,
+	CallbackFailed
 };
 
 class PackageRegistry
@@ -67,6 +92,7 @@ public:
 
 	PackageActivationError activate(const std::string& id)
 	{
+		if (completedBootstrapPhases_ != 0) return PackageActivationError::BootstrapInProgress;
 		const auto found = packages_.find(id);
 		if (found == packages_.end()) return PackageActivationError::NotFound;
 		if (isActive(id)) return PackageActivationError::AlreadyActive;
@@ -81,6 +107,7 @@ public:
 
 	bool deactivate(const std::string& id)
 	{
+		if (completedBootstrapPhases_ != 0) return false;
 		for (auto it = active_.begin(); it != active_.end(); ++it)
 		{
 			if (*it != id) continue;
@@ -90,6 +117,39 @@ public:
 			return true;
 		}
 		return false;
+	}
+
+	PackageBootstrapError bootstrap(PackageBootstrapPhase phase)
+	{
+		const std::size_t phaseIndex = static_cast<std::size_t>(phase);
+		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
+			return PackageBootstrapError::OutOfOrder;
+
+		PackageBootstrapContext context{content_};
+		for (std::size_t index = 0; index < active_.size(); ++index)
+		{
+			if (packages_.at(active_[index])->bootstrap(context, phase)) continue;
+			// The failing callback may have acquired part of its phase resources,
+			// so include it in the reverse rollback contract.
+			for (std::size_t rollback = index + 1; rollback > 0; --rollback)
+				packages_.at(active_[rollback - 1])->shutdown(context, phase);
+			return PackageBootstrapError::CallbackFailed;
+		}
+		++completedBootstrapPhases_;
+		return PackageBootstrapError::None;
+	}
+
+	void shutdownBootstrap()
+	{
+		PackageBootstrapContext context{content_};
+		while (completedBootstrapPhases_ > 0)
+		{
+			const PackageBootstrapPhase phase =
+				static_cast<PackageBootstrapPhase>(completedBootstrapPhases_ - 1);
+			for (auto package = active_.rbegin(); package != active_.rend(); ++package)
+				packages_.at(*package)->shutdown(context, phase);
+			--completedBootstrapPhases_;
+		}
 	}
 
 	const EnginePackage* find(const std::string& id) const
@@ -107,6 +167,7 @@ public:
 
 	const std::string& activeCampaign() const { return activeCampaign_; }
 	const std::vector<std::string>& activationOrder() const { return active_; }
+	std::size_t completedBootstrapPhases() const { return completedBootstrapPhases_; }
 
 private:
 	static PackageRegistrationError translate(ContentRegistrationError error)
@@ -125,6 +186,8 @@ private:
 	std::unordered_map<std::string, EnginePackage*> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;
+	std::size_t completedBootstrapPhases_ = 0;
+	static constexpr std::size_t bootstrapPhaseCount_ = 3;
 };
 
 #endif

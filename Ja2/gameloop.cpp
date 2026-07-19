@@ -219,6 +219,11 @@ BOOLEAN InitializeGame(void)
 	//Loads the saved (if any) general JA2 game settings
 	LoadGameSettings();
 	LoadFeatureFlags();
+	if (GetGameContext().packages().bootstrap(PackageBootstrapPhase::Configure) !=
+		PackageBootstrapError::None)
+	{
+		return FALSE;
+	}
 
 	guiCurrentScreen = INIT_SCREEN;
 	GetGameContext().screens().reset(guiCurrentScreen);
