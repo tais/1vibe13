@@ -2386,7 +2386,7 @@ POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket ){
 			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,SOLDIERTYPE*>( createMagPopupAfter,pSoldier ) );
 			sPocketPopupInitialized = true;
 		} else {
-			sPocketPopup->~POPUP();
+			delete sPocketPopup;
 			sPocketPopup = new POPUP("Pocket popup");
 			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,SOLDIERTYPE*>( createMagPopupAfter,pSoldier ) );
 		}

@@ -236,8 +236,9 @@ BOOLEAN POPUP_OPTION::forceRun()
 //////////////////////////////////////////////////////////////////
 
 // constructor
-POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(void) : POPUP_OPTION(new std::wstring(L"Unnamed subPopup"),NULL)	//TODO: possible memmory leak!
+POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(void) : POPUP_OPTION()
 {
+	this->name = L"Unnamed subPopup";
 	this->parent = NULL;
 	this->initSubPopup();
 }
@@ -257,7 +258,8 @@ POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(std::wstring* newName, const POPU
 // destructor
 POPUP_SUB_POPUP_OPTION::~POPUP_SUB_POPUP_OPTION(void)
 {
-
+	delete this->subPopup;
+	this->subPopup = NULL;
 }
 
 void POPUP_SUB_POPUP_OPTION::showPopup()
@@ -362,7 +364,8 @@ void POPUP_SUB_POPUP_OPTION::initSubPopup()
 
 void POPUP_SUB_POPUP_OPTION::destroySubPopup()
 {
-	this->subPopup->~POPUP();
+	delete this->subPopup;
+	this->subPopup = NULL;
 }
 
   //////////////////////////////////////////////////////////////////
@@ -404,14 +407,15 @@ POPUP::~POPUP(void)
 
 	for (UINT16 i = 0; i<this->options.size(); i++)
 	{
-		this->options[i]->~POPUP_OPTION();
+		delete this->options[i];
 	}
+	this->options.clear();
 
 	for (UINT16 i = 0; i<this->subPopupOptions.size(); i++)
 	{
-		this->subPopupOptions[i]->subPopup->hide();
-		this->subPopupOptions[i]->~POPUP_SUB_POPUP_OPTION();
+		delete this->subPopupOptions[i];
 	}
+	this->subPopupOptions.clear();
 
 	#ifdef JA2TESTVERSION
 		CHAR8 debugStr[120];
@@ -421,13 +425,13 @@ POPUP::~POPUP(void)
 
 	this->removeFromIndex();
 
-	if (this->initCallback) this->initCallback->~popupCallback();
-	if (this->ShowCallback) this->ShowCallback->~popupCallback();
-	if (this->HideCallback) this->HideCallback->~popupCallback();
+	delete this->initCallback;
+	delete this->ShowCallback;
+	delete this->HideCallback;
 
 	if (this->EndCallback) {
 		this->EndCallback->call();
-		this->EndCallback->~popupCallback();
+		delete this->EndCallback;
 	}
 }
 
@@ -437,20 +441,20 @@ BOOLEAN POPUP::setCallback(UINT8 type, popupCallback * callback){
 	if(callback == NULL) return FALSE;
 
 	switch(type){
-		case POPUP_CALLBACK_INIT: 
-			if (this->initCallback) this->initCallback->~popupCallback();
+		case POPUP_CALLBACK_INIT:
+			delete this->initCallback;
 			this->initCallback = callback;
 			break;
-		case POPUP_CALLBACK_END:  
-			if (this->EndCallback) this->EndCallback->~popupCallback();
+		case POPUP_CALLBACK_END:
+			delete this->EndCallback;
 			this->EndCallback = callback;
 			break;
-		case POPUP_CALLBACK_SHOW: 
-			if (this->ShowCallback) this->ShowCallback->~popupCallback();
+		case POPUP_CALLBACK_SHOW:
+			delete this->ShowCallback;
 			this->ShowCallback = callback;
 			break;
-		case POPUP_CALLBACK_HIDE: 
-			if (this->HideCallback) this->HideCallback->~popupCallback();
+		case POPUP_CALLBACK_HIDE:
+			delete this->HideCallback;
 			this->HideCallback = callback;
 			break;
 
