@@ -24,8 +24,8 @@ on:
   push:
     branches:
       - '**'
-    tags:
-      - 'v*'
+    # Tagged releases are compiled and packaged by release.yml. Avoid a
+    # redundant second 12-job build matrix for the same commit.
   workflow_dispatch:
 
 jobs:

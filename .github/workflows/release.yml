@@ -57,6 +57,25 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up Python for release metadata
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Stamp release version
+        shell: bash
+        env:
+          REQUESTED_RELEASE_LABEL: ${{ github.event.inputs.tag }}
+        run: |
+          set -eux
+          RELEASE_LABEL="${REQUESTED_RELEASE_LABEL:-$GITHUB_REF_NAME}"
+          SOURCE_COMMIT_DATE="$(TZ=UTC0 git show -s --date=short-local --format=%cd "$GITHUB_SHA")"
+          BUILD_LABEL="EN ${SOURCE_COMMIT_DATE} GitHub ${GITHUB_REPOSITORY}"
+          python tools/stamp_game_version.py \
+            --source Ja2/GameVersion.cpp \
+            --version "$RELEASE_LABEL" \
+            --build "$BUILD_LABEL"
+
       - name: Cache sccache storage
         uses: actions/cache@v4
         with:
