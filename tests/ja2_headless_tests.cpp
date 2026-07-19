@@ -37,6 +37,7 @@
 #include "../Engine/Core/RandomSource.h"
 #include "../Engine/Core/PersistenceService.h"
 #include "PlatformFileSystem.h"
+#include "PlatformFramePresenter.h"
 #include "PlatformInput.h"
 #include "PlatformAudio.h"
 #include "PlatformLog.h"
@@ -300,7 +301,8 @@ int main( int, char** )
 		       &compiledContext.services().random == &GetGameRandomSource() &&
 		       &compiledContext.services().storage == &GetPlatformByteStorage() &&
 		       &compiledContext.services().input == &GetPlatformInputSource() &&
-		       &compiledContext.services().audio == &GetPlatformAudioOutput(),
+		       &compiledContext.services().audio == &GetPlatformAudioOutput() &&
+		       &compiledContext.services().frames == &GetPlatformFramePresenter(),
 		       "application composition root binds platform service adapters" );
 	}
 
@@ -313,8 +315,9 @@ int main( int, char** )
 		MemoryByteStorage packageStorage;
 		MemoryInputSource packageInput;
 		RecordingAudioOutput packageAudio;
+		RecordingFramePresenter packageFrames;
 		EngineServices services{packageTime, packageRandom, packageStorage, logSink, packageInput,
-		                        packageAudio};
+		                        packageAudio, packageFrames};
 		packageInput.push( EngineInputEvent{ 17, 2, 1, 65, 0 } );
 		EngineInputEvent injectedInput;
 		CHECK( services.input.poll( injectedInput ) && injectedInput.timestamp == 17 &&
@@ -327,6 +330,12 @@ int main( int, char** )
 		       services.audio.isPlaying( playback ) && services.audio.stop( playback ) &&
 		       !services.audio.isPlaying( playback ),
 		       "engine services expose captureable headless audio" );
+		services.frames.present( FramePresentMode::Paced );
+		services.frames.present( FramePresentMode::Immediate );
+		CHECK( packageFrames.presentations().size() == 2 &&
+		       packageFrames.presentations()[0] == FramePresentMode::Paced &&
+		       packageFrames.presentations()[1] == FramePresentMode::Immediate,
+		       "engine services expose captureable headless frame presentation" );
 		PackageRegistry packages( content, services );
 		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
 		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,

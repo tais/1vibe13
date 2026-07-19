@@ -3,6 +3,7 @@
 
 #include <Engine/Core/AudioOutput.h>
 #include <Engine/Core/ByteStorage.h>
+#include <Engine/Core/FramePresenter.h>
 #include <Engine/Core/InputSource.h>
 #include <Engine/Core/LogSink.h>
 #include <Engine/Core/RandomSource.h>
@@ -22,6 +23,7 @@ struct EngineServices
 	LogSink& log = NullLogSink::instance();
 	InputSource& input = NullInputSource::instance();
 	AudioOutput& audio = NullAudioOutput::instance();
+	FramePresenter& frames = NullFramePresenter::instance();
 
 	static EngineServices defaults()
 	{

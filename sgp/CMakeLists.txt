@@ -22,6 +22,7 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/PngLoader.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformTime.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformFileSystem.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/PlatformFramePresenter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformLog.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformInput.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformAudio.cpp"
