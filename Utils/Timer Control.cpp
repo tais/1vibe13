@@ -8,12 +8,12 @@
 #include "renderworld.h"
 #include "Interface Control.h"
 #include "KeyMap.h"
+#include "PlatformTime.h"
 
 #include "Soldier Control.h"
 #include "connect.h"
 
 #include <atomic>
-#include <chrono>
 #include <condition_variable>
 #include <list>
 #include <mutex>
@@ -87,13 +87,10 @@ INT32		giTimerTeamTurnUpdate			= 0;
 
 CUSTOMIZABLE_TIMER_CALLBACK gpCustomizableTimerCallback = NULL;
 
-// Game clock now runs on std::chrono::steady_clock. The Win32
-// QueryPerformanceCounter LARGE_INTEGER pair is replaced by a pair of
-// time_points and a duration, all kept in microseconds so the
-// GetJA2Microseconds() return contract is preserved.
-using SteadyClock = std::chrono::steady_clock;
-static SteadyClock::time_point gPerfCount = SteadyClock::now();
-static SteadyClock::time_point gPerfCountNext = SteadyClock::now();
+// Absolute deadlines use the injected platform monotonic clock. Keeping the
+// values in microseconds preserves the legacy observable/debug contract.
+static LONGLONG gPerfCount = 0;
+static LONGLONG gPerfCountNext = 0;
 
 // BOB: made global to help track freeze issue. These were observable
 // in the debugger on Windows; preserving the names eases parity with
@@ -154,8 +151,7 @@ void ResetJA2ClockGlobalTimers(void);
 
 static LONGLONG NowMicroseconds()
 {
-	auto t = SteadyClock::now().time_since_epoch();
-	return (LONGLONG)std::chrono::duration_cast<std::chrono::microseconds>(t).count();
+	return static_cast<LONGLONG>(GetPlatformTimeSource().nowMicroseconds());
 }
 
 static void TimeProc()
@@ -176,12 +172,12 @@ static void TimeProc()
 		// thread's sleep cadence and we tick every call.
 		if (IsHiSpeedClockMode())
 		{
-			gPerfCount = SteadyClock::now();
+			gPerfCount = NowMicroseconds();
 			if (gPerfCount > gPerfCountNext)
 			{
 				INT32 iNext = IsFastForwardMode() ? giFastForwardPeriod : UPDATETIMESLICE;
 				giIncrement = iNext;
-				gPerfCountNext = gPerfCount + std::chrono::microseconds(iNext);
+				gPerfCountNext = gPerfCount + iNext;
 				iTimeLeft = iNext;
 				timerDone = IsFastForwardMode();
 				tickTime = TRUE;
@@ -284,9 +280,8 @@ static void TimeProc()
 // updated in microseconds to preserve their old observable values.
 UINT32 GetNextCounterDoneTime(void)
 {
-	gPerfCount = SteadyClock::now();
-	auto diff = std::chrono::duration_cast<std::chrono::microseconds>(
-		gPerfCountNext - gPerfCount).count();
+	gPerfCount = NowMicroseconds();
+	const LONGLONG diff = gPerfCountNext - gPerfCount;
 	gliTimestampDiff = (LONGLONG)diff;
 	gliWaitTime = (LONGLONG)diff;
 
@@ -295,7 +290,7 @@ UINT32 GetNextCounterDoneTime(void)
 	// 125 ms" so we don't sleep forever or busy-loop.
 	if (gliWaitTime > 15000 || gliWaitTime < -15000) {
 		gliWaitTime = 125;
-		gPerfCountNext = gPerfCount + std::chrono::milliseconds(125);
+		gPerfCountNext = gPerfCount + 125000;
 	}
 
 	return (UINT32)((gliWaitTime > 0) ? gliWaitTime : 0);
@@ -359,7 +354,7 @@ BOOLEAN InitializeJA2Clock()
 		giTimerCounters[ cnt ] = giTimerIntervals[ cnt ];
 	}
 
-	gPerfCount = SteadyClock::now();
+	gPerfCount = NowMicroseconds();
 	gPerfCountNext = gPerfCount;
 
 	gShutdownRequested.store(false);

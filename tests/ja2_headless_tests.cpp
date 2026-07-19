@@ -32,6 +32,7 @@
 #include "../Engine/Core/BinaryArchive.h"
 #include "../Engine/Core/StateStack.h"
 #include "../Engine/Core/ContentApi.h"
+#include "../Engine/Core/TimeSource.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -194,6 +195,15 @@ int main( int, char** )
 		const ContentManifest* manifest = content.find( "core" );
 		CHECK( manifest && manifest->version == "0.9.0",
 		       "content registry resolves the validated manifest" );
+	}
+
+	{
+		ManualTimeSource time;
+		time.setMicroseconds( 1000 );
+		time.advanceMicroseconds( 250 );
+		MonotonicTimeSource& source = time;
+		CHECK( source.nowMicroseconds() == 1250,
+		       "engine time source supports deterministic injected time" );
 	}
 
 	// --- hard asserts: the fully data-free managers ---
