@@ -1,7 +1,7 @@
 #ifndef SGP_VIDEO_RESOURCE_HANDLE_H
 #define SGP_VIDEO_RESOURCE_HANDLE_H
 
-#include "ResourceHandle.h"
+#include "../Engine/Core/UniqueResourceHandle.h"
 #include "vobject.h"
 #include "vsurface.h"
 

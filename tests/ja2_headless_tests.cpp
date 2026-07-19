@@ -27,7 +27,7 @@
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
-#include "ResourceHandle.h"
+#include "../Engine/Core/UniqueResourceHandle.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"

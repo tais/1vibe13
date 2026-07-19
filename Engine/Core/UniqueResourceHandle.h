@@ -1,16 +1,15 @@
-#ifndef SGP_RESOURCE_HANDLE_H
-#define SGP_RESOURCE_HANDLE_H
+#ifndef ENGINE_CORE_UNIQUE_RESOURCE_HANDLE_H
+#define ENGINE_CORE_UNIQUE_RESOURCE_HANDLE_H
 
-#include "types.h"
+#include <cstdint>
 
-// Move-only ownership for numeric handles managed by legacy SGP registries.
-// The tag makes resource kinds distinct; the releaser bridges the old API.
+// Dependency-free move-only ownership for numeric registry handles.
 template <typename Tag, typename Releaser>
 class UniqueResourceHandle
 {
 public:
 	UniqueResourceHandle() = default;
-	explicit UniqueResourceHandle(UINT32 value) : value_(value) {}
+	explicit UniqueResourceHandle(std::uint32_t value) : value_(value) {}
 	~UniqueResourceHandle() { reset(); }
 
 	UniqueResourceHandle(const UniqueResourceHandle&) = delete;
@@ -24,23 +23,23 @@ public:
 	}
 
 	explicit operator bool() const { return value_ != 0; }
-	UINT32 get() const { return value_; }
+	std::uint32_t get() const { return value_; }
 
-	UINT32 release()
+	std::uint32_t release()
 	{
-		const UINT32 value = value_;
+		const std::uint32_t value = value_;
 		value_ = 0;
 		return value;
 	}
 
-	void reset(UINT32 replacement = 0)
+	void reset(std::uint32_t replacement = 0)
 	{
 		if (value_ != 0 && value_ != replacement) Releaser{}(value_);
 		value_ = replacement;
 	}
 
 private:
-	UINT32 value_ = 0;
+	std::uint32_t value_ = 0;
 };
 
 #endif
