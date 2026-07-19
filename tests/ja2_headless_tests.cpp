@@ -38,6 +38,7 @@
 #include "../Engine/Core/PersistenceService.h"
 #include "PlatformFileSystem.h"
 #include "PlatformInput.h"
+#include "PlatformAudio.h"
 #include "PlatformLog.h"
 #include "PlatformTime.h"
 #include "random.h"
@@ -298,7 +299,8 @@ int main( int, char** )
 		CHECK( &compiledContext.services().time == &GetPlatformTimeSource() &&
 		       &compiledContext.services().random == &GetGameRandomSource() &&
 		       &compiledContext.services().storage == &GetPlatformByteStorage() &&
-		       &compiledContext.services().input == &GetPlatformInputSource(),
+		       &compiledContext.services().input == &GetPlatformInputSource() &&
+		       &compiledContext.services().audio == &GetPlatformAudioOutput(),
 		       "application composition root binds platform service adapters" );
 	}
 
@@ -310,12 +312,21 @@ int main( int, char** )
 		SequenceRandomSource packageRandom( { 73 } );
 		MemoryByteStorage packageStorage;
 		MemoryInputSource packageInput;
-		EngineServices services{packageTime, packageRandom, packageStorage, logSink, packageInput};
+		RecordingAudioOutput packageAudio;
+		EngineServices services{packageTime, packageRandom, packageStorage, logSink, packageInput,
+		                        packageAudio};
 		packageInput.push( EngineInputEvent{ 17, 2, 1, 65, 0 } );
 		EngineInputEvent injectedInput;
 		CHECK( services.input.poll( injectedInput ) && injectedInput.timestamp == 17 &&
 		       injectedInput.modifiers == 2 && injectedInput.primary == 65,
 		       "engine services expose deterministic injected input" );
+		const AudioPlaybackId playback = services.audio.play(
+			AudioPlaybackRequest{ "sounds/test.wav", 22050, 80, 32, 1, false } );
+		CHECK( playback != 0 && packageAudio.requests().size() == 1 &&
+		       packageAudio.requests()[0].asset == "sounds/test.wav" &&
+		       services.audio.isPlaying( playback ) && services.audio.stop( playback ) &&
+		       !services.audio.isPlaying( playback ),
+		       "engine services expose captureable headless audio" );
 		PackageRegistry packages( content, services );
 		TestLifecyclePackage first( "rules.first", PackageKind::Rules );
 		TestLifecyclePackage failing( "rules.failing", PackageKind::Rules,

@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_ENGINE_SERVICES_H
 #define ENGINE_CORE_ENGINE_SERVICES_H
 
+#include <Engine/Core/AudioOutput.h>
 #include <Engine/Core/ByteStorage.h>
 #include <Engine/Core/InputSource.h>
 #include <Engine/Core/LogSink.h>
@@ -20,6 +21,7 @@ struct EngineServices
 	ByteStorage& storage = NullByteStorage::instance();
 	LogSink& log = NullLogSink::instance();
 	InputSource& input = NullInputSource::instance();
+	AudioOutput& audio = NullAudioOutput::instance();
 
 	static EngineServices defaults()
 	{

@@ -24,6 +24,7 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformFileSystem.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformLog.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PlatformInput.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/PlatformAudio.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Random.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/SaveSerializer.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/sdl_input.cpp"
