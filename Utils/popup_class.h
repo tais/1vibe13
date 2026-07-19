@@ -67,10 +67,12 @@
 	{
 	public:
 		POPUP_OPTION(void); // default constructor
+		POPUP_OPTION(const std::wstring& name, popupCallback* newFunction);
 		POPUP_OPTION(std::wstring* name, popupCallback* newFunction); // constructor
 		~POPUP_OPTION();			// destructor
 		// setup
 		BOOLEAN setName(std::wstring * name);
+		BOOLEAN setName(const std::wstring& name);
 		BOOLEAN setAction(popupCallback*fun);
 		BOOLEAN setAvail(popupCallback *fun);
 		BOOLEAN setHover(popupCallback *fun);
@@ -105,7 +107,9 @@
 	public:
 		// constructor/destructor
 	POPUP_SUB_POPUP_OPTION(void);
+	POPUP_SUB_POPUP_OPTION(const std::wstring& name);
 	POPUP_SUB_POPUP_OPTION(std::wstring* name);
+	POPUP_SUB_POPUP_OPTION(const std::wstring& newName, const POPUP * parent);
 	POPUP_SUB_POPUP_OPTION(std::wstring* newName, const POPUP * parent);
 	~POPUP_SUB_POPUP_OPTION();
 
@@ -140,6 +144,7 @@
 		~POPUP(void);			// destructor
 		// setup
 		POPUP_OPTION * addOption(std::wstring * name, popupCallback * action);
+		POPUP_OPTION * addOption(const std::wstring& name, popupCallback * action);
 		/*INT16 findFreeOptionIndex();*/
 		BOOLEAN addOption(POPUP_OPTION &option);
 		POPUP_OPTION * getOption(UINT16 n);
@@ -148,6 +153,7 @@
 		BOOLEAN delOption(UINT8 optIndex);
 
 		POPUP* addSubMenuOption(std::wstring * name);
+		POPUP* addSubMenuOption(const std::wstring& name);
 		BOOLEAN addSubMenuOption(POPUP_SUB_POPUP_OPTION* sub);
 		/*INT16 findFreeSubMenuOptionIndex();*/
 		POPUP_SUB_POPUP_OPTION * getSubPopupOption(UINT8 n);
