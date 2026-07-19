@@ -20,6 +20,7 @@
 #include <iterator>
 #include "GameSettings.h"	// added by Flugente
 #include "Disease.h"		// added by Flugente
+#include "Soldier Components.h"
 #include <functional>
 
 #define PTR_CIVILIAN	(pSoldier->bTeam == CIV_TEAM)
@@ -1096,6 +1097,8 @@ public:
 	//	Note that the constructor does this automatically.
 	void initialize();
 	bool	exists();
+	SoldierVitalsComponent vitals() { return SoldierVitalsComponent(*this); }
+	SoldierPositionComponent position() { return SoldierPositionComponent(*this); }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -2961,5 +2964,4 @@ void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget )
 BOOLEAN ApplyConsumable( SOLDIERTYPE* pSoldier, OBJECTTYPE *pObject, BOOLEAN fForce, BOOLEAN fUseAPs );
 
 #endif
-
 

@@ -74,6 +74,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Soldier Add.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Soldier Ani.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Soldier Control.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/Soldier Components.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Soldier Create.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Soldier Find.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Soldier Init List.cpp"

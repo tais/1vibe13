@@ -37,6 +37,7 @@
 #include "sdl_input.h"
 #include "english.h"
 #include "GameContext.h"
+#include "Soldier Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 
@@ -197,6 +198,21 @@ int main( int, char** )
 
 	// --- hard asserts: the fully data-free managers ---
 	CHECK( InitializeMemoryManager(), "InitializeMemoryManager()" );
+
+	{
+		SOLDIERTYPE soldier;
+		SoldierVitalsComponent vitals = soldier.vitals();
+		vitals.maximumHealth() = 90;
+		vitals.health() = 75;
+		vitals.breath() = 60;
+		SoldierPositionComponent position = soldier.position();
+		position.gridNo() = 1234;
+		position.level() = 1;
+		CHECK( vitals.alive() && soldier.stats.bLife == 75 && soldier.bBreath == 60,
+		       "soldier vitals component aliases the compatible serialized fields" );
+		CHECK( soldier.sGridNo == 1234 && soldier.pathing.bLevel == 1,
+		       "soldier position component aliases the compatible serialized fields" );
+	}
 
 	// MemAlloc round-trip -- exercises the allocator whose 500+ unchecked call
 	// sites this project keeps hand-guarding.
