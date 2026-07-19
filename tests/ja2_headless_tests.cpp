@@ -34,6 +34,8 @@
 #include "../Engine/Core/ContentApi.h"
 #include "../Engine/Core/TimeSource.h"
 #include "../Engine/Core/RandomSource.h"
+#include "../Engine/Core/PersistenceService.h"
+#include "PlatformFileSystem.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -42,6 +44,7 @@
 #include "Soldier Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
+#include <vfs/Core/vfs_init.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
 // libraries reference. This harness supplies its own main() instead of linking
@@ -248,7 +251,47 @@ int main( int, char** )
 		}
 	}
 
+	// FileMan is a facade over the VFS. The full game configures its profiles
+	// during application boot; this standalone harness supplies the smallest
+	// equivalent writable profile so storage integration follows the real path.
+	vfs_init::VfsConfig vfsConfig;
+	vfs_init::Profile* testProfile = new vfs_init::Profile();
+	testProfile->m_name = L"headless-tests";
+	testProfile->m_root = L".";
+	testProfile->m_writable = true;
+	vfsConfig.addProfile( testProfile, true );
+	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+	{
+		MemoryByteStorage memoryStorage;
+		PersistenceService memoryPersistence( memoryStorage );
+		std::vector<std::uint8_t> emptyPayload;
+		PersistenceHeader emptyHeader = {};
+		CHECK( memoryPersistence.save( "empty", PersistenceHeader{ 0x454E4730u, 1 }, emptyPayload ) &&
+		       memoryPersistence.load( "empty", 0x454E4730u, 1, 1, emptyHeader, emptyPayload ) ==
+		       PersistenceLoadResult::Success && emptyPayload.empty(),
+		       "pure persistence service supports an empty payload" );
+		memoryStorage.writeAll( "truncated", std::vector<std::uint8_t>{ 1, 2, 3 } );
+		CHECK( memoryPersistence.load( "truncated", 0x454E4730u, 1, 1, emptyHeader, emptyPayload ) ==
+		       PersistenceLoadResult::InvalidOrUnsupported,
+		       "pure persistence service rejects a truncated header" );
+
+		const std::string path = "engine_persistence_test.bin";
+		PersistenceService persistence( GetPlatformByteStorage() );
+		const std::vector<std::uint8_t> saved = { 1, 3, 3, 7 };
+		CHECK( persistence.save( path, PersistenceHeader{ 0x454E4731u, 1 }, saved ),
+		       "platform persistence writes through FileMan" );
+		PersistenceHeader header = {};
+		std::vector<std::uint8_t> loaded;
+		CHECK( persistence.load( path, 0x454E4731u, 1, 1, header, loaded ) == PersistenceLoadResult::Success &&
+		       loaded == saved,
+		       "platform persistence reads a validated versioned payload" );
+		CHECK( persistence.load( path, 0x454E4731u, 2, 2, header, loaded ) ==
+		       PersistenceLoadResult::InvalidOrUnsupported,
+		       "platform persistence rejects unsupported content versions" );
+		FileDelete( const_cast<char*>(path.c_str()) );
+	}
 
 #ifndef _WIN32
 	{

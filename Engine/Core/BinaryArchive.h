@@ -23,6 +23,7 @@ public:
 	}
 	void writeBytes(const std::uint8_t* bytes, std::size_t size)
 	{
+		if (size == 0) return;
 		bytes_.insert(bytes_.end(), bytes, bytes + size);
 	}
 	void writeString(const std::string& value)
@@ -79,6 +80,18 @@ public:
 		}
 		value.assign(reinterpret_cast<const char*>(bytes_ + position_), length);
 		position_ += length;
+		return true;
+	}
+	bool readBytes(std::vector<std::uint8_t>& value, std::size_t count)
+	{
+		if (!available(count)) return false;
+		if (count == 0)
+		{
+			value.clear();
+			return true;
+		}
+		value.assign(bytes_ + position_, bytes_ + position_ + count);
+		position_ += count;
 		return true;
 	}
 

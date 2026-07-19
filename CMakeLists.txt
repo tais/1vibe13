@@ -463,6 +463,7 @@ endforeach()
 # See tests/ja2_headless_tests.cpp.
 if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_executable(ja2_headless_tests tests/ja2_headless_tests.cpp)
+  target_include_directories(ja2_headless_tests PRIVATE ${CMAKE_SOURCE_DIR})
   target_compile_definitions(ja2_headless_tests PRIVATE ${debugFlags})
   target_link_libraries(ja2_headless_tests PRIVATE SDL3::SDL3)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
