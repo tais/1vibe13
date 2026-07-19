@@ -33,6 +33,7 @@
 #include "../Engine/Core/StateStack.h"
 #include "../Engine/Core/ContentApi.h"
 #include "../Engine/Core/TimeSource.h"
+#include "../Engine/Core/RandomSource.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -204,6 +205,15 @@ int main( int, char** )
 		MonotonicTimeSource& source = time;
 		CHECK( source.nowMicroseconds() == 1250,
 		       "engine time source supports deterministic injected time" );
+	}
+
+	{
+		SequenceRandomSource random( { 9, 4, 7 } );
+		CHECK( random.next( 10 ) == 9 && random.next( 3 ) == 1 && random.next( 5 ) == 2,
+		       "engine random source produces a deterministic bounded sequence" );
+		random.rewind();
+		CHECK( random.next( 10 ) == 9 && random.position() == 1,
+		       "engine random source rewinds for deterministic replay" );
 	}
 
 	// --- hard asserts: the fully data-free managers ---

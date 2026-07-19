@@ -6,6 +6,7 @@
 #include "types.h"
 #include "DEBUG.H"
 #include "GameSettings.h"
+#include "../Engine/Core/RandomSource.h"
 
 //IMPORTANT: Changing this define will invalidate the JA2 save.	If this is necessary, please ifdef your own value.
 #define MAX_PREGENERATED_NUMS 256		
@@ -20,15 +21,13 @@ extern UINT32 GetRndNum(UINT32 maxnum);
 extern bool gfMPDebugOutputRandoms;
 
 UINT32 NewRandom(UINT32 max);
+RandomSource& GetGameRandomSource();
 
 extern GAME_EXTERNAL_OPTIONS gGameExternalOptions;
 
 inline UINT32 Random(UINT32 uiRange)
 {
-	if (gGameExternalOptions.fNewRandom)
-		return NewRandom(uiRange);
-	else
-		return GetRndNum(uiRange);
+	return GetGameRandomSource().next(uiRange);
 }
 
 /*inline INT32 iRandom(UINT32 uiRange)
