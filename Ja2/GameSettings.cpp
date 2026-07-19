@@ -1,5 +1,6 @@
 	#include	"types.h"
 	#include	"GameSettings.h"
+	#include	"GameContext.h"
 	#include	"FileMan.h"
 	#include	"string.h"
 	#include	"Sound Control.h"
@@ -128,9 +129,7 @@ BOOLEAN UsingBackGroundSystem()
 
 BOOLEAN UsingImprovedInterruptSystem()
 {
-#ifdef JA2EDITOR
-	return FALSE;
-#endif
+	if (GetGameContext().capabilities().isEditor()) return FALSE;
 
 	// this feature is off in multiplayer
 	return (!is_networked && gGameExternalOptions.fImprovedInterruptSystem);
@@ -138,9 +137,7 @@ BOOLEAN UsingImprovedInterruptSystem()
 
 BOOLEAN UsingInventoryCostsAPSystem()
 {
-#ifdef JA2EDITOR
-	return FALSE;
-#endif
+	if (GetGameContext().capabilities().isEditor()) return FALSE;
 
 	return ( gGameExternalOptions.fInventoryCostsAP );
 }

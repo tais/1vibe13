@@ -2,6 +2,7 @@
 #define JA2_GAME_CONTEXT_H
 
 #include "GameSettings.h"
+#include "GameCapabilities.h"
 
 enum class GameLifecycle
 {
@@ -17,8 +18,8 @@ enum class GameLifecycle
 class GameContext
 {
 public:
-	GameContext(GAME_SETTINGS& settings, GAME_OPTIONS& options)
-		: settings_(settings), options_(options)
+	GameContext(GAME_SETTINGS& settings, GAME_OPTIONS& options, GameCapabilities capabilities = {})
+		: settings_(settings), options_(options), capabilities_(capabilities)
 	{
 	}
 
@@ -26,6 +27,13 @@ public:
 	const GAME_SETTINGS& settings() const { return settings_; }
 	GAME_OPTIONS& options() { return options_; }
 	const GAME_OPTIONS& options() const { return options_; }
+	const GameCapabilities& capabilities() const { return capabilities_; }
+	bool setCapabilities(GameCapabilities capabilities)
+	{
+		if (lifecycle_ != GameLifecycle::Stopped) return false;
+		capabilities_ = capabilities;
+		return true;
+	}
 
 	GameLifecycle lifecycle() const { return lifecycle_; }
 	bool beginInitialization();
@@ -37,6 +45,7 @@ public:
 private:
 	GAME_SETTINGS& settings_;
 	GAME_OPTIONS& options_;
+	GameCapabilities capabilities_;
 	GameLifecycle lifecycle_ = GameLifecycle::Stopped;
 };
 

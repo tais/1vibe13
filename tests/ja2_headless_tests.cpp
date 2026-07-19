@@ -87,8 +87,14 @@ int main( int, char** )
 		GameContext context( settings, options );
 		CHECK( &context.settings() == &settings && &context.options() == &options,
 		       "game context exposes bound legacy state" );
+		GameCapabilities editorCapabilities;
+		editorCapabilities.editor = true;
+		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor(),
+		       "game context accepts runtime capabilities before initialization" );
 		CHECK( context.beginInitialization() && context.markRunning(),
 		       "game context enters running lifecycle" );
+		CHECK( !context.setCapabilities( GameCapabilities{} ),
+		       "game context freezes runtime capabilities while running" );
 		CHECK( !context.beginInitialization(), "game context rejects duplicate initialization" );
 		CHECK( context.beginShutdown() && context.markStopped(),
 		       "game context completes shutdown lifecycle" );

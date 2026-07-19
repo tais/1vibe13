@@ -37,6 +37,6 @@ bool GameContext::markStopped()
 
 GameContext& GetGameContext()
 {
-	static GameContext context(gGameSettings, gGameOptions);
+	static GameContext context(gGameSettings, gGameOptions, GetCompiledGameCapabilities());
 	return context;
 }
