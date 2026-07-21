@@ -8,7 +8,7 @@
 #include "renderworld.h"
 #include "Interface Control.h"
 #include "KeyMap.h"
-#include "PlatformTime.h"
+#include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include "Soldier Control.h"
 #include "connect.h"

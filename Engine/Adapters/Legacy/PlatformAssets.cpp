@@ -1,4 +1,4 @@
-#include "PlatformAssets.h"
+#include <Engine/Adapters/Legacy/PlatformAssets.h>
 
 #include "FileMan.h"
 

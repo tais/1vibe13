@@ -15,7 +15,7 @@
 	#include <memory.h>
 	#include "DEBUG.H"
 	#include "input.h"
-	#include "PlatformInput.h"
+	#include <Engine/Adapters/Legacy/PlatformInput.h>
 	#include "MemMan.h"
 	#include "english.h"
 		#include "video.h"

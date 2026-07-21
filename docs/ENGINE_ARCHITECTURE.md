@@ -103,6 +103,11 @@ the engine must not contain SDL types in its public domain model.
   logging, input, audio, and frame presentation while the application retains ownership of
   SDL/VFS/legacy adapters. Headless and replay hosts can inject deterministic
   memory input, capture audio requests, and record frame presentation without devices.
+- `Engine/Adapters/Legacy` contains the production compatibility implementations
+  of engine-owned service contracts. They are compiled once into an explicit
+  adapter object target and embedded in each SGP application archive. This
+  keeps SDL/VFS/sound/video dependencies below the application composition
+  root while making the remaining upward legacy calls visible and replaceable.
 - `AssetSource` exposes normalized, read-only logical content with provenance
   and deterministic, case-insensitive overlays. `PackageRegistry` mounts an
   active package's optional source above the trusted host source, in activation
