@@ -3,10 +3,14 @@
 
 #include <string>
 
+#include <Engine/Core/RuntimeReportService.h>
+
 namespace vfs
 {
 class PropertyContainer;
 }
+
+class GameContext;
 
 enum class RuntimeReportMoment
 {
@@ -33,5 +37,21 @@ RuntimeReportOptions ReadRuntimeReportOptions(
 
 void ConfigureRuntimeReports(RuntimeReportOptions options);
 const RuntimeReportOptions& GetRuntimeReportOptions();
+
+struct RuntimeReportWriteResult
+{
+	bool attempted = false;
+	RuntimeReportSaveError error = RuntimeReportSaveError::None;
+
+	explicit operator bool() const
+	{
+		return !attempted || error == RuntimeReportSaveError::None;
+	}
+};
+
+// Best-effort application hook. A configured report failure is logged but is
+// never promoted into a game startup/shutdown failure.
+RuntimeReportWriteResult WriteConfiguredRuntimeReport(
+	GameContext& context, RuntimeReportMoment moment) noexcept;
 
 #endif

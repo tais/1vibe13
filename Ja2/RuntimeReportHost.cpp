@@ -1,5 +1,7 @@
 #include "RuntimeReportHost.h"
 
+#include "GameContext.h"
+
 #include <vfs/Tools/vfs_property_container.h>
 
 #include <cctype>
@@ -105,4 +107,30 @@ void ConfigureRuntimeReports(RuntimeReportOptions options)
 const RuntimeReportOptions& GetRuntimeReportOptions()
 {
 	return ConfiguredOptions();
+}
+
+RuntimeReportWriteResult WriteConfiguredRuntimeReport(
+	GameContext& context, RuntimeReportMoment moment) noexcept
+{
+	const RuntimeReportOptions& options = GetRuntimeReportOptions();
+	if (!options.shouldWrite(moment)) return {};
+	RuntimeReportSaveError error = RuntimeReportSaveError::AllocationFailure;
+	try
+	{
+		error = context.saveRuntimeReport(options.path);
+		const char* phase = moment == RuntimeReportMoment::Startup ? "startup" : "shutdown";
+		context.log().write(LogRecord{
+			error == RuntimeReportSaveError::None ? LogSeverity::Info : LogSeverity::Error,
+			"diagnostics",
+			error == RuntimeReportSaveError::None
+				? "Wrote " + std::string(phase) + " runtime report: " + options.path
+				: "Could not write " + std::string(phase) + " runtime report " +
+					options.path + " (code " +
+					std::to_string(static_cast<int>(error)) + ")"});
+	}
+	catch (...)
+	{
+		// Reporting and its diagnostic sink are observational paths.
+	}
+	return RuntimeReportWriteResult{true, error};
 }

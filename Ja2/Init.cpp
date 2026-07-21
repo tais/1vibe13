@@ -32,6 +32,7 @@
 #include "Summary Info.h"
 #include "GameSettings.h"
 #include "GameContext.h"
+#include "RuntimeReportHost.h"
 #include "Game Init.h"
 #include "Init.h"
 #include "jascreens.h"
@@ -1631,7 +1632,11 @@ UINT32 InitializeJA2(void)
 	{
 		return ERROR_SCREEN;
 	}
-	initialization.markRunning();
+	if (!initialization.markRunning())
+	{
+		return ERROR_SCREEN;
+	}
+	(void)WriteConfiguredRuntimeReport(gameContext, RuntimeReportMoment::Startup);
 	return( INIT_SCREEN );
 }
 
@@ -1639,6 +1644,7 @@ UINT32 InitializeJA2(void)
 void ShutdownJA2(void)
 {
 	GameContext& gameContext = GetGameContext();
+	(void)WriteConfiguredRuntimeReport(gameContext, RuntimeReportMoment::Shutdown);
 	gameContext.beginShutdown();
 	const RuntimeSessionShutdownResult sessionTeardown = gameContext.shutdownPackages();
 	const PackageLifecycleShutdownResult& lifecycleTeardown = sessionTeardown.packages;

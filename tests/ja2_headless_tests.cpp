@@ -1002,6 +1002,34 @@ int main( int, char** )
 	}
 
 	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		MemoryLogSink logs;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage, logs };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		RuntimeReportOptions reportOptions;
+		reportOptions.enabled = true;
+		reportOptions.path = "reports/live-runtime.json";
+		ConfigureRuntimeReports( reportOptions );
+		const RuntimeReportWriteResult written = WriteConfiguredRuntimeReport(
+			context, RuntimeReportMoment::Startup );
+		std::vector<std::uint8_t> reportBytes;
+		const bool reportReadable = storage.readAll( reportOptions.path, reportBytes );
+		ConfigureRuntimeReports( RuntimeReportOptions{} );
+		const RuntimeReportWriteResult skipped = WriteConfiguredRuntimeReport(
+			context, RuntimeReportMoment::Shutdown );
+		CHECK( written.attempted && written && reportReadable &&
+		       !reportBytes.empty() && reportBytes.front() == '{' &&
+		       reportBytes.back() == '\n' && logs.records().size() == 1 &&
+		       logs.records()[0].severity == LogSeverity::Info &&
+		       logs.records()[0].message.find( reportOptions.path ) != std::string::npos &&
+		       !skipped.attempted && skipped,
+		       "configured application hook writes a live report without making it mandatory" );
+	}
+
+	{
 		g_resourceReleaseCount = 0;
 		TestResourceHandle first( 42 );
 		TestResourceHandle second( std::move( first ) );
