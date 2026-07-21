@@ -77,3 +77,17 @@ SaveCompatibilityResult InspectSaveCompatibilityMetadata(
 		return result;
 	}
 }
+
+bool RemoveSaveCompatibilityMetadata(
+	GameContext& context, const std::string& savePath) noexcept
+{
+	try
+	{
+		const std::string sidecar = RuntimeCheckpointSidecarPath(savePath);
+		return !sidecar.empty() && context.persistence().storage().remove(sidecar);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}

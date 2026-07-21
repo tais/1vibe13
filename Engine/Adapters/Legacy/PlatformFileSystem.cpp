@@ -38,6 +38,13 @@ public:
 		FileClose(file);
 		return success;
 	}
+
+	bool remove(const std::string& path) override
+	{
+		if (path.empty()) return false;
+		char* filePath = const_cast<char*>(path.c_str());
+		return !FileExists(filePath) || FileDelete(filePath);
+	}
 };
 
 ByteStorage& GetPlatformByteStorage()

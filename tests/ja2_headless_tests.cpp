@@ -1060,6 +1060,9 @@ int main( int, char** )
 		storage.writeAll( sidecarPath, corrupted );
 		const SaveCompatibilityResult invalid =
 			InspectSaveCompatibilityMetadata( first, savePath );
+		const bool removed = RemoveSaveCompatibilityMetadata( first, savePath );
+		const SaveCompatibilityResult removedMetadata =
+			InspectSaveCompatibilityMetadata( first, savePath );
 		CHECK( sidecarPath == savePath + ".engine-checkpoint" &&
 		       missing.state == SaveCompatibilityState::LegacyWithoutMetadata &&
 		       missing.permitsCompatibleLoad() &&
@@ -1070,8 +1073,9 @@ int main( int, char** )
 		       incompatible.storedCompatibility == first.runtime().compatibilityFingerprint() &&
 		       !incompatible.permitsCompatibleLoad() &&
 		       invalid.state == SaveCompatibilityState::InvalidMetadata &&
-		       !invalid.permitsCompatibleLoad(),
-		       "save sidecars distinguish legacy, compatible, incompatible, and corrupt metadata" );
+		       !invalid.permitsCompatibleLoad() && removed &&
+		       removedMetadata.state == SaveCompatibilityState::LegacyWithoutMetadata,
+		       "save sidecars classify compatibility and follow their owning save lifecycle" );
 	}
 
 	{

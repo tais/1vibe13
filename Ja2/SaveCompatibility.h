@@ -41,4 +41,8 @@ RuntimeCheckpointSaveError WriteSaveCompatibilityMetadata(
 SaveCompatibilityResult InspectSaveCompatibilityMetadata(
 	const GameContext& context, const std::string& savePath) noexcept;
 
+// Idempotently removes metadata when its owning legacy save is deleted.
+bool RemoveSaveCompatibilityMetadata(
+	GameContext& context, const std::string& savePath) noexcept;
+
 #endif
