@@ -277,6 +277,8 @@ the engine must not contain SDL types in its public domain model.
   bounded checksummed envelope. Loads are transactional and reject a different
   runtime before publishing metadata or invoking domain/legacy deserializers;
   game state remains owned by versioned adapters during the migration.
+  The JA2 save adapter now uses this as a sidecar preflight documented in
+  [Save compatibility metadata](SAVE_COMPATIBILITY.md).
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O

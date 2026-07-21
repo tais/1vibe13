@@ -5,6 +5,11 @@
 
 #include <Engine/Core/RuntimeCheckpoint.h>
 
+namespace vfs
+{
+class PropertyContainer;
+}
+
 class GameContext;
 
 enum class SaveCompatibilityState
@@ -51,6 +56,12 @@ SaveCompatibilityPolicy ParseSaveCompatibilityPolicy(
 	const std::string& value,
 	SaveCompatibilityPolicy fallback = SaveCompatibilityPolicy::Warn) noexcept;
 const char* SaveCompatibilityPolicyName(SaveCompatibilityPolicy policy) noexcept;
+const char* SaveCompatibilityStateName(SaveCompatibilityState state) noexcept;
+
+SaveCompatibilityPolicy ReadSaveCompatibilityPolicy(
+	vfs::PropertyContainer& properties, int argc, char* const* argv);
+void ConfigureSaveCompatibilityPolicy(SaveCompatibilityPolicy policy) noexcept;
+SaveCompatibilityPolicy GetSaveCompatibilityPolicy() noexcept;
 
 // EnforceKnown is the compatibility-preserving strict mode: it rejects
 // metadata that is known to be incompatible or invalid, but old saves without
