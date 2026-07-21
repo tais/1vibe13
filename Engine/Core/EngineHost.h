@@ -179,6 +179,12 @@ public:
 	const AudioGroupService& packageAudio() const { return audioGroups_; }
 	PackageTaskQueue& packageTasks() { return packageTasks_; }
 	const PackageTaskQueue& packageTasks() const { return packageTasks_; }
+	PackageResourceUsageSnapshot packageResourceUsage() const
+	{
+		return BuildPackageResourceUsage(packages_.catalog(), localization_.snapshot(),
+			definitions_.snapshot(), entities_.snapshot(), audioGroups_.snapshot(),
+			packageTasks_.snapshot(), packages_.randomUsageSnapshot());
+	}
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
@@ -215,7 +221,8 @@ public:
 			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
 			packages_.assetCache().statistics(), faultJournal_.snapshot(),
 			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
-			audioGroups_.snapshot(), packageTasks_.snapshot(), serviceCatalog_.snapshot(),
+			audioGroups_.snapshot(), packageTasks_.snapshot(), packageResourceUsage(),
+			serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
 			compatibilityFingerprint(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
