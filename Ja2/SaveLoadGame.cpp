@@ -3637,10 +3637,31 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 					"Could not write save compatibility metadata for " +
 						std::string( zSaveGameName ) + " (code " +
 						std::to_string( static_cast<int>( compatibilityMetadata ) ) + ")" } );
+				}
+				catch ( ... ) {}
 			}
-			catch ( ... ) {}
+			else
+			{
+				const PackageSaveMetadataWriteResult packageMetadata =
+					WritePackageSaveStateMetadata( GetGameContext(), zSaveGameName );
+				if ( !packageMetadata )
+				{
+					GetGameContext().persistence().storage().remove(
+						PackageSaveStateSidecarPath( zSaveGameName ) );
+					try
+					{
+						GetGameContext().log().write( LogRecord{
+							LogSeverity::Warning, "save-compatibility",
+							"Could not write package save state for " +
+								std::string( zSaveGameName ) + " (capture " +
+								std::to_string( static_cast<int>( packageMetadata.captureError ) ) +
+								", archive " + std::to_string(
+									static_cast<int>( packageMetadata.archiveError ) ) + ")" } );
+					}
+					catch ( ... ) {}
+				}
+			}
 		}
-	}
 
 	// This defines, which savegame is highlighted in the load screen
 	if (ubSaveGameID == SAVE__END_TURN_NUM)
@@ -3832,11 +3853,36 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 				{
 					ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
 						L"Save compatibility check rejected this save; see the log for details." );
-					return( FALSE );
+						return( FALSE );
+					}
+				}
+
+				const PackageSaveMetadataResult packageMetadata =
+					InspectPackageSaveStateMetadata( GetGameContext(), zSaveGameName );
+				const SaveCompatibilityLoadAction packageAction =
+					EvaluatePackageSaveMetadata( packageMetadata.state, policy );
+				if ( packageAction != SaveCompatibilityLoadAction::Allow )
+				{
+					try
+					{
+						GetGameContext().log().write( LogRecord{
+							packageAction == SaveCompatibilityLoadAction::Reject
+								? LogSeverity::Error : LogSeverity::Warning,
+							"save-compatibility",
+							"Package state preflight for " + std::string( zSaveGameName ) +
+								": " + PackageSaveMetadataStateName( packageMetadata.state ) +
+								" under policy " + SaveCompatibilityPolicyName( policy ) } );
+					}
+					catch ( ... ) {}
+					if ( packageAction == SaveCompatibilityLoadAction::Reject )
+					{
+						ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
+							L"Package save state rejected this save; see the log for details." );
+						return( FALSE );
+					}
 				}
 			}
 		}
-	}
 
 #ifdef LOADSAVEGAME_LOGTIME
 	TimingLogInitialize("TimeLog_LoadSavedGame.txt");
