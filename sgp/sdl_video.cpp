@@ -58,6 +58,8 @@ extern INT16 gsVIEWPORT_WINDOW_END_Y;
 
 #include <SDL3/SDL.h>
 
+#include <Engine/Core/UniqueResourcePtr.h>
+
 #include <cstdio>
 #include <cstdarg>
 #include <cstdlib>
@@ -94,7 +96,23 @@ static Uint64 RealTicksNS(void)
 		std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-static SDL_Window*   gWindow    = nullptr;
+struct WindowReleaser
+{
+	void operator()(SDL_Window* window) const { SDL_DestroyWindow(window); }
+};
+struct RendererReleaser
+{
+	void operator()(SDL_Renderer* renderer) const { SDL_DestroyRenderer(renderer); }
+};
+struct TextureReleaser
+{
+	void operator()(SDL_Texture* texture) const { SDL_DestroyTexture(texture); }
+};
+using WindowOwner = UniqueResourcePtr<SDL_Window, WindowReleaser>;
+using RendererOwner = UniqueResourcePtr<SDL_Renderer, RendererReleaser>;
+using TextureOwner = UniqueResourcePtr<SDL_Texture, TextureReleaser>;
+
+static WindowOwner gWindow;
 
 // While the game window is focused, confine the cursor (edge pixels stay
 // reachable -- the tactical screen scrolls by pushing the mouse to the edge)
@@ -117,8 +135,8 @@ void ApplyFocusMouseLock(SDL_Window* win, bool focused)
 	SDL_SetWindowMouseGrab(win, focused);
 	SDL_SetWindowResizable(win, !focused);
 }
-static SDL_Renderer* gRenderer  = nullptr;
-static SDL_Texture*  gFrameTex  = nullptr;
+static RendererOwner gRenderer;
+static TextureOwner gFrameTex;
 
 // Owned RGB565 buffers, one per logical surface. The raw aliases preserve the
 // legacy lock API, while the unique_ptrs make partial initialization and
@@ -231,10 +249,10 @@ BOOLEAN InitializeVideoManager(void)
 	// 640x480 content to the display and the OS keeps its resolution.
 	SDL_WindowFlags winFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 	if (iScreenMode == 0) winFlags |= SDL_WINDOW_FULLSCREEN;
-	gWindow = SDL_CreateWindow(
+	gWindow.reset(SDL_CreateWindow(
 		"Jagged Alliance 2 1.13 (SDL3 port)",
 		SCREEN_WIDTH, SCREEN_HEIGHT,
-		winFlags);
+		winFlags));
 	if (!gWindow) {
 		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		ShutdownVideoManager();
@@ -244,7 +262,7 @@ BOOLEAN InitializeVideoManager(void)
 	// below that. Besides being sensible, it stops the integer/letterbox
 	// scaler from hitting a degenerate (<1x) state mid-resize, which left
 	// SDL's render-command queue half-built and tripped an assertion.
-	SDL_SetWindowMinimumSize(gWindow, SCREEN_WIDTH, SCREEN_HEIGHT);
+	SDL_SetWindowMinimumSize(gWindow.get(), SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	// In windowed mode, lock the window to the game's aspect ratio so a
 	// user resize keeps proportions instead of producing a stretched window
@@ -252,16 +270,16 @@ BOOLEAN InitializeVideoManager(void)
 	// max aspect pins it exactly. Ignored in fullscreen (iScreenMode 0).
 	if (iScreenMode != 0) {
 		const float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
-		SDL_SetWindowAspectRatio(gWindow, aspect, aspect);
+		SDL_SetWindowAspectRatio(gWindow.get(), aspect, aspect);
 
 		// Confine the cursor to the window while it has focus, like the
 		// original fullscreen game felt: no accidental clicks onto the
 		// desktop mid-firefight. Focus loss (Cmd/Alt-Tab) releases the
 		// grab in sdl_input.cpp, so getting out is always possible.
-		ApplyFocusMouseLock(gWindow, true);
+		ApplyFocusMouseLock(gWindow.get(), true);
 	}
 
-	gRenderer = SDL_CreateRenderer(gWindow, nullptr);
+	gRenderer.reset(SDL_CreateRenderer(gWindow.get(), nullptr));
 	if (!gRenderer) {
 		std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
 		ShutdownVideoManager();
@@ -274,7 +292,7 @@ BOOLEAN InitializeVideoManager(void)
 	// textured quad -- which pegs the GPU and tears. Opt out with JA2_VSYNC=0.
 	{
 		const char* v = std::getenv("JA2_VSYNC");
-		if (!(v && v[0] == '0')) SDL_SetRenderVSync(gRenderer, 1);
+		if (!(v && v[0] == '0')) SDL_SetRenderVSync(gRenderer.get(), 1);
 	}
 
 	// Establish a fixed 640x480 (logical) coordinate space. Default mode
@@ -290,27 +308,27 @@ BOOLEAN InitializeVideoManager(void)
 	const SDL_RendererLogicalPresentation presMode =
 		pixelPerfect ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
 		             : SDL_LOGICAL_PRESENTATION_LETTERBOX;
-	if (!SDL_SetRenderLogicalPresentation(gRenderer, SCREEN_WIDTH, SCREEN_HEIGHT,
+	if (!SDL_SetRenderLogicalPresentation(gRenderer.get(), SCREEN_WIDTH, SCREEN_HEIGHT,
 	                                      presMode)) {
 		std::fprintf(stderr, "[video] SDL_SetRenderLogicalPresentation failed: %s\n",
 		             SDL_GetError());
 	}
 
-	gFrameTex = SDL_CreateTexture(gRenderer,
+	gFrameTex.reset(SDL_CreateTexture(gRenderer.get(),
 #if SGP_PIXEL_DEPTH == 32
 		SDL_PIXELFORMAT_ARGB8888,
 #else
 		SDL_PIXELFORMAT_RGB565,
 #endif
 		SDL_TEXTUREACCESS_STREAMING,
-		SCREEN_WIDTH, SCREEN_HEIGHT);
+		SCREEN_WIDTH, SCREEN_HEIGHT));
 	if (!gFrameTex) {
 		std::fprintf(stderr, "SDL_CreateTexture failed: %s\n",
 		             SDL_GetError());
 		ShutdownVideoManager();
 		return FALSE;
 	}
-	SDL_SetTextureScaleMode(gFrameTex, SDL_SCALEMODE_NEAREST);
+	SDL_SetTextureScaleMode(gFrameTex.get(), SDL_SCALEMODE_NEAREST);
 
 	// JA2 renders its own cursor (crosshairs, walk, look, etc.) into
 	// gMouseBuf and we composite it onto the framebuffer below; hide
@@ -371,14 +389,16 @@ void ShutdownVideoManager(void)
 	gFrameBufferStorage.reset();
 	gBackBufferStorage.reset();
 	gMouseBufferStorage.reset();
-	if (gFrameTex) { SDL_DestroyTexture(gFrameTex); gFrameTex = nullptr; }
-	if (gRenderer) { SDL_DestroyRenderer(gRenderer); gRenderer = nullptr; }
-	if (gWindow)   { SDL_DestroyWindow(gWindow);   gWindow   = nullptr; }
+	// SDL resources are hierarchical: texture before renderer, renderer before
+	// window. reset() keeps partial initialization and repeated shutdown safe.
+	gFrameTex.reset();
+	gRenderer.reset();
+	gWindow.reset();
 }
 
 // Exposed so the event pump (sgp.cpp) can map window-space mouse
 // coordinates into the renderer's logical 640x480 space.
-SDL_Renderer* SGP_GetSDLRenderer(void) { return gRenderer; }
+SDL_Renderer* SGP_GetSDLRenderer(void) { return gRenderer.get(); }
 
 void    SuspendVideoManager(void) {}
 BOOLEAN RestoreVideoManager(void) { return TRUE; }
@@ -735,10 +755,10 @@ static void RefreshScreenInternal(bool throttle)
 	// zero (can happen transiently mid-resize on macOS). A render pass
 	// against a 0-sized target fails partway and leaves SDL's
 	// render-command queue inconsistent, which asserts on the next frame.
-	if (SDL_GetWindowFlags(gWindow) & SDL_WINDOW_MINIMIZED) return;
+	if (SDL_GetWindowFlags(gWindow.get()) & SDL_WINDOW_MINIMIZED) return;
 	{
 		int ow = 0, oh = 0;
-		SDL_GetCurrentRenderOutputSize(gRenderer, &ow, &oh);
+		SDL_GetCurrentRenderOutputSize(gRenderer.get(), &ow, &oh);
 		if (ow <= 0 || oh <= 0) return;
 	}
 
@@ -895,7 +915,7 @@ static void RefreshScreenInternal(bool throttle)
 			// Rendering it again may still be required for fades/window exposure,
 			// but no CPU-to-GPU pixel transfer is necessary.
 		} else if (full) {
-			SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
+			SDL_UpdateTexture(gFrameTex.get(), nullptr, gFrameBuffer,
 			                  SCREEN_WIDTH * sizeof(PIXEL));
 			uploadBytes = (Uint64)SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(PIXEL);
 		} else {
@@ -904,7 +924,7 @@ static void RefreshScreenInternal(bool throttle)
 			// stays the full framebuffer row stride so SDL walks each
 			// uploaded row correctly.
 			const PIXEL* src = gFrameBuffer + (size_t)upT * SCREEN_WIDTH + upL;
-			SDL_UpdateTexture(gFrameTex, &r, src, SCREEN_WIDTH * sizeof(PIXEL));
+			SDL_UpdateTexture(gFrameTex.get(), &r, src, SCREEN_WIDTH * sizeof(PIXEL));
 			uploadBytes = (Uint64)(upR - upL) * (upB - upT) * sizeof(PIXEL);
 		}
 
@@ -921,21 +941,21 @@ static void RefreshScreenInternal(bool throttle)
 
 	RestoreCursorPixels();
 
-	SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
-	SDL_RenderClear(gRenderer);
-	SDL_RenderTexture(gRenderer, gFrameTex, nullptr, nullptr);
+	SDL_SetRenderDrawColor(gRenderer.get(), 0, 0, 0, 255);
+	SDL_RenderClear(gRenderer.get());
+	SDL_RenderTexture(gRenderer.get(), gFrameTex.get(), nullptr, nullptr);
 
 	// Smooth GPU fade overlay: a black quad blended over the whole frame at
 	// gFrameFadeAlpha (0 == off). Used by the screen fade (Ja2/Fade Screen.cpp)
 	// instead of the legacy 16bpp stipple/dither fade, which showed as
 	// "pixelated frames" once the frame cap stopped overwriting them instantly.
 	if (gFrameFadeAlpha > 0) {
-		SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, gFrameFadeAlpha);
-		SDL_RenderFillRect(gRenderer, nullptr);
+		SDL_SetRenderDrawBlendMode(gRenderer.get(), SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(gRenderer.get(), 0, 0, 0, gFrameFadeAlpha);
+		SDL_RenderFillRect(gRenderer.get(), nullptr);
 	}
 
-	SDL_RenderPresent(gRenderer);
+	SDL_RenderPresent(gRenderer.get());
 
 	guiFrameBufferState = BUFFER_READY;
 }

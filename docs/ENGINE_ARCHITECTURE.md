@@ -101,6 +101,9 @@ the engine must not contain SDL types in its public domain model.
   facade around that reusable composition root plus legacy settings/options.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
+  Tactical end-turn input is the first production path: it queues an
+  engine-owned value command and drains it at the existing synchronous call
+  boundary before invoking the legacy executor.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
 - `StateStack` represents base screens and modal overlays without scattered
   previous-screen globals.

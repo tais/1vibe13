@@ -35,14 +35,18 @@
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
-#include "../Engine/Core/UniqueResourceHandle.h"
-#include "../Engine/Core/DeterministicCommandQueue.h"
-#include "../Engine/Core/BinaryArchive.h"
-#include "../Engine/Core/StateStack.h"
-#include "../Engine/Core/ContentApi.h"
-#include "../Engine/Core/TimeSource.h"
-#include "../Engine/Core/RandomSource.h"
-#include "../Engine/Core/PersistenceService.h"
+#include <Engine/Core/UniqueResourceHandle.h>
+#include <Engine/Core/UniqueResourcePtr.h>
+#include <Engine/Core/DeterministicCommandQueue.h>
+#include <Engine/Core/CommandDispatch.h>
+#include <Engine/Core/SimulationCommand.h>
+#include <Engine/Core/BinaryArchive.h>
+#include <Engine/Core/StateStack.h>
+#include <Engine/Core/StateTransition.h>
+#include <Engine/Core/ContentApi.h>
+#include <Engine/Core/TimeSource.h>
+#include <Engine/Core/RandomSource.h>
+#include <Engine/Core/PersistenceService.h>
 #include "PlatformFileSystem.h"
 #include "PlatformFramePresenter.h"
 #include "PlatformAssets.h"
@@ -233,6 +237,23 @@ public:
 	}
 };
 
+struct TestPointerResource
+{
+	int value;
+};
+static TestPointerResource* g_releasedPointerResource = nullptr;
+static UINT32 g_pointerResourceReleaseCount = 0;
+struct TestPointerResourceReleaser
+{
+	void operator()(TestPointerResource* value) const
+	{
+		g_releasedPointerResource = value;
+		++g_pointerResourceReleaseCount;
+	}
+};
+using TestPointerResourceOwner =
+	UniqueResourcePtr<TestPointerResource, TestPointerResourceReleaser>;
+
 class FailingAssetSource final : public AssetSource
 {
 protected:
@@ -287,6 +308,8 @@ public:
 	void deactivate() noexcept override
 	{
 		++deactivateCalls;
+		if (deactivationTrace)
+			deactivationTrace->push_back(descriptor_.content.id);
 		if (registryDuringDeactivate)
 			nestedDeactivateResult = registryDuringDeactivate->deactivate( deactivateDuringDeactivate );
 		active_ = false;
@@ -344,6 +367,7 @@ public:
 	std::string deactivateDuringDeactivate;
 	bool nestedDeactivateResult = true;
 	std::vector<std::string>* lifecycleTrace = nullptr;
+	std::vector<std::string>* deactivationTrace = nullptr;
 	bool active() const { return active_; }
 
 private:
@@ -492,6 +516,30 @@ int main( int, char** )
 	}
 
 	{
+		static_assert( !std::is_copy_constructible<TestPointerResourceOwner>::value,
+		               "pointer resource ownership must remain unique" );
+		TestPointerResource firstValue{ 7 };
+		TestPointerResource secondValue{ 9 };
+		g_releasedPointerResource = nullptr;
+		g_pointerResourceReleaseCount = 0;
+		TestPointerResourceOwner first( &firstValue );
+		TestPointerResourceOwner second( std::move( first ) );
+		CHECK( !first && second->value == 7,
+		       "pointer resource move transfers typed ownership" );
+		second.reset( &secondValue );
+		CHECK( g_releasedPointerResource == &firstValue && second.get() == &secondValue,
+		       "pointer resource reset releases the previous API object" );
+		CHECK( second.release() == &secondValue && !second,
+		       "pointer resource release returns an unowned API pointer" );
+		{
+			TestPointerResourceOwner scoped( &firstValue );
+		}
+		CHECK( g_releasedPointerResource == &firstValue &&
+		       g_pointerResourceReleaseCount == 2,
+		       "pointer resource destructor releases exactly once" );
+	}
+
+	{
 		DeterministicCommandQueue<int> commands;
 		commands.enqueue( 20, 200 );
 		commands.enqueue( 10, 100 );
@@ -505,6 +553,46 @@ int main( int, char** )
 		const auto replay = commands.drainThrough( 20 );
 		CHECK( replay.size() == 2 && replay[0].command == 150 && replay[1].command == 200,
 		       "recorded simulation commands replay deterministically" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 5, 50 );
+		commands.enqueue( 3, 30 );
+		commands.enqueue( 8, 80 );
+		std::vector<int> delivered;
+		const std::size_t count = DispatchCommandsThrough(
+			commands, 5,
+			[&delivered]( int command, std::uint64_t, std::uint64_t ) {
+				delivered.push_back( command );
+			} );
+		CHECK( count == 2 && delivered.size() == 2 && delivered[0] == 30 &&
+		       delivered[1] == 50 && commands.size() == 1,
+		       "engine command dispatch delivers ready commands in deterministic order" );
+	}
+
+	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		GameContext context( settings, options );
+		context.commands().enqueue(
+			7, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::LocalPlayer}} );
+		context.commands().enqueue(
+			7, SimulationCommand{EndTurnCommand{3, SimulationCommandSource::NetworkPeer}} );
+		const auto ready = context.commands().drainThrough( 7 );
+		const auto& local = std::get<EndTurnCommand>( ready[0].command );
+		const auto& network = std::get<EndTurnCommand>( ready[1].command );
+		CHECK( ready.size() == 2 && local.nextTeam == 2 && network.nextTeam == 3 &&
+		       local.source == SimulationCommandSource::LocalPlayer &&
+		       network.source == SimulationCommandSource::NetworkPeer,
+		       "engine runtime owns ordered value-only tactical commands" );
+		context.commands().enqueue(
+			8, SimulationCommand{ChangeStanceCommand{17, 2, SimulationCommandSource::LocalPlayer}} );
+		const auto stanceReady = context.commands().drainThrough( 8 );
+		const auto& stance = std::get<ChangeStanceCommand>( stanceReady[0].command );
+		CHECK( stanceReady.size() == 1 && stance.soldierId == 17 && stance.stance == 2 &&
+		       stance.source == SimulationCommandSource::LocalPlayer,
+		       "engine runtime carries value-only soldier stance commands" );
 	}
 
 	{
@@ -546,6 +634,19 @@ int main( int, char** )
 	}
 
 	{
+		StateStack<int> screens;
+		auto overlay = []( int state ) { return state >= 100; };
+		CHECK( ApplyStateTransition( screens, 1, overlay ) == StateTransitionResult::Initialized &&
+		       ApplyStateTransition( screens, 100, overlay ) == StateTransitionResult::OverlayPushed &&
+		       screens.underlay()->state == 1,
+		       "engine state transitions preserve an underlay for overlays" );
+		CHECK( ApplyStateTransition( screens, 1, overlay ) == StateTransitionResult::OverlayPopped &&
+		       screens.current()->state == 1 &&
+		       ApplyStateTransition( screens, 2, overlay ) == StateTransitionResult::Replaced,
+		       "engine state transitions pop overlays and replace base states deterministically" );
+	}
+
+	{
 		ContentRegistry content( ContentApiVersion{ 1, 2 } );
 		CHECK( content.registerContent( ContentManifest{ "core", "0.9.0", { 1, 0 } } ) ==
 		       ContentRegistrationError::None,
@@ -580,6 +681,126 @@ int main( int, char** )
 		const ContentManifest* manifest = content.find( "core" );
 		CHECK( manifest && manifest->version == "0.9.0",
 		       "content registry resolves the validated manifest" );
+		CHECK( content.unregisterContent( "missing" ) == ContentUnregistrationError::NotFound &&
+		       content.unregisterContent( "core" ) == ContentUnregistrationError::None &&
+		       content.find( "core" ) == nullptr && content.manifests().size() == 1 &&
+		       content.manifests().front().id == "forward.requirement" &&
+		       content.find( "forward.requirement" ) == &content.manifests().front(),
+		       "content unregistration preserves manifest order and repairs lookup indices" );
+		CHECK( content.registerContent( ContentManifest{ "core", "0.9.1", { 1, 1 } } ) ==
+		       ContentRegistrationError::None && content.find( "core" )->version == "0.9.1",
+		       "an unregistered content identifier can be registered again" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		TestLifecyclePackage dependency( "unregister.dependency", PackageKind::Rules );
+		TestLifecyclePackage consumer(
+			"unregister.consumer", PackageKind::Extension, -1, nullptr,
+			{{ "unregister.dependency", "" }} );
+		CHECK( packages.registerPackage( dependency ) == PackageRegistrationError::None &&
+		       packages.registerPackage( consumer ) == PackageRegistrationError::None,
+		       "package unregistration fixture registers its dependency graph" );
+		CHECK( packages.unregisterPackage( "unregister.missing" ).error ==
+		       PackageUnregistrationError::NotFound,
+		       "package unregistration reports unknown identifiers" );
+		CHECK( packages.activate( "unregister.consumer" ) == PackageActivationError::None &&
+		       packages.unregisterPackage( "unregister.consumer" ).error ==
+		       PackageUnregistrationError::Active,
+		       "active packages cannot be unregistered" );
+		CHECK( packages.deactivate( "unregister.consumer" ) &&
+		       packages.unregisterPackage( "unregister.dependency" ).error ==
+		       PackageUnregistrationError::Active,
+		       "an active dependency remains protected after its consumer deactivates" );
+		CHECK( packages.deactivate( "unregister.dependency" ),
+		       "package unregistration fixture deactivates its dependency" );
+		const PackageUnregistrationResult blocked =
+			packages.unregisterPackage( "unregister.dependency" );
+		CHECK( blocked.error == PackageUnregistrationError::RequiredByRegisteredPackage &&
+		       blocked.packageId == "unregister.dependency" &&
+		       blocked.dependentId == "unregister.consumer",
+		       "registered dependents prevent unsafe package removal" );
+		CHECK( packages.unregisterPackage( "unregister.consumer" ) &&
+		       packages.unregisterPackage( "unregister.dependency" ) &&
+		       packages.find( "unregister.consumer" ) == nullptr &&
+		       packages.find( "unregister.dependency" ) == nullptr &&
+		       content.find( "unregister.consumer" ) == nullptr &&
+		       content.find( "unregister.dependency" ) == nullptr,
+		       "package unregistration removes both registry and content membership" );
+		CHECK( packages.registerPackage( dependency ) == PackageRegistrationError::None,
+		       "an unregistered package object can be registered again" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		TestLifecyclePackage cycleA(
+			"unregister-cycle.a", PackageKind::Extension, -1, nullptr,
+			{{ "unregister-cycle.b", "" }} );
+		TestLifecyclePackage cycleB(
+			"unregister-cycle.b", PackageKind::Extension, -1, nullptr,
+			{{ "unregister-cycle.a", "" }} );
+		TestLifecyclePackage external(
+			"unregister-cycle.external", PackageKind::Extension, -1, nullptr,
+			{{ "unregister-cycle.a", "" }} );
+		CHECK( packages.registerPackage( cycleA ) == PackageRegistrationError::None &&
+		       packages.registerPackage( cycleB ) == PackageRegistrationError::None &&
+		       packages.registerPackage( external ) == PackageRegistrationError::None,
+		       "batch unregistration fixture registers a cyclic internal graph" );
+		const PackageUnregistrationBatchResult blocked = packages.unregisterPackages({
+			"unregister-cycle.a", "unregister-cycle.b" });
+		CHECK( blocked.error == PackageUnregistrationError::RequiredByRegisteredPackage &&
+		       blocked.packageId == "unregister-cycle.a" &&
+		       blocked.dependentId == "unregister-cycle.external",
+		       "batch unregistration rejects dependents outside the transaction" );
+		CHECK( packages.unregisterPackage( "unregister-cycle.external" ),
+		       "external batch blocker can be removed independently" );
+		const PackageUnregistrationBatchResult removed = packages.unregisterPackages({
+			"unregister-cycle.a", "unregister-cycle.b" });
+		CHECK( removed && removed.unregistered == std::vector<std::string>({
+		       "unregister-cycle.a", "unregister-cycle.b" }) &&
+		       packages.find( "unregister-cycle.a" ) == nullptr &&
+		       packages.find( "unregister-cycle.b" ) == nullptr &&
+		       content.manifests().empty(),
+		       "batch unregistration removes a complete internal dependency cycle atomically" );
+		CHECK( packages.unregisterPackages({}).unregistered.empty(),
+		       "empty batch unregistration is an idempotent transaction" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		TestLifecyclePackage base( "deactivate.base", PackageKind::Rules );
+		TestLifecyclePackage middle(
+			"deactivate.middle", PackageKind::Extension, -1, nullptr,
+			{{ "deactivate.base", "" }} );
+		TestLifecyclePackage leaf(
+			"deactivate.leaf", PackageKind::Extension, -1, nullptr,
+			{{ "deactivate.middle", "" }} );
+		std::vector<std::string> callbacks;
+		base.deactivationTrace = &callbacks;
+		middle.deactivationTrace = &callbacks;
+		leaf.deactivationTrace = &callbacks;
+		CHECK( packages.registerPackage( leaf ) == PackageRegistrationError::None &&
+		       packages.registerPackage( base ) == PackageRegistrationError::None &&
+		       packages.registerPackage( middle ) == PackageRegistrationError::None &&
+		       packages.activate( "deactivate.leaf" ) == PackageActivationError::None,
+		       "bulk package deactivation fixture activates a dependency chain" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::None && packages.deactivateAll().error ==
+		       PackageDeactivationError::BootstrapInProgress,
+		       "bulk package deactivation cannot invalidate live bootstrap resources" );
+		packages.shutdownBootstrap();
+		const PackageDeactivationBatchResult teardown = packages.deactivateAll();
+		CHECK( teardown && teardown.packageId.empty() &&
+		       teardown.deactivated == std::vector<std::string>({
+		       "deactivate.leaf", "deactivate.middle", "deactivate.base" }) &&
+		       callbacks == teardown.deactivated && packages.activationOrder().empty() &&
+		       !base.active() && !middle.active() && !leaf.active(),
+		       "bulk package deactivation unwinds exact reverse activation order" );
+		CHECK( packages.deactivateAll() && packages.activationOrder().empty(),
+		       "bulk package deactivation is idempotent for an empty active set" );
 	}
 
 	{
@@ -1517,6 +1738,16 @@ int main( int, char** )
 		       "soldier vitals component aliases the compatible serialized fields" );
 		CHECK( soldier.sGridNo == 1234 && soldier.pathing.bLevel == 1,
 		       "soldier position component aliases the compatible serialized fields" );
+		vitals.maximumHealth() = 80;
+		vitals.applyLifeDeduction( 20 );
+		CHECK( vitals.health() == 55,
+		       "soldier vitals component applies production life deduction" );
+		vitals.applyLifeDeduction( -50 );
+		CHECK( vitals.health() == 80,
+		       "soldier vitals component caps negative damage at maximum health" );
+		vitals.applyLifeDeduction( 100 );
+		CHECK( !vitals.alive() && vitals.health() == 0,
+		       "soldier vitals component clamps lethal damage to zero" );
 	}
 
 	// MemAlloc round-trip -- exercises the allocator whose 500+ unchecked call
@@ -1604,6 +1835,12 @@ int main( int, char** )
 	{
 		MemoryByteStorage memoryStorage;
 		PersistenceService memoryPersistence( memoryStorage );
+		const std::vector<std::uint8_t> legacyBytes = { 1, 2, 3, 4 };
+		std::vector<std::uint8_t> loadedLegacyBytes;
+		CHECK( memoryPersistence.saveRaw( "legacy", legacyBytes ) &&
+		       memoryPersistence.loadRaw( "legacy", loadedLegacyBytes ) &&
+		       loadedLegacyBytes == legacyBytes,
+		       "persistence service preserves established raw formats byte-for-byte" );
 		std::vector<std::uint8_t> emptyPayload;
 		PersistenceHeader emptyHeader = {};
 		CHECK( memoryPersistence.save( "empty", PersistenceHeader{ 0x454E4730u, 1 }, emptyPayload ) &&

@@ -4,8 +4,10 @@
 #include <cstdint>
 
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageApi.h>
+#include <Engine/Core/SimulationCommand.h>
 #include <Engine/Core/StateStack.h>
 
 enum class EngineLifecycle
@@ -48,6 +50,8 @@ public:
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
 	const PackageRegistry& packages() const { return packages_; }
+	DeterministicCommandQueue<SimulationCommand>& commands() { return commands_; }
+	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commands_; }
 
 	EngineLifecycle lifecycle() const { return lifecycle_; }
 
@@ -91,6 +95,7 @@ private:
 	StateStack<ScreenId> screens_;
 	ContentRegistry content_;
 	PackageRegistry packages_;
+	DeterministicCommandQueue<SimulationCommand> commands_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;
 };
 
