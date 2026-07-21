@@ -8,6 +8,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageMessagePublisher.h>
+#include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageStorage.h>
 #include <Engine/Core/RuntimeMessageBus.h>
 #include <Engine/Core/RuntimeConfiguration.h>
@@ -41,6 +42,7 @@ struct PackageBootstrapContext
 	const RuntimeConfiguration& configuration;
 	PackageStorage& storage;
 	PackageMessagePublisher& messagePublisher;
+	PackageRandomSource& random;
 };
 
 struct PackageDescriptor

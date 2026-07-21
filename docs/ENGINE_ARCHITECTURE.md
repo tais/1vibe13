@@ -238,6 +238,10 @@ the engine must not contain SDL types in its public domain model.
   The registry validates the declarations at registration and checks the
   sealed host catalog before any configure callback, retaining the package,
   service, required version, and available version when preflight fails.
+- `PackageRandomSource` gives each registered package bounded named streams
+  derived from a host seed. Stream state is independent of activation and call
+  order elsewhere, making replay, tests, and subsystem evolution less fragile
+  without changing the legacy game's established random source.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

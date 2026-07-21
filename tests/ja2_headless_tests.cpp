@@ -386,6 +386,11 @@ public:
 			invalidPackagePublishResult = context.messagePublisher.publish(
 				"../invalid", {} );
 		}
+		if (usePackageRandomOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedRandomPackageId = context.random.packageId();
+			packageRandomResult = context.random.next( "bootstrap", 100 );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -446,6 +451,8 @@ public:
 	std::string observedPublisherPackageId;
 	RuntimeMessagePublishResult packagePublishResult;
 	RuntimeMessagePublishResult invalidPackagePublishResult;
+	std::string observedRandomPackageId;
+	PackageRandomResult packageRandomResult;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -455,6 +462,7 @@ public:
 	bool throwOnMessage = false;
 	bool persistOnConfigure = false;
 	bool publishOnConfigure = false;
+	bool usePackageRandomOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -546,6 +554,7 @@ int main( int, char** )
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		package.persistOnConfigure = true;
 		package.publishOnConfigure = true;
+		package.usePackageRandomOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
@@ -570,6 +579,8 @@ int main( int, char** )
 		       package.packagePublishResult &&
 		       package.invalidPackagePublishResult.error ==
 		           RuntimeMessagePublishError::InvalidTopic &&
+		       package.observedRandomPackageId == "lifecycle.complete" &&
+		       package.packageRandomResult && package.packageRandomResult.value < 100 &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );

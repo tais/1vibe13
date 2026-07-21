@@ -4,6 +4,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/FrameDriver.h>
+#include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/StateRegistry.h>
@@ -83,6 +84,22 @@ int main()
 		"compiled core normalizes portable asset paths");
 	check(!NormalizeAssetPath("../Data/secret", path),
 		"compiled core rejects traversal paths");
+	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
+	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
+	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
+	const PackageRandomResult unrelatedLoot = packageRandom.next("loot", 1000);
+	const PackageRandomResult secondCombat = packageRandom.next("combat", 1000);
+	const PackageRandomResult replayFirstCombat = replayRandom.next("combat", 1000);
+	const PackageRandomResult replaySecondCombat = replayRandom.next("combat", 1000);
+	const std::vector<PackageRandomStreamSnapshot> randomSnapshot = packageRandom.snapshot();
+	check(firstCombat && unrelatedLoot && secondCombat && replayFirstCombat &&
+		replaySecondCombat && firstCombat.value == replayFirstCombat.value &&
+		secondCombat.value == replaySecondCombat.value &&
+		!packageRandom.next("invalid/stream", 10) &&
+		packageRandom.next("third", 10).error == PackageRandomError::StreamLimitReached &&
+		randomSnapshot.size() == 2 && randomSnapshot[0].id == "combat" &&
+		randomSnapshot[0].valuesGenerated == 2 && randomSnapshot[1].id == "loot",
+		"package random streams are deterministic, isolated, bounded, and inspectable");
 	RuntimeCapabilities capabilities;
 	check(capabilities.add("engine.rendering") &&
 		capabilities.add("tool.map-editor") &&
