@@ -263,6 +263,10 @@ the engine must not contain SDL types in its public domain model.
   catalog and health, cache statistics, services, sealed configuration,
   capabilities, and queue/tick counters as one pointer-free value. Every
   nested collection preserves an explicit deterministic order.
+- `RuntimeReportService` reduces that snapshot to a privacy-conscious model,
+  serializes bounded deterministic UTF-8 JSON, and writes it through the host
+  persistence adapter. The JA2 application exposes opt-in startup and shutdown
+  captures documented in [Runtime diagnostic reports](RUNTIME_REPORTS.md).
 - `RuntimeCompatibilityFingerprint` streams a schema-tagged platform-stable
   digest over active package contracts and order, service/configuration
   contracts, combined capabilities, and versioned definition bytes. Dynamic
