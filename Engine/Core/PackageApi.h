@@ -93,7 +93,7 @@ public:
 			PackageEntities{id, entities_},
 			PackageAudio{id, audio_},
 			PackageTasks{id, tasks_}, descriptor.localizationSources,
-			descriptor.definitionSources,
+			descriptor.definitionSources, descriptor.saveStateSchemaVersion,
 			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -864,7 +864,8 @@ public:
 					registered->second.requiredServices,
 					registered->second.requiredCapabilities,
 					registered->second.localizationSources,
-					registered->second.definitionSources},
+					registered->second.definitionSources,
+					registered->second.saveStateSchemaVersion},
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
@@ -940,6 +941,7 @@ private:
 		PackageTasks tasks;
 		std::vector<PackageLocalizationSource> localizationSources;
 		std::vector<PackageDefinitionSource> definitionSources;
+		std::uint32_t saveStateSchemaVersion;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;

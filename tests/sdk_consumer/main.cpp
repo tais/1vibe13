@@ -14,6 +14,7 @@ public:
 			PackageKind::Rules,
 			{"rules.external-consumer"}}
 	{
+		descriptor_.saveStateSchemaVersion = 1;
 	}
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
@@ -24,6 +25,16 @@ public:
 		return true;
 	}
 	void deactivate() noexcept override { active_ = false; }
+	bool saveState(PackageBootstrapContext&, std::vector<std::uint8_t>& state) override
+	{
+		state = {1, 2, 3};
+		return true;
+	}
+	bool loadState(PackageBootstrapContext&, std::uint32_t schema,
+		const std::vector<std::uint8_t>& state) override
+	{
+		return schema == 1 && state == std::vector<std::uint8_t>({1, 2, 3});
+	}
 
 private:
 	PackageDescriptor descriptor_;
