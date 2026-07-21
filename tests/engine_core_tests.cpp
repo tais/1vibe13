@@ -349,9 +349,15 @@ int main()
 	const RuntimeCompatibilityFingerprint changedFingerprint =
 		BuildRuntimeCompatibilityFingerprint(fingerprintPackages, fingerprintServices,
 			fingerprintConfiguration, capabilities, changedDefinitions);
+	auto stateSchemaPackages = fingerprintPackages;
+	stateSchemaPackages.packages[0].descriptor.saveStateSchemaVersion = 2;
+	const RuntimeCompatibilityFingerprint stateSchemaFingerprint =
+		BuildRuntimeCompatibilityFingerprint(stateSchemaPackages, fingerprintServices,
+			fingerprintConfiguration, capabilities, fingerprintDefinitions);
 	check(firstFingerprint == repeatedFingerprint &&
-		firstFingerprint != changedFingerprint && firstFingerprint.hex().size() == 40,
-		"runtime fingerprints are deterministic and include versioned definition bytes");
+		firstFingerprint != changedFingerprint && firstFingerprint != stateSchemaFingerprint &&
+		firstFingerprint.hex().size() == 40,
+		"runtime fingerprints include versioned definitions and package save schemas");
 	PackageTaskQueueSnapshot resourceTasks;
 	resourceTasks.queued.push_back(PackageTaskRecord{7, "rules.fingerprint"});
 	const PackageResourceUsageSnapshot resourceUsage = BuildPackageResourceUsage(

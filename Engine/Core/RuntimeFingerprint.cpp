@@ -82,6 +82,7 @@ void AddPackage(FingerprintBuilder& builder, const PackageDescriptor& descriptor
 	AddStrings(builder, manifest.conflicts);
 	AddStrings(builder, manifest.loadAfter);
 	builder.addU64(static_cast<std::uint64_t>(descriptor.kind));
+	builder.addU64(descriptor.saveStateSchemaVersion);
 	AddStrings(builder, descriptor.capabilities);
 	AddStrings(builder, descriptor.messageTopics);
 	AddServiceRequirements(builder, descriptor.requiredServices);

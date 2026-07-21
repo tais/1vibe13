@@ -411,6 +411,8 @@ RuntimeReportJsonResult SerializeRuntimeReportJson(
 				writer.unsignedNumber(package.descriptor.localizationSources.size()) &&
 				writer.key("definitionSources") &&
 				writer.unsignedNumber(package.descriptor.definitionSources.size()) &&
+				writer.key("saveStateSchema") &&
+				writer.unsignedNumber(package.descriptor.saveStateSchemaVersion) &&
 				writer.key("health") && WriteHealth(writer, package.runtimeHealth) &&
 				writer.key("resources") && WriteResources(writer, package.resources) &&
 				writer.endObject();
