@@ -18,8 +18,10 @@
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageLifecycle.h>
+#include <Engine/Core/PackageTaskQueue.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/RuntimeCheckpoint.h>
 #include <Engine/Core/RuntimeDiagnostics.h>
 #include <Engine/Core/RuntimeFaultJournal.h>
 #include <Engine/Core/RuntimeSession.h>
@@ -53,17 +55,22 @@ public:
 		std::size_t definitionEntries = 65536,
 		std::size_t definitionPayloadBytes = 1024u * 1024u,
 		std::size_t maximumEntities = 65536,
-		std::size_t maximumPackageAudioPlaybacks = 1024)
+		std::size_t maximumPackageAudioPlaybacks = 1024,
+		std::size_t maximumQueuedPackageTasks = 1024,
+		std::size_t maximumPackageTasksPerFrame = 64,
+		std::size_t maximumCheckpointPackages = 4096)
 		: content_(supportedContentApi),
 		  audioGroups_(services.audio, maximumPackageAudioPlaybacks),
 		  faultJournal_(runtimeFaultCapacity),
 		  localization_(localizationEntries, localizationTextBytes),
 		  definitions_(definitionEntries, definitionPayloadBytes),
 		  entities_(maximumEntities),
+		  hostCapabilities_(std::move(hostCapabilities)),
+		  packageTasks_(maximumQueuedPackageTasks, maximumPackageTasksPerFrame),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
 		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_,
-		            definitions_, entities_, audioGroups_),
+		            definitions_, entities_, audioGroups_, &hostCapabilities_, packageTasks_),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
@@ -71,7 +78,7 @@ public:
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
 		               runtimeUpdates_, frameTelemetry_, simulationTicks_),
 		  persistence_(packages_.services().storage),
-		  hostCapabilities_(std::move(hostCapabilities))
+		  runtimeCheckpoints_(persistence_, maximumCheckpointPackages)
 	{
 		serviceCatalog_.registerService(
 			"engine.frame-telemetry", EngineServiceVersion{1, 0}, frameTelemetry_);
@@ -93,6 +100,10 @@ public:
 			"engine.entities", EngineServiceVersion{1, 0}, entities_);
 		serviceCatalog_.registerService(
 			"engine.package-audio", EngineServiceVersion{1, 0}, audioGroups_);
+		serviceCatalog_.registerService(
+			"engine.package-tasks", EngineServiceVersion{1, 0}, packageTasks_);
+		serviceCatalog_.registerService(
+			"engine.runtime-checkpoints", EngineServiceVersion{1, 0}, runtimeCheckpoints_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -121,6 +132,12 @@ public:
 			static_cast<std::int64_t>(entities_.maximumEntities()));
 		runtimeConfiguration_.set("engine.package-audio.playback-capacity",
 			static_cast<std::int64_t>(audioGroups_.maximumPlaybacks()));
+		runtimeConfiguration_.set("engine.package-tasks.queue-capacity",
+			static_cast<std::int64_t>(packageTasks_.maximumQueued()));
+		runtimeConfiguration_.set("engine.package-tasks.per-frame-limit",
+			static_cast<std::int64_t>(packageTasks_.maximumPerDrain()));
+		runtimeConfiguration_.set("engine.checkpoints.package-limit",
+			static_cast<std::int64_t>(runtimeCheckpoints_.maximumPackages()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -167,6 +184,14 @@ public:
 	const EntityRegistry& entities() const { return entities_; }
 	AudioGroupService& packageAudio() { return audioGroups_; }
 	const AudioGroupService& packageAudio() const { return audioGroups_; }
+	PackageTaskQueue& packageTasks() { return packageTasks_; }
+	const PackageTaskQueue& packageTasks() const { return packageTasks_; }
+	PackageResourceUsageSnapshot packageResourceUsage() const
+	{
+		return BuildPackageResourceUsage(packages_.catalog(), localization_.snapshot(),
+			definitions_.snapshot(), entities_.snapshot(), audioGroups_.snapshot(),
+			packageTasks_.snapshot(), packages_.randomUsageSnapshot());
+	}
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
@@ -191,14 +216,22 @@ public:
 		capabilities.addAll(packages_.activeCapabilities().ids());
 		return capabilities;
 	}
+	RuntimeCompatibilityFingerprint compatibilityFingerprint() const
+	{
+		return BuildRuntimeCompatibilityFingerprint(
+			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.snapshot(),
+			runtimeCapabilities(), definitions_.snapshot());
+	}
 	RuntimeDiagnosticsSnapshot diagnostics() const
 	{
 		return RuntimeDiagnosticsSnapshot{
 			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
 			packages_.assetCache().statistics(), faultJournal_.snapshot(),
 			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
-			audioGroups_.snapshot(), serviceCatalog_.snapshot(),
+			audioGroups_.snapshot(), packageTasks_.snapshot(), packageResourceUsage(),
+			serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
+			compatibilityFingerprint(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
 	}
@@ -210,6 +243,36 @@ public:
 	}
 	PersistenceService& persistence() { return persistence_; }
 	const PersistenceService& persistence() const { return persistence_; }
+	RuntimeCheckpointService& runtimeCheckpoints() { return runtimeCheckpoints_; }
+	const RuntimeCheckpointService& runtimeCheckpoints() const { return runtimeCheckpoints_; }
+	RuntimeCheckpoint makeRuntimeCheckpoint() const
+	{
+		RuntimeCheckpoint checkpoint;
+		checkpoint.compatibility = compatibilityFingerprint();
+		checkpoint.completedFrames = frameDriver_.completedFrames();
+		checkpoint.completedSimulationTicks = simulationTicks_.completedTickSequence();
+		const PackageCatalogSnapshot catalog = packages_.catalog();
+		checkpoint.activePackages.reserve(catalog.activationOrder.size());
+		for (const std::string& packageId : catalog.activationOrder)
+		{
+			const PackageCatalogEntry* package = catalog.find(packageId);
+			checkpoint.activePackages.push_back(RuntimeCheckpointPackage{
+				packageId, package ? package->descriptor.content.version : std::string{}});
+		}
+		return checkpoint;
+	}
+	RuntimeCheckpointSaveError saveRuntimeCheckpoint(const std::string& path) const noexcept
+	{
+		try { return runtimeCheckpoints_.save(path, makeRuntimeCheckpoint()); }
+		catch (...) { return RuntimeCheckpointSaveError::StorageError; }
+	}
+	RuntimeCheckpointLoadResult loadRuntimeCheckpoint(
+		const std::string& path, RuntimeCheckpoint& checkpoint) const noexcept
+	{
+		try { return runtimeCheckpoints_.load(path, compatibilityFingerprint(), checkpoint); }
+		catch (...) { return RuntimeCheckpointLoadResult{
+			RuntimeCheckpointLoadError::StorageError, {}}; }
+	}
 
 	EngineLifecycle lifecycle() const { return runtimeSession_.lifecycle(); }
 	bool beginInitialization() { return runtimeSession_.beginInitialization(); }
@@ -230,6 +293,8 @@ private:
 	LocalizationCatalog localization_;
 	DefinitionCatalog definitions_;
 	EntityRegistry entities_;
+	RuntimeCapabilities hostCapabilities_;
+	PackageTaskQueue packageTasks_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;
@@ -239,7 +304,7 @@ private:
 	FrameTelemetry frameTelemetry_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
-	RuntimeCapabilities hostCapabilities_;
+	RuntimeCheckpointService runtimeCheckpoints_;
 };
 
 #endif

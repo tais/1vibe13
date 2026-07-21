@@ -52,6 +52,19 @@ int main()
 		host.packages().activate("external.rules") != PackageActivationError::None ||
 		!host.hasCapability("host.external-consumer") ||
 		!host.hasCapability("rules.external-consumer")) return 2;
+	const RuntimeCompatibilityFingerprint fingerprint = host.compatibilityFingerprint();
+	if (fingerprint.hex().size() != 40 ||
+		fingerprint != host.diagnostics().compatibility) return 8;
+	const PackageResourceUsageSnapshot resources = host.packageResourceUsage();
+	const PackageResourceUsage* packageResources = resources.find("external.rules");
+	if (!packageResources || !packageResources->active ||
+		resources.unattributedRecords != 0) return 9;
+	if (host.saveRuntimeCheckpoint("external.checkpoint") !=
+		RuntimeCheckpointSaveError::None) return 10;
+	RuntimeCheckpoint checkpoint;
+	if (!host.loadRuntimeCheckpoint("external.checkpoint", checkpoint) ||
+		checkpoint.activePackages.size() != 1 ||
+		checkpoint.activePackages[0].id != "external.rules") return 11;
 
 	const std::vector<std::uint8_t> saved{2, 3, 5, 7};
 	if (host.persistence().saveEnvelope(

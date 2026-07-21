@@ -148,10 +148,10 @@ static std::string PackageFixtureManifest(
 	const std::string& id, const std::string& requirements = {},
 	const std::string& assetRoot = "Data", const std::string& optionalRequirements = {},
 	const std::string& conflicts = {}, const std::string& loadAfter = {},
-	const std::string& capabilities = {} )
+	const std::string& capabilities = {}, const std::string& requiredCapabilities = {} )
 {
 	const bool policyV2 = !optionalRequirements.empty() || !conflicts.empty() ||
-		!loadAfter.empty() || !capabilities.empty();
+		!loadAfter.empty() || !capabilities.empty() || !requiredCapabilities.empty();
 	std::string manifest =
 		"[Package]\n"
 		"MANIFEST_VERSION = " + std::string( policyV2 ? "2" : "1" ) + "\n"
@@ -167,6 +167,8 @@ static std::string PackageFixtureManifest(
 	if ( !conflicts.empty() ) manifest += "CONFLICTS = " + conflicts + "\n";
 	if ( !loadAfter.empty() ) manifest += "LOAD_AFTER = " + loadAfter + "\n";
 	if ( !capabilities.empty() ) manifest += "CAPABILITIES = " + capabilities + "\n";
+	if ( !requiredCapabilities.empty() )
+		manifest += "REQUIRED_CAPABILITIES = " + requiredCapabilities + "\n";
 	return manifest;
 }
 
@@ -420,6 +422,12 @@ public:
 			invalidPackageAudioPlayResult = context.audio.play(
 				"invalid/group", AudioPlaybackRequest{ "Audio/Invalid.wav" } );
 		}
+		if (deferTasksOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedTasksPackageId = context.tasks.packageId();
+			packageTaskResult = context.tasks.defer([this] { ++deferredTaskRuns; });
+			throwingPackageTaskResult = context.tasks.defer([] { throw "test deferred task"; });
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -499,6 +507,10 @@ public:
 	std::string observedAudioPackageId;
 	PackageAudioPlayResult packageAudioPlayResult;
 	PackageAudioPlayResult invalidPackageAudioPlayResult;
+	std::string observedTasksPackageId;
+	PackageTaskScheduleResult packageTaskResult;
+	PackageTaskScheduleResult throwingPackageTaskResult;
+	unsigned deferredTaskRuns = 0;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -514,6 +526,7 @@ public:
 	bool defineOnConfigure = false;
 	bool createEntityOnConfigure = false;
 	bool playAudioOnConfigure = false;
+	bool deferTasksOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -532,6 +545,10 @@ public:
 	void setRequiredServices(std::vector<EngineServiceRequirement> requirements)
 	{
 		descriptor_.requiredServices = std::move(requirements);
+	}
+	void setRequiredCapabilities(std::vector<std::string> requirements)
+	{
+		descriptor_.requiredCapabilities = std::move(requirements);
 	}
 	bool active() const { return active_; }
 
@@ -603,7 +620,10 @@ int main( int, char** )
 			storage, NullLogSink::instance(), input,
 			audio, NullFramePresenter::instance(),
 			NullAssetSource::instance()};
-		EngineHost<unsigned> host( services );
+		RuntimeCapabilities hostCapabilities;
+		hostCapabilities.add( "host.headless" );
+		EngineHost<unsigned> host( services, CurrentContentApiVersion,
+			NullPackageEventSink::instance(), hostCapabilities );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		package.persistOnConfigure = true;
 		package.publishOnConfigure = true;
@@ -612,9 +632,11 @@ int main( int, char** )
 		package.defineOnConfigure = true;
 		package.createEntityOnConfigure = true;
 		package.playAudioOnConfigure = true;
+		package.deferTasksOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
+		package.setRequiredCapabilities({ "host.headless" });
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
@@ -660,9 +682,24 @@ int main( int, char** )
 		           PackageAudioPlayError::InvalidGroup &&
 		       audio.isPlaying( package.packageAudioPlayResult.playback ) &&
 		       host.packageAudio().size() == 1 &&
+		       package.observedTasksPackageId == "lifecycle.complete" &&
+		       package.packageTaskResult && package.throwingPackageTaskResult &&
+		       package.deferredTaskRuns == 0 && host.packageTasks().size() == 2 &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
+		       catalogPackage->descriptor.requiredCapabilities ==
+		           std::vector<std::string>({ "host.headless" }) &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		const PackageResourceUsageSnapshot resources = host.packageResourceUsage();
+		const PackageResourceUsage* packageResources = resources.find( "lifecycle.complete" );
+		CHECK( packageResources && packageResources->active &&
+		       packageResources->localizationEntries == 1 &&
+		       packageResources->definitionEntries == 1 && packageResources->entities == 1 &&
+		       packageResources->audioPlaybacks == 1 && packageResources->deferredTasks == 2 &&
+		       packageResources->randomStreams == 1 &&
+		       packageResources->randomValuesGenerated == 1 &&
+		       resources.unattributedRecords == 0,
+		       "live diagnostics attribute framework resource use to its owning package" );
 		PersistenceHeader packageHeader{};
 		std::vector<std::uint8_t> packagePayload;
 		PackageStorage otherPackageStorage( "other.package", host.persistence() );
@@ -695,6 +732,12 @@ int main( int, char** )
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
 		       "runtime-started packages receive deterministic per-frame engine updates" );
+		const PackageTaskQueueSnapshot taskSnapshot = host.packageTasks().snapshot();
+		CHECK( package.deferredTaskRuns == 1 && taskSnapshot.queued.empty() &&
+		       taskSnapshot.summary.executed == 1 && taskSnapshot.summary.failed == 1 &&
+		       host.runtimeFaults().snapshot().records.back().kind ==
+		           RuntimeFaultKind::DeferredTask,
+		       "package deferred work runs at the frame boundary and contains failures" );
 		const FrameTelemetrySnapshot telemetry = host.frameTelemetry().snapshot();
 		CHECK( telemetry.summary.completedFrames == 1 && telemetry.samples.size() == 1 &&
 		       telemetry.samples[0].sequence == frame.sequence &&
@@ -710,6 +753,21 @@ int main( int, char** )
 		       package.simulationTicks[0].sequence == 1 &&
 		       package.simulationTicks[1].simulatedTimeMicroseconds == 33334,
 		       "live packages receive fixed-step ticks independently of render updates" );
+		const RuntimeCheckpoint expectedCheckpoint = host.makeRuntimeCheckpoint();
+		RuntimeCheckpoint loadedCheckpoint;
+		const RuntimeCheckpointSaveError savedCheckpoint =
+			host.saveRuntimeCheckpoint( "runtime/headless-checkpoint" );
+		const RuntimeCheckpointLoadResult loadedCheckpointResult =
+			host.loadRuntimeCheckpoint( "runtime/headless-checkpoint", loadedCheckpoint );
+		CHECK( savedCheckpoint == RuntimeCheckpointSaveError::None &&
+		       loadedCheckpointResult &&
+		       loadedCheckpoint.compatibility == expectedCheckpoint.compatibility &&
+		       loadedCheckpoint.completedFrames == 2 &&
+		       loadedCheckpoint.completedSimulationTicks == 2 &&
+		       loadedCheckpoint.activePackages.size() == 1 &&
+		       loadedCheckpoint.activePackages[0].id == "lifecycle.complete" &&
+		       loadedCheckpoint.activePackages[0].version == "1.0",
+		       "live host persists a compatibility-gated package and progress checkpoint" );
 		CHECK( host.beginInitialization() && host.markRunning() && host.beginShutdown(),
 		       "runtime package test enters an orderly engine shutdown" );
 		const RuntimeSessionShutdownResult stopped = host.runtimeSession().shutdownPackages();
@@ -723,6 +781,33 @@ int main( int, char** )
 		       host.packageAudio().size() == 0 &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
+	}
+
+	{
+		EngineHost<unsigned> capabilityHost;
+		TestLifecyclePackage missing( "capabilities.missing", PackageKind::Rules );
+		missing.setRequiredCapabilities({ "host.not-installed" });
+		TestLifecyclePackage invalid( "capabilities.invalid", PackageKind::Rules );
+		invalid.setRequiredCapabilities({ "host.duplicate", "host.duplicate" });
+		CHECK( capabilityHost.packages().registerPackage( invalid ) ==
+		           PackageRegistrationError::InvalidManifest &&
+		       capabilityHost.packages().registerPackage( missing ) ==
+		           PackageRegistrationError::None &&
+		       capabilityHost.packages().activate( "capabilities.missing" ) ==
+		           PackageActivationError::None,
+		       "capability contracts validate portable unique requirement lists" );
+		const RuntimeSessionAdvanceResult result =
+			capabilityHost.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageCapabilityContractFailure& failure =
+			capabilityHost.packages().lastCapabilityContractFailure();
+		const RuntimeFaultSnapshot faults = capabilityHost.runtimeFaults().snapshot();
+		CHECK( !result && result.packages.error == PackageBootstrapError::MissingCapability &&
+		       missing.bootstrapCalls.empty() && failure &&
+		       failure.packageId == "capabilities.missing" &&
+		       failure.capabilityId == "host.not-installed" &&
+		       faults.records.size() == 1 &&
+		       faults.records[0].kind == RuntimeFaultKind::CapabilityContract,
+		       "missing runtime capabilities fail before package code with diagnostics" );
 	}
 
 	{
@@ -777,6 +862,7 @@ int main( int, char** )
 		TestLifecyclePackage package(
 			"lifecycle.rollback", PackageKind::Rules,
 			static_cast<int>(PackageBootstrapPhase::LoadContent) );
+		package.deferTasksOnConfigure = true;
 		host.packages().registerPackage( package );
 		host.packages().activate( "lifecycle.rollback" );
 		const PackageLifecycleAdvanceResult failed =
@@ -784,7 +870,8 @@ int main( int, char** )
 		CHECK( !failed && failed.error == PackageBootstrapError::CallbackFailed &&
 		       failed.phase == PackageBootstrapPhase::LoadContent && failed.rolledBack &&
 		       failed.completedPhases == 0 &&
-		       package.shutdownCalls == std::vector<int>({ 1, 0 }),
+		       package.shutdownCalls == std::vector<int>({ 1, 0 }) &&
+		       package.deferredTaskRuns == 0 && host.packageTasks().size() == 0,
 		       "package lifecycle unwinds all earlier phases after a later startup failure" );
 		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
 		CHECK( stopped && stopped.shutdownPhases == 0 && package.deactivateCalls == 1,
@@ -2367,11 +2454,14 @@ int main( int, char** )
 		RecordingPackageAssetMounter mounter;
 		const bool fixtureReady =
 			AddPackageFixture( fixture, "a-base", "fixture.policy-base" ) &&
-			AddPackageFixture( fixture, "b-peer", "fixture.policy-peer" ) &&
+			fixture.makeDirectory( "b-peer/Data" ) &&
+			fixture.write( "b-peer/package.ini", PackageFixtureManifest(
+				"fixture.policy-peer", {}, "Data", {}, {}, {}, "feature.peer" ) ) &&
 			fixture.makeDirectory( "c-consumer/Data" ) &&
 			fixture.write( "c-consumer/package.ini", PackageFixtureManifest(
 				"fixture.policy-consumer", {}, "Data", "fixture.policy-base@1.0.0",
-				{}, "fixture.policy-peer", "feature.dynamic-weather, feature.new-ai" ) );
+				{}, "fixture.policy-peer", "feature.dynamic-weather, feature.new-ai",
+				"feature.peer" ) );
 		PackageStartupOptions options;
 		options.enabled = true;
 		options.roots = { fixture.root() };
@@ -2382,11 +2472,18 @@ int main( int, char** )
 		       "fixture.policy-base", "fixture.policy-peer", "fixture.policy-consumer" }) &&
 		       mounter.preflighted == result.activated && mounter.mounted == result.activated,
 		       "Data Package v2 parses optional dependencies and deterministic LOAD_AFTER policy" );
-		CHECK( runtime.hasCapability( "feature.dynamic-weather" ) &&
+		CHECK( runtime.hasCapability( "feature.peer" ) &&
+		       runtime.hasCapability( "feature.dynamic-weather" ) &&
 		       runtime.hasCapability( "feature.new-ai" ) &&
 		       runtime.runtimeCapabilities().ids() == std::vector<std::string>({
-		       "feature.dynamic-weather", "feature.new-ai" }),
+		       "feature.peer", "feature.dynamic-weather", "feature.new-ai" }),
 		       "active data packages contribute portable runtime capabilities" );
+		const PackageCatalogSnapshot policyCatalog = runtime.packageCatalog();
+		const PackageCatalogEntry* consumer =
+			policyCatalog.find( "fixture.policy-consumer" );
+		CHECK( consumer && consumer->descriptor.requiredCapabilities ==
+		           std::vector<std::string>({ "feature.peer" }),
+		       "Data Package v2 retains required capability contracts for bootstrap preflight" );
 	}
 
 	{

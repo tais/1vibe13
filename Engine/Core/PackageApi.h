@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -16,6 +17,7 @@
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageResults.h>
+#include <Engine/Core/PackageResourceUsage.h>
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/RuntimeCapabilities.h>
@@ -39,7 +41,9 @@ public:
 		LocalizationCatalog& localization = LocalizationCatalog::disabled(),
 		DefinitionCatalog& definitions = DefinitionCatalog::disabled(),
 		EntityRegistry& entities = EntityRegistry::disabled(),
-		AudioGroupService& audio = AudioGroupService::disabled())
+		AudioGroupService& audio = AudioGroupService::disabled(),
+		const RuntimeCapabilities* hostCapabilities = nullptr,
+		PackageTaskQueue& tasks = PackageTaskQueue::disabled())
 		: content_(content), assets_(services.assets),
 		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
 		  services_(withAssets(services, assetCache_)),
@@ -49,6 +53,8 @@ public:
 		  definitions_(definitions),
 		  entities_(entities),
 		  audio_(audio),
+		  hostCapabilities_(hostCapabilities),
+		  tasks_(tasks),
 		  packageRandomSeed_(packageRandomSeed),
 		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
 
@@ -68,7 +74,8 @@ public:
 		const std::string& id = descriptor.content.id;
 		if (!RuntimeCapabilities::isValidList(descriptor.capabilities) ||
 			!RuntimeCapabilities::isValidList(descriptor.messageTopics) ||
-			!ServiceCatalog::isValidRequirements(descriptor.requiredServices))
+			!ServiceCatalog::isValidRequirements(descriptor.requiredServices) ||
+			!RuntimeCapabilities::isValidList(descriptor.requiredCapabilities))
 			return PackageRegistrationError::InvalidManifest;
 		if (packages_.find(id) != packages_.end()) return PackageRegistrationError::DuplicateId;
 		const auto inserted = packages_.emplace(id, RegisteredPackage{&package, descriptor.kind,
@@ -76,6 +83,7 @@ public:
 			descriptor.content.optionalRequirements, descriptor.content.conflicts,
 			descriptor.content.loadAfter, descriptor.capabilities,
 			descriptor.messageTopics, descriptor.requiredServices,
+			descriptor.requiredCapabilities,
 			PackageStorage{id, packagePersistence_},
 			PackageMessagePublisher{id, messages_},
 			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_},
@@ -83,6 +91,7 @@ public:
 			PackageDefinitions{id, definitions_},
 			PackageEntities{id, entities_},
 			PackageAudio{id, audio_},
+			PackageTasks{id, tasks_},
 			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -175,6 +184,7 @@ public:
 			definitions_.removePackage(id);
 			entities_.removePackage(id);
 			audio_.releasePackage(id);
+			tasks_.removePackage(id);
 			packages_.erase(id);
 			emit(PackageEventKind::Unregistered, id);
 		}
@@ -559,6 +569,8 @@ public:
 		{
 			const PackageBootstrapError serviceContracts = preflightServiceContracts();
 			if (serviceContracts != PackageBootstrapError::None) return serviceContracts;
+			const PackageBootstrapError capabilityContracts = preflightCapabilityContracts();
+			if (capabilityContracts != PackageBootstrapError::None) return capabilityContracts;
 		}
 
 		for (std::size_t index = 0; index < active_.size(); ++index)
@@ -608,6 +620,7 @@ public:
 					definitions_.removePackage(active_[rollback - 1]);
 					entities_.removePackage(active_[rollback - 1]);
 					audio_.releasePackage(active_[rollback - 1]);
+					tasks_.removePackage(active_[rollback - 1]);
 				}
 				emit(rolledBack ? PackageEventKind::BootstrapRollbackCompleted
 				                : PackageEventKind::BootstrapRollbackFailed,
@@ -648,6 +661,7 @@ public:
 					definitions_.removePackage(*package);
 					entities_.removePackage(*package);
 					audio_.releasePackage(*package);
+					tasks_.removePackage(*package);
 				}
 				emit(shutDown ? PackageEventKind::ShutdownCompleted
 				              : PackageEventKind::ShutdownFailed,
@@ -685,6 +699,12 @@ public:
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
+		tasks_.drain([this](const PackageTaskRecord& task, std::uint64_t failure)
+		{
+			faults_.record(RuntimeFaultKind::DeferredTask, task.packageId,
+				"deferred-task", failure);
+			logError("Deferred package task threw: ", task.packageId);
+		});
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
@@ -792,6 +812,29 @@ public:
 		return capabilities;
 	}
 
+	std::vector<PackageRandomUsageSnapshot> randomUsageSnapshot() const
+	{
+		std::vector<PackageRandomUsageSnapshot> result;
+		result.reserve(content_.manifests().size());
+		for (const ContentManifest& manifest : content_.manifests())
+		{
+			const auto registered = packages_.find(manifest.id);
+			if (registered == packages_.end()) continue;
+			const std::vector<PackageRandomStreamSnapshot> streams =
+				registered->second.random.snapshot();
+			std::uint64_t generated = 0;
+			for (const PackageRandomStreamSnapshot& stream : streams)
+			{
+				const std::uint64_t maximum = std::numeric_limits<std::uint64_t>::max();
+				generated = stream.valuesGenerated > maximum - generated
+					? maximum : generated + stream.valuesGenerated;
+			}
+			result.push_back(PackageRandomUsageSnapshot{
+				manifest.id, static_cast<std::uint64_t>(streams.size()), generated});
+		}
+		return result;
+	}
+
 	const std::string& activeCampaign() const { return activeCampaign_; }
 	const std::vector<std::string>& activationOrder() const { return active_; }
 	std::size_t completedBootstrapPhases() const { return completedBootstrapPhases_; }
@@ -816,7 +859,8 @@ public:
 			PackageCatalogEntry entry{
 				PackageDescriptor{manifest, registered->second.kind,
 					registered->second.capabilities, registered->second.messageTopics,
-					registered->second.requiredServices},
+					registered->second.requiredServices,
+					registered->second.requiredCapabilities},
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
@@ -852,6 +896,10 @@ public:
 	{
 		return lastServiceContractFailure_;
 	}
+	const PackageCapabilityContractFailure& lastCapabilityContractFailure() const
+	{
+		return lastCapabilityContractFailure_;
+	}
 
 private:
 	class OperationGuard
@@ -877,6 +925,7 @@ private:
 		std::vector<std::string> capabilities;
 		std::vector<std::string> messageTopics;
 		std::vector<EngineServiceRequirement> requiredServices;
+		std::vector<std::string> requiredCapabilities;
 		PackageStorage storage;
 		PackageMessagePublisher messagePublisher;
 		PackageRandomSource random;
@@ -884,6 +933,7 @@ private:
 		PackageDefinitions definitions;
 		PackageEntities entities;
 		PackageAudio audio;
+		PackageTasks tasks;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -966,6 +1016,8 @@ private:
 			registered.assetsMounted = false;
 		}
 		const bool wasCampaign = activeCampaign_ == packageId;
+		// Drop callbacks before package-owned state may be released by deactivate.
+		tasks_.removePackage(packageId);
 		registered.package->deactivate();
 		localization_.removePackage(packageId);
 		definitions_.removePackage(packageId);
@@ -1076,7 +1128,7 @@ private:
 			content_, services_, messages_, extensionServices_, configuration_,
 			registered.storage, registered.messagePublisher, registered.random,
 			registered.localization, registered.definitions, registered.entities,
-			registered.audio};
+			registered.audio, registered.tasks};
 	}
 
 	PackageBootstrapError preflightServiceContracts()
@@ -1104,6 +1156,29 @@ private:
 		return PackageBootstrapError::None;
 	}
 
+	PackageBootstrapError preflightCapabilityContracts()
+	{
+		lastCapabilityContractFailure_ = {};
+		for (const std::string& packageId : active_)
+		{
+			const RegisteredPackage& package = packages_.at(packageId);
+			for (const std::string& requirement : package.requiredCapabilities)
+			{
+				const bool available =
+					(hostCapabilities_ && hostCapabilities_->contains(requirement)) ||
+					hasCapability(requirement);
+				if (available) continue;
+				lastCapabilityContractFailure_ =
+					PackageCapabilityContractFailure{packageId, requirement};
+				faults_.record(RuntimeFaultKind::CapabilityContract, packageId,
+					"capability-preflight", 1);
+				logError("Required runtime capability unavailable for package: ", packageId);
+				return PackageBootstrapError::MissingCapability;
+			}
+		}
+		return PackageBootstrapError::None;
+	}
+
 	ContentRegistry& content_;
 	CompositeAssetSource assets_;
 	CachingAssetSource assetCache_;
@@ -1118,6 +1193,8 @@ private:
 	DefinitionCatalog& definitions_;
 	EntityRegistry& entities_;
 	AudioGroupService& audio_;
+	const RuntimeCapabilities* hostCapabilities_;
+	PackageTaskQueue& tasks_;
 	std::uint64_t packageRandomSeed_;
 	std::size_t packageRandomStreamLimit_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
@@ -1125,6 +1202,7 @@ private:
 	std::string activeCampaign_;
 	std::size_t completedBootstrapPhases_ = 0;
 	PackageServiceContractFailure lastServiceContractFailure_;
+	PackageCapabilityContractFailure lastCapabilityContractFailure_;
 	bool operationInProgress_ = false;
 	static constexpr std::size_t bootstrapPhaseCount_ = 3;
 };

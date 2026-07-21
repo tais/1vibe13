@@ -104,6 +104,18 @@ overlay results. Oversized assets still load normally but are not retained.
 launchers, automated bug reports, and headless assertions. It combines package
 health, frame timing, cache behavior, host contracts, capabilities, and live
 queue counters without exposing application-owned objects or mutable services.
+Its compatibility fingerprint is also available directly from
+`EngineHost::compatibilityFingerprint()`. Compare the schema and both hash words
+before loading portable saves/replays or joining a deterministic session. A
+different result identifies a package, contract, capability, configuration, or
+versioned-definition mismatch; it is diagnostic rather than a security proof.
+
+`EngineHost::saveRuntimeCheckpoint` writes that identity together with active
+package IDs/versions and completed frame/tick counters through the bounded
+checksummed persistence envelope. `loadRuntimeCheckpoint` publishes metadata
+only after integrity, schema, bounds, package identity, and current-runtime
+compatibility all pass. It is a preflight manifest for domain save/replay data,
+not yet a replacement serializer for JA2's tactical or strategic state.
 
 The host also publishes `engine.runtime-faults`. Each contained package
 failure receives a monotonic record with package ID, callback, kind, and
@@ -136,3 +148,25 @@ asset path, may stop or retune only their own group, and cannot exceed the
 host's sealed playback capacity. Configure rollback and package shutdown stop
 all remaining owned playback. Existing game audio remains on direct
 `AudioOutput` adapters while it is migrated incrementally.
+
+Packages may declare `requiredCapabilities` alongside contributed
+`capabilities`. The host validates the list at registration and preflights each
+requirement against host and active-package capabilities before the first
+bootstrap callback. A missing feature produces a structured package/capability
+failure and a fault-journal record instead of forcing mod code to inspect build
+targets or global campaign state.
+
+Use `PackageBootstrapContext::tasks.defer` for small pieces of package-owned
+main-thread work that should run on a later frame. The queue and per-frame drain
+are bounded host configuration, recursively deferred work cannot loop in the
+same frame, and thrown callbacks are contained in runtime diagnostics. Pending
+callbacks are cancelled automatically during rollback or package teardown;
+packages must still avoid capturing objects with shorter lifetimes than their
+own active lifecycle.
+
+`EngineHost::packageResourceUsage()` and the unified diagnostics snapshot
+attribute live framework resources to every registered package in deterministic
+catalog order. Use the per-package counts/byte totals to diagnose runaway mods,
+tune host capacities, and verify teardown; a non-zero `unattributedRecords`
+value signals an ownership invariant violation that should be treated as an
+engine bug.

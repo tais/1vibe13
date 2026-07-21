@@ -200,6 +200,23 @@ int main()
 		!groupedAudioOutput.isPlaying(firstGroupedPlayback.playback) &&
 		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback),
 		"package audio teardown stops every playback owned by the package");
+	PackageTaskQueue deferredTasks(2, 1);
+	PackageTasks boundTasks("mod.tasks", deferredTasks);
+	unsigned deferredRuns = 0;
+	const PackageTaskScheduleResult firstTask = boundTasks.defer([&]
+	{
+		++deferredRuns;
+		boundTasks.defer([&] { ++deferredRuns; });
+	});
+	const PackageTaskScheduleResult secondTask = boundTasks.defer([] { throw 1; });
+	const PackageTaskDrainResult firstDrain = deferredTasks.drain();
+	check(firstTask && secondTask && firstTask.sequence < secondTask.sequence &&
+		firstDrain.attempted == 1 && firstDrain.executed == 1 &&
+		firstDrain.deferred == 2 && deferredRuns == 1,
+		"package task drains are bounded and defer recursively scheduled work");
+	check(deferredTasks.removePackage("mod.tasks") == 2 && deferredTasks.size() == 0 &&
+		deferredTasks.snapshot().summary.cancelled == 2,
+		"package task teardown cancels every queued callback owned by the package");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -224,6 +241,55 @@ int main()
 		capabilities.ids() == std::vector<std::string>({
 			"engine.rendering", "tool.map-editor"}),
 		"runtime capabilities are portable, unique, and deterministically ordered");
+	PackageCatalogSnapshot fingerprintPackages;
+	fingerprintPackages.supportedApi = ContentApiVersion{1, 3};
+	fingerprintPackages.activationOrder = {"rules.fingerprint"};
+	fingerprintPackages.packages.push_back(PackageCatalogEntry{
+		PackageDescriptor{
+			ContentManifest{"rules.fingerprint", "2.0", ContentApiVersion{1, 3}},
+			PackageKind::Rules, {"rules.fingerprint"}},
+		PackageLifecycleState::Active, false, 0, {}, {}});
+	const std::vector<EngineServiceDescriptor> fingerprintServices{
+		{"engine.test", EngineServiceVersion{1, 2}}};
+	const std::vector<RuntimeConfigurationEntry> fingerprintConfiguration{
+		{"engine.test-value", std::int64_t{42}}};
+	const std::vector<DefinitionRecord> fingerprintDefinitions{
+		{"rules.fingerprint", "item", "medkit", 1, {4, 2}}};
+	const RuntimeCompatibilityFingerprint firstFingerprint =
+		BuildRuntimeCompatibilityFingerprint(fingerprintPackages, fingerprintServices,
+			fingerprintConfiguration, capabilities, fingerprintDefinitions);
+	const RuntimeCompatibilityFingerprint repeatedFingerprint =
+		BuildRuntimeCompatibilityFingerprint(fingerprintPackages, fingerprintServices,
+			fingerprintConfiguration, capabilities, fingerprintDefinitions);
+	auto changedDefinitions = fingerprintDefinitions;
+	changedDefinitions[0].payload[1] = 3;
+	const RuntimeCompatibilityFingerprint changedFingerprint =
+		BuildRuntimeCompatibilityFingerprint(fingerprintPackages, fingerprintServices,
+			fingerprintConfiguration, capabilities, changedDefinitions);
+	check(firstFingerprint == repeatedFingerprint &&
+		firstFingerprint != changedFingerprint && firstFingerprint.hex().size() == 40,
+		"runtime fingerprints are deterministic and include versioned definition bytes");
+	PackageTaskQueueSnapshot resourceTasks;
+	resourceTasks.queued.push_back(PackageTaskRecord{7, "rules.fingerprint"});
+	const PackageResourceUsageSnapshot resourceUsage = BuildPackageResourceUsage(
+		fingerprintPackages,
+		std::vector<LocalizationEntry>{{"rules.fingerprint", "en", "ui.ready", "Ready"}},
+		fingerprintDefinitions,
+		std::vector<EntityRecordSnapshot>{{EntityId{1, 1}, "rules.fingerprint", "unit"}},
+		std::vector<PackageAudioPlaybackSnapshot>{{3, "rules.fingerprint", "ui", "a.wav", 90}},
+		resourceTasks,
+		std::vector<PackageRandomUsageSnapshot>{{"rules.fingerprint", 2, 11}});
+	const PackageResourceUsage* packageUsage = resourceUsage.find("rules.fingerprint");
+	check(packageUsage && packageUsage->active &&
+		packageUsage->localizationEntries == 1 &&
+		packageUsage->localizationTextBytes == 5 &&
+		packageUsage->definitionEntries == 1 &&
+		packageUsage->definitionPayloadBytes == 2 && packageUsage->entities == 1 &&
+		packageUsage->audioPlaybacks == 1 && packageUsage->deferredTasks == 1 &&
+		packageUsage->randomStreams == 2 && packageUsage->randomValuesGenerated == 11 &&
+		resourceUsage.total.definitionEntries == 1 &&
+		resourceUsage.unattributedRecords == 0,
+		"package resource accounting attributes owned framework state and totals");
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;
@@ -250,7 +316,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 11 &&
+		sessionHost.serviceCatalog().size() == 13 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -269,7 +335,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 15,
+		sessionHost.configuration().size() == 18,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
@@ -277,8 +343,10 @@ int main()
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
-		diagnostics.services.size() == 11 &&
-		diagnostics.configuration.size() == 15 &&
+		diagnostics.packageTasks.queued.empty() &&
+		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 13 &&
+		diagnostics.configuration.size() == 18 &&
+		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");
@@ -504,6 +572,34 @@ int main()
 	check(persistence.saveEnvelope("too-large", PersistenceHeader{1, 1},
 		std::vector<std::uint8_t>(9, 0)) == PersistenceSaveResult::TooLarge,
 		"compiled persistence rejects payloads above the configured bound");
+	MemoryByteStorage checkpointStorage;
+	PersistenceService checkpointPersistence(checkpointStorage, 4096);
+	RuntimeCheckpointService checkpoints(checkpointPersistence, 1);
+	const RuntimeCheckpoint savedCheckpoint{
+		firstFingerprint, 17, 23, {{"rules.fingerprint", "2.0"}}};
+	check(checkpoints.save("runtime.checkpoint", savedCheckpoint) ==
+			RuntimeCheckpointSaveError::None,
+		"runtime checkpoint service writes a bounded integrity-checked manifest");
+	RuntimeCheckpoint loadedCheckpoint;
+	const RuntimeCheckpointLoadResult loadedCheckpointResult = checkpoints.load(
+		"runtime.checkpoint", firstFingerprint, loadedCheckpoint);
+	check(loadedCheckpointResult &&
+		loadedCheckpoint.compatibility == firstFingerprint &&
+		loadedCheckpoint.completedFrames == 17 &&
+		loadedCheckpoint.completedSimulationTicks == 23 &&
+		loadedCheckpoint.activePackages.size() == 1 &&
+		loadedCheckpoint.activePackages[0].id == "rules.fingerprint" &&
+		loadedCheckpoint.activePackages[0].version == "2.0",
+		"runtime checkpoint loads publish complete portable session metadata");
+	RuntimeCheckpoint unchangedCheckpoint{
+		firstFingerprint, 99, 99, {{"unchanged.package", "1"}}};
+	const RuntimeCheckpointLoadResult incompatibleCheckpoint = checkpoints.load(
+		"runtime.checkpoint", changedFingerprint, unchangedCheckpoint);
+	check(incompatibleCheckpoint.error == RuntimeCheckpointLoadError::IncompatibleRuntime &&
+		incompatibleCheckpoint.storedCompatibility == firstFingerprint &&
+		unchangedCheckpoint.completedFrames == 99 &&
+		unchangedCheckpoint.activePackages[0].id == "unchanged.package",
+		"runtime checkpoint rejects incompatible engines before publishing metadata");
 
 	ContentRegistry content(ContentApiVersion{1, 2});
 	check(content.registerContent(ContentManifest{

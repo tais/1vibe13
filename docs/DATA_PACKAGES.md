@@ -80,6 +80,7 @@ OPTIONAL_REQUIRES = community.ui@*, community.weather@1.1
 CONFLICTS = legacy.balance, alternate.overhaul
 LOAD_AFTER = community.localization
 CAPABILITIES = rules.balance-v2, ui.inventory-overhaul
+REQUIRED_CAPABILITIES = engine.rendering, host.networking
 ```
 
 The required keys are:
@@ -126,6 +127,10 @@ The v2 policy keys are optional comma-separated ordered lists:
   concrete package ID or build target. Capability IDs use the same lowercase
   portable alphabet and 128-character limit as package IDs, and must be unique
   within the manifest.
+- `REQUIRED_CAPABILITIES` uses the same feature-ID format. Every entry must be
+  supplied by the host or an active package before bootstrap begins; otherwise
+  startup fails before package code runs and exposes the missing ID in
+  diagnostics.
 
 An ID may occur only once across `REQUIRES`, `OPTIONAL_REQUIRES`, `CONFLICTS`,
 and `LOAD_AFTER`, and no relationship may name its declaring package. Cycles in
