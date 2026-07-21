@@ -41,6 +41,7 @@
 #include <Engine/Core/SimulationCommand.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
+#include <Engine/Core/StateTransition.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/TimeSource.h>
 #include <Engine/Core/RandomSource.h>
@@ -533,6 +534,19 @@ int main( int, char** )
 		screens.replace( 3 );
 		CHECK( screens.size() == 1 && screens.current()->state == 3 && !screens.popOverlay(),
 		       "state replacement does not create false navigation history" );
+	}
+
+	{
+		StateStack<int> screens;
+		auto overlay = []( int state ) { return state >= 100; };
+		CHECK( ApplyStateTransition( screens, 1, overlay ) == StateTransitionResult::Initialized &&
+		       ApplyStateTransition( screens, 100, overlay ) == StateTransitionResult::OverlayPushed &&
+		       screens.underlay()->state == 1,
+		       "engine state transitions preserve an underlay for overlays" );
+		CHECK( ApplyStateTransition( screens, 1, overlay ) == StateTransitionResult::OverlayPopped &&
+		       screens.current()->state == 1 &&
+		       ApplyStateTransition( screens, 2, overlay ) == StateTransitionResult::Replaced,
+		       "engine state transitions pop overlays and replace base states deterministically" );
 	}
 
 	{
