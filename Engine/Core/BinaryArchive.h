@@ -113,7 +113,22 @@ public:
 			position_ = originalPosition;
 			return false;
 		}
-		value.assign(reinterpret_cast<const char*>(bytes_ + position_), length);
+		if (length == 0) value.clear();
+		else value.assign(reinterpret_cast<const char*>(bytes_ + position_), length);
+		position_ += length;
+		return true;
+	}
+	bool readStringBounded(std::string& value, std::size_t maximumBytes)
+	{
+		const std::size_t originalPosition = position_;
+		std::uint32_t length = 0;
+		if (!readU32(length) || length > maximumBytes || !available(length))
+		{
+			position_ = originalPosition;
+			return false;
+		}
+		if (length == 0) value.clear();
+		else value.assign(reinterpret_cast<const char*>(bytes_ + position_), length);
 		position_ += length;
 		return true;
 	}

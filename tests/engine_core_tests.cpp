@@ -446,7 +446,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 14 &&
+		sessionHost.serviceCatalog().size() == 15 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -465,7 +465,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 19,
+		sessionHost.configuration().size() == 22,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	const RuntimeReport runtimeReport = sessionHost.runtimeReport();
@@ -475,8 +475,8 @@ int main()
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
 		diagnostics.packageTasks.queued.empty() &&
-		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 14 &&
-		diagnostics.configuration.size() == 19 &&
+		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 15 &&
+		diagnostics.configuration.size() == 22 &&
 		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
@@ -484,7 +484,7 @@ int main()
 	check(runtimeReport.lifecycle == EngineLifecycle::Stopped && runtimeReport.healthy() &&
 		runtimeReport.completedFrames == 0 && runtimeReport.completedSimulationTicks == 0 &&
 		runtimeReport.registeredPackages == 0 && runtimeReport.activePackages == 0 &&
-		runtimeReport.services.size() == 14 && runtimeReport.configuration.size() == 19 &&
+		runtimeReport.services.size() == 15 && runtimeReport.configuration.size() == 22 &&
 		runtimeReport.compatibility == diagnostics.compatibility &&
 		runtimeReport.frames.completedFrames == diagnostics.frames.summary.completedFrames,
 		"runtime report condenses diagnostics without retaining sensitive content payloads");
@@ -777,6 +777,33 @@ int main()
 		unchangedCheckpoint.completedFrames == 99 &&
 		unchangedCheckpoint.activePackages[0].id == "unchanged.package",
 		"runtime checkpoint rejects incompatible engines before publishing metadata");
+	PackageSaveArchiveService packageArchives(checkpointPersistence, 2, 8, 12);
+	const PackageSaveArchive savedPackageArchive{firstFingerprint,
+		PackageSaveStateSnapshot{{
+			PackageSaveStateRecord{"rules.fingerprint", "2.0", 1, {4, 2}},
+			PackageSaveStateRecord{"extension.state", "1.0", 3, {1, 3, 3, 7}}}}};
+	check(packageArchives.save("package-state", savedPackageArchive) ==
+			PackageSaveArchiveSaveError::None,
+		"package save archive writes ordered bounded state through persistence envelopes");
+	PackageSaveArchive loadedPackageArchive;
+	const PackageSaveArchiveLoadResult loadedPackageState = packageArchives.load(
+		"package-state", firstFingerprint, loadedPackageArchive);
+	check(loadedPackageState && loadedPackageArchive.compatibility == firstFingerprint &&
+		loadedPackageArchive.state.records.size() == 2 &&
+		loadedPackageArchive.state.records[1].packageId == "extension.state" &&
+		loadedPackageArchive.state.records[1].schemaVersion == 3 &&
+		loadedPackageArchive.state.records[1].payload ==
+			std::vector<std::uint8_t>({1, 3, 3, 7}),
+		"package save archive round-trips identity, schemas, order, and opaque bytes");
+	PackageSaveArchive unchangedPackageArchive{firstFingerprint,
+		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
+	const PackageSaveArchiveLoadResult incompatiblePackageState = packageArchives.load(
+		"package-state", changedFingerprint, unchangedPackageArchive);
+	check(incompatiblePackageState.error ==
+			PackageSaveArchiveLoadError::IncompatibleRuntime &&
+		incompatiblePackageState.storedCompatibility == firstFingerprint &&
+		unchangedPackageArchive.state.records[0].packageId == "unchanged",
+		"package save archive rejects another runtime before publishing package state");
 
 	ContentRegistry content(ContentApiVersion{1, 2});
 	check(content.registerContent(ContentManifest{

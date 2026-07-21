@@ -76,6 +76,17 @@ int main()
 	if (!host.loadRuntimeCheckpoint("external.checkpoint", checkpoint) ||
 		checkpoint.activePackages.size() != 1 ||
 		checkpoint.activePackages[0].id != "external.rules") return 11;
+	const PackageSaveArchive externalPackageState{fingerprint,
+		PackageSaveStateSnapshot{{
+			PackageSaveStateRecord{"external.rules", "1.0.0", 1, {1, 2, 3}}}}};
+	if (host.packageSaveArchives().save("external.package-state", externalPackageState) !=
+		PackageSaveArchiveSaveError::None) return 12;
+	PackageSaveArchive loadedExternalPackageState;
+	if (!host.packageSaveArchives().load(
+		"external.package-state", fingerprint, loadedExternalPackageState) ||
+		loadedExternalPackageState.state.records.size() != 1 ||
+		loadedExternalPackageState.state.records[0].payload !=
+			std::vector<std::uint8_t>({1, 2, 3})) return 13;
 
 	const std::vector<std::uint8_t> saved{2, 3, 5, 7};
 	if (host.persistence().saveEnvelope(
