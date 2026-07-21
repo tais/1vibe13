@@ -24,6 +24,7 @@ set(engine_core_public_headers
   PackageEventSink.h
   PackageLifecycle.h
   PackageMessagePublisher.h
+  PackageRandomSource.h
   PackageResults.h
   PackageStorage.h
   PersistenceService.h

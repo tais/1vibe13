@@ -76,3 +76,9 @@ IDs must be unique portable identifiers and minimum major versions must be
 non-zero. The engine checks all active packages against the sealed service
 catalog before configuration starts, so a missing or incompatible integration
 fails deterministically before package code acquires partial resources.
+
+For new deterministic package logic, use `PackageBootstrapContext::random` and
+a stable portable stream name such as `combat` or `loot`. Streams are isolated
+by package and name, use unbiased bounded values, and expose sorted usage
+snapshots for replay diagnostics. The host seed and per-package stream limit
+are composition settings; the legacy `EngineServices::random` remains intact.

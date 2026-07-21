@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_ENGINE_HOST_H
 #define ENGINE_CORE_ENGINE_HOST_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -31,10 +32,12 @@ public:
 		EngineServices services = EngineServices::defaults(),
 		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
-		RuntimeCapabilities hostCapabilities = {})
+		RuntimeCapabilities hostCapabilities = {},
+		std::uint64_t packageRandomSeed = 0,
+		std::size_t packageRandomStreamLimit = 64)
 		: content_(supportedContentApi),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
-		            runtimeConfiguration_),
+		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),

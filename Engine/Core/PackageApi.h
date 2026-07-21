@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <string>
 #include <unordered_map>
@@ -27,11 +28,14 @@ public:
 		PackageEventSink& events = NullPackageEventSink::instance(),
 		RuntimeMessageBus& messages = RuntimeMessageBus::disabled(),
 		ServiceCatalog& extensionServices = ServiceCatalog::disabled(),
-		const RuntimeConfiguration& configuration = RuntimeConfiguration::disabled())
+		const RuntimeConfiguration& configuration = RuntimeConfiguration::disabled(),
+		std::uint64_t packageRandomSeed = 0,
+		std::size_t packageRandomStreamLimit = 64)
 		: content_(content), assets_(services.assets), services_(withAssets(services, assets_)),
 		  packagePersistence_(services_.storage), events_(events), messages_(messages),
 		  extensionServices_(extensionServices),
-		  configuration_(configuration) {}
+		  configuration_(configuration), packageRandomSeed_(packageRandomSeed),
+		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
 	// registry and application-owned package objects. Preserve that identity;
@@ -58,7 +62,9 @@ public:
 			descriptor.content.loadAfter, descriptor.capabilities,
 			descriptor.messageTopics, descriptor.requiredServices,
 			PackageStorage{id, packagePersistence_},
-			PackageMessagePublisher{id, messages_}, false, false});
+			PackageMessagePublisher{id, messages_},
+			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_},
+			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
 		try
@@ -802,6 +808,7 @@ private:
 		std::vector<EngineServiceRequirement> requiredServices;
 		PackageStorage storage;
 		PackageMessagePublisher messagePublisher;
+		PackageRandomSource random;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -980,7 +987,7 @@ private:
 		RegisteredPackage& registered = packages_.at(packageId);
 		return PackageBootstrapContext{
 			content_, services_, messages_, extensionServices_, configuration_,
-			registered.storage, registered.messagePublisher};
+			registered.storage, registered.messagePublisher, registered.random};
 	}
 
 	PackageBootstrapError preflightServiceContracts()
@@ -1014,6 +1021,8 @@ private:
 	RuntimeMessageBus& messages_;
 	ServiceCatalog& extensionServices_;
 	const RuntimeConfiguration& configuration_;
+	std::uint64_t packageRandomSeed_;
+	std::size_t packageRandomStreamLimit_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;
