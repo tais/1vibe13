@@ -3,6 +3,7 @@
 #include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
@@ -142,6 +143,24 @@ int main()
 		localization.removePackage("mod.override") == 1 &&
 		*localization.resolve("en", "ui.ready").text == "Ready",
 		"localization lookup uses explicit fallback and restores lower package layers");
+	DefinitionCatalog definitions(2, 4);
+	check(definitions.set("campaign.base", "item", "medkit", 1, {1}) ==
+			DefinitionSetError::None &&
+		definitions.set("mod.override", "item", "medkit", 2, {2, 3}) ==
+			DefinitionSetError::None,
+		"definition catalog accepts bounded versioned package data layers");
+	const DefinitionView incompatibleDefinition =
+		definitions.resolve("item", "medkit", 1, 1);
+	const DefinitionView overriddenDefinition =
+		definitions.resolve("item", "medkit", 1, 2);
+	check(incompatibleDefinition.error == DefinitionLookupError::IncompatibleSchema &&
+		incompatibleDefinition.schemaVersion == 2 && overriddenDefinition &&
+		*overriddenDefinition.packageId == "mod.override" &&
+		*overriddenDefinition.payload == std::vector<std::uint8_t>({2, 3}) &&
+		definitions.removePackage("mod.override") == 1 &&
+		*definitions.resolve("item", "medkit", 1, 1).payload ==
+			std::vector<std::uint8_t>({1}),
+		"definition lookup rejects incompatible top overrides and restores lower layers");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -192,7 +211,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 8 &&
+		sessionHost.serviceCatalog().size() == 9 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -211,14 +230,14 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 11,
+		sessionHost.configuration().size() == 13,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
 		diagnostics.frames.summary.completedFrames == 0 &&
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
-		diagnostics.localization.empty() && diagnostics.services.size() == 8 &&
-		diagnostics.configuration.size() == 11 &&
+		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
+		diagnostics.services.size() == 9 && diagnostics.configuration.size() == 13 &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");

@@ -266,6 +266,10 @@ the engine must not contain SDL types in its public domain model.
   text. Package identity is host-bound, later packages override earlier keys,
   fallback is explicit, and configure rollback or shutdown automatically
   removes the package's entries to reveal the lower layer again.
+- `DefinitionCatalog` applies the same ownership and layering rules to bounded
+  versioned byte definitions. Core validates identity, schema compatibility,
+  payload limits, override order, and rollback lifetime while game/domain
+  adapters remain responsible for decoding their own rules.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

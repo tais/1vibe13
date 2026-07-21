@@ -8,6 +8,7 @@
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/CachingAssetSource.h>
+#include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/InputDispatcher.h>
@@ -46,13 +47,17 @@ public:
 		std::size_t assetCacheBytes = 64u * 1024u * 1024u,
 		std::size_t runtimeFaultCapacity = 256,
 		std::size_t localizationEntries = 65536,
-		std::size_t localizationTextBytes = 16u * 1024u)
+		std::size_t localizationTextBytes = 16u * 1024u,
+		std::size_t definitionEntries = 65536,
+		std::size_t definitionPayloadBytes = 1024u * 1024u)
 		: content_(supportedContentApi),
 		  faultJournal_(runtimeFaultCapacity),
 		  localization_(localizationEntries, localizationTextBytes),
+		  definitions_(definitionEntries, definitionPayloadBytes),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
-		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_),
+		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_,
+		            definitions_),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
@@ -76,6 +81,8 @@ public:
 			"engine.runtime-faults", EngineServiceVersion{1, 0}, faultJournal_);
 		serviceCatalog_.registerService(
 			"engine.localization", EngineServiceVersion{1, 0}, localization_);
+		serviceCatalog_.registerService(
+			"engine.definitions", EngineServiceVersion{1, 0}, definitions_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -96,6 +103,10 @@ public:
 			static_cast<std::int64_t>(localization_.maximumEntries()));
 		runtimeConfiguration_.set("engine.localization.text-byte-limit",
 			static_cast<std::int64_t>(localization_.maximumTextBytes()));
+		runtimeConfiguration_.set("engine.definitions.entry-capacity",
+			static_cast<std::int64_t>(definitions_.maximumEntries()));
+		runtimeConfiguration_.set("engine.definitions.payload-byte-limit",
+			static_cast<std::int64_t>(definitions_.maximumPayloadBytes()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -136,6 +147,8 @@ public:
 	const RuntimeFaultJournal& runtimeFaults() const { return faultJournal_; }
 	LocalizationCatalog& localization() { return localization_; }
 	const LocalizationCatalog& localization() const { return localization_; }
+	DefinitionCatalog& definitions() { return definitions_; }
+	const DefinitionCatalog& definitions() const { return definitions_; }
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
@@ -165,7 +178,7 @@ public:
 		return RuntimeDiagnosticsSnapshot{
 			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
 			packages_.assetCache().statistics(), faultJournal_.snapshot(),
-			localization_.snapshot(), serviceCatalog_.snapshot(),
+			localization_.snapshot(), definitions_.snapshot(), serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
@@ -195,6 +208,7 @@ private:
 	RuntimeConfiguration runtimeConfiguration_;
 	RuntimeFaultJournal faultJournal_;
 	LocalizationCatalog localization_;
+	DefinitionCatalog definitions_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;
