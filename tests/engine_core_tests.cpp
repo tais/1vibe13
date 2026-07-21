@@ -93,6 +93,13 @@ int main()
 		"runtime capabilities are portable, unique, and deterministically ordered");
 
 	EngineHost<unsigned> sessionHost;
+	unsigned externalService = 42;
+	const EngineServiceRegistrationError registeredService =
+		sessionHost.serviceCatalog().registerService(
+			"host.test-service", EngineServiceVersion{2, 3}, externalService);
+	const EngineServiceLookupResult<unsigned> resolvedService =
+		sessionHost.serviceCatalog().resolve<unsigned>(
+			"host.test-service", EngineServiceVersion{2, 1});
 	const RuntimeSessionShutdownResult prematureSessionShutdown =
 		sessionHost.runtimeSession().shutdownPackages();
 	const RuntimeSessionAdvanceResult configuredSession =
@@ -105,6 +112,21 @@ int main()
 		sessionHost.markRunning() && sessionHost.beginShutdown() &&
 		sessionHost.runtimeSession().shutdownPackages() && sessionHost.markStopped(),
 		"runtime session coordinates package phases with orderly host transitions");
+	check(registeredService == EngineServiceRegistrationError::None &&
+		resolvedService && resolvedService.service == &externalService &&
+		resolvedService.availableVersion.minor == 3 &&
+		sessionHost.serviceCatalog().size() == 4 &&
+		sessionHost.serviceCatalog().sealed() &&
+		sessionHost.serviceCatalog().registerService(
+			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
+			EngineServiceRegistrationError::Sealed &&
+		sessionHost.serviceCatalog().resolve<std::string>(
+			"host.test-service", EngineServiceVersion{2, 0}).error ==
+			EngineServiceLookupError::TypeMismatch &&
+		sessionHost.serviceCatalog().resolve<unsigned>(
+			"host.test-service", EngineServiceVersion{3, 0}).error ==
+			EngineServiceLookupError::IncompatibleVersion,
+		"service catalog seals versioned type-checked host extensions before bootstrap");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&

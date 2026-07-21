@@ -214,6 +214,11 @@ the engine must not contain SDL types in its public domain model.
   hosts and runtime-started packages without campaign headers. Each frame
   drains one snapshot before input; messages published by a callback wait for
   the next frame, preventing reentrant and unbounded same-frame work.
+- `ServiceCatalog` is the versioned, type-checked extension point for optional
+  host services that do not belong in the fixed platform adapter table. The
+  live host publishes persistence, frame telemetry, and runtime messaging; the
+  catalog seals before package bootstrap so package-held service references
+  remain valid for the complete runtime session.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

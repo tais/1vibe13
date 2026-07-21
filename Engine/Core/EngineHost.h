@@ -33,14 +33,21 @@ public:
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi),
-		  packages_(content_, services, packageEvents, runtimeMessages_),
-		  packageLifecycle_(packages_), runtimeSession_(packageLifecycle_),
+		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_),
+		  packageLifecycle_(packages_),
+		  runtimeSession_(packageLifecycle_, serviceCatalog_),
 		  inputDispatcher_(packages_.services().input),
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
 		               runtimeUpdates_, frameTelemetry_),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
+		serviceCatalog_.registerService(
+			"engine.frame-telemetry", EngineServiceVersion{1, 0}, frameTelemetry_);
+		serviceCatalog_.registerService(
+			"engine.runtime-messages", EngineServiceVersion{1, 0}, runtimeMessages_);
+		serviceCatalog_.registerService(
+			"engine.persistence", EngineServiceVersion{1, 0}, persistence_);
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		runtimeMessages_.addSink(packages_);
@@ -72,6 +79,8 @@ public:
 	const FrameTelemetry& frameTelemetry() const { return frameTelemetry_; }
 	RuntimeMessageBus& runtimeMessages() { return runtimeMessages_; }
 	const RuntimeMessageBus& runtimeMessages() const { return runtimeMessages_; }
+	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
+	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -113,6 +122,7 @@ private:
 	StateRegistry<ScreenId> stateRegistry_;
 	ContentRegistry content_;
 	RuntimeMessageBus runtimeMessages_;
+	ServiceCatalog serviceCatalog_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;

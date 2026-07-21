@@ -48,3 +48,9 @@ outside the SDK boundary.
 The `engine_sdk_consumer` CTest installs the component and builds a fresh
 external project against `find_package(JA2Engine)`. This is the compatibility
 gate for missing headers, leaked source-tree includes, and unpublished symbols.
+
+Optional source-built host services are discovered through `ServiceCatalog`
+using portable IDs and major/minor contracts. Registrations are non-owning and
+must outlive the host. The catalog seals when initialization or package
+bootstrap begins, so packages may safely retain a successfully resolved service
+for the runtime session. This is not yet a stable native plugin ABI.

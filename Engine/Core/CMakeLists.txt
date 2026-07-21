@@ -30,6 +30,7 @@ set(engine_core_public_headers
   RuntimeMessageBus.h
   RuntimeSession.h
   RuntimeUpdate.h
+  ServiceCatalog.h
   StateController.h
   StateRegistry.h
   StateStack.h

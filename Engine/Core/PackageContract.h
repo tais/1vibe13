@@ -8,6 +8,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/RuntimeMessageBus.h>
+#include <Engine/Core/ServiceCatalog.h>
 #include <Engine/Core/RuntimeUpdate.h>
 
 enum class PackageKind
@@ -33,6 +34,7 @@ struct PackageBootstrapContext
 	ContentRegistry& content;
 	EngineServices& services;
 	RuntimeMessageBus& messages;
+	ServiceCatalog& extensionServices;
 };
 
 struct PackageDescriptor
