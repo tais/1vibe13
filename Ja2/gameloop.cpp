@@ -58,10 +58,22 @@ static bool IsOverlayScreen(UINT32 screen)
 	return screen == MSG_BOX_SCREEN || screen == MP_CHAT_SCREEN;
 }
 
-static void RecordScreenTransition(UINT32 screen)
+static StateTransitionResult RecordScreenTransition(UINT32 screen)
 {
-	ApplyStateTransition(
-		GetGameContext().screens(), screen,
+	return GetGameContext().screenController().transitionTo(
+		screen,
+		[](UINT32 candidate) { return IsOverlayScreen(candidate); });
+}
+
+static void RequestScreenTransition(UINT32 screen)
+{
+	GetGameContext().screenController().request(screen);
+	guiPendingScreen = screen;
+}
+
+static StateTransitionResult CommitPendingScreenTransition()
+{
+	return GetGameContext().screenController().commitPending(
 		[](UINT32 candidate) { return IsOverlayScreen(candidate); });
 }
 
@@ -208,7 +220,7 @@ BOOLEAN InitializeGame(void)
 	}
 
 	guiCurrentScreen = INIT_SCREEN;
-	GetGameContext().screens().reset(guiCurrentScreen);
+	GetGameContext().screenController().reset(guiCurrentScreen);
 
 	return TRUE;
 }
@@ -368,16 +380,19 @@ void GameLoop(void)
 	if ( gfInMsgBox )
 	{
 		//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: message box");
-		guiPendingScreen = MSG_BOX_SCREEN;
+		RequestScreenTransition(MSG_BOX_SCREEN);
 	}
 
 	// OJW - 20090314 - new chatbox
 	if (gfInChatBox)
 	{
-		guiPendingScreen = MP_CHAT_SCREEN;
+		RequestScreenTransition(MP_CHAT_SCREEN);
 	}
 	if ( guiPendingScreen != NO_PENDING_SCREEN )
 	{
+		// Direct legacy writers are adopted here; callers using
+		// SetPendingNewScreen have already populated the controller.
+		GetGameContext().screenController().request(guiPendingScreen);
 		// Based on active screen, deinit!
 		if( guiPendingScreen != guiCurrentScreen )
 		{
@@ -403,7 +418,7 @@ void GameLoop(void)
 
 			HandleNewScreenChange( guiPendingScreen, guiCurrentScreen );
 		}
-		RecordScreenTransition(guiPendingScreen);
+		CommitPendingScreenTransition();
 		guiCurrentScreen = guiPendingScreen;
 		guiPendingScreen = NO_PENDING_SCREEN;
 
@@ -543,7 +558,7 @@ void SetCurrentScreen( UINT32 uiNewScreen )
 
 void SetPendingNewScreen( UINT32 uiNewScreen )
 {
-	guiPendingScreen = uiNewScreen;
+	RequestScreenTransition(uiNewScreen);
 }
 
 // rain

@@ -11,13 +11,18 @@
 #include <vector>
 
 #include <Engine/Core/PackageContract.h>
+#include <Engine/Core/PackageCatalog.h>
+#include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageResults.h>
 
 class PackageRegistry
 {
 public:
-	explicit PackageRegistry(ContentRegistry& content, EngineServices services = EngineServices::defaults())
-		: content_(content), assets_(services.assets), services_(withAssets(services, assets_)) {}
+	explicit PackageRegistry(ContentRegistry& content,
+		EngineServices services = EngineServices::defaults(),
+		PackageEventSink& events = NullPackageEventSink::instance())
+		: content_(content), assets_(services.assets), services_(withAssets(services, assets_)),
+		  events_(events) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
 	// registry and application-owned package objects. Preserve that identity;
@@ -52,6 +57,7 @@ public:
 			packages_.erase(inserted.first);
 			return translate(result);
 		}
+		emit(PackageEventKind::Registered, id);
 		return PackageRegistrationError::None;
 	}
 
@@ -123,6 +129,7 @@ public:
 				return result;
 			}
 			packages_.erase(id);
+			emit(PackageEventKind::Unregistered, id);
 		}
 		return result;
 	}
@@ -403,21 +410,31 @@ public:
 			{
 				threw = true;
 			}
-			if (succeeded) continue;
+			if (succeeded)
+			{
+				emit(PackageEventKind::BootstrapCompleted, active_[index], phaseIndex);
+				continue;
+			}
+			emit(PackageEventKind::BootstrapFailed, active_[index], phaseIndex);
 			logError(threw ? "Bootstrap callback threw: " : "Bootstrap callback failed: ",
 				active_[index]);
 			// The failing callback may have acquired part of its phase resources,
 			// so include it in the reverse rollback contract.
 			for (std::size_t rollback = index + 1; rollback > 0; --rollback)
 			{
+				bool rolledBack = false;
 				try
 				{
 					packages_.at(active_[rollback - 1]).package->shutdown(context, phase);
+					rolledBack = true;
 				}
 				catch (...)
 				{
 					logError("Bootstrap rollback threw: ", active_[rollback - 1]);
 				}
+				emit(rolledBack ? PackageEventKind::BootstrapRollbackCompleted
+				                : PackageEventKind::BootstrapRollbackFailed,
+					active_[rollback - 1], phaseIndex);
 			}
 			return PackageBootstrapError::CallbackFailed;
 		}
@@ -436,14 +453,19 @@ public:
 				static_cast<PackageBootstrapPhase>(completedBootstrapPhases_ - 1);
 			for (auto package = active_.rbegin(); package != active_.rend(); ++package)
 			{
+				bool shutDown = false;
 				try
 				{
 					packages_.at(*package).package->shutdown(context, phase);
+					shutDown = true;
 				}
 				catch (...)
 				{
 					logError("Package shutdown threw: ", *package);
 				}
+				emit(shutDown ? PackageEventKind::ShutdownCompleted
+				              : PackageEventKind::ShutdownFailed,
+					*package, static_cast<std::size_t>(phase));
 			}
 			--completedBootstrapPhases_;
 		}
@@ -464,6 +486,45 @@ public:
 	const std::string& activeCampaign() const { return activeCampaign_; }
 	const std::vector<std::string>& activationOrder() const { return active_; }
 	std::size_t completedBootstrapPhases() const { return completedBootstrapPhases_; }
+	PackageCatalogSnapshot catalog() const
+	{
+		PackageCatalogSnapshot snapshot;
+		snapshot.supportedApi = content_.supportedApi();
+		snapshot.activationOrder = active_;
+		snapshot.activeCampaign = activeCampaign_;
+		snapshot.completedBootstrapPhases = completedBootstrapPhases_;
+		snapshot.packages.reserve(content_.manifests().size());
+
+		// ContentRegistry preserves host discovery order. Building the catalog
+		// from it prevents unordered registry storage from leaking nondeterminism
+		// into launcher, editor, replay, or diagnostic output.
+		for (const ContentManifest& manifest : content_.manifests())
+		{
+			const auto registered = packages_.find(manifest.id);
+			if (registered == packages_.end()) continue;
+			const auto active = std::find(active_.begin(), active_.end(), manifest.id);
+			PackageCatalogEntry entry{
+				PackageDescriptor{manifest, registered->second.kind},
+				registered->second.active ? PackageLifecycleState::Active
+				                          : PackageLifecycleState::Registered,
+				registered->second.assetsMounted,
+				active == active_.end()
+					? PackageCatalogEntry::NotActive
+					: static_cast<std::size_t>(active - active_.begin()),
+				{}};
+			for (const ContentManifest& consumer : content_.manifests())
+			{
+				for (const ContentRequirement& requirement : consumer.requirements)
+				{
+					if (requirement.id != manifest.id) continue;
+					entry.dependents.push_back(consumer.id);
+					break;
+				}
+			}
+			snapshot.packages.push_back(std::move(entry));
+		}
+		return snapshot;
+	}
 	EngineServices& services() { return services_; }
 	const EngineServices& services() const { return services_; }
 	const AssetSource& assets() const { return assets_; }
@@ -535,6 +596,7 @@ private:
 		}
 		registered.assetsMounted = assetsMounted;
 		registered.active = true;
+		emit(PackageEventKind::Activated, packageId);
 		return PackageActivationError::None;
 	}
 
@@ -563,6 +625,7 @@ private:
 		active_.erase(activePosition);
 		registered.active = false;
 		if (wasCampaign) activeCampaign_.clear();
+		emit(PackageEventKind::Deactivated, packageId);
 		return PackageDeactivationError::None;
 	}
 
@@ -601,6 +664,19 @@ private:
 		}
 	}
 
+	void emit(PackageEventKind kind, const std::string& packageId,
+		std::size_t phase = PackageEvent::NoBootstrapPhase) noexcept
+	{
+		try
+		{
+			events_.publish(PackageEvent{kind, packageId, phase});
+		}
+		catch (...)
+		{
+			logError("Package event sink threw: ", packageId);
+		}
+	}
+
 	static PackageRegistrationError translate(ContentRegistrationError error)
 	{
 		switch (error)
@@ -617,6 +693,7 @@ private:
 	ContentRegistry& content_;
 	CompositeAssetSource assets_;
 	EngineServices services_;
+	PackageEventSink& events_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;

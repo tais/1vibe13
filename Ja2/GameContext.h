@@ -15,8 +15,10 @@ class GameContext
 {
 public:
 	GameContext(GAME_SETTINGS& settings, GAME_OPTIONS& options, GameCapabilities capabilities = {},
-	            EngineServices services = EngineServices::defaults())
-		: settings_(settings), options_(options), capabilities_(capabilities), runtime_(services)
+	            EngineServices services = EngineServices::defaults(),
+	            PackageEventSink& packageEvents = NullPackageEventSink::instance())
+		: settings_(settings), options_(options), capabilities_(capabilities),
+		  runtime_(services, CurrentContentApiVersion, packageEvents)
 	{
 	}
 
@@ -32,10 +34,13 @@ public:
 	LogSink& log() { return runtime_.log(); }
 	StateStack<UINT32>& screens() { return runtime_.screens(); }
 	const StateStack<UINT32>& screens() const { return runtime_.screens(); }
+	StateController<UINT32>& screenController() { return runtime_.screenController(); }
+	const StateController<UINT32>& screenController() const { return runtime_.screenController(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }
 	const PackageRegistry& packages() const { return runtime_.packages(); }
+	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return runtime_.commands(); }
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return runtime_.commands(); }
 	bool setCapabilities(GameCapabilities capabilities)

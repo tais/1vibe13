@@ -3,9 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <utility>
-
-#include <Engine/Core/DeterministicCommandQueue.h>
+#include <Engine/Core/CommandProcessor.h>
 
 // Draining and delivery belong to the engine layer; concrete handlers remain
 // in adapters until their legacy global dependencies are extracted.
@@ -15,12 +13,15 @@ std::size_t DispatchCommandsThrough(
 	std::uint64_t tick,
 	Handler&& handler)
 {
-	auto ready = queue.drainThrough(tick);
-	for (auto& entry : ready)
-	{
-		std::forward<Handler>(handler)(entry.command, entry.tick, entry.sequence);
-	}
-	return ready.size();
+	const CommandProcessingResult result = ProcessCommandsThrough(
+		queue, tick,
+		[&handler](const Command& command, std::uint64_t commandTick,
+			std::uint64_t sequence)
+		{
+			handler(command, commandTick, sequence);
+			return CommandDisposition::Applied;
+		});
+	return result.applied;
 }
 
 #endif

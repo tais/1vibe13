@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <deque>
 #include <iterator>
 #include <unordered_set>
 #include <utility>
@@ -26,23 +27,45 @@ public:
 
 	std::uint64_t enqueue(std::uint64_t tick, Command command)
 	{
-		const std::uint64_t sequence = nextSequence_++;
-		usedSequences_.insert(sequence);
-		entries_.push_back(Entry{tick, sequence, std::move(command)});
+		std::uint64_t sequence = nextSequence_;
+		while (usedSequences_.find(sequence) != usedSequences_.end()) ++sequence;
+		const auto inserted = usedSequences_.insert(sequence);
+		if (!inserted.second) return sequence;
+		try
+		{
+			entries_.push_back(Entry{tick, sequence, std::move(command)});
+		}
+		catch (...)
+		{
+			usedSequences_.erase(inserted.first);
+			throw;
+		}
+		nextSequence_ = sequence + 1;
+		ordered_ = false;
 		return sequence;
 	}
 
 	bool enqueueRecorded(std::uint64_t tick, std::uint64_t sequence, Command command)
 	{
-		if (!usedSequences_.insert(sequence).second) return false;
-		entries_.push_back(Entry{tick, sequence, std::move(command)});
+		const auto inserted = usedSequences_.insert(sequence);
+		if (!inserted.second) return false;
+		try
+		{
+			entries_.push_back(Entry{tick, sequence, std::move(command)});
+		}
+		catch (...)
+		{
+			usedSequences_.erase(inserted.first);
+			throw;
+		}
 		if (sequence >= nextSequence_) nextSequence_ = sequence + 1;
+		ordered_ = false;
 		return true;
 	}
 
 	std::vector<Entry> drainThrough(std::uint64_t tick)
 	{
-		std::stable_sort(entries_.begin(), entries_.end(), less);
+		ensureOrdered();
 		const auto end = std::upper_bound(entries_.begin(), entries_.end(), tick,
 			[](std::uint64_t value, const Entry& entry) { return value < entry.tick; });
 		std::vector<Entry> ready;
@@ -52,19 +75,55 @@ public:
 		return ready;
 	}
 
+	// Copy a stable, bounded delivery view without removing commands. A
+	// processor acknowledges each sequence only after its handler succeeds, so
+	// exceptions or retries cannot lose the failed command or later work.
+	std::vector<Entry> snapshotThrough(std::uint64_t tick)
+	{
+		ensureOrdered();
+		const auto end = std::upper_bound(entries_.begin(), entries_.end(), tick,
+			[](std::uint64_t value, const Entry& entry) { return value < entry.tick; });
+		return std::vector<Entry>(entries_.begin(), end);
+	}
+
+	bool acknowledge(std::uint64_t sequence)
+	{
+		if (!entries_.empty() && entries_.front().sequence == sequence)
+		{
+			entries_.pop_front();
+			return true;
+		}
+		const auto entry = std::find_if(entries_.begin(), entries_.end(),
+			[sequence](const Entry& candidate) { return candidate.sequence == sequence; });
+		if (entry == entries_.end()) return false;
+		entries_.erase(entry);
+		return true;
+	}
+
 	std::size_t size() const { return entries_.size(); }
 	bool empty() const { return entries_.empty(); }
 
 private:
+	void ensureOrdered()
+	{
+		if (ordered_) return;
+		std::stable_sort(entries_.begin(), entries_.end(), less);
+		ordered_ = true;
+	}
+
 	static bool less(const Entry& left, const Entry& right)
 	{
 		if (left.tick != right.tick) return left.tick < right.tick;
 		return left.sequence < right.sequence;
 	}
 
-	std::vector<Entry> entries_;
+	// Normal ready acknowledgements remove from the front in constant time. The
+	// fallback supports a handler that enqueues and explicitly re-snapshots an
+	// earlier tick before returning.
+	std::deque<Entry> entries_;
 	std::unordered_set<std::uint64_t> usedSequences_;
 	std::uint64_t nextSequence_ = 0;
+	bool ordered_ = true;
 };
 
 #endif

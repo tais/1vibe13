@@ -16,6 +16,7 @@ set(core_standard_headers
   deque
   initializer_list
   iterator
+  optional
   string
   type_traits
   unordered_map

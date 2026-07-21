@@ -346,13 +346,37 @@ vfs::CVirtualProfile* vfs::CProfileStack::topProfile() const
 
 bool vfs::CProfileStack::popProfile()
 {
+	vfs::CVirtualProfile* prof = this->topProfile();
+	if(!prof)
+	{
+		return true;
+	}
+	const vfs::String profileName = prof->cName;
+	return removeProfile(profileName);
+}
+
+bool vfs::CProfileStack::removeProfile(vfs::String const& sName)
+{
+	t_profiles::iterator profile = m_profiles.begin();
+	for(; profile != m_profiles.end(); ++profile)
+	{
+		if(StrCmp::EqualCase((*profile)->cName, sName))
+		{
+			break;
+		}
+	}
+	if(profile == m_profiles.end())
+	{
+		return false;
+	}
+
 	// there might be some files in this profile that are referenced in a Log object
 	// we need to it to release the file
 	vfs::Log::flushReleaseAll();
 	// an observer pattern would probably be the better solution,
 	// but for now lets do it this way 
 
-	vfs::CVirtualProfile* prof = this->topProfile();
+	vfs::CVirtualProfile* prof = *profile;
 	if(prof)
 	{
 		vfs::CVirtualProfile::Iterator loc_it = prof->begin();
@@ -390,7 +414,7 @@ bool vfs::CProfileStack::popProfile()
 			}
 		}
 		// delete only when nothing went wrong
-		this->m_profiles.pop_front();
+		this->m_profiles.erase(profile);
 		delete prof;
 	}
 	return true;

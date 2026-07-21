@@ -68,6 +68,7 @@
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 #include <vfs/Tools/vfs_property_container.h>
+#include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
@@ -182,15 +183,37 @@ public:
 	            const std::filesystem::path&, std::string& error ) override
 	{
 		mounted.push_back( packageId );
+		// Model a mounter that acquires state before it can discover a late
+		// indexing failure. The host must unwind this even though mount returns
+		// false.
+		activeMounts.push_back( packageId );
 		if ( packageId != failMountId ) return true;
 		error = "injected mount failure";
 		return false;
 	}
 
+	bool unmount( const std::string& packageId, std::string& error ) override
+	{
+		unmounted.push_back( packageId );
+		if ( packageId == failUnmountId )
+		{
+			error = "injected unmount failure";
+			return false;
+		}
+		const auto found = std::find( activeMounts.begin(), activeMounts.end(), packageId );
+		if ( found == activeMounts.end() )
+			return true;
+		activeMounts.erase( found );
+		return true;
+	}
+
 	mutable std::vector<std::string> preflighted;
 	std::vector<std::string> mounted;
+	std::vector<std::string> unmounted;
+	std::vector<std::string> activeMounts;
 	std::string failPreflightId;
 	std::string failMountId;
+	std::string failUnmountId;
 };
 
 static bool ReadFileManagerText( const std::string& logicalPath, std::string& contents )
@@ -377,6 +400,18 @@ private:
 	bool active_ = false;
 };
 
+class ThrowingPackageEventSink final : public PackageEventSink
+{
+public:
+	void publish( PackageEvent ) override
+	{
+		++calls;
+		throw "test package event exception";
+	}
+
+	int calls = 0;
+};
+
 int main( int, char** )
 {
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
@@ -397,7 +432,7 @@ int main( int, char** )
 		               !std::is_move_constructible<CompositeAssetSource>::value,
 		               "asset overlay identity must remain stable to prevent graph cycles" );
 		EngineRuntime<unsigned> runtime;
-		runtime.screens().reset( 7 );
+		runtime.screenController().reset( 7 );
 		CHECK( runtime.screens().current() && runtime.screens().current()->state == 7,
 		       "campaign-independent engine runtime owns screen state" );
 		CHECK( runtime.beginInitialization() && runtime.markRunning() &&
@@ -572,6 +607,80 @@ int main( int, char** )
 	}
 
 	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 3, 30 );
+		const std::uint64_t blockedSequence = commands.enqueue( 4, 40 );
+		commands.enqueue( 5, 50 );
+		commands.enqueue( 9, 90 );
+		std::vector<int> delivered;
+		const CommandProcessingResult blocked = ProcessCommandsThrough(
+			commands, 5,
+			[&delivered]( int command, std::uint64_t, std::uint64_t ) {
+				delivered.push_back( command );
+				return command == 40 ? CommandDisposition::Retry : CommandDisposition::Applied;
+			} );
+		CHECK( blocked.status == CommandProcessStatus::Blocked && blocked.scheduled == 3 &&
+		       blocked.applied == 1 && blocked.discarded == 0 &&
+		       blocked.blockedTick == 4 && blocked.blockedSequence == blockedSequence &&
+		       delivered == std::vector<int>({ 30, 40 }) && commands.size() == 3,
+		       "retryable command processing acknowledges prior work without losing blocked work" );
+		delivered.clear();
+		const CommandProcessingResult resumed = ProcessCommandsThrough(
+			commands, 5,
+			[&delivered]( int command, std::uint64_t, std::uint64_t ) {
+				delivered.push_back( command );
+				return CommandDisposition::Applied;
+			} );
+		CHECK( resumed && resumed.scheduled == 2 && resumed.applied == 2 &&
+		       delivered == std::vector<int>({ 40, 50 }) && commands.size() == 1,
+		       "blocked deterministic commands resume in original order" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 1, 10 );
+		commands.enqueue( 1, 20 );
+		commands.enqueue( 1, 30 );
+		std::vector<int> attempted;
+		bool handlerThrew = false;
+		try
+		{
+			ProcessCommandsThrough(
+				commands, 1,
+				[&attempted]( int command, std::uint64_t, std::uint64_t ) {
+					attempted.push_back( command );
+					if ( command == 20 ) throw "test command handler exception";
+					return CommandDisposition::Applied;
+				} );
+		}
+		catch (...)
+		{
+			handlerThrew = true;
+		}
+		const auto remaining = commands.snapshotThrough( 1 );
+		CHECK( handlerThrew && attempted == std::vector<int>({ 10, 20 }) &&
+		       remaining.size() == 2 && remaining[0].command == 20 &&
+		       remaining[1].command == 30,
+		       "command handler exceptions retain the failing and later commands" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 1, 10 );
+		commands.enqueue( 1, 20 );
+		const CommandProcessingResult bounded = ProcessCommandsThrough(
+			commands, 1,
+			[&commands]( int command, std::uint64_t, std::uint64_t ) {
+				if ( command == 10 ) commands.enqueue( 1, 30 );
+				return command == 20 ? CommandDisposition::Discard : CommandDisposition::Applied;
+			} );
+		const auto deferred = commands.snapshotThrough( 1 );
+		CHECK( bounded && bounded.scheduled == 2 && bounded.applied == 1 &&
+		       bounded.discarded == 1 && deferred.size() == 1 && deferred[0].command == 30,
+		       "command passes count discards and defer commands produced by their handlers" );
+	}
+
+	{
 		GAME_SETTINGS settings = {};
 		GAME_OPTIONS options = {};
 		GameContext context( settings, options );
@@ -647,6 +756,33 @@ int main( int, char** )
 	}
 
 	{
+		StateController<int> screens;
+		auto overlay = []( int state ) { return state >= 100; };
+		CHECK( screens.transitionTo( 1, overlay ) == StateTransitionResult::Initialized &&
+		       screens.current() && *screens.current() == 1 && !screens.previous(),
+		       "state controller initializes current state without false history" );
+		CHECK( screens.request( 100 ) && screens.hasPending() &&
+		       screens.pending() && *screens.pending() == 100 &&
+		       screens.commitPending( overlay ) == StateTransitionResult::OverlayPushed &&
+		       !screens.hasPending() && screens.current() && *screens.current() == 100 &&
+		       screens.previous() && *screens.previous() == 1,
+		       "state controller commits pending overlays and records previous state" );
+		CHECK( screens.request( 100 ) &&
+		       screens.commitPending( overlay ) == StateTransitionResult::Unchanged &&
+		       screens.previous() && *screens.previous() == 1,
+		       "unchanged state requests do not corrupt transition history" );
+		CHECK( screens.request( 1 ) &&
+		       screens.commitPending( overlay ) == StateTransitionResult::OverlayPopped &&
+		       screens.current() && *screens.current() == 1 &&
+		       screens.previous() && *screens.previous() == 100,
+		       "state controller restores an overlay underlay deterministically" );
+		CHECK( screens.request( 2 ) && screens.cancelPending() && !screens.hasPending() &&
+		       screens.commitPending( overlay ) == StateTransitionResult::Unchanged &&
+		       screens.current() && *screens.current() == 1,
+		       "state controller can cancel a pending transition without changing current state" );
+	}
+
+	{
 		ContentRegistry content( ContentApiVersion{ 1, 2 } );
 		CHECK( content.registerContent( ContentManifest{ "core", "0.9.0", { 1, 0 } } ) ==
 		       ContentRegistrationError::None,
@@ -690,6 +826,136 @@ int main( int, char** )
 		CHECK( content.registerContent( ContentManifest{ "core", "0.9.1", { 1, 1 } } ) ==
 		       ContentRegistrationError::None && content.find( "core" )->version == "0.9.1",
 		       "an unregistered content identifier can be registered again" );
+	}
+
+	{
+		EngineRuntime<unsigned> runtime;
+		PackageRegistry& packages = runtime.packages();
+		MemoryAssetSource modAssets( "catalog.mod" );
+		TestLifecyclePackage mod(
+			"catalog.mod", PackageKind::Extension, -1, &modAssets,
+			{{ "catalog.rules", "" }} );
+		TestLifecyclePackage campaign( "catalog.campaign", PackageKind::Campaign );
+		TestLifecyclePackage rules(
+			"catalog.rules", PackageKind::Rules, -1, nullptr,
+			{{ "catalog.campaign", "1.0" }} );
+		CHECK( packages.registerPackage( mod ) == PackageRegistrationError::None &&
+		       packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+		       packages.registerPackage( rules ) == PackageRegistrationError::None,
+		       "package catalog fixture registers packages independent of dependency order" );
+		PackageCatalogSnapshot catalog = runtime.packageCatalog();
+		const PackageCatalogEntry* campaignEntry = catalog.find( "catalog.campaign" );
+		const PackageCatalogEntry* rulesEntry = catalog.find( "catalog.rules" );
+		CHECK( catalog.supportedApi.major == CurrentContentApiVersion.major &&
+		       catalog.supportedApi.minor == CurrentContentApiVersion.minor &&
+		       catalog.packages.size() == 3 &&
+		       catalog.packages[0].descriptor.content.id == "catalog.mod" &&
+		       catalog.packages[1].descriptor.content.id == "catalog.campaign" &&
+		       catalog.packages[2].descriptor.content.id == "catalog.rules" &&
+		       campaignEntry && campaignEntry->dependents ==
+		       std::vector<std::string>({ "catalog.rules" }) &&
+		       rulesEntry && rulesEntry->dependents ==
+		       std::vector<std::string>({ "catalog.mod" }),
+		       "package catalog snapshots preserve discovery and dependent order" );
+		CHECK( packages.activate( "catalog.mod" ) == PackageActivationError::None &&
+		       packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::None,
+		       "package catalog fixture reaches active bootstrap state" );
+		catalog = runtime.packageCatalog();
+		const PackageCatalogEntry* modEntry = catalog.find( "catalog.mod" );
+		campaignEntry = catalog.find( "catalog.campaign" );
+		rulesEntry = catalog.find( "catalog.rules" );
+		CHECK( catalog.activationOrder == std::vector<std::string>({
+		       "catalog.campaign", "catalog.rules", "catalog.mod" }) &&
+		       catalog.activeCampaign == "catalog.campaign" &&
+		       catalog.completedBootstrapPhases == 1 && modEntry && modEntry->active() &&
+		       modEntry->assetsMounted && modEntry->activationIndex == 2 &&
+		       campaignEntry && campaignEntry->active() && campaignEntry->activationIndex == 0 &&
+		       rulesEntry && rulesEntry->active() && rulesEntry->activationIndex == 1,
+		       "package catalog snapshots expose activation, assets, campaign, and bootstrap state" );
+		packages.shutdownBootstrap();
+		CHECK( packages.deactivateAll() &&
+		       packages.unregisterPackage( "catalog.mod" ) &&
+		       catalog.find( "catalog.mod" ) != nullptr &&
+		       runtime.packageCatalog().find( "catalog.mod" ) == nullptr,
+		       "package catalog snapshots retain values after later registry mutations" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		MemoryPackageEventSink events;
+		PackageRegistry packages( content, EngineServices::defaults(), events );
+		TestLifecyclePackage dependency( "events.dependency", PackageKind::Rules );
+		TestLifecyclePackage failing(
+			"events.failing", PackageKind::Extension,
+			static_cast<int>( PackageBootstrapPhase::Configure ), nullptr,
+			{{ "events.dependency", "" }} );
+		CHECK( packages.registerPackage( dependency ) == PackageRegistrationError::None &&
+		       packages.registerPackage( failing ) == PackageRegistrationError::None &&
+		       packages.activate( "events.failing" ) == PackageActivationError::None &&
+		       packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::CallbackFailed,
+		       "package event fixture observes a failed bootstrapped dependency graph" );
+		CHECK( packages.deactivateAll() &&
+		       packages.unregisterPackages({ "events.failing", "events.dependency" }),
+		       "package event fixture completes package teardown" );
+		std::vector<PackageEventKind> eventKinds;
+		for ( const PackageEvent& event : events.events() ) eventKinds.push_back( event.kind );
+		CHECK( eventKinds == std::vector<PackageEventKind>({
+		       PackageEventKind::Registered,
+		       PackageEventKind::Registered,
+		       PackageEventKind::Activated,
+		       PackageEventKind::Activated,
+		       PackageEventKind::BootstrapCompleted,
+		       PackageEventKind::BootstrapFailed,
+		       PackageEventKind::BootstrapRollbackCompleted,
+		       PackageEventKind::BootstrapRollbackCompleted,
+		       PackageEventKind::Deactivated,
+		       PackageEventKind::Deactivated,
+		       PackageEventKind::Unregistered,
+		       PackageEventKind::Unregistered }) &&
+		       events.events()[2].packageId == "events.dependency" &&
+		       events.events()[3].packageId == "events.failing" &&
+		       !events.events()[3].hasBootstrapPhase() &&
+		       events.events()[4].bootstrapPhase == 0 &&
+		       events.events()[6].packageId == "events.failing" &&
+		       events.events()[7].packageId == "events.dependency",
+		       "package events preserve lifecycle, dependency, and rollback order" );
+		events.clear();
+		TestLifecyclePackage successful( "events.successful", PackageKind::Tool );
+		CHECK( packages.registerPackage( successful ) == PackageRegistrationError::None &&
+		       packages.activate( "events.successful" ) == PackageActivationError::None &&
+		       packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::None,
+		       "package event fixture reaches a completed bootstrap phase" );
+		packages.shutdownBootstrap();
+		CHECK( packages.deactivate( "events.successful" ) &&
+		       packages.unregisterPackage( "events.successful" ),
+		       "package event fixture shuts down a completed bootstrap phase" );
+		eventKinds.clear();
+		for ( const PackageEvent& event : events.events() ) eventKinds.push_back( event.kind );
+		CHECK( eventKinds == std::vector<PackageEventKind>({
+		       PackageEventKind::Registered,
+		       PackageEventKind::Activated,
+		       PackageEventKind::BootstrapCompleted,
+		       PackageEventKind::ShutdownCompleted,
+		       PackageEventKind::Deactivated,
+		       PackageEventKind::Unregistered }) &&
+		       events.events()[2].bootstrapPhase == 0 &&
+		       events.events()[3].bootstrapPhase == 0,
+		       "package events report completed bootstrap shutdown in reverse-lifecycle order" );
+
+		ContentRegistry isolatedContent( CurrentContentApiVersion );
+		ThrowingPackageEventSink throwingEvents;
+		PackageRegistry isolatedPackages(
+			isolatedContent, EngineServices::defaults(), throwingEvents );
+		TestLifecyclePackage isolated( "events.isolated", PackageKind::Tool );
+		CHECK( isolatedPackages.registerPackage( isolated ) == PackageRegistrationError::None &&
+		       isolatedPackages.activate( "events.isolated" ) == PackageActivationError::None &&
+		       isolatedPackages.deactivate( "events.isolated" ) &&
+		       isolatedPackages.unregisterPackage( "events.isolated" ) &&
+		       throwingEvents.calls == 4,
+		       "package event sink exceptions cannot corrupt lifecycle state" );
 	}
 
 	{
@@ -1458,6 +1724,31 @@ int main( int, char** )
 	{
 		ScopedPackageFixture fixture;
 		PackageHost host;
+		EngineRuntime<unsigned> runtime(
+			EngineServices::defaults(), ContentApiVersion{ 1, 1 } );
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "a-base", "fixture.registration-base" ) &&
+			AddPackageFixture( fixture, "b-consumer", "fixture.registration-consumer",
+			                   "fixture.registration-base" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.registration-consumer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::RegistrationFailed &&
+		       result.packageId == "fixture.registration-consumer" &&
+		       runtime.packages().find( "fixture.registration-base" ) == nullptr &&
+		       runtime.packages().find( "fixture.registration-consumer" ) == nullptr &&
+		       runtime.packageCatalog().packages.empty() && result.rollbackFailures.empty() &&
+		       mounter.preflighted.empty() && mounter.mounted.empty(),
+		       "late registration rejection removes every package registered by the attempt" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
 		EngineRuntime<unsigned> runtime;
 		RecordingPackageAssetMounter mounter;
 		// Create in reverse order to prove discovery does not inherit directory
@@ -1640,6 +1931,8 @@ int main( int, char** )
 		       result.diagnosticPath == std::vector<std::string>({
 		       "fixture.needs-missing", "fixture.absent" }) &&
 		       !runtime.packages().isActive( "fixture.needs-missing" ) &&
+		       runtime.packages().find( "fixture.needs-missing" ) == nullptr &&
+		       runtime.packageCatalog().packages.empty() && result.rollbackFailures.empty() &&
 		       runtime.packages().activationOrder().empty() &&
 		       mounter.preflighted.empty() && mounter.mounted.empty(),
 		       "missing package dependencies fail with a diagnostic path before mount preflight" );
@@ -1667,7 +1960,10 @@ int main( int, char** )
 		       "fixture.preflight-base", "fixture.preflight-consumer" }) &&
 		       mounter.mounted.empty() && runtime.packages().activationOrder().empty() &&
 		       !runtime.packages().isActive( "fixture.preflight-base" ) &&
-		       !runtime.packages().isActive( "fixture.preflight-consumer" ),
+		       !runtime.packages().isActive( "fixture.preflight-consumer" ) &&
+		       runtime.packages().find( "fixture.preflight-base" ) == nullptr &&
+		       runtime.packages().find( "fixture.preflight-consumer" ) == nullptr &&
+		       result.rollbackFailures.empty(),
 		       "mount preflight completes before invoking any package activation" );
 	}
 
@@ -1697,11 +1993,42 @@ int main( int, char** )
 		       mounter.preflighted == std::vector<std::string>({
 		       "fixture.mount-base", "fixture.mount-consumer" }) &&
 		       mounter.mounted == mounter.preflighted &&
+		       mounter.unmounted == std::vector<std::string>({
+		       "fixture.mount-consumer", "fixture.mount-base" }) &&
+		       mounter.activeMounts.empty() && result.rollbackFailures.empty() &&
 		       runtime.packages().activationOrder().empty() &&
 		       !runtime.packages().isActive( "fixture.mount-base" ) &&
 		       !runtime.packages().isActive( "fixture.mount-consumer" ) &&
+		       runtime.packages().find( "fixture.mount-base" ) == nullptr &&
+		       runtime.packages().find( "fixture.mount-consumer" ) == nullptr &&
 		       rolledBackRead == AssetReadResult::NotFound,
-		       "a late mount failure rolls back the newly activated registry closure and assets" );
+		       "a partial late mount failure rolls back VFS mounts, activation, registration, and assets" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		mounter.failMountId = "fixture.rollback-report-consumer";
+		mounter.failUnmountId = "fixture.rollback-report-base";
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "a-base", "fixture.rollback-report-base" ) &&
+			AddPackageFixture( fixture, "b-consumer", "fixture.rollback-report-consumer",
+			                   "fixture.rollback-report-base" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.rollback-report-consumer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::MountFailed &&
+		       result.rollbackFailures == std::vector<std::string>({
+		       "unmount fixture.rollback-report-base: injected unmount failure" }) &&
+		       result.message.find( "rollback incomplete" ) != std::string::npos &&
+		       runtime.packages().activationOrder().empty() &&
+		       runtime.packageCatalog().packages.empty(),
+		       "package startup reports external rollback failures while continuing engine cleanup" );
 	}
 
 	{
@@ -1810,13 +2137,15 @@ int main( int, char** )
 			return vfs_init::initVirtualFileSystem( config, false );
 		};
 
+		const std::string legacyProfileName = "headless-legacy-" + vfsPriorityToken;
+		const std::string packageProfileName = "headless-package-" + vfsPriorityToken;
 		const bool legacyMounted = vfsPrecedenceFixtureReady &&
 			mountReadOnlyDirectory(
-				"headless-legacy-" + vfsPriorityToken,
+				legacyProfileName,
 				vfsPrecedenceFixture.root() / "legacy" );
 		const bool packageMounted = legacyMounted &&
 			mountReadOnlyDirectory(
-				"headless-package-" + vfsPriorityToken,
+				packageProfileName,
 				vfsPrecedenceFixture.root() / "package" );
 		std::string packageOverlay;
 		std::string writableOverlay;
@@ -1828,6 +2157,15 @@ int main( int, char** )
 		       "late package VFS mounts override earlier read-only legacy content" );
 		CHECK( packageMounted && writableRead && writableOverlay == "writable",
 		       "late read-only package VFS mounts remain below writable user content" );
+		const bool packageUnmounted = packageMounted &&
+			getVFS()->getProfileStack()->removeProfile(
+				vfs::String( packageProfileName.c_str() ) );
+		packageOverlay.clear();
+		const bool legacyRead = packageUnmounted &&
+			ReadFileManagerText( packageOverlayPath, packageOverlay );
+		CHECK( packageUnmounted && legacyRead && packageOverlay == "legacy" &&
+		       getVFS()->getProfileStack()->getProfile( L"headless-tests" ) != nullptr,
+		       "named VFS removal restores a lower overlay without popping writable user data" );
 		std::error_code ignored;
 		std::filesystem::remove( writableOverlayPath, ignored );
 	}

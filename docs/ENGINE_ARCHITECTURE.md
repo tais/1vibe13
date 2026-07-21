@@ -50,6 +50,17 @@ the engine must not contain SDL types in its public domain model.
   result delta, while the legacy single-package call reports `AlreadyActive`.
   Only one campaign may be active, whereas rules, extensions, and tools can be
   composed around it.
+- `PackageCatalogSnapshot` is the value-only inspection boundary for launchers,
+  editors, diagnostics, and headless hosts. It reports packages in deterministic
+  host-discovery order, dependency consumers, activation priority, asset state,
+  the active campaign, and bootstrap progress without exposing mutable registry
+  storage or application-owned package pointers. Snapshots remain valid when a
+  later lifecycle operation changes the registry.
+- Hosts may additionally bind a `PackageEventSink` to receive deterministic,
+  value-only registration, activation, bootstrap, rollback, shutdown, and
+  teardown events. Event delivery follows lifecycle callback order. Sink
+  exceptions are logged and isolated from package state, making observation
+  safe for launchers, live diagnostics, and headless test recorders.
 - Active packages protect their direct requirements from removal, which in turn
   protects the complete active closure. Dependencies are not automatically
   pruned when a consumer is removed; the host chooses explicit teardown order.
@@ -70,6 +81,14 @@ the engine must not contain SDL types in its public domain model.
   `Data-*` trees and `vfs_config.ini` behavior remain unchanged. This version
   deliberately has no native-code loading, runtime rescan/unload, or
   disk-discovered campaign bootstrap.
+- Package-host startup is transactional across discovery registration, engine
+  activation, and legacy VFS mounting. Resolution, preflight, activation, or
+  mount failure reverses named VFS profiles, newly activated packages, and all
+  registrations introduced by that attempt. Rollback continues after an
+  individual teardown error and reports every incomplete step to the host.
+  Every external mount attempt is unwound, including one that throws or
+  reports failure after acquiring partial VFS state; unmount adapters are
+  therefore idempotent for already-absent package IDs.
 - Package bootstrap advances through ordered configure, content-load, and
   runtime-start phases. A failed phase rolls back in reverse package order;
   shutdown unwinds completed phases in reverse before legacy engine teardown.
@@ -102,11 +121,21 @@ the engine must not contain SDL types in its public domain model.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
   Tactical end-turn input is the first production path: it queues an
-  engine-owned value command and drains it at the existing synchronous call
+  engine-owned value command and processes it at the existing synchronous call
   boundary before invoking the legacy executor.
+- `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
+  commands only after their handler returns. Applied commands run exactly once;
+  retry blocks later deterministic work without removing it; explicit discard
+  is counted; and a handler exception leaves the failing and remaining commands
+  queued. Commands produced during a handler wait for the next pass, preventing
+  accidental unbounded same-tick dispatch.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
 - `StateStack` represents base screens and modal overlays without scattered
   previous-screen globals.
+- `StateController` owns current, previous, and pending application state above
+  that stack. The JA2 loop routes immediate and requested transitions through
+  it, including message/chat overlays, while the widely read legacy screen
+  scalars remain synchronized compatibility mirrors during migration.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized
