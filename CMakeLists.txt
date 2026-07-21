@@ -37,6 +37,8 @@ option(ADDRESS_SANITIZER OFF)
 if(ADDRESS_SANITIZER)
   message(STATUS "AddressSanitizer ENABLED for non-Release builds")
   add_compile_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fsanitize=address,>)
+  add_compile_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fno-omit-frame-pointer,>)
+  add_link_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fsanitize=address,>)
 endif()
 
 if(MSVC)
