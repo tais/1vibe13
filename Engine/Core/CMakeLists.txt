@@ -24,6 +24,7 @@ set(engine_core_public_headers
   RandomSource.h
   RuntimeCapabilities.h
   StateController.h
+  StateRegistry.h
   StateStack.h
   StateTransition.h
   TimeSource.h

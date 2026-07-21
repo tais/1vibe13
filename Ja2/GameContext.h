@@ -38,6 +38,8 @@ public:
 	const StateStack<UINT32>& screens() const { return runtime_.screens(); }
 	StateController<UINT32>& screenController() { return runtime_.screenController(); }
 	const StateController<UINT32>& screenController() const { return runtime_.screenController(); }
+	StateRegistry<UINT32>& stateRegistry() { return runtime_.stateRegistry(); }
+	const StateRegistry<UINT32>& stateRegistry() const { return runtime_.stateRegistry(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }

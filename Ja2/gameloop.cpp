@@ -198,7 +198,7 @@ BOOLEAN InitializeGame(void)
 	// Initialize Game Screens.
 	for (uiIndex = 0; uiIndex < MAX_SCREENS; uiIndex++)
 	{
-		if ((*(GameScreens[uiIndex].InitializeScreen))() == FALSE)
+		if (InitializeRegisteredScreen(uiIndex) == FALSE)
 		{ // Failed to initialize one of the screens.
 			return FALSE;
 		}
@@ -425,8 +425,7 @@ void GameLoop(void)
 	}
 
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: screen changed");
-	AssertNotNIL (GameScreens[guiCurrentScreen].HandleScreen);
-	uiOldScreen = (*(GameScreens[guiCurrentScreen].HandleScreen))();
+	uiOldScreen = HandleRegisteredScreen(guiCurrentScreen);
 
 	// if the screen has changed
 	if( uiOldScreen != guiCurrentScreen )
@@ -552,7 +551,7 @@ void SetCurrentScreen( UINT32 uiNewScreen )
 {
 	RecordScreenTransition(uiNewScreen);
 	guiCurrentScreen = uiNewScreen;
- (*(GameScreens[guiCurrentScreen].HandleScreen))();
+	HandleRegisteredScreen(guiCurrentScreen);
 
 }
 

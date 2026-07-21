@@ -4,6 +4,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/StateRegistry.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -60,6 +61,47 @@ int main()
 		commandStream.journal().size() == 4 &&
 		commandStream.queue().size() == 4,
 		"generic command stream rejects a conflicting batch transactionally");
+
+	StateRegistry<unsigned> states;
+	unsigned initialized = 0;
+	unsigned handled = 0;
+	unsigned shutDown = 0;
+	check(states.registerState(4, StateCallbacks<unsigned>{
+		[&initialized] { ++initialized; return true; },
+		[&handled] { ++handled; return 7u; },
+		[&shutDown] { ++shutDown; }}) == StateRegistrationError::None &&
+		states.registerState(4, StateCallbacks<unsigned>{
+			[] { return true; }, [] { return 0u; }, [] {}}) ==
+			StateRegistrationError::DuplicateId &&
+		states.registerState(5, StateCallbacks<unsigned>{}) ==
+			StateRegistrationError::InvalidCallbacks,
+		"state registry validates complete unique state contracts");
+	check(states.handle(4).error == StateHandleError::NotInitialized &&
+		states.initialize(4) == StateInitializationError::None &&
+		states.initialize(4) == StateInitializationError::AlreadyInitialized &&
+		states.initializedCount() == 1,
+		"state registry enforces initialization before deterministic dispatch");
+	const StateHandleResult<unsigned> handledState = states.handle(4);
+	check(handledState && *handledState.nextState == 7 &&
+		initialized == 1 && handled == 1,
+		"state registry dispatches through its application-owned callback adapter");
+	check(states.shutdown(4) == StateShutdownError::None &&
+		states.shutdown(4) == StateShutdownError::NotInitialized &&
+		shutDown == 1 && states.initializedCount() == 0,
+		"state registry tracks orderly shutdown without owning captured resources");
+	check(states.registerState(6, StateCallbacks<unsigned>{
+		[]() -> bool { throw 1; }, [] { return 6u; }, [] {}}) ==
+			StateRegistrationError::None &&
+		states.initialize(6) == StateInitializationError::CallbackException,
+		"state registry contains initialization exceptions at the host boundary");
+	check(states.registerState(7, StateCallbacks<unsigned>{
+		[] { return true; }, []() -> unsigned { throw 1; }, [] { throw 1; }}) ==
+			StateRegistrationError::None &&
+		states.initialize(7) == StateInitializationError::None &&
+		states.handle(7).error == StateHandleError::CallbackException &&
+		states.shutdown(7) == StateShutdownError::CallbackException &&
+		!states.isInitialized(7),
+		"state registry reports callback exceptions and releases lifecycle state");
 
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});

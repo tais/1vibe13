@@ -12,6 +12,7 @@
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/StateController.h>
+#include <Engine/Core/StateRegistry.h>
 #include <Engine/Core/StateStack.h>
 
 enum class EngineLifecycle
@@ -54,6 +55,8 @@ public:
 	const StateStack<ScreenId>& screens() const { return screenController_.stack(); }
 	StateController<ScreenId>& screenController() { return screenController_; }
 	const StateController<ScreenId>& screenController() const { return screenController_; }
+	StateRegistry<ScreenId>& stateRegistry() { return stateRegistry_; }
+	const StateRegistry<ScreenId>& stateRegistry() const { return stateRegistry_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -114,6 +117,7 @@ public:
 
 private:
 	StateController<ScreenId> screenController_;
+	StateRegistry<ScreenId> stateRegistry_;
 	ContentRegistry content_;
 	PackageRegistry packages_;
 	PersistenceService persistence_;

@@ -182,6 +182,12 @@ the engine must not contain SDL types in its public domain model.
   that stack. The JA2 loop routes immediate and requested transitions through
   it, including message/chat overlays, while the widely read legacy screen
   scalars remain synchronized compatibility mirrors during migration.
+- `StateRegistry` owns game-agnostic state lifecycle and dispatch callbacks.
+  The live JA2 screen table is registered once as a compatibility adapter, and
+  all initialization, handling, and shutdown now run through the runtime host.
+  Callback failures and exceptions become explicit results instead of unchecked
+  array dispatch, while the established numeric screen IDs and ordering remain
+  unchanged for existing game, editor, and mod code.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

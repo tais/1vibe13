@@ -29,6 +29,11 @@ typedef struct Screens
 
 extern Screens GameScreens[MAX_SCREENS];
 
+// Compatibility entry points backed by the runtime-owned generic registry.
+BOOLEAN InitializeRegisteredScreen( UINT32 screenId );
+UINT32 HandleRegisteredScreen( UINT32 screenId );
+BOOLEAN ShutdownRegisteredScreen( UINT32 screenId );
+
 // We must include all the following .H files which have prototypes for all the initialization, handler and shutdown
 // functions for all the screens. There should be as many includes as there are screens.
 

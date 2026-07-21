@@ -14,6 +14,7 @@ set(core_standard_headers
   cstddef
   cstdint
   deque
+  functional
   initializer_list
   iterator
   limits

@@ -1,4 +1,5 @@
 	#include "Screens.h"
+	#include "GameContext.h"
 
 int iResolution;		// INI file
 int iPlayIntro;
@@ -75,3 +76,34 @@ Screens GameScreens[MAX_SCREENS] =
 
 	{ QuestDebugScreenInit,				QuestDebugScreenHandle,		QuestDebugScreenShutdown		}
 };
+
+BOOLEAN InitializeRegisteredScreen( UINT32 screenId )
+{
+	const StateInitializationError result =
+		GetGameContext().stateRegistry().initialize(screenId);
+	return result == StateInitializationError::None ? TRUE : FALSE;
+}
+
+UINT32 HandleRegisteredScreen( UINT32 screenId )
+{
+	const StateHandleResult<UINT32> result =
+		GetGameContext().stateRegistry().handle(screenId);
+	if (result) return *result.nextState;
+	GetGameContext().log().write(LogRecord{
+		LogSeverity::Error, "states",
+		"Screen handler failed for ID " + std::to_string(screenId) +
+			" with code " + std::to_string(static_cast<int>(result.error))});
+	return ERROR_SCREEN;
+}
+
+BOOLEAN ShutdownRegisteredScreen( UINT32 screenId )
+{
+	const StateShutdownError result =
+		GetGameContext().stateRegistry().shutdown(screenId);
+	if (result == StateShutdownError::None) return TRUE;
+	GetGameContext().log().write(LogRecord{
+		LogSeverity::Error, "states",
+		"Screen shutdown failed for ID " + std::to_string(screenId) +
+			" with code " + std::to_string(static_cast<int>(result))});
+	return FALSE;
+}

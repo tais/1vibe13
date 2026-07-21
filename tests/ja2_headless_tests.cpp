@@ -1334,6 +1334,10 @@ int main( int, char** )
 		       "legacy compiled campaign is bound through the runtime package registry" );
 		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
 		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
+		CHECK( compiledContext.stateRegistry().size() == MAX_SCREENS &&
+		       compiledContext.stateRegistry().contains( GAME_SCREEN ) &&
+		       compiledContext.stateRegistry().contains( MAP_SCREEN ),
+		       "live JA2 screens are bound through the generic runtime state registry" );
 		CHECK( &compiledContext.log() == &GetPlatformLogSink(),
 		       "application composition root binds the SDL logging adapter" );
 		CHECK( &compiledContext.services().time == &GetPlatformTimeSource() &&

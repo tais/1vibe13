@@ -7005,7 +7005,7 @@ void	HandleTacticalUILoseCursorFromOtherScreen( )
 
 	ErasePath( TRUE );
 
-	(*(GameScreens[GAME_SCREEN].HandleScreen))();
+	HandleRegisteredScreen(GAME_SCREEN);
 
 	gfTacticalForceNoCursor = FALSE;
 

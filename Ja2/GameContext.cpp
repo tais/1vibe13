@@ -1,6 +1,7 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
+#include "Screens.h"
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformLog.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
@@ -26,6 +27,27 @@ GameContext& GetGameContext()
 		               GetPlatformByteStorage(), GetPlatformLogSink(),
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
 		               GetPlatformFramePresenter(), GetPlatformAssetSource()});
+	static const bool screensRegistered = [] {
+		for (UINT32 screenId = 0; screenId < MAX_SCREENS; ++screenId)
+		{
+			Screens* screen = &GameScreens[screenId];
+			if (!screen->InitializeScreen || !screen->HandleScreen || !screen->ShutdownScreen)
+				return false;
+			if (context.stateRegistry().registerState(screenId, StateCallbacks<UINT32>{
+				[screen] { return screen->InitializeScreen() != FALSE; },
+				[screen] { return screen->HandleScreen(); },
+				[screen] { (void)screen->ShutdownScreen(); }}) !=
+				StateRegistrationError::None) return false;
+		}
+		return true;
+	}();
+	static const bool screenRegistrationReported = [&] {
+		if (!screensRegistered)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "states", "Legacy screen registration failed"});
+		return true;
+	}();
+	(void)screenRegistrationReported;
 	static const bool packageActivated = [] {
 		LegacyCampaignPackage& package = GetCompiledCampaignPackage();
 		GameContext& game = context;
