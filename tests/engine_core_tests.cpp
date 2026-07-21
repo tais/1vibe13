@@ -2,8 +2,10 @@
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/StateRegistry.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -13,6 +15,32 @@
 namespace
 {
 int failures = 0;
+
+class TestInputSink final : public InputEventSink
+{
+public:
+	void receiveInput(const EngineInputEvent& event) override
+	{
+		events.push_back(event);
+		if (throws) throw 1;
+	}
+
+	std::vector<EngineInputEvent> events;
+	bool throws = false;
+};
+
+class TestRuntimeUpdateSink final : public RuntimeUpdateSink
+{
+public:
+	void updateRuntime(const RuntimeUpdateContext& context) override
+	{
+		updates.push_back(context);
+		if (throws) throw 1;
+	}
+
+	std::vector<RuntimeUpdateContext> updates;
+	bool throws = false;
+};
 
 void check(bool condition, const char* message)
 {
@@ -60,6 +88,116 @@ int main()
 		commandStream.journal().size() == 4 &&
 		commandStream.queue().size() == 4,
 		"generic command stream rejects a conflicting batch transactionally");
+
+	StateRegistry<unsigned> states;
+	unsigned initialized = 0;
+	unsigned handled = 0;
+	unsigned shutDown = 0;
+	check(states.registerState(4, StateCallbacks<unsigned>{
+		[&initialized] { ++initialized; return true; },
+		[&handled] { ++handled; return 7u; },
+		[&shutDown] { ++shutDown; }}) == StateRegistrationError::None &&
+		states.registerState(4, StateCallbacks<unsigned>{
+			[] { return true; }, [] { return 0u; }, [] {}}) ==
+			StateRegistrationError::DuplicateId &&
+		states.registerState(5, StateCallbacks<unsigned>{}) ==
+			StateRegistrationError::InvalidCallbacks,
+		"state registry validates complete unique state contracts");
+	check(states.handle(4).error == StateHandleError::NotInitialized &&
+		states.initialize(4) == StateInitializationError::None &&
+		states.initialize(4) == StateInitializationError::AlreadyInitialized &&
+		states.initializedCount() == 1,
+		"state registry enforces initialization before deterministic dispatch");
+	const StateHandleResult<unsigned> handledState = states.handle(4);
+	check(handledState && *handledState.nextState == 7 &&
+		initialized == 1 && handled == 1,
+		"state registry dispatches through its application-owned callback adapter");
+	check(states.shutdown(4) == StateShutdownError::None &&
+		states.shutdown(4) == StateShutdownError::NotInitialized &&
+		shutDown == 1 && states.initializedCount() == 0,
+		"state registry tracks orderly shutdown without owning captured resources");
+	check(states.registerState(6, StateCallbacks<unsigned>{
+		[]() -> bool { throw 1; }, [] { return 6u; }, [] {}}) ==
+			StateRegistrationError::None &&
+		states.initialize(6) == StateInitializationError::CallbackException,
+		"state registry contains initialization exceptions at the host boundary");
+	check(states.registerState(7, StateCallbacks<unsigned>{
+		[] { return true; }, []() -> unsigned { throw 1; }, [] { throw 1; }}) ==
+			StateRegistrationError::None &&
+		states.initialize(7) == StateInitializationError::None &&
+		states.handle(7).error == StateHandleError::CallbackException &&
+		states.shutdown(7) == StateShutdownError::CallbackException &&
+		!states.isInitialized(7),
+		"state registry reports callback exceptions and releases lifecycle state");
+
+	ManualTimeSource frameTime;
+	MemoryInputSource frameInput;
+	RecordingFramePresenter framePresenter;
+	EngineServices frameServices{
+		frameTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
+		NullLogSink::instance(), frameInput,
+		NullAudioOutput::instance(), framePresenter, NullAssetSource::instance()};
+	InputDispatcher inputDispatcher(frameInput, 1);
+	TestInputSink receivingInput;
+	TestInputSink throwingInput;
+	throwingInput.throws = true;
+	check(inputDispatcher.addSink(receivingInput) == InputSinkRegistrationError::None &&
+		inputDispatcher.addSink(throwingInput) == InputSinkRegistrationError::None &&
+		inputDispatcher.addSink(receivingInput) == InputSinkRegistrationError::Duplicate,
+		"input dispatcher retains deterministic unique subscribers");
+	frameInput.push(EngineInputEvent{10, 0, 1, 65, 0, 1, 3});
+	frameInput.push(EngineInputEvent{20, 0, 2, 65, 0, 2, 0});
+	RuntimeUpdateDispatcher runtimeUpdates;
+	TestRuntimeUpdateSink receivingUpdates;
+	TestRuntimeUpdateSink throwingUpdates;
+	throwingUpdates.throws = true;
+	check(runtimeUpdates.addSink(receivingUpdates) ==
+		RuntimeUpdateSinkRegistrationError::None &&
+		runtimeUpdates.addSink(throwingUpdates) ==
+		RuntimeUpdateSinkRegistrationError::None &&
+		runtimeUpdates.addSink(receivingUpdates) ==
+		RuntimeUpdateSinkRegistrationError::Duplicate,
+		"runtime update dispatcher retains deterministic unique subscribers");
+	FrameDriver frameDriver(frameServices, inputDispatcher, runtimeUpdates);
+	unsigned frameOrder = 0;
+	const FrameRunResult presentedFrame = frameDriver.runFrame(
+		[&] {
+			check(frameOrder++ == 0, "frame driver begins with application update");
+			frameTime.advanceMicroseconds(25);
+			return FramePlan{true, FramePresentMode::Immediate};
+		},
+		[&] {
+			check(framePresenter.presentations().size() == 1 && frameOrder++ == 1,
+				"frame driver presents before application completion");
+			frameTime.advanceMicroseconds(15);
+		});
+	check(presentedFrame.sequence == 1 && presentedFrame.presented &&
+		presentedFrame.presentationMode == FramePresentMode::Immediate &&
+		presentedFrame.startedAtMicroseconds == 0 &&
+		presentedFrame.finishedAtMicroseconds == 40 && frameOrder == 2,
+		"frame driver reports deterministic frame identity and timing");
+	check(presentedFrame.input.polled == 1 && presentedFrame.input.delivered == 1 &&
+		presentedFrame.input.callbackFailures == 1 &&
+		presentedFrame.input.sourceDrops == 3 && presentedFrame.input.limitReached &&
+		receivingInput.events.size() == 1 && throwingInput.events.size() == 1,
+		"frame driver dispatches bounded input before update and isolates subscriber failures");
+	check(presentedFrame.runtimeUpdates.delivered == 1 &&
+		presentedFrame.runtimeUpdates.callbackFailures == 1 &&
+		receivingUpdates.updates.size() == 1 &&
+		receivingUpdates.updates[0].frameSequence == 1 &&
+		receivingUpdates.updates[0].startedAtMicroseconds == 0 &&
+		receivingUpdates.updates[0].elapsedSincePreviousFrameMicroseconds == 0,
+		"frame driver dispatches deterministic runtime updates before application work");
+	const FrameRunResult skippedFrame = frameDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	check(skippedFrame.sequence == 2 && !skippedFrame.presented &&
+		framePresenter.presentations().size() == 1 &&
+		frameDriver.completedFrames() == 2 && skippedFrame.input.polled == 1 &&
+		receivingInput.events.size() == 2 && receivingInput.events.back().type == 2 &&
+		receivingUpdates.updates.size() == 2 &&
+		receivingUpdates.updates.back().frameSequence == 2 &&
+		receivingUpdates.updates.back().elapsedSincePreviousFrameMicroseconds == 40,
+		"frame driver preserves skipped-frame policy without presenting");
 
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});

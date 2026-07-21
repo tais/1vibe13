@@ -7,11 +7,16 @@
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/FrameDriver.h>
+#include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
+#include <Engine/Core/PackageLifecycle.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/StateController.h>
+#include <Engine/Core/StateRegistry.h>
 #include <Engine/Core/StateStack.h>
 
 enum class EngineLifecycle
@@ -35,9 +40,13 @@ public:
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
+		  packageLifecycle_(packages_), inputDispatcher_(packages_.services().input),
+		  frameDriver_(packages_.services(), inputDispatcher_, runtimeUpdates_),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
+		inputDispatcher_.addSink(packages_);
+		runtimeUpdates_.addSink(packages_);
 	}
 
 	// PackageRegistry keeps references to this host's ContentRegistry. Stable
@@ -54,10 +63,20 @@ public:
 	const StateStack<ScreenId>& screens() const { return screenController_.stack(); }
 	StateController<ScreenId>& screenController() { return screenController_; }
 	const StateController<ScreenId>& screenController() const { return screenController_; }
+	StateRegistry<ScreenId>& stateRegistry() { return stateRegistry_; }
+	const StateRegistry<ScreenId>& stateRegistry() const { return stateRegistry_; }
+	FrameDriver& frameDriver() { return frameDriver_; }
+	const FrameDriver& frameDriver() const { return frameDriver_; }
+	InputDispatcher& inputDispatcher() { return inputDispatcher_; }
+	const InputDispatcher& inputDispatcher() const { return inputDispatcher_; }
+	RuntimeUpdateDispatcher& runtimeUpdates() { return runtimeUpdates_; }
+	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtimeUpdates_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
 	const PackageRegistry& packages() const { return packages_; }
+	PackageLifecycle& packageLifecycle() { return packageLifecycle_; }
+	const PackageLifecycle& packageLifecycle() const { return packageLifecycle_; }
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
 	bool hasCapability(const std::string& capability) const
 	{
@@ -114,8 +133,13 @@ public:
 
 private:
 	StateController<ScreenId> screenController_;
+	StateRegistry<ScreenId> stateRegistry_;
 	ContentRegistry content_;
 	PackageRegistry packages_;
+	PackageLifecycle packageLifecycle_;
+	InputDispatcher inputDispatcher_;
+	RuntimeUpdateDispatcher runtimeUpdates_;
+	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCapabilities hostCapabilities_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;

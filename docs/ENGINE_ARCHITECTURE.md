@@ -182,6 +182,31 @@ the engine must not contain SDL types in its public domain model.
   that stack. The JA2 loop routes immediate and requested transitions through
   it, including message/chat overlays, while the widely read legacy screen
   scalars remain synchronized compatibility mirrors during migration.
+- `StateRegistry` owns game-agnostic state lifecycle and dispatch callbacks.
+  The live JA2 screen table is registered once as a compatibility adapter, and
+  all initialization, handling, and shutdown now run through the runtime host.
+  Callback failures and exceptions become explicit results instead of unchecked
+  array dispatch, while the established numeric screen IDs and ordering remain
+  unchanged for existing game, editor, and mod code.
+- `FrameDriver` owns the update/present/complete sequence and deterministic
+  identity of every completed application frame. The live JA2 loop is routed
+  through it while preserving its established screen-update, presentation,
+  clock, and network ordering. Headless hosts use the same driver with injected
+  time and presentation services instead of a window or renderer.
+- `InputDispatcher` drains a bounded engine input stream before each frame and
+  fans events out in deterministic subscriber order. The SDL adapter mirrors
+  accepted legacy queue events, so engine packages receive live input without
+  consuming or reordering the tactical/UI event queue. Runtime-started packages
+  receive these events in activation order; callback exceptions are isolated.
+- `RuntimeUpdateDispatcher` follows input delivery with a deterministic update
+  hook for runtime-started packages. Each update carries engine frame identity,
+  monotonic start time, and elapsed time since the previous completed frame;
+  package failures are contained before the legacy application state runs.
+- `PackageLifecycle` advances package configuration, content loading, and
+  runtime startup as one engine-owned transaction. JA2 retains its established
+  loading boundaries, while a failed later phase now unwinds every earlier
+  phase automatically and normal shutdown uses the same reverse-order path
+  before package deactivation.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

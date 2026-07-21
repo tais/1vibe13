@@ -38,10 +38,20 @@ public:
 	const StateStack<UINT32>& screens() const { return runtime_.screens(); }
 	StateController<UINT32>& screenController() { return runtime_.screenController(); }
 	const StateController<UINT32>& screenController() const { return runtime_.screenController(); }
+	StateRegistry<UINT32>& stateRegistry() { return runtime_.stateRegistry(); }
+	const StateRegistry<UINT32>& stateRegistry() const { return runtime_.stateRegistry(); }
+	FrameDriver& frameDriver() { return runtime_.frameDriver(); }
+	const FrameDriver& frameDriver() const { return runtime_.frameDriver(); }
+	InputDispatcher& inputDispatcher() { return runtime_.inputDispatcher(); }
+	const InputDispatcher& inputDispatcher() const { return runtime_.inputDispatcher(); }
+	RuntimeUpdateDispatcher& runtimeUpdates() { return runtime_.runtimeUpdates(); }
+	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtime_.runtimeUpdates(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }
 	const PackageRegistry& packages() const { return runtime_.packages(); }
+	PackageLifecycle& packageLifecycle() { return runtime_.packageLifecycle(); }
+	const PackageLifecycle& packageLifecycle() const { return runtime_.packageLifecycle(); }
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
 	bool hasCapability(const std::string& capability) const
 	{

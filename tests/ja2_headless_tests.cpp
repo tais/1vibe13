@@ -387,9 +387,21 @@ public:
 			lifecycleTrace->push_back("shutdown:" + descriptor_.content.id);
 		shutdownCalls.push_back(static_cast<int>(phase));
 	}
+	void receiveInput(PackageBootstrapContext&, const EngineInputEvent& event) override
+	{
+		inputEvents.push_back(event);
+		if (throwOnInput) throw "test package input exception";
+	}
+	void updateRuntime(PackageBootstrapContext&, const RuntimeUpdateContext& update) override
+	{
+		runtimeUpdates.push_back(update);
+		if (throwOnRuntimeUpdate) throw "test package runtime update exception";
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
+	std::vector<EngineInputEvent> inputEvents;
+	std::vector<RuntimeUpdateContext> runtimeUpdates;
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
@@ -399,6 +411,8 @@ public:
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
 	int throwPhase = -1;
+	bool throwOnInput = false;
+	bool throwOnRuntimeUpdate = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -468,6 +482,61 @@ int main( int, char** )
 		CHECK( host.beginInitialization() && host.markRunning() &&
 		       host.beginShutdown() && host.markStopped(),
 		       "command-agnostic engine host owns lifecycle" );
+	}
+
+	{
+		MemoryInputSource input;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
+			NullByteStorage::instance(), NullLogSink::instance(), input,
+			NullAudioOutput::instance(), NullFramePresenter::instance(),
+			NullAssetSource::instance()};
+		EngineHost<unsigned> host( services );
+		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
+		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
+		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
+		       "engine host prepares a package for coordinated lifecycle startup" );
+		const PackageLifecycleAdvanceResult started =
+			host.packageLifecycle().advanceTo( PackageBootstrapPhase::StartRuntime );
+		const PackageLifecycleAdvanceResult repeated =
+			host.packageLifecycle().advanceTo( PackageBootstrapPhase::Configure );
+		CHECK( started && started.completedPhases == 3 && !started.rolledBack &&
+		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }),
+		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );
+		const FrameRunResult frame = host.frameDriver().runFrame(
+			[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		CHECK( frame.input.polled == 1 && package.inputEvents.size() == 1 &&
+		       package.inputEvents[0].modifiers == 2 && package.inputEvents[0].primary == 65,
+		       "runtime-started packages receive live mirrored input before the application frame" );
+		CHECK( frame.runtimeUpdates.delivered == 1 && package.runtimeUpdates.size() == 1 &&
+		       package.runtimeUpdates[0].frameSequence == 1 &&
+		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
+		       "runtime-started packages receive deterministic per-frame engine updates" );
+		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
+		CHECK( stopped && stopped.shutdownPhases == 3 &&
+		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
+		       package.deactivateCalls == 1 && host.packages().activationOrder().empty(),
+		       "package lifecycle shuts down phases and active packages in reverse order" );
+	}
+
+	{
+		EngineHost<unsigned> host;
+		TestLifecyclePackage package(
+			"lifecycle.rollback", PackageKind::Rules,
+			static_cast<int>(PackageBootstrapPhase::LoadContent) );
+		host.packages().registerPackage( package );
+		host.packages().activate( "lifecycle.rollback" );
+		const PackageLifecycleAdvanceResult failed =
+			host.packageLifecycle().advanceTo( PackageBootstrapPhase::StartRuntime );
+		CHECK( !failed && failed.error == PackageBootstrapError::CallbackFailed &&
+		       failed.phase == PackageBootstrapPhase::LoadContent && failed.rolledBack &&
+		       failed.completedPhases == 0 &&
+		       package.shutdownCalls == std::vector<int>({ 1, 0 }),
+		       "package lifecycle unwinds all earlier phases after a later startup failure" );
+		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
+		CHECK( stopped && stopped.shutdownPhases == 0 && package.deactivateCalls == 1,
+		       "rolled-back package lifecycle remains safe to deactivate during host shutdown" );
 	}
 
 	{
@@ -1334,6 +1403,10 @@ int main( int, char** )
 		       "legacy compiled campaign is bound through the runtime package registry" );
 		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
 		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
+		CHECK( compiledContext.stateRegistry().size() == MAX_SCREENS &&
+		       compiledContext.stateRegistry().contains( GAME_SCREEN ) &&
+		       compiledContext.stateRegistry().contains( MAP_SCREEN ),
+		       "live JA2 screens are bound through the generic runtime state registry" );
 		CHECK( &compiledContext.log() == &GetPlatformLogSink(),
 		       "application composition root binds the SDL logging adapter" );
 		CHECK( &compiledContext.services().time == &GetPlatformTimeSource() &&

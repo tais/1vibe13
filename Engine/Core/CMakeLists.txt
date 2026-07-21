@@ -11,19 +11,24 @@ set(engine_core_public_headers
   DeterministicCommandQueue.h
   EngineHost.h
   EngineServices.h
+  FrameDriver.h
   FramePresenter.h
   Identifier.h
+  InputDispatcher.h
   InputSource.h
   LogSink.h
   PackageApi.h
   PackageCatalog.h
   PackageContract.h
   PackageEventSink.h
+  PackageLifecycle.h
   PackageResults.h
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h
+  RuntimeUpdate.h
   StateController.h
+  StateRegistry.h
   StateStack.h
   StateTransition.h
   TimeSource.h

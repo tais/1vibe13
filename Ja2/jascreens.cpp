@@ -484,7 +484,7 @@ UINT32 PalEditScreenHandle(void)
 	else
 	{
 
-		(*(GameScreens[GAME_SCREEN].HandleScreen))();
+		HandleRegisteredScreen(GAME_SCREEN);
 
 	}
 
@@ -703,7 +703,7 @@ UINT32 DebugScreenHandle(void)
 	else
 	{
 
-		(*(GameScreens[GAME_SCREEN].HandleScreen))();
+		HandleRegisteredScreen(GAME_SCREEN);
 
 	}
 

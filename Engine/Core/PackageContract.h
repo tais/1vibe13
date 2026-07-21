@@ -7,6 +7,7 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/RuntimeUpdate.h>
 
 enum class PackageKind
 {
@@ -62,6 +63,12 @@ public:
 	// the source; once returned, its identity and lifetime must remain stable
 	// until the registry unmounts it immediately before deactivate().
 	virtual const AssetSource* assetSource() const noexcept { return nullptr; }
+	// Runtime input is a non-stealing mirror of the application queue. Packages
+	// receive it in activation order only after all bootstrap phases complete.
+	virtual void receiveInput(PackageBootstrapContext&, const EngineInputEvent&) {}
+	// Per-frame updates run after mirrored input dispatch and before application
+	// state update. The context is engine timing, never a game-global clock.
+	virtual void updateRuntime(PackageBootstrapContext&, const RuntimeUpdateContext&) {}
 };
 
 #endif

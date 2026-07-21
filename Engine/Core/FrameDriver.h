@@ -1,0 +1,84 @@
+#ifndef ENGINE_CORE_FRAME_DRIVER_H
+#define ENGINE_CORE_FRAME_DRIVER_H
+
+#include <cstdint>
+#include <utility>
+
+#include <Engine/Core/EngineServices.h>
+#include <Engine/Core/InputDispatcher.h>
+#include <Engine/Core/RuntimeUpdate.h>
+
+struct FramePlan
+{
+	bool present = true;
+	FramePresentMode presentationMode = FramePresentMode::Paced;
+};
+
+struct FrameRunResult
+{
+	std::uint64_t sequence = 0;
+	std::uint64_t startedAtMicroseconds = 0;
+	std::uint64_t finishedAtMicroseconds = 0;
+	bool presented = false;
+	FramePresentMode presentationMode = FramePresentMode::Paced;
+	InputDispatchResult input;
+	RuntimeUpdateDispatchResult runtimeUpdates;
+};
+
+// Game-agnostic orchestration for one application frame. The application owns
+// update/render policy and post-presentation bookkeeping; the engine owns their
+// ordering, presentation, timing, and monotonically increasing frame identity.
+// Exceptions deliberately propagate to the application's existing top-level
+// recovery policy, and a failed frame is not counted as completed.
+class FrameDriver
+{
+public:
+	FrameDriver(EngineServices& services, InputDispatcher& input,
+		RuntimeUpdateDispatcher& runtimeUpdates)
+		: services_(services), input_(input), runtimeUpdates_(runtimeUpdates) {}
+
+	FrameDriver(const FrameDriver&) = delete;
+	FrameDriver& operator=(const FrameDriver&) = delete;
+	FrameDriver(FrameDriver&&) = delete;
+	FrameDriver& operator=(FrameDriver&&) = delete;
+
+	template<typename PrepareFrame, typename CompleteFrame>
+	FrameRunResult runFrame(PrepareFrame&& prepareFrame, CompleteFrame&& completeFrame)
+	{
+		const std::uint64_t startedAt = services_.time.nowMicroseconds();
+		const std::uint64_t sequence = completedFrames_ + 1;
+		const InputDispatchResult input = input_.dispatchPending();
+		const std::uint64_t elapsed = hasCompletedFrame_ && startedAt >= previousFrameStartedAt_
+			? startedAt - previousFrameStartedAt_ : 0;
+		const RuntimeUpdateDispatchResult runtimeUpdates = runtimeUpdates_.dispatch(
+			RuntimeUpdateContext{sequence, startedAt, elapsed});
+		const FramePlan plan = std::forward<PrepareFrame>(prepareFrame)();
+		if (plan.present)
+			services_.frames.present(plan.presentationMode);
+		std::forward<CompleteFrame>(completeFrame)();
+		completedFrames_ = sequence;
+		previousFrameStartedAt_ = startedAt;
+		hasCompletedFrame_ = true;
+		return FrameRunResult{
+			sequence, startedAt, services_.time.nowMicroseconds(),
+			plan.present, plan.presentationMode, input, runtimeUpdates};
+	}
+
+	std::uint64_t completedFrames() const { return completedFrames_; }
+	void resetFrameSequence()
+	{
+		completedFrames_ = 0;
+		previousFrameStartedAt_ = 0;
+		hasCompletedFrame_ = false;
+	}
+
+private:
+	EngineServices& services_;
+	InputDispatcher& input_;
+	RuntimeUpdateDispatcher& runtimeUpdates_;
+	std::uint64_t completedFrames_ = 0;
+	std::uint64_t previousFrameStartedAt_ = 0;
+	bool hasCompletedFrame_ = false;
+};
+
+#endif

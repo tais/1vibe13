@@ -198,7 +198,7 @@ BOOLEAN InitializeGame(void)
 	// Initialize Game Screens.
 	for (uiIndex = 0; uiIndex < MAX_SCREENS; uiIndex++)
 	{
-		if ((*(GameScreens[uiIndex].InitializeScreen))() == FALSE)
+		if (InitializeRegisteredScreen(uiIndex) == FALSE)
 		{ // Failed to initialize one of the screens.
 			return FALSE;
 		}
@@ -213,8 +213,7 @@ BOOLEAN InitializeGame(void)
 	//Loads the saved (if any) general JA2 game settings
 	LoadGameSettings();
 	LoadFeatureFlags();
-	if (GetGameContext().packages().bootstrap(PackageBootstrapPhase::Configure) !=
-		PackageBootstrapError::None)
+	if (!GetGameContext().packageLifecycle().advanceTo(PackageBootstrapPhase::Configure))
 	{
 		return FALSE;
 	}
@@ -263,7 +262,7 @@ static BOOLEAN gfSkipFrame = FALSE;
 
 extern void RefreshBoxes( );
 
-void GameLoop(void)
+static FramePlan PrepareGameFrame()
 {
 	//	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop");
 
@@ -425,8 +424,7 @@ void GameLoop(void)
 	}
 
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: screen changed");
-	AssertNotNIL (GameScreens[guiCurrentScreen].HandleScreen);
-	uiOldScreen = (*(GameScreens[guiCurrentScreen].HandleScreen))();
+	uiOldScreen = HandleRegisteredScreen(guiCurrentScreen);
 
 	// if the screen has changed
 	if( uiOldScreen != guiCurrentScreen )
@@ -501,14 +499,17 @@ void GameLoop(void)
 
 
 
+	FramePlan plan;
 	if( gfSkipFrame )
+	{
 		gfSkipFrame = FALSE;
-	else
-		// end rain
+		plan.present = false;
+	}
+	return plan;
+}
 
-		//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: refresh screen");
-		GetGameContext().services().frames.present(FramePresentMode::Paced);
-
+static void CompleteGameFrame()
+{
 	guiGameCycleCounter++;
 
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: update clock");
@@ -548,11 +549,16 @@ void GameLoop(void)
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop done");
 }
 
+void GameLoop(void)
+{
+	GetGameContext().frameDriver().runFrame(PrepareGameFrame, CompleteGameFrame);
+}
+
 void SetCurrentScreen( UINT32 uiNewScreen )
 {
 	RecordScreenTransition(uiNewScreen);
 	guiCurrentScreen = uiNewScreen;
- (*(GameScreens[guiCurrentScreen].HandleScreen))();
+	HandleRegisteredScreen(guiCurrentScreen);
 
 }
 
