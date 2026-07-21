@@ -14,6 +14,7 @@ public:
 			PackageKind::Rules,
 			{"rules.external-consumer"}}
 	{
+		descriptor_.saveStateSchemaVersion = 1;
 	}
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
@@ -24,6 +25,16 @@ public:
 		return true;
 	}
 	void deactivate() noexcept override { active_ = false; }
+	bool saveState(PackageBootstrapContext&, std::vector<std::uint8_t>& state) override
+	{
+		state = {1, 2, 3};
+		return true;
+	}
+	bool loadState(PackageBootstrapContext&, std::uint32_t schema,
+		const std::vector<std::uint8_t>& state) override
+	{
+		return schema == 1 && state == std::vector<std::uint8_t>({1, 2, 3});
+	}
 
 private:
 	PackageDescriptor descriptor_;
@@ -65,6 +76,17 @@ int main()
 	if (!host.loadRuntimeCheckpoint("external.checkpoint", checkpoint) ||
 		checkpoint.activePackages.size() != 1 ||
 		checkpoint.activePackages[0].id != "external.rules") return 11;
+	const PackageSaveArchive externalPackageState{fingerprint,
+		PackageSaveStateSnapshot{{
+			PackageSaveStateRecord{"external.rules", "1.0.0", 1, {1, 2, 3}}}}};
+	if (host.packageSaveArchives().save("external.package-state", externalPackageState) !=
+		PackageSaveArchiveSaveError::None) return 12;
+	PackageSaveArchive loadedExternalPackageState;
+	if (!host.packageSaveArchives().load(
+		"external.package-state", fingerprint, loadedExternalPackageState) ||
+		loadedExternalPackageState.state.records.size() != 1 ||
+		loadedExternalPackageState.state.records[0].payload !=
+			std::vector<std::uint8_t>({1, 2, 3})) return 13;
 
 	const std::vector<std::uint8_t> saved{2, 3, 5, 7};
 	if (host.persistence().saveEnvelope(
@@ -79,8 +101,18 @@ int main()
 
 	host.screenController().reset(7);
 	if (!host.screens().current() || host.screens().current()->state != 7 ||
-		!host.beginInitialization() || !host.markRunning() ||
-		!host.beginShutdown() || !host.markStopped()) return 5;
+		!host.beginInitialization() ||
+		!host.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime) ||
+		!host.markRunning()) return 5;
+	const PackageSaveStateCaptureResult capturedExternalState =
+		host.capturePackageSaveState();
+	if (!capturedExternalState || capturedExternalState.snapshot.records.size() != 1 ||
+		capturedExternalState.snapshot.records[0].payload !=
+			std::vector<std::uint8_t>({1, 2, 3}) ||
+		!host.validatePackageSaveState(capturedExternalState.snapshot) ||
+		!host.restorePackageSaveState(capturedExternalState.snapshot)) return 14;
+	if (!host.beginShutdown() || !host.runtimeSession().shutdownPackages() ||
+		!host.markStopped()) return 5;
 	const EngineServiceLookupResult<unsigned> resolved =
 		host.serviceCatalog().resolve<unsigned>(
 			"external.test-service", EngineServiceVersion{1, 1});

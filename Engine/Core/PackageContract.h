@@ -14,6 +14,7 @@
 #include <Engine/Core/PackageAudio.h>
 #include <Engine/Core/PackageEntities.h>
 #include <Engine/Core/PackageRandomSource.h>
+#include <Engine/Core/PackageSaveState.h>
 #include <Engine/Core/PackageStorage.h>
 #include <Engine/Core/PackageTasks.h>
 #include <Engine/Core/RuntimeMessageBus.h>
@@ -94,6 +95,10 @@ struct PackageDescriptor
 	// require Content API 1.4 and remain visible in package catalog snapshots.
 	std::vector<PackageLocalizationSource> localizationSources;
 	std::vector<PackageDefinitionSource> definitionSources;
+	// Zero means the package owns no per-save state. A non-zero schema opts the
+	// package into bounded capture/restore callbacks and participates in the
+	// runtime compatibility fingerprint.
+	std::uint32_t saveStateSchemaVersion = 0;
 };
 
 // Packages are owned by the application and must outlive the registry. The
@@ -130,6 +135,25 @@ public:
 	// Fixed-step simulation is separate from render-paced runtime updates. New
 	// packages can opt in without making the legacy campaign loop tick-driven.
 	virtual void simulate(PackageBootstrapContext&, const SimulationTickContext&) {}
+	// Per-save state is separate from PackageStorage's installation/profile
+	// records. The registry invokes these only for an active package declaring a
+	// non-zero saveStateSchemaVersion. Implementations publish output and mutate
+	// live state transactionally: false must leave caller/package state intact.
+	virtual bool saveState(PackageBootstrapContext&, std::vector<std::uint8_t>& state)
+	{
+		state.clear();
+		return true;
+	}
+	virtual bool validateState(
+		PackageBootstrapContext&, std::uint32_t, const std::vector<std::uint8_t>&)
+	{
+		return true;
+	}
+	virtual bool loadState(
+		PackageBootstrapContext&, std::uint32_t, const std::vector<std::uint8_t>& state)
+	{
+		return state.empty();
+	}
 };
 
 #endif

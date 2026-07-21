@@ -76,6 +76,28 @@ public:
 		return runtime_.runtimeSession().shutdownPackages();
 	}
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
+	PackageSaveStateCaptureResult capturePackageSaveState() noexcept
+	{
+		return runtime_.capturePackageSaveState();
+	}
+	PackageSaveStateLoadResult validatePackageSaveState(
+		const PackageSaveStateSnapshot& snapshot) const noexcept
+	{
+		return runtime_.validatePackageSaveState(snapshot);
+	}
+	PackageSaveStateLoadResult restorePackageSaveState(
+		const PackageSaveStateSnapshot& snapshot) noexcept
+	{
+		return runtime_.restorePackageSaveState(snapshot);
+	}
+	PackageSaveArchiveService& packageSaveArchives()
+	{
+		return runtime_.packageSaveArchives();
+	}
+	const PackageSaveArchiveService& packageSaveArchives() const
+	{
+		return runtime_.packageSaveArchives();
+	}
 	bool hasCapability(const std::string& capability) const
 	{
 		return runtime_.hasCapability(capability);

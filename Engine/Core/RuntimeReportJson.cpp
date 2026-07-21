@@ -247,6 +247,8 @@ const char* FaultKindName(RuntimeFaultKind kind)
 		case RuntimeFaultKind::RuntimeUpdate: return "runtime-update";
 		case RuntimeFaultKind::SimulationTick: return "simulation-tick";
 		case RuntimeFaultKind::Message: return "message";
+		case RuntimeFaultKind::SaveState: return "save-state";
+		case RuntimeFaultKind::LoadState: return "load-state";
 	}
 	return "unknown";
 }
@@ -411,6 +413,8 @@ RuntimeReportJsonResult SerializeRuntimeReportJson(
 				writer.unsignedNumber(package.descriptor.localizationSources.size()) &&
 				writer.key("definitionSources") &&
 				writer.unsignedNumber(package.descriptor.definitionSources.size()) &&
+				writer.key("saveStateSchema") &&
+				writer.unsignedNumber(package.descriptor.saveStateSchemaVersion) &&
 				writer.key("health") && WriteHealth(writer, package.runtimeHealth) &&
 				writer.key("resources") && WriteResources(writer, package.resources) &&
 				writer.endObject();

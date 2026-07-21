@@ -10,6 +10,7 @@
 namespace
 {
 constexpr const char* CheckpointSuffix = ".engine-checkpoint";
+constexpr const char* PackageStateSuffix = ".engine-packages";
 
 SaveCompatibilityPolicy& ConfiguredPolicy()
 {
@@ -86,6 +87,43 @@ const char* SaveCompatibilityStateName(SaveCompatibilityState state) noexcept
 	return "invalid-metadata";
 }
 
+const char* PackageSaveMetadataStateName(PackageSaveMetadataState state) noexcept
+{
+	switch (state)
+	{
+		case PackageSaveMetadataState::Ready: return "ready";
+		case PackageSaveMetadataState::NotRequired: return "not-required";
+		case PackageSaveMetadataState::LegacyWithoutMetadata:
+			return "legacy-without-package-state";
+		case PackageSaveMetadataState::IncompatibleRuntime: return "incompatible-runtime";
+		case PackageSaveMetadataState::InvalidMetadata: return "invalid-metadata";
+		case PackageSaveMetadataState::PackageContractMismatch:
+			return "package-contract-mismatch";
+		case PackageSaveMetadataState::StorageError: return "storage-error";
+	}
+	return "invalid-metadata";
+}
+
+SaveCompatibilityState PackageSaveMetadataResult::compatibilityState() const noexcept
+{
+	switch (state)
+	{
+		case PackageSaveMetadataState::Ready:
+		case PackageSaveMetadataState::NotRequired:
+			return SaveCompatibilityState::Compatible;
+		case PackageSaveMetadataState::LegacyWithoutMetadata:
+			return SaveCompatibilityState::LegacyWithoutMetadata;
+		case PackageSaveMetadataState::IncompatibleRuntime:
+			return SaveCompatibilityState::IncompatibleRuntime;
+		case PackageSaveMetadataState::InvalidMetadata:
+		case PackageSaveMetadataState::PackageContractMismatch:
+			return SaveCompatibilityState::InvalidMetadata;
+		case PackageSaveMetadataState::StorageError:
+			return SaveCompatibilityState::StorageError;
+	}
+	return SaveCompatibilityState::InvalidMetadata;
+}
+
 SaveCompatibilityPolicy ReadSaveCompatibilityPolicy(
 	vfs::PropertyContainer& properties, int argc, char* const* argv)
 {
@@ -148,9 +186,32 @@ SaveCompatibilityLoadAction EvaluateSaveCompatibility(
 	return SaveCompatibilityLoadAction::Reject;
 }
 
+SaveCompatibilityLoadAction EvaluatePackageSaveMetadata(
+	PackageSaveMetadataState state, SaveCompatibilityPolicy policy) noexcept
+{
+	if (policy == SaveCompatibilityPolicy::Ignore ||
+		state == PackageSaveMetadataState::Ready ||
+		state == PackageSaveMetadataState::NotRequired)
+		return SaveCompatibilityLoadAction::Allow;
+	if (state == PackageSaveMetadataState::LegacyWithoutMetadata)
+		return policy == SaveCompatibilityPolicy::RequireMetadata
+			? SaveCompatibilityLoadAction::Reject
+			: SaveCompatibilityLoadAction::AllowWithWarning;
+	if (policy == SaveCompatibilityPolicy::Warn ||
+		(state == PackageSaveMetadataState::StorageError &&
+		 policy == SaveCompatibilityPolicy::EnforceKnown))
+		return SaveCompatibilityLoadAction::AllowWithWarning;
+	return SaveCompatibilityLoadAction::Reject;
+}
+
 std::string RuntimeCheckpointSidecarPath(const std::string& savePath)
 {
 	return savePath.empty() ? std::string{} : savePath + CheckpointSuffix;
+}
+
+std::string PackageSaveStateSidecarPath(const std::string& savePath)
+{
+	return savePath.empty() ? std::string{} : savePath + PackageStateSuffix;
 }
 
 RuntimeCheckpointSaveError WriteSaveCompatibilityMetadata(
@@ -217,13 +278,111 @@ SaveCompatibilityResult InspectSaveCompatibilityMetadata(
 	}
 }
 
+PackageSaveMetadataWriteResult WritePackageSaveStateMetadata(
+	GameContext& context, const std::string& savePath) noexcept
+{
+	try
+	{
+		const std::string sidecar = PackageSaveStateSidecarPath(savePath);
+		if (sidecar.empty())
+			return {false, PackageSaveStateError::None,
+				PackageSaveArchiveSaveError::InvalidArchive};
+		PackageSaveStateCaptureResult captured = context.capturePackageSaveState();
+		if (!captured)
+			return {false, captured.error, PackageSaveArchiveSaveError::None};
+		if (captured.snapshot.records.empty())
+		{
+			const bool removed = context.persistence().storage().remove(sidecar);
+			return {false, PackageSaveStateError::None,
+				removed ? PackageSaveArchiveSaveError::None
+				        : PackageSaveArchiveSaveError::StorageError};
+		}
+		const PackageSaveArchiveSaveError saved = context.packageSaveArchives().save(
+			sidecar, PackageSaveArchive{
+				context.runtime().compatibilityFingerprint(), std::move(captured.snapshot)});
+		if (saved != PackageSaveArchiveSaveError::None)
+			context.persistence().storage().remove(sidecar);
+		return {true, PackageSaveStateError::None, saved};
+	}
+	catch (...)
+	{
+		return {false, PackageSaveStateError::AllocationFailure,
+			PackageSaveArchiveSaveError::StorageError};
+	}
+}
+
+PackageSaveMetadataResult InspectPackageSaveStateMetadata(
+	const GameContext& context, const std::string& savePath) noexcept
+{
+	PackageSaveMetadataResult result;
+	try
+	{
+		result.sidecarPath = PackageSaveStateSidecarPath(savePath);
+		if (result.sidecarPath.empty())
+		{
+			result.state = PackageSaveMetadataState::InvalidMetadata;
+			return result;
+		}
+		PackageSaveArchive archive;
+		const PackageSaveArchiveLoadResult loaded = context.packageSaveArchives().load(
+			result.sidecarPath, context.runtime().compatibilityFingerprint(), archive);
+		result.archiveError = loaded.error;
+		if (loaded.error == PackageSaveArchiveLoadError::NotFound)
+		{
+			const PackageSaveStateLoadResult emptyContract =
+				context.validatePackageSaveState(PackageSaveStateSnapshot{});
+			result.contractError = emptyContract.error;
+			result.state = emptyContract
+				? PackageSaveMetadataState::NotRequired
+				: PackageSaveMetadataState::LegacyWithoutMetadata;
+			return result;
+		}
+		if (loaded.error == PackageSaveArchiveLoadError::IncompatibleRuntime)
+		{
+			result.state = PackageSaveMetadataState::IncompatibleRuntime;
+			return result;
+		}
+		if (loaded.error == PackageSaveArchiveLoadError::StorageError)
+		{
+			result.state = PackageSaveMetadataState::StorageError;
+			return result;
+		}
+		if (!loaded)
+		{
+			result.state = PackageSaveMetadataState::InvalidMetadata;
+			return result;
+		}
+		const PackageSaveStateLoadResult contract =
+			context.validatePackageSaveState(archive.state);
+		result.contractError = contract.error;
+		if (!contract)
+		{
+			result.state = PackageSaveMetadataState::PackageContractMismatch;
+			return result;
+		}
+		result.state = PackageSaveMetadataState::Ready;
+		result.archive = std::move(archive);
+		return result;
+	}
+	catch (...)
+	{
+		result.state = PackageSaveMetadataState::StorageError;
+		return result;
+	}
+}
+
 bool RemoveSaveCompatibilityMetadata(
 	GameContext& context, const std::string& savePath) noexcept
 {
 	try
 	{
 		const std::string sidecar = RuntimeCheckpointSidecarPath(savePath);
-		return !sidecar.empty() && context.persistence().storage().remove(sidecar);
+		const std::string packageState = PackageSaveStateSidecarPath(savePath);
+		if (sidecar.empty() || packageState.empty())
+			return false;
+		const bool checkpointRemoved = context.persistence().storage().remove(sidecar);
+		const bool packageStateRemoved = context.persistence().storage().remove(packageState);
+		return checkpointRemoved && packageStateRemoved;
 	}
 	catch (...)
 	{

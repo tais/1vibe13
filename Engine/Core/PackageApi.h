@@ -27,6 +27,10 @@ class PackageRegistry : public InputEventSink, public RuntimeUpdateSink,
 	public RuntimeMessageSink, public SimulationTickSink
 {
 public:
+	static constexpr std::size_t MaximumSaveStateRecords = 4096;
+	static constexpr std::size_t MaximumPackageSaveStateBytes = 4u * 1024u * 1024u;
+	static constexpr std::size_t MaximumTotalSaveStateBytes = 16u * 1024u * 1024u;
+
 	explicit PackageRegistry(ContentRegistry& content,
 		EngineServices services = EngineServices::defaults(),
 		PackageEventSink& events = NullPackageEventSink::instance(),
@@ -93,7 +97,7 @@ public:
 			PackageEntities{id, entities_},
 			PackageAudio{id, audio_},
 			PackageTasks{id, tasks_}, descriptor.localizationSources,
-			descriptor.definitionSources,
+			descriptor.definitionSources, descriptor.saveStateSchemaVersion,
 			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -673,6 +677,159 @@ public:
 		}
 	}
 
+	PackageSaveStateCaptureResult captureSaveState() noexcept
+	{
+		if (operationInProgress_)
+			return {PackageSaveStateError::OperationInProgress, {}, {}};
+		if (completedBootstrapPhases_ != bootstrapPhaseCount_)
+			return {PackageSaveStateError::RuntimeNotReady, {}, {}};
+		OperationGuard operation(operationInProgress_);
+		try
+		{
+			PackageSaveStateCaptureResult result;
+			std::size_t statefulPackages = 0;
+			for (const std::string& packageId : active_)
+				if (packages_.at(packageId).saveStateSchemaVersion != 0) ++statefulPackages;
+			if (statefulPackages > MaximumSaveStateRecords)
+				return {PackageSaveStateError::TooManyRecords, {}, {}};
+			result.snapshot.records.reserve(statefulPackages);
+			std::size_t totalBytes = 0;
+			for (const std::string& packageId : active_)
+			{
+				RegisteredPackage& registered = packages_.at(packageId);
+				if (registered.saveStateSchemaVersion == 0) continue;
+				std::vector<std::uint8_t> payload;
+				PackageBootstrapContext context = contextFor(packageId);
+				bool saved = false;
+				try { saved = registered.package->saveState(context, payload); }
+				catch (...) {}
+				if (!saved)
+				{
+					faults_.record(RuntimeFaultKind::SaveState, packageId, "save-state", 1);
+					logError("Package save-state callback failed: ", packageId);
+					return {PackageSaveStateError::CallbackFailed, packageId, {}};
+				}
+				if (payload.size() > MaximumPackageSaveStateBytes)
+					return {PackageSaveStateError::PayloadTooLarge, packageId, {}};
+				if (payload.size() > MaximumTotalSaveStateBytes - totalBytes)
+					return {PackageSaveStateError::TotalTooLarge, packageId, {}};
+				totalBytes += payload.size();
+				result.snapshot.records.push_back(PackageSaveStateRecord{
+					packageId, registered.version, registered.saveStateSchemaVersion,
+					std::move(payload)});
+			}
+			return result;
+		}
+		catch (...)
+		{
+			return {PackageSaveStateError::AllocationFailure, {}, {}};
+		}
+	}
+
+	PackageSaveStateLoadResult validateSaveState(
+		const PackageSaveStateSnapshot& snapshot) const noexcept
+	{
+		if (operationInProgress_)
+			return {PackageSaveStateError::OperationInProgress, {}, 0};
+		if (completedBootstrapPhases_ != bootstrapPhaseCount_)
+			return {PackageSaveStateError::RuntimeNotReady, {}, 0};
+		try
+		{
+			if (snapshot.records.size() > MaximumSaveStateRecords)
+				return {PackageSaveStateError::TooManyRecords, {}, 0};
+			std::size_t recordIndex = 0;
+			std::size_t totalBytes = 0;
+			for (const std::string& packageId : active_)
+			{
+				const RegisteredPackage& registered = packages_.at(packageId);
+				if (registered.saveStateSchemaVersion == 0) continue;
+				if (recordIndex >= snapshot.records.size())
+					return {PackageSaveStateError::IdentityMismatch, packageId, 0};
+				const PackageSaveStateRecord& record = snapshot.records[recordIndex++];
+				if (record.packageId != packageId)
+					return {PackageSaveStateError::IdentityMismatch, packageId, 0};
+				if (record.packageVersion != registered.version)
+					return {PackageSaveStateError::VersionMismatch, packageId, 0};
+				if (record.schemaVersion != registered.saveStateSchemaVersion)
+					return {PackageSaveStateError::SchemaMismatch, packageId, 0};
+				if (record.payload.size() > MaximumPackageSaveStateBytes)
+					return {PackageSaveStateError::PayloadTooLarge, packageId, 0};
+				if (record.payload.size() > MaximumTotalSaveStateBytes - totalBytes)
+					return {PackageSaveStateError::TotalTooLarge, packageId, 0};
+				totalBytes += record.payload.size();
+			}
+			if (recordIndex != snapshot.records.size())
+				return {PackageSaveStateError::IdentityMismatch,
+					snapshot.records[recordIndex].packageId, 0};
+			return {};
+		}
+		catch (...)
+		{
+			return {PackageSaveStateError::AllocationFailure, {}, 0};
+		}
+	}
+
+	PackageSaveStateLoadResult restoreSaveState(
+		const PackageSaveStateSnapshot& snapshot) noexcept
+	{
+		const PackageSaveStateLoadResult contract = validateSaveState(snapshot);
+		if (!contract) return contract;
+		OperationGuard operation(operationInProgress_);
+		try
+		{
+			std::size_t recordIndex = 0;
+			for (const std::string& packageId : active_)
+			{
+				RegisteredPackage& registered = packages_.at(packageId);
+				if (registered.saveStateSchemaVersion == 0) continue;
+				const PackageSaveStateRecord& record = snapshot.records[recordIndex++];
+				PackageBootstrapContext context = contextFor(packageId);
+				bool valid = false;
+				try
+				{
+					valid = registered.package->validateState(
+						context, record.schemaVersion, record.payload);
+				}
+				catch (...) {}
+				if (!valid)
+				{
+					faults_.record(RuntimeFaultKind::LoadState, packageId, "validate-state", 1);
+					logError("Package save-state validation failed: ", packageId);
+					return {PackageSaveStateError::ValidationFailed, packageId, 0};
+				}
+			}
+
+			recordIndex = 0;
+			std::size_t restored = 0;
+			for (const std::string& packageId : active_)
+			{
+				RegisteredPackage& registered = packages_.at(packageId);
+				if (registered.saveStateSchemaVersion == 0) continue;
+				const PackageSaveStateRecord& record = snapshot.records[recordIndex++];
+				PackageBootstrapContext context = contextFor(packageId);
+				bool loaded = false;
+				try
+				{
+					loaded = registered.package->loadState(
+						context, record.schemaVersion, record.payload);
+				}
+				catch (...) {}
+				if (!loaded)
+				{
+					faults_.record(RuntimeFaultKind::LoadState, packageId, "load-state", 1);
+					logError("Package load-state callback failed: ", packageId);
+					return {PackageSaveStateError::CallbackFailed, packageId, restored};
+				}
+				++restored;
+			}
+			return {PackageSaveStateError::None, {}, restored};
+		}
+		catch (...)
+		{
+			return {PackageSaveStateError::AllocationFailure, {}, 0};
+		}
+	}
+
 	void receiveInput(const EngineInputEvent& event) override
 	{
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
@@ -864,7 +1021,8 @@ public:
 					registered->second.requiredServices,
 					registered->second.requiredCapabilities,
 					registered->second.localizationSources,
-					registered->second.definitionSources},
+					registered->second.definitionSources,
+					registered->second.saveStateSchemaVersion},
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
@@ -940,6 +1098,7 @@ private:
 		PackageTasks tasks;
 		std::vector<PackageLocalizationSource> localizationSources;
 		std::vector<PackageDefinitionSource> definitionSources;
+		std::uint32_t saveStateSchemaVersion;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;

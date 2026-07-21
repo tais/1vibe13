@@ -18,6 +18,7 @@
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageLifecycle.h>
+#include <Engine/Core/PackageSaveArchive.h>
 #include <Engine/Core/PackageTaskQueue.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
@@ -82,6 +83,9 @@ public:
 		               runtimeUpdates_, frameTelemetry_, simulationTicks_),
 		  persistence_(packages_.services().storage),
 		  runtimeCheckpoints_(persistence_, maximumCheckpointPackages),
+		  packageSaveArchives_(persistence_, PackageRegistry::MaximumSaveStateRecords,
+		                       PackageRegistry::MaximumPackageSaveStateBytes,
+		                       PackageRegistry::MaximumTotalSaveStateBytes),
 		  runtimeReports_(persistence_, maximumRuntimeReportBytes)
 	{
 		serviceCatalog_.registerService(
@@ -108,6 +112,8 @@ public:
 			"engine.package-tasks", EngineServiceVersion{1, 0}, packageTasks_);
 		serviceCatalog_.registerService(
 			"engine.runtime-checkpoints", EngineServiceVersion{1, 0}, runtimeCheckpoints_);
+		serviceCatalog_.registerService(
+			"engine.package-save-archives", EngineServiceVersion{1, 0}, packageSaveArchives_);
 		serviceCatalog_.registerService(
 			"engine.runtime-reports", EngineServiceVersion{1, 0}, runtimeReports_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
@@ -144,6 +150,12 @@ public:
 			static_cast<std::int64_t>(packageTasks_.maximumPerDrain()));
 		runtimeConfiguration_.set("engine.checkpoints.package-limit",
 			static_cast<std::int64_t>(runtimeCheckpoints_.maximumPackages()));
+		runtimeConfiguration_.set("engine.package-save.record-limit",
+			static_cast<std::int64_t>(packageSaveArchives_.maximumRecords()));
+		runtimeConfiguration_.set("engine.package-save.package-byte-limit",
+			static_cast<std::int64_t>(packageSaveArchives_.maximumPackageBytes()));
+		runtimeConfiguration_.set("engine.package-save.total-byte-limit",
+			static_cast<std::int64_t>(packageSaveArchives_.maximumTotalBytes()));
 		runtimeConfiguration_.set("engine.reports.maximum-bytes",
 			static_cast<std::int64_t>(runtimeReports_.maximumBytes()));
 		inputDispatcher_.addSink(packages_);
@@ -213,6 +225,20 @@ public:
 	RuntimeSession& runtimeSession() { return runtimeSession_; }
 	const RuntimeSession& runtimeSession() const { return runtimeSession_; }
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
+	PackageSaveStateCaptureResult capturePackageSaveState() noexcept
+	{
+		return packages_.captureSaveState();
+	}
+	PackageSaveStateLoadResult validatePackageSaveState(
+		const PackageSaveStateSnapshot& snapshot) const noexcept
+	{
+		return packages_.validateSaveState(snapshot);
+	}
+	PackageSaveStateLoadResult restorePackageSaveState(
+		const PackageSaveStateSnapshot& snapshot) noexcept
+	{
+		return packages_.restoreSaveState(snapshot);
+	}
 	bool hasCapability(const std::string& capability) const
 	{
 		return hostCapabilities_.contains(capability) ||
@@ -264,6 +290,8 @@ public:
 	const PersistenceService& persistence() const { return persistence_; }
 	RuntimeCheckpointService& runtimeCheckpoints() { return runtimeCheckpoints_; }
 	const RuntimeCheckpointService& runtimeCheckpoints() const { return runtimeCheckpoints_; }
+	PackageSaveArchiveService& packageSaveArchives() { return packageSaveArchives_; }
+	const PackageSaveArchiveService& packageSaveArchives() const { return packageSaveArchives_; }
 	RuntimeCheckpoint makeRuntimeCheckpoint() const
 	{
 		RuntimeCheckpoint checkpoint;
@@ -324,6 +352,7 @@ private:
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCheckpointService runtimeCheckpoints_;
+	PackageSaveArchiveService packageSaveArchives_;
 	RuntimeReportService runtimeReports_;
 };
 
