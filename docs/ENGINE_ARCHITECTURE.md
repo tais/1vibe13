@@ -258,6 +258,27 @@ the engine must not contain SDL types in its public domain model.
   catalog and health, cache statistics, services, sealed configuration,
   capabilities, and queue/tick counters as one pointer-free value. Every
   nested collection preserves an explicit deterministic order.
+- `RuntimeFaultJournal` records every contained package service, lifecycle,
+  input, update, simulation, and message failure in a bounded sequence. It is
+  separate from logarithmically rate-limited logs, so suppression reduces I/O
+  without erasing failure evidence from diagnostics.
+- `LocalizationCatalog` is a bounded ordered package layer for opaque UTF-8
+  text. Package identity is host-bound, later packages override earlier keys,
+  fallback is explicit, and configure rollback or shutdown automatically
+  removes the package's entries to reveal the lower layer again.
+- `DefinitionCatalog` applies the same ownership and layering rules to bounded
+  versioned byte definitions. Core validates identity, schema compatibility,
+  payload limits, override order, and rollback lifetime while game/domain
+  adapters remain responsible for decoding their own rules.
+- `EntityRegistry` supplies bounded generational handles without owning domain
+  objects. IDs remain safe across messages, commands, saves, and diagnostics;
+  destroyed slots increment generation, exhausted generations retire, and all
+  identities owned by a package are removed during rollback or shutdown.
+- `AudioGroupService` binds new audio playback to package identity and logical
+  groups above the existing platform output. Assets are normalized, playbacks
+  are bounded and inspectable, packages cannot control another owner's sounds,
+  and rollback or shutdown stops everything they still own. Legacy JA2 callers
+  keep their direct `AudioOutput` path during migration.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

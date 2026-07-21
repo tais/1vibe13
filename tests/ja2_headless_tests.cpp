@@ -391,6 +391,35 @@ public:
 			observedRandomPackageId = context.random.packageId();
 			packageRandomResult = context.random.next( "bootstrap", 100 );
 		}
+		if (localizeOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedLocalizationPackageId = context.localization.packageId();
+			localizationSetResult = context.localization.set(
+				"en", "ui.package-ready", "Package ready" );
+			invalidLocalizationSetResult = context.localization.set(
+				"invalid/locale", "ui.package-ready", "Invalid" );
+		}
+		if (defineOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedDefinitionPackageId = context.definitions.packageId();
+			definitionSetResult = context.definitions.set(
+				"rules", "package-ready", 1, { 4, 2 } );
+			invalidDefinitionSetResult = context.definitions.set(
+				"invalid/type", "package-ready", 1, {} );
+		}
+		if (createEntityOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedEntityPackageId = context.entities.packageId();
+			packageEntityCreateResult = context.entities.create( "test-entity" );
+		}
+		if (playAudioOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedAudioPackageId = context.audio.packageId();
+			packageAudioPlayResult = context.audio.play(
+				"ui", AudioPlaybackRequest{ "Audio/Package.wav", 11025, 90, 64, 1, false } );
+			invalidPackageAudioPlayResult = context.audio.play(
+				"invalid/group", AudioPlaybackRequest{ "Audio/Invalid.wav" } );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -459,6 +488,17 @@ public:
 	RuntimeMessagePublishResult invalidPackagePublishResult;
 	std::string observedRandomPackageId;
 	PackageRandomResult packageRandomResult;
+	std::string observedLocalizationPackageId;
+	LocalizationSetError localizationSetResult = LocalizationSetError::AllocationFailure;
+	LocalizationSetError invalidLocalizationSetResult = LocalizationSetError::AllocationFailure;
+	std::string observedDefinitionPackageId;
+	DefinitionSetError definitionSetResult = DefinitionSetError::AllocationFailure;
+	DefinitionSetError invalidDefinitionSetResult = DefinitionSetError::AllocationFailure;
+	std::string observedEntityPackageId;
+	EntityCreateResult packageEntityCreateResult;
+	std::string observedAudioPackageId;
+	PackageAudioPlayResult packageAudioPlayResult;
+	PackageAudioPlayResult invalidPackageAudioPlayResult;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -470,6 +510,10 @@ public:
 	bool persistOnConfigure = false;
 	bool publishOnConfigure = false;
 	bool usePackageRandomOnConfigure = false;
+	bool localizeOnConfigure = false;
+	bool defineOnConfigure = false;
+	bool createEntityOnConfigure = false;
+	bool playAudioOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -553,16 +597,21 @@ int main( int, char** )
 		ManualTimeSource time;
 		MemoryInputSource input;
 		MemoryByteStorage storage;
+		RecordingAudioOutput audio;
 		EngineServices services{
 			time, ZeroRandomSource::instance(),
 			storage, NullLogSink::instance(), input,
-			NullAudioOutput::instance(), NullFramePresenter::instance(),
+			audio, NullFramePresenter::instance(),
 			NullAssetSource::instance()};
 		EngineHost<unsigned> host( services );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		package.persistOnConfigure = true;
 		package.publishOnConfigure = true;
 		package.usePackageRandomOnConfigure = true;
+		package.localizeOnConfigure = true;
+		package.defineOnConfigure = true;
+		package.createEntityOnConfigure = true;
+		package.playAudioOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
@@ -575,6 +624,10 @@ int main( int, char** )
 			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
 		const PackageCatalogSnapshot catalog = host.packageCatalog();
 		const PackageCatalogEntry* catalogPackage = catalog.find( "lifecycle.complete" );
+		const LocalizedTextView packageText =
+			host.localization().resolve( "en", "ui.package-ready" );
+		const DefinitionView packageDefinition =
+			host.definitions().resolve( "rules", "package-ready", 1, 1 );
 		CHECK( started && started.packages.completedPhases == 3 &&
 		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
@@ -589,6 +642,24 @@ int main( int, char** )
 		           RuntimeMessagePublishError::InvalidTopic &&
 		       package.observedRandomPackageId == "lifecycle.complete" &&
 		       package.packageRandomResult && package.packageRandomResult.value < 100 &&
+		       package.observedLocalizationPackageId == "lifecycle.complete" &&
+		       package.localizationSetResult == LocalizationSetError::None &&
+		       package.invalidLocalizationSetResult == LocalizationSetError::InvalidLocale &&
+		       packageText && *packageText.text == "Package ready" &&
+		       package.observedDefinitionPackageId == "lifecycle.complete" &&
+		       package.definitionSetResult == DefinitionSetError::None &&
+		       package.invalidDefinitionSetResult == DefinitionSetError::InvalidType &&
+		       packageDefinition &&
+		       *packageDefinition.payload == std::vector<std::uint8_t>({ 4, 2 }) &&
+		       package.observedEntityPackageId == "lifecycle.complete" &&
+		       package.packageEntityCreateResult &&
+		       host.entities().alive( package.packageEntityCreateResult.id ) &&
+		       package.observedAudioPackageId == "lifecycle.complete" &&
+		       package.packageAudioPlayResult &&
+		       package.invalidPackageAudioPlayResult.error ==
+		           PackageAudioPlayError::InvalidGroup &&
+		       audio.isPlaying( package.packageAudioPlayResult.playback ) &&
+		       host.packageAudio().size() == 1 &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
@@ -645,6 +716,11 @@ int main( int, char** )
 		CHECK( stopped && stopped.packages.shutdownPhases == 3 &&
 		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
 		       package.deactivateCalls == 1 && host.packages().activationOrder().empty() &&
+		       !host.localization().resolve( "en", "ui.package-ready" ) &&
+		       !host.definitions().resolve( "rules", "package-ready", 1, 1 ) &&
+		       !host.entities().alive( package.packageEntityCreateResult.id ) &&
+		       !audio.isPlaying( package.packageAudioPlayResult.playback ) &&
+		       host.packageAudio().size() == 0 &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
 	}
@@ -746,6 +822,7 @@ int main( int, char** )
 		}
 		const PackageCatalogSnapshot catalog = host.packageCatalog();
 		const PackageCatalogEntry* entry = catalog.find( "runtime.unhealthy" );
+		const RuntimeFaultSnapshot faults = host.runtimeFaults().snapshot();
 		CHECK( entry && entry->runtimeHealth.inputCallbacks == 10 &&
 		       entry->runtimeHealth.inputFailures == 10 &&
 		       entry->runtimeHealth.runtimeUpdateCallbacks == 10 &&
@@ -754,6 +831,13 @@ int main( int, char** )
 		       entry->runtimeHealth.filteredMessages == 1 &&
 		       entry->runtimeHealth.suppressedFailureLogs == 10,
 		       "package catalog snapshots retain per-package runtime callback health" );
+		CHECK( faults.summary.observed == 20 && faults.summary.retained == 20 &&
+		       faults.records.size() == 20 && faults.records.front().sequence == 1 &&
+		       faults.records.front().kind == RuntimeFaultKind::Input &&
+		       faults.records.front().packageId == "runtime.unhealthy" &&
+		       faults.records.back().kind == RuntimeFaultKind::RuntimeUpdate &&
+		       faults.records.back().occurrence == 10,
+		       "bounded fault journal retains every package failure despite log suppression" );
 		CHECK( log.records().size() == 10,
 		       "repeated package callback exceptions use bounded logarithmic logging" );
 		CHECK( package.receivedMessages.size() == 1 &&

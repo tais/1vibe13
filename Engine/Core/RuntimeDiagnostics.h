@@ -6,10 +6,15 @@
 #include <vector>
 
 #include <Engine/Core/CachingAssetSource.h>
+#include <Engine/Core/AudioGroupService.h>
+#include <Engine/Core/DefinitionCatalog.h>
+#include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/FrameTelemetry.h>
+#include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeConfiguration.h>
+#include <Engine/Core/RuntimeFaultJournal.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/ServiceCatalog.h>
 
@@ -22,6 +27,11 @@ struct RuntimeDiagnosticsSnapshot
 	FrameTelemetrySnapshot frames;
 	PackageCatalogSnapshot packages;
 	AssetCacheStatistics assetCache;
+	RuntimeFaultSnapshot faults;
+	std::vector<LocalizationEntry> localization;
+	std::vector<DefinitionRecord> definitions;
+	std::vector<EntityRecordSnapshot> entities;
+	std::vector<PackageAudioPlaybackSnapshot> packageAudio;
 	std::vector<EngineServiceDescriptor> services;
 	std::vector<RuntimeConfigurationEntry> configuration;
 	RuntimeCapabilities capabilities;

@@ -104,3 +104,35 @@ overlay results. Oversized assets still load normally but are not retained.
 launchers, automated bug reports, and headless assertions. It combines package
 health, frame timing, cache behavior, host contracts, capabilities, and live
 queue counters without exposing application-owned objects or mutable services.
+
+The host also publishes `engine.runtime-faults`. Each contained package
+failure receives a monotonic record with package ID, callback, kind, and
+occurrence count. The bounded history never throws into gameplay and remains
+complete independently of duplicate-log suppression; it is included in the
+unified diagnostics snapshot.
+
+Register new framework text through `PackageBootstrapContext::localization`.
+Locale and key are portable identifiers, text size and total entries are
+bounded, later package layers win, and lookups can explicitly fall back to
+`en`. Returned views are valid until the catalog changes. The host removes all
+owned entries during configure rollback or shutdown; legacy JA2 localization
+remains untouched during the migration window.
+
+Use `PackageBootstrapContext::definitions` for new data-driven rules and other
+domain records. Each definition has a portable type and ID, non-zero schema
+version, and bounded opaque bytes. The top package override is authoritative:
+an incompatible schema is reported instead of silently falling through to a
+lower definition. Package rollback and shutdown restore the previous layer.
+
+Use `PackageBootstrapContext::entities` when data must cross framework
+boundaries without exposing pointers or legacy array indexes. The registry
+returns a slot plus generation, rejects stale handles after reuse, bounds total
+live identities, and automatically destroys everything owned by a package at
+rollback or shutdown. Domain objects and components stay application-owned.
+
+Play new framework audio through `PackageBootstrapContext::audio`. The package
+identity is host-bound; callers provide a portable logical group and normalized
+asset path, may stop or retune only their own group, and cannot exceed the
+host's sealed playback capacity. Configure rollback and package shutdown stop
+all remaining owned playback. Existing game audio remains on direct
+`AudioOutput` adapters while it is migrated incrementally.

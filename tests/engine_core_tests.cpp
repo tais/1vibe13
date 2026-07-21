@@ -3,8 +3,11 @@
 #include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineHost.h>
+#include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/FrameDriver.h>
+#include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
@@ -126,6 +129,77 @@ int main()
 		cacheStatistics.insertions == 2 && cacheStatistics.evictions == 1 &&
 		cacheStatistics.entries == 1 && cacheStatistics.bytes == 2,
 		"bounded asset cache serves normalized hits and evicts least-recently-used payloads");
+	LocalizationCatalog localization(2, 16);
+	check(localization.set("campaign.base", "en", "ui.ready", "Ready") ==
+			LocalizationSetError::None &&
+		localization.set("mod.override", "en", "ui.ready", "Prepared") ==
+			LocalizationSetError::None,
+		"localization catalog accepts bounded ordered package layers");
+	const LocalizedTextView localizedOverride = localization.resolve("nl", "ui.ready");
+	check(localizedOverride && localizedOverride.usedFallback &&
+		*localizedOverride.text == "Prepared" &&
+		*localizedOverride.packageId == "mod.override" &&
+		localization.set("mod.third", "en", "ui.other", "Other") ==
+			LocalizationSetError::CapacityReached &&
+		localization.removePackage("mod.override") == 1 &&
+		*localization.resolve("en", "ui.ready").text == "Ready",
+		"localization lookup uses explicit fallback and restores lower package layers");
+	DefinitionCatalog definitions(2, 4);
+	check(definitions.set("campaign.base", "item", "medkit", 1, {1}) ==
+			DefinitionSetError::None &&
+		definitions.set("mod.override", "item", "medkit", 2, {2, 3}) ==
+			DefinitionSetError::None,
+		"definition catalog accepts bounded versioned package data layers");
+	const DefinitionView incompatibleDefinition =
+		definitions.resolve("item", "medkit", 1, 1);
+	const DefinitionView overriddenDefinition =
+		definitions.resolve("item", "medkit", 1, 2);
+	check(incompatibleDefinition.error == DefinitionLookupError::IncompatibleSchema &&
+		incompatibleDefinition.schemaVersion == 2 && overriddenDefinition &&
+		*overriddenDefinition.packageId == "mod.override" &&
+		*overriddenDefinition.payload == std::vector<std::uint8_t>({2, 3}) &&
+		definitions.removePackage("mod.override") == 1 &&
+		*definitions.resolve("item", "medkit", 1, 1).payload ==
+			std::vector<std::uint8_t>({1}),
+		"definition lookup rejects incompatible top overrides and restores lower layers");
+	EntityRegistry entities(1);
+	const EntityCreateResult firstEntity = entities.create("campaign.base", "mercenary");
+	const EntityDestroyError destroyedEntity = entities.destroy(firstEntity.id);
+	const EntityCreateResult replacementEntity = entities.create("campaign.base", "mercenary");
+	const std::vector<EntityRecordSnapshot> entitySnapshot = entities.snapshot();
+	check(firstEntity && destroyedEntity == EntityDestroyError::None && replacementEntity &&
+		replacementEntity.id.index == firstEntity.id.index &&
+		replacementEntity.id.generation > firstEntity.id.generation &&
+		!entities.alive(firstEntity.id) && entities.alive(replacementEntity.id) &&
+		entitySnapshot.size() == 1 && entitySnapshot[0].kind == "mercenary" &&
+		entities.create("campaign.base", "second").error ==
+			EntityCreateError::CapacityReached,
+		"entity registry reuses bounded slots without reviving stale generational handles");
+	RecordingAudioOutput groupedAudioOutput;
+	AudioGroupService audioGroups(groupedAudioOutput, 2);
+	const PackageAudioPlayResult firstGroupedPlayback = audioGroups.play(
+		"mod.audio", "ui",
+		AudioPlaybackRequest{"Audio\\Clicks//Select.wav", 22050, 100, 64, 1, false});
+	const PackageAudioPlayResult secondGroupedPlayback = audioGroups.play(
+		"mod.audio", "ui",
+		AudioPlaybackRequest{"audio/clicks/confirm.wav", 22050, 90, 64, 1, false});
+	const PackageAudioOperationResult changedGroup =
+		audioGroups.setGroupVolume("mod.audio", "ui", 80);
+	check(firstGroupedPlayback && secondGroupedPlayback &&
+		groupedAudioOutput.requests().size() == 2 &&
+		groupedAudioOutput.requests()[0].asset == "audio/clicks/select.wav" &&
+		!audioGroups.stop("other.package", firstGroupedPlayback.playback) &&
+		changedGroup.matched == 2 && changedGroup.succeeded == 2 &&
+		audioGroups.play("mod.audio", "ui",
+			AudioPlaybackRequest{"audio/third.wav"}).error ==
+			PackageAudioPlayError::CapacityReached,
+		"package audio groups normalize assets, isolate owners, and enforce a live bound");
+	const PackageAudioOperationResult releasedAudio = audioGroups.releasePackage("mod.audio");
+	check(releasedAudio.matched == 2 && releasedAudio.succeeded == 2 &&
+		audioGroups.size() == 0 &&
+		!groupedAudioOutput.isPlaying(firstGroupedPlayback.playback) &&
+		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback),
+		"package audio teardown stops every playback owned by the package");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -176,7 +250,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 6 &&
+		sessionHost.serviceCatalog().size() == 11 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -195,13 +269,17 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 8,
+		sessionHost.configuration().size() == 15,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
 		diagnostics.frames.summary.completedFrames == 0 &&
-		diagnostics.packages.packages.empty() && diagnostics.services.size() == 6 &&
-		diagnostics.configuration.size() == 8 && diagnostics.queuedMessages == 0 &&
+		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
+		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
+		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
+		diagnostics.services.size() == 11 &&
+		diagnostics.configuration.size() == 15 &&
+		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");
 

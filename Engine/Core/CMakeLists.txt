@@ -1,6 +1,7 @@
 set(engine_core_public_headers
   AssetSource.h
   AudioOutput.h
+  AudioGroupService.h
   BinaryArchive.h
   CachingAssetSource.h
   ByteStorage.h
@@ -10,8 +11,10 @@ set(engine_core_public_headers
   CommandProcessor.h
   ContentApi.h
   DeterministicCommandQueue.h
+  DefinitionCatalog.h
   EngineHost.h
   EngineServices.h
+  EntityRegistry.h
   FrameDriver.h
   FramePresenter.h
   FrameTelemetry.h
@@ -19,12 +22,17 @@ set(engine_core_public_headers
   InputDispatcher.h
   InputSource.h
   LogSink.h
+  LocalizationCatalog.h
   PackageApi.h
+  PackageAudio.h
   PackageCatalog.h
   PackageContract.h
+  PackageDefinitions.h
   PackageEventSink.h
+  PackageEntities.h
   PackageLifecycle.h
   PackageMessagePublisher.h
+  PackageLocalization.h
   PackageRandomSource.h
   PackageResults.h
   PackageStorage.h
@@ -33,6 +41,7 @@ set(engine_core_public_headers
   RuntimeCapabilities.h
   RuntimeConfiguration.h
   RuntimeDiagnostics.h
+  RuntimeFaultJournal.h
   RuntimeMessageBus.h
   RuntimeSession.h
   RuntimeUpdate.h

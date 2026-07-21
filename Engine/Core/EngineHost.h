@@ -8,15 +8,20 @@
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/CachingAssetSource.h>
+#include <Engine/Core/AudioGroupService.h>
+#include <Engine/Core/DefinitionCatalog.h>
+#include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/InputDispatcher.h>
+#include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageLifecycle.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeDiagnostics.h>
+#include <Engine/Core/RuntimeFaultJournal.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/SimulationTick.h>
@@ -41,11 +46,24 @@ public:
 		std::uint64_t simulationStepMicroseconds = 16667,
 		std::size_t maximumSimulationCatchUpTicks = 4,
 		std::size_t assetCacheEntries = 128,
-		std::size_t assetCacheBytes = 64u * 1024u * 1024u)
+		std::size_t assetCacheBytes = 64u * 1024u * 1024u,
+		std::size_t runtimeFaultCapacity = 256,
+		std::size_t localizationEntries = 65536,
+		std::size_t localizationTextBytes = 16u * 1024u,
+		std::size_t definitionEntries = 65536,
+		std::size_t definitionPayloadBytes = 1024u * 1024u,
+		std::size_t maximumEntities = 65536,
+		std::size_t maximumPackageAudioPlaybacks = 1024)
 		: content_(supportedContentApi),
+		  audioGroups_(services.audio, maximumPackageAudioPlaybacks),
+		  faultJournal_(runtimeFaultCapacity),
+		  localization_(localizationEntries, localizationTextBytes),
+		  definitions_(definitionEntries, definitionPayloadBytes),
+		  entities_(maximumEntities),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
-		            assetCacheEntries, assetCacheBytes),
+		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_,
+		            definitions_, entities_, audioGroups_),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
@@ -65,6 +83,16 @@ public:
 			"engine.simulation-ticks", EngineServiceVersion{1, 0}, simulationTicks_);
 		serviceCatalog_.registerService(
 			"engine.asset-cache", EngineServiceVersion{1, 0}, packages_.assetCache());
+		serviceCatalog_.registerService(
+			"engine.runtime-faults", EngineServiceVersion{1, 0}, faultJournal_);
+		serviceCatalog_.registerService(
+			"engine.localization", EngineServiceVersion{1, 0}, localization_);
+		serviceCatalog_.registerService(
+			"engine.definitions", EngineServiceVersion{1, 0}, definitions_);
+		serviceCatalog_.registerService(
+			"engine.entities", EngineServiceVersion{1, 0}, entities_);
+		serviceCatalog_.registerService(
+			"engine.package-audio", EngineServiceVersion{1, 0}, audioGroups_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -79,6 +107,20 @@ public:
 			static_cast<std::int64_t>(packages_.assetCache().maximumEntries()));
 		runtimeConfiguration_.set("engine.assets.cache-bytes",
 			static_cast<std::int64_t>(packages_.assetCache().maximumBytes()));
+		runtimeConfiguration_.set("engine.faults.history-capacity",
+			static_cast<std::int64_t>(faultJournal_.capacity()));
+		runtimeConfiguration_.set("engine.localization.entry-capacity",
+			static_cast<std::int64_t>(localization_.maximumEntries()));
+		runtimeConfiguration_.set("engine.localization.text-byte-limit",
+			static_cast<std::int64_t>(localization_.maximumTextBytes()));
+		runtimeConfiguration_.set("engine.definitions.entry-capacity",
+			static_cast<std::int64_t>(definitions_.maximumEntries()));
+		runtimeConfiguration_.set("engine.definitions.payload-byte-limit",
+			static_cast<std::int64_t>(definitions_.maximumPayloadBytes()));
+		runtimeConfiguration_.set("engine.entities.capacity",
+			static_cast<std::int64_t>(entities_.maximumEntities()));
+		runtimeConfiguration_.set("engine.package-audio.playback-capacity",
+			static_cast<std::int64_t>(audioGroups_.maximumPlaybacks()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -115,6 +157,16 @@ public:
 	const RuntimeMessageBus& runtimeMessages() const { return runtimeMessages_; }
 	CachingAssetSource& assetCache() { return packages_.assetCache(); }
 	const CachingAssetSource& assetCache() const { return packages_.assetCache(); }
+	RuntimeFaultJournal& runtimeFaults() { return faultJournal_; }
+	const RuntimeFaultJournal& runtimeFaults() const { return faultJournal_; }
+	LocalizationCatalog& localization() { return localization_; }
+	const LocalizationCatalog& localization() const { return localization_; }
+	DefinitionCatalog& definitions() { return definitions_; }
+	const DefinitionCatalog& definitions() const { return definitions_; }
+	EntityRegistry& entities() { return entities_; }
+	const EntityRegistry& entities() const { return entities_; }
+	AudioGroupService& packageAudio() { return audioGroups_; }
+	const AudioGroupService& packageAudio() const { return audioGroups_; }
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
@@ -143,7 +195,9 @@ public:
 	{
 		return RuntimeDiagnosticsSnapshot{
 			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
-			packages_.assetCache().statistics(), serviceCatalog_.snapshot(),
+			packages_.assetCache().statistics(), faultJournal_.snapshot(),
+			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
+			audioGroups_.snapshot(), serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
@@ -171,6 +225,11 @@ private:
 	RuntimeMessageBus runtimeMessages_;
 	ServiceCatalog serviceCatalog_;
 	RuntimeConfiguration runtimeConfiguration_;
+	AudioGroupService audioGroups_;
+	RuntimeFaultJournal faultJournal_;
+	LocalizationCatalog localization_;
+	DefinitionCatalog definitions_;
+	EntityRegistry entities_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;
