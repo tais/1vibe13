@@ -7,6 +7,7 @@
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageApi.h>
+#include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/SimulationCommand.h>
 #include <Engine/Core/StateStack.h>
 
@@ -27,8 +28,9 @@ class EngineRuntime
 public:
 	explicit EngineRuntime(
 		EngineServices services = EngineServices::defaults(),
-		ContentApiVersion supportedContentApi = CurrentContentApiVersion)
-		: content_(supportedContentApi), packages_(content_, services)
+		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
+		PackageEventSink& packageEvents = NullPackageEventSink::instance())
+		: content_(supportedContentApi), packages_(content_, services, packageEvents)
 	{
 	}
 

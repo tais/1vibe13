@@ -15,8 +15,10 @@ class GameContext
 {
 public:
 	GameContext(GAME_SETTINGS& settings, GAME_OPTIONS& options, GameCapabilities capabilities = {},
-	            EngineServices services = EngineServices::defaults())
-		: settings_(settings), options_(options), capabilities_(capabilities), runtime_(services)
+	            EngineServices services = EngineServices::defaults(),
+	            PackageEventSink& packageEvents = NullPackageEventSink::instance())
+		: settings_(settings), options_(options), capabilities_(capabilities),
+		  runtime_(services, CurrentContentApiVersion, packageEvents)
 	{
 	}
 

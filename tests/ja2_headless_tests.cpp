@@ -377,6 +377,18 @@ private:
 	bool active_ = false;
 };
 
+class ThrowingPackageEventSink final : public PackageEventSink
+{
+public:
+	void publish( PackageEvent ) override
+	{
+		++calls;
+		throw "test package event exception";
+	}
+
+	int calls = 0;
+};
+
 int main( int, char** )
 {
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
@@ -743,6 +755,83 @@ int main( int, char** )
 		       catalog.find( "catalog.mod" ) != nullptr &&
 		       runtime.packageCatalog().find( "catalog.mod" ) == nullptr,
 		       "package catalog snapshots retain values after later registry mutations" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		MemoryPackageEventSink events;
+		PackageRegistry packages( content, EngineServices::defaults(), events );
+		TestLifecyclePackage dependency( "events.dependency", PackageKind::Rules );
+		TestLifecyclePackage failing(
+			"events.failing", PackageKind::Extension,
+			static_cast<int>( PackageBootstrapPhase::Configure ), nullptr,
+			{{ "events.dependency", "" }} );
+		CHECK( packages.registerPackage( dependency ) == PackageRegistrationError::None &&
+		       packages.registerPackage( failing ) == PackageRegistrationError::None &&
+		       packages.activate( "events.failing" ) == PackageActivationError::None &&
+		       packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::CallbackFailed,
+		       "package event fixture observes a failed bootstrapped dependency graph" );
+		CHECK( packages.deactivateAll() &&
+		       packages.unregisterPackages({ "events.failing", "events.dependency" }),
+		       "package event fixture completes package teardown" );
+		std::vector<PackageEventKind> eventKinds;
+		for ( const PackageEvent& event : events.events() ) eventKinds.push_back( event.kind );
+		CHECK( eventKinds == std::vector<PackageEventKind>({
+		       PackageEventKind::Registered,
+		       PackageEventKind::Registered,
+		       PackageEventKind::Activated,
+		       PackageEventKind::Activated,
+		       PackageEventKind::BootstrapCompleted,
+		       PackageEventKind::BootstrapFailed,
+		       PackageEventKind::BootstrapRollbackCompleted,
+		       PackageEventKind::BootstrapRollbackCompleted,
+		       PackageEventKind::Deactivated,
+		       PackageEventKind::Deactivated,
+		       PackageEventKind::Unregistered,
+		       PackageEventKind::Unregistered }) &&
+		       events.events()[2].packageId == "events.dependency" &&
+		       events.events()[3].packageId == "events.failing" &&
+		       !events.events()[3].hasBootstrapPhase() &&
+		       events.events()[4].bootstrapPhase == 0 &&
+		       events.events()[6].packageId == "events.failing" &&
+		       events.events()[7].packageId == "events.dependency",
+		       "package events preserve lifecycle, dependency, and rollback order" );
+		events.clear();
+		TestLifecyclePackage successful( "events.successful", PackageKind::Tool );
+		CHECK( packages.registerPackage( successful ) == PackageRegistrationError::None &&
+		       packages.activate( "events.successful" ) == PackageActivationError::None &&
+		       packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::None,
+		       "package event fixture reaches a completed bootstrap phase" );
+		packages.shutdownBootstrap();
+		CHECK( packages.deactivate( "events.successful" ) &&
+		       packages.unregisterPackage( "events.successful" ),
+		       "package event fixture shuts down a completed bootstrap phase" );
+		eventKinds.clear();
+		for ( const PackageEvent& event : events.events() ) eventKinds.push_back( event.kind );
+		CHECK( eventKinds == std::vector<PackageEventKind>({
+		       PackageEventKind::Registered,
+		       PackageEventKind::Activated,
+		       PackageEventKind::BootstrapCompleted,
+		       PackageEventKind::ShutdownCompleted,
+		       PackageEventKind::Deactivated,
+		       PackageEventKind::Unregistered }) &&
+		       events.events()[2].bootstrapPhase == 0 &&
+		       events.events()[3].bootstrapPhase == 0,
+		       "package events report completed bootstrap shutdown in reverse-lifecycle order" );
+
+		ContentRegistry isolatedContent( CurrentContentApiVersion );
+		ThrowingPackageEventSink throwingEvents;
+		PackageRegistry isolatedPackages(
+			isolatedContent, EngineServices::defaults(), throwingEvents );
+		TestLifecyclePackage isolated( "events.isolated", PackageKind::Tool );
+		CHECK( isolatedPackages.registerPackage( isolated ) == PackageRegistrationError::None &&
+		       isolatedPackages.activate( "events.isolated" ) == PackageActivationError::None &&
+		       isolatedPackages.deactivate( "events.isolated" ) &&
+		       isolatedPackages.unregisterPackage( "events.isolated" ) &&
+		       throwingEvents.calls == 4,
+		       "package event sink exceptions cannot corrupt lifecycle state" );
 	}
 
 	{
