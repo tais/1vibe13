@@ -24,6 +24,7 @@ public:
 	INT8& bleeding();
 	const INT8& bleeding() const;
 	bool alive() const;
+	void applyLifeDeduction(INT16 lifeDeduction);
 
 private:
 	SOLDIERTYPE& soldier_;

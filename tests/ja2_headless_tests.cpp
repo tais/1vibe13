@@ -1521,6 +1521,16 @@ int main( int, char** )
 		       "soldier vitals component aliases the compatible serialized fields" );
 		CHECK( soldier.sGridNo == 1234 && soldier.pathing.bLevel == 1,
 		       "soldier position component aliases the compatible serialized fields" );
+		vitals.maximumHealth() = 80;
+		vitals.applyLifeDeduction( 20 );
+		CHECK( vitals.health() == 55,
+		       "soldier vitals component applies production life deduction" );
+		vitals.applyLifeDeduction( -50 );
+		CHECK( vitals.health() == 80,
+		       "soldier vitals component caps negative damage at maximum health" );
+		vitals.applyLifeDeduction( 100 );
+		CHECK( !vitals.alive() && vitals.health() == 0,
+		       "soldier vitals component clamps lethal damage to zero" );
 	}
 
 	// MemAlloc round-trip -- exercises the allocator whose 500+ unchecked call

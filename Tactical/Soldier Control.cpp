@@ -10209,18 +10209,9 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		}
 	}
 
-	if ( sLifeDeduct > this->stats.bLife )
-	{
-		this->stats.bLife = 0;
-	}
-	else
-	{
-		// Decrease Health
-		this->stats.bLife -= sLifeDeduct;
-
-		// make sure it doesn't rise too much
-		this->stats.bLife = min( this->stats.bLife, this->stats.bLifeMax );
-	}
+	// Keep the legacy SOLDIERTYPE layout, but route the actual health mutation
+	// through its domain view so damage policy has a testable migration seam.
+	vitals().applyLifeDeduction( sLifeDeduct );
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - Doctor trait - need a variable holding the number of insta-healable hit points
