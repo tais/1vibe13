@@ -191,6 +191,34 @@ public:
 		return static_cast<bool>(deactivateDetailed(id));
 	}
 
+	PackageDeactivationBatchResult deactivateAll()
+	{
+		if (operationInProgress_)
+			return PackageDeactivationBatchResult{
+				PackageDeactivationError::OperationInProgress, {}, {}};
+		OperationGuard operation(operationInProgress_);
+		if (completedBootstrapPhases_ != 0)
+			return PackageDeactivationBatchResult{
+				PackageDeactivationError::BootstrapInProgress, {}, {}};
+		PackageDeactivationBatchResult result;
+		result.deactivated.reserve(active_.size());
+		while (!active_.empty())
+		{
+			// Copy before mutation: deactivateOne removes the corresponding
+			// activation-order element on success.
+			std::string packageId = active_.back();
+			const PackageDeactivationError error = deactivateOne(packageId);
+			if (error != PackageDeactivationError::None)
+			{
+				result.error = error;
+				result.packageId = std::move(packageId);
+				return result;
+			}
+			result.deactivated.push_back(std::move(packageId));
+		}
+		return result;
+	}
+
 private:
 	PackageActivationPlan resolveActivationUnchecked(
 		const std::vector<std::string>& requested) const

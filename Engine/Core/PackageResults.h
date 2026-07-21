@@ -112,6 +112,17 @@ struct PackageDeactivationResult
 	explicit operator bool() const { return error == PackageDeactivationError::None; }
 };
 
+struct PackageDeactivationBatchResult
+{
+	PackageDeactivationError error = PackageDeactivationError::None;
+	std::string packageId;
+	// Successful removals in callback order, which is the reverse of the
+	// activation order. This remains populated when a later removal fails.
+	std::vector<std::string> deactivated;
+
+	explicit operator bool() const { return error == PackageDeactivationError::None; }
+};
+
 enum class PackageBootstrapError
 {
 	None,

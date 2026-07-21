@@ -275,6 +275,8 @@ public:
 	void deactivate() noexcept override
 	{
 		++deactivateCalls;
+		if (deactivationTrace)
+			deactivationTrace->push_back(descriptor_.content.id);
 		if (registryDuringDeactivate)
 			nestedDeactivateResult = registryDuringDeactivate->deactivate( deactivateDuringDeactivate );
 		active_ = false;
@@ -332,6 +334,7 @@ public:
 	std::string deactivateDuringDeactivate;
 	bool nestedDeactivateResult = true;
 	std::vector<std::string>* lifecycleTrace = nullptr;
+	std::vector<std::string>* deactivationTrace = nullptr;
 	bool active() const { return active_; }
 
 private:
@@ -640,6 +643,41 @@ int main( int, char** )
 		       "package unregistration removes both registry and content membership" );
 		CHECK( packages.registerPackage( dependency ) == PackageRegistrationError::None,
 		       "an unregistered package object can be registered again" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		TestLifecyclePackage base( "deactivate.base", PackageKind::Rules );
+		TestLifecyclePackage middle(
+			"deactivate.middle", PackageKind::Extension, -1, nullptr,
+			{{ "deactivate.base", "" }} );
+		TestLifecyclePackage leaf(
+			"deactivate.leaf", PackageKind::Extension, -1, nullptr,
+			{{ "deactivate.middle", "" }} );
+		std::vector<std::string> callbacks;
+		base.deactivationTrace = &callbacks;
+		middle.deactivationTrace = &callbacks;
+		leaf.deactivationTrace = &callbacks;
+		CHECK( packages.registerPackage( leaf ) == PackageRegistrationError::None &&
+		       packages.registerPackage( base ) == PackageRegistrationError::None &&
+		       packages.registerPackage( middle ) == PackageRegistrationError::None &&
+		       packages.activate( "deactivate.leaf" ) == PackageActivationError::None,
+		       "bulk package deactivation fixture activates a dependency chain" );
+		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::None && packages.deactivateAll().error ==
+		       PackageDeactivationError::BootstrapInProgress,
+		       "bulk package deactivation cannot invalidate live bootstrap resources" );
+		packages.shutdownBootstrap();
+		const PackageDeactivationBatchResult teardown = packages.deactivateAll();
+		CHECK( teardown && teardown.packageId.empty() &&
+		       teardown.deactivated == std::vector<std::string>({
+		       "deactivate.leaf", "deactivate.middle", "deactivate.base" }) &&
+		       callbacks == teardown.deactivated && packages.activationOrder().empty() &&
+		       !base.active() && !middle.active() && !leaf.active(),
+		       "bulk package deactivation unwinds exact reverse activation order" );
+		CHECK( packages.deactivateAll() && packages.activationOrder().empty(),
+		       "bulk package deactivation is idempotent for an empty active set" );
 	}
 
 	{
