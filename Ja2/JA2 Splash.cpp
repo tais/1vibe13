@@ -1,5 +1,6 @@
 #include "types.h"
 #include "vsurface.h"
+#include "VideoResourceHandle.h"
 #include "mainmenuscreen.h"
 #include "video.h"
 #include "Timer Control.h"
@@ -18,7 +19,6 @@ if( g_lang == i18n::Lang::en ) {
 	ClearMainMenu();
 
 } else {
-	UINT32 uiLogoID = 0;
 	HVSURFACE hVSurface; // unused jonathanl	// lalien reenabled for international versions
 	VSURFACE_DESC VSurfaceDesc; //unused jonathanl // lalien reenabled for international versions
 #	ifdef JA2TESTVERSION
@@ -27,15 +27,16 @@ if( g_lang == i18n::Lang::en ) {
 		memset( &VSurfaceDesc, 0, sizeof( VSURFACE_DESC ) );
 		VSurfaceDesc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE | VSURFACE_CREATE_FROMPNG_FALLBACK;
 		sprintf( VSurfaceDesc.ImageFile, "LOADSCREENS\\Notification.sti" );
-		if( !AddVideoSurface( &VSurfaceDesc, &uiLogoID ) )
+		auto logoSurface = AddVideoSurfaceOwned( &VSurfaceDesc );
+		if( !logoSurface )
 		{
 			//AssertMsg( 0, String( "Failed to load %s", VSurfaceDesc.ImageFile ) );
 			return;
 		}
-		GetVideoSurface(&hVSurface, uiLogoID );
+		GetVideoSurface(&hVSurface, logoSurface.get() );
 		//BltVideoSurfaceToVideoSurface( ghFrameBuffer, hVSurface, 0, 0, 0, 0, NULL );
 		BltVideoSurfaceToVideoSurface( ghFrameBuffer, hVSurface, 0, iScreenWidthOffset, iScreenHeightOffset, 0, NULL );
-		DeleteVideoSurfaceFromIndex( uiLogoID );
+		logoSurface.reset();
 
 
 		InvalidateScreen();
@@ -56,20 +57,19 @@ if( g_lang == i18n::Lang::en ) {
 	GetMLGFilename( VSurfaceDesc.ImageFile, MLG_SPLASH );
 	try
 	{
-		if( !AddVideoSurface( &VSurfaceDesc, &uiLogoID ) )
+		auto logoSurface = AddVideoSurfaceOwned( &VSurfaceDesc );
+		if( !logoSurface )
 		{
 			AssertMsg( 0, String( "Failed to load %s", VSurfaceDesc.ImageFile ) );
 			return;
 		}
+		GetVideoSurface( &hVSurface, logoSurface.get() );
+		BltVideoSurfaceToVideoSurface( ghFrameBuffer, hVSurface, 0, iScreenWidthOffset, iScreenHeightOffset, 0, NULL );
 	}
 	catch(std::exception &ex)
 	{
 		SGP_RETHROW(L"Failed loading splash screen", ex);
 	}
-
-	GetVideoSurface( &hVSurface, uiLogoID );
-	BltVideoSurfaceToVideoSurface( ghFrameBuffer, hVSurface, 0, iScreenWidthOffset, iScreenHeightOffset, 0, NULL );
-	DeleteVideoSurfaceFromIndex( uiLogoID );
 } // ENGLISH
 
 	InvalidateScreen();
