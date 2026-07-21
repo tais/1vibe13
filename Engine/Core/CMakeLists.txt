@@ -51,6 +51,7 @@ set(engine_core_public_headers
   RuntimeFingerprint.h
   RuntimeMessageBus.h
   RuntimeReport.h
+  RuntimeReportJson.h
   RuntimeSession.h
   RuntimeUpdate.h
   ServiceCatalog.h
@@ -78,6 +79,7 @@ add_library(ja2_engine_core STATIC
   RuntimeCheckpoint.cpp
   RuntimeFingerprint.cpp
   RuntimeReport.cpp
+  RuntimeReportJson.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)
 
