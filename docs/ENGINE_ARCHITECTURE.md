@@ -267,6 +267,11 @@ the engine must not contain SDL types in its public domain model.
   contracts, combined capabilities, and versioned definition bytes. Dynamic
   frame, audio, and task state stays outside the digest so saves, replays, and
   multiplayer handshakes can compare the runtime that interprets their data.
+- `RuntimeCheckpointService` persists that fingerprint with active package
+  identities/versions and the completed frame/tick boundary in the existing
+  bounded checksummed envelope. Loads are transactional and reject a different
+  runtime before publishing metadata or invoking domain/legacy deserializers;
+  game state remains owned by versioned adapters during the migration.
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O

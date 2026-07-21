@@ -110,6 +110,13 @@ before loading portable saves/replays or joining a deterministic session. A
 different result identifies a package, contract, capability, configuration, or
 versioned-definition mismatch; it is diagnostic rather than a security proof.
 
+`EngineHost::saveRuntimeCheckpoint` writes that identity together with active
+package IDs/versions and completed frame/tick counters through the bounded
+checksummed persistence envelope. `loadRuntimeCheckpoint` publishes metadata
+only after integrity, schema, bounds, package identity, and current-runtime
+compatibility all pass. It is a preflight manifest for domain save/replay data,
+not yet a replacement serializer for JA2's tactical or strategic state.
+
 The host also publishes `engine.runtime-faults`. Each contained package
 failure receives a monotonic record with package ID, callback, kind, and
 occurrence count. The bounded history never throws into gameplay and remains

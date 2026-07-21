@@ -753,6 +753,21 @@ int main( int, char** )
 		       package.simulationTicks[0].sequence == 1 &&
 		       package.simulationTicks[1].simulatedTimeMicroseconds == 33334,
 		       "live packages receive fixed-step ticks independently of render updates" );
+		const RuntimeCheckpoint expectedCheckpoint = host.makeRuntimeCheckpoint();
+		RuntimeCheckpoint loadedCheckpoint;
+		const RuntimeCheckpointSaveError savedCheckpoint =
+			host.saveRuntimeCheckpoint( "runtime/headless-checkpoint" );
+		const RuntimeCheckpointLoadResult loadedCheckpointResult =
+			host.loadRuntimeCheckpoint( "runtime/headless-checkpoint", loadedCheckpoint );
+		CHECK( savedCheckpoint == RuntimeCheckpointSaveError::None &&
+		       loadedCheckpointResult &&
+		       loadedCheckpoint.compatibility == expectedCheckpoint.compatibility &&
+		       loadedCheckpoint.completedFrames == 2 &&
+		       loadedCheckpoint.completedSimulationTicks == 2 &&
+		       loadedCheckpoint.activePackages.size() == 1 &&
+		       loadedCheckpoint.activePackages[0].id == "lifecycle.complete" &&
+		       loadedCheckpoint.activePackages[0].version == "1.0",
+		       "live host persists a compatibility-gated package and progress checkpoint" );
 		CHECK( host.beginInitialization() && host.markRunning() && host.beginShutdown(),
 		       "runtime package test enters an orderly engine shutdown" );
 		const RuntimeSessionShutdownResult stopped = host.runtimeSession().shutdownPackages();

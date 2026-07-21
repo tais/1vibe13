@@ -316,7 +316,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 12 &&
+		sessionHost.serviceCatalog().size() == 13 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -335,7 +335,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 17,
+		sessionHost.configuration().size() == 18,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
@@ -344,8 +344,8 @@ int main()
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
 		diagnostics.packageTasks.queued.empty() &&
-		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 12 &&
-		diagnostics.configuration.size() == 17 &&
+		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 13 &&
+		diagnostics.configuration.size() == 18 &&
 		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
@@ -572,6 +572,34 @@ int main()
 	check(persistence.saveEnvelope("too-large", PersistenceHeader{1, 1},
 		std::vector<std::uint8_t>(9, 0)) == PersistenceSaveResult::TooLarge,
 		"compiled persistence rejects payloads above the configured bound");
+	MemoryByteStorage checkpointStorage;
+	PersistenceService checkpointPersistence(checkpointStorage, 4096);
+	RuntimeCheckpointService checkpoints(checkpointPersistence, 1);
+	const RuntimeCheckpoint savedCheckpoint{
+		firstFingerprint, 17, 23, {{"rules.fingerprint", "2.0"}}};
+	check(checkpoints.save("runtime.checkpoint", savedCheckpoint) ==
+			RuntimeCheckpointSaveError::None,
+		"runtime checkpoint service writes a bounded integrity-checked manifest");
+	RuntimeCheckpoint loadedCheckpoint;
+	const RuntimeCheckpointLoadResult loadedCheckpointResult = checkpoints.load(
+		"runtime.checkpoint", firstFingerprint, loadedCheckpoint);
+	check(loadedCheckpointResult &&
+		loadedCheckpoint.compatibility == firstFingerprint &&
+		loadedCheckpoint.completedFrames == 17 &&
+		loadedCheckpoint.completedSimulationTicks == 23 &&
+		loadedCheckpoint.activePackages.size() == 1 &&
+		loadedCheckpoint.activePackages[0].id == "rules.fingerprint" &&
+		loadedCheckpoint.activePackages[0].version == "2.0",
+		"runtime checkpoint loads publish complete portable session metadata");
+	RuntimeCheckpoint unchangedCheckpoint{
+		firstFingerprint, 99, 99, {{"unchanged.package", "1"}}};
+	const RuntimeCheckpointLoadResult incompatibleCheckpoint = checkpoints.load(
+		"runtime.checkpoint", changedFingerprint, unchangedCheckpoint);
+	check(incompatibleCheckpoint.error == RuntimeCheckpointLoadError::IncompatibleRuntime &&
+		incompatibleCheckpoint.storedCompatibility == firstFingerprint &&
+		unchangedCheckpoint.completedFrames == 99 &&
+		unchangedCheckpoint.activePackages[0].id == "unchanged.package",
+		"runtime checkpoint rejects incompatible engines before publishing metadata");
 
 	ContentRegistry content(ContentApiVersion{1, 2});
 	check(content.registerContent(ContentManifest{

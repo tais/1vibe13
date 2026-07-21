@@ -59,6 +59,12 @@ int main()
 	const PackageResourceUsage* packageResources = resources.find("external.rules");
 	if (!packageResources || !packageResources->active ||
 		resources.unattributedRecords != 0) return 9;
+	if (host.saveRuntimeCheckpoint("external.checkpoint") !=
+		RuntimeCheckpointSaveError::None) return 10;
+	RuntimeCheckpoint checkpoint;
+	if (!host.loadRuntimeCheckpoint("external.checkpoint", checkpoint) ||
+		checkpoint.activePackages.size() != 1 ||
+		checkpoint.activePackages[0].id != "external.rules") return 11;
 
 	const std::vector<std::uint8_t> saved{2, 3, 5, 7};
 	if (host.persistence().saveEnvelope(

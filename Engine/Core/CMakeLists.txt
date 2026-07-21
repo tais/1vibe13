@@ -42,6 +42,7 @@ set(engine_core_public_headers
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h
+  RuntimeCheckpoint.h
   RuntimeConfiguration.h
   RuntimeDiagnostics.h
   RuntimeFaultJournal.h
@@ -69,6 +70,7 @@ add_library(ja2_engine_core STATIC
   PersistenceService.cpp
   PackageResourceUsage.cpp
   RuntimeCapabilities.cpp
+  RuntimeCheckpoint.cpp
   RuntimeFingerprint.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)
