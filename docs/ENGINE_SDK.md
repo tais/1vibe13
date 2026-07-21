@@ -23,6 +23,16 @@ find_package(JA2Engine 0.1 CONFIG REQUIRED)
 target_link_libraries(your_host PRIVATE JA2::EngineCore)
 ```
 
+Windows consumers must use the same static MSVC runtime ABI as the installed
+archive. The package exports the exact CMake value for that purpose:
+
+```cmake
+if(MSVC OR CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+  set_property(TARGET your_host PROPERTY
+    MSVC_RUNTIME_LIBRARY "${JA2Engine_MSVC_RUNTIME_LIBRARY}")
+endif()
+```
+
 Configure the consumer with either `CMAKE_PREFIX_PATH` pointing at the install
 prefix or `JA2Engine_DIR` pointing at its `lib/cmake/JA2Engine` directory.
 

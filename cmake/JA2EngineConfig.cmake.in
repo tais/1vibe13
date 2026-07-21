@@ -1,4 +1,10 @@
 @PACKAGE_INIT@
 
+set(JA2Engine_VERSION "@JA2_ENGINE_SDK_VERSION@")
+# Engine/Core follows the host repository's static MSVC CRT ABI. CMake runtime
+# selection is not transitive for static archives, so external Windows targets
+# must apply this exported value to MSVC_RUNTIME_LIBRARY before compiling.
+set(JA2Engine_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 include("${CMAKE_CURRENT_LIST_DIR}/JA2EngineTargets.cmake")
 check_required_components(JA2Engine)
