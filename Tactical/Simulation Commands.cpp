@@ -3,7 +3,7 @@
 #include <type_traits>
 #include <variant>
 
-#include <Engine/Core/CommandDispatch.h>
+#include <Engine/Core/CommandProcessor.h>
 
 #include "GameContext.h"
 #include "Overhead.h"
@@ -13,13 +13,14 @@ namespace
 {
 	constexpr std::uint64_t ImmediateCommandTick = 0;
 
-	void ExecuteSimulationCommand(const SimulationCommand& command)
+	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)
 	{
-		std::visit([](const auto& value) {
+		return std::visit([](const auto& value) {
 			using Command = typename std::decay<decltype(value)>::type;
 			if constexpr (std::is_same<Command, EndTurnCommand>::value)
 			{
 				EndTurn(value.nextTeam);
+				return CommandDisposition::Applied;
 			}
 			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
@@ -29,19 +30,21 @@ namespace
 					if (soldier != nullptr)
 					{
 						SendChangeSoldierStanceEvent(soldier, value.stance);
+						return CommandDisposition::Applied;
 					}
 				}
+				return CommandDisposition::Discard;
 			}
 		}, command);
 	}
 }
 
-void ExecuteSimulationCommandsThrough(std::uint64_t tick)
+CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick)
 {
-	DispatchCommandsThrough(
+	return ProcessCommandsThrough(
 		GetGameContext().commands(), tick,
 		[](const SimulationCommand& command, std::uint64_t, std::uint64_t) {
-			ExecuteSimulationCommand(command);
+			return ExecuteSimulationCommand(command);
 		});
 }
 

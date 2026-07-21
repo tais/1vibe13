@@ -610,6 +610,80 @@ int main( int, char** )
 	}
 
 	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 3, 30 );
+		const std::uint64_t blockedSequence = commands.enqueue( 4, 40 );
+		commands.enqueue( 5, 50 );
+		commands.enqueue( 9, 90 );
+		std::vector<int> delivered;
+		const CommandProcessingResult blocked = ProcessCommandsThrough(
+			commands, 5,
+			[&delivered]( int command, std::uint64_t, std::uint64_t ) {
+				delivered.push_back( command );
+				return command == 40 ? CommandDisposition::Retry : CommandDisposition::Applied;
+			} );
+		CHECK( blocked.status == CommandProcessStatus::Blocked && blocked.scheduled == 3 &&
+		       blocked.applied == 1 && blocked.discarded == 0 &&
+		       blocked.blockedTick == 4 && blocked.blockedSequence == blockedSequence &&
+		       delivered == std::vector<int>({ 30, 40 }) && commands.size() == 3,
+		       "retryable command processing acknowledges prior work without losing blocked work" );
+		delivered.clear();
+		const CommandProcessingResult resumed = ProcessCommandsThrough(
+			commands, 5,
+			[&delivered]( int command, std::uint64_t, std::uint64_t ) {
+				delivered.push_back( command );
+				return CommandDisposition::Applied;
+			} );
+		CHECK( resumed && resumed.scheduled == 2 && resumed.applied == 2 &&
+		       delivered == std::vector<int>({ 40, 50 }) && commands.size() == 1,
+		       "blocked deterministic commands resume in original order" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 1, 10 );
+		commands.enqueue( 1, 20 );
+		commands.enqueue( 1, 30 );
+		std::vector<int> attempted;
+		bool handlerThrew = false;
+		try
+		{
+			ProcessCommandsThrough(
+				commands, 1,
+				[&attempted]( int command, std::uint64_t, std::uint64_t ) {
+					attempted.push_back( command );
+					if ( command == 20 ) throw "test command handler exception";
+					return CommandDisposition::Applied;
+				} );
+		}
+		catch (...)
+		{
+			handlerThrew = true;
+		}
+		const auto remaining = commands.snapshotThrough( 1 );
+		CHECK( handlerThrew && attempted == std::vector<int>({ 10, 20 }) &&
+		       remaining.size() == 2 && remaining[0].command == 20 &&
+		       remaining[1].command == 30,
+		       "command handler exceptions retain the failing and later commands" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 1, 10 );
+		commands.enqueue( 1, 20 );
+		const CommandProcessingResult bounded = ProcessCommandsThrough(
+			commands, 1,
+			[&commands]( int command, std::uint64_t, std::uint64_t ) {
+				if ( command == 10 ) commands.enqueue( 1, 30 );
+				return command == 20 ? CommandDisposition::Discard : CommandDisposition::Applied;
+			} );
+		const auto deferred = commands.snapshotThrough( 1 );
+		CHECK( bounded && bounded.scheduled == 2 && bounded.applied == 1 &&
+		       bounded.discarded == 1 && deferred.size() == 1 && deferred[0].command == 30,
+		       "command passes count discards and defer commands produced by their handlers" );
+	}
+
+	{
 		GAME_SETTINGS settings = {};
 		GAME_OPTIONS options = {};
 		GameContext context( settings, options );

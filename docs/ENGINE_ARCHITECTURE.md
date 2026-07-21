@@ -118,8 +118,14 @@ the engine must not contain SDL types in its public domain model.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
   Tactical end-turn input is the first production path: it queues an
-  engine-owned value command and drains it at the existing synchronous call
+  engine-owned value command and processes it at the existing synchronous call
   boundary before invoking the legacy executor.
+- `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
+  commands only after their handler returns. Applied commands run exactly once;
+  retry blocks later deterministic work without removing it; explicit discard
+  is counted; and a handler exception leaves the failing and remaining commands
+  queued. Commands produced during a handler wait for the next pass, preventing
+  accidental unbounded same-tick dispatch.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
 - `StateStack` represents base screens and modal overlays without scattered
   previous-screen globals.

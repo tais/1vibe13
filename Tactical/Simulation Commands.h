@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <Engine/Core/SimulationCommand.h>
+#include <Engine/Core/CommandProcessor.h>
 
 // Compatibility adapter: queue an engine-owned value command, then execute all
 // commands ready at the same simulation boundary. Existing EndTurn behavior
@@ -17,6 +18,6 @@ std::uint64_t DispatchChangeStanceCommandNow(
 	std::uint8_t stance,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer);
 
-void ExecuteSimulationCommandsThrough(std::uint64_t tick);
+CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick);
 
 #endif
