@@ -36,6 +36,7 @@
 #include "vobject.h"
 #include "vsurface.h"
 #include <Engine/Core/UniqueResourceHandle.h>
+#include <Engine/Core/UniqueResourcePtr.h>
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Core/SimulationCommand.h>
@@ -220,6 +221,23 @@ struct TestResourceReleaser
 	}
 };
 using TestResourceHandle = UniqueResourceHandle<TestResourceTag, TestResourceReleaser>;
+
+struct TestPointerResource
+{
+	int value;
+};
+static TestPointerResource* g_releasedPointerResource = nullptr;
+static UINT32 g_pointerResourceReleaseCount = 0;
+struct TestPointerResourceReleaser
+{
+	void operator()(TestPointerResource* value) const
+	{
+		g_releasedPointerResource = value;
+		++g_pointerResourceReleaseCount;
+	}
+};
+using TestPointerResourceOwner =
+	UniqueResourcePtr<TestPointerResource, TestPointerResourceReleaser>;
 
 class FailingAssetSource final : public AssetSource
 {
@@ -450,6 +468,30 @@ int main( int, char** )
 		}
 		CHECK( g_releasedResource == 126 && g_resourceReleaseCount == 2,
 		       "resource handle destructor releases exactly once" );
+	}
+
+	{
+		static_assert( !std::is_copy_constructible<TestPointerResourceOwner>::value,
+		               "pointer resource ownership must remain unique" );
+		TestPointerResource firstValue{ 7 };
+		TestPointerResource secondValue{ 9 };
+		g_releasedPointerResource = nullptr;
+		g_pointerResourceReleaseCount = 0;
+		TestPointerResourceOwner first( &firstValue );
+		TestPointerResourceOwner second( std::move( first ) );
+		CHECK( !first && second->value == 7,
+		       "pointer resource move transfers typed ownership" );
+		second.reset( &secondValue );
+		CHECK( g_releasedPointerResource == &firstValue && second.get() == &secondValue,
+		       "pointer resource reset releases the previous API object" );
+		CHECK( second.release() == &secondValue && !second,
+		       "pointer resource release returns an unowned API pointer" );
+		{
+			TestPointerResourceOwner scoped( &firstValue );
+		}
+		CHECK( g_releasedPointerResource == &firstValue &&
+		       g_pointerResourceReleaseCount == 2,
+		       "pointer resource destructor releases exactly once" );
 	}
 
 	{
