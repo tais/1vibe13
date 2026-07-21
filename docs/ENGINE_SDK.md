@@ -54,3 +54,25 @@ using portable IDs and major/minor contracts. Registrations are non-owning and
 must outlive the host. The catalog seals when initialization or package
 bootstrap begins, so packages may safely retain a successfully resolved service
 for the runtime session. This is not yet a stable native plugin ABI.
+
+Hosts may also populate `RuntimeConfiguration` with portable keys and boolean,
+signed integer, double, or string values before initialization. Packages read
+the sealed configuration from their bootstrap/runtime context. Replacing a key
+with a different type is rejected so configuration contracts cannot silently
+change beneath consumers.
+
+Each package callback also receives `PackageStorage`, a view bound to that
+package's ID. Record names are portable identifiers and data uses the engine's
+bounded checksummed envelope format under `PackageData/<package>/<record>.bin`.
+This is the preferred durable-state API for new packages.
+
+Use `PackageBootstrapContext::messagePublisher` for outbound package messages.
+It binds the source to the registered package ID and accepts only a portable
+topic plus the bounded byte payload. The raw message bus remains available
+during the compatibility window for established integrations.
+
+Declare mandatory host integrations in `PackageDescriptor::requiredServices`.
+IDs must be unique portable identifiers and minimum major versions must be
+non-zero. The engine checks all active packages against the sealed service
+catalog before configuration starts, so a missing or incompatible integration
+fails deterministically before package code acquires partial resources.

@@ -23,10 +23,13 @@ set(engine_core_public_headers
   PackageContract.h
   PackageEventSink.h
   PackageLifecycle.h
+  PackageMessagePublisher.h
   PackageResults.h
+  PackageStorage.h
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h
+  RuntimeConfiguration.h
   RuntimeMessageBus.h
   RuntimeSession.h
   RuntimeUpdate.h

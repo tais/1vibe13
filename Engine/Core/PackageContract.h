@@ -7,7 +7,10 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/PackageMessagePublisher.h>
+#include <Engine/Core/PackageStorage.h>
 #include <Engine/Core/RuntimeMessageBus.h>
+#include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/ServiceCatalog.h>
 #include <Engine/Core/RuntimeUpdate.h>
 
@@ -35,6 +38,9 @@ struct PackageBootstrapContext
 	EngineServices& services;
 	RuntimeMessageBus& messages;
 	ServiceCatalog& extensionServices;
+	const RuntimeConfiguration& configuration;
+	PackageStorage& storage;
+	PackageMessagePublisher& messagePublisher;
 };
 
 struct PackageDescriptor
@@ -44,6 +50,12 @@ struct PackageDescriptor
 	// Portable features contributed only while this package is active. Hosts
 	// query these through EngineRuntime rather than campaign preprocessor flags.
 	std::vector<std::string> capabilities;
+	// Empty preserves broadcast delivery. A non-empty list limits runtime
+	// message callbacks to these portable exact-match topics.
+	std::vector<std::string> messageTopics;
+	// Host extension services that must exist at or above the declared version
+	// before this package receives its first bootstrap callback.
+	std::vector<EngineServiceRequirement> requiredServices;
 };
 
 // Packages are owned by the application and must outlive the registry. The

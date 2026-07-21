@@ -100,6 +100,8 @@ int main()
 	const EngineServiceLookupResult<unsigned> resolvedService =
 		sessionHost.serviceCatalog().resolve<unsigned>(
 			"host.test-service", EngineServiceVersion{2, 1});
+	const RuntimeConfigurationSetError configuredValue =
+		sessionHost.configuration().set("host.test-value", std::int64_t{42});
 	const RuntimeSessionShutdownResult prematureSessionShutdown =
 		sessionHost.runtimeSession().shutdownPackages();
 	const RuntimeSessionAdvanceResult configuredSession =
@@ -127,6 +129,15 @@ int main()
 			"host.test-service", EngineServiceVersion{3, 0}).error ==
 			EngineServiceLookupError::IncompatibleVersion,
 		"service catalog seals versioned type-checked host extensions before bootstrap");
+	const std::int64_t* resolvedConfiguration =
+		sessionHost.configuration().find<std::int64_t>("host.test-value");
+	check(configuredValue == RuntimeConfigurationSetError::None &&
+		resolvedConfiguration && *resolvedConfiguration == 42 &&
+		sessionHost.configuration().sealed() &&
+		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
+			RuntimeConfigurationSetError::Sealed &&
+		sessionHost.configuration().size() == 4,
+		"runtime configuration publishes typed stable values and seals before bootstrap");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&

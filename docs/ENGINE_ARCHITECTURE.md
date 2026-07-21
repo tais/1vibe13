@@ -214,11 +214,30 @@ the engine must not contain SDL types in its public domain model.
   hosts and runtime-started packages without campaign headers. Each frame
   drains one snapshot before input; messages published by a callback wait for
   the next frame, preventing reentrant and unbounded same-frame work.
+  Packages may declare exact portable topic subscriptions; an empty declaration
+  retains broadcast compatibility, while filtered traffic is counted without
+  entering package code.
 - `ServiceCatalog` is the versioned, type-checked extension point for optional
   host services that do not belong in the fixed platform adapter table. The
   live host publishes persistence, frame telemetry, and runtime messaging; the
   catalog seals before package bootstrap so package-held service references
   remain valid for the complete runtime session.
+- `RuntimeConfiguration` is a typed, insertion-ordered startup property store.
+  Applications can add or override same-typed values during composition; it
+  seals with the service catalog before bootstrap and gives packages stable
+  access without coupling Core to INI parsing or campaign option globals.
+- `PackageStorage` maps portable record keys into per-package persistence
+  namespaces and exposes only bounded checksummed envelopes. The live registry
+  binds the active package identity for every lifecycle, input, update, and
+  message callback, preventing new package code from constructing another
+  package's record path through this API.
+- `PackageMessagePublisher` binds outbound runtime messages to the registered
+  package identity. Packages choose a topic and bounded value payload, while
+  the host supplies the immutable source used by diagnostics and consumers.
+- Package descriptors declare minimum versions of required extension services.
+  The registry validates the declarations at registration and checks the
+  sealed host catalog before any configure callback, retaining the package,
+  service, required version, and available version when preflight fails.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

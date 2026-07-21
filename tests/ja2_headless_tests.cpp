@@ -367,6 +367,25 @@ public:
 			context.extensionServices.resolve<FrameTelemetry>(
 				"engine.frame-telemetry", EngineServiceVersion{ 1, 0 } );
 		observedTelemetry = telemetry.service;
+		const std::int64_t* messageCapacity =
+			context.configuration.find<std::int64_t>( "engine.messages.queue-capacity" );
+		observedMessageCapacity = messageCapacity ? *messageCapacity : -1;
+		if (persistOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedStoragePackageId = context.storage.packageId();
+			packageSaveResult = context.storage.saveEnvelope(
+				"test-state", PersistenceHeader{ 0x504B4754u, 1 }, { 8, 9 } );
+			invalidPackageSaveResult = context.storage.saveEnvelope(
+				"../invalid", PersistenceHeader{ 0x504B4754u, 1 }, {} );
+		}
+		if (publishOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedPublisherPackageId = context.messagePublisher.packageId();
+			packagePublishResult = context.messagePublisher.publish(
+				"package.ready", { 6, 1 } );
+			invalidPackagePublishResult = context.messagePublisher.publish(
+				"../invalid", {} );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -420,6 +439,13 @@ public:
 	EngineServices* observedServices = nullptr;
 	RuntimeMessageBus* observedMessages = nullptr;
 	FrameTelemetry* observedTelemetry = nullptr;
+	std::int64_t observedMessageCapacity = -1;
+	std::string observedStoragePackageId;
+	PersistenceSaveResult packageSaveResult = PersistenceSaveResult::StorageError;
+	PersistenceSaveResult invalidPackageSaveResult = PersistenceSaveResult::StorageError;
+	std::string observedPublisherPackageId;
+	RuntimeMessagePublishResult packagePublishResult;
+	RuntimeMessagePublishResult invalidPackagePublishResult;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -427,6 +453,8 @@ public:
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
+	bool persistOnConfigure = false;
+	bool publishOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -438,6 +466,14 @@ public:
 	bool nestedDeactivateResult = true;
 	std::vector<std::string>* lifecycleTrace = nullptr;
 	std::vector<std::string>* deactivationTrace = nullptr;
+	void setMessageTopics(std::vector<std::string> topics)
+	{
+		descriptor_.messageTopics = std::move(topics);
+	}
+	void setRequiredServices(std::vector<EngineServiceRequirement> requirements)
+	{
+		descriptor_.requiredServices = std::move(requirements);
+	}
 	bool active() const { return active_; }
 
 private:
@@ -500,13 +536,19 @@ int main( int, char** )
 
 	{
 		MemoryInputSource input;
+		MemoryByteStorage storage;
 		EngineServices services{
 			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
-			NullByteStorage::instance(), NullLogSink::instance(), input,
+			storage, NullLogSink::instance(), input,
 			NullAudioOutput::instance(), NullFramePresenter::instance(),
 			NullAssetSource::instance()};
 		EngineHost<unsigned> host( services );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
+		package.persistOnConfigure = true;
+		package.publishOnConfigure = true;
+		package.setRequiredServices({
+			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
+			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
@@ -514,12 +556,35 @@ int main( int, char** )
 			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
 		const RuntimeSessionAdvanceResult repeated =
 			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageCatalogSnapshot catalog = host.packageCatalog();
+		const PackageCatalogEntry* catalogPackage = catalog.find( "lifecycle.complete" );
 		CHECK( started && started.packages.completedPhases == 3 &&
 		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
 		       package.observedTelemetry == &host.frameTelemetry() &&
+		       package.observedMessageCapacity == 1024 &&
+		       package.observedStoragePackageId == "lifecycle.complete" &&
+		       package.packageSaveResult == PersistenceSaveResult::Success &&
+		       package.invalidPackageSaveResult == PersistenceSaveResult::InvalidRequest &&
+		       package.observedPublisherPackageId == "lifecycle.complete" &&
+		       package.packagePublishResult &&
+		       package.invalidPackagePublishResult.error ==
+		           RuntimeMessagePublishError::InvalidTopic &&
+		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		PersistenceHeader packageHeader{};
+		std::vector<std::uint8_t> packagePayload;
+		PackageStorage otherPackageStorage( "other.package", host.persistence() );
+		CHECK( host.persistence().loadEnvelope(
+		           PackageStorage::recordPath( "lifecycle.complete", "test-state" ),
+		           0x504B4754u, 1, 1, packageHeader, packagePayload ) ==
+		           PersistenceLoadResult::Success &&
+		       packagePayload == std::vector<std::uint8_t>({ 8, 9 }) &&
+		       otherPackageStorage.loadEnvelope(
+		           "test-state", 0x504B4754u, 1, 1, packageHeader, packagePayload ) ==
+		           PersistenceLoadResult::NotFound,
+		       "package persistence writes bounded envelopes into isolated namespaces" );
 		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );
 		const RuntimeMessagePublishResult published = host.runtimeMessages().publish(
 			RuntimeMessageRequest{ "engine.test", "host.headless", { 4, 2 } } );
@@ -528,11 +593,14 @@ int main( int, char** )
 		CHECK( frame.input.polled == 1 && package.inputEvents.size() == 1 &&
 		       package.inputEvents[0].modifiers == 2 && package.inputEvents[0].primary == 65,
 		       "runtime-started packages receive live mirrored input before the application frame" );
-		CHECK( published && frame.messages.messages == 1 &&
-		       package.receivedMessages.size() == 1 &&
-		       package.receivedMessages[0].payload == std::vector<std::uint8_t>({ 4, 2 }) &&
+		CHECK( published && frame.messages.messages == 2 &&
+		       package.receivedMessages.size() == 2 &&
+		       package.receivedMessages[0].topic == "package.ready" &&
+		       package.receivedMessages[0].source == "lifecycle.complete" &&
+		       package.receivedMessages[0].payload == std::vector<std::uint8_t>({ 6, 1 }) &&
+		       package.receivedMessages[1].payload == std::vector<std::uint8_t>({ 4, 2 }) &&
 		       package.observedMessages == &host.runtimeMessages(),
-		       "runtime-started packages receive bounded host messages at the frame boundary" );
+		       "runtime-started packages exchange source-bound messages at the frame boundary" );
 		CHECK( frame.runtimeUpdates.delivered == 1 && package.runtimeUpdates.size() == 1 &&
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
@@ -550,6 +618,53 @@ int main( int, char** )
 		       package.deactivateCalls == 1 && host.packages().activationOrder().empty() &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
+	}
+
+	{
+		EngineHost<unsigned> missingHost;
+		TestLifecyclePackage missing( "services.missing", PackageKind::Rules );
+		missing.setRequiredServices({
+			EngineServiceRequirement{ "engine.not-installed", { 1, 0 } } });
+		CHECK( missingHost.packages().registerPackage( missing ) == PackageRegistrationError::None &&
+		       missingHost.packages().activate( "services.missing" ) == PackageActivationError::None,
+		       "valid package service contracts register before host composition is sealed" );
+		const RuntimeSessionAdvanceResult result =
+			missingHost.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageServiceContractFailure& failure =
+			missingHost.packages().lastServiceContractFailure();
+		CHECK( !result && result.packages.error == PackageBootstrapError::MissingService &&
+		       missing.bootstrapCalls.empty() && failure &&
+		       failure.packageId == "services.missing" &&
+		       failure.serviceId == "engine.not-installed" &&
+		       failure.requiredVersion.major == 1,
+		       "missing required services fail before the first package callback with diagnostics" );
+	}
+
+	{
+		EngineHost<unsigned> versionHost;
+		TestLifecyclePackage incompatible( "services.version", PackageKind::Rules );
+		incompatible.setRequiredServices({
+			EngineServiceRequirement{ "engine.persistence", { 2, 0 } } });
+		TestLifecyclePackage invalid( "services.invalid", PackageKind::Rules );
+		invalid.setRequiredServices({
+			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
+			EngineServiceRequirement{ "engine.persistence", { 1, 1 } } });
+		CHECK( versionHost.packages().registerPackage( invalid ) ==
+		           PackageRegistrationError::InvalidManifest &&
+		       versionHost.packages().registerPackage( incompatible ) == PackageRegistrationError::None &&
+		       versionHost.packages().activate( "services.version" ) == PackageActivationError::None,
+		       "duplicate service requirements are rejected while valid contracts register" );
+		const RuntimeSessionAdvanceResult result =
+			versionHost.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageServiceContractFailure& failure =
+			versionHost.packages().lastServiceContractFailure();
+		CHECK( !result &&
+		       result.packages.error == PackageBootstrapError::ServiceVersionMismatch &&
+		       incompatible.bootstrapCalls.empty() && failure &&
+		       failure.serviceId == "engine.persistence" &&
+		       failure.requiredVersion.major == 2 &&
+		       failure.availableVersion.major == 1,
+		       "incompatible service versions fail before package code observes the host" );
 	}
 
 	{
@@ -578,12 +693,22 @@ int main( int, char** )
 			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
 			NullByteStorage::instance(), log, input};
 		EngineHost<unsigned> host( services );
+		TestLifecyclePackage invalidTopics( "runtime.invalid-topics", PackageKind::Extension );
+		invalidTopics.setMessageTopics( { "invalid/topic" } );
+		CHECK( host.packages().registerPackage( invalidTopics ) ==
+		       PackageRegistrationError::InvalidManifest,
+		       "package registration rejects invalid runtime message topics" );
 		TestLifecyclePackage package( "runtime.unhealthy", PackageKind::Extension );
+		package.setMessageTopics( { "engine.allowed" } );
 		package.throwOnInput = true;
 		package.throwOnRuntimeUpdate = true;
 		host.packages().registerPackage( package );
 		host.packages().activate( "runtime.unhealthy" );
 		host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
+		host.runtimeMessages().publish(
+			RuntimeMessageRequest{ "engine.denied", "host.headless", {} } );
+		host.runtimeMessages().publish(
+			RuntimeMessageRequest{ "engine.allowed", "host.headless", { 7 } } );
 		for ( std::uint64_t sequence = 1; sequence <= 10; ++sequence )
 		{
 			input.push( EngineInputEvent{ sequence, 0, 1, 0, 0, sequence, 0 } );
@@ -596,10 +721,17 @@ int main( int, char** )
 		       entry->runtimeHealth.inputFailures == 10 &&
 		       entry->runtimeHealth.runtimeUpdateCallbacks == 10 &&
 		       entry->runtimeHealth.runtimeUpdateFailures == 10 &&
+		       entry->runtimeHealth.messageCallbacks == 1 &&
+		       entry->runtimeHealth.filteredMessages == 1 &&
 		       entry->runtimeHealth.suppressedFailureLogs == 10,
 		       "package catalog snapshots retain per-package runtime callback health" );
 		CHECK( log.records().size() == 10,
 		       "repeated package callback exceptions use bounded logarithmic logging" );
+		CHECK( package.receivedMessages.size() == 1 &&
+		       package.receivedMessages[0].topic == "engine.allowed" &&
+		       entry && entry->descriptor.messageTopics ==
+		           std::vector<std::string>({ "engine.allowed" }),
+		       "declared package message topics filter traffic before entering mod code" );
 	}
 
 	{
