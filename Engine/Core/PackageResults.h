@@ -11,7 +11,8 @@ enum class PackageRegistrationError
 	IncompatibleApi,
 	DuplicateId,
 	OperationInProgress,
-	InvalidRequirement
+	InvalidRequirement,
+	InvalidRelationship
 };
 
 enum class PackageUnregistrationError
@@ -56,7 +57,9 @@ enum class PackageResolutionError
 	MissingRequirement,
 	VersionMismatch,
 	DependencyCycle,
-	CampaignConflict
+	CampaignConflict,
+	PackageConflict,
+	OrderingCycle
 };
 
 struct PackageActivationPlan
@@ -64,7 +67,8 @@ struct PackageActivationPlan
 	PackageResolutionError error = PackageResolutionError::None;
 	std::string packageId;
 	// A root-to-failure chain for missing/version errors, the closed cycle for
-	// cycle errors, or the two conflicting campaign IDs for campaign errors.
+	// strong dependency cycles, unresolved nodes for weak ordering cycles, or
+	// the two conflicting package IDs for conflict errors.
 	std::vector<std::string> diagnosticPath;
 	// Contains inactive packages only, with every dependency before its
 	// consumers. Requested-root and requirement declaration order are stable
@@ -87,7 +91,9 @@ enum class PackageActivationError
 	InvalidRequest,
 	MissingRequirement,
 	RequirementVersionMismatch,
-	DependencyCycle
+	DependencyCycle,
+	PackageConflict,
+	OrderingCycle
 };
 
 struct PackageActivationResult

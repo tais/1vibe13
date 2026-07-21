@@ -39,8 +39,9 @@ the engine must not contain SDL types in its public domain model.
 - `GameCapabilities` moves JA2/UB/editor decisions from preprocessing toward
   startup-selected runtime policy.
 - `ContentRegistry` validates package identity, required engine API version,
-  and ordered package requirements. Requirements may target packages that have
-  not been discovered yet, so registration order never determines validity.
+  ordered requirements, optional requirements, conflicts, and weak ordering
+  relationships. Relationships may target packages that have not been
+  discovered yet, so registration order never determines validity.
 - `PackageRegistry` owns package validation, dependency planning, and activation
   policy while package objects remain application-owned. Its iterative planner
   produces a stable topological activation delta: requirement declaration order
@@ -51,8 +52,11 @@ the engine must not contain SDL types in its public domain model.
   request and preserves the pre-existing active set. Batch activation of an
   already-active closure is therefore an idempotent success with an empty
   result delta, while the legacy single-package call reports `AlreadyActive`.
-  Only one campaign may be active, whereas rules, extensions, and tools can be
-  composed around it.
+  Optional dependencies join the closure only when registered. Declared
+  conflicts are symmetric, and weak `loadAfter` edges constrain packages that
+  are already in the closure without selecting new ones. Strong and weak cycles
+  fail before activation. Only one campaign may be active, whereas rules,
+  extensions, and tools can be composed around it.
 - `PackageCatalogSnapshot` is the value-only inspection boundary for launchers,
   editors, diagnostics, and headless hosts. It reports packages in deterministic
   host-discovery order, dependency consumers, activation priority, asset state,
@@ -64,16 +68,15 @@ the engine must not contain SDL types in its public domain model.
   teardown events. Event delivery follows lifecycle callback order. Sink
   exceptions are logged and isolated from package state, making observation
   safe for launchers, live diagnostics, and headless test recorders.
-- Active packages protect their direct requirements from removal, which in turn
-  protects the complete active closure. Dependencies are not automatically
-  pruned when a consumer is removed; the host chooses explicit teardown order.
+- Active packages protect their direct mandatory and present optional
+  requirements from removal, which in turn protects the complete active closure.
+  Dependencies are not automatically pruned when a consumer is removed; the
+  host chooses explicit teardown order.
   Package activation returning false must leave that package inactive and
   holding no lifecycle resources.
-- Requirements currently express only mandatory package identity and an
-  optional exact version. Versions are opaque, case-sensitive strings rather
-  than SemVer ranges. Optional dependencies, conflicts, and ordering-only
-  relationships are intentionally deferred until package discovery/catalog
-  policy has a concrete host.
+- Mandatory and optional requirements express package identity plus an optional
+  exact version. Versions are opaque, case-sensitive strings rather than SemVer
+  ranges. Conflict and ordering relationships express identity only.
 - `LegacyCampaignPackage` exposes the compiled JA2 or UB campaign through that
   runtime contract. It is the compatibility bridge to replace with discovered
   package manifests and campaign bootstrap hooks incrementally.
@@ -121,8 +124,8 @@ the engine must not contain SDL types in its public domain model.
   This source-built alpha API has no stable binary plugin ABI yet; package
   binaries must be rebuilt with the engine. Content API 1.1 identifies packages
   that depend on lifecycle-mounted asset sources; 1.2 adds ordered package
-  requirements. Packages using requirements must declare 1.2 explicitly, while
-  1.0 and 1.1 content remain valid when they do not use newer contracts.
+  requirements; 1.3 adds optional requirements, conflicts, and weak ordering.
+  Older content remains valid when it does not use newer contracts.
 - `EngineRuntime` owns campaign-independent lifecycle, screen state, content,
   packages, and service bindings. `GameContext` is now a JA2 compatibility
   facade around that reusable composition root plus legacy settings/options.
