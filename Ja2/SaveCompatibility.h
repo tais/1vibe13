@@ -1,0 +1,44 @@
+#ifndef JA2_SAVE_COMPATIBILITY_H
+#define JA2_SAVE_COMPATIBILITY_H
+
+#include <string>
+
+#include <Engine/Core/RuntimeCheckpoint.h>
+
+class GameContext;
+
+enum class SaveCompatibilityState
+{
+	Compatible,
+	LegacyWithoutMetadata,
+	IncompatibleRuntime,
+	InvalidMetadata,
+	StorageError
+};
+
+struct SaveCompatibilityResult
+{
+	SaveCompatibilityState state = SaveCompatibilityState::Compatible;
+	std::string sidecarPath;
+	RuntimeCheckpoint checkpoint;
+	RuntimeCompatibilityFingerprint storedCompatibility;
+
+	bool permitsCompatibleLoad() const
+	{
+		return state == SaveCompatibilityState::Compatible ||
+			state == SaveCompatibilityState::LegacyWithoutMetadata;
+	}
+};
+
+// The legacy .sav bytes remain untouched. New engine identity/progress metadata
+// lives beside them under a deterministic suffix and can be ignored by older
+// builds without changing their save-slot discovery.
+std::string RuntimeCheckpointSidecarPath(const std::string& savePath);
+
+RuntimeCheckpointSaveError WriteSaveCompatibilityMetadata(
+	const GameContext& context, const std::string& savePath) noexcept;
+
+SaveCompatibilityResult InspectSaveCompatibilityMetadata(
+	const GameContext& context, const std::string& savePath) noexcept;
+
+#endif
