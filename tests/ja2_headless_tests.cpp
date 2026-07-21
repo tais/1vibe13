@@ -37,6 +37,7 @@
 #include "vsurface.h"
 #include "../Engine/Core/UniqueResourceHandle.h"
 #include "../Engine/Core/DeterministicCommandQueue.h"
+#include "../Engine/Core/SimulationCommand.h"
 #include "../Engine/Core/BinaryArchive.h"
 #include "../Engine/Core/StateStack.h"
 #include "../Engine/Core/ContentApi.h"
@@ -460,6 +461,23 @@ int main( int, char** )
 		const auto replay = commands.drainThrough( 20 );
 		CHECK( replay.size() == 2 && replay[0].command == 150 && replay[1].command == 200,
 		       "recorded simulation commands replay deterministically" );
+	}
+
+	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		GameContext context( settings, options );
+		context.commands().enqueue(
+			7, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::LocalPlayer}} );
+		context.commands().enqueue(
+			7, SimulationCommand{EndTurnCommand{3, SimulationCommandSource::NetworkPeer}} );
+		const auto ready = context.commands().drainThrough( 7 );
+		const auto& local = std::get<EndTurnCommand>( ready[0].command );
+		const auto& network = std::get<EndTurnCommand>( ready[1].command );
+		CHECK( ready.size() == 2 && local.nextTeam == 2 && network.nextTeam == 3 &&
+		       local.source == SimulationCommandSource::LocalPlayer &&
+		       network.source == SimulationCommandSource::NetworkPeer,
+		       "engine runtime owns ordered value-only tactical commands" );
 	}
 
 	{

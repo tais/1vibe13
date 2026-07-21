@@ -71,6 +71,7 @@
 #include "DisplayCover.h"
 
 #include "TeamTurns.h"
+#include "Simulation Commands.h"
 #include "Map Screen Interface.h"	// added by Flugente for SquadNames
 #include "Keys.h"	// added by silversurfer for door handling from the side
 
@@ -1435,13 +1436,13 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		// End our turn!
 		if (is_server || !is_client)
 		{
-			EndTurn( gbPlayerNum + 1 );
+			DispatchEndTurnCommandNow( gbPlayerNum + 1 );
 		}
 		if(!is_server && is_client)
 		{
 			if (INTERRUPT_QUEUED)
 			{
-				EndTurn( gbPlayerNum + 1 );//is ending interrupt instead
+				DispatchEndTurnCommandNow( gbPlayerNum + 1 );//is ending interrupt instead
 			}
 			else
 			{

@@ -69,6 +69,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Real Time Input.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Rotting Corpses.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/ShopKeeper Interface.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/Simulation Commands.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/SkillCheck.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/SkillMenu.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Soldier Add.cpp"
