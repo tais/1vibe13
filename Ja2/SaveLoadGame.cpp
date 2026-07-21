@@ -3,6 +3,7 @@
 #include "FileMan.h"
 #include "SaveSerializer.h"
 #include <cstddef>      // offsetof
+#include <string>
 #include <string.h>
 #include <stdio.h>
 #include "DEBUG.H"
@@ -22,6 +23,8 @@
 #include "LaptopSave.h"
 #include "Queen Command.h"
 #include "SaveLoadGame.h"
+#include "GameContext.h"
+#include "SaveCompatibility.h"
 #include "Tactical Save.h"
 #include "Squads.h"
 #include "environment.h"
@@ -2761,6 +2764,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Create the name of the file
 	CreateSavedGameFileNameFromNumber( ubSaveGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	// The legacy save is about to be replaced, so its old engine identity must
+	// never survive a partial or failed replacement.
+	RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
 #if LOADSAVEGAME_LOGTIME
 	TimingLogWrite("Save ");
 	TimingLogWrite(zSaveGameName);
@@ -3615,6 +3621,26 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Close the saved game file
 	FileClose( hFile );
+
+	// Metadata is deliberately best-effort: a valid legacy save remains valid
+	// even when the optional framework sidecar cannot be written.
+	{
+		const RuntimeCheckpointSaveError compatibilityMetadata =
+			WriteSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
+		if ( compatibilityMetadata != RuntimeCheckpointSaveError::None )
+		{
+			RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
+			try
+			{
+				GetGameContext().log().write( LogRecord{
+					LogSeverity::Warning, "save-compatibility",
+					"Could not write save compatibility metadata for " +
+						std::string( zSaveGameName ) + " (code " +
+						std::to_string( static_cast<int>( compatibilityMetadata ) ) + ")" } );
+			}
+			catch ( ... ) {}
+		}
+	}
 
 	// This defines, which savegame is highlighted in the load screen
 	if (ubSaveGameID == SAVE__END_TURN_NUM)
