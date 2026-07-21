@@ -50,6 +50,7 @@ public:
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
 	const PackageRegistry& packages() const { return packages_; }
+	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return commands_; }
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commands_; }
 

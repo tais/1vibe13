@@ -693,6 +693,59 @@ int main( int, char** )
 	}
 
 	{
+		EngineRuntime<unsigned> runtime;
+		PackageRegistry& packages = runtime.packages();
+		MemoryAssetSource modAssets( "catalog.mod" );
+		TestLifecyclePackage mod(
+			"catalog.mod", PackageKind::Extension, -1, &modAssets,
+			{{ "catalog.rules", "" }} );
+		TestLifecyclePackage campaign( "catalog.campaign", PackageKind::Campaign );
+		TestLifecyclePackage rules(
+			"catalog.rules", PackageKind::Rules, -1, nullptr,
+			{{ "catalog.campaign", "1.0" }} );
+		CHECK( packages.registerPackage( mod ) == PackageRegistrationError::None &&
+		       packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+		       packages.registerPackage( rules ) == PackageRegistrationError::None,
+		       "package catalog fixture registers packages independent of dependency order" );
+		PackageCatalogSnapshot catalog = runtime.packageCatalog();
+		const PackageCatalogEntry* campaignEntry = catalog.find( "catalog.campaign" );
+		const PackageCatalogEntry* rulesEntry = catalog.find( "catalog.rules" );
+		CHECK( catalog.supportedApi.major == CurrentContentApiVersion.major &&
+		       catalog.supportedApi.minor == CurrentContentApiVersion.minor &&
+		       catalog.packages.size() == 3 &&
+		       catalog.packages[0].descriptor.content.id == "catalog.mod" &&
+		       catalog.packages[1].descriptor.content.id == "catalog.campaign" &&
+		       catalog.packages[2].descriptor.content.id == "catalog.rules" &&
+		       campaignEntry && campaignEntry->dependents ==
+		       std::vector<std::string>({ "catalog.rules" }) &&
+		       rulesEntry && rulesEntry->dependents ==
+		       std::vector<std::string>({ "catalog.mod" }),
+		       "package catalog snapshots preserve discovery and dependent order" );
+		CHECK( packages.activate( "catalog.mod" ) == PackageActivationError::None &&
+		       packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+		       PackageBootstrapError::None,
+		       "package catalog fixture reaches active bootstrap state" );
+		catalog = runtime.packageCatalog();
+		const PackageCatalogEntry* modEntry = catalog.find( "catalog.mod" );
+		campaignEntry = catalog.find( "catalog.campaign" );
+		rulesEntry = catalog.find( "catalog.rules" );
+		CHECK( catalog.activationOrder == std::vector<std::string>({
+		       "catalog.campaign", "catalog.rules", "catalog.mod" }) &&
+		       catalog.activeCampaign == "catalog.campaign" &&
+		       catalog.completedBootstrapPhases == 1 && modEntry && modEntry->active() &&
+		       modEntry->assetsMounted && modEntry->activationIndex == 2 &&
+		       campaignEntry && campaignEntry->active() && campaignEntry->activationIndex == 0 &&
+		       rulesEntry && rulesEntry->active() && rulesEntry->activationIndex == 1,
+		       "package catalog snapshots expose activation, assets, campaign, and bootstrap state" );
+		packages.shutdownBootstrap();
+		CHECK( packages.deactivateAll() &&
+		       packages.unregisterPackage( "catalog.mod" ) &&
+		       catalog.find( "catalog.mod" ) != nullptr &&
+		       runtime.packageCatalog().find( "catalog.mod" ) == nullptr,
+		       "package catalog snapshots retain values after later registry mutations" );
+	}
+
+	{
 		ContentRegistry content( CurrentContentApiVersion );
 		PackageRegistry packages( content );
 		TestLifecyclePackage dependency( "unregister.dependency", PackageKind::Rules );

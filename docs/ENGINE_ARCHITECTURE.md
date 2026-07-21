@@ -50,6 +50,12 @@ the engine must not contain SDL types in its public domain model.
   result delta, while the legacy single-package call reports `AlreadyActive`.
   Only one campaign may be active, whereas rules, extensions, and tools can be
   composed around it.
+- `PackageCatalogSnapshot` is the value-only inspection boundary for launchers,
+  editors, diagnostics, and headless hosts. It reports packages in deterministic
+  host-discovery order, dependency consumers, activation priority, asset state,
+  the active campaign, and bootstrap progress without exposing mutable registry
+  storage or application-owned package pointers. Snapshots remain valid when a
+  later lifecycle operation changes the registry.
 - Active packages protect their direct requirements from removal, which in turn
   protects the complete active closure. Dependencies are not automatically
   pruned when a consumer is removed; the host chooses explicit teardown order.

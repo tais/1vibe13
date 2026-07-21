@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <Engine/Core/PackageContract.h>
+#include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/PackageResults.h>
 
 class PackageRegistry
@@ -464,6 +465,45 @@ public:
 	const std::string& activeCampaign() const { return activeCampaign_; }
 	const std::vector<std::string>& activationOrder() const { return active_; }
 	std::size_t completedBootstrapPhases() const { return completedBootstrapPhases_; }
+	PackageCatalogSnapshot catalog() const
+	{
+		PackageCatalogSnapshot snapshot;
+		snapshot.supportedApi = content_.supportedApi();
+		snapshot.activationOrder = active_;
+		snapshot.activeCampaign = activeCampaign_;
+		snapshot.completedBootstrapPhases = completedBootstrapPhases_;
+		snapshot.packages.reserve(content_.manifests().size());
+
+		// ContentRegistry preserves host discovery order. Building the catalog
+		// from it prevents unordered registry storage from leaking nondeterminism
+		// into launcher, editor, replay, or diagnostic output.
+		for (const ContentManifest& manifest : content_.manifests())
+		{
+			const auto registered = packages_.find(manifest.id);
+			if (registered == packages_.end()) continue;
+			const auto active = std::find(active_.begin(), active_.end(), manifest.id);
+			PackageCatalogEntry entry{
+				PackageDescriptor{manifest, registered->second.kind},
+				registered->second.active ? PackageLifecycleState::Active
+				                          : PackageLifecycleState::Registered,
+				registered->second.assetsMounted,
+				active == active_.end()
+					? PackageCatalogEntry::NotActive
+					: static_cast<std::size_t>(active - active_.begin()),
+				{}};
+			for (const ContentManifest& consumer : content_.manifests())
+			{
+				for (const ContentRequirement& requirement : consumer.requirements)
+				{
+					if (requirement.id != manifest.id) continue;
+					entry.dependents.push_back(consumer.id);
+					break;
+				}
+			}
+			snapshot.packages.push_back(std::move(entry));
+		}
+		return snapshot;
+	}
 	EngineServices& services() { return services_; }
 	const EngineServices& services() const { return services_; }
 	const AssetSource& assets() const { return assets_; }

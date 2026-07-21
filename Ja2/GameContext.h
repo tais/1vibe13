@@ -36,6 +36,7 @@ public:
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }
 	const PackageRegistry& packages() const { return runtime_.packages(); }
+	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return runtime_.commands(); }
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return runtime_.commands(); }
 	bool setCapabilities(GameCapabilities capabilities)
