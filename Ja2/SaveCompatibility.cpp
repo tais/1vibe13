@@ -2,11 +2,68 @@
 
 #include "GameContext.h"
 
+#include <cctype>
 #include <utility>
 
 namespace
 {
 constexpr const char* CheckpointSuffix = ".engine-checkpoint";
+}
+
+SaveCompatibilityPolicy ParseSaveCompatibilityPolicy(
+	const std::string& value, SaveCompatibilityPolicy fallback) noexcept
+{
+	try
+	{
+		std::string normalized;
+		normalized.reserve(value.size());
+		for (unsigned char character : value)
+		{
+			if (std::isspace(character)) continue;
+			normalized.push_back(static_cast<char>(std::tolower(character)));
+		}
+		if (normalized == "ignore" || normalized == "off")
+			return SaveCompatibilityPolicy::Ignore;
+		if (normalized == "warn") return SaveCompatibilityPolicy::Warn;
+		if (normalized == "enforce-known" || normalized == "enforce_known" ||
+			normalized == "enforce")
+			return SaveCompatibilityPolicy::EnforceKnown;
+		if (normalized == "require-metadata" || normalized == "require_metadata" ||
+			normalized == "require")
+			return SaveCompatibilityPolicy::RequireMetadata;
+	}
+	catch (...) {}
+	return fallback;
+}
+
+const char* SaveCompatibilityPolicyName(SaveCompatibilityPolicy policy) noexcept
+{
+	switch (policy)
+	{
+		case SaveCompatibilityPolicy::Ignore: return "ignore";
+		case SaveCompatibilityPolicy::Warn: return "warn";
+		case SaveCompatibilityPolicy::EnforceKnown: return "enforce-known";
+		case SaveCompatibilityPolicy::RequireMetadata: return "require-metadata";
+	}
+	return "warn";
+}
+
+SaveCompatibilityLoadAction EvaluateSaveCompatibility(
+	SaveCompatibilityState state, SaveCompatibilityPolicy policy) noexcept
+{
+	if (policy == SaveCompatibilityPolicy::Ignore ||
+		state == SaveCompatibilityState::Compatible)
+		return SaveCompatibilityLoadAction::Allow;
+	if (state == SaveCompatibilityState::LegacyWithoutMetadata)
+		return policy == SaveCompatibilityPolicy::RequireMetadata
+			? SaveCompatibilityLoadAction::Reject
+			: SaveCompatibilityLoadAction::Allow;
+	if (policy == SaveCompatibilityPolicy::Warn)
+		return SaveCompatibilityLoadAction::AllowWithWarning;
+	if (state == SaveCompatibilityState::StorageError &&
+		policy == SaveCompatibilityPolicy::EnforceKnown)
+		return SaveCompatibilityLoadAction::AllowWithWarning;
+	return SaveCompatibilityLoadAction::Reject;
 }
 
 std::string RuntimeCheckpointSidecarPath(const std::string& savePath)
