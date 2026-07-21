@@ -33,9 +33,10 @@ public:
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi),
-		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_),
+		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
+		            runtimeConfiguration_),
 		  packageLifecycle_(packages_),
-		  runtimeSession_(packageLifecycle_, serviceCatalog_),
+		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
 		               runtimeUpdates_, frameTelemetry_),
@@ -48,6 +49,12 @@ public:
 			"engine.runtime-messages", EngineServiceVersion{1, 0}, runtimeMessages_);
 		serviceCatalog_.registerService(
 			"engine.persistence", EngineServiceVersion{1, 0}, persistence_);
+		runtimeConfiguration_.set("engine.telemetry.history-capacity",
+			static_cast<std::int64_t>(frameTelemetry_.capacity()));
+		runtimeConfiguration_.set("engine.messages.queue-capacity",
+			static_cast<std::int64_t>(runtimeMessages_.maxQueuedMessages()));
+		runtimeConfiguration_.set("engine.messages.payload-limit",
+			static_cast<std::int64_t>(runtimeMessages_.maxPayloadBytes()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		runtimeMessages_.addSink(packages_);
@@ -81,6 +88,8 @@ public:
 	const RuntimeMessageBus& runtimeMessages() const { return runtimeMessages_; }
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
+	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
+	const RuntimeConfiguration& configuration() const { return runtimeConfiguration_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -123,6 +132,7 @@ private:
 	ContentRegistry content_;
 	RuntimeMessageBus runtimeMessages_;
 	ServiceCatalog serviceCatalog_;
+	RuntimeConfiguration runtimeConfiguration_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;
