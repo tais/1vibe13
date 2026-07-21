@@ -15,6 +15,12 @@ add_executable(engine_core_tests engine_core_tests.cpp)
 target_link_libraries(engine_core_tests PRIVATE JA2::EngineCore)
 add_test(NAME engine_core COMMAND engine_core_tests)
 
+# JA2's command vocabulary and replay schema are an adapter above Core. Keeping
+# this as a separate executable makes both sides of that dependency testable.
+add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)
+target_link_libraries(ja2_runtime_adapter_tests PRIVATE JA2::RuntimeAdapter)
+add_test(NAME ja2_runtime_adapter COMMAND ja2_runtime_adapter_tests)
+
 # Install the SDK, then configure, compile, and run a genuinely separate CMake
 # project against find_package(JA2Engine). This catches missing public headers,
 # non-exported symbols, and accidental source-tree include dependencies.

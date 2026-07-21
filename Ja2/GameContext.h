@@ -4,7 +4,7 @@
 #include "GameSettings.h"
 #include "GameCapabilities.h"
 #include <utility>
-#include <Engine/Core/EngineRuntime.h>
+#include <Engine/Adapters/JA2/EngineRuntime.h>
 
 // Compatibility name retained while callers migrate to EngineRuntime.
 using GameLifecycle = EngineLifecycle;

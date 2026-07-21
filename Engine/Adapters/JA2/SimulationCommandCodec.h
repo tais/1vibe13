@@ -1,11 +1,11 @@
-#ifndef ENGINE_CORE_SIMULATION_COMMAND_CODEC_H
-#define ENGINE_CORE_SIMULATION_COMMAND_CODEC_H
+#ifndef ENGINE_ADAPTERS_JA2_SIMULATION_COMMAND_CODEC_H
+#define ENGINE_ADAPTERS_JA2_SIMULATION_COMMAND_CODEC_H
 
 #include <cstdint>
 #include <vector>
 
 #include <Engine/Core/CommandJournal.h>
-#include <Engine/Core/SimulationCommand.h>
+#include <Engine/Adapters/JA2/SimulationCommand.h>
 
 using RecordedSimulationCommand = CommandJournalRecord<SimulationCommand>;
 

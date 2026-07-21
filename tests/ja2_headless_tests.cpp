@@ -40,8 +40,8 @@
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/CommandDispatch.h>
-#include <Engine/Core/SimulationCommand.h>
-#include <Engine/Core/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/SimulationCommand.h>
+#include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
 #include <Engine/Core/StateTransition.h>

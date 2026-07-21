@@ -1,13 +1,13 @@
-#ifndef ENGINE_CORE_ENGINE_RUNTIME_H
-#define ENGINE_CORE_ENGINE_RUNTIME_H
+#ifndef ENGINE_ADAPTERS_JA2_ENGINE_RUNTIME_H
+#define ENGINE_ADAPTERS_JA2_ENGINE_RUNTIME_H
 
 #include <cstdint>
 #include <utility>
 
-#include <Engine/Core/CommandReplay.h>
+#include <Engine/Adapters/JA2/CommandReplay.h>
+#include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/EngineHost.h>
-#include <Engine/Core/SimulationCommand.h>
 
 // JA2 simulation-command extension of the reusable EngineHost. Keeping this
 // compatibility type separate lets non-game tools consume the composition root

@@ -42,4 +42,26 @@ foreach(core_file IN LISTS core_files)
   endforeach()
 endforeach()
 
-message(STATUS "Engine/Core boundary verified (${core_files})")
+file(GLOB_RECURSE ja2_adapter_files
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/*.h"
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/*.hpp"
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/*.cpp")
+
+foreach(adapter_file IN LISTS ja2_adapter_files)
+  file(READ "${adapter_file}" contents)
+  string(REGEX MATCHALL "#[ \t]*include[ \t]*[<\"][^>\"\r\n]+[>\"]" includes "${contents}")
+  foreach(include_line IN LISTS includes)
+    string(REGEX REPLACE ".*[<\"]([^>\"]+)[>\"].*" "\\1" header "${include_line}")
+    if(header MATCHES "^Engine/(Core|Adapters/JA2)/[A-Za-z0-9_./-]+$")
+      continue()
+    endif()
+    list(FIND core_standard_headers "${header}" standard_header_index)
+    if(standard_header_index EQUAL -1)
+      message(FATAL_ERROR
+        "Engine/Adapters/JA2 has a forbidden dependency '${header}' in ${adapter_file}")
+    endif()
+  endforeach()
+endforeach()
+
+message(STATUS
+  "Engine boundaries verified (Core: ${core_files}; JA2 adapter: ${ja2_adapter_files})")

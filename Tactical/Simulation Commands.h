@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include <Engine/Core/SimulationCommand.h>
+#include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Core/CommandProcessor.h>
 
 // Compatibility adapter: queue an engine-owned value command, then execute all

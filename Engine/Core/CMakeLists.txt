@@ -5,12 +5,10 @@ set(engine_core_public_headers
   ByteStorage.h
   CommandDispatch.h
   CommandJournal.h
-  CommandReplay.h
   CommandStream.h
   CommandProcessor.h
   ContentApi.h
   DeterministicCommandQueue.h
-  EngineRuntime.h
   EngineHost.h
   EngineServices.h
   FramePresenter.h
@@ -25,8 +23,6 @@ set(engine_core_public_headers
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h
-  SimulationCommand.h
-  SimulationCommandCodec.h
   StateController.h
   StateStack.h
   StateTransition.h
@@ -40,11 +36,9 @@ set(engine_core_public_headers
 add_library(ja2_engine_core STATIC
   AssetSource.cpp
   BinaryArchive.cpp
-  CommandReplay.cpp
   Identifier.cpp
   PersistenceService.cpp
   RuntimeCapabilities.cpp
-  SimulationCommandCodec.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)
 

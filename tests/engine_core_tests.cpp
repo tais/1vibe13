@@ -2,15 +2,13 @@
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
-#include <Engine/Core/EngineRuntime.h>
 #include <Engine/Core/PersistenceService.h>
-#include <Engine/Core/SimulationCommandCodec.h>
+#include <Engine/Core/RuntimeCapabilities.h>
 
 #include <cstdint>
 #include <cstdio>
 #include <string>
 #include <vector>
-#include <variant>
 
 namespace
 {
@@ -106,104 +104,6 @@ int main()
 		"engine.test", "1", ContentApiVersion{1, 0}, {}}) ==
 		ContentRegistrationError::None,
 		"compiled core registry links without game or platform libraries");
-
-	std::vector<RecordedSimulationCommand> recorded{
-		RecordedSimulationCommand{
-			17, 41, CommandJournalStatus::Applied,
-			SimulationCommand{BeginFireWeaponCommand{
-				7, 9001, -123, -1, 4, SimulationCommandSource::LocalPlayer}}},
-		RecordedSimulationCommand{
-			18, 42, CommandJournalStatus::Blocked,
-			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}}};
-	std::vector<std::uint8_t> encoded;
-	check(EncodeSimulationCommandJournal(recorded, 3, encoded),
-		"compiled core encodes versioned simulation command journals");
-	std::vector<RecordedSimulationCommand> decoded;
-	std::uint64_t dropped = 0;
-	const SimulationCommandJournalDecodeResult decodeResult =
-		DecodeSimulationCommandJournal(encoded, decoded, dropped);
-	bool decodedFields = false;
-	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 2)
-	{
-		const auto& fire = std::get<BeginFireWeaponCommand>(decoded[0].command);
-		const auto& turn = std::get<EndTurnCommand>(decoded[1].command);
-		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
-			decoded[0].sequence == 41 &&
-			decoded[0].status == CommandJournalStatus::Applied &&
-			fire.soldierId == 7 && fire.uniqueSoldierId == 9001 &&
-			fire.targetGrid == -123 && fire.targetLevel == -1 &&
-			fire.targetCubeLevel == 4 &&
-			fire.source == SimulationCommandSource::LocalPlayer &&
-			decoded[1].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
-			turn.source == SimulationCommandSource::NetworkPeer;
-	}
-	check(decodedFields,
-		"compiled command codec round-trips explicit tags and signed tactical values");
-	encoded.push_back(0xff);
-	check(DecodeSimulationCommandJournal(encoded, decoded, dropped) ==
-		SimulationCommandJournalDecodeResult::Invalid,
-		"compiled command codec rejects trailing ambiguous data");
-
-	CommandJournal<SimulationCommand> journal(1);
-	journal.recordSubmission(
-		1, 10, SimulationCommand{EndTurnCommand{1, SimulationCommandSource::System}});
-	journal.recordSubmission(
-		2, 11, SimulationCommand{ChangeStanceCommand{
-			3, 2, SimulationCommandSource::LocalPlayer}});
-	journal.recordDisposition(11, CommandDisposition::Applied);
-	const auto bounded = journal.snapshot();
-	check(bounded.size() == 1 && bounded[0].sequence == 11 &&
-		bounded[0].status == CommandJournalStatus::Applied &&
-		journal.droppedCount() == 1,
-		"compiled command journal bounds memory and tracks dropped history");
-
-	MemoryByteStorage replayStorage;
-	EngineServices replayServices{
-		ZeroTimeSource::instance(), ZeroRandomSource::instance(), replayStorage};
-	EngineRuntime<> captureRuntime(replayServices);
-	captureRuntime.submitCommand(
-		12, SimulationCommand{ChangeStanceCommand{
-			5, 1, SimulationCommandSource::LocalPlayer}});
-	captureRuntime.submitCommand(
-		11, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}});
-	check(captureRuntime.saveCommandReplay("capture.replay") ==
-		CommandReplaySaveResult::Success,
-		"runtime persists its bounded command journal as a durable replay");
-	SimulationCommandReplay replay;
-	EngineRuntime<> playbackRuntime(replayServices);
-	check(playbackRuntime.loadCommandReplay("capture.replay", replay) ==
-		CommandReplayLoadResult::Success && replay.records.size() == 2 &&
-		replay.droppedCount == 0,
-		"runtime loads a complete integrity-checked replay capture");
-	check(playbackRuntime.stageCommandReplay(replay) ==
-		CommandReplayStageResult::Success,
-		"runtime transactionally stages a complete replay");
-	const auto replayed = playbackRuntime.commands().drainThrough(12);
-	check(replayed.size() == 2 && replayed[0].tick == 11 &&
-		replayed[0].sequence == 1 && replayed[1].tick == 12 &&
-		replayed[1].sequence == 0 &&
-		std::get<EndTurnCommand>(replayed[0].command).nextTeam == 2 &&
-		std::get<ChangeStanceCommand>(replayed[1].command).soldierId == 5,
-		"staged replay delivery retains deterministic tick and sequence order");
-	check(playbackRuntime.stageCommandReplay(replay) ==
-		CommandReplayStageResult::SequenceConflict &&
-		playbackRuntime.commands().empty(),
-		"replay sequence conflicts reject the whole batch without partial queuing");
-	SimulationCommandReplay incomplete = replay;
-	incomplete.droppedCount = 1;
-	check(playbackRuntime.stageCommandReplay(incomplete) ==
-		CommandReplayStageResult::IncompleteCapture,
-		"runtime refuses deterministic playback of a truncated bounded journal");
-	std::vector<std::uint8_t> corruptReplayBytes;
-	replayStorage.readAll("capture.replay", corruptReplayBytes);
-	corruptReplayBytes.back() ^= 0x80u;
-	replayStorage.writeAll("corrupt.replay", corruptReplayBytes);
-	SimulationCommandReplay unchangedReplay;
-	unchangedReplay.droppedCount = 77;
-	check(playbackRuntime.loadCommandReplay("corrupt.replay", unchangedReplay) ==
-		CommandReplayLoadResult::IntegrityFailure &&
-		unchangedReplay.droppedCount == 77 && unchangedReplay.records.empty(),
-		"corrupt replay loads leave the caller's capture untouched");
 
 	return failures == 0 ? 0 : 1;
 }
