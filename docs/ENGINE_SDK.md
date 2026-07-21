@@ -60,3 +60,8 @@ signed integer, double, or string values before initialization. Packages read
 the sealed configuration from their bootstrap/runtime context. Replacing a key
 with a different type is rejected so configuration contracts cannot silently
 change beneath consumers.
+
+Each package callback also receives `PackageStorage`, a view bound to that
+package's ID. Record names are portable identifiers and data uses the engine's
+bounded checksummed envelope format under `PackageData/<package>/<record>.bin`.
+This is the preferred durable-state API for new packages.

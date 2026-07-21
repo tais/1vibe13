@@ -226,6 +226,11 @@ the engine must not contain SDL types in its public domain model.
   Applications can add or override same-typed values during composition; it
   seals with the service catalog before bootstrap and gives packages stable
   access without coupling Core to INI parsing or campaign option globals.
+- `PackageStorage` maps portable record keys into per-package persistence
+  namespaces and exposes only bounded checksummed envelopes. The live registry
+  binds the active package identity for every lifecycle, input, update, and
+  message callback, preventing new package code from constructing another
+  package's record path through this API.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

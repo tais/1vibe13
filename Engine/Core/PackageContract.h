@@ -7,6 +7,7 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/PackageStorage.h>
 #include <Engine/Core/RuntimeMessageBus.h>
 #include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/ServiceCatalog.h>
@@ -37,6 +38,7 @@ struct PackageBootstrapContext
 	RuntimeMessageBus& messages;
 	ServiceCatalog& extensionServices;
 	const RuntimeConfiguration& configuration;
+	PackageStorage& storage;
 };
 
 struct PackageDescriptor
