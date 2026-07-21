@@ -48,14 +48,16 @@ public:
 		const PackageDescriptor& descriptor = package.descriptor();
 		const std::string& id = descriptor.content.id;
 		if (!RuntimeCapabilities::isValidList(descriptor.capabilities) ||
-			!RuntimeCapabilities::isValidList(descriptor.messageTopics))
+			!RuntimeCapabilities::isValidList(descriptor.messageTopics) ||
+			!ServiceCatalog::isValidRequirements(descriptor.requiredServices))
 			return PackageRegistrationError::InvalidManifest;
 		if (packages_.find(id) != packages_.end()) return PackageRegistrationError::DuplicateId;
 		const auto inserted = packages_.emplace(id, RegisteredPackage{&package, descriptor.kind,
 			descriptor.content.version, descriptor.content.requirements,
 			descriptor.content.optionalRequirements, descriptor.content.conflicts,
 			descriptor.content.loadAfter, descriptor.capabilities,
-			descriptor.messageTopics, PackageStorage{id, packagePersistence_},
+			descriptor.messageTopics, descriptor.requiredServices,
+			PackageStorage{id, packagePersistence_},
 			PackageMessagePublisher{id, messages_}, false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -524,6 +526,11 @@ public:
 		const std::size_t phaseIndex = static_cast<std::size_t>(phase);
 		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
 			return PackageBootstrapError::OutOfOrder;
+		if (phase == PackageBootstrapPhase::Configure)
+		{
+			const PackageBootstrapError serviceContracts = preflightServiceContracts();
+			if (serviceContracts != PackageBootstrapError::None) return serviceContracts;
+		}
 
 		for (std::size_t index = 0; index < active_.size(); ++index)
 		{
@@ -733,7 +740,8 @@ public:
 			const auto active = std::find(active_.begin(), active_.end(), manifest.id);
 			PackageCatalogEntry entry{
 				PackageDescriptor{manifest, registered->second.kind,
-					registered->second.capabilities, registered->second.messageTopics},
+					registered->second.capabilities, registered->second.messageTopics,
+					registered->second.requiredServices},
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
@@ -763,6 +771,10 @@ public:
 	EngineServices& services() { return services_; }
 	const EngineServices& services() const { return services_; }
 	const AssetSource& assets() const { return assets_; }
+	const PackageServiceContractFailure& lastServiceContractFailure() const
+	{
+		return lastServiceContractFailure_;
+	}
 
 private:
 	class OperationGuard
@@ -787,6 +799,7 @@ private:
 		std::vector<std::string> loadAfter;
 		std::vector<std::string> capabilities;
 		std::vector<std::string> messageTopics;
+		std::vector<EngineServiceRequirement> requiredServices;
 		PackageStorage storage;
 		PackageMessagePublisher messagePublisher;
 		bool assetsMounted;
@@ -970,6 +983,29 @@ private:
 			registered.storage, registered.messagePublisher};
 	}
 
+	PackageBootstrapError preflightServiceContracts()
+	{
+		lastServiceContractFailure_ = {};
+		for (const std::string& packageId : active_)
+		{
+			const RegisteredPackage& package = packages_.at(packageId);
+			for (const EngineServiceRequirement& requirement : package.requiredServices)
+			{
+				const EngineServiceAvailabilityResult available =
+					extensionServices_.availability(requirement);
+				if (available) continue;
+				lastServiceContractFailure_ = PackageServiceContractFailure{
+					available.error, packageId, requirement.id,
+					requirement.minimumVersion, available.availableVersion};
+				logError("Required host service unavailable for package: ", packageId);
+				return available.error == EngineServiceAvailabilityError::NotFound
+					? PackageBootstrapError::MissingService
+					: PackageBootstrapError::ServiceVersionMismatch;
+			}
+		}
+		return PackageBootstrapError::None;
+	}
+
 	ContentRegistry& content_;
 	CompositeAssetSource assets_;
 	EngineServices services_;
@@ -982,6 +1018,7 @@ private:
 	std::vector<std::string> active_;
 	std::string activeCampaign_;
 	std::size_t completedBootstrapPhases_ = 0;
+	PackageServiceContractFailure lastServiceContractFailure_;
 	bool operationInProgress_ = false;
 	static constexpr std::size_t bootstrapPhaseCount_ = 3;
 };

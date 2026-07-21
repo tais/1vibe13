@@ -234,6 +234,10 @@ the engine must not contain SDL types in its public domain model.
 - `PackageMessagePublisher` binds outbound runtime messages to the registered
   package identity. Packages choose a topic and bounded value payload, while
   the host supplies the immutable source used by diagnostics and consumers.
+- Package descriptors declare minimum versions of required extension services.
+  The registry validates the declarations at registration and checks the
+  sealed host catalog before any configure callback, retaining the package,
+  service, required version, and available version when preflight fails.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

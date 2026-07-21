@@ -470,6 +470,10 @@ public:
 	{
 		descriptor_.messageTopics = std::move(topics);
 	}
+	void setRequiredServices(std::vector<EngineServiceRequirement> requirements)
+	{
+		descriptor_.requiredServices = std::move(requirements);
+	}
 	bool active() const { return active_; }
 
 private:
@@ -542,6 +546,9 @@ int main( int, char** )
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		package.persistOnConfigure = true;
 		package.publishOnConfigure = true;
+		package.setRequiredServices({
+			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
+			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
@@ -549,6 +556,8 @@ int main( int, char** )
 			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
 		const RuntimeSessionAdvanceResult repeated =
 			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageCatalogSnapshot catalog = host.packageCatalog();
+		const PackageCatalogEntry* catalogPackage = catalog.find( "lifecycle.complete" );
 		CHECK( started && started.packages.completedPhases == 3 &&
 		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
@@ -561,6 +570,7 @@ int main( int, char** )
 		       package.packagePublishResult &&
 		       package.invalidPackagePublishResult.error ==
 		           RuntimeMessagePublishError::InvalidTopic &&
+		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
 		PersistenceHeader packageHeader{};
@@ -608,6 +618,53 @@ int main( int, char** )
 		       package.deactivateCalls == 1 && host.packages().activationOrder().empty() &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
+	}
+
+	{
+		EngineHost<unsigned> missingHost;
+		TestLifecyclePackage missing( "services.missing", PackageKind::Rules );
+		missing.setRequiredServices({
+			EngineServiceRequirement{ "engine.not-installed", { 1, 0 } } });
+		CHECK( missingHost.packages().registerPackage( missing ) == PackageRegistrationError::None &&
+		       missingHost.packages().activate( "services.missing" ) == PackageActivationError::None,
+		       "valid package service contracts register before host composition is sealed" );
+		const RuntimeSessionAdvanceResult result =
+			missingHost.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageServiceContractFailure& failure =
+			missingHost.packages().lastServiceContractFailure();
+		CHECK( !result && result.packages.error == PackageBootstrapError::MissingService &&
+		       missing.bootstrapCalls.empty() && failure &&
+		       failure.packageId == "services.missing" &&
+		       failure.serviceId == "engine.not-installed" &&
+		       failure.requiredVersion.major == 1,
+		       "missing required services fail before the first package callback with diagnostics" );
+	}
+
+	{
+		EngineHost<unsigned> versionHost;
+		TestLifecyclePackage incompatible( "services.version", PackageKind::Rules );
+		incompatible.setRequiredServices({
+			EngineServiceRequirement{ "engine.persistence", { 2, 0 } } });
+		TestLifecyclePackage invalid( "services.invalid", PackageKind::Rules );
+		invalid.setRequiredServices({
+			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
+			EngineServiceRequirement{ "engine.persistence", { 1, 1 } } });
+		CHECK( versionHost.packages().registerPackage( invalid ) ==
+		           PackageRegistrationError::InvalidManifest &&
+		       versionHost.packages().registerPackage( incompatible ) == PackageRegistrationError::None &&
+		       versionHost.packages().activate( "services.version" ) == PackageActivationError::None,
+		       "duplicate service requirements are rejected while valid contracts register" );
+		const RuntimeSessionAdvanceResult result =
+			versionHost.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageServiceContractFailure& failure =
+			versionHost.packages().lastServiceContractFailure();
+		CHECK( !result &&
+		       result.packages.error == PackageBootstrapError::ServiceVersionMismatch &&
+		       incompatible.bootstrapCalls.empty() && failure &&
+		       failure.serviceId == "engine.persistence" &&
+		       failure.requiredVersion.major == 2 &&
+		       failure.availableVersion.major == 1,
+		       "incompatible service versions fail before package code observes the host" );
 	}
 
 	{

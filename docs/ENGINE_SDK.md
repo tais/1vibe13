@@ -70,3 +70,9 @@ Use `PackageBootstrapContext::messagePublisher` for outbound package messages.
 It binds the source to the registered package ID and accepts only a portable
 topic plus the bounded byte payload. The raw message bus remains available
 during the compatibility window for established integrations.
+
+Declare mandatory host integrations in `PackageDescriptor::requiredServices`.
+IDs must be unique portable identifiers and minimum major versions must be
+non-zero. The engine checks all active packages against the sealed service
+catalog before configuration starts, so a missing or incompatible integration
+fails deterministically before package code acquires partial resources.
