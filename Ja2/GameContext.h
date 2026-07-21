@@ -19,7 +19,8 @@ public:
 	            EngineServices services = EngineServices::defaults(),
 	            PackageEventSink& packageEvents = NullPackageEventSink::instance())
 		: settings_(settings), options_(options), capabilities_(capabilities),
-		  runtime_(services, CurrentContentApiVersion, packageEvents)
+		  runtime_(services, CurrentContentApiVersion, packageEvents,
+		           makeHostCapabilities(capabilities))
 	{
 	}
 
@@ -42,6 +43,14 @@ public:
 	PackageRegistry& packages() { return runtime_.packages(); }
 	const PackageRegistry& packages() const { return runtime_.packages(); }
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
+	bool hasCapability(const std::string& capability) const
+	{
+		return runtime_.hasCapability(capability);
+	}
+	RuntimeCapabilities runtimeCapabilities() const
+	{
+		return runtime_.runtimeCapabilities();
+	}
 	PersistenceService& persistence() { return runtime_.persistence(); }
 	const PersistenceService& persistence() const { return runtime_.persistence(); }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return runtime_.commands(); }
@@ -75,6 +84,7 @@ public:
 	bool setCapabilities(GameCapabilities capabilities)
 	{
 		if (runtime_.lifecycle() != EngineLifecycle::Stopped) return false;
+		if (!runtime_.setHostCapabilities(makeHostCapabilities(capabilities))) return false;
 		capabilities_ = capabilities;
 		return true;
 	}
@@ -87,6 +97,13 @@ public:
 	bool markStopped() { return runtime_.markStopped(); }
 
 private:
+	static RuntimeCapabilities makeHostCapabilities(GameCapabilities capabilities)
+	{
+		RuntimeCapabilities result;
+		if (capabilities.isEditor()) result.add(GameCapability::ApplicationMapEditor);
+		return result;
+	}
+
 	GAME_SETTINGS& settings_;
 	GAME_OPTIONS& options_;
 	GameCapabilities capabilities_;

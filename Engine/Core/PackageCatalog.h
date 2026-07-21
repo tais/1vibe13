@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <Engine/Core/PackageContract.h>
+#include <Engine/Core/RuntimeCapabilities.h>
 
 enum class PackageLifecycleState
 {
@@ -36,6 +37,7 @@ struct PackageCatalogSnapshot
 	std::vector<std::string> activationOrder;
 	std::string activeCampaign;
 	std::size_t completedBootstrapPhases = 0;
+	RuntimeCapabilities activeCapabilities;
 
 	const PackageCatalogEntry* find(const std::string& id) const
 	{

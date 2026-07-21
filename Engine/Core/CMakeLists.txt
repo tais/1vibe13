@@ -22,6 +22,7 @@ set(engine_core_public_headers
   PackageResults.h
   PersistenceService.h
   RandomSource.h
+  RuntimeCapabilities.h
   SimulationCommand.h
   SimulationCommandCodec.h
   StateController.h
@@ -40,6 +41,7 @@ add_library(ja2_engine_core STATIC
   CommandReplay.cpp
   Identifier.cpp
   PersistenceService.cpp
+  RuntimeCapabilities.cpp
   SimulationCommandCodec.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)

@@ -154,6 +154,12 @@ the engine must not contain SDL types in its public domain model.
   sequence IDs cannot leave a partially mutated simulation queue. Playback
   retains the recorded tick, sequence, value, and source through the same
   runtime gateway used by live commands.
+- `RuntimeCapabilities` replaces build-target identity at engine boundaries
+  with portable, ordered feature IDs. Hosts contribute application traits and
+  active packages contribute campaign, rules, extension, or tool traits;
+  deactivation removes them automatically. The compiled JA2, UB, and editor
+  defaults remain compatibility adapters, while live campaign decisions can
+  now query the active package rather than a preprocessor branch.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
   `EngineRuntime` owns the `PersistenceService` bound to its configured byte
   storage, so package hosts, games, and tools share one persistence boundary.

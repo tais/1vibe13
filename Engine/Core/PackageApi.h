@@ -14,6 +14,7 @@
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageResults.h>
+#include <Engine/Core/RuntimeCapabilities.h>
 
 class PackageRegistry
 {
@@ -38,11 +39,13 @@ public:
 		OperationGuard operation(operationInProgress_);
 		const PackageDescriptor& descriptor = package.descriptor();
 		const std::string& id = descriptor.content.id;
+		if (!RuntimeCapabilities::isValidList(descriptor.capabilities))
+			return PackageRegistrationError::InvalidManifest;
 		if (packages_.find(id) != packages_.end()) return PackageRegistrationError::DuplicateId;
 		const auto inserted = packages_.emplace(id, RegisteredPackage{&package, descriptor.kind,
 			descriptor.content.version, descriptor.content.requirements,
 			descriptor.content.optionalRequirements, descriptor.content.conflicts,
-			descriptor.content.loadAfter, false, false});
+			descriptor.content.loadAfter, descriptor.capabilities, false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
 		try
@@ -597,6 +600,26 @@ public:
 		return found != packages_.end() && found->second.active;
 	}
 
+	bool hasCapability(const std::string& capability) const
+	{
+		for (const std::string& packageId : active_)
+		{
+			const std::vector<std::string>& capabilities =
+				packages_.at(packageId).capabilities;
+			if (std::find(capabilities.begin(), capabilities.end(), capability) !=
+				capabilities.end()) return true;
+		}
+		return false;
+	}
+
+	RuntimeCapabilities activeCapabilities() const
+	{
+		RuntimeCapabilities capabilities;
+		for (const std::string& packageId : active_)
+			capabilities.addAll(packages_.at(packageId).capabilities);
+		return capabilities;
+	}
+
 	const std::string& activeCampaign() const { return activeCampaign_; }
 	const std::vector<std::string>& activationOrder() const { return active_; }
 	std::size_t completedBootstrapPhases() const { return completedBootstrapPhases_; }
@@ -607,6 +630,7 @@ public:
 		snapshot.activationOrder = active_;
 		snapshot.activeCampaign = activeCampaign_;
 		snapshot.completedBootstrapPhases = completedBootstrapPhases_;
+		snapshot.activeCapabilities = activeCapabilities();
 		snapshot.packages.reserve(content_.manifests().size());
 
 		// ContentRegistry preserves host discovery order. Building the catalog
@@ -618,7 +642,8 @@ public:
 			if (registered == packages_.end()) continue;
 			const auto active = std::find(active_.begin(), active_.end(), manifest.id);
 			PackageCatalogEntry entry{
-				PackageDescriptor{manifest, registered->second.kind},
+				PackageDescriptor{manifest, registered->second.kind,
+					registered->second.capabilities},
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
@@ -670,6 +695,7 @@ private:
 		std::vector<ContentRequirement> optionalRequirements;
 		std::vector<std::string> conflicts;
 		std::vector<std::string> loadAfter;
+		std::vector<std::string> capabilities;
 		bool assetsMounted;
 		bool active;
 	};

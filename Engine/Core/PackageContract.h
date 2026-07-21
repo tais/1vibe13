@@ -1,6 +1,9 @@
 #ifndef ENGINE_CORE_PACKAGE_CONTRACT_H
 #define ENGINE_CORE_PACKAGE_CONTRACT_H
 
+#include <string>
+#include <vector>
+
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
@@ -33,6 +36,9 @@ struct PackageDescriptor
 {
 	ContentManifest content;
 	PackageKind kind;
+	// Portable features contributed only while this package is active. Hosts
+	// query these through EngineRuntime rather than campaign preprocessor flags.
+	std::vector<std::string> capabilities;
 };
 
 // Packages are owned by the application and must outlive the registry. The

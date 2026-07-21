@@ -35,6 +35,14 @@ int main()
 		"compiled core normalizes portable asset paths");
 	check(!NormalizeAssetPath("../Data/secret", path),
 		"compiled core rejects traversal paths");
+	RuntimeCapabilities capabilities;
+	check(capabilities.add("engine.rendering") &&
+		capabilities.add("tool.map-editor") &&
+		!capabilities.add("engine.rendering") &&
+		!capabilities.add("invalid/capability") &&
+		capabilities.ids() == std::vector<std::string>({
+			"engine.rendering", "tool.map-editor"}),
+		"runtime capabilities are portable, unique, and deterministically ordered");
 
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});

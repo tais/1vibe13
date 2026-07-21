@@ -12,6 +12,7 @@
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PersistenceService.h>
+#include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/SimulationCommand.h>
 #include <Engine/Core/StateStack.h>
 #include <Engine/Core/StateController.h>
@@ -34,9 +35,11 @@ public:
 	explicit EngineRuntime(
 		EngineServices services = EngineServices::defaults(),
 		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
-		PackageEventSink& packageEvents = NullPackageEventSink::instance())
+		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
+		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
-		  persistence_(packages_.services().storage), commandReplay_(persistence_)
+		  persistence_(packages_.services().storage), commandReplay_(persistence_),
+		  hostCapabilities_(std::move(hostCapabilities))
 	{
 	}
 
@@ -61,6 +64,23 @@ public:
 	PackageRegistry& packages() { return packages_; }
 	const PackageRegistry& packages() const { return packages_; }
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
+	bool hasCapability(const std::string& capability) const
+	{
+		return hostCapabilities_.contains(capability) ||
+			packages_.hasCapability(capability);
+	}
+	RuntimeCapabilities runtimeCapabilities() const
+	{
+		RuntimeCapabilities capabilities = hostCapabilities_;
+		capabilities.addAll(packages_.activeCapabilities().ids());
+		return capabilities;
+	}
+	bool setHostCapabilities(RuntimeCapabilities capabilities)
+	{
+		if (lifecycle_ != EngineLifecycle::Stopped) return false;
+		hostCapabilities_ = std::move(capabilities);
+		return true;
+	}
 	PersistenceService& persistence() { return persistence_; }
 	const PersistenceService& persistence() const { return persistence_; }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return commands_; }
@@ -166,6 +186,7 @@ private:
 	PackageRegistry packages_;
 	PersistenceService persistence_;
 	CommandReplayService commandReplay_;
+	RuntimeCapabilities hostCapabilities_;
 	DeterministicCommandQueue<SimulationCommand> commands_;
 	CommandJournal<SimulationCommand> commandJournal_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;
