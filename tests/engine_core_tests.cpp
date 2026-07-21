@@ -5,6 +5,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/FrameDriver.h>
+#include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
@@ -126,6 +127,21 @@ int main()
 		cacheStatistics.insertions == 2 && cacheStatistics.evictions == 1 &&
 		cacheStatistics.entries == 1 && cacheStatistics.bytes == 2,
 		"bounded asset cache serves normalized hits and evicts least-recently-used payloads");
+	LocalizationCatalog localization(2, 16);
+	check(localization.set("campaign.base", "en", "ui.ready", "Ready") ==
+			LocalizationSetError::None &&
+		localization.set("mod.override", "en", "ui.ready", "Prepared") ==
+			LocalizationSetError::None,
+		"localization catalog accepts bounded ordered package layers");
+	const LocalizedTextView localizedOverride = localization.resolve("nl", "ui.ready");
+	check(localizedOverride && localizedOverride.usedFallback &&
+		*localizedOverride.text == "Prepared" &&
+		*localizedOverride.packageId == "mod.override" &&
+		localization.set("mod.third", "en", "ui.other", "Other") ==
+			LocalizationSetError::CapacityReached &&
+		localization.removePackage("mod.override") == 1 &&
+		*localization.resolve("en", "ui.ready").text == "Ready",
+		"localization lookup uses explicit fallback and restores lower package layers");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -176,7 +192,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 7 &&
+		sessionHost.serviceCatalog().size() == 8 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -195,13 +211,14 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 9,
+		sessionHost.configuration().size() == 11,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
 		diagnostics.frames.summary.completedFrames == 0 &&
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
-		diagnostics.services.size() == 7 && diagnostics.configuration.size() == 9 &&
+		diagnostics.localization.empty() && diagnostics.services.size() == 8 &&
+		diagnostics.configuration.size() == 11 &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");

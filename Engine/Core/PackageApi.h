@@ -35,13 +35,15 @@ public:
 		std::size_t packageRandomStreamLimit = 64,
 		std::size_t assetCacheEntries = 128,
 		std::size_t assetCacheBytes = 64u * 1024u * 1024u,
-		RuntimeFaultJournal& faults = RuntimeFaultJournal::disabled())
+		RuntimeFaultJournal& faults = RuntimeFaultJournal::disabled(),
+		LocalizationCatalog& localization = LocalizationCatalog::disabled())
 		: content_(content), assets_(services.assets),
 		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
 		  services_(withAssets(services, assetCache_)),
 		  packagePersistence_(services_.storage), events_(events), messages_(messages),
 		  extensionServices_(extensionServices),
-		  configuration_(configuration), faults_(faults), packageRandomSeed_(packageRandomSeed),
+		  configuration_(configuration), faults_(faults), localization_(localization),
+		  packageRandomSeed_(packageRandomSeed),
 		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
@@ -71,6 +73,7 @@ public:
 			PackageStorage{id, packagePersistence_},
 			PackageMessagePublisher{id, messages_},
 			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_},
+			PackageLocalization{id, localization_},
 			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -159,6 +162,7 @@ public:
 				result.unregistered.resize(index);
 				return result;
 			}
+			localization_.removePackage(id);
 			packages_.erase(id);
 			emit(PackageEventKind::Unregistered, id);
 		}
@@ -586,6 +590,8 @@ public:
 						"bootstrap-rollback", phaseIndex + 1);
 					logError("Bootstrap rollback threw: ", active_[rollback - 1]);
 				}
+				if (phase == PackageBootstrapPhase::Configure)
+					localization_.removePackage(active_[rollback - 1]);
 				emit(rolledBack ? PackageEventKind::BootstrapRollbackCompleted
 				                : PackageEventKind::BootstrapRollbackFailed,
 					active_[rollback - 1], phaseIndex);
@@ -619,6 +625,8 @@ public:
 						"shutdown", static_cast<std::uint64_t>(phase) + 1);
 					logError("Package shutdown threw: ", *package);
 				}
+				if (phase == PackageBootstrapPhase::Configure)
+					localization_.removePackage(*package);
 				emit(shutDown ? PackageEventKind::ShutdownCompleted
 				              : PackageEventKind::ShutdownFailed,
 					*package, static_cast<std::size_t>(phase));
@@ -850,6 +858,7 @@ private:
 		PackageStorage storage;
 		PackageMessagePublisher messagePublisher;
 		PackageRandomSource random;
+		PackageLocalization localization;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -933,6 +942,7 @@ private:
 		}
 		const bool wasCampaign = activeCampaign_ == packageId;
 		registered.package->deactivate();
+		localization_.removePackage(packageId);
 		active_.erase(activePosition);
 		registered.active = false;
 		if (wasCampaign) activeCampaign_.clear();
@@ -1036,7 +1046,8 @@ private:
 		RegisteredPackage& registered = packages_.at(packageId);
 		return PackageBootstrapContext{
 			content_, services_, messages_, extensionServices_, configuration_,
-			registered.storage, registered.messagePublisher, registered.random};
+			registered.storage, registered.messagePublisher, registered.random,
+			registered.localization};
 	}
 
 	PackageBootstrapError preflightServiceContracts()
@@ -1074,6 +1085,7 @@ private:
 	ServiceCatalog& extensionServices_;
 	const RuntimeConfiguration& configuration_;
 	RuntimeFaultJournal& faults_;
+	LocalizationCatalog& localization_;
 	std::uint64_t packageRandomSeed_;
 	std::size_t packageRandomStreamLimit_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;

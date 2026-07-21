@@ -262,6 +262,10 @@ the engine must not contain SDL types in its public domain model.
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O
   without erasing failure evidence from diagnostics.
+- `LocalizationCatalog` is a bounded ordered package layer for opaque UTF-8
+  text. Package identity is host-bound, later packages override earlier keys,
+  fallback is explicit, and configure rollback or shutdown automatically
+  removes the package's entries to reveal the lower layer again.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

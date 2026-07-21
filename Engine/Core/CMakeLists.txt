@@ -19,12 +19,14 @@ set(engine_core_public_headers
   InputDispatcher.h
   InputSource.h
   LogSink.h
+  LocalizationCatalog.h
   PackageApi.h
   PackageCatalog.h
   PackageContract.h
   PackageEventSink.h
   PackageLifecycle.h
   PackageMessagePublisher.h
+  PackageLocalization.h
   PackageRandomSource.h
   PackageResults.h
   PackageStorage.h
