@@ -24,6 +24,22 @@ enum class AssetReadResult
 	TooLarge
 };
 
+enum class AssetMetadataResult
+{
+	Success,
+	NotFound,
+	InvalidPath,
+	IoError,
+	Unsupported
+};
+
+struct AssetMetadata
+{
+	std::string logicalPath;
+	std::string provenance;
+	std::uint64_t byteSize = 0;
+};
+
 struct AssetData
 {
 	std::string logicalPath;
@@ -61,6 +77,23 @@ public:
 		return AssetReadResult::Success;
 	}
 
+	AssetMetadataResult metadata(const std::string& logicalPath,
+		AssetMetadata& result) const
+	{
+		result = AssetMetadata{};
+		std::string normalized;
+		if (!NormalizeAssetPath(logicalPath, normalized))
+			return AssetMetadataResult::InvalidPath;
+		const AssetMetadataResult queried = metadataNormalized(normalized, result);
+		if (queried != AssetMetadataResult::Success)
+		{
+			result = AssetMetadata{};
+			return queried;
+		}
+		result.logicalPath = std::move(normalized);
+		return AssetMetadataResult::Success;
+	}
+
 	// Used to reject cycles when composing non-owning overlay graphs.
 	virtual bool containsSource(const AssetSource* source) const { return this == source; }
 
@@ -68,6 +101,11 @@ protected:
 	virtual bool existsNormalized(const std::string& logicalPath) const = 0;
 	virtual AssetReadResult readNormalized(const std::string& logicalPath, AssetData& asset,
 		std::size_t maximumBytes) const = 0;
+	virtual AssetMetadataResult metadataNormalized(
+		const std::string&, AssetMetadata&) const
+	{
+		return AssetMetadataResult::Unsupported;
+	}
 };
 
 class NullAssetSource final : public AssetSource
@@ -83,6 +121,8 @@ protected:
 	bool existsNormalized(const std::string&) const override { return false; }
 	AssetReadResult readNormalized(const std::string&, AssetData&,
 		std::size_t) const override { return AssetReadResult::NotFound; }
+	AssetMetadataResult metadataNormalized(const std::string&,
+		AssetMetadata&) const override { return AssetMetadataResult::NotFound; }
 };
 
 class MemoryAssetSource final : public AssetSource
@@ -115,6 +155,16 @@ protected:
 		asset.provenance = provenance_;
 		asset.bytes = found->second;
 		return AssetReadResult::Success;
+	}
+
+	AssetMetadataResult metadataNormalized(const std::string& logicalPath,
+		AssetMetadata& result) const override
+	{
+		const auto found = assets_.find(logicalPath);
+		if (found == assets_.end()) return AssetMetadataResult::NotFound;
+		result.provenance = provenance_;
+		result.byteSize = static_cast<std::uint64_t>(found->second.size());
+		return AssetMetadataResult::Success;
 	}
 
 private:
@@ -195,6 +245,21 @@ protected:
 			return result;
 		}
 		return AssetReadResult::NotFound;
+	}
+
+	AssetMetadataResult metadataNormalized(const std::string& logicalPath,
+		AssetMetadata& result) const override
+	{
+		for (auto mounted = sources_.rbegin(); mounted != sources_.rend(); ++mounted)
+		{
+			if (!mounted->source->exists(logicalPath)) continue;
+			const AssetMetadataResult queried =
+				mounted->source->metadata(logicalPath, result);
+			if (queried == AssetMetadataResult::Success && !mounted->provenance.empty())
+				result.provenance = mounted->provenance;
+			return queried;
+		}
+		return AssetMetadataResult::NotFound;
 	}
 
 private:
