@@ -435,7 +435,7 @@ int main( int, char** )
 		               !std::is_move_constructible<CompositeAssetSource>::value,
 		               "asset overlay identity must remain stable to prevent graph cycles" );
 		EngineRuntime<unsigned> runtime;
-		runtime.screens().reset( 7 );
+		runtime.screenController().reset( 7 );
 		CHECK( runtime.screens().current() && runtime.screens().current()->state == 7,
 		       "campaign-independent engine runtime owns screen state" );
 		CHECK( runtime.beginInitialization() && runtime.markRunning() &&
@@ -756,6 +756,33 @@ int main( int, char** )
 		       screens.current()->state == 1 &&
 		       ApplyStateTransition( screens, 2, overlay ) == StateTransitionResult::Replaced,
 		       "engine state transitions pop overlays and replace base states deterministically" );
+	}
+
+	{
+		StateController<int> screens;
+		auto overlay = []( int state ) { return state >= 100; };
+		CHECK( screens.transitionTo( 1, overlay ) == StateTransitionResult::Initialized &&
+		       screens.current() && *screens.current() == 1 && !screens.previous(),
+		       "state controller initializes current state without false history" );
+		CHECK( screens.request( 100 ) && screens.hasPending() &&
+		       screens.pending() && *screens.pending() == 100 &&
+		       screens.commitPending( overlay ) == StateTransitionResult::OverlayPushed &&
+		       !screens.hasPending() && screens.current() && *screens.current() == 100 &&
+		       screens.previous() && *screens.previous() == 1,
+		       "state controller commits pending overlays and records previous state" );
+		CHECK( screens.request( 100 ) &&
+		       screens.commitPending( overlay ) == StateTransitionResult::Unchanged &&
+		       screens.previous() && *screens.previous() == 1,
+		       "unchanged state requests do not corrupt transition history" );
+		CHECK( screens.request( 1 ) &&
+		       screens.commitPending( overlay ) == StateTransitionResult::OverlayPopped &&
+		       screens.current() && *screens.current() == 1 &&
+		       screens.previous() && *screens.previous() == 100,
+		       "state controller restores an overlay underlay deterministically" );
+		CHECK( screens.request( 2 ) && screens.cancelPending() && !screens.hasPending() &&
+		       screens.commitPending( overlay ) == StateTransitionResult::Unchanged &&
+		       screens.current() && *screens.current() == 1,
+		       "state controller can cancel a pending transition without changing current state" );
 	}
 
 	{

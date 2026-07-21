@@ -34,6 +34,8 @@ public:
 	LogSink& log() { return runtime_.log(); }
 	StateStack<UINT32>& screens() { return runtime_.screens(); }
 	const StateStack<UINT32>& screens() const { return runtime_.screens(); }
+	StateController<UINT32>& screenController() { return runtime_.screenController(); }
+	const StateController<UINT32>& screenController() const { return runtime_.screenController(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }

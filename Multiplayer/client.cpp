@@ -1124,7 +1124,7 @@ void InvalidClientSettingsOkBoxCallback( UINT8 bExitValue )
 	{		
 		// gracefully disconnect to the main menu
 		client_disconnect();
-		guiPendingScreen = MP_JOIN_SCREEN;
+		SetPendingNewScreen( MP_JOIN_SCREEN );
 	}
 
 	return;
@@ -3024,7 +3024,7 @@ void allowDownloadCallback( UINT8 ubResult )
 		// no
 		// gracefully disconnect to the main menu
 		client_disconnect();
-		guiPendingScreen = MP_JOIN_SCREEN;
+		SetPendingNewScreen( MP_JOIN_SCREEN );
 	}
 }
 

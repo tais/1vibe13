@@ -10,6 +10,7 @@
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/SimulationCommand.h>
 #include <Engine/Core/StateStack.h>
+#include <Engine/Core/StateController.h>
 
 enum class EngineLifecycle
 {
@@ -46,8 +47,10 @@ public:
 	EngineServices& services() { return packages_.services(); }
 	const EngineServices& services() const { return packages_.services(); }
 	LogSink& log() { return services().log; }
-	StateStack<ScreenId>& screens() { return screens_; }
-	const StateStack<ScreenId>& screens() const { return screens_; }
+	StateStack<ScreenId>& screens() { return screenController_.stack(); }
+	const StateStack<ScreenId>& screens() const { return screenController_.stack(); }
+	StateController<ScreenId>& screenController() { return screenController_; }
+	const StateController<ScreenId>& screenController() const { return screenController_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -95,7 +98,7 @@ public:
 	}
 
 private:
-	StateStack<ScreenId> screens_;
+	StateController<ScreenId> screenController_;
 	ContentRegistry content_;
 	PackageRegistry packages_;
 	DeterministicCommandQueue<SimulationCommand> commands_;

@@ -129,6 +129,10 @@ the engine must not contain SDL types in its public domain model.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
 - `StateStack` represents base screens and modal overlays without scattered
   previous-screen globals.
+- `StateController` owns current, previous, and pending application state above
+  that stack. The JA2 loop routes immediate and requested transitions through
+  it, including message/chat overlays, while the widely read legacy screen
+  scalars remain synchronized compatibility mirrors during migration.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized
