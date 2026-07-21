@@ -7,6 +7,7 @@
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/SimulationTick.h>
 #include <Engine/Core/StateRegistry.h>
 
 #include <cstdint>
@@ -41,6 +42,19 @@ public:
 	}
 
 	std::vector<RuntimeUpdateContext> updates;
+	bool throws = false;
+};
+
+class TestSimulationTickSink final : public SimulationTickSink
+{
+public:
+	void simulate(const SimulationTickContext& tick) override
+	{
+		ticks.push_back(tick);
+		if (throws) throw 1;
+	}
+
+	std::vector<SimulationTickContext> ticks;
 	bool throws = false;
 };
 
@@ -134,7 +148,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 4 &&
+		sessionHost.serviceCatalog().size() == 5 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -153,7 +167,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 4,
+		sessionHost.configuration().size() == 6,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 
 	CommandStream<std::string> commandStream(8);
@@ -233,6 +247,11 @@ int main()
 	frameInput.push(EngineInputEvent{10, 0, 1, 65, 0, 1, 3});
 	frameInput.push(EngineInputEvent{20, 0, 2, 65, 0, 2, 0});
 	RuntimeUpdateDispatcher runtimeUpdates;
+	SimulationTickDispatcher simulationTicks(10, 2);
+	TestSimulationTickSink receivingTicks;
+	check(simulationTicks.addSink(receivingTicks) ==
+		SimulationTickSinkRegistrationError::None,
+		"fixed-step simulation accepts deterministic non-owning subscribers");
 	FrameTelemetry frameTelemetry(1);
 	RuntimeMessageBus runtimeMessages(4, 8);
 	TestMessageSink receivingMessages;
@@ -260,7 +279,8 @@ int main()
 		RuntimeUpdateSinkRegistrationError::Duplicate,
 		"runtime update dispatcher retains deterministic unique subscribers");
 	FrameDriver frameDriver(
-		frameServices, runtimeMessages, inputDispatcher, runtimeUpdates, frameTelemetry);
+		frameServices, runtimeMessages, inputDispatcher, runtimeUpdates, frameTelemetry,
+		simulationTicks);
 	unsigned frameOrder = 0;
 	const FrameRunResult presentedFrame = frameDriver.runFrame(
 		[&] {
@@ -311,12 +331,22 @@ int main()
 		receivingMessages.messages.size() == 2 &&
 		receivingMessages.messages.back().sequence == 2,
 		"runtime message delivery preserves publication sequence across frames");
+	check(skippedFrame.simulationTicks.scheduled == 4 &&
+		skippedFrame.simulationTicks.executed == 2 &&
+		skippedFrame.simulationTicks.dropped == 2 &&
+		skippedFrame.simulationTicks.delivered == 2 &&
+		receivingTicks.ticks.size() == 2 &&
+		receivingTicks.ticks[0].sequence == 1 &&
+		receivingTicks.ticks[1].simulatedTimeMicroseconds == 20 &&
+		simulationTicks.completedTickSequence() == 4,
+		"frame driver bounds fixed-step catch-up and reports discarded simulation work");
 	const FrameTelemetrySnapshot telemetrySnapshot = frameTelemetry.snapshot();
 	check(telemetrySnapshot.summary.completedFrames == 2 &&
 		telemetrySnapshot.summary.presentedFrames == 1 &&
 		telemetrySnapshot.summary.maximumFrameMicroseconds == 40 &&
 		telemetrySnapshot.summary.inputCallbackFailures == 2 &&
 		telemetrySnapshot.summary.runtimeUpdateCallbackFailures == 2 &&
+		telemetrySnapshot.summary.simulationTicksDropped == 2 &&
 		telemetrySnapshot.summary.messageCallbackFailures == 2 &&
 		telemetrySnapshot.summary.messagesDelivered == 2 &&
 		telemetrySnapshot.summary.evictedSamples == 1 &&

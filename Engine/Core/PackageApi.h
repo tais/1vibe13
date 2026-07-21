@@ -20,7 +20,7 @@
 #include <Engine/Core/RuntimeCapabilities.h>
 
 class PackageRegistry : public InputEventSink, public RuntimeUpdateSink,
-	public RuntimeMessageSink
+	public RuntimeMessageSink, public SimulationTickSink
 {
 public:
 	explicit PackageRegistry(ContentRegistry& content,
@@ -686,6 +686,30 @@ public:
 			{
 				const std::uint64_t failure = ++registered.runtimeHealth.messageFailures;
 				logRuntimeFailure("message", packageId, failure,
+					registered.runtimeHealth.suppressedFailureLogs);
+			}
+		}
+	}
+
+	void simulate(const SimulationTickContext& tick) override
+	{
+		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+			return;
+		OperationGuard operation(operationInProgress_);
+		for (const std::string& packageId : active_)
+		{
+			RegisteredPackage& registered = packages_.at(packageId);
+			PackageBootstrapContext context = contextFor(packageId);
+			++registered.runtimeHealth.simulationTickCallbacks;
+			try
+			{
+				registered.package->simulate(context, tick);
+			}
+			catch (...)
+			{
+				const std::uint64_t failure =
+					++registered.runtimeHealth.simulationTickFailures;
+				logRuntimeFailure("simulation tick", packageId, failure,
 					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}

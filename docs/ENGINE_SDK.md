@@ -82,3 +82,9 @@ a stable portable stream name such as `combat` or `loot`. Streams are isolated
 by package and name, use unbiased bounded values, and expose sorted usage
 snapshots for replay diagnostics. The host seed and per-package stream limit
 are composition settings; the legacy `EngineServices::random` remains intact.
+
+Packages may override `EnginePackage::simulate` for fixed-step work that should
+not depend on rendering cadence. The host publishes the configured step and
+maximum catch-up count, executes only that bounded number after a hitch, and
+records dropped ticks in frame telemetry. `updateRuntime` remains the per-frame
+hook for interpolation, UI, and other presentation-paced work.
