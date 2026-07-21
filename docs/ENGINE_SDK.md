@@ -66,6 +66,15 @@ package's ID. Record names are portable identifiers and data uses the engine's
 bounded checksummed envelope format under `PackageData/<package>/<record>.bin`.
 This is the preferred durable-state API for new packages.
 
+State that belongs to a particular game save uses a separate contract. Set
+`PackageDescriptor::saveStateSchemaVersion` to a non-zero version and override
+`saveState`, `validateState`, and `loadState`. Capture publishes opaque bytes;
+validation must parse without mutation; load commits transactionally for that
+package. The host orders records by package activation, enforces 4 MiB per
+package and 16 MiB in aggregate, binds the archive to the runtime fingerprint,
+and contains callback failures. Installation/profile preferences should remain
+in `PackageStorage`; campaign progress belongs in the per-save callbacks.
+
 Use `PackageBootstrapContext::messagePublisher` for outbound package messages.
 It binds the source to the registered package ID and accepts only a portable
 topic plus the bounded byte payload. The raw message bus remains available
@@ -116,6 +125,13 @@ checksummed persistence envelope. `loadRuntimeCheckpoint` publishes metadata
 only after integrity, schema, bounds, package identity, and current-runtime
 compatibility all pass. It is a preflight manifest for domain save/replay data,
 not yet a replacement serializer for JA2's tactical or strategic state.
+
+`capturePackageSaveState`, `validatePackageSaveState`, and
+`restorePackageSaveState` coordinate package-owned campaign state. The
+`PackageSaveArchiveService` serializes that snapshot through the same bounded,
+checksummed persistence boundary and rejects a different runtime before
+publishing records. JA2 attaches these archives beside legacy saves; other
+hosts can choose their own domain-save transaction and naming policy.
 
 The host also publishes `engine.runtime-faults`. Each contained package
 failure receives a monotonic record with package ID, callback, kind, and

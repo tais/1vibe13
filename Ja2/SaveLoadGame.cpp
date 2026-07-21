@@ -6008,6 +6008,33 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// Reinforcement parameter is not stored in the savegame so we have to reset it here.
 	gGameExternalOptions.gfAllowReinforcements = zDiffSetting[gGameOptions.ubDifficultyLevel].bAllowReinforcements;
 
+	// Apply package-owned campaign state only after every legacy load step has
+	// succeeded. A package callback failure is diagnosed but cannot retroactively
+	// turn the already-loaded, compatible JA2 save into a failed load.
+	{
+		const SaveCompatibilityPolicy policy = GetSaveCompatibilityPolicy();
+		const PackageSaveMetadataResult packageMetadata = policy == SaveCompatibilityPolicy::Ignore
+			? PackageSaveMetadataResult{ PackageSaveMetadataState::NotRequired }
+			: InspectPackageSaveStateMetadata( GetGameContext(), zSaveGameName );
+		if ( packageMetadata.state == PackageSaveMetadataState::Ready )
+		{
+			const PackageSaveStateLoadResult restored =
+				GetGameContext().restorePackageSaveState( packageMetadata.archive.state );
+			if ( !restored )
+			{
+				try
+				{
+					GetGameContext().log().write( LogRecord{
+						LogSeverity::Error, "save-compatibility",
+						"Package state restore failed for " + std::string( zSaveGameName ) +
+							" at package " + restored.packageId + " (code " +
+							std::to_string( static_cast<int>( restored.error ) ) + ")" } );
+				}
+				catch ( ... ) {}
+			}
+		}
+	}
+
 #if LOADSAVEGAME_LOGTIME
 	TimingLog("Update functions", 9);
 	TimingLogTotalTime("LoadSavedGame total", 9);
