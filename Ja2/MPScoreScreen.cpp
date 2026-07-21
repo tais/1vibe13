@@ -605,7 +605,7 @@ void DoneFadeOutForExitMPSScreen( void )
 	else
 #endif
 
-	if (!GetGameContext().capabilities().isUnfinishedBusiness())
+	if (!GetGameContext().hasCapability(GameCapability::CampaignUnfinishedBusiness))
 	{
 		SetIntroType( INTRO_BEGINNING );
 	}

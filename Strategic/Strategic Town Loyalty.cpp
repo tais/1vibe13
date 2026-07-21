@@ -1355,8 +1355,7 @@ void WriteOutDistancesBetweenTowns( void )
 {
 	const auto* begin = reinterpret_cast<const std::uint8_t*>(iTownDistances);
 	const std::vector<std::uint8_t> bytes(begin, begin + sizeof(iTownDistances));
-	PersistenceService persistence(GetGameContext().services().storage);
-	persistence.saveRaw("BinaryData\\TownDistances.dat", bytes);
+	GetGameContext().persistence().saveRaw("BinaryData\\TownDistances.dat", bytes);
 }
 
 
@@ -1413,8 +1412,8 @@ void DumpDistancesBetweenTowns(void)
 void ReadInDistancesBetweenTowns( void )
 {
 	std::vector<std::uint8_t> bytes;
-	PersistenceService persistence(GetGameContext().services().storage);
-	if (persistence.loadRaw("BinaryData\\TownDistances.dat", bytes) &&
+	if (GetGameContext().persistence().loadRawBounded(
+			"BinaryData\\TownDistances.dat", sizeof(iTownDistances), bytes) &&
 		bytes.size() == sizeof(iTownDistances))
 	{
 		memcpy(iTownDistances, bytes.data(), sizeof(iTownDistances));

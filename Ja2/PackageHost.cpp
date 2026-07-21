@@ -432,6 +432,37 @@ bool ReadRelationshipList(vfs::PropertyContainer& properties, const wchar_t* key
 	return true;
 }
 
+bool ReadCapabilityList(vfs::PropertyContainer& properties,
+	std::vector<std::string>& capabilities,
+	const std::filesystem::path& manifestPath, const std::string& packageId,
+	PackageHostResult& error)
+{
+	std::list<vfs::String> values;
+	if (!properties.getStringListProperty(
+			L"Package", L"CAPABILITIES", values, L"")) return true;
+	if (values.size() > MaximumRequirements)
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"package declares too many capabilities", manifestPath, packageId);
+		return false;
+	}
+	std::unordered_set<std::string> unique;
+	unique.reserve(values.size());
+	for (const vfs::String& value : values)
+	{
+		const std::string capability = TrimAscii(value.utf8());
+		if (!IsLowercaseIdentifier(capability) || !unique.insert(capability).second)
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"invalid or duplicate CAPABILITIES entry: " + capability,
+				manifestPath, packageId);
+			return false;
+		}
+		capabilities.push_back(capability);
+	}
+	return true;
+}
+
 PackageKind ParsePackageKind(const std::string& text, bool& valid)
 {
 	const std::string kind = LowerAscii(text);
@@ -698,6 +729,7 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	std::vector<ContentRequirement> optionalRequirements;
 	std::vector<std::string> conflicts;
 	std::vector<std::string> loadAfter;
+	std::vector<std::string> capabilities;
 	std::unordered_set<std::string> relationshipIds;
 	if (!ReadRequirementList(properties, L"REQUIRES", "REQUIRES", id,
 			relationshipIds, requirements, manifestPath, error) ||
@@ -706,7 +738,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 		!ReadRelationshipList(properties, L"CONFLICTS", "CONFLICTS", id,
 			relationshipIds, conflicts, manifestPath, error) ||
 		!ReadRelationshipList(properties, L"LOAD_AFTER", "LOAD_AFTER", id,
-			relationshipIds, loadAfter, manifestPath, error))
+			relationshipIds, loadAfter, manifestPath, error) ||
+		!ReadCapabilityList(properties, capabilities, manifestPath, id, error))
 		return nullptr;
 	if (!requirements.empty() && api.minor < PackageRequirementsContentApiVersion.minor)
 	{
@@ -714,7 +747,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 			"REQUIRES needs CONTENT_API 1.2 or newer", manifestPath, id);
 		return nullptr;
 	}
-	const bool hasPolicy = !optionalRequirements.empty() || !conflicts.empty() || !loadAfter.empty();
+	const bool hasPolicy = !optionalRequirements.empty() || !conflicts.empty() ||
+		!loadAfter.empty() || !capabilities.empty();
 	if ((schemaText == "1" && hasPolicy) ||
 		(schemaText == "2" && (api.major != PackagePolicyContentApiVersion.major ||
 			api.minor < PackagePolicyContentApiVersion.minor)))
@@ -733,7 +767,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	std::unique_ptr<PackageHost::OwnedPackage> package(new PackageHost::OwnedPackage());
 	package->descriptor_ = PackageDescriptor{
 		ContentManifest{id, version, api, std::move(requirements),
-			std::move(optionalRequirements), std::move(conflicts), std::move(loadAfter)}, kind};
+			std::move(optionalRequirements), std::move(conflicts), std::move(loadAfter)}, kind,
+		std::move(capabilities)};
 	package->manifestPath = manifestPath;
 	package->assetRoot = canonicalAssetRoot;
 	package->assets = std::move(assets);

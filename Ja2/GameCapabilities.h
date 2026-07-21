@@ -1,6 +1,13 @@
 #ifndef JA2_GAME_CAPABILITIES_H
 #define JA2_GAME_CAPABILITIES_H
 
+namespace GameCapability
+{
+constexpr const char* CampaignArulco = "campaign.ja2";
+constexpr const char* CampaignUnfinishedBusiness = "campaign.unfinished-business";
+constexpr const char* ApplicationMapEditor = "application.map-editor";
+}
+
 enum class GameCampaign
 {
 	Arulco,

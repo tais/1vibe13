@@ -148,7 +148,26 @@ the engine must not contain SDL types in its public domain model.
   `HandleItem` firearm actions now enter this gateway before the compatibility
   executor queues the existing soldier event, while legacy AP, animation, and
   multiplayer behavior remain at their original synchronous boundary.
+- `CommandReplayService` stores those journals in integrity-checked runtime
+  persistence envelopes. Replay loads are transactional, incomplete bounded
+  captures are refused, and whole batches are staged atomically so duplicate
+  sequence IDs cannot leave a partially mutated simulation queue. Playback
+  retains the recorded tick, sequence, value, and source through the same
+  runtime gateway used by live commands.
+- `RuntimeCapabilities` replaces build-target identity at engine boundaries
+  with portable, ordered feature IDs. Hosts contribute application traits and
+  active packages contribute campaign, rules, extension, or tool traits;
+  deactivation removes them automatically. The compiled JA2, UB, and editor
+  defaults remain compatibility adapters, while live campaign decisions can
+  now query the active package rather than a preprocessor branch.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
+  `EngineRuntime` owns the `PersistenceService` bound to its configured byte
+  storage, so package hosts, games, and tools share one persistence boundary.
+  Established raw and versioned records retain their wire format; new records
+  can opt into a bounded envelope with an explicit payload length and checksum.
+  Loads publish caller-visible data only after the complete record validates.
+  The legacy town-distance sidecar is the first live game path routed through
+  this runtime-owned service without changing its on-disk bytes.
 - `StateStack` represents base screens and modal overlays without scattered
   previous-screen globals.
 - `StateController` owns current, previous, and pending application state above
@@ -203,3 +222,6 @@ An engine extraction PR is complete only when:
 - old saves/content remain supported or a tested version migration is included;
 - new public contracts state ownership, lifetime, determinism, and versioning;
 - campaign-specific behavior does not enter `Engine/Core`.
+
+The installable public surface and external-consumer contract are documented in
+[`ENGINE_SDK.md`](ENGINE_SDK.md).

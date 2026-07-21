@@ -146,9 +146,11 @@ private:
 static std::string PackageFixtureManifest(
 	const std::string& id, const std::string& requirements = {},
 	const std::string& assetRoot = "Data", const std::string& optionalRequirements = {},
-	const std::string& conflicts = {}, const std::string& loadAfter = {} )
+	const std::string& conflicts = {}, const std::string& loadAfter = {},
+	const std::string& capabilities = {} )
 {
-	const bool policyV2 = !optionalRequirements.empty() || !conflicts.empty() || !loadAfter.empty();
+	const bool policyV2 = !optionalRequirements.empty() || !conflicts.empty() ||
+		!loadAfter.empty() || !capabilities.empty();
 	std::string manifest =
 		"[Package]\n"
 		"MANIFEST_VERSION = " + std::string( policyV2 ? "2" : "1" ) + "\n"
@@ -163,6 +165,7 @@ static std::string PackageFixtureManifest(
 		manifest += "OPTIONAL_REQUIRES = " + optionalRequirements + "\n";
 	if ( !conflicts.empty() ) manifest += "CONFLICTS = " + conflicts + "\n";
 	if ( !loadAfter.empty() ) manifest += "LOAD_AFTER = " + loadAfter + "\n";
+	if ( !capabilities.empty() ) manifest += "CAPABILITIES = " + capabilities + "\n";
 	return manifest;
 }
 
@@ -319,12 +322,13 @@ public:
 	TestLifecyclePackage(std::string id, PackageKind kind, int failPhase = -1,
 	                     AssetSource* assets = nullptr,
 	                     std::vector<ContentRequirement> requirements = {},
-	                     std::string version = "1.0")
+	                     std::string version = "1.0",
+	                     std::vector<std::string> capabilities = {})
 		: descriptor_{ContentManifest{std::move(id), std::move(version),
 		                              ContentApiVersion{1, static_cast<std::uint16_t>(
 			                              !requirements.empty() ? 2 : (assets ? 1 : 0))},
 		                              std::move(requirements)},
-		              kind},
+		              kind, std::move(capabilities)},
 		  failPhase_(failPhase), assets_(assets)
 	{
 	}
@@ -502,7 +506,8 @@ int main( int, char** )
 		       "game context delegates reusable state to engine runtime" );
 		GameCapabilities editorCapabilities;
 		editorCapabilities.editor = true;
-		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor(),
+		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor() &&
+		       context.hasCapability( GameCapability::ApplicationMapEditor ),
 		       "game context accepts runtime capabilities before initialization" );
 		CHECK( context.beginInitialization() && context.markRunning(),
 		       "game context enters running lifecycle" );
@@ -1281,15 +1286,27 @@ int main( int, char** )
 		CHECK( packages.registerPackage( arulco ) == PackageRegistrationError::None &&
 		       packages.registerPackage( unfinishedBusiness ) == PackageRegistrationError::None,
 		       "campaign packages register through the versioned engine API" );
-		CHECK( packages.activate( "ja2.arulco" ) == PackageActivationError::None && arulco.active(),
+		CHECK( packages.activate( "ja2.arulco" ) == PackageActivationError::None && arulco.active() &&
+		       packages.hasCapability( GameCapability::CampaignArulco ) &&
+		       !packages.hasCapability( GameCapability::CampaignUnfinishedBusiness ),
 		       "campaign package activation is selected at runtime" );
 		CHECK( packages.activate( "ja2.unfinished-business" ) ==
 		       PackageActivationError::CampaignAlreadyActive,
 		       "package registry prevents conflicting active campaigns" );
 		CHECK( packages.deactivate( "ja2.arulco" ) &&
 		       packages.activate( "ja2.unfinished-business" ) == PackageActivationError::None &&
-		       unfinishedBusiness.active(),
+		       unfinishedBusiness.active() &&
+		       !packages.hasCapability( GameCapability::CampaignArulco ) &&
+		       packages.hasCapability( GameCapability::CampaignUnfinishedBusiness ) &&
+		       packages.catalog().activeCapabilities.contains(
+		           GameCapability::CampaignUnfinishedBusiness ),
 		       "campaign packages can be switched without compile-time selection" );
+		TestLifecyclePackage invalidCapabilities(
+			"rules.invalid-capability", PackageKind::Rules, -1, nullptr, {}, "1.0",
+			{ "invalid/capability" } );
+		CHECK( packages.registerPackage( invalidCapabilities ) ==
+		       PackageRegistrationError::InvalidManifest,
+		       "package registration rejects non-portable capability declarations" );
 	}
 
 	{
@@ -1297,7 +1314,11 @@ int main( int, char** )
 		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
 		const std::string& packageId = compiledPackage.descriptor().content.id;
 		CHECK( compiledContext.packages().activeCampaign() == packageId &&
-		       compiledContext.packages().isActive( packageId ) && compiledPackage.active(),
+		       compiledContext.packages().isActive( packageId ) && compiledPackage.active() &&
+		       compiledContext.hasCapability(
+		           compiledContext.capabilities().isUnfinishedBusiness()
+		               ? GameCapability::CampaignUnfinishedBusiness
+		               : GameCapability::CampaignArulco ),
 		       "legacy compiled campaign is bound through the runtime package registry" );
 		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
 		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
@@ -1310,6 +1331,7 @@ int main( int, char** )
 		       &compiledContext.services().audio == &GetPlatformAudioOutput() &&
 		       &compiledContext.services().frames == &GetPlatformFramePresenter() &&
 		       &compiledContext.services().assets == &compiledContext.packages().assets() &&
+		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
 	}
@@ -1949,7 +1971,7 @@ int main( int, char** )
 			fixture.makeDirectory( "c-consumer/Data" ) &&
 			fixture.write( "c-consumer/package.ini", PackageFixtureManifest(
 				"fixture.policy-consumer", {}, "Data", "fixture.policy-base@1.0.0",
-				{}, "fixture.policy-peer" ) );
+				{}, "fixture.policy-peer", "feature.dynamic-weather, feature.new-ai" ) );
 		PackageStartupOptions options;
 		options.enabled = true;
 		options.roots = { fixture.root() };
@@ -1960,6 +1982,11 @@ int main( int, char** )
 		       "fixture.policy-base", "fixture.policy-peer", "fixture.policy-consumer" }) &&
 		       mounter.preflighted == result.activated && mounter.mounted == result.activated,
 		       "Data Package v2 parses optional dependencies and deterministic LOAD_AFTER policy" );
+		CHECK( runtime.hasCapability( "feature.dynamic-weather" ) &&
+		       runtime.hasCapability( "feature.new-ai" ) &&
+		       runtime.runtimeCapabilities().ids() == std::vector<std::string>({
+		       "feature.dynamic-weather", "feature.new-ai" }),
+		       "active data packages contribute portable runtime capabilities" );
 	}
 
 	{
@@ -2381,6 +2408,15 @@ int main( int, char** )
 		CHECK( memoryPersistence.load( "truncated", 0x454E4730u, 1, 1, emptyHeader, emptyPayload ) ==
 		       PersistenceLoadResult::InvalidOrUnsupported,
 		       "pure persistence service rejects a truncated header" );
+		const std::vector<std::uint8_t> envelopePayload = { 5, 8, 13, 21 };
+		CHECK( memoryPersistence.saveEnvelope(
+		       "envelope", PersistenceHeader{ 0x454E4732u, 3 }, envelopePayload ) ==
+		       PersistenceSaveResult::Success &&
+		       memoryPersistence.loadEnvelope(
+		       "envelope", 0x454E4732u, 2, 3, emptyHeader, emptyPayload ) ==
+		       PersistenceLoadResult::Success && emptyHeader.version == 3 &&
+		       emptyPayload == envelopePayload,
+		       "runtime persistence supports bounded integrity-checked envelopes" );
 
 		const std::string path = "engine_persistence_test.bin";
 		PersistenceService persistence( GetPlatformByteStorage() );

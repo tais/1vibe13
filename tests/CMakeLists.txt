@@ -15,6 +15,24 @@ add_executable(engine_core_tests engine_core_tests.cpp)
 target_link_libraries(engine_core_tests PRIVATE JA2::EngineCore)
 add_test(NAME engine_core COMMAND engine_core_tests)
 
+# Install the SDK, then configure, compile, and run a genuinely separate CMake
+# project against find_package(JA2Engine). This catches missing public headers,
+# non-exported symbols, and accidental source-tree include dependencies.
+add_test(
+  NAME engine_sdk_consumer
+  COMMAND ${CMAKE_COMMAND}
+    "-DMAIN_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    "-DSDK_CONSUMER_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/sdk_consumer"
+    "-DSDK_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/sdk-consumer-test"
+    "-DSDK_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
+    "-DGENERATOR=${CMAKE_GENERATOR}"
+    "-DCXX_COMPILER=${CMAKE_CXX_COMPILER}"
+    "-DCONFIGURATION=$<CONFIG>"
+    "-DEXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+    "-DSYSTEM_NAME=${CMAKE_SYSTEM_NAME}"
+    "-DSANITIZER_ENABLED=${ADDRESS_SANITIZER}"
+    -P ${CMAKE_SOURCE_DIR}/cmake/TestEngineSdk.cmake)
+
 add_test(
   NAME architecture_boundaries
   COMMAND ${CMAKE_COMMAND}

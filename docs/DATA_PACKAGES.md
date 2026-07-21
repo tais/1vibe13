@@ -79,6 +79,7 @@ REQUIRES = community.rules@2.4.0
 OPTIONAL_REQUIRES = community.ui@*, community.weather@1.1
 CONFLICTS = legacy.balance, alternate.overhaul
 LOAD_AFTER = community.localization
+CAPABILITIES = rules.balance-v2, ui.inventory-overhaul
 ```
 
 The required keys are:
@@ -120,6 +121,11 @@ The v2 policy keys are optional comma-separated ordered lists:
 - `LOAD_AFTER` contains weak predecessor IDs. When both packages are already in
   the selected closure, the predecessor loads first. Missing, inactive, or
   unselected targets are ignored; this key never activates another package.
+- `CAPABILITIES` contains portable feature IDs contributed while the package is
+  active. Engine and mod code can query these IDs at runtime without knowing a
+  concrete package ID or build target. Capability IDs use the same lowercase
+  portable alphabet and 128-character limit as package IDs, and must be unique
+  within the manifest.
 
 An ID may occur only once across `REQUIRES`, `OPTIONAL_REQUIRES`, `CONFLICTS`,
 and `LOAD_AFTER`, and no relationship may name its declaring package. Cycles in

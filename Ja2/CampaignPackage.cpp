@@ -8,7 +8,10 @@ LegacyCampaignPackage::LegacyCampaignPackage(GameCapabilities capabilities)
 			"1.13",
 			ContentApiVersion{1, 0}
 		},
-		PackageKind::Campaign
+		PackageKind::Campaign,
+		{capabilities.isUnfinishedBusiness()
+			? GameCapability::CampaignUnfinishedBusiness
+			: GameCapability::CampaignArulco}
 	  }
 {
 }
