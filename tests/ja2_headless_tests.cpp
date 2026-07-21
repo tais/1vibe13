@@ -471,6 +471,45 @@ int main( int, char** )
 	}
 
 	{
+		EngineHost<unsigned> host;
+		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
+		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
+		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
+		       "engine host prepares a package for coordinated lifecycle startup" );
+		const PackageLifecycleAdvanceResult started =
+			host.packageLifecycle().advanceTo( PackageBootstrapPhase::StartRuntime );
+		const PackageLifecycleAdvanceResult repeated =
+			host.packageLifecycle().advanceTo( PackageBootstrapPhase::Configure );
+		CHECK( started && started.completedPhases == 3 && !started.rolledBack &&
+		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }),
+		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
+		CHECK( stopped && stopped.shutdownPhases == 3 &&
+		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
+		       package.deactivateCalls == 1 && host.packages().activationOrder().empty(),
+		       "package lifecycle shuts down phases and active packages in reverse order" );
+	}
+
+	{
+		EngineHost<unsigned> host;
+		TestLifecyclePackage package(
+			"lifecycle.rollback", PackageKind::Rules,
+			static_cast<int>(PackageBootstrapPhase::LoadContent) );
+		host.packages().registerPackage( package );
+		host.packages().activate( "lifecycle.rollback" );
+		const PackageLifecycleAdvanceResult failed =
+			host.packageLifecycle().advanceTo( PackageBootstrapPhase::StartRuntime );
+		CHECK( !failed && failed.error == PackageBootstrapError::CallbackFailed &&
+		       failed.phase == PackageBootstrapPhase::LoadContent && failed.rolledBack &&
+		       failed.completedPhases == 0 &&
+		       package.shutdownCalls == std::vector<int>({ 1, 0 }),
+		       "package lifecycle unwinds all earlier phases after a later startup failure" );
+		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
+		CHECK( stopped && stopped.shutdownPhases == 0 && package.deactivateCalls == 1,
+		       "rolled-back package lifecycle remains safe to deactivate during host shutdown" );
+	}
+
+	{
 		const auto shouldRetain = []( BOOLEAN fPolicyEnabled, UINT16 usAnimState )
 		{
 			return ShouldRetainMovementAnimationAtDestination(

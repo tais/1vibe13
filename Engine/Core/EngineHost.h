@@ -10,6 +10,7 @@
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
+#include <Engine/Core/PackageLifecycle.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/StateController.h>
@@ -37,7 +38,7 @@ public:
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
-		  frameDriver_(packages_.services()),
+		  packageLifecycle_(packages_), frameDriver_(packages_.services()),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
@@ -65,6 +66,8 @@ public:
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
 	const PackageRegistry& packages() const { return packages_; }
+	PackageLifecycle& packageLifecycle() { return packageLifecycle_; }
+	const PackageLifecycle& packageLifecycle() const { return packageLifecycle_; }
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
 	bool hasCapability(const std::string& capability) const
 	{
@@ -124,6 +127,7 @@ private:
 	StateRegistry<ScreenId> stateRegistry_;
 	ContentRegistry content_;
 	PackageRegistry packages_;
+	PackageLifecycle packageLifecycle_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCapabilities hostCapabilities_;

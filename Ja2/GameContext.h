@@ -46,6 +46,8 @@ public:
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }
 	const PackageRegistry& packages() const { return runtime_.packages(); }
+	PackageLifecycle& packageLifecycle() { return runtime_.packageLifecycle(); }
+	const PackageLifecycle& packageLifecycle() const { return runtime_.packageLifecycle(); }
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
 	bool hasCapability(const std::string& capability) const
 	{

@@ -1444,8 +1444,7 @@ UINT32 InitializeJA2(void)
 
 	// Load external text
 	LoadAllExternalText();
-	if (gameContext.packages().bootstrap(PackageBootstrapPhase::LoadContent) !=
-		PackageBootstrapError::None)
+	if (!gameContext.packageLifecycle().advanceTo(PackageBootstrapPhase::LoadContent))
 	{
 		return ERROR_SCREEN;
 	}
@@ -1628,8 +1627,7 @@ UINT32 InitializeJA2(void)
 
 //Lua
 	IniLuaGlobal();
-	if (gameContext.packages().bootstrap(PackageBootstrapPhase::StartRuntime) !=
-		PackageBootstrapError::None)
+	if (!gameContext.packageLifecycle().advanceTo(PackageBootstrapPhase::StartRuntime))
 	{
 		return ERROR_SCREEN;
 	}
@@ -1642,9 +1640,10 @@ void ShutdownJA2(void)
 {
 	GameContext& gameContext = GetGameContext();
 	gameContext.beginShutdown();
-	gameContext.packages().shutdownBootstrap();
-	const PackageDeactivationBatchResult packageTeardown =
-		gameContext.packages().deactivateAll();
+	const PackageLifecycleShutdownResult lifecycleTeardown =
+		gameContext.packageLifecycle().shutdown();
+	const PackageDeactivationBatchResult& packageTeardown =
+		lifecycleTeardown.deactivation;
 	if (!packageTeardown)
 	{
 		// Continue shutting down legacy systems even when a corrupt/missing

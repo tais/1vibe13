@@ -193,6 +193,11 @@ the engine must not contain SDL types in its public domain model.
   through it while preserving its established screen-update, presentation,
   clock, and network ordering. Headless hosts use the same driver with injected
   time and presentation services instead of a window or renderer.
+- `PackageLifecycle` advances package configuration, content loading, and
+  runtime startup as one engine-owned transaction. JA2 retains its established
+  loading boundaries, while a failed later phase now unwinds every earlier
+  phase automatically and normal shutdown uses the same reverse-order path
+  before package deactivation.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

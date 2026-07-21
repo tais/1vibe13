@@ -20,6 +20,7 @@ set(engine_core_public_headers
   PackageCatalog.h
   PackageContract.h
   PackageEventSink.h
+  PackageLifecycle.h
   PackageResults.h
   PersistenceService.h
   RandomSource.h
