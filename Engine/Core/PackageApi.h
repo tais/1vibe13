@@ -55,7 +55,8 @@ public:
 			descriptor.content.version, descriptor.content.requirements,
 			descriptor.content.optionalRequirements, descriptor.content.conflicts,
 			descriptor.content.loadAfter, descriptor.capabilities,
-			descriptor.messageTopics, PackageStorage{id, packagePersistence_}, false, false});
+			descriptor.messageTopics, PackageStorage{id, packagePersistence_},
+			PackageMessagePublisher{id, messages_}, false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
 		try
@@ -787,6 +788,7 @@ private:
 		std::vector<std::string> capabilities;
 		std::vector<std::string> messageTopics;
 		PackageStorage storage;
+		PackageMessagePublisher messagePublisher;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -962,9 +964,10 @@ private:
 
 	PackageBootstrapContext contextFor(const std::string& packageId)
 	{
+		RegisteredPackage& registered = packages_.at(packageId);
 		return PackageBootstrapContext{
 			content_, services_, messages_, extensionServices_, configuration_,
-			packages_.at(packageId).storage};
+			registered.storage, registered.messagePublisher};
 	}
 
 	ContentRegistry& content_;

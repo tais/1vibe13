@@ -65,3 +65,8 @@ Each package callback also receives `PackageStorage`, a view bound to that
 package's ID. Record names are portable identifiers and data uses the engine's
 bounded checksummed envelope format under `PackageData/<package>/<record>.bin`.
 This is the preferred durable-state API for new packages.
+
+Use `PackageBootstrapContext::messagePublisher` for outbound package messages.
+It binds the source to the registered package ID and accepts only a portable
+topic plus the bounded byte payload. The raw message bus remains available
+during the compatibility window for established integrations.
