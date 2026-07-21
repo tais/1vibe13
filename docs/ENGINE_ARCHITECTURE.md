@@ -206,6 +206,10 @@ the engine must not contain SDL types in its public domain model.
   hook for runtime-started packages. Each update carries engine frame identity,
   monotonic start time, and elapsed time since the previous completed frame;
   package failures are contained before the legacy application state runs.
+- Package runtime health is retained in value-only catalog snapshots. Input
+  and update callback counts and failures remain observable per package, while
+  repeated exception logging is reduced from every frame to a logarithmic
+  cadence so one broken extension cannot create an unbounded logging workload.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

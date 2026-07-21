@@ -598,13 +598,17 @@ public:
 		PackageBootstrapContext context{content_, services_};
 		for (const std::string& packageId : active_)
 		{
+			RegisteredPackage& registered = packages_.at(packageId);
+			++registered.runtimeHealth.inputCallbacks;
 			try
 			{
-				packages_.at(packageId).package->receiveInput(context, event);
+				registered.package->receiveInput(context, event);
 			}
 			catch (...)
 			{
-				logError("Package input callback threw: ", packageId);
+				const std::uint64_t failure = ++registered.runtimeHealth.inputFailures;
+				logRuntimeFailure("input", packageId, failure,
+					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}
 	}
@@ -617,13 +621,18 @@ public:
 		PackageBootstrapContext context{content_, services_};
 		for (const std::string& packageId : active_)
 		{
+			RegisteredPackage& registered = packages_.at(packageId);
+			++registered.runtimeHealth.runtimeUpdateCallbacks;
 			try
 			{
-				packages_.at(packageId).package->updateRuntime(context, update);
+				registered.package->updateRuntime(context, update);
 			}
 			catch (...)
 			{
-				logError("Package runtime update threw: ", packageId);
+				const std::uint64_t failure =
+					++registered.runtimeHealth.runtimeUpdateFailures;
+				logRuntimeFailure("runtime update", packageId, failure,
+					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}
 	}
@@ -690,7 +699,7 @@ public:
 				active == active_.end()
 					? PackageCatalogEntry::NotActive
 					: static_cast<std::size_t>(active - active_.begin()),
-				{}};
+				{}, registered->second.runtimeHealth};
 			for (const ContentManifest& consumer : content_.manifests())
 			{
 				for (const ContentRequirement& requirement : consumer.requirements)
@@ -738,6 +747,7 @@ private:
 		std::vector<std::string> capabilities;
 		bool assetsMounted;
 		bool active;
+		PackageRuntimeHealth runtimeHealth;
 	};
 
 	PackageActivationError activateOne(const std::string& id)
@@ -785,6 +795,7 @@ private:
 		}
 		registered.assetsMounted = assetsMounted;
 		registered.active = true;
+		registered.runtimeHealth = PackageRuntimeHealth{};
 		emit(PackageEventKind::Activated, packageId);
 		return PackageActivationError::None;
 	}
@@ -852,6 +863,31 @@ private:
 		catch (...)
 		{
 			// Diagnostics must never corrupt package lifecycle state.
+		}
+	}
+
+	void logRuntimeFailure(const char* callback, const std::string& packageId,
+		std::uint64_t failure, std::uint64_t& suppressed) noexcept
+	{
+		// A broken per-frame callback must not turn into an unbounded logging
+		// workload. Preserve the first four diagnostics, then only powers of two.
+		const bool shouldLog = failure <= 4 || (failure & (failure - 1)) == 0;
+		if (!shouldLog)
+		{
+			++suppressed;
+			return;
+		}
+		try
+		{
+			services_.log.write(LogRecord{
+				LogSeverity::Error, "packages",
+				"Package " + std::string(callback) + " callback threw: " + packageId +
+					" (failure " + std::to_string(failure) +
+					", suppressed " + std::to_string(suppressed) + ")"});
+		}
+		catch (...)
+		{
+			// Diagnostics must never alter the runtime callback path.
 		}
 	}
 

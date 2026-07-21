@@ -549,6 +549,37 @@ int main( int, char** )
 	}
 
 	{
+		MemoryInputSource input;
+		MemoryLogSink log;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
+			NullByteStorage::instance(), log, input};
+		EngineHost<unsigned> host( services );
+		TestLifecyclePackage package( "runtime.unhealthy", PackageKind::Extension );
+		package.throwOnInput = true;
+		package.throwOnRuntimeUpdate = true;
+		host.packages().registerPackage( package );
+		host.packages().activate( "runtime.unhealthy" );
+		host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
+		for ( std::uint64_t sequence = 1; sequence <= 10; ++sequence )
+		{
+			input.push( EngineInputEvent{ sequence, 0, 1, 0, 0, sequence, 0 } );
+			host.frameDriver().runFrame(
+				[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		}
+		const PackageCatalogSnapshot catalog = host.packageCatalog();
+		const PackageCatalogEntry* entry = catalog.find( "runtime.unhealthy" );
+		CHECK( entry && entry->runtimeHealth.inputCallbacks == 10 &&
+		       entry->runtimeHealth.inputFailures == 10 &&
+		       entry->runtimeHealth.runtimeUpdateCallbacks == 10 &&
+		       entry->runtimeHealth.runtimeUpdateFailures == 10 &&
+		       entry->runtimeHealth.suppressedFailureLogs == 10,
+		       "package catalog snapshots retain per-package runtime callback health" );
+		CHECK( log.records().size() == 10,
+		       "repeated package callback exceptions use bounded logarithmic logging" );
+	}
+
+	{
 		const auto shouldRetain = []( BOOLEAN fPolicyEnabled, UINT16 usAnimState )
 		{
 			return ShouldRetainMovementAnimationAtDestination(
