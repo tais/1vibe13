@@ -231,6 +231,9 @@ the engine must not contain SDL types in its public domain model.
   binds the active package identity for every lifecycle, input, update, and
   message callback, preventing new package code from constructing another
   package's record path through this API.
+- `PackageMessagePublisher` binds outbound runtime messages to the registered
+  package identity. Packages choose a topic and bounded value payload, while
+  the host supplies the immutable source used by diagnostics and consumers.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

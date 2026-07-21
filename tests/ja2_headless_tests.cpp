@@ -378,6 +378,14 @@ public:
 			invalidPackageSaveResult = context.storage.saveEnvelope(
 				"../invalid", PersistenceHeader{ 0x504B4754u, 1 }, {} );
 		}
+		if (publishOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedPublisherPackageId = context.messagePublisher.packageId();
+			packagePublishResult = context.messagePublisher.publish(
+				"package.ready", { 6, 1 } );
+			invalidPackagePublishResult = context.messagePublisher.publish(
+				"../invalid", {} );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -435,6 +443,9 @@ public:
 	std::string observedStoragePackageId;
 	PersistenceSaveResult packageSaveResult = PersistenceSaveResult::StorageError;
 	PersistenceSaveResult invalidPackageSaveResult = PersistenceSaveResult::StorageError;
+	std::string observedPublisherPackageId;
+	RuntimeMessagePublishResult packagePublishResult;
+	RuntimeMessagePublishResult invalidPackagePublishResult;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -443,6 +454,7 @@ public:
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
 	bool persistOnConfigure = false;
+	bool publishOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -529,6 +541,7 @@ int main( int, char** )
 		EngineHost<unsigned> host( services );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		package.persistOnConfigure = true;
+		package.publishOnConfigure = true;
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
@@ -544,6 +557,10 @@ int main( int, char** )
 		       package.observedStoragePackageId == "lifecycle.complete" &&
 		       package.packageSaveResult == PersistenceSaveResult::Success &&
 		       package.invalidPackageSaveResult == PersistenceSaveResult::InvalidRequest &&
+		       package.observedPublisherPackageId == "lifecycle.complete" &&
+		       package.packagePublishResult &&
+		       package.invalidPackagePublishResult.error ==
+		           RuntimeMessagePublishError::InvalidTopic &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
 		PersistenceHeader packageHeader{};
@@ -566,11 +583,14 @@ int main( int, char** )
 		CHECK( frame.input.polled == 1 && package.inputEvents.size() == 1 &&
 		       package.inputEvents[0].modifiers == 2 && package.inputEvents[0].primary == 65,
 		       "runtime-started packages receive live mirrored input before the application frame" );
-		CHECK( published && frame.messages.messages == 1 &&
-		       package.receivedMessages.size() == 1 &&
-		       package.receivedMessages[0].payload == std::vector<std::uint8_t>({ 4, 2 }) &&
+		CHECK( published && frame.messages.messages == 2 &&
+		       package.receivedMessages.size() == 2 &&
+		       package.receivedMessages[0].topic == "package.ready" &&
+		       package.receivedMessages[0].source == "lifecycle.complete" &&
+		       package.receivedMessages[0].payload == std::vector<std::uint8_t>({ 6, 1 }) &&
+		       package.receivedMessages[1].payload == std::vector<std::uint8_t>({ 4, 2 }) &&
 		       package.observedMessages == &host.runtimeMessages(),
-		       "runtime-started packages receive bounded host messages at the frame boundary" );
+		       "runtime-started packages exchange source-bound messages at the frame boundary" );
 		CHECK( frame.runtimeUpdates.delivered == 1 && package.runtimeUpdates.size() == 1 &&
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,

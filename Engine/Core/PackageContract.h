@@ -7,6 +7,7 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/PackageMessagePublisher.h>
 #include <Engine/Core/PackageStorage.h>
 #include <Engine/Core/RuntimeMessageBus.h>
 #include <Engine/Core/RuntimeConfiguration.h>
@@ -39,6 +40,7 @@ struct PackageBootstrapContext
 	ServiceCatalog& extensionServices;
 	const RuntimeConfiguration& configuration;
 	PackageStorage& storage;
+	PackageMessagePublisher& messagePublisher;
 };
 
 struct PackageDescriptor
