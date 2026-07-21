@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/FrameTelemetry.h>
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeUpdate.h>
 
@@ -34,8 +35,9 @@ class FrameDriver
 {
 public:
 	FrameDriver(EngineServices& services, InputDispatcher& input,
-		RuntimeUpdateDispatcher& runtimeUpdates)
-		: services_(services), input_(input), runtimeUpdates_(runtimeUpdates) {}
+		RuntimeUpdateDispatcher& runtimeUpdates, FrameTelemetry& telemetry)
+		: services_(services), input_(input), runtimeUpdates_(runtimeUpdates),
+		  telemetry_(telemetry) {}
 
 	FrameDriver(const FrameDriver&) = delete;
 	FrameDriver& operator=(const FrameDriver&) = delete;
@@ -48,20 +50,30 @@ public:
 		const std::uint64_t startedAt = services_.time.nowMicroseconds();
 		const std::uint64_t sequence = completedFrames_ + 1;
 		const InputDispatchResult input = input_.dispatchPending();
+		const std::uint64_t inputFinishedAt = services_.time.nowMicroseconds();
 		const std::uint64_t elapsed = hasCompletedFrame_ && startedAt >= previousFrameStartedAt_
 			? startedAt - previousFrameStartedAt_ : 0;
 		const RuntimeUpdateDispatchResult runtimeUpdates = runtimeUpdates_.dispatch(
 			RuntimeUpdateContext{sequence, startedAt, elapsed});
+		const std::uint64_t runtimeUpdateFinishedAt = services_.time.nowMicroseconds();
 		const FramePlan plan = std::forward<PrepareFrame>(prepareFrame)();
+		const std::uint64_t applicationUpdateFinishedAt = services_.time.nowMicroseconds();
 		if (plan.present)
 			services_.frames.present(plan.presentationMode);
+		const std::uint64_t presentationFinishedAt = services_.time.nowMicroseconds();
 		std::forward<CompleteFrame>(completeFrame)();
+		const std::uint64_t finishedAt = services_.time.nowMicroseconds();
 		completedFrames_ = sequence;
 		previousFrameStartedAt_ = startedAt;
 		hasCompletedFrame_ = true;
-		return FrameRunResult{
-			sequence, startedAt, services_.time.nowMicroseconds(),
+		const FrameRunResult result{
+			sequence, startedAt, finishedAt,
 			plan.present, plan.presentationMode, input, runtimeUpdates};
+		telemetry_.record(FrameTelemetrySample{
+			sequence, startedAt, inputFinishedAt, runtimeUpdateFinishedAt,
+			applicationUpdateFinishedAt, presentationFinishedAt, finishedAt,
+			plan.present, plan.presentationMode, input, runtimeUpdates});
+		return result;
 	}
 
 	std::uint64_t completedFrames() const { return completedFrames_; }
@@ -76,6 +88,7 @@ private:
 	EngineServices& services_;
 	InputDispatcher& input_;
 	RuntimeUpdateDispatcher& runtimeUpdates_;
+	FrameTelemetry& telemetry_;
 	std::uint64_t completedFrames_ = 0;
 	std::uint64_t previousFrameStartedAt_ = 0;
 	bool hasCompletedFrame_ = false;

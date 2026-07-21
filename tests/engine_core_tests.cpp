@@ -163,6 +163,7 @@ int main()
 	frameInput.push(EngineInputEvent{10, 0, 1, 65, 0, 1, 3});
 	frameInput.push(EngineInputEvent{20, 0, 2, 65, 0, 2, 0});
 	RuntimeUpdateDispatcher runtimeUpdates;
+	FrameTelemetry frameTelemetry(1);
 	TestRuntimeUpdateSink receivingUpdates;
 	TestRuntimeUpdateSink throwingUpdates;
 	throwingUpdates.throws = true;
@@ -173,7 +174,7 @@ int main()
 		runtimeUpdates.addSink(receivingUpdates) ==
 		RuntimeUpdateSinkRegistrationError::Duplicate,
 		"runtime update dispatcher retains deterministic unique subscribers");
-	FrameDriver frameDriver(frameServices, inputDispatcher, runtimeUpdates);
+	FrameDriver frameDriver(frameServices, inputDispatcher, runtimeUpdates, frameTelemetry);
 	unsigned frameOrder = 0;
 	const FrameRunResult presentedFrame = frameDriver.runFrame(
 		[&] {
@@ -213,6 +214,16 @@ int main()
 		receivingUpdates.updates.back().frameSequence == 2 &&
 		receivingUpdates.updates.back().elapsedSincePreviousFrameMicroseconds == 40,
 		"frame driver preserves skipped-frame policy without presenting");
+	const FrameTelemetrySnapshot telemetrySnapshot = frameTelemetry.snapshot();
+	check(telemetrySnapshot.summary.completedFrames == 2 &&
+		telemetrySnapshot.summary.presentedFrames == 1 &&
+		telemetrySnapshot.summary.maximumFrameMicroseconds == 40 &&
+		telemetrySnapshot.summary.inputCallbackFailures == 2 &&
+		telemetrySnapshot.summary.runtimeUpdateCallbackFailures == 2 &&
+		telemetrySnapshot.summary.evictedSamples == 1 &&
+		telemetrySnapshot.samples.size() == 1 &&
+		telemetrySnapshot.samples[0].sequence == 2,
+		"frame telemetry retains bounded live timings and aggregate failures");
 
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});

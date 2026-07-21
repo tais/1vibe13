@@ -514,6 +514,11 @@ int main( int, char** )
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
 		       "runtime-started packages receive deterministic per-frame engine updates" );
+		const FrameTelemetrySnapshot telemetry = host.frameTelemetry().snapshot();
+		CHECK( telemetry.summary.completedFrames == 1 && telemetry.samples.size() == 1 &&
+		       telemetry.samples[0].sequence == frame.sequence &&
+		       !telemetry.samples[0].presented,
+		       "live engine host retains bounded value-only frame telemetry" );
 		CHECK( host.beginInitialization() && host.markRunning() && host.beginShutdown(),
 		       "runtime package test enters an orderly engine shutdown" );
 		const RuntimeSessionShutdownResult stopped = host.runtimeSession().shutdownPackages();

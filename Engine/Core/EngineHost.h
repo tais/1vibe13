@@ -35,7 +35,7 @@ public:
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
 		  packageLifecycle_(packages_), runtimeSession_(packageLifecycle_),
 		  inputDispatcher_(packages_.services().input),
-		  frameDriver_(packages_.services(), inputDispatcher_, runtimeUpdates_),
+		  frameDriver_(packages_.services(), inputDispatcher_, runtimeUpdates_, frameTelemetry_),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
@@ -65,6 +65,8 @@ public:
 	const InputDispatcher& inputDispatcher() const { return inputDispatcher_; }
 	RuntimeUpdateDispatcher& runtimeUpdates() { return runtimeUpdates_; }
 	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtimeUpdates_; }
+	FrameTelemetry& frameTelemetry() { return frameTelemetry_; }
+	const FrameTelemetry& frameTelemetry() const { return frameTelemetry_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -110,6 +112,7 @@ private:
 	RuntimeSession runtimeSession_;
 	InputDispatcher inputDispatcher_;
 	RuntimeUpdateDispatcher runtimeUpdates_;
+	FrameTelemetry frameTelemetry_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCapabilities hostCapabilities_;

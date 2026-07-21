@@ -193,6 +193,10 @@ the engine must not contain SDL types in its public domain model.
   through it while preserving its established screen-update, presentation,
   clock, and network ordering. Headless hosts use the same driver with injected
   time and presentation services instead of a window or renderer.
+- `FrameTelemetry` records bounded, value-only phase timings and input/package
+  failure totals for every completed live frame. Recording is best effort and
+  cannot fail a frame, while tools and headless hosts can copy stable snapshots
+  without reaching into renderer or application state.
 - `InputDispatcher` drains a bounded engine input stream before each frame and
   fans events out in deterministic subscriber order. The SDL adapter mirrors
   accepted legacy queue events, so engine packages receive live input without

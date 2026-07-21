@@ -13,6 +13,7 @@ set(engine_core_public_headers
   EngineServices.h
   FrameDriver.h
   FramePresenter.h
+  FrameTelemetry.h
   Identifier.h
   InputDispatcher.h
   InputSource.h
