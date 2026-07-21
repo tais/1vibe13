@@ -496,6 +496,13 @@ int main( int, char** )
 		       local.source == SimulationCommandSource::LocalPlayer &&
 		       network.source == SimulationCommandSource::NetworkPeer,
 		       "engine runtime owns ordered value-only tactical commands" );
+		context.commands().enqueue(
+			8, SimulationCommand{ChangeStanceCommand{17, 2, SimulationCommandSource::LocalPlayer}} );
+		const auto stanceReady = context.commands().drainThrough( 8 );
+		const auto& stance = std::get<ChangeStanceCommand>( stanceReady[0].command );
+		CHECK( stanceReady.size() == 1 && stance.soldierId == 17 && stance.stance == 2 &&
+		       stance.source == SimulationCommandSource::LocalPlayer,
+		       "engine runtime carries value-only soldier stance commands" );
 	}
 
 	{

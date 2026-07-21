@@ -3854,7 +3854,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		{
 			// Adjust stance
 			//pSoldier->ChangeSoldierStance( bNewStance );
-			SendChangeSoldierStanceEvent( pSoldier, bNewStance );
+			DispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance );
 
 			pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
 			pSoldier->bGoodContPath			= FALSE;
@@ -3885,7 +3885,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY )
 		{
 			// Change stance normally
-			SendChangeSoldierStanceEvent( pSoldier, bNewStance );
+			DispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance );
 		}
 		else
 		{
