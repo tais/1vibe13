@@ -125,6 +125,13 @@ jobs:
       - name: Build
         run: cmake --build build
 
+      - name: Run engine tests
+        if: matrix.application == 'JA2'
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure
+
       - name: sccache stats
         if: always()
         run: sccache --show-stats
@@ -152,3 +159,60 @@ jobs:
             build/${{ matrix.application }}_ENGLISH.exe
             build/*.dll
           if-no-files-found: warn
+
+  sanitizer:
+    name: JA2 headless (Linux ASan)
+    runs-on: ubuntu-latest
+    env:
+      SCCACHE_DIR: ${{ github.workspace }}/.sccache
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Cache sccache storage
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.sccache
+          key: sccache-linux-asan-${{ github.run_id }}
+          restore-keys: |
+            sccache-linux-asan-
+            sccache-linux-JA2-
+            sccache-linux-
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
+
+      - name: Install Linux build deps
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libx11-dev libxext-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libxrandr-dev libxss-dev libxkbcommon-dev \
+            libxtst-dev libxfixes-dev \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
+            libibus-1.0-dev
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+
+      - name: Configure Debug with AddressSanitizer
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DLanguages=ENGLISH -DApplications=JA2 -DADDRESS_SANITIZER=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
+      - name: Build test binaries
+        run: cmake --build build --target ja2_headless_tests mp_netshim_tests
+
+      - name: Run tests under AddressSanitizer
+        run: |
+          export LD_LIBRARY_PATH="$(clang --print-runtime-dir):${LD_LIBRARY_PATH:-}"
+          ctest --test-dir build --output-on-failure
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
