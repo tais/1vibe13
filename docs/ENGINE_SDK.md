@@ -104,6 +104,11 @@ overlay results. Oversized assets still load normally but are not retained.
 launchers, automated bug reports, and headless assertions. It combines package
 health, frame timing, cache behavior, host contracts, capabilities, and live
 queue counters without exposing application-owned objects or mutable services.
+Its compatibility fingerprint is also available directly from
+`EngineHost::compatibilityFingerprint()`. Compare the schema and both hash words
+before loading portable saves/replays or joining a deterministic session. A
+different result identifies a package, contract, capability, configuration, or
+versioned-definition mismatch; it is diagnostic rather than a security proof.
 
 The host also publishes `engine.runtime-faults`. Each contained package
 failure receives a monotonic record with package ID, callback, kind, and

@@ -262,6 +262,11 @@ the engine must not contain SDL types in its public domain model.
   catalog and health, cache statistics, services, sealed configuration,
   capabilities, and queue/tick counters as one pointer-free value. Every
   nested collection preserves an explicit deterministic order.
+- `RuntimeCompatibilityFingerprint` streams a schema-tagged platform-stable
+  digest over active package contracts and order, service/configuration
+  contracts, combined capabilities, and versioned definition bytes. Dynamic
+  frame, audio, and task state stays outside the digest so saves, replays, and
+  multiplayer handshakes can compare the runtime that interprets their data.
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O

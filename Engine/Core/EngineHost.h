@@ -203,6 +203,12 @@ public:
 		capabilities.addAll(packages_.activeCapabilities().ids());
 		return capabilities;
 	}
+	RuntimeCompatibilityFingerprint compatibilityFingerprint() const
+	{
+		return BuildRuntimeCompatibilityFingerprint(
+			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.snapshot(),
+			runtimeCapabilities(), definitions_.snapshot());
+	}
 	RuntimeDiagnosticsSnapshot diagnostics() const
 	{
 		return RuntimeDiagnosticsSnapshot{
@@ -211,6 +217,7 @@ public:
 			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
 			audioGroups_.snapshot(), packageTasks_.snapshot(), serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
+			compatibilityFingerprint(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
 	}

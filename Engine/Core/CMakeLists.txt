@@ -44,6 +44,7 @@ set(engine_core_public_headers
   RuntimeConfiguration.h
   RuntimeDiagnostics.h
   RuntimeFaultJournal.h
+  RuntimeFingerprint.h
   RuntimeMessageBus.h
   RuntimeSession.h
   RuntimeUpdate.h
@@ -66,6 +67,7 @@ add_library(ja2_engine_core STATIC
   Identifier.cpp
   PersistenceService.cpp
   RuntimeCapabilities.cpp
+  RuntimeFingerprint.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)
 
