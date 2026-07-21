@@ -270,6 +270,10 @@ the engine must not contain SDL types in its public domain model.
   versioned byte definitions. Core validates identity, schema compatibility,
   payload limits, override order, and rollback lifetime while game/domain
   adapters remain responsible for decoding their own rules.
+- `EntityRegistry` supplies bounded generational handles without owning domain
+  objects. IDs remain safe across messages, commands, saves, and diagnostics;
+  destroyed slots increment generation, exhausted generations retire, and all
+  identities owned by a package are removed during rollback or shutdown.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

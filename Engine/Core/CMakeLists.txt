@@ -13,6 +13,7 @@ set(engine_core_public_headers
   DefinitionCatalog.h
   EngineHost.h
   EngineServices.h
+  EntityRegistry.h
   FrameDriver.h
   FramePresenter.h
   FrameTelemetry.h
@@ -26,6 +27,7 @@ set(engine_core_public_headers
   PackageContract.h
   PackageDefinitions.h
   PackageEventSink.h
+  PackageEntities.h
   PackageLifecycle.h
   PackageMessagePublisher.h
   PackageLocalization.h

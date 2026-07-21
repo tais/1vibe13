@@ -7,6 +7,7 @@
 
 #include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/DefinitionCatalog.h>
+#include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/FrameTelemetry.h>
 #include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/PackageCatalog.h>
@@ -28,6 +29,7 @@ struct RuntimeDiagnosticsSnapshot
 	RuntimeFaultSnapshot faults;
 	std::vector<LocalizationEntry> localization;
 	std::vector<DefinitionRecord> definitions;
+	std::vector<EntityRecordSnapshot> entities;
 	std::vector<EngineServiceDescriptor> services;
 	std::vector<RuntimeConfigurationEntry> configuration;
 	RuntimeCapabilities capabilities;

@@ -123,3 +123,9 @@ domain records. Each definition has a portable type and ID, non-zero schema
 version, and bounded opaque bytes. The top package override is authoritative:
 an incompatible schema is reported instead of silently falling through to a
 lower definition. Package rollback and shutdown restore the previous layer.
+
+Use `PackageBootstrapContext::entities` when data must cross framework
+boundaries without exposing pointers or legacy array indexes. The registry
+returns a slot plus generation, rejects stale handles after reuse, bounds total
+live identities, and automatically destroys everything owned by a package at
+rollback or shutdown. Domain objects and components stay application-owned.

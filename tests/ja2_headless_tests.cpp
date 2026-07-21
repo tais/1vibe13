@@ -407,6 +407,11 @@ public:
 			invalidDefinitionSetResult = context.definitions.set(
 				"invalid/type", "package-ready", 1, {} );
 		}
+		if (createEntityOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedEntityPackageId = context.entities.packageId();
+			packageEntityCreateResult = context.entities.create( "test-entity" );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -481,6 +486,8 @@ public:
 	std::string observedDefinitionPackageId;
 	DefinitionSetError definitionSetResult = DefinitionSetError::AllocationFailure;
 	DefinitionSetError invalidDefinitionSetResult = DefinitionSetError::AllocationFailure;
+	std::string observedEntityPackageId;
+	EntityCreateResult packageEntityCreateResult;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -494,6 +501,7 @@ public:
 	bool usePackageRandomOnConfigure = false;
 	bool localizeOnConfigure = false;
 	bool defineOnConfigure = false;
+	bool createEntityOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -589,6 +597,7 @@ int main( int, char** )
 		package.usePackageRandomOnConfigure = true;
 		package.localizeOnConfigure = true;
 		package.defineOnConfigure = true;
+		package.createEntityOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
@@ -628,6 +637,9 @@ int main( int, char** )
 		       package.invalidDefinitionSetResult == DefinitionSetError::InvalidType &&
 		       packageDefinition &&
 		       *packageDefinition.payload == std::vector<std::uint8_t>({ 4, 2 }) &&
+		       package.observedEntityPackageId == "lifecycle.complete" &&
+		       package.packageEntityCreateResult &&
+		       host.entities().alive( package.packageEntityCreateResult.id ) &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
@@ -686,6 +698,7 @@ int main( int, char** )
 		       package.deactivateCalls == 1 && host.packages().activationOrder().empty() &&
 		       !host.localization().resolve( "en", "ui.package-ready" ) &&
 		       !host.definitions().resolve( "rules", "package-ready", 1, 1 ) &&
+		       !host.entities().alive( package.packageEntityCreateResult.id ) &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
 	}
