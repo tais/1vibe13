@@ -247,6 +247,8 @@ const char* FaultKindName(RuntimeFaultKind kind)
 		case RuntimeFaultKind::RuntimeUpdate: return "runtime-update";
 		case RuntimeFaultKind::SimulationTick: return "simulation-tick";
 		case RuntimeFaultKind::Message: return "message";
+		case RuntimeFaultKind::SaveState: return "save-state";
+		case RuntimeFaultKind::LoadState: return "load-state";
 	}
 	return "unknown";
 }

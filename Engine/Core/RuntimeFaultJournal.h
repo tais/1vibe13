@@ -18,7 +18,9 @@ enum class RuntimeFaultKind
 	Input,
 	RuntimeUpdate,
 	SimulationTick,
-	Message
+	Message,
+	SaveState,
+	LoadState
 };
 
 struct RuntimeFaultRecord
