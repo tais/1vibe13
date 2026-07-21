@@ -104,3 +104,9 @@ overlay results. Oversized assets still load normally but are not retained.
 launchers, automated bug reports, and headless assertions. It combines package
 health, frame timing, cache behavior, host contracts, capabilities, and live
 queue counters without exposing application-owned objects or mutable services.
+
+The host also publishes `engine.runtime-faults`. Each contained package
+failure receives a monotonic record with package ID, callback, kind, and
+occurrence count. The bounded history never throws into gameplay and remains
+complete independently of duplicate-log suppression; it is included in the
+unified diagnostics snapshot.

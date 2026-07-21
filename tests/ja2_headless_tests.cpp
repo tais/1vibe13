@@ -746,6 +746,7 @@ int main( int, char** )
 		}
 		const PackageCatalogSnapshot catalog = host.packageCatalog();
 		const PackageCatalogEntry* entry = catalog.find( "runtime.unhealthy" );
+		const RuntimeFaultSnapshot faults = host.runtimeFaults().snapshot();
 		CHECK( entry && entry->runtimeHealth.inputCallbacks == 10 &&
 		       entry->runtimeHealth.inputFailures == 10 &&
 		       entry->runtimeHealth.runtimeUpdateCallbacks == 10 &&
@@ -754,6 +755,13 @@ int main( int, char** )
 		       entry->runtimeHealth.filteredMessages == 1 &&
 		       entry->runtimeHealth.suppressedFailureLogs == 10,
 		       "package catalog snapshots retain per-package runtime callback health" );
+		CHECK( faults.summary.observed == 20 && faults.summary.retained == 20 &&
+		       faults.records.size() == 20 && faults.records.front().sequence == 1 &&
+		       faults.records.front().kind == RuntimeFaultKind::Input &&
+		       faults.records.front().packageId == "runtime.unhealthy" &&
+		       faults.records.back().kind == RuntimeFaultKind::RuntimeUpdate &&
+		       faults.records.back().occurrence == 10,
+		       "bounded fault journal retains every package failure despite log suppression" );
 		CHECK( log.records().size() == 10,
 		       "repeated package callback exceptions use bounded logarithmic logging" );
 		CHECK( package.receivedMessages.size() == 1 &&

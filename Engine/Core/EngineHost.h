@@ -17,6 +17,7 @@
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeDiagnostics.h>
+#include <Engine/Core/RuntimeFaultJournal.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/SimulationTick.h>
@@ -41,11 +42,13 @@ public:
 		std::uint64_t simulationStepMicroseconds = 16667,
 		std::size_t maximumSimulationCatchUpTicks = 4,
 		std::size_t assetCacheEntries = 128,
-		std::size_t assetCacheBytes = 64u * 1024u * 1024u)
+		std::size_t assetCacheBytes = 64u * 1024u * 1024u,
+		std::size_t runtimeFaultCapacity = 256)
 		: content_(supportedContentApi),
+		  faultJournal_(runtimeFaultCapacity),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
-		            assetCacheEntries, assetCacheBytes),
+		            assetCacheEntries, assetCacheBytes, faultJournal_),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
@@ -65,6 +68,8 @@ public:
 			"engine.simulation-ticks", EngineServiceVersion{1, 0}, simulationTicks_);
 		serviceCatalog_.registerService(
 			"engine.asset-cache", EngineServiceVersion{1, 0}, packages_.assetCache());
+		serviceCatalog_.registerService(
+			"engine.runtime-faults", EngineServiceVersion{1, 0}, faultJournal_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -79,6 +84,8 @@ public:
 			static_cast<std::int64_t>(packages_.assetCache().maximumEntries()));
 		runtimeConfiguration_.set("engine.assets.cache-bytes",
 			static_cast<std::int64_t>(packages_.assetCache().maximumBytes()));
+		runtimeConfiguration_.set("engine.faults.history-capacity",
+			static_cast<std::int64_t>(faultJournal_.capacity()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -115,6 +122,8 @@ public:
 	const RuntimeMessageBus& runtimeMessages() const { return runtimeMessages_; }
 	CachingAssetSource& assetCache() { return packages_.assetCache(); }
 	const CachingAssetSource& assetCache() const { return packages_.assetCache(); }
+	RuntimeFaultJournal& runtimeFaults() { return faultJournal_; }
+	const RuntimeFaultJournal& runtimeFaults() const { return faultJournal_; }
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
@@ -143,7 +152,8 @@ public:
 	{
 		return RuntimeDiagnosticsSnapshot{
 			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
-			packages_.assetCache().statistics(), serviceCatalog_.snapshot(),
+			packages_.assetCache().statistics(), faultJournal_.snapshot(),
+			serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
@@ -171,6 +181,7 @@ private:
 	RuntimeMessageBus runtimeMessages_;
 	ServiceCatalog serviceCatalog_;
 	RuntimeConfiguration runtimeConfiguration_;
+	RuntimeFaultJournal faultJournal_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;
