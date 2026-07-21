@@ -16,6 +16,7 @@
 #include <Engine/Core/PackageLifecycle.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/RuntimeDiagnostics.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/SimulationTick.h>
@@ -137,6 +138,15 @@ public:
 		RuntimeCapabilities capabilities = hostCapabilities_;
 		capabilities.addAll(packages_.activeCapabilities().ids());
 		return capabilities;
+	}
+	RuntimeDiagnosticsSnapshot diagnostics() const
+	{
+		return RuntimeDiagnosticsSnapshot{
+			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
+			packages_.assetCache().statistics(), serviceCatalog_.snapshot(),
+			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
+			runtimeMessages_.queued(), frameDriver_.completedFrames(),
+			simulationTicks_.completedTickSequence()};
 	}
 	bool setHostCapabilities(RuntimeCapabilities capabilities)
 	{

@@ -254,6 +254,10 @@ the engine must not contain SDL types in its public domain model.
   asset view. Normalized hits avoid VFS/archive work, least-recently-used
   payloads are evicted by entry and byte budgets, allocation failures degrade
   to uncached reads, and every package mount change invalidates stale overlays.
+- `RuntimeDiagnosticsSnapshot` captures lifecycle, frame telemetry, package
+  catalog and health, cache statistics, services, sealed configuration,
+  capabilities, and queue/tick counters as one pointer-free value. Every
+  nested collection preserves an explicit deterministic order.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
