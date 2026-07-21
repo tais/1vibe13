@@ -440,7 +440,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 13 &&
+		sessionHost.serviceCatalog().size() == 14 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -459,7 +459,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 18,
+		sessionHost.configuration().size() == 19,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	const RuntimeReport runtimeReport = sessionHost.runtimeReport();
@@ -469,8 +469,8 @@ int main()
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
 		diagnostics.packageTasks.queued.empty() &&
-		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 13 &&
-		diagnostics.configuration.size() == 18 &&
+		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 14 &&
+		diagnostics.configuration.size() == 19 &&
 		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
@@ -478,7 +478,7 @@ int main()
 	check(runtimeReport.lifecycle == EngineLifecycle::Stopped && runtimeReport.healthy() &&
 		runtimeReport.completedFrames == 0 && runtimeReport.completedSimulationTicks == 0 &&
 		runtimeReport.registeredPackages == 0 && runtimeReport.activePackages == 0 &&
-		runtimeReport.services.size() == 13 && runtimeReport.configuration.size() == 18 &&
+		runtimeReport.services.size() == 14 && runtimeReport.configuration.size() == 19 &&
 		runtimeReport.compatibility == diagnostics.compatibility &&
 		runtimeReport.frames.completedFrames == diagnostics.frames.summary.completedFrames,
 		"runtime report condenses diagnostics without retaining sensitive content payloads");
@@ -498,6 +498,24 @@ int main()
 		boundedReportJson.error == RuntimeReportJsonError::TooLarge &&
 		boundedReportJson.json.empty(),
 		"runtime report JSON is deterministic, escaped, UTF-8, and bounded transactionally");
+	MemoryByteStorage reportStorage;
+	EngineServices reportServices{
+		ZeroTimeSource::instance(), ZeroRandomSource::instance(), reportStorage};
+	EngineHost<unsigned> reportingHost(reportServices);
+	const RuntimeReportSaveError savedRuntimeReport =
+		reportingHost.saveRuntimeReport("diagnostics/runtime-report.json");
+	std::vector<std::uint8_t> savedRuntimeReportBytes;
+	const bool readRuntimeReport = reportStorage.readAll(
+		"diagnostics/runtime-report.json", savedRuntimeReportBytes);
+	RuntimeReportService tinyReportService(reportingHost.persistence(), 32);
+	check(savedRuntimeReport == RuntimeReportSaveError::None && readRuntimeReport &&
+		!savedRuntimeReportBytes.empty() && savedRuntimeReportBytes.front() == '{' &&
+		savedRuntimeReportBytes.back() == '\n' &&
+		tinyReportService.save("diagnostics/tiny.json", reportingHost.runtimeReport()) ==
+			RuntimeReportSaveError::TooLarge &&
+		!reportStorage.exists("diagnostics/tiny.json") &&
+		reportingHost.runtimeReports().maximumBytes() == 4u * 1024u * 1024u,
+		"runtime report service persists readable JSON without partial bounded writes");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&
