@@ -94,3 +94,8 @@ winning overlay provenance. The built-in sources answer without allocating the
 asset payload, normalize paths exactly like `read`, and clear output on every
 failure. Custom sources may return `Unsupported` until they provide a fast
 metadata implementation.
+
+The default host exposes package assets through a bounded read-through cache.
+Its entry and byte budgets are sealed configuration values, statistics are a
+versioned host service, and package activation/deactivation clears cached
+overlay results. Oversized assets still load normally but are not retained.

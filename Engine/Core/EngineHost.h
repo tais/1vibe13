@@ -7,6 +7,7 @@
 #include <utility>
 
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/InputDispatcher.h>
@@ -37,10 +38,13 @@ public:
 		std::uint64_t packageRandomSeed = 0,
 		std::size_t packageRandomStreamLimit = 64,
 		std::uint64_t simulationStepMicroseconds = 16667,
-		std::size_t maximumSimulationCatchUpTicks = 4)
+		std::size_t maximumSimulationCatchUpTicks = 4,
+		std::size_t assetCacheEntries = 128,
+		std::size_t assetCacheBytes = 64u * 1024u * 1024u)
 		: content_(supportedContentApi),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
-		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit),
+		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
+		            assetCacheEntries, assetCacheBytes),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
@@ -58,6 +62,8 @@ public:
 			"engine.persistence", EngineServiceVersion{1, 0}, persistence_);
 		serviceCatalog_.registerService(
 			"engine.simulation-ticks", EngineServiceVersion{1, 0}, simulationTicks_);
+		serviceCatalog_.registerService(
+			"engine.asset-cache", EngineServiceVersion{1, 0}, packages_.assetCache());
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -68,6 +74,10 @@ public:
 			static_cast<std::int64_t>(simulationTicks_.stepMicroseconds()));
 		runtimeConfiguration_.set("engine.simulation.maximum-catch-up-ticks",
 			static_cast<std::int64_t>(simulationTicks_.maxCatchUpTicks()));
+		runtimeConfiguration_.set("engine.assets.cache-entries",
+			static_cast<std::int64_t>(packages_.assetCache().maximumEntries()));
+		runtimeConfiguration_.set("engine.assets.cache-bytes",
+			static_cast<std::int64_t>(packages_.assetCache().maximumBytes()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -102,6 +112,8 @@ public:
 	const FrameTelemetry& frameTelemetry() const { return frameTelemetry_; }
 	RuntimeMessageBus& runtimeMessages() { return runtimeMessages_; }
 	const RuntimeMessageBus& runtimeMessages() const { return runtimeMessages_; }
+	CachingAssetSource& assetCache() { return packages_.assetCache(); }
+	const CachingAssetSource& assetCache() const { return packages_.assetCache(); }
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
