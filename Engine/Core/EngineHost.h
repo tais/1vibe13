@@ -24,6 +24,7 @@
 #include <Engine/Core/RuntimeCheckpoint.h>
 #include <Engine/Core/RuntimeDiagnostics.h>
 #include <Engine/Core/RuntimeFaultJournal.h>
+#include <Engine/Core/RuntimeReport.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/SimulationTick.h>
@@ -234,6 +235,10 @@ public:
 			compatibilityFingerprint(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
+	}
+	RuntimeReport runtimeReport() const
+	{
+		return BuildRuntimeReport(diagnostics());
 	}
 	bool setHostCapabilities(RuntimeCapabilities capabilities)
 	{

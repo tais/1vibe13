@@ -385,12 +385,18 @@ int main()
 		declaredContentHost.packageCatalog();
 	const PackageCatalogEntry* declaredContentCatalog =
 		declaredContentSnapshot.find("mod.declared-content");
+	const RuntimeReport declaredContentReport = declaredContentHost.runtimeReport();
 	check(declaredContentRegistration == PackageRegistrationError::None &&
 		declaredContentCatalog &&
 		declaredContentCatalog->descriptor.localizationSources.size() == 2 &&
 		declaredContentCatalog->descriptor.localizationSources[1].locale == "nl" &&
 		declaredContentCatalog->descriptor.definitionSources.size() == 1 &&
-		declaredContentCatalog->descriptor.definitionSources[0].schemaVersion == 2,
+		declaredContentCatalog->descriptor.definitionSources[0].schemaVersion == 2 &&
+		declaredContentReport.schema == RuntimeReport::CurrentSchema &&
+		declaredContentReport.healthy() && declaredContentReport.registeredPackages == 1 &&
+		declaredContentReport.activePackages == 0 &&
+		declaredContentReport.packages[0].descriptor.content.id == "mod.declared-content" &&
+		declaredContentReport.packages[0].descriptor.localizationSources.size() == 2,
 		"content API 1.4 preserves declared package sources in catalog snapshots");
 	DeclaredContentPackage oldDeclaredContent(PackageDescriptor{
 		ContentManifest{"mod.old-content", "1", ContentApiVersion{1, 3}},
@@ -455,6 +461,7 @@ int main()
 		sessionHost.configuration().size() == 18,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
+	const RuntimeReport runtimeReport = sessionHost.runtimeReport();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
 		diagnostics.frames.summary.completedFrames == 0 &&
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
@@ -467,6 +474,13 @@ int main()
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");
+	check(runtimeReport.lifecycle == EngineLifecycle::Stopped && runtimeReport.healthy() &&
+		runtimeReport.completedFrames == 0 && runtimeReport.completedSimulationTicks == 0 &&
+		runtimeReport.registeredPackages == 0 && runtimeReport.activePackages == 0 &&
+		runtimeReport.services.size() == 13 && runtimeReport.configuration.size() == 18 &&
+		runtimeReport.compatibility == diagnostics.compatibility &&
+		runtimeReport.frames.completedFrames == diagnostics.frames.summary.completedFrames,
+		"runtime report condenses diagnostics without retaining sensitive content payloads");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&
