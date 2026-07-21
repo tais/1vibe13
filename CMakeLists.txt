@@ -2,14 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 project(ja2)
 
-# Campaign-independent public engine contract. Keeping this as a real CMake
-# target makes dependency direction visible to consumers and gives extracted
-# engine code a stable target name independent from the legacy JA2 libraries.
-add_library(ja2_engine_core INTERFACE)
-add_library(JA2::EngineCore ALIAS ja2_engine_core)
-target_include_directories(ja2_engine_core INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
-target_compile_features(ja2_engine_core INTERFACE cxx_std_17)
+# Campaign-independent engine targets live under Engine/. Defining them before
+# the legacy libraries keeps the dependency direction explicit and also lets
+# standalone engine tests link without pulling in SDL, SGP, or JA2 globals.
+add_subdirectory(Engine)
 
 include(cmake/CopyUserPresetTemplate.cmake)
 CopyUserPresetTemplate()
@@ -484,7 +480,6 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_executable(ja2_headless_tests tests/ja2_headless_tests.cpp)
   target_compile_definitions(ja2_headless_tests PRIVATE ${debugFlags})
   target_link_libraries(ja2_headless_tests PRIVATE SDL3::SDL3)
-  target_link_libraries(ja2_headless_tests PRIVATE JA2::EngineCore)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--start-group)
   endif()

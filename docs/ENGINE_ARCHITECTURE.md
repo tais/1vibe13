@@ -29,8 +29,11 @@ the engine must not contain SDL types in its public domain model.
 
 ## Current migration seams
 
-- `Engine/Core` contains platform- and campaign-independent primitives. CTest
-  rejects project-header dependencies in this directory.
+- `Engine/Core` is a compiled, independently link-tested library containing
+  platform- and campaign-independent primitives. CTest rejects project-header
+  dependencies in this directory, and `engine_core_tests` links without SDL,
+  SGP, JA2 globals, or campaign code so accidental upward dependencies fail at
+  the engine boundary rather than hiding in the game executable.
 - `GameContext` is the composition root. It initially binds legacy globals and
   will replace them service by service without changing save layouts en masse.
 - `GameCapabilities` moves JA2/UB/editor decisions from preprocessing toward
