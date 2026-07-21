@@ -67,7 +67,7 @@ typedef struct
 extern	UINT32		guiScreenToGotoAfterLoadingSavedGame;
 extern UINT32 guiCurrentSaveGameVersion;
 
-void			CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName );
+void			CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName, size_t filenameCapacity );
 
 
 BOOLEAN InitSaveDir();

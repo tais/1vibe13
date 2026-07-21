@@ -440,6 +440,13 @@ int main( int, char** )
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
 
 	{
+		char tiny[5] = {};
+		const int required = sprintf( tiny, "%s", "abcdef" );
+		CHECK( required == 6 && std::strcmp( tiny, "abcd" ) == 0,
+		       "legacy narrow formatting truncates safely and reports required size" );
+	}
+
+	{
 		static_assert( !std::is_copy_constructible<EngineHost<unsigned>>::value,
 		               "engine host must retain stable internal references" );
 		static_assert( !std::is_move_constructible<EngineHost<unsigned>>::value,

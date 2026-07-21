@@ -133,7 +133,7 @@ BOOLEAN LoadShadeTable( HVOBJECT pObj, UINT32 uiTileTypeIndex )
 		return FALSE;
 	}
 	ptr++;
-	sprintf( ptr, "sha" );
+	snprintf( ptr, sizeof( ShadeFileName ) - static_cast<size_t>( ptr - ShadeFileName ), "sha" );
 
 	//hfile = FileOpen( ShadeFileName, FILE_ACCESS_READ, FALSE );
 	//if( !hfile )
@@ -197,7 +197,7 @@ BOOLEAN SaveShadeTable( HVOBJECT pObj, UINT32 uiTileTypeIndex )
 		return FALSE;
 	}
 	ptr++;
-	sprintf( ptr, "sha" );
+	snprintf( ptr, sizeof( ShadeFileName ) - static_cast<size_t>( ptr - ShadeFileName ), "sha" );
 
 	hfile = FileOpen( ShadeFileName, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE );
 	if( !hfile )

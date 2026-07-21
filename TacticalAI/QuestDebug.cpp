@@ -96,7 +96,7 @@ void QuestDebugFileMsg( UINT8 ubQuoteType, UINT8 ubPriority, STR pStringA, ...)
 	DestString[0] = '\0';
 
 	va_start(argptr, pStringA);			// Set up variable argument pointer
-	vsprintf(TempString, pStringA, argptr);	// process gprintf string (get output str)
+	vsnprintf(TempString, sizeof( TempString ), pStringA, argptr);	// process gprintf string (get output str)
 	va_end(argptr);
 
 

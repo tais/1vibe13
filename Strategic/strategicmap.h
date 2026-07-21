@@ -115,7 +115,16 @@ void GetLoadedSectorString( CHAR16 *pString );
 // This will get an ID string like A9- OMERTA...
 void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ , CHAR16 *zString, BOOLEAN fDetailed );
 
-void GetMapFileName(INT16 sMapX,INT16 sMapY, INT8 bSectorZ, CHAR8 *bString, BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter );
+void GetMapFileName(INT16 sMapX, INT16 sMapY, INT8 bSectorZ,
+	CHAR8 *bString, size_t stringCapacity,
+	BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter );
+template<size_t N>
+inline void GetMapFileName(INT16 sMapX, INT16 sMapY, INT8 bSectorZ,
+	CHAR8 (&bString)[N], BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter )
+{
+	GetMapFileName(sMapX, sMapY, bSectorZ, bString, N,
+		fUsePlaceholder, fAddAlternateMapLetter);
+}
 
 // Called from within tactical.....
 void JumpIntoAdjacentSector( UINT8 ubDirection, UINT8 ubJumpCode, INT32 sAdditionalData );//dnl ch56 151009

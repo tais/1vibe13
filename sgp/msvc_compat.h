@@ -635,4 +635,26 @@ inline int sgp_swprintf(wchar_t* buf, size_t count, const wchar_t* fmt, ...) {
 }
 #endif
 
+// Legacy JA2 also has roughly a thousand narrow sprintf calls. Keep their
+// source shape while making fixed-array destinations bounded on every
+// platform. Pointer destinations intentionally fail template deduction: those
+// sites must state the actual writable extent with snprintf instead of
+// guessing from sizeof(pointer).
+#ifdef __cplusplus
+#include <cstdarg>
+#include <cstdio>
+namespace sgp_compat {
+template<size_t N>
+inline int sprintf_bounded(char (&buf)[N], const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    const int result = ::vsnprintf(buf, N, fmt, args);
+    va_end(args);
+    buf[N - 1] = '\0';
+    return result;
+}
+}
+#define sprintf(buf, ...) ::sgp_compat::sprintf_bounded((buf), __VA_ARGS__)
+#endif
+
 #endif // _SGP_MSVC_COMPAT_H

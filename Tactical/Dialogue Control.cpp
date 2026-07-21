@@ -2358,7 +2358,7 @@ static CHAR8 *GetDialogueDataFilename( UINT8 ubCharacterNum, UINT16 usQuoteNum, 
 		else if ( ubCharacterNum == PETER || ubCharacterNum == ALBERTO || ubCharacterNum == CARLO )
 		{
 			isBartenderSantos = TRUE;
-			sprintf( (char *)zFileName,"NPCDATA\\%03d.EDT", ubCharacterNum );
+			sprintf( zFileName,"NPCDATA\\%03d.EDT", ubCharacterNum );
 			if ( !FileExists( zFileName ) )
 				ubFileNumID = HERVE;
 			else
@@ -2379,7 +2379,7 @@ static CHAR8 *GetDialogueDataFilename( UINT8 ubCharacterNum, UINT16 usQuoteNum, 
 			ubCharacterNum == MORRIS_UB ||
 			ubCharacterNum == RUDY_UB )
 		{
-			sprintf( (char *)zFileName,"NPCDATA\\%03d.EDT", ubCharacterNum );
+			sprintf( zFileName,"NPCDATA\\%03d.EDT", ubCharacterNum );
 			ubFileNumID = ubCharacterNum;
 		}
 #endif

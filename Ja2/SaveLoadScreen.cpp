@@ -1329,7 +1329,7 @@ BOOLEAN InitSaveGameArray()
 	{
 	
 		cnt2 = VAL_SLOT_START + cnt;
-		CreateSavedGameFileNameFromNumber( cnt2, zSaveGameName );
+		CreateSavedGameFileNameFromNumber( cnt2, zSaveGameName, sizeof( zSaveGameName ) );
 
 		if( FileExists( zSaveGameName ) )
 		{
@@ -1776,7 +1776,7 @@ BOOLEAN LoadSavedGameHeader( INT32 bEntry, SAVED_GAME_HEADER *pSaveGameHeader )
 
 	//Get the name of the file
 	newSlot = VAL_SLOT_START + bEntry;
-	CreateSavedGameFileNameFromNumber( newSlot, zSavedGameName );
+	CreateSavedGameFileNameFromNumber( newSlot, zSavedGameName, sizeof( zSavedGameName ) );
 
 	if( FileExists( zSavedGameName ) )
 	{
@@ -2419,7 +2419,7 @@ void DeleteSaveGameNumber( UINT8 ubSaveGameSlotID )
 
 	//Create the name of the file
 	newSlot = VAL_SLOT_START + ubSaveGameSlotID;
-	CreateSavedGameFileNameFromNumber( newSlot, zSaveGameName );
+	CreateSavedGameFileNameFromNumber( newSlot, zSaveGameName, sizeof( zSaveGameName ) );
 
 	//Delete the saved game file
 	FileDelete( zSaveGameName );
@@ -2760,7 +2760,7 @@ BOOLEAN IsThereAnySavedGameFiles()
 	for( cnt=0; cnt<NUM_SLOT; cnt++)
 	{
 		newSlot = VAL_SLOT_START + cnt;
-		CreateSavedGameFileNameFromNumber( newSlot, zSaveGameName );
+		CreateSavedGameFileNameFromNumber( newSlot, zSaveGameName, sizeof( zSaveGameName ) );
 
 		if( FileExists( zSaveGameName ) )
 			return( TRUE );

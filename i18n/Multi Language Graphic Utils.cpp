@@ -7,7 +7,7 @@
 #include "FileMan.h"
 #include <language.hpp>
 
-BOOLEAN GetMLGFilename( SGPFILENAME filename, UINT16 usMLGGraphicID )
+BOOLEAN GetMLGFilename( SGPFILENAME& filename, UINT16 usMLGGraphicID )
 {
 	if( g_lang == i18n::Lang::en ) {
 		switch( usMLGGraphicID )
@@ -281,7 +281,7 @@ BOOLEAN GetMLGFilename( SGPFILENAME filename, UINT16 usMLGGraphicID )
 
 	} else {
 
-		UINT8 zLanguage[64];
+		CHAR8 zLanguage[64];
 
 		//The foreign language defined determines the name of the directory and filename.
 		//For example, the German version of:
@@ -293,17 +293,17 @@ BOOLEAN GetMLGFilename( SGPFILENAME filename, UINT16 usMLGGraphicID )
 		//		"GERMAN\\IMPSymbol_German.sti"
 
 		if(g_lang == i18n::Lang::nl) {
-		  sprintf( (char *)zLanguage, "DUTCH" );
+		  sprintf( zLanguage, "DUTCH" );
 		} else if(g_lang == i18n::Lang::fr) {
-		  sprintf( (char *)zLanguage, "FRENCH" );
+		  sprintf( zLanguage, "FRENCH" );
 		} else if(g_lang == i18n::Lang::it) {
-		  sprintf( (char *)zLanguage, "ITALIAN" );
+		  sprintf( zLanguage, "ITALIAN" );
 		} else if(g_lang == i18n::Lang::pl) {
-		  sprintf( (char *)zLanguage, "POLISH" );
+		  sprintf( zLanguage, "POLISH" );
 		} else if(g_lang == i18n::Lang::ru) {
-		  sprintf( (char *)zLanguage, "RUSSIAN" );
+		  sprintf( zLanguage, "RUSSIAN" );
 		} else if(g_lang == i18n::Lang::zh) {
-		  sprintf( (char *)zLanguage, "CHINESE" );
+		  sprintf( zLanguage, "CHINESE" );
 		}
 
 //SB: Also check for russian Gold version, like English

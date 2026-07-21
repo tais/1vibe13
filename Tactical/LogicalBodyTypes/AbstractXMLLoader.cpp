@@ -36,14 +36,15 @@ AbstractXMLLoader::ParseData* AbstractXMLLoader::MakeParseData(XML_Parser* parse
 	return new ParseData(parser);
 }
 
-bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* fileName, CHAR8* errorBuf) {
+bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* fileName,
+	CHAR8* errorBuf, size_t errorCapacity) {
 	HWFILE hFile;
 	UINT32 uiBytesRead;
 	UINT32 uiFSize;
 	CHAR8* lpcBuffer;
 	char fileNameFull[MAX_PATH + 1];
 	if (strlen(fileName) + strlen(directoryName) >= MAX_PATH) {
-		sprintf(errorBuf, "Can't load file %s%s, Concatenated filename too long for buffer!", directoryName, fileName);
+		snprintf(errorBuf, errorCapacity, "Can't load file %s%s, Concatenated filename too long for buffer!", directoryName, fileName);
 		LiveMessage(errorBuf);
 		return false;
 	}
@@ -65,7 +66,7 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, msg.c_str());
 	hFile = FileOpen(fileNameFull, FILE_ACCESS_READ, FALSE);
 	if (!hFile) {
-		sprintf(errorBuf, "Can't open %s", fileNameFull);
+		snprintf(errorBuf, errorCapacity, "Can't open %s", fileNameFull);
 		XML_ParserFree(parser);
 		delete data;
 		return false;
@@ -73,7 +74,7 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 	uiFSize = FileGetSize(hFile);
 	lpcBuffer = (CHAR8*)MemAlloc(uiFSize + 1);
 	if (!FileRead(hFile, lpcBuffer, uiFSize, &uiBytesRead)) {
-		sprintf(errorBuf, "Error reading %s to buffer", fileNameFull);
+		snprintf(errorBuf, errorCapacity, "Error reading %s to buffer", fileNameFull);
 		MemFree(lpcBuffer);
 		FileClose(hFile);
 		XML_ParserFree(parser);
@@ -96,7 +97,7 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 
 	try {
 		if (!XML_Parse(parser, lpcBuffer, uiFSize, TRUE)) {
-			sprintf(errorBuf, "XML Parser Error in %s[%d]: %s", fileNameFull, XML_GetCurrentLineNumber(parser), XML_ErrorString(XML_GetErrorCode(parser)));
+			snprintf(errorBuf, errorCapacity, "XML Parser Error in %s[%d]: %s", fileNameFull, XML_GetCurrentLineNumber(parser), XML_ErrorString(XML_GetErrorCode(parser)));
 			LiveMessage(errorBuf);
 			MemFree(lpcBuffer);
 			XML_ParserFree(parser);
@@ -104,7 +105,7 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 			return false;
 		}
 	} catch (const XMLParseException& e) {
-		sprintf(errorBuf, "XML Parser Exception in %s[%d]: %s", fileNameFull, e._LINE, e.what());
+		snprintf(errorBuf, errorCapacity, "XML Parser Exception in %s[%d]: %s", fileNameFull, e._LINE, e.what());
 		LiveMessage(errorBuf);
 		MemFree(lpcBuffer);
 		XML_ParserFree(parser);
