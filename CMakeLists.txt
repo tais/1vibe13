@@ -39,6 +39,12 @@ if(ADDRESS_SANITIZER)
   add_compile_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fsanitize=address,>)
   add_compile_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fno-omit-frame-pointer,>)
   add_link_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fsanitize=address,>)
+  # Linux shared dependency targets use --no-undefined. Clang's default
+  # executable-only ASan runtime cannot satisfy those links, so use the shared
+  # runtime consistently for dependencies and the final test executables.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_link_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-shared-libasan,>)
+  endif()
 endif()
 
 if(MSVC)

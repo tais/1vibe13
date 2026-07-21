@@ -209,7 +209,9 @@ jobs:
         run: cmake --build build --target ja2_headless_tests mp_netshim_tests
 
       - name: Run tests under AddressSanitizer
-        run: ctest --test-dir build --output-on-failure
+        run: |
+          export LD_LIBRARY_PATH="$(clang --print-runtime-dir):${LD_LIBRARY_PATH:-}"
+          ctest --test-dir build --output-on-failure
 
       - name: sccache stats
         if: always()
