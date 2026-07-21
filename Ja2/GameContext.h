@@ -52,6 +52,8 @@ public:
 	const RuntimeMessageBus& runtimeMessages() const { return runtime_.runtimeMessages(); }
 	ServiceCatalog& serviceCatalog() { return runtime_.serviceCatalog(); }
 	const ServiceCatalog& serviceCatalog() const { return runtime_.serviceCatalog(); }
+	RuntimeConfiguration& configuration() { return runtime_.configuration(); }
+	const RuntimeConfiguration& configuration() const { return runtime_.configuration(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }

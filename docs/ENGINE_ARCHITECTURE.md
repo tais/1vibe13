@@ -222,6 +222,10 @@ the engine must not contain SDL types in its public domain model.
   live host publishes persistence, frame telemetry, and runtime messaging; the
   catalog seals before package bootstrap so package-held service references
   remain valid for the complete runtime session.
+- `RuntimeConfiguration` is a typed, insertion-ordered startup property store.
+  Applications can add or override same-typed values during composition; it
+  seals with the service catalog before bootstrap and gives packages stable
+  access without coupling Core to INI parsing or campaign option globals.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

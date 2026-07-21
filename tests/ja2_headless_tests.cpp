@@ -367,6 +367,9 @@ public:
 			context.extensionServices.resolve<FrameTelemetry>(
 				"engine.frame-telemetry", EngineServiceVersion{ 1, 0 } );
 		observedTelemetry = telemetry.service;
+		const std::int64_t* messageCapacity =
+			context.configuration.find<std::int64_t>( "engine.messages.queue-capacity" );
+		observedMessageCapacity = messageCapacity ? *messageCapacity : -1;
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -420,6 +423,7 @@ public:
 	EngineServices* observedServices = nullptr;
 	RuntimeMessageBus* observedMessages = nullptr;
 	FrameTelemetry* observedTelemetry = nullptr;
+	std::int64_t observedMessageCapacity = -1;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -522,6 +526,7 @@ int main( int, char** )
 		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
 		       package.observedTelemetry == &host.frameTelemetry() &&
+		       package.observedMessageCapacity == 1024 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
 		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );

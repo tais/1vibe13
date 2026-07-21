@@ -2,6 +2,7 @@
 #define ENGINE_CORE_RUNTIME_SESSION_H
 
 #include <Engine/Core/PackageLifecycle.h>
+#include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/ServiceCatalog.h>
 
 enum class EngineLifecycle
@@ -43,8 +44,10 @@ struct RuntimeSessionShutdownResult
 class RuntimeSession
 {
 public:
-	RuntimeSession(PackageLifecycle& packages, ServiceCatalog& extensionServices)
-		: packages_(packages), extensionServices_(extensionServices) {}
+	RuntimeSession(PackageLifecycle& packages, ServiceCatalog& extensionServices,
+		RuntimeConfiguration& configuration)
+		: packages_(packages), extensionServices_(extensionServices),
+		  configuration_(configuration) {}
 
 	RuntimeSession(const RuntimeSession&) = delete;
 	RuntimeSession& operator=(const RuntimeSession&) = delete;
@@ -58,6 +61,7 @@ public:
 		if (lifecycle_ == EngineLifecycle::ShuttingDown)
 			return RuntimeSessionAdvanceResult{RuntimeSessionError::InvalidState, {}};
 		extensionServices_.seal();
+		configuration_.seal();
 		PackageLifecycleAdvanceResult result = packages_.advanceTo(phase);
 		return RuntimeSessionAdvanceResult{
 			result ? RuntimeSessionError::None
@@ -80,6 +84,7 @@ public:
 	{
 		if (lifecycle_ != EngineLifecycle::Stopped) return false;
 		extensionServices_.seal();
+		configuration_.seal();
 		lifecycle_ = EngineLifecycle::Initializing;
 		return true;
 	}
@@ -116,6 +121,7 @@ public:
 private:
 	PackageLifecycle& packages_;
 	ServiceCatalog& extensionServices_;
+	RuntimeConfiguration& configuration_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;
 };
 

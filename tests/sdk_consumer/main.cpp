@@ -43,6 +43,9 @@ int main()
 	if (host.serviceCatalog().registerService(
 		"external.test-service", EngineServiceVersion{1, 2}, externalService) !=
 		EngineServiceRegistrationError::None) return 1;
+	if (host.configuration().set(
+		"external.test-value", std::int64_t{23}) !=
+		RuntimeConfigurationSetError::None) return 1;
 
 	ExternalRulesPackage package;
 	if (host.packages().registerPackage(package) != PackageRegistrationError::None ||
@@ -70,5 +73,8 @@ int main()
 			"external.test-service", EngineServiceVersion{1, 1});
 	if (!resolved || resolved.service != &externalService ||
 		!host.serviceCatalog().sealed()) return 6;
+	const std::int64_t* configured =
+		host.configuration().find<std::int64_t>("external.test-value");
+	if (!configured || *configured != 23 || !host.configuration().sealed()) return 7;
 	return 0;
 }

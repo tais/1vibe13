@@ -54,3 +54,9 @@ using portable IDs and major/minor contracts. Registrations are non-owning and
 must outlive the host. The catalog seals when initialization or package
 bootstrap begins, so packages may safely retain a successfully resolved service
 for the runtime session. This is not yet a stable native plugin ABI.
+
+Hosts may also populate `RuntimeConfiguration` with portable keys and boolean,
+signed integer, double, or string values before initialization. Packages read
+the sealed configuration from their bootstrap/runtime context. Replacing a key
+with a different type is rejected so configuration contracts cannot silently
+change beneath consumers.

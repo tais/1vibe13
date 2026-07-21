@@ -26,9 +26,11 @@ public:
 		EngineServices services = EngineServices::defaults(),
 		PackageEventSink& events = NullPackageEventSink::instance(),
 		RuntimeMessageBus& messages = RuntimeMessageBus::disabled(),
-		ServiceCatalog& extensionServices = ServiceCatalog::disabled())
+		ServiceCatalog& extensionServices = ServiceCatalog::disabled(),
+		const RuntimeConfiguration& configuration = RuntimeConfiguration::disabled())
 		: content_(content), assets_(services.assets), services_(withAssets(services, assets_)),
-		  events_(events), messages_(messages), extensionServices_(extensionServices) {}
+		  events_(events), messages_(messages), extensionServices_(extensionServices),
+		  configuration_(configuration) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
 	// registry and application-owned package objects. Preserve that identity;
@@ -521,7 +523,8 @@ public:
 		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
 			return PackageBootstrapError::OutOfOrder;
 
-		PackageBootstrapContext context{content_, services_, messages_, extensionServices_};
+		PackageBootstrapContext context{
+			content_, services_, messages_, extensionServices_, configuration_};
 		for (std::size_t index = 0; index < active_.size(); ++index)
 		{
 			bool succeeded = false;
@@ -570,7 +573,8 @@ public:
 	{
 		if (operationInProgress_) return;
 		OperationGuard operation(operationInProgress_);
-		PackageBootstrapContext context{content_, services_, messages_, extensionServices_};
+		PackageBootstrapContext context{
+			content_, services_, messages_, extensionServices_, configuration_};
 		while (completedBootstrapPhases_ > 0)
 		{
 			const PackageBootstrapPhase phase =
@@ -600,7 +604,8 @@ public:
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
-		PackageBootstrapContext context{content_, services_, messages_, extensionServices_};
+		PackageBootstrapContext context{
+			content_, services_, messages_, extensionServices_, configuration_};
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
@@ -623,7 +628,8 @@ public:
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
-		PackageBootstrapContext context{content_, services_, messages_, extensionServices_};
+		PackageBootstrapContext context{
+			content_, services_, messages_, extensionServices_, configuration_};
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
@@ -647,7 +653,8 @@ public:
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
-		PackageBootstrapContext context{content_, services_, messages_, extensionServices_};
+		PackageBootstrapContext context{
+			content_, services_, messages_, extensionServices_, configuration_};
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
@@ -960,6 +967,7 @@ private:
 	PackageEventSink& events_;
 	RuntimeMessageBus& messages_;
 	ServiceCatalog& extensionServices_;
+	const RuntimeConfiguration& configuration_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;
