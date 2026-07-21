@@ -82,6 +82,26 @@ public:
 	bool throws = false;
 };
 
+class DeclaredContentPackage final : public EnginePackage
+{
+public:
+	explicit DeclaredContentPackage(PackageDescriptor descriptor)
+		: descriptor_(std::move(descriptor)) {}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override
+	{
+		if (active_) return false;
+		active_ = true;
+		return true;
+	}
+	void deactivate() noexcept override { active_ = false; }
+
+private:
+	PackageDescriptor descriptor_;
+	bool active_ = false;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -290,6 +310,41 @@ int main()
 		resourceUsage.total.definitionEntries == 1 &&
 		resourceUsage.unattributedRecords == 0,
 		"package resource accounting attributes owned framework state and totals");
+
+	DeclaredContentPackage declaredContent(PackageDescriptor{
+		ContentManifest{"mod.declared-content", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/en.lang"}, {"nl", "localization/nl.lang"}},
+		{{"item", "field-kit", 2, "definitions/items/field-kit.json"}}});
+	EngineHost<unsigned> declaredContentHost;
+	const PackageRegistrationError declaredContentRegistration =
+		declaredContentHost.packages().registerPackage(declaredContent);
+	const PackageCatalogSnapshot declaredContentSnapshot =
+		declaredContentHost.packageCatalog();
+	const PackageCatalogEntry* declaredContentCatalog =
+		declaredContentSnapshot.find("mod.declared-content");
+	check(declaredContentRegistration == PackageRegistrationError::None &&
+		declaredContentCatalog &&
+		declaredContentCatalog->descriptor.localizationSources.size() == 2 &&
+		declaredContentCatalog->descriptor.localizationSources[1].locale == "nl" &&
+		declaredContentCatalog->descriptor.definitionSources.size() == 1 &&
+		declaredContentCatalog->descriptor.definitionSources[0].schemaVersion == 2,
+		"content API 1.4 preserves declared package sources in catalog snapshots");
+	DeclaredContentPackage oldDeclaredContent(PackageDescriptor{
+		ContentManifest{"mod.old-content", "1", ContentApiVersion{1, 3}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/en.lang"}}, {}});
+	DeclaredContentPackage duplicateDeclaredContent(PackageDescriptor{
+		ContentManifest{"mod.duplicate-content", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {}, {},
+		{{"item", "same", 1, "definitions/one.bin"},
+		 {"item", "same", 2, "definitions/two.bin"}}});
+	EngineHost<unsigned> invalidDeclaredContentHost;
+	check(invalidDeclaredContentHost.packages().registerPackage(oldDeclaredContent) ==
+			PackageRegistrationError::InvalidManifest &&
+		invalidDeclaredContentHost.packages().registerPackage(duplicateDeclaredContent) ==
+			PackageRegistrationError::InvalidManifest,
+		"declared sources require content API 1.4 and unique definition identities");
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;

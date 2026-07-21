@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_PACKAGE_CONTRACT_H
 #define ENGINE_CORE_PACKAGE_CONTRACT_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,23 @@ enum class PackageBootstrapPhase
 	Configure,
 	LoadContent,
 	StartRuntime
+};
+
+// Portable, inspectable declarations for content a package imports during its
+// LoadContent phase. Paths address the package's read-only AssetSource; hosts
+// decide how those sources are represented on disk or in an archive.
+struct PackageLocalizationSource
+{
+	std::string locale;
+	std::string assetPath;
+};
+
+struct PackageDefinitionSource
+{
+	std::string type;
+	std::string id;
+	std::uint32_t schemaVersion = 0;
+	std::string assetPath;
 };
 
 // Engine-owned surface passed to package hooks. New services are added here
@@ -72,6 +90,10 @@ struct PackageDescriptor
 	// Portable host or active-package features required before the first
 	// bootstrap callback. This avoids package/build-target probing in mod code.
 	std::vector<std::string> requiredCapabilities;
+	// Data-only inputs imported into the engine-owned layered catalogs. These
+	// require Content API 1.4 and remain visible in package catalog snapshots.
+	std::vector<PackageLocalizationSource> localizationSources;
+	std::vector<PackageDefinitionSource> definitionSources;
 };
 
 // Packages are owned by the application and must outlive the registry. The
