@@ -422,6 +422,12 @@ public:
 			invalidPackageAudioPlayResult = context.audio.play(
 				"invalid/group", AudioPlaybackRequest{ "Audio/Invalid.wav" } );
 		}
+		if (deferTasksOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedTasksPackageId = context.tasks.packageId();
+			packageTaskResult = context.tasks.defer([this] { ++deferredTaskRuns; });
+			throwingPackageTaskResult = context.tasks.defer([] { throw "test deferred task"; });
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -501,6 +507,10 @@ public:
 	std::string observedAudioPackageId;
 	PackageAudioPlayResult packageAudioPlayResult;
 	PackageAudioPlayResult invalidPackageAudioPlayResult;
+	std::string observedTasksPackageId;
+	PackageTaskScheduleResult packageTaskResult;
+	PackageTaskScheduleResult throwingPackageTaskResult;
+	unsigned deferredTaskRuns = 0;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -516,6 +526,7 @@ public:
 	bool defineOnConfigure = false;
 	bool createEntityOnConfigure = false;
 	bool playAudioOnConfigure = false;
+	bool deferTasksOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -621,6 +632,7 @@ int main( int, char** )
 		package.defineOnConfigure = true;
 		package.createEntityOnConfigure = true;
 		package.playAudioOnConfigure = true;
+		package.deferTasksOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
@@ -670,6 +682,9 @@ int main( int, char** )
 		           PackageAudioPlayError::InvalidGroup &&
 		       audio.isPlaying( package.packageAudioPlayResult.playback ) &&
 		       host.packageAudio().size() == 1 &&
+		       package.observedTasksPackageId == "lifecycle.complete" &&
+		       package.packageTaskResult && package.throwingPackageTaskResult &&
+		       package.deferredTaskRuns == 0 && host.packageTasks().size() == 2 &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       catalogPackage->descriptor.requiredCapabilities ==
 		           std::vector<std::string>({ "host.headless" }) &&
@@ -707,6 +722,12 @@ int main( int, char** )
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
 		       "runtime-started packages receive deterministic per-frame engine updates" );
+		const PackageTaskQueueSnapshot taskSnapshot = host.packageTasks().snapshot();
+		CHECK( package.deferredTaskRuns == 1 && taskSnapshot.queued.empty() &&
+		       taskSnapshot.summary.executed == 1 && taskSnapshot.summary.failed == 1 &&
+		       host.runtimeFaults().snapshot().records.back().kind ==
+		           RuntimeFaultKind::DeferredTask,
+		       "package deferred work runs at the frame boundary and contains failures" );
 		const FrameTelemetrySnapshot telemetry = host.frameTelemetry().snapshot();
 		CHECK( telemetry.summary.completedFrames == 1 && telemetry.samples.size() == 1 &&
 		       telemetry.samples[0].sequence == frame.sequence &&
@@ -816,6 +837,7 @@ int main( int, char** )
 		TestLifecyclePackage package(
 			"lifecycle.rollback", PackageKind::Rules,
 			static_cast<int>(PackageBootstrapPhase::LoadContent) );
+		package.deferTasksOnConfigure = true;
 		host.packages().registerPackage( package );
 		host.packages().activate( "lifecycle.rollback" );
 		const PackageLifecycleAdvanceResult failed =
@@ -823,7 +845,8 @@ int main( int, char** )
 		CHECK( !failed && failed.error == PackageBootstrapError::CallbackFailed &&
 		       failed.phase == PackageBootstrapPhase::LoadContent && failed.rolledBack &&
 		       failed.completedPhases == 0 &&
-		       package.shutdownCalls == std::vector<int>({ 1, 0 }),
+		       package.shutdownCalls == std::vector<int>({ 1, 0 }) &&
+		       package.deferredTaskRuns == 0 && host.packageTasks().size() == 0,
 		       "package lifecycle unwinds all earlier phases after a later startup failure" );
 		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
 		CHECK( stopped && stopped.shutdownPhases == 0 && package.deactivateCalls == 1,

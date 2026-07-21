@@ -36,6 +36,8 @@ set(engine_core_public_headers
   PackageRandomSource.h
   PackageResults.h
   PackageStorage.h
+  PackageTaskQueue.h
+  PackageTasks.h
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h

@@ -40,7 +40,8 @@ public:
 		DefinitionCatalog& definitions = DefinitionCatalog::disabled(),
 		EntityRegistry& entities = EntityRegistry::disabled(),
 		AudioGroupService& audio = AudioGroupService::disabled(),
-		const RuntimeCapabilities* hostCapabilities = nullptr)
+		const RuntimeCapabilities* hostCapabilities = nullptr,
+		PackageTaskQueue& tasks = PackageTaskQueue::disabled())
 		: content_(content), assets_(services.assets),
 		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
 		  services_(withAssets(services, assetCache_)),
@@ -51,6 +52,7 @@ public:
 		  entities_(entities),
 		  audio_(audio),
 		  hostCapabilities_(hostCapabilities),
+		  tasks_(tasks),
 		  packageRandomSeed_(packageRandomSeed),
 		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
 
@@ -87,6 +89,7 @@ public:
 			PackageDefinitions{id, definitions_},
 			PackageEntities{id, entities_},
 			PackageAudio{id, audio_},
+			PackageTasks{id, tasks_},
 			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -179,6 +182,7 @@ public:
 			definitions_.removePackage(id);
 			entities_.removePackage(id);
 			audio_.releasePackage(id);
+			tasks_.removePackage(id);
 			packages_.erase(id);
 			emit(PackageEventKind::Unregistered, id);
 		}
@@ -614,6 +618,7 @@ public:
 					definitions_.removePackage(active_[rollback - 1]);
 					entities_.removePackage(active_[rollback - 1]);
 					audio_.releasePackage(active_[rollback - 1]);
+					tasks_.removePackage(active_[rollback - 1]);
 				}
 				emit(rolledBack ? PackageEventKind::BootstrapRollbackCompleted
 				                : PackageEventKind::BootstrapRollbackFailed,
@@ -654,6 +659,7 @@ public:
 					definitions_.removePackage(*package);
 					entities_.removePackage(*package);
 					audio_.releasePackage(*package);
+					tasks_.removePackage(*package);
 				}
 				emit(shutDown ? PackageEventKind::ShutdownCompleted
 				              : PackageEventKind::ShutdownFailed,
@@ -691,6 +697,12 @@ public:
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
+		tasks_.drain([this](const PackageTaskRecord& task, std::uint64_t failure)
+		{
+			faults_.record(RuntimeFaultKind::DeferredTask, task.packageId,
+				"deferred-task", failure);
+			logError("Deferred package task threw: ", task.packageId);
+		});
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
@@ -896,6 +908,7 @@ private:
 		PackageDefinitions definitions;
 		PackageEntities entities;
 		PackageAudio audio;
+		PackageTasks tasks;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -978,6 +991,8 @@ private:
 			registered.assetsMounted = false;
 		}
 		const bool wasCampaign = activeCampaign_ == packageId;
+		// Drop callbacks before package-owned state may be released by deactivate.
+		tasks_.removePackage(packageId);
 		registered.package->deactivate();
 		localization_.removePackage(packageId);
 		definitions_.removePackage(packageId);
@@ -1088,7 +1103,7 @@ private:
 			content_, services_, messages_, extensionServices_, configuration_,
 			registered.storage, registered.messagePublisher, registered.random,
 			registered.localization, registered.definitions, registered.entities,
-			registered.audio};
+			registered.audio, registered.tasks};
 	}
 
 	PackageBootstrapError preflightServiceContracts()
@@ -1154,6 +1169,7 @@ private:
 	EntityRegistry& entities_;
 	AudioGroupService& audio_;
 	const RuntimeCapabilities* hostCapabilities_;
+	PackageTaskQueue& tasks_;
 	std::uint64_t packageRandomSeed_;
 	std::size_t packageRandomStreamLimit_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
