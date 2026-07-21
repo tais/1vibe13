@@ -2,12 +2,37 @@
 
 #include "GameContext.h"
 
+#include <vfs/Tools/vfs_property_container.h>
+
 #include <cctype>
 #include <utility>
 
 namespace
 {
 constexpr const char* CheckpointSuffix = ".engine-checkpoint";
+
+SaveCompatibilityPolicy& ConfiguredPolicy()
+{
+	static SaveCompatibilityPolicy policy = SaveCompatibilityPolicy::Warn;
+	return policy;
+}
+
+bool IsSeparateOptionValue(const char* value)
+{
+	if (!value || value[0] == '\0' || value[0] == '-') return false;
+#ifdef _WIN32
+	if (value[0] == '/') return false;
+#endif
+	return true;
+}
+
+std::string LowerAscii(std::string value)
+{
+	for (char& character : value)
+		if (character >= 'A' && character <= 'Z')
+			character = static_cast<char>(character - 'A' + 'a');
+	return value;
+}
 }
 
 SaveCompatibilityPolicy ParseSaveCompatibilityPolicy(
@@ -46,6 +71,63 @@ const char* SaveCompatibilityPolicyName(SaveCompatibilityPolicy policy) noexcept
 		case SaveCompatibilityPolicy::RequireMetadata: return "require-metadata";
 	}
 	return "warn";
+}
+
+const char* SaveCompatibilityStateName(SaveCompatibilityState state) noexcept
+{
+	switch (state)
+	{
+		case SaveCompatibilityState::Compatible: return "compatible";
+		case SaveCompatibilityState::LegacyWithoutMetadata: return "legacy-without-metadata";
+		case SaveCompatibilityState::IncompatibleRuntime: return "incompatible-runtime";
+		case SaveCompatibilityState::InvalidMetadata: return "invalid-metadata";
+		case SaveCompatibilityState::StorageError: return "storage-error";
+	}
+	return "invalid-metadata";
+}
+
+SaveCompatibilityPolicy ReadSaveCompatibilityPolicy(
+	vfs::PropertyContainer& properties, int argc, char* const* argv)
+{
+	SaveCompatibilityPolicy policy = SaveCompatibilityPolicy::Warn;
+	vfs::String configured;
+	if (properties.getStringProperty(
+		L"Ja2 Settings", L"SAVE_COMPATIBILITY_POLICY", configured))
+		policy = ParseSaveCompatibilityPolicy(configured.utf8(), policy);
+	for (int index = 1; index < argc; ++index)
+	{
+		if (!argv || !argv[index]) continue;
+		std::string option = argv[index];
+		std::size_t prefix = 0;
+		if (option.compare(0, 2, "--") == 0) prefix = 2;
+		else if (!option.empty() && (option[0] == '-' || option[0] == '/')) prefix = 1;
+		else continue;
+		option.erase(0, prefix);
+		const std::size_t separator = option.find_first_of("=:");
+		const std::string key = LowerAscii(option.substr(0, separator));
+		if (key == "no-save-compatibility")
+		{
+			policy = SaveCompatibilityPolicy::Ignore;
+			continue;
+		}
+		if (key != "save-compatibility") continue;
+		std::string value = separator == std::string::npos
+			? std::string{} : option.substr(separator + 1);
+		if (value.empty() && index + 1 < argc && IsSeparateOptionValue(argv[index + 1]))
+			value = argv[++index];
+		policy = ParseSaveCompatibilityPolicy(value, policy);
+	}
+	return policy;
+}
+
+void ConfigureSaveCompatibilityPolicy(SaveCompatibilityPolicy policy) noexcept
+{
+	ConfiguredPolicy() = policy;
+}
+
+SaveCompatibilityPolicy GetSaveCompatibilityPolicy() noexcept
+{
+	return ConfiguredPolicy();
 }
 
 SaveCompatibilityLoadAction EvaluateSaveCompatibility(

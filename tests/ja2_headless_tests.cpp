@@ -2496,6 +2496,31 @@ int main( int, char** )
 		       !explicitlyDisabledReports.enabled &&
 		       GetRuntimeReportOptions().path == configuredReports.path,
 		       "runtime report options support opt-in INI settings and CLI override/disable" );
+
+		vfs::PropertyContainer saveCompatibilityProperties;
+		saveCompatibilityProperties.setStringProperty(
+			L"Ja2 Settings", L"SAVE_COMPATIBILITY_POLICY", L"enforce-known" );
+		std::vector<std::string> saveCompatibilityArguments = {
+			"ja2", "--save-compatibility", "require-metadata" };
+		std::vector<char*> saveCompatibilityArgumentPointers;
+		for ( std::string& argument : saveCompatibilityArguments )
+			saveCompatibilityArgumentPointers.push_back( &argument[0] );
+		const SaveCompatibilityPolicy requiredMetadata = ReadSaveCompatibilityPolicy(
+			saveCompatibilityProperties,
+			static_cast<int>( saveCompatibilityArgumentPointers.size() ),
+			saveCompatibilityArgumentPointers.data() );
+		char disableSaveCompatibility[] = "--no-save-compatibility";
+		char* disableSaveCompatibilityArguments[] = {
+			executable, disableSaveCompatibility };
+		const SaveCompatibilityPolicy ignored = ReadSaveCompatibilityPolicy(
+			saveCompatibilityProperties, 2, disableSaveCompatibilityArguments );
+		ConfigureSaveCompatibilityPolicy( requiredMetadata );
+		const bool configuredSaveCompatibility =
+			GetSaveCompatibilityPolicy() == SaveCompatibilityPolicy::RequireMetadata;
+		ConfigureSaveCompatibilityPolicy( SaveCompatibilityPolicy::Warn );
+		CHECK( requiredMetadata == SaveCompatibilityPolicy::RequireMetadata &&
+		       ignored == SaveCompatibilityPolicy::Ignore && configuredSaveCompatibility,
+		       "save compatibility policy supports INI defaults and explicit CLI overrides" );
 	}
 
 	{
