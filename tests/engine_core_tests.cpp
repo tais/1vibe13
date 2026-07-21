@@ -1,5 +1,6 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/BinaryArchive.h>
+#include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineRuntime.h>
 #include <Engine/Core/PersistenceService.h>
@@ -43,6 +44,24 @@ int main()
 		capabilities.ids() == std::vector<std::string>({
 			"engine.rendering", "tool.map-editor"}),
 		"runtime capabilities are portable, unique, and deterministically ordered");
+
+	CommandStream<std::string> commandStream(8);
+	check(commandStream.submit(4, "live") == 0 &&
+		commandStream.submitRecorded(3, 7, "recorded") &&
+		!commandStream.submitRecorded(5, 7, "duplicate"),
+		"generic command stream assigns and protects deterministic sequences");
+	const std::vector<ScheduledCommand<std::string>> stagedCommands{
+		{6, 8, "batch-a"}, {6, 9, "batch-b"}};
+	check(commandStream.stageRecordedBatch(stagedCommands) &&
+		commandStream.journal().size() == 4 &&
+		commandStream.queue().size() == 4,
+		"generic command stream stages a complete batch with matching journal records");
+	const std::vector<ScheduledCommand<std::string>> conflictingCommands{
+		{8, 10, "would-stage"}, {8, 7, "conflict"}};
+	check(!commandStream.stageRecordedBatch(conflictingCommands) &&
+		commandStream.journal().size() == 4 &&
+		commandStream.queue().size() == 4,
+		"generic command stream rejects a conflicting batch transactionally");
 
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});

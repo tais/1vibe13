@@ -132,7 +132,9 @@ the engine must not contain SDL types in its public domain model.
   extends that host with the current JA2 tactical command and replay contracts;
   `GameContext` remains the JA2 compatibility facade around it plus legacy
   settings/options.
-- `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
+- `CommandStream<Command>` binds deterministic delivery to its matching
+  best-effort journal without knowing the game's command vocabulary. Its
+  `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
   Tactical end-turn input is the first production path: it queues an
   engine-owned value command and processes it at the existing synchronous call

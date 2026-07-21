@@ -4,9 +4,8 @@
 #include <cstdint>
 #include <utility>
 
-#include <Engine/Core/CommandJournal.h>
 #include <Engine/Core/CommandReplay.h>
-#include <Engine/Core/DeterministicCommandQueue.h>
+#include <Engine/Core/CommandStream.h>
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/SimulationCommand.h>
 
@@ -34,10 +33,10 @@ public:
 	EngineRuntime(EngineRuntime&&) = delete;
 	EngineRuntime& operator=(EngineRuntime&&) = delete;
 
-	DeterministicCommandQueue<SimulationCommand>& commands() { return commands_; }
-	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commands_; }
-	CommandJournal<SimulationCommand>& commandJournal() { return commandJournal_; }
-	const CommandJournal<SimulationCommand>& commandJournal() const { return commandJournal_; }
+	DeterministicCommandQueue<SimulationCommand>& commands() { return commandStream_.queue(); }
+	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commandStream_.queue(); }
+	CommandJournal<SimulationCommand>& commandJournal() { return commandStream_.journal(); }
+	const CommandJournal<SimulationCommand>& commandJournal() const { return commandStream_.journal(); }
 	CommandReplayService& commandReplay() { return commandReplay_; }
 	const CommandReplayService& commandReplay() const { return commandReplay_; }
 
@@ -46,7 +45,8 @@ public:
 		try
 		{
 			return commandReplay_.save(path, SimulationCommandReplay{
-				commandJournal_.snapshot(), commandJournal_.droppedCount()});
+				commandStream_.journal().snapshot(),
+				commandStream_.journal().droppedCount()});
 		}
 		catch (...)
 		{
@@ -68,35 +68,25 @@ public:
 		batch.reserve(replay.records.size());
 		for (const RecordedSimulationCommand& record : replay.records)
 			batch.push_back({record.tick, record.sequence, record.command});
-		if (!commands_.enqueueRecordedBatch(batch))
+		if (!commandStream_.stageRecordedBatch(batch))
 			return CommandReplayStageResult::SequenceConflict;
-		for (const RecordedSimulationCommand& record : replay.records)
-			commandJournal_.recordSubmission(
-				record.tick, record.sequence, record.command);
 		return CommandReplayStageResult::Success;
 	}
 
 	std::uint64_t submitCommand(std::uint64_t tick, SimulationCommand command)
 	{
-		SimulationCommand recorded = command;
-		const std::uint64_t sequence = commands_.enqueue(tick, std::move(command));
-		commandJournal_.recordSubmission(tick, sequence, std::move(recorded));
-		return sequence;
+		return commandStream_.submit(tick, std::move(command));
 	}
 
 	bool submitRecordedCommand(
 		std::uint64_t tick, std::uint64_t sequence, SimulationCommand command)
 	{
-		SimulationCommand recorded = command;
-		if (!commands_.enqueueRecorded(tick, sequence, std::move(command))) return false;
-		commandJournal_.recordSubmission(tick, sequence, std::move(recorded));
-		return true;
+		return commandStream_.submitRecorded(tick, sequence, std::move(command));
 	}
 
 private:
 	CommandReplayService commandReplay_;
-	DeterministicCommandQueue<SimulationCommand> commands_;
-	CommandJournal<SimulationCommand> commandJournal_;
+	CommandStream<SimulationCommand> commandStream_;
 };
 
 #endif

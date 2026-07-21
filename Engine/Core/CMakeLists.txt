@@ -6,6 +6,7 @@ set(engine_core_public_headers
   CommandDispatch.h
   CommandJournal.h
   CommandReplay.h
+  CommandStream.h
   CommandProcessor.h
   ContentApi.h
   DeterministicCommandQueue.h

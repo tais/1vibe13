@@ -38,8 +38,9 @@ prefix or `JA2Engine_DIR` pointing at its `lib/cmake/JA2Engine` directory.
 
 `EngineHost` is the smallest reusable composition root: service contracts,
 packages and capabilities, versioned persistence, assets, state control, and
-lifecycle without any game command vocabulary. The queue and journal building
-blocks are also public. `EngineRuntime` currently layers the JA2 tactical
+lifecycle without any game command vocabulary. The generic `CommandStream`,
+queue, processor, and journal building blocks are also public. `EngineRuntime`
+currently layers the JA2 tactical
 command and replay adapters on that host for source compatibility while those
 adapters move out of the pure Core surface. Platform adapters and legacy game
 types remain outside the SDK boundary.
