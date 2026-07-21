@@ -10,6 +10,7 @@
 #include <Engine/Core/PackageMessagePublisher.h>
 #include <Engine/Core/PackageLocalization.h>
 #include <Engine/Core/PackageDefinitions.h>
+#include <Engine/Core/PackageAudio.h>
 #include <Engine/Core/PackageEntities.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageStorage.h>
@@ -50,6 +51,7 @@ struct PackageBootstrapContext
 	PackageLocalization& localization;
 	PackageDefinitions& definitions;
 	PackageEntities& entities;
+	PackageAudio& audio;
 };
 
 struct PackageDescriptor

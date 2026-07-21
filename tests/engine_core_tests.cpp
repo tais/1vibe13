@@ -175,6 +175,31 @@ int main()
 		entities.create("campaign.base", "second").error ==
 			EntityCreateError::CapacityReached,
 		"entity registry reuses bounded slots without reviving stale generational handles");
+	RecordingAudioOutput groupedAudioOutput;
+	AudioGroupService audioGroups(groupedAudioOutput, 2);
+	const PackageAudioPlayResult firstGroupedPlayback = audioGroups.play(
+		"mod.audio", "ui",
+		AudioPlaybackRequest{"Audio\\Clicks//Select.wav", 22050, 100, 64, 1, false});
+	const PackageAudioPlayResult secondGroupedPlayback = audioGroups.play(
+		"mod.audio", "ui",
+		AudioPlaybackRequest{"audio/clicks/confirm.wav", 22050, 90, 64, 1, false});
+	const PackageAudioOperationResult changedGroup =
+		audioGroups.setGroupVolume("mod.audio", "ui", 80);
+	check(firstGroupedPlayback && secondGroupedPlayback &&
+		groupedAudioOutput.requests().size() == 2 &&
+		groupedAudioOutput.requests()[0].asset == "audio/clicks/select.wav" &&
+		!audioGroups.stop("other.package", firstGroupedPlayback.playback) &&
+		changedGroup.matched == 2 && changedGroup.succeeded == 2 &&
+		audioGroups.play("mod.audio", "ui",
+			AudioPlaybackRequest{"audio/third.wav"}).error ==
+			PackageAudioPlayError::CapacityReached,
+		"package audio groups normalize assets, isolate owners, and enforce a live bound");
+	const PackageAudioOperationResult releasedAudio = audioGroups.releasePackage("mod.audio");
+	check(releasedAudio.matched == 2 && releasedAudio.succeeded == 2 &&
+		audioGroups.size() == 0 &&
+		!groupedAudioOutput.isPlaying(firstGroupedPlayback.playback) &&
+		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback),
+		"package audio teardown stops every playback owned by the package");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -225,7 +250,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 10 &&
+		sessionHost.serviceCatalog().size() == 11 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -244,15 +269,16 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 14,
+		sessionHost.configuration().size() == 15,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
 		diagnostics.frames.summary.completedFrames == 0 &&
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
-		diagnostics.entities.empty() && diagnostics.services.size() == 10 &&
-		diagnostics.configuration.size() == 14 &&
+		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
+		diagnostics.services.size() == 11 &&
+		diagnostics.configuration.size() == 15 &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");

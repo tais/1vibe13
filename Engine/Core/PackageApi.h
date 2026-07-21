@@ -38,7 +38,8 @@ public:
 		RuntimeFaultJournal& faults = RuntimeFaultJournal::disabled(),
 		LocalizationCatalog& localization = LocalizationCatalog::disabled(),
 		DefinitionCatalog& definitions = DefinitionCatalog::disabled(),
-		EntityRegistry& entities = EntityRegistry::disabled())
+		EntityRegistry& entities = EntityRegistry::disabled(),
+		AudioGroupService& audio = AudioGroupService::disabled())
 		: content_(content), assets_(services.assets),
 		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
 		  services_(withAssets(services, assetCache_)),
@@ -47,6 +48,7 @@ public:
 		  configuration_(configuration), faults_(faults), localization_(localization),
 		  definitions_(definitions),
 		  entities_(entities),
+		  audio_(audio),
 		  packageRandomSeed_(packageRandomSeed),
 		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
 
@@ -80,6 +82,7 @@ public:
 			PackageLocalization{id, localization_},
 			PackageDefinitions{id, definitions_},
 			PackageEntities{id, entities_},
+			PackageAudio{id, audio_},
 			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -171,6 +174,7 @@ public:
 			localization_.removePackage(id);
 			definitions_.removePackage(id);
 			entities_.removePackage(id);
+			audio_.releasePackage(id);
 			packages_.erase(id);
 			emit(PackageEventKind::Unregistered, id);
 		}
@@ -603,6 +607,7 @@ public:
 					localization_.removePackage(active_[rollback - 1]);
 					definitions_.removePackage(active_[rollback - 1]);
 					entities_.removePackage(active_[rollback - 1]);
+					audio_.releasePackage(active_[rollback - 1]);
 				}
 				emit(rolledBack ? PackageEventKind::BootstrapRollbackCompleted
 				                : PackageEventKind::BootstrapRollbackFailed,
@@ -642,6 +647,7 @@ public:
 					localization_.removePackage(*package);
 					definitions_.removePackage(*package);
 					entities_.removePackage(*package);
+					audio_.releasePackage(*package);
 				}
 				emit(shutDown ? PackageEventKind::ShutdownCompleted
 				              : PackageEventKind::ShutdownFailed,
@@ -877,6 +883,7 @@ private:
 		PackageLocalization localization;
 		PackageDefinitions definitions;
 		PackageEntities entities;
+		PackageAudio audio;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -963,6 +970,7 @@ private:
 		localization_.removePackage(packageId);
 		definitions_.removePackage(packageId);
 		entities_.removePackage(packageId);
+		audio_.releasePackage(packageId);
 		active_.erase(activePosition);
 		registered.active = false;
 		if (wasCampaign) activeCampaign_.clear();
@@ -1067,7 +1075,8 @@ private:
 		return PackageBootstrapContext{
 			content_, services_, messages_, extensionServices_, configuration_,
 			registered.storage, registered.messagePublisher, registered.random,
-			registered.localization, registered.definitions, registered.entities};
+			registered.localization, registered.definitions, registered.entities,
+			registered.audio};
 	}
 
 	PackageBootstrapError preflightServiceContracts()
@@ -1108,6 +1117,7 @@ private:
 	LocalizationCatalog& localization_;
 	DefinitionCatalog& definitions_;
 	EntityRegistry& entities_;
+	AudioGroupService& audio_;
 	std::uint64_t packageRandomSeed_;
 	std::size_t packageRandomStreamLimit_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;

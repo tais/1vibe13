@@ -129,3 +129,10 @@ boundaries without exposing pointers or legacy array indexes. The registry
 returns a slot plus generation, rejects stale handles after reuse, bounds total
 live identities, and automatically destroys everything owned by a package at
 rollback or shutdown. Domain objects and components stay application-owned.
+
+Play new framework audio through `PackageBootstrapContext::audio`. The package
+identity is host-bound; callers provide a portable logical group and normalized
+asset path, may stop or retune only their own group, and cannot exceed the
+host's sealed playback capacity. Configure rollback and package shutdown stop
+all remaining owned playback. Existing game audio remains on direct
+`AudioOutput` adapters while it is migrated incrementally.

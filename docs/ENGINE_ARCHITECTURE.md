@@ -274,6 +274,11 @@ the engine must not contain SDL types in its public domain model.
   objects. IDs remain safe across messages, commands, saves, and diagnostics;
   destroyed slots increment generation, exhausted generations retire, and all
   identities owned by a package are removed during rollback or shutdown.
+- `AudioGroupService` binds new audio playback to package identity and logical
+  groups above the existing platform output. Assets are normalized, playbacks
+  are bounded and inspectable, packages cannot control another owner's sounds,
+  and rollback or shutdown stops everything they still own. Legacy JA2 callers
+  keep their direct `AudioOutput` path during migration.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
