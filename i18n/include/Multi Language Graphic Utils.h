@@ -48,6 +48,6 @@ enum
 	MLG_ITEMINFOADVANCEDICONS,	// WANNE: Language specific Icons
 };
 
-BOOLEAN GetMLGFilename( SGPFILENAME filename, UINT16 usMLGGraphicID );
+BOOLEAN GetMLGFilename( SGPFILENAME& filename, UINT16 usMLGGraphicID );
 
 #endif

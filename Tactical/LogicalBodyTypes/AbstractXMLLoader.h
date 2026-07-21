@@ -55,7 +55,14 @@ private:
 public:
 	AbstractXMLLoader(XML_StartElementHandler startHandler, XML_EndElementHandler endHandler, XML_CharacterDataHandler charHandler, ParseDataFactoryFunc parseDataFactF = MakeParseData);
 	~AbstractXMLLoader(void);
-	bool LoadFromFile(const char* directoryName, const char* fileName, CHAR8* errorBuf);
+	bool LoadFromFile(const char* directoryName, const char* fileName,
+		CHAR8* errorBuf, size_t errorCapacity);
+	template<size_t N>
+	bool LoadFromFile(const char* directoryName, const char* fileName,
+		CHAR8 (&errorBuf)[N])
+	{
+		return LoadFromFile(directoryName, fileName, errorBuf, N);
+	}
 	const char* GetFileName();
 	const char* GetDirectoryName();
 	void SetFileName(const char* fileName);

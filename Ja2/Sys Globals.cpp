@@ -25,7 +25,7 @@ BOOLEAN	SET_ERROR( const STR8 String, ...)
 	va_list	ArgPtr;
 
 	va_start(ArgPtr, String);
-	vsprintf( gubErrorText, String, ArgPtr);
+	vsnprintf( gubErrorText, sizeof( gubErrorText ), String, ArgPtr);
 	va_end(ArgPtr);
 
 	SetPendingNewScreen( ERROR_SCREEN );

@@ -2760,7 +2760,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	}*/
 
 	//Create the name of the file
-	CreateSavedGameFileNameFromNumber( ubSaveGameID, zSaveGameName );
+	CreateSavedGameFileNameFromNumber( ubSaveGameID, zSaveGameName, sizeof( zSaveGameName ) );
 #if LOADSAVEGAME_LOGTIME
 	TimingLogWrite("Save ");
 	TimingLogWrite(zSaveGameName);
@@ -3849,7 +3849,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	EmptyDialogueQueue( );
 
 	//Create the name of the file
-	CreateSavedGameFileNameFromNumber( ubSavedGameID, zSaveGameName );
+	CreateSavedGameFileNameFromNumber( ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
 
 #if LOADSAVEGAME_LOGTIME
 	TimingLogWrite("Load ");
@@ -7327,7 +7327,7 @@ BOOLEAN LoadWatchedLocsFromSavedGame( HWFILE hFile )
 	return( TRUE );
 }
 
-void CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName )
+void CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName, size_t filenameCapacity )
 {
 	//if we are creating the QuickSave file
 	if( ubSaveGameID == 0 )
@@ -7338,32 +7338,32 @@ void CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName
 		{
 			//if we are loading a game, and the user hasnt saved any consecutinve saves, load the defualt save
 			if( guiCurrentQuickSaveNumber == 0 )
-				sprintf( pzNewFileName , "%s\\%S.%S", gSaveDir, pMessageStrings[ MSG_QUICKSAVE_NAME ], pMessageStrings[ MSG_SAVEEXTENSION ] );
+				snprintf( pzNewFileName, filenameCapacity, "%s\\%S.%S", gSaveDir, pMessageStrings[ MSG_QUICKSAVE_NAME ], pMessageStrings[ MSG_SAVEEXTENSION ] );
 			else
-				sprintf( pzNewFileName , "%s\\%S%02d.%S", gSaveDir, pMessageStrings[ MSG_QUICKSAVE_NAME ], guiCurrentQuickSaveNumber, pMessageStrings[ MSG_SAVEEXTENSION ] );
+				snprintf( pzNewFileName, filenameCapacity, "%s\\%S%02d.%S", gSaveDir, pMessageStrings[ MSG_QUICKSAVE_NAME ], guiCurrentQuickSaveNumber, pMessageStrings[ MSG_SAVEEXTENSION ] );
 		}
 		else
 #endif
-			sprintf( pzNewFileName , "%s\\%S.%S", gSaveDir, pMessageStrings[ MSG_QUICKSAVE_NAME ], pMessageStrings[ MSG_SAVEEXTENSION ] );
+			snprintf( pzNewFileName, filenameCapacity, "%s\\%S.%S", gSaveDir, pMessageStrings[ MSG_QUICKSAVE_NAME ], pMessageStrings[ MSG_SAVEEXTENSION ] );
 	}
 	else if( ubSaveGameID>= SAVE__TIMED_AUTOSAVE_SLOT1 && ubSaveGameID < SAVE__TIMED_AUTOSAVE_SLOT5 + 1 )
 	{
-		sprintf( pzNewFileName , "%s\\%S%02d.%S", gSaveDir, pMessageStrings[ MSG_SAVE_AUTOSAVE_FILENAME ], ubSaveGameID, pMessageStrings[ MSG_SAVEEXTENSION ] );
+		snprintf( pzNewFileName, filenameCapacity, "%s\\%S%02d.%S", gSaveDir, pMessageStrings[ MSG_SAVE_AUTOSAVE_FILENAME ], ubSaveGameID, pMessageStrings[ MSG_SAVEEXTENSION ] );
 	}
 	else if( ubSaveGameID == SAVE__END_TURN_NUM_1 || ubSaveGameID == SAVE__END_TURN_NUM_2 )
 	{
 		if ( ubSaveGameID == SAVE__END_TURN_NUM_1 ) 
-			sprintf( pzNewFileName , "%s\\Auto%02d.%S", gSaveDir, 0, pMessageStrings[ MSG_SAVEEXTENSION ] );
+			snprintf( pzNewFileName, filenameCapacity, "%s\\Auto%02d.%S", gSaveDir, 0, pMessageStrings[ MSG_SAVEEXTENSION ] );
 		else if ( ubSaveGameID == SAVE__END_TURN_NUM_2 ) 
-			sprintf( pzNewFileName , "%s\\Auto%02d.%S", gSaveDir, 1, pMessageStrings[ MSG_SAVEEXTENSION ] );
+			snprintf( pzNewFileName, filenameCapacity, "%s\\Auto%02d.%S", gSaveDir, 1, pMessageStrings[ MSG_SAVEEXTENSION ] );
 	}
 	else if( ubSaveGameID == SAVE__END_TURN_NUM  )
 	{
 			//The name of the file
-			sprintf( pzNewFileName , "%s\\Auto%02d.%S", gSaveDir, guiLastSaveGameNum, pMessageStrings[ MSG_SAVEEXTENSION ] );
+			snprintf( pzNewFileName, filenameCapacity, "%s\\Auto%02d.%S", gSaveDir, guiLastSaveGameNum, pMessageStrings[ MSG_SAVEEXTENSION ] );
 	}
 	else
-		sprintf( pzNewFileName , "%s\\%S%02d.%S", gSaveDir, pMessageStrings[ MSG_SAVE_NAME ], ubSaveGameID - SAVE__END_TURN_NUM_2, pMessageStrings[ MSG_SAVEEXTENSION ] );
+		snprintf( pzNewFileName, filenameCapacity, "%s\\%S%02d.%S", gSaveDir, pMessageStrings[ MSG_SAVE_NAME ], ubSaveGameID - SAVE__END_TURN_NUM_2, pMessageStrings[ MSG_SAVEEXTENSION ] );
 }
 
 

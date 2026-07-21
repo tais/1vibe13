@@ -1907,7 +1907,9 @@ void GetShortSectorString( INT16 sMapX, INT16 sMapY, CHAR16 *sString )
 }
 
 
-void GetMapFileName( INT16 sMapX, INT16 sMapY, INT8 bSectorZ, CHAR8 *bString, BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter )
+void GetMapFileName( INT16 sMapX, INT16 sMapY, INT8 bSectorZ,
+	CHAR8 *bString, size_t stringCapacity,
+	BOOLEAN fUsePlaceholder, BOOLEAN fAddAlternateMapLetter )
 {
 	CHAR8	 bTestString[150];
 	CHAR8	 bExtensionString[15];
@@ -1948,7 +1950,7 @@ void GetMapFileName( INT16 sMapX, INT16 sMapY, INT8 bSectorZ, CHAR8 *bString, BO
 #endif
 
 	// This is the string to return, but...
-	sprintf( bString, "%s%s%s.DAT", pVertStrings[sMapY], pHortStrings[sMapX], bExtensionString );
+	snprintf( bString, stringCapacity, "%s%s%s.DAT", pVertStrings[sMapY], pHortStrings[sMapX], bExtensionString );
 
 	// We will test against this string
 	sprintf( bTestString, "MAPS\\%s", bString );
@@ -1958,7 +1960,7 @@ void GetMapFileName( INT16 sMapX, INT16 sMapY, INT8 bSectorZ, CHAR8 *bString, BO
 		// Debug str
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Map does not exist for %s, using default.", bTestString ) );
 		// Set to a string we know!
-		sprintf( bString, "H10.DAT");
+		snprintf( bString, stringCapacity, "%s", "H10.DAT");
 		ScreenMsg( FONT_YELLOW, MSG_DEBUG, L"Using PLACEHOLDER map!" );
 	}
 	return;

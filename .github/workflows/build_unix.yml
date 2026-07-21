@@ -206,7 +206,7 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DLanguages=ENGLISH -DApplications=JA2 -DADDRESS_SANITIZER=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build test binaries
-        run: cmake --build build --target ja2_headless_tests mp_netshim_tests engine_core_tests
+        run: cmake --build build --target ja2_headless_tests mp_netshim_tests engine_core_tests ja2_runtime_adapter_tests
 
       - name: Run tests under AddressSanitizer
         run: |

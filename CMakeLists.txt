@@ -376,7 +376,7 @@ foreach(app IN LISTS ApplicationTargets)
         $<TARGET_OBJECTS:ja2_engine_legacy_adapters>)
     endif()
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
-    target_link_libraries(${game_library} PUBLIC JA2::EngineCore)
+    target_link_libraries(${game_library} PUBLIC JA2::RuntimeAdapter)
 
 	# Cinematics.cpp is compiled as part of Utils and directly consumes both
 	# SDL3 and libsmacker headers/APIs. Express that relationship on the target

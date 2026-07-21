@@ -2991,7 +2991,7 @@ BOOLEAN JA2EncryptedFileWrite( HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, U
 
 }
 
-void GetMapTempFileName( UINT32 uiType, CHAR8 *pMapName, INT16 sMapX, INT16 sMapY, INT8 bMapZ )
+void GetMapTempFileName( UINT32 uiType, CHAR8 *pMapName, size_t mapNameCapacity, INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
 	CHAR	zTempName[512];
 
@@ -3001,51 +3001,51 @@ void GetMapTempFileName( UINT32 uiType, CHAR8 *pMapName, INT16 sMapX, INT16 sMap
 	switch( uiType )
 	{
 		case SF_ITEM_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\i_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\i_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_ROTTING_CORPSE_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\r_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\r_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_MAP_MODIFICATIONS_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\m_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\m_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_DOOR_TABLE_TEMP_FILES_EXISTS:
-			sprintf( pMapName, "%s\\d_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\d_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_REVEALED_STATUS_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\v_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\v_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_DOOR_STATUS_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\ds_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\ds_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_ENEMY_PRESERVED_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\e_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\e_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_CIV_PRESERVED_TEMP_FILE_EXISTS:
 			// NB save game version 0 is "saving game"
 			if ( (gTacticalStatus.uiFlags & LOADING_SAVED_GAME) && guiCurrentSaveGameVersion != 0 && guiCurrentSaveGameVersion < 78 )
 			{
-				sprintf( pMapName, "%s\\c_%s", MAPS_DIR, zTempName);
+				snprintf( pMapName, mapNameCapacity, "%s\\c_%s", MAPS_DIR, zTempName);
 			}
 			else
 			{
-				sprintf( pMapName, "%s\\cc_%s", MAPS_DIR, zTempName);
+				snprintf( pMapName, mapNameCapacity, "%s\\cc_%s", MAPS_DIR, zTempName);
 			}
 			break;
 
 		case SF_SMOKE_EFFECTS_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\sm_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\sm_%s", MAPS_DIR, zTempName);
 			break;
 
 		case SF_LIGHTING_EFFECTS_TEMP_FILE_EXISTS:
-			sprintf( pMapName, "%s\\l_%s", MAPS_DIR, zTempName);
+			snprintf( pMapName, mapNameCapacity, "%s\\l_%s", MAPS_DIR, zTempName);
 			break;
 
 		default:

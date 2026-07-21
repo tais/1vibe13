@@ -119,7 +119,13 @@ void InitExitGameDialogBecauseFileHackDetected();
 
 void HandleAllReachAbleItemsInTheSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ );
 
-void GetMapTempFileName( UINT32 uiType, CHAR8 *pMapName, INT16 sMapX, INT16 sMapY, INT8 bMapZ );
+void GetMapTempFileName( UINT32 uiType, CHAR8 *pMapName, size_t mapNameCapacity, INT16 sMapX, INT16 sMapY, INT8 bMapZ );
+
+template<size_t N>
+inline void GetMapTempFileName( UINT32 uiType, CHAR8 (&pMapName)[N], INT16 sMapX, INT16 sMapY, INT8 bMapZ )
+{
+	GetMapTempFileName( uiType, pMapName, N, sMapX, sMapY, bMapZ );
+}
 
 
 UINT32	GetNumberOfVisibleWorldItemsFromSectorStructureForSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ );

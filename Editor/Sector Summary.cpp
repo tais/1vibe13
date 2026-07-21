@@ -2218,12 +2218,15 @@ void CalculateOverrideStatus()
 		CHAR8 *ptr;
 		sprintf( szFilename, "MAPS\\%S", gszTempFilename );
 		if( strlen( szFilename ) == 5 )
-			strcat( szFilename, "test.dat" );
+			snprintf( szFilename + 5, sizeof( szFilename ) - 5, "test.dat" );
 		ptr = strstr( szFilename, "." );
 		if( !ptr )
-			strcat( szFilename, ".dat" );
+		{
+			const size_t length = strlen( szFilename );
+			snprintf( szFilename + length, sizeof( szFilename ) - length, ".dat" );
+		}
 		else
-			sprintf( ptr, ".dat" );
+			snprintf( ptr, sizeof( szFilename ) - static_cast<size_t>( ptr - szFilename ), ".dat" );
 	}
 	else
 		sprintf( szFilename, "MAPS\\%S", gszFilename );

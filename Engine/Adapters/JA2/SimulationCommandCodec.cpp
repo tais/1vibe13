@@ -1,4 +1,4 @@
-#include <Engine/Core/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 
 #include <cstddef>
 #include <type_traits>

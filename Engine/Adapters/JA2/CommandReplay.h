@@ -1,12 +1,12 @@
-#ifndef ENGINE_CORE_COMMAND_REPLAY_H
-#define ENGINE_CORE_COMMAND_REPLAY_H
+#ifndef ENGINE_ADAPTERS_JA2_COMMAND_REPLAY_H
+#define ENGINE_ADAPTERS_JA2_COMMAND_REPLAY_H
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include <Engine/Core/PersistenceService.h>
-#include <Engine/Core/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 
 struct SimulationCommandReplay
 {

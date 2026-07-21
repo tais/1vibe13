@@ -3860,7 +3860,7 @@ BOOLEAN	LoadInventoryPoolQ (UINT8 ubSaveGameID)
 	ResetMapInventoryOffsets();
 
 	ret = FALSE;
-	CreateSavedGameFileNameFromNumber(ubSaveGameID, tmpbuf);
+	CreateSavedGameFileNameFromNumber(ubSaveGameID, tmpbuf, sizeof(tmpbuf));
 	strcat(tmpbuf, ".IPQ");
 	
 	//MM:  This check is sometimes required while debugging a save game from release mode
@@ -3941,7 +3941,7 @@ BOOLEAN SaveInventoryPoolQ(UINT8 ubSaveGameID)
 	ResetMapInventoryOffsets();
 
 	ret = FALSE;
-	CreateSavedGameFileNameFromNumber(ubSaveGameID, tmpbuf);
+	CreateSavedGameFileNameFromNumber(ubSaveGameID, tmpbuf, sizeof(tmpbuf));
 	strcat(tmpbuf, ".IPQ");
 	if(FileExists(tmpbuf))//dnl ch75 021113
 		FileDelete(tmpbuf);

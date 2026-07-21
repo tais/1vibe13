@@ -1,8 +1,9 @@
-#include <Engine/Core/EngineRuntime.h>
+#include <Engine/Core/EngineHost.h>
 
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 class ExternalRulesPackage final : public EnginePackage
 {
@@ -36,29 +37,29 @@ int main()
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
 	RuntimeCapabilities hostCapabilities;
 	if (!hostCapabilities.add("host.external-consumer")) return 1;
-	EngineRuntime<> runtime(services, CurrentContentApiVersion,
+	EngineHost<> host(services, CurrentContentApiVersion,
 		NullPackageEventSink::instance(), std::move(hostCapabilities));
 
 	ExternalRulesPackage package;
-	if (runtime.packages().registerPackage(package) != PackageRegistrationError::None ||
-		runtime.packages().activate("external.rules") != PackageActivationError::None ||
-		!runtime.hasCapability("host.external-consumer") ||
-		!runtime.hasCapability("rules.external-consumer")) return 2;
+	if (host.packages().registerPackage(package) != PackageRegistrationError::None ||
+		host.packages().activate("external.rules") != PackageActivationError::None ||
+		!host.hasCapability("host.external-consumer") ||
+		!host.hasCapability("rules.external-consumer")) return 2;
 
-	runtime.submitCommand(7, SimulationCommand{
-		EndTurnCommand{2, SimulationCommandSource::LocalPlayer}});
-	if (runtime.saveCommandReplay("external.replay") !=
-		CommandReplaySaveResult::Success) return 3;
-	SimulationCommandReplay replay;
-	if (runtime.loadCommandReplay("external.replay", replay) !=
-			CommandReplayLoadResult::Success ||
-		replay.records.size() != 1 || replay.records[0].tick != 7) return 4;
+	const std::vector<std::uint8_t> saved{2, 3, 5, 7};
+	if (host.persistence().saveEnvelope(
+		"external.record", PersistenceHeader{0x54534f48u, 1}, saved) !=
+		PersistenceSaveResult::Success) return 3;
+	PersistenceHeader header{};
+	std::vector<std::uint8_t> loaded;
+	if (host.persistence().loadEnvelope(
+		"external.record", 0x54534f48u, 1, 1, header, loaded) !=
+			PersistenceLoadResult::Success ||
+		header.version != 1 || loaded != saved) return 4;
 
-	EngineRuntime<> playback(services);
-	if (playback.stageCommandReplay(replay) != CommandReplayStageResult::Success)
-		return 5;
-	const auto commands = playback.commands().drainThrough(7);
-	if (commands.size() != 1 || commands[0].sequence != 0 ||
-		std::get<EndTurnCommand>(commands[0].command).nextTeam != 2) return 6;
+	host.screenController().reset(7);
+	if (!host.screens().current() || host.screens().current()->state != 7 ||
+		!host.beginInitialization() || !host.markRunning() ||
+		!host.beginShutdown() || !host.markStopped()) return 5;
 	return 0;
 }
