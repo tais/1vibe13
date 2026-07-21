@@ -26,6 +26,7 @@ set(engine_core_public_headers
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h
+  RuntimeUpdate.h
   StateController.h
   StateRegistry.h
   StateStack.h

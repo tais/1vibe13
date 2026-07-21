@@ -6,6 +6,7 @@
 
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/InputDispatcher.h>
+#include <Engine/Core/RuntimeUpdate.h>
 
 struct FramePlan
 {
@@ -21,6 +22,7 @@ struct FrameRunResult
 	bool presented = false;
 	FramePresentMode presentationMode = FramePresentMode::Paced;
 	InputDispatchResult input;
+	RuntimeUpdateDispatchResult runtimeUpdates;
 };
 
 // Game-agnostic orchestration for one application frame. The application owns
@@ -31,8 +33,9 @@ struct FrameRunResult
 class FrameDriver
 {
 public:
-	FrameDriver(EngineServices& services, InputDispatcher& input)
-		: services_(services), input_(input) {}
+	FrameDriver(EngineServices& services, InputDispatcher& input,
+		RuntimeUpdateDispatcher& runtimeUpdates)
+		: services_(services), input_(input), runtimeUpdates_(runtimeUpdates) {}
 
 	FrameDriver(const FrameDriver&) = delete;
 	FrameDriver& operator=(const FrameDriver&) = delete;
@@ -43,24 +46,39 @@ public:
 	FrameRunResult runFrame(PrepareFrame&& prepareFrame, CompleteFrame&& completeFrame)
 	{
 		const std::uint64_t startedAt = services_.time.nowMicroseconds();
+		const std::uint64_t sequence = completedFrames_ + 1;
 		const InputDispatchResult input = input_.dispatchPending();
+		const std::uint64_t elapsed = hasCompletedFrame_ && startedAt >= previousFrameStartedAt_
+			? startedAt - previousFrameStartedAt_ : 0;
+		const RuntimeUpdateDispatchResult runtimeUpdates = runtimeUpdates_.dispatch(
+			RuntimeUpdateContext{sequence, startedAt, elapsed});
 		const FramePlan plan = std::forward<PrepareFrame>(prepareFrame)();
 		if (plan.present)
 			services_.frames.present(plan.presentationMode);
 		std::forward<CompleteFrame>(completeFrame)();
-		const std::uint64_t sequence = ++completedFrames_;
+		completedFrames_ = sequence;
+		previousFrameStartedAt_ = startedAt;
+		hasCompletedFrame_ = true;
 		return FrameRunResult{
 			sequence, startedAt, services_.time.nowMicroseconds(),
-			plan.present, plan.presentationMode, input};
+			plan.present, plan.presentationMode, input, runtimeUpdates};
 	}
 
 	std::uint64_t completedFrames() const { return completedFrames_; }
-	void resetFrameSequence() { completedFrames_ = 0; }
+	void resetFrameSequence()
+	{
+		completedFrames_ = 0;
+		previousFrameStartedAt_ = 0;
+		hasCompletedFrame_ = false;
+	}
 
 private:
 	EngineServices& services_;
 	InputDispatcher& input_;
+	RuntimeUpdateDispatcher& runtimeUpdates_;
 	std::uint64_t completedFrames_ = 0;
+	std::uint64_t previousFrameStartedAt_ = 0;
+	bool hasCompletedFrame_ = false;
 };
 
 #endif

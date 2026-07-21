@@ -44,6 +44,8 @@ public:
 	const FrameDriver& frameDriver() const { return runtime_.frameDriver(); }
 	InputDispatcher& inputDispatcher() { return runtime_.inputDispatcher(); }
 	const InputDispatcher& inputDispatcher() const { return runtime_.inputDispatcher(); }
+	RuntimeUpdateDispatcher& runtimeUpdates() { return runtime_.runtimeUpdates(); }
+	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtime_.runtimeUpdates(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }

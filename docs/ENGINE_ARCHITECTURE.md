@@ -198,6 +198,10 @@ the engine must not contain SDL types in its public domain model.
   accepted legacy queue events, so engine packages receive live input without
   consuming or reordering the tactical/UI event queue. Runtime-started packages
   receive these events in activation order; callback exceptions are isolated.
+- `RuntimeUpdateDispatcher` follows input delivery with a deterministic update
+  hook for runtime-started packages. Each update carries engine frame identity,
+  monotonic start time, and elapsed time since the previous completed frame;
+  package failures are contained before the legacy application state runs.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

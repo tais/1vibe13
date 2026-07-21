@@ -29,6 +29,19 @@ public:
 	bool throws = false;
 };
 
+class TestRuntimeUpdateSink final : public RuntimeUpdateSink
+{
+public:
+	void updateRuntime(const RuntimeUpdateContext& context) override
+	{
+		updates.push_back(context);
+		if (throws) throw 1;
+	}
+
+	std::vector<RuntimeUpdateContext> updates;
+	bool throws = false;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -134,7 +147,18 @@ int main()
 		"input dispatcher retains deterministic unique subscribers");
 	frameInput.push(EngineInputEvent{10, 0, 1, 65, 0, 1, 3});
 	frameInput.push(EngineInputEvent{20, 0, 2, 65, 0, 2, 0});
-	FrameDriver frameDriver(frameServices, inputDispatcher);
+	RuntimeUpdateDispatcher runtimeUpdates;
+	TestRuntimeUpdateSink receivingUpdates;
+	TestRuntimeUpdateSink throwingUpdates;
+	throwingUpdates.throws = true;
+	check(runtimeUpdates.addSink(receivingUpdates) ==
+		RuntimeUpdateSinkRegistrationError::None &&
+		runtimeUpdates.addSink(throwingUpdates) ==
+		RuntimeUpdateSinkRegistrationError::None &&
+		runtimeUpdates.addSink(receivingUpdates) ==
+		RuntimeUpdateSinkRegistrationError::Duplicate,
+		"runtime update dispatcher retains deterministic unique subscribers");
+	FrameDriver frameDriver(frameServices, inputDispatcher, runtimeUpdates);
 	unsigned frameOrder = 0;
 	const FrameRunResult presentedFrame = frameDriver.runFrame(
 		[&] {
@@ -157,12 +181,22 @@ int main()
 		presentedFrame.input.sourceDrops == 3 && presentedFrame.input.limitReached &&
 		receivingInput.events.size() == 1 && throwingInput.events.size() == 1,
 		"frame driver dispatches bounded input before update and isolates subscriber failures");
+	check(presentedFrame.runtimeUpdates.delivered == 1 &&
+		presentedFrame.runtimeUpdates.callbackFailures == 1 &&
+		receivingUpdates.updates.size() == 1 &&
+		receivingUpdates.updates[0].frameSequence == 1 &&
+		receivingUpdates.updates[0].startedAtMicroseconds == 0 &&
+		receivingUpdates.updates[0].elapsedSincePreviousFrameMicroseconds == 0,
+		"frame driver dispatches deterministic runtime updates before application work");
 	const FrameRunResult skippedFrame = frameDriver.runFrame(
 		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
 	check(skippedFrame.sequence == 2 && !skippedFrame.presented &&
 		framePresenter.presentations().size() == 1 &&
 		frameDriver.completedFrames() == 2 && skippedFrame.input.polled == 1 &&
-		receivingInput.events.size() == 2 && receivingInput.events.back().type == 2,
+		receivingInput.events.size() == 2 && receivingInput.events.back().type == 2 &&
+		receivingUpdates.updates.size() == 2 &&
+		receivingUpdates.updates.back().frameSequence == 2 &&
+		receivingUpdates.updates.back().elapsedSincePreviousFrameMicroseconds == 40,
 		"frame driver preserves skipped-frame policy without presenting");
 
 	BinaryWriter writer;

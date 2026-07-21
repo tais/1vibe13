@@ -392,10 +392,16 @@ public:
 		inputEvents.push_back(event);
 		if (throwOnInput) throw "test package input exception";
 	}
+	void updateRuntime(PackageBootstrapContext&, const RuntimeUpdateContext& update) override
+	{
+		runtimeUpdates.push_back(update);
+		if (throwOnRuntimeUpdate) throw "test package runtime update exception";
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
 	std::vector<EngineInputEvent> inputEvents;
+	std::vector<RuntimeUpdateContext> runtimeUpdates;
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
@@ -406,6 +412,7 @@ public:
 	bool activationSucceeds = true;
 	int throwPhase = -1;
 	bool throwOnInput = false;
+	bool throwOnRuntimeUpdate = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -502,6 +509,10 @@ int main( int, char** )
 		CHECK( frame.input.polled == 1 && package.inputEvents.size() == 1 &&
 		       package.inputEvents[0].modifiers == 2 && package.inputEvents[0].primary == 65,
 		       "runtime-started packages receive live mirrored input before the application frame" );
+		CHECK( frame.runtimeUpdates.delivered == 1 && package.runtimeUpdates.size() == 1 &&
+		       package.runtimeUpdates[0].frameSequence == 1 &&
+		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
+		       "runtime-started packages receive deterministic per-frame engine updates" );
 		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
 		CHECK( stopped && stopped.shutdownPhases == 3 &&
 		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&

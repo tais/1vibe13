@@ -14,6 +14,7 @@
 #include <Engine/Core/PackageLifecycle.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/StateController.h>
 #include <Engine/Core/StateRegistry.h>
 #include <Engine/Core/StateStack.h>
@@ -40,11 +41,12 @@ public:
 		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
 		  packageLifecycle_(packages_), inputDispatcher_(packages_.services().input),
-		  frameDriver_(packages_.services(), inputDispatcher_),
+		  frameDriver_(packages_.services(), inputDispatcher_, runtimeUpdates_),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
 		inputDispatcher_.addSink(packages_);
+		runtimeUpdates_.addSink(packages_);
 	}
 
 	// PackageRegistry keeps references to this host's ContentRegistry. Stable
@@ -67,6 +69,8 @@ public:
 	const FrameDriver& frameDriver() const { return frameDriver_; }
 	InputDispatcher& inputDispatcher() { return inputDispatcher_; }
 	const InputDispatcher& inputDispatcher() const { return inputDispatcher_; }
+	RuntimeUpdateDispatcher& runtimeUpdates() { return runtimeUpdates_; }
+	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtimeUpdates_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -134,6 +138,7 @@ private:
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	InputDispatcher inputDispatcher_;
+	RuntimeUpdateDispatcher runtimeUpdates_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCapabilities hostCapabilities_;
