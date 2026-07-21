@@ -38,6 +38,7 @@ set(engine_core_public_headers
   PackageRandomSource.h
   PackageResourceUsage.h
   PackageResults.h
+  PackageSaveArchive.h
   PackageSaveState.h
   PackageStorage.h
   PackageTaskQueue.h
@@ -75,6 +76,7 @@ add_library(ja2_engine_core STATIC
   Identifier.cpp
   LocalizationDocument.cpp
   PackageContentLoader.cpp
+  PackageSaveArchive.cpp
   PersistenceService.cpp
   PackageResourceUsage.cpp
   RuntimeCapabilities.cpp
