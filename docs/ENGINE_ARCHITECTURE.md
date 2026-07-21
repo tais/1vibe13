@@ -126,9 +126,12 @@ the engine must not contain SDL types in its public domain model.
   that depend on lifecycle-mounted asset sources; 1.2 adds ordered package
   requirements; 1.3 adds optional requirements, conflicts, and weak ordering.
   Older content remains valid when it does not use newer contracts.
-- `EngineRuntime` owns campaign-independent lifecycle, screen state, content,
-  packages, and service bindings. `GameContext` is now a JA2 compatibility
-  facade around that reusable composition root plus legacy settings/options.
+- `EngineHost` is the command- and game-agnostic composition root. It owns
+  lifecycle, screen state, content, packages, capabilities, persistence, and
+  service bindings for games, tools, package hosts, and tests. `EngineRuntime`
+  extends that host with the current JA2 tactical command and replay contracts;
+  `GameContext` remains the JA2 compatibility facade around it plus legacy
+  settings/options.
 - `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
   Tactical end-turn input is the first production path: it queues an
@@ -161,7 +164,7 @@ the engine must not contain SDL types in its public domain model.
   defaults remain compatibility adapters, while live campaign decisions can
   now query the active package rather than a preprocessor branch.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
-  `EngineRuntime` owns the `PersistenceService` bound to its configured byte
+  `EngineHost` owns the `PersistenceService` bound to its configured byte
   storage, so package hosts, games, and tools share one persistence boundary.
   Established raw and versioned records retain their wire format; new records
   can opt into a bounded envelope with an explicit payload length and checksum.

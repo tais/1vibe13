@@ -10,6 +10,7 @@ set(engine_core_public_headers
   ContentApi.h
   DeterministicCommandQueue.h
   EngineRuntime.h
+  EngineHost.h
   EngineServices.h
   FramePresenter.h
   Identifier.h

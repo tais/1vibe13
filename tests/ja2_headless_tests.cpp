@@ -37,6 +37,7 @@
 #include "vsurface.h"
 #include <Engine/Core/UniqueResourceHandle.h>
 #include <Engine/Core/UniqueResourcePtr.h>
+#include <Engine/Core/EngineHost.h>
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Core/SimulationCommand.h>
@@ -439,6 +440,10 @@ int main( int, char** )
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
 
 	{
+		static_assert( !std::is_copy_constructible<EngineHost<unsigned>>::value,
+		               "engine host must retain stable internal references" );
+		static_assert( !std::is_move_constructible<EngineHost<unsigned>>::value,
+		               "engine host must retain stable internal references" );
 		static_assert( !std::is_copy_constructible<EngineRuntime<unsigned>>::value,
 		               "engine runtime must retain stable internal references" );
 		static_assert( !std::is_move_constructible<EngineRuntime<unsigned>>::value,
@@ -449,13 +454,13 @@ int main( int, char** )
 		static_assert( !std::is_copy_constructible<CompositeAssetSource>::value &&
 		               !std::is_move_constructible<CompositeAssetSource>::value,
 		               "asset overlay identity must remain stable to prevent graph cycles" );
-		EngineRuntime<unsigned> runtime;
-		runtime.screenController().reset( 7 );
-		CHECK( runtime.screens().current() && runtime.screens().current()->state == 7,
-		       "campaign-independent engine runtime owns screen state" );
-		CHECK( runtime.beginInitialization() && runtime.markRunning() &&
-		       runtime.beginShutdown() && runtime.markStopped(),
-		       "campaign-independent engine runtime owns lifecycle" );
+		EngineHost<unsigned> host;
+		host.screenController().reset( 7 );
+		CHECK( host.screens().current() && host.screens().current()->state == 7,
+		       "command-agnostic engine host owns screen state" );
+		CHECK( host.beginInitialization() && host.markRunning() &&
+		       host.beginShutdown() && host.markStopped(),
+		       "command-agnostic engine host owns lifecycle" );
 	}
 
 	{
