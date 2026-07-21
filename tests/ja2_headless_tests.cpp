@@ -58,6 +58,7 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
+#include "popup_class.h"
 #include "Soldier Control.h"
 #include "MovementDestinationPolicy.h"
 #include <vfs/Tools/vfs_hp_timer.h>
@@ -217,6 +218,20 @@ struct TestResourceReleaser
 	}
 };
 using TestResourceHandle = UniqueResourceHandle<TestResourceTag, TestResourceReleaser>;
+
+static UINT32 g_popupCallbackDestructionCount = 0;
+static UINT32 g_popupCallbackCallCount = 0;
+class CountingPopupCallback final : public popupCallback
+{
+public:
+	~CountingPopupCallback() override { ++g_popupCallbackDestructionCount; }
+	void bind(void*) override {}
+	bool call() override
+	{
+		++g_popupCallbackCallCount;
+		return true;
+	}
+};
 
 class FailingAssetSource final : public AssetSource
 {
@@ -444,6 +459,36 @@ int main( int, char** )
 		}
 		CHECK( g_releasedResource == 126 && g_resourceReleaseCount == 2,
 		       "resource handle destructor releases exactly once" );
+	}
+
+	{
+		CHECK( !std::is_copy_constructible<POPUP_OPTION>::value &&
+		       !std::is_copy_assignable<POPUP_OPTION>::value &&
+		       !std::is_move_constructible<POPUP_OPTION>::value &&
+		       !std::is_copy_constructible<POPUP>::value,
+		       "popup owners cannot be copied or accidentally moved" );
+		g_popupCallbackDestructionCount = 0;
+		g_popupCallbackCallCount = 0;
+		{
+			POPUP_OPTION option;
+			auto* action = new CountingPopupCallback;
+			option.setAction( action );
+			option.setAction( action );
+			CHECK( g_popupCallbackDestructionCount == 0 && option.run(),
+			       "assigning the same popup callback preserves its lifetime" );
+			option.setAction( new CountingPopupCallback );
+			option.setAvail( new CountingPopupCallback );
+			option.setHover( new CountingPopupCallback );
+			CHECK( g_popupCallbackDestructionCount == 1 && option.runHoverCallback( nullptr ),
+			       "replacing a popup callback releases the previous owner once" );
+			option.setAction( nullptr );
+			option.setAvail( nullptr );
+			option.setHover( nullptr );
+			CHECK( g_popupCallbackDestructionCount == 4,
+			       "clearing popup callbacks releases every owned callback" );
+		}
+		CHECK( g_popupCallbackDestructionCount == 4 && g_popupCallbackCallCount == 2,
+		       "popup option teardown does not double-delete cleared callbacks" );
 	}
 
 	{

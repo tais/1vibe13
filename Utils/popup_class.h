@@ -70,6 +70,10 @@
 		POPUP_OPTION(const std::wstring& name, popupCallback* newFunction);
 		POPUP_OPTION(std::wstring* name, popupCallback* newFunction); // constructor
 		~POPUP_OPTION();			// destructor
+		POPUP_OPTION(const POPUP_OPTION&) = delete;
+		POPUP_OPTION& operator=(const POPUP_OPTION&) = delete;
+		POPUP_OPTION(POPUP_OPTION&&) = delete;
+		POPUP_OPTION& operator=(POPUP_OPTION&&) = delete;
 		// setup
 		BOOLEAN setName(std::wstring * name);
 		BOOLEAN setName(const std::wstring& name);
@@ -142,6 +146,10 @@
 		POPUP(void); // constructor
 		POPUP(const CHAR8 *name); // constructor
 		~POPUP(void);			// destructor
+		POPUP(const POPUP&) = delete;
+		POPUP& operator=(const POPUP&) = delete;
+		POPUP(POPUP&&) = delete;
+		POPUP& operator=(POPUP&&) = delete;
 		// setup
 		POPUP_OPTION * addOption(std::wstring * name, popupCallback * action);
 		POPUP_OPTION * addOption(const std::wstring& name, popupCallback * action);
