@@ -1,0 +1,157 @@
+#ifndef ENGINE_CORE_SERVICE_CATALOG_H
+#define ENGINE_CORE_SERVICE_CATALOG_H
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <Engine/Core/Identifier.h>
+
+struct EngineServiceVersion
+{
+	std::uint16_t major = 0;
+	std::uint16_t minor = 0;
+
+	bool supports(EngineServiceVersion required) const
+	{
+		return major == required.major && minor >= required.minor;
+	}
+};
+
+struct EngineServiceDescriptor
+{
+	std::string id;
+	EngineServiceVersion version;
+};
+
+enum class EngineServiceRegistrationError
+{
+	None,
+	InvalidDescriptor,
+	DuplicateId,
+	Sealed,
+	AllocationFailure
+};
+
+enum class EngineServiceLookupError
+{
+	None,
+	NotFound,
+	IncompatibleVersion,
+	TypeMismatch
+};
+
+template<typename Service>
+struct EngineServiceLookupResult
+{
+	EngineServiceLookupError error = EngineServiceLookupError::None;
+	Service* service = nullptr;
+	EngineServiceVersion availableVersion;
+
+	explicit operator bool() const
+	{
+		return error == EngineServiceLookupError::None && service;
+	}
+};
+
+// Non-owning, type-checked extension point for host services that should not
+// expand EngineServices' fixed platform-adapter table. The source-built SDK
+// line intentionally uses an in-process C++ type key; a future stable binary
+// plugin ABI will replace it with versioned C entry points.
+class ServiceCatalog
+{
+public:
+	ServiceCatalog() = default;
+	ServiceCatalog(const ServiceCatalog&) = delete;
+	ServiceCatalog& operator=(const ServiceCatalog&) = delete;
+	ServiceCatalog(ServiceCatalog&&) = delete;
+	ServiceCatalog& operator=(ServiceCatalog&&) = delete;
+
+	template<typename Service>
+	EngineServiceRegistrationError registerService(
+		std::string id, EngineServiceVersion version, Service& service) noexcept
+	{
+		if (sealed_) return EngineServiceRegistrationError::Sealed;
+		if (!IsValidEngineIdentifier(id) || version.major == 0)
+			return EngineServiceRegistrationError::InvalidDescriptor;
+		if (findEntry(id)) return EngineServiceRegistrationError::DuplicateId;
+		try
+		{
+			entries_.push_back(Entry{
+				EngineServiceDescriptor{std::move(id), version}, &service, typeKey<Service>()});
+		}
+		catch (...)
+		{
+			return EngineServiceRegistrationError::AllocationFailure;
+		}
+		return EngineServiceRegistrationError::None;
+	}
+
+	template<typename Service>
+	EngineServiceLookupResult<Service> resolve(
+		const std::string& id, EngineServiceVersion required) const
+	{
+		const Entry* entry = findEntry(id);
+		if (!entry)
+			return EngineServiceLookupResult<Service>{EngineServiceLookupError::NotFound};
+		if (!entry->descriptor.version.supports(required))
+			return EngineServiceLookupResult<Service>{
+				EngineServiceLookupError::IncompatibleVersion, nullptr,
+				entry->descriptor.version};
+		if (entry->type != typeKey<Service>())
+			return EngineServiceLookupResult<Service>{
+				EngineServiceLookupError::TypeMismatch, nullptr,
+				entry->descriptor.version};
+		return EngineServiceLookupResult<Service>{
+			EngineServiceLookupError::None, static_cast<Service*>(entry->service),
+			entry->descriptor.version};
+	}
+
+	void seal() { sealed_ = true; }
+	bool sealed() const { return sealed_; }
+	std::size_t size() const { return entries_.size(); }
+
+	std::vector<EngineServiceDescriptor> snapshot() const
+	{
+		std::vector<EngineServiceDescriptor> descriptors;
+		descriptors.reserve(entries_.size());
+		for (const Entry& entry : entries_) descriptors.push_back(entry.descriptor);
+		return descriptors;
+	}
+
+	static ServiceCatalog& disabled()
+	{
+		static ServiceCatalog catalog;
+		catalog.seal();
+		return catalog;
+	}
+
+private:
+	struct Entry
+	{
+		EngineServiceDescriptor descriptor;
+		void* service;
+		const void* type;
+	};
+
+	template<typename Service>
+	static const void* typeKey()
+	{
+		static const int key = 0;
+		return &key;
+	}
+
+	const Entry* findEntry(const std::string& id) const
+	{
+		for (const Entry& entry : entries_)
+			if (entry.descriptor.id == id) return &entry;
+		return nullptr;
+	}
+
+	std::vector<Entry> entries_;
+	bool sealed_ = false;
+};
+
+#endif

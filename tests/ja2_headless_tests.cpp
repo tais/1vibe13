@@ -362,6 +362,11 @@ public:
 		if (lifecycleTrace)
 			lifecycleTrace->push_back("bootstrap:" + descriptor_.content.id);
 		observedServices = &context.services;
+		observedMessages = &context.messages;
+		const EngineServiceLookupResult<FrameTelemetry> telemetry =
+			context.extensionServices.resolve<FrameTelemetry>(
+				"engine.frame-telemetry", EngineServiceVersion{ 1, 0 } );
+		observedTelemetry = telemetry.service;
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -397,22 +402,31 @@ public:
 		runtimeUpdates.push_back(update);
 		if (throwOnRuntimeUpdate) throw "test package runtime update exception";
 	}
+	void receiveMessage(PackageBootstrapContext&, const RuntimeMessage& message) override
+	{
+		receivedMessages.push_back(message);
+		if (throwOnMessage) throw "test package message exception";
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
 	std::vector<EngineInputEvent> inputEvents;
 	std::vector<RuntimeUpdateContext> runtimeUpdates;
+	std::vector<RuntimeMessage> receivedMessages;
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
 	std::string observedAssetProvenance;
 	EngineServices* observedServices = nullptr;
+	RuntimeMessageBus* observedMessages = nullptr;
+	FrameTelemetry* observedTelemetry = nullptr;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
 	int throwPhase = -1;
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
+	bool throwOnMessage = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -496,27 +510,45 @@ int main( int, char** )
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
-		const PackageLifecycleAdvanceResult started =
-			host.packageLifecycle().advanceTo( PackageBootstrapPhase::StartRuntime );
-		const PackageLifecycleAdvanceResult repeated =
-			host.packageLifecycle().advanceTo( PackageBootstrapPhase::Configure );
-		CHECK( started && started.completedPhases == 3 && !started.rolledBack &&
-		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }),
+		const RuntimeSessionAdvanceResult started =
+			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
+		const RuntimeSessionAdvanceResult repeated =
+			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		CHECK( started && started.packages.completedPhases == 3 &&
+		       !started.packages.rolledBack &&
+		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
+		       package.observedTelemetry == &host.frameTelemetry() &&
+		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
 		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );
+		const RuntimeMessagePublishResult published = host.runtimeMessages().publish(
+			RuntimeMessageRequest{ "engine.test", "host.headless", { 4, 2 } } );
 		const FrameRunResult frame = host.frameDriver().runFrame(
 			[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
 		CHECK( frame.input.polled == 1 && package.inputEvents.size() == 1 &&
 		       package.inputEvents[0].modifiers == 2 && package.inputEvents[0].primary == 65,
 		       "runtime-started packages receive live mirrored input before the application frame" );
+		CHECK( published && frame.messages.messages == 1 &&
+		       package.receivedMessages.size() == 1 &&
+		       package.receivedMessages[0].payload == std::vector<std::uint8_t>({ 4, 2 }) &&
+		       package.observedMessages == &host.runtimeMessages(),
+		       "runtime-started packages receive bounded host messages at the frame boundary" );
 		CHECK( frame.runtimeUpdates.delivered == 1 && package.runtimeUpdates.size() == 1 &&
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
 		       "runtime-started packages receive deterministic per-frame engine updates" );
-		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
-		CHECK( stopped && stopped.shutdownPhases == 3 &&
+		const FrameTelemetrySnapshot telemetry = host.frameTelemetry().snapshot();
+		CHECK( telemetry.summary.completedFrames == 1 && telemetry.samples.size() == 1 &&
+		       telemetry.samples[0].sequence == frame.sequence &&
+		       !telemetry.samples[0].presented,
+		       "live engine host retains bounded value-only frame telemetry" );
+		CHECK( host.beginInitialization() && host.markRunning() && host.beginShutdown(),
+		       "runtime package test enters an orderly engine shutdown" );
+		const RuntimeSessionShutdownResult stopped = host.runtimeSession().shutdownPackages();
+		CHECK( stopped && stopped.packages.shutdownPhases == 3 &&
 		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
-		       package.deactivateCalls == 1 && host.packages().activationOrder().empty(),
+		       package.deactivateCalls == 1 && host.packages().activationOrder().empty() &&
+		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
 	}
 
@@ -537,6 +569,37 @@ int main( int, char** )
 		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
 		CHECK( stopped && stopped.shutdownPhases == 0 && package.deactivateCalls == 1,
 		       "rolled-back package lifecycle remains safe to deactivate during host shutdown" );
+	}
+
+	{
+		MemoryInputSource input;
+		MemoryLogSink log;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
+			NullByteStorage::instance(), log, input};
+		EngineHost<unsigned> host( services );
+		TestLifecyclePackage package( "runtime.unhealthy", PackageKind::Extension );
+		package.throwOnInput = true;
+		package.throwOnRuntimeUpdate = true;
+		host.packages().registerPackage( package );
+		host.packages().activate( "runtime.unhealthy" );
+		host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
+		for ( std::uint64_t sequence = 1; sequence <= 10; ++sequence )
+		{
+			input.push( EngineInputEvent{ sequence, 0, 1, 0, 0, sequence, 0 } );
+			host.frameDriver().runFrame(
+				[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		}
+		const PackageCatalogSnapshot catalog = host.packageCatalog();
+		const PackageCatalogEntry* entry = catalog.find( "runtime.unhealthy" );
+		CHECK( entry && entry->runtimeHealth.inputCallbacks == 10 &&
+		       entry->runtimeHealth.inputFailures == 10 &&
+		       entry->runtimeHealth.runtimeUpdateCallbacks == 10 &&
+		       entry->runtimeHealth.runtimeUpdateFailures == 10 &&
+		       entry->runtimeHealth.suppressedFailureLogs == 10,
+		       "package catalog snapshots retain per-package runtime callback health" );
+		CHECK( log.records().size() == 10,
+		       "repeated package callback exceptions use bounded logarithmic logging" );
 	}
 
 	{

@@ -193,6 +193,10 @@ the engine must not contain SDL types in its public domain model.
   through it while preserving its established screen-update, presentation,
   clock, and network ordering. Headless hosts use the same driver with injected
   time and presentation services instead of a window or renderer.
+- `FrameTelemetry` records bounded, value-only phase timings and input/package
+  failure totals for every completed live frame. Recording is best effort and
+  cannot fail a frame, while tools and headless hosts can copy stable snapshots
+  without reaching into renderer or application state.
 - `InputDispatcher` drains a bounded engine input stream before each frame and
   fans events out in deterministic subscriber order. The SDL adapter mirrors
   accepted legacy queue events, so engine packages receive live input without
@@ -202,11 +206,28 @@ the engine must not contain SDL types in its public domain model.
   hook for runtime-started packages. Each update carries engine frame identity,
   monotonic start time, and elapsed time since the previous completed frame;
   package failures are contained before the legacy application state runs.
+- Package runtime health is retained in value-only catalog snapshots. Input
+  and update callback counts and failures remain observable per package, while
+  repeated exception logging is reduced from every frame to a logarithmic
+  cadence so one broken extension cannot create an unbounded logging workload.
+- `RuntimeMessageBus` provides bounded, deterministic value messages between
+  hosts and runtime-started packages without campaign headers. Each frame
+  drains one snapshot before input; messages published by a callback wait for
+  the next frame, preventing reentrant and unbounded same-frame work.
+- `ServiceCatalog` is the versioned, type-checked extension point for optional
+  host services that do not belong in the fixed platform adapter table. The
+  live host publishes persistence, frame telemetry, and runtime messaging; the
+  catalog seals before package bootstrap so package-held service references
+  remain valid for the complete runtime session.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
   phase automatically and normal shutdown uses the same reverse-order path
   before package deactivation.
+- `RuntimeSession` owns the application lifecycle state and is the live gateway
+  for package bootstrap and shutdown. Established JA2 loading boundaries still
+  advance phases at the same points, while the host now prevents package
+  teardown from running outside an orderly engine shutdown.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

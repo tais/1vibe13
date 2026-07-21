@@ -39,6 +39,10 @@ int main()
 	if (!hostCapabilities.add("host.external-consumer")) return 1;
 	EngineHost<> host(services, CurrentContentApiVersion,
 		NullPackageEventSink::instance(), std::move(hostCapabilities));
+	unsigned externalService = 17;
+	if (host.serviceCatalog().registerService(
+		"external.test-service", EngineServiceVersion{1, 2}, externalService) !=
+		EngineServiceRegistrationError::None) return 1;
 
 	ExternalRulesPackage package;
 	if (host.packages().registerPackage(package) != PackageRegistrationError::None ||
@@ -61,5 +65,10 @@ int main()
 	if (!host.screens().current() || host.screens().current()->state != 7 ||
 		!host.beginInitialization() || !host.markRunning() ||
 		!host.beginShutdown() || !host.markStopped()) return 5;
+	const EngineServiceLookupResult<unsigned> resolved =
+		host.serviceCatalog().resolve<unsigned>(
+			"external.test-service", EngineServiceVersion{1, 1});
+	if (!resolved || resolved.service != &externalService ||
+		!host.serviceCatalog().sealed()) return 6;
 	return 0;
 }

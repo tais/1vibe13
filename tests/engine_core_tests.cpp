@@ -2,6 +2,7 @@
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/EngineHost.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
@@ -42,6 +43,26 @@ public:
 	bool throws = false;
 };
 
+class TestMessageSink final : public RuntimeMessageSink
+{
+public:
+	void receiveMessage(const RuntimeMessage& message) override
+	{
+		messages.push_back(message);
+		if (publishReply && bus)
+		{
+			publishReply = false;
+			bus->publish(RuntimeMessageRequest{"engine.reply", "engine.test", {2}});
+		}
+		if (throws) throw 1;
+	}
+
+	RuntimeMessageBus* bus = nullptr;
+	std::vector<RuntimeMessage> messages;
+	bool publishReply = false;
+	bool throws = false;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -70,6 +91,42 @@ int main()
 		capabilities.ids() == std::vector<std::string>({
 			"engine.rendering", "tool.map-editor"}),
 		"runtime capabilities are portable, unique, and deterministically ordered");
+
+	EngineHost<unsigned> sessionHost;
+	unsigned externalService = 42;
+	const EngineServiceRegistrationError registeredService =
+		sessionHost.serviceCatalog().registerService(
+			"host.test-service", EngineServiceVersion{2, 3}, externalService);
+	const EngineServiceLookupResult<unsigned> resolvedService =
+		sessionHost.serviceCatalog().resolve<unsigned>(
+			"host.test-service", EngineServiceVersion{2, 1});
+	const RuntimeSessionShutdownResult prematureSessionShutdown =
+		sessionHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionAdvanceResult configuredSession =
+		sessionHost.runtimeSession().advancePackagesTo(PackageBootstrapPhase::Configure);
+	check(!prematureSessionShutdown &&
+		prematureSessionShutdown.error == RuntimeSessionError::InvalidState &&
+		configuredSession && configuredSession.packages.completedPhases == 1 &&
+		sessionHost.beginInitialization() &&
+		sessionHost.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
+		sessionHost.markRunning() && sessionHost.beginShutdown() &&
+		sessionHost.runtimeSession().shutdownPackages() && sessionHost.markStopped(),
+		"runtime session coordinates package phases with orderly host transitions");
+	check(registeredService == EngineServiceRegistrationError::None &&
+		resolvedService && resolvedService.service == &externalService &&
+		resolvedService.availableVersion.minor == 3 &&
+		sessionHost.serviceCatalog().size() == 4 &&
+		sessionHost.serviceCatalog().sealed() &&
+		sessionHost.serviceCatalog().registerService(
+			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
+			EngineServiceRegistrationError::Sealed &&
+		sessionHost.serviceCatalog().resolve<std::string>(
+			"host.test-service", EngineServiceVersion{2, 0}).error ==
+			EngineServiceLookupError::TypeMismatch &&
+		sessionHost.serviceCatalog().resolve<unsigned>(
+			"host.test-service", EngineServiceVersion{3, 0}).error ==
+			EngineServiceLookupError::IncompatibleVersion,
+		"service catalog seals versioned type-checked host extensions before bootstrap");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&
@@ -148,6 +205,22 @@ int main()
 	frameInput.push(EngineInputEvent{10, 0, 1, 65, 0, 1, 3});
 	frameInput.push(EngineInputEvent{20, 0, 2, 65, 0, 2, 0});
 	RuntimeUpdateDispatcher runtimeUpdates;
+	FrameTelemetry frameTelemetry(1);
+	RuntimeMessageBus runtimeMessages(4, 8);
+	TestMessageSink receivingMessages;
+	receivingMessages.bus = &runtimeMessages;
+	receivingMessages.publishReply = true;
+	TestMessageSink throwingMessages;
+	throwingMessages.throws = true;
+	check(runtimeMessages.addSink(receivingMessages) ==
+		RuntimeMessageSinkRegistrationError::None &&
+		runtimeMessages.addSink(throwingMessages) ==
+		RuntimeMessageSinkRegistrationError::None &&
+		runtimeMessages.publish(RuntimeMessageRequest{
+			"engine.ready", "engine.test", {1}}).sequence == 1 &&
+		!runtimeMessages.publish(RuntimeMessageRequest{
+			"invalid/topic", "engine.test", {}}),
+		"runtime message bus validates publishers and retains deterministic sinks");
 	TestRuntimeUpdateSink receivingUpdates;
 	TestRuntimeUpdateSink throwingUpdates;
 	throwingUpdates.throws = true;
@@ -158,7 +231,8 @@ int main()
 		runtimeUpdates.addSink(receivingUpdates) ==
 		RuntimeUpdateSinkRegistrationError::Duplicate,
 		"runtime update dispatcher retains deterministic unique subscribers");
-	FrameDriver frameDriver(frameServices, inputDispatcher, runtimeUpdates);
+	FrameDriver frameDriver(
+		frameServices, runtimeMessages, inputDispatcher, runtimeUpdates, frameTelemetry);
 	unsigned frameOrder = 0;
 	const FrameRunResult presentedFrame = frameDriver.runFrame(
 		[&] {
@@ -176,6 +250,12 @@ int main()
 		presentedFrame.startedAtMicroseconds == 0 &&
 		presentedFrame.finishedAtMicroseconds == 40 && frameOrder == 2,
 		"frame driver reports deterministic frame identity and timing");
+	check(presentedFrame.messages.messages == 1 &&
+		presentedFrame.messages.delivered == 1 &&
+		presentedFrame.messages.callbackFailures == 1 &&
+		presentedFrame.messages.queuedForNextDispatch == 1 &&
+		receivingMessages.messages[0].sequence == 1,
+		"frame driver defers messages published during dispatch to the next frame");
 	check(presentedFrame.input.polled == 1 && presentedFrame.input.delivered == 1 &&
 		presentedFrame.input.callbackFailures == 1 &&
 		presentedFrame.input.sourceDrops == 3 && presentedFrame.input.limitReached &&
@@ -198,6 +278,23 @@ int main()
 		receivingUpdates.updates.back().frameSequence == 2 &&
 		receivingUpdates.updates.back().elapsedSincePreviousFrameMicroseconds == 40,
 		"frame driver preserves skipped-frame policy without presenting");
+	check(skippedFrame.messages.messages == 1 &&
+		skippedFrame.messages.queuedForNextDispatch == 0 &&
+		receivingMessages.messages.size() == 2 &&
+		receivingMessages.messages.back().sequence == 2,
+		"runtime message delivery preserves publication sequence across frames");
+	const FrameTelemetrySnapshot telemetrySnapshot = frameTelemetry.snapshot();
+	check(telemetrySnapshot.summary.completedFrames == 2 &&
+		telemetrySnapshot.summary.presentedFrames == 1 &&
+		telemetrySnapshot.summary.maximumFrameMicroseconds == 40 &&
+		telemetrySnapshot.summary.inputCallbackFailures == 2 &&
+		telemetrySnapshot.summary.runtimeUpdateCallbackFailures == 2 &&
+		telemetrySnapshot.summary.messageCallbackFailures == 2 &&
+		telemetrySnapshot.summary.messagesDelivered == 2 &&
+		telemetrySnapshot.summary.evictedSamples == 1 &&
+		telemetrySnapshot.samples.size() == 1 &&
+		telemetrySnapshot.samples[0].sequence == 2,
+		"frame telemetry retains bounded live timings and aggregate failures");
 
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});

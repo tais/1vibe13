@@ -2,6 +2,7 @@
 #define ENGINE_CORE_PACKAGE_CATALOG_H
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,22 @@ enum class PackageLifecycleState
 {
 	Registered,
 	Active
+};
+
+struct PackageRuntimeHealth
+{
+	std::uint64_t inputCallbacks = 0;
+	std::uint64_t inputFailures = 0;
+	std::uint64_t runtimeUpdateCallbacks = 0;
+	std::uint64_t runtimeUpdateFailures = 0;
+	std::uint64_t messageCallbacks = 0;
+	std::uint64_t messageFailures = 0;
+	std::uint64_t suppressedFailureLogs = 0;
+
+	bool healthy() const
+	{
+		return inputFailures == 0 && runtimeUpdateFailures == 0 && messageFailures == 0;
+	}
 };
 
 // Value-only package state for launchers, editors, diagnostics, and headless
@@ -26,6 +43,7 @@ struct PackageCatalogEntry
 	bool assetsMounted = false;
 	std::size_t activationIndex = NotActive;
 	std::vector<std::string> dependents;
+	PackageRuntimeHealth runtimeHealth;
 
 	bool active() const { return state == PackageLifecycleState::Active; }
 };

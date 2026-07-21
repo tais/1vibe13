@@ -46,12 +46,28 @@ public:
 	const InputDispatcher& inputDispatcher() const { return runtime_.inputDispatcher(); }
 	RuntimeUpdateDispatcher& runtimeUpdates() { return runtime_.runtimeUpdates(); }
 	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtime_.runtimeUpdates(); }
+	FrameTelemetry& frameTelemetry() { return runtime_.frameTelemetry(); }
+	const FrameTelemetry& frameTelemetry() const { return runtime_.frameTelemetry(); }
+	RuntimeMessageBus& runtimeMessages() { return runtime_.runtimeMessages(); }
+	const RuntimeMessageBus& runtimeMessages() const { return runtime_.runtimeMessages(); }
+	ServiceCatalog& serviceCatalog() { return runtime_.serviceCatalog(); }
+	const ServiceCatalog& serviceCatalog() const { return runtime_.serviceCatalog(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }
 	const PackageRegistry& packages() const { return runtime_.packages(); }
 	PackageLifecycle& packageLifecycle() { return runtime_.packageLifecycle(); }
 	const PackageLifecycle& packageLifecycle() const { return runtime_.packageLifecycle(); }
+	RuntimeSession& runtimeSession() { return runtime_.runtimeSession(); }
+	const RuntimeSession& runtimeSession() const { return runtime_.runtimeSession(); }
+	RuntimeSessionAdvanceResult advancePackagesTo(PackageBootstrapPhase phase)
+	{
+		return runtime_.runtimeSession().advancePackagesTo(phase);
+	}
+	RuntimeSessionShutdownResult shutdownPackages()
+	{
+		return runtime_.runtimeSession().shutdownPackages();
+	}
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
 	bool hasCapability(const std::string& capability) const
 	{

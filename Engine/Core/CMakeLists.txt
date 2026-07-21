@@ -13,6 +13,7 @@ set(engine_core_public_headers
   EngineServices.h
   FrameDriver.h
   FramePresenter.h
+  FrameTelemetry.h
   Identifier.h
   InputDispatcher.h
   InputSource.h
@@ -26,7 +27,10 @@ set(engine_core_public_headers
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h
+  RuntimeMessageBus.h
+  RuntimeSession.h
   RuntimeUpdate.h
+  ServiceCatalog.h
   StateController.h
   StateRegistry.h
   StateStack.h
