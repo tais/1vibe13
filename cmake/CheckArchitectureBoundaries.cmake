@@ -11,6 +11,8 @@ file(GLOB_RECURSE core_files
 # rule also admits SDL3, platform SDKs, and upper engine/game layers.
 set(core_standard_headers
   algorithm
+  charconv
+  cmath
   cstddef
   cstdint
   cstring
@@ -22,6 +24,7 @@ set(core_standard_headers
   optional
   string
   string_view
+  system_error
   type_traits
   unordered_map
   unordered_set

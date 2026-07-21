@@ -24,6 +24,8 @@
 #include <Engine/Core/RuntimeCheckpoint.h>
 #include <Engine/Core/RuntimeDiagnostics.h>
 #include <Engine/Core/RuntimeFaultJournal.h>
+#include <Engine/Core/RuntimeReport.h>
+#include <Engine/Core/RuntimeReportService.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/SimulationTick.h>
@@ -58,7 +60,8 @@ public:
 		std::size_t maximumPackageAudioPlaybacks = 1024,
 		std::size_t maximumQueuedPackageTasks = 1024,
 		std::size_t maximumPackageTasksPerFrame = 64,
-		std::size_t maximumCheckpointPackages = 4096)
+		std::size_t maximumCheckpointPackages = 4096,
+		std::size_t maximumRuntimeReportBytes = 4u * 1024u * 1024u)
 		: content_(supportedContentApi),
 		  audioGroups_(services.audio, maximumPackageAudioPlaybacks),
 		  faultJournal_(runtimeFaultCapacity),
@@ -78,7 +81,8 @@ public:
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
 		               runtimeUpdates_, frameTelemetry_, simulationTicks_),
 		  persistence_(packages_.services().storage),
-		  runtimeCheckpoints_(persistence_, maximumCheckpointPackages)
+		  runtimeCheckpoints_(persistence_, maximumCheckpointPackages),
+		  runtimeReports_(persistence_, maximumRuntimeReportBytes)
 	{
 		serviceCatalog_.registerService(
 			"engine.frame-telemetry", EngineServiceVersion{1, 0}, frameTelemetry_);
@@ -104,6 +108,8 @@ public:
 			"engine.package-tasks", EngineServiceVersion{1, 0}, packageTasks_);
 		serviceCatalog_.registerService(
 			"engine.runtime-checkpoints", EngineServiceVersion{1, 0}, runtimeCheckpoints_);
+		serviceCatalog_.registerService(
+			"engine.runtime-reports", EngineServiceVersion{1, 0}, runtimeReports_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -138,6 +144,8 @@ public:
 			static_cast<std::int64_t>(packageTasks_.maximumPerDrain()));
 		runtimeConfiguration_.set("engine.checkpoints.package-limit",
 			static_cast<std::int64_t>(runtimeCheckpoints_.maximumPackages()));
+		runtimeConfiguration_.set("engine.reports.maximum-bytes",
+			static_cast<std::int64_t>(runtimeReports_.maximumBytes()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -235,6 +243,17 @@ public:
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
 	}
+	RuntimeReport runtimeReport() const
+	{
+		return BuildRuntimeReport(diagnostics());
+	}
+	RuntimeReportService& runtimeReports() { return runtimeReports_; }
+	const RuntimeReportService& runtimeReports() const { return runtimeReports_; }
+	RuntimeReportSaveError saveRuntimeReport(const std::string& path) const noexcept
+	{
+		try { return runtimeReports_.save(path, runtimeReport()); }
+		catch (...) { return RuntimeReportSaveError::AllocationFailure; }
+	}
 	bool setHostCapabilities(RuntimeCapabilities capabilities)
 	{
 		if (lifecycle() != EngineLifecycle::Stopped) return false;
@@ -305,6 +324,7 @@ private:
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCheckpointService runtimeCheckpoints_;
+	RuntimeReportService runtimeReports_;
 };
 
 #endif

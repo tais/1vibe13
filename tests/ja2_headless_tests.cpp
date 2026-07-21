@@ -64,6 +64,7 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
+#include "RuntimeReportHost.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "MovementDestinationPolicy.h"
@@ -998,6 +999,34 @@ int main( int, char** )
 		}
 		CHECK( context.lifecycle() == GameLifecycle::Stopped,
 		       "game initialization guard rolls back incomplete initialization" );
+	}
+
+	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		MemoryLogSink logs;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage, logs };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		RuntimeReportOptions reportOptions;
+		reportOptions.enabled = true;
+		reportOptions.path = "reports/live-runtime.json";
+		ConfigureRuntimeReports( reportOptions );
+		const RuntimeReportWriteResult written = WriteConfiguredRuntimeReport(
+			context, RuntimeReportMoment::Startup );
+		std::vector<std::uint8_t> reportBytes;
+		const bool reportReadable = storage.readAll( reportOptions.path, reportBytes );
+		ConfigureRuntimeReports( RuntimeReportOptions{} );
+		const RuntimeReportWriteResult skipped = WriteConfiguredRuntimeReport(
+			context, RuntimeReportMoment::Shutdown );
+		CHECK( written.attempted && written && reportReadable &&
+		       !reportBytes.empty() && reportBytes.front() == '{' &&
+		       reportBytes.back() == '\n' && logs.records().size() == 1 &&
+		       logs.records()[0].severity == LogSeverity::Info &&
+		       logs.records()[0].message.find( reportOptions.path ) != std::string::npos &&
+		       !skipped.attempted && skipped,
+		       "configured application hook writes a live report without making it mandatory" );
 	}
 
 	{
@@ -2370,6 +2399,34 @@ int main( int, char** )
 		       overridden.roots == std::vector<std::filesystem::path>({
 		       absoluteRoot, std::filesystem::path( "relative/second-root" ) }),
 		       "repeated package CLI options override INI lists and preserve absolute slash paths" );
+
+		const RuntimeReportOptions disabledReports =
+			ReadRuntimeReportOptions( emptyProperties, 1, emptyArguments );
+		vfs::PropertyContainer reportProperties;
+		reportProperties.setStringProperty(
+			L"Ja2 Settings", L"ENGINE_REPORT_PATH", L"reports/from-ini.json" );
+		reportProperties.setStringProperty(
+			L"Ja2 Settings", L"ENGINE_REPORT_ON_STARTUP", L"false" );
+		std::vector<std::string> reportArguments = {
+			"ja2", "--engine-report=reports/from-cli.json" };
+		std::vector<char*> reportArgumentPointers;
+		for ( std::string& argument : reportArguments )
+			reportArgumentPointers.push_back( &argument[0] );
+		const RuntimeReportOptions configuredReports = ReadRuntimeReportOptions(
+			reportProperties, static_cast<int>( reportArgumentPointers.size() ),
+			reportArgumentPointers.data() );
+		char disableReport[] = "--no-engine-report";
+		char* disableReportArguments[] = { executable, disableReport };
+		const RuntimeReportOptions explicitlyDisabledReports = ReadRuntimeReportOptions(
+			reportProperties, 2, disableReportArguments );
+		ConfigureRuntimeReports( configuredReports );
+		CHECK( !disabledReports.enabled && configuredReports.enabled &&
+		       configuredReports.path == "reports/from-cli.json" &&
+		       !configuredReports.shouldWrite( RuntimeReportMoment::Startup ) &&
+		       configuredReports.shouldWrite( RuntimeReportMoment::Shutdown ) &&
+		       !explicitlyDisabledReports.enabled &&
+		       GetRuntimeReportOptions().path == configuredReports.path,
+		       "runtime report options support opt-in INI settings and CLI override/disable" );
 	}
 
 	{

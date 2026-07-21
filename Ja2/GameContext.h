@@ -62,6 +62,11 @@ public:
 	const PackageLifecycle& packageLifecycle() const { return runtime_.packageLifecycle(); }
 	RuntimeSession& runtimeSession() { return runtime_.runtimeSession(); }
 	const RuntimeSession& runtimeSession() const { return runtime_.runtimeSession(); }
+	RuntimeReport runtimeReport() const { return runtime_.runtimeReport(); }
+	RuntimeReportSaveError saveRuntimeReport(const std::string& path) const noexcept
+	{
+		return runtime_.saveRuntimeReport(path);
+	}
 	RuntimeSessionAdvanceResult advancePackagesTo(PackageBootstrapPhase phase)
 	{
 		return runtime_.runtimeSession().advancePackagesTo(phase);
