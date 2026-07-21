@@ -64,6 +64,7 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
+#include "RuntimeReportHost.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "MovementDestinationPolicy.h"
@@ -2370,6 +2371,34 @@ int main( int, char** )
 		       overridden.roots == std::vector<std::filesystem::path>({
 		       absoluteRoot, std::filesystem::path( "relative/second-root" ) }),
 		       "repeated package CLI options override INI lists and preserve absolute slash paths" );
+
+		const RuntimeReportOptions disabledReports =
+			ReadRuntimeReportOptions( emptyProperties, 1, emptyArguments );
+		vfs::PropertyContainer reportProperties;
+		reportProperties.setStringProperty(
+			L"Ja2 Settings", L"ENGINE_REPORT_PATH", L"reports/from-ini.json" );
+		reportProperties.setStringProperty(
+			L"Ja2 Settings", L"ENGINE_REPORT_ON_STARTUP", L"false" );
+		std::vector<std::string> reportArguments = {
+			"ja2", "--engine-report=reports/from-cli.json" };
+		std::vector<char*> reportArgumentPointers;
+		for ( std::string& argument : reportArguments )
+			reportArgumentPointers.push_back( &argument[0] );
+		const RuntimeReportOptions configuredReports = ReadRuntimeReportOptions(
+			reportProperties, static_cast<int>( reportArgumentPointers.size() ),
+			reportArgumentPointers.data() );
+		char disableReport[] = "--no-engine-report";
+		char* disableReportArguments[] = { executable, disableReport };
+		const RuntimeReportOptions explicitlyDisabledReports = ReadRuntimeReportOptions(
+			reportProperties, 2, disableReportArguments );
+		ConfigureRuntimeReports( configuredReports );
+		CHECK( !disabledReports.enabled && configuredReports.enabled &&
+		       configuredReports.path == "reports/from-cli.json" &&
+		       !configuredReports.shouldWrite( RuntimeReportMoment::Startup ) &&
+		       configuredReports.shouldWrite( RuntimeReportMoment::Shutdown ) &&
+		       !explicitlyDisabledReports.enabled &&
+		       GetRuntimeReportOptions().path == configuredReports.path,
+		       "runtime report options support opt-in INI settings and CLI override/disable" );
 	}
 
 	{

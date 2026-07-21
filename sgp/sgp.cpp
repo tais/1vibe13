@@ -38,6 +38,7 @@
 #include "Utilities.h"
 #include "GameSettings.h"
 #include "PackageHost.h"
+#include "RuntimeReportHost.h"
 #include "video.h"
 #include "sdl_input.h"
 #include <vfs/Aspects/vfs_settings.h>
@@ -735,6 +736,7 @@ void GetRuntimeSettings( )
 	oProps.initFromIniFile(GAME_INI_FILE);
 	PopulateSectionFromCommandLine(oProps, "Ja2 Settings", g_argc, g_argv);
 	s_packageStartupOptions = ReadPackageStartupOptions(oProps, g_argc, g_argv);
+	ConfigureRuntimeReports(ReadRuntimeReportOptions(oProps, g_argc, g_argv));
 	
 	vfs::String loc = oProps.getStringProperty("Ja2 Settings", L"LOCALE");
 	if(!loc.empty())
