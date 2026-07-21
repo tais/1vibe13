@@ -60,18 +60,18 @@ public:
 		  localization_(localizationEntries, localizationTextBytes),
 		  definitions_(definitionEntries, definitionPayloadBytes),
 		  entities_(maximumEntities),
+		  hostCapabilities_(std::move(hostCapabilities)),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
 		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_,
-		            definitions_, entities_, audioGroups_),
+		            definitions_, entities_, audioGroups_, &hostCapabilities_),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
 		  simulationTicks_(simulationStepMicroseconds, maximumSimulationCatchUpTicks),
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
 		               runtimeUpdates_, frameTelemetry_, simulationTicks_),
-		  persistence_(packages_.services().storage),
-		  hostCapabilities_(std::move(hostCapabilities))
+		  persistence_(packages_.services().storage)
 	{
 		serviceCatalog_.registerService(
 			"engine.frame-telemetry", EngineServiceVersion{1, 0}, frameTelemetry_);
@@ -230,6 +230,7 @@ private:
 	LocalizationCatalog localization_;
 	DefinitionCatalog definitions_;
 	EntityRegistry entities_;
+	RuntimeCapabilities hostCapabilities_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;
@@ -239,7 +240,6 @@ private:
 	FrameTelemetry frameTelemetry_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
-	RuntimeCapabilities hostCapabilities_;
 };
 
 #endif

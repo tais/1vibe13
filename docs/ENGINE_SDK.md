@@ -136,3 +136,10 @@ asset path, may stop or retune only their own group, and cannot exceed the
 host's sealed playback capacity. Configure rollback and package shutdown stop
 all remaining owned playback. Existing game audio remains on direct
 `AudioOutput` adapters while it is migrated incrementally.
+
+Packages may declare `requiredCapabilities` alongside contributed
+`capabilities`. The host validates the list at registration and preflights each
+requirement against host and active-package capabilities before the first
+bootstrap callback. A missing feature produces a structured package/capability
+failure and a fault-journal record instead of forcing mod code to inspect build
+targets or global campaign state.

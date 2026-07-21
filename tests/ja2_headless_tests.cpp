@@ -148,10 +148,10 @@ static std::string PackageFixtureManifest(
 	const std::string& id, const std::string& requirements = {},
 	const std::string& assetRoot = "Data", const std::string& optionalRequirements = {},
 	const std::string& conflicts = {}, const std::string& loadAfter = {},
-	const std::string& capabilities = {} )
+	const std::string& capabilities = {}, const std::string& requiredCapabilities = {} )
 {
 	const bool policyV2 = !optionalRequirements.empty() || !conflicts.empty() ||
-		!loadAfter.empty() || !capabilities.empty();
+		!loadAfter.empty() || !capabilities.empty() || !requiredCapabilities.empty();
 	std::string manifest =
 		"[Package]\n"
 		"MANIFEST_VERSION = " + std::string( policyV2 ? "2" : "1" ) + "\n"
@@ -167,6 +167,8 @@ static std::string PackageFixtureManifest(
 	if ( !conflicts.empty() ) manifest += "CONFLICTS = " + conflicts + "\n";
 	if ( !loadAfter.empty() ) manifest += "LOAD_AFTER = " + loadAfter + "\n";
 	if ( !capabilities.empty() ) manifest += "CAPABILITIES = " + capabilities + "\n";
+	if ( !requiredCapabilities.empty() )
+		manifest += "REQUIRED_CAPABILITIES = " + requiredCapabilities + "\n";
 	return manifest;
 }
 
@@ -533,6 +535,10 @@ public:
 	{
 		descriptor_.requiredServices = std::move(requirements);
 	}
+	void setRequiredCapabilities(std::vector<std::string> requirements)
+	{
+		descriptor_.requiredCapabilities = std::move(requirements);
+	}
 	bool active() const { return active_; }
 
 private:
@@ -603,7 +609,10 @@ int main( int, char** )
 			storage, NullLogSink::instance(), input,
 			audio, NullFramePresenter::instance(),
 			NullAssetSource::instance()};
-		EngineHost<unsigned> host( services );
+		RuntimeCapabilities hostCapabilities;
+		hostCapabilities.add( "host.headless" );
+		EngineHost<unsigned> host( services, CurrentContentApiVersion,
+			NullPackageEventSink::instance(), hostCapabilities );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		package.persistOnConfigure = true;
 		package.publishOnConfigure = true;
@@ -615,6 +624,7 @@ int main( int, char** )
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
+		package.setRequiredCapabilities({ "host.headless" });
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
@@ -661,6 +671,8 @@ int main( int, char** )
 		       audio.isPlaying( package.packageAudioPlayResult.playback ) &&
 		       host.packageAudio().size() == 1 &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
+		       catalogPackage->descriptor.requiredCapabilities ==
+		           std::vector<std::string>({ "host.headless" }) &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
 		PersistenceHeader packageHeader{};
@@ -723,6 +735,33 @@ int main( int, char** )
 		       host.packageAudio().size() == 0 &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
+	}
+
+	{
+		EngineHost<unsigned> capabilityHost;
+		TestLifecyclePackage missing( "capabilities.missing", PackageKind::Rules );
+		missing.setRequiredCapabilities({ "host.not-installed" });
+		TestLifecyclePackage invalid( "capabilities.invalid", PackageKind::Rules );
+		invalid.setRequiredCapabilities({ "host.duplicate", "host.duplicate" });
+		CHECK( capabilityHost.packages().registerPackage( invalid ) ==
+		           PackageRegistrationError::InvalidManifest &&
+		       capabilityHost.packages().registerPackage( missing ) ==
+		           PackageRegistrationError::None &&
+		       capabilityHost.packages().activate( "capabilities.missing" ) ==
+		           PackageActivationError::None,
+		       "capability contracts validate portable unique requirement lists" );
+		const RuntimeSessionAdvanceResult result =
+			capabilityHost.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		const PackageCapabilityContractFailure& failure =
+			capabilityHost.packages().lastCapabilityContractFailure();
+		const RuntimeFaultSnapshot faults = capabilityHost.runtimeFaults().snapshot();
+		CHECK( !result && result.packages.error == PackageBootstrapError::MissingCapability &&
+		       missing.bootstrapCalls.empty() && failure &&
+		       failure.packageId == "capabilities.missing" &&
+		       failure.capabilityId == "host.not-installed" &&
+		       faults.records.size() == 1 &&
+		       faults.records[0].kind == RuntimeFaultKind::CapabilityContract,
+		       "missing runtime capabilities fail before package code with diagnostics" );
 	}
 
 	{
@@ -2367,11 +2406,14 @@ int main( int, char** )
 		RecordingPackageAssetMounter mounter;
 		const bool fixtureReady =
 			AddPackageFixture( fixture, "a-base", "fixture.policy-base" ) &&
-			AddPackageFixture( fixture, "b-peer", "fixture.policy-peer" ) &&
+			fixture.makeDirectory( "b-peer/Data" ) &&
+			fixture.write( "b-peer/package.ini", PackageFixtureManifest(
+				"fixture.policy-peer", {}, "Data", {}, {}, {}, "feature.peer" ) ) &&
 			fixture.makeDirectory( "c-consumer/Data" ) &&
 			fixture.write( "c-consumer/package.ini", PackageFixtureManifest(
 				"fixture.policy-consumer", {}, "Data", "fixture.policy-base@1.0.0",
-				{}, "fixture.policy-peer", "feature.dynamic-weather, feature.new-ai" ) );
+				{}, "fixture.policy-peer", "feature.dynamic-weather, feature.new-ai",
+				"feature.peer" ) );
 		PackageStartupOptions options;
 		options.enabled = true;
 		options.roots = { fixture.root() };
@@ -2382,11 +2424,18 @@ int main( int, char** )
 		       "fixture.policy-base", "fixture.policy-peer", "fixture.policy-consumer" }) &&
 		       mounter.preflighted == result.activated && mounter.mounted == result.activated,
 		       "Data Package v2 parses optional dependencies and deterministic LOAD_AFTER policy" );
-		CHECK( runtime.hasCapability( "feature.dynamic-weather" ) &&
+		CHECK( runtime.hasCapability( "feature.peer" ) &&
+		       runtime.hasCapability( "feature.dynamic-weather" ) &&
 		       runtime.hasCapability( "feature.new-ai" ) &&
 		       runtime.runtimeCapabilities().ids() == std::vector<std::string>({
-		       "feature.dynamic-weather", "feature.new-ai" }),
+		       "feature.peer", "feature.dynamic-weather", "feature.new-ai" }),
 		       "active data packages contribute portable runtime capabilities" );
+		const PackageCatalogSnapshot policyCatalog = runtime.packageCatalog();
+		const PackageCatalogEntry* consumer =
+			policyCatalog.find( "fixture.policy-consumer" );
+		CHECK( consumer && consumer->descriptor.requiredCapabilities ==
+		           std::vector<std::string>({ "feature.peer" }),
+		       "Data Package v2 retains required capability contracts for bootstrap preflight" );
 	}
 
 	{

@@ -67,6 +67,9 @@ struct PackageDescriptor
 	// Host extension services that must exist at or above the declared version
 	// before this package receives its first bootstrap callback.
 	std::vector<EngineServiceRequirement> requiredServices;
+	// Portable host or active-package features required before the first
+	// bootstrap callback. This avoids package/build-target probing in mod code.
+	std::vector<std::string> requiredCapabilities;
 };
 
 // Packages are owned by the application and must outlive the registry. The
