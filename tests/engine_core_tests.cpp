@@ -5,6 +5,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineHost.h>
+#include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/PackageRandomSource.h>
@@ -161,6 +162,19 @@ int main()
 		*definitions.resolve("item", "medkit", 1, 1).payload ==
 			std::vector<std::uint8_t>({1}),
 		"definition lookup rejects incompatible top overrides and restores lower layers");
+	EntityRegistry entities(1);
+	const EntityCreateResult firstEntity = entities.create("campaign.base", "mercenary");
+	const EntityDestroyError destroyedEntity = entities.destroy(firstEntity.id);
+	const EntityCreateResult replacementEntity = entities.create("campaign.base", "mercenary");
+	const std::vector<EntityRecordSnapshot> entitySnapshot = entities.snapshot();
+	check(firstEntity && destroyedEntity == EntityDestroyError::None && replacementEntity &&
+		replacementEntity.id.index == firstEntity.id.index &&
+		replacementEntity.id.generation > firstEntity.id.generation &&
+		!entities.alive(firstEntity.id) && entities.alive(replacementEntity.id) &&
+		entitySnapshot.size() == 1 && entitySnapshot[0].kind == "mercenary" &&
+		entities.create("campaign.base", "second").error ==
+			EntityCreateError::CapacityReached,
+		"entity registry reuses bounded slots without reviving stale generational handles");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -211,7 +225,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 9 &&
+		sessionHost.serviceCatalog().size() == 10 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -230,14 +244,15 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 13,
+		sessionHost.configuration().size() == 14,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
 		diagnostics.frames.summary.completedFrames == 0 &&
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
-		diagnostics.services.size() == 9 && diagnostics.configuration.size() == 13 &&
+		diagnostics.entities.empty() && diagnostics.services.size() == 10 &&
+		diagnostics.configuration.size() == 14 &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");
