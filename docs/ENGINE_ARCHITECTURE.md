@@ -188,6 +188,11 @@ the engine must not contain SDL types in its public domain model.
   Callback failures and exceptions become explicit results instead of unchecked
   array dispatch, while the established numeric screen IDs and ordering remain
   unchanged for existing game, editor, and mod code.
+- `FrameDriver` owns the update/present/complete sequence and deterministic
+  identity of every completed application frame. The live JA2 loop is routed
+  through it while preserving its established screen-update, presentation,
+  clock, and network ordering. Headless hosts use the same driver with injected
+  time and presentation services instead of a window or renderer.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

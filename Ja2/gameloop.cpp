@@ -263,7 +263,7 @@ static BOOLEAN gfSkipFrame = FALSE;
 
 extern void RefreshBoxes( );
 
-void GameLoop(void)
+static FramePlan PrepareGameFrame()
 {
 	//	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop");
 
@@ -500,14 +500,17 @@ void GameLoop(void)
 
 
 
+	FramePlan plan;
 	if( gfSkipFrame )
+	{
 		gfSkipFrame = FALSE;
-	else
-		// end rain
+		plan.present = false;
+	}
+	return plan;
+}
 
-		//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: refresh screen");
-		GetGameContext().services().frames.present(FramePresentMode::Paced);
-
+static void CompleteGameFrame()
+{
 	guiGameCycleCounter++;
 
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: update clock");
@@ -545,6 +548,11 @@ void GameLoop(void)
 		server_packet();
 	}
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop done");
+}
+
+void GameLoop(void)
+{
+	GetGameContext().frameDriver().runFrame(PrepareGameFrame, CompleteGameFrame);
 }
 
 void SetCurrentScreen( UINT32 uiNewScreen )

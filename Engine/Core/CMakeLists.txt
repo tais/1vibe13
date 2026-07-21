@@ -11,6 +11,7 @@ set(engine_core_public_headers
   DeterministicCommandQueue.h
   EngineHost.h
   EngineServices.h
+  FrameDriver.h
   FramePresenter.h
   Identifier.h
   InputSource.h

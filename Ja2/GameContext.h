@@ -40,6 +40,8 @@ public:
 	const StateController<UINT32>& screenController() const { return runtime_.screenController(); }
 	StateRegistry<UINT32>& stateRegistry() { return runtime_.stateRegistry(); }
 	const StateRegistry<UINT32>& stateRegistry() const { return runtime_.stateRegistry(); }
+	FrameDriver& frameDriver() { return runtime_.frameDriver(); }
+	const FrameDriver& frameDriver() const { return runtime_.frameDriver(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }

@@ -7,6 +7,7 @@
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PersistenceService.h>
@@ -36,6 +37,7 @@ public:
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
+		  frameDriver_(packages_.services()),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
@@ -57,6 +59,8 @@ public:
 	const StateController<ScreenId>& screenController() const { return screenController_; }
 	StateRegistry<ScreenId>& stateRegistry() { return stateRegistry_; }
 	const StateRegistry<ScreenId>& stateRegistry() const { return stateRegistry_; }
+	FrameDriver& frameDriver() { return frameDriver_; }
+	const FrameDriver& frameDriver() const { return frameDriver_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -120,6 +124,7 @@ private:
 	StateRegistry<ScreenId> stateRegistry_;
 	ContentRegistry content_;
 	PackageRegistry packages_;
+	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCapabilities hostCapabilities_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;

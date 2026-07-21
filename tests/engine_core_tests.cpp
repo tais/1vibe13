@@ -2,6 +2,7 @@
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/StateRegistry.h>
@@ -102,6 +103,37 @@ int main()
 		states.shutdown(7) == StateShutdownError::CallbackException &&
 		!states.isInitialized(7),
 		"state registry reports callback exceptions and releases lifecycle state");
+
+	ManualTimeSource frameTime;
+	RecordingFramePresenter framePresenter;
+	EngineServices frameServices{
+		frameTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
+		NullLogSink::instance(), NullInputSource::instance(),
+		NullAudioOutput::instance(), framePresenter, NullAssetSource::instance()};
+	FrameDriver frameDriver(frameServices);
+	unsigned frameOrder = 0;
+	const FrameRunResult presentedFrame = frameDriver.runFrame(
+		[&] {
+			check(frameOrder++ == 0, "frame driver begins with application update");
+			frameTime.advanceMicroseconds(25);
+			return FramePlan{true, FramePresentMode::Immediate};
+		},
+		[&] {
+			check(framePresenter.presentations().size() == 1 && frameOrder++ == 1,
+				"frame driver presents before application completion");
+			frameTime.advanceMicroseconds(15);
+		});
+	check(presentedFrame.sequence == 1 && presentedFrame.presented &&
+		presentedFrame.presentationMode == FramePresentMode::Immediate &&
+		presentedFrame.startedAtMicroseconds == 0 &&
+		presentedFrame.finishedAtMicroseconds == 40 && frameOrder == 2,
+		"frame driver reports deterministic frame identity and timing");
+	const FrameRunResult skippedFrame = frameDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	check(skippedFrame.sequence == 2 && !skippedFrame.presented &&
+		framePresenter.presentations().size() == 1 &&
+		frameDriver.completedFrames() == 2,
+		"frame driver preserves skipped-frame policy without presenting");
 
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});
