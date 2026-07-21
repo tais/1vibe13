@@ -214,6 +214,9 @@ the engine must not contain SDL types in its public domain model.
   hosts and runtime-started packages without campaign headers. Each frame
   drains one snapshot before input; messages published by a callback wait for
   the next frame, preventing reentrant and unbounded same-frame work.
+  Packages may declare exact portable topic subscriptions; an empty declaration
+  retains broadcast compatibility, while filtered traffic is counted without
+  entering package code.
 - `ServiceCatalog` is the versioned, type-checked extension point for optional
   host services that do not belong in the fixed platform adapter table. The
   live host publishes persistence, frame telemetry, and runtime messaging; the

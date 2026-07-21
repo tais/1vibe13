@@ -44,6 +44,9 @@ struct PackageDescriptor
 	// Portable features contributed only while this package is active. Hosts
 	// query these through EngineRuntime rather than campaign preprocessor flags.
 	std::vector<std::string> capabilities;
+	// Empty preserves broadcast delivery. A non-empty list limits runtime
+	// message callbacks to these portable exact-match topics.
+	std::vector<std::string> messageTopics;
 };
 
 // Packages are owned by the application and must outlive the registry. The

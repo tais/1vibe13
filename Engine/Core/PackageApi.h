@@ -44,13 +44,15 @@ public:
 		OperationGuard operation(operationInProgress_);
 		const PackageDescriptor& descriptor = package.descriptor();
 		const std::string& id = descriptor.content.id;
-		if (!RuntimeCapabilities::isValidList(descriptor.capabilities))
+		if (!RuntimeCapabilities::isValidList(descriptor.capabilities) ||
+			!RuntimeCapabilities::isValidList(descriptor.messageTopics))
 			return PackageRegistrationError::InvalidManifest;
 		if (packages_.find(id) != packages_.end()) return PackageRegistrationError::DuplicateId;
 		const auto inserted = packages_.emplace(id, RegisteredPackage{&package, descriptor.kind,
 			descriptor.content.version, descriptor.content.requirements,
 			descriptor.content.optionalRequirements, descriptor.content.conflicts,
-			descriptor.content.loadAfter, descriptor.capabilities, false, false});
+			descriptor.content.loadAfter, descriptor.capabilities,
+			descriptor.messageTopics, false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
 		try
@@ -649,6 +651,13 @@ public:
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
+			if (!registered.messageTopics.empty() &&
+				std::find(registered.messageTopics.begin(), registered.messageTopics.end(),
+					message.topic) == registered.messageTopics.end())
+			{
+				++registered.runtimeHealth.filteredMessages;
+				continue;
+			}
 			++registered.runtimeHealth.messageCallbacks;
 			try
 			{
@@ -718,7 +727,7 @@ public:
 			const auto active = std::find(active_.begin(), active_.end(), manifest.id);
 			PackageCatalogEntry entry{
 				PackageDescriptor{manifest, registered->second.kind,
-					registered->second.capabilities},
+					registered->second.capabilities, registered->second.messageTopics},
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
@@ -771,6 +780,7 @@ private:
 		std::vector<std::string> conflicts;
 		std::vector<std::string> loadAfter;
 		std::vector<std::string> capabilities;
+		std::vector<std::string> messageTopics;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
