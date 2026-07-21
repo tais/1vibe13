@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -56,35 +57,74 @@ public:
 
 	PackageUnregistrationResult unregisterPackage(const std::string& id)
 	{
+		const PackageUnregistrationBatchResult batch =
+			unregisterPackages(std::vector<std::string>{id});
+		return PackageUnregistrationResult{batch.error, batch.packageId, batch.dependentId};
+	}
+
+	PackageUnregistrationBatchResult unregisterPackages(
+		const std::vector<std::string>& requested)
+	{
 		if (operationInProgress_)
-			return PackageUnregistrationResult{
-				PackageUnregistrationError::OperationInProgress, id, {}};
+			return PackageUnregistrationBatchResult{
+				PackageUnregistrationError::OperationInProgress, {}, {}, {}};
 		OperationGuard operation(operationInProgress_);
 		if (completedBootstrapPhases_ != 0)
-			return PackageUnregistrationResult{
-				PackageUnregistrationError::BootstrapInProgress, id, {}};
-		const auto found = packages_.find(id);
-		if (found == packages_.end())
-			return PackageUnregistrationResult{PackageUnregistrationError::NotFound, id, {}};
-		if (found->second.active)
-			return PackageUnregistrationResult{PackageUnregistrationError::Active, found->first, {}};
+			return PackageUnregistrationBatchResult{
+				PackageUnregistrationError::BootstrapInProgress, {}, {}, {}};
+		if (requested.empty()) return PackageUnregistrationBatchResult{};
+
+		std::unordered_set<std::string> removalSet;
+		removalSet.reserve(requested.size());
+		for (const std::string& id : requested)
+		{
+			if (!removalSet.insert(id).second)
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::InvalidRequest, id, {}, {}};
+			const auto found = packages_.find(id);
+			if (found == packages_.end())
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::NotFound, id, {}, {}};
+			if (found->second.active)
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::Active, found->first, {}, {}};
+			if (!content_.find(found->first))
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::ContentMissing, found->first, {}, {}};
+		}
+
+		// Internal edges are removed as one transaction, including cycles. Only
+		// dependents outside the requested set are blockers.
 		for (const auto& registered : packages_)
 		{
-			if (registered.first == found->first) continue;
+			if (removalSet.find(registered.first) != removalSet.end()) continue;
 			for (const ContentRequirement& requirement : registered.second.requirements)
 			{
-				if (requirement.id != found->first) continue;
-				return PackageUnregistrationResult{
+				if (removalSet.find(requirement.id) == removalSet.end()) continue;
+				return PackageUnregistrationBatchResult{
 					PackageUnregistrationError::RequiredByRegisteredPackage,
-					found->first, registered.first};
+					requirement.id, registered.first, {}};
 			}
 		}
-		if (content_.unregisterContent(found->first) != ContentUnregistrationError::None)
-			return PackageUnregistrationResult{
-				PackageUnregistrationError::ContentMissing, found->first, {}};
-		const std::string packageId = found->first;
-		packages_.erase(found);
-		return PackageUnregistrationResult{PackageUnregistrationError::None, packageId, {}};
+
+		// Copy every diagnostic string before changing either registry. The
+		// mutation path then performs no allocations and cannot expose a package
+		// whose content entry was only partly removed.
+		PackageUnregistrationBatchResult result;
+		result.unregistered = requested;
+		for (std::size_t index = 0; index < result.unregistered.size(); ++index)
+		{
+			const std::string& id = result.unregistered[index];
+			if (content_.unregisterContent(id) != ContentUnregistrationError::None)
+			{
+				result.error = PackageUnregistrationError::ContentMissing;
+				result.packageId = id;
+				result.unregistered.resize(index);
+				return result;
+			}
+			packages_.erase(id);
+		}
+		return result;
 	}
 
 	PackageActivationPlan resolveActivation(const std::string& id) const

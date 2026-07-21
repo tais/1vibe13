@@ -648,6 +648,42 @@ int main( int, char** )
 	{
 		ContentRegistry content( CurrentContentApiVersion );
 		PackageRegistry packages( content );
+		TestLifecyclePackage cycleA(
+			"unregister-cycle.a", PackageKind::Extension, -1, nullptr,
+			{{ "unregister-cycle.b", "" }} );
+		TestLifecyclePackage cycleB(
+			"unregister-cycle.b", PackageKind::Extension, -1, nullptr,
+			{{ "unregister-cycle.a", "" }} );
+		TestLifecyclePackage external(
+			"unregister-cycle.external", PackageKind::Extension, -1, nullptr,
+			{{ "unregister-cycle.a", "" }} );
+		CHECK( packages.registerPackage( cycleA ) == PackageRegistrationError::None &&
+		       packages.registerPackage( cycleB ) == PackageRegistrationError::None &&
+		       packages.registerPackage( external ) == PackageRegistrationError::None,
+		       "batch unregistration fixture registers a cyclic internal graph" );
+		const PackageUnregistrationBatchResult blocked = packages.unregisterPackages({
+			"unregister-cycle.a", "unregister-cycle.b" });
+		CHECK( blocked.error == PackageUnregistrationError::RequiredByRegisteredPackage &&
+		       blocked.packageId == "unregister-cycle.a" &&
+		       blocked.dependentId == "unregister-cycle.external",
+		       "batch unregistration rejects dependents outside the transaction" );
+		CHECK( packages.unregisterPackage( "unregister-cycle.external" ),
+		       "external batch blocker can be removed independently" );
+		const PackageUnregistrationBatchResult removed = packages.unregisterPackages({
+			"unregister-cycle.a", "unregister-cycle.b" });
+		CHECK( removed && removed.unregistered == std::vector<std::string>({
+		       "unregister-cycle.a", "unregister-cycle.b" }) &&
+		       packages.find( "unregister-cycle.a" ) == nullptr &&
+		       packages.find( "unregister-cycle.b" ) == nullptr &&
+		       content.manifests().empty(),
+		       "batch unregistration removes a complete internal dependency cycle atomically" );
+		CHECK( packages.unregisterPackages({}).unregistered.empty(),
+		       "empty batch unregistration is an idempotent transaction" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
 		TestLifecyclePackage base( "deactivate.base", PackageKind::Rules );
 		TestLifecyclePackage middle(
 			"deactivate.middle", PackageKind::Extension, -1, nullptr,

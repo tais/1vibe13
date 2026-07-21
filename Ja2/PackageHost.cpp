@@ -851,14 +851,34 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 				"package ID is already registered", package->manifestPath, id);
 	}
 
+	std::vector<std::string> registeredIds;
+	registeredIds.reserve(packages_.size());
 	for (const std::unique_ptr<OwnedPackage>& package : packages_)
 	{
-		const PackageRegistrationError registration = registry.registerPackage(*package);
+		PackageRegistrationError registration = PackageRegistrationError::None;
+		try
+		{
+			registration = registry.registerPackage(*package);
+		}
+		catch (...)
+		{
+			try { registry.unregisterPackages(registeredIds); }
+			catch (...) {}
+			throw;
+		}
 		if (registration != PackageRegistrationError::None)
+		{
+			const PackageUnregistrationBatchResult rollback =
+				registry.unregisterPackages(registeredIds);
+			const std::string rollbackMessage = rollback ? "" :
+				"; registration rollback failed with code " +
+					std::to_string(static_cast<int>(rollback.error));
 			return Failure(PackageHostError::RegistrationFailed,
 				"engine rejected package registration with code " +
-					std::to_string(static_cast<int>(registration)),
+					std::to_string(static_cast<int>(registration)) + rollbackMessage,
 				package->manifestPath, package->descriptor_.content.id);
+		}
+		registeredIds.push_back(package->descriptor_.content.id);
 	}
 
 	PackageHostResult result;

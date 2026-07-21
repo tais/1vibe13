@@ -22,6 +22,7 @@ enum class PackageUnregistrationError
 	RequiredByRegisteredPackage,
 	BootstrapInProgress,
 	OperationInProgress,
+	InvalidRequest,
 	ContentMissing
 };
 
@@ -30,6 +31,18 @@ struct PackageUnregistrationResult
 	PackageUnregistrationError error = PackageUnregistrationError::None;
 	std::string packageId;
 	std::string dependentId;
+
+	explicit operator bool() const { return error == PackageUnregistrationError::None; }
+};
+
+struct PackageUnregistrationBatchResult
+{
+	PackageUnregistrationError error = PackageUnregistrationError::None;
+	std::string packageId;
+	std::string dependentId;
+	// Successful removals in caller-provided order. On the preflighted success
+	// path this equals the request; it is truncated if internal state is corrupt.
+	std::vector<std::string> unregistered;
 
 	explicit operator bool() const { return error == PackageUnregistrationError::None; }
 };
