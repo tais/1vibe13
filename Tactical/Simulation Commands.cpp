@@ -3,6 +3,8 @@
 #include <type_traits>
 #include <variant>
 
+#include <Engine/Core/CommandDispatch.h>
+
 #include "GameContext.h"
 #include "Overhead.h"
 
@@ -24,11 +26,11 @@ namespace
 
 void ExecuteSimulationCommandsThrough(std::uint64_t tick)
 {
-	auto ready = GetGameContext().commands().drainThrough(tick);
-	for (const auto& entry : ready)
-	{
-		ExecuteSimulationCommand(entry.command);
-	}
+	DispatchCommandsThrough(
+		GetGameContext().commands(), tick,
+		[](const SimulationCommand& command, std::uint64_t, std::uint64_t) {
+			ExecuteSimulationCommand(command);
+		});
 }
 
 std::uint64_t DispatchEndTurnCommandNow(

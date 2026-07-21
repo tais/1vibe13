@@ -37,6 +37,7 @@
 #include "vsurface.h"
 #include <Engine/Core/UniqueResourceHandle.h>
 #include <Engine/Core/DeterministicCommandQueue.h>
+#include <Engine/Core/CommandDispatch.h>
 #include <Engine/Core/SimulationCommand.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
@@ -461,6 +462,22 @@ int main( int, char** )
 		const auto replay = commands.drainThrough( 20 );
 		CHECK( replay.size() == 2 && replay[0].command == 150 && replay[1].command == 200,
 		       "recorded simulation commands replay deterministically" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 5, 50 );
+		commands.enqueue( 3, 30 );
+		commands.enqueue( 8, 80 );
+		std::vector<int> delivered;
+		const std::size_t count = DispatchCommandsThrough(
+			commands, 5,
+			[&delivered]( int command, std::uint64_t, std::uint64_t ) {
+				delivered.push_back( command );
+			} );
+		CHECK( count == 2 && delivered.size() == 2 && delivered[0] == 30 &&
+		       delivered[1] == 50 && commands.size() == 1,
+		       "engine command dispatch delivers ready commands in deterministic order" );
 	}
 
 	{
