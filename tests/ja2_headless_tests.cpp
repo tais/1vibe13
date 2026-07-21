@@ -496,11 +496,12 @@ int main( int, char** )
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
-		const PackageLifecycleAdvanceResult started =
-			host.packageLifecycle().advanceTo( PackageBootstrapPhase::StartRuntime );
-		const PackageLifecycleAdvanceResult repeated =
-			host.packageLifecycle().advanceTo( PackageBootstrapPhase::Configure );
-		CHECK( started && started.completedPhases == 3 && !started.rolledBack &&
+		const RuntimeSessionAdvanceResult started =
+			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
+		const RuntimeSessionAdvanceResult repeated =
+			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
+		CHECK( started && started.packages.completedPhases == 3 &&
+		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
 		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );
@@ -513,10 +514,13 @@ int main( int, char** )
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,
 		       "runtime-started packages receive deterministic per-frame engine updates" );
-		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
-		CHECK( stopped && stopped.shutdownPhases == 3 &&
+		CHECK( host.beginInitialization() && host.markRunning() && host.beginShutdown(),
+		       "runtime package test enters an orderly engine shutdown" );
+		const RuntimeSessionShutdownResult stopped = host.runtimeSession().shutdownPackages();
+		CHECK( stopped && stopped.packages.shutdownPhases == 3 &&
 		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
-		       package.deactivateCalls == 1 && host.packages().activationOrder().empty(),
+		       package.deactivateCalls == 1 && host.packages().activationOrder().empty() &&
+		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
 	}
 

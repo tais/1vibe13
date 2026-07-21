@@ -52,6 +52,16 @@ public:
 	const PackageRegistry& packages() const { return runtime_.packages(); }
 	PackageLifecycle& packageLifecycle() { return runtime_.packageLifecycle(); }
 	const PackageLifecycle& packageLifecycle() const { return runtime_.packageLifecycle(); }
+	RuntimeSession& runtimeSession() { return runtime_.runtimeSession(); }
+	const RuntimeSession& runtimeSession() const { return runtime_.runtimeSession(); }
+	RuntimeSessionAdvanceResult advancePackagesTo(PackageBootstrapPhase phase)
+	{
+		return runtime_.runtimeSession().advancePackagesTo(phase);
+	}
+	RuntimeSessionShutdownResult shutdownPackages()
+	{
+		return runtime_.runtimeSession().shutdownPackages();
+	}
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
 	bool hasCapability(const std::string& capability) const
 	{

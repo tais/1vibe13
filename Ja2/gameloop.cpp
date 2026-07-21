@@ -213,7 +213,7 @@ BOOLEAN InitializeGame(void)
 	//Loads the saved (if any) general JA2 game settings
 	LoadGameSettings();
 	LoadFeatureFlags();
-	if (!GetGameContext().packageLifecycle().advanceTo(PackageBootstrapPhase::Configure))
+	if (!GetGameContext().advancePackagesTo(PackageBootstrapPhase::Configure))
 	{
 		return FALSE;
 	}

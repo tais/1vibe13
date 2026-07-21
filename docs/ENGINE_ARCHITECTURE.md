@@ -207,6 +207,10 @@ the engine must not contain SDL types in its public domain model.
   loading boundaries, while a failed later phase now unwinds every earlier
   phase automatically and normal shutdown uses the same reverse-order path
   before package deactivation.
+- `RuntimeSession` owns the application lifecycle state and is the live gateway
+  for package bootstrap and shutdown. Established JA2 loading boundaries still
+  advance phases at the same points, while the host now prevents package
+  teardown from running outside an orderly engine shutdown.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

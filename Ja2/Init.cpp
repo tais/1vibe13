@@ -1444,7 +1444,7 @@ UINT32 InitializeJA2(void)
 
 	// Load external text
 	LoadAllExternalText();
-	if (!gameContext.packageLifecycle().advanceTo(PackageBootstrapPhase::LoadContent))
+	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::LoadContent))
 	{
 		return ERROR_SCREEN;
 	}
@@ -1627,7 +1627,7 @@ UINT32 InitializeJA2(void)
 
 //Lua
 	IniLuaGlobal();
-	if (!gameContext.packageLifecycle().advanceTo(PackageBootstrapPhase::StartRuntime))
+	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime))
 	{
 		return ERROR_SCREEN;
 	}
@@ -1640,8 +1640,8 @@ void ShutdownJA2(void)
 {
 	GameContext& gameContext = GetGameContext();
 	gameContext.beginShutdown();
-	const PackageLifecycleShutdownResult lifecycleTeardown =
-		gameContext.packageLifecycle().shutdown();
+	const RuntimeSessionShutdownResult sessionTeardown = gameContext.shutdownPackages();
+	const PackageLifecycleShutdownResult& lifecycleTeardown = sessionTeardown.packages;
 	const PackageDeactivationBatchResult& packageTeardown =
 		lifecycleTeardown.deactivation;
 	if (!packageTeardown)

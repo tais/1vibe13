@@ -2,6 +2,7 @@
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/EngineHost.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
@@ -70,6 +71,20 @@ int main()
 		capabilities.ids() == std::vector<std::string>({
 			"engine.rendering", "tool.map-editor"}),
 		"runtime capabilities are portable, unique, and deterministically ordered");
+
+	EngineHost<unsigned> sessionHost;
+	const RuntimeSessionShutdownResult prematureSessionShutdown =
+		sessionHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionAdvanceResult configuredSession =
+		sessionHost.runtimeSession().advancePackagesTo(PackageBootstrapPhase::Configure);
+	check(!prematureSessionShutdown &&
+		prematureSessionShutdown.error == RuntimeSessionError::InvalidState &&
+		configuredSession && configuredSession.packages.completedPhases == 1 &&
+		sessionHost.beginInitialization() &&
+		sessionHost.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime) &&
+		sessionHost.markRunning() && sessionHost.beginShutdown() &&
+		sessionHost.runtimeSession().shutdownPackages() && sessionHost.markStopped(),
+		"runtime session coordinates package phases with orderly host transitions");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&
