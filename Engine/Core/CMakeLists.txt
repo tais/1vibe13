@@ -10,6 +10,7 @@ set(engine_core_public_headers
   CommandProcessor.h
   ContentApi.h
   DeterministicCommandQueue.h
+  DefinitionCatalog.h
   EngineHost.h
   EngineServices.h
   FrameDriver.h
@@ -23,6 +24,7 @@ set(engine_core_public_headers
   PackageApi.h
   PackageCatalog.h
   PackageContract.h
+  PackageDefinitions.h
   PackageEventSink.h
   PackageLifecycle.h
   PackageMessagePublisher.h

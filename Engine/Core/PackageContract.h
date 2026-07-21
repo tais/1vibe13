@@ -9,6 +9,7 @@
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageMessagePublisher.h>
 #include <Engine/Core/PackageLocalization.h>
+#include <Engine/Core/PackageDefinitions.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageStorage.h>
 #include <Engine/Core/RuntimeMessageBus.h>
@@ -46,6 +47,7 @@ struct PackageBootstrapContext
 	PackageMessagePublisher& messagePublisher;
 	PackageRandomSource& random;
 	PackageLocalization& localization;
+	PackageDefinitions& definitions;
 };
 
 struct PackageDescriptor

@@ -117,3 +117,9 @@ bounded, later package layers win, and lookups can explicitly fall back to
 `en`. Returned views are valid until the catalog changes. The host removes all
 owned entries during configure rollback or shutdown; legacy JA2 localization
 remains untouched during the migration window.
+
+Use `PackageBootstrapContext::definitions` for new data-driven rules and other
+domain records. Each definition has a portable type and ID, non-zero schema
+version, and bounded opaque bytes. The top package override is authoritative:
+an incompatible schema is reported instead of silently falling through to a
+lower definition. Package rollback and shutdown restore the previous layer.
