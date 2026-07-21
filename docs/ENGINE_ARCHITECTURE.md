@@ -222,3 +222,6 @@ An engine extraction PR is complete only when:
 - old saves/content remain supported or a tested version migration is included;
 - new public contracts state ownership, lifetime, determinism, and versioning;
 - campaign-specific behavior does not enter `Engine/Core`.
+
+The installable public surface and external-consumer contract are documented in
+[`ENGINE_SDK.md`](ENGINE_SDK.md).
