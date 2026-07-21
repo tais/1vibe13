@@ -198,6 +198,11 @@ int main( int, char** )
 	clB->Connect( "127.0.0.1", g_port, 0, 0 );
 	PeerLog L_B{ clB };
 	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] { return L_B.Got( ID_CONNECTION_REQUEST_ACCEPTED ); } ), "client B connected" );
+	SystemAddress serverOnB;
+	for ( size_t i = 0; i < L_B.ids.size(); ++i )
+		if ( L_B.ids[i] == ID_CONNECTION_REQUEST_ACCEPTED ) serverOnB = L_B.addrs[i];
+	CHECK( serverOnB.binaryAddress != 0 && serverOnB != UNASSIGNED_SYSTEM_ADDRESS,
+	       "client B retained its accepted server address" );
 
 	g_capSrv = Captured(); g_capA = Captured(); g_capB = Captured();
 	clA->RPC( "srvPING", (const char*)&pay, (unsigned int)sizeof( pay ) * 8, HIGH_PRIORITY, RELIABLE, 0,
@@ -282,13 +287,19 @@ int main( int, char** )
 	}
 
 	// ---------- 9. graceful disconnect ----------
+	// The real peers run in separate processes and pump concurrently. In this
+	// single-threaded loopback test, a blocking Shutdown(B) prevents the server
+	// from reading B's BYE until after B has torn down its socket, which can turn
+	// a graceful notification into an OS-dependent connection-lost event. Start
+	// the same graceful close non-blockingly and pump the receiver first.
 	size_t before = L_srv.ids.size();
-	clB->Shutdown( 300 );
-	CHECK( PumpUntil( { &L_srv, &L_A }, [&] {
+	clB->CloseConnection( serverOnB, true );
+	CHECK( PumpUntil( { &L_srv, &L_A, &L_B }, [&] {
 		for ( size_t i = before; i < L_srv.ids.size(); ++i )
 			if ( L_srv.ids[i] == ID_DISCONNECTION_NOTIFICATION ) return true;
 		return false;
 	} ), "server saw ID_DISCONNECTION_NOTIFICATION for B" );
+	clB->Shutdown( 0 );
 	RakNetworkFactory::DestroyRakPeerInterface( clB );
 
 	// ---------- 10. CloseConnection kick: client sees the drop ----------
