@@ -55,6 +55,7 @@
 #include "Text.h"
 #include "Dialogue Control.h"
 #include "GameSettings.h"
+#include "GameContext.h"
 #include "LOS.h"
 #include "Campaign Types.h"
 #include "Queen Command.h"
@@ -570,7 +571,7 @@ UINT32	HandleTacticalUI( void )
 		}
 	}
 
-	if ( !gGameSettings.fOptions[TOPTION_DISABLE_CURSOR_SWAP] )
+	if ( !GetGameContext().settings().fOptions[TOPTION_DISABLE_CURSOR_SWAP] )
 	{
 		if ( ( GetJA2Clock( ) - guiUIInterfaceSwapCursorsTime ) > 1000 )
 		{
@@ -1340,7 +1341,7 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		// to an option setting.
 		// So no more need to have a file AutoSave.pls in you ja2 root directory
 		//if( FileExists( "..\\AutoSave.pls" ) && CanGameBeSaved() )
-		if (gGameSettings.fOptions[TOPTION_USE_AUTO_SAVE] == TRUE && CanGameBeSaved() )
+		if (GetGameContext().settings().fOptions[TOPTION_USE_AUTO_SAVE] == TRUE && CanGameBeSaved() )
 		{
 			SetOptionsPreviousScreen(guiCurrentScreen);
 
@@ -1354,7 +1355,7 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		}
 
 		////ddd enemy turn optimization
-		if (gGameSettings.fOptions[TOPTION_ALT_PATHFINDING])
+		if (GetGameContext().settings().fOptions[TOPTION_ALT_PATHFINDING])
 		{
 			if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT ) )	
 			{
@@ -3011,7 +3012,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 				else if (ItemIsMedicalKit(usItem) && (NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery)
 					&& (pTSoldier->bTeam == OUR_TEAM || pTSoldier->bTeam == MILITIA_TEAM) 
 					&& (IS_MERC_BODY_TYPE( pTSoldier ) || IS_CIV_BODY_TYPE( pTSoldier )) 
-					&& gGameOptions.fNewTraitSystem && pTSoldier->iHealableInjury >= 100 
+					&& GetGameContext().options().fNewTraitSystem && pTSoldier->iHealableInjury >= 100
 					&& pTSoldier->ubID != pSoldier->ubID && gTacticalStatus.ubLastRequesterSurgeryTargetID != pTSoldier->ubID )
 				{
 					CHAR16	zStr[200];
@@ -4569,7 +4570,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 			{
 				sAPCost += (GetBasicAPsToPickupItem( pSoldier )); // stealing from collapsed soldiers is treated differently
 			}
-			else if ((HAS_SKILL_TRAIT( pSoldier, MARTIAL_ARTS_NT )) && ( gGameOptions.fNewTraitSystem ))
+			else if ((HAS_SKILL_TRAIT( pSoldier, MARTIAL_ARTS_NT )) && ( GetGameContext().options().fNewTraitSystem ))
 			{
 				sAPCost += max( 1, (INT16)(APBPConstants[AP_STEAL_ITEM] *  (100 - gSkillTraitValues.ubMAReducedAPsToSteal * NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT )) / 100.0f + 0.5f));
 			}
@@ -4983,7 +4984,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		}
 
 		// SANDRO - doctor with medical bag trying to do the surgery
-		if ((NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) && ItemIsMedicalKit(pSoldier->inv[ HANDPOS ].usItem) && gGameOptions.fNewTraitSystem
+		if ((NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) && ItemIsMedicalKit(pSoldier->inv[ HANDPOS ].usItem) && GetGameContext().options().fNewTraitSystem
 			&& (pTSoldier->stats.bLife != pTSoldier->stats.bLifeMax) && (pTSoldier->iHealableInjury >= 100))
 		{
 			// should come a question first if you really want to do the surgery
@@ -5853,7 +5854,7 @@ void EndMultiSoldierSelection( BOOLEAN fAcknowledge )
 					fSelectedSoldierInBatch = TRUE;
 				}
 
-				if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] && fAcknowledge )
+				if( !GetGameContext().settings().fOptions[ TOPTION_MUTE_CONFIRMATIONS ] && fAcknowledge )
 					pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_ATTN1, BATTLE_SND_LOWER_VOLUME );
 
 				if ( pSoldier->flags.fMercAsleep )
@@ -6019,7 +6020,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 				INT32 sIndividualDestGridNo = sDestGridNo;
 				// Flugente: determine offset to current center gridno
 				// sevenfm: use SHIFT key to move in formation
-				if (_KeyDown(SHIFT) || gGameSettings.fOptions[TOPTION_MERCENARY_FORMATIONS])
+				if (_KeyDown(SHIFT) || GetGameContext().settings().fOptions[TOPTION_MERCENARY_FORMATIONS])
 				{
 					INT32 currentX = pSoldier->sGridNo % MAXCOL;
 					INT32 currentY = pSoldier->sGridNo / MAXCOL;
@@ -7205,7 +7206,7 @@ BOOLEAN ValidQuickExchangePosition( )
 		}
 	}
 
-	if ( gGameSettings.fOptions[TOPTION_DISABLE_CURSOR_SWAP] )
+	if ( GetGameContext().settings().fOptions[TOPTION_DISABLE_CURSOR_SWAP] )
 	{
 		gfOKForExchangeCursor = FALSE;
 		fOnValidGuy = FALSE;
