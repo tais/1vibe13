@@ -2375,6 +2375,85 @@ int main( int, char** )
 	{
 		ScopedPackageFixture fixture;
 		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const std::string manifest =
+			"[Package]\n"
+			"MANIFEST_VERSION = 3\n"
+			"ID = fixture.localized\n"
+			"VERSION = 1.0.0\n"
+			"CONTENT_API = 1.4\n"
+			"TYPE = extension\n"
+			"ASSET_ROOT = Data\n"
+			"LOCALIZATION = en@Localization/en.lang, nl@Localization/nl.lang\n";
+		const bool fixtureReady =
+			fixture.write( "localized/package.ini", manifest ) &&
+			fixture.write( "localized/Data/Localization/en.lang",
+			               "JA2-LOCALIZATION 1\nui.package-ready = Package ready\n" ) &&
+			fixture.write( "localized/Data/Localization/nl.lang",
+			               "JA2-LOCALIZATION 1\nui.package-ready = Pakket gereed\n" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.localized" };
+		PackageHostResult initialized;
+		if ( fixtureReady ) initialized = host.initialize( runtime.packages(), options, mounter );
+		const RuntimeSessionAdvanceResult loaded =
+			initialized ? runtime.runtimeSession().advancePackagesTo(
+				PackageBootstrapPhase::LoadContent ) : RuntimeSessionAdvanceResult{};
+		const LocalizedTextView localized =
+			runtime.localization().resolve( "nl", "ui.package-ready" );
+		const PackageCatalogSnapshot catalog = runtime.packageCatalog();
+		const PackageCatalogEntry* package = catalog.find( "fixture.localized" );
+		CHECK( fixtureReady && initialized && loaded && localized &&
+		       *localized.text == "Pakket gereed" &&
+		       *localized.packageId == "fixture.localized" && package &&
+		       package->descriptor.localizationSources.size() == 2 &&
+		       package->descriptor.content.requiredApi.minor == 4,
+		       "Data Package v3 imports declared localization into the live layered catalog" );
+		runtime.packageLifecycle().shutdown();
+		CHECK( runtime.localization().size() == 0,
+		       "package localization import is removed during lifecycle teardown" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const std::string manifest =
+			"[Package]\n"
+			"MANIFEST_VERSION = 3\n"
+			"ID = fixture.bad-localization\n"
+			"VERSION = 1.0.0\n"
+			"CONTENT_API = 1.4\n"
+			"TYPE = extension\n"
+			"ASSET_ROOT = Data\n"
+			"LOCALIZATION = en@Localization/en.lang\n";
+		const bool fixtureReady =
+			fixture.write( "bad-localization/package.ini", manifest ) &&
+			fixture.write( "bad-localization/Data/Localization/en.lang",
+			               "JA2-LOCALIZATION 1\nui.same = First\nui.same = Second\n" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.bad-localization" };
+		PackageHostResult initialized;
+		if ( fixtureReady ) initialized = host.initialize( runtime.packages(), options, mounter );
+		const RuntimeSessionAdvanceResult loaded =
+			initialized ? runtime.runtimeSession().advancePackagesTo(
+				PackageBootstrapPhase::LoadContent ) : RuntimeSessionAdvanceResult{};
+		CHECK( fixtureReady && initialized && !loaded &&
+		       loaded.error == RuntimeSessionError::PackageBootstrapFailed &&
+		       runtime.localization().size() == 0 &&
+		       runtime.packages().completedBootstrapPhases() == 0,
+		       "invalid package localization rolls back the complete bootstrap transaction" );
+		runtime.packageLifecycle().shutdown();
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
 		EngineRuntime<unsigned> runtime(
 			EngineServices::defaults(), ContentApiVersion{ 1, 1 } );
 		RecordingPackageAssetMounter mounter;

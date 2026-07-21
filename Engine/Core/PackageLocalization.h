@@ -23,6 +23,7 @@ public:
 	{
 		return catalog_.resolve(locale, key, fallbackLocale);
 	}
+	std::size_t clear() const { return catalog_.removePackage(packageId_); }
 
 private:
 	std::string packageId_;
