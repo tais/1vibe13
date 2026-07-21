@@ -1115,6 +1115,8 @@ int main( int, char** )
 		storage.readAll( sidecarPath, corrupted );
 		if ( !corrupted.empty() ) corrupted.back() ^= 0xffu;
 		storage.writeAll( sidecarPath, corrupted );
+		const std::string packageSidecarPath = PackageSaveStateSidecarPath( savePath );
+		storage.writeAll( packageSidecarPath, std::vector<std::uint8_t>{ 1, 2, 3 } );
 		const SaveCompatibilityResult invalid =
 			InspectSaveCompatibilityMetadata( first, savePath );
 		const bool removed = RemoveSaveCompatibilityMetadata( first, savePath );
@@ -1131,6 +1133,7 @@ int main( int, char** )
 		       !incompatible.permitsCompatibleLoad() &&
 		       invalid.state == SaveCompatibilityState::InvalidMetadata &&
 		       !invalid.permitsCompatibleLoad() && removed &&
+		       !storage.exists( packageSidecarPath ) &&
 		       removedMetadata.state == SaveCompatibilityState::LegacyWithoutMetadata,
 		       "save sidecars classify compatibility and follow their owning save lifecycle" );
 		CHECK( ParseSaveCompatibilityPolicy( " Enforce_Known " ) ==

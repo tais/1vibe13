@@ -378,9 +378,11 @@ bool RemoveSaveCompatibilityMetadata(
 	{
 		const std::string sidecar = RuntimeCheckpointSidecarPath(savePath);
 		const std::string packageState = PackageSaveStateSidecarPath(savePath);
-		return !sidecar.empty() && !packageState.empty() &&
-			context.persistence().storage().remove(sidecar) &&
-			context.persistence().storage().remove(packageState);
+		if (sidecar.empty() || packageState.empty())
+			return false;
+		const bool checkpointRemoved = context.persistence().storage().remove(sidecar);
+		const bool packageStateRemoved = context.persistence().storage().remove(packageState);
+		return checkpointRemoved && packageStateRemoved;
 	}
 	catch (...)
 	{

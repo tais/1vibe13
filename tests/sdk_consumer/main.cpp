@@ -101,8 +101,18 @@ int main()
 
 	host.screenController().reset(7);
 	if (!host.screens().current() || host.screens().current()->state != 7 ||
-		!host.beginInitialization() || !host.markRunning() ||
-		!host.beginShutdown() || !host.markStopped()) return 5;
+		!host.beginInitialization() ||
+		!host.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime) ||
+		!host.markRunning()) return 5;
+	const PackageSaveStateCaptureResult capturedExternalState =
+		host.capturePackageSaveState();
+	if (!capturedExternalState || capturedExternalState.snapshot.records.size() != 1 ||
+		capturedExternalState.snapshot.records[0].payload !=
+			std::vector<std::uint8_t>({1, 2, 3}) ||
+		!host.validatePackageSaveState(capturedExternalState.snapshot) ||
+		!host.restorePackageSaveState(capturedExternalState.snapshot)) return 14;
+	if (!host.beginShutdown() || !host.runtimeSession().shutdownPackages() ||
+		!host.markStopped()) return 5;
 	const EngineServiceLookupResult<unsigned> resolved =
 		host.serviceCatalog().resolve<unsigned>(
 			"external.test-service", EngineServiceVersion{1, 1});
