@@ -42,6 +42,8 @@ public:
 	const StateRegistry<UINT32>& stateRegistry() const { return runtime_.stateRegistry(); }
 	FrameDriver& frameDriver() { return runtime_.frameDriver(); }
 	const FrameDriver& frameDriver() const { return runtime_.frameDriver(); }
+	InputDispatcher& inputDispatcher() { return runtime_.inputDispatcher(); }
+	const InputDispatcher& inputDispatcher() const { return runtime_.inputDispatcher(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }

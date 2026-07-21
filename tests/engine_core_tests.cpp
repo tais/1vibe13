@@ -16,6 +16,19 @@ namespace
 {
 int failures = 0;
 
+class TestInputSink final : public InputEventSink
+{
+public:
+	void receiveInput(const EngineInputEvent& event) override
+	{
+		events.push_back(event);
+		if (throws) throw 1;
+	}
+
+	std::vector<EngineInputEvent> events;
+	bool throws = false;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -105,12 +118,23 @@ int main()
 		"state registry reports callback exceptions and releases lifecycle state");
 
 	ManualTimeSource frameTime;
+	MemoryInputSource frameInput;
 	RecordingFramePresenter framePresenter;
 	EngineServices frameServices{
 		frameTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
-		NullLogSink::instance(), NullInputSource::instance(),
+		NullLogSink::instance(), frameInput,
 		NullAudioOutput::instance(), framePresenter, NullAssetSource::instance()};
-	FrameDriver frameDriver(frameServices);
+	InputDispatcher inputDispatcher(frameInput, 1);
+	TestInputSink receivingInput;
+	TestInputSink throwingInput;
+	throwingInput.throws = true;
+	check(inputDispatcher.addSink(receivingInput) == InputSinkRegistrationError::None &&
+		inputDispatcher.addSink(throwingInput) == InputSinkRegistrationError::None &&
+		inputDispatcher.addSink(receivingInput) == InputSinkRegistrationError::Duplicate,
+		"input dispatcher retains deterministic unique subscribers");
+	frameInput.push(EngineInputEvent{10, 0, 1, 65, 0, 1, 3});
+	frameInput.push(EngineInputEvent{20, 0, 2, 65, 0, 2, 0});
+	FrameDriver frameDriver(frameServices, inputDispatcher);
 	unsigned frameOrder = 0;
 	const FrameRunResult presentedFrame = frameDriver.runFrame(
 		[&] {
@@ -128,11 +152,17 @@ int main()
 		presentedFrame.startedAtMicroseconds == 0 &&
 		presentedFrame.finishedAtMicroseconds == 40 && frameOrder == 2,
 		"frame driver reports deterministic frame identity and timing");
+	check(presentedFrame.input.polled == 1 && presentedFrame.input.delivered == 1 &&
+		presentedFrame.input.callbackFailures == 1 &&
+		presentedFrame.input.sourceDrops == 3 && presentedFrame.input.limitReached &&
+		receivingInput.events.size() == 1 && throwingInput.events.size() == 1,
+		"frame driver dispatches bounded input before update and isolates subscriber failures");
 	const FrameRunResult skippedFrame = frameDriver.runFrame(
 		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
 	check(skippedFrame.sequence == 2 && !skippedFrame.presented &&
 		framePresenter.presentations().size() == 1 &&
-		frameDriver.completedFrames() == 2,
+		frameDriver.completedFrames() == 2 && skippedFrame.input.polled == 1 &&
+		receivingInput.events.size() == 2 && receivingInput.events.back().type == 2,
 		"frame driver preserves skipped-frame policy without presenting");
 
 	BinaryWriter writer;

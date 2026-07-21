@@ -387,9 +387,15 @@ public:
 			lifecycleTrace->push_back("shutdown:" + descriptor_.content.id);
 		shutdownCalls.push_back(static_cast<int>(phase));
 	}
+	void receiveInput(PackageBootstrapContext&, const EngineInputEvent& event) override
+	{
+		inputEvents.push_back(event);
+		if (throwOnInput) throw "test package input exception";
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
+	std::vector<EngineInputEvent> inputEvents;
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
@@ -399,6 +405,7 @@ public:
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
 	int throwPhase = -1;
+	bool throwOnInput = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -471,7 +478,13 @@ int main( int, char** )
 	}
 
 	{
-		EngineHost<unsigned> host;
+		MemoryInputSource input;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
+			NullByteStorage::instance(), NullLogSink::instance(), input,
+			NullAudioOutput::instance(), NullFramePresenter::instance(),
+			NullAssetSource::instance()};
+		EngineHost<unsigned> host( services );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
@@ -483,6 +496,12 @@ int main( int, char** )
 		CHECK( started && started.completedPhases == 3 && !started.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );
+		const FrameRunResult frame = host.frameDriver().runFrame(
+			[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		CHECK( frame.input.polled == 1 && package.inputEvents.size() == 1 &&
+		       package.inputEvents[0].modifiers == 2 && package.inputEvents[0].primary == 65,
+		       "runtime-started packages receive live mirrored input before the application frame" );
 		const PackageLifecycleShutdownResult stopped = host.packageLifecycle().shutdown();
 		CHECK( stopped && stopped.shutdownPhases == 3 &&
 		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&

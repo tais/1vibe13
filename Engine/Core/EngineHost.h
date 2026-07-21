@@ -8,6 +8,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/FrameDriver.h>
+#include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageLifecycle.h>
@@ -38,10 +39,12 @@ public:
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {})
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
-		  packageLifecycle_(packages_), frameDriver_(packages_.services()),
+		  packageLifecycle_(packages_), inputDispatcher_(packages_.services().input),
+		  frameDriver_(packages_.services(), inputDispatcher_),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
+		inputDispatcher_.addSink(packages_);
 	}
 
 	// PackageRegistry keeps references to this host's ContentRegistry. Stable
@@ -62,6 +65,8 @@ public:
 	const StateRegistry<ScreenId>& stateRegistry() const { return stateRegistry_; }
 	FrameDriver& frameDriver() { return frameDriver_; }
 	const FrameDriver& frameDriver() const { return frameDriver_; }
+	InputDispatcher& inputDispatcher() { return inputDispatcher_; }
+	const InputDispatcher& inputDispatcher() const { return inputDispatcher_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -128,6 +133,7 @@ private:
 	ContentRegistry content_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
+	InputDispatcher inputDispatcher_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
 	RuntimeCapabilities hostCapabilities_;

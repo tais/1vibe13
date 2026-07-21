@@ -14,9 +14,10 @@
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageResults.h>
+#include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 
-class PackageRegistry
+class PackageRegistry : public InputEventSink
 {
 public:
 	explicit PackageRegistry(ContentRegistry& content,
@@ -585,6 +586,25 @@ public:
 					*package, static_cast<std::size_t>(phase));
 			}
 			--completedBootstrapPhases_;
+		}
+	}
+
+	void receiveInput(const EngineInputEvent& event) override
+	{
+		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+			return;
+		OperationGuard operation(operationInProgress_);
+		PackageBootstrapContext context{content_, services_};
+		for (const std::string& packageId : active_)
+		{
+			try
+			{
+				packages_.at(packageId).package->receiveInput(context, event);
+			}
+			catch (...)
+			{
+				logError("Package input callback threw: ", packageId);
+			}
 		}
 	}
 

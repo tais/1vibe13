@@ -14,6 +14,7 @@ set(engine_core_public_headers
   FrameDriver.h
   FramePresenter.h
   Identifier.h
+  InputDispatcher.h
   InputSource.h
   LogSink.h
   PackageApi.h

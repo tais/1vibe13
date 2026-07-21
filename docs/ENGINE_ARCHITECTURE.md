@@ -193,6 +193,11 @@ the engine must not contain SDL types in its public domain model.
   through it while preserving its established screen-update, presentation,
   clock, and network ordering. Headless hosts use the same driver with injected
   time and presentation services instead of a window or renderer.
+- `InputDispatcher` drains a bounded engine input stream before each frame and
+  fans events out in deterministic subscriber order. The SDL adapter mirrors
+  accepted legacy queue events, so engine packages receive live input without
+  consuming or reordering the tactical/UI event queue. Runtime-started packages
+  receive these events in activation order; callback exceptions are isolated.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

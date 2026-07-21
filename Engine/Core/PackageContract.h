@@ -62,6 +62,9 @@ public:
 	// the source; once returned, its identity and lifetime must remain stable
 	// until the registry unmounts it immediately before deactivate().
 	virtual const AssetSource* assetSource() const noexcept { return nullptr; }
+	// Runtime input is a non-stealing mirror of the application queue. Packages
+	// receive it in activation order only after all bootstrap phases complete.
+	virtual void receiveInput(PackageBootstrapContext&, const EngineInputEvent&) {}
 };
 
 #endif

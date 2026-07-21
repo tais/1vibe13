@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/InputDispatcher.h>
 
 struct FramePlan
 {
@@ -19,6 +20,7 @@ struct FrameRunResult
 	std::uint64_t finishedAtMicroseconds = 0;
 	bool presented = false;
 	FramePresentMode presentationMode = FramePresentMode::Paced;
+	InputDispatchResult input;
 };
 
 // Game-agnostic orchestration for one application frame. The application owns
@@ -29,7 +31,8 @@ struct FrameRunResult
 class FrameDriver
 {
 public:
-	explicit FrameDriver(EngineServices& services) : services_(services) {}
+	FrameDriver(EngineServices& services, InputDispatcher& input)
+		: services_(services), input_(input) {}
 
 	FrameDriver(const FrameDriver&) = delete;
 	FrameDriver& operator=(const FrameDriver&) = delete;
@@ -40,6 +43,7 @@ public:
 	FrameRunResult runFrame(PrepareFrame&& prepareFrame, CompleteFrame&& completeFrame)
 	{
 		const std::uint64_t startedAt = services_.time.nowMicroseconds();
+		const InputDispatchResult input = input_.dispatchPending();
 		const FramePlan plan = std::forward<PrepareFrame>(prepareFrame)();
 		if (plan.present)
 			services_.frames.present(plan.presentationMode);
@@ -47,7 +51,7 @@ public:
 		const std::uint64_t sequence = ++completedFrames_;
 		return FrameRunResult{
 			sequence, startedAt, services_.time.nowMicroseconds(),
-			plan.present, plan.presentationMode};
+			plan.present, plan.presentationMode, input};
 	}
 
 	std::uint64_t completedFrames() const { return completedFrames_; }
@@ -55,6 +59,7 @@ public:
 
 private:
 	EngineServices& services_;
+	InputDispatcher& input_;
 	std::uint64_t completedFrames_ = 0;
 };
 
