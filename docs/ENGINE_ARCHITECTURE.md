@@ -86,6 +86,9 @@ the engine must not contain SDL types in its public domain model.
   mount failure reverses named VFS profiles, newly activated packages, and all
   registrations introduced by that attempt. Rollback continues after an
   individual teardown error and reports every incomplete step to the host.
+  Every external mount attempt is unwound, including one that throws or
+  reports failure after acquiring partial VFS state; unmount adapters are
+  therefore idempotent for already-absent package IDs.
 - Package bootstrap advances through ordered configure, content-load, and
   runtime-start phases. A failed phase rolls back in reverse package order;
   shutdown unwinds completed phases in reverse before legacy engine teardown.

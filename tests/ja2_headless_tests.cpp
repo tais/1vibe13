@@ -183,11 +183,11 @@ public:
 	            const std::filesystem::path&, std::string& error ) override
 	{
 		mounted.push_back( packageId );
-		if ( packageId != failMountId )
-		{
-			activeMounts.push_back( packageId );
-			return true;
-		}
+		// Model a mounter that acquires state before it can discover a late
+		// indexing failure. The host must unwind this even though mount returns
+		// false.
+		activeMounts.push_back( packageId );
+		if ( packageId != failMountId ) return true;
 		error = "injected mount failure";
 		return false;
 	}
@@ -202,10 +202,7 @@ public:
 		}
 		const auto found = std::find( activeMounts.begin(), activeMounts.end(), packageId );
 		if ( found == activeMounts.end() )
-		{
-			error = "package was not mounted";
-			return false;
-		}
+			return true;
 		activeMounts.erase( found );
 		return true;
 	}
@@ -1996,7 +1993,8 @@ int main( int, char** )
 		       mounter.preflighted == std::vector<std::string>({
 		       "fixture.mount-base", "fixture.mount-consumer" }) &&
 		       mounter.mounted == mounter.preflighted &&
-		       mounter.unmounted == std::vector<std::string>({ "fixture.mount-base" }) &&
+		       mounter.unmounted == std::vector<std::string>({
+		       "fixture.mount-consumer", "fixture.mount-base" }) &&
 		       mounter.activeMounts.empty() && result.rollbackFailures.empty() &&
 		       runtime.packages().activationOrder().empty() &&
 		       !runtime.packages().isActive( "fixture.mount-base" ) &&
@@ -2004,7 +2002,7 @@ int main( int, char** )
 		       runtime.packages().find( "fixture.mount-base" ) == nullptr &&
 		       runtime.packages().find( "fixture.mount-consumer" ) == nullptr &&
 		       rolledBackRead == AssetReadResult::NotFound,
-		       "a late mount failure rolls back VFS mounts, activation, registration, and assets" );
+		       "a partial late mount failure rolls back VFS mounts, activation, registration, and assets" );
 	}
 
 	{

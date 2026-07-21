@@ -434,10 +434,7 @@ public:
 			const std::string profileName = profileNameFor(packageId);
 			vfs::CProfileStack* profiles = getVFS()->getProfileStack();
 			if (!profiles->getProfile(vfs::String(profileName.c_str())))
-			{
-				error = "bfVFS package profile is not mounted: " + profileName;
-				return false;
-			}
+				return true;
 			if (!profiles->removeProfile(vfs::String(profileName.c_str())))
 			{
 				error = "bfVFS could not remove package profile: " + profileName;
@@ -1061,6 +1058,10 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		if (package == packagesById.end()) continue;
 		std::string mountError;
 		bool mounted = false;
+		// A mounter may acquire partial state before returning false or
+		// throwing. Reserve made this non-allocating; rollback now owns every
+		// attempted mount regardless of its reported result.
+		mountedIds.push_back(id);
 		try
 		{
 			mounted = mounter.mount(id, package->second->assetRoot, mountError);
@@ -1075,7 +1076,6 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		}
 		if (mounted)
 		{
-			mountedIds.push_back(id);
 			continue;
 		}
 		result.error = PackageHostError::MountFailed;
