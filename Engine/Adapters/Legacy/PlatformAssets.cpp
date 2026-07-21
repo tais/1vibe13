@@ -54,6 +54,16 @@ protected:
 		asset.bytes = std::move(bytes);
 		return AssetReadResult::Success;
 	}
+
+	AssetMetadataResult metadataNormalized(const std::string& logicalPath,
+		AssetMetadata& metadata) const override
+	{
+		if (!FileExists(const_cast<char*>(logicalPath.c_str())))
+			return AssetMetadataResult::NotFound;
+		metadata.provenance = "legacy-vfs";
+		metadata.byteSize = FileSize(const_cast<char*>(logicalPath.c_str()));
+		return AssetMetadataResult::Success;
+	}
 };
 }
 

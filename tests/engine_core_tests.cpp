@@ -98,6 +98,16 @@ int main()
 		"compiled core normalizes portable asset paths");
 	check(!NormalizeAssetPath("../Data/secret", path),
 		"compiled core rejects traversal paths");
+	MemoryAssetSource metadataAssets("test.assets");
+	metadataAssets.put("Data/Metadata.bin", {1, 2, 3});
+	AssetMetadata metadata;
+	check(metadataAssets.metadata("DATA\\METADATA.BIN", metadata) ==
+			AssetMetadataResult::Success &&
+		metadata.logicalPath == "data/metadata.bin" &&
+		metadata.provenance == "test.assets" && metadata.byteSize == 3 &&
+		metadataAssets.metadata("../invalid", metadata) ==
+			AssetMetadataResult::InvalidPath && metadata.logicalPath.empty(),
+		"asset metadata queries normalize paths without copying asset payloads");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);

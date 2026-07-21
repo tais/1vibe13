@@ -88,3 +88,9 @@ not depend on rendering cadence. The host publishes the configured step and
 maximum catch-up count, executes only that bounded number after a hitch, and
 records dropped ticks in frame telemetry. `updateRuntime` remains the per-frame
 hook for interpolation, UI, and other presentation-paced work.
+
+Call `AssetSource::metadata` when a package only needs existence, size, or
+winning overlay provenance. The built-in sources answer without allocating the
+asset payload, normalize paths exactly like `read`, and clear output on every
+failure. Custom sources may return `Unsupported` until they provide a fast
+metadata implementation.

@@ -1541,6 +1541,13 @@ int main( int, char** )
 		       asset.logicalPath == "data/items.xml" && asset.bytes[0] == 3 &&
 		       asset.provenance == "mod.example",
 		       "later package assets override case-insensitively with trusted provenance" );
+		AssetMetadata layeredMetadata;
+		CHECK( layeredAssets.metadata( "DATA/ITEMS.XML", layeredMetadata ) ==
+		           AssetMetadataResult::Success &&
+		       layeredMetadata.logicalPath == "data/items.xml" &&
+		       layeredMetadata.provenance == "mod.example" &&
+		       layeredMetadata.byteSize == 1,
+		       "layered asset metadata resolves winning provenance without reading bytes" );
 		CHECK( layeredAssets.read( "Data/Maps/A9.dat", asset ) == AssetReadResult::Success &&
 		       asset.bytes[0] == 9 &&
 		       asset.provenance == "campaign.arulco",

@@ -246,6 +246,10 @@ the engine must not contain SDL types in its public domain model.
   fixed-step package callback stream. Catch-up per frame is bounded, discarded
   ticks are explicit telemetry, and render-paced updates remain available for
   presentation work; the legacy campaign simulation is not switched over.
+- `AssetSource::metadata` resolves normalized logical path, winning provenance,
+  and byte size without copying payloads. Memory, overlay, and legacy VFS
+  adapters implement the fast path; unsupported third-party sources report
+  that explicitly rather than silently performing an expensive read.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
