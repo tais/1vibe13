@@ -210,6 +210,10 @@ the engine must not contain SDL types in its public domain model.
   and update callback counts and failures remain observable per package, while
   repeated exception logging is reduced from every frame to a logarithmic
   cadence so one broken extension cannot create an unbounded logging workload.
+- `RuntimeMessageBus` provides bounded, deterministic value messages between
+  hosts and runtime-started packages without campaign headers. Each frame
+  drains one snapshot before input; messages published by a callback wait for
+  the next frame, preventing reentrant and unbounded same-frame work.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

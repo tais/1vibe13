@@ -48,6 +48,8 @@ public:
 	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtime_.runtimeUpdates(); }
 	FrameTelemetry& frameTelemetry() { return runtime_.frameTelemetry(); }
 	const FrameTelemetry& frameTelemetry() const { return runtime_.frameTelemetry(); }
+	RuntimeMessageBus& runtimeMessages() { return runtime_.runtimeMessages(); }
+	const RuntimeMessageBus& runtimeMessages() const { return runtime_.runtimeMessages(); }
 	ContentRegistry& content() { return runtime_.content(); }
 	const ContentRegistry& content() const { return runtime_.content(); }
 	PackageRegistry& packages() { return runtime_.packages(); }

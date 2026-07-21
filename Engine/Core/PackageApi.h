@@ -18,14 +18,16 @@
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 
-class PackageRegistry : public InputEventSink, public RuntimeUpdateSink
+class PackageRegistry : public InputEventSink, public RuntimeUpdateSink,
+	public RuntimeMessageSink
 {
 public:
 	explicit PackageRegistry(ContentRegistry& content,
 		EngineServices services = EngineServices::defaults(),
-		PackageEventSink& events = NullPackageEventSink::instance())
+		PackageEventSink& events = NullPackageEventSink::instance(),
+		RuntimeMessageBus& messages = RuntimeMessageBus::disabled())
 		: content_(content), assets_(services.assets), services_(withAssets(services, assets_)),
-		  events_(events) {}
+		  events_(events), messages_(messages) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
 	// registry and application-owned package objects. Preserve that identity;
@@ -516,7 +518,7 @@ public:
 		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
 			return PackageBootstrapError::OutOfOrder;
 
-		PackageBootstrapContext context{content_, services_};
+		PackageBootstrapContext context{content_, services_, messages_};
 		for (std::size_t index = 0; index < active_.size(); ++index)
 		{
 			bool succeeded = false;
@@ -565,7 +567,7 @@ public:
 	{
 		if (operationInProgress_) return;
 		OperationGuard operation(operationInProgress_);
-		PackageBootstrapContext context{content_, services_};
+		PackageBootstrapContext context{content_, services_, messages_};
 		while (completedBootstrapPhases_ > 0)
 		{
 			const PackageBootstrapPhase phase =
@@ -595,7 +597,7 @@ public:
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
-		PackageBootstrapContext context{content_, services_};
+		PackageBootstrapContext context{content_, services_, messages_};
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
@@ -618,7 +620,7 @@ public:
 		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
 			return;
 		OperationGuard operation(operationInProgress_);
-		PackageBootstrapContext context{content_, services_};
+		PackageBootstrapContext context{content_, services_, messages_};
 		for (const std::string& packageId : active_)
 		{
 			RegisteredPackage& registered = packages_.at(packageId);
@@ -632,6 +634,29 @@ public:
 				const std::uint64_t failure =
 					++registered.runtimeHealth.runtimeUpdateFailures;
 				logRuntimeFailure("runtime update", packageId, failure,
+					registered.runtimeHealth.suppressedFailureLogs);
+			}
+		}
+	}
+
+	void receiveMessage(const RuntimeMessage& message) override
+	{
+		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+			return;
+		OperationGuard operation(operationInProgress_);
+		PackageBootstrapContext context{content_, services_, messages_};
+		for (const std::string& packageId : active_)
+		{
+			RegisteredPackage& registered = packages_.at(packageId);
+			++registered.runtimeHealth.messageCallbacks;
+			try
+			{
+				registered.package->receiveMessage(context, message);
+			}
+			catch (...)
+			{
+				const std::uint64_t failure = ++registered.runtimeHealth.messageFailures;
+				logRuntimeFailure("message", packageId, failure,
 					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}
@@ -922,6 +947,7 @@ private:
 	CompositeAssetSource assets_;
 	EngineServices services_;
 	PackageEventSink& events_;
+	RuntimeMessageBus& messages_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;

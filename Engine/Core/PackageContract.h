@@ -7,6 +7,7 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/RuntimeMessageBus.h>
 #include <Engine/Core/RuntimeUpdate.h>
 
 enum class PackageKind
@@ -31,6 +32,7 @@ struct PackageBootstrapContext
 {
 	ContentRegistry& content;
 	EngineServices& services;
+	RuntimeMessageBus& messages;
 };
 
 struct PackageDescriptor
@@ -69,6 +71,10 @@ public:
 	// Per-frame updates run after mirrored input dispatch and before application
 	// state update. The context is engine timing, never a game-global clock.
 	virtual void updateRuntime(PackageBootstrapContext&, const RuntimeUpdateContext&) {}
+	// Bounded value messages are delivered at the next engine frame boundary.
+	// Packages may publish through PackageBootstrapContext::messages; messages
+	// produced by a callback never reenter the same dispatch.
+	virtual void receiveMessage(PackageBootstrapContext&, const RuntimeMessage&) {}
 };
 
 #endif

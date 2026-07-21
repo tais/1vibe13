@@ -32,15 +32,18 @@ public:
 		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {})
-		: content_(supportedContentApi), packages_(content_, services, packageEvents),
+		: content_(supportedContentApi),
+		  packages_(content_, services, packageEvents, runtimeMessages_),
 		  packageLifecycle_(packages_), runtimeSession_(packageLifecycle_),
 		  inputDispatcher_(packages_.services().input),
-		  frameDriver_(packages_.services(), inputDispatcher_, runtimeUpdates_, frameTelemetry_),
+		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
+		               runtimeUpdates_, frameTelemetry_),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
+		runtimeMessages_.addSink(packages_);
 	}
 
 	// PackageRegistry keeps references to this host's ContentRegistry. Stable
@@ -67,6 +70,8 @@ public:
 	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtimeUpdates_; }
 	FrameTelemetry& frameTelemetry() { return frameTelemetry_; }
 	const FrameTelemetry& frameTelemetry() const { return frameTelemetry_; }
+	RuntimeMessageBus& runtimeMessages() { return runtimeMessages_; }
+	const RuntimeMessageBus& runtimeMessages() const { return runtimeMessages_; }
 	ContentRegistry& content() { return content_; }
 	const ContentRegistry& content() const { return content_; }
 	PackageRegistry& packages() { return packages_; }
@@ -107,6 +112,7 @@ private:
 	StateController<ScreenId> screenController_;
 	StateRegistry<ScreenId> stateRegistry_;
 	ContentRegistry content_;
+	RuntimeMessageBus runtimeMessages_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;

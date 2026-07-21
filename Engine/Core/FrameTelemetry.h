@@ -9,11 +9,13 @@
 #include <Engine/Core/FramePresenter.h>
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeUpdate.h>
+#include <Engine/Core/RuntimeMessageBus.h>
 
 struct FrameTelemetrySample
 {
 	std::uint64_t sequence = 0;
 	std::uint64_t startedAtMicroseconds = 0;
+	std::uint64_t messagesFinishedAtMicroseconds = 0;
 	std::uint64_t inputFinishedAtMicroseconds = 0;
 	std::uint64_t runtimeUpdateFinishedAtMicroseconds = 0;
 	std::uint64_t applicationUpdateFinishedAtMicroseconds = 0;
@@ -21,6 +23,7 @@ struct FrameTelemetrySample
 	std::uint64_t finishedAtMicroseconds = 0;
 	bool presented = false;
 	FramePresentMode presentationMode = FramePresentMode::Paced;
+	RuntimeMessageDispatchResult messages;
 	InputDispatchResult input;
 	RuntimeUpdateDispatchResult runtimeUpdates;
 
@@ -28,9 +31,13 @@ struct FrameTelemetrySample
 	{
 		return duration(startedAtMicroseconds, finishedAtMicroseconds);
 	}
+	std::uint64_t messageMicroseconds() const
+	{
+		return duration(startedAtMicroseconds, messagesFinishedAtMicroseconds);
+	}
 	std::uint64_t inputMicroseconds() const
 	{
-		return duration(startedAtMicroseconds, inputFinishedAtMicroseconds);
+		return duration(messagesFinishedAtMicroseconds, inputFinishedAtMicroseconds);
 	}
 	std::uint64_t runtimeUpdateMicroseconds() const
 	{
@@ -67,6 +74,8 @@ struct FrameTelemetrySummary
 	std::uint64_t inputSourceDrops = 0;
 	std::uint64_t inputCallbackFailures = 0;
 	std::uint64_t runtimeUpdateCallbackFailures = 0;
+	std::uint64_t messageCallbackFailures = 0;
+	std::uint64_t messagesDelivered = 0;
 	std::uint64_t evictedSamples = 0;
 	std::uint64_t storageFailures = 0;
 };
@@ -96,6 +105,8 @@ public:
 		summary_.inputSourceDrops += sample.input.sourceDrops;
 		summary_.inputCallbackFailures += sample.input.callbackFailures;
 		summary_.runtimeUpdateCallbackFailures += sample.runtimeUpdates.callbackFailures;
+		summary_.messageCallbackFailures += sample.messages.callbackFailures;
+		summary_.messagesDelivered += sample.messages.delivered;
 
 		if (capacity_ == 0) return;
 		try

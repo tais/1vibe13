@@ -362,6 +362,7 @@ public:
 		if (lifecycleTrace)
 			lifecycleTrace->push_back("bootstrap:" + descriptor_.content.id);
 		observedServices = &context.services;
+		observedMessages = &context.messages;
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -397,22 +398,30 @@ public:
 		runtimeUpdates.push_back(update);
 		if (throwOnRuntimeUpdate) throw "test package runtime update exception";
 	}
+	void receiveMessage(PackageBootstrapContext&, const RuntimeMessage& message) override
+	{
+		receivedMessages.push_back(message);
+		if (throwOnMessage) throw "test package message exception";
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
 	std::vector<EngineInputEvent> inputEvents;
 	std::vector<RuntimeUpdateContext> runtimeUpdates;
+	std::vector<RuntimeMessage> receivedMessages;
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
 	std::string observedAssetProvenance;
 	EngineServices* observedServices = nullptr;
+	RuntimeMessageBus* observedMessages = nullptr;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
 	int throwPhase = -1;
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
+	bool throwOnMessage = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -505,11 +514,18 @@ int main( int, char** )
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
 		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );
+		const RuntimeMessagePublishResult published = host.runtimeMessages().publish(
+			RuntimeMessageRequest{ "engine.test", "host.headless", { 4, 2 } } );
 		const FrameRunResult frame = host.frameDriver().runFrame(
 			[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
 		CHECK( frame.input.polled == 1 && package.inputEvents.size() == 1 &&
 		       package.inputEvents[0].modifiers == 2 && package.inputEvents[0].primary == 65,
 		       "runtime-started packages receive live mirrored input before the application frame" );
+		CHECK( published && frame.messages.messages == 1 &&
+		       package.receivedMessages.size() == 1 &&
+		       package.receivedMessages[0].payload == std::vector<std::uint8_t>({ 4, 2 }) &&
+		       package.observedMessages == &host.runtimeMessages(),
+		       "runtime-started packages receive bounded host messages at the frame boundary" );
 		CHECK( frame.runtimeUpdates.delivered == 1 && package.runtimeUpdates.size() == 1 &&
 		       package.runtimeUpdates[0].frameSequence == 1 &&
 		       package.runtimeUpdates[0].elapsedSincePreviousFrameMicroseconds == 0,

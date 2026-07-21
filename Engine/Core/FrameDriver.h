@@ -24,6 +24,7 @@ struct FrameRunResult
 	FramePresentMode presentationMode = FramePresentMode::Paced;
 	InputDispatchResult input;
 	RuntimeUpdateDispatchResult runtimeUpdates;
+	RuntimeMessageDispatchResult messages;
 };
 
 // Game-agnostic orchestration for one application frame. The application owns
@@ -34,9 +35,9 @@ struct FrameRunResult
 class FrameDriver
 {
 public:
-	FrameDriver(EngineServices& services, InputDispatcher& input,
+	FrameDriver(EngineServices& services, RuntimeMessageBus& messages, InputDispatcher& input,
 		RuntimeUpdateDispatcher& runtimeUpdates, FrameTelemetry& telemetry)
-		: services_(services), input_(input), runtimeUpdates_(runtimeUpdates),
+		: services_(services), messages_(messages), input_(input), runtimeUpdates_(runtimeUpdates),
 		  telemetry_(telemetry) {}
 
 	FrameDriver(const FrameDriver&) = delete;
@@ -49,6 +50,8 @@ public:
 	{
 		const std::uint64_t startedAt = services_.time.nowMicroseconds();
 		const std::uint64_t sequence = completedFrames_ + 1;
+		const RuntimeMessageDispatchResult messages = messages_.dispatchPending();
+		const std::uint64_t messagesFinishedAt = services_.time.nowMicroseconds();
 		const InputDispatchResult input = input_.dispatchPending();
 		const std::uint64_t inputFinishedAt = services_.time.nowMicroseconds();
 		const std::uint64_t elapsed = hasCompletedFrame_ && startedAt >= previousFrameStartedAt_
@@ -68,11 +71,11 @@ public:
 		hasCompletedFrame_ = true;
 		const FrameRunResult result{
 			sequence, startedAt, finishedAt,
-			plan.present, plan.presentationMode, input, runtimeUpdates};
+			plan.present, plan.presentationMode, input, runtimeUpdates, messages};
 		telemetry_.record(FrameTelemetrySample{
-			sequence, startedAt, inputFinishedAt, runtimeUpdateFinishedAt,
+			sequence, startedAt, messagesFinishedAt, inputFinishedAt, runtimeUpdateFinishedAt,
 			applicationUpdateFinishedAt, presentationFinishedAt, finishedAt,
-			plan.present, plan.presentationMode, input, runtimeUpdates});
+			plan.present, plan.presentationMode, messages, input, runtimeUpdates});
 		return result;
 	}
 
@@ -86,6 +89,7 @@ public:
 
 private:
 	EngineServices& services_;
+	RuntimeMessageBus& messages_;
 	InputDispatcher& input_;
 	RuntimeUpdateDispatcher& runtimeUpdates_;
 	FrameTelemetry& telemetry_;
