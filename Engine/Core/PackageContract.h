@@ -53,6 +53,9 @@ struct PackageDescriptor
 	// Empty preserves broadcast delivery. A non-empty list limits runtime
 	// message callbacks to these portable exact-match topics.
 	std::vector<std::string> messageTopics;
+	// Host extension services that must exist at or above the declared version
+	// before this package receives its first bootstrap callback.
+	std::vector<EngineServiceRequirement> requiredServices;
 };
 
 // Packages are owned by the application and must outlive the registry. The

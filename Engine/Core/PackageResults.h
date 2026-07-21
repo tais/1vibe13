@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include <Engine/Core/ServiceCatalog.h>
+
 enum class PackageRegistrationError
 {
 	None,
@@ -146,8 +148,24 @@ enum class PackageBootstrapError
 {
 	None,
 	OutOfOrder,
+	MissingService,
+	ServiceVersionMismatch,
 	CallbackFailed,
 	OperationInProgress
+};
+
+struct PackageServiceContractFailure
+{
+	EngineServiceAvailabilityError error = EngineServiceAvailabilityError::None;
+	std::string packageId;
+	std::string serviceId;
+	EngineServiceVersion requiredVersion;
+	EngineServiceVersion availableVersion;
+
+	explicit operator bool() const
+	{
+		return error != EngineServiceAvailabilityError::None;
+	}
 };
 
 #endif

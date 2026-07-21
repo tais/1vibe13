@@ -26,6 +26,12 @@ struct EngineServiceDescriptor
 	EngineServiceVersion version;
 };
 
+struct EngineServiceRequirement
+{
+	std::string id;
+	EngineServiceVersion minimumVersion;
+};
+
 enum class EngineServiceRegistrationError
 {
 	None,
@@ -41,6 +47,24 @@ enum class EngineServiceLookupError
 	NotFound,
 	IncompatibleVersion,
 	TypeMismatch
+};
+
+enum class EngineServiceAvailabilityError
+{
+	None,
+	NotFound,
+	IncompatibleVersion
+};
+
+struct EngineServiceAvailabilityResult
+{
+	EngineServiceAvailabilityError error = EngineServiceAvailabilityError::None;
+	EngineServiceVersion availableVersion;
+
+	explicit operator bool() const
+	{
+		return error == EngineServiceAvailabilityError::None;
+	}
 };
 
 template<typename Service>
@@ -87,6 +111,35 @@ public:
 			return EngineServiceRegistrationError::AllocationFailure;
 		}
 		return EngineServiceRegistrationError::None;
+	}
+
+	EngineServiceAvailabilityResult availability(
+		const EngineServiceRequirement& requirement) const
+	{
+		const Entry* entry = findEntry(requirement.id);
+		if (!entry)
+			return EngineServiceAvailabilityResult{
+				EngineServiceAvailabilityError::NotFound, {}};
+		if (!entry->descriptor.version.supports(requirement.minimumVersion))
+			return EngineServiceAvailabilityResult{
+				EngineServiceAvailabilityError::IncompatibleVersion,
+				entry->descriptor.version};
+		return EngineServiceAvailabilityResult{
+			EngineServiceAvailabilityError::None, entry->descriptor.version};
+	}
+
+	static bool isValidRequirements(
+		const std::vector<EngineServiceRequirement>& requirements)
+	{
+		for (std::size_t index = 0; index < requirements.size(); ++index)
+		{
+			if (!IsValidEngineIdentifier(requirements[index].id) ||
+				requirements[index].minimumVersion.major == 0)
+				return false;
+			for (std::size_t previous = 0; previous < index; ++previous)
+				if (requirements[previous].id == requirements[index].id) return false;
+		}
+		return true;
 	}
 
 	template<typename Service>
