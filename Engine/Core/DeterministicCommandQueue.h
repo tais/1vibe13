@@ -63,6 +63,24 @@ public:
 		return true;
 	}
 
+	// Validate and append a complete replay batch without partially mutating the
+	// authoritative queue. Existing and within-batch sequence conflicts reject
+	// the whole batch; allocation failures also leave this queue untouched.
+	bool enqueueRecordedBatch(const std::vector<Entry>& batch)
+	{
+		DeterministicCommandQueue staged(*this);
+		for (const Entry& entry : batch)
+		{
+			if (!staged.enqueueRecorded(entry.tick, entry.sequence, entry.command))
+				return false;
+		}
+		entries_.swap(staged.entries_);
+		usedSequences_.swap(staged.usedSequences_);
+		std::swap(nextSequence_, staged.nextSequence_);
+		std::swap(ordered_, staged.ordered_);
+		return true;
+	}
+
 	std::vector<Entry> drainThrough(std::uint64_t tick)
 	{
 		ensureOrdered();

@@ -148,6 +148,12 @@ the engine must not contain SDL types in its public domain model.
   `HandleItem` firearm actions now enter this gateway before the compatibility
   executor queues the existing soldier event, while legacy AP, animation, and
   multiplayer behavior remain at their original synchronous boundary.
+- `CommandReplayService` stores those journals in integrity-checked runtime
+  persistence envelopes. Replay loads are transactional, incomplete bounded
+  captures are refused, and whole batches are staged atomically so duplicate
+  sequence IDs cannot leave a partially mutated simulation queue. Playback
+  retains the recorded tick, sequence, value, and source through the same
+  runtime gateway used by live commands.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
   `EngineRuntime` owns the `PersistenceService` bound to its configured byte
   storage, so package hosts, games, and tools share one persistence boundary.

@@ -5,6 +5,7 @@ set(engine_core_public_headers
   ByteStorage.h
   CommandDispatch.h
   CommandJournal.h
+  CommandReplay.h
   CommandProcessor.h
   ContentApi.h
   DeterministicCommandQueue.h
@@ -36,6 +37,7 @@ set(engine_core_public_headers
 add_library(ja2_engine_core STATIC
   AssetSource.cpp
   BinaryArchive.cpp
+  CommandReplay.cpp
   Identifier.cpp
   PersistenceService.cpp
   SimulationCommandCodec.cpp

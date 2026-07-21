@@ -48,6 +48,21 @@ public:
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return runtime_.commands(); }
 	CommandJournal<SimulationCommand>& commandJournal() { return runtime_.commandJournal(); }
 	const CommandJournal<SimulationCommand>& commandJournal() const { return runtime_.commandJournal(); }
+	CommandReplayService& commandReplay() { return runtime_.commandReplay(); }
+	const CommandReplayService& commandReplay() const { return runtime_.commandReplay(); }
+	CommandReplaySaveResult saveCommandReplay(const std::string& path) const noexcept
+	{
+		return runtime_.saveCommandReplay(path);
+	}
+	CommandReplayLoadResult loadCommandReplay(
+		const std::string& path, SimulationCommandReplay& replay) const noexcept
+	{
+		return runtime_.loadCommandReplay(path, replay);
+	}
+	CommandReplayStageResult stageCommandReplay(const SimulationCommandReplay& replay)
+	{
+		return runtime_.stageCommandReplay(replay);
+	}
 	std::uint64_t submitCommand(std::uint64_t tick, SimulationCommand command)
 	{
 		return runtime_.submitCommand(tick, std::move(command));

@@ -1,6 +1,7 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/EngineRuntime.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/SimulationCommandCodec.h>
 
@@ -128,6 +129,54 @@ int main()
 		bounded[0].status == CommandJournalStatus::Applied &&
 		journal.droppedCount() == 1,
 		"compiled command journal bounds memory and tracks dropped history");
+
+	MemoryByteStorage replayStorage;
+	EngineServices replayServices{
+		ZeroTimeSource::instance(), ZeroRandomSource::instance(), replayStorage};
+	EngineRuntime<> captureRuntime(replayServices);
+	captureRuntime.submitCommand(
+		12, SimulationCommand{ChangeStanceCommand{
+			5, 1, SimulationCommandSource::LocalPlayer}});
+	captureRuntime.submitCommand(
+		11, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}});
+	check(captureRuntime.saveCommandReplay("capture.replay") ==
+		CommandReplaySaveResult::Success,
+		"runtime persists its bounded command journal as a durable replay");
+	SimulationCommandReplay replay;
+	EngineRuntime<> playbackRuntime(replayServices);
+	check(playbackRuntime.loadCommandReplay("capture.replay", replay) ==
+		CommandReplayLoadResult::Success && replay.records.size() == 2 &&
+		replay.droppedCount == 0,
+		"runtime loads a complete integrity-checked replay capture");
+	check(playbackRuntime.stageCommandReplay(replay) ==
+		CommandReplayStageResult::Success,
+		"runtime transactionally stages a complete replay");
+	const auto replayed = playbackRuntime.commands().drainThrough(12);
+	check(replayed.size() == 2 && replayed[0].tick == 11 &&
+		replayed[0].sequence == 1 && replayed[1].tick == 12 &&
+		replayed[1].sequence == 0 &&
+		std::get<EndTurnCommand>(replayed[0].command).nextTeam == 2 &&
+		std::get<ChangeStanceCommand>(replayed[1].command).soldierId == 5,
+		"staged replay delivery retains deterministic tick and sequence order");
+	check(playbackRuntime.stageCommandReplay(replay) ==
+		CommandReplayStageResult::SequenceConflict &&
+		playbackRuntime.commands().empty(),
+		"replay sequence conflicts reject the whole batch without partial queuing");
+	SimulationCommandReplay incomplete = replay;
+	incomplete.droppedCount = 1;
+	check(playbackRuntime.stageCommandReplay(incomplete) ==
+		CommandReplayStageResult::IncompleteCapture,
+		"runtime refuses deterministic playback of a truncated bounded journal");
+	std::vector<std::uint8_t> corruptReplayBytes;
+	replayStorage.readAll("capture.replay", corruptReplayBytes);
+	corruptReplayBytes.back() ^= 0x80u;
+	replayStorage.writeAll("corrupt.replay", corruptReplayBytes);
+	SimulationCommandReplay unchangedReplay;
+	unchangedReplay.droppedCount = 77;
+	check(playbackRuntime.loadCommandReplay("corrupt.replay", unchangedReplay) ==
+		CommandReplayLoadResult::IntegrityFailure &&
+		unchangedReplay.droppedCount == 77 && unchangedReplay.records.empty(),
+		"corrupt replay loads leave the caller's capture untouched");
 
 	return failures == 0 ? 0 : 1;
 }

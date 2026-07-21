@@ -6,6 +6,7 @@
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/CommandJournal.h>
+#include <Engine/Core/CommandReplay.h>
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageApi.h>
@@ -35,7 +36,7 @@ public:
 		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
 		PackageEventSink& packageEvents = NullPackageEventSink::instance())
 		: content_(supportedContentApi), packages_(content_, services, packageEvents),
-		  persistence_(packages_.services().storage)
+		  persistence_(packages_.services().storage), commandReplay_(persistence_)
 	{
 	}
 
@@ -66,6 +67,43 @@ public:
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commands_; }
 	CommandJournal<SimulationCommand>& commandJournal() { return commandJournal_; }
 	const CommandJournal<SimulationCommand>& commandJournal() const { return commandJournal_; }
+	CommandReplayService& commandReplay() { return commandReplay_; }
+	const CommandReplayService& commandReplay() const { return commandReplay_; }
+
+	CommandReplaySaveResult saveCommandReplay(const std::string& path) const noexcept
+	{
+		try
+		{
+			return commandReplay_.save(path, SimulationCommandReplay{
+				commandJournal_.snapshot(), commandJournal_.droppedCount()});
+		}
+		catch (...)
+		{
+			return CommandReplaySaveResult::StorageError;
+		}
+	}
+
+	CommandReplayLoadResult loadCommandReplay(
+		const std::string& path, SimulationCommandReplay& replay) const noexcept
+	{
+		return commandReplay_.load(path, replay);
+	}
+
+	CommandReplayStageResult stageCommandReplay(const SimulationCommandReplay& replay)
+	{
+		if (replay.droppedCount != 0)
+			return CommandReplayStageResult::IncompleteCapture;
+		std::vector<ScheduledCommand<SimulationCommand>> batch;
+		batch.reserve(replay.records.size());
+		for (const RecordedSimulationCommand& record : replay.records)
+			batch.push_back({record.tick, record.sequence, record.command});
+		if (!commands_.enqueueRecordedBatch(batch))
+			return CommandReplayStageResult::SequenceConflict;
+		for (const RecordedSimulationCommand& record : replay.records)
+			commandJournal_.recordSubmission(
+				record.tick, record.sequence, record.command);
+		return CommandReplayStageResult::Success;
+	}
 
 	std::uint64_t submitCommand(std::uint64_t tick, SimulationCommand command)
 	{
@@ -127,6 +165,7 @@ private:
 	ContentRegistry content_;
 	PackageRegistry packages_;
 	PersistenceService persistence_;
+	CommandReplayService commandReplay_;
 	DeterministicCommandQueue<SimulationCommand> commands_;
 	CommandJournal<SimulationCommand> commandJournal_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;
