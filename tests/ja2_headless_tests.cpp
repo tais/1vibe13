@@ -1156,6 +1156,53 @@ int main( int, char** )
 	}
 
 	{
+		TestLifecyclePackage statePackage( "rules.saved-state", PackageKind::Rules );
+		statePackage.setSaveStateSchema( 5 );
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool registered = context.packages().registerPackage( statePackage ) ==
+			PackageRegistrationError::None;
+		const bool activated = context.packages().activate( "rules.saved-state" ) ==
+			PackageActivationError::None;
+		const bool initializing = context.beginInitialization();
+		const RuntimeSessionAdvanceResult advanced =
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime );
+		const bool running = context.markRunning();
+		const std::string savePath = "SavedGames/SaveGame02.sav";
+		const PackageSaveMetadataWriteResult written =
+			WritePackageSaveStateMetadata( context, savePath );
+		const PackageSaveMetadataResult ready =
+			InspectPackageSaveStateMetadata( context, savePath );
+		PackageSaveArchive wrongSchema = ready.archive;
+		wrongSchema.state.records[0].schemaVersion = 6;
+		const PackageSaveArchiveSaveError replaced = context.packageSaveArchives().save(
+			PackageSaveStateSidecarPath( savePath ), wrongSchema );
+		const PackageSaveMetadataResult contractMismatch =
+			InspectPackageSaveStateMetadata( context, savePath );
+		storage.remove( PackageSaveStateSidecarPath( savePath ) );
+		const PackageSaveMetadataResult legacy =
+			InspectPackageSaveStateMetadata( context, savePath );
+		CHECK( registered && activated && initializing && advanced && running && written &&
+		       written.stateful && ready.state == PackageSaveMetadataState::Ready &&
+		       ready.archive.state.records.size() == 1 &&
+		       ready.archive.state.records[0].payload == statePackage.saveStatePayload &&
+		       replaced == PackageSaveArchiveSaveError::None &&
+		       contractMismatch.state == PackageSaveMetadataState::PackageContractMismatch &&
+		       contractMismatch.contractError == PackageSaveStateError::SchemaMismatch &&
+		       legacy.state == PackageSaveMetadataState::LegacyWithoutMetadata &&
+		       EvaluatePackageSaveMetadata( legacy.state, SaveCompatibilityPolicy::Warn ) ==
+				SaveCompatibilityLoadAction::AllowWithWarning &&
+		       EvaluatePackageSaveMetadata(
+				contractMismatch.state, SaveCompatibilityPolicy::EnforceKnown ) ==
+				SaveCompatibilityLoadAction::Reject,
+		       "JA2 package-state sidecars write, preflight, classify legacy saves, and obey policy" );
+	}
+
+	{
 		g_resourceReleaseCount = 0;
 		TestResourceHandle first( 42 );
 		TestResourceHandle second( std::move( first ) );
