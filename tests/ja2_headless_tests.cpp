@@ -591,6 +591,15 @@ int main( int, char** )
 		const ContentManifest* manifest = content.find( "core" );
 		CHECK( manifest && manifest->version == "0.9.0",
 		       "content registry resolves the validated manifest" );
+		CHECK( content.unregisterContent( "missing" ) == ContentUnregistrationError::NotFound &&
+		       content.unregisterContent( "core" ) == ContentUnregistrationError::None &&
+		       content.find( "core" ) == nullptr && content.manifests().size() == 1 &&
+		       content.manifests().front().id == "forward.requirement" &&
+		       content.find( "forward.requirement" ) == &content.manifests().front(),
+		       "content unregistration preserves manifest order and repairs lookup indices" );
+		CHECK( content.registerContent( ContentManifest{ "core", "0.9.1", { 1, 1 } } ) ==
+		       ContentRegistrationError::None && content.find( "core" )->version == "0.9.1",
+		       "an unregistered content identifier can be registered again" );
 	}
 
 	{

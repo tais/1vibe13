@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_CONTENT_API_H
 #define ENGINE_CORE_CONTENT_API_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -47,6 +48,12 @@ enum class ContentRegistrationError
 	InvalidRequirement
 };
 
+enum class ContentUnregistrationError
+{
+	None,
+	NotFound
+};
+
 class ContentRegistry
 {
 public:
@@ -88,6 +95,20 @@ public:
 			throw;
 		}
 		return ContentRegistrationError::None;
+	}
+
+	ContentUnregistrationError unregisterContent(const std::string& id)
+	{
+		const auto found = byId_.find(id);
+		if (found == byId_.end()) return ContentUnregistrationError::NotFound;
+		const std::size_t removedIndex = found->second;
+		byId_.erase(found);
+		manifests_.erase(manifests_.begin() + static_cast<std::ptrdiff_t>(removedIndex));
+		// Preserve discovery order for hosts that expose manifests to tools while
+		// repairing the compact-vector index after the erased entry.
+		for (std::size_t index = removedIndex; index < manifests_.size(); ++index)
+			byId_.at(manifests_[index].id) = index;
+		return ContentUnregistrationError::None;
 	}
 
 	const ContentManifest* find(const std::string& id) const
