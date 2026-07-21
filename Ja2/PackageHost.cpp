@@ -37,6 +37,7 @@ constexpr std::size_t MaximumVersionLength = 128;
 constexpr std::size_t MaximumLogicalPathLength = 1024;
 constexpr std::size_t MaximumDeclaredContentSources = 128;
 constexpr std::size_t MaximumLocalizationDocumentBytes = 4u * 1024u * 1024u;
+constexpr std::size_t MaximumDefinitionAssetBytes = 1024u * 1024u;
 
 std::string LowerAscii(std::string value)
 {
@@ -96,6 +97,21 @@ bool ParseUnsigned16(const std::string& text, std::uint16_t& value)
 		if (parsed > std::numeric_limits<std::uint16_t>::max()) return false;
 	}
 	value = static_cast<std::uint16_t>(parsed);
+	return true;
+}
+
+bool ParseUnsigned32(const std::string& text, std::uint32_t& value)
+{
+	if (text.empty()) return false;
+	std::uint64_t parsed = 0;
+	for (char character : text)
+	{
+		if (character < '0' || character > '9') return false;
+		parsed = parsed * 10u + static_cast<std::uint64_t>(character - '0');
+		if (parsed > std::numeric_limits<std::uint32_t>::max()) return false;
+	}
+	if (parsed == 0) return false;
+	value = static_cast<std::uint32_t>(parsed);
 	return true;
 }
 
@@ -510,6 +526,63 @@ bool ReadLocalizationSourceList(vfs::PropertyContainer& properties,
 	return true;
 }
 
+bool ReadDefinitionSourceList(vfs::PropertyContainer& properties,
+	std::vector<PackageDefinitionSource>& sources,
+	const std::filesystem::path& manifestPath, const std::string& packageId,
+	PackageHostResult& error)
+{
+	std::list<vfs::String> values;
+	if (!properties.getStringListProperty(L"Package", L"DEFINITIONS", values, L""))
+		return true;
+	if (values.size() > MaximumDeclaredContentSources)
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"package declares too many DEFINITION sources", manifestPath, packageId);
+		return false;
+	}
+	std::unordered_set<std::string> unique;
+	unique.reserve(values.size());
+	for (const vfs::String& value : values)
+	{
+		const std::string text = TrimAscii(value.utf8());
+		const std::size_t colon = text.find(':');
+		const std::size_t at = text.find('@', colon == std::string::npos ? 0 : colon + 1);
+		const std::size_t equals = text.find('=', at == std::string::npos ? 0 : at + 1);
+		if (colon == std::string::npos || at == std::string::npos ||
+			equals == std::string::npos || colon == 0 || at <= colon + 1 ||
+			equals <= at + 1 || equals + 1 == text.size() ||
+			text.find(':', colon + 1) != std::string::npos ||
+			text.find('@', at + 1) != std::string::npos ||
+			text.find('=', equals + 1) != std::string::npos)
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"DEFINITIONS entries require type:id@schema=asset/path: " + text,
+				manifestPath, packageId);
+			return false;
+		}
+		const std::string type = LowerAscii(TrimAscii(text.substr(0, colon)));
+		const std::string definitionId =
+			LowerAscii(TrimAscii(text.substr(colon + 1, at - colon - 1)));
+		const std::string schemaText = TrimAscii(text.substr(at + 1, equals - at - 1));
+		const std::string assetPath = TrimAscii(text.substr(equals + 1));
+		std::uint32_t schemaVersion = 0;
+		std::string normalized;
+		if (!IsLowercaseIdentifier(type) || !IsLowercaseIdentifier(definitionId) ||
+			!ParseUnsigned32(schemaText, schemaVersion) ||
+			!IsPortableLogicalPath(assetPath, normalized) ||
+			!unique.insert(type + "\n" + definitionId).second)
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"invalid or duplicate DEFINITIONS source: " + text,
+				manifestPath, packageId);
+			return false;
+		}
+		sources.push_back(PackageDefinitionSource{
+			type, definitionId, schemaVersion, assetPath});
+	}
+	return true;
+}
+
 PackageKind ParsePackageKind(const std::string& text, bool& valid)
 {
 	const std::string kind = LowerAscii(text);
@@ -681,12 +754,36 @@ struct PackageHost::OwnedPackage final : EnginePackage
 				return false;
 			}
 		}
+		for (const PackageDefinitionSource& source : descriptor_.definitionSources)
+		{
+			AssetData asset;
+			const AssetReadResult read = assets
+				? assets->read(source.assetPath, asset, MaximumDefinitionAssetBytes)
+				: AssetReadResult::NotFound;
+			if (read != AssetReadResult::Success)
+			{
+				logContentFailure(context, source.assetPath,
+					"definition asset read failed with code " +
+						std::to_string(static_cast<int>(read)));
+				return false;
+			}
+			const DefinitionSetError inserted = context.definitions.set(
+				source.type, source.id, source.schemaVersion, std::move(asset.bytes));
+			if (inserted == DefinitionSetError::None) continue;
+			logContentFailure(context, source.assetPath,
+				"definition catalog rejected " + source.type + ":" + source.id +
+					" with code " + std::to_string(static_cast<int>(inserted)));
+			return false;
+		}
 		return true;
 	}
 	void shutdown(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
 		if (phase == PackageBootstrapPhase::LoadContent)
+		{
 			context.localization.clear();
+			context.definitions.clear();
+		}
 	}
 
 private:
@@ -840,6 +937,7 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	std::vector<std::string> capabilities;
 	std::vector<std::string> requiredCapabilities;
 	std::vector<PackageLocalizationSource> localizationSources;
+	std::vector<PackageDefinitionSource> definitionSources;
 	std::unordered_set<std::string> relationshipIds;
 	if (!ReadRequirementList(properties, L"REQUIRES", "REQUIRES", id,
 			relationshipIds, requirements, manifestPath, error) ||
@@ -854,8 +952,17 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 		!ReadCapabilityList(properties, L"REQUIRED_CAPABILITIES", "REQUIRED_CAPABILITIES",
 			requiredCapabilities, manifestPath, id, error) ||
 		!ReadLocalizationSourceList(properties, localizationSources,
+			manifestPath, id, error) ||
+		!ReadDefinitionSourceList(properties, definitionSources,
 			manifestPath, id, error))
 		return nullptr;
+	if (localizationSources.size() + definitionSources.size() >
+		MaximumDeclaredContentSources)
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"package declares too many combined content sources", manifestPath, id);
+		return nullptr;
+	}
 	if (!requirements.empty() && api.minor < PackageRequirementsContentApiVersion.minor)
 	{
 		error = Failure(PackageHostError::InvalidManifest,
@@ -874,7 +981,7 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 			manifestPath, id);
 		return nullptr;
 	}
-	if ((!localizationSources.empty() && schemaText != "3") ||
+	if (((!localizationSources.empty() || !definitionSources.empty()) && schemaText != "3") ||
 		(schemaText == "3" &&
 			(api.major != PackageDeclaredContentApiVersion.major ||
 			 api.minor < PackageDeclaredContentApiVersion.minor)))
@@ -895,7 +1002,7 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 		ContentManifest{id, version, api, std::move(requirements),
 			std::move(optionalRequirements), std::move(conflicts), std::move(loadAfter)}, kind,
 		std::move(capabilities), {}, {}, std::move(requiredCapabilities),
-		std::move(localizationSources), {}};
+		std::move(localizationSources), std::move(definitionSources)};
 	package->manifestPath = manifestPath;
 	package->assetRoot = canonicalAssetRoot;
 	package->assets = std::move(assets);
