@@ -1608,6 +1608,12 @@ int main( int, char** )
 	{
 		MemoryByteStorage memoryStorage;
 		PersistenceService memoryPersistence( memoryStorage );
+		const std::vector<std::uint8_t> legacyBytes = { 1, 2, 3, 4 };
+		std::vector<std::uint8_t> loadedLegacyBytes;
+		CHECK( memoryPersistence.saveRaw( "legacy", legacyBytes ) &&
+		       memoryPersistence.loadRaw( "legacy", loadedLegacyBytes ) &&
+		       loadedLegacyBytes == legacyBytes,
+		       "persistence service preserves established raw formats byte-for-byte" );
 		std::vector<std::uint8_t> emptyPayload;
 		PersistenceHeader emptyHeader = {};
 		CHECK( memoryPersistence.save( "empty", PersistenceHeader{ 0x454E4730u, 1 }, emptyPayload ) &&

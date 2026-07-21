@@ -20,6 +20,8 @@
 	#include "Game Clock.h"
 	#include "Morale.h"
 	#include "GameSettings.h"
+	#include "GameContext.h"
+	#include <Engine/Core/PersistenceService.h>
 	#include "Text.h"
 	#include "MessageBoxScreen.h"
 	#include "Town Militia.h"
@@ -1351,16 +1353,10 @@ void CalcDistancesBetweenTowns( void )
 
 void WriteOutDistancesBetweenTowns( void )
 {
-	HWFILE hFileHandle;
-
-	hFileHandle = FileOpen( "BinaryData\\TownDistances.dat", FILE_ACCESS_WRITE|FILE_OPEN_ALWAYS, FALSE );
-
-	FileWrite( hFileHandle, &( iTownDistances ),	( sizeof( INT32 ) * MAX_TOWNS * MAX_TOWNS ), NULL );
-
-	// close file
-	FileClose( hFileHandle );
-
-	return;
+	const auto* begin = reinterpret_cast<const std::uint8_t*>(iTownDistances);
+	const std::vector<std::uint8_t> bytes(begin, begin + sizeof(iTownDistances));
+	PersistenceService persistence(GetGameContext().services().storage);
+	persistence.saveRaw("BinaryData\\TownDistances.dat", bytes);
 }
 
 
@@ -1416,16 +1412,13 @@ void DumpDistancesBetweenTowns(void)
 
 void ReadInDistancesBetweenTowns( void )
 {
-	HWFILE hFileHandle;
-
-	hFileHandle = FileOpen( "BinaryData\\TownDistances.dat", FILE_ACCESS_READ, FALSE );
-
-	FileRead( hFileHandle, &( iTownDistances ),	( sizeof( INT32 ) * MAX_TOWNS * MAX_TOWNS ), NULL );
-
-	// close file
-	FileClose( hFileHandle );
-
-	return;
+	std::vector<std::uint8_t> bytes;
+	PersistenceService persistence(GetGameContext().services().storage);
+	if (persistence.loadRaw("BinaryData\\TownDistances.dat", bytes) &&
+		bytes.size() == sizeof(iTownDistances))
+	{
+		memcpy(iTownDistances, bytes.data(), sizeof(iTownDistances));
+	}
 }
 
 
