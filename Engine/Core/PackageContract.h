@@ -144,6 +144,11 @@ public:
 		state.clear();
 		return true;
 	}
+	virtual bool validateState(
+		PackageBootstrapContext&, std::uint32_t, const std::vector<std::uint8_t>&)
+	{
+		return true;
+	}
 	virtual bool loadState(
 		PackageBootstrapContext&, std::uint32_t, const std::vector<std::uint8_t>& state)
 	{

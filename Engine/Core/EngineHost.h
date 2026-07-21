@@ -213,6 +213,20 @@ public:
 	RuntimeSession& runtimeSession() { return runtimeSession_; }
 	const RuntimeSession& runtimeSession() const { return runtimeSession_; }
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
+	PackageSaveStateCaptureResult capturePackageSaveState() noexcept
+	{
+		return packages_.captureSaveState();
+	}
+	PackageSaveStateLoadResult validatePackageSaveState(
+		const PackageSaveStateSnapshot& snapshot) const noexcept
+	{
+		return packages_.validateSaveState(snapshot);
+	}
+	PackageSaveStateLoadResult restorePackageSaveState(
+		const PackageSaveStateSnapshot& snapshot) noexcept
+	{
+		return packages_.restoreSaveState(snapshot);
+	}
 	bool hasCapability(const std::string& capability) const
 	{
 		return hostCapabilities_.contains(capability) ||

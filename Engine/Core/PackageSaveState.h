@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_PACKAGE_SAVE_STATE_H
 #define ENGINE_CORE_PACKAGE_SAVE_STATE_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -26,6 +27,40 @@ struct PackageSaveStateSnapshot
 			if (record.packageId == packageId) return &record;
 		return nullptr;
 	}
+};
+
+enum class PackageSaveStateError
+{
+	None,
+	RuntimeNotReady,
+	OperationInProgress,
+	TooManyRecords,
+	IdentityMismatch,
+	VersionMismatch,
+	SchemaMismatch,
+	PayloadTooLarge,
+	TotalTooLarge,
+	ValidationFailed,
+	CallbackFailed,
+	AllocationFailure
+};
+
+struct PackageSaveStateCaptureResult
+{
+	PackageSaveStateError error = PackageSaveStateError::None;
+	std::string packageId;
+	PackageSaveStateSnapshot snapshot;
+
+	explicit operator bool() const { return error == PackageSaveStateError::None; }
+};
+
+struct PackageSaveStateLoadResult
+{
+	PackageSaveStateError error = PackageSaveStateError::None;
+	std::string packageId;
+	std::size_t restored = 0;
+
+	explicit operator bool() const { return error == PackageSaveStateError::None; }
 };
 
 #endif

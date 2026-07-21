@@ -475,6 +475,28 @@ public:
 		simulationTicks.push_back(tick);
 		if (throwOnSimulationTick) throw "test package simulation exception";
 	}
+	bool saveState(PackageBootstrapContext&, std::vector<std::uint8_t>& state) override
+	{
+		++saveStateCalls;
+		if (throwOnSaveState) throw "test package save-state exception";
+		state = saveStatePayload;
+		return saveStateSucceeds;
+	}
+	bool validateState(PackageBootstrapContext&, std::uint32_t schema,
+	                   const std::vector<std::uint8_t>& state) override
+	{
+		++validateStateCalls;
+		return validateStateSucceeds && schema == descriptor_.saveStateSchemaVersion &&
+			state == saveStatePayload;
+	}
+	bool loadState(PackageBootstrapContext&, std::uint32_t schema,
+	               const std::vector<std::uint8_t>& state) override
+	{
+		++loadStateCalls;
+		if (!loadStateSucceeds || schema != descriptor_.saveStateSchemaVersion) return false;
+		loadedStatePayload = state;
+		return true;
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
@@ -521,6 +543,15 @@ public:
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
 	bool throwOnSimulationTick = false;
+	bool throwOnSaveState = false;
+	bool saveStateSucceeds = true;
+	bool validateStateSucceeds = true;
+	bool loadStateSucceeds = true;
+	int saveStateCalls = 0;
+	int validateStateCalls = 0;
+	int loadStateCalls = 0;
+	std::vector<std::uint8_t> saveStatePayload{ 4, 2, 1 };
+	std::vector<std::uint8_t> loadedStatePayload;
 	bool persistOnConfigure = false;
 	bool publishOnConfigure = false;
 	bool usePackageRandomOnConfigure = false;
@@ -551,6 +582,10 @@ public:
 	void setRequiredCapabilities(std::vector<std::string> requirements)
 	{
 		descriptor_.requiredCapabilities = std::move(requirements);
+	}
+	void setSaveStateSchema(std::uint32_t schema)
+	{
+		descriptor_.saveStateSchemaVersion = schema;
 	}
 	bool active() const { return active_; }
 
@@ -639,6 +674,7 @@ int main( int, char** )
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
 		package.setRequiredCapabilities({ "host.headless" });
+		package.setSaveStateSchema( 3 );
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
@@ -692,6 +728,27 @@ int main( int, char** )
 		           std::vector<std::string>({ "host.headless" }) &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		const PackageSaveStateCaptureResult capturedState = host.capturePackageSaveState();
+		const PackageSaveStateLoadResult validatedState =
+			host.validatePackageSaveState( capturedState.snapshot );
+		const PackageSaveStateLoadResult restoredState =
+			host.restorePackageSaveState( capturedState.snapshot );
+		PackageSaveStateSnapshot wrongSchema = capturedState.snapshot;
+		wrongSchema.records[0].schemaVersion = 4;
+		const PackageSaveStateLoadResult rejectedSchema =
+			host.restorePackageSaveState( wrongSchema );
+		CHECK( capturedState && capturedState.snapshot.records.size() == 1 &&
+		       capturedState.snapshot.records[0].packageId == "lifecycle.complete" &&
+		       capturedState.snapshot.records[0].packageVersion == "1.0" &&
+		       capturedState.snapshot.records[0].schemaVersion == 3 &&
+		       capturedState.snapshot.records[0].payload == package.saveStatePayload &&
+		       validatedState && restoredState && restoredState.restored == 1 &&
+		       package.saveStateCalls == 1 && package.validateStateCalls == 1 &&
+		       package.loadStateCalls == 1 &&
+		       package.loadedStatePayload == package.saveStatePayload &&
+		       rejectedSchema.error == PackageSaveStateError::SchemaMismatch &&
+		       package.validateStateCalls == 1 && package.loadStateCalls == 1,
+		       "package registry captures, preflights, and restores bounded state in activation order" );
 		const PackageResourceUsageSnapshot resources = host.packageResourceUsage();
 		const PackageResourceUsage* packageResources = resources.find( "lifecycle.complete" );
 		CHECK( packageResources && packageResources->active &&
