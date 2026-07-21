@@ -54,6 +54,7 @@ struct PackageHostResult
 	std::vector<std::string> diagnosticPath;
 	std::vector<std::string> discovered;
 	std::vector<std::string> activated;
+	std::vector<std::string> rollbackFailures;
 
 	explicit operator bool() const { return error == PackageHostError::None; }
 };
@@ -67,8 +68,13 @@ public:
 	virtual ~PackageAssetMounter() = default;
 	virtual bool preflight(const std::string& packageId,
 		const std::filesystem::path& assetRoot, std::string& error) const = 0;
+	// Returning false must leave no mounted state for this package. A true
+	// result transfers rollback responsibility to the host.
 	virtual bool mount(const std::string& packageId,
 		const std::filesystem::path& assetRoot, std::string& error) = 0;
+	// Successful mounts must be removable by ID. PackageHost invokes this in
+	// exact reverse mount order when a later startup step fails.
+	virtual bool unmount(const std::string& packageId, std::string& error) = 0;
 };
 
 // Owns every discovered package and directory asset source at stable addresses

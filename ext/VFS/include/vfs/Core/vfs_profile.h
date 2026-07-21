@@ -79,6 +79,7 @@ namespace vfs
 		 *  All files from the top profile will be removed from the VFS and the profile object will be deleted.
 		 */
 		bool				popProfile();
+		bool				removeProfile(vfs::String const& sName);
 		void				pushProfile(CVirtualProfile* pProfile);
 
 		Iterator			begin();

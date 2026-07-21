@@ -81,6 +81,11 @@ the engine must not contain SDL types in its public domain model.
   `Data-*` trees and `vfs_config.ini` behavior remain unchanged. This version
   deliberately has no native-code loading, runtime rescan/unload, or
   disk-discovered campaign bootstrap.
+- Package-host startup is transactional across discovery registration, engine
+  activation, and legacy VFS mounting. Resolution, preflight, activation, or
+  mount failure reverses named VFS profiles, newly activated packages, and all
+  registrations introduced by that attempt. Rollback continues after an
+  individual teardown error and reports every incomplete step to the host.
 - Package bootstrap advances through ordered configure, content-load, and
   runtime-start phases. A failed phase rolls back in reverse package order;
   shutdown unwinds completed phases in reverse before legacy engine teardown.

@@ -68,6 +68,7 @@
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 #include <vfs/Tools/vfs_property_container.h>
+#include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
@@ -182,15 +183,40 @@ public:
 	            const std::filesystem::path&, std::string& error ) override
 	{
 		mounted.push_back( packageId );
-		if ( packageId != failMountId ) return true;
+		if ( packageId != failMountId )
+		{
+			activeMounts.push_back( packageId );
+			return true;
+		}
 		error = "injected mount failure";
 		return false;
 	}
 
+	bool unmount( const std::string& packageId, std::string& error ) override
+	{
+		unmounted.push_back( packageId );
+		if ( packageId == failUnmountId )
+		{
+			error = "injected unmount failure";
+			return false;
+		}
+		const auto found = std::find( activeMounts.begin(), activeMounts.end(), packageId );
+		if ( found == activeMounts.end() )
+		{
+			error = "package was not mounted";
+			return false;
+		}
+		activeMounts.erase( found );
+		return true;
+	}
+
 	mutable std::vector<std::string> preflighted;
 	std::vector<std::string> mounted;
+	std::vector<std::string> unmounted;
+	std::vector<std::string> activeMounts;
 	std::string failPreflightId;
 	std::string failMountId;
+	std::string failUnmountId;
 };
 
 static bool ReadFileManagerText( const std::string& logicalPath, std::string& contents )
@@ -1600,6 +1626,31 @@ int main( int, char** )
 	{
 		ScopedPackageFixture fixture;
 		PackageHost host;
+		EngineRuntime<unsigned> runtime(
+			EngineServices::defaults(), ContentApiVersion{ 1, 1 } );
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "a-base", "fixture.registration-base" ) &&
+			AddPackageFixture( fixture, "b-consumer", "fixture.registration-consumer",
+			                   "fixture.registration-base" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.registration-consumer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::RegistrationFailed &&
+		       result.packageId == "fixture.registration-consumer" &&
+		       runtime.packages().find( "fixture.registration-base" ) == nullptr &&
+		       runtime.packages().find( "fixture.registration-consumer" ) == nullptr &&
+		       runtime.packageCatalog().packages.empty() && result.rollbackFailures.empty() &&
+		       mounter.preflighted.empty() && mounter.mounted.empty(),
+		       "late registration rejection removes every package registered by the attempt" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
 		EngineRuntime<unsigned> runtime;
 		RecordingPackageAssetMounter mounter;
 		// Create in reverse order to prove discovery does not inherit directory
@@ -1782,6 +1833,8 @@ int main( int, char** )
 		       result.diagnosticPath == std::vector<std::string>({
 		       "fixture.needs-missing", "fixture.absent" }) &&
 		       !runtime.packages().isActive( "fixture.needs-missing" ) &&
+		       runtime.packages().find( "fixture.needs-missing" ) == nullptr &&
+		       runtime.packageCatalog().packages.empty() && result.rollbackFailures.empty() &&
 		       runtime.packages().activationOrder().empty() &&
 		       mounter.preflighted.empty() && mounter.mounted.empty(),
 		       "missing package dependencies fail with a diagnostic path before mount preflight" );
@@ -1809,7 +1862,10 @@ int main( int, char** )
 		       "fixture.preflight-base", "fixture.preflight-consumer" }) &&
 		       mounter.mounted.empty() && runtime.packages().activationOrder().empty() &&
 		       !runtime.packages().isActive( "fixture.preflight-base" ) &&
-		       !runtime.packages().isActive( "fixture.preflight-consumer" ),
+		       !runtime.packages().isActive( "fixture.preflight-consumer" ) &&
+		       runtime.packages().find( "fixture.preflight-base" ) == nullptr &&
+		       runtime.packages().find( "fixture.preflight-consumer" ) == nullptr &&
+		       result.rollbackFailures.empty(),
 		       "mount preflight completes before invoking any package activation" );
 	}
 
@@ -1839,11 +1895,41 @@ int main( int, char** )
 		       mounter.preflighted == std::vector<std::string>({
 		       "fixture.mount-base", "fixture.mount-consumer" }) &&
 		       mounter.mounted == mounter.preflighted &&
+		       mounter.unmounted == std::vector<std::string>({ "fixture.mount-base" }) &&
+		       mounter.activeMounts.empty() && result.rollbackFailures.empty() &&
 		       runtime.packages().activationOrder().empty() &&
 		       !runtime.packages().isActive( "fixture.mount-base" ) &&
 		       !runtime.packages().isActive( "fixture.mount-consumer" ) &&
+		       runtime.packages().find( "fixture.mount-base" ) == nullptr &&
+		       runtime.packages().find( "fixture.mount-consumer" ) == nullptr &&
 		       rolledBackRead == AssetReadResult::NotFound,
-		       "a late mount failure rolls back the newly activated registry closure and assets" );
+		       "a late mount failure rolls back VFS mounts, activation, registration, and assets" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		mounter.failMountId = "fixture.rollback-report-consumer";
+		mounter.failUnmountId = "fixture.rollback-report-base";
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "a-base", "fixture.rollback-report-base" ) &&
+			AddPackageFixture( fixture, "b-consumer", "fixture.rollback-report-consumer",
+			                   "fixture.rollback-report-base" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.rollback-report-consumer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::MountFailed &&
+		       result.rollbackFailures == std::vector<std::string>({
+		       "unmount fixture.rollback-report-base: injected unmount failure" }) &&
+		       result.message.find( "rollback incomplete" ) != std::string::npos &&
+		       runtime.packages().activationOrder().empty() &&
+		       runtime.packageCatalog().packages.empty(),
+		       "package startup reports external rollback failures while continuing engine cleanup" );
 	}
 
 	{
@@ -1952,13 +2038,15 @@ int main( int, char** )
 			return vfs_init::initVirtualFileSystem( config, false );
 		};
 
+		const std::string legacyProfileName = "headless-legacy-" + vfsPriorityToken;
+		const std::string packageProfileName = "headless-package-" + vfsPriorityToken;
 		const bool legacyMounted = vfsPrecedenceFixtureReady &&
 			mountReadOnlyDirectory(
-				"headless-legacy-" + vfsPriorityToken,
+				legacyProfileName,
 				vfsPrecedenceFixture.root() / "legacy" );
 		const bool packageMounted = legacyMounted &&
 			mountReadOnlyDirectory(
-				"headless-package-" + vfsPriorityToken,
+				packageProfileName,
 				vfsPrecedenceFixture.root() / "package" );
 		std::string packageOverlay;
 		std::string writableOverlay;
@@ -1970,6 +2058,15 @@ int main( int, char** )
 		       "late package VFS mounts override earlier read-only legacy content" );
 		CHECK( packageMounted && writableRead && writableOverlay == "writable",
 		       "late read-only package VFS mounts remain below writable user content" );
+		const bool packageUnmounted = packageMounted &&
+			getVFS()->getProfileStack()->removeProfile(
+				vfs::String( packageProfileName.c_str() ) );
+		packageOverlay.clear();
+		const bool legacyRead = packageUnmounted &&
+			ReadFileManagerText( packageOverlayPath, packageOverlay );
+		CHECK( packageUnmounted && legacyRead && packageOverlay == "legacy" &&
+		       getVFS()->getProfileStack()->getProfile( L"headless-tests" ) != nullptr,
+		       "named VFS removal restores a lower overlay without popping writable user data" );
 		std::error_code ignored;
 		std::filesystem::remove( writableOverlayPath, ignored );
 	}

@@ -427,6 +427,36 @@ public:
 		}
 	}
 
+	bool unmount(const std::string& packageId, std::string& error) override
+	{
+		try
+		{
+			const std::string profileName = profileNameFor(packageId);
+			vfs::CProfileStack* profiles = getVFS()->getProfileStack();
+			if (!profiles->getProfile(vfs::String(profileName.c_str())))
+			{
+				error = "bfVFS package profile is not mounted: " + profileName;
+				return false;
+			}
+			if (!profiles->removeProfile(vfs::String(profileName.c_str())))
+			{
+				error = "bfVFS could not remove package profile: " + profileName;
+				return false;
+			}
+			return true;
+		}
+		catch (const std::exception& exception)
+		{
+			error = exception.what();
+			return false;
+		}
+		catch (...)
+		{
+			error = "unknown bfVFS unmount failure";
+			return false;
+		}
+	}
+
 private:
 	static std::string profileNameFor(const std::string& packageId)
 	{
@@ -853,6 +883,52 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 
 	std::vector<std::string> registeredIds;
 	registeredIds.reserve(packages_.size());
+	std::vector<std::string> mountedIds;
+	mountedIds.reserve(packages_.size());
+	auto rollbackStartup = [&](PackageHostResult& failed,
+		const std::vector<std::string>& activated)
+	{
+		for (auto mounted = mountedIds.rbegin(); mounted != mountedIds.rend(); ++mounted)
+		{
+			std::string unmountError;
+			bool unmounted = false;
+			try
+			{
+				unmounted = mounter.unmount(*mounted, unmountError);
+			}
+			catch (const std::exception& exception)
+			{
+				unmountError = exception.what();
+			}
+			catch (...)
+			{
+				unmountError = "unknown unmount exception";
+			}
+			if (!unmounted)
+				failed.rollbackFailures.push_back(
+					"unmount " + *mounted + ": " + unmountError);
+		}
+		for (auto active = activated.rbegin(); active != activated.rend(); ++active)
+		{
+			const PackageDeactivationResult deactivation =
+				registry.deactivateDetailed(*active);
+			if (!deactivation)
+				failed.rollbackFailures.push_back(
+					"deactivate " + *active + ": code " +
+					std::to_string(static_cast<int>(deactivation.error)));
+		}
+		if (!registeredIds.empty())
+		{
+			const PackageUnregistrationBatchResult unregistration =
+				registry.unregisterPackages(registeredIds);
+			if (!unregistration)
+				failed.rollbackFailures.push_back(
+					"unregister " + unregistration.packageId + ": code " +
+					std::to_string(static_cast<int>(unregistration.error)));
+		}
+		if (!failed.rollbackFailures.empty())
+			failed.message += "; rollback incomplete: " + JoinIds(failed.rollbackFailures);
+	};
 	for (const std::unique_ptr<OwnedPackage>& package : packages_)
 	{
 		PackageRegistrationError registration = PackageRegistrationError::None;
@@ -860,23 +936,30 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		{
 			registration = registry.registerPackage(*package);
 		}
+		catch (const std::exception& exception)
+		{
+			PackageHostResult failed = Failure(PackageHostError::RegistrationFailed,
+				"engine package registration threw: " + std::string(exception.what()),
+				package->manifestPath, package->descriptor_.content.id);
+			rollbackStartup(failed, {});
+			return failed;
+		}
 		catch (...)
 		{
-			try { registry.unregisterPackages(registeredIds); }
-			catch (...) {}
-			throw;
+			PackageHostResult failed = Failure(PackageHostError::RegistrationFailed,
+				"engine package registration threw an unknown exception",
+				package->manifestPath, package->descriptor_.content.id);
+			rollbackStartup(failed, {});
+			return failed;
 		}
 		if (registration != PackageRegistrationError::None)
 		{
-			const PackageUnregistrationBatchResult rollback =
-				registry.unregisterPackages(registeredIds);
-			const std::string rollbackMessage = rollback ? "" :
-				"; registration rollback failed with code " +
-					std::to_string(static_cast<int>(rollback.error));
-			return Failure(PackageHostError::RegistrationFailed,
+			PackageHostResult failed = Failure(PackageHostError::RegistrationFailed,
 				"engine rejected package registration with code " +
-					std::to_string(static_cast<int>(registration)) + rollbackMessage,
+					std::to_string(static_cast<int>(registration)),
 				package->manifestPath, package->descriptor_.content.id);
+			rollbackStartup(failed, {});
+			return failed;
 		}
 		registeredIds.push_back(package->descriptor_.content.id);
 	}
@@ -884,7 +967,26 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 	PackageHostResult result;
 	result.discovered = discoveredIds_;
 	if (options.selected.empty()) return result;
-	const PackageActivationPlan plan = registry.resolveActivation(options.selected);
+	PackageActivationPlan plan;
+	try
+	{
+		plan = registry.resolveActivation(options.selected);
+	}
+	catch (const std::exception& exception)
+	{
+		result.error = PackageHostError::ResolutionFailed;
+		result.message = "package dependency resolution threw: " +
+			std::string(exception.what());
+		rollbackStartup(result, {});
+		return result;
+	}
+	catch (...)
+	{
+		result.error = PackageHostError::ResolutionFailed;
+		result.message = "package dependency resolution threw an unknown exception";
+		rollbackStartup(result, {});
+		return result;
+	}
 	if (!plan)
 	{
 		result.error = PackageHostError::ResolutionFailed;
@@ -892,6 +994,7 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		result.diagnosticPath = plan.diagnosticPath;
 		result.message = "package dependency resolution failed with code " +
 			std::to_string(static_cast<int>(plan.error));
+		rollbackStartup(result, {});
 		return result;
 	}
 	for (const std::string& id : plan.order)
@@ -899,17 +1002,49 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		const auto package = packagesById.find(id);
 		if (package == packagesById.end()) continue;
 		std::string mountError;
-		if (!mounter.preflight(id, package->second->assetRoot, mountError))
+		bool readyToMount = false;
+		try
+		{
+			readyToMount = mounter.preflight(id, package->second->assetRoot, mountError);
+		}
+		catch (const std::exception& exception)
+		{
+			mountError = exception.what();
+		}
+		catch (...)
+		{
+			mountError = "unknown mount preflight exception";
+		}
+		if (!readyToMount)
 		{
 			result.error = PackageHostError::MountPreflightFailed;
 			result.packageId = id;
 			result.path = package->second->assetRoot;
 			result.message = std::move(mountError);
+			rollbackStartup(result, {});
 			return result;
 		}
 	}
 
-	PackageActivationResult activation = registry.activateAll(options.selected);
+	PackageActivationResult activation;
+	try
+	{
+		activation = registry.activateAll(options.selected);
+	}
+	catch (const std::exception& exception)
+	{
+		result.error = PackageHostError::ActivationFailed;
+		result.message = "package activation threw: " + std::string(exception.what());
+		rollbackStartup(result, {});
+		return result;
+	}
+	catch (...)
+	{
+		result.error = PackageHostError::ActivationFailed;
+		result.message = "package activation threw an unknown exception";
+		rollbackStartup(result, {});
+		return result;
+	}
 	if (!activation)
 	{
 		result.error = PackageHostError::ActivationFailed;
@@ -917,6 +1052,7 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		result.diagnosticPath = std::move(activation.diagnosticPath);
 		result.message = "package activation failed with code " +
 			std::to_string(static_cast<int>(activation.error));
+		rollbackStartup(result, {});
 		return result;
 	}
 	for (const std::string& id : activation.activated)
@@ -924,14 +1060,29 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		const auto package = packagesById.find(id);
 		if (package == packagesById.end()) continue;
 		std::string mountError;
-		if (mounter.mount(id, package->second->assetRoot, mountError)) continue;
-		for (auto rollback = activation.activated.rbegin();
-			rollback != activation.activated.rend(); ++rollback)
-			registry.deactivateDetailed(*rollback);
+		bool mounted = false;
+		try
+		{
+			mounted = mounter.mount(id, package->second->assetRoot, mountError);
+		}
+		catch (const std::exception& exception)
+		{
+			mountError = exception.what();
+		}
+		catch (...)
+		{
+			mountError = "unknown mount exception";
+		}
+		if (mounted)
+		{
+			mountedIds.push_back(id);
+			continue;
+		}
 		result.error = PackageHostError::MountFailed;
 		result.packageId = id;
 		result.path = package->second->assetRoot;
 		result.message = std::move(mountError);
+		rollbackStartup(result, activation.activated);
 		return result;
 	}
 	result.activated = std::move(activation.activated);
