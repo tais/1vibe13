@@ -13,6 +13,7 @@
 #include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/RuntimeReportJson.h>
 #include <Engine/Core/SimulationTick.h>
 #include <Engine/Core/StateRegistry.h>
 
@@ -481,6 +482,22 @@ int main()
 		runtimeReport.compatibility == diagnostics.compatibility &&
 		runtimeReport.frames.completedFrames == diagnostics.frames.summary.completedFrames,
 		"runtime report condenses diagnostics without retaining sensitive content payloads");
+	RuntimeReport serializableReport = runtimeReport;
+	serializableReport.configuration.push_back(RuntimeConfigurationEntry{
+		"diagnostics.label", std::string("Quoted \"line\"\nR\xc3\xa9" "ady")});
+	const RuntimeReportJsonResult reportJson =
+		SerializeRuntimeReportJson(serializableReport);
+	const RuntimeReportJsonResult repeatedReportJson =
+		SerializeRuntimeReportJson(serializableReport);
+	const RuntimeReportJsonResult boundedReportJson =
+		SerializeRuntimeReportJson(serializableReport, 32);
+	check(reportJson && reportJson.json == repeatedReportJson.json &&
+		reportJson.json.find("\"schema\":1") != std::string::npos &&
+		reportJson.json.find("Quoted \\\"line\\\"\\nR\xc3\xa9" "ady") != std::string::npos &&
+		reportJson.json.find("\"packages\":[]") != std::string::npos &&
+		boundedReportJson.error == RuntimeReportJsonError::TooLarge &&
+		boundedReportJson.json.empty(),
+		"runtime report JSON is deterministic, escaped, UTF-8, and bounded transactionally");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&
