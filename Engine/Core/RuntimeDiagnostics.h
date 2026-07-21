@@ -10,6 +10,7 @@
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeConfiguration.h>
+#include <Engine/Core/RuntimeFaultJournal.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/ServiceCatalog.h>
 
@@ -22,6 +23,7 @@ struct RuntimeDiagnosticsSnapshot
 	FrameTelemetrySnapshot frames;
 	PackageCatalogSnapshot packages;
 	AssetCacheStatistics assetCache;
+	RuntimeFaultSnapshot faults;
 	std::vector<EngineServiceDescriptor> services;
 	std::vector<RuntimeConfigurationEntry> configuration;
 	RuntimeCapabilities capabilities;

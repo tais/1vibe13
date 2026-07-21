@@ -33,6 +33,7 @@ set(engine_core_public_headers
   RuntimeCapabilities.h
   RuntimeConfiguration.h
   RuntimeDiagnostics.h
+  RuntimeFaultJournal.h
   RuntimeMessageBus.h
   RuntimeSession.h
   RuntimeUpdate.h

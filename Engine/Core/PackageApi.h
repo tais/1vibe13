@@ -19,6 +19,7 @@
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/RuntimeFaultJournal.h>
 
 class PackageRegistry : public InputEventSink, public RuntimeUpdateSink,
 	public RuntimeMessageSink, public SimulationTickSink
@@ -33,13 +34,14 @@ public:
 		std::uint64_t packageRandomSeed = 0,
 		std::size_t packageRandomStreamLimit = 64,
 		std::size_t assetCacheEntries = 128,
-		std::size_t assetCacheBytes = 64u * 1024u * 1024u)
+		std::size_t assetCacheBytes = 64u * 1024u * 1024u,
+		RuntimeFaultJournal& faults = RuntimeFaultJournal::disabled())
 		: content_(content), assets_(services.assets),
 		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
 		  services_(withAssets(services, assetCache_)),
 		  packagePersistence_(services_.storage), events_(events), messages_(messages),
 		  extensionServices_(extensionServices),
-		  configuration_(configuration), packageRandomSeed_(packageRandomSeed),
+		  configuration_(configuration), faults_(faults), packageRandomSeed_(packageRandomSeed),
 		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
@@ -562,6 +564,8 @@ public:
 				continue;
 			}
 			emit(PackageEventKind::BootstrapFailed, active_[index], phaseIndex);
+			faults_.record(RuntimeFaultKind::Bootstrap, active_[index],
+				"bootstrap", phaseIndex + 1);
 			logError(threw ? "Bootstrap callback threw: " : "Bootstrap callback failed: ",
 				active_[index]);
 			// The failing callback may have acquired part of its phase resources,
@@ -578,6 +582,8 @@ public:
 				}
 				catch (...)
 				{
+					faults_.record(RuntimeFaultKind::Shutdown, active_[rollback - 1],
+						"bootstrap-rollback", phaseIndex + 1);
 					logError("Bootstrap rollback threw: ", active_[rollback - 1]);
 				}
 				emit(rolledBack ? PackageEventKind::BootstrapRollbackCompleted
@@ -609,6 +615,8 @@ public:
 				}
 				catch (...)
 				{
+					faults_.record(RuntimeFaultKind::Shutdown, *package,
+						"shutdown", static_cast<std::uint64_t>(phase) + 1);
 					logError("Package shutdown threw: ", *package);
 				}
 				emit(shutDown ? PackageEventKind::ShutdownCompleted
@@ -636,7 +644,7 @@ public:
 			catch (...)
 			{
 				const std::uint64_t failure = ++registered.runtimeHealth.inputFailures;
-				logRuntimeFailure("input", packageId, failure,
+				logRuntimeFailure(RuntimeFaultKind::Input, "input", packageId, failure,
 					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}
@@ -660,7 +668,8 @@ public:
 			{
 				const std::uint64_t failure =
 					++registered.runtimeHealth.runtimeUpdateFailures;
-				logRuntimeFailure("runtime update", packageId, failure,
+				logRuntimeFailure(RuntimeFaultKind::RuntimeUpdate,
+					"runtime update", packageId, failure,
 					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}
@@ -690,7 +699,7 @@ public:
 			catch (...)
 			{
 				const std::uint64_t failure = ++registered.runtimeHealth.messageFailures;
-				logRuntimeFailure("message", packageId, failure,
+				logRuntimeFailure(RuntimeFaultKind::Message, "message", packageId, failure,
 					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}
@@ -714,7 +723,8 @@ public:
 			{
 				const std::uint64_t failure =
 					++registered.runtimeHealth.simulationTickFailures;
-				logRuntimeFailure("simulation tick", packageId, failure,
+				logRuntimeFailure(RuntimeFaultKind::SimulationTick,
+					"simulation tick", packageId, failure,
 					registered.runtimeHealth.suppressedFailureLogs);
 			}
 		}
@@ -967,9 +977,11 @@ private:
 		}
 	}
 
-	void logRuntimeFailure(const char* callback, const std::string& packageId,
+	void logRuntimeFailure(RuntimeFaultKind kind, const char* callback,
+		const std::string& packageId,
 		std::uint64_t failure, std::uint64_t& suppressed) noexcept
 	{
+		faults_.record(kind, packageId, callback, failure);
 		// A broken per-frame callback must not turn into an unbounded logging
 		// workload. Preserve the first four diagnostics, then only powers of two.
 		const bool shouldLog = failure <= 4 || (failure & (failure - 1)) == 0;
@@ -1041,6 +1053,8 @@ private:
 				lastServiceContractFailure_ = PackageServiceContractFailure{
 					available.error, packageId, requirement.id,
 					requirement.minimumVersion, available.availableVersion};
+				faults_.record(RuntimeFaultKind::ServiceContract, packageId,
+					"service-preflight", 1);
 				logError("Required host service unavailable for package: ", packageId);
 				return available.error == EngineServiceAvailabilityError::NotFound
 					? PackageBootstrapError::MissingService
@@ -1059,6 +1073,7 @@ private:
 	RuntimeMessageBus& messages_;
 	ServiceCatalog& extensionServices_;
 	const RuntimeConfiguration& configuration_;
+	RuntimeFaultJournal& faults_;
 	std::uint64_t packageRandomSeed_;
 	std::size_t packageRandomStreamLimit_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;

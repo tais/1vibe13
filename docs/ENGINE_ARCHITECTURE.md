@@ -258,6 +258,10 @@ the engine must not contain SDL types in its public domain model.
   catalog and health, cache statistics, services, sealed configuration,
   capabilities, and queue/tick counters as one pointer-free value. Every
   nested collection preserves an explicit deterministic order.
+- `RuntimeFaultJournal` records every contained package service, lifecycle,
+  input, update, simulation, and message failure in a bounded sequence. It is
+  separate from logarithmically rate-limited logs, so suppression reduces I/O
+  without erasing failure evidence from diagnostics.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

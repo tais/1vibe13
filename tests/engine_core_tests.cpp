@@ -176,7 +176,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 6 &&
+		sessionHost.serviceCatalog().size() == 7 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -195,13 +195,14 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 8,
+		sessionHost.configuration().size() == 9,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
 		diagnostics.frames.summary.completedFrames == 0 &&
-		diagnostics.packages.packages.empty() && diagnostics.services.size() == 6 &&
-		diagnostics.configuration.size() == 8 && diagnostics.queuedMessages == 0 &&
+		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
+		diagnostics.services.size() == 7 && diagnostics.configuration.size() == 9 &&
+		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");
 
