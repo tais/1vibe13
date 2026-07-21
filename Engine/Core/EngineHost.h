@@ -21,6 +21,7 @@
 #include <Engine/Core/PackageTaskQueue.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/RuntimeCheckpoint.h>
 #include <Engine/Core/RuntimeDiagnostics.h>
 #include <Engine/Core/RuntimeFaultJournal.h>
 #include <Engine/Core/RuntimeSession.h>
@@ -56,7 +57,8 @@ public:
 		std::size_t maximumEntities = 65536,
 		std::size_t maximumPackageAudioPlaybacks = 1024,
 		std::size_t maximumQueuedPackageTasks = 1024,
-		std::size_t maximumPackageTasksPerFrame = 64)
+		std::size_t maximumPackageTasksPerFrame = 64,
+		std::size_t maximumCheckpointPackages = 4096)
 		: content_(supportedContentApi),
 		  audioGroups_(services.audio, maximumPackageAudioPlaybacks),
 		  faultJournal_(runtimeFaultCapacity),
@@ -75,7 +77,8 @@ public:
 		  simulationTicks_(simulationStepMicroseconds, maximumSimulationCatchUpTicks),
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
 		               runtimeUpdates_, frameTelemetry_, simulationTicks_),
-		  persistence_(packages_.services().storage)
+		  persistence_(packages_.services().storage),
+		  runtimeCheckpoints_(persistence_, maximumCheckpointPackages)
 	{
 		serviceCatalog_.registerService(
 			"engine.frame-telemetry", EngineServiceVersion{1, 0}, frameTelemetry_);
@@ -99,6 +102,8 @@ public:
 			"engine.package-audio", EngineServiceVersion{1, 0}, audioGroups_);
 		serviceCatalog_.registerService(
 			"engine.package-tasks", EngineServiceVersion{1, 0}, packageTasks_);
+		serviceCatalog_.registerService(
+			"engine.runtime-checkpoints", EngineServiceVersion{1, 0}, runtimeCheckpoints_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -131,6 +136,8 @@ public:
 			static_cast<std::int64_t>(packageTasks_.maximumQueued()));
 		runtimeConfiguration_.set("engine.package-tasks.per-frame-limit",
 			static_cast<std::int64_t>(packageTasks_.maximumPerDrain()));
+		runtimeConfiguration_.set("engine.checkpoints.package-limit",
+			static_cast<std::int64_t>(runtimeCheckpoints_.maximumPackages()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -236,6 +243,36 @@ public:
 	}
 	PersistenceService& persistence() { return persistence_; }
 	const PersistenceService& persistence() const { return persistence_; }
+	RuntimeCheckpointService& runtimeCheckpoints() { return runtimeCheckpoints_; }
+	const RuntimeCheckpointService& runtimeCheckpoints() const { return runtimeCheckpoints_; }
+	RuntimeCheckpoint makeRuntimeCheckpoint() const
+	{
+		RuntimeCheckpoint checkpoint;
+		checkpoint.compatibility = compatibilityFingerprint();
+		checkpoint.completedFrames = frameDriver_.completedFrames();
+		checkpoint.completedSimulationTicks = simulationTicks_.completedTickSequence();
+		const PackageCatalogSnapshot catalog = packages_.catalog();
+		checkpoint.activePackages.reserve(catalog.activationOrder.size());
+		for (const std::string& packageId : catalog.activationOrder)
+		{
+			const PackageCatalogEntry* package = catalog.find(packageId);
+			checkpoint.activePackages.push_back(RuntimeCheckpointPackage{
+				packageId, package ? package->descriptor.content.version : std::string{}});
+		}
+		return checkpoint;
+	}
+	RuntimeCheckpointSaveError saveRuntimeCheckpoint(const std::string& path) const noexcept
+	{
+		try { return runtimeCheckpoints_.save(path, makeRuntimeCheckpoint()); }
+		catch (...) { return RuntimeCheckpointSaveError::StorageError; }
+	}
+	RuntimeCheckpointLoadResult loadRuntimeCheckpoint(
+		const std::string& path, RuntimeCheckpoint& checkpoint) const noexcept
+	{
+		try { return runtimeCheckpoints_.load(path, compatibilityFingerprint(), checkpoint); }
+		catch (...) { return RuntimeCheckpointLoadResult{
+			RuntimeCheckpointLoadError::StorageError, {}}; }
+	}
 
 	EngineLifecycle lifecycle() const { return runtimeSession_.lifecycle(); }
 	bool beginInitialization() { return runtimeSession_.beginInitialization(); }
@@ -267,6 +304,7 @@ private:
 	FrameTelemetry frameTelemetry_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
+	RuntimeCheckpointService runtimeCheckpoints_;
 };
 
 #endif
