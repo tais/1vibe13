@@ -1076,6 +1076,26 @@ int main( int, char** )
 		       !invalid.permitsCompatibleLoad() && removed &&
 		       removedMetadata.state == SaveCompatibilityState::LegacyWithoutMetadata,
 		       "save sidecars classify compatibility and follow their owning save lifecycle" );
+		CHECK( ParseSaveCompatibilityPolicy( " Enforce_Known " ) ==
+				SaveCompatibilityPolicy::EnforceKnown &&
+		       ParseSaveCompatibilityPolicy( "future-value",
+				SaveCompatibilityPolicy::Ignore ) == SaveCompatibilityPolicy::Ignore &&
+		       std::string( SaveCompatibilityPolicyName(
+				SaveCompatibilityPolicy::RequireMetadata ) ) == "require-metadata" &&
+		       EvaluateSaveCompatibility( missing.state,
+				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Allow &&
+		       EvaluateSaveCompatibility( incompatible.state,
+				SaveCompatibilityPolicy::Warn ) == SaveCompatibilityLoadAction::AllowWithWarning &&
+		       EvaluateSaveCompatibility( incompatible.state,
+				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Reject &&
+		       EvaluateSaveCompatibility( invalid.state,
+				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Reject &&
+		       EvaluateSaveCompatibility( missing.state,
+				SaveCompatibilityPolicy::RequireMetadata ) == SaveCompatibilityLoadAction::Reject &&
+		       EvaluateSaveCompatibility( SaveCompatibilityState::StorageError,
+				SaveCompatibilityPolicy::EnforceKnown ) ==
+				SaveCompatibilityLoadAction::AllowWithWarning,
+		       "save compatibility policy preserves legacy saves and makes strictness explicit" );
 	}
 
 	{

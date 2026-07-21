@@ -16,6 +16,21 @@ enum class SaveCompatibilityState
 	StorageError
 };
 
+enum class SaveCompatibilityPolicy
+{
+	Ignore,
+	Warn,
+	EnforceKnown,
+	RequireMetadata
+};
+
+enum class SaveCompatibilityLoadAction
+{
+	Allow,
+	AllowWithWarning,
+	Reject
+};
+
 struct SaveCompatibilityResult
 {
 	SaveCompatibilityState state = SaveCompatibilityState::Compatible;
@@ -29,6 +44,19 @@ struct SaveCompatibilityResult
 			state == SaveCompatibilityState::LegacyWithoutMetadata;
 	}
 };
+
+// Unknown values retain the caller-supplied fallback. Canonical values are
+// ignore, warn, enforce-known, and require-metadata.
+SaveCompatibilityPolicy ParseSaveCompatibilityPolicy(
+	const std::string& value,
+	SaveCompatibilityPolicy fallback = SaveCompatibilityPolicy::Warn) noexcept;
+const char* SaveCompatibilityPolicyName(SaveCompatibilityPolicy policy) noexcept;
+
+// EnforceKnown is the compatibility-preserving strict mode: it rejects
+// metadata that is known to be incompatible or invalid, but old saves without
+// metadata continue to load. RequireMetadata is a separate explicit opt-in.
+SaveCompatibilityLoadAction EvaluateSaveCompatibility(
+	SaveCompatibilityState state, SaveCompatibilityPolicy policy) noexcept;
 
 // The legacy .sav bytes remain untouched. New engine identity/progress metadata
 // lives beside them under a deterministic suffix and can be ignored by older
