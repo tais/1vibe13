@@ -21,6 +21,7 @@
 	#include	"Overhead.h"
 	#include	"gamescreen.h"
 	#include	"GameSettings.h"
+	#include	"GameContext.h"
 	#include	"Fade Screen.h"
 	#include	"english.h"
 	#include	"gameloop.h"
@@ -34,6 +35,7 @@
 #include "connect.h"
 
 #include "FileMan.h"
+#include "SaveCompatibility.h"
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_file_raii.h>
 
@@ -2423,6 +2425,7 @@ void DeleteSaveGameNumber( UINT8 ubSaveGameSlotID )
 
 	//Delete the saved game file
 	FileDelete( zSaveGameName );
+	RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
 }
 
 void DisplayOnScreenNumber( BOOLEAN fErase )

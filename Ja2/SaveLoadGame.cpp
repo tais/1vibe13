@@ -3,6 +3,7 @@
 #include "FileMan.h"
 #include "SaveSerializer.h"
 #include <cstddef>      // offsetof
+#include <string>
 #include <string.h>
 #include <stdio.h>
 #include "DEBUG.H"
@@ -22,6 +23,8 @@
 #include "LaptopSave.h"
 #include "Queen Command.h"
 #include "SaveLoadGame.h"
+#include "GameContext.h"
+#include "SaveCompatibility.h"
 #include "Tactical Save.h"
 #include "Squads.h"
 #include "environment.h"
@@ -2761,6 +2764,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Create the name of the file
 	CreateSavedGameFileNameFromNumber( ubSaveGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	// The legacy save is about to be replaced, so its old engine identity must
+	// never survive a partial or failed replacement.
+	RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
 #if LOADSAVEGAME_LOGTIME
 	TimingLogWrite("Save ");
 	TimingLogWrite(zSaveGameName);
@@ -3616,6 +3622,26 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	//Close the saved game file
 	FileClose( hFile );
 
+	// Metadata is deliberately best-effort: a valid legacy save remains valid
+	// even when the optional framework sidecar cannot be written.
+	{
+		const RuntimeCheckpointSaveError compatibilityMetadata =
+			WriteSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
+		if ( compatibilityMetadata != RuntimeCheckpointSaveError::None )
+		{
+			RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
+			try
+			{
+				GetGameContext().log().write( LogRecord{
+					LogSeverity::Warning, "save-compatibility",
+					"Could not write save compatibility metadata for " +
+						std::string( zSaveGameName ) + " (code " +
+						std::to_string( static_cast<int>( compatibilityMetadata ) ) + ")" } );
+			}
+			catch ( ... ) {}
+		}
+	}
+
 	// This defines, which savegame is highlighted in the load screen
 	if (ubSaveGameID == SAVE__END_TURN_NUM)
 	{
@@ -3768,6 +3794,50 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	gfDisplaySaveGamesNowInvalidatedMsg = FALSE;
 #endif
 
+	// Reject an invalid slot before dismantling the current tactical state.
+	if( ubSavedGameID < 0 )
+		return( FALSE );
+	if( ubSavedGameID >= SAVE__END_TURN_NUM )
+	{
+		if( ubSavedGameID != SAVE__END_TURN_NUM )
+			return( FALSE );
+	}
+	else if( !gbSaveGameArray[ ubSavedGameID ] )
+		return( FALSE );
+
+	CreateSavedGameFileNameFromNumber(
+		ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	{
+		const SaveCompatibilityPolicy policy = GetSaveCompatibilityPolicy();
+		if ( policy != SaveCompatibilityPolicy::Ignore )
+		{
+			const SaveCompatibilityResult compatibility =
+				InspectSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
+			const SaveCompatibilityLoadAction action =
+				EvaluateSaveCompatibility( compatibility.state, policy );
+			if ( action != SaveCompatibilityLoadAction::Allow )
+			{
+				try
+				{
+					GetGameContext().log().write( LogRecord{
+						action == SaveCompatibilityLoadAction::Reject
+							? LogSeverity::Error : LogSeverity::Warning,
+						"save-compatibility",
+						"Save compatibility preflight for " + std::string( zSaveGameName ) +
+							": " + SaveCompatibilityStateName( compatibility.state ) +
+							" under policy " + SaveCompatibilityPolicyName( policy ) } );
+				}
+				catch ( ... ) {}
+				if ( action == SaveCompatibilityLoadAction::Reject )
+				{
+					ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
+						L"Save compatibility check rejected this save; see the log for details." );
+					return( FALSE );
+				}
+			}
+		}
+	}
+
 #ifdef LOADSAVEGAME_LOGTIME
 	TimingLogInitialize("TimeLog_LoadSavedGame.txt");
 #endif
@@ -3803,16 +3873,6 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	//AssertMsg( uiSizeOfGeneralInfo == 1024, String( "Saved General info is NOT 1024, it is %d.	DF 1.", uiSizeOfGeneralInfo ) );
 #endif
 
-	//is it a valid save number
-	if( ubSavedGameID >=  SAVE__END_TURN_NUM ) //NUM_SLOT )
-	{
-		if( ubSavedGameID != SAVE__END_TURN_NUM )
-			return( FALSE );
-	}
-	else if( !gbSaveGameArray[ ubSavedGameID ] )
-		return( FALSE );
-
-
 	#ifdef JA2BETAVERSION
 		InitShutDownMapTempFileTest( TRUE, "LoadMapTempFile", ubSavedGameID );
 	#endif
@@ -3847,9 +3907,6 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 
 	// ATE; Added to empry dialogue q
 	EmptyDialogueQueue( );
-
-	//Create the name of the file
-	CreateSavedGameFileNameFromNumber( ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
 
 #if LOADSAVEGAME_LOGTIME
 	TimingLogWrite("Load ");

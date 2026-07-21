@@ -65,6 +65,7 @@
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
+#include "SaveCompatibility.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "MovementDestinationPolicy.h"
@@ -1027,6 +1028,74 @@ int main( int, char** )
 		       logs.records()[0].message.find( reportOptions.path ) != std::string::npos &&
 		       !skipped.attempted && skipped,
 		       "configured application hook writes a live report without making it mandatory" );
+	}
+
+	{
+		GAME_SETTINGS firstSettings = {};
+		GAME_OPTIONS firstOptions = {};
+		GAME_SETTINGS secondSettings = {};
+		GAME_OPTIONS secondOptions = {};
+		MemoryByteStorage storage;
+		EngineServices firstServices{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		EngineServices secondServices{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext first( firstSettings, firstOptions, GameCapabilities{}, firstServices );
+		GameContext second( secondSettings, secondOptions, GameCapabilities{}, secondServices );
+		first.configuration().set( "test.save-profile", std::string( "first" ) );
+		second.configuration().set( "test.save-profile", std::string( "second" ) );
+		const std::string savePath = "SavedGames/SaveGame01.sav";
+		const std::string sidecarPath = RuntimeCheckpointSidecarPath( savePath );
+		const SaveCompatibilityResult missing =
+			InspectSaveCompatibilityMetadata( first, savePath );
+		const RuntimeCheckpointSaveError written =
+			WriteSaveCompatibilityMetadata( first, savePath );
+		const SaveCompatibilityResult compatible =
+			InspectSaveCompatibilityMetadata( first, savePath );
+		const SaveCompatibilityResult incompatible =
+			InspectSaveCompatibilityMetadata( second, savePath );
+		std::vector<std::uint8_t> corrupted;
+		storage.readAll( sidecarPath, corrupted );
+		if ( !corrupted.empty() ) corrupted.back() ^= 0xffu;
+		storage.writeAll( sidecarPath, corrupted );
+		const SaveCompatibilityResult invalid =
+			InspectSaveCompatibilityMetadata( first, savePath );
+		const bool removed = RemoveSaveCompatibilityMetadata( first, savePath );
+		const SaveCompatibilityResult removedMetadata =
+			InspectSaveCompatibilityMetadata( first, savePath );
+		CHECK( sidecarPath == savePath + ".engine-checkpoint" &&
+		       missing.state == SaveCompatibilityState::LegacyWithoutMetadata &&
+		       missing.permitsCompatibleLoad() &&
+		       written == RuntimeCheckpointSaveError::None &&
+		       compatible.state == SaveCompatibilityState::Compatible &&
+		       compatible.checkpoint.compatibility == first.runtime().compatibilityFingerprint() &&
+		       incompatible.state == SaveCompatibilityState::IncompatibleRuntime &&
+		       incompatible.storedCompatibility == first.runtime().compatibilityFingerprint() &&
+		       !incompatible.permitsCompatibleLoad() &&
+		       invalid.state == SaveCompatibilityState::InvalidMetadata &&
+		       !invalid.permitsCompatibleLoad() && removed &&
+		       removedMetadata.state == SaveCompatibilityState::LegacyWithoutMetadata,
+		       "save sidecars classify compatibility and follow their owning save lifecycle" );
+		CHECK( ParseSaveCompatibilityPolicy( " Enforce_Known " ) ==
+				SaveCompatibilityPolicy::EnforceKnown &&
+		       ParseSaveCompatibilityPolicy( "future-value",
+				SaveCompatibilityPolicy::Ignore ) == SaveCompatibilityPolicy::Ignore &&
+		       std::string( SaveCompatibilityPolicyName(
+				SaveCompatibilityPolicy::RequireMetadata ) ) == "require-metadata" &&
+		       EvaluateSaveCompatibility( missing.state,
+				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Allow &&
+		       EvaluateSaveCompatibility( incompatible.state,
+				SaveCompatibilityPolicy::Warn ) == SaveCompatibilityLoadAction::AllowWithWarning &&
+		       EvaluateSaveCompatibility( incompatible.state,
+				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Reject &&
+		       EvaluateSaveCompatibility( invalid.state,
+				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Reject &&
+		       EvaluateSaveCompatibility( missing.state,
+				SaveCompatibilityPolicy::RequireMetadata ) == SaveCompatibilityLoadAction::Reject &&
+		       EvaluateSaveCompatibility( SaveCompatibilityState::StorageError,
+				SaveCompatibilityPolicy::EnforceKnown ) ==
+				SaveCompatibilityLoadAction::AllowWithWarning,
+		       "save compatibility policy preserves legacy saves and makes strictness explicit" );
 	}
 
 	{
@@ -2427,6 +2496,31 @@ int main( int, char** )
 		       !explicitlyDisabledReports.enabled &&
 		       GetRuntimeReportOptions().path == configuredReports.path,
 		       "runtime report options support opt-in INI settings and CLI override/disable" );
+
+		vfs::PropertyContainer saveCompatibilityProperties;
+		saveCompatibilityProperties.setStringProperty(
+			L"Ja2 Settings", L"SAVE_COMPATIBILITY_POLICY", L"enforce-known" );
+		std::vector<std::string> saveCompatibilityArguments = {
+			"ja2", "--save-compatibility", "require-metadata" };
+		std::vector<char*> saveCompatibilityArgumentPointers;
+		for ( std::string& argument : saveCompatibilityArguments )
+			saveCompatibilityArgumentPointers.push_back( &argument[0] );
+		const SaveCompatibilityPolicy requiredMetadata = ReadSaveCompatibilityPolicy(
+			saveCompatibilityProperties,
+			static_cast<int>( saveCompatibilityArgumentPointers.size() ),
+			saveCompatibilityArgumentPointers.data() );
+		char disableSaveCompatibility[] = "--no-save-compatibility";
+		char* disableSaveCompatibilityArguments[] = {
+			executable, disableSaveCompatibility };
+		const SaveCompatibilityPolicy ignored = ReadSaveCompatibilityPolicy(
+			saveCompatibilityProperties, 2, disableSaveCompatibilityArguments );
+		ConfigureSaveCompatibilityPolicy( requiredMetadata );
+		const bool configuredSaveCompatibility =
+			GetSaveCompatibilityPolicy() == SaveCompatibilityPolicy::RequireMetadata;
+		ConfigureSaveCompatibilityPolicy( SaveCompatibilityPolicy::Warn );
+		CHECK( requiredMetadata == SaveCompatibilityPolicy::RequireMetadata &&
+		       ignored == SaveCompatibilityPolicy::Ignore && configuredSaveCompatibility,
+		       "save compatibility policy supports INI defaults and explicit CLI overrides" );
 	}
 
 	{

@@ -738,6 +738,11 @@ int main()
 	check(persistence.saveEnvelope("too-large", PersistenceHeader{1, 1},
 		std::vector<std::uint8_t>(9, 0)) == PersistenceSaveResult::TooLarge,
 		"compiled persistence rejects payloads above the configured bound");
+	check(persistenceStorage.remove("engine.record") &&
+		!persistenceStorage.exists("engine.record") &&
+		persistenceStorage.remove("engine.record") &&
+		!persistenceStorage.remove(""),
+		"byte storage removes records idempotently and rejects empty paths");
 	MemoryByteStorage checkpointStorage;
 	PersistenceService checkpointPersistence(checkpointStorage, 4096);
 	RuntimeCheckpointService checkpoints(checkpointPersistence, 1);
