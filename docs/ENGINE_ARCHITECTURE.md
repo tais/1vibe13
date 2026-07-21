@@ -168,6 +168,10 @@ the engine must not contain SDL types in its public domain model.
   deactivation removes them automatically. The compiled JA2, UB, and editor
   defaults remain compatibility adapters, while live campaign decisions can
   now query the active package rather than a preprocessor branch.
+- Package capability contracts are validated at registration and preflighted
+  against that combined runtime view before configuration callbacks. Missing
+  features produce structured diagnostics and a fault record without exposing
+  campaign flags or application types to package code.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
   `EngineHost` owns the `PersistenceService` bound to its configured byte
   storage, so package hosts, games, and tools share one persistence boundary.

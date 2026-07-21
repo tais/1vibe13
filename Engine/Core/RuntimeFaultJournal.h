@@ -11,6 +11,7 @@
 enum class RuntimeFaultKind
 {
 	ServiceContract,
+	CapabilityContract,
 	Bootstrap,
 	Shutdown,
 	Input,

@@ -150,8 +150,17 @@ enum class PackageBootstrapError
 	OutOfOrder,
 	MissingService,
 	ServiceVersionMismatch,
+	MissingCapability,
 	CallbackFailed,
 	OperationInProgress
+};
+
+struct PackageCapabilityContractFailure
+{
+	std::string packageId;
+	std::string capabilityId;
+
+	explicit operator bool() const { return !capabilityId.empty(); }
 };
 
 struct PackageServiceContractFailure
