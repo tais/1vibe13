@@ -40,7 +40,9 @@ public:
 		const std::string& id = descriptor.content.id;
 		if (packages_.find(id) != packages_.end()) return PackageRegistrationError::DuplicateId;
 		const auto inserted = packages_.emplace(id, RegisteredPackage{&package, descriptor.kind,
-			descriptor.content.version, descriptor.content.requirements, false, false});
+			descriptor.content.version, descriptor.content.requirements,
+			descriptor.content.optionalRequirements, descriptor.content.conflicts,
+			descriptor.content.loadAfter, false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
 		try
@@ -223,6 +225,12 @@ public:
 				return PackageDeactivationResult{
 					PackageDeactivationError::RequiredByActivePackage, found->first, activeId};
 			}
+			for (const ContentRequirement& requirement : activePackage.optionalRequirements)
+			{
+				if (requirement.id != found->first) continue;
+				return PackageDeactivationResult{
+					PackageDeactivationError::RequiredByActivePackage, found->first, activeId};
+			}
 		}
 
 		// Allocate diagnostics before mutating lifecycle state so an allocation
@@ -282,7 +290,7 @@ private:
 		{
 			const std::string* id;
 			const RegisteredPackage* package;
-			std::size_t nextRequirement;
+			std::size_t nextDependency;
 		};
 		std::unordered_map<std::string, VisitState> states;
 		std::vector<Frame> stack;
@@ -319,7 +327,10 @@ private:
 			while (!stack.empty())
 			{
 				Frame& frame = stack.back();
-				if (frame.nextRequirement >= frame.package->requirements.size())
+				const std::size_t mandatoryCount = frame.package->requirements.size();
+				const std::size_t dependencyCount = mandatoryCount +
+					frame.package->optionalRequirements.size();
+				if (frame.nextDependency >= dependencyCount)
 				{
 					states[*frame.id] = VisitState::Visited;
 					plan.order.push_back(*frame.id);
@@ -327,11 +338,14 @@ private:
 					continue;
 				}
 
-				const ContentRequirement& requirement =
-					frame.package->requirements[frame.nextRequirement++];
+				const bool optional = frame.nextDependency >= mandatoryCount;
+				const ContentRequirement& requirement = optional
+					? frame.package->optionalRequirements[frame.nextDependency++ - mandatoryCount]
+					: frame.package->requirements[frame.nextDependency++];
 				const auto dependency = packages_.find(requirement.id);
 				if (dependency == packages_.end())
 				{
+					if (optional) continue;
 					plan.error = PackageResolutionError::MissingRequirement;
 					plan.packageId = requirement.id;
 					setPath(requirement.id, 0);
@@ -369,6 +383,106 @@ private:
 				states.emplace(dependency->first, VisitState::Visiting);
 				stack.push_back(Frame{&dependency->first, &dependency->second, 0});
 			}
+		}
+
+		std::unordered_set<std::string> plannedIds(plan.order.begin(), plan.order.end());
+		for (const std::string& packageId : plan.order)
+		{
+			const RegisteredPackage& package = packages_.at(packageId);
+			for (const std::string& conflictId : package.conflicts)
+			{
+				const auto conflict = packages_.find(conflictId);
+				if (conflict == packages_.end() ||
+					(!conflict->second.active && plannedIds.find(conflictId) == plannedIds.end()))
+					continue;
+				plan.error = PackageResolutionError::PackageConflict;
+				plan.packageId = packageId;
+				plan.diagnosticPath = {packageId, conflictId};
+				plan.order.clear();
+				return plan;
+			}
+		}
+		// Conflicts are symmetric at resolution time: an already-active package
+		// can reject a newly planned package without requiring the latter to
+		// repeat the declaration.
+		for (const std::string& activeId : active_)
+		{
+			for (const std::string& conflictId : packages_.at(activeId).conflicts)
+			{
+				if (plannedIds.find(conflictId) == plannedIds.end()) continue;
+				plan.error = PackageResolutionError::PackageConflict;
+				plan.packageId = conflictId;
+				plan.diagnosticPath = {activeId, conflictId};
+				plan.order.clear();
+				return plan;
+			}
+		}
+
+		// The dependency DFS above discovers a stable closure and reports strong
+		// dependency cycles with their exact path. A second stable topological
+		// pass applies weak LOAD_AFTER edges only among members of that closure;
+		// absent or unselected predecessors never cause implicit activation.
+		if (plan.order.size() > 1)
+		{
+			const std::vector<std::string> discovered = plan.order;
+			std::unordered_map<std::string, std::size_t> indices;
+			indices.reserve(discovered.size());
+			for (std::size_t index = 0; index < discovered.size(); ++index)
+				indices.emplace(discovered[index], index);
+			std::vector<std::vector<std::size_t>> consumers(discovered.size());
+			std::vector<std::size_t> incoming(discovered.size(), 0);
+			auto addEdge = [&indices, &consumers, &incoming](
+				const std::string& predecessor, std::size_t consumer)
+			{
+				const auto found = indices.find(predecessor);
+				if (found == indices.end()) return;
+				std::vector<std::size_t>& edges = consumers[found->second];
+				if (std::find(edges.begin(), edges.end(), consumer) != edges.end()) return;
+				edges.push_back(consumer);
+				++incoming[consumer];
+			};
+			for (std::size_t consumer = 0; consumer < discovered.size(); ++consumer)
+			{
+				const RegisteredPackage& package = packages_.at(discovered[consumer]);
+				for (const ContentRequirement& dependency : package.requirements)
+					addEdge(dependency.id, consumer);
+				for (const ContentRequirement& dependency : package.optionalRequirements)
+					addEdge(dependency.id, consumer);
+				for (const std::string& predecessor : package.loadAfter)
+					addEdge(predecessor, consumer);
+			}
+
+			std::vector<bool> emitted(discovered.size(), false);
+			std::vector<std::string> ordered;
+			ordered.reserve(discovered.size());
+			while (ordered.size() < discovered.size())
+			{
+				std::size_t next = discovered.size();
+				for (std::size_t candidate = 0; candidate < discovered.size(); ++candidate)
+				{
+					if (!emitted[candidate] && incoming[candidate] == 0)
+					{
+						next = candidate;
+						break;
+					}
+				}
+				if (next == discovered.size())
+				{
+					plan.error = PackageResolutionError::OrderingCycle;
+					for (std::size_t index = 0; index < discovered.size(); ++index)
+					{
+						if (emitted[index]) continue;
+						if (plan.packageId.empty()) plan.packageId = discovered[index];
+						plan.diagnosticPath.push_back(discovered[index]);
+					}
+					plan.order.clear();
+					return plan;
+				}
+				emitted[next] = true;
+				ordered.push_back(discovered[next]);
+				for (const std::size_t consumer : consumers[next]) --incoming[consumer];
+			}
+			plan.order = std::move(ordered);
 		}
 
 		std::string plannedCampaign = activeCampaign_;
@@ -520,6 +634,12 @@ public:
 					entry.dependents.push_back(consumer.id);
 					break;
 				}
+				for (const ContentRequirement& requirement : consumer.optionalRequirements)
+				{
+					if (requirement.id != manifest.id) continue;
+					entry.dependents.push_back(consumer.id);
+					break;
+				}
 			}
 			snapshot.packages.push_back(std::move(entry));
 		}
@@ -547,6 +667,9 @@ private:
 		PackageKind kind;
 		std::string version;
 		std::vector<ContentRequirement> requirements;
+		std::vector<ContentRequirement> optionalRequirements;
+		std::vector<std::string> conflicts;
+		std::vector<std::string> loadAfter;
 		bool assetsMounted;
 		bool active;
 	};
@@ -640,6 +763,8 @@ private:
 			case PackageResolutionError::VersionMismatch: return PackageActivationError::RequirementVersionMismatch;
 			case PackageResolutionError::DependencyCycle: return PackageActivationError::DependencyCycle;
 			case PackageResolutionError::CampaignConflict: return PackageActivationError::CampaignAlreadyActive;
+			case PackageResolutionError::PackageConflict: return PackageActivationError::PackageConflict;
+			case PackageResolutionError::OrderingCycle: return PackageActivationError::OrderingCycle;
 			case PackageResolutionError::None: break;
 		}
 		return PackageActivationError::None;
@@ -685,6 +810,7 @@ private:
 			case ContentRegistrationError::IncompatibleApi: return PackageRegistrationError::IncompatibleApi;
 			case ContentRegistrationError::DuplicateId: return PackageRegistrationError::DuplicateId;
 			case ContentRegistrationError::InvalidRequirement: return PackageRegistrationError::InvalidRequirement;
+			case ContentRegistrationError::InvalidRelationship: return PackageRegistrationError::InvalidRelationship;
 			case ContentRegistrationError::None: break;
 		}
 		return PackageRegistrationError::None;

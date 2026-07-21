@@ -357,6 +357,81 @@ bool ReadManifestString(vfs::PropertyContainer& properties, const wchar_t* key,
 	return true;
 }
 
+bool ReadRequirementList(vfs::PropertyContainer& properties, const wchar_t* key,
+	const char* keyName, const std::string& packageId,
+	std::unordered_set<std::string>& relationshipIds,
+	std::vector<ContentRequirement>& requirements,
+	const std::filesystem::path& manifestPath, PackageHostResult& error)
+{
+	std::list<vfs::String> values;
+	if (!properties.getStringListProperty(L"Package", key, values, L"")) return true;
+	if (values.size() > MaximumRequirements ||
+		relationshipIds.size() + values.size() > MaximumRequirements)
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"package declares too many dependency-policy relationships", manifestPath, packageId);
+		return false;
+	}
+	for (const vfs::String& value : values)
+	{
+		const std::string text = TrimAscii(value.utf8());
+		const std::size_t at = text.find('@');
+		if (text.empty() || (at != std::string::npos &&
+			(at + 1 == text.size() || text.find('@', at + 1) != std::string::npos)))
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"invalid " + std::string(keyName) + " entry: " + text,
+				manifestPath, packageId);
+			return false;
+		}
+		const std::string dependencyId = text.substr(0, at);
+		std::string exactVersion = at == std::string::npos ? "" : text.substr(at + 1);
+		if (exactVersion == "*") exactVersion.clear();
+		if (!IsLowercaseIdentifier(dependencyId) || dependencyId == packageId ||
+			!relationshipIds.insert(dependencyId).second ||
+			(!exactVersion.empty() && !IsPortableVersion(exactVersion)))
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"invalid, duplicate, or self-referential " + std::string(keyName) +
+				" entry: " + text, manifestPath, packageId);
+			return false;
+		}
+		requirements.push_back(ContentRequirement{dependencyId, exactVersion});
+	}
+	return true;
+}
+
+bool ReadRelationshipList(vfs::PropertyContainer& properties, const wchar_t* key,
+	const char* keyName, const std::string& packageId,
+	std::unordered_set<std::string>& relationshipIds,
+	std::vector<std::string>& relationships,
+	const std::filesystem::path& manifestPath, PackageHostResult& error)
+{
+	std::list<vfs::String> values;
+	if (!properties.getStringListProperty(L"Package", key, values, L"")) return true;
+	if (values.size() > MaximumRequirements ||
+		relationshipIds.size() + values.size() > MaximumRequirements)
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"package declares too many dependency-policy relationships", manifestPath, packageId);
+		return false;
+	}
+	for (const vfs::String& value : values)
+	{
+		const std::string relationshipId = TrimAscii(value.utf8());
+		if (!IsLowercaseIdentifier(relationshipId) || relationshipId == packageId ||
+			!relationshipIds.insert(relationshipId).second)
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"invalid, duplicate, or self-referential " + std::string(keyName) +
+				" entry: " + relationshipId, manifestPath, packageId);
+			return false;
+		}
+		relationships.push_back(relationshipId);
+	}
+	return true;
+}
+
 PackageKind ParsePackageKind(const std::string& text, bool& valid)
 {
 	const std::string kind = LowerAscii(text);
@@ -535,7 +610,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	std::string apiText;
 	std::string kindText;
 	std::string assetRootText;
-	if (!ReadManifestString(properties, L"MANIFEST_VERSION", schemaText) || schemaText != "1" ||
+	if (!ReadManifestString(properties, L"MANIFEST_VERSION", schemaText) ||
+		(schemaText != "1" && schemaText != "2") ||
 		!ReadManifestString(properties, L"ID", id) ||
 		!ReadManifestString(properties, L"VERSION", version) ||
 		!ReadManifestString(properties, L"CONTENT_API", apiText) ||
@@ -543,7 +619,7 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 		!ReadManifestString(properties, L"ASSET_ROOT", assetRootText))
 	{
 		error = Failure(PackageHostError::InvalidManifest,
-			"manifest requires MANIFEST_VERSION=1, ID, VERSION, CONTENT_API, TYPE, and ASSET_ROOT",
+			"manifest requires MANIFEST_VERSION=1 or 2, ID, VERSION, CONTENT_API, TYPE, and ASSET_ROOT",
 			manifestPath, id);
 		return nullptr;
 	}
@@ -619,46 +695,33 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	}
 
 	std::vector<ContentRequirement> requirements;
-	std::list<vfs::String> requirementValues;
-	if (properties.getStringListProperty(L"Package", L"REQUIRES", requirementValues, L""))
-	{
-		if (requirementValues.size() > MaximumRequirements)
-		{
-			error = Failure(PackageHostError::InvalidManifest,
-				"package declares too many requirements", manifestPath, id);
-			return nullptr;
-		}
-		std::unordered_set<std::string> requirementIds;
-		for (const vfs::String& requirementValue : requirementValues)
-		{
-			const std::string text = TrimAscii(requirementValue.utf8());
-			const std::size_t at = text.find('@');
-			if (text.empty() || (at != std::string::npos &&
-				(at + 1 == text.size() || text.find('@', at + 1) != std::string::npos)))
-			{
-				error = Failure(PackageHostError::InvalidManifest,
-					"invalid REQUIRES entry: " + text, manifestPath, id);
-				return nullptr;
-			}
-			const std::string requirementId = text.substr(0, at);
-			std::string exactVersion = at == std::string::npos ? "" : text.substr(at + 1);
-			if (exactVersion == "*") exactVersion.clear();
-			if (!IsLowercaseIdentifier(requirementId) || requirementId == id ||
-				!requirementIds.insert(requirementId).second ||
-				(!exactVersion.empty() && !IsPortableVersion(exactVersion)))
-			{
-				error = Failure(PackageHostError::InvalidManifest,
-					"invalid, duplicate, or self-referential REQUIRES entry: " + text,
-					manifestPath, id);
-				return nullptr;
-			}
-			requirements.push_back(ContentRequirement{requirementId, exactVersion});
-		}
-	}
+	std::vector<ContentRequirement> optionalRequirements;
+	std::vector<std::string> conflicts;
+	std::vector<std::string> loadAfter;
+	std::unordered_set<std::string> relationshipIds;
+	if (!ReadRequirementList(properties, L"REQUIRES", "REQUIRES", id,
+			relationshipIds, requirements, manifestPath, error) ||
+		!ReadRequirementList(properties, L"OPTIONAL_REQUIRES", "OPTIONAL_REQUIRES", id,
+			relationshipIds, optionalRequirements, manifestPath, error) ||
+		!ReadRelationshipList(properties, L"CONFLICTS", "CONFLICTS", id,
+			relationshipIds, conflicts, manifestPath, error) ||
+		!ReadRelationshipList(properties, L"LOAD_AFTER", "LOAD_AFTER", id,
+			relationshipIds, loadAfter, manifestPath, error))
+		return nullptr;
 	if (!requirements.empty() && api.minor < PackageRequirementsContentApiVersion.minor)
 	{
 		error = Failure(PackageHostError::InvalidManifest,
 			"REQUIRES needs CONTENT_API 1.2 or newer", manifestPath, id);
+		return nullptr;
+	}
+	const bool hasPolicy = !optionalRequirements.empty() || !conflicts.empty() || !loadAfter.empty();
+	if ((schemaText == "1" && hasPolicy) ||
+		(schemaText == "2" && (api.major != PackagePolicyContentApiVersion.major ||
+			api.minor < PackagePolicyContentApiVersion.minor)))
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"Data Package v2 dependency policy needs MANIFEST_VERSION=2 and CONTENT_API 1.3 or newer",
+			manifestPath, id);
 		return nullptr;
 	}
 
@@ -669,7 +732,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 
 	std::unique_ptr<PackageHost::OwnedPackage> package(new PackageHost::OwnedPackage());
 	package->descriptor_ = PackageDescriptor{
-		ContentManifest{id, version, api, std::move(requirements)}, kind};
+		ContentManifest{id, version, api, std::move(requirements),
+			std::move(optionalRequirements), std::move(conflicts), std::move(loadAfter)}, kind};
 	package->manifestPath = manifestPath;
 	package->assetRoot = canonicalAssetRoot;
 	package->assets = std::move(assets);

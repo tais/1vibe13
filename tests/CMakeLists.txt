@@ -8,6 +8,13 @@ target_include_directories(mp_netshim_tests PRIVATE ${CMAKE_SOURCE_DIR}/Multipla
 target_link_libraries(mp_netshim_tests PRIVATE SDL3_net::SDL3_net SDL3::SDL3)
 add_test(NAME mp_netshim COMMAND mp_netshim_tests)
 
+# This executable deliberately links only the campaign/platform-independent
+# target. It prevents accidental reliance on SDL, SGP, or JA2 globals from
+# hiding behind the larger headless game harness.
+add_executable(engine_core_tests engine_core_tests.cpp)
+target_link_libraries(engine_core_tests PRIVATE JA2::EngineCore)
+add_test(NAME engine_core COMMAND engine_core_tests)
+
 add_test(
   NAME architecture_boundaries
   COMMAND ${CMAKE_COMMAND}

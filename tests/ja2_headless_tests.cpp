@@ -40,6 +40,7 @@
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Core/SimulationCommand.h>
+#include <Engine/Core/SimulationCommandCodec.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
 #include <Engine/Core/StateTransition.h>
@@ -47,13 +48,13 @@
 #include <Engine/Core/TimeSource.h>
 #include <Engine/Core/RandomSource.h>
 #include <Engine/Core/PersistenceService.h>
-#include "PlatformFileSystem.h"
-#include "PlatformFramePresenter.h"
-#include "PlatformAssets.h"
-#include "PlatformInput.h"
-#include "PlatformAudio.h"
-#include "PlatformLog.h"
-#include "PlatformTime.h"
+#include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
+#include <Engine/Adapters/Legacy/PlatformAssets.h>
+#include <Engine/Adapters/Legacy/PlatformInput.h>
+#include <Engine/Adapters/Legacy/PlatformAudio.h>
+#include <Engine/Adapters/Legacy/PlatformLog.h>
+#include <Engine/Adapters/Legacy/PlatformTime.h>
 #include "random.h"
 #include "KeyMap.h"
 #include "input.h"
@@ -144,17 +145,24 @@ private:
 
 static std::string PackageFixtureManifest(
 	const std::string& id, const std::string& requirements = {},
-	const std::string& assetRoot = "Data" )
+	const std::string& assetRoot = "Data", const std::string& optionalRequirements = {},
+	const std::string& conflicts = {}, const std::string& loadAfter = {} )
 {
+	const bool policyV2 = !optionalRequirements.empty() || !conflicts.empty() || !loadAfter.empty();
 	std::string manifest =
 		"[Package]\n"
-		"MANIFEST_VERSION = 1\n"
+		"MANIFEST_VERSION = " + std::string( policyV2 ? "2" : "1" ) + "\n"
 		"ID = " + id + "\n"
 		"VERSION = 1.0.0\n"
-		"CONTENT_API = " + std::string( requirements.empty() ? "1.1" : "1.2" ) + "\n"
+		"CONTENT_API = " + std::string( policyV2 ? "1.3" :
+		                                  ( requirements.empty() ? "1.1" : "1.2" ) ) + "\n"
 		"TYPE = extension\n"
 		"ASSET_ROOT = " + assetRoot + "\n";
 	if ( !requirements.empty() ) manifest += "REQUIRES = " + requirements + "\n";
+	if ( !optionalRequirements.empty() )
+		manifest += "OPTIONAL_REQUIRES = " + optionalRequirements + "\n";
+	if ( !conflicts.empty() ) manifest += "CONFLICTS = " + conflicts + "\n";
+	if ( !loadAfter.empty() ) manifest += "LOAD_AFTER = " + loadAfter + "\n";
 	return manifest;
 }
 
@@ -318,6 +326,12 @@ public:
 		                              std::move(requirements)},
 		              kind},
 		  failPhase_(failPhase), assets_(assets)
+	{
+	}
+
+	TestLifecyclePackage(ContentManifest manifest, PackageKind kind,
+	                     int failPhase = -1, AssetSource* assets = nullptr)
+		: descriptor_{std::move(manifest), kind}, failPhase_(failPhase), assets_(assets)
 	{
 	}
 
@@ -681,12 +695,27 @@ int main( int, char** )
 	}
 
 	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 1, 10 );
+		const CommandProcessingResult observed = ProcessCommandsThrough(
+			commands, 1,
+			[]( int, std::uint64_t, std::uint64_t ) {
+				return CommandDisposition::Applied;
+			},
+			[]( int, std::uint64_t, std::uint64_t, CommandDisposition ) {
+				throw "injected journal failure";
+			} );
+		CHECK( observed && observed.applied == 1 && commands.empty(),
+		       "command observers cannot interfere with authoritative delivery" );
+	}
+
+	{
 		GAME_SETTINGS settings = {};
 		GAME_OPTIONS options = {};
 		GameContext context( settings, options );
-		context.commands().enqueue(
+		const std::uint64_t localSequence = context.submitCommand(
 			7, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::LocalPlayer}} );
-		context.commands().enqueue(
+		context.submitCommand(
 			7, SimulationCommand{EndTurnCommand{3, SimulationCommandSource::NetworkPeer}} );
 		const auto ready = context.commands().drainThrough( 7 );
 		const auto& local = std::get<EndTurnCommand>( ready[0].command );
@@ -695,13 +724,24 @@ int main( int, char** )
 		       local.source == SimulationCommandSource::LocalPlayer &&
 		       network.source == SimulationCommandSource::NetworkPeer,
 		       "engine runtime owns ordered value-only tactical commands" );
-		context.commands().enqueue(
+		const auto submitted = context.commandJournal().snapshot();
+		CHECK( submitted.size() == 2 && submitted[0].sequence == localSequence &&
+		       submitted[0].status == CommandJournalStatus::Queued,
+		       "engine runtime journals submitted production commands without owning executors" );
+		context.submitCommand(
 			8, SimulationCommand{ChangeStanceCommand{17, 2, SimulationCommandSource::LocalPlayer}} );
 		const auto stanceReady = context.commands().drainThrough( 8 );
 		const auto& stance = std::get<ChangeStanceCommand>( stanceReady[0].command );
 		CHECK( stanceReady.size() == 1 && stance.soldierId == 17 && stance.stance == 2 &&
 		       stance.source == SimulationCommandSource::LocalPlayer,
 		       "engine runtime carries value-only soldier stance commands" );
+		CHECK( context.submitRecordedCommand(
+		           9, 500, SimulationCommand{BeginFireWeaponCommand{
+		               17, 700, 1234, 0, 2, SimulationCommandSource::Replay}} ) &&
+		       !context.submitRecordedCommand(
+		           9, 500, SimulationCommand{BeginFireWeaponCommand{
+		               17, 700, 1234, 0, 2, SimulationCommandSource::Replay}} ),
+		       "engine runtime admits uniquely sequenced replay commands through the same journal" );
 	}
 
 	{
@@ -826,6 +866,108 @@ int main( int, char** )
 		CHECK( content.registerContent( ContentManifest{ "core", "0.9.1", { 1, 1 } } ) ==
 		       ContentRegistrationError::None && content.find( "core" )->version == "0.9.1",
 		       "an unregistered content identifier can be registered again" );
+	}
+
+	{
+		ContentRegistry content( CurrentContentApiVersion );
+		CHECK( content.registerContent( ContentManifest{
+		       "policy.old-api", "1.0", { 1, 2 }, {}, {{ "policy.optional", "" }} } ) ==
+		       ContentRegistrationError::InvalidRelationship,
+		       "dependency policy relationships explicitly require content API 1.3" );
+		CHECK( content.registerContent( ContentManifest{
+		       "policy.duplicate", "1.0", { 1, 3 }, {}, {{ "policy.target", "" }},
+		       { "policy.target" } } ) == ContentRegistrationError::InvalidRelationship &&
+		       content.registerContent( ContentManifest{
+		       "policy.self", "1.0", { 1, 3 }, {}, {}, {}, { "policy.self" } } ) ==
+		       ContentRegistrationError::InvalidRelationship,
+		       "dependency policy rejects ambiguous cross-list and self relationships" );
+		CHECK( content.registerContent( ContentManifest{
+		       "policy.valid", "1.0", { 1, 3 }, {}, {{ "policy.optional", "2.0" }},
+		       { "policy.conflict" }, { "policy.predecessor" } } ) ==
+		       ContentRegistrationError::None,
+		       "content API 1.3 accepts validated optional, conflict, and ordering policy" );
+	}
+
+	{
+		EngineRuntime<unsigned> runtime;
+		PackageRegistry& packages = runtime.packages();
+		TestLifecyclePackage base( "policy.base", PackageKind::Rules );
+		TestLifecyclePackage peer( "policy.peer", PackageKind::Extension );
+		TestLifecyclePackage consumer( ContentManifest{
+			"policy.consumer", "1.0", { 1, 3 }, {}, {{ "policy.base", "1.0" }},
+			{}, { "policy.peer" } }, PackageKind::Extension );
+		TestLifecyclePackage absentOptional( ContentManifest{
+			"policy.absent", "1.0", { 1, 3 }, {}, {{ "policy.not-installed", "" }} },
+			PackageKind::Extension );
+		TestLifecyclePackage mismatch( ContentManifest{
+			"policy.mismatch", "1.0", { 1, 3 }, {}, {{ "policy.base", "2.0" }} },
+			PackageKind::Extension );
+		TestLifecyclePackage conflictLeft( ContentManifest{
+			"policy.conflict-left", "1.0", { 1, 3 }, {}, {},
+			{ "policy.conflict-right" } }, PackageKind::Extension );
+		TestLifecyclePackage conflictRight( "policy.conflict-right", PackageKind::Extension );
+		TestLifecyclePackage orderA( ContentManifest{
+			"policy.order-a", "1.0", { 1, 3 }, {}, {}, {}, { "policy.order-b" } },
+			PackageKind::Extension );
+		TestLifecyclePackage orderB( ContentManifest{
+			"policy.order-b", "1.0", { 1, 3 }, {}, {}, {}, { "policy.order-a" } },
+			PackageKind::Extension );
+		CHECK( packages.registerPackage( consumer ) == PackageRegistrationError::None &&
+		       packages.registerPackage( absentOptional ) == PackageRegistrationError::None &&
+		       packages.registerPackage( peer ) == PackageRegistrationError::None &&
+		       packages.registerPackage( mismatch ) == PackageRegistrationError::None &&
+		       packages.registerPackage( base ) == PackageRegistrationError::None &&
+		       packages.registerPackage( conflictLeft ) == PackageRegistrationError::None &&
+		       packages.registerPackage( conflictRight ) == PackageRegistrationError::None &&
+		       packages.registerPackage( orderA ) == PackageRegistrationError::None &&
+		       packages.registerPackage( orderB ) == PackageRegistrationError::None,
+		       "dependency policy fixtures register independent of discovery order" );
+
+		const PackageActivationPlan absentPlan = packages.resolveActivation( "policy.absent" );
+		const PackageActivationPlan orderedPlan =
+			packages.resolveActivation({ "policy.consumer", "policy.peer" });
+		const PackageActivationPlan mismatchPlan = packages.resolveActivation( "policy.mismatch" );
+		CHECK( absentPlan && absentPlan.order == std::vector<std::string>({ "policy.absent" }) &&
+		       orderedPlan && orderedPlan.order == std::vector<std::string>({
+		       "policy.base", "policy.peer", "policy.consumer" }) &&
+		       mismatchPlan.error == PackageResolutionError::VersionMismatch &&
+		       mismatchPlan.diagnosticPath == std::vector<std::string>({
+		       "policy.mismatch", "policy.base" }),
+		       "optional dependencies are conditional and weak ordering is deterministic" );
+
+		const PackageActivationPlan conflictPlan = packages.resolveActivation({
+			"policy.conflict-left", "policy.conflict-right" });
+		CHECK( conflictPlan.error == PackageResolutionError::PackageConflict &&
+		       conflictPlan.diagnosticPath == std::vector<std::string>({
+		       "policy.conflict-left", "policy.conflict-right" }) &&
+		       packages.activate( "policy.conflict-left" ) == PackageActivationError::None &&
+		       packages.resolveActivation( "policy.conflict-right" ).error ==
+		       PackageResolutionError::PackageConflict && packages.deactivate( "policy.conflict-left" ),
+		       "declared package conflicts are symmetric for planned and active packages" );
+
+		const PackageActivationPlan weakOnly = packages.resolveActivation( "policy.order-a" );
+		const PackageActivationPlan orderingCycle = packages.resolveActivation({
+			"policy.order-a", "policy.order-b" });
+		CHECK( weakOnly && weakOnly.order == std::vector<std::string>({ "policy.order-a" }) &&
+		       orderingCycle.error == PackageResolutionError::OrderingCycle &&
+		       orderingCycle.diagnosticPath == std::vector<std::string>({
+		       "policy.order-a", "policy.order-b" }),
+		       "LOAD_AFTER never selects a package and reports cycles without side effects" );
+
+		const PackageActivationResult activation =
+			packages.activateAll({ "policy.consumer", "policy.peer" });
+		const PackageDeactivationResult optionalBlocked =
+			packages.deactivateDetailed( "policy.base" );
+		const PackageCatalogSnapshot policyCatalog = packages.catalog();
+		const PackageCatalogEntry* baseEntry = policyCatalog.find( "policy.base" );
+		CHECK( activation && activation.activated == orderedPlan.order &&
+		       optionalBlocked.error == PackageDeactivationError::RequiredByActivePackage &&
+		       optionalBlocked.dependentId == "policy.consumer" && baseEntry &&
+		       baseEntry->dependents == std::vector<std::string>({
+		       "policy.consumer", "policy.mismatch" }),
+		       "present optional dependencies receive lifecycle protection and catalog visibility" );
+		CHECK( packages.deactivateAll() && packages.unregisterPackage( "policy.base" ),
+		       "an inactive optional dependency can be removed without unregistering its consumer" );
 	}
 
 	{
@@ -1794,6 +1936,56 @@ int main( int, char** )
 		       mounter.mounted == std::vector<std::string>({
 		       "fixture.base", "fixture.consumer" }),
 		       "a package host attempts startup exactly once" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "a-base", "fixture.policy-base" ) &&
+			AddPackageFixture( fixture, "b-peer", "fixture.policy-peer" ) &&
+			fixture.makeDirectory( "c-consumer/Data" ) &&
+			fixture.write( "c-consumer/package.ini", PackageFixtureManifest(
+				"fixture.policy-consumer", {}, "Data", "fixture.policy-base@1.0.0",
+				{}, "fixture.policy-peer" ) );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.policy-consumer", "fixture.policy-peer" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result && result.activated == std::vector<std::string>({
+		       "fixture.policy-base", "fixture.policy-peer", "fixture.policy-consumer" }) &&
+		       mounter.preflighted == result.activated && mounter.mounted == result.activated,
+		       "Data Package v2 parses optional dependencies and deterministic LOAD_AFTER policy" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady = fixture.makeDirectory( "old-policy/Data" ) &&
+			fixture.write( "old-policy/package.ini",
+				"[Package]\n"
+				"MANIFEST_VERSION = 1\n"
+				"ID = fixture.old-policy\n"
+				"VERSION = 1.0.0\n"
+				"CONTENT_API = 1.3\n"
+				"TYPE = extension\n"
+				"ASSET_ROOT = Data\n"
+				"CONFLICTS = fixture.other\n" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.old-policy" };
+		PackageHostResult result;
+		if ( fixtureReady ) result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::InvalidManifest &&
+		       result.packageId == "fixture.old-policy" && mounter.mounted.empty(),
+		       "v1 manifests cannot silently opt into v2 dependency policy" );
 	}
 
 	{

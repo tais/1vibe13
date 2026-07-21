@@ -12151,13 +12151,22 @@ void SendChangeSoldierStanceEvent( SOLDIERTYPE *pSoldier, UINT8 ubNewStance )
 
 void SendBeginFireWeaponEvent( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 {
+	SendBeginFireWeaponEvent(
+		pSoldier, sTargetGridNo,
+		pSoldier->bTargetLevel, pSoldier->bTargetCubeLevel );
+}
+
+void SendBeginFireWeaponEvent(
+	SOLDIERTYPE *pSoldier, INT32 sTargetGridNo,
+	INT8 bTargetLevel, INT8 bTargetCubeLevel )
+{
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "SendBeginFireWeaponEvent" ) );
 	EV_S_BEGINFIREWEAPON		SBeginFireWeapon;
 
 	SBeginFireWeapon.usSoldierID = pSoldier->ubID;
 	SBeginFireWeapon.sTargetGridNo = sTargetGridNo;
-	SBeginFireWeapon.bTargetLevel = pSoldier->bTargetLevel;
-	SBeginFireWeapon.bTargetCubeLevel = pSoldier->bTargetCubeLevel;
+	SBeginFireWeapon.bTargetLevel = bTargetLevel;
+	SBeginFireWeapon.bTargetCubeLevel = bTargetCubeLevel;
 	SBeginFireWeapon.uiUniqueId = pSoldier->uiUniqueSoldierIdValue;
 
 	AddGameEvent( S_BEGINFIREWEAPON, 0, &SBeginFireWeapon );

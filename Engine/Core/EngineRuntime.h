@@ -2,8 +2,10 @@
 #define ENGINE_CORE_ENGINE_RUNTIME_H
 
 #include <cstdint>
+#include <utility>
 
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/CommandJournal.h>
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageApi.h>
@@ -58,6 +60,25 @@ public:
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return commands_; }
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commands_; }
+	CommandJournal<SimulationCommand>& commandJournal() { return commandJournal_; }
+	const CommandJournal<SimulationCommand>& commandJournal() const { return commandJournal_; }
+
+	std::uint64_t submitCommand(std::uint64_t tick, SimulationCommand command)
+	{
+		SimulationCommand recorded = command;
+		const std::uint64_t sequence = commands_.enqueue(tick, std::move(command));
+		commandJournal_.recordSubmission(tick, sequence, std::move(recorded));
+		return sequence;
+	}
+
+	bool submitRecordedCommand(
+		std::uint64_t tick, std::uint64_t sequence, SimulationCommand command)
+	{
+		SimulationCommand recorded = command;
+		if (!commands_.enqueueRecorded(tick, sequence, std::move(command))) return false;
+		commandJournal_.recordSubmission(tick, sequence, std::move(recorded));
+		return true;
+	}
 
 	EngineLifecycle lifecycle() const { return lifecycle_; }
 
@@ -102,6 +123,7 @@ private:
 	ContentRegistry content_;
 	PackageRegistry packages_;
 	DeterministicCommandQueue<SimulationCommand> commands_;
+	CommandJournal<SimulationCommand> commandJournal_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;
 };
 

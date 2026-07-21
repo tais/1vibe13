@@ -2,15 +2,6 @@ cmake_minimum_required(VERSION 3.20)
 
 project(ja2)
 
-# Campaign-independent public engine contract. Keeping this as a real CMake
-# target makes dependency direction visible to consumers and gives extracted
-# engine code a stable target name independent from the legacy JA2 libraries.
-add_library(ja2_engine_core INTERFACE)
-add_library(JA2::EngineCore ALIAS ja2_engine_core)
-target_include_directories(ja2_engine_core INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
-target_compile_features(ja2_engine_core INTERFACE cxx_std_17)
-
 include(cmake/CopyUserPresetTemplate.cmake)
 CopyUserPresetTemplate()
 
@@ -90,6 +81,12 @@ set(usingMsBuild $<STREQUAL:${CMAKE_VS_PLATFORM_NAME},Win32>)
 # lua51.lib and lua51.vc9.lib have been built with /MTx, so we must as well
 # TODO: build our own Lua 5.1.2 from source so we can use whichever
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+# Campaign-independent engine targets live under Engine/. Configure them after
+# project-wide compiler, sanitizer, LTO, and runtime-library policy so the
+# standalone archive uses the same ABI and instrumentation as every consumer.
+# It still precedes all legacy libraries, keeping dependency direction explicit.
+add_subdirectory(Engine)
 
 # SDL3: window/input/audio backend on every platform. The end state
 # of this port is that SDL3 fully replaces Win32 + DirectDraw + FMOD
@@ -289,6 +286,7 @@ add_subdirectory("ext/export/src")
 # static libraries whose translation units don't rely on Application preprocessor definitions.
 add_subdirectory(lua)
 add_subdirectory(Multiplayer)
+add_subdirectory(Engine/Adapters/Legacy)
 
 enable_testing()
 add_subdirectory(tests)
@@ -373,6 +371,10 @@ foreach(app IN LISTS ApplicationTargets)
     # final executable a clean single-archive link.
     add_library(${game_library} STATIC)
     target_sources(${game_library} PRIVATE ${${lib}Src})
+    if(${lib} STREQUAL "sgp")
+      target_sources(${game_library} PRIVATE
+        $<TARGET_OBJECTS:ja2_engine_legacy_adapters>)
+    endif()
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
     target_link_libraries(${game_library} PUBLIC JA2::EngineCore)
 
@@ -484,7 +486,6 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_executable(ja2_headless_tests tests/ja2_headless_tests.cpp)
   target_compile_definitions(ja2_headless_tests PRIVATE ${debugFlags})
   target_link_libraries(ja2_headless_tests PRIVATE SDL3::SDL3)
-  target_link_libraries(ja2_headless_tests PRIVATE JA2::EngineCore)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--start-group)
   endif()

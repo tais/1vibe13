@@ -1,13 +1,13 @@
 #include "GameContext.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
-#include "PlatformAssets.h"
-#include "PlatformLog.h"
-#include "PlatformInput.h"
-#include "PlatformAudio.h"
-#include "PlatformFileSystem.h"
-#include "PlatformFramePresenter.h"
-#include "PlatformTime.h"
+#include <Engine/Adapters/Legacy/PlatformAssets.h>
+#include <Engine/Adapters/Legacy/PlatformLog.h>
+#include <Engine/Adapters/Legacy/PlatformInput.h>
+#include <Engine/Adapters/Legacy/PlatformAudio.h>
+#include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
+#include <Engine/Adapters/Legacy/PlatformTime.h>
 #include "random.h"
 
 GameContext& GetGameContext()

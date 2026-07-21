@@ -11,6 +11,7 @@ class BinaryWriter
 {
 public:
 	void writeU8(std::uint8_t value) { bytes_.push_back(value); }
+	void writeI8(std::int8_t value) { writeU8(static_cast<std::uint8_t>(value)); }
 	void writeU16(std::uint16_t value)
 	{
 		writeU8(static_cast<std::uint8_t>(value));
@@ -20,6 +21,12 @@ public:
 	{
 		writeU16(static_cast<std::uint16_t>(value));
 		writeU16(static_cast<std::uint16_t>(value >> 16));
+	}
+	void writeI32(std::int32_t value) { writeU32(static_cast<std::uint32_t>(value)); }
+	void writeU64(std::uint64_t value)
+	{
+		writeU32(static_cast<std::uint32_t>(value));
+		writeU32(static_cast<std::uint32_t>(value >> 32));
 	}
 	void writeBytes(const std::uint8_t* bytes, std::size_t size)
 	{
@@ -51,6 +58,15 @@ public:
 		value = bytes_[position_++];
 		return true;
 	}
+	bool readI8(std::int8_t& value)
+	{
+		std::uint8_t encoded = 0;
+		if (!readU8(encoded)) return false;
+		value = encoded <= 0x7fu
+			? static_cast<std::int8_t>(encoded)
+			: static_cast<std::int8_t>(-1 - static_cast<std::int16_t>(0xffu - encoded));
+		return true;
+	}
 	bool readU16(std::uint16_t& value)
 	{
 		if (!available(2)) return false;
@@ -67,6 +83,25 @@ public:
 			(static_cast<std::uint32_t>(bytes_[position_ + 2]) << 16) |
 			(static_cast<std::uint32_t>(bytes_[position_ + 3]) << 24);
 		position_ += 4;
+		return true;
+	}
+	bool readI32(std::int32_t& value)
+	{
+		std::uint32_t encoded = 0;
+		if (!readU32(encoded)) return false;
+		value = encoded <= 0x7fffffffu
+			? static_cast<std::int32_t>(encoded)
+			: static_cast<std::int32_t>(-1 -
+				static_cast<std::int64_t>(0xffffffffu - encoded));
+		return true;
+	}
+	bool readU64(std::uint64_t& value)
+	{
+		std::uint32_t low = 0;
+		std::uint32_t high = 0;
+		if (!readU32(low) || !readU32(high)) return false;
+		value = static_cast<std::uint64_t>(low) |
+			(static_cast<std::uint64_t>(high) << 32);
 		return true;
 	}
 	bool readString(std::string& value)
@@ -112,17 +147,9 @@ struct PersistenceHeader
 	std::uint16_t version;
 };
 
-inline void WritePersistenceHeader(BinaryWriter& writer, PersistenceHeader header)
-{
-	writer.writeU32(header.magic);
-	writer.writeU16(header.version);
-}
+void WritePersistenceHeader(BinaryWriter& writer, PersistenceHeader header);
 
-inline bool ReadPersistenceHeader(BinaryReader& reader, std::uint32_t expectedMagic,
-	std::uint16_t minimumVersion, std::uint16_t maximumVersion, PersistenceHeader& header)
-{
-	if (!reader.readU32(header.magic) || !reader.readU16(header.version)) return false;
-	return header.magic == expectedMagic && header.version >= minimumVersion && header.version <= maximumVersion;
-}
+bool ReadPersistenceHeader(BinaryReader& reader, std::uint32_t expectedMagic,
+	std::uint16_t minimumVersion, std::uint16_t maximumVersion, PersistenceHeader& header);
 
 #endif

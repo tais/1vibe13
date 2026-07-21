@@ -1,9 +1,12 @@
-# Data Package v1
+# Data Package v2
 
-Data Package v1 is an optional startup layer for discovering and selecting
+Data Package v2 is an optional startup layer for discovering and selecting
 read-only content overlays. It adds package identity, dependencies, validation,
 and deterministic load order around the content formats the game already uses.
 It does **not** replace or convert those formats.
+
+Every v1 manifest remains valid. Version 2 only adds opt-in dependency policy:
+optional requirements, declared incompatibilities, and weak ordering edges.
 
 Existing `Data-*` directories, XML, maps, STI/PNG artwork, sounds, and
 `vfs_config.ini` profiles remain valid and unchanged. If no package setting or
@@ -11,7 +14,7 @@ package command-line option is present, package discovery is not run and the
 legacy startup path is unchanged. An unmanifested installation therefore
 continues to work exactly as before.
 
-Data Package v1 is currently data-only and startup-only:
+Data Package v2 is currently data-only and startup-only:
 
 - it loads no DLL, shared library, native plugin, or package-supplied code;
 - it does not add a new XML, map, artwork, sound, or save-game schema;
@@ -62,16 +65,33 @@ ASSET_ROOT = Data
 REQUIRES = community.rules@2.4.0, community.ui@*
 ```
 
+A v2 manifest opts into dependency policy with `CONTENT_API = 1.3`:
+
+```ini
+[Package]
+MANIFEST_VERSION = 2
+ID = community.balance
+VERSION = 2.5.0-alpha1
+CONTENT_API = 1.3
+TYPE = extension
+ASSET_ROOT = Data
+REQUIRES = community.rules@2.4.0
+OPTIONAL_REQUIRES = community.ui@*, community.weather@1.1
+CONFLICTS = legacy.balance, alternate.overhaul
+LOAD_AFTER = community.localization
+```
+
 The required keys are:
 
-- `MANIFEST_VERSION`: must be `1`.
+- `MANIFEST_VERSION`: `1` for the original contract or `2` for dependency
+  policy. A v1 manifest cannot use v2 policy keys.
 - `ID`: a unique lowercase identifier containing only `a-z`, `0-9`, `.`, `_`,
   or `-`, with at most 128 characters.
 - `VERSION`: a non-empty opaque version of at most 128 characters. Its allowed
   characters are ASCII letters, digits, `.`, `_`, `-`, and `+`.
-- `CONTENT_API`: this implementation accepts `1.1` and `1.2`. A package that
-  declares `REQUIRES` must use `1.2`; newer or different major versions are
-  rejected.
+- `CONTENT_API`: this implementation accepts `1.1`, `1.2`, and `1.3`. A package
+  that declares `REQUIRES` must use at least `1.2`; a v2 manifest must use
+  `1.3`. Newer or different major versions are rejected.
 - `TYPE`: `rules`, `extension`, or `tool`. Disk-discovered campaign packages
   are deliberately outside v1; the compiled JA2 or Unfinished Business
   campaign remains the active compatibility bridge.
@@ -88,6 +108,23 @@ one of:
 Version ranges and SemVer comparison are not implemented. Requirements must be
 unique, cannot refer to the declaring package, and require `CONTENT_API = 1.2`.
 Selecting a package automatically includes its complete requirement closure.
+
+The v2 policy keys are optional comma-separated ordered lists:
+
+- `OPTIONAL_REQUIRES` uses the same `id`, `id@*`, and `id@exact-version` syntax
+  as `REQUIRES`. A discovered target joins the dependency closure and receives
+  the same version and lifecycle guarantees. An undiscovered target is ignored.
+- `CONFLICTS` contains package IDs that must not be active or selected in the
+  same closure. Conflict enforcement is symmetric even when only one package
+  declares it. An undiscovered target is harmless.
+- `LOAD_AFTER` contains weak predecessor IDs. When both packages are already in
+  the selected closure, the predecessor loads first. Missing, inactive, or
+  unselected targets are ignored; this key never activates another package.
+
+An ID may occur only once across `REQUIRES`, `OPTIONAL_REQUIRES`, `CONFLICTS`,
+and `LOAD_AFTER`, and no relationship may name its declaring package. Cycles in
+strong or optional dependencies and cycles introduced by `LOAD_AFTER` are
+reported before activation starts.
 
 ## Selecting packages
 
@@ -114,10 +151,12 @@ JA2_ENGLISH.exe --package-root Packages --package community.rules --package comm
 equivalent forms. If at least one command-line occurrence is present, it
 replaces the corresponding INI list rather than appending to it.
 
-Both `PACKAGE_SELECTION` and `REQUIRES` are ordered from lower to higher overlay
-priority. Resolution and activation are deterministic: every dependency is
-mounted before its consumer, and later IDs in `PACKAGE_SELECTION` can override
-earlier read-only content. The resulting priority is conceptually:
+`PACKAGE_SELECTION`, `REQUIRES`, and `OPTIONAL_REQUIRES` preserve declaration
+order as a stable lower-to-higher overlay-priority input. Strong and present
+optional dependencies load before their consumers; `LOAD_AFTER` then adds only
+the requested weak edges. Later IDs in `PACKAGE_SELECTION` can override earlier
+read-only content when no dependency-policy edge constrains them. The resulting
+priority is conceptually:
 
 ```text
 writable user profile                          highest
@@ -138,10 +177,10 @@ bfVFS cannot remove an arbitrary middle profile, so the host never attempts to
 continue after a mount error: earlier profiles may remain present only during
 the ensuing fatal shutdown, where normal whole-VFS teardown removes them.
 
-The v1 host enforces these portability and safety rules:
+The v2 host enforces these portability and safety rules:
 
-- at most 32 roots, 4,096 discovered or selected packages, 128 requirements per
-  manifest, and 1,000,000 indexed asset files across the startup;
+- at most 32 roots, 4,096 discovered or selected packages, 128 total dependency
+  relationships per manifest, and 1,000,000 indexed asset files across startup;
 - a `package.ini` of at most 64 KiB and at most 250,000 indexed asset files per
   package;
 - real package-root/package directories and a regular manifest; symbolic-link
@@ -160,7 +199,7 @@ IDs across roots are an error. A package root is scanned deterministically and
 may contain ordinary directories without `package.ini`, which are ignored, but
 symbolic-link entries are rejected.
 
-Treat Data Package v1 as a strict packaging envelope around trusted legacy mod
+Treat Data Package v2 as a strict packaging envelope around trusted legacy mod
 content, not as a sandbox for hostile files. It reduces ambiguous discovery and
 path behavior, but it does not reinterpret or make the legacy parsers themselves
 security boundaries.

@@ -18,10 +18,12 @@ struct ContentApiVersion
 };
 
 // 1.1 adds package-owned AssetSource overlays; 1.2 adds exact or unversioned
-// package requirements. Older manifests remain valid when they do not depend
-// on those optional contracts.
-constexpr ContentApiVersion CurrentContentApiVersion{1, 2};
+// package requirements; 1.3 adds optional dependencies, conflicts, and weak
+// ordering relationships. Older manifests remain valid when they do not use
+// the newer contracts.
+constexpr ContentApiVersion CurrentContentApiVersion{1, 3};
 constexpr ContentApiVersion PackageRequirementsContentApiVersion{1, 2};
+constexpr ContentApiVersion PackagePolicyContentApiVersion{1, 3};
 
 struct ContentRequirement
 {
@@ -37,6 +39,16 @@ struct ContentManifest
 	std::string version;
 	ContentApiVersion requiredApi;
 	std::vector<ContentRequirement> requirements;
+	// Optional requirements participate in the activation closure only when the
+	// target is registered. If present, their version and lifecycle guarantees
+	// are identical to mandatory requirements.
+	std::vector<ContentRequirement> optionalRequirements;
+	// Conflicts are symmetric during resolution even when only one side declares
+	// the relationship. Missing targets are harmless.
+	std::vector<std::string> conflicts;
+	// Weak ordering edges never select another package. When both packages are
+	// in an activation plan, the named package must activate first.
+	std::vector<std::string> loadAfter;
 };
 
 enum class ContentRegistrationError
@@ -45,7 +57,8 @@ enum class ContentRegistrationError
 	InvalidManifest,
 	IncompatibleApi,
 	DuplicateId,
-	InvalidRequirement
+	InvalidRequirement,
+	InvalidRelationship
 };
 
 enum class ContentUnregistrationError
@@ -69,13 +82,39 @@ public:
 			(manifest.requiredApi.major != PackageRequirementsContentApiVersion.major ||
 			 manifest.requiredApi.minor < PackageRequirementsContentApiVersion.minor))
 			return ContentRegistrationError::InvalidRequirement;
-		std::unordered_set<std::string> requirementIds;
-		requirementIds.reserve(manifest.requirements.size());
+		const bool hasPolicy = !manifest.optionalRequirements.empty() ||
+			!manifest.conflicts.empty() || !manifest.loadAfter.empty();
+		if (hasPolicy &&
+			(manifest.requiredApi.major != PackagePolicyContentApiVersion.major ||
+			 manifest.requiredApi.minor < PackagePolicyContentApiVersion.minor))
+			return ContentRegistrationError::InvalidRelationship;
+		std::unordered_set<std::string> relationshipIds;
+		relationshipIds.reserve(manifest.requirements.size() +
+			manifest.optionalRequirements.size() + manifest.conflicts.size() +
+			manifest.loadAfter.size());
 		for (const ContentRequirement& requirement : manifest.requirements)
 		{
 			if (!IsValidEngineIdentifier(requirement.id) || requirement.id == manifest.id ||
-				!requirementIds.insert(requirement.id).second)
+				!relationshipIds.insert(requirement.id).second)
 				return ContentRegistrationError::InvalidRequirement;
+		}
+		for (const ContentRequirement& requirement : manifest.optionalRequirements)
+		{
+			if (!IsValidEngineIdentifier(requirement.id) || requirement.id == manifest.id ||
+				!relationshipIds.insert(requirement.id).second)
+				return ContentRegistrationError::InvalidRelationship;
+		}
+		for (const std::string& conflict : manifest.conflicts)
+		{
+			if (!IsValidEngineIdentifier(conflict) || conflict == manifest.id ||
+				!relationshipIds.insert(conflict).second)
+				return ContentRegistrationError::InvalidRelationship;
+		}
+		for (const std::string& predecessor : manifest.loadAfter)
+		{
+			if (!IsValidEngineIdentifier(predecessor) || predecessor == manifest.id ||
+				!relationshipIds.insert(predecessor).second)
+				return ContentRegistrationError::InvalidRelationship;
 		}
 		if (byId_.find(manifest.id) != byId_.end()) return ContentRegistrationError::DuplicateId;
 		const std::size_t index = manifests_.size();

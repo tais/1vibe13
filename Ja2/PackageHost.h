@@ -80,7 +80,7 @@ public:
 
 // Owns every discovered package and directory asset source at stable addresses
 // for at least as long as the PackageRegistry keeps its non-owning references.
-// Data Package v1 is deliberately startup-only; create a new host to test a new
+// Data Package v2 is deliberately startup-only; create a new host to test a new
 // configuration rather than rescanning or unloading a running game.
 class PackageHost
 {

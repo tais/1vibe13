@@ -1,4 +1,4 @@
-#include "PlatformInput.h"
+#include <Engine/Adapters/Legacy/PlatformInput.h>
 
 #include <array>
 #include <cstddef>

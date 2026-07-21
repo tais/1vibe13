@@ -18,6 +18,14 @@ std::uint64_t DispatchChangeStanceCommandNow(
 	std::uint8_t stance,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer);
 
+std::uint64_t DispatchBeginFireWeaponCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer);
+
 CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick);
 
 #endif

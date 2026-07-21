@@ -62,6 +62,7 @@
 	#include "Food.h"
 	// added by sevenfm - this is needed for _keydown(SHIFT) to work
 	#include "english.h"
+	#include "Simulation Commands.h"
 
 	#include <iostream>	// added by Flugente
 	#include <fstream>	// added by Flugente
@@ -100,6 +101,22 @@ extern std::vector<WORLDITEM> pInventoryPoolList;
 extern INT32 GetAttachmentInfoIndex( UINT16 usItem );
 
 extern INT32 giItemDescAmmoButton;
+
+namespace
+{
+void DispatchBeginFireWeaponFromHandleItem(
+	SOLDIERTYPE* soldier, INT32 targetGrid, BOOLEAN fromUi)
+{
+	DispatchBeginFireWeaponCommandNow(
+		soldier->ubID,
+		soldier->uiUniqueSoldierIdValue,
+		targetGrid,
+		soldier->bTargetLevel,
+		soldier->bTargetCubeLevel,
+		fromUi ? SimulationCommandSource::LocalPlayer
+		       : SimulationCommandSource::System);
+}
+}
 
 ITEM_POOL_LOCATOR				FlashItemSlots[ NUM_ITEM_FLASH_SLOTS ];
 UINT32									guiNumFlashItemSlots = 0;
@@ -782,7 +799,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				{
 					if ( pSoldier->sSpreadLocations[ 0 ] != 0 )
 					{
-						SendBeginFireWeaponEvent( pSoldier, pSoldier->sSpreadLocations[ 0 ] );
+						DispatchBeginFireWeaponFromHandleItem(
+							pSoldier, pSoldier->sSpreadLocations[ 0 ], fFromUI );
 						if(is_server || (is_client && pSoldier->ubID <20) ) 
 							send_fire( pSoldier, pSoldier->sSpreadLocations[ 0 ] );
 
@@ -790,7 +808,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					}
 					else
 					{
-						SendBeginFireWeaponEvent( pSoldier, sTargetGridNo );
+						DispatchBeginFireWeaponFromHandleItem(
+							pSoldier, sTargetGridNo, fFromUI );
 						if(is_server || (is_client && pSoldier->ubID <20) ) 
 							send_fire( pSoldier, sTargetGridNo );
 
@@ -799,7 +818,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 				else
 				{
-					SendBeginFireWeaponEvent( pSoldier, sTargetGridNo );
+					DispatchBeginFireWeaponFromHandleItem(
+						pSoldier, sTargetGridNo, fFromUI );
 					if(is_server || (is_client && pSoldier->ubID <20) ) send_fire( pSoldier, sTargetGridNo );
 				}
 
@@ -1934,7 +1954,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			else
 			{
 
-				SendBeginFireWeaponEvent( pSoldier, sTargetGridNo );
+				DispatchBeginFireWeaponFromHandleItem(
+					pSoldier, sTargetGridNo, fFromUI );
 				if(is_server || (is_client && pSoldier->ubID <20) ) send_fire( pSoldier, sTargetGridNo );
 
 			}
