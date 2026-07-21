@@ -40,6 +40,7 @@
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Core/SimulationCommand.h>
+#include <Engine/Core/SimulationCommandCodec.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
 #include <Engine/Core/StateTransition.h>
@@ -681,12 +682,27 @@ int main( int, char** )
 	}
 
 	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 1, 10 );
+		const CommandProcessingResult observed = ProcessCommandsThrough(
+			commands, 1,
+			[]( int, std::uint64_t, std::uint64_t ) {
+				return CommandDisposition::Applied;
+			},
+			[]( int, std::uint64_t, std::uint64_t, CommandDisposition ) {
+				throw "injected journal failure";
+			} );
+		CHECK( observed && observed.applied == 1 && commands.empty(),
+		       "command observers cannot interfere with authoritative delivery" );
+	}
+
+	{
 		GAME_SETTINGS settings = {};
 		GAME_OPTIONS options = {};
 		GameContext context( settings, options );
-		context.commands().enqueue(
+		const std::uint64_t localSequence = context.submitCommand(
 			7, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::LocalPlayer}} );
-		context.commands().enqueue(
+		context.submitCommand(
 			7, SimulationCommand{EndTurnCommand{3, SimulationCommandSource::NetworkPeer}} );
 		const auto ready = context.commands().drainThrough( 7 );
 		const auto& local = std::get<EndTurnCommand>( ready[0].command );
@@ -695,13 +711,24 @@ int main( int, char** )
 		       local.source == SimulationCommandSource::LocalPlayer &&
 		       network.source == SimulationCommandSource::NetworkPeer,
 		       "engine runtime owns ordered value-only tactical commands" );
-		context.commands().enqueue(
+		const auto submitted = context.commandJournal().snapshot();
+		CHECK( submitted.size() == 2 && submitted[0].sequence == localSequence &&
+		       submitted[0].status == CommandJournalStatus::Queued,
+		       "engine runtime journals submitted production commands without owning executors" );
+		context.submitCommand(
 			8, SimulationCommand{ChangeStanceCommand{17, 2, SimulationCommandSource::LocalPlayer}} );
 		const auto stanceReady = context.commands().drainThrough( 8 );
 		const auto& stance = std::get<ChangeStanceCommand>( stanceReady[0].command );
 		CHECK( stanceReady.size() == 1 && stance.soldierId == 17 && stance.stance == 2 &&
 		       stance.source == SimulationCommandSource::LocalPlayer,
 		       "engine runtime carries value-only soldier stance commands" );
+		CHECK( context.submitRecordedCommand(
+		           9, 500, SimulationCommand{BeginFireWeaponCommand{
+		               17, 700, 1234, 0, 2, SimulationCommandSource::Replay}} ) &&
+		       !context.submitRecordedCommand(
+		           9, 500, SimulationCommand{BeginFireWeaponCommand{
+		               17, 700, 1234, 0, 2, SimulationCommandSource::Replay}} ),
+		       "engine runtime admits uniquely sequenced replay commands through the same journal" );
 	}
 
 	{

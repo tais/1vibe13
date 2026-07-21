@@ -3,6 +3,7 @@
 
 #include "GameSettings.h"
 #include "GameCapabilities.h"
+#include <utility>
 #include <Engine/Core/EngineRuntime.h>
 
 // Compatibility name retained while callers migrate to EngineRuntime.
@@ -43,6 +44,17 @@ public:
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return runtime_.commands(); }
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return runtime_.commands(); }
+	CommandJournal<SimulationCommand>& commandJournal() { return runtime_.commandJournal(); }
+	const CommandJournal<SimulationCommand>& commandJournal() const { return runtime_.commandJournal(); }
+	std::uint64_t submitCommand(std::uint64_t tick, SimulationCommand command)
+	{
+		return runtime_.submitCommand(tick, std::move(command));
+	}
+	bool submitRecordedCommand(
+		std::uint64_t tick, std::uint64_t sequence, SimulationCommand command)
+	{
+		return runtime_.submitRecordedCommand(tick, sequence, std::move(command));
+	}
 	bool setCapabilities(GameCapabilities capabilities)
 	{
 		if (runtime_.lifecycle() != EngineLifecycle::Stopped) return false;

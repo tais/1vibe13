@@ -137,6 +137,14 @@ the engine must not contain SDL types in its public domain model.
   is counted; and a handler exception leaves the failing and remaining commands
   queued. Commands produced during a handler wait for the next pass, preventing
   accidental unbounded same-tick dispatch.
+- `CommandJournal` records a bounded, best-effort history of submitted command
+  values and their queued/applied/discarded/blocked state. Recording failures
+  never alter simulation delivery. The versioned `SimulationCommandCodec`
+  serializes explicit command tags rather than variant indexes, providing a
+  stable capture boundary for diagnostics and future replay/network hosts.
+  `HandleItem` firearm actions now enter this gateway before the compatibility
+  executor queues the existing soldier event, while legacy AP, animation, and
+  multiplayer behavior remain at their original synchronous boundary.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
 - `StateStack` represents base screens and modal overlays without scattered
   previous-screen globals.

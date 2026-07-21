@@ -4,6 +4,7 @@ set(engine_core_public_headers
   BinaryArchive.h
   ByteStorage.h
   CommandDispatch.h
+  CommandJournal.h
   CommandProcessor.h
   ContentApi.h
   DeterministicCommandQueue.h
@@ -21,6 +22,7 @@ set(engine_core_public_headers
   PersistenceService.h
   RandomSource.h
   SimulationCommand.h
+  SimulationCommandCodec.h
   StateController.h
   StateStack.h
   StateTransition.h
@@ -35,6 +37,7 @@ add_library(ja2_engine_core STATIC
   AssetSource.cpp
   BinaryArchive.cpp
   Identifier.cpp
+  SimulationCommandCodec.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)
 

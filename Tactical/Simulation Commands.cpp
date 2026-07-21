@@ -35,24 +35,45 @@ namespace
 				}
 				return CommandDisposition::Discard;
 			}
+			else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
+			{
+				if (value.soldierId < TOTAL_SOLDIERS)
+				{
+					SOLDIERTYPE* soldier = MercPtrs[value.soldierId];
+					if (soldier != nullptr &&
+						soldier->uiUniqueSoldierIdValue == value.uniqueSoldierId)
+					{
+						SendBeginFireWeaponEvent(
+							soldier, value.targetGrid,
+							value.targetLevel, value.targetCubeLevel);
+						return CommandDisposition::Applied;
+					}
+				}
+				return CommandDisposition::Discard;
+			}
 		}, command);
 	}
 }
 
 CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick)
 {
+	GameContext& game = GetGameContext();
 	return ProcessCommandsThrough(
-		GetGameContext().commands(), tick,
+		game.commands(), tick,
 		[](const SimulationCommand& command, std::uint64_t, std::uint64_t) {
 			return ExecuteSimulationCommand(command);
+		},
+		[&game](const SimulationCommand&, std::uint64_t, std::uint64_t sequence,
+			CommandDisposition disposition) {
+			game.commandJournal().recordDisposition(sequence, disposition);
 		});
 }
 
 std::uint64_t DispatchEndTurnCommandNow(
 	std::uint8_t nextTeam, SimulationCommandSource source)
 {
-	auto& commands = GetGameContext().commands();
-	const std::uint64_t sequence = commands.enqueue(
+	GameContext& game = GetGameContext();
+	const std::uint64_t sequence = game.submitCommand(
 		ImmediateCommandTick, SimulationCommand{EndTurnCommand{nextTeam, source}});
 	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
 	return sequence;
@@ -61,10 +82,27 @@ std::uint64_t DispatchEndTurnCommandNow(
 std::uint64_t DispatchChangeStanceCommandNow(
 	std::uint16_t soldierId, std::uint8_t stance, SimulationCommandSource source)
 {
-	auto& commands = GetGameContext().commands();
-	const std::uint64_t sequence = commands.enqueue(
+	GameContext& game = GetGameContext();
+	const std::uint64_t sequence = game.submitCommand(
 		ImmediateCommandTick,
 		SimulationCommand{ChangeStanceCommand{soldierId, stance, source}});
+	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
+	return sequence;
+}
+
+std::uint64_t DispatchBeginFireWeaponCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	SimulationCommandSource source)
+{
+	GameContext& game = GetGameContext();
+	const std::uint64_t sequence = game.submitCommand(
+		ImmediateCommandTick,
+		SimulationCommand{BeginFireWeaponCommand{
+			soldierId, uniqueSoldierId, targetGrid, targetLevel, targetCubeLevel, source}});
 	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
 	return sequence;
 }
