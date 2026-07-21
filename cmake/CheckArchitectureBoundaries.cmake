@@ -13,6 +13,7 @@ set(core_standard_headers
   algorithm
   cstddef
   cstdint
+  cstring
   deque
   functional
   initializer_list

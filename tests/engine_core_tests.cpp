@@ -241,6 +241,34 @@ int main()
 		capabilities.ids() == std::vector<std::string>({
 			"engine.rendering", "tool.map-editor"}),
 		"runtime capabilities are portable, unique, and deterministically ordered");
+	PackageCatalogSnapshot fingerprintPackages;
+	fingerprintPackages.supportedApi = ContentApiVersion{1, 3};
+	fingerprintPackages.activationOrder = {"rules.fingerprint"};
+	fingerprintPackages.packages.push_back(PackageCatalogEntry{
+		PackageDescriptor{
+			ContentManifest{"rules.fingerprint", "2.0", ContentApiVersion{1, 3}},
+			PackageKind::Rules, {"rules.fingerprint"}},
+		PackageLifecycleState::Active, false, 0, {}, {}});
+	const std::vector<EngineServiceDescriptor> fingerprintServices{
+		{"engine.test", EngineServiceVersion{1, 2}}};
+	const std::vector<RuntimeConfigurationEntry> fingerprintConfiguration{
+		{"engine.test-value", std::int64_t{42}}};
+	const std::vector<DefinitionRecord> fingerprintDefinitions{
+		{"rules.fingerprint", "item", "medkit", 1, {4, 2}}};
+	const RuntimeCompatibilityFingerprint firstFingerprint =
+		BuildRuntimeCompatibilityFingerprint(fingerprintPackages, fingerprintServices,
+			fingerprintConfiguration, capabilities, fingerprintDefinitions);
+	const RuntimeCompatibilityFingerprint repeatedFingerprint =
+		BuildRuntimeCompatibilityFingerprint(fingerprintPackages, fingerprintServices,
+			fingerprintConfiguration, capabilities, fingerprintDefinitions);
+	auto changedDefinitions = fingerprintDefinitions;
+	changedDefinitions[0].payload[1] = 3;
+	const RuntimeCompatibilityFingerprint changedFingerprint =
+		BuildRuntimeCompatibilityFingerprint(fingerprintPackages, fingerprintServices,
+			fingerprintConfiguration, capabilities, changedDefinitions);
+	check(firstFingerprint == repeatedFingerprint &&
+		firstFingerprint != changedFingerprint && firstFingerprint.hex().size() == 40,
+		"runtime fingerprints are deterministic and include versioned definition bytes");
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;
@@ -296,6 +324,7 @@ int main()
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
 		diagnostics.packageTasks.queued.empty() && diagnostics.services.size() == 12 &&
 		diagnostics.configuration.size() == 17 &&
+		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");

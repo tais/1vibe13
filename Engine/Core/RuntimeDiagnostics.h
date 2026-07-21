@@ -16,6 +16,7 @@
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/RuntimeFaultJournal.h>
+#include <Engine/Core/RuntimeFingerprint.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/ServiceCatalog.h>
 
@@ -37,6 +38,7 @@ struct RuntimeDiagnosticsSnapshot
 	std::vector<EngineServiceDescriptor> services;
 	std::vector<RuntimeConfigurationEntry> configuration;
 	RuntimeCapabilities capabilities;
+	RuntimeCompatibilityFingerprint compatibility;
 	std::size_t queuedMessages = 0;
 	std::uint64_t completedFrames = 0;
 	std::uint64_t completedSimulationTicks = 0;

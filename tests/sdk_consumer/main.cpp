@@ -52,6 +52,9 @@ int main()
 		host.packages().activate("external.rules") != PackageActivationError::None ||
 		!host.hasCapability("host.external-consumer") ||
 		!host.hasCapability("rules.external-consumer")) return 2;
+	const RuntimeCompatibilityFingerprint fingerprint = host.compatibilityFingerprint();
+	if (fingerprint.hex().size() != 40 ||
+		fingerprint != host.diagnostics().compatibility) return 8;
 
 	const std::vector<std::uint8_t> saved{2, 3, 5, 7};
 	if (host.persistence().saveEnvelope(
