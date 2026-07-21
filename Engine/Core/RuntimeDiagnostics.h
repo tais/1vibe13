@@ -13,6 +13,7 @@
 #include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/PackageTaskQueue.h>
+#include <Engine/Core/PackageResourceUsage.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/RuntimeFaultJournal.h>
@@ -35,6 +36,7 @@ struct RuntimeDiagnosticsSnapshot
 	std::vector<EntityRecordSnapshot> entities;
 	std::vector<PackageAudioPlaybackSnapshot> packageAudio;
 	PackageTaskQueueSnapshot packageTasks;
+	PackageResourceUsageSnapshot packageResources;
 	std::vector<EngineServiceDescriptor> services;
 	std::vector<RuntimeConfigurationEntry> configuration;
 	RuntimeCapabilities capabilities;

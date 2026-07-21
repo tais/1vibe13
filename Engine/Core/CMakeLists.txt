@@ -34,6 +34,7 @@ set(engine_core_public_headers
   PackageMessagePublisher.h
   PackageLocalization.h
   PackageRandomSource.h
+  PackageResourceUsage.h
   PackageResults.h
   PackageStorage.h
   PackageTaskQueue.h
@@ -66,6 +67,7 @@ add_library(ja2_engine_core STATIC
   BinaryArchive.cpp
   Identifier.cpp
   PersistenceService.cpp
+  PackageResourceUsage.cpp
   RuntimeCapabilities.cpp
   RuntimeFingerprint.cpp
   ${engine_core_public_headers})

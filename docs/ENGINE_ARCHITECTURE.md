@@ -292,6 +292,11 @@ the engine must not contain SDL types in its public domain model.
   callbacks. Each frame drains only work that was already queued, exceptions
   become fault records, recursive scheduling waits for a later frame, and
   rollback or deactivation cancels callbacks before package state is released.
+- `PackageResourceUsageSnapshot` joins the engine's ownership records into one
+  deterministic per-package view: localization and definition counts/bytes,
+  entity identities, audio playback, deferred work, and random-stream use. It
+  also reports totals and any invariant-breaking unattributed record, giving
+  tooling evidence for future per-package quotas and legacy-code retirement.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

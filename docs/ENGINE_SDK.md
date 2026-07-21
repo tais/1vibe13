@@ -156,3 +156,10 @@ same frame, and thrown callbacks are contained in runtime diagnostics. Pending
 callbacks are cancelled automatically during rollback or package teardown;
 packages must still avoid capturing objects with shorter lifetimes than their
 own active lifecycle.
+
+`EngineHost::packageResourceUsage()` and the unified diagnostics snapshot
+attribute live framework resources to every registered package in deterministic
+catalog order. Use the per-package counts/byte totals to diagnose runaway mods,
+tune host capacities, and verify teardown; a non-zero `unattributedRecords`
+value signals an ownership invariant violation that should be treated as an
+engine bug.

@@ -690,6 +690,16 @@ int main( int, char** )
 		           std::vector<std::string>({ "host.headless" }) &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		const PackageResourceUsageSnapshot resources = host.packageResourceUsage();
+		const PackageResourceUsage* packageResources = resources.find( "lifecycle.complete" );
+		CHECK( packageResources && packageResources->active &&
+		       packageResources->localizationEntries == 1 &&
+		       packageResources->definitionEntries == 1 && packageResources->entities == 1 &&
+		       packageResources->audioPlaybacks == 1 && packageResources->deferredTasks == 2 &&
+		       packageResources->randomStreams == 1 &&
+		       packageResources->randomValuesGenerated == 1 &&
+		       resources.unattributedRecords == 0,
+		       "live diagnostics attribute framework resource use to its owning package" );
 		PersistenceHeader packageHeader{};
 		std::vector<std::uint8_t> packagePayload;
 		PackageStorage otherPackageStorage( "other.package", host.persistence() );

@@ -55,6 +55,10 @@ int main()
 	const RuntimeCompatibilityFingerprint fingerprint = host.compatibilityFingerprint();
 	if (fingerprint.hex().size() != 40 ||
 		fingerprint != host.diagnostics().compatibility) return 8;
+	const PackageResourceUsageSnapshot resources = host.packageResourceUsage();
+	const PackageResourceUsage* packageResources = resources.find("external.rules");
+	if (!packageResources || !packageResources->active ||
+		resources.unattributedRecords != 0) return 9;
 
 	const std::vector<std::uint8_t> saved{2, 3, 5, 7};
 	if (host.persistence().saveEnvelope(

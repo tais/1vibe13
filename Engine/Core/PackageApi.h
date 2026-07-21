@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -16,6 +17,7 @@
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageResults.h>
+#include <Engine/Core/PackageResourceUsage.h>
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/RuntimeCapabilities.h>
@@ -808,6 +810,29 @@ public:
 		for (const std::string& packageId : active_)
 			capabilities.addAll(packages_.at(packageId).capabilities);
 		return capabilities;
+	}
+
+	std::vector<PackageRandomUsageSnapshot> randomUsageSnapshot() const
+	{
+		std::vector<PackageRandomUsageSnapshot> result;
+		result.reserve(content_.manifests().size());
+		for (const ContentManifest& manifest : content_.manifests())
+		{
+			const auto registered = packages_.find(manifest.id);
+			if (registered == packages_.end()) continue;
+			const std::vector<PackageRandomStreamSnapshot> streams =
+				registered->second.random.snapshot();
+			std::uint64_t generated = 0;
+			for (const PackageRandomStreamSnapshot& stream : streams)
+			{
+				const std::uint64_t maximum = std::numeric_limits<std::uint64_t>::max();
+				generated = stream.valuesGenerated > maximum - generated
+					? maximum : generated + stream.valuesGenerated;
+			}
+			result.push_back(PackageRandomUsageSnapshot{
+				manifest.id, static_cast<std::uint64_t>(streams.size()), generated});
+		}
+		return result;
 	}
 
 	const std::string& activeCampaign() const { return activeCampaign_; }

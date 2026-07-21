@@ -269,6 +269,27 @@ int main()
 	check(firstFingerprint == repeatedFingerprint &&
 		firstFingerprint != changedFingerprint && firstFingerprint.hex().size() == 40,
 		"runtime fingerprints are deterministic and include versioned definition bytes");
+	PackageTaskQueueSnapshot resourceTasks;
+	resourceTasks.queued.push_back(PackageTaskRecord{7, "rules.fingerprint"});
+	const PackageResourceUsageSnapshot resourceUsage = BuildPackageResourceUsage(
+		fingerprintPackages,
+		std::vector<LocalizationEntry>{{"rules.fingerprint", "en", "ui.ready", "Ready"}},
+		fingerprintDefinitions,
+		std::vector<EntityRecordSnapshot>{{EntityId{1, 1}, "rules.fingerprint", "unit"}},
+		std::vector<PackageAudioPlaybackSnapshot>{{3, "rules.fingerprint", "ui", "a.wav", 90}},
+		resourceTasks,
+		std::vector<PackageRandomUsageSnapshot>{{"rules.fingerprint", 2, 11}});
+	const PackageResourceUsage* packageUsage = resourceUsage.find("rules.fingerprint");
+	check(packageUsage && packageUsage->active &&
+		packageUsage->localizationEntries == 1 &&
+		packageUsage->localizationTextBytes == 5 &&
+		packageUsage->definitionEntries == 1 &&
+		packageUsage->definitionPayloadBytes == 2 && packageUsage->entities == 1 &&
+		packageUsage->audioPlaybacks == 1 && packageUsage->deferredTasks == 1 &&
+		packageUsage->randomStreams == 2 && packageUsage->randomValuesGenerated == 11 &&
+		resourceUsage.total.definitionEntries == 1 &&
+		resourceUsage.unattributedRecords == 0,
+		"package resource accounting attributes owned framework state and totals");
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;
@@ -322,7 +343,8 @@ int main()
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
-		diagnostics.packageTasks.queued.empty() && diagnostics.services.size() == 12 &&
+		diagnostics.packageTasks.queued.empty() &&
+		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 12 &&
 		diagnostics.configuration.size() == 17 &&
 		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
