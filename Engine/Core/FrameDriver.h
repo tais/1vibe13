@@ -8,6 +8,7 @@
 #include <Engine/Core/FrameTelemetry.h>
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeUpdate.h>
+#include <Engine/Core/SimulationTick.h>
 
 struct FramePlan
 {
@@ -24,6 +25,7 @@ struct FrameRunResult
 	FramePresentMode presentationMode = FramePresentMode::Paced;
 	InputDispatchResult input;
 	RuntimeUpdateDispatchResult runtimeUpdates;
+	SimulationTickDispatchResult simulationTicks;
 	RuntimeMessageDispatchResult messages;
 };
 
@@ -36,9 +38,10 @@ class FrameDriver
 {
 public:
 	FrameDriver(EngineServices& services, RuntimeMessageBus& messages, InputDispatcher& input,
-		RuntimeUpdateDispatcher& runtimeUpdates, FrameTelemetry& telemetry)
+		RuntimeUpdateDispatcher& runtimeUpdates, FrameTelemetry& telemetry,
+		SimulationTickDispatcher& simulationTicks = SimulationTickDispatcher::disabled())
 		: services_(services), messages_(messages), input_(input), runtimeUpdates_(runtimeUpdates),
-		  telemetry_(telemetry) {}
+		  telemetry_(telemetry), simulationTicks_(simulationTicks) {}
 
 	FrameDriver(const FrameDriver&) = delete;
 	FrameDriver& operator=(const FrameDriver&) = delete;
@@ -56,6 +59,8 @@ public:
 		const std::uint64_t inputFinishedAt = services_.time.nowMicroseconds();
 		const std::uint64_t elapsed = hasCompletedFrame_ && startedAt >= previousFrameStartedAt_
 			? startedAt - previousFrameStartedAt_ : 0;
+		const SimulationTickDispatchResult simulationTicks = simulationTicks_.advance(elapsed);
+		const std::uint64_t simulationTicksFinishedAt = services_.time.nowMicroseconds();
 		const RuntimeUpdateDispatchResult runtimeUpdates = runtimeUpdates_.dispatch(
 			RuntimeUpdateContext{sequence, startedAt, elapsed});
 		const std::uint64_t runtimeUpdateFinishedAt = services_.time.nowMicroseconds();
@@ -71,11 +76,13 @@ public:
 		hasCompletedFrame_ = true;
 		const FrameRunResult result{
 			sequence, startedAt, finishedAt,
-			plan.present, plan.presentationMode, input, runtimeUpdates, messages};
+			plan.present, plan.presentationMode, input, runtimeUpdates, simulationTicks, messages};
 		telemetry_.record(FrameTelemetrySample{
-			sequence, startedAt, messagesFinishedAt, inputFinishedAt, runtimeUpdateFinishedAt,
+			sequence, startedAt, messagesFinishedAt, inputFinishedAt,
+			simulationTicksFinishedAt, runtimeUpdateFinishedAt,
 			applicationUpdateFinishedAt, presentationFinishedAt, finishedAt,
-			plan.present, plan.presentationMode, messages, input, runtimeUpdates});
+			plan.present, plan.presentationMode, messages, input, runtimeUpdates,
+			simulationTicks});
 		return result;
 	}
 
@@ -85,6 +92,7 @@ public:
 		completedFrames_ = 0;
 		previousFrameStartedAt_ = 0;
 		hasCompletedFrame_ = false;
+		simulationTicks_.reset();
 	}
 
 private:
@@ -93,6 +101,7 @@ private:
 	InputDispatcher& input_;
 	RuntimeUpdateDispatcher& runtimeUpdates_;
 	FrameTelemetry& telemetry_;
+	SimulationTickDispatcher& simulationTicks_;
 	std::uint64_t completedFrames_ = 0;
 	std::uint64_t previousFrameStartedAt_ = 0;
 	bool hasCompletedFrame_ = false;

@@ -8,10 +8,12 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageMessagePublisher.h>
+#include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageStorage.h>
 #include <Engine/Core/RuntimeMessageBus.h>
 #include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/ServiceCatalog.h>
+#include <Engine/Core/SimulationTick.h>
 #include <Engine/Core/RuntimeUpdate.h>
 
 enum class PackageKind
@@ -41,6 +43,7 @@ struct PackageBootstrapContext
 	const RuntimeConfiguration& configuration;
 	PackageStorage& storage;
 	PackageMessagePublisher& messagePublisher;
+	PackageRandomSource& random;
 };
 
 struct PackageDescriptor
@@ -89,6 +92,9 @@ public:
 	// Packages may publish through PackageBootstrapContext::messages; messages
 	// produced by a callback never reenter the same dispatch.
 	virtual void receiveMessage(PackageBootstrapContext&, const RuntimeMessage&) {}
+	// Fixed-step simulation is separate from render-paced runtime updates. New
+	// packages can opt in without making the legacy campaign loop tick-driven.
+	virtual void simulate(PackageBootstrapContext&, const SimulationTickContext&) {}
 };
 
 #endif

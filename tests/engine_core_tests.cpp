@@ -1,11 +1,14 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/BinaryArchive.h>
+#include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/FrameDriver.h>
+#include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
+#include <Engine/Core/SimulationTick.h>
 #include <Engine/Core/StateRegistry.h>
 
 #include <cstdint>
@@ -40,6 +43,19 @@ public:
 	}
 
 	std::vector<RuntimeUpdateContext> updates;
+	bool throws = false;
+};
+
+class TestSimulationTickSink final : public SimulationTickSink
+{
+public:
+	void simulate(const SimulationTickContext& tick) override
+	{
+		ticks.push_back(tick);
+		if (throws) throw 1;
+	}
+
+	std::vector<SimulationTickContext> ticks;
 	bool throws = false;
 };
 
@@ -83,6 +99,49 @@ int main()
 		"compiled core normalizes portable asset paths");
 	check(!NormalizeAssetPath("../Data/secret", path),
 		"compiled core rejects traversal paths");
+	MemoryAssetSource metadataAssets("test.assets");
+	metadataAssets.put("Data/Metadata.bin", {1, 2, 3});
+	AssetMetadata metadata;
+	check(metadataAssets.metadata("DATA\\METADATA.BIN", metadata) ==
+			AssetMetadataResult::Success &&
+		metadata.logicalPath == "data/metadata.bin" &&
+		metadata.provenance == "test.assets" && metadata.byteSize == 3 &&
+		metadataAssets.metadata("../invalid", metadata) ==
+			AssetMetadataResult::InvalidPath && metadata.logicalPath.empty(),
+		"asset metadata queries normalize paths without copying asset payloads");
+	MemoryAssetSource cacheUpstream("test.cache");
+	cacheUpstream.put("data/a.bin", {1, 2});
+	cacheUpstream.put("data/b.bin", {3, 4});
+	CachingAssetSource assetCache(cacheUpstream, 1, 4);
+	AssetData cachedAsset;
+	const AssetReadResult cacheMiss = assetCache.read("data/a.bin", cachedAsset);
+	cacheUpstream.put("data/a.bin", {9});
+	const AssetReadResult cacheHit = assetCache.read("DATA/A.BIN", cachedAsset);
+	const std::vector<std::uint8_t> retainedBytes = cachedAsset.bytes;
+	assetCache.read("data/b.bin", cachedAsset);
+	const AssetCacheStatistics cacheStatistics = assetCache.statistics();
+	check(cacheMiss == AssetReadResult::Success && cacheHit == AssetReadResult::Success &&
+		retainedBytes == std::vector<std::uint8_t>({1, 2}) &&
+		cacheStatistics.hits == 1 && cacheStatistics.misses == 2 &&
+		cacheStatistics.insertions == 2 && cacheStatistics.evictions == 1 &&
+		cacheStatistics.entries == 1 && cacheStatistics.bytes == 2,
+		"bounded asset cache serves normalized hits and evicts least-recently-used payloads");
+	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
+	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
+	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
+	const PackageRandomResult unrelatedLoot = packageRandom.next("loot", 1000);
+	const PackageRandomResult secondCombat = packageRandom.next("combat", 1000);
+	const PackageRandomResult replayFirstCombat = replayRandom.next("combat", 1000);
+	const PackageRandomResult replaySecondCombat = replayRandom.next("combat", 1000);
+	const std::vector<PackageRandomStreamSnapshot> randomSnapshot = packageRandom.snapshot();
+	check(firstCombat && unrelatedLoot && secondCombat && replayFirstCombat &&
+		replaySecondCombat && firstCombat.value == replayFirstCombat.value &&
+		secondCombat.value == replaySecondCombat.value &&
+		!packageRandom.next("invalid/stream", 10) &&
+		packageRandom.next("third", 10).error == PackageRandomError::StreamLimitReached &&
+		randomSnapshot.size() == 2 && randomSnapshot[0].id == "combat" &&
+		randomSnapshot[0].valuesGenerated == 2 && randomSnapshot[1].id == "loot",
+		"package random streams are deterministic, isolated, bounded, and inspectable");
 	RuntimeCapabilities capabilities;
 	check(capabilities.add("engine.rendering") &&
 		capabilities.add("tool.map-editor") &&
@@ -117,7 +176,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 4 &&
+		sessionHost.serviceCatalog().size() == 6 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -136,8 +195,15 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 4,
+		sessionHost.configuration().size() == 8,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
+	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
+	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
+		diagnostics.frames.summary.completedFrames == 0 &&
+		diagnostics.packages.packages.empty() && diagnostics.services.size() == 6 &&
+		diagnostics.configuration.size() == 8 && diagnostics.queuedMessages == 0 &&
+		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
+		"runtime diagnostics capture one pointer-free ordered host snapshot");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&
@@ -216,6 +282,11 @@ int main()
 	frameInput.push(EngineInputEvent{10, 0, 1, 65, 0, 1, 3});
 	frameInput.push(EngineInputEvent{20, 0, 2, 65, 0, 2, 0});
 	RuntimeUpdateDispatcher runtimeUpdates;
+	SimulationTickDispatcher simulationTicks(10, 2);
+	TestSimulationTickSink receivingTicks;
+	check(simulationTicks.addSink(receivingTicks) ==
+		SimulationTickSinkRegistrationError::None,
+		"fixed-step simulation accepts deterministic non-owning subscribers");
 	FrameTelemetry frameTelemetry(1);
 	RuntimeMessageBus runtimeMessages(4, 8);
 	TestMessageSink receivingMessages;
@@ -243,7 +314,8 @@ int main()
 		RuntimeUpdateSinkRegistrationError::Duplicate,
 		"runtime update dispatcher retains deterministic unique subscribers");
 	FrameDriver frameDriver(
-		frameServices, runtimeMessages, inputDispatcher, runtimeUpdates, frameTelemetry);
+		frameServices, runtimeMessages, inputDispatcher, runtimeUpdates, frameTelemetry,
+		simulationTicks);
 	unsigned frameOrder = 0;
 	const FrameRunResult presentedFrame = frameDriver.runFrame(
 		[&] {
@@ -294,12 +366,22 @@ int main()
 		receivingMessages.messages.size() == 2 &&
 		receivingMessages.messages.back().sequence == 2,
 		"runtime message delivery preserves publication sequence across frames");
+	check(skippedFrame.simulationTicks.scheduled == 4 &&
+		skippedFrame.simulationTicks.executed == 2 &&
+		skippedFrame.simulationTicks.dropped == 2 &&
+		skippedFrame.simulationTicks.delivered == 2 &&
+		receivingTicks.ticks.size() == 2 &&
+		receivingTicks.ticks[0].sequence == 1 &&
+		receivingTicks.ticks[1].simulatedTimeMicroseconds == 20 &&
+		simulationTicks.completedTickSequence() == 4,
+		"frame driver bounds fixed-step catch-up and reports discarded simulation work");
 	const FrameTelemetrySnapshot telemetrySnapshot = frameTelemetry.snapshot();
 	check(telemetrySnapshot.summary.completedFrames == 2 &&
 		telemetrySnapshot.summary.presentedFrames == 1 &&
 		telemetrySnapshot.summary.maximumFrameMicroseconds == 40 &&
 		telemetrySnapshot.summary.inputCallbackFailures == 2 &&
 		telemetrySnapshot.summary.runtimeUpdateCallbackFailures == 2 &&
+		telemetrySnapshot.summary.simulationTicksDropped == 2 &&
 		telemetrySnapshot.summary.messageCallbackFailures == 2 &&
 		telemetrySnapshot.summary.messagesDelivered == 2 &&
 		telemetrySnapshot.summary.evictedSamples == 1 &&

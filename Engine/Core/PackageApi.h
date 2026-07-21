@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <string>
 #include <unordered_map>
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include <Engine/Core/PackageContract.h>
+#include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/PackageCatalog.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageResults.h>
@@ -19,7 +21,7 @@
 #include <Engine/Core/RuntimeCapabilities.h>
 
 class PackageRegistry : public InputEventSink, public RuntimeUpdateSink,
-	public RuntimeMessageSink
+	public RuntimeMessageSink, public SimulationTickSink
 {
 public:
 	explicit PackageRegistry(ContentRegistry& content,
@@ -27,11 +29,18 @@ public:
 		PackageEventSink& events = NullPackageEventSink::instance(),
 		RuntimeMessageBus& messages = RuntimeMessageBus::disabled(),
 		ServiceCatalog& extensionServices = ServiceCatalog::disabled(),
-		const RuntimeConfiguration& configuration = RuntimeConfiguration::disabled())
-		: content_(content), assets_(services.assets), services_(withAssets(services, assets_)),
+		const RuntimeConfiguration& configuration = RuntimeConfiguration::disabled(),
+		std::uint64_t packageRandomSeed = 0,
+		std::size_t packageRandomStreamLimit = 64,
+		std::size_t assetCacheEntries = 128,
+		std::size_t assetCacheBytes = 64u * 1024u * 1024u)
+		: content_(content), assets_(services.assets),
+		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
+		  services_(withAssets(services, assetCache_)),
 		  packagePersistence_(services_.storage), events_(events), messages_(messages),
 		  extensionServices_(extensionServices),
-		  configuration_(configuration) {}
+		  configuration_(configuration), packageRandomSeed_(packageRandomSeed),
+		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
 	// registry and application-owned package objects. Preserve that identity;
@@ -58,7 +67,9 @@ public:
 			descriptor.content.loadAfter, descriptor.capabilities,
 			descriptor.messageTopics, descriptor.requiredServices,
 			PackageStorage{id, packagePersistence_},
-			PackageMessagePublisher{id, messages_}, false, false});
+			PackageMessagePublisher{id, messages_},
+			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_},
+			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
 		try
@@ -685,6 +696,30 @@ public:
 		}
 	}
 
+	void simulate(const SimulationTickContext& tick) override
+	{
+		if (operationInProgress_ || completedBootstrapPhases_ != bootstrapPhaseCount_)
+			return;
+		OperationGuard operation(operationInProgress_);
+		for (const std::string& packageId : active_)
+		{
+			RegisteredPackage& registered = packages_.at(packageId);
+			PackageBootstrapContext context = contextFor(packageId);
+			++registered.runtimeHealth.simulationTickCallbacks;
+			try
+			{
+				registered.package->simulate(context, tick);
+			}
+			catch (...)
+			{
+				const std::uint64_t failure =
+					++registered.runtimeHealth.simulationTickFailures;
+				logRuntimeFailure("simulation tick", packageId, failure,
+					registered.runtimeHealth.suppressedFailureLogs);
+			}
+		}
+	}
+
 	const EnginePackage* find(const std::string& id) const
 	{
 		const auto found = packages_.find(id);
@@ -770,7 +805,9 @@ public:
 	}
 	EngineServices& services() { return services_; }
 	const EngineServices& services() const { return services_; }
-	const AssetSource& assets() const { return assets_; }
+	const AssetSource& assets() const { return assetCache_; }
+	CachingAssetSource& assetCache() { return assetCache_; }
+	const CachingAssetSource& assetCache() const { return assetCache_; }
 	const PackageServiceContractFailure& lastServiceContractFailure() const
 	{
 		return lastServiceContractFailure_;
@@ -802,6 +839,7 @@ private:
 		std::vector<EngineServiceRequirement> requiredServices;
 		PackageStorage storage;
 		PackageMessagePublisher messagePublisher;
+		PackageRandomSource random;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -825,6 +863,7 @@ private:
 		{
 			packageAssets = package.assetSource();
 			assetsMounted = packageAssets && assets_.mount(packageId, *packageAssets);
+			if (assetsMounted) assetCache_.clear();
 		}
 		catch (...)
 		{
@@ -846,7 +885,11 @@ private:
 		{
 			if (!active_.empty() && active_.back() == packageId) active_.pop_back();
 			if (registered.kind == PackageKind::Campaign) activeCampaign_.clear();
-			if (assetsMounted) assets_.unmount(packageId);
+			if (assetsMounted)
+			{
+				assets_.unmount(packageId);
+				assetCache_.clear();
+			}
 			package.deactivate();
 			throw;
 		}
@@ -875,6 +918,7 @@ private:
 				logError("Active asset mount was missing: ", packageId);
 				return PackageDeactivationError::AssetUnmountFailed;
 			}
+			assetCache_.clear();
 			registered.assetsMounted = false;
 		}
 		const bool wasCampaign = activeCampaign_ == packageId;
@@ -980,7 +1024,7 @@ private:
 		RegisteredPackage& registered = packages_.at(packageId);
 		return PackageBootstrapContext{
 			content_, services_, messages_, extensionServices_, configuration_,
-			registered.storage, registered.messagePublisher};
+			registered.storage, registered.messagePublisher, registered.random};
 	}
 
 	PackageBootstrapError preflightServiceContracts()
@@ -1008,12 +1052,15 @@ private:
 
 	ContentRegistry& content_;
 	CompositeAssetSource assets_;
+	CachingAssetSource assetCache_;
 	EngineServices services_;
 	PersistenceService packagePersistence_;
 	PackageEventSink& events_;
 	RuntimeMessageBus& messages_;
 	ServiceCatalog& extensionServices_;
 	const RuntimeConfiguration& configuration_;
+	std::uint64_t packageRandomSeed_;
+	std::size_t packageRandomStreamLimit_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;

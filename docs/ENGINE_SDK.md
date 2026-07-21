@@ -76,3 +76,31 @@ IDs must be unique portable identifiers and minimum major versions must be
 non-zero. The engine checks all active packages against the sealed service
 catalog before configuration starts, so a missing or incompatible integration
 fails deterministically before package code acquires partial resources.
+
+For new deterministic package logic, use `PackageBootstrapContext::random` and
+a stable portable stream name such as `combat` or `loot`. Streams are isolated
+by package and name, use unbiased bounded values, and expose sorted usage
+snapshots for replay diagnostics. The host seed and per-package stream limit
+are composition settings; the legacy `EngineServices::random` remains intact.
+
+Packages may override `EnginePackage::simulate` for fixed-step work that should
+not depend on rendering cadence. The host publishes the configured step and
+maximum catch-up count, executes only that bounded number after a hitch, and
+records dropped ticks in frame telemetry. `updateRuntime` remains the per-frame
+hook for interpolation, UI, and other presentation-paced work.
+
+Call `AssetSource::metadata` when a package only needs existence, size, or
+winning overlay provenance. The built-in sources answer without allocating the
+asset payload, normalize paths exactly like `read`, and clear output on every
+failure. Custom sources may return `Unsupported` until they provide a fast
+metadata implementation.
+
+The default host exposes package assets through a bounded read-through cache.
+Its entry and byte budgets are sealed configuration values, statistics are a
+versioned host service, and package activation/deactivation clears cached
+overlay results. Oversized assets still load normally but are not retained.
+
+`EngineHost::diagnostics()` returns a self-contained observation suitable for
+launchers, automated bug reports, and headless assertions. It combines package
+health, frame timing, cache behavior, host contracts, capabilities, and live
+queue counters without exposing application-owned objects or mutable services.

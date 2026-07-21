@@ -386,6 +386,11 @@ public:
 			invalidPackagePublishResult = context.messagePublisher.publish(
 				"../invalid", {} );
 		}
+		if (usePackageRandomOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedRandomPackageId = context.random.packageId();
+			packageRandomResult = context.random.next( "bootstrap", 100 );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -426,12 +431,18 @@ public:
 		receivedMessages.push_back(message);
 		if (throwOnMessage) throw "test package message exception";
 	}
+	void simulate(PackageBootstrapContext&, const SimulationTickContext& tick) override
+	{
+		simulationTicks.push_back(tick);
+		if (throwOnSimulationTick) throw "test package simulation exception";
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
 	std::vector<EngineInputEvent> inputEvents;
 	std::vector<RuntimeUpdateContext> runtimeUpdates;
 	std::vector<RuntimeMessage> receivedMessages;
+	std::vector<SimulationTickContext> simulationTicks;
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
@@ -446,6 +457,8 @@ public:
 	std::string observedPublisherPackageId;
 	RuntimeMessagePublishResult packagePublishResult;
 	RuntimeMessagePublishResult invalidPackagePublishResult;
+	std::string observedRandomPackageId;
+	PackageRandomResult packageRandomResult;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -453,8 +466,10 @@ public:
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
+	bool throwOnSimulationTick = false;
 	bool persistOnConfigure = false;
 	bool publishOnConfigure = false;
+	bool usePackageRandomOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -535,10 +550,11 @@ int main( int, char** )
 	}
 
 	{
+		ManualTimeSource time;
 		MemoryInputSource input;
 		MemoryByteStorage storage;
 		EngineServices services{
-			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
+			time, ZeroRandomSource::instance(),
 			storage, NullLogSink::instance(), input,
 			NullAudioOutput::instance(), NullFramePresenter::instance(),
 			NullAssetSource::instance()};
@@ -546,6 +562,7 @@ int main( int, char** )
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
 		package.persistOnConfigure = true;
 		package.publishOnConfigure = true;
+		package.usePackageRandomOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
@@ -570,6 +587,8 @@ int main( int, char** )
 		       package.packagePublishResult &&
 		       package.invalidPackagePublishResult.error ==
 		           RuntimeMessagePublishError::InvalidTopic &&
+		       package.observedRandomPackageId == "lifecycle.complete" &&
+		       package.packageRandomResult && package.packageRandomResult.value < 100 &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
@@ -610,6 +629,16 @@ int main( int, char** )
 		       telemetry.samples[0].sequence == frame.sequence &&
 		       !telemetry.samples[0].presented,
 		       "live engine host retains bounded value-only frame telemetry" );
+		time.advanceMicroseconds( 40000 );
+		const FrameRunResult simulationFrame = host.frameDriver().runFrame(
+			[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		CHECK( simulationFrame.simulationTicks.scheduled == 2 &&
+		       simulationFrame.simulationTicks.executed == 2 &&
+		       simulationFrame.simulationTicks.dropped == 0 &&
+		       package.simulationTicks.size() == 2 &&
+		       package.simulationTicks[0].sequence == 1 &&
+		       package.simulationTicks[1].simulatedTimeMicroseconds == 33334,
+		       "live packages receive fixed-step ticks independently of render updates" );
 		CHECK( host.beginInitialization() && host.markRunning() && host.beginShutdown(),
 		       "runtime package test enters an orderly engine shutdown" );
 		const RuntimeSessionShutdownResult stopped = host.runtimeSession().shutdownPackages();
@@ -1512,6 +1541,13 @@ int main( int, char** )
 		       asset.logicalPath == "data/items.xml" && asset.bytes[0] == 3 &&
 		       asset.provenance == "mod.example",
 		       "later package assets override case-insensitively with trusted provenance" );
+		AssetMetadata layeredMetadata;
+		CHECK( layeredAssets.metadata( "DATA/ITEMS.XML", layeredMetadata ) ==
+		           AssetMetadataResult::Success &&
+		       layeredMetadata.logicalPath == "data/items.xml" &&
+		       layeredMetadata.provenance == "mod.example" &&
+		       layeredMetadata.byteSize == 1,
+		       "layered asset metadata resolves winning provenance without reading bytes" );
 		CHECK( layeredAssets.read( "Data/Maps/A9.dat", asset ) == AssetReadResult::Success &&
 		       asset.bytes[0] == 9 &&
 		       asset.provenance == "campaign.arulco",

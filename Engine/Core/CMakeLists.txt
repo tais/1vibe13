@@ -2,6 +2,7 @@ set(engine_core_public_headers
   AssetSource.h
   AudioOutput.h
   BinaryArchive.h
+  CachingAssetSource.h
   ByteStorage.h
   CommandDispatch.h
   CommandJournal.h
@@ -24,16 +25,19 @@ set(engine_core_public_headers
   PackageEventSink.h
   PackageLifecycle.h
   PackageMessagePublisher.h
+  PackageRandomSource.h
   PackageResults.h
   PackageStorage.h
   PersistenceService.h
   RandomSource.h
   RuntimeCapabilities.h
   RuntimeConfiguration.h
+  RuntimeDiagnostics.h
   RuntimeMessageBus.h
   RuntimeSession.h
   RuntimeUpdate.h
   ServiceCatalog.h
+  SimulationTick.h
   StateController.h
   StateRegistry.h
   StateStack.h

@@ -238,6 +238,26 @@ the engine must not contain SDL types in its public domain model.
   The registry validates the declarations at registration and checks the
   sealed host catalog before any configure callback, retaining the package,
   service, required version, and available version when preflight fails.
+- `PackageRandomSource` gives each registered package bounded named streams
+  derived from a host seed. Stream state is independent of activation and call
+  order elsewhere, making replay, tests, and subsystem evolution less fragile
+  without changing the legacy game's established random source.
+- `SimulationTickDispatcher` converts monotonic frame elapsed time into a
+  fixed-step package callback stream. Catch-up per frame is bounded, discarded
+  ticks are explicit telemetry, and render-paced updates remain available for
+  presentation work; the legacy campaign simulation is not switched over.
+- `AssetSource::metadata` resolves normalized logical path, winning provenance,
+  and byte size without copying payloads. Memory, overlay, and legacy VFS
+  adapters implement the fast path; unsupported third-party sources report
+  that explicitly rather than silently performing an expensive read.
+- `CachingAssetSource` is the live package registry's bounded read-through
+  asset view. Normalized hits avoid VFS/archive work, least-recently-used
+  payloads are evicted by entry and byte budgets, allocation failures degrade
+  to uncached reads, and every package mount change invalidates stale overlays.
+- `RuntimeDiagnosticsSnapshot` captures lifecycle, frame telemetry, package
+  catalog and health, cache statistics, services, sealed configuration,
+  capabilities, and queue/tick counters as one pointer-free value. Every
+  nested collection preserves an explicit deterministic order.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
