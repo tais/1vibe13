@@ -2385,13 +2385,16 @@ int main( int, char** )
 			"CONTENT_API = 1.4\n"
 			"TYPE = extension\n"
 			"ASSET_ROOT = Data\n"
-			"LOCALIZATION = en@Localization/en.lang, nl@Localization/nl.lang\n";
+			"LOCALIZATION = en@Localization/en.lang, nl@Localization/nl.lang\n"
+			"DEFINITIONS = item:field-kit@2=Definitions/field-kit.json\n";
 		const bool fixtureReady =
 			fixture.write( "localized/package.ini", manifest ) &&
 			fixture.write( "localized/Data/Localization/en.lang",
 			               "JA2-LOCALIZATION 1\nui.package-ready = Package ready\n" ) &&
 			fixture.write( "localized/Data/Localization/nl.lang",
-			               "JA2-LOCALIZATION 1\nui.package-ready = Pakket gereed\n" );
+			               "JA2-LOCALIZATION 1\nui.package-ready = Pakket gereed\n" ) &&
+			fixture.write( "localized/Data/Definitions/field-kit.json",
+			               "{\"healing\": 25}" );
 		PackageStartupOptions options;
 		options.enabled = true;
 		options.roots = { fixture.root() };
@@ -2405,15 +2408,20 @@ int main( int, char** )
 			runtime.localization().resolve( "nl", "ui.package-ready" );
 		const PackageCatalogSnapshot catalog = runtime.packageCatalog();
 		const PackageCatalogEntry* package = catalog.find( "fixture.localized" );
+		const DefinitionView definition =
+			runtime.definitions().resolve( "item", "field-kit", 2, 2 );
 		CHECK( fixtureReady && initialized && loaded && localized &&
 		       *localized.text == "Pakket gereed" &&
 		       *localized.packageId == "fixture.localized" && package &&
 		       package->descriptor.localizationSources.size() == 2 &&
+		       package->descriptor.definitionSources.size() == 1 && definition &&
+		       std::string( definition.payload->begin(), definition.payload->end() ) ==
+		           "{\"healing\": 25}" &&
 		       package->descriptor.content.requiredApi.minor == 4,
-		       "Data Package v3 imports declared localization into the live layered catalog" );
+		       "Data Package v3 imports declared localization and definition assets" );
 		runtime.packageLifecycle().shutdown();
-		CHECK( runtime.localization().size() == 0,
-		       "package localization import is removed during lifecycle teardown" );
+		CHECK( runtime.localization().size() == 0 && runtime.definitions().size() == 0,
+		       "package content imports are removed during lifecycle teardown" );
 	}
 
 	{
