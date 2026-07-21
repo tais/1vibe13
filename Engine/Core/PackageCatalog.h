@@ -23,6 +23,7 @@ struct PackageRuntimeHealth
 	std::uint64_t runtimeUpdateFailures = 0;
 	std::uint64_t messageCallbacks = 0;
 	std::uint64_t messageFailures = 0;
+	std::uint64_t filteredMessages = 0;
 	std::uint64_t suppressedFailureLogs = 0;
 
 	bool healthy() const

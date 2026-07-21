@@ -438,6 +438,10 @@ public:
 	bool nestedDeactivateResult = true;
 	std::vector<std::string>* lifecycleTrace = nullptr;
 	std::vector<std::string>* deactivationTrace = nullptr;
+	void setMessageTopics(std::vector<std::string> topics)
+	{
+		descriptor_.messageTopics = std::move(topics);
+	}
 	bool active() const { return active_; }
 
 private:
@@ -578,12 +582,22 @@ int main( int, char** )
 			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
 			NullByteStorage::instance(), log, input};
 		EngineHost<unsigned> host( services );
+		TestLifecyclePackage invalidTopics( "runtime.invalid-topics", PackageKind::Extension );
+		invalidTopics.setMessageTopics( { "invalid/topic" } );
+		CHECK( host.packages().registerPackage( invalidTopics ) ==
+		       PackageRegistrationError::InvalidManifest,
+		       "package registration rejects invalid runtime message topics" );
 		TestLifecyclePackage package( "runtime.unhealthy", PackageKind::Extension );
+		package.setMessageTopics( { "engine.allowed" } );
 		package.throwOnInput = true;
 		package.throwOnRuntimeUpdate = true;
 		host.packages().registerPackage( package );
 		host.packages().activate( "runtime.unhealthy" );
 		host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::StartRuntime );
+		host.runtimeMessages().publish(
+			RuntimeMessageRequest{ "engine.denied", "host.headless", {} } );
+		host.runtimeMessages().publish(
+			RuntimeMessageRequest{ "engine.allowed", "host.headless", { 7 } } );
 		for ( std::uint64_t sequence = 1; sequence <= 10; ++sequence )
 		{
 			input.push( EngineInputEvent{ sequence, 0, 1, 0, 0, sequence, 0 } );
@@ -596,10 +610,17 @@ int main( int, char** )
 		       entry->runtimeHealth.inputFailures == 10 &&
 		       entry->runtimeHealth.runtimeUpdateCallbacks == 10 &&
 		       entry->runtimeHealth.runtimeUpdateFailures == 10 &&
+		       entry->runtimeHealth.messageCallbacks == 1 &&
+		       entry->runtimeHealth.filteredMessages == 1 &&
 		       entry->runtimeHealth.suppressedFailureLogs == 10,
 		       "package catalog snapshots retain per-package runtime callback health" );
 		CHECK( log.records().size() == 10,
 		       "repeated package callback exceptions use bounded logarithmic logging" );
+		CHECK( package.receivedMessages.size() == 1 &&
+		       package.receivedMessages[0].topic == "engine.allowed" &&
+		       entry && entry->descriptor.messageTopics ==
+		           std::vector<std::string>({ "engine.allowed" }),
+		       "declared package message topics filter traffic before entering mod code" );
 	}
 
 	{
