@@ -37,6 +37,7 @@ add_library(ja2_engine_core STATIC
   AssetSource.cpp
   BinaryArchive.cpp
   Identifier.cpp
+  PersistenceService.cpp
   SimulationCommandCodec.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)

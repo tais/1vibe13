@@ -149,6 +149,13 @@ the engine must not contain SDL types in its public domain model.
   executor queues the existing soldier event, while legacy AP, animation, and
   multiplayer behavior remain at their original synchronous boundary.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
+  `EngineRuntime` owns the `PersistenceService` bound to its configured byte
+  storage, so package hosts, games, and tools share one persistence boundary.
+  Established raw and versioned records retain their wire format; new records
+  can opt into a bounded envelope with an explicit payload length and checksum.
+  Loads publish caller-visible data only after the complete record validates.
+  The legacy town-distance sidecar is the first live game path routed through
+  this runtime-owned service without changing its on-disk bytes.
 - `StateStack` represents base screens and modal overlays without scattered
   previous-screen globals.
 - `StateController` owns current, previous, and pending application state above

@@ -42,6 +42,8 @@ public:
 	PackageRegistry& packages() { return runtime_.packages(); }
 	const PackageRegistry& packages() const { return runtime_.packages(); }
 	PackageCatalogSnapshot packageCatalog() const { return runtime_.packageCatalog(); }
+	PersistenceService& persistence() { return runtime_.persistence(); }
+	const PersistenceService& persistence() const { return runtime_.persistence(); }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return runtime_.commands(); }
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return runtime_.commands(); }
 	CommandJournal<SimulationCommand>& commandJournal() { return runtime_.commandJournal(); }

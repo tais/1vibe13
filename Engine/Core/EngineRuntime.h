@@ -10,6 +10,7 @@
 #include <Engine/Core/EngineServices.h>
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
+#include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/SimulationCommand.h>
 #include <Engine/Core/StateStack.h>
 #include <Engine/Core/StateController.h>
@@ -33,7 +34,8 @@ public:
 		EngineServices services = EngineServices::defaults(),
 		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
 		PackageEventSink& packageEvents = NullPackageEventSink::instance())
-		: content_(supportedContentApi), packages_(content_, services, packageEvents)
+		: content_(supportedContentApi), packages_(content_, services, packageEvents),
+		  persistence_(packages_.services().storage)
 	{
 	}
 
@@ -58,6 +60,8 @@ public:
 	PackageRegistry& packages() { return packages_; }
 	const PackageRegistry& packages() const { return packages_; }
 	PackageCatalogSnapshot packageCatalog() const { return packages_.catalog(); }
+	PersistenceService& persistence() { return persistence_; }
+	const PersistenceService& persistence() const { return persistence_; }
 	DeterministicCommandQueue<SimulationCommand>& commands() { return commands_; }
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commands_; }
 	CommandJournal<SimulationCommand>& commandJournal() { return commandJournal_; }
@@ -122,6 +126,7 @@ private:
 	StateController<ScreenId> screenController_;
 	ContentRegistry content_;
 	PackageRegistry packages_;
+	PersistenceService persistence_;
 	DeterministicCommandQueue<SimulationCommand> commands_;
 	CommandJournal<SimulationCommand> commandJournal_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;

@@ -1,6 +1,7 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/ContentApi.h>
+#include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/SimulationCommandCodec.h>
 
 #include <cstdint>
@@ -43,6 +44,34 @@ int main()
 	check(ReadPersistenceHeader(reader, 0x4A413243u, 6, 7, header) &&
 		reader.readU32(payload) && payload == 0x10203040u && reader.remaining() == 0,
 		"compiled core preserves versioned little-endian archives");
+
+	MemoryByteStorage persistenceStorage;
+	PersistenceService persistence(persistenceStorage, 8);
+	const std::vector<std::uint8_t> persisted{1, 3, 3, 7};
+	check(persistence.saveEnvelope(
+		"engine.record", PersistenceHeader{0x454E4750u, 2}, persisted) ==
+		PersistenceSaveResult::Success,
+		"compiled persistence writes bounded checksummed envelopes");
+	PersistenceHeader persistedHeader{};
+	std::vector<std::uint8_t> loadedPersisted;
+	check(persistence.loadEnvelope("engine.record", 0x454E4750u, 1, 2,
+		persistedHeader, loadedPersisted) == PersistenceLoadResult::Success &&
+		persistedHeader.version == 2 && loadedPersisted == persisted,
+		"compiled persistence validates and publishes complete envelopes");
+	std::vector<std::uint8_t> corrupted;
+	persistenceStorage.readAll("engine.record", corrupted);
+	corrupted.back() ^= 0xffu;
+	persistenceStorage.writeAll("engine.corrupt", corrupted);
+	PersistenceHeader unchangedHeader{99, 99};
+	std::vector<std::uint8_t> unchangedPayload{9};
+	check(persistence.loadEnvelope("engine.corrupt", 0x454E4750u, 1, 2,
+		unchangedHeader, unchangedPayload) == PersistenceLoadResult::IntegrityFailure &&
+		unchangedHeader.magic == 99 && unchangedHeader.version == 99 &&
+		unchangedPayload == std::vector<std::uint8_t>({9}),
+		"failed envelope loads leave caller state unchanged");
+	check(persistence.saveEnvelope("too-large", PersistenceHeader{1, 1},
+		std::vector<std::uint8_t>(9, 0)) == PersistenceSaveResult::TooLarge,
+		"compiled persistence rejects payloads above the configured bound");
 
 	ContentRegistry content(ContentApiVersion{1, 2});
 	check(content.registerContent(ContentManifest{

@@ -1310,6 +1310,7 @@ int main( int, char** )
 		       &compiledContext.services().audio == &GetPlatformAudioOutput() &&
 		       &compiledContext.services().frames == &GetPlatformFramePresenter() &&
 		       &compiledContext.services().assets == &compiledContext.packages().assets() &&
+		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
 	}
@@ -2381,6 +2382,15 @@ int main( int, char** )
 		CHECK( memoryPersistence.load( "truncated", 0x454E4730u, 1, 1, emptyHeader, emptyPayload ) ==
 		       PersistenceLoadResult::InvalidOrUnsupported,
 		       "pure persistence service rejects a truncated header" );
+		const std::vector<std::uint8_t> envelopePayload = { 5, 8, 13, 21 };
+		CHECK( memoryPersistence.saveEnvelope(
+		       "envelope", PersistenceHeader{ 0x454E4732u, 3 }, envelopePayload ) ==
+		       PersistenceSaveResult::Success &&
+		       memoryPersistence.loadEnvelope(
+		       "envelope", 0x454E4732u, 2, 3, emptyHeader, emptyPayload ) ==
+		       PersistenceLoadResult::Success && emptyHeader.version == 3 &&
+		       emptyPayload == envelopePayload,
+		       "runtime persistence supports bounded integrity-checked envelopes" );
 
 		const std::string path = "engine_persistence_test.bin";
 		PersistenceService persistence( GetPlatformByteStorage() );
