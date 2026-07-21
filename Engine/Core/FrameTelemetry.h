@@ -10,6 +10,7 @@
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/RuntimeMessageBus.h>
+#include <Engine/Core/SimulationTick.h>
 
 struct FrameTelemetrySample
 {
@@ -17,6 +18,7 @@ struct FrameTelemetrySample
 	std::uint64_t startedAtMicroseconds = 0;
 	std::uint64_t messagesFinishedAtMicroseconds = 0;
 	std::uint64_t inputFinishedAtMicroseconds = 0;
+	std::uint64_t simulationTicksFinishedAtMicroseconds = 0;
 	std::uint64_t runtimeUpdateFinishedAtMicroseconds = 0;
 	std::uint64_t applicationUpdateFinishedAtMicroseconds = 0;
 	std::uint64_t presentationFinishedAtMicroseconds = 0;
@@ -26,6 +28,7 @@ struct FrameTelemetrySample
 	RuntimeMessageDispatchResult messages;
 	InputDispatchResult input;
 	RuntimeUpdateDispatchResult runtimeUpdates;
+	SimulationTickDispatchResult simulationTicks;
 
 	std::uint64_t totalMicroseconds() const
 	{
@@ -41,7 +44,13 @@ struct FrameTelemetrySample
 	}
 	std::uint64_t runtimeUpdateMicroseconds() const
 	{
-		return duration(inputFinishedAtMicroseconds, runtimeUpdateFinishedAtMicroseconds);
+		return duration(simulationTicksFinishedAtMicroseconds,
+			runtimeUpdateFinishedAtMicroseconds);
+	}
+	std::uint64_t simulationTickMicroseconds() const
+	{
+		return duration(inputFinishedAtMicroseconds,
+			simulationTicksFinishedAtMicroseconds);
 	}
 	std::uint64_t applicationUpdateMicroseconds() const
 	{
@@ -74,6 +83,8 @@ struct FrameTelemetrySummary
 	std::uint64_t inputSourceDrops = 0;
 	std::uint64_t inputCallbackFailures = 0;
 	std::uint64_t runtimeUpdateCallbackFailures = 0;
+	std::uint64_t simulationTickCallbackFailures = 0;
+	std::uint64_t simulationTicksDropped = 0;
 	std::uint64_t messageCallbackFailures = 0;
 	std::uint64_t messagesDelivered = 0;
 	std::uint64_t evictedSamples = 0;
@@ -105,6 +116,8 @@ public:
 		summary_.inputSourceDrops += sample.input.sourceDrops;
 		summary_.inputCallbackFailures += sample.input.callbackFailures;
 		summary_.runtimeUpdateCallbackFailures += sample.runtimeUpdates.callbackFailures;
+		summary_.simulationTickCallbackFailures += sample.simulationTicks.callbackFailures;
+		summary_.simulationTicksDropped += sample.simulationTicks.dropped;
 		summary_.messageCallbackFailures += sample.messages.callbackFailures;
 		summary_.messagesDelivered += sample.messages.delivered;
 

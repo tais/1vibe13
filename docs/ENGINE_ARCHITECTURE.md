@@ -242,6 +242,10 @@ the engine must not contain SDL types in its public domain model.
   derived from a host seed. Stream state is independent of activation and call
   order elsewhere, making replay, tests, and subsystem evolution less fragile
   without changing the legacy game's established random source.
+- `SimulationTickDispatcher` converts monotonic frame elapsed time into a
+  fixed-step package callback stream. Catch-up per frame is bounded, discarded
+  ticks are explicit telemetry, and render-paced updates remain available for
+  presentation work; the legacy campaign simulation is not switched over.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

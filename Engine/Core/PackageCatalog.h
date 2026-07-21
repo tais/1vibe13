@@ -21,6 +21,8 @@ struct PackageRuntimeHealth
 	std::uint64_t inputFailures = 0;
 	std::uint64_t runtimeUpdateCallbacks = 0;
 	std::uint64_t runtimeUpdateFailures = 0;
+	std::uint64_t simulationTickCallbacks = 0;
+	std::uint64_t simulationTickFailures = 0;
 	std::uint64_t messageCallbacks = 0;
 	std::uint64_t messageFailures = 0;
 	std::uint64_t filteredMessages = 0;
@@ -28,7 +30,8 @@ struct PackageRuntimeHealth
 
 	bool healthy() const
 	{
-		return inputFailures == 0 && runtimeUpdateFailures == 0 && messageFailures == 0;
+		return inputFailures == 0 && runtimeUpdateFailures == 0 &&
+			simulationTickFailures == 0 && messageFailures == 0;
 	}
 };
 

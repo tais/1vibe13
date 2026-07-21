@@ -431,12 +431,18 @@ public:
 		receivedMessages.push_back(message);
 		if (throwOnMessage) throw "test package message exception";
 	}
+	void simulate(PackageBootstrapContext&, const SimulationTickContext& tick) override
+	{
+		simulationTicks.push_back(tick);
+		if (throwOnSimulationTick) throw "test package simulation exception";
+	}
 
 	std::vector<int> bootstrapCalls;
 	std::vector<int> shutdownCalls;
 	std::vector<EngineInputEvent> inputEvents;
 	std::vector<RuntimeUpdateContext> runtimeUpdates;
 	std::vector<RuntimeMessage> receivedMessages;
+	std::vector<SimulationTickContext> simulationTicks;
 	ContentApiVersion observedContentApi{};
 	std::uint64_t observedTime = 0;
 	std::uint32_t observedRandom = 0;
@@ -460,6 +466,7 @@ public:
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
+	bool throwOnSimulationTick = false;
 	bool persistOnConfigure = false;
 	bool publishOnConfigure = false;
 	bool usePackageRandomOnConfigure = false;
@@ -543,10 +550,11 @@ int main( int, char** )
 	}
 
 	{
+		ManualTimeSource time;
 		MemoryInputSource input;
 		MemoryByteStorage storage;
 		EngineServices services{
-			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
+			time, ZeroRandomSource::instance(),
 			storage, NullLogSink::instance(), input,
 			NullAudioOutput::instance(), NullFramePresenter::instance(),
 			NullAssetSource::instance()};
@@ -621,6 +629,16 @@ int main( int, char** )
 		       telemetry.samples[0].sequence == frame.sequence &&
 		       !telemetry.samples[0].presented,
 		       "live engine host retains bounded value-only frame telemetry" );
+		time.advanceMicroseconds( 40000 );
+		const FrameRunResult simulationFrame = host.frameDriver().runFrame(
+			[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		CHECK( simulationFrame.simulationTicks.scheduled == 2 &&
+		       simulationFrame.simulationTicks.executed == 2 &&
+		       simulationFrame.simulationTicks.dropped == 0 &&
+		       package.simulationTicks.size() == 2 &&
+		       package.simulationTicks[0].sequence == 1 &&
+		       package.simulationTicks[1].simulatedTimeMicroseconds == 33334,
+		       "live packages receive fixed-step ticks independently of render updates" );
 		CHECK( host.beginInitialization() && host.markRunning() && host.beginShutdown(),
 		       "runtime package test enters an orderly engine shutdown" );
 		const RuntimeSessionShutdownResult stopped = host.runtimeSession().shutdownPackages();

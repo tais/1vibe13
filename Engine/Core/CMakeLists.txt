@@ -35,6 +35,7 @@ set(engine_core_public_headers
   RuntimeSession.h
   RuntimeUpdate.h
   ServiceCatalog.h
+  SimulationTick.h
   StateController.h
   StateRegistry.h
   StateStack.h

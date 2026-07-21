@@ -17,6 +17,7 @@
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/RuntimeUpdate.h>
+#include <Engine/Core/SimulationTick.h>
 #include <Engine/Core/StateController.h>
 #include <Engine/Core/StateRegistry.h>
 #include <Engine/Core/StateStack.h>
@@ -34,15 +35,18 @@ public:
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),
 		RuntimeCapabilities hostCapabilities = {},
 		std::uint64_t packageRandomSeed = 0,
-		std::size_t packageRandomStreamLimit = 64)
+		std::size_t packageRandomStreamLimit = 64,
+		std::uint64_t simulationStepMicroseconds = 16667,
+		std::size_t maximumSimulationCatchUpTicks = 4)
 		: content_(supportedContentApi),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
+		  simulationTicks_(simulationStepMicroseconds, maximumSimulationCatchUpTicks),
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
-		               runtimeUpdates_, frameTelemetry_),
+		               runtimeUpdates_, frameTelemetry_, simulationTicks_),
 		  persistence_(packages_.services().storage),
 		  hostCapabilities_(std::move(hostCapabilities))
 	{
@@ -52,14 +56,21 @@ public:
 			"engine.runtime-messages", EngineServiceVersion{1, 0}, runtimeMessages_);
 		serviceCatalog_.registerService(
 			"engine.persistence", EngineServiceVersion{1, 0}, persistence_);
+		serviceCatalog_.registerService(
+			"engine.simulation-ticks", EngineServiceVersion{1, 0}, simulationTicks_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
 			static_cast<std::int64_t>(runtimeMessages_.maxQueuedMessages()));
 		runtimeConfiguration_.set("engine.messages.payload-limit",
 			static_cast<std::int64_t>(runtimeMessages_.maxPayloadBytes()));
+		runtimeConfiguration_.set("engine.simulation.step-microseconds",
+			static_cast<std::int64_t>(simulationTicks_.stepMicroseconds()));
+		runtimeConfiguration_.set("engine.simulation.maximum-catch-up-ticks",
+			static_cast<std::int64_t>(simulationTicks_.maxCatchUpTicks()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
+		simulationTicks_.addSink(packages_);
 		runtimeMessages_.addSink(packages_);
 	}
 
@@ -85,6 +96,8 @@ public:
 	const InputDispatcher& inputDispatcher() const { return inputDispatcher_; }
 	RuntimeUpdateDispatcher& runtimeUpdates() { return runtimeUpdates_; }
 	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtimeUpdates_; }
+	SimulationTickDispatcher& simulationTicks() { return simulationTicks_; }
+	const SimulationTickDispatcher& simulationTicks() const { return simulationTicks_; }
 	FrameTelemetry& frameTelemetry() { return frameTelemetry_; }
 	const FrameTelemetry& frameTelemetry() const { return frameTelemetry_; }
 	RuntimeMessageBus& runtimeMessages() { return runtimeMessages_; }
@@ -141,6 +154,7 @@ private:
 	RuntimeSession runtimeSession_;
 	InputDispatcher inputDispatcher_;
 	RuntimeUpdateDispatcher runtimeUpdates_;
+	SimulationTickDispatcher simulationTicks_;
 	FrameTelemetry frameTelemetry_;
 	FrameDriver frameDriver_;
 	PersistenceService persistence_;
