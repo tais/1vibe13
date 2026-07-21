@@ -180,21 +180,33 @@ BOOLEAN POPUP_OPTION::setName(const std::wstring& newName)
 
 BOOLEAN POPUP_OPTION::setAction( popupCallback *fun )
 {
-	this->action = fun;
+	if (this->action != fun)
+	{
+		delete this->action;
+		this->action = fun;
+	}
 
 	return TRUE;
 }
 
 BOOLEAN POPUP_OPTION::setAvail( popupCallback *fun )
 {
-	this->avail = fun;
+	if (this->avail != fun)
+	{
+		delete this->avail;
+		this->avail = fun;
+	}
 
 	return TRUE;
 }
 
 BOOLEAN POPUP_OPTION::setHover( popupCallback *fun )
 {
-	this->hover = fun;
+	if (this->hover != fun)
+	{
+		delete this->hover;
+		this->hover = fun;
+	}
 
 	return TRUE;
 }
