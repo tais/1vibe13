@@ -412,6 +412,14 @@ public:
 			observedEntityPackageId = context.entities.packageId();
 			packageEntityCreateResult = context.entities.create( "test-entity" );
 		}
+		if (playAudioOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedAudioPackageId = context.audio.packageId();
+			packageAudioPlayResult = context.audio.play(
+				"ui", AudioPlaybackRequest{ "Audio/Package.wav", 11025, 90, 64, 1, false } );
+			invalidPackageAudioPlayResult = context.audio.play(
+				"invalid/group", AudioPlaybackRequest{ "Audio/Invalid.wav" } );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -488,6 +496,9 @@ public:
 	DefinitionSetError invalidDefinitionSetResult = DefinitionSetError::AllocationFailure;
 	std::string observedEntityPackageId;
 	EntityCreateResult packageEntityCreateResult;
+	std::string observedAudioPackageId;
+	PackageAudioPlayResult packageAudioPlayResult;
+	PackageAudioPlayResult invalidPackageAudioPlayResult;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -502,6 +513,7 @@ public:
 	bool localizeOnConfigure = false;
 	bool defineOnConfigure = false;
 	bool createEntityOnConfigure = false;
+	bool playAudioOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -585,10 +597,11 @@ int main( int, char** )
 		ManualTimeSource time;
 		MemoryInputSource input;
 		MemoryByteStorage storage;
+		RecordingAudioOutput audio;
 		EngineServices services{
 			time, ZeroRandomSource::instance(),
 			storage, NullLogSink::instance(), input,
-			NullAudioOutput::instance(), NullFramePresenter::instance(),
+			audio, NullFramePresenter::instance(),
 			NullAssetSource::instance()};
 		EngineHost<unsigned> host( services );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
@@ -598,6 +611,7 @@ int main( int, char** )
 		package.localizeOnConfigure = true;
 		package.defineOnConfigure = true;
 		package.createEntityOnConfigure = true;
+		package.playAudioOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
@@ -640,6 +654,12 @@ int main( int, char** )
 		       package.observedEntityPackageId == "lifecycle.complete" &&
 		       package.packageEntityCreateResult &&
 		       host.entities().alive( package.packageEntityCreateResult.id ) &&
+		       package.observedAudioPackageId == "lifecycle.complete" &&
+		       package.packageAudioPlayResult &&
+		       package.invalidPackageAudioPlayResult.error ==
+		           PackageAudioPlayError::InvalidGroup &&
+		       audio.isPlaying( package.packageAudioPlayResult.playback ) &&
+		       host.packageAudio().size() == 1 &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
@@ -699,6 +719,8 @@ int main( int, char** )
 		       !host.localization().resolve( "en", "ui.package-ready" ) &&
 		       !host.definitions().resolve( "rules", "package-ready", 1, 1 ) &&
 		       !host.entities().alive( package.packageEntityCreateResult.id ) &&
+		       !audio.isPlaying( package.packageAudioPlayResult.playback ) &&
+		       host.packageAudio().size() == 0 &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
 	}

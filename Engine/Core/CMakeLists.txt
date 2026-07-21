@@ -1,6 +1,7 @@
 set(engine_core_public_headers
   AssetSource.h
   AudioOutput.h
+  AudioGroupService.h
   BinaryArchive.h
   CachingAssetSource.h
   ByteStorage.h
@@ -23,6 +24,7 @@ set(engine_core_public_headers
   LogSink.h
   LocalizationCatalog.h
   PackageApi.h
+  PackageAudio.h
   PackageCatalog.h
   PackageContract.h
   PackageDefinitions.h

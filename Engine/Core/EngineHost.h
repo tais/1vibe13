@@ -8,6 +8,7 @@
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/CachingAssetSource.h>
+#include <Engine/Core/AudioGroupService.h>
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/EngineServices.h>
@@ -51,8 +52,10 @@ public:
 		std::size_t localizationTextBytes = 16u * 1024u,
 		std::size_t definitionEntries = 65536,
 		std::size_t definitionPayloadBytes = 1024u * 1024u,
-		std::size_t maximumEntities = 65536)
+		std::size_t maximumEntities = 65536,
+		std::size_t maximumPackageAudioPlaybacks = 1024)
 		: content_(supportedContentApi),
+		  audioGroups_(services.audio, maximumPackageAudioPlaybacks),
 		  faultJournal_(runtimeFaultCapacity),
 		  localization_(localizationEntries, localizationTextBytes),
 		  definitions_(definitionEntries, definitionPayloadBytes),
@@ -60,7 +63,7 @@ public:
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
 		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_,
-		            definitions_, entities_),
+		            definitions_, entities_, audioGroups_),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
@@ -88,6 +91,8 @@ public:
 			"engine.definitions", EngineServiceVersion{1, 0}, definitions_);
 		serviceCatalog_.registerService(
 			"engine.entities", EngineServiceVersion{1, 0}, entities_);
+		serviceCatalog_.registerService(
+			"engine.package-audio", EngineServiceVersion{1, 0}, audioGroups_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -114,6 +119,8 @@ public:
 			static_cast<std::int64_t>(definitions_.maximumPayloadBytes()));
 		runtimeConfiguration_.set("engine.entities.capacity",
 			static_cast<std::int64_t>(entities_.maximumEntities()));
+		runtimeConfiguration_.set("engine.package-audio.playback-capacity",
+			static_cast<std::int64_t>(audioGroups_.maximumPlaybacks()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -158,6 +165,8 @@ public:
 	const DefinitionCatalog& definitions() const { return definitions_; }
 	EntityRegistry& entities() { return entities_; }
 	const EntityRegistry& entities() const { return entities_; }
+	AudioGroupService& packageAudio() { return audioGroups_; }
+	const AudioGroupService& packageAudio() const { return audioGroups_; }
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
@@ -188,7 +197,7 @@ public:
 			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
 			packages_.assetCache().statistics(), faultJournal_.snapshot(),
 			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
-			serviceCatalog_.snapshot(),
+			audioGroups_.snapshot(), serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
@@ -216,6 +225,7 @@ private:
 	RuntimeMessageBus runtimeMessages_;
 	ServiceCatalog serviceCatalog_;
 	RuntimeConfiguration runtimeConfiguration_;
+	AudioGroupService audioGroups_;
 	RuntimeFaultJournal faultJournal_;
 	LocalizationCatalog localization_;
 	DefinitionCatalog definitions_;
