@@ -2,6 +2,7 @@ set(engine_core_public_headers
   AssetSource.h
   AudioOutput.h
   BinaryArchive.h
+  CachingAssetSource.h
   ByteStorage.h
   CommandDispatch.h
   CommandJournal.h

@@ -250,6 +250,10 @@ the engine must not contain SDL types in its public domain model.
   and byte size without copying payloads. Memory, overlay, and legacy VFS
   adapters implement the fast path; unsupported third-party sources report
   that explicitly rather than silently performing an expensive read.
+- `CachingAssetSource` is the live package registry's bounded read-through
+  asset view. Normalized hits avoid VFS/archive work, least-recently-used
+  payloads are evicted by entry and byte budgets, allocation failures degrade
+  to uncached reads, and every package mount change invalidates stale overlays.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

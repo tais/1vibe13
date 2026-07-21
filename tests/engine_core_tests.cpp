@@ -1,5 +1,6 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/BinaryArchive.h>
+#include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/EngineHost.h>
@@ -108,6 +109,23 @@ int main()
 		metadataAssets.metadata("../invalid", metadata) ==
 			AssetMetadataResult::InvalidPath && metadata.logicalPath.empty(),
 		"asset metadata queries normalize paths without copying asset payloads");
+	MemoryAssetSource cacheUpstream("test.cache");
+	cacheUpstream.put("data/a.bin", {1, 2});
+	cacheUpstream.put("data/b.bin", {3, 4});
+	CachingAssetSource assetCache(cacheUpstream, 1, 4);
+	AssetData cachedAsset;
+	const AssetReadResult cacheMiss = assetCache.read("data/a.bin", cachedAsset);
+	cacheUpstream.put("data/a.bin", {9});
+	const AssetReadResult cacheHit = assetCache.read("DATA/A.BIN", cachedAsset);
+	const std::vector<std::uint8_t> retainedBytes = cachedAsset.bytes;
+	assetCache.read("data/b.bin", cachedAsset);
+	const AssetCacheStatistics cacheStatistics = assetCache.statistics();
+	check(cacheMiss == AssetReadResult::Success && cacheHit == AssetReadResult::Success &&
+		retainedBytes == std::vector<std::uint8_t>({1, 2}) &&
+		cacheStatistics.hits == 1 && cacheStatistics.misses == 2 &&
+		cacheStatistics.insertions == 2 && cacheStatistics.evictions == 1 &&
+		cacheStatistics.entries == 1 && cacheStatistics.bytes == 2,
+		"bounded asset cache serves normalized hits and evicts least-recently-used payloads");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -158,7 +176,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 5 &&
+		sessionHost.serviceCatalog().size() == 6 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -177,7 +195,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 6,
+		sessionHost.configuration().size() == 8,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 
 	CommandStream<std::string> commandStream(8);
