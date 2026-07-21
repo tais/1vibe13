@@ -2,11 +2,6 @@ cmake_minimum_required(VERSION 3.20)
 
 project(ja2)
 
-# Campaign-independent engine targets live under Engine/. Defining them before
-# the legacy libraries keeps the dependency direction explicit and also lets
-# standalone engine tests link without pulling in SDL, SGP, or JA2 globals.
-add_subdirectory(Engine)
-
 include(cmake/CopyUserPresetTemplate.cmake)
 CopyUserPresetTemplate()
 
@@ -86,6 +81,12 @@ set(usingMsBuild $<STREQUAL:${CMAKE_VS_PLATFORM_NAME},Win32>)
 # lua51.lib and lua51.vc9.lib have been built with /MTx, so we must as well
 # TODO: build our own Lua 5.1.2 from source so we can use whichever
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+# Campaign-independent engine targets live under Engine/. Configure them after
+# project-wide compiler, sanitizer, LTO, and runtime-library policy so the
+# standalone archive uses the same ABI and instrumentation as every consumer.
+# It still precedes all legacy libraries, keeping dependency direction explicit.
+add_subdirectory(Engine)
 
 # SDL3: window/input/audio backend on every platform. The end state
 # of this port is that SDL3 fully replaces Win32 + DirectDraw + FMOD
