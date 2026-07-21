@@ -21,6 +21,7 @@ set(core_standard_headers
   limits
   optional
   string
+  string_view
   type_traits
   unordered_map
   unordered_set

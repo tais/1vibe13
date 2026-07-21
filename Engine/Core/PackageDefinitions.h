@@ -27,6 +27,7 @@ public:
 	{
 		return catalog_.resolve(type, id, minimumSchemaVersion, maximumSchemaVersion);
 	}
+	std::size_t clear() const { return catalog_.removePackage(packageId_); }
 
 private:
 	std::string packageId_;

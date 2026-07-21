@@ -124,8 +124,9 @@ the engine must not contain SDL types in its public domain model.
   This source-built alpha API has no stable binary plugin ABI yet; package
   binaries must be rebuilt with the engine. Content API 1.1 identifies packages
   that depend on lifecycle-mounted asset sources; 1.2 adds ordered package
-  requirements; 1.3 adds optional requirements, conflicts, and weak ordering.
-  Older content remains valid when it does not use newer contracts.
+  requirements; 1.3 adds optional requirements, conflicts, and weak ordering;
+  1.4 adds inspectable localization-file and versioned definition-asset
+  declarations. Older content remains valid when it does not use newer contracts.
 - `EngineHost` is the command- and game-agnostic composition root. It owns
   lifecycle, screen state, content, packages, capabilities, persistence, and
   service bindings for games, tools, package hosts, and tests.

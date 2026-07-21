@@ -23,10 +23,12 @@ set(engine_core_public_headers
   InputSource.h
   LogSink.h
   LocalizationCatalog.h
+  LocalizationDocument.h
   PackageApi.h
   PackageAudio.h
   PackageCatalog.h
   PackageContract.h
+  PackageContentLoader.h
   PackageDefinitions.h
   PackageEventSink.h
   PackageEntities.h
@@ -67,6 +69,8 @@ add_library(ja2_engine_core STATIC
   AssetSource.cpp
   BinaryArchive.cpp
   Identifier.cpp
+  LocalizationDocument.cpp
+  PackageContentLoader.cpp
   PersistenceService.cpp
   PackageResourceUsage.cpp
   RuntimeCapabilities.cpp

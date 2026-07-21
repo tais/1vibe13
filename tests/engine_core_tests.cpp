@@ -8,7 +8,9 @@
 #include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
+#include <Engine/Core/LocalizationDocument.h>
 #include <Engine/Core/PackageRandomSource.h>
+#include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/SimulationTick.h>
@@ -82,6 +84,26 @@ public:
 	bool throws = false;
 };
 
+class DeclaredContentPackage final : public EnginePackage
+{
+public:
+	explicit DeclaredContentPackage(PackageDescriptor descriptor)
+		: descriptor_(std::move(descriptor)) {}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override
+	{
+		if (active_) return false;
+		active_ = true;
+		return true;
+	}
+	void deactivate() noexcept override { active_ = false; }
+
+private:
+	PackageDescriptor descriptor_;
+	bool active_ = false;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -144,6 +166,66 @@ int main()
 		localization.removePackage("mod.override") == 1 &&
 		*localization.resolve("en", "ui.ready").text == "Ready",
 		"localization lookup uses explicit fallback and restores lower package layers");
+	// Use real UTF-8 in the format; backslash-u is deliberately not a second
+	// competing Unicode escape language.
+	const std::string utf8LocalizationText =
+		"JA2-LOCALIZATION 1\nui.ready = R\xc3\xa9" "ady\\nNow\nui.eq = A\\=B\n";
+	std::vector<LocalizationDocumentEntry> localizationDocument;
+	const LocalizationDocumentResult parsedLocalization = ParseLocalizationDocument(
+		std::vector<std::uint8_t>(utf8LocalizationText.begin(), utf8LocalizationText.end()),
+		localizationDocument);
+	check(parsedLocalization && localizationDocument.size() == 2 &&
+		localizationDocument[0].key == "ui.ready" &&
+		localizationDocument[0].text == "R\xc3\xa9" "ady\nNow" &&
+		localizationDocument[1].text == "A=B",
+		"localization documents decode bounded UTF-8 package strings and escapes");
+	const std::vector<LocalizationDocumentEntry> retainedLocalization = localizationDocument;
+	const std::string duplicateLocalizationText =
+		"JA2-LOCALIZATION 1\nui.same = First\nui.same = Second\n";
+	const LocalizationDocumentResult rejectedLocalization = ParseLocalizationDocument(
+		std::vector<std::uint8_t>(duplicateLocalizationText.begin(), duplicateLocalizationText.end()),
+		localizationDocument);
+	check(rejectedLocalization.error == LocalizationDocumentError::DuplicateKey &&
+		rejectedLocalization.line == 3 &&
+		localizationDocument.size() == retainedLocalization.size() &&
+		localizationDocument[0].text == retainedLocalization[0].text,
+		"localization document failures report their line and preserve caller state");
+	MemoryAssetSource declaredAssets("mod.content-loader");
+	declaredAssets.put("localization/en.lang", std::vector<std::uint8_t>{
+		'J','A','2','-','L','O','C','A','L','I','Z','A','T','I','O','N',' ','1','\n',
+		'u','i','.','r','e','a','d','y',' ','=',' ','R','e','a','d','y','\n'});
+	declaredAssets.put("definitions/item.json", {'{','}','\n'});
+	LocalizationCatalog loadedLocalization;
+	DefinitionCatalog loadedDefinitions;
+	PackageLocalization packageLocalization("mod.content-loader", loadedLocalization);
+	PackageDefinitions packageDefinitions("mod.content-loader", loadedDefinitions);
+	const PackageDescriptor loadableDescriptor{
+		ContentManifest{"mod.content-loader", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/en.lang"}},
+		{{"item", "field-kit", 1, "definitions/item.json"}}};
+	const PackageContentLoadResult loadedContent = LoadDeclaredPackageContent(
+		loadableDescriptor, declaredAssets, packageLocalization, packageDefinitions);
+	check(loadedContent && loadedLocalization.resolve("en", "ui.ready") &&
+		loadedDefinitions.resolve("item", "field-kit", 1, 1),
+		"core declared-content loader imports localization and opaque definitions");
+	MemoryAssetSource failingDeclaredAssets("mod.content-loader");
+	failingDeclaredAssets.put("localization/good.lang", std::vector<std::uint8_t>{
+		'J','A','2','-','L','O','C','A','L','I','Z','A','T','I','O','N',' ','1','\n',
+		'u','i','.','o','n','e',' ','=',' ','O','n','e','\n'});
+	failingDeclaredAssets.put("localization/bad.lang", std::vector<std::uint8_t>{
+		'J','A','2','-','L','O','C','A','L','I','Z','A','T','I','O','N',' ','1','\n',
+		'u','i','.','x',' ','=',' ','X','\n','u','i','.','x',' ','=',' ','Y','\n'});
+	const PackageDescriptor failingDescriptor{
+		ContentManifest{"mod.content-loader", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/good.lang"}, {"en", "localization/bad.lang"}}, {}};
+	const PackageContentLoadResult failedContent = LoadDeclaredPackageContent(
+		failingDescriptor, failingDeclaredAssets, packageLocalization, packageDefinitions);
+	check(failedContent.error == PackageContentLoadError::LocalizationDocumentInvalid &&
+		failedContent.assetPath == "localization/bad.lang" && failedContent.line == 3 &&
+		loadedLocalization.size() == 0 && loadedDefinitions.size() == 0,
+		"core declared-content import failure rolls back the complete package layer");
 	DefinitionCatalog definitions(2, 4);
 	check(definitions.set("campaign.base", "item", "medkit", 1, {1}) ==
 			DefinitionSetError::None &&
@@ -290,6 +372,41 @@ int main()
 		resourceUsage.total.definitionEntries == 1 &&
 		resourceUsage.unattributedRecords == 0,
 		"package resource accounting attributes owned framework state and totals");
+
+	DeclaredContentPackage declaredContent(PackageDescriptor{
+		ContentManifest{"mod.declared-content", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/en.lang"}, {"nl", "localization/nl.lang"}},
+		{{"item", "field-kit", 2, "definitions/items/field-kit.json"}}});
+	EngineHost<unsigned> declaredContentHost;
+	const PackageRegistrationError declaredContentRegistration =
+		declaredContentHost.packages().registerPackage(declaredContent);
+	const PackageCatalogSnapshot declaredContentSnapshot =
+		declaredContentHost.packageCatalog();
+	const PackageCatalogEntry* declaredContentCatalog =
+		declaredContentSnapshot.find("mod.declared-content");
+	check(declaredContentRegistration == PackageRegistrationError::None &&
+		declaredContentCatalog &&
+		declaredContentCatalog->descriptor.localizationSources.size() == 2 &&
+		declaredContentCatalog->descriptor.localizationSources[1].locale == "nl" &&
+		declaredContentCatalog->descriptor.definitionSources.size() == 1 &&
+		declaredContentCatalog->descriptor.definitionSources[0].schemaVersion == 2,
+		"content API 1.4 preserves declared package sources in catalog snapshots");
+	DeclaredContentPackage oldDeclaredContent(PackageDescriptor{
+		ContentManifest{"mod.old-content", "1", ContentApiVersion{1, 3}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/en.lang"}}, {}});
+	DeclaredContentPackage duplicateDeclaredContent(PackageDescriptor{
+		ContentManifest{"mod.duplicate-content", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {}, {},
+		{{"item", "same", 1, "definitions/one.bin"},
+		 {"item", "same", 2, "definitions/two.bin"}}});
+	EngineHost<unsigned> invalidDeclaredContentHost;
+	check(invalidDeclaredContentHost.packages().registerPackage(oldDeclaredContent) ==
+			PackageRegistrationError::InvalidManifest &&
+		invalidDeclaredContentHost.packages().registerPackage(duplicateDeclaredContent) ==
+			PackageRegistrationError::InvalidManifest,
+		"declared sources require content API 1.4 and unique definition identities");
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;

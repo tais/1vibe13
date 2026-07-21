@@ -1,12 +1,13 @@
-# Data Package v2
+# Data Packages v1-v3
 
-Data Package v2 is an optional startup layer for discovering and selecting
+Data Packages are an optional startup layer for discovering and selecting
 read-only content overlays. It adds package identity, dependencies, validation,
 and deterministic load order around the content formats the game already uses.
 It does **not** replace or convert those formats.
 
-Every v1 manifest remains valid. Version 2 only adds opt-in dependency policy:
-optional requirements, declared incompatibilities, and weak ordering edges.
+Every v1 and v2 manifest remains valid. Version 2 adds opt-in dependency
+policy. Version 3 adds declarative localization documents and opaque,
+schema-versioned definition assets through the engine-owned content catalogs.
 
 Existing `Data-*` directories, XML, maps, STI/PNG artwork, sounds, and
 `vfs_config.ini` profiles remain valid and unchanged. If no package setting or
@@ -14,7 +15,7 @@ package command-line option is present, package discovery is not run and the
 legacy startup path is unchanged. An unmanifested installation therefore
 continues to work exactly as before.
 
-Data Package v2 is currently data-only and startup-only:
+Data Package v3 is currently data-only and startup-only:
 
 - it loads no DLL, shared library, native plugin, or package-supplied code;
 - it does not add a new XML, map, artwork, sound, or save-game schema;
@@ -44,11 +45,13 @@ subdirectory inside the package. Files below it retain their normal logical VFS
 paths, so the example above can override `TableData/Items.xml` and `Maps/A9.dat`
 without changing either format.
 
-The repository includes an inert example at
+The repository includes a safe v3 example at
 [`examples/data-package`](../examples/data-package). Its asset uses a logical
-path the game does not consume, so selecting it demonstrates discovery and
-mounting without changing gameplay. From the repository root, its package
-arguments are `--package-root examples --package example.readme`.
+path the legacy game does not consume, while its localization and definition
+files populate the new engine catalogs. Selecting it therefore demonstrates
+discovery, mounting, and declared-content import without changing gameplay.
+From the repository root, its package arguments are
+`--package-root examples --package example.readme`.
 
 ## Manifest
 
@@ -83,17 +86,33 @@ CAPABILITIES = rules.balance-v2, ui.inventory-overhaul
 REQUIRED_CAPABILITIES = engine.rendering, host.networking
 ```
 
+A v3 manifest opts into declared content with `CONTENT_API = 1.4`:
+
+```ini
+[Package]
+MANIFEST_VERSION = 3
+ID = community.field-kit
+VERSION = 1.0.0
+CONTENT_API = 1.4
+TYPE = extension
+ASSET_ROOT = Data
+LOCALIZATION = en@Localization/en.lang, nl@Localization/nl.lang
+DEFINITIONS = item:community.field-kit@1=Definitions/field-kit.json
+```
+
 The required keys are:
 
-- `MANIFEST_VERSION`: `1` for the original contract or `2` for dependency
-  policy. A v1 manifest cannot use v2 policy keys.
+- `MANIFEST_VERSION`: `1` for the original contract, `2` for dependency
+  policy, or `3` for declared content. Older manifests cannot use keys from a
+  newer contract.
 - `ID`: a unique lowercase identifier containing only `a-z`, `0-9`, `.`, `_`,
   or `-`, with at most 128 characters.
 - `VERSION`: a non-empty opaque version of at most 128 characters. Its allowed
   characters are ASCII letters, digits, `.`, `_`, `-`, and `+`.
-- `CONTENT_API`: this implementation accepts `1.1`, `1.2`, and `1.3`. A package
+- `CONTENT_API`: this implementation accepts `1.1` through `1.4`. A package
   that declares `REQUIRES` must use at least `1.2`; a v2 manifest must use
-  `1.3`. Newer or different major versions are rejected.
+  at least `1.3`; a v3 manifest must use `1.4`. Newer or different major
+  versions are rejected.
 - `TYPE`: `rules`, `extension`, or `tool`. Disk-discovered campaign packages
   are deliberately outside v1; the compiled JA2 or Unfinished Business
   campaign remains the active compatibility bridge.
@@ -136,6 +155,29 @@ An ID may occur only once across `REQUIRES`, `OPTIONAL_REQUIRES`, `CONFLICTS`,
 and `LOAD_AFTER`, and no relationship may name its declaring package. Cycles in
 strong or optional dependencies and cycles introduced by `LOAD_AFTER` are
 reported before activation starts.
+
+## Declared content
+
+Version 3 adds two optional ordered lists. Paths are portable logical paths
+inside `ASSET_ROOT`, are read from the declaring package rather than from a
+higher overlay, and participate in normal package bootstrap rollback.
+
+- `LOCALIZATION` entries use `locale@asset/path`. A localization document is
+  UTF-8 text beginning with `JA2-LOCALIZATION 1`, followed by `key = value`
+  records. Blank lines and lines beginning with `#` or `;` are ignored. Values
+  support `\\`, `\n`, `\r`, `\t`, and `\=` escapes. Keys and locale IDs use the
+  portable engine identifier alphabet. Later active packages override earlier
+  packages for the same locale and key.
+- `DEFINITIONS` entries use `type:id@schema=asset/path`. The asset bytes remain
+  opaque to Engine/Core; a campaign, mod, or tool resolves the layered record
+  and decodes the declared positive integer schema version. This permits JSON,
+  XML, or a compact binary domain format without coupling the engine to it.
+
+Imports are bounded to 128 combined declarations per disk package, 4 MiB per
+localization document, 65,536 entries per document, 16 KiB per translated
+string, and 1 MiB per definition asset. A missing, malformed, oversized, or
+catalog-rejected source fails package bootstrap and removes the complete
+package-owned content layer.
 
 ## Selecting packages
 
@@ -188,7 +230,7 @@ bfVFS cannot remove an arbitrary middle profile, so the host never attempts to
 continue after a mount error: earlier profiles may remain present only during
 the ensuing fatal shutdown, where normal whole-VFS teardown removes them.
 
-The v2 host enforces these portability and safety rules:
+The v3 host enforces these portability and safety rules:
 
 - at most 32 roots, 4,096 discovered or selected packages, 128 total dependency
   relationships per manifest, and 1,000,000 indexed asset files across startup;
@@ -210,7 +252,7 @@ IDs across roots are an error. A package root is scanned deterministically and
 may contain ordinary directories without `package.ini`, which are ignored, but
 symbolic-link entries are rejected.
 
-Treat Data Package v2 as a strict packaging envelope around trusted legacy mod
+Treat Data Package v3 as a strict packaging envelope around trusted legacy mod
 content, not as a sandbox for hostile files. It reduces ambiguous discovery and
 path behavior, but it does not reinterpret or make the legacy parsers themselves
 security boundaries.

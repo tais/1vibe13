@@ -75,7 +75,8 @@ public:
 		if (!RuntimeCapabilities::isValidList(descriptor.capabilities) ||
 			!RuntimeCapabilities::isValidList(descriptor.messageTopics) ||
 			!ServiceCatalog::isValidRequirements(descriptor.requiredServices) ||
-			!RuntimeCapabilities::isValidList(descriptor.requiredCapabilities))
+			!RuntimeCapabilities::isValidList(descriptor.requiredCapabilities) ||
+			!isValidDeclaredContent(descriptor))
 			return PackageRegistrationError::InvalidManifest;
 		if (packages_.find(id) != packages_.end()) return PackageRegistrationError::DuplicateId;
 		const auto inserted = packages_.emplace(id, RegisteredPackage{&package, descriptor.kind,
@@ -91,7 +92,8 @@ public:
 			PackageDefinitions{id, definitions_},
 			PackageEntities{id, entities_},
 			PackageAudio{id, audio_},
-			PackageTasks{id, tasks_},
+			PackageTasks{id, tasks_}, descriptor.localizationSources,
+			descriptor.definitionSources,
 			false, false});
 		if (!inserted.second) return PackageRegistrationError::DuplicateId;
 		ContentRegistrationError result = ContentRegistrationError::None;
@@ -860,7 +862,9 @@ public:
 				PackageDescriptor{manifest, registered->second.kind,
 					registered->second.capabilities, registered->second.messageTopics,
 					registered->second.requiredServices,
-					registered->second.requiredCapabilities},
+					registered->second.requiredCapabilities,
+					registered->second.localizationSources,
+					registered->second.definitionSources},
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
@@ -934,6 +938,8 @@ private:
 		PackageEntities entities;
 		PackageAudio audio;
 		PackageTasks tasks;
+		std::vector<PackageLocalizationSource> localizationSources;
+		std::vector<PackageDefinitionSource> definitionSources;
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
@@ -1119,6 +1125,45 @@ private:
 			case ContentRegistrationError::None: break;
 		}
 		return PackageRegistrationError::None;
+	}
+
+	static bool isValidDeclaredContent(const PackageDescriptor& descriptor)
+	{
+		constexpr std::size_t MaximumDeclaredSources = 4096;
+		const std::size_t localizationCount = descriptor.localizationSources.size();
+		const std::size_t definitionCount = descriptor.definitionSources.size();
+		if (localizationCount > MaximumDeclaredSources ||
+			definitionCount > MaximumDeclaredSources ||
+			localizationCount > MaximumDeclaredSources - definitionCount)
+			return false;
+		if ((localizationCount != 0 || definitionCount != 0) &&
+			(descriptor.content.requiredApi.major != PackageDeclaredContentApiVersion.major ||
+			 descriptor.content.requiredApi.minor < PackageDeclaredContentApiVersion.minor))
+			return false;
+
+		std::unordered_set<std::string> localizationIds;
+		localizationIds.reserve(localizationCount);
+		for (const PackageLocalizationSource& source : descriptor.localizationSources)
+		{
+			std::string normalized;
+			if (!IsValidEngineIdentifier(source.locale) ||
+				!NormalizeAssetPath(source.assetPath, normalized) ||
+				!localizationIds.insert(source.locale + "\n" + normalized).second)
+				return false;
+		}
+
+		std::unordered_set<std::string> definitionIds;
+		definitionIds.reserve(definitionCount);
+		for (const PackageDefinitionSource& source : descriptor.definitionSources)
+		{
+			std::string normalized;
+			if (!IsValidEngineIdentifier(source.type) ||
+				!IsValidEngineIdentifier(source.id) || source.schemaVersion == 0 ||
+				!NormalizeAssetPath(source.assetPath, normalized) ||
+				!definitionIds.insert(source.type + "\n" + source.id).second)
+				return false;
+		}
+		return true;
 	}
 
 	PackageBootstrapContext contextFor(const std::string& packageId)
