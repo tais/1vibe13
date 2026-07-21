@@ -16,6 +16,7 @@
 	#include "Interface.h"
 	#include "GameSettings.h"
 	#include "GameContext.h"
+	#include <Engine/Core/StateTransition.h>
 	#include "Interface Control.h"
 	#include "Text.h"
 	#include "HelpScreen.h"
@@ -59,28 +60,9 @@ static bool IsOverlayScreen(UINT32 screen)
 
 static void RecordScreenTransition(UINT32 screen)
 {
-	StateStack<UINT32>& screens = GetGameContext().screens();
-	if (screens.empty())
-	{
-		screens.reset(screen);
-		return;
-	}
-	const auto* current = screens.current();
-	if (current->state == screen) return;
-	const auto* underlay = screens.underlay();
-	if (current->overlay && underlay && underlay->state == screen)
-	{
-		screens.popOverlay();
-	}
-	else if (IsOverlayScreen(screen))
-	{
-		screens.pushOverlay(screen);
-	}
-	else
-	{
-		if (current->overlay) screens.popOverlay();
-		screens.replace(screen);
-	}
+	ApplyStateTransition(
+		GetGameContext().screens(), screen,
+		[](UINT32 candidate) { return IsOverlayScreen(candidate); });
 }
 
 INT32	giStartingMemValue = 0;

@@ -6,160 +6,12 @@
 #include <initializer_list>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include <Engine/Core/ContentApi.h>
-#include <Engine/Core/EngineServices.h>
-
-enum class PackageKind
-{
-	Campaign,
-	Rules,
-	Extension,
-	Tool
-};
-
-enum class PackageBootstrapPhase
-{
-	Configure,
-	LoadContent,
-	StartRuntime
-};
-
-// Engine-owned surface passed to package hooks. New services are added here
-// as interfaces, never as SDL/SGP or campaign types, so packages do not need
-// legacy globals to participate in bootstrap.
-struct PackageBootstrapContext
-{
-	ContentRegistry& content;
-	EngineServices& services;
-};
-
-struct PackageDescriptor
-{
-	ContentManifest content;
-	PackageKind kind;
-};
-
-// Packages are owned by the application and must outlive the registry. The
-// callbacks are deliberately engine-only lifecycle hooks: platform and
-// campaign-specific services are supplied by adapters outside Engine/Core.
-class EnginePackage
-{
-public:
-	virtual ~EnginePackage() = default;
-	virtual const PackageDescriptor& descriptor() const = 0;
-	// Activation and teardown cross the package boundary and must not throw.
-	// Fail activation through the return value so the registry remains able to
-	// preserve a coherent active set. A false return must leave the package
-	// inactive with no lifecycle resources for the registry to release.
-	virtual bool activate() noexcept = 0;
-	virtual void deactivate() noexcept = 0;
-	virtual bool bootstrap(PackageBootstrapContext&, PackageBootstrapPhase) { return true; }
-	virtual void shutdown(PackageBootstrapContext&, PackageBootstrapPhase) {}
-	// Optional read-only package content. This virtual is appended to preserve
-	// the positions of the original lifecycle hooks. Activation may construct
-	// the source; once returned, its identity and lifetime must remain stable
-	// until the registry unmounts it immediately before deactivate().
-	virtual const AssetSource* assetSource() const noexcept { return nullptr; }
-};
-
-enum class PackageRegistrationError
-{
-	None,
-	InvalidManifest,
-	IncompatibleApi,
-	DuplicateId,
-	OperationInProgress,
-	InvalidRequirement
-};
-
-enum class PackageResolutionError
-{
-	None,
-	OperationInProgress,
-	EmptyRequest,
-	NotFound,
-	MissingRequirement,
-	VersionMismatch,
-	DependencyCycle,
-	CampaignConflict
-};
-
-struct PackageActivationPlan
-{
-	PackageResolutionError error = PackageResolutionError::None;
-	std::string packageId;
-	// A root-to-failure chain for missing/version errors, the closed cycle for
-	// cycle errors, or the two conflicting campaign IDs for campaign errors.
-	std::vector<std::string> diagnosticPath;
-	// Contains inactive packages only, with every dependency before its
-	// consumers. Requested-root and requirement declaration order are stable
-	// overlay-priority inputs.
-	std::vector<std::string> order;
-
-	explicit operator bool() const { return error == PackageResolutionError::None; }
-};
-
-enum class PackageActivationError
-{
-	None,
-	NotFound,
-	AlreadyActive,
-	CampaignAlreadyActive,
-	BootstrapInProgress,
-	ActivationFailed,
-	AssetMountFailed,
-	OperationInProgress,
-	InvalidRequest,
-	MissingRequirement,
-	RequirementVersionMismatch,
-	DependencyCycle
-};
-
-struct PackageActivationResult
-{
-	PackageActivationError error = PackageActivationError::None;
-	std::string packageId;
-	// Populated for dependency-resolution failures so callers can explain the
-	// exact missing, mismatched, cyclic, or conflicting chain without planning
-	// the request a second time.
-	std::vector<std::string> diagnosticPath;
-	// Newly activated packages only, in activation order. Empty on failure and
-	// for an idempotent request whose entire closure was already active.
-	std::vector<std::string> activated;
-
-	explicit operator bool() const { return error == PackageActivationError::None; }
-};
-
-enum class PackageDeactivationError
-{
-	None,
-	NotFound,
-	NotActive,
-	RequiredByActivePackage,
-	BootstrapInProgress,
-	AssetUnmountFailed,
-	OperationInProgress
-};
-
-struct PackageDeactivationResult
-{
-	PackageDeactivationError error = PackageDeactivationError::None;
-	std::string packageId;
-	std::string dependentId;
-
-	explicit operator bool() const { return error == PackageDeactivationError::None; }
-};
-
-enum class PackageBootstrapError
-{
-	None,
-	OutOfOrder,
-	CallbackFailed,
-	OperationInProgress
-};
+#include <Engine/Core/PackageContract.h>
+#include <Engine/Core/PackageResults.h>
 
 class PackageRegistry
 {
@@ -201,6 +53,78 @@ public:
 			return translate(result);
 		}
 		return PackageRegistrationError::None;
+	}
+
+	PackageUnregistrationResult unregisterPackage(const std::string& id)
+	{
+		const PackageUnregistrationBatchResult batch =
+			unregisterPackages(std::vector<std::string>{id});
+		return PackageUnregistrationResult{batch.error, batch.packageId, batch.dependentId};
+	}
+
+	PackageUnregistrationBatchResult unregisterPackages(
+		const std::vector<std::string>& requested)
+	{
+		if (operationInProgress_)
+			return PackageUnregistrationBatchResult{
+				PackageUnregistrationError::OperationInProgress, {}, {}, {}};
+		OperationGuard operation(operationInProgress_);
+		if (completedBootstrapPhases_ != 0)
+			return PackageUnregistrationBatchResult{
+				PackageUnregistrationError::BootstrapInProgress, {}, {}, {}};
+		if (requested.empty()) return PackageUnregistrationBatchResult{};
+
+		std::unordered_set<std::string> removalSet;
+		removalSet.reserve(requested.size());
+		for (const std::string& id : requested)
+		{
+			if (!removalSet.insert(id).second)
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::InvalidRequest, id, {}, {}};
+			const auto found = packages_.find(id);
+			if (found == packages_.end())
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::NotFound, id, {}, {}};
+			if (found->second.active)
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::Active, found->first, {}, {}};
+			if (!content_.find(found->first))
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::ContentMissing, found->first, {}, {}};
+		}
+
+		// Internal edges are removed as one transaction, including cycles. Only
+		// dependents outside the requested set are blockers.
+		for (const auto& registered : packages_)
+		{
+			if (removalSet.find(registered.first) != removalSet.end()) continue;
+			for (const ContentRequirement& requirement : registered.second.requirements)
+			{
+				if (removalSet.find(requirement.id) == removalSet.end()) continue;
+				return PackageUnregistrationBatchResult{
+					PackageUnregistrationError::RequiredByRegisteredPackage,
+					requirement.id, registered.first, {}};
+			}
+		}
+
+		// Copy every diagnostic string before changing either registry. The
+		// mutation path then performs no allocations and cannot expose a package
+		// whose content entry was only partly removed.
+		PackageUnregistrationBatchResult result;
+		result.unregistered = requested;
+		for (std::size_t index = 0; index < result.unregistered.size(); ++index)
+		{
+			const std::string& id = result.unregistered[index];
+			if (content_.unregisterContent(id) != ContentUnregistrationError::None)
+			{
+				result.error = PackageUnregistrationError::ContentMissing;
+				result.packageId = id;
+				result.unregistered.resize(index);
+				return result;
+			}
+			packages_.erase(id);
+		}
+		return result;
 	}
 
 	PackageActivationPlan resolveActivation(const std::string& id) const
@@ -305,6 +229,34 @@ public:
 	{
 		if (operationInProgress_ || completedBootstrapPhases_ != 0) return false;
 		return static_cast<bool>(deactivateDetailed(id));
+	}
+
+	PackageDeactivationBatchResult deactivateAll()
+	{
+		if (operationInProgress_)
+			return PackageDeactivationBatchResult{
+				PackageDeactivationError::OperationInProgress, {}, {}};
+		OperationGuard operation(operationInProgress_);
+		if (completedBootstrapPhases_ != 0)
+			return PackageDeactivationBatchResult{
+				PackageDeactivationError::BootstrapInProgress, {}, {}};
+		PackageDeactivationBatchResult result;
+		result.deactivated.reserve(active_.size());
+		while (!active_.empty())
+		{
+			// Copy before mutation: deactivateOne removes the corresponding
+			// activation-order element on success.
+			std::string packageId = active_.back();
+			const PackageDeactivationError error = deactivateOne(packageId);
+			if (error != PackageDeactivationError::None)
+			{
+				result.error = error;
+				result.packageId = std::move(packageId);
+				return result;
+			}
+			result.deactivated.push_back(std::move(packageId));
+		}
+		return result;
 	}
 
 private:

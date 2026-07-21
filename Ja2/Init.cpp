@@ -69,6 +69,8 @@
 
 #include <language.hpp>
 
+#include <string>
+
 extern INT16 APBPConstants[TOTAL_APBP_VALUES] = {0};
 extern INT16 gubMaxActionPoints[TOTALBODYTYPES];//MAXBODYTYPES = 28... JUST GETTING IT TO WORK NOW.  GOTTHARD 7/2/08
 extern BOOLEAN GetCDromDriveLetter( STR8	pString );
@@ -1641,6 +1643,18 @@ void ShutdownJA2(void)
 	GameContext& gameContext = GetGameContext();
 	gameContext.beginShutdown();
 	gameContext.packages().shutdownBootstrap();
+	const PackageDeactivationBatchResult packageTeardown =
+		gameContext.packages().deactivateAll();
+	if (!packageTeardown)
+	{
+		// Continue shutting down legacy systems even when a corrupt/missing
+		// asset mount prevents one package callback. The structured diagnostic
+		// keeps the failure observable without leaving SDL/VFS teardown stuck.
+		gameContext.log().write(LogRecord{
+			LogSeverity::Error, "packages",
+			"Package shutdown stopped at " + packageTeardown.packageId +
+				" with code " + std::to_string(static_cast<int>(packageTeardown.error))});
+	}
 	UINT32 uiIndex;
 
 	// Clear screen....

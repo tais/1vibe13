@@ -2,6 +2,15 @@ cmake_minimum_required(VERSION 3.20)
 
 project(ja2)
 
+# Campaign-independent public engine contract. Keeping this as a real CMake
+# target makes dependency direction visible to consumers and gives extracted
+# engine code a stable target name independent from the legacy JA2 libraries.
+add_library(ja2_engine_core INTERFACE)
+add_library(JA2::EngineCore ALIAS ja2_engine_core)
+target_include_directories(ja2_engine_core INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_compile_features(ja2_engine_core INTERFACE cxx_std_17)
+
 include(cmake/CopyUserPresetTemplate.cmake)
 CopyUserPresetTemplate()
 
@@ -37,6 +46,14 @@ option(ADDRESS_SANITIZER OFF)
 if(ADDRESS_SANITIZER)
   message(STATUS "AddressSanitizer ENABLED for non-Release builds")
   add_compile_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fsanitize=address,>)
+  add_compile_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fno-omit-frame-pointer,>)
+  add_link_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-fsanitize=address,>)
+  # Linux shared dependency targets use --no-undefined. Clang's default
+  # executable-only ASan runtime cannot satisfy those links, so use the shared
+  # runtime consistently for dependencies and the final test executables.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_link_options($<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-shared-libasan,>)
+  endif()
 endif()
 
 if(MSVC)
@@ -357,6 +374,7 @@ foreach(app IN LISTS ApplicationTargets)
     add_library(${game_library} STATIC)
     target_sources(${game_library} PRIVATE ${${lib}Src})
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
+    target_link_libraries(${game_library} PUBLIC JA2::EngineCore)
 
 	# Cinematics.cpp is compiled as part of Utils and directly consumes both
 	# SDL3 and libsmacker headers/APIs. Express that relationship on the target
@@ -466,6 +484,7 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   add_executable(ja2_headless_tests tests/ja2_headless_tests.cpp)
   target_compile_definitions(ja2_headless_tests PRIVATE ${debugFlags})
   target_link_libraries(ja2_headless_tests PRIVATE SDL3::SDL3)
+  target_link_libraries(ja2_headless_tests PRIVATE JA2::EngineCore)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--start-group)
   endif()

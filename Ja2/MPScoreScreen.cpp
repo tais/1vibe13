@@ -1,6 +1,7 @@
 	#include "types.h"
 	#include "MPScoreScreen.h"
 	#include "GameSettings.h"
+	#include "GameContext.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "Font Control.h"
@@ -604,11 +605,10 @@ void DoneFadeOutForExitMPSScreen( void )
 	else
 #endif
 
-#ifdef JA2UB
-	//SetIntroType( INTRO_BEGINNING );
-#else
+	if (!GetGameContext().capabilities().isUnfinishedBusiness())
+	{
 		SetIntroType( INTRO_BEGINNING );
-#endif
+	}
 
 	ExitMPSScreen(); // cleanup please, if we called a fadeout then we didnt do it above
 

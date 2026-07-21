@@ -20,6 +20,16 @@ class PersistenceService
 public:
 	explicit PersistenceService(ByteStorage& storage) : storage_(storage) {}
 
+	bool saveRaw(const std::string& path, const std::vector<std::uint8_t>& bytes) const
+	{
+		return storage_.writeAll(path, bytes);
+	}
+
+	bool loadRaw(const std::string& path, std::vector<std::uint8_t>& bytes) const
+	{
+		return storage_.readAll(path, bytes);
+	}
+
 	bool save(const std::string& path, PersistenceHeader header,
 		const std::vector<std::uint8_t>& payload)
 	{
