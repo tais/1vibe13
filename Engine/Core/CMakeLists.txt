@@ -32,6 +32,7 @@ set(engine_core_public_headers
   RandomSource.h
   RuntimeCapabilities.h
   RuntimeConfiguration.h
+  RuntimeDiagnostics.h
   RuntimeMessageBus.h
   RuntimeSession.h
   RuntimeUpdate.h

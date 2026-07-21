@@ -197,6 +197,13 @@ int main()
 			RuntimeConfigurationSetError::Sealed &&
 		sessionHost.configuration().size() == 8,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
+	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
+	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
+		diagnostics.frames.summary.completedFrames == 0 &&
+		diagnostics.packages.packages.empty() && diagnostics.services.size() == 6 &&
+		diagnostics.configuration.size() == 8 && diagnostics.queuedMessages == 0 &&
+		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
+		"runtime diagnostics capture one pointer-free ordered host snapshot");
 
 	CommandStream<std::string> commandStream(8);
 	check(commandStream.submit(4, "live") == 0 &&

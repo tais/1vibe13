@@ -99,3 +99,8 @@ The default host exposes package assets through a bounded read-through cache.
 Its entry and byte budgets are sealed configuration values, statistics are a
 versioned host service, and package activation/deactivation clears cached
 overlay results. Oversized assets still load normally but are not retained.
+
+`EngineHost::diagnostics()` returns a self-contained observation suitable for
+launchers, automated bug reports, and headless assertions. It combines package
+health, frame timing, cache behavior, host contracts, capabilities, and live
+queue counters without exposing application-owned objects or mutable services.
