@@ -603,6 +603,46 @@ int main( int, char** )
 	}
 
 	{
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		TestLifecyclePackage dependency( "unregister.dependency", PackageKind::Rules );
+		TestLifecyclePackage consumer(
+			"unregister.consumer", PackageKind::Extension, -1, nullptr,
+			{{ "unregister.dependency", "" }} );
+		CHECK( packages.registerPackage( dependency ) == PackageRegistrationError::None &&
+		       packages.registerPackage( consumer ) == PackageRegistrationError::None,
+		       "package unregistration fixture registers its dependency graph" );
+		CHECK( packages.unregisterPackage( "unregister.missing" ).error ==
+		       PackageUnregistrationError::NotFound,
+		       "package unregistration reports unknown identifiers" );
+		CHECK( packages.activate( "unregister.consumer" ) == PackageActivationError::None &&
+		       packages.unregisterPackage( "unregister.consumer" ).error ==
+		       PackageUnregistrationError::Active,
+		       "active packages cannot be unregistered" );
+		CHECK( packages.deactivate( "unregister.consumer" ) &&
+		       packages.unregisterPackage( "unregister.dependency" ).error ==
+		       PackageUnregistrationError::Active,
+		       "an active dependency remains protected after its consumer deactivates" );
+		CHECK( packages.deactivate( "unregister.dependency" ),
+		       "package unregistration fixture deactivates its dependency" );
+		const PackageUnregistrationResult blocked =
+			packages.unregisterPackage( "unregister.dependency" );
+		CHECK( blocked.error == PackageUnregistrationError::RequiredByRegisteredPackage &&
+		       blocked.packageId == "unregister.dependency" &&
+		       blocked.dependentId == "unregister.consumer",
+		       "registered dependents prevent unsafe package removal" );
+		CHECK( packages.unregisterPackage( "unregister.consumer" ) &&
+		       packages.unregisterPackage( "unregister.dependency" ) &&
+		       packages.find( "unregister.consumer" ) == nullptr &&
+		       packages.find( "unregister.dependency" ) == nullptr &&
+		       content.find( "unregister.consumer" ) == nullptr &&
+		       content.find( "unregister.dependency" ) == nullptr,
+		       "package unregistration removes both registry and content membership" );
+		CHECK( packages.registerPackage( dependency ) == PackageRegistrationError::None,
+		       "an unregistered package object can be registered again" );
+	}
+
+	{
 		MemoryAssetSource campaignAssets( "campaign.arulco" );
 		MemoryAssetSource modAssets( "mod.example" );
 		CHECK( campaignAssets.put( "Data/Items.XML", { 1 } ) &&

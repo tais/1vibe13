@@ -14,6 +14,26 @@ enum class PackageRegistrationError
 	InvalidRequirement
 };
 
+enum class PackageUnregistrationError
+{
+	None,
+	NotFound,
+	Active,
+	RequiredByRegisteredPackage,
+	BootstrapInProgress,
+	OperationInProgress,
+	ContentMissing
+};
+
+struct PackageUnregistrationResult
+{
+	PackageUnregistrationError error = PackageUnregistrationError::None;
+	std::string packageId;
+	std::string dependentId;
+
+	explicit operator bool() const { return error == PackageUnregistrationError::None; }
+};
+
 enum class PackageResolutionError
 {
 	None,

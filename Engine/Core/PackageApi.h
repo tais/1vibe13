@@ -54,6 +54,39 @@ public:
 		return PackageRegistrationError::None;
 	}
 
+	PackageUnregistrationResult unregisterPackage(const std::string& id)
+	{
+		if (operationInProgress_)
+			return PackageUnregistrationResult{
+				PackageUnregistrationError::OperationInProgress, id, {}};
+		OperationGuard operation(operationInProgress_);
+		if (completedBootstrapPhases_ != 0)
+			return PackageUnregistrationResult{
+				PackageUnregistrationError::BootstrapInProgress, id, {}};
+		const auto found = packages_.find(id);
+		if (found == packages_.end())
+			return PackageUnregistrationResult{PackageUnregistrationError::NotFound, id, {}};
+		if (found->second.active)
+			return PackageUnregistrationResult{PackageUnregistrationError::Active, found->first, {}};
+		for (const auto& registered : packages_)
+		{
+			if (registered.first == found->first) continue;
+			for (const ContentRequirement& requirement : registered.second.requirements)
+			{
+				if (requirement.id != found->first) continue;
+				return PackageUnregistrationResult{
+					PackageUnregistrationError::RequiredByRegisteredPackage,
+					found->first, registered.first};
+			}
+		}
+		if (content_.unregisterContent(found->first) != ContentUnregistrationError::None)
+			return PackageUnregistrationResult{
+				PackageUnregistrationError::ContentMissing, found->first, {}};
+		const std::string packageId = found->first;
+		packages_.erase(found);
+		return PackageUnregistrationResult{PackageUnregistrationError::None, packageId, {}};
+	}
+
 	PackageActivationPlan resolveActivation(const std::string& id) const
 	{
 		return resolveActivation(std::vector<std::string>{id});
