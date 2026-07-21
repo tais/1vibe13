@@ -4,8 +4,8 @@
 
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/Identifier.h>
-#include <Engine/Core/LocalizationDocument.h>
 #include <Engine/Core/PackageApi.h>
+#include <Engine/Core/PackageContentLoader.h>
 
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
@@ -36,8 +36,6 @@ constexpr std::size_t MaximumIdentifierLength = 128;
 constexpr std::size_t MaximumVersionLength = 128;
 constexpr std::size_t MaximumLogicalPathLength = 1024;
 constexpr std::size_t MaximumDeclaredContentSources = 128;
-constexpr std::size_t MaximumLocalizationDocumentBytes = 4u * 1024u * 1024u;
-constexpr std::size_t MaximumDefinitionAssetBytes = 1024u * 1024u;
 
 std::string LowerAscii(std::string value)
 {
@@ -719,71 +717,21 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
 		if (phase != PackageBootstrapPhase::LoadContent) return true;
-		for (const PackageLocalizationSource& source : descriptor_.localizationSources)
-		{
-			AssetData asset;
-			const AssetReadResult read = assets
-				? assets->read(source.assetPath, asset, MaximumLocalizationDocumentBytes)
-				: AssetReadResult::NotFound;
-			if (read != AssetReadResult::Success)
-			{
-				logContentFailure(context, source.assetPath,
-					"asset read failed with code " +
-						std::to_string(static_cast<int>(read)));
-				return false;
-			}
-			std::vector<LocalizationDocumentEntry> entries;
-			const LocalizationDocumentResult parsed = ParseLocalizationDocument(
-				asset.bytes, entries, MaximumLocalizationDocumentBytes);
-			if (!parsed)
-			{
-				logContentFailure(context, source.assetPath,
-					"localization parse failed with code " +
-						std::to_string(static_cast<int>(parsed.error)) +
-						" at line " + std::to_string(parsed.line));
-				return false;
-			}
-			for (const LocalizationDocumentEntry& entry : entries)
-			{
-				const LocalizationSetError inserted =
-					context.localization.set(source.locale, entry.key, entry.text);
-				if (inserted == LocalizationSetError::None) continue;
-				logContentFailure(context, source.assetPath,
-					"localization catalog rejected " + entry.key + " with code " +
-						std::to_string(static_cast<int>(inserted)));
-				return false;
-			}
-		}
-		for (const PackageDefinitionSource& source : descriptor_.definitionSources)
-		{
-			AssetData asset;
-			const AssetReadResult read = assets
-				? assets->read(source.assetPath, asset, MaximumDefinitionAssetBytes)
-				: AssetReadResult::NotFound;
-			if (read != AssetReadResult::Success)
-			{
-				logContentFailure(context, source.assetPath,
-					"definition asset read failed with code " +
-						std::to_string(static_cast<int>(read)));
-				return false;
-			}
-			const DefinitionSetError inserted = context.definitions.set(
-				source.type, source.id, source.schemaVersion, std::move(asset.bytes));
-			if (inserted == DefinitionSetError::None) continue;
-			logContentFailure(context, source.assetPath,
-				"definition catalog rejected " + source.type + ":" + source.id +
-					" with code " + std::to_string(static_cast<int>(inserted)));
-			return false;
-		}
-		return true;
+		if (!assets) return false;
+		const PackageContentLoadResult loaded = LoadDeclaredPackageContent(
+			descriptor_, *assets, context.localization, context.definitions);
+		if (loaded) return true;
+		std::string detail = "content import failed with code " +
+			std::to_string(static_cast<int>(loaded.error)) +
+			" (detail " + std::to_string(loaded.detail) + ")";
+		if (loaded.line != 0) detail += " at line " + std::to_string(loaded.line);
+		logContentFailure(context, loaded.assetPath, detail);
+		return false;
 	}
 	void shutdown(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
 		if (phase == PackageBootstrapPhase::LoadContent)
-		{
-			context.localization.clear();
-			context.definitions.clear();
-		}
+			UnloadDeclaredPackageContent(context.localization, context.definitions);
 	}
 
 private:

@@ -10,6 +10,7 @@
 #include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/LocalizationDocument.h>
 #include <Engine/Core/PackageRandomSource.h>
+#include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/SimulationTick.h>
@@ -189,6 +190,42 @@ int main()
 		localizationDocument.size() == retainedLocalization.size() &&
 		localizationDocument[0].text == retainedLocalization[0].text,
 		"localization document failures report their line and preserve caller state");
+	MemoryAssetSource declaredAssets("mod.content-loader");
+	declaredAssets.put("localization/en.lang", std::vector<std::uint8_t>{
+		'J','A','2','-','L','O','C','A','L','I','Z','A','T','I','O','N',' ','1','\n',
+		'u','i','.','r','e','a','d','y',' ','=',' ','R','e','a','d','y','\n'});
+	declaredAssets.put("definitions/item.json", {'{','}','\n'});
+	LocalizationCatalog loadedLocalization;
+	DefinitionCatalog loadedDefinitions;
+	PackageLocalization packageLocalization("mod.content-loader", loadedLocalization);
+	PackageDefinitions packageDefinitions("mod.content-loader", loadedDefinitions);
+	const PackageDescriptor loadableDescriptor{
+		ContentManifest{"mod.content-loader", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/en.lang"}},
+		{{"item", "field-kit", 1, "definitions/item.json"}}};
+	const PackageContentLoadResult loadedContent = LoadDeclaredPackageContent(
+		loadableDescriptor, declaredAssets, packageLocalization, packageDefinitions);
+	check(loadedContent && loadedLocalization.resolve("en", "ui.ready") &&
+		loadedDefinitions.resolve("item", "field-kit", 1, 1),
+		"core declared-content loader imports localization and opaque definitions");
+	MemoryAssetSource failingDeclaredAssets("mod.content-loader");
+	failingDeclaredAssets.put("localization/good.lang", std::vector<std::uint8_t>{
+		'J','A','2','-','L','O','C','A','L','I','Z','A','T','I','O','N',' ','1','\n',
+		'u','i','.','o','n','e',' ','=',' ','O','n','e','\n'});
+	failingDeclaredAssets.put("localization/bad.lang", std::vector<std::uint8_t>{
+		'J','A','2','-','L','O','C','A','L','I','Z','A','T','I','O','N',' ','1','\n',
+		'u','i','.','x',' ','=',' ','X','\n','u','i','.','x',' ','=',' ','Y','\n'});
+	const PackageDescriptor failingDescriptor{
+		ContentManifest{"mod.content-loader", "1", ContentApiVersion{1, 4}},
+		PackageKind::Extension, {}, {}, {}, {},
+		{{"en", "localization/good.lang"}, {"en", "localization/bad.lang"}}, {}};
+	const PackageContentLoadResult failedContent = LoadDeclaredPackageContent(
+		failingDescriptor, failingDeclaredAssets, packageLocalization, packageDefinitions);
+	check(failedContent.error == PackageContentLoadError::LocalizationDocumentInvalid &&
+		failedContent.assetPath == "localization/bad.lang" && failedContent.line == 3 &&
+		loadedLocalization.size() == 0 && loadedDefinitions.size() == 0,
+		"core declared-content import failure rolls back the complete package layer");
 	DefinitionCatalog definitions(2, 4);
 	check(definitions.set("campaign.base", "item", "medkit", 1, {1}) ==
 			DefinitionSetError::None &&

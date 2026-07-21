@@ -1,5 +1,4 @@
-Data Package v1 example
+Data Package v3 example
 
-This file is intentionally stored at a logical path the game does not consume.
-Selecting example.readme therefore exercises package discovery and mounting
-without overriding game content.
+This package exercises discovery, mounting, localization import, and an opaque
+versioned definition without overriding legacy gameplay content.
