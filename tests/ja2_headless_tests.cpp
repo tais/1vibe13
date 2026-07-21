@@ -391,6 +391,14 @@ public:
 			observedRandomPackageId = context.random.packageId();
 			packageRandomResult = context.random.next( "bootstrap", 100 );
 		}
+		if (localizeOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedLocalizationPackageId = context.localization.packageId();
+			localizationSetResult = context.localization.set(
+				"en", "ui.package-ready", "Package ready" );
+			invalidLocalizationSetResult = context.localization.set(
+				"invalid/locale", "ui.package-ready", "Invalid" );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -459,6 +467,9 @@ public:
 	RuntimeMessagePublishResult invalidPackagePublishResult;
 	std::string observedRandomPackageId;
 	PackageRandomResult packageRandomResult;
+	std::string observedLocalizationPackageId;
+	LocalizationSetError localizationSetResult = LocalizationSetError::AllocationFailure;
+	LocalizationSetError invalidLocalizationSetResult = LocalizationSetError::AllocationFailure;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -470,6 +481,7 @@ public:
 	bool persistOnConfigure = false;
 	bool publishOnConfigure = false;
 	bool usePackageRandomOnConfigure = false;
+	bool localizeOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -563,6 +575,7 @@ int main( int, char** )
 		package.persistOnConfigure = true;
 		package.publishOnConfigure = true;
 		package.usePackageRandomOnConfigure = true;
+		package.localizeOnConfigure = true;
 		package.setRequiredServices({
 			EngineServiceRequirement{ "engine.persistence", { 1, 0 } },
 			EngineServiceRequirement{ "engine.runtime-messages", { 1, 0 } } });
@@ -575,6 +588,8 @@ int main( int, char** )
 			host.runtimeSession().advancePackagesTo( PackageBootstrapPhase::Configure );
 		const PackageCatalogSnapshot catalog = host.packageCatalog();
 		const PackageCatalogEntry* catalogPackage = catalog.find( "lifecycle.complete" );
+		const LocalizedTextView packageText =
+			host.localization().resolve( "en", "ui.package-ready" );
 		CHECK( started && started.packages.completedPhases == 3 &&
 		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
@@ -589,6 +604,10 @@ int main( int, char** )
 		           RuntimeMessagePublishError::InvalidTopic &&
 		       package.observedRandomPackageId == "lifecycle.complete" &&
 		       package.packageRandomResult && package.packageRandomResult.value < 100 &&
+		       package.observedLocalizationPackageId == "lifecycle.complete" &&
+		       package.localizationSetResult == LocalizationSetError::None &&
+		       package.invalidLocalizationSetResult == LocalizationSetError::InvalidLocale &&
+		       packageText && *packageText.text == "Package ready" &&
 		       catalogPackage && catalogPackage->descriptor.requiredServices.size() == 2 &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
@@ -645,6 +664,7 @@ int main( int, char** )
 		CHECK( stopped && stopped.packages.shutdownPhases == 3 &&
 		       package.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
 		       package.deactivateCalls == 1 && host.packages().activationOrder().empty() &&
+		       !host.localization().resolve( "en", "ui.package-ready" ) &&
 		       host.markStopped(),
 		       "package lifecycle shuts down phases and active packages in reverse order" );
 	}

@@ -110,3 +110,10 @@ failure receives a monotonic record with package ID, callback, kind, and
 occurrence count. The bounded history never throws into gameplay and remains
 complete independently of duplicate-log suppression; it is included in the
 unified diagnostics snapshot.
+
+Register new framework text through `PackageBootstrapContext::localization`.
+Locale and key are portable identifiers, text size and total entries are
+bounded, later package layers win, and lookups can explicitly fall back to
+`en`. Returned views are valid until the catalog changes. The host removes all
+owned entries during configure rollback or shutdown; legacy JA2 localization
+remains untouched during the migration window.
