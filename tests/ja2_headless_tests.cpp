@@ -370,6 +370,14 @@ public:
 		const std::int64_t* messageCapacity =
 			context.configuration.find<std::int64_t>( "engine.messages.queue-capacity" );
 		observedMessageCapacity = messageCapacity ? *messageCapacity : -1;
+		if (persistOnConfigure && phase == PackageBootstrapPhase::Configure)
+		{
+			observedStoragePackageId = context.storage.packageId();
+			packageSaveResult = context.storage.saveEnvelope(
+				"test-state", PersistenceHeader{ 0x504B4754u, 1 }, { 8, 9 } );
+			invalidPackageSaveResult = context.storage.saveEnvelope(
+				"../invalid", PersistenceHeader{ 0x504B4754u, 1 }, {} );
+		}
 		observedContentApi = context.content.supportedApi();
 		observedTime = context.services.time.nowMicroseconds();
 		observedRandom = context.services.random.next( 100 );
@@ -424,6 +432,9 @@ public:
 	RuntimeMessageBus* observedMessages = nullptr;
 	FrameTelemetry* observedTelemetry = nullptr;
 	std::int64_t observedMessageCapacity = -1;
+	std::string observedStoragePackageId;
+	PersistenceSaveResult packageSaveResult = PersistenceSaveResult::StorageError;
+	PersistenceSaveResult invalidPackageSaveResult = PersistenceSaveResult::StorageError;
 	int activateCalls = 0;
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
@@ -431,6 +442,7 @@ public:
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
+	bool persistOnConfigure = false;
 	PackageRegistry* registryDuringBootstrap = nullptr;
 	std::string activateDuringBootstrap;
 	std::string deactivateDuringBootstrap;
@@ -508,13 +520,15 @@ int main( int, char** )
 
 	{
 		MemoryInputSource input;
+		MemoryByteStorage storage;
 		EngineServices services{
 			ZeroTimeSource::instance(), ZeroRandomSource::instance(),
-			NullByteStorage::instance(), NullLogSink::instance(), input,
+			storage, NullLogSink::instance(), input,
 			NullAudioOutput::instance(), NullFramePresenter::instance(),
 			NullAssetSource::instance()};
 		EngineHost<unsigned> host( services );
 		TestLifecyclePackage package( "lifecycle.complete", PackageKind::Rules );
+		package.persistOnConfigure = true;
 		CHECK( host.packages().registerPackage( package ) == PackageRegistrationError::None &&
 		       host.packages().activate( "lifecycle.complete" ) == PackageActivationError::None,
 		       "engine host prepares a package for coordinated lifecycle startup" );
@@ -527,8 +541,23 @@ int main( int, char** )
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
 		       package.observedTelemetry == &host.frameTelemetry() &&
 		       package.observedMessageCapacity == 1024 &&
+		       package.observedStoragePackageId == "lifecycle.complete" &&
+		       package.packageSaveResult == PersistenceSaveResult::Success &&
+		       package.invalidPackageSaveResult == PersistenceSaveResult::InvalidRequest &&
 		       host.serviceCatalog().sealed(),
 		       "package lifecycle advances missing phases once and treats completed targets idempotently" );
+		PersistenceHeader packageHeader{};
+		std::vector<std::uint8_t> packagePayload;
+		PackageStorage otherPackageStorage( "other.package", host.persistence() );
+		CHECK( host.persistence().loadEnvelope(
+		           PackageStorage::recordPath( "lifecycle.complete", "test-state" ),
+		           0x504B4754u, 1, 1, packageHeader, packagePayload ) ==
+		           PersistenceLoadResult::Success &&
+		       packagePayload == std::vector<std::uint8_t>({ 8, 9 }) &&
+		       otherPackageStorage.loadEnvelope(
+		           "test-state", 0x504B4754u, 1, 1, packageHeader, packagePayload ) ==
+		           PersistenceLoadResult::NotFound,
+		       "package persistence writes bounded envelopes into isolated namespaces" );
 		input.push( EngineInputEvent{ 10, 2, 7, 65, 0, 1, 0 } );
 		const RuntimeMessagePublishResult published = host.runtimeMessages().publish(
 			RuntimeMessageRequest{ "engine.test", "host.headless", { 4, 2 } } );
