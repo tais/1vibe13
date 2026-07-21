@@ -14,6 +14,7 @@
 #include <Engine/Core/PackageEntities.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageStorage.h>
+#include <Engine/Core/PackageTasks.h>
 #include <Engine/Core/RuntimeMessageBus.h>
 #include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/ServiceCatalog.h>
@@ -52,6 +53,7 @@ struct PackageBootstrapContext
 	PackageDefinitions& definitions;
 	PackageEntities& entities;
 	PackageAudio& audio;
+	PackageTasks& tasks;
 };
 
 struct PackageDescriptor

@@ -143,3 +143,11 @@ requirement against host and active-package capabilities before the first
 bootstrap callback. A missing feature produces a structured package/capability
 failure and a fault-journal record instead of forcing mod code to inspect build
 targets or global campaign state.
+
+Use `PackageBootstrapContext::tasks.defer` for small pieces of package-owned
+main-thread work that should run on a later frame. The queue and per-frame drain
+are bounded host configuration, recursively deferred work cannot loop in the
+same frame, and thrown callbacks are contained in runtime diagnostics. Pending
+callbacks are cancelled automatically during rollback or package teardown;
+packages must still avoid capturing objects with shorter lifetimes than their
+own active lifecycle.

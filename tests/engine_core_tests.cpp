@@ -200,6 +200,23 @@ int main()
 		!groupedAudioOutput.isPlaying(firstGroupedPlayback.playback) &&
 		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback),
 		"package audio teardown stops every playback owned by the package");
+	PackageTaskQueue deferredTasks(2, 1);
+	PackageTasks boundTasks("mod.tasks", deferredTasks);
+	unsigned deferredRuns = 0;
+	const PackageTaskScheduleResult firstTask = boundTasks.defer([&]
+	{
+		++deferredRuns;
+		boundTasks.defer([&] { ++deferredRuns; });
+	});
+	const PackageTaskScheduleResult secondTask = boundTasks.defer([] { throw 1; });
+	const PackageTaskDrainResult firstDrain = deferredTasks.drain();
+	check(firstTask && secondTask && firstTask.sequence < secondTask.sequence &&
+		firstDrain.attempted == 1 && firstDrain.executed == 1 &&
+		firstDrain.deferred == 2 && deferredRuns == 1,
+		"package task drains are bounded and defer recursively scheduled work");
+	check(deferredTasks.removePackage("mod.tasks") == 2 && deferredTasks.size() == 0 &&
+		deferredTasks.snapshot().summary.cancelled == 2,
+		"package task teardown cancels every queued callback owned by the package");
 	PackageRandomSource packageRandom("rules.ballistics", 12345, 2);
 	PackageRandomSource replayRandom("rules.ballistics", 12345, 2);
 	const PackageRandomResult firstCombat = packageRandom.next("combat", 1000);
@@ -250,7 +267,7 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
-		sessionHost.serviceCatalog().size() == 11 &&
+		sessionHost.serviceCatalog().size() == 12 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
 			"host.too-late", EngineServiceVersion{1, 0}, externalService) ==
@@ -269,7 +286,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 15,
+		sessionHost.configuration().size() == 17,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	check(diagnostics.lifecycle == EngineLifecycle::Stopped &&
@@ -277,8 +294,8 @@ int main()
 		diagnostics.packages.packages.empty() && diagnostics.faults.records.empty() &&
 		diagnostics.localization.empty() && diagnostics.definitions.empty() &&
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
-		diagnostics.services.size() == 11 &&
-		diagnostics.configuration.size() == 15 &&
+		diagnostics.packageTasks.queued.empty() && diagnostics.services.size() == 12 &&
+		diagnostics.configuration.size() == 17 &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
 		"runtime diagnostics capture one pointer-free ordered host snapshot");

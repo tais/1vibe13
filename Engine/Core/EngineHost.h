@@ -18,6 +18,7 @@
 #include <Engine/Core/PackageApi.h>
 #include <Engine/Core/PackageEventSink.h>
 #include <Engine/Core/PackageLifecycle.h>
+#include <Engine/Core/PackageTaskQueue.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeDiagnostics.h>
@@ -53,7 +54,9 @@ public:
 		std::size_t definitionEntries = 65536,
 		std::size_t definitionPayloadBytes = 1024u * 1024u,
 		std::size_t maximumEntities = 65536,
-		std::size_t maximumPackageAudioPlaybacks = 1024)
+		std::size_t maximumPackageAudioPlaybacks = 1024,
+		std::size_t maximumQueuedPackageTasks = 1024,
+		std::size_t maximumPackageTasksPerFrame = 64)
 		: content_(supportedContentApi),
 		  audioGroups_(services.audio, maximumPackageAudioPlaybacks),
 		  faultJournal_(runtimeFaultCapacity),
@@ -61,10 +64,11 @@ public:
 		  definitions_(definitionEntries, definitionPayloadBytes),
 		  entities_(maximumEntities),
 		  hostCapabilities_(std::move(hostCapabilities)),
+		  packageTasks_(maximumQueuedPackageTasks, maximumPackageTasksPerFrame),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
 		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
 		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_,
-		            definitions_, entities_, audioGroups_, &hostCapabilities_),
+		            definitions_, entities_, audioGroups_, &hostCapabilities_, packageTasks_),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
 		  inputDispatcher_(packages_.services().input),
@@ -93,6 +97,8 @@ public:
 			"engine.entities", EngineServiceVersion{1, 0}, entities_);
 		serviceCatalog_.registerService(
 			"engine.package-audio", EngineServiceVersion{1, 0}, audioGroups_);
+		serviceCatalog_.registerService(
+			"engine.package-tasks", EngineServiceVersion{1, 0}, packageTasks_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -121,6 +127,10 @@ public:
 			static_cast<std::int64_t>(entities_.maximumEntities()));
 		runtimeConfiguration_.set("engine.package-audio.playback-capacity",
 			static_cast<std::int64_t>(audioGroups_.maximumPlaybacks()));
+		runtimeConfiguration_.set("engine.package-tasks.queue-capacity",
+			static_cast<std::int64_t>(packageTasks_.maximumQueued()));
+		runtimeConfiguration_.set("engine.package-tasks.per-frame-limit",
+			static_cast<std::int64_t>(packageTasks_.maximumPerDrain()));
 		inputDispatcher_.addSink(packages_);
 		runtimeUpdates_.addSink(packages_);
 		simulationTicks_.addSink(packages_);
@@ -167,6 +177,8 @@ public:
 	const EntityRegistry& entities() const { return entities_; }
 	AudioGroupService& packageAudio() { return audioGroups_; }
 	const AudioGroupService& packageAudio() const { return audioGroups_; }
+	PackageTaskQueue& packageTasks() { return packageTasks_; }
+	const PackageTaskQueue& packageTasks() const { return packageTasks_; }
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
 	const ServiceCatalog& serviceCatalog() const { return serviceCatalog_; }
 	RuntimeConfiguration& configuration() { return runtimeConfiguration_; }
@@ -197,7 +209,7 @@ public:
 			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
 			packages_.assetCache().statistics(), faultJournal_.snapshot(),
 			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
-			audioGroups_.snapshot(), serviceCatalog_.snapshot(),
+			audioGroups_.snapshot(), packageTasks_.snapshot(), serviceCatalog_.snapshot(),
 			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
 			runtimeMessages_.queued(), frameDriver_.completedFrames(),
 			simulationTicks_.completedTickSequence()};
@@ -231,6 +243,7 @@ private:
 	DefinitionCatalog definitions_;
 	EntityRegistry entities_;
 	RuntimeCapabilities hostCapabilities_;
+	PackageTaskQueue packageTasks_;
 	PackageRegistry packages_;
 	PackageLifecycle packageLifecycle_;
 	RuntimeSession runtimeSession_;

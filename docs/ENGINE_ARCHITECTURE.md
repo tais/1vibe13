@@ -283,6 +283,10 @@ the engine must not contain SDL types in its public domain model.
   are bounded and inspectable, packages cannot control another owner's sounds,
   and rollback or shutdown stops everything they still own. Legacy JA2 callers
   keep their direct `AudioOutput` path during migration.
+- `PackageTaskQueue` is the live bounded main-thread deferral path for package
+  callbacks. Each frame drains only work that was already queued, exceptions
+  become fault records, recursive scheduling waits for a later frame, and
+  rollback or deactivation cancels callbacks before package state is released.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
