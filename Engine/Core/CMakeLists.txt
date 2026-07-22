@@ -15,6 +15,7 @@ set(engine_core_public_headers
   DeterministicCommandQueue.h
   DefinitionCatalog.h
   EngineHost.h
+  EngineHostOptions.h
   EngineServiceContracts.h
   EngineServices.h
   EntityRegistry.h

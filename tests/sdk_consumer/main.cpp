@@ -7,6 +7,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 #include <Engine/Core/EngineHost.h>
+#include <Engine/Core/EngineHostOptions.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -135,10 +136,13 @@ int main()
 	MemoryByteStorage storage;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
-	RuntimeCapabilities hostCapabilities;
-	if (!hostCapabilities.add("host.external-consumer")) return 1;
-	EngineHost<> host(services, CurrentContentApiVersion,
-		NullPackageEventSink::instance(), std::move(hostCapabilities));
+	EngineHostOptions hostOptions;
+	if (!hostOptions.hostCapabilities.add("host.external-consumer")) return 1;
+	EngineHost<> host(std::move(hostOptions), services);
+	if (host.runtimeMessages().maxQueuedMessages() != 1024 ||
+		host.inputDispatcher().maxEventsPerDispatch() != 256 ||
+		host.persistence().maximumPayloadBytes() !=
+			PersistenceService::DefaultMaximumPayloadBytes) return 1;
 	TacticalCommandInbox commandInbox(
 		TacticalCommandInboxLimits{2, 1, 1, 64, 10});
 	if (RegisterTacticalCommandService(host.serviceCatalog(), commandInbox) !=
@@ -322,7 +326,7 @@ int main()
 		sink.decodeResult != TacticalWorldDeltaDecodeResult::Success ||
 		sink.delta.events.size() != 3) return 26;
 
-	EngineRuntime<> commandRuntime(services);
+	EngineRuntime<> commandRuntime(EngineHostOptions{}, services);
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
 		37, MoveToGridCommand{
 			actorId, 1300, 6, true, false,

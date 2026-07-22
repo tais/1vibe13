@@ -47,11 +47,17 @@ public:
 		EntityRegistry& entities = EntityRegistry::disabled(),
 		AudioGroupService& audio = AudioGroupService::disabled(),
 		const RuntimeCapabilities* hostCapabilities = nullptr,
-		PackageTaskQueue& tasks = PackageTaskQueue::disabled())
+		PackageTaskQueue& tasks = PackageTaskQueue::disabled(),
+		std::size_t maximumPersistencePayloadBytes =
+			PersistenceService::DefaultMaximumPayloadBytes,
+		std::size_t maximumSaveStateRecords = MaximumSaveStateRecords,
+		std::size_t maximumPackageSaveStateBytes = MaximumPackageSaveStateBytes,
+		std::size_t maximumTotalSaveStateBytes = MaximumTotalSaveStateBytes)
 		: content_(content), assets_(services.assets),
 		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
 		  services_(withAssets(services, assetCache_)),
-		  packagePersistence_(services_.storage), events_(events), messages_(messages),
+		  packagePersistence_(services_.storage, maximumPersistencePayloadBytes),
+		  events_(events), messages_(messages),
 		  extensionServices_(extensionServices),
 		  configuration_(configuration), faults_(faults), localization_(localization),
 		  definitions_(definitions),
@@ -60,7 +66,10 @@ public:
 		  hostCapabilities_(hostCapabilities),
 		  tasks_(tasks),
 		  packageRandomSeed_(packageRandomSeed),
-		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
+		  packageRandomStreamLimit_(packageRandomStreamLimit),
+		  maximumSaveStateRecords_(maximumSaveStateRecords),
+		  maximumPackageSaveStateBytes_(maximumPackageSaveStateBytes),
+		  maximumTotalSaveStateBytes_(maximumTotalSaveStateBytes) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
 	// registry and application-owned package objects. Preserve that identity;
@@ -690,7 +699,7 @@ public:
 			std::size_t statefulPackages = 0;
 			for (const std::string& packageId : active_)
 				if (packages_.at(packageId).saveStateSchemaVersion != 0) ++statefulPackages;
-			if (statefulPackages > MaximumSaveStateRecords)
+			if (statefulPackages > maximumSaveStateRecords_)
 				return {PackageSaveStateError::TooManyRecords, {}, {}};
 			result.snapshot.records.reserve(statefulPackages);
 			std::size_t totalBytes = 0;
@@ -709,9 +718,9 @@ public:
 					logError("Package save-state callback failed: ", packageId);
 					return {PackageSaveStateError::CallbackFailed, packageId, {}};
 				}
-				if (payload.size() > MaximumPackageSaveStateBytes)
+				if (payload.size() > maximumPackageSaveStateBytes_)
 					return {PackageSaveStateError::PayloadTooLarge, packageId, {}};
-				if (payload.size() > MaximumTotalSaveStateBytes - totalBytes)
+				if (payload.size() > maximumTotalSaveStateBytes_ - totalBytes)
 					return {PackageSaveStateError::TotalTooLarge, packageId, {}};
 				totalBytes += payload.size();
 				result.snapshot.records.push_back(PackageSaveStateRecord{
@@ -735,7 +744,7 @@ public:
 			return {PackageSaveStateError::RuntimeNotReady, {}, 0};
 		try
 		{
-			if (snapshot.records.size() > MaximumSaveStateRecords)
+			if (snapshot.records.size() > maximumSaveStateRecords_)
 				return {PackageSaveStateError::TooManyRecords, {}, 0};
 			std::size_t recordIndex = 0;
 			std::size_t totalBytes = 0;
@@ -752,9 +761,9 @@ public:
 					return {PackageSaveStateError::VersionMismatch, packageId, 0};
 				if (record.schemaVersion != registered.saveStateSchemaVersion)
 					return {PackageSaveStateError::SchemaMismatch, packageId, 0};
-				if (record.payload.size() > MaximumPackageSaveStateBytes)
+				if (record.payload.size() > maximumPackageSaveStateBytes_)
 					return {PackageSaveStateError::PayloadTooLarge, packageId, 0};
-				if (record.payload.size() > MaximumTotalSaveStateBytes - totalBytes)
+				if (record.payload.size() > maximumTotalSaveStateBytes_ - totalBytes)
 					return {PackageSaveStateError::TotalTooLarge, packageId, 0};
 				totalBytes += record.payload.size();
 			}
@@ -1061,6 +1070,19 @@ public:
 	const PackageCapabilityContractFailure& lastCapabilityContractFailure() const
 	{
 		return lastCapabilityContractFailure_;
+	}
+	std::size_t maximumPersistencePayloadBytes() const
+	{
+		return packagePersistence_.maximumPayloadBytes();
+	}
+	std::size_t maximumSaveStateRecords() const { return maximumSaveStateRecords_; }
+	std::size_t maximumPackageSaveStateBytes() const
+	{
+		return maximumPackageSaveStateBytes_;
+	}
+	std::size_t maximumTotalSaveStateBytes() const
+	{
+		return maximumTotalSaveStateBytes_;
 	}
 
 private:
@@ -1402,6 +1424,9 @@ private:
 	PackageTaskQueue& tasks_;
 	std::uint64_t packageRandomSeed_;
 	std::size_t packageRandomStreamLimit_;
+	std::size_t maximumSaveStateRecords_;
+	std::size_t maximumPackageSaveStateBytes_;
+	std::size_t maximumTotalSaveStateBytes_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;

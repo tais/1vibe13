@@ -5,6 +5,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineHost.h>
+#include <Engine/Core/EngineHostOptions.h>
 #include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
@@ -468,6 +469,129 @@ int main()
 		resourceUsage.total.definitionEntries == 1 &&
 		resourceUsage.unattributedRecords == 0,
 		"package resource accounting attributes owned framework state and totals");
+
+	EngineHostOptions defaultHostOptions;
+	const EngineHostOptionsValidationResult defaultOptionsValidation =
+		ValidateEngineHostOptions(defaultHostOptions);
+	EngineHost<unsigned> legacyDefaultHost;
+	EngineHost<unsigned> namedDefaultHost(defaultHostOptions);
+	check(defaultOptionsValidation &&
+		legacyDefaultHost.serviceCatalog().size() == 14 &&
+		legacyDefaultHost.configuration().size() == 21 &&
+		namedDefaultHost.serviceCatalog().size() ==
+			legacyDefaultHost.serviceCatalog().size() &&
+		namedDefaultHost.configuration().size() ==
+			legacyDefaultHost.configuration().size() &&
+		namedDefaultHost.compatibilityFingerprint() ==
+			legacyDefaultHost.compatibilityFingerprint() &&
+		namedDefaultHost.runtimeMessages().maxQueuedMessages() == 1024 &&
+		namedDefaultHost.runtimeMessages().maxPayloadBytes() == 64u * 1024u &&
+		namedDefaultHost.inputDispatcher().maxEventsPerDispatch() == 256 &&
+		namedDefaultHost.frameTelemetry().capacity() == 240 &&
+		namedDefaultHost.persistence().maximumPayloadBytes() ==
+			PersistenceService::DefaultMaximumPayloadBytes &&
+		namedDefaultHost.packages().maximumPersistencePayloadBytes() ==
+			PersistenceService::DefaultMaximumPayloadBytes &&
+		namedDefaultHost.packages().maximumSaveStateRecords() ==
+			PackageRegistry::MaximumSaveStateRecords &&
+		namedDefaultHost.packageSaveArchives().maximumRecords() ==
+			PackageRegistry::MaximumSaveStateRecords,
+		"named host defaults preserve the positional host contract and fingerprint");
+
+	MemoryByteStorage optionStorage;
+	MemoryInputSource optionInput;
+	EngineServices optionServices{
+		ZeroTimeSource::instance(), ZeroRandomSource::instance(), optionStorage,
+		NullLogSink::instance(), optionInput};
+	EngineHostOptions customHostOptions;
+	customHostOptions.supportedContentApi = ContentApiVersion{7, 9};
+	customHostOptions.hostCapabilities.add("host.named-options");
+	customHostOptions.packageRandomSeed = 41;
+	customHostOptions.simulationStepMicroseconds = 5000;
+	customHostOptions.limits.maximumPackageRandomStreams = 2;
+	customHostOptions.limits.maximumSimulationCatchUpTicks = 3;
+	customHostOptions.limits.maximumAssetCacheEntries = 4;
+	customHostOptions.limits.maximumAssetCacheBytes = 101;
+	customHostOptions.limits.runtimeFaultHistoryCapacity = 5;
+	customHostOptions.limits.maximumLocalizationEntries = 6;
+	customHostOptions.limits.maximumLocalizationTextBytes = 102;
+	customHostOptions.limits.maximumDefinitionEntries = 7;
+	customHostOptions.limits.maximumDefinitionPayloadBytes = 103;
+	customHostOptions.limits.maximumEntities = 8;
+	customHostOptions.limits.maximumPackageAudioPlaybacks = 9;
+	customHostOptions.limits.maximumQueuedPackageTasks = 10;
+	customHostOptions.limits.maximumPackageTasksPerFrame = 3;
+	customHostOptions.limits.maximumCheckpointPackages = 11;
+	customHostOptions.limits.maximumRuntimeReportBytes = 104;
+	customHostOptions.limits.maximumQueuedRuntimeMessages = 12;
+	customHostOptions.limits.maximumRuntimeMessagePayloadBytes = 105;
+	customHostOptions.limits.maximumInputEventsPerDispatch = 13;
+	customHostOptions.limits.frameTelemetryHistoryCapacity = 14;
+	customHostOptions.limits.maximumPersistencePayloadBytes = 256;
+	customHostOptions.limits.maximumPackageSaveStateRecords = 15;
+	customHostOptions.limits.maximumPackageSaveStateBytes = 107;
+	customHostOptions.limits.maximumTotalPackageSaveStateBytes = 108;
+	EngineHost<unsigned> customHost(customHostOptions, optionServices);
+	const PackageCatalogSnapshot customCatalog = customHost.packageCatalog();
+	check(customHost.hasCapability("host.named-options") &&
+		customCatalog.supportedApi.major == 7 && customCatalog.supportedApi.minor == 9 &&
+		customHost.simulationTicks().stepMicroseconds() == 5000 &&
+		customHost.simulationTicks().maxCatchUpTicks() == 3 &&
+		customHost.assetCache().maximumEntries() == 4 &&
+		customHost.assetCache().maximumBytes() == 101 &&
+		customHost.runtimeFaults().capacity() == 5 &&
+		customHost.localization().maximumEntries() == 6 &&
+		customHost.localization().maximumTextBytes() == 102 &&
+		customHost.definitions().maximumEntries() == 7 &&
+		customHost.definitions().maximumPayloadBytes() == 103 &&
+		customHost.entities().maximumEntities() == 8 &&
+		customHost.packageAudio().maximumPlaybacks() == 9 &&
+		customHost.packageTasks().maximumQueued() == 10 &&
+		customHost.packageTasks().maximumPerDrain() == 3 &&
+		customHost.runtimeCheckpoints().maximumPackages() == 11 &&
+		customHost.runtimeReports().maximumBytes() == 104 &&
+		customHost.runtimeMessages().maxQueuedMessages() == 12 &&
+		customHost.runtimeMessages().maxPayloadBytes() == 105 &&
+		customHost.inputDispatcher().maxEventsPerDispatch() == 13 &&
+		customHost.frameTelemetry().capacity() == 14 &&
+		customHost.persistence().maximumPayloadBytes() == 256 &&
+		customHost.packages().maximumPersistencePayloadBytes() == 256 &&
+		customHost.packages().maximumSaveStateRecords() == 15 &&
+		customHost.packages().maximumPackageSaveStateBytes() == 107 &&
+		customHost.packages().maximumTotalSaveStateBytes() == 108 &&
+		customHost.packageSaveArchives().maximumRecords() == 15 &&
+		customHost.packageSaveArchives().maximumPackageBytes() == 107 &&
+		customHost.packageSaveArchives().maximumTotalBytes() == 108,
+		"named host options configure every owned bounded subsystem coherently");
+
+	EngineHostOptions invalidHostOptions;
+	invalidHostOptions.simulationStepMicroseconds =
+		std::numeric_limits<std::uint64_t>::max();
+	const EngineHostOptionsValidationResult invalidOptionsValidation =
+		ValidateEngineHostOptions(invalidHostOptions);
+	EngineHostOptions invalidSaveStateOptions;
+	invalidSaveStateOptions.limits.maximumPackageSaveStateBytes = 2;
+	invalidSaveStateOptions.limits.maximumTotalPackageSaveStateBytes = 1;
+	const EngineHostOptionsValidationResult invalidSaveStateValidation =
+		ValidateEngineHostOptions(invalidSaveStateOptions);
+	bool invalidHostRejected = false;
+	try
+	{
+		EngineHost<unsigned> invalidHost(invalidHostOptions);
+	}
+	catch (const std::invalid_argument& error)
+	{
+		invalidHostRejected =
+			std::string(error.what()).find("simulationStepMicroseconds") !=
+			std::string::npos;
+	}
+	check(invalidOptionsValidation.error ==
+			EngineHostOptionsValidationError::RuntimeConfigurationRange &&
+		std::string(invalidOptionsValidation.option) == "simulationStepMicroseconds" &&
+		invalidSaveStateValidation.error ==
+			EngineHostOptionsValidationError::InvalidPackageSaveStateLimits &&
+		invalidHostRejected,
+		"invalid host options are diagnosed and rejected before host construction");
 
 	DeclaredContentPackage declaredContent(PackageDescriptor{
 		ContentManifest{"mod.declared-content", "1", ContentApiVersion{1, 4}},

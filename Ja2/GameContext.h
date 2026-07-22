@@ -19,8 +19,7 @@ public:
 	            EngineServices services = EngineServices::defaults(),
 	            PackageEventSink& packageEvents = NullPackageEventSink::instance())
 		: settings_(settings), options_(options), capabilities_(capabilities),
-		  runtime_(services, CurrentContentApiVersion, packageEvents,
-		           makeHostCapabilities(capabilities))
+		  runtime_(makeRuntimeOptions(capabilities), services, packageEvents)
 	{
 	}
 
@@ -157,6 +156,12 @@ private:
 		RuntimeCapabilities result;
 		if (capabilities.isEditor()) result.add(GameCapability::ApplicationMapEditor);
 		return result;
+	}
+	static EngineHostOptions makeRuntimeOptions(GameCapabilities capabilities)
+	{
+		EngineHostOptions options;
+		options.hostCapabilities = makeHostCapabilities(capabilities);
+		return options;
 	}
 
 	GAME_SETTINGS& settings_;

@@ -19,6 +19,15 @@ public:
 	using Host = EngineHost<ScreenId>;
 
 	explicit EngineRuntime(
+		EngineHostOptions options,
+		EngineServices services = EngineServices::defaults(),
+		PackageEventSink& packageEvents = NullPackageEventSink::instance())
+		: Host(std::move(options), services, packageEvents),
+		  commandReplay_(this->persistence())
+	{
+	}
+
+	explicit EngineRuntime(
 		EngineServices services = EngineServices::defaults(),
 		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
 		PackageEventSink& packageEvents = NullPackageEventSink::instance(),

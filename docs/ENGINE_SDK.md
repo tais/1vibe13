@@ -57,6 +57,29 @@ codec, tactical-world observation/publication, and durable replay on Core. It
 is installed as `JA2::RuntimeAdapter`; platform adapters and legacy game types
 remain outside the SDK boundary.
 
+New hosts should configure the composition root through `EngineHostOptions`
+rather than relying on the legacy positional constructor:
+
+```cpp
+EngineHostOptions options;
+options.hostCapabilities.add("host.map-tool");
+options.packageRandomSeed = 42;
+options.limits.maximumQueuedRuntimeMessages = 2048;
+options.limits.maximumPersistencePayloadBytes = 32u * 1024u * 1024u;
+
+EngineHost<> host(std::move(options), services, packageEvents);
+```
+
+`EngineHostLimits` names every host-owned resource ceiling, including message,
+input, telemetry, package-state, and persistence bounds that were previously
+implicit. `ValidateEngineHostOptions` provides a non-throwing preflight; the
+named constructor rejects an invalid range before constructing services or
+registering sinks. Zero remains valid where the underlying service supports a
+disabled mode. The original positional constructor and all of its defaults are
+retained, and default named options produce the same configuration and runtime
+fingerprint as that compatibility path. `EngineRuntime` exposes the same named
+constructor above the JA2 adapter.
+
 The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,
 and builds the fresh project against `find_package(JA2Engine)`. It exercises
@@ -118,10 +141,11 @@ State that belongs to a particular game save uses a separate contract. Set
 `PackageDescriptor::saveStateSchemaVersion` to a non-zero version and override
 `saveState`, `validateState`, and `loadState`. Capture publishes opaque bytes;
 validation must parse without mutation; load commits transactionally for that
-package. The host orders records by package activation, enforces 4 MiB per
-package and 16 MiB in aggregate, binds the archive to the runtime fingerprint,
-and contains callback failures. Installation/profile preferences should remain
-in `PackageStorage`; campaign progress belongs in the per-save callbacks.
+package. The host orders records by package activation, defaults to 4 MiB per
+package and 16 MiB in aggregate, applies the same named bounds to live capture
+and archive I/O, binds the archive to the runtime fingerprint, and contains
+callback failures. Installation/profile preferences should remain in
+`PackageStorage`; campaign progress belongs in the per-save callbacks.
 
 Use `PackageBootstrapContext::messagePublisher` for outbound package messages.
 It binds the source to the registered package ID and accepts only a portable
