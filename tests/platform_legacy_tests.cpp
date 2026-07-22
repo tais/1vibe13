@@ -740,8 +740,9 @@ int main()
 		AniTileTestHooks::FailAfterLevelNodeInsertion();
 		Check(CreateAnimationTile(&cachedParams) == nullptr &&
 			pAniTileHead == savedAniTileHead &&
-			testWorld.pTopmostHead == nullptr && gpTileCache &&
-			gpTileCache[0].pImagery == nullptr && gpTileCache[0].sHits == 0,
+			testWorld.pTopmostHead == nullptr && IsTileCacheInitialized() &&
+			GetCachedTileVideoObject(0) == nullptr &&
+			GetCachedTileReferenceCount(0) == 0,
 			"post-insertion animation failure rolls back list, world, and cache");
 		AniTileTestHooks::ResetFailures();
 		DeleteTileCache();

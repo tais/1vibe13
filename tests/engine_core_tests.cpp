@@ -15,6 +15,7 @@
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
+#include <Engine/Core/PinnedSlotCache.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeReportJson.h>
 #include <Engine/Core/SimulationTick.h>
@@ -412,6 +413,31 @@ int main()
 	check(registryRestarted == 2 && registry.size() == 1 && registryDestructions == 4,
 		"clearing a stable registry destroys live values and starts a fresh handle lifetime");
 	registry.clear();
+
+	int slotDestructions = 0;
+	PinnedSlotCache<RegistryResource, std::uint8_t> slots(3);
+	const auto slotFirst = slots.insert(RegistryResource(10, slotDestructions));
+	const auto slotSecond = slots.insert(RegistryResource(20, slotDestructions));
+	check(slotFirst == 0 && slotSecond == 1 && slots.highWaterMark() == 2 &&
+		slots.retain(0) && slots.pins(0) == 2 &&
+		slots.release(0) == decltype(slots)::ReleaseResult::Retained &&
+		slots.release(0) == decltype(slots)::ReleaseResult::Removed &&
+		slotDestructions == 1,
+		"pinned slot caches retain stable live IDs until their final release");
+	const auto reusedSlot = slots.insert(RegistryResource(30, slotDestructions));
+	const auto finalSlot = slots.insert(RegistryResource(40, slotDestructions));
+	const auto fullSlot = slots.insert(RegistryResource(50, slotDestructions));
+	check(reusedSlot == 0 && finalSlot == 2 && !fullSlot && slots.full() &&
+		slots.find(1) && slots.find(1)->value == 20 && slotDestructions == 2,
+		"pinned slot caches choose the lowest free slot and reject full insertion safely");
+	bool retainedToLimit = true;
+	for (unsigned count = 1; count < 255; ++count)
+		retainedToLimit = slots.retain(1) && retainedToLimit;
+	check(retainedToLimit && slots.pins(1) == 255 && !slots.retain(1),
+		"pinned slot caches reject saturated reference counts without wrapping");
+	slots.clear();
+	check(slots.empty() && slots.highWaterMark() == 0 && slotDestructions == 5,
+		"clearing a pinned slot cache releases each owned resource exactly once");
 
 	std::string path;
 	check(NormalizeAssetPath("TableData\\Items.XML", path) &&
