@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/CachingAssetSource.h>
@@ -148,7 +149,8 @@ private:
 		  packageSaveArchives_(persistence_,
 		                       options.limits.maximumPackageSaveStateRecords,
 		                       options.limits.maximumPackageSaveStateBytes,
-		                       options.limits.maximumTotalPackageSaveStateBytes),
+		                       options.limits.maximumTotalPackageSaveStateBytes,
+		                       options.limits.maximumPackageRandomStreams),
 		  runtimeReports_(persistence_, options.limits.maximumRuntimeReportBytes)
 	{
 		serviceCatalog_.registerService(FrameTelemetryServiceContract, frameTelemetry_);
@@ -310,6 +312,21 @@ public:
 			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.entries(),
 			runtimeCapabilities(), definitions_.records());
 	}
+	RuntimeCompatibilityFingerprint preAggregateCatalogCompatibilityFingerprint() const
+	{
+		std::vector<RuntimeConfigurationEntry> preAggregateConfiguration;
+		preAggregateConfiguration.reserve(runtimeConfiguration_.entries().size());
+		for (const RuntimeConfigurationEntry& entry : runtimeConfiguration_.entries())
+		{
+			if (entry.key == "engine.localization.total-text-byte-limit" ||
+				entry.key == "engine.definitions.total-payload-byte-limit")
+				continue;
+			preAggregateConfiguration.push_back(entry);
+		}
+		return BuildRuntimeCompatibilityFingerprint(
+			packages_.catalog(), serviceCatalog_.snapshot(), preAggregateConfiguration,
+			runtimeCapabilities(), definitions_.records());
+	}
 	RuntimeDiagnosticsSnapshot diagnostics() const
 	{
 		RuntimeDiagnosticsSnapshot result;
@@ -384,7 +401,11 @@ public:
 	RuntimeCheckpointLoadResult loadRuntimeCheckpoint(
 		const std::string& path, RuntimeCheckpoint& checkpoint) const noexcept
 	{
-		try { return runtimeCheckpoints_.load(path, compatibilityFingerprint(), checkpoint); }
+		try
+		{
+			return runtimeCheckpoints_.load(path, compatibilityFingerprint(),
+				preAggregateCatalogCompatibilityFingerprint(), checkpoint);
+		}
 		catch (...) { return RuntimeCheckpointLoadResult{
 			RuntimeCheckpointLoadError::StorageError, {}}; }
 	}

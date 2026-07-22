@@ -325,7 +325,8 @@ PackageSaveMetadataResult InspectPackageSaveStateMetadata(
 		}
 		PackageSaveArchive archive;
 		const PackageSaveArchiveLoadResult loaded = context.packageSaveArchives().load(
-			result.sidecarPath, context.runtime().compatibilityFingerprint(), archive);
+			result.sidecarPath, context.runtime().compatibilityFingerprint(),
+			context.runtime().preAggregateCatalogCompatibilityFingerprint(), archive);
 		result.archiveError = loaded.error;
 		if (loaded.error == PackageSaveArchiveLoadError::NotFound)
 		{

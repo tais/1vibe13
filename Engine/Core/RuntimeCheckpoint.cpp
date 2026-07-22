@@ -82,6 +82,14 @@ RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& pa
 	RuntimeCompatibilityFingerprint expectedCompatibility,
 	RuntimeCheckpoint& checkpoint) const noexcept
 {
+	return load(path, expectedCompatibility, expectedCompatibility, checkpoint);
+}
+
+RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& path,
+	RuntimeCompatibilityFingerprint expectedCompatibility,
+	RuntimeCompatibilityFingerprint alternateExpectedCompatibility,
+	RuntimeCheckpoint& checkpoint) const noexcept
+{
 	try
 	{
 		PersistenceHeader header{};
@@ -123,7 +131,8 @@ RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& pa
 		if (reader.remaining() != 0)
 			return RuntimeCheckpointLoadResult{
 				RuntimeCheckpointLoadError::MalformedPayload, decoded.compatibility};
-		if (decoded.compatibility != expectedCompatibility)
+		if (decoded.compatibility != expectedCompatibility &&
+			decoded.compatibility != alternateExpectedCompatibility)
 			return RuntimeCheckpointLoadResult{
 				RuntimeCheckpointLoadError::IncompatibleRuntime, decoded.compatibility};
 		checkpoint = std::move(decoded);

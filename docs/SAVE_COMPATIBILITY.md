@@ -5,9 +5,14 @@ neighboring files. `.sav.engine-checkpoint` contains a bounded, checksummed
 engine compatibility fingerprint, active package identities and versions, and
 completed engine frame/tick counters. When an active package declares a save
 schema, `.sav.engine-packages` stores its bounded opaque campaign-state record
-in deterministic activation order. Neither file duplicates or replaces JA2's
-tactical or strategic state. Older game builds ignore both, and saves created
-before this feature remain loadable.
+in deterministic activation order. Archive v2 also checkpoints the engine-owned
+deterministic random streams for every active package, including packages with
+no opaque campaign payload. Neither file duplicates or replaces JA2's tactical
+or strategic state. Older game builds ignore both, and saves created before
+this feature remain loadable; the loader still accepts the exact v1 archive.
+For v1 sidecars, compatibility is validated against the reconstructed pre-v2
+runtime fingerprint (the same configuration projection the older host hashed),
+not skipped or weakened; v2 sidecars must match the complete current fingerprint.
 
 The game removes both sidecars when their save slot is removed or replaced.
 New sidecars are written only after the legacy save closes successfully. A

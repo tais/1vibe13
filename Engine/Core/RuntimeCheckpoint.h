@@ -68,6 +68,10 @@ public:
 	RuntimeCheckpointLoadResult load(const std::string& path,
 		RuntimeCompatibilityFingerprint expectedCompatibility,
 		RuntimeCheckpoint& checkpoint) const noexcept;
+	RuntimeCheckpointLoadResult load(const std::string& path,
+		RuntimeCompatibilityFingerprint expectedCompatibility,
+		RuntimeCompatibilityFingerprint alternateExpectedCompatibility,
+		RuntimeCheckpoint& checkpoint) const noexcept;
 
 	std::size_t maximumPackages() const { return maximumPackages_; }
 

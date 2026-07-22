@@ -22,7 +22,8 @@ enum class PackageSaveArchiveSaveError
 	PayloadTooLarge,
 	TotalTooLarge,
 	TooLarge,
-	StorageError
+	StorageError,
+	TooManyRandomStreams
 };
 
 enum class PackageSaveArchiveLoadError
@@ -38,7 +39,9 @@ enum class PackageSaveArchiveLoadError
 	PayloadTooLarge,
 	TotalTooLarge,
 	DuplicatePackage,
-	IncompatibleRuntime
+	IncompatibleRuntime,
+	TooManyRandomStreams,
+	DuplicateRandomStream
 };
 
 struct PackageSaveArchiveLoadResult
@@ -55,25 +58,40 @@ public:
 	explicit PackageSaveArchiveService(PersistenceService& persistence,
 		std::size_t maximumRecords = 4096,
 		std::size_t maximumPackageBytes = 4u * 1024u * 1024u,
-		std::size_t maximumTotalBytes = 16u * 1024u * 1024u)
+		std::size_t maximumTotalBytes = 16u * 1024u * 1024u,
+		std::size_t maximumRandomStreamsPerPackage = 64)
 		: persistence_(persistence), maximumRecords_(maximumRecords),
-		  maximumPackageBytes_(maximumPackageBytes), maximumTotalBytes_(maximumTotalBytes) {}
+		  maximumPackageBytes_(maximumPackageBytes), maximumTotalBytes_(maximumTotalBytes),
+		  maximumRandomStreamsPerPackage_(maximumRandomStreamsPerPackage) {}
 
 	PackageSaveArchiveSaveError save(
 		const std::string& path, const PackageSaveArchive& archive) const noexcept;
 	PackageSaveArchiveLoadResult load(const std::string& path,
 		RuntimeCompatibilityFingerprint expectedCompatibility,
 		PackageSaveArchive& archive) const noexcept;
+	// Version-one archives predate engine-owned state and may carry the exact
+	// compatibility fingerprint produced before v2-only host limits existed.
+	// The alternate remains version-gated; v2 archives must match the current
+	// fingerprint.
+	PackageSaveArchiveLoadResult load(const std::string& path,
+		RuntimeCompatibilityFingerprint expectedCompatibility,
+		RuntimeCompatibilityFingerprint versionOneExpectedCompatibility,
+		PackageSaveArchive& archive) const noexcept;
 
 	std::size_t maximumRecords() const { return maximumRecords_; }
 	std::size_t maximumPackageBytes() const { return maximumPackageBytes_; }
 	std::size_t maximumTotalBytes() const { return maximumTotalBytes_; }
+	std::size_t maximumRandomStreamsPerPackage() const
+	{
+		return maximumRandomStreamsPerPackage_;
+	}
 
 private:
 	PersistenceService& persistence_;
 	std::size_t maximumRecords_;
 	std::size_t maximumPackageBytes_;
 	std::size_t maximumTotalBytes_;
+	std::size_t maximumRandomStreamsPerPackage_;
 };
 
 #endif

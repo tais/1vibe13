@@ -801,7 +801,8 @@ int main()
 		customHost.packages().maximumTotalSaveStateBytes() == 108 &&
 		customHost.packageSaveArchives().maximumRecords() == 15 &&
 		customHost.packageSaveArchives().maximumPackageBytes() == 107 &&
-		customHost.packageSaveArchives().maximumTotalBytes() == 108,
+		customHost.packageSaveArchives().maximumTotalBytes() == 108 &&
+		customHost.packageSaveArchives().maximumRandomStreamsPerPackage() == 2,
 		"named host options configure every owned bounded subsystem coherently");
 
 	EngineHostOptions invalidHostOptions;
@@ -1683,6 +1684,29 @@ int main()
 	MemoryByteStorage checkpointStorage;
 	PersistenceService checkpointPersistence(checkpointStorage, 4096);
 	RuntimeCheckpointService checkpoints(checkpointPersistence, 1);
+	EngineServices checkpointHostServices{
+		ZeroTimeSource::instance(), ZeroRandomSource::instance(), checkpointStorage};
+	EngineHost<unsigned> checkpointHost(checkpointHostServices);
+	const RuntimeCompatibilityFingerprint currentHostFingerprint =
+		checkpointHost.compatibilityFingerprint();
+	const RuntimeCompatibilityFingerprint preAggregateHostFingerprint =
+		checkpointHost.preAggregateCatalogCompatibilityFingerprint();
+	const RuntimeCheckpoint preAggregateCheckpoint{
+		preAggregateHostFingerprint, 31, 47, {}};
+	check(currentHostFingerprint != preAggregateHostFingerprint &&
+		checkpointHost.runtimeCheckpoints().save(
+			"runtime.checkpoint-pre-aggregate", preAggregateCheckpoint) ==
+			RuntimeCheckpointSaveError::None,
+		"the reconstructed pre-aggregate host configuration has its own real fingerprint");
+	RuntimeCheckpoint loadedPreAggregateCheckpoint;
+	const RuntimeCheckpointLoadResult loadedPreAggregateResult =
+		checkpointHost.loadRuntimeCheckpoint(
+			"runtime.checkpoint-pre-aggregate", loadedPreAggregateCheckpoint);
+	check(loadedPreAggregateResult &&
+		loadedPreAggregateCheckpoint.compatibility == preAggregateHostFingerprint &&
+		loadedPreAggregateCheckpoint.completedFrames == 31 &&
+		loadedPreAggregateCheckpoint.completedSimulationTicks == 47,
+		"runtime checkpoints made with the pre-aggregate configuration remain loadable");
 	const RuntimeCheckpoint savedCheckpoint{
 		firstFingerprint, 17, 23, {{"rules.fingerprint", "2.0"}}};
 	check(checkpoints.save("runtime.checkpoint", savedCheckpoint) ==
@@ -1708,14 +1732,33 @@ int main()
 		unchangedCheckpoint.completedFrames == 99 &&
 		unchangedCheckpoint.activePackages[0].id == "unchanged.package",
 		"runtime checkpoint rejects incompatible engines before publishing metadata");
-	PackageSaveArchiveService packageArchives(checkpointPersistence, 2, 8, 12);
-	const PackageSaveArchive savedPackageArchive{firstFingerprint,
+	PackageSaveArchiveService packageArchives(checkpointPersistence, 2, 8, 256);
+	PackageSaveArchive savedPackageArchive{firstFingerprint,
 		PackageSaveStateSnapshot{{
 			PackageSaveStateRecord{"rules.fingerprint", "2.0", 1, {4, 2}},
 			PackageSaveStateRecord{"extension.state", "1.0", 3, {1, 3, 3, 7}}}}};
+	savedPackageArchive.state.engineStatePresent = true;
+	savedPackageArchive.state.engineRecords.push_back(PackageEngineSaveStateRecord{
+		"rules.fingerprint", "2.0",
+		PackageRandomCheckpoint{PackageRandomCheckpoint::CurrentSchema,
+			"rules.fingerprint", {{"combat", 123, 7}}}});
 	check(packageArchives.save("package-state", savedPackageArchive) ==
 			PackageSaveArchiveSaveError::None,
 		"package save archive writes ordered bounded state through persistence envelopes");
+	PackageSaveArchive missingEngineMarker = savedPackageArchive;
+	missingEngineMarker.state.engineStatePresent = false;
+	check(packageArchives.save("package-state-invalid", missingEngineMarker) ==
+			PackageSaveArchiveSaveError::InvalidArchive &&
+		!checkpointStorage.exists("package-state-invalid"),
+		"package save archives reject hidden engine records transactionally");
+	PackageSaveArchiveService tightPackageArchives(
+		checkpointPersistence, 2, 8, 12, 64);
+	check(tightPackageArchives.save("package-state-over-budget", savedPackageArchive) ==
+			PackageSaveArchiveSaveError::TotalTooLarge &&
+		!checkpointStorage.exists("package-state-over-budget"),
+		"engine-owned save records share the aggregate package-state byte budget");
+	std::vector<std::uint8_t> encodedPackageArchive;
+	checkpointStorage.readAll("package-state", encodedPackageArchive);
 	PackageSaveArchive loadedPackageArchive;
 	const PackageSaveArchiveLoadResult loadedPackageState = packageArchives.load(
 		"package-state", firstFingerprint, loadedPackageArchive);
@@ -1724,8 +1767,87 @@ int main()
 		loadedPackageArchive.state.records[1].packageId == "extension.state" &&
 		loadedPackageArchive.state.records[1].schemaVersion == 3 &&
 		loadedPackageArchive.state.records[1].payload ==
-			std::vector<std::uint8_t>({1, 3, 3, 7}),
-		"package save archive round-trips identity, schemas, order, and opaque bytes");
+			std::vector<std::uint8_t>({1, 3, 3, 7}) &&
+		loadedPackageArchive.state.engineStatePresent &&
+		loadedPackageArchive.state.engineRecords.size() == 1 &&
+		loadedPackageArchive.state.engineRecords[0].random.streams.size() == 1 &&
+		loadedPackageArchive.state.engineRecords[0].random.streams[0].state == 123 &&
+		encodedPackageArchive.size() >= 6 && encodedPackageArchive[4] == 2 &&
+		encodedPackageArchive[5] == 0,
+		"package save archive v2 round-trips opaque and engine-owned state");
+	PackageSaveArchive tightLoadOutput{firstFingerprint,
+		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
+	const PackageSaveArchiveLoadResult tightLoad = tightPackageArchives.load(
+		"package-state", firstFingerprint, tightLoadOutput);
+	check(tightLoad.error == PackageSaveArchiveLoadError::TotalTooLarge &&
+		tightLoadOutput.state.records.size() == 1 &&
+		tightLoadOutput.state.records[0].packageId == "unchanged",
+		"engine-state budget failures do not publish partially decoded archives");
+	const std::vector<std::uint8_t> versionOneArchiveFixture{
+		0x50, 0x47, 0x53, 0x54, 0x01, 0x00, 0x2f, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0xb5, 0x6d, 0x61, 0xed, 0x01, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00,
+		0x00, 0x00, 0x70, 0x01, 0x00, 0x00, 0x00, 0x76, 0x01, 0x00, 0x00,
+		0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7f};
+	checkpointStorage.writeAll("package-state-v1", versionOneArchiveFixture);
+	PackageSaveArchive loadedVersionOneArchive;
+	const PackageSaveArchiveLoadResult loadedVersionOneState = packageArchives.load(
+		"package-state-v1", RuntimeCompatibilityFingerprint{1, 2, 3},
+		loadedVersionOneArchive);
+	check(loadedVersionOneState && loadedVersionOneArchive.state.records.size() == 1 &&
+		loadedVersionOneArchive.state.records[0].packageId == "p" &&
+		loadedVersionOneArchive.state.records[0].packageVersion == "v" &&
+		loadedVersionOneArchive.state.records[0].payload ==
+			std::vector<std::uint8_t>({0x7f}) &&
+		!loadedVersionOneArchive.state.engineStatePresent &&
+		loadedVersionOneArchive.state.engineRecords.empty(),
+		"package save archive loads the exact pre-v2 byte fixture unchanged");
+	BinaryWriter preAggregateVersionOnePayload;
+	preAggregateVersionOnePayload.writeU32(preAggregateHostFingerprint.schema);
+	preAggregateVersionOnePayload.writeU64(preAggregateHostFingerprint.high);
+	preAggregateVersionOnePayload.writeU64(preAggregateHostFingerprint.low);
+	preAggregateVersionOnePayload.writeU32(1);
+	preAggregateVersionOnePayload.writeString("p");
+	preAggregateVersionOnePayload.writeString("v");
+	preAggregateVersionOnePayload.writeU32(1);
+	preAggregateVersionOnePayload.writeU64(1);
+	preAggregateVersionOnePayload.writeU8(0x7f);
+	check(checkpointPersistence.saveEnvelope("package-state-pre-aggregate-v1",
+			PersistenceHeader{0x54534750u, 1}, preAggregateVersionOnePayload.bytes()) ==
+			PersistenceSaveResult::Success,
+		"tests can reproduce the pre-v2 package archive with a real old host fingerprint");
+	PackageSaveArchive loadedPreAggregateVersionOneArchive;
+	const PackageSaveArchiveLoadResult loadedPreAggregateVersionOne =
+		packageArchives.load("package-state-pre-aggregate-v1", currentHostFingerprint,
+			preAggregateHostFingerprint, loadedPreAggregateVersionOneArchive);
+	check(loadedPreAggregateVersionOne &&
+		loadedPreAggregateVersionOneArchive.compatibility == preAggregateHostFingerprint &&
+		loadedPreAggregateVersionOneArchive.state.records.size() == 1 &&
+		loadedPreAggregateVersionOneArchive.state.records[0].payload ==
+			std::vector<std::uint8_t>({0x7f}),
+		"v1 package archives validate against the reconstructed pre-aggregate fingerprint");
+	PackageSaveArchive rejectedPreAggregateVersionOne;
+	const PackageSaveArchiveLoadResult rejectedWithoutPreAggregateFingerprint =
+		packageArchives.load("package-state-pre-aggregate-v1", currentHostFingerprint,
+			rejectedPreAggregateVersionOne);
+	check(rejectedWithoutPreAggregateFingerprint.error ==
+			PackageSaveArchiveLoadError::IncompatibleRuntime,
+		"v1 package archive compatibility remains validated rather than bypassed");
+	PackageSaveArchive preAggregateVersionTwoArchive{
+		preAggregateHostFingerprint, PackageSaveStateSnapshot{}};
+	preAggregateVersionTwoArchive.state.engineStatePresent = true;
+	check(packageArchives.save(
+			"package-state-pre-aggregate-v2", preAggregateVersionTwoArchive) ==
+			PackageSaveArchiveSaveError::None,
+		"tests can encode a structurally valid v2 archive with the legacy fingerprint");
+	PackageSaveArchive rejectedPreAggregateVersionTwo;
+	const PackageSaveArchiveLoadResult rejectedPreAggregateVersionTwoResult =
+		packageArchives.load("package-state-pre-aggregate-v2", currentHostFingerprint,
+			preAggregateHostFingerprint, rejectedPreAggregateVersionTwo);
+	check(rejectedPreAggregateVersionTwoResult.error ==
+			PackageSaveArchiveLoadError::IncompatibleRuntime,
+		"v2 package archives cannot use the pre-aggregate compatibility alternative");
 	PackageSaveArchive unchangedPackageArchive{firstFingerprint,
 		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
 	const PackageSaveArchiveLoadResult incompatiblePackageState = packageArchives.load(

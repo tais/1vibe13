@@ -295,7 +295,11 @@ the engine must not contain SDL types in its public domain model.
   domain save succeeds. JA2 transports it in a companion sidecar so the legacy
   serializer and old builds remain compatible. Its value model has a separate
   engine-owned per-package section for framework services such as deterministic
-  random streams; this does not change package callback payload schemas.
+  random streams; this does not change package callback payload schemas. Archive
+  v2 writes that bounded section while the loader retains byte-compatible v1
+  support, treating old saves as having no engine-owned checkpoint. Encoded
+  engine records and streams share the package-save aggregate byte budget with
+  opaque payloads; the general persistence-envelope limit remains a final cap.
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O
