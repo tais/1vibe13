@@ -3113,7 +3113,8 @@ int main( int, char** )
 		       observerDiagnostics.turnSerial == 2 &&
 		       observerDiagnostics.worldTransitions == 1 &&
 		       observerDiagnostics.observerResets == 0 &&
-		       observerDiagnostics.publishAttempts == 0 && liveTacticalDeltaSinkAdded &&
+		       observerDiagnostics.publishAttempts == 0 &&
+		       observerDiagnostics.preparationAttempts == 0 && liveTacticalDeltaSinkAdded &&
 		       liveRuntimeMessages.queued() == 0 && liveTacticalDeltaSink.messages.empty(),
 		       "production baseline observation is retained without publishing a message" );
 		const TacticalWorldSnapshot* baselinePublicationStorage = observedPublication.snapshot;
@@ -3147,6 +3148,7 @@ int main( int, char** )
 		       observerDiagnostics.turnSerial == 3 &&
 		       observerDiagnostics.messageSequence != 0 &&
 		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.preparationAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 1 && liveTacticalDeltaSink.messages.empty(),
 		       "production safe-frame bridge queues one message for a new non-empty delta" );
@@ -3202,6 +3204,7 @@ int main( int, char** )
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
 		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.preparationAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 0,
 		       "live adapter failure preserves the last complete observer publication" );
@@ -3220,6 +3223,7 @@ int main( int, char** )
 		       observerDiagnostics.handledDeltaSerial == 2 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.preparationAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 0,
 		       "unchanged live captures suppress empty and duplicate delta messages" );
@@ -3247,6 +3251,7 @@ int main( int, char** )
 		       observerDiagnostics.pendingDeltaSerial == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 2 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publicationFailures == 1 && observedActor &&
 		       observedActor->grid == 347 && observedPublication.delta->events.size() == 1,
 		       "queue-full publication retains one bounded observer delta for retry" );
@@ -3265,6 +3270,7 @@ int main( int, char** )
 		       observerDiagnostics.pendingDeltaSerial == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 3 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       observerDiagnostics.publicationFailures == 2,
 		       "a failed retry backpressures observation and retains the same delta serial" );
@@ -3282,6 +3288,7 @@ int main( int, char** )
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
 		       observerDiagnostics.publishedDeltaSerial == 3 &&
 		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publishedMessages == 2 &&
 		       observerDiagnostics.publicationFailures == 2,
 		       "the next safe frame retries the retained serial before taking another observation" );
@@ -3325,6 +3332,7 @@ int main( int, char** )
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
 		       observerDiagnostics.publishedDeltaSerial == 3 &&
 		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publishedMessages == 2 &&
 		       observerDiagnostics.publicationFailures == 2,
 		       "observation resumes after retry and suppresses the unchanged frame" );
@@ -3341,6 +3349,7 @@ int main( int, char** )
 		           TacticalWorldDeltaPublishError::QueueFull &&
 		       observerDiagnostics.pendingDeltaSerial == 4 &&
 		       observerDiagnostics.publishAttempts == 5 &&
+		       observerDiagnostics.preparationAttempts == 3 &&
 		       observerDiagnostics.publicationFailures == 3 &&
 		       observerDiagnostics.discardedPendingDeltas == 0,
 		       "a final queue-full delta provides an unload backpressure fixture" );
@@ -3370,6 +3379,7 @@ int main( int, char** )
 		       observerDiagnostics.observerResets == 1 &&
 		       observerDiagnostics.discardedPendingDeltas == 1 &&
 		       observerDiagnostics.publishAttempts == 5 &&
+		       observerDiagnostics.preparationAttempts == 3 &&
 		       observerDiagnostics.publishedMessages == 2 &&
 		       observerDiagnostics.publicationFailures == 3 &&
 		       packageSaveAfterObservation.error == packageSaveBeforeObservation.error &&

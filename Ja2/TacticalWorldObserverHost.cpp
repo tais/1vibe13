@@ -47,9 +47,8 @@ public:
 		if (synchronizeWorldLifecycle()) return;
 
 		// A failed transient publication pins the observer's bounded latest
-		// delta. No other code can update the observer, so this pointer remains
-		// valid until the retry succeeds or fails permanently. Retrying before
-		// observation provides one-item backpressure without another allocation.
+		// delta. Once encoded, the retained request is retried byte-for-byte, so
+		// queue pressure neither re-encodes nor reallocates the payload.
 		if (pendingDelta_)
 		{
 			publishDelta(*pendingDelta_, pendingDeltaSerial_, messages);
@@ -103,7 +102,7 @@ public:
 			pendingDeltaSerial_, publishedDeltaSerial_, messageSequence_, payloadBytes_,
 			publishAttempts_, publishedMessages_, publicationFailures_,
 			worldGeneration_, turnSerial_, worldTransitions_, observerResets_,
-			discardedPendingDeltas_};
+			discardedPendingDeltas_, preparationAttempts_};
 	}
 
 private:
@@ -149,16 +148,34 @@ private:
 		std::uint64_t serial,
 		RuntimeMessageBus& messages) noexcept
 	{
-		// Mark the observer-owned delta pending before any codec or bus work.
-		// The pointer is cleared on success and on permanent validation/configuration
-		// failures; transient resource failures retain it for the next safe frame.
+		// Mark the observer-owned delta pending before any codec or bus work. The
+		// pointer permits retrying a transient preparation failure; after preparation,
+		// pendingPrepared_ owns the exact bytes retried at later safe frames.
 		pendingDelta_ = &delta;
 		pendingDeltaSerial_ = serial;
 		IncrementSaturated(publishAttempts_);
 		const TacticalWorldDeltaPublisher publisher(
 			messages, TacticalWorldDeltaPublishLimits{
 				Ja2TacticalMaximumEvents, messages.maxPayloadBytes()});
-		const TacticalWorldDeltaPublishResult published = publisher.publish(delta);
+		if (!pendingPrepared_)
+		{
+			IncrementSaturated(preparationAttempts_);
+			const TacticalWorldDeltaPublishError prepared =
+				publisher.prepare(delta, pendingPrepared_);
+			lastPublishError_ = prepared;
+			messageSequence_ = 0;
+			payloadBytes_ = pendingPrepared_.payloadBytes;
+			if (prepared != TacticalWorldDeltaPublishError::None)
+			{
+				bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::PublishFailed;
+				IncrementSaturated(publicationFailures_);
+				if (!IsRetryablePublishFailure(prepared)) clearPendingDelta();
+				return;
+			}
+		}
+
+		const TacticalWorldDeltaPublishResult published =
+			publisher.publishPrepared(pendingPrepared_);
 		lastPublishError_ = published.error;
 		messageSequence_ = published.sequence;
 		payloadBytes_ = published.payloadBytes;
@@ -180,6 +197,7 @@ private:
 	{
 		pendingDelta_ = nullptr;
 		pendingDeltaSerial_ = 0;
+		pendingPrepared_ = PreparedTacticalWorldDeltaMessage{};
 	}
 
 	TacticalWorldObserver observer_;
@@ -193,6 +211,7 @@ private:
 	std::uint64_t handledDeltaSerial_ = 0;
 	const TacticalWorldDelta* pendingDelta_ = nullptr;
 	std::uint64_t pendingDeltaSerial_ = 0;
+	PreparedTacticalWorldDeltaMessage pendingPrepared_;
 	std::uint64_t publishedDeltaSerial_ = 0;
 	std::uint64_t messageSequence_ = 0;
 	std::size_t payloadBytes_ = 0;
@@ -205,6 +224,7 @@ private:
 	std::uint64_t worldTransitions_ = 0;
 	std::uint64_t observerResets_ = 0;
 	std::uint64_t discardedPendingDeltas_ = 0;
+	std::uint64_t preparationAttempts_ = 0;
 };
 
 Ja2TacticalWorldObserverHost& GetObserverHost() noexcept

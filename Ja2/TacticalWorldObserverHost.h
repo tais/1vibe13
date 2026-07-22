@@ -42,6 +42,7 @@ struct Ja2TacticalWorldObserverDiagnostics
 	std::uint64_t worldTransitions = 0;
 	std::uint64_t observerResets = 0;
 	std::uint64_t discardedPendingDeltas = 0;
+	std::uint64_t preparationAttempts = 0;
 };
 
 // Application-owned read-only service registered with the production engine

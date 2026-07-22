@@ -45,6 +45,20 @@ struct TacticalWorldDeltaPublishResult
 	}
 };
 
+// Encoded once and retained by the caller until the runtime bus accepts it.
+// publishPrepared consumes request ownership only on success.
+struct PreparedTacticalWorldDeltaMessage
+{
+	RuntimeMessageRequest request;
+	std::size_t eventCount = 0;
+	std::size_t payloadBytes = 0;
+
+	explicit operator bool() const noexcept
+	{
+		return payloadBytes != 0 && !request.payload.empty();
+	}
+};
+
 // Stable translations are public so hosts that defer or wrap publication can
 // preserve the same package-facing failure contract.
 TacticalWorldDeltaPublishError MapTacticalWorldDeltaEncodeError(
@@ -67,10 +81,20 @@ public:
 
 	// Validation, encoding, and queueing are transactional. Any failure leaves
 	// the bus queue and sequence unchanged.
+	TacticalWorldDeltaPublishError prepare(
+		const TacticalWorldDelta& delta,
+		PreparedTacticalWorldDeltaMessage& output) const noexcept;
+	TacticalWorldDeltaPublishResult publishPrepared(
+		PreparedTacticalWorldDeltaMessage& prepared) const noexcept;
 	TacticalWorldDeltaPublishResult publish(
 		const TacticalWorldDelta& delta) const noexcept;
 
 private:
+	TacticalWorldDeltaPublishError prepareImpl(
+		const TacticalWorldDelta& delta,
+		PreparedTacticalWorldDeltaMessage& output,
+		std::size_t* encodedPayloadBytes) const noexcept;
+
 	RuntimeMessageBus& messages_;
 	std::size_t maximumEvents_;
 	std::size_t maximumPayloadBytes_;

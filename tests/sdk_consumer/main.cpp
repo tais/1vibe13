@@ -377,7 +377,11 @@ int main()
 		return 24;
 	TacticalWorldDeltaPublisher publisher(
 		messages, TacticalWorldDeltaPublishLimits{3, 4096});
-	const TacticalWorldDeltaPublishResult published = publisher.publish(*publication.delta);
+	PreparedTacticalWorldDeltaMessage preparedPublication;
+	if (publisher.prepare(*publication.delta, preparedPublication) !=
+		TacticalWorldDeltaPublishError::None) return 25;
+	const TacticalWorldDeltaPublishResult published =
+		publisher.publishPrepared(preparedPublication);
 	if (!published || published.sequence != 1 || published.payloadBytes == 0 ||
 		messages.queued() != 1) return 25;
 	const RuntimeMessageDispatchResult dispatched = messages.dispatchPending();

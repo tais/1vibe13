@@ -1101,6 +1101,55 @@ int main()
 		tacticalMessageSink.messages[0].payload == encodedDelta,
 		"tactical delta publisher delivers unchanged deterministic codec bytes to package sinks");
 
+	RuntimeMessageBus preparedDeltaMessages(1, encodedDelta.size());
+	RecordingRuntimeMessageSink preparedDeltaSink;
+	preparedDeltaMessages.addSink(preparedDeltaSink);
+	preparedDeltaMessages.publish(RuntimeMessageRequest{
+		"fixture.blocker", "fixture.host", {9}});
+	TacticalWorldDeltaPublisher preparedDeltaPublisher(
+		preparedDeltaMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+	PreparedTacticalWorldDeltaMessage preparedDelta;
+	const TacticalWorldDeltaPublishError deltaPrepared =
+		preparedDeltaPublisher.prepare(codecFixture, preparedDelta);
+	const std::vector<std::uint8_t> retainedDeltaPayload =
+		preparedDelta.request.payload;
+	const TacticalWorldDeltaPublishResult preparedDeltaPressure =
+		preparedDeltaPublisher.publishPrepared(preparedDelta);
+	const bool preparedDeltaRetained =
+		preparedDelta.eventCount == codecFixture.events.size() &&
+		preparedDelta.payloadBytes == encodedDelta.size() &&
+		preparedDelta.request.payload == retainedDeltaPayload &&
+		preparedDelta.request.topic == TacticalWorldDeltaMessageTopic &&
+		preparedDelta.request.source == TacticalWorldDeltaMessageSource;
+	preparedDeltaMessages.dispatchPending();
+	const TacticalWorldDeltaPublishResult preparedDeltaPublished =
+		preparedDeltaPublisher.publishPrepared(preparedDelta);
+	preparedDeltaMessages.dispatchPending();
+	TacticalWorldDelta deliveredPreparedDelta;
+	const bool preparedDeltaDecoded = preparedDeltaSink.messages.size() == 2 &&
+		DecodeTacticalWorldDelta(
+			preparedDeltaSink.messages[1].payload, deliveredPreparedDelta) ==
+				TacticalWorldDeltaDecodeResult::Success;
+	check(deltaPrepared == TacticalWorldDeltaPublishError::None &&
+		preparedDeltaPressure.error == TacticalWorldDeltaPublishError::QueueFull &&
+		preparedDeltaRetained && preparedDeltaPublished &&
+		preparedDeltaPublished.sequence == 2 && preparedDelta.request.payload.empty() &&
+		preparedDeltaDecoded && deliveredPreparedDelta.events.size() == 8,
+		"prepared tactical deltas encode once and retain exact bytes across bus pressure");
+	PreparedTacticalWorldDeltaMessage retainedPreparedDelta;
+	retainedPreparedDelta.request.payload = {7};
+	retainedPreparedDelta.eventCount = 1;
+	retainedPreparedDelta.payloadBytes = 1;
+	TacticalWorldDeltaPublisher tinyPreparedDeltaPublisher(
+		preparedDeltaMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size() - 1});
+	check(tinyPreparedDeltaPublisher.prepare(codecFixture, retainedPreparedDelta) ==
+			TacticalWorldDeltaPublishError::PayloadTooLarge &&
+		retainedPreparedDelta.request.payload == std::vector<std::uint8_t>({7}) &&
+		retainedPreparedDelta.eventCount == 1 && retainedPreparedDelta.payloadBytes == 1,
+		"tactical delta preparation enforces payload limits transactionally");
+
 	check(
 		MapTacticalWorldDeltaEncodeError(TacticalWorldDeltaEncodeResult::Success) ==
 			TacticalWorldDeltaPublishError::None &&
