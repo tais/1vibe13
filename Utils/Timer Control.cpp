@@ -13,10 +13,9 @@
 #include "Soldier Control.h"
 #include "connect.h"
 
-#include <atomic>
-#include <condition_variable>
-#include <list>
-#include <mutex>
+#include <algorithm>
+#include <deque>
+#include <limits>
 #include <thread>
 
 // Base resolution of callback timer
@@ -43,7 +42,7 @@ const inline UINT32 TIME_MS_TO_US(UINT32 value) { return value * 1000; }
 UINT32   giFastForwardPeriod = FASTFORWARDTIMESLICE;
 BOOLEAN giFastForwardMode = FALSE;
 INT32   giFastForwardKey = 0;
-FLOAT gfClockSpeedPercent = 1.0;
+FLOAT gfClockSpeedPercent = 100.0;
 
 
 INT32		giTimerIntervals[ NUMTIMERS ] =
@@ -122,20 +121,33 @@ extern INT32 giPotCharPathBaseTime;
 // sevenfm: display overflow detection
 extern void MapScreenMessage(UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ...);
 
-// Clock thread state. std::thread + std::atomic<bool> for shutdown
-// signaling. Replaces the Win32 HANDLEs from the original.
-// (The old notify thread + condition_variable hand-off was removed: its
-// sole purpose was driving GameLoop off-thread via the notify callback,
-// which is gone -- the main loop is the only GameLoop driver now.)
-static std::thread gClockThread;
-static std::atomic<bool> gShutdownRequested{false};
-static std::thread::id gClockThreadId;
+// Legacy timer/game globals are not atomic and several tick paths walk live
+// soldier arrays. They therefore have one owner: the thread that initializes
+// the clock (the SDL game thread). A frame may execute several fixed steps to
+// recover elapsed time, but work per frame is bounded and any remaining debt
+// stays represented by gNextClockStepMicroseconds.
+static std::thread::id gClockOwnerThreadId;
+static BOOLEAN gClockInitialized = FALSE;
+static UINT64 gNextClockStepMicroseconds = 0;
+static UINT64 gLastClockPumpMicroseconds = 0;
+static UINT64 gScheduledClockPeriodMicroseconds = 10000;
+static BOOLEAN gScheduledClockPaused = FALSE;
+static BOOLEAN gScheduledFastForward = FALSE;
+static JA2_CLOCK_TIME_SOURCE gClockTestTimeSource = NULL;
+static JA2_CLOCK_KEY_STATE_SOURCE gClockTestKeyStateSource = NULL;
+static const UINT32 MAX_CLOCK_STEPS_PER_PUMP = 100;
+static const UINT64 MAX_RETAINED_CLOCK_DEBT_MICROSECONDS = 1000000;
+static const size_t MAX_CLOCK_DEBT_SEGMENTS = 1024;
 
-// Current period of the non-hispeed clock tick in milliseconds. The
-// portable rewrite drops Win32's gtc.wPeriodMin (system timer
-// resolution); std::chrono is always microsecond-precise so the
-// fast-forward branch can sleep for 1ms directly.
-static std::atomic<UINT32> gClockTickPeriodMs{10};
+struct ClockDebtSegment
+{
+	UINT64 steps;
+	UINT64 periodMicroseconds;
+	BOOLEAN paused;
+};
+
+static std::deque<ClockDebtSegment> gClockDebtSegments;
+static UINT64 gQueuedClockDebtMicroseconds = 0;
 
 
 // Local function-pointer alias matching the legacy mmsystem
@@ -146,132 +158,354 @@ typedef void (*JA2TimerProcFn)(UINT, UINT, DWORD, DWORD, DWORD);
 void FlashItem( UINT uiID, UINT uiMsg, DWORD uiUser, DWORD uiDw1, DWORD uiDw2 );
 static BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft );
 static BOOLEAN UpdateCounter( INT32 counter, INT32 &iTimeLeft);
-static void UpdateTimer();
 void ResetJA2ClockGlobalTimers(void);
+
+static UINT64 ClockNowMicroseconds()
+{
+	return gClockTestTimeSource
+		? gClockTestTimeSource()
+		: static_cast<UINT64>( GetPlatformTimeSource().nowMicroseconds() );
+}
 
 static LONGLONG NowMicroseconds()
 {
-	return static_cast<LONGLONG>(GetPlatformTimeSource().nowMicroseconds());
+	return static_cast<LONGLONG>( std::min<UINT64>(
+		ClockNowMicroseconds(), std::numeric_limits<LONGLONG>::max() ) );
 }
 
-static void TimeProc()
+static void ProcessLegacyClockStep( BOOLEAN paused )
 {
-	static BOOLEAN fInFunction = FALSE;
+	INT32 iTimeLeft = 0;
+	guiBaseJA2NoPauseClock += BASETIMESLICE;
 
-	if ( !fInFunction )
+	if ( !paused )
 	{
-		fInFunction = TRUE;
+		UINT32 uiOldClock = guiBaseJA2Clock;
 
-		BOOLEAN timerDone = FALSE;
-		BOOLEAN tickTime = FALSE;
-		INT32 iTimeLeft = 0;
+		guiBaseJA2Clock += BASETIMESLICE;
 
-		// Mirror QPC behaviour: in hispeed mode only advance once
-		// sufficient real time has passed since the previous tick;
-		// in normal mode the tick rate is governed by the clock
-		// thread's sleep cadence and we tick every call.
-		if (IsHiSpeedClockMode())
+		// Terapevt suggested fix
+		if ((INT32)guiBaseJA2Clock < 0)
+			guiBaseJA2Clock = 0;
+
+		// detect overflow
+		if (uiOldClock > guiBaseJA2Clock)
 		{
-			gPerfCount = NowMicroseconds();
-			if (gPerfCount > gPerfCountNext)
+			MapScreenMessage(162, 0, L"guiBaseJA2Clock overflow detected!");
+			for (UINT32 cnt = 0; cnt < TOTAL_SOLDIERS; cnt++)
 			{
-				INT32 iNext = IsFastForwardMode() ? giFastForwardPeriod : UPDATETIMESLICE;
-				giIncrement = iNext;
-				gPerfCountNext = gPerfCount + iNext;
-				iTimeLeft = iNext;
-				timerDone = IsFastForwardMode();
-				tickTime = TRUE;
+				if (MercPtrs[cnt])
+					MercPtrs[cnt]->ResetSoldierChangeStatTimer();
+			}
+		}
+
+		for ( UINT32 cnt = 0; cnt < NUMTIMERS; cnt++ )
+		{
+			UpdateCounter( cnt, iTimeLeft );
+		}
+
+		// Update some specialized countdown timers...
+		UpdateTimeCounter( giTimerAirRaidQuote, iTimeLeft );
+		UpdateTimeCounter( giTimerAirRaidDiveStarted, iTimeLeft );
+		UpdateTimeCounter( giTimerAirRaidUpdate, iTimeLeft );
+		UpdateTimeCounter( giTimerTeamTurnUpdate, iTimeLeft );
+
+		if ( gpCustomizableTimerCallback )
+		{
+			UpdateTimeCounter( giTimerCustomizable, iTimeLeft );
+		}
+
+#ifndef BOUNDS_CHECKER
+		if( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN )
+		{
+			for ( UINT32 cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; cnt <= (UINT32)gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++ )
+			{
+				SOLDIERTYPE* pSoldier = MercPtrs[ cnt ];
+				UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
+				UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
 			}
 		}
 		else
 		{
-			tickTime = TRUE;
-			timerDone = !IsFastForwardMode();
-		}
-
-		if (tickTime)
-		{
-			guiBaseJA2NoPauseClock += BASETIMESLICE;
-
-			if ( !gfPauseClock )
+			for ( UINT32 cnt = 0; cnt < guiNumMercSlots; cnt++ )
 			{
-				UINT32 uiOldClock = guiBaseJA2Clock;
+				SOLDIERTYPE* pSoldier = MercSlots[ cnt ];
 
-				guiBaseJA2Clock += BASETIMESLICE;
-
-				// Terapevt suggested fix
-				if ((INT32)guiBaseJA2Clock < 0)
-					guiBaseJA2Clock = 0;
-
-				// detect overflow
-				if (uiOldClock > guiBaseJA2Clock)
+				if ( pSoldier != NULL )
 				{
-					MapScreenMessage(162, 0, L"guiBaseJA2Clock overflow detected!");
-					for (UINT32 cnt = 0; cnt < TOTAL_SOLDIERS; cnt++)
-					{
-						if (MercPtrs[cnt])
-							MercPtrs[cnt]->ResetSoldierChangeStatTimer();
-					}
-				}
-
-				for ( UINT32 cnt = 0; cnt < NUMTIMERS; cnt++ )
-				{
-					timerDone |= UpdateCounter( cnt, iTimeLeft  );
-				}
-
-				// Update some specialized countdown timers...
-				timerDone |= UpdateTimeCounter( giTimerAirRaidQuote, iTimeLeft );
-				timerDone |= UpdateTimeCounter( giTimerAirRaidDiveStarted, iTimeLeft );
-				timerDone |= UpdateTimeCounter( giTimerAirRaidUpdate, iTimeLeft );
-				timerDone |= UpdateTimeCounter( giTimerTeamTurnUpdate, iTimeLeft );
-
-				if ( gpCustomizableTimerCallback )
-				{
-					timerDone |= UpdateTimeCounter( giTimerCustomizable, iTimeLeft );
-				}
-
-#ifndef BOUNDS_CHECKER
-
-				if( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN )
-				{
-					for ( UINT32 cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; cnt <= (UINT32)gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++ )
-					{
-						SOLDIERTYPE* pSoldier = MercPtrs[ cnt ];
-						timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
-						timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
-					}
-				}
-				else
-				{
-					for ( UINT32 cnt = 0; cnt < guiNumMercSlots; cnt++ )
-					{
-						SOLDIERTYPE* pSoldier = MercSlots[ cnt ];
-
-						if ( pSoldier != NULL )
-						{
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.UpdateCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.DamageCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.ReloadCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.FlashSelCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.BlinkSelCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.AICounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.FadeCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.NextTileCounter, iTimeLeft );
-							timerDone |= UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.UpdateCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.DamageCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.ReloadCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.FlashSelCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.BlinkSelCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.AICounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.FadeCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.NextTileCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
 #ifdef JA2UB
-							timerDone |= UpdateTimeCounter( pSoldier->GetupFromJA25StartCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->GetupFromJA25StartCounter, iTimeLeft );
 #endif
-						}
-					}
 				}
-#endif
 			}
 		}
-
-		(void)timerDone;
-		fInFunction = FALSE;
+#endif
 	}
+}
+
+static UINT64 ClockStepPeriodMicroseconds( BOOLEAN fastForward )
+{
+	if ( IsHiSpeedClockMode() )
+	{
+		return fastForward
+			// The retired worker always slept at least one millisecond in
+			// fast-forward mode, so sub-millisecond settings never produced
+			// more than one legacy step per millisecond.
+			? std::max<UINT32>( FASTFORWARDTIMESLICE, giFastForwardPeriod )
+			: std::max<INT32>( 1, UPDATETIMESLICE );
+	}
+
+	// Preserve the old portable normal-mode timer's millisecond truncation.
+	return static_cast<UINT64>( fastForward
+		? 1u
+		: std::max<UINT32>( 1u, TIME_US_TO_MS( UPDATETIMESLICE ) ) ) * 1000u;
+}
+
+static UINT64 SaturatingAdd( UINT64 value, UINT64 increment )
+{
+	return value > std::numeric_limits<UINT64>::max() - increment
+		? std::numeric_limits<UINT64>::max()
+		: value + increment;
+}
+
+static UINT64 SaturatingMultiply( UINT64 value, UINT64 multiplier )
+{
+	if ( value == 0 || multiplier == 0 ) return 0;
+	return value > std::numeric_limits<UINT64>::max() / multiplier
+		? std::numeric_limits<UINT64>::max()
+		: value * multiplier;
+}
+
+static UINT64 ScheduledStepsDue( UINT64 nowMicroseconds )
+{
+	if ( nowMicroseconds <= gNextClockStepMicroseconds ) return 0;
+	const UINT64 elapsedPastDeadline =
+		nowMicroseconds - gNextClockStepMicroseconds;
+	return 1u +
+		( elapsedPastDeadline - 1u ) / gScheduledClockPeriodMicroseconds;
+}
+
+static void ClearQueuedClockDebt()
+{
+	gClockDebtSegments.clear();
+	gQueuedClockDebtMicroseconds = 0;
+}
+
+static BOOLEAN QueueClockDebt( UINT64 steps, UINT64 periodMicroseconds,
+	BOOLEAN paused )
+{
+	if ( steps == 0 ) return TRUE;
+	const UINT64 duration = SaturatingMultiply( steps, periodMicroseconds );
+	if ( duration > MAX_RETAINED_CLOCK_DEBT_MICROSECONDS ||
+		gQueuedClockDebtMicroseconds >
+			MAX_RETAINED_CLOCK_DEBT_MICROSECONDS - duration )
+		return FALSE;
+
+	if ( !gClockDebtSegments.empty() &&
+		gClockDebtSegments.back().periodMicroseconds == periodMicroseconds &&
+		gClockDebtSegments.back().paused == paused )
+	{
+		gClockDebtSegments.back().steps = SaturatingAdd(
+			gClockDebtSegments.back().steps, steps );
+	}
+	else
+	{
+		if ( gClockDebtSegments.size() >= MAX_CLOCK_DEBT_SEGMENTS ) return FALSE;
+		gClockDebtSegments.push_back(
+			ClockDebtSegment{ steps, periodMicroseconds, paused } );
+	}
+	gQueuedClockDebtMicroseconds += duration;
+	return TRUE;
+}
+
+static UINT32 ProcessQueuedClockDebt( UINT32 limit )
+{
+	UINT32 processed = 0;
+	while ( processed < limit && !gClockDebtSegments.empty() )
+	{
+		ClockDebtSegment& segment = gClockDebtSegments.front();
+		const UINT64 available = static_cast<UINT64>( limit - processed );
+		const UINT32 count = static_cast<UINT32>(
+			std::min<UINT64>( segment.steps, available ) );
+		for ( UINT32 step = 0; step < count; ++step )
+			ProcessLegacyClockStep( segment.paused );
+
+		segment.steps -= count;
+		processed += count;
+		gQueuedClockDebtMicroseconds -=
+			static_cast<UINT64>( count ) * segment.periodMicroseconds;
+		if ( segment.steps == 0 ) gClockDebtSegments.pop_front();
+	}
+	return processed;
+}
+
+static BOOLEAN QueueCurrentScheduleDebt( UINT64 nowMicroseconds )
+{
+	const UINT64 steps = ScheduledStepsDue( nowMicroseconds );
+	if ( !QueueClockDebt( steps, gScheduledClockPeriodMicroseconds,
+		gScheduledClockPaused ) )
+		return FALSE;
+
+	gNextClockStepMicroseconds = SaturatingAdd(
+		gNextClockStepMicroseconds,
+		SaturatingMultiply( steps, gScheduledClockPeriodMicroseconds ) );
+	return TRUE;
+}
+
+static void SynchronizeClockDiagnostics( UINT64 nowMicroseconds )
+{
+	const UINT64 signedMaximum = static_cast<UINT64>( std::numeric_limits<LONGLONG>::max() );
+	gPerfCount = static_cast<LONGLONG>( std::min( nowMicroseconds, signedMaximum ) );
+	gPerfCountNext = static_cast<LONGLONG>(
+		std::min( gNextClockStepMicroseconds, signedMaximum ) );
+}
+
+static void AnchorClockSchedule( UINT64 nowMicroseconds, BOOLEAN immediateStep )
+{
+	gScheduledFastForward = IsFastForwardMode();
+	gScheduledClockPaused = gfPauseClock;
+	gScheduledClockPeriodMicroseconds =
+		ClockStepPeriodMicroseconds( gScheduledFastForward );
+	gNextClockStepMicroseconds = immediateStep
+		? nowMicroseconds
+		: SaturatingAdd( nowMicroseconds, gScheduledClockPeriodMicroseconds );
+	gLastClockPumpMicroseconds = nowMicroseconds;
+	giIncrement = static_cast<LONGLONG>( std::min<UINT64>(
+		gScheduledClockPeriodMicroseconds,
+		static_cast<UINT64>( std::numeric_limits<LONGLONG>::max() ) ) );
+	SynchronizeClockDiagnostics( nowMicroseconds );
+	gliTimestampDiff = 0;
+	gliWaitTime = 0;
+}
+
+static BOOLEAN ClockScheduleMatchesCurrentState()
+{
+	const BOOLEAN currentFastForward = IsFastForwardMode();
+	return currentFastForward == gScheduledFastForward &&
+		gfPauseClock == gScheduledClockPaused &&
+		ClockStepPeriodMicroseconds( currentFastForward ) ==
+			gScheduledClockPeriodMicroseconds;
+}
+
+BOOLEAN ResetJA2ClockSchedule( UINT64 nowMicroseconds )
+{
+	if ( !gClockInitialized || !IsJA2TimerThread() ) return FALSE;
+
+	ClearQueuedClockDebt();
+	AnchorClockSchedule( nowMicroseconds, FALSE );
+	return TRUE;
+}
+
+UINT32 PumpJA2ClockAt( UINT64 nowMicroseconds )
+{
+	if ( !gClockInitialized || !IsJA2TimerThread() ) return 0;
+
+	if ( nowMicroseconds < gLastClockPumpMicroseconds )
+	{
+		// A monotonic source should not move backwards. If an injected source does,
+		// rebase instead of turning the unsigned difference into years of debt.
+		ClearQueuedClockDebt();
+		AnchorClockSchedule( nowMicroseconds, FALSE );
+		return 0;
+	}
+
+	const UINT64 liveStepsDue = ScheduledStepsDue( nowMicroseconds );
+	const UINT64 forwardJump = nowMicroseconds - gLastClockPumpMicroseconds;
+	const UINT64 liveRetainedDebt = liveStepsDue > 0
+		? nowMicroseconds - gNextClockStepMicroseconds
+		: 0;
+	const UINT64 retainedDebt = SaturatingAdd(
+		gQueuedClockDebtMicroseconds, liveRetainedDebt );
+	if ( forwardJump > MAX_RETAINED_CLOCK_DEBT_MICROSECONDS ||
+		retainedDebt > MAX_RETAINED_CLOCK_DEBT_MICROSECONDS )
+	{
+		// Suspend/resume and debugger gaps are discontinuities, not simulation
+		// debt. Preserve at most the first old-state tick, then resume from now.
+		UINT32 discontinuityStep = ProcessQueuedClockDebt( 1 );
+		if ( discontinuityStep == 0 && liveStepsDue > 0 )
+		{
+			ProcessLegacyClockStep( gScheduledClockPaused );
+			discontinuityStep = 1;
+		}
+		ClearQueuedClockDebt();
+		AnchorClockSchedule( nowMicroseconds, FALSE );
+		return discontinuityStep;
+	}
+
+	UINT32 steps = ProcessQueuedClockDebt( MAX_CLOCK_STEPS_PER_PUMP );
+	if ( steps < MAX_CLOCK_STEPS_PER_PUMP && liveStepsDue > 0 )
+	{
+		const UINT32 liveSteps = static_cast<UINT32>( std::min<UINT64>(
+			liveStepsDue, MAX_CLOCK_STEPS_PER_PUMP - steps ) );
+
+		for ( UINT32 step = 0; step < liveSteps; ++step )
+			ProcessLegacyClockStep( gScheduledClockPaused );
+
+		gNextClockStepMicroseconds = SaturatingAdd(
+			gNextClockStepMicroseconds,
+			SaturatingMultiply( liveSteps, gScheduledClockPeriodMicroseconds ) );
+		steps += liveSteps;
+	}
+
+	gLastClockPumpMicroseconds = nowMicroseconds;
+	if ( ClockScheduleMatchesCurrentState() )
+		SynchronizeClockDiagnostics( nowMicroseconds );
+	else
+	{
+		// Key-driven fast-forward changes are only observable at a frame boundary.
+		// Preserve any capped old work as its own immutable debt segment.
+		if ( !QueueCurrentScheduleDebt( nowMicroseconds ) )
+			ClearQueuedClockDebt();
+		AnchorClockSchedule( nowMicroseconds, FALSE );
+	}
+	return steps;
+}
+
+void PumpJA2Clock()
+{
+	PumpJA2ClockAt( ClockNowMicroseconds() );
+}
+
+BOOLEAN SetJA2ClockTestTimeSource( JA2_CLOCK_TIME_SOURCE source )
+{
+	if ( gClockInitialized ) return FALSE;
+	gClockTestTimeSource = source;
+	return TRUE;
+}
+
+BOOLEAN SetJA2ClockTestKeyStateSource( JA2_CLOCK_KEY_STATE_SOURCE source )
+{
+	if ( gClockInitialized ) return FALSE;
+	gClockTestKeyStateSource = source;
+	return TRUE;
+}
+
+static BOOLEAN BeginClockStateTransition( UINT64& transitionTime )
+{
+	if ( !gClockInitialized ) return TRUE;
+	if ( !IsJA2TimerThread() ) return FALSE;
+
+	transitionTime = ClockNowMicroseconds();
+	PumpJA2ClockAt( transitionTime );
+	if ( !QueueCurrentScheduleDebt( transitionTime ) )
+		ClearQueuedClockDebt();
+	return TRUE;
+}
+
+static void CompleteClockStateTransition( UINT64 transitionTime )
+{
+	if ( gClockInitialized )
+		AnchorClockSchedule( transitionTime, FALSE );
 }
 
 // Returns the smallest time interval (microseconds) until the next
@@ -280,20 +514,25 @@ static void TimeProc()
 // updated in microseconds to preserve their old observable values.
 UINT32 GetNextCounterDoneTime(void)
 {
-	gPerfCount = NowMicroseconds();
-	const LONGLONG diff = gPerfCountNext - gPerfCount;
-	gliTimestampDiff = (LONGLONG)diff;
-	gliWaitTime = (LONGLONG)diff;
-
-	// Same sanity-check shape as before: if the next-tick deadline is
-	// pathologically far ahead or behind, snap it to "wake again in
-	// 125 ms" so we don't sleep forever or busy-loop.
-	if (gliWaitTime > 15000 || gliWaitTime < -15000) {
-		gliWaitTime = 125;
-		gPerfCountNext = gPerfCount + 125000;
+	const UINT64 now = ClockNowMicroseconds();
+	SynchronizeClockDiagnostics( now );
+	const UINT64 signedMaximum = static_cast<UINT64>( std::numeric_limits<LONGLONG>::max() );
+	const UINT64 wait = gClockDebtSegments.empty() &&
+		now < gNextClockStepMicroseconds
+		? gNextClockStepMicroseconds - now
+		: 0;
+	if ( wait > 0 )
+	{
+		gliTimestampDiff = static_cast<LONGLONG>( std::min( wait, signedMaximum ) );
 	}
-
-	return (UINT32)((gliWaitTime > 0) ? gliWaitTime : 0);
+	else
+	{
+		const UINT64 overdue = now - std::min( now, gNextClockStepMicroseconds );
+		gliTimestampDiff = -static_cast<LONGLONG>( std::min( overdue, signedMaximum ) );
+	}
+	gliWaitTime = gliTimestampDiff;
+	return static_cast<UINT32>(
+		std::min<UINT64>( wait, std::numeric_limits<UINT32>::max() ) );
 }
 
 BOOLEAN IsTimerActive(void)
@@ -301,68 +540,20 @@ BOOLEAN IsTimerActive(void)
 	return GetNextCounterDoneTime() <= FASTFORWARDTIMESLICE ? TRUE : FALSE;
 }
 
-static void ClockThreadMain()
-{
-	for (;;)
-	{
-		if (gShutdownRequested.load(std::memory_order_acquire)) break;
-
-		if (IsHiSpeedClockMode())
-		{
-			TimeProc();
-			if (gShutdownRequested.load(std::memory_order_acquire)) break;
-			std::this_thread::yield();
-
-			if (!IsFastForwardMode())
-			{
-				giSleepTime = TIME_US_TO_MS(GetNextCounterDoneTime());
-				if (giSleepTime > 2000) giSleepTime = 250;
-				// Floor at 1ms. When the next timer is <1ms out, TIME_US_TO_MS
-				// rounds to 0 and the original skipped the sleep entirely, so this
-				// thread busy-spun on yield() at 100% CPU -- pegging a core AND
-				// starving the main game thread, which shows up as tactical
-				// "stuck"/jank (worst on few-core or heavily-loaded hosts). 1ms
-				// granularity is far finer than any game timer needs.
-				if (giSleepTime < 1) giSleepTime = 1;
-				std::this_thread::sleep_for(std::chrono::milliseconds(giSleepTime));
-			}
-			else
-			{
-				// Fast-forward (auto-enabled every non-player turn) still needs a
-				// sleep floor. TimeProc()+yield() with no sleep here pegged a full
-				// core for ZERO net speedup: the clock already outruns the 60fps main
-				// thread that consumes the AI events it unblocks, so that thread is
-				// the limiter, not this one. 1ms stops the peg without slowing the turn.
-				std::this_thread::sleep_for(std::chrono::milliseconds(1));
-			}
-		}
-		else
-		{
-			TimeProc();
-			UINT32 ms = gClockTickPeriodMs.load(std::memory_order_relaxed);
-			if (ms == 0) ms = 1;
-			std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-		}
-	}
-}
-
 BOOLEAN InitializeJA2Clock()
 {
 #ifdef CALLBACKTIMER
+	if ( gClockInitialized && !IsJA2TimerThread() ) return FALSE;
+
 	for ( INT32 cnt = 0; cnt < NUMTIMERS; cnt++ )
 	{
 		giTimerCounters[ cnt ] = giTimerIntervals[ cnt ];
 	}
 
-	gPerfCount = NowMicroseconds();
-	gPerfCountNext = gPerfCount;
-
-	gShutdownRequested.store(false);
-
-	UpdateTimer();
-
-	gClockThread = std::thread(ClockThreadMain);
-	gClockThreadId = gClockThread.get_id();
+	gClockOwnerThreadId = std::this_thread::get_id();
+	gClockInitialized = TRUE;
+	ClearQueuedClockDebt();
+	AnchorClockSchedule( ClockNowMicroseconds(), TRUE );
 #endif
 
 	return TRUE;
@@ -371,9 +562,12 @@ BOOLEAN InitializeJA2Clock()
 
 void	ShutdownJA2Clock(void)
 {
-	gShutdownRequested.store(true, std::memory_order_release);
+	if ( gClockInitialized && !IsJA2TimerThread() ) return;
 
-	if (gClockThread.joinable())  gClockThread.join();
+	gClockInitialized = FALSE;
+	gClockOwnerThreadId = std::thread::id();
+	gLastClockPumpMicroseconds = 0;
+	ClearQueuedClockDebt();
 }
 
 
@@ -411,7 +605,16 @@ void FlashItem( UINT /*uiID*/, UINT /*uiMsg*/, DWORD /*uiUser*/, DWORD /*uiDw1*/
 
 void PauseTime( BOOLEAN fPaused )
 {
+	if ( gfPauseClock == fPaused ) return;
+	UINT64 transitionTime = 0;
+	if ( !BeginClockStateTransition( transitionTime ) ) return;
 	gfPauseClock = fPaused;
+	CompleteClockStateTransition( transitionTime );
+}
+
+BOOLEAN IsJA2ClockPaused()
+{
+	return gfPauseClock;
 }
 
 void SetCustomizableTimerCallbackAndDelay( INT32 iDelay, CUSTOMIZABLE_TIMER_CALLBACK pCallback, BOOLEAN fReplace )
@@ -471,14 +674,32 @@ void SetTileAnimCounter( INT32 iTime )
 
 void SetFastForwardPeriod(DOUBLE value)
 {
-	giFastForwardPeriod = (UINT32)(value);
-	if (giFastForwardPeriod <= 1)
-		giFastForwardPeriod = 1;
+	UINT32 newPeriod = (UINT32)(value);
+	if ( newPeriod <= 1 ) newPeriod = 1;
+	if ( giFastForwardPeriod == newPeriod ) return;
+	UINT64 transitionTime = 0;
+	if ( !BeginClockStateTransition( transitionTime ) ) return;
+	giFastForwardPeriod = newPeriod;
+	CompleteClockStateTransition( transitionTime );
+}
+
+UINT32 GetFastForwardPeriod()
+{
+	return giFastForwardPeriod;
 }
 
 void SetFastForwardKey(INT32 key)
 {
+	if ( giFastForwardKey == key ) return;
+	UINT64 transitionTime = 0;
+	if ( !BeginClockStateTransition( transitionTime ) ) return;
 	giFastForwardKey = key;
+	CompleteClockStateTransition( transitionTime );
+}
+
+INT32 GetFastForwardKey()
+{
+	return giFastForwardKey;
 }
 
 BOOLEAN IsFastForwardKeyPressed()
@@ -489,18 +710,28 @@ BOOLEAN IsFastForwardKeyPressed()
 		else if (gTacticalStatus.ubCurrentTeam != 1) return false;
 	}
 
-	return giFastForwardKey && IsKeyPressed(giFastForwardKey);
+	return giFastForwardKey && ( gClockTestKeyStateSource
+		? gClockTestKeyStateSource( giFastForwardKey )
+		: IsKeyPressed( giFastForwardKey ) );
 }
 
 void SetFastForwardMode(BOOLEAN enable)
 {
+	if ( giFastForwardMode == enable ) return;
+	UINT64 transitionTime = 0;
+	if ( !BeginClockStateTransition( transitionTime ) ) return;
 	giFastForwardMode = enable;
-	UpdateTimer();
+	CompleteClockStateTransition( transitionTime );
 }
 
 BOOLEAN IsFastForwardMode()
 {
 	return giFastForwardMode || IsFastForwardKeyPressed();
+}
+
+BOOLEAN IsFastForwardModeEnabled()
+{
+	return giFastForwardMode;
 }
 
 LONGLONG GetJA2Microseconds()
@@ -562,7 +793,8 @@ void ZeroTimeCounter(INT32& timer)
 
 BOOLEAN IsJA2TimerThread()
 {
-	return (std::this_thread::get_id() == gClockThreadId);
+	return gClockInitialized &&
+		(std::this_thread::get_id() == gClockOwnerThreadId);
 }
 
 #ifndef GetJA2Clock
@@ -581,7 +813,11 @@ UINT32	GetJA2NoPauseClock()
 
 void SetHiSpeedClockMode(BOOLEAN enable)
 {
+	if ( gfHispeedClockMode == enable ) return;
+	UINT64 transitionTime = 0;
+	if ( !BeginClockStateTransition( transitionTime ) ) return;
 	gfHispeedClockMode = enable;
+	CompleteClockStateTransition( transitionTime );
 }
 
 BOOLEAN IsHiSpeedClockMode()
@@ -596,23 +832,15 @@ void SetNotifyFrequencyKey(INT32 value)
 
 void SetClockSpeedPercent(FLOAT value)
 {
+	if ( gfClockSpeedPercent == value ) return;
+	UINT64 transitionTime = 0;
+	if ( !BeginClockStateTransition( transitionTime ) ) return;
 	gfClockSpeedPercent = value;
 	UPDATETIMESLICE = (UINT32)((FLOAT)TIME_MS_TO_US(BASETIMESLICE) * 100.0f / value);
-	UpdateTimer();
+	CompleteClockStateTransition( transitionTime );
 }
 
-void UpdateTimer()
+FLOAT GetClockSpeedPercent()
 {
-	if (!IsHiSpeedClockMode())
-	{
-		// Pick the same target slice the old code did: fast-forward
-		// drops to the smallest tick (1 ms now that std::chrono has
-		// us-precision and there's no system-wide period to negotiate),
-		// otherwise use UPDATETIMESLICE (microseconds) converted to ms
-		// with a 1 ms floor.
-		UINT32 uiTimeSlice = giFastForwardMode
-			? 1u
-			: std::max<UINT32>(1u, TIME_US_TO_MS(UPDATETIMESLICE));
-		gClockTickPeriodMs.store(uiTimeSlice, std::memory_order_relaxed);
-	}
+	return gfClockSpeedPercent;
 }

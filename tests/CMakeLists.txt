@@ -21,6 +21,16 @@ add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)
 target_link_libraries(ja2_runtime_adapter_tests PRIVATE JA2::RuntimeAdapter)
 add_test(NAME ja2_runtime_adapter COMMAND ja2_runtime_adapter_tests)
 
+# Exercise the production legacy tile-cache implementation with data-free
+# surface/structure stubs. Keeping the real translation unit in this target
+# makes cache-capacity and lifecycle regressions available to ASan without a
+# complete JA2 data installation.
+add_executable(tile_cache_tests
+  tile_cache_tests.cpp
+  "${CMAKE_SOURCE_DIR}/TileEngine/Tile Cache.cpp"
+)
+add_test(NAME tile_cache COMMAND tile_cache_tests)
+
 # Install the SDK, then configure, compile, and run a genuinely separate CMake
 # project against find_package(JA2Engine). This catches missing public headers,
 # non-exported symbols, and accidental source-tree include dependencies.

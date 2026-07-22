@@ -16,6 +16,7 @@
 	#include "Radar Screen.h"
 	#include "Exit Grids.h"
 	#include "Tile Surface.h"
+	#include "Tile Cache.h"
 	#include "Rotting Corpses.h"
 	#include "Keys.h"
 	#include "Map Information.h"
@@ -333,6 +334,10 @@ void DeinitializeWorld()
 	if(gpDirtyData)
 		MemFree(gpDirtyData);
 	DestroyTileSurfaces();
+	// Cache structure references share the global structure-file list. Release
+	// the cache's owned references while that list is still intact; the later
+	// public DeleteTileCache call is deliberately idempotent.
+	DeleteTileCache();
 	FreeAllStructureFiles();
 	DeallocateTileDatabase();
 	ShutdownRoomDatabase();

@@ -9,6 +9,7 @@
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/LocalizationDocument.h>
+#include <Engine/Core/PackageEntities.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
@@ -19,6 +20,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -258,6 +261,16 @@ int main()
 		entities.create("campaign.base", "second").error ==
 			EntityCreateError::CapacityReached,
 		"entity registry reuses bounded slots without reviving stale generational handles");
+	EntityRegistry isolatedEntities(2);
+	PackageEntities firstPackageEntities("campaign.base", isolatedEntities);
+	PackageEntities secondPackageEntities("mod.observer", isolatedEntities);
+	const EntityCreateResult ownedEntity = firstPackageEntities.create("mercenary");
+	check(ownedEntity &&
+		secondPackageEntities.destroy(ownedEntity.id) == EntityDestroyError::NotOwner &&
+		isolatedEntities.alive(ownedEntity.id) &&
+		firstPackageEntities.destroy(ownedEntity.id) == EntityDestroyError::None &&
+		!isolatedEntities.alive(ownedEntity.id),
+		"package entity handles cannot destroy another package's owned identity");
 	RecordingAudioOutput groupedAudioOutput;
 	AudioGroupService audioGroups(groupedAudioOutput, 2);
 	const PackageAudioPlayResult firstGroupedPlayback = audioGroups.play(
@@ -540,6 +553,32 @@ int main()
 		commandStream.journal().size() == 4 &&
 		commandStream.queue().size() == 4,
 		"generic command stream rejects a conflicting batch transactionally");
+	DeterministicCommandQueue<int> reclaimedSequences;
+	for (int command = 0; command < 100000; ++command)
+	{
+		reclaimedSequences.enqueue(0, command);
+		reclaimedSequences.drainThrough(0);
+	}
+	check(reclaimedSequences.empty() && reclaimedSequences.liveSequenceCount() == 0 &&
+		!reclaimedSequences.enqueueRecorded(0, 99999, 1),
+		"completed command identities are retired without unbounded live storage");
+	DeterministicCommandQueue<int> exhaustedSequences;
+	const std::uint64_t maximumSequence = std::numeric_limits<std::uint64_t>::max();
+	const bool acceptedMaximum = exhaustedSequences.enqueueRecorded(0, maximumSequence, 1);
+	bool exhaustionReported = false;
+	try
+	{
+		exhaustedSequences.enqueue(0, 2);
+	}
+	catch (const std::overflow_error&)
+	{
+		exhaustionReported = true;
+	}
+	exhaustedSequences.drainThrough(0);
+	check(acceptedMaximum && exhaustionReported && exhaustedSequences.sequenceExhausted() &&
+		exhaustedSequences.liveSequenceCount() == 0 &&
+		!exhaustedSequences.enqueueRecorded(0, maximumSequence, 3),
+		"command sequence exhaustion fails explicitly without wrapping or reusing IDs");
 
 	StateRegistry<unsigned> states;
 	unsigned initialized = 0;

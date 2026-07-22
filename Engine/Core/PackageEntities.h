@@ -17,7 +17,10 @@ public:
 	{
 		return registry_.create(packageId_, std::move(kind));
 	}
-	EntityDestroyError destroy(EntityId id) const noexcept { return registry_.destroy(id); }
+	EntityDestroyError destroy(EntityId id) const noexcept
+	{
+		return registry_.destroyOwned(packageId_, id);
+	}
 	bool alive(EntityId id) const { return registry_.alive(id); }
 
 private:

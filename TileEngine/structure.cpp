@@ -224,6 +224,7 @@ void FreeAllStructureFiles( void )
 		FreeStructureFileRef( pFileRef );
 		pFileRef = pNextRef;
 	}
+	gpStructureFileRefs = NULL;
 }
 
 BOOLEAN FreeStructureFile( STRUCTURE_FILE_REF * pStructureFile )

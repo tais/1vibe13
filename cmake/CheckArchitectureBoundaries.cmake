@@ -24,6 +24,7 @@ set(core_standard_headers
   optional
   string
   string_view
+  stdexcept
   system_error
   type_traits
   unordered_map

@@ -16,6 +16,7 @@
 #define SDL_MAIN_HANDLED   // this file owns main(), not SDL
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -25,6 +26,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -69,6 +71,7 @@
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "MovementDestinationPolicy.h"
+#include "Timer Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
 #include <vfs/Tools/vfs_property_container.h>
@@ -95,6 +98,19 @@ void ShutdownWithErrorBox( const CHAR8* pcMessage )
 }
 
 static int g_failures = 0;
+static UINT64 gInjectedLegacyClockTime = 0;
+static BOOLEAN gInjectedFastForwardKeyDown = FALSE;
+
+static UINT64 InjectedLegacyClockTime()
+{
+	return gInjectedLegacyClockTime;
+}
+
+static BOOLEAN InjectedLegacyClockKeyState( INT32 key )
+{
+	return key == 42 && gInjectedFastForwardKeyDown;
+}
+
 #define CHECK( cond, msg ) \
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
@@ -3102,6 +3118,215 @@ int main( int, char** )
 	}
 
 	{
+		const UINT32 savedClock = guiBaseJA2Clock;
+		const UINT32 savedNoPauseClock = guiBaseJA2NoPauseClock;
+		const BOOLEAN savedHiSpeed = IsHiSpeedClockMode();
+		const BOOLEAN savedFastForward = IsFastForwardModeEnabled();
+		const BOOLEAN savedPaused = IsJA2ClockPaused();
+		const UINT32 savedFastForwardPeriod = GetFastForwardPeriod();
+		const INT32 savedFastForwardKey = GetFastForwardKey();
+		const FLOAT savedClockSpeed = GetClockSpeedPercent();
+		const std::vector<INT32> savedTimerCounters(
+			giTimerCounters, giTimerCounters + NUMTIMERS );
+
+		gInjectedLegacyClockTime = 1000000;
+		gInjectedFastForwardKeyDown = FALSE;
+		CHECK( SetJA2ClockTestTimeSource( InjectedLegacyClockTime ) &&
+		       SetJA2ClockTestKeyStateSource( InjectedLegacyClockKeyState ),
+		       "legacy clock accepts deterministic sources before initialization" );
+		SetFastForwardKey( 0 );
+		SetFastForwardPeriod( 500 );
+		SetHiSpeedClockMode( FALSE );
+		SetFastForwardMode( FALSE );
+		SetClockSpeedPercent( 100 );
+		PauseTime( FALSE );
+		guiBaseJA2Clock = 0;
+		guiBaseJA2NoPauseClock = 0;
+		CHECK( InitializeJA2Clock() && IsJA2TimerThread(),
+		       "legacy clock assigns timer ownership to its initializing game thread" );
+
+		const UINT64 normalStart = gInjectedLegacyClockTime;
+		CHECK( PumpJA2ClockAt( normalStart ) == 0 &&
+		       PumpJA2ClockAt( normalStart + 1 ) == 1 &&
+		       PumpJA2ClockAt( normalStart + 9999 ) == 0 &&
+		       PumpJA2ClockAt( normalStart + 10001 ) == 1 &&
+		       guiBaseJA2Clock == 20 && guiBaseJA2NoPauseClock == 20,
+		       "normal non-high-speed clock preserves its ten-millisecond cadence" );
+
+		gInjectedLegacyClockTime = normalStart + 25001;
+		PauseTime( TRUE );
+		const INT32 counterWhilePaused = giTimerCounters[ ANIMATETILES ];
+		CHECK( IsJA2ClockPaused() && guiBaseJA2Clock == 30 &&
+		       guiBaseJA2NoPauseClock == 30 && counterWhilePaused == 170,
+		       "pausing settles elapsed work under the preceding unpaused segment" );
+		gInjectedLegacyClockTime = normalStart + 35002;
+		PumpJA2Clock();
+		CHECK( guiBaseJA2Clock == 30 && guiBaseJA2NoPauseClock == 40 &&
+		       giTimerCounters[ ANIMATETILES ] == counterWhilePaused,
+		       "a paused schedule advances only the no-pause clock" );
+		gInjectedLegacyClockTime = normalStart + 45002;
+		PauseTime( FALSE );
+		CHECK( !IsJA2ClockPaused() && guiBaseJA2Clock == 30 &&
+		       guiBaseJA2NoPauseClock == 50 &&
+		       giTimerCounters[ ANIMATETILES ] == counterWhilePaused,
+		       "unpausing settles elapsed work under the preceding paused segment" );
+		gInjectedLegacyClockTime = normalStart + 55003;
+		PumpJA2Clock();
+		CHECK( guiBaseJA2Clock == 40 && guiBaseJA2NoPauseClock == 60 &&
+		       giTimerCounters[ ANIMATETILES ] == counterWhilePaused - 10,
+		       "the new unpaused schedule starts from its transition timestamp" );
+
+		gInjectedLegacyClockTime = normalStart + 70003;
+		SetFastForwardMode( TRUE );
+		CHECK( guiBaseJA2Clock == 50 && guiBaseJA2NoPauseClock == 70,
+		       "fast-forward activation drains only the old normal-speed segment" );
+		gInjectedLegacyClockTime = normalStart + 75004;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 5 &&
+		       guiBaseJA2Clock == 100 && guiBaseJA2NoPauseClock == 120,
+		       "non-high-speed fast-forward retains its one-millisecond cadence" );
+
+		gInjectedLegacyClockTime = normalStart + 80004;
+		SetHiSpeedClockMode( TRUE );
+		CHECK( guiBaseJA2Clock == 150 && guiBaseJA2NoPauseClock == 170,
+		       "high-speed transition drains the preceding fast-forward schedule" );
+		gInjectedLegacyClockTime = normalStart + 85005;
+		SetFastForwardPeriod( 2000 );
+		CHECK( guiBaseJA2Clock == 200 && guiBaseJA2NoPauseClock == 220,
+		       "period changes settle fast-forward work using the old period" );
+		gInjectedLegacyClockTime = normalStart + 91006;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 3 &&
+		       guiBaseJA2Clock == 230 && guiBaseJA2NoPauseClock == 250,
+		       "high-speed fast-forward honors configured periods above its floor" );
+
+		SetFastForwardMode( FALSE );
+		gInjectedLegacyClockTime = normalStart + 106007;
+		SetClockSpeedPercent( 200 );
+		CHECK( guiBaseJA2Clock == 240 && guiBaseJA2NoPauseClock == 260,
+		       "clock-speed changes drain elapsed work using the old speed" );
+		gInjectedLegacyClockTime = normalStart + 116008;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 2 &&
+		       guiBaseJA2Clock == 260 && guiBaseJA2NoPauseClock == 280,
+		       "the new high-speed clock percentage owns its fresh segment" );
+		SetClockSpeedPercent( 150 );
+		gInjectedLegacyClockTime = normalStart + 128000;
+		SetHiSpeedClockMode( FALSE );
+		CHECK( guiBaseJA2Clock == 270 && guiBaseJA2NoPauseClock == 290,
+		       "high-speed shutdown settles its microsecond-period segment first" );
+		gInjectedLegacyClockTime = normalStart + 140001;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 2 &&
+		       guiBaseJA2Clock == 290 && guiBaseJA2NoPauseClock == 310,
+		       "normal mode resumes with its legacy millisecond-truncated period" );
+
+		SetFastForwardKey( 42 );
+		gInjectedFastForwardKeyDown = TRUE;
+		gInjectedLegacyClockTime = normalStart + 147002;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 1 &&
+		       guiBaseJA2Clock == 300 && guiBaseJA2NoPauseClock == 320,
+		       "a key-driven fast-forward edge first drains the old normal segment" );
+		gInjectedLegacyClockTime = normalStart + 152003;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 5 &&
+		       guiBaseJA2Clock == 350 && guiBaseJA2NoPauseClock == 370,
+		       "key-driven fast-forward owns the following schedule segment" );
+		gInjectedFastForwardKeyDown = FALSE;
+		gInjectedLegacyClockTime = normalStart + 155004;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 3 &&
+		       guiBaseJA2Clock == 380 && guiBaseJA2NoPauseClock == 400,
+		       "a key release drains old fast-forward debt before returning to normal" );
+		gInjectedLegacyClockTime = normalStart + 161005;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 1 &&
+		       guiBaseJA2Clock == 390 && guiBaseJA2NoPauseClock == 410,
+		       "key release anchors a fresh normal-speed segment" );
+
+		SetFastForwardMode( TRUE );
+		const UINT32 beforeBoundedCatchUp = guiBaseJA2Clock;
+		const UINT32 beforeBoundedCatchUpNoPause = guiBaseJA2NoPauseClock;
+		gInjectedLegacyClockTime += 250001;
+		PauseTime( TRUE );
+		CHECK( guiBaseJA2Clock == beforeBoundedCatchUp + 1000 &&
+		       guiBaseJA2NoPauseClock == beforeBoundedCatchUpNoPause + 1000 &&
+		       PumpJA2ClockAt( gInjectedLegacyClockTime ) == 100 &&
+		       PumpJA2ClockAt( gInjectedLegacyClockTime ) == 50 &&
+		       guiBaseJA2Clock == beforeBoundedCatchUp + 2500 &&
+		       guiBaseJA2NoPauseClock == beforeBoundedCatchUpNoPause + 2500,
+		       "capped pre-transition work retains its old unpaused schedule segment" );
+		SetFastForwardMode( FALSE );
+		PauseTime( FALSE );
+
+		const UINT32 beforeForwardDiscontinuityClock = guiBaseJA2Clock;
+		const UINT32 beforeForwardDiscontinuityNoPause = guiBaseJA2NoPauseClock;
+		gInjectedLegacyClockTime += 1000001;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 1 &&
+		       PumpJA2ClockAt( gInjectedLegacyClockTime ) == 0 &&
+		       guiBaseJA2Clock == beforeForwardDiscontinuityClock + 10 &&
+		       guiBaseJA2NoPauseClock == beforeForwardDiscontinuityNoPause + 10,
+		       "a forward discontinuity retains at most one old-state step" );
+		const UINT32 afterForwardDiscontinuityClock = guiBaseJA2Clock;
+		const UINT32 afterForwardDiscontinuityNoPause = guiBaseJA2NoPauseClock;
+		gInjectedLegacyClockTime += 6001;
+		CHECK( PumpJA2ClockAt( gInjectedLegacyClockTime ) == 1 &&
+		       guiBaseJA2Clock == afterForwardDiscontinuityClock + 10 &&
+		       guiBaseJA2NoPauseClock == afterForwardDiscontinuityNoPause + 10,
+		       "forward discontinuity re-anchors the current configuration at now" );
+
+		const UINT32 beforeBackwardClock = guiBaseJA2Clock;
+		const UINT32 beforeBackwardNoPause = guiBaseJA2NoPauseClock;
+		gInjectedLegacyClockTime -= 500000;
+		const UINT64 backwardAnchor = gInjectedLegacyClockTime;
+		CHECK( PumpJA2ClockAt( backwardAnchor ) == 0 &&
+		       PumpJA2ClockAt( backwardAnchor + 6001 ) == 1 &&
+		       guiBaseJA2Clock == beforeBackwardClock + 10 &&
+		       guiBaseJA2NoPauseClock == beforeBackwardNoPause + 10,
+		       "a backward time discontinuity rebases without unsigned clock debt" );
+		gInjectedLegacyClockTime = backwardAnchor + 6001;
+
+		giTimerCounters[ ANIMATETILES ] = 1;
+		CHECK( InitializeJA2Clock() && IsJA2TimerThread() &&
+		       giTimerCounters[ ANIMATETILES ] == giTimerIntervals[ ANIMATETILES ] &&
+		       PumpJA2ClockAt( gInjectedLegacyClockTime ) == 0 &&
+		       PumpJA2ClockAt( gInjectedLegacyClockTime + 1 ) == 1,
+		       "owner-thread reinitialization starts a clean immediate schedule" );
+		gInjectedLegacyClockTime += 1;
+
+		BOOLEAN workerClaimsOwnership = TRUE;
+		UINT32 workerSteps = 1;
+		std::thread worker( [&] {
+			workerClaimsOwnership = IsJA2TimerThread();
+			PauseTime( TRUE );
+			SetFastForwardMode( TRUE );
+			ShutdownJA2Clock();
+			workerSteps = PumpJA2ClockAt( gInjectedLegacyClockTime + 10000 );
+		} );
+		worker.join();
+		CHECK( !workerClaimsOwnership && workerSteps == 0 && IsJA2TimerThread() &&
+		       !IsJA2ClockPaused() && !IsFastForwardModeEnabled(),
+		       "non-owner threads cannot pump, configure, or shut down the clock" );
+		CHECK( !SetJA2ClockTestTimeSource( NULL ) &&
+		       !SetJA2ClockTestKeyStateSource( NULL ),
+		       "clock test sources remain immutable throughout the owner lifecycle" );
+
+		ShutdownJA2Clock();
+		CHECK( !IsJA2TimerThread() &&
+		       PumpJA2ClockAt( gInjectedLegacyClockTime + 10001 ) == 0,
+		       "clock shutdown rejects further frame pumps" );
+
+		SetFastForwardKey( savedFastForwardKey );
+		SetFastForwardPeriod( savedFastForwardPeriod );
+		SetClockSpeedPercent( savedClockSpeed );
+		SetFastForwardMode( savedFastForward );
+		SetHiSpeedClockMode( savedHiSpeed );
+		PauseTime( savedPaused );
+		guiBaseJA2Clock = savedClock;
+		guiBaseJA2NoPauseClock = savedNoPauseClock;
+		std::copy( savedTimerCounters.begin(), savedTimerCounters.end(),
+		           giTimerCounters );
+		gInjectedFastForwardKeyDown = FALSE;
+		gInjectedLegacyClockTime = 0;
+		CHECK( SetJA2ClockTestTimeSource( NULL ) &&
+		       SetJA2ClockTestKeyStateSource( NULL ),
+		       "legacy clock test sources restore cleanly after shutdown" );
+	}
+
+	{
 		SequenceRandomSource random( { 9, 4, 7 } );
 		CHECK( random.next( 10 ) == 9 && random.next( 3 ) == 1 && random.next( 5 ) == 2,
 		       "engine random source produces a deterministic bounded sequence" );
@@ -3308,6 +3533,30 @@ int main( int, char** )
 		ShutdownInputManager();
 		CHECK( !GetPlatformInputSource().poll( engineAtom ),
 		       "platform input discards stale events across manager lifecycles" );
+	}
+
+	{
+		CHECK( InitializeInputManager(), "InitializeInputManager() for saturation coverage" );
+		for ( UINT32 index = 0; index < 256; ++index )
+			QueueEvent( KEY_REPEAT, index, 0 );
+		QueueEvent( KEY_REPEAT, 999, 0 );
+		QueueEvent( KEY_UP, 'A', 0 );
+		QueueEvent( LEFT_BUTTON_UP, 0, 0 );
+		const InputQueueStatistics saturated = GetInputQueueStatistics();
+		InputAtom atom = {};
+		std::vector<UINT16> releases;
+		UINT32 repeats = 0;
+		while ( DequeueEvent( &atom ) )
+		{
+			if ( atom.usEvent == KEY_REPEAT ) ++repeats;
+			if ( atom.usEvent == KEY_UP || atom.usEvent == LEFT_BUTTON_UP )
+				releases.push_back( atom.usEvent );
+		}
+		CHECK( saturated.accepted == 258 && saturated.dropped == 1 &&
+		       saturated.evictedForRelease == 2 && saturated.queued == 256 &&
+		       repeats == 254 && releases == std::vector<UINT16>({ KEY_UP, LEFT_BUTTON_UP }),
+		       "saturated input preserves ordered key and mouse releases by evicting repeats" );
+		ShutdownInputManager();
 	}
 
 	// The VFS profiler/logger timer used to have no macOS return path and its

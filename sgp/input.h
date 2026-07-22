@@ -50,6 +50,14 @@ typedef struct InputAtom
 
 } InputAtom;
 
+typedef struct InputQueueStatistics
+{
+	UINT64 accepted;
+	UINT64 dropped;
+	UINT64 evictedForRelease;
+	UINT16 queued;
+} InputQueueStatistics;
+
 //Mouse pos extracting macros from InputAtom
 #define GETYPOS(a) HIWORD(((a)->uiParam))
 #define GETXPOS(a) LOWORD(((a)->uiParam))
@@ -79,6 +87,7 @@ extern BOOLEAN			InitializeInputManager(void);
 extern void					ShutdownInputManager(void);
 extern BOOLEAN			DequeueEvent(InputAtom *Event);
 extern void					QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
+extern InputQueueStatistics GetInputQueueStatistics(void);
 
 extern void					KeyDown(UINT32 usParam, UINT32 uiParam);
 extern void					KeyUp(UINT32 usParam, UINT32 uiParam);
