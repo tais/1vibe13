@@ -77,6 +77,7 @@
 #include "SaveCompatibility.h"
 #include "Simulation Commands.h"
 #include "TacticalCommandHost.h"
+#include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
@@ -2601,6 +2602,22 @@ int main( int, char** )
 		gWorldSectorX = 9;
 		gWorldSectorY = 1;
 		gbWorldSectorZ = 0;
+		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );
+		turnIdentityFixture.onWorldLoaded( 23 );
+		const Ja2TacticalTurnIdentity loadedTurnIdentity =
+			turnIdentityFixture.turnIdentity();
+		turnIdentityFixture.onTeamTurnBegan( 23 );
+		const Ja2TacticalTurnIdentity advancedTurnIdentity =
+			turnIdentityFixture.turnIdentity();
+		turnIdentityFixture.onWorldUnloaded();
+		const Ja2TacticalTurnIdentity unloadedTurnIdentity =
+			turnIdentityFixture.turnIdentity();
+		CHECK( loadedTurnIdentity.worldGeneration == 23 &&
+		       loadedTurnIdentity.serial == 1 && advancedTurnIdentity.worldGeneration == 23 &&
+		       advancedTurnIdentity.serial == 2 && !unloadedTurnIdentity,
+		       "live tactical turn identity is nonzero, advances, and resets with its world" );
+		NotifyJa2TacticalWorldLoaded( guiWorldLoadGeneration );
+		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
 		TacticalWorldSnapshot liveWorld;
 		const TacticalWorldCaptureResult liveCapture =
 			tacticalWorld.service->capture( liveWorld );
@@ -2608,6 +2625,7 @@ int main( int, char** )
 			liveWorld.find( TacticalEntityId{ 0, 701 } );
 		CHECK( liveCapture == TacticalWorldCaptureResult::Success &&
 		       liveWorld.epoch() == 23 && liveWorld.sector().x == 9 &&
+		       liveWorld.turn().serial == 2 &&
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
 		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
 		       "live tactical service captures stable pointer-free legacy soldier state" );
@@ -2882,6 +2900,10 @@ int main( int, char** )
 		Menptr[0].bBreathMax = previousMaximumBreath;
 		gfWorldLoaded = previousWorldLoaded;
 		guiWorldLoadGeneration = previousWorldGeneration;
+		if ( previousWorldLoaded && previousWorldGeneration != 0 )
+			NotifyJa2TacticalWorldLoaded( previousWorldGeneration );
+		else
+			NotifyJa2TacticalWorldUnloaded();
 		gWorldSectorX = previousSectorX;
 		gWorldSectorY = previousSectorY;
 		gbWorldSectorZ = previousSectorZ;

@@ -44,6 +44,7 @@
 	#include "GameSettings.h"
 	#include "editscreen.h"
 	#include "Editor Taskbar Utils.h"
+	#include "TacticalWorldAdapter.h"
 
 #ifdef JA2EDITOR
 	#include "Summary Info.h"
@@ -3345,6 +3346,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	gfWorldLoaded = TRUE;
 	++guiWorldLoadGeneration;
 	if (guiWorldLoadGeneration == 0) ++guiWorldLoadGeneration;
+	NotifyJa2TacticalWorldLoaded(guiWorldLoadGeneration);
 #ifdef JA2TESTVERSION
 	uiLoadWorldTime = GetJA2Clock() - uiLoadWorldStartTime;
 #endif
@@ -3392,6 +3394,7 @@ BOOLEAN NewWorld( INT32 nMapRows,  INT32 nMapCols )
 	gfWorldLoaded = TRUE;
 	++guiWorldLoadGeneration;
 	if (guiWorldLoadGeneration == 0) ++guiWorldLoadGeneration;
+	NotifyJa2TacticalWorldLoaded(guiWorldLoadGeneration);
 
 	return( TRUE );
 }
@@ -3573,6 +3576,7 @@ void TrashWorld( void )
 
 	//gfBlitBattleSectorLocator = FALSE;
 	gfWorldLoaded = FALSE;
+	NotifyJa2TacticalWorldUnloaded();
 	snprintf( gubFilename, sizeof(gubFilename), "none" );
 }
 
