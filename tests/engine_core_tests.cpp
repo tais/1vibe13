@@ -436,12 +436,13 @@ int main()
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;
+	constexpr EngineServiceContract<unsigned> externalServiceContract{
+		"host.test-service", {2, 1}};
 	const EngineServiceRegistrationError registeredService =
 		sessionHost.serviceCatalog().registerService(
 			"host.test-service", EngineServiceVersion{2, 3}, externalService);
 	const EngineServiceLookupResult<unsigned> resolvedService =
-		sessionHost.serviceCatalog().resolve<unsigned>(
-			"host.test-service", EngineServiceVersion{2, 1});
+		sessionHost.serviceCatalog().resolve(externalServiceContract);
 	const RuntimeConfigurationSetError configuredValue =
 		sessionHost.configuration().set("host.test-value", std::int64_t{42});
 	const RuntimeSessionShutdownResult prematureSessionShutdown =
@@ -459,6 +460,8 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
+		sessionHost.serviceCatalog().resolve(FrameTelemetryServiceContract).service ==
+			&sessionHost.frameTelemetry() &&
 		sessionHost.serviceCatalog().size() == 15 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(

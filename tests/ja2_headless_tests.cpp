@@ -408,8 +408,7 @@ public:
 		observedServices = &context.services;
 		observedMessages = &context.messages;
 		const EngineServiceLookupResult<FrameTelemetry> telemetry =
-			context.extensionServices.resolve<FrameTelemetry>(
-				"engine.frame-telemetry", EngineServiceVersion{ 1, 0 } );
+			context.extensionServices.resolve( FrameTelemetryServiceContract );
 		observedTelemetry = telemetry.service;
 		const std::int64_t* messageCapacity =
 			context.configuration.find<std::int64_t>( "engine.messages.queue-capacity" );

@@ -80,6 +80,17 @@ struct EngineServiceLookupResult
 	}
 };
 
+// Compile-time pairing of a service's public C++ interface with its portable
+// identifier and minimum compatible version. Keeping those three values in one
+// object prevents hosts and consumers from silently resolving the right string
+// as the wrong interface type.
+template<typename Service>
+struct EngineServiceContract
+{
+	const char* id;
+	EngineServiceVersion version;
+};
+
 // Non-owning, type-checked extension point for host services that should not
 // expand EngineServices' fixed platform-adapter table. The source-built SDK
 // line intentionally uses an in-process C++ type key; a future stable binary
@@ -111,6 +122,13 @@ public:
 			return EngineServiceRegistrationError::AllocationFailure;
 		}
 		return EngineServiceRegistrationError::None;
+	}
+
+	template<typename Service>
+	EngineServiceRegistrationError registerService(
+		EngineServiceContract<Service> contract, Service& service) noexcept
+	{
+		return registerService<Service>(contract.id, contract.version, service);
 	}
 
 	EngineServiceAvailabilityResult availability(
@@ -160,6 +178,13 @@ public:
 		return EngineServiceLookupResult<Service>{
 			EngineServiceLookupError::None, static_cast<Service*>(entry->service),
 			entry->descriptor.version};
+	}
+
+	template<typename Service>
+	EngineServiceLookupResult<Service> resolve(
+		EngineServiceContract<Service> contract) const
+	{
+		return resolve<Service>(contract.id, contract.version);
 	}
 
 	void seal() { sealed_ = true; }

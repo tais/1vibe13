@@ -12,6 +12,7 @@
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/EngineServiceContracts.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/LocalizationCatalog.h>
@@ -88,34 +89,20 @@ public:
 		                       PackageRegistry::MaximumTotalSaveStateBytes),
 		  runtimeReports_(persistence_, maximumRuntimeReportBytes)
 	{
-		serviceCatalog_.registerService(
-			"engine.frame-telemetry", EngineServiceVersion{1, 0}, frameTelemetry_);
-		serviceCatalog_.registerService(
-			"engine.runtime-messages", EngineServiceVersion{1, 0}, runtimeMessages_);
-		serviceCatalog_.registerService(
-			"engine.persistence", EngineServiceVersion{1, 0}, persistence_);
-		serviceCatalog_.registerService(
-			"engine.simulation-ticks", EngineServiceVersion{1, 0}, simulationTicks_);
-		serviceCatalog_.registerService(
-			"engine.asset-cache", EngineServiceVersion{1, 0}, packages_.assetCache());
-		serviceCatalog_.registerService(
-			"engine.runtime-faults", EngineServiceVersion{1, 0}, faultJournal_);
-		serviceCatalog_.registerService(
-			"engine.localization", EngineServiceVersion{1, 0}, localization_);
-		serviceCatalog_.registerService(
-			"engine.definitions", EngineServiceVersion{1, 0}, definitions_);
-		serviceCatalog_.registerService(
-			"engine.entities", EngineServiceVersion{1, 0}, entities_);
-		serviceCatalog_.registerService(
-			"engine.package-audio", EngineServiceVersion{1, 0}, audioGroups_);
-		serviceCatalog_.registerService(
-			"engine.package-tasks", EngineServiceVersion{1, 0}, packageTasks_);
-		serviceCatalog_.registerService(
-			"engine.runtime-checkpoints", EngineServiceVersion{1, 0}, runtimeCheckpoints_);
-		serviceCatalog_.registerService(
-			"engine.package-save-archives", EngineServiceVersion{1, 0}, packageSaveArchives_);
-		serviceCatalog_.registerService(
-			"engine.runtime-reports", EngineServiceVersion{1, 0}, runtimeReports_);
+		serviceCatalog_.registerService(FrameTelemetryServiceContract, frameTelemetry_);
+		serviceCatalog_.registerService(RuntimeMessagesServiceContract, runtimeMessages_);
+		serviceCatalog_.registerService(PersistenceServiceContract, persistence_);
+		serviceCatalog_.registerService(SimulationTicksServiceContract, simulationTicks_);
+		serviceCatalog_.registerService(AssetCacheServiceContract, packages_.assetCache());
+		serviceCatalog_.registerService(RuntimeFaultsServiceContract, faultJournal_);
+		serviceCatalog_.registerService(LocalizationServiceContract, localization_);
+		serviceCatalog_.registerService(DefinitionsServiceContract, definitions_);
+		serviceCatalog_.registerService(EntitiesServiceContract, entities_);
+		serviceCatalog_.registerService(PackageAudioServiceContract, audioGroups_);
+		serviceCatalog_.registerService(PackageTasksServiceContract, packageTasks_);
+		serviceCatalog_.registerService(RuntimeCheckpointsServiceContract, runtimeCheckpoints_);
+		serviceCatalog_.registerService(PackageSaveArchivesServiceContract, packageSaveArchives_);
+		serviceCatalog_.registerService(RuntimeReportsServiceContract, runtimeReports_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
