@@ -8,6 +8,7 @@ set(ja2_runtime_adapter_public_headers
   TacticalCommandService.h
   TacticalCommandResult.h
   TacticalCommandResultCodec.h
+  TacticalCommandResultPublisher.h
   TacticalEntity.h
   TacticalWorldDelta.h
   TacticalWorldDeltaCodec.h
@@ -24,6 +25,7 @@ add_library(ja2_runtime_adapter STATIC
   SimulationCommandCodec.cpp
   TacticalCommandService.cpp
   TacticalCommandResultCodec.cpp
+  TacticalCommandResultPublisher.cpp
   TacticalWorldDelta.cpp
   TacticalWorldDeltaCodec.cpp
   TacticalWorldDeltaPublisher.cpp

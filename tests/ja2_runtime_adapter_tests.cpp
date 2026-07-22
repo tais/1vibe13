@@ -2,6 +2,7 @@
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
+#include <Engine/Adapters/JA2/TacticalCommandResultPublisher.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
@@ -326,6 +327,48 @@ int main()
 			TacticalCommandTerminalReason::None}, encodedResult) ==
 			TacticalCommandResultEncodeError::Invalid,
 		"tactical command result codec rejects future, malformed, and inconsistent records");
+	RuntimeMessageBus resultMessages(1, 1024);
+	RecordingRuntimeMessageSink resultSink;
+	resultMessages.addSink(resultSink);
+	resultMessages.publish(RuntimeMessageRequest{
+		"fixture.blocker", "fixture.host", {9}});
+	TacticalCommandResultPublisher resultPublisher(resultMessages);
+	PreparedTacticalCommandResultMessage preparedResult;
+	const TacticalCommandResultPublishError resultPrepared =
+		resultPublisher.prepare(appliedResult, preparedResult);
+	const std::vector<std::uint8_t> retainedResultPayload =
+		preparedResult.request.payload;
+	const TacticalCommandResultPublishResult resultPressure =
+		resultPublisher.publishPrepared(preparedResult);
+	const bool resultRetained =
+		preparedResult.request.payload == retainedResultPayload &&
+		preparedResult.request.topic == TacticalCommandResultMessageTopic &&
+		preparedResult.request.source == TacticalCommandResultMessageSource;
+	resultMessages.dispatchPending();
+	const TacticalCommandResultPublishResult resultPublished =
+		resultPublisher.publishPrepared(preparedResult);
+	resultMessages.dispatchPending();
+	TacticalCommandResult deliveredResult;
+	check(resultPrepared == TacticalCommandResultPublishError::None &&
+		resultPressure.error == TacticalCommandResultPublishError::QueueFull &&
+		resultRetained && resultPublished && resultPublished.sequence == 2 &&
+		preparedResult.request.payload.empty() && resultSink.messages.size() == 2 &&
+		resultSink.messages[1].topic == TacticalCommandResultMessageTopic &&
+		resultSink.messages[1].source == TacticalCommandResultMessageSource &&
+		DecodeTacticalCommandResult(
+			resultSink.messages[1].payload, deliveredResult) ==
+				TacticalCommandResultDecodeError::None &&
+		deliveredResult.requestId == appliedResult.requestId &&
+		deliveredResult.status == TacticalCommandTerminalStatus::Applied,
+		"prepared tactical command results encode once and retain ownership across bus pressure");
+	PreparedTacticalCommandResultMessage retainedPrepared;
+	retainedPrepared.request.payload = {7};
+	retainedPrepared.payloadBytes = 1;
+	TacticalCommandResultPublisher tinyResultPublisher(resultMessages, 1);
+	check(tinyResultPublisher.prepare(appliedResult, retainedPrepared) ==
+			TacticalCommandResultPublishError::PayloadTooLarge &&
+		retainedPrepared.request.payload == std::vector<std::uint8_t>({7}),
+		"tactical command result preparation enforces payload limits transactionally");
 
 	TacticalCommandInbox validationInbox(
 		TacticalCommandInboxLimits{8, 8, 8, 8, 10});
