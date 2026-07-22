@@ -319,36 +319,86 @@ BOOLEAN	FileDelete( STR strFilename )
 //**************************************************************************
 HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR strProfilename )//dnl ch81 021213
 {
+	if(strFilename == NULL || strFilename[0] == '\0' || fDeleteOnClose)
+	{
+		// Delete-on-close was never implemented by the VFS backend. Reject it
+		// explicitly instead of returning a handle that silently keeps the file.
+		return 0;
+	}
+
+	const UINT32 access = uiOptions & FILE_ACCESS_READWRITE;
+	const UINT32 dispositionMask = FILE_CREATE_NEW | FILE_CREATE_ALWAYS |
+		FILE_OPEN_EXISTING | FILE_OPEN_ALWAYS | FILE_TRUNCATE_EXISTING;
+	const UINT32 disposition = uiOptions & dispositionMask;
+	if(access != FILE_ACCESS_READ && access != FILE_ACCESS_WRITE)
+	{
+		// bfVFS exposes separate readable and writable handles. No current JA2
+		// caller requests a read/write handle, so fail rather than returning a
+		// write-only handle for FILE_ACCESS_READWRITE.
+		return 0;
+	}
+	if(disposition != 0 && (disposition & (disposition - 1)) != 0)
+	{
+		return 0;
+	}
+
 	vfs::Path path(strFilename);
 	vfs::IBaseFile *pFile = NULL;
 	try
 	{
-		if(uiOptions & FILE_ACCESS_WRITE)
+		if(access == FILE_ACCESS_WRITE)
 		{
+			// Historically callers that omitted a disposition got OPEN_ALWAYS.
+			// Preserve that source-compatible default while honoring every
+			// disposition that was explicitly requested.
+			const UINT32 effectiveDisposition = disposition == 0
+				? FILE_OPEN_ALWAYS : disposition;
+			const bool exists = getVFS()->fileExists(path);
+			if(effectiveDisposition == FILE_CREATE_NEW && exists)
+				return 0;
+			if((effectiveDisposition == FILE_OPEN_EXISTING ||
+				effectiveDisposition == FILE_TRUNCATE_EXISTING) && !exists)
+				return 0;
+
+			const bool create = effectiveDisposition == FILE_CREATE_NEW ||
+				effectiveDisposition == FILE_CREATE_ALWAYS ||
+				effectiveDisposition == FILE_OPEN_ALWAYS;
+			const bool truncate = effectiveDisposition == FILE_CREATE_ALWAYS ||
+				effectiveDisposition == FILE_TRUNCATE_EXISTING;
 			// 'vfs::CVirtualFile::SF_TOP' should be enough, but if for some strange reason
-			// file creation fails, we will stop at a writable profile 
+			// file creation fails, we will stop at a writable profile
 			// and won't unintentionally mess up a file from another profile
-			vfs::COpenWriteFile open_w( path, true, false, vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
+			vfs::COpenWriteFile open_w( path, create, truncate,
+				vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
 			pFile = &open_w.file();
-			open_w.release();
 			s_mapFiles[pFile].op = SOperation::WRITE;
+			open_w.release();
 			return (HWFILE)(uintptr_t)pFile;
 		}
-		else if(uiOptions & FILE_ACCESS_READ)
+		else
 		{
+			// Read handles have no meaningful creation operation in bfVFS. The
+			// previous implementation always opened an existing file, including
+			// the handful of legacy READ|OPEN_ALWAYS call sites, so retain that
+			// behavior and reject only dispositions that explicitly require a
+			// write/truncate operation.
+			if(disposition == FILE_CREATE_NEW || disposition == FILE_CREATE_ALWAYS ||
+				disposition == FILE_TRUNCATE_EXISTING)
+				return 0;
 			if(strProfilename && strProfilename[0])
 			{
 				vfs::COpenReadFile open_r(vfs::tReadableFile::cast(getVFS()->getFile(path, strProfilename)));
 				pFile = &open_r.file();
+				s_mapFiles[pFile].op = SOperation::READ;
 				open_r.release();
 			}
 			else
 			{
 				vfs::COpenReadFile open_r(path, vfs::CVirtualFile::SF_TOP);
 				pFile = &open_r.file();
+				s_mapFiles[pFile].op = SOperation::READ;
 				open_r.release();
 			}
-			s_mapFiles[pFile].op = SOperation::READ;
 			return (HWFILE)(uintptr_t)pFile;
 		}
 	}
