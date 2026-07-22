@@ -18,6 +18,7 @@
 FLOAT gdMajorMapVersion = MAJOR_MAP_VERSION;
 
 BOOLEAN gfWorldLoaded;
+UINT64 guiWorldLoadGeneration;
 
 MAPCREATE_STRUCT gMapInformation;
 

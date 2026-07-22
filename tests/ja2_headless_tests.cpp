@@ -45,6 +45,7 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
 #include <Engine/Core/StateTransition.h>
@@ -71,6 +72,10 @@
 #include "SaveCompatibility.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
+#include "Animation Control.h"
+#include "Map Information.h"
+#include "Overhead.h"
+#include "strategicmap.h"
 #include "MovementDestinationPolicy.h"
 #include "Timer Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
@@ -2045,6 +2050,87 @@ int main( int, char** )
 		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
+		const auto tacticalWorld = compiledContext.serviceCatalog().resolve<TacticalWorldService>(
+			TacticalWorldServiceId, TacticalWorldServiceVersion );
+		TacticalWorldSnapshot unavailableWorld;
+		CHECK( tacticalWorld &&
+		       tacticalWorld.service->capture( unavailableWorld ) ==
+		           TacticalWorldCaptureResult::Unavailable,
+		       "application composition root registers the live tactical world service" );
+
+		SOLDIERTYPE* previousSlot = MercPtrs[0];
+		const INT8 previousActive = Menptr[0].bActive;
+		const INT8 previousInSector = Menptr[0].bInSector;
+		const SoldierID previousId = Menptr[0].ubID;
+		const UINT32 previousIncarnation = Menptr[0].uiUniqueSoldierIdValue;
+		const INT8 previousTeam = Menptr[0].bTeam;
+		const UINT8 previousProfile = Menptr[0].ubProfile;
+		const INT32 previousGrid = Menptr[0].sGridNo;
+		const INT8 previousLevel = Menptr[0].pathing.bLevel;
+		const UINT8 previousDirection = Menptr[0].ubDirection;
+		const UINT16 previousAnimation = Menptr[0].usAnimState;
+		const INT16 previousActionPoints = Menptr[0].bActionPoints;
+		const INT8 previousLife = Menptr[0].stats.bLife;
+		const INT8 previousMaximumLife = Menptr[0].stats.bLifeMax;
+		const INT8 previousBreath = Menptr[0].bBreath;
+		const INT8 previousMaximumBreath = Menptr[0].bBreathMax;
+		const BOOLEAN previousWorldLoaded = gfWorldLoaded;
+		const UINT64 previousWorldGeneration = guiWorldLoadGeneration;
+		const INT16 previousSectorX = gWorldSectorX;
+		const INT16 previousSectorY = gWorldSectorY;
+		const INT8 previousSectorZ = gbWorldSectorZ;
+		MercPtrs[0] = &Menptr[0];
+		Menptr[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
+		Menptr[0].uiUniqueSoldierIdValue = 701;
+		Menptr[0].bActive = TRUE;
+		Menptr[0].bInSector = TRUE;
+		Menptr[0].bTeam = 1;
+		Menptr[0].ubProfile = 12;
+		Menptr[0].sGridNo = 345;
+		Menptr[0].pathing.bLevel = 1;
+		Menptr[0].ubDirection = 3;
+		Menptr[0].usAnimState = STANDING;
+		Menptr[0].bActionPoints = 72;
+		Menptr[0].stats.bLife = 76;
+		Menptr[0].stats.bLifeMax = 80;
+		Menptr[0].bBreath = 64;
+		Menptr[0].bBreathMax = 90;
+		gfWorldLoaded = TRUE;
+		guiWorldLoadGeneration = 23;
+		gWorldSectorX = 9;
+		gWorldSectorY = 1;
+		gbWorldSectorZ = 0;
+		TacticalWorldSnapshot liveWorld;
+		const TacticalWorldCaptureResult liveCapture =
+			tacticalWorld.service->capture( liveWorld );
+		const TacticalActorSnapshot* liveActor =
+			liveWorld.find( TacticalEntityId{ 0, 701 } );
+		CHECK( liveCapture == TacticalWorldCaptureResult::Success &&
+		       liveWorld.epoch() == 23 && liveWorld.sector().x == 9 &&
+		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
+		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
+		       "live tactical service captures stable pointer-free legacy soldier state" );
+		MercPtrs[0] = previousSlot;
+		Menptr[0].bActive = previousActive;
+		Menptr[0].bInSector = previousInSector;
+		Menptr[0].ubID = previousId;
+		Menptr[0].uiUniqueSoldierIdValue = previousIncarnation;
+		Menptr[0].bTeam = previousTeam;
+		Menptr[0].ubProfile = previousProfile;
+		Menptr[0].sGridNo = previousGrid;
+		Menptr[0].pathing.bLevel = previousLevel;
+		Menptr[0].ubDirection = previousDirection;
+		Menptr[0].usAnimState = previousAnimation;
+		Menptr[0].bActionPoints = previousActionPoints;
+		Menptr[0].stats.bLife = previousLife;
+		Menptr[0].stats.bLifeMax = previousMaximumLife;
+		Menptr[0].bBreath = previousBreath;
+		Menptr[0].bBreathMax = previousMaximumBreath;
+		gfWorldLoaded = previousWorldLoaded;
+		guiWorldLoadGeneration = previousWorldGeneration;
+		gWorldSectorX = previousSectorX;
+		gWorldSectorY = previousSectorY;
+		gbWorldSectorZ = previousSectorZ;
 	}
 
 	{

@@ -3343,6 +3343,8 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	RenderProgressBar(0, 80);
 	strcpy(gubFilename, puiFilename);	// was sprintf(dst, puiFilename): non-literal format string (a '%' in the name would corrupt/overflow)
 	gfWorldLoaded = TRUE;
+	++guiWorldLoadGeneration;
+	if (guiWorldLoadGeneration == 0) ++guiWorldLoadGeneration;
 #ifdef JA2TESTVERSION
 	uiLoadWorldTime = GetJA2Clock() - uiLoadWorldStartTime;
 #endif
@@ -3388,6 +3390,8 @@ BOOLEAN NewWorld( INT32 nMapRows,  INT32 nMapCols )
 	InitRoomDatabase( );
 
 	gfWorldLoaded = TRUE;
+	++guiWorldLoadGeneration;
+	if (guiWorldLoadGeneration == 0) ++guiWorldLoadGeneration;
 
 	return( TRUE );
 }

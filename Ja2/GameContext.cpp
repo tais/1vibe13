@@ -2,6 +2,7 @@
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "Screens.h"
+#include "TacticalWorldAdapter.h"
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformLog.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
@@ -27,6 +28,15 @@ GameContext& GetGameContext()
 		               GetPlatformByteStorage(), GetPlatformLogSink(),
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
 		               GetPlatformFramePresenter(), GetPlatformAssetSource()});
+	static const EngineServiceRegistrationError tacticalWorldRegistered =
+		RegisterTacticalWorldService(context.serviceCatalog(), GetJa2TacticalWorldAdapter());
+	static const bool tacticalWorldRegistrationReported = [&] {
+		if (tacticalWorldRegistered != EngineServiceRegistrationError::None)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "services", "Tactical world service registration failed"});
+		return true;
+	}();
+	(void)tacticalWorldRegistrationReported;
 	static const bool screensRegistered = [] {
 		for (UINT32 screenId = 0; screenId < MAX_SCREENS; ++screenId)
 		{

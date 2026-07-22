@@ -13,6 +13,7 @@ enum class TacticalWorldCaptureResult
 {
 	Success,
 	Unavailable,
+	CapacityReached,
 	AllocationFailure,
 	AdapterFailure
 };
