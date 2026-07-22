@@ -34,6 +34,7 @@ set(engine_core_public_headers
   PackageContentLoader.h
   PackageDefinitions.h
   PackageEventSink.h
+  PackageIdentity.h
   PackageEntities.h
   PackageLifecycle.h
   PackageMessagePublisher.h

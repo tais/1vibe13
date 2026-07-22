@@ -88,7 +88,7 @@ public:
 			descriptor.content.optionalRequirements, descriptor.content.conflicts,
 			descriptor.content.loadAfter, descriptor.capabilities,
 			descriptor.messageTopics, descriptor.requiredServices,
-			descriptor.requiredCapabilities,
+			descriptor.requiredCapabilities, PackageIdentity{id},
 			PackageStorage{id, packagePersistence_},
 			PackageMessagePublisher{id, messages_},
 			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_},
@@ -1088,6 +1088,7 @@ private:
 		std::vector<std::string> messageTopics;
 		std::vector<EngineServiceRequirement> requiredServices;
 		std::vector<std::string> requiredCapabilities;
+		PackageIdentity identity;
 		PackageStorage storage;
 		PackageMessagePublisher messagePublisher;
 		PackageRandomSource random;
@@ -1329,7 +1330,7 @@ private:
 	{
 		RegisteredPackage& registered = packages_.at(packageId);
 		return PackageBootstrapContext{
-			content_, services_, messages_, extensionServices_, configuration_,
+			registered.identity, content_, services_, messages_, extensionServices_, configuration_,
 			registered.storage, registered.messagePublisher, registered.random,
 			registered.localization, registered.definitions, registered.entities,
 			registered.audio, registered.tasks};

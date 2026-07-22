@@ -69,8 +69,11 @@ JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it
 as `ja2.tactical-commands` before package bootstrap, validates application
 domains at its safe simulation boundary, and drains only a configured prefix.
 The service deliberately does not expose draining or cancellation authority.
-Package IDs are cooperative in-process attribution rather than a security
-boundary; sandboxed/native plugins will require a future package-bound handle.
+Every callback receives a registry-issued `PackageIdentity`. It can be copied
+and passed to package-aware services, but cannot be constructed from an
+arbitrary package ID. Retaining it does not keep a package active: services
+must still reject work after that package leaves the active set. Native code in
+the same process remains a cooperative trust boundary rather than a sandbox.
 The JA2 application additionally tracks the bounded accepted batch by command
 sequence so lifecycle teardown can cancel both pending inbox requests and any
 accepted command retained after an execution failure. Admission requires a

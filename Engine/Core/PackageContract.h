@@ -13,6 +13,7 @@
 #include <Engine/Core/PackageDefinitions.h>
 #include <Engine/Core/PackageAudio.h>
 #include <Engine/Core/PackageEntities.h>
+#include <Engine/Core/PackageIdentity.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageSaveState.h>
 #include <Engine/Core/PackageStorage.h>
@@ -60,6 +61,7 @@ struct PackageDefinitionSource
 // legacy globals to participate in bootstrap.
 struct PackageBootstrapContext
 {
+	const PackageIdentity& identity;
 	ContentRegistry& content;
 	EngineServices& services;
 	RuntimeMessageBus& messages;

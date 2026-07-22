@@ -97,6 +97,13 @@ public:
 		return true;
 	}
 	void deactivate() noexcept override { active_ = false; }
+	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
+	{
+		if (phase == PackageBootstrapPhase::Configure)
+			issuedIdentity_ = context.identity;
+		return true;
+	}
+	const PackageIdentity& issuedIdentity() const { return issuedIdentity_; }
 	bool saveState(PackageBootstrapContext&, std::vector<std::uint8_t>& state) override
 	{
 		state = {1, 2, 3};
@@ -110,6 +117,7 @@ public:
 
 private:
 	PackageDescriptor descriptor_;
+	PackageIdentity issuedIdentity_;
 	bool active_ = false;
 };
 
@@ -175,6 +183,7 @@ int main()
 	if (!host.screens().current() || host.screens().current()->state != 7 ||
 		!host.beginInitialization() ||
 		!host.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime) ||
+		!package.issuedIdentity() || package.issuedIdentity().id() != "external.rules" ||
 		!host.markRunning()) return 5;
 	const PackageSaveStateCaptureResult capturedExternalState =
 		host.capturePackageSaveState();

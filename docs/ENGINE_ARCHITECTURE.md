@@ -239,6 +239,10 @@ the engine must not contain SDL types in its public domain model.
 - `PackageMessagePublisher` binds outbound runtime messages to the registered
   package identity. Packages choose a topic and bounded value payload, while
   the host supplies the immutable source used by diagnostics and consumers.
+- `PackageIdentity` is an opaque, copyable capability issued by the registry
+  for every callback. Package-aware adapter services can bind a caller without
+  accepting a forgeable package-ID string; retained identities do not bypass
+  the active-package lifecycle check.
 - Package descriptors declare minimum versions of required extension services.
   The registry validates the declarations at registration and checks the
   sealed host catalog before any configure callback, retaining the package,

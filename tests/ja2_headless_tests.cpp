@@ -407,6 +407,7 @@ public:
 			lifecycleTrace->push_back("bootstrap:" + descriptor_.content.id);
 		observedServices = &context.services;
 		observedMessages = &context.messages;
+		observedIdentity = context.identity;
 		const EngineServiceLookupResult<FrameTelemetry> telemetry =
 			context.extensionServices.resolve( FrameTelemetryServiceContract );
 		observedTelemetry = telemetry.service;
@@ -549,6 +550,7 @@ public:
 	std::string observedAssetProvenance;
 	EngineServices* observedServices = nullptr;
 	RuntimeMessageBus* observedMessages = nullptr;
+	PackageIdentity observedIdentity;
 	FrameTelemetry* observedTelemetry = nullptr;
 	std::int64_t observedMessageCapacity = -1;
 	std::string observedStoragePackageId;
@@ -677,6 +679,8 @@ int main( int, char** )
 		static_assert( !std::is_copy_constructible<CompositeAssetSource>::value &&
 		               !std::is_move_constructible<CompositeAssetSource>::value,
 		               "asset overlay identity must remain stable to prevent graph cycles" );
+		static_assert( !std::is_constructible<PackageIdentity, std::string>::value,
+		               "package identities may only be issued by the package registry" );
 		EngineHost<unsigned> host;
 		host.screenController().reset( 7 );
 		CHECK( host.screens().current() && host.screens().current()->state == 7,
@@ -730,6 +734,8 @@ int main( int, char** )
 		CHECK( started && started.packages.completedPhases == 3 &&
 		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
+		       package.observedIdentity &&
+		       package.observedIdentity.id() == "lifecycle.complete" &&
 		       package.observedTelemetry == &host.frameTelemetry() &&
 		       package.observedMessageCapacity == 1024 &&
 		       package.observedStoragePackageId == "lifecycle.complete" &&
