@@ -214,7 +214,7 @@ public:
 				cancelDuringBootstrap->tryCancelInitialization();
 			cancelDuringBootstrap = nullptr;
 		}
-		return true;
+		return static_cast<int>(phase) != failOnBootstrapPhase;
 	}
 	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
 	{
@@ -236,6 +236,7 @@ public:
 	RuntimeSession* shutdownDuringShutdown = nullptr;
 	RuntimeSessionShutdownResult shutdownDuringShutdownResult;
 	int throwOnShutdownPhase = -1;
+	int failOnBootstrapPhase = -1;
 	int deactivateCalls = 0;
 	bool active = false;
 };
@@ -844,6 +845,40 @@ int main()
 		failingRollbackHost.packages().completedBootstrapPhases() == 0 &&
 		failingRollbackHost.lifecycle() == EngineLifecycle::Stopped,
 		"rollback callback failures remain structured after best-effort cleanup");
+
+	TransactionalLifecyclePackage failedPhaseRollbackPackage(
+		"rules.failed-phase-rollback");
+	failedPhaseRollbackPackage.failOnBootstrapPhase =
+		static_cast<int>(PackageBootstrapPhase::LoadContent);
+	failedPhaseRollbackPackage.throwOnShutdownPhase =
+		static_cast<int>(PackageBootstrapPhase::LoadContent);
+	EngineHost<unsigned> failedPhaseRollbackHost;
+	const bool failedPhaseRollbackReady =
+		failedPhaseRollbackHost.packages().registerPackage(failedPhaseRollbackPackage) ==
+			PackageRegistrationError::None &&
+		failedPhaseRollbackHost.packages().activate("rules.failed-phase-rollback") ==
+			PackageActivationError::None &&
+		failedPhaseRollbackHost.beginInitialization();
+	const RuntimeSessionAdvanceResult failedPhaseRollback =
+		failedPhaseRollbackHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::LoadContent);
+	const RuntimeSessionTransitionResult failedPhaseRollbackRecovery =
+		failedPhaseRollbackHost.tryCancelInitialization();
+	check(failedPhaseRollbackReady &&
+		failedPhaseRollback.error == RuntimeSessionError::PackageBootstrapFailed &&
+		failedPhaseRollback.packages.error == PackageBootstrapError::CallbackFailed &&
+		failedPhaseRollback.packages.phase == PackageBootstrapPhase::LoadContent &&
+		failedPhaseRollback.packages.rolledBack &&
+		failedPhaseRollback.packages.completedPhases == 0 &&
+		failedPhaseRollback.packages.rollback.packages.error ==
+			PackageBootstrapShutdownError::CallbackFailed &&
+		failedPhaseRollback.packages.rollback.packages.shutdownPhases == 2 &&
+		failedPhaseRollback.packages.rollback.packages.callbacks == 2 &&
+		failedPhaseRollback.packages.rollback.packages.callbackFailures == 1 &&
+		failedPhaseRollbackPackage.shutdownCalls == std::vector<int>({1, 0}) &&
+		failedPhaseRollbackRecovery &&
+		failedPhaseRollbackHost.lifecycle() == EngineLifecycle::Stopped,
+		"failed-phase rollback failures propagate through lifecycle and session diagnostics");
 	const bool failingFinalShutdownReady =
 		failingRollbackHost.beginInitialization() &&
 		failingRollbackHost.runtimeSession().advancePackagesTo(

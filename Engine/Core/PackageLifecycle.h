@@ -2,6 +2,7 @@
 #define ENGINE_CORE_PACKAGE_LIFECYCLE_H
 
 #include <cstddef>
+#include <limits>
 
 #include <Engine/Core/PackageApi.h>
 
@@ -61,12 +62,13 @@ public:
 		{
 			const PackageBootstrapPhase phase =
 				static_cast<PackageBootstrapPhase>(completed);
-			const PackageBootstrapError error = packages_.bootstrap(phase);
-			if (error != PackageBootstrapError::None)
+			const PackageBootstrapResult bootstrap = packages_.bootstrapDetailed(phase);
+			if (!bootstrap)
 			{
-				const PackageLifecycleRollbackResult rollback = this->rollback();
+				PackageLifecycleRollbackResult rollback = this->rollback();
+				mergeRollback(rollback.packages, bootstrap.failedPhaseRollback);
 				return PackageLifecycleAdvanceResult{
-					error, phase, packages_.completedBootstrapPhases(), true, rollback};
+					bootstrap.error, phase, packages_.completedBootstrapPhases(), true, rollback};
 			}
 			completed = packages_.completedBootstrapPhases();
 		}
@@ -97,6 +99,39 @@ public:
 	}
 
 private:
+	static std::size_t saturatingAdd(std::size_t left, std::size_t right) noexcept
+	{
+		const std::size_t maximum = std::numeric_limits<std::size_t>::max();
+		return right > maximum - left ? maximum : left + right;
+	}
+
+	static PackageBootstrapShutdownError mergeRollbackError(
+		PackageBootstrapShutdownError left,
+		PackageBootstrapShutdownError right) noexcept
+	{
+		if (left == PackageBootstrapShutdownError::CallbackFailed ||
+			right == PackageBootstrapShutdownError::CallbackFailed)
+			return PackageBootstrapShutdownError::CallbackFailed;
+		if (left == PackageBootstrapShutdownError::OperationInProgress ||
+			right == PackageBootstrapShutdownError::OperationInProgress)
+			return PackageBootstrapShutdownError::OperationInProgress;
+		return PackageBootstrapShutdownError::None;
+	}
+
+	static void mergeRollback(
+		PackageBootstrapShutdownResult& completedPhases,
+		const PackageBootstrapShutdownResult& failedPhase) noexcept
+	{
+		completedPhases.error =
+			mergeRollbackError(completedPhases.error, failedPhase.error);
+		completedPhases.shutdownPhases = saturatingAdd(
+			completedPhases.shutdownPhases, failedPhase.shutdownPhases);
+		completedPhases.callbacks = saturatingAdd(
+			completedPhases.callbacks, failedPhase.callbacks);
+		completedPhases.callbackFailures = saturatingAdd(
+			completedPhases.callbackFailures, failedPhase.callbackFailures);
+	}
+
 	PackageRegistry& packages_;
 };
 

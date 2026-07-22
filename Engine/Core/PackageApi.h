@@ -575,17 +575,25 @@ private:
 public:
 	PackageBootstrapError bootstrap(PackageBootstrapPhase phase)
 	{
-		if (operationInProgress_) return PackageBootstrapError::OperationInProgress;
+		return bootstrapDetailed(phase).error;
+	}
+
+	PackageBootstrapResult bootstrapDetailed(PackageBootstrapPhase phase)
+	{
+		if (operationInProgress_)
+			return PackageBootstrapResult{PackageBootstrapError::OperationInProgress, {}};
 		OperationGuard operation(operationInProgress_);
 		const std::size_t phaseIndex = static_cast<std::size_t>(phase);
 		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
-			return PackageBootstrapError::OutOfOrder;
+			return PackageBootstrapResult{PackageBootstrapError::OutOfOrder, {}};
 		if (phase == PackageBootstrapPhase::Configure)
 		{
 			const PackageBootstrapError serviceContracts = preflightServiceContracts();
-			if (serviceContracts != PackageBootstrapError::None) return serviceContracts;
+			if (serviceContracts != PackageBootstrapError::None)
+				return PackageBootstrapResult{serviceContracts, {}};
 			const PackageBootstrapError capabilityContracts = preflightCapabilityContracts();
-			if (capabilityContracts != PackageBootstrapError::None) return capabilityContracts;
+			if (capabilityContracts != PackageBootstrapError::None)
+				return PackageBootstrapResult{capabilityContracts, {}};
 		}
 
 		for (std::size_t index = 0; index < active_.size(); ++index)
@@ -613,8 +621,12 @@ public:
 				active_[index]);
 			// The failing callback may have acquired part of its phase resources,
 			// so include it in the reverse rollback contract.
+			PackageBootstrapResult result;
+			result.error = PackageBootstrapError::CallbackFailed;
+			result.failedPhaseRollback.shutdownPhases = 1;
 			for (std::size_t rollback = index + 1; rollback > 0; --rollback)
 			{
+				++result.failedPhaseRollback.callbacks;
 				PackageBootstrapContext rollbackContext = contextFor(active_[rollback - 1]);
 				bool rolledBack = false;
 				try
@@ -625,6 +637,7 @@ public:
 				}
 				catch (...)
 				{
+					++result.failedPhaseRollback.callbackFailures;
 					faults_.record(RuntimeFaultKind::Shutdown, active_[rollback - 1],
 						"bootstrap-rollback", phaseIndex + 1);
 					logError("Bootstrap rollback threw: ", active_[rollback - 1]);
@@ -641,10 +654,13 @@ public:
 				                : PackageEventKind::BootstrapRollbackFailed,
 					active_[rollback - 1], phaseIndex);
 			}
-			return PackageBootstrapError::CallbackFailed;
+			if (result.failedPhaseRollback.callbackFailures != 0)
+				result.failedPhaseRollback.error =
+					PackageBootstrapShutdownError::CallbackFailed;
+			return result;
 		}
 		++completedBootstrapPhases_;
-		return PackageBootstrapError::None;
+		return PackageBootstrapResult{};
 	}
 
 	PackageBootstrapShutdownResult shutdownBootstrap()

@@ -180,6 +180,21 @@ struct PackageBootstrapShutdownResult
 	}
 };
 
+// Detailed bootstrap preserves the established enum-returning wrapper while
+// exposing rollback work performed for the phase whose callback failed. Those
+// callbacks are not part of shutdownBootstrap(), because the phase was never
+// marked complete.
+struct PackageBootstrapResult
+{
+	PackageBootstrapError error = PackageBootstrapError::None;
+	PackageBootstrapShutdownResult failedPhaseRollback;
+
+	explicit operator bool() const
+	{
+		return error == PackageBootstrapError::None;
+	}
+};
+
 struct PackageCapabilityContractFailure
 {
 	std::string packageId;
