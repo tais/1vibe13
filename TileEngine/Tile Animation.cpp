@@ -14,279 +14,388 @@
 #include "LightEffects.h"
 #include "SmokeEffects.h"
 
+#include <climits>
+#include <cstring>
 
-ANITILE					*pAniTileHead = NULL;
+
+namespace
+{
+INT32 gAniTileAllocationCountdown = -1;
+BOOLEAN gFailAfterLevelNodeInsertion = FALSE;
+constexpr UINT32 ANIMATION_OWNED_LEVELNODE_FLAGS =
+	LEVELNODE_ANIMATION | LEVELNODE_USEZ | LEVELNODE_DYNAMIC |
+	LEVELNODE_NOZBLITTER | LEVELNODE_REVEAL | LEVELNODE_USEBESTTRANSTYPE |
+	LEVELNODE_DYNAMICZ | LEVELNODE_LASTDYNAMIC |
+	LEVELNODE_UPDATESAVEBUFFERONCE | LEVELNODE_NOWRITEZ;
+
+void *AllocateAniTileMemory( UINT32 size )
+{
+	if ( gAniTileAllocationCountdown == 0 )
+		return NULL;
+	if ( gAniTileAllocationCountdown > 0 )
+		--gAniTileAllocationCountdown;
+	return MemAlloc( size );
+}
+
+BOOLEAN IsValidAnimationLevel( UINT8 ubLevel )
+{
+	switch ( ubLevel )
+	{
+	case ANI_STRUCT_LEVEL:
+	case ANI_SHADOW_LEVEL:
+	case ANI_OBJECT_LEVEL:
+	case ANI_ROOF_LEVEL:
+	case ANI_ONROOF_LEVEL:
+	case ANI_TOPMOST_LEVEL:
+		return TRUE;
+	default:
+		return FALSE;
+	}
+}
+
+BOOLEAN IsValidTileAnimation( UINT16 usTileIndex, UINT16 *pusNumFrames )
+{
+	if ( usTileIndex >= giNumberOfTiles )
+		return FALSE;
+	const TILE_ANIMATION_DATA *pAnimation = gTileDatabase[ usTileIndex ].pAnimData;
+	if ( pAnimation == NULL || pAnimation->pusFrames == NULL ||
+		pAnimation->ubNumFrames == 0 )
+		return FALSE;
+	*pusNumFrames = pAnimation->ubNumFrames;
+	return TRUE;
+}
+
+BOOLEAN CalculateStartFrame( const ANITILE_PARAMS *pAniParams,
+	UINT16 usNumFrames, INT16 *psStartFrame )
+{
+	const UINT32 uiDirectionFlags = pAniParams->uiFlags &
+		( ANITILE_USE_DIRECTION_FOR_START_FRAME |
+		ANITILE_USE_4DIRECTION_FOR_START_FRAME );
+	if ( uiDirectionFlags ==
+		( ANITILE_USE_DIRECTION_FOR_START_FRAME |
+		ANITILE_USE_4DIRECTION_FOR_START_FRAME ) )
+		return FALSE;
+	if ( pAniParams->sStartFrame < 0 ||
+		static_cast<UINT16>( pAniParams->sStartFrame ) >= usNumFrames )
+		return FALSE;
+
+	UINT32 uiStartFrame = static_cast<UINT16>( pAniParams->sStartFrame );
+	if ( uiDirectionFlags != 0 )
+	{
+		if ( pAniParams->uiUserData3 >= NUM_WORLD_DIRECTIONS )
+			return FALSE;
+		const UINT8 ubDirection =
+			( uiDirectionFlags & ANITILE_USE_DIRECTION_FOR_START_FRAME )
+			? gOneCDirection[ pAniParams->uiUserData3 ]
+			: gb4DirectionsFrom8[ pAniParams->uiUserData3 ];
+		uiStartFrame += static_cast<UINT32>( usNumFrames ) * ubDirection;
+	}
+	if ( uiStartFrame > INT16_MAX )
+		return FALSE;
+	*psStartFrame = static_cast<INT16>( uiStartFrame );
+	return TRUE;
+}
+
+LEVELNODE *AddAnimationLevelNode( UINT8 ubLevel, INT32 sGridNo,
+	UINT16 usTileIndex )
+{
+	switch ( ubLevel )
+	{
+	case ANI_STRUCT_LEVEL:
+		return ForceStructToTail( sGridNo, usTileIndex );
+	case ANI_SHADOW_LEVEL:
+		return AddShadowToHead( sGridNo, usTileIndex )
+			? gpWorldLevelData[ sGridNo ].pShadowHead : NULL;
+	case ANI_OBJECT_LEVEL:
+		return AddObjectToHead( sGridNo, usTileIndex )
+			? gpWorldLevelData[ sGridNo ].pObjectHead : NULL;
+	case ANI_ROOF_LEVEL:
+		return AddRoofToHead( sGridNo, usTileIndex )
+			? gpWorldLevelData[ sGridNo ].pRoofHead : NULL;
+	case ANI_ONROOF_LEVEL:
+		return AddOnRoofToHead( sGridNo, usTileIndex )
+			? gpWorldLevelData[ sGridNo ].pOnRoofHead : NULL;
+	case ANI_TOPMOST_LEVEL:
+		return AddTopmostToHead( sGridNo, usTileIndex )
+			? gpWorldLevelData[ sGridNo ].pTopmostHead : NULL;
+	default:
+		return NULL;
+	}
+}
+
+BOOLEAN RemoveAnimationLevelNode( UINT8 ubLevel, INT32 sGridNo,
+	LEVELNODE *pNode )
+{
+	switch ( ubLevel )
+	{
+	case ANI_STRUCT_LEVEL:
+		return RemoveStructFromLevelNode( sGridNo, pNode );
+	case ANI_SHADOW_LEVEL:
+		return RemoveShadowFromLevelNode( sGridNo, pNode );
+	case ANI_OBJECT_LEVEL:
+		return RemoveObjectFromLevelNode( sGridNo, pNode );
+	case ANI_ROOF_LEVEL:
+		return RemoveRoofFromLevelNode( sGridNo, pNode );
+	case ANI_ONROOF_LEVEL:
+		return RemoveOnRoofFromLevelNode( sGridNo, pNode );
+	case ANI_TOPMOST_LEVEL:
+		return RemoveTopmostFromLevelNode( sGridNo, pNode );
+	default:
+		return FALSE;
+	}
+}
+
+void ResetAnimationLayerOptimizing( UINT8 ubLevel )
+{
+	switch ( ubLevel )
+	{
+	case ANI_STRUCT_LEVEL:
+		ResetSpecificLayerOptimizing( TILES_DYNAMIC_STRUCTURES );
+		break;
+	case ANI_SHADOW_LEVEL:
+		ResetSpecificLayerOptimizing( TILES_DYNAMIC_SHADOWS );
+		break;
+	case ANI_OBJECT_LEVEL:
+		ResetSpecificLayerOptimizing( TILES_DYNAMIC_OBJECTS );
+		break;
+	case ANI_ROOF_LEVEL:
+		ResetSpecificLayerOptimizing( TILES_DYNAMIC_ROOF );
+		break;
+	case ANI_ONROOF_LEVEL:
+		ResetSpecificLayerOptimizing( TILES_DYNAMIC_ONROOF );
+		break;
+	case ANI_TOPMOST_LEVEL:
+		ResetSpecificLayerOptimizing( TILES_DYNAMIC_TOPMOST );
+		break;
+	}
+}
+
+constexpr UINT32 gAniTileFlags[] = {
+	ANITILE_DOOR, ANITILE_PAUSE_AFTER_LOOP, ANITILE_BACKWARD,
+	ANITILE_FORWARD, ANITILE_PAUSED, ANITILE_EXISTINGTILE,
+	ANITILE_USEABSOLUTEPOS, ANITILE_CACHEDTILE, ANITILE_LOOPING,
+	ANITILE_NOZBLITTER, ANITILE_REVERSE_LOOPING,
+	ANITILE_ALWAYS_TRANSLUCENT, ANITILE_USEBEST_TRANSLUCENT,
+	ANITILE_OPTIMIZEFORSLOWMOVING, ANITILE_ANIMATE_Z,
+	ANITILE_USE_DIRECTION_FOR_START_FRAME,
+	ANITILE_USE_4DIRECTION_FOR_START_FRAME,
+	ANITILE_ERASEITEMFROMSAVEBUFFFER, ANITILE_OPTIMIZEFORSMOKEEFFECT,
+	ANITILE_SMOKE_EFFECT, ANITILE_EXPLOSION,
+	ANITILE_RELEASE_ATTACKER_WHEN_DONE, ANITILE_LIGHT
+};
+
+constexpr bool AnimationFlagsAreUnique()
+{
+	for ( unsigned i = 0; i < sizeof( gAniTileFlags ) / sizeof( gAniTileFlags[ 0 ] ); ++i )
+	{
+		for ( unsigned j = i + 1; j < sizeof( gAniTileFlags ) / sizeof( gAniTileFlags[ 0 ] ); ++j )
+		{
+			if ( gAniTileFlags[ i ] == gAniTileFlags[ j ] )
+				return false;
+		}
+	}
+	return true;
+}
+
+static_assert( AnimationFlagsAreUnique(), "animation tile flags must be unique" );
+}
+
+namespace AniTileTestHooks
+{
+void FailAllocationAfter( INT32 successfulAllocations )
+{
+	gAniTileAllocationCountdown = successfulAllocations;
+}
+
+void FailAfterLevelNodeInsertion()
+{
+	gFailAfterLevelNodeInsertion = TRUE;
+}
+
+void ResetFailures()
+{
+	gAniTileAllocationCountdown = -1;
+	gFailAfterLevelNodeInsertion = FALSE;
+}
+}
+
+
+ANITILE *pAniTileHead = NULL;
 
 
 ANITILE *CreateAnimationTile( ANITILE_PARAMS *pAniParams )
 {
-	ANITILE		*pAniNode;
-	ANITILE		*pNewAniNode;
-	LEVELNODE	*pNode;
-	INT32			iCachedTile=-1;
-	INT32 sGridNo;
-	UINT8			ubLevel;
-	INT16			usTileType;
-	INT16			usTileIndex;
-	INT16			sDelay;
-	INT16			sStartFrame=-1;
-	UINT32		uiFlags;
-	LEVELNODE	*pGivenNode;
-	INT16			sX, sY, sZ;
-	UINT8			ubTempDir;
+	if ( pAniParams == NULL || !IsValidAnimationLevel( pAniParams->ubLevelID ) ||
+		pAniParams->sGridNo < 0 || pAniParams->sGridNo >= WORLD_MAX ||
+		pAniParams->sDelay < 0 )
+		return NULL;
 
-	// Get some parameters from structure sent in...
-	sGridNo			= pAniParams->sGridNo;
-	ubLevel			= pAniParams->ubLevelID;
-	usTileType	= pAniParams->usTileType;
-	usTileIndex	= pAniParams->usTileIndex;
-	sDelay			= pAniParams->sDelay;
-	sStartFrame	= pAniParams->sStartFrame;
-	uiFlags			= pAniParams->uiFlags;
-	pGivenNode	= pAniParams->pGivenLevelNode;
-	sX					= pAniParams->sX;
-	sY					= pAniParams->sY;
-	sZ					= pAniParams->sZ;
+	const UINT32 uiFlags = pAniParams->uiFlags;
+	const BOOLEAN fExistingTile = ( uiFlags & ANITILE_EXISTINGTILE ) != 0;
+	const BOOLEAN fCachedTile = ( uiFlags & ANITILE_CACHEDTILE ) != 0;
+	if ( ( fExistingTile && fCachedTile ) ||
+		( fExistingTile && ( pAniParams->pGivenLevelNode == NULL ||
+			pAniParams->pGivenLevelNode->pAniTile != NULL ) ) ||
+		( !fExistingTile && gpWorldLevelData == NULL ) )
+		return NULL;
+	if ( fCachedTile && ( pAniParams->zCachedFile[ 0 ] == '\0' ||
+		std::memchr( pAniParams->zCachedFile, '\0',
+			sizeof( pAniParams->zCachedFile ) ) == NULL ) )
+		return NULL;
 
+	UINT16 usTileIndex = pAniParams->usTileIndex;
+	UINT16 usNumFrames = 0;
+	if ( !fCachedTile &&
+		!IsValidTileAnimation( usTileIndex, &usNumFrames ) )
+		return NULL;
 
-	pAniNode = pAniTileHead;
-
-	// Allocate head
-	pNewAniNode = (ANITILE *) MemAlloc( sizeof( ANITILE ) );
-
+	ANITILE *pNewAniNode = static_cast<ANITILE *>(
+		AllocateAniTileMemory( sizeof( ANITILE ) ) );
+	if ( pNewAniNode == NULL )
+		return NULL;
 	memset( pNewAniNode, 0, sizeof( ANITILE ) );
+	pNewAniNode->lightSprite = -1;
 
-	if ( (uiFlags & ANITILE_EXISTINGTILE	) )
+	INT32 iCachedTile = -1;
+	if ( fCachedTile )
 	{
-		pNewAniNode->pLevelNode						= pGivenNode;
-		pNewAniNode->pLevelNode->pAniTile = pNewAniNode;
-	}
-	else
-	{
-		if ( ( uiFlags & ANITILE_CACHEDTILE ) )
+		iCachedTile = GetCachedTile( pAniParams->zCachedFile );
+		if ( iCachedTile < 0 )
 		{
-			iCachedTile = GetCachedTile( pAniParams->zCachedFile );
-
-			if ( iCachedTile == -1 )
-			{
-				MemFree( pNewAniNode );
-				return( NULL );
-			}
-
-			usTileIndex = iCachedTile + TILE_CACHE_START_INDEX;
+			MemFree( pNewAniNode );
+			return NULL;
 		}
-
-		// ALLOCATE NEW TILE
-		switch( ubLevel )
+		const UINT32 uiCachedTileIndex =
+			static_cast<UINT32>( iCachedTile ) + TILE_CACHE_START_INDEX;
+		if ( iCachedTile > INT16_MAX || uiCachedTileIndex > UINT16_MAX )
 		{
-		case ANI_STRUCT_LEVEL:
+			RemoveCachedTile( iCachedTile );
+			MemFree( pNewAniNode );
+			return NULL;
+		}
+		usNumFrames = GetCachedTileFrameCount( iCachedTile );
+		usTileIndex = static_cast<UINT16>( uiCachedTileIndex );
+	}
 
-			pNode = ForceStructToTail( sGridNo, usTileIndex );
-			break;
+	INT16 sStartFrame = 0;
+	if ( !CalculateStartFrame( pAniParams, usNumFrames, &sStartFrame ) )
+	{
+		if ( iCachedTile != -1 )
+			RemoveCachedTile( iCachedTile );
+		MemFree( pNewAniNode );
+		return NULL;
+	}
 
-		case ANI_SHADOW_LEVEL:
-
-			AddShadowToHead( sGridNo, usTileIndex );
-			pNode = gpWorldLevelData[ sGridNo ].pShadowHead;
-			break;
-
-		case ANI_OBJECT_LEVEL:
-
-			AddObjectToHead( sGridNo, usTileIndex );
-			pNode = gpWorldLevelData[ sGridNo ].pObjectHead;
-			break;
-
-		case ANI_ROOF_LEVEL:
-
-			AddRoofToHead( sGridNo, usTileIndex );
-			pNode = gpWorldLevelData[ sGridNo ].pRoofHead;
-			break;
-
-		case ANI_ONROOF_LEVEL:
-
-			AddOnRoofToHead( sGridNo, usTileIndex );
-			pNode = gpWorldLevelData[ sGridNo ].pOnRoofHead;
-			break;
-
-		case ANI_TOPMOST_LEVEL:
-
-			AddTopmostToHead( sGridNo, usTileIndex );
-			pNode = gpWorldLevelData[ sGridNo ].pTopmostHead;
-			break;
-
-		default:
+	LEVELNODE *pNode = pAniParams->pGivenLevelNode;
+	if ( !fExistingTile )
+	{
+		pNode = AddAnimationLevelNode( pAniParams->ubLevelID,
+			pAniParams->sGridNo, usTileIndex );
+		if ( pNode == NULL )
+		{
 			if ( iCachedTile != -1 )
 				RemoveCachedTile( iCachedTile );
 			MemFree( pNewAniNode );
-			return( NULL );
+			return NULL;
 		}
 
-		// SET NEW TILE VALUES
-		pNode->ubShadeLevel=DEFAULT_SHADE_LEVEL;
-		pNode->ubNaturalShadeLevel=DEFAULT_SHADE_LEVEL;
-
-		pNewAniNode->pLevelNode								= pNode;
-
-		if ( uiFlags & ANITILE_LIGHT )
+		if ( gFailAfterLevelNodeInsertion )
 		{
-			if( !IsLightEffectAtTile(sGridNo) && ( pNewAniNode->lightSprite=LightSpriteCreate("L-R03.LHT", 0 ) )!=(-1))
-			{
-				LightSpritePower(pNewAniNode->lightSprite, TRUE);
-				{
-					INT16 sXPos, sYPos;
-
-					ConvertGridNoToCenterCellXY( sGridNo, &sXPos, &sYPos );
-					LightSpritePosition( pNewAniNode->lightSprite, (INT16)(sXPos/CELL_X_SIZE), (INT16)(sYPos/CELL_Y_SIZE));
-				}
-			}
-			else
-				pNewAniNode->lightSprite = -1;
+			gFailAfterLevelNodeInsertion = FALSE;
+			RemoveAnimationLevelNode( pAniParams->ubLevelID,
+				pAniParams->sGridNo, pNode );
+			if ( iCachedTile != -1 )
+				RemoveCachedTile( iCachedTile );
+			MemFree( pNewAniNode );
+			return NULL;
 		}
 
-		if ( ( uiFlags & ANITILE_CACHEDTILE ) )
+		pNode->ubShadeLevel = DEFAULT_SHADE_LEVEL;
+		pNode->ubNaturalShadeLevel = DEFAULT_SHADE_LEVEL;
+	}
+
+	pNewAniNode->pLevelNode = pNode;
+	if ( fExistingTile )
+	{
+		pNewAniNode->uiOriginalLevelNodeFlags =
+			pNode->uiFlags & ANIMATION_OWNED_LEVELNODE_FLAGS;
+		pNewAniNode->sOriginalLevelNodeFrame = pNode->sCurrentFrame;
+	}
+	pNewAniNode->ubLevelID = pAniParams->ubLevelID;
+	pNewAniNode->usTileIndex = usTileIndex;
+	pNewAniNode->usNumFrames = usNumFrames;
+	pNewAniNode->usTileType = pAniParams->usTileType;
+	pNewAniNode->pNext = pAniTileHead;
+	pNewAniNode->uiFlags = uiFlags;
+	pNewAniNode->sDelay = pAniParams->sDelay;
+	pNewAniNode->sCurrentFrame = sStartFrame;
+	pNewAniNode->sStartFrame = sStartFrame;
+	pNewAniNode->uiTimeLastUpdate = GetJA2Clock();
+	pNewAniNode->sGridNo = pAniParams->sGridNo;
+	pNewAniNode->ubOwner = pAniParams->ubOwner;
+	pNewAniNode->ubKeyFrame1 = pAniParams->ubKeyFrame1;
+	pNewAniNode->uiKeyFrame1Code = pAniParams->uiKeyFrame1Code;
+	pNewAniNode->ubKeyFrame2 = pAniParams->ubKeyFrame2;
+	pNewAniNode->uiKeyFrame2Code = pAniParams->uiKeyFrame2Code;
+	pNewAniNode->uiUserData = pAniParams->uiUserData;
+	pNewAniNode->ubUserData2 = pAniParams->ubUserData2;
+	pNewAniNode->uiUserData3 = pAniParams->uiUserData3;
+
+	if ( !fExistingTile && ( uiFlags & ANITILE_LIGHT ) )
+	{
+		if ( !IsLightEffectAtTile( pAniParams->sGridNo ) &&
+			( pNewAniNode->lightSprite =
+				LightSpriteCreate( "L-R03.LHT", 0 ) ) != -1 )
 		{
-			pNewAniNode->pLevelNode->uiFlags |=	( LEVELNODE_CACHEDANITILE );
-			pNewAniNode->sCachedTileID = (INT16)iCachedTile;
-			pNewAniNode->usCachedTileSubIndex = usTileType;
-			pNewAniNode->pLevelNode->pAniTile = pNewAniNode;
-			pNewAniNode->sRelativeX		= sX;
-			pNewAniNode->sRelativeY		= sY;
-			pNewAniNode->pLevelNode->sRelativeZ		= sZ;
-
+			LightSpritePower( pNewAniNode->lightSprite, TRUE );
+			INT16 sXPos, sYPos;
+			ConvertGridNoToCenterCellXY( pAniParams->sGridNo, &sXPos, &sYPos );
+			LightSpritePosition( pNewAniNode->lightSprite,
+				static_cast<INT16>( sXPos / CELL_X_SIZE ),
+				static_cast<INT16>( sYPos / CELL_Y_SIZE ) );
 		}
-		// Can't set relative X,Y,Z IF FLAGS ANITILE_CACHEDTILE set!
-		else if ( (uiFlags & ANITILE_USEABSOLUTEPOS	) )
-		{
-			pNewAniNode->pLevelNode->sRelativeX		= sX;
-			pNewAniNode->pLevelNode->sRelativeY		= sY;
-			pNewAniNode->pLevelNode->sRelativeZ		= sZ;
-			pNewAniNode->pLevelNode->uiFlags |=	( LEVELNODE_USEABSOLUTEPOS );
-		}
-
 	}
 
-
-	switch( ubLevel )
+	if ( fCachedTile )
 	{
-	case ANI_STRUCT_LEVEL:
-
-		ResetSpecificLayerOptimizing( TILES_DYNAMIC_STRUCTURES );
-		break;
-
-	case ANI_SHADOW_LEVEL:
-
-		ResetSpecificLayerOptimizing( TILES_DYNAMIC_SHADOWS );
-		break;
-
-	case ANI_OBJECT_LEVEL:
-
-		ResetSpecificLayerOptimizing( TILES_DYNAMIC_OBJECTS );
-		break;
-
-	case ANI_ROOF_LEVEL:
-
-		ResetSpecificLayerOptimizing( TILES_DYNAMIC_ROOF );
-		break;
-
-	case ANI_ONROOF_LEVEL:
-
-		ResetSpecificLayerOptimizing( TILES_DYNAMIC_ONROOF );
-		break;
-
-	case ANI_TOPMOST_LEVEL:
-
-		ResetSpecificLayerOptimizing( TILES_DYNAMIC_TOPMOST );
-		break;
-
+		pNode->uiFlags |= LEVELNODE_CACHEDANITILE;
+		pNewAniNode->sCachedTileID = static_cast<INT16>( iCachedTile );
+		pNewAniNode->usCachedTileSubIndex = pAniParams->usTileType;
+		pNewAniNode->sRelativeX = pAniParams->sX;
+		pNewAniNode->sRelativeY = pAniParams->sY;
+		pNode->sRelativeZ = pAniParams->sZ;
 	}
-
-	// SET FLAGS FOR LEVELNODE
-	pNewAniNode->pLevelNode->uiFlags |=	( LEVELNODE_ANIMATION | LEVELNODE_USEZ | LEVELNODE_DYNAMIC );
-
-	if ( ( uiFlags & ANITILE_NOZBLITTER ) )
+	else if ( !fExistingTile && ( uiFlags & ANITILE_USEABSOLUTEPOS ) )
 	{
-		pNewAniNode->pLevelNode->uiFlags |= LEVELNODE_NOZBLITTER;
+		pNode->sRelativeX = pAniParams->sX;
+		pNode->sRelativeY = pAniParams->sY;
+		pNode->sRelativeZ = pAniParams->sZ;
+		pNode->uiFlags |= LEVELNODE_USEABSOLUTEPOS;
 	}
 
-	if ( ( uiFlags & ANITILE_ALWAYS_TRANSLUCENT ) )
+	pNode->uiFlags |= LEVELNODE_ANIMATION | LEVELNODE_USEZ | LEVELNODE_DYNAMIC;
+	if ( uiFlags & ANITILE_NOZBLITTER )
+		pNode->uiFlags |= LEVELNODE_NOZBLITTER;
+	if ( uiFlags & ANITILE_ALWAYS_TRANSLUCENT )
+		pNode->uiFlags |= LEVELNODE_REVEAL;
+	if ( uiFlags & ANITILE_USEBEST_TRANSLUCENT )
+		pNode->uiFlags |= LEVELNODE_USEBESTTRANSTYPE;
+	if ( uiFlags & ANITILE_ANIMATE_Z )
+		pNode->uiFlags |= LEVELNODE_DYNAMICZ;
+	if ( uiFlags & ANITILE_PAUSED )
 	{
-		pNewAniNode->pLevelNode->uiFlags |= LEVELNODE_REVEAL;
+		pNode->uiFlags |= LEVELNODE_LASTDYNAMIC |
+			LEVELNODE_UPDATESAVEBUFFERONCE;
+		pNode->uiFlags &= ~LEVELNODE_DYNAMIC;
 	}
+	if ( uiFlags & ANITILE_OPTIMIZEFORSMOKEEFFECT )
+		pNode->uiFlags |= LEVELNODE_NOWRITEZ;
+	if ( fExistingTile || fCachedTile )
+		pNode->pAniTile = pNewAniNode;
 
-	if ( ( uiFlags & ANITILE_USEBEST_TRANSLUCENT ) )
-	{
-		pNewAniNode->pLevelNode->uiFlags |= LEVELNODE_USEBESTTRANSTYPE;
-	}
-
-	if ( ( uiFlags & ANITILE_ANIMATE_Z ) )
-	{
-		pNewAniNode->pLevelNode->uiFlags |= LEVELNODE_DYNAMICZ;
-	}
-
-	if ( ( uiFlags & ANITILE_PAUSED ) )
-	{
-		pNewAniNode->pLevelNode->uiFlags |= ( LEVELNODE_LASTDYNAMIC | LEVELNODE_UPDATESAVEBUFFERONCE );
-		pNewAniNode->pLevelNode->uiFlags &= (~LEVELNODE_DYNAMIC );
-	}
-
-	if ( ( uiFlags & ANITILE_OPTIMIZEFORSMOKEEFFECT ) )
-	{
-		pNewAniNode->pLevelNode->uiFlags |= LEVELNODE_NOWRITEZ;
-	}
-
-
-	// SET ANITILE VALUES
-	pNewAniNode->ubLevelID				= ubLevel;
-	pNewAniNode->usTileIndex			= usTileIndex;
-
-	if ( ( uiFlags & ANITILE_CACHEDTILE ) )
-	{
-		pNewAniNode->usNumFrames			= GetCachedTileFrameCount( iCachedTile );
-	}
-	else
-	{
-		Assert( gTileDatabase[ usTileIndex ].pAnimData != NULL );
-		pNewAniNode->usNumFrames			= gTileDatabase[ usTileIndex ].pAnimData->ubNumFrames;
-	}
-
-	if ( ( uiFlags & ANITILE_USE_DIRECTION_FOR_START_FRAME ) )
-	{
-		// Our start frame is actually a direction indicator
-		ubTempDir = gOneCDirection[ pAniParams->uiUserData3 ];
-		sStartFrame = (UINT16)sStartFrame + ( pNewAniNode->usNumFrames * ubTempDir );
-	}
-
-	if ( ( uiFlags & ANITILE_USE_4DIRECTION_FOR_START_FRAME ) )
-	{
-		// Our start frame is actually a direction indicator
-		ubTempDir = gb4DirectionsFrom8[ pAniParams->uiUserData3 ];
-		sStartFrame = (UINT16)sStartFrame + ( pNewAniNode->usNumFrames * ubTempDir );
-	}
-
-	pNewAniNode->usTileType				= usTileType;
-	pNewAniNode->pNext						= pAniNode;
-	pNewAniNode->uiFlags					= uiFlags;
-	pNewAniNode->sDelay						= sDelay;
-	pNewAniNode->sCurrentFrame		= sStartFrame;
-	pNewAniNode->uiTimeLastUpdate = GetJA2Clock( );
-	pNewAniNode->sGridNo					= sGridNo;
-
-	pNewAniNode->sStartFrame		= sStartFrame;
-
-	pNewAniNode->ubKeyFrame1			= pAniParams->ubKeyFrame1;
-	pNewAniNode->uiKeyFrame1Code	= pAniParams->uiKeyFrame1Code;
-	pNewAniNode->ubKeyFrame2			= pAniParams->ubKeyFrame2;
-	pNewAniNode->uiKeyFrame2Code	= pAniParams->uiKeyFrame2Code;
-	pNewAniNode->uiUserData				= pAniParams->uiUserData;
-	pNewAniNode->ubUserData2			= pAniParams->ubUserData2;
-	pNewAniNode->uiUserData3			= pAniParams->uiUserData3;
-
-
-	//Set head
+	ResetAnimationLayerOptimizing( pAniParams->ubLevelID );
 	pAniTileHead = pNewAniNode;
-
-	// Set some special stuff
-	return( pNewAniNode );
+	return pNewAniNode;
 }
 
 // Loop throug all ani tiles and remove...
@@ -352,17 +461,20 @@ void DeleteAniTile( ANITILE *pAniTile )
 
 				case ANI_OBJECT_LEVEL:
 
-					RemoveObject( pAniNode->sGridNo, pAniNode->usTileIndex );
+					RemoveObjectFromLevelNode( pAniNode->sGridNo,
+						pAniNode->pLevelNode );
 					break;
 
 				case ANI_ROOF_LEVEL:
 
-					RemoveRoof( pAniNode->sGridNo, pAniNode->usTileIndex );
+					RemoveRoofFromLevelNode( pAniNode->sGridNo,
+						pAniNode->pLevelNode );
 					break;
 
 				case ANI_ONROOF_LEVEL:
 
-					RemoveOnRoof( pAniNode->sGridNo, pAniNode->usTileIndex );
+					RemoveOnRoofFromLevelNode( pAniNode->sGridNo,
+						pAniNode->pLevelNode );
 					break;
 
 				case ANI_TOPMOST_LEVEL:
@@ -418,15 +530,34 @@ void DeleteAniTile( ANITILE *pAniTile )
 				TileElem = &( gTileDatabase[ pAniNode->usTileIndex ] );
 
 				// OK, update existing tile usIndex....
-				Assert( TileElem->pAnimData != NULL );
-				pAniNode->pLevelNode->usIndex = TileElem->pAnimData->pusFrames[ pAniNode->pLevelNode->sCurrentFrame ];
+				if ( TileElem->pAnimData != NULL &&
+					TileElem->pAnimData->pusFrames != NULL &&
+					pAniNode->pLevelNode->sCurrentFrame >= 0 &&
+					pAniNode->pLevelNode->sCurrentFrame <
+						TileElem->pAnimData->ubNumFrames )
+				{
+					pAniNode->pLevelNode->usIndex =
+						TileElem->pAnimData->pusFrames[
+							pAniNode->pLevelNode->sCurrentFrame ];
+					// The node now references a static frame tile, whose local frame is 0.
+					pAniNode->pLevelNode->sCurrentFrame = 0;
+				}
+				else
+				{
+					// If final-frame publication is impossible, preserve the caller's
+					// original frame instead of manufacturing a new state.
+					pAniNode->pLevelNode->sCurrentFrame =
+						pAniNode->sOriginalLevelNodeFrame;
+				}
 
-				// OK, set our frame data back to zero....
-				pAniNode->pLevelNode->sCurrentFrame = 0;
-
-				// Set some flags to write to Z / update save buffer
-				// pAniNode->pLevelNode->uiFlags |=( LEVELNODE_LASTDYNAMIC | LEVELNODE_UPDATESAVEBUFFERONCE );
-				pAniNode->pLevelNode->uiFlags &= ~( LEVELNODE_DYNAMIC | LEVELNODE_USEZ | LEVELNODE_ANIMATION );
+				// Restore exactly the flag bits this animation was allowed to own,
+				// while preserving unrelated changes made during its lifetime.
+				pAniNode->pLevelNode->uiFlags =
+					( pAniNode->pLevelNode->uiFlags &
+						~ANIMATION_OWNED_LEVELNODE_FLAGS ) |
+					pAniNode->uiOriginalLevelNodeFlags;
+				if ( pAniNode->pLevelNode->pAniTile == pAniNode )
+					pAniNode->pLevelNode->pAniTile = NULL;
 
 				if (pAniNode->uiFlags & ANITILE_DOOR)
 				{

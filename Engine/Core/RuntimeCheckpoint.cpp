@@ -11,12 +11,10 @@ namespace
 {
 constexpr std::uint32_t CheckpointMagic = 0x504b4843u; // "CHKP" on disk.
 constexpr std::uint16_t CheckpointVersion = 1;
-constexpr std::size_t MaximumVersionBytes = 256;
-
 bool ValidPackage(const RuntimeCheckpointPackage& package)
 {
 	return IsValidEngineIdentifier(package.id) && !package.version.empty() &&
-		package.version.size() <= MaximumVersionBytes;
+		package.version.size() <= MaximumEngineVersionBytes;
 }
 
 RuntimeCheckpointLoadError Translate(PersistenceLoadResult error)
@@ -84,6 +82,14 @@ RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& pa
 	RuntimeCompatibilityFingerprint expectedCompatibility,
 	RuntimeCheckpoint& checkpoint) const noexcept
 {
+	return load(path, expectedCompatibility, expectedCompatibility, checkpoint);
+}
+
+RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& path,
+	RuntimeCompatibilityFingerprint expectedCompatibility,
+	RuntimeCompatibilityFingerprint alternateExpectedCompatibility,
+	RuntimeCheckpoint& checkpoint) const noexcept
+{
 	try
 	{
 		PersistenceHeader header{};
@@ -113,7 +119,10 @@ RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& pa
 		for (std::uint32_t index = 0; index < packageCount; ++index)
 		{
 			RuntimeCheckpointPackage package;
-			if (!reader.readString(package.id) || !reader.readString(package.version) ||
+			if (!reader.readStringBounded(
+					package.id, MaximumEngineIdentifierBytes) ||
+				!reader.readStringBounded(
+					package.version, MaximumEngineVersionBytes) ||
 				!ValidPackage(package) || !unique.insert(package.id).second)
 				return RuntimeCheckpointLoadResult{
 					RuntimeCheckpointLoadError::MalformedPayload, decoded.compatibility};
@@ -122,7 +131,8 @@ RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& pa
 		if (reader.remaining() != 0)
 			return RuntimeCheckpointLoadResult{
 				RuntimeCheckpointLoadError::MalformedPayload, decoded.compatibility};
-		if (decoded.compatibility != expectedCompatibility)
+		if (decoded.compatibility != expectedCompatibility &&
+			decoded.compatibility != alternateExpectedCompatibility)
 			return RuntimeCheckpointLoadResult{
 				RuntimeCheckpointLoadError::IncompatibleRuntime, decoded.compatibility};
 		checkpoint = std::move(decoded);

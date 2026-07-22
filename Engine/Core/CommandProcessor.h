@@ -35,6 +35,34 @@ struct CommandProcessingResult
 	explicit operator bool() const { return status == CommandProcessStatus::Completed; }
 };
 
+// A synchronous caller may only execute the command it just submitted when it
+// is also the next authoritative command.  Keep this result separate from the
+// normal prefix processor: "another command is first" is backpressure, not a
+// malformed queue or a consumed frame budget.
+enum class ExpectedCommandProcessStatus
+{
+	Processed,
+	NoCommandReady,
+	DifferentCommandReady,
+	Retry,
+	QueueChanged
+};
+
+struct ExpectedCommandProcessingResult
+{
+	ExpectedCommandProcessStatus status =
+		ExpectedCommandProcessStatus::NoCommandReady;
+	CommandProcessingResult processing;
+	std::uint64_t expectedSequence = 0;
+	std::uint64_t observedTick = 0;
+	std::uint64_t observedSequence = 0;
+
+	explicit operator bool() const
+	{
+		return status == ExpectedCommandProcessStatus::Processed;
+	}
+};
+
 namespace engine_command_detail
 {
 template<typename Observer, typename Command>
@@ -132,6 +160,72 @@ CommandProcessingResult ProcessCommandsThrough(
 	return engine_command_detail::ProcessSnapshot(
 		queue, ready, moreReady, std::forward<Handler>(handler),
 		std::forward<Observer>(observer));
+}
+
+// Process exactly expectedSequence, but only when it is the logical first
+// command ready through tick.  The queue's bounded snapshot normalizes replay
+// insertion order before comparison.  No unrelated command is invoked, and a
+// retry or exception retains the expected command for a later safe-frame pass.
+template<
+	typename Command, typename Handler, typename Observer,
+	std::enable_if_t<std::is_invocable_r<
+		CommandDisposition, Handler&, const Command&,
+		std::uint64_t, std::uint64_t>::value, int> = 0>
+ExpectedCommandProcessingResult ProcessExpectedNextCommandThrough(
+	DeterministicCommandQueue<Command>& queue,
+	std::uint64_t tick,
+	std::uint64_t expectedSequence,
+	Handler&& handler,
+	Observer&& observer)
+{
+	ExpectedCommandProcessingResult result;
+	result.expectedSequence = expectedSequence;
+	bool moreReady = false;
+	const auto ready = queue.snapshotThrough(tick, 1, moreReady);
+	if (ready.empty()) return result;
+
+	result.observedTick = ready.front().tick;
+	result.observedSequence = ready.front().sequence;
+	if (result.observedSequence != expectedSequence)
+	{
+		result.status = ExpectedCommandProcessStatus::DifferentCommandReady;
+		return result;
+	}
+
+	// Later ready work is deliberately excluded from this operation, so it does
+	// not turn a successful one-command handoff into BudgetExhausted.
+	result.processing = engine_command_detail::ProcessSnapshot(
+		queue, ready, false, std::forward<Handler>(handler),
+		std::forward<Observer>(observer));
+	switch (result.processing.status)
+	{
+		case CommandProcessStatus::Completed:
+			result.status = ExpectedCommandProcessStatus::Processed;
+			break;
+		case CommandProcessStatus::Blocked:
+			result.status = ExpectedCommandProcessStatus::Retry;
+			break;
+		case CommandProcessStatus::QueueChanged:
+			result.status = ExpectedCommandProcessStatus::QueueChanged;
+			break;
+		case CommandProcessStatus::BudgetExhausted:
+			// ProcessSnapshot cannot produce this status when moreReady is false.
+			result.status = ExpectedCommandProcessStatus::QueueChanged;
+			break;
+	}
+	return result;
+}
+
+template<typename Command, typename Handler>
+ExpectedCommandProcessingResult ProcessExpectedNextCommandThrough(
+	DeterministicCommandQueue<Command>& queue,
+	std::uint64_t tick,
+	std::uint64_t expectedSequence,
+	Handler&& handler)
+{
+	return ProcessExpectedNextCommandThrough(
+		queue, tick, expectedSequence, std::forward<Handler>(handler),
+		[](const Command&, std::uint64_t, std::uint64_t, CommandDisposition) {});
 }
 
 template<typename Command, typename Handler>

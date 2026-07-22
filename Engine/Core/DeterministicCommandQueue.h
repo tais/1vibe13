@@ -164,6 +164,15 @@ public:
 		return liveSequences_.find(sequence) != liveSequences_.end();
 	}
 
+	// Allocation-free admission probe for synchronous producers. Physical
+	// insertion order is irrelevant: any command at or before the boundary is
+	// authoritative work that must precede a newly submitted command there.
+	bool hasReadyThrough(std::uint64_t tick) const noexcept
+	{
+		return std::any_of(entries_.begin(), entries_.end(),
+			[tick](const Entry& entry) { return entry.tick <= tick; });
+	}
+
 	std::size_t size() const { return entries_.size(); }
 	bool empty() const { return entries_.empty(); }
 	std::size_t liveSequenceCount() const { return liveSequences_.size(); }

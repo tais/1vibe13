@@ -37,8 +37,8 @@ extern "C" {
 #include <SDL3/SDL.h>
 
 #include <Engine/Core/UniqueResourcePtr.h>
+#include <Engine/Adapters/Legacy/PlatformTime.h>
 
-#include <chrono>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdint>
@@ -46,11 +46,7 @@ extern "C" {
 #include <cstring>
 #include <vector>
 
-static uint64_t NowNs()
-{
-	using namespace std::chrono;
-	return (uint64_t)duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
-}
+static uint64_t NowNs() { return PlatformNowNanoseconds(); }
 
 // Opt-in video diagnostics (set JA2_VIDEO_DEBUG): append milestones to
 // ja2_video_debug.log in the working dir. Windows GUI apps have no visible

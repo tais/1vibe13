@@ -1,31 +1,31 @@
 #include "types.h"
 #include "timer.h"
 
-#include <chrono>
+#include <Engine/Adapters/Legacy/PlatformTime.h>
 
 // SGP's simple clock manager. The original used Win32 SetTimer +
 // KillTimer to drive a periodic Clock() callback that updated
 // guiCurrentTime from GetTickCount. That was always redundant -- the
 // callback recomputed the same delta that GetClock could compute on
 // demand. The rewrite drops the timer entirely and just samples
-// std::chrono::steady_clock when callers ask for the time. Public
-// API is unchanged.
+// the shared platform monotonic clock when callers ask for the time.
+// Public API is unchanged.
 
 UINT32 guiStartupTime;
 UINT32 guiCurrentTime;
 
-using SteadyClock = std::chrono::steady_clock;
-static SteadyClock::time_point gStartTimePoint;
+static std::uint64_t gStartMicroseconds;
 
 static UINT32 NowMs()
 {
-	auto t = SteadyClock::now() - gStartTimePoint;
-	return (UINT32)std::chrono::duration_cast<std::chrono::milliseconds>(t).count();
+	const std::uint64_t now = PlatformNowMicroseconds();
+	if (now < gStartMicroseconds) return 0;
+	return static_cast<UINT32>((now - gStartMicroseconds) / 1000u);
 }
 
 BOOLEAN InitializeClockManager(void)
 {
-	gStartTimePoint = SteadyClock::now();
+	gStartMicroseconds = PlatformNowMicroseconds();
 	guiStartupTime  = 0;
 	guiCurrentTime  = 0;
 	return TRUE;

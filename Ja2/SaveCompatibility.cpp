@@ -290,7 +290,8 @@ PackageSaveMetadataWriteResult WritePackageSaveStateMetadata(
 		PackageSaveStateCaptureResult captured = context.capturePackageSaveState();
 		if (!captured)
 			return {false, captured.error, PackageSaveArchiveSaveError::None};
-		if (captured.snapshot.records.empty())
+		if (captured.snapshot.records.empty() &&
+			captured.snapshot.engineRecords.empty())
 		{
 			const bool removed = context.persistence().storage().remove(sidecar);
 			return {false, PackageSaveStateError::None,
@@ -325,10 +326,16 @@ PackageSaveMetadataResult InspectPackageSaveStateMetadata(
 		}
 		PackageSaveArchive archive;
 		const PackageSaveArchiveLoadResult loaded = context.packageSaveArchives().load(
-			result.sidecarPath, context.runtime().compatibilityFingerprint(), archive);
+			result.sidecarPath, context.runtime().compatibilityFingerprint(),
+			context.runtime().preAggregateCatalogCompatibilityFingerprint(), archive);
 		result.archiveError = loaded.error;
 		if (loaded.error == PackageSaveArchiveLoadError::NotFound)
 		{
+			if (context.requiresPackageEngineSaveState())
+			{
+				result.state = PackageSaveMetadataState::LegacyWithoutMetadata;
+				return result;
+			}
 			const PackageSaveStateLoadResult emptyContract =
 				context.validatePackageSaveState(PackageSaveStateSnapshot{});
 			result.contractError = emptyContract.error;

@@ -16,6 +16,7 @@
 	#include "DEBUG.H"
 	#include "input.h"
 	#include <Engine/Adapters/Legacy/PlatformInput.h>
+	#include <Engine/Adapters/Legacy/PlatformTime.h>
 	#include "MemMan.h"
 	#include "english.h"
 		#include "video.h"
@@ -112,6 +113,39 @@ void	QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
 void	RedirectToString(UINT16 uiInputCharacter);
 void	HandleSingleClicksAndButtonRepeats( void );
 void	AdjustMouseForWindowOrigin(void);
+
+static void ResetHeldInputStateUnlocked(void)
+{
+	memset(gfKeyState, FALSE, sizeof(gfKeyState));
+	gfShiftState = FALSE;
+	gfAltState = FALSE;
+	gfCtrlState = FALSE;
+	gfLeftButtonState = FALSE;
+	gfRightButtonState = FALSE;
+	gfMiddleButtonState = FALSE;
+	gfX1ButtonState = FALSE;
+	gfX2ButtonState = FALSE;
+	gsMouseWheelDeltaValue = 0;
+	guiLeftButtonRepeatTimer = 0;
+	guiRightButtonRepeatTimer = 0;
+	guiMiddleButtonRepeatTimer = 0;
+	guiX1ButtonRepeatTimer = 0;
+	guiX2ButtonRepeatTimer = 0;
+	guiSingleClickTimer = 0;
+	guiRecordedWParam = 0;
+	guiRecordedLParam = 0;
+	gusRecordedKeyState = 0;
+	gfRecordedLeftButtonUp = FALSE;
+	gfSGPInputReceived = FALSE;
+}
+
+static void ResetInputQueueUnlocked(void)
+{
+	memset(gEventQueue, 0, sizeof(gEventQueue));
+	gusQueueCount = 0;
+	gusHeadIndex = 0;
+	gusTailIndex = 0;
+}
 
 // These are the hook functions for both keyboard and mouse
 // (Win32-only -- Phase 4 SDL3 input migration replaces this entire
@@ -243,14 +277,13 @@ LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
 BOOLEAN InitializeInputManager(void)
 {
 	ResetPlatformInputEvents();
+	ResetHeldInputStateUnlocked();
 	// Link to debugger
 	RegisterDebugTopic(TOPIC_INPUT, "Input Manager");
 	// Initialize the gfKeyState table to FALSE everywhere
 	memset(gfKeyState, FALSE, 256);
 	// Initialize the Event Queue
-	gusQueueCount				= 0;
-	gusHeadIndex				= 0;
-	gusTailIndex				= 0;
+	ResetInputQueueUnlocked();
 	gAcceptedInputEvents		= 0;
 	gDroppedInputEvents		= 0;
 	gInputEventsEvictedForRelease = 0;
@@ -294,6 +327,19 @@ BOOLEAN InitializeInputManager(void)
 	// after, but on a click-without-movement the global value stuck, so clicks
 	// hit-tested at desktop coords and the cursor composited off-canvas.
 	return TRUE;
+}
+
+void ReleaseAllInputStateOnFocusLoss(void)
+{
+	EnterCriticalSection(&gcsInputQueueLock);
+	ResetHeldInputStateUnlocked();
+	ResetInputQueueUnlocked();
+	// The engine-facing queue is observational, so discard mirrored presses
+	// rather than synthesizing gameplay releases after the window regains focus.
+	// Keep both queues behind the authoritative queue lock so a concurrent
+	// producer cannot publish between the legacy and mirrored resets.
+	DiscardPlatformInputEvents();
+	LeaveCriticalSection(&gcsInputQueueLock);
 }
 
 void ShutdownInputManager(void)
@@ -398,7 +444,7 @@ void QueuePureEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	UINT32 uiTimer;
 	UINT16 usKeyState;
 
-	uiTimer = GetTickCount();
+	uiTimer = static_cast<UINT32>(PlatformNowMilliseconds());
 	usKeyState = gfShiftState | gfCtrlState | gfAltState;
 
 	// Repeated/non-critical input may be dropped at capacity; releases displace
@@ -413,7 +459,7 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	UINT32 uiTimer;
 	UINT16 usKeyState;
 
-	uiTimer = GetTickCount();
+	uiTimer = static_cast<UINT32>(PlatformNowMilliseconds());
 	usKeyState = gfShiftState | gfCtrlState | gfAltState;
 
 	// Preserve state-clearing releases under a repeat or motion storm.
@@ -1731,7 +1777,7 @@ void HandleSingleClicksAndButtonRepeats( void )
 {
 	UINT32 uiTimer;
 
-	uiTimer = GetTickCount();
+	uiTimer = static_cast<UINT32>(PlatformNowMilliseconds());
 
 	// Is there a LEFT mouse button repeat
 	if (gfLeftButtonState)

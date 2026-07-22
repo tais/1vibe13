@@ -19,6 +19,8 @@
 #include "FileMan.h"
 #include "DEBUG.H"
 
+#include <Engine/Adapters/Legacy/PlatformTime.h>
+
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
 
@@ -26,7 +28,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
-#include <chrono>
 
 // global settings
 #define SOUND_MAX_CACHED        128   // number of cache slots
@@ -79,13 +80,9 @@ bool          gSoundEnabled     = true;
 // (commit 225001b53 made SDL_GetPerformanceCounter return nanoseconds, but
 // SDL_GetPerformanceFrequency still returns the mach-tick rate, denom/numer ==
 // 3/125, so SDL_GetTicks runs ~41.7x too fast -> sector ambients fire ~42x too
-// often). std::chrono::steady_clock is correct on every platform and is already
-// what the engine's own game clock (Utils/Timer Control.cpp) runs on.
-static Uint64 RealTicksMS(void)
-{
-	return (Uint64)std::chrono::duration_cast<std::chrono::milliseconds>(
-		std::chrono::steady_clock::now().time_since_epoch()).count();
-}
+// often). The shared platform clock is reliable on every platform and keeps
+// audio scheduling on the same monotonic source as the rest of the runtime.
+static Uint64 RealTicksMS(void) { return PlatformNowMilliseconds(); }
 
 // ---- Cache helpers --------------------------------------------------------
 
@@ -273,6 +270,13 @@ void ApplyPan(MIX_Track* track, UINT32 pan)
 	MIX_SetTrackStereo(track, &gains);
 }
 
+void ResetChannelMetadata(SoundChannel& channel)
+{
+	MIX_Track* const track = channel.track;
+	channel = SoundChannel{};
+	channel.track = track;
+}
+
 } // namespace
 
 // ---- Public API: lifecycle ------------------------------------------------
@@ -280,17 +284,20 @@ void ApplyPan(MIX_Track* track, UINT32 pan)
 BOOLEAN InitializeSoundManager(void)
 {
 	if (gMixer) return TRUE;
+	for (SoundChannel& channel : gChannels) channel = SoundChannel{};
+	for (SoundSample& sample : gSamples) sample = SoundSample{};
 	if (!MIX_Init()) {
 		std::fprintf(stderr, "[sound] MIX_Init failed: %s\n", SDL_GetError());
 		return FALSE;
 	}
-	gMixer = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
-	if (!gMixer) {
+	MIX_Mixer* const mixer =
+		MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
+	if (!mixer) {
 		std::fprintf(stderr, "[sound] MIX_CreateMixerDevice failed: %s\n", SDL_GetError());
 		MIX_Quit();
 		return FALSE;
 	}
-	MIX_SetMixerGain(gMixer, gDefaultVolume / (float)MAX_VOLUME);
+	MIX_SetMixerGain(mixer, gDefaultVolume / (float)MAX_VOLUME);
 
 	// Pre-allocate one MIX_Track per channel slot. They're reused across
 	// every SoundPlay -- new audio just gets attached with MIX_SetTrackAudio.
@@ -301,31 +308,46 @@ BOOLEAN InitializeSoundManager(void)
 	// button-state corruption). Channel state gets reaped lazily from the
 	// main thread instead (LazyReapChannel).
 	for (UINT32 i = 0; i < SOUND_MAX_CHANNELS; ++i) {
-		gChannels[i].track = MIX_CreateTrack(gMixer);
+		gChannels[i].track = MIX_CreateTrack(mixer);
+		if (gChannels[i].track) continue;
+
+		std::fprintf(stderr, "[sound] MIX_CreateTrack failed: %s\n", SDL_GetError());
+		for (SoundChannel& channel : gChannels) {
+			if (channel.track) MIX_DestroyTrack(channel.track);
+			channel = SoundChannel{};
+		}
+		MIX_DestroyMixer(mixer);
+		MIX_Quit();
+		return FALSE;
 	}
+	gMixer = mixer;
+	gNextSoundID = 1;
 	gSoundEnabled = true;
 	return TRUE;
 }
 
 void ShutdownSoundManager(void)
 {
-	if (!gMixer) return;
-	for (UINT32 i = 0; i < SOUND_MAX_CHANNELS; ++i) {
-		if (gChannels[i].track) {
-			MIX_StopTrack(gChannels[i].track, 0);
-			MIX_DestroyTrack(gChannels[i].track);
-			gChannels[i].track = nullptr;
-		}
+	for (SoundChannel& channel : gChannels) {
+		MIX_Track* const track = channel.track;
+		// Clear IDs and callback pointers before crossing into the mixer. A
+		// stopped/destroyed track can never expose prior-session state.
+		channel = SoundChannel{};
+		if (!track) continue;
+		MIX_StopTrack(track, 0);
+		MIX_DestroyTrack(track);
 	}
-	for (UINT32 i = 0; i < SOUND_MAX_CACHED; ++i) {
-		if (gSamples[i].audio) {
-			MIX_DestroyAudio(gSamples[i].audio);
-			gSamples[i].audio = nullptr;
-		}
+	for (SoundSample& sample : gSamples) {
+		MIX_Audio* const audio = sample.audio;
+		sample = SoundSample{};
+		if (audio) MIX_DestroyAudio(audio);
 	}
-	MIX_DestroyMixer(gMixer);
+	const bool wasInitialized = gMixer != nullptr;
+	if (gMixer) MIX_DestroyMixer(gMixer);
 	gMixer = nullptr;
-	MIX_Quit();
+	if (wasInitialized) MIX_Quit();
+	gNextSoundID = 1;
+	gSoundEnabled = true;
 }
 
 void SoundEnableSound(BOOLEAN fEnable)
@@ -474,11 +496,13 @@ static UINT32 SoundPlayInternal(STR pFilename, SOUNDPARMS* pParms, bool useEOSCa
 	// just once and stopped.
 	const int mixLoops = (loop == 0) ? -1 : (int)loop - 1;
 	SDL_PropertiesID opts = SDL_CreateProperties();
-	SDL_SetNumberProperty(opts, MIX_PROP_PLAY_LOOPS_NUMBER, mixLoops);
-	const bool played = MIX_PlayTrack(ch.track, opts);
-	SDL_DestroyProperties(opts);
+	const bool played = opts &&
+		SDL_SetNumberProperty(opts, MIX_PROP_PLAY_LOOPS_NUMBER, mixLoops) &&
+		MIX_PlayTrack(ch.track, opts);
+	if (opts) SDL_DestroyProperties(opts);
 	if (!played) {
 		std::fprintf(stderr, "[sound] MIX_PlayTrack('%s') failed: %s\n", pFilename, SDL_GetError());
+		ResetChannelMetadata(ch);
 		return NO_SAMPLE;
 	}
 	ch.uiSoundID    = gNextSoundID++;

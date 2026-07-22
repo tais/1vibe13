@@ -104,10 +104,26 @@ extern INT32 giItemDescAmmoButton;
 
 namespace
 {
-void DispatchBeginFireWeaponFromHandleItem(
-	SOLDIERTYPE* soldier, INT32 targetGrid, BOOLEAN fromUi)
+struct AttackSelectionSnapshot
 {
-	DispatchBeginFireWeaponCommandNow(
+	UINT8 hand = 0;
+	UINT16 weapon = 0;
+	INT8 targetLevel = 0;
+
+	void restore(SOLDIERTYPE& soldier) const noexcept
+	{
+		soldier.ubAttackingHand = hand;
+		soldier.usAttackingWeapon = weapon;
+		soldier.bTargetLevel = targetLevel;
+	}
+};
+
+bool DispatchBeginFireWeaponFromHandleItem(
+	SOLDIERTYPE* soldier, INT32 targetGrid, BOOLEAN fromUi,
+	const AttackSelectionSnapshot& rejectedSelection)
+{
+	const SimulationCommandDispatchResult dispatch =
+		TryDispatchBeginFireWeaponCommandNow(
 		soldier->ubID,
 		soldier->uiUniqueSoldierIdValue,
 		targetGrid,
@@ -115,6 +131,8 @@ void DispatchBeginFireWeaponFromHandleItem(
 		soldier->bTargetCubeLevel,
 		fromUi ? SimulationCommandSource::LocalPlayer
 		       : SimulationCommandSource::System);
+	if (!dispatch) rejectedSelection.restore(*soldier);
+	return static_cast<bool>(dispatch);
 }
 }
 
@@ -253,6 +271,10 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE 
 
 INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHandItem, BOOLEAN fFromUI )
 {
+	const AttackSelectionSnapshot rejectedFireSelection{
+		pSoldier->ubAttackingHand,
+		pSoldier->usAttackingWeapon,
+		pSoldier->bTargetLevel};
 	SOLDIERTYPE		*pTargetSoldier = NULL;
 	SoldierID		usSoldierIndex;
 	INT32			sTargetGridNo;
@@ -799,8 +821,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				{
 					if ( pSoldier->sSpreadLocations[ 0 ] != 0 )
 					{
-						DispatchBeginFireWeaponFromHandleItem(
-							pSoldier, pSoldier->sSpreadLocations[ 0 ], fFromUI );
+						if (!DispatchBeginFireWeaponFromHandleItem(
+								pSoldier, pSoldier->sSpreadLocations[ 0 ], fFromUI,
+								rejectedFireSelection ))
+							return ITEM_HANDLE_OK;
 						if(is_server || (is_client && pSoldier->ubID <20) ) 
 							send_fire( pSoldier, pSoldier->sSpreadLocations[ 0 ] );
 
@@ -808,8 +832,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					}
 					else
 					{
-						DispatchBeginFireWeaponFromHandleItem(
-							pSoldier, sTargetGridNo, fFromUI );
+						if (!DispatchBeginFireWeaponFromHandleItem(
+								pSoldier, sTargetGridNo, fFromUI,
+								rejectedFireSelection ))
+							return ITEM_HANDLE_OK;
 						if(is_server || (is_client && pSoldier->ubID <20) ) 
 							send_fire( pSoldier, sTargetGridNo );
 
@@ -818,8 +844,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 				else
 				{
-					DispatchBeginFireWeaponFromHandleItem(
-						pSoldier, sTargetGridNo, fFromUI );
+					if (!DispatchBeginFireWeaponFromHandleItem(
+							pSoldier, sTargetGridNo, fFromUI,
+							rejectedFireSelection ))
+						return ITEM_HANDLE_OK;
 					if(is_server || (is_client && pSoldier->ubID <20) ) send_fire( pSoldier, sTargetGridNo );
 				}
 
@@ -1954,8 +1982,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			else
 			{
 
-				DispatchBeginFireWeaponFromHandleItem(
-					pSoldier, sTargetGridNo, fFromUI );
+				if (!DispatchBeginFireWeaponFromHandleItem(
+						pSoldier, sTargetGridNo, fFromUI,
+						rejectedFireSelection ))
+					return ITEM_HANDLE_OK;
 				if(is_server || (is_client && pSoldier->ubID <20) ) send_fire( pSoldier, sTargetGridNo );
 
 			}

@@ -10,28 +10,23 @@
 
 namespace
 {
-bool IsValidCommandSource(SimulationCommandSource source)
-{
-	switch (source)
-	{
-		case SimulationCommandSource::LocalPlayer:
-		case SimulationCommandSource::NetworkPeer:
-		case SimulationCommandSource::System:
-		case SimulationCommandSource::Replay:
-			return true;
-	}
-	return false;
-}
-
 bool IsValidPackageCommand(const SimulationCommand& command)
 {
 	if (command.valueless_by_exception()) return false;
 	return std::visit([](const auto& value) {
 		using Command = typename std::decay<decltype(value)>::type;
-		if (!IsValidCommandSource(value.source)) return false;
+		if (!IsValidSimulationCommandSource(value.source)) return false;
+		if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+			return value.soldier.valid() &&
+				IsValidTacticalMoveOrigin(value.origin) &&
+				IsValidTacticalPendingActionPolicy(value.pendingAction);
+		if constexpr (std::is_same<Command, SetFacingCommand>::value)
+			return value.soldier.valid() &&
+				IsValidTacticalDirection(value.direction);
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
 			std::is_same<Command, BeginFireWeaponCommand>::value ||
-			std::is_same<Command, MoveToGridCommand>::value)
+			std::is_same<Command, SetStealthModeCommand>::value ||
+			std::is_same<Command, StopMovementCommand>::value)
 			return value.soldier.valid();
 		return true;
 	}, command);
@@ -123,17 +118,34 @@ TacticalCommandCancellationResult TacticalCommandInbox::cancelPackage(
 	if (draining_)
 		return TacticalCommandCancellationResult{
 			TacticalCommandCancellationError::DrainInProgress, 0};
+	if (cancelling_)
+		return TacticalCommandCancellationResult{
+			TacticalCommandCancellationError::CancellationInProgress, 0};
 
-	std::size_t cancelled = 0;
-	for (auto request = pending_.begin(); request != pending_.end();)
+	struct CancellationGuard
 	{
-		if (request->packageId != packageId)
+		explicit CancellationGuard(bool& active) : active_(active) { active_ = true; }
+		~CancellationGuard() { active_ = false; }
+		bool& active_;
+	} guard(cancelling_);
+
+	// The cancellation sink may submit new work. Reacquire deque positions after
+	// every callback and visit only the prefix present on entry, so append-time
+	// iterator invalidation cannot become memory corruption and new work remains
+	// eligible for a later explicit cancellation.
+	std::size_t remainingInitial = pending_.size();
+	std::size_t index = 0;
+	std::size_t cancelled = 0;
+	while (index < remainingInitial)
+	{
+		if (pending_[index].packageId != packageId)
 		{
-			++request;
+			++index;
 			continue;
 		}
-		if (sink) sink->commandCancelled(*request);
-		request = pending_.erase(request);
+		if (sink) sink->commandCancelled(pending_[index]);
+		pending_.erase(pending_.begin() + static_cast<std::ptrdiff_t>(index));
+		--remainingInitial;
 		++cancelled;
 	}
 	SaturatingAdd(counters_.cancelled, cancelled);

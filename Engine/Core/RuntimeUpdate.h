@@ -32,6 +32,7 @@ struct RuntimeUpdateDispatchResult
 {
 	std::size_t delivered = 0;
 	std::size_t callbackFailures = 0;
+	bool operationInProgress = false;
 };
 
 // Deterministic non-owning fan-out for per-frame runtime work. Subscriber
@@ -61,6 +62,11 @@ public:
 	RuntimeUpdateDispatchResult dispatch(const RuntimeUpdateContext& context)
 	{
 		RuntimeUpdateDispatchResult result;
+		if (dispatching_)
+		{
+			result.operationInProgress = true;
+			return result;
+		}
 		DispatchGuard guard(dispatching_);
 		for (RuntimeUpdateSink* sink : sinks_)
 		{

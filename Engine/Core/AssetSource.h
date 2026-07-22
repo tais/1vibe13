@@ -11,9 +11,11 @@
 #include <Engine/Core/Identifier.h>
 
 constexpr std::size_t DefaultAssetReadLimit = 256u * 1024u * 1024u;
+constexpr std::size_t MaximumLogicalAssetPathBytes = 4096;
 
-bool NormalizeAssetPath(const std::string& input, std::string& normalized);
-bool IsValidAssetProvenance(const std::string& provenance);
+bool NormalizeAssetPath(
+	const std::string& input, std::string& normalized) noexcept;
+bool IsValidAssetProvenance(const std::string& provenance) noexcept;
 
 enum class AssetReadResult
 {

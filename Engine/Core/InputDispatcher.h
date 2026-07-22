@@ -30,6 +30,7 @@ struct InputDispatchResult
 	std::size_t callbackFailures = 0;
 	std::uint64_t sourceDrops = 0;
 	bool limitReached = false;
+	bool operationInProgress = false;
 };
 
 // Bounded fan-out from an injected input source to deterministic, non-owning
@@ -62,6 +63,11 @@ public:
 	InputDispatchResult dispatchPending()
 	{
 		InputDispatchResult result;
+		if (dispatching_)
+		{
+			result.operationInProgress = true;
+			return result;
+		}
 		DispatchGuard guard(dispatching_);
 		EngineInputEvent event;
 		while (result.polled < maxEventsPerDispatch_ && source_.poll(event))

@@ -2,6 +2,7 @@
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/CommandStream.h>
+#include <Engine/Core/CommandProcessor.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineHost.h>
@@ -21,6 +22,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -88,6 +90,34 @@ public:
 	std::vector<RuntimeMessage> messages;
 	bool publishReply = false;
 	bool throws = false;
+};
+
+class CallbackInputSink final : public InputEventSink
+{
+public:
+	void receiveInput(const EngineInputEvent&) override { callback(); }
+	std::function<void()> callback;
+};
+
+class CallbackRuntimeUpdateSink final : public RuntimeUpdateSink
+{
+public:
+	void updateRuntime(const RuntimeUpdateContext&) override { callback(); }
+	std::function<void()> callback;
+};
+
+class CallbackSimulationTickSink final : public SimulationTickSink
+{
+public:
+	void simulate(const SimulationTickContext&) override { callback(); }
+	std::function<void()> callback;
+};
+
+class CallbackMessageSink final : public RuntimeMessageSink
+{
+public:
+	void receiveMessage(const RuntimeMessage&) override { callback(); }
+	std::function<void()> callback;
 };
 
 // Models a third-party ByteStorage implementation compiled against the legacy
@@ -241,6 +271,61 @@ public:
 	bool active = false;
 };
 
+class RandomSavePackage final : public EnginePackage
+{
+public:
+	explicit RandomSavePackage(std::string id, std::uint8_t state)
+		: descriptor_{ContentManifest{
+			std::move(id), "1", ContentApiVersion{1, 0}}, PackageKind::Rules,
+			{}, {}, {}, {}, {}, {}, 1}, state_(state)
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override { active_ = true; return true; }
+	void deactivate() noexcept override { active_ = false; }
+	void simulate(PackageBootstrapContext& context,
+		const SimulationTickContext&) override
+	{
+		const PackageRandomResult value = context.random.next("simulation", 1000000);
+		if (value) simulationValues.push_back(value.value);
+	}
+	bool saveState(PackageBootstrapContext& context,
+		std::vector<std::uint8_t>& state) override
+	{
+		++saveCalls;
+		context.random.next("save-callback", 1000);
+		state = {state_};
+		return true;
+	}
+	bool validateState(PackageBootstrapContext& context, std::uint32_t schema,
+		const std::vector<std::uint8_t>& state) override
+	{
+		++validateCalls;
+		context.random.next("validate-callback", 1000);
+		return schema == 1 && state.size() == 1;
+	}
+	bool loadState(PackageBootstrapContext& context, std::uint32_t schema,
+		const std::vector<std::uint8_t>& state) override
+	{
+		++loadCalls;
+		context.random.next("load-callback", 1000);
+		if (schema != 1 || state.size() != 1) return false;
+		state_ = state[0];
+		return true;
+	}
+
+	PackageDescriptor descriptor_;
+	std::vector<std::uint32_t> simulationValues;
+	int saveCalls = 0;
+	int validateCalls = 0;
+	int loadCalls = 0;
+
+private:
+	std::uint8_t state_;
+	bool active_ = false;
+};
+
 class ContractTestService
 {
 public:
@@ -282,6 +367,24 @@ int main()
 		"compiled core normalizes portable asset paths");
 	check(!NormalizeAssetPath("../Data/secret", path),
 		"compiled core rejects traversal paths");
+	const std::string maximumIdentifier(MaximumEngineIdentifierBytes, 'a');
+	const std::string oversizedIdentifier(MaximumEngineIdentifierBytes + 1, 'a');
+	const std::string maximumLogicalPath(MaximumLogicalAssetPathBytes, 'a');
+	const std::string oversizedLogicalPath(MaximumLogicalAssetPathBytes + 1, 'a');
+	check(IsValidEngineIdentifier(maximumIdentifier) &&
+		!IsValidEngineIdentifier(oversizedIdentifier) &&
+		NormalizeAssetPath(maximumLogicalPath, path) &&
+		path == maximumLogicalPath &&
+		!NormalizeAssetPath(oversizedLogicalPath, path) && path.empty(),
+		"public identifiers and logical paths enforce exact metadata bounds");
+	ContentRegistry boundedMetadataContent(CurrentContentApiVersion);
+	check(boundedMetadataContent.registerContent(ContentManifest{
+			oversizedIdentifier, "1", CurrentContentApiVersion}) ==
+			ContentRegistrationError::InvalidManifest &&
+		boundedMetadataContent.registerContent(ContentManifest{
+			"metadata.version", std::string(MaximumEngineVersionBytes + 1, '1'),
+			CurrentContentApiVersion}) == ContentRegistrationError::InvalidManifest,
+		"content manifests reject metadata that cannot round-trip through archives");
 	MemoryAssetSource metadataAssets("test.assets");
 	metadataAssets.put("Data/Metadata.bin", {1, 2, 3});
 	AssetMetadata metadata;
@@ -313,7 +416,8 @@ int main()
 	check(localization.set("campaign.base", "en", "ui.ready", "Ready") ==
 			LocalizationSetError::None &&
 		localization.set("mod.override", "en", "ui.ready", "Prepared") ==
-			LocalizationSetError::None,
+			LocalizationSetError::None &&
+		localization.maximumTotalTextBytes() == 32,
 		"localization catalog accepts bounded ordered package layers");
 	const LocalizedTextView localizedOverride = localization.resolve("nl", "ui.ready");
 	check(localizedOverride && localizedOverride.usedFallback &&
@@ -324,6 +428,21 @@ int main()
 		localization.removePackage("mod.override") == 1 &&
 		*localization.resolve("en", "ui.ready").text == "Ready",
 		"localization lookup uses explicit fallback and restores lower package layers");
+	LocalizationCatalog boundedLocalization(4, 16, 8);
+	check(boundedLocalization.set("campaign.base", "en", "ui.first", "Ready") ==
+			LocalizationSetError::None && boundedLocalization.textBytes() == 5 &&
+		boundedLocalization.set("campaign.base", "en", "ui.second", "More") ==
+			LocalizationSetError::TotalCapacityReached &&
+		boundedLocalization.set("campaign.base", "en", "ui.first", "Go") ==
+			LocalizationSetError::None && boundedLocalization.textBytes() == 2 &&
+		boundedLocalization.set("campaign.base", "en", "ui.second", "More") ==
+			LocalizationSetError::None && boundedLocalization.textBytes() == 6,
+		"localization catalog enforces aggregate text budgets transactionally");
+	LocalizationCatalog saturatedLocalization(
+		std::numeric_limits<std::size_t>::max(), 2);
+	check(saturatedLocalization.maximumTotalTextBytes() ==
+			std::numeric_limits<std::size_t>::max(),
+		"legacy localization limits preserve capacity without overflowing");
 	// Use real UTF-8 in the format; backslash-u is deliberately not a second
 	// competing Unicode escape language.
 	const std::string utf8LocalizationText =
@@ -388,7 +507,7 @@ int main()
 	check(definitions.set("campaign.base", "item", "medkit", 1, {1}) ==
 			DefinitionSetError::None &&
 		definitions.set("mod.override", "item", "medkit", 2, {2, 3}) ==
-			DefinitionSetError::None,
+			DefinitionSetError::None && definitions.maximumTotalPayloadBytes() == 8,
 		"definition catalog accepts bounded versioned package data layers");
 	const DefinitionView incompatibleDefinition =
 		definitions.resolve("item", "medkit", 1, 1);
@@ -402,6 +521,20 @@ int main()
 		*definitions.resolve("item", "medkit", 1, 1).payload ==
 			std::vector<std::uint8_t>({1}),
 		"definition lookup rejects incompatible top overrides and restores lower layers");
+	DefinitionCatalog boundedDefinitions(4, 4, 5);
+	check(boundedDefinitions.set("campaign.base", "item", "first", 1, {1, 2, 3, 4}) ==
+			DefinitionSetError::None && boundedDefinitions.payloadBytes() == 4 &&
+		boundedDefinitions.set("campaign.base", "item", "second", 1, {5, 6}) ==
+			DefinitionSetError::TotalCapacityReached &&
+		boundedDefinitions.set("campaign.base", "item", "first", 2, {1}) ==
+			DefinitionSetError::None && boundedDefinitions.payloadBytes() == 1 &&
+		boundedDefinitions.set("campaign.base", "item", "second", 1, {5, 6}) ==
+			DefinitionSetError::None && boundedDefinitions.payloadBytes() == 3,
+		"definition catalog enforces aggregate payload budgets transactionally");
+	DefinitionCatalog saturatedDefinitions(std::numeric_limits<std::size_t>::max(), 2);
+	check(saturatedDefinitions.maximumTotalPayloadBytes() ==
+			std::numeric_limits<std::size_t>::max(),
+		"legacy definition limits preserve capacity without overflowing");
 	EntityRegistry entities(1);
 	const EntityCreateResult firstEntity = entities.create("campaign.base", "mercenary");
 	const EntityDestroyError destroyedEntity = entities.destroy(firstEntity.id);
@@ -444,11 +577,20 @@ int main()
 			AudioPlaybackRequest{"audio/third.wav"}).error ==
 			PackageAudioPlayError::CapacityReached,
 		"package audio groups normalize assets, isolate owners, and enforce a live bound");
+	groupedAudioOutput.finish(firstGroupedPlayback.playback);
+	const PackageAudioPruneResult prunedAudio = audioGroups.pruneFinished();
+	const PackageAudioPlayResult replacementGroupedPlayback = audioGroups.play(
+		"mod.audio", "ui", AudioPlaybackRequest{"audio/replacement.wav"});
+	check(prunedAudio.checked == 2 && prunedAudio.retired == 1 &&
+		prunedAudio.queryFailures == 0 && replacementGroupedPlayback &&
+		audioGroups.size() == 2,
+		"naturally completed package audio releases bounded playback capacity");
 	const PackageAudioOperationResult releasedAudio = audioGroups.releasePackage("mod.audio");
 	check(releasedAudio.matched == 2 && releasedAudio.succeeded == 2 &&
 		audioGroups.size() == 0 &&
 		!groupedAudioOutput.isPlaying(firstGroupedPlayback.playback) &&
-		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback),
+		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback) &&
+		!groupedAudioOutput.isPlaying(replacementGroupedPlayback.playback),
 		"package audio teardown stops every playback owned by the package");
 	PackageTaskQueue deferredTasks(2, 1);
 	PackageTasks boundTasks("mod.tasks", deferredTasks);
@@ -483,6 +625,46 @@ int main()
 		randomSnapshot.size() == 2 && randomSnapshot[0].id == "combat" &&
 		randomSnapshot[0].valuesGenerated == 2 && randomSnapshot[1].id == "loot",
 		"package random streams are deterministic, isolated, bounded, and inspectable");
+	const PackageRandomCheckpoint randomCheckpoint = packageRandom.checkpoint();
+	const PackageRandomResult expectedThirdCombat = packageRandom.next("combat", 1000);
+	const PackageRandomResult expectedSecondLoot = packageRandom.next("loot", 1000);
+	const PackageRandomCheckpoint advancedRandomCheckpoint = packageRandom.checkpoint();
+	PackageRandomCheckpoint duplicateRandomCheckpoint = randomCheckpoint;
+	duplicateRandomCheckpoint.streams.push_back(
+		duplicateRandomCheckpoint.streams.front());
+	PackageRandomCheckpoint invalidRandomCheckpoint = randomCheckpoint;
+	invalidRandomCheckpoint.schema = 99;
+	PackageRandomSource duplicateCheckpointTarget("rules.ballistics", 0, 3);
+	check(packageRandom.restoreCheckpoint(randomCheckpoint) ==
+			PackageRandomCheckpointError::None &&
+		packageRandom.next("combat", 1000).value == expectedThirdCombat.value &&
+		packageRandom.next("loot", 1000).value == expectedSecondLoot.value &&
+		packageRandom.checkpoint() == advancedRandomCheckpoint &&
+		packageRandom.restoreCheckpoint(invalidRandomCheckpoint) ==
+			PackageRandomCheckpointError::InvalidSchema &&
+		duplicateCheckpointTarget.restoreCheckpoint(duplicateRandomCheckpoint) ==
+			PackageRandomCheckpointError::DuplicateStream &&
+		packageRandom.checkpoint() == advancedRandomCheckpoint,
+		"package random checkpoints restore every stream transactionally");
+	PackageRandomSource exhaustedRandom("rules.exhausted", 0, 1);
+	const PackageRandomCheckpoint exhaustedCheckpoint{
+		PackageRandomCheckpoint::CurrentSchema, "rules.exhausted",
+		{{"stream", 42, std::numeric_limits<std::uint64_t>::max()}}};
+	check(exhaustedRandom.restoreCheckpoint(exhaustedCheckpoint) ==
+			PackageRandomCheckpointError::None &&
+		exhaustedRandom.next("stream", 10).error ==
+			PackageRandomError::SequenceExhausted &&
+		exhaustedRandom.checkpoint() == exhaustedCheckpoint,
+		"package random generation rejects counter exhaustion without wrapping state");
+	PackageSaveStateSnapshot separatedEngineState;
+	separatedEngineState.engineStatePresent = true;
+	separatedEngineState.engineRecords.push_back(PackageEngineSaveStateRecord{
+		"rules.ballistics", "1", randomCheckpoint});
+	check(separatedEngineState.records.empty() &&
+		separatedEngineState.findEngine("rules.ballistics") &&
+		separatedEngineState.findEngine("rules.ballistics")->random == randomCheckpoint &&
+		!separatedEngineState.findEngine("rules.missing"),
+		"package saves represent engine-owned state separately from opaque mod payloads");
 	RuntimeCapabilities capabilities;
 	check(capabilities.add("engine.rendering") &&
 		capabilities.add("tool.map-editor") &&
@@ -553,9 +735,12 @@ int main()
 	EngineHost<unsigned> legacyDefaultHost;
 	EngineHost<unsigned> legacyBraceDefaultHost({});
 	EngineHost<unsigned> namedDefaultHost(defaultHostOptions);
+	EngineHost<unsigned> legacyCapacityHost(EngineServices::defaults(),
+		CurrentContentApiVersion, NullPackageEventSink::instance(), RuntimeCapabilities{},
+		0, 64, 16667, 4, 128, 64u * 1024u * 1024u, 256, 2, 3, 4, 5);
 	check(defaultOptionsValidation &&
 		legacyDefaultHost.serviceCatalog().size() == 14 &&
-		legacyDefaultHost.configuration().size() == 21 &&
+		legacyDefaultHost.configuration().size() == 23 &&
 		namedDefaultHost.serviceCatalog().size() ==
 			legacyDefaultHost.serviceCatalog().size() &&
 		namedDefaultHost.configuration().size() ==
@@ -575,7 +760,9 @@ int main()
 		namedDefaultHost.packages().maximumSaveStateRecords() ==
 			PackageRegistry::MaximumSaveStateRecords &&
 		namedDefaultHost.packageSaveArchives().maximumRecords() ==
-			PackageRegistry::MaximumSaveStateRecords,
+			PackageRegistry::MaximumSaveStateRecords &&
+		legacyCapacityHost.localization().maximumTotalTextBytes() == 6 &&
+		legacyCapacityHost.definitions().maximumTotalPayloadBytes() == 20,
 		"named host defaults preserve the positional host contract and fingerprint");
 
 	constexpr EngineServiceContract<ContractTestService> derivedServiceContract{
@@ -620,8 +807,10 @@ int main()
 	customHostOptions.limits.runtimeFaultHistoryCapacity = 5;
 	customHostOptions.limits.maximumLocalizationEntries = 6;
 	customHostOptions.limits.maximumLocalizationTextBytes = 102;
+	customHostOptions.limits.maximumTotalLocalizationTextBytes = 104;
 	customHostOptions.limits.maximumDefinitionEntries = 7;
 	customHostOptions.limits.maximumDefinitionPayloadBytes = 103;
+	customHostOptions.limits.maximumTotalDefinitionPayloadBytes = 105;
 	customHostOptions.limits.maximumEntities = 8;
 	customHostOptions.limits.maximumPackageAudioPlaybacks = 9;
 	customHostOptions.limits.maximumQueuedPackageTasks = 10;
@@ -647,8 +836,10 @@ int main()
 		customHost.runtimeFaults().capacity() == 5 &&
 		customHost.localization().maximumEntries() == 6 &&
 		customHost.localization().maximumTextBytes() == 102 &&
+		customHost.localization().maximumTotalTextBytes() == 104 &&
 		customHost.definitions().maximumEntries() == 7 &&
 		customHost.definitions().maximumPayloadBytes() == 103 &&
+		customHost.definitions().maximumTotalPayloadBytes() == 105 &&
 		customHost.entities().maximumEntities() == 8 &&
 		customHost.packageAudio().maximumPlaybacks() == 9 &&
 		customHost.packageTasks().maximumQueued() == 10 &&
@@ -666,7 +857,8 @@ int main()
 		customHost.packages().maximumTotalSaveStateBytes() == 108 &&
 		customHost.packageSaveArchives().maximumRecords() == 15 &&
 		customHost.packageSaveArchives().maximumPackageBytes() == 107 &&
-		customHost.packageSaveArchives().maximumTotalBytes() == 108,
+		customHost.packageSaveArchives().maximumTotalBytes() == 108 &&
+		customHost.packageSaveArchives().maximumRandomStreamsPerPackage() == 2,
 		"named host options configure every owned bounded subsystem coherently");
 
 	EngineHostOptions invalidHostOptions;
@@ -679,6 +871,11 @@ int main()
 	invalidSaveStateOptions.limits.maximumTotalPackageSaveStateBytes = 1;
 	const EngineHostOptionsValidationResult invalidSaveStateValidation =
 		ValidateEngineHostOptions(invalidSaveStateOptions);
+	EngineHostOptions invalidCatalogOptions;
+	invalidCatalogOptions.limits.maximumLocalizationTextBytes = 2;
+	invalidCatalogOptions.limits.maximumTotalLocalizationTextBytes = 1;
+	const EngineHostOptionsValidationResult invalidCatalogValidation =
+		ValidateEngineHostOptions(invalidCatalogOptions);
 	bool invalidHostRejected = false;
 	try
 	{
@@ -695,8 +892,115 @@ int main()
 		std::string(invalidOptionsValidation.option) == "simulationStepMicroseconds" &&
 		invalidSaveStateValidation.error ==
 			EngineHostOptionsValidationError::InvalidPackageSaveStateLimits &&
+		invalidCatalogValidation.error ==
+			EngineHostOptionsValidationError::InvalidCatalogLimits &&
 		invalidHostRejected,
 		"invalid host options are diagnosed and rejected before host construction");
+
+	EngineHostOptions zeroSaveBudgetOptions;
+	zeroSaveBudgetOptions.limits.maximumPackageSaveStateRecords = 0;
+	zeroSaveBudgetOptions.limits.maximumPackageSaveStateBytes = 0;
+	zeroSaveBudgetOptions.limits.maximumTotalPackageSaveStateBytes = 0;
+	EngineHost<unsigned> zeroSaveBudgetHost(zeroSaveBudgetOptions);
+	const bool zeroSaveBudgetReady = zeroSaveBudgetHost.beginInitialization() &&
+		zeroSaveBudgetHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		zeroSaveBudgetHost.markRunning();
+	const PackageSaveStateCaptureResult zeroSaveBudgetCapture =
+		zeroSaveBudgetHost.capturePackageSaveState();
+	check(zeroSaveBudgetReady && zeroSaveBudgetCapture &&
+		zeroSaveBudgetCapture.snapshot.records.empty() &&
+		zeroSaveBudgetCapture.snapshot.engineRecords.empty() &&
+		!zeroSaveBudgetCapture.snapshot.engineStatePresent,
+		"an empty runtime captures no package metadata even with a zero-byte save budget");
+
+	RandomSavePackage firstRandomSavePackage("rules.random-save-a", 7);
+	RandomSavePackage secondRandomSavePackage("rules.random-save-b", 9);
+	EngineHost<unsigned> randomSaveHost;
+	const bool randomSaveReady =
+		randomSaveHost.packages().registerPackage(firstRandomSavePackage) ==
+			PackageRegistrationError::None &&
+		randomSaveHost.packages().registerPackage(secondRandomSavePackage) ==
+			PackageRegistrationError::None &&
+		randomSaveHost.packages().activate("rules.random-save-a") ==
+			PackageActivationError::None &&
+		randomSaveHost.packages().activate("rules.random-save-b") ==
+			PackageActivationError::None &&
+		randomSaveHost.beginInitialization() &&
+		randomSaveHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		randomSaveHost.markRunning();
+	randomSaveHost.simulationTicks().advance(
+		randomSaveHost.simulationTicks().stepMicroseconds());
+	const PackageSaveStateCaptureResult capturedRandomState =
+		randomSaveHost.capturePackageSaveState();
+	randomSaveHost.simulationTicks().advance(
+		randomSaveHost.simulationTicks().stepMicroseconds());
+	const std::uint32_t expectedFirstRandom =
+		firstRandomSavePackage.simulationValues.size() > 1
+			? firstRandomSavePackage.simulationValues[1] : 0;
+	const std::uint32_t expectedSecondRandom =
+		secondRandomSavePackage.simulationValues.size() > 1
+			? secondRandomSavePackage.simulationValues[1] : 0;
+	const PackageSaveStateLoadResult restoredRandomState =
+		randomSaveHost.restorePackageSaveState(capturedRandomState.snapshot);
+	randomSaveHost.simulationTicks().advance(
+		randomSaveHost.simulationTicks().stepMicroseconds());
+	check(randomSaveReady && capturedRandomState &&
+		capturedRandomState.snapshot.engineStatePresent &&
+		capturedRandomState.snapshot.records.size() == 2 &&
+		capturedRandomState.snapshot.engineRecords.size() == 2 &&
+		capturedRandomState.snapshot.engineRecords[0].random.streams.size() == 1 &&
+		restoredRandomState && restoredRandomState.restored == 2 &&
+		restoredRandomState.engineRecordsRestored == 2 &&
+		firstRandomSavePackage.simulationValues.size() == 3 &&
+		secondRandomSavePackage.simulationValues.size() == 3 &&
+		firstRandomSavePackage.simulationValues[2] == expectedFirstRandom &&
+		secondRandomSavePackage.simulationValues[2] == expectedSecondRandom,
+		"package save restore rewinds all deterministic random streams atomically");
+
+	const PackageSaveStateCaptureResult beforeLegacyRandomRestore =
+		randomSaveHost.capturePackageSaveState();
+	PackageSaveStateSnapshot legacyRandomState = beforeLegacyRandomRestore.snapshot;
+	legacyRandomState.engineRecords.clear();
+	legacyRandomState.engineStatePresent = false;
+	const PackageSaveStateLoadResult restoredLegacyRandomState =
+		randomSaveHost.restorePackageSaveState(legacyRandomState);
+	const PackageSaveStateCaptureResult afterLegacyRandomRestore =
+		randomSaveHost.capturePackageSaveState();
+	const bool legacyRandomUnchanged = beforeLegacyRandomRestore &&
+		afterLegacyRandomRestore &&
+		beforeLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
+		beforeLegacyRandomRestore.snapshot.engineRecords[0].random ==
+			afterLegacyRandomRestore.snapshot.engineRecords[0].random &&
+		beforeLegacyRandomRestore.snapshot.engineRecords[1].random ==
+			afterLegacyRandomRestore.snapshot.engineRecords[1].random;
+	check(restoredLegacyRandomState &&
+		restoredLegacyRandomState.engineRecordsRestored == 0 && legacyRandomUnchanged,
+		"v1 package state callbacks cannot perturb live random streams");
+
+	PackageSaveStateSnapshot invalidLaterRandomState =
+		afterLegacyRandomRestore.snapshot;
+	if (invalidLaterRandomState.engineRecords.size() == 2)
+		invalidLaterRandomState.engineRecords[1].random.schema = 99;
+	const PackageSaveStateLoadResult invalidLaterRandomRestore =
+		randomSaveHost.restorePackageSaveState(invalidLaterRandomState);
+	const PackageSaveStateCaptureResult afterInvalidRandomRestore =
+		randomSaveHost.capturePackageSaveState();
+	const bool invalidRandomUnchanged = afterLegacyRandomRestore &&
+		afterInvalidRandomRestore &&
+		afterLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterInvalidRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterLegacyRandomRestore.snapshot.engineRecords[0].random ==
+			afterInvalidRandomRestore.snapshot.engineRecords[0].random &&
+		afterLegacyRandomRestore.snapshot.engineRecords[1].random ==
+			afterInvalidRandomRestore.snapshot.engineRecords[1].random;
+	check(invalidLaterRandomRestore.error ==
+			PackageSaveStateError::EngineStateMismatch &&
+		invalidLaterRandomRestore.packageId == "rules.random-save-b" &&
+		invalidRandomUnchanged,
+		"a later invalid package checkpoint leaves every earlier RNG unchanged");
 
 	TransactionalLifecyclePackage transactionalPackage("rules.transactional-session");
 	EngineHost<unsigned> transactionalHost;
@@ -941,6 +1245,46 @@ int main()
 		invalidDeclaredContentHost.packages().registerPackage(duplicateDeclaredContent) ==
 			PackageRegistrationError::InvalidManifest,
 		"declared sources require content API 1.4 and unique definition identities");
+	DeclaredContentPackage dependencyBaseA(PackageDescriptor{
+		ContentManifest{"rules.dependency-a", "1", ContentApiVersion{1, 3}},
+		PackageKind::Rules});
+	DeclaredContentPackage dependencyBaseB(PackageDescriptor{
+		ContentManifest{"rules.dependency-b", "1", ContentApiVersion{1, 3}},
+		PackageKind::Rules});
+	DeclaredContentPackage dependencyConsumerSecond(PackageDescriptor{
+		ContentManifest{"mod.consumer-second", "1", ContentApiVersion{1, 3},
+			{{"rules.dependency-b", {}}}, {{"rules.dependency-a", {}}}},
+		PackageKind::Extension});
+	DeclaredContentPackage dependencyConsumerFirst(PackageDescriptor{
+		ContentManifest{"mod.consumer-first", "1", ContentApiVersion{1, 3},
+			{{"rules.dependency-a", {}}}, {{"rules.dependency-b", {}}}},
+		PackageKind::Extension});
+	DeclaredContentPackage duplicateDependencyConsumer(PackageDescriptor{
+		ContentManifest{"mod.consumer-duplicate", "1", ContentApiVersion{1, 3},
+			{{"rules.dependency-a", {}}}, {{"rules.dependency-a", {}}}},
+		PackageKind::Extension});
+	EngineHost<unsigned> dependencyCatalogHost;
+	const bool dependenciesRegistered =
+		dependencyCatalogHost.packages().registerPackage(dependencyBaseA) ==
+			PackageRegistrationError::None &&
+		dependencyCatalogHost.packages().registerPackage(dependencyBaseB) ==
+			PackageRegistrationError::None &&
+		dependencyCatalogHost.packages().registerPackage(dependencyConsumerSecond) ==
+			PackageRegistrationError::None &&
+		dependencyCatalogHost.packages().registerPackage(dependencyConsumerFirst) ==
+			PackageRegistrationError::None;
+	const PackageCatalogSnapshot dependencyCatalog =
+		dependencyCatalogHost.packageCatalog();
+	const PackageCatalogEntry* dependencyA = dependencyCatalog.find("rules.dependency-a");
+	const PackageCatalogEntry* dependencyB = dependencyCatalog.find("rules.dependency-b");
+	check(dependenciesRegistered && dependencyA && dependencyB &&
+		dependencyA->dependents == std::vector<std::string>({
+			"mod.consumer-second", "mod.consumer-first"}) &&
+		dependencyB->dependents == std::vector<std::string>({
+			"mod.consumer-second", "mod.consumer-first"}) &&
+		dependencyCatalogHost.packages().registerPackage(duplicateDependencyConsumer) ==
+			PackageRegistrationError::InvalidRelationship,
+		"indexed package catalogs preserve consumer order and reject duplicate relationships");
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;
@@ -989,7 +1333,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 22,
+		sessionHost.configuration().size() == 24,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	const RuntimeReport runtimeReport = sessionHost.runtimeReport();
@@ -1000,7 +1344,7 @@ int main()
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
 		diagnostics.packageTasks.queued.empty() &&
 		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 15 &&
-		diagnostics.configuration.size() == 22 &&
+		diagnostics.configuration.size() == 24 &&
 		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
@@ -1008,7 +1352,7 @@ int main()
 	check(runtimeReport.lifecycle == EngineLifecycle::Stopped && runtimeReport.healthy() &&
 		runtimeReport.completedFrames == 0 && runtimeReport.completedSimulationTicks == 0 &&
 		runtimeReport.registeredPackages == 0 && runtimeReport.activePackages == 0 &&
-		runtimeReport.services.size() == 15 && runtimeReport.configuration.size() == 22 &&
+		runtimeReport.services.size() == 15 && runtimeReport.configuration.size() == 24 &&
 		runtimeReport.compatibility == diagnostics.compatibility &&
 		runtimeReport.frames.completedFrames == diagnostics.frames.summary.completedFrames,
 		"runtime report condenses diagnostics without retaining sensitive content payloads");
@@ -1091,6 +1435,74 @@ int main()
 		!exhaustedSequences.enqueueRecorded(0, maximumSequence, 3),
 		"command sequence exhaustion fails explicitly without wrapping or reusing IDs");
 
+	DeterministicCommandQueue<int> expectedNextCommands;
+	expectedNextCommands.enqueue(20, 200);
+	const std::uint64_t expectedNextSequence =
+		expectedNextCommands.enqueue(10, 100);
+	expectedNextCommands.enqueue(10, 101);
+	std::vector<int> expectedNextDelivered;
+	std::vector<std::uint64_t> expectedNextObserved;
+	const ExpectedCommandProcessingResult expectedNextProcessed =
+		ProcessExpectedNextCommandThrough(
+			expectedNextCommands, 10, expectedNextSequence,
+			[&expectedNextDelivered](int command, std::uint64_t, std::uint64_t) {
+				expectedNextDelivered.push_back(command);
+				return CommandDisposition::Applied;
+			},
+			[&expectedNextObserved](
+				int, std::uint64_t, std::uint64_t sequence, CommandDisposition) {
+				expectedNextObserved.push_back(sequence);
+			});
+	check(expectedNextProcessed &&
+		expectedNextProcessed.processing.scheduled == 1 &&
+		expectedNextProcessed.processing.applied == 1 &&
+		expectedNextDelivered == std::vector<int>({100}) &&
+		expectedNextObserved == std::vector<std::uint64_t>({expectedNextSequence}) &&
+		expectedNextCommands.size() == 2,
+		"expected-next processing normalizes order and invokes only its exact command");
+
+	DeterministicCommandQueue<int> precededCommands;
+	const std::uint64_t precededSequence = precededCommands.enqueue(10, 100);
+	const std::uint64_t precedingSequence = precededCommands.enqueue(9, 90);
+	bool precededInvoked = false;
+	const ExpectedCommandProcessingResult preceded =
+		ProcessExpectedNextCommandThrough(
+			precededCommands, 10, precededSequence,
+			[&precededInvoked](int, std::uint64_t, std::uint64_t) {
+				precededInvoked = true;
+				return CommandDisposition::Applied;
+			});
+	check(preceded.status ==
+			ExpectedCommandProcessStatus::DifferentCommandReady &&
+		preceded.observedTick == 9 &&
+		preceded.observedSequence == precedingSequence && !precededInvoked &&
+		precededCommands.size() == 2,
+		"expected-next processing exposes authoritative backlog without consuming it");
+
+	DeterministicCommandQueue<int> gatedExpectedCommands;
+	const std::uint64_t gatedExpectedSequence =
+		gatedExpectedCommands.enqueue(20, 200);
+	bool gatedExpectedInvoked = false;
+	const ExpectedCommandProcessingResult notReady =
+		ProcessExpectedNextCommandThrough(
+			gatedExpectedCommands, 10, gatedExpectedSequence,
+			[&gatedExpectedInvoked](int, std::uint64_t, std::uint64_t) {
+				gatedExpectedInvoked = true;
+				return CommandDisposition::Applied;
+			});
+	const ExpectedCommandProcessingResult retryExpected =
+		ProcessExpectedNextCommandThrough(
+			gatedExpectedCommands, 20, gatedExpectedSequence,
+			[](int, std::uint64_t, std::uint64_t) {
+				return CommandDisposition::Retry;
+			});
+	check(notReady.status == ExpectedCommandProcessStatus::NoCommandReady &&
+		!gatedExpectedInvoked &&
+		retryExpected.status == ExpectedCommandProcessStatus::Retry &&
+		retryExpected.processing.blockedSequence == gatedExpectedSequence &&
+		gatedExpectedCommands.containsSequence(gatedExpectedSequence),
+		"expected-next processing distinguishes tick gating and retains retryable work");
+
 	StateRegistry<unsigned> states;
 	unsigned initialized = 0;
 	unsigned handled = 0;
@@ -1131,6 +1543,94 @@ int main()
 		states.shutdown(7) == StateShutdownError::CallbackException &&
 		!states.isInitialized(7),
 		"state registry reports callback exceptions and releases lifecycle state");
+
+	StateRegistry<unsigned> reentrantStates;
+	StateInitializationError nestedInitialization = StateInitializationError::None;
+	StateRegistrationError nestedRegistration = StateRegistrationError::None;
+	StateShutdownError nestedShutdown = StateShutdownError::None;
+	StateHandleError nestedHandle = StateHandleError::None;
+	check(reentrantStates.registerState(8, StateCallbacks<unsigned>{
+		[&] {
+			nestedInitialization = reentrantStates.initialize(8);
+			nestedRegistration = reentrantStates.registerState(9,
+				StateCallbacks<unsigned>{[] { return true; }, [] { return 9u; }, [] {}});
+			return true;
+		},
+		[&] {
+			nestedShutdown = reentrantStates.shutdown(8);
+			return 8u;
+		},
+		[&] { nestedHandle = reentrantStates.handle(8).error; }}) ==
+			StateRegistrationError::None &&
+		reentrantStates.initialize(8) == StateInitializationError::None &&
+		reentrantStates.handle(8) &&
+		reentrantStates.shutdown(8) == StateShutdownError::None &&
+		nestedInitialization == StateInitializationError::OperationInProgress &&
+		nestedRegistration == StateRegistrationError::OperationInProgress &&
+		nestedShutdown == StateShutdownError::OperationInProgress &&
+		nestedHandle == StateHandleError::OperationInProgress &&
+		reentrantStates.size() == 1,
+		"state registry rejects callback reentrancy without invalidating entries");
+
+	MemoryInputSource nestedInputSource;
+	InputDispatcher nestedInput(nestedInputSource, 2);
+	CallbackInputSink nestedInputSink;
+	InputDispatchResult nestedInputResult;
+	nestedInputSink.callback = [&] { nestedInputResult = nestedInput.dispatchPending(); };
+	nestedInput.addSink(nestedInputSink);
+	nestedInputSource.push(EngineInputEvent{});
+	const InputDispatchResult outerInputResult = nestedInput.dispatchPending();
+
+	RuntimeUpdateDispatcher nestedUpdates;
+	CallbackRuntimeUpdateSink nestedUpdateSink;
+	RuntimeUpdateDispatchResult nestedUpdateResult;
+	nestedUpdateSink.callback = [&] {
+		nestedUpdateResult = nestedUpdates.dispatch(RuntimeUpdateContext{});
+	};
+	nestedUpdates.addSink(nestedUpdateSink);
+	const RuntimeUpdateDispatchResult outerUpdateResult =
+		nestedUpdates.dispatch(RuntimeUpdateContext{});
+
+	SimulationTickDispatcher nestedTicks(1, 1);
+	CallbackSimulationTickSink nestedTickSink;
+	SimulationTickDispatchResult nestedTickResult;
+	nestedTickSink.callback = [&] { nestedTickResult = nestedTicks.advance(1); };
+	nestedTicks.addSink(nestedTickSink);
+	const SimulationTickDispatchResult outerTickResult = nestedTicks.advance(1);
+
+	RuntimeMessageBus nestedMessages(2, 8);
+	CallbackMessageSink nestedMessageSink;
+	RuntimeMessageDispatchResult nestedMessageResult;
+	nestedMessageSink.callback = [&] {
+		nestedMessageResult = nestedMessages.dispatchPending();
+	};
+	nestedMessages.addSink(nestedMessageSink);
+	nestedMessages.publish(RuntimeMessageRequest{"nested.message", "engine.test", {}});
+	const RuntimeMessageDispatchResult outerMessageResult =
+		nestedMessages.dispatchPending();
+	check(outerInputResult.polled == 1 && nestedInputResult.operationInProgress &&
+		outerUpdateResult.delivered == 1 && nestedUpdateResult.operationInProgress &&
+		outerTickResult.executed == 1 && nestedTickResult.operationInProgress &&
+		outerMessageResult.messages == 1 && nestedMessageResult.operationInProgress,
+		"core fan-out dispatchers reject nested work while completing the outer pass");
+
+	PackageTaskQueue nestedTasks(4, 2);
+	PackageTaskDrainResult nestedTaskResult;
+	std::size_t nestedRemoval = 1;
+	unsigned nestedTaskRuns = 0;
+	nestedTasks.schedule("nested.tasks", [&] {
+		++nestedTaskRuns;
+		nestedTaskResult = nestedTasks.drain();
+		nestedRemoval = nestedTasks.removePackage("nested.tasks");
+		nestedTasks.schedule("nested.tasks", [&] { ++nestedTaskRuns; });
+	});
+	nestedTasks.schedule("nested.tasks", [&] { ++nestedTaskRuns; });
+	const PackageTaskDrainResult outerTaskResult = nestedTasks.drain();
+	const PackageTaskDrainResult deferredTaskResult = nestedTasks.drain();
+	check(outerTaskResult.executed == 2 && nestedTaskResult.operationInProgress &&
+		nestedRemoval == 0 && deferredTaskResult.executed == 1 &&
+		nestedTaskRuns == 3 && nestedTasks.size() == 0,
+		"package task draining rejects recursion and defers newly scheduled work");
 
 	ManualTimeSource frameTime;
 	MemoryInputSource frameInput;
@@ -1277,6 +1777,92 @@ int main()
 		telemetrySnapshot.samples[0].sequence == 2,
 		"frame telemetry retains bounded live timings and aggregate failures");
 
+	ManualTimeSource recoveryTime;
+	MemoryInputSource recoveryInput;
+	EngineServices recoveryServices{
+		recoveryTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
+		NullLogSink::instance(), recoveryInput,
+		NullAudioOutput::instance(), NullFramePresenter::instance(),
+		NullAssetSource::instance()};
+	RuntimeMessageBus recoveryMessages;
+	InputDispatcher recoveryInputDispatcher(recoveryInput);
+	RuntimeUpdateDispatcher recoveryUpdates;
+	TestRuntimeUpdateSink recoveryUpdateSink;
+	recoveryUpdates.addSink(recoveryUpdateSink);
+	FrameTelemetry recoveryTelemetry;
+	SimulationTickDispatcher recoveryTicks(10, 8);
+	TestSimulationTickSink recoveryTickSink;
+	recoveryTicks.addSink(recoveryTickSink);
+	FrameDriver recoveryDriver(
+		recoveryServices, recoveryMessages, recoveryInputDispatcher,
+		recoveryUpdates, recoveryTelemetry, recoveryTicks);
+	const FrameRunResult initialRecoveryFrame = recoveryDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	recoveryTime.advanceMicroseconds(10);
+	bool prepareFailed = false;
+	try
+	{
+		recoveryDriver.runFrame(
+			[]() -> FramePlan { throw std::runtime_error("prepare failed"); }, [] {});
+	}
+	catch (const std::runtime_error&)
+	{
+		prepareFailed = true;
+	}
+	recoveryTime.advanceMicroseconds(10);
+	const FrameRunResult afterPrepareFailure = recoveryDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	recoveryTime.advanceMicroseconds(10);
+	bool completionFailed = false;
+	try
+	{
+		recoveryDriver.runFrame(
+			[] { return FramePlan{false, FramePresentMode::Paced}; },
+			[] { throw std::runtime_error("completion failed"); });
+	}
+	catch (const std::runtime_error&)
+	{
+		completionFailed = true;
+	}
+	recoveryTime.advanceMicroseconds(10);
+	const FrameRunResult afterCompletionFailure = recoveryDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	bool nestedRejected = false;
+	const FrameRunResult afterNestedAttempt = recoveryDriver.runFrame(
+		[&] {
+			try
+			{
+				recoveryDriver.runFrame(
+					[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+			}
+			catch (const std::logic_error&)
+			{
+				nestedRejected = true;
+			}
+			return FramePlan{false, FramePresentMode::Paced};
+		}, [] {});
+	const FrameTelemetrySnapshot recoverySnapshot = recoveryTelemetry.snapshot();
+	check(prepareFailed && completionFailed && nestedRejected &&
+		initialRecoveryFrame.sequence == 1 &&
+		afterPrepareFailure.sequence == 3 &&
+		afterCompletionFailure.sequence == 5 &&
+		afterNestedAttempt.sequence == 6 &&
+		recoveryDriver.nextFrameSequence() == 7 &&
+		recoveryDriver.completedFrames() == 4 &&
+		recoveryUpdateSink.updates.size() == 6 &&
+		recoveryUpdateSink.updates[1].frameSequence == 2 &&
+		recoveryUpdateSink.updates[3].frameSequence == 4 &&
+		recoveryTickSink.ticks.size() == 4 &&
+		recoverySnapshot.summary.completedFrames == 4,
+		"failed frames consume identity and committed elapsed time exactly once");
+	check(afterPrepareFailure.runtimeUpdates.delivered == 1 &&
+		afterPrepareFailure.simulationTicks.executed == 1 &&
+		afterCompletionFailure.runtimeUpdates.delivered == 1 &&
+		afterCompletionFailure.simulationTicks.executed == 1 &&
+		afterNestedAttempt.runtimeUpdates.delivered == 1 &&
+		afterNestedAttempt.simulationTicks.executed == 0,
+		"frame recovery resumes without replaying a failed frame's simulation interval");
+
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});
 	writer.writeU32(0x10203040u);
@@ -1367,6 +1953,29 @@ int main()
 	MemoryByteStorage checkpointStorage;
 	PersistenceService checkpointPersistence(checkpointStorage, 4096);
 	RuntimeCheckpointService checkpoints(checkpointPersistence, 1);
+	EngineServices checkpointHostServices{
+		ZeroTimeSource::instance(), ZeroRandomSource::instance(), checkpointStorage};
+	EngineHost<unsigned> checkpointHost(checkpointHostServices);
+	const RuntimeCompatibilityFingerprint currentHostFingerprint =
+		checkpointHost.compatibilityFingerprint();
+	const RuntimeCompatibilityFingerprint preAggregateHostFingerprint =
+		checkpointHost.preAggregateCatalogCompatibilityFingerprint();
+	const RuntimeCheckpoint preAggregateCheckpoint{
+		preAggregateHostFingerprint, 31, 47, {}};
+	check(currentHostFingerprint != preAggregateHostFingerprint &&
+		checkpointHost.runtimeCheckpoints().save(
+			"runtime.checkpoint-pre-aggregate", preAggregateCheckpoint) ==
+			RuntimeCheckpointSaveError::None,
+		"the reconstructed pre-aggregate host configuration has its own real fingerprint");
+	RuntimeCheckpoint loadedPreAggregateCheckpoint;
+	const RuntimeCheckpointLoadResult loadedPreAggregateResult =
+		checkpointHost.loadRuntimeCheckpoint(
+			"runtime.checkpoint-pre-aggregate", loadedPreAggregateCheckpoint);
+	check(loadedPreAggregateResult &&
+		loadedPreAggregateCheckpoint.compatibility == preAggregateHostFingerprint &&
+		loadedPreAggregateCheckpoint.completedFrames == 31 &&
+		loadedPreAggregateCheckpoint.completedSimulationTicks == 47,
+		"runtime checkpoints made with the pre-aggregate configuration remain loadable");
 	const RuntimeCheckpoint savedCheckpoint{
 		firstFingerprint, 17, 23, {{"rules.fingerprint", "2.0"}}};
 	check(checkpoints.save("runtime.checkpoint", savedCheckpoint) ==
@@ -1392,14 +2001,33 @@ int main()
 		unchangedCheckpoint.completedFrames == 99 &&
 		unchangedCheckpoint.activePackages[0].id == "unchanged.package",
 		"runtime checkpoint rejects incompatible engines before publishing metadata");
-	PackageSaveArchiveService packageArchives(checkpointPersistence, 2, 8, 12);
-	const PackageSaveArchive savedPackageArchive{firstFingerprint,
+	PackageSaveArchiveService packageArchives(checkpointPersistence, 2, 8, 256);
+	PackageSaveArchive savedPackageArchive{firstFingerprint,
 		PackageSaveStateSnapshot{{
 			PackageSaveStateRecord{"rules.fingerprint", "2.0", 1, {4, 2}},
 			PackageSaveStateRecord{"extension.state", "1.0", 3, {1, 3, 3, 7}}}}};
+	savedPackageArchive.state.engineStatePresent = true;
+	savedPackageArchive.state.engineRecords.push_back(PackageEngineSaveStateRecord{
+		"rules.fingerprint", "2.0",
+		PackageRandomCheckpoint{PackageRandomCheckpoint::CurrentSchema,
+			"rules.fingerprint", {{"combat", 123, 7}}}});
 	check(packageArchives.save("package-state", savedPackageArchive) ==
 			PackageSaveArchiveSaveError::None,
 		"package save archive writes ordered bounded state through persistence envelopes");
+	PackageSaveArchive missingEngineMarker = savedPackageArchive;
+	missingEngineMarker.state.engineStatePresent = false;
+	check(packageArchives.save("package-state-invalid", missingEngineMarker) ==
+			PackageSaveArchiveSaveError::InvalidArchive &&
+		!checkpointStorage.exists("package-state-invalid"),
+		"package save archives reject hidden engine records transactionally");
+	PackageSaveArchiveService tightPackageArchives(
+		checkpointPersistence, 2, 8, 12, 64);
+	check(tightPackageArchives.save("package-state-over-budget", savedPackageArchive) ==
+			PackageSaveArchiveSaveError::TotalTooLarge &&
+		!checkpointStorage.exists("package-state-over-budget"),
+		"engine-owned save records share the aggregate package-state byte budget");
+	std::vector<std::uint8_t> encodedPackageArchive;
+	checkpointStorage.readAll("package-state", encodedPackageArchive);
 	PackageSaveArchive loadedPackageArchive;
 	const PackageSaveArchiveLoadResult loadedPackageState = packageArchives.load(
 		"package-state", firstFingerprint, loadedPackageArchive);
@@ -1408,8 +2036,87 @@ int main()
 		loadedPackageArchive.state.records[1].packageId == "extension.state" &&
 		loadedPackageArchive.state.records[1].schemaVersion == 3 &&
 		loadedPackageArchive.state.records[1].payload ==
-			std::vector<std::uint8_t>({1, 3, 3, 7}),
-		"package save archive round-trips identity, schemas, order, and opaque bytes");
+			std::vector<std::uint8_t>({1, 3, 3, 7}) &&
+		loadedPackageArchive.state.engineStatePresent &&
+		loadedPackageArchive.state.engineRecords.size() == 1 &&
+		loadedPackageArchive.state.engineRecords[0].random.streams.size() == 1 &&
+		loadedPackageArchive.state.engineRecords[0].random.streams[0].state == 123 &&
+		encodedPackageArchive.size() >= 6 && encodedPackageArchive[4] == 2 &&
+		encodedPackageArchive[5] == 0,
+		"package save archive v2 round-trips opaque and engine-owned state");
+	PackageSaveArchive tightLoadOutput{firstFingerprint,
+		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
+	const PackageSaveArchiveLoadResult tightLoad = tightPackageArchives.load(
+		"package-state", firstFingerprint, tightLoadOutput);
+	check(tightLoad.error == PackageSaveArchiveLoadError::TotalTooLarge &&
+		tightLoadOutput.state.records.size() == 1 &&
+		tightLoadOutput.state.records[0].packageId == "unchanged",
+		"engine-state budget failures do not publish partially decoded archives");
+	const std::vector<std::uint8_t> versionOneArchiveFixture{
+		0x50, 0x47, 0x53, 0x54, 0x01, 0x00, 0x2f, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0xb5, 0x6d, 0x61, 0xed, 0x01, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00,
+		0x00, 0x00, 0x70, 0x01, 0x00, 0x00, 0x00, 0x76, 0x01, 0x00, 0x00,
+		0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7f};
+	checkpointStorage.writeAll("package-state-v1", versionOneArchiveFixture);
+	PackageSaveArchive loadedVersionOneArchive;
+	const PackageSaveArchiveLoadResult loadedVersionOneState = packageArchives.load(
+		"package-state-v1", RuntimeCompatibilityFingerprint{1, 2, 3},
+		loadedVersionOneArchive);
+	check(loadedVersionOneState && loadedVersionOneArchive.state.records.size() == 1 &&
+		loadedVersionOneArchive.state.records[0].packageId == "p" &&
+		loadedVersionOneArchive.state.records[0].packageVersion == "v" &&
+		loadedVersionOneArchive.state.records[0].payload ==
+			std::vector<std::uint8_t>({0x7f}) &&
+		!loadedVersionOneArchive.state.engineStatePresent &&
+		loadedVersionOneArchive.state.engineRecords.empty(),
+		"package save archive loads the exact pre-v2 byte fixture unchanged");
+	BinaryWriter preAggregateVersionOnePayload;
+	preAggregateVersionOnePayload.writeU32(preAggregateHostFingerprint.schema);
+	preAggregateVersionOnePayload.writeU64(preAggregateHostFingerprint.high);
+	preAggregateVersionOnePayload.writeU64(preAggregateHostFingerprint.low);
+	preAggregateVersionOnePayload.writeU32(1);
+	preAggregateVersionOnePayload.writeString("p");
+	preAggregateVersionOnePayload.writeString("v");
+	preAggregateVersionOnePayload.writeU32(1);
+	preAggregateVersionOnePayload.writeU64(1);
+	preAggregateVersionOnePayload.writeU8(0x7f);
+	check(checkpointPersistence.saveEnvelope("package-state-pre-aggregate-v1",
+			PersistenceHeader{0x54534750u, 1}, preAggregateVersionOnePayload.bytes()) ==
+			PersistenceSaveResult::Success,
+		"tests can reproduce the pre-v2 package archive with a real old host fingerprint");
+	PackageSaveArchive loadedPreAggregateVersionOneArchive;
+	const PackageSaveArchiveLoadResult loadedPreAggregateVersionOne =
+		packageArchives.load("package-state-pre-aggregate-v1", currentHostFingerprint,
+			preAggregateHostFingerprint, loadedPreAggregateVersionOneArchive);
+	check(loadedPreAggregateVersionOne &&
+		loadedPreAggregateVersionOneArchive.compatibility == preAggregateHostFingerprint &&
+		loadedPreAggregateVersionOneArchive.state.records.size() == 1 &&
+		loadedPreAggregateVersionOneArchive.state.records[0].payload ==
+			std::vector<std::uint8_t>({0x7f}),
+		"v1 package archives validate against the reconstructed pre-aggregate fingerprint");
+	PackageSaveArchive rejectedPreAggregateVersionOne;
+	const PackageSaveArchiveLoadResult rejectedWithoutPreAggregateFingerprint =
+		packageArchives.load("package-state-pre-aggregate-v1", currentHostFingerprint,
+			rejectedPreAggregateVersionOne);
+	check(rejectedWithoutPreAggregateFingerprint.error ==
+			PackageSaveArchiveLoadError::IncompatibleRuntime,
+		"v1 package archive compatibility remains validated rather than bypassed");
+	PackageSaveArchive preAggregateVersionTwoArchive{
+		preAggregateHostFingerprint, PackageSaveStateSnapshot{}};
+	preAggregateVersionTwoArchive.state.engineStatePresent = true;
+	check(packageArchives.save(
+			"package-state-pre-aggregate-v2", preAggregateVersionTwoArchive) ==
+			PackageSaveArchiveSaveError::None,
+		"tests can encode a structurally valid v2 archive with the legacy fingerprint");
+	PackageSaveArchive rejectedPreAggregateVersionTwo;
+	const PackageSaveArchiveLoadResult rejectedPreAggregateVersionTwoResult =
+		packageArchives.load("package-state-pre-aggregate-v2", currentHostFingerprint,
+			preAggregateHostFingerprint, rejectedPreAggregateVersionTwo);
+	check(rejectedPreAggregateVersionTwoResult.error ==
+			PackageSaveArchiveLoadError::IncompatibleRuntime,
+		"v2 package archives cannot use the pre-aggregate compatibility alternative");
 	PackageSaveArchive unchangedPackageArchive{firstFingerprint,
 		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
 	const PackageSaveArchiveLoadResult incompatiblePackageState = packageArchives.load(

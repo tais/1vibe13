@@ -1321,6 +1321,7 @@ UINT32 UIHandleEnterPalEditMode( UI_EVENT *pUIEvent )
 UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 {
 	CHAR16	zString[128]; 
+	bool completedTurnTransition = false;
 
 	// CANCEL FROM PLANNING MODE!
 	if ( InUIPlanMode( ) )
@@ -1333,7 +1334,7 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 	
 	if ( CheckForEndOfCombatMode( FALSE ) )
 	{
-		// do nothing...
+		completedTurnTransition = true;
 	}
 	else
 	{
@@ -1437,23 +1438,27 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		// End our turn!
 		if (is_server || !is_client)
 		{
-			DispatchEndTurnCommandNow( gbPlayerNum + 1 );
+			completedTurnTransition = static_cast<bool>(
+				TryDispatchEndTurnCommandNow( gbPlayerNum + 1 ) );
 		}
 		if(!is_server && is_client)
 		{
 			if (INTERRUPT_QUEUED)
 			{
-				DispatchEndTurnCommandNow( gbPlayerNum + 1 );//is ending interrupt instead
+				completedTurnTransition = static_cast<bool>(
+					TryDispatchEndTurnCommandNow( gbPlayerNum + 1 ) );
 			}
 			else
 			{
 				send_EndTurn( netbTeam+1 );//for sending next netbteam rather than next local team
+				completedTurnTransition = true;
 			}
 		}
 	}
 
 	// anv: automatically return to team panel on turn end (better situation overview during enemy turn)
-	if( gGameExternalOptions.fAutoCollapseInventoryOnTurnEnd == TRUE )
+	if( completedTurnTransition &&
+		gGameExternalOptions.fAutoCollapseInventoryOnTurnEnd == TRUE )
 		SetCurrentInterfacePanel( TEAM_PANEL );
 
 	return( GAME_SCREEN );
@@ -2172,20 +2177,23 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
 					}
 
-					// Remove any previous actions
-					pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
-					
 					//if ( !( gTacticalStatus.uiFlags & INCOMBAT ) && ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
 					//{
 					//	pSoldier->sRTPendingMovementGridNo = sMapPos;
 					//	pSoldier->usRTPendingMovementAnim	= pSoldier->usUIMovementMode;
 					//}
 					//else
-					if ( pSoldier->EVENT_InternalGetNewSoldierPath( usMapPos, pSoldier->usUIMovementMode, TRUE, FALSE ) )
+					const SimulationCommandDispatchResult movement =
+						TryDispatchMoveToGridCommandNow(
+							pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+							usMapPos, pSoldier->usUIMovementMode,
+							pSoldier->bReverse != FALSE, false);
+					if ( movement )
 					{
 						pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );
 					}
-					else
+					else if (movement.status ==
+						SimulationCommandDispatchStatus::Discarded)
 					{
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->GetName() );
 					}
@@ -2254,8 +2262,6 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					sActionGridNo =	FindAdjacentGridEx( pSoldier, sIntTileGridNo, &ubDirection, NULL, FALSE, TRUE );
 					if ( sActionGridNo != -1 )
 					{
-						SetUIBusy( pSoldier->ubID );
-
 						// Set dest gridno
 						sDestGridNo = sActionGridNo;
 
@@ -2330,6 +2336,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						// check if we are at this location
 						if ( pSoldier->sGridNo == sDestGridNo || bSideOpenDoor )
 						{
+							SetUIBusy( pSoldier->ubID );
 							StartInteractiveObject( sIntTileGridNo, pStructure->usStructureID, pSoldier, ubDirection );
 							InteractWithInteractiveObject( pSoldier, pStructure, ubDirection );
 							return( GAME_SCREEN );
@@ -2341,8 +2348,6 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						return( GAME_SCREEN );
 					}
 				}
-
-				SetUIBusy( pSoldier->ubID );
 
 				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
 				{
@@ -2359,17 +2364,21 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 
 				if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && pIntTile == NULL && !( gTacticalStatus.uiFlags & INCOMBAT ) )
 				{
-					HandleMultiSelectionMove( sDestGridNo );
+					if ( HandleMultiSelectionMove( sDestGridNo ) )
+						SetUIBusy( pSoldier->ubID );
 				}
 				else
 				{
-					DispatchMoveToGridCommandNow(
+					const SimulationCommandDispatchResult movement =
+						TryDispatchMoveToGridCommandNow(
 						pSoldier->ubID,
 						pSoldier->uiUniqueSoldierIdValue,
 						sDestGridNo,
 						static_cast<std::uint16_t>(pSoldier->usUIMovementMode),
 						gUIUseReverse != FALSE,
 						pSoldier->flags.fNoAPToFinishMove != FALSE);
+					if (!movement) return GAME_SCREEN;
+					SetUIBusy( pSoldier->ubID );
 
 					if ( pSoldier->pathing.usPathDataSize > 5 )
 					{
@@ -3845,7 +3854,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		{
 			// Adjust stance
 			//pSoldier->ChangeSoldierStance( bNewStance );
-			DispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance );
+			if (!TryDispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance ))
+				return;
 
 			pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
 			pSoldier->bGoodContPath			= FALSE;
@@ -3876,7 +3886,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY )
 		{
 			// Change stance normally
-			DispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance );
+			if (!TryDispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance ))
+				return;
 		}
 		else
 		{
@@ -5402,6 +5413,12 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 			return( FALSE );
 		}
 
+		const SimulationCommandDispatchResult facing =
+			TryDispatchSetFacingCommandNow(
+				pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+				static_cast<std::uint8_t>(sFacingDir));
+		if (!facing) return FALSE;
+
 		// ATE: make stationary if...
 		if ( pSoldier->flags.fNoAPToFinishMove )
 		{
@@ -5420,9 +5437,6 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 				pSoldier->SoldierGotoStationaryStance( );
 			}// arynn : fix lower ready weapon end_if	
 		}
-
-		//DEF:	made it an event
-		SendSoldierSetDesiredDirectionEvent( pSoldier, sFacingDir );
 
 		pSoldier->bTurningFromUI = TRUE;
 
@@ -5996,18 +6010,6 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 
 				pSoldier->flags.fUIMovementFast	= FALSE;
 
-				if ( gUIUseReverse )
-				{
-					pSoldier->bReverse = TRUE;
-				}
-				else
-				{
-					pSoldier->bReverse = FALSE;
-				}
-
-				// Remove any previous actions
-				pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
-
 				INT32 sIndividualDestGridNo = sDestGridNo;
 				// Flugente: determine offset to current center gridno
 				// sevenfm: use SHIFT key to move in formation
@@ -6043,16 +6045,22 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 					}
 				}
 
-				if ( pSoldier->EVENT_InternalGetNewSoldierPath( sIndividualDestGridNo, pSoldier->usUIMovementMode , TRUE, pSoldier->flags.fNoAPToFinishMove ) )
+				const SimulationCommandDispatchResult movement =
+					TryDispatchMoveToGridCommandNow(
+						pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+						sIndividualDestGridNo, pSoldier->usUIMovementMode,
+						gUIUseReverse != FALSE,
+						pSoldier->flags.fNoAPToFinishMove != FALSE);
+				if ( movement )
 				{
 					pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );
+					fAtLeastOneMultiSelect = TRUE;
 				}
-				else
+				else if (movement.status ==
+					SimulationCommandDispatchStatus::Discarded)
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->GetName() );
 				}
-
-				fAtLeastOneMultiSelect = TRUE;
 			}
 		}
 	}

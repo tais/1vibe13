@@ -651,7 +651,8 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 			{
 					MemFree( hVObject );
 					DbgMessage( TOPIC_VIDEOOBJECT, DBG_LEVEL_2, "Invalid Image format given." );
-					DestroyImage( hImage );
+					if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE)
+						DestroyImage(hImage);
 					return( NULL );
 			}
 
@@ -661,9 +662,9 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 			// Get TRLE data
 			if ( !GetETRLEImageData( hImage, &TempETRLEData ) )
 			{
-				// leak: free hVObject + hImage on GetETRLEImageData error path
 				MemFree( hVObject );
-				DestroyImage( hImage );
+				if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE)
+					DestroyImage(hImage);
 				return( NULL );
 			}
 

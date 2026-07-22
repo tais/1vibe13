@@ -14,6 +14,23 @@ enum class SimulationCommandSource : std::uint8_t
 	Replay
 };
 
+// Keep source validation beside the public wire vocabulary so package
+// ingress, codecs, and application executors cannot silently disagree when a
+// new producer is added.
+constexpr bool IsValidSimulationCommandSource(
+	SimulationCommandSource source) noexcept
+{
+	switch (source)
+	{
+		case SimulationCommandSource::LocalPlayer:
+		case SimulationCommandSource::NetworkPeer:
+		case SimulationCommandSource::System:
+		case SimulationCommandSource::Replay:
+			return true;
+	}
+	return false;
+}
+
 struct EndTurnCommand
 {
 	std::uint8_t nextTeam;
@@ -39,6 +56,48 @@ struct BeginFireWeaponCommand
 	SimulationCommandSource source;
 };
 
+// Preserve the legacy fFromUI modes as explicit replay/network vocabulary.
+// Values are intentionally identical to EVENT_InternalGetNewSoldierPath's
+// established 0/1/2/3 policy.
+enum class TacticalMoveOrigin : std::uint8_t
+{
+	System = 0,
+	PlayerUi = 1,
+	ContinueMovement = 2,
+	TeamAwareUi = 3
+};
+
+constexpr bool IsValidTacticalMoveOrigin(TacticalMoveOrigin origin) noexcept
+{
+	switch (origin)
+	{
+		case TacticalMoveOrigin::System:
+		case TacticalMoveOrigin::PlayerUi:
+		case TacticalMoveOrigin::ContinueMovement:
+		case TacticalMoveOrigin::TeamAwareUi:
+			return true;
+	}
+	return false;
+}
+
+enum class TacticalPendingActionPolicy : std::uint8_t
+{
+	Preserve,
+	Clear
+};
+
+constexpr bool IsValidTacticalPendingActionPolicy(
+	TacticalPendingActionPolicy policy) noexcept
+{
+	switch (policy)
+	{
+		case TacticalPendingActionPolicy::Preserve:
+		case TacticalPendingActionPolicy::Clear:
+			return true;
+	}
+	return false;
+}
+
 struct MoveToGridCommand
 {
 	TacticalEntityId soldier;
@@ -46,6 +105,38 @@ struct MoveToGridCommand
 	std::uint16_t movementMode;
 	bool reverse;
 	bool forceRestart;
+	SimulationCommandSource source;
+	// Appended defaults retain source compatibility for existing aggregate
+	// initializers and preserve the original synchronous UI behavior.
+	TacticalMoveOrigin origin = TacticalMoveOrigin::PlayerUi;
+	TacticalPendingActionPolicy pendingAction =
+		TacticalPendingActionPolicy::Clear;
+};
+
+struct SetFacingCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t direction;
+	SimulationCommandSource source;
+};
+
+inline constexpr std::uint8_t TacticalDirectionCount = 8;
+
+constexpr bool IsValidTacticalDirection(std::uint8_t direction) noexcept
+{
+	return direction < TacticalDirectionCount;
+}
+
+struct SetStealthModeCommand
+{
+	TacticalEntityId soldier;
+	bool enabled;
+	SimulationCommandSource source;
+};
+
+struct StopMovementCommand
+{
+	TacticalEntityId soldier;
 	SimulationCommandSource source;
 };
 
@@ -56,6 +147,9 @@ using SimulationCommand = std::variant<
 	EndTurnCommand,
 	ChangeStanceCommand,
 	BeginFireWeaponCommand,
-	MoveToGridCommand>;
+	MoveToGridCommand,
+	SetFacingCommand,
+	SetStealthModeCommand,
+	StopMovementCommand>;
 
 #endif

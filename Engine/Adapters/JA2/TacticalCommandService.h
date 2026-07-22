@@ -130,7 +130,8 @@ enum class TacticalCommandCancellationError
 {
 	None,
 	InvalidOwner,
-	DrainInProgress
+	DrainInProgress,
+	CancellationInProgress
 };
 
 struct TacticalCommandCancellationResult
@@ -291,10 +292,11 @@ inline EngineServiceRegistrationError RegisterTacticalCommandService(
 // front request and stops, preserving FIFO retry order. Submission is allowed
 // from a callback but that work is ineligible until a later drain.
 //
-// Recursive draining and package cancellation during a callback are rejected
-// without mutation. This keeps the callback's front reference stable; teardown
-// can retry cancellation after the outer drain returns. Handlers receive the
-// authoritative front as const and cannot rewrite queued ownership or values.
+// Recursive draining and package cancellation during a drain callback are
+// rejected without mutation. Cancellation callbacks may submit new work, but
+// recursive drain/cancel mutation is rejected and the appended work is outside
+// the cancellation prefix. Handlers receive the authoritative front as const
+// and cannot rewrite queued ownership or values.
 class TacticalCommandInbox final : public TacticalCommandService
 {
 public:
@@ -316,7 +318,7 @@ public:
 		TacticalCommandDrainResult result;
 		result.initialPending = pending_.size();
 		result.queuedForNextDrain = pending_.size();
-		if (draining_)
+		if (draining_ || cancelling_)
 		{
 			result.error = TacticalCommandDrainError::AlreadyDraining;
 			return result;
@@ -408,6 +410,7 @@ private:
 	std::uint64_t nextRequestId_ = 1;
 	bool sequenceExhausted_ = false;
 	bool draining_ = false;
+	bool cancelling_ = false;
 };
 
 // Disabled service for hosts that expose a stable service object without a

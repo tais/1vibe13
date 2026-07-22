@@ -13,6 +13,7 @@ extern UINT32 guiLevelNodePoolMisses;
 
 // Object manipulation functions
 BOOLEAN RemoveObject( INT32 iMapIndex, UINT16 usIndex );
+BOOLEAN RemoveObjectFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode );
 LEVELNODE *AddObjectToTail( INT32 iMapIndex, UINT16 usIndex );
 BOOLEAN AddObjectToHead( INT32 iMapIndex, UINT16 usIndex );
 BOOLEAN TypeExistsInObjectLayer( INT32 iMapIndex, UINT32 fType, UINT16 *pusObjectIndex );
@@ -24,6 +25,7 @@ BOOLEAN TypeRangeExistsInObjectLayer( INT32 iMapIndex, UINT32 fStartType, UINT32
 
 // Roof manipulation functions
 BOOLEAN RemoveRoof( INT32 iMapIndex, UINT16 usIndex );
+BOOLEAN RemoveRoofFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode );
 LEVELNODE  *AddRoofToTail( INT32 iMapIndex, UINT16 usIndex );
 BOOLEAN AddRoofToHead( INT32 iMapIndex, UINT16 usIndex );
 BOOLEAN TypeExistsInRoofLayer( INT32 iMapIndex, UINT32 fType, UINT16 *pusRoofIndex );

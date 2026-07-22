@@ -11,7 +11,8 @@ enum class StateRegistrationError
 {
 	None,
 	DuplicateId,
-	InvalidCallbacks
+	InvalidCallbacks,
+	OperationInProgress
 };
 
 enum class StateInitializationError
@@ -20,7 +21,8 @@ enum class StateInitializationError
 	NotRegistered,
 	AlreadyInitialized,
 	Rejected,
-	CallbackException
+	CallbackException,
+	OperationInProgress
 };
 
 enum class StateHandleError
@@ -28,7 +30,8 @@ enum class StateHandleError
 	None,
 	NotRegistered,
 	NotInitialized,
-	CallbackException
+	CallbackException,
+	OperationInProgress
 };
 
 enum class StateShutdownError
@@ -36,7 +39,8 @@ enum class StateShutdownError
 	None,
 	NotRegistered,
 	NotInitialized,
-	CallbackException
+	CallbackException,
+	OperationInProgress
 };
 
 template<typename StateId>
@@ -62,7 +66,8 @@ struct StateHandleResult
 // Game-agnostic registry for application states/screens. The registry owns
 // callback values but not anything captured by them; captured application
 // objects must outlive their registration. Lifecycle mutation and dispatch are
-// intentionally serialized by the host rather than internally synchronized.
+// serialized by the host. Reentrant lifecycle mutation is rejected before a
+// callback can invalidate the entry that owns it.
 template<typename StateId>
 class StateRegistry
 {
@@ -70,6 +75,7 @@ public:
 	StateRegistrationError registerState(
 		StateId id, StateCallbacks<StateId> callbacks)
 	{
+		if (operationInProgress_) return StateRegistrationError::OperationInProgress;
 		if (!callbacks.initialize || !callbacks.handle || !callbacks.shutdown)
 			return StateRegistrationError::InvalidCallbacks;
 		if (findEntry(id) != entries_.end())
@@ -95,11 +101,13 @@ public:
 
 	StateInitializationError initialize(StateId id)
 	{
+		if (operationInProgress_) return StateInitializationError::OperationInProgress;
 		auto found = findEntry(id);
 		if (found == entries_.end())
 			return StateInitializationError::NotRegistered;
 		if (found->initialized)
 			return StateInitializationError::AlreadyInitialized;
+		OperationGuard operation(operationInProgress_);
 		try
 		{
 			if (!found->callbacks.initialize())
@@ -115,11 +123,14 @@ public:
 
 	StateHandleResult<StateId> handle(StateId id)
 	{
+		if (operationInProgress_)
+			return {StateHandleError::OperationInProgress, std::nullopt};
 		auto found = findEntry(id);
 		if (found == entries_.end())
 			return {StateHandleError::NotRegistered, std::nullopt};
 		if (!found->initialized)
 			return {StateHandleError::NotInitialized, std::nullopt};
+		OperationGuard operation(operationInProgress_);
 		try
 		{
 			return {StateHandleError::None, found->callbacks.handle()};
@@ -132,11 +143,13 @@ public:
 
 	StateShutdownError shutdown(StateId id)
 	{
+		if (operationInProgress_) return StateShutdownError::OperationInProgress;
 		auto found = findEntry(id);
 		if (found == entries_.end())
 			return StateShutdownError::NotRegistered;
 		if (!found->initialized)
 			return StateShutdownError::NotInitialized;
+		OperationGuard operation(operationInProgress_);
 		try
 		{
 			found->callbacks.shutdown();
@@ -151,6 +164,15 @@ public:
 	}
 
 private:
+	class OperationGuard
+	{
+	public:
+		explicit OperationGuard(bool& active) : active_(active) { active_ = true; }
+		~OperationGuard() { active_ = false; }
+	private:
+		bool& active_;
+	};
+
 	struct Entry
 	{
 		StateId id;
@@ -173,6 +195,7 @@ private:
 	}
 
 	Entries entries_;
+	bool operationInProgress_ = false;
 };
 
 #endif

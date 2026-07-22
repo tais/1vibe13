@@ -4,9 +4,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/CachingAssetSource.h>
@@ -113,9 +115,11 @@ private:
 		  audioGroups_(services.audio, options.limits.maximumPackageAudioPlaybacks),
 		  faultJournal_(options.limits.runtimeFaultHistoryCapacity),
 		  localization_(options.limits.maximumLocalizationEntries,
-		                options.limits.maximumLocalizationTextBytes),
+		                options.limits.maximumLocalizationTextBytes,
+		                options.limits.maximumTotalLocalizationTextBytes),
 		  definitions_(options.limits.maximumDefinitionEntries,
-		               options.limits.maximumDefinitionPayloadBytes),
+		               options.limits.maximumDefinitionPayloadBytes,
+		               options.limits.maximumTotalDefinitionPayloadBytes),
 		  entities_(options.limits.maximumEntities),
 		  hostCapabilities_(std::move(options.hostCapabilities)),
 		  packageTasks_(options.limits.maximumQueuedPackageTasks,
@@ -145,7 +149,8 @@ private:
 		  packageSaveArchives_(persistence_,
 		                       options.limits.maximumPackageSaveStateRecords,
 		                       options.limits.maximumPackageSaveStateBytes,
-		                       options.limits.maximumTotalPackageSaveStateBytes),
+		                       options.limits.maximumTotalPackageSaveStateBytes,
+		                       options.limits.maximumPackageRandomStreams),
 		  runtimeReports_(persistence_, options.limits.maximumRuntimeReportBytes)
 	{
 		serviceCatalog_.registerService(FrameTelemetryServiceContract, frameTelemetry_);
@@ -182,10 +187,14 @@ private:
 			static_cast<std::int64_t>(localization_.maximumEntries()));
 		runtimeConfiguration_.set("engine.localization.text-byte-limit",
 			static_cast<std::int64_t>(localization_.maximumTextBytes()));
+		runtimeConfiguration_.set("engine.localization.total-text-byte-limit",
+			static_cast<std::int64_t>(localization_.maximumTotalTextBytes()));
 		runtimeConfiguration_.set("engine.definitions.entry-capacity",
 			static_cast<std::int64_t>(definitions_.maximumEntries()));
 		runtimeConfiguration_.set("engine.definitions.payload-byte-limit",
 			static_cast<std::int64_t>(definitions_.maximumPayloadBytes()));
+		runtimeConfiguration_.set("engine.definitions.total-payload-byte-limit",
+			static_cast<std::int64_t>(definitions_.maximumTotalPayloadBytes()));
 		runtimeConfiguration_.set("engine.entities.capacity",
 			static_cast<std::int64_t>(entities_.maximumEntities()));
 		runtimeConfiguration_.set("engine.package-audio.playback-capacity",
@@ -255,8 +264,8 @@ public:
 	const PackageTaskQueue& packageTasks() const { return packageTasks_; }
 	PackageResourceUsageSnapshot packageResourceUsage() const
 	{
-		return BuildPackageResourceUsage(packages_.catalog(), localization_.snapshot(),
-			definitions_.snapshot(), entities_.snapshot(), audioGroups_.snapshot(),
+		return BuildPackageResourceUsage(packages_.catalog(), localization_.entries(),
+			definitions_.records(), entities_.snapshot(), audioGroups_.snapshot(),
 			packageTasks_.snapshot(), packages_.randomUsageSnapshot());
 	}
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
@@ -275,6 +284,10 @@ public:
 	PackageSaveStateCaptureResult capturePackageSaveState() noexcept
 	{
 		return packages_.captureSaveState();
+	}
+	bool requiresPackageEngineSaveState() const noexcept
+	{
+		return packages_.requiresEngineSaveState();
 	}
 	PackageSaveStateLoadResult validatePackageSaveState(
 		const PackageSaveStateSnapshot& snapshot) const noexcept
@@ -300,21 +313,50 @@ public:
 	RuntimeCompatibilityFingerprint compatibilityFingerprint() const
 	{
 		return BuildRuntimeCompatibilityFingerprint(
-			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.snapshot(),
-			runtimeCapabilities(), definitions_.snapshot());
+			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.entries(),
+			runtimeCapabilities(), definitions_.records());
+	}
+	RuntimeCompatibilityFingerprint preAggregateCatalogCompatibilityFingerprint() const
+	{
+		std::vector<RuntimeConfigurationEntry> preAggregateConfiguration;
+		preAggregateConfiguration.reserve(runtimeConfiguration_.entries().size());
+		for (const RuntimeConfigurationEntry& entry : runtimeConfiguration_.entries())
+		{
+			if (entry.key == "engine.localization.total-text-byte-limit" ||
+				entry.key == "engine.definitions.total-payload-byte-limit")
+				continue;
+			preAggregateConfiguration.push_back(entry);
+		}
+		return BuildRuntimeCompatibilityFingerprint(
+			packages_.catalog(), serviceCatalog_.snapshot(), preAggregateConfiguration,
+			runtimeCapabilities(), definitions_.records());
 	}
 	RuntimeDiagnosticsSnapshot diagnostics() const
 	{
-		return RuntimeDiagnosticsSnapshot{
-			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
-			packages_.assetCache().statistics(), faultJournal_.snapshot(),
-			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
-			audioGroups_.snapshot(), packageTasks_.snapshot(), packageResourceUsage(),
-			serviceCatalog_.snapshot(),
-			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
-			compatibilityFingerprint(),
-			runtimeMessages_.queued(), frameDriver_.completedFrames(),
-			simulationTicks_.completedTickSequence()};
+		RuntimeDiagnosticsSnapshot result;
+		result.lifecycle = lifecycle();
+		result.frames = frameTelemetry_.snapshot();
+		result.packages = packages_.catalog();
+		result.assetCache = packages_.assetCache().statistics();
+		result.faults = faultJournal_.snapshot();
+		result.localization = localization_.snapshot();
+		result.definitions = definitions_.snapshot();
+		result.entities = entities_.snapshot();
+		result.packageAudio = audioGroups_.snapshot();
+		result.packageTasks = packageTasks_.snapshot();
+		result.packageResources = BuildPackageResourceUsage(
+			result.packages, result.localization, result.definitions, result.entities,
+			result.packageAudio, result.packageTasks, packages_.randomUsageSnapshot());
+		result.services = serviceCatalog_.snapshot();
+		result.configuration = runtimeConfiguration_.snapshot();
+		result.capabilities = runtimeCapabilities();
+		result.compatibility = BuildRuntimeCompatibilityFingerprint(
+			result.packages, result.services, result.configuration,
+			result.capabilities, result.definitions);
+		result.queuedMessages = runtimeMessages_.queued();
+		result.completedFrames = frameDriver_.completedFrames();
+		result.completedSimulationTicks = simulationTicks_.completedTickSequence();
+		return result;
 	}
 	RuntimeReport runtimeReport() const
 	{
@@ -363,7 +405,11 @@ public:
 	RuntimeCheckpointLoadResult loadRuntimeCheckpoint(
 		const std::string& path, RuntimeCheckpoint& checkpoint) const noexcept
 	{
-		try { return runtimeCheckpoints_.load(path, compatibilityFingerprint(), checkpoint); }
+		try
+		{
+			return runtimeCheckpoints_.load(path, compatibilityFingerprint(),
+				preAggregateCatalogCompatibilityFingerprint(), checkpoint);
+		}
 		catch (...) { return RuntimeCheckpointLoadResult{
 			RuntimeCheckpointLoadError::StorageError, {}}; }
 	}
@@ -439,8 +485,12 @@ private:
 		options.limits.runtimeFaultHistoryCapacity = runtimeFaultCapacity;
 		options.limits.maximumLocalizationEntries = localizationEntries;
 		options.limits.maximumLocalizationTextBytes = localizationTextBytes;
+		options.limits.maximumTotalLocalizationTextBytes =
+			saturatingProduct(localizationEntries, localizationTextBytes);
 		options.limits.maximumDefinitionEntries = definitionEntries;
 		options.limits.maximumDefinitionPayloadBytes = definitionPayloadBytes;
+		options.limits.maximumTotalDefinitionPayloadBytes =
+			saturatingProduct(definitionEntries, definitionPayloadBytes);
 		options.limits.maximumEntities = maximumEntities;
 		options.limits.maximumPackageAudioPlaybacks = maximumPackageAudioPlaybacks;
 		options.limits.maximumQueuedPackageTasks = maximumQueuedPackageTasks;
@@ -448,6 +498,13 @@ private:
 		options.limits.maximumCheckpointPackages = maximumCheckpointPackages;
 		options.limits.maximumRuntimeReportBytes = maximumRuntimeReportBytes;
 		return options;
+	}
+
+	static constexpr std::size_t saturatingProduct(
+		std::size_t count, std::size_t bytes) noexcept
+	{
+		return bytes != 0 && count > std::numeric_limits<std::size_t>::max() / bytes
+			? std::numeric_limits<std::size_t>::max() : count * bytes;
 	}
 
 	StateController<ScreenId> screenController_;

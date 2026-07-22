@@ -78,6 +78,26 @@ public:
 		TacticalWorldDeltaDecodeResult::Invalid;
 	TacticalWorldDelta delta;
 };
+
+class ExternalChunkedDeltaSink final : public RuntimeMessageSink
+{
+public:
+	ExternalChunkedDeltaSink()
+		: reassembler(TacticalWorldDeltaReassemblyLimits{4096, 128, 3}) {}
+
+	void receiveMessage(const RuntimeMessage& message) override
+	{
+		lastResult = reassembler.accept(message, delta);
+		if (lastResult == TacticalWorldDeltaReassemblyResult::Completed)
+			++completed;
+	}
+
+	TacticalWorldDeltaReassembler reassembler;
+	TacticalWorldDeltaReassemblyResult lastResult =
+		TacticalWorldDeltaReassemblyResult::InvalidMessage;
+	TacticalWorldDelta delta;
+	std::size_t completed = 0;
+};
 }
 
 class ExternalRulesPackage final : public EnginePackage
@@ -252,21 +272,33 @@ int main()
 			? package.commandBinding().client.submit(
 				SimulationCommand{MoveToGridCommand{
 					TacticalEntityId{7, 3}, 1311, 0, false, true,
-					SimulationCommandSource::System}})
+					SimulationCommandSource::System,
+					TacticalMoveOrigin::System,
+					TacticalPendingActionPolicy::Preserve}})
 			: TacticalCommandSubmissionResult{
 				TacticalCommandSubmissionError::InvalidOwner, 0};
 	std::uint64_t drainedRequest = 0;
 	bool drainedMoveToGrid = false;
+	bool drainedMovePolicy = false;
 	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
-		[&drainedRequest, &drainedMoveToGrid](const TacticalCommandRequest& request) {
+		[&drainedRequest, &drainedMoveToGrid, &drainedMovePolicy](
+			const TacticalCommandRequest& request) {
 			drainedRequest = request.requestId;
 			drainedMoveToGrid = std::holds_alternative<MoveToGridCommand>(
 				request.command);
+			if (drainedMoveToGrid)
+			{
+				const MoveToGridCommand& move =
+					std::get<MoveToGridCommand>(request.command);
+				drainedMovePolicy = move.origin == TacticalMoveOrigin::System &&
+					move.pendingAction ==
+						TacticalPendingActionPolicy::Preserve;
+			}
 			return TacticalCommandDisposition::Accept;
 		});
 	if (!commandRequest || commandRequest.requestId != 1 ||
 		package.commandBinding().client.packageId() != "external.rules" ||
-		commandDrain.accepted != 1 || !drainedMoveToGrid ||
+		commandDrain.accepted != 1 || !drainedMoveToGrid || !drainedMovePolicy ||
 		drainedRequest != commandRequest.requestId ||
 		!commandInbox.empty()) return 34;
 	const RuntimeSessionTransitionResult shuttingDown = host.tryBeginShutdown();
@@ -365,7 +397,11 @@ int main()
 		return 24;
 	TacticalWorldDeltaPublisher publisher(
 		messages, TacticalWorldDeltaPublishLimits{3, 4096});
-	const TacticalWorldDeltaPublishResult published = publisher.publish(*publication.delta);
+	PreparedTacticalWorldDeltaMessage preparedPublication;
+	if (publisher.prepare(*publication.delta, preparedPublication) !=
+		TacticalWorldDeltaPublishError::None) return 25;
+	const TacticalWorldDeltaPublishResult published =
+		publisher.publishPrepared(preparedPublication);
 	if (!published || published.sequence != 1 || published.payloadBytes == 0 ||
 		messages.queued() != 1) return 25;
 	const RuntimeMessageDispatchResult dispatched = messages.dispatchPending();
@@ -375,12 +411,53 @@ int main()
 		sink.source != TacticalWorldDeltaMessageSource ||
 		sink.decodeResult != TacticalWorldDeltaDecodeResult::Success ||
 		sink.delta.events.size() != 3) return 26;
+
+	RuntimeMessageBus chunkMessages(
+		2, TacticalWorldDeltaChunkHeaderBytes + 8);
+	ExternalChunkedDeltaSink chunkSink;
+	if (chunkMessages.addSink(chunkSink) !=
+		RuntimeMessageSinkRegistrationError::None) return 47;
+	TacticalWorldDeltaPublisher chunkPublisher(
+		chunkMessages,
+		TacticalWorldDeltaPublishLimits{
+			3, TacticalWorldDeltaChunkHeaderBytes + 8, 4096, 128});
+	PreparedTacticalWorldDeltaBatch chunkBatch;
+	if (chunkPublisher.prepareBatch(*publication.delta, 1, chunkBatch) !=
+			TacticalWorldDeltaPublishError::None || !chunkBatch.chunked)
+		return 47;
+	while (!chunkBatch.complete())
+	{
+		const TacticalWorldDeltaBatchPublishResult pass =
+			chunkPublisher.publishPreparedBatch(chunkBatch);
+		if (pass.error != TacticalWorldDeltaPublishError::None &&
+			pass.error != TacticalWorldDeltaPublishError::QueueFull)
+			return 47;
+		chunkMessages.dispatchPending();
+	}
+	if (chunkSink.completed != 1 ||
+		chunkSink.lastResult != TacticalWorldDeltaReassemblyResult::Completed ||
+		chunkSink.delta.events.size() != publication.delta->events.size())
+		return 47;
+	const TacticalWorldPublicationView meaningfulPublication = observer.latest();
+	if (observer.update() != TacticalWorldObserverUpdateResult::Unchanged ||
+		observer.latest().serial != 2 ||
+		observer.latest().snapshot != meaningfulPublication.snapshot ||
+		observer.latest().delta != meaningfulPublication.delta) return 46;
 	observer.reset();
 	if (observer.latest() ||
 		observer.update() != TacticalWorldObserverUpdateResult::PublishedBaseline ||
 		observer.latest().serial != 1) return 41;
 
 	EngineRuntime<> commandRuntime(EngineHostOptions{}, services);
+	const SimulationCommand externalFacing{SetFacingCommand{
+		actorId, 2, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalStealth{SetStealthModeCommand{
+		actorId, true, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalStop{StopMovementCommand{
+		actorId, SimulationCommandSource::LocalPlayer}};
+	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
+		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
+		!std::holds_alternative<StopMovementCommand>(externalStop)) return 45;
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
 		37, MoveToGridCommand{
 			actorId, 1300, 6, true, false,
@@ -402,7 +479,11 @@ int main()
 				SimulationCommandJournalDecodeResult::Success ||
 		decodedDroppedCount != 0 || decodedCommands.size() != 1 ||
 		std::get<MoveToGridCommand>(decodedCommands[0].command).destinationGrid != 1300 ||
-		!std::get<MoveToGridCommand>(decodedCommands[0].command).reverse)
+		!std::get<MoveToGridCommand>(decodedCommands[0].command).reverse ||
+		std::get<MoveToGridCommand>(decodedCommands[0].command).origin !=
+			TacticalMoveOrigin::PlayerUi ||
+		std::get<MoveToGridCommand>(decodedCommands[0].command).pendingAction !=
+			TacticalPendingActionPolicy::Clear)
 		return 28;
 
 	if (commandRuntime.saveCommandReplay("external.command-replay") !=

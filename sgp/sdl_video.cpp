@@ -59,6 +59,7 @@ extern INT16 gsVIEWPORT_WINDOW_END_Y;
 #include <SDL3/SDL.h>
 
 #include <Engine/Core/UniqueResourcePtr.h>
+#include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include <cstdio>
 #include <cstdarg>
@@ -88,13 +89,9 @@ bool gfLockMouseToWindow = false;
 // (SDL_GetPerformanceCounter returns ns but SDL_GetPerformanceFrequency returns
 // the mach-tick rate, 3/125), so SDL_GetTicks runs ~41.7x too fast -- the cap's
 // deadline is always "in the past", it never throttles, and the loop spins the
-// CPU uncapped. std::chrono::steady_clock is correct on every platform.
-#include <chrono>
-static Uint64 RealTicksNS(void)
-{
-	return (Uint64)std::chrono::duration_cast<std::chrono::nanoseconds>(
-		std::chrono::steady_clock::now().time_since_epoch()).count();
-}
+// CPU uncapped. The shared platform facade uses a reliable steady clock and
+// also lets deterministic hosts drive timing from one source.
+static Uint64 RealTicksNS(void) { return PlatformNowNanoseconds(); }
 
 struct WindowReleaser
 {

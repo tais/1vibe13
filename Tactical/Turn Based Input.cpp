@@ -60,6 +60,7 @@
 #include "Interface Panels.h"
 #include "soldier tile.h"
 #include "Soldier Functions.h"
+#include "Simulation Commands.h"
 #include "english.h"
 #include "random.h"
 #include "Map Screen Interface.h"
@@ -2212,8 +2213,10 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					!(gAnimControl[gusSelectedSoldier->usAnimState].uiFlags & ANIM_STATIONARY))
 				{
 					// If soldier is not stationary, stop
-					gusSelectedSoldier->StopSoldier();
-					*puiNewEvent = A_CHANGE_TO_MOVE;
+					if (TryDispatchStopMovementCommandNow(
+							gusSelectedSoldier->ubID,
+							gusSelectedSoldier->uiUniqueSoldierIdValue))
+						*puiNewEvent = A_CHANGE_TO_MOVE;
 					continue;
 				}
 			}
@@ -6448,13 +6451,18 @@ void ToggleStealthMode( SOLDIERTYPE *pSoldier )
 			return;
 		}
 
+		const bool enableStealth = pSoldier->bStealthMode == FALSE;
+		if (!TryDispatchSetStealthModeCommandNow(
+				pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+				enableStealth))
+			return;
+
 		// ATE: Toggle stealth
 		if ( gpSMCurrentMerc != NULL && pSoldier->ubID == gpSMCurrentMerc->ubID )
 		{
 			gfUIStanceDifferent = TRUE;
 		}
 
-		pSoldier->bStealthMode = ! pSoldier->bStealthMode;
 		gfPlotNewMovement	= TRUE;
 		fInterfacePanelDirty = DIRTYLEVEL2;
 

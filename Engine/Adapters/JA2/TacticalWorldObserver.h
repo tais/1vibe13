@@ -19,18 +19,32 @@ struct TacticalWorldObserverLimits
 
 enum class TacticalWorldObserverUpdateResult
 {
-	PublishedBaseline,
-	PublishedDelta,
-	SourceUnavailable,
-	SourceCapacityReached,
-	SourceAllocationFailure,
-	SourceAdapterFailure,
-	InvalidSnapshot,
-	ActorCapacityReached,
-	EventCapacityReached,
-	AllocationFailure,
-	SerialExhausted
+	PublishedBaseline = 0,
+	PublishedDelta = 1,
+	SourceUnavailable = 2,
+	SourceCapacityReached = 3,
+	SourceAllocationFailure = 4,
+	SourceAdapterFailure = 5,
+	InvalidSnapshot = 6,
+	ActorCapacityReached = 7,
+	EventCapacityReached = 8,
+	AllocationFailure = 9,
+	SerialExhausted = 10,
+	Unchanged = 11
 };
+
+static_assert(static_cast<int>(TacticalWorldObserverUpdateResult::PublishedBaseline) == 0 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::PublishedDelta) == 1 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::SourceUnavailable) == 2 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::SourceCapacityReached) == 3 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::SourceAllocationFailure) == 4 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::SourceAdapterFailure) == 5 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::InvalidSnapshot) == 6 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::ActorCapacityReached) == 7 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::EventCapacityReached) == 8 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::AllocationFailure) == 9 &&
+	static_cast<int>(TacticalWorldObserverUpdateResult::SerialExhausted) == 10,
+	"tactical observer SDK result values are a stable compatibility contract");
 
 enum class TacticalWorldPublicationStatus
 {

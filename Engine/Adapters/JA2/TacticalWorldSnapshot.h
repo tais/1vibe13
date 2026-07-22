@@ -61,7 +61,8 @@ enum class TacticalSnapshotCreateError
 	InvalidEpoch,
 	TooManyActors,
 	InvalidEntity,
-	DuplicateEntity
+	DuplicateEntity,
+	UnorderedEntity
 };
 
 // Immutable, generation-stamped tactical state for packages, diagnostics, and
@@ -135,6 +136,46 @@ public:
 		output.actors_.clear();
 		for (const TacticalActorSnapshot& actor : actorScratch)
 			output.actors_.push_back(actor);
+		output.epoch_ = epoch;
+		output.sector_ = sector;
+		output.turn_ = turn;
+		return TacticalSnapshotCreateError::None;
+	}
+
+	// JA2's live slot scan already produces strict TacticalEntityId order. This
+	// path validates that contract, then exchanges the caller's completed scratch
+	// buffer with the output instead of sorting and copying every actor. The
+	// caller's scratch is empty after success and retains the output's previous
+	// allocation for the next capture.
+	static TacticalSnapshotCreateError createReusableOrdered(
+		std::uint64_t epoch,
+		TacticalSectorSnapshot sector,
+		TacticalTurnSnapshot turn,
+		std::vector<TacticalActorSnapshot>& actorScratch,
+		TacticalWorldSnapshot& output,
+		std::size_t maximumActors = DefaultMaximumActors)
+	{
+		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
+		if (actorScratch.size() > maximumActors)
+			return TacticalSnapshotCreateError::TooManyActors;
+		for (std::size_t index = 0; index < actorScratch.size(); ++index)
+		{
+			const TacticalActorSnapshot& actor = actorScratch[index];
+			if (!actor.id.valid()) return TacticalSnapshotCreateError::InvalidEntity;
+			if (index == 0) continue;
+			const TacticalEntityId previous = actorScratch[index - 1].id;
+			if (previous == actor.id)
+				return TacticalSnapshotCreateError::DuplicateEntity;
+			if (!(previous < actor.id))
+				return TacticalSnapshotCreateError::UnorderedEntity;
+		}
+
+		// Reserve before changing observable values so allocation failure keeps the
+		// old snapshot intact. Both buffers retain the configured ceiling after the
+		// first successful exchange.
+		output.actors_.reserve(maximumActors);
+		output.actors_.swap(actorScratch);
+		actorScratch.clear();
 		output.epoch_ = epoch;
 		output.sector_ = sector;
 		output.turn_ = turn;

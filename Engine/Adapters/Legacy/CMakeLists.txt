@@ -1,4 +1,5 @@
 set(engine_legacy_adapter_sources
+  LegacyVfsFile.cpp
   PlatformAssets.cpp
   PlatformAudio.cpp
   PlatformFileSystem.cpp

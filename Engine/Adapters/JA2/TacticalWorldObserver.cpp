@@ -46,8 +46,6 @@ TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept
 	const std::uint64_t previousSerial = hasPublication_
 		? publications_[activePublication_].serial
 		: 0;
-	if (previousSerial == std::numeric_limits<std::uint64_t>::max())
-		return TacticalWorldObserverUpdateResult::SerialExhausted;
 
 	if (!hasPublication_)
 	{
@@ -75,6 +73,10 @@ TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept
 		case TacticalWorldDiffResult::Success:
 			break;
 	}
+	if (accepted.delta.events.empty())
+		return TacticalWorldObserverUpdateResult::Unchanged;
+	if (previousSerial == std::numeric_limits<std::uint64_t>::max())
+		return TacticalWorldObserverUpdateResult::SerialExhausted;
 
 	accepted.status = TacticalWorldPublicationStatus::Delta;
 	accepted.serial = previousSerial + 1;

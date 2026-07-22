@@ -75,7 +75,8 @@ public:
 
 	ContentRegistrationError registerContent(ContentManifest manifest)
 	{
-		if (!IsValidEngineIdentifier(manifest.id) || manifest.version.empty())
+		if (!IsValidEngineIdentifier(manifest.id) || manifest.version.empty() ||
+			manifest.version.size() > MaximumEngineVersionBytes)
 			return ContentRegistrationError::InvalidManifest;
 		if (manifest.requiredApi.major != supportedApi_.major || manifest.requiredApi.minor > supportedApi_.minor)
 			return ContentRegistrationError::IncompatibleApi;
@@ -96,12 +97,14 @@ public:
 		for (const ContentRequirement& requirement : manifest.requirements)
 		{
 			if (!IsValidEngineIdentifier(requirement.id) || requirement.id == manifest.id ||
+				requirement.exactVersion.size() > MaximumEngineVersionBytes ||
 				!relationshipIds.insert(requirement.id).second)
 				return ContentRegistrationError::InvalidRequirement;
 		}
 		for (const ContentRequirement& requirement : manifest.optionalRequirements)
 		{
 			if (!IsValidEngineIdentifier(requirement.id) || requirement.id == manifest.id ||
+				requirement.exactVersion.size() > MaximumEngineVersionBytes ||
 				!relationshipIds.insert(requirement.id).second)
 				return ContentRegistrationError::InvalidRelationship;
 		}

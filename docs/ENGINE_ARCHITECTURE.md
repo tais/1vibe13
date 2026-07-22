@@ -209,7 +209,9 @@ the engine must not contain SDL types in its public domain model.
   receive these events in activation order; callback exceptions are isolated.
 - `RuntimeUpdateDispatcher` follows input delivery with a deterministic update
   hook for runtime-started packages. Each update carries engine frame identity,
-  monotonic start time, and elapsed time since the previous completed frame;
+  monotonic start time, and elapsed time since the previous simulation-advanced
+  frame attempt; failed presentation/application completion cannot reuse that
+  identity or replay its already-committed elapsed simulation interval;
   package failures are contained before the legacy application state runs.
 - Package runtime health is retained in value-only catalog snapshots. Input
   and update callback counts and failures remain observable per package, while
@@ -291,7 +293,16 @@ the engine must not contain SDL types in its public domain model.
   order, validates every identity/version/schema before callbacks, runs a
   non-mutating validation pass, and restores only after the application-owned
   domain save succeeds. JA2 transports it in a companion sidecar so the legacy
-  serializer and old builds remain compatible.
+  serializer and old builds remain compatible. Its value model has a separate
+  engine-owned per-package section for framework services such as deterministic
+  random streams; this does not change package callback payload schemas. Archive
+  v2 writes that bounded section while the loader retains byte-compatible v1
+  support, treating old saves as having no engine-owned checkpoint. Encoded
+  engine records and streams share the package-save aggregate byte budget with
+  opaque payloads; the general persistence-envelope limit remains a final cap.
+  The registry stages every package's replacement RNG map before callbacks,
+  rolls callback draws back for capture/v1/failure paths, and publishes v2 state
+  across the active set only through a final series of no-throw swaps.
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O
@@ -299,11 +310,14 @@ the engine must not contain SDL types in its public domain model.
 - `LocalizationCatalog` is a bounded ordered package layer for opaque UTF-8
   text. Package identity is host-bound, later packages override earlier keys,
   fallback is explicit, and configure rollback or shutdown automatically
-  removes the package's entries to reveal the lower layer again.
+  removes the package's entries to reveal the lower layer again. Indexed
+  lookups avoid scanning every package layer, while per-entry and aggregate
+  text budgets keep valid small records from accumulating without bound.
 - `DefinitionCatalog` applies the same ownership and layering rules to bounded
   versioned byte definitions. Core validates identity, schema compatibility,
-  payload limits, override order, and rollback lifetime while game/domain
-  adapters remain responsible for decoding their own rules.
+  per-record and aggregate payload limits, override order, and rollback
+  lifetime while game/domain adapters remain responsible for decoding their
+  own rules. Its override index is rebuilt safely after package removal.
 - `EntityRegistry` supplies bounded generational handles without owning domain
   objects. IDs remain safe across messages, commands, saves, and diagnostics;
   destroyed slots increment generation, exhausted generations retire, and all
@@ -322,6 +336,13 @@ the engine must not contain SDL types in its public domain model.
   entity identities, audio playback, deferred work, and random-stream use. It
   also reports totals and any invariant-breaking unattributed record, giving
   tooling evidence for future per-package quotas and legacy-code retirement.
+  A full diagnostic capture now takes each owned snapshot once and reuses it
+  for resource accounting and the compatibility fingerprint; package,
+  dependency, resource, and fingerprint joins use indexed identities.
+- `PackageRandomSource` exposes a versioned, value-only checkpoint of its
+  package identity and every named stream's generator state/counter. Restore
+  validates identity, bounds, and uniqueness before an allocation-safe swap;
+  exhausted counters fail explicitly instead of wrapping deterministic history.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
@@ -358,6 +379,9 @@ not accidentally.
    package requirements compare their opaque version strings byte-for-byte.
 6. Deterministic simulation code cannot read wall-clock or render timing as an
    input to rules decisions.
+7. Portable identifiers, version labels, and logical asset paths have shared
+   byte ceilings so accepted runtime metadata remains archive-compatible and
+   cannot bypass payload memory budgets.
 
 ## Extraction sequence
 

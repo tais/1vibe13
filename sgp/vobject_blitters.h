@@ -38,6 +38,10 @@ private:
 	SGPRect	cr;
 };
 
+bool SetSurfaceClipRectangle(SurfaceData::tID surfaceID, SGPRect const& rect);
+bool SetSurfaceClipRectangle(SurfaceData::tID surfaceID, unsigned int width,
+	unsigned int height, int x = 0, int y = 0);
+
 extern SGPRect		ClippingRect;
 extern UINT32			guiTranslucentMask;
 extern PIXEL			White16BPPPalette[ 256 ];

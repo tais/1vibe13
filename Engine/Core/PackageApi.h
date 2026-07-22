@@ -722,17 +722,34 @@ public:
 		OperationGuard operation(operationInProgress_);
 		try
 		{
-			PackageSaveStateCaptureResult result;
+			if (active_.size() > maximumSaveStateRecords_)
+				return {PackageSaveStateError::TooManyRecords, {}, {}};
+			if (active_.empty()) return {};
 			std::size_t statefulPackages = 0;
 			for (const std::string& packageId : active_)
 				if (packages_.at(packageId).saveStateSchemaVersion != 0) ++statefulPackages;
 			if (statefulPackages > maximumSaveStateRecords_)
 				return {PackageSaveStateError::TooManyRecords, {}, {}};
+			std::vector<PackageRandomSource> originalRandom = copyRandomStates();
+			RandomStateGuard randomState(*this, originalRandom);
+			PackageSaveStateCaptureResult result;
 			result.snapshot.records.reserve(statefulPackages);
+			result.snapshot.engineRecords.reserve(active_.size());
+			result.snapshot.engineStatePresent = true;
 			std::size_t totalBytes = 0;
-			for (const std::string& packageId : active_)
+			if (!addSaveStateBytes(
+				totalBytes, sizeof(std::uint32_t), maximumTotalSaveStateBytes_))
+				return {PackageSaveStateError::TotalTooLarge, {}, {}};
+			for (std::size_t index = 0; index < active_.size(); ++index)
 			{
+				const std::string& packageId = active_[index];
 				RegisteredPackage& registered = packages_.at(packageId);
+				PackageEngineSaveStateRecord engineRecord{
+					packageId, registered.version, originalRandom[index].checkpoint()};
+				if (!addEngineSaveStateBytes(
+					totalBytes, engineRecord, maximumTotalSaveStateBytes_))
+					return {PackageSaveStateError::TotalTooLarge, packageId, {}};
+				result.snapshot.engineRecords.push_back(std::move(engineRecord));
 				if (registered.saveStateSchemaVersion == 0) continue;
 				std::vector<std::uint8_t> payload;
 				PackageBootstrapContext context = contextFor(packageId);
@@ -747,9 +764,9 @@ public:
 				}
 				if (payload.size() > maximumPackageSaveStateBytes_)
 					return {PackageSaveStateError::PayloadTooLarge, packageId, {}};
-				if (payload.size() > maximumTotalSaveStateBytes_ - totalBytes)
+				if (!addSaveStateBytes(
+					totalBytes, payload.size(), maximumTotalSaveStateBytes_))
 					return {PackageSaveStateError::TotalTooLarge, packageId, {}};
-				totalBytes += payload.size();
 				result.snapshot.records.push_back(PackageSaveStateRecord{
 					packageId, registered.version, registered.saveStateSchemaVersion,
 					std::move(payload)});
@@ -771,10 +788,50 @@ public:
 			return {PackageSaveStateError::RuntimeNotReady, {}, 0};
 		try
 		{
-			if (snapshot.records.size() > maximumSaveStateRecords_)
+			if (snapshot.records.size() > maximumSaveStateRecords_ ||
+				snapshot.engineRecords.size() > maximumSaveStateRecords_)
 				return {PackageSaveStateError::TooManyRecords, {}, 0};
-			std::size_t recordIndex = 0;
 			std::size_t totalBytes = 0;
+			if (snapshot.engineStatePresent)
+			{
+				if (snapshot.engineRecords.size() != active_.size())
+					return {PackageSaveStateError::EngineStateMismatch,
+						snapshot.engineRecords.size() < active_.size()
+							? active_[snapshot.engineRecords.size()]
+							: snapshot.engineRecords[active_.size()].packageId, 0};
+				if (!addSaveStateBytes(
+					totalBytes, sizeof(std::uint32_t), maximumTotalSaveStateBytes_))
+					return {PackageSaveStateError::TotalTooLarge, {}, 0};
+				for (std::size_t index = 0; index < active_.size(); ++index)
+				{
+					const std::string& packageId = active_[index];
+					const RegisteredPackage& registered = packages_.at(packageId);
+					const PackageEngineSaveStateRecord& record =
+						snapshot.engineRecords[index];
+					if (record.packageId != packageId ||
+						record.random.packageId != packageId)
+						return {PackageSaveStateError::EngineStateMismatch, packageId, 0};
+					if (record.packageVersion != registered.version)
+						return {PackageSaveStateError::VersionMismatch, packageId, 0};
+					const PackageRandomCheckpointError randomValidation =
+						registered.random.validateCheckpoint(record.random);
+					if (randomValidation != PackageRandomCheckpointError::None)
+						return {randomValidation == PackageRandomCheckpointError::AllocationFailure
+								? PackageSaveStateError::AllocationFailure
+								: PackageSaveStateError::EngineStateMismatch,
+							packageId, 0};
+					if (!addEngineSaveStateBytes(
+						totalBytes, record, maximumTotalSaveStateBytes_))
+						return {PackageSaveStateError::TotalTooLarge, packageId, 0};
+				}
+			}
+			else if (!snapshot.engineRecords.empty())
+			{
+				return {PackageSaveStateError::EngineStateMismatch,
+					snapshot.engineRecords.front().packageId, 0};
+			}
+
+			std::size_t recordIndex = 0;
 			for (const std::string& packageId : active_)
 			{
 				const RegisteredPackage& registered = packages_.at(packageId);
@@ -790,9 +847,9 @@ public:
 					return {PackageSaveStateError::SchemaMismatch, packageId, 0};
 				if (record.payload.size() > maximumPackageSaveStateBytes_)
 					return {PackageSaveStateError::PayloadTooLarge, packageId, 0};
-				if (record.payload.size() > maximumTotalSaveStateBytes_ - totalBytes)
+				if (!addSaveStateBytes(
+					totalBytes, record.payload.size(), maximumTotalSaveStateBytes_))
 					return {PackageSaveStateError::TotalTooLarge, packageId, 0};
-				totalBytes += record.payload.size();
 			}
 			if (recordIndex != snapshot.records.size())
 				return {PackageSaveStateError::IdentityMismatch,
@@ -813,6 +870,25 @@ public:
 		OperationGuard operation(operationInProgress_);
 		try
 		{
+			std::vector<PackageRandomSource> originalRandom = copyRandomStates();
+			RandomStateGuard randomState(*this, originalRandom);
+			std::vector<PackageRandomSource> restoredRandom;
+			if (snapshot.engineStatePresent)
+			{
+				restoredRandom.reserve(originalRandom.size());
+				for (std::size_t index = 0; index < originalRandom.size(); ++index)
+				{
+					restoredRandom.push_back(originalRandom[index]);
+					const PackageRandomCheckpointError restored =
+						restoredRandom.back().restoreCheckpoint(
+							snapshot.engineRecords[index].random);
+					if (restored != PackageRandomCheckpointError::None)
+						return {restored == PackageRandomCheckpointError::AllocationFailure
+								? PackageSaveStateError::AllocationFailure
+								: PackageSaveStateError::EngineStateMismatch,
+							active_[index], 0};
+				}
+			}
 			std::size_t recordIndex = 0;
 			for (const std::string& packageId : active_)
 			{
@@ -858,7 +934,13 @@ public:
 				}
 				++restored;
 			}
-			return {PackageSaveStateError::None, {}, restored};
+			if (snapshot.engineStatePresent)
+			{
+				swapRandomStates(restoredRandom);
+				randomState.release();
+			}
+			return {PackageSaveStateError::None, {}, restored,
+				snapshot.engineStatePresent ? snapshot.engineRecords.size() : 0};
 		}
 		catch (...)
 		{
@@ -1007,6 +1089,18 @@ public:
 		return capabilities;
 	}
 
+	bool requiresEngineSaveState() const noexcept
+	{
+		for (const std::string& packageId : active_)
+		{
+			const auto registered = packages_.find(packageId);
+			if (registered != packages_.end() &&
+				registered->second.random.streamCount() != 0)
+				return true;
+		}
+		return false;
+	}
+
 	std::vector<PackageRandomUsageSnapshot> randomUsageSnapshot() const
 	{
 		std::vector<PackageRandomUsageSnapshot> result;
@@ -1015,17 +1109,10 @@ public:
 		{
 			const auto registered = packages_.find(manifest.id);
 			if (registered == packages_.end()) continue;
-			const std::vector<PackageRandomStreamSnapshot> streams =
-				registered->second.random.snapshot();
-			std::uint64_t generated = 0;
-			for (const PackageRandomStreamSnapshot& stream : streams)
-			{
-				const std::uint64_t maximum = std::numeric_limits<std::uint64_t>::max();
-				generated = stream.valuesGenerated > maximum - generated
-					? maximum : generated + stream.valuesGenerated;
-			}
 			result.push_back(PackageRandomUsageSnapshot{
-				manifest.id, static_cast<std::uint64_t>(streams.size()), generated});
+				manifest.id,
+				static_cast<std::uint64_t>(registered->second.random.streamCount()),
+				registered->second.random.valuesGenerated()});
 		}
 		return result;
 	}
@@ -1042,6 +1129,19 @@ public:
 		snapshot.completedBootstrapPhases = completedBootstrapPhases_;
 		snapshot.activeCapabilities = activeCapabilities();
 		snapshot.packages.reserve(content_.manifests().size());
+		std::unordered_map<std::string, std::size_t> activeIndex;
+		activeIndex.reserve(active_.size());
+		for (std::size_t index = 0; index < active_.size(); ++index)
+			activeIndex.emplace(active_[index], index);
+		std::unordered_map<std::string, std::vector<std::string>> dependentsById;
+		dependentsById.reserve(content_.manifests().size());
+		for (const ContentManifest& consumer : content_.manifests())
+		{
+			for (const ContentRequirement& requirement : consumer.requirements)
+				dependentsById[requirement.id].push_back(consumer.id);
+			for (const ContentRequirement& requirement : consumer.optionalRequirements)
+				dependentsById[requirement.id].push_back(consumer.id);
+		}
 
 		// ContentRegistry preserves host discovery order. Building the catalog
 		// from it prevents unordered registry storage from leaking nondeterminism
@@ -1050,7 +1150,7 @@ public:
 		{
 			const auto registered = packages_.find(manifest.id);
 			if (registered == packages_.end()) continue;
-			const auto active = std::find(active_.begin(), active_.end(), manifest.id);
+			const auto active = activeIndex.find(manifest.id);
 			PackageCatalogEntry entry{
 				PackageDescriptor{manifest, registered->second.kind,
 					registered->second.capabilities, registered->second.messageTopics,
@@ -1062,25 +1162,13 @@ public:
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
-				active == active_.end()
+				active == activeIndex.end()
 					? PackageCatalogEntry::NotActive
-					: static_cast<std::size_t>(active - active_.begin()),
+					: active->second,
 				{}, registered->second.runtimeHealth};
-			for (const ContentManifest& consumer : content_.manifests())
-			{
-				for (const ContentRequirement& requirement : consumer.requirements)
-				{
-					if (requirement.id != manifest.id) continue;
-					entry.dependents.push_back(consumer.id);
-					break;
-				}
-				for (const ContentRequirement& requirement : consumer.optionalRequirements)
-				{
-					if (requirement.id != manifest.id) continue;
-					entry.dependents.push_back(consumer.id);
-					break;
-				}
-			}
+			const auto dependents = dependentsById.find(manifest.id);
+			if (dependents != dependentsById.end())
+				entry.dependents = dependents->second;
 			snapshot.packages.push_back(std::move(entry));
 		}
 		return snapshot;
@@ -1152,6 +1240,69 @@ private:
 		bool assetsMounted;
 		bool active;
 		PackageRuntimeHealth runtimeHealth;
+	};
+
+	static bool addSaveStateBytes(std::size_t& total, std::size_t bytes,
+		std::size_t maximum) noexcept
+	{
+		if (total > maximum || bytes > maximum - total) return false;
+		total += bytes;
+		return true;
+	}
+
+	static bool addSaveStateStringBytes(std::size_t& total,
+		const std::string& value, std::size_t maximum) noexcept
+	{
+		return addSaveStateBytes(total, sizeof(std::uint32_t), maximum) &&
+			addSaveStateBytes(total, value.size(), maximum);
+	}
+
+	static bool addEngineSaveStateBytes(std::size_t& total,
+		const PackageEngineSaveStateRecord& record, std::size_t maximum) noexcept
+	{
+		if (!addSaveStateStringBytes(total, record.packageId, maximum) ||
+			!addSaveStateStringBytes(total, record.packageVersion, maximum) ||
+			!addSaveStateBytes(total, sizeof(std::uint32_t) * 2u, maximum))
+			return false;
+		for (const PackageRandomStreamCheckpoint& stream : record.random.streams)
+			if (!addSaveStateStringBytes(total, stream.id, maximum) ||
+				!addSaveStateBytes(total, sizeof(std::uint64_t) * 2u, maximum))
+				return false;
+		return true;
+	}
+
+	std::vector<PackageRandomSource> copyRandomStates() const
+	{
+		std::vector<PackageRandomSource> result;
+		result.reserve(active_.size());
+		for (const std::string& packageId : active_)
+			result.push_back(packages_.at(packageId).random);
+		return result;
+	}
+
+	void swapRandomStates(std::vector<PackageRandomSource>& states) noexcept
+	{
+		for (std::size_t index = 0; index < active_.size(); ++index)
+			packages_.at(active_[index]).random.swapRuntimeState(states[index]);
+	}
+
+	class RandomStateGuard
+	{
+	public:
+		RandomStateGuard(PackageRegistry& registry,
+			std::vector<PackageRandomSource>& original) noexcept
+			: registry_(registry), original_(original) {}
+		~RandomStateGuard()
+		{
+			if (active_) registry_.swapRandomStates(original_);
+		}
+		void release() noexcept { active_ = false; }
+		RandomStateGuard(const RandomStateGuard&) = delete;
+		RandomStateGuard& operator=(const RandomStateGuard&) = delete;
+	private:
+		PackageRegistry& registry_;
+		std::vector<PackageRandomSource>& original_;
+		bool active_ = true;
 	};
 
 	PackageActivationError activateOne(const std::string& id)

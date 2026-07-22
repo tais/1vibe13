@@ -372,6 +372,38 @@ BOOLEAN RemoveObject( INT32 iMapIndex, UINT16 usIndex )
 }
 
 
+BOOLEAN RemoveObjectFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode )
+{
+	if ( pNode == NULL )
+		return( FALSE );
+
+	LEVELNODE *pObject = gpWorldLevelData[ iMapIndex ].pObjectHead;
+	LEVELNODE *pOldObject = NULL;
+	while ( pObject != NULL )
+	{
+		if ( pObject == pNode )
+		{
+			if ( pOldObject == NULL )
+				gpWorldLevelData[ iMapIndex ].pObjectHead = pObject->pNext;
+			else
+				pOldObject->pNext = pObject->pNext;
+
+			const UINT16 usIndex = pObject->usIndex;
+			CheckForAndDeleteTileCacheStructInfo( pObject, usIndex );
+			FreeLevelNode( pObject );
+			guiLevelNodes--;
+			AddRemoveObjectToMapTempFile( iMapIndex, usIndex );
+			return( TRUE );
+		}
+
+		pOldObject = pObject;
+		pObject = pObject->pNext;
+	}
+
+	return( FALSE );
+}
+
+
 BOOLEAN TypeRangeExistsInObjectLayer( INT32 iMapIndex, UINT32 fStartType, UINT32 fEndType, UINT16 *pusObjectIndex )
 {
 	LEVELNODE	*pObject		= NULL;
@@ -2930,6 +2962,36 @@ BOOLEAN RemoveRoof( INT32 iMapIndex, UINT16 usIndex )
 
 	return( FALSE );
 
+}
+
+
+BOOLEAN RemoveRoofFromLevelNode( INT32 iMapIndex, LEVELNODE *pNode )
+{
+	if ( pNode == NULL )
+		return( FALSE );
+
+	LEVELNODE *pRoof = gpWorldLevelData[ iMapIndex ].pRoofHead;
+	LEVELNODE *pOldRoof = NULL;
+	while ( pRoof != NULL )
+	{
+		if ( pRoof == pNode )
+		{
+			if ( pOldRoof == NULL )
+				gpWorldLevelData[ iMapIndex ].pRoofHead = pRoof->pNext;
+			else
+				pOldRoof->pNext = pRoof->pNext;
+
+			DeleteStructureFromWorld( pRoof->pStructureData );
+			FreeLevelNode( pRoof );
+			guiLevelNodes--;
+			return( TRUE );
+		}
+
+		pOldRoof = pRoof;
+		pRoof = pRoof->pNext;
+	}
+
+	return( FALSE );
 }
 
 

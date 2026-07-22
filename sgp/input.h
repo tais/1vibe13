@@ -85,6 +85,7 @@ extern "C" {
 
 extern BOOLEAN			InitializeInputManager(void);
 extern void					ShutdownInputManager(void);
+extern void					ReleaseAllInputStateOnFocusLoss(void);
 extern BOOLEAN			DequeueEvent(InputAtom *Event);
 extern void					QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
 extern InputQueueStatistics GetInputQueueStatistics(void);
@@ -133,6 +134,8 @@ extern INT16 gsMouseWheelDeltaValue;//dnl ch4 210909
 extern BOOLEAN	gfLeftButtonState;	// TRUE = Pressed, FALSE = Not Pressed
 extern BOOLEAN	gfRightButtonState; // TRUE = Pressed, FALSE = Not Pressed
 extern BOOLEAN	gfMiddleButtonState;//dnl ch4 210909 TRUE = Pressed, FALSE = Not Pressed
+extern BOOLEAN	gfX1ButtonState;
+extern BOOLEAN	gfX2ButtonState;
 
 extern BOOLEAN		gfSGPInputReceived;
 

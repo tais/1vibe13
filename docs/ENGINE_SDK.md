@@ -171,6 +171,12 @@ package's ID. Record names are portable identifiers and data uses the engine's
 bounded checksummed envelope format under `PackageData/<package>/<record>.bin`.
 This is the preferred durable-state API for new packages.
 
+Portable package, capability, service, message, locale, definition, and record
+identifiers are limited to 256 bytes; opaque package version labels use the
+same ceiling. Logical asset paths are limited to 4096 bytes before
+normalization. These metadata bounds are separate from payload limits and are
+enforced consistently by live queues, catalogs, and persisted sidecars.
+
 State that belongs to a particular game save uses a separate contract. Set
 `PackageDescriptor::saveStateSchemaVersion` to a non-zero version and override
 `saveState`, `validateState`, and `loadState`. Capture publishes opaque bytes;
@@ -195,14 +201,22 @@ fails deterministically before package code acquires partial resources.
 For new deterministic package logic, use `PackageBootstrapContext::random` and
 a stable portable stream name such as `combat` or `loot`. Streams are isolated
 by package and name, use unbiased bounded values, and expose sorted usage
-snapshots for replay diagnostics. The host seed and per-package stream limit
-are composition settings; the legacy `EngineServices::random` remains intact.
+snapshots for replay diagnostics. Versioned checkpoints include the generator
+state and draw counter for every stream; package save archive v2 captures them
+without changing a package's opaque callback schema. The host seed and
+per-package stream limit are composition settings; the legacy
+`EngineServices::random` remains intact.
 
 Packages may override `EnginePackage::simulate` for fixed-step work that should
 not depend on rendering cadence. The host publishes the configured step and
 maximum catch-up count, executes only that bounded number after a hitch, and
 records dropped ticks in frame telemetry. `updateRuntime` remains the per-frame
 hook for interpolation, UI, and other presentation-paced work.
+
+Message, input, runtime-update, simulation-tick, deferred-task, and registered
+state callbacks are non-reentrant boundaries. A nested dispatch or lifecycle
+mutation returns an explicit operation-in-progress result; work published or
+scheduled by a callback remains eligible for the next outer boundary.
 
 Call `AssetSource::metadata` when a package only needs existence, size, or
 winning overlay provenance. The built-in sources answer without allocating the
@@ -236,8 +250,12 @@ not yet a replacement serializer for JA2's tactical or strategic state.
 `restorePackageSaveState` coordinate package-owned campaign state. The
 `PackageSaveArchiveService` serializes that snapshot through the same bounded,
 checksummed persistence boundary and rejects a different runtime before
-publishing records. JA2 attaches these archives beside legacy saves; other
-hosts can choose their own domain-save transaction and naming policy.
+publishing records. Opaque bytes and encoded engine records share the aggregate
+save budget. RNG replacements for all packages are prepared before any live
+state changes; v2 commits them with no-throw swaps after every callback succeeds,
+while v1 and failed loads preserve the current streams. JA2 attaches these
+archives beside legacy saves; other hosts can choose their own domain-save
+transaction and naming policy.
 
 The host also publishes `engine.runtime-faults`. Each contained package
 failure receives a monotonic record with package ID, callback, kind, and
@@ -268,7 +286,9 @@ Play new framework audio through `PackageBootstrapContext::audio`. The package
 identity is host-bound; callers provide a portable logical group and normalized
 asset path, may stop or retune only their own group, and cannot exceed the
 host's sealed playback capacity. Configure rollback and package shutdown stop
-all remaining owned playback. Existing game audio remains on direct
+all remaining owned playback. Completed one-shot playback is pruned through
+the adapter's `isPlaying` contract before it can strand bounded capacity.
+Existing game audio remains on direct
 `AudioOutput` adapters while it is migrated incrementally.
 
 Packages may declare `requiredCapabilities` alongside contributed

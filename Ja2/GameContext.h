@@ -80,6 +80,10 @@ public:
 	{
 		return runtime_.capturePackageSaveState();
 	}
+	bool requiresPackageEngineSaveState() const noexcept
+	{
+		return runtime_.requiresPackageEngineSaveState();
+	}
 	PackageSaveStateLoadResult validatePackageSaveState(
 		const PackageSaveStateSnapshot& snapshot) const noexcept
 	{

@@ -1347,6 +1347,82 @@ int main( int, char** )
 	}
 
 	{
+		TestLifecyclePackage randomOnlyPackage(
+			"rules.random-only-save", PackageKind::Rules );
+		randomOnlyPackage.usePackageRandomOnConfigure = true;
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool ready =
+			context.packages().registerPackage( randomOnlyPackage ) ==
+				PackageRegistrationError::None &&
+			context.packages().activate( "rules.random-only-save" ) ==
+				PackageActivationError::None &&
+			context.beginInitialization() &&
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			context.markRunning();
+		const std::string savePath = "SavedGames/SaveGame03.sav";
+		const PackageSaveMetadataWriteResult written =
+			WritePackageSaveStateMetadata( context, savePath );
+		const PackageSaveMetadataResult inspected =
+			InspectPackageSaveStateMetadata( context, savePath );
+		storage.remove( PackageSaveStateSidecarPath( savePath ) );
+		const PackageSaveMetadataResult missing =
+			InspectPackageSaveStateMetadata( context, savePath );
+		const RuntimeCompatibilityFingerprint preAggregateFingerprint =
+			context.runtime().preAggregateCatalogCompatibilityFingerprint();
+		BinaryWriter versionOnePayload;
+		versionOnePayload.writeU32( preAggregateFingerprint.schema );
+		versionOnePayload.writeU64( preAggregateFingerprint.high );
+		versionOnePayload.writeU64( preAggregateFingerprint.low );
+		versionOnePayload.writeU32( 0 );
+		const PersistenceSaveResult versionOneSaved = context.persistence().saveEnvelope(
+			PackageSaveStateSidecarPath( savePath ), PersistenceHeader{ 0x54534750u, 1 },
+			versionOnePayload.bytes() );
+		const PackageSaveMetadataResult versionOne =
+			InspectPackageSaveStateMetadata( context, savePath );
+		CHECK( ready && written && written.stateful &&
+		       inspected.state == PackageSaveMetadataState::Ready &&
+		       inspected.archive.state.records.empty() &&
+		       inspected.archive.state.engineStatePresent &&
+		       inspected.archive.state.engineRecords.size() == 1 &&
+		       inspected.archive.state.engineRecords[0].packageId ==
+		           "rules.random-only-save" &&
+		       inspected.archive.state.engineRecords[0].random.streams.size() == 1 &&
+		       missing.state == PackageSaveMetadataState::LegacyWithoutMetadata &&
+		       EvaluatePackageSaveMetadata(
+			   missing.state, SaveCompatibilityPolicy::RequireMetadata ) ==
+			   SaveCompatibilityLoadAction::Reject &&
+		       versionOneSaved == PersistenceSaveResult::Success &&
+		       versionOne.state == PackageSaveMetadataState::Ready &&
+		       !versionOne.archive.state.engineStatePresent &&
+		       versionOne.archive.state.engineRecords.empty(),
+		       "JA2 requires missing RNG metadata while retaining actual v1 sidecar support" );
+	}
+
+	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool ready = context.beginInitialization() &&
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			context.markRunning();
+		const std::string savePath = "SavedGames/SaveGame04.sav";
+		const std::string sidecarPath = PackageSaveStateSidecarPath( savePath );
+		storage.writeAll( sidecarPath, { 1, 2, 3 } );
+		const PackageSaveMetadataWriteResult written =
+			WritePackageSaveStateMetadata( context, savePath );
+		CHECK( ready && written && !written.stateful && !storage.exists( sidecarPath ),
+		       "an empty package runtime removes an obsolete package-state sidecar" );
+	}
+
+	{
 		g_resourceReleaseCount = 0;
 		TestResourceHandle first( 42 );
 		TestResourceHandle second( std::move( first ) );
@@ -1576,6 +1652,58 @@ int main( int, char** )
 			} );
 		CHECK( observed && observed.applied == 1 && commands.empty(),
 		       "command observers cannot interfere with authoritative delivery" );
+	}
+
+	{
+		const TacticalEntityId actor{ 1, 101 };
+		const SimulationCommand validMove{ MoveToGridCommand{
+			actor, 100, WALKING, false, false,
+			SimulationCommandSource::LocalPlayer } };
+		CHECK(
+			ValidateSimulationCommandDomain( validMove ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
+				0xffu, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTeam &&
+			ValidateSimulationCommandDomain( SimulationCommand{ ChangeStanceCommand{
+				actor, 0xffu, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidStance &&
+			ValidateSimulationCommandDomain( SimulationCommand{ BeginFireWeaponCommand{
+				actor, -1, FIRST_LEVEL, 0,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{ BeginFireWeaponCommand{
+				actor, 100, 7, 0,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetLevel &&
+			ValidateSimulationCommandDomain( SimulationCommand{ BeginFireWeaponCommand{
+				actor, 100, FIRST_LEVEL, PROFILE_Z_SIZE + 1,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetCubeLevel &&
+			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
+				actor, WORLD_MAX, WALKING, false, false,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDestinationGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
+				actor, 100, WALKING, false, false,
+				SimulationCommandSource::System,
+				static_cast<TacticalMoveOrigin>( 0xff ),
+				TacticalPendingActionPolicy::Clear } } ) ==
+				SimulationCommandDomainError::InvalidMoveOrigin &&
+			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
+				actor, 100, WALKING, false, false,
+				SimulationCommandSource::System,
+				TacticalMoveOrigin::System,
+				static_cast<TacticalPendingActionPolicy>( 0xff ) } } ) ==
+				SimulationCommandDomainError::InvalidPendingActionPolicy &&
+			ValidateSimulationCommandDomain( SimulationCommand{ SetFacingCommand{
+				actor, TacticalDirectionCount,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDirection &&
+			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
+				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
+				SimulationCommandDomainError::InvalidSource,
+			"all tactical execution paths share complete value-domain validation" );
 	}
 
 	{
@@ -2269,6 +2397,12 @@ int main( int, char** )
 			liveRuntimeMessages.addSink( commandResultSink );
 		const TacticalCommandInboxLimits productionCommandLimits = tacticalCommands
 			? tacticalCommands.service->limits() : TacticalCommandInboxLimits{};
+		std::uint64_t commandTestFrameSequence = UINT64_C( 0x8000000000000000 );
+		const auto beginCommandTestFrame = [&] {
+			BeginSimulationCommandFrameBudget(
+				++commandTestFrameSequence,
+				productionCommandLimits.maximumPerDrain );
+		};
 		const TacticalEntityId staleActor{ 0, 0xfedcba98u };
 		const SimulationCommand staleStance{ ChangeStanceCommand{
 			staleActor, ANIM_CROUCH, SimulationCommandSource::System } };
@@ -2332,6 +2466,7 @@ int main( int, char** )
 				SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
 			tacticalCommands.service->submit( packageId, staleMove );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterInvalidContext =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -2339,6 +2474,7 @@ int main( int, char** )
 		MercPtrs[0] = &commandHostActor;
 		const TacticalCommandSubmissionResult staleRequest =
 			tacticalCommands.service->submit( packageId, staleMove );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterValidation =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -2372,16 +2508,23 @@ int main( int, char** )
 		commandHostActor.usUIMovementMode = WALKING;
 		commandHostActor.bReverse = FALSE;
 		commandHostActor.aiData.ubPendingAction = 7;
-		const std::uint64_t invalidImmediateMoveSequence =
-			DispatchMoveToGridCommandNow(
+		const SimulationCommandDispatchResult invalidImmediateMove =
+			TryDispatchMoveToGridCommandNow(
 				0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
 				true, true, SimulationCommandSource::System );
+		const std::uint64_t invalidImmediateMoveSequence =
+			invalidImmediateMove.sequence;
 		const std::vector<RecordedSimulationCommand> journalAfterInvalidImmediateMove =
 			compiledContext.commandJournal().snapshot();
 		const RecordedSimulationCommand* invalidImmediateMoveRecord =
 			!journalAfterInvalidImmediateMove.empty()
 				? &journalAfterInvalidImmediateMove.back() : nullptr;
-		CHECK( invalidImmediateMoveRecord &&
+		CHECK( invalidImmediateMove.submitted &&
+		       invalidImmediateMove.status ==
+		           SimulationCommandDispatchStatus::Discarded &&
+		       invalidImmediateMove.tick ==
+		           compiledContext.runtime().simulationTicks().completedTickSequence() &&
+		       invalidImmediateMoveRecord &&
 		       invalidImmediateMoveRecord->sequence == invalidImmediateMoveSequence &&
 		       invalidImmediateMoveRecord->status == CommandJournalStatus::Discarded &&
 		       std::holds_alternative<MoveToGridCommand>(
@@ -2391,14 +2534,93 @@ int main( int, char** )
 		       commandHostActor.aiData.ubPendingAction == 7,
 		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
 
+		beginCommandTestFrame();
+		commandHostActor.bStealthMode = FALSE;
+		const SimulationCommandDispatchResult stealthEnabled =
+			TryDispatchSetStealthModeCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, true,
+				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		commandHostActor.sGridNo = 77;
+		commandHostActor.pathing.sFinalDestination = 99;
+		commandHostActor.flags.fDelayedMovement = TRUE;
+		commandHostActor.usAnimState = STANDING;
+		const SimulationCommandDispatchResult movementStopped =
+			TryDispatchStopMovementCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult facingQueued =
+			TryDispatchSetFacingCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, 3,
+				SimulationCommandSource::System );
+		CHECK( stealthEnabled.status == SimulationCommandDispatchStatus::Applied &&
+		       commandHostActor.bStealthMode == TRUE &&
+		       movementStopped.status == SimulationCommandDispatchStatus::Applied &&
+		       commandHostActor.flags.fDelayedMovement == FALSE &&
+		       commandHostActor.pathing.sFinalDestination == commandHostActor.sGridNo &&
+		       facingQueued.status == SimulationCommandDispatchStatus::Applied,
+		       "structured facing, stealth, and stop commands execute through the authoritative path" );
+
+		const std::uint64_t oneCommandFrame = ++commandTestFrameSequence;
+		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
+		const SimulationCommandDispatchResult firstBudgetedImmediate =
+			TryDispatchMoveToGridCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				false, false, SimulationCommandSource::System );
+		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
+		const SimulationCommandDispatchResult sameFrameBudgetExhausted =
+			TryDispatchMoveToGridCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				false, false, SimulationCommandSource::System );
+		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
+		const SimulationCommandDispatchResult nextFrameBudgetReset =
+			TryDispatchMoveToGridCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				false, false, SimulationCommandSource::System );
+		CHECK( firstBudgetedImmediate.processed() &&
+		       sameFrameBudgetExhausted.status ==
+		           SimulationCommandDispatchStatus::FrameBudgetExhausted &&
+		       !sameFrameBudgetExhausted.submitted &&
+		       nextFrameBudgetReset.processed(),
+		       "command frame budget resets once per frame identity and not on duplicate begin" );
+
+		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
+		const SimulationCommandDispatchResult inboxBudgetConsumer =
+			TryDispatchMoveToGridCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				false, false, SimulationCommandSource::System );
+		const TacticalCommandSubmissionResult heldByExhaustedFrame =
+			tacticalCommands.service->submit( packageId, staleStance );
+		const Ja2TacticalCommandHostDiagnostics beforeExhaustedFrameDrain =
+			GetJa2TacticalCommandHostDiagnostics();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot exhaustedFrameInbox;
+		tacticalCommands.service->snapshot( exhaustedFrameInbox );
+		const Ja2TacticalCommandHostDiagnostics afterExhaustedFrameDrain =
+			GetJa2TacticalCommandHostDiagnostics();
+		beginCommandTestFrame();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot resumedFrameInbox;
+		tacticalCommands.service->snapshot( resumedFrameInbox );
+		CHECK( inboxBudgetConsumer.processed() && heldByExhaustedFrame &&
+		       exhaustedFrameInbox.summary.pending == 1 &&
+		       afterExhaustedFrameDrain.lastDrain.eligible == 0 &&
+		       afterExhaustedFrameDrain.trackedCommands ==
+		           beforeExhaustedFrameDrain.trackedCommands &&
+		       resumedFrameInbox.summary.pending == 0,
+		       "an exhausted production frame leaves package inbox admission for the next frame" );
+
 		const TacticalCommandSubmissionResult immediateMoveDrainedTracked =
 			tacticalCommands.service->submit( packageId, staleMove );
 		const Ja2TacticalCommandHostDiagnostics beforeImmediateMoveDrain =
 			GetJa2TacticalCommandHostDiagnostics();
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext, 0 );
 		const Ja2TacticalCommandHostDiagnostics retainedBeforeImmediateMove =
 			GetJa2TacticalCommandHostDiagnostics();
-		DispatchMoveToGridCommandNow(
+		const SimulationCommandDispatchResult backpressuredImmediateMove =
+			TryDispatchMoveToGridCommandNow(
 			0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
 			false, false, SimulationCommandSource::System );
 		const Ja2TacticalCommandHostDiagnostics afterImmediateMoveDrain =
@@ -2408,12 +2630,16 @@ int main( int, char** )
 		           beforeImmediateMoveDrain.trackedCommands + 1 &&
 		       retainedBeforeImmediateMove.authoritativeBackpressure &&
 		       afterImmediateMoveDrain.trackedCommands ==
-		           beforeImmediateMoveDrain.trackedCommands &&
+		           retainedBeforeImmediateMove.trackedCommands &&
+		       backpressuredImmediateMove.status ==
+		           SimulationCommandDispatchStatus::AuthoritativeBackpressure &&
+		       !backpressuredImmediateMove.submitted &&
 		       afterImmediateMoveDrain.receiptsQueued ==
-		           retainedBeforeImmediateMove.receiptsQueued + 1,
-		       "immediate movement dispatch reports a tracked package command through the application sink" );
+		           retainedBeforeImmediateMove.receiptsQueued,
+		       "immediate movement dispatch preserves earlier authoritative package work" );
 		// Consume the retained host backpressure frame and publish the receipt
 		// before starting the independent bounded-admission fixture below.
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 
 		std::vector<std::uint64_t> boundedRequestIds;
@@ -2427,6 +2653,7 @@ int main( int, char** )
 			boundedRequestsSubmitted = boundedRequestsSubmitted && static_cast<bool>( submitted );
 			boundedRequestIds.push_back( submitted.requestId );
 		}
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot boundedRemainder;
 		tacticalCommands.service->snapshot( boundedRemainder );
@@ -2434,6 +2661,7 @@ int main( int, char** )
 			GetJa2TacticalCommandHostDiagnostics();
 		const bool retainedFifoTail = boundedRemainder.pending.size() == 1 &&
 			boundedRemainder.pending[0].requestId == boundedRequestIds.back();
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot boundedFinished;
 		tacticalCommands.service->snapshot( boundedFinished );
@@ -2454,8 +2682,16 @@ int main( int, char** )
 		const std::uint64_t futureCommandTick = commandTick + 1;
 		const std::uint64_t futureCommandSequence =
 			compiledContext.submitCommand( futureCommandTick, staleStance );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult currentAheadOfFuture =
+			TryDispatchMoveToGridCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+				false, false, SimulationCommandSource::System );
+		const bool futureRetainedAfterCurrent =
+			compiledContext.commands().containsSequence( futureCommandSequence );
 		const TacticalCommandSubmissionResult heldBehindFutureReplay =
 			tacticalCommands.service->submit( packageId, staleStance );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot futureReplayGatedSnapshot;
 		tacticalCommands.service->snapshot( futureReplayGatedSnapshot );
@@ -2465,6 +2701,7 @@ int main( int, char** )
 		const CommandProcessingResult futureReplayProcessed =
 			ExecuteSimulationCommandsThrough(
 				futureCommandTick, 1, futureReplaySink );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot futureReplayResumedSnapshot;
 		tacticalCommands.service->snapshot( futureReplayResumedSnapshot );
@@ -2476,7 +2713,11 @@ int main( int, char** )
 				return record.sequence == futureCommandSequence &&
 					record.status == CommandJournalStatus::Discarded;
 			} );
-		CHECK( heldBehindFutureReplay &&
+		CHECK( currentAheadOfFuture.submitted &&
+		       currentAheadOfFuture.status ==
+		           SimulationCommandDispatchStatus::Discarded &&
+		       futureRetainedAfterCurrent &&
+		       heldBehindFutureReplay &&
 		       futureReplayGatedSnapshot.summary.pending == 1 &&
 		       futureReplayGatedFrame.lastProcessing.status ==
 		           CommandProcessStatus::Completed &&
@@ -2496,6 +2737,7 @@ int main( int, char** )
 			compiledContext.submitCommand( commandTick, staleStance );
 		const TacticalCommandSubmissionResult gatedRequest =
 			tacticalCommands.service->submit( packageId, staleStance );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot gatedSnapshot;
 		tacticalCommands.service->snapshot( gatedSnapshot );
@@ -2503,11 +2745,13 @@ int main( int, char** )
 			GetJa2TacticalCommandHostDiagnostics();
 		const TacticalCommandSubmissionResult heldDuringRetry =
 			tacticalCommands.service->submit( packageId, staleStance );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot retrySnapshot;
 		tacticalCommands.service->snapshot( retrySnapshot );
 		const Ja2TacticalCommandHostDiagnostics retryFrame =
 			GetJa2TacticalCommandHostDiagnostics();
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot resumedSnapshot;
 		tacticalCommands.service->snapshot( resumedSnapshot );
@@ -2527,6 +2771,7 @@ int main( int, char** )
 			tacticalCommands.service->submit( packageId, staleStance );
 		const Ja2TacticalCommandHostDiagnostics beforeRetainedCancellation =
 			GetJa2TacticalCommandHostDiagnostics();
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext, 0 );
 		const std::vector<RecordedSimulationCommand> beforeAuthoritativeCancellation =
 			compiledContext.commandJournal().snapshot();
@@ -2547,6 +2792,7 @@ int main( int, char** )
 		       cancelledRecord && cancelledRecord->status == CommandJournalStatus::Discarded &&
 		       compiledContext.commands().empty(),
 		       "lifecycle teardown cancels a bounded accepted command retained by execution backpressure" );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandReceiptDiagnostics =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -2644,11 +2890,13 @@ int main( int, char** )
 				receiptObligationsSubmitted = receiptObligationsSubmitted &&
 					static_cast<bool>( tacticalCommands.service->submit(
 						packageId, staleStance ) );
+			beginCommandTestFrame();
 			DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 			admittedReceiptCount += batch;
 		}
 		const TacticalCommandSubmissionResult receiptCapacityFront =
 			tacticalCommands.service->submit( packageId, staleStance );
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics atReceiptAdmissionLimit =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -2698,6 +2946,7 @@ int main( int, char** )
 		      pass < 3 && GetJa2TacticalCommandHostDiagnostics().pendingReceipts != 0;
 		      ++pass )
 		{
+			beginCommandTestFrame();
 			DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 			liveRuntimeMessages.dispatchPending();
 		}
@@ -2720,6 +2969,7 @@ int main( int, char** )
 			GetJa2TacticalCommandHostDiagnostics();
 		const Ja2TacticalWorldObserverDiagnostics observerBeforeOrdering =
 			GetJa2TacticalWorldObserverDiagnostics();
+		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandsAfterOrdering =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -2825,16 +3075,14 @@ int main( int, char** )
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
 		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
 		       "live tactical service captures stable pointer-free legacy soldier state" );
-		const TacticalActorSnapshot* liveActorStorage = liveWorld.actors().data();
 		const std::size_t liveActorCapacity = liveWorld.actors().capacity();
 		const TacticalWorldCaptureResult repeatedLiveCapture =
 			tacticalWorld.service->capture( liveWorld );
 		liveActor = liveWorld.find( TacticalEntityId{ 0, 701 } );
 		CHECK( repeatedLiveCapture == TacticalWorldCaptureResult::Success && liveActor &&
-		       liveWorld.actors().data() == liveActorStorage &&
 		       liveWorld.actors().capacity() == liveActorCapacity &&
 		       liveActorCapacity >= TOTAL_SOLDIERS,
-		       "live tactical capture retains its configured actor allocation across frames" );
+		       "live tactical capture reuses bounded actor storage without shrinking" );
 
 		const PackageSaveStateCaptureResult packageSaveBeforeObservation =
 			compiledContext.capturePackageSaveState();
@@ -2865,7 +3113,8 @@ int main( int, char** )
 		       observerDiagnostics.turnSerial == 2 &&
 		       observerDiagnostics.worldTransitions == 1 &&
 		       observerDiagnostics.observerResets == 0 &&
-		       observerDiagnostics.publishAttempts == 0 && liveTacticalDeltaSinkAdded &&
+		       observerDiagnostics.publishAttempts == 0 &&
+		       observerDiagnostics.preparationAttempts == 0 && liveTacticalDeltaSinkAdded &&
 		       liveRuntimeMessages.queued() == 0 && liveTacticalDeltaSink.messages.empty(),
 		       "production baseline observation is retained without publishing a message" );
 		const TacticalWorldSnapshot* baselinePublicationStorage = observedPublication.snapshot;
@@ -2899,6 +3148,7 @@ int main( int, char** )
 		       observerDiagnostics.turnSerial == 3 &&
 		       observerDiagnostics.messageSequence != 0 &&
 		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.preparationAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 1 && liveTacticalDeltaSink.messages.empty(),
 		       "production safe-frame bridge queues one message for a new non-empty delta" );
@@ -2954,6 +3204,7 @@ int main( int, char** )
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
 		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.preparationAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 0,
 		       "live adapter failure preserves the last complete observer publication" );
@@ -2963,15 +3214,16 @@ int main( int, char** )
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
 		CHECK( observerDiagnostics.lastUpdate ==
-		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 3 &&
-		       observedPublication.snapshot == baselinePublicationStorage &&
-		       observedPublication.delta == baselineDeltaStorage &&
+		           TacticalWorldObserverUpdateResult::Unchanged &&
+		       observerDiagnostics.publicationSerial == 2 &&
+		       observedPublication.snapshot == deltaPublicationStorage &&
+		       observedPublication.delta == deltaStorage &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
-		       observerDiagnostics.handledDeltaSerial == 3 &&
+		       observerDiagnostics.handledDeltaSerial == 2 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.preparationAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 0,
 		       "unchanged live captures suppress empty and duplicate delta messages" );
@@ -2991,14 +3243,17 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0 &&
 		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
-		       observerDiagnostics.handledDeltaSerial == 4 &&
-		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
+		       observerDiagnostics.pendingDeltaSerial == 3 &&
+		       observerDiagnostics.pendingTransferId == 2 &&
+		       observerDiagnostics.nextTransferId == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 2 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publicationFailures == 1 && observedActor &&
 		       observedActor->grid == 347 && observedPublication.delta->events.size() == 1,
 		       "queue-full publication retains one bounded observer delta for retry" );
@@ -3009,14 +3264,17 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0 &&
 		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
-		       observerDiagnostics.handledDeltaSerial == 4 &&
-		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
+		       observerDiagnostics.pendingDeltaSerial == 3 &&
+		       observerDiagnostics.pendingTransferId == 2 &&
+		       observerDiagnostics.nextTransferId == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 3 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       observerDiagnostics.publicationFailures == 2,
 		       "a failed retry backpressures observation and retains the same delta serial" );
@@ -3026,14 +3284,17 @@ int main( int, char** )
 		CHECK( liveRuntimeMessages.queued() == 1 &&
 		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::Published &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
-		       observerDiagnostics.handledDeltaSerial == 4 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
-		       observerDiagnostics.publishedDeltaSerial == 4 &&
+		       observerDiagnostics.pendingTransferId == 0 &&
+		       observerDiagnostics.nextTransferId == 3 &&
+		       observerDiagnostics.publishedDeltaSerial == 3 &&
 		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publishedMessages == 2 &&
 		       observerDiagnostics.publicationFailures == 2,
 		       "the next safe frame retries the retained serial before taking another observation" );
@@ -3068,34 +3329,61 @@ int main( int, char** )
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( liveRuntimeMessages.queued() == 0 &&
 		       observerDiagnostics.lastUpdate ==
-		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 5 &&
+		           TacticalWorldObserverUpdateResult::Unchanged &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
-		       observerDiagnostics.handledDeltaSerial == 5 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
-		       observerDiagnostics.publishedDeltaSerial == 4 &&
+		       observerDiagnostics.publishedDeltaSerial == 3 &&
 		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.preparationAttempts == 2 &&
 		       observerDiagnostics.publishedMessages == 2 &&
 		       observerDiagnostics.publicationFailures == 2,
 		       "observation resumes after retry and suppresses the unchanged frame" );
 
+		RuntimeMessageBus saturatedChunkMessages(
+			1, TacticalWorldDeltaChunkHeaderBytes + 4 );
 		Menptr[0].sGridNo = 348;
-		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
+		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedChunkMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
-		CHECK( observerDiagnostics.lastUpdate ==
+		CHECK( saturatedChunkMessages.queued() == 1 && observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 6 &&
+		       observerDiagnostics.publicationSerial == 4 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
 		       observerDiagnostics.lastPublishError ==
 		           TacticalWorldDeltaPublishError::QueueFull &&
-		       observerDiagnostics.pendingDeltaSerial == 6 &&
+		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.pendingTransferId == 3 &&
+		       observerDiagnostics.nextTransferId == 4 &&
 		       observerDiagnostics.publishAttempts == 5 &&
+		       observerDiagnostics.preparationAttempts == 3 &&
+		       observerDiagnostics.pendingBatchMessages > 1 &&
+		       observerDiagnostics.pendingBatchCursor == 1 &&
+		       observerDiagnostics.chunkedDeltasPrepared == 1 &&
+		       observerDiagnostics.physicalMessagesPublished == 3 &&
 		       observerDiagnostics.publicationFailures == 3 &&
 		       observerDiagnostics.discardedPendingDeltas == 0,
-		       "a final queue-full delta provides an unload backpressure fixture" );
+		       "a partially published chunk batch remains prepared on its original bus" );
+
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( liveRuntimeMessages.queued() == 0 &&
+		       saturatedChunkMessages.queued() == 1 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
+		       observerDiagnostics.lastPublishError ==
+		           TacticalWorldDeltaPublishError::MessageBusChanged &&
+		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.pendingTransferId == 3 &&
+		       observerDiagnostics.pendingBatchCursor == 1 &&
+		       observerDiagnostics.publishAttempts == 6 &&
+		       observerDiagnostics.preparationAttempts == 3 &&
+		       observerDiagnostics.physicalMessagesPublished == 3 &&
+		       observerDiagnostics.publicationFailures == 4,
+		       "a partial transfer cannot be split across runtime message buses" );
 
 		gfWorldLoaded = FALSE;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
@@ -3109,11 +3397,15 @@ int main( int, char** )
 		       observerDiagnostics.publicationSerial == 0 &&
 		       tacticalWorldObserver && !tacticalWorldObserver.service->latest() &&
 		       observerDiagnostics.safeFrameUpdates ==
-		           observerBeforeWorld.safeFrameUpdates + 11 &&
+		           observerBeforeWorld.safeFrameUpdates + 12 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::WorldUnavailableReset &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
+		       observerDiagnostics.pendingTransferId == 0 &&
+		       observerDiagnostics.nextTransferId == 4 &&
+		       observerDiagnostics.pendingBatchMessages == 0 &&
+		       observerDiagnostics.pendingBatchCursor == 0 &&
 		       observerDiagnostics.handledDeltaSerial == 0 &&
 		       observerDiagnostics.publishedDeltaSerial == 0 &&
 		       observerDiagnostics.worldGeneration == 0 &&
@@ -3121,9 +3413,12 @@ int main( int, char** )
 		       observerDiagnostics.worldTransitions == 2 &&
 		       observerDiagnostics.observerResets == 1 &&
 		       observerDiagnostics.discardedPendingDeltas == 1 &&
-		       observerDiagnostics.publishAttempts == 5 &&
+		       observerDiagnostics.publishAttempts == 6 &&
+		       observerDiagnostics.preparationAttempts == 3 &&
+		       observerDiagnostics.chunkedDeltasPrepared == 1 &&
+		       observerDiagnostics.physicalMessagesPublished == 3 &&
 		       observerDiagnostics.publishedMessages == 2 &&
-		       observerDiagnostics.publicationFailures == 3 &&
+		       observerDiagnostics.publicationFailures == 4 &&
 		       packageSaveAfterObservation.error == packageSaveBeforeObservation.error &&
 		       packageSaveAfterObservation.packageId == packageSaveBeforeObservation.packageId &&
 		       packageSaveAfterObservation.snapshot.records.size() ==

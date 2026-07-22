@@ -6,13 +6,10 @@
 #include <type_traits>
 #include <variant>
 
-#include "Animation Control.h"
 #include "GameContext.h"
 #include "Map Information.h"
 #include "Overhead.h"
 #include "Simulation Commands.h"
-#include "Structure Internals.h"
-#include "worlddef.h"
 
 namespace
 {
@@ -49,39 +46,6 @@ bool RequiresCommandCancellation(PackageEventKind kind) noexcept
 			return false;
 	}
 	return false;
-}
-
-bool HasValidLegacyDomain(const SimulationCommand& command) noexcept
-{
-	if (command.valueless_by_exception()) return false;
-	return std::visit([](const auto& value) noexcept {
-		using Command = typename std::decay<decltype(value)>::type;
-		if constexpr (std::is_same<Command, EndTurnCommand>::value)
-		{
-			return value.nextTeam < MAXTEAMS;
-		}
-		else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
-		{
-			return value.soldier.slot < TOTAL_SOLDIERS &&
-				(value.stance == ANIM_STAND || value.stance == ANIM_CROUCH ||
-				 value.stance == ANIM_PRONE);
-		}
-		else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
-		{
-			return value.soldier.slot < TOTAL_SOLDIERS &&
-				value.targetGrid >= 0 && value.targetGrid < WORLD_MAX &&
-				(value.targetLevel == FIRST_LEVEL || value.targetLevel == SECOND_LEVEL) &&
-				value.targetCubeLevel >= 0 && value.targetCubeLevel <= PROFILE_Z_SIZE;
-		}
-		else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
-		{
-			return value.soldier.slot < TOTAL_SOLDIERS &&
-				value.destinationGrid >= 0 && value.destinationGrid < WORLD_MAX &&
-				value.movementMode < NUMANIMATIONSTATES &&
-				(gAnimControl[value.movementMode].uiFlags & ANIM_MOVING) != 0;
-		}
-		return false;
-	}, command);
 }
 
 bool HasTacticalExecutionContext(const SimulationCommand& command) noexcept
@@ -142,6 +106,8 @@ public:
 			return false;
 		}
 		game_ = &game;
+		BeginSimulationCommandFrameBudget(
+			game.frameDriver().completedFrames() + 1, MaximumCommandsPerFrame);
 		return true;
 	}
 
@@ -155,6 +121,19 @@ public:
 			AddSaturated(
 				diagnostics_.cancelledRequests,
 				diagnostics_.lastCancellation.cancelled);
+		else if (diagnostics_.lastCancellation.error ==
+				TacticalCommandCancellationError::DrainInProgress ||
+			diagnostics_.lastCancellation.error ==
+				TacticalCommandCancellationError::CancellationInProgress)
+		{
+			if (queueDeferredCancellation(event.packageId))
+				IncrementSaturated(diagnostics_.deferredCancellations);
+			else
+			{
+				IncrementSaturated(diagnostics_.deferredCancellationDrops);
+				IncrementSaturated(diagnostics_.cancellationFailures);
+			}
+		}
 		else
 			IncrementSaturated(diagnostics_.cancellationFailures);
 		cancelAuthoritative(event.packageId);
@@ -173,6 +152,11 @@ public:
 		diagnostics_.simulationTick =
 			game.runtime().simulationTicks().completedTickSequence();
 		flushReceipts(game);
+		flushDeferredCancellations();
+		flushReceipts(game);
+		const bool explicitlyNoExecution = maximumCommands == 0;
+		maximumCommands =
+			RemainingSimulationCommandFrameBudget(maximumCommands);
 
 		// A retained authoritative command always gets the complete bounded
 		// budget. Even a successful retry consumes this safe frame so recovery
@@ -185,9 +169,22 @@ public:
 			flushReceipts(game);
 			return;
 		}
-
+		// An explicit zero-budget composition test may still stage authoritative
+		// ownership for cancellation/backpressure coverage. In production a frame
+		// exhausted by synchronous player commands leaves inbox work untouched.
+		if (maximumCommands == 0 && !explicitlyNoExecution)
+		{
+			diagnostics_.lastDrain = TacticalCommandDrainResult{};
+			IncrementSaturated(diagnostics_.budgetExhaustions);
+			return;
+		}
+		const std::size_t admissionLimit = maximumCommands == 0
+			? inbox_.limits().maximumPerDrain : maximumCommands;
+		std::size_t admittedCommands = 0;
 		diagnostics_.lastDrain = inbox_.drain(
 			[&](const TacticalCommandRequest& request) {
+				if (admittedCommands >= admissionLimit)
+					return TacticalCommandDisposition::Defer;
 				if (!canAdmitReceiptObligation())
 				{
 					IncrementSaturated(diagnostics_.receiptCapacityDeferrals);
@@ -202,7 +199,8 @@ public:
 					IncrementSaturated(diagnostics_.inactiveOwnerRejections);
 					return TacticalCommandDisposition::Reject;
 				}
-				if (!HasValidLegacyDomain(request.command))
+				if (ValidateSimulationCommandDomain(request.command) !=
+					SimulationCommandDomainError::None)
 				{
 					if (!queueRequestReceipt(
 							request, TacticalCommandTerminalStatus::Rejected,
@@ -242,8 +240,10 @@ public:
 				staged.sequence =
 					game.submitCommand(diagnostics_.simulationTick, request.command);
 				tracked_[trackedCount_++] = std::move(staged);
+				++admittedCommands;
 				return TacticalCommandDisposition::Accept;
 			});
+		flushDeferredCancellations();
 		processAuthoritative(game, maximumCommands);
 		flushReceipts(game);
 	}
@@ -253,6 +253,7 @@ public:
 		Ja2TacticalCommandHostDiagnostics captured = diagnostics_;
 		captured.pendingReceipts = pendingReceiptCount_;
 		captured.trackedCommands = trackedCount_;
+		captured.pendingDeferredCancellations = deferredCancellationCount_;
 		return captured;
 	}
 
@@ -276,6 +277,67 @@ private:
 	{
 		return pendingReceiptCount_ + trackedCount_ <
 			MaximumAdmittedReceiptObligations;
+	}
+
+	bool queueDeferredCancellation(const std::string& packageId) noexcept
+	{
+		for (std::size_t offset = 0; offset < deferredCancellationCount_; ++offset)
+		{
+			const std::size_t index =
+				(deferredCancellationHead_ + offset) %
+				deferredCancellationOwners_.size();
+			if (deferredCancellationOwners_[index] == packageId) return true;
+		}
+		if (deferredCancellationCount_ >= deferredCancellationOwners_.size())
+			return false;
+		try
+		{
+			const std::size_t tail =
+				(deferredCancellationHead_ + deferredCancellationCount_) %
+				deferredCancellationOwners_.size();
+			deferredCancellationOwners_[tail] = packageId;
+			++deferredCancellationCount_;
+			return true;
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
+	void popDeferredCancellation() noexcept
+	{
+		if (deferredCancellationCount_ == 0) return;
+		deferredCancellationOwners_[deferredCancellationHead_].clear();
+		deferredCancellationHead_ =
+			(deferredCancellationHead_ + 1) % deferredCancellationOwners_.size();
+		--deferredCancellationCount_;
+	}
+
+	void flushDeferredCancellations() noexcept
+	{
+		while (deferredCancellationCount_ != 0)
+		{
+			const std::string& packageId =
+				deferredCancellationOwners_[deferredCancellationHead_];
+			diagnostics_.lastCancellation = inbox_.cancelPackage(packageId, this);
+			if (diagnostics_.lastCancellation.error ==
+					TacticalCommandCancellationError::DrainInProgress ||
+				diagnostics_.lastCancellation.error ==
+					TacticalCommandCancellationError::CancellationInProgress)
+			{
+				IncrementSaturated(diagnostics_.deferredCancellationRetries);
+				return;
+			}
+			if (diagnostics_.lastCancellation)
+				AddSaturated(
+					diagnostics_.cancelledRequests,
+					diagnostics_.lastCancellation.cancelled);
+			else
+				IncrementSaturated(diagnostics_.cancellationFailures);
+			cancelAuthoritative(packageId);
+			popDeferredCancellation();
+		}
 	}
 
 	bool hasReceiptStorage() const noexcept
@@ -442,6 +504,12 @@ private:
 		{
 			diagnostics_.lastProcessing = ExecuteSimulationCommandsThrough(
 				diagnostics_.simulationTick, maximumCommands);
+			std::size_t consumed = diagnostics_.lastProcessing.applied +
+				diagnostics_.lastProcessing.discarded;
+			if (diagnostics_.lastProcessing.status == CommandProcessStatus::Blocked ||
+				diagnostics_.lastProcessing.status == CommandProcessStatus::QueueChanged)
+				++consumed;
+			ConsumeSimulationCommandFrameBudget(consumed);
 			diagnostics_.authoritativeBackpressure =
 				diagnostics_.lastProcessing.status != CommandProcessStatus::Completed;
 			if (diagnostics_.lastProcessing.status ==
@@ -450,6 +518,9 @@ private:
 		}
 		catch (...)
 		{
+			// The processor deliberately retains the throwing command. Pessimistically
+			// consume the offered budget so exception recovery cannot overrun the frame.
+			ConsumeSimulationCommandFrameBudget(maximumCommands);
 			diagnostics_.lastProcessingThrew = true;
 			diagnostics_.authoritativeBackpressure = true;
 			IncrementSaturated(diagnostics_.processingFailures);
@@ -505,6 +576,9 @@ private:
 	std::array<PendingReceipt, MaximumPendingReceipts> pendingReceipts_;
 	std::size_t pendingReceiptHead_ = 0;
 	std::size_t pendingReceiptCount_ = 0;
+	std::array<std::string, MaximumPendingCommands> deferredCancellationOwners_;
+	std::size_t deferredCancellationHead_ = 0;
+	std::size_t deferredCancellationCount_ = 0;
 	GameContext* game_ = nullptr;
 	Ja2TacticalCommandHostDiagnostics diagnostics_;
 };
@@ -529,6 +603,13 @@ PackageEventSink& GetJa2TacticalCommandPackageEventSink() noexcept
 bool BindJa2TacticalCommandHost(GameContext& game) noexcept
 {
 	return GetCommandHost().bind(game);
+}
+
+void BeginJa2TacticalCommandFrame(GameContext& game) noexcept
+{
+	BeginSimulationCommandFrameBudget(
+		game.frameDriver().completedFrames() + 1,
+		GetCommandHost().service().limits().maximumPerDrain);
 }
 
 void DrainJa2TacticalCommandsAtSafeFrame(GameContext& game) noexcept

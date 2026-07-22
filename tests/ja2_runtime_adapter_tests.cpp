@@ -11,6 +11,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -101,6 +102,40 @@ public:
 	std::vector<RuntimeMessage> messages;
 };
 
+class ReassemblingTacticalDeltaSink final : public RuntimeMessageSink
+{
+public:
+	explicit ReassemblingTacticalDeltaSink(
+		TacticalWorldDeltaReassemblyLimits limits = {})
+		: reassembler(limits) {}
+
+	void receiveMessage(const RuntimeMessage& message) override
+	{
+		results.push_back(reassembler.accept(message, delta));
+		if (results.back() == TacticalWorldDeltaReassemblyResult::Completed)
+			++completed;
+	}
+
+	TacticalWorldDeltaReassembler reassembler;
+	TacticalWorldDelta delta;
+	std::vector<TacticalWorldDeltaReassemblyResult> results;
+	std::size_t completed = 0;
+};
+
+void WriteTestU32(
+	std::vector<std::uint8_t>& bytes, std::size_t offset, std::uint32_t value)
+{
+	for (std::size_t index = 0; index < 4; ++index)
+		bytes[offset + index] = static_cast<std::uint8_t>(value >> (index * 8));
+}
+
+void WriteTestU64(
+	std::vector<std::uint8_t>& bytes, std::size_t offset, std::uint64_t value)
+{
+	for (std::size_t index = 0; index < 8; ++index)
+		bytes[offset + index] = static_cast<std::uint8_t>(value >> (index * 8));
+}
+
 class RecordingTacticalCommandCancellationSink final
 	: public TacticalCommandCancellationSink
 {
@@ -113,6 +148,37 @@ public:
 
 	std::array<std::uint64_t, 4> requestIds{};
 	std::size_t count = 0;
+};
+
+class ReentrantTacticalCommandCancellationSink final
+	: public TacticalCommandCancellationSink
+{
+public:
+	explicit ReentrantTacticalCommandCancellationSink(TacticalCommandInbox& inbox)
+		: inbox_(inbox) {}
+
+	void commandCancelled(
+		const TacticalCommandRequest& request) noexcept override
+	{
+		if (count < requestIds.size()) requestIds[count++] = request.requestId;
+		if (reentered) return;
+		reentered = true;
+		submitted = inbox_.submit(
+			"pkg.alpha", SimulationCommand{EndTurnCommand{
+				4, SimulationCommandSource::System}});
+		nestedCancellation = inbox_.cancelPackage("pkg.beta", this);
+		nestedDrain = inbox_.drain([](const TacticalCommandRequest&) {
+			return TacticalCommandDisposition::Accept;
+		});
+	}
+
+	TacticalCommandInbox& inbox_;
+	std::array<std::uint64_t, 4> requestIds{};
+	std::size_t count = 0;
+	bool reentered = false;
+	TacticalCommandSubmissionResult submitted;
+	TacticalCommandCancellationResult nestedCancellation;
+	TacticalCommandDrainResult nestedDrain;
 };
 
 class ControlledTacticalWorldService final : public TacticalWorldService
@@ -411,6 +477,15 @@ int main()
 	const SimulationCommand invalidMoveCommand{MoveToGridCommand{
 		TacticalEntityId{}, 100, 0, false, false,
 		SimulationCommandSource::LocalPlayer}};
+	MoveToGridCommand invalidMoveOrigin{
+		TacticalEntityId{3, 301}, 100, 6, false, false,
+		SimulationCommandSource::LocalPlayer};
+	invalidMoveOrigin.origin = static_cast<TacticalMoveOrigin>(0xff);
+	MoveToGridCommand invalidPendingAction{
+		TacticalEntityId{3, 301}, 100, 6, false, false,
+		SimulationCommandSource::LocalPlayer};
+	invalidPendingAction.pendingAction =
+		static_cast<TacticalPendingActionPolicy>(0xff);
 	const TacticalCommandSubmissionResult invalidOwner =
 		validationInbox.submit("bad/owner", validTurn);
 	const TacticalCommandSubmissionResult oversizedOwner =
@@ -423,6 +498,14 @@ int main()
 		validationInbox.submit("pkg.ok", invalidFireCommand);
 	const TacticalCommandSubmissionResult invalidMoveResult =
 		validationInbox.submit("pkg.ok", invalidMoveCommand);
+	const TacticalCommandSubmissionResult invalidMoveOriginResult =
+		validationInbox.submit("pkg.ok", SimulationCommand{invalidMoveOrigin});
+	const TacticalCommandSubmissionResult invalidPendingActionResult =
+		validationInbox.submit("pkg.ok", SimulationCommand{invalidPendingAction});
+	const TacticalCommandSubmissionResult invalidFacingResult =
+		validationInbox.submit("pkg.ok", SimulationCommand{SetFacingCommand{
+			TacticalEntityId{3, 301}, TacticalDirectionCount,
+			SimulationCommandSource::LocalPlayer}});
 	const TacticalCommandSubmissionResult validStanceResult =
 		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
@@ -440,6 +523,10 @@ int main()
 		unresolvedStanceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidFireResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidMoveResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		invalidMoveOriginResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		invalidPendingActionResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
+		invalidFacingResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
 		validMoveResult.requestId == 3 && validationInbox.summary().submitted == 3 &&
@@ -667,6 +754,42 @@ int main()
 		cancellationInbox.summary().cancelled == 2,
 		"package cancellation removes only owned work and preserves survivor FIFO");
 
+	TacticalCommandInbox reentrantCancellationInbox(
+		TacticalCommandInboxLimits{6, 6, 6, 32, 20});
+	const auto reentrantAlphaFirst = reentrantCancellationInbox.submit(
+		"pkg.alpha", MakeTurnCommand(1));
+	const auto reentrantBeta = reentrantCancellationInbox.submit(
+		"pkg.beta", MakeTurnCommand(2));
+	const auto reentrantAlphaSecond = reentrantCancellationInbox.submit(
+		"pkg.alpha", MakeTurnCommand(3));
+	ReentrantTacticalCommandCancellationSink reentrantCancellationSink(
+		reentrantCancellationInbox);
+	const TacticalCommandCancellationResult reentrantCancelled =
+		reentrantCancellationInbox.cancelPackage(
+			"pkg.alpha", &reentrantCancellationSink);
+	TacticalCommandInboxSnapshot reentrantCancellationSnapshot;
+	reentrantCancellationInbox.snapshot(reentrantCancellationSnapshot);
+	const TacticalCommandCancellationResult submittedDuringCancellation =
+		reentrantCancellationInbox.cancelPackage("pkg.alpha");
+	check(reentrantAlphaFirst && reentrantBeta && reentrantAlphaSecond &&
+		reentrantCancelled.cancelled == 2 &&
+		reentrantCancellationSink.count == 2 &&
+		reentrantCancellationSink.requestIds[0] == reentrantAlphaFirst.requestId &&
+		reentrantCancellationSink.requestIds[1] == reentrantAlphaSecond.requestId &&
+		reentrantCancellationSink.submitted.requestId == 4 &&
+		reentrantCancellationSink.nestedCancellation.error ==
+			TacticalCommandCancellationError::CancellationInProgress &&
+		reentrantCancellationSink.nestedDrain.error ==
+			TacticalCommandDrainError::AlreadyDraining &&
+		reentrantCancellationSnapshot.pending.size() == 2 &&
+		reentrantCancellationSnapshot.pending[0].requestId == reentrantBeta.requestId &&
+		reentrantCancellationSnapshot.pending[1].requestId ==
+			reentrantCancellationSink.submitted.requestId &&
+		submittedDuringCancellation.cancelled == 1 &&
+		reentrantCancellationInbox.size() == 1,
+		"cancellation tolerates callback submission and rejects recursive mutation without iterator invalidation");
+	reentrantCancellationInbox.cancelPackage("pkg.beta");
+
 	NullTacticalCommandService& nullCommands =
 		NullTacticalCommandService::instance();
 	const auto nullSubmission = nullCommands.submit("pkg.null", validTurn);
@@ -724,6 +847,31 @@ int main()
 			duplicateActors, tacticalSnapshot) == TacticalSnapshotCreateError::DuplicateEntity &&
 		tacticalSnapshot.epoch() == acceptedEpoch,
 		"invalid tactical captures cannot partially replace the last good snapshot");
+	std::vector<TacticalActorSnapshot> orderedScratch = tacticalSnapshot.actors();
+	const TacticalActorSnapshot* orderedScratchStorage = orderedScratch.data();
+	TacticalWorldSnapshot orderedSnapshot;
+	check(TacticalWorldSnapshot::createReusableOrdered(
+			44, tacticalSnapshot.sector(), tacticalSnapshot.turn(),
+			orderedScratch, orderedSnapshot, 3) == TacticalSnapshotCreateError::None &&
+		orderedScratch.empty() && orderedSnapshot.actors().data() == orderedScratchStorage &&
+		orderedSnapshot.find(firstIncarnation) != nullptr,
+		"ordered snapshot capture transfers validated adapter storage without sorting or copying");
+	std::vector<TacticalActorSnapshot> descendingScratch = orderedSnapshot.actors();
+	std::reverse(descendingScratch.begin(), descendingScratch.end());
+	check(TacticalWorldSnapshot::createReusableOrdered(
+			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			descendingScratch, orderedSnapshot, 3) ==
+				TacticalSnapshotCreateError::UnorderedEntity &&
+		orderedSnapshot.epoch() == 44 && !descendingScratch.empty(),
+		"ordered capture rejects descending adapter input without consuming scratch or output");
+	std::vector<TacticalActorSnapshot> orderedDuplicates = orderedSnapshot.actors();
+	orderedDuplicates[1] = orderedDuplicates[0];
+	check(TacticalWorldSnapshot::createReusableOrdered(
+			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			orderedDuplicates, orderedSnapshot, 3) ==
+				TacticalSnapshotCreateError::DuplicateEntity &&
+		orderedSnapshot.epoch() == 44 && !orderedDuplicates.empty(),
+		"ordered capture distinguishes duplicate identities transactionally");
 	MemoryTacticalWorldService memoryWorld;
 	memoryWorld.publish(tacticalSnapshot);
 	ServiceCatalog tacticalServices;
@@ -987,6 +1135,351 @@ int main()
 		tacticalMessageSink.messages[0].payload == encodedDelta,
 		"tactical delta publisher delivers unchanged deterministic codec bytes to package sinks");
 
+	RuntimeMessageBus preparedDeltaMessages(1, encodedDelta.size());
+	RecordingRuntimeMessageSink preparedDeltaSink;
+	preparedDeltaMessages.addSink(preparedDeltaSink);
+	preparedDeltaMessages.publish(RuntimeMessageRequest{
+		"fixture.blocker", "fixture.host", {9}});
+	TacticalWorldDeltaPublisher preparedDeltaPublisher(
+		preparedDeltaMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+	PreparedTacticalWorldDeltaMessage preparedDelta;
+	const TacticalWorldDeltaPublishError deltaPrepared =
+		preparedDeltaPublisher.prepare(codecFixture, preparedDelta);
+	const std::vector<std::uint8_t> retainedDeltaPayload =
+		preparedDelta.request.payload;
+	const TacticalWorldDeltaPublishResult preparedDeltaPressure =
+		preparedDeltaPublisher.publishPrepared(preparedDelta);
+	const bool preparedDeltaRetained =
+		preparedDelta.eventCount == codecFixture.events.size() &&
+		preparedDelta.payloadBytes == encodedDelta.size() &&
+		preparedDelta.request.payload == retainedDeltaPayload &&
+		preparedDelta.request.topic == TacticalWorldDeltaMessageTopic &&
+		preparedDelta.request.source == TacticalWorldDeltaMessageSource;
+	preparedDeltaMessages.dispatchPending();
+	const TacticalWorldDeltaPublishResult preparedDeltaPublished =
+		preparedDeltaPublisher.publishPrepared(preparedDelta);
+	preparedDeltaMessages.dispatchPending();
+	TacticalWorldDelta deliveredPreparedDelta;
+	const bool preparedDeltaDecoded = preparedDeltaSink.messages.size() == 2 &&
+		DecodeTacticalWorldDelta(
+			preparedDeltaSink.messages[1].payload, deliveredPreparedDelta) ==
+				TacticalWorldDeltaDecodeResult::Success;
+	check(deltaPrepared == TacticalWorldDeltaPublishError::None &&
+		preparedDeltaPressure.error == TacticalWorldDeltaPublishError::QueueFull &&
+		preparedDeltaRetained && preparedDeltaPublished &&
+		preparedDeltaPublished.sequence == 2 && preparedDelta.request.payload.empty() &&
+		preparedDeltaDecoded && deliveredPreparedDelta.events.size() == 8,
+		"prepared tactical deltas encode once and retain exact bytes across bus pressure");
+	PreparedTacticalWorldDeltaMessage retainedPreparedDelta;
+	retainedPreparedDelta.request.payload = {7};
+	retainedPreparedDelta.eventCount = 1;
+	retainedPreparedDelta.payloadBytes = 1;
+	TacticalWorldDeltaPublisher tinyPreparedDeltaPublisher(
+		preparedDeltaMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size() - 1});
+	check(tinyPreparedDeltaPublisher.prepare(codecFixture, retainedPreparedDelta) ==
+			TacticalWorldDeltaPublishError::PayloadTooLarge &&
+		retainedPreparedDelta.request.payload == std::vector<std::uint8_t>({7}) &&
+		retainedPreparedDelta.eventCount == 1 && retainedPreparedDelta.payloadBytes == 1,
+		"tactical delta preparation enforces payload limits transactionally");
+
+	PreparedTacticalWorldDeltaBatch directBatch;
+	check(tacticalPublisher.prepareBatch(codecFixture, 90, directBatch) ==
+			TacticalWorldDeltaPublishError::None && directBatch && !directBatch.chunked &&
+		directBatch.requests.size() == 1 &&
+		directBatch.requests[0].topic == TacticalWorldDeltaMessageTopic &&
+		directBatch.requests[0].source == TacticalWorldDeltaMessageSource &&
+		directBatch.requests[0].payload == encodedDelta,
+		"deltas within the bus limit retain their exact version-1 topic and bytes");
+	RuntimeMessageBus noChunkMessages(1, encodedDelta.size());
+	TacticalWorldDeltaPublisher noChunkPublisher(
+		noChunkMessages,
+		TacticalWorldDeltaPublishLimits{
+			8, encodedDelta.size(), encodedDelta.size() + 1, 0});
+	PreparedTacticalWorldDeltaBatch noChunkBatch;
+	const TacticalWorldDeltaPublishError noChunkPrepared =
+		noChunkPublisher.prepareBatch(codecFixture, 91, noChunkBatch);
+	PreparedTacticalWorldDeltaBatch mutatedDirectBatch = noChunkBatch;
+	++mutatedDirectBatch.totalPayloadBytes;
+	const TacticalWorldDeltaBatchPublishResult mutatedDirectRejected =
+		noChunkPublisher.publishPreparedBatch(mutatedDirectBatch);
+	const TacticalWorldDeltaBatchPublishResult noChunkPublished =
+		noChunkPublisher.publishPreparedBatch(noChunkBatch);
+	check(noChunkPrepared == TacticalWorldDeltaPublishError::None &&
+		!noChunkBatch.chunked && mutatedDirectRejected.error ==
+			TacticalWorldDeltaPublishError::InvalidDelta &&
+		noChunkPublished && noChunkMessages.queued() == 1,
+		"disabling chunk batches preserves legacy messages and validates prepared byte counts");
+
+	constexpr std::size_t ChunkPayloadLimit = TacticalWorldDeltaChunkHeaderBytes + 8;
+	RuntimeMessageBus chunkMessages(2, ChunkPayloadLimit);
+	ReassemblingTacticalDeltaSink chunkSink(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	chunkMessages.addSink(chunkSink);
+	TacticalWorldDeltaPublisher chunkPublisher(
+		chunkMessages,
+		TacticalWorldDeltaPublishLimits{
+			8, ChunkPayloadLimit, encodedDelta.size(), 128});
+	PreparedTacticalWorldDeltaBatch chunkBatch;
+	const TacticalWorldDeltaPublishError chunkPrepared =
+		chunkPublisher.prepareBatch(codecFixture, 100, chunkBatch);
+	const std::size_t preparedChunkCount = chunkBatch.requests.size();
+	const TacticalWorldDeltaBatchPublishResult firstChunkPass =
+		chunkPublisher.publishPreparedBatch(chunkBatch);
+	const std::size_t cursorAfterPressure = chunkBatch.nextRequest;
+	chunkMessages.dispatchPending();
+	bool chunkRetryValid = true;
+	std::size_t chunkPublishPasses = 1;
+	while (!chunkBatch.complete() && chunkPublishPasses < preparedChunkCount + 2)
+	{
+		const TacticalWorldDeltaBatchPublishResult pass =
+			chunkPublisher.publishPreparedBatch(chunkBatch);
+		if (pass.error != TacticalWorldDeltaPublishError::None &&
+			pass.error != TacticalWorldDeltaPublishError::QueueFull)
+			chunkRetryValid = false;
+		chunkMessages.dispatchPending();
+		++chunkPublishPasses;
+	}
+	const bool chunkResultsOrdered =
+		!chunkSink.results.empty() &&
+		std::all_of(chunkSink.results.begin(), chunkSink.results.end() - 1,
+			[](TacticalWorldDeltaReassemblyResult result) {
+				return result == TacticalWorldDeltaReassemblyResult::AwaitingMore;
+			}) &&
+		chunkSink.results.back() == TacticalWorldDeltaReassemblyResult::Completed;
+	check(chunkPrepared == TacticalWorldDeltaPublishError::None && chunkBatch.chunked &&
+		preparedChunkCount > 2 &&
+		firstChunkPass.error == TacticalWorldDeltaPublishError::QueueFull &&
+		firstChunkPass.messagesPublished == 2 && cursorAfterPressure == 2 &&
+		chunkRetryValid && chunkBatch.complete() &&
+		chunkSink.results.size() == preparedChunkCount && chunkResultsOrdered &&
+		chunkSink.completed == 1 && chunkSink.delta.events.size() == 8 &&
+		chunkSink.delta.previousEpoch == codecFixture.previousEpoch &&
+		chunkSink.delta.currentEpoch == codecFixture.currentEpoch,
+		"chunk publication resumes its retained cursor without duplicates across frames");
+
+	PreparedTacticalWorldDeltaBatch malformedBatch;
+	const bool malformedBatchPrepared =
+		chunkPublisher.prepareBatch(codecFixture, 101, malformedBatch) ==
+			TacticalWorldDeltaPublishError::None &&
+		malformedBatch.requests.size() > 1;
+	if (malformedBatchPrepared) malformedBatch.requests[1].topic = "invalid topic";
+	const TacticalWorldDeltaBatchPublishResult malformedBatchRejected =
+		chunkPublisher.publishPreparedBatch(malformedBatch);
+	PreparedTacticalWorldDeltaBatch malformedCompleteBatch;
+	malformedCompleteBatch.transferId = 102;
+	malformedCompleteBatch.totalPayloadBytes = 1;
+	malformedCompleteBatch.chunked = true;
+	malformedCompleteBatch.requests.resize(1);
+	malformedCompleteBatch.nextRequest = 1;
+	const TacticalWorldDeltaBatchPublishResult malformedCompleteRejected =
+		chunkPublisher.publishPreparedBatch(malformedCompleteBatch);
+	check(malformedBatchPrepared &&
+		malformedBatchRejected.error == TacticalWorldDeltaPublishError::InvalidDelta &&
+		malformedBatch.nextRequest == 0 && chunkMessages.queued() == 0 &&
+		malformedCompleteRejected.error ==
+			TacticalWorldDeltaPublishError::InvalidDelta &&
+		!malformedCompleteRejected.complete,
+		"batch validation rejects every unsent request before publishing a prefix");
+
+	EncodedTacticalWorldDeltaChunks transferA;
+	EncodedTacticalWorldDeltaChunks transferB;
+	EncodedTacticalWorldDeltaChunks retainedChunkOutput;
+	retainedChunkOutput.transferId = 77;
+	retainedChunkOutput.totalPayloadBytes = 1;
+	retainedChunkOutput.payloads = {{7}};
+	const bool transferFixturesValid =
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 200, ChunkPayloadLimit, transferA,
+			encodedDelta.size(), 128) == TacticalWorldDeltaChunkEncodeError::None &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 201, ChunkPayloadLimit, transferB,
+			encodedDelta.size(), 128) == TacticalWorldDeltaChunkEncodeError::None;
+	auto chunkMessage = [](const std::vector<std::uint8_t>& payload) {
+		return RuntimeMessage{
+			1, TacticalWorldDeltaChunkMessageTopic,
+			TacticalWorldDeltaMessageSource, payload};
+	};
+	TacticalWorldDelta retainedReassembly;
+	retainedReassembly.previousEpoch = 777;
+	retainedReassembly.currentEpoch = 888;
+	TacticalWorldDeltaReassembler supersedingReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	const TacticalWorldDeltaReassemblyResult firstTransferAccepted =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult duplicateRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult foreignNonzeroRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferB.payloads[1]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult replacementAccepted =
+		supersedingReassembler.accept(
+			chunkMessage(transferB.payloads[0]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult olderZeroRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	bool replacementCompleted = true;
+	for (std::size_t index = 1; index < transferB.payloads.size(); ++index)
+	{
+		const TacticalWorldDeltaReassemblyResult accepted =
+			supersedingReassembler.accept(
+				chunkMessage(transferB.payloads[index]), retainedReassembly);
+		if (accepted != (index + 1 == transferB.payloads.size()
+				? TacticalWorldDeltaReassemblyResult::Completed
+				: TacticalWorldDeltaReassemblyResult::AwaitingMore))
+			replacementCompleted = false;
+	}
+	const TacticalWorldDeltaReassemblyResult completedReplayRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	check(transferFixturesValid &&
+		firstTransferAccepted == TacticalWorldDeltaReassemblyResult::AwaitingMore &&
+		duplicateRejected == TacticalWorldDeltaReassemblyResult::UnexpectedChunk &&
+		foreignNonzeroRejected ==
+			TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		replacementAccepted == TacticalWorldDeltaReassemblyResult::AwaitingMore &&
+		olderZeroRejected == TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		replacementCompleted && !supersedingReassembler.active() &&
+		supersedingReassembler.highestTransferId() == 201 &&
+		completedReplayRejected == TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		retainedReassembly.previousEpoch == codecFixture.previousEpoch &&
+		retainedReassembly.events.size() == codecFixture.events.size(),
+		"a new index-zero transfer supersedes abandoned world data while duplicates and foreign continuations fail");
+
+	TacticalWorldDeltaReassembler directBoundaryReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	TacticalWorldDelta directBoundaryOutput;
+	directBoundaryOutput.previousEpoch = 777;
+	const TacticalWorldDeltaReassemblyResult directPrefixAccepted =
+		directBoundaryReassembler.accept(
+			chunkMessage(transferA.payloads[0]), directBoundaryOutput);
+	const std::size_t retainedDirectPrefix =
+		directBoundaryReassembler.retainedBytes();
+	const TacticalWorldDeltaReassemblyResult malformedDirectRejected =
+		directBoundaryReassembler.accept(
+			RuntimeMessage{1, TacticalWorldDeltaMessageTopic,
+				TacticalWorldDeltaMessageSource, {0}},
+			directBoundaryOutput);
+	const bool malformedDirectPreservedPrefix =
+		directBoundaryReassembler.active() &&
+		directBoundaryReassembler.transferId() == 200 &&
+		directBoundaryReassembler.retainedBytes() == retainedDirectPrefix &&
+		directBoundaryOutput.previousEpoch == 777;
+	const TacticalWorldDeltaReassemblyResult directBoundaryCompleted =
+		directBoundaryReassembler.accept(
+			RuntimeMessage{2, TacticalWorldDeltaMessageTopic,
+				TacticalWorldDeltaMessageSource, encodedDelta},
+			directBoundaryOutput);
+	const TacticalWorldDeltaReassemblyResult delayedContinuationRejected =
+		directBoundaryReassembler.accept(
+			chunkMessage(transferA.payloads[1]), directBoundaryOutput);
+	const TacticalWorldDeltaReassemblyResult delayedRestartRejected =
+		directBoundaryReassembler.accept(
+			chunkMessage(transferA.payloads[0]), directBoundaryOutput);
+	check(directPrefixAccepted == TacticalWorldDeltaReassemblyResult::AwaitingMore &&
+		retainedDirectPrefix != 0 &&
+		malformedDirectRejected == TacticalWorldDeltaReassemblyResult::InvalidDelta &&
+		malformedDirectPreservedPrefix &&
+		directBoundaryReassembler.highestTransferId() == 200 &&
+		directBoundaryCompleted == TacticalWorldDeltaReassemblyResult::Completed &&
+		!directBoundaryReassembler.active() &&
+		delayedContinuationRejected ==
+			TacticalWorldDeltaReassemblyResult::UnexpectedChunk &&
+		delayedRestartRejected ==
+			TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		directBoundaryOutput.previousEpoch == codecFixture.previousEpoch &&
+		directBoundaryOutput.events.size() == codecFixture.events.size(),
+		"a valid legacy delta retires stale chunk state while malformed direct input remains atomic");
+
+	std::vector<std::uint8_t> unsupportedChunk = transferA.payloads[0];
+	unsupportedChunk[4] = 2;
+	std::vector<std::uint8_t> malformedLengthChunk = transferA.payloads[0];
+	WriteTestU32(malformedLengthChunk, 34, 0);
+	std::vector<std::uint8_t> oversizedChunk = transferA.payloads[0];
+	WriteTestU64(oversizedChunk, 22, encodedDelta.size() + 1);
+	std::vector<std::uint8_t> invalidCountChunk = transferA.payloads[0];
+	WriteTestU32(invalidCountChunk, 18, 0);
+	std::vector<std::uint8_t> excessiveCountChunk = transferA.payloads[0];
+	WriteTestU32(excessiveCountChunk, 18, 129);
+	TacticalWorldDeltaReassembler malformedReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	const bool rejectsMalformedEnvelopes =
+		malformedReassembler.accept(
+			chunkMessage(unsupportedChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::UnsupportedVersion &&
+		malformedReassembler.accept(
+			chunkMessage(malformedLengthChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::InvalidMessage &&
+		malformedReassembler.accept(
+			chunkMessage(oversizedChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::TransferTooLarge &&
+		malformedReassembler.accept(
+			chunkMessage(invalidCountChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::InvalidTransfer &&
+		malformedReassembler.accept(
+			chunkMessage(excessiveCountChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::TooManyChunks;
+	bool everyTruncatedChunkRejected = true;
+	for (std::size_t size = 0; size < transferA.payloads[0].size(); ++size)
+	{
+		std::vector<std::uint8_t> truncated(
+			transferA.payloads[0].begin(), transferA.payloads[0].begin() + size);
+		TacticalWorldDeltaReassembler truncatedReassembler;
+		TacticalWorldDelta retainedTruncated;
+		retainedTruncated.previousEpoch = 777;
+		if (truncatedReassembler.accept(
+				chunkMessage(truncated), retainedTruncated) !=
+					TacticalWorldDeltaReassemblyResult::InvalidMessage ||
+			retainedTruncated.previousEpoch != 777)
+		{
+			everyTruncatedChunkRejected = false;
+			break;
+		}
+	}
+	std::vector<std::vector<std::uint8_t>> corruptTransfer = transferA.payloads;
+	corruptTransfer.back().back() ^= 0x80u;
+	TacticalWorldDeltaReassembler integrityReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	retainedReassembly.previousEpoch = 777;
+	retainedReassembly.currentEpoch = 888;
+	retainedReassembly.events.clear();
+	TacticalWorldDeltaReassemblyResult integrityResult =
+		TacticalWorldDeltaReassemblyResult::InvalidMessage;
+	for (const std::vector<std::uint8_t>& payload : corruptTransfer)
+		integrityResult = integrityReassembler.accept(
+			chunkMessage(payload), retainedReassembly);
+	check(rejectsMalformedEnvelopes && everyTruncatedChunkRejected &&
+		integrityResult == TacticalWorldDeltaReassemblyResult::IntegrityMismatch &&
+		!integrityReassembler.active() && retainedReassembly.previousEpoch == 777 &&
+		retainedReassembly.currentEpoch == 888 && retainedReassembly.events.empty(),
+		"bounded reassembly rejects truncation, size, count, version, and integrity faults atomically");
+
+	check(EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 0, ChunkPayloadLimit, retainedChunkOutput) ==
+				TacticalWorldDeltaChunkEncodeError::InvalidTransfer &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, TacticalWorldDeltaChunkHeaderBytes,
+			retainedChunkOutput) ==
+				TacticalWorldDeltaChunkEncodeError::PayloadLimitTooSmall &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, ChunkPayloadLimit, retainedChunkOutput,
+			encodedDelta.size() - 1, 128) ==
+				TacticalWorldDeltaChunkEncodeError::TransferTooLarge &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, ChunkPayloadLimit, retainedChunkOutput,
+			encodedDelta.size(), 1) ==
+				TacticalWorldDeltaChunkEncodeError::TooManyChunks &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, std::numeric_limits<std::size_t>::max(),
+			retainedChunkOutput) == TacticalWorldDeltaChunkEncodeError::TooManyChunks &&
+		retainedChunkOutput.transferId == 77 &&
+		retainedChunkOutput.payloads ==
+			std::vector<std::vector<std::uint8_t>>({{7}}),
+		"chunk preparation is bounded, overflow-safe, and transactional on rejection");
+
 	check(
 		MapTacticalWorldDeltaEncodeError(TacticalWorldDeltaEncodeResult::Success) ==
 			TacticalWorldDeltaPublishError::None &&
@@ -1008,7 +1501,16 @@ int main()
 		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::InvalidTopic) ==
 			TacticalWorldDeltaPublishError::InvalidMessageIdentifier &&
 		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::InvalidSource) ==
-			TacticalWorldDeltaPublishError::InvalidMessageIdentifier,
+			TacticalWorldDeltaPublishError::InvalidMessageIdentifier &&
+		MapTacticalWorldDeltaChunkEncodeError(
+			TacticalWorldDeltaChunkEncodeError::InvalidTransfer) ==
+				TacticalWorldDeltaPublishError::InvalidTransfer &&
+		MapTacticalWorldDeltaChunkEncodeError(
+			TacticalWorldDeltaChunkEncodeError::TransferTooLarge) ==
+				TacticalWorldDeltaPublishError::TransferTooLarge &&
+		MapTacticalWorldDeltaChunkEncodeError(
+			TacticalWorldDeltaChunkEncodeError::TooManyChunks) ==
+				TacticalWorldDeltaPublishError::TooManyChunks,
 		"tactical delta publication explicitly maps every codec and bus failure family");
 
 	RuntimeMessageBus validationMessages(2, encodedDelta.size());
@@ -1116,12 +1618,14 @@ int main()
 		std::holds_alternative<TacticalActorVitalsChangedEvent>(publication.delta->events[4]) &&
 		std::holds_alternative<TacticalActorEnteredEvent>(publication.delta->events[5]),
 		"observer publications retain deterministic delta category and entity order");
-	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
-		"an unchanged successful capture remains an explicit observer publication");
+	const TacticalWorldSnapshot* changedPublicationSnapshot = publication.snapshot;
+	const TacticalWorldDelta* changedPublicationDelta = publication.delta;
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::Unchanged,
+		"an unchanged successful capture is suppressed before observer publication");
 	publication = observedWorld.latest();
-	check(publication.serial == 3 && publication.delta->previousEpoch == 44 &&
-		publication.delta->currentEpoch == 44 && publication.delta->events.empty(),
-		"publication serials increase monotonically even when the deterministic delta is empty");
+	check(publication.serial == 2 && publication.snapshot == changedPublicationSnapshot &&
+		publication.delta == changedPublicationDelta && publication.delta->events.size() == 6,
+		"unchanged capture preserves the last meaningful snapshot, delta, and serial");
 	memoryWorld.clear();
 	check(observedWorld.update() == TacticalWorldObserverUpdateResult::SourceUnavailable &&
 		!observedWorld.latest(),
@@ -1223,27 +1727,44 @@ int main()
 			20, 44, CommandJournalStatus::Applied,
 			SimulationCommand{MoveToGridCommand{
 				reusedSlot, 2345, 6, true, false,
-				SimulationCommandSource::Replay}}},
+				SimulationCommandSource::Replay,
+				TacticalMoveOrigin::TeamAwareUi,
+				TacticalPendingActionPolicy::Preserve}}},
 		RecordedSimulationCommand{
 			21, 45, CommandJournalStatus::Blocked,
-			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}}};
+			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			22, 46, CommandJournalStatus::Applied,
+			SimulationCommand{SetFacingCommand{
+				firstIncarnation, 7, SimulationCommandSource::LocalPlayer}}},
+		RecordedSimulationCommand{
+			23, 47, CommandJournalStatus::Applied,
+			SimulationCommand{SetStealthModeCommand{
+				reusedSlot, true, SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			24, 48, CommandJournalStatus::Queued,
+			SimulationCommand{StopMovementCommand{
+				firstIncarnation, SimulationCommandSource::System}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
 		encoded[5] == 0,
-		"JA2 adapter emits version-3 simulation command journals");
+		"JA2 adapter emits version-5 simulation command journals");
 	std::vector<RecordedSimulationCommand> decoded;
 	std::uint64_t dropped = 0;
 	const SimulationCommandJournalDecodeResult decodeResult =
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
-	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 5)
+	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 8)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
 		const auto& fire = std::get<BeginFireWeaponCommand>(decoded[2].command);
 		const auto& move = std::get<MoveToGridCommand>(decoded[3].command);
 		const auto& turn = std::get<EndTurnCommand>(decoded[4].command);
+		const auto& facing = std::get<SetFacingCommand>(decoded[5].command);
+		const auto& stealth = std::get<SetStealthModeCommand>(decoded[6].command);
+		const auto& stop = std::get<StopMovementCommand>(decoded[7].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -1257,30 +1778,56 @@ int main()
 			move.soldier == reusedSlot && move.destinationGrid == 2345 &&
 			move.movementMode == 6 && move.reverse && !move.forceRestart &&
 			move.source == SimulationCommandSource::Replay &&
+			move.origin == TacticalMoveOrigin::TeamAwareUi &&
+			move.pendingAction == TacticalPendingActionPolicy::Preserve &&
 			decoded[4].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
-			turn.source == SimulationCommandSource::NetworkPeer;
+			turn.source == SimulationCommandSource::NetworkPeer &&
+			facing.soldier == firstIncarnation && facing.direction == 7 &&
+			facing.source == SimulationCommandSource::LocalPlayer &&
+			stealth.soldier == reusedSlot && stealth.enabled &&
+			stealth.source == SimulationCommandSource::Replay &&
+			stop.soldier == firstIncarnation &&
+			stop.source == SimulationCommandSource::System;
 	}
 	check(decodedFields,
-		"version-3 commands preserve generational actors and movement intent");
+		"version-5 commands preserve movement, facing, stealth, and stop intent");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
 	std::vector<std::uint8_t> preservedEncoding{0xa5, 0x5a};
 	check(!EncodeSimulationCommandJournal(unresolved, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-3 encoding rejects unresolved actor identities transactionally");
+		"version-5 encoding rejects unresolved actor identities transactionally");
 	std::vector<RecordedSimulationCommand> invalidFire = recorded;
 	std::get<BeginFireWeaponCommand>(invalidFire[2].command).soldier =
 		TacticalEntityId{};
 	check(!EncodeSimulationCommandJournal(invalidFire, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-3 encoding validates fire-command actors");
+		"version-5 encoding validates fire-command actors");
 	std::vector<RecordedSimulationCommand> invalidMove = recorded;
 	std::get<MoveToGridCommand>(invalidMove[3].command).soldier =
 		TacticalEntityId{};
 	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-3 encoding validates move-command actors");
+		"version-5 encoding validates move-command actors");
+	invalidMove = recorded;
+	std::get<MoveToGridCommand>(invalidMove[3].command).origin =
+		static_cast<TacticalMoveOrigin>(0xff);
+	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"version-5 encoding rejects unknown movement origins transactionally");
+	invalidMove = recorded;
+	std::get<MoveToGridCommand>(invalidMove[3].command).pendingAction =
+		static_cast<TacticalPendingActionPolicy>(0xff);
+	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"version-5 encoding rejects unknown pending-action policy transactionally");
+	std::vector<RecordedSimulationCommand> invalidFacing = recorded;
+	std::get<SetFacingCommand>(invalidFacing[5].command).direction =
+		TacticalDirectionCount;
+	check(!EncodeSimulationCommandJournal(invalidFacing, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"version-5 encoding rejects invalid tactical directions transactionally");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);
@@ -1320,7 +1867,7 @@ int main()
 	check(!EncodeSimulationCommandJournal(
 		legacyDecoded, legacyDropped, refusedUpgrade) &&
 		refusedUpgrade == std::vector<std::uint8_t>{0xcc},
-		"legacy-unresolved stance identities cannot be emitted as version 3");
+		"legacy-unresolved stance identities cannot be emitted as version 5");
 
 	std::vector<std::uint8_t> malformedV1 = versionOneStance;
 	malformedV1[36] = 0xff;
@@ -1349,60 +1896,125 @@ int main()
 		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
 		"version-1 decoding rejects truncated records transactionally");
 	malformedV1 = versionOneStance;
-	malformedV1[4] = 4;
+	malformedV1[4] = 6;
 	check(RejectsJournalWithoutPublishing(
 		malformedV1, SimulationCommandJournalDecodeResult::UnsupportedVersion),
 		"command journals reject unsupported future wire versions");
 
 	std::vector<RecordedSimulationCommand> oneStance{recorded[0]};
-	std::vector<std::uint8_t> malformedV3;
-	const bool encodedV3Fixture =
-		EncodeSimulationCommandJournal(oneStance, 0, malformedV3) &&
-		malformedV3.size() == 44;
-	check(encodedV3Fixture,
-		"version-3 stance fixture encodes for corruption checks");
-	std::vector<std::uint8_t> compatibleV2 = malformedV3;
-	if (encodedV3Fixture)
+	std::vector<std::uint8_t> malformedV5;
+	const bool encodedV5Fixture =
+		EncodeSimulationCommandJournal(oneStance, 0, malformedV5) &&
+		malformedV5.size() == 44;
+	check(encodedV5Fixture,
+		"version-5 stance fixture encodes for corruption checks");
+	std::vector<std::uint8_t> compatibleV2 = malformedV5;
+	if (encodedV5Fixture)
 	{
 		compatibleV2[4] = 2;
-		malformedV3[38] = 0;
-		malformedV3[39] = 0;
-		malformedV3[40] = 0;
-		malformedV3[41] = 0;
+		malformedV5[38] = 0;
+		malformedV5[39] = 0;
+		malformedV5[40] = 0;
+		malformedV5[41] = 0;
 	}
 	std::vector<RecordedSimulationCommand> compatibleV2Decoded;
 	std::uint64_t compatibleV2Dropped = 1;
-	check(encodedV3Fixture &&
+	check(encodedV5Fixture &&
 		DecodeSimulationCommandJournal(
 			compatibleV2, compatibleV2Decoded, compatibleV2Dropped) ==
 				SimulationCommandJournalDecodeResult::Success &&
 		compatibleV2Dropped == 0 && compatibleV2Decoded.size() == 1 &&
 		std::get<ChangeStanceCommand>(compatibleV2Decoded[0].command).soldier ==
 			firstIncarnation,
-		"version-3 decoder retains version-2 generational command compatibility");
+		"version-5 decoder retains version-2 generational command compatibility");
 	check(RejectsJournalWithoutPublishing(
-		malformedV3, SimulationCommandJournalDecodeResult::Invalid),
-		"version-3 decoding rejects zero-incarnation actor identities");
+		malformedV5, SimulationCommandJournalDecodeResult::Invalid),
+		"version-5 decoding rejects zero-incarnation actor identities");
 
 	std::vector<RecordedSimulationCommand> oneMove{recorded[3]};
 	std::vector<std::uint8_t> malformedMove;
 	const bool encodedMoveFixture =
 		EncodeSimulationCommandJournal(oneMove, 0, malformedMove) &&
-		malformedMove.size() == 50;
+		malformedMove.size() == 52;
 	check(encodedMoveFixture,
-		"version-3 move fixture encodes its stable value fields");
-	std::vector<std::uint8_t> moveWithOldVersion = malformedMove;
+		"version-5 move fixture encodes its stable value fields");
+	std::vector<std::uint8_t> compatibleV3Move = malformedMove;
 	if (encodedMoveFixture)
 	{
-		moveWithOldVersion[4] = 2;
+		compatibleV3Move[4] = 3;
+		compatibleV3Move.resize(compatibleV3Move.size() - 2);
 		malformedMove[48] = 0x80;
 	}
+	std::vector<RecordedSimulationCommand> compatibleV3MoveDecoded;
+	std::uint64_t compatibleV3MoveDropped = 1;
+	const bool decodedCompatibleV3Move = encodedMoveFixture &&
+		DecodeSimulationCommandJournal(
+			compatibleV3Move, compatibleV3MoveDecoded,
+			compatibleV3MoveDropped) ==
+			SimulationCommandJournalDecodeResult::Success &&
+		compatibleV3MoveDecoded.size() == 1;
+	bool compatibleV3MoveDefaults = false;
+	if (decodedCompatibleV3Move)
+	{
+		const MoveToGridCommand& move =
+			std::get<MoveToGridCommand>(compatibleV3MoveDecoded[0].command);
+		compatibleV3MoveDefaults =
+			move.origin == TacticalMoveOrigin::PlayerUi &&
+			move.pendingAction == TacticalPendingActionPolicy::Clear;
+	}
+	check(compatibleV3MoveDefaults,
+		"version-3 moves decode with legacy UI and clear-pending defaults");
+	std::vector<std::uint8_t> moveWithOldVersion = compatibleV3Move;
+	if (encodedMoveFixture) moveWithOldVersion[4] = 2;
 	check(RejectsJournalWithoutPublishing(
 		moveWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
 		"version-2 journals cannot smuggle the version-3 move tag");
 	check(RejectsJournalWithoutPublishing(
 		malformedMove, SimulationCommandJournalDecodeResult::Invalid),
-		"version-3 move decoding rejects unknown packed flags transactionally");
+		"version-5 move decoding rejects unknown packed flags transactionally");
+	std::vector<std::uint8_t> malformedMoveOrigin;
+	std::vector<std::uint8_t> malformedPendingAction;
+	if (encodedMoveFixture)
+	{
+		EncodeSimulationCommandJournal(oneMove, 0, malformedMoveOrigin);
+		malformedPendingAction = malformedMoveOrigin;
+		malformedMoveOrigin[50] = 0xff;
+		malformedPendingAction[51] = 0xff;
+	}
+	check(encodedMoveFixture && RejectsJournalWithoutPublishing(
+		malformedMoveOrigin, SimulationCommandJournalDecodeResult::Invalid),
+		"version-5 move decoding rejects unknown movement origins transactionally");
+	check(encodedMoveFixture && RejectsJournalWithoutPublishing(
+		malformedPendingAction, SimulationCommandJournalDecodeResult::Invalid),
+		"version-5 move decoding rejects unknown pending-action policy transactionally");
+
+	std::vector<RecordedSimulationCommand> oneFacing{recorded[5]};
+	std::vector<RecordedSimulationCommand> oneStealth{recorded[6]};
+	std::vector<RecordedSimulationCommand> oneStop{recorded[7]};
+	std::vector<std::uint8_t> malformedFacing;
+	std::vector<std::uint8_t> malformedStealth;
+	std::vector<std::uint8_t> stopWithOldVersion;
+	const bool encodedNewCommands =
+		EncodeSimulationCommandJournal(oneFacing, 0, malformedFacing) &&
+		EncodeSimulationCommandJournal(oneStealth, 0, malformedStealth) &&
+		EncodeSimulationCommandJournal(oneStop, 0, stopWithOldVersion) &&
+		malformedFacing.size() == 44 && malformedStealth.size() == 44 &&
+		stopWithOldVersion.size() == 43;
+	if (encodedNewCommands)
+	{
+		malformedFacing[42] = TacticalDirectionCount;
+		malformedStealth[42] = 2;
+		stopWithOldVersion[4] = 4;
+	}
+	check(encodedNewCommands && RejectsJournalWithoutPublishing(
+		malformedFacing, SimulationCommandJournalDecodeResult::Invalid),
+		"version-5 facing decoding rejects invalid directions transactionally");
+	check(encodedNewCommands && RejectsJournalWithoutPublishing(
+		malformedStealth, SimulationCommandJournalDecodeResult::Invalid),
+		"version-5 stealth decoding rejects malformed booleans transactionally");
+	check(encodedNewCommands && RejectsJournalWithoutPublishing(
+		stopWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
+		"version-4 journals cannot smuggle version-5 command tags");
 
 	CommandJournal<SimulationCommand> journal(1);
 	journal.recordSubmission(
