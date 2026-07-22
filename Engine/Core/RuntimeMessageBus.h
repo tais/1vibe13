@@ -83,6 +83,14 @@ public:
 
 	RuntimeMessagePublishResult publish(RuntimeMessageRequest request) noexcept
 	{
+		return publishRetained(request);
+	}
+
+	// Ownership-transfer variant for hosts that must retry a prepared payload.
+	// Every failure leaves request byte-for-byte owned by the caller; success
+	// moves its strings and payload into the queue without another allocation.
+	RuntimeMessagePublishResult publishRetained(RuntimeMessageRequest& request) noexcept
+	{
 		if (!IsValidEngineIdentifier(request.topic))
 			return RuntimeMessagePublishResult{RuntimeMessagePublishError::InvalidTopic, 0};
 		if (!IsValidEngineIdentifier(request.source))
@@ -96,14 +104,19 @@ public:
 		const std::uint64_t sequence = nextSequence_;
 		try
 		{
-			queue_.push_back(RuntimeMessage{
-				sequence, std::move(request.topic), std::move(request.source),
-				std::move(request.payload)});
+			// Allocate the deque slot before consuming caller ownership. Standard
+			// allocator move-assignment for strings/vectors below is non-throwing.
+			queue_.emplace_back();
 		}
 		catch (...)
 		{
 			return RuntimeMessagePublishResult{RuntimeMessagePublishError::AllocationFailure, 0};
 		}
+		RuntimeMessage& queued = queue_.back();
+		queued.sequence = sequence;
+		queued.topic = std::move(request.topic);
+		queued.source = std::move(request.source);
+		queued.payload = std::move(request.payload);
 		++nextSequence_;
 		return RuntimeMessagePublishResult{RuntimeMessagePublishError::None, sequence};
 	}

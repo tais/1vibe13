@@ -3,6 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -11,7 +13,9 @@
 #include <Engine/Core/AudioGroupService.h>
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EntityRegistry.h>
+#include <Engine/Core/EngineHostOptions.h>
 #include <Engine/Core/EngineServices.h>
+#include <Engine/Core/EngineServiceContracts.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/InputDispatcher.h>
 #include <Engine/Core/LocalizationCatalog.h>
@@ -40,7 +44,33 @@
 template<typename ScreenId = std::uint32_t>
 class EngineHost
 {
+private:
+	struct ConstructionTag {};
+	struct LegacyBraceConstructionTag {};
+
 public:
+	// Preserve the established `EngineHost<>({})` spelling. An empty braced
+	// argument could initialize either EngineServices or EngineHostOptions after
+	// the named options overload was added; an initializer-list candidate keeps
+	// the historical EngineServices/default-host interpretation unambiguous.
+	explicit EngineHost(std::initializer_list<LegacyBraceConstructionTag>)
+		: EngineHost(EngineServices{})
+	{
+	}
+
+	// Named composition API for new applications and tools. Validation runs
+	// before construction of any host-owned service or registration side effect.
+	explicit EngineHost(
+		EngineHostOptions options,
+		EngineServices services = EngineServices::defaults(),
+		PackageEventSink& packageEvents = NullPackageEventSink::instance())
+		: EngineHost(services, packageEvents, validateOptions(std::move(options)),
+			ConstructionTag{})
+	{
+	}
+
+	// Original positional API retained exactly for source compatibility. It
+	// forwards to the named representation, including every historical default.
 	explicit EngineHost(
 		EngineServices services = EngineServices::defaults(),
 		ContentApiVersion supportedContentApi = CurrentContentApiVersion,
@@ -63,59 +93,75 @@ public:
 		std::size_t maximumPackageTasksPerFrame = 64,
 		std::size_t maximumCheckpointPackages = 4096,
 		std::size_t maximumRuntimeReportBytes = 4u * 1024u * 1024u)
-		: content_(supportedContentApi),
-		  audioGroups_(services.audio, maximumPackageAudioPlaybacks),
-		  faultJournal_(runtimeFaultCapacity),
-		  localization_(localizationEntries, localizationTextBytes),
-		  definitions_(definitionEntries, definitionPayloadBytes),
-		  entities_(maximumEntities),
-		  hostCapabilities_(std::move(hostCapabilities)),
-		  packageTasks_(maximumQueuedPackageTasks, maximumPackageTasksPerFrame),
+		: EngineHost(services, packageEvents, makeLegacyOptions(supportedContentApi,
+			std::move(hostCapabilities), packageRandomSeed, packageRandomStreamLimit,
+			simulationStepMicroseconds, maximumSimulationCatchUpTicks,
+			assetCacheEntries, assetCacheBytes, runtimeFaultCapacity,
+			localizationEntries, localizationTextBytes, definitionEntries,
+			definitionPayloadBytes, maximumEntities, maximumPackageAudioPlaybacks,
+			maximumQueuedPackageTasks, maximumPackageTasksPerFrame,
+			maximumCheckpointPackages, maximumRuntimeReportBytes), ConstructionTag{})
+	{
+	}
+
+private:
+	EngineHost(EngineServices services, PackageEventSink& packageEvents,
+		EngineHostOptions options, ConstructionTag)
+		: content_(options.supportedContentApi),
+		  runtimeMessages_(options.limits.maximumQueuedRuntimeMessages,
+		                   options.limits.maximumRuntimeMessagePayloadBytes),
+		  audioGroups_(services.audio, options.limits.maximumPackageAudioPlaybacks),
+		  faultJournal_(options.limits.runtimeFaultHistoryCapacity),
+		  localization_(options.limits.maximumLocalizationEntries,
+		                options.limits.maximumLocalizationTextBytes),
+		  definitions_(options.limits.maximumDefinitionEntries,
+		               options.limits.maximumDefinitionPayloadBytes),
+		  entities_(options.limits.maximumEntities),
+		  hostCapabilities_(std::move(options.hostCapabilities)),
+		  packageTasks_(options.limits.maximumQueuedPackageTasks,
+		                options.limits.maximumPackageTasksPerFrame),
 		  packages_(content_, services, packageEvents, runtimeMessages_, serviceCatalog_,
-		            runtimeConfiguration_, packageRandomSeed, packageRandomStreamLimit,
-		            assetCacheEntries, assetCacheBytes, faultJournal_, localization_,
-		            definitions_, entities_, audioGroups_, &hostCapabilities_, packageTasks_),
+		            runtimeConfiguration_, options.packageRandomSeed,
+		            options.limits.maximumPackageRandomStreams,
+		            options.limits.maximumAssetCacheEntries,
+		            options.limits.maximumAssetCacheBytes, faultJournal_, localization_,
+		            definitions_, entities_, audioGroups_, &hostCapabilities_, packageTasks_,
+		            options.limits.maximumPersistencePayloadBytes,
+		            options.limits.maximumPackageSaveStateRecords,
+		            options.limits.maximumPackageSaveStateBytes,
+		            options.limits.maximumTotalPackageSaveStateBytes),
 		  packageLifecycle_(packages_),
 		  runtimeSession_(packageLifecycle_, serviceCatalog_, runtimeConfiguration_),
-		  inputDispatcher_(packages_.services().input),
-		  simulationTicks_(simulationStepMicroseconds, maximumSimulationCatchUpTicks),
+		  inputDispatcher_(packages_.services().input,
+		                   options.limits.maximumInputEventsPerDispatch),
+		  simulationTicks_(options.simulationStepMicroseconds,
+		                   options.limits.maximumSimulationCatchUpTicks),
+		  frameTelemetry_(options.limits.frameTelemetryHistoryCapacity),
 		  frameDriver_(packages_.services(), runtimeMessages_, inputDispatcher_,
 		               runtimeUpdates_, frameTelemetry_, simulationTicks_),
-		  persistence_(packages_.services().storage),
-		  runtimeCheckpoints_(persistence_, maximumCheckpointPackages),
-		  packageSaveArchives_(persistence_, PackageRegistry::MaximumSaveStateRecords,
-		                       PackageRegistry::MaximumPackageSaveStateBytes,
-		                       PackageRegistry::MaximumTotalSaveStateBytes),
-		  runtimeReports_(persistence_, maximumRuntimeReportBytes)
+		  persistence_(packages_.services().storage,
+		               options.limits.maximumPersistencePayloadBytes),
+		  runtimeCheckpoints_(persistence_, options.limits.maximumCheckpointPackages),
+		  packageSaveArchives_(persistence_,
+		                       options.limits.maximumPackageSaveStateRecords,
+		                       options.limits.maximumPackageSaveStateBytes,
+		                       options.limits.maximumTotalPackageSaveStateBytes),
+		  runtimeReports_(persistence_, options.limits.maximumRuntimeReportBytes)
 	{
-		serviceCatalog_.registerService(
-			"engine.frame-telemetry", EngineServiceVersion{1, 0}, frameTelemetry_);
-		serviceCatalog_.registerService(
-			"engine.runtime-messages", EngineServiceVersion{1, 0}, runtimeMessages_);
-		serviceCatalog_.registerService(
-			"engine.persistence", EngineServiceVersion{1, 0}, persistence_);
-		serviceCatalog_.registerService(
-			"engine.simulation-ticks", EngineServiceVersion{1, 0}, simulationTicks_);
-		serviceCatalog_.registerService(
-			"engine.asset-cache", EngineServiceVersion{1, 0}, packages_.assetCache());
-		serviceCatalog_.registerService(
-			"engine.runtime-faults", EngineServiceVersion{1, 0}, faultJournal_);
-		serviceCatalog_.registerService(
-			"engine.localization", EngineServiceVersion{1, 0}, localization_);
-		serviceCatalog_.registerService(
-			"engine.definitions", EngineServiceVersion{1, 0}, definitions_);
-		serviceCatalog_.registerService(
-			"engine.entities", EngineServiceVersion{1, 0}, entities_);
-		serviceCatalog_.registerService(
-			"engine.package-audio", EngineServiceVersion{1, 0}, audioGroups_);
-		serviceCatalog_.registerService(
-			"engine.package-tasks", EngineServiceVersion{1, 0}, packageTasks_);
-		serviceCatalog_.registerService(
-			"engine.runtime-checkpoints", EngineServiceVersion{1, 0}, runtimeCheckpoints_);
-		serviceCatalog_.registerService(
-			"engine.package-save-archives", EngineServiceVersion{1, 0}, packageSaveArchives_);
-		serviceCatalog_.registerService(
-			"engine.runtime-reports", EngineServiceVersion{1, 0}, runtimeReports_);
+		serviceCatalog_.registerService(FrameTelemetryServiceContract, frameTelemetry_);
+		serviceCatalog_.registerService(RuntimeMessagesServiceContract, runtimeMessages_);
+		serviceCatalog_.registerService(PersistenceServiceContract, persistence_);
+		serviceCatalog_.registerService(SimulationTicksServiceContract, simulationTicks_);
+		serviceCatalog_.registerService(AssetCacheServiceContract, packages_.assetCache());
+		serviceCatalog_.registerService(RuntimeFaultsServiceContract, faultJournal_);
+		serviceCatalog_.registerService(LocalizationServiceContract, localization_);
+		serviceCatalog_.registerService(DefinitionsServiceContract, definitions_);
+		serviceCatalog_.registerService(EntitiesServiceContract, entities_);
+		serviceCatalog_.registerService(PackageAudioServiceContract, audioGroups_);
+		serviceCatalog_.registerService(PackageTasksServiceContract, packageTasks_);
+		serviceCatalog_.registerService(RuntimeCheckpointsServiceContract, runtimeCheckpoints_);
+		serviceCatalog_.registerService(PackageSaveArchivesServiceContract, packageSaveArchives_);
+		serviceCatalog_.registerService(RuntimeReportsServiceContract, runtimeReports_);
 		runtimeConfiguration_.set("engine.telemetry.history-capacity",
 			static_cast<std::int64_t>(frameTelemetry_.capacity()));
 		runtimeConfiguration_.set("engine.messages.queue-capacity",
@@ -164,6 +210,7 @@ public:
 		runtimeMessages_.addSink(packages_);
 	}
 
+public:
 	// PackageRegistry keeps references to this host's ContentRegistry. Stable
 	// host identity is therefore an ownership invariant, not a convenience.
 	EngineHost(const EngineHost&) = delete;
@@ -322,6 +369,26 @@ public:
 	}
 
 	EngineLifecycle lifecycle() const { return runtimeSession_.lifecycle(); }
+	RuntimeSessionTransitionResult tryBeginInitialization()
+	{
+		return runtimeSession_.tryBeginInitialization();
+	}
+	RuntimeSessionTransitionResult tryCancelInitialization()
+	{
+		return runtimeSession_.tryCancelInitialization();
+	}
+	RuntimeSessionTransitionResult tryMarkRunning()
+	{
+		return runtimeSession_.tryMarkRunning();
+	}
+	RuntimeSessionTransitionResult tryBeginShutdown()
+	{
+		return runtimeSession_.tryBeginShutdown();
+	}
+	RuntimeSessionTransitionResult tryMarkStopped()
+	{
+		return runtimeSession_.tryMarkStopped();
+	}
 	bool beginInitialization() { return runtimeSession_.beginInitialization(); }
 	bool cancelInitialization() { return runtimeSession_.cancelInitialization(); }
 	bool markRunning() { return runtimeSession_.markRunning(); }
@@ -329,6 +396,60 @@ public:
 	bool markStopped() { return runtimeSession_.markStopped(); }
 
 private:
+	static EngineHostOptions validateOptions(EngineHostOptions options)
+	{
+		const EngineHostOptionsValidationResult validation =
+			ValidateEngineHostOptions(options);
+		if (!validation)
+			throw std::invalid_argument(
+				std::string("Invalid EngineHost option: ") + validation.option);
+		return options;
+	}
+
+	static EngineHostOptions makeLegacyOptions(
+		ContentApiVersion supportedContentApi,
+		RuntimeCapabilities hostCapabilities,
+		std::uint64_t packageRandomSeed,
+		std::size_t packageRandomStreamLimit,
+		std::uint64_t simulationStepMicroseconds,
+		std::size_t maximumSimulationCatchUpTicks,
+		std::size_t assetCacheEntries,
+		std::size_t assetCacheBytes,
+		std::size_t runtimeFaultCapacity,
+		std::size_t localizationEntries,
+		std::size_t localizationTextBytes,
+		std::size_t definitionEntries,
+		std::size_t definitionPayloadBytes,
+		std::size_t maximumEntities,
+		std::size_t maximumPackageAudioPlaybacks,
+		std::size_t maximumQueuedPackageTasks,
+		std::size_t maximumPackageTasksPerFrame,
+		std::size_t maximumCheckpointPackages,
+		std::size_t maximumRuntimeReportBytes)
+	{
+		EngineHostOptions options;
+		options.supportedContentApi = supportedContentApi;
+		options.hostCapabilities = std::move(hostCapabilities);
+		options.packageRandomSeed = packageRandomSeed;
+		options.simulationStepMicroseconds = simulationStepMicroseconds;
+		options.limits.maximumPackageRandomStreams = packageRandomStreamLimit;
+		options.limits.maximumSimulationCatchUpTicks = maximumSimulationCatchUpTicks;
+		options.limits.maximumAssetCacheEntries = assetCacheEntries;
+		options.limits.maximumAssetCacheBytes = assetCacheBytes;
+		options.limits.runtimeFaultHistoryCapacity = runtimeFaultCapacity;
+		options.limits.maximumLocalizationEntries = localizationEntries;
+		options.limits.maximumLocalizationTextBytes = localizationTextBytes;
+		options.limits.maximumDefinitionEntries = definitionEntries;
+		options.limits.maximumDefinitionPayloadBytes = definitionPayloadBytes;
+		options.limits.maximumEntities = maximumEntities;
+		options.limits.maximumPackageAudioPlaybacks = maximumPackageAudioPlaybacks;
+		options.limits.maximumQueuedPackageTasks = maximumQueuedPackageTasks;
+		options.limits.maximumPackageTasksPerFrame = maximumPackageTasksPerFrame;
+		options.limits.maximumCheckpointPackages = maximumCheckpointPackages;
+		options.limits.maximumRuntimeReportBytes = maximumRuntimeReportBytes;
+		return options;
+	}
+
 	StateController<ScreenId> screenController_;
 	StateRegistry<ScreenId> stateRegistry_;
 	ContentRegistry content_;

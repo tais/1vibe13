@@ -30,7 +30,8 @@ bool IsValidPackageCommand(const SimulationCommand& command)
 		using Command = typename std::decay<decltype(value)>::type;
 		if (!IsValidCommandSource(value.source)) return false;
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value)
+			std::is_same<Command, BeginFireWeaponCommand>::value ||
+			std::is_same<Command, MoveToGridCommand>::value)
 			return value.soldier.valid();
 		return true;
 	}, command);
@@ -112,7 +113,8 @@ TacticalCommandSubmissionResult TacticalCommandInbox::submit(
 }
 
 TacticalCommandCancellationResult TacticalCommandInbox::cancelPackage(
-	const std::string& packageId) noexcept
+	const std::string& packageId,
+	TacticalCommandCancellationSink* sink) noexcept
 {
 	if (packageId.size() > limits_.maximumOwnerBytes ||
 		!IsValidEngineIdentifier(packageId))
@@ -130,6 +132,7 @@ TacticalCommandCancellationResult TacticalCommandInbox::cancelPackage(
 			++request;
 			continue;
 		}
+		if (sink) sink->commandCancelled(*request);
 		request = pending_.erase(request);
 		++cancelled;
 	}

@@ -47,11 +47,17 @@ public:
 		EntityRegistry& entities = EntityRegistry::disabled(),
 		AudioGroupService& audio = AudioGroupService::disabled(),
 		const RuntimeCapabilities* hostCapabilities = nullptr,
-		PackageTaskQueue& tasks = PackageTaskQueue::disabled())
+		PackageTaskQueue& tasks = PackageTaskQueue::disabled(),
+		std::size_t maximumPersistencePayloadBytes =
+			PersistenceService::DefaultMaximumPayloadBytes,
+		std::size_t maximumSaveStateRecords = MaximumSaveStateRecords,
+		std::size_t maximumPackageSaveStateBytes = MaximumPackageSaveStateBytes,
+		std::size_t maximumTotalSaveStateBytes = MaximumTotalSaveStateBytes)
 		: content_(content), assets_(services.assets),
 		  assetCache_(assets_, assetCacheEntries, assetCacheBytes),
 		  services_(withAssets(services, assetCache_)),
-		  packagePersistence_(services_.storage), events_(events), messages_(messages),
+		  packagePersistence_(services_.storage, maximumPersistencePayloadBytes),
+		  events_(events), messages_(messages),
 		  extensionServices_(extensionServices),
 		  configuration_(configuration), faults_(faults), localization_(localization),
 		  definitions_(definitions),
@@ -60,7 +66,10 @@ public:
 		  hostCapabilities_(hostCapabilities),
 		  tasks_(tasks),
 		  packageRandomSeed_(packageRandomSeed),
-		  packageRandomStreamLimit_(packageRandomStreamLimit) {}
+		  packageRandomStreamLimit_(packageRandomStreamLimit),
+		  maximumSaveStateRecords_(maximumSaveStateRecords),
+		  maximumPackageSaveStateBytes_(maximumPackageSaveStateBytes),
+		  maximumTotalSaveStateBytes_(maximumTotalSaveStateBytes) {}
 
 	// Registry entries and bootstrap state are tied to the referenced content
 	// registry and application-owned package objects. Preserve that identity;
@@ -88,7 +97,7 @@ public:
 			descriptor.content.optionalRequirements, descriptor.content.conflicts,
 			descriptor.content.loadAfter, descriptor.capabilities,
 			descriptor.messageTopics, descriptor.requiredServices,
-			descriptor.requiredCapabilities,
+			descriptor.requiredCapabilities, PackageIdentity{id},
 			PackageStorage{id, packagePersistence_},
 			PackageMessagePublisher{id, messages_},
 			PackageRandomSource{id, packageRandomSeed_, packageRandomStreamLimit_},
@@ -566,17 +575,25 @@ private:
 public:
 	PackageBootstrapError bootstrap(PackageBootstrapPhase phase)
 	{
-		if (operationInProgress_) return PackageBootstrapError::OperationInProgress;
+		return bootstrapDetailed(phase).error;
+	}
+
+	PackageBootstrapResult bootstrapDetailed(PackageBootstrapPhase phase)
+	{
+		if (operationInProgress_)
+			return PackageBootstrapResult{PackageBootstrapError::OperationInProgress, {}};
 		OperationGuard operation(operationInProgress_);
 		const std::size_t phaseIndex = static_cast<std::size_t>(phase);
 		if (phaseIndex >= bootstrapPhaseCount_ || phaseIndex != completedBootstrapPhases_)
-			return PackageBootstrapError::OutOfOrder;
+			return PackageBootstrapResult{PackageBootstrapError::OutOfOrder, {}};
 		if (phase == PackageBootstrapPhase::Configure)
 		{
 			const PackageBootstrapError serviceContracts = preflightServiceContracts();
-			if (serviceContracts != PackageBootstrapError::None) return serviceContracts;
+			if (serviceContracts != PackageBootstrapError::None)
+				return PackageBootstrapResult{serviceContracts, {}};
 			const PackageBootstrapError capabilityContracts = preflightCapabilityContracts();
-			if (capabilityContracts != PackageBootstrapError::None) return capabilityContracts;
+			if (capabilityContracts != PackageBootstrapError::None)
+				return PackageBootstrapResult{capabilityContracts, {}};
 		}
 
 		for (std::size_t index = 0; index < active_.size(); ++index)
@@ -604,8 +621,12 @@ public:
 				active_[index]);
 			// The failing callback may have acquired part of its phase resources,
 			// so include it in the reverse rollback contract.
+			PackageBootstrapResult result;
+			result.error = PackageBootstrapError::CallbackFailed;
+			result.failedPhaseRollback.shutdownPhases = 1;
 			for (std::size_t rollback = index + 1; rollback > 0; --rollback)
 			{
+				++result.failedPhaseRollback.callbacks;
 				PackageBootstrapContext rollbackContext = contextFor(active_[rollback - 1]);
 				bool rolledBack = false;
 				try
@@ -616,6 +637,7 @@ public:
 				}
 				catch (...)
 				{
+					++result.failedPhaseRollback.callbackFailures;
 					faults_.record(RuntimeFaultKind::Shutdown, active_[rollback - 1],
 						"bootstrap-rollback", phaseIndex + 1);
 					logError("Bootstrap rollback threw: ", active_[rollback - 1]);
@@ -632,22 +654,32 @@ public:
 				                : PackageEventKind::BootstrapRollbackFailed,
 					active_[rollback - 1], phaseIndex);
 			}
-			return PackageBootstrapError::CallbackFailed;
+			if (result.failedPhaseRollback.callbackFailures != 0)
+				result.failedPhaseRollback.error =
+					PackageBootstrapShutdownError::CallbackFailed;
+			return result;
 		}
 		++completedBootstrapPhases_;
-		return PackageBootstrapError::None;
+		return PackageBootstrapResult{};
 	}
 
-	void shutdownBootstrap()
+	PackageBootstrapShutdownResult shutdownBootstrap()
 	{
-		if (operationInProgress_) return;
+		PackageBootstrapShutdownResult result;
+		if (operationInProgress_)
+		{
+			result.error = PackageBootstrapShutdownError::OperationInProgress;
+			return result;
+		}
 		OperationGuard operation(operationInProgress_);
+		result.shutdownPhases = completedBootstrapPhases_;
 		while (completedBootstrapPhases_ > 0)
 		{
 			const PackageBootstrapPhase phase =
 				static_cast<PackageBootstrapPhase>(completedBootstrapPhases_ - 1);
 			for (auto package = active_.rbegin(); package != active_.rend(); ++package)
 			{
+				++result.callbacks;
 				PackageBootstrapContext context = contextFor(*package);
 				bool shutDown = false;
 				try
@@ -657,6 +689,7 @@ public:
 				}
 				catch (...)
 				{
+					++result.callbackFailures;
 					faults_.record(RuntimeFaultKind::Shutdown, *package,
 						"shutdown", static_cast<std::uint64_t>(phase) + 1);
 					logError("Package shutdown threw: ", *package);
@@ -675,6 +708,9 @@ public:
 			}
 			--completedBootstrapPhases_;
 		}
+		if (result.callbackFailures != 0)
+			result.error = PackageBootstrapShutdownError::CallbackFailed;
+		return result;
 	}
 
 	PackageSaveStateCaptureResult captureSaveState() noexcept
@@ -690,7 +726,7 @@ public:
 			std::size_t statefulPackages = 0;
 			for (const std::string& packageId : active_)
 				if (packages_.at(packageId).saveStateSchemaVersion != 0) ++statefulPackages;
-			if (statefulPackages > MaximumSaveStateRecords)
+			if (statefulPackages > maximumSaveStateRecords_)
 				return {PackageSaveStateError::TooManyRecords, {}, {}};
 			result.snapshot.records.reserve(statefulPackages);
 			std::size_t totalBytes = 0;
@@ -709,9 +745,9 @@ public:
 					logError("Package save-state callback failed: ", packageId);
 					return {PackageSaveStateError::CallbackFailed, packageId, {}};
 				}
-				if (payload.size() > MaximumPackageSaveStateBytes)
+				if (payload.size() > maximumPackageSaveStateBytes_)
 					return {PackageSaveStateError::PayloadTooLarge, packageId, {}};
-				if (payload.size() > MaximumTotalSaveStateBytes - totalBytes)
+				if (payload.size() > maximumTotalSaveStateBytes_ - totalBytes)
 					return {PackageSaveStateError::TotalTooLarge, packageId, {}};
 				totalBytes += payload.size();
 				result.snapshot.records.push_back(PackageSaveStateRecord{
@@ -735,7 +771,7 @@ public:
 			return {PackageSaveStateError::RuntimeNotReady, {}, 0};
 		try
 		{
-			if (snapshot.records.size() > MaximumSaveStateRecords)
+			if (snapshot.records.size() > maximumSaveStateRecords_)
 				return {PackageSaveStateError::TooManyRecords, {}, 0};
 			std::size_t recordIndex = 0;
 			std::size_t totalBytes = 0;
@@ -752,9 +788,9 @@ public:
 					return {PackageSaveStateError::VersionMismatch, packageId, 0};
 				if (record.schemaVersion != registered.saveStateSchemaVersion)
 					return {PackageSaveStateError::SchemaMismatch, packageId, 0};
-				if (record.payload.size() > MaximumPackageSaveStateBytes)
+				if (record.payload.size() > maximumPackageSaveStateBytes_)
 					return {PackageSaveStateError::PayloadTooLarge, packageId, 0};
-				if (record.payload.size() > MaximumTotalSaveStateBytes - totalBytes)
+				if (record.payload.size() > maximumTotalSaveStateBytes_ - totalBytes)
 					return {PackageSaveStateError::TotalTooLarge, packageId, 0};
 				totalBytes += record.payload.size();
 			}
@@ -1062,6 +1098,19 @@ public:
 	{
 		return lastCapabilityContractFailure_;
 	}
+	std::size_t maximumPersistencePayloadBytes() const
+	{
+		return packagePersistence_.maximumPayloadBytes();
+	}
+	std::size_t maximumSaveStateRecords() const { return maximumSaveStateRecords_; }
+	std::size_t maximumPackageSaveStateBytes() const
+	{
+		return maximumPackageSaveStateBytes_;
+	}
+	std::size_t maximumTotalSaveStateBytes() const
+	{
+		return maximumTotalSaveStateBytes_;
+	}
 
 private:
 	class OperationGuard
@@ -1088,6 +1137,7 @@ private:
 		std::vector<std::string> messageTopics;
 		std::vector<EngineServiceRequirement> requiredServices;
 		std::vector<std::string> requiredCapabilities;
+		PackageIdentity identity;
 		PackageStorage storage;
 		PackageMessagePublisher messagePublisher;
 		PackageRandomSource random;
@@ -1329,7 +1379,7 @@ private:
 	{
 		RegisteredPackage& registered = packages_.at(packageId);
 		return PackageBootstrapContext{
-			content_, services_, messages_, extensionServices_, configuration_,
+			registered.identity, content_, services_, messages_, extensionServices_, configuration_,
 			registered.storage, registered.messagePublisher, registered.random,
 			registered.localization, registered.definitions, registered.entities,
 			registered.audio, registered.tasks};
@@ -1401,6 +1451,9 @@ private:
 	PackageTaskQueue& tasks_;
 	std::uint64_t packageRandomSeed_;
 	std::size_t packageRandomStreamLimit_;
+	std::size_t maximumSaveStateRecords_;
+	std::size_t maximumPackageSaveStateBytes_;
+	std::size_t maximumTotalSaveStateBytes_;
 	std::unordered_map<std::string, RegisteredPackage> packages_;
 	std::vector<std::string> active_;
 	std::string activeCampaign_;

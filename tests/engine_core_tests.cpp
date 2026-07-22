@@ -5,6 +5,7 @@
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineHost.h>
+#include <Engine/Core/EngineHostOptions.h>
 #include <Engine/Core/EntityRegistry.h>
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
@@ -23,6 +24,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -88,6 +90,81 @@ public:
 	bool throws = false;
 };
 
+// Models a third-party ByteStorage implementation compiled against the legacy
+// readAll contract. It deliberately does not override readAllBounded so this
+// test protects the extension's source-compatible fallback behavior.
+class LegacyOnlyByteStorage final : public ByteStorage
+{
+public:
+	explicit LegacyOnlyByteStorage(std::vector<std::uint8_t> bytes)
+		: bytes_(std::move(bytes)) {}
+
+	bool exists(const std::string& path) const override
+	{
+		return path == "legacy.record";
+	}
+	bool readAll(const std::string& path,
+		std::vector<std::uint8_t>& bytes) const override
+	{
+		++readAllCalls;
+		if (!exists(path)) return false;
+		bytes = bytes_;
+		return true;
+	}
+	bool writeAll(const std::string&,
+		const std::vector<std::uint8_t>&) override
+	{
+		return false;
+	}
+
+	mutable std::size_t readAllCalls = 0;
+
+private:
+	std::vector<std::uint8_t> bytes_;
+};
+
+class BoundedProbeByteStorage final : public ByteStorage
+{
+public:
+	explicit BoundedProbeByteStorage(std::vector<std::uint8_t> bytes)
+		: bytes_(std::move(bytes)) {}
+
+	bool exists(const std::string& path) const override
+	{
+		++existsCalls;
+		return path == "bounded.record" || path == "storage.error";
+	}
+	bool readAll(const std::string&,
+		std::vector<std::uint8_t>&) const override
+	{
+		++readAllCalls;
+		return false;
+	}
+	ByteStorageReadResult readAllBounded(const std::string& path,
+		std::size_t maximumBytes,
+		std::vector<std::uint8_t>& bytes) const override
+	{
+		++boundedReadCalls;
+		if (path == "storage.error") return ByteStorageReadResult::StorageError;
+		if (path != "bounded.record") return ByteStorageReadResult::NotFound;
+		if (bytes_.size() > maximumBytes) return ByteStorageReadResult::TooLarge;
+		bytes = bytes_;
+		return ByteStorageReadResult::Success;
+	}
+	bool writeAll(const std::string&,
+		const std::vector<std::uint8_t>&) override
+	{
+		return false;
+	}
+
+	mutable std::size_t existsCalls = 0;
+	mutable std::size_t readAllCalls = 0;
+	mutable std::size_t boundedReadCalls = 0;
+
+private:
+	std::vector<std::uint8_t> bytes_;
+};
+
 class DeclaredContentPackage final : public EnginePackage
 {
 public:
@@ -106,6 +183,83 @@ public:
 private:
 	PackageDescriptor descriptor_;
 	bool active_ = false;
+};
+
+class TransactionalLifecyclePackage final : public EnginePackage
+{
+public:
+	explicit TransactionalLifecyclePackage(std::string id)
+		: descriptor_{ContentManifest{
+			std::move(id), "1", ContentApiVersion{1, 0}}, PackageKind::Rules}
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override
+	{
+		active = true;
+		return true;
+	}
+	void deactivate() noexcept override
+	{
+		active = false;
+		++deactivateCalls;
+	}
+	bool bootstrap(PackageBootstrapContext&, PackageBootstrapPhase phase) override
+	{
+		bootstrapCalls.push_back(static_cast<int>(phase));
+		if (cancelDuringBootstrap)
+		{
+			cancelDuringBootstrapResult =
+				cancelDuringBootstrap->tryCancelInitialization();
+			cancelDuringBootstrap = nullptr;
+		}
+		return static_cast<int>(phase) != failOnBootstrapPhase;
+	}
+	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
+	{
+		shutdownCalls.push_back(static_cast<int>(phase));
+		if (shutdownDuringShutdown)
+		{
+			shutdownDuringShutdownResult = shutdownDuringShutdown->shutdownPackages();
+			shutdownDuringShutdown = nullptr;
+		}
+		if (static_cast<int>(phase) == throwOnShutdownPhase)
+			throw std::runtime_error("injected shutdown failure");
+	}
+
+	PackageDescriptor descriptor_;
+	std::vector<int> bootstrapCalls;
+	std::vector<int> shutdownCalls;
+	RuntimeSession* cancelDuringBootstrap = nullptr;
+	RuntimeSessionTransitionResult cancelDuringBootstrapResult;
+	RuntimeSession* shutdownDuringShutdown = nullptr;
+	RuntimeSessionShutdownResult shutdownDuringShutdownResult;
+	int throwOnShutdownPhase = -1;
+	int failOnBootstrapPhase = -1;
+	int deactivateCalls = 0;
+	bool active = false;
+};
+
+class ContractTestService
+{
+public:
+	virtual ~ContractTestService() = default;
+	virtual unsigned value() const = 0;
+};
+
+class ContractTestPadding
+{
+public:
+	virtual ~ContractTestPadding() = default;
+	unsigned padding = 7;
+};
+
+class ContractTestImplementation final : public ContractTestPadding,
+	public ContractTestService
+{
+public:
+	unsigned value() const override { return 42; }
 };
 
 void check(bool condition, const char* message)
@@ -393,6 +547,360 @@ int main()
 		resourceUsage.unattributedRecords == 0,
 		"package resource accounting attributes owned framework state and totals");
 
+	EngineHostOptions defaultHostOptions;
+	const EngineHostOptionsValidationResult defaultOptionsValidation =
+		ValidateEngineHostOptions(defaultHostOptions);
+	EngineHost<unsigned> legacyDefaultHost;
+	EngineHost<unsigned> legacyBraceDefaultHost({});
+	EngineHost<unsigned> namedDefaultHost(defaultHostOptions);
+	check(defaultOptionsValidation &&
+		legacyDefaultHost.serviceCatalog().size() == 14 &&
+		legacyDefaultHost.configuration().size() == 21 &&
+		namedDefaultHost.serviceCatalog().size() ==
+			legacyDefaultHost.serviceCatalog().size() &&
+		namedDefaultHost.configuration().size() ==
+			legacyDefaultHost.configuration().size() &&
+		namedDefaultHost.compatibilityFingerprint() ==
+			legacyDefaultHost.compatibilityFingerprint() &&
+		legacyBraceDefaultHost.compatibilityFingerprint() ==
+			legacyDefaultHost.compatibilityFingerprint() &&
+		namedDefaultHost.runtimeMessages().maxQueuedMessages() == 1024 &&
+		namedDefaultHost.runtimeMessages().maxPayloadBytes() == 64u * 1024u &&
+		namedDefaultHost.inputDispatcher().maxEventsPerDispatch() == 256 &&
+		namedDefaultHost.frameTelemetry().capacity() == 240 &&
+		namedDefaultHost.persistence().maximumPayloadBytes() ==
+			PersistenceService::DefaultMaximumPayloadBytes &&
+		namedDefaultHost.packages().maximumPersistencePayloadBytes() ==
+			PersistenceService::DefaultMaximumPayloadBytes &&
+		namedDefaultHost.packages().maximumSaveStateRecords() ==
+			PackageRegistry::MaximumSaveStateRecords &&
+		namedDefaultHost.packageSaveArchives().maximumRecords() ==
+			PackageRegistry::MaximumSaveStateRecords,
+		"named host defaults preserve the positional host contract and fingerprint");
+
+	constexpr EngineServiceContract<ContractTestService> derivedServiceContract{
+		"test.derived-service", {1, 0}};
+	EngineServiceContract<ContractTestService> invalidServiceContract;
+	ServiceCatalog contractCatalog;
+	ContractTestImplementation contractImplementation;
+	const EngineServiceRegistrationError derivedServiceRegistration =
+		contractCatalog.registerService(
+			derivedServiceContract, contractImplementation);
+	const EngineServiceLookupResult<ContractTestService> derivedService =
+		contractCatalog.resolve(derivedServiceContract);
+	const EngineServiceRegistrationError invalidServiceRegistration =
+		contractCatalog.registerService(
+			invalidServiceContract, contractImplementation);
+	const EngineServiceLookupResult<ContractTestService> invalidService =
+		contractCatalog.resolve(invalidServiceContract);
+	check(derivedServiceRegistration == EngineServiceRegistrationError::None &&
+		derivedService && derivedService.service->value() == 42 &&
+		derivedService.service ==
+			static_cast<ContractTestService*>(&contractImplementation) &&
+		invalidServiceRegistration ==
+			EngineServiceRegistrationError::InvalidDescriptor &&
+		invalidService.error == EngineServiceLookupError::InvalidDescriptor &&
+		contractCatalog.size() == 1,
+		"typed service contracts bind derived implementations and reject invalid descriptors");
+
+	MemoryByteStorage optionStorage;
+	MemoryInputSource optionInput;
+	EngineServices optionServices{
+		ZeroTimeSource::instance(), ZeroRandomSource::instance(), optionStorage,
+		NullLogSink::instance(), optionInput};
+	EngineHostOptions customHostOptions;
+	customHostOptions.supportedContentApi = ContentApiVersion{7, 9};
+	customHostOptions.hostCapabilities.add("host.named-options");
+	customHostOptions.packageRandomSeed = 41;
+	customHostOptions.simulationStepMicroseconds = 5000;
+	customHostOptions.limits.maximumPackageRandomStreams = 2;
+	customHostOptions.limits.maximumSimulationCatchUpTicks = 3;
+	customHostOptions.limits.maximumAssetCacheEntries = 4;
+	customHostOptions.limits.maximumAssetCacheBytes = 101;
+	customHostOptions.limits.runtimeFaultHistoryCapacity = 5;
+	customHostOptions.limits.maximumLocalizationEntries = 6;
+	customHostOptions.limits.maximumLocalizationTextBytes = 102;
+	customHostOptions.limits.maximumDefinitionEntries = 7;
+	customHostOptions.limits.maximumDefinitionPayloadBytes = 103;
+	customHostOptions.limits.maximumEntities = 8;
+	customHostOptions.limits.maximumPackageAudioPlaybacks = 9;
+	customHostOptions.limits.maximumQueuedPackageTasks = 10;
+	customHostOptions.limits.maximumPackageTasksPerFrame = 3;
+	customHostOptions.limits.maximumCheckpointPackages = 11;
+	customHostOptions.limits.maximumRuntimeReportBytes = 104;
+	customHostOptions.limits.maximumQueuedRuntimeMessages = 12;
+	customHostOptions.limits.maximumRuntimeMessagePayloadBytes = 105;
+	customHostOptions.limits.maximumInputEventsPerDispatch = 13;
+	customHostOptions.limits.frameTelemetryHistoryCapacity = 14;
+	customHostOptions.limits.maximumPersistencePayloadBytes = 256;
+	customHostOptions.limits.maximumPackageSaveStateRecords = 15;
+	customHostOptions.limits.maximumPackageSaveStateBytes = 107;
+	customHostOptions.limits.maximumTotalPackageSaveStateBytes = 108;
+	EngineHost<unsigned> customHost(customHostOptions, optionServices);
+	const PackageCatalogSnapshot customCatalog = customHost.packageCatalog();
+	check(customHost.hasCapability("host.named-options") &&
+		customCatalog.supportedApi.major == 7 && customCatalog.supportedApi.minor == 9 &&
+		customHost.simulationTicks().stepMicroseconds() == 5000 &&
+		customHost.simulationTicks().maxCatchUpTicks() == 3 &&
+		customHost.assetCache().maximumEntries() == 4 &&
+		customHost.assetCache().maximumBytes() == 101 &&
+		customHost.runtimeFaults().capacity() == 5 &&
+		customHost.localization().maximumEntries() == 6 &&
+		customHost.localization().maximumTextBytes() == 102 &&
+		customHost.definitions().maximumEntries() == 7 &&
+		customHost.definitions().maximumPayloadBytes() == 103 &&
+		customHost.entities().maximumEntities() == 8 &&
+		customHost.packageAudio().maximumPlaybacks() == 9 &&
+		customHost.packageTasks().maximumQueued() == 10 &&
+		customHost.packageTasks().maximumPerDrain() == 3 &&
+		customHost.runtimeCheckpoints().maximumPackages() == 11 &&
+		customHost.runtimeReports().maximumBytes() == 104 &&
+		customHost.runtimeMessages().maxQueuedMessages() == 12 &&
+		customHost.runtimeMessages().maxPayloadBytes() == 105 &&
+		customHost.inputDispatcher().maxEventsPerDispatch() == 13 &&
+		customHost.frameTelemetry().capacity() == 14 &&
+		customHost.persistence().maximumPayloadBytes() == 256 &&
+		customHost.packages().maximumPersistencePayloadBytes() == 256 &&
+		customHost.packages().maximumSaveStateRecords() == 15 &&
+		customHost.packages().maximumPackageSaveStateBytes() == 107 &&
+		customHost.packages().maximumTotalSaveStateBytes() == 108 &&
+		customHost.packageSaveArchives().maximumRecords() == 15 &&
+		customHost.packageSaveArchives().maximumPackageBytes() == 107 &&
+		customHost.packageSaveArchives().maximumTotalBytes() == 108,
+		"named host options configure every owned bounded subsystem coherently");
+
+	EngineHostOptions invalidHostOptions;
+	invalidHostOptions.simulationStepMicroseconds =
+		std::numeric_limits<std::uint64_t>::max();
+	const EngineHostOptionsValidationResult invalidOptionsValidation =
+		ValidateEngineHostOptions(invalidHostOptions);
+	EngineHostOptions invalidSaveStateOptions;
+	invalidSaveStateOptions.limits.maximumPackageSaveStateBytes = 2;
+	invalidSaveStateOptions.limits.maximumTotalPackageSaveStateBytes = 1;
+	const EngineHostOptionsValidationResult invalidSaveStateValidation =
+		ValidateEngineHostOptions(invalidSaveStateOptions);
+	bool invalidHostRejected = false;
+	try
+	{
+		EngineHost<unsigned> invalidHost(invalidHostOptions);
+	}
+	catch (const std::invalid_argument& error)
+	{
+		invalidHostRejected =
+			std::string(error.what()).find("simulationStepMicroseconds") !=
+			std::string::npos;
+	}
+	check(invalidOptionsValidation.error ==
+			EngineHostOptionsValidationError::RuntimeConfigurationRange &&
+		std::string(invalidOptionsValidation.option) == "simulationStepMicroseconds" &&
+		invalidSaveStateValidation.error ==
+			EngineHostOptionsValidationError::InvalidPackageSaveStateLimits &&
+		invalidHostRejected,
+		"invalid host options are diagnosed and rejected before host construction");
+
+	TransactionalLifecyclePackage transactionalPackage("rules.transactional-session");
+	EngineHost<unsigned> transactionalHost;
+	const bool transactionalRegistered =
+		transactionalHost.packages().registerPackage(transactionalPackage) ==
+			PackageRegistrationError::None &&
+		transactionalHost.packages().activate("rules.transactional-session") ==
+			PackageActivationError::None;
+	const RuntimeSessionTransitionResult initializationStarted =
+		transactionalHost.tryBeginInitialization();
+	const RuntimeSessionAdvanceResult contentLoaded =
+		transactionalHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::LoadContent);
+	const RuntimeSessionTransitionResult prematureRunning =
+		transactionalHost.tryMarkRunning();
+	const RuntimeSessionTransitionResult cancelledInitialization =
+		transactionalHost.tryCancelInitialization();
+	const RuntimeSessionTransitionResult repeatedCancellation =
+		transactionalHost.tryCancelInitialization();
+	check(transactionalRegistered && initializationStarted && contentLoaded &&
+		prematureRunning.error == RuntimeSessionError::PackageBootstrapIncomplete &&
+		prematureRunning.lifecycle == EngineLifecycle::Initializing &&
+		cancelledInitialization &&
+		cancelledInitialization.lifecycle == EngineLifecycle::Stopped &&
+		cancelledInitialization.completedPackagePhases == 0 &&
+		cancelledInitialization.rollback.packages.shutdownPhases == 2 &&
+		cancelledInitialization.rollback.packages.callbacks == 2 &&
+		cancelledInitialization.rollback.packages.callbackFailures == 0 &&
+		repeatedCancellation.error == RuntimeSessionError::InvalidState &&
+		transactionalPackage.active && transactionalPackage.deactivateCalls == 0 &&
+		transactionalPackage.bootstrapCalls == std::vector<int>({0, 1}) &&
+		transactionalPackage.shutdownCalls == std::vector<int>({1, 0}) &&
+		transactionalHost.packages().completedBootstrapPhases() == 0,
+		"initialization cancellation rolls back completed phases without deactivation");
+
+	TransactionalLifecyclePackage reentrantPackage("rules.reentrant-cancel");
+	EngineHost<unsigned> reentrantHost;
+	reentrantPackage.cancelDuringBootstrap = &reentrantHost.runtimeSession();
+	const bool reentrantReady =
+		reentrantHost.packages().registerPackage(reentrantPackage) ==
+			PackageRegistrationError::None &&
+		reentrantHost.packages().activate("rules.reentrant-cancel") ==
+			PackageActivationError::None &&
+		reentrantHost.beginInitialization();
+	const RuntimeSessionAdvanceResult reentrantAdvance =
+		reentrantHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::Configure);
+	const RuntimeSessionTransitionResult reentrantRetry =
+		reentrantHost.tryCancelInitialization();
+	check(reentrantReady && reentrantAdvance &&
+		reentrantPackage.cancelDuringBootstrapResult.error ==
+			RuntimeSessionError::PackageRollbackFailed &&
+		reentrantPackage.cancelDuringBootstrapResult.rollback.packages.error ==
+			PackageBootstrapShutdownError::OperationInProgress &&
+		reentrantPackage.cancelDuringBootstrapResult.lifecycle ==
+			EngineLifecycle::Initializing &&
+		reentrantRetry && reentrantRetry.lifecycle == EngineLifecycle::Stopped &&
+		reentrantPackage.shutdownCalls == std::vector<int>({0}),
+		"reentrant cancellation stays initializing until rollback can be retried");
+
+	TransactionalLifecyclePackage reentrantShutdownPackage("rules.reentrant-shutdown");
+	EngineHost<unsigned> reentrantShutdownHost;
+	const bool reentrantShutdownReady =
+		reentrantShutdownHost.packages().registerPackage(reentrantShutdownPackage) ==
+			PackageRegistrationError::None &&
+		reentrantShutdownHost.packages().activate("rules.reentrant-shutdown") ==
+			PackageActivationError::None &&
+		reentrantShutdownHost.beginInitialization() &&
+		reentrantShutdownHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		reentrantShutdownHost.markRunning() &&
+		reentrantShutdownHost.beginShutdown();
+	reentrantShutdownPackage.shutdownDuringShutdown =
+		&reentrantShutdownHost.runtimeSession();
+	const RuntimeSessionShutdownResult reentrantShutdown =
+		reentrantShutdownHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionShutdownResult repeatedReentrantShutdown =
+		reentrantShutdownHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult reentrantShutdownStopped =
+		reentrantShutdownHost.tryMarkStopped();
+	check(reentrantShutdownReady &&
+		reentrantShutdownPackage.shutdownDuringShutdownResult.error ==
+			RuntimeSessionError::PackageShutdownFailed &&
+		reentrantShutdownPackage.shutdownDuringShutdownResult.packages.bootstrap.packages.error ==
+			PackageBootstrapShutdownError::OperationInProgress &&
+		reentrantShutdownPackage.shutdownDuringShutdownResult.packages.deactivation.error ==
+			PackageDeactivationError::OperationInProgress &&
+		reentrantShutdown && repeatedReentrantShutdown && reentrantShutdownStopped &&
+		reentrantShutdownPackage.shutdownCalls == std::vector<int>({2, 1, 0}) &&
+		reentrantShutdownPackage.deactivateCalls == 1 &&
+		!reentrantShutdownPackage.active &&
+		reentrantShutdownHost.lifecycle() == EngineLifecycle::Stopped,
+		"reentrant shutdown contention does not poison the completing outer transaction");
+
+	const RuntimeSessionTransitionResult retryStarted =
+		transactionalHost.tryBeginInitialization();
+	const RuntimeSessionAdvanceResult retryBootstrapped =
+		transactionalHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime);
+	const RuntimeSessionTransitionResult retryRunning =
+		transactionalHost.tryMarkRunning();
+	const RuntimeSessionTransitionResult shutdownStarted =
+		transactionalHost.tryBeginShutdown();
+	const RuntimeSessionTransitionResult prematureStopped =
+		transactionalHost.tryMarkStopped();
+	const RuntimeSessionShutdownResult finalShutdown =
+		transactionalHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionShutdownResult repeatedShutdown =
+		transactionalHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult finalStopped =
+		transactionalHost.tryMarkStopped();
+	check(retryStarted && retryBootstrapped && retryRunning && shutdownStarted &&
+		prematureStopped.error == RuntimeSessionError::PackageShutdownIncomplete &&
+		prematureStopped.lifecycle == EngineLifecycle::ShuttingDown && finalShutdown &&
+		finalShutdown.packages.shutdownPhases == 3 &&
+		finalShutdown.packages.bootstrap.packages.callbacks == 3 && repeatedShutdown &&
+		repeatedShutdown.packages.shutdownPhases == 0 &&
+		repeatedShutdown.packages.bootstrap.packages.callbacks == 0 && finalStopped &&
+		transactionalPackage.bootstrapCalls == std::vector<int>({0, 1, 0, 1, 2}) &&
+		transactionalPackage.shutdownCalls == std::vector<int>({1, 0, 2, 1, 0}) &&
+		transactionalPackage.deactivateCalls == 1 && !transactionalPackage.active &&
+		transactionalHost.lifecycle() == EngineLifecycle::Stopped,
+		"rolled-back packages retry cleanly and final shutdown callbacks run only once");
+
+	TransactionalLifecyclePackage failingRollbackPackage("rules.rollback-failure");
+	failingRollbackPackage.throwOnShutdownPhase = 1;
+	EngineHost<unsigned> failingRollbackHost;
+	const bool failingRollbackReady =
+		failingRollbackHost.packages().registerPackage(failingRollbackPackage) ==
+			PackageRegistrationError::None &&
+		failingRollbackHost.packages().activate("rules.rollback-failure") ==
+			PackageActivationError::None &&
+		failingRollbackHost.beginInitialization() &&
+		failingRollbackHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::LoadContent);
+	const RuntimeSessionTransitionResult failedRollback =
+		failingRollbackHost.tryCancelInitialization();
+	check(failingRollbackReady &&
+		failedRollback.error == RuntimeSessionError::PackageRollbackFailed &&
+		failedRollback.rollback.packages.error ==
+			PackageBootstrapShutdownError::CallbackFailed &&
+		failedRollback.rollback.packages.shutdownPhases == 2 &&
+		failedRollback.rollback.packages.callbacks == 2 &&
+		failedRollback.rollback.packages.callbackFailures == 1 &&
+		failingRollbackPackage.shutdownCalls == std::vector<int>({1, 0}) &&
+		failingRollbackHost.packages().completedBootstrapPhases() == 0 &&
+		failingRollbackHost.lifecycle() == EngineLifecycle::Stopped,
+		"rollback callback failures remain structured after best-effort cleanup");
+
+	TransactionalLifecyclePackage failedPhaseRollbackPackage(
+		"rules.failed-phase-rollback");
+	failedPhaseRollbackPackage.failOnBootstrapPhase =
+		static_cast<int>(PackageBootstrapPhase::LoadContent);
+	failedPhaseRollbackPackage.throwOnShutdownPhase =
+		static_cast<int>(PackageBootstrapPhase::LoadContent);
+	EngineHost<unsigned> failedPhaseRollbackHost;
+	const bool failedPhaseRollbackReady =
+		failedPhaseRollbackHost.packages().registerPackage(failedPhaseRollbackPackage) ==
+			PackageRegistrationError::None &&
+		failedPhaseRollbackHost.packages().activate("rules.failed-phase-rollback") ==
+			PackageActivationError::None &&
+		failedPhaseRollbackHost.beginInitialization();
+	const RuntimeSessionAdvanceResult failedPhaseRollback =
+		failedPhaseRollbackHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::LoadContent);
+	const RuntimeSessionTransitionResult failedPhaseRollbackRecovery =
+		failedPhaseRollbackHost.tryCancelInitialization();
+	check(failedPhaseRollbackReady &&
+		failedPhaseRollback.error == RuntimeSessionError::PackageBootstrapFailed &&
+		failedPhaseRollback.packages.error == PackageBootstrapError::CallbackFailed &&
+		failedPhaseRollback.packages.phase == PackageBootstrapPhase::LoadContent &&
+		failedPhaseRollback.packages.rolledBack &&
+		failedPhaseRollback.packages.completedPhases == 0 &&
+		failedPhaseRollback.packages.rollback.packages.error ==
+			PackageBootstrapShutdownError::CallbackFailed &&
+		failedPhaseRollback.packages.rollback.packages.shutdownPhases == 2 &&
+		failedPhaseRollback.packages.rollback.packages.callbacks == 2 &&
+		failedPhaseRollback.packages.rollback.packages.callbackFailures == 1 &&
+		failedPhaseRollbackPackage.shutdownCalls == std::vector<int>({1, 0}) &&
+		failedPhaseRollbackRecovery &&
+		failedPhaseRollbackHost.lifecycle() == EngineLifecycle::Stopped,
+		"failed-phase rollback failures propagate through lifecycle and session diagnostics");
+	const bool failingFinalShutdownReady =
+		failingRollbackHost.beginInitialization() &&
+		failingRollbackHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		failingRollbackHost.markRunning() && failingRollbackHost.beginShutdown();
+	const RuntimeSessionShutdownResult failedFinalShutdown =
+		failingRollbackHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionShutdownResult repeatedFailedFinalShutdown =
+		failingRollbackHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult rejectedStoppedState =
+		failingRollbackHost.tryMarkStopped();
+	check(failingFinalShutdownReady &&
+		failedFinalShutdown.error == RuntimeSessionError::PackageShutdownFailed &&
+		failedFinalShutdown.packages.bootstrap.packages.callbackFailures == 1 &&
+		repeatedFailedFinalShutdown.error == RuntimeSessionError::PackageShutdownFailed &&
+		repeatedFailedFinalShutdown.packages.bootstrap.packages.callbacks == 0 &&
+		rejectedStoppedState.error == RuntimeSessionError::PackageShutdownIncomplete &&
+		failingRollbackPackage.shutdownCalls == std::vector<int>({1, 0, 2, 1, 0}) &&
+		failingRollbackPackage.deactivateCalls == 1 &&
+		failingRollbackHost.lifecycle() == EngineLifecycle::ShuttingDown,
+		"a failed final rollback cannot be hidden by a no-op repeated shutdown");
+
 	DeclaredContentPackage declaredContent(PackageDescriptor{
 		ContentManifest{"mod.declared-content", "1", ContentApiVersion{1, 4}},
 		PackageKind::Extension, {}, {}, {}, {},
@@ -436,12 +944,13 @@ int main()
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;
+	constexpr EngineServiceContract<unsigned> externalServiceContract{
+		"host.test-service", {2, 1}};
 	const EngineServiceRegistrationError registeredService =
 		sessionHost.serviceCatalog().registerService(
 			"host.test-service", EngineServiceVersion{2, 3}, externalService);
 	const EngineServiceLookupResult<unsigned> resolvedService =
-		sessionHost.serviceCatalog().resolve<unsigned>(
-			"host.test-service", EngineServiceVersion{2, 1});
+		sessionHost.serviceCatalog().resolve(externalServiceContract);
 	const RuntimeConfigurationSetError configuredValue =
 		sessionHost.configuration().set("host.test-value", std::int64_t{42});
 	const RuntimeSessionShutdownResult prematureSessionShutdown =
@@ -459,6 +968,8 @@ int main()
 	check(registeredService == EngineServiceRegistrationError::None &&
 		resolvedService && resolvedService.service == &externalService &&
 		resolvedService.availableVersion.minor == 3 &&
+		sessionHost.serviceCatalog().resolve(FrameTelemetryServiceContract).service ==
+			&sessionHost.frameTelemetry() &&
 		sessionHost.serviceCatalog().size() == 15 &&
 		sessionHost.serviceCatalog().sealed() &&
 		sessionHost.serviceCatalog().registerService(
@@ -660,6 +1171,26 @@ int main()
 		!runtimeMessages.publish(RuntimeMessageRequest{
 			"invalid/topic", "engine.test", {}}),
 		"runtime message bus validates publishers and retains deterministic sinks");
+	RuntimeMessageBus retainedMessages(1, 8);
+	retainedMessages.publish(RuntimeMessageRequest{
+		"engine.first", "engine.test", {1}});
+	RuntimeMessageRequest retainedRequest{
+		"engine.retry", "engine.test", {2, 3}};
+	const RuntimeMessagePublishResult retainedPressure =
+		retainedMessages.publishRetained(retainedRequest);
+	const bool retainedUnchanged =
+		retainedRequest.topic == "engine.retry" &&
+		retainedRequest.source == "engine.test" &&
+		retainedRequest.payload == std::vector<std::uint8_t>({2, 3});
+	retainedMessages.dispatchPending();
+	const RuntimeMessagePublishResult retainedPublished =
+		retainedMessages.publishRetained(retainedRequest);
+	check(retainedPressure.error == RuntimeMessagePublishError::QueueFull &&
+		retainedUnchanged &&
+		retainedRequest.topic.empty() && retainedRequest.source.empty() &&
+		retainedRequest.payload.empty() && retainedPublished &&
+		retainedPublished.sequence == 2,
+		"runtime message ownership stays retained under pressure and transfers on success");
 	TestRuntimeUpdateSink receivingUpdates;
 	TestRuntimeUpdateSink throwingUpdates;
 	throwingUpdates.throws = true;
@@ -758,6 +1289,51 @@ int main()
 
 	MemoryByteStorage persistenceStorage;
 	PersistenceService persistence(persistenceStorage, 8);
+	persistenceStorage.writeAll(
+		"memory.oversized", std::vector<std::uint8_t>{1, 2, 3, 4, 5});
+	std::vector<std::uint8_t> boundedOutput{9};
+	check(persistenceStorage.readAllBounded(
+			"memory.oversized", 4, boundedOutput) == ByteStorageReadResult::TooLarge &&
+		boundedOutput == std::vector<std::uint8_t>({9}) &&
+		persistenceStorage.readAllBounded(
+			"memory.missing", 4, boundedOutput) == ByteStorageReadResult::NotFound &&
+		boundedOutput == std::vector<std::uint8_t>({9}),
+		"memory byte storage rejects oversized records before copying and preserves output");
+	LegacyOnlyByteStorage legacyOnlyStorage({1, 2, 3, 4, 5});
+	check(legacyOnlyStorage.readAllBounded(
+			"legacy.record", 4, boundedOutput) == ByteStorageReadResult::TooLarge &&
+		legacyOnlyStorage.readAllCalls == 1 &&
+		boundedOutput == std::vector<std::uint8_t>({9}),
+		"bounded byte-storage reads retain a transactional fallback for legacy adapters");
+	BoundedProbeByteStorage boundedProbeStorage(
+		std::vector<std::uint8_t>(9, 0));
+	PersistenceService boundedProbePersistence(boundedProbeStorage, 2);
+	PersistenceHeader boundedProbeHeader{77, 88};
+	std::vector<std::uint8_t> boundedProbePayload{7};
+	check(boundedProbePersistence.load(
+			"bounded.record", 1, 1, 1,
+			boundedProbeHeader, boundedProbePayload) == PersistenceLoadResult::TooLarge &&
+		boundedProbeStorage.boundedReadCalls == 1 &&
+		boundedProbeStorage.readAllCalls == 0 && boundedProbeStorage.existsCalls == 0 &&
+		boundedProbeHeader.magic == 77 && boundedProbeHeader.version == 88 &&
+		boundedProbePayload == std::vector<std::uint8_t>({7}),
+		"persistence enforces encoded-size bounds through the storage adapter before reading");
+	std::vector<std::uint8_t> boundedRawOutput{6};
+	check(!boundedProbePersistence.loadRawBounded(
+			"bounded.record", 8, boundedRawOutput) &&
+		boundedProbeStorage.boundedReadCalls == 2 &&
+		boundedProbeStorage.readAllCalls == 0 && boundedProbeStorage.existsCalls == 0 &&
+		boundedRawOutput == std::vector<std::uint8_t>({6}),
+		"raw persistence uses bounded storage reads without publishing oversized data");
+	check(boundedProbePersistence.loadEnvelope(
+			"missing.record", 1, 1, 1,
+			boundedProbeHeader, boundedProbePayload) == PersistenceLoadResult::NotFound &&
+		boundedProbePersistence.loadEnvelope(
+			"storage.error", 1, 1, 1,
+			boundedProbeHeader, boundedProbePayload) == PersistenceLoadResult::StorageError &&
+		boundedProbeHeader.magic == 77 && boundedProbeHeader.version == 88 &&
+		boundedProbePayload == std::vector<std::uint8_t>({7}),
+		"bounded persistence distinguishes missing and failed storage without publishing output");
 	const std::vector<std::uint8_t> persisted{1, 3, 3, 7};
 	check(persistence.saveEnvelope(
 		"engine.record", PersistenceHeader{0x454E4750u, 2}, persisted) ==

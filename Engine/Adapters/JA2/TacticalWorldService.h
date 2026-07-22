@@ -29,11 +29,14 @@ public:
 	virtual TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept = 0;
 };
 
+inline constexpr EngineServiceContract<TacticalWorldService>
+	TacticalWorldServiceContract{
+		TacticalWorldServiceId, TacticalWorldServiceVersion};
+
 inline EngineServiceRegistrationError RegisterTacticalWorldService(
 	ServiceCatalog& catalog, TacticalWorldService& service) noexcept
 {
-	return catalog.registerService<TacticalWorldService>(
-		TacticalWorldServiceId, TacticalWorldServiceVersion, service);
+	return catalog.registerService(TacticalWorldServiceContract, service);
 }
 
 class NullTacticalWorldService final : public TacticalWorldService
@@ -74,16 +77,9 @@ public:
 	TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept override
 	{
 		if (!available_) return TacticalWorldCaptureResult::Unavailable;
-		try
-		{
-			TacticalWorldSnapshot captured = snapshot_;
-			output = std::move(captured);
-			return TacticalWorldCaptureResult::Success;
-		}
-		catch (...)
-		{
-			return TacticalWorldCaptureResult::AllocationFailure;
-		}
+		return snapshot_.copyTo(output)
+			? TacticalWorldCaptureResult::Success
+			: TacticalWorldCaptureResult::AllocationFailure;
 	}
 
 private:

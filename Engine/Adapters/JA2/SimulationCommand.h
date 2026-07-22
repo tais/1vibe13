@@ -39,12 +39,23 @@ struct BeginFireWeaponCommand
 	SimulationCommandSource source;
 };
 
+struct MoveToGridCommand
+{
+	TacticalEntityId soldier;
+	std::int32_t destinationGrid;
+	std::uint16_t movementMode;
+	bool reverse;
+	bool forceRestart;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
 using SimulationCommand = std::variant<
 	EndTurnCommand,
 	ChangeStanceCommand,
-	BeginFireWeaponCommand>;
+	BeginFireWeaponCommand,
+	MoveToGridCommand>;
 
 #endif

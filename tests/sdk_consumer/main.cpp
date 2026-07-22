@@ -7,6 +7,9 @@
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 #include <Engine/Core/EngineHost.h>
+#include <Engine/Core/EngineHostOptions.h>
+#include <Engine/Core/EngineServiceContracts.h>
+#include <Engine/Core/ServiceCatalog.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -97,6 +100,21 @@ public:
 		return true;
 	}
 	void deactivate() noexcept override { active_ = false; }
+	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
+	{
+		if (phase == PackageBootstrapPhase::Configure)
+		{
+			issuedIdentity_ = context.identity;
+			commandBinding_ = BindTacticalCommandClient(
+				context.extensionServices, context.identity);
+		}
+		return phase != PackageBootstrapPhase::Configure || commandBinding_;
+	}
+	const PackageIdentity& issuedIdentity() const { return issuedIdentity_; }
+	const TacticalCommandClientBindingResult& commandBinding() const
+	{
+		return commandBinding_;
+	}
 	bool saveState(PackageBootstrapContext&, std::vector<std::uint8_t>& state) override
 	{
 		state = {1, 2, 3};
@@ -110,18 +128,58 @@ public:
 
 private:
 	PackageDescriptor descriptor_;
+	PackageIdentity issuedIdentity_;
+	TacticalCommandClientBindingResult commandBinding_;
 	bool active_ = false;
 };
 
+class ExternalTypedService
+{
+public:
+	virtual ~ExternalTypedService() = default;
+	virtual unsigned value() const = 0;
+};
+
+class ExternalTypedImplementation final : public ExternalTypedService
+{
+public:
+	unsigned value() const override { return 29; }
+};
+
+inline constexpr EngineServiceContract<ExternalTypedService>
+	ExternalTypedServiceContract{"external.typed-service", {1, 0}};
+
 int main()
 {
+	EngineHost<> legacyBraceHost({});
+	EngineRuntime<> legacyBraceRuntime({});
+	if (legacyBraceHost.serviceCatalog().size() != 14 ||
+		legacyBraceRuntime.serviceCatalog().size() != 14) return 42;
+
 	MemoryByteStorage storage;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
-	RuntimeCapabilities hostCapabilities;
-	if (!hostCapabilities.add("host.external-consumer")) return 1;
-	EngineHost<> host(services, CurrentContentApiVersion,
-		NullPackageEventSink::instance(), std::move(hostCapabilities));
+	EngineHostOptions hostOptions;
+	if (!hostOptions.hostCapabilities.add("host.external-consumer")) return 1;
+	EngineHost<> host(std::move(hostOptions), services);
+	if (host.runtimeMessages().maxQueuedMessages() != 1024 ||
+		host.inputDispatcher().maxEventsPerDispatch() != 256 ||
+		host.persistence().maximumPayloadBytes() !=
+			PersistenceService::DefaultMaximumPayloadBytes) return 1;
+	TacticalCommandInbox commandInbox(
+		TacticalCommandInboxLimits{2, 1, 1, 64, 10});
+	if (RegisterTacticalCommandService(host.serviceCatalog(), commandInbox) !=
+		EngineServiceRegistrationError::None) return 33;
+	ExternalTypedImplementation typedServiceImplementation;
+	EngineServiceContract<ExternalTypedService> invalidTypedServiceContract;
+	if (host.serviceCatalog().registerService(
+			ExternalTypedServiceContract, typedServiceImplementation) !=
+			EngineServiceRegistrationError::None ||
+		host.serviceCatalog().registerService(
+			invalidTypedServiceContract, typedServiceImplementation) !=
+			EngineServiceRegistrationError::InvalidDescriptor ||
+		host.serviceCatalog().resolve(invalidTypedServiceContract).error !=
+			EngineServiceLookupError::InvalidDescriptor) return 43;
 	unsigned externalService = 17;
 	if (host.serviceCatalog().registerService(
 		"external.test-service", EngineServiceVersion{1, 2}, externalService) !=
@@ -172,10 +230,16 @@ int main()
 		header.version != 1 || loaded != saved) return 4;
 
 	host.screenController().reset(7);
+	const RuntimeSessionTransitionResult initializing = host.tryBeginInitialization();
+	const RuntimeSessionTransitionResult prematureRunning = host.tryMarkRunning();
+	const RuntimeSessionAdvanceResult packagesStarted =
+		host.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime);
+	const RuntimeSessionTransitionResult running = host.tryMarkRunning();
 	if (!host.screens().current() || host.screens().current()->state != 7 ||
-		!host.beginInitialization() ||
-		!host.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime) ||
-		!host.markRunning()) return 5;
+		!initializing ||
+		prematureRunning.error != RuntimeSessionError::PackageBootstrapIncomplete ||
+		!packagesStarted || !package.issuedIdentity() ||
+		package.issuedIdentity().id() != "external.rules" || !running) return 5;
 	const PackageSaveStateCaptureResult capturedExternalState =
 		host.capturePackageSaveState();
 	if (!capturedExternalState || capturedExternalState.snapshot.records.size() != 1 ||
@@ -183,12 +247,46 @@ int main()
 			std::vector<std::uint8_t>({1, 2, 3}) ||
 		!host.validatePackageSaveState(capturedExternalState.snapshot) ||
 		!host.restorePackageSaveState(capturedExternalState.snapshot)) return 14;
-	if (!host.beginShutdown() || !host.runtimeSession().shutdownPackages() ||
-		!host.markStopped()) return 5;
+	const TacticalCommandSubmissionResult commandRequest =
+		package.commandBinding()
+			? package.commandBinding().client.submit(
+				SimulationCommand{MoveToGridCommand{
+					TacticalEntityId{7, 3}, 1311, 0, false, true,
+					SimulationCommandSource::System}})
+			: TacticalCommandSubmissionResult{
+				TacticalCommandSubmissionError::InvalidOwner, 0};
+	std::uint64_t drainedRequest = 0;
+	bool drainedMoveToGrid = false;
+	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
+		[&drainedRequest, &drainedMoveToGrid](const TacticalCommandRequest& request) {
+			drainedRequest = request.requestId;
+			drainedMoveToGrid = std::holds_alternative<MoveToGridCommand>(
+				request.command);
+			return TacticalCommandDisposition::Accept;
+		});
+	if (!commandRequest || commandRequest.requestId != 1 ||
+		package.commandBinding().client.packageId() != "external.rules" ||
+		commandDrain.accepted != 1 || !drainedMoveToGrid ||
+		drainedRequest != commandRequest.requestId ||
+		!commandInbox.empty()) return 34;
+	const RuntimeSessionTransitionResult shuttingDown = host.tryBeginShutdown();
+	const RuntimeSessionTransitionResult prematureStopped = host.tryMarkStopped();
+	const RuntimeSessionShutdownResult packagesStopped =
+		host.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult stopped = host.tryMarkStopped();
+	if (!shuttingDown ||
+		prematureStopped.error != RuntimeSessionError::PackageShutdownIncomplete ||
+		!packagesStopped || !stopped) return 5;
 	const EngineServiceLookupResult<unsigned> resolved =
 		host.serviceCatalog().resolve<unsigned>(
 			"external.test-service", EngineServiceVersion{1, 1});
+	const EngineServiceLookupResult<ExternalTypedService> typedService =
+		host.serviceCatalog().resolve(ExternalTypedServiceContract);
+	const EngineServiceLookupResult<FrameTelemetry> telemetryService =
+		host.serviceCatalog().resolve(FrameTelemetryServiceContract);
 	if (!resolved || resolved.service != &externalService ||
+		!typedService || typedService.service->value() != 29 ||
+		!telemetryService || telemetryService.service != &host.frameTelemetry() ||
 		!host.serviceCatalog().sealed()) return 6;
 	const std::int64_t* configured =
 		host.configuration().find<std::int64_t>("external.test-value");
@@ -277,16 +375,21 @@ int main()
 		sink.source != TacticalWorldDeltaMessageSource ||
 		sink.decodeResult != TacticalWorldDeltaDecodeResult::Success ||
 		sink.delta.events.size() != 3) return 26;
+	observer.reset();
+	if (observer.latest() ||
+		observer.update() != TacticalWorldObserverUpdateResult::PublishedBaseline ||
+		observer.latest().serial != 1) return 41;
 
-	EngineRuntime<> commandRuntime(services);
+	EngineRuntime<> commandRuntime(EngineHostOptions{}, services);
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
-		37, BeginFireWeaponCommand{
-			actorId, 1300, 0, 1, SimulationCommandSource::LocalPlayer});
+		37, MoveToGridCommand{
+			actorId, 1300, 6, true, false,
+			SimulationCommandSource::LocalPlayer});
 	const std::vector<RecordedSimulationCommand> recordedCommands =
 		commandRuntime.commandJournal().snapshot();
 	if (commandSequence != 0 || recordedCommands.size() != 1 ||
 		recordedCommands[0].tick != 37 || recordedCommands[0].sequence != 0 ||
-		!std::holds_alternative<BeginFireWeaponCommand>(
+		!std::holds_alternative<MoveToGridCommand>(
 			recordedCommands[0].command)) return 27;
 
 	std::vector<std::uint8_t> encodedCommands;
@@ -298,7 +401,8 @@ int main()
 			encodedCommands, decodedCommands, decodedDroppedCount) !=
 				SimulationCommandJournalDecodeResult::Success ||
 		decodedDroppedCount != 0 || decodedCommands.size() != 1 ||
-		std::get<BeginFireWeaponCommand>(decodedCommands[0].command).targetGrid != 1300)
+		std::get<MoveToGridCommand>(decodedCommands[0].command).destinationGrid != 1300 ||
+		!std::get<MoveToGridCommand>(decodedCommands[0].command).reverse)
 		return 28;
 
 	if (commandRuntime.saveCommandReplay("external.command-replay") !=
@@ -315,33 +419,10 @@ int main()
 	const std::vector<ScheduledCommand<SimulationCommand>> replayedCommands =
 		replayRuntime.commands().drainThrough(37);
 	if (replayedCommands.size() != 1 || replayedCommands[0].sequence != 0 ||
-		!std::holds_alternative<BeginFireWeaponCommand>(
+		!std::holds_alternative<MoveToGridCommand>(
 			replayedCommands[0].command) ||
-		std::get<BeginFireWeaponCommand>(
+		std::get<MoveToGridCommand>(
 			replayedCommands[0].command).soldier != actorId)
 		return 32;
-
-	TacticalCommandInbox commandInbox(
-		TacticalCommandInboxLimits{2, 1, 1, 64, 10});
-	ServiceCatalog commandServices;
-	if (RegisterTacticalCommandService(commandServices, commandInbox) !=
-		EngineServiceRegistrationError::None) return 33;
-	const auto commandIngress = commandServices.resolve<TacticalCommandService>(
-		TacticalCommandServiceId, TacticalCommandServiceVersion);
-	const TacticalCommandSubmissionResult commandRequest = commandIngress
-		? commandIngress.service->submit(
-			"external.rules", SimulationCommand{ChangeStanceCommand{
-				actorId, 3, SimulationCommandSource::System}})
-		: TacticalCommandSubmissionResult{
-			TacticalCommandSubmissionError::InvalidCommand, 0};
-	std::uint64_t drainedRequest = 0;
-	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
-		[&drainedRequest](const TacticalCommandRequest& request) {
-			drainedRequest = request.requestId;
-			return TacticalCommandDisposition::Accept;
-		});
-	if (!commandIngress || !commandRequest || commandRequest.requestId != 1 ||
-		commandDrain.accepted != 1 || drainedRequest != commandRequest.requestId ||
-		!commandInbox.empty()) return 34;
 	return 0;
 }

@@ -57,6 +57,40 @@ codec, tactical-world observation/publication, and durable replay on Core. It
 is installed as `JA2::RuntimeAdapter`; platform adapters and legacy game types
 remain outside the SDK boundary.
 
+New hosts should configure the composition root through `EngineHostOptions`
+rather than relying on the legacy positional constructor:
+
+```cpp
+EngineHostOptions options;
+options.hostCapabilities.add("host.map-tool");
+options.packageRandomSeed = 42;
+options.limits.maximumQueuedRuntimeMessages = 2048;
+options.limits.maximumPersistencePayloadBytes = 32u * 1024u * 1024u;
+
+EngineHost<> host(std::move(options), services, packageEvents);
+```
+
+`EngineHostLimits` names every host-owned resource ceiling, including message,
+input, telemetry, package-state, and persistence bounds that were previously
+implicit. `ValidateEngineHostOptions` provides a non-throwing preflight; the
+named constructor rejects an invalid range before constructing services or
+registering sinks. Zero remains valid where the underlying service supports a
+disabled mode. The original positional constructor and all of its defaults are
+retained, and default named options produce the same configuration and runtime
+fingerprint as that compatibility path. `EngineRuntime` exposes the same named
+constructor above the JA2 adapter.
+
+`RuntimeSession` treats application startup and package bootstrap as one
+transaction. `markRunning()` succeeds only after `StartRuntime`; cancelling an
+initialization unwinds every completed phase in reverse while keeping packages
+active for a retry. Final `markStopped()` requires `shutdownPackages()` to have
+completed, and repeated shutdown attempts never invoke an already-unwound
+bootstrap callback again. Established boolean transition methods remain
+source-compatible. Hosts that need diagnostics can call `tryBeginInitialization`,
+`tryCancelInitialization`, `tryMarkRunning`, `tryBeginShutdown`, and
+`tryMarkStopped` to receive `RuntimeSessionTransitionResult`, including rollback
+phase/callback counts and structured incomplete/failure errors.
+
 The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,
 and builds the fresh project against `find_package(JA2Engine)`. It exercises
@@ -69,8 +103,17 @@ JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it
 as `ja2.tactical-commands` before package bootstrap, validates application
 domains at its safe simulation boundary, and drains only a configured prefix.
 The service deliberately does not expose draining or cancellation authority.
-Package IDs are cooperative in-process attribution rather than a security
-boundary; sandboxed/native plugins will require a future package-bound handle.
+Every callback receives a registry-issued `PackageIdentity`. It can be copied
+and passed to package-aware services, but cannot be constructed from an
+arbitrary package ID. Retaining it does not keep a package active: services
+must still reject work after that package leaves the active set. Native code in
+the same process remains a cooperative trust boundary rather than a sandbox.
+
+JA2 packages should call `BindTacticalCommandClient` with the callback's
+`extensionServices` and `identity`, then retain the returned client for runtime
+submission. The client supplies ownership automatically. Direct
+`TacticalCommandService::submit(packageId, command)` remains available only as
+a source-compatibility path for existing hosts.
 The JA2 application additionally tracks the bounded accepted batch by command
 sequence so lifecycle teardown can cancel both pending inbox requests and any
 accepted command retained after an execution failure. Admission requires a
@@ -80,6 +123,26 @@ are deterministically journaled as discarded. Any existing authoritative
 queue, including a future-tick staged replay, pauses package admission until
 that stream clears. This keeps live ingress from forcing a large replay sort on
 the frame thread or interleaving two authoritative producers.
+
+`TacticalWorldService` exposes immutable, pointer-free snapshots of the loaded
+world. In the JA2 host, `snapshot.epoch()` is the nonzero world-load generation
+and `snapshot.turn().serial` is a nonzero identity scoped to that epoch: serial
+one denotes the newly loaded pre-turn state, each accepted `BeginTeamTurn`
+boundary advances it, and exhaustion saturates instead of wrapping. Compare a
+turn serial only within the same epoch. The existing tactical-delta wire already
+encodes the complete turn snapshot, so live turn identities require no wire or
+service-version change.
+
+`TacticalWorldObserver` invalidates `latest()` when its source becomes
+unavailable or the host calls `reset()`; any previously returned publication
+pointers expire at that boundary. The next available world establishes a fresh
+baseline with publication serial one. Capacity, allocation, adapter, validation,
+and diff failures still preserve the last complete publication. A direct
+nonzero epoch replacement without an unavailable boundary continues to emit the
+existing `TacticalWorldResetEvent`. The production bridge drops a retained
+queue-failed delta on world transition before retrying, and reports the current
+world/turn identity, transition and observer-reset counts, and discarded pending
+deltas through `Ja2TacticalWorldObserverDiagnostics`.
 
 Hosts that execute shared command/replay queues should use the budgeted
 `ProcessCommandsThrough(queue, tick, maximum, handler)` overload. It reports
@@ -92,7 +155,10 @@ Optional source-built host services are discovered through `ServiceCatalog`
 using portable IDs and major/minor contracts. Registrations are non-owning and
 must outlive the host. The catalog seals when initialization or package
 bootstrap begins, so packages may safely retain a successfully resolved service
-for the runtime session. This is not yet a stable native plugin ABI.
+for the runtime session. `EngineServiceContract<Interface>` accepts a concrete
+implementation derived from that interface, while invalid/default contracts
+return structured registration or lookup errors. This is not yet a stable
+native plugin ABI.
 
 Hosts may also populate `RuntimeConfiguration` with portable keys and boolean,
 signed integer, double, or string values before initialization. Packages read
@@ -109,10 +175,11 @@ State that belongs to a particular game save uses a separate contract. Set
 `PackageDescriptor::saveStateSchemaVersion` to a non-zero version and override
 `saveState`, `validateState`, and `loadState`. Capture publishes opaque bytes;
 validation must parse without mutation; load commits transactionally for that
-package. The host orders records by package activation, enforces 4 MiB per
-package and 16 MiB in aggregate, binds the archive to the runtime fingerprint,
-and contains callback failures. Installation/profile preferences should remain
-in `PackageStorage`; campaign progress belongs in the per-save callbacks.
+package. The host orders records by package activation, defaults to 4 MiB per
+package and 16 MiB in aggregate, applies the same named bounds to live capture
+and archive I/O, binds the archive to the runtime fingerprint, and contains
+callback failures. Installation/profile preferences should remain in
+`PackageStorage`; campaign progress belongs in the per-save callbacks.
 
 Use `PackageBootstrapContext::messagePublisher` for outbound package messages.
 It binds the source to the registered package ID and accepts only a portable

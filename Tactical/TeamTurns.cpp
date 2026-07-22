@@ -40,6 +40,8 @@
 #include "Reinforcement.h"
 #include "fresh_header.h"
 #include "connect.h"
+#include "Map Information.h"
+#include "TacticalWorldAdapter.h"
 
 
 #ifdef JA2UB
@@ -573,6 +575,10 @@ void BeginTeamTurn( UINT8 ubTeam )
 			// skip back to the top, as we are processing another team now.
 			continue;
 		}
+
+		// This is the first point at which skipped/inactive teams have been
+		// resolved and a real team turn is about to begin.
+		NotifyJa2TacticalTeamTurnBegan(guiWorldLoadGeneration);
 
 		if ( gTacticalStatus.uiFlags & TURNBASED )
 		{

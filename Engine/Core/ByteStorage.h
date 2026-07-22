@@ -1,11 +1,20 @@
 #ifndef ENGINE_CORE_BYTE_STORAGE_H
 #define ENGINE_CORE_BYTE_STORAGE_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+enum class ByteStorageReadResult
+{
+	Success,
+	NotFound,
+	TooLarge,
+	StorageError
+};
 
 class ByteStorage
 {
@@ -17,6 +26,33 @@ public:
 	// Removal is idempotent. The default preserves source compatibility for
 	// adapters that are read/write-only while still succeeding for absent data.
 	virtual bool remove(const std::string& path) { return !path.empty() && !exists(path); }
+
+	// Size-aware adapters override this to reject an oversized record before
+	// allocating its payload. The default keeps existing adapters source
+	// compatible, keeps the previous virtual method order intact, and preserves
+	// transactional output. It can only enforce the bound after the legacy
+	// readAll() operation has completed.
+	virtual ByteStorageReadResult readAllBounded(const std::string& path,
+		std::size_t maximumBytes, std::vector<std::uint8_t>& bytes) const
+	{
+		if (path.empty()) return ByteStorageReadResult::StorageError;
+		try
+		{
+			std::vector<std::uint8_t> loaded;
+			if (!readAll(path, loaded))
+				return exists(path)
+					? ByteStorageReadResult::StorageError
+					: ByteStorageReadResult::NotFound;
+			if (loaded.size() > maximumBytes)
+				return ByteStorageReadResult::TooLarge;
+			bytes = std::move(loaded);
+			return ByteStorageReadResult::Success;
+		}
+		catch (...)
+		{
+			return ByteStorageReadResult::StorageError;
+		}
+	}
 };
 
 class NullByteStorage final : public ByteStorage
@@ -29,6 +65,13 @@ public:
 	}
 	bool exists(const std::string&) const override { return false; }
 	bool readAll(const std::string&, std::vector<std::uint8_t>&) const override { return false; }
+	ByteStorageReadResult readAllBounded(const std::string& path,
+		std::size_t, std::vector<std::uint8_t>&) const override
+	{
+		return path.empty()
+			? ByteStorageReadResult::StorageError
+			: ByteStorageReadResult::NotFound;
+	}
 	bool writeAll(const std::string&, const std::vector<std::uint8_t>&) override { return false; }
 	bool remove(const std::string& path) override { return !path.empty(); }
 
@@ -46,6 +89,25 @@ public:
 		if (found == files_.end()) return false;
 		bytes = found->second;
 		return true;
+	}
+	ByteStorageReadResult readAllBounded(const std::string& path,
+		std::size_t maximumBytes, std::vector<std::uint8_t>& bytes) const override
+	{
+		if (path.empty()) return ByteStorageReadResult::StorageError;
+		const auto found = files_.find(path);
+		if (found == files_.end()) return ByteStorageReadResult::NotFound;
+		if (found->second.size() > maximumBytes)
+			return ByteStorageReadResult::TooLarge;
+		try
+		{
+			std::vector<std::uint8_t> loaded = found->second;
+			bytes = std::move(loaded);
+			return ByteStorageReadResult::Success;
+		}
+		catch (...)
+		{
+			return ByteStorageReadResult::StorageError;
+		}
 	}
 	bool writeAll(const std::string& path, const std::vector<std::uint8_t>& bytes) override
 	{

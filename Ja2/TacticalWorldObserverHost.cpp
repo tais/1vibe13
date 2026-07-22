@@ -44,6 +44,7 @@ public:
 	void updateAtSafeFrame(RuntimeMessageBus& messages) noexcept
 	{
 		IncrementSaturated(safeFrameUpdates_);
+		if (synchronizeWorldLifecycle()) return;
 
 		// A failed transient publication pins the observer's bounded latest
 		// delta. No other code can update the observer, so this pointer remains
@@ -95,10 +96,49 @@ public:
 			lastUpdate_, publication ? publication.serial : 0, safeFrameUpdates_,
 			bridgeResult_, lastPublishError_, handledDeltaSerial_,
 			pendingDeltaSerial_, publishedDeltaSerial_, messageSequence_, payloadBytes_,
-			publishAttempts_, publishedMessages_, publicationFailures_};
+			publishAttempts_, publishedMessages_, publicationFailures_,
+			worldGeneration_, turnSerial_, worldTransitions_, observerResets_,
+			discardedPendingDeltas_};
 	}
 
 private:
+	bool synchronizeWorldLifecycle() noexcept
+	{
+		const Ja2TacticalTurnIdentity identity =
+			GetJa2TacticalWorldAdapter().liveTurnIdentity();
+		worldGeneration_ = identity.worldGeneration;
+		turnSerial_ = identity.serial;
+		if (worldGeneration_ == observedWorldGeneration_) return false;
+
+		const std::uint64_t previousGeneration = observedWorldGeneration_;
+		observedWorldGeneration_ = worldGeneration_;
+		IncrementSaturated(worldTransitions_);
+		if (pendingDelta_)
+		{
+			clearPendingDelta();
+			IncrementSaturated(discardedPendingDeltas_);
+			lastPublishError_ = TacticalWorldDeltaPublishError::None;
+			messageSequence_ = 0;
+			payloadBytes_ = 0;
+		}
+
+		// A nonzero-to-nonzero transition retains the old accepted snapshot so
+		// DiffTacticalWorldSnapshots can publish its existing reset event. An
+		// observed unload instead makes the package service unavailable now.
+		if (worldGeneration_ != 0 || previousGeneration == 0) return false;
+
+		observer_.reset();
+		handledDeltaSerial_ = 0;
+		publishedDeltaSerial_ = 0;
+		lastPublishError_ = TacticalWorldDeltaPublishError::None;
+		messageSequence_ = 0;
+		payloadBytes_ = 0;
+		lastUpdate_ = TacticalWorldObserverUpdateResult::SourceUnavailable;
+		bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::WorldUnavailableReset;
+		IncrementSaturated(observerResets_);
+		return true;
+	}
+
 	void publishDelta(
 		const TacticalWorldDelta& delta,
 		std::uint64_t serial,
@@ -154,6 +194,12 @@ private:
 	std::uint64_t publishAttempts_ = 0;
 	std::uint64_t publishedMessages_ = 0;
 	std::uint64_t publicationFailures_ = 0;
+	std::uint64_t worldGeneration_ = 0;
+	std::uint64_t turnSerial_ = 0;
+	std::uint64_t observedWorldGeneration_ = 0;
+	std::uint64_t worldTransitions_ = 0;
+	std::uint64_t observerResets_ = 0;
+	std::uint64_t discardedPendingDeltas_ = 0;
 };
 
 Ja2TacticalWorldObserverHost& GetObserverHost() noexcept

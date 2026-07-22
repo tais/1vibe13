@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_PACKAGE_RESULTS_H
 #define ENGINE_CORE_PACKAGE_RESULTS_H
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -153,6 +154,45 @@ enum class PackageBootstrapError
 	MissingCapability,
 	CallbackFailed,
 	OperationInProgress
+};
+
+enum class PackageBootstrapShutdownError
+{
+	None,
+	OperationInProgress,
+	CallbackFailed
+};
+
+// Best-effort reverse bootstrap always releases framework-owned resources and
+// continues after a package callback throws. The structured result lets the
+// session report that a package may still own external state even though the
+// registry itself has returned to phase zero.
+struct PackageBootstrapShutdownResult
+{
+	PackageBootstrapShutdownError error = PackageBootstrapShutdownError::None;
+	std::size_t shutdownPhases = 0;
+	std::size_t callbacks = 0;
+	std::size_t callbackFailures = 0;
+
+	explicit operator bool() const
+	{
+		return error == PackageBootstrapShutdownError::None;
+	}
+};
+
+// Detailed bootstrap preserves the established enum-returning wrapper while
+// exposing rollback work performed for the phase whose callback failed. Those
+// callbacks are not part of shutdownBootstrap(), because the phase was never
+// marked complete.
+struct PackageBootstrapResult
+{
+	PackageBootstrapError error = PackageBootstrapError::None;
+	PackageBootstrapShutdownResult failedPhaseRollback;
+
+	explicit operator bool() const
+	{
+		return error == PackageBootstrapError::None;
+	}
 };
 
 struct PackageCapabilityContractFailure

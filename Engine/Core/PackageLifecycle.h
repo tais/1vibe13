@@ -2,8 +2,16 @@
 #define ENGINE_CORE_PACKAGE_LIFECYCLE_H
 
 #include <cstddef>
+#include <limits>
 
 #include <Engine/Core/PackageApi.h>
+
+struct PackageLifecycleRollbackResult
+{
+	PackageBootstrapShutdownResult packages;
+
+	explicit operator bool() const { return static_cast<bool>(packages); }
+};
 
 struct PackageLifecycleAdvanceResult
 {
@@ -11,6 +19,7 @@ struct PackageLifecycleAdvanceResult
 	PackageBootstrapPhase phase = PackageBootstrapPhase::Configure;
 	std::size_t completedPhases = 0;
 	bool rolledBack = false;
+	PackageLifecycleRollbackResult rollback;
 
 	explicit operator bool() const { return error == PackageBootstrapError::None; }
 };
@@ -19,8 +28,12 @@ struct PackageLifecycleShutdownResult
 {
 	std::size_t shutdownPhases = 0;
 	PackageDeactivationBatchResult deactivation;
+	PackageLifecycleRollbackResult bootstrap;
 
-	explicit operator bool() const { return static_cast<bool>(deactivation); }
+	explicit operator bool() const
+	{
+		return static_cast<bool>(bootstrap) && static_cast<bool>(deactivation);
+	}
 };
 
 // Coordinates the complete package bootstrap transaction above the lower-level
@@ -49,12 +62,13 @@ public:
 		{
 			const PackageBootstrapPhase phase =
 				static_cast<PackageBootstrapPhase>(completed);
-			const PackageBootstrapError error = packages_.bootstrap(phase);
-			if (error != PackageBootstrapError::None)
+			const PackageBootstrapResult bootstrap = packages_.bootstrapDetailed(phase);
+			if (!bootstrap)
 			{
-				packages_.shutdownBootstrap();
+				PackageLifecycleRollbackResult rollback = this->rollback();
+				mergeRollback(rollback.packages, bootstrap.failedPhaseRollback);
 				return PackageLifecycleAdvanceResult{
-					error, phase, packages_.completedBootstrapPhases(), true};
+					bootstrap.error, phase, packages_.completedBootstrapPhases(), true, rollback};
 			}
 			completed = packages_.completedBootstrapPhases();
 		}
@@ -62,14 +76,62 @@ public:
 			PackageBootstrapError::None, target, completed, false};
 	}
 
+	PackageLifecycleRollbackResult rollback()
+	{
+		return PackageLifecycleRollbackResult{packages_.shutdownBootstrap()};
+	}
+
 	PackageLifecycleShutdownResult shutdown()
 	{
-		const std::size_t phases = packages_.completedBootstrapPhases();
-		packages_.shutdownBootstrap();
-		return PackageLifecycleShutdownResult{phases, packages_.deactivateAll()};
+		const PackageLifecycleRollbackResult bootstrap = rollback();
+		return PackageLifecycleShutdownResult{
+			bootstrap.packages.shutdownPhases, packages_.deactivateAll(), bootstrap};
+	}
+
+	std::size_t completedPhases() const
+	{
+		return packages_.completedBootstrapPhases();
+	}
+	bool readyToRun() const
+	{
+		return completedPhases() ==
+			static_cast<std::size_t>(PackageBootstrapPhase::StartRuntime) + 1;
 	}
 
 private:
+	static std::size_t saturatingAdd(std::size_t left, std::size_t right) noexcept
+	{
+		const std::size_t maximum = std::numeric_limits<std::size_t>::max();
+		return right > maximum - left ? maximum : left + right;
+	}
+
+	static PackageBootstrapShutdownError mergeRollbackError(
+		PackageBootstrapShutdownError left,
+		PackageBootstrapShutdownError right) noexcept
+	{
+		if (left == PackageBootstrapShutdownError::CallbackFailed ||
+			right == PackageBootstrapShutdownError::CallbackFailed)
+			return PackageBootstrapShutdownError::CallbackFailed;
+		if (left == PackageBootstrapShutdownError::OperationInProgress ||
+			right == PackageBootstrapShutdownError::OperationInProgress)
+			return PackageBootstrapShutdownError::OperationInProgress;
+		return PackageBootstrapShutdownError::None;
+	}
+
+	static void mergeRollback(
+		PackageBootstrapShutdownResult& completedPhases,
+		const PackageBootstrapShutdownResult& failedPhase) noexcept
+	{
+		completedPhases.error =
+			mergeRollbackError(completedPhases.error, failedPhase.error);
+		completedPhases.shutdownPhases = saturatingAdd(
+			completedPhases.shutdownPhases, failedPhase.shutdownPhases);
+		completedPhases.callbacks = saturatingAdd(
+			completedPhases.callbacks, failedPhase.callbacks);
+		completedPhases.callbackFailures = saturatingAdd(
+			completedPhases.callbackFailures, failedPhase.callbackFailures);
+	}
+
 	PackageRegistry& packages_;
 };
 

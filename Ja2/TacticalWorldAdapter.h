@@ -2,8 +2,21 @@
 #define JA2_TACTICAL_WORLD_ADAPTER_H
 
 #include <cstddef>
+#include <cstdint>
+#include <vector>
 
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
+
+struct Ja2TacticalTurnIdentity
+{
+	std::uint64_t worldGeneration = 0;
+	std::uint64_t serial = 0;
+
+	explicit operator bool() const noexcept
+	{
+		return worldGeneration != 0 && serial != 0;
+	}
+};
 
 // Read-only production projection of the live JA2 tactical globals. Capture is
 // intended for the main-thread package/frame boundary and never exposes a
@@ -17,10 +30,31 @@ public:
 
 	TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept override;
 
+	// Legacy lifecycle hooks keep this adapter-owned identity aligned with the
+	// currently loaded world. A loaded world always starts with serial one;
+	// each accepted BeginTeamTurn boundary advances it without wrapping.
+	void onWorldLoaded(std::uint64_t worldGeneration) noexcept;
+	void onWorldUnloaded() noexcept;
+	void onTeamTurnBegan(std::uint64_t worldGeneration) noexcept;
+	Ja2TacticalTurnIdentity turnIdentity() const noexcept { return turnIdentity_; }
+	// Defensive main-thread view used by the production observer before a
+	// retained delta retry, including lifecycle paths that only changed globals.
+	Ja2TacticalTurnIdentity liveTurnIdentity() noexcept;
+
 private:
+	void synchronizeWorldGeneration(std::uint64_t worldGeneration) noexcept;
+
 	std::size_t maximumActors_;
+	Ja2TacticalTurnIdentity turnIdentity_;
+	std::vector<TacticalActorSnapshot> actorScratch_;
 };
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
+
+// Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
+// is not exposed as another mutable JA2 global.
+void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept;
+void NotifyJa2TacticalWorldUnloaded() noexcept;
+void NotifyJa2TacticalTeamTurnBegan(std::uint64_t worldGeneration) noexcept;
 
 #endif

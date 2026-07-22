@@ -15,7 +15,8 @@ enum class Ja2TacticalWorldDeltaBridgeResult
 	EmptyDeltaSuppressed,
 	DuplicateSerialSuppressed,
 	Published,
-	PublishFailed
+	PublishFailed,
+	WorldUnavailableReset
 };
 
 struct Ja2TacticalWorldObserverDiagnostics
@@ -36,6 +37,11 @@ struct Ja2TacticalWorldObserverDiagnostics
 	std::uint64_t publishAttempts = 0;
 	std::uint64_t publishedMessages = 0;
 	std::uint64_t publicationFailures = 0;
+	std::uint64_t worldGeneration = 0;
+	std::uint64_t turnSerial = 0;
+	std::uint64_t worldTransitions = 0;
+	std::uint64_t observerResets = 0;
+	std::uint64_t discardedPendingDeltas = 0;
 };
 
 // Application-owned read-only service registered with the production engine
@@ -46,7 +52,9 @@ TacticalWorldObserverService& GetJa2TacticalWorldObserverService() noexcept;
 // its completed-frame boundary. A new non-empty delta is queued for the next
 // frame's message dispatch. Transient queue/allocation failures retain one
 // bounded observer delta and backpressure observation until a later safe-frame
-// retry; suppression and failure paths never log.
+// retry. World unload invalidates the observer publication and any retained
+// delta before it can be retried against another world; suppression and
+// failure paths never log.
 void UpdateJa2TacticalWorldObserverAtSafeFrame(RuntimeMessageBus& messages) noexcept;
 
 Ja2TacticalWorldObserverDiagnostics GetJa2TacticalWorldObserverDiagnostics() noexcept;

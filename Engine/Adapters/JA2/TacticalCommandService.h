@@ -6,9 +6,11 @@
 #include <deque>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <Engine/Adapters/JA2/SimulationCommand.h>
+#include <Engine/Core/PackageIdentity.h>
 #include <Engine/Core/ServiceCatalog.h>
 
 inline constexpr const char* TacticalCommandServiceId = "ja2.tactical-commands";
@@ -40,6 +42,16 @@ struct TacticalCommandRequest
 	std::uint64_t requestId;
 	std::string packageId;
 	SimulationCommand command;
+};
+
+// Host-only teardown observation. Implementations must not retain references
+// to the request, which is removed immediately after this callback returns.
+class TacticalCommandCancellationSink
+{
+public:
+	virtual ~TacticalCommandCancellationSink() = default;
+	virtual void commandCancelled(
+		const TacticalCommandRequest& request) noexcept = 0;
 };
 
 // Count and byte limits together keep both the inbox and its diagnostic copy
@@ -153,11 +165,124 @@ public:
 		TacticalCommandInboxSnapshot& output) const noexcept = 0;
 };
 
+inline constexpr EngineServiceContract<TacticalCommandService>
+	TacticalCommandServiceContract{
+		TacticalCommandServiceId, TacticalCommandServiceVersion};
+
+struct TacticalCommandClientBindingResult;
+
+// Package-bound facade for new integrations. The raw service remains available
+// for source compatibility, while this client removes caller-supplied package
+// IDs from normal command submission.
+class TacticalCommandClient
+{
+public:
+	TacticalCommandClient() = default;
+
+	explicit operator bool() const noexcept
+	{
+		return service_ && identity_;
+	}
+
+	const std::string& packageId() const noexcept
+	{
+		return identity_.id();
+	}
+
+	TacticalCommandSubmissionResult submit(
+		const SimulationCommand& command) const noexcept
+	{
+		if (!service_ || !identity_)
+			return TacticalCommandSubmissionResult{
+				TacticalCommandSubmissionError::InvalidOwner, 0};
+		return service_->submit(identity_.id(), command);
+	}
+
+private:
+	TacticalCommandClient(
+		TacticalCommandService& service, PackageIdentity identity)
+		: service_(&service), identity_(std::move(identity)) {}
+
+	TacticalCommandService* service_ = nullptr;
+	PackageIdentity identity_;
+
+	friend struct TacticalCommandClientBindingResult;
+	friend TacticalCommandClientBindingResult BindTacticalCommandClient(
+		const ServiceCatalog&, const PackageIdentity&) noexcept;
+};
+
+enum class TacticalCommandClientBindingError
+{
+	None,
+	InvalidIdentity,
+	ServiceNotFound,
+	IncompatibleVersion,
+	TypeMismatch,
+	AllocationFailure
+};
+
+struct TacticalCommandClientBindingResult
+{
+	TacticalCommandClientBindingError error =
+		TacticalCommandClientBindingError::None;
+	TacticalCommandClient client;
+	EngineServiceVersion availableVersion;
+
+	explicit operator bool() const noexcept
+	{
+		return error == TacticalCommandClientBindingError::None && client;
+	}
+};
+
+inline TacticalCommandClientBindingResult BindTacticalCommandClient(
+	const ServiceCatalog& catalog, const PackageIdentity& identity) noexcept
+{
+	if (!identity)
+		return TacticalCommandClientBindingResult{
+			TacticalCommandClientBindingError::InvalidIdentity};
+	const EngineServiceLookupResult<TacticalCommandService> resolved =
+		catalog.resolve(TacticalCommandServiceContract);
+	if (!resolved)
+	{
+		TacticalCommandClientBindingError error =
+			TacticalCommandClientBindingError::ServiceNotFound;
+		switch (resolved.error)
+		{
+			case EngineServiceLookupError::IncompatibleVersion:
+				error = TacticalCommandClientBindingError::IncompatibleVersion;
+				break;
+			case EngineServiceLookupError::TypeMismatch:
+				error = TacticalCommandClientBindingError::TypeMismatch;
+				break;
+			case EngineServiceLookupError::AllocationFailure:
+				error = TacticalCommandClientBindingError::AllocationFailure;
+				break;
+			case EngineServiceLookupError::None:
+			case EngineServiceLookupError::NotFound:
+			case EngineServiceLookupError::InvalidDescriptor:
+				break;
+		}
+		return TacticalCommandClientBindingResult{
+			error, TacticalCommandClient{}, resolved.availableVersion};
+	}
+	try
+	{
+		TacticalCommandClientBindingResult bound;
+		bound.client = TacticalCommandClient(*resolved.service, identity);
+		bound.availableVersion = resolved.availableVersion;
+		return bound;
+	}
+	catch (...)
+	{
+		return TacticalCommandClientBindingResult{
+			TacticalCommandClientBindingError::AllocationFailure};
+	}
+}
+
 inline EngineServiceRegistrationError RegisterTacticalCommandService(
 	ServiceCatalog& catalog, TacticalCommandService& service) noexcept
 {
-	return catalog.registerService<TacticalCommandService>(
-		TacticalCommandServiceId, TacticalCommandServiceVersion, service);
+	return catalog.registerService(TacticalCommandServiceContract, service);
 }
 
 // Host-owned bounded implementation. A drain examines at most the prefix that
@@ -259,7 +384,8 @@ public:
 	// Host teardown only: keeping cancellation off the resolved package service
 	// prevents one cooperative in-process package from naming another owner.
 	TacticalCommandCancellationResult cancelPackage(
-		const std::string& packageId) noexcept;
+		const std::string& packageId,
+		TacticalCommandCancellationSink* sink = nullptr) noexcept;
 
 	TacticalCommandInboxLimits limits() const noexcept override { return limits_; }
 	TacticalCommandInboxSummary summary() const noexcept override;

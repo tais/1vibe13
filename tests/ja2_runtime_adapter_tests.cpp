@@ -1,6 +1,8 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
+#include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
+#include <Engine/Adapters/JA2/TacticalCommandResultPublisher.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
@@ -9,6 +11,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <limits>
@@ -98,6 +101,20 @@ public:
 	std::vector<RuntimeMessage> messages;
 };
 
+class RecordingTacticalCommandCancellationSink final
+	: public TacticalCommandCancellationSink
+{
+public:
+	void commandCancelled(
+		const TacticalCommandRequest& request) noexcept override
+	{
+		if (count < requestIds.size()) requestIds[count++] = request.requestId;
+	}
+
+	std::array<std::uint64_t, 4> requestIds{};
+	std::size_t count = 0;
+};
+
 class ControlledTacticalWorldService final : public TacticalWorldService
 {
 public:
@@ -132,6 +149,40 @@ private:
 	TacticalWorldCaptureResult result_ = TacticalWorldCaptureResult::Unavailable;
 };
 
+class BoundCommandPackage final : public EnginePackage
+{
+public:
+	BoundCommandPackage()
+		: descriptor_{
+			ContentManifest{
+				"fixture.bound-commands", "1", CurrentContentApiVersion},
+			PackageKind::Extension}
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override
+	{
+		active_ = true;
+		return true;
+	}
+	void deactivate() noexcept override { active_ = false; }
+	bool bootstrap(
+		PackageBootstrapContext& context, PackageBootstrapPhase phase) override
+	{
+		if (phase == PackageBootstrapPhase::Configure)
+			binding = BindTacticalCommandClient(
+				context.extensionServices, context.identity);
+		return phase != PackageBootstrapPhase::Configure || binding;
+	}
+
+	TacticalCommandClientBindingResult binding;
+
+private:
+	PackageDescriptor descriptor_;
+	bool active_ = false;
+};
+
 bool RejectsJournalWithoutPublishing(
 	const std::vector<std::uint8_t>& bytes,
 	SimulationCommandJournalDecodeResult expected)
@@ -161,6 +212,11 @@ SimulationCommand MakeTurnCommand(
 
 int main()
 {
+	EngineRuntime<> legacyBraceRuntime({});
+	check(legacyBraceRuntime.serviceCatalog().size() == 14 &&
+		legacyBraceRuntime.runtimeMessages().maxQueuedMessages() == 1024,
+		"empty-brace runtime construction retains default EngineServices semantics");
+
 	constexpr TacticalEntityId invalidEntity;
 	constexpr TacticalEntityId firstIncarnation{7, 9001};
 	constexpr TacticalEntityId reusedSlot{7, 9002};
@@ -188,8 +244,7 @@ int main()
 			commandServices, registeredCommandInbox) ==
 			EngineServiceRegistrationError::None,
 		"tactical command ingress registers as a versioned package service");
-	const auto tacticalCommands = commandServices.resolve<TacticalCommandService>(
-		TacticalCommandServiceId, TacticalCommandServiceVersion);
+	const auto tacticalCommands = commandServices.resolve(TacticalCommandServiceContract);
 	const auto futureTacticalCommands =
 		commandServices.resolve<TacticalCommandService>(
 			TacticalCommandServiceId, EngineServiceVersion{1, 1});
@@ -206,6 +261,143 @@ int main()
 			commandServices, registeredCommandInbox) ==
 			EngineServiceRegistrationError::DuplicateId,
 		"tactical command service IDs cannot be registered twice");
+	check(BindTacticalCommandClient(commandServices, PackageIdentity{}).error ==
+			TacticalCommandClientBindingError::InvalidIdentity,
+		"tactical command clients require a registry-issued package identity");
+
+	EngineRuntime<unsigned> boundRuntime;
+	TacticalCommandInbox boundCommandInbox(
+		TacticalCommandInboxLimits{4, 4, 4, 64, 10});
+	BoundCommandPackage boundPackage;
+	const bool boundPackageStarted =
+		RegisterTacticalCommandService(
+			boundRuntime.serviceCatalog(), boundCommandInbox) ==
+				EngineServiceRegistrationError::None &&
+		boundRuntime.packages().registerPackage(boundPackage) ==
+			PackageRegistrationError::None &&
+		boundRuntime.packages().activate("fixture.bound-commands") ==
+			PackageActivationError::None &&
+		boundRuntime.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime);
+	const TacticalCommandSubmissionResult boundSubmission = boundPackage.binding
+		? boundPackage.binding.client.submit(MakeTurnCommand(1))
+		: TacticalCommandSubmissionResult{
+			TacticalCommandSubmissionError::InvalidOwner, 0};
+	TacticalCommandInboxSnapshot boundSnapshot;
+	check(boundPackageStarted && boundPackage.binding &&
+		boundPackage.binding.client.packageId() == "fixture.bound-commands" &&
+		boundSubmission &&
+		boundCommandInbox.snapshot(boundSnapshot) == TacticalCommandSnapshotError::None &&
+		boundSnapshot.pending.size() == 1 &&
+		boundSnapshot.pending[0].packageId == "fixture.bound-commands",
+		"registry-issued tactical command clients bind ownership without caller strings");
+	boundRuntime.packageLifecycle().shutdown();
+
+	const TacticalCommandResult appliedResult{
+		"p", 1, 2, 3, TacticalCommandTerminalStatus::Applied,
+		TacticalCommandTerminalReason::None};
+	std::vector<std::uint8_t> encodedResult;
+	const std::vector<std::uint8_t> expectedResultBytes{
+		0x54, 0x43, 0x52, 0x31, 0x01, 0x00,
+		0x01, 0x00, 0x00, 0x00, 0x70,
+		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x02, 0x00};
+	TacticalCommandResult decodedResult;
+	check(EncodeTacticalCommandResult(appliedResult, encodedResult) ==
+			TacticalCommandResultEncodeError::None &&
+		encodedResult == expectedResultBytes &&
+		DecodeTacticalCommandResult(encodedResult, decodedResult) ==
+			TacticalCommandResultDecodeError::None &&
+		decodedResult.packageId == "p" && decodedResult.requestId == 1 &&
+		decodedResult.authoritativeSequence == 2 &&
+		decodedResult.simulationTick == 3 &&
+		decodedResult.status == TacticalCommandTerminalStatus::Applied &&
+		decodedResult.reason == TacticalCommandTerminalReason::None,
+		"tactical command result version 1 has a deterministic round-trip wire format");
+	bool everyTruncatedResultRejected = true;
+	for (std::size_t size = 0; size < encodedResult.size(); ++size)
+	{
+		std::vector<std::uint8_t> truncated(encodedResult.begin(),
+			encodedResult.begin() + size);
+		TacticalCommandResult retained{
+			"retained", 9, 0, 7, TacticalCommandTerminalStatus::Rejected,
+			TacticalCommandTerminalReason::InvalidDomain};
+		if (DecodeTacticalCommandResult(truncated, retained) ==
+				TacticalCommandResultDecodeError::None ||
+			retained.packageId != "retained" || retained.requestId != 9)
+		{
+			everyTruncatedResultRejected = false;
+			break;
+		}
+	}
+	check(everyTruncatedResultRejected,
+		"tactical command result decoding rejects every truncated prefix transactionally");
+	std::vector<std::uint8_t> futureResult = encodedResult;
+	futureResult[4] = 2;
+	std::vector<std::uint8_t> invalidResultBytes = encodedResult;
+	invalidResultBytes.back() = 6;
+	std::vector<std::uint8_t> zeroSequenceBytes;
+	TacticalCommandResult zeroSequenceResult;
+	check(DecodeTacticalCommandResult(futureResult, decodedResult) ==
+			TacticalCommandResultDecodeError::UnsupportedVersion &&
+		DecodeTacticalCommandResult(invalidResultBytes, decodedResult) ==
+			TacticalCommandResultDecodeError::Invalid &&
+		EncodeTacticalCommandResult(TacticalCommandResult{
+			"p", 1, 0, 3, TacticalCommandTerminalStatus::Applied,
+			TacticalCommandTerminalReason::None}, zeroSequenceBytes) ==
+			TacticalCommandResultEncodeError::None &&
+		DecodeTacticalCommandResult(zeroSequenceBytes, zeroSequenceResult) ==
+			TacticalCommandResultDecodeError::None &&
+		zeroSequenceResult.authoritativeSequence == 0 &&
+		EncodeTacticalCommandResult(TacticalCommandResult{
+			"p", 1, 2, 3, TacticalCommandTerminalStatus::Applied,
+			TacticalCommandTerminalReason::InvalidDomain}, zeroSequenceBytes) ==
+			TacticalCommandResultEncodeError::Invalid,
+		"tactical command results accept the first stream sequence and reject inconsistent records");
+	RuntimeMessageBus resultMessages(1, 1024);
+	RecordingRuntimeMessageSink resultSink;
+	resultMessages.addSink(resultSink);
+	resultMessages.publish(RuntimeMessageRequest{
+		"fixture.blocker", "fixture.host", {9}});
+	TacticalCommandResultPublisher resultPublisher(resultMessages);
+	PreparedTacticalCommandResultMessage preparedResult;
+	const TacticalCommandResultPublishError resultPrepared =
+		resultPublisher.prepare(appliedResult, preparedResult);
+	const std::vector<std::uint8_t> retainedResultPayload =
+		preparedResult.request.payload;
+	const TacticalCommandResultPublishResult resultPressure =
+		resultPublisher.publishPrepared(preparedResult);
+	const bool resultRetained =
+		preparedResult.request.payload == retainedResultPayload &&
+		preparedResult.request.topic == TacticalCommandResultMessageTopic &&
+		preparedResult.request.source == TacticalCommandResultMessageSource;
+	resultMessages.dispatchPending();
+	const TacticalCommandResultPublishResult resultPublished =
+		resultPublisher.publishPrepared(preparedResult);
+	resultMessages.dispatchPending();
+	TacticalCommandResult deliveredResult;
+	check(resultPrepared == TacticalCommandResultPublishError::None &&
+		resultPressure.error == TacticalCommandResultPublishError::QueueFull &&
+		resultRetained && resultPublished && resultPublished.sequence == 2 &&
+		preparedResult.request.payload.empty() && resultSink.messages.size() == 2 &&
+		resultSink.messages[1].topic == TacticalCommandResultMessageTopic &&
+		resultSink.messages[1].source == TacticalCommandResultMessageSource &&
+		DecodeTacticalCommandResult(
+			resultSink.messages[1].payload, deliveredResult) ==
+				TacticalCommandResultDecodeError::None &&
+		deliveredResult.requestId == appliedResult.requestId &&
+		deliveredResult.status == TacticalCommandTerminalStatus::Applied,
+		"prepared tactical command results encode once and retain ownership across bus pressure");
+	PreparedTacticalCommandResultMessage retainedPrepared;
+	retainedPrepared.request.payload = {7};
+	retainedPrepared.payloadBytes = 1;
+	TacticalCommandResultPublisher tinyResultPublisher(resultMessages, 1);
+	check(tinyResultPublisher.prepare(appliedResult, retainedPrepared) ==
+			TacticalCommandResultPublishError::PayloadTooLarge &&
+		retainedPrepared.request.payload == std::vector<std::uint8_t>({7}),
+		"tactical command result preparation enforces payload limits transactionally");
 
 	TacticalCommandInbox validationInbox(
 		TacticalCommandInboxLimits{8, 8, 8, 8, 10});
@@ -216,6 +408,9 @@ int main()
 		TacticalEntityId{3, 0}, 2, SimulationCommandSource::Replay}};
 	const SimulationCommand invalidFireCommand{BeginFireWeaponCommand{
 		TacticalEntityId{}, 100, 0, 0, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand invalidMoveCommand{MoveToGridCommand{
+		TacticalEntityId{}, 100, 0, false, false,
+		SimulationCommandSource::LocalPlayer}};
 	const TacticalCommandSubmissionResult invalidOwner =
 		validationInbox.submit("bad/owner", validTurn);
 	const TacticalCommandSubmissionResult oversizedOwner =
@@ -226,6 +421,8 @@ int main()
 		validationInbox.submit("pkg.ok", unresolvedStance);
 	const TacticalCommandSubmissionResult invalidFireResult =
 		validationInbox.submit("pkg.ok", invalidFireCommand);
+	const TacticalCommandSubmissionResult invalidMoveResult =
+		validationInbox.submit("pkg.ok", invalidMoveCommand);
 	const TacticalCommandSubmissionResult validStanceResult =
 		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
@@ -233,15 +430,20 @@ int main()
 		validationInbox.submit("pkg.ok", SimulationCommand{BeginFireWeaponCommand{
 			TacticalEntityId{3, 301}, 100, 0, 0,
 			SimulationCommandSource::LocalPlayer}});
+	const TacticalCommandSubmissionResult validMoveResult =
+		validationInbox.submit("pkg.ok", SimulationCommand{MoveToGridCommand{
+			TacticalEntityId{3, 301}, 101, 6, true, false,
+			SimulationCommandSource::LocalPlayer}});
 	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		unresolvedStanceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidFireResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		invalidMoveResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
-		validationInbox.summary().submitted == 2 &&
-		validationInbox.summary().nextRequestId == 3,
+		validMoveResult.requestId == 3 && validationInbox.summary().submitted == 3 &&
+		validationInbox.summary().nextRequestId == 4,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -444,8 +646,9 @@ int main()
 	const auto cancelSecond = cancellationInbox.submit("pkg.beta", MakeTurnCommand(2));
 	cancellationInbox.submit("pkg.alpha", MakeTurnCommand(3));
 	const auto cancelFourth = cancellationInbox.submit("pkg.beta", MakeTurnCommand(4));
+	RecordingTacticalCommandCancellationSink cancellationSink;
 	const TacticalCommandCancellationResult cancelledAlpha =
-		cancellationInbox.cancelPackage("pkg.alpha");
+		cancellationInbox.cancelPackage("pkg.alpha", &cancellationSink);
 	TacticalCommandInboxSnapshot cancellationSnapshot;
 	cancellationInbox.snapshot(cancellationSnapshot);
 	std::vector<std::uint64_t> survivorOrder;
@@ -454,6 +657,8 @@ int main()
 		return TacticalCommandDisposition::Accept;
 	});
 	check(cancelFirst.requestId == 1 && cancelledAlpha.cancelled == 2 &&
+		cancellationSink.count == 2 && cancellationSink.requestIds[0] == 1 &&
+		cancellationSink.requestIds[1] == 3 &&
 		cancellationSnapshot.pending.size() == 2 &&
 		cancellationSnapshot.pending[0].requestId == cancelSecond.requestId &&
 		cancellationSnapshot.pending[1].requestId == cancelFourth.requestId &&
@@ -525,8 +730,7 @@ int main()
 	check(RegisterTacticalWorldService(tacticalServices, memoryWorld) ==
 			EngineServiceRegistrationError::None,
 		"tactical world service registers as an explicit versioned host extension");
-	const auto resolvedWorld = tacticalServices.resolve<TacticalWorldService>(
-		TacticalWorldServiceId, EngineServiceVersion{1, 0});
+	const auto resolvedWorld = tacticalServices.resolve(TacticalWorldServiceContract);
 	TacticalWorldSnapshot capturedWorld;
 	check(resolvedWorld &&
 		resolvedWorld.service->capture(capturedWorld) == TacticalWorldCaptureResult::Success &&
@@ -892,8 +1096,7 @@ int main()
 	check(RegisterTacticalWorldObserverService(tacticalServices, observedWorld) ==
 			EngineServiceRegistrationError::None,
 		"the read-only tactical observer registers as a versioned package service");
-	const auto resolvedObserver = tacticalServices.resolve<TacticalWorldObserverService>(
-		TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion);
+	const auto resolvedObserver = tacticalServices.resolve(TacticalWorldObserverServiceContract);
 	check(resolvedObserver && resolvedObserver.service->latest().serial == 1 &&
 		!tacticalServices.resolve<TacticalWorldObserverService>(
 			TacticalWorldObserverServiceId, EngineServiceVersion{2, 0}),
@@ -921,17 +1124,28 @@ int main()
 		"publication serials increase monotonically even when the deterministic delta is empty");
 	memoryWorld.clear();
 	check(observedWorld.update() == TacticalWorldObserverUpdateResult::SourceUnavailable &&
-		observedWorld.latest().serial == 3 &&
-		observedWorld.latest().delta->events.empty(),
-		"source unavailability leaves the complete last good publication untouched");
+		!observedWorld.latest(),
+		"source unavailability invalidates the observer's unloaded world publication");
 
 	memoryWorld.publish(reloadedWorld);
-	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
-		"a new tactical epoch remains publishable through the observer");
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedBaseline,
+		"the first world after an unavailable boundary establishes a fresh baseline");
 	publication = observedWorld.latest();
-	check(publication.serial == 4 && publication.delta->events.size() == 1 &&
+	check(publication.serial == 1 && publication.status == TacticalWorldPublicationStatus::Baseline &&
+		publication.delta->events.empty(),
+		"observer serials restart only after the old publication becomes unavailable");
+	TacticalWorldSnapshot replacedWorld;
+	check(TacticalWorldSnapshot::create(
+			46, reloadedWorld.sector(), reloadedWorld.turn(),
+			reloadedWorld.actors(), replacedWorld) == TacticalSnapshotCreateError::None,
+		"direct epoch replacement fixture remains valid");
+	memoryWorld.publish(replacedWorld);
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
+		"a direct tactical epoch replacement remains publishable through the observer");
+	publication = observedWorld.latest();
+	check(publication.serial == 2 && publication.delta->events.size() == 1 &&
 		std::holds_alternative<TacticalWorldResetEvent>(publication.delta->events[0]),
-		"observer epoch changes reuse the bounded tactical reset event");
+		"direct observer epoch changes reuse the existing bounded tactical reset event");
 	std::vector<TacticalActorSnapshot> excessiveActors = reloadedWorld.actors();
 	excessiveActors.push_back(TacticalActorSnapshot{
 		TacticalEntityId{11, 1}, 2, 21, 440, 0, 0, 4,
@@ -943,7 +1157,7 @@ int main()
 		"observer actor-capacity fixture is a valid tactical snapshot");
 	memoryWorld.publish(excessiveWorld);
 	check(observedWorld.update() == TacticalWorldObserverUpdateResult::ActorCapacityReached &&
-		observedWorld.latest().serial == 4 &&
+		observedWorld.latest().serial == 2 &&
 		observedWorld.latest().snapshot->actors().size() == 3 &&
 		observedWorld.latest().delta->events.size() == 1,
 		"observer actor capacity failure preserves snapshot, delta, and serial atomically");
@@ -1006,24 +1220,30 @@ int main()
 			SimulationCommand{BeginFireWeaponCommand{
 				firstIncarnation, -123, -1, 4, SimulationCommandSource::LocalPlayer}}},
 		RecordedSimulationCommand{
-			20, 44, CommandJournalStatus::Blocked,
+			20, 44, CommandJournalStatus::Applied,
+			SimulationCommand{MoveToGridCommand{
+				reusedSlot, 2345, 6, true, false,
+				SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			21, 45, CommandJournalStatus::Blocked,
 			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
 		encoded[5] == 0,
-		"JA2 adapter emits version-2 simulation command journals");
+		"JA2 adapter emits version-3 simulation command journals");
 	std::vector<RecordedSimulationCommand> decoded;
 	std::uint64_t dropped = 0;
 	const SimulationCommandJournalDecodeResult decodeResult =
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
-	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 4)
+	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 5)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
 		const auto& fire = std::get<BeginFireWeaponCommand>(decoded[2].command);
-		const auto& turn = std::get<EndTurnCommand>(decoded[3].command);
+		const auto& move = std::get<MoveToGridCommand>(decoded[3].command);
+		const auto& turn = std::get<EndTurnCommand>(decoded[4].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -1034,24 +1254,33 @@ int main()
 			fire.targetGrid == -123 && fire.targetLevel == -1 &&
 			fire.targetCubeLevel == 4 &&
 			fire.source == SimulationCommandSource::LocalPlayer &&
-			decoded[3].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
+			move.soldier == reusedSlot && move.destinationGrid == 2345 &&
+			move.movementMode == 6 && move.reverse && !move.forceRestart &&
+			move.source == SimulationCommandSource::Replay &&
+			decoded[4].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
 			turn.source == SimulationCommandSource::NetworkPeer;
 	}
 	check(decodedFields,
-		"version-2 stance commands survive slot reuse as distinct identities");
+		"version-3 commands preserve generational actors and movement intent");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
 	std::vector<std::uint8_t> preservedEncoding{0xa5, 0x5a};
 	check(!EncodeSimulationCommandJournal(unresolved, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-2 encoding rejects unresolved actor identities transactionally");
+		"version-3 encoding rejects unresolved actor identities transactionally");
 	std::vector<RecordedSimulationCommand> invalidFire = recorded;
 	std::get<BeginFireWeaponCommand>(invalidFire[2].command).soldier =
 		TacticalEntityId{};
 	check(!EncodeSimulationCommandJournal(invalidFire, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-2 encoding validates every actor-bearing command");
+		"version-3 encoding validates fire-command actors");
+	std::vector<RecordedSimulationCommand> invalidMove = recorded;
+	std::get<MoveToGridCommand>(invalidMove[3].command).soldier =
+		TacticalEntityId{};
+	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"version-3 encoding validates move-command actors");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);
@@ -1091,7 +1320,7 @@ int main()
 	check(!EncodeSimulationCommandJournal(
 		legacyDecoded, legacyDropped, refusedUpgrade) &&
 		refusedUpgrade == std::vector<std::uint8_t>{0xcc},
-		"legacy-unresolved stance identities cannot be emitted as version 2");
+		"legacy-unresolved stance identities cannot be emitted as version 3");
 
 	std::vector<std::uint8_t> malformedV1 = versionOneStance;
 	malformedV1[36] = 0xff;
@@ -1120,28 +1349,60 @@ int main()
 		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
 		"version-1 decoding rejects truncated records transactionally");
 	malformedV1 = versionOneStance;
-	malformedV1[4] = 3;
+	malformedV1[4] = 4;
 	check(RejectsJournalWithoutPublishing(
 		malformedV1, SimulationCommandJournalDecodeResult::UnsupportedVersion),
 		"command journals reject unsupported future wire versions");
 
 	std::vector<RecordedSimulationCommand> oneStance{recorded[0]};
-	std::vector<std::uint8_t> malformedV2;
-	const bool encodedV2Fixture =
-		EncodeSimulationCommandJournal(oneStance, 0, malformedV2) &&
-		malformedV2.size() == 44;
-	check(encodedV2Fixture,
-		"version-2 stance fixture encodes for corruption checks");
-	if (encodedV2Fixture)
+	std::vector<std::uint8_t> malformedV3;
+	const bool encodedV3Fixture =
+		EncodeSimulationCommandJournal(oneStance, 0, malformedV3) &&
+		malformedV3.size() == 44;
+	check(encodedV3Fixture,
+		"version-3 stance fixture encodes for corruption checks");
+	std::vector<std::uint8_t> compatibleV2 = malformedV3;
+	if (encodedV3Fixture)
 	{
-		malformedV2[38] = 0;
-		malformedV2[39] = 0;
-		malformedV2[40] = 0;
-		malformedV2[41] = 0;
+		compatibleV2[4] = 2;
+		malformedV3[38] = 0;
+		malformedV3[39] = 0;
+		malformedV3[40] = 0;
+		malformedV3[41] = 0;
+	}
+	std::vector<RecordedSimulationCommand> compatibleV2Decoded;
+	std::uint64_t compatibleV2Dropped = 1;
+	check(encodedV3Fixture &&
+		DecodeSimulationCommandJournal(
+			compatibleV2, compatibleV2Decoded, compatibleV2Dropped) ==
+				SimulationCommandJournalDecodeResult::Success &&
+		compatibleV2Dropped == 0 && compatibleV2Decoded.size() == 1 &&
+		std::get<ChangeStanceCommand>(compatibleV2Decoded[0].command).soldier ==
+			firstIncarnation,
+		"version-3 decoder retains version-2 generational command compatibility");
+	check(RejectsJournalWithoutPublishing(
+		malformedV3, SimulationCommandJournalDecodeResult::Invalid),
+		"version-3 decoding rejects zero-incarnation actor identities");
+
+	std::vector<RecordedSimulationCommand> oneMove{recorded[3]};
+	std::vector<std::uint8_t> malformedMove;
+	const bool encodedMoveFixture =
+		EncodeSimulationCommandJournal(oneMove, 0, malformedMove) &&
+		malformedMove.size() == 50;
+	check(encodedMoveFixture,
+		"version-3 move fixture encodes its stable value fields");
+	std::vector<std::uint8_t> moveWithOldVersion = malformedMove;
+	if (encodedMoveFixture)
+	{
+		moveWithOldVersion[4] = 2;
+		malformedMove[48] = 0x80;
 	}
 	check(RejectsJournalWithoutPublishing(
-		malformedV2, SimulationCommandJournalDecodeResult::Invalid),
-		"version-2 decoding rejects zero-incarnation actor identities");
+		moveWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
+		"version-2 journals cannot smuggle the version-3 move tag");
+	check(RejectsJournalWithoutPublishing(
+		malformedMove, SimulationCommandJournalDecodeResult::Invalid),
+		"version-3 move decoding rejects unknown packed flags transactionally");
 
 	CommandJournal<SimulationCommand> journal(1);
 	journal.recordSubmission(

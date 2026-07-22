@@ -45,6 +45,7 @@
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
@@ -76,6 +77,7 @@
 #include "SaveCompatibility.h"
 #include "Simulation Commands.h"
 #include "TacticalCommandHost.h"
+#include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
@@ -407,9 +409,9 @@ public:
 			lifecycleTrace->push_back("bootstrap:" + descriptor_.content.id);
 		observedServices = &context.services;
 		observedMessages = &context.messages;
+		observedIdentity = context.identity;
 		const EngineServiceLookupResult<FrameTelemetry> telemetry =
-			context.extensionServices.resolve<FrameTelemetry>(
-				"engine.frame-telemetry", EngineServiceVersion{ 1, 0 } );
+			context.extensionServices.resolve( FrameTelemetryServiceContract );
 		observedTelemetry = telemetry.service;
 		const std::int64_t* messageCapacity =
 			context.configuration.find<std::int64_t>( "engine.messages.queue-capacity" );
@@ -485,6 +487,12 @@ public:
 			nestedBootstrapDeactivationResult =
 				registryDuringBootstrap->deactivate( deactivateDuringBootstrap );
 		}
+		if (initializationGuardDuringBootstrap)
+		{
+			initializationGuardCancelResult =
+				initializationGuardDuringBootstrap->cancel();
+			initializationGuardDuringBootstrap = nullptr;
+		}
 		bootstrapCalls.push_back(static_cast<int>(phase));
 		if (static_cast<int>(phase) == throwPhase) throw "test package bootstrap exception";
 		return static_cast<int>(phase) != failPhase_;
@@ -550,6 +558,7 @@ public:
 	std::string observedAssetProvenance;
 	EngineServices* observedServices = nullptr;
 	RuntimeMessageBus* observedMessages = nullptr;
+	PackageIdentity observedIdentity;
 	FrameTelemetry* observedTelemetry = nullptr;
 	std::int64_t observedMessageCapacity = -1;
 	std::string observedStoragePackageId;
@@ -606,6 +615,8 @@ public:
 	PackageActivationError nestedActivationResult = PackageActivationError::None;
 	PackageActivationPlan nestedResolutionResult;
 	bool nestedBootstrapDeactivationResult = true;
+	GameInitializationGuard* initializationGuardDuringBootstrap = nullptr;
+	RuntimeSessionTransitionResult initializationGuardCancelResult;
 	PackageRegistry* registryDuringDeactivate = nullptr;
 	std::string deactivateDuringDeactivate;
 	bool nestedDeactivateResult = true;
@@ -648,6 +659,27 @@ public:
 	int calls = 0;
 };
 
+class RecordingSimulationCommandExecutionSink final
+	: public SimulationCommandExecutionSink
+{
+public:
+	void commandProcessed(
+		const SimulationCommand&, std::uint64_t tick,
+		std::uint64_t sequence,
+		CommandDisposition disposition) noexcept override
+	{
+		observed = true;
+		lastTick = tick;
+		lastSequence = sequence;
+		lastDisposition = disposition;
+	}
+
+	bool observed = false;
+	std::uint64_t lastTick = 0;
+	std::uint64_t lastSequence = 0;
+	CommandDisposition lastDisposition = CommandDisposition::Retry;
+};
+
 int main( int, char** )
 {
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
@@ -678,12 +710,17 @@ int main( int, char** )
 		static_assert( !std::is_copy_constructible<CompositeAssetSource>::value &&
 		               !std::is_move_constructible<CompositeAssetSource>::value,
 		               "asset overlay identity must remain stable to prevent graph cycles" );
+		static_assert( !std::is_constructible<PackageIdentity, std::string>::value,
+		               "package identities may only be issued by the package registry" );
 		EngineHost<unsigned> host;
 		host.screenController().reset( 7 );
 		CHECK( host.screens().current() && host.screens().current()->state == 7,
 		       "command-agnostic engine host owns screen state" );
-		CHECK( host.beginInitialization() && host.markRunning() &&
-		       host.beginShutdown() && host.markStopped(),
+		CHECK( host.beginInitialization() &&
+		       host.runtimeSession().advancePackagesTo(
+		           PackageBootstrapPhase::StartRuntime ) &&
+		       host.markRunning() && host.beginShutdown() &&
+		       host.runtimeSession().shutdownPackages() && host.markStopped(),
 		       "command-agnostic engine host owns lifecycle" );
 	}
 
@@ -731,6 +768,8 @@ int main( int, char** )
 		CHECK( started && started.packages.completedPhases == 3 &&
 		       !started.packages.rolledBack &&
 		       repeated && package.bootstrapCalls == std::vector<int>({ 0, 1, 2 }) &&
+		       package.observedIdentity &&
+		       package.observedIdentity.id() == "lifecycle.complete" &&
 		       package.observedTelemetry == &host.frameTelemetry() &&
 		       package.observedMessageCapacity == 1024 &&
 		       package.observedStoragePackageId == "lifecycle.complete" &&
@@ -1084,19 +1123,81 @@ int main( int, char** )
 		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor() &&
 		       context.hasCapability( GameCapability::ApplicationMapEditor ),
 		       "game context accepts runtime capabilities before initialization" );
-		CHECK( context.beginInitialization() && context.markRunning(),
+		CHECK( context.beginInitialization() &&
+		       context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+		       context.markRunning(),
 		       "game context enters running lifecycle" );
 		CHECK( !context.setCapabilities( GameCapabilities{} ),
 		       "game context freezes runtime capabilities while running" );
 		CHECK( !context.beginInitialization(), "game context rejects duplicate initialization" );
-		CHECK( context.beginShutdown() && context.markStopped(),
+		CHECK( context.beginShutdown() && context.shutdownPackages() &&
+		       context.markStopped(),
 		       "game context completes shutdown lifecycle" );
+		TestLifecyclePackage guardedPackage(
+			"lifecycle.initialization-guard", PackageKind::Rules );
+		CHECK( context.packages().registerPackage( guardedPackage ) ==
+		           PackageRegistrationError::None &&
+		       context.packages().activate( "lifecycle.initialization-guard" ) ==
+		           PackageActivationError::None,
+		       "game initialization guard test activates a retryable package" );
 		{
 			GameInitializationGuard initialization( context );
-			CHECK( initialization, "game initialization guard starts from stopped state" );
+			const RuntimeSessionAdvanceResult loaded = context.advancePackagesTo(
+				PackageBootstrapPhase::LoadContent );
+			CHECK( initialization && loaded,
+			       "game initialization guard starts and reaches partial package bootstrap" );
 		}
-		CHECK( context.lifecycle() == GameLifecycle::Stopped,
-		       "game initialization guard rolls back incomplete initialization" );
+		CHECK( context.lifecycle() == GameLifecycle::Stopped && guardedPackage.active() &&
+		       guardedPackage.deactivateCalls == 0 &&
+		       guardedPackage.shutdownCalls == std::vector<int>({ 1, 0 }) &&
+		       context.packages().completedBootstrapPhases() == 0,
+		       "game initialization guard rolls back incomplete package initialization" );
+		{
+			GameInitializationGuard retry( context );
+			const RuntimeSessionAdvanceResult started = context.advancePackagesTo(
+				PackageBootstrapPhase::StartRuntime );
+			const RuntimeSessionTransitionResult running = retry.tryMarkRunning();
+			CHECK( retry.beginResult() && started && running,
+			       "game initialization guard permits a clean retry after rollback" );
+		}
+		CHECK( context.beginShutdown() && context.shutdownPackages() &&
+		       context.markStopped() && guardedPackage.deactivateCalls == 1 &&
+		       guardedPackage.shutdownCalls == std::vector<int>({ 1, 0, 2, 1, 0 }),
+		       "retried guarded initialization shuts packages down exactly once" );
+
+		TestLifecyclePackage reentrantGuardedPackage(
+			"lifecycle.reentrant-initialization-guard", PackageKind::Rules );
+		CHECK( context.packages().registerPackage( reentrantGuardedPackage ) ==
+		           PackageRegistrationError::None &&
+		       context.packages().activate(
+		           "lifecycle.reentrant-initialization-guard" ) ==
+		           PackageActivationError::None,
+		       "reentrant initialization guard test activates its package" );
+		{
+			GameInitializationGuard initialization( context );
+			reentrantGuardedPackage.initializationGuardDuringBootstrap =
+				&initialization;
+			const RuntimeSessionAdvanceResult configured = context.advancePackagesTo(
+				PackageBootstrapPhase::Configure );
+			CHECK( initialization.beginResult() && configured && initialization &&
+			       reentrantGuardedPackage.initializationGuardCancelResult.error ==
+			           RuntimeSessionError::PackageRollbackFailed &&
+			       reentrantGuardedPackage.initializationGuardCancelResult.lifecycle ==
+			           EngineLifecycle::Initializing &&
+			       reentrantGuardedPackage.initializationGuardCancelResult.rollback.packages.error ==
+			           PackageBootstrapShutdownError::OperationInProgress,
+			       "initialization guard remains armed after reentrant rollback contention" );
+		}
+		const bool reentrantGuardPackageRemoved =
+			context.lifecycle() == GameLifecycle::Stopped &&
+			context.packages().completedBootstrapPhases() == 0 &&
+			reentrantGuardedPackage.shutdownCalls == std::vector<int>({ 0 }) &&
+			context.packages().deactivate(
+				"lifecycle.reentrant-initialization-guard" ) &&
+			context.packages().unregisterPackage(
+				"lifecycle.reentrant-initialization-guard" );
+		CHECK( reentrantGuardPackageRemoved,
+		       "armed initialization guard retries rollback from its destructor" );
 	}
 
 	{
@@ -1499,13 +1600,20 @@ int main( int, char** )
 		context.submitCommand(
 			8, SimulationCommand{ChangeStanceCommand{
 			    TacticalEntityId{17, 701}, 2, SimulationCommandSource::LocalPlayer}} );
+		context.submitCommand(
+			8, SimulationCommand{MoveToGridCommand{
+			    TacticalEntityId{17, 701}, 1400, 6, true, false,
+			    SimulationCommandSource::LocalPlayer}} );
 		const auto stanceReady = context.commands().drainThrough( 8 );
 		const auto& stance = std::get<ChangeStanceCommand>( stanceReady[0].command );
-		CHECK( stanceReady.size() == 1 &&
+		const auto& move = std::get<MoveToGridCommand>( stanceReady[1].command );
+		CHECK( stanceReady.size() == 2 &&
 		       (stance.soldier == TacticalEntityId{17, 701}) &&
 		       stance.stance == 2 &&
-		       stance.source == SimulationCommandSource::LocalPlayer,
-		       "engine runtime carries generational soldier stance commands" );
+		       stance.source == SimulationCommandSource::LocalPlayer &&
+		       move.soldier == stance.soldier && move.destinationGrid == 1400 &&
+		       move.movementMode == 6 && move.reverse && !move.forceRestart,
+		       "engine runtime carries generational stance and movement commands" );
 		CHECK( context.submitRecordedCommand(
 		           9, 500, SimulationCommand{BeginFireWeaponCommand{
 		               TacticalEntityId{17, 700}, 1234, 0, 2,
@@ -1523,8 +1631,7 @@ int main( int, char** )
 		CHECK( RegisterTacticalCommandService( services, inbox ) ==
 		           EngineServiceRegistrationError::None,
 		       "headless hosts can explicitly register package tactical command ingress" );
-		const auto commandService = services.resolve<TacticalCommandService>(
-			TacticalCommandServiceId, TacticalCommandServiceVersion );
+		const auto commandService = services.resolve( TacticalCommandServiceContract );
 		const auto incompatibleService = services.resolve<TacticalCommandService>(
 			TacticalCommandServiceId, EngineServiceVersion{ 1, 1 } );
 		const SimulationCommand stanceCommand{ ChangeStanceCommand{
@@ -2155,13 +2262,19 @@ int main( int, char** )
 		       "application composition root binds platform service adapters" );
 
 		const auto tacticalCommands =
-			compiledContext.serviceCatalog().resolve<TacticalCommandService>(
-				TacticalCommandServiceId, TacticalCommandServiceVersion );
+			compiledContext.serviceCatalog().resolve( TacticalCommandServiceContract );
+		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
+		HeadlessRuntimeMessageSink commandResultSink;
+		const RuntimeMessageSinkRegistrationError commandResultSinkRegistered =
+			liveRuntimeMessages.addSink( commandResultSink );
 		const TacticalCommandInboxLimits productionCommandLimits = tacticalCommands
 			? tacticalCommands.service->limits() : TacticalCommandInboxLimits{};
 		const TacticalEntityId staleActor{ 0, 0xfedcba98u };
 		const SimulationCommand staleStance{ ChangeStanceCommand{
 			staleActor, ANIM_CROUCH, SimulationCommandSource::System } };
+		const SimulationCommand staleMove{ MoveToGridCommand{
+			staleActor, 100, WALKING, true, true,
+			SimulationCommandSource::System } };
 		const BOOLEAN previousCommandWorldLoaded = gfWorldLoaded;
 		SOLDIERTYPE* const previousCommandActor = MercPtrs[0];
 		SOLDIERTYPE commandHostActor;
@@ -2209,15 +2322,23 @@ int main( int, char** )
 		const TacticalCommandSubmissionResult invalidFire =
 			tacticalCommands.service->submit( packageId, SimulationCommand{ BeginFireWeaponCommand{
 				staleActor, -1, FIRST_LEVEL, 0, SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidMoveGrid =
+			tacticalCommands.service->submit( packageId, SimulationCommand{ MoveToGridCommand{
+				staleActor, -1, WALKING, false, false,
+				SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidMoveMode =
+			tacticalCommands.service->submit( packageId, SimulationCommand{ MoveToGridCommand{
+				staleActor, 100, NUMANIMATIONSTATES, false, false,
+				SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
-			tacticalCommands.service->submit( packageId, staleStance );
+			tacticalCommands.service->submit( packageId, staleMove );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterInvalidContext =
 			GetJa2TacticalCommandHostDiagnostics();
 		gfWorldLoaded = TRUE;
 		MercPtrs[0] = &commandHostActor;
 		const TacticalCommandSubmissionResult staleRequest =
-			tacticalCommands.service->submit( packageId, staleStance );
+			tacticalCommands.service->submit( packageId, staleMove );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterValidation =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -2227,15 +2348,16 @@ int main( int, char** )
 			journalAfterCommandHost.size() == journalBeforeCommandHost.size() + 1
 				? &journalAfterCommandHost.back() : nullptr;
 		CHECK( inactiveOwner && invalidTeam && invalidStance && invalidFire &&
+		       invalidMoveGrid && invalidMoveMode &&
 		       unloadedContext && staleRequest &&
 		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
-		       commandHostAfterInvalidContext.lastDrain.rejected == 5 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 7 &&
 		       commandHostAfterValidation.lastDrain.accepted == 1 &&
 		       commandHostAfterValidation.lastDrain.rejected == 0 &&
 		       commandHostAfterValidation.inactiveOwnerRejections ==
 		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
 		       commandHostAfterValidation.semanticRejections ==
-		           commandHostBeforeValidation.semanticRejections + 3 &&
+		           commandHostBeforeValidation.semanticRejections + 5 &&
 		       commandHostAfterValidation.contextRejections ==
 		           commandHostBeforeValidation.contextRejections + 1 &&
 		       commandHostAfterValidation.lastProcessing.status ==
@@ -2243,9 +2365,56 @@ int main( int, char** )
 		       commandHostAfterValidation.lastProcessing.scheduled == 1 &&
 		       commandHostAfterValidation.lastProcessing.discarded == 1 &&
 		       staleRecord && staleRecord->status == CommandJournalStatus::Discarded &&
-		       std::get<ChangeStanceCommand>( staleRecord->command ).soldier == staleActor &&
+		       std::get<MoveToGridCommand>( staleRecord->command ).soldier == staleActor &&
 		       compiledContext.commands().empty(),
-		       "safe-frame command host rejects unsafe domains and unloaded worlds, then journals stale identities as discarded" );
+		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
+
+		commandHostActor.usUIMovementMode = WALKING;
+		commandHostActor.bReverse = FALSE;
+		commandHostActor.aiData.ubPendingAction = 7;
+		const std::uint64_t invalidImmediateMoveSequence =
+			DispatchMoveToGridCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+				true, true, SimulationCommandSource::System );
+		const std::vector<RecordedSimulationCommand> journalAfterInvalidImmediateMove =
+			compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* invalidImmediateMoveRecord =
+			!journalAfterInvalidImmediateMove.empty()
+				? &journalAfterInvalidImmediateMove.back() : nullptr;
+		CHECK( invalidImmediateMoveRecord &&
+		       invalidImmediateMoveRecord->sequence == invalidImmediateMoveSequence &&
+		       invalidImmediateMoveRecord->status == CommandJournalStatus::Discarded &&
+		       std::holds_alternative<MoveToGridCommand>(
+		           invalidImmediateMoveRecord->command ) &&
+		       commandHostActor.usUIMovementMode == WALKING &&
+		       commandHostActor.bReverse == FALSE &&
+		       commandHostActor.aiData.ubPendingAction == 7,
+		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
+
+		const TacticalCommandSubmissionResult immediateMoveDrainedTracked =
+			tacticalCommands.service->submit( packageId, staleMove );
+		const Ja2TacticalCommandHostDiagnostics beforeImmediateMoveDrain =
+			GetJa2TacticalCommandHostDiagnostics();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext, 0 );
+		const Ja2TacticalCommandHostDiagnostics retainedBeforeImmediateMove =
+			GetJa2TacticalCommandHostDiagnostics();
+		DispatchMoveToGridCommandNow(
+			0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+			false, false, SimulationCommandSource::System );
+		const Ja2TacticalCommandHostDiagnostics afterImmediateMoveDrain =
+			GetJa2TacticalCommandHostDiagnostics();
+		CHECK( immediateMoveDrainedTracked &&
+		       retainedBeforeImmediateMove.trackedCommands ==
+		           beforeImmediateMoveDrain.trackedCommands + 1 &&
+		       retainedBeforeImmediateMove.authoritativeBackpressure &&
+		       afterImmediateMoveDrain.trackedCommands ==
+		           beforeImmediateMoveDrain.trackedCommands &&
+		       afterImmediateMoveDrain.receiptsQueued ==
+		           retainedBeforeImmediateMove.receiptsQueued + 1,
+		       "immediate movement dispatch reports a tracked package command through the application sink" );
+		// Consume the retained host backpressure frame and publish the receipt
+		// before starting the independent bounded-admission fixture below.
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 
 		std::vector<std::uint64_t> boundedRequestIds;
 		boundedRequestIds.reserve( productionCommandLimits.maximumPerDrain + 1 );
@@ -2292,8 +2461,10 @@ int main( int, char** )
 		tacticalCommands.service->snapshot( futureReplayGatedSnapshot );
 		const Ja2TacticalCommandHostDiagnostics futureReplayGatedFrame =
 			GetJa2TacticalCommandHostDiagnostics();
+		RecordingSimulationCommandExecutionSink futureReplaySink;
 		const CommandProcessingResult futureReplayProcessed =
-			ExecuteSimulationCommandsThrough( futureCommandTick );
+			ExecuteSimulationCommandsThrough(
+				futureCommandTick, 1, futureReplaySink );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot futureReplayResumedSnapshot;
 		tacticalCommands.service->snapshot( futureReplayResumedSnapshot );
@@ -2312,6 +2483,10 @@ int main( int, char** )
 		       futureReplayGatedFrame.lastProcessing.scheduled == 0 &&
 		       futureReplayWasDiscarded &&
 		       futureReplayProcessed.discarded == 1 &&
+		       futureReplaySink.observed &&
+		       futureReplaySink.lastTick == futureCommandTick &&
+		       futureReplaySink.lastSequence == futureCommandSequence &&
+		       futureReplaySink.lastDisposition == CommandDisposition::Discard &&
 		       futureReplayResumedSnapshot.summary.pending == 0 &&
 		       compiledContext.commands().empty(),
 		       "future replay backlog pauses live package ingress until the authoritative stream clears" );
@@ -2373,20 +2548,174 @@ int main( int, char** )
 		       compiledContext.commands().empty(),
 		       "lifecycle teardown cancels a bounded accepted command retained by execution backpressure" );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics commandReceiptDiagnostics =
+			GetJa2TacticalCommandHostDiagnostics();
+		const RuntimeMessageDispatchResult commandReceiptDispatch =
+			liveRuntimeMessages.dispatchPending();
+		std::vector<TacticalCommandResult> commandResults;
+		bool commandResultsDecoded = true;
+		for ( const RuntimeMessage& message : commandResultSink.messages )
+		{
+			if ( message.topic != TacticalCommandResultMessageTopic ) continue;
+			TacticalCommandResult result;
+			if ( DecodeTacticalCommandResult( message.payload, result ) !=
+			     TacticalCommandResultDecodeError::None )
+			{
+				commandResultsDecoded = false;
+				continue;
+			}
+			commandResults.push_back( std::move( result ) );
+		}
+		const auto findCommandResult = [&]( std::uint64_t requestId ) {
+			return std::find_if(
+				commandResults.begin(), commandResults.end(),
+				[requestId]( const TacticalCommandResult& result ) {
+					return result.requestId == requestId;
+				} );
+		};
+		const auto pendingCancellationResult = findCommandResult( teardownPending.requestId );
+		const auto inactiveOwnerResult = findCommandResult( inactiveOwner.requestId );
+		const auto unavailableContextResult = findCommandResult( unloadedContext.requestId );
+		const auto staleCommandResult = findCommandResult( staleRequest.requestId );
+		const auto immediateMoveDrainedResult =
+			findCommandResult( immediateMoveDrainedTracked.requestId );
+		const auto retainedCancellationResult =
+			findCommandResult( retainedForTeardown.requestId );
+		CHECK( commandResultSinkRegistered == RuntimeMessageSinkRegistrationError::None &&
+		       commandReceiptDispatch.messages == commandResultSink.messages.size() &&
+		       commandResultsDecoded &&
+		       commandReceiptDiagnostics.pendingReceipts == 0 &&
+		       commandReceiptDiagnostics.receiptsPublished == commandResults.size() &&
+		       commandReceiptDiagnostics.receiptDrops == 0 &&
+		       pendingCancellationResult != commandResults.end() &&
+		       pendingCancellationResult->packageId == "fixture.torn-down" &&
+		       pendingCancellationResult->status == TacticalCommandTerminalStatus::Cancelled &&
+		       pendingCancellationResult->reason ==
+		           TacticalCommandTerminalReason::PackageTeardown &&
+		       inactiveOwnerResult != commandResults.end() &&
+		       inactiveOwnerResult->status == TacticalCommandTerminalStatus::Rejected &&
+		       inactiveOwnerResult->reason == TacticalCommandTerminalReason::InactiveOwner &&
+		       unavailableContextResult != commandResults.end() &&
+		       unavailableContextResult->reason ==
+		           TacticalCommandTerminalReason::UnavailableContext &&
+		       staleCommandResult != commandResults.end() && staleRecord &&
+		       staleCommandResult->authoritativeSequence == staleRecord->sequence &&
+		       staleCommandResult->status == TacticalCommandTerminalStatus::Discarded &&
+		       staleCommandResult->reason ==
+		           TacticalCommandTerminalReason::AuthoritativeDiscard &&
+		       immediateMoveDrainedResult != commandResults.end() &&
+		       immediateMoveDrainedResult->status ==
+		           TacticalCommandTerminalStatus::Discarded &&
+		       immediateMoveDrainedResult->reason ==
+		           TacticalCommandTerminalReason::AuthoritativeDiscard &&
+		       retainedCancellationResult != commandResults.end() &&
+		       retainedCancellationResult->status ==
+		           TacticalCommandTerminalStatus::Cancelled &&
+		       retainedCancellationResult->reason ==
+		           TacticalCommandTerminalReason::PackageTeardown,
+		       "production command receipts report rejection, authoritative discard, and teardown cancellation" );
+		CHECK( liveRuntimeMessages.removeSink( commandResultSink ) ==
+		           RuntimeMessageSinkRegistrationError::None,
+		       "production command receipt test removes its non-owning runtime sink" );
+
+		const Ja2TacticalCommandHostDiagnostics beforeReceiptReserve =
+			GetJa2TacticalCommandHostDiagnostics();
+		bool receiptBusFilled = liveRuntimeMessages.queued() == 0;
+		for ( std::size_t index = 0;
+		      index < liveRuntimeMessages.maxQueuedMessages(); ++index )
+		{
+			receiptBusFilled = receiptBusFilled && static_cast<bool>(
+				liveRuntimeMessages.publish( RuntimeMessageRequest{
+					"test.receipt-fill", "test.headless", {} } ) );
+		}
+		const std::size_t admittedReceiptObligations =
+			productionCommandLimits.maximumPending +
+			productionCommandLimits.maximumPerDrain;
+		bool receiptObligationsSubmitted =
+			productionCommandLimits.maximumPerDrain != 0;
+		std::size_t admittedReceiptCount = 0;
+		while ( receiptObligationsSubmitted &&
+		        admittedReceiptCount < admittedReceiptObligations )
+		{
+			const std::size_t batch = std::min(
+				productionCommandLimits.maximumPerDrain,
+				admittedReceiptObligations - admittedReceiptCount );
+			for ( std::size_t index = 0; index < batch; ++index )
+				receiptObligationsSubmitted = receiptObligationsSubmitted &&
+					static_cast<bool>( tacticalCommands.service->submit(
+						packageId, staleStance ) );
+			DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+			admittedReceiptCount += batch;
+		}
+		const TacticalCommandSubmissionResult receiptCapacityFront =
+			tacticalCommands.service->submit( packageId, staleStance );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics atReceiptAdmissionLimit =
+			GetJa2TacticalCommandHostDiagnostics();
+		TacticalCommandInboxSummary receiptReserveInbox =
+			tacticalCommands.service->summary();
+		bool receiptReserveInboxFilled = receiptReserveInbox.pending == 1;
+		while ( receiptReserveInboxFilled &&
+		        receiptReserveInbox.pending < productionCommandLimits.maximumPending )
+		{
+			receiptReserveInboxFilled = static_cast<bool>(
+				tacticalCommands.service->submit( packageId, staleStance ) );
+			receiptReserveInbox = tacticalCommands.service->summary();
+		}
+		const TacticalCommandSubmissionResult receiptReserveOverflow =
+			tacticalCommands.service->submit( packageId, staleStance );
+		const Ja2TacticalCommandHostDiagnostics beforeReceiptReserveCancellation =
+			GetJa2TacticalCommandHostDiagnostics();
+		GetJa2TacticalCommandPackageEventSink().publish( PackageEvent{
+			PackageEventKind::Deactivated, packageId } );
+		const Ja2TacticalCommandHostDiagnostics afterReceiptReserveCancellation =
+			GetJa2TacticalCommandHostDiagnostics();
+		CHECK( receiptBusFilled &&
+		       liveRuntimeMessages.queued() == liveRuntimeMessages.maxQueuedMessages() &&
+		       receiptObligationsSubmitted && receiptCapacityFront &&
+		       atReceiptAdmissionLimit.pendingReceipts == admittedReceiptObligations &&
+		       atReceiptAdmissionLimit.receiptCapacityDeferrals ==
+		           beforeReceiptReserve.receiptCapacityDeferrals + 1 &&
+		       receiptReserveInboxFilled &&
+		       receiptReserveInbox.pending == productionCommandLimits.maximumPending &&
+		       receiptReserveOverflow.error ==
+		           TacticalCommandSubmissionError::CapacityReached &&
+		       afterReceiptReserveCancellation.lastCancellation.cancelled ==
+		           productionCommandLimits.maximumPending &&
+		       afterReceiptReserveCancellation.cancelledRequests ==
+		           beforeReceiptReserveCancellation.cancelledRequests +
+		               productionCommandLimits.maximumPending &&
+		       afterReceiptReserveCancellation.pendingReceipts ==
+		           admittedReceiptObligations +
+		               productionCommandLimits.maximumPending &&
+		       afterReceiptReserveCancellation.receiptDrops ==
+		           beforeReceiptReserveCancellation.receiptDrops &&
+		       tacticalCommands.service->summary().pending == 0,
+		       "receipt admission preserves enough storage to terminally cancel a full package inbox" );
+
+		liveRuntimeMessages.dispatchPending();
+		for ( std::size_t pass = 0;
+		      pass < 3 && GetJa2TacticalCommandHostDiagnostics().pendingReceipts != 0;
+		      ++pass )
+		{
+			DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+			liveRuntimeMessages.dispatchPending();
+		}
+		CHECK( GetJa2TacticalCommandHostDiagnostics().pendingReceipts == 0 &&
+		       liveRuntimeMessages.queued() == 0,
+		       "receipt reserve saturation fixture drains all retained terminal results" );
 		MercPtrs[0] = previousCommandActor;
 		gfWorldLoaded = previousCommandWorldLoaded;
 
-		const auto tacticalWorld = compiledContext.serviceCatalog().resolve<TacticalWorldService>(
-			TacticalWorldServiceId, TacticalWorldServiceVersion );
+		const auto tacticalWorld =
+			compiledContext.serviceCatalog().resolve( TacticalWorldServiceContract );
 		TacticalWorldSnapshot unavailableWorld;
 		CHECK( tacticalWorld &&
 		       tacticalWorld.service->capture( unavailableWorld ) ==
 		           TacticalWorldCaptureResult::Unavailable,
 		       "application composition root registers the live tactical world service" );
 		const auto tacticalWorldObserver =
-			compiledContext.serviceCatalog().resolve<TacticalWorldObserverService>(
-				TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion );
-		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
+			compiledContext.serviceCatalog().resolve( TacticalWorldObserverServiceContract );
 		const Ja2TacticalCommandHostDiagnostics commandsBeforeOrdering =
 			GetJa2TacticalCommandHostDiagnostics();
 		const Ja2TacticalWorldObserverDiagnostics observerBeforeOrdering =
@@ -2419,6 +2748,10 @@ int main( int, char** )
 		           observerBeforeWorld.safeFrameUpdates + 1 &&
 		       unavailableObservation.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
+		       unavailableObservation.worldGeneration == 0 &&
+		       unavailableObservation.turnSerial == 0 &&
+		       unavailableObservation.worldTransitions == 0 &&
+		       unavailableObservation.observerResets == 0 &&
 		       unavailableObservation.publishAttempts == 0 &&
 		       liveRuntimeMessages.queued() == queuedBeforeWorld,
 		       "pre-world safe frames harmlessly retain an unavailable observer service" );
@@ -2465,6 +2798,22 @@ int main( int, char** )
 		gWorldSectorX = 9;
 		gWorldSectorY = 1;
 		gbWorldSectorZ = 0;
+		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );
+		turnIdentityFixture.onWorldLoaded( 23 );
+		const Ja2TacticalTurnIdentity loadedTurnIdentity =
+			turnIdentityFixture.turnIdentity();
+		turnIdentityFixture.onTeamTurnBegan( 23 );
+		const Ja2TacticalTurnIdentity advancedTurnIdentity =
+			turnIdentityFixture.turnIdentity();
+		turnIdentityFixture.onWorldUnloaded();
+		const Ja2TacticalTurnIdentity unloadedTurnIdentity =
+			turnIdentityFixture.turnIdentity();
+		CHECK( loadedTurnIdentity.worldGeneration == 23 &&
+		       loadedTurnIdentity.serial == 1 && advancedTurnIdentity.worldGeneration == 23 &&
+		       advancedTurnIdentity.serial == 2 && !unloadedTurnIdentity,
+		       "live tactical turn identity is nonzero, advances, and resets with its world" );
+		NotifyJa2TacticalWorldLoaded( guiWorldLoadGeneration );
+		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
 		TacticalWorldSnapshot liveWorld;
 		const TacticalWorldCaptureResult liveCapture =
 			tacticalWorld.service->capture( liveWorld );
@@ -2472,9 +2821,20 @@ int main( int, char** )
 			liveWorld.find( TacticalEntityId{ 0, 701 } );
 		CHECK( liveCapture == TacticalWorldCaptureResult::Success &&
 		       liveWorld.epoch() == 23 && liveWorld.sector().x == 9 &&
+		       liveWorld.turn().serial == 2 &&
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
 		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
 		       "live tactical service captures stable pointer-free legacy soldier state" );
+		const TacticalActorSnapshot* liveActorStorage = liveWorld.actors().data();
+		const std::size_t liveActorCapacity = liveWorld.actors().capacity();
+		const TacticalWorldCaptureResult repeatedLiveCapture =
+			tacticalWorld.service->capture( liveWorld );
+		liveActor = liveWorld.find( TacticalEntityId{ 0, 701 } );
+		CHECK( repeatedLiveCapture == TacticalWorldCaptureResult::Success && liveActor &&
+		       liveWorld.actors().data() == liveActorStorage &&
+		       liveWorld.actors().capacity() == liveActorCapacity &&
+		       liveActorCapacity >= TOTAL_SOLDIERS,
+		       "live tactical capture retains its configured actor allocation across frames" );
 
 		const PackageSaveStateCaptureResult packageSaveBeforeObservation =
 			compiledContext.capturePackageSaveState();
@@ -2501,10 +2861,17 @@ int main( int, char** )
 		       observedActor->grid == 345 && observedActor->life == 76 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::BaselineSuppressed &&
+		       observerDiagnostics.worldGeneration == 23 &&
+		       observerDiagnostics.turnSerial == 2 &&
+		       observerDiagnostics.worldTransitions == 1 &&
+		       observerDiagnostics.observerResets == 0 &&
 		       observerDiagnostics.publishAttempts == 0 && liveTacticalDeltaSinkAdded &&
 		       liveRuntimeMessages.queued() == 0 && liveTacticalDeltaSink.messages.empty(),
 		       "production baseline observation is retained without publishing a message" );
+		const TacticalWorldSnapshot* baselinePublicationStorage = observedPublication.snapshot;
+		const TacticalWorldDelta* baselineDeltaStorage = observedPublication.delta;
 
+		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
 		Menptr[0].sGridNo = 346;
 		Menptr[0].stats.bLife = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
@@ -2516,22 +2883,30 @@ int main( int, char** )
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
 		       observedPublication.status == TacticalWorldPublicationStatus::Delta &&
-		       observedPublication.delta->events.size() == 2 &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
+		       observedPublication.delta->events.size() == 3 &&
+		       std::holds_alternative<TacticalTurnChangedEvent>(
 		           observedPublication.delta->events[0] ) &&
-		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
+		       std::holds_alternative<TacticalActorMovedEvent>(
 		           observedPublication.delta->events[1] ) &&
+		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
+		           observedPublication.delta->events[2] ) &&
 		       observedActor && observedActor->grid == 346 && observedActor->life == 75 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::Published &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
 		       observerDiagnostics.handledDeltaSerial == 2 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
+		       observerDiagnostics.turnSerial == 3 &&
 		       observerDiagnostics.messageSequence != 0 &&
 		       observerDiagnostics.publishAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 1 && liveTacticalDeltaSink.messages.empty(),
 		       "production safe-frame bridge queues one message for a new non-empty delta" );
+		const TacticalWorldSnapshot* deltaPublicationStorage = observedPublication.snapshot;
+		const TacticalWorldDelta* deltaStorage = observedPublication.delta;
+		CHECK( deltaPublicationStorage != baselinePublicationStorage &&
+		       deltaStorage != baselineDeltaStorage,
+		       "production observation publishes through an independent second buffer" );
 
 		const FrameRunResult tacticalDeltaDeliveryFrame =
 			compiledContext.frameDriver().runFrame(
@@ -2548,15 +2923,19 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0 && deliveredLiveDeltaDecoded &&
 		       deliveredLiveMessage->topic == TacticalWorldDeltaMessageTopic &&
 		       deliveredLiveMessage->source == TacticalWorldDeltaMessageSource &&
-		       deliveredLiveDelta.events.size() == 2 &&
-		       std::holds_alternative<TacticalActorMovedEvent>(
+		       deliveredLiveDelta.events.size() == 3 &&
+		       std::holds_alternative<TacticalTurnChangedEvent>(
 		           deliveredLiveDelta.events[0] ) &&
-		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
+		       std::holds_alternative<TacticalActorMovedEvent>(
 		           deliveredLiveDelta.events[1] ) &&
-		       std::get<TacticalActorMovedEvent>( deliveredLiveDelta.events[0] ).currentGrid ==
+		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
+		           deliveredLiveDelta.events[2] ) &&
+		       std::get<TacticalTurnChangedEvent>(
+		           deliveredLiveDelta.events[0] ).current.serial == 3 &&
+		       std::get<TacticalActorMovedEvent>( deliveredLiveDelta.events[1] ).currentGrid ==
 		           346 &&
 		       std::get<TacticalActorVitalsChangedEvent>(
-		           deliveredLiveDelta.events[1] ).currentLife == 75,
+		           deliveredLiveDelta.events[2] ).currentLife == 75,
 		       "queued tactical delta reaches package sinks and decodes on the next frame" );
 
 		Menptr[0].uiUniqueSoldierIdValue = 0;
@@ -2568,7 +2947,9 @@ int main( int, char** )
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::SourceAdapterFailure &&
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
-		       observedPublication.delta->events.size() == 2 && observedActor &&
+		       observedPublication.snapshot == deltaPublicationStorage &&
+		       observedPublication.delta == deltaStorage &&
+		       observedPublication.delta->events.size() == 3 && observedActor &&
 		       observedActor->grid == 346 && observedActor->life == 75 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
@@ -2580,9 +2961,12 @@ int main( int, char** )
 		Menptr[0].uiUniqueSoldierIdValue = 701;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		observedPublication = tacticalWorldObserver.service->latest();
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
 		       observerDiagnostics.publicationSerial == 3 &&
+		       observedPublication.snapshot == baselinePublicationStorage &&
+		       observedPublication.delta == baselineDeltaStorage &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
 		       observerDiagnostics.handledDeltaSerial == 3 &&
@@ -2697,6 +3081,22 @@ int main( int, char** )
 		       observerDiagnostics.publicationFailures == 2,
 		       "observation resumes after retry and suppresses the unchanged frame" );
 
+		Menptr[0].sGridNo = 348;
+		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedDelta &&
+		       observerDiagnostics.publicationSerial == 6 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
+		       observerDiagnostics.lastPublishError ==
+		           TacticalWorldDeltaPublishError::QueueFull &&
+		       observerDiagnostics.pendingDeltaSerial == 6 &&
+		       observerDiagnostics.publishAttempts == 5 &&
+		       observerDiagnostics.publicationFailures == 3 &&
+		       observerDiagnostics.discardedPendingDeltas == 0,
+		       "a final queue-full delta provides an unload backpressure fixture" );
+
 		gfWorldLoaded = FALSE;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
@@ -2706,16 +3106,24 @@ int main( int, char** )
 			compiledContext.commandJournal().snapshot();
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::SourceUnavailable &&
-		       observerDiagnostics.publicationSerial == 5 &&
+		       observerDiagnostics.publicationSerial == 0 &&
+		       tacticalWorldObserver && !tacticalWorldObserver.service->latest() &&
 		       observerDiagnostics.safeFrameUpdates ==
-		           observerBeforeWorld.safeFrameUpdates + 10 &&
+		           observerBeforeWorld.safeFrameUpdates + 11 &&
 		       observerDiagnostics.bridgeResult ==
-		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
+		           Ja2TacticalWorldDeltaBridgeResult::WorldUnavailableReset &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
-		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.handledDeltaSerial == 0 &&
+		       observerDiagnostics.publishedDeltaSerial == 0 &&
+		       observerDiagnostics.worldGeneration == 0 &&
+		       observerDiagnostics.turnSerial == 0 &&
+		       observerDiagnostics.worldTransitions == 2 &&
+		       observerDiagnostics.observerResets == 1 &&
+		       observerDiagnostics.discardedPendingDeltas == 1 &&
+		       observerDiagnostics.publishAttempts == 5 &&
 		       observerDiagnostics.publishedMessages == 2 &&
-		       observerDiagnostics.publicationFailures == 2 &&
+		       observerDiagnostics.publicationFailures == 3 &&
 		       packageSaveAfterObservation.error == packageSaveBeforeObservation.error &&
 		       packageSaveAfterObservation.packageId == packageSaveBeforeObservation.packageId &&
 		       packageSaveAfterObservation.snapshot.records.size() ==
@@ -2725,9 +3133,9 @@ int main( int, char** )
 		           replayDroppedBeforeObservation &&
 		       MercPtrs[0] == &Menptr[0] &&
 		       Menptr[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 347 &&
+		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 348 &&
 		       Menptr[0].stats.bLife == 75,
-		       "delta publication leaves save state, replay capture, and legacy storage unchanged" );
+		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		MercPtrs[0] = previousSlot;
 		Menptr[0].bActive = previousActive;
 		Menptr[0].bInSector = previousInSector;
@@ -2746,6 +3154,10 @@ int main( int, char** )
 		Menptr[0].bBreathMax = previousMaximumBreath;
 		gfWorldLoaded = previousWorldLoaded;
 		guiWorldLoadGeneration = previousWorldGeneration;
+		if ( previousWorldLoaded && previousWorldGeneration != 0 )
+			NotifyJa2TacticalWorldLoaded( previousWorldGeneration );
+		else
+			NotifyJa2TacticalWorldUnloaded();
 		gWorldSectorX = previousSectorX;
 		gWorldSectorY = previousSectorY;
 		gbWorldSectorZ = previousSectorZ;
@@ -4236,6 +4648,31 @@ int main( int, char** )
 		       PersistenceLoadResult::InvalidOrUnsupported,
 		       "platform persistence rejects unsupported content versions" );
 		FileDelete( const_cast<char*>(path.c_str()) );
+
+		const std::string oversizedPath = "engine_persistence_oversized_test.bin";
+		const std::vector<std::uint8_t> oversizedBytes( 32, 0x5a );
+		ByteStorage& platformStorage = GetPlatformByteStorage();
+		std::vector<std::uint8_t> unchangedBytes = { 9 };
+		PersistenceService tinyPersistence( platformStorage, 4 );
+		PersistenceHeader unchangedHeader{ 77, 88 };
+		CHECK( platformStorage.writeAll( oversizedPath, oversizedBytes ) &&
+		       platformStorage.readAllBounded( oversizedPath, 4, unchangedBytes ) ==
+		           ByteStorageReadResult::TooLarge && unchangedBytes == std::vector<std::uint8_t>({ 9 }) &&
+		       tinyPersistence.loadEnvelope( oversizedPath, 1, 1, 1,
+		           unchangedHeader, unchangedBytes ) == PersistenceLoadResult::TooLarge &&
+		       unchangedHeader.magic == 77 && unchangedHeader.version == 88 &&
+		       unchangedBytes == std::vector<std::uint8_t>({ 9 }),
+		       "platform persistence rejects oversized files before publishing or decoding them" );
+		CHECK( platformStorage.readAllBounded(
+		           oversizedPath, oversizedBytes.size(), unchangedBytes ) ==
+		           ByteStorageReadResult::Success && unchangedBytes == oversizedBytes,
+		       "platform bounded reads accept an exact file-size limit" );
+		FileDelete( const_cast<char*>(oversizedPath.c_str()) );
+		unchangedBytes = { 9 };
+		CHECK( platformStorage.readAllBounded(
+		           oversizedPath, 4, unchangedBytes ) == ByteStorageReadResult::NotFound &&
+		       unchangedBytes == std::vector<std::uint8_t>({ 9 }),
+		       "platform bounded reads distinguish missing files without mutating output" );
 	}
 
 #ifndef _WIN32

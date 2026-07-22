@@ -15,6 +15,8 @@ set(engine_core_public_headers
   DeterministicCommandQueue.h
   DefinitionCatalog.h
   EngineHost.h
+  EngineHostOptions.h
+  EngineServiceContracts.h
   EngineServices.h
   EntityRegistry.h
   FrameDriver.h
@@ -33,6 +35,7 @@ set(engine_core_public_headers
   PackageContentLoader.h
   PackageDefinitions.h
   PackageEventSink.h
+  PackageIdentity.h
   PackageEntities.h
   PackageLifecycle.h
   PackageMessagePublisher.h

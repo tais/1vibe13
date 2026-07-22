@@ -40,9 +40,9 @@ enum class TacticalWorldPublicationStatus
 };
 
 // A read-only view of one transactionally accepted observer publication. The
-// pointers remain valid until the observer's next successful update() or its
-// destruction. Packages should consume or copy the view on the same main
-// thread safe-frame boundary that drives the observer.
+// pointers remain valid until the observer's next successful update(), reset,
+// source-unavailable update, or destruction. Packages should consume or copy
+// the view on the same main-thread safe-frame boundary that drives the observer.
 struct TacticalWorldPublicationView
 {
 	TacticalWorldPublicationStatus status = TacticalWorldPublicationStatus::Unavailable;
@@ -66,11 +66,14 @@ public:
 	virtual TacticalWorldPublicationView latest() const noexcept = 0;
 };
 
+inline constexpr EngineServiceContract<TacticalWorldObserverService>
+	TacticalWorldObserverServiceContract{
+		TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion};
+
 inline EngineServiceRegistrationError RegisterTacticalWorldObserverService(
 	ServiceCatalog& catalog, TacticalWorldObserverService& service) noexcept
 {
-	return catalog.registerService<TacticalWorldObserverService>(
-		TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion, service);
+	return catalog.registerService(TacticalWorldObserverServiceContract, service);
 }
 
 class NullTacticalWorldObserverService final : public TacticalWorldObserverService
@@ -92,9 +95,13 @@ private:
 };
 
 // Main-thread observer driven explicitly by the host at a safe frame boundary.
-// It never starts a worker or mutates the source service. Failed captures and
-// diffs leave the complete last good publication (snapshot, delta, and serial)
-// untouched.
+// It never starts a worker or mutates the source service. Explicit source
+// failures and rejected diffs leave the complete last good publication
+// untouched. Source unavailability is a world-lifecycle boundary and clears
+// the publication so packages cannot mistake an unloaded world for live state.
+// Successful updates alternate between two owned publication slots; resets
+// invalidate them logically while retaining their allocations, so optimized
+// sources and the delta builder remain allocation-free after warmup.
 class TacticalWorldObserver final : public TacticalWorldObserverService
 {
 public:
@@ -103,6 +110,7 @@ public:
 		TacticalWorldObserverLimits limits = {}) noexcept;
 
 	TacticalWorldObserverUpdateResult update() noexcept;
+	void reset() noexcept;
 	TacticalWorldPublicationView latest() const noexcept override;
 	const TacticalWorldObserverLimits& limits() const noexcept { return limits_; }
 
@@ -117,7 +125,9 @@ private:
 
 	TacticalWorldService& source_;
 	TacticalWorldObserverLimits limits_;
-	Publication publication_;
+	Publication publications_[2];
+	std::size_t activePublication_ = 0;
+	bool hasPublication_ = false;
 };
 
 #endif

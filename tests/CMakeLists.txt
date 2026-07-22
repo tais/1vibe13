@@ -21,6 +21,14 @@ add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)
 target_link_libraries(ja2_runtime_adapter_tests PRIVATE JA2::RuntimeAdapter)
 add_test(NAME ja2_runtime_adapter COMMAND ja2_runtime_adapter_tests)
 
+# A dedicated process replaces global allocation hooks while measuring the
+# observer hot path. Keeping it separate avoids coupling allocation accounting
+# to unrelated adapter tests or their setup work.
+add_executable(tactical_observer_allocation_tests
+  tactical_observer_allocation_tests.cpp)
+target_link_libraries(tactical_observer_allocation_tests PRIVATE JA2::RuntimeAdapter)
+add_test(NAME tactical_observer_allocations COMMAND tactical_observer_allocation_tests)
+
 # Exercise the production legacy tile-cache implementation with data-free
 # surface/structure stubs. Keeping the real translation unit in this target
 # makes cache-capacity and lifecycle regressions available to ASan without a

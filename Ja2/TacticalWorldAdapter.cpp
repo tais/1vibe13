@@ -1,7 +1,7 @@
 #include "TacticalWorldAdapter.h"
 
 #include <cstdint>
-#include <vector>
+#include <limits>
 
 #include "Animation Control.h"
 #include "Map Information.h"
@@ -11,6 +11,17 @@
 
 namespace
 {
+constexpr std::uint64_t IncrementSaturated(std::uint64_t value) noexcept
+{
+	return value == std::numeric_limits<std::uint64_t>::max() ? value : value + 1;
+}
+
+static_assert(IncrementSaturated(0) == 1, "turn serials must become nonzero");
+static_assert(
+	IncrementSaturated(std::numeric_limits<std::uint64_t>::max()) ==
+		std::numeric_limits<std::uint64_t>::max(),
+	"turn serials must saturate instead of wrapping");
+
 TacticalStance SnapshotStance(const SOLDIERTYPE& soldier)
 {
 	if (soldier.usAnimState >= NUMANIMATIONSTATES) return TacticalStance::Unknown;
@@ -24,16 +35,65 @@ TacticalStance SnapshotStance(const SOLDIERTYPE& soldier)
 }
 }
 
+void Ja2TacticalWorldAdapter::onWorldLoaded(std::uint64_t worldGeneration) noexcept
+{
+	turnIdentity_.worldGeneration = worldGeneration;
+	turnIdentity_.serial = worldGeneration == 0 ? 0 : 1;
+}
+
+void Ja2TacticalWorldAdapter::onWorldUnloaded() noexcept
+{
+	turnIdentity_ = {};
+}
+
+void Ja2TacticalWorldAdapter::onTeamTurnBegan(
+	std::uint64_t worldGeneration) noexcept
+{
+	if (worldGeneration == 0)
+	{
+		onWorldUnloaded();
+		return;
+	}
+	if (turnIdentity_.worldGeneration != worldGeneration)
+	{
+		onWorldLoaded(worldGeneration);
+		return;
+	}
+	turnIdentity_.serial = IncrementSaturated(turnIdentity_.serial);
+}
+
+void Ja2TacticalWorldAdapter::synchronizeWorldGeneration(
+	std::uint64_t worldGeneration) noexcept
+{
+	if (turnIdentity_.worldGeneration != worldGeneration || turnIdentity_.serial == 0)
+		onWorldLoaded(worldGeneration);
+}
+
+Ja2TacticalTurnIdentity Ja2TacticalWorldAdapter::liveTurnIdentity() noexcept
+{
+	if (!gfWorldLoaded || guiWorldLoadGeneration == 0)
+		onWorldUnloaded();
+	else
+		synchronizeWorldGeneration(guiWorldLoadGeneration);
+	return turnIdentity_;
+}
+
 TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 	TacticalWorldSnapshot& output) noexcept
 {
 	if (!gfWorldLoaded || guiWorldLoadGeneration == 0)
+	{
+		onWorldUnloaded();
 		return TacticalWorldCaptureResult::Unavailable;
+	}
+	synchronizeWorldGeneration(guiWorldLoadGeneration);
+	const std::uint64_t turnSerial = turnIdentity_.serial;
 
 	try
 	{
-		std::vector<TacticalActorSnapshot> actors;
-		actors.reserve(maximumActors_ < TOTAL_SOLDIERS ? maximumActors_ : TOTAL_SOLDIERS);
+		actorScratch_.clear();
+		actorScratch_.reserve(
+			maximumActors_ < TOTAL_SOLDIERS ? maximumActors_ : TOTAL_SOLDIERS);
 		for (std::uint16_t slot = 0; slot < TOTAL_SOLDIERS; ++slot)
 		{
 			const SOLDIERTYPE* soldier = MercPtrs[slot];
@@ -41,9 +101,9 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 			if (static_cast<std::uint16_t>(soldier->ubID) != slot ||
 				soldier->uiUniqueSoldierIdValue == 0)
 				return TacticalWorldCaptureResult::AdapterFailure;
-			if (actors.size() >= maximumActors_)
+			if (actorScratch_.size() >= maximumActors_)
 				return TacticalWorldCaptureResult::CapacityReached;
-			actors.push_back(TacticalActorSnapshot{
+			actorScratch_.push_back(TacticalActorSnapshot{
 				TacticalEntityId{slot, soldier->uiUniqueSoldierIdValue},
 				static_cast<std::uint8_t>(soldier->bTeam),
 				static_cast<std::uint16_t>(soldier->ubProfile),
@@ -61,8 +121,7 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				soldier->bInSector != FALSE});
 		}
 
-		TacticalWorldSnapshot captured;
-		const TacticalSnapshotCreateError result = TacticalWorldSnapshot::create(
+		const TacticalSnapshotCreateError result = TacticalWorldSnapshot::createReusable(
 			guiWorldLoadGeneration,
 			TacticalSectorSnapshot{
 				gWorldSectorX, gWorldSectorY, gbWorldSectorZ, gfWorldLoaded != FALSE},
@@ -70,13 +129,12 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				(gTacticalStatus.uiFlags & TURNBASED) != 0,
 				(gTacticalStatus.uiFlags & INCOMBAT) != 0,
 				gTacticalStatus.ubCurrentTeam,
-				0},
-			std::move(actors), captured, maximumActors_);
+				turnSerial},
+			actorScratch_, output, maximumActors_);
 		if (result == TacticalSnapshotCreateError::TooManyActors)
 			return TacticalWorldCaptureResult::CapacityReached;
 		if (result != TacticalSnapshotCreateError::None)
 			return TacticalWorldCaptureResult::AdapterFailure;
-		output = std::move(captured);
 		return TacticalWorldCaptureResult::Success;
 	}
 	catch (...)
@@ -89,4 +147,19 @@ Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter()
 {
 	static Ja2TacticalWorldAdapter adapter(TOTAL_SOLDIERS);
 	return adapter;
+}
+
+void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept
+{
+	GetJa2TacticalWorldAdapter().onWorldLoaded(worldGeneration);
+}
+
+void NotifyJa2TacticalWorldUnloaded() noexcept
+{
+	GetJa2TacticalWorldAdapter().onWorldUnloaded();
+}
+
+void NotifyJa2TacticalTeamTurnBegan(std::uint64_t worldGeneration) noexcept
+{
+	GetJa2TacticalWorldAdapter().onTeamTurnBegan(worldGeneration);
 }

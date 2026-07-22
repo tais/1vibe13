@@ -17,8 +17,14 @@ enum class CommandTag : std::uint8_t
 {
 	EndTurn = 1,
 	ChangeStance = 2,
-	BeginFireWeapon = 3
+	BeginFireWeapon = 3,
+	MoveToGrid = 4
 };
+
+constexpr std::uint8_t MoveReverseFlag = 0x01u;
+constexpr std::uint8_t MoveForceRestartFlag = 0x02u;
+constexpr std::uint8_t MoveKnownFlags =
+	MoveReverseFlag | MoveForceRestartFlag;
 
 bool IsValidSource(std::uint8_t value)
 {
@@ -53,7 +59,8 @@ bool IsValidCommand(const SimulationCommand& command)
 		using Command = typename std::decay<decltype(value)>::type;
 		if (!IsValidSource(static_cast<std::uint8_t>(value.source))) return false;
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value)
+			std::is_same<Command, BeginFireWeaponCommand>::value ||
+			std::is_same<Command, MoveToGridCommand>::value)
 			return value.soldier.valid();
 		return true;
 	}, command);
@@ -85,6 +92,18 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeI32(value.targetGrid);
 			writer.writeI8(value.targetLevel);
 			writer.writeI8(value.targetCubeLevel);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::MoveToGrid));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.destinationGrid);
+			writer.writeU16(value.movementMode);
+			writer.writeU8(
+				(value.reverse ? MoveReverseFlag : 0u) |
+				(value.forceRestart ? MoveForceRestartFlag : 0u));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
@@ -139,6 +158,23 @@ bool ReadCommand(
 				!reader.readI8(value.targetLevel) ||
 				!reader.readI8(value.targetCubeLevel) ||
 				!ReadSource(reader, value.source)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::MoveToGrid:
+		{
+			if (version < 3) return false;
+			MoveToGridCommand value{};
+			std::uint8_t flags = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.destinationGrid) ||
+				!reader.readU16(value.movementMode) ||
+				!reader.readU8(flags) || (flags & ~MoveKnownFlags) != 0 ||
+				!ReadSource(reader, value.source)) return false;
+			value.reverse = (flags & MoveReverseFlag) != 0;
+			value.forceRestart = (flags & MoveForceRestartFlag) != 0;
 			command = value;
 			return true;
 		}
