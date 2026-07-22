@@ -333,15 +333,24 @@ int main()
 	futureResult[4] = 2;
 	std::vector<std::uint8_t> invalidResultBytes = encodedResult;
 	invalidResultBytes.back() = 6;
+	std::vector<std::uint8_t> zeroSequenceBytes;
+	TacticalCommandResult zeroSequenceResult;
 	check(DecodeTacticalCommandResult(futureResult, decodedResult) ==
 			TacticalCommandResultDecodeError::UnsupportedVersion &&
 		DecodeTacticalCommandResult(invalidResultBytes, decodedResult) ==
 			TacticalCommandResultDecodeError::Invalid &&
 		EncodeTacticalCommandResult(TacticalCommandResult{
 			"p", 1, 0, 3, TacticalCommandTerminalStatus::Applied,
-			TacticalCommandTerminalReason::None}, encodedResult) ==
+			TacticalCommandTerminalReason::None}, zeroSequenceBytes) ==
+			TacticalCommandResultEncodeError::None &&
+		DecodeTacticalCommandResult(zeroSequenceBytes, zeroSequenceResult) ==
+			TacticalCommandResultDecodeError::None &&
+		zeroSequenceResult.authoritativeSequence == 0 &&
+		EncodeTacticalCommandResult(TacticalCommandResult{
+			"p", 1, 2, 3, TacticalCommandTerminalStatus::Applied,
+			TacticalCommandTerminalReason::InvalidDomain}, zeroSequenceBytes) ==
 			TacticalCommandResultEncodeError::Invalid,
-		"tactical command result codec rejects future, malformed, and inconsistent records");
+		"tactical command results accept the first stream sequence and reject inconsistent records");
 	RuntimeMessageBus resultMessages(1, 1024);
 	RecordingRuntimeMessageSink resultSink;
 	resultMessages.addSink(resultSink);

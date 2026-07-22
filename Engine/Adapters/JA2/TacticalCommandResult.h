@@ -25,9 +25,10 @@ enum class TacticalCommandTerminalReason : std::uint8_t
 	AuthoritativeDiscard = 6
 };
 
-// Pointer-free terminal receipt for one accepted package request. Sequence is
-// zero when the request was rejected before entering the authoritative command
-// stream. It is never a best-effort journal record.
+// Pointer-free terminal receipt for one accepted package request. Rejected
+// requests publish sequence zero; applied/discarded sequence zero remains valid
+// because it is the first identifier in a fresh authoritative command stream.
+// Status, rather than a sequence sentinel, identifies pre-admission rejection.
 struct TacticalCommandResult
 {
 	std::string packageId;

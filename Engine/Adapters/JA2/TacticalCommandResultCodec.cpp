@@ -49,11 +49,9 @@ bool IsValidResult(const TacticalCommandResult& result) noexcept
 			return result.authoritativeSequence == 0 &&
 				result.reason != TacticalCommandTerminalReason::None;
 		case TacticalCommandTerminalStatus::Applied:
-			return result.authoritativeSequence != 0 &&
-				result.reason == TacticalCommandTerminalReason::None;
+			return result.reason == TacticalCommandTerminalReason::None;
 		case TacticalCommandTerminalStatus::Discarded:
-			return result.authoritativeSequence != 0 &&
-				result.reason == TacticalCommandTerminalReason::AuthoritativeDiscard;
+			return result.reason == TacticalCommandTerminalReason::AuthoritativeDiscard;
 		case TacticalCommandTerminalStatus::Cancelled:
 			return result.reason == TacticalCommandTerminalReason::PackageTeardown;
 	}
