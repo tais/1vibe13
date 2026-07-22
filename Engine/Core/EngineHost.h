@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -113,9 +114,11 @@ private:
 		  audioGroups_(services.audio, options.limits.maximumPackageAudioPlaybacks),
 		  faultJournal_(options.limits.runtimeFaultHistoryCapacity),
 		  localization_(options.limits.maximumLocalizationEntries,
-		                options.limits.maximumLocalizationTextBytes),
+		                options.limits.maximumLocalizationTextBytes,
+		                options.limits.maximumTotalLocalizationTextBytes),
 		  definitions_(options.limits.maximumDefinitionEntries,
-		               options.limits.maximumDefinitionPayloadBytes),
+		               options.limits.maximumDefinitionPayloadBytes,
+		               options.limits.maximumTotalDefinitionPayloadBytes),
 		  entities_(options.limits.maximumEntities),
 		  hostCapabilities_(std::move(options.hostCapabilities)),
 		  packageTasks_(options.limits.maximumQueuedPackageTasks,
@@ -182,10 +185,14 @@ private:
 			static_cast<std::int64_t>(localization_.maximumEntries()));
 		runtimeConfiguration_.set("engine.localization.text-byte-limit",
 			static_cast<std::int64_t>(localization_.maximumTextBytes()));
+		runtimeConfiguration_.set("engine.localization.total-text-byte-limit",
+			static_cast<std::int64_t>(localization_.maximumTotalTextBytes()));
 		runtimeConfiguration_.set("engine.definitions.entry-capacity",
 			static_cast<std::int64_t>(definitions_.maximumEntries()));
 		runtimeConfiguration_.set("engine.definitions.payload-byte-limit",
 			static_cast<std::int64_t>(definitions_.maximumPayloadBytes()));
+		runtimeConfiguration_.set("engine.definitions.total-payload-byte-limit",
+			static_cast<std::int64_t>(definitions_.maximumTotalPayloadBytes()));
 		runtimeConfiguration_.set("engine.entities.capacity",
 			static_cast<std::int64_t>(entities_.maximumEntities()));
 		runtimeConfiguration_.set("engine.package-audio.playback-capacity",
@@ -439,8 +446,12 @@ private:
 		options.limits.runtimeFaultHistoryCapacity = runtimeFaultCapacity;
 		options.limits.maximumLocalizationEntries = localizationEntries;
 		options.limits.maximumLocalizationTextBytes = localizationTextBytes;
+		options.limits.maximumTotalLocalizationTextBytes =
+			saturatingProduct(localizationEntries, localizationTextBytes);
 		options.limits.maximumDefinitionEntries = definitionEntries;
 		options.limits.maximumDefinitionPayloadBytes = definitionPayloadBytes;
+		options.limits.maximumTotalDefinitionPayloadBytes =
+			saturatingProduct(definitionEntries, definitionPayloadBytes);
 		options.limits.maximumEntities = maximumEntities;
 		options.limits.maximumPackageAudioPlaybacks = maximumPackageAudioPlaybacks;
 		options.limits.maximumQueuedPackageTasks = maximumQueuedPackageTasks;
@@ -448,6 +459,13 @@ private:
 		options.limits.maximumCheckpointPackages = maximumCheckpointPackages;
 		options.limits.maximumRuntimeReportBytes = maximumRuntimeReportBytes;
 		return options;
+	}
+
+	static constexpr std::size_t saturatingProduct(
+		std::size_t count, std::size_t bytes) noexcept
+	{
+		return bytes != 0 && count > std::numeric_limits<std::size_t>::max() / bytes
+			? std::numeric_limits<std::size_t>::max() : count * bytes;
 	}
 
 	StateController<ScreenId> screenController_;

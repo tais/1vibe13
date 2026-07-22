@@ -301,11 +301,14 @@ the engine must not contain SDL types in its public domain model.
 - `LocalizationCatalog` is a bounded ordered package layer for opaque UTF-8
   text. Package identity is host-bound, later packages override earlier keys,
   fallback is explicit, and configure rollback or shutdown automatically
-  removes the package's entries to reveal the lower layer again.
+  removes the package's entries to reveal the lower layer again. Indexed
+  lookups avoid scanning every package layer, while per-entry and aggregate
+  text budgets keep valid small records from accumulating without bound.
 - `DefinitionCatalog` applies the same ownership and layering rules to bounded
   versioned byte definitions. Core validates identity, schema compatibility,
-  payload limits, override order, and rollback lifetime while game/domain
-  adapters remain responsible for decoding their own rules.
+  per-record and aggregate payload limits, override order, and rollback
+  lifetime while game/domain adapters remain responsible for decoding their
+  own rules. Its override index is rebuilt safely after package removal.
 - `EntityRegistry` supplies bounded generational handles without owning domain
   objects. IDs remain safe across messages, commands, saves, and diagnostics;
   destroyed slots increment generation, exhausted generations retire, and all

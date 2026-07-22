@@ -3,7 +3,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <limits>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -18,7 +21,8 @@ enum class DefinitionSetError
 	InvalidSchemaVersion,
 	PayloadTooLarge,
 	CapacityReached,
-	AllocationFailure
+	AllocationFailure,
+	TotalCapacityReached
 };
 
 enum class DefinitionLookupError
@@ -59,7 +63,13 @@ public:
 	explicit DefinitionCatalog(
 		std::size_t maximumEntries = 65536,
 		std::size_t maximumPayloadBytes = 1024u * 1024u)
-		: maximumEntries_(maximumEntries), maximumPayloadBytes_(maximumPayloadBytes) {}
+		: DefinitionCatalog(maximumEntries, maximumPayloadBytes,
+			saturatingProduct(maximumEntries, maximumPayloadBytes)) {}
+
+	DefinitionCatalog(std::size_t maximumEntries,
+		std::size_t maximumPayloadBytes, std::size_t maximumTotalPayloadBytes)
+		: maximumEntries_(maximumEntries), maximumPayloadBytes_(maximumPayloadBytes),
+		  maximumTotalPayloadBytes_(maximumTotalPayloadBytes) {}
 
 	DefinitionSetError set(std::string packageId, std::string type, std::string id,
 		std::uint32_t schemaVersion, std::vector<std::uint8_t> payload) noexcept
@@ -73,6 +83,10 @@ public:
 		{
 			if (record.packageId != packageId || record.type != type || record.id != id)
 				continue;
+			const std::size_t retainedBytes = totalPayloadBytes_ - record.payload.size();
+			if (payload.size() > maximumTotalPayloadBytes_ - retainedBytes)
+				return DefinitionSetError::TotalCapacityReached;
+			const std::size_t replacementBytes = payload.size();
 			try
 			{
 				record.schemaVersion = schemaVersion;
@@ -82,9 +96,13 @@ public:
 			{
 				return DefinitionSetError::AllocationFailure;
 			}
+			totalPayloadBytes_ = retainedBytes + replacementBytes;
 			return DefinitionSetError::None;
 		}
 		if (records_.size() >= maximumEntries_) return DefinitionSetError::CapacityReached;
+		if (payload.size() > maximumTotalPayloadBytes_ - totalPayloadBytes_)
+			return DefinitionSetError::TotalCapacityReached;
+		const std::size_t insertedBytes = payload.size();
 		try
 		{
 			records_.push_back(DefinitionRecord{std::move(packageId), std::move(type),
@@ -94,23 +112,22 @@ public:
 		{
 			return DefinitionSetError::AllocationFailure;
 		}
+		totalPayloadBytes_ += insertedBytes;
+		appendIndex(records_.size() - 1);
 		return DefinitionSetError::None;
 	}
 
 	DefinitionView resolve(const std::string& type, const std::string& id,
 		std::uint32_t minimumSchemaVersion, std::uint32_t maximumSchemaVersion) const
 	{
-		for (auto record = records_.rbegin(); record != records_.rend(); ++record)
-		{
-			if (record->type != type || record->id != id) continue;
-			if (record->schemaVersion < minimumSchemaVersion ||
-				record->schemaVersion > maximumSchemaVersion)
-				return DefinitionView{DefinitionLookupError::IncompatibleSchema,
-					record->schemaVersion, nullptr, &record->packageId};
-			return DefinitionView{DefinitionLookupError::None, record->schemaVersion,
-				&record->payload, &record->packageId};
-		}
-		return DefinitionView{DefinitionLookupError::NotFound};
+		const DefinitionRecord* record = find(type, id);
+		if (!record) return DefinitionView{DefinitionLookupError::NotFound};
+		if (record->schemaVersion < minimumSchemaVersion ||
+			record->schemaVersion > maximumSchemaVersion)
+			return DefinitionView{DefinitionLookupError::IncompatibleSchema,
+				record->schemaVersion, nullptr, &record->packageId};
+		return DefinitionView{DefinitionLookupError::None, record->schemaVersion,
+			&record->payload, &record->packageId};
 	}
 
 	std::size_t removePackage(const std::string& packageId)
@@ -118,9 +135,14 @@ public:
 		const std::size_t before = records_.size();
 		for (auto record = records_.begin(); record != records_.end();)
 		{
-			if (record->packageId == packageId) record = records_.erase(record);
+			if (record->packageId == packageId)
+			{
+				totalPayloadBytes_ -= record->payload.size();
+				record = records_.erase(record);
+			}
 			else ++record;
 		}
+		if (before != records_.size()) rebuildIndex();
 		return before - records_.size();
 	}
 
@@ -128,17 +150,99 @@ public:
 	std::size_t size() const { return records_.size(); }
 	std::size_t maximumEntries() const { return maximumEntries_; }
 	std::size_t maximumPayloadBytes() const { return maximumPayloadBytes_; }
+	std::size_t payloadBytes() const { return totalPayloadBytes_; }
+	std::size_t maximumTotalPayloadBytes() const { return maximumTotalPayloadBytes_; }
 
 	static DefinitionCatalog& disabled()
 	{
-		static DefinitionCatalog catalog(0, 0);
+		static DefinitionCatalog catalog(0, 0, 0);
 		return catalog;
 	}
 
 private:
+	static constexpr std::size_t saturatingProduct(
+		std::size_t count, std::size_t bytes) noexcept
+	{
+		return bytes != 0 && count > std::numeric_limits<std::size_t>::max() / bytes
+			? std::numeric_limits<std::size_t>::max() : count * bytes;
+	}
+
+	const DefinitionRecord* find(
+		const std::string& type, const std::string& id) const
+	{
+		if (indexValid_)
+		{
+			const auto range = index_.equal_range(identityHash(type, id));
+			const DefinitionRecord* winner = nullptr;
+			std::size_t winnerIndex = 0;
+			for (auto indexed = range.first; indexed != range.second; ++indexed)
+			{
+				const std::size_t recordIndex = indexed->second;
+				if (recordIndex >= records_.size()) continue;
+				const DefinitionRecord& record = records_[recordIndex];
+				if (record.type == type && record.id == id &&
+					(!winner || recordIndex > winnerIndex))
+				{
+					winner = &record;
+					winnerIndex = recordIndex;
+				}
+			}
+			return winner;
+		}
+		for (auto record = records_.rbegin(); record != records_.rend(); ++record)
+			if (record->type == type && record->id == id) return &*record;
+		return nullptr;
+	}
+
+	static std::size_t identityHash(
+		const std::string& type, const std::string& id)
+	{
+		const std::size_t first = std::hash<std::string>{}(type);
+		const std::size_t second = std::hash<std::string>{}(id);
+		return first ^ (second + static_cast<std::size_t>(0x9e3779b9u) +
+			(first << 6u) + (first >> 2u));
+	}
+
+	void appendIndex(std::size_t recordIndex) noexcept
+	{
+		if (!indexValid_) return;
+		try
+		{
+			const DefinitionRecord& record = records_[recordIndex];
+			index_.emplace(identityHash(record.type, record.id), recordIndex);
+		}
+		catch (...)
+		{
+			index_.clear();
+			indexValid_ = false;
+		}
+	}
+
+	void rebuildIndex() noexcept
+	{
+		try
+		{
+			std::unordered_multimap<std::size_t, std::size_t> rebuilt;
+			rebuilt.reserve(records_.size());
+			for (std::size_t index = 0; index < records_.size(); ++index)
+				rebuilt.emplace(identityHash(records_[index].type, records_[index].id), index);
+			index_.swap(rebuilt);
+			indexValid_ = true;
+		}
+		catch (...)
+		{
+			index_.clear();
+			indexValid_ = false;
+		}
+	}
+
 	std::size_t maximumEntries_;
 	std::size_t maximumPayloadBytes_;
+	std::size_t maximumTotalPayloadBytes_;
+	std::size_t totalPayloadBytes_ = 0;
 	std::vector<DefinitionRecord> records_;
+	std::unordered_multimap<std::size_t, std::size_t> index_;
+	bool indexValid_ = true;
 };
 
 #endif

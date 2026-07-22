@@ -38,6 +38,16 @@ struct EngineHostLimits
 	std::size_t maximumPackageSaveStateRecords = 4096;
 	std::size_t maximumPackageSaveStateBytes = 4u * 1024u * 1024u;
 	std::size_t maximumTotalPackageSaveStateBytes = 16u * 1024u * 1024u;
+
+	// Aggregate catalog budgets complement the existing per-record limits. The
+	// defaults preserve the full capacity implied by the legacy entry/per-record
+	// pair; named hosts can opt into tighter totals. Kept at the end so positional
+	// aggregate initialization remains compatible.
+	std::size_t maximumTotalLocalizationTextBytes =
+		static_cast<std::size_t>(1024ull * 1024ull * 1024ull);
+	std::size_t maximumTotalDefinitionPayloadBytes = sizeof(std::size_t) >= 8
+		? static_cast<std::size_t>(64ull * 1024ull * 1024ull * 1024ull)
+		: std::numeric_limits<std::size_t>::max();
 };
 
 struct EngineHostOptions
@@ -53,7 +63,8 @@ enum class EngineHostOptionsValidationError
 {
 	None,
 	RuntimeConfigurationRange,
-	InvalidPackageSaveStateLimits
+	InvalidPackageSaveStateLimits,
+	InvalidCatalogLimits
 };
 
 struct EngineHostOptionsValidationResult
@@ -126,7 +137,11 @@ inline EngineHostOptionsValidationResult ValidateEngineHostOptions(
 		{options.limits.maximumPackageSaveStateBytes,
 			"limits.maximumPackageSaveStateBytes"},
 		{options.limits.maximumTotalPackageSaveStateBytes,
-			"limits.maximumTotalPackageSaveStateBytes"}
+			"limits.maximumTotalPackageSaveStateBytes"},
+		{options.limits.maximumTotalLocalizationTextBytes,
+			"limits.maximumTotalLocalizationTextBytes"},
+		{options.limits.maximumTotalDefinitionPayloadBytes,
+			"limits.maximumTotalDefinitionPayloadBytes"}
 	};
 	for (const NamedLimit& limit : limits)
 		if (static_cast<std::uintmax_t>(limit.value) > configurationMaximum)
@@ -137,6 +152,16 @@ inline EngineHostOptionsValidationResult ValidateEngineHostOptions(
 		options.limits.maximumTotalPackageSaveStateBytes)
 		return {EngineHostOptionsValidationError::InvalidPackageSaveStateLimits,
 			"limits.maximumPackageSaveStateBytes"};
+	if (options.limits.maximumLocalizationEntries != 0 &&
+		options.limits.maximumLocalizationTextBytes >
+		options.limits.maximumTotalLocalizationTextBytes)
+		return {EngineHostOptionsValidationError::InvalidCatalogLimits,
+			"limits.maximumLocalizationTextBytes"};
+	if (options.limits.maximumDefinitionEntries != 0 &&
+		options.limits.maximumDefinitionPayloadBytes >
+		options.limits.maximumTotalDefinitionPayloadBytes)
+		return {EngineHostOptionsValidationError::InvalidCatalogLimits,
+			"limits.maximumDefinitionPayloadBytes"};
 	return {};
 }
 

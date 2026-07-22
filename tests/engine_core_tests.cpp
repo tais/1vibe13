@@ -360,7 +360,8 @@ int main()
 	check(localization.set("campaign.base", "en", "ui.ready", "Ready") ==
 			LocalizationSetError::None &&
 		localization.set("mod.override", "en", "ui.ready", "Prepared") ==
-			LocalizationSetError::None,
+			LocalizationSetError::None &&
+		localization.maximumTotalTextBytes() == 32,
 		"localization catalog accepts bounded ordered package layers");
 	const LocalizedTextView localizedOverride = localization.resolve("nl", "ui.ready");
 	check(localizedOverride && localizedOverride.usedFallback &&
@@ -371,6 +372,21 @@ int main()
 		localization.removePackage("mod.override") == 1 &&
 		*localization.resolve("en", "ui.ready").text == "Ready",
 		"localization lookup uses explicit fallback and restores lower package layers");
+	LocalizationCatalog boundedLocalization(4, 16, 8);
+	check(boundedLocalization.set("campaign.base", "en", "ui.first", "Ready") ==
+			LocalizationSetError::None && boundedLocalization.textBytes() == 5 &&
+		boundedLocalization.set("campaign.base", "en", "ui.second", "More") ==
+			LocalizationSetError::TotalCapacityReached &&
+		boundedLocalization.set("campaign.base", "en", "ui.first", "Go") ==
+			LocalizationSetError::None && boundedLocalization.textBytes() == 2 &&
+		boundedLocalization.set("campaign.base", "en", "ui.second", "More") ==
+			LocalizationSetError::None && boundedLocalization.textBytes() == 6,
+		"localization catalog enforces aggregate text budgets transactionally");
+	LocalizationCatalog saturatedLocalization(
+		std::numeric_limits<std::size_t>::max(), 2);
+	check(saturatedLocalization.maximumTotalTextBytes() ==
+			std::numeric_limits<std::size_t>::max(),
+		"legacy localization limits preserve capacity without overflowing");
 	// Use real UTF-8 in the format; backslash-u is deliberately not a second
 	// competing Unicode escape language.
 	const std::string utf8LocalizationText =
@@ -435,7 +451,7 @@ int main()
 	check(definitions.set("campaign.base", "item", "medkit", 1, {1}) ==
 			DefinitionSetError::None &&
 		definitions.set("mod.override", "item", "medkit", 2, {2, 3}) ==
-			DefinitionSetError::None,
+			DefinitionSetError::None && definitions.maximumTotalPayloadBytes() == 8,
 		"definition catalog accepts bounded versioned package data layers");
 	const DefinitionView incompatibleDefinition =
 		definitions.resolve("item", "medkit", 1, 1);
@@ -449,6 +465,20 @@ int main()
 		*definitions.resolve("item", "medkit", 1, 1).payload ==
 			std::vector<std::uint8_t>({1}),
 		"definition lookup rejects incompatible top overrides and restores lower layers");
+	DefinitionCatalog boundedDefinitions(4, 4, 5);
+	check(boundedDefinitions.set("campaign.base", "item", "first", 1, {1, 2, 3, 4}) ==
+			DefinitionSetError::None && boundedDefinitions.payloadBytes() == 4 &&
+		boundedDefinitions.set("campaign.base", "item", "second", 1, {5, 6}) ==
+			DefinitionSetError::TotalCapacityReached &&
+		boundedDefinitions.set("campaign.base", "item", "first", 2, {1}) ==
+			DefinitionSetError::None && boundedDefinitions.payloadBytes() == 1 &&
+		boundedDefinitions.set("campaign.base", "item", "second", 1, {5, 6}) ==
+			DefinitionSetError::None && boundedDefinitions.payloadBytes() == 3,
+		"definition catalog enforces aggregate payload budgets transactionally");
+	DefinitionCatalog saturatedDefinitions(std::numeric_limits<std::size_t>::max(), 2);
+	check(saturatedDefinitions.maximumTotalPayloadBytes() ==
+			std::numeric_limits<std::size_t>::max(),
+		"legacy definition limits preserve capacity without overflowing");
 	EntityRegistry entities(1);
 	const EntityCreateResult firstEntity = entities.create("campaign.base", "mercenary");
 	const EntityDestroyError destroyedEntity = entities.destroy(firstEntity.id);
@@ -609,9 +639,12 @@ int main()
 	EngineHost<unsigned> legacyDefaultHost;
 	EngineHost<unsigned> legacyBraceDefaultHost({});
 	EngineHost<unsigned> namedDefaultHost(defaultHostOptions);
+	EngineHost<unsigned> legacyCapacityHost(EngineServices::defaults(),
+		CurrentContentApiVersion, NullPackageEventSink::instance(), RuntimeCapabilities{},
+		0, 64, 16667, 4, 128, 64u * 1024u * 1024u, 256, 2, 3, 4, 5);
 	check(defaultOptionsValidation &&
 		legacyDefaultHost.serviceCatalog().size() == 14 &&
-		legacyDefaultHost.configuration().size() == 21 &&
+		legacyDefaultHost.configuration().size() == 23 &&
 		namedDefaultHost.serviceCatalog().size() ==
 			legacyDefaultHost.serviceCatalog().size() &&
 		namedDefaultHost.configuration().size() ==
@@ -631,7 +664,9 @@ int main()
 		namedDefaultHost.packages().maximumSaveStateRecords() ==
 			PackageRegistry::MaximumSaveStateRecords &&
 		namedDefaultHost.packageSaveArchives().maximumRecords() ==
-			PackageRegistry::MaximumSaveStateRecords,
+			PackageRegistry::MaximumSaveStateRecords &&
+		legacyCapacityHost.localization().maximumTotalTextBytes() == 6 &&
+		legacyCapacityHost.definitions().maximumTotalPayloadBytes() == 20,
 		"named host defaults preserve the positional host contract and fingerprint");
 
 	constexpr EngineServiceContract<ContractTestService> derivedServiceContract{
@@ -676,8 +711,10 @@ int main()
 	customHostOptions.limits.runtimeFaultHistoryCapacity = 5;
 	customHostOptions.limits.maximumLocalizationEntries = 6;
 	customHostOptions.limits.maximumLocalizationTextBytes = 102;
+	customHostOptions.limits.maximumTotalLocalizationTextBytes = 104;
 	customHostOptions.limits.maximumDefinitionEntries = 7;
 	customHostOptions.limits.maximumDefinitionPayloadBytes = 103;
+	customHostOptions.limits.maximumTotalDefinitionPayloadBytes = 105;
 	customHostOptions.limits.maximumEntities = 8;
 	customHostOptions.limits.maximumPackageAudioPlaybacks = 9;
 	customHostOptions.limits.maximumQueuedPackageTasks = 10;
@@ -703,8 +740,10 @@ int main()
 		customHost.runtimeFaults().capacity() == 5 &&
 		customHost.localization().maximumEntries() == 6 &&
 		customHost.localization().maximumTextBytes() == 102 &&
+		customHost.localization().maximumTotalTextBytes() == 104 &&
 		customHost.definitions().maximumEntries() == 7 &&
 		customHost.definitions().maximumPayloadBytes() == 103 &&
+		customHost.definitions().maximumTotalPayloadBytes() == 105 &&
 		customHost.entities().maximumEntities() == 8 &&
 		customHost.packageAudio().maximumPlaybacks() == 9 &&
 		customHost.packageTasks().maximumQueued() == 10 &&
@@ -735,6 +774,11 @@ int main()
 	invalidSaveStateOptions.limits.maximumTotalPackageSaveStateBytes = 1;
 	const EngineHostOptionsValidationResult invalidSaveStateValidation =
 		ValidateEngineHostOptions(invalidSaveStateOptions);
+	EngineHostOptions invalidCatalogOptions;
+	invalidCatalogOptions.limits.maximumLocalizationTextBytes = 2;
+	invalidCatalogOptions.limits.maximumTotalLocalizationTextBytes = 1;
+	const EngineHostOptionsValidationResult invalidCatalogValidation =
+		ValidateEngineHostOptions(invalidCatalogOptions);
 	bool invalidHostRejected = false;
 	try
 	{
@@ -751,6 +795,8 @@ int main()
 		std::string(invalidOptionsValidation.option) == "simulationStepMicroseconds" &&
 		invalidSaveStateValidation.error ==
 			EngineHostOptionsValidationError::InvalidPackageSaveStateLimits &&
+		invalidCatalogValidation.error ==
+			EngineHostOptionsValidationError::InvalidCatalogLimits &&
 		invalidHostRejected,
 		"invalid host options are diagnosed and rejected before host construction");
 
@@ -1045,7 +1091,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 22,
+		sessionHost.configuration().size() == 24,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	const RuntimeReport runtimeReport = sessionHost.runtimeReport();
@@ -1056,7 +1102,7 @@ int main()
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
 		diagnostics.packageTasks.queued.empty() &&
 		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 15 &&
-		diagnostics.configuration.size() == 22 &&
+		diagnostics.configuration.size() == 24 &&
 		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
@@ -1064,7 +1110,7 @@ int main()
 	check(runtimeReport.lifecycle == EngineLifecycle::Stopped && runtimeReport.healthy() &&
 		runtimeReport.completedFrames == 0 && runtimeReport.completedSimulationTicks == 0 &&
 		runtimeReport.registeredPackages == 0 && runtimeReport.activePackages == 0 &&
-		runtimeReport.services.size() == 15 && runtimeReport.configuration.size() == 22 &&
+		runtimeReport.services.size() == 15 && runtimeReport.configuration.size() == 24 &&
 		runtimeReport.compatibility == diagnostics.compatibility &&
 		runtimeReport.frames.completedFrames == diagnostics.frames.summary.completedFrames,
 		"runtime report condenses diagnostics without retaining sensitive content payloads");
