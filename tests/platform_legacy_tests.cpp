@@ -8,6 +8,9 @@
 #include <string>
 #include <vector>
 
+#include <Engine/Adapters/Legacy/PlatformAssets.h>
+#include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+
 #include "FileMan.h"
 #include "types.h"
 
@@ -130,6 +133,45 @@ int main()
 	file = FileOpen(record, FILE_ACCESS_READWRITE | FILE_OPEN_EXISTING);
 	Check(file == 0, "unsupported read/write handles fail explicitly");
 	if (file) FileClose(file);
+
+	ByteStorage& storage = GetPlatformByteStorage();
+	const std::vector<std::uint8_t> longPayload = { 1, 2, 3, 4, 5, 6 };
+	const std::vector<std::uint8_t> shortPayload = { 9, 8 };
+	Check(storage.writeAll("adapter.bin", longPayload),
+		"platform byte storage writes through the shared VFS adapter");
+	Check(storage.writeAll("adapter.bin", shortPayload),
+		"platform byte storage replaces an existing record");
+	std::vector<std::uint8_t> loaded = { 77 };
+	Check(storage.readAll("adapter.bin", loaded) && loaded == shortPayload,
+		"platform byte storage reads the exact replacement payload");
+
+	loaded = { 42 };
+	Check(storage.readAllBounded("adapter.bin", 1, loaded) ==
+			ByteStorageReadResult::TooLarge && loaded == std::vector<std::uint8_t>({ 42 }),
+		"bounded VFS reads reject size before changing caller output");
+	Check(storage.readAllBounded("absent-adapter.bin", 100, loaded) ==
+			ByteStorageReadResult::NotFound && loaded == std::vector<std::uint8_t>({ 42 }),
+		"missing VFS reads leave caller output unchanged");
+
+	AssetSource& assets = GetPlatformAssetSource();
+	AssetData asset;
+	Check(assets.read("adapter.bin", asset) == AssetReadResult::Success &&
+		asset.bytes == shortPayload && asset.provenance == "legacy-vfs",
+		"platform asset source reads normalized VFS content");
+	AssetMetadata metadata;
+	Check(assets.metadata("adapter.bin", metadata) == AssetMetadataResult::Success &&
+		metadata.byteSize == shortPayload.size() && metadata.provenance == "legacy-vfs",
+		"platform asset metadata is published only after a successful query");
+	asset.bytes = { 31 };
+	asset.provenance = "stale";
+	Check(assets.read("adapter.bin", asset, 1) == AssetReadResult::TooLarge &&
+		asset.bytes.empty() && asset.provenance.empty(),
+		"failed asset reads clear stale public result data");
+
+	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
+		"platform byte storage removal is idempotent and observable");
+	Check(storage.remove("adapter.bin"),
+		"removing an already absent platform record succeeds");
 
 	ShutdownFileManager();
 	std::filesystem::remove_all(root, error);

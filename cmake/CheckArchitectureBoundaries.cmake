@@ -11,7 +11,9 @@ file(GLOB_RECURSE core_files
 # rule also admits SDL3, platform SDKs, and upper engine/game layers.
 set(core_standard_headers
   algorithm
+  array
   charconv
+  chrono
   cmath
   cstddef
   cstdint
@@ -21,6 +23,8 @@ set(core_standard_headers
   initializer_list
   iterator
   limits
+  mutex
+  new
   optional
   string
   string_view
@@ -45,6 +49,37 @@ foreach(core_file IN LISTS core_files)
     if(standard_header_index EQUAL -1)
       message(FATAL_ERROR
         "Engine/Core has a forbidden dependency '${header}' in ${core_file}")
+    endif()
+  endforeach()
+endforeach()
+
+file(GLOB_RECURSE legacy_adapter_files
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/*.h"
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/*.hpp"
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/*.cpp")
+
+# This is the only engine layer allowed to bridge into the existing runtime.
+# Keep the compatibility surface named and deliberately small so migration of
+# a service cannot quietly pull unrelated game systems into Engine.
+set(legacy_compatibility_headers
+  FileMan.h
+  soundman.h
+  video.h
+  SDL3/SDL_log.h)
+
+foreach(adapter_file IN LISTS legacy_adapter_files)
+  file(READ "${adapter_file}" contents)
+  string(REGEX MATCHALL "#[ \t]*include[ \t]*[<\"][^>\"\r\n]+[>\"]" includes "${contents}")
+  foreach(include_line IN LISTS includes)
+    string(REGEX REPLACE ".*[<\"]([^>\"]+)[>\"].*" "\\1" header "${include_line}")
+    if(header MATCHES "^Engine/(Core|Adapters/Legacy)/[A-Za-z0-9_./-]+$")
+      continue()
+    endif()
+    list(FIND core_standard_headers "${header}" standard_header_index)
+    list(FIND legacy_compatibility_headers "${header}" compatibility_header_index)
+    if(standard_header_index EQUAL -1 AND compatibility_header_index EQUAL -1)
+      message(FATAL_ERROR
+        "Engine/Adapters/Legacy has a forbidden dependency '${header}' in ${adapter_file}")
     endif()
   endforeach()
 endforeach()
@@ -98,4 +133,4 @@ foreach(tactical_file IN LISTS tactical_cpp_files)
 endforeach()
 
 message(STATUS
-  "Engine boundaries verified (Core: ${core_files}; JA2 adapter: ${ja2_adapter_files})")
+  "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")
