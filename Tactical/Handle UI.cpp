@@ -2363,22 +2363,13 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				}
 				else
 				{
-
-					if ( gUIUseReverse )
-					{
-						pSoldier->bReverse = TRUE;
-					}
-					else
-					{
-						pSoldier->bReverse = FALSE;
-					}
-
-					// Remove any previous actions
-					pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
-
-					{
-						pSoldier->EVENT_InternalGetNewSoldierPath( sDestGridNo, pSoldier->usUIMovementMode , TRUE, pSoldier->flags.fNoAPToFinishMove );
-					}
+					DispatchMoveToGridCommandNow(
+						pSoldier->ubID,
+						pSoldier->uiUniqueSoldierIdValue,
+						sDestGridNo,
+						static_cast<std::uint16_t>(pSoldier->usUIMovementMode),
+						gUIUseReverse != FALSE,
+						pSoldier->flags.fNoAPToFinishMove != FALSE);
 
 					if ( pSoldier->pathing.usPathDataSize > 5 )
 					{
