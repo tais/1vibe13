@@ -44,6 +44,16 @@ struct TacticalCommandRequest
 	SimulationCommand command;
 };
 
+// Host-only teardown observation. Implementations must not retain references
+// to the request, which is removed immediately after this callback returns.
+class TacticalCommandCancellationSink
+{
+public:
+	virtual ~TacticalCommandCancellationSink() = default;
+	virtual void commandCancelled(
+		const TacticalCommandRequest& request) noexcept = 0;
+};
+
 // Count and byte limits together keep both the inbox and its diagnostic copy
 // finite. Request IDs begin at one and are never reused through the configured
 // lifetime ceiling.
@@ -370,7 +380,8 @@ public:
 	// Host teardown only: keeping cancellation off the resolved package service
 	// prevents one cooperative in-process package from naming another owner.
 	TacticalCommandCancellationResult cancelPackage(
-		const std::string& packageId) noexcept;
+		const std::string& packageId,
+		TacticalCommandCancellationSink* sink = nullptr) noexcept;
 
 	TacticalCommandInboxLimits limits() const noexcept override { return limits_; }
 	TacticalCommandInboxSummary summary() const noexcept override;

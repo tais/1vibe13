@@ -113,7 +113,8 @@ TacticalCommandSubmissionResult TacticalCommandInbox::submit(
 }
 
 TacticalCommandCancellationResult TacticalCommandInbox::cancelPackage(
-	const std::string& packageId) noexcept
+	const std::string& packageId,
+	TacticalCommandCancellationSink* sink) noexcept
 {
 	if (packageId.size() > limits_.maximumOwnerBytes ||
 		!IsValidEngineIdentifier(packageId))
@@ -131,6 +132,7 @@ TacticalCommandCancellationResult TacticalCommandInbox::cancelPackage(
 			++request;
 			continue;
 		}
+		if (sink) sink->commandCancelled(*request);
 		request = pending_.erase(request);
 		++cancelled;
 	}

@@ -11,6 +11,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <limits>
@@ -98,6 +99,20 @@ public:
 	}
 
 	std::vector<RuntimeMessage> messages;
+};
+
+class RecordingTacticalCommandCancellationSink final
+	: public TacticalCommandCancellationSink
+{
+public:
+	void commandCancelled(
+		const TacticalCommandRequest& request) noexcept override
+	{
+		if (count < requestIds.size()) requestIds[count++] = request.requestId;
+	}
+
+	std::array<std::uint64_t, 4> requestIds{};
+	std::size_t count = 0;
 };
 
 class ControlledTacticalWorldService final : public TacticalWorldService
@@ -617,8 +632,9 @@ int main()
 	const auto cancelSecond = cancellationInbox.submit("pkg.beta", MakeTurnCommand(2));
 	cancellationInbox.submit("pkg.alpha", MakeTurnCommand(3));
 	const auto cancelFourth = cancellationInbox.submit("pkg.beta", MakeTurnCommand(4));
+	RecordingTacticalCommandCancellationSink cancellationSink;
 	const TacticalCommandCancellationResult cancelledAlpha =
-		cancellationInbox.cancelPackage("pkg.alpha");
+		cancellationInbox.cancelPackage("pkg.alpha", &cancellationSink);
 	TacticalCommandInboxSnapshot cancellationSnapshot;
 	cancellationInbox.snapshot(cancellationSnapshot);
 	std::vector<std::uint64_t> survivorOrder;
@@ -627,6 +643,8 @@ int main()
 		return TacticalCommandDisposition::Accept;
 	});
 	check(cancelFirst.requestId == 1 && cancelledAlpha.cancelled == 2 &&
+		cancellationSink.count == 2 && cancellationSink.requestIds[0] == 1 &&
+		cancellationSink.requestIds[1] == 3 &&
 		cancellationSnapshot.pending.size() == 2 &&
 		cancellationSnapshot.pending[0].requestId == cancelSecond.requestId &&
 		cancellationSnapshot.pending[1].requestId == cancelFourth.requestId &&
