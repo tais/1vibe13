@@ -70,5 +70,32 @@ foreach(adapter_file IN LISTS ja2_adapter_files)
   endforeach()
 endforeach()
 
+# Production callers must use the structured TryDispatch... result.  The
+# sequence-returning wrappers remain part of the compatibility surface, but a
+# zero sequence cannot distinguish rejection from a valid first command.
+file(GLOB tactical_cpp_files "${SOURCE_ROOT}/Tactical/*.cpp")
+set(legacy_tactical_dispatch_wrappers
+  DispatchEndTurnCommandNow
+  DispatchChangeStanceCommandNow
+  DispatchBeginFireWeaponCommandNow
+  DispatchMoveToGridCommandNow)
+
+foreach(tactical_file IN LISTS tactical_cpp_files)
+  if(tactical_file STREQUAL "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp")
+    continue()
+  endif()
+
+  file(READ "${tactical_file}" contents)
+  foreach(wrapper IN LISTS legacy_tactical_dispatch_wrappers)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${wrapper}[ \t\r\n]*\\("
+      legacy_dispatch_call "${contents}")
+    if(legacy_dispatch_call)
+      message(FATAL_ERROR
+        "Production code uses ambiguous compatibility wrapper '${wrapper}' in ${tactical_file}; use Try${wrapper} and inspect its structured result")
+    endif()
+  endforeach()
+endforeach()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; JA2 adapter: ${ja2_adapter_files})")
