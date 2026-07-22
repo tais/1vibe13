@@ -551,6 +551,10 @@ static void CompleteGameFrame()
 
 void GameLoop(void)
 {
+	// The legacy timer counters and soldier animation timers share game state
+	// with this frame. Advance them here so no worker can mutate those objects
+	// while tactical/UI code is consuming them.
+	PumpJA2Clock();
 	GetGameContext().frameDriver().runFrame(PrepareGameFrame, CompleteGameFrame);
 }
 

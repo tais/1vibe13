@@ -10,6 +10,8 @@ typedef INT32		TIMECOUNTER;
 //typedef void (__stdcall *JA2_TIMERPROC)( UINT32 uiID, UINT32 uiMsg, UINT32 uiUser, UINT32 uiDw1, UINT32 uiDw2 );
 
 typedef void (*CUSTOMIZABLE_TIMER_CALLBACK) ( void );
+typedef UINT64 (*JA2_CLOCK_TIME_SOURCE) ( void );
+typedef BOOLEAN (*JA2_CLOCK_KEY_STATE_SOURCE) ( INT32 key );
 
 // CALLBACK TIMER DEFINES
 enum
@@ -69,6 +71,17 @@ extern INT32	giTimerTeamTurnUpdate;
 BOOLEAN InitializeJA2Clock( void );
 void	ShutdownJA2Clock( void );
 
+// Initialize, pump, configure, and shut down the clock on one game thread.
+// Reinitialization is allowed only on that owner and starts a fresh schedule;
+// configuration and shutdown calls from another thread are ignored/rejected.
+// The application calls PumpJA2Clock once per frame. Explicit-time hosts and
+// tests can use PumpJA2ClockAt after resetting the schedule to a known timestamp.
+void PumpJA2Clock( void );
+UINT32 PumpJA2ClockAt( UINT64 nowMicroseconds );
+BOOLEAN ResetJA2ClockSchedule( UINT64 nowMicroseconds );
+BOOLEAN SetJA2ClockTestTimeSource( JA2_CLOCK_TIME_SOURCE source );
+BOOLEAN SetJA2ClockTestKeyStateSource( JA2_CLOCK_KEY_STATE_SOURCE source );
+
 #define GetJA2Clock()						guiBaseJA2Clock
 
 #define GetJA2NoPauseClock()           guiBaseJA2NoPauseClock
@@ -85,17 +98,24 @@ void SetCustomizableTimerCallbackAndDelay( INT32 iDelay, CUSTOMIZABLE_TIMER_CALL
 void CheckCustomizableTimer( void );
 
 void SetFastForwardPeriod(DOUBLE value);
+UINT32 GetFastForwardPeriod();
 void SetFastForwardKey(INT32 key);
+INT32 GetFastForwardKey();
 BOOLEAN IsFastForwardKeyPressed();
 void SetFastForwardMode(BOOLEAN enable);
 BOOLEAN IsFastForwardMode();
+BOOLEAN IsFastForwardModeEnabled();
 INT32 GetFastForwardLoopCount();
 void SetFastForwardLoopCount(INT32 value);
 
 void SetNotifyFrequencyKey(INT32 value);
 void SetClockSpeedPercent(FLOAT value);
+FLOAT GetClockSpeedPercent();
+BOOLEAN IsJA2ClockPaused();
 
 BOOLEAN IsTimerActive();
+// Kept under its legacy name for source compatibility. With the worker clock
+// removed, TRUE identifies the main/game thread that owns clock mutation.
 BOOLEAN IsJA2TimerThread();
 
 BOOLEAN IsHiSpeedClockMode();
