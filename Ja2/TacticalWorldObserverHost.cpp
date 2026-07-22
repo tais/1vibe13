@@ -62,6 +62,11 @@ public:
 			bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::BaselineSuppressed;
 			return;
 		}
+		if (lastUpdate_ == TacticalWorldObserverUpdateResult::Unchanged)
+		{
+			bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed;
+			return;
+		}
 		if (lastUpdate_ != TacticalWorldObserverUpdateResult::PublishedDelta)
 		{
 			bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed;

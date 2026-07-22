@@ -387,6 +387,11 @@ int main()
 		sink.source != TacticalWorldDeltaMessageSource ||
 		sink.decodeResult != TacticalWorldDeltaDecodeResult::Success ||
 		sink.delta.events.size() != 3) return 26;
+	const TacticalWorldPublicationView meaningfulPublication = observer.latest();
+	if (observer.update() != TacticalWorldObserverUpdateResult::Unchanged ||
+		observer.latest().serial != 2 ||
+		observer.latest().snapshot != meaningfulPublication.snapshot ||
+		observer.latest().delta != meaningfulPublication.delta) return 46;
 	observer.reset();
 	if (observer.latest() ||
 		observer.update() != TacticalWorldObserverUpdateResult::PublishedBaseline ||

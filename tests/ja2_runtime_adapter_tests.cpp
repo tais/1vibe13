@@ -11,6 +11,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -812,6 +813,31 @@ int main()
 			duplicateActors, tacticalSnapshot) == TacticalSnapshotCreateError::DuplicateEntity &&
 		tacticalSnapshot.epoch() == acceptedEpoch,
 		"invalid tactical captures cannot partially replace the last good snapshot");
+	std::vector<TacticalActorSnapshot> orderedScratch = tacticalSnapshot.actors();
+	const TacticalActorSnapshot* orderedScratchStorage = orderedScratch.data();
+	TacticalWorldSnapshot orderedSnapshot;
+	check(TacticalWorldSnapshot::createReusableOrdered(
+			44, tacticalSnapshot.sector(), tacticalSnapshot.turn(),
+			orderedScratch, orderedSnapshot, 3) == TacticalSnapshotCreateError::None &&
+		orderedScratch.empty() && orderedSnapshot.actors().data() == orderedScratchStorage &&
+		orderedSnapshot.find(firstIncarnation) != nullptr,
+		"ordered snapshot capture transfers validated adapter storage without sorting or copying");
+	std::vector<TacticalActorSnapshot> descendingScratch = orderedSnapshot.actors();
+	std::reverse(descendingScratch.begin(), descendingScratch.end());
+	check(TacticalWorldSnapshot::createReusableOrdered(
+			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			descendingScratch, orderedSnapshot, 3) ==
+				TacticalSnapshotCreateError::UnorderedEntity &&
+		orderedSnapshot.epoch() == 44 && !descendingScratch.empty(),
+		"ordered capture rejects descending adapter input without consuming scratch or output");
+	std::vector<TacticalActorSnapshot> orderedDuplicates = orderedSnapshot.actors();
+	orderedDuplicates[1] = orderedDuplicates[0];
+	check(TacticalWorldSnapshot::createReusableOrdered(
+			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			orderedDuplicates, orderedSnapshot, 3) ==
+				TacticalSnapshotCreateError::DuplicateEntity &&
+		orderedSnapshot.epoch() == 44 && !orderedDuplicates.empty(),
+		"ordered capture distinguishes duplicate identities transactionally");
 	MemoryTacticalWorldService memoryWorld;
 	memoryWorld.publish(tacticalSnapshot);
 	ServiceCatalog tacticalServices;
@@ -1204,12 +1230,14 @@ int main()
 		std::holds_alternative<TacticalActorVitalsChangedEvent>(publication.delta->events[4]) &&
 		std::holds_alternative<TacticalActorEnteredEvent>(publication.delta->events[5]),
 		"observer publications retain deterministic delta category and entity order");
-	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
-		"an unchanged successful capture remains an explicit observer publication");
+	const TacticalWorldSnapshot* changedPublicationSnapshot = publication.snapshot;
+	const TacticalWorldDelta* changedPublicationDelta = publication.delta;
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::Unchanged,
+		"an unchanged successful capture is suppressed before observer publication");
 	publication = observedWorld.latest();
-	check(publication.serial == 3 && publication.delta->previousEpoch == 44 &&
-		publication.delta->currentEpoch == 44 && publication.delta->events.empty(),
-		"publication serials increase monotonically even when the deterministic delta is empty");
+	check(publication.serial == 2 && publication.snapshot == changedPublicationSnapshot &&
+		publication.delta == changedPublicationDelta && publication.delta->events.size() == 6,
+		"unchanged capture preserves the last meaningful snapshot, delta, and serial");
 	memoryWorld.clear();
 	check(observedWorld.update() == TacticalWorldObserverUpdateResult::SourceUnavailable &&
 		!observedWorld.latest(),

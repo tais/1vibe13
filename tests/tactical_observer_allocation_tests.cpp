@@ -78,10 +78,10 @@ public:
 		: maximumActors_(actorCount)
 	{
 		actorScratch_.reserve(actorCount);
-		for (std::size_t offset = 0; offset < actorCount; ++offset)
+		actors_.reserve(actorCount);
+		for (std::size_t slot = 0; slot < actorCount; ++slot)
 		{
-			const std::size_t slot = actorCount - offset - 1;
-			actorScratch_.push_back(TacticalActorSnapshot{
+			actors_.push_back(TacticalActorSnapshot{
 				TacticalEntityId{
 					static_cast<std::uint16_t>(slot),
 					static_cast<std::uint32_t>(1000 + slot)},
@@ -95,7 +95,7 @@ public:
 	void advance() noexcept
 	{
 		++frame_;
-		TacticalActorSnapshot& actor = actorScratch_.front();
+		TacticalActorSnapshot& actor = actors_.front();
 		++actor.grid;
 		actor.direction = static_cast<std::uint8_t>(frame_ % 8);
 		actor.actionPoints = static_cast<std::int16_t>(20 + frame_ % 40);
@@ -103,7 +103,7 @@ public:
 
 	void toggleStance() noexcept
 	{
-		TacticalActorSnapshot& actor = actorScratch_.front();
+		TacticalActorSnapshot& actor = actors_.front();
 		actor.stance = actor.stance == TacticalStance::Standing
 			? TacticalStance::Crouched
 			: TacticalStance::Standing;
@@ -127,8 +127,11 @@ public:
 		if (result_ != TacticalWorldCaptureResult::Success) return result_;
 		try
 		{
+			actorScratch_.clear();
+			for (const TacticalActorSnapshot& actor : actors_)
+				actorScratch_.push_back(actor);
 			const TacticalSnapshotCreateError result =
-				TacticalWorldSnapshot::createReusable(
+				TacticalWorldSnapshot::createReusableOrdered(
 					epoch_,
 					TacticalSectorSnapshot{1, 1, 0, true},
 					TacticalTurnSnapshot{true, true, 0, frame_},
@@ -149,6 +152,7 @@ private:
 	std::size_t maximumActors_;
 	std::uint64_t epoch_ = 77;
 	std::uint64_t frame_ = 1;
+	std::vector<TacticalActorSnapshot> actors_;
 	std::vector<TacticalActorSnapshot> actorScratch_;
 	TacticalWorldCaptureResult result_ = TacticalWorldCaptureResult::Success;
 };
@@ -182,7 +186,6 @@ int main()
 	const TacticalWorldPublicationView slotOne = observer.latest();
 	const TacticalWorldSnapshot* slotOneSnapshot = slotOne.snapshot;
 	const TacticalWorldDelta* slotOneDelta = slotOne.delta;
-	const TacticalActorSnapshot* slotOneActors = slotOne.snapshot->actors().data();
 	const TacticalWorldEvent* slotOneEvents = slotOne.delta->events.data();
 
 	source.advance();
@@ -190,12 +193,22 @@ int main()
 		"the reusable observer warms diff storage in its first publication slot");
 	const TacticalWorldPublicationView slotZero = observer.latest();
 	const TacticalWorldDelta* slotZeroDelta = slotZero.delta;
-	const TacticalActorSnapshot* slotZeroActors = slotZero.snapshot->actors().data();
 	const TacticalWorldEvent* slotZeroEvents = slotZero.delta->events.data();
 	check(slotZero.snapshot == slotZeroSnapshot && slotZeroSnapshot != slotOneSnapshot &&
 		slotZero.delta != slotOneDelta && HasDeterministicSteadyStateEvents(slotZero),
 		"successful updates alternate two independently owned publication buffers");
 
+	allocation_probe::count.store(0, std::memory_order_relaxed);
+	allocation_probe::enabled.store(true, std::memory_order_relaxed);
+	const TacticalWorldObserverUpdateResult unchangedResult = observer.update();
+	allocation_probe::enabled.store(false, std::memory_order_relaxed);
+	const TacticalWorldPublicationView afterUnchanged = observer.latest();
+	check(unchangedResult == TacticalWorldObserverUpdateResult::Unchanged &&
+		afterUnchanged.snapshot == slotZero.snapshot &&
+		afterUnchanged.delta == slotZero.delta &&
+		afterUnchanged.serial == slotZero.serial &&
+		allocation_probe::count.load(std::memory_order_relaxed) == 0,
+		"unchanged ordered captures allocate nothing and retain the last publication");
 	constexpr std::size_t Iterations = 4096;
 	bool stableLoop = true;
 	allocation_probe::count.store(0, std::memory_order_relaxed);
@@ -214,13 +227,12 @@ int main()
 			usesSlotOne ? slotOneSnapshot : slotZeroSnapshot;
 		const TacticalWorldDelta* expectedDelta =
 			usesSlotOne ? slotOneDelta : slotZeroDelta;
-		const TacticalActorSnapshot* expectedActors =
-			usesSlotOne ? slotOneActors : slotZeroActors;
 		const TacticalWorldEvent* expectedEvents =
 			usesSlotOne ? slotOneEvents : slotZeroEvents;
 		if (publication.snapshot != expectedSnapshot ||
 			publication.delta != expectedDelta ||
-			publication.snapshot->actors().data() != expectedActors ||
+			publication.snapshot->actors().size() != ActorCount ||
+			publication.snapshot->actors().capacity() < ActorCount ||
 			publication.delta->events.data() != expectedEvents ||
 			publication.serial != iteration + 4 ||
 			!HasDeterministicSteadyStateEvents(publication))
@@ -279,7 +291,7 @@ int main()
 		resetPublication.snapshot->epoch() != 88 ||
 		resetPublication.snapshot->turn().serial == 0 ||
 		resetPublication.snapshot != slotZeroSnapshot ||
-		resetPublication.snapshot->actors().data() != slotZeroActors)
+		resetPublication.snapshot->actors().capacity() < ActorCount)
 		resetLoop = false;
 	source.advance();
 	if (observer.update() != TacticalWorldObserverUpdateResult::PublishedDelta)
@@ -288,7 +300,7 @@ int main()
 	if (!resetPublication || resetPublication.serial != 2 ||
 		resetPublication.snapshot != slotOneSnapshot ||
 		resetPublication.delta != slotOneDelta ||
-		resetPublication.snapshot->actors().data() != slotOneActors ||
+		resetPublication.snapshot->actors().capacity() < ActorCount ||
 		resetPublication.delta->events.data() != slotOneEvents ||
 		!HasDeterministicSteadyStateEvents(resetPublication))
 		resetLoop = false;
@@ -308,8 +320,7 @@ int main()
 				(usesSlotZero ? slotZeroSnapshot : slotOneSnapshot) ||
 			resetPublication.delta !=
 				(usesSlotZero ? slotZeroDelta : slotOneDelta) ||
-			resetPublication.snapshot->actors().data() !=
-				(usesSlotZero ? slotZeroActors : slotOneActors) ||
+			resetPublication.snapshot->actors().capacity() < ActorCount ||
 			resetPublication.delta->events.data() !=
 				(usesSlotZero ? slotZeroEvents : slotOneEvents) ||
 			!HasDeterministicSteadyStateEvents(resetPublication))

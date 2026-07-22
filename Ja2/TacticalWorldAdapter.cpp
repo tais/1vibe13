@@ -121,7 +121,8 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				soldier->bInSector != FALSE});
 		}
 
-		const TacticalSnapshotCreateError result = TacticalWorldSnapshot::createReusable(
+		const TacticalSnapshotCreateError result =
+			TacticalWorldSnapshot::createReusableOrdered(
 			guiWorldLoadGeneration,
 			TacticalSectorSnapshot{
 				gWorldSectorX, gWorldSectorY, gbWorldSectorZ, gfWorldLoaded != FALSE},

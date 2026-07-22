@@ -3075,16 +3075,14 @@ int main( int, char** )
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
 		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
 		       "live tactical service captures stable pointer-free legacy soldier state" );
-		const TacticalActorSnapshot* liveActorStorage = liveWorld.actors().data();
 		const std::size_t liveActorCapacity = liveWorld.actors().capacity();
 		const TacticalWorldCaptureResult repeatedLiveCapture =
 			tacticalWorld.service->capture( liveWorld );
 		liveActor = liveWorld.find( TacticalEntityId{ 0, 701 } );
 		CHECK( repeatedLiveCapture == TacticalWorldCaptureResult::Success && liveActor &&
-		       liveWorld.actors().data() == liveActorStorage &&
 		       liveWorld.actors().capacity() == liveActorCapacity &&
 		       liveActorCapacity >= TOTAL_SOLDIERS,
-		       "live tactical capture retains its configured actor allocation across frames" );
+		       "live tactical capture reuses bounded actor storage without shrinking" );
 
 		const PackageSaveStateCaptureResult packageSaveBeforeObservation =
 			compiledContext.capturePackageSaveState();
@@ -3213,13 +3211,13 @@ int main( int, char** )
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
 		CHECK( observerDiagnostics.lastUpdate ==
-		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 3 &&
-		       observedPublication.snapshot == baselinePublicationStorage &&
-		       observedPublication.delta == baselineDeltaStorage &&
+		           TacticalWorldObserverUpdateResult::Unchanged &&
+		       observerDiagnostics.publicationSerial == 2 &&
+		       observedPublication.snapshot == deltaPublicationStorage &&
+		       observedPublication.delta == deltaStorage &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
-		       observerDiagnostics.handledDeltaSerial == 3 &&
+		       observerDiagnostics.handledDeltaSerial == 2 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 1 &&
 		       observerDiagnostics.publishedMessages == 1 &&
@@ -3241,12 +3239,12 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0 &&
 		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
-		       observerDiagnostics.handledDeltaSerial == 4 &&
-		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
+		       observerDiagnostics.pendingDeltaSerial == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 2 &&
 		       observerDiagnostics.publicationFailures == 1 && observedActor &&
@@ -3259,12 +3257,12 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0 &&
 		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
-		       observerDiagnostics.handledDeltaSerial == 4 &&
-		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
+		       observerDiagnostics.pendingDeltaSerial == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 3 &&
 		       observerDiagnostics.publishedMessages == 1 &&
@@ -3276,13 +3274,13 @@ int main( int, char** )
 		CHECK( liveRuntimeMessages.queued() == 1 &&
 		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::Published &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
-		       observerDiagnostics.handledDeltaSerial == 4 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
-		       observerDiagnostics.publishedDeltaSerial == 4 &&
+		       observerDiagnostics.publishedDeltaSerial == 3 &&
 		       observerDiagnostics.publishAttempts == 4 &&
 		       observerDiagnostics.publishedMessages == 2 &&
 		       observerDiagnostics.publicationFailures == 2,
@@ -3318,14 +3316,14 @@ int main( int, char** )
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( liveRuntimeMessages.queued() == 0 &&
 		       observerDiagnostics.lastUpdate ==
-		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 5 &&
+		           TacticalWorldObserverUpdateResult::Unchanged &&
+		       observerDiagnostics.publicationSerial == 3 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
-		       observerDiagnostics.handledDeltaSerial == 5 &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
-		       observerDiagnostics.publishedDeltaSerial == 4 &&
+		       observerDiagnostics.publishedDeltaSerial == 3 &&
 		       observerDiagnostics.publishAttempts == 4 &&
 		       observerDiagnostics.publishedMessages == 2 &&
 		       observerDiagnostics.publicationFailures == 2,
@@ -3336,12 +3334,12 @@ int main( int, char** )
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
-		       observerDiagnostics.publicationSerial == 6 &&
+		       observerDiagnostics.publicationSerial == 4 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
 		       observerDiagnostics.lastPublishError ==
 		           TacticalWorldDeltaPublishError::QueueFull &&
-		       observerDiagnostics.pendingDeltaSerial == 6 &&
+		       observerDiagnostics.pendingDeltaSerial == 4 &&
 		       observerDiagnostics.publishAttempts == 5 &&
 		       observerDiagnostics.publicationFailures == 3 &&
 		       observerDiagnostics.discardedPendingDeltas == 0,
