@@ -600,6 +600,15 @@ int main()
 			PackageRandomError::SequenceExhausted &&
 		exhaustedRandom.checkpoint() == exhaustedCheckpoint,
 		"package random generation rejects counter exhaustion without wrapping state");
+	PackageSaveStateSnapshot separatedEngineState;
+	separatedEngineState.engineStatePresent = true;
+	separatedEngineState.engineRecords.push_back(PackageEngineSaveStateRecord{
+		"rules.ballistics", "1", randomCheckpoint});
+	check(separatedEngineState.records.empty() &&
+		separatedEngineState.findEngine("rules.ballistics") &&
+		separatedEngineState.findEngine("rules.ballistics")->random == randomCheckpoint &&
+		!separatedEngineState.findEngine("rules.missing"),
+		"package saves represent engine-owned state separately from opaque mod payloads");
 	RuntimeCapabilities capabilities;
 	check(capabilities.add("engine.rendering") &&
 		capabilities.add("tool.map-editor") &&

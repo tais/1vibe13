@@ -293,7 +293,9 @@ the engine must not contain SDL types in its public domain model.
   order, validates every identity/version/schema before callbacks, runs a
   non-mutating validation pass, and restores only after the application-owned
   domain save succeeds. JA2 transports it in a companion sidecar so the legacy
-  serializer and old builds remain compatible.
+  serializer and old builds remain compatible. Its value model has a separate
+  engine-owned per-package section for framework services such as deterministic
+  random streams; this does not change package callback payload schemas.
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O
