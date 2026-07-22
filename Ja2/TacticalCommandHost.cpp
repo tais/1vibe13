@@ -73,6 +73,13 @@ bool HasValidLegacyDomain(const SimulationCommand& command) noexcept
 				(value.targetLevel == FIRST_LEVEL || value.targetLevel == SECOND_LEVEL) &&
 				value.targetCubeLevel >= 0 && value.targetCubeLevel <= PROFILE_Z_SIZE;
 		}
+		else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+		{
+			return value.soldier.slot < TOTAL_SOLDIERS &&
+				value.destinationGrid >= 0 && value.destinationGrid < WORLD_MAX &&
+				value.movementMode < NUMANIMATIONSTATES &&
+				(gAnimControl[value.movementMode].uiFlags & ANIM_MOVING) != 0;
+		}
 		return false;
 	}, command);
 }

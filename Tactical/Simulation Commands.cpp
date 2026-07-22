@@ -6,10 +6,12 @@
 
 #include <Engine/Core/CommandProcessor.h>
 
+#include "Animation Control.h"
 #include "GameContext.h"
 #include "Map Information.h"
 #include "Overhead.h"
 #include "Soldier Control.h"
+#include "Soldier Functions.h"
 
 namespace
 {
@@ -21,6 +23,14 @@ namespace
 		return gfWorldLoaded &&
 			(gTacticalStatus.uiFlags & RequiredFlags) == RequiredFlags &&
 			gTacticalStatus.ubCurrentTeam < MAXTEAMS;
+	}
+
+	bool HasValidMoveDomain(const MoveToGridCommand& command) noexcept
+	{
+		return command.destinationGrid >= 0 &&
+			command.destinationGrid < WORLD_MAX &&
+			command.movementMode < NUMANIMATIONSTATES &&
+			(gAnimControl[command.movementMode].uiFlags & ANIM_MOVING) != 0;
 	}
 
 	SOLDIERTYPE* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
@@ -68,10 +78,24 @@ namespace
 				}
 				return CommandDisposition::Discard;
 			}
+			else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !HasValidMoveDomain(value) ||
+					!IsValidMovementMode(soldier, value.movementMode))
+					return CommandDisposition::Discard;
+
+				soldier->usUIMovementMode = value.movementMode;
+				soldier->bReverse = value.reverse ? TRUE : FALSE;
+				soldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+				return soldier->EVENT_InternalGetNewSoldierPath(
+					value.destinationGrid, value.movementMode, TRUE,
+					value.forceRestart ? TRUE : FALSE)
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
+			}
 			else
 			{
-				// New value commands fail closed until their legacy executor is
-				// deliberately installed by the application adapter.
 				return CommandDisposition::Discard;
 			}
 		}, command);
@@ -173,6 +197,25 @@ std::uint64_t DispatchBeginFireWeaponCommandNow(
 		SimulationCommand{BeginFireWeaponCommand{
 			TacticalEntityId{soldierId, uniqueSoldierId},
 			targetGrid, targetLevel, targetCubeLevel, source}});
+	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
+	return sequence;
+}
+
+std::uint64_t DispatchMoveToGridCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source)
+{
+	GameContext& game = GetGameContext();
+	const std::uint64_t sequence = game.submitCommand(
+		ImmediateCommandTick,
+		SimulationCommand{MoveToGridCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, destinationGrid,
+			movementMode, reverse, forceRestart, source}});
 	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
 	return sequence;
 }

@@ -42,6 +42,15 @@ std::uint64_t DispatchBeginFireWeaponCommandNow(
 	std::int8_t targetCubeLevel,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer);
 
+std::uint64_t DispatchMoveToGridCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer);
+
 CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick);
 CommandProcessingResult ExecuteSimulationCommandsThrough(
 	std::uint64_t tick, std::size_t maximumCommands);

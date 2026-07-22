@@ -2193,6 +2193,9 @@ int main( int, char** )
 		const TacticalEntityId staleActor{ 0, 0xfedcba98u };
 		const SimulationCommand staleStance{ ChangeStanceCommand{
 			staleActor, ANIM_CROUCH, SimulationCommandSource::System } };
+		const SimulationCommand staleMove{ MoveToGridCommand{
+			staleActor, 100, WALKING, true, true,
+			SimulationCommandSource::System } };
 		const BOOLEAN previousCommandWorldLoaded = gfWorldLoaded;
 		SOLDIERTYPE* const previousCommandActor = MercPtrs[0];
 		SOLDIERTYPE commandHostActor;
@@ -2240,15 +2243,23 @@ int main( int, char** )
 		const TacticalCommandSubmissionResult invalidFire =
 			tacticalCommands.service->submit( packageId, SimulationCommand{ BeginFireWeaponCommand{
 				staleActor, -1, FIRST_LEVEL, 0, SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidMoveGrid =
+			tacticalCommands.service->submit( packageId, SimulationCommand{ MoveToGridCommand{
+				staleActor, -1, WALKING, false, false,
+				SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidMoveMode =
+			tacticalCommands.service->submit( packageId, SimulationCommand{ MoveToGridCommand{
+				staleActor, 100, NUMANIMATIONSTATES, false, false,
+				SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
-			tacticalCommands.service->submit( packageId, staleStance );
+			tacticalCommands.service->submit( packageId, staleMove );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterInvalidContext =
 			GetJa2TacticalCommandHostDiagnostics();
 		gfWorldLoaded = TRUE;
 		MercPtrs[0] = &commandHostActor;
 		const TacticalCommandSubmissionResult staleRequest =
-			tacticalCommands.service->submit( packageId, staleStance );
+			tacticalCommands.service->submit( packageId, staleMove );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterValidation =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -2258,15 +2269,16 @@ int main( int, char** )
 			journalAfterCommandHost.size() == journalBeforeCommandHost.size() + 1
 				? &journalAfterCommandHost.back() : nullptr;
 		CHECK( inactiveOwner && invalidTeam && invalidStance && invalidFire &&
+		       invalidMoveGrid && invalidMoveMode &&
 		       unloadedContext && staleRequest &&
 		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
-		       commandHostAfterInvalidContext.lastDrain.rejected == 5 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 7 &&
 		       commandHostAfterValidation.lastDrain.accepted == 1 &&
 		       commandHostAfterValidation.lastDrain.rejected == 0 &&
 		       commandHostAfterValidation.inactiveOwnerRejections ==
 		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
 		       commandHostAfterValidation.semanticRejections ==
-		           commandHostBeforeValidation.semanticRejections + 3 &&
+		           commandHostBeforeValidation.semanticRejections + 5 &&
 		       commandHostAfterValidation.contextRejections ==
 		           commandHostBeforeValidation.contextRejections + 1 &&
 		       commandHostAfterValidation.lastProcessing.status ==
@@ -2274,9 +2286,31 @@ int main( int, char** )
 		       commandHostAfterValidation.lastProcessing.scheduled == 1 &&
 		       commandHostAfterValidation.lastProcessing.discarded == 1 &&
 		       staleRecord && staleRecord->status == CommandJournalStatus::Discarded &&
-		       std::get<ChangeStanceCommand>( staleRecord->command ).soldier == staleActor &&
+		       std::get<MoveToGridCommand>( staleRecord->command ).soldier == staleActor &&
 		       compiledContext.commands().empty(),
-		       "safe-frame command host rejects unsafe domains and unloaded worlds, then journals stale identities as discarded" );
+		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
+
+		commandHostActor.usUIMovementMode = WALKING;
+		commandHostActor.bReverse = FALSE;
+		commandHostActor.aiData.ubPendingAction = 7;
+		const std::uint64_t invalidImmediateMoveSequence =
+			DispatchMoveToGridCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+				true, true, SimulationCommandSource::System );
+		const std::vector<RecordedSimulationCommand> journalAfterInvalidImmediateMove =
+			compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* invalidImmediateMoveRecord =
+			!journalAfterInvalidImmediateMove.empty()
+				? &journalAfterInvalidImmediateMove.back() : nullptr;
+		CHECK( invalidImmediateMoveRecord &&
+		       invalidImmediateMoveRecord->sequence == invalidImmediateMoveSequence &&
+		       invalidImmediateMoveRecord->status == CommandJournalStatus::Discarded &&
+		       std::holds_alternative<MoveToGridCommand>(
+		           invalidImmediateMoveRecord->command ) &&
+		       commandHostActor.usUIMovementMode == WALKING &&
+		       commandHostActor.bReverse == FALSE &&
+		       commandHostActor.aiData.ubPendingAction == 7,
+		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
 
 		std::vector<std::uint64_t> boundedRequestIds;
 		boundedRequestIds.reserve( productionCommandLimits.maximumPerDrain + 1 );
