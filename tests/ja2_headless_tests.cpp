@@ -1525,13 +1525,20 @@ int main( int, char** )
 		context.submitCommand(
 			8, SimulationCommand{ChangeStanceCommand{
 			    TacticalEntityId{17, 701}, 2, SimulationCommandSource::LocalPlayer}} );
+		context.submitCommand(
+			8, SimulationCommand{MoveToGridCommand{
+			    TacticalEntityId{17, 701}, 1400, 6, true, false,
+			    SimulationCommandSource::LocalPlayer}} );
 		const auto stanceReady = context.commands().drainThrough( 8 );
 		const auto& stance = std::get<ChangeStanceCommand>( stanceReady[0].command );
-		CHECK( stanceReady.size() == 1 &&
+		const auto& move = std::get<MoveToGridCommand>( stanceReady[1].command );
+		CHECK( stanceReady.size() == 2 &&
 		       (stance.soldier == TacticalEntityId{17, 701}) &&
 		       stance.stance == 2 &&
-		       stance.source == SimulationCommandSource::LocalPlayer,
-		       "engine runtime carries generational soldier stance commands" );
+		       stance.source == SimulationCommandSource::LocalPlayer &&
+		       move.soldier == stance.soldier && move.destinationGrid == 1400 &&
+		       move.movementMode == 6 && move.reverse && !move.forceRestart,
+		       "engine runtime carries generational stance and movement commands" );
 		CHECK( context.submitRecordedCommand(
 		           9, 500, SimulationCommand{BeginFireWeaponCommand{
 		               TacticalEntityId{17, 700}, 1234, 0, 2,

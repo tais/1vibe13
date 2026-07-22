@@ -208,19 +208,24 @@ int main()
 	const TacticalCommandSubmissionResult commandRequest =
 		package.commandBinding()
 			? package.commandBinding().client.submit(
-				SimulationCommand{ChangeStanceCommand{
-					TacticalEntityId{7, 3}, 3, SimulationCommandSource::System}})
+				SimulationCommand{MoveToGridCommand{
+					TacticalEntityId{7, 3}, 1311, 0, false, true,
+					SimulationCommandSource::System}})
 			: TacticalCommandSubmissionResult{
 				TacticalCommandSubmissionError::InvalidOwner, 0};
 	std::uint64_t drainedRequest = 0;
+	bool drainedMoveToGrid = false;
 	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
-		[&drainedRequest](const TacticalCommandRequest& request) {
+		[&drainedRequest, &drainedMoveToGrid](const TacticalCommandRequest& request) {
 			drainedRequest = request.requestId;
+			drainedMoveToGrid = std::holds_alternative<MoveToGridCommand>(
+				request.command);
 			return TacticalCommandDisposition::Accept;
 		});
 	if (!commandRequest || commandRequest.requestId != 1 ||
 		package.commandBinding().client.packageId() != "external.rules" ||
-		commandDrain.accepted != 1 || drainedRequest != commandRequest.requestId ||
+		commandDrain.accepted != 1 || !drainedMoveToGrid ||
+		drainedRequest != commandRequest.requestId ||
 		!commandInbox.empty()) return 34;
 	if (!host.beginShutdown() || !host.runtimeSession().shutdownPackages() ||
 		!host.markStopped()) return 5;
@@ -319,13 +324,14 @@ int main()
 
 	EngineRuntime<> commandRuntime(services);
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
-		37, BeginFireWeaponCommand{
-			actorId, 1300, 0, 1, SimulationCommandSource::LocalPlayer});
+		37, MoveToGridCommand{
+			actorId, 1300, 6, true, false,
+			SimulationCommandSource::LocalPlayer});
 	const std::vector<RecordedSimulationCommand> recordedCommands =
 		commandRuntime.commandJournal().snapshot();
 	if (commandSequence != 0 || recordedCommands.size() != 1 ||
 		recordedCommands[0].tick != 37 || recordedCommands[0].sequence != 0 ||
-		!std::holds_alternative<BeginFireWeaponCommand>(
+		!std::holds_alternative<MoveToGridCommand>(
 			recordedCommands[0].command)) return 27;
 
 	std::vector<std::uint8_t> encodedCommands;
@@ -337,7 +343,8 @@ int main()
 			encodedCommands, decodedCommands, decodedDroppedCount) !=
 				SimulationCommandJournalDecodeResult::Success ||
 		decodedDroppedCount != 0 || decodedCommands.size() != 1 ||
-		std::get<BeginFireWeaponCommand>(decodedCommands[0].command).targetGrid != 1300)
+		std::get<MoveToGridCommand>(decodedCommands[0].command).destinationGrid != 1300 ||
+		!std::get<MoveToGridCommand>(decodedCommands[0].command).reverse)
 		return 28;
 
 	if (commandRuntime.saveCommandReplay("external.command-replay") !=
@@ -354,11 +361,10 @@ int main()
 	const std::vector<ScheduledCommand<SimulationCommand>> replayedCommands =
 		replayRuntime.commands().drainThrough(37);
 	if (replayedCommands.size() != 1 || replayedCommands[0].sequence != 0 ||
-		!std::holds_alternative<BeginFireWeaponCommand>(
+		!std::holds_alternative<MoveToGridCommand>(
 			replayedCommands[0].command) ||
-		std::get<BeginFireWeaponCommand>(
+		std::get<MoveToGridCommand>(
 			replayedCommands[0].command).soldier != actorId)
 		return 32;
-
 	return 0;
 }

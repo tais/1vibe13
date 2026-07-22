@@ -379,6 +379,9 @@ int main()
 		TacticalEntityId{3, 0}, 2, SimulationCommandSource::Replay}};
 	const SimulationCommand invalidFireCommand{BeginFireWeaponCommand{
 		TacticalEntityId{}, 100, 0, 0, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand invalidMoveCommand{MoveToGridCommand{
+		TacticalEntityId{}, 100, 0, false, false,
+		SimulationCommandSource::LocalPlayer}};
 	const TacticalCommandSubmissionResult invalidOwner =
 		validationInbox.submit("bad/owner", validTurn);
 	const TacticalCommandSubmissionResult oversizedOwner =
@@ -389,6 +392,8 @@ int main()
 		validationInbox.submit("pkg.ok", unresolvedStance);
 	const TacticalCommandSubmissionResult invalidFireResult =
 		validationInbox.submit("pkg.ok", invalidFireCommand);
+	const TacticalCommandSubmissionResult invalidMoveResult =
+		validationInbox.submit("pkg.ok", invalidMoveCommand);
 	const TacticalCommandSubmissionResult validStanceResult =
 		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
@@ -396,15 +401,20 @@ int main()
 		validationInbox.submit("pkg.ok", SimulationCommand{BeginFireWeaponCommand{
 			TacticalEntityId{3, 301}, 100, 0, 0,
 			SimulationCommandSource::LocalPlayer}});
+	const TacticalCommandSubmissionResult validMoveResult =
+		validationInbox.submit("pkg.ok", SimulationCommand{MoveToGridCommand{
+			TacticalEntityId{3, 301}, 101, 6, true, false,
+			SimulationCommandSource::LocalPlayer}});
 	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		unresolvedStanceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidFireResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		invalidMoveResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
-		validationInbox.summary().submitted == 2 &&
-		validationInbox.summary().nextRequestId == 3,
+		validMoveResult.requestId == 3 && validationInbox.summary().submitted == 3 &&
+		validationInbox.summary().nextRequestId == 4,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -1167,24 +1177,30 @@ int main()
 			SimulationCommand{BeginFireWeaponCommand{
 				firstIncarnation, -123, -1, 4, SimulationCommandSource::LocalPlayer}}},
 		RecordedSimulationCommand{
-			20, 44, CommandJournalStatus::Blocked,
+			20, 44, CommandJournalStatus::Applied,
+			SimulationCommand{MoveToGridCommand{
+				reusedSlot, 2345, 6, true, false,
+				SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			21, 45, CommandJournalStatus::Blocked,
 			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
 		encoded[5] == 0,
-		"JA2 adapter emits version-2 simulation command journals");
+		"JA2 adapter emits version-3 simulation command journals");
 	std::vector<RecordedSimulationCommand> decoded;
 	std::uint64_t dropped = 0;
 	const SimulationCommandJournalDecodeResult decodeResult =
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
-	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 4)
+	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 5)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
 		const auto& fire = std::get<BeginFireWeaponCommand>(decoded[2].command);
-		const auto& turn = std::get<EndTurnCommand>(decoded[3].command);
+		const auto& move = std::get<MoveToGridCommand>(decoded[3].command);
+		const auto& turn = std::get<EndTurnCommand>(decoded[4].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -1195,24 +1211,33 @@ int main()
 			fire.targetGrid == -123 && fire.targetLevel == -1 &&
 			fire.targetCubeLevel == 4 &&
 			fire.source == SimulationCommandSource::LocalPlayer &&
-			decoded[3].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
+			move.soldier == reusedSlot && move.destinationGrid == 2345 &&
+			move.movementMode == 6 && move.reverse && !move.forceRestart &&
+			move.source == SimulationCommandSource::Replay &&
+			decoded[4].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
 			turn.source == SimulationCommandSource::NetworkPeer;
 	}
 	check(decodedFields,
-		"version-2 stance commands survive slot reuse as distinct identities");
+		"version-3 commands preserve generational actors and movement intent");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
 	std::vector<std::uint8_t> preservedEncoding{0xa5, 0x5a};
 	check(!EncodeSimulationCommandJournal(unresolved, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-2 encoding rejects unresolved actor identities transactionally");
+		"version-3 encoding rejects unresolved actor identities transactionally");
 	std::vector<RecordedSimulationCommand> invalidFire = recorded;
 	std::get<BeginFireWeaponCommand>(invalidFire[2].command).soldier =
 		TacticalEntityId{};
 	check(!EncodeSimulationCommandJournal(invalidFire, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-2 encoding validates every actor-bearing command");
+		"version-3 encoding validates fire-command actors");
+	std::vector<RecordedSimulationCommand> invalidMove = recorded;
+	std::get<MoveToGridCommand>(invalidMove[3].command).soldier =
+		TacticalEntityId{};
+	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"version-3 encoding validates move-command actors");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);
@@ -1252,7 +1277,7 @@ int main()
 	check(!EncodeSimulationCommandJournal(
 		legacyDecoded, legacyDropped, refusedUpgrade) &&
 		refusedUpgrade == std::vector<std::uint8_t>{0xcc},
-		"legacy-unresolved stance identities cannot be emitted as version 2");
+		"legacy-unresolved stance identities cannot be emitted as version 3");
 
 	std::vector<std::uint8_t> malformedV1 = versionOneStance;
 	malformedV1[36] = 0xff;
@@ -1281,28 +1306,60 @@ int main()
 		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
 		"version-1 decoding rejects truncated records transactionally");
 	malformedV1 = versionOneStance;
-	malformedV1[4] = 3;
+	malformedV1[4] = 4;
 	check(RejectsJournalWithoutPublishing(
 		malformedV1, SimulationCommandJournalDecodeResult::UnsupportedVersion),
 		"command journals reject unsupported future wire versions");
 
 	std::vector<RecordedSimulationCommand> oneStance{recorded[0]};
-	std::vector<std::uint8_t> malformedV2;
-	const bool encodedV2Fixture =
-		EncodeSimulationCommandJournal(oneStance, 0, malformedV2) &&
-		malformedV2.size() == 44;
-	check(encodedV2Fixture,
-		"version-2 stance fixture encodes for corruption checks");
-	if (encodedV2Fixture)
+	std::vector<std::uint8_t> malformedV3;
+	const bool encodedV3Fixture =
+		EncodeSimulationCommandJournal(oneStance, 0, malformedV3) &&
+		malformedV3.size() == 44;
+	check(encodedV3Fixture,
+		"version-3 stance fixture encodes for corruption checks");
+	std::vector<std::uint8_t> compatibleV2 = malformedV3;
+	if (encodedV3Fixture)
 	{
-		malformedV2[38] = 0;
-		malformedV2[39] = 0;
-		malformedV2[40] = 0;
-		malformedV2[41] = 0;
+		compatibleV2[4] = 2;
+		malformedV3[38] = 0;
+		malformedV3[39] = 0;
+		malformedV3[40] = 0;
+		malformedV3[41] = 0;
+	}
+	std::vector<RecordedSimulationCommand> compatibleV2Decoded;
+	std::uint64_t compatibleV2Dropped = 1;
+	check(encodedV3Fixture &&
+		DecodeSimulationCommandJournal(
+			compatibleV2, compatibleV2Decoded, compatibleV2Dropped) ==
+				SimulationCommandJournalDecodeResult::Success &&
+		compatibleV2Dropped == 0 && compatibleV2Decoded.size() == 1 &&
+		std::get<ChangeStanceCommand>(compatibleV2Decoded[0].command).soldier ==
+			firstIncarnation,
+		"version-3 decoder retains version-2 generational command compatibility");
+	check(RejectsJournalWithoutPublishing(
+		malformedV3, SimulationCommandJournalDecodeResult::Invalid),
+		"version-3 decoding rejects zero-incarnation actor identities");
+
+	std::vector<RecordedSimulationCommand> oneMove{recorded[3]};
+	std::vector<std::uint8_t> malformedMove;
+	const bool encodedMoveFixture =
+		EncodeSimulationCommandJournal(oneMove, 0, malformedMove) &&
+		malformedMove.size() == 50;
+	check(encodedMoveFixture,
+		"version-3 move fixture encodes its stable value fields");
+	std::vector<std::uint8_t> moveWithOldVersion = malformedMove;
+	if (encodedMoveFixture)
+	{
+		moveWithOldVersion[4] = 2;
+		malformedMove[48] = 0x80;
 	}
 	check(RejectsJournalWithoutPublishing(
-		malformedV2, SimulationCommandJournalDecodeResult::Invalid),
-		"version-2 decoding rejects zero-incarnation actor identities");
+		moveWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
+		"version-2 journals cannot smuggle the version-3 move tag");
+	check(RejectsJournalWithoutPublishing(
+		malformedMove, SimulationCommandJournalDecodeResult::Invalid),
+		"version-3 move decoding rejects unknown packed flags transactionally");
 
 	CommandJournal<SimulationCommand> journal(1);
 	journal.recordSubmission(

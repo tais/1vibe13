@@ -68,6 +68,12 @@ namespace
 				}
 				return CommandDisposition::Discard;
 			}
+			else
+			{
+				// New value commands fail closed until their legacy executor is
+				// deliberately installed by the application adapter.
+				return CommandDisposition::Discard;
+			}
 		}, command);
 	}
 
