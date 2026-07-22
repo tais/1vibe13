@@ -522,6 +522,7 @@ int main()
 	const EngineHostOptionsValidationResult defaultOptionsValidation =
 		ValidateEngineHostOptions(defaultHostOptions);
 	EngineHost<unsigned> legacyDefaultHost;
+	EngineHost<unsigned> legacyBraceDefaultHost({});
 	EngineHost<unsigned> namedDefaultHost(defaultHostOptions);
 	check(defaultOptionsValidation &&
 		legacyDefaultHost.serviceCatalog().size() == 14 &&
@@ -531,6 +532,8 @@ int main()
 		namedDefaultHost.configuration().size() ==
 			legacyDefaultHost.configuration().size() &&
 		namedDefaultHost.compatibilityFingerprint() ==
+			legacyDefaultHost.compatibilityFingerprint() &&
+		legacyBraceDefaultHost.compatibilityFingerprint() ==
 			legacyDefaultHost.compatibilityFingerprint() &&
 		namedDefaultHost.runtimeMessages().maxQueuedMessages() == 1024 &&
 		namedDefaultHost.runtimeMessages().maxPayloadBytes() == 64u * 1024u &&

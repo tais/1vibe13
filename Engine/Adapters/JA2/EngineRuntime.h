@@ -2,6 +2,7 @@
 #define ENGINE_ADAPTERS_JA2_ENGINE_RUNTIME_H
 
 #include <cstdint>
+#include <initializer_list>
 #include <utility>
 
 #include <Engine/Adapters/JA2/CommandReplay.h>
@@ -15,8 +16,17 @@
 template<typename ScreenId = std::uint32_t>
 class EngineRuntime : public EngineHost<ScreenId>
 {
+	struct LegacyBraceConstructionTag {};
+
 public:
 	using Host = EngineHost<ScreenId>;
+
+	// Preserve the EngineServices/default-runtime meaning of the established
+	// `EngineRuntime<>({})` spelling alongside the named host-options overload.
+	explicit EngineRuntime(std::initializer_list<LegacyBraceConstructionTag>)
+		: EngineRuntime(EngineServices{})
+	{
+	}
 
 	explicit EngineRuntime(
 		EngineHostOptions options,

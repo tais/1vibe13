@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -45,8 +46,18 @@ class EngineHost
 {
 private:
 	struct ConstructionTag {};
+	struct LegacyBraceConstructionTag {};
 
 public:
+	// Preserve the established `EngineHost<>({})` spelling. An empty braced
+	// argument could initialize either EngineServices or EngineHostOptions after
+	// the named options overload was added; an initializer-list candidate keeps
+	// the historical EngineServices/default-host interpretation unambiguous.
+	explicit EngineHost(std::initializer_list<LegacyBraceConstructionTag>)
+		: EngineHost(EngineServices{})
+	{
+	}
+
 	// Named composition API for new applications and tools. Validation runs
 	// before construction of any host-owned service or registration side effect.
 	explicit EngineHost(

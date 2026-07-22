@@ -212,6 +212,11 @@ SimulationCommand MakeTurnCommand(
 
 int main()
 {
+	EngineRuntime<> legacyBraceRuntime({});
+	check(legacyBraceRuntime.serviceCatalog().size() == 14 &&
+		legacyBraceRuntime.runtimeMessages().maxQueuedMessages() == 1024,
+		"empty-brace runtime construction retains default EngineServices semantics");
+
 	constexpr TacticalEntityId invalidEntity;
 	constexpr TacticalEntityId firstIncarnation{7, 9001};
 	constexpr TacticalEntityId reusedSlot{7, 9002};

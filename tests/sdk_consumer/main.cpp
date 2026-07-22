@@ -133,6 +133,11 @@ private:
 
 int main()
 {
+	EngineHost<> legacyBraceHost({});
+	EngineRuntime<> legacyBraceRuntime({});
+	if (legacyBraceHost.serviceCatalog().size() != 14 ||
+		legacyBraceRuntime.serviceCatalog().size() != 14) return 42;
+
 	MemoryByteStorage storage;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
