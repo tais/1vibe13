@@ -1,5 +1,6 @@
 #include "Simulation Commands.h"
 
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -15,7 +16,19 @@
 
 namespace
 {
-	constexpr std::uint64_t ImmediateCommandTick = 0;
+	struct SimulationCommandFrameBudget
+	{
+		std::uint64_t frameSequence = 0;
+		std::size_t maximumCommands = 64;
+		std::size_t consumedCommands = 0;
+		bool initialized = false;
+	};
+
+	SimulationCommandFrameBudget& FrameBudget() noexcept
+	{
+		static SimulationCommandFrameBudget budget;
+		return budget;
+	}
 
 	SimulationCommandExecutionSink*& ApplicationExecutionSink() noexcept
 	{
@@ -103,7 +116,7 @@ namespace
 	}
 
 	template<typename Process>
-	CommandProcessingResult ExecuteSimulationCommands(
+	auto ExecuteSimulationCommands(
 		Process&& process, SimulationCommandExecutionSink* sink = nullptr)
 	{
 		GameContext& game = GetGameContext();
@@ -123,6 +136,18 @@ namespace
 						command, tick, sequence, disposition);
 				if (sink && sink != applicationSink)
 					sink->commandProcessed(command, tick, sequence, disposition);
+			});
+	}
+
+	ExpectedCommandProcessingResult ExecuteExpectedSimulationCommand(
+		std::uint64_t tick, std::uint64_t sequence)
+	{
+		return ExecuteSimulationCommands(
+			[tick, sequence](auto& queue, auto&& handler, auto&& observer) {
+				return ProcessExpectedNextCommandThrough(
+					queue, tick, sequence,
+					std::forward<decltype(handler)>(handler),
+					std::forward<decltype(observer)>(observer));
 			});
 	}
 }
@@ -188,6 +213,34 @@ bool BindSimulationCommandExecutionSink(
 	return true;
 }
 
+void BeginSimulationCommandFrameBudget(
+	std::uint64_t frameSequence, std::size_t maximumCommands) noexcept
+{
+	SimulationCommandFrameBudget& budget = FrameBudget();
+	if (budget.initialized && budget.frameSequence == frameSequence) return;
+	budget.frameSequence = frameSequence;
+	budget.maximumCommands = maximumCommands;
+	budget.consumedCommands = 0;
+	budget.initialized = true;
+}
+
+std::size_t RemainingSimulationCommandFrameBudget(
+	std::size_t requestedMaximum) noexcept
+{
+	const SimulationCommandFrameBudget& budget = FrameBudget();
+	const std::size_t remaining = budget.consumedCommands < budget.maximumCommands
+		? budget.maximumCommands - budget.consumedCommands : 0;
+	return requestedMaximum < remaining ? requestedMaximum : remaining;
+}
+
+void ConsumeSimulationCommandFrameBudget(std::size_t commands) noexcept
+{
+	SimulationCommandFrameBudget& budget = FrameBudget();
+	const std::size_t remaining = budget.consumedCommands < budget.maximumCommands
+		? budget.maximumCommands - budget.consumedCommands : 0;
+	budget.consumedCommands += commands < remaining ? commands : remaining;
+}
+
 CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick)
 {
 	return ExecuteSimulationCommands(
@@ -223,18 +276,84 @@ CommandProcessingResult ExecuteSimulationCommandsThrough(
 		}, &sink);
 }
 
-std::uint64_t DispatchEndTurnCommandNow(
-	std::uint8_t nextTeam, SimulationCommandSource source)
+SimulationCommandDispatchResult TryDispatchSimulationCommandNow(
+	SimulationCommand command) noexcept
 {
 	GameContext& game = GetGameContext();
-	const std::uint64_t sequence = game.submitCommand(
-		ImmediateCommandTick, SimulationCommand{EndTurnCommand{nextTeam, source}});
-	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
-	return sequence;
+	SimulationCommandDispatchResult result;
+	result.tick = game.runtime().simulationTicks().completedTickSequence();
+	if (RemainingSimulationCommandFrameBudget(1) == 0)
+	{
+		result.status = SimulationCommandDispatchStatus::FrameBudgetExhausted;
+		return result;
+	}
+	if (game.commands().hasReadyThrough(result.tick))
+	{
+		result.status =
+			SimulationCommandDispatchStatus::AuthoritativeBackpressure;
+		return result;
+	}
+	if (game.commands().sequenceExhausted())
+	{
+		result.status = SimulationCommandDispatchStatus::SequenceExhausted;
+		return result;
+	}
+
+	try
+	{
+		result.sequence = game.submitCommand(result.tick, std::move(command));
+		result.submitted = true;
+	}
+	catch (const std::overflow_error&)
+	{
+		result.status = SimulationCommandDispatchStatus::SequenceExhausted;
+		return result;
+	}
+	catch (...)
+	{
+		result.status = SimulationCommandDispatchStatus::SubmissionFailure;
+		return result;
+	}
+
+	ConsumeSimulationCommandFrameBudget(1);
+	try
+	{
+		const ExpectedCommandProcessingResult processed =
+			ExecuteExpectedSimulationCommand(result.tick, result.sequence);
+		switch (processed.status)
+		{
+			case ExpectedCommandProcessStatus::Processed:
+				result.status = processed.processing.applied == 1
+					? SimulationCommandDispatchStatus::Applied
+					: SimulationCommandDispatchStatus::Discarded;
+				break;
+			case ExpectedCommandProcessStatus::Retry:
+				result.status = SimulationCommandDispatchStatus::RetryDeferred;
+				break;
+			case ExpectedCommandProcessStatus::NoCommandReady:
+			case ExpectedCommandProcessStatus::DifferentCommandReady:
+			case ExpectedCommandProcessStatus::QueueChanged:
+				result.status = SimulationCommandDispatchStatus::QueueChanged;
+				break;
+		}
+	}
+	catch (...)
+	{
+		result.status = SimulationCommandDispatchStatus::RetryDeferred;
+	}
+	return result;
 }
 
-std::uint64_t DispatchChangeStanceCommandNow(
-	std::uint16_t soldierId, std::uint8_t stance, SimulationCommandSource source)
+SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
+	std::uint8_t nextTeam, SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{EndTurnCommand{nextTeam, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(
+	std::uint16_t soldierId, std::uint8_t stance,
+	SimulationCommandSource source) noexcept
 {
 	TacticalEntityId soldier;
 	if (soldierId < TOTAL_SOLDIERS && MercPtrs[soldierId] != nullptr)
@@ -242,12 +361,49 @@ std::uint64_t DispatchChangeStanceCommandNow(
 		soldier = TacticalEntityId{
 			soldierId, MercPtrs[soldierId]->uiUniqueSoldierIdValue};
 	}
-	GameContext& game = GetGameContext();
-	const std::uint64_t sequence = game.submitCommand(
-		ImmediateCommandTick,
+	return TryDispatchSimulationCommandNow(
 		SimulationCommand{ChangeStanceCommand{soldier, stance, source}});
-	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
-	return sequence;
+}
+
+SimulationCommandDispatchResult TryDispatchBeginFireWeaponCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{BeginFireWeaponCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			targetGrid, targetLevel, targetCubeLevel, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{MoveToGridCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, destinationGrid,
+			movementMode, reverse, forceRestart, source}});
+}
+
+std::uint64_t DispatchEndTurnCommandNow(
+	std::uint8_t nextTeam, SimulationCommandSource source)
+{
+	return TryDispatchEndTurnCommandNow(nextTeam, source).sequence;
+}
+
+std::uint64_t DispatchChangeStanceCommandNow(
+	std::uint16_t soldierId, std::uint8_t stance, SimulationCommandSource source)
+{
+	return TryDispatchChangeStanceCommandNow(soldierId, stance, source).sequence;
 }
 
 std::uint64_t DispatchBeginFireWeaponCommandNow(
@@ -258,14 +414,9 @@ std::uint64_t DispatchBeginFireWeaponCommandNow(
 	std::int8_t targetCubeLevel,
 	SimulationCommandSource source)
 {
-	GameContext& game = GetGameContext();
-	const std::uint64_t sequence = game.submitCommand(
-		ImmediateCommandTick,
-		SimulationCommand{BeginFireWeaponCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			targetGrid, targetLevel, targetCubeLevel, source}});
-	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
-	return sequence;
+	return TryDispatchBeginFireWeaponCommandNow(
+		soldierId, uniqueSoldierId, targetGrid, targetLevel,
+		targetCubeLevel, source).sequence;
 }
 
 std::uint64_t DispatchMoveToGridCommandNow(
@@ -277,12 +428,7 @@ std::uint64_t DispatchMoveToGridCommandNow(
 	bool forceRestart,
 	SimulationCommandSource source)
 {
-	GameContext& game = GetGameContext();
-	const std::uint64_t sequence = game.submitCommand(
-		ImmediateCommandTick,
-		SimulationCommand{MoveToGridCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, destinationGrid,
-			movementMode, reverse, forceRestart, source}});
-	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
-	return sequence;
+	return TryDispatchMoveToGridCommandNow(
+		soldierId, uniqueSoldierId, destinationGrid, movementMode,
+		reverse, forceRestart, source).sequence;
 }

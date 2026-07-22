@@ -58,6 +58,10 @@ PackageEventSink& GetJa2TacticalCommandPackageEventSink() noexcept;
 // can activate. Rebinding to a different composition root is rejected.
 bool BindJa2TacticalCommandHost(GameContext& game) noexcept;
 
+// Reset the shared synchronous/package command budget before application work
+// for the next frame begins.
+void BeginJa2TacticalCommandFrame(GameContext& game) noexcept;
+
 // Admit one bounded inbox prefix and execute one bounded authoritative prefix
 // at the completed simulation-tick boundary. A failed or incomplete command
 // pass backpressures further admission until later safe-frame retries finish.

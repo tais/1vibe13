@@ -7,6 +7,7 @@
 #include <variant>
 
 #include "GameContext.h"
+#include "Map Information.h"
 #include "Overhead.h"
 #include "Simulation Commands.h"
 
@@ -105,6 +106,8 @@ public:
 			return false;
 		}
 		game_ = &game;
+		BeginSimulationCommandFrameBudget(
+			game.frameDriver().completedFrames() + 1, MaximumCommandsPerFrame);
 		return true;
 	}
 
@@ -136,6 +139,9 @@ public:
 		diagnostics_.simulationTick =
 			game.runtime().simulationTicks().completedTickSequence();
 		flushReceipts(game);
+		const bool explicitlyNoExecution = maximumCommands == 0;
+		maximumCommands =
+			RemainingSimulationCommandFrameBudget(maximumCommands);
 
 		// A retained authoritative command always gets the complete bounded
 		// budget. Even a successful retry consumes this safe frame so recovery
@@ -148,9 +154,22 @@ public:
 			flushReceipts(game);
 			return;
 		}
-
+		// An explicit zero-budget composition test may still stage authoritative
+		// ownership for cancellation/backpressure coverage. In production a frame
+		// exhausted by synchronous player commands leaves inbox work untouched.
+		if (maximumCommands == 0 && !explicitlyNoExecution)
+		{
+			diagnostics_.lastDrain = TacticalCommandDrainResult{};
+			IncrementSaturated(diagnostics_.budgetExhaustions);
+			return;
+		}
+		const std::size_t admissionLimit = maximumCommands == 0
+			? inbox_.limits().maximumPerDrain : maximumCommands;
+		std::size_t admittedCommands = 0;
 		diagnostics_.lastDrain = inbox_.drain(
 			[&](const TacticalCommandRequest& request) {
+				if (admittedCommands >= admissionLimit)
+					return TacticalCommandDisposition::Defer;
 				if (!canAdmitReceiptObligation())
 				{
 					IncrementSaturated(diagnostics_.receiptCapacityDeferrals);
@@ -206,6 +225,7 @@ public:
 				staged.sequence =
 					game.submitCommand(diagnostics_.simulationTick, request.command);
 				tracked_[trackedCount_++] = std::move(staged);
+				++admittedCommands;
 				return TacticalCommandDisposition::Accept;
 			});
 		processAuthoritative(game, maximumCommands);
@@ -406,6 +426,12 @@ private:
 		{
 			diagnostics_.lastProcessing = ExecuteSimulationCommandsThrough(
 				diagnostics_.simulationTick, maximumCommands);
+			std::size_t consumed = diagnostics_.lastProcessing.applied +
+				diagnostics_.lastProcessing.discarded;
+			if (diagnostics_.lastProcessing.status == CommandProcessStatus::Blocked ||
+				diagnostics_.lastProcessing.status == CommandProcessStatus::QueueChanged)
+				++consumed;
+			ConsumeSimulationCommandFrameBudget(consumed);
 			diagnostics_.authoritativeBackpressure =
 				diagnostics_.lastProcessing.status != CommandProcessStatus::Completed;
 			if (diagnostics_.lastProcessing.status ==
@@ -414,6 +440,9 @@ private:
 		}
 		catch (...)
 		{
+			// The processor deliberately retains the throwing command. Pessimistically
+			// consume the offered budget so exception recovery cannot overrun the frame.
+			ConsumeSimulationCommandFrameBudget(maximumCommands);
 			diagnostics_.lastProcessingThrew = true;
 			diagnostics_.authoritativeBackpressure = true;
 			IncrementSaturated(diagnostics_.processingFailures);
@@ -493,6 +522,13 @@ PackageEventSink& GetJa2TacticalCommandPackageEventSink() noexcept
 bool BindJa2TacticalCommandHost(GameContext& game) noexcept
 {
 	return GetCommandHost().bind(game);
+}
+
+void BeginJa2TacticalCommandFrame(GameContext& game) noexcept
+{
+	BeginSimulationCommandFrameBudget(
+		game.frameDriver().completedFrames() + 1,
+		GetCommandHost().service().limits().maximumPerDrain);
 }
 
 void DrainJa2TacticalCommandsAtSafeFrame(GameContext& game) noexcept
