@@ -4,6 +4,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
+#include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
@@ -92,6 +93,40 @@ public:
 	}
 
 	std::vector<RuntimeMessage> messages;
+};
+
+class ControlledTacticalWorldService final : public TacticalWorldService
+{
+public:
+	void publish(TacticalWorldSnapshot snapshot)
+	{
+		snapshot_ = std::move(snapshot);
+		result_ = TacticalWorldCaptureResult::Success;
+	}
+
+	void fail(TacticalWorldCaptureResult result)
+	{
+		result_ = result;
+	}
+
+	TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept override
+	{
+		if (result_ != TacticalWorldCaptureResult::Success) return result_;
+		try
+		{
+			TacticalWorldSnapshot captured = snapshot_;
+			output = std::move(captured);
+			return TacticalWorldCaptureResult::Success;
+		}
+		catch (...)
+		{
+			return TacticalWorldCaptureResult::AllocationFailure;
+		}
+	}
+
+private:
+	TacticalWorldSnapshot snapshot_;
+	TacticalWorldCaptureResult result_ = TacticalWorldCaptureResult::Unavailable;
 };
 }
 
@@ -488,6 +523,123 @@ int main()
 		boundedPublisher.maximumEvents() == MaximumTacticalWorldDeltaEvents &&
 		boundedPublisher.maximumPayloadBytes() == encodedDelta.size(),
 		"queue-full publication is atomic and configured limits cannot exceed codec or bus bounds");
+	check(!NullTacticalWorldObserverService::instance().latest(),
+		"the null tactical observer is an allocation-free unavailable package service");
+	TacticalWorldObserver observedWorld(memoryWorld, TacticalWorldObserverLimits{3, 6});
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::SourceUnavailable &&
+		!observedWorld.latest(),
+		"an unavailable source cannot fabricate an observer publication");
+	memoryWorld.publish(tacticalSnapshot);
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedBaseline,
+		"the first successful safe-frame capture publishes a tactical baseline");
+	TacticalWorldPublicationView publication = observedWorld.latest();
+	check(publication && publication.status == TacticalWorldPublicationStatus::Baseline &&
+		publication.serial == 1 && publication.snapshot->epoch() == 44 &&
+		publication.delta->previousEpoch == 44 &&
+		publication.delta->currentEpoch == 44 && publication.delta->events.empty(),
+		"a baseline owns the latest immutable snapshot without fabricated events");
+	check(RegisterTacticalWorldObserverService(tacticalServices, observedWorld) ==
+			EngineServiceRegistrationError::None,
+		"the read-only tactical observer registers as a versioned package service");
+	const auto resolvedObserver = tacticalServices.resolve<TacticalWorldObserverService>(
+		TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion);
+	check(resolvedObserver && resolvedObserver.service->latest().serial == 1 &&
+		!tacticalServices.resolve<TacticalWorldObserverService>(
+			TacticalWorldObserverServiceId, EngineServiceVersion{2, 0}),
+		"packages resolve only compatible tactical observer service versions");
+
+	memoryWorld.publish(changedWorld);
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
+		"a later successful safe-frame capture publishes a tactical delta");
+	publication = observedWorld.latest();
+	check(publication && publication.status == TacticalWorldPublicationStatus::Delta &&
+		publication.serial == 2 && publication.snapshot->find(TacticalEntityId{9, 1}) &&
+		publication.delta->events.size() == 6 &&
+		std::holds_alternative<TacticalTurnChangedEvent>(publication.delta->events[0]) &&
+		std::holds_alternative<TacticalActorLeftEvent>(publication.delta->events[1]) &&
+		std::holds_alternative<TacticalActorMovedEvent>(publication.delta->events[2]) &&
+		std::holds_alternative<TacticalActorStanceChangedEvent>(publication.delta->events[3]) &&
+		std::holds_alternative<TacticalActorVitalsChangedEvent>(publication.delta->events[4]) &&
+		std::holds_alternative<TacticalActorEnteredEvent>(publication.delta->events[5]),
+		"observer publications retain deterministic delta category and entity order");
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
+		"an unchanged successful capture remains an explicit observer publication");
+	publication = observedWorld.latest();
+	check(publication.serial == 3 && publication.delta->previousEpoch == 44 &&
+		publication.delta->currentEpoch == 44 && publication.delta->events.empty(),
+		"publication serials increase monotonically even when the deterministic delta is empty");
+	memoryWorld.clear();
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::SourceUnavailable &&
+		observedWorld.latest().serial == 3 &&
+		observedWorld.latest().delta->events.empty(),
+		"source unavailability leaves the complete last good publication untouched");
+
+	memoryWorld.publish(reloadedWorld);
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
+		"a new tactical epoch remains publishable through the observer");
+	publication = observedWorld.latest();
+	check(publication.serial == 4 && publication.delta->events.size() == 1 &&
+		std::holds_alternative<TacticalWorldResetEvent>(publication.delta->events[0]),
+		"observer epoch changes reuse the bounded tactical reset event");
+	std::vector<TacticalActorSnapshot> excessiveActors = reloadedWorld.actors();
+	excessiveActors.push_back(TacticalActorSnapshot{
+		TacticalEntityId{11, 1}, 2, 21, 440, 0, 0, 4,
+		TacticalStance::Standing, 80, 80, 80, 80, 80, true, true});
+	TacticalWorldSnapshot excessiveWorld;
+	check(TacticalWorldSnapshot::create(
+			45, reloadedWorld.sector(), reloadedWorld.turn(), excessiveActors,
+			excessiveWorld) == TacticalSnapshotCreateError::None,
+		"observer actor-capacity fixture is a valid tactical snapshot");
+	memoryWorld.publish(excessiveWorld);
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::ActorCapacityReached &&
+		observedWorld.latest().serial == 4 &&
+		observedWorld.latest().snapshot->actors().size() == 3 &&
+		observedWorld.latest().delta->events.size() == 1,
+		"observer actor capacity failure preserves snapshot, delta, and serial atomically");
+
+	MemoryTacticalWorldService eventLimitedMemory;
+	eventLimitedMemory.publish(tacticalSnapshot);
+	TacticalWorldObserver eventLimitedWorld(
+		eventLimitedMemory, TacticalWorldObserverLimits{3, 5});
+	check(eventLimitedWorld.update() == TacticalWorldObserverUpdateResult::PublishedBaseline,
+		"an event-limited observer can establish its baseline");
+	eventLimitedMemory.publish(changedWorld);
+	check(eventLimitedWorld.update() ==
+			TacticalWorldObserverUpdateResult::EventCapacityReached &&
+		eventLimitedWorld.latest().status == TacticalWorldPublicationStatus::Baseline &&
+		eventLimitedWorld.latest().serial == 1 &&
+		eventLimitedWorld.latest().delta->events.empty(),
+		"observer event capacity failure cannot expose a partial delta publication");
+
+	ControlledTacticalWorldService controlledWorld;
+	controlledWorld.publish(tacticalSnapshot);
+	TacticalWorldObserver failureObservedWorld(controlledWorld);
+	check(failureObservedWorld.update() ==
+			TacticalWorldObserverUpdateResult::PublishedBaseline,
+		"a controlled tactical provider establishes a reusable observer fixture");
+	controlledWorld.fail(TacticalWorldCaptureResult::CapacityReached);
+	const bool sourceCapacityPreserved =
+		failureObservedWorld.update() ==
+			TacticalWorldObserverUpdateResult::SourceCapacityReached &&
+		failureObservedWorld.latest().serial == 1;
+	controlledWorld.fail(TacticalWorldCaptureResult::AllocationFailure);
+	const bool sourceAllocationPreserved =
+		failureObservedWorld.update() ==
+			TacticalWorldObserverUpdateResult::SourceAllocationFailure &&
+		failureObservedWorld.latest().serial == 1;
+	controlledWorld.fail(TacticalWorldCaptureResult::AdapterFailure);
+	const bool sourceAdapterPreserved =
+		failureObservedWorld.update() ==
+			TacticalWorldObserverUpdateResult::SourceAdapterFailure &&
+		failureObservedWorld.latest().serial == 1;
+	check(sourceCapacityPreserved && sourceAllocationPreserved && sourceAdapterPreserved &&
+		failureObservedWorld.latest().status == TacticalWorldPublicationStatus::Baseline &&
+		failureObservedWorld.latest().delta->events.empty(),
+		"all explicit source failures preserve the observer's last good publication");
+	controlledWorld.publish(TacticalWorldSnapshot{});
+	check(failureObservedWorld.update() == TacticalWorldObserverUpdateResult::InvalidSnapshot &&
+		failureObservedWorld.latest().serial == 1,
+		"a source claiming success with invalid state cannot replace the baseline");
 
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{
