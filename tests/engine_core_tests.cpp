@@ -270,6 +270,61 @@ public:
 	bool active = false;
 };
 
+class RandomSavePackage final : public EnginePackage
+{
+public:
+	explicit RandomSavePackage(std::string id, std::uint8_t state)
+		: descriptor_{ContentManifest{
+			std::move(id), "1", ContentApiVersion{1, 0}}, PackageKind::Rules,
+			{}, {}, {}, {}, {}, {}, 1}, state_(state)
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override { active_ = true; return true; }
+	void deactivate() noexcept override { active_ = false; }
+	void simulate(PackageBootstrapContext& context,
+		const SimulationTickContext&) override
+	{
+		const PackageRandomResult value = context.random.next("simulation", 1000000);
+		if (value) simulationValues.push_back(value.value);
+	}
+	bool saveState(PackageBootstrapContext& context,
+		std::vector<std::uint8_t>& state) override
+	{
+		++saveCalls;
+		context.random.next("save-callback", 1000);
+		state = {state_};
+		return true;
+	}
+	bool validateState(PackageBootstrapContext& context, std::uint32_t schema,
+		const std::vector<std::uint8_t>& state) override
+	{
+		++validateCalls;
+		context.random.next("validate-callback", 1000);
+		return schema == 1 && state.size() == 1;
+	}
+	bool loadState(PackageBootstrapContext& context, std::uint32_t schema,
+		const std::vector<std::uint8_t>& state) override
+	{
+		++loadCalls;
+		context.random.next("load-callback", 1000);
+		if (schema != 1 || state.size() != 1) return false;
+		state_ = state[0];
+		return true;
+	}
+
+	PackageDescriptor descriptor_;
+	std::vector<std::uint32_t> simulationValues;
+	int saveCalls = 0;
+	int validateCalls = 0;
+	int loadCalls = 0;
+
+private:
+	std::uint8_t state_;
+	bool active_ = false;
+};
+
 class ContractTestService
 {
 public:
@@ -841,6 +896,111 @@ int main()
 		invalidHostRejected,
 		"invalid host options are diagnosed and rejected before host construction");
 
+	EngineHostOptions zeroSaveBudgetOptions;
+	zeroSaveBudgetOptions.limits.maximumPackageSaveStateRecords = 0;
+	zeroSaveBudgetOptions.limits.maximumPackageSaveStateBytes = 0;
+	zeroSaveBudgetOptions.limits.maximumTotalPackageSaveStateBytes = 0;
+	EngineHost<unsigned> zeroSaveBudgetHost(zeroSaveBudgetOptions);
+	const bool zeroSaveBudgetReady = zeroSaveBudgetHost.beginInitialization() &&
+		zeroSaveBudgetHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		zeroSaveBudgetHost.markRunning();
+	const PackageSaveStateCaptureResult zeroSaveBudgetCapture =
+		zeroSaveBudgetHost.capturePackageSaveState();
+	check(zeroSaveBudgetReady && zeroSaveBudgetCapture &&
+		zeroSaveBudgetCapture.snapshot.records.empty() &&
+		zeroSaveBudgetCapture.snapshot.engineRecords.empty() &&
+		!zeroSaveBudgetCapture.snapshot.engineStatePresent,
+		"an empty runtime captures no package metadata even with a zero-byte save budget");
+
+	RandomSavePackage firstRandomSavePackage("rules.random-save-a", 7);
+	RandomSavePackage secondRandomSavePackage("rules.random-save-b", 9);
+	EngineHost<unsigned> randomSaveHost;
+	const bool randomSaveReady =
+		randomSaveHost.packages().registerPackage(firstRandomSavePackage) ==
+			PackageRegistrationError::None &&
+		randomSaveHost.packages().registerPackage(secondRandomSavePackage) ==
+			PackageRegistrationError::None &&
+		randomSaveHost.packages().activate("rules.random-save-a") ==
+			PackageActivationError::None &&
+		randomSaveHost.packages().activate("rules.random-save-b") ==
+			PackageActivationError::None &&
+		randomSaveHost.beginInitialization() &&
+		randomSaveHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		randomSaveHost.markRunning();
+	randomSaveHost.simulationTicks().advance(
+		randomSaveHost.simulationTicks().stepMicroseconds());
+	const PackageSaveStateCaptureResult capturedRandomState =
+		randomSaveHost.capturePackageSaveState();
+	randomSaveHost.simulationTicks().advance(
+		randomSaveHost.simulationTicks().stepMicroseconds());
+	const std::uint32_t expectedFirstRandom =
+		firstRandomSavePackage.simulationValues.size() > 1
+			? firstRandomSavePackage.simulationValues[1] : 0;
+	const std::uint32_t expectedSecondRandom =
+		secondRandomSavePackage.simulationValues.size() > 1
+			? secondRandomSavePackage.simulationValues[1] : 0;
+	const PackageSaveStateLoadResult restoredRandomState =
+		randomSaveHost.restorePackageSaveState(capturedRandomState.snapshot);
+	randomSaveHost.simulationTicks().advance(
+		randomSaveHost.simulationTicks().stepMicroseconds());
+	check(randomSaveReady && capturedRandomState &&
+		capturedRandomState.snapshot.engineStatePresent &&
+		capturedRandomState.snapshot.records.size() == 2 &&
+		capturedRandomState.snapshot.engineRecords.size() == 2 &&
+		capturedRandomState.snapshot.engineRecords[0].random.streams.size() == 1 &&
+		restoredRandomState && restoredRandomState.restored == 2 &&
+		restoredRandomState.engineRecordsRestored == 2 &&
+		firstRandomSavePackage.simulationValues.size() == 3 &&
+		secondRandomSavePackage.simulationValues.size() == 3 &&
+		firstRandomSavePackage.simulationValues[2] == expectedFirstRandom &&
+		secondRandomSavePackage.simulationValues[2] == expectedSecondRandom,
+		"package save restore rewinds all deterministic random streams atomically");
+
+	const PackageSaveStateCaptureResult beforeLegacyRandomRestore =
+		randomSaveHost.capturePackageSaveState();
+	PackageSaveStateSnapshot legacyRandomState = beforeLegacyRandomRestore.snapshot;
+	legacyRandomState.engineRecords.clear();
+	legacyRandomState.engineStatePresent = false;
+	const PackageSaveStateLoadResult restoredLegacyRandomState =
+		randomSaveHost.restorePackageSaveState(legacyRandomState);
+	const PackageSaveStateCaptureResult afterLegacyRandomRestore =
+		randomSaveHost.capturePackageSaveState();
+	const bool legacyRandomUnchanged = beforeLegacyRandomRestore &&
+		afterLegacyRandomRestore &&
+		beforeLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
+		beforeLegacyRandomRestore.snapshot.engineRecords[0].random ==
+			afterLegacyRandomRestore.snapshot.engineRecords[0].random &&
+		beforeLegacyRandomRestore.snapshot.engineRecords[1].random ==
+			afterLegacyRandomRestore.snapshot.engineRecords[1].random;
+	check(restoredLegacyRandomState &&
+		restoredLegacyRandomState.engineRecordsRestored == 0 && legacyRandomUnchanged,
+		"v1 package state callbacks cannot perturb live random streams");
+
+	PackageSaveStateSnapshot invalidLaterRandomState =
+		afterLegacyRandomRestore.snapshot;
+	if (invalidLaterRandomState.engineRecords.size() == 2)
+		invalidLaterRandomState.engineRecords[1].random.schema = 99;
+	const PackageSaveStateLoadResult invalidLaterRandomRestore =
+		randomSaveHost.restorePackageSaveState(invalidLaterRandomState);
+	const PackageSaveStateCaptureResult afterInvalidRandomRestore =
+		randomSaveHost.capturePackageSaveState();
+	const bool invalidRandomUnchanged = afterLegacyRandomRestore &&
+		afterInvalidRandomRestore &&
+		afterLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterInvalidRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterLegacyRandomRestore.snapshot.engineRecords[0].random ==
+			afterInvalidRandomRestore.snapshot.engineRecords[0].random &&
+		afterLegacyRandomRestore.snapshot.engineRecords[1].random ==
+			afterInvalidRandomRestore.snapshot.engineRecords[1].random;
+	check(invalidLaterRandomRestore.error ==
+			PackageSaveStateError::EngineStateMismatch &&
+		invalidLaterRandomRestore.packageId == "rules.random-save-b" &&
+		invalidRandomUnchanged,
+		"a later invalid package checkpoint leaves every earlier RNG unchanged");
+
 	TransactionalLifecyclePackage transactionalPackage("rules.transactional-session");
 	EngineHost<unsigned> transactionalHost;
 	const bool transactionalRegistered =
@@ -1084,6 +1244,46 @@ int main()
 		invalidDeclaredContentHost.packages().registerPackage(duplicateDeclaredContent) ==
 			PackageRegistrationError::InvalidManifest,
 		"declared sources require content API 1.4 and unique definition identities");
+	DeclaredContentPackage dependencyBaseA(PackageDescriptor{
+		ContentManifest{"rules.dependency-a", "1", ContentApiVersion{1, 3}},
+		PackageKind::Rules});
+	DeclaredContentPackage dependencyBaseB(PackageDescriptor{
+		ContentManifest{"rules.dependency-b", "1", ContentApiVersion{1, 3}},
+		PackageKind::Rules});
+	DeclaredContentPackage dependencyConsumerSecond(PackageDescriptor{
+		ContentManifest{"mod.consumer-second", "1", ContentApiVersion{1, 3},
+			{{"rules.dependency-b", {}}}, {{"rules.dependency-a", {}}}},
+		PackageKind::Extension});
+	DeclaredContentPackage dependencyConsumerFirst(PackageDescriptor{
+		ContentManifest{"mod.consumer-first", "1", ContentApiVersion{1, 3},
+			{{"rules.dependency-a", {}}}, {{"rules.dependency-b", {}}}},
+		PackageKind::Extension});
+	DeclaredContentPackage duplicateDependencyConsumer(PackageDescriptor{
+		ContentManifest{"mod.consumer-duplicate", "1", ContentApiVersion{1, 3},
+			{{"rules.dependency-a", {}}}, {{"rules.dependency-a", {}}}},
+		PackageKind::Extension});
+	EngineHost<unsigned> dependencyCatalogHost;
+	const bool dependenciesRegistered =
+		dependencyCatalogHost.packages().registerPackage(dependencyBaseA) ==
+			PackageRegistrationError::None &&
+		dependencyCatalogHost.packages().registerPackage(dependencyBaseB) ==
+			PackageRegistrationError::None &&
+		dependencyCatalogHost.packages().registerPackage(dependencyConsumerSecond) ==
+			PackageRegistrationError::None &&
+		dependencyCatalogHost.packages().registerPackage(dependencyConsumerFirst) ==
+			PackageRegistrationError::None;
+	const PackageCatalogSnapshot dependencyCatalog =
+		dependencyCatalogHost.packageCatalog();
+	const PackageCatalogEntry* dependencyA = dependencyCatalog.find("rules.dependency-a");
+	const PackageCatalogEntry* dependencyB = dependencyCatalog.find("rules.dependency-b");
+	check(dependenciesRegistered && dependencyA && dependencyB &&
+		dependencyA->dependents == std::vector<std::string>({
+			"mod.consumer-second", "mod.consumer-first"}) &&
+		dependencyB->dependents == std::vector<std::string>({
+			"mod.consumer-second", "mod.consumer-first"}) &&
+		dependencyCatalogHost.packages().registerPackage(duplicateDependencyConsumer) ==
+			PackageRegistrationError::InvalidRelationship,
+		"indexed package catalogs preserve consumer order and reject duplicate relationships");
 
 	EngineHost<unsigned> sessionHost;
 	unsigned externalService = 42;

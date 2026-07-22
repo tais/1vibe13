@@ -16,7 +16,7 @@ not skipped or weakened; v2 sidecars must match the complete current fingerprint
 
 The game removes both sidecars when their save slot is removed or replaced.
 New sidecars are written only after the legacy save closes successfully. A
-runtime with no stateful packages removes any obsolete package archive.
+runtime with no active package state removes any obsolete package archive.
 Failure to capture or write optional engine/package metadata is logged but
 never turns a valid `.sav` into a failed save.
 
@@ -28,6 +28,12 @@ archive is structurally checked before teardown and package callbacks restore
 only after every legacy load step succeeds. A sidecar-free legacy save still
 loads; it emits a warning only when the active runtime contains a package that
 would otherwise have restored campaign state.
+
+Random restore is one engine transaction across the active package set. Every
+replacement map is prepared before callbacks or live mutation, callback draws
+are discarded, and the prepared maps commit with no-throw swaps only after all
+package validation and load callbacks succeed. Legacy v1 archives do not rewind
+random streams, and failed restores leave every package's live streams intact.
 
 Configure the policy in `Ja2.ini`:
 

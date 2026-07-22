@@ -300,6 +300,9 @@ the engine must not contain SDL types in its public domain model.
   support, treating old saves as having no engine-owned checkpoint. Encoded
   engine records and streams share the package-save aggregate byte budget with
   opaque payloads; the general persistence-envelope limit remains a final cap.
+  The registry stages every package's replacement RNG map before callbacks,
+  rolls callback draws back for capture/v1/failure paths, and publishes v2 state
+  across the active set only through a final series of no-throw swaps.
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O

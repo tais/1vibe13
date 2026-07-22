@@ -285,6 +285,10 @@ public:
 	{
 		return packages_.captureSaveState();
 	}
+	bool requiresPackageEngineSaveState() const noexcept
+	{
+		return packages_.requiresEngineSaveState();
+	}
 	PackageSaveStateLoadResult validatePackageSaveState(
 		const PackageSaveStateSnapshot& snapshot) const noexcept
 	{

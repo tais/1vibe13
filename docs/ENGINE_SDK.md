@@ -201,8 +201,11 @@ fails deterministically before package code acquires partial resources.
 For new deterministic package logic, use `PackageBootstrapContext::random` and
 a stable portable stream name such as `combat` or `loot`. Streams are isolated
 by package and name, use unbiased bounded values, and expose sorted usage
-snapshots for replay diagnostics. The host seed and per-package stream limit
-are composition settings; the legacy `EngineServices::random` remains intact.
+snapshots for replay diagnostics. Versioned checkpoints include the generator
+state and draw counter for every stream; package save archive v2 captures them
+without changing a package's opaque callback schema. The host seed and
+per-package stream limit are composition settings; the legacy
+`EngineServices::random` remains intact.
 
 Packages may override `EnginePackage::simulate` for fixed-step work that should
 not depend on rendering cadence. The host publishes the configured step and
@@ -247,8 +250,12 @@ not yet a replacement serializer for JA2's tactical or strategic state.
 `restorePackageSaveState` coordinate package-owned campaign state. The
 `PackageSaveArchiveService` serializes that snapshot through the same bounded,
 checksummed persistence boundary and rejects a different runtime before
-publishing records. JA2 attaches these archives beside legacy saves; other
-hosts can choose their own domain-save transaction and naming policy.
+publishing records. Opaque bytes and encoded engine records share the aggregate
+save budget. RNG replacements for all packages are prepared before any live
+state changes; v2 commits them with no-throw swaps after every callback succeeds,
+while v1 and failed loads preserve the current streams. JA2 attaches these
+archives beside legacy saves; other hosts can choose their own domain-save
+transaction and naming policy.
 
 The host also publishes `engine.runtime-faults`. Each contained package
 failure receives a monotonic record with package ID, callback, kind, and

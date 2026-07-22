@@ -32,7 +32,7 @@ bool ValidEngineRecordIdentity(const PackageEngineSaveStateRecord& record)
 bool AddBoundedBytes(
 	std::size_t& total, std::size_t bytes, std::size_t maximum) noexcept
 {
-	if (bytes > maximum - total) return false;
+	if (total > maximum || bytes > maximum - total) return false;
 	total += bytes;
 	return true;
 }

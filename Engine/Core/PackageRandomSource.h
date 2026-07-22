@@ -7,7 +7,6 @@
 #include <limits>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -182,21 +181,13 @@ public:
 			return PackageRandomCheckpointError::PackageMismatch;
 		if (checkpoint.streams.size() > maximumStreams_)
 			return PackageRandomCheckpointError::TooManyStreams;
-		try
+		for (std::size_t index = 0; index < checkpoint.streams.size(); ++index)
 		{
-			std::unordered_set<std::string> unique;
-			unique.reserve(checkpoint.streams.size());
-			for (const PackageRandomStreamCheckpoint& stream : checkpoint.streams)
-			{
-				if (!IsValidEngineIdentifier(stream.id))
-					return PackageRandomCheckpointError::InvalidStream;
-				if (!unique.insert(stream.id).second)
+			if (!IsValidEngineIdentifier(checkpoint.streams[index].id))
+				return PackageRandomCheckpointError::InvalidStream;
+			for (std::size_t previous = 0; previous < index; ++previous)
+				if (checkpoint.streams[previous].id == checkpoint.streams[index].id)
 					return PackageRandomCheckpointError::DuplicateStream;
-			}
-		}
-		catch (...)
-		{
-			return PackageRandomCheckpointError::AllocationFailure;
 		}
 		return PackageRandomCheckpointError::None;
 	}
@@ -206,6 +197,27 @@ public:
 	{
 		const PackageRandomCheckpointError validation = validateCheckpoint(checkpoint);
 		if (validation != PackageRandomCheckpointError::None) return validation;
+		bool reusable = true;
+		for (const PackageRandomStreamCheckpoint& stream : checkpoint.streams)
+			if (streams_.find(stream.id) == streams_.end()) { reusable = false; break; }
+		if (reusable)
+		{
+			for (auto stream = streams_.begin(); stream != streams_.end();)
+			{
+				const auto retained = std::find_if(
+					checkpoint.streams.begin(), checkpoint.streams.end(),
+					[&stream](const PackageRandomStreamCheckpoint& saved)
+					{ return saved.id == stream->first; });
+				if (retained == checkpoint.streams.end()) stream = streams_.erase(stream);
+				else
+				{
+					stream->second.state = retained->state;
+					stream->second.valuesGenerated = retained->valuesGenerated;
+					++stream;
+				}
+			}
+			return PackageRandomCheckpointError::None;
+		}
 		try
 		{
 			std::unordered_map<std::string, StreamState> restored;
@@ -223,6 +235,8 @@ public:
 	}
 
 private:
+	friend class PackageRegistry;
+
 	struct StreamState
 	{
 		std::uint64_t state;
@@ -253,6 +267,11 @@ private:
 		value = (value ^ (value >> 30)) * 0xBF58476D1CE4E5B9ULL;
 		value = (value ^ (value >> 27)) * 0x94D049BB133111EBULL;
 		return value ^ (value >> 31);
+	}
+
+	void swapRuntimeState(PackageRandomSource& other) noexcept
+	{
+		streams_.swap(other.streams_);
 	}
 
 	std::string packageId_;

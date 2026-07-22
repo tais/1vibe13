@@ -1347,6 +1347,82 @@ int main( int, char** )
 	}
 
 	{
+		TestLifecyclePackage randomOnlyPackage(
+			"rules.random-only-save", PackageKind::Rules );
+		randomOnlyPackage.usePackageRandomOnConfigure = true;
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool ready =
+			context.packages().registerPackage( randomOnlyPackage ) ==
+				PackageRegistrationError::None &&
+			context.packages().activate( "rules.random-only-save" ) ==
+				PackageActivationError::None &&
+			context.beginInitialization() &&
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			context.markRunning();
+		const std::string savePath = "SavedGames/SaveGame03.sav";
+		const PackageSaveMetadataWriteResult written =
+			WritePackageSaveStateMetadata( context, savePath );
+		const PackageSaveMetadataResult inspected =
+			InspectPackageSaveStateMetadata( context, savePath );
+		storage.remove( PackageSaveStateSidecarPath( savePath ) );
+		const PackageSaveMetadataResult missing =
+			InspectPackageSaveStateMetadata( context, savePath );
+		const RuntimeCompatibilityFingerprint preAggregateFingerprint =
+			context.runtime().preAggregateCatalogCompatibilityFingerprint();
+		BinaryWriter versionOnePayload;
+		versionOnePayload.writeU32( preAggregateFingerprint.schema );
+		versionOnePayload.writeU64( preAggregateFingerprint.high );
+		versionOnePayload.writeU64( preAggregateFingerprint.low );
+		versionOnePayload.writeU32( 0 );
+		const PersistenceSaveResult versionOneSaved = context.persistence().saveEnvelope(
+			PackageSaveStateSidecarPath( savePath ), PersistenceHeader{ 0x54534750u, 1 },
+			versionOnePayload.bytes() );
+		const PackageSaveMetadataResult versionOne =
+			InspectPackageSaveStateMetadata( context, savePath );
+		CHECK( ready && written && written.stateful &&
+		       inspected.state == PackageSaveMetadataState::Ready &&
+		       inspected.archive.state.records.empty() &&
+		       inspected.archive.state.engineStatePresent &&
+		       inspected.archive.state.engineRecords.size() == 1 &&
+		       inspected.archive.state.engineRecords[0].packageId ==
+		           "rules.random-only-save" &&
+		       inspected.archive.state.engineRecords[0].random.streams.size() == 1 &&
+		       missing.state == PackageSaveMetadataState::LegacyWithoutMetadata &&
+		       EvaluatePackageSaveMetadata(
+			   missing.state, SaveCompatibilityPolicy::RequireMetadata ) ==
+			   SaveCompatibilityLoadAction::Reject &&
+		       versionOneSaved == PersistenceSaveResult::Success &&
+		       versionOne.state == PackageSaveMetadataState::Ready &&
+		       !versionOne.archive.state.engineStatePresent &&
+		       versionOne.archive.state.engineRecords.empty(),
+		       "JA2 requires missing RNG metadata while retaining actual v1 sidecar support" );
+	}
+
+	{
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool ready = context.beginInitialization() &&
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			context.markRunning();
+		const std::string savePath = "SavedGames/SaveGame04.sav";
+		const std::string sidecarPath = PackageSaveStateSidecarPath( savePath );
+		storage.writeAll( sidecarPath, { 1, 2, 3 } );
+		const PackageSaveMetadataWriteResult written =
+			WritePackageSaveStateMetadata( context, savePath );
+		CHECK( ready && written && !written.stateful && !storage.exists( sidecarPath ),
+		       "an empty package runtime removes an obsolete package-state sidecar" );
+	}
+
+	{
 		g_resourceReleaseCount = 0;
 		TestResourceHandle first( 42 );
 		TestResourceHandle second( std::move( first ) );
