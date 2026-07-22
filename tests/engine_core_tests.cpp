@@ -9,6 +9,7 @@
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/LocalizationDocument.h>
+#include <Engine/Core/PackageEntities.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
@@ -260,6 +261,16 @@ int main()
 		entities.create("campaign.base", "second").error ==
 			EntityCreateError::CapacityReached,
 		"entity registry reuses bounded slots without reviving stale generational handles");
+	EntityRegistry isolatedEntities(2);
+	PackageEntities firstPackageEntities("campaign.base", isolatedEntities);
+	PackageEntities secondPackageEntities("mod.observer", isolatedEntities);
+	const EntityCreateResult ownedEntity = firstPackageEntities.create("mercenary");
+	check(ownedEntity &&
+		secondPackageEntities.destroy(ownedEntity.id) == EntityDestroyError::NotOwner &&
+		isolatedEntities.alive(ownedEntity.id) &&
+		firstPackageEntities.destroy(ownedEntity.id) == EntityDestroyError::None &&
+		!isolatedEntities.alive(ownedEntity.id),
+		"package entity handles cannot destroy another package's owned identity");
 	RecordingAudioOutput groupedAudioOutput;
 	AudioGroupService audioGroups(groupedAudioOutput, 2);
 	const PackageAudioPlayResult firstGroupedPlayback = audioGroups.play(

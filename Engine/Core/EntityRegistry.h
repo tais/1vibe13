@@ -42,7 +42,8 @@ enum class EntityDestroyError
 {
 	None,
 	InvalidId,
-	NotAlive
+	NotAlive,
+	NotOwner
 };
 
 struct EntityRecordSnapshot
@@ -155,6 +156,16 @@ public:
 			// The exhausted create path can rediscover this dead slot.
 		}
 		return EntityDestroyError::None;
+	}
+
+	EntityDestroyError destroyOwned(const std::string& ownerPackageId, EntityId id) noexcept
+	{
+		if (!id.valid() || id.index >= slots_.size()) return EntityDestroyError::InvalidId;
+		const Slot& slot = slots_[id.index];
+		if (!slot.alive || slot.generation != id.generation)
+			return EntityDestroyError::NotAlive;
+		if (slot.ownerPackageId != ownerPackageId) return EntityDestroyError::NotOwner;
+		return destroy(id);
 	}
 
 	bool alive(EntityId id) const
