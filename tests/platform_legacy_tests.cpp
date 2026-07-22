@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cwchar>
 #include <filesystem>
 #include <string>
 #include <type_traits>
@@ -15,6 +16,7 @@
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include "FileMan.h"
+#include "Render Dirty.h"
 #include "input.h"
 #include "sdl_input.h"
 #include "soundman.h"
@@ -41,6 +43,18 @@ extern UINT16 gfCtrlState;
 extern UINT16 gfAltState;
 extern UINT32 guiLeftButtonRepeatTimer;
 extern UINT32 guiX1ButtonRepeatTimer;
+extern BACKGROUND_SAVE gBackSaves[];
+extern VIDEO_OVERLAY gVideoOverlays[];
+
+namespace RenderDirtyTestHooks
+{
+void FailAllocationAfter(INT32 successfulAllocations);
+void ResetAllocationFailure();
+BYTE* LastAllocation();
+void UseFixedTextMetrics(UINT16 characterWidth, UINT16 textHeight);
+void ResetTextMetrics();
+bool NullOverlayTextIsNoOp();
+}
 
 void ShutdownWithErrorBox(const CHAR8* message)
 {
@@ -68,6 +82,10 @@ bool Write(HWFILE file, const std::string& value)
 	UINT32 written = 0;
 	return file && FileWrite(file, value.data(), static_cast<UINT32>(value.size()),
 		&written) && written == value.size();
+}
+
+void NoopOverlay(VIDEO_OVERLAY*)
+{
 }
 
 std::vector<UINT8> ReadFile(const char* path)
@@ -489,6 +507,137 @@ int main()
 			!GetVideoSurface(&managedSurface, managedIndex) &&
 			giMemUsedInSurfaces == baselineSurfaceBytes,
 			"managed video surface deletion removes registry and owned storage");
+
+		InitializeBaseDirtyRectQueue();
+		Check(InitializeBackgroundRects(),
+			"dirty-rectangle storage initializes from a clean state");
+		Check(RegisterBackgroundRect(BGND_FLAG_SAVERECT, nullptr,
+			8, 8, 8, 16) == -1 &&
+			RegisterBackgroundRect(BGND_FLAG_SAVERECT, nullptr,
+			-20, -20, -10, -10) == -1,
+			"dirty rectangles reject empty and fully clipped geometry");
+
+		RenderDirtyTestHooks::FailAllocationAfter(1);
+		const INT32 failedBackground = RegisterBackgroundRect(
+			BGND_FLAG_SAVERECT | BGND_FLAG_SAVE_Z, nullptr,
+			2, 2, 10, 10);
+		BYTE* const rolledBackSaveArea = RenderDirtyTestHooks::LastAllocation();
+		RenderDirtyTestHooks::ResetAllocationFailure();
+		Check(failedBackground == -1 && rolledBackSaveArea &&
+			SurfaceData::GetSurfaceID(rolledBackSaveArea) == 0,
+			"a failed Z allocation rolls back the pixel buffer registry");
+
+		const INT32 ownedBackground = RegisterBackgroundRect(
+			BGND_FLAG_SAVERECT | BGND_FLAG_SAVE_Z, nullptr,
+			2, 2, 10, 10);
+		INT16* const ownedSaveArea = ownedBackground >= 0
+			? gBackSaves[ownedBackground].pSaveArea : nullptr;
+		INT16* const ownedZArea = ownedBackground >= 0
+			? gBackSaves[ownedBackground].pZSaveArea : nullptr;
+		Check(ownedBackground >= 0 && ownedSaveArea && ownedZArea &&
+			SurfaceData::GetSurfaceID(reinterpret_cast<BYTE*>(ownedSaveArea)) != 0 &&
+			SurfaceData::GetSurfaceID(reinterpret_cast<BYTE*>(ownedZArea)) != 0,
+			"background save and Z buffers commit as one registered slot");
+		Check(FreeBackgroundRect(ownedBackground) &&
+			SurfaceData::GetSurfaceID(reinterpret_cast<BYTE*>(ownedSaveArea)) == 0 &&
+			SurfaceData::GetSurfaceID(reinterpret_cast<BYTE*>(ownedZArea)) == 0,
+			"background cleanup releases both owned registry entries");
+
+		PIXEL externalSaveArea[64] = {};
+		externalSaveArea[0] = static_cast<PIXEL>(0x1234);
+		INT16* const externalAddress =
+			reinterpret_cast<INT16*>(externalSaveArea);
+		const INT32 externalBackground = RegisterBackgroundRect(
+			BGND_FLAG_SAVERECT, externalAddress, 2, 2, 10, 10);
+		Check(externalBackground >= 0 &&
+			gBackSaves[externalBackground].pSaveArea == externalAddress &&
+			!gBackSaves[externalBackground].fFreeMemory,
+			"caller-owned background storage is retained without transferring ownership");
+		Check(FreeBackgroundRect(externalBackground) &&
+			externalSaveArea[0] == static_cast<PIXEL>(0x1234) &&
+			SurfaceData::GetSurfaceID(
+				reinterpret_cast<BYTE*>(externalAddress)) == 0,
+			"caller-owned background storage is unregistered but never freed");
+		Check(!FreeBackgroundRect(-2) && !FreeBackgroundRectPending(1'500),
+			"background APIs reject out-of-range legacy IDs");
+
+		VIDEO_OVERLAY_DESC overlayDescription{};
+		overlayDescription.sLeft = 4;
+		overlayDescription.sTop = 4;
+		overlayDescription.sRight = 12;
+		overlayDescription.sBottom = 12;
+		overlayDescription.BltCallback = NoopOverlay;
+		const INT32 overlayID = RegisterVideoOverlay(0, &overlayDescription);
+		RenderDirtyTestHooks::FailAllocationAfter(0);
+		AllocateVideoOverlaysArea();
+		RenderDirtyTestHooks::ResetAllocationFailure();
+		Check(overlayID >= 0 && !gVideoOverlays[overlayID].pSaveArea &&
+			!gVideoOverlays[overlayID].fActivelySaving,
+			"failed overlay allocation leaves the slot inactive and retryable");
+		AllocateVideoOverlaysArea();
+		INT16* const overlaySaveArea = overlayID >= 0
+			? gVideoOverlays[overlayID].pSaveArea : nullptr;
+		Check(overlayID >= 0 && overlaySaveArea &&
+			gVideoOverlays[overlayID].fActivelySaving &&
+			SurfaceData::GetSurfaceID(
+				reinterpret_cast<BYTE*>(overlaySaveArea)) != 0,
+			"overlay save storage becomes active only after registration succeeds");
+		RemoveVideoOverlay(overlayID);
+		DeleteVideoOverlaysArea();
+		Check(overlayID >= 0 && !gVideoOverlays[overlayID].fAllocated &&
+			SurfaceData::GetSurfaceID(
+				reinterpret_cast<BYTE*>(overlaySaveArea)) == 0,
+			"pending overlay removal releases its save area and background together");
+		Check(!SetOverlayUserData(-1, 0, 1) &&
+			!UpdateVideoOverlay(&overlayDescription,
+				static_cast<UINT32>(-1), FALSE),
+			"overlay APIs reject out-of-range legacy IDs");
+		overlayDescription.BltCallback = nullptr;
+		Check(RegisterVideoOverlay(0, &overlayDescription) == -1 &&
+			RegisterVideoOverlay(VOVERLAY_DIRTYBYTEXT, nullptr) == -1,
+			"overlay registration rejects unusable callback and text descriptors");
+		Check(RenderDirtyTestHooks::NullOverlayTextIsNoOp(),
+			"non-text overlay updates preserve state when optional text is null");
+
+		RenderDirtyTestHooks::UseFixedTextMetrics(4, 8);
+		VIDEO_OVERLAY_DESC textOverlayDescription{};
+		textOverlayDescription.sLeft = 4;
+		textOverlayDescription.sTop = 4;
+		textOverlayDescription.sX = 4;
+		textOverlayDescription.sY = 4;
+		textOverlayDescription.BltCallback = NoopOverlay;
+		std::wcsncpy(textOverlayDescription.pzText, L"A", 199);
+		const INT32 textOverlayID = RegisterVideoOverlay(
+			VOVERLAY_DIRTYBYTEXT, &textOverlayDescription);
+		AllocateVideoOverlaysArea();
+		INT16* const smallTextSaveArea = textOverlayID >= 0
+			? gVideoOverlays[textOverlayID].pSaveArea : nullptr;
+		const INT32 smallTextBackground = textOverlayID >= 0
+			? gVideoOverlays[textOverlayID].uiBackground : -1;
+		textOverlayDescription.uiFlags =
+			VOVERLAY_DESC_TEXT | VOVERLAY_DESC_POSITION;
+		textOverlayDescription.sLeft = 20;
+		textOverlayDescription.sTop = 20;
+		textOverlayDescription.sX = 20;
+		textOverlayDescription.sY = 20;
+		std::wcsncpy(textOverlayDescription.pzText, L"AAAAAAAA", 199);
+		Check(textOverlayID >= 0 &&
+			UpdateVideoOverlay(&textOverlayDescription, textOverlayID, FALSE) &&
+			gVideoOverlays[textOverlayID].uiBackground != smallTextBackground &&
+			!gVideoOverlays[textOverlayID].pSaveArea &&
+			!gVideoOverlays[textOverlayID].fActivelySaving &&
+			SurfaceData::GetSurfaceID(
+				reinterpret_cast<BYTE*>(smallTextSaveArea)) == 0,
+			"larger text replacement retires storage sized for the old background");
+		AllocateVideoOverlaysArea();
+		Check(textOverlayID >= 0 && gVideoOverlays[textOverlayID].pSaveArea &&
+			gVideoOverlays[textOverlayID].fActivelySaving,
+			"updated text overlay allocates a save area at its new dimensions");
+		RemoveVideoOverlay(textOverlayID);
+		DeleteVideoOverlaysArea();
+		RenderDirtyTestHooks::ResetTextMetrics();
+		Check(ShutdownBackgroundRects() && ShutdownBackgroundRects(),
+			"dirty-rectangle shutdown is complete and idempotent");
 
 		Check(ShutdownVideoSurfaceManager() && giMemUsedInSurfaces == 0 &&
 			!GetVideoSurface(&primary, PRIMARY_SURFACE),
