@@ -25,6 +25,7 @@
 #include "SaveLoadGame.h"
 #include "GameContext.h"
 #include "SaveCompatibility.h"
+#include "TacticalWorldAdapter.h"
 #include "Tactical Save.h"
 #include "Squads.h"
 #include "environment.h"
@@ -4137,7 +4138,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		bLoadSectorZ = gbWorldSectorZ;
 
 		// This will guarantee that the sector will be loaded
-		gbWorldSectorZ = -1;
+		SetJa2TacticalWorldDepth(-1);
 
 
 		//if we should load a sector ( if the person didnt just start the game game )
@@ -4149,7 +4150,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	}
 	else
 	{ //By clearing these values, we can avoid "in sector" checks -- at least, that's the theory.
-		gWorldSectorX = gWorldSectorY = 0;
+		SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 
 		//Since there is no 
 		if( SaveGameHeader.sSectorX == -1 || SaveGameHeader.sSectorY == -1 || SaveGameHeader.bSectorZ == -1 )

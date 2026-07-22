@@ -7,6 +7,7 @@
 
 #include <Engine/Adapters/JA2/CommandReplay.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
+#include <Engine/Adapters/JA2/TacticalWorldSession.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/EngineHost.h>
 
@@ -58,6 +59,8 @@ public:
 	const CommandJournal<SimulationCommand>& commandJournal() const { return commandStream_.journal(); }
 	CommandReplayService& commandReplay() { return commandReplay_; }
 	const CommandReplayService& commandReplay() const { return commandReplay_; }
+	TacticalWorldSession& tacticalWorldSession() { return tacticalWorldSession_; }
+	const TacticalWorldSession& tacticalWorldSession() const { return tacticalWorldSession_; }
 
 	CommandReplaySaveResult saveCommandReplay(const std::string& path) const noexcept
 	{
@@ -104,6 +107,7 @@ public:
 	}
 
 private:
+	TacticalWorldSession tacticalWorldSession_;
 	CommandReplayService commandReplay_;
 	CommandStream<SimulationCommand> commandStream_;
 };

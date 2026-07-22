@@ -3343,10 +3343,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	LoadRadarScreenBitmap(puiFilename);
 	RenderProgressBar(0, 80);
 	strcpy(gubFilename, puiFilename);	// was sprintf(dst, puiFilename): non-literal format string (a '%' in the name would corrupt/overflow)
-	gfWorldLoaded = TRUE;
-	++guiWorldLoadGeneration;
-	if (guiWorldLoadGeneration == 0) ++guiWorldLoadGeneration;
-	NotifyJa2TacticalWorldLoaded(guiWorldLoadGeneration);
+	CommitJa2TacticalWorldLoad();
 #ifdef JA2TESTVERSION
 	uiLoadWorldTime = GetJA2Clock() - uiLoadWorldStartTime;
 #endif
@@ -3391,10 +3388,7 @@ BOOLEAN NewWorld( INT32 nMapRows,  INT32 nMapCols )
 
 	InitRoomDatabase( );
 
-	gfWorldLoaded = TRUE;
-	++guiWorldLoadGeneration;
-	if (guiWorldLoadGeneration == 0) ++guiWorldLoadGeneration;
-	NotifyJa2TacticalWorldLoaded(guiWorldLoadGeneration);
+	CommitJa2TacticalWorldLoad();
 
 	return( TRUE );
 }
@@ -3575,7 +3569,6 @@ void TrashWorld( void )
 	TrashExitGridTable();//dnl ch86 170214
 
 	//gfBlitBattleSectorLocator = FALSE;
-	gfWorldLoaded = FALSE;
 	NotifyJa2TacticalWorldUnloaded();
 	snprintf( gubFilename, sizeof(gubFilename), "none" );
 }

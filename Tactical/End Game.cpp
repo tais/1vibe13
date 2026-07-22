@@ -15,6 +15,7 @@
 	#include "Soldier macros.h"
 	#include "Strategic Movement.h"
 	#include "screenids.h"
+	#include "TacticalWorldAdapter.h"
 
 #ifndef JA2UB
 #include "NPC.h"
@@ -304,7 +305,7 @@ static void DoneFadeOutKilledQueen( void )
 	SetThisSectorAsPlayerControlled( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, TRUE );
 
 	// ATE: Force change of level set z to 1 to allow reloading of same sector
-	gbWorldSectorZ = 1;
+	SetJa2TacticalWorldDepth(1);
 
 	// Clear out dudes.......
 	SectorInfo[ SECTOR( VICTORY_X, VICTORY_Y ) ].ubNumAdmins = 0;

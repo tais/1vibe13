@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
+#include <Engine/Adapters/JA2/TacticalWorldSession.h>
 
 struct Ja2TacticalTurnIdentity
 {
@@ -26,9 +27,12 @@ class Ja2TacticalWorldAdapter final : public TacticalWorldService
 public:
 	explicit Ja2TacticalWorldAdapter(
 		std::size_t maximumActors = TacticalWorldSnapshot::DefaultMaximumActors)
-		: maximumActors_(maximumActors) {}
+		: session_(&ownedSession_), maximumActors_(maximumActors) {}
 
 	TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept override;
+	void bindSession(TacticalWorldSession& session) noexcept { session_ = &session; }
+	TacticalWorldSession& session() noexcept { return *session_; }
+	const TacticalWorldSession& session() const noexcept { return *session_; }
 
 	// Legacy lifecycle hooks keep this adapter-owned identity aligned with the
 	// currently loaded world. A loaded world always starts with serial one;
@@ -36,20 +40,30 @@ public:
 	void onWorldLoaded(std::uint64_t worldGeneration) noexcept;
 	void onWorldUnloaded() noexcept;
 	void onTeamTurnBegan(std::uint64_t worldGeneration) noexcept;
-	Ja2TacticalTurnIdentity turnIdentity() const noexcept { return turnIdentity_; }
+	Ja2TacticalTurnIdentity turnIdentity() const noexcept;
 	// Defensive main-thread view used by the production observer before a
 	// retained delta retry, including lifecycle paths that only changed globals.
 	Ja2TacticalTurnIdentity liveTurnIdentity() noexcept;
 
 private:
-	void synchronizeWorldGeneration(std::uint64_t worldGeneration) noexcept;
-
+	TacticalWorldSession ownedSession_;
+	TacticalWorldSession* session_;
 	std::size_t maximumActors_;
-	Ja2TacticalTurnIdentity turnIdentity_;
 	std::vector<TacticalActorSnapshot> actorScratch_;
 };
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
+
+// Application composition and the only production write gateway for the
+// legacy tactical-world compatibility globals.
+void BindJa2TacticalWorldSession(TacticalWorldSession& session) noexcept;
+void SetJa2TacticalWorldSector(
+	std::int16_t x, std::int16_t y, std::int8_t z) noexcept;
+void SetJa2TacticalWorldDepth(std::int8_t z) noexcept;
+void ClearJa2TacticalWorldSector() noexcept;
+std::uint64_t CommitJa2TacticalWorldLoad() noexcept;
+void RestoreJa2TacticalWorldSession(
+	TacticalWorldSession::Snapshot state) noexcept;
 
 // Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
 // is not exposed as another mutable JA2 global.

@@ -37,7 +37,11 @@ GameContext& GetGameContext()
 	static const bool tacticalCommandHostBound = BindJa2TacticalCommandHost(context);
 	(void)tacticalCommandHostBound;
 	static const EngineServiceRegistrationError tacticalWorldRegistered =
-		RegisterTacticalWorldService(context.serviceCatalog(), GetJa2TacticalWorldAdapter());
+		[&] {
+			BindJa2TacticalWorldSession(context.runtime().tacticalWorldSession());
+			return RegisterTacticalWorldService(
+				context.serviceCatalog(), GetJa2TacticalWorldAdapter());
+		}();
 	static const bool tacticalWorldRegistrationReported = [&] {
 		if (tacticalWorldRegistered != EngineServiceRegistrationError::None)
 			context.log().write(LogRecord{

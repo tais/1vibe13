@@ -33,6 +33,7 @@
 #include "GameSettings.h"
 #include "GameContext.h"
 #include "RuntimeReportHost.h"
+#include "TacticalWorldAdapter.h"
 #include "Game Init.h"
 #include "Init.h"
 #include "jascreens.h"
@@ -1425,7 +1426,7 @@ UINT32 InitializeJA2(void)
 
 	HandleJA2CDCheck( );
 
-	gfWorldLoaded = FALSE;
+	NotifyJa2TacticalWorldUnloaded();
 
 	//Load external game mechanic data
 	//if ( !LoadExternalGameplayData(TABLEDATA_DIRECTORY))
@@ -1580,8 +1581,7 @@ UINT32 InitializeJA2(void)
 			//For editor purposes, need to know the default map file.
 			sprintf( gubFilename, "none");
 			//also set the sector
-			gWorldSectorX = 0;
-			gWorldSectorY = 0;
+			SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 			gfAutoLoadA9 = FALSE;
 			gfIntendOnEnteringEditor = TRUE;
 			gGameOptions.fGunNut = TRUE;
@@ -1594,8 +1594,7 @@ UINT32 InitializeJA2(void)
 			//For editor purposes, need to know the default map file.
 			sprintf( gubFilename, "none");
 			//also set the sector
-			gWorldSectorX = 0;
-			gWorldSectorY = 0;
+			SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 			gfAutoLoadA9 = FALSE;
 			gfIntendOnEnteringEditor = TRUE;
 			gGameOptions.fGunNut = TRUE;
@@ -1611,8 +1610,7 @@ UINT32 InitializeJA2(void)
 			//For editor purposes, need to know the default map file.
 			sprintf( gubFilename, "none");
 			//also set the sector
-			gWorldSectorX = 0;
-			gWorldSectorY = 0;
+			SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 			gfAutoLoadA9 = TRUE;
 			gfIntendOnEnteringEditor = TRUE;
 			gGameOptions.fGunNut = TRUE;

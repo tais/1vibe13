@@ -1,27 +1,22 @@
 #include "TacticalWorldAdapter.h"
 
 #include <cstdint>
-#include <limits>
-
 #include "Animation Control.h"
 #include "Map Information.h"
 #include "Overhead.h"
 #include "Soldier Control.h"
 #include "strategicmap.h"
 
+// Exact legacy symbols retained as read-compatible mirrors. The session is
+// authoritative; these are updated together only by this translation unit.
+BOOLEAN gfWorldLoaded = FALSE;
+UINT64 guiWorldLoadGeneration = 0;
+INT16 gWorldSectorX = 0;
+INT16 gWorldSectorY = 0;
+INT8 gbWorldSectorZ = -1;
+
 namespace
 {
-constexpr std::uint64_t IncrementSaturated(std::uint64_t value) noexcept
-{
-	return value == std::numeric_limits<std::uint64_t>::max() ? value : value + 1;
-}
-
-static_assert(IncrementSaturated(0) == 1, "turn serials must become nonzero");
-static_assert(
-	IncrementSaturated(std::numeric_limits<std::uint64_t>::max()) ==
-		std::numeric_limits<std::uint64_t>::max(),
-	"turn serials must saturate instead of wrapping");
-
 TacticalStance SnapshotStance(const SOLDIERTYPE& soldier)
 {
 	if (soldier.usAnimState >= NUMANIMATIONSTATES) return TacticalStance::Unknown;
@@ -33,17 +28,30 @@ TacticalStance SnapshotStance(const SOLDIERTYPE& soldier)
 		default: return TacticalStance::Unknown;
 	}
 }
+
+void SynchronizeLegacyWorldMirrors(const TacticalWorldSession& session) noexcept
+{
+	const TacticalWorldSession::Snapshot& state = session.snapshot();
+	gWorldSectorX = static_cast<INT16>(state.sector.x);
+	gWorldSectorY = static_cast<INT16>(state.sector.y);
+	gbWorldSectorZ = static_cast<INT8>(state.sector.z);
+	gfWorldLoaded = state.loaded ? TRUE : FALSE;
+	guiWorldLoadGeneration = state.worldGeneration;
+}
 }
 
 void Ja2TacticalWorldAdapter::onWorldLoaded(std::uint64_t worldGeneration) noexcept
 {
-	turnIdentity_.worldGeneration = worldGeneration;
-	turnIdentity_.serial = worldGeneration == 0 ? 0 : 1;
+	TacticalWorldSession::Snapshot state = session_->snapshot();
+	state.loaded = worldGeneration != 0;
+	state.worldGeneration = worldGeneration;
+	state.turnSerial = worldGeneration == 0 ? 0 : 1;
+	session_->restore(state);
 }
 
 void Ja2TacticalWorldAdapter::onWorldUnloaded() noexcept
 {
-	turnIdentity_ = {};
+	session_->unload();
 }
 
 void Ja2TacticalWorldAdapter::onTeamTurnBegan(
@@ -54,40 +62,34 @@ void Ja2TacticalWorldAdapter::onTeamTurnBegan(
 		onWorldUnloaded();
 		return;
 	}
-	if (turnIdentity_.worldGeneration != worldGeneration)
+	const TacticalWorldSession::Snapshot& state = session_->snapshot();
+	if (!state.loaded || state.worldGeneration != worldGeneration)
 	{
 		onWorldLoaded(worldGeneration);
 		return;
 	}
-	turnIdentity_.serial = IncrementSaturated(turnIdentity_.serial);
+	session_->beginTeamTurn();
 }
 
-void Ja2TacticalWorldAdapter::synchronizeWorldGeneration(
-	std::uint64_t worldGeneration) noexcept
+Ja2TacticalTurnIdentity Ja2TacticalWorldAdapter::turnIdentity() const noexcept
 {
-	if (turnIdentity_.worldGeneration != worldGeneration || turnIdentity_.serial == 0)
-		onWorldLoaded(worldGeneration);
+	const TacticalWorldSession::Snapshot& state = session_->snapshot();
+	return state.loaded
+		? Ja2TacticalTurnIdentity{state.worldGeneration, state.turnSerial}
+		: Ja2TacticalTurnIdentity{};
 }
 
 Ja2TacticalTurnIdentity Ja2TacticalWorldAdapter::liveTurnIdentity() noexcept
 {
-	if (!gfWorldLoaded || guiWorldLoadGeneration == 0)
-		onWorldUnloaded();
-	else
-		synchronizeWorldGeneration(guiWorldLoadGeneration);
-	return turnIdentity_;
+	return turnIdentity();
 }
 
 TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 	TacticalWorldSnapshot& output) noexcept
 {
-	if (!gfWorldLoaded || guiWorldLoadGeneration == 0)
-	{
-		onWorldUnloaded();
+	const TacticalWorldSession::Snapshot state = session_->snapshot();
+	if (!state.loaded || state.worldGeneration == 0)
 		return TacticalWorldCaptureResult::Unavailable;
-	}
-	synchronizeWorldGeneration(guiWorldLoadGeneration);
-	const std::uint64_t turnSerial = turnIdentity_.serial;
 
 	try
 	{
@@ -123,14 +125,14 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 
 		const TacticalSnapshotCreateError result =
 			TacticalWorldSnapshot::createReusableOrdered(
-			guiWorldLoadGeneration,
-			TacticalSectorSnapshot{
-				gWorldSectorX, gWorldSectorY, gbWorldSectorZ, gfWorldLoaded != FALSE},
-			TacticalTurnSnapshot{
+				state.worldGeneration,
+				TacticalSectorSnapshot{
+					state.sector.x, state.sector.y, state.sector.z, state.loaded},
+				TacticalTurnSnapshot{
 				(gTacticalStatus.uiFlags & TURNBASED) != 0,
 				(gTacticalStatus.uiFlags & INCOMBAT) != 0,
 				gTacticalStatus.ubCurrentTeam,
-				turnSerial},
+					state.turnSerial},
 			actorScratch_, output, maximumActors_);
 		if (result == TacticalSnapshotCreateError::TooManyActors)
 			return TacticalWorldCaptureResult::CapacityReached;
@@ -150,17 +152,68 @@ Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter()
 	return adapter;
 }
 
+void BindJa2TacticalWorldSession(TacticalWorldSession& session) noexcept
+{
+	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
+	adapter.bindSession(session);
+	SynchronizeLegacyWorldMirrors(session);
+}
+
+void SetJa2TacticalWorldSector(
+	std::int16_t x, std::int16_t y, std::int8_t z) noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	session.setSector({x, y, z});
+	SynchronizeLegacyWorldMirrors(session);
+}
+
+void SetJa2TacticalWorldDepth(std::int8_t z) noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	session.setDepth(z);
+	SynchronizeLegacyWorldMirrors(session);
+}
+
+void ClearJa2TacticalWorldSector() noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	session.clearSector();
+	SynchronizeLegacyWorldMirrors(session);
+}
+
+std::uint64_t CommitJa2TacticalWorldLoad() noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	const std::uint64_t generation = session.commitLoad();
+	SynchronizeLegacyWorldMirrors(session);
+	return generation;
+}
+
+void RestoreJa2TacticalWorldSession(
+	TacticalWorldSession::Snapshot state) noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	session.restore(state);
+	SynchronizeLegacyWorldMirrors(session);
+}
+
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept
 {
-	GetJa2TacticalWorldAdapter().onWorldLoaded(worldGeneration);
+	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
+	adapter.onWorldLoaded(worldGeneration);
+	SynchronizeLegacyWorldMirrors(adapter.session());
 }
 
 void NotifyJa2TacticalWorldUnloaded() noexcept
 {
-	GetJa2TacticalWorldAdapter().onWorldUnloaded();
+	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
+	adapter.onWorldUnloaded();
+	SynchronizeLegacyWorldMirrors(adapter.session());
 }
 
 void NotifyJa2TacticalTeamTurnBegan(std::uint64_t worldGeneration) noexcept
 {
-	GetJa2TacticalWorldAdapter().onTeamTurnBegan(worldGeneration);
+	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
+	adapter.onTeamTurnBegan(worldGeneration);
+	SynchronizeLegacyWorldMirrors(adapter.session());
 }

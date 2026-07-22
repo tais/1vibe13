@@ -2409,14 +2409,15 @@ int main( int, char** )
 		const SimulationCommand staleMove{ MoveToGridCommand{
 			staleActor, 100, WALKING, true, true,
 			SimulationCommandSource::System } };
-		const BOOLEAN previousCommandWorldLoaded = gfWorldLoaded;
+		const TacticalWorldSession::Snapshot previousCommandWorldSession =
+			compiledContext.runtime().tacticalWorldSession().snapshot();
 		SOLDIERTYPE* const previousCommandActor = MercPtrs[0];
 		SOLDIERTYPE commandHostActor;
 		commandHostActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
 		commandHostActor.uiUniqueSoldierIdValue = 0x12345678u;
 		commandHostActor.bActive = TRUE;
 		commandHostActor.bInSector = TRUE;
-		gfWorldLoaded = FALSE;
+		NotifyJa2TacticalWorldUnloaded();
 		const Ja2TacticalCommandHostDiagnostics commandHostInitially =
 			GetJa2TacticalCommandHostDiagnostics();
 		const TacticalCommandSubmissionResult teardownPending = tacticalCommands
@@ -2470,7 +2471,9 @@ int main( int, char** )
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterInvalidContext =
 			GetJa2TacticalCommandHostDiagnostics();
-		gfWorldLoaded = TRUE;
+		NotifyJa2TacticalWorldLoaded(
+			previousCommandWorldSession.worldGeneration != 0
+				? previousCommandWorldSession.worldGeneration : 1 );
 		MercPtrs[0] = &commandHostActor;
 		const TacticalCommandSubmissionResult staleRequest =
 			tacticalCommands.service->submit( packageId, staleMove );
@@ -2954,7 +2957,7 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0,
 		       "receipt reserve saturation fixture drains all retained terminal results" );
 		MercPtrs[0] = previousCommandActor;
-		gfWorldLoaded = previousCommandWorldLoaded;
+		RestoreJa2TacticalWorldSession( previousCommandWorldSession );
 
 		const auto tacticalWorld =
 			compiledContext.serviceCatalog().resolve( TacticalWorldServiceContract );
@@ -3022,11 +3025,8 @@ int main( int, char** )
 		const INT8 previousMaximumLife = Menptr[0].stats.bLifeMax;
 		const INT8 previousBreath = Menptr[0].bBreath;
 		const INT8 previousMaximumBreath = Menptr[0].bBreathMax;
-		const BOOLEAN previousWorldLoaded = gfWorldLoaded;
-		const UINT64 previousWorldGeneration = guiWorldLoadGeneration;
-		const INT16 previousSectorX = gWorldSectorX;
-		const INT16 previousSectorY = gWorldSectorY;
-		const INT8 previousSectorZ = gbWorldSectorZ;
+		const TacticalWorldSession::Snapshot previousWorldSession =
+			compiledContext.runtime().tacticalWorldSession().snapshot();
 		MercPtrs[0] = &Menptr[0];
 		Menptr[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
 		Menptr[0].uiUniqueSoldierIdValue = 701;
@@ -3043,11 +3043,8 @@ int main( int, char** )
 		Menptr[0].stats.bLifeMax = 80;
 		Menptr[0].bBreath = 64;
 		Menptr[0].bBreathMax = 90;
-		gfWorldLoaded = TRUE;
-		guiWorldLoadGeneration = 23;
-		gWorldSectorX = 9;
-		gWorldSectorY = 1;
-		gbWorldSectorZ = 0;
+		SetJa2TacticalWorldSector( 9, 1, 0 );
+		NotifyJa2TacticalWorldLoaded( 23 );
 		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );
 		turnIdentityFixture.onWorldLoaded( 23 );
 		const Ja2TacticalTurnIdentity loadedTurnIdentity =
@@ -3385,7 +3382,7 @@ int main( int, char** )
 		       observerDiagnostics.publicationFailures == 4,
 		       "a partial transfer cannot be split across runtime message buses" );
 
-		gfWorldLoaded = FALSE;
+		NotifyJa2TacticalWorldUnloaded();
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		const PackageSaveStateCaptureResult packageSaveAfterObservation =
@@ -3447,15 +3444,7 @@ int main( int, char** )
 		Menptr[0].stats.bLifeMax = previousMaximumLife;
 		Menptr[0].bBreath = previousBreath;
 		Menptr[0].bBreathMax = previousMaximumBreath;
-		gfWorldLoaded = previousWorldLoaded;
-		guiWorldLoadGeneration = previousWorldGeneration;
-		if ( previousWorldLoaded && previousWorldGeneration != 0 )
-			NotifyJa2TacticalWorldLoaded( previousWorldGeneration );
-		else
-			NotifyJa2TacticalWorldUnloaded();
-		gWorldSectorX = previousSectorX;
-		gWorldSectorY = previousSectorY;
-		gbWorldSectorZ = previousSectorZ;
+		RestoreJa2TacticalWorldSession( previousWorldSession );
 
 		RuntimeMessageBus tacticalDeltaMessages( 1, 256 );
 		HeadlessRuntimeMessageSink tacticalDeltaSink;

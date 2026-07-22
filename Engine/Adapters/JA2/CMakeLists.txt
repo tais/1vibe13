@@ -16,6 +16,7 @@ set(ja2_runtime_adapter_public_headers
   TacticalWorldDeltaTransport.h
   TacticalWorldObserver.h
   TacticalWorldService.h
+  TacticalWorldSession.h
   TacticalWorldSnapshot.h)
 
 # JA2's deterministic command and tactical-world vocabularies sit above the
@@ -32,6 +33,7 @@ add_library(ja2_runtime_adapter STATIC
   TacticalWorldDeltaPublisher.cpp
   TacticalWorldDeltaTransport.cpp
   TacticalWorldObserver.cpp
+  TacticalWorldSession.cpp
   ${ja2_runtime_adapter_public_headers})
 add_library(JA2::RuntimeAdapter ALIAS ja2_runtime_adapter)
 

@@ -85,6 +85,7 @@
 #include "Auto Resolve.h"
 #include "Cursors.h"
 #include "GameVersion.h"
+#include "TacticalWorldAdapter.h"
 
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
@@ -151,10 +152,6 @@ extern void CalculateNonPersistantPBIInfo( );
 extern void MapScreenDefaultOkBoxCallback( UINT8 bExitValue );
 
 extern BOOLEAN		gfGettingNameFromSaveLoadScreen; // symbol already declared globally in SaveLoadScreen.cpp (jonathanl)
-
-INT16			gWorldSectorX = 0;
-INT16			gWorldSectorY = 0;
-INT8			gbWorldSectorZ = -1;
 
 INT16			gsAdjacentSectorX, gsAdjacentSectorY;
 INT8			gbAdjacentSectorZ;
@@ -2206,9 +2203,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 	}
 
 	// make this the currently loaded sector
-	gWorldSectorX = sMapX;
-	gWorldSectorY = sMapY;
-	gbWorldSectorZ = bMapZ;
+	SetJa2TacticalWorldSector(sMapX, sMapY, bMapZ);
 
 	// update currently selected map sector to match
 	ChangeSelectedMapSector( sMapX, sMapY, bMapZ );
@@ -6529,15 +6524,14 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 
 
 	//Clear the world sector values.
-	gWorldSectorX = gWorldSectorY = 0;
-	gbWorldSectorZ = -1;
+	ClearJa2TacticalWorldSector();
 
 	//Clear the flags regarding.
 	gfCaves = FALSE;
 	gfBasement = FALSE;
 
 	//CHRISL: If we're unloading the world, shouldn't be reset the gfWorldLoaded flag?
-	gfWorldLoaded = FALSE;
+	NotifyJa2TacticalWorldUnloaded();
 
 	return TRUE;
 }

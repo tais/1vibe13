@@ -54,6 +54,7 @@
 	#include "MiniEvents.h"
 	#include "Rebel Command.h"
 	#include "World Items.h"
+	#include "TacticalWorldAdapter.h"
 
 #include "connect.h"
 #include "XML.h"
@@ -1085,8 +1086,7 @@ void ReStartingGame()
 	gfGamePaused = TRUE;
 
 	//Reset the sectors
-	gWorldSectorX = gWorldSectorY = 0;
-	gbWorldSectorZ = -1;
+	ClearJa2TacticalWorldSector();
 	
 	//Legion by Jazz
 	if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
