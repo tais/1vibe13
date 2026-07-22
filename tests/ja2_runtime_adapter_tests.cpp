@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
@@ -83,6 +84,43 @@ int main()
 		!tacticalServices.resolve<TacticalWorldService>(
 			TacticalWorldServiceId, EngineServiceVersion{2, 0}),
 		"unavailable and incompatible tactical services preserve the last good capture");
+	std::vector<TacticalActorSnapshot> changedActors = tacticalSnapshot.actors();
+	changedActors.erase(changedActors.begin());
+	changedActors[0].grid = 221;
+	changedActors[0].direction = 4;
+	changedActors[0].animation = 30;
+	changedActors[0].stance = TacticalStance::Prone;
+	changedActors[0].life = 70;
+	changedActors.push_back(TacticalActorSnapshot{
+		TacticalEntityId{9, 1}, 2, 18, 330, 0, 6, 4,
+		TacticalStance::Standing, 80, 90, 90, 70, 80, true, true});
+	TacticalWorldSnapshot changedWorld;
+	check(TacticalWorldSnapshot::create(
+			44, tacticalSnapshot.sector(), TacticalTurnSnapshot{true, true, 1, 9},
+			changedActors, changedWorld) == TacticalSnapshotCreateError::None,
+		"changed tactical fixture remains a valid immutable snapshot");
+	TacticalWorldDelta worldDelta;
+	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 6, worldDelta) ==
+			TacticalWorldDiffResult::Success && worldDelta.events.size() == 6 &&
+		std::holds_alternative<TacticalTurnChangedEvent>(worldDelta.events[0]) &&
+		std::holds_alternative<TacticalActorLeftEvent>(worldDelta.events[1]) &&
+		std::holds_alternative<TacticalActorMovedEvent>(worldDelta.events[2]) &&
+		std::holds_alternative<TacticalActorStanceChangedEvent>(worldDelta.events[3]) &&
+		std::holds_alternative<TacticalActorVitalsChangedEvent>(worldDelta.events[4]) &&
+		std::holds_alternative<TacticalActorEnteredEvent>(worldDelta.events[5]),
+		"tactical world diffs emit bounded deterministic turn and actor events");
+	TacticalWorldDelta undersizedDelta;
+	check(DiffTacticalWorldSnapshots(tacticalSnapshot, changedWorld, 5, undersizedDelta) ==
+			TacticalWorldDiffResult::CapacityReached && undersizedDelta.events.empty(),
+		"tactical world diff capacity failure cannot publish a partial event stream");
+	TacticalWorldSnapshot reloadedWorld;
+	TacticalWorldSnapshot::create(
+		45, tacticalSnapshot.sector(), tacticalSnapshot.turn(),
+		tacticalSnapshot.actors(), reloadedWorld);
+	check(DiffTacticalWorldSnapshots(tacticalSnapshot, reloadedWorld, 1, worldDelta) ==
+			TacticalWorldDiffResult::Success && worldDelta.events.size() == 1 &&
+		std::holds_alternative<TacticalWorldResetEvent>(worldDelta.events[0]),
+		"tactical epoch changes collapse unrelated worlds into one reset event");
 
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{
