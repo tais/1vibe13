@@ -525,4 +525,6 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(platform_legacy_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME platform_legacy COMMAND platform_legacy_tests)
+  set_tests_properties(platform_legacy PROPERTIES ENVIRONMENT
+    "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 endif()

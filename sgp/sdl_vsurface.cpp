@@ -30,7 +30,9 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <map>
+#include <new>
 
 // g_SurfaceRectangle is defined by vobject_blitters.cpp; pulled in
 // here as extern so the SurfaceData registry can keep the per-surface
@@ -266,17 +268,30 @@ VSURFACE_NODE* gpVSurfaceTail = nullptr;
 UINT32 guiVSurfaceIndex = 0;
 UINT32 guiVSurfaceSize = 0;
 UINT32 guiVSurfaceTotalAdded = 0;
+bool gVideoSurfaceManagerInitialized = false;
 
-UINT32 BytesPerPixelFor(UINT8 bpp)
+std::size_t BytesPerPixelFor(UINT8 bpp)
 {
 	// 8bpp source surfaces stay 1 byte; everything else is a render-format
 	// surface stored at the screen pixel width (RGB565=2, RGBA8888=4).
-	return (bpp <= 8) ? 1u : (UINT32)sizeof(PIXEL);
+	return (bpp <= 8) ? 1u : sizeof(PIXEL);
 }
 
-UINT32 BufferBytes(UINT16 w, UINT16 h, UINT8 bpp)
+bool IsSupportedBitDepth(UINT8 bpp)
 {
-	return (UINT32)w * (UINT32)h * BytesPerPixelFor(bpp);
+	return bpp == 8 || bpp == 16 || bpp == 24 || bpp == 32;
+}
+
+bool BufferBytes(UINT32 w, UINT32 h, UINT8 bpp, std::size_t& bytes)
+{
+	bytes = 0;
+	if (w == 0 || h == 0 || !IsSupportedBitDepth(bpp)) return false;
+	const std::size_t pixelBytes = BytesPerPixelFor(bpp > 16 ? 16 : bpp);
+	if (w > std::numeric_limits<std::size_t>::max() / h) return false;
+	const std::size_t pixels = static_cast<std::size_t>(w) * h;
+	if (pixels > std::numeric_limits<std::size_t>::max() / pixelBytes) return false;
+	bytes = pixels * pixelBytes;
+	return bytes <= static_cast<std::size_t>(std::numeric_limits<INT32>::max());
 }
 
 // Buffer ownership: most surfaces malloc/free their own pSurfaceData.
@@ -304,10 +319,16 @@ void FreePalette(HVSURFACE s)
 // Build an HVSURFACE wrapper around a buffer we do or don't own.
 HVSURFACE NewSurface(UINT16 w, UINT16 h, UINT8 bpp, void* externalBuffer)
 {
-	HVSURFACE s = new SGPVSurface{};
+	if (w == 0 || h == 0 || !IsSupportedBitDepth(bpp)) return nullptr;
+	const UINT8 storedBitDepth = (bpp > 16) ? 16 : bpp;
+	std::size_t bufferBytes = 0;
+	if (!BufferBytes(w, h, storedBitDepth, bufferBytes)) return nullptr;
+
+	HVSURFACE s = new (std::nothrow) SGPVSurface{};
+	if (!s) return nullptr;
 	s->usHeight = h;
 	s->usWidth  = w;
-	s->ubBitDepth = (bpp > 16) ? 16 : bpp;
+	s->ubBitDepth = storedBitDepth;
 	if (externalBuffer)
 	{
 		s->pSurfaceData = externalBuffer;
@@ -315,9 +336,14 @@ HVSURFACE NewSurface(UINT16 w, UINT16 h, UINT8 bpp, void* externalBuffer)
 	}
 	else
 	{
-		s->pSurfaceData = std::calloc(1, BufferBytes(w, h, s->ubBitDepth));
+		s->pSurfaceData = std::calloc(1, bufferBytes);
+		if (!s->pSurfaceData)
+		{
+			delete s;
+			return nullptr;
+		}
 		s->fFlags = 0;
-		giMemUsedInSurfaces += (INT32)BufferBytes(w, h, s->ubBitDepth);
+		giMemUsedInSurfaces += static_cast<INT32>(bufferBytes);
 	}
 	s->pSurfaceData1     = nullptr;
 	s->pSavedSurfaceData = nullptr;
@@ -329,6 +355,24 @@ HVSURFACE NewSurface(UINT16 w, UINT16 h, UINT8 bpp, void* externalBuffer)
 	return s;
 }
 
+class ScopedImage
+{
+public:
+	explicit ScopedImage(HIMAGE image = nullptr) noexcept : image_(image) {}
+	~ScopedImage() { if (image_) DestroyImage(image_); }
+	ScopedImage(const ScopedImage&) = delete;
+	ScopedImage& operator=(const ScopedImage&) = delete;
+	HIMAGE get() const noexcept { return image_; }
+	void reset(HIMAGE image) noexcept
+	{
+		if (image_) DestroyImage(image_);
+		image_ = image;
+	}
+
+private:
+	HIMAGE image_;
+};
+
 } // namespace
 
 BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
@@ -336,9 +380,14 @@ BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 	if (!hVSurface) return FALSE;
 	if (!(hVSurface->fFlags & VSURFACE_RESERVED_SURFACE))
 	{
-		giMemUsedInSurfaces -= (INT32)BufferBytes(hVSurface->usWidth,
-		                                          hVSurface->usHeight,
-		                                          hVSurface->ubBitDepth);
+		std::size_t bufferBytes = 0;
+		if (BufferBytes(hVSurface->usWidth, hVSurface->usHeight,
+			hVSurface->ubBitDepth, bufferBytes))
+		{
+			const INT32 trackedBytes = static_cast<INT32>(bufferBytes);
+			giMemUsedInSurfaces = giMemUsedInSurfaces >= trackedBytes
+				? giMemUsedInSurfaces - trackedBytes : 0;
+		}
 	}
 	FreeSurfaceBuffer(hVSurface);
 	FreePalette(hVSurface);
@@ -348,16 +397,22 @@ BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 
 static void DeletePrimaryVideoSurfaces()
 {
-	if (ghPrimary)    { SurfaceData::UnRegisterSurface(ghPrimary);    DeleteVideoSurface(ghPrimary);    ghPrimary    = nullptr; }
-	if (ghBackBuffer) { SurfaceData::UnRegisterSurface(ghBackBuffer); DeleteVideoSurface(ghBackBuffer); ghBackBuffer = nullptr; }
-	if (ghFrameBuffer){ SurfaceData::UnRegisterSurface(ghFrameBuffer);DeleteVideoSurface(ghFrameBuffer);ghFrameBuffer= nullptr; }
-	if (ghMouseBuffer){ SurfaceData::UnRegisterSurface(ghMouseBuffer);DeleteVideoSurface(ghMouseBuffer);ghMouseBuffer= nullptr; }
+	SurfaceData::UnRegisterSurface(PRIMARY_SURFACE);
+	SurfaceData::UnRegisterSurface(BACKBUFFER);
+	SurfaceData::UnRegisterSurface(FRAME_BUFFER);
+	SurfaceData::UnRegisterSurface(MOUSE_BUFFER);
+	if (ghPrimary) DeleteVideoSurface(ghPrimary);
+	if (ghBackBuffer) DeleteVideoSurface(ghBackBuffer);
+	if (ghFrameBuffer) DeleteVideoSurface(ghFrameBuffer);
+	if (ghMouseBuffer) DeleteVideoSurface(ghMouseBuffer);
+	ghPrimary = nullptr;
+	ghBackBuffer = nullptr;
+	ghFrameBuffer = nullptr;
+	ghMouseBuffer = nullptr;
 }
 
 BOOLEAN SetPrimaryVideoSurfaces()
 {
-	DeletePrimaryVideoSurfaces();
-
 	extern UINT16 SCREEN_WIDTH;
 	extern UINT16 SCREEN_HEIGHT;
 
@@ -368,30 +423,55 @@ BOOLEAN SetPrimaryVideoSurfaces()
 	void* mouseBuf = LockMouseBuffer(&pitch);    UnlockMouseBuffer();
 	if (!primBuf || !backBuf || !frameBuf || !mouseBuf) return FALSE;
 
-	ghPrimary     = NewSurface(SCREEN_WIDTH, SCREEN_HEIGHT, 16, primBuf);
-	ghBackBuffer  = NewSurface(SCREEN_WIDTH, SCREEN_HEIGHT, 16, backBuf);
-	ghFrameBuffer = NewSurface(SCREEN_WIDTH, SCREEN_HEIGHT, 16, frameBuf);
-	ghMouseBuffer = NewSurface(MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT, 16, mouseBuf);
+	HVSURFACE newPrimary = NewSurface(SCREEN_WIDTH, SCREEN_HEIGHT, 16, primBuf);
+	HVSURFACE newBackBuffer = NewSurface(SCREEN_WIDTH, SCREEN_HEIGHT, 16, backBuf);
+	HVSURFACE newFrameBuffer = NewSurface(SCREEN_WIDTH, SCREEN_HEIGHT, 16, frameBuf);
+	HVSURFACE newMouseBuffer =
+		NewSurface(MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT, 16, mouseBuf);
+	if (!newPrimary || !newBackBuffer || !newFrameBuffer || !newMouseBuffer)
+	{
+		if (newPrimary) DeleteVideoSurface(newPrimary);
+		if (newBackBuffer) DeleteVideoSurface(newBackBuffer);
+		if (newFrameBuffer) DeleteVideoSurface(newFrameBuffer);
+		if (newMouseBuffer) DeleteVideoSurface(newMouseBuffer);
+		return FALSE;
+	}
 
-	SurfaceData::RegisterSurface(PRIMARY_SURFACE, ghPrimary);
-	SurfaceData::RegisterSurface(BACKBUFFER,      ghBackBuffer);
-	SurfaceData::RegisterSurface(FRAME_BUFFER,    ghFrameBuffer);
-	SurfaceData::RegisterSurface(MOUSE_BUFFER,    ghMouseBuffer);
+	DeletePrimaryVideoSurfaces();
+	ghPrimary = newPrimary;
+	ghBackBuffer = newBackBuffer;
+	ghFrameBuffer = newFrameBuffer;
+	ghMouseBuffer = newMouseBuffer;
+
+	try
+	{
+		SurfaceData::RegisterSurface(PRIMARY_SURFACE, ghPrimary);
+		SurfaceData::RegisterSurface(BACKBUFFER, ghBackBuffer);
+		SurfaceData::RegisterSurface(FRAME_BUFFER, ghFrameBuffer);
+		SurfaceData::RegisterSurface(MOUSE_BUFFER, ghMouseBuffer);
+	}
+	catch (...)
+	{
+		DeletePrimaryVideoSurfaces();
+		return FALSE;
+	}
 	return TRUE;
 }
 
 BOOLEAN InitializeVideoSurfaceManager()
 {
-	Assert(!gpVSurfaceHead);
-	Assert(!gpVSurfaceTail);
+	if (gVideoSurfaceManagerInitialized) return TRUE;
+	if (gpVSurfaceHead || gpVSurfaceTail) return FALSE;
 	RegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Surface Manager");
 	gpVSurfaceHead = gpVSurfaceTail = nullptr;
 	giMemUsedInSurfaces = 0;
 	if (!SetPrimaryVideoSurfaces())
 	{
 		DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_1, String("Could not create primary surfaces"));
+		UnRegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Surface Manager");
 		return FALSE;
 	}
+	gVideoSurfaceManagerInitialized = true;
 	return TRUE;
 }
 
@@ -403,6 +483,7 @@ BOOLEAN ShutdownVideoSurfaceManager()
 	{
 		VSURFACE_NODE* curr = gpVSurfaceHead;
 		gpVSurfaceHead = gpVSurfaceHead->next;
+		SurfaceData::UnRegisterSurface(curr->uiIndex);
 		DeleteVideoSurface(curr->hVSurface);
 		MemFree(curr);
 	}
@@ -411,7 +492,10 @@ BOOLEAN ShutdownVideoSurfaceManager()
 	guiVSurfaceIndex = 0;
 	guiVSurfaceSize = 0;
 	guiVSurfaceTotalAdded = 0;
-	UnRegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Objects");
+	giMemUsedInSurfaces = 0;
+	if (gVideoSurfaceManagerInitialized)
+		UnRegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Surface Manager");
+	gVideoSurfaceManagerInitialized = false;
 	return TRUE;
 }
 
@@ -427,7 +511,7 @@ BOOLEAN SetVideoSurfacePalette(HVSURFACE hVSurface, SGPPaletteEntry* pSrcPalette
 HVSURFACE CreateVideoSurface(VSURFACE_DESC* desc)
 {
 	if (!desc) return nullptr;
-	HIMAGE hImage = nullptr;
+	ScopedImage image;
 	UINT16 usWidth = 0, usHeight = 0;
 	UINT8 ubBitDepth = 0;
 
@@ -439,34 +523,49 @@ HVSURFACE CreateVideoSurface(VSURFACE_DESC* desc)
 		else if (desc->fCreateFlags & VSURFACE_CREATE_FROMPNG) order = ImageFileType::PNG;
 		else if (desc->fCreateFlags & VSURFACE_CREATE_FROMPNG_FALLBACK) order = ImageFileType::PNG_FALLBACK;
 
-		SGP_THROW_IFFALSE(
-			hImage = CreateImage(desc->ImageFile, IMAGE_ALLIMAGEDATA, order),
+		HIMAGE const loadedImage =
+			CreateImage(desc->ImageFile, IMAGE_ALLIMAGEDATA, order);
+		SGP_THROW_IFFALSE(loadedImage,
 			_BS(L"Could not create video surface from file : ") << vfs::String(desc->ImageFile) << _BS::wget);
-		if (!hImage) return nullptr;
-		usWidth    = hImage->usWidth;
-		usHeight   = hImage->usHeight;
-		ubBitDepth = hImage->ubBitDepth;
+		if (!loadedImage) return nullptr;
+		image.reset(loadedImage);
+		usWidth    = loadedImage->usWidth;
+		usHeight   = loadedImage->usHeight;
+		ubBitDepth = loadedImage->ubBitDepth;
 	}
 	else
 	{
-		usWidth    = (UINT16)desc->usWidth;
-		usHeight   = (UINT16)desc->usHeight;
+		if (desc->usWidth == 0 || desc->usHeight == 0 ||
+			desc->usWidth > std::numeric_limits<UINT16>::max() ||
+			desc->usHeight > std::numeric_limits<UINT16>::max())
+			return nullptr;
+		usWidth    = static_cast<UINT16>(desc->usWidth);
+		usHeight   = static_cast<UINT16>(desc->usHeight);
 		ubBitDepth = desc->ubBitDepth;
 	}
-	Assert(usWidth > 0 && usHeight > 0);
-	Assert(ubBitDepth == 8 || ubBitDepth == 16 || ubBitDepth == 24 || ubBitDepth == 32);
+	if (usWidth == 0 || usHeight == 0 || !IsSupportedBitDepth(ubBitDepth))
+		return nullptr;
 
 	HVSURFACE hVSurface = NewSurface(usWidth, usHeight, ubBitDepth, nullptr);
+	if (!hVSurface) return nullptr;
 
 	if (desc->fCreateFlags & VSURFACE_CREATE_FROMFILE)
 	{
-		SGPRect tempRect{ 0, 0, hImage->usWidth - 1, hImage->usHeight - 1 };
-		SetVideoSurfaceDataFromHImage(hVSurface, hImage, 0, 0, &tempRect);
-		if (hImage->ubBitDepth == 8)
+		HIMAGE const loadedImage = image.get();
+		SGPRect tempRect{ 0, 0, loadedImage->usWidth - 1,
+			loadedImage->usHeight - 1 };
+		if (!SetVideoSurfaceDataFromHImage(
+			hVSurface, loadedImage, 0, 0, &tempRect))
 		{
-			SetVideoSurfacePalette(hVSurface, hImage->pPalette);
+			DeleteVideoSurface(hVSurface);
+			return nullptr;
 		}
-		DestroyImage(hImage);
+		if (loadedImage->ubBitDepth == 8 &&
+			!SetVideoSurfacePalette(hVSurface, loadedImage->pPalette))
+		{
+			DeleteVideoSurface(hVSurface);
+			return nullptr;
+		}
 	}
 
 	DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_3, String("Success in Creating Video Surface"));
@@ -475,33 +574,47 @@ HVSURFACE CreateVideoSurface(VSURFACE_DESC* desc)
 
 BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
 {
-	Assert(puiIndex);
-	Assert(pVSurfaceDesc);
+	if (!puiIndex || !pVSurfaceDesc) return FALSE;
 	HVSURFACE hVSurface = CreateVideoSurface(pVSurfaceDesc);
 	if (!hVSurface) return FALSE;
 
-	SetVideoSurfaceTransparencyColor(hVSurface, FROMRGB(0, 0, 0));
+	if (!SetVideoSurfaceTransparencyColor(hVSurface, FROMRGB(0, 0, 0)) ||
+		guiVSurfaceIndex > 0xfffffff0u - 2u)
+	{
+		DeleteVideoSurface(hVSurface);
+		return FALSE;
+	}
 
-	if (gpVSurfaceHead)
+	VSURFACE_NODE* const node =
+		static_cast<VSURFACE_NODE*>(MemAlloc(sizeof(VSURFACE_NODE)));
+	if (!node)
 	{
-		gpVSurfaceTail->next = (VSURFACE_NODE*)MemAlloc(sizeof(VSURFACE_NODE));
-		Assert(gpVSurfaceTail->next);
-		gpVSurfaceTail->next->prev = gpVSurfaceTail;
-		gpVSurfaceTail->next->next = nullptr;
-		gpVSurfaceTail = gpVSurfaceTail->next;
+		DeleteVideoSurface(hVSurface);
+		return FALSE;
 	}
-	else
+
+	const UINT32 index = guiVSurfaceIndex + 2;
+	node->hVSurface = hVSurface;
+	node->uiIndex = index;
+	node->prev = gpVSurfaceTail;
+	node->next = nullptr;
+	try
 	{
-		gpVSurfaceHead = (VSURFACE_NODE*)MemAlloc(sizeof(VSURFACE_NODE));
-		Assert(gpVSurfaceHead);
-		gpVSurfaceHead->prev = gpVSurfaceHead->next = nullptr;
-		gpVSurfaceTail = gpVSurfaceHead;
+		SurfaceData::RegisterSurface(index, hVSurface);
 	}
-	gpVSurfaceTail->hVSurface = hVSurface;
-	gpVSurfaceTail->uiIndex = (guiVSurfaceIndex += 2);
-	*puiIndex = gpVSurfaceTail->uiIndex;
-	SurfaceData::RegisterSurface(*puiIndex, hVSurface);
-	Assert(guiVSurfaceIndex < 0xfffffff0u);
+	catch (...)
+	{
+		SurfaceData::UnRegisterSurface(index);
+		MemFree(node);
+		DeleteVideoSurface(hVSurface);
+		return FALSE;
+	}
+
+	if (gpVSurfaceTail) gpVSurfaceTail->next = node;
+	else gpVSurfaceHead = node;
+	gpVSurfaceTail = node;
+	guiVSurfaceIndex = index;
+	*puiIndex = index;
 	guiVSurfaceSize++;
 	guiVSurfaceTotalAdded++;
 	return TRUE;

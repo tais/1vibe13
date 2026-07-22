@@ -20,6 +20,7 @@
 #include "soundman.h"
 #include "timer.h"
 #include "types.h"
+#include "video.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
 
@@ -422,6 +423,82 @@ int main()
 	Check(ShutdownZBuffer(zBuffer) && SurfaceData::GetSurfaceID(
 		reinterpret_cast<BYTE*>(zBuffer)) == 0,
 		"Z-buffer shutdown removes its pointer-width registry entry");
+
+	const bool videoInitialized = InitializeVideoManager();
+	Check(videoInitialized, "SDL dummy video manager initializes");
+	if (videoInitialized)
+	{
+		Check(InitializeVideoSurfaceManager(),
+			"video surface manager publishes all primary wrappers");
+		Check(InitializeVideoSurfaceManager(),
+			"video surface manager initialization is idempotent");
+		HVSURFACE primary = nullptr;
+		Check(GetVideoSurface(&primary, PRIMARY_SURFACE) && primary != nullptr,
+			"primary surface wrapper is registered after initialization");
+		UINT32 framePitch = 0;
+		BYTE* firstFrameLock = LockVideoSurface(FRAME_BUFFER, &framePitch);
+		BYTE* secondFrameLock = LockVideoSurface(FRAME_BUFFER, &framePitch);
+		Check(firstFrameLock && firstFrameLock == secondFrameLock &&
+			SurfaceData::GetSurfaceID(firstFrameLock) == FRAME_BUFFER,
+			"repeated locks safely re-register the same primary data tuple");
+		UnLockVideoSurface(FRAME_BUFFER);
+		Check(SetPrimaryVideoSurfaces(),
+			"primary wrappers can be replaced as one complete transaction");
+
+		const INT32 baselineSurfaceBytes = giMemUsedInSurfaces;
+		VSURFACE_DESC invalidDescription{};
+		invalidDescription.fCreateFlags = VSURFACE_CREATE_DEFAULT;
+		invalidDescription.usWidth = 70'000;
+		invalidDescription.usHeight = 4;
+		invalidDescription.ubBitDepth = 16;
+		Check(CreateVideoSurface(&invalidDescription) == nullptr &&
+			giMemUsedInSurfaces == baselineSurfaceBytes,
+			"oversized surface dimensions fail before narrowing or allocation");
+		invalidDescription.usWidth = 65'535;
+		invalidDescription.usHeight = 65'535;
+		Check(CreateVideoSurface(&invalidDescription) == nullptr &&
+			giMemUsedInSurfaces == baselineSurfaceBytes,
+			"surface byte-size overflow leaves memory accounting unchanged");
+		invalidDescription.usWidth = 16;
+		invalidDescription.usHeight = 16;
+		invalidDescription.ubBitDepth = 7;
+		Check(CreateVideoSurface(&invalidDescription) == nullptr,
+			"unsupported surface bit depth is rejected without an assertion");
+
+		VSURFACE_DESC validDescription{};
+		validDescription.fCreateFlags = VSURFACE_CREATE_DEFAULT;
+		validDescription.usWidth = 16;
+		validDescription.usHeight = 8;
+		validDescription.ubBitDepth = 16;
+		HVSURFACE standalone = CreateVideoSurface(&validDescription);
+		Check(standalone != nullptr && giMemUsedInSurfaces ==
+			baselineSurfaceBytes + static_cast<INT32>(16 * 8 * sizeof(PIXEL)),
+			"owned video surface allocation is accounted only after success");
+		if (standalone) DeleteVideoSurface(standalone);
+		Check(giMemUsedInSurfaces == baselineSurfaceBytes,
+			"standalone video surface deletion restores memory accounting");
+
+		UINT32 managedIndex = 0;
+		Check(AddStandardVideoSurface(&validDescription, &managedIndex) &&
+			managedIndex != 0,
+			"managed video surface commits its node and registry entry together");
+		HVSURFACE managedSurface = nullptr;
+		Check(GetVideoSurface(&managedSurface, managedIndex) && managedSurface,
+			"committed managed video surface is discoverable");
+		Check(DeleteVideoSurfaceFromIndex(managedIndex) &&
+			!GetVideoSurface(&managedSurface, managedIndex) &&
+			giMemUsedInSurfaces == baselineSurfaceBytes,
+			"managed video surface deletion removes registry and owned storage");
+
+		Check(ShutdownVideoSurfaceManager() && giMemUsedInSurfaces == 0 &&
+			!GetVideoSurface(&primary, PRIMARY_SURFACE),
+			"video surface shutdown clears primary and managed lifecycle state");
+		Check(InitializeVideoSurfaceManager() && ShutdownVideoSurfaceManager(),
+			"video surface manager survives a complete restart cycle");
+		Check(ShutdownVideoSurfaceManager(),
+			"video surface manager shutdown is idempotent");
+		ShutdownVideoManager();
+	}
 
 	ShutdownFileManager();
 	std::filesystem::remove_all(root, error);
