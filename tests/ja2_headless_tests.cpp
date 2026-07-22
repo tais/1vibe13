@@ -45,6 +45,7 @@
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
@@ -2188,6 +2189,10 @@ int main( int, char** )
 
 		const auto tacticalCommands =
 			compiledContext.serviceCatalog().resolve( TacticalCommandServiceContract );
+		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
+		HeadlessRuntimeMessageSink commandResultSink;
+		const RuntimeMessageSinkRegistrationError commandResultSinkRegistered =
+			liveRuntimeMessages.addSink( commandResultSink );
 		const TacticalCommandInboxLimits productionCommandLimits = tacticalCommands
 			? tacticalCommands.service->limits() : TacticalCommandInboxLimits{};
 		const TacticalEntityId staleActor{ 0, 0xfedcba98u };
@@ -2444,6 +2449,68 @@ int main( int, char** )
 		       compiledContext.commands().empty(),
 		       "lifecycle teardown cancels a bounded accepted command retained by execution backpressure" );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics commandReceiptDiagnostics =
+			GetJa2TacticalCommandHostDiagnostics();
+		const RuntimeMessageDispatchResult commandReceiptDispatch =
+			liveRuntimeMessages.dispatchPending();
+		std::vector<TacticalCommandResult> commandResults;
+		bool commandResultsDecoded = true;
+		for ( const RuntimeMessage& message : commandResultSink.messages )
+		{
+			if ( message.topic != TacticalCommandResultMessageTopic ) continue;
+			TacticalCommandResult result;
+			if ( DecodeTacticalCommandResult( message.payload, result ) !=
+			     TacticalCommandResultDecodeError::None )
+			{
+				commandResultsDecoded = false;
+				continue;
+			}
+			commandResults.push_back( std::move( result ) );
+		}
+		const auto findCommandResult = [&]( std::uint64_t requestId ) {
+			return std::find_if(
+				commandResults.begin(), commandResults.end(),
+				[requestId]( const TacticalCommandResult& result ) {
+					return result.requestId == requestId;
+				} );
+		};
+		const auto pendingCancellationResult = findCommandResult( teardownPending.requestId );
+		const auto inactiveOwnerResult = findCommandResult( inactiveOwner.requestId );
+		const auto unavailableContextResult = findCommandResult( unloadedContext.requestId );
+		const auto staleCommandResult = findCommandResult( staleRequest.requestId );
+		const auto retainedCancellationResult =
+			findCommandResult( retainedForTeardown.requestId );
+		CHECK( commandResultSinkRegistered == RuntimeMessageSinkRegistrationError::None &&
+		       commandReceiptDispatch.messages == commandResultSink.messages.size() &&
+		       commandResultsDecoded &&
+		       commandReceiptDiagnostics.pendingReceipts == 0 &&
+		       commandReceiptDiagnostics.receiptsPublished == commandResults.size() &&
+		       commandReceiptDiagnostics.receiptDrops == 0 &&
+		       pendingCancellationResult != commandResults.end() &&
+		       pendingCancellationResult->packageId == "fixture.torn-down" &&
+		       pendingCancellationResult->status == TacticalCommandTerminalStatus::Cancelled &&
+		       pendingCancellationResult->reason ==
+		           TacticalCommandTerminalReason::PackageTeardown &&
+		       inactiveOwnerResult != commandResults.end() &&
+		       inactiveOwnerResult->status == TacticalCommandTerminalStatus::Rejected &&
+		       inactiveOwnerResult->reason == TacticalCommandTerminalReason::InactiveOwner &&
+		       unavailableContextResult != commandResults.end() &&
+		       unavailableContextResult->reason ==
+		           TacticalCommandTerminalReason::UnavailableContext &&
+		       staleCommandResult != commandResults.end() && staleRecord &&
+		       staleCommandResult->authoritativeSequence == staleRecord->sequence &&
+		       staleCommandResult->status == TacticalCommandTerminalStatus::Discarded &&
+		       staleCommandResult->reason ==
+		           TacticalCommandTerminalReason::AuthoritativeDiscard &&
+		       retainedCancellationResult != commandResults.end() &&
+		       retainedCancellationResult->status ==
+		           TacticalCommandTerminalStatus::Cancelled &&
+		       retainedCancellationResult->reason ==
+		           TacticalCommandTerminalReason::PackageTeardown,
+		       "production command receipts report rejection, authoritative discard, and teardown cancellation" );
+		CHECK( liveRuntimeMessages.removeSink( commandResultSink ) ==
+		           RuntimeMessageSinkRegistrationError::None,
+		       "production command receipt test removes its non-owning runtime sink" );
 		MercPtrs[0] = previousCommandActor;
 		gfWorldLoaded = previousCommandWorldLoaded;
 
@@ -2456,7 +2523,6 @@ int main( int, char** )
 		       "application composition root registers the live tactical world service" );
 		const auto tacticalWorldObserver =
 			compiledContext.serviceCatalog().resolve( TacticalWorldObserverServiceContract );
-		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
 		const Ja2TacticalCommandHostDiagnostics commandsBeforeOrdering =
 			GetJa2TacticalCommandHostDiagnostics();
 		const Ja2TacticalWorldObserverDiagnostics observerBeforeOrdering =

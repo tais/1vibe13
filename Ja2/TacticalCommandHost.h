@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <Engine/Adapters/JA2/TacticalCommandResultPublisher.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Core/CommandProcessor.h>
 #include <Engine/Core/PackageEventSink.h>
@@ -29,7 +30,18 @@ struct Ja2TacticalCommandHostDiagnostics
 	std::uint64_t cancelledAuthoritativeCommands = 0;
 	std::uint64_t cancellationFailures = 0;
 	std::uint64_t bindingFailures = 0;
+	std::uint64_t receiptCapacityDeferrals = 0;
+	std::uint64_t receiptsQueued = 0;
+	std::uint64_t receiptsPublished = 0;
+	std::uint64_t receiptRetryFrames = 0;
+	std::uint64_t receiptPreparationFailures = 0;
+	std::uint64_t receiptPublishFailures = 0;
+	std::uint64_t receiptDrops = 0;
+	std::size_t pendingReceipts = 0;
+	std::size_t trackedCommands = 0;
 	TacticalCommandCancellationResult lastCancellation;
+	TacticalCommandResultPublishError lastReceiptPublishError =
+		TacticalCommandResultPublishError::None;
 	bool authoritativeBackpressure = false;
 	bool lastProcessingThrew = false;
 };
