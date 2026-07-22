@@ -113,22 +113,17 @@ extern UINT16 gfShiftState;
 extern UINT16 gfCtrlState;
 extern UINT16 gfAltState;
 
+static void refreshModifierState()
+{
+	const SDL_Keymod mod = SDL_GetModState();
+	gfShiftState = (mod & SDL_KMOD_SHIFT) ? SHIFT_DOWN : 0;
+	gfCtrlState  = (mod & SDL_KMOD_CTRL)  ? CTRL_DOWN  : 0;
+	gfAltState   = (mod & SDL_KMOD_ALT)   ? ALT_DOWN   : 0;
+}
+
 bool SgpHandleSDLEvent(const SDL_Event* ev)
 {
 	if (!ev) return false;
-
-	// Keep the JA2 modifier-state globals current for QueueEvent's
-	// usKeyState (= gfShiftState | gfCtrlState | gfAltState). Driven off
-	// SDL_GetModState() so it covers keyboard *and* mouse events (e.g.
-	// Ctrl+click). On macOS SDL maps Control->KMOD_CTRL and Option->
-	// KMOD_ALT, matching JA2's Ctrl/Alt; Command (KMOD_GUI) is left for
-	// the Cmd+Q quit handling only.
-	{
-		const SDL_Keymod mod = SDL_GetModState();
-		gfShiftState = (mod & SDL_KMOD_SHIFT) ? SHIFT_DOWN : 0;
-		gfCtrlState  = (mod & SDL_KMOD_CTRL)  ? CTRL_DOWN  : 0;
-		gfAltState   = (mod & SDL_KMOD_ALT)   ? ALT_DOWN   : 0;
-	}
 
 	static bool sWindowFocused = true;
 
@@ -142,9 +137,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		// (gated below) nor keep stale button state (a press held across
 		// the focus change would otherwise stick down forever).
 		sWindowFocused = false;
-		gfLeftButtonState = FALSE;
-		gfRightButtonState = FALSE;
-		gfMiddleButtonState = FALSE;
+		ReleaseAllInputStateOnFocusLoss();
 		{
 			extern void ApplyFocusMouseLock(SDL_Window*, bool);
 			ApplyFocusMouseLock(SDL_GetWindowFromID(ev->window.windowID), false);
@@ -156,6 +149,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 	case SDL_EVENT_WINDOW_RESTORED:
 		if (ev->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
 			sWindowFocused = true;
+			refreshModifierState();
 			// re-confine the cursor (windowed-mode grab; no-op in fullscreen)
 			extern void ApplyFocusMouseLock(SDL_Window*, bool);
 			ApplyFocusMouseLock(SDL_GetWindowFromID(ev->window.windowID), true);
@@ -169,6 +163,8 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		break;
 
 	case SDL_EVENT_KEY_DOWN: {
+		if (!sWindowFocused) break;
+		refreshModifierState();
 		// Cmd+Q on macOS is normally translated by the OS into
 		// SDL_EVENT_QUIT, but we accept it explicitly in case the
 		// translation gets dropped. ESC is NOT a quit path -- it
@@ -188,6 +184,8 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		break;
 	}
 	case SDL_EVENT_KEY_UP: {
+		if (!sWindowFocused) break;
+		refreshModifierState();
 		UINT16 vk = sdl_to_vk(ev->key.scancode, ev->key.key);
 		if (vk) {
 			gfKeyState[vk & 0xFF] = FALSE;
@@ -212,6 +210,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 	case SDL_EVENT_MOUSE_BUTTON_UP: {
 		if (!sWindowFocused) break;
+		refreshModifierState();
 		const bool down = ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN;
 		const UINT32 xy = pack_xy((int)ev->button.x, (int)ev->button.y);
 		UINT16 jaev = 0;
@@ -228,8 +227,14 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 			gfMiddleButtonState = down ? TRUE : FALSE;
 			jaev = down ? MIDDLE_BUTTON_DOWN : MIDDLE_BUTTON_UP;
 			break;
-		case SDL_BUTTON_X1: jaev = down ? X1_BUTTON_DOWN : X1_BUTTON_UP; break;
-		case SDL_BUTTON_X2: jaev = down ? X2_BUTTON_DOWN : X2_BUTTON_UP; break;
+		case SDL_BUTTON_X1:
+			gfX1ButtonState = down ? TRUE : FALSE;
+			jaev = down ? X1_BUTTON_DOWN : X1_BUTTON_UP;
+			break;
+		case SDL_BUTTON_X2:
+			gfX2ButtonState = down ? TRUE : FALSE;
+			jaev = down ? X2_BUTTON_DOWN : X2_BUTTON_UP;
+			break;
 		default: break;
 		}
 		if (jaev) QueueEvent(jaev, 0, xy);
@@ -237,6 +242,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 	}
 	case SDL_EVENT_MOUSE_WHEEL: {
 		if (!sWindowFocused) break;
+		refreshModifierState();
 		const UINT32 xy = pack_xy(gusMouseXPos, gusMouseYPos);
 		if (ev->wheel.y > 0) {
 			gsMouseWheelDeltaValue = 120;

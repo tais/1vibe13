@@ -7,6 +7,11 @@
 // source is deliberately a mirror: polling it must never steal events from the
 // legacy tactical/UI consumers that still own the original queue.
 void PublishPlatformInputEvent(EngineInputEvent event) noexcept;
+// Discard pending observations without reusing sequence IDs, reporting the
+// discarded atoms as drops on the next event. Focus transitions use this so
+// long-lived package consumers retain a monotonic, gap-aware event stream.
+void DiscardPlatformInputEvents() noexcept;
+// Reset the complete mirror lifecycle, including its sequence ID generator.
 void ResetPlatformInputEvents() noexcept;
 
 // Adapter over a bounded mirror of the existing JA2 input atom queue. SDL and

@@ -10,8 +10,11 @@
 
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/PlatformInput.h>
 
 #include "FileMan.h"
+#include "input.h"
+#include "sdl_input.h"
 #include "types.h"
 
 #include <vfs/Core/vfs_init.h>
@@ -25,6 +28,12 @@ BOOLEAN gfDedicatedServer = FALSE;
 BOOLEAN gfDontUseDDBlits = FALSE;
 bool g_bUseXML_Structures = false;
 CHAR8 gzCommandLine[100] = { 0 };
+
+extern UINT16 gfShiftState;
+extern UINT16 gfCtrlState;
+extern UINT16 gfAltState;
+extern UINT32 guiLeftButtonRepeatTimer;
+extern UINT32 guiX1ButtonRepeatTimer;
 
 void ShutdownWithErrorBox(const CHAR8* message)
 {
@@ -73,6 +82,7 @@ std::vector<UINT8> ReadFile(const char* path)
 int main()
 {
 	std::printf("== platform_legacy_tests ==\n");
+	Check(SDL_Init(SDL_INIT_EVENTS), "SDL event subsystem initializes");
 
 	const std::filesystem::path root = std::filesystem::temp_directory_path() /
 		("ja2-platform-legacy-" + std::to_string(
@@ -173,8 +183,100 @@ int main()
 	Check(storage.remove("adapter.bin"),
 		"removing an already absent platform record succeeds");
 
+	Check(InitializeInputManager(), "legacy input manager initializes");
+	SDL_SetModState(SDL_KMOD_SHIFT);
+	SDL_Event event{};
+	event.type = SDL_EVENT_KEY_DOWN;
+	event.key.scancode = SDL_SCANCODE_LSHIFT;
+	event.key.key = SDLK_LSHIFT;
+	event.key.mod = SDL_KMOD_SHIFT;
+	SgpHandleSDLEvent(&event);
+	event = SDL_Event{};
+	event.type = SDL_EVENT_KEY_DOWN;
+	event.key.scancode = SDL_SCANCODE_UP;
+	event.key.key = SDLK_UP;
+	event.key.mod = SDL_KMOD_SHIFT;
+	SgpHandleSDLEvent(&event);
+	event = SDL_Event{};
+	event.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+	event.button.button = SDL_BUTTON_LEFT;
+	SgpHandleSDLEvent(&event);
+	event.button.button = SDL_BUTTON_X1;
+	SgpHandleSDLEvent(&event);
+	event = SDL_Event{};
+	event.type = SDL_EVENT_MOUSE_WHEEL;
+	event.wheel.y = 1.0f;
+	SgpHandleSDLEvent(&event);
+	Check(gfKeyState[16] && gfKeyState[253] && gfShiftState == SHIFT_DOWN,
+		"SDL input records held keys and modifiers");
+	Check(gfLeftButtonState && gfX1ButtonState && gsMouseWheelDeltaValue != 0 &&
+		guiLeftButtonRepeatTimer != 0 && guiX1ButtonRepeatTimer != 0,
+		"SDL input records all mouse buttons, wheel, and repeat state");
+	EngineInputEvent mirrored;
+	Check(GetPlatformInputSource().poll(mirrored),
+		"engine-facing input mirrors pre-focus input atoms");
+	const std::uint64_t sequenceBeforeFocusLoss = mirrored.sequence;
+	const InputQueueStatistics queuedBeforeFocusLoss = GetInputQueueStatistics();
+	Check(queuedBeforeFocusLoss.queued == 5,
+		"legacy input queue receives every pre-focus input atom");
+
+	event = SDL_Event{};
+	event.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+	SgpHandleSDLEvent(&event);
+	Check(!gfKeyState[16] && !gfKeyState[253] &&
+		gfShiftState == 0 && gfCtrlState == 0 && gfAltState == 0,
+		"focus loss releases every held key and modifier");
+	Check(!gfLeftButtonState && !gfRightButtonState && !gfMiddleButtonState &&
+		!gfX1ButtonState && !gfX2ButtonState && gsMouseWheelDeltaValue == 0 &&
+		guiLeftButtonRepeatTimer == 0 && guiX1ButtonRepeatTimer == 0,
+		"focus loss clears every mouse and repeat state");
+	Check(!GetPlatformInputSource().poll(mirrored),
+		"focus loss discards stale engine-facing input atoms");
+	const InputQueueStatistics queuedAfterFocusLoss = GetInputQueueStatistics();
+	InputAtom staleInput{};
+	Check(queuedAfterFocusLoss.queued == 0 && !DequeueEvent(&staleInput) &&
+		queuedAfterFocusLoss.accepted == queuedBeforeFocusLoss.accepted &&
+		queuedAfterFocusLoss.dropped == queuedBeforeFocusLoss.dropped &&
+		queuedAfterFocusLoss.evictedForRelease == queuedBeforeFocusLoss.evictedForRelease,
+		"focus loss atomically discards stale authoritative input atoms without resetting lifetime statistics");
+	SDL_Delay(BUTTON_REPEAT_TIMEOUT + 1);
+	Check(!DequeueEvent(&staleInput) && GetInputQueueStatistics().queued == 0 &&
+		!GetPlatformInputSource().poll(mirrored),
+		"focus loss cannot regenerate stale repeats after their timeout");
+
+	event = SDL_Event{};
+	event.type = SDL_EVENT_KEY_DOWN;
+	event.key.scancode = SDL_SCANCODE_A;
+	event.key.key = SDLK_A;
+	SgpHandleSDLEvent(&event);
+	Check(!gfKeyState['A'], "keyboard events are ignored while unfocused");
+	SDL_SetModState(SDL_KMOD_NONE);
+	event = SDL_Event{};
+	event.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
+	SgpHandleSDLEvent(&event);
+	event = SDL_Event{};
+	event.type = SDL_EVENT_KEY_DOWN;
+	event.key.scancode = SDL_SCANCODE_A;
+	event.key.key = SDLK_A;
+	SgpHandleSDLEvent(&event);
+	InputAtom resumedInput{};
+	InputAtom trailingInput{};
+	Check(gfKeyState['A'] && DequeueEvent(&resumedInput) &&
+		resumedInput.usEvent == KEY_DOWN && resumedInput.usParam == 'a' &&
+		!DequeueEvent(&trailingInput) && GetInputQueueStatistics().queued == 0,
+		"keyboard input resumes with only new events after focus returns");
+	EngineInputEvent resumedMirrored{};
+	Check(GetPlatformInputSource().poll(resumedMirrored) &&
+		resumedMirrored.type == KEY_DOWN && resumedMirrored.primary == 'a' &&
+		sequenceBeforeFocusLoss == 1 && resumedMirrored.sequence == 6 &&
+		resumedMirrored.droppedBefore == 4 &&
+		!GetPlatformInputSource().poll(mirrored),
+		"engine-facing input resumes without stale atoms or reused sequence IDs");
+	ShutdownInputManager();
+
 	ShutdownFileManager();
 	std::filesystem::remove_all(root, error);
+	SDL_Quit();
 	std::printf("\n%s (%d failure%s)\n",
 		failures == 0 ? "PLATFORM LEGACY TESTS PASSED" : "PLATFORM LEGACY TESTS FAILED",
 		failures, failures == 1 ? "" : "s");

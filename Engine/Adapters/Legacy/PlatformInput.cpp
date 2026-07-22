@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <mutex>
 
 namespace
@@ -31,7 +32,7 @@ public:
 			{
 				head_ = (head_ + 1) % capacity_;
 				--count_;
-				++unreportedDrops_;
+				recordDropsUnlocked(1);
 			}
 			const std::size_t tail = (head_ + count_) % capacity_;
 			events_[tail] = event;
@@ -59,7 +60,29 @@ public:
 		}
 	}
 
+	void discardPending() noexcept
+	{
+		try
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			recordDropsUnlocked(static_cast<std::uint64_t>(count_));
+			head_ = 0;
+			count_ = 0;
+		}
+		catch (...)
+		{
+		}
+	}
+
 private:
+	void recordDropsUnlocked(std::uint64_t count) noexcept
+	{
+		constexpr std::uint64_t maximum =
+			std::numeric_limits<std::uint64_t>::max();
+		unreportedDrops_ = count > maximum - unreportedDrops_
+			? maximum : unreportedDrops_ + count;
+	}
+
 	static constexpr std::size_t capacity_ = 256;
 	std::mutex mutex_;
 	std::array<EngineInputEvent, capacity_> events_{};
@@ -84,6 +107,11 @@ void PublishPlatformInputEvent(EngineInputEvent event) noexcept
 void ResetPlatformInputEvents() noexcept
 {
 	platformInputSource().reset();
+}
+
+void DiscardPlatformInputEvents() noexcept
+{
+	platformInputSource().discardPending();
 }
 
 InputSource& GetPlatformInputSource()
