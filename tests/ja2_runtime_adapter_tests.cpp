@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
 #include <cstdint>
@@ -62,6 +63,26 @@ int main()
 			duplicateActors, tacticalSnapshot) == TacticalSnapshotCreateError::DuplicateEntity &&
 		tacticalSnapshot.epoch() == acceptedEpoch,
 		"invalid tactical captures cannot partially replace the last good snapshot");
+	MemoryTacticalWorldService memoryWorld;
+	memoryWorld.publish(tacticalSnapshot);
+	ServiceCatalog tacticalServices;
+	check(RegisterTacticalWorldService(tacticalServices, memoryWorld) ==
+			EngineServiceRegistrationError::None,
+		"tactical world service registers as an explicit versioned host extension");
+	const auto resolvedWorld = tacticalServices.resolve<TacticalWorldService>(
+		TacticalWorldServiceId, EngineServiceVersion{1, 0});
+	TacticalWorldSnapshot capturedWorld;
+	check(resolvedWorld &&
+		resolvedWorld.service->capture(capturedWorld) == TacticalWorldCaptureResult::Success &&
+		capturedWorld.epoch() == tacticalSnapshot.epoch() &&
+		capturedWorld.find(firstIncarnation) != nullptr,
+		"packages can transactionally capture a pointer-free tactical world view");
+	memoryWorld.clear();
+	check(memoryWorld.capture(capturedWorld) == TacticalWorldCaptureResult::Unavailable &&
+		capturedWorld.epoch() == tacticalSnapshot.epoch() &&
+		!tacticalServices.resolve<TacticalWorldService>(
+			TacticalWorldServiceId, EngineServiceVersion{2, 0}),
+		"unavailable and incompatible tactical services preserve the last good capture");
 
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{

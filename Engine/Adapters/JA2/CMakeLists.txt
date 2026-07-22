@@ -4,6 +4,7 @@ set(ja2_runtime_adapter_public_headers
   SimulationCommand.h
   SimulationCommandCodec.h
   TacticalEntity.h
+  TacticalWorldService.h
   TacticalWorldSnapshot.h)
 
 # JA2's deterministic command vocabulary and durable replay schema sit above
