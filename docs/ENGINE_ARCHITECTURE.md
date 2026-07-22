@@ -243,6 +243,9 @@ the engine must not contain SDL types in its public domain model.
   for every callback. Package-aware adapter services can bind a caller without
   accepting a forgeable package-ID string; retained identities do not bypass
   the active-package lifecycle check.
+- `TacticalCommandClient` is the first adapter service bound with that
+  identity. New packages submit commands without supplying an owner string;
+  the raw service entry point remains temporarily source-compatible.
 - Package descriptors declare minimum versions of required extension services.
   The registry validates the declarations at registration and checks the
   sealed host catalog before any configure callback, retaining the package,

@@ -132,6 +132,40 @@ private:
 	TacticalWorldCaptureResult result_ = TacticalWorldCaptureResult::Unavailable;
 };
 
+class BoundCommandPackage final : public EnginePackage
+{
+public:
+	BoundCommandPackage()
+		: descriptor_{
+			ContentManifest{
+				"fixture.bound-commands", "1", CurrentContentApiVersion},
+			PackageKind::Extension}
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override
+	{
+		active_ = true;
+		return true;
+	}
+	void deactivate() noexcept override { active_ = false; }
+	bool bootstrap(
+		PackageBootstrapContext& context, PackageBootstrapPhase phase) override
+	{
+		if (phase == PackageBootstrapPhase::Configure)
+			binding = BindTacticalCommandClient(
+				context.extensionServices, context.identity);
+		return phase != PackageBootstrapPhase::Configure || binding;
+	}
+
+	TacticalCommandClientBindingResult binding;
+
+private:
+	PackageDescriptor descriptor_;
+	bool active_ = false;
+};
+
 bool RejectsJournalWithoutPublishing(
 	const std::vector<std::uint8_t>& bytes,
 	SimulationCommandJournalDecodeResult expected)
@@ -205,6 +239,37 @@ int main()
 			commandServices, registeredCommandInbox) ==
 			EngineServiceRegistrationError::DuplicateId,
 		"tactical command service IDs cannot be registered twice");
+	check(BindTacticalCommandClient(commandServices, PackageIdentity{}).error ==
+			TacticalCommandClientBindingError::InvalidIdentity,
+		"tactical command clients require a registry-issued package identity");
+
+	EngineRuntime<unsigned> boundRuntime;
+	TacticalCommandInbox boundCommandInbox(
+		TacticalCommandInboxLimits{4, 4, 4, 64, 10});
+	BoundCommandPackage boundPackage;
+	const bool boundPackageStarted =
+		RegisterTacticalCommandService(
+			boundRuntime.serviceCatalog(), boundCommandInbox) ==
+				EngineServiceRegistrationError::None &&
+		boundRuntime.packages().registerPackage(boundPackage) ==
+			PackageRegistrationError::None &&
+		boundRuntime.packages().activate("fixture.bound-commands") ==
+			PackageActivationError::None &&
+		boundRuntime.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime);
+	const TacticalCommandSubmissionResult boundSubmission = boundPackage.binding
+		? boundPackage.binding.client.submit(MakeTurnCommand(1))
+		: TacticalCommandSubmissionResult{
+			TacticalCommandSubmissionError::InvalidOwner, 0};
+	TacticalCommandInboxSnapshot boundSnapshot;
+	check(boundPackageStarted && boundPackage.binding &&
+		boundPackage.binding.client.packageId() == "fixture.bound-commands" &&
+		boundSubmission &&
+		boundCommandInbox.snapshot(boundSnapshot) == TacticalCommandSnapshotError::None &&
+		boundSnapshot.pending.size() == 1 &&
+		boundSnapshot.pending[0].packageId == "fixture.bound-commands",
+		"registry-issued tactical command clients bind ownership without caller strings");
+	boundRuntime.packageLifecycle().shutdown();
 
 	TacticalCommandInbox validationInbox(
 		TacticalCommandInboxLimits{8, 8, 8, 8, 10});

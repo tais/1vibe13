@@ -74,6 +74,12 @@ and passed to package-aware services, but cannot be constructed from an
 arbitrary package ID. Retaining it does not keep a package active: services
 must still reject work after that package leaves the active set. Native code in
 the same process remains a cooperative trust boundary rather than a sandbox.
+
+JA2 packages should call `BindTacticalCommandClient` with the callback's
+`extensionServices` and `identity`, then retain the returned client for runtime
+submission. The client supplies ownership automatically. Direct
+`TacticalCommandService::submit(packageId, command)` remains available only as
+a source-compatibility path for existing hosts.
 The JA2 application additionally tracks the bounded accepted batch by command
 sequence so lifecycle teardown can cancel both pending inbox requests and any
 accepted command retained after an execution failure. Admission requires a

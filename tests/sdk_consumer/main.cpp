@@ -100,10 +100,18 @@ public:
 	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
 		if (phase == PackageBootstrapPhase::Configure)
+		{
 			issuedIdentity_ = context.identity;
-		return true;
+			commandBinding_ = BindTacticalCommandClient(
+				context.extensionServices, context.identity);
+		}
+		return phase != PackageBootstrapPhase::Configure || commandBinding_;
 	}
 	const PackageIdentity& issuedIdentity() const { return issuedIdentity_; }
+	const TacticalCommandClientBindingResult& commandBinding() const
+	{
+		return commandBinding_;
+	}
 	bool saveState(PackageBootstrapContext&, std::vector<std::uint8_t>& state) override
 	{
 		state = {1, 2, 3};
@@ -118,6 +126,7 @@ public:
 private:
 	PackageDescriptor descriptor_;
 	PackageIdentity issuedIdentity_;
+	TacticalCommandClientBindingResult commandBinding_;
 	bool active_ = false;
 };
 
@@ -130,6 +139,10 @@ int main()
 	if (!hostCapabilities.add("host.external-consumer")) return 1;
 	EngineHost<> host(services, CurrentContentApiVersion,
 		NullPackageEventSink::instance(), std::move(hostCapabilities));
+	TacticalCommandInbox commandInbox(
+		TacticalCommandInboxLimits{2, 1, 1, 64, 10});
+	if (RegisterTacticalCommandService(host.serviceCatalog(), commandInbox) !=
+		EngineServiceRegistrationError::None) return 33;
 	unsigned externalService = 17;
 	if (host.serviceCatalog().registerService(
 		"external.test-service", EngineServiceVersion{1, 2}, externalService) !=
@@ -192,6 +205,23 @@ int main()
 			std::vector<std::uint8_t>({1, 2, 3}) ||
 		!host.validatePackageSaveState(capturedExternalState.snapshot) ||
 		!host.restorePackageSaveState(capturedExternalState.snapshot)) return 14;
+	const TacticalCommandSubmissionResult commandRequest =
+		package.commandBinding()
+			? package.commandBinding().client.submit(
+				SimulationCommand{ChangeStanceCommand{
+					TacticalEntityId{7, 3}, 3, SimulationCommandSource::System}})
+			: TacticalCommandSubmissionResult{
+				TacticalCommandSubmissionError::InvalidOwner, 0};
+	std::uint64_t drainedRequest = 0;
+	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
+		[&drainedRequest](const TacticalCommandRequest& request) {
+			drainedRequest = request.requestId;
+			return TacticalCommandDisposition::Accept;
+		});
+	if (!commandRequest || commandRequest.requestId != 1 ||
+		package.commandBinding().client.packageId() != "external.rules" ||
+		commandDrain.accepted != 1 || drainedRequest != commandRequest.requestId ||
+		!commandInbox.empty()) return 34;
 	if (!host.beginShutdown() || !host.runtimeSession().shutdownPackages() ||
 		!host.markStopped()) return 5;
 	const EngineServiceLookupResult<unsigned> resolved =
@@ -330,26 +360,5 @@ int main()
 			replayedCommands[0].command).soldier != actorId)
 		return 32;
 
-	TacticalCommandInbox commandInbox(
-		TacticalCommandInboxLimits{2, 1, 1, 64, 10});
-	ServiceCatalog commandServices;
-	if (RegisterTacticalCommandService(commandServices, commandInbox) !=
-		EngineServiceRegistrationError::None) return 33;
-	const auto commandIngress = commandServices.resolve(TacticalCommandServiceContract);
-	const TacticalCommandSubmissionResult commandRequest = commandIngress
-		? commandIngress.service->submit(
-			"external.rules", SimulationCommand{ChangeStanceCommand{
-				actorId, 3, SimulationCommandSource::System}})
-		: TacticalCommandSubmissionResult{
-			TacticalCommandSubmissionError::InvalidCommand, 0};
-	std::uint64_t drainedRequest = 0;
-	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
-		[&drainedRequest](const TacticalCommandRequest& request) {
-			drainedRequest = request.requestId;
-			return TacticalCommandDisposition::Accept;
-		});
-	if (!commandIngress || !commandRequest || commandRequest.requestId != 1 ||
-		commandDrain.accepted != 1 || drainedRequest != commandRequest.requestId ||
-		!commandInbox.empty()) return 34;
 	return 0;
 }
