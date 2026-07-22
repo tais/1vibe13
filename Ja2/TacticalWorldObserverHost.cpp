@@ -14,6 +14,17 @@ void IncrementSaturated(std::uint64_t& value) noexcept
 	if (value != std::numeric_limits<std::uint64_t>::max()) ++value;
 }
 
+void AddSaturated(std::uint64_t& value, std::size_t amount) noexcept
+{
+	const std::uint64_t bounded = amount > std::numeric_limits<std::uint64_t>::max()
+		? std::numeric_limits<std::uint64_t>::max()
+		: static_cast<std::uint64_t>(amount);
+	if (bounded > std::numeric_limits<std::uint64_t>::max() - value)
+		value = std::numeric_limits<std::uint64_t>::max();
+	else
+		value += bounded;
+}
+
 bool IsRetryablePublishFailure(TacticalWorldDeltaPublishError error) noexcept
 {
 	switch (error)
@@ -21,6 +32,7 @@ bool IsRetryablePublishFailure(TacticalWorldDeltaPublishError error) noexcept
 		case TacticalWorldDeltaPublishError::CodecAllocationFailure:
 		case TacticalWorldDeltaPublishError::QueueFull:
 		case TacticalWorldDeltaPublishError::MessageAllocationFailure:
+		case TacticalWorldDeltaPublishError::MessageBusChanged:
 			return true;
 		default:
 			return false;
@@ -102,7 +114,10 @@ public:
 			pendingDeltaSerial_, publishedDeltaSerial_, messageSequence_, payloadBytes_,
 			publishAttempts_, publishedMessages_, publicationFailures_,
 			worldGeneration_, turnSerial_, worldTransitions_, observerResets_,
-			discardedPendingDeltas_, preparationAttempts_};
+			discardedPendingDeltas_, preparationAttempts_,
+			pendingBatch_.requests.size(), pendingBatch_.nextRequest,
+			physicalMessagesPublished_, chunkedDeltasPrepared_,
+			transferIdExhaustions_, pendingTransferId_, nextTransferId_};
 	}
 
 private:
@@ -148,23 +163,45 @@ private:
 		std::uint64_t serial,
 		RuntimeMessageBus& messages) noexcept
 	{
-		// Mark the observer-owned delta pending before any codec or bus work. The
-		// pointer permits retrying a transient preparation failure; after preparation,
-		// pendingPrepared_ owns the exact bytes retried at later safe frames.
-		pendingDelta_ = &delta;
-		pendingDeltaSerial_ = serial;
+		// A host-lifetime ID never reuses observer serials after world resets. A
+		// retained batch owns every exact request plus its next unsent cursor. Once
+		// any request is queued, the rest stay pinned to that physical bus.
+		if (!pendingDelta_)
+		{
+			if (nextTransferId_ == 0)
+			{
+				lastPublishError_ = TacticalWorldDeltaPublishError::InvalidTransfer;
+				bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::PublishFailed;
+				IncrementSaturated(publicationFailures_);
+				IncrementSaturated(transferIdExhaustions_);
+				return;
+			}
+			pendingDelta_ = &delta;
+			pendingDeltaSerial_ = serial;
+			pendingTransferId_ = nextTransferId_;
+			nextTransferId_ = nextTransferId_ ==
+					std::numeric_limits<std::uint64_t>::max()
+				? 0 : nextTransferId_ + 1;
+		}
 		IncrementSaturated(publishAttempts_);
+		if (pendingMessageBus_ && pendingMessageBus_ != &messages)
+		{
+			lastPublishError_ = TacticalWorldDeltaPublishError::MessageBusChanged;
+			bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::PublishFailed;
+			IncrementSaturated(publicationFailures_);
+			return;
+		}
 		const TacticalWorldDeltaPublisher publisher(
 			messages, TacticalWorldDeltaPublishLimits{
 				Ja2TacticalMaximumEvents, messages.maxPayloadBytes()});
-		if (!pendingPrepared_)
+		if (!pendingBatch_)
 		{
 			IncrementSaturated(preparationAttempts_);
 			const TacticalWorldDeltaPublishError prepared =
-				publisher.prepare(delta, pendingPrepared_);
+				publisher.prepareBatch(delta, pendingTransferId_, pendingBatch_);
 			lastPublishError_ = prepared;
 			messageSequence_ = 0;
-			payloadBytes_ = pendingPrepared_.payloadBytes;
+			payloadBytes_ = pendingBatch_.totalPayloadBytes;
 			if (prepared != TacticalWorldDeltaPublishError::None)
 			{
 				bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::PublishFailed;
@@ -172,13 +209,19 @@ private:
 				if (!IsRetryablePublishFailure(prepared)) clearPendingDelta();
 				return;
 			}
+			if (pendingBatch_.chunked)
+				IncrementSaturated(chunkedDeltasPrepared_);
 		}
 
-		const TacticalWorldDeltaPublishResult published =
-			publisher.publishPrepared(pendingPrepared_);
+		const TacticalWorldDeltaBatchPublishResult published =
+			publisher.publishPreparedBatch(pendingBatch_);
+		if (!pendingMessageBus_ && pendingBatch_.nextRequest != 0)
+			pendingMessageBus_ = &messages;
 		lastPublishError_ = published.error;
-		messageSequence_ = published.sequence;
+		if (published.lastSequence != 0)
+			messageSequence_ = published.lastSequence;
 		payloadBytes_ = published.payloadBytes;
+		AddSaturated(physicalMessagesPublished_, published.messagesPublished);
 		if (!published)
 		{
 			bridgeResult_ = Ja2TacticalWorldDeltaBridgeResult::PublishFailed;
@@ -197,7 +240,9 @@ private:
 	{
 		pendingDelta_ = nullptr;
 		pendingDeltaSerial_ = 0;
-		pendingPrepared_ = PreparedTacticalWorldDeltaMessage{};
+		pendingTransferId_ = 0;
+		pendingMessageBus_ = nullptr;
+		pendingBatch_ = PreparedTacticalWorldDeltaBatch{};
 	}
 
 	TacticalWorldObserver observer_;
@@ -211,7 +256,10 @@ private:
 	std::uint64_t handledDeltaSerial_ = 0;
 	const TacticalWorldDelta* pendingDelta_ = nullptr;
 	std::uint64_t pendingDeltaSerial_ = 0;
-	PreparedTacticalWorldDeltaMessage pendingPrepared_;
+	std::uint64_t pendingTransferId_ = 0;
+	RuntimeMessageBus* pendingMessageBus_ = nullptr;
+	std::uint64_t nextTransferId_ = 1;
+	PreparedTacticalWorldDeltaBatch pendingBatch_;
 	std::uint64_t publishedDeltaSerial_ = 0;
 	std::uint64_t messageSequence_ = 0;
 	std::size_t payloadBytes_ = 0;
@@ -225,6 +273,9 @@ private:
 	std::uint64_t observerResets_ = 0;
 	std::uint64_t discardedPendingDeltas_ = 0;
 	std::uint64_t preparationAttempts_ = 0;
+	std::uint64_t physicalMessagesPublished_ = 0;
+	std::uint64_t chunkedDeltasPrepared_ = 0;
+	std::uint64_t transferIdExhaustions_ = 0;
 };
 
 Ja2TacticalWorldObserverHost& GetObserverHost() noexcept

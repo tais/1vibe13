@@ -3249,6 +3249,8 @@ int main( int, char** )
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
 		       observerDiagnostics.handledDeltaSerial == 3 &&
 		       observerDiagnostics.pendingDeltaSerial == 3 &&
+		       observerDiagnostics.pendingTransferId == 2 &&
+		       observerDiagnostics.nextTransferId == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 2 &&
 		       observerDiagnostics.preparationAttempts == 2 &&
@@ -3268,6 +3270,8 @@ int main( int, char** )
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
 		       observerDiagnostics.handledDeltaSerial == 3 &&
 		       observerDiagnostics.pendingDeltaSerial == 3 &&
+		       observerDiagnostics.pendingTransferId == 2 &&
+		       observerDiagnostics.nextTransferId == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 2 &&
 		       observerDiagnostics.publishAttempts == 3 &&
 		       observerDiagnostics.preparationAttempts == 2 &&
@@ -3286,6 +3290,8 @@ int main( int, char** )
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
 		       observerDiagnostics.handledDeltaSerial == 3 &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
+		       observerDiagnostics.pendingTransferId == 0 &&
+		       observerDiagnostics.nextTransferId == 3 &&
 		       observerDiagnostics.publishedDeltaSerial == 3 &&
 		       observerDiagnostics.publishAttempts == 4 &&
 		       observerDiagnostics.preparationAttempts == 2 &&
@@ -3337,10 +3343,12 @@ int main( int, char** )
 		       observerDiagnostics.publicationFailures == 2,
 		       "observation resumes after retry and suppresses the unchanged frame" );
 
+		RuntimeMessageBus saturatedChunkMessages(
+			1, TacticalWorldDeltaChunkHeaderBytes + 4 );
 		Menptr[0].sGridNo = 348;
-		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
+		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedChunkMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
-		CHECK( observerDiagnostics.lastUpdate ==
+		CHECK( saturatedChunkMessages.queued() == 1 && observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
 		       observerDiagnostics.publicationSerial == 4 &&
 		       observerDiagnostics.bridgeResult ==
@@ -3348,11 +3356,34 @@ int main( int, char** )
 		       observerDiagnostics.lastPublishError ==
 		           TacticalWorldDeltaPublishError::QueueFull &&
 		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.pendingTransferId == 3 &&
+		       observerDiagnostics.nextTransferId == 4 &&
 		       observerDiagnostics.publishAttempts == 5 &&
 		       observerDiagnostics.preparationAttempts == 3 &&
+		       observerDiagnostics.pendingBatchMessages > 1 &&
+		       observerDiagnostics.pendingBatchCursor == 1 &&
+		       observerDiagnostics.chunkedDeltasPrepared == 1 &&
+		       observerDiagnostics.physicalMessagesPublished == 3 &&
 		       observerDiagnostics.publicationFailures == 3 &&
 		       observerDiagnostics.discardedPendingDeltas == 0,
-		       "a final queue-full delta provides an unload backpressure fixture" );
+		       "a partially published chunk batch remains prepared on its original bus" );
+
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( liveRuntimeMessages.queued() == 0 &&
+		       saturatedChunkMessages.queued() == 1 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
+		       observerDiagnostics.lastPublishError ==
+		           TacticalWorldDeltaPublishError::MessageBusChanged &&
+		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.pendingTransferId == 3 &&
+		       observerDiagnostics.pendingBatchCursor == 1 &&
+		       observerDiagnostics.publishAttempts == 6 &&
+		       observerDiagnostics.preparationAttempts == 3 &&
+		       observerDiagnostics.physicalMessagesPublished == 3 &&
+		       observerDiagnostics.publicationFailures == 4,
+		       "a partial transfer cannot be split across runtime message buses" );
 
 		gfWorldLoaded = FALSE;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
@@ -3366,11 +3397,15 @@ int main( int, char** )
 		       observerDiagnostics.publicationSerial == 0 &&
 		       tacticalWorldObserver && !tacticalWorldObserver.service->latest() &&
 		       observerDiagnostics.safeFrameUpdates ==
-		           observerBeforeWorld.safeFrameUpdates + 11 &&
+		           observerBeforeWorld.safeFrameUpdates + 12 &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::WorldUnavailableReset &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
 		       observerDiagnostics.pendingDeltaSerial == 0 &&
+		       observerDiagnostics.pendingTransferId == 0 &&
+		       observerDiagnostics.nextTransferId == 4 &&
+		       observerDiagnostics.pendingBatchMessages == 0 &&
+		       observerDiagnostics.pendingBatchCursor == 0 &&
 		       observerDiagnostics.handledDeltaSerial == 0 &&
 		       observerDiagnostics.publishedDeltaSerial == 0 &&
 		       observerDiagnostics.worldGeneration == 0 &&
@@ -3378,10 +3413,12 @@ int main( int, char** )
 		       observerDiagnostics.worldTransitions == 2 &&
 		       observerDiagnostics.observerResets == 1 &&
 		       observerDiagnostics.discardedPendingDeltas == 1 &&
-		       observerDiagnostics.publishAttempts == 5 &&
+		       observerDiagnostics.publishAttempts == 6 &&
 		       observerDiagnostics.preparationAttempts == 3 &&
+		       observerDiagnostics.chunkedDeltasPrepared == 1 &&
+		       observerDiagnostics.physicalMessagesPublished == 3 &&
 		       observerDiagnostics.publishedMessages == 2 &&
-		       observerDiagnostics.publicationFailures == 3 &&
+		       observerDiagnostics.publicationFailures == 4 &&
 		       packageSaveAfterObservation.error == packageSaveBeforeObservation.error &&
 		       packageSaveAfterObservation.packageId == packageSaveBeforeObservation.packageId &&
 		       packageSaveAfterObservation.snapshot.records.size() ==

@@ -102,6 +102,40 @@ public:
 	std::vector<RuntimeMessage> messages;
 };
 
+class ReassemblingTacticalDeltaSink final : public RuntimeMessageSink
+{
+public:
+	explicit ReassemblingTacticalDeltaSink(
+		TacticalWorldDeltaReassemblyLimits limits = {})
+		: reassembler(limits) {}
+
+	void receiveMessage(const RuntimeMessage& message) override
+	{
+		results.push_back(reassembler.accept(message, delta));
+		if (results.back() == TacticalWorldDeltaReassemblyResult::Completed)
+			++completed;
+	}
+
+	TacticalWorldDeltaReassembler reassembler;
+	TacticalWorldDelta delta;
+	std::vector<TacticalWorldDeltaReassemblyResult> results;
+	std::size_t completed = 0;
+};
+
+void WriteTestU32(
+	std::vector<std::uint8_t>& bytes, std::size_t offset, std::uint32_t value)
+{
+	for (std::size_t index = 0; index < 4; ++index)
+		bytes[offset + index] = static_cast<std::uint8_t>(value >> (index * 8));
+}
+
+void WriteTestU64(
+	std::vector<std::uint8_t>& bytes, std::size_t offset, std::uint64_t value)
+{
+	for (std::size_t index = 0; index < 8; ++index)
+		bytes[offset + index] = static_cast<std::uint8_t>(value >> (index * 8));
+}
+
 class RecordingTacticalCommandCancellationSink final
 	: public TacticalCommandCancellationSink
 {
@@ -1150,6 +1184,302 @@ int main()
 		retainedPreparedDelta.eventCount == 1 && retainedPreparedDelta.payloadBytes == 1,
 		"tactical delta preparation enforces payload limits transactionally");
 
+	PreparedTacticalWorldDeltaBatch directBatch;
+	check(tacticalPublisher.prepareBatch(codecFixture, 90, directBatch) ==
+			TacticalWorldDeltaPublishError::None && directBatch && !directBatch.chunked &&
+		directBatch.requests.size() == 1 &&
+		directBatch.requests[0].topic == TacticalWorldDeltaMessageTopic &&
+		directBatch.requests[0].source == TacticalWorldDeltaMessageSource &&
+		directBatch.requests[0].payload == encodedDelta,
+		"deltas within the bus limit retain their exact version-1 topic and bytes");
+	RuntimeMessageBus noChunkMessages(1, encodedDelta.size());
+	TacticalWorldDeltaPublisher noChunkPublisher(
+		noChunkMessages,
+		TacticalWorldDeltaPublishLimits{
+			8, encodedDelta.size(), encodedDelta.size() + 1, 0});
+	PreparedTacticalWorldDeltaBatch noChunkBatch;
+	const TacticalWorldDeltaPublishError noChunkPrepared =
+		noChunkPublisher.prepareBatch(codecFixture, 91, noChunkBatch);
+	PreparedTacticalWorldDeltaBatch mutatedDirectBatch = noChunkBatch;
+	++mutatedDirectBatch.totalPayloadBytes;
+	const TacticalWorldDeltaBatchPublishResult mutatedDirectRejected =
+		noChunkPublisher.publishPreparedBatch(mutatedDirectBatch);
+	const TacticalWorldDeltaBatchPublishResult noChunkPublished =
+		noChunkPublisher.publishPreparedBatch(noChunkBatch);
+	check(noChunkPrepared == TacticalWorldDeltaPublishError::None &&
+		!noChunkBatch.chunked && mutatedDirectRejected.error ==
+			TacticalWorldDeltaPublishError::InvalidDelta &&
+		noChunkPublished && noChunkMessages.queued() == 1,
+		"disabling chunk batches preserves legacy messages and validates prepared byte counts");
+
+	constexpr std::size_t ChunkPayloadLimit = TacticalWorldDeltaChunkHeaderBytes + 8;
+	RuntimeMessageBus chunkMessages(2, ChunkPayloadLimit);
+	ReassemblingTacticalDeltaSink chunkSink(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	chunkMessages.addSink(chunkSink);
+	TacticalWorldDeltaPublisher chunkPublisher(
+		chunkMessages,
+		TacticalWorldDeltaPublishLimits{
+			8, ChunkPayloadLimit, encodedDelta.size(), 128});
+	PreparedTacticalWorldDeltaBatch chunkBatch;
+	const TacticalWorldDeltaPublishError chunkPrepared =
+		chunkPublisher.prepareBatch(codecFixture, 100, chunkBatch);
+	const std::size_t preparedChunkCount = chunkBatch.requests.size();
+	const TacticalWorldDeltaBatchPublishResult firstChunkPass =
+		chunkPublisher.publishPreparedBatch(chunkBatch);
+	const std::size_t cursorAfterPressure = chunkBatch.nextRequest;
+	chunkMessages.dispatchPending();
+	bool chunkRetryValid = true;
+	std::size_t chunkPublishPasses = 1;
+	while (!chunkBatch.complete() && chunkPublishPasses < preparedChunkCount + 2)
+	{
+		const TacticalWorldDeltaBatchPublishResult pass =
+			chunkPublisher.publishPreparedBatch(chunkBatch);
+		if (pass.error != TacticalWorldDeltaPublishError::None &&
+			pass.error != TacticalWorldDeltaPublishError::QueueFull)
+			chunkRetryValid = false;
+		chunkMessages.dispatchPending();
+		++chunkPublishPasses;
+	}
+	const bool chunkResultsOrdered =
+		!chunkSink.results.empty() &&
+		std::all_of(chunkSink.results.begin(), chunkSink.results.end() - 1,
+			[](TacticalWorldDeltaReassemblyResult result) {
+				return result == TacticalWorldDeltaReassemblyResult::AwaitingMore;
+			}) &&
+		chunkSink.results.back() == TacticalWorldDeltaReassemblyResult::Completed;
+	check(chunkPrepared == TacticalWorldDeltaPublishError::None && chunkBatch.chunked &&
+		preparedChunkCount > 2 &&
+		firstChunkPass.error == TacticalWorldDeltaPublishError::QueueFull &&
+		firstChunkPass.messagesPublished == 2 && cursorAfterPressure == 2 &&
+		chunkRetryValid && chunkBatch.complete() &&
+		chunkSink.results.size() == preparedChunkCount && chunkResultsOrdered &&
+		chunkSink.completed == 1 && chunkSink.delta.events.size() == 8 &&
+		chunkSink.delta.previousEpoch == codecFixture.previousEpoch &&
+		chunkSink.delta.currentEpoch == codecFixture.currentEpoch,
+		"chunk publication resumes its retained cursor without duplicates across frames");
+
+	PreparedTacticalWorldDeltaBatch malformedBatch;
+	const bool malformedBatchPrepared =
+		chunkPublisher.prepareBatch(codecFixture, 101, malformedBatch) ==
+			TacticalWorldDeltaPublishError::None &&
+		malformedBatch.requests.size() > 1;
+	if (malformedBatchPrepared) malformedBatch.requests[1].topic = "invalid topic";
+	const TacticalWorldDeltaBatchPublishResult malformedBatchRejected =
+		chunkPublisher.publishPreparedBatch(malformedBatch);
+	PreparedTacticalWorldDeltaBatch malformedCompleteBatch;
+	malformedCompleteBatch.transferId = 102;
+	malformedCompleteBatch.totalPayloadBytes = 1;
+	malformedCompleteBatch.chunked = true;
+	malformedCompleteBatch.requests.resize(1);
+	malformedCompleteBatch.nextRequest = 1;
+	const TacticalWorldDeltaBatchPublishResult malformedCompleteRejected =
+		chunkPublisher.publishPreparedBatch(malformedCompleteBatch);
+	check(malformedBatchPrepared &&
+		malformedBatchRejected.error == TacticalWorldDeltaPublishError::InvalidDelta &&
+		malformedBatch.nextRequest == 0 && chunkMessages.queued() == 0 &&
+		malformedCompleteRejected.error ==
+			TacticalWorldDeltaPublishError::InvalidDelta &&
+		!malformedCompleteRejected.complete,
+		"batch validation rejects every unsent request before publishing a prefix");
+
+	EncodedTacticalWorldDeltaChunks transferA;
+	EncodedTacticalWorldDeltaChunks transferB;
+	EncodedTacticalWorldDeltaChunks retainedChunkOutput;
+	retainedChunkOutput.transferId = 77;
+	retainedChunkOutput.totalPayloadBytes = 1;
+	retainedChunkOutput.payloads = {{7}};
+	const bool transferFixturesValid =
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 200, ChunkPayloadLimit, transferA,
+			encodedDelta.size(), 128) == TacticalWorldDeltaChunkEncodeError::None &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 201, ChunkPayloadLimit, transferB,
+			encodedDelta.size(), 128) == TacticalWorldDeltaChunkEncodeError::None;
+	auto chunkMessage = [](const std::vector<std::uint8_t>& payload) {
+		return RuntimeMessage{
+			1, TacticalWorldDeltaChunkMessageTopic,
+			TacticalWorldDeltaMessageSource, payload};
+	};
+	TacticalWorldDelta retainedReassembly;
+	retainedReassembly.previousEpoch = 777;
+	retainedReassembly.currentEpoch = 888;
+	TacticalWorldDeltaReassembler supersedingReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	const TacticalWorldDeltaReassemblyResult firstTransferAccepted =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult duplicateRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult foreignNonzeroRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferB.payloads[1]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult replacementAccepted =
+		supersedingReassembler.accept(
+			chunkMessage(transferB.payloads[0]), retainedReassembly);
+	const TacticalWorldDeltaReassemblyResult olderZeroRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	bool replacementCompleted = true;
+	for (std::size_t index = 1; index < transferB.payloads.size(); ++index)
+	{
+		const TacticalWorldDeltaReassemblyResult accepted =
+			supersedingReassembler.accept(
+				chunkMessage(transferB.payloads[index]), retainedReassembly);
+		if (accepted != (index + 1 == transferB.payloads.size()
+				? TacticalWorldDeltaReassemblyResult::Completed
+				: TacticalWorldDeltaReassemblyResult::AwaitingMore))
+			replacementCompleted = false;
+	}
+	const TacticalWorldDeltaReassemblyResult completedReplayRejected =
+		supersedingReassembler.accept(
+			chunkMessage(transferA.payloads[0]), retainedReassembly);
+	check(transferFixturesValid &&
+		firstTransferAccepted == TacticalWorldDeltaReassemblyResult::AwaitingMore &&
+		duplicateRejected == TacticalWorldDeltaReassemblyResult::UnexpectedChunk &&
+		foreignNonzeroRejected ==
+			TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		replacementAccepted == TacticalWorldDeltaReassemblyResult::AwaitingMore &&
+		olderZeroRejected == TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		replacementCompleted && !supersedingReassembler.active() &&
+		supersedingReassembler.highestTransferId() == 201 &&
+		completedReplayRejected == TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		retainedReassembly.previousEpoch == codecFixture.previousEpoch &&
+		retainedReassembly.events.size() == codecFixture.events.size(),
+		"a new index-zero transfer supersedes abandoned world data while duplicates and foreign continuations fail");
+
+	TacticalWorldDeltaReassembler directBoundaryReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	TacticalWorldDelta directBoundaryOutput;
+	directBoundaryOutput.previousEpoch = 777;
+	const TacticalWorldDeltaReassemblyResult directPrefixAccepted =
+		directBoundaryReassembler.accept(
+			chunkMessage(transferA.payloads[0]), directBoundaryOutput);
+	const std::size_t retainedDirectPrefix =
+		directBoundaryReassembler.retainedBytes();
+	const TacticalWorldDeltaReassemblyResult malformedDirectRejected =
+		directBoundaryReassembler.accept(
+			RuntimeMessage{1, TacticalWorldDeltaMessageTopic,
+				TacticalWorldDeltaMessageSource, {0}},
+			directBoundaryOutput);
+	const bool malformedDirectPreservedPrefix =
+		directBoundaryReassembler.active() &&
+		directBoundaryReassembler.transferId() == 200 &&
+		directBoundaryReassembler.retainedBytes() == retainedDirectPrefix &&
+		directBoundaryOutput.previousEpoch == 777;
+	const TacticalWorldDeltaReassemblyResult directBoundaryCompleted =
+		directBoundaryReassembler.accept(
+			RuntimeMessage{2, TacticalWorldDeltaMessageTopic,
+				TacticalWorldDeltaMessageSource, encodedDelta},
+			directBoundaryOutput);
+	const TacticalWorldDeltaReassemblyResult delayedContinuationRejected =
+		directBoundaryReassembler.accept(
+			chunkMessage(transferA.payloads[1]), directBoundaryOutput);
+	const TacticalWorldDeltaReassemblyResult delayedRestartRejected =
+		directBoundaryReassembler.accept(
+			chunkMessage(transferA.payloads[0]), directBoundaryOutput);
+	check(directPrefixAccepted == TacticalWorldDeltaReassemblyResult::AwaitingMore &&
+		retainedDirectPrefix != 0 &&
+		malformedDirectRejected == TacticalWorldDeltaReassemblyResult::InvalidDelta &&
+		malformedDirectPreservedPrefix &&
+		directBoundaryReassembler.highestTransferId() == 200 &&
+		directBoundaryCompleted == TacticalWorldDeltaReassemblyResult::Completed &&
+		!directBoundaryReassembler.active() &&
+		delayedContinuationRejected ==
+			TacticalWorldDeltaReassemblyResult::UnexpectedChunk &&
+		delayedRestartRejected ==
+			TacticalWorldDeltaReassemblyResult::InterleavedTransfer &&
+		directBoundaryOutput.previousEpoch == codecFixture.previousEpoch &&
+		directBoundaryOutput.events.size() == codecFixture.events.size(),
+		"a valid legacy delta retires stale chunk state while malformed direct input remains atomic");
+
+	std::vector<std::uint8_t> unsupportedChunk = transferA.payloads[0];
+	unsupportedChunk[4] = 2;
+	std::vector<std::uint8_t> malformedLengthChunk = transferA.payloads[0];
+	WriteTestU32(malformedLengthChunk, 34, 0);
+	std::vector<std::uint8_t> oversizedChunk = transferA.payloads[0];
+	WriteTestU64(oversizedChunk, 22, encodedDelta.size() + 1);
+	std::vector<std::uint8_t> invalidCountChunk = transferA.payloads[0];
+	WriteTestU32(invalidCountChunk, 18, 0);
+	std::vector<std::uint8_t> excessiveCountChunk = transferA.payloads[0];
+	WriteTestU32(excessiveCountChunk, 18, 129);
+	TacticalWorldDeltaReassembler malformedReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	const bool rejectsMalformedEnvelopes =
+		malformedReassembler.accept(
+			chunkMessage(unsupportedChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::UnsupportedVersion &&
+		malformedReassembler.accept(
+			chunkMessage(malformedLengthChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::InvalidMessage &&
+		malformedReassembler.accept(
+			chunkMessage(oversizedChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::TransferTooLarge &&
+		malformedReassembler.accept(
+			chunkMessage(invalidCountChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::InvalidTransfer &&
+		malformedReassembler.accept(
+			chunkMessage(excessiveCountChunk), retainedReassembly) ==
+				TacticalWorldDeltaReassemblyResult::TooManyChunks;
+	bool everyTruncatedChunkRejected = true;
+	for (std::size_t size = 0; size < transferA.payloads[0].size(); ++size)
+	{
+		std::vector<std::uint8_t> truncated(
+			transferA.payloads[0].begin(), transferA.payloads[0].begin() + size);
+		TacticalWorldDeltaReassembler truncatedReassembler;
+		TacticalWorldDelta retainedTruncated;
+		retainedTruncated.previousEpoch = 777;
+		if (truncatedReassembler.accept(
+				chunkMessage(truncated), retainedTruncated) !=
+					TacticalWorldDeltaReassemblyResult::InvalidMessage ||
+			retainedTruncated.previousEpoch != 777)
+		{
+			everyTruncatedChunkRejected = false;
+			break;
+		}
+	}
+	std::vector<std::vector<std::uint8_t>> corruptTransfer = transferA.payloads;
+	corruptTransfer.back().back() ^= 0x80u;
+	TacticalWorldDeltaReassembler integrityReassembler(
+		TacticalWorldDeltaReassemblyLimits{encodedDelta.size(), 128, 8});
+	retainedReassembly.previousEpoch = 777;
+	retainedReassembly.currentEpoch = 888;
+	retainedReassembly.events.clear();
+	TacticalWorldDeltaReassemblyResult integrityResult =
+		TacticalWorldDeltaReassemblyResult::InvalidMessage;
+	for (const std::vector<std::uint8_t>& payload : corruptTransfer)
+		integrityResult = integrityReassembler.accept(
+			chunkMessage(payload), retainedReassembly);
+	check(rejectsMalformedEnvelopes && everyTruncatedChunkRejected &&
+		integrityResult == TacticalWorldDeltaReassemblyResult::IntegrityMismatch &&
+		!integrityReassembler.active() && retainedReassembly.previousEpoch == 777 &&
+		retainedReassembly.currentEpoch == 888 && retainedReassembly.events.empty(),
+		"bounded reassembly rejects truncation, size, count, version, and integrity faults atomically");
+
+	check(EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 0, ChunkPayloadLimit, retainedChunkOutput) ==
+				TacticalWorldDeltaChunkEncodeError::InvalidTransfer &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, TacticalWorldDeltaChunkHeaderBytes,
+			retainedChunkOutput) ==
+				TacticalWorldDeltaChunkEncodeError::PayloadLimitTooSmall &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, ChunkPayloadLimit, retainedChunkOutput,
+			encodedDelta.size() - 1, 128) ==
+				TacticalWorldDeltaChunkEncodeError::TransferTooLarge &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, ChunkPayloadLimit, retainedChunkOutput,
+			encodedDelta.size(), 1) ==
+				TacticalWorldDeltaChunkEncodeError::TooManyChunks &&
+		EncodeTacticalWorldDeltaChunks(
+			encodedDelta, 1, std::numeric_limits<std::size_t>::max(),
+			retainedChunkOutput) == TacticalWorldDeltaChunkEncodeError::TooManyChunks &&
+		retainedChunkOutput.transferId == 77 &&
+		retainedChunkOutput.payloads ==
+			std::vector<std::vector<std::uint8_t>>({{7}}),
+		"chunk preparation is bounded, overflow-safe, and transactional on rejection");
+
 	check(
 		MapTacticalWorldDeltaEncodeError(TacticalWorldDeltaEncodeResult::Success) ==
 			TacticalWorldDeltaPublishError::None &&
@@ -1171,7 +1501,16 @@ int main()
 		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::InvalidTopic) ==
 			TacticalWorldDeltaPublishError::InvalidMessageIdentifier &&
 		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::InvalidSource) ==
-			TacticalWorldDeltaPublishError::InvalidMessageIdentifier,
+			TacticalWorldDeltaPublishError::InvalidMessageIdentifier &&
+		MapTacticalWorldDeltaChunkEncodeError(
+			TacticalWorldDeltaChunkEncodeError::InvalidTransfer) ==
+				TacticalWorldDeltaPublishError::InvalidTransfer &&
+		MapTacticalWorldDeltaChunkEncodeError(
+			TacticalWorldDeltaChunkEncodeError::TransferTooLarge) ==
+				TacticalWorldDeltaPublishError::TransferTooLarge &&
+		MapTacticalWorldDeltaChunkEncodeError(
+			TacticalWorldDeltaChunkEncodeError::TooManyChunks) ==
+				TacticalWorldDeltaPublishError::TooManyChunks,
 		"tactical delta publication explicitly maps every codec and bus failure family");
 
 	RuntimeMessageBus validationMessages(2, encodedDelta.size());

@@ -78,6 +78,26 @@ public:
 		TacticalWorldDeltaDecodeResult::Invalid;
 	TacticalWorldDelta delta;
 };
+
+class ExternalChunkedDeltaSink final : public RuntimeMessageSink
+{
+public:
+	ExternalChunkedDeltaSink()
+		: reassembler(TacticalWorldDeltaReassemblyLimits{4096, 128, 3}) {}
+
+	void receiveMessage(const RuntimeMessage& message) override
+	{
+		lastResult = reassembler.accept(message, delta);
+		if (lastResult == TacticalWorldDeltaReassemblyResult::Completed)
+			++completed;
+	}
+
+	TacticalWorldDeltaReassembler reassembler;
+	TacticalWorldDeltaReassemblyResult lastResult =
+		TacticalWorldDeltaReassemblyResult::InvalidMessage;
+	TacticalWorldDelta delta;
+	std::size_t completed = 0;
+};
 }
 
 class ExternalRulesPackage final : public EnginePackage
@@ -391,6 +411,33 @@ int main()
 		sink.source != TacticalWorldDeltaMessageSource ||
 		sink.decodeResult != TacticalWorldDeltaDecodeResult::Success ||
 		sink.delta.events.size() != 3) return 26;
+
+	RuntimeMessageBus chunkMessages(
+		2, TacticalWorldDeltaChunkHeaderBytes + 8);
+	ExternalChunkedDeltaSink chunkSink;
+	if (chunkMessages.addSink(chunkSink) !=
+		RuntimeMessageSinkRegistrationError::None) return 47;
+	TacticalWorldDeltaPublisher chunkPublisher(
+		chunkMessages,
+		TacticalWorldDeltaPublishLimits{
+			3, TacticalWorldDeltaChunkHeaderBytes + 8, 4096, 128});
+	PreparedTacticalWorldDeltaBatch chunkBatch;
+	if (chunkPublisher.prepareBatch(*publication.delta, 1, chunkBatch) !=
+			TacticalWorldDeltaPublishError::None || !chunkBatch.chunked)
+		return 47;
+	while (!chunkBatch.complete())
+	{
+		const TacticalWorldDeltaBatchPublishResult pass =
+			chunkPublisher.publishPreparedBatch(chunkBatch);
+		if (pass.error != TacticalWorldDeltaPublishError::None &&
+			pass.error != TacticalWorldDeltaPublishError::QueueFull)
+			return 47;
+		chunkMessages.dispatchPending();
+	}
+	if (chunkSink.completed != 1 ||
+		chunkSink.lastResult != TacticalWorldDeltaReassemblyResult::Completed ||
+		chunkSink.delta.events.size() != publication.delta->events.size())
+		return 47;
 	const TacticalWorldPublicationView meaningfulPublication = observer.latest();
 	if (observer.update() != TacticalWorldObserverUpdateResult::Unchanged ||
 		observer.latest().serial != 2 ||

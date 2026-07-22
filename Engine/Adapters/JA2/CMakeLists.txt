@@ -13,6 +13,7 @@ set(ja2_runtime_adapter_public_headers
   TacticalWorldDelta.h
   TacticalWorldDeltaCodec.h
   TacticalWorldDeltaPublisher.h
+  TacticalWorldDeltaTransport.h
   TacticalWorldObserver.h
   TacticalWorldService.h
   TacticalWorldSnapshot.h)
@@ -29,6 +30,7 @@ add_library(ja2_runtime_adapter STATIC
   TacticalWorldDelta.cpp
   TacticalWorldDeltaCodec.cpp
   TacticalWorldDeltaPublisher.cpp
+  TacticalWorldDeltaTransport.cpp
   TacticalWorldObserver.cpp
   ${ja2_runtime_adapter_public_headers})
 add_library(JA2::RuntimeAdapter ALIAS ja2_runtime_adapter)
