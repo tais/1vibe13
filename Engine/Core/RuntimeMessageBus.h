@@ -67,6 +67,7 @@ struct RuntimeMessageDispatchResult
 	std::size_t delivered = 0;
 	std::size_t callbackFailures = 0;
 	std::size_t queuedForNextDispatch = 0;
+	bool operationInProgress = false;
 };
 
 // Deterministic, bounded, non-owning message fan-out for communication between
@@ -142,6 +143,12 @@ public:
 	RuntimeMessageDispatchResult dispatchPending()
 	{
 		RuntimeMessageDispatchResult result;
+		if (dispatching_)
+		{
+			result.operationInProgress = true;
+			result.queuedForNextDispatch = queue_.size();
+			return result;
+		}
 		DispatchGuard guard(dispatching_);
 		const std::size_t ready = queue_.size();
 		for (std::size_t index = 0; index < ready; ++index)

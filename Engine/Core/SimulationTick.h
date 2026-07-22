@@ -38,6 +38,7 @@ struct SimulationTickDispatchResult
 	std::size_t callbackFailures = 0;
 	std::uint64_t accumulatedMicroseconds = 0;
 	bool sequenceExhausted = false;
+	bool operationInProgress = false;
 };
 
 // Bounded fixed-step scheduler driven by monotonic frame elapsed time. Long
@@ -72,6 +73,12 @@ public:
 	SimulationTickDispatchResult advance(std::uint64_t elapsedMicroseconds)
 	{
 		SimulationTickDispatchResult result;
+		if (dispatching_)
+		{
+			result.operationInProgress = true;
+			result.accumulatedMicroseconds = accumulator_;
+			return result;
+		}
 		if (elapsedMicroseconds > std::numeric_limits<std::uint64_t>::max() - accumulator_)
 			accumulator_ = std::numeric_limits<std::uint64_t>::max();
 		else
@@ -130,6 +137,7 @@ public:
 
 	void reset()
 	{
+		if (dispatching_) return;
 		accumulator_ = 0;
 		tickSequence_ = 0;
 		simulatedTime_ = 0;

@@ -61,6 +61,7 @@ struct PackageTaskDrainResult
 	std::size_t executed = 0;
 	std::size_t failed = 0;
 	std::size_t deferred = 0;
+	bool operationInProgress = false;
 };
 
 // Bounded main-thread work staged by package code. A drain only observes the
@@ -105,6 +106,13 @@ public:
 	PackageTaskDrainResult drain(FailureSink&& failureSink) noexcept
 	{
 		PackageTaskDrainResult result;
+		if (draining_)
+		{
+			result.deferred = tasks_.size();
+			result.operationInProgress = true;
+			return result;
+		}
+		DrainGuard guard(draining_);
 		const std::size_t ready = std::min(tasks_.size(), maximumPerDrain_);
 		for (std::size_t index = 0; index < ready; ++index)
 		{
@@ -136,6 +144,7 @@ public:
 
 	std::size_t removePackage(const std::string& packageId) noexcept
 	{
+		if (draining_) return 0;
 		std::size_t removed = 0;
 		for (auto task = tasks_.begin(); task != tasks_.end();)
 		{
@@ -172,6 +181,18 @@ public:
 	}
 
 private:
+	class DrainGuard
+	{
+	public:
+		explicit DrainGuard(bool& draining) : draining_(draining)
+		{
+			draining_ = true;
+		}
+		~DrainGuard() { draining_ = false; }
+	private:
+		bool& draining_;
+	};
+
 	struct Entry
 	{
 		PackageTaskRecord record;
@@ -183,6 +204,7 @@ private:
 	std::deque<Entry> tasks_;
 	PackageTaskSummary summary_;
 	std::uint64_t nextSequence_ = 1;
+	bool draining_ = false;
 };
 
 #endif

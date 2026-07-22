@@ -210,6 +210,11 @@ maximum catch-up count, executes only that bounded number after a hitch, and
 records dropped ticks in frame telemetry. `updateRuntime` remains the per-frame
 hook for interpolation, UI, and other presentation-paced work.
 
+Message, input, runtime-update, simulation-tick, deferred-task, and registered
+state callbacks are non-reentrant boundaries. A nested dispatch or lifecycle
+mutation returns an explicit operation-in-progress result; work published or
+scheduled by a callback remains eligible for the next outer boundary.
+
 Call `AssetSource::metadata` when a package only needs existence, size, or
 winning overlay provenance. The built-in sources answer without allocating the
 asset payload, normalize paths exactly like `read`, and clear output on every

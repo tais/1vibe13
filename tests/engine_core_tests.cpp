@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -88,6 +89,34 @@ public:
 	std::vector<RuntimeMessage> messages;
 	bool publishReply = false;
 	bool throws = false;
+};
+
+class CallbackInputSink final : public InputEventSink
+{
+public:
+	void receiveInput(const EngineInputEvent&) override { callback(); }
+	std::function<void()> callback;
+};
+
+class CallbackRuntimeUpdateSink final : public RuntimeUpdateSink
+{
+public:
+	void updateRuntime(const RuntimeUpdateContext&) override { callback(); }
+	std::function<void()> callback;
+};
+
+class CallbackSimulationTickSink final : public SimulationTickSink
+{
+public:
+	void simulate(const SimulationTickContext&) override { callback(); }
+	std::function<void()> callback;
+};
+
+class CallbackMessageSink final : public RuntimeMessageSink
+{
+public:
+	void receiveMessage(const RuntimeMessage&) override { callback(); }
+	std::function<void()> callback;
 };
 
 // Models a third-party ByteStorage implementation compiled against the legacy
@@ -1149,6 +1178,94 @@ int main()
 		states.shutdown(7) == StateShutdownError::CallbackException &&
 		!states.isInitialized(7),
 		"state registry reports callback exceptions and releases lifecycle state");
+
+	StateRegistry<unsigned> reentrantStates;
+	StateInitializationError nestedInitialization = StateInitializationError::None;
+	StateRegistrationError nestedRegistration = StateRegistrationError::None;
+	StateShutdownError nestedShutdown = StateShutdownError::None;
+	StateHandleError nestedHandle = StateHandleError::None;
+	check(reentrantStates.registerState(8, StateCallbacks<unsigned>{
+		[&] {
+			nestedInitialization = reentrantStates.initialize(8);
+			nestedRegistration = reentrantStates.registerState(9,
+				StateCallbacks<unsigned>{[] { return true; }, [] { return 9u; }, [] {}});
+			return true;
+		},
+		[&] {
+			nestedShutdown = reentrantStates.shutdown(8);
+			return 8u;
+		},
+		[&] { nestedHandle = reentrantStates.handle(8).error; }}) ==
+			StateRegistrationError::None &&
+		reentrantStates.initialize(8) == StateInitializationError::None &&
+		reentrantStates.handle(8) &&
+		reentrantStates.shutdown(8) == StateShutdownError::None &&
+		nestedInitialization == StateInitializationError::OperationInProgress &&
+		nestedRegistration == StateRegistrationError::OperationInProgress &&
+		nestedShutdown == StateShutdownError::OperationInProgress &&
+		nestedHandle == StateHandleError::OperationInProgress &&
+		reentrantStates.size() == 1,
+		"state registry rejects callback reentrancy without invalidating entries");
+
+	MemoryInputSource nestedInputSource;
+	InputDispatcher nestedInput(nestedInputSource, 2);
+	CallbackInputSink nestedInputSink;
+	InputDispatchResult nestedInputResult;
+	nestedInputSink.callback = [&] { nestedInputResult = nestedInput.dispatchPending(); };
+	nestedInput.addSink(nestedInputSink);
+	nestedInputSource.push(EngineInputEvent{});
+	const InputDispatchResult outerInputResult = nestedInput.dispatchPending();
+
+	RuntimeUpdateDispatcher nestedUpdates;
+	CallbackRuntimeUpdateSink nestedUpdateSink;
+	RuntimeUpdateDispatchResult nestedUpdateResult;
+	nestedUpdateSink.callback = [&] {
+		nestedUpdateResult = nestedUpdates.dispatch(RuntimeUpdateContext{});
+	};
+	nestedUpdates.addSink(nestedUpdateSink);
+	const RuntimeUpdateDispatchResult outerUpdateResult =
+		nestedUpdates.dispatch(RuntimeUpdateContext{});
+
+	SimulationTickDispatcher nestedTicks(1, 1);
+	CallbackSimulationTickSink nestedTickSink;
+	SimulationTickDispatchResult nestedTickResult;
+	nestedTickSink.callback = [&] { nestedTickResult = nestedTicks.advance(1); };
+	nestedTicks.addSink(nestedTickSink);
+	const SimulationTickDispatchResult outerTickResult = nestedTicks.advance(1);
+
+	RuntimeMessageBus nestedMessages(2, 8);
+	CallbackMessageSink nestedMessageSink;
+	RuntimeMessageDispatchResult nestedMessageResult;
+	nestedMessageSink.callback = [&] {
+		nestedMessageResult = nestedMessages.dispatchPending();
+	};
+	nestedMessages.addSink(nestedMessageSink);
+	nestedMessages.publish(RuntimeMessageRequest{"nested.message", "engine.test", {}});
+	const RuntimeMessageDispatchResult outerMessageResult =
+		nestedMessages.dispatchPending();
+	check(outerInputResult.polled == 1 && nestedInputResult.operationInProgress &&
+		outerUpdateResult.delivered == 1 && nestedUpdateResult.operationInProgress &&
+		outerTickResult.executed == 1 && nestedTickResult.operationInProgress &&
+		outerMessageResult.messages == 1 && nestedMessageResult.operationInProgress,
+		"core fan-out dispatchers reject nested work while completing the outer pass");
+
+	PackageTaskQueue nestedTasks(4, 2);
+	PackageTaskDrainResult nestedTaskResult;
+	std::size_t nestedRemoval = 1;
+	unsigned nestedTaskRuns = 0;
+	nestedTasks.schedule("nested.tasks", [&] {
+		++nestedTaskRuns;
+		nestedTaskResult = nestedTasks.drain();
+		nestedRemoval = nestedTasks.removePackage("nested.tasks");
+		nestedTasks.schedule("nested.tasks", [&] { ++nestedTaskRuns; });
+	});
+	nestedTasks.schedule("nested.tasks", [&] { ++nestedTaskRuns; });
+	const PackageTaskDrainResult outerTaskResult = nestedTasks.drain();
+	const PackageTaskDrainResult deferredTaskResult = nestedTasks.drain();
+	check(outerTaskResult.executed == 2 && nestedTaskResult.operationInProgress &&
+		nestedRemoval == 0 && deferredTaskResult.executed == 1 &&
+		nestedTaskRuns == 3 && nestedTasks.size() == 0,
+		"package task draining rejects recursion and defers newly scheduled work");
 
 	ManualTimeSource frameTime;
 	MemoryInputSource frameInput;
