@@ -2576,6 +2576,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	INT32		iSaveLoadGameMessageBoxID = -1;
 	UINT16	usPosX, usActualWidth, usActualHeight;
 	BOOLEAN fWePausedIt = FALSE;
+	PreparedSaveMetadata preparedFrameworkMetadata;
 	
 	CHAR16	zString[128];
 
@@ -2662,6 +2663,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Set the fact that we are saving a game
 	gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
+	// Capture both sidecars from this single paused-game boundary. They are
+	// committed only after the legacy save has closed successfully.
+	preparedFrameworkMetadata = PrepareSaveMetadata( GetGameContext() );
 
 
 	//ADB this has been moved ahead of SaveCurrentSectorsInformationToTempItemFile
@@ -3624,45 +3628,29 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	FileClose( hFile );
 
 	// Metadata is deliberately best-effort: a valid legacy save remains valid
-	// even when the optional framework sidecar cannot be written.
+	// even when the optional framework sidecars cannot be committed.
 	{
-		const RuntimeCheckpointSaveError compatibilityMetadata =
-			WriteSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
-		if ( compatibilityMetadata != RuntimeCheckpointSaveError::None )
+		const PreparedSaveMetadataCommitResult metadata = CommitPreparedSaveMetadata(
+			GetGameContext(), zSaveGameName, std::move( preparedFrameworkMetadata ) );
+		if ( !metadata )
 		{
-			RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
 			try
 			{
 				GetGameContext().log().write( LogRecord{
 					LogSeverity::Warning, "save-compatibility",
-					"Could not write save compatibility metadata for " +
-						std::string( zSaveGameName ) + " (code " +
-						std::to_string( static_cast<int>( compatibilityMetadata ) ) + ")" } );
-				}
-				catch ( ... ) {}
+					"Could not commit prepared save metadata for " +
+						std::string( zSaveGameName ) + " (checkpoint " +
+						std::to_string( static_cast<int>( metadata.checkpointError ) ) +
+						", capture " + std::to_string(
+							static_cast<int>( metadata.packages.captureError ) ) +
+						", archive " + std::to_string(
+							static_cast<int>( metadata.packages.archiveError ) ) +
+						(metadata.packageId.empty() ? ")" :
+							", package " + metadata.packageId + ")") } );
 			}
-			else
-			{
-				const PackageSaveMetadataWriteResult packageMetadata =
-					WritePackageSaveStateMetadata( GetGameContext(), zSaveGameName );
-				if ( !packageMetadata )
-				{
-					GetGameContext().persistence().storage().remove(
-						PackageSaveStateSidecarPath( zSaveGameName ) );
-					try
-					{
-						GetGameContext().log().write( LogRecord{
-							LogSeverity::Warning, "save-compatibility",
-							"Could not write package save state for " +
-								std::string( zSaveGameName ) + " (capture " +
-								std::to_string( static_cast<int>( packageMetadata.captureError ) ) +
-								", archive " + std::to_string(
-									static_cast<int>( packageMetadata.archiveError ) ) + ")" } );
-					}
-					catch ( ... ) {}
-				}
-			}
+			catch ( ... ) {}
 		}
+	}
 
 	// This defines, which savegame is highlighted in the load screen
 	if (ubSaveGameID == SAVE__END_TURN_NUM)
@@ -3811,6 +3799,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	CHAR8		zSaveGameName[ MAX_PATH ];
 	UINT32 uiRelStartPerc;
 	UINT32 uiRelEndPerc;
+	PreparedLoadMetadata preparedFrameworkMetadata;
 
 #ifdef JA2BETAVERSION
 	gfDisplaySaveGamesNowInvalidatedMsg = FALSE;
@@ -3831,12 +3820,14 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
 	{
 		const SaveCompatibilityPolicy policy = GetSaveCompatibilityPolicy();
+		preparedFrameworkMetadata = PrepareLoadMetadata(
+			GetGameContext(), zSaveGameName, policy );
 		if ( policy != SaveCompatibilityPolicy::Ignore )
 		{
-			const SaveCompatibilityResult compatibility =
-				InspectSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
+			const SaveCompatibilityResult& compatibility =
+				preparedFrameworkMetadata.compatibility;
 			const SaveCompatibilityLoadAction action =
-				EvaluateSaveCompatibility( compatibility.state, policy );
+				preparedFrameworkMetadata.compatibilityAction;
 			if ( action != SaveCompatibilityLoadAction::Allow )
 			{
 				try
@@ -3858,10 +3849,10 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 					}
 				}
 
-				const PackageSaveMetadataResult packageMetadata =
-					InspectPackageSaveStateMetadata( GetGameContext(), zSaveGameName );
+				const PackageSaveMetadataResult& packageMetadata =
+					preparedFrameworkMetadata.packages;
 				const SaveCompatibilityLoadAction packageAction =
-					EvaluatePackageSaveMetadata( packageMetadata.state, policy );
+					preparedFrameworkMetadata.packageAction;
 				if ( packageAction != SaveCompatibilityLoadAction::Allow )
 				{
 					try
@@ -6013,14 +6004,10 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// succeeded. A package callback failure is diagnosed but cannot retroactively
 	// turn the already-loaded, compatible JA2 save into a failed load.
 	{
-		const SaveCompatibilityPolicy policy = GetSaveCompatibilityPolicy();
-		const PackageSaveMetadataResult packageMetadata = policy == SaveCompatibilityPolicy::Ignore
-			? PackageSaveMetadataResult{ PackageSaveMetadataState::NotRequired }
-			: InspectPackageSaveStateMetadata( GetGameContext(), zSaveGameName );
-		if ( packageMetadata.state == PackageSaveMetadataState::Ready )
+		if ( preparedFrameworkMetadata.packageRestorePending )
 		{
-			const PackageSaveStateLoadResult restored =
-				GetGameContext().restorePackageSaveState( packageMetadata.archive.state );
+			const PackageSaveStateLoadResult restored = RestorePreparedPackageSaveState(
+				GetGameContext(), preparedFrameworkMetadata );
 			if ( !restored )
 			{
 				try

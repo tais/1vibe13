@@ -1348,6 +1348,86 @@ int main( int, char** )
 	}
 
 	{
+		TestLifecyclePackage stagedPackage(
+			"rules.staged-save-boundary", PackageKind::Rules );
+		stagedPackage.setSaveStateSchema( 3 );
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool ready =
+			context.packages().registerPackage( stagedPackage ) ==
+				PackageRegistrationError::None &&
+			context.packages().activate( "rules.staged-save-boundary" ) ==
+				PackageActivationError::None &&
+			context.beginInitialization() &&
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			context.markRunning();
+		const std::string savePath = "SavedGames/SaveGamePrepared.sav";
+		const std::vector<std::uint8_t> capturedPayload =
+			stagedPackage.saveStatePayload;
+		PreparedSaveMetadata prepared = PrepareSaveMetadata( context );
+		const bool preparedWasStateful = prepared.stateful;
+		const bool prepareDidNotWrite =
+			!storage.exists( RuntimeCheckpointSidecarPath( savePath ) ) &&
+			!storage.exists( PackageSaveStateSidecarPath( savePath ) );
+		stagedPackage.saveStatePayload = { 9, 8, 7, 6 };
+		const PreparedSaveMetadataCommitResult committed =
+			CommitPreparedSaveMetadata( context, savePath, std::move( prepared ) );
+		PackageSaveArchive committedArchive;
+		const PackageSaveArchiveLoadResult archiveLoaded =
+			context.packageSaveArchives().load(
+				PackageSaveStateSidecarPath( savePath ),
+				context.runtime().compatibilityFingerprint(),
+				context.runtime().preAggregateCatalogCompatibilityFingerprint(),
+				committedArchive );
+		stagedPackage.saveStatePayload = capturedPayload;
+		PreparedLoadMetadata stagedLoad = PrepareLoadMetadata(
+			context, savePath, SaveCompatibilityPolicy::Warn );
+		storage.remove( RuntimeCheckpointSidecarPath( savePath ) );
+		storage.writeAll( PackageSaveStateSidecarPath( savePath ), { 1, 2, 3 } );
+		const PackageSaveStateLoadResult restored =
+			RestorePreparedPackageSaveState( context, stagedLoad );
+		const PackageSaveStateLoadResult restoredAgain =
+			RestorePreparedPackageSaveState( context, stagedLoad );
+		const PreparedLoadMetadata corrupted = PrepareLoadMetadata(
+			context, savePath, SaveCompatibilityPolicy::EnforceKnown );
+		CHECK( ready && preparedWasStateful && prepareDidNotWrite && committed &&
+		       stagedPackage.saveStateCalls == 1 && archiveLoaded &&
+		       committedArchive.state.records.size() == 1 &&
+		       committedArchive.state.records[0].payload == capturedPayload,
+		       "prepared save metadata commits the one captured paused-game snapshot" );
+		CHECK(
+		       stagedLoad.compatibility.state == SaveCompatibilityState::Compatible &&
+		       stagedLoad.packages.state == PackageSaveMetadataState::Ready &&
+		       restored && restoredAgain && stagedPackage.validateStateCalls == 1 &&
+		       stagedPackage.loadedStatePayload == capturedPayload &&
+		       stagedPackage.loadStateCalls == 1,
+		       "prepared load metadata survives backing-file changes and restores once" );
+		CHECK(
+		       corrupted.packages.state == PackageSaveMetadataState::InvalidMetadata &&
+		       corrupted.packageAction == SaveCompatibilityLoadAction::Reject &&
+		       corrupted.rejected(),
+		       "prepared load metadata enforces corruption policy before destructive load" );
+
+		stagedPackage.saveStateSucceeds = false;
+		storage.writeAll( RuntimeCheckpointSidecarPath( savePath ), { 4 } );
+		storage.writeAll( PackageSaveStateSidecarPath( savePath ), { 5 } );
+		PreparedSaveMetadata failedPreparation = PrepareSaveMetadata( context );
+		const PreparedSaveMetadataCommitResult failedCommit =
+			CommitPreparedSaveMetadata(
+				context, savePath, std::move( failedPreparation ) );
+		CHECK( !failedCommit &&
+		       failedCommit.packages.captureError ==
+		           PackageSaveStateError::CallbackFailed &&
+		       !storage.exists( RuntimeCheckpointSidecarPath( savePath ) ) &&
+		       !storage.exists( PackageSaveStateSidecarPath( savePath ) ),
+		       "a failed optional metadata capture cannot leave a partial sidecar pair" );
+	}
+
+	{
 		TestLifecyclePackage randomOnlyPackage(
 			"rules.random-only-save", PackageKind::Rules );
 		randomOnlyPackage.usePackageRandomOnConfigure = true;

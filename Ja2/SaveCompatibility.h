@@ -86,6 +86,64 @@ struct PackageSaveMetadataResult
 	SaveCompatibilityState compatibilityState() const noexcept;
 };
 
+// A save captures all optional framework metadata at one paused-game boundary,
+// then commits those immutable values only after the legacy .sav has closed
+// successfully. This prevents independently sampled sidecars from describing
+// different runtime/package states.
+struct PreparedSaveMetadata
+{
+	RuntimeCheckpoint checkpoint;
+	PackageSaveStateSnapshot packageState;
+	RuntimeCheckpointSaveError checkpointError =
+		RuntimeCheckpointSaveError::InvalidCheckpoint;
+	PackageSaveStateError packageCaptureError =
+		PackageSaveStateError::RuntimeNotReady;
+	std::string packageId;
+	bool stateful = false;
+
+	explicit operator bool() const
+	{
+		return checkpointError == RuntimeCheckpointSaveError::None &&
+			packageCaptureError == PackageSaveStateError::None;
+	}
+};
+
+struct PreparedSaveMetadataCommitResult
+{
+	RuntimeCheckpointSaveError checkpointError =
+		RuntimeCheckpointSaveError::InvalidCheckpoint;
+	PackageSaveMetadataWriteResult packages{
+		false, PackageSaveStateError::RuntimeNotReady,
+		PackageSaveArchiveSaveError::None};
+	std::string packageId;
+
+	explicit operator bool() const
+	{
+		return checkpointError == RuntimeCheckpointSaveError::None && packages;
+	}
+};
+
+// The decoded load preflight is retained by value across the destructive
+// legacy load. Package bytes are never reopened, and restore is consumable so
+// a prepared boundary cannot invoke package callbacks twice.
+struct PreparedLoadMetadata
+{
+	SaveCompatibilityPolicy policy = SaveCompatibilityPolicy::Ignore;
+	SaveCompatibilityResult compatibility;
+	PackageSaveMetadataResult packages;
+	SaveCompatibilityLoadAction compatibilityAction =
+		SaveCompatibilityLoadAction::Allow;
+	SaveCompatibilityLoadAction packageAction =
+		SaveCompatibilityLoadAction::Allow;
+	bool packageRestorePending = false;
+
+	bool rejected() const
+	{
+		return compatibilityAction == SaveCompatibilityLoadAction::Reject ||
+			packageAction == SaveCompatibilityLoadAction::Reject;
+	}
+};
+
 // Unknown values retain the caller-supplied fallback. Canonical values are
 // ignore, warn, enforce-known, and require-metadata.
 SaveCompatibilityPolicy ParseSaveCompatibilityPolicy(
@@ -113,6 +171,16 @@ SaveCompatibilityLoadAction EvaluatePackageSaveMetadata(
 // builds without changing their save-slot discovery.
 std::string RuntimeCheckpointSidecarPath(const std::string& savePath);
 std::string PackageSaveStateSidecarPath(const std::string& savePath);
+
+PreparedSaveMetadata PrepareSaveMetadata(GameContext& context) noexcept;
+PreparedSaveMetadataCommitResult CommitPreparedSaveMetadata(
+	GameContext& context, const std::string& savePath,
+	PreparedSaveMetadata prepared) noexcept;
+
+PreparedLoadMetadata PrepareLoadMetadata(const GameContext& context,
+	const std::string& savePath, SaveCompatibilityPolicy policy) noexcept;
+PackageSaveStateLoadResult RestorePreparedPackageSaveState(
+	GameContext& context, PreparedLoadMetadata& prepared) noexcept;
 
 RuntimeCheckpointSaveError WriteSaveCompatibilityMetadata(
 	const GameContext& context, const std::string& savePath) noexcept;
