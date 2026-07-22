@@ -1,5 +1,6 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -24,11 +25,21 @@ void check(bool condition, const char* message)
 
 int main()
 {
+	constexpr TacticalEntityId invalidEntity;
+	constexpr TacticalEntityId firstIncarnation{7, 9001};
+	constexpr TacticalEntityId reusedSlot{7, 9002};
+	static_assert(!invalidEntity.valid(), "default tactical identity must be invalid");
+	static_assert(firstIncarnation.valid(), "slot and incarnation form a valid identity");
+	static_assert(firstIncarnation != reusedSlot,
+		"slot reuse must not preserve tactical identity");
+	check(firstIncarnation < reusedSlot,
+		"tactical identities have deterministic slot and incarnation ordering");
+
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{
 			17, 41, CommandJournalStatus::Applied,
 			SimulationCommand{BeginFireWeaponCommand{
-				7, 9001, -123, -1, 4, SimulationCommandSource::LocalPlayer}}},
+				firstIncarnation, -123, -1, 4, SimulationCommandSource::LocalPlayer}}},
 		RecordedSimulationCommand{
 			18, 42, CommandJournalStatus::Blocked,
 			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}}};
@@ -47,7 +58,7 @@ int main()
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
-			fire.soldierId == 7 && fire.uniqueSoldierId == 9001 &&
+			fire.soldier == firstIncarnation &&
 			fire.targetGrid == -123 && fire.targetLevel == -1 &&
 			fire.targetCubeLevel == 4 &&
 			fire.source == SimulationCommandSource::LocalPlayer &&

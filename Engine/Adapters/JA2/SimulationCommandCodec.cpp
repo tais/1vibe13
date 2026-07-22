@@ -57,8 +57,8 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 		else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
 		{
 			writer.writeU8(static_cast<std::uint8_t>(CommandTag::BeginFireWeapon));
-			writer.writeU16(value.soldierId);
-			writer.writeU32(value.uniqueSoldierId);
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
 			writer.writeI32(value.targetGrid);
 			writer.writeI8(value.targetLevel);
 			writer.writeI8(value.targetCubeLevel);
@@ -100,8 +100,8 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 		case CommandTag::BeginFireWeapon:
 		{
 			BeginFireWeaponCommand value{};
-			if (!reader.readU16(value.soldierId) ||
-				!reader.readU32(value.uniqueSoldierId) ||
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
 				!reader.readI32(value.targetGrid) ||
 				!reader.readI8(value.targetLevel) ||
 				!reader.readI8(value.targetCubeLevel) ||

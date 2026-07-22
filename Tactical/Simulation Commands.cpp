@@ -37,11 +37,11 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
 			{
-				if (value.soldierId < TOTAL_SOLDIERS)
+				if (value.soldier.slot < TOTAL_SOLDIERS)
 				{
-					SOLDIERTYPE* soldier = MercPtrs[value.soldierId];
+					SOLDIERTYPE* soldier = MercPtrs[value.soldier.slot];
 					if (soldier != nullptr &&
-						soldier->uiUniqueSoldierIdValue == value.uniqueSoldierId)
+						soldier->uiUniqueSoldierIdValue == value.soldier.incarnation)
 					{
 						SendBeginFireWeaponEvent(
 							soldier, value.targetGrid,
@@ -102,7 +102,8 @@ std::uint64_t DispatchBeginFireWeaponCommandNow(
 	const std::uint64_t sequence = game.submitCommand(
 		ImmediateCommandTick,
 		SimulationCommand{BeginFireWeaponCommand{
-			soldierId, uniqueSoldierId, targetGrid, targetLevel, targetCubeLevel, source}});
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			targetGrid, targetLevel, targetCubeLevel, source}});
 	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
 	return sequence;
 }

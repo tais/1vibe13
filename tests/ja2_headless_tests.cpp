@@ -44,6 +44,7 @@
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
 #include <Engine/Core/StateTransition.h>
@@ -1439,10 +1440,12 @@ int main( int, char** )
 		       "engine runtime carries value-only soldier stance commands" );
 		CHECK( context.submitRecordedCommand(
 		           9, 500, SimulationCommand{BeginFireWeaponCommand{
-		               17, 700, 1234, 0, 2, SimulationCommandSource::Replay}} ) &&
+		               TacticalEntityId{17, 700}, 1234, 0, 2,
+		               SimulationCommandSource::Replay}} ) &&
 		       !context.submitRecordedCommand(
 		           9, 500, SimulationCommand{BeginFireWeaponCommand{
-		               17, 700, 1234, 0, 2, SimulationCommandSource::Replay}} ),
+		               TacticalEntityId{17, 700}, 1234, 0, 2,
+		               SimulationCommandSource::Replay}} ),
 		       "engine runtime admits uniquely sequenced replay commands through the same journal" );
 	}
 

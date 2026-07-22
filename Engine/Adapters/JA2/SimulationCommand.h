@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <variant>
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
+
 enum class SimulationCommandSource : std::uint8_t
 {
 	LocalPlayer,
@@ -27,8 +29,7 @@ struct ChangeStanceCommand
 
 struct BeginFireWeaponCommand
 {
-	std::uint16_t soldierId;
-	std::uint32_t uniqueSoldierId;
+	TacticalEntityId soldier;
 	std::int32_t targetGrid;
 	std::int8_t targetLevel;
 	std::int8_t targetCubeLevel;

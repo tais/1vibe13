@@ -2,7 +2,8 @@ set(ja2_runtime_adapter_public_headers
   CommandReplay.h
   EngineRuntime.h
   SimulationCommand.h
-  SimulationCommandCodec.h)
+  SimulationCommandCodec.h
+  TacticalEntity.h)
 
 # JA2's deterministic command vocabulary and durable replay schema sit above
 # the reusable engine. The adapter depends on Engine/Core; Core never depends
