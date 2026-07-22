@@ -19,6 +19,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -540,6 +542,32 @@ int main()
 		commandStream.journal().size() == 4 &&
 		commandStream.queue().size() == 4,
 		"generic command stream rejects a conflicting batch transactionally");
+	DeterministicCommandQueue<int> reclaimedSequences;
+	for (int command = 0; command < 100000; ++command)
+	{
+		reclaimedSequences.enqueue(0, command);
+		reclaimedSequences.drainThrough(0);
+	}
+	check(reclaimedSequences.empty() && reclaimedSequences.liveSequenceCount() == 0 &&
+		!reclaimedSequences.enqueueRecorded(0, 99999, 1),
+		"completed command identities are retired without unbounded live storage");
+	DeterministicCommandQueue<int> exhaustedSequences;
+	const std::uint64_t maximumSequence = std::numeric_limits<std::uint64_t>::max();
+	const bool acceptedMaximum = exhaustedSequences.enqueueRecorded(0, maximumSequence, 1);
+	bool exhaustionReported = false;
+	try
+	{
+		exhaustedSequences.enqueue(0, 2);
+	}
+	catch (const std::overflow_error&)
+	{
+		exhaustionReported = true;
+	}
+	exhaustedSequences.drainThrough(0);
+	check(acceptedMaximum && exhaustionReported && exhaustedSequences.sequenceExhausted() &&
+		exhaustedSequences.liveSequenceCount() == 0 &&
+		!exhaustedSequences.enqueueRecorded(0, maximumSequence, 3),
+		"command sequence exhaustion fails explicitly without wrapping or reusing IDs");
 
 	StateRegistry<unsigned> states;
 	unsigned initialized = 0;

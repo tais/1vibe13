@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <deque>
 #include <iterator>
+#include <limits>
+#include <stdexcept>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -27,9 +29,10 @@ public:
 
 	std::uint64_t enqueue(std::uint64_t tick, Command command)
 	{
-		std::uint64_t sequence = nextSequence_;
-		while (usedSequences_.find(sequence) != usedSequences_.end()) ++sequence;
-		const auto inserted = usedSequences_.insert(sequence);
+		if (sequenceExhausted_)
+			throw std::overflow_error("deterministic command sequence exhausted");
+		const std::uint64_t sequence = nextSequence_;
+		const auto inserted = liveSequences_.insert(sequence);
 		if (!inserted.second) return sequence;
 		try
 		{
@@ -37,17 +40,22 @@ public:
 		}
 		catch (...)
 		{
-			usedSequences_.erase(inserted.first);
+			liveSequences_.erase(inserted.first);
 			throw;
 		}
-		nextSequence_ = sequence + 1;
+		advanceSequenceAfter(sequence);
 		ordered_ = false;
 		return sequence;
 	}
 
 	bool enqueueRecorded(std::uint64_t tick, std::uint64_t sequence, Command command)
 	{
-		const auto inserted = usedSequences_.insert(sequence);
+		// Sequence IDs are a monotonic runtime identity. Keeping only live IDs is
+		// sufficient when every retired or skipped ID is below this watermark;
+		// this prevents replays from reusing completed IDs without retaining one
+		// hash node for every command ever processed.
+		if (sequenceExhausted_ || sequence < nextSequence_) return false;
+		const auto inserted = liveSequences_.insert(sequence);
 		if (!inserted.second) return false;
 		try
 		{
@@ -55,10 +63,10 @@ public:
 		}
 		catch (...)
 		{
-			usedSequences_.erase(inserted.first);
+			liveSequences_.erase(inserted.first);
 			throw;
 		}
-		if (sequence >= nextSequence_) nextSequence_ = sequence + 1;
+		advanceSequenceAfter(sequence);
 		ordered_ = false;
 		return true;
 	}
@@ -75,8 +83,9 @@ public:
 				return false;
 		}
 		entries_.swap(staged.entries_);
-		usedSequences_.swap(staged.usedSequences_);
+		liveSequences_.swap(staged.liveSequences_);
 		std::swap(nextSequence_, staged.nextSequence_);
+		std::swap(sequenceExhausted_, staged.sequenceExhausted_);
 		std::swap(ordered_, staged.ordered_);
 		return true;
 	}
@@ -88,6 +97,8 @@ public:
 			[](std::uint64_t value, const Entry& entry) { return value < entry.tick; });
 		std::vector<Entry> ready;
 		ready.reserve(static_cast<std::size_t>(end - entries_.begin()));
+		for (auto entry = entries_.begin(); entry != end; ++entry)
+			liveSequences_.erase(entry->sequence);
 		std::move(entries_.begin(), end, std::back_inserter(ready));
 		entries_.erase(entries_.begin(), end);
 		return ready;
@@ -109,17 +120,21 @@ public:
 		if (!entries_.empty() && entries_.front().sequence == sequence)
 		{
 			entries_.pop_front();
+			liveSequences_.erase(sequence);
 			return true;
 		}
 		const auto entry = std::find_if(entries_.begin(), entries_.end(),
 			[sequence](const Entry& candidate) { return candidate.sequence == sequence; });
 		if (entry == entries_.end()) return false;
 		entries_.erase(entry);
+		liveSequences_.erase(sequence);
 		return true;
 	}
 
 	std::size_t size() const { return entries_.size(); }
 	bool empty() const { return entries_.empty(); }
+	std::size_t liveSequenceCount() const { return liveSequences_.size(); }
+	bool sequenceExhausted() const { return sequenceExhausted_; }
 
 private:
 	void ensureOrdered()
@@ -135,12 +150,23 @@ private:
 		return left.sequence < right.sequence;
 	}
 
+	void advanceSequenceAfter(std::uint64_t sequence)
+	{
+		if (sequence == std::numeric_limits<std::uint64_t>::max())
+		{
+			sequenceExhausted_ = true;
+			return;
+		}
+		nextSequence_ = sequence + 1;
+	}
+
 	// Normal ready acknowledgements remove from the front in constant time. The
 	// fallback supports a handler that enqueues and explicitly re-snapshots an
 	// earlier tick before returning.
 	std::deque<Entry> entries_;
-	std::unordered_set<std::uint64_t> usedSequences_;
+	std::unordered_set<std::uint64_t> liveSequences_;
 	std::uint64_t nextSequence_ = 0;
+	bool sequenceExhausted_ = false;
 	bool ordered_ = true;
 };
 
