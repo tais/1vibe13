@@ -10,25 +10,12 @@
 
 namespace
 {
-bool IsValidCommandSource(SimulationCommandSource source)
-{
-	switch (source)
-	{
-		case SimulationCommandSource::LocalPlayer:
-		case SimulationCommandSource::NetworkPeer:
-		case SimulationCommandSource::System:
-		case SimulationCommandSource::Replay:
-			return true;
-	}
-	return false;
-}
-
 bool IsValidPackageCommand(const SimulationCommand& command)
 {
 	if (command.valueless_by_exception()) return false;
 	return std::visit([](const auto& value) {
 		using Command = typename std::decay<decltype(value)>::type;
-		if (!IsValidCommandSource(value.source)) return false;
+		if (!IsValidSimulationCommandSource(value.source)) return false;
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
 			std::is_same<Command, BeginFireWeaponCommand>::value ||
 			std::is_same<Command, MoveToGridCommand>::value)

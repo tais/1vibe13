@@ -28,15 +28,8 @@ constexpr std::uint8_t MoveKnownFlags =
 
 bool IsValidSource(std::uint8_t value)
 {
-	switch (value)
-	{
-		case 0:
-		case 1:
-		case 2:
-		case 3:
-			return true;
-	}
-	return false;
+	return IsValidSimulationCommandSource(
+		static_cast<SimulationCommandSource>(value));
 }
 
 bool IsValidStatus(std::uint8_t value)

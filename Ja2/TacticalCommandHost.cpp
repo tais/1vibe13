@@ -6,13 +6,9 @@
 #include <type_traits>
 #include <variant>
 
-#include "Animation Control.h"
 #include "GameContext.h"
-#include "Map Information.h"
 #include "Overhead.h"
 #include "Simulation Commands.h"
-#include "Structure Internals.h"
-#include "worlddef.h"
 
 namespace
 {
@@ -49,39 +45,6 @@ bool RequiresCommandCancellation(PackageEventKind kind) noexcept
 			return false;
 	}
 	return false;
-}
-
-bool HasValidLegacyDomain(const SimulationCommand& command) noexcept
-{
-	if (command.valueless_by_exception()) return false;
-	return std::visit([](const auto& value) noexcept {
-		using Command = typename std::decay<decltype(value)>::type;
-		if constexpr (std::is_same<Command, EndTurnCommand>::value)
-		{
-			return value.nextTeam < MAXTEAMS;
-		}
-		else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
-		{
-			return value.soldier.slot < TOTAL_SOLDIERS &&
-				(value.stance == ANIM_STAND || value.stance == ANIM_CROUCH ||
-				 value.stance == ANIM_PRONE);
-		}
-		else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
-		{
-			return value.soldier.slot < TOTAL_SOLDIERS &&
-				value.targetGrid >= 0 && value.targetGrid < WORLD_MAX &&
-				(value.targetLevel == FIRST_LEVEL || value.targetLevel == SECOND_LEVEL) &&
-				value.targetCubeLevel >= 0 && value.targetCubeLevel <= PROFILE_Z_SIZE;
-		}
-		else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
-		{
-			return value.soldier.slot < TOTAL_SOLDIERS &&
-				value.destinationGrid >= 0 && value.destinationGrid < WORLD_MAX &&
-				value.movementMode < NUMANIMATIONSTATES &&
-				(gAnimControl[value.movementMode].uiFlags & ANIM_MOVING) != 0;
-		}
-		return false;
-	}, command);
 }
 
 bool HasTacticalExecutionContext(const SimulationCommand& command) noexcept
@@ -202,7 +165,8 @@ public:
 					IncrementSaturated(diagnostics_.inactiveOwnerRejections);
 					return TacticalCommandDisposition::Reject;
 				}
-				if (!HasValidLegacyDomain(request.command))
+				if (ValidateSimulationCommandDomain(request.command) !=
+					SimulationCommandDomainError::None)
 				{
 					if (!queueRequestReceipt(
 							request, TacticalCommandTerminalStatus::Rejected,

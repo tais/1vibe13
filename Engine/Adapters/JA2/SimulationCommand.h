@@ -14,6 +14,23 @@ enum class SimulationCommandSource : std::uint8_t
 	Replay
 };
 
+// Keep source validation beside the public wire vocabulary so package
+// ingress, codecs, and application executors cannot silently disagree when a
+// new producer is added.
+constexpr bool IsValidSimulationCommandSource(
+	SimulationCommandSource source) noexcept
+{
+	switch (source)
+	{
+		case SimulationCommandSource::LocalPlayer:
+		case SimulationCommandSource::NetworkPeer:
+		case SimulationCommandSource::System:
+		case SimulationCommandSource::Replay:
+			return true;
+	}
+	return false;
+}
+
 struct EndTurnCommand
 {
 	std::uint8_t nextTeam;

@@ -29,6 +29,26 @@ public:
 bool BindSimulationCommandExecutionSink(
 	SimulationCommandExecutionSink& sink) noexcept;
 
+enum class SimulationCommandDomainError
+{
+	None,
+	ValuelessCommand,
+	InvalidSource,
+	InvalidTeam,
+	InvalidActor,
+	InvalidStance,
+	InvalidTargetGrid,
+	InvalidTargetLevel,
+	InvalidTargetCubeLevel,
+	InvalidDestinationGrid,
+	InvalidMovementMode
+};
+
+// Complete value-domain validation shared by package admission and every
+// execution entry point. Live actor/context checks remain executor policy.
+SimulationCommandDomainError ValidateSimulationCommandDomain(
+	const SimulationCommand& command) noexcept;
+
 // Compatibility adapter: queue an engine-owned value command, then execute all
 // commands ready at the same simulation boundary. Existing EndTurn behavior
 // remains synchronous while replay/network producers gain a deterministic seam.

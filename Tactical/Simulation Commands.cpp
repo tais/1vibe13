@@ -31,14 +31,6 @@ namespace
 			gTacticalStatus.ubCurrentTeam < MAXTEAMS;
 	}
 
-	bool HasValidMoveDomain(const MoveToGridCommand& command) noexcept
-	{
-		return command.destinationGrid >= 0 &&
-			command.destinationGrid < WORLD_MAX &&
-			command.movementMode < NUMANIMATIONSTATES &&
-			(gAnimControl[command.movementMode].uiFlags & ANIM_MOVING) != 0;
-	}
-
 	SOLDIERTYPE* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
 	{
 		if (!gfWorldLoaded || !actor.valid() || actor.slot >= TOTAL_SOLDIERS)
@@ -53,6 +45,9 @@ namespace
 
 	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)
 	{
+		if (ValidateSimulationCommandDomain(command) !=
+			SimulationCommandDomainError::None)
+			return CommandDisposition::Discard;
 		return std::visit([](const auto& value) {
 			using Command = typename std::decay<decltype(value)>::type;
 			if constexpr (std::is_same<Command, EndTurnCommand>::value)
@@ -87,7 +82,7 @@ namespace
 			else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				if (!soldier || !HasValidMoveDomain(value) ||
+				if (!soldier ||
 					!IsValidMovementMode(soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
@@ -130,6 +125,58 @@ namespace
 					sink->commandProcessed(command, tick, sequence, disposition);
 			});
 	}
+}
+
+SimulationCommandDomainError ValidateSimulationCommandDomain(
+	const SimulationCommand& command) noexcept
+{
+	if (command.valueless_by_exception())
+		return SimulationCommandDomainError::ValuelessCommand;
+	return std::visit([](const auto& value) noexcept {
+		using Command = typename std::decay<decltype(value)>::type;
+		if (!IsValidSimulationCommandSource(value.source))
+			return SimulationCommandDomainError::InvalidSource;
+		if constexpr (std::is_same<Command, EndTurnCommand>::value)
+		{
+			return value.nextTeam < MAXTEAMS
+				? SimulationCommandDomainError::None
+				: SimulationCommandDomainError::InvalidTeam;
+		}
+		else
+		{
+			if (!value.soldier.valid() || value.soldier.slot >= TOTAL_SOLDIERS)
+				return SimulationCommandDomainError::InvalidActor;
+			if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
+			{
+				return value.stance == ANIM_STAND || value.stance == ANIM_CROUCH ||
+					value.stance == ANIM_PRONE
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidStance;
+			}
+			else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
+			{
+				if (value.targetGrid < 0 || value.targetGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidTargetGrid;
+				if (value.targetLevel != FIRST_LEVEL &&
+					value.targetLevel != SECOND_LEVEL)
+					return SimulationCommandDomainError::InvalidTargetLevel;
+				if (value.targetCubeLevel < 0 ||
+					value.targetCubeLevel > PROFILE_Z_SIZE)
+					return SimulationCommandDomainError::InvalidTargetCubeLevel;
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+			{
+				if (value.destinationGrid < 0 || value.destinationGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidDestinationGrid;
+				if (value.movementMode >= NUMANIMATIONSTATES ||
+					(gAnimControl[value.movementMode].uiFlags & ANIM_MOVING) == 0)
+					return SimulationCommandDomainError::InvalidMovementMode;
+				return SimulationCommandDomainError::None;
+			}
+		}
+		return SimulationCommandDomainError::ValuelessCommand;
+	}, command);
 }
 
 bool BindSimulationCommandExecutionSink(

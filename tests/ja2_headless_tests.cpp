@@ -1655,6 +1655,42 @@ int main( int, char** )
 	}
 
 	{
+		const TacticalEntityId actor{ 1, 101 };
+		const SimulationCommand validMove{ MoveToGridCommand{
+			actor, 100, WALKING, false, false,
+			SimulationCommandSource::LocalPlayer } };
+		CHECK(
+			ValidateSimulationCommandDomain( validMove ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
+				0xffu, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTeam &&
+			ValidateSimulationCommandDomain( SimulationCommand{ ChangeStanceCommand{
+				actor, 0xffu, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidStance &&
+			ValidateSimulationCommandDomain( SimulationCommand{ BeginFireWeaponCommand{
+				actor, -1, FIRST_LEVEL, 0,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{ BeginFireWeaponCommand{
+				actor, 100, 7, 0,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetLevel &&
+			ValidateSimulationCommandDomain( SimulationCommand{ BeginFireWeaponCommand{
+				actor, 100, FIRST_LEVEL, PROFILE_Z_SIZE + 1,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetCubeLevel &&
+			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
+				actor, WORLD_MAX, WALKING, false, false,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDestinationGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
+				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
+				SimulationCommandDomainError::InvalidSource,
+			"all tactical execution paths share complete value-domain validation" );
+	}
+
+	{
 		GAME_SETTINGS settings = {};
 		GAME_OPTIONS options = {};
 		GameContext context( settings, options );
