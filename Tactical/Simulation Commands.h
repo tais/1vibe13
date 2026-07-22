@@ -22,6 +22,13 @@ public:
 		CommandDisposition disposition) noexcept = 0;
 };
 
+// Installs the application-owned completion observer used by every execution
+// entry point, including synchronous compatibility dispatch. Binding the same
+// sink again is harmless; replacing a live binding is rejected. The sink must
+// outlive all command execution.
+bool BindSimulationCommandExecutionSink(
+	SimulationCommandExecutionSink& sink) noexcept;
+
 // Compatibility adapter: queue an engine-owned value command, then execute all
 // commands ready at the same simulation boundary. Existing EndTurn behavior
 // remains synchronous while replay/network producers gain a deterministic seam.

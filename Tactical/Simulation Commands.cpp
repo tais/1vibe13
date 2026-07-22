@@ -17,6 +17,12 @@ namespace
 {
 	constexpr std::uint64_t ImmediateCommandTick = 0;
 
+	SimulationCommandExecutionSink*& ApplicationExecutionSink() noexcept
+	{
+		static SimulationCommandExecutionSink* sink = nullptr;
+		return sink;
+	}
+
 	bool HasEndTurnExecutionContext() noexcept
 	{
 		constexpr UINT32 RequiredFlags = TURNBASED | INCOMBAT;
@@ -106,19 +112,33 @@ namespace
 		Process&& process, SimulationCommandExecutionSink* sink = nullptr)
 	{
 		GameContext& game = GetGameContext();
+		SimulationCommandExecutionSink* const applicationSink =
+			ApplicationExecutionSink();
 		return process(
 			game.commands(),
 			[](const SimulationCommand& command, std::uint64_t, std::uint64_t) {
 				return ExecuteSimulationCommand(command);
 			},
-			[&game, sink](const SimulationCommand& command, std::uint64_t tick,
+			[&game, applicationSink, sink](const SimulationCommand& command, std::uint64_t tick,
 				std::uint64_t sequence,
 				CommandDisposition disposition) {
 				game.commandJournal().recordDisposition(sequence, disposition);
-				if (sink)
+				if (applicationSink)
+					applicationSink->commandProcessed(
+						command, tick, sequence, disposition);
+				if (sink && sink != applicationSink)
 					sink->commandProcessed(command, tick, sequence, disposition);
 			});
 	}
+}
+
+bool BindSimulationCommandExecutionSink(
+	SimulationCommandExecutionSink& sink) noexcept
+{
+	SimulationCommandExecutionSink*& bound = ApplicationExecutionSink();
+	if (bound && bound != &sink) return false;
+	bound = &sink;
+	return true;
 }
 
 CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick)

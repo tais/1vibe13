@@ -2349,6 +2349,31 @@ int main( int, char** )
 		       commandHostActor.aiData.ubPendingAction == 7,
 		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
 
+		const TacticalCommandSubmissionResult immediateMoveDrainedTracked =
+			tacticalCommands.service->submit( packageId, staleMove );
+		const Ja2TacticalCommandHostDiagnostics beforeImmediateMoveDrain =
+			GetJa2TacticalCommandHostDiagnostics();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext, 0 );
+		const Ja2TacticalCommandHostDiagnostics retainedBeforeImmediateMove =
+			GetJa2TacticalCommandHostDiagnostics();
+		DispatchMoveToGridCommandNow(
+			0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+			false, false, SimulationCommandSource::System );
+		const Ja2TacticalCommandHostDiagnostics afterImmediateMoveDrain =
+			GetJa2TacticalCommandHostDiagnostics();
+		CHECK( immediateMoveDrainedTracked &&
+		       retainedBeforeImmediateMove.trackedCommands ==
+		           beforeImmediateMoveDrain.trackedCommands + 1 &&
+		       retainedBeforeImmediateMove.authoritativeBackpressure &&
+		       afterImmediateMoveDrain.trackedCommands ==
+		           beforeImmediateMoveDrain.trackedCommands &&
+		       afterImmediateMoveDrain.receiptsQueued ==
+		           retainedBeforeImmediateMove.receiptsQueued + 1,
+		       "immediate movement dispatch reports a tracked package command through the application sink" );
+		// Consume the retained host backpressure frame and publish the receipt
+		// before starting the independent bounded-admission fixture below.
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+
 		std::vector<std::uint64_t> boundedRequestIds;
 		boundedRequestIds.reserve( productionCommandLimits.maximumPerDrain + 1 );
 		bool boundedRequestsSubmitted = true;
@@ -2510,6 +2535,8 @@ int main( int, char** )
 		const auto inactiveOwnerResult = findCommandResult( inactiveOwner.requestId );
 		const auto unavailableContextResult = findCommandResult( unloadedContext.requestId );
 		const auto staleCommandResult = findCommandResult( staleRequest.requestId );
+		const auto immediateMoveDrainedResult =
+			findCommandResult( immediateMoveDrainedTracked.requestId );
 		const auto retainedCancellationResult =
 			findCommandResult( retainedForTeardown.requestId );
 		CHECK( commandResultSinkRegistered == RuntimeMessageSinkRegistrationError::None &&
@@ -2533,6 +2560,11 @@ int main( int, char** )
 		       staleCommandResult->authoritativeSequence == staleRecord->sequence &&
 		       staleCommandResult->status == TacticalCommandTerminalStatus::Discarded &&
 		       staleCommandResult->reason ==
+		           TacticalCommandTerminalReason::AuthoritativeDiscard &&
+		       immediateMoveDrainedResult != commandResults.end() &&
+		       immediateMoveDrainedResult->status ==
+		           TacticalCommandTerminalStatus::Discarded &&
+		       immediateMoveDrainedResult->reason ==
 		           TacticalCommandTerminalReason::AuthoritativeDiscard &&
 		       retainedCancellationResult != commandResults.end() &&
 		       retainedCancellationResult->status ==

@@ -132,6 +132,11 @@ public:
 			IncrementSaturated(diagnostics_.bindingFailures);
 			return false;
 		}
+		if (!BindSimulationCommandExecutionSink(*this))
+		{
+			IncrementSaturated(diagnostics_.bindingFailures);
+			return false;
+		}
 		game_ = &game;
 		return true;
 	}
@@ -426,7 +431,7 @@ private:
 		try
 		{
 			diagnostics_.lastProcessing = ExecuteSimulationCommandsThrough(
-				diagnostics_.simulationTick, maximumCommands, *this);
+				diagnostics_.simulationTick, maximumCommands);
 			diagnostics_.authoritativeBackpressure =
 				diagnostics_.lastProcessing.status != CommandProcessStatus::Completed;
 			if (diagnostics_.lastProcessing.status ==
