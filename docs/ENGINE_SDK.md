@@ -155,7 +155,10 @@ Optional source-built host services are discovered through `ServiceCatalog`
 using portable IDs and major/minor contracts. Registrations are non-owning and
 must outlive the host. The catalog seals when initialization or package
 bootstrap begins, so packages may safely retain a successfully resolved service
-for the runtime session. This is not yet a stable native plugin ABI.
+for the runtime session. `EngineServiceContract<Interface>` accepts a concrete
+implementation derived from that interface, while invalid/default contracts
+return structured registration or lookup errors. This is not yet a stable
+native plugin ABI.
 
 Hosts may also populate `RuntimeConfiguration` with portable keys and boolean,
 signed integer, double, or string values before initialization. Packages read

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -46,7 +47,9 @@ enum class EngineServiceLookupError
 	None,
 	NotFound,
 	IncompatibleVersion,
-	TypeMismatch
+	TypeMismatch,
+	InvalidDescriptor,
+	AllocationFailure
 };
 
 enum class EngineServiceAvailabilityError
@@ -87,7 +90,7 @@ struct EngineServiceLookupResult
 template<typename Service>
 struct EngineServiceContract
 {
-	const char* id;
+	const char* id = nullptr;
 	EngineServiceVersion version;
 };
 
@@ -124,11 +127,26 @@ public:
 		return EngineServiceRegistrationError::None;
 	}
 
-	template<typename Service>
+	template<typename Service, typename Implementation,
+		std::enable_if_t<std::is_convertible<Implementation*, Service*>::value, int> = 0>
 	EngineServiceRegistrationError registerService(
-		EngineServiceContract<Service> contract, Service& service) noexcept
+		EngineServiceContract<Service> contract, Implementation& implementation) noexcept
 	{
-		return registerService<Service>(contract.id, contract.version, service);
+		if (sealed_) return EngineServiceRegistrationError::Sealed;
+		if (!contract.id) return EngineServiceRegistrationError::InvalidDescriptor;
+		try
+		{
+			// Convert before erasing the pointer so multiple-inheritance base
+			// adjustment and the catalog's runtime type key both use the interface
+			// named by the contract rather than the concrete implementation type.
+			Service& service = implementation;
+			return registerService<Service>(
+				std::string(contract.id), contract.version, service);
+		}
+		catch (...)
+		{
+			return EngineServiceRegistrationError::AllocationFailure;
+		}
 	}
 
 	EngineServiceAvailabilityResult availability(
@@ -182,9 +200,24 @@ public:
 
 	template<typename Service>
 	EngineServiceLookupResult<Service> resolve(
-		EngineServiceContract<Service> contract) const
+		EngineServiceContract<Service> contract) const noexcept
 	{
-		return resolve<Service>(contract.id, contract.version);
+		if (!contract.id)
+			return EngineServiceLookupResult<Service>{
+				EngineServiceLookupError::InvalidDescriptor};
+		try
+		{
+			const std::string id(contract.id);
+			if (!IsValidEngineIdentifier(id) || contract.version.major == 0)
+				return EngineServiceLookupResult<Service>{
+					EngineServiceLookupError::InvalidDescriptor};
+			return resolve<Service>(id, contract.version);
+		}
+		catch (...)
+		{
+			return EngineServiceLookupResult<Service>{
+				EngineServiceLookupError::AllocationFailure};
+		}
 	}
 
 	void seal() { sealed_ = true; }

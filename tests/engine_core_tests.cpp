@@ -233,6 +233,27 @@ public:
 	bool active = false;
 };
 
+class ContractTestService
+{
+public:
+	virtual ~ContractTestService() = default;
+	virtual unsigned value() const = 0;
+};
+
+class ContractTestPadding
+{
+public:
+	virtual ~ContractTestPadding() = default;
+	unsigned padding = 7;
+};
+
+class ContractTestImplementation final : public ContractTestPadding,
+	public ContractTestService
+{
+public:
+	unsigned value() const override { return 42; }
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -548,6 +569,31 @@ int main()
 		namedDefaultHost.packageSaveArchives().maximumRecords() ==
 			PackageRegistry::MaximumSaveStateRecords,
 		"named host defaults preserve the positional host contract and fingerprint");
+
+	constexpr EngineServiceContract<ContractTestService> derivedServiceContract{
+		"test.derived-service", {1, 0}};
+	EngineServiceContract<ContractTestService> invalidServiceContract;
+	ServiceCatalog contractCatalog;
+	ContractTestImplementation contractImplementation;
+	const EngineServiceRegistrationError derivedServiceRegistration =
+		contractCatalog.registerService(
+			derivedServiceContract, contractImplementation);
+	const EngineServiceLookupResult<ContractTestService> derivedService =
+		contractCatalog.resolve(derivedServiceContract);
+	const EngineServiceRegistrationError invalidServiceRegistration =
+		contractCatalog.registerService(
+			invalidServiceContract, contractImplementation);
+	const EngineServiceLookupResult<ContractTestService> invalidService =
+		contractCatalog.resolve(invalidServiceContract);
+	check(derivedServiceRegistration == EngineServiceRegistrationError::None &&
+		derivedService && derivedService.service->value() == 42 &&
+		derivedService.service ==
+			static_cast<ContractTestService*>(&contractImplementation) &&
+		invalidServiceRegistration ==
+			EngineServiceRegistrationError::InvalidDescriptor &&
+		invalidService.error == EngineServiceLookupError::InvalidDescriptor &&
+		contractCatalog.size() == 1,
+		"typed service contracts bind derived implementations and reject invalid descriptors");
 
 	MemoryByteStorage optionStorage;
 	MemoryInputSource optionInput;

@@ -8,6 +8,8 @@
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/EngineHostOptions.h>
+#include <Engine/Core/EngineServiceContracts.h>
+#include <Engine/Core/ServiceCatalog.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -131,6 +133,22 @@ private:
 	bool active_ = false;
 };
 
+class ExternalTypedService
+{
+public:
+	virtual ~ExternalTypedService() = default;
+	virtual unsigned value() const = 0;
+};
+
+class ExternalTypedImplementation final : public ExternalTypedService
+{
+public:
+	unsigned value() const override { return 29; }
+};
+
+inline constexpr EngineServiceContract<ExternalTypedService>
+	ExternalTypedServiceContract{"external.typed-service", {1, 0}};
+
 int main()
 {
 	EngineHost<> legacyBraceHost({});
@@ -152,6 +170,16 @@ int main()
 		TacticalCommandInboxLimits{2, 1, 1, 64, 10});
 	if (RegisterTacticalCommandService(host.serviceCatalog(), commandInbox) !=
 		EngineServiceRegistrationError::None) return 33;
+	ExternalTypedImplementation typedServiceImplementation;
+	EngineServiceContract<ExternalTypedService> invalidTypedServiceContract;
+	if (host.serviceCatalog().registerService(
+			ExternalTypedServiceContract, typedServiceImplementation) !=
+			EngineServiceRegistrationError::None ||
+		host.serviceCatalog().registerService(
+			invalidTypedServiceContract, typedServiceImplementation) !=
+			EngineServiceRegistrationError::InvalidDescriptor ||
+		host.serviceCatalog().resolve(invalidTypedServiceContract).error !=
+			EngineServiceLookupError::InvalidDescriptor) return 43;
 	unsigned externalService = 17;
 	if (host.serviceCatalog().registerService(
 		"external.test-service", EngineServiceVersion{1, 2}, externalService) !=
@@ -252,7 +280,13 @@ int main()
 	const EngineServiceLookupResult<unsigned> resolved =
 		host.serviceCatalog().resolve<unsigned>(
 			"external.test-service", EngineServiceVersion{1, 1});
+	const EngineServiceLookupResult<ExternalTypedService> typedService =
+		host.serviceCatalog().resolve(ExternalTypedServiceContract);
+	const EngineServiceLookupResult<FrameTelemetry> telemetryService =
+		host.serviceCatalog().resolve(FrameTelemetryServiceContract);
 	if (!resolved || resolved.service != &externalService ||
+		!typedService || typedService.service->value() != 29 ||
+		!telemetryService || telemetryService.service != &host.frameTelemetry() ||
 		!host.serviceCatalog().sealed()) return 6;
 	const std::int64_t* configured =
 		host.configuration().find<std::int64_t>("external.test-value");

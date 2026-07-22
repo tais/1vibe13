@@ -254,8 +254,12 @@ inline TacticalCommandClientBindingResult BindTacticalCommandClient(
 			case EngineServiceLookupError::TypeMismatch:
 				error = TacticalCommandClientBindingError::TypeMismatch;
 				break;
+			case EngineServiceLookupError::AllocationFailure:
+				error = TacticalCommandClientBindingError::AllocationFailure;
+				break;
 			case EngineServiceLookupError::None:
 			case EngineServiceLookupError::NotFound:
+			case EngineServiceLookupError::InvalidDescriptor:
 				break;
 		}
 		return TacticalCommandClientBindingResult{
