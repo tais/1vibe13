@@ -548,7 +548,7 @@ static void CompleteGameFrame()
 		server_packet();
 	}
 
-	UpdateJa2TacticalWorldObserverAtSafeFrame();
+	UpdateJa2TacticalWorldObserverAtSafeFrame(GetGameContext().runtimeMessages());
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop done");
 }
 

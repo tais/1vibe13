@@ -2077,7 +2077,9 @@ int main( int, char** )
 				TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion );
 		const Ja2TacticalWorldObserverDiagnostics observerBeforeWorld =
 			GetJa2TacticalWorldObserverDiagnostics();
-		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
+		const std::size_t queuedBeforeWorld = liveRuntimeMessages.queued();
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		const Ja2TacticalWorldObserverDiagnostics unavailableObservation =
 			GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( tacticalWorldObserver && !tacticalWorldObserver.service->latest() &&
@@ -2086,7 +2088,11 @@ int main( int, char** )
 		       unavailableObservation.publicationSerial ==
 		           observerBeforeWorld.publicationSerial &&
 		       unavailableObservation.safeFrameUpdates ==
-		           observerBeforeWorld.safeFrameUpdates + 1,
+		           observerBeforeWorld.safeFrameUpdates + 1 &&
+		       unavailableObservation.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
+		       unavailableObservation.publishAttempts == 0 &&
+		       liveRuntimeMessages.queued() == queuedBeforeWorld,
 		       "pre-world safe frames harmlessly retain an unavailable observer service" );
 
 		SOLDIERTYPE* previousSlot = MercPtrs[0];
@@ -2148,7 +2154,11 @@ int main( int, char** )
 			compiledContext.commandJournal().snapshot();
 		const std::uint64_t replayDroppedBeforeObservation =
 			compiledContext.commandJournal().droppedCount();
-		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		HeadlessRuntimeMessageSink liveTacticalDeltaSink;
+		const bool liveTacticalDeltaSinkAdded =
+			liveRuntimeMessages.addSink( liveTacticalDeltaSink ) ==
+				RuntimeMessageSinkRegistrationError::None;
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		Ja2TacticalWorldObserverDiagnostics observerDiagnostics =
 			GetJa2TacticalWorldObserverDiagnostics();
 		TacticalWorldPublicationView observedPublication =
@@ -2160,12 +2170,16 @@ int main( int, char** )
 		       observerDiagnostics.publicationSerial == 1 && observedPublication &&
 		       observedPublication.status == TacticalWorldPublicationStatus::Baseline &&
 		       observedPublication.delta->events.empty() && observedActor &&
-		       observedActor->grid == 345 && observedActor->life == 76,
-		       "production safe-frame observation establishes a read-only tactical baseline" );
+		       observedActor->grid == 345 && observedActor->life == 76 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::BaselineSuppressed &&
+		       observerDiagnostics.publishAttempts == 0 && liveTacticalDeltaSinkAdded &&
+		       liveRuntimeMessages.queued() == 0 && liveTacticalDeltaSink.messages.empty(),
+		       "production baseline observation is retained without publishing a message" );
 
 		Menptr[0].sGridNo = 346;
 		Menptr[0].stats.bLife = 75;
-		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
 		observedActor = observedPublication
@@ -2179,11 +2193,46 @@ int main( int, char** )
 		           observedPublication.delta->events[0] ) &&
 		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
 		           observedPublication.delta->events[1] ) &&
-		       observedActor && observedActor->grid == 346 && observedActor->life == 75,
-		       "production safe-frame observation publishes deterministic live tactical deltas" );
+		       observedActor && observedActor->grid == 346 && observedActor->life == 75 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::Published &&
+		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
+		       observerDiagnostics.handledDeltaSerial == 2 &&
+		       observerDiagnostics.publishedDeltaSerial == 2 &&
+		       observerDiagnostics.messageSequence != 0 &&
+		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.publishedMessages == 1 &&
+		       liveRuntimeMessages.queued() == 1 && liveTacticalDeltaSink.messages.empty(),
+		       "production safe-frame bridge queues one message for a new non-empty delta" );
+
+		const FrameRunResult tacticalDeltaDeliveryFrame =
+			compiledContext.frameDriver().runFrame(
+				[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		TacticalWorldDelta deliveredLiveDelta;
+		const RuntimeMessage* deliveredLiveMessage =
+			liveTacticalDeltaSink.messages.size() == 1
+				? &liveTacticalDeltaSink.messages[0] : nullptr;
+		const bool deliveredLiveDeltaDecoded = deliveredLiveMessage &&
+			DecodeTacticalWorldDelta(
+				deliveredLiveMessage->payload, deliveredLiveDelta ) ==
+					TacticalWorldDeltaDecodeResult::Success;
+		CHECK( tacticalDeltaDeliveryFrame.messages.messages == 1 &&
+		       liveRuntimeMessages.queued() == 0 && deliveredLiveDeltaDecoded &&
+		       deliveredLiveMessage->topic == TacticalWorldDeltaMessageTopic &&
+		       deliveredLiveMessage->source == TacticalWorldDeltaMessageSource &&
+		       deliveredLiveDelta.events.size() == 2 &&
+		       std::holds_alternative<TacticalActorMovedEvent>(
+		           deliveredLiveDelta.events[0] ) &&
+		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
+		           deliveredLiveDelta.events[1] ) &&
+		       std::get<TacticalActorMovedEvent>( deliveredLiveDelta.events[0] ).currentGrid ==
+		           346 &&
+		       std::get<TacticalActorVitalsChangedEvent>(
+		           deliveredLiveDelta.events[1] ).currentLife == 75,
+		       "queued tactical delta reaches package sinks and decodes on the next frame" );
 
 		Menptr[0].uiUniqueSoldierIdValue = 0;
-		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
 		observedActor = observedPublication
@@ -2192,12 +2241,136 @@ int main( int, char** )
 		           TacticalWorldObserverUpdateResult::SourceAdapterFailure &&
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
 		       observedPublication.delta->events.size() == 2 && observedActor &&
-		       observedActor->grid == 346 && observedActor->life == 75,
+		       observedActor->grid == 346 && observedActor->life == 75 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
+		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.publishedMessages == 1 &&
+		       liveRuntimeMessages.queued() == 0,
 		       "live adapter failure preserves the last complete observer publication" );
 
 		Menptr[0].uiUniqueSoldierIdValue = 701;
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedDelta &&
+		       observerDiagnostics.publicationSerial == 3 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
+		       observerDiagnostics.handledDeltaSerial == 3 &&
+		       observerDiagnostics.publishedDeltaSerial == 2 &&
+		       observerDiagnostics.publishAttempts == 1 &&
+		       observerDiagnostics.publishedMessages == 1 &&
+		       liveRuntimeMessages.queued() == 0,
+		       "unchanged live captures suppress empty and duplicate delta messages" );
+
+		RuntimeMessageBus saturatedTacticalMessages(
+			1, liveRuntimeMessages.maxPayloadBytes() );
+		const RuntimeMessagePublishResult saturatedFiller =
+			saturatedTacticalMessages.publish(
+				RuntimeMessageRequest{ "test.queue-fill", "test.headless", {} } );
+		Menptr[0].sGridNo = 347;
+		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		observedPublication = tacticalWorldObserver.service->latest();
+		observedActor = observedPublication
+			? observedPublication.snapshot->find( TacticalEntityId{ 0, 701 } ) : nullptr;
+		CHECK( saturatedFiller && saturatedTacticalMessages.queued() == 1 &&
+		       liveRuntimeMessages.queued() == 0 &&
+		       observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedDelta &&
+		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
+		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
+		       observerDiagnostics.handledDeltaSerial == 4 &&
+		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.publishedDeltaSerial == 2 &&
+		       observerDiagnostics.publishAttempts == 2 &&
+		       observerDiagnostics.publicationFailures == 1 && observedActor &&
+		       observedActor->grid == 347 && observedPublication.delta->events.size() == 1,
+		       "queue-full publication retains one bounded observer delta for retry" );
+
+		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( saturatedTacticalMessages.queued() == 1 &&
+		       liveRuntimeMessages.queued() == 0 &&
+		       observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedDelta &&
+		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::PublishFailed &&
+		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::QueueFull &&
+		       observerDiagnostics.handledDeltaSerial == 4 &&
+		       observerDiagnostics.pendingDeltaSerial == 4 &&
+		       observerDiagnostics.publishedDeltaSerial == 2 &&
+		       observerDiagnostics.publishAttempts == 3 &&
+		       observerDiagnostics.publishedMessages == 1 &&
+		       observerDiagnostics.publicationFailures == 2,
+		       "a failed retry backpressures observation and retains the same delta serial" );
+
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( liveRuntimeMessages.queued() == 1 &&
+		       observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedDelta &&
+		       observerDiagnostics.publicationSerial == 4 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::Published &&
+		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
+		       observerDiagnostics.handledDeltaSerial == 4 &&
+		       observerDiagnostics.pendingDeltaSerial == 0 &&
+		       observerDiagnostics.publishedDeltaSerial == 4 &&
+		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.publishedMessages == 2 &&
+		       observerDiagnostics.publicationFailures == 2,
+		       "the next safe frame retries the retained serial before taking another observation" );
+
+		const FrameRunResult retriedDeltaDeliveryFrame =
+			compiledContext.frameDriver().runFrame(
+				[] { return FramePlan{ false, FramePresentMode::Paced }; }, [] {} );
+		TacticalWorldDelta retriedLiveDelta;
+		const RuntimeMessage* retriedLiveMessage =
+			liveTacticalDeltaSink.messages.size() == 2
+				? &liveTacticalDeltaSink.messages[1] : nullptr;
+		const bool retriedLiveDeltaDecoded = retriedLiveMessage &&
+			DecodeTacticalWorldDelta(
+				retriedLiveMessage->payload, retriedLiveDelta ) ==
+					TacticalWorldDeltaDecodeResult::Success;
+		const bool liveTacticalDeltaSinkRemoved =
+			liveRuntimeMessages.removeSink( liveTacticalDeltaSink ) ==
+				RuntimeMessageSinkRegistrationError::None;
+		CHECK( retriedDeltaDeliveryFrame.messages.messages == 1 &&
+		       liveRuntimeMessages.queued() == 0 && retriedLiveDeltaDecoded &&
+		       retriedLiveMessage->topic == TacticalWorldDeltaMessageTopic &&
+		       retriedLiveMessage->source == TacticalWorldDeltaMessageSource &&
+		       retriedLiveDelta.events.size() == 1 &&
+		       std::holds_alternative<TacticalActorMovedEvent>(
+		           retriedLiveDelta.events[0] ) &&
+		       std::get<TacticalActorMovedEvent>(
+		           retriedLiveDelta.events[0] ).currentGrid == 347 &&
+		       liveTacticalDeltaSinkRemoved,
+		       "the retained tactical delta is delivered and decodes on the next frame" );
+
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( liveRuntimeMessages.queued() == 0 &&
+		       observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedDelta &&
+		       observerDiagnostics.publicationSerial == 5 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
+		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
+		       observerDiagnostics.handledDeltaSerial == 5 &&
+		       observerDiagnostics.pendingDeltaSerial == 0 &&
+		       observerDiagnostics.publishedDeltaSerial == 4 &&
+		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.publishedMessages == 2 &&
+		       observerDiagnostics.publicationFailures == 2,
+		       "observation resumes after retry and suppresses the unchanged frame" );
+
 		gfWorldLoaded = FALSE;
-		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		const PackageSaveStateCaptureResult packageSaveAfterObservation =
 			compiledContext.capturePackageSaveState();
@@ -2205,9 +2378,16 @@ int main( int, char** )
 			compiledContext.commandJournal().snapshot();
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::SourceUnavailable &&
-		       observerDiagnostics.publicationSerial == 2 &&
+		       observerDiagnostics.publicationSerial == 5 &&
 		       observerDiagnostics.safeFrameUpdates ==
-		           observerBeforeWorld.safeFrameUpdates + 5 &&
+		           observerBeforeWorld.safeFrameUpdates + 10 &&
+		       observerDiagnostics.bridgeResult ==
+		           Ja2TacticalWorldDeltaBridgeResult::ObservationSuppressed &&
+		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&
+		       observerDiagnostics.pendingDeltaSerial == 0 &&
+		       observerDiagnostics.publishAttempts == 4 &&
+		       observerDiagnostics.publishedMessages == 2 &&
+		       observerDiagnostics.publicationFailures == 2 &&
 		       packageSaveAfterObservation.error == packageSaveBeforeObservation.error &&
 		       packageSaveAfterObservation.packageId == packageSaveBeforeObservation.packageId &&
 		       packageSaveAfterObservation.snapshot.records.size() ==
@@ -2217,9 +2397,9 @@ int main( int, char** )
 		           replayDroppedBeforeObservation &&
 		       MercPtrs[0] == &Menptr[0] &&
 		       Menptr[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 346 &&
+		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 347 &&
 		       Menptr[0].stats.bLife == 75,
-		       "safe-frame observation leaves save state, replay capture, and legacy storage unchanged" );
+		       "delta publication leaves save state, replay capture, and legacy storage unchanged" );
 		MercPtrs[0] = previousSlot;
 		Menptr[0].bActive = previousActive;
 		Menptr[0].bInSector = previousInSector;
