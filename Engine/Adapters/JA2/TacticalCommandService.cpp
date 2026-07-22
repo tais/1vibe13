@@ -20,8 +20,13 @@ bool IsValidPackageCommand(const SimulationCommand& command)
 			return value.soldier.valid() &&
 				IsValidTacticalMoveOrigin(value.origin) &&
 				IsValidTacticalPendingActionPolicy(value.pendingAction);
+		if constexpr (std::is_same<Command, SetFacingCommand>::value)
+			return value.soldier.valid() &&
+				IsValidTacticalDirection(value.direction);
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value)
+			std::is_same<Command, BeginFireWeaponCommand>::value ||
+			std::is_same<Command, SetStealthModeCommand>::value ||
+			std::is_same<Command, StopMovementCommand>::value)
 			return value.soldier.valid();
 		return true;
 	}, command);

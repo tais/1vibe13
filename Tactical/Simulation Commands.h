@@ -43,7 +43,8 @@ enum class SimulationCommandDomainError
 	InvalidDestinationGrid,
 	InvalidMovementMode,
 	InvalidMoveOrigin,
-	InvalidPendingActionPolicy
+	InvalidPendingActionPolicy,
+	InvalidDirection
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -122,6 +123,23 @@ SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
 	std::uint16_t movementMode,
 	bool reverse,
 	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSetFacingCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint8_t direction,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSetStealthModeCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	bool enabled,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
 // Source-compatible wrappers for legacy callers. New production migrations use

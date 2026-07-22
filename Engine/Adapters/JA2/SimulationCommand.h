@@ -113,6 +113,33 @@ struct MoveToGridCommand
 		TacticalPendingActionPolicy::Clear;
 };
 
+struct SetFacingCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t direction;
+	SimulationCommandSource source;
+};
+
+inline constexpr std::uint8_t TacticalDirectionCount = 8;
+
+constexpr bool IsValidTacticalDirection(std::uint8_t direction) noexcept
+{
+	return direction < TacticalDirectionCount;
+}
+
+struct SetStealthModeCommand
+{
+	TacticalEntityId soldier;
+	bool enabled;
+	SimulationCommandSource source;
+};
+
+struct StopMovementCommand
+{
+	TacticalEntityId soldier;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -120,6 +147,9 @@ using SimulationCommand = std::variant<
 	EndTurnCommand,
 	ChangeStanceCommand,
 	BeginFireWeaponCommand,
-	MoveToGridCommand>;
+	MoveToGridCommand,
+	SetFacingCommand,
+	SetStealthModeCommand,
+	StopMovementCommand>;
 
 #endif

@@ -110,6 +110,33 @@ namespace
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
 			}
+			else if constexpr (std::is_same<Command, SetFacingCommand>::value)
+			{
+				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
+				{
+					SendSoldierSetDesiredDirectionEvent(soldier, value.direction);
+					return CommandDisposition::Applied;
+				}
+				return CommandDisposition::Discard;
+			}
+			else if constexpr (std::is_same<Command, SetStealthModeCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier ||
+					(soldier->flags.uiStatusFlags & SOLDIER_VEHICLE) != 0)
+					return CommandDisposition::Discard;
+				soldier->bStealthMode = value.enabled ? TRUE : FALSE;
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, StopMovementCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier) return CommandDisposition::Discard;
+				soldier->flags.fDelayedMovement = FALSE;
+				soldier->pathing.sFinalDestination = soldier->sGridNo;
+				soldier->StopSoldier();
+				return CommandDisposition::Applied;
+			}
 			else
 			{
 				return CommandDisposition::Discard;
@@ -203,6 +230,18 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 					return SimulationCommandDomainError::InvalidMoveOrigin;
 				if (!IsValidTacticalPendingActionPolicy(value.pendingAction))
 					return SimulationCommandDomainError::InvalidPendingActionPolicy;
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, SetFacingCommand>::value)
+			{
+				return IsValidTacticalDirection(value.direction)
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidDirection;
+			}
+			else if constexpr (
+				std::is_same<Command, SetStealthModeCommand>::value ||
+				std::is_same<Command, StopMovementCommand>::value)
+			{
 				return SimulationCommandDomainError::None;
 			}
 		}
@@ -398,6 +437,38 @@ SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
 		SimulationCommand{MoveToGridCommand{
 			TacticalEntityId{soldierId, uniqueSoldierId}, destinationGrid,
 			movementMode, reverse, forceRestart, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchSetFacingCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint8_t direction,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{SetFacingCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, direction, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchSetStealthModeCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	bool enabled,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{SetStealthModeCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, enabled, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{StopMovementCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
 }
 
 std::uint64_t DispatchEndTurnCommandNow(

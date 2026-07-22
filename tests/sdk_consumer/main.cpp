@@ -393,6 +393,15 @@ int main()
 		observer.latest().serial != 1) return 41;
 
 	EngineRuntime<> commandRuntime(EngineHostOptions{}, services);
+	const SimulationCommand externalFacing{SetFacingCommand{
+		actorId, 2, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalStealth{SetStealthModeCommand{
+		actorId, true, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalStop{StopMovementCommand{
+		actorId, SimulationCommandSource::LocalPlayer}};
+	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
+		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
+		!std::holds_alternative<StopMovementCommand>(externalStop)) return 45;
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
 		37, MoveToGridCommand{
 			actorId, 1300, 6, true, false,

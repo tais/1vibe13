@@ -18,7 +18,10 @@ enum class CommandTag : std::uint8_t
 	EndTurn = 1,
 	ChangeStance = 2,
 	BeginFireWeapon = 3,
-	MoveToGrid = 4
+	MoveToGrid = 4,
+	SetFacing = 5,
+	SetStealthMode = 6,
+	StopMovement = 7
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -66,8 +69,13 @@ bool IsValidCommand(const SimulationCommand& command)
 			return value.soldier.valid() &&
 				IsValidTacticalMoveOrigin(value.origin) &&
 				IsValidTacticalPendingActionPolicy(value.pendingAction);
+		if constexpr (std::is_same<Command, SetFacingCommand>::value)
+			return value.soldier.valid() &&
+				IsValidTacticalDirection(value.direction);
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value)
+			std::is_same<Command, BeginFireWeaponCommand>::value ||
+			std::is_same<Command, SetStealthModeCommand>::value ||
+			std::is_same<Command, StopMovementCommand>::value)
 			return value.soldier.valid();
 		return true;
 	}, command);
@@ -114,6 +122,29 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 			writer.writeU8(static_cast<std::uint8_t>(value.origin));
 			writer.writeU8(static_cast<std::uint8_t>(value.pendingAction));
+		}
+		else if constexpr (std::is_same<Command, SetFacingCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::SetFacing));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.direction);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, SetStealthModeCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::SetStealthMode));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.enabled ? 1u : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, StopMovementCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::StopMovement));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
 }
@@ -195,6 +226,43 @@ bool ReadCommand(
 				value.pendingAction =
 					static_cast<TacticalPendingActionPolicy>(pendingAction);
 			}
+			command = value;
+			return true;
+		}
+		case CommandTag::SetFacing:
+		{
+			if (version < 5) return false;
+			SetFacingCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!ReadSource(reader, value.source)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::SetStealthMode:
+		{
+			if (version < 5) return false;
+			SetStealthModeCommand value{};
+			std::uint8_t enabled = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() || !reader.readU8(enabled) || enabled > 1 ||
+				!ReadSource(reader, value.source)) return false;
+			value.enabled = enabled != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::StopMovement:
+		{
+			if (version < 5) return false;
+			StopMovementCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() || !ReadSource(reader, value.source))
+				return false;
 			command = value;
 			return true;
 		}

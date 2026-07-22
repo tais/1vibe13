@@ -1696,6 +1696,10 @@ int main( int, char** )
 				TacticalMoveOrigin::System,
 				static_cast<TacticalPendingActionPolicy>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidPendingActionPolicy &&
+			ValidateSimulationCommandDomain( SimulationCommand{ SetFacingCommand{
+				actor, TacticalDirectionCount,
+				SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDirection &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
@@ -2529,6 +2533,34 @@ int main( int, char** )
 		       commandHostActor.bReverse == FALSE &&
 		       commandHostActor.aiData.ubPendingAction == 7,
 		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
+
+		beginCommandTestFrame();
+		commandHostActor.bStealthMode = FALSE;
+		const SimulationCommandDispatchResult stealthEnabled =
+			TryDispatchSetStealthModeCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, true,
+				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		commandHostActor.sGridNo = 77;
+		commandHostActor.pathing.sFinalDestination = 99;
+		commandHostActor.flags.fDelayedMovement = TRUE;
+		commandHostActor.usAnimState = STANDING;
+		const SimulationCommandDispatchResult movementStopped =
+			TryDispatchStopMovementCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult facingQueued =
+			TryDispatchSetFacingCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue, 3,
+				SimulationCommandSource::System );
+		CHECK( stealthEnabled.status == SimulationCommandDispatchStatus::Applied &&
+		       commandHostActor.bStealthMode == TRUE &&
+		       movementStopped.status == SimulationCommandDispatchStatus::Applied &&
+		       commandHostActor.flags.fDelayedMovement == FALSE &&
+		       commandHostActor.pathing.sFinalDestination == commandHostActor.sGridNo &&
+		       facingQueued.status == SimulationCommandDispatchStatus::Applied,
+		       "structured facing, stealth, and stop commands execute through the authoritative path" );
 
 		const std::uint64_t oneCommandFrame = ++commandTestFrameSequence;
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
