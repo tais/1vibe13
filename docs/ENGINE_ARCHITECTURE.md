@@ -358,6 +358,9 @@ not accidentally.
    package requirements compare their opaque version strings byte-for-byte.
 6. Deterministic simulation code cannot read wall-clock or render timing as an
    input to rules decisions.
+7. Portable identifiers, version labels, and logical asset paths have shared
+   byte ceilings so accepted runtime metadata remains archive-compatible and
+   cannot bypass payload memory budgets.
 
 ## Extraction sequence
 

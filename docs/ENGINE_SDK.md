@@ -171,6 +171,12 @@ package's ID. Record names are portable identifiers and data uses the engine's
 bounded checksummed envelope format under `PackageData/<package>/<record>.bin`.
 This is the preferred durable-state API for new packages.
 
+Portable package, capability, service, message, locale, definition, and record
+identifiers are limited to 256 bytes; opaque package version labels use the
+same ceiling. Logical asset paths are limited to 4096 bytes before
+normalization. These metadata bounds are separate from payload limits and are
+enforced consistently by live queues, catalogs, and persisted sidecars.
+
 State that belongs to a particular game save uses a separate contract. Set
 `PackageDescriptor::saveStateSchemaVersion` to a non-zero version and override
 `saveState`, `validateState`, and `loadState`. Capture publishes opaque bytes;

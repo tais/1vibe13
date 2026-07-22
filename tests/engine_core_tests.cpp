@@ -282,6 +282,24 @@ int main()
 		"compiled core normalizes portable asset paths");
 	check(!NormalizeAssetPath("../Data/secret", path),
 		"compiled core rejects traversal paths");
+	const std::string maximumIdentifier(MaximumEngineIdentifierBytes, 'a');
+	const std::string oversizedIdentifier(MaximumEngineIdentifierBytes + 1, 'a');
+	const std::string maximumLogicalPath(MaximumLogicalAssetPathBytes, 'a');
+	const std::string oversizedLogicalPath(MaximumLogicalAssetPathBytes + 1, 'a');
+	check(IsValidEngineIdentifier(maximumIdentifier) &&
+		!IsValidEngineIdentifier(oversizedIdentifier) &&
+		NormalizeAssetPath(maximumLogicalPath, path) &&
+		path == maximumLogicalPath &&
+		!NormalizeAssetPath(oversizedLogicalPath, path) && path.empty(),
+		"public identifiers and logical paths enforce exact metadata bounds");
+	ContentRegistry boundedMetadataContent(CurrentContentApiVersion);
+	check(boundedMetadataContent.registerContent(ContentManifest{
+			oversizedIdentifier, "1", CurrentContentApiVersion}) ==
+			ContentRegistrationError::InvalidManifest &&
+		boundedMetadataContent.registerContent(ContentManifest{
+			"metadata.version", std::string(MaximumEngineVersionBytes + 1, '1'),
+			CurrentContentApiVersion}) == ContentRegistrationError::InvalidManifest,
+		"content manifests reject metadata that cannot round-trip through archives");
 	MemoryAssetSource metadataAssets("test.assets");
 	metadataAssets.put("Data/Metadata.bin", {1, 2, 3});
 	AssetMetadata metadata;

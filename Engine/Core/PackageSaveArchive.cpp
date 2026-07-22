@@ -11,15 +11,11 @@ namespace
 {
 constexpr std::uint32_t ArchiveMagic = 0x54534750u; // "PGST" on disk.
 constexpr std::uint16_t ArchiveVersion = 1;
-constexpr std::size_t MaximumIdentifierBytes = 256;
-constexpr std::size_t MaximumVersionBytes = 256;
-
 bool ValidRecordIdentity(const PackageSaveStateRecord& record)
 {
-	return record.packageId.size() <= MaximumIdentifierBytes &&
-		IsValidEngineIdentifier(record.packageId) &&
+	return IsValidEngineIdentifier(record.packageId) &&
 		!record.packageVersion.empty() &&
-		record.packageVersion.size() <= MaximumVersionBytes &&
+		record.packageVersion.size() <= MaximumEngineVersionBytes &&
 		record.schemaVersion != 0;
 }
 
@@ -127,8 +123,10 @@ PackageSaveArchiveLoadResult PackageSaveArchiveService::load(const std::string& 
 		{
 			PackageSaveStateRecord record;
 			std::uint64_t payloadBytes = 0;
-			if (!reader.readStringBounded(record.packageId, MaximumIdentifierBytes) ||
-				!reader.readStringBounded(record.packageVersion, MaximumVersionBytes) ||
+			if (!reader.readStringBounded(
+					record.packageId, MaximumEngineIdentifierBytes) ||
+				!reader.readStringBounded(
+					record.packageVersion, MaximumEngineVersionBytes) ||
 				!reader.readU32(record.schemaVersion) ||
 				!reader.readU64(payloadBytes) || !ValidRecordIdentity(record))
 				return {PackageSaveArchiveLoadError::MalformedPayload, decoded.compatibility};
