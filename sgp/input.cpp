@@ -76,10 +76,14 @@ INT16	 gusMouseYPos;					// y position of the mouse on screen
 
 // The queue structures are used to track input events using queued events
 
-InputAtom gEventQueue[256];
+static constexpr UINT16 InputQueueCapacity = 256;
+InputAtom gEventQueue[InputQueueCapacity];
 UINT16	gusQueueCount;
 UINT16	gusHeadIndex;
 UINT16	gusTailIndex;
+static UINT64 gAcceptedInputEvents;
+static UINT64 gDroppedInputEvents;
+static UINT64 gInputEventsEvictedForRelease;
 
 // ATE: Added to signal if we have had input this frame - cleared by the SGP main loop
 BOOLEAN		gfSGPInputReceived = FALSE;
@@ -247,6 +251,9 @@ BOOLEAN InitializeInputManager(void)
 	gusQueueCount				= 0;
 	gusHeadIndex				= 0;
 	gusTailIndex				= 0;
+	gAcceptedInputEvents		= 0;
+	gDroppedInputEvents		= 0;
+	gInputEventsEvictedForRelease = 0;
 	// By default, we will not queue mousemove events
 	gfTrackMousePos				= FALSE;
 	// Initialize other variables
@@ -311,13 +318,79 @@ static void AppendQueuedInputEvent(UINT16 eventType, UINT32 primary, UINT32 seco
 	event.uiParam = secondary;
 
 	++gusQueueCount;
-	gusTailIndex = gusTailIndex == 255 ? 0 : gusTailIndex + 1;
+	gusTailIndex = gusTailIndex + 1 == InputQueueCapacity ? 0 : gusTailIndex + 1;
+	++gAcceptedInputEvents;
 
 	// The compatibility queue is authoritative. Mirroring is non-throwing and
 	// happens only after that queue has accepted the event.
 	PublishPlatformInputEvent(EngineInputEvent{
 		timestamp, keyState, eventType, primary, secondary
 	});
+}
+
+static bool IsInputRelease(UINT16 eventType)
+{
+	return eventType == KEY_UP || eventType == LEFT_BUTTON_UP ||
+		eventType == RIGHT_BUTTON_UP || eventType == MIDDLE_BUTTON_UP ||
+		eventType == X1_BUTTON_UP || eventType == X2_BUTTON_UP;
+}
+
+static bool IsExpendableInput(UINT16 eventType)
+{
+	return eventType == KEY_REPEAT || eventType == LEFT_BUTTON_REPEAT ||
+		eventType == RIGHT_BUTTON_REPEAT || eventType == MIDDLE_BUTTON_REPEAT ||
+		eventType == X1_BUTTON_REPEAT || eventType == X2_BUTTON_REPEAT ||
+		eventType == MOUSE_POS;
+}
+
+static UINT16 QueuedInputIndex(UINT16 offset)
+{
+	const UINT16 index = static_cast<UINT16>(gusHeadIndex + offset);
+	return index >= InputQueueCapacity ? static_cast<UINT16>(index - InputQueueCapacity) : index;
+}
+
+static void RemoveQueuedInputAt(UINT16 offset)
+{
+	for (UINT16 current = offset; current + 1 < gusQueueCount; ++current)
+		gEventQueue[QueuedInputIndex(current)] = gEventQueue[QueuedInputIndex(current + 1)];
+	gusTailIndex = gusTailIndex == 0 ? InputQueueCapacity - 1 : gusTailIndex - 1;
+	--gusQueueCount;
+}
+
+static bool MakeRoomForInput(UINT16 eventType)
+{
+	if (gusQueueCount < InputQueueCapacity) return true;
+	if (!IsInputRelease(eventType))
+	{
+		++gDroppedInputEvents;
+		return false;
+	}
+
+	UINT16 victim = 0;
+	bool found = false;
+	for (UINT16 offset = 0; offset < gusQueueCount; ++offset)
+	{
+		if (!IsExpendableInput(gEventQueue[QueuedInputIndex(offset)].usEvent)) continue;
+		victim = offset;
+		found = true;
+		break;
+	}
+	if (!found)
+	{
+		for (UINT16 offset = 0; offset < gusQueueCount; ++offset)
+		{
+			if (IsInputRelease(gEventQueue[QueuedInputIndex(offset)].usEvent)) continue;
+			victim = offset;
+			found = true;
+			break;
+		}
+	}
+	// A queue containing only releases still admits the newest transition. The
+	// displaced release already describes an older state boundary, whereas the
+	// incoming one may be the only way to clear a newly released control.
+	RemoveQueuedInputAt(found ? victim : 0);
+	++gInputEventsEvictedForRelease;
+	return true;
 }
 
 void QueuePureEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
@@ -328,12 +401,9 @@ void QueuePureEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	uiTimer = GetTickCount();
 	usKeyState = gfShiftState | gfCtrlState | gfAltState;
 
-	// Can we queue up one more event, if not, the event is lost forever
-	if (gusQueueCount == 256)
-	{
-		// No more queue space
-		return;
-	}
+	// Repeated/non-critical input may be dropped at capacity; releases displace
+	// older expendable work so consumers cannot remain logically held down.
+	if (!MakeRoomForInput(ubInputEvent)) return;
 
 	AppendQueuedInputEvent(ubInputEvent, usParam, uiParam, uiTimer, usKeyState);
 }
@@ -346,12 +416,8 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	uiTimer = GetTickCount();
 	usKeyState = gfShiftState | gfCtrlState | gfAltState;
 
-	// Can we queue up one more event, if not, the event is lost forever
-	if (gusQueueCount == 256)
-	{
-		// No more queue space
-		return;
-	}
+	// Preserve state-clearing releases under a repeat or motion storm.
+	if (!MakeRoomForInput(ubInputEvent)) return;
 
 	if (ubInputEvent == LEFT_BUTTON_DOWN)
 	{
@@ -382,7 +448,8 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	if ( (ubInputEvent == LEFT_BUTTON_UP) )
 	{
 		// Do we have a double click
-		if ( ( uiTimer - guiSingleClickTimer ) < DBL_CLK_TIME && gusQueueCount <= 254 )
+		if ( ( uiTimer - guiSingleClickTimer ) < DBL_CLK_TIME &&
+			gusQueueCount <= InputQueueCapacity - 2 )
 		{
 			// This path enqueues TWO events, so ensure room for both before writing
 			guiSingleClickTimer = 0;
@@ -402,6 +469,16 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	}
 
 	AppendQueuedInputEvent(ubInputEvent, usParam, uiParam, uiTimer, usKeyState);
+}
+
+InputQueueStatistics GetInputQueueStatistics(void)
+{
+	EnterCriticalSection(&gcsInputQueueLock);
+	const InputQueueStatistics statistics{
+		gAcceptedInputEvents, gDroppedInputEvents,
+		gInputEventsEvictedForRelease, gusQueueCount};
+	LeaveCriticalSection(&gcsInputQueueLock);
+	return statistics;
 }
 
 

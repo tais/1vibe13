@@ -3310,6 +3310,30 @@ int main( int, char** )
 		       "platform input discards stale events across manager lifecycles" );
 	}
 
+	{
+		CHECK( InitializeInputManager(), "InitializeInputManager() for saturation coverage" );
+		for ( UINT32 index = 0; index < 256; ++index )
+			QueueEvent( KEY_REPEAT, index, 0 );
+		QueueEvent( KEY_REPEAT, 999, 0 );
+		QueueEvent( KEY_UP, 'A', 0 );
+		QueueEvent( LEFT_BUTTON_UP, 0, 0 );
+		const InputQueueStatistics saturated = GetInputQueueStatistics();
+		InputAtom atom = {};
+		std::vector<UINT16> releases;
+		UINT32 repeats = 0;
+		while ( DequeueEvent( &atom ) )
+		{
+			if ( atom.usEvent == KEY_REPEAT ) ++repeats;
+			if ( atom.usEvent == KEY_UP || atom.usEvent == LEFT_BUTTON_UP )
+				releases.push_back( atom.usEvent );
+		}
+		CHECK( saturated.accepted == 258 && saturated.dropped == 1 &&
+		       saturated.evictedForRelease == 2 && saturated.queued == 256 &&
+		       repeats == 254 && releases == std::vector<UINT16>({ KEY_UP, LEFT_BUTTON_UP }),
+		       "saturated input preserves ordered key and mouse releases by evicting repeats" );
+		ShutdownInputManager();
+	}
+
 	// The VFS profiler/logger timer used to have no macOS return path and its
 	// Linux timeval calculation lost whole seconds. Exercise the portable
 	// monotonic implementation without depending on a wall-clock epoch.
