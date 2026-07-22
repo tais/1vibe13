@@ -1,6 +1,7 @@
 #include <Engine/Core/RuntimeFingerprint.h>
 
 #include <cstring>
+#include <unordered_map>
 
 namespace
 {
@@ -146,9 +147,15 @@ RuntimeCompatibilityFingerprint BuildRuntimeCompatibilityFingerprint(
 	builder.addU64(packages.supportedApi.major);
 	builder.addU64(packages.supportedApi.minor);
 	builder.addU64(packages.activationOrder.size());
+	std::unordered_map<std::string, const PackageCatalogEntry*> packagesById;
+	packagesById.reserve(packages.packages.size());
+	for (const PackageCatalogEntry& package : packages.packages)
+		packagesById.emplace(package.descriptor.content.id, &package);
 	for (const std::string& packageId : packages.activationOrder)
 	{
-		const PackageCatalogEntry* package = packages.find(packageId);
+		const auto found = packagesById.find(packageId);
+		const PackageCatalogEntry* package = found == packagesById.end()
+			? nullptr : found->second;
 		builder.addU64(package ? 1 : 0);
 		if (package) AddPackage(builder, package->descriptor);
 		else builder.addString(packageId);

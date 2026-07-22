@@ -327,6 +327,9 @@ the engine must not contain SDL types in its public domain model.
   entity identities, audio playback, deferred work, and random-stream use. It
   also reports totals and any invariant-breaking unattributed record, giving
   tooling evidence for future per-package quotas and legacy-code retirement.
+  A full diagnostic capture now takes each owned snapshot once and reuses it
+  for resource accounting and the compatibility fingerprint; package,
+  dependency, resource, and fingerprint joins use indexed identities.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier

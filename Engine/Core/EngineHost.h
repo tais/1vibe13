@@ -262,8 +262,8 @@ public:
 	const PackageTaskQueue& packageTasks() const { return packageTasks_; }
 	PackageResourceUsageSnapshot packageResourceUsage() const
 	{
-		return BuildPackageResourceUsage(packages_.catalog(), localization_.snapshot(),
-			definitions_.snapshot(), entities_.snapshot(), audioGroups_.snapshot(),
+		return BuildPackageResourceUsage(packages_.catalog(), localization_.entries(),
+			definitions_.records(), entities_.snapshot(), audioGroups_.snapshot(),
 			packageTasks_.snapshot(), packages_.randomUsageSnapshot());
 	}
 	ServiceCatalog& serviceCatalog() { return serviceCatalog_; }
@@ -307,21 +307,35 @@ public:
 	RuntimeCompatibilityFingerprint compatibilityFingerprint() const
 	{
 		return BuildRuntimeCompatibilityFingerprint(
-			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.snapshot(),
-			runtimeCapabilities(), definitions_.snapshot());
+			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.entries(),
+			runtimeCapabilities(), definitions_.records());
 	}
 	RuntimeDiagnosticsSnapshot diagnostics() const
 	{
-		return RuntimeDiagnosticsSnapshot{
-			lifecycle(), frameTelemetry_.snapshot(), packages_.catalog(),
-			packages_.assetCache().statistics(), faultJournal_.snapshot(),
-			localization_.snapshot(), definitions_.snapshot(), entities_.snapshot(),
-			audioGroups_.snapshot(), packageTasks_.snapshot(), packageResourceUsage(),
-			serviceCatalog_.snapshot(),
-			runtimeConfiguration_.snapshot(), runtimeCapabilities(),
-			compatibilityFingerprint(),
-			runtimeMessages_.queued(), frameDriver_.completedFrames(),
-			simulationTicks_.completedTickSequence()};
+		RuntimeDiagnosticsSnapshot result;
+		result.lifecycle = lifecycle();
+		result.frames = frameTelemetry_.snapshot();
+		result.packages = packages_.catalog();
+		result.assetCache = packages_.assetCache().statistics();
+		result.faults = faultJournal_.snapshot();
+		result.localization = localization_.snapshot();
+		result.definitions = definitions_.snapshot();
+		result.entities = entities_.snapshot();
+		result.packageAudio = audioGroups_.snapshot();
+		result.packageTasks = packageTasks_.snapshot();
+		result.packageResources = BuildPackageResourceUsage(
+			result.packages, result.localization, result.definitions, result.entities,
+			result.packageAudio, result.packageTasks, packages_.randomUsageSnapshot());
+		result.services = serviceCatalog_.snapshot();
+		result.configuration = runtimeConfiguration_.snapshot();
+		result.capabilities = runtimeCapabilities();
+		result.compatibility = BuildRuntimeCompatibilityFingerprint(
+			result.packages, result.services, result.configuration,
+			result.capabilities, result.definitions);
+		result.queuedMessages = runtimeMessages_.queued();
+		result.completedFrames = frameDriver_.completedFrames();
+		result.completedSimulationTicks = simulationTicks_.completedTickSequence();
+		return result;
 	}
 	RuntimeReport runtimeReport() const
 	{

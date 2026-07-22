@@ -1015,17 +1015,10 @@ public:
 		{
 			const auto registered = packages_.find(manifest.id);
 			if (registered == packages_.end()) continue;
-			const std::vector<PackageRandomStreamSnapshot> streams =
-				registered->second.random.snapshot();
-			std::uint64_t generated = 0;
-			for (const PackageRandomStreamSnapshot& stream : streams)
-			{
-				const std::uint64_t maximum = std::numeric_limits<std::uint64_t>::max();
-				generated = stream.valuesGenerated > maximum - generated
-					? maximum : generated + stream.valuesGenerated;
-			}
 			result.push_back(PackageRandomUsageSnapshot{
-				manifest.id, static_cast<std::uint64_t>(streams.size()), generated});
+				manifest.id,
+				static_cast<std::uint64_t>(registered->second.random.streamCount()),
+				registered->second.random.valuesGenerated()});
 		}
 		return result;
 	}
@@ -1042,6 +1035,19 @@ public:
 		snapshot.completedBootstrapPhases = completedBootstrapPhases_;
 		snapshot.activeCapabilities = activeCapabilities();
 		snapshot.packages.reserve(content_.manifests().size());
+		std::unordered_map<std::string, std::size_t> activeIndex;
+		activeIndex.reserve(active_.size());
+		for (std::size_t index = 0; index < active_.size(); ++index)
+			activeIndex.emplace(active_[index], index);
+		std::unordered_map<std::string, std::vector<std::string>> dependentsById;
+		dependentsById.reserve(content_.manifests().size());
+		for (const ContentManifest& consumer : content_.manifests())
+		{
+			for (const ContentRequirement& requirement : consumer.requirements)
+				dependentsById[requirement.id].push_back(consumer.id);
+			for (const ContentRequirement& requirement : consumer.optionalRequirements)
+				dependentsById[requirement.id].push_back(consumer.id);
+		}
 
 		// ContentRegistry preserves host discovery order. Building the catalog
 		// from it prevents unordered registry storage from leaking nondeterminism
@@ -1050,7 +1056,7 @@ public:
 		{
 			const auto registered = packages_.find(manifest.id);
 			if (registered == packages_.end()) continue;
-			const auto active = std::find(active_.begin(), active_.end(), manifest.id);
+			const auto active = activeIndex.find(manifest.id);
 			PackageCatalogEntry entry{
 				PackageDescriptor{manifest, registered->second.kind,
 					registered->second.capabilities, registered->second.messageTopics,
@@ -1062,25 +1068,13 @@ public:
 				registered->second.active ? PackageLifecycleState::Active
 				                          : PackageLifecycleState::Registered,
 				registered->second.assetsMounted,
-				active == active_.end()
+				active == activeIndex.end()
 					? PackageCatalogEntry::NotActive
-					: static_cast<std::size_t>(active - active_.begin()),
+					: active->second,
 				{}, registered->second.runtimeHealth};
-			for (const ContentManifest& consumer : content_.manifests())
-			{
-				for (const ContentRequirement& requirement : consumer.requirements)
-				{
-					if (requirement.id != manifest.id) continue;
-					entry.dependents.push_back(consumer.id);
-					break;
-				}
-				for (const ContentRequirement& requirement : consumer.optionalRequirements)
-				{
-					if (requirement.id != manifest.id) continue;
-					entry.dependents.push_back(consumer.id);
-					break;
-				}
-			}
+			const auto dependents = dependentsById.find(manifest.id);
+			if (dependents != dependentsById.end())
+				entry.dependents = dependents->second;
 			snapshot.packages.push_back(std::move(entry));
 		}
 		return snapshot;

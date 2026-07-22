@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -48,6 +49,17 @@ public:
 	const std::string& packageId() const { return packageId_; }
 	std::size_t maximumStreams() const { return maximumStreams_; }
 	std::size_t streamCount() const { return streams_.size(); }
+	std::uint64_t valuesGenerated() const
+	{
+		std::uint64_t result = 0;
+		for (const auto& stream : streams_)
+		{
+			const std::uint64_t maximum = std::numeric_limits<std::uint64_t>::max();
+			result = stream.second.valuesGenerated > maximum - result
+				? maximum : result + stream.second.valuesGenerated;
+		}
+		return result;
+	}
 
 	PackageRandomResult next(const std::string& streamId,
 		std::uint32_t upperBound) noexcept

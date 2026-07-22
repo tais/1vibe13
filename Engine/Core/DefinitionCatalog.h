@@ -147,6 +147,7 @@ public:
 	}
 
 	std::vector<DefinitionRecord> snapshot() const { return records_; }
+	const std::vector<DefinitionRecord>& records() const { return records_; }
 	std::size_t size() const { return records_.size(); }
 	std::size_t maximumEntries() const { return maximumEntries_; }
 	std::size_t maximumPayloadBytes() const { return maximumPayloadBytes_; }

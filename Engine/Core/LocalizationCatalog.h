@@ -132,6 +132,7 @@ public:
 	}
 
 	std::vector<LocalizationEntry> snapshot() const { return entries_; }
+	const std::vector<LocalizationEntry>& entries() const { return entries_; }
 	std::size_t size() const { return entries_.size(); }
 	std::size_t maximumEntries() const { return maximumEntries_; }
 	std::size_t maximumTextBytes() const { return maximumTextBytes_; }
