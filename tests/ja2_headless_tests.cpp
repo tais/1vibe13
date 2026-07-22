@@ -45,6 +45,7 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
@@ -120,6 +121,17 @@ static BOOLEAN InjectedLegacyClockKeyState( INT32 key )
 #define CHECK( cond, msg ) \
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
+
+class HeadlessRuntimeMessageSink final : public RuntimeMessageSink
+{
+public:
+	void receiveMessage( const RuntimeMessage& message ) override
+	{
+		messages.push_back( message );
+	}
+
+	std::vector<RuntimeMessage> messages;
+};
 
 class ScopedPackageFixture
 {
@@ -2131,6 +2143,36 @@ int main( int, char** )
 		gWorldSectorX = previousSectorX;
 		gWorldSectorY = previousSectorY;
 		gbWorldSectorZ = previousSectorZ;
+
+		RuntimeMessageBus tacticalDeltaMessages( 1, 256 );
+		HeadlessRuntimeMessageSink tacticalDeltaSink;
+		TacticalWorldDeltaPublisher tacticalDeltaPublisher(
+			tacticalDeltaMessages, TacticalWorldDeltaPublishLimits{ 1, 256 } );
+		TacticalWorldDelta headlessDelta;
+		headlessDelta.previousEpoch = 23;
+		headlessDelta.currentEpoch = 23;
+		headlessDelta.events.push_back( TacticalActorMovedEvent{
+			TacticalEntityId{ 0, 701 }, 344, 345, 0, 1, 2, 3 } );
+		const bool tacticalDeltaSinkAdded =
+			tacticalDeltaMessages.addSink( tacticalDeltaSink ) ==
+				RuntimeMessageSinkRegistrationError::None;
+		const TacticalWorldDeltaPublishResult headlessDeltaPublished =
+			tacticalDeltaPublisher.publish( headlessDelta );
+		const RuntimeMessageDispatchResult headlessDeltaDispatch =
+			tacticalDeltaMessages.dispatchPending();
+		TacticalWorldDelta receivedHeadlessDelta;
+		const bool headlessDeltaDecoded = tacticalDeltaSink.messages.size() == 1 &&
+			DecodeTacticalWorldDelta(
+				tacticalDeltaSink.messages[0].payload, receivedHeadlessDelta ) ==
+				TacticalWorldDeltaDecodeResult::Success;
+		CHECK( tacticalDeltaSinkAdded && headlessDeltaPublished &&
+		       headlessDeltaPublished.sequence == 1 && headlessDeltaDispatch.messages == 1 &&
+		       headlessDeltaDispatch.delivered == 1 && headlessDeltaDecoded &&
+		       tacticalDeltaSink.messages[0].topic == TacticalWorldDeltaMessageTopic &&
+		       tacticalDeltaSink.messages[0].source == TacticalWorldDeltaMessageSource &&
+		       receivedHeadlessDelta.events.size() == 1 &&
+		       std::get<TacticalActorMovedEvent>( receivedHeadlessDelta.events[0] ).currentGrid == 345,
+		       "headless package messaging delivers standalone encoded tactical deltas" );
 	}
 
 	{

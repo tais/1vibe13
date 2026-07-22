@@ -6,6 +6,7 @@ set(ja2_runtime_adapter_public_headers
   TacticalEntity.h
   TacticalWorldDelta.h
   TacticalWorldDeltaCodec.h
+  TacticalWorldDeltaPublisher.h
   TacticalWorldService.h
   TacticalWorldSnapshot.h)
 
@@ -17,6 +18,7 @@ add_library(ja2_runtime_adapter STATIC
   SimulationCommandCodec.cpp
   TacticalWorldDelta.cpp
   TacticalWorldDeltaCodec.cpp
+  TacticalWorldDeltaPublisher.cpp
   ${ja2_runtime_adapter_public_headers})
 add_library(JA2::RuntimeAdapter ALIAS ja2_runtime_adapter)
 

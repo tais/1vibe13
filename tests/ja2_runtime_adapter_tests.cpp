@@ -3,6 +3,7 @@
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
+#include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
@@ -81,6 +82,17 @@ std::vector<std::uint8_t> EncodeSingleCodecEvent(TacticalWorldEvent event)
 		TacticalWorldDeltaEncodeResult::Success) bytes.clear();
 	return bytes;
 }
+
+class RecordingRuntimeMessageSink final : public RuntimeMessageSink
+{
+public:
+	void receiveMessage(const RuntimeMessage& message) override
+	{
+		messages.push_back(message);
+	}
+
+	std::vector<RuntimeMessage> messages;
+};
 }
 
 int main()
@@ -355,6 +367,127 @@ int main()
 			TacticalWorldDeltaEncodeResult::TooManyEvents &&
 		unchangedBytes == std::vector<std::uint8_t>({0xaa, 0x55}),
 		"invalid tactical deltas fail transactionally before publication");
+
+	check(IsValidEngineIdentifier(TacticalWorldDeltaMessageTopic) &&
+		IsValidEngineIdentifier(TacticalWorldDeltaMessageSource),
+		"tactical delta messages use stable package-safe topic and source identifiers");
+	RuntimeMessageBus tacticalMessages(2, encodedDelta.size());
+	RecordingRuntimeMessageSink tacticalMessageSink;
+	TacticalWorldDeltaPublisher tacticalPublisher(
+		tacticalMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+	const TacticalWorldDeltaPublishResult tacticalPublished =
+		tacticalPublisher.publish(codecFixture);
+	const RuntimeMessageDispatchResult tacticalDispatch =
+		tacticalMessages.addSink(tacticalMessageSink) ==
+			RuntimeMessageSinkRegistrationError::None
+			? tacticalMessages.dispatchPending()
+			: RuntimeMessageDispatchResult{};
+	TacticalWorldDelta deliveredDelta;
+	const bool deliveredPayloadDecodes = tacticalMessageSink.messages.size() == 1 &&
+		DecodeTacticalWorldDelta(
+			tacticalMessageSink.messages[0].payload, deliveredDelta) ==
+			TacticalWorldDeltaDecodeResult::Success;
+	check(tacticalPublished && tacticalPublished.sequence == 1 &&
+		tacticalPublished.payloadBytes == encodedDelta.size() &&
+		tacticalDispatch.messages == 1 && tacticalDispatch.delivered == 1 &&
+		deliveredPayloadDecodes && deliveredDelta.events.size() == 8 &&
+		tacticalMessageSink.messages[0].topic == TacticalWorldDeltaMessageTopic &&
+		tacticalMessageSink.messages[0].source == TacticalWorldDeltaMessageSource &&
+		tacticalMessageSink.messages[0].payload == encodedDelta,
+		"tactical delta publisher delivers unchanged deterministic codec bytes to package sinks");
+
+	check(
+		MapTacticalWorldDeltaEncodeError(TacticalWorldDeltaEncodeResult::Success) ==
+			TacticalWorldDeltaPublishError::None &&
+		MapTacticalWorldDeltaEncodeError(TacticalWorldDeltaEncodeResult::Invalid) ==
+			TacticalWorldDeltaPublishError::InvalidDelta &&
+		MapTacticalWorldDeltaEncodeError(TacticalWorldDeltaEncodeResult::TooManyEvents) ==
+			TacticalWorldDeltaPublishError::TooManyEvents &&
+		MapTacticalWorldDeltaEncodeError(
+			TacticalWorldDeltaEncodeResult::AllocationFailure) ==
+			TacticalWorldDeltaPublishError::CodecAllocationFailure &&
+		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::PayloadTooLarge) ==
+			TacticalWorldDeltaPublishError::PayloadTooLarge &&
+		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::QueueFull) ==
+			TacticalWorldDeltaPublishError::QueueFull &&
+		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::SequenceExhausted) ==
+			TacticalWorldDeltaPublishError::SequenceExhausted &&
+		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::AllocationFailure) ==
+			TacticalWorldDeltaPublishError::MessageAllocationFailure &&
+		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::InvalidTopic) ==
+			TacticalWorldDeltaPublishError::InvalidMessageIdentifier &&
+		MapTacticalWorldDeltaMessageError(RuntimeMessagePublishError::InvalidSource) ==
+			TacticalWorldDeltaPublishError::InvalidMessageIdentifier,
+		"tactical delta publication explicitly maps every codec and bus failure family");
+
+	RuntimeMessageBus validationMessages(2, encodedDelta.size());
+	TacticalWorldDeltaPublisher validationPublisher(
+		validationMessages, TacticalWorldDeltaPublishLimits{7, encodedDelta.size()});
+	invalidDelta = codecFixture;
+	invalidDelta.previousEpoch = 0;
+	const TacticalWorldDeltaPublishResult invalidPublication =
+		validationPublisher.publish(invalidDelta);
+	const TacticalWorldDeltaPublishResult eventLimitedPublication =
+		validationPublisher.publish(codecFixture);
+	TacticalWorldDeltaPublisher validationSuccessPublisher(
+		validationMessages, TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+	const TacticalWorldDeltaPublishResult afterValidationFailures =
+		validationSuccessPublisher.publish(codecFixture);
+	check(invalidPublication.error == TacticalWorldDeltaPublishError::InvalidDelta &&
+		invalidPublication.sequence == 0 && invalidPublication.payloadBytes == 0 &&
+		eventLimitedPublication.error == TacticalWorldDeltaPublishError::TooManyEvents &&
+		eventLimitedPublication.sequence == 0 &&
+		afterValidationFailures.sequence == 1 && validationMessages.queued() == 1,
+		"codec and event-limit rejection cannot enqueue or consume a message sequence");
+
+	RuntimeMessageBus busPayloadMessages(2, encodedDelta.size() - 1);
+	TacticalWorldDeltaPublisher busPayloadPublisher(
+		busPayloadMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size() + 100});
+	const TacticalWorldDeltaPublishResult busPayloadRejected =
+		busPayloadPublisher.publish(codecFixture);
+	const TacticalWorldDeltaPublishResult smallerPayloadAccepted =
+		busPayloadPublisher.publish(resetDelta);
+	RuntimeMessageBus callerPayloadMessages(2, encodedDelta.size());
+	TacticalWorldDeltaPublisher callerPayloadPublisher(
+		callerPayloadMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size() - 1});
+	const TacticalWorldDeltaPublishResult callerPayloadRejected =
+		callerPayloadPublisher.publish(codecFixture);
+	TacticalWorldDeltaPublisher callerPayloadSuccessPublisher(
+		callerPayloadMessages,
+		TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+	const TacticalWorldDeltaPublishResult afterCallerPayloadFailure =
+		callerPayloadSuccessPublisher.publish(codecFixture);
+	check(busPayloadPublisher.maximumPayloadBytes() == encodedDelta.size() - 1 &&
+		busPayloadRejected.error == TacticalWorldDeltaPublishError::PayloadTooLarge &&
+		busPayloadRejected.payloadBytes == encodedDelta.size() &&
+		smallerPayloadAccepted.sequence == 1 &&
+		callerPayloadPublisher.maximumPayloadBytes() == encodedDelta.size() - 1 &&
+		callerPayloadRejected.error == TacticalWorldDeltaPublishError::PayloadTooLarge &&
+		afterCallerPayloadFailure.sequence == 1,
+		"caller payload limits are clamped by the bus and reject without advancing sequences");
+
+	RuntimeMessageBus fullMessages(1, encodedDelta.size());
+	TacticalWorldDeltaPublisher fullPublisher(
+		fullMessages, TacticalWorldDeltaPublishLimits{8, encodedDelta.size()});
+	const TacticalWorldDeltaPublishResult firstQueued = fullPublisher.publish(resetDelta);
+	const TacticalWorldDeltaPublishResult queueRejected = fullPublisher.publish(resetDelta);
+	const RuntimeMessageDispatchResult drainedFullQueue = fullMessages.dispatchPending();
+	const TacticalWorldDeltaPublishResult afterQueueFailure = fullPublisher.publish(resetDelta);
+	RuntimeMessageBus boundedMessages(1, encodedDelta.size());
+	TacticalWorldDeltaPublisher boundedPublisher(
+		boundedMessages,
+		TacticalWorldDeltaPublishLimits{
+			MaximumTacticalWorldDeltaEvents + 100, encodedDelta.size() + 100});
+	check(firstQueued.sequence == 1 &&
+		queueRejected.error == TacticalWorldDeltaPublishError::QueueFull &&
+		queueRejected.sequence == 0 && queueRejected.payloadBytes == resetBytes.size() &&
+		drainedFullQueue.messages == 1 && afterQueueFailure.sequence == 2 &&
+		boundedPublisher.maximumEvents() == MaximumTacticalWorldDeltaEvents &&
+		boundedPublisher.maximumPayloadBytes() == encodedDelta.size(),
+		"queue-full publication is atomic and configured limits cannot exceed codec or bus bounds");
 
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{
