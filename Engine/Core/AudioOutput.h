@@ -68,6 +68,10 @@ public:
 		volumeChanges_.push_back(std::make_pair(playback, volume));
 		return true;
 	}
+	void finish(AudioPlaybackId playback)
+	{
+		if (playback != 0) stopped_.push_back(playback);
+	}
 	const std::vector<AudioPlaybackRequest>& requests() const { return requests_; }
 
 private:

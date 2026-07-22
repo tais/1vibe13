@@ -491,11 +491,20 @@ int main()
 			AudioPlaybackRequest{"audio/third.wav"}).error ==
 			PackageAudioPlayError::CapacityReached,
 		"package audio groups normalize assets, isolate owners, and enforce a live bound");
+	groupedAudioOutput.finish(firstGroupedPlayback.playback);
+	const PackageAudioPruneResult prunedAudio = audioGroups.pruneFinished();
+	const PackageAudioPlayResult replacementGroupedPlayback = audioGroups.play(
+		"mod.audio", "ui", AudioPlaybackRequest{"audio/replacement.wav"});
+	check(prunedAudio.checked == 2 && prunedAudio.retired == 1 &&
+		prunedAudio.queryFailures == 0 && replacementGroupedPlayback &&
+		audioGroups.size() == 2,
+		"naturally completed package audio releases bounded playback capacity");
 	const PackageAudioOperationResult releasedAudio = audioGroups.releasePackage("mod.audio");
 	check(releasedAudio.matched == 2 && releasedAudio.succeeded == 2 &&
 		audioGroups.size() == 0 &&
 		!groupedAudioOutput.isPlaying(firstGroupedPlayback.playback) &&
-		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback),
+		!groupedAudioOutput.isPlaying(secondGroupedPlayback.playback) &&
+		!groupedAudioOutput.isPlaying(replacementGroupedPlayback.playback),
 		"package audio teardown stops every playback owned by the package");
 	PackageTaskQueue deferredTasks(2, 1);
 	PackageTasks boundTasks("mod.tasks", deferredTasks);

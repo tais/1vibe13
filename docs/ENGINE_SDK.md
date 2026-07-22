@@ -279,7 +279,9 @@ Play new framework audio through `PackageBootstrapContext::audio`. The package
 identity is host-bound; callers provide a portable logical group and normalized
 asset path, may stop or retune only their own group, and cannot exceed the
 host's sealed playback capacity. Configure rollback and package shutdown stop
-all remaining owned playback. Existing game audio remains on direct
+all remaining owned playback. Completed one-shot playback is pruned through
+the adapter's `isPlaying` contract before it can strand bounded capacity.
+Existing game audio remains on direct
 `AudioOutput` adapters while it is migrated incrementally.
 
 Packages may declare `requiredCapabilities` alongside contributed

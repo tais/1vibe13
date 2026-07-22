@@ -40,6 +40,13 @@ struct PackageAudioOperationResult
 	std::size_t succeeded = 0;
 };
 
+struct PackageAudioPruneResult
+{
+	std::size_t checked = 0;
+	std::size_t retired = 0;
+	std::size_t queryFailures = 0;
+};
+
 struct PackageAudioPlaybackSnapshot
 {
 	AudioPlaybackId playback = 0;
@@ -70,6 +77,7 @@ public:
 			return PackageAudioPlayResult{PackageAudioPlayError::InvalidAsset, 0};
 		if (request.volume > 127)
 			return PackageAudioPlayResult{PackageAudioPlayError::InvalidVolume, 0};
+		pruneFinished();
 		if (playbacks_.size() >= maximumPlaybacks_)
 			return PackageAudioPlayResult{PackageAudioPlayError::CapacityReached, 0};
 		request.asset = normalizedAsset;
@@ -167,8 +175,44 @@ public:
 		return result;
 	}
 
-	std::vector<PackageAudioPlaybackSnapshot> snapshot() const { return playbacks_; }
-	std::size_t size() const { return playbacks_.size(); }
+	// Audio adapters own completion. Retire confirmed-finished one-shots before
+	// they can consume the bounded package capacity forever. A query exception
+	// retains the record so a transient adapter failure never loses ownership.
+	PackageAudioPruneResult pruneFinished() const noexcept
+	{
+		PackageAudioPruneResult result;
+		for (auto record = playbacks_.begin(); record != playbacks_.end();)
+		{
+			++result.checked;
+			bool playing = true;
+			try { playing = output_.isPlaying(record->playback); }
+			catch (...)
+			{
+				++result.queryFailures;
+				++record;
+				continue;
+			}
+			if (playing)
+			{
+				++record;
+				continue;
+			}
+			record = playbacks_.erase(record);
+			++result.retired;
+		}
+		return result;
+	}
+
+	std::vector<PackageAudioPlaybackSnapshot> snapshot() const
+	{
+		pruneFinished();
+		return playbacks_;
+	}
+	std::size_t size() const
+	{
+		pruneFinished();
+		return playbacks_.size();
+	}
 	std::size_t maximumPlaybacks() const { return maximumPlaybacks_; }
 
 	static AudioGroupService& disabled()
@@ -180,7 +224,7 @@ public:
 private:
 	AudioOutput& output_;
 	std::size_t maximumPlaybacks_;
-	std::vector<PackageAudioPlaybackSnapshot> playbacks_;
+	mutable std::vector<PackageAudioPlaybackSnapshot> playbacks_;
 };
 
 #endif
