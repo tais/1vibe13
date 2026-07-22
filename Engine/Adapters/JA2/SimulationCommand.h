@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <variant>
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
+
 enum class SimulationCommandSource : std::uint8_t
 {
 	LocalPlayer,
@@ -20,15 +22,17 @@ struct EndTurnCommand
 
 struct ChangeStanceCommand
 {
-	std::uint16_t soldierId;
+	// Incarnation zero is reserved for decoded version-1 journals and is never
+	// emitted by the version-2 encoder. Executors must deliberately resolve or
+	// reject such a legacy-unresolved reference before changing live state.
+	TacticalEntityId soldier;
 	std::uint8_t stance;
 	SimulationCommandSource source;
 };
 
 struct BeginFireWeaponCommand
 {
-	std::uint16_t soldierId;
-	std::uint32_t uniqueSoldierId;
+	TacticalEntityId soldier;
 	std::int32_t targetGrid;
 	std::int8_t targetLevel;
 	std::int8_t targetCubeLevel;

@@ -1,3 +1,5 @@
+include(GNUInstallDirs)
+
 set(engine_core_public_headers
   AssetSource.h
   AudioOutput.h
@@ -90,18 +92,18 @@ add_library(JA2::EngineCore ALIAS ja2_engine_core)
 
 target_include_directories(ja2_engine_core PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(ja2_engine_core PUBLIC cxx_std_17)
 set_target_properties(ja2_engine_core PROPERTIES
   EXPORT_NAME EngineCore
   OUTPUT_NAME ja2_engine_core
+  DEBUG_POSTFIX _debug
   POSITION_INDEPENDENT_CODE ON)
 
 # Engine/Core is a standalone SDK surface: no SDL, SGP, VFS, or campaign
 # libraries leak into its exported target. A component install lets CI and mod
 # tooling publish only the SDK even though the full game has third-party install
 # rules of its own.
-include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 set(JA2_ENGINE_SDK_VERSION "0.1.0" CACHE STRING "JA2 Engine/Core SDK version")
 

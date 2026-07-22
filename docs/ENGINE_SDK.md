@@ -1,8 +1,11 @@
-# Engine/Core SDK
+# JA2 Engine SDK
 
 `JA2::EngineCore` is the campaign- and platform-independent C++17 engine
 surface. It can be installed without SDL, SGP, VFS, game data, or any JA2
 application library and consumed from an unrelated CMake project.
+`JA2::RuntimeAdapter` adds the pointer-free JA2 command, replay, and tactical
+world contracts and links `JA2::EngineCore` transitively. Neither target links
+the legacy game or platform libraries.
 
 ## Install
 
@@ -13,14 +16,23 @@ cmake --install build --prefix /path/to/ja2-engine-sdk --component EngineSDK
 ```
 
 The SDK currently uses its own `0.1.x` compatibility line while the engine API
-is being extracted. Installed packages provide headers under `Engine/Core`, the
-static Core library, and CMake package metadata.
+is being extracted. The `EngineSDK` install component contains both static
+archives, their complete public headers under `Engine/Core` and
+`Engine/Adapters/JA2`, and CMake package metadata.
 
 ## Consume
 
 ```cmake
 find_package(JA2Engine 0.1 CONFIG REQUIRED)
 target_link_libraries(your_host PRIVATE JA2::EngineCore)
+```
+
+Tools that need the JA2-specific value model can request that component
+explicitly. `RuntimeAdapter` requires and exposes `EngineCore` transitively:
+
+```cmake
+find_package(JA2Engine 0.1 CONFIG REQUIRED COMPONENTS RuntimeAdapter)
+target_link_libraries(your_tool PRIVATE JA2::RuntimeAdapter)
 ```
 
 Windows consumers must use the same static MSVC runtime ABI as the installed
@@ -41,13 +53,40 @@ packages and capabilities, versioned persistence, assets, state control, and
 lifecycle without any game command vocabulary. The generic `CommandStream`,
 queue, processor, and journal building blocks are also public. The repository's
 `Engine/Adapters/JA2` target layers `EngineRuntime`, tactical commands, their
-codec, and durable replay on Core, but those game-specific types are not part
-of the pure EngineSDK component. Platform adapters and legacy game types remain
-outside the SDK boundary.
+codec, tactical-world observation/publication, and durable replay on Core. It
+is installed as `JA2::RuntimeAdapter`; platform adapters and legacy game types
+remain outside the SDK boundary.
 
-The `engine_sdk_consumer` CTest installs the component and builds a fresh
-external project against `find_package(JA2Engine)`. This is the compatibility
-gate for missing headers, leaked source-tree includes, and unpublished symbols.
+The `engine_sdk_consumer` CTest installs the component, copies its fixture away
+from the repository tree, rejects source/build paths in the exported metadata,
+and builds the fresh project against `find_package(JA2Engine)`. It exercises
+Core plus the command codec, durable replay, runtime composition, tactical
+world diff/codec/observer, message publisher, and tactical command service
+surfaces.
+
+`TacticalCommandService` is the package-facing, pointer-free write boundary for
+JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it
+as `ja2.tactical-commands` before package bootstrap, validates application
+domains at its safe simulation boundary, and drains only a configured prefix.
+The service deliberately does not expose draining or cancellation authority.
+Package IDs are cooperative in-process attribution rather than a security
+boundary; sandboxed/native plugins will require a future package-bound handle.
+The JA2 application additionally tracks the bounded accepted batch by command
+sequence so lifecycle teardown can cancel both pending inbox requests and any
+accepted command retained after an execution failure. Admission requires a
+loaded tactical world (and turn-based combat for end-turn commands); actor
+incarnation and live-sector checks remain executor policy so stale references
+are deterministically journaled as discarded. Any existing authoritative
+queue, including a future-tick staged replay, pauses package admission until
+that stream clears. This keeps live ingress from forcing a large replay sort on
+the frame thread or interleaving two authoritative producers.
+
+Hosts that execute shared command/replay queues should use the budgeted
+`ProcessCommandsThrough(queue, tick, maximum, handler)` overload. It reports
+`CommandProcessStatus::BudgetExhausted` when more of the original ready prefix
+remains, without copying or invoking that remainder. The original overload is
+unchanged for compatibility and continues to process its complete initial
+ready set.
 
 Optional source-built host services are discovered through `ServiceCatalog`
 using portable IDs and major/minor contracts. Registrations are non-owning and

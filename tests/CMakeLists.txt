@@ -34,17 +34,29 @@ add_test(NAME tile_cache COMMAND tile_cache_tests)
 # Install the SDK, then configure, compile, and run a genuinely separate CMake
 # project against find_package(JA2Engine). This catches missing public headers,
 # non-exported symbols, and accidental source-tree include dependencies.
+string(REPLACE ";" "|" engine_sdk_osx_architectures
+  "${CMAKE_OSX_ARCHITECTURES}")
+string(REPLACE ";" "|" engine_sdk_cxx_compiler
+  "${CMAKE_CXX_COMPILER}")
 add_test(
   NAME engine_sdk_consumer
   COMMAND ${CMAKE_COMMAND}
     "-DMAIN_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    "-DMAIN_SOURCE_DIR=${CMAKE_SOURCE_DIR}"
     "-DSDK_CONSUMER_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/sdk_consumer"
-    "-DSDK_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/sdk-consumer-test"
+    "-DSDK_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/sdk-consumer-test/$<CONFIG>"
     "-DSDK_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
     "-DGENERATOR=${CMAKE_GENERATOR}"
-    "-DCXX_COMPILER=${CMAKE_CXX_COMPILER}"
+    "-DGENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
+    "-DGENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}"
+    "-DGENERATOR_INSTANCE=${CMAKE_GENERATOR_INSTANCE}"
+    "-DCXX_COMPILER_ENCODED=${engine_sdk_cxx_compiler}"
+    "-DCXX_COMPILER_TARGET=${CMAKE_CXX_COMPILER_TARGET}"
+    "-DTOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+    "-DOSX_ARCHITECTURES_ENCODED=${engine_sdk_osx_architectures}"
+    "-DOSX_SYSROOT=${CMAKE_OSX_SYSROOT}"
+    "-DOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
     "-DCONFIGURATION=$<CONFIG>"
-    "-DEXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
     "-DSYSTEM_NAME=${CMAKE_SYSTEM_NAME}"
     "-DSANITIZER_ENABLED=${ADDRESS_SANITIZER}"
     -P ${CMAKE_SOURCE_DIR}/cmake/TestEngineSdk.cmake)
