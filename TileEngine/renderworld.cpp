@@ -1662,7 +1662,9 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 									if ((uiLevelNodeFlags & LEVELNODE_CACHEDANITILE))
 									{
-										hVObject = gpTileCache[pNode->pAniTile->sCachedTileID].pImagery->vo;
+										hVObject = GetCachedTileVideoObject( pNode->pAniTile->sCachedTileID );
+										if ( hVObject == NULL )
+											fRenderTile = FALSE;
 										usImageIndex = pNode->pAniTile->sCurrentFrame;
 										uiAniTileFlags = pNode->pAniTile->uiFlags;
 
