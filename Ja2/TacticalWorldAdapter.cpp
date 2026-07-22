@@ -70,6 +70,15 @@ void Ja2TacticalWorldAdapter::synchronizeWorldGeneration(
 		onWorldLoaded(worldGeneration);
 }
 
+Ja2TacticalTurnIdentity Ja2TacticalWorldAdapter::liveTurnIdentity() noexcept
+{
+	if (!gfWorldLoaded || guiWorldLoadGeneration == 0)
+		onWorldUnloaded();
+	else
+		synchronizeWorldGeneration(guiWorldLoadGeneration);
+	return turnIdentity_;
+}
+
 TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 	TacticalWorldSnapshot& output) noexcept
 {

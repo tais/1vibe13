@@ -113,6 +113,26 @@ queue, including a future-tick staged replay, pauses package admission until
 that stream clears. This keeps live ingress from forcing a large replay sort on
 the frame thread or interleaving two authoritative producers.
 
+`TacticalWorldService` exposes immutable, pointer-free snapshots of the loaded
+world. In the JA2 host, `snapshot.epoch()` is the nonzero world-load generation
+and `snapshot.turn().serial` is a nonzero identity scoped to that epoch: serial
+one denotes the newly loaded pre-turn state, each accepted `BeginTeamTurn`
+boundary advances it, and exhaustion saturates instead of wrapping. Compare a
+turn serial only within the same epoch. The existing tactical-delta wire already
+encodes the complete turn snapshot, so live turn identities require no wire or
+service-version change.
+
+`TacticalWorldObserver` invalidates `latest()` when its source becomes
+unavailable or the host calls `reset()`; any previously returned publication
+pointers expire at that boundary. The next available world establishes a fresh
+baseline with publication serial one. Capacity, allocation, adapter, validation,
+and diff failures still preserve the last complete publication. A direct
+nonzero epoch replacement without an unavailable boundary continues to emit the
+existing `TacticalWorldResetEvent`. The production bridge drops a retained
+queue-failed delta on world transition before retrying, and reports the current
+world/turn identity, transition and observer-reset counts, and discarded pending
+deltas through `Ja2TacticalWorldObserverDiagnostics`.
+
 Hosts that execute shared command/replay queues should use the budgeted
 `ProcessCommandsThrough(queue, tick, maximum, handler)` overload. It reports
 `CommandProcessStatus::BudgetExhausted` when more of the original ready prefix

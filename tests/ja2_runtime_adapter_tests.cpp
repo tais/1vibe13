@@ -1119,17 +1119,28 @@ int main()
 		"publication serials increase monotonically even when the deterministic delta is empty");
 	memoryWorld.clear();
 	check(observedWorld.update() == TacticalWorldObserverUpdateResult::SourceUnavailable &&
-		observedWorld.latest().serial == 3 &&
-		observedWorld.latest().delta->events.empty(),
-		"source unavailability leaves the complete last good publication untouched");
+		!observedWorld.latest(),
+		"source unavailability invalidates the observer's unloaded world publication");
 
 	memoryWorld.publish(reloadedWorld);
-	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
-		"a new tactical epoch remains publishable through the observer");
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedBaseline,
+		"the first world after an unavailable boundary establishes a fresh baseline");
 	publication = observedWorld.latest();
-	check(publication.serial == 4 && publication.delta->events.size() == 1 &&
+	check(publication.serial == 1 && publication.status == TacticalWorldPublicationStatus::Baseline &&
+		publication.delta->events.empty(),
+		"observer serials restart only after the old publication becomes unavailable");
+	TacticalWorldSnapshot replacedWorld;
+	check(TacticalWorldSnapshot::create(
+			46, reloadedWorld.sector(), reloadedWorld.turn(),
+			reloadedWorld.actors(), replacedWorld) == TacticalSnapshotCreateError::None,
+		"direct epoch replacement fixture remains valid");
+	memoryWorld.publish(replacedWorld);
+	check(observedWorld.update() == TacticalWorldObserverUpdateResult::PublishedDelta,
+		"a direct tactical epoch replacement remains publishable through the observer");
+	publication = observedWorld.latest();
+	check(publication.serial == 2 && publication.delta->events.size() == 1 &&
 		std::holds_alternative<TacticalWorldResetEvent>(publication.delta->events[0]),
-		"observer epoch changes reuse the bounded tactical reset event");
+		"direct observer epoch changes reuse the existing bounded tactical reset event");
 	std::vector<TacticalActorSnapshot> excessiveActors = reloadedWorld.actors();
 	excessiveActors.push_back(TacticalActorSnapshot{
 		TacticalEntityId{11, 1}, 2, 21, 440, 0, 0, 4,
@@ -1141,7 +1152,7 @@ int main()
 		"observer actor-capacity fixture is a valid tactical snapshot");
 	memoryWorld.publish(excessiveWorld);
 	check(observedWorld.update() == TacticalWorldObserverUpdateResult::ActorCapacityReached &&
-		observedWorld.latest().serial == 4 &&
+		observedWorld.latest().serial == 2 &&
 		observedWorld.latest().snapshot->actors().size() == 3 &&
 		observedWorld.latest().delta->events.size() == 1,
 		"observer actor capacity failure preserves snapshot, delta, and serial atomically");

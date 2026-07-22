@@ -325,6 +325,10 @@ int main()
 		sink.source != TacticalWorldDeltaMessageSource ||
 		sink.decodeResult != TacticalWorldDeltaDecodeResult::Success ||
 		sink.delta.events.size() != 3) return 26;
+	observer.reset();
+	if (observer.latest() ||
+		observer.update() != TacticalWorldObserverUpdateResult::PublishedBaseline ||
+		observer.latest().serial != 1) return 41;
 
 	EngineRuntime<> commandRuntime(EngineHostOptions{}, services);
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(

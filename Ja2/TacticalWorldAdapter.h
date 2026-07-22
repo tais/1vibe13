@@ -36,6 +36,9 @@ public:
 	void onWorldUnloaded() noexcept;
 	void onTeamTurnBegan(std::uint64_t worldGeneration) noexcept;
 	Ja2TacticalTurnIdentity turnIdentity() const noexcept { return turnIdentity_; }
+	// Defensive main-thread view used by the production observer before a
+	// retained delta retry, including lifecycle paths that only changed globals.
+	Ja2TacticalTurnIdentity liveTurnIdentity() noexcept;
 
 private:
 	void synchronizeWorldGeneration(std::uint64_t worldGeneration) noexcept;

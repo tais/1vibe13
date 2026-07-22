@@ -40,9 +40,9 @@ enum class TacticalWorldPublicationStatus
 };
 
 // A read-only view of one transactionally accepted observer publication. The
-// pointers remain valid until the observer's next successful update() or its
-// destruction. Packages should consume or copy the view on the same main
-// thread safe-frame boundary that drives the observer.
+// pointers remain valid until the observer's next successful update(), reset,
+// source-unavailable update, or destruction. Packages should consume or copy
+// the view on the same main-thread safe-frame boundary that drives the observer.
 struct TacticalWorldPublicationView
 {
 	TacticalWorldPublicationStatus status = TacticalWorldPublicationStatus::Unavailable;
@@ -95,9 +95,10 @@ private:
 };
 
 // Main-thread observer driven explicitly by the host at a safe frame boundary.
-// It never starts a worker or mutates the source service. Failed captures and
-// diffs leave the complete last good publication (snapshot, delta, and serial)
-// untouched.
+// It never starts a worker or mutates the source service. Explicit source
+// failures and rejected diffs leave the complete last good publication
+// untouched. Source unavailability is a world-lifecycle boundary and clears
+// the publication so packages cannot mistake an unloaded world for live state.
 class TacticalWorldObserver final : public TacticalWorldObserverService
 {
 public:
@@ -106,6 +107,7 @@ public:
 		TacticalWorldObserverLimits limits = {}) noexcept;
 
 	TacticalWorldObserverUpdateResult update() noexcept;
+	void reset() noexcept;
 	TacticalWorldPublicationView latest() const noexcept override;
 	const TacticalWorldObserverLimits& limits() const noexcept { return limits_; }
 

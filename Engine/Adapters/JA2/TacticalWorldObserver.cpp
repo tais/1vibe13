@@ -35,7 +35,10 @@ TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept
 	TacticalWorldSnapshot captured;
 	const TacticalWorldCaptureResult captureResult = source_.capture(captured);
 	if (captureResult != TacticalWorldCaptureResult::Success)
+	{
+		if (captureResult == TacticalWorldCaptureResult::Unavailable) reset();
 		return MapCaptureFailure(captureResult);
+	}
 	if (captured.epoch() == 0)
 		return TacticalWorldObserverUpdateResult::InvalidSnapshot;
 	if (captured.actors().size() > limits_.maximumActors)
@@ -73,6 +76,11 @@ TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept
 	accepted.status = TacticalWorldPublicationStatus::Delta;
 	publication_ = std::move(accepted);
 	return TacticalWorldObserverUpdateResult::PublishedDelta;
+}
+
+void TacticalWorldObserver::reset() noexcept
+{
+	publication_ = Publication{};
 }
 
 TacticalWorldPublicationView TacticalWorldObserver::latest() const noexcept
