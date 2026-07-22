@@ -414,6 +414,11 @@ void GetLevelNodeScreenRect( LEVELNODE *pNode, SGPRect *pRect, INT16 sXPos, INT1
 		UINT32 usHeight, usWidth;
 		TILE_ELEMENT *TileElem;
 
+		if ( pRect == NULL )
+			return;
+		pRect->iLeft = pRect->iTop = pRect->iRight = pRect->iBottom = 0;
+		if ( pNode == NULL )
+			return;
 
 
 		// Get 'TRUE' merc position
@@ -424,7 +429,14 @@ void GetLevelNodeScreenRect( LEVELNODE *pNode, SGPRect *pRect, INT16 sXPos, INT1
 
 		if ( pNode->uiFlags & LEVELNODE_CACHEDANITILE )
 		{
-			pTrav = &(gpTileCache[ pNode->pAniTile->sCachedTileID ].pImagery->vo->pETRLEObject[ pNode->pAniTile->sCurrentFrame ] );
+			if ( pNode->pAniTile == NULL )
+				return;
+			HVOBJECT cachedObject = GetCachedTileVideoObject( pNode->pAniTile->sCachedTileID );
+			const INT16 frame = pNode->pAniTile->sCurrentFrame;
+			if ( cachedObject == NULL || cachedObject->pETRLEObject == NULL || frame < 0 ||
+				static_cast<UINT16>( frame ) >= cachedObject->usNumberOfObjects )
+				return;
+			pTrav = &(cachedObject->pETRLEObject[ frame ] );
 		}
 		else
 		{
@@ -884,11 +896,21 @@ BOOLEAN RefineLogicOnStruct( INT32 sGridNo, LEVELNODE *pNode )
 BOOLEAN RefinePointCollisionOnStruct( INT32 sGridNo, INT16 sTestX, INT16 sTestY, INT16 sSrcX, INT16 sSrcY, LEVELNODE *pNode )
 {
 	TILE_ELEMENT *TileElem;
+	if ( pNode == NULL )
+		return FALSE;
 
 	if ( pNode->uiFlags & LEVELNODE_CACHEDANITILE )
 	{
-		//Check it!
-		return ( CheckVideoObjectScreenCoordinateInData( gpTileCache[ pNode->pAniTile->sCachedTileID ].pImagery->vo, pNode->pAniTile->sCurrentFrame, (INT32)( sTestX - sSrcX	), (INT32)( -1 * ( sTestY - sSrcY	) ) ) );
+		if ( pNode->pAniTile == NULL )
+			return FALSE;
+		HVOBJECT cachedObject = GetCachedTileVideoObject( pNode->pAniTile->sCachedTileID );
+		const INT16 frame = pNode->pAniTile->sCurrentFrame;
+		if ( cachedObject == NULL || frame < 0 ||
+			static_cast<UINT16>( frame ) >= cachedObject->usNumberOfObjects )
+			return FALSE;
+
+		return ( CheckVideoObjectScreenCoordinateInData( cachedObject, frame,
+			(INT32)( sTestX - sSrcX	), (INT32)( -1 * ( sTestY - sSrcY	) ) ) );
 
 	}
 	else

@@ -69,6 +69,7 @@ ANITILE *CreateAnimationTile( ANITILE_PARAMS *pAniParams )
 
 			if ( iCachedTile == -1 )
 			{
+				MemFree( pNewAniNode );
 				return( NULL );
 			}
 
@@ -114,7 +115,9 @@ ANITILE *CreateAnimationTile( ANITILE_PARAMS *pAniParams )
 			break;
 
 		default:
-
+			if ( iCachedTile != -1 )
+				RemoveCachedTile( iCachedTile );
+			MemFree( pNewAniNode );
 			return( NULL );
 		}
 
@@ -238,7 +241,7 @@ ANITILE *CreateAnimationTile( ANITILE_PARAMS *pAniParams )
 
 	if ( ( uiFlags & ANITILE_CACHEDTILE ) )
 	{
-		pNewAniNode->usNumFrames			= gpTileCache[ iCachedTile ].ubNumFrames;
+		pNewAniNode->usNumFrames			= GetCachedTileFrameCount( iCachedTile );
 	}
 	else
 	{
