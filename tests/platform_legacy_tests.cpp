@@ -17,6 +17,7 @@
 
 #include "FileMan.h"
 #include "Render Dirty.h"
+#include "Tile Surface.h"
 #include "input.h"
 #include "sdl_input.h"
 #include "soundman.h"
@@ -54,6 +55,14 @@ BYTE* LastAllocation();
 void UseFixedTextMetrics(UINT16 characterWidth, UINT16 textHeight);
 void ResetTextMetrics();
 bool NullOverlayTextIsNoOp();
+}
+
+namespace TileSurfaceTestHooks
+{
+std::string CompanionPath(const CHAR8* source, const CHAR8* extension);
+std::string CommonPropertiesPath(const CHAR8* source);
+void FailAllocationAfter(INT32 successfulAllocations);
+void ResetAllocationFailure();
 }
 
 void ShutdownWithErrorBox(const CHAR8* message)
@@ -137,6 +146,41 @@ std::vector<std::uint8_t> MakeSilentWav()
 	AppendLE32(bytes, sampleCount);
 	bytes.insert(bytes.end(), sampleCount, 128);
 	return bytes;
+}
+
+std::string MakeSinglePixelPng()
+{
+	static constexpr UINT8 png[] = {
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+		0x08, 0x03, 0x00, 0x00, 0x00, 0x28, 0xcb, 0x34,
+		0xbb, 0x00, 0x00, 0x00, 0x06, 0x50, 0x4c, 0x54,
+		0x45, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x1b,
+		0xff, 0x8d, 0x22, 0x00, 0x00, 0x00, 0x01, 0x74,
+		0x52, 0x4e, 0x53, 0x00, 0x40, 0xe6, 0xd8, 0x66,
+		0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54,
+		0x78, 0x9c, 0x63, 0x60, 0x04, 0x00, 0x00, 0x03,
+		0x00, 0x02, 0x4b, 0xf5, 0xdd, 0xea, 0x00, 0x00,
+		0x00, 0x00, 0x49, 0x45,
+		0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
+	};
+	return std::string(reinterpret_cast<const char*>(png), sizeof(png));
+}
+
+std::string MakeAuxOnlyStructureFile()
+{
+	std::vector<UINT8> bytes = {'J', '2', 'S', 'D'};
+	AppendLE16(bytes, 1); // one image/structure
+	AppendLE16(bytes, 0); // no stored DB structures
+	AppendLE16(bytes, 0); // no structure-data block
+	bytes.push_back(STRUCTURE_FILE_CONTAINS_AUXIMAGEDATA);
+	bytes.insert(bytes.end(), {0, 0, 0});
+	AppendLE16(bytes, 0); // no relative tile-location records
+	const AuxObjectData aux{};
+	const UINT8* const auxBytes = reinterpret_cast<const UINT8*>(&aux);
+	bytes.insert(bytes.end(), auxBytes, auxBytes + sizeof(aux));
+	return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
 }
 
 void CountSoundEnd(void* callbackData)
@@ -441,6 +485,21 @@ int main()
 	Check(ShutdownZBuffer(zBuffer) && SurfaceData::GetSurfaceID(
 		reinterpret_cast<BYTE*>(zBuffer)) == 0,
 		"Z-buffer shutdown removes its pointer-width registry entry");
+	Check(TileSurfaceTestHooks::CompanionPath(
+		"TILESETS\\1.13\\foo.bar.sti", "JSD") ==
+		"TILESETS\\1.13\\foo.bar.JSD" &&
+		TileSurfaceTestHooks::CompanionPath(
+			"/tilesets.v2/one/foo", "XML") ==
+			"/tilesets.v2/one/foo.XML",
+		"tile companion paths replace only the basename's final extension");
+	Check(TileSurfaceTestHooks::CommonPropertiesPath(
+		"/tilesets.v2/one/foo.bar.sti") ==
+		"TILESETS\\ADDITIONALPROPERTIES\\foo.bar.XML",
+		"tile fallback properties use a separator-safe basename");
+	Check(LoadTileSurface(nullptr) == nullptr &&
+		LoadTileSurface(const_cast<CHAR8*>("missing/tile.sti")) == nullptr,
+		"tile loading rejects invalid and absent sources without partial output");
+	DeleteTileSurface(nullptr);
 
 	const bool videoInitialized = InitializeVideoManager();
 	Check(videoInitialized, "SDL dummy video manager initializes");
@@ -448,6 +507,42 @@ int main()
 	{
 		Check(InitializeVideoSurfaceManager(),
 			"video surface manager publishes all primary wrappers");
+
+		image_type callerOwnedImage{};
+		callerOwnedImage.ubBitDepth = 8;
+		VOBJECT_DESC invalidObjectDescription{};
+		invalidObjectDescription.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
+		invalidObjectDescription.hImage = &callerOwnedImage;
+		Check(CreateVideoObject(&invalidObjectDescription) == nullptr &&
+			callerOwnedImage.ubBitDepth == 8,
+			"failed FROMHIMAGE video creation preserves caller-owned image lifetime");
+
+		HWFILE tilePngFile = FileOpen(const_cast<CHAR8*>("tile.surface.png"),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		const std::string tilePng = MakeSinglePixelPng();
+		const bool tilePngWritten = Write(tilePngFile, tilePng);
+		if (tilePngFile) FileClose(tilePngFile);
+		HWFILE tileStructureFile = FileOpen(
+			const_cast<CHAR8*>("tile.surface.JSD"),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		const bool tileStructureWritten = Write(
+			tileStructureFile, MakeAuxOnlyStructureFile());
+		if (tileStructureFile) FileClose(tileStructureFile);
+		Check(tilePngWritten && tileStructureWritten,
+			"tile image and auxiliary-structure fixtures are written through VFS");
+		TileSurfaceTestHooks::FailAllocationAfter(0);
+		TILE_IMAGERY* failedTile = LoadTileSurface(
+			const_cast<CHAR8*>("tile.surface.png"));
+		TileSurfaceTestHooks::ResetAllocationFailure();
+		Check(failedTile == nullptr,
+			"tile publication failure releases staged image and video resources");
+		TILE_IMAGERY* loadedTile = LoadTileSurface(
+			const_cast<CHAR8*>("tile.surface.png"));
+		Check(loadedTile && loadedTile->vo && loadedTile->pStructureFileRef &&
+			loadedTile->pAuxData == loadedTile->pStructureFileRef->pAuxData,
+			"tile loading remains retryable after transactional rollback");
+		DeleteTileSurface(loadedTile);
+
 		Check(InitializeVideoSurfaceManager(),
 			"video surface manager initialization is idempotent");
 		HVSURFACE primary = nullptr;
