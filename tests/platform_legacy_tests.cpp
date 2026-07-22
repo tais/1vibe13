@@ -16,6 +16,7 @@
 #include "FileMan.h"
 #include "input.h"
 #include "sdl_input.h"
+#include "soundman.h"
 #include "timer.h"
 #include "types.h"
 
@@ -78,6 +79,47 @@ std::vector<UINT8> ReadFile(const char* path)
 		result.clear();
 	FileClose(file);
 	return result;
+}
+
+void AppendLE16(std::vector<std::uint8_t>& bytes, std::uint16_t value)
+{
+	bytes.push_back(static_cast<std::uint8_t>(value));
+	bytes.push_back(static_cast<std::uint8_t>(value >> 8));
+}
+
+void AppendLE32(std::vector<std::uint8_t>& bytes, std::uint32_t value)
+{
+	bytes.push_back(static_cast<std::uint8_t>(value));
+	bytes.push_back(static_cast<std::uint8_t>(value >> 8));
+	bytes.push_back(static_cast<std::uint8_t>(value >> 16));
+	bytes.push_back(static_cast<std::uint8_t>(value >> 24));
+}
+
+std::vector<std::uint8_t> MakeSilentWav()
+{
+	constexpr std::uint32_t sampleRate = 8000;
+	constexpr std::uint32_t sampleCount = sampleRate;
+	std::vector<std::uint8_t> bytes;
+	bytes.reserve(44 + sampleCount);
+	bytes.insert(bytes.end(), {'R', 'I', 'F', 'F'});
+	AppendLE32(bytes, 36 + sampleCount);
+	bytes.insert(bytes.end(), {'W', 'A', 'V', 'E', 'f', 'm', 't', ' '});
+	AppendLE32(bytes, 16);
+	AppendLE16(bytes, 1);
+	AppendLE16(bytes, 1);
+	AppendLE32(bytes, sampleRate);
+	AppendLE32(bytes, sampleRate);
+	AppendLE16(bytes, 1);
+	AppendLE16(bytes, 8);
+	bytes.insert(bytes.end(), {'d', 'a', 't', 'a'});
+	AppendLE32(bytes, sampleCount);
+	bytes.insert(bytes.end(), sampleCount, 128);
+	return bytes;
+}
+
+void CountSoundEnd(void* callbackData)
+{
+	if (callbackData) ++*static_cast<int*>(callbackData);
 }
 }
 
@@ -292,6 +334,40 @@ int main()
 	ShutdownInputManager();
 	ShutdownClockManager();
 	ResetPlatformTimeSource();
+
+	Check(SDL_InitSubSystem(SDL_INIT_AUDIO), "SDL dummy audio subsystem initializes");
+	Check(storage.writeAll("lifecycle.wav", MakeSilentWav()),
+		"audio lifecycle fixture is written through VFS");
+	Check(InitializeSoundManager(), "sound manager initializes transactionally");
+	int callbackCount = 0;
+	SOUNDPARMS soundParameters{};
+	soundParameters.uiVolume = 127;
+	soundParameters.uiPan = 64;
+	soundParameters.uiLoop = 0;
+	soundParameters.EOSCallback = CountSoundEnd;
+	soundParameters.pCallbackData = &callbackCount;
+	const UINT32 firstSound = SoundPlayStreamedFile(
+		const_cast<char*>("lifecycle.wav"), &soundParameters);
+	Check(firstSound == 1, "first sound session allocates a clean channel ID");
+	ShutdownSoundManager();
+	Check(callbackCount == 0,
+		"sound shutdown suppresses callbacks from destroyed tracks");
+
+	Check(InitializeSoundManager(), "sound manager restarts after full shutdown");
+	SoundServiceStreams();
+	Check(callbackCount == 0,
+		"a restarted sound manager cannot observe stale callback state");
+	soundParameters.EOSCallback = nullptr;
+	soundParameters.pCallbackData = nullptr;
+	const UINT32 secondSound = SoundPlayStreamedFile(
+		const_cast<char*>("lifecycle.wav"), &soundParameters);
+	Check(secondSound == 1,
+		"sound restart resets channel metadata and the public ID sequence");
+	if (secondSound != NO_SAMPLE) SoundStop(secondSound);
+	ShutdownSoundManager();
+	ShutdownSoundManager();
+	Check(SoundGetDriverHandle() == nullptr,
+		"sound shutdown is idempotent after a restart cycle");
 
 	ShutdownFileManager();
 	std::filesystem::remove_all(root, error);
