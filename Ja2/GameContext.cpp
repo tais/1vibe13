@@ -3,6 +3,7 @@
 #include "PackageHost.h"
 #include "Screens.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalWorldObserverHost.h"
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformLog.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
@@ -37,6 +38,17 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)tacticalWorldRegistrationReported;
+	static const EngineServiceRegistrationError tacticalWorldObserverRegistered =
+		RegisterTacticalWorldObserverService(
+			context.serviceCatalog(), GetJa2TacticalWorldObserverService());
+	static const bool tacticalWorldObserverRegistrationReported = [&] {
+		if (tacticalWorldObserverRegistered != EngineServiceRegistrationError::None)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "services",
+				"Tactical world observer service registration failed"});
+		return true;
+	}();
+	(void)tacticalWorldObserverRegistrationReported;
 	static const bool screensRegistered = [] {
 		for (UINT32 screenId = 0; screenId < MAX_SCREENS; ++screenId)
 		{

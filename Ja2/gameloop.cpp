@@ -16,6 +16,7 @@
 	#include "Interface.h"
 	#include "GameSettings.h"
 	#include "GameContext.h"
+	#include "TacticalWorldObserverHost.h"
 	#include <Engine/Core/StateTransition.h>
 	#include "Interface Control.h"
 	#include "Text.h"
@@ -546,6 +547,8 @@ static void CompleteGameFrame()
 		client_packet();
 		server_packet();
 	}
+
+	UpdateJa2TacticalWorldObserverAtSafeFrame();
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop done");
 }
 

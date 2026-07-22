@@ -29,6 +29,7 @@
 #include <thread>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "types.h"
@@ -46,6 +47,7 @@
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
+#include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/StateStack.h>
@@ -71,6 +73,7 @@
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
 #include "SaveCompatibility.h"
+#include "TacticalWorldObserverHost.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "Animation Control.h"
@@ -2069,6 +2072,22 @@ int main( int, char** )
 		       tacticalWorld.service->capture( unavailableWorld ) ==
 		           TacticalWorldCaptureResult::Unavailable,
 		       "application composition root registers the live tactical world service" );
+		const auto tacticalWorldObserver =
+			compiledContext.serviceCatalog().resolve<TacticalWorldObserverService>(
+				TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion );
+		const Ja2TacticalWorldObserverDiagnostics observerBeforeWorld =
+			GetJa2TacticalWorldObserverDiagnostics();
+		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		const Ja2TacticalWorldObserverDiagnostics unavailableObservation =
+			GetJa2TacticalWorldObserverDiagnostics();
+		CHECK( tacticalWorldObserver && !tacticalWorldObserver.service->latest() &&
+		       unavailableObservation.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::SourceUnavailable &&
+		       unavailableObservation.publicationSerial ==
+		           observerBeforeWorld.publicationSerial &&
+		       unavailableObservation.safeFrameUpdates ==
+		           observerBeforeWorld.safeFrameUpdates + 1,
+		       "pre-world safe frames harmlessly retain an unavailable observer service" );
 
 		SOLDIERTYPE* previousSlot = MercPtrs[0];
 		const INT8 previousActive = Menptr[0].bActive;
@@ -2122,6 +2141,85 @@ int main( int, char** )
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
 		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
 		       "live tactical service captures stable pointer-free legacy soldier state" );
+
+		const PackageSaveStateCaptureResult packageSaveBeforeObservation =
+			compiledContext.capturePackageSaveState();
+		const std::vector<RecordedSimulationCommand> replayBeforeObservation =
+			compiledContext.commandJournal().snapshot();
+		const std::uint64_t replayDroppedBeforeObservation =
+			compiledContext.commandJournal().droppedCount();
+		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		Ja2TacticalWorldObserverDiagnostics observerDiagnostics =
+			GetJa2TacticalWorldObserverDiagnostics();
+		TacticalWorldPublicationView observedPublication =
+			tacticalWorldObserver.service->latest();
+		const TacticalActorSnapshot* observedActor = observedPublication
+			? observedPublication.snapshot->find( TacticalEntityId{ 0, 701 } ) : nullptr;
+		CHECK( observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedBaseline &&
+		       observerDiagnostics.publicationSerial == 1 && observedPublication &&
+		       observedPublication.status == TacticalWorldPublicationStatus::Baseline &&
+		       observedPublication.delta->events.empty() && observedActor &&
+		       observedActor->grid == 345 && observedActor->life == 76,
+		       "production safe-frame observation establishes a read-only tactical baseline" );
+
+		Menptr[0].sGridNo = 346;
+		Menptr[0].stats.bLife = 75;
+		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		observedPublication = tacticalWorldObserver.service->latest();
+		observedActor = observedPublication
+			? observedPublication.snapshot->find( TacticalEntityId{ 0, 701 } ) : nullptr;
+		CHECK( observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::PublishedDelta &&
+		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
+		       observedPublication.status == TacticalWorldPublicationStatus::Delta &&
+		       observedPublication.delta->events.size() == 2 &&
+		       std::holds_alternative<TacticalActorMovedEvent>(
+		           observedPublication.delta->events[0] ) &&
+		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
+		           observedPublication.delta->events[1] ) &&
+		       observedActor && observedActor->grid == 346 && observedActor->life == 75,
+		       "production safe-frame observation publishes deterministic live tactical deltas" );
+
+		Menptr[0].uiUniqueSoldierIdValue = 0;
+		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		observedPublication = tacticalWorldObserver.service->latest();
+		observedActor = observedPublication
+			? observedPublication.snapshot->find( TacticalEntityId{ 0, 701 } ) : nullptr;
+		CHECK( observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::SourceAdapterFailure &&
+		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
+		       observedPublication.delta->events.size() == 2 && observedActor &&
+		       observedActor->grid == 346 && observedActor->life == 75,
+		       "live adapter failure preserves the last complete observer publication" );
+
+		Menptr[0].uiUniqueSoldierIdValue = 701;
+		gfWorldLoaded = FALSE;
+		UpdateJa2TacticalWorldObserverAtSafeFrame();
+		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		const PackageSaveStateCaptureResult packageSaveAfterObservation =
+			compiledContext.capturePackageSaveState();
+		const std::vector<RecordedSimulationCommand> replayAfterObservation =
+			compiledContext.commandJournal().snapshot();
+		CHECK( observerDiagnostics.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::SourceUnavailable &&
+		       observerDiagnostics.publicationSerial == 2 &&
+		       observerDiagnostics.safeFrameUpdates ==
+		           observerBeforeWorld.safeFrameUpdates + 5 &&
+		       packageSaveAfterObservation.error == packageSaveBeforeObservation.error &&
+		       packageSaveAfterObservation.packageId == packageSaveBeforeObservation.packageId &&
+		       packageSaveAfterObservation.snapshot.records.size() ==
+		           packageSaveBeforeObservation.snapshot.records.size() &&
+		       replayAfterObservation.size() == replayBeforeObservation.size() &&
+		       compiledContext.commandJournal().droppedCount() ==
+		           replayDroppedBeforeObservation &&
+		       MercPtrs[0] == &Menptr[0] &&
+		       Menptr[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
+		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 346 &&
+		       Menptr[0].stats.bLife == 75,
+		       "safe-frame observation leaves save state, replay capture, and legacy storage unchanged" );
 		MercPtrs[0] = previousSlot;
 		Menptr[0].bActive = previousActive;
 		Menptr[0].bInSector = previousInSector;
