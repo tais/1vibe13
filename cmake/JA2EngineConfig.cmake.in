@@ -7,4 +7,18 @@ set(JA2Engine_VERSION "@JA2_ENGINE_SDK_VERSION@")
 set(JA2Engine_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 include("${CMAKE_CURRENT_LIST_DIR}/JA2EngineTargets.cmake")
+
+set(JA2Engine_SUPPORTED_COMPONENTS EngineCore RuntimeAdapter)
+set(JA2Engine_EngineCore_FOUND FALSE)
+if(TARGET JA2::EngineCore)
+  set(JA2Engine_EngineCore_FOUND TRUE)
+endif()
+
+# RuntimeAdapter's public contract includes EngineCore. Treat the adapter
+# component as available only when both imported targets are complete.
+set(JA2Engine_RuntimeAdapter_FOUND FALSE)
+if(TARGET JA2::RuntimeAdapter AND JA2Engine_EngineCore_FOUND)
+  set(JA2Engine_RuntimeAdapter_FOUND TRUE)
+endif()
+
 check_required_components(JA2Engine)
