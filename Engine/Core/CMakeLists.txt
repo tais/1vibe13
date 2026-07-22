@@ -68,6 +68,7 @@ set(engine_core_public_headers
   StateRegistry.h
   StateStack.h
   StateTransition.h
+  StableResourceRegistry.h
   TimeSource.h
   UniqueResourceHandle.h
   UniqueResourcePtr.h)

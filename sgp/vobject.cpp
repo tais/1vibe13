@@ -8,7 +8,11 @@
 #include "vobject_blitters.h"
 #include "sgp.h"
 
-#include <unordered_map>
+#include <Engine/Core/StableResourceRegistry.h>
+#include <Engine/Core/UniqueResourcePtr.h>
+
+#include <optional>
+#include <string>
 
 // ******************************************************************************
 //
@@ -53,41 +57,33 @@
 
 BOOLEAN	gfVideoObjectsInit=FALSE;
 
-#ifndef SGP_VIDEO_DEBUGGING
-	#define USE_HASHMAP_FOR_VOBJECTS 
-#endif
-
-#ifdef USE_HASHMAP_FOR_VOBJECTS 
-typedef struct VOBJECT_NODE
+namespace
 {
-	HVOBJECT hVObject;
-	UINT32 uiIndex;
+struct VideoObjectReleaser
+{
+	void operator()(SGPVObject* object) const { DeleteVideoObject(object); }
+};
+
+struct VideoObjectResource
+{
+	explicit VideoObjectResource(HVOBJECT object)
+		: object(object)
+	{
+	}
+
+	UniqueResourcePtr<SGPVObject, VideoObjectReleaser> object;
 #ifdef SGP_VIDEO_DEBUGGING
-	STR8									pName;
-	STR8									pCode;
+	std::string name;
+	std::string code;
 #endif
-} VOBJECT_NODE, *VOBJECT_NODE_PTR;
+};
 
-typedef std::unordered_map<UINT32, VOBJECT_NODE_PTR> VOBJECT_MAP;
-static VOBJECT_MAP gpVObjectMap;
+using VideoObjectRegistry = StableResourceRegistry<VideoObjectResource, UINT32>;
 
-#else
-typedef struct VOBJECT_NODE
-{
-	HVOBJECT hVObject;
-	UINT32 uiIndex;
-	struct VOBJECT_NODE *next, *prev;
+VideoObjectRegistry gVideoObjects(
+	VideoObjectRegistry::Limits{1, 1, 0xffffffefu});
+}
 
-	#ifdef SGP_VIDEO_DEBUGGING
-		STR8									pName;
-		STR8									pCode;
-	#endif
-
-}VOBJECT_NODE;
-
-VOBJECT_NODE	*gpVObjectHead = NULL;
-VOBJECT_NODE	*gpVObjectTail = NULL;
-#endif
 UINT32				guiVObjectIndex = 1;
 UINT32				guiVObjectSize = 0;
 UINT32				guiVObjectTotalAdded = 0;
@@ -139,78 +135,30 @@ int filter(unsigned int code, struct _EXCEPTION_POINTERS *ep)
 
 BOOLEAN InitializeVideoObjectManager( )
 {
+	if (gfVideoObjectsInit) return TRUE;
 	//Shouldn't be calling this if the video object manager already exists.
 	//Call shutdown first...
-#ifdef USE_HASHMAP_FOR_VOBJECTS
-	Assert( gpVObjectMap.empty() );
+	if (!gVideoObjects.empty()) return FALSE;
 	RegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Object Manager");
-#else
-	Assert( !gpVObjectHead );
-	Assert( !gpVObjectTail );
-	RegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Object Manager");
-	gpVObjectHead = gpVObjectTail = NULL;
-#endif
 	gfVideoObjectsInit=TRUE;
 	return TRUE ;
 }
 
 BOOLEAN ShutdownVideoObjectManager( )
 {
-	VOBJECT_NODE *curr;
-#ifdef USE_HASHMAP_FOR_VOBJECTS
-	for(VOBJECT_MAP::iterator itr=gpVObjectMap.begin(); itr != gpVObjectMap.end(); ++itr )
-	{
-		curr = (*itr).second;
-		DeleteVideoObject( curr->hVObject );
-#ifdef SGP_VIDEO_DEBUGGING
-		if( curr->pName )
-			MemFree( curr->pName );
-		if( curr->pCode )
-			MemFree( curr->pCode );
-#endif
-		MemFree( curr );
-	}
-	gpVObjectMap.clear();
-#else
-	while( gpVObjectHead )
-	{
-		curr = gpVObjectHead;
-		gpVObjectHead = gpVObjectHead->next;
-		DeleteVideoObject( curr->hVObject );
-		#ifdef SGP_VIDEO_DEBUGGING
-			if( curr->pName )
-				MemFree( curr->pName );
-			if( curr->pCode )
-				MemFree( curr->pCode );
-		#endif
-		MemFree( curr );
-	}
-	gpVObjectHead = NULL;
-	gpVObjectTail = NULL;
-#endif
+	gVideoObjects.clear();
 	guiVObjectIndex = 1;
 	guiVObjectSize = 0;
 	guiVObjectTotalAdded = 0;
-	UnRegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Objects");
+	if (gfVideoObjectsInit)
+		UnRegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Object Manager");
 	gfVideoObjectsInit=FALSE;
 	return TRUE;
 }
 
 UINT32 CountVideoObjectNodes()
 {
-#ifdef USE_HASHMAP_FOR_VOBJECTS
-	return gpVObjectMap.size();
-#else
-	VOBJECT_NODE *curr;
-	UINT32 i = 0;
-	curr = gpVObjectHead;
-	while( curr )
-	{
-		i++;
-		curr = curr->next;
-	}
-	return i;
-#endif
+	return static_cast<UINT32>(gVideoObjects.size());
 }
 
 BOOLEAN AddStandardVideoObject( VOBJECT_DESC *pVObjectDesc, UINT32 *puiIndex )
@@ -234,46 +182,21 @@ BOOLEAN AddStandardVideoObject( VOBJECT_DESC *pVObjectDesc, UINT32 *puiIndex )
 	// Set transparency to default
 	SetVideoObjectTransparencyColor( hVObject, FROMRGB( 0, 0, 0 ) );
 
-#ifdef USE_HASHMAP_FOR_VOBJECTS
+	std::optional<UINT32> handle;
+	try
 	{
-		VOBJECT_NODE_PTR curr = (VOBJECT_NODE*)MemAlloc( sizeof( VOBJECT_NODE ) );
-		memset(curr, 0, sizeof(VOBJECT_NODE));
-		curr->hVObject = hVObject;
-		curr->uiIndex = guiVObjectIndex++;
-		*puiIndex = curr->uiIndex;
+		handle = gVideoObjects.insert(VideoObjectResource(hVObject));
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
+	if (!handle) return FALSE;
 
-		gpVObjectMap[curr->uiIndex] = curr;
-	}
-#else
-	// Set into video object list
-	if( gpVObjectHead )
-	{ //Add node after tail
-		gpVObjectTail->next = (VOBJECT_NODE*)MemAlloc( sizeof( VOBJECT_NODE ) );
-		Assert( gpVObjectTail->next ); //out of memory?
-		gpVObjectTail->next->prev = gpVObjectTail;
-		gpVObjectTail->next->next = NULL;
-		gpVObjectTail = gpVObjectTail->next;
-	}
-	else
-	{ //new list
-		gpVObjectHead = (VOBJECT_NODE*)MemAlloc( sizeof( VOBJECT_NODE ) );
-		Assert( gpVObjectHead ); //out of memory?
-		gpVObjectHead->prev = gpVObjectHead->next = NULL;
-		gpVObjectTail = gpVObjectHead;
-	}
-	#ifdef SGP_VIDEO_DEBUGGING
-		gpVObjectTail->pName = NULL;
-		gpVObjectTail->pCode = NULL;
-	#endif
-	//Set the hVObject into the node.
-	gpVObjectTail->hVObject = hVObject;
-	gpVObjectTail->uiIndex = guiVObjectIndex+=2;
-	*puiIndex = gpVObjectTail->uiIndex;
-#endif
-	Assert( guiVObjectIndex < 0xfffffff0 ); //unlikely that we will ever use 2 billion vobjects!
-	//We would have to create about 70 vobjects per second for 1 year straight to achieve this...
-	guiVObjectSize++;
-	guiVObjectTotalAdded++;
+	*puiIndex = *handle;
+	guiVObjectIndex = gVideoObjects.nextHandle();
+	guiVObjectSize = static_cast<UINT32>(gVideoObjects.size());
+	++guiVObjectTotalAdded;
 
 	#ifdef JA2TESTVERSION
 		if( CountVideoObjectNodes() != guiVObjectSize )
@@ -310,26 +233,12 @@ BOOLEAN GetVideoObject( HVOBJECT *hVObject, UINT32 uiIndex )
 		CheckValidVObjectIndex( uiIndex );
 	#endif
 
-#ifdef USE_HASHMAP_FOR_VOBJECTS
-	VOBJECT_MAP::iterator itr = gpVObjectMap.find(uiIndex);
-	if (itr != gpVObjectMap.end())
+	VideoObjectResource* const resource = gVideoObjects.find(uiIndex);
+	if (resource)
 	{
-		*hVObject = (*itr).second->hVObject;
+		*hVObject = resource->object.get();
 		return TRUE;
 	}
-#else
-	VOBJECT_NODE *curr;
-	curr = gpVObjectHead;
-	while( curr )
-	{
-		if( curr->uiIndex == uiIndex )
-		{
-			*hVObject = curr->hVObject;
-			return TRUE;
-		}
-		curr = curr->next;
-	}
-#endif
 	*hVObject = NULL;
 	return FALSE;
 }
@@ -373,91 +282,13 @@ BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT
 
 BOOLEAN DeleteVideoObjectFromIndex( UINT32 uiVObject	)
 {
-	VOBJECT_NODE *curr;
-
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_DELETEVIDEOOBJECTFROMINDEX;
 		CheckValidVObjectIndex( uiVObject );
 	#endif
-
-#ifdef USE_HASHMAP_FOR_VOBJECTS
-		VOBJECT_MAP::iterator itr = gpVObjectMap.find(uiVObject);
-		if (itr != gpVObjectMap.end())
-		{
-			curr = (*itr).second;
-
-			DeleteVideoObject( curr->hVObject );
-
-			//The node is now detached.	Now deallocate it.
-#ifdef SGP_VIDEO_DEBUGGING
-			if( curr->pName )
-				MemFree( curr->pName );
-			if( curr->pCode )
-				MemFree( curr->pCode );
-#endif
-			MemFree( curr );
-			curr = NULL;
-			guiVObjectSize--;
-
-			gpVObjectMap.erase(itr);
-#ifdef JA2TESTVERSION
-			if( CountVideoObjectNodes() != guiVObjectSize )
-			{
-				guiVObjectSize = guiVObjectSize;
-				DebugBreakpoint();
-			}
-#endif
-			return TRUE;
-		}
-#else
-	curr = gpVObjectHead;
-	while( curr )
-	{
-		if( curr->uiIndex == uiVObject )
-		{ //Found the node, so detach it and delete it.
-
-			//Deallocate the memory for the video object
-			DeleteVideoObject( curr->hVObject );
-
-			if( curr == gpVObjectHead )
-			{ //Advance the head, because we are going to remove the head node.
-				gpVObjectHead = gpVObjectHead->next;
-			}
-			if( curr == gpVObjectTail )
-			{ //Back up the tail, because we are going to remove the tail node.
-				gpVObjectTail = gpVObjectTail->prev;
-			}
-			//Detach the node from the vobject list
-			if( curr->next )
-			{ //Make the prev node point to the next
-				curr->next->prev = curr->prev;
-			}
-			if( curr->prev )
-			{ //Make the next node point to the prev
-				curr->prev->next = curr->next;
-			}
-			//The node is now detached.	Now deallocate it.
-			#ifdef SGP_VIDEO_DEBUGGING
-				if( curr->pName )
-					MemFree( curr->pName );
-				if( curr->pCode )
-					MemFree( curr->pCode );
-			#endif
-			MemFree( curr );
-			curr = NULL;
-			guiVObjectSize--;
-			#ifdef JA2TESTVERSION
-				if( CountVideoObjectNodes() != guiVObjectSize )
-				{
-					guiVObjectSize = guiVObjectSize;
-				}
-			#endif
-			return TRUE;
-		}
-		curr = curr->next;
-	}
-#endif
-	return FALSE;
+	if (!gVideoObjects.erase(uiVObject)) return FALSE;
+	guiVObjectSize = static_cast<UINT32>(gVideoObjects.size());
+	return TRUE;
 }
 
 
@@ -1655,12 +1486,12 @@ BOOLEAN BltVideoObjectOutlineShadow(UINT32 uiDestVSurface, HVOBJECT hSrcVObject,
 void CheckValidVObjectIndex( UINT32 uiIndex )
 {
 	BOOLEAN fAssertError = FALSE;
-	if( uiIndex == 0xffffffff )
+	if( uiIndex == 0 || uiIndex == 0xffffffff )
 	{ //-1 index -- deleted
 		fAssertError = TRUE;
 	}
-	if( !(uiIndex % 2) && uiIndex < 0xfffffff0 || uiIndex >= 0xfffffff0 )
-	{ //even numbers are reserved for vsurfaces as well as the 0xfffffff0+ values
+	if( uiIndex >= 0xfffffff0 )
+	{ //the 0xfffffff0+ values remain reserved for special surfaces
 		fAssertError = TRUE;
 	}
 
@@ -1720,7 +1551,6 @@ typedef struct DUMPFILENAME
 
 void DumpVObjectInfoIntoFile( const STR8 filename, BOOLEAN fAppend )
 {
-	VOBJECT_NODE *curr;
 	FILE *fp;
 	DUMPFILENAME *pName, *pCode;
 	UINT32 *puiCounter;
@@ -1753,11 +1583,9 @@ void DumpVObjectInfoIntoFile( const STR8 filename, BOOLEAN fAppend )
 
 	//Loop through the list and record every unique filename and count them
 	uiUniqueID = 0;
-	curr = gpVObjectHead;
-	while( curr )
-	{
-		strcpy( tempName, curr->pName );
-		strcpy( tempCode, curr->pCode );
+	gVideoObjects.forEach([&](UINT32, const VideoObjectResource& resource) {
+		strcpy( tempName, resource.name.c_str() );
+		strcpy( tempCode, resource.code.c_str() );
 		fFound = FALSE;
 		for( i = 0; i < uiUniqueID; i++ )
 		{
@@ -1775,8 +1603,7 @@ void DumpVObjectInfoIntoFile( const STR8 filename, BOOLEAN fAppend )
 			(puiCounter[ i ])++;
 			uiUniqueID++;
 		}
-		curr = curr->next;
-	}
+	});
 
 	//Now dump the info.
 	fprintf( fp, "-----------------------------------------------\n" );
@@ -1799,25 +1626,17 @@ void DumpVObjectInfoIntoFile( const STR8 filename, BOOLEAN fAppend )
 //Debug wrapper for adding vObjects
 BOOLEAN _AddAndRecordVObject( VOBJECT_DESC *VObjectDesc, UINT32 *uiIndex, UINT32 uiLineNum, const STR8 pSourceFile )
 {
-	UINT16 usLength;
 	CHAR8 str[256];
 	if( !AddStandardVideoObject( VObjectDesc, uiIndex ) )
 	{
 		return FALSE;
 	}
 
-	//record the filename of the vObject (some are created via memory though)
-	usLength = strlen( VObjectDesc->ImageFile ) + 1;
-	gpVObjectTail->pName = (STR8)MemAlloc( usLength );
-	memset( gpVObjectTail->pName, 0, usLength );
-	strcpy( gpVObjectTail->pName, VObjectDesc->ImageFile );
-
-	//record the code location of the calling creating function.
+	VideoObjectResource* const resource = gVideoObjects.find(*uiIndex);
+	if (!resource) return FALSE;
+	resource->name = VObjectDesc->ImageFile;
 	sprintf( str, "%s -- line(%d)", pSourceFile, uiLineNum );
-	usLength = strlen( str ) + 1;
-	gpVObjectTail->pCode = (STR8)MemAlloc( usLength );
-	memset( gpVObjectTail->pCode, 0, usLength );
-	strcpy( gpVObjectTail->pCode, str );
+	resource->code = str;
 
 	return TRUE;
 }

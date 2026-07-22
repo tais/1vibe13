@@ -18,6 +18,7 @@
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeReportJson.h>
 #include <Engine/Core/SimulationTick.h>
+#include <Engine/Core/StableResourceRegistry.h>
 #include <Engine/Core/StateRegistry.h>
 
 #include <cstdint>
@@ -347,6 +348,37 @@ public:
 	unsigned value() const override { return 42; }
 };
 
+class RegistryResource
+{
+public:
+	RegistryResource(int value, int& destructions)
+		: value(value), destructions_(&destructions)
+	{
+	}
+	~RegistryResource() { if (destructions_) ++*destructions_; }
+	RegistryResource(const RegistryResource&) = delete;
+	RegistryResource& operator=(const RegistryResource&) = delete;
+	RegistryResource(RegistryResource&& other) noexcept
+		: value(other.value), destructions_(other.destructions_)
+	{
+		other.destructions_ = nullptr;
+	}
+	RegistryResource& operator=(RegistryResource&& other) noexcept
+	{
+		if (this == &other) return *this;
+		if (destructions_) ++*destructions_;
+		value = other.value;
+		destructions_ = other.destructions_;
+		other.destructions_ = nullptr;
+		return *this;
+	}
+
+	int value = 0;
+
+private:
+	int* destructions_ = nullptr;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -361,6 +393,26 @@ void check(bool condition, const char* message)
 
 int main()
 {
+	int registryDestructions = 0;
+	StableResourceRegistry<RegistryResource> registry(
+		StableResourceRegistry<RegistryResource>::Limits{2, 2, 6, 3});
+	const auto registryFirst = registry.insert(RegistryResource(10, registryDestructions));
+	const auto registrySecond = registry.insert(RegistryResource(20, registryDestructions));
+	check(registryFirst == 2 && registrySecond == 4 && registry.size() == 2 &&
+		registry.find(2) && registry.find(2)->value == 10 &&
+		registry.erase(2) && !registry.find(2) && registryDestructions == 1,
+		"stable resource registries own move-only values behind configured handles");
+	const auto registryThird = registry.insert(RegistryResource(30, registryDestructions));
+	const auto registryExhausted = registry.insert(RegistryResource(40, registryDestructions));
+	check(registryThird == 6 && !registryExhausted && registry.exhausted() &&
+		registry.size() == 2 && registryDestructions == 2,
+		"stable resource registries reject exhausted IDs without leaking rejected values");
+	registry.clear();
+	const auto registryRestarted = registry.insert(RegistryResource(50, registryDestructions));
+	check(registryRestarted == 2 && registry.size() == 1 && registryDestructions == 4,
+		"clearing a stable registry destroys live values and starts a fresh handle lifetime");
+	registry.clear();
+
 	std::string path;
 	check(NormalizeAssetPath("TableData\\Items.XML", path) &&
 		path == "tabledata/items.xml",

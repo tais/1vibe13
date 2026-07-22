@@ -28,11 +28,15 @@
 #include "WCheck.h"
 #include "DEBUG.H"
 
+#include <Engine/Core/StableResourceRegistry.h>
+#include <Engine/Core/UniqueResourcePtr.h>
+
 #include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <map>
 #include <new>
+#include <optional>
 
 // g_SurfaceRectangle is defined by vobject_blitters.cpp; pulled in
 // here as extern so the SurfaceData registry can keep the per-surface
@@ -255,16 +259,16 @@ HVSURFACE ghMouseBuffer = nullptr;
 
 namespace {
 
-struct VSURFACE_NODE
+struct VideoSurfaceReleaser
 {
-	HVSURFACE hVSurface;
-	UINT32    uiIndex;
-	VSURFACE_NODE* prev;
-	VSURFACE_NODE* next;
+	void operator()(SGPVSurface* surface) const { DeleteVideoSurface(surface); }
 };
 
-VSURFACE_NODE* gpVSurfaceHead = nullptr;
-VSURFACE_NODE* gpVSurfaceTail = nullptr;
+using OwnedVideoSurface = UniqueResourcePtr<SGPVSurface, VideoSurfaceReleaser>;
+using VideoSurfaceRegistry = StableResourceRegistry<OwnedVideoSurface, UINT32>;
+
+VideoSurfaceRegistry gVideoSurfaces(
+	VideoSurfaceRegistry::Limits{2, 2, 0xffffffeeu});
 UINT32 guiVSurfaceIndex = 0;
 UINT32 guiVSurfaceSize = 0;
 UINT32 guiVSurfaceTotalAdded = 0;
@@ -461,9 +465,8 @@ BOOLEAN SetPrimaryVideoSurfaces()
 BOOLEAN InitializeVideoSurfaceManager()
 {
 	if (gVideoSurfaceManagerInitialized) return TRUE;
-	if (gpVSurfaceHead || gpVSurfaceTail) return FALSE;
+	if (!gVideoSurfaces.empty()) return FALSE;
 	RegisterDebugTopic(TOPIC_VIDEOSURFACE, "Video Surface Manager");
-	gpVSurfaceHead = gpVSurfaceTail = nullptr;
 	giMemUsedInSurfaces = 0;
 	if (!SetPrimaryVideoSurfaces())
 	{
@@ -479,16 +482,10 @@ BOOLEAN ShutdownVideoSurfaceManager()
 {
 	DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_0, "Shutting down the Video Surface manager");
 	DeletePrimaryVideoSurfaces();
-	while (gpVSurfaceHead)
-	{
-		VSURFACE_NODE* curr = gpVSurfaceHead;
-		gpVSurfaceHead = gpVSurfaceHead->next;
-		SurfaceData::UnRegisterSurface(curr->uiIndex);
-		DeleteVideoSurface(curr->hVSurface);
-		MemFree(curr);
-	}
-	gpVSurfaceHead = nullptr;
-	gpVSurfaceTail = nullptr;
+	gVideoSurfaces.forEach([](UINT32 id, OwnedVideoSurface&) {
+		SurfaceData::UnRegisterSurface(id);
+	});
+	gVideoSurfaces.clear();
 	guiVSurfaceIndex = 0;
 	guiVSurfaceSize = 0;
 	guiVSurfaceTotalAdded = 0;
@@ -578,55 +575,44 @@ BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
 	HVSURFACE hVSurface = CreateVideoSurface(pVSurfaceDesc);
 	if (!hVSurface) return FALSE;
 
-	if (!SetVideoSurfaceTransparencyColor(hVSurface, FROMRGB(0, 0, 0)) ||
-		guiVSurfaceIndex > 0xfffffff0u - 2u)
+	if (!SetVideoSurfaceTransparencyColor(hVSurface, FROMRGB(0, 0, 0)))
 	{
 		DeleteVideoSurface(hVSurface);
 		return FALSE;
 	}
 
-	VSURFACE_NODE* const node =
-		static_cast<VSURFACE_NODE*>(MemAlloc(sizeof(VSURFACE_NODE)));
-	if (!node)
-	{
-		DeleteVideoSurface(hVSurface);
-		return FALSE;
-	}
-
-	const UINT32 index = guiVSurfaceIndex + 2;
-	node->hVSurface = hVSurface;
-	node->uiIndex = index;
-	node->prev = gpVSurfaceTail;
-	node->next = nullptr;
+	std::optional<UINT32> index;
 	try
 	{
-		SurfaceData::RegisterSurface(index, hVSurface);
+		index = gVideoSurfaces.insert(OwnedVideoSurface(hVSurface));
 	}
 	catch (...)
 	{
-		SurfaceData::UnRegisterSurface(index);
-		MemFree(node);
-		DeleteVideoSurface(hVSurface);
+		return FALSE;
+	}
+	if (!index) return FALSE;
+	try
+	{
+		SurfaceData::RegisterSurface(*index, hVSurface);
+	}
+	catch (...)
+	{
+		SurfaceData::UnRegisterSurface(*index);
+		gVideoSurfaces.erase(*index);
 		return FALSE;
 	}
 
-	if (gpVSurfaceTail) gpVSurfaceTail->next = node;
-	else gpVSurfaceHead = node;
-	gpVSurfaceTail = node;
-	guiVSurfaceIndex = index;
-	*puiIndex = index;
-	guiVSurfaceSize++;
-	guiVSurfaceTotalAdded++;
+	guiVSurfaceIndex = *index;
+	*puiIndex = *index;
+	guiVSurfaceSize = static_cast<UINT32>(gVideoSurfaces.size());
+	++guiVSurfaceTotalAdded;
 	return TRUE;
 }
 
-static VSURFACE_NODE* FindNodeByIndex(UINT32 uiIndex)
+static HVSURFACE FindSurfaceByIndex(UINT32 uiIndex)
 {
-	for (VSURFACE_NODE* curr = gpVSurfaceHead; curr; curr = curr->next)
-	{
-		if (curr->uiIndex == uiIndex) return curr;
-	}
-	return nullptr;
+	OwnedVideoSurface* const surface = gVideoSurfaces.find(uiIndex);
+	return surface ? surface->get() : nullptr;
 }
 
 BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
@@ -640,24 +626,18 @@ BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
 	case MOUSE_BUFFER:    *hVSurface = ghMouseBuffer; return ghMouseBuffer!= nullptr;
 	default: break;
 	}
-	VSURFACE_NODE* curr = FindNodeByIndex(uiIndex);
-	if (!curr) return FALSE;
-	*hVSurface = curr->hVSurface;
+	HVSURFACE const surface = FindSurfaceByIndex(uiIndex);
+	if (!surface) return FALSE;
+	*hVSurface = surface;
 	return TRUE;
 }
 
 BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 {
-	VSURFACE_NODE* curr = FindNodeByIndex(uiIndex);
-	if (!curr) return FALSE;
+	if (!FindSurfaceByIndex(uiIndex)) return FALSE;
 	SurfaceData::UnRegisterSurface(uiIndex);
-	if (curr == gpVSurfaceHead) gpVSurfaceHead = curr->next;
-	if (curr == gpVSurfaceTail) gpVSurfaceTail = curr->prev;
-	if (curr->prev) curr->prev->next = curr->next;
-	if (curr->next) curr->next->prev = curr->prev;
-	DeleteVideoSurface(curr->hVSurface);
-	MemFree(curr);
-	guiVSurfaceSize--;
+	if (!gVideoSurfaces.erase(uiIndex)) return FALSE;
+	guiVSurfaceSize = static_cast<UINT32>(gVideoSurfaces.size());
 	return TRUE;
 }
 
@@ -692,9 +672,9 @@ BYTE* LockVideoSurface(UINT32 uiVSurface, UINT32* puiPitch)
 	case MOUSE_BUFFER:    return SurfaceData::SetSurfaceData(uiVSurface, (BYTE*)LockMouseBuffer(puiPitch));
 	default: break;
 	}
-	VSURFACE_NODE* curr = FindNodeByIndex(uiVSurface);
-	if (!curr) return nullptr;
-	return SurfaceData::SetSurfaceData(uiVSurface, LockVideoSurfaceBuffer(curr->hVSurface, puiPitch));
+	HVSURFACE const surface = FindSurfaceByIndex(uiVSurface);
+	if (!surface) return nullptr;
+	return SurfaceData::SetSurfaceData(uiVSurface, LockVideoSurfaceBuffer(surface, puiPitch));
 }
 
 void UnLockVideoSurface(UINT32 uiVSurface)
@@ -708,9 +688,9 @@ void UnLockVideoSurface(UINT32 uiVSurface)
 	case MOUSE_BUFFER:    UnlockMouseBuffer();    return;
 	default: break;
 	}
-	VSURFACE_NODE* curr = FindNodeByIndex(uiVSurface);
-	if (!curr) return;
-	UnLockVideoSurfaceBuffer(curr->hVSurface);
+	HVSURFACE const surface = FindSurfaceByIndex(uiVSurface);
+	if (!surface) return;
+	UnLockVideoSurfaceBuffer(surface);
 }
 
 BOOLEAN SetVideoSurfaceTransparencyColor(HVSURFACE hVSurface, COLORVAL TransColor)
