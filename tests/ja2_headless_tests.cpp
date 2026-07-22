@@ -487,6 +487,12 @@ public:
 			nestedBootstrapDeactivationResult =
 				registryDuringBootstrap->deactivate( deactivateDuringBootstrap );
 		}
+		if (initializationGuardDuringBootstrap)
+		{
+			initializationGuardCancelResult =
+				initializationGuardDuringBootstrap->cancel();
+			initializationGuardDuringBootstrap = nullptr;
+		}
 		bootstrapCalls.push_back(static_cast<int>(phase));
 		if (static_cast<int>(phase) == throwPhase) throw "test package bootstrap exception";
 		return static_cast<int>(phase) != failPhase_;
@@ -609,6 +615,8 @@ public:
 	PackageActivationError nestedActivationResult = PackageActivationError::None;
 	PackageActivationPlan nestedResolutionResult;
 	bool nestedBootstrapDeactivationResult = true;
+	GameInitializationGuard* initializationGuardDuringBootstrap = nullptr;
+	RuntimeSessionTransitionResult initializationGuardCancelResult;
 	PackageRegistry* registryDuringDeactivate = nullptr;
 	std::string deactivateDuringDeactivate;
 	bool nestedDeactivateResult = true;
@@ -1156,6 +1164,40 @@ int main( int, char** )
 		       context.markStopped() && guardedPackage.deactivateCalls == 1 &&
 		       guardedPackage.shutdownCalls == std::vector<int>({ 1, 0, 2, 1, 0 }),
 		       "retried guarded initialization shuts packages down exactly once" );
+
+		TestLifecyclePackage reentrantGuardedPackage(
+			"lifecycle.reentrant-initialization-guard", PackageKind::Rules );
+		CHECK( context.packages().registerPackage( reentrantGuardedPackage ) ==
+		           PackageRegistrationError::None &&
+		       context.packages().activate(
+		           "lifecycle.reentrant-initialization-guard" ) ==
+		           PackageActivationError::None,
+		       "reentrant initialization guard test activates its package" );
+		{
+			GameInitializationGuard initialization( context );
+			reentrantGuardedPackage.initializationGuardDuringBootstrap =
+				&initialization;
+			const RuntimeSessionAdvanceResult configured = context.advancePackagesTo(
+				PackageBootstrapPhase::Configure );
+			CHECK( initialization.beginResult() && configured && initialization &&
+			       reentrantGuardedPackage.initializationGuardCancelResult.error ==
+			           RuntimeSessionError::PackageRollbackFailed &&
+			       reentrantGuardedPackage.initializationGuardCancelResult.lifecycle ==
+			           EngineLifecycle::Initializing &&
+			       reentrantGuardedPackage.initializationGuardCancelResult.rollback.packages.error ==
+			           PackageBootstrapShutdownError::OperationInProgress,
+			       "initialization guard remains armed after reentrant rollback contention" );
+		}
+		const bool reentrantGuardPackageRemoved =
+			context.lifecycle() == GameLifecycle::Stopped &&
+			context.packages().completedBootstrapPhases() == 0 &&
+			reentrantGuardedPackage.shutdownCalls == std::vector<int>({ 0 }) &&
+			context.packages().deactivate(
+				"lifecycle.reentrant-initialization-guard" ) &&
+			context.packages().unregisterPackage(
+				"lifecycle.reentrant-initialization-guard" );
+		CHECK( reentrantGuardPackageRemoved,
+		       "armed initialization guard retries rollback from its destructor" );
 	}
 
 	{

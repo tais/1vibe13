@@ -234,7 +234,11 @@ public:
 	{
 		if (!active_) return inactiveResult();
 		RuntimeSessionTransitionResult result = context_.tryCancelInitialization();
-		active_ = false;
+		// Reentrant cancellation can observe the package registry's active
+		// bootstrap transaction. Retain ownership while the session is still
+		// initializing so an explicit retry or this guard's destructor can
+		// perform the rollback after that transaction returns.
+		if (result.lifecycle != EngineLifecycle::Initializing) active_ = false;
 		return result;
 	}
 	RuntimeSessionTransitionResult tryMarkRunning()
