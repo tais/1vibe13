@@ -45,6 +45,7 @@
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
@@ -1470,6 +1471,46 @@ int main( int, char** )
 		               TacticalEntityId{17, 700}, 1234, 0, 2,
 		               SimulationCommandSource::Replay}} ),
 		       "engine runtime admits uniquely sequenced replay commands through the same journal" );
+	}
+
+	{
+		TacticalCommandInbox inbox( TacticalCommandInboxLimits{ 3, 1, 2, 32, 5 } );
+		ServiceCatalog services;
+		CHECK( RegisterTacticalCommandService( services, inbox ) ==
+		           EngineServiceRegistrationError::None,
+		       "headless hosts can explicitly register package tactical command ingress" );
+		const auto commandService = services.resolve<TacticalCommandService>(
+			TacticalCommandServiceId, TacticalCommandServiceVersion );
+		const auto incompatibleService = services.resolve<TacticalCommandService>(
+			TacticalCommandServiceId, EngineServiceVersion{ 1, 1 } );
+		const SimulationCommand stanceCommand{ ChangeStanceCommand{
+			TacticalEntityId{ 17, 701 }, 2, SimulationCommandSource::Replay } };
+		TacticalCommandSubmissionResult submitted{
+			TacticalCommandSubmissionError::InvalidCommand, 0 };
+		if ( commandService )
+			submitted = commandService.service->submit( "fixture.package", stanceCommand );
+		std::uint64_t handledRequest = 0;
+		TacticalEntityId handledSoldier;
+		const TacticalCommandDrainResult drained = inbox.drain(
+			[&]( const TacticalCommandRequest& request ) {
+				handledRequest = request.requestId;
+				handledSoldier = std::get<ChangeStanceCommand>( request.command ).soldier;
+				return TacticalCommandDisposition::Accept;
+			} );
+		TacticalCommandInboxSnapshot snapshot;
+		CHECK( commandService &&
+		       incompatibleService.error == EngineServiceLookupError::IncompatibleVersion &&
+		       submitted.requestId == 1 && drained.accepted == 1 &&
+		       handledRequest == submitted.requestId &&
+		       (handledSoldier == TacticalEntityId{ 17, 701 }) && inbox.empty() &&
+		       commandService.service->snapshot( snapshot ) ==
+		           TacticalCommandSnapshotError::None &&
+		       snapshot.summary.accepted == 1 && snapshot.pending.empty(),
+		       "package command ingress stays value-only and host-drained in the headless runtime" );
+		CHECK( NullTacticalCommandService::instance()
+		               .submit( "fixture.package", stanceCommand )
+		               .error == TacticalCommandSubmissionError::CapacityReached,
+		       "headless hosts have an explicit disabled tactical command service" );
 	}
 
 	{

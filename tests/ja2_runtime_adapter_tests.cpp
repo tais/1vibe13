@@ -1,5 +1,6 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
@@ -11,6 +12,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -147,6 +150,13 @@ bool RejectsJournalWithoutPublishing(
 		std::holds_alternative<EndTurnCommand>(records[0].command) &&
 		std::get<EndTurnCommand>(records[0].command).nextTeam == 4;
 }
+
+SimulationCommand MakeTurnCommand(
+	std::uint8_t nextTeam,
+	SimulationCommandSource source = SimulationCommandSource::System)
+{
+	return SimulationCommand{EndTurnCommand{nextTeam, source}};
+}
 }
 
 int main()
@@ -160,6 +170,328 @@ int main()
 		"slot reuse must not preserve tactical identity");
 	check(firstIncarnation < reusedSlot,
 		"tactical identities have deterministic slot and incarnation ordering");
+
+	TacticalCommandInbox defaultCommandInbox;
+	const TacticalCommandInboxLimits defaultCommandLimits =
+		defaultCommandInbox.limits();
+	check(defaultCommandLimits.maximumPending > 0 &&
+		defaultCommandLimits.maximumPerDrain > 0 &&
+		defaultCommandLimits.maximumDiagnosticEntries > 0 &&
+		defaultCommandLimits.maximumOwnerBytes > 0 &&
+		defaultCommandLimits.maximumRequestId > 0,
+		"tactical command inbox defaults are finite and usable");
+
+	TacticalCommandInbox registeredCommandInbox(
+		TacticalCommandInboxLimits{8, 3, 2, 32, 100});
+	ServiceCatalog commandServices;
+	check(RegisterTacticalCommandService(
+			commandServices, registeredCommandInbox) ==
+			EngineServiceRegistrationError::None,
+		"tactical command ingress registers as a versioned package service");
+	const auto tacticalCommands = commandServices.resolve<TacticalCommandService>(
+		TacticalCommandServiceId, TacticalCommandServiceVersion);
+	const auto futureTacticalCommands =
+		commandServices.resolve<TacticalCommandService>(
+			TacticalCommandServiceId, EngineServiceVersion{1, 1});
+	const auto wrongTacticalCommandType =
+		commandServices.resolve<TacticalWorldService>(
+			TacticalCommandServiceId, TacticalCommandServiceVersion);
+	check(tacticalCommands && tacticalCommands.service == &registeredCommandInbox &&
+		tacticalCommands.availableVersion.major == 1 &&
+		futureTacticalCommands.error ==
+			EngineServiceLookupError::IncompatibleVersion &&
+		wrongTacticalCommandType.error == EngineServiceLookupError::TypeMismatch,
+		"tactical command lookup enforces service version and concrete type");
+	check(RegisterTacticalCommandService(
+			commandServices, registeredCommandInbox) ==
+			EngineServiceRegistrationError::DuplicateId,
+		"tactical command service IDs cannot be registered twice");
+
+	TacticalCommandInbox validationInbox(
+		TacticalCommandInboxLimits{8, 8, 8, 8, 10});
+	const SimulationCommand validTurn = MakeTurnCommand(1);
+	const SimulationCommand invalidSource = MakeTurnCommand(
+		1, static_cast<SimulationCommandSource>(0xff));
+	const SimulationCommand unresolvedStance{ChangeStanceCommand{
+		TacticalEntityId{3, 0}, 2, SimulationCommandSource::Replay}};
+	const SimulationCommand invalidFireCommand{BeginFireWeaponCommand{
+		TacticalEntityId{}, 100, 0, 0, SimulationCommandSource::LocalPlayer}};
+	const TacticalCommandSubmissionResult invalidOwner =
+		validationInbox.submit("bad/owner", validTurn);
+	const TacticalCommandSubmissionResult oversizedOwner =
+		validationInbox.submit(std::string(9, 'a'), validTurn);
+	const TacticalCommandSubmissionResult invalidSourceResult =
+		validationInbox.submit("pkg.ok", invalidSource);
+	const TacticalCommandSubmissionResult unresolvedStanceResult =
+		validationInbox.submit("pkg.ok", unresolvedStance);
+	const TacticalCommandSubmissionResult invalidFireResult =
+		validationInbox.submit("pkg.ok", invalidFireCommand);
+	const TacticalCommandSubmissionResult validStanceResult =
+		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
+			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
+	const TacticalCommandSubmissionResult validFireResult =
+		validationInbox.submit("pkg.ok", SimulationCommand{BeginFireWeaponCommand{
+			TacticalEntityId{3, 301}, 100, 0, 0,
+			SimulationCommandSource::LocalPlayer}});
+	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
+		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
+		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		unresolvedStanceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		invalidFireResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
+		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
+		validationInbox.summary().submitted == 2 &&
+		validationInbox.summary().nextRequestId == 3,
+		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
+
+	TacticalCommandInbox capacityInbox(
+		TacticalCommandInboxLimits{2, 1, 2, 32, 10});
+	const auto capacityFirst = capacityInbox.submit("pkg.a", MakeTurnCommand(1));
+	const auto capacitySecond = capacityInbox.submit("pkg.b", MakeTurnCommand(2));
+	const auto capacityFailure = capacityInbox.submit("pkg.c", MakeTurnCommand(3));
+	const TacticalCommandDrainResult capacityRelease = capacityInbox.drain(
+		[](const TacticalCommandRequest&) { return TacticalCommandDisposition::Accept; });
+	const auto capacityThird = capacityInbox.submit("pkg.c", MakeTurnCommand(3));
+	check(capacityFirst.requestId == 1 && capacitySecond.requestId == 2 &&
+		capacityFailure.error == TacticalCommandSubmissionError::CapacityReached &&
+		capacityFailure.requestId == 0 && capacityRelease.accepted == 1 &&
+		capacityThird.requestId == 3 && capacityInbox.size() == 2,
+		"capacity failures are transactional and request IDs remain monotonic");
+
+	TacticalCommandInbox shortLivedInbox(
+		TacticalCommandInboxLimits{1, 1, 1, 32, 2});
+	const auto lifetimeFirst = shortLivedInbox.submit("pkg.life", validTurn);
+	shortLivedInbox.drain(
+		[](const TacticalCommandRequest&) { return TacticalCommandDisposition::Accept; });
+	const auto lifetimeSecond = shortLivedInbox.submit("pkg.life", validTurn);
+	shortLivedInbox.drain(
+		[](const TacticalCommandRequest&) { return TacticalCommandDisposition::Accept; });
+	const TacticalCommandInboxSummary exhaustedBefore = shortLivedInbox.summary();
+	const auto lifetimeExhausted = shortLivedInbox.submit("pkg.life", validTurn);
+	const TacticalCommandInboxSummary exhaustedAfter = shortLivedInbox.summary();
+	check(lifetimeFirst.requestId == 1 && lifetimeSecond.requestId == 2 &&
+		lifetimeExhausted.error ==
+			TacticalCommandSubmissionError::SequenceExhausted &&
+		lifetimeExhausted.requestId == 0 && exhaustedBefore.sequenceExhausted &&
+		exhaustedBefore.nextRequestId == 0 &&
+		exhaustedAfter.submitted == exhaustedBefore.submitted &&
+		exhaustedAfter.pending == exhaustedBefore.pending,
+		"configured request lifetimes report sequence exhaustion transactionally");
+
+	TacticalCommandInbox flowInbox(
+		TacticalCommandInboxLimits{8, 2, 2, 32, 20});
+	const auto flowFirst = flowInbox.submit("pkg.a", MakeTurnCommand(1));
+	const auto flowSecond = flowInbox.submit("pkg.b", MakeTurnCommand(2));
+	const auto flowThird = flowInbox.submit("pkg.a", MakeTurnCommand(3));
+	TacticalCommandInboxSnapshot boundedCommands;
+	check(flowInbox.snapshot(boundedCommands) == TacticalCommandSnapshotError::None &&
+		boundedCommands.pending.size() == 2 && boundedCommands.omitted == 1 &&
+		boundedCommands.pending[0].requestId == flowFirst.requestId &&
+		boundedCommands.pending[1].requestId == flowSecond.requestId &&
+		boundedCommands.summary.pending == 3 &&
+		boundedCommands.limits.maximumDiagnosticEntries == 2,
+		"command diagnostics publish only their configured oldest bounded prefix");
+	std::vector<std::uint64_t> flowOrder;
+	TacticalCommandSubmissionResult callbackSubmission;
+	const TacticalCommandDrainResult firstFlowDrain = flowInbox.drain(
+		[&](auto& request) {
+			static_assert(std::is_const<typename std::remove_reference<
+				decltype(request)>::type>::value,
+				"host handlers must receive an immutable request");
+			flowOrder.push_back(request.requestId);
+			if (request.requestId == flowFirst.requestId)
+				callbackSubmission =
+					flowInbox.submit("pkg.callback", MakeTurnCommand(4));
+			return TacticalCommandDisposition::Accept;
+		});
+	check(firstFlowDrain.initialPending == 3 && firstFlowDrain.eligible == 2 &&
+		firstFlowDrain.attempted == 2 && firstFlowDrain.accepted == 2 &&
+		callbackSubmission.requestId == 4 && flowOrder.size() == 2 &&
+		flowOrder[0] == flowFirst.requestId && flowOrder[1] == flowSecond.requestId &&
+		firstFlowDrain.queuedForNextDrain == 2,
+		"draining preserves FIFO, enforces its cap, and defers callback submissions");
+	const TacticalCommandDrainResult secondFlowDrain = flowInbox.drain(
+		[&](const TacticalCommandRequest& request) {
+			flowOrder.push_back(request.requestId);
+			return TacticalCommandDisposition::Accept;
+		});
+	check(secondFlowDrain.accepted == 2 && flowOrder.size() == 4 &&
+		flowOrder[2] == flowThird.requestId &&
+		flowOrder[3] == callbackSubmission.requestId && flowInbox.empty(),
+		"callback-enqueued commands become eligible on the following drain only");
+
+	TacticalCommandInbox saturatedCallbackInbox(
+		TacticalCommandInboxLimits{1, 1, 1, 32, 4});
+	const auto saturatedFront =
+		saturatedCallbackInbox.submit("pkg.front", MakeTurnCommand(1));
+	TacticalCommandSubmissionResult saturatedCallbackSubmission;
+	const TacticalCommandDrainResult saturatedCallbackDrain =
+		saturatedCallbackInbox.drain(
+			[&](const TacticalCommandRequest&) {
+				saturatedCallbackSubmission = saturatedCallbackInbox.submit(
+					"pkg.later", MakeTurnCommand(2));
+				return TacticalCommandDisposition::Defer;
+			});
+	TacticalCommandInboxSnapshot saturatedCallbackSnapshot;
+	saturatedCallbackInbox.snapshot(saturatedCallbackSnapshot);
+	check(saturatedCallbackSubmission.error ==
+			TacticalCommandSubmissionError::CapacityReached &&
+		saturatedCallbackSubmission.requestId == 0 &&
+		saturatedCallbackDrain.deferred == 1 &&
+		saturatedCallbackSnapshot.pending.size() == 1 &&
+		saturatedCallbackSnapshot.pending[0].requestId == saturatedFront.requestId &&
+		saturatedCallbackSnapshot.summary.nextRequestId == 2,
+		"the retained in-flight front counts toward capacity during callbacks");
+	saturatedCallbackInbox.cancelPackage("pkg.front");
+
+	TacticalCommandInbox retryInbox(
+		TacticalCommandInboxLimits{5, 5, 5, 32, 20});
+	const auto retryFirst = retryInbox.submit("pkg.retry", MakeTurnCommand(1));
+	const auto retrySecond = retryInbox.submit("pkg.retry", MakeTurnCommand(2));
+	std::uint64_t deferredFront = 0;
+	const TacticalCommandDrainResult explicitDeferral = retryInbox.drain(
+		[&](const TacticalCommandRequest& request) {
+			deferredFront = request.requestId;
+			return TacticalCommandDisposition::Defer;
+		});
+	std::uint64_t failedFront = 0;
+	TacticalCommandSubmissionResult submissionBeforeThrow;
+	const TacticalCommandDrainResult failedCallback = retryInbox.drain(
+		[&](const TacticalCommandRequest& request) -> TacticalCommandDisposition {
+			failedFront = request.requestId;
+			submissionBeforeThrow =
+				retryInbox.submit("pkg.later", MakeTurnCommand(3));
+			throw 7;
+		});
+	TacticalCommandInboxSnapshot retainedAfterFailure;
+	retryInbox.snapshot(retainedAfterFailure);
+	std::vector<std::uint64_t> retryOrder;
+	const TacticalCommandDrainResult completedRetry = retryInbox.drain(
+		[&](const TacticalCommandRequest& request) {
+			retryOrder.push_back(request.requestId);
+			return request.requestId == retryFirst.requestId
+				? TacticalCommandDisposition::Reject
+				: TacticalCommandDisposition::Accept;
+		});
+	const TacticalCommandInboxSummary retrySummary = retryInbox.summary();
+	check(explicitDeferral.attempted == 1 && explicitDeferral.deferred == 1 &&
+		deferredFront == retryFirst.requestId && failedCallback.attempted == 1 &&
+		failedCallback.callbackFailures == 1 && failedCallback.deferred == 1 &&
+		failedFront == retryFirst.requestId && submissionBeforeThrow.requestId == 3 &&
+		retainedAfterFailure.pending.size() == 3 &&
+		retainedAfterFailure.pending[0].requestId == retryFirst.requestId &&
+		retainedAfterFailure.pending[1].requestId == retrySecond.requestId &&
+		retainedAfterFailure.pending[2].requestId == submissionBeforeThrow.requestId &&
+		completedRetry.rejected == 1 && completedRetry.accepted == 2 &&
+		retryOrder.size() == 3 && retrySummary.deferred == 2 &&
+		retrySummary.callbackFailures == 1 && retryInbox.empty(),
+		"defer and exceptions retain the FIFO front while rejection removes it safely");
+
+	TacticalCommandInbox guardedInbox(
+		TacticalCommandInboxLimits{3, 3, 3, 32, 10});
+	guardedInbox.submit("pkg.guard", MakeTurnCommand(1));
+	TacticalCommandDrainResult nestedDrain;
+	TacticalCommandCancellationResult cancellationDuringDrain;
+	bool observedDrainingSummary = false;
+	const TacticalCommandDrainResult guardedDrain = guardedInbox.drain(
+		[&](const TacticalCommandRequest&) {
+			nestedDrain = guardedInbox.drain(
+				[](const TacticalCommandRequest&) {
+					return TacticalCommandDisposition::Accept;
+				});
+			cancellationDuringDrain = guardedInbox.cancelPackage("pkg.guard");
+			observedDrainingSummary = guardedInbox.summary().draining;
+			return TacticalCommandDisposition::Defer;
+		});
+	const TacticalCommandCancellationResult invalidCancellation =
+		guardedInbox.cancelPackage("bad/owner");
+	const TacticalCommandCancellationResult completedCancellation =
+		guardedInbox.cancelPackage("pkg.guard");
+	check(guardedDrain.deferred == 1 &&
+		nestedDrain.error == TacticalCommandDrainError::AlreadyDraining &&
+		nestedDrain.attempted == 0 &&
+		cancellationDuringDrain.error ==
+			TacticalCommandCancellationError::DrainInProgress &&
+		cancellationDuringDrain.cancelled == 0 && observedDrainingSummary &&
+		!guardedInbox.summary().draining &&
+		invalidCancellation.error == TacticalCommandCancellationError::InvalidOwner &&
+		completedCancellation.cancelled == 1 && guardedInbox.empty(),
+		"nested drains and cancellation during callbacks fail without invalidating the front");
+
+	TacticalCommandInbox malformedDispositionInbox(
+		TacticalCommandInboxLimits{1, 1, 1, 32, 2});
+	const auto malformedDispositionRequest =
+		malformedDispositionInbox.submit("pkg.malformed", validTurn);
+	const TacticalCommandDrainResult malformedDispositionDrain =
+		malformedDispositionInbox.drain(
+			[](const TacticalCommandRequest&) {
+				return static_cast<TacticalCommandDisposition>(0xff);
+			});
+	TacticalCommandInboxSnapshot malformedDispositionSnapshot;
+	malformedDispositionInbox.snapshot(malformedDispositionSnapshot);
+	check(malformedDispositionDrain.attempted == 1 &&
+		malformedDispositionDrain.callbackFailures == 1 &&
+		malformedDispositionDrain.deferred == 1 &&
+		malformedDispositionSnapshot.pending.size() == 1 &&
+		malformedDispositionSnapshot.pending[0].requestId ==
+			malformedDispositionRequest.requestId,
+		"unknown handler dispositions fail closed and retain the front request");
+	malformedDispositionInbox.cancelPackage("pkg.malformed");
+
+	TacticalCommandInbox cancellationInbox(
+		TacticalCommandInboxLimits{5, 5, 5, 32, 20});
+	const auto cancelFirst = cancellationInbox.submit("pkg.alpha", MakeTurnCommand(1));
+	const auto cancelSecond = cancellationInbox.submit("pkg.beta", MakeTurnCommand(2));
+	cancellationInbox.submit("pkg.alpha", MakeTurnCommand(3));
+	const auto cancelFourth = cancellationInbox.submit("pkg.beta", MakeTurnCommand(4));
+	const TacticalCommandCancellationResult cancelledAlpha =
+		cancellationInbox.cancelPackage("pkg.alpha");
+	TacticalCommandInboxSnapshot cancellationSnapshot;
+	cancellationInbox.snapshot(cancellationSnapshot);
+	std::vector<std::uint64_t> survivorOrder;
+	cancellationInbox.drain([&](const TacticalCommandRequest& request) {
+		survivorOrder.push_back(request.requestId);
+		return TacticalCommandDisposition::Accept;
+	});
+	check(cancelFirst.requestId == 1 && cancelledAlpha.cancelled == 2 &&
+		cancellationSnapshot.pending.size() == 2 &&
+		cancellationSnapshot.pending[0].requestId == cancelSecond.requestId &&
+		cancellationSnapshot.pending[1].requestId == cancelFourth.requestId &&
+		survivorOrder.size() == 2 && survivorOrder[0] == cancelSecond.requestId &&
+		survivorOrder[1] == cancelFourth.requestId &&
+		cancellationInbox.summary().cancelled == 2,
+		"package cancellation removes only owned work and preserves survivor FIFO");
+
+	NullTacticalCommandService& nullCommands =
+		NullTacticalCommandService::instance();
+	const auto nullSubmission = nullCommands.submit("pkg.null", validTurn);
+	const auto nullInvalidOwner = nullCommands.submit("bad/owner", validTurn);
+	const auto nullInvalidCommand = nullCommands.submit("pkg.null", unresolvedStance);
+	const auto nullCancellation = nullCommands.cancelPackage("pkg.null");
+	TacticalCommandInboxSnapshot nullSnapshot;
+	nullSnapshot.pending.push_back(TacticalCommandRequest{
+		99, "sentinel", MakeTurnCommand(9)});
+	const TacticalCommandSnapshotError nullSnapshotResult =
+		nullCommands.snapshot(nullSnapshot);
+	TacticalCommandInbox& disabledCommands = TacticalCommandInbox::disabled();
+	bool disabledHandlerCalled = false;
+	const TacticalCommandDrainResult disabledDrain = disabledCommands.drain(
+		[&](const TacticalCommandRequest&) {
+			disabledHandlerCalled = true;
+			return TacticalCommandDisposition::Accept;
+		});
+	check(nullSubmission.error == TacticalCommandSubmissionError::CapacityReached &&
+		nullSubmission.requestId == 0 &&
+		nullInvalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
+		nullInvalidCommand.error == TacticalCommandSubmissionError::InvalidCommand &&
+		nullCancellation && nullCancellation.cancelled == 0 &&
+		nullSnapshotResult == TacticalCommandSnapshotError::None &&
+		nullSnapshot.pending.empty() && nullSnapshot.summary.pending == 0 &&
+		nullCommands.limits().maximumPending == 0 &&
+		disabledCommands.submit("pkg.null", validTurn).error ==
+			TacticalCommandSubmissionError::CapacityReached &&
+		disabledDrain.eligible == 0 && !disabledHandlerCalled,
+		"null and disabled command services validate input but never retain work");
 
 	TacticalWorldSnapshot tacticalSnapshot;
 	std::vector<TacticalActorSnapshot> unorderedActors{
