@@ -80,6 +80,17 @@ retained, and default named options produce the same configuration and runtime
 fingerprint as that compatibility path. `EngineRuntime` exposes the same named
 constructor above the JA2 adapter.
 
+`RuntimeSession` treats application startup and package bootstrap as one
+transaction. `markRunning()` succeeds only after `StartRuntime`; cancelling an
+initialization unwinds every completed phase in reverse while keeping packages
+active for a retry. Final `markStopped()` requires `shutdownPackages()` to have
+completed, and repeated shutdown attempts never invoke an already-unwound
+bootstrap callback again. Established boolean transition methods remain
+source-compatible. Hosts that need diagnostics can call `tryBeginInitialization`,
+`tryCancelInitialization`, `tryMarkRunning`, `tryBeginShutdown`, and
+`tryMarkStopped` to receive `RuntimeSessionTransitionResult`, including rollback
+phase/callback counts and structured incomplete/failure errors.
+
 The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,
 and builds the fresh project against `find_package(JA2Engine)`. It exercises

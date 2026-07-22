@@ -1650,6 +1650,15 @@ void ShutdownJA2(void)
 	const PackageLifecycleShutdownResult& lifecycleTeardown = sessionTeardown.packages;
 	const PackageDeactivationBatchResult& packageTeardown =
 		lifecycleTeardown.deactivation;
+	if (!lifecycleTeardown.bootstrap)
+	{
+		gameContext.log().write(LogRecord{
+			LogSeverity::Error, "packages",
+			"Package bootstrap shutdown completed with " +
+				std::to_string(
+					lifecycleTeardown.bootstrap.packages.callbackFailures) +
+				" callback failure(s)"});
+	}
 	if (!packageTeardown)
 	{
 		// Continue shutting down legacy systems even when a corrupt/missing
@@ -1713,7 +1722,14 @@ void ShutdownJA2(void)
 	RemoveTextMercPopupImages( );
 
 	ClearOutVehicleList();
-	gameContext.markStopped();
+	const RuntimeSessionTransitionResult stopped = gameContext.tryMarkStopped();
+	if (!stopped)
+	{
+		gameContext.log().write(LogRecord{
+			LogSeverity::Error, "lifecycle",
+			"Runtime could not enter stopped state with code " +
+				std::to_string(static_cast<int>(stopped.error))});
+	}
 }
 
 

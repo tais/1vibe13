@@ -185,6 +185,54 @@ private:
 	bool active_ = false;
 };
 
+class TransactionalLifecyclePackage final : public EnginePackage
+{
+public:
+	explicit TransactionalLifecyclePackage(std::string id)
+		: descriptor_{ContentManifest{
+			std::move(id), "1", ContentApiVersion{1, 0}}, PackageKind::Rules}
+	{
+	}
+
+	const PackageDescriptor& descriptor() const override { return descriptor_; }
+	bool activate() noexcept override
+	{
+		active = true;
+		return true;
+	}
+	void deactivate() noexcept override
+	{
+		active = false;
+		++deactivateCalls;
+	}
+	bool bootstrap(PackageBootstrapContext&, PackageBootstrapPhase phase) override
+	{
+		bootstrapCalls.push_back(static_cast<int>(phase));
+		if (cancelDuringBootstrap)
+		{
+			cancelDuringBootstrapResult =
+				cancelDuringBootstrap->tryCancelInitialization();
+			cancelDuringBootstrap = nullptr;
+		}
+		return true;
+	}
+	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
+	{
+		shutdownCalls.push_back(static_cast<int>(phase));
+		if (static_cast<int>(phase) == throwOnShutdownPhase)
+			throw std::runtime_error("injected shutdown failure");
+	}
+
+	PackageDescriptor descriptor_;
+	std::vector<int> bootstrapCalls;
+	std::vector<int> shutdownCalls;
+	RuntimeSession* cancelDuringBootstrap = nullptr;
+	RuntimeSessionTransitionResult cancelDuringBootstrapResult;
+	int throwOnShutdownPhase = -1;
+	int deactivateCalls = 0;
+	bool active = false;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -592,6 +640,141 @@ int main()
 			EngineHostOptionsValidationError::InvalidPackageSaveStateLimits &&
 		invalidHostRejected,
 		"invalid host options are diagnosed and rejected before host construction");
+
+	TransactionalLifecyclePackage transactionalPackage("rules.transactional-session");
+	EngineHost<unsigned> transactionalHost;
+	const bool transactionalRegistered =
+		transactionalHost.packages().registerPackage(transactionalPackage) ==
+			PackageRegistrationError::None &&
+		transactionalHost.packages().activate("rules.transactional-session") ==
+			PackageActivationError::None;
+	const RuntimeSessionTransitionResult initializationStarted =
+		transactionalHost.tryBeginInitialization();
+	const RuntimeSessionAdvanceResult contentLoaded =
+		transactionalHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::LoadContent);
+	const RuntimeSessionTransitionResult prematureRunning =
+		transactionalHost.tryMarkRunning();
+	const RuntimeSessionTransitionResult cancelledInitialization =
+		transactionalHost.tryCancelInitialization();
+	const RuntimeSessionTransitionResult repeatedCancellation =
+		transactionalHost.tryCancelInitialization();
+	check(transactionalRegistered && initializationStarted && contentLoaded &&
+		prematureRunning.error == RuntimeSessionError::PackageBootstrapIncomplete &&
+		prematureRunning.lifecycle == EngineLifecycle::Initializing &&
+		cancelledInitialization &&
+		cancelledInitialization.lifecycle == EngineLifecycle::Stopped &&
+		cancelledInitialization.completedPackagePhases == 0 &&
+		cancelledInitialization.rollback.packages.shutdownPhases == 2 &&
+		cancelledInitialization.rollback.packages.callbacks == 2 &&
+		cancelledInitialization.rollback.packages.callbackFailures == 0 &&
+		repeatedCancellation.error == RuntimeSessionError::InvalidState &&
+		transactionalPackage.active && transactionalPackage.deactivateCalls == 0 &&
+		transactionalPackage.bootstrapCalls == std::vector<int>({0, 1}) &&
+		transactionalPackage.shutdownCalls == std::vector<int>({1, 0}) &&
+		transactionalHost.packages().completedBootstrapPhases() == 0,
+		"initialization cancellation rolls back completed phases without deactivation");
+
+	TransactionalLifecyclePackage reentrantPackage("rules.reentrant-cancel");
+	EngineHost<unsigned> reentrantHost;
+	reentrantPackage.cancelDuringBootstrap = &reentrantHost.runtimeSession();
+	const bool reentrantReady =
+		reentrantHost.packages().registerPackage(reentrantPackage) ==
+			PackageRegistrationError::None &&
+		reentrantHost.packages().activate("rules.reentrant-cancel") ==
+			PackageActivationError::None &&
+		reentrantHost.beginInitialization();
+	const RuntimeSessionAdvanceResult reentrantAdvance =
+		reentrantHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::Configure);
+	const RuntimeSessionTransitionResult reentrantRetry =
+		reentrantHost.tryCancelInitialization();
+	check(reentrantReady && reentrantAdvance &&
+		reentrantPackage.cancelDuringBootstrapResult.error ==
+			RuntimeSessionError::PackageRollbackFailed &&
+		reentrantPackage.cancelDuringBootstrapResult.rollback.packages.error ==
+			PackageBootstrapShutdownError::OperationInProgress &&
+		reentrantPackage.cancelDuringBootstrapResult.lifecycle ==
+			EngineLifecycle::Initializing &&
+		reentrantRetry && reentrantRetry.lifecycle == EngineLifecycle::Stopped &&
+		reentrantPackage.shutdownCalls == std::vector<int>({0}),
+		"reentrant cancellation stays initializing until rollback can be retried");
+
+	const RuntimeSessionTransitionResult retryStarted =
+		transactionalHost.tryBeginInitialization();
+	const RuntimeSessionAdvanceResult retryBootstrapped =
+		transactionalHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime);
+	const RuntimeSessionTransitionResult retryRunning =
+		transactionalHost.tryMarkRunning();
+	const RuntimeSessionTransitionResult shutdownStarted =
+		transactionalHost.tryBeginShutdown();
+	const RuntimeSessionTransitionResult prematureStopped =
+		transactionalHost.tryMarkStopped();
+	const RuntimeSessionShutdownResult finalShutdown =
+		transactionalHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionShutdownResult repeatedShutdown =
+		transactionalHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult finalStopped =
+		transactionalHost.tryMarkStopped();
+	check(retryStarted && retryBootstrapped && retryRunning && shutdownStarted &&
+		prematureStopped.error == RuntimeSessionError::PackageShutdownIncomplete &&
+		prematureStopped.lifecycle == EngineLifecycle::ShuttingDown && finalShutdown &&
+		finalShutdown.packages.shutdownPhases == 3 &&
+		finalShutdown.packages.bootstrap.packages.callbacks == 3 && repeatedShutdown &&
+		repeatedShutdown.packages.shutdownPhases == 0 &&
+		repeatedShutdown.packages.bootstrap.packages.callbacks == 0 && finalStopped &&
+		transactionalPackage.bootstrapCalls == std::vector<int>({0, 1, 0, 1, 2}) &&
+		transactionalPackage.shutdownCalls == std::vector<int>({1, 0, 2, 1, 0}) &&
+		transactionalPackage.deactivateCalls == 1 && !transactionalPackage.active &&
+		transactionalHost.lifecycle() == EngineLifecycle::Stopped,
+		"rolled-back packages retry cleanly and final shutdown callbacks run only once");
+
+	TransactionalLifecyclePackage failingRollbackPackage("rules.rollback-failure");
+	failingRollbackPackage.throwOnShutdownPhase = 1;
+	EngineHost<unsigned> failingRollbackHost;
+	const bool failingRollbackReady =
+		failingRollbackHost.packages().registerPackage(failingRollbackPackage) ==
+			PackageRegistrationError::None &&
+		failingRollbackHost.packages().activate("rules.rollback-failure") ==
+			PackageActivationError::None &&
+		failingRollbackHost.beginInitialization() &&
+		failingRollbackHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::LoadContent);
+	const RuntimeSessionTransitionResult failedRollback =
+		failingRollbackHost.tryCancelInitialization();
+	check(failingRollbackReady &&
+		failedRollback.error == RuntimeSessionError::PackageRollbackFailed &&
+		failedRollback.rollback.packages.error ==
+			PackageBootstrapShutdownError::CallbackFailed &&
+		failedRollback.rollback.packages.shutdownPhases == 2 &&
+		failedRollback.rollback.packages.callbacks == 2 &&
+		failedRollback.rollback.packages.callbackFailures == 1 &&
+		failingRollbackPackage.shutdownCalls == std::vector<int>({1, 0}) &&
+		failingRollbackHost.packages().completedBootstrapPhases() == 0 &&
+		failingRollbackHost.lifecycle() == EngineLifecycle::Stopped,
+		"rollback callback failures remain structured after best-effort cleanup");
+	const bool failingFinalShutdownReady =
+		failingRollbackHost.beginInitialization() &&
+		failingRollbackHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		failingRollbackHost.markRunning() && failingRollbackHost.beginShutdown();
+	const RuntimeSessionShutdownResult failedFinalShutdown =
+		failingRollbackHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionShutdownResult repeatedFailedFinalShutdown =
+		failingRollbackHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult rejectedStoppedState =
+		failingRollbackHost.tryMarkStopped();
+	check(failingFinalShutdownReady &&
+		failedFinalShutdown.error == RuntimeSessionError::PackageShutdownFailed &&
+		failedFinalShutdown.packages.bootstrap.packages.callbackFailures == 1 &&
+		repeatedFailedFinalShutdown.error == RuntimeSessionError::PackageShutdownFailed &&
+		repeatedFailedFinalShutdown.packages.bootstrap.packages.callbacks == 0 &&
+		rejectedStoppedState.error == RuntimeSessionError::PackageShutdownIncomplete &&
+		failingRollbackPackage.shutdownCalls == std::vector<int>({1, 0, 2, 1, 0}) &&
+		failingRollbackPackage.deactivateCalls == 1 &&
+		failingRollbackHost.lifecycle() == EngineLifecycle::ShuttingDown,
+		"a failed final rollback cannot be hidden by a no-op repeated shutdown");
 
 	DeclaredContentPackage declaredContent(PackageDescriptor{
 		ContentManifest{"mod.declared-content", "1", ContentApiVersion{1, 4}},

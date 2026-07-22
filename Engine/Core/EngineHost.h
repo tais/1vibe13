@@ -358,6 +358,26 @@ public:
 	}
 
 	EngineLifecycle lifecycle() const { return runtimeSession_.lifecycle(); }
+	RuntimeSessionTransitionResult tryBeginInitialization()
+	{
+		return runtimeSession_.tryBeginInitialization();
+	}
+	RuntimeSessionTransitionResult tryCancelInitialization()
+	{
+		return runtimeSession_.tryCancelInitialization();
+	}
+	RuntimeSessionTransitionResult tryMarkRunning()
+	{
+		return runtimeSession_.tryMarkRunning();
+	}
+	RuntimeSessionTransitionResult tryBeginShutdown()
+	{
+		return runtimeSession_.tryBeginShutdown();
+	}
+	RuntimeSessionTransitionResult tryMarkStopped()
+	{
+		return runtimeSession_.tryMarkStopped();
+	}
 	bool beginInitialization() { return runtimeSession_.beginInitialization(); }
 	bool cancelInitialization() { return runtimeSession_.cancelInitialization(); }
 	bool markRunning() { return runtimeSession_.markRunning(); }

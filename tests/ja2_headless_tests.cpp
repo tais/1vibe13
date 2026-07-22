@@ -708,8 +708,11 @@ int main( int, char** )
 		host.screenController().reset( 7 );
 		CHECK( host.screens().current() && host.screens().current()->state == 7,
 		       "command-agnostic engine host owns screen state" );
-		CHECK( host.beginInitialization() && host.markRunning() &&
-		       host.beginShutdown() && host.markStopped(),
+		CHECK( host.beginInitialization() &&
+		       host.runtimeSession().advancePackagesTo(
+		           PackageBootstrapPhase::StartRuntime ) &&
+		       host.markRunning() && host.beginShutdown() &&
+		       host.runtimeSession().shutdownPackages() && host.markStopped(),
 		       "command-agnostic engine host owns lifecycle" );
 	}
 
@@ -1112,19 +1115,47 @@ int main( int, char** )
 		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor() &&
 		       context.hasCapability( GameCapability::ApplicationMapEditor ),
 		       "game context accepts runtime capabilities before initialization" );
-		CHECK( context.beginInitialization() && context.markRunning(),
+		CHECK( context.beginInitialization() &&
+		       context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+		       context.markRunning(),
 		       "game context enters running lifecycle" );
 		CHECK( !context.setCapabilities( GameCapabilities{} ),
 		       "game context freezes runtime capabilities while running" );
 		CHECK( !context.beginInitialization(), "game context rejects duplicate initialization" );
-		CHECK( context.beginShutdown() && context.markStopped(),
+		CHECK( context.beginShutdown() && context.shutdownPackages() &&
+		       context.markStopped(),
 		       "game context completes shutdown lifecycle" );
+		TestLifecyclePackage guardedPackage(
+			"lifecycle.initialization-guard", PackageKind::Rules );
+		CHECK( context.packages().registerPackage( guardedPackage ) ==
+		           PackageRegistrationError::None &&
+		       context.packages().activate( "lifecycle.initialization-guard" ) ==
+		           PackageActivationError::None,
+		       "game initialization guard test activates a retryable package" );
 		{
 			GameInitializationGuard initialization( context );
-			CHECK( initialization, "game initialization guard starts from stopped state" );
+			const RuntimeSessionAdvanceResult loaded = context.advancePackagesTo(
+				PackageBootstrapPhase::LoadContent );
+			CHECK( initialization && loaded,
+			       "game initialization guard starts and reaches partial package bootstrap" );
 		}
-		CHECK( context.lifecycle() == GameLifecycle::Stopped,
-		       "game initialization guard rolls back incomplete initialization" );
+		CHECK( context.lifecycle() == GameLifecycle::Stopped && guardedPackage.active() &&
+		       guardedPackage.deactivateCalls == 0 &&
+		       guardedPackage.shutdownCalls == std::vector<int>({ 1, 0 }) &&
+		       context.packages().completedBootstrapPhases() == 0,
+		       "game initialization guard rolls back incomplete package initialization" );
+		{
+			GameInitializationGuard retry( context );
+			const RuntimeSessionAdvanceResult started = context.advancePackagesTo(
+				PackageBootstrapPhase::StartRuntime );
+			const RuntimeSessionTransitionResult running = retry.tryMarkRunning();
+			CHECK( retry.beginResult() && started && running,
+			       "game initialization guard permits a clean retry after rollback" );
+		}
+		CHECK( context.beginShutdown() && context.shutdownPackages() &&
+		       context.markStopped() && guardedPackage.deactivateCalls == 1 &&
+		       guardedPackage.shutdownCalls == std::vector<int>({ 1, 0, 2, 1, 0 }),
+		       "retried guarded initialization shuts packages down exactly once" );
 	}
 
 	{

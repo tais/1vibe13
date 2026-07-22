@@ -5,12 +5,20 @@
 
 #include <Engine/Core/PackageApi.h>
 
+struct PackageLifecycleRollbackResult
+{
+	PackageBootstrapShutdownResult packages;
+
+	explicit operator bool() const { return static_cast<bool>(packages); }
+};
+
 struct PackageLifecycleAdvanceResult
 {
 	PackageBootstrapError error = PackageBootstrapError::None;
 	PackageBootstrapPhase phase = PackageBootstrapPhase::Configure;
 	std::size_t completedPhases = 0;
 	bool rolledBack = false;
+	PackageLifecycleRollbackResult rollback;
 
 	explicit operator bool() const { return error == PackageBootstrapError::None; }
 };
@@ -19,8 +27,12 @@ struct PackageLifecycleShutdownResult
 {
 	std::size_t shutdownPhases = 0;
 	PackageDeactivationBatchResult deactivation;
+	PackageLifecycleRollbackResult bootstrap;
 
-	explicit operator bool() const { return static_cast<bool>(deactivation); }
+	explicit operator bool() const
+	{
+		return static_cast<bool>(bootstrap) && static_cast<bool>(deactivation);
+	}
 };
 
 // Coordinates the complete package bootstrap transaction above the lower-level
@@ -52,9 +64,9 @@ public:
 			const PackageBootstrapError error = packages_.bootstrap(phase);
 			if (error != PackageBootstrapError::None)
 			{
-				packages_.shutdownBootstrap();
+				const PackageLifecycleRollbackResult rollback = this->rollback();
 				return PackageLifecycleAdvanceResult{
-					error, phase, packages_.completedBootstrapPhases(), true};
+					error, phase, packages_.completedBootstrapPhases(), true, rollback};
 			}
 			completed = packages_.completedBootstrapPhases();
 		}
@@ -62,11 +74,26 @@ public:
 			PackageBootstrapError::None, target, completed, false};
 	}
 
+	PackageLifecycleRollbackResult rollback()
+	{
+		return PackageLifecycleRollbackResult{packages_.shutdownBootstrap()};
+	}
+
 	PackageLifecycleShutdownResult shutdown()
 	{
-		const std::size_t phases = packages_.completedBootstrapPhases();
-		packages_.shutdownBootstrap();
-		return PackageLifecycleShutdownResult{phases, packages_.deactivateAll()};
+		const PackageLifecycleRollbackResult bootstrap = rollback();
+		return PackageLifecycleShutdownResult{
+			bootstrap.packages.shutdownPhases, packages_.deactivateAll(), bootstrap};
+	}
+
+	std::size_t completedPhases() const
+	{
+		return packages_.completedBootstrapPhases();
+	}
+	bool readyToRun() const
+	{
+		return completedPhases() ==
+			static_cast<std::size_t>(PackageBootstrapPhase::StartRuntime) + 1;
 	}
 
 private:

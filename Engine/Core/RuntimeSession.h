@@ -1,6 +1,8 @@
 #ifndef ENGINE_CORE_RUNTIME_SESSION_H
 #define ENGINE_CORE_RUNTIME_SESSION_H
 
+#include <cstddef>
+
 #include <Engine/Core/PackageLifecycle.h>
 #include <Engine/Core/RuntimeConfiguration.h>
 #include <Engine/Core/ServiceCatalog.h>
@@ -18,7 +20,10 @@ enum class RuntimeSessionError
 	None,
 	InvalidState,
 	PackageBootstrapFailed,
-	PackageShutdownFailed
+	PackageShutdownFailed,
+	PackageBootstrapIncomplete,
+	PackageRollbackFailed,
+	PackageShutdownIncomplete
 };
 
 struct RuntimeSessionAdvanceResult
@@ -33,6 +38,16 @@ struct RuntimeSessionShutdownResult
 {
 	RuntimeSessionError error = RuntimeSessionError::None;
 	PackageLifecycleShutdownResult packages;
+
+	explicit operator bool() const { return error == RuntimeSessionError::None; }
+};
+
+struct RuntimeSessionTransitionResult
+{
+	RuntimeSessionError error = RuntimeSessionError::None;
+	EngineLifecycle lifecycle = EngineLifecycle::Stopped;
+	std::size_t completedPackagePhases = 0;
+	PackageLifecycleRollbackResult rollback;
 
 	explicit operator bool() const { return error == RuntimeSessionError::None; }
 };
@@ -74,55 +89,106 @@ public:
 		if (lifecycle_ != EngineLifecycle::ShuttingDown)
 			return RuntimeSessionShutdownResult{RuntimeSessionError::InvalidState, {}};
 		PackageLifecycleShutdownResult result = packages_.shutdown();
+		if (!result.bootstrap) shutdownRollbackFailed_ = true;
+		const bool completed = static_cast<bool>(result) && !shutdownRollbackFailed_;
+		if (completed) shutdownCompleted_ = true;
 		return RuntimeSessionShutdownResult{
-			result ? RuntimeSessionError::None
-			       : RuntimeSessionError::PackageShutdownFailed,
+			completed ? RuntimeSessionError::None
+			          : RuntimeSessionError::PackageShutdownFailed,
 			result};
 	}
 
-	bool beginInitialization()
+	RuntimeSessionTransitionResult tryBeginInitialization()
 	{
-		if (lifecycle_ != EngineLifecycle::Stopped) return false;
+		if (lifecycle_ != EngineLifecycle::Stopped)
+			return transitionError(RuntimeSessionError::InvalidState);
 		extensionServices_.seal();
 		configuration_.seal();
+		shutdownCompleted_ = false;
+		shutdownRollbackFailed_ = false;
 		lifecycle_ = EngineLifecycle::Initializing;
-		return true;
+		return transitionSuccess();
 	}
 
-	bool cancelInitialization()
+	RuntimeSessionTransitionResult tryCancelInitialization()
 	{
-		if (lifecycle_ != EngineLifecycle::Initializing) return false;
+		if (lifecycle_ != EngineLifecycle::Initializing)
+			return transitionError(RuntimeSessionError::InvalidState);
+		const PackageLifecycleRollbackResult rollback = packages_.rollback();
+		if (rollback.packages.error ==
+			PackageBootstrapShutdownError::OperationInProgress)
+		{
+			return RuntimeSessionTransitionResult{
+				RuntimeSessionError::PackageRollbackFailed, lifecycle_,
+				packages_.completedPhases(), rollback};
+		}
+		shutdownCompleted_ = false;
+		shutdownRollbackFailed_ = false;
 		lifecycle_ = EngineLifecycle::Stopped;
-		return true;
+		return RuntimeSessionTransitionResult{
+			rollback ? RuntimeSessionError::None
+			         : RuntimeSessionError::PackageRollbackFailed,
+			lifecycle_, packages_.completedPhases(), rollback};
 	}
 
-	bool markRunning()
+	RuntimeSessionTransitionResult tryMarkRunning()
 	{
-		if (lifecycle_ != EngineLifecycle::Initializing) return false;
+		if (lifecycle_ != EngineLifecycle::Initializing)
+			return transitionError(RuntimeSessionError::InvalidState);
+		if (!packages_.readyToRun())
+			return transitionError(RuntimeSessionError::PackageBootstrapIncomplete);
 		lifecycle_ = EngineLifecycle::Running;
-		return true;
+		return transitionSuccess();
 	}
 
-	bool beginShutdown()
+	RuntimeSessionTransitionResult tryBeginShutdown()
 	{
 		if (lifecycle_ != EngineLifecycle::Running &&
-			lifecycle_ != EngineLifecycle::Initializing) return false;
+			lifecycle_ != EngineLifecycle::Initializing)
+			return transitionError(RuntimeSessionError::InvalidState);
+		shutdownCompleted_ = false;
+		shutdownRollbackFailed_ = false;
 		lifecycle_ = EngineLifecycle::ShuttingDown;
-		return true;
+		return transitionSuccess();
 	}
 
-	bool markStopped()
+	RuntimeSessionTransitionResult tryMarkStopped()
 	{
-		if (lifecycle_ != EngineLifecycle::ShuttingDown) return false;
+		if (lifecycle_ != EngineLifecycle::ShuttingDown)
+			return transitionError(RuntimeSessionError::InvalidState);
+		if (!shutdownCompleted_)
+			return transitionError(RuntimeSessionError::PackageShutdownIncomplete);
 		lifecycle_ = EngineLifecycle::Stopped;
-		return true;
+		return transitionSuccess();
 	}
+
+	// Source-compatible convenience wrappers for established hosts. New code
+	// can use the try* forms when it needs the structured failure reason and
+	// rollback diagnostics.
+	bool beginInitialization() { return static_cast<bool>(tryBeginInitialization()); }
+	bool cancelInitialization() { return static_cast<bool>(tryCancelInitialization()); }
+	bool markRunning() { return static_cast<bool>(tryMarkRunning()); }
+	bool beginShutdown() { return static_cast<bool>(tryBeginShutdown()); }
+	bool markStopped() { return static_cast<bool>(tryMarkStopped()); }
 
 private:
+	RuntimeSessionTransitionResult transitionSuccess() const
+	{
+		return RuntimeSessionTransitionResult{
+			RuntimeSessionError::None, lifecycle_, packages_.completedPhases(), {}};
+	}
+	RuntimeSessionTransitionResult transitionError(RuntimeSessionError error) const
+	{
+		return RuntimeSessionTransitionResult{
+			error, lifecycle_, packages_.completedPhases(), {}};
+	}
+
 	PackageLifecycle& packages_;
 	ServiceCatalog& extensionServices_;
 	RuntimeConfiguration& configuration_;
 	EngineLifecycle lifecycle_ = EngineLifecycle::Stopped;
+	bool shutdownCompleted_ = false;
+	bool shutdownRollbackFailed_ = false;
 };
 
 #endif

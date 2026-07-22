@@ -647,16 +647,23 @@ public:
 		return PackageBootstrapError::None;
 	}
 
-	void shutdownBootstrap()
+	PackageBootstrapShutdownResult shutdownBootstrap()
 	{
-		if (operationInProgress_) return;
+		PackageBootstrapShutdownResult result;
+		if (operationInProgress_)
+		{
+			result.error = PackageBootstrapShutdownError::OperationInProgress;
+			return result;
+		}
 		OperationGuard operation(operationInProgress_);
+		result.shutdownPhases = completedBootstrapPhases_;
 		while (completedBootstrapPhases_ > 0)
 		{
 			const PackageBootstrapPhase phase =
 				static_cast<PackageBootstrapPhase>(completedBootstrapPhases_ - 1);
 			for (auto package = active_.rbegin(); package != active_.rend(); ++package)
 			{
+				++result.callbacks;
 				PackageBootstrapContext context = contextFor(*package);
 				bool shutDown = false;
 				try
@@ -666,6 +673,7 @@ public:
 				}
 				catch (...)
 				{
+					++result.callbackFailures;
 					faults_.record(RuntimeFaultKind::Shutdown, *package,
 						"shutdown", static_cast<std::uint64_t>(phase) + 1);
 					logError("Package shutdown threw: ", *package);
@@ -684,6 +692,9 @@ public:
 			}
 			--completedBootstrapPhases_;
 		}
+		if (result.callbackFailures != 0)
+			result.error = PackageBootstrapShutdownError::CallbackFailed;
+		return result;
 	}
 
 	PackageSaveStateCaptureResult captureSaveState() noexcept

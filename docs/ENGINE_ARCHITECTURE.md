@@ -325,12 +325,16 @@ the engine must not contain SDL types in its public domain model.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
-  phase automatically and normal shutdown uses the same reverse-order path
-  before package deactivation.
+  phase automatically. Initialization cancellation uses the same structured
+  reverse-order rollback without deactivating packages, so a corrected startup
+  can retry the active package set. Final shutdown rolls back once before
+  package deactivation and reports callback failures separately.
 - `RuntimeSession` owns the application lifecycle state and is the live gateway
   for package bootstrap and shutdown. Established JA2 loading boundaries still
-  advance phases at the same points, while the host now prevents package
-  teardown from running outside an orderly engine shutdown.
+  advance phases at the same points. Running requires all three bootstrap
+  phases, Stopped requires a successful package shutdown, and cancellation
+  cannot discard completed phases. Existing boolean transition methods remain
+  compatibility wrappers over structured `try*` results.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

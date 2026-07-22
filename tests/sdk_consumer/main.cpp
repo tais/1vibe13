@@ -197,11 +197,16 @@ int main()
 		header.version != 1 || loaded != saved) return 4;
 
 	host.screenController().reset(7);
+	const RuntimeSessionTransitionResult initializing = host.tryBeginInitialization();
+	const RuntimeSessionTransitionResult prematureRunning = host.tryMarkRunning();
+	const RuntimeSessionAdvanceResult packagesStarted =
+		host.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime);
+	const RuntimeSessionTransitionResult running = host.tryMarkRunning();
 	if (!host.screens().current() || host.screens().current()->state != 7 ||
-		!host.beginInitialization() ||
-		!host.runtimeSession().advancePackagesTo(PackageBootstrapPhase::StartRuntime) ||
-		!package.issuedIdentity() || package.issuedIdentity().id() != "external.rules" ||
-		!host.markRunning()) return 5;
+		!initializing ||
+		prematureRunning.error != RuntimeSessionError::PackageBootstrapIncomplete ||
+		!packagesStarted || !package.issuedIdentity() ||
+		package.issuedIdentity().id() != "external.rules" || !running) return 5;
 	const PackageSaveStateCaptureResult capturedExternalState =
 		host.capturePackageSaveState();
 	if (!capturedExternalState || capturedExternalState.snapshot.records.size() != 1 ||
@@ -231,8 +236,14 @@ int main()
 		commandDrain.accepted != 1 || !drainedMoveToGrid ||
 		drainedRequest != commandRequest.requestId ||
 		!commandInbox.empty()) return 34;
-	if (!host.beginShutdown() || !host.runtimeSession().shutdownPackages() ||
-		!host.markStopped()) return 5;
+	const RuntimeSessionTransitionResult shuttingDown = host.tryBeginShutdown();
+	const RuntimeSessionTransitionResult prematureStopped = host.tryMarkStopped();
+	const RuntimeSessionShutdownResult packagesStopped =
+		host.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult stopped = host.tryMarkStopped();
+	if (!shuttingDown ||
+		prematureStopped.error != RuntimeSessionError::PackageShutdownIncomplete ||
+		!packagesStopped || !stopped) return 5;
 	const EngineServiceLookupResult<unsigned> resolved =
 		host.serviceCatalog().resolve<unsigned>(
 			"external.test-service", EngineServiceVersion{1, 1});

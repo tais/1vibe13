@@ -3,6 +3,7 @@
 
 #include "GameSettings.h"
 #include "GameCapabilities.h"
+#include <string>
 #include <utility>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 
@@ -144,6 +145,26 @@ public:
 	}
 
 	GameLifecycle lifecycle() const { return runtime_.lifecycle(); }
+	RuntimeSessionTransitionResult tryBeginInitialization()
+	{
+		return runtime_.tryBeginInitialization();
+	}
+	RuntimeSessionTransitionResult tryCancelInitialization()
+	{
+		return runtime_.tryCancelInitialization();
+	}
+	RuntimeSessionTransitionResult tryMarkRunning()
+	{
+		return runtime_.tryMarkRunning();
+	}
+	RuntimeSessionTransitionResult tryBeginShutdown()
+	{
+		return runtime_.tryBeginShutdown();
+	}
+	RuntimeSessionTransitionResult tryMarkStopped()
+	{
+		return runtime_.tryMarkStopped();
+	}
 	bool beginInitialization() { return runtime_.beginInitialization(); }
 	bool cancelInitialization() { return runtime_.cancelInitialization(); }
 	bool markRunning() { return runtime_.markRunning(); }
@@ -174,25 +195,70 @@ class GameInitializationGuard
 {
 public:
 	explicit GameInitializationGuard(GameContext& context)
-		: context_(context), active_(context_.beginInitialization())
+		: context_(context), begin_(context_.tryBeginInitialization()),
+		  active_(static_cast<bool>(begin_))
 	{
 	}
+	GameInitializationGuard(const GameInitializationGuard&) = delete;
+	GameInitializationGuard& operator=(const GameInitializationGuard&) = delete;
+	GameInitializationGuard(GameInitializationGuard&&) = delete;
+	GameInitializationGuard& operator=(GameInitializationGuard&&) = delete;
 
-	~GameInitializationGuard()
+	~GameInitializationGuard() noexcept
 	{
-		if (active_) context_.cancelInitialization();
+		if (!active_) return;
+		try
+		{
+			const RuntimeSessionTransitionResult result = cancel();
+			if (result) return;
+			context_.log().write(LogRecord{
+				LogSeverity::Error, "lifecycle",
+				"Initialization rollback failed with code " +
+					std::to_string(static_cast<int>(result.error))});
+		}
+		catch (...)
+		{
+			try
+			{
+				context_.log().write(LogRecord{
+					LogSeverity::Error, "lifecycle",
+					"Initialization rollback raised an unexpected exception"});
+			}
+			catch (...) {}
+		}
 	}
 
 	explicit operator bool() const { return active_; }
+	const RuntimeSessionTransitionResult& beginResult() const { return begin_; }
+	RuntimeSessionTransitionResult cancel()
+	{
+		if (!active_) return inactiveResult();
+		RuntimeSessionTransitionResult result = context_.tryCancelInitialization();
+		active_ = false;
+		return result;
+	}
+	RuntimeSessionTransitionResult tryMarkRunning()
+	{
+		if (!active_) return inactiveResult();
+		RuntimeSessionTransitionResult result = context_.tryMarkRunning();
+		if (result) active_ = false;
+		return result;
+	}
 	bool markRunning()
 	{
-		if (!active_ || !context_.markRunning()) return false;
-		active_ = false;
-		return true;
+		return static_cast<bool>(tryMarkRunning());
 	}
 
 private:
+	RuntimeSessionTransitionResult inactiveResult() const
+	{
+		return RuntimeSessionTransitionResult{
+			RuntimeSessionError::InvalidState, context_.lifecycle(),
+			context_.packages().completedBootstrapPhases(), {}};
+	}
+
 	GameContext& context_;
+	RuntimeSessionTransitionResult begin_;
 	bool active_;
 };
 
