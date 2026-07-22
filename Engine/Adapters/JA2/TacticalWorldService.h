@@ -77,16 +77,9 @@ public:
 	TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept override
 	{
 		if (!available_) return TacticalWorldCaptureResult::Unavailable;
-		try
-		{
-			TacticalWorldSnapshot captured = snapshot_;
-			output = std::move(captured);
-			return TacticalWorldCaptureResult::Success;
-		}
-		catch (...)
-		{
-			return TacticalWorldCaptureResult::AllocationFailure;
-		}
+		return snapshot_.copyTo(output)
+			? TacticalWorldCaptureResult::Success
+			: TacticalWorldCaptureResult::AllocationFailure;
 	}
 
 private:

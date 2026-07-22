@@ -99,6 +99,9 @@ private:
 // failures and rejected diffs leave the complete last good publication
 // untouched. Source unavailability is a world-lifecycle boundary and clears
 // the publication so packages cannot mistake an unloaded world for live state.
+// Successful updates alternate between two owned publication slots; resets
+// invalidate them logically while retaining their allocations, so optimized
+// sources and the delta builder remain allocation-free after warmup.
 class TacticalWorldObserver final : public TacticalWorldObserverService
 {
 public:
@@ -122,7 +125,9 @@ private:
 
 	TacticalWorldService& source_;
 	TacticalWorldObserverLimits limits_;
-	Publication publication_;
+	Publication publications_[2];
+	std::size_t activePublication_ = 0;
+	bool hasPublication_ = false;
 };
 
 #endif

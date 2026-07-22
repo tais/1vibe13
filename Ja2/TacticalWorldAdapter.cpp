@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <limits>
-#include <vector>
 
 #include "Animation Control.h"
 #include "Map Information.h"
@@ -92,8 +91,9 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 
 	try
 	{
-		std::vector<TacticalActorSnapshot> actors;
-		actors.reserve(maximumActors_ < TOTAL_SOLDIERS ? maximumActors_ : TOTAL_SOLDIERS);
+		actorScratch_.clear();
+		actorScratch_.reserve(
+			maximumActors_ < TOTAL_SOLDIERS ? maximumActors_ : TOTAL_SOLDIERS);
 		for (std::uint16_t slot = 0; slot < TOTAL_SOLDIERS; ++slot)
 		{
 			const SOLDIERTYPE* soldier = MercPtrs[slot];
@@ -101,9 +101,9 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 			if (static_cast<std::uint16_t>(soldier->ubID) != slot ||
 				soldier->uiUniqueSoldierIdValue == 0)
 				return TacticalWorldCaptureResult::AdapterFailure;
-			if (actors.size() >= maximumActors_)
+			if (actorScratch_.size() >= maximumActors_)
 				return TacticalWorldCaptureResult::CapacityReached;
-			actors.push_back(TacticalActorSnapshot{
+			actorScratch_.push_back(TacticalActorSnapshot{
 				TacticalEntityId{slot, soldier->uiUniqueSoldierIdValue},
 				static_cast<std::uint8_t>(soldier->bTeam),
 				static_cast<std::uint16_t>(soldier->ubProfile),
@@ -121,8 +121,7 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				soldier->bInSector != FALSE});
 		}
 
-		TacticalWorldSnapshot captured;
-		const TacticalSnapshotCreateError result = TacticalWorldSnapshot::create(
+		const TacticalSnapshotCreateError result = TacticalWorldSnapshot::createReusable(
 			guiWorldLoadGeneration,
 			TacticalSectorSnapshot{
 				gWorldSectorX, gWorldSectorY, gbWorldSectorZ, gfWorldLoaded != FALSE},
@@ -131,12 +130,11 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 				(gTacticalStatus.uiFlags & INCOMBAT) != 0,
 				gTacticalStatus.ubCurrentTeam,
 				turnSerial},
-			std::move(actors), captured, maximumActors_);
+			actorScratch_, output, maximumActors_);
 		if (result == TacticalSnapshotCreateError::TooManyActors)
 			return TacticalWorldCaptureResult::CapacityReached;
 		if (result != TacticalSnapshotCreateError::None)
 			return TacticalWorldCaptureResult::AdapterFailure;
-		output = std::move(captured);
 		return TacticalWorldCaptureResult::Success;
 	}
 	catch (...)

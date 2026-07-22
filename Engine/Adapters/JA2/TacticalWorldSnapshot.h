@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -99,6 +100,69 @@ public:
 		accepted.actors_ = std::move(actors);
 		output = std::move(accepted);
 		return TacticalSnapshotCreateError::None;
+	}
+
+	// Capture adapters can retain their collection scratch and let the output
+	// retain its actor allocation. Validation and sorting finish before output is
+	// touched; reserve is the only throwing output operation and has the strong
+	// exception guarantee. A successful first call reserves the configured actor
+	// ceiling, so later captures within that ceiling require no heap allocation.
+	static TacticalSnapshotCreateError createReusable(
+		std::uint64_t epoch,
+		TacticalSectorSnapshot sector,
+		TacticalTurnSnapshot turn,
+		std::vector<TacticalActorSnapshot>& actorScratch,
+		TacticalWorldSnapshot& output,
+		std::size_t maximumActors = DefaultMaximumActors)
+	{
+		if (epoch == 0) return TacticalSnapshotCreateError::InvalidEpoch;
+		if (actorScratch.size() > maximumActors)
+			return TacticalSnapshotCreateError::TooManyActors;
+		for (const TacticalActorSnapshot& actor : actorScratch)
+			if (!actor.id.valid()) return TacticalSnapshotCreateError::InvalidEntity;
+
+		std::sort(actorScratch.begin(), actorScratch.end(),
+			[](const TacticalActorSnapshot& left, const TacticalActorSnapshot& right) {
+				return left.id < right.id;
+			});
+		for (std::size_t index = 1; index < actorScratch.size(); ++index)
+			if (actorScratch[index - 1].id == actorScratch[index].id)
+				return TacticalSnapshotCreateError::DuplicateEntity;
+
+		static_assert(std::is_nothrow_copy_constructible<TacticalActorSnapshot>::value,
+			"reusable tactical capture requires non-throwing actor copies");
+		output.actors_.reserve(maximumActors);
+		output.actors_.clear();
+		for (const TacticalActorSnapshot& actor : actorScratch)
+			output.actors_.push_back(actor);
+		output.epoch_ = epoch;
+		output.sector_ = sector;
+		output.turn_ = turn;
+		return TacticalSnapshotCreateError::None;
+	}
+
+	// Copy into caller-owned reusable storage without exposing mutable snapshot
+	// internals. Allocation failure leaves all observable output values intact.
+	bool copyTo(TacticalWorldSnapshot& output) const noexcept
+	{
+		if (&output == this) return true;
+		try
+		{
+			static_assert(std::is_nothrow_copy_constructible<TacticalActorSnapshot>::value,
+				"reusable tactical copies require non-throwing actor copies");
+			output.actors_.reserve(actors_.size());
+			output.actors_.clear();
+			for (const TacticalActorSnapshot& actor : actors_)
+				output.actors_.push_back(actor);
+			output.epoch_ = epoch_;
+			output.sector_ = sector_;
+			output.turn_ = turn_;
+			return true;
+		}
+		catch (...)
+		{
+			return false;
+		}
 	}
 
 	std::uint64_t epoch() const { return epoch_; }

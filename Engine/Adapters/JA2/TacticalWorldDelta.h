@@ -98,7 +98,9 @@ enum class TacticalWorldDiffResult
 
 // Produces events in deterministic category/entity order. Epoch changes emit
 // one reset instead of comparing unrelated tactical worlds. Capacity or
-// allocation failure leaves the caller's previous delta untouched.
+// allocation failure leaves the caller's previous delta untouched. Successful
+// calls retain storage for maximumEvents, making repeated bounded diffs
+// allocation-free after the first successful call on each output object.
 TacticalWorldDiffResult DiffTacticalWorldSnapshots(
 	const TacticalWorldSnapshot& previous,
 	const TacticalWorldSnapshot& current,

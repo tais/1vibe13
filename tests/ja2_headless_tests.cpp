@@ -2664,6 +2664,16 @@ int main( int, char** )
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
 		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
 		       "live tactical service captures stable pointer-free legacy soldier state" );
+		const TacticalActorSnapshot* liveActorStorage = liveWorld.actors().data();
+		const std::size_t liveActorCapacity = liveWorld.actors().capacity();
+		const TacticalWorldCaptureResult repeatedLiveCapture =
+			tacticalWorld.service->capture( liveWorld );
+		liveActor = liveWorld.find( TacticalEntityId{ 0, 701 } );
+		CHECK( repeatedLiveCapture == TacticalWorldCaptureResult::Success && liveActor &&
+		       liveWorld.actors().data() == liveActorStorage &&
+		       liveWorld.actors().capacity() == liveActorCapacity &&
+		       liveActorCapacity >= TOTAL_SOLDIERS,
+		       "live tactical capture retains its configured actor allocation across frames" );
 
 		const PackageSaveStateCaptureResult packageSaveBeforeObservation =
 			compiledContext.capturePackageSaveState();
@@ -2697,6 +2707,8 @@ int main( int, char** )
 		       observerDiagnostics.publishAttempts == 0 && liveTacticalDeltaSinkAdded &&
 		       liveRuntimeMessages.queued() == 0 && liveTacticalDeltaSink.messages.empty(),
 		       "production baseline observation is retained without publishing a message" );
+		const TacticalWorldSnapshot* baselinePublicationStorage = observedPublication.snapshot;
+		const TacticalWorldDelta* baselineDeltaStorage = observedPublication.delta;
 
 		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
 		Menptr[0].sGridNo = 346;
@@ -2729,6 +2741,11 @@ int main( int, char** )
 		       observerDiagnostics.publishedMessages == 1 &&
 		       liveRuntimeMessages.queued() == 1 && liveTacticalDeltaSink.messages.empty(),
 		       "production safe-frame bridge queues one message for a new non-empty delta" );
+		const TacticalWorldSnapshot* deltaPublicationStorage = observedPublication.snapshot;
+		const TacticalWorldDelta* deltaStorage = observedPublication.delta;
+		CHECK( deltaPublicationStorage != baselinePublicationStorage &&
+		       deltaStorage != baselineDeltaStorage,
+		       "production observation publishes through an independent second buffer" );
 
 		const FrameRunResult tacticalDeltaDeliveryFrame =
 			compiledContext.frameDriver().runFrame(
@@ -2769,6 +2786,8 @@ int main( int, char** )
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::SourceAdapterFailure &&
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
+		       observedPublication.snapshot == deltaPublicationStorage &&
+		       observedPublication.delta == deltaStorage &&
 		       observedPublication.delta->events.size() == 3 && observedActor &&
 		       observedActor->grid == 346 && observedActor->life == 75 &&
 		       observerDiagnostics.bridgeResult ==
@@ -2781,9 +2800,12 @@ int main( int, char** )
 		Menptr[0].uiUniqueSoldierIdValue = 701;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
+		observedPublication = tacticalWorldObserver.service->latest();
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
 		       observerDiagnostics.publicationSerial == 3 &&
+		       observedPublication.snapshot == baselinePublicationStorage &&
+		       observedPublication.delta == baselineDeltaStorage &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::EmptyDeltaSuppressed &&
 		       observerDiagnostics.handledDeltaSerial == 3 &&

@@ -1,7 +1,6 @@
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 
 #include <limits>
-#include <utility>
 
 namespace
 {
@@ -32,35 +31,39 @@ TacticalWorldObserver::TacticalWorldObserver(
 
 TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept
 {
-	TacticalWorldSnapshot captured;
-	const TacticalWorldCaptureResult captureResult = source_.capture(captured);
+	const std::size_t scratchIndex = hasPublication_ ? 1 - activePublication_ : 0;
+	Publication& accepted = publications_[scratchIndex];
+	const TacticalWorldCaptureResult captureResult = source_.capture(accepted.snapshot);
 	if (captureResult != TacticalWorldCaptureResult::Success)
 	{
 		if (captureResult == TacticalWorldCaptureResult::Unavailable) reset();
 		return MapCaptureFailure(captureResult);
 	}
-	if (captured.epoch() == 0)
+	if (accepted.snapshot.epoch() == 0)
 		return TacticalWorldObserverUpdateResult::InvalidSnapshot;
-	if (captured.actors().size() > limits_.maximumActors)
+	if (accepted.snapshot.actors().size() > limits_.maximumActors)
 		return TacticalWorldObserverUpdateResult::ActorCapacityReached;
-	if (publication_.serial == std::numeric_limits<std::uint64_t>::max())
+	const std::uint64_t previousSerial = hasPublication_
+		? publications_[activePublication_].serial
+		: 0;
+	if (previousSerial == std::numeric_limits<std::uint64_t>::max())
 		return TacticalWorldObserverUpdateResult::SerialExhausted;
 
-	Publication accepted;
-	accepted.serial = publication_.serial + 1;
-	accepted.snapshot = std::move(captured);
-
-	if (publication_.status == TacticalWorldPublicationStatus::Unavailable)
+	if (!hasPublication_)
 	{
 		accepted.status = TacticalWorldPublicationStatus::Baseline;
+		accepted.serial = 1;
 		accepted.delta.previousEpoch = accepted.snapshot.epoch();
 		accepted.delta.currentEpoch = accepted.snapshot.epoch();
-		publication_ = std::move(accepted);
+		accepted.delta.events.clear();
+		activePublication_ = scratchIndex;
+		hasPublication_ = true;
 		return TacticalWorldObserverUpdateResult::PublishedBaseline;
 	}
 
+	const Publication& previous = publications_[activePublication_];
 	const TacticalWorldDiffResult diffResult = DiffTacticalWorldSnapshots(
-		publication_.snapshot, accepted.snapshot, limits_.maximumEvents, accepted.delta);
+		previous.snapshot, accepted.snapshot, limits_.maximumEvents, accepted.delta);
 	switch (diffResult)
 	{
 		case TacticalWorldDiffResult::InvalidSnapshot:
@@ -74,20 +77,25 @@ TacticalWorldObserverUpdateResult TacticalWorldObserver::update() noexcept
 	}
 
 	accepted.status = TacticalWorldPublicationStatus::Delta;
-	publication_ = std::move(accepted);
+	accepted.serial = previousSerial + 1;
+	activePublication_ = scratchIndex;
 	return TacticalWorldObserverUpdateResult::PublishedDelta;
 }
 
 void TacticalWorldObserver::reset() noexcept
 {
-	publication_ = Publication{};
+	// Logical invalidation is enough: neither slot is observable while
+	// hasPublication_ is false. Retaining both slots preserves the actor and
+	// event allocations for the next world without exposing stale state.
+	hasPublication_ = false;
+	activePublication_ = 0;
 }
 
 TacticalWorldPublicationView TacticalWorldObserver::latest() const noexcept
 {
-	if (publication_.status == TacticalWorldPublicationStatus::Unavailable)
-		return {};
+	if (!hasPublication_) return {};
+	const Publication& publication = publications_[activePublication_];
 	return TacticalWorldPublicationView{
-		publication_.status, publication_.serial,
-		&publication_.snapshot, &publication_.delta};
+		publication.status, publication.serial,
+		&publication.snapshot, &publication.delta};
 }

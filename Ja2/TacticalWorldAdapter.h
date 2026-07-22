@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 
@@ -45,6 +46,7 @@ private:
 
 	std::size_t maximumActors_;
 	Ja2TacticalTurnIdentity turnIdentity_;
+	std::vector<TacticalActorSnapshot> actorScratch_;
 };
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
