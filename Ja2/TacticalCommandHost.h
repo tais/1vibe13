@@ -29,6 +29,9 @@ struct Ja2TacticalCommandHostDiagnostics
 	std::uint64_t cancelledRequests = 0;
 	std::uint64_t cancelledAuthoritativeCommands = 0;
 	std::uint64_t cancellationFailures = 0;
+	std::uint64_t deferredCancellations = 0;
+	std::uint64_t deferredCancellationRetries = 0;
+	std::uint64_t deferredCancellationDrops = 0;
 	std::uint64_t bindingFailures = 0;
 	std::uint64_t receiptCapacityDeferrals = 0;
 	std::uint64_t receiptsQueued = 0;
@@ -39,6 +42,7 @@ struct Ja2TacticalCommandHostDiagnostics
 	std::uint64_t receiptDrops = 0;
 	std::size_t pendingReceipts = 0;
 	std::size_t trackedCommands = 0;
+	std::size_t pendingDeferredCancellations = 0;
 	TacticalCommandCancellationResult lastCancellation;
 	TacticalCommandResultPublishError lastReceiptPublishError =
 		TacticalCommandResultPublishError::None;

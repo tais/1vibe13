@@ -115,6 +115,37 @@ public:
 	std::size_t count = 0;
 };
 
+class ReentrantTacticalCommandCancellationSink final
+	: public TacticalCommandCancellationSink
+{
+public:
+	explicit ReentrantTacticalCommandCancellationSink(TacticalCommandInbox& inbox)
+		: inbox_(inbox) {}
+
+	void commandCancelled(
+		const TacticalCommandRequest& request) noexcept override
+	{
+		if (count < requestIds.size()) requestIds[count++] = request.requestId;
+		if (reentered) return;
+		reentered = true;
+		submitted = inbox_.submit(
+			"pkg.alpha", SimulationCommand{EndTurnCommand{
+				4, SimulationCommandSource::System}});
+		nestedCancellation = inbox_.cancelPackage("pkg.beta", this);
+		nestedDrain = inbox_.drain([](const TacticalCommandRequest&) {
+			return TacticalCommandDisposition::Accept;
+		});
+	}
+
+	TacticalCommandInbox& inbox_;
+	std::array<std::uint64_t, 4> requestIds{};
+	std::size_t count = 0;
+	bool reentered = false;
+	TacticalCommandSubmissionResult submitted;
+	TacticalCommandCancellationResult nestedCancellation;
+	TacticalCommandDrainResult nestedDrain;
+};
+
 class ControlledTacticalWorldService final : public TacticalWorldService
 {
 public:
@@ -666,6 +697,42 @@ int main()
 		survivorOrder[1] == cancelFourth.requestId &&
 		cancellationInbox.summary().cancelled == 2,
 		"package cancellation removes only owned work and preserves survivor FIFO");
+
+	TacticalCommandInbox reentrantCancellationInbox(
+		TacticalCommandInboxLimits{6, 6, 6, 32, 20});
+	const auto reentrantAlphaFirst = reentrantCancellationInbox.submit(
+		"pkg.alpha", MakeTurnCommand(1));
+	const auto reentrantBeta = reentrantCancellationInbox.submit(
+		"pkg.beta", MakeTurnCommand(2));
+	const auto reentrantAlphaSecond = reentrantCancellationInbox.submit(
+		"pkg.alpha", MakeTurnCommand(3));
+	ReentrantTacticalCommandCancellationSink reentrantCancellationSink(
+		reentrantCancellationInbox);
+	const TacticalCommandCancellationResult reentrantCancelled =
+		reentrantCancellationInbox.cancelPackage(
+			"pkg.alpha", &reentrantCancellationSink);
+	TacticalCommandInboxSnapshot reentrantCancellationSnapshot;
+	reentrantCancellationInbox.snapshot(reentrantCancellationSnapshot);
+	const TacticalCommandCancellationResult submittedDuringCancellation =
+		reentrantCancellationInbox.cancelPackage("pkg.alpha");
+	check(reentrantAlphaFirst && reentrantBeta && reentrantAlphaSecond &&
+		reentrantCancelled.cancelled == 2 &&
+		reentrantCancellationSink.count == 2 &&
+		reentrantCancellationSink.requestIds[0] == reentrantAlphaFirst.requestId &&
+		reentrantCancellationSink.requestIds[1] == reentrantAlphaSecond.requestId &&
+		reentrantCancellationSink.submitted.requestId == 4 &&
+		reentrantCancellationSink.nestedCancellation.error ==
+			TacticalCommandCancellationError::CancellationInProgress &&
+		reentrantCancellationSink.nestedDrain.error ==
+			TacticalCommandDrainError::AlreadyDraining &&
+		reentrantCancellationSnapshot.pending.size() == 2 &&
+		reentrantCancellationSnapshot.pending[0].requestId == reentrantBeta.requestId &&
+		reentrantCancellationSnapshot.pending[1].requestId ==
+			reentrantCancellationSink.submitted.requestId &&
+		submittedDuringCancellation.cancelled == 1 &&
+		reentrantCancellationInbox.size() == 1,
+		"cancellation tolerates callback submission and rejects recursive mutation without iterator invalidation");
+	reentrantCancellationInbox.cancelPackage("pkg.beta");
 
 	NullTacticalCommandService& nullCommands =
 		NullTacticalCommandService::instance();

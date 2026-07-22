@@ -121,6 +121,19 @@ public:
 			AddSaturated(
 				diagnostics_.cancelledRequests,
 				diagnostics_.lastCancellation.cancelled);
+		else if (diagnostics_.lastCancellation.error ==
+				TacticalCommandCancellationError::DrainInProgress ||
+			diagnostics_.lastCancellation.error ==
+				TacticalCommandCancellationError::CancellationInProgress)
+		{
+			if (queueDeferredCancellation(event.packageId))
+				IncrementSaturated(diagnostics_.deferredCancellations);
+			else
+			{
+				IncrementSaturated(diagnostics_.deferredCancellationDrops);
+				IncrementSaturated(diagnostics_.cancellationFailures);
+			}
+		}
 		else
 			IncrementSaturated(diagnostics_.cancellationFailures);
 		cancelAuthoritative(event.packageId);
@@ -138,6 +151,8 @@ public:
 		IncrementSaturated(diagnostics_.safeFrameCalls);
 		diagnostics_.simulationTick =
 			game.runtime().simulationTicks().completedTickSequence();
+		flushReceipts(game);
+		flushDeferredCancellations();
 		flushReceipts(game);
 		const bool explicitlyNoExecution = maximumCommands == 0;
 		maximumCommands =
@@ -228,6 +243,7 @@ public:
 				++admittedCommands;
 				return TacticalCommandDisposition::Accept;
 			});
+		flushDeferredCancellations();
 		processAuthoritative(game, maximumCommands);
 		flushReceipts(game);
 	}
@@ -237,6 +253,7 @@ public:
 		Ja2TacticalCommandHostDiagnostics captured = diagnostics_;
 		captured.pendingReceipts = pendingReceiptCount_;
 		captured.trackedCommands = trackedCount_;
+		captured.pendingDeferredCancellations = deferredCancellationCount_;
 		return captured;
 	}
 
@@ -260,6 +277,67 @@ private:
 	{
 		return pendingReceiptCount_ + trackedCount_ <
 			MaximumAdmittedReceiptObligations;
+	}
+
+	bool queueDeferredCancellation(const std::string& packageId) noexcept
+	{
+		for (std::size_t offset = 0; offset < deferredCancellationCount_; ++offset)
+		{
+			const std::size_t index =
+				(deferredCancellationHead_ + offset) %
+				deferredCancellationOwners_.size();
+			if (deferredCancellationOwners_[index] == packageId) return true;
+		}
+		if (deferredCancellationCount_ >= deferredCancellationOwners_.size())
+			return false;
+		try
+		{
+			const std::size_t tail =
+				(deferredCancellationHead_ + deferredCancellationCount_) %
+				deferredCancellationOwners_.size();
+			deferredCancellationOwners_[tail] = packageId;
+			++deferredCancellationCount_;
+			return true;
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
+	void popDeferredCancellation() noexcept
+	{
+		if (deferredCancellationCount_ == 0) return;
+		deferredCancellationOwners_[deferredCancellationHead_].clear();
+		deferredCancellationHead_ =
+			(deferredCancellationHead_ + 1) % deferredCancellationOwners_.size();
+		--deferredCancellationCount_;
+	}
+
+	void flushDeferredCancellations() noexcept
+	{
+		while (deferredCancellationCount_ != 0)
+		{
+			const std::string& packageId =
+				deferredCancellationOwners_[deferredCancellationHead_];
+			diagnostics_.lastCancellation = inbox_.cancelPackage(packageId, this);
+			if (diagnostics_.lastCancellation.error ==
+					TacticalCommandCancellationError::DrainInProgress ||
+				diagnostics_.lastCancellation.error ==
+					TacticalCommandCancellationError::CancellationInProgress)
+			{
+				IncrementSaturated(diagnostics_.deferredCancellationRetries);
+				return;
+			}
+			if (diagnostics_.lastCancellation)
+				AddSaturated(
+					diagnostics_.cancelledRequests,
+					diagnostics_.lastCancellation.cancelled);
+			else
+				IncrementSaturated(diagnostics_.cancellationFailures);
+			cancelAuthoritative(packageId);
+			popDeferredCancellation();
+		}
 	}
 
 	bool hasReceiptStorage() const noexcept
@@ -498,6 +576,9 @@ private:
 	std::array<PendingReceipt, MaximumPendingReceipts> pendingReceipts_;
 	std::size_t pendingReceiptHead_ = 0;
 	std::size_t pendingReceiptCount_ = 0;
+	std::array<std::string, MaximumPendingCommands> deferredCancellationOwners_;
+	std::size_t deferredCancellationHead_ = 0;
+	std::size_t deferredCancellationCount_ = 0;
 	GameContext* game_ = nullptr;
 	Ja2TacticalCommandHostDiagnostics diagnostics_;
 };

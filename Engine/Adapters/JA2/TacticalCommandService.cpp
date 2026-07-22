@@ -110,17 +110,34 @@ TacticalCommandCancellationResult TacticalCommandInbox::cancelPackage(
 	if (draining_)
 		return TacticalCommandCancellationResult{
 			TacticalCommandCancellationError::DrainInProgress, 0};
+	if (cancelling_)
+		return TacticalCommandCancellationResult{
+			TacticalCommandCancellationError::CancellationInProgress, 0};
 
-	std::size_t cancelled = 0;
-	for (auto request = pending_.begin(); request != pending_.end();)
+	struct CancellationGuard
 	{
-		if (request->packageId != packageId)
+		explicit CancellationGuard(bool& active) : active_(active) { active_ = true; }
+		~CancellationGuard() { active_ = false; }
+		bool& active_;
+	} guard(cancelling_);
+
+	// The cancellation sink may submit new work. Reacquire deque positions after
+	// every callback and visit only the prefix present on entry, so append-time
+	// iterator invalidation cannot become memory corruption and new work remains
+	// eligible for a later explicit cancellation.
+	std::size_t remainingInitial = pending_.size();
+	std::size_t index = 0;
+	std::size_t cancelled = 0;
+	while (index < remainingInitial)
+	{
+		if (pending_[index].packageId != packageId)
 		{
-			++request;
+			++index;
 			continue;
 		}
-		if (sink) sink->commandCancelled(*request);
-		request = pending_.erase(request);
+		if (sink) sink->commandCancelled(pending_[index]);
+		pending_.erase(pending_.begin() + static_cast<std::ptrdiff_t>(index));
+		--remainingInitial;
 		++cancelled;
 	}
 	SaturatingAdd(counters_.cancelled, cancelled);
