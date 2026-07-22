@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
@@ -19,6 +20,8 @@
 #include "soundman.h"
 #include "timer.h"
 #include "types.h"
+#include "vobject_blitters.h"
+#include "vsurface.h"
 
 #include <vfs/Core/vfs_init.h>
 
@@ -125,6 +128,8 @@ void CountSoundEnd(void* callbackData)
 
 int main()
 {
+	static_assert(std::is_same<SurfaceData::tID, std::uintptr_t>::value,
+		"surface registry IDs must preserve the native pointer width");
 	std::printf("== platform_legacy_tests ==\n");
 	Check(SDL_Init(SDL_INIT_EVENTS), "SDL event subsystem initializes");
 
@@ -368,6 +373,55 @@ int main()
 	ShutdownSoundManager();
 	Check(SoundGetDriverHandle() == nullptr,
 		"sound shutdown is idempotent after a restart cycle");
+
+	std::vector<PIXEL> unregisteredDestination(4, static_cast<PIXEL>(0));
+	std::vector<PIXEL> unregisteredSource(4, static_cast<PIXEL>(7));
+	Check(!Blt16BPPTo16BPP(unregisteredDestination.data(), 2 * sizeof(PIXEL),
+		unregisteredSource.data(), 2 * sizeof(PIXEL), 0, 0, 0, 0, 2, 2) &&
+		unregisteredDestination == std::vector<PIXEL>(4, static_cast<PIXEL>(0)),
+		"raw blits reject an unknown destination without fabricating clip data");
+
+	SGPVSurface registeredSurface{};
+	registeredSurface.usWidth = 2;
+	registeredSurface.usHeight = 2;
+	BYTE registeredData[8] = {};
+	constexpr SurfaceData::tID registeredID = 0x200;
+	SurfaceData::RegisterSurface(registeredID, &registeredSurface);
+	SurfaceData::SetSurfaceData(registeredID, registeredData);
+	SurfaceData::RegisterSurface(registeredID, &registeredSurface);
+	SurfaceData::SetSurfaceData(registeredID, registeredData);
+	SurfaceData::SetSurfaceData(registeredID, registeredData);
+	Check(SurfaceData::GetSurfaceID(registeredData) == registeredID,
+		"surface registry safely re-registers the same ID, surface, and data tuple");
+
+	BYTE applicationByte = 0;
+	const SurfaceData::tID pointerID =
+		reinterpret_cast<std::uintptr_t>(&applicationByte);
+	SGPVSurface collisionSurface{};
+	collisionSurface.usWidth = 1;
+	collisionSurface.usHeight = 1;
+	BYTE collisionSurfaceData[2] = {};
+	SurfaceData::RegisterSurface(pointerID, &collisionSurface);
+	SurfaceData::SetSurfaceData(pointerID, collisionSurfaceData);
+	SurfaceData::SetApplicationData(&applicationByte);
+	Check(SurfaceData::GetSurfaceID(&applicationByte) == pointerID,
+		"application surface IDs preserve every native pointer bit");
+	SurfaceData::ReleaseApplicationData(&applicationByte);
+	Check(SurfaceData::GetSurfaceID(&applicationByte) == 0 &&
+		SurfaceData::GetSurfaceID(collisionSurfaceData) == pointerID,
+		"application-data release cannot disturb unrelated registered surface data");
+	Check(!SetSurfaceClipRectangle(0, 1, 1),
+		"clip registration explicitly rejects the invalid zero surface ID");
+	SurfaceData::UnRegisterSurface(registeredID);
+	SurfaceData::UnRegisterSurface(pointerID);
+
+	UINT16* zBuffer = InitZBuffer(16, 4);
+	Check(zBuffer != nullptr && SurfaceData::GetSurfaceID(
+		reinterpret_cast<BYTE*>(zBuffer)) != 0,
+		"Z-buffer allocation registers its backing data");
+	Check(ShutdownZBuffer(zBuffer) && SurfaceData::GetSurfaceID(
+		reinterpret_cast<BYTE*>(zBuffer)) == 0,
+		"Z-buffer shutdown removes its pointer-width registry entry");
 
 	ShutdownFileManager();
 	std::filesystem::remove_all(root, error);

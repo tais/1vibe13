@@ -197,9 +197,6 @@ void RecountBackgrounds(void)
 	}
 }
 
-#include <map>
-extern std::map<UINT32,ClipRectangle> g_SurfaceRectangle;
-
 INT32 RegisterBackgroundRect(UINT32 uiFlags, INT16 *pSaveArea, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom)
 {
 	UINT32 uiBufSize;
@@ -278,7 +275,8 @@ INT32 RegisterBackgroundRect(UINT32 uiFlags, INT16 *pSaveArea, INT16 sLeft, INT1
 				return(-1);
 			BYTE* data = (BYTE*)gBackSaves[iBackIndex].pSaveArea;
 			SurfaceData::SetApplicationData(data);
-			g_SurfaceRectangle[SurfaceData::GetSurfaceID(data)].SetRect(sRight-sLeft,sBottom-sTop);
+			SetSurfaceClipRectangle(SurfaceData::GetSurfaceID(data),
+				sRight - sLeft, sBottom - sTop);
 		}
 
 
@@ -289,7 +287,8 @@ INT32 RegisterBackgroundRect(UINT32 uiFlags, INT16 *pSaveArea, INT16 sLeft, INT1
 			gBackSaves[iBackIndex].fZBuffer=TRUE;
 			BYTE* data = (BYTE*)gBackSaves[iBackIndex].pZSaveArea;
 			SurfaceData::SetApplicationData(data);
-			g_SurfaceRectangle[SurfaceData::GetSurfaceID(data)].SetRect(sRight-sLeft,sBottom-sTop);
+			SetSurfaceClipRectangle(SurfaceData::GetSurfaceID(data),
+				sRight - sLeft, sBottom - sTop);
 		}
 
 		gBackSaves[iBackIndex].fFreeMemory=TRUE;
@@ -1113,7 +1112,7 @@ void AllocateVideoOverlaysArea( )
 			}
 			BYTE* data = (BYTE*)gVideoOverlays[ uiCount ].pSaveArea;
 			SurfaceData::SetApplicationData(data);
-			g_SurfaceRectangle[SurfaceData::GetSurfaceID(data)].SetRect(
+			SetSurfaceClipRectangle(SurfaceData::GetSurfaceID(data),
 				gBackSaves[ iBackIndex ].sWidth,
 				gBackSaves[ iBackIndex ].sHeight);
 		}
@@ -1143,7 +1142,7 @@ void AllocateVideoOverlayArea( UINT32 uiCount )
 		}
 		BYTE* data = (BYTE*)gVideoOverlays[ uiCount ].pSaveArea;
 		SurfaceData::SetApplicationData(data);
-		g_SurfaceRectangle[SurfaceData::GetSurfaceID(data)].SetRect(
+		SetSurfaceClipRectangle(SurfaceData::GetSurfaceID(data),
 			gBackSaves[ iBackIndex ].sWidth,
 			gBackSaves[ iBackIndex ].sHeight);
 	}
@@ -1404,4 +1403,3 @@ void EnableVideoOverlay( BOOLEAN fEnable, INT32 iOverlayIndex )
 
 	UpdateVideoOverlay( &VideoOverlayDesc, iOverlayIndex, FALSE );
 }
-

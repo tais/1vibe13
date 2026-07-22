@@ -35,7 +35,7 @@
 // g_SurfaceRectangle is defined by vobject_blitters.cpp; pulled in
 // here as extern so the SurfaceData registry can keep the per-surface
 // clipping rectangle in sync.
-extern std::map<UINT32, ClipRectangle> g_SurfaceRectangle;
+extern std::map<SurfaceData::tID, ClipRectangle> g_SurfaceRectangle;
 
 // iUseWinFonts is a JA2 flag controlling whether GDI-rendered text is
 // composed onto the locked surface. Declared in Ja2/local.h.
@@ -52,39 +52,50 @@ namespace SurfaceData
 	std::map<tID, tSurface>  _surfaceID;
 	std::map<tSurface, BYTE*> _surfaceData;
 	std::map<BYTE*, tID>     _surfaceOfData;
+	std::map<BYTE*, tID>     _applicationData;
+	void ReleaseSurfaceData(tID surfaceID);
+	void UnRegisterSurface(tID surfaceID);
 
 	void RegisterSurface(tID surfaceID, HVSURFACE surface)
 	{
-		SurfaceData::_surfaceID[surfaceID] = surface;
-		g_SurfaceRectangle[surfaceID].SetRect(surface->usWidth, surface->usHeight);
+		if (!surface || surfaceID == 0) return;
+		UnRegisterSurface(surfaceID);
+		for (auto it = _surfaceID.begin(); it != _surfaceID.end(); ++it)
+		{
+			if (it->second != surface) continue;
+			const tID previousID = it->first;
+			UnRegisterSurface(previousID);
+			break;
+		}
+		_surfaceID[surfaceID] = surface;
+		SetSurfaceClipRectangle(surfaceID, surface->usWidth, surface->usHeight);
 	}
 	void UnRegisterSurface(tID surfaceID)
 	{
-		std::map<tID, tSurface>::iterator it = SurfaceData::_surfaceID.find(surfaceID);
-		if (it != SurfaceData::_surfaceID.end())
-		{
-			g_SurfaceRectangle.erase(it->first);
-			SurfaceData::_surfaceID.erase(it);
-		}
+		ReleaseSurfaceData(surfaceID);
+		g_SurfaceRectangle.erase(surfaceID);
+		_surfaceID.erase(surfaceID);
 	}
 	void UnRegisterSurface(HVSURFACE surface)
 	{
-		std::map<tID, tSurface>::iterator it = SurfaceData::_surfaceID.begin();
-		for (; it != SurfaceData::_surfaceID.end(); ++it)
+		for (auto it = _surfaceID.begin(); it != _surfaceID.end(); ++it)
 		{
-			if (it->second == surface)
-			{
-				SurfaceData::_surfaceID.erase(it);
-				return;
-			}
+			if (it->second != surface) continue;
+			const tID surfaceID = it->first;
+			UnRegisterSurface(surfaceID);
+			return;
 		}
 	}
 
 	BYTE* SetSurfaceData(tID surfaceID, BYTE* data)
 	{
+		if (!data) return nullptr;
 		std::map<tID, tSurface>::iterator sit = SurfaceData::_surfaceID.find(surfaceID);
 		if (sit != SurfaceData::_surfaceID.end())
 		{
+			const auto prior = _surfaceOfData.find(data);
+			if (prior != _surfaceOfData.end()) ReleaseSurfaceData(prior->second);
+			ReleaseSurfaceData(surfaceID);
 			SurfaceData::_surfaceData[sit->second] = data;
 			SurfaceData::_surfaceOfData[data] = surfaceID;
 			return data;
@@ -93,6 +104,7 @@ namespace SurfaceData
 	}
 	BYTE* SetSurfaceData(HVSURFACE surface, BYTE* data)
 	{
+		if (!data) return nullptr;
 		std::map<tID, tSurface>::iterator sit = SurfaceData::_surfaceID.begin();
 		for (; sit != SurfaceData::_surfaceID.end(); ++sit)
 		{
@@ -102,9 +114,7 @@ namespace SurfaceData
 			// surface identity the way the function name and docs imply.
 			if (sit->second == surface)
 			{
-				SurfaceData::_surfaceData[sit->second] = data;
-				SurfaceData::_surfaceOfData[data] = sit->first;
-				return data;
+				return SetSurfaceData(sit->first, data);
 			}
 		}
 		SGP_THROW(L"Unregistered surface");
@@ -142,20 +152,20 @@ namespace SurfaceData
 
 	BYTE* SetApplicationData(BYTE* data)
 	{
-		tID id = (tID)(data);
-		SurfaceData::_surfaceOfData[data] = id;
+		if (!data) return nullptr;
+		const tID id = reinterpret_cast<tID>(data);
+		_applicationData[data] = id;
 		return data;
 	}
 	void ReleaseApplicationData(BYTE* data)
 	{
-		tID id = (tID)(data);
-		std::map<BYTE*, tID>::iterator it = SurfaceData::_surfaceOfData.find(data);
-		if (it != SurfaceData::_surfaceOfData.end())
+		const auto it = _applicationData.find(data);
+		if (it != _applicationData.end())
 		{
-			g_SurfaceRectangle.erase(it->second);
-			SurfaceData::_surfaceOfData.erase(it);
+			if (_surfaceID.find(it->second) == _surfaceID.end())
+				g_SurfaceRectangle.erase(it->second);
+			_applicationData.erase(it);
 		}
-		return ReleaseSurfaceData(id);
 	}
 
 	tID GetSurfaceID(BYTE* data)
@@ -165,6 +175,8 @@ namespace SurfaceData
 		{
 			return it->second;
 		}
+		const auto application = _applicationData.find(data);
+		if (application != _applicationData.end()) return application->second;
 		return 0;
 	}
 } // namespace SurfaceData
@@ -1110,4 +1122,3 @@ BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(UINT32 uiDestVSurface, INT32 
 {
 	return ShadowVideoSurfaceRect(uiDestVSurface, X1, Y1, X2, Y2);
 }
-

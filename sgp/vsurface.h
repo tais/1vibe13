@@ -4,6 +4,7 @@
 #include "types.h"
 #include "himage.h"
 #include "vobject.h"
+#include <cstdint>
 #include <vector>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,7 +126,14 @@ typedef struct
 
 namespace SurfaceData
 {
-	typedef unsigned long tID;
+	using tID = std::uintptr_t;
+	void	RegisterSurface(tID surfaceID, HVSURFACE surface);
+	void	UnRegisterSurface(tID surfaceID);
+	void	UnRegisterSurface(HVSURFACE surface);
+	BYTE*	SetSurfaceData(tID surfaceID, BYTE* data);
+	BYTE*	SetSurfaceData(HVSURFACE surface, BYTE* data);
+	void	ReleaseSurfaceData(tID surfaceID);
+	void	ReleaseSurfaceData(HVSURFACE surface);
 	BYTE*	SetApplicationData(BYTE* data);
 	void	ReleaseApplicationData(BYTE* data);
 

@@ -13,7 +13,24 @@
 	#include "sgp_logger.h"
 
 #include <map>
-std::map<UINT32,ClipRectangle> g_SurfaceRectangle;
+std::map<SurfaceData::tID, ClipRectangle> g_SurfaceRectangle;
+
+bool SetSurfaceClipRectangle(SurfaceData::tID surfaceID, SGPRect const& rect)
+{
+	if (surfaceID == 0) return false;
+	auto inserted = g_SurfaceRectangle.try_emplace(surfaceID);
+	inserted.first->second.SetRect(rect);
+	return true;
+}
+
+bool SetSurfaceClipRectangle(SurfaceData::tID surfaceID, unsigned int width,
+	unsigned int height, int x, int y)
+{
+	if (surfaceID == 0) return false;
+	auto inserted = g_SurfaceRectangle.try_emplace(surfaceID);
+	inserted.first->second.SetRect(width, height, x, y);
+	return true;
+}
 
 static UINT8 g_AlphaTimesValueCache[256][256];
 
@@ -939,7 +956,7 @@ UINT16 *pBuffer;
 		return(NULL);
 	BYTE* data = (BYTE*)pBuffer;
 	SurfaceData::SetApplicationData(data);
-	g_SurfaceRectangle[SurfaceData::GetSurfaceID(data)].SetRect(ClippingRect);
+	SetSurfaceClipRectangle(SurfaceData::GetSurfaceID(data), ClippingRect);
 
 	memset(pBuffer, 0, (uiPitch*uiHeight));
 	return(pBuffer);
@@ -1154,36 +1171,39 @@ UINT32 uiLineSkipDest, uiLineSkipSrc;
 	Assert(pDest!=NULL);
 	Assert(pSrc!=NULL);
 
-	try
+	SurfaceData::tID surfID = SurfaceData::GetSurfaceID((BYTE*)pDest);
+	if (!surfID) return false;
+	auto clip = g_SurfaceRectangle.find(surfID);
+	if (clip == g_SurfaceRectangle.end()) return false;
+	ClipRectangle::ClipType ct;
+	if ((ct = clip->second.Clip(iDestXPos, iDestYPos, uiWidth, uiHeight)) !=
+		ClipRectangle::NoClip)
 	{
-		UINT32 surfID = SurfaceData::GetSurfaceID((BYTE*)pDest);
-		ClipRectangle::ClipType ct;
-		if( (ct=g_SurfaceRectangle[surfID].Clip(iDestXPos, iDestYPos,uiWidth, uiHeight)) != ClipRectangle::NoClip )
-		{
 #if _DEBUG
-			WriteMessageToFile(L"Trying to render to outside of destination surface");
+		WriteMessageToFile(L"Trying to render to outside of destination surface");
 #endif
-			if(ct == ClipRectangle::FullClip)
-			{
-				return false;
-			}
+		if (ct == ClipRectangle::FullClip)
+		{
+			return false;
 		}
-		surfID = SurfaceData::GetSurfaceID((BYTE*)pSrc);
-		if( surfID && (ct=g_SurfaceRectangle[surfID].Clip(iSrcXPos, iSrcYPos,uiWidth, uiHeight)) != ClipRectangle::NoClip )
+	}
+
+	surfID = SurfaceData::GetSurfaceID((BYTE*)pSrc);
+	if (surfID)
+	{
+		clip = g_SurfaceRectangle.find(surfID);
+		if (clip == g_SurfaceRectangle.end()) return false;
+		if ((ct = clip->second.Clip(iSrcXPos, iSrcYPos, uiWidth, uiHeight)) !=
+			ClipRectangle::NoClip)
 		{
 #if _DEBUG
 			WriteMessageToFile(L"Trying to render from outside of surface surface");
 #endif
-			if(ct == ClipRectangle::FullClip)
+			if (ct == ClipRectangle::FullClip)
 			{
 				return false;
 			}
 		}
-	}
-	catch(std::exception& ex)
-	{
-		SGP_ERROR(ex.what());
-		return false;
 	}
 
 	pSrcPtr=(PIXEL *)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*sizeof(PIXEL)));
