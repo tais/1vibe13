@@ -2,6 +2,7 @@
 #include <Engine/Core/BinaryArchive.h>
 #include <Engine/Core/CachingAssetSource.h>
 #include <Engine/Core/CommandStream.h>
+#include <Engine/Core/CommandProcessor.h>
 #include <Engine/Core/ContentApi.h>
 #include <Engine/Core/DefinitionCatalog.h>
 #include <Engine/Core/EngineHost.h>
@@ -1433,6 +1434,74 @@ int main()
 		exhaustedSequences.liveSequenceCount() == 0 &&
 		!exhaustedSequences.enqueueRecorded(0, maximumSequence, 3),
 		"command sequence exhaustion fails explicitly without wrapping or reusing IDs");
+
+	DeterministicCommandQueue<int> expectedNextCommands;
+	expectedNextCommands.enqueue(20, 200);
+	const std::uint64_t expectedNextSequence =
+		expectedNextCommands.enqueue(10, 100);
+	expectedNextCommands.enqueue(10, 101);
+	std::vector<int> expectedNextDelivered;
+	std::vector<std::uint64_t> expectedNextObserved;
+	const ExpectedCommandProcessingResult expectedNextProcessed =
+		ProcessExpectedNextCommandThrough(
+			expectedNextCommands, 10, expectedNextSequence,
+			[&expectedNextDelivered](int command, std::uint64_t, std::uint64_t) {
+				expectedNextDelivered.push_back(command);
+				return CommandDisposition::Applied;
+			},
+			[&expectedNextObserved](
+				int, std::uint64_t, std::uint64_t sequence, CommandDisposition) {
+				expectedNextObserved.push_back(sequence);
+			});
+	check(expectedNextProcessed &&
+		expectedNextProcessed.processing.scheduled == 1 &&
+		expectedNextProcessed.processing.applied == 1 &&
+		expectedNextDelivered == std::vector<int>({100}) &&
+		expectedNextObserved == std::vector<std::uint64_t>({expectedNextSequence}) &&
+		expectedNextCommands.size() == 2,
+		"expected-next processing normalizes order and invokes only its exact command");
+
+	DeterministicCommandQueue<int> precededCommands;
+	const std::uint64_t precededSequence = precededCommands.enqueue(10, 100);
+	const std::uint64_t precedingSequence = precededCommands.enqueue(9, 90);
+	bool precededInvoked = false;
+	const ExpectedCommandProcessingResult preceded =
+		ProcessExpectedNextCommandThrough(
+			precededCommands, 10, precededSequence,
+			[&precededInvoked](int, std::uint64_t, std::uint64_t) {
+				precededInvoked = true;
+				return CommandDisposition::Applied;
+			});
+	check(preceded.status ==
+			ExpectedCommandProcessStatus::DifferentCommandReady &&
+		preceded.observedTick == 9 &&
+		preceded.observedSequence == precedingSequence && !precededInvoked &&
+		precededCommands.size() == 2,
+		"expected-next processing exposes authoritative backlog without consuming it");
+
+	DeterministicCommandQueue<int> gatedExpectedCommands;
+	const std::uint64_t gatedExpectedSequence =
+		gatedExpectedCommands.enqueue(20, 200);
+	bool gatedExpectedInvoked = false;
+	const ExpectedCommandProcessingResult notReady =
+		ProcessExpectedNextCommandThrough(
+			gatedExpectedCommands, 10, gatedExpectedSequence,
+			[&gatedExpectedInvoked](int, std::uint64_t, std::uint64_t) {
+				gatedExpectedInvoked = true;
+				return CommandDisposition::Applied;
+			});
+	const ExpectedCommandProcessingResult retryExpected =
+		ProcessExpectedNextCommandThrough(
+			gatedExpectedCommands, 20, gatedExpectedSequence,
+			[](int, std::uint64_t, std::uint64_t) {
+				return CommandDisposition::Retry;
+			});
+	check(notReady.status == ExpectedCommandProcessStatus::NoCommandReady &&
+		!gatedExpectedInvoked &&
+		retryExpected.status == ExpectedCommandProcessStatus::Retry &&
+		retryExpected.processing.blockedSequence == gatedExpectedSequence &&
+		gatedExpectedCommands.containsSequence(gatedExpectedSequence),
+		"expected-next processing distinguishes tick gating and retains retryable work");
 
 	StateRegistry<unsigned> states;
 	unsigned initialized = 0;
