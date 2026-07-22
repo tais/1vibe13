@@ -35,6 +35,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/SaveLoadScreen.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Screens.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Sys Globals.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalCommandHost.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalWorldAdapter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalWorldObserverHost.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TimeLogging.cpp"

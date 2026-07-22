@@ -2,6 +2,7 @@
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "Screens.h"
+#include "TacticalCommandHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
@@ -21,6 +22,9 @@ GameContext& GetGameContext()
 	// Construct the application-owned package first so it also outlives the
 	// registry's non-owning package and asset references during static teardown.
 	(void)GetCompiledCampaignPackage();
+	// The command host receives lifecycle events from this context, so construct
+	// its application owner first and destroy it after the runtime registry.
+	PackageEventSink& packageEvents = GetJa2TacticalCommandPackageEventSink();
 	static GameContext context(
 		gGameSettings,
 		gGameOptions,
@@ -28,7 +32,10 @@ GameContext& GetGameContext()
 		EngineServices{GetPlatformTimeSource(), GetGameRandomSource(),
 		               GetPlatformByteStorage(), GetPlatformLogSink(),
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
-		               GetPlatformFramePresenter(), GetPlatformAssetSource()});
+		               GetPlatformFramePresenter(), GetPlatformAssetSource()},
+		packageEvents);
+	static const bool tacticalCommandHostBound = BindJa2TacticalCommandHost(context);
+	(void)tacticalCommandHostBound;
 	static const EngineServiceRegistrationError tacticalWorldRegistered =
 		RegisterTacticalWorldService(context.serviceCatalog(), GetJa2TacticalWorldAdapter());
 	static const bool tacticalWorldRegistrationReported = [&] {
@@ -49,6 +56,21 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)tacticalWorldObserverRegistrationReported;
+	static const EngineServiceRegistrationError tacticalCommandsRegistered =
+		RegisterTacticalCommandService(
+			context.serviceCatalog(), GetJa2TacticalCommandService());
+	static const bool tacticalCommandsRegistrationReported = [&] {
+		if (!tacticalCommandHostBound)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "services",
+				"Tactical command host binding failed"});
+		if (tacticalCommandsRegistered != EngineServiceRegistrationError::None)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "services",
+				"Tactical command service registration failed"});
+		return true;
+	}();
+	(void)tacticalCommandsRegistrationReported;
 	static const bool screensRegistered = [] {
 		for (UINT32 screenId = 0; screenId < MAX_SCREENS; ++screenId)
 		{

@@ -2,6 +2,7 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
@@ -319,5 +320,28 @@ int main()
 		std::get<BeginFireWeaponCommand>(
 			replayedCommands[0].command).soldier != actorId)
 		return 32;
+
+	TacticalCommandInbox commandInbox(
+		TacticalCommandInboxLimits{2, 1, 1, 64, 10});
+	ServiceCatalog commandServices;
+	if (RegisterTacticalCommandService(commandServices, commandInbox) !=
+		EngineServiceRegistrationError::None) return 33;
+	const auto commandIngress = commandServices.resolve<TacticalCommandService>(
+		TacticalCommandServiceId, TacticalCommandServiceVersion);
+	const TacticalCommandSubmissionResult commandRequest = commandIngress
+		? commandIngress.service->submit(
+			"external.rules", SimulationCommand{ChangeStanceCommand{
+				actorId, 3, SimulationCommandSource::System}})
+		: TacticalCommandSubmissionResult{
+			TacticalCommandSubmissionError::InvalidCommand, 0};
+	std::uint64_t drainedRequest = 0;
+	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
+		[&drainedRequest](const TacticalCommandRequest& request) {
+			drainedRequest = request.requestId;
+			return TacticalCommandDisposition::Accept;
+		});
+	if (!commandIngress || !commandRequest || commandRequest.requestId != 1 ||
+		commandDrain.accepted != 1 || drainedRequest != commandRequest.requestId ||
+		!commandInbox.empty()) return 34;
 	return 0;
 }

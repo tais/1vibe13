@@ -61,7 +61,32 @@ The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,
 and builds the fresh project against `find_package(JA2Engine)`. It exercises
 Core plus the command codec, durable replay, runtime composition, tactical
-world diff/codec/observer, and message publisher surfaces.
+world diff/codec/observer, message publisher, and tactical command service
+surfaces.
+
+`TacticalCommandService` is the package-facing, pointer-free write boundary for
+JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it
+as `ja2.tactical-commands` before package bootstrap, validates application
+domains at its safe simulation boundary, and drains only a configured prefix.
+The service deliberately does not expose draining or cancellation authority.
+Package IDs are cooperative in-process attribution rather than a security
+boundary; sandboxed/native plugins will require a future package-bound handle.
+The JA2 application additionally tracks the bounded accepted batch by command
+sequence so lifecycle teardown can cancel both pending inbox requests and any
+accepted command retained after an execution failure. Admission requires a
+loaded tactical world (and turn-based combat for end-turn commands); actor
+incarnation and live-sector checks remain executor policy so stale references
+are deterministically journaled as discarded. Any existing authoritative
+queue, including a future-tick staged replay, pauses package admission until
+that stream clears. This keeps live ingress from forcing a large replay sort on
+the frame thread or interleaving two authoritative producers.
+
+Hosts that execute shared command/replay queues should use the budgeted
+`ProcessCommandsThrough(queue, tick, maximum, handler)` overload. It reports
+`CommandProcessStatus::BudgetExhausted` when more of the original ready prefix
+remains, without copying or invoking that remainder. The original overload is
+unchanged for compatibility and continues to process its complete initial
+ready set.
 
 Optional source-built host services are discovered through `ServiceCatalog`
 using portable IDs and major/minor contracts. Registrations are non-owning and

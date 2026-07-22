@@ -1,6 +1,7 @@
 #ifndef TACTICAL_SIMULATION_COMMANDS_H
 #define TACTICAL_SIMULATION_COMMANDS_H
 
+#include <cstddef>
 #include <cstdint>
 
 #include <Engine/Adapters/JA2/SimulationCommand.h>
@@ -27,5 +28,7 @@ std::uint64_t DispatchBeginFireWeaponCommandNow(
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer);
 
 CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick);
+CommandProcessingResult ExecuteSimulationCommandsThrough(
+	std::uint64_t tick, std::size_t maximumCommands);
 
 #endif

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 
 #include <Engine/Core/DeterministicCommandQueue.h>
@@ -18,7 +19,8 @@ enum class CommandProcessStatus
 {
 	Completed,
 	Blocked,
-	QueueChanged
+	QueueChanged,
+	BudgetExhausted
 };
 
 struct CommandProcessingResult
@@ -49,23 +51,15 @@ void NotifyObserver(
 		// Diagnostics and replay capture must not alter authoritative delivery.
 	}
 }
-}
 
-// Process only the commands that were ready when this pass began. Applied and
-// explicitly discarded commands are acknowledged after the handler returns.
-// Retry leaves that command and every later command queued. If a handler
-// throws, the exception propagates while the failing and later commands remain
-// queued; already applied commands stay acknowledged exactly once. The
-// observer runs only for an acknowledged or retry-blocked attempt, and its
-// exceptions are isolated from authoritative delivery.
 template<typename Command, typename Handler, typename Observer>
-CommandProcessingResult ProcessCommandsThrough(
+CommandProcessingResult ProcessSnapshot(
 	DeterministicCommandQueue<Command>& queue,
-	std::uint64_t tick,
+	const std::vector<ScheduledCommand<Command>>& ready,
+	bool moreReady,
 	Handler&& handler,
 	Observer&& observer)
 {
-	const auto ready = queue.snapshotThrough(tick);
 	CommandProcessingResult result;
 	result.scheduled = ready.size();
 	for (const auto& entry : ready)
@@ -74,7 +68,7 @@ CommandProcessingResult ProcessCommandsThrough(
 			handler(entry.command, entry.tick, entry.sequence);
 		if (disposition == CommandDisposition::Retry)
 		{
-			engine_command_detail::NotifyObserver(
+			NotifyObserver(
 				observer, entry.command, entry.tick, entry.sequence, disposition);
 			result.status = CommandProcessStatus::Blocked;
 			result.blockedTick = entry.tick;
@@ -88,12 +82,56 @@ CommandProcessingResult ProcessCommandsThrough(
 			result.blockedSequence = entry.sequence;
 			return result;
 		}
-		engine_command_detail::NotifyObserver(
+		NotifyObserver(
 			observer, entry.command, entry.tick, entry.sequence, disposition);
 		if (disposition == CommandDisposition::Applied) ++result.applied;
 		else ++result.discarded;
 	}
+	if (moreReady) result.status = CommandProcessStatus::BudgetExhausted;
 	return result;
+}
+}
+
+// Process only the commands that were ready when this pass began. Applied and
+// explicitly discarded commands are acknowledged after the handler returns.
+// Retry leaves that command and every later command queued. If a handler
+// throws, the exception propagates while the failing and later commands remain
+// queued; already applied commands stay acknowledged exactly once. The
+// observer runs only for an acknowledged or retry-blocked attempt, and its
+// exceptions are isolated from authoritative delivery.
+template<
+	typename Command, typename Handler, typename Observer,
+	std::enable_if_t<std::is_invocable_r<
+		CommandDisposition, Handler&, const Command&,
+		std::uint64_t, std::uint64_t>::value, int> = 0>
+CommandProcessingResult ProcessCommandsThrough(
+	DeterministicCommandQueue<Command>& queue,
+	std::uint64_t tick,
+	Handler&& handler,
+	Observer&& observer)
+{
+	const auto ready = queue.snapshotThrough(tick);
+	return engine_command_detail::ProcessSnapshot(
+		queue, ready, false, std::forward<Handler>(handler),
+		std::forward<Observer>(observer));
+}
+
+// Bounded counterpart to the compatibility overload above. At most maximum
+// commands are copied and invoked. A completely handled prefix reports
+// BudgetExhausted when more commands from the original ready set remain.
+template<typename Command, typename Handler, typename Observer>
+CommandProcessingResult ProcessCommandsThrough(
+	DeterministicCommandQueue<Command>& queue,
+	std::uint64_t tick,
+	std::size_t maximum,
+	Handler&& handler,
+	Observer&& observer)
+{
+	bool moreReady = false;
+	const auto ready = queue.snapshotThrough(tick, maximum, moreReady);
+	return engine_command_detail::ProcessSnapshot(
+		queue, ready, moreReady, std::forward<Handler>(handler),
+		std::forward<Observer>(observer));
 }
 
 template<typename Command, typename Handler>
@@ -104,6 +142,18 @@ CommandProcessingResult ProcessCommandsThrough(
 {
 	return ProcessCommandsThrough(
 		queue, tick, std::forward<Handler>(handler),
+		[](const Command&, std::uint64_t, std::uint64_t, CommandDisposition) {});
+}
+
+template<typename Command, typename Handler>
+CommandProcessingResult ProcessCommandsThrough(
+	DeterministicCommandQueue<Command>& queue,
+	std::uint64_t tick,
+	std::size_t maximum,
+	Handler&& handler)
+{
+	return ProcessCommandsThrough(
+		queue, tick, maximum, std::forward<Handler>(handler),
 		[](const Command&, std::uint64_t, std::uint64_t, CommandDisposition) {});
 }
 

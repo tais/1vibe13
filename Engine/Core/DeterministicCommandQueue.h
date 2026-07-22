@@ -2,6 +2,7 @@
 #define ENGINE_CORE_DETERMINISTIC_COMMAND_QUEUE_H
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <iterator>
@@ -44,7 +45,9 @@ public:
 			throw;
 		}
 		advanceSequenceAfter(sequence);
-		ordered_ = false;
+		ordered_ = ordered_ &&
+			(entries_.size() < 2 ||
+			 !less(entries_.back(), entries_[entries_.size() - 2]));
 		return sequence;
 	}
 
@@ -67,7 +70,9 @@ public:
 			throw;
 		}
 		advanceSequenceAfter(sequence);
-		ordered_ = false;
+		ordered_ = ordered_ &&
+			(entries_.size() < 2 ||
+			 !less(entries_.back(), entries_[entries_.size() - 2]));
 		return true;
 	}
 
@@ -82,6 +87,10 @@ public:
 			if (!staged.enqueueRecorded(entry.tick, entry.sequence, entry.command))
 				return false;
 		}
+		// Replay staging is already an explicit potentially-large transaction.
+		// Normalize it here so the first bounded safe-frame consumer never pays
+		// a deferred whole-backlog sort.
+		staged.ensureOrdered();
 		entries_.swap(staged.entries_);
 		liveSequences_.swap(staged.liveSequences_);
 		std::swap(nextSequence_, staged.nextSequence_);
@@ -115,6 +124,25 @@ public:
 		return std::vector<Entry>(entries_.begin(), end);
 	}
 
+	// Copy at most maximum entries from the ready prefix. moreReady describes
+	// only the immutable prefix that existed when this snapshot began; work
+	// enqueued by a command handler remains eligible for a later pass just like
+	// the unbounded overload above. This keeps a bounded processor's temporary
+	// allocation independent of replay or backlog size.
+	std::vector<Entry> snapshotThrough(
+		std::uint64_t tick, std::size_t maximum, bool& moreReady)
+	{
+		ensureOrdered();
+		const auto readyEnd = std::upper_bound(entries_.begin(), entries_.end(), tick,
+			[](std::uint64_t value, const Entry& entry) { return value < entry.tick; });
+		const std::size_t ready =
+			static_cast<std::size_t>(readyEnd - entries_.begin());
+		const std::size_t selected = std::min(ready, maximum);
+		moreReady = ready > selected;
+		return std::vector<Entry>(
+			entries_.begin(), entries_.begin() + static_cast<std::ptrdiff_t>(selected));
+	}
+
 	bool acknowledge(std::uint64_t sequence)
 	{
 		if (!entries_.empty() && entries_.front().sequence == sequence)
@@ -131,6 +159,11 @@ public:
 		return true;
 	}
 
+	bool containsSequence(std::uint64_t sequence) const
+	{
+		return liveSequences_.find(sequence) != liveSequences_.end();
+	}
+
 	std::size_t size() const { return entries_.size(); }
 	bool empty() const { return entries_.empty(); }
 	std::size_t liveSequenceCount() const { return liveSequences_.size(); }
@@ -140,7 +173,10 @@ private:
 	void ensureOrdered()
 	{
 		if (ordered_) return;
-		std::stable_sort(entries_.begin(), entries_.end(), less);
+		// Sequence is a unique tie-breaker, so stability is unnecessary. std::sort
+		// avoids stable_sort's optional linear scratch allocation when a large
+		// replay is first observed by a bounded processor.
+		std::sort(entries_.begin(), entries_.end(), less);
 		ordered_ = true;
 	}
 

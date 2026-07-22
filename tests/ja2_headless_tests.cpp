@@ -74,6 +74,8 @@
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
 #include "SaveCompatibility.h"
+#include "Simulation Commands.h"
+#include "TacticalCommandHost.h"
 #include "TacticalWorldObserverHost.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
@@ -1413,9 +1415,51 @@ int main( int, char** )
 				return command == 20 ? CommandDisposition::Discard : CommandDisposition::Applied;
 			} );
 		const auto deferred = commands.snapshotThrough( 1 );
-		CHECK( bounded && bounded.scheduled == 2 && bounded.applied == 1 &&
+		CHECK( bounded && bounded.status == CommandProcessStatus::Completed &&
+		       bounded.scheduled == 2 && bounded.applied == 1 &&
 		       bounded.discarded == 1 && deferred.size() == 1 && deferred[0].command == 30,
 		       "command passes count discards and defer commands produced by their handlers" );
+	}
+
+	{
+		DeterministicCommandQueue<int> commands;
+		commands.enqueue( 1, 10 );
+		commands.enqueue( 1, 20 );
+		commands.enqueue( 1, 30 );
+		std::vector<int> handled;
+		const CommandProcessingResult first = ProcessCommandsThrough(
+			commands, 1, 2,
+			[&handled]( int command, std::uint64_t, std::uint64_t ) {
+				handled.push_back( command );
+				return CommandDisposition::Applied;
+			} );
+		bool moreReady = false;
+		const auto retained = commands.snapshotThrough( 1, 1, moreReady );
+		const CommandProcessingResult second = ProcessCommandsThrough(
+			commands, 1, 2,
+			[&handled]( int command, std::uint64_t, std::uint64_t ) {
+				handled.push_back( command );
+				return CommandDisposition::Applied;
+			} );
+		CHECK( first.status == CommandProcessStatus::BudgetExhausted &&
+		       first.scheduled == 2 && first.applied == 2 &&
+		       retained.size() == 1 && retained[0].command == 30 && !moreReady &&
+		       second.status == CommandProcessStatus::Completed &&
+		       second.scheduled == 1 && second.applied == 1 && commands.empty() &&
+		       handled == std::vector<int>({ 10, 20, 30 }),
+		       "bounded command processing reports and resumes an exact FIFO budget" );
+
+		commands.enqueue( 2, 40 );
+		bool invoked = false;
+		const CommandProcessingResult zeroBudget = ProcessCommandsThrough(
+			commands, 2, 0,
+			[&invoked]( int, std::uint64_t, std::uint64_t ) {
+				invoked = true;
+				return CommandDisposition::Applied;
+			} );
+		CHECK( zeroBudget.status == CommandProcessStatus::BudgetExhausted &&
+		       zeroBudget.scheduled == 0 && !invoked && commands.size() == 1,
+		       "a zero command budget exposes ready backlog without invoking handlers" );
 	}
 
 	{
@@ -2109,6 +2153,229 @@ int main( int, char** )
 		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
+
+		const auto tacticalCommands =
+			compiledContext.serviceCatalog().resolve<TacticalCommandService>(
+				TacticalCommandServiceId, TacticalCommandServiceVersion );
+		const TacticalCommandInboxLimits productionCommandLimits = tacticalCommands
+			? tacticalCommands.service->limits() : TacticalCommandInboxLimits{};
+		const TacticalEntityId staleActor{ 0, 0xfedcba98u };
+		const SimulationCommand staleStance{ ChangeStanceCommand{
+			staleActor, ANIM_CROUCH, SimulationCommandSource::System } };
+		const BOOLEAN previousCommandWorldLoaded = gfWorldLoaded;
+		SOLDIERTYPE* const previousCommandActor = MercPtrs[0];
+		SOLDIERTYPE commandHostActor;
+		commandHostActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
+		commandHostActor.uiUniqueSoldierIdValue = 0x12345678u;
+		commandHostActor.bActive = TRUE;
+		commandHostActor.bInSector = TRUE;
+		gfWorldLoaded = FALSE;
+		const Ja2TacticalCommandHostDiagnostics commandHostInitially =
+			GetJa2TacticalCommandHostDiagnostics();
+		const TacticalCommandSubmissionResult teardownPending = tacticalCommands
+			? tacticalCommands.service->submit( "fixture.torn-down", staleStance )
+			: TacticalCommandSubmissionResult{
+				TacticalCommandSubmissionError::InvalidCommand, 0 };
+		GetJa2TacticalCommandPackageEventSink().publish( PackageEvent{
+			PackageEventKind::Deactivated, "fixture.torn-down" } );
+		TacticalCommandInboxSnapshot afterPendingCancellation;
+		const TacticalCommandSnapshotError pendingCancellationSnapshot = tacticalCommands
+			? tacticalCommands.service->snapshot( afterPendingCancellation )
+			: TacticalCommandSnapshotError::AllocationFailure;
+		const Ja2TacticalCommandHostDiagnostics commandHostAfterPendingCancellation =
+			GetJa2TacticalCommandHostDiagnostics();
+		CHECK( tacticalCommands && compiledContext.packages().isActive( packageId ) &&
+		       productionCommandLimits.maximumPerDrain > 0 && teardownPending &&
+		       pendingCancellationSnapshot == TacticalCommandSnapshotError::None &&
+		       afterPendingCancellation.summary.pending == 0 &&
+		       commandHostAfterPendingCancellation.lifecycleCancellationEvents ==
+		           commandHostInitially.lifecycleCancellationEvents + 1 &&
+		       commandHostAfterPendingCancellation.cancelledRequests ==
+		           commandHostInitially.cancelledRequests + 1,
+		       "production command service exists before active-package bootstrap and cancels pending teardown work" );
+
+		const std::vector<RecordedSimulationCommand> journalBeforeCommandHost =
+			compiledContext.commandJournal().snapshot();
+		const Ja2TacticalCommandHostDiagnostics commandHostBeforeValidation =
+			GetJa2TacticalCommandHostDiagnostics();
+		const TacticalCommandSubmissionResult inactiveOwner =
+			tacticalCommands.service->submit( "fixture.inactive", staleStance );
+		const TacticalCommandSubmissionResult invalidTeam =
+			tacticalCommands.service->submit( packageId, SimulationCommand{ EndTurnCommand{
+				0xffu, SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidStance =
+			tacticalCommands.service->submit( packageId, SimulationCommand{ ChangeStanceCommand{
+				staleActor, 0xffu, SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidFire =
+			tacticalCommands.service->submit( packageId, SimulationCommand{ BeginFireWeaponCommand{
+				staleActor, -1, FIRST_LEVEL, 0, SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult unloadedContext =
+			tacticalCommands.service->submit( packageId, staleStance );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics commandHostAfterInvalidContext =
+			GetJa2TacticalCommandHostDiagnostics();
+		gfWorldLoaded = TRUE;
+		MercPtrs[0] = &commandHostActor;
+		const TacticalCommandSubmissionResult staleRequest =
+			tacticalCommands.service->submit( packageId, staleStance );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics commandHostAfterValidation =
+			GetJa2TacticalCommandHostDiagnostics();
+		const std::vector<RecordedSimulationCommand> journalAfterCommandHost =
+			compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* staleRecord =
+			journalAfterCommandHost.size() == journalBeforeCommandHost.size() + 1
+				? &journalAfterCommandHost.back() : nullptr;
+		CHECK( inactiveOwner && invalidTeam && invalidStance && invalidFire &&
+		       unloadedContext && staleRequest &&
+		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 5 &&
+		       commandHostAfterValidation.lastDrain.accepted == 1 &&
+		       commandHostAfterValidation.lastDrain.rejected == 0 &&
+		       commandHostAfterValidation.inactiveOwnerRejections ==
+		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
+		       commandHostAfterValidation.semanticRejections ==
+		           commandHostBeforeValidation.semanticRejections + 3 &&
+		       commandHostAfterValidation.contextRejections ==
+		           commandHostBeforeValidation.contextRejections + 1 &&
+		       commandHostAfterValidation.lastProcessing.status ==
+		           CommandProcessStatus::Completed &&
+		       commandHostAfterValidation.lastProcessing.scheduled == 1 &&
+		       commandHostAfterValidation.lastProcessing.discarded == 1 &&
+		       staleRecord && staleRecord->status == CommandJournalStatus::Discarded &&
+		       std::get<ChangeStanceCommand>( staleRecord->command ).soldier == staleActor &&
+		       compiledContext.commands().empty(),
+		       "safe-frame command host rejects unsafe domains and unloaded worlds, then journals stale identities as discarded" );
+
+		std::vector<std::uint64_t> boundedRequestIds;
+		boundedRequestIds.reserve( productionCommandLimits.maximumPerDrain + 1 );
+		bool boundedRequestsSubmitted = true;
+		for ( std::size_t index = 0;
+		      index < productionCommandLimits.maximumPerDrain + 1; ++index )
+		{
+			const TacticalCommandSubmissionResult submitted =
+				tacticalCommands.service->submit( packageId, staleStance );
+			boundedRequestsSubmitted = boundedRequestsSubmitted && static_cast<bool>( submitted );
+			boundedRequestIds.push_back( submitted.requestId );
+		}
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot boundedRemainder;
+		tacticalCommands.service->snapshot( boundedRemainder );
+		const Ja2TacticalCommandHostDiagnostics boundedFirstFrame =
+			GetJa2TacticalCommandHostDiagnostics();
+		const bool retainedFifoTail = boundedRemainder.pending.size() == 1 &&
+			boundedRemainder.pending[0].requestId == boundedRequestIds.back();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot boundedFinished;
+		tacticalCommands.service->snapshot( boundedFinished );
+		CHECK( boundedRequestsSubmitted && retainedFifoTail &&
+		       boundedFirstFrame.lastDrain.eligible ==
+		           productionCommandLimits.maximumPerDrain &&
+		       boundedFirstFrame.lastDrain.accepted ==
+		           productionCommandLimits.maximumPerDrain &&
+		       boundedFirstFrame.lastProcessing.scheduled ==
+		           productionCommandLimits.maximumPerDrain &&
+		       boundedFirstFrame.lastProcessing.discarded ==
+		           productionCommandLimits.maximumPerDrain &&
+		       boundedFinished.summary.pending == 0 && compiledContext.commands().empty(),
+		       "production admission moves only one configured FIFO prefix per safe frame" );
+
+		const std::uint64_t commandTick =
+			compiledContext.runtime().simulationTicks().completedTickSequence();
+		const std::uint64_t futureCommandTick = commandTick + 1;
+		const std::uint64_t futureCommandSequence =
+			compiledContext.submitCommand( futureCommandTick, staleStance );
+		const TacticalCommandSubmissionResult heldBehindFutureReplay =
+			tacticalCommands.service->submit( packageId, staleStance );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot futureReplayGatedSnapshot;
+		tacticalCommands.service->snapshot( futureReplayGatedSnapshot );
+		const Ja2TacticalCommandHostDiagnostics futureReplayGatedFrame =
+			GetJa2TacticalCommandHostDiagnostics();
+		const CommandProcessingResult futureReplayProcessed =
+			ExecuteSimulationCommandsThrough( futureCommandTick );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot futureReplayResumedSnapshot;
+		tacticalCommands.service->snapshot( futureReplayResumedSnapshot );
+		const std::vector<RecordedSimulationCommand> journalAfterFutureReplay =
+			compiledContext.commandJournal().snapshot();
+		const bool futureReplayWasDiscarded = std::any_of(
+			journalAfterFutureReplay.begin(), journalAfterFutureReplay.end(),
+			[futureCommandSequence]( const RecordedSimulationCommand& record ) {
+				return record.sequence == futureCommandSequence &&
+					record.status == CommandJournalStatus::Discarded;
+			} );
+		CHECK( heldBehindFutureReplay &&
+		       futureReplayGatedSnapshot.summary.pending == 1 &&
+		       futureReplayGatedFrame.lastProcessing.status ==
+		           CommandProcessStatus::Completed &&
+		       futureReplayGatedFrame.lastProcessing.scheduled == 0 &&
+		       futureReplayWasDiscarded &&
+		       futureReplayProcessed.discarded == 1 &&
+		       futureReplayResumedSnapshot.summary.pending == 0 &&
+		       compiledContext.commands().empty(),
+		       "future replay backlog pauses live package ingress until the authoritative stream clears" );
+
+		for ( std::size_t index = 0;
+		      index < productionCommandLimits.maximumPerDrain + 1; ++index )
+			compiledContext.submitCommand( commandTick, staleStance );
+		const TacticalCommandSubmissionResult gatedRequest =
+			tacticalCommands.service->submit( packageId, staleStance );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot gatedSnapshot;
+		tacticalCommands.service->snapshot( gatedSnapshot );
+		const Ja2TacticalCommandHostDiagnostics gatedFrame =
+			GetJa2TacticalCommandHostDiagnostics();
+		const TacticalCommandSubmissionResult heldDuringRetry =
+			tacticalCommands.service->submit( packageId, staleStance );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot retrySnapshot;
+		tacticalCommands.service->snapshot( retrySnapshot );
+		const Ja2TacticalCommandHostDiagnostics retryFrame =
+			GetJa2TacticalCommandHostDiagnostics();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		TacticalCommandInboxSnapshot resumedSnapshot;
+		tacticalCommands.service->snapshot( resumedSnapshot );
+		CHECK( gatedRequest && heldDuringRetry && gatedFrame.authoritativeBackpressure &&
+		       gatedFrame.lastProcessing.status == CommandProcessStatus::BudgetExhausted &&
+		       gatedFrame.lastProcessing.scheduled ==
+		           productionCommandLimits.maximumPerDrain &&
+		       gatedSnapshot.summary.pending == 1 &&
+		       retryFrame.lastProcessing.status == CommandProcessStatus::Completed &&
+		       !retryFrame.authoritativeBackpressure && retrySnapshot.summary.pending == 2 &&
+		       resumedSnapshot.summary.pending == 0 && compiledContext.commands().empty(),
+		       "ready authoritative backlog gates admission and consumes bounded retry frames" );
+
+		const std::vector<RecordedSimulationCommand> journalBeforeRetained =
+			compiledContext.commandJournal().snapshot();
+		const TacticalCommandSubmissionResult retainedForTeardown =
+			tacticalCommands.service->submit( packageId, staleStance );
+		const Ja2TacticalCommandHostDiagnostics beforeRetainedCancellation =
+			GetJa2TacticalCommandHostDiagnostics();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext, 0 );
+		const std::vector<RecordedSimulationCommand> beforeAuthoritativeCancellation =
+			compiledContext.commandJournal().snapshot();
+		GetJa2TacticalCommandPackageEventSink().publish( PackageEvent{
+			PackageEventKind::ShutdownFailed, packageId } );
+		const Ja2TacticalCommandHostDiagnostics afterRetainedCancellation =
+			GetJa2TacticalCommandHostDiagnostics();
+		const std::vector<RecordedSimulationCommand> afterAuthoritativeCancellation =
+			compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* cancelledRecord =
+			!afterAuthoritativeCancellation.empty()
+				? &afterAuthoritativeCancellation.back() : nullptr;
+		CHECK( retainedForTeardown &&
+		       beforeAuthoritativeCancellation.size() ==
+		           journalBeforeRetained.size() + 1 &&
+		       afterRetainedCancellation.cancelledAuthoritativeCommands ==
+		           beforeRetainedCancellation.cancelledAuthoritativeCommands + 1 &&
+		       cancelledRecord && cancelledRecord->status == CommandJournalStatus::Discarded &&
+		       compiledContext.commands().empty(),
+		       "lifecycle teardown cancels a bounded accepted command retained by execution backpressure" );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		MercPtrs[0] = previousCommandActor;
+		gfWorldLoaded = previousCommandWorldLoaded;
+
 		const auto tacticalWorld = compiledContext.serviceCatalog().resolve<TacticalWorldService>(
 			TacticalWorldServiceId, TacticalWorldServiceVersion );
 		TacticalWorldSnapshot unavailableWorld;
@@ -2119,9 +2386,26 @@ int main( int, char** )
 		const auto tacticalWorldObserver =
 			compiledContext.serviceCatalog().resolve<TacticalWorldObserverService>(
 				TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion );
+		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
+		const Ja2TacticalCommandHostDiagnostics commandsBeforeOrdering =
+			GetJa2TacticalCommandHostDiagnostics();
+		const Ja2TacticalWorldObserverDiagnostics observerBeforeOrdering =
+			GetJa2TacticalWorldObserverDiagnostics();
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics commandsAfterOrdering =
+			GetJa2TacticalCommandHostDiagnostics();
+		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		const Ja2TacticalWorldObserverDiagnostics observerBeforeWorld =
 			GetJa2TacticalWorldObserverDiagnostics();
-		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
+		CHECK( commandsAfterOrdering.safeFrameCalls ==
+		           commandsBeforeOrdering.safeFrameCalls + 1 &&
+		       commandsAfterOrdering.simulationTick ==
+		           compiledContext.runtime().simulationTicks().completedTickSequence() &&
+		       observerBeforeWorld.safeFrameUpdates ==
+		           observerBeforeOrdering.safeFrameUpdates + 1 &&
+		       observerBeforeWorld.lastUpdate ==
+		           TacticalWorldObserverUpdateResult::SourceUnavailable,
+		       "production safe-frame order drains completed-tick commands before observing tactical state" );
 		const std::size_t queuedBeforeWorld = liveRuntimeMessages.queued();
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		const Ja2TacticalWorldObserverDiagnostics unavailableObservation =
