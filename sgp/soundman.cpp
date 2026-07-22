@@ -19,6 +19,8 @@
 #include "FileMan.h"
 #include "DEBUG.H"
 
+#include <Engine/Adapters/Legacy/PlatformTime.h>
+
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
 
@@ -26,7 +28,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
-#include <chrono>
 
 // global settings
 #define SOUND_MAX_CACHED        128   // number of cache slots
@@ -79,13 +80,9 @@ bool          gSoundEnabled     = true;
 // (commit 225001b53 made SDL_GetPerformanceCounter return nanoseconds, but
 // SDL_GetPerformanceFrequency still returns the mach-tick rate, denom/numer ==
 // 3/125, so SDL_GetTicks runs ~41.7x too fast -> sector ambients fire ~42x too
-// often). std::chrono::steady_clock is correct on every platform and is already
-// what the engine's own game clock (Utils/Timer Control.cpp) runs on.
-static Uint64 RealTicksMS(void)
-{
-	return (Uint64)std::chrono::duration_cast<std::chrono::milliseconds>(
-		std::chrono::steady_clock::now().time_since_epoch()).count();
-}
+// often). The shared platform clock is reliable on every platform and keeps
+// audio scheduling on the same monotonic source as the rest of the runtime.
+static Uint64 RealTicksMS(void) { return PlatformNowMilliseconds(); }
 
 // ---- Cache helpers --------------------------------------------------------
 

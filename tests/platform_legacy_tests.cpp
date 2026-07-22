@@ -11,10 +11,12 @@
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
+#include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include "FileMan.h"
 #include "input.h"
 #include "sdl_input.h"
+#include "timer.h"
 #include "types.h"
 
 #include <vfs/Core/vfs_init.h>
@@ -183,6 +185,19 @@ int main()
 	Check(storage.remove("adapter.bin"),
 		"removing an already absent platform record succeeds");
 
+	ManualTimeSource manualTime;
+	manualTime.setMicroseconds(5'000'000);
+	BindPlatformTimeSource(manualTime);
+	Check(&GetPlatformTimeSource() == &manualTime &&
+		PlatformNowMilliseconds() == 5'000 &&
+		PlatformNowNanoseconds() == 5'000'000'000ull,
+		"platform clock facade uses an injected monotonic source");
+	Check(InitializeClockManager(), "legacy clock manager initializes");
+	manualTime.advanceMicroseconds(7'500);
+	Check(GetClock() == 7 && SetCountdownClock(10) == 17 &&
+		ClockIsTicking(17) == 10,
+		"legacy timers derive their relative time from the platform clock");
+
 	Check(InitializeInputManager(), "legacy input manager initializes");
 	SDL_SetModState(SDL_KMOD_SHIFT);
 	SDL_Event event{};
@@ -213,8 +228,9 @@ int main()
 		guiLeftButtonRepeatTimer != 0 && guiX1ButtonRepeatTimer != 0,
 		"SDL input records all mouse buttons, wheel, and repeat state");
 	EngineInputEvent mirrored;
-	Check(GetPlatformInputSource().poll(mirrored),
-		"engine-facing input mirrors pre-focus input atoms");
+	Check(GetPlatformInputSource().poll(mirrored) &&
+		mirrored.timestamp == PlatformNowMilliseconds(),
+		"engine-facing input timestamps use the shared platform clock");
 	const std::uint64_t sequenceBeforeFocusLoss = mirrored.sequence;
 	const InputQueueStatistics queuedBeforeFocusLoss = GetInputQueueStatistics();
 	Check(queuedBeforeFocusLoss.queued == 5,
@@ -239,7 +255,8 @@ int main()
 		queuedAfterFocusLoss.dropped == queuedBeforeFocusLoss.dropped &&
 		queuedAfterFocusLoss.evictedForRelease == queuedBeforeFocusLoss.evictedForRelease,
 		"focus loss atomically discards stale authoritative input atoms without resetting lifetime statistics");
-	SDL_Delay(BUTTON_REPEAT_TIMEOUT + 1);
+	manualTime.advanceMicroseconds(
+		(static_cast<std::uint64_t>(BUTTON_REPEAT_TIMEOUT) + 1) * 1'000);
 	Check(!DequeueEvent(&staleInput) && GetInputQueueStatistics().queued == 0 &&
 		!GetPlatformInputSource().poll(mirrored),
 		"focus loss cannot regenerate stale repeats after their timeout");
@@ -273,6 +290,8 @@ int main()
 		!GetPlatformInputSource().poll(mirrored),
 		"engine-facing input resumes without stale atoms or reused sequence IDs");
 	ShutdownInputManager();
+	ShutdownClockManager();
+	ResetPlatformTimeSource();
 
 	ShutdownFileManager();
 	std::filesystem::remove_all(root, error);

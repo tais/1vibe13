@@ -16,6 +16,7 @@
 	#include "DEBUG.H"
 	#include "input.h"
 	#include <Engine/Adapters/Legacy/PlatformInput.h>
+	#include <Engine/Adapters/Legacy/PlatformTime.h>
 	#include "MemMan.h"
 	#include "english.h"
 		#include "video.h"
@@ -443,7 +444,7 @@ void QueuePureEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	UINT32 uiTimer;
 	UINT16 usKeyState;
 
-	uiTimer = GetTickCount();
+	uiTimer = static_cast<UINT32>(PlatformNowMilliseconds());
 	usKeyState = gfShiftState | gfCtrlState | gfAltState;
 
 	// Repeated/non-critical input may be dropped at capacity; releases displace
@@ -458,7 +459,7 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 	UINT32 uiTimer;
 	UINT16 usKeyState;
 
-	uiTimer = GetTickCount();
+	uiTimer = static_cast<UINT32>(PlatformNowMilliseconds());
 	usKeyState = gfShiftState | gfCtrlState | gfAltState;
 
 	// Preserve state-clearing releases under a repeat or motion storm.
@@ -1776,7 +1777,7 @@ void HandleSingleClicksAndButtonRepeats( void )
 {
 	UINT32 uiTimer;
 
-	uiTimer = GetTickCount();
+	uiTimer = static_cast<UINT32>(PlatformNowMilliseconds());
 
 	// Is there a LEFT mouse button repeat
 	if (gfLeftButtonState)

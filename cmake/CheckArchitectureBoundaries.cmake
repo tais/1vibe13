@@ -12,6 +12,7 @@ file(GLOB_RECURSE core_files
 set(core_standard_headers
   algorithm
   array
+  atomic
   charconv
   chrono
   cmath
