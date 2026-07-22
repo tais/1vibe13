@@ -3,6 +3,7 @@
 #include "PackageHost.h"
 #include "Screens.h"
 #include "TacticalCommandHost.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
@@ -36,6 +37,11 @@ GameContext& GetGameContext()
 		packageEvents);
 	static const bool tacticalCommandHostBound = BindJa2TacticalCommandHost(context);
 	(void)tacticalCommandHostBound;
+	static const bool tacticalEntityDirectoryBound = [&] {
+		BindJa2TacticalEntityDirectory(context.runtime().tacticalEntityDirectory());
+		return true;
+	}();
+	(void)tacticalEntityDirectoryBound;
 	static const EngineServiceRegistrationError tacticalWorldRegistered =
 		[&] {
 			BindJa2TacticalWorldSession(context.runtime().tacticalWorldSession());

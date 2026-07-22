@@ -108,6 +108,7 @@
 #include "Luaglobal.h"
 #include "LuaInitNPCs.h"
 #include "Vehicles.h"
+#include "TacticalEntityHost.h"
 #include "XML.h"
 #include "GameInitOptionsScreen.h"
 
@@ -646,6 +647,8 @@ void ShutdownTacticalEngine( )
 BOOLEAN InitOverhead( )
 {
     UINT32  cnt;
+
+    ResetJa2TacticalEntityDirectory();
 
     // Set pointers list
     for( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )

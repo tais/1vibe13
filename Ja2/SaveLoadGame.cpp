@@ -25,6 +25,7 @@
 #include "SaveLoadGame.h"
 #include "GameContext.h"
 #include "SaveCompatibility.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "Tactical Save.h"
 #include "Squads.h"
@@ -485,7 +486,6 @@ UINT8			gubSaveGameLoc=0;
 UINT32		guiScreenToGotoAfterLoadingSavedGame = 0;
 
 extern		EmailPtr	pEmailList;
-extern		UINT32		guiCurrentUniqueSoldierId;
 extern		BOOLEAN		gfHavePurchasedItemsFromTony;
 
 /////////////////////////////////////////////////////
@@ -7725,7 +7725,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	memset( &sGeneralInfo, 0, sizeof( GENERAL_SAVE_INFO ) );
 
 	sGeneralInfo.ubMusicMode = GetMusicMode();
-	sGeneralInfo.uiCurrentUniqueSoldierId = guiCurrentUniqueSoldierId;
+	sGeneralInfo.uiCurrentUniqueSoldierId = NextJa2TacticalEntityIncarnation();
 	sGeneralInfo.uiCurrentScreen = guiPreviousOptionScreen;
 
 	sGeneralInfo.usSelectedSoldier = gusSelectedSoldier;
@@ -8255,7 +8255,8 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 
 	gMusicModeToPlay = sGeneralInfo.ubMusicMode;
 
-	guiCurrentUniqueSoldierId = sGeneralInfo.uiCurrentUniqueSoldierId;
+	RestoreJa2TacticalEntityIncarnationSequence(
+		sGeneralInfo.uiCurrentUniqueSoldierId);
 
 	guiScreenToGotoAfterLoadingSavedGame = sGeneralInfo.uiCurrentScreen;
 

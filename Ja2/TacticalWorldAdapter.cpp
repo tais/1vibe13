@@ -5,6 +5,7 @@
 #include "Map Information.h"
 #include "Overhead.h"
 #include "Soldier Control.h"
+#include "TacticalEntityHost.h"
 #include "strategicmap.h"
 
 // Exact legacy symbols retained as read-compatible mirrors. The session is
@@ -98,15 +99,16 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 			maximumActors_ < TOTAL_SOLDIERS ? maximumActors_ : TOTAL_SOLDIERS);
 		for (std::uint16_t slot = 0; slot < TOTAL_SOLDIERS; ++slot)
 		{
-			const SOLDIERTYPE* soldier = MercPtrs[slot];
-			if (!soldier || !soldier->bActive) continue;
-			if (static_cast<std::uint16_t>(soldier->ubID) != slot ||
-				soldier->uiUniqueSoldierIdValue == 0)
+			const SOLDIERTYPE* legacySoldier = MercPtrs[slot];
+			if (!legacySoldier || !legacySoldier->bActive) continue;
+			const TacticalEntityId entity = GetJa2TacticalEntityId(slot);
+			const SOLDIERTYPE* soldier = ResolveJa2TacticalEntity(entity);
+			if (!soldier)
 				return TacticalWorldCaptureResult::AdapterFailure;
 			if (actorScratch_.size() >= maximumActors_)
 				return TacticalWorldCaptureResult::CapacityReached;
 			actorScratch_.push_back(TacticalActorSnapshot{
-				TacticalEntityId{slot, soldier->uiUniqueSoldierIdValue},
+				entity,
 				static_cast<std::uint8_t>(soldier->bTeam),
 				static_cast<std::uint16_t>(soldier->ubProfile),
 				soldier->sGridNo,

@@ -77,6 +77,7 @@
 #include "SaveCompatibility.h"
 #include "Simulation Commands.h"
 #include "TacticalCommandHost.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include "popup_class.h"
@@ -2412,6 +2413,8 @@ int main( int, char** )
 		const TacticalWorldSession::Snapshot previousCommandWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
 		SOLDIERTYPE* const previousCommandActor = MercPtrs[0];
+		const TacticalEntityId previousCommandEntity =
+			GetJa2TacticalEntityId( 0 );
 		SOLDIERTYPE commandHostActor;
 		commandHostActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
 		commandHostActor.uiUniqueSoldierIdValue = 0x12345678u;
@@ -2475,6 +2478,14 @@ int main( int, char** )
 			previousCommandWorldSession.worldGeneration != 0
 				? previousCommandWorldSession.worldGeneration : 1 );
 		MercPtrs[0] = &commandHostActor;
+		const bool commandHostActorAdopted =
+			AdoptJa2TacticalEntity( commandHostActor );
+		CHECK( commandHostActorAdopted &&
+		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 0x12345678u } ) &&
+		       ResolveJa2TacticalEntity( TacticalEntityId{ 0, 0x12345678u } ) ==
+		           &commandHostActor &&
+		       ResolveJa2TacticalEntity( staleActor ) == nullptr,
+		       "runtime entity directory rejects a stale incarnation for a reused pool slot" );
 		const TacticalCommandSubmissionResult staleRequest =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -2956,7 +2967,10 @@ int main( int, char** )
 		CHECK( GetJa2TacticalCommandHostDiagnostics().pendingReceipts == 0 &&
 		       liveRuntimeMessages.queued() == 0,
 		       "receipt reserve saturation fixture drains all retained terminal results" );
+		(void)ReleaseJa2TacticalEntity( commandHostActor );
 		MercPtrs[0] = previousCommandActor;
+		if ( previousCommandEntity.valid() && previousCommandActor )
+			(void)AdoptJa2TacticalEntity( *previousCommandActor );
 		RestoreJa2TacticalWorldSession( previousCommandWorldSession );
 
 		const auto tacticalWorld =
@@ -3010,6 +3024,8 @@ int main( int, char** )
 		       "pre-world safe frames harmlessly retain an unavailable observer service" );
 
 		SOLDIERTYPE* previousSlot = MercPtrs[0];
+		const TacticalEntityId previousWorldEntity =
+			GetJa2TacticalEntityId( 0 );
 		const INT8 previousActive = Menptr[0].bActive;
 		const INT8 previousInSector = Menptr[0].bInSector;
 		const SoldierID previousId = Menptr[0].ubID;
@@ -3043,6 +3059,11 @@ int main( int, char** )
 		Menptr[0].stats.bLifeMax = 80;
 		Menptr[0].bBreath = 64;
 		Menptr[0].bBreathMax = 90;
+		const bool worldActorAdopted = AdoptJa2TacticalEntity( Menptr[0] );
+		CHECK( worldActorAdopted &&
+		       compiledContext.runtime().tacticalEntityDirectory().identity( 0 ) ==
+		           ( TacticalEntityId{ 0, 701 } ),
+		       "legacy pool actors publish liveness through the runtime-owned directory" );
 		SetJa2TacticalWorldSector( 9, 1, 0 );
 		NotifyJa2TacticalWorldLoaded( 23 );
 		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );
@@ -3428,7 +3449,7 @@ int main( int, char** )
 		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 348 &&
 		       Menptr[0].stats.bLife == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
-		MercPtrs[0] = previousSlot;
+		(void)ReleaseJa2TacticalEntity( Menptr[0] );
 		Menptr[0].bActive = previousActive;
 		Menptr[0].bInSector = previousInSector;
 		Menptr[0].ubID = previousId;
@@ -3444,6 +3465,9 @@ int main( int, char** )
 		Menptr[0].stats.bLifeMax = previousMaximumLife;
 		Menptr[0].bBreath = previousBreath;
 		Menptr[0].bBreathMax = previousMaximumBreath;
+		MercPtrs[0] = previousSlot;
+		if ( previousWorldEntity.valid() && previousSlot )
+			(void)AdoptJa2TacticalEntity( *previousSlot );
 		RestoreJa2TacticalWorldSession( previousWorldSession );
 
 		RuntimeMessageBus tacticalDeltaMessages( 1, 256 );
