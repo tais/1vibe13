@@ -23,6 +23,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -86,6 +87,81 @@ public:
 	std::vector<RuntimeMessage> messages;
 	bool publishReply = false;
 	bool throws = false;
+};
+
+// Models a third-party ByteStorage implementation compiled against the legacy
+// readAll contract. It deliberately does not override readAllBounded so this
+// test protects the extension's source-compatible fallback behavior.
+class LegacyOnlyByteStorage final : public ByteStorage
+{
+public:
+	explicit LegacyOnlyByteStorage(std::vector<std::uint8_t> bytes)
+		: bytes_(std::move(bytes)) {}
+
+	bool exists(const std::string& path) const override
+	{
+		return path == "legacy.record";
+	}
+	bool readAll(const std::string& path,
+		std::vector<std::uint8_t>& bytes) const override
+	{
+		++readAllCalls;
+		if (!exists(path)) return false;
+		bytes = bytes_;
+		return true;
+	}
+	bool writeAll(const std::string&,
+		const std::vector<std::uint8_t>&) override
+	{
+		return false;
+	}
+
+	mutable std::size_t readAllCalls = 0;
+
+private:
+	std::vector<std::uint8_t> bytes_;
+};
+
+class BoundedProbeByteStorage final : public ByteStorage
+{
+public:
+	explicit BoundedProbeByteStorage(std::vector<std::uint8_t> bytes)
+		: bytes_(std::move(bytes)) {}
+
+	bool exists(const std::string& path) const override
+	{
+		++existsCalls;
+		return path == "bounded.record" || path == "storage.error";
+	}
+	bool readAll(const std::string&,
+		std::vector<std::uint8_t>&) const override
+	{
+		++readAllCalls;
+		return false;
+	}
+	ByteStorageReadResult readAllBounded(const std::string& path,
+		std::size_t maximumBytes,
+		std::vector<std::uint8_t>& bytes) const override
+	{
+		++boundedReadCalls;
+		if (path == "storage.error") return ByteStorageReadResult::StorageError;
+		if (path != "bounded.record") return ByteStorageReadResult::NotFound;
+		if (bytes_.size() > maximumBytes) return ByteStorageReadResult::TooLarge;
+		bytes = bytes_;
+		return ByteStorageReadResult::Success;
+	}
+	bool writeAll(const std::string&,
+		const std::vector<std::uint8_t>&) override
+	{
+		return false;
+	}
+
+	mutable std::size_t existsCalls = 0;
+	mutable std::size_t readAllCalls = 0;
+	mutable std::size_t boundedReadCalls = 0;
+
+private:
+	std::vector<std::uint8_t> bytes_;
 };
 
 class DeclaredContentPackage final : public EnginePackage
@@ -761,6 +837,51 @@ int main()
 
 	MemoryByteStorage persistenceStorage;
 	PersistenceService persistence(persistenceStorage, 8);
+	persistenceStorage.writeAll(
+		"memory.oversized", std::vector<std::uint8_t>{1, 2, 3, 4, 5});
+	std::vector<std::uint8_t> boundedOutput{9};
+	check(persistenceStorage.readAllBounded(
+			"memory.oversized", 4, boundedOutput) == ByteStorageReadResult::TooLarge &&
+		boundedOutput == std::vector<std::uint8_t>({9}) &&
+		persistenceStorage.readAllBounded(
+			"memory.missing", 4, boundedOutput) == ByteStorageReadResult::NotFound &&
+		boundedOutput == std::vector<std::uint8_t>({9}),
+		"memory byte storage rejects oversized records before copying and preserves output");
+	LegacyOnlyByteStorage legacyOnlyStorage({1, 2, 3, 4, 5});
+	check(legacyOnlyStorage.readAllBounded(
+			"legacy.record", 4, boundedOutput) == ByteStorageReadResult::TooLarge &&
+		legacyOnlyStorage.readAllCalls == 1 &&
+		boundedOutput == std::vector<std::uint8_t>({9}),
+		"bounded byte-storage reads retain a transactional fallback for legacy adapters");
+	BoundedProbeByteStorage boundedProbeStorage(
+		std::vector<std::uint8_t>(9, 0));
+	PersistenceService boundedProbePersistence(boundedProbeStorage, 2);
+	PersistenceHeader boundedProbeHeader{77, 88};
+	std::vector<std::uint8_t> boundedProbePayload{7};
+	check(boundedProbePersistence.load(
+			"bounded.record", 1, 1, 1,
+			boundedProbeHeader, boundedProbePayload) == PersistenceLoadResult::TooLarge &&
+		boundedProbeStorage.boundedReadCalls == 1 &&
+		boundedProbeStorage.readAllCalls == 0 && boundedProbeStorage.existsCalls == 0 &&
+		boundedProbeHeader.magic == 77 && boundedProbeHeader.version == 88 &&
+		boundedProbePayload == std::vector<std::uint8_t>({7}),
+		"persistence enforces encoded-size bounds through the storage adapter before reading");
+	std::vector<std::uint8_t> boundedRawOutput{6};
+	check(!boundedProbePersistence.loadRawBounded(
+			"bounded.record", 8, boundedRawOutput) &&
+		boundedProbeStorage.boundedReadCalls == 2 &&
+		boundedProbeStorage.readAllCalls == 0 && boundedProbeStorage.existsCalls == 0 &&
+		boundedRawOutput == std::vector<std::uint8_t>({6}),
+		"raw persistence uses bounded storage reads without publishing oversized data");
+	check(boundedProbePersistence.loadEnvelope(
+			"missing.record", 1, 1, 1,
+			boundedProbeHeader, boundedProbePayload) == PersistenceLoadResult::NotFound &&
+		boundedProbePersistence.loadEnvelope(
+			"storage.error", 1, 1, 1,
+			boundedProbeHeader, boundedProbePayload) == PersistenceLoadResult::StorageError &&
+		boundedProbeHeader.magic == 77 && boundedProbeHeader.version == 88 &&
+		boundedProbePayload == std::vector<std::uint8_t>({7}),
+		"bounded persistence distinguishes missing and failed storage without publishing output");
 	const std::vector<std::uint8_t> persisted{1, 3, 3, 7};
 	check(persistence.saveEnvelope(
 		"engine.record", PersistenceHeader{0x454E4750u, 2}, persisted) ==

@@ -8,6 +8,31 @@ namespace
 constexpr std::size_t LegacyHeaderBytes = 6;
 constexpr std::size_t EnvelopeHeaderBytes = 18;
 
+std::size_t MaximumStoredBytes(
+	std::size_t maximumPayloadBytes, std::size_t headerBytes) noexcept
+{
+	return maximumPayloadBytes >
+		std::numeric_limits<std::size_t>::max() - headerBytes
+		? std::numeric_limits<std::size_t>::max()
+		: maximumPayloadBytes + headerBytes;
+}
+
+PersistenceLoadResult MapStorageReadResult(ByteStorageReadResult result) noexcept
+{
+	switch (result)
+	{
+		case ByteStorageReadResult::Success:
+			return PersistenceLoadResult::Success;
+		case ByteStorageReadResult::NotFound:
+			return PersistenceLoadResult::NotFound;
+		case ByteStorageReadResult::TooLarge:
+			return PersistenceLoadResult::TooLarge;
+		case ByteStorageReadResult::StorageError:
+			return PersistenceLoadResult::StorageError;
+	}
+	return PersistenceLoadResult::StorageError;
+}
+
 std::uint32_t PayloadChecksum(const std::vector<std::uint8_t>& payload)
 {
 	std::uint32_t checksum = 2166136261u;
@@ -58,7 +83,9 @@ bool PersistenceService::loadRawBounded(const std::string& path,
 	try
 	{
 		std::vector<std::uint8_t> loaded;
-		if (!storage_.readAll(path, loaded) || loaded.size() > maximumBytes) return false;
+		if (storage_.readAllBounded(path, maximumBytes, loaded) !=
+			ByteStorageReadResult::Success)
+			return false;
 		bytes = std::move(loaded);
 		return true;
 	}
@@ -96,9 +123,11 @@ PersistenceLoadResult PersistenceService::load(const std::string& path,
 		return PersistenceLoadResult::InvalidOrUnsupported;
 	try
 	{
-		if (!storage_.exists(path)) return PersistenceLoadResult::NotFound;
 		std::vector<std::uint8_t> bytes;
-		if (!storage_.readAll(path, bytes)) return PersistenceLoadResult::StorageError;
+		const ByteStorageReadResult storageResult = storage_.readAllBounded(
+			path, MaximumStoredBytes(maximumPayloadBytes_, LegacyHeaderBytes), bytes);
+		if (storageResult != ByteStorageReadResult::Success)
+			return MapStorageReadResult(storageResult);
 		if (bytes.size() < LegacyHeaderBytes)
 			return PersistenceLoadResult::InvalidOrUnsupported;
 		if (bytes.size() - LegacyHeaderBytes > maximumPayloadBytes_)
@@ -154,9 +183,11 @@ PersistenceLoadResult PersistenceService::loadEnvelope(const std::string& path,
 		return PersistenceLoadResult::InvalidOrUnsupported;
 	try
 	{
-		if (!storage_.exists(path)) return PersistenceLoadResult::NotFound;
 		std::vector<std::uint8_t> bytes;
-		if (!storage_.readAll(path, bytes)) return PersistenceLoadResult::StorageError;
+		const ByteStorageReadResult storageResult = storage_.readAllBounded(
+			path, MaximumStoredBytes(maximumPayloadBytes_, EnvelopeHeaderBytes), bytes);
+		if (storageResult != ByteStorageReadResult::Success)
+			return MapStorageReadResult(storageResult);
 		if (bytes.size() < EnvelopeHeaderBytes)
 			return PersistenceLoadResult::InvalidOrUnsupported;
 

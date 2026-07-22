@@ -4238,6 +4238,31 @@ int main( int, char** )
 		       PersistenceLoadResult::InvalidOrUnsupported,
 		       "platform persistence rejects unsupported content versions" );
 		FileDelete( const_cast<char*>(path.c_str()) );
+
+		const std::string oversizedPath = "engine_persistence_oversized_test.bin";
+		const std::vector<std::uint8_t> oversizedBytes( 32, 0x5a );
+		ByteStorage& platformStorage = GetPlatformByteStorage();
+		std::vector<std::uint8_t> unchangedBytes = { 9 };
+		PersistenceService tinyPersistence( platformStorage, 4 );
+		PersistenceHeader unchangedHeader{ 77, 88 };
+		CHECK( platformStorage.writeAll( oversizedPath, oversizedBytes ) &&
+		       platformStorage.readAllBounded( oversizedPath, 4, unchangedBytes ) ==
+		           ByteStorageReadResult::TooLarge && unchangedBytes == std::vector<std::uint8_t>({ 9 }) &&
+		       tinyPersistence.loadEnvelope( oversizedPath, 1, 1, 1,
+		           unchangedHeader, unchangedBytes ) == PersistenceLoadResult::TooLarge &&
+		       unchangedHeader.magic == 77 && unchangedHeader.version == 88 &&
+		       unchangedBytes == std::vector<std::uint8_t>({ 9 }),
+		       "platform persistence rejects oversized files before publishing or decoding them" );
+		CHECK( platformStorage.readAllBounded(
+		           oversizedPath, oversizedBytes.size(), unchangedBytes ) ==
+		           ByteStorageReadResult::Success && unchangedBytes == oversizedBytes,
+		       "platform bounded reads accept an exact file-size limit" );
+		FileDelete( const_cast<char*>(oversizedPath.c_str()) );
+		unchangedBytes = { 9 };
+		CHECK( platformStorage.readAllBounded(
+		           oversizedPath, 4, unchangedBytes ) == ByteStorageReadResult::NotFound &&
+		       unchangedBytes == std::vector<std::uint8_t>({ 9 }),
+		       "platform bounded reads distinguish missing files without mutating output" );
 	}
 
 #ifndef _WIN32
