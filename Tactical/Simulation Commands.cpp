@@ -72,7 +72,8 @@ namespace
 	}
 
 	template<typename Process>
-	CommandProcessingResult ExecuteSimulationCommands(Process&& process)
+	CommandProcessingResult ExecuteSimulationCommands(
+		Process&& process, SimulationCommandExecutionSink* sink = nullptr)
 	{
 		GameContext& game = GetGameContext();
 		return process(
@@ -80,9 +81,12 @@ namespace
 			[](const SimulationCommand& command, std::uint64_t, std::uint64_t) {
 				return ExecuteSimulationCommand(command);
 			},
-			[&game](const SimulationCommand&, std::uint64_t, std::uint64_t sequence,
+			[&game, sink](const SimulationCommand& command, std::uint64_t tick,
+				std::uint64_t sequence,
 				CommandDisposition disposition) {
 				game.commandJournal().recordDisposition(sequence, disposition);
+				if (sink)
+					sink->commandProcessed(command, tick, sequence, disposition);
 			});
 	}
 }
@@ -107,6 +111,19 @@ CommandProcessingResult ExecuteSimulationCommandsThrough(
 				std::forward<decltype(handler)>(handler),
 				std::forward<decltype(observer)>(observer));
 		});
+}
+
+CommandProcessingResult ExecuteSimulationCommandsThrough(
+	std::uint64_t tick, std::size_t maximumCommands,
+	SimulationCommandExecutionSink& sink)
+{
+	return ExecuteSimulationCommands(
+		[tick, maximumCommands](auto& queue, auto&& handler, auto&& observer) {
+			return ProcessCommandsThrough(
+				queue, tick, maximumCommands,
+				std::forward<decltype(handler)>(handler),
+				std::forward<decltype(observer)>(observer));
+		}, &sink);
 }
 
 std::uint64_t DispatchEndTurnCommandNow(

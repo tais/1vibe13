@@ -649,6 +649,27 @@ public:
 	int calls = 0;
 };
 
+class RecordingSimulationCommandExecutionSink final
+	: public SimulationCommandExecutionSink
+{
+public:
+	void commandProcessed(
+		const SimulationCommand&, std::uint64_t tick,
+		std::uint64_t sequence,
+		CommandDisposition disposition) noexcept override
+	{
+		observed = true;
+		lastTick = tick;
+		lastSequence = sequence;
+		lastDisposition = disposition;
+	}
+
+	bool observed = false;
+	std::uint64_t lastTick = 0;
+	std::uint64_t lastSequence = 0;
+	CommandDisposition lastDisposition = CommandDisposition::Retry;
+};
+
 int main( int, char** )
 {
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
@@ -2295,8 +2316,10 @@ int main( int, char** )
 		tacticalCommands.service->snapshot( futureReplayGatedSnapshot );
 		const Ja2TacticalCommandHostDiagnostics futureReplayGatedFrame =
 			GetJa2TacticalCommandHostDiagnostics();
+		RecordingSimulationCommandExecutionSink futureReplaySink;
 		const CommandProcessingResult futureReplayProcessed =
-			ExecuteSimulationCommandsThrough( futureCommandTick );
+			ExecuteSimulationCommandsThrough(
+				futureCommandTick, 1, futureReplaySink );
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		TacticalCommandInboxSnapshot futureReplayResumedSnapshot;
 		tacticalCommands.service->snapshot( futureReplayResumedSnapshot );
@@ -2315,6 +2338,10 @@ int main( int, char** )
 		       futureReplayGatedFrame.lastProcessing.scheduled == 0 &&
 		       futureReplayWasDiscarded &&
 		       futureReplayProcessed.discarded == 1 &&
+		       futureReplaySink.observed &&
+		       futureReplaySink.lastTick == futureCommandTick &&
+		       futureReplaySink.lastSequence == futureCommandSequence &&
+		       futureReplaySink.lastDisposition == CommandDisposition::Discard &&
 		       futureReplayResumedSnapshot.summary.pending == 0 &&
 		       compiledContext.commands().empty(),
 		       "future replay backlog pauses live package ingress until the authoritative stream clears" );
