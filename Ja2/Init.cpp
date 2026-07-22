@@ -1428,24 +1428,8 @@ UINT32 InitializeJA2(void)
 
 	NotifyJa2TacticalWorldUnloaded();
 
-	//Load external game mechanic data
-	//if ( !LoadExternalGameplayData(TABLEDATA_DIRECTORY))
-	//{
-	//	return( ERROR_SCREEN );
-	//}
-	SGP_TRYCATCH_RETHROW(LoadExternalGameplayData(TABLEDATA_DIRECTORY, false),L"Loading external data failed");
-
-	// sun_alf: set itemId to each Magazine to avoid searching over Item[] on each MagazineClassIndexToItemType() call.
-	for (int i = 0; i < gMAXITEMS_READ; i++)
-	{
-		if (Item[i].usItemClass == IC_AMMO)
-		{
-			Magazine[Item[i].ubClassIndex].uiIndex = Item[i].uiIndex;
-		}
-	}
-
-	// Load external text
-	LoadAllExternalText();
+	// The active compiled campaign owns legacy table/text loading. As the first
+	// active package it completes that work before extension LoadContent hooks.
 	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::LoadContent))
 	{
 		return ERROR_SCREEN;
@@ -1620,12 +1604,7 @@ UINT32 InitializeJA2(void)
 	#endif
 #endif
 
-#ifdef JA2UB
-	InitGridNoUB();
-#endif
-
-//Lua
-	IniLuaGlobal();
+	// The campaign starts legacy grid/Lua globals before extension runtimes.
 	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime))
 	{
 		return ERROR_SCREEN;

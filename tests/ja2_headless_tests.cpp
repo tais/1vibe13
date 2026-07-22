@@ -648,6 +648,38 @@ private:
 	bool active_ = false;
 };
 
+class TestCampaignBootstrapHooks final : public LegacyCampaignBootstrapHooks
+{
+public:
+	bool loadContent(const GameCapabilities& capabilities) override
+	{
+		contentCampaigns.push_back(capabilities.campaign);
+		if (trace)
+			trace->push_back(capabilities.isUnfinishedBusiness()
+				? "campaign:load-content:ub" : "campaign:load-content:ja2");
+		if (throwOnLoadContent) throw "test campaign content exception";
+		return loadContentSucceeds;
+	}
+
+	bool startRuntime(const GameCapabilities& capabilities) override
+	{
+		runtimeCampaigns.push_back(capabilities.campaign);
+		if (trace)
+			trace->push_back(capabilities.isUnfinishedBusiness()
+				? "campaign:start-runtime:ub" : "campaign:start-runtime:ja2");
+		if (throwOnStartRuntime) throw "test campaign runtime exception";
+		return startRuntimeSucceeds;
+	}
+
+	std::vector<GameCampaign> contentCampaigns;
+	std::vector<GameCampaign> runtimeCampaigns;
+	std::vector<std::string>* trace = nullptr;
+	bool loadContentSucceeds = true;
+	bool startRuntimeSucceeds = true;
+	bool throwOnLoadContent = false;
+	bool throwOnStartRuntime = false;
+};
+
 class ThrowingPackageEventSink final : public PackageEventSink
 {
 public:
@@ -2438,6 +2470,142 @@ int main( int, char** )
 		CHECK( packages.registerPackage( invalidCapabilities ) ==
 		       PackageRegistrationError::InvalidManifest,
 		       "package registration rejects non-portable capability declarations" );
+	}
+
+	{
+		TestCampaignBootstrapHooks campaignHooks;
+		LegacyCampaignPackage campaign( GameCapabilities{}, campaignHooks );
+		TestLifecyclePackage extension(
+			"extension.campaign-bootstrap", PackageKind::Extension, -1, nullptr,
+			{{ "ja2.arulco", "1.13" }} );
+		std::vector<std::string> lifecycleTrace;
+		campaignHooks.trace = &lifecycleTrace;
+		extension.lifecycleTrace = &lifecycleTrace;
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		const bool activated =
+			packages.registerPackage( extension ) == PackageRegistrationError::None &&
+			packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+			packages.activate( "extension.campaign-bootstrap" ) ==
+				PackageActivationError::None;
+		const PackageDescriptor* descriptorIdentity = &campaign.descriptor();
+		const PackageCatalogSnapshot catalogBeforeBootstrap = packages.catalog();
+		const RuntimeCompatibilityFingerprint fingerprintBeforeBootstrap =
+			BuildRuntimeCompatibilityFingerprint(
+				catalogBeforeBootstrap, std::vector<EngineServiceDescriptor>{},
+				std::vector<RuntimeConfigurationEntry>{},
+				catalogBeforeBootstrap.activeCapabilities,
+				std::vector<DefinitionRecord>{} );
+		const bool configured = packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+			PackageBootstrapError::None;
+		lifecycleTrace.clear();
+		const bool contentLoaded = packages.bootstrap(
+			PackageBootstrapPhase::LoadContent ) == PackageBootstrapError::None;
+		const bool contentOrder = lifecycleTrace == std::vector<std::string>({
+			"campaign:load-content:ja2",
+			"bootstrap:extension.campaign-bootstrap" });
+		lifecycleTrace.clear();
+		const bool runtimeStarted = packages.bootstrap(
+			PackageBootstrapPhase::StartRuntime ) == PackageBootstrapError::None;
+		const bool runtimeOrder = lifecycleTrace == std::vector<std::string>({
+			"campaign:start-runtime:ja2",
+			"bootstrap:extension.campaign-bootstrap" });
+		const PackageCatalogSnapshot catalogAfterBootstrap = packages.catalog();
+		const RuntimeCompatibilityFingerprint fingerprintAfterBootstrap =
+			BuildRuntimeCompatibilityFingerprint(
+				catalogAfterBootstrap, std::vector<EngineServiceDescriptor>{},
+				std::vector<RuntimeConfigurationEntry>{},
+				catalogAfterBootstrap.activeCapabilities,
+				std::vector<DefinitionRecord>{} );
+		CHECK( activated && configured && contentLoaded && runtimeStarted &&
+		       contentOrder && runtimeOrder &&
+		       packages.activationOrder() == std::vector<std::string>({
+		           "ja2.arulco", "extension.campaign-bootstrap" }) &&
+		       descriptorIdentity == &campaign.descriptor() &&
+		       campaign.descriptor().content.id == "ja2.arulco" &&
+		       campaign.descriptor().content.version == "1.13" &&
+		       fingerprintBeforeBootstrap == fingerprintAfterBootstrap &&
+		       campaignHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }) &&
+		       campaignHooks.runtimeCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }),
+		       "compiled campaign hooks own exact phase order without changing package identity or compatibility" );
+		const PackageBootstrapShutdownResult shutdown = packages.shutdownBootstrap();
+		CHECK( shutdown && shutdown.shutdownPhases == 3 &&
+		       extension.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
+		       campaignHooks.contentCampaigns.size() == 1 &&
+		       campaignHooks.runtimeCampaigns.size() == 1 &&
+		       packages.isActive( "ja2.arulco" ),
+		       "campaign lifecycle shutdown preserves intentionally non-hot-unloaded legacy state" );
+	}
+
+	{
+		TestCampaignBootstrapHooks failingHooks;
+		failingHooks.loadContentSucceeds = false;
+		LegacyCampaignPackage campaign( GameCapabilities{}, failingHooks );
+		TestLifecyclePackage extension(
+			"extension.after-campaign-failure", PackageKind::Extension, -1, nullptr,
+			{{ "ja2.arulco", "1.13" }} );
+		std::vector<std::string> lifecycleTrace;
+		failingHooks.trace = &lifecycleTrace;
+		extension.lifecycleTrace = &lifecycleTrace;
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		const bool ready =
+			packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+			packages.registerPackage( extension ) == PackageRegistrationError::None &&
+			packages.activate( "extension.after-campaign-failure" ) ==
+				PackageActivationError::None &&
+			packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+				PackageBootstrapError::None;
+		lifecycleTrace.clear();
+		const PackageBootstrapResult failed = packages.bootstrapDetailed(
+			PackageBootstrapPhase::LoadContent );
+		CHECK( ready && failed.error == PackageBootstrapError::CallbackFailed &&
+		       failed.failedPhaseRollback.shutdownPhases == 1 &&
+		       failed.failedPhaseRollback.callbacks == 1 &&
+		       failed.failedPhaseRollback.callbackFailures == 0 &&
+		       packages.completedBootstrapPhases() == 1 &&
+		       extension.bootstrapCalls == std::vector<int>({ 0 }) &&
+		       lifecycleTrace == std::vector<std::string>({
+		           "campaign:load-content:ja2" }),
+		       "campaign content failure rolls back before later packages observe the phase" );
+		failingHooks.loadContentSucceeds = true;
+		CHECK( packages.bootstrap( PackageBootstrapPhase::LoadContent ) ==
+		           PackageBootstrapError::None &&
+		       packages.shutdownBootstrap(),
+		       "campaign phase rollback leaves the framework lifecycle recoverable" );
+	}
+
+	{
+		TestCampaignBootstrapHooks unfinishedBusinessHooks;
+		GameCapabilities unfinishedBusinessCapabilities;
+		unfinishedBusinessCapabilities.campaign = GameCampaign::UnfinishedBusiness;
+		LegacyCampaignPackage unfinishedBusiness(
+			unfinishedBusinessCapabilities, unfinishedBusinessHooks );
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		const bool started =
+			packages.registerPackage( unfinishedBusiness ) ==
+				PackageRegistrationError::None &&
+			packages.activate( "ja2.unfinished-business" ) ==
+				PackageActivationError::None &&
+			packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+				PackageBootstrapError::None &&
+			packages.bootstrap( PackageBootstrapPhase::LoadContent ) ==
+				PackageBootstrapError::None &&
+			packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
+				PackageBootstrapError::None;
+		CHECK( started && unfinishedBusinessHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::UnfinishedBusiness }) &&
+		       unfinishedBusinessHooks.runtimeCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::UnfinishedBusiness }) &&
+		       unfinishedBusiness.descriptor().content.id ==
+		           "ja2.unfinished-business" &&
+		       packages.hasCapability(
+		           GameCapability::CampaignUnfinishedBusiness ),
+		       "campaign bootstrap selects the JA2 or Unfinished Business legacy hooks by package capability" );
+		packages.shutdownBootstrap();
 	}
 
 	{
