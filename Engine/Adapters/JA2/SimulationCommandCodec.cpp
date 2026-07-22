@@ -10,8 +10,8 @@
 namespace
 {
 constexpr std::uint32_t CommandJournalMagic = 0x31434d53u; // "SMC1"
-constexpr std::uint16_t CommandJournalVersion = 1;
 constexpr std::uint32_t MaximumJournalRecords = 1'000'000;
+constexpr std::size_t MinimumEncodedRecordBytes = 20;
 
 enum class CommandTag : std::uint8_t
 {
@@ -22,18 +22,40 @@ enum class CommandTag : std::uint8_t
 
 bool IsValidSource(std::uint8_t value)
 {
-	return value <= static_cast<std::uint8_t>(SimulationCommandSource::Replay);
+	switch (value)
+	{
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+			return true;
+	}
+	return false;
 }
 
 bool IsValidStatus(std::uint8_t value)
 {
-	return value <= static_cast<std::uint8_t>(CommandJournalStatus::Blocked);
+	switch (value)
+	{
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+			return true;
+	}
+	return false;
 }
 
 bool IsValidCommand(const SimulationCommand& command)
 {
+	if (command.valueless_by_exception()) return false;
 	return std::visit([](const auto& value) {
-		return IsValidSource(static_cast<std::uint8_t>(value.source));
+		using Command = typename std::decay<decltype(value)>::type;
+		if (!IsValidSource(static_cast<std::uint8_t>(value.source))) return false;
+		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
+			std::is_same<Command, BeginFireWeaponCommand>::value)
+			return value.soldier.valid();
+		return true;
 	}, command);
 }
 
@@ -50,7 +72,8 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 		else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 		{
 			writer.writeU8(static_cast<std::uint8_t>(CommandTag::ChangeStance));
-			writer.writeU16(value.soldierId);
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(value.stance);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
@@ -75,7 +98,8 @@ bool ReadSource(BinaryReader& reader, SimulationCommandSource& source)
 	return true;
 }
 
-bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
+bool ReadCommand(
+	BinaryReader& reader, std::uint16_t version, SimulationCommand& command)
 {
 	std::uint8_t rawTag = 0;
 	if (!reader.readU8(rawTag)) return false;
@@ -92,8 +116,16 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 		case CommandTag::ChangeStance:
 		{
 			ChangeStanceCommand value{};
-			if (!reader.readU16(value.soldierId) || !reader.readU8(value.stance) ||
-				!ReadSource(reader, value.source)) return false;
+			if (!reader.readU16(value.soldier.slot)) return false;
+			if (version == 1)
+			{
+				value.soldier.incarnation = 0;
+				if (!value.soldier.legacyUnresolved()) return false;
+			}
+			else if (!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid()) return false;
+			if (!reader.readU8(value.stance) || !ReadSource(reader, value.source))
+				return false;
 			command = value;
 			return true;
 		}
@@ -102,6 +134,7 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			BeginFireWeaponCommand value{};
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
 				!reader.readI32(value.targetGrid) ||
 				!reader.readI8(value.targetLevel) ||
 				!reader.readI8(value.targetCubeLevel) ||
@@ -119,11 +152,11 @@ bool EncodeSimulationCommandJournal(
 	std::uint64_t droppedCount,
 	std::vector<std::uint8_t>& bytes)
 {
-	bytes.clear();
 	if (records.size() > MaximumJournalRecords) return false;
 	BinaryWriter writer;
 	WritePersistenceHeader(
-		writer, PersistenceHeader{CommandJournalMagic, CommandJournalVersion});
+		writer, PersistenceHeader{
+			CommandJournalMagic, SimulationCommandJournalWireVersion});
 	writer.writeU64(droppedCount);
 	writer.writeU32(static_cast<std::uint32_t>(records.size()));
 	for (const RecordedSimulationCommand& record : records)
@@ -131,7 +164,6 @@ bool EncodeSimulationCommandJournal(
 		if (!IsValidStatus(static_cast<std::uint8_t>(record.status)) ||
 			!IsValidCommand(record.command))
 		{
-			bytes.clear();
 			return false;
 		}
 		writer.writeU64(record.tick);
@@ -148,21 +180,23 @@ SimulationCommandJournalDecodeResult DecodeSimulationCommandJournal(
 	std::vector<RecordedSimulationCommand>& records,
 	std::uint64_t& droppedCount)
 {
-	records.clear();
-	droppedCount = 0;
 	BinaryReader reader(bytes);
 	PersistenceHeader header{};
 	if (!reader.readU32(header.magic) || !reader.readU16(header.version) ||
 		header.magic != CommandJournalMagic)
 		return SimulationCommandJournalDecodeResult::Invalid;
-	if (header.version != CommandJournalVersion)
+	if (header.version < OldestSimulationCommandJournalWireVersion ||
+		header.version > SimulationCommandJournalWireVersion)
 		return SimulationCommandJournalDecodeResult::UnsupportedVersion;
 
+	std::uint64_t decodedDroppedCount = 0;
 	std::uint32_t count = 0;
-	if (!reader.readU64(droppedCount) || !reader.readU32(count))
+	if (!reader.readU64(decodedDroppedCount) || !reader.readU32(count))
 		return SimulationCommandJournalDecodeResult::Invalid;
 	if (count > MaximumJournalRecords)
 		return SimulationCommandJournalDecodeResult::TooManyRecords;
+	if (count > reader.remaining() / MinimumEncodedRecordBytes)
+		return SimulationCommandJournalDecodeResult::Invalid;
 
 	std::vector<RecordedSimulationCommand> decoded;
 	decoded.reserve(count);
@@ -172,7 +206,7 @@ SimulationCommandJournalDecodeResult DecodeSimulationCommandJournal(
 		std::uint8_t status = 0;
 		if (!reader.readU64(record.tick) || !reader.readU64(record.sequence) ||
 			!reader.readU8(status) || !IsValidStatus(status) ||
-			!ReadCommand(reader, record.command))
+			!ReadCommand(reader, header.version, record.command))
 			return SimulationCommandJournalDecodeResult::Invalid;
 		record.status = static_cast<CommandJournalStatus>(status);
 		decoded.push_back(std::move(record));
@@ -180,5 +214,6 @@ SimulationCommandJournalDecodeResult DecodeSimulationCommandJournal(
 	if (reader.remaining() != 0)
 		return SimulationCommandJournalDecodeResult::Invalid;
 	records = std::move(decoded);
+	droppedCount = decodedDroppedCount;
 	return SimulationCommandJournalDecodeResult::Success;
 }

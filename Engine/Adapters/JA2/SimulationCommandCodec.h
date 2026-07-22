@@ -9,6 +9,9 @@
 
 using RecordedSimulationCommand = CommandJournalRecord<SimulationCommand>;
 
+inline constexpr std::uint16_t SimulationCommandJournalWireVersion = 2;
+inline constexpr std::uint16_t OldestSimulationCommandJournalWireVersion = 1;
+
 enum class SimulationCommandJournalDecodeResult
 {
 	Success,
@@ -18,8 +21,13 @@ enum class SimulationCommandJournalDecodeResult
 };
 
 // Stable value codec for diagnostics, replay capture, and future network
-// transport. Variant indexes are never serialized; explicit tags keep newer
-// command alternatives from silently changing old recordings.
+// transport. Encoding always produces version 2 and requires resolved actor
+// identities. Decoding also accepts version 1; its slot-only stance reference
+// becomes {slot, 0}, explicitly marking it legacy-unresolved. Variant indexes
+// are never serialized.
+//
+// Both operations are transactional: rejected input leaves the caller's
+// previous output untouched.
 bool EncodeSimulationCommandJournal(
 	const std::vector<RecordedSimulationCommand>& records,
 	std::uint64_t droppedCount,

@@ -24,10 +24,13 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
-				if (value.soldierId < TOTAL_SOLDIERS)
+				// Version-1 replay entries have no incarnation. Reject those
+				// legacy-unresolved references rather than guessing after slot reuse.
+				if (value.soldier.valid() && value.soldier.slot < TOTAL_SOLDIERS)
 				{
-					SOLDIERTYPE* soldier = MercPtrs[value.soldierId];
-					if (soldier != nullptr)
+					SOLDIERTYPE* soldier = MercPtrs[value.soldier.slot];
+					if (soldier != nullptr &&
+						soldier->uiUniqueSoldierIdValue == value.soldier.incarnation)
 					{
 						SendChangeSoldierStanceEvent(soldier, value.stance);
 						return CommandDisposition::Applied;
@@ -82,10 +85,16 @@ std::uint64_t DispatchEndTurnCommandNow(
 std::uint64_t DispatchChangeStanceCommandNow(
 	std::uint16_t soldierId, std::uint8_t stance, SimulationCommandSource source)
 {
+	TacticalEntityId soldier;
+	if (soldierId < TOTAL_SOLDIERS && MercPtrs[soldierId] != nullptr)
+	{
+		soldier = TacticalEntityId{
+			soldierId, MercPtrs[soldierId]->uiUniqueSoldierIdValue};
+	}
 	GameContext& game = GetGameContext();
 	const std::uint64_t sequence = game.submitCommand(
 		ImmediateCommandTick,
-		SimulationCommand{ChangeStanceCommand{soldierId, stance, source}});
+		SimulationCommand{ChangeStanceCommand{soldier, stance, source}});
 	ExecuteSimulationCommandsThrough(ImmediateCommandTick);
 	return sequence;
 }

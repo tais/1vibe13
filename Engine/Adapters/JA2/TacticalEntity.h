@@ -16,6 +16,14 @@ struct TacticalEntityId
 	{
 		return slot != std::numeric_limits<std::uint16_t>::max() && incarnation != 0;
 	}
+
+	// Version-1 stance journals carried only a slot. Decoders retain that slot
+	// with incarnation zero so callers can distinguish a legacy reference that
+	// still requires an explicit resolve-or-reject policy from a live identity.
+	constexpr bool legacyUnresolved() const
+	{
+		return slot != std::numeric_limits<std::uint16_t>::max() && incarnation == 0;
+	}
 };
 
 constexpr bool operator==(TacticalEntityId left, TacticalEntityId right)

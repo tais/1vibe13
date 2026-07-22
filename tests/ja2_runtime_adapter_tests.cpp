@@ -128,6 +128,25 @@ private:
 	TacticalWorldSnapshot snapshot_;
 	TacticalWorldCaptureResult result_ = TacticalWorldCaptureResult::Unavailable;
 };
+
+bool RejectsJournalWithoutPublishing(
+	const std::vector<std::uint8_t>& bytes,
+	SimulationCommandJournalDecodeResult expected)
+{
+	std::vector<RecordedSimulationCommand> records{
+		RecordedSimulationCommand{
+			99, 88, CommandJournalStatus::Blocked,
+			SimulationCommand{EndTurnCommand{
+				4, SimulationCommandSource::System}}}};
+	std::uint64_t dropped = 77;
+	const SimulationCommandJournalDecodeResult result =
+		DecodeSimulationCommandJournal(bytes, records, dropped);
+	return result == expected && dropped == 77 && records.size() == 1 &&
+		records[0].tick == 99 && records[0].sequence == 88 &&
+		records[0].status == CommandJournalStatus::Blocked &&
+		std::holds_alternative<EndTurnCommand>(records[0].command) &&
+		std::get<EndTurnCommand>(records[0].command).nextTeam == 4;
+}
 }
 
 int main()
@@ -644,46 +663,160 @@ int main()
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{
 			17, 41, CommandJournalStatus::Applied,
+			SimulationCommand{ChangeStanceCommand{
+				firstIncarnation, 2, SimulationCommandSource::LocalPlayer}}},
+		RecordedSimulationCommand{
+			18, 42, CommandJournalStatus::Queued,
+			SimulationCommand{ChangeStanceCommand{
+				reusedSlot, 1, SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			19, 43, CommandJournalStatus::Applied,
 			SimulationCommand{BeginFireWeaponCommand{
 				firstIncarnation, -123, -1, 4, SimulationCommandSource::LocalPlayer}}},
 		RecordedSimulationCommand{
-			18, 42, CommandJournalStatus::Blocked,
+			20, 44, CommandJournalStatus::Blocked,
 			SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}}}};
 	std::vector<std::uint8_t> encoded;
-	check(EncodeSimulationCommandJournal(recorded, 3, encoded),
-		"JA2 adapter encodes versioned simulation command journals");
+	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
+		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
+		encoded[5] == 0,
+		"JA2 adapter emits version-2 simulation command journals");
 	std::vector<RecordedSimulationCommand> decoded;
 	std::uint64_t dropped = 0;
 	const SimulationCommandJournalDecodeResult decodeResult =
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
-	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 2)
+	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 4)
 	{
-		const auto& fire = std::get<BeginFireWeaponCommand>(decoded[0].command);
-		const auto& turn = std::get<EndTurnCommand>(decoded[1].command);
+		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
+		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
+		const auto& fire = std::get<BeginFireWeaponCommand>(decoded[2].command);
+		const auto& turn = std::get<EndTurnCommand>(decoded[3].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
+			oldOccupant.soldier == firstIncarnation && oldOccupant.stance == 2 &&
+			newOccupant.soldier == reusedSlot && newOccupant.stance == 1 &&
+			oldOccupant.soldier != newOccupant.soldier &&
 			fire.soldier == firstIncarnation &&
 			fire.targetGrid == -123 && fire.targetLevel == -1 &&
 			fire.targetCubeLevel == 4 &&
 			fire.source == SimulationCommandSource::LocalPlayer &&
-			decoded[1].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
+			decoded[3].status == CommandJournalStatus::Blocked && turn.nextTeam == 2 &&
 			turn.source == SimulationCommandSource::NetworkPeer;
 	}
 	check(decodedFields,
-		"JA2 command codec round-trips explicit tags and signed tactical values");
-	encoded.push_back(0xff);
-	check(DecodeSimulationCommandJournal(encoded, decoded, dropped) ==
-		SimulationCommandJournalDecodeResult::Invalid,
-		"JA2 command codec rejects trailing ambiguous data");
+		"version-2 stance commands survive slot reuse as distinct identities");
+
+	std::vector<RecordedSimulationCommand> unresolved = recorded;
+	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
+	std::vector<std::uint8_t> preservedEncoding{0xa5, 0x5a};
+	check(!EncodeSimulationCommandJournal(unresolved, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"version-2 encoding rejects unresolved actor identities transactionally");
+	std::vector<RecordedSimulationCommand> invalidFire = recorded;
+	std::get<BeginFireWeaponCommand>(invalidFire[2].command).soldier =
+		TacticalEntityId{};
+	check(!EncodeSimulationCommandJournal(invalidFire, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"version-2 encoding validates every actor-bearing command");
+
+	std::vector<std::uint8_t> trailing = encoded;
+	trailing.push_back(0xff);
+	check(RejectsJournalWithoutPublishing(
+		trailing, SimulationCommandJournalDecodeResult::Invalid),
+		"JA2 command codec rejects trailing data without publishing partial output");
+
+	// Literal version-1 bytes guard the historical slot-only stance layout.
+	const std::vector<std::uint8_t> versionOneStance{
+		0x53, 0x4d, 0x43, 0x31, 0x01, 0x00,
+		0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x29, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x02, 0x07, 0x00, 0x02, 0x03};
+	std::vector<RecordedSimulationCommand> legacyDecoded;
+	std::uint64_t legacyDropped = 0;
+	const SimulationCommandJournalDecodeResult legacyResult =
+		DecodeSimulationCommandJournal(
+			versionOneStance, legacyDecoded, legacyDropped);
+	bool legacyFields = false;
+	if (legacyResult == SimulationCommandJournalDecodeResult::Success &&
+		legacyDecoded.size() == 1)
+	{
+		const auto& stance =
+			std::get<ChangeStanceCommand>(legacyDecoded[0].command);
+		legacyFields = legacyDropped == 3 && legacyDecoded[0].tick == 17 &&
+			legacyDecoded[0].sequence == 41 &&
+			legacyDecoded[0].status == CommandJournalStatus::Applied &&
+			stance.soldier == TacticalEntityId{7, 0} &&
+			stance.soldier.legacyUnresolved() && !stance.soldier.valid() &&
+			stance.stance == 2 && stance.source == SimulationCommandSource::Replay;
+	}
+	check(legacyFields,
+		"version-1 stance slots decode explicitly as legacy-unresolved identities");
+	std::vector<std::uint8_t> refusedUpgrade{0xcc};
+	check(!EncodeSimulationCommandJournal(
+		legacyDecoded, legacyDropped, refusedUpgrade) &&
+		refusedUpgrade == std::vector<std::uint8_t>{0xcc},
+		"legacy-unresolved stance identities cannot be emitted as version 2");
+
+	std::vector<std::uint8_t> malformedV1 = versionOneStance;
+	malformedV1[36] = 0xff;
+	malformedV1[37] = 0xff;
+	check(RejectsJournalWithoutPublishing(
+		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
+		"version-1 decoding rejects an invalid sentinel actor slot");
+	malformedV1 = versionOneStance;
+	malformedV1[34] = 0xff;
+	check(RejectsJournalWithoutPublishing(
+		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
+		"version-1 decoding rejects unknown journal statuses");
+	malformedV1 = versionOneStance;
+	malformedV1[35] = 0xff;
+	check(RejectsJournalWithoutPublishing(
+		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
+		"version-1 decoding rejects unknown command tags");
+	malformedV1 = versionOneStance;
+	malformedV1[39] = 0xff;
+	check(RejectsJournalWithoutPublishing(
+		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
+		"version-1 decoding rejects unknown command sources");
+	malformedV1 = versionOneStance;
+	malformedV1.pop_back();
+	check(RejectsJournalWithoutPublishing(
+		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
+		"version-1 decoding rejects truncated records transactionally");
+	malformedV1 = versionOneStance;
+	malformedV1[4] = 3;
+	check(RejectsJournalWithoutPublishing(
+		malformedV1, SimulationCommandJournalDecodeResult::UnsupportedVersion),
+		"command journals reject unsupported future wire versions");
+
+	std::vector<RecordedSimulationCommand> oneStance{recorded[0]};
+	std::vector<std::uint8_t> malformedV2;
+	const bool encodedV2Fixture =
+		EncodeSimulationCommandJournal(oneStance, 0, malformedV2) &&
+		malformedV2.size() == 44;
+	check(encodedV2Fixture,
+		"version-2 stance fixture encodes for corruption checks");
+	if (encodedV2Fixture)
+	{
+		malformedV2[38] = 0;
+		malformedV2[39] = 0;
+		malformedV2[40] = 0;
+		malformedV2[41] = 0;
+	}
+	check(RejectsJournalWithoutPublishing(
+		malformedV2, SimulationCommandJournalDecodeResult::Invalid),
+		"version-2 decoding rejects zero-incarnation actor identities");
 
 	CommandJournal<SimulationCommand> journal(1);
 	journal.recordSubmission(
 		1, 10, SimulationCommand{EndTurnCommand{1, SimulationCommandSource::System}});
 	journal.recordSubmission(
 		2, 11, SimulationCommand{ChangeStanceCommand{
-			3, 2, SimulationCommandSource::LocalPlayer}});
+			TacticalEntityId{3, 301}, 2, SimulationCommandSource::LocalPlayer}});
 	journal.recordDisposition(11, CommandDisposition::Applied);
 	const auto bounded = journal.snapshot();
 	check(bounded.size() == 1 && bounded[0].sequence == 11 &&
@@ -697,7 +830,7 @@ int main()
 	EngineRuntime<> captureRuntime(replayServices);
 	captureRuntime.submitCommand(
 		12, SimulationCommand{ChangeStanceCommand{
-			5, 1, SimulationCommandSource::LocalPlayer}});
+			TacticalEntityId{5, 501}, 1, SimulationCommandSource::LocalPlayer}});
 	captureRuntime.submitCommand(
 		11, SimulationCommand{EndTurnCommand{2, SimulationCommandSource::NetworkPeer}});
 	check(captureRuntime.saveCommandReplay("capture.replay") ==
@@ -717,7 +850,8 @@ int main()
 		replayed[0].sequence == 1 && replayed[1].tick == 12 &&
 		replayed[1].sequence == 0 &&
 		std::get<EndTurnCommand>(replayed[0].command).nextTeam == 2 &&
-		std::get<ChangeStanceCommand>(replayed[1].command).soldierId == 5,
+		std::get<ChangeStanceCommand>(replayed[1].command).soldier ==
+			TacticalEntityId{5, 501},
 		"staged replay retains deterministic tick and sequence order");
 	check(playbackRuntime.stageCommandReplay(replay) ==
 		CommandReplayStageResult::SequenceConflict &&

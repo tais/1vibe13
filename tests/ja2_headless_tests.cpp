@@ -1452,12 +1452,15 @@ int main( int, char** )
 		       submitted[0].status == CommandJournalStatus::Queued,
 		       "engine runtime journals submitted production commands without owning executors" );
 		context.submitCommand(
-			8, SimulationCommand{ChangeStanceCommand{17, 2, SimulationCommandSource::LocalPlayer}} );
+			8, SimulationCommand{ChangeStanceCommand{
+			    TacticalEntityId{17, 701}, 2, SimulationCommandSource::LocalPlayer}} );
 		const auto stanceReady = context.commands().drainThrough( 8 );
 		const auto& stance = std::get<ChangeStanceCommand>( stanceReady[0].command );
-		CHECK( stanceReady.size() == 1 && stance.soldierId == 17 && stance.stance == 2 &&
+		CHECK( stanceReady.size() == 1 &&
+		       (stance.soldier == TacticalEntityId{17, 701}) &&
+		       stance.stance == 2 &&
 		       stance.source == SimulationCommandSource::LocalPlayer,
-		       "engine runtime carries value-only soldier stance commands" );
+		       "engine runtime carries generational soldier stance commands" );
 		CHECK( context.submitRecordedCommand(
 		           9, 500, SimulationCommand{BeginFireWeaponCommand{
 		               TacticalEntityId{17, 700}, 1234, 0, 2,
