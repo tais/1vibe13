@@ -153,11 +153,14 @@ public:
 		TacticalCommandInboxSnapshot& output) const noexcept = 0;
 };
 
+inline constexpr EngineServiceContract<TacticalCommandService>
+	TacticalCommandServiceContract{
+		TacticalCommandServiceId, TacticalCommandServiceVersion};
+
 inline EngineServiceRegistrationError RegisterTacticalCommandService(
 	ServiceCatalog& catalog, TacticalCommandService& service) noexcept
 {
-	return catalog.registerService<TacticalCommandService>(
-		TacticalCommandServiceId, TacticalCommandServiceVersion, service);
+	return catalog.registerService(TacticalCommandServiceContract, service);
 }
 
 // Host-owned bounded implementation. A drain examines at most the prefix that

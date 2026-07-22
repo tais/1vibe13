@@ -66,11 +66,14 @@ public:
 	virtual TacticalWorldPublicationView latest() const noexcept = 0;
 };
 
+inline constexpr EngineServiceContract<TacticalWorldObserverService>
+	TacticalWorldObserverServiceContract{
+		TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion};
+
 inline EngineServiceRegistrationError RegisterTacticalWorldObserverService(
 	ServiceCatalog& catalog, TacticalWorldObserverService& service) noexcept
 {
-	return catalog.registerService<TacticalWorldObserverService>(
-		TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion, service);
+	return catalog.registerService(TacticalWorldObserverServiceContract, service);
 }
 
 class NullTacticalWorldObserverService final : public TacticalWorldObserverService

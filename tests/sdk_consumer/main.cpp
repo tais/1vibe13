@@ -335,8 +335,7 @@ int main()
 	ServiceCatalog commandServices;
 	if (RegisterTacticalCommandService(commandServices, commandInbox) !=
 		EngineServiceRegistrationError::None) return 33;
-	const auto commandIngress = commandServices.resolve<TacticalCommandService>(
-		TacticalCommandServiceId, TacticalCommandServiceVersion);
+	const auto commandIngress = commandServices.resolve(TacticalCommandServiceContract);
 	const TacticalCommandSubmissionResult commandRequest = commandIngress
 		? commandIngress.service->submit(
 			"external.rules", SimulationCommand{ChangeStanceCommand{

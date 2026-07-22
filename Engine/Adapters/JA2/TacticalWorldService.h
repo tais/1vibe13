@@ -29,11 +29,14 @@ public:
 	virtual TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept = 0;
 };
 
+inline constexpr EngineServiceContract<TacticalWorldService>
+	TacticalWorldServiceContract{
+		TacticalWorldServiceId, TacticalWorldServiceVersion};
+
 inline EngineServiceRegistrationError RegisterTacticalWorldService(
 	ServiceCatalog& catalog, TacticalWorldService& service) noexcept
 {
-	return catalog.registerService<TacticalWorldService>(
-		TacticalWorldServiceId, TacticalWorldServiceVersion, service);
+	return catalog.registerService(TacticalWorldServiceContract, service);
 }
 
 class NullTacticalWorldService final : public TacticalWorldService

@@ -188,8 +188,7 @@ int main()
 			commandServices, registeredCommandInbox) ==
 			EngineServiceRegistrationError::None,
 		"tactical command ingress registers as a versioned package service");
-	const auto tacticalCommands = commandServices.resolve<TacticalCommandService>(
-		TacticalCommandServiceId, TacticalCommandServiceVersion);
+	const auto tacticalCommands = commandServices.resolve(TacticalCommandServiceContract);
 	const auto futureTacticalCommands =
 		commandServices.resolve<TacticalCommandService>(
 			TacticalCommandServiceId, EngineServiceVersion{1, 1});
@@ -525,8 +524,7 @@ int main()
 	check(RegisterTacticalWorldService(tacticalServices, memoryWorld) ==
 			EngineServiceRegistrationError::None,
 		"tactical world service registers as an explicit versioned host extension");
-	const auto resolvedWorld = tacticalServices.resolve<TacticalWorldService>(
-		TacticalWorldServiceId, EngineServiceVersion{1, 0});
+	const auto resolvedWorld = tacticalServices.resolve(TacticalWorldServiceContract);
 	TacticalWorldSnapshot capturedWorld;
 	check(resolvedWorld &&
 		resolvedWorld.service->capture(capturedWorld) == TacticalWorldCaptureResult::Success &&
@@ -892,8 +890,7 @@ int main()
 	check(RegisterTacticalWorldObserverService(tacticalServices, observedWorld) ==
 			EngineServiceRegistrationError::None,
 		"the read-only tactical observer registers as a versioned package service");
-	const auto resolvedObserver = tacticalServices.resolve<TacticalWorldObserverService>(
-		TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion);
+	const auto resolvedObserver = tacticalServices.resolve(TacticalWorldObserverServiceContract);
 	check(resolvedObserver && resolvedObserver.service->latest().serial == 1 &&
 		!tacticalServices.resolve<TacticalWorldObserverService>(
 			TacticalWorldObserverServiceId, EngineServiceVersion{2, 0}),

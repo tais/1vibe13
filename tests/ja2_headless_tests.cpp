@@ -1528,8 +1528,7 @@ int main( int, char** )
 		CHECK( RegisterTacticalCommandService( services, inbox ) ==
 		           EngineServiceRegistrationError::None,
 		       "headless hosts can explicitly register package tactical command ingress" );
-		const auto commandService = services.resolve<TacticalCommandService>(
-			TacticalCommandServiceId, TacticalCommandServiceVersion );
+		const auto commandService = services.resolve( TacticalCommandServiceContract );
 		const auto incompatibleService = services.resolve<TacticalCommandService>(
 			TacticalCommandServiceId, EngineServiceVersion{ 1, 1 } );
 		const SimulationCommand stanceCommand{ ChangeStanceCommand{
@@ -2160,8 +2159,7 @@ int main( int, char** )
 		       "application composition root binds platform service adapters" );
 
 		const auto tacticalCommands =
-			compiledContext.serviceCatalog().resolve<TacticalCommandService>(
-				TacticalCommandServiceId, TacticalCommandServiceVersion );
+			compiledContext.serviceCatalog().resolve( TacticalCommandServiceContract );
 		const TacticalCommandInboxLimits productionCommandLimits = tacticalCommands
 			? tacticalCommands.service->limits() : TacticalCommandInboxLimits{};
 		const TacticalEntityId staleActor{ 0, 0xfedcba98u };
@@ -2381,16 +2379,15 @@ int main( int, char** )
 		MercPtrs[0] = previousCommandActor;
 		gfWorldLoaded = previousCommandWorldLoaded;
 
-		const auto tacticalWorld = compiledContext.serviceCatalog().resolve<TacticalWorldService>(
-			TacticalWorldServiceId, TacticalWorldServiceVersion );
+		const auto tacticalWorld =
+			compiledContext.serviceCatalog().resolve( TacticalWorldServiceContract );
 		TacticalWorldSnapshot unavailableWorld;
 		CHECK( tacticalWorld &&
 		       tacticalWorld.service->capture( unavailableWorld ) ==
 		           TacticalWorldCaptureResult::Unavailable,
 		       "application composition root registers the live tactical world service" );
 		const auto tacticalWorldObserver =
-			compiledContext.serviceCatalog().resolve<TacticalWorldObserverService>(
-				TacticalWorldObserverServiceId, TacticalWorldObserverServiceVersion );
+			compiledContext.serviceCatalog().resolve( TacticalWorldObserverServiceContract );
 		RuntimeMessageBus& liveRuntimeMessages = compiledContext.runtimeMessages();
 		const Ja2TacticalCommandHostDiagnostics commandsBeforeOrdering =
 			GetJa2TacticalCommandHostDiagnostics();
