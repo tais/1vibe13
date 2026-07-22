@@ -219,6 +219,11 @@ public:
 	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
 	{
 		shutdownCalls.push_back(static_cast<int>(phase));
+		if (shutdownDuringShutdown)
+		{
+			shutdownDuringShutdownResult = shutdownDuringShutdown->shutdownPackages();
+			shutdownDuringShutdown = nullptr;
+		}
 		if (static_cast<int>(phase) == throwOnShutdownPhase)
 			throw std::runtime_error("injected shutdown failure");
 	}
@@ -228,6 +233,8 @@ public:
 	std::vector<int> shutdownCalls;
 	RuntimeSession* cancelDuringBootstrap = nullptr;
 	RuntimeSessionTransitionResult cancelDuringBootstrapResult;
+	RuntimeSession* shutdownDuringShutdown = nullptr;
+	RuntimeSessionShutdownResult shutdownDuringShutdownResult;
 	int throwOnShutdownPhase = -1;
 	int deactivateCalls = 0;
 	bool active = false;
@@ -748,6 +755,40 @@ int main()
 		reentrantRetry && reentrantRetry.lifecycle == EngineLifecycle::Stopped &&
 		reentrantPackage.shutdownCalls == std::vector<int>({0}),
 		"reentrant cancellation stays initializing until rollback can be retried");
+
+	TransactionalLifecyclePackage reentrantShutdownPackage("rules.reentrant-shutdown");
+	EngineHost<unsigned> reentrantShutdownHost;
+	const bool reentrantShutdownReady =
+		reentrantShutdownHost.packages().registerPackage(reentrantShutdownPackage) ==
+			PackageRegistrationError::None &&
+		reentrantShutdownHost.packages().activate("rules.reentrant-shutdown") ==
+			PackageActivationError::None &&
+		reentrantShutdownHost.beginInitialization() &&
+		reentrantShutdownHost.runtimeSession().advancePackagesTo(
+			PackageBootstrapPhase::StartRuntime) &&
+		reentrantShutdownHost.markRunning() &&
+		reentrantShutdownHost.beginShutdown();
+	reentrantShutdownPackage.shutdownDuringShutdown =
+		&reentrantShutdownHost.runtimeSession();
+	const RuntimeSessionShutdownResult reentrantShutdown =
+		reentrantShutdownHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionShutdownResult repeatedReentrantShutdown =
+		reentrantShutdownHost.runtimeSession().shutdownPackages();
+	const RuntimeSessionTransitionResult reentrantShutdownStopped =
+		reentrantShutdownHost.tryMarkStopped();
+	check(reentrantShutdownReady &&
+		reentrantShutdownPackage.shutdownDuringShutdownResult.error ==
+			RuntimeSessionError::PackageShutdownFailed &&
+		reentrantShutdownPackage.shutdownDuringShutdownResult.packages.bootstrap.packages.error ==
+			PackageBootstrapShutdownError::OperationInProgress &&
+		reentrantShutdownPackage.shutdownDuringShutdownResult.packages.deactivation.error ==
+			PackageDeactivationError::OperationInProgress &&
+		reentrantShutdown && repeatedReentrantShutdown && reentrantShutdownStopped &&
+		reentrantShutdownPackage.shutdownCalls == std::vector<int>({2, 1, 0}) &&
+		reentrantShutdownPackage.deactivateCalls == 1 &&
+		!reentrantShutdownPackage.active &&
+		reentrantShutdownHost.lifecycle() == EngineLifecycle::Stopped,
+		"reentrant shutdown contention does not poison the completing outer transaction");
 
 	const RuntimeSessionTransitionResult retryStarted =
 		transactionalHost.tryBeginInitialization();

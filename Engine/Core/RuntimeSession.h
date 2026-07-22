@@ -89,7 +89,12 @@ public:
 		if (lifecycle_ != EngineLifecycle::ShuttingDown)
 			return RuntimeSessionShutdownResult{RuntimeSessionError::InvalidState, {}};
 		PackageLifecycleShutdownResult result = packages_.shutdown();
-		if (!result.bootstrap) shutdownRollbackFailed_ = true;
+		// A nested shutdown attempt is retryable contention, not evidence that
+		// the outer rollback failed. Only a callback failure can poison the
+		// completed shutdown transaction after its best-effort cleanup finishes.
+		if (result.bootstrap.packages.error ==
+			PackageBootstrapShutdownError::CallbackFailed)
+			shutdownRollbackFailed_ = true;
 		const bool completed = static_cast<bool>(result) && !shutdownRollbackFailed_;
 		if (completed) shutdownCompleted_ = true;
 		return RuntimeSessionShutdownResult{
