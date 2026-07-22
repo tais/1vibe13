@@ -2575,6 +2575,93 @@ int main( int, char** )
 		CHECK( liveRuntimeMessages.removeSink( commandResultSink ) ==
 		           RuntimeMessageSinkRegistrationError::None,
 		       "production command receipt test removes its non-owning runtime sink" );
+
+		const Ja2TacticalCommandHostDiagnostics beforeReceiptReserve =
+			GetJa2TacticalCommandHostDiagnostics();
+		bool receiptBusFilled = liveRuntimeMessages.queued() == 0;
+		for ( std::size_t index = 0;
+		      index < liveRuntimeMessages.maxQueuedMessages(); ++index )
+		{
+			receiptBusFilled = receiptBusFilled && static_cast<bool>(
+				liveRuntimeMessages.publish( RuntimeMessageRequest{
+					"test.receipt-fill", "test.headless", {} } ) );
+		}
+		const std::size_t admittedReceiptObligations =
+			productionCommandLimits.maximumPending +
+			productionCommandLimits.maximumPerDrain;
+		bool receiptObligationsSubmitted =
+			productionCommandLimits.maximumPerDrain != 0;
+		std::size_t admittedReceiptCount = 0;
+		while ( receiptObligationsSubmitted &&
+		        admittedReceiptCount < admittedReceiptObligations )
+		{
+			const std::size_t batch = std::min(
+				productionCommandLimits.maximumPerDrain,
+				admittedReceiptObligations - admittedReceiptCount );
+			for ( std::size_t index = 0; index < batch; ++index )
+				receiptObligationsSubmitted = receiptObligationsSubmitted &&
+					static_cast<bool>( tacticalCommands.service->submit(
+						packageId, staleStance ) );
+			DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+			admittedReceiptCount += batch;
+		}
+		const TacticalCommandSubmissionResult receiptCapacityFront =
+			tacticalCommands.service->submit( packageId, staleStance );
+		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const Ja2TacticalCommandHostDiagnostics atReceiptAdmissionLimit =
+			GetJa2TacticalCommandHostDiagnostics();
+		TacticalCommandInboxSummary receiptReserveInbox =
+			tacticalCommands.service->summary();
+		bool receiptReserveInboxFilled = receiptReserveInbox.pending == 1;
+		while ( receiptReserveInboxFilled &&
+		        receiptReserveInbox.pending < productionCommandLimits.maximumPending )
+		{
+			receiptReserveInboxFilled = static_cast<bool>(
+				tacticalCommands.service->submit( packageId, staleStance ) );
+			receiptReserveInbox = tacticalCommands.service->summary();
+		}
+		const TacticalCommandSubmissionResult receiptReserveOverflow =
+			tacticalCommands.service->submit( packageId, staleStance );
+		const Ja2TacticalCommandHostDiagnostics beforeReceiptReserveCancellation =
+			GetJa2TacticalCommandHostDiagnostics();
+		GetJa2TacticalCommandPackageEventSink().publish( PackageEvent{
+			PackageEventKind::Deactivated, packageId } );
+		const Ja2TacticalCommandHostDiagnostics afterReceiptReserveCancellation =
+			GetJa2TacticalCommandHostDiagnostics();
+		CHECK( receiptBusFilled &&
+		       liveRuntimeMessages.queued() == liveRuntimeMessages.maxQueuedMessages() &&
+		       receiptObligationsSubmitted && receiptCapacityFront &&
+		       atReceiptAdmissionLimit.pendingReceipts == admittedReceiptObligations &&
+		       atReceiptAdmissionLimit.receiptCapacityDeferrals ==
+		           beforeReceiptReserve.receiptCapacityDeferrals + 1 &&
+		       receiptReserveInboxFilled &&
+		       receiptReserveInbox.pending == productionCommandLimits.maximumPending &&
+		       receiptReserveOverflow.error ==
+		           TacticalCommandSubmissionError::CapacityReached &&
+		       afterReceiptReserveCancellation.lastCancellation.cancelled ==
+		           productionCommandLimits.maximumPending &&
+		       afterReceiptReserveCancellation.cancelledRequests ==
+		           beforeReceiptReserveCancellation.cancelledRequests +
+		               productionCommandLimits.maximumPending &&
+		       afterReceiptReserveCancellation.pendingReceipts ==
+		           admittedReceiptObligations +
+		               productionCommandLimits.maximumPending &&
+		       afterReceiptReserveCancellation.receiptDrops ==
+		           beforeReceiptReserveCancellation.receiptDrops &&
+		       tacticalCommands.service->summary().pending == 0,
+		       "receipt admission preserves enough storage to terminally cancel a full package inbox" );
+
+		liveRuntimeMessages.dispatchPending();
+		for ( std::size_t pass = 0;
+		      pass < 3 && GetJa2TacticalCommandHostDiagnostics().pendingReceipts != 0;
+		      ++pass )
+		{
+			DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+			liveRuntimeMessages.dispatchPending();
+		}
+		CHECK( GetJa2TacticalCommandHostDiagnostics().pendingReceipts == 0 &&
+		       liveRuntimeMessages.queued() == 0,
+		       "receipt reserve saturation fixture drains all retained terminal results" );
 		MercPtrs[0] = previousCommandActor;
 		gfWorldLoaded = previousCommandWorldLoaded;
 

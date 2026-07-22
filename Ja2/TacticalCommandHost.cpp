@@ -114,6 +114,10 @@ private:
 	// of allocator or runtime-message pressure.
 	static constexpr std::size_t MaximumPendingReceipts =
 		MaximumPendingCommands * 2 + MaximumCommandsPerFrame;
+	// Normal admission may consume the prior backlog and current-frame shares,
+	// but must leave room to terminally cancel a completely full package inbox.
+	static constexpr std::size_t MaximumAdmittedReceiptObligations =
+		MaximumPendingReceipts - MaximumPendingCommands;
 
 public:
 	Ja2TacticalCommandHost() noexcept
@@ -184,7 +188,7 @@ public:
 
 		diagnostics_.lastDrain = inbox_.drain(
 			[&](const TacticalCommandRequest& request) {
-				if (!hasReceiptCapacity())
+				if (!canAdmitReceiptObligation())
 				{
 					IncrementSaturated(diagnostics_.receiptCapacityDeferrals);
 					return TacticalCommandDisposition::Defer;
@@ -268,7 +272,13 @@ private:
 		bool preparedOnce = false;
 	};
 
-	bool hasReceiptCapacity() const noexcept
+	bool canAdmitReceiptObligation() const noexcept
+	{
+		return pendingReceiptCount_ + trackedCount_ <
+			MaximumAdmittedReceiptObligations;
+	}
+
+	bool hasReceiptStorage() const noexcept
 	{
 		return pendingReceiptCount_ + trackedCount_ < pendingReceipts_.size();
 	}
@@ -292,7 +302,7 @@ private:
 		TacticalCommandTerminalReason reason,
 		std::uint64_t authoritativeSequence) noexcept
 	{
-		if (!hasReceiptCapacity()) return false;
+		if (!hasReceiptStorage()) return false;
 		try
 		{
 			TacticalCommandResult result;
