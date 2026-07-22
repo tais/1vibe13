@@ -1421,6 +1421,92 @@ int main()
 		telemetrySnapshot.samples[0].sequence == 2,
 		"frame telemetry retains bounded live timings and aggregate failures");
 
+	ManualTimeSource recoveryTime;
+	MemoryInputSource recoveryInput;
+	EngineServices recoveryServices{
+		recoveryTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
+		NullLogSink::instance(), recoveryInput,
+		NullAudioOutput::instance(), NullFramePresenter::instance(),
+		NullAssetSource::instance()};
+	RuntimeMessageBus recoveryMessages;
+	InputDispatcher recoveryInputDispatcher(recoveryInput);
+	RuntimeUpdateDispatcher recoveryUpdates;
+	TestRuntimeUpdateSink recoveryUpdateSink;
+	recoveryUpdates.addSink(recoveryUpdateSink);
+	FrameTelemetry recoveryTelemetry;
+	SimulationTickDispatcher recoveryTicks(10, 8);
+	TestSimulationTickSink recoveryTickSink;
+	recoveryTicks.addSink(recoveryTickSink);
+	FrameDriver recoveryDriver(
+		recoveryServices, recoveryMessages, recoveryInputDispatcher,
+		recoveryUpdates, recoveryTelemetry, recoveryTicks);
+	const FrameRunResult initialRecoveryFrame = recoveryDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	recoveryTime.advanceMicroseconds(10);
+	bool prepareFailed = false;
+	try
+	{
+		recoveryDriver.runFrame(
+			[]() -> FramePlan { throw std::runtime_error("prepare failed"); }, [] {});
+	}
+	catch (const std::runtime_error&)
+	{
+		prepareFailed = true;
+	}
+	recoveryTime.advanceMicroseconds(10);
+	const FrameRunResult afterPrepareFailure = recoveryDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	recoveryTime.advanceMicroseconds(10);
+	bool completionFailed = false;
+	try
+	{
+		recoveryDriver.runFrame(
+			[] { return FramePlan{false, FramePresentMode::Paced}; },
+			[] { throw std::runtime_error("completion failed"); });
+	}
+	catch (const std::runtime_error&)
+	{
+		completionFailed = true;
+	}
+	recoveryTime.advanceMicroseconds(10);
+	const FrameRunResult afterCompletionFailure = recoveryDriver.runFrame(
+		[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+	bool nestedRejected = false;
+	const FrameRunResult afterNestedAttempt = recoveryDriver.runFrame(
+		[&] {
+			try
+			{
+				recoveryDriver.runFrame(
+					[] { return FramePlan{false, FramePresentMode::Paced}; }, [] {});
+			}
+			catch (const std::logic_error&)
+			{
+				nestedRejected = true;
+			}
+			return FramePlan{false, FramePresentMode::Paced};
+		}, [] {});
+	const FrameTelemetrySnapshot recoverySnapshot = recoveryTelemetry.snapshot();
+	check(prepareFailed && completionFailed && nestedRejected &&
+		initialRecoveryFrame.sequence == 1 &&
+		afterPrepareFailure.sequence == 3 &&
+		afterCompletionFailure.sequence == 5 &&
+		afterNestedAttempt.sequence == 6 &&
+		recoveryDriver.nextFrameSequence() == 7 &&
+		recoveryDriver.completedFrames() == 4 &&
+		recoveryUpdateSink.updates.size() == 6 &&
+		recoveryUpdateSink.updates[1].frameSequence == 2 &&
+		recoveryUpdateSink.updates[3].frameSequence == 4 &&
+		recoveryTickSink.ticks.size() == 4 &&
+		recoverySnapshot.summary.completedFrames == 4,
+		"failed frames consume identity and committed elapsed time exactly once");
+	check(afterPrepareFailure.runtimeUpdates.delivered == 1 &&
+		afterPrepareFailure.simulationTicks.executed == 1 &&
+		afterCompletionFailure.runtimeUpdates.delivered == 1 &&
+		afterCompletionFailure.simulationTicks.executed == 1 &&
+		afterNestedAttempt.runtimeUpdates.delivered == 1 &&
+		afterNestedAttempt.simulationTicks.executed == 0,
+		"frame recovery resumes without replaying a failed frame's simulation interval");
+
 	BinaryWriter writer;
 	WritePersistenceHeader(writer, PersistenceHeader{0x4A413243u, 7});
 	writer.writeU32(0x10203040u);

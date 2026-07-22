@@ -209,7 +209,9 @@ the engine must not contain SDL types in its public domain model.
   receive these events in activation order; callback exceptions are isolated.
 - `RuntimeUpdateDispatcher` follows input delivery with a deterministic update
   hook for runtime-started packages. Each update carries engine frame identity,
-  monotonic start time, and elapsed time since the previous completed frame;
+  monotonic start time, and elapsed time since the previous simulation-advanced
+  frame attempt; failed presentation/application completion cannot reuse that
+  identity or replay its already-committed elapsed simulation interval;
   package failures are contained before the legacy application state runs.
 - Package runtime health is retained in value-only catalog snapshots. Input
   and update callback counts and failures remain observable per package, while
