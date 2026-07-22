@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -34,6 +35,33 @@ int main()
 		"slot reuse must not preserve tactical identity");
 	check(firstIncarnation < reusedSlot,
 		"tactical identities have deterministic slot and incarnation ordering");
+
+	TacticalWorldSnapshot tacticalSnapshot;
+	std::vector<TacticalActorSnapshot> unorderedActors{
+		TacticalActorSnapshot{reusedSlot, 1, 12, 220, 0, 3, 18,
+			TacticalStance::Crouched, 65, 77, 80, 54, 90, true, true},
+		TacticalActorSnapshot{TacticalEntityId{2, 51}, 0, 4, 100, 0, 1, 4,
+			TacticalStance::Standing, 90, 95, 95, 100, 100, true, true},
+		TacticalActorSnapshot{firstIncarnation, 1, 12, 219, 0, 2, 17,
+			TacticalStance::Crouched, 70, 78, 80, 55, 90, true, true}};
+	check(TacticalWorldSnapshot::create(
+			44, TacticalSectorSnapshot{9, 1, 0, true},
+			TacticalTurnSnapshot{true, true, 0, 8},
+			unorderedActors, tacticalSnapshot) == TacticalSnapshotCreateError::None &&
+		tacticalSnapshot.epoch() == 44 && tacticalSnapshot.actors().size() == 3 &&
+		tacticalSnapshot.actors()[0].id == TacticalEntityId{2, 51} &&
+		tacticalSnapshot.actors()[1].id == firstIncarnation &&
+		tacticalSnapshot.find(reusedSlot) != nullptr &&
+		tacticalSnapshot.find(TacticalEntityId{7, 9003}) == nullptr,
+		"tactical snapshots own pointer-free actors in deterministic identity order");
+	const std::uint64_t acceptedEpoch = tacticalSnapshot.epoch();
+	std::vector<TacticalActorSnapshot> duplicateActors{
+		unorderedActors[0], unorderedActors[0]};
+	check(TacticalWorldSnapshot::create(
+			45, TacticalSectorSnapshot{}, TacticalTurnSnapshot{},
+			duplicateActors, tacticalSnapshot) == TacticalSnapshotCreateError::DuplicateEntity &&
+		tacticalSnapshot.epoch() == acceptedEpoch,
+		"invalid tactical captures cannot partially replace the last good snapshot");
 
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{
