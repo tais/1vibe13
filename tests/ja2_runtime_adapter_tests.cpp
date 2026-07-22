@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
+#include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
@@ -270,6 +271,61 @@ int main()
 		boundSnapshot.pending[0].packageId == "fixture.bound-commands",
 		"registry-issued tactical command clients bind ownership without caller strings");
 	boundRuntime.packageLifecycle().shutdown();
+
+	const TacticalCommandResult appliedResult{
+		"p", 1, 2, 3, TacticalCommandTerminalStatus::Applied,
+		TacticalCommandTerminalReason::None};
+	std::vector<std::uint8_t> encodedResult;
+	const std::vector<std::uint8_t> expectedResultBytes{
+		0x54, 0x43, 0x52, 0x31, 0x01, 0x00,
+		0x01, 0x00, 0x00, 0x00, 0x70,
+		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x02, 0x00};
+	TacticalCommandResult decodedResult;
+	check(EncodeTacticalCommandResult(appliedResult, encodedResult) ==
+			TacticalCommandResultEncodeError::None &&
+		encodedResult == expectedResultBytes &&
+		DecodeTacticalCommandResult(encodedResult, decodedResult) ==
+			TacticalCommandResultDecodeError::None &&
+		decodedResult.packageId == "p" && decodedResult.requestId == 1 &&
+		decodedResult.authoritativeSequence == 2 &&
+		decodedResult.simulationTick == 3 &&
+		decodedResult.status == TacticalCommandTerminalStatus::Applied &&
+		decodedResult.reason == TacticalCommandTerminalReason::None,
+		"tactical command result version 1 has a deterministic round-trip wire format");
+	bool everyTruncatedResultRejected = true;
+	for (std::size_t size = 0; size < encodedResult.size(); ++size)
+	{
+		std::vector<std::uint8_t> truncated(encodedResult.begin(),
+			encodedResult.begin() + size);
+		TacticalCommandResult retained{
+			"retained", 9, 0, 7, TacticalCommandTerminalStatus::Rejected,
+			TacticalCommandTerminalReason::InvalidDomain};
+		if (DecodeTacticalCommandResult(truncated, retained) ==
+				TacticalCommandResultDecodeError::None ||
+			retained.packageId != "retained" || retained.requestId != 9)
+		{
+			everyTruncatedResultRejected = false;
+			break;
+		}
+	}
+	check(everyTruncatedResultRejected,
+		"tactical command result decoding rejects every truncated prefix transactionally");
+	std::vector<std::uint8_t> futureResult = encodedResult;
+	futureResult[4] = 2;
+	std::vector<std::uint8_t> invalidResultBytes = encodedResult;
+	invalidResultBytes.back() = 6;
+	check(DecodeTacticalCommandResult(futureResult, decodedResult) ==
+			TacticalCommandResultDecodeError::UnsupportedVersion &&
+		DecodeTacticalCommandResult(invalidResultBytes, decodedResult) ==
+			TacticalCommandResultDecodeError::Invalid &&
+		EncodeTacticalCommandResult(TacticalCommandResult{
+			"p", 1, 0, 3, TacticalCommandTerminalStatus::Applied,
+			TacticalCommandTerminalReason::None}, encodedResult) ==
+			TacticalCommandResultEncodeError::Invalid,
+		"tactical command result codec rejects future, malformed, and inconsistent records");
 
 	TacticalCommandInbox validationInbox(
 		TacticalCommandInboxLimits{8, 8, 8, 8, 10});
