@@ -41,7 +41,9 @@ enum class SimulationCommandDomainError
 	InvalidTargetLevel,
 	InvalidTargetCubeLevel,
 	InvalidDestinationGrid,
-	InvalidMovementMode
+	InvalidMovementMode,
+	InvalidMoveOrigin,
+	InvalidPendingActionPolicy
 };
 
 // Complete value-domain validation shared by package admission and every

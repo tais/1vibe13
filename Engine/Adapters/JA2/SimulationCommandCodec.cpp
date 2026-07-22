@@ -45,15 +45,29 @@ bool IsValidStatus(std::uint8_t value)
 	return false;
 }
 
+bool IsValidMoveOrigin(std::uint8_t value)
+{
+	return IsValidTacticalMoveOrigin(static_cast<TacticalMoveOrigin>(value));
+}
+
+bool IsValidPendingActionPolicy(std::uint8_t value)
+{
+	return IsValidTacticalPendingActionPolicy(
+		static_cast<TacticalPendingActionPolicy>(value));
+}
+
 bool IsValidCommand(const SimulationCommand& command)
 {
 	if (command.valueless_by_exception()) return false;
 	return std::visit([](const auto& value) {
 		using Command = typename std::decay<decltype(value)>::type;
 		if (!IsValidSource(static_cast<std::uint8_t>(value.source))) return false;
+		if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+			return value.soldier.valid() &&
+				IsValidTacticalMoveOrigin(value.origin) &&
+				IsValidTacticalPendingActionPolicy(value.pendingAction);
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value ||
-			std::is_same<Command, MoveToGridCommand>::value)
+			std::is_same<Command, BeginFireWeaponCommand>::value)
 			return value.soldier.valid();
 		return true;
 	}, command);
@@ -98,6 +112,8 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 				(value.reverse ? MoveReverseFlag : 0u) |
 				(value.forceRestart ? MoveForceRestartFlag : 0u));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
+			writer.writeU8(static_cast<std::uint8_t>(value.origin));
+			writer.writeU8(static_cast<std::uint8_t>(value.pendingAction));
 		}
 	}, command);
 }
@@ -168,6 +184,17 @@ bool ReadCommand(
 				!ReadSource(reader, value.source)) return false;
 			value.reverse = (flags & MoveReverseFlag) != 0;
 			value.forceRestart = (flags & MoveForceRestartFlag) != 0;
+			if (version >= 4)
+			{
+				std::uint8_t origin = 0;
+				std::uint8_t pendingAction = 0;
+				if (!reader.readU8(origin) || !IsValidMoveOrigin(origin) ||
+					!reader.readU8(pendingAction) ||
+					!IsValidPendingActionPolicy(pendingAction)) return false;
+				value.origin = static_cast<TacticalMoveOrigin>(origin);
+				value.pendingAction =
+					static_cast<TacticalPendingActionPolicy>(pendingAction);
+			}
 			command = value;
 			return true;
 		}

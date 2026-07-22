@@ -101,9 +101,11 @@ namespace
 
 				soldier->usUIMovementMode = value.movementMode;
 				soldier->bReverse = value.reverse ? TRUE : FALSE;
-				soldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+				if (value.pendingAction == TacticalPendingActionPolicy::Clear)
+					soldier->aiData.ubPendingAction = NO_PENDING_ACTION;
 				return soldier->EVENT_InternalGetNewSoldierPath(
-					value.destinationGrid, value.movementMode, TRUE,
+					value.destinationGrid, value.movementMode,
+					static_cast<BOOLEAN>(value.origin),
 					value.forceRestart ? TRUE : FALSE)
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
@@ -197,6 +199,10 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (value.movementMode >= NUMANIMATIONSTATES ||
 					(gAnimControl[value.movementMode].uiFlags & ANIM_MOVING) == 0)
 					return SimulationCommandDomainError::InvalidMovementMode;
+				if (!IsValidTacticalMoveOrigin(value.origin))
+					return SimulationCommandDomainError::InvalidMoveOrigin;
+				if (!IsValidTacticalPendingActionPolicy(value.pendingAction))
+					return SimulationCommandDomainError::InvalidPendingActionPolicy;
 				return SimulationCommandDomainError::None;
 			}
 		}

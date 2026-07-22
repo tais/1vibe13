@@ -16,9 +16,12 @@ bool IsValidPackageCommand(const SimulationCommand& command)
 	return std::visit([](const auto& value) {
 		using Command = typename std::decay<decltype(value)>::type;
 		if (!IsValidSimulationCommandSource(value.source)) return false;
+		if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+			return value.soldier.valid() &&
+				IsValidTacticalMoveOrigin(value.origin) &&
+				IsValidTacticalPendingActionPolicy(value.pendingAction);
 		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value ||
-			std::is_same<Command, MoveToGridCommand>::value)
+			std::is_same<Command, BeginFireWeaponCommand>::value)
 			return value.soldier.valid();
 		return true;
 	}, command);

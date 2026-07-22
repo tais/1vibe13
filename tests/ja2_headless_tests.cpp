@@ -1684,6 +1684,18 @@ int main( int, char** )
 				actor, WORLD_MAX, WALKING, false, false,
 				SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidDestinationGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
+				actor, 100, WALKING, false, false,
+				SimulationCommandSource::System,
+				static_cast<TacticalMoveOrigin>( 0xff ),
+				TacticalPendingActionPolicy::Clear } } ) ==
+				SimulationCommandDomainError::InvalidMoveOrigin &&
+			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
+				actor, 100, WALKING, false, false,
+				SimulationCommandSource::System,
+				TacticalMoveOrigin::System,
+				static_cast<TacticalPendingActionPolicy>( 0xff ) } } ) ==
+				SimulationCommandDomainError::InvalidPendingActionPolicy &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,

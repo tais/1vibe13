@@ -56,6 +56,48 @@ struct BeginFireWeaponCommand
 	SimulationCommandSource source;
 };
 
+// Preserve the legacy fFromUI modes as explicit replay/network vocabulary.
+// Values are intentionally identical to EVENT_InternalGetNewSoldierPath's
+// established 0/1/2/3 policy.
+enum class TacticalMoveOrigin : std::uint8_t
+{
+	System = 0,
+	PlayerUi = 1,
+	ContinueMovement = 2,
+	TeamAwareUi = 3
+};
+
+constexpr bool IsValidTacticalMoveOrigin(TacticalMoveOrigin origin) noexcept
+{
+	switch (origin)
+	{
+		case TacticalMoveOrigin::System:
+		case TacticalMoveOrigin::PlayerUi:
+		case TacticalMoveOrigin::ContinueMovement:
+		case TacticalMoveOrigin::TeamAwareUi:
+			return true;
+	}
+	return false;
+}
+
+enum class TacticalPendingActionPolicy : std::uint8_t
+{
+	Preserve,
+	Clear
+};
+
+constexpr bool IsValidTacticalPendingActionPolicy(
+	TacticalPendingActionPolicy policy) noexcept
+{
+	switch (policy)
+	{
+		case TacticalPendingActionPolicy::Preserve:
+		case TacticalPendingActionPolicy::Clear:
+			return true;
+	}
+	return false;
+}
+
 struct MoveToGridCommand
 {
 	TacticalEntityId soldier;
@@ -64,6 +106,11 @@ struct MoveToGridCommand
 	bool reverse;
 	bool forceRestart;
 	SimulationCommandSource source;
+	// Appended defaults retain source compatibility for existing aggregate
+	// initializers and preserve the original synchronous UI behavior.
+	TacticalMoveOrigin origin = TacticalMoveOrigin::PlayerUi;
+	TacticalPendingActionPolicy pendingAction =
+		TacticalPendingActionPolicy::Clear;
 };
 
 // A closed, value-only command set keeps the deterministic queue independent

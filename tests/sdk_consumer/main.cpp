@@ -252,21 +252,33 @@ int main()
 			? package.commandBinding().client.submit(
 				SimulationCommand{MoveToGridCommand{
 					TacticalEntityId{7, 3}, 1311, 0, false, true,
-					SimulationCommandSource::System}})
+					SimulationCommandSource::System,
+					TacticalMoveOrigin::System,
+					TacticalPendingActionPolicy::Preserve}})
 			: TacticalCommandSubmissionResult{
 				TacticalCommandSubmissionError::InvalidOwner, 0};
 	std::uint64_t drainedRequest = 0;
 	bool drainedMoveToGrid = false;
+	bool drainedMovePolicy = false;
 	const TacticalCommandDrainResult commandDrain = commandInbox.drain(
-		[&drainedRequest, &drainedMoveToGrid](const TacticalCommandRequest& request) {
+		[&drainedRequest, &drainedMoveToGrid, &drainedMovePolicy](
+			const TacticalCommandRequest& request) {
 			drainedRequest = request.requestId;
 			drainedMoveToGrid = std::holds_alternative<MoveToGridCommand>(
 				request.command);
+			if (drainedMoveToGrid)
+			{
+				const MoveToGridCommand& move =
+					std::get<MoveToGridCommand>(request.command);
+				drainedMovePolicy = move.origin == TacticalMoveOrigin::System &&
+					move.pendingAction ==
+						TacticalPendingActionPolicy::Preserve;
+			}
 			return TacticalCommandDisposition::Accept;
 		});
 	if (!commandRequest || commandRequest.requestId != 1 ||
 		package.commandBinding().client.packageId() != "external.rules" ||
-		commandDrain.accepted != 1 || !drainedMoveToGrid ||
+		commandDrain.accepted != 1 || !drainedMoveToGrid || !drainedMovePolicy ||
 		drainedRequest != commandRequest.requestId ||
 		!commandInbox.empty()) return 34;
 	const RuntimeSessionTransitionResult shuttingDown = host.tryBeginShutdown();
@@ -402,7 +414,11 @@ int main()
 				SimulationCommandJournalDecodeResult::Success ||
 		decodedDroppedCount != 0 || decodedCommands.size() != 1 ||
 		std::get<MoveToGridCommand>(decodedCommands[0].command).destinationGrid != 1300 ||
-		!std::get<MoveToGridCommand>(decodedCommands[0].command).reverse)
+		!std::get<MoveToGridCommand>(decodedCommands[0].command).reverse ||
+		std::get<MoveToGridCommand>(decodedCommands[0].command).origin !=
+			TacticalMoveOrigin::PlayerUi ||
+		std::get<MoveToGridCommand>(decodedCommands[0].command).pendingAction !=
+			TacticalPendingActionPolicy::Clear)
 		return 28;
 
 	if (commandRuntime.saveCommandReplay("external.command-replay") !=
