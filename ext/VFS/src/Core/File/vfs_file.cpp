@@ -36,6 +36,13 @@ static inline bool hasAttrib(vfs::UInt32 const& attrib, vfs::UInt32 Attribs)
 	return attrib == (attrib & Attribs);
 }
 
+#ifdef WIN32
+static inline bool isValidFileHandle(HANDLE file)
+{
+	return file != NULL && file != INVALID_HANDLE_VALUE;
+}
+#endif
+
 static inline void copyAttributes(vfs::UInt32 osFileAttributes, vfs::UInt32& vfsFileAttributes)
 {
 	if(vfs::OS::FileAttributes::ATTRIB_ARCHIVE == (vfs::OS::FileAttributes::ATTRIB_ARCHIVE & osFileAttributes))
@@ -135,9 +142,9 @@ template<typename WriteType>
 void vfs::TFile<WriteType>::close()
 {
 	//VFS_LOCK(m_mutex);
-	if(m_file)
-	{
 #ifdef WIN32
+	if(isValidFileHandle(m_file))
+	{
 		if(!CloseHandle(m_file))
 		{
 			DWORD err = GetLastError();
@@ -146,7 +153,11 @@ void vfs::TFile<WriteType>::close()
 				VFS_THROW( ERROR_FILE(_BS(L"Could not close file : ") << err << _BS::wget) );
 			}
 		}
+	}
+	m_file = NULL;
 #else
+	if(m_file)
+	{
 		//clearerr(m_file);
 		fflush(m_file);
 		int error = fclose(m_file);
@@ -155,9 +166,9 @@ void vfs::TFile<WriteType>::close()
 			//const char* error_str = perror(error);
 			VFS_THROW( ERROR_FILE(_BS(L"Could not close file : ") << error << _BS::wget) );
 		}
-#endif
 		m_file = NULL;
 	}
+#endif
 	m_isOpen_read = false;
 }
 
@@ -201,9 +212,10 @@ bool vfs::TFile<WriteType>::_internalOpenRead(vfs::Path const& path)
 	m_file = vfs::Settings::getUseUnicode() ? 
 		CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL) :
 		CreateFileA(vfs::String::narrow(path.c_str(),path.length()).c_str(),GENERIC_READ,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
-	DWORD err = GetLastError();
-	if(err != NO_ERROR && err != ERROR_ALREADY_EXISTS)
+	if(!isValidFileHandle(m_file))
 	{
+		DWORD err = GetLastError();
+		m_file = NULL;
 		VFS_LOG_ERROR( ERROR_FILE(_BS(L"Error when opening file : ") << err << _BS::wget) );
 		return m_isOpen_read = false;
 	}
@@ -381,34 +393,17 @@ bool vfs::CFile::_internalOpenWrite(vfs::Path const& path, bool createWhenNotExi
 	if( m_isOpen_write )
 		return true;
 #ifdef WIN32
-	DWORD Mode = 0;
-	if(createWhenNotExist)
-	{
-		Mode |= OPEN_ALWAYS;
-	}
-	else
-	{
-		Mode |= OPEN_EXISTING;
-	}
-	if(truncate)
-	{
-		Mode |= TRUNCATE_EXISTING;
-	}
+	const DWORD Mode = truncate
+		? (createWhenNotExist ? CREATE_ALWAYS : TRUNCATE_EXISTING)
+		: (createWhenNotExist ? OPEN_ALWAYS : OPEN_EXISTING);
 
 	m_file = vfs::Settings::getUseUnicode() ? 
 		CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL,Mode,FILE_ATTRIBUTE_NORMAL,NULL) :
 		CreateFileA(vfs::String::narrow(path.c_str(),path.length()).c_str(),GENERIC_WRITE,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL,Mode,FILE_ATTRIBUTE_NORMAL,NULL);
-	DWORD err = GetLastError();
-	if(truncate && err == ERROR_FILE_NOT_FOUND)
+	if(!isValidFileHandle(m_file))
 	{
-		Mode = CREATE_ALWAYS;
-		m_file = vfs::Settings::getUseUnicode() ? 
-			CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ | FILE_SHARE_WRITE,NULL,Mode,FILE_ATTRIBUTE_NORMAL,NULL) :
-			CreateFileA(vfs::String::narrow(path.c_str(),path.length()).c_str(),GENERIC_WRITE,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL,Mode,FILE_ATTRIBUTE_NORMAL,NULL);
-		err = GetLastError();
-	}
-	if(err != NO_ERROR && err != ERROR_ALREADY_EXISTS)
-	{
+		DWORD err = GetLastError();
+		m_file = NULL;
 		VFS_LOG_ERROR(_BS(L"Error when opening file - ") << path << L" - [" << err << L"]" << _BS::wget);
 		return m_isOpen_write = false;
 	}
@@ -548,12 +543,13 @@ vfs::size_t vfs::TFile<T>::getSize()
 	//VFS_LOCK(m_mutex);
 #ifdef WIN32
 	bool was_open = false;
-	if(m_file)
+	if(isValidFileHandle(m_file))
 	{
 		was_open = true;
 	}
 	else
 	{
+		m_file = NULL;
 		VFS_THROW_IFF(this->openRead(),ERROR_FILE(L"could not open file"));
 	}
 	vfs::size_t size;

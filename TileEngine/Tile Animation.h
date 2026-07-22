@@ -3,6 +3,7 @@
 
 
 #define ANITILE_DOOR												0x00000001
+#define ANITILE_PAUSE_AFTER_LOOP					0x00000002
 #define ANITILE_BACKWARD										0x00000020
 #define ANITILE_FORWARD											0x00000040
 #define ANITILE_PAUSED											0x00000200
@@ -17,12 +18,14 @@
 #define ANITILE_OPTIMIZEFORSLOWMOVING				0x00400000
 #define ANITILE_ANIMATE_Z																		0x00800000
 #define ANITILE_USE_DIRECTION_FOR_START_FRAME								0x01000000
-#define ANITILE_PAUSE_AFTER_LOOP						0x02000000
 #define ANITILE_ERASEITEMFROMSAVEBUFFFER		0x04000000
 #define ANITILE_OPTIMIZEFORSMOKEEFFECT			0x08000000
 #define	ANITILE_SMOKE_EFFECT								0x10000000
 #define ANITILE_EXPLOSION										0x20000000
 #define ANITILE_RELEASE_ATTACKER_WHEN_DONE	0x40000000
+// Animation tiles are transient runtime objects and are not serialized.  Keep
+// the established 4-direction value for source/data compatibility while the
+// formerly colliding PAUSE_AFTER_LOOP flag uses an otherwise-unused bit.
 #define ANITILE_USE_4DIRECTION_FOR_START_FRAME							0x02000000
 #define ANITILE_LIGHT							0x80000000
 
@@ -43,6 +46,8 @@ typedef struct TAG_anitile
 	UINT32				uiTimeLastUpdate;			// Stuff for animated tiles
 
 	LEVELNODE			*pLevelNode;
+	UINT32				uiOriginalLevelNodeFlags;	// transient EXISTINGTILE state
+	INT16				sOriginalLevelNodeFrame;	// fallback when final frame is invalid
 	UINT8				ubLevelID;
 	INT16				sCurrentFrame;		
 	INT16				sStartFrame;	

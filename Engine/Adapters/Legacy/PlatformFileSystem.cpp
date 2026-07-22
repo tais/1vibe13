@@ -3,6 +3,7 @@
 #include <Engine/Adapters/Legacy/LegacyVfsFile.h>
 
 #include <cstddef>
+#include <limits>
 
 class FileManByteStorage final : public ByteStorage
 {

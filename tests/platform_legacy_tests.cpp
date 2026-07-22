@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <cwchar>
 #include <filesystem>
 #include <string>
@@ -17,7 +18,10 @@
 
 #include "FileMan.h"
 #include "Render Dirty.h"
+#include "worlddef.h"
+#include "Tile Animation.h"
 #include "Tile Surface.h"
+#include "Tile Cache.h"
 #include "input.h"
 #include "sdl_input.h"
 #include "soundman.h"
@@ -65,6 +69,13 @@ void FailAllocationAfter(INT32 successfulAllocations);
 void ResetAllocationFailure();
 }
 
+namespace AniTileTestHooks
+{
+void FailAllocationAfter(INT32 successfulAllocations);
+void FailAfterLevelNodeInsertion();
+void ResetFailures();
+}
+
 void ShutdownWithErrorBox(const CHAR8* message)
 {
 	std::fprintf(stderr, "ShutdownWithErrorBox: %s\n", message ? message : "");
@@ -84,6 +95,7 @@ void Check(bool condition, const char* message)
 		++failures;
 		std::printf("FAIL  %s\n", message);
 	}
+	std::fflush(stdout);
 }
 
 bool Write(HWFILE file, const std::string& value)
@@ -177,7 +189,8 @@ std::string MakeAuxOnlyStructureFile()
 	bytes.push_back(STRUCTURE_FILE_CONTAINS_AUXIMAGEDATA);
 	bytes.insert(bytes.end(), {0, 0, 0});
 	AppendLE16(bytes, 0); // no relative tile-location records
-	const AuxObjectData aux{};
+	AuxObjectData aux{};
+	aux.ubNumberOfFrames = 1;
 	const UINT8* const auxBytes = reinterpret_cast<const UINT8*>(&aux);
 	bytes.insert(bytes.end(), auxBytes, auxBytes + sizeof(aux));
 	return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
@@ -496,6 +509,13 @@ int main()
 		"/tilesets.v2/one/foo.bar.sti") ==
 		"TILESETS\\ADDITIONALPROPERTIES\\foo.bar.XML",
 		"tile fallback properties use a separator-safe basename");
+	Check(ANITILE_PAUSE_AFTER_LOOP !=
+		ANITILE_USE_4DIRECTION_FOR_START_FRAME &&
+		(ANITILE_PAUSE_AFTER_LOOP &
+			ANITILE_USE_4DIRECTION_FOR_START_FRAME) == 0,
+		"pause-after-loop and four-direction animation flags are independent");
+	Check(CreateAnimationTile(nullptr) == nullptr,
+		"animation creation rejects null parameters");
 	Check(LoadTileSurface(nullptr) == nullptr &&
 		LoadTileSurface(const_cast<CHAR8*>("missing/tile.sti")) == nullptr,
 		"tile loading rejects invalid and absent sources without partial output");
@@ -542,6 +562,166 @@ int main()
 			loadedTile->pAuxData == loadedTile->pStructureFileRef->pAuxData,
 			"tile loading remains retryable after transactional rollback");
 		DeleteTileSurface(loadedTile);
+
+		const INT32 savedTileCount = giNumberOfTiles;
+		const TILE_ELEMENT savedTile = gTileDatabase[0];
+		MAP_ELEMENT* const savedWorld = gpWorldLevelData;
+		ANITILE* const savedAniTileHead = pAniTileHead;
+		UINT16 animationFrames[] = {0};
+		TILE_ANIMATION_DATA animationData{};
+		animationData.pusFrames = animationFrames;
+		animationData.ubNumFrames = 1;
+		gTileDatabase[0].pAnimData = &animationData;
+		giNumberOfTiles = savedTileCount > 0 ? savedTileCount : 1;
+		MAP_ELEMENT testWorld{};
+		gpWorldLevelData = &testWorld;
+
+		LEVELNODE existingNode{};
+		existingNode.uiFlags = LEVELNODE_REVEAL;
+		existingNode.sCurrentFrame = 0;
+		ANITILE_PARAMS existingParams{};
+		existingParams.uiFlags = ANITILE_EXISTINGTILE | ANITILE_FORWARD;
+		existingParams.ubLevelID = ANI_ROOF_LEVEL;
+		existingParams.usTileIndex = 0;
+		existingParams.sGridNo = 0;
+		existingParams.sDelay = 1;
+		existingParams.sStartFrame = 0;
+		existingParams.pGivenLevelNode = &existingNode;
+		const UINT32 existingFlags = existingNode.uiFlags;
+		const INT16 existingFrame = existingNode.sCurrentFrame;
+		AniTileTestHooks::FailAllocationAfter(0);
+		Check(CreateAnimationTile(&existingParams) == nullptr &&
+			pAniTileHead == savedAniTileHead &&
+			existingNode.pAniTile == nullptr &&
+			existingNode.uiFlags == existingFlags &&
+			existingNode.sCurrentFrame == existingFrame,
+			"animation allocation failure leaves list and existing node unchanged");
+		AniTileTestHooks::ResetFailures();
+		LEVELNODE occupiedExistingNode{};
+		ANITILE occupiedMarker{};
+		occupiedExistingNode.pAniTile = &occupiedMarker;
+		occupiedExistingNode.uiFlags = LEVELNODE_USEZ;
+		occupiedExistingNode.sCurrentFrame = 7;
+		existingParams.pGivenLevelNode = &occupiedExistingNode;
+		Check(CreateAnimationTile(&existingParams) == nullptr &&
+			occupiedExistingNode.pAniTile == &occupiedMarker &&
+			occupiedExistingNode.uiFlags == LEVELNODE_USEZ &&
+			occupiedExistingNode.sCurrentFrame == 7 &&
+			pAniTileHead == savedAniTileHead,
+			"occupied existing animation nodes reject without losing prior state");
+		existingParams.pGivenLevelNode = nullptr;
+		Check(CreateAnimationTile(&existingParams) == nullptr &&
+			pAniTileHead == savedAniTileHead,
+			"existing animation requires an explicit level node");
+		existingParams.pGivenLevelNode = &existingNode;
+		existingParams.uiFlags |= ANITILE_CACHEDTILE;
+		Check(CreateAnimationTile(&existingParams) == nullptr &&
+			pAniTileHead == savedAniTileHead &&
+			existingNode.pAniTile == nullptr &&
+			existingNode.uiFlags == existingFlags &&
+			existingNode.sCurrentFrame == existingFrame,
+			"ambiguous existing cached animation is rejected without mutation");
+		existingParams.uiFlags = ANITILE_EXISTINGTILE | ANITILE_FORWARD |
+			ANITILE_USE_4DIRECTION_FOR_START_FRAME;
+		existingParams.uiUserData3 = NUM_WORLD_DIRECTIONS;
+		Check(CreateAnimationTile(&existingParams) == nullptr &&
+			pAniTileHead == savedAniTileHead &&
+			existingNode.pAniTile == nullptr &&
+			existingNode.uiFlags == existingFlags &&
+			existingNode.sCurrentFrame == existingFrame,
+			"invalid animation direction is rejected before touching its node");
+		existingParams.uiUserData3 = 0;
+		existingParams.sStartFrame = 1;
+		Check(CreateAnimationTile(&existingParams) == nullptr &&
+			pAniTileHead == savedAniTileHead &&
+			existingNode.pAniTile == nullptr &&
+			existingNode.uiFlags == existingFlags &&
+			existingNode.sCurrentFrame == existingFrame,
+			"out-of-range animation frames reject before node publication");
+
+		LEVELNODE pauseNode{};
+		const UINT32 pauseOriginalFlags =
+			LEVELNODE_REVEAL | LEVELNODE_NOZBLITTER;
+		pauseNode.uiFlags = pauseOriginalFlags;
+		existingParams.pGivenLevelNode = &pauseNode;
+		existingParams.sStartFrame = 0;
+		existingParams.uiFlags = ANITILE_EXISTINGTILE | ANITILE_BACKWARD |
+			ANITILE_PAUSE_AFTER_LOOP;
+		ANITILE* pauseAnimation = CreateAnimationTile(&existingParams);
+		Check(pauseAnimation &&
+			(pauseAnimation->uiFlags & ANITILE_PAUSE_AFTER_LOOP) != 0 &&
+			(pauseAnimation->uiFlags &
+				ANITILE_USE_4DIRECTION_FOR_START_FRAME) == 0,
+			"pause-after-loop animation does not select four-direction framing");
+		pauseNode.uiFlags |= LEVELNODE_HIDDEN;
+		pauseNode.sCurrentFrame = 7;
+		DeleteAniTile(pauseAnimation);
+		Check(pauseNode.pAniTile == nullptr &&
+			pauseNode.uiFlags == (pauseOriginalFlags | LEVELNODE_HIDDEN) &&
+			pauseNode.sCurrentFrame == 0,
+			"existing animation teardown restores owned flags and invalid frame state");
+		LEVELNODE fourDirectionNode{};
+		existingParams.pGivenLevelNode = &fourDirectionNode;
+		existingParams.uiFlags = ANITILE_EXISTINGTILE | ANITILE_FORWARD |
+			ANITILE_USE_4DIRECTION_FOR_START_FRAME;
+		ANITILE* fourDirectionAnimation = CreateAnimationTile(&existingParams);
+		Check(fourDirectionAnimation &&
+			(fourDirectionAnimation->uiFlags &
+				ANITILE_USE_4DIRECTION_FOR_START_FRAME) != 0 &&
+			(fourDirectionAnimation->uiFlags &
+				ANITILE_PAUSE_AFTER_LOOP) == 0,
+			"four-direction animation does not inherit pause-after-loop behavior");
+		DeleteAniTile(fourDirectionAnimation);
+		Check(fourDirectionNode.pAniTile == nullptr &&
+			fourDirectionNode.uiFlags == 0,
+			"existing animation teardown clears only animation-owned state");
+
+		ANITILE_PARAMS roofParams{};
+		roofParams.uiFlags = ANITILE_FORWARD;
+		roofParams.ubLevelID = ANI_ROOF_LEVEL;
+		roofParams.usTileIndex = 0;
+		roofParams.sGridNo = 0;
+		roofParams.sDelay = 1;
+		roofParams.sStartFrame = 0;
+		ANITILE* firstRoofAnimation = CreateAnimationTile(&roofParams);
+		ANITILE* secondRoofAnimation = CreateAnimationTile(&roofParams);
+		LEVELNODE* const secondRoofNode = secondRoofAnimation
+			? secondRoofAnimation->pLevelNode : nullptr;
+		Check(firstRoofAnimation && secondRoofAnimation &&
+			testWorld.pRoofHead == secondRoofNode &&
+			secondRoofNode->pNext == firstRoofAnimation->pLevelNode,
+			"same-index roof animations create distinct level nodes");
+		DeleteAniTile(firstRoofAnimation);
+		Check(testWorld.pRoofHead == secondRoofNode &&
+			secondRoofNode && secondRoofNode->pNext == nullptr &&
+			pAniTileHead == secondRoofAnimation &&
+			secondRoofAnimation->pNext == savedAniTileHead,
+			"animation deletion removes its exact same-index roof node");
+		DeleteAniTile(secondRoofAnimation);
+		Check(testWorld.pRoofHead == nullptr &&
+			pAniTileHead == savedAniTileHead,
+			"exact-node animation deletion restores world and animation lists");
+
+		Check(InitTileCache(), "tile cache initializes for animation rollback");
+		ANITILE_PARAMS cachedParams{};
+		cachedParams.uiFlags = ANITILE_CACHEDTILE | ANITILE_FORWARD;
+		cachedParams.ubLevelID = ANI_TOPMOST_LEVEL;
+		cachedParams.sGridNo = 0;
+		cachedParams.sDelay = 1;
+		cachedParams.sStartFrame = 0;
+		std::strcpy(cachedParams.zCachedFile, "tile.surface.png");
+		AniTileTestHooks::FailAfterLevelNodeInsertion();
+		Check(CreateAnimationTile(&cachedParams) == nullptr &&
+			pAniTileHead == savedAniTileHead &&
+			testWorld.pTopmostHead == nullptr && gpTileCache &&
+			gpTileCache[0].pImagery == nullptr && gpTileCache[0].sHits == 0,
+			"post-insertion animation failure rolls back list, world, and cache");
+		AniTileTestHooks::ResetFailures();
+		DeleteTileCache();
+
+		gpWorldLevelData = savedWorld;
+		gTileDatabase[0] = savedTile;
+		giNumberOfTiles = savedTileCount;
 
 		Check(InitializeVideoSurfaceManager(),
 			"video surface manager initialization is idempotent");

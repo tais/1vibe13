@@ -525,6 +525,11 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(platform_legacy_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME platform_legacy COMMAND platform_legacy_tests)
+  # Both suites exercise fixed-name legacy VFS/profile fixtures. Keep only
+  # those two mutually exclusive while allowing the remaining CTests to run
+  # in parallel.
+  set_tests_properties(ja2_headless platform_legacy PROPERTIES
+    RESOURCE_LOCK ja2_legacy_vfs_profile)
   set_tests_properties(platform_legacy PROPERTIES ENVIRONMENT
     "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 endif()
