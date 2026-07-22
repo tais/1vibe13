@@ -739,6 +739,26 @@ int main()
 		!runtimeMessages.publish(RuntimeMessageRequest{
 			"invalid/topic", "engine.test", {}}),
 		"runtime message bus validates publishers and retains deterministic sinks");
+	RuntimeMessageBus retainedMessages(1, 8);
+	retainedMessages.publish(RuntimeMessageRequest{
+		"engine.first", "engine.test", {1}});
+	RuntimeMessageRequest retainedRequest{
+		"engine.retry", "engine.test", {2, 3}};
+	const RuntimeMessagePublishResult retainedPressure =
+		retainedMessages.publishRetained(retainedRequest);
+	const bool retainedUnchanged =
+		retainedRequest.topic == "engine.retry" &&
+		retainedRequest.source == "engine.test" &&
+		retainedRequest.payload == std::vector<std::uint8_t>({2, 3});
+	retainedMessages.dispatchPending();
+	const RuntimeMessagePublishResult retainedPublished =
+		retainedMessages.publishRetained(retainedRequest);
+	check(retainedPressure.error == RuntimeMessagePublishError::QueueFull &&
+		retainedUnchanged &&
+		retainedRequest.topic.empty() && retainedRequest.source.empty() &&
+		retainedRequest.payload.empty() && retainedPublished &&
+		retainedPublished.sequence == 2,
+		"runtime message ownership stays retained under pressure and transfers on success");
 	TestRuntimeUpdateSink receivingUpdates;
 	TestRuntimeUpdateSink throwingUpdates;
 	throwingUpdates.throws = true;
