@@ -569,6 +569,37 @@ int main()
 		randomSnapshot.size() == 2 && randomSnapshot[0].id == "combat" &&
 		randomSnapshot[0].valuesGenerated == 2 && randomSnapshot[1].id == "loot",
 		"package random streams are deterministic, isolated, bounded, and inspectable");
+	const PackageRandomCheckpoint randomCheckpoint = packageRandom.checkpoint();
+	const PackageRandomResult expectedThirdCombat = packageRandom.next("combat", 1000);
+	const PackageRandomResult expectedSecondLoot = packageRandom.next("loot", 1000);
+	const PackageRandomCheckpoint advancedRandomCheckpoint = packageRandom.checkpoint();
+	PackageRandomCheckpoint duplicateRandomCheckpoint = randomCheckpoint;
+	duplicateRandomCheckpoint.streams.push_back(
+		duplicateRandomCheckpoint.streams.front());
+	PackageRandomCheckpoint invalidRandomCheckpoint = randomCheckpoint;
+	invalidRandomCheckpoint.schema = 99;
+	PackageRandomSource duplicateCheckpointTarget("rules.ballistics", 0, 3);
+	check(packageRandom.restoreCheckpoint(randomCheckpoint) ==
+			PackageRandomCheckpointError::None &&
+		packageRandom.next("combat", 1000).value == expectedThirdCombat.value &&
+		packageRandom.next("loot", 1000).value == expectedSecondLoot.value &&
+		packageRandom.checkpoint() == advancedRandomCheckpoint &&
+		packageRandom.restoreCheckpoint(invalidRandomCheckpoint) ==
+			PackageRandomCheckpointError::InvalidSchema &&
+		duplicateCheckpointTarget.restoreCheckpoint(duplicateRandomCheckpoint) ==
+			PackageRandomCheckpointError::DuplicateStream &&
+		packageRandom.checkpoint() == advancedRandomCheckpoint,
+		"package random checkpoints restore every stream transactionally");
+	PackageRandomSource exhaustedRandom("rules.exhausted", 0, 1);
+	const PackageRandomCheckpoint exhaustedCheckpoint{
+		PackageRandomCheckpoint::CurrentSchema, "rules.exhausted",
+		{{"stream", 42, std::numeric_limits<std::uint64_t>::max()}}};
+	check(exhaustedRandom.restoreCheckpoint(exhaustedCheckpoint) ==
+			PackageRandomCheckpointError::None &&
+		exhaustedRandom.next("stream", 10).error ==
+			PackageRandomError::SequenceExhausted &&
+		exhaustedRandom.checkpoint() == exhaustedCheckpoint,
+		"package random generation rejects counter exhaustion without wrapping state");
 	RuntimeCapabilities capabilities;
 	check(capabilities.add("engine.rendering") &&
 		capabilities.add("tool.map-editor") &&

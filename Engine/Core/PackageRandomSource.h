@@ -7,6 +7,7 @@
 #include <limits>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -18,7 +19,8 @@ enum class PackageRandomError
 	InvalidStream,
 	InvalidUpperBound,
 	StreamLimitReached,
-	AllocationFailure
+	AllocationFailure,
+	SequenceExhausted
 };
 
 struct PackageRandomResult
@@ -33,6 +35,45 @@ struct PackageRandomStreamSnapshot
 {
 	std::string id;
 	std::uint64_t valuesGenerated = 0;
+};
+
+struct PackageRandomStreamCheckpoint
+{
+	std::string id;
+	std::uint64_t state = 0;
+	std::uint64_t valuesGenerated = 0;
+
+	bool operator==(const PackageRandomStreamCheckpoint& other) const
+	{
+		return id == other.id && state == other.state &&
+			valuesGenerated == other.valuesGenerated;
+	}
+};
+
+struct PackageRandomCheckpoint
+{
+	static constexpr std::uint32_t CurrentSchema = 1;
+
+	std::uint32_t schema = CurrentSchema;
+	std::string packageId;
+	std::vector<PackageRandomStreamCheckpoint> streams;
+
+	bool operator==(const PackageRandomCheckpoint& other) const
+	{
+		return schema == other.schema && packageId == other.packageId &&
+			streams == other.streams;
+	}
+};
+
+enum class PackageRandomCheckpointError
+{
+	None,
+	InvalidSchema,
+	PackageMismatch,
+	TooManyStreams,
+	InvalidStream,
+	DuplicateStream,
+	AllocationFailure
 };
 
 // Deterministic streams scoped to one registered package. Each named stream
@@ -90,6 +131,8 @@ public:
 				return PackageRandomResult{PackageRandomError::AllocationFailure, 0};
 			}
 		}
+		if (stream->valuesGenerated == std::numeric_limits<std::uint64_t>::max())
+			return PackageRandomResult{PackageRandomError::SequenceExhausted, 0};
 
 		const std::uint32_t threshold = static_cast<std::uint32_t>(-upperBound) % upperBound;
 		std::uint32_t value = 0;
@@ -113,6 +156,70 @@ public:
 			[](const PackageRandomStreamSnapshot& left,
 			   const PackageRandomStreamSnapshot& right) { return left.id < right.id; });
 		return result;
+	}
+
+	PackageRandomCheckpoint checkpoint() const
+	{
+		PackageRandomCheckpoint result;
+		result.packageId = packageId_;
+		result.streams.reserve(streams_.size());
+		for (const auto& stream : streams_)
+			result.streams.push_back(PackageRandomStreamCheckpoint{
+				stream.first, stream.second.state, stream.second.valuesGenerated});
+		std::sort(result.streams.begin(), result.streams.end(),
+			[](const PackageRandomStreamCheckpoint& left,
+			   const PackageRandomStreamCheckpoint& right) { return left.id < right.id; });
+		return result;
+	}
+
+	PackageRandomCheckpointError validateCheckpoint(
+		const PackageRandomCheckpoint& checkpoint) const noexcept
+	{
+		if (checkpoint.schema != PackageRandomCheckpoint::CurrentSchema)
+			return PackageRandomCheckpointError::InvalidSchema;
+		if (checkpoint.packageId != packageId_ ||
+			!IsValidEngineIdentifier(checkpoint.packageId))
+			return PackageRandomCheckpointError::PackageMismatch;
+		if (checkpoint.streams.size() > maximumStreams_)
+			return PackageRandomCheckpointError::TooManyStreams;
+		try
+		{
+			std::unordered_set<std::string> unique;
+			unique.reserve(checkpoint.streams.size());
+			for (const PackageRandomStreamCheckpoint& stream : checkpoint.streams)
+			{
+				if (!IsValidEngineIdentifier(stream.id))
+					return PackageRandomCheckpointError::InvalidStream;
+				if (!unique.insert(stream.id).second)
+					return PackageRandomCheckpointError::DuplicateStream;
+			}
+		}
+		catch (...)
+		{
+			return PackageRandomCheckpointError::AllocationFailure;
+		}
+		return PackageRandomCheckpointError::None;
+	}
+
+	PackageRandomCheckpointError restoreCheckpoint(
+		const PackageRandomCheckpoint& checkpoint) noexcept
+	{
+		const PackageRandomCheckpointError validation = validateCheckpoint(checkpoint);
+		if (validation != PackageRandomCheckpointError::None) return validation;
+		try
+		{
+			std::unordered_map<std::string, StreamState> restored;
+			restored.reserve(checkpoint.streams.size());
+			for (const PackageRandomStreamCheckpoint& stream : checkpoint.streams)
+				restored.emplace(stream.id,
+					StreamState{stream.state, stream.valuesGenerated});
+			streams_.swap(restored);
+			return PackageRandomCheckpointError::None;
+		}
+		catch (...)
+		{
+			return PackageRandomCheckpointError::AllocationFailure;
+		}
 	}
 
 private:

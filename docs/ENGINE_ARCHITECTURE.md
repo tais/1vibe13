@@ -330,6 +330,10 @@ the engine must not contain SDL types in its public domain model.
   A full diagnostic capture now takes each owned snapshot once and reuses it
   for resource accounting and the compatibility fingerprint; package,
   dependency, resource, and fingerprint joins use indexed identities.
+- `PackageRandomSource` exposes a versioned, value-only checkpoint of its
+  package identity and every named stream's generator state/counter. Restore
+  validates identity, bounds, and uniqueness before an allocation-safe swap;
+  exhausted counters fail explicitly instead of wrapping deterministic history.
 - `PackageLifecycle` advances package configuration, content loading, and
   runtime startup as one engine-owned transaction. JA2 retains its established
   loading boundaries, while a failed later phase now unwinds every earlier
