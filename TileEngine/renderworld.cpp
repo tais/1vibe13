@@ -102,6 +102,55 @@ BOOLEAN DrawBasicTacticalDepthSprite(
 			source, destinationX, destinationY, frame);
 }
 
+BOOLEAN DrawBasicTacticalEffectSprite(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	VideoObjectDrawEffect effect,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectEffectToSurface(
+		destinationSurface, source, frame,
+		destinationX, destinationY, effect, clipping))
+		return TRUE;
+
+	// Pointer-built fixtures and rejecting external hosts retain the exact
+	// established blitter until every image producer has a stable identity.
+	switch (effect)
+	{
+	case VOBJECT_DRAW_SOURCE_TRANSPARENCY:
+		return clipping ?
+			Blt8BPPDataTo16BPPBufferTransparentClip(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame, clipping) :
+			Blt8BPPDataTo16BPPBufferTransparent(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame);
+	case VOBJECT_DRAW_SHADE_DESTINATION:
+		return clipping ?
+			Blt8BPPDataTo16BPPBufferShadowClip(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame, clipping) :
+			Blt8BPPDataTo16BPPBufferShadow(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame);
+	case VOBJECT_DRAW_INTENSIFY_DESTINATION:
+		return clipping ?
+			Blt8BPPDataTo16BPPBufferIntensityClip(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame, clipping) :
+			Blt8BPPDataTo16BPPBufferIntensity(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame);
+	default:
+		return FALSE;
+	}
+}
+
 BOOLEAN DrawTacticalDepthMask(
 	UINT32 destinationSurface,
 	PIXEL* destination,
@@ -2653,7 +2702,12 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										}
 										else
 										{
-											Blt8BPPDataTo16BPPBufferTransparentClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+											DrawBasicTacticalEffectSprite(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, hVObject,
+												sXPos, sYPos, usImageIndex,
+												VOBJECT_DRAW_SOURCE_TRANSPARENCY,
+												&gClippingRect);
 										}
 									}
 									else
@@ -2831,7 +2885,12 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										}
 										else
 										{
-											Blt8BPPDataTo16BPPBufferShadowClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+											DrawBasicTacticalEffectSprite(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, hVObject,
+												sXPos, sYPos, usImageIndex,
+												VOBJECT_DRAW_SHADE_DESTINATION,
+												&gClippingRect);
 										}
 									}
 									else if (fIntensityBlitter)
@@ -2845,13 +2904,18 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 												fZWrite, VOBJECT_DEPTH_MASK_INTENSITY,
 												&gClippingRect);
 										}
-										else
-										{
-											Blt8BPPDataTo16BPPBufferIntensityClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-												}
-											}
-											else if (fZBlitter)
-											{
+								else
+								{
+									DrawBasicTacticalEffectSprite(
+										FRAME_BUFFER, (PIXEL*)pDestBuf,
+										uiDestPitchBYTES, hVObject,
+										sXPos, sYPos, usImageIndex,
+										VOBJECT_DRAW_INTENSIFY_DESTINATION,
+										&gClippingRect);
+								}
+							}
+							else if (fZBlitter)
+							{
 												if (fZWrite)
 												{
 													if (fObscuredBlitter)
@@ -2892,7 +2956,12 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 											}
 											else
-												Blt8BPPDataTo16BPPBufferTransparentClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+												DrawBasicTacticalEffectSprite(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, hVObject,
+													sXPos, sYPos, usImageIndex,
+													VOBJECT_DRAW_SOURCE_TRANSPARENCY,
+													&gClippingRect);
 
 										}
 										else if (bBlitClipVal == FALSE)
@@ -3077,7 +3146,12 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										}
 										else
 										{
-											Blt8BPPDataTo16BPPBufferShadow((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
+											DrawBasicTacticalEffectSprite(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, hVObject,
+												sXPos, sYPos, usImageIndex,
+												VOBJECT_DRAW_SHADE_DESTINATION,
+												NULL);
 										}
 									}
 									else if (fIntensityBlitter)
@@ -3091,13 +3165,18 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 												fZWrite, VOBJECT_DEPTH_MASK_INTENSITY,
 												NULL);
 										}
-										else
-										{
-											Blt8BPPDataTo16BPPBufferIntensity((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
-												}
-											}
-											else if (fZBlitter)
-											{
+								else
+								{
+									DrawBasicTacticalEffectSprite(
+										FRAME_BUFFER, (PIXEL*)pDestBuf,
+										uiDestPitchBYTES, hVObject,
+										sXPos, sYPos, usImageIndex,
+										VOBJECT_DRAW_INTENSIFY_DESTINATION,
+										NULL);
+								}
+							}
+							else if (fZBlitter)
+							{
 												if (fZWrite)
 												{
 													// TEST
@@ -3140,7 +3219,12 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 											}
 											else
-												Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
+												DrawBasicTacticalEffectSprite(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, hVObject,
+													sXPos, sYPos, usImageIndex,
+													VOBJECT_DRAW_SOURCE_TRANSPARENCY,
+													NULL);
 										}
 									}
 
@@ -6435,7 +6519,12 @@ void RenderFOVDebugInfo( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 sStar
 					SetFontDestBuffer( FRAME_BUFFER , 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
 
-					Blt8BPPDataTo16BPPBufferTransparentClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gTileDatabase[0].hTileSurface, sTempPosX_S, sTempPosY_S, 0, &gClippingRect );
+					DrawBasicTacticalEffectSprite(
+						FRAME_BUFFER, (PIXEL*)pDestBuf,
+						uiDestPitchBYTES, gTileDatabase[0].hTileSurface,
+						sTempPosX_S, sTempPosY_S, 0,
+						VOBJECT_DRAW_SOURCE_TRANSPARENCY,
+						&gClippingRect);
 
 				}
 

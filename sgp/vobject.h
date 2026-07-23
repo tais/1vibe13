@@ -172,6 +172,25 @@ BOOLEAN BltVideoObject(  UINT32	uiDestVSurface,
 												 blt_fx *pBltFx );
 BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usRegionIndex, SGPRectangle Region, UINT32 fBltFlags, blt_fx* pBltFx);
 
+enum VideoObjectDrawEffect : UINT8
+{
+	VOBJECT_DRAW_SOURCE_TRANSPARENCY,
+	VOBJECT_DRAW_SHADE_DESTINATION,
+	VOBJECT_DRAW_INTENSIFY_DESTINATION
+};
+
+// Compatibility bridge for the common 8-bit image effects. Registered video
+// objects submit a portable engine command; callers retain their exact raw
+// blitter as a fallback when a host rejects it.
+BOOLEAN BltVideoObjectEffectToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	VideoObjectDrawEffect effect,
+	const SGPRect* pClipRegion);
+
 // Compatibility bridge for the common source-transparent tactical depth
 // operation. Registered video objects submit a portable engine command;
 // callers retain their exact raw blitter as a fallback when a host rejects it.

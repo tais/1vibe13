@@ -825,7 +825,7 @@ int main()
 	const RenderImageDrawCommand expectedImageCommand{
 		71, 88, 3, RenderSurfacePoint{-4, 9},
 		RenderSurfaceRegion{1, 2, 30, 40},
-		RenderImageCompositeMode::SourceTransparency};
+		RenderImageCompositeMode::Intensity};
 	const RenderImageDepthDrawCommand expectedDepthImageCommand{
 		71, 73, 90, 5, RenderSurfacePoint{-6, 7},
 		RenderSurfaceRegion{1, 2, 30, 40}, 0x4567,
@@ -2108,6 +2108,21 @@ int main()
 			0, 0,
 			static_cast<INT32>(copySurfaceDescription.usWidth),
 			static_cast<INT32>(copySurfaceDescription.usHeight)};
+		const PIXEL imageEffectInput =
+			Get16BPPColor(FROMRGB(200, 120, 80));
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copyDestinationPixels)
+		{
+			PIXEL* const imageRow = reinterpret_cast<PIXEL*>(
+				reinterpret_cast<BYTE*>(copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			imageRow[3] = imageEffectInput;
+			imageRow[4] = imageEffectInput;
+			UnLockVideoSurface(copyDestinationID);
+		}
 		SetClippingRect(&imageSurfaceClip);
 		const bool explicitClipAccepted = liveImageCreated &&
 			GetPlatformRenderCommands().drawImage(RenderImageDrawCommand{
@@ -2123,6 +2138,47 @@ int main()
 			BltVideoObject(
 				copyDestinationID, liveImage, 0, 2, 2,
 				VO_BLT_SRCTRANSPARENCY, nullptr);
+		const bool clippedIntensityAccepted = liveImageCreated &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{4, 2},
+					RenderSurfaceRegion{0, 2, 4, 3},
+					RenderImageCompositeMode::Intensity});
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		PIXEL clippedIntensityPixel = 0;
+		if (copyDestinationPixels)
+		{
+			const PIXEL* const imageRow = reinterpret_cast<const PIXEL*>(
+				reinterpret_cast<const BYTE*>(copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			clippedIntensityPixel = imageRow[4];
+			UnLockVideoSurface(copyDestinationID);
+		}
+		const bool shadowImageDrawn = liveImageCreated &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{3, 2},
+					RenderSurfaceRegion{0, 2, 5, 3},
+					RenderImageCompositeMode::Shadow});
+		const bool intensityImageDrawn = liveImageCreated &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{4, 2},
+					RenderSurfaceRegion{0, 2, 5, 3},
+					RenderImageCompositeMode::Intensity});
+		const bool invalidImageModeRejected = !liveImageCreated ||
+			!GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					static_cast<RenderImageCompositeMode>(255)});
 		copyDestinationPixels = copySurfacesCreated ?
 			reinterpret_cast<PIXEL*>(
 				LockVideoSurface(
@@ -2130,6 +2186,8 @@ int main()
 		PIXEL clippedImagePixel = 1;
 		PIXEL indexedImagePixel = 0;
 		PIXEL resolvedImagePixel = 0;
+		PIXEL shadowImagePixel = 0;
+		PIXEL intensityImagePixel = 0;
 		if (copyDestinationPixels)
 		{
 			const PIXEL* const imageRow = reinterpret_cast<const PIXEL*>(
@@ -2138,16 +2196,55 @@ int main()
 			clippedImagePixel = imageRow[0];
 			indexedImagePixel = imageRow[1];
 			resolvedImagePixel = imageRow[2];
+			shadowImagePixel = imageRow[3];
+			intensityImagePixel = imageRow[4];
 			UnLockVideoSurface(copyDestinationID);
 		}
 		ClippingRect = imageOriginalClip;
 		Check(explicitClipAccepted && indexedImageDrawn &&
-			resolvedImageDrawn &&
+			resolvedImageDrawn && clippedIntensityAccepted &&
+			clippedIntensityPixel == imageEffectInput &&
+			shadowImageDrawn && intensityImageDrawn &&
+			invalidImageModeRejected &&
 			copyDestinationPixels &&
 			clippedImagePixel == 0 &&
 			indexedImagePixel == copiedRed &&
-			resolvedImagePixel == copiedRed,
-			"engine image commands retain explicit clipping and exact ETRLE pixels");
+			resolvedImagePixel == copiedRed &&
+			shadowImagePixel == PixShade(imageEffectInput) &&
+			intensityImagePixel == PixIntensity(imageEffectInput),
+			"engine image commands retain exact clipping, palette, shadow, and intensity pixels");
+
+		RecordingRenderCommandSink recordedImageEffect;
+		BindLegacyRenderCommands(recordedImageEffect);
+		const bool pointerImageEffectRouted = liveImageCreated &&
+			BltVideoObjectEffectToSurface(
+				copyDestinationID, liveImage, 0, -2, 1,
+				VOBJECT_DRAW_INTENSIFY_DESTINATION,
+				&imageSurfaceClip);
+		const bool invalidImageEffectRejected =
+			!BltVideoObjectEffectToSurface(
+				copyDestinationID, liveImage, 0, -2, 1,
+				static_cast<VideoObjectDrawEffect>(255),
+				&imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		RenderImageDrawCommand routedImageEffectCommand;
+		if (recordedImageEffect.imageCommands().size() == 1)
+			routedImageEffectCommand =
+				recordedImageEffect.imageCommands().front();
+		Check(pointerImageEffectRouted &&
+			invalidImageEffectRejected &&
+			recordedImageEffect.imageCommands().size() == 1 &&
+			routedImageEffectCommand.destination == copyDestinationID &&
+			routedImageEffectCommand.image >
+				std::numeric_limits<UINT32>::max() &&
+			routedImageEffectCommand.frame == 0 &&
+			routedImageEffectCommand.destinationOrigin ==
+				RenderSurfacePoint{-2, 1} &&
+			routedImageEffectCommand.clippingRegion ==
+				RenderSurfaceRegion{0, 0, 5, 3} &&
+			routedImageEffectCommand.mode ==
+				RenderImageCompositeMode::Intensity,
+			"tactical colour effects retain stable image identity and explicit clipping");
 
 		RecordingRenderCommandSink recordedDepthImage;
 		BindLegacyRenderCommands(recordedDepthImage);

@@ -214,13 +214,15 @@ enum class RenderImageCompositeMode : std::uint8_t
 {
 	Opaque,
 	SourceTransparency,
-	Shadow
+	Shadow,
+	Intensity
 };
 
 // Draws one frame/sub-image at its anchor point inside an explicit half-open
 // clipping region. Image-local offsets, palettes, compression, and physical
-// storage remain responsibilities of the host adapter; callers and recording
-// hosts see only stable engine values.
+// storage remain responsibilities of the host adapter. Shadow and Intensity
+// use visible image runs as a mask which transforms the destination rather than
+// sampling palette colours. Callers and recording hosts see only stable values.
 struct RenderImageDrawCommand
 {
 	RenderSurfaceId destination = 0;

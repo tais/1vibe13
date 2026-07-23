@@ -135,7 +135,9 @@ the engine must not contain SDL types in its public domain model.
   destination, anchor, explicit clipping region, and composite mode. Numeric
   `BltVideoObjectFromIndex` calls and direct `BltVideoObject` calls whose object
   belongs to the stable manager therefore traverse the same bindable service
-  used by packages and headless recorders. `RenderImageOutlineCommand`
+  used by packages and headless recorders. Its source-transparent mode samples
+  palette colour, while shadow and intensity modes transform destination pixels
+  under the visible source mask. `RenderImageOutlineCommand`
   separately models colour outlines, transparent outline markers, and
   body-shadow rendering without leaking ETRLE marker values or packed legacy
   colours through the engine API. `RenderImageDepthDrawCommand` names colour
@@ -156,7 +158,9 @@ the engine must not contain SDL types in its public domain model.
   commands even when their image is owned by the animation, tile, or
   logical-body subsystem. The mask bridge also corrects the clipped no-write
   path to preserve depth consistently with its unclipped counterpart. Rejecting
-  hosts and manually constructed fixtures retain the exact raw fallback. Other
+  hosts and manually constructed fixtures retain the exact raw fallback. Basic
+  non-depth tactical transparent/shadow/intensity sprites traverse the regular
+  image command through the same stable identity. Other
   application-owned pointer image operations deliberately retain their
   compatibility path until their individual command semantics migrate. Copy
   and nearest-neighbour

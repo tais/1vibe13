@@ -127,6 +127,7 @@ std::optional<UINT32> LegacyFlagsFor(RenderImageCompositeMode mode)
 	case RenderImageCompositeMode::SourceTransparency:
 		return VO_BLT_SRCTRANSPARENCY;
 	case RenderImageCompositeMode::Shadow: return VO_BLT_SHADOW;
+	case RenderImageCompositeMode::Intensity: return std::nullopt;
 	}
 	return std::nullopt;
 }
@@ -292,6 +293,50 @@ bool SubmitVideoObjectDraw(
 			clipping.iLeft, clipping.iTop,
 			clipping.iRight, clipping.iBottom},
 		CompositeModeFor(flags)});
+}
+
+bool SubmitVideoObjectEffectDraw(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	RenderImageCompositeMode mode,
+	const SGPRect* clipping)
+{
+	if (!object || object->ubBitDepth != 8 ||
+		frame >= object->usNumberOfObjects ||
+		!object->pETRLEObject || !object->pPixData ||
+		(mode == RenderImageCompositeMode::SourceTransparency &&
+			!object->pShadeCurrent))
+		return false;
+	switch (mode)
+	{
+	case RenderImageCompositeMode::SourceTransparency:
+	case RenderImageCompositeMode::Shadow:
+	case RenderImageCompositeMode::Intensity:
+		break;
+	default:
+		return false;
+	}
+	RenderImageId image = 0;
+	if (!FindRenderImage(object, image)) return false;
+
+	SGPRect currentClipping;
+	if (!clipping)
+	{
+		GetClippingRect(&currentClipping);
+		clipping = &currentClipping;
+	}
+	return DrawLegacyRenderImage(RenderImageDrawCommand{
+		destination,
+		image,
+		frame,
+		RenderSurfacePoint{destinationX, destinationY},
+		RenderSurfaceRegion{
+			clipping->iLeft, clipping->iTop,
+			clipping->iRight, clipping->iBottom},
+		mode});
 }
 
 bool SubmitVideoObjectDepthDraw(
@@ -715,17 +760,125 @@ BOOLEAN GetVideoObject( HVOBJECT *hVObject, UINT32 uiIndex )
 	return FALSE;
 }
 
+namespace
+{
+bool PlatformVideoObjectDestinationEffect(
+	const RenderImageDrawCommand& command,
+	HVOBJECT source,
+	bool intensity)
+{
+	if (!source || source->ubBitDepth != 8 ||
+		command.frame >= source->usNumberOfObjects ||
+		!source->pETRLEObject || !source->pPixData)
+		return false;
+	const UINT16 frame = static_cast<UINT16>(command.frame);
+	const ETRLEObject& image = source->pETRLEObject[frame];
+	if (image.usWidth == 0 || image.usHeight == 0 ||
+		image.uiDataOffset >= source->uiSizePixData)
+		return false;
+
+	PlatformSurfaceMappingLease destination(command.destination);
+	if (!destination) return false;
+	const MutableRenderSurface& mapping = destination.mapping();
+	if (!IsValidRenderSurfaceMapping(mapping) ||
+		mapping.description.contentBitDepth != 16 ||
+		RenderPixelBytes(mapping.description.format) != sizeof(PIXEL) ||
+		mapping.pitchBytes > std::numeric_limits<UINT32>::max() ||
+		mapping.description.width >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()) ||
+		mapping.description.height >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()))
+		return false;
+
+	const std::int64_t clipLeft = std::max<std::int64_t>(
+		0, command.clippingRegion.left);
+	const std::int64_t clipTop = std::max<std::int64_t>(
+		0, command.clippingRegion.top);
+	const std::int64_t clipRight = std::min<std::int64_t>(
+		mapping.description.width, command.clippingRegion.right);
+	const std::int64_t clipBottom = std::min<std::int64_t>(
+		mapping.description.height, command.clippingRegion.bottom);
+	if (clipLeft >= clipRight || clipTop >= clipBottom) return true;
+
+	const std::int64_t imageLeft =
+		static_cast<std::int64_t>(command.destinationOrigin.x) +
+		image.sOffsetX;
+	const std::int64_t imageTop =
+		static_cast<std::int64_t>(command.destinationOrigin.y) +
+		image.sOffsetY;
+	const std::int64_t imageRight = imageLeft + image.usWidth;
+	const std::int64_t imageBottom = imageTop + image.usHeight;
+	if (imageLeft >= clipRight || imageTop >= clipBottom ||
+		imageRight <= clipLeft || imageBottom <= clipTop)
+		return true;
+	if (imageLeft < std::numeric_limits<INT32>::min() ||
+		imageTop < std::numeric_limits<INT32>::min() ||
+		imageRight > std::numeric_limits<INT32>::max() ||
+		imageBottom > std::numeric_limits<INT32>::max())
+		return false;
+
+	PIXEL* const pixels = reinterpret_cast<PIXEL*>(mapping.pixels);
+	const UINT32 pitch = static_cast<UINT32>(mapping.pitchBytes);
+	const bool fullyInside =
+		imageLeft >= clipLeft && imageTop >= clipTop &&
+		imageRight <= clipRight && imageBottom <= clipBottom;
+	if (fullyInside)
+	{
+		return intensity ?
+			Blt8BPPDataTo16BPPBufferIntensity(
+				pixels, pitch, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame) != FALSE :
+			Blt8BPPDataTo16BPPBufferShadow(
+				pixels, pitch, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame) != FALSE;
+	}
+
+	SGPRect clipping{
+		static_cast<INT32>(clipLeft),
+		static_cast<INT32>(clipTop),
+		static_cast<INT32>(clipRight),
+		static_cast<INT32>(clipBottom)};
+	return intensity ?
+		Blt8BPPDataTo16BPPBufferIntensityClip(
+			pixels, pitch, source,
+			command.destinationOrigin.x,
+			command.destinationOrigin.y, frame, &clipping) != FALSE :
+		Blt8BPPDataTo16BPPBufferShadowClip(
+			pixels, pitch, source,
+			command.destinationOrigin.x,
+			command.destinationOrigin.y, frame, &clipping) != FALSE;
+}
+}
+
 bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
 {
 	if (command.destination == 0 || command.image == 0 ||
 		command.destination > std::numeric_limits<UINT32>::max() ||
 		command.frame > std::numeric_limits<UINT16>::max())
 		return false;
-	const std::optional<UINT32> flags = LegacyFlagsFor(command.mode);
-	if (!flags) return false;
-
 	HVOBJECT const source = ResolveRenderImage(command.image);
 	if (!source) return false;
+
+	switch (command.mode)
+	{
+	case RenderImageCompositeMode::Shadow:
+		return PlatformVideoObjectDestinationEffect(
+			command, source, false);
+	case RenderImageCompositeMode::Intensity:
+		return PlatformVideoObjectDestinationEffect(
+			command, source, true);
+	case RenderImageCompositeMode::Opaque:
+	case RenderImageCompositeMode::SourceTransparency:
+		break;
+	default:
+		return false;
+	}
+	const std::optional<UINT32> flags = LegacyFlagsFor(command.mode);
+	if (!flags) return false;
 
 	ClippingRegionLease clipping(command.clippingRegion);
 	return DrawVideoObjectToSurface(
@@ -1037,6 +1190,35 @@ BOOLEAN BltVideoObjectDepthToSurface(
 		iDestX, iDestY, usDepth, fWriteDepth,
 		RenderImageDepthEffect::SourcePalette, pClipRegion) ?
 		TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectEffectToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	VideoObjectDrawEffect effect,
+	const SGPRect* pClipRegion)
+{
+	RenderImageCompositeMode mode;
+	switch (effect)
+	{
+	case VOBJECT_DRAW_SOURCE_TRANSPARENCY:
+		mode = RenderImageCompositeMode::SourceTransparency;
+		break;
+	case VOBJECT_DRAW_SHADE_DESTINATION:
+		mode = RenderImageCompositeMode::Shadow;
+		break;
+	case VOBJECT_DRAW_INTENSIFY_DESTINATION:
+		mode = RenderImageCompositeMode::Intensity;
+		break;
+	default:
+		return FALSE;
+	}
+	return SubmitVideoObjectEffectDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, mode, pClipRegion) ? TRUE : FALSE;
 }
 
 BOOLEAN BltVideoObjectDepthMaskToSurface(

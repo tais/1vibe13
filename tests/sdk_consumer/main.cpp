@@ -289,7 +289,7 @@ int main()
 	const RenderImageDrawCommand externalImageCommand{
 		1, 44, 3, RenderSurfacePoint{-2, 5},
 		RenderSurfaceRegion{0, 0, 4, 4},
-		RenderImageCompositeMode::SourceTransparency};
+		RenderImageCompositeMode::Intensity};
 	if (!recordedImageCommands.drawImage(externalImageCommand) ||
 		recordedImageCommands.imageCommands() !=
 			std::vector<RenderImageDrawCommand>{externalImageCommand})
