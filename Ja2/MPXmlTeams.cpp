@@ -1,6 +1,7 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "MPXmlTeams.hpp"
 #include "sgp.h"
-#include "FileMan.h"
 #include "expat.h"
 #include "XML.h"
 #include "random.h"
@@ -81,69 +82,22 @@ BOOLEAN MultiplayerTeams::ReadInMPTeams(STR fileName)
 
 BOOLEAN MultiplayerTeams::ReadXMLFile(STR fileName)
 {
-	
-	HWFILE hFile;
-	UINT32 uiBytesRead;
-	UINT32 uiFSize;
-	CHAR8 *lpcBuffer;
-
-
 	CHAR8 msg[128];
-	sprintf(msg, "Loading %s", fileName);
+	std::snprintf(msg, sizeof(msg), "Loading %s", fileName ? fileName : "");
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, msg);
 
-	if(!FileExists(fileName))
-	{
-		return FALSE;
-	}
-
-	// open file
-	hFile = FileOpen(fileName, FILE_ACCESS_READ, FALSE);
-	if (!hFile)
-	{
-		// this might issue an error in the caller
-		// but we can proceed, actually
-		return FALSE;
-	}
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR*) MemAlloc(uiFSize);
-
-	// read in block
-	if (!FileRead(hFile, lpcBuffer, uiFSize, &uiBytesRead))
-	{
-		MemFree(lpcBuffer);
-		return FALSE;
-	}
-
-	FileClose(hFile);
-
-	XML_Parser parser = XML_ParserCreate(NULL);
 	struct teamsParseData parseData = { };
 	parseData.mpTeams = this;
 
-	XML_SetElementHandler(parser, &MultiplayerTeams::teamsStartElementHandler, &MultiplayerTeams::teamsEndElementHandler);
-	XML_SetCharacterDataHandler(parser, this->teamsCharacterDataHandler);
-	XML_SetUserData(parser, &parseData);
-
-
-	if (this->initialized)
-		this->TrashTeams();
-
-	if (!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
-	{
-		// Cannot load, but that's okay. There is fallback data.
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+	const LegacyXmlCallbacks callbacks{
+		&parseData, &MultiplayerTeams::teamsStartElementHandler,
+		&MultiplayerTeams::teamsEndElementHandler,
+		&MultiplayerTeams::teamsCharacterDataHandler,
+		&MultiplayerTeams::prepareTeamsDocument};
+	if (!ParseLegacyXmlFile(fileName, callbacks))
 		return FALSE;
-	}
-	else
-		this->initialized = true;
 
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
+	this->initialized = true;
 
 	return TRUE;
 }
@@ -161,6 +115,13 @@ void MultiplayerTeams::TrashTeams()
 {
 	this->teams.clear();
 	this->initialized = false;
+}
+
+void MultiplayerTeams::prepareTeamsDocument(void *userData)
+{
+	struct teamsParseData *pData = (struct teamsParseData *)userData;
+	if (pData && pData->mpTeams && pData->mpTeams->initialized)
+		pData->mpTeams->TrashTeams();
 }
 
 void XMLCALL MultiplayerTeams::teamsStartElementHandler(void *userData, const XML_Char *name, const XML_Char **atts)

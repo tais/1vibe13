@@ -56,7 +56,8 @@ private:
 	BOOLEAN ReadXMLFile(STR fileName);
 	void UseFallbackDataIfNecessary();
 	void TrashTeams();
-	
+	static void prepareTeamsDocument(void *userData);
+
 	static void XMLCALL teamsStartElementHandler(void *userData, const XML_Char *name, const XML_Char **atts);
 	static void XMLCALL teamsEndElementHandler(void *userData, const XML_Char *name);
 	static void XMLCALL teamsCharacterDataHandler(void *userData, const XML_Char *s, int len);

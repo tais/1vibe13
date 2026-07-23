@@ -23,6 +23,7 @@
 #include "Font.h"
 #include "MemMan.h"
 #include "Music Control.h"
+#include "Map Screen Helicopter.h"
 #include "Render Dirty.h"
 #include "worlddef.h"
 #include "Tile Animation.h"
@@ -58,6 +59,7 @@ extern UINT32 guiLeftButtonRepeatTimer;
 extern UINT32 guiX1ButtonRepeatTimer;
 extern BACKGROUND_SAVE gBackSaves[];
 extern VIDEO_OVERLAY gVideoOverlays[];
+extern BOOLEAN RandomSector[256];
 
 namespace RenderDirtyTestHooks
 {
@@ -515,6 +517,23 @@ int main()
 	Check(ReadInEnemyNames("tables/optional-enemy-names.xml", TRUE) &&
 		!ReadInEnemyNames("tables/required-enemy-names.xml", FALSE),
 		"localized tactical XML preserves its established missing-file policy");
+
+	const std::string altSectorsXml =
+		"<ALT_SECTORS_LIST><ROW y=\"A\">1</ROW></ALT_SECTORS_LIST>";
+	RandomSector[0] = FALSE;
+	Check(storage.writeAll("tables/alt-sectors-probe.xml",
+			std::vector<std::uint8_t>(
+				altSectorsXml.begin(), altSectorsXml.end())) &&
+		ReadInAltSectors("TABLES\\ALT-SECTORS-PROBE.XML") &&
+		RandomSector[0] == TRUE,
+		"a campaign bootstrap loader reads definitions through the bounded adapter");
+	NUMBER_OF_REFUEL_SITES = 7;
+	Check(!ReadInHeliInfo("tables/missing-heli-sites.xml") &&
+		NUMBER_OF_REFUEL_SITES == 7,
+		"missing campaign definitions do not clear a previously loaded table");
+	Check(ReadInIntroNames("tables/optional-intro-files.xml", TRUE) &&
+		!ReadInIntroNames("tables/required-intro-files.xml", FALSE),
+		"localized startup XML preserves its established missing-file policy");
 
 	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
 		"platform byte storage removal is idempotent and observable");
