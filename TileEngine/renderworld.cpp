@@ -24,6 +24,9 @@
 
 #include "Utilities.h"
 
+#include <Engine/Adapters/Legacy/LegacyRenderCommandGateway.h>
+#include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
+
 
 UINT32 guiShieldGraphic = 0;
 BOOLEAN fShieldGraphicInit = FALSE;
@@ -45,6 +48,20 @@ extern	INT16	gsVIEWPORT_END_X;
 
 UINT16	*gpZBuffer				= NULL;
 BOOLEAN gfTagAnimatedTiles		= TRUE;
+
+namespace
+{
+bool ClearTacticalDepthBuffer(INT32 bottom)
+{
+	const RenderSurfaceId depthBuffer =
+		GetLegacyRenderSurfaceAccess().surfaceFor(
+			RenderSurfaceRole::DepthBuffer);
+	return FillLegacyRenderDepth(RenderDepthFillCommand{
+		depthBuffer,
+		RenderSurfaceRegion{0, 0, SCREEN_WIDTH, bottom},
+		LAND_Z_LEVEL});
+}
+}
 
 INT16	gsCurrentGlowFrame		= 0;
 INT16	gsCurrentItemGlowFrame	= 0;
@@ -3377,19 +3394,38 @@ UINT32 cnt = 0;
 		// COPY Z BUFFER TO FRAME BUFFER
 		UINT32	uiDestPitchBYTES;
 		PIXEL		*pDestBuf;
-		UINT32	cnt;
-		INT16		zVal;
 
 		pDestBuf = (PIXEL *)LockVideoSurface(guiRENDERBUFFER, &uiDestPitchBYTES);
-
-		for ( cnt = 0; cnt < (UINT32)( SCREEN_WIDTH * SCREEN_HEIGHT ); cnt++ )
+		MutableRenderSurface depthMapping;
+		const RenderSurfaceId depthBuffer =
+			GetLegacyRenderSurfaceAccess().surfaceFor(
+				RenderSurfaceRole::DepthBuffer);
+		if (pDestBuf &&
+			MapLegacyRenderSurface(depthBuffer, depthMapping))
 		{
-			// Get Z value
-			zVal = gpZBuffer[ cnt ];
-			pDestBuf[cnt] = zVal;
+			const UINT32 width = __min(
+				static_cast<UINT32>(SCREEN_WIDTH),
+				depthMapping.description.width);
+			const UINT32 height = __min(
+				static_cast<UINT32>(SCREEN_HEIGHT),
+				depthMapping.description.height);
+			for (UINT32 y = 0; y < height; ++y)
+			{
+				const UINT16* const depthRow =
+					reinterpret_cast<const UINT16*>(
+						depthMapping.pixels +
+						y * depthMapping.pitchBytes);
+				PIXEL* const destinationRow =
+					reinterpret_cast<PIXEL*>(
+						reinterpret_cast<BYTE*>(pDestBuf) +
+						y * uiDestPitchBYTES);
+				for (UINT32 x = 0; x < width; ++x)
+					destinationRow[x] = depthRow[x];
+			}
+			(void)UnmapLegacyRenderSurface(depthBuffer);
 		}
 
-		UnLockVideoSurface(guiRENDERBUFFER);
+		if (pDestBuf) UnLockVideoSurface(guiRENDERBUFFER);
 	}
 
 }
@@ -3403,8 +3439,6 @@ void RenderStaticWorldRect(INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom,
 {
 	UINT32		uiLevelFlags[10];
 	UINT16		sLevelIDs[10];
-	UINT32		uiDestPitchBYTES;
-	UINT8		*pDestBuf=NULL;
 
 	// The per-frame logical-BodyType memo must start fresh for every merc-layer
 	// render, not only RenderDynamicWorld's: this function also renders the merc
@@ -3415,10 +3449,11 @@ void RenderStaticWorldRect(INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom,
 	// Calculate render starting parameters
 	CalcRenderParameters( sLeft, sTop, sRight, sBottom );
 
-	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-	Assert( pDestBuf);
-	memset(gpZBuffer, LAND_Z_LEVEL, uiDestPitchBYTES * gsVIEWPORT_END_Y );
-	UnLockVideoSurface( FRAME_BUFFER);
+	if (!ClearTacticalDepthBuffer(gsVIEWPORT_END_Y))
+	{
+		Assert(FALSE);
+		return;
+	}
 
 
 	// Reset layer optimizations
@@ -3514,17 +3549,16 @@ void RenderStaticWorld(  )
 {
 	UINT32	uiLevelFlags[9];
 	UINT16	sLevelIDs[9];
-	UINT32	uiDestPitchBYTES;
-	UINT8	*pDestBuf=NULL;
 
 	// Calculate render starting parameters
 	CalcRenderParameters( gsVIEWPORT_START_X, gsVIEWPORT_START_Y, gsVIEWPORT_END_X, gsVIEWPORT_END_Y );
 
 	// Clear z-buffer
-	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
-	Assert( pDestBuf);
-	memset(gpZBuffer, LAND_Z_LEVEL, uiDestPitchBYTES * gsVIEWPORT_END_Y );
-	UnLockVideoSurface( FRAME_BUFFER);
+	if (!ClearTacticalDepthBuffer(gsVIEWPORT_END_Y))
+	{
+		Assert(FALSE);
+		return;
+	}
 
 	FreeBackgroundRectType(BGND_FLAG_ANIMATED);
 	InvalidateBackgroundRects();

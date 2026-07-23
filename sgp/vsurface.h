@@ -21,6 +21,7 @@
 #define BACKBUFFER											 0xFFFFFFF1
 #define FRAME_BUFFER							0xFFFFFFF2
 #define MOUSE_BUFFER							0xFFFFFFF3
+#define DEPTH_BUFFER							0xFFFFFFF4
 
 //
 // Defines for blitting

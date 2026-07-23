@@ -576,6 +576,13 @@ public:
 		nestedShadeAccepted = ShadeLegacyRenderSurface(command);
 		return true;
 	}
+	bool fillDepth(const RenderDepthFillCommand& command) override
+	{
+		++depthFills;
+		lastDepthFillCommand = command;
+		nestedDepthFillAccepted = FillLegacyRenderDepth(command);
+		return true;
+	}
 	bool drawImage(const RenderImageDrawCommand& command) override
 	{
 		++images;
@@ -597,18 +604,21 @@ public:
 	int copies = 0;
 	int stretches = 0;
 	int shades = 0;
+	int depthFills = 0;
 	int images = 0;
 	int imageOutlines = 0;
 	bool nestedAccepted = true;
 	bool nestedCopyAccepted = true;
 	bool nestedStretchAccepted = true;
 	bool nestedShadeAccepted = true;
+	bool nestedDepthFillAccepted = true;
 	bool nestedImageAccepted = true;
 	bool nestedImageOutlineAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
 	RenderSurfaceCopyCommand lastCopyCommand;
 	RenderSurfaceStretchCommand lastStretchCommand;
 	RenderSurfaceShadeCommand lastShadeCommand;
+	RenderDepthFillCommand lastDepthFillCommand;
 	RenderImageDrawCommand lastImageCommand;
 	RenderImageOutlineCommand lastImageOutlineCommand;
 };
@@ -631,6 +641,10 @@ public:
 	bool shadeSurface(const RenderSurfaceShadeCommand&) override
 	{
 		throw std::runtime_error("render shade command probe");
+	}
+	bool fillDepth(const RenderDepthFillCommand&) override
+	{
+		throw std::runtime_error("render depth-fill command probe");
 	}
 	bool drawImage(const RenderImageDrawCommand&) override
 	{
@@ -790,6 +804,8 @@ int main()
 		RenderSurfaceCopyMode::Opaque, {}};
 	const RenderSurfaceShadeCommand expectedShadeCommand{
 		71, RenderSurfaceRegion{1, 2, 5, 6}, 48, 100};
+	const RenderDepthFillCommand expectedDepthFillCommand{
+		73, RenderSurfaceRegion{-2, 3, 9, 11}, 0x3456};
 	const RenderImageDrawCommand expectedImageCommand{
 		71, 88, 3, RenderSurfacePoint{-4, 9},
 		RenderSurfaceRegion{1, 2, 30, 40},
@@ -803,6 +819,7 @@ int main()
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
+		FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		recordedRenderCommands.commands() ==
@@ -813,6 +830,8 @@ int main()
 			std::vector<RenderSurfaceStretchCommand>{expectedStretchCommand} &&
 		recordedRenderCommands.shadeCommands() ==
 			std::vector<RenderSurfaceShadeCommand>{expectedShadeCommand} &&
+		recordedRenderCommands.depthFillCommands() ==
+			std::vector<RenderDepthFillCommand>{expectedDepthFillCommand} &&
 		recordedRenderCommands.imageCommands() ==
 			std::vector<RenderImageDrawCommand>{expectedImageCommand} &&
 		recordedRenderCommands.imageOutlineCommands() ==
@@ -826,12 +845,14 @@ int main()
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
+		FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		reentrantRenderCommands.fills == 1 &&
 		reentrantRenderCommands.copies == 1 &&
 		reentrantRenderCommands.stretches == 1 &&
 		reentrantRenderCommands.shades == 1 &&
+		reentrantRenderCommands.depthFills == 1 &&
 		reentrantRenderCommands.images == 1 &&
 		reentrantRenderCommands.imageOutlines == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
@@ -839,6 +860,8 @@ int main()
 		reentrantRenderCommands.lastStretchCommand ==
 			expectedStretchCommand &&
 		reentrantRenderCommands.lastShadeCommand == expectedShadeCommand &&
+		reentrantRenderCommands.lastDepthFillCommand ==
+			expectedDepthFillCommand &&
 		reentrantRenderCommands.lastImageCommand == expectedImageCommand &&
 		reentrantRenderCommands.lastImageOutlineCommand ==
 			expectedImageOutlineCommand &&
@@ -846,6 +869,7 @@ int main()
 		!reentrantRenderCommands.nestedCopyAccepted &&
 		!reentrantRenderCommands.nestedStretchAccepted &&
 		!reentrantRenderCommands.nestedShadeAccepted &&
+		!reentrantRenderCommands.nestedDepthFillAccepted &&
 		!reentrantRenderCommands.nestedImageAccepted &&
 		!reentrantRenderCommands.nestedImageOutlineAccepted,
 		"legacy render command gateway suppresses recursive drawing");
@@ -856,6 +880,7 @@ int main()
 		!CopyLegacyRenderSurface(expectedCopyCommand) &&
 		!StretchLegacyRenderSurface(expectedStretchCommand) &&
 		!ShadeLegacyRenderSurface(expectedShadeCommand) &&
+		!FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		!DrawLegacyRenderImage(expectedImageCommand) &&
 		!DrawLegacyRenderImageOutline(expectedImageOutlineCommand),
 		"legacy render command gateway contains adapter exceptions");
@@ -1430,9 +1455,57 @@ int main()
 	Check(zBuffer != nullptr && SurfaceData::GetSurfaceID(
 		reinterpret_cast<BYTE*>(zBuffer)) != 0,
 		"Z-buffer allocation registers its backing data");
+	RenderSurfaceDescription depthDescription;
+	MutableRenderSurface depthMapping;
+	Check(GetPlatformRenderSurfaceAccess().surfaceFor(
+			RenderSurfaceRole::DepthBuffer) == DEPTH_BUFFER &&
+		GetPlatformRenderSurfaceAccess().describe(
+			DEPTH_BUFFER, depthDescription) &&
+		depthDescription ==
+			RenderSurfaceDescription{
+				4, 4, RenderPixelFormat::Depth16, 16} &&
+		GetPlatformRenderSurfaceAccess().map(
+			DEPTH_BUFFER, depthMapping) &&
+		depthMapping.pixels ==
+			reinterpret_cast<std::byte*>(zBuffer) &&
+		depthMapping.pitchBytes == 16 &&
+		depthMapping.sizeBytes == 64,
+		"platform render surfaces expose typed mapped depth storage");
+	if (depthMapping)
+		std::memset(depthMapping.pixels, 0x77, depthMapping.sizeBytes);
+	Check(!ShutdownZBuffer(zBuffer),
+		"Z-buffer shutdown cannot invalidate a live engine mapping");
+	GetPlatformRenderSurfaceAccess().unmap(DEPTH_BUFFER);
+	Check(GetPlatformRenderCommands().fillDepth(RenderDepthFillCommand{
+			DEPTH_BUFFER, RenderSurfaceRegion{1, 1, 3, 3}, 0x1234}),
+		"platform depth fills execute through the mapped engine renderer");
+	depthMapping = MutableRenderSurface{};
+	bool depthPixelsMatch = GetPlatformRenderSurfaceAccess().map(
+		DEPTH_BUFFER, depthMapping);
+	for (std::uint32_t y = 0; depthPixelsMatch && y < 4; ++y)
+	{
+		const std::uint16_t* const row =
+			reinterpret_cast<const std::uint16_t*>(
+				depthMapping.pixels + y * depthMapping.pitchBytes);
+		for (std::uint32_t x = 0; x < 8; ++x)
+		{
+			const std::uint16_t expected =
+				y >= 1 && y < 3 && x >= 1 && x < 3 ?
+					0x1234 : 0x7777;
+			if (row[x] != expected) depthPixelsMatch = false;
+		}
+	}
+	if (depthMapping)
+		GetPlatformRenderSurfaceAccess().unmap(DEPTH_BUFFER);
+	Check(depthPixelsMatch,
+		"platform depth fills clip logical pixels without touching row padding");
 	Check(ShutdownZBuffer(zBuffer) && SurfaceData::GetSurfaceID(
-		reinterpret_cast<BYTE*>(zBuffer)) == 0,
-		"Z-buffer shutdown removes its pointer-width registry entry");
+			reinterpret_cast<BYTE*>(zBuffer)) == 0 &&
+		!GetPlatformRenderSurfaceAccess().describe(
+			DEPTH_BUFFER, depthDescription) &&
+		!GetPlatformRenderSurfaceAccess().map(
+			DEPTH_BUFFER, depthMapping),
+		"Z-buffer shutdown removes its registry entry and engine surface");
 	Check(TileSurfaceTestHooks::CompanionPath(
 		"TILESETS\\1.13\\foo.bar.sti", "JSD") ==
 		"TILESETS\\1.13\\foo.bar.JSD" &&

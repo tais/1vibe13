@@ -123,8 +123,13 @@ the engine must not contain SDL types in its public domain model.
   engine values, while the established numeric SGP handles remain compatibility
   adapters. `RenderCommandSink` is the higher-level draw seam; live rectangle
   fills and numeric surface copies cross it alongside numeric surface
-  stretching, rectangular shading, managed video-object draws, and
-  outline-aware image effects.
+  stretching, rectangular shading, typed depth fills, managed video-object
+  draws, and outline-aware image effects. The tactical Z-buffer is exposed as
+  the standard `DepthBuffer` role with `Depth16` storage. Full-world redraws
+  clear it through `RenderDepthFillCommand`, so they no longer lock an unrelated
+  colour surface merely to rediscover the row pitch. Depth remains physically
+  compatible with the established padded SGP allocation and is not accepted by
+  colour fill, copy, stretch, or shade commands.
   `RenderImageDrawCommand` carries only an opaque stable image identity, frame,
   destination, anchor, explicit clipping region, and composite mode. Numeric
   `BltVideoObjectFromIndex` calls and direct `BltVideoObject` calls whose object
@@ -140,7 +145,8 @@ the engine must not contain SDL types in its public domain model.
   exposing process pointers as engine resource IDs. Copy and nearest-neighbour
   stretch commands cover clipped
   opaque and RGB-colour-key operations, including defined same-surface overlap;
-  shade commands preserve alpha and carry their factor explicitly. Legacy
+  shade commands preserve alpha and carry their factor explicitly. Depth fills
+  clip to logical pixels without writing row padding. Legacy
   packed colours, mutable shade percentages, and RGB565 transparency tokens are
   decoded only in compatibility code. Legacy image tiling is now a bounded,
   clipped compatibility operation instead of a stub. Mapping is serialized with

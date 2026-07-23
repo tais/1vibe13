@@ -162,6 +162,21 @@ bool ShadeLegacyRenderSurface(
 	}
 }
 
+bool FillLegacyRenderDepth(
+	const RenderDepthFillCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().fillDepth(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 bool DrawLegacyRenderImage(
 	const RenderImageDrawCommand& command) noexcept
 {

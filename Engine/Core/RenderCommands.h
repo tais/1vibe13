@@ -178,6 +178,32 @@ inline bool operator!=(
 	return !(left == right);
 }
 
+// Fills a half-open region of a Depth16 surface with one unsigned depth value.
+// Padding bytes are never written. Depth remains separate from colour commands
+// so a host cannot accidentally reinterpret ordering data as RGB565 pixels.
+struct RenderDepthFillCommand
+{
+	RenderSurfaceId surface = 0;
+	RenderSurfaceRegion region;
+	std::uint16_t depth = 0;
+};
+
+inline bool operator==(
+	const RenderDepthFillCommand& left,
+	const RenderDepthFillCommand& right)
+{
+	return left.surface == right.surface &&
+		left.region == right.region &&
+		left.depth == right.depth;
+}
+
+inline bool operator!=(
+	const RenderDepthFillCommand& left,
+	const RenderDepthFillCommand& right)
+{
+	return !(left == right);
+}
+
 // Opaque image identity supplied by the host's render-resource adapter. Zero
 // is reserved as "no image". Unlike a native pointer, this value can be
 // recorded, inspected by headless hosts, and forwarded across an engine
@@ -284,6 +310,7 @@ public:
 		return false;
 	}
 	virtual bool shadeSurface(const RenderSurfaceShadeCommand&) { return false; }
+	virtual bool fillDepth(const RenderDepthFillCommand&) { return false; }
 	virtual bool drawImage(const RenderImageDrawCommand&) { return false; }
 	virtual bool drawImageOutline(const RenderImageOutlineCommand&)
 	{
@@ -301,6 +328,7 @@ public:
 		return false;
 	}
 	bool shadeSurface(const RenderSurfaceShadeCommand&) override { return false; }
+	bool fillDepth(const RenderDepthFillCommand&) override { return false; }
 	bool drawImage(const RenderImageDrawCommand&) override { return false; }
 	bool drawImageOutline(const RenderImageOutlineCommand&) override
 	{
@@ -340,6 +368,12 @@ public:
 		return accepting_;
 	}
 
+	bool fillDepth(const RenderDepthFillCommand& command) override
+	{
+		depthFillCommands_.push_back(command);
+		return accepting_;
+	}
+
 	bool drawImage(const RenderImageDrawCommand& command) override
 	{
 		imageCommands_.push_back(command);
@@ -368,6 +402,10 @@ public:
 	{
 		return shadeCommands_;
 	}
+	const std::vector<RenderDepthFillCommand>& depthFillCommands() const
+	{
+		return depthFillCommands_;
+	}
 	const std::vector<RenderImageDrawCommand>& imageCommands() const
 	{
 		return imageCommands_;
@@ -383,6 +421,7 @@ public:
 		copyCommands_.clear();
 		stretchCommands_.clear();
 		shadeCommands_.clear();
+		depthFillCommands_.clear();
 		imageCommands_.clear();
 		imageOutlineCommands_.clear();
 	}
@@ -392,6 +431,7 @@ private:
 	std::vector<RenderSurfaceCopyCommand> copyCommands_;
 	std::vector<RenderSurfaceStretchCommand> stretchCommands_;
 	std::vector<RenderSurfaceShadeCommand> shadeCommands_;
+	std::vector<RenderDepthFillCommand> depthFillCommands_;
 	std::vector<RenderImageDrawCommand> imageCommands_;
 	std::vector<RenderImageOutlineCommand> imageOutlineCommands_;
 	bool accepting_ = true;
@@ -408,6 +448,7 @@ public:
 	bool copySurface(const RenderSurfaceCopyCommand& command) override;
 	bool stretchSurface(const RenderSurfaceStretchCommand& command) override;
 	bool shadeSurface(const RenderSurfaceShadeCommand& command) override;
+	bool fillDepth(const RenderDepthFillCommand& command) override;
 
 	RenderSurfaceAccess& surfaces() const;
 

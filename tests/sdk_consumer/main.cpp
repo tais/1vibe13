@@ -187,7 +187,11 @@ int main()
 		!renderSurfaces.defineSurface(
 			2, RenderSurfaceDescription{
 				2, 1, RenderPixelFormat::Argb8888, 32}) ||
-		!renderSurfaces.setSurfaceFor(RenderSurfaceRole::FrameBuffer, 1))
+		!renderSurfaces.defineSurface(
+			3, RenderSurfaceDescription{
+				3, 2, RenderPixelFormat::Depth16, 16}) ||
+		!renderSurfaces.setSurfaceFor(RenderSurfaceRole::FrameBuffer, 1) ||
+		!renderSurfaces.setSurfaceFor(RenderSurfaceRole::DepthBuffer, 3))
 		return 48;
 	MutableRenderSurface externalSurface;
 	if (!renderSurfaces.map(1, externalSurface) ||
@@ -252,6 +256,35 @@ int main()
 		renderSurfaces.mappingCount(1) != 0 ||
 		renderSurfaces.mappingCount(2) != 0)
 		return 48;
+	const RenderDepthFillCommand externalDepthCommand{
+		3, RenderSurfaceRegion{1, -1, 4, 1}, 0x4321};
+	if (!renderCommands.fillDepth(externalDepthCommand) ||
+		!renderCommands.fillDepth(RenderDepthFillCommand{
+			3, RenderSurfaceRegion{9, 9, 10, 10}, 1}) ||
+		renderCommands.fillSurface(RenderSurfaceFillCommand{
+			3, RenderSurfaceRegion{0, 0, 3, 2}, {}}) ||
+		renderSurfaces.surfaceFor(RenderSurfaceRole::DepthBuffer) != 3 ||
+		!renderSurfaces.map(3, externalSurface))
+		return 48;
+	bool externalDepthMatches = true;
+	for (std::uint32_t y = 0; externalDepthMatches && y < 2; ++y)
+	{
+		for (std::uint32_t x = 0; x < 3; ++x)
+		{
+			std::uint16_t depth = 0;
+			std::memcpy(
+				&depth,
+				externalSurface.pixels + y * externalSurface.pitchBytes +
+					x * sizeof(depth),
+				sizeof(depth));
+			const std::uint16_t expected =
+				y == 0 && x >= 1 ? 0x4321 : 0;
+			if (depth != expected) externalDepthMatches = false;
+		}
+	}
+	renderSurfaces.unmap(3);
+	if (!externalDepthMatches || renderSurfaces.mappingCount(3) != 0)
+		return 48;
 	RecordingRenderCommandSink recordedImageCommands;
 	const RenderImageDrawCommand externalImageCommand{
 		1, 44, 3, RenderSurfacePoint{-2, 5},
@@ -270,6 +303,10 @@ int main()
 		recordedImageCommands.imageOutlineCommands() !=
 			std::vector<RenderImageOutlineCommand>{
 				externalOutlineCommand})
+		return 48;
+	if (!recordedImageCommands.fillDepth(externalDepthCommand) ||
+		recordedImageCommands.depthFillCommands() !=
+			std::vector<RenderDepthFillCommand>{externalDepthCommand})
 		return 48;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};

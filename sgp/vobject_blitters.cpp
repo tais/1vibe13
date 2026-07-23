@@ -12,8 +12,25 @@
 	#include "pixfmt.h"   // PIXEL + PixShade/PixIntensity (Phase 6b)
 	#include "sgp_logger.h"
 
+#include <Engine/Adapters/Legacy/PlatformDepthBufferBackend.h>
+
+#include <limits>
 #include <map>
 std::map<SurfaceData::tID, ClipRectangle> g_SurfaceRectangle;
+
+namespace
+{
+struct DepthBufferRecord
+{
+	UINT32 width = 0;
+	UINT32 height = 0;
+	UINT32 pitchBytes = 0;
+	std::size_t mappingCount = 0;
+};
+
+std::map<UINT16*, DepthBufferRecord> gDepthBuffers;
+UINT16* gActiveDepthBuffer = nullptr;
+}
 
 bool SetSurfaceClipRectangle(SurfaceData::tID surfaceID, SGPRect const& rect)
 {
@@ -939,7 +956,6 @@ ETRLEObject *pTrav;
 **********************************************************************************************/
 UINT16 *InitZBuffer(UINT32 uiPitch, UINT32 uiHeight)
 {
-UINT16 *pBuffer;
 	/*
 	*	ClippingRect was declared first with SCREEN_WIDTH and HEIGHT but now they are not
 	*	constant so i will initialize it here
@@ -952,14 +968,57 @@ UINT16 *pBuffer;
 	ClippingRect.iRight		= SCREEN_WIDTH;
 	ClippingRect.iBottom	= SCREEN_HEIGHT;
 
-	if((pBuffer = (UINT16 *) MemAlloc(uiPitch*uiHeight))==NULL)
-		return(NULL);
-	BYTE* data = (BYTE*)pBuffer;
-	SurfaceData::SetApplicationData(data);
-	SetSurfaceClipRectangle(SurfaceData::GetSurfaceID(data), ClippingRect);
+	if (uiPitch == 0 || uiHeight == 0 ||
+		uiPitch % sizeof(PIXEL) != 0 ||
+		uiHeight > std::numeric_limits<std::size_t>::max() / uiPitch)
+		return NULL;
+	if (gActiveDepthBuffer)
+	{
+		const auto active = gDepthBuffers.find(gActiveDepthBuffer);
+		if (active != gDepthBuffers.end() &&
+			active->second.mappingCount != 0)
+			return NULL;
+	}
 
-	memset(pBuffer, 0, (uiPitch*uiHeight));
-	return(pBuffer);
+	const std::size_t allocationBytes =
+		static_cast<std::size_t>(uiPitch) * uiHeight;
+	UINT16* const pBuffer =
+		static_cast<UINT16*>(MemAlloc(allocationBytes));
+	if (!pBuffer) return NULL;
+
+	BYTE* const data = reinterpret_cast<BYTE*>(pBuffer);
+	try
+	{
+		SurfaceData::SetApplicationData(data);
+		if (!SetSurfaceClipRectangle(
+				SurfaceData::GetSurfaceID(data), ClippingRect))
+		{
+			SurfaceData::ReleaseApplicationData(data);
+			MemFree(pBuffer);
+			return NULL;
+		}
+		const auto inserted = gDepthBuffers.emplace(
+			pBuffer,
+			DepthBufferRecord{
+				uiPitch / static_cast<UINT32>(sizeof(PIXEL)),
+				uiHeight, uiPitch, 0});
+		if (!inserted.second)
+		{
+			SurfaceData::ReleaseApplicationData(data);
+			MemFree(pBuffer);
+			return NULL;
+		}
+	}
+	catch (...)
+	{
+		SurfaceData::ReleaseApplicationData(data);
+		MemFree(pBuffer);
+		return NULL;
+	}
+
+	gActiveDepthBuffer = pBuffer;
+	memset(pBuffer, 0, allocationBytes);
+	return pBuffer;
 }
 
 /**********************************************************************************************
@@ -970,9 +1029,56 @@ UINT16 *pBuffer;
 **********************************************************************************************/
 BOOLEAN ShutdownZBuffer(UINT16 *pBuffer)
 {
-	SurfaceData::ReleaseApplicationData((BYTE*)pBuffer);
+	const auto found = gDepthBuffers.find(pBuffer);
+	if (found == gDepthBuffers.end() ||
+		found->second.mappingCount != 0)
+		return FALSE;
+	const bool wasActive = gActiveDepthBuffer == pBuffer;
+	gDepthBuffers.erase(found);
+	if (wasActive)
+	{
+		gActiveDepthBuffer = gDepthBuffers.empty() ?
+			nullptr : gDepthBuffers.rbegin()->first;
+	}
+	SurfaceData::ReleaseApplicationData(
+		reinterpret_cast<BYTE*>(pBuffer));
 	MemFree(pBuffer);
-	return(TRUE);
+	return TRUE;
+}
+
+bool PlatformDepthBufferDescribe(
+	std::uint32_t& width,
+	std::uint32_t& height,
+	std::uint32_t& pitchBytes)
+{
+	const auto found = gDepthBuffers.find(gActiveDepthBuffer);
+	if (found == gDepthBuffers.end()) return false;
+	width = found->second.width;
+	height = found->second.height;
+	pitchBytes = found->second.pitchBytes;
+	return true;
+}
+
+std::uint8_t* PlatformDepthBufferMap(
+	std::uint32_t& pitchBytes)
+{
+	const auto found = gDepthBuffers.find(gActiveDepthBuffer);
+	if (found == gDepthBuffers.end() ||
+		found->second.mappingCount ==
+			std::numeric_limits<std::size_t>::max())
+		return nullptr;
+	++found->second.mappingCount;
+	pitchBytes = found->second.pitchBytes;
+	return reinterpret_cast<std::uint8_t*>(gActiveDepthBuffer);
+}
+
+void PlatformDepthBufferUnmap()
+{
+	const auto found = gDepthBuffers.find(gActiveDepthBuffer);
+	if (found == gDepthBuffers.end() ||
+		found->second.mappingCount == 0)
+		return;
+	--found->second.mappingCount;
 }
 
 

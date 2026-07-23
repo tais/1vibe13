@@ -94,6 +94,7 @@ endforeach()
 # not. This makes a new raw frame-output dependency an explicit architecture
 # change instead of an incidental include.
 set(platform_video_adapter_consumers
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformDepthBufferBackend.h"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoBackend.h"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoObjectBackend.h"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoSurfaceBackend.h"
@@ -109,7 +110,7 @@ foreach(adapter_file IN LISTS legacy_adapter_files)
   endif()
   file(READ "${adapter_file}" contents)
   string(REGEX MATCH
-    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw|ObjectOutline)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "Platform(DepthBuffer|Video(Surface|Object)?)Backend\\.h|(^|[^A-Za-z0-9_])Platform(DepthBuffer(Describe|Map|Unmap)|Video(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw|ObjectOutline)[A-Za-z0-9_]*)[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
@@ -300,7 +301,8 @@ endforeach()
 set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/sdl_video.cpp"
   "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp"
-  "${SOURCE_ROOT}/sgp/vobject.cpp")
+  "${SOURCE_ROOT}/sgp/vobject.cpp"
+  "${SOURCE_ROOT}/sgp/vobject_blitters.cpp")
 foreach(source_file IN LISTS world_state_files)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
@@ -338,6 +340,13 @@ foreach(source_file IN LISTS world_state_files)
     message(FATAL_ERROR
       "Production code implements the legacy low-intensity surface-shade entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
   endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])memset[ \t\r\n]*\\([ \t\r\n]*gpZBuffer"
+    direct_depth_buffer_clear "${contents}")
+  if(direct_depth_buffer_clear)
+    message(FATAL_ERROR
+      "Production code clears gpZBuffer directly in ${source_file}; use RenderDepthFillCommand through the renderer gateway")
+  endif()
   if(NOT "${source_file}" STREQUAL "${SOURCE_ROOT}/sgp/vobject.cpp")
     string(REGEX MATCH
       "BOOLEAN[ \t\r\n]+BltVideoObject[A-Za-z0-9_]*[ \t\r\n]*\\("
@@ -354,7 +363,7 @@ foreach(source_file IN LISTS world_state_files)
     continue()
   endif()
   string(REGEX MATCH
-    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw|ObjectOutline)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "Platform(DepthBuffer|Video(Surface|Object)?)Backend\\.h|(^|[^A-Za-z0-9_])Platform(DepthBuffer(Describe|Map|Unmap)|Video(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw|ObjectOutline)[A-Za-z0-9_]*)[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR

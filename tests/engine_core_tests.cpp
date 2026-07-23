@@ -1919,6 +1919,10 @@ int main()
 		drawSurfaces.defineSurface(
 			53, RenderSurfaceDescription{
 				2, 1, RenderPixelFormat::Indexed8, 8}) &&
+		drawSurfaces.defineSurface(
+			61, RenderSurfaceDescription{
+				4, 3, RenderPixelFormat::Depth16, 16}) &&
+		drawSurfaces.setSurfaceFor(RenderSurfaceRole::DepthBuffer, 61) &&
 		mappedCommands.fillSurface(fillCommand) &&
 		mappedCommands.fillSurface(RenderSurfaceFillCommand{
 			51, RenderSurfaceRegion{20, 20, 30, 30},
@@ -1930,11 +1934,15 @@ int main()
 			53, RenderSurfaceRegion{0, 0, 2, 1},
 			RenderColor{1, 2, 3, 4}}) &&
 		!mappedCommands.fillSurface(RenderSurfaceFillCommand{
+			61, RenderSurfaceRegion{0, 0, 4, 3},
+			RenderColor{1, 2, 3, 4}}) &&
+		!mappedCommands.fillSurface(RenderSurfaceFillCommand{
 			99, RenderSurfaceRegion{0, 0, 1, 1},
 			RenderColor{1, 2, 3, 4}}) &&
 		drawSurfaces.mappingCount(51) == 0 &&
 		drawSurfaces.mappingCount(52) == 0 &&
-		drawSurfaces.mappingCount(53) == 0,
+		drawSurfaces.mappingCount(53) == 0 &&
+		drawSurfaces.mappingCount(61) == 0,
 		"mapped render commands clip, normalize, and balance true-colour surfaces");
 	MutableRenderSurface argbPixels;
 	MutableRenderSurface rgb565Pixels;
@@ -1968,6 +1976,45 @@ int main()
 		drawSurfaces.mappingCount(51) == 0 &&
 		drawSurfaces.mappingCount(52) == 0,
 		"mapped render commands write exact ARGB8888 and RGB565 pixels");
+
+	const RenderDepthFillCommand depthFillCommand{
+		61, RenderSurfaceRegion{-1, 1, 3, 4}, 0x1234};
+	check(drawSurfaces.surfaceFor(RenderSurfaceRole::DepthBuffer) == 61 &&
+		mappedCommands.fillDepth(depthFillCommand) &&
+		mappedCommands.fillDepth(RenderDepthFillCommand{
+			61, RenderSurfaceRegion{20, 20, 30, 30}, 0xffff}) &&
+		!mappedCommands.fillDepth(RenderDepthFillCommand{
+			51, RenderSurfaceRegion{0, 0, 4, 3}, 1}) &&
+		!mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			61, 61, RenderSurfaceRegion{0, 0, 4, 3},
+			RenderSurfacePoint{}, RenderSurfaceCopyMode::Opaque, {}}) &&
+		!mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			61, 61, RenderSurfaceRegion{0, 0, 4, 3},
+			RenderSurfaceRegion{0, 0, 4, 3},
+			RenderSurfaceCopyMode::Opaque, {}}) &&
+		!mappedCommands.shadeSurface(RenderSurfaceShadeCommand{
+			61, RenderSurfaceRegion{0, 0, 4, 3}, 1, 2}),
+		"depth fills use a distinct command and colour operations reject depth storage");
+	MutableRenderSurface depthPixels;
+	bool depthFillMatches = drawSurfaces.map(61, depthPixels);
+	for (std::uint32_t y = 0; depthFillMatches && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint16_t depth = 0;
+			std::memcpy(
+				&depth,
+				depthPixels.pixels + y * depthPixels.pitchBytes +
+					x * sizeof(depth),
+				sizeof(depth));
+			const std::uint16_t expected =
+				y >= 1 && x < 3 ? 0x1234 : 0;
+			if (depth != expected) depthFillMatches = false;
+		}
+	}
+	if (depthPixels) drawSurfaces.unmap(61);
+	check(depthFillMatches && drawSurfaces.mappingCount(61) == 0,
+		"depth fills clip exactly and release their mapped storage");
 
 	const RenderSurfaceDescription copyDescription{
 		4, 3, RenderPixelFormat::Argb8888, 32};
@@ -2483,6 +2530,7 @@ int main()
 		recordedCommands.copySurface(clippedCopy) &&
 		recordedCommands.stretchSurface(stretchCommand) &&
 		recordedCommands.shadeSurface(shadeCommand) &&
+		recordedCommands.fillDepth(depthFillCommand) &&
 		recordedCommands.drawImage(imageCommand) &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.commands() ==
@@ -2493,6 +2541,8 @@ int main()
 			std::vector<RenderSurfaceStretchCommand>{stretchCommand} &&
 		recordedCommands.shadeCommands() ==
 			std::vector<RenderSurfaceShadeCommand>{shadeCommand} &&
+		recordedCommands.depthFillCommands() ==
+			std::vector<RenderDepthFillCommand>{depthFillCommand} &&
 		recordedCommands.imageCommands() ==
 			std::vector<RenderImageDrawCommand>{imageCommand} &&
 		recordedCommands.imageOutlineCommands() ==
@@ -2503,6 +2553,7 @@ int main()
 		recordedCommands.copyCommands().empty() &&
 		recordedCommands.stretchCommands().empty() &&
 		recordedCommands.shadeCommands().empty() &&
+		recordedCommands.depthFillCommands().empty() &&
 		recordedCommands.imageCommands().empty() &&
 		recordedCommands.imageOutlineCommands().empty(),
 		"recorded render command streams clear as one deterministic frame");

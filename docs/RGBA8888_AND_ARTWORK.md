@@ -47,7 +47,11 @@ Re-typing all of those was not viable. Instead:
 entries directly, so indexed sprites are full-colour-correct without per-write
 conversion.
 
-The Z-buffer stays **16-bit** throughout (it stores depth, not colour).
+The Z-buffer stays **16-bit** throughout (it stores depth, not colour). It is
+now also visible through the engine renderer boundary as a typed `Depth16`
+surface. Its rows deliberately retain the colour framebuffer pitch for legacy
+blitter compatibility, so `pitchBytes` can exceed `width * 2`; engine depth
+fills and the Z-buffer debug view walk that stride and ignore row padding.
 
 #### `Get16BPPColor` now returns true ARGB8888 (loose end closed in Phase 6c)
 

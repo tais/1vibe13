@@ -317,7 +317,10 @@ bounded deterministic surfaces for headless tools and tests. Existing SGP
 numeric handles remain accepted by the compatibility gateway, but new package
 code should treat `RenderSurfaceId` values as opaque and obtain standard targets
 through `surfaceFor`. This is a storage/access contract; higher-level portable
-draw commands layer above it rather than exposing SDL objects.
+draw commands layer above it rather than exposing SDL objects. `DepthBuffer` is
+a standard role with `Depth16` storage. A depth mapping may have a pitch larger
+than `width * 2`; consumers must advance rows by `pitchBytes` and never treat
+padding as logical depth pixels.
 
 `EngineServices::renderCommands` is that higher-level boundary.
 `RenderSurfaceFillCommand` uses an opaque surface ID, a half-open region, and
@@ -328,6 +331,9 @@ portable nearest-neighbour scaling; clipping retains the original sampling
 phase, out-of-range source texels are skipped, and scaled same-surface work
 snapshots its bounded source before writing. `RenderSurfaceShadeCommand`
 multiplies RGB by an explicit rational fraction while preserving ARGB alpha.
+`RenderDepthFillCommand` fills a clipped `Depth16` region with one unsigned
+ordering value and never touches row padding. It is intentionally separate from
+RGB565 colour work: colour fill, copy, stretch, and shade reject depth surfaces.
 `RenderImageDrawCommand` identifies a host-owned image and frame with opaque
 stable values, plus a destination anchor and explicit opaque,
 source-transparent, or shadow composite mode. Its half-open clipping region is
@@ -343,15 +349,16 @@ The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
 map. Image commands require a host resource adapter, so the generic mapped sink
-rejects them while `RecordingRenderCommandSink` captures all six command types
+rejects them while `RecordingRenderCommandSink` captures all seven command types
 without a renderer. The compiled host routes existing rectangle fills, numeric
 `BltVideoSurface`/`BltStretchVideoSurface`, surface-shadow calls, and stable
-managed video-object draws and outlines through this service. Its default image
-adapter continues to execute the exact ETRLE/palette blitters. Direct pointer-owned
-images remain on the compatibility path until their owner publishes a stable
-resource identity. Legacy packed colours, mutable shade percentages, and RGB565
-transparency tokens are translated only in compatibility code; package code
-uses explicit engine values.
+managed video-object draws and outlines through this service. Tactical
+full-world redraws also clear the live Z-buffer through the depth-fill command.
+Its default image adapter continues to execute the exact ETRLE/palette blitters.
+Direct pointer-owned images remain on the compatibility path until their owner
+publishes a stable resource identity. Legacy packed colours, mutable shade
+percentages, and RGB565 transparency tokens are translated only in
+compatibility code; package code uses explicit engine values.
 
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each
