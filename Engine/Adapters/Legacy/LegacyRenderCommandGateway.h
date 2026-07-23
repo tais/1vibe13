@@ -11,5 +11,7 @@ RenderCommandSink& GetLegacyRenderCommands() noexcept;
 
 bool FillLegacyRenderSurface(
 	const RenderSurfaceFillCommand& command) noexcept;
+bool CopyLegacyRenderSurface(
+	const RenderSurfaceCopyCommand& command) noexcept;
 
 #endif

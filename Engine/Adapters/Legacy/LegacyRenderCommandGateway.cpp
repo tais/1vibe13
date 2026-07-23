@@ -96,6 +96,21 @@ bool FillLegacyRenderSurface(
 	}
 }
 
+bool CopyLegacyRenderSurface(
+	const RenderSurfaceCopyCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().copySurface(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 BOOLEAN ColorFillVideoSurfaceArea(
 	UINT32 surface,
 	INT32 left,
@@ -112,4 +127,98 @@ BOOLEAN ColorFillVideoSurfaceArea(
 		surface,
 		RenderSurfaceRegion{left, top, right, bottom},
 		DecodeLegacyColor(color)}) ? TRUE : FALSE;
+}
+
+BOOLEAN BltVideoSurface(
+	UINT32 destination,
+	UINT32 source,
+	UINT16 sourceRegionIndex,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT32 flags,
+	blt_vs_fx* effects)
+{
+	HVSURFACE destinationSurface = nullptr;
+	HVSURFACE sourceSurface = nullptr;
+	if (!GetVideoSurface(&destinationSurface, destination) ||
+		!destinationSurface ||
+		!GetVideoSurface(&sourceSurface, source) ||
+		!sourceSurface ||
+		destinationSurface->ubBitDepth != sourceSurface->ubBitDepth)
+		return FALSE;
+
+	if (flags & VS_BLT_COLORFILLRECT)
+	{
+		if (!effects || destinationSurface->ubBitDepth != 16) return FALSE;
+		return FillLegacyRenderSurface(RenderSurfaceFillCommand{
+			destination,
+			RenderSurfaceRegion{
+				effects->FillRect.iLeft,
+				effects->FillRect.iTop,
+				effects->FillRect.iRight,
+				effects->FillRect.iBottom},
+			DecodeLegacyColor(effects->ColorFill)}) ? TRUE : FALSE;
+	}
+	if (flags & VS_BLT_COLORFILL)
+	{
+		if (!effects || destinationSurface->ubBitDepth != 16) return FALSE;
+		return FillLegacyRenderSurface(RenderSurfaceFillCommand{
+			destination,
+			RenderSurfaceRegion{
+				0, 0,
+				static_cast<std::int32_t>(destinationSurface->usWidth),
+				static_cast<std::int32_t>(destinationSurface->usHeight)},
+			DecodeLegacyColor(effects->ColorFill)}) ? TRUE : FALSE;
+	}
+
+	RenderSurfaceRegion sourceRegion;
+	if (flags & VS_BLT_SRCREGION)
+	{
+		VSURFACE_REGION legacyRegion{};
+		if (!GetVSurfaceRegion(
+				sourceSurface, sourceRegionIndex, &legacyRegion))
+			return FALSE;
+		sourceRegion = RenderSurfaceRegion{
+			legacyRegion.RegionCoords.iLeft,
+			legacyRegion.RegionCoords.iTop,
+			legacyRegion.RegionCoords.iRight,
+			legacyRegion.RegionCoords.iBottom};
+	}
+	else if (flags & VS_BLT_SRCSUBRECT)
+	{
+		if (!effects) return FALSE;
+		sourceRegion = RenderSurfaceRegion{
+			effects->SrcRect.iLeft,
+			effects->SrcRect.iTop,
+			effects->SrcRect.iRight,
+			effects->SrcRect.iBottom};
+	}
+	else
+	{
+		sourceRegion = RenderSurfaceRegion{
+			0, 0,
+			static_cast<std::int32_t>(sourceSurface->usWidth),
+			static_cast<std::int32_t>(sourceSurface->usHeight)};
+	}
+
+	RenderSurfaceCopyMode mode = RenderSurfaceCopyMode::Opaque;
+	RenderColor colorKey;
+	if ((flags & VS_BLT_USECOLORKEY) &&
+		sourceSurface->ubBitDepth == 16)
+	{
+		mode = RenderSurfaceCopyMode::SourceColorKeyRgb;
+		// This is deliberately the historical conversion. TransparentColor is
+		// a COLORVAL, but the blitter has always treated its low 16 bits as an
+		// RGB565 token before widening it to the physical pixel format.
+		colorKey = DecodeLegacyColor(static_cast<PIXEL>(
+			static_cast<UINT16>(sourceSurface->TransparentColor)));
+	}
+
+	return CopyLegacyRenderSurface(RenderSurfaceCopyCommand{
+		source,
+		destination,
+		sourceRegion,
+		RenderSurfacePoint{destinationX, destinationY},
+		mode,
+		colorKey}) ? TRUE : FALSE;
 }

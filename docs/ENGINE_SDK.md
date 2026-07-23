@@ -319,15 +319,17 @@ code should treat `RenderSurfaceId` values as opaque and obtain standard targets
 through `surfaceFor`. This is a storage/access contract; higher-level portable
 draw commands layer above it rather than exposing SDL objects.
 
-`EngineServices::renderCommands` is that higher-level boundary. The initial
+`EngineServices::renderCommands` is that higher-level boundary.
 `RenderSurfaceFillCommand` uses an opaque surface ID, a half-open region, and
-an RGBA colour. `MappedRenderCommandSink` normalizes inverted edges, clips to
-the mapped extent, fills RGB565 or ARGB8888 storage without touching row
-padding, and balances every successful map. `RecordingRenderCommandSink`
-captures the same commands without a renderer. The compiled host routes all
-existing `ColorFillVideoSurfaceArea` calls through this service, decoding
-legacy packed colours in the compatibility adapter while preserving the old
-function signature and logical 16-bit-surface restriction.
+an RGBA colour. `RenderSurfaceCopyCommand` adds a source region, destination
+origin, and either opaque or RGB source-colour-key copying. The mapped
+implementation clips against both surfaces, supports indexed opaque and
+true-colour copies, defines corruption-safe same-surface overlap, never writes
+row padding, and balances every successful map. `RecordingRenderCommandSink`
+captures fills and copies without a renderer. The compiled host routes existing
+rectangle fills and numeric `BltVideoSurface` calls through this service.
+Legacy packed colours and RGB565 transparency tokens are decoded only in the
+compatibility adapter; package code uses `RenderColor` directly.
 
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each
