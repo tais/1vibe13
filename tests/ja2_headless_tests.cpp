@@ -25,6 +25,7 @@
 #include <fstream>
 #include <list>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <type_traits>
@@ -496,6 +497,11 @@ public:
 		}
 		bootstrapCalls.push_back(static_cast<int>(phase));
 		if (static_cast<int>(phase) == throwPhase) throw "test package bootstrap exception";
+		if (static_cast<int>(phase) == failOncePhase)
+		{
+			failOncePhase = -1;
+			return false;
+		}
 		return static_cast<int>(phase) != failPhase_;
 	}
 	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
@@ -589,6 +595,7 @@ public:
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
 	int throwPhase = -1;
+	int failOncePhase = -1;
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
@@ -657,7 +664,8 @@ public:
 		if (trace)
 			trace->push_back(capabilities.isUnfinishedBusiness()
 				? "campaign:load-content:ub" : "campaign:load-content:ja2");
-		if (throwOnLoadContent) throw "test campaign content exception";
+		if (throwOnLoadContent)
+			throw std::runtime_error("test campaign content exception");
 		return loadContentSucceeds;
 	}
 
@@ -667,7 +675,8 @@ public:
 		if (trace)
 			trace->push_back(capabilities.isUnfinishedBusiness()
 				? "campaign:start-runtime:ub" : "campaign:start-runtime:ja2");
-		if (throwOnStartRuntime) throw "test campaign runtime exception";
+		if (throwOnStartRuntime)
+			throw std::runtime_error("test campaign runtime exception");
 		return startRuntimeSucceeds;
 	}
 
@@ -1426,6 +1435,8 @@ int main( int, char** )
 			RestorePreparedPackageSaveState( context, stagedLoad );
 		const PreparedLoadMetadata corrupted = PrepareLoadMetadata(
 			context, savePath, SaveCompatibilityPolicy::EnforceKnown );
+		const PreparedLoadMetadataGateResult corruptedGate =
+			EvaluatePreparedLoadMetadataGate( corrupted );
 		CHECK( ready && preparedWasStateful && prepareDidNotWrite && committed &&
 		       stagedPackage.saveStateCalls == 1 && archiveLoaded &&
 		       committedArchive.state.records.size() == 1 &&
@@ -1441,8 +1452,11 @@ int main( int, char** )
 		CHECK(
 		       corrupted.packages.state == PackageSaveMetadataState::InvalidMetadata &&
 		       corrupted.packageAction == SaveCompatibilityLoadAction::Reject &&
-		       corrupted.rejected(),
-		       "prepared load metadata enforces corruption policy before destructive load" );
+		       corrupted.rejected() && !corruptedGate &&
+		       !corruptedGate.compatibilityNotice && corruptedGate.packageNotice &&
+		       corruptedGate.rejection ==
+		           PreparedLoadMetadataRejection::PackageState,
+		       "the destructive-load gate independently rejects corrupt package metadata beside a compatible checkpoint" );
 
 		stagedPackage.saveStateSucceeds = false;
 		storage.writeAll( RuntimeCheckpointSidecarPath( savePath ), { 4 } );
@@ -2498,6 +2512,8 @@ int main( int, char** )
 				std::vector<DefinitionRecord>{} );
 		const bool configured = packages.bootstrap( PackageBootstrapPhase::Configure ) ==
 			PackageBootstrapError::None;
+		const bool configureOrder = lifecycleTrace == std::vector<std::string>({
+			"bootstrap:extension.campaign-bootstrap" });
 		lifecycleTrace.clear();
 		const bool contentLoaded = packages.bootstrap(
 			PackageBootstrapPhase::LoadContent ) == PackageBootstrapError::None;
@@ -2517,7 +2533,8 @@ int main( int, char** )
 				std::vector<RuntimeConfigurationEntry>{},
 				catalogAfterBootstrap.activeCapabilities,
 				std::vector<DefinitionRecord>{} );
-		CHECK( activated && configured && contentLoaded && runtimeStarted &&
+		CHECK( activated && configured && configureOrder &&
+		       contentLoaded && runtimeStarted &&
 		       contentOrder && runtimeOrder &&
 		       packages.activationOrder() == std::vector<std::string>({
 		           "ja2.arulco", "extension.campaign-bootstrap" }) &&
@@ -2541,7 +2558,7 @@ int main( int, char** )
 
 	{
 		TestCampaignBootstrapHooks failingHooks;
-		failingHooks.loadContentSucceeds = false;
+		failingHooks.throwOnLoadContent = true;
 		LegacyCampaignPackage campaign( GameCapabilities{}, failingHooks );
 		TestLifecyclePackage extension(
 			"extension.after-campaign-failure", PackageKind::Extension, -1, nullptr,
@@ -2561,20 +2578,64 @@ int main( int, char** )
 		lifecycleTrace.clear();
 		const PackageBootstrapResult failed = packages.bootstrapDetailed(
 			PackageBootstrapPhase::LoadContent );
+		bool detailedFailurePreserved = false;
+		try
+		{
+			campaign.rethrowBootstrapFailure();
+		}
+		catch ( const std::runtime_error& error )
+		{
+			detailedFailurePreserved =
+				std::string( error.what() ) == "test campaign content exception";
+		}
 		CHECK( ready && failed.error == PackageBootstrapError::CallbackFailed &&
 		       failed.failedPhaseRollback.shutdownPhases == 1 &&
 		       failed.failedPhaseRollback.callbacks == 1 &&
 		       failed.failedPhaseRollback.callbackFailures == 0 &&
 		       packages.completedBootstrapPhases() == 1 &&
 		       extension.bootstrapCalls == std::vector<int>({ 0 }) &&
+		       detailedFailurePreserved &&
 		       lifecycleTrace == std::vector<std::string>({
 		           "campaign:load-content:ja2" }),
-		       "campaign content failure rolls back before later packages observe the phase" );
-		failingHooks.loadContentSucceeds = true;
-		CHECK( packages.bootstrap( PackageBootstrapPhase::LoadContent ) ==
-		           PackageBootstrapError::None &&
-		       packages.shutdownBootstrap(),
-		       "campaign phase rollback leaves the framework lifecycle recoverable" );
+		       "campaign content failure preserves diagnostics and rolls back before later packages observe the phase" );
+		failingHooks.throwOnLoadContent = false;
+		const PackageBootstrapResult unsafeRetry = packages.bootstrapDetailed(
+			PackageBootstrapPhase::LoadContent );
+		CHECK( !unsafeRetry &&
+		       failingHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }),
+		       "a partially failed process-lifetime campaign phase is never replayed in-process" );
+		packages.shutdownBootstrap();
+	}
+
+	{
+		TestCampaignBootstrapHooks campaignHooks;
+		LegacyCampaignPackage campaign( GameCapabilities{}, campaignHooks );
+		TestLifecyclePackage extension(
+			"extension.retry-after-campaign", PackageKind::Extension, -1, nullptr,
+			{{ "ja2.arulco", "1.13" }} );
+		extension.failOncePhase =
+			static_cast<int>( PackageBootstrapPhase::LoadContent );
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		PackageLifecycle lifecycle( packages );
+		const bool ready =
+			packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+			packages.registerPackage( extension ) == PackageRegistrationError::None &&
+			packages.activate( "extension.retry-after-campaign" ) ==
+				PackageActivationError::None;
+		const PackageLifecycleAdvanceResult first =
+			lifecycle.advanceTo( PackageBootstrapPhase::LoadContent );
+		const PackageLifecycleAdvanceResult retry =
+			lifecycle.advanceTo( PackageBootstrapPhase::LoadContent );
+		CHECK( ready && !first && first.rolledBack &&
+		       first.phase == PackageBootstrapPhase::LoadContent &&
+		       first.completedPhases == 0 && retry &&
+		       campaignHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }) &&
+		       extension.bootstrapCalls == std::vector<int>({ 0, 1, 0, 1 }),
+		       "a later extension rollback can retry without reloading process-lifetime campaign tables" );
+		lifecycle.rollback();
 	}
 
 	{

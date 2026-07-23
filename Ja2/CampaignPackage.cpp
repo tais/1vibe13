@@ -6,6 +6,7 @@
 #include "XML.h"
 #include "Item Types.h"
 #include "Weapons.h"
+#include "DEBUG.H"
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -18,7 +19,11 @@ class CompiledCampaignBootstrapHooks final : public LegacyCampaignBootstrapHooks
 public:
 	bool loadContent(const GameCapabilities&) override
 	{
-		if (!LoadExternalGameplayData(TABLEDATA_DIRECTORY, false))
+		BOOLEAN loaded = FALSE;
+		SGP_TRYCATCH_RETHROW(
+			loaded = LoadExternalGameplayData(TABLEDATA_DIRECTORY, false),
+			L"Loading external data failed");
+		if (!loaded)
 			return false;
 
 		// Once Magazines.xml is parsed, retain the legacy item back-reference
@@ -97,9 +102,37 @@ bool LegacyCampaignPackage::bootstrap(
 		case PackageBootstrapPhase::Configure:
 			return true;
 		case PackageBootstrapPhase::LoadContent:
-			return bootstrapHooks_.loadContent(capabilities_);
+			if (contentLoaded_) return true;
+			if (contentLoadAttempted_) return false;
+			contentLoadAttempted_ = true;
+			bootstrapFailure_ = nullptr;
+			try
+			{
+				if (!bootstrapHooks_.loadContent(capabilities_)) return false;
+				contentLoaded_ = true;
+				return true;
+			}
+			catch (...)
+			{
+				bootstrapFailure_ = std::current_exception();
+				return false;
+			}
 		case PackageBootstrapPhase::StartRuntime:
-			return bootstrapHooks_.startRuntime(capabilities_);
+			if (runtimeStarted_) return true;
+			if (runtimeStartAttempted_) return false;
+			runtimeStartAttempted_ = true;
+			bootstrapFailure_ = nullptr;
+			try
+			{
+				if (!bootstrapHooks_.startRuntime(capabilities_)) return false;
+				runtimeStarted_ = true;
+				return true;
+			}
+			catch (...)
+			{
+				bootstrapFailure_ = std::current_exception();
+				return false;
+			}
 	}
 	return false;
 }
@@ -110,6 +143,14 @@ void LegacyCampaignPackage::shutdown(
 	// Legacy gameplay tables, text, grids, and Lua globals are process-lifetime
 	// state. The package owns their startup order but intentionally does not
 	// pretend they can be hot-unloaded during lifecycle rollback/shutdown.
+}
+
+void LegacyCampaignPackage::rethrowBootstrapFailure()
+{
+	if (!bootstrapFailure_) return;
+	const std::exception_ptr failure = bootstrapFailure_;
+	bootstrapFailure_ = nullptr;
+	std::rethrow_exception(failure);
 }
 
 LegacyCampaignPackage& GetCompiledCampaignPackage()

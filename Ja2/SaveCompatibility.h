@@ -92,6 +92,12 @@ struct PackageSaveMetadataResult
 // different runtime/package states.
 struct PreparedSaveMetadata
 {
+	PreparedSaveMetadata() = default;
+	PreparedSaveMetadata(const PreparedSaveMetadata&) = delete;
+	PreparedSaveMetadata& operator=(const PreparedSaveMetadata&) = delete;
+	PreparedSaveMetadata(PreparedSaveMetadata&&) = default;
+	PreparedSaveMetadata& operator=(PreparedSaveMetadata&&) = default;
+
 	RuntimeCheckpoint checkpoint;
 	PackageSaveStateSnapshot packageState;
 	RuntimeCheckpointSaveError checkpointError =
@@ -128,6 +134,12 @@ struct PreparedSaveMetadataCommitResult
 // a prepared boundary cannot invoke package callbacks twice.
 struct PreparedLoadMetadata
 {
+	PreparedLoadMetadata() = default;
+	PreparedLoadMetadata(const PreparedLoadMetadata&) = delete;
+	PreparedLoadMetadata& operator=(const PreparedLoadMetadata&) = delete;
+	PreparedLoadMetadata(PreparedLoadMetadata&&) = default;
+	PreparedLoadMetadata& operator=(PreparedLoadMetadata&&) = default;
+
 	SaveCompatibilityPolicy policy = SaveCompatibilityPolicy::Ignore;
 	SaveCompatibilityResult compatibility;
 	PackageSaveMetadataResult packages;
@@ -135,12 +147,42 @@ struct PreparedLoadMetadata
 		SaveCompatibilityLoadAction::Allow;
 	SaveCompatibilityLoadAction packageAction =
 		SaveCompatibilityLoadAction::Allow;
-	bool packageRestorePending = false;
-
 	bool rejected() const
 	{
 		return compatibilityAction == SaveCompatibilityLoadAction::Reject ||
 			packageAction == SaveCompatibilityLoadAction::Reject;
+	}
+	bool restorePending() const { return packageRestorePending_; }
+
+private:
+	bool packageRestorePending_ = false;
+
+	friend PreparedLoadMetadata PrepareLoadMetadata(const GameContext&,
+		const std::string&, SaveCompatibilityPolicy) noexcept;
+	friend PackageSaveStateLoadResult RestorePreparedPackageSaveState(
+		GameContext&, PreparedLoadMetadata&) noexcept;
+};
+
+enum class PreparedLoadMetadataRejection
+{
+	None,
+	RuntimeCompatibility,
+	PackageState
+};
+
+// Single production gate immediately before the destructive legacy load. Its
+// independent notice flags prevent a compatible checkpoint from hiding a
+// corrupt or incompatible package-state sidecar.
+struct PreparedLoadMetadataGateResult
+{
+	PreparedLoadMetadataRejection rejection =
+		PreparedLoadMetadataRejection::None;
+	bool compatibilityNotice = false;
+	bool packageNotice = false;
+
+	explicit operator bool() const
+	{
+		return rejection == PreparedLoadMetadataRejection::None;
 	}
 };
 
@@ -179,6 +221,8 @@ PreparedSaveMetadataCommitResult CommitPreparedSaveMetadata(
 
 PreparedLoadMetadata PrepareLoadMetadata(const GameContext& context,
 	const std::string& savePath, SaveCompatibilityPolicy policy) noexcept;
+PreparedLoadMetadataGateResult EvaluatePreparedLoadMetadataGate(
+	const PreparedLoadMetadata& prepared) noexcept;
 PackageSaveStateLoadResult RestorePreparedPackageSaveState(
 	GameContext& context, PreparedLoadMetadata& prepared) noexcept;
 

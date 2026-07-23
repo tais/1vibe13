@@ -313,19 +313,34 @@ PreparedLoadMetadata PrepareLoadMetadata(const GameContext& context,
 	prepared.packages = InspectPackageSaveStateMetadata(context, savePath);
 	prepared.packageAction = EvaluatePackageSaveMetadata(
 		prepared.packages.state, policy);
-	prepared.packageRestorePending =
+	prepared.packageRestorePending_ =
 		prepared.packages.state == PackageSaveMetadataState::Ready &&
 		prepared.packageAction != SaveCompatibilityLoadAction::Reject &&
 		prepared.compatibilityAction != SaveCompatibilityLoadAction::Reject;
 	return prepared;
 }
 
+PreparedLoadMetadataGateResult EvaluatePreparedLoadMetadataGate(
+	const PreparedLoadMetadata& prepared) noexcept
+{
+	PreparedLoadMetadataGateResult result;
+	result.compatibilityNotice =
+		prepared.compatibilityAction != SaveCompatibilityLoadAction::Allow;
+	result.packageNotice =
+		prepared.packageAction != SaveCompatibilityLoadAction::Allow;
+	if (prepared.compatibilityAction == SaveCompatibilityLoadAction::Reject)
+		result.rejection = PreparedLoadMetadataRejection::RuntimeCompatibility;
+	else if (prepared.packageAction == SaveCompatibilityLoadAction::Reject)
+		result.rejection = PreparedLoadMetadataRejection::PackageState;
+	return result;
+}
+
 PackageSaveStateLoadResult RestorePreparedPackageSaveState(
 	GameContext& context, PreparedLoadMetadata& prepared) noexcept
 {
-	if (!prepared.packageRestorePending)
+	if (!prepared.packageRestorePending_)
 		return {};
-	prepared.packageRestorePending = false;
+	prepared.packageRestorePending_ = false;
 	PackageSaveStateSnapshot snapshot = std::move(prepared.packages.archive.state);
 	return context.restorePackageSaveState(snapshot);
 }

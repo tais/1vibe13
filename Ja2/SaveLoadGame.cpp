@@ -3824,11 +3824,13 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 			GetGameContext(), zSaveGameName, policy );
 		if ( policy != SaveCompatibilityPolicy::Ignore )
 		{
+			const PreparedLoadMetadataGateResult gate =
+				EvaluatePreparedLoadMetadataGate( preparedFrameworkMetadata );
 			const SaveCompatibilityResult& compatibility =
 				preparedFrameworkMetadata.compatibility;
 			const SaveCompatibilityLoadAction action =
 				preparedFrameworkMetadata.compatibilityAction;
-			if ( action != SaveCompatibilityLoadAction::Allow )
+			if ( gate.compatibilityNotice )
 			{
 				try
 				{
@@ -3841,40 +3843,38 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 							" under policy " + SaveCompatibilityPolicyName( policy ) } );
 				}
 				catch ( ... ) {}
-				if ( action == SaveCompatibilityLoadAction::Reject )
-				{
-					ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
-						L"Save compatibility check rejected this save; see the log for details." );
-						return( FALSE );
-					}
-				}
+			}
 
-				const PackageSaveMetadataResult& packageMetadata =
-					preparedFrameworkMetadata.packages;
-				const SaveCompatibilityLoadAction packageAction =
-					preparedFrameworkMetadata.packageAction;
-				if ( packageAction != SaveCompatibilityLoadAction::Allow )
+			const PackageSaveMetadataResult& packageMetadata =
+				preparedFrameworkMetadata.packages;
+			const SaveCompatibilityLoadAction packageAction =
+				preparedFrameworkMetadata.packageAction;
+			if ( gate.packageNotice )
+			{
+				try
 				{
-					try
-					{
-						GetGameContext().log().write( LogRecord{
-							packageAction == SaveCompatibilityLoadAction::Reject
-								? LogSeverity::Error : LogSeverity::Warning,
-							"save-compatibility",
-							"Package state preflight for " + std::string( zSaveGameName ) +
-								": " + PackageSaveMetadataStateName( packageMetadata.state ) +
-								" under policy " + SaveCompatibilityPolicyName( policy ) } );
-					}
-					catch ( ... ) {}
-					if ( packageAction == SaveCompatibilityLoadAction::Reject )
-					{
-						ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
-							L"Package save state rejected this save; see the log for details." );
-						return( FALSE );
-					}
+					GetGameContext().log().write( LogRecord{
+						packageAction == SaveCompatibilityLoadAction::Reject
+							? LogSeverity::Error : LogSeverity::Warning,
+						"save-compatibility",
+						"Package state preflight for " + std::string( zSaveGameName ) +
+							": " + PackageSaveMetadataStateName( packageMetadata.state ) +
+							" under policy " + SaveCompatibilityPolicyName( policy ) } );
 				}
+				catch ( ... ) {}
+			}
+
+			if ( !gate )
+			{
+				ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
+					gate.rejection ==
+						PreparedLoadMetadataRejection::RuntimeCompatibility
+						? L"Save compatibility check rejected this save; see the log for details."
+						: L"Package save state rejected this save; see the log for details." );
+				return( FALSE );
 			}
 		}
+	}
 
 #ifdef LOADSAVEGAME_LOGTIME
 	TimingLogInitialize("TimeLog_LoadSavedGame.txt");
@@ -6004,7 +6004,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// succeeded. A package callback failure is diagnosed but cannot retroactively
 	// turn the already-loaded, compatible JA2 save into a failed load.
 	{
-		if ( preparedFrameworkMetadata.packageRestorePending )
+		if ( preparedFrameworkMetadata.restorePending() )
 		{
 			const PackageSaveStateLoadResult restored = RestorePreparedPackageSaveState(
 				GetGameContext(), preparedFrameworkMetadata );

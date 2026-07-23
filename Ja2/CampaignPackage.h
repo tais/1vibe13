@@ -1,6 +1,8 @@
 #ifndef JA2_CAMPAIGN_PACKAGE_H
 #define JA2_CAMPAIGN_PACKAGE_H
 
+#include <exception>
+
 #include "GameCapabilities.h"
 #include <Engine/Core/PackageApi.h>
 
@@ -29,6 +31,7 @@ public:
 		PackageBootstrapPhase phase) override;
 	void shutdown(PackageBootstrapContext& context,
 		PackageBootstrapPhase phase) override;
+	void rethrowBootstrapFailure();
 	bool active() const { return active_; }
 	const GameCapabilities& capabilities() const { return capabilities_; }
 
@@ -37,6 +40,11 @@ private:
 	PackageDescriptor descriptor_;
 	LegacyCampaignBootstrapHooks& bootstrapHooks_;
 	bool active_ = false;
+	bool contentLoadAttempted_ = false;
+	bool contentLoaded_ = false;
+	bool runtimeStartAttempted_ = false;
+	bool runtimeStarted_ = false;
+	std::exception_ptr bootstrapFailure_;
 };
 
 LegacyCampaignPackage& GetCompiledCampaignPackage();
