@@ -26,6 +26,7 @@
 #include "Weapons.h"
 #include "Sound Control.h"
 #include "Game Clock.h"
+#include "Timer Control.h"
 #include "Soldier Profile.h"
 #include "Campaign.h"
 #include "Tactical Save.h"
@@ -499,7 +500,7 @@ void EliminateAllEnemies( UINT8 ubSectorX, UINT8 ubSectorY )
 static void DoTransitionFromPreBattleInterfaceToAutoResolve()
 {
 	SGPRect SrcRect, DstRect;
-	UINT32 uiStartTime, uiCurrTime;
+	UINT64 uiStartTime, uiCurrTime;
 	INT32 iPercentage, iFactor;
 	UINT32 uiTimeRange;
 	INT16 sStartLeft, sEndLeft, sStartTop, sEndTop;
@@ -519,7 +520,7 @@ static void DoTransitionFromPreBattleInterfaceToAutoResolve()
 
 	uiTimeRange = 1000;
 	iPercentage = 0;
-	uiStartTime = GetJA2Clock();
+	uiStartTime = GetJA2MonotonicMilliseconds();
 
 	sStartLeft = 59 + xResOffset;
 	sStartTop = 69 + yResOffset;
@@ -542,7 +543,7 @@ static void DoTransitionFromPreBattleInterfaceToAutoResolve()
 	PlayJA2SampleFromFile( "SOUNDS\\Laptop power up (8-11).wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 	while( iPercentage < 100	)
 	{
-		uiCurrTime = GetJA2Clock();
+		uiCurrTime = GetJA2MonotonicMilliseconds();
 		iPercentage = (uiCurrTime-uiStartTime) * 100 / uiTimeRange;
 		iPercentage = min( iPercentage, 100 );
 
@@ -5302,9 +5303,8 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 
 static void Delay( UINT32 uiMilliseconds )
 {
-	INT32 iTime;
-	iTime = GetJA2Clock();
-	while( GetJA2Clock() < iTime + uiMilliseconds );
+	const UINT64 startTime = GetJA2MonotonicMilliseconds();
+	while( GetJA2MonotonicMilliseconds() - startTime < uiMilliseconds );
 }
 
 BOOLEAN IsBattleOver()

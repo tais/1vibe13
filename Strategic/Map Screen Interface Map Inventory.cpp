@@ -22,6 +22,7 @@
 	#include "Weapons.h"
 	#include "finances.h"
 	#include "Game Clock.h"
+	#include "Timer Control.h"
 	#include "Sound Control.h"
 	#include "Interface Panels.h"
 	#include "WordWrap.h"
@@ -4621,7 +4622,8 @@ void AnimateZoomInventory ( UINT16 iLocationInPool, UINT16 iCounter, INT32 iStar
 	// Declarations
 	SGPRect SrcRect, CurRect, StartRect, DstRect;
 	INT32 iPercentage;
-	UINT32 uiStartTime, uiTimeRange, uiCurrTime;
+	UINT64 uiStartTime, uiCurrTime;
+	UINT32 uiTimeRange;
 	INT32 iX, iY, iWidth, iHeight;
 	INT16 sCenX, sCenY, usWidth, usHeight, sX, sY;
 	INT16 sWidth = 0, sHeight = 0;
@@ -4741,7 +4743,7 @@ void AnimateZoomInventory ( UINT16 iLocationInPool, UINT16 iCounter, INT32 iStar
 	// Set transition time and other variables.
 	uiTimeRange = 400;
 	iPercentage = iRealPercentage = 0;
-	uiStartTime = GetJA2Clock();
+	uiStartTime = GetJA2MonotonicMilliseconds();
 
 	// Loud click!
 	PlayJA2Sample( 202, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
@@ -4763,7 +4765,7 @@ void AnimateZoomInventory ( UINT16 iLocationInPool, UINT16 iCounter, INT32 iStar
 		BlitBufferToBuffer( guiSAVEBUFFER, FRAME_BUFFER, INVEN_POOL_X, INVEN_POOL_Y, SCREEN_WIDTH-INVEN_POOL_X, SCREEN_HEIGHT-INVEN_POOL_Y);
 
 		// Get the current time
-		uiCurrTime = GetJA2Clock();
+		uiCurrTime = GetJA2MonotonicMilliseconds();
 		// Compare it to the current time to get a percentage. This signifies how much of the animation has been
 		// done.
 		iPercentage = (uiCurrTime-uiStartTime) * 100 / uiTimeRange;

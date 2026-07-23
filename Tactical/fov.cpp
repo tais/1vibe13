@@ -501,7 +501,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 #ifdef _DEBUG
 			if ( _KeyDown( NUM_LOCK ) )
 			{
-				int cnt = GetJA2Clock( );
+				const UINT64 startTime = GetJA2MonotonicMilliseconds( );
 
 				gubFOVDebugInfoInfo[ marker ] = (UINT8)markercnt;
 
@@ -523,7 +523,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 				do
 				{
 
-				} while( ( GetJA2Clock( ) - cnt ) < 250 );
+				} while( ( GetJA2MonotonicMilliseconds( ) - startTime ) < 250 );
 
 			}
 #endif
