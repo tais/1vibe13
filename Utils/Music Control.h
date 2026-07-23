@@ -41,6 +41,7 @@ enum NewMusicList
 extern std::vector<STR> MusicLists[MAX_MUSIC];
 
 void InitializeMusicLists();
+void ShutdownMusicLists();
 
 UINT8 GetMusicMode(void);
 BOOLEAN SetMusicMode(UINT8 ubMusicMode);

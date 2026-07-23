@@ -77,6 +77,8 @@ const CHAR8 *szMusicList[NUM_MUSIC] =
 
 
 std::vector<STR> MusicLists[MAX_MUSIC];
+static bool gMusicListsInitialized = false;
+BOOLEAN MusicStop(void);
 
 static void AddMusicToList(STR fileName, NewMusicList mode)
 {
@@ -92,13 +94,29 @@ static void AddMusicToList(STR fileName, NewMusicList mode)
 		}
 		memset(music, 0, sizeof(CHAR8) * buf);
 		strcpy(music, musicFile);
-
-		MusicLists[mode].push_back(music);
+		try
+		{
+			MusicLists[mode].push_back(music);
+		}
+		catch (...)
+		{
+			MemFree(music);
+			throw;
+		}
 	}
 }
 
 void InitializeMusicLists()
 {
+	if (gMusicListsInitialized) return;
+	struct InitializationGuard
+	{
+		bool committed = false;
+		~InitializationGuard()
+		{
+			if (!committed) ShutdownMusicLists();
+		}
+	} initialization;
 	UINT8 constexpr buf = 64;
 	CHAR8 fileName[buf];
 
@@ -180,6 +198,26 @@ void InitializeMusicLists()
 			AddMusicToList(fileName, static_cast<NewMusicList>(j));
 		}
 	}
+	gMusicListsInitialized = true;
+	initialization.committed = true;
+}
+
+void ShutdownMusicLists()
+{
+	MusicStop();
+	for (std::vector<STR>& list : MusicLists)
+	{
+		for (STR music : list)
+			MemFree(const_cast<CHAR8*>(music));
+		list.clear();
+	}
+	gMusicListsInitialized = false;
+	fMusicPlaying = FALSE;
+	fMusicFadingOut = FALSE;
+	fMusicFadingIn = FALSE;
+	gfMusicEnded = FALSE;
+	gfDontRestartSong = FALSE;
+	uiMusicHandle = NO_SAMPLE;
 }
 
 static STR PickRandomSongFromList(NewMusicList mode)

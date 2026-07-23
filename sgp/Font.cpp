@@ -45,6 +45,7 @@ typedef struct
 FontManager *pFManager;
 HVOBJECT	FontObjs[MAX_FONTS];
 INT32		FontsLoaded=0;
+static bool gFontManagerInitialized = false;
 
 // Destination printing parameters
 INT32			FontDefault=(-1);
@@ -1476,11 +1477,14 @@ UINT8				*pDestBuf;
 //*****************************************************************************
 BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, FontTranslationTable *pTransTable)
 {
-FontTranslationTable *pTransTab;
-int count;
-UINT16 uiRight, uiBottom;
-UINT8 uiPixelDepth;
+	FontTranslationTable *pTransTab;
+	int count;
+	UINT16 uiRight, uiBottom;
+	UINT8 uiPixelDepth;
 
+	if (gFontManagerInitialized) return TRUE;
+	if (pTransTable == NULL || pTransTable->DynamicArrayOf16BitValues == NULL)
+		return FALSE;
 	FontDefault=(-1);
 	FontDestBuffer=BACKBUFFER;
 	FontDestPitch=0;
@@ -1497,25 +1501,21 @@ UINT8 uiPixelDepth;
 
 	FontDestWrap=FALSE;
 
-	// register the appropriate debug topics
-	if(pTransTable == NULL)
+	FontManager* const manager =
+		(FontManager *)MemAlloc(sizeof(FontManager));
+	if (manager == NULL)
 	{
-	return FALSE;
-	}
-	RegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
-
-	if ((pFManager = (FontManager *)MemAlloc(sizeof(FontManager)))==NULL)
-	{
-	return FALSE;
+		return FALSE;
 	}
 
 	if((pTransTab = (FontTranslationTable *)MemAlloc(sizeof(FontTranslationTable)))==NULL)
 	{
-	return FALSE;
+		MemFree(manager);
+		return FALSE;
 	}
 
-	pFManager->pTranslationTable = pTransTab;
-	pFManager->usDefaultPixelDepth = usDefaultPixelDepth;
+	manager->pTranslationTable = pTransTab;
+	manager->usDefaultPixelDepth = usDefaultPixelDepth;
 	pTransTab->usNumberOfSymbols = pTransTable->usNumberOfSymbols;
 	pTransTab->DynamicArrayOf16BitValues = pTransTable->DynamicArrayOf16BitValues;
 
@@ -1523,6 +1523,9 @@ UINT8 uiPixelDepth;
 	for(count=0; count < MAX_FONTS; count++)
 		FontObjs[count]=NULL;
 
+	pFManager = manager;
+	gFontManagerInitialized = true;
+	RegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
 	return TRUE;
 }
 
@@ -1536,15 +1539,21 @@ void ShutdownFontManager(void)
 {
 	INT32 count;
 
-	UnRegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
-	if(pFManager)
-		MemFree(pFManager);
-
 	for(count=0; count < MAX_FONTS; count++)
 	{
 		if(FontObjs[count]!=NULL)
 			UnloadFont(count);
 	}
+	DestroyEnglishTransTable();
+	if(pFManager)
+	{
+		MemFree(pFManager);
+		pFManager = NULL;
+	}
+	FontDefault = -1;
+	if (gFontManagerInitialized)
+		UnRegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
+	gFontManagerInitialized = false;
 }
 
 
@@ -1583,12 +1592,18 @@ FontTranslationTable *CreateEnglishTransTable(	)
 	UINT16	*temp;
 
 	pTable = (FontTranslationTable *)MemAlloc(sizeof(FontTranslationTable));
+	if (pTable == NULL) return NULL;
 	memset(pTable, 0, sizeof(FontTranslationTable) );
 
 
 	pTable->usNumberOfSymbols = 255;
 
 	pTable->DynamicArrayOf16BitValues = (UINT16 *)MemAlloc(pTable->usNumberOfSymbols * 2);
+	if (pTable->DynamicArrayOf16BitValues == NULL)
+	{
+		MemFree(pTable);
+		return NULL;
+	}
 	temp = pTable->DynamicArrayOf16BitValues;
 
 	*temp = 'A';
@@ -2964,5 +2979,4 @@ FontTranslationTable *pTransTab;
 	UnRegisterDebugTopic(TOPIC_FONT_HANDLER, "Font Manager");
 	MemFree(pFManager);
 }	*/
-
 

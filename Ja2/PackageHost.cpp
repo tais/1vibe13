@@ -1034,6 +1034,28 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		return Failure(PackageHostError::AlreadyInitialized,
 			"startup package host has already been initialized");
 	attempted_ = true;
+	struct AttemptGuard
+	{
+		bool& attempted;
+		std::vector<std::unique_ptr<OwnedPackage>>& packages;
+		std::vector<std::string>& discovered;
+		std::vector<std::string>& registered;
+		std::vector<std::string>& activated;
+		std::vector<std::string>& mounted;
+		bool retain = false;
+
+		~AttemptGuard()
+		{
+			if (retain) return;
+			mounted.clear();
+			activated.clear();
+			registered.clear();
+			discovered.clear();
+			packages.clear();
+			attempted = false;
+		}
+	} attempt{attempted_, packages_, discoveredIds_, registeredIds_,
+		activatedIds_, mountedIds_};
 	if (options.roots.size() > MaximumPackageRoots || options.selected.size() > MaximumPackages)
 		return Failure(PackageHostError::InvalidOptions,
 			"too many package roots or selected packages");
@@ -1205,7 +1227,15 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 					std::to_string(static_cast<int>(unregistration.error)));
 		}
 		if (!failed.rollbackFailures.empty())
+		{
 			failed.message += "; rollback incomplete: " + JoinIds(failed.rollbackFailures);
+			// Retain stable package/source ownership and enough attempted state
+			// for shutdown() to retry every idempotent external boundary.
+			registeredIds_ = registeredIds;
+			activatedIds_ = activated;
+			mountedIds_ = mountedIds;
+			attempt.retain = true;
+		}
 	};
 	for (const std::unique_ptr<OwnedPackage>& package : packages_)
 	{
@@ -1244,7 +1274,12 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 
 	PackageHostResult result;
 	result.discovered = discoveredIds_;
-	if (options.selected.empty()) return result;
+	if (options.selected.empty())
+	{
+		registeredIds_ = registeredIds;
+		attempt.retain = true;
+		return result;
+	}
 	PackageActivationPlan plan;
 	try
 	{
@@ -1367,6 +1402,96 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		return result;
 	}
 	result.activated = std::move(activation.activated);
+	registeredIds_ = registeredIds;
+	activatedIds_ = result.activated;
+	mountedIds_ = mountedIds;
+	attempt.retain = true;
+	return result;
+}
+
+PackageHostShutdownResult PackageHost::shutdown(
+	PackageRegistry& registry, PackageAssetMounter& mounter)
+{
+	PackageHostShutdownResult result;
+	if (!attempted_) return result;
+
+	bool mountsComplete = true;
+	for (auto mounted = mountedIds_.rbegin(); mounted != mountedIds_.rend(); ++mounted)
+	{
+		std::string error;
+		bool removed = false;
+		try
+		{
+			removed = mounter.unmount(*mounted, error);
+		}
+		catch (const std::exception& exception)
+		{
+			error = exception.what();
+		}
+		catch (...)
+		{
+			error = "unknown unmount exception";
+		}
+		if (removed)
+		{
+			++result.unmounted;
+			continue;
+		}
+		mountsComplete = false;
+		result.failures.push_back("unmount " + *mounted + ": " + error);
+	}
+	if (mountsComplete) mountedIds_.clear();
+
+	bool deactivationComplete = true;
+	for (auto active = activatedIds_.rbegin(); active != activatedIds_.rend(); ++active)
+	{
+		const PackageDeactivationResult deactivation =
+			registry.deactivateDetailed(*active);
+		if (deactivation ||
+			deactivation.error == PackageDeactivationError::NotActive ||
+			deactivation.error == PackageDeactivationError::NotFound)
+		{
+			++result.deactivated;
+			continue;
+		}
+		deactivationComplete = false;
+		result.failures.push_back(
+			"deactivate " + *active + ": code " +
+			std::to_string(static_cast<int>(deactivation.error)));
+	}
+	if (deactivationComplete) activatedIds_.clear();
+
+	std::vector<std::string> stillRegistered;
+	stillRegistered.reserve(registeredIds_.size());
+	for (const std::string& id : registeredIds_)
+		if (registry.find(id)) stillRegistered.push_back(id);
+	if (!stillRegistered.empty())
+	{
+		const PackageUnregistrationBatchResult unregistration =
+			registry.unregisterPackages(stillRegistered);
+		if (unregistration)
+		{
+			result.unregistered = stillRegistered.size();
+			registeredIds_.clear();
+		}
+		else
+		{
+			result.failures.push_back(
+				"unregister " + unregistration.packageId + ": code " +
+				std::to_string(static_cast<int>(unregistration.error)));
+		}
+	}
+	else
+	{
+		registeredIds_.clear();
+	}
+
+	if (mountedIds_.empty() && activatedIds_.empty() && registeredIds_.empty())
+	{
+		discoveredIds_.clear();
+		packages_.clear();
+		attempted_ = false;
+	}
 	return result;
 }
 
@@ -1396,4 +1521,11 @@ PackageHostResult InitializeStartupDataPackages(const PackageStartupOptions& opt
 			"Data package startup failed: " + result.message});
 	}
 	return result;
+}
+
+PackageHostShutdownResult ShutdownStartupDataPackages()
+{
+	VfsPackageAssetMounter mounter;
+	GameContext& game = GetGameContext();
+	return GetStartupPackageHost().shutdown(game.packages(), mounter);
 }

@@ -105,6 +105,7 @@ StringInput *gpCurrentStringDescriptor;
 
 // Thread
 static CRITICAL_SECTION gcsInputQueueLock;
+static bool gInputManagerInitialized = false;
 
 
 // Local function headers
@@ -276,6 +277,7 @@ LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
 
 BOOLEAN InitializeInputManager(void)
 {
+	if (gInputManagerInitialized) return TRUE;
 	ResetPlatformInputEvents();
 	ResetHeldInputStateUnlocked();
 	// Link to debugger
@@ -315,6 +317,7 @@ BOOLEAN InitializeInputManager(void)
 //	DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set keyboard hook returned %d", ghKeyboardHook));
 
 	InitializeCriticalSection(&gcsInputQueueLock);
+	gInputManagerInitialized = true;
 
 	// NB: the legacy Win32 WH_MOUSE hook (MouseHandler) is intentionally NOT
 	// installed. In the SDL3 port all input comes from SDL events
@@ -344,6 +347,8 @@ void ReleaseAllInputStateOnFocusLoss(void)
 
 void ShutdownInputManager(void)
 {
+	if (!gInputManagerInitialized) return;
+	gInputManagerInitialized = false;
 	// There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
 	// mouse hooks will be destroyed
 	UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");

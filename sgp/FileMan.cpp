@@ -138,6 +138,8 @@ HANDLE hFindInfoHandle[20] = {INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
 //
 //**************************************************************************
 
+static bool gFileManagerInitialized = false;
+
 //**************************************************************************
 //
 // FileSystemInit
@@ -153,7 +155,9 @@ HANDLE hFindInfoHandle[20] = {INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
 //**************************************************************************
 BOOLEAN	InitializeFileManager(	STR strIndexFilename )
 {
+	if (gFileManagerInitialized) return TRUE;
 	RegisterDebugTopic( TOPIC_FILE_MANAGER, "File Manager" );
+	gFileManagerInitialized = true;
 	return( TRUE );
 }
 
@@ -177,6 +181,8 @@ BOOLEAN	InitializeFileManager(	STR strIndexFilename )
 
 void ShutdownFileManager( void )
 {
+	if (!gFileManagerInitialized) return;
+	gFileManagerInitialized = false;
 	UnRegisterDebugTopic( TOPIC_FILE_MANAGER, "File Manager" );
 }
 
