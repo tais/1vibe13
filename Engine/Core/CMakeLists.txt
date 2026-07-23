@@ -70,6 +70,7 @@ set(engine_core_public_headers
   StateStack.h
   StateTransition.h
   StableResourceRegistry.h
+  SubsystemRuntime.h
   TimeSource.h
   UniqueResourceHandle.h
   UniqueResourcePtr.h)
@@ -92,6 +93,7 @@ add_library(ja2_engine_core STATIC
   RuntimeReport.cpp
   RuntimeReportJson.cpp
   RuntimeReportService.cpp
+  SubsystemRuntime.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)
 
