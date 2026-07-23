@@ -1,4 +1,5 @@
 #include "PaletteTable.h"
+#include "render_palette_registry.h"
 
 #include <cstring>  // libstdc++ doesn't transitively expose strcpy/memset/memcpy the way MSVC's STL does
 
@@ -17,6 +18,7 @@ PaletteTable::~PaletteTable() {
 
 	if (this->p16BPPPalette != NULL)
 	{
+		UnregisterLegacyRenderPalette(this->p16BPPPalette);
 		MemFree(this->p16BPPPalette);
 		this->p16BPPPalette = NULL;
 	}
@@ -25,6 +27,7 @@ PaletteTable::~PaletteTable() {
 	{
 		if (this->pShades[cnt] != NULL)
 		{
+			UnregisterLegacyRenderPalette(this->pShades[cnt]);
 			MemFree(this->pShades[cnt]);
 			this->pShades[cnt] = NULL;
 		}
@@ -34,6 +37,8 @@ PaletteTable::~PaletteTable() {
 	{
 		if (this->pEffectShades[cnt] != NULL)
 		{
+			UnregisterLegacyRenderPalette(
+				this->pEffectShades[cnt]);
 			MemFree(this->pEffectShades[cnt]);
 			this->pEffectShades[cnt] = NULL;
 		}
@@ -44,6 +49,7 @@ PaletteTable::~PaletteTable() {
 	{
 		if (this->pGlowShades[cnt] != NULL)
 		{
+			UnregisterLegacyRenderPalette(this->pGlowShades[cnt]);
 			MemFree(this->pGlowShades[cnt]);
 			this->pGlowShades[cnt] = NULL;
 		}
@@ -107,6 +113,7 @@ bool PaletteTable::Load(std::string fileName) {
 	}
 
 	if (this->p16BPPPalette != NULL ) {
+		UnregisterLegacyRenderPalette(this->p16BPPPalette);
 		MemFree(this->p16BPPPalette);
 		this->p16BPPPalette = NULL;
 	}
@@ -114,18 +121,23 @@ bool PaletteTable::Load(std::string fileName) {
 
 	for (iWhich = 0; iWhich < NUM_SOLDIER_SHADES; iWhich++) {
 		if (this->pShades[ iWhich ] != NULL) {
+			UnregisterLegacyRenderPalette(this->pShades[iWhich]);
 			MemFree(this->pShades[iWhich]);
 			this->pShades[ iWhich ] = NULL;
 		}
 	}
 	for (iWhich = 0; iWhich < NUM_SOLDIER_EFFECTSHADES; iWhich++) {
 		if (this->pEffectShades[iWhich] != NULL) {
+			UnregisterLegacyRenderPalette(
+				this->pEffectShades[iWhich]);
 			MemFree(this->pEffectShades[iWhich]);
 			this->pEffectShades[iWhich] = NULL;
 		}
 	}
 	for (iWhich = 0; iWhich < 20; iWhich++) {
 		if (this->pGlowShades[iWhich] != NULL) {
+			UnregisterLegacyRenderPalette(
+				this->pGlowShades[iWhich]);
 			MemFree(this->pGlowShades[iWhich]);
 			this->pGlowShades[iWhich] = NULL;
 		}

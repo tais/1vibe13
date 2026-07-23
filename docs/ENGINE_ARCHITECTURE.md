@@ -131,13 +131,17 @@ the engine must not contain SDL types in its public domain model.
   merely to rediscover the row pitch. Depth remains physically compatible with
   the established padded SGP allocation and is not accepted by colour fill,
   copy, stretch, or shade commands.
-  `RenderImageDrawCommand` carries only an opaque stable image identity, frame,
+  `RenderImageDrawCommand` carries an opaque stable image identity, frame,
   destination, anchor, explicit clipping region, and composite mode. Numeric
   `BltVideoObjectFromIndex` calls and direct `BltVideoObject` calls whose object
   belongs to the stable manager therefore traverse the same bindable service
   used by packages and headless recorders. Its source-transparent mode samples
   palette colour, while shadow and intensity modes transform destination pixels
-  under the visible source mask. `RenderImageOutlineCommand`
+  under the visible source mask. `PaletteWithShadowMarker` additionally names
+  an immutable host palette through `RenderPaletteId`; source index 254 shades
+  the destination unless explicitly ignored, and an optional stable image
+  identity supplies the parallel legacy alpha stream. Neither palette pointers
+  nor backend pixel layout cross the engine boundary. `RenderImageOutlineCommand`
   separately models colour outlines, transparent outline markers, and
   body-shadow rendering without leaking ETRLE marker values or packed legacy
   colours through the engine API. `RenderImageDepthOutlineCommand` combines
@@ -157,17 +161,24 @@ the engine must not contain SDL types in its public domain model.
   greater-than test. The obscured-sprite effect uses a strict front test,
   renders failed pixels through the stable checkerboard, and explicitly
   distinguishes replacing only front-facing depth from replacing every drawn
-  pixel. Unsupported combinations are rejected at the platform boundary.
-  Alpha remains distinct migration work rather than an ambiguous flag.
+  pixel. The depth form of `PaletteWithShadowMarker` retains its inclusive
+  comparison, optional preserve/replace-on-pass depth policy, marker shading,
+  ignore behavior, and optional alpha image. Unsupported resource, effect,
+  comparison, and write combinations are rejected at the platform boundary.
   The production sink resolves image identities and executes the established
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
   physical pixels remain unchanged. Every successful `CreateVideoObject`
   allocation receives a non-pointer render identity above the legacy 32-bit
-  manager range; deletion retires it before releasing storage. Sequential
-  compatibility manager handles are unchanged. Common tactical transparent-Z
+  manager range; deletion retires it before releasing storage. Every generated
+  256-entry render palette likewise receives a non-pointer identity above that
+  range. Registration is idempotent for a live palette pointer, identities are
+  never reused, and each owning replacement/destructor retires the identity
+  before freeing its borrowed immutable storage. Sequential compatibility
+  manager handles are unchanged. Common tactical transparent-Z
   sprites, 50% blended, checkerboard-sampled, or
   checkerboard-when-obscured depth sprites, basic depth-tested
-  shadow/intensity masks, and regular or depth-tested item outlines can
+  shadow/intensity masks, regular or depth-tested item outlines, and ordinary
+  palette-remapped merc/corpse sprites with optional alpha can
   therefore use engine commands even when their image is owned by the
   animation, tile, or logical-body subsystem. The palette-effect route
   preserves inclusive depth testing, the checkerboard's absolute screen phase,
@@ -180,8 +191,11 @@ the engine must not contain SDL types in its public domain model.
   bridge also corrects the clipped no-write path to preserve depth consistently
   with its unclipped counterpart. Rejecting hosts and manually constructed
   fixtures retain the exact raw fallback. Basic non-depth tactical
-  transparent/shadow/intensity sprites traverse the regular image command
-  through the same stable identity. The historical clipped physics-object
+  transparent/shadow/intensity sprites and ordinary palette-shadow sprites
+  traverse the regular image command through the same stable identities. The
+  specialized obscured palette-shadow and multi-Z-strip families retain their
+  compatibility paths until their additional semantics are modelled. The
+  historical clipped physics-object
   outline remains non-depth and uses the regular outline command. Other
   application-owned pointer image operations deliberately retain their
   compatibility path until their individual command semantics migrate. Copy

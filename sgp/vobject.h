@@ -191,6 +191,19 @@ BOOLEAN BltVideoObjectEffectToSurface(
 	VideoObjectDrawEffect effect,
 	const SGPRect* pClipRegion);
 
+// Draws a palette-remapped source whose index 254 pixels shade the
+// destination. An optional parallel image supplies per-pixel alpha.
+BOOLEAN BltVideoObjectPaletteShadowToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	HVOBJECT hAlphaVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	PIXEL* pPalette,
+	BOOLEAN fIgnoreShadows,
+	const SGPRect* pClipRegion);
+
 // Compatibility bridge for the common source-transparent tactical depth
 // operation. Registered video objects submit a portable engine command;
 // callers retain their exact raw blitter as a fallback when a host rejects it.
@@ -241,6 +254,21 @@ BOOLEAN BltVideoObjectObscuredDepthToSurface(
 	INT32 iDestY,
 	UINT16 usDepth,
 	VideoObjectObscuredDepthWriteMode writeMode,
+	const SGPRect* pClipRegion);
+
+// Depth-tested palette-remapped source with index-254 destination shading and
+// an optional parallel alpha image.
+BOOLEAN BltVideoObjectPaletteShadowDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	HVOBJECT hAlphaVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	PIXEL* pPalette,
+	BOOLEAN fIgnoreShadows,
 	const SGPRect* pClipRegion);
 
 enum VideoObjectDepthMaskEffect : UINT8

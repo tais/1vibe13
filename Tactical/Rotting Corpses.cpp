@@ -17,6 +17,7 @@
 	#include "Game Clock.h"
 	#include "Soldier Create.h"
 	#include "renderworld.h"
+	#include "render_palette_registry.h"
 	#include "Soldier Add.h"
 	#include "strategicmap.h"
 	#include "LOS.h"
@@ -731,12 +732,14 @@ void FreeCorpsePalettes( ROTTING_CORPSE *pCorpse )
 {
 	// Free palettes
 	MemFree( pCorpse->p8BPPPalette );
+	UnregisterLegacyRenderPalette(pCorpse->p16BPPPalette);
 	MemFree( pCorpse->p16BPPPalette );
 
 	for ( INT32 cnt = 0; cnt < NUM_CORPSE_SHADES; ++cnt )
 	{
 		if ( pCorpse->pShades[ cnt ] != NULL )
 		{
+			UnregisterLegacyRenderPalette(pCorpse->pShades[cnt]);
 			MemFree( pCorpse->pShades[ cnt ] );
 			pCorpse->pShades[ cnt ] = NULL;
 		}
