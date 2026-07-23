@@ -26,12 +26,19 @@ enum class LegacyXmlStatus
 	Malformed
 };
 
+using LegacyXmlBeforeParseHandler = void (*)(void* userData);
+
 struct LegacyXmlCallbacks
 {
 	void* userData = nullptr;
 	XML_StartElementHandler startElement = nullptr;
 	XML_EndElementHandler endElement = nullptr;
 	XML_CharacterDataHandler characterData = nullptr;
+	// Runs once after input validation, asset reading, and parser creation, but
+	// before Expat emits any document callback. It is not invoked when an asset
+	// cannot be read, allowing legacy table replacement to remain transactional
+	// with respect to missing and I/O-failed files.
+	LegacyXmlBeforeParseHandler beforeParse = nullptr;
 };
 
 struct LegacyXmlResult
