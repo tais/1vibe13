@@ -294,6 +294,17 @@ int main()
 		recordedImageCommands.imageCommands() !=
 			std::vector<RenderImageDrawCommand>{externalImageCommand})
 		return 48;
+	const RenderImageDepthDrawCommand externalDepthImageCommand{
+		1, 3, 46, 5, RenderSurfacePoint{-1, 2},
+		RenderSurfaceRegion{0, 0, 4, 4}, 0x2222,
+		RenderDepthCompareMode::GreaterOrEqual,
+		RenderDepthWriteMode::ReplaceOnPass};
+	if (!recordedImageCommands.drawImageDepth(
+			externalDepthImageCommand) ||
+		recordedImageCommands.imageDepthCommands() !=
+			std::vector<RenderImageDepthDrawCommand>{
+				externalDepthImageCommand})
+		return 48;
 	const RenderImageOutlineCommand externalOutlineCommand{
 		1, 45, 4, RenderSurfacePoint{3, -1},
 		RenderSurfaceRegion{0, 0, 4, 4},

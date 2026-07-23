@@ -192,6 +192,21 @@ bool DrawLegacyRenderImage(
 	}
 }
 
+bool DrawLegacyRenderImageDepth(
+	const RenderImageDepthDrawCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().drawImageDepth(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 bool DrawLegacyRenderImageOutline(
 	const RenderImageOutlineCommand& command) noexcept
 {

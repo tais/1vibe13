@@ -251,6 +251,59 @@ inline bool operator!=(
 	return !(left == right);
 }
 
+enum class RenderDepthCompareMode : std::uint8_t
+{
+	GreaterOrEqual
+};
+
+enum class RenderDepthWriteMode : std::uint8_t
+{
+	Preserve,
+	ReplaceOnPass
+};
+
+// Draws the source-transparent palette pixels of one image frame after an
+// inclusive depth test. Colour and depth storage remain separate resources;
+// ReplaceOnPass updates depth only for visible source pixels which pass the
+// comparison. More specialized legacy effects use distinct commands rather
+// than hiding shadow, alpha, pixelation, or obscured semantics in this one.
+struct RenderImageDepthDrawCommand
+{
+	RenderSurfaceId destination = 0;
+	RenderSurfaceId depthSurface = 0;
+	RenderImageId image = 0;
+	std::uint32_t frame = 0;
+	RenderSurfacePoint destinationOrigin;
+	RenderSurfaceRegion clippingRegion;
+	std::uint16_t depth = 0;
+	RenderDepthCompareMode comparison =
+		RenderDepthCompareMode::GreaterOrEqual;
+	RenderDepthWriteMode depthWrite =
+		RenderDepthWriteMode::ReplaceOnPass;
+};
+
+inline bool operator==(
+	const RenderImageDepthDrawCommand& left,
+	const RenderImageDepthDrawCommand& right)
+{
+	return left.destination == right.destination &&
+		left.depthSurface == right.depthSurface &&
+		left.image == right.image &&
+		left.frame == right.frame &&
+		left.destinationOrigin == right.destinationOrigin &&
+		left.clippingRegion == right.clippingRegion &&
+		left.depth == right.depth &&
+		left.comparison == right.comparison &&
+		left.depthWrite == right.depthWrite;
+}
+
+inline bool operator!=(
+	const RenderImageDepthDrawCommand& left,
+	const RenderImageDepthDrawCommand& right)
+{
+	return !(left == right);
+}
+
 enum class RenderImageOutlineMode : std::uint8_t
 {
 	Color,
@@ -312,6 +365,10 @@ public:
 	virtual bool shadeSurface(const RenderSurfaceShadeCommand&) { return false; }
 	virtual bool fillDepth(const RenderDepthFillCommand&) { return false; }
 	virtual bool drawImage(const RenderImageDrawCommand&) { return false; }
+	virtual bool drawImageDepth(const RenderImageDepthDrawCommand&)
+	{
+		return false;
+	}
 	virtual bool drawImageOutline(const RenderImageOutlineCommand&)
 	{
 		return false;
@@ -330,6 +387,10 @@ public:
 	bool shadeSurface(const RenderSurfaceShadeCommand&) override { return false; }
 	bool fillDepth(const RenderDepthFillCommand&) override { return false; }
 	bool drawImage(const RenderImageDrawCommand&) override { return false; }
+	bool drawImageDepth(const RenderImageDepthDrawCommand&) override
+	{
+		return false;
+	}
 	bool drawImageOutline(const RenderImageOutlineCommand&) override
 	{
 		return false;
@@ -380,6 +441,13 @@ public:
 		return accepting_;
 	}
 
+	bool drawImageDepth(
+		const RenderImageDepthDrawCommand& command) override
+	{
+		imageDepthCommands_.push_back(command);
+		return accepting_;
+	}
+
 	bool drawImageOutline(const RenderImageOutlineCommand& command) override
 	{
 		imageOutlineCommands_.push_back(command);
@@ -410,6 +478,11 @@ public:
 	{
 		return imageCommands_;
 	}
+	const std::vector<RenderImageDepthDrawCommand>&
+	imageDepthCommands() const
+	{
+		return imageDepthCommands_;
+	}
 	const std::vector<RenderImageOutlineCommand>& imageOutlineCommands() const
 	{
 		return imageOutlineCommands_;
@@ -423,6 +496,7 @@ public:
 		shadeCommands_.clear();
 		depthFillCommands_.clear();
 		imageCommands_.clear();
+		imageDepthCommands_.clear();
 		imageOutlineCommands_.clear();
 	}
 
@@ -433,6 +507,7 @@ private:
 	std::vector<RenderSurfaceShadeCommand> shadeCommands_;
 	std::vector<RenderDepthFillCommand> depthFillCommands_;
 	std::vector<RenderImageDrawCommand> imageCommands_;
+	std::vector<RenderImageDepthDrawCommand> imageDepthCommands_;
 	std::vector<RenderImageOutlineCommand> imageOutlineCommands_;
 	bool accepting_ = true;
 };

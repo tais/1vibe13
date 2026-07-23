@@ -590,6 +590,15 @@ public:
 		nestedImageAccepted = DrawLegacyRenderImage(command);
 		return true;
 	}
+	bool drawImageDepth(
+		const RenderImageDepthDrawCommand& command) override
+	{
+		++depthImages;
+		lastDepthImageCommand = command;
+		nestedDepthImageAccepted =
+			DrawLegacyRenderImageDepth(command);
+		return true;
+	}
 	bool drawImageOutline(
 		const RenderImageOutlineCommand& command) override
 	{
@@ -606,6 +615,7 @@ public:
 	int shades = 0;
 	int depthFills = 0;
 	int images = 0;
+	int depthImages = 0;
 	int imageOutlines = 0;
 	bool nestedAccepted = true;
 	bool nestedCopyAccepted = true;
@@ -613,6 +623,7 @@ public:
 	bool nestedShadeAccepted = true;
 	bool nestedDepthFillAccepted = true;
 	bool nestedImageAccepted = true;
+	bool nestedDepthImageAccepted = true;
 	bool nestedImageOutlineAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
 	RenderSurfaceCopyCommand lastCopyCommand;
@@ -620,6 +631,7 @@ public:
 	RenderSurfaceShadeCommand lastShadeCommand;
 	RenderDepthFillCommand lastDepthFillCommand;
 	RenderImageDrawCommand lastImageCommand;
+	RenderImageDepthDrawCommand lastDepthImageCommand;
 	RenderImageOutlineCommand lastImageOutlineCommand;
 };
 
@@ -649,6 +661,10 @@ public:
 	bool drawImage(const RenderImageDrawCommand&) override
 	{
 		throw std::runtime_error("render image command probe");
+	}
+	bool drawImageDepth(const RenderImageDepthDrawCommand&) override
+	{
+		throw std::runtime_error("render depth-image command probe");
 	}
 	bool drawImageOutline(const RenderImageOutlineCommand&) override
 	{
@@ -810,6 +826,11 @@ int main()
 		71, 88, 3, RenderSurfacePoint{-4, 9},
 		RenderSurfaceRegion{1, 2, 30, 40},
 		RenderImageCompositeMode::SourceTransparency};
+	const RenderImageDepthDrawCommand expectedDepthImageCommand{
+		71, 73, 90, 5, RenderSurfacePoint{-6, 7},
+		RenderSurfaceRegion{1, 2, 30, 40}, 0x4567,
+		RenderDepthCompareMode::GreaterOrEqual,
+		RenderDepthWriteMode::Preserve};
 	const RenderImageOutlineCommand expectedImageOutlineCommand{
 		71, 89, 4, RenderSurfacePoint{6, -2},
 		RenderSurfaceRegion{1, 2, 30, 40},
@@ -821,6 +842,7 @@ int main()
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
 		FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
+		DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		recordedRenderCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{expectedFillCommand} &&
@@ -834,6 +856,9 @@ int main()
 			std::vector<RenderDepthFillCommand>{expectedDepthFillCommand} &&
 		recordedRenderCommands.imageCommands() ==
 			std::vector<RenderImageDrawCommand>{expectedImageCommand} &&
+		recordedRenderCommands.imageDepthCommands() ==
+			std::vector<RenderImageDepthDrawCommand>{
+				expectedDepthImageCommand} &&
 		recordedRenderCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{
 				expectedImageOutlineCommand},
@@ -847,6 +872,7 @@ int main()
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
 		FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
+		DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		reentrantRenderCommands.fills == 1 &&
 		reentrantRenderCommands.copies == 1 &&
@@ -854,6 +880,7 @@ int main()
 		reentrantRenderCommands.shades == 1 &&
 		reentrantRenderCommands.depthFills == 1 &&
 		reentrantRenderCommands.images == 1 &&
+		reentrantRenderCommands.depthImages == 1 &&
 		reentrantRenderCommands.imageOutlines == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
 		reentrantRenderCommands.lastCopyCommand == expectedCopyCommand &&
@@ -863,6 +890,8 @@ int main()
 		reentrantRenderCommands.lastDepthFillCommand ==
 			expectedDepthFillCommand &&
 		reentrantRenderCommands.lastImageCommand == expectedImageCommand &&
+		reentrantRenderCommands.lastDepthImageCommand ==
+			expectedDepthImageCommand &&
 		reentrantRenderCommands.lastImageOutlineCommand ==
 			expectedImageOutlineCommand &&
 		!reentrantRenderCommands.nestedAccepted &&
@@ -871,6 +900,7 @@ int main()
 		!reentrantRenderCommands.nestedShadeAccepted &&
 		!reentrantRenderCommands.nestedDepthFillAccepted &&
 		!reentrantRenderCommands.nestedImageAccepted &&
+		!reentrantRenderCommands.nestedDepthImageAccepted &&
 		!reentrantRenderCommands.nestedImageOutlineAccepted,
 		"legacy render command gateway suppresses recursive drawing");
 
@@ -882,6 +912,7 @@ int main()
 		!ShadeLegacyRenderSurface(expectedShadeCommand) &&
 		!FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		!DrawLegacyRenderImage(expectedImageCommand) &&
+		!DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
 		!DrawLegacyRenderImageOutline(expectedImageOutlineCommand),
 		"legacy render command gateway contains adapter exceptions");
 	ResetLegacyRenderCommands();
@@ -1895,6 +1926,13 @@ int main()
 			SurfaceData::GetSurfaceID(firstFrameLock) == FRAME_BUFFER,
 			"mapped fill writes the live framebuffer and repeated locks remain stable");
 		UnLockVideoSurface(FRAME_BUFFER);
+		Check(firstFrameLock &&
+			SurfaceData::GetSurfaceID(firstFrameLock) == FRAME_BUFFER,
+			"nested surface unmap preserves the outer mapping lifetime");
+		UnLockVideoSurface(FRAME_BUFFER);
+		Check(!firstFrameLock ||
+			SurfaceData::GetSurfaceID(firstFrameLock) == 0,
+			"final surface unmap retires its pointer identity");
 		Check(SetPrimaryVideoSurfaces(),
 			"primary wrappers can be replaced as one complete transaction");
 
@@ -1938,6 +1976,13 @@ int main()
 		HVSURFACE managedSurface = nullptr;
 		Check(GetVideoSurface(&managedSurface, managedIndex) && managedSurface,
 			"committed managed video surface is discoverable");
+		UINT32 managedPitch = 0;
+		BYTE* const managedPixels =
+			LockVideoSurface(managedIndex, &managedPitch);
+		Check(managedPixels && managedPitch != 0 &&
+			!DeleteVideoSurfaceFromIndex(managedIndex),
+			"managed video surfaces cannot be deleted through a live mapping");
+		if (managedPixels) UnLockVideoSurface(managedIndex);
 		Check(DeleteVideoSurfaceFromIndex(managedIndex) &&
 			!GetVideoSurface(&managedSurface, managedIndex) &&
 			giMemUsedInSurfaces == baselineSurfaceBytes,
@@ -2103,6 +2148,141 @@ int main()
 			resolvedImagePixel == copiedRed,
 			"engine image commands retain explicit clipping and exact ETRLE pixels");
 
+		RecordingRenderCommandSink recordedDepthImage;
+		BindLegacyRenderCommands(recordedDepthImage);
+		const bool pointerDepthRouted = liveImageCreated &&
+			BltVideoObjectDepthToSurface(
+				copyDestinationID, liveImage, 0, -2, 1, 0x1234,
+				TRUE, &imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		RenderImageDepthDrawCommand routedDepthCommand;
+		if (recordedDepthImage.imageDepthCommands().size() == 1)
+			routedDepthCommand =
+				recordedDepthImage.imageDepthCommands().front();
+		Check(pointerDepthRouted &&
+			recordedDepthImage.imageDepthCommands().size() == 1 &&
+			routedDepthCommand.destination == copyDestinationID &&
+			routedDepthCommand.depthSurface == DEPTH_BUFFER &&
+			routedDepthCommand.image >
+				std::numeric_limits<UINT32>::max() &&
+			routedDepthCommand.frame == 0 &&
+			routedDepthCommand.destinationOrigin ==
+				RenderSurfacePoint{-2, 1} &&
+			routedDepthCommand.clippingRegion ==
+				RenderSurfaceRegion{0, 0, 5, 3} &&
+			routedDepthCommand.depth == 0x1234 &&
+			routedDepthCommand.comparison ==
+				RenderDepthCompareMode::GreaterOrEqual &&
+			routedDepthCommand.depthWrite ==
+				RenderDepthWriteMode::ReplaceOnPass,
+			"pointer-owned tactical images receive stable opaque depth-command identities");
+
+		const PIXEL depthBackground =
+			Get16BPPColor(FROMRGB(0, 0, 255));
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copyDestinationPixels)
+		{
+			PIXEL* const depthRow = reinterpret_cast<PIXEL*>(
+				reinterpret_cast<BYTE*>(copyDestinationPixels));
+			for (std::size_t x = 0; x < 5; ++x)
+				depthRow[x] = depthBackground;
+		}
+		UINT16* const imageDepthBuffer = copyDestinationPixels ?
+			InitZBuffer(
+				copyDestinationPitch,
+				copySurfaceDescription.usHeight) : nullptr;
+		if (imageDepthBuffer)
+		{
+			UINT16* const depthRow = imageDepthBuffer;
+			depthRow[0] = 11;
+			depthRow[1] = 4;
+			depthRow[2] = 4;
+			depthRow[3] = 4;
+		}
+		const bool blockedDepthAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 0},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass});
+		const bool preservedDepthAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 0},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve});
+		const bool replacedDepthAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{2, 0},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass});
+		const bool clippedDepthAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{3, 0},
+					RenderSurfaceRegion{0, 0, 3, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass});
+		const bool invalidDepthModesRejected = !liveImageCreated ||
+			(!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					static_cast<RenderDepthCompareMode>(255),
+					RenderDepthWriteMode::ReplaceOnPass}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					static_cast<RenderDepthWriteMode>(255)}));
+		bool depthImagePixelsMatch =
+			copyDestinationPixels && imageDepthBuffer &&
+			SurfaceData::GetSurfaceID(
+				reinterpret_cast<BYTE*>(copyDestinationPixels)) ==
+				copyDestinationID;
+		if (depthImagePixelsMatch)
+		{
+			const PIXEL* const colorRow =
+				reinterpret_cast<const PIXEL*>(copyDestinationPixels);
+			depthImagePixelsMatch =
+				colorRow[0] == depthBackground &&
+				colorRow[1] == copiedRed &&
+				colorRow[2] == copiedRed &&
+				colorRow[3] == depthBackground &&
+				imageDepthBuffer[0] == 11 &&
+				imageDepthBuffer[1] == 4 &&
+				imageDepthBuffer[2] == 10 &&
+				imageDepthBuffer[3] == 4;
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		const bool imageDepthReleased =
+			!imageDepthBuffer || ShutdownZBuffer(imageDepthBuffer);
+		SetClippingRect(&imageSurfaceClip);
+		Check(blockedDepthAccepted && preservedDepthAccepted &&
+			replacedDepthAccepted && clippedDepthAccepted &&
+			invalidDepthModesRejected && depthImagePixelsMatch &&
+			imageDepthReleased,
+			"depth image commands preserve inclusive tests, optional writes, clipping, and exact ETRLE pixels");
+
 		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
 		UINT8* const encodedImagePixels =
 			liveImageCreated && liveImage->pPixData &&
@@ -2230,8 +2410,11 @@ int main()
 						RenderSurfacePoint{},
 						RenderSurfaceRegion{0, 0, 5, 3},
 						RenderImageOutlineMode::Shadow,
-						RenderColor{}, false})),
-			"engine-routed image resources reject stale outline identities");
+						RenderColor{}, false})) &&
+			(!liveImageCreated ||
+				!GetPlatformRenderCommands().drawImageDepth(
+					routedDepthCommand)),
+			"engine-routed image resources reject stale outline and depth identities");
 
 		copySourcePixels = copySurfacesCreated ?
 			reinterpret_cast<PIXEL*>(

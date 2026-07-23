@@ -274,6 +274,16 @@ UINT32 guiVSurfaceSize = 0;
 UINT32 guiVSurfaceTotalAdded = 0;
 bool gVideoSurfaceManagerInitialized = false;
 
+struct PlatformVideoSurfaceMapping
+{
+	std::uint8_t* pixels = nullptr;
+	std::uint32_t pitchBytes = 0;
+	std::size_t count = 0;
+};
+
+std::map<std::uint32_t, PlatformVideoSurfaceMapping>
+	gPlatformVideoSurfaceMappings;
+
 std::size_t BytesPerPixelFor(UINT8 bpp)
 {
 	// 8bpp source surfaces stay 1 byte; everything else is a render-format
@@ -420,6 +430,11 @@ BOOLEAN SetPrimaryVideoSurfaces()
 	extern UINT16 SCREEN_WIDTH;
 	extern UINT16 SCREEN_HEIGHT;
 
+	// Replacing a wrapper while its pixels are mapped would silently invalidate
+	// the caller's surface identity. The depth-buffer adapter already enforces
+	// this lifetime rule; colour surfaces follow the same contract.
+	if (!gPlatformVideoSurfaceMappings.empty()) return FALSE;
+
 	UINT32 pitch = 0;
 	void* primBuf  = LockPrimarySurface(&pitch); UnlockPrimarySurface();
 	void* backBuf  = LockBackBuffer(&pitch);     UnlockBackBuffer();
@@ -481,6 +496,7 @@ BOOLEAN InitializeVideoSurfaceManager()
 BOOLEAN ShutdownVideoSurfaceManager()
 {
 	DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_0, "Shutting down the Video Surface manager");
+	if (!gPlatformVideoSurfaceMappings.empty()) return FALSE;
 	DeletePrimaryVideoSurfaces();
 	gVideoSurfaces.forEach([](UINT32 id, OwnedVideoSurface&) {
 		SurfaceData::UnRegisterSurface(id);
@@ -634,7 +650,10 @@ BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
 
 BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 {
-	if (!FindSurfaceByIndex(uiIndex)) return FALSE;
+	if (!FindSurfaceByIndex(uiIndex) ||
+		gPlatformVideoSurfaceMappings.find(uiIndex) !=
+			gPlatformVideoSurfaceMappings.end())
+		return FALSE;
 	SurfaceData::UnRegisterSurface(uiIndex);
 	if (!gVideoSurfaces.erase(uiIndex)) return FALSE;
 	guiVSurfaceSize = static_cast<UINT32>(gVideoSurfaces.size());
@@ -668,42 +687,104 @@ BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 
 void UnLockVideoSurfaceBuffer(HVSURFACE /*hVSurface*/) {}
 
+static void ReleasePlatformVideoSurfacePixels(
+	std::uint32_t uiVSurface, HVSURFACE surface)
+{
+	switch (uiVSurface)
+	{
+	case PRIMARY_SURFACE: UnlockPrimarySurface(); return;
+	case BACKBUFFER: UnlockBackBuffer(); return;
+	case FRAME_BUFFER: UnlockFrameBuffer(); return;
+	case MOUSE_BUFFER: UnlockMouseBuffer(); return;
+	default: break;
+	}
+	if (surface) UnLockVideoSurfaceBuffer(surface);
+}
+
 std::uint8_t* PlatformVideoSurfaceMap(
 	std::uint32_t uiVSurface, std::uint32_t& pitchBytes)
 {
 	if (iUseWinFonts) CurrentSurface = uiVSurface;
-	switch (uiVSurface)
+	auto active = gPlatformVideoSurfaceMappings.find(uiVSurface);
+	if (active != gPlatformVideoSurfaceMappings.end())
 	{
-	case PRIMARY_SURFACE: return SurfaceData::SetSurfaceData(
-		uiVSurface, (BYTE*)LockPrimarySurface(&pitchBytes));
-	case BACKBUFFER: return SurfaceData::SetSurfaceData(
-		uiVSurface, (BYTE*)LockBackBuffer(&pitchBytes));
-	case FRAME_BUFFER: return SurfaceData::SetSurfaceData(
-		uiVSurface, (BYTE*)LockFrameBuffer(&pitchBytes));
-	case MOUSE_BUFFER: return SurfaceData::SetSurfaceData(
-		uiVSurface, (BYTE*)LockMouseBuffer(&pitchBytes));
-	default: break;
+		if (active->second.count ==
+			std::numeric_limits<std::size_t>::max())
+			return nullptr;
+		++active->second.count;
+		pitchBytes = active->second.pitchBytes;
+		return active->second.pixels;
 	}
-	HVSURFACE const surface = FindSurfaceByIndex(uiVSurface);
-	if (!surface) return nullptr;
-	return SurfaceData::SetSurfaceData(
-		uiVSurface, LockVideoSurfaceBuffer(surface, &pitchBytes));
+
+	HVSURFACE surface = nullptr;
+	std::uint8_t* pixels = nullptr;
+	try
+	{
+		switch (uiVSurface)
+		{
+		case PRIMARY_SURFACE:
+			pixels = static_cast<std::uint8_t*>(
+				LockPrimarySurface(&pitchBytes));
+			break;
+		case BACKBUFFER:
+			pixels = static_cast<std::uint8_t*>(
+				LockBackBuffer(&pitchBytes));
+			break;
+		case FRAME_BUFFER:
+			pixels = static_cast<std::uint8_t*>(
+				LockFrameBuffer(&pitchBytes));
+			break;
+		case MOUSE_BUFFER:
+			pixels = static_cast<std::uint8_t*>(
+				LockMouseBuffer(&pitchBytes));
+			break;
+		default:
+			surface = FindSurfaceByIndex(uiVSurface);
+			if (surface)
+				pixels = LockVideoSurfaceBuffer(surface, &pitchBytes);
+			break;
+		}
+		if (!pixels || pitchBytes == 0)
+		{
+			ReleasePlatformVideoSurfacePixels(uiVSurface, surface);
+			return nullptr;
+		}
+		pixels = SurfaceData::SetSurfaceData(uiVSurface, pixels);
+		if (!pixels)
+		{
+			ReleasePlatformVideoSurfacePixels(uiVSurface, surface);
+			return nullptr;
+		}
+		const auto inserted = gPlatformVideoSurfaceMappings.emplace(
+			uiVSurface,
+			PlatformVideoSurfaceMapping{pixels, pitchBytes, 1});
+		if (!inserted.second)
+		{
+			SurfaceData::ReleaseSurfaceData(uiVSurface);
+			ReleasePlatformVideoSurfacePixels(uiVSurface, surface);
+			return nullptr;
+		}
+		return pixels;
+	}
+	catch (...)
+	{
+		SurfaceData::ReleaseSurfaceData(uiVSurface);
+		ReleasePlatformVideoSurfacePixels(uiVSurface, surface);
+		return nullptr;
+	}
 }
 
 void PlatformVideoSurfaceUnmap(std::uint32_t uiVSurface)
 {
+	const auto active = gPlatformVideoSurfaceMappings.find(uiVSurface);
+	if (active == gPlatformVideoSurfaceMappings.end() ||
+		active->second.count == 0)
+		return;
+	if (--active->second.count != 0) return;
+	gPlatformVideoSurfaceMappings.erase(active);
 	SurfaceData::ReleaseSurfaceData(uiVSurface);
-	switch (uiVSurface)
-	{
-	case PRIMARY_SURFACE: UnlockPrimarySurface(); return;
-	case BACKBUFFER:      UnlockBackBuffer();     return;
-	case FRAME_BUFFER:    UnlockFrameBuffer();    return;
-	case MOUSE_BUFFER:    UnlockMouseBuffer();    return;
-	default: break;
-	}
 	HVSURFACE const surface = FindSurfaceByIndex(uiVSurface);
-	if (!surface) return;
-	UnLockVideoSurfaceBuffer(surface);
+	ReleasePlatformVideoSurfacePixels(uiVSurface, surface);
 }
 
 BOOLEAN SetVideoSurfaceTransparencyColor(HVSURFACE hVSurface, COLORVAL TransColor)

@@ -363,7 +363,7 @@ foreach(source_file IN LISTS world_state_files)
     continue()
   endif()
   string(REGEX MATCH
-    "Platform(DepthBuffer|Video(Surface|Object)?)Backend\\.h|(^|[^A-Za-z0-9_])Platform(DepthBuffer(Describe|Map|Unmap)|Video(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw|ObjectOutline)[A-Za-z0-9_]*)[ \t\r\n]*\\("
+    "Platform(DepthBuffer|Video(Surface|Object)?)Backend\\.h|(^|[^A-Za-z0-9_])Platform(DepthBuffer(Describe|Map|Unmap)|Video(Present|Invalidate|MarkFrameChanged|Surface|Object(DepthDraw|Draw|Outline))[A-Za-z0-9_]*)[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR

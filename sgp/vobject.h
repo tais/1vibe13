@@ -172,6 +172,19 @@ BOOLEAN BltVideoObject(  UINT32	uiDestVSurface,
 												 blt_fx *pBltFx );
 BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usRegionIndex, SGPRectangle Region, UINT32 fBltFlags, blt_fx* pBltFx);
 
+// Compatibility bridge for the common source-transparent tactical depth
+// operation. Registered video objects submit a portable engine command;
+// callers retain their exact raw blitter as a fallback when a host rejects it.
+BOOLEAN BltVideoObjectDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	const SGPRect* pClipRegion);
+
 BOOLEAN BltVideoObjectFromIndex(  UINT32	uiDestVSurface,
 												 UINT32 uiSrcVObject, 
 												 UINT16 usRegionIndex, 
