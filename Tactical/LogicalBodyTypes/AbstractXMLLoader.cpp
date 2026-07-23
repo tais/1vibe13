@@ -1,6 +1,13 @@
 #include "AbstractXMLLoader.h"
 
-#include <cstring>  // libstdc++ doesn't transitively expose strlen/strcpy/strcmp the way MSVC's STL does
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include <Engine/Adapters/Legacy/PlatformAssets.h>
+
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <string>
 
 // The in-tree sgp/expat.h is from expat 1.95.7 (vendored with the
 // original JA2 source), but the build links against modern expat
@@ -14,7 +21,15 @@ XML_SetBillionLaughsAttackProtectionMaximumAmplification(
 
 namespace LogicalBodyTypes {
 
-	AbstractXMLLoader::AbstractXMLLoader(XML_StartElementHandler startHandler, XML_EndElementHandler endHandler, XML_CharacterDataHandler charHandler, ParseDataFactoryFunc parseDataFactF) {
+struct AbstractXMLLoader::ParserContext {
+	AbstractXMLLoader* loader;
+	const AssetSource* assets;
+	std::string directory;
+	std::unique_ptr<ParseData> data;
+	XML_Parser activeParser = nullptr;
+};
+
+AbstractXMLLoader::AbstractXMLLoader(XML_StartElementHandler startHandler, XML_EndElementHandler endHandler, XML_CharacterDataHandler charHandler, ParseDataFactoryFunc parseDataFactF) {
 	startElementHandler = startHandler;
 	endElementHandler = endHandler;
 	characterDataHandler = charHandler;
@@ -38,156 +53,146 @@ AbstractXMLLoader::ParseData* AbstractXMLLoader::MakeParseData(XML_Parser* parse
 
 bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* fileName,
 	CHAR8* errorBuf, size_t errorCapacity) {
-	HWFILE hFile;
-	UINT32 uiBytesRead;
-	UINT32 uiFSize;
-	CHAR8* lpcBuffer;
-	char fileNameFull[MAX_PATH + 1];
-	if (strlen(fileName) + strlen(directoryName) >= MAX_PATH) {
-		snprintf(errorBuf, errorCapacity, "Can't load file %s%s, Concatenated filename too long for buffer!", directoryName, fileName);
-		LiveMessage(errorBuf);
+	if (!directoryName || !fileName || !errorBuf || errorCapacity == 0) {
+		static constexpr const char invalidInput[] =
+			"Can't load LogicalBodyTypes XML: invalid path or error buffer";
+		if (errorBuf && errorCapacity)
+			std::snprintf(errorBuf, errorCapacity, "%s", invalidInput);
+		LiveMessage(invalidInput);
 		return false;
 	}
-	SetDirectoryName(directoryName);
-	SetFileName(fileName);
-	strcpy(fileNameFull, directoryName);
-	strcat(fileNameFull, fileName);
-	XML_Parser parser = XML_ParserCreate(NULL);
-	// Disable expat's billion-laughs DoS protection -- JA2's data files
-	// legitimately expand a handful of large entity references and the
-	// default 100x amplification limit trips before we finish loading
-	// AnimationSurfaces.xml. The XML files ship with the game so the
-	// DoS vector doesn't apply here.
-	XML_SetBillionLaughsAttackProtectionMaximumAmplification(parser, 1000000.0f);
-	AbstractXMLLoader::ParseData* data = parseDataFactFuncPntr(&parser);
-
-	std::string msg = "Loading ";
-	msg += fileName;
-	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, msg.c_str());
-	hFile = FileOpen(fileNameFull, FILE_ACCESS_READ, FALSE);
-	if (!hFile) {
-		snprintf(errorBuf, errorCapacity, "Can't open %s", fileNameFull);
-		XML_ParserFree(parser);
-		delete data;
-		return false;
-	}
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8*)MemAlloc(uiFSize + 1);
-	if (!FileRead(hFile, lpcBuffer, uiFSize, &uiBytesRead)) {
-		snprintf(errorBuf, errorCapacity, "Error reading %s to buffer", fileNameFull);
-		MemFree(lpcBuffer);
-		FileClose(hFile);
-		XML_ParserFree(parser);
-		delete data;
-		return false;
-	}
-	lpcBuffer[uiFSize] = 0;
-	FileClose(hFile);
-
-	ExternalEntityArgs eeArgs;
-	eeArgs.directoryName = directoryName;
-	eeArgs.fileName = fileName;
-	eeArgs.pParser = &parser;
-
-	XML_SetElementHandler(parser, startElementHandler, endElementHandler);
-	XML_SetCharacterDataHandler(parser, characterDataHandler);
-	XML_SetUserData(parser, data);
-	XML_SetExternalEntityRefHandler(parser, ExternalEntityHandler);
-	XML_SetExternalEntityRefHandlerArg(parser, (void*)&eeArgs);
-
 	try {
-		if (!XML_Parse(parser, lpcBuffer, uiFSize, TRUE)) {
-			snprintf(errorBuf, errorCapacity, "XML Parser Error in %s[%d]: %s", fileNameFull, XML_GetCurrentLineNumber(parser), XML_ErrorString(XML_GetErrorCode(parser)));
+		SetDirectoryName(directoryName);
+		SetFileName(fileName);
+
+		std::string logicalPath(directoryName);
+		logicalPath += fileName;
+
+		std::string msg = "Loading ";
+		msg += fileName;
+		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, msg.c_str());
+
+		ParserContext context{
+			this, &GetPlatformAssetSource(), directoryName, nullptr, nullptr};
+		LegacyXmlCallbacks callbacks;
+		callbacks.userData = &context;
+		callbacks.parserReady = PrepareParser;
+		const LegacyXmlResult result = ParseLegacyXmlAsset(
+			*context.assets, logicalPath, callbacks);
+		if (result) return true;
+
+		const auto failure =
+			FormatLegacyXmlFailure(logicalPath.c_str(), result);
+		std::snprintf(errorBuf, errorCapacity, "%s", failure.data());
+		if (result.status == LegacyXmlStatus::Malformed ||
+			result.status == LegacyXmlStatus::CallbackError)
 			LiveMessage(errorBuf);
-			MemFree(lpcBuffer);
-			XML_ParserFree(parser);
-			delete data;
-			return false;
-		}
-	} catch (const XMLParseException& e) {
-		snprintf(errorBuf, errorCapacity, "XML Parser Exception in %s[%d]: %s", fileNameFull, e._LINE, e.what());
-		LiveMessage(errorBuf);
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
-		delete data;
 		return false;
 	}
-	MemFree(lpcBuffer);
-	XML_ParserFree(parser);
-	delete data;
-	return true;
+	catch (const std::bad_alloc&) {
+		std::snprintf(errorBuf, errorCapacity,
+			"Not enough memory to load LogicalBodyTypes XML: %s%s",
+			directoryName, fileName);
+		return false;
+	}
+	catch (...) {
+		std::snprintf(errorBuf, errorCapacity,
+			"Unexpected failure loading LogicalBodyTypes XML: %s%s",
+			directoryName, fileName);
+		return false;
+	}
 }
 
-int XMLCALL AbstractXMLLoader::ExternalEntityHandler(XML_Parser args, const XML_Char* context, const XML_Char* base, const XML_Char* systemId, const XML_Char* publicId) {
-	ExternalEntityArgs* eArgs = (ExternalEntityArgs*)args;
-	char fileNameFull[MAX_PATH + 1];
-	UINT32 uiBytesRead;
-	UINT32 uiFSize;
-	CHAR8* lpcBuffer;
-	HWFILE hFile;
-	if (strlen(eArgs->directoryName) + strlen(systemId) >= MAX_PATH) {
-		LiveMessage("Can't load file specified in external entity. Concatinated filename too long for buffer!");
-		return XML_STATUS_ERROR;
-	}
-	strcpy(fileNameFull, eArgs->directoryName);
-	strcat(fileNameFull, systemId);
+void AbstractXMLLoader::PrepareParser(XML_Parser parser, void* userData) {
+	ParserContext* context = static_cast<ParserContext*>(userData);
+	if (!context || !context->loader) return;
 
-	hFile = FileOpen(fileNameFull, FILE_ACCESS_READ, FALSE);
-	if (!hFile) {
-		LiveMessage("File specified in external entity can't be opened!");
-		return XML_STATUS_ERROR;
-	}
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8*)MemAlloc(uiFSize + 1);
-	if (!FileRead(hFile, lpcBuffer, uiFSize, &uiBytesRead)) {
-		LiveMessage("File specified in external entity couldn't be read!");
-		MemFree(lpcBuffer);
-		return XML_STATUS_ERROR;
-	}
-	lpcBuffer[uiFSize] = 0;
-	FileClose(hFile);
+	context->activeParser = parser;
+	// JA2's shipped AnimationSurfaces.xml legitimately expands a number of
+	// large external entities. Preserve the established compatibility setting
+	// while keeping parser creation and destruction inside the engine adapter.
+	XML_SetBillionLaughsAttackProtectionMaximumAmplification(
+		parser, 1000000.0f);
+	context->data.reset(
+		context->loader->parseDataFactFuncPntr(&context->activeParser));
+	XML_SetElementHandler(parser,
+		context->loader->startElementHandler,
+		context->loader->endElementHandler);
+	XML_SetCharacterDataHandler(
+		parser, context->loader->characterDataHandler);
+	XML_SetUserData(parser, context->data.get());
+	XML_SetExternalEntityRefHandler(parser, ExternalEntityHandler);
+	XML_SetExternalEntityRefHandlerArg(parser, context);
+}
 
-	XML_Parser extParser = XML_ExternalEntityParserCreate(*eArgs->pParser, context, NULL);
-	ParseData* data = (ParseData*)XML_GetUserData(*eArgs->pParser);
-	data->pParser = &extParser;
+void AbstractXMLLoader::PrepareExternalParser(
+	XML_Parser parser, void* userData) {
+	ParserContext* context = static_cast<ParserContext*>(userData);
+	if (!context || !context->loader || !context->data) return;
+
+	context->activeParser = parser;
+	XML_SetElementHandler(parser,
+		context->loader->startElementHandler,
+		context->loader->endElementHandler);
+	XML_SetCharacterDataHandler(
+		parser, context->loader->characterDataHandler);
+	XML_SetUserData(parser, context->data.get());
+	XML_SetExternalEntityRefHandler(parser, ExternalEntityHandler);
+	XML_SetExternalEntityRefHandlerArg(parser, context);
+}
+
+int XMLCALL AbstractXMLLoader::ExternalEntityHandler(XML_Parser args,
+	const XML_Char* context, const XML_Char*, const XML_Char* systemId,
+	const XML_Char*) {
+	ParserContext* parserContext = reinterpret_cast<ParserContext*>(args);
+	if (!parserContext || !parserContext->assets ||
+		!parserContext->activeParser || !systemId || !systemId[0]) {
+		LiveMessage("Invalid LogicalBodyTypes external entity reference");
+		return XML_STATUS_ERROR;
+	}
+
+	const XML_Parser parentParser = parserContext->activeParser;
 	try {
-		if (!XML_Parse(extParser, lpcBuffer, uiFSize, TRUE)) {
-			CHAR8 errorBuf[512];
-			sprintf(errorBuf, "XML Parser Error in external entity %s[%d]: %s", systemId, XML_GetCurrentLineNumber(extParser), XML_ErrorString(XML_GetErrorCode(extParser)));
-			LiveMessage(errorBuf);
-			MemFree(lpcBuffer);
-			XML_ParserFree(extParser);
-			return XML_STATUS_ERROR;
-		}
-	} catch (const XMLParseException& e) {
-		CHAR8 errorBuf[512];
-		sprintf(errorBuf, "XML Parser Exception in external entity %s[%d]: %s", systemId, e._LINE, e.what());
-		LiveMessage(errorBuf);
-		XML_ParserFree(extParser);
-		MemFree(lpcBuffer);
+		std::string logicalPath = parserContext->directory;
+		logicalPath += systemId;
+
+		LegacyXmlCallbacks callbacks;
+		callbacks.userData = parserContext;
+		callbacks.parserReady = PrepareExternalParser;
+		const LegacyXmlResult result = ParseLegacyXmlExternalEntityAsset(
+			*parserContext->assets, logicalPath, parentParser, context,
+			callbacks);
+		parserContext->activeParser = parentParser;
+		if (result) return XML_STATUS_OK;
+
+		const auto failure =
+			FormatLegacyXmlFailure(logicalPath.c_str(), result);
+		LiveMessage(failure.data());
 		return XML_STATUS_ERROR;
 	}
-	data->pParser = eArgs->pParser;
-	XML_ParserFree(extParser);
-	MemFree(lpcBuffer);
-	return XML_STATUS_OK;
+	catch (...) {
+		parserContext->activeParser = parentParser;
+		LiveMessage(
+			"Unexpected failure loading LogicalBodyTypes external entity");
+		return XML_STATUS_ERROR;
+	}
 };
 
 
 const char* AbstractXMLLoader::GetFileName() {
-	return fileName;
+	return fileName.c_str();
 }
 
 const char* AbstractXMLLoader::GetDirectoryName() {
-	return directoryName;
+	return directoryName.c_str();
 }
 
 void AbstractXMLLoader::SetFileName(const char* fileName) {
-	strcpy(this->fileName, fileName);
+	this->fileName = fileName ? fileName : "";
 }
 
 void AbstractXMLLoader::SetDirectoryName(const char* directoryName) {
-	strcpy(this->directoryName, directoryName);
+	this->directoryName = directoryName ? directoryName : "";
 }
 
 const XML_Char* AbstractXMLLoader::GetAttribute(const XML_Char* name, const XML_Char** atts) {
