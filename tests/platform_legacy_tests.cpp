@@ -17,6 +17,9 @@
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include "FileMan.h"
+#include "Font.h"
+#include "MemMan.h"
+#include "Music Control.h"
 #include "Render Dirty.h"
 #include "worlddef.h"
 #include "Tile Animation.h"
@@ -223,6 +226,7 @@ int main()
 	profile->m_writable = true;
 	config.addProfile(profile, true);
 	Check(vfs_init::initVirtualFileSystem(config), "writable VFS profile initializes");
+	Check(InitializeMemoryManager(), "memory manager initializes");
 	Check(InitializeFileManager(NULL), "FileMan initializes");
 
 	char record[] = "record.bin";
@@ -413,6 +417,10 @@ int main()
 		!GetPlatformInputSource().poll(mirrored),
 		"engine-facing input resumes without stale atoms or reused sequence IDs");
 	ShutdownInputManager();
+	ShutdownInputManager();
+	Check(InitializeInputManager(),
+		"input manager restarts after repeated shutdown");
+	ShutdownInputManager();
 	ShutdownClockManager();
 	ResetPlatformTimeSource();
 
@@ -420,6 +428,26 @@ int main()
 	Check(storage.writeAll("lifecycle.wav", MakeSilentWav()),
 		"audio lifecycle fixture is written through VFS");
 	Check(InitializeSoundManager(), "sound manager initializes transactionally");
+	std::filesystem::create_directories(root / "MUSIC", error);
+	Check(storage.writeAll("MUSIC/menumix1.wav", MakeSilentWav()),
+		"music lifecycle fixture is written through VFS");
+	InitializeMusicLists();
+	std::size_t musicEntries = 0;
+	for (const std::vector<STR>& list : MusicLists) musicEntries += list.size();
+	InitializeMusicLists();
+	std::size_t repeatedMusicEntries = 0;
+	for (const std::vector<STR>& list : MusicLists)
+		repeatedMusicEntries += list.size();
+	ShutdownMusicLists();
+	bool musicListsEmpty = true;
+	for (const std::vector<STR>& list : MusicLists)
+		musicListsEmpty = list.empty() && musicListsEmpty;
+	ShutdownMusicLists();
+	InitializeMusicLists();
+	ShutdownMusicLists();
+	Check(musicEntries > 0 && repeatedMusicEntries == musicEntries &&
+		musicListsEmpty,
+		"music lists own entries once and support repeated stop/restart cycles");
 	int callbackCount = 0;
 	SOUNDPARMS soundParameters{};
 	soundParameters.uiVolume = 127;
@@ -530,6 +558,19 @@ int main()
 			"video object registry initializes from an empty lifetime");
 		Check(InitializeVideoSurfaceManager(),
 			"video surface manager publishes all primary wrappers");
+		FontTranslationTable* firstTable = CreateEnglishTransTable();
+		const bool firstFontManager = firstTable &&
+			InitializeFontManager(8, firstTable);
+		if (firstFontManager) MemFree(firstTable);
+		ShutdownFontManager();
+		ShutdownFontManager();
+		FontTranslationTable* secondTable = CreateEnglishTransTable();
+		const bool secondFontManager = secondTable &&
+			InitializeFontManager(8, secondTable);
+		if (secondFontManager) MemFree(secondTable);
+		ShutdownFontManager();
+		Check(firstFontManager && secondFontManager,
+			"font manager transfers its table transactionally and restarts cleanly");
 
 		image_type callerOwnedImage{};
 		callerOwnedImage.ubBitDepth = 8;
@@ -980,6 +1021,12 @@ int main()
 	}
 
 	ShutdownFileManager();
+	ShutdownFileManager();
+	Check(InitializeFileManager(NULL),
+		"FileMan restarts after repeated shutdown");
+	ShutdownFileManager();
+	ShutdownMemoryManager();
+	ShutdownMemoryManager();
 	std::filesystem::remove_all(root, error);
 	SDL_Quit();
 	std::printf("\n%s (%d failure%s)\n",

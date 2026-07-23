@@ -2,6 +2,7 @@
 	#include "gameloop.h"
 	#include "Screens.h"
 	#include "Cursors.h"
+	#include "Cursor Control.h"
 	#include "Init.h"
 	#include "Music Control.h"
 	#include "Sys Globals.h"
@@ -94,6 +95,77 @@ extern BOOLEAN	gfInMsgBox;
 extern BOOLEAN gfInChatBox; // OJW - 20090314 - new chatbox
 extern void InitSightRange(); //lal
 
+namespace
+{
+class GameStartupGuard
+{
+public:
+	~GameStartupGuard() noexcept
+	{
+		if (committed_) return;
+		try { (void)GetGameContext().packageLifecycle().rollback(); }
+		catch (...) {}
+		while (initializedScreens_ > 0)
+		{
+			--initializedScreens_;
+			try { (void)ShutdownRegisteredScreen(initializedScreens_); }
+			catch (...) {}
+		}
+		if (tacticalSave_)
+		{
+			try { InitTacticalSave(FALSE); }
+			catch (...) {}
+		}
+		if (fonts_)
+		{
+			try { ShutdownFonts(); }
+			catch (...) {}
+		}
+		if (cursors_)
+		{
+			try { CursorDatabaseClear(); }
+			catch (...) {}
+		}
+		if (buttons_)
+		{
+			try { ShutdownButtonSystem(); }
+			catch (...) {}
+		}
+		if (mouse_)
+		{
+			try { MSYS_Shutdown(); }
+			catch (...) {}
+		}
+		if (externalOptions_)
+		{
+			try { FreeGameExternalOptions(); }
+			catch (...) {}
+		}
+	}
+
+	void loadedExternalOptions() { externalOptions_ = true; }
+	void attemptingMouse() { mouse_ = true; }
+	void attemptingButtons() { buttons_ = true; }
+	void initializedCursors() { cursors_ = true; }
+	void initializedFonts() { fonts_ = true; }
+	void initializedTacticalSave() { tacticalSave_ = true; }
+	void initializedScreen() { ++initializedScreens_; }
+	void commit() { committed_ = true; }
+
+private:
+	std::size_t initializedScreens_ = 0;
+	bool externalOptions_ = false;
+	bool mouse_ = false;
+	bool buttons_ = false;
+	bool cursors_ = false;
+	bool fonts_ = false;
+	bool tacticalSave_ = false;
+	bool committed_ = false;
+};
+
+bool gGameManagerInitialized = false;
+}
+
 
 // callback to confirm game is over
 void EndGameMessageBoxCallBack( UINT8 bExitValue );
@@ -127,6 +199,8 @@ static void ReportMapscreenErrorLock()
 BOOLEAN InitializeGame(void)
 {
 	UINT32				uiIndex;
+	if (gGameManagerInitialized) return TRUE;
+	GameStartupGuard startup;
 
 	giStartingMemValue = MemGetFree( );
 
@@ -147,6 +221,7 @@ BOOLEAN InitializeGame(void)
 	// Snap: Read options from an INI file in the default of custom Data directory
 	// Moved this up because some settings are used during other inits
 	LoadGameAPBPConstants();
+	startup.loadedExternalOptions();
 	LoadGameExternalOptions();
 	// Load new ini - SANDRO
 	LoadSkillTraitsExternalSettings();
@@ -177,8 +252,11 @@ BOOLEAN InitializeGame(void)
 	InitSightRange(); //lal
 
 	// Initlaize mouse subsystems
-	MSYS_Init( );
-	InitButtonSystem();
+	startup.attemptingMouse();
+	if (!MSYS_Init()) return FALSE;
+	startup.attemptingButtons();
+	if (!InitButtonSystem()) return FALSE;
+	startup.initializedCursors();
 	InitCursors( );
 
 	SetFastForwardPeriod(gGameExternalOptions.iFastForwardPeriod);
@@ -190,11 +268,13 @@ BOOLEAN InitializeGame(void)
 	if ( !InitializeFonts( ) )
 	{
 		// Send debug message and quit
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "COULD NOT INUT FONT SYSTEM...");
-		return( ERROR_SCREEN );
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "COULD NOT INIT FONT SYSTEM...");
+		return FALSE;
 	}
+	startup.initializedFonts();
 
 	//Deletes all the Temp files in the Maps\Temp directory
+	startup.initializedTacticalSave();
 	InitTacticalSave( TRUE );
 
 	// Initialize Game Screens.
@@ -204,6 +284,7 @@ BOOLEAN InitializeGame(void)
 		{ // Failed to initialize one of the screens.
 			return FALSE;
 		}
+		startup.initializedScreen();
 	}
 
 	//Init the help screen system
@@ -223,6 +304,8 @@ BOOLEAN InitializeGame(void)
 	guiCurrentScreen = INIT_SCREEN;
 	GetGameContext().screenController().reset(guiCurrentScreen);
 
+	gGameManagerInitialized = true;
+	startup.commit();
 	return TRUE;
 }
 
@@ -231,10 +314,33 @@ BOOLEAN InitializeGame(void)
 
 void ShutdownGame(void)
 {
-	// handle shutdown of game with respect to preloaded mapscreen graphics
-	HandleRemovalOfPreLoadedMapGraphics( );
-
-	ShutdownJA2( );
+	if (!gGameManagerInitialized) return;
+	gGameManagerInitialized = false;
+	GameContext& game = GetGameContext();
+	if (game.lifecycle() == EngineLifecycle::Stopped)
+	{
+		// The shell can be closed before InitScreen starts the full JA2 runtime
+		// (window close during splash, startup rejection, automated hosts). Do
+		// not run the tactical/strategic teardown against objects that were
+		// never initialized; unwind only the Configure package phase and the
+		// resources acquired by InitializeGame.
+		const PackageLifecycleRollbackResult rollback =
+			game.packageLifecycle().rollback();
+		if (!rollback)
+			game.log().write(LogRecord{
+				LogSeverity::Error, "lifecycle",
+				"Pre-runtime game-shell package rollback was incomplete"});
+		for (UINT32 screen = MAX_SCREENS; screen > 0; --screen)
+			(void)ShutdownRegisteredScreen(screen - 1);
+		CursorDatabaseClear();
+		ShutdownFonts();
+	}
+	else
+	{
+		// handle shutdown of game with respect to preloaded mapscreen graphics
+		HandleRemovalOfPreLoadedMapGraphics( );
+		ShutdownJA2( );
+	}
 
 	//Save the general save game settings to disk
 	SaveGameSettings();
@@ -252,6 +358,8 @@ void ShutdownGame(void)
 	//ShutdownLua( );
 
 	FreeGameExternalOptions();
+	ShutdownButtonSystem();
+	MSYS_Shutdown();
 }
 
 

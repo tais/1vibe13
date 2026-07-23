@@ -21,6 +21,7 @@
 #include <Engine/Core/SimulationTick.h>
 #include <Engine/Core/StableResourceRegistry.h>
 #include <Engine/Core/StateRegistry.h>
+#include <Engine/Core/SubsystemRuntime.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -394,6 +395,132 @@ void check(bool condition, const char* message)
 
 int main()
 {
+	bool everyStartupBoundaryRolledBack = true;
+	for (std::size_t failed = 0; failed < 5; ++failed)
+	{
+		std::vector<int> events;
+		std::vector<SubsystemDefinition> definitions;
+		for (std::size_t index = 0; index < 5; ++index)
+		{
+			definitions.push_back(SubsystemDefinition{
+				"step-" + std::to_string(index),
+				[&, index] {
+					events.push_back(static_cast<int>(index));
+					return index != failed;
+				},
+				[&, index] { events.push_back(10 + static_cast<int>(index)); }});
+		}
+		SubsystemRuntime runtime(std::move(definitions));
+		const SubsystemStartResult started = runtime.start();
+		std::vector<int> expected;
+		for (std::size_t index = 0; index <= failed; ++index)
+			expected.push_back(static_cast<int>(index));
+		for (std::size_t index = failed; index > 0; --index)
+			expected.push_back(10 + static_cast<int>(index - 1));
+		everyStartupBoundaryRolledBack =
+			!started &&
+			started.error == SubsystemStartError::Rejected &&
+			started.failedSubsystem == failed &&
+			started.started == failed &&
+			started.rollback.stopped == failed &&
+			runtime.state() == SubsystemRuntimeState::Stopped &&
+			runtime.activeSubsystems() == 0 &&
+			events == expected &&
+			everyStartupBoundaryRolledBack;
+	}
+	check(everyStartupBoundaryRolledBack,
+		"subsystem startup rejection rolls back every completed prefix exactly once");
+
+	std::vector<std::string> orderedEvents;
+	SubsystemRuntime orderedRuntime({
+		SubsystemDefinition{"memory",
+			[&] { orderedEvents.push_back("start-memory"); return true; },
+			[&] { orderedEvents.push_back("stop-memory"); }, 20},
+		SubsystemDefinition{"vfs",
+			[&] { orderedEvents.push_back("start-vfs"); return true; },
+			[&] { orderedEvents.push_back("stop-vfs"); }, 100},
+		SubsystemDefinition{"game",
+			[&] { orderedEvents.push_back("start-game"); return true; },
+			[&] { orderedEvents.push_back("stop-game"); }, 0}});
+	const SubsystemStartResult orderedStart = orderedRuntime.start();
+	const SubsystemStartResult repeatedStart = orderedRuntime.start();
+	const SubsystemStopResult orderedStop = orderedRuntime.stop();
+	const SubsystemStopResult repeatedStop = orderedRuntime.stop();
+	check(orderedStart && repeatedStart && repeatedStart.alreadyRunning &&
+		orderedStop && orderedStop.stopped == 3 &&
+		repeatedStop && repeatedStop.stopped == 0 &&
+		orderedEvents == std::vector<std::string>({
+			"start-memory", "start-vfs", "start-game",
+			"stop-game", "stop-memory", "stop-vfs"}),
+		"subsystem runtime supports explicit dependency teardown and idempotent boundaries");
+
+	std::vector<int> exceptionEvents;
+	SubsystemRuntime exceptionRuntime({
+		SubsystemDefinition{"first",
+			[&] { exceptionEvents.push_back(0); return true; },
+			[&] { exceptionEvents.push_back(10); }},
+		SubsystemDefinition{"throwing-start",
+			[&]() -> bool {
+				exceptionEvents.push_back(1);
+				throw std::runtime_error("injected startup failure");
+			},
+			[&] { exceptionEvents.push_back(11); }},
+		SubsystemDefinition{"unreached",
+			[&] { exceptionEvents.push_back(2); return true; },
+			[&] { exceptionEvents.push_back(12); }}});
+	const SubsystemStartResult exceptionStart = exceptionRuntime.start();
+	bool preservedStartupException = false;
+	try
+	{
+		if (exceptionStart.callbackException)
+			std::rethrow_exception(exceptionStart.callbackException);
+	}
+	catch (const std::runtime_error& exception)
+	{
+		preservedStartupException =
+			std::string(exception.what()) == "injected startup failure";
+	}
+	check(exceptionStart.error == SubsystemStartError::CallbackException &&
+		exceptionStart.failedSubsystem == 1 && exceptionStart.started == 1 &&
+		exceptionStart.rollback.stopped == 1 &&
+		exceptionEvents == std::vector<int>({0, 1, 10}) &&
+		preservedStartupException,
+		"subsystem startup exceptions preserve diagnostics after deterministic rollback");
+
+	SubsystemRuntime* reentrantRuntime = nullptr;
+	SubsystemStopResult nestedStop;
+	SubsystemStartResult nestedStart;
+	std::vector<int> shutdownEvents;
+	SubsystemRuntime guardedRuntime({
+		SubsystemDefinition{"guarded",
+			[&] {
+				nestedStop = reentrantRuntime->stop();
+				return true;
+			},
+			[&] {
+				shutdownEvents.push_back(0);
+				nestedStart = reentrantRuntime->start();
+				throw std::runtime_error("injected shutdown failure");
+			}},
+		SubsystemDefinition{"survivor",
+			[] { return true; },
+			[&] { shutdownEvents.push_back(1); }}});
+	reentrantRuntime = &guardedRuntime;
+	const SubsystemStartResult guardedStart = guardedRuntime.start();
+	const SubsystemStopResult guardedStop = guardedRuntime.stop();
+	const SubsystemStartResult guardedRestart = guardedRuntime.start();
+	const SubsystemStopResult guardedRestop = guardedRuntime.stop();
+	check(guardedStart &&
+		nestedStop.error == SubsystemStopError::TransitionInProgress &&
+		guardedStop.error == SubsystemStopError::CallbackException &&
+		guardedStop.callbackFailures == 1 &&
+		nestedStart.error == SubsystemStartError::TransitionInProgress &&
+		guardedRestart &&
+		guardedRestop.error == SubsystemStopError::CallbackException &&
+		shutdownEvents == std::vector<int>({1, 0, 1, 0}) &&
+		guardedRuntime.state() == SubsystemRuntimeState::Stopped,
+		"subsystem teardown contains callback failures and remains restartable");
+
 	int registryDestructions = 0;
 	StableResourceRegistry<RegistryResource> registry(
 		StableResourceRegistry<RegistryResource>::Limits{2, 2, 6, 3});

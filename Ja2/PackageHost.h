@@ -59,6 +59,16 @@ struct PackageHostResult
 	explicit operator bool() const { return error == PackageHostError::None; }
 };
 
+struct PackageHostShutdownResult
+{
+	std::size_t unmounted = 0;
+	std::size_t deactivated = 0;
+	std::size_t unregistered = 0;
+	std::vector<std::string> failures;
+
+	explicit operator bool() const { return failures.empty(); }
+};
+
 // Application adapter used by PackageHost after the engine has resolved and
 // activated a complete dependency graph. Production mounts read-only bfVFS
 // profiles; tests can inject an in-memory recorder.
@@ -94,6 +104,8 @@ public:
 
 	PackageHostResult initialize(PackageRegistry& registry,
 		const PackageStartupOptions& options, PackageAssetMounter& mounter);
+	PackageHostShutdownResult shutdown(PackageRegistry& registry,
+		PackageAssetMounter& mounter);
 
 	bool attempted() const { return attempted_; }
 	const std::vector<std::string>& discoveredPackageIds() const { return discoveredIds_; }
@@ -107,6 +119,9 @@ private:
 
 	std::vector<std::unique_ptr<OwnedPackage>> packages_;
 	std::vector<std::string> discoveredIds_;
+	std::vector<std::string> registeredIds_;
+	std::vector<std::string> activatedIds_;
+	std::vector<std::string> mountedIds_;
 	bool attempted_ = false;
 };
 
@@ -116,5 +131,6 @@ PackageHost& GetStartupPackageHost();
 
 // Production composition hook. A disabled options object is a strict no-op.
 PackageHostResult InitializeStartupDataPackages(const PackageStartupOptions& options);
+PackageHostShutdownResult ShutdownStartupDataPackages();
 
 #endif

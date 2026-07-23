@@ -20,6 +20,7 @@ set(core_standard_headers
   cstdint
   cstring
   deque
+  exception
   functional
   initializer_list
   iterator

@@ -127,6 +127,7 @@ void			DebugPrint( void );
 
 BOOLEAN InitializeMemoryManager( void )
 {
+	if (fMemManagerInit) return TRUE;
 	// Register the memory manager with the debugger
 	RegisterDebugTopic(TOPIC_MEMORY_MANAGER, "Memory Manager");
 	MemDebugCounter = 0;
@@ -180,6 +181,7 @@ void MemDebug( BOOLEAN f )
 
 void ShutdownMemoryManager( void )
 {
+	if (!fMemManagerInit) return;
 	if ( MemDebugCounter != 0 )
 	{
 		DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String(" "));

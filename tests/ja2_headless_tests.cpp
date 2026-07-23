@@ -4597,6 +4597,28 @@ int main( int, char** )
 		       mounter.mounted == std::vector<std::string>({
 		       "fixture.base", "fixture.consumer" }),
 		       "a package host attempts startup exactly once" );
+		const PackageHostShutdownResult shutdown =
+			host.shutdown( runtime.packages(), mounter );
+		const PackageHostShutdownResult repeatedShutdown =
+			host.shutdown( runtime.packages(), mounter );
+		CHECK( shutdown && shutdown.unmounted == 2 && shutdown.deactivated == 2 &&
+		       shutdown.unregistered == 2 &&
+		       mounter.unmounted == std::vector<std::string>({
+		       "fixture.consumer", "fixture.base" }) &&
+		       runtime.packages().activationOrder().empty() &&
+		       runtime.packageCatalog().packages.empty() && !host.attempted() &&
+		       repeatedShutdown && repeatedShutdown.unmounted == 0 &&
+		       repeatedShutdown.deactivated == 0 &&
+		       repeatedShutdown.unregistered == 0,
+		       "package host shutdown reverses mounts and ownership exactly once" );
+		const PackageHostResult restarted =
+			host.initialize( runtime.packages(), options, mounter );
+		const PackageHostShutdownResult restartedShutdown =
+			host.shutdown( runtime.packages(), mounter );
+		CHECK( restarted && restarted.activated == result.activated &&
+		       restartedShutdown && !host.attempted() &&
+		       runtime.packageCatalog().packages.empty(),
+		       "a fully stopped package host can start a fresh runtime session" );
 	}
 
 	{
@@ -4833,6 +4855,14 @@ int main( int, char** )
 		       runtime.packages().find( "fixture.preflight-consumer" ) == nullptr &&
 		       result.rollbackFailures.empty(),
 		       "mount preflight completes before invoking any package activation" );
+		mounter.failPreflightId.clear();
+		const PackageHostResult retry =
+			host.initialize( runtime.packages(), options, mounter );
+		const PackageHostShutdownResult retryShutdown =
+			host.shutdown( runtime.packages(), mounter );
+		CHECK( retry && retryShutdown && !host.attempted() &&
+		       runtime.packageCatalog().packages.empty(),
+		       "a fully rolled-back package startup failure is immediately retryable" );
 	}
 
 	{

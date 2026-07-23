@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <csignal>
 #include <stdexcept>
+#include <Engine/Core/SubsystemRuntime.h>
 #ifdef _WIN32
 #include <direct.h>   // _chdir
 #else
@@ -36,6 +37,7 @@
 #include "JA2 Splash.h"
 #include "Timer Control.h"
 #include "Utilities.h"
+#include "structure.h"
 #include "GameSettings.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
@@ -380,187 +382,287 @@ INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LP
 }
 #endif // 0 (WindowProcedure deleted)
 
-BOOLEAN InitializeStandardGamingPlatform(void)
+namespace
 {
-	FontTranslationTable *pFontTable;
+bool s_ExitHandlerRegistered = false;
 
-	// now required by all (even JA2) in order to call ShutdownSGP
-	atexit(SafeSGPExit);
-
-	// Second, read in settings
-	GetRuntimeSettings( );
-
-	// Initialize the Debug Manager - success doesn't matter
-	InitializeDebugManager();
-
-	// Now start up everything else.
-	RegisterDebugTopic(TOPIC_SGP, "Standard Gaming Platform");
-
-	// this one needs to go ahead of all others (except Debug), for MemDebugCounter to work right...
-	FastDebugMsg("Initializing Memory Manager");
-	// Initialize the Memory Manager
-	if (InitializeMemoryManager() == FALSE)
+void ShutdownVirtualFileSystemBoundary()
+{
+	std::exception_ptr failure;
+	auto cleanup = [&failure](auto&& callback)
 	{
-		// We were unable to initialize the memory manager
-		FastDebugMsg("FAILED : Initializing Memory Manager");
-		return FALSE;
-	}
+		try { callback(); }
+		catch (...)
+		{
+			if (!failure) failure = std::current_exception();
+		}
+	};
+	cleanup([] { vfs::Log::flushDeleteAll(); });
+	cleanup([] {
+		vfs::FileLogger* const logger = vfslog;
+		vfslog = NULL;
+		delete logger;
+	});
+	// initVirtualFileSystem may have acquired partial singleton state before
+	// rejecting a configuration, so this boundary is deliberately safe even
+	// when the public initialized flag was never committed.
+	s_VfsIsInitialized = false;
+	cleanup([] { vfs::CVirtualFileSystem::shutdownVFS(); });
+	cleanup([] { vfs::ObjectAllocator::clear(); });
+	if (failure) std::rethrow_exception(failure);
+}
 
-	FastDebugMsg("Initializing File Manager");
-	// Initialize the File Manager
-	if (InitializeFileManager(NULL) == FALSE)
+bool InitializeVirtualFileSystemBoundary()
+{
+	try
 	{
-		// We were unable to initialize the file manager
-		FastDebugMsg("FAILED : Initializing File Manager");
-		return FALSE;
+		if (!vfs_init::initVirtualFileSystem(vfs_config_ini))
+		{
+			ShutdownVirtualFileSystemBoundary();
+			return false;
+		}
+		s_VfsIsInitialized = true;
+		return true;
 	}
-
-	FastDebugMsg("Initializing Input Manager");
-	// Initialize the Input Manager
-	if (InitializeInputManager() == FALSE)
+	catch (...)
 	{
-		// We were unable to initialize the input manager
-		FastDebugMsg("FAILED : Initializing Input Manager");
-		return FALSE;
+		ShutdownVirtualFileSystemBoundary();
+		throw;
 	}
+}
 
-	// gcsGameLoop replaced by gGameLoopMutex (std::mutex) -- no
-	// init required.
-
-	FastDebugMsg("Initializing Video Manager");
-	if (InitializeVideoManager() == FALSE)
-	{
-		// We were unable to initialize the video manager
-		FastDebugMsg("FAILED : Initializing Video Manager");
-		return FALSE;
-	}
-
-	// Initialize Video Object Manager
-	FastDebugMsg("Initializing Video Object Manager");
-	if ( !InitializeVideoObjectManager( ) )
-	{
-		FastDebugMsg("FAILED : Initializing Video Object Manager");
-		return FALSE;
-	}
-
-	// Initialize Video Surface Manager
-	FastDebugMsg("Initializing Video Surface Manager");
-	if ( !InitializeVideoSurfaceManager( ) )
-	{ 
-		FastDebugMsg("FAILED : Initializing Video Surface Manager");
-		return FALSE;
-	}
-
-	//vfs::Path exe_dir, exe_file;
-	//os::getExecutablePath(exe_dir, exe_file);
-
-	//// set current directory to exe's directory 
-	//os::setCurrectDirectory(exe_dir);
-
-	SGP_THROW_IFFALSE( vfs_init::initVirtualFileSystem( vfs_config_ini ), L"Initializing Virtual File System failed");
-
-
-	s_VfsIsInitialized = true;
-
+bool InitializePackageBoundary()
+{
 	const PackageHostResult packageResult =
 		InitializeStartupDataPackages(s_packageStartupOptions);
-	if (!packageResult)
-	{
-		std::string message = "Initializing data packages failed: " + packageResult.message;
-		if (!packageResult.packageId.empty())
-			message += " [package: " + packageResult.packageId + "]";
-		if (!packageResult.path.empty())
-			message += " [path: " + packageResult.path.generic_u8string() + "]";
-		if (!packageResult.diagnosticPath.empty())
-		{
-			message += " [dependency path: ";
-			for (std::size_t index = 0; index < packageResult.diagnosticPath.size(); ++index)
-			{
-				if (index != 0) message += " -> ";
-				message += packageResult.diagnosticPath[index];
-			}
-			message += "]";
-		}
-		throw std::runtime_error(message);
-	}
+	if (packageResult) return true;
 
+	std::string message = "Initializing data packages failed: " +
+		packageResult.message;
+	if (!packageResult.packageId.empty())
+		message += " [package: " + packageResult.packageId + "]";
+	if (!packageResult.path.empty())
+		message += " [path: " + packageResult.path.generic_u8string() + "]";
+	if (!packageResult.diagnosticPath.empty())
+	{
+		message += " [dependency path: ";
+		for (std::size_t index = 0;
+			index < packageResult.diagnosticPath.size(); ++index)
+		{
+			if (index != 0) message += " -> ";
+			message += packageResult.diagnosticPath[index];
+		}
+		message += "]";
+	}
+	throw std::runtime_error(message);
+}
+
+void ShutdownPackageBoundary()
+{
+	const PackageHostShutdownResult result = ShutdownStartupDataPackages();
+	if (result) return;
+
+	std::string message = "Data package shutdown was incomplete";
+	for (const std::string& failure : result.failures)
+		message += "; " + failure;
+	std::fprintf(stderr, "%s\n", message.c_str());
+	throw std::runtime_error(message);
+}
+
+bool InitializeLegacyContentBoundary()
+{
 	getVFS()->getVirtualLocation(vfs::Path("Temp"),true)->setIsExclusive(true);
 	getVFS()->getVirtualLocation(vfs::Path("ShadeTables"),true)->setIsExclusive(true);
-	getVFS()->getVirtualLocation(vfs::Path(pMessageStrings[MSG_SAVEDIRECTORY]+3),true)->setIsExclusive(true);
-	getVFS()->getVirtualLocation(vfs::Path(pMessageStrings[MSG_MPSAVEDIRECTORY]+3),true)->setIsExclusive(true);
+	getVFS()->getVirtualLocation(
+		vfs::Path(pMessageStrings[MSG_SAVEDIRECTORY]+3),true)->setIsExclusive(true);
+	getVFS()->getVirtualLocation(
+		vfs::Path(pMessageStrings[MSG_MPSAVEDIRECTORY]+3),true)->setIsExclusive(true);
 
 	if(!sp_force_load_jsd_xml_file.empty())
 	{
 		try
 		{
-			std::string filename = vfs::String::as_utf8(sp_force_load_jsd_xml_file());
-			STRUCTURE_FILE_REF *pStructureFileRef = LoadStructureFile((STR8)filename.c_str());
+			const std::string filename =
+				vfs::String::as_utf8(sp_force_load_jsd_xml_file());
+			STRUCTURE_FILE_REF* const structure =
+				LoadStructureFile((STR8)filename.c_str());
+			SGP_THROW_IFFALSE(structure, L"forced structure load returned no data");
+			FreeStructureFile(structure);
 		}
 		catch(std::exception &ex)
 		{
-			SGP_RETHROW(_BS(L"failed to load and/or process file : ") << sp_force_load_jsd_xml_file << _BS::wget, ex);
+			SGP_RETHROW(
+				_BS(L"failed to load and/or process file : ") <<
+					sp_force_load_jsd_xml_file << _BS::wget,
+				ex);
 		}
 	}
 
-
 	if(g_bUseXML_Strings)
 	{
-		if(s_bExportStrings)
-		{
-			Loc::ExportStrings();
-		}
+		if(s_bExportStrings) Loc::ExportStrings();
 		Loc::ImportStrings();
 	}
 
 	InitJA2SplashScreen();
+	return true;
+}
 
-	// Make sure we start up our local clock (in milliseconds)
-	// We don't need to check for a return value here since so far its always TRUE
-	InitializeClockManager();	// must initialize after VideoManager, 'cause it uses ghWindow
+bool InitializeFontBoundary()
+{
+	FontTranslationTable* const fontTable = CreateEnglishTransTable();
+	if (!fontTable) return false;
 
-	// Create font translation table (store in temp structure)
-	pFontTable = CreateEnglishTransTable( );
-	if ( pFontTable == NULL )
+	if (!InitializeFontManager(8, fontTable))
 	{
-		return( FALSE );
+		if (fontTable->DynamicArrayOf16BitValues)
+			MemFree(fontTable->DynamicArrayOf16BitValues);
+		MemFree(fontTable);
+		return false;
 	}
+	// The manager owns the dynamic translation array after a successful commit;
+	// only the temporary outer transfer record remains caller-owned.
+	MemFree(fontTable);
+	return true;
+}
 
-	// Initialize Font Manager
-	FastDebugMsg("Initializing the Font Manager");
-	// Init the manager and copy the TransTable stuff into it.
-	if ( !InitializeFontManager( 8, pFontTable ) )
-	{
-		FastDebugMsg("FAILED : Initializing Font Manager");
-		return FALSE;
-	}
-	// Don't need this thing anymore, so get rid of it (but don't de-alloc the contents)
-	MemFree( pFontTable );
-
-	FastDebugMsg("Initializing Sound Manager");
-	// Initialize the Sound Manager (DirectSound)
-	if (InitializeSoundManager() == FALSE)
-	{
-		// We were unable to initialize the sound manager
-		FastDebugMsg("FAILED : Initializing Sound Manager");
-		return FALSE;
-	}
-
-	FastDebugMsg("Initializing Music");
-	InitializeMusicLists();
-
-	FastDebugMsg("Initializing Game Manager");
-	// Initialize the Game
-	if (InitializeGame() == FALSE)
-	{
-		// We were unable to initialize the game
-		FastDebugMsg("FAILED : Initializing Game Manager");
-		return FALSE;
-	}
-
-	// SDL_PollEvent surfaces wheel events natively as SDL_EVENT_MOUSE_WHEEL;
-	// no Win32 RegisterWindowMessage needed.
+bool InitializeGameBoundary()
+{
+	if (!InitializeGame()) return false;
 	gfGameInitialized = TRUE;
+	return true;
+}
 
+void ShutdownGameBoundary()
+{
+	if (!gfGameInitialized) return;
+	gfGameInitialized = FALSE;
+	std::exception_ptr failure;
+	try { SoundServiceStreams(); }
+	catch (...) { failure = std::current_exception(); }
+	try { ShutdownGame(); }
+	catch (...)
+	{
+		if (!failure) failure = std::current_exception();
+	}
+	if (failure) std::rethrow_exception(failure);
+}
+
+SubsystemRuntime& GetStandardGamingPlatformRuntime()
+{
+	static SubsystemRuntime runtime({
+		SubsystemDefinition{"SDL",
+			[] {
+				if (SDL_WasInit(SDL_INIT_VIDEO)) return true;
+				if (SDL_Init(SDL_INIT_VIDEO)) return true;
+				std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+				return false;
+			},
+			[] { SDL_Quit(); }, 125},
+		SubsystemDefinition{"debug",
+			[] {
+				if (!InitializeDebugManager()) return false;
+				RegisterDebugTopic(TOPIC_SGP, "Standard Gaming Platform");
+				return true;
+			},
+			[] {
+				UnRegisterDebugTopic(TOPIC_SGP, "Standard Gaming Platform");
+				ShutdownDebugManager();
+				sgp::Logger::instance().shutdown();
+			}, 120},
+		SubsystemDefinition{"memory",
+			[] { return InitializeMemoryManager() != FALSE; },
+			[] {
+#ifdef EXTREME_MEMORY_DEBUGGING
+				DumpMemoryInfoIntoFile("ExtremeMemoryDump.txt", FALSE);
+#endif
+				ShutdownMemoryManager();
+			}, 110},
+		SubsystemDefinition{"files",
+			[] { return InitializeFileManager(NULL) != FALSE; },
+			[] { ShutdownFileManager(); }, 100},
+		SubsystemDefinition{"input",
+			[] { return InitializeInputManager() != FALSE; },
+			[] { ShutdownInputManager(); }, 90},
+		SubsystemDefinition{"video",
+			[] { return InitializeVideoManager() != FALSE; },
+			[] { ShutdownVideoManager(); }, 80},
+		SubsystemDefinition{"video objects",
+			[] { return InitializeVideoObjectManager() != FALSE; },
+			[] { (void)ShutdownVideoObjectManager(); }, 70},
+		SubsystemDefinition{"video surfaces",
+			[] { return InitializeVideoSurfaceManager() != FALSE; },
+			[] {
+#ifdef SGP_VIDEO_DEBUGGING
+				PerformVideoInfoDumpIntoFile("SGPVideoShutdownDump.txt", FALSE);
+#endif
+				(void)ShutdownVideoSurfaceManager();
+			}, 60},
+		SubsystemDefinition{"virtual file system",
+			InitializeVirtualFileSystemBoundary,
+			ShutdownVirtualFileSystemBoundary, 130},
+		SubsystemDefinition{"data packages",
+			InitializePackageBoundary,
+			ShutdownPackageBoundary, 10},
+		SubsystemDefinition{"legacy content",
+			InitializeLegacyContentBoundary,
+			[] {}, 55},
+		SubsystemDefinition{"clock",
+			[] { return InitializeClockManager() != FALSE; },
+			[] { ShutdownClockManager(); }, 50},
+		SubsystemDefinition{"font manager",
+			InitializeFontBoundary,
+			[] { ShutdownFontManager(); }, 40},
+		SubsystemDefinition{"sound",
+			[] { return InitializeSoundManager() != FALSE; },
+			[] { ShutdownSoundManager(); }, 30},
+		SubsystemDefinition{"music",
+			[] {
+				InitializeMusicLists();
+				return true;
+			},
+			[] { ShutdownMusicLists(); }, 20},
+		SubsystemDefinition{"game",
+			InitializeGameBoundary,
+			ShutdownGameBoundary, 0}});
+	return runtime;
+}
+}
+
+BOOLEAN InitializeStandardGamingPlatform(void)
+{
+	if (!s_ExitHandlerRegistered)
+	{
+		if (atexit(SafeSGPExit) != 0) return FALSE;
+		s_ExitHandlerRegistered = true;
+	}
+
+	// Second, read in settings
+	GetRuntimeSettings( );
+	const SubsystemStartResult result =
+		GetStandardGamingPlatformRuntime().start();
+	if (result.callbackException)
+	{
+		if (result.rollback.callbackFailures != 0)
+			std::fprintf(stderr,
+				"SGP startup exception rollback stopped %zu subsystem(s) "
+				"with %zu callback failure(s)\n",
+				result.rollback.stopped, result.rollback.callbackFailures);
+		std::rethrow_exception(result.callbackException);
+	}
+	if (!result)
+	{
+		const char* name = result.failedSubsystem == NoSubsystem
+			? "unknown"
+			: GetStandardGamingPlatformRuntime()
+				.subsystemName(result.failedSubsystem).c_str();
+		std::fprintf(stderr,
+			"SGP startup rejected by %s after %zu subsystem(s); "
+			"rollback stopped %zu with %zu failure(s)\n",
+			name, result.started, result.rollback.stopped,
+			result.rollback.callbackFailures);
+		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -582,58 +684,19 @@ static void StartJA2ClockPlatform()
 
 void ShutdownStandardGamingPlatform(void)
 {
-
-	//
-	// Shut down the different components of the SGP
-	//
-
-	// TEST
-	SoundServiceStreams();
-
-	if (gfGameInitialized)
+	const SubsystemStopResult result =
+		GetStandardGamingPlatformRuntime().stop();
+	if (result.callbackFailures != 0)
 	{
-		ShutdownGame();
+		const char* name = result.firstFailedSubsystem == NoSubsystem
+			? "unknown"
+			: GetStandardGamingPlatformRuntime()
+				.subsystemName(result.firstFailedSubsystem).c_str();
+		std::fprintf(stderr,
+			"SGP shutdown completed with %zu callback failure(s); "
+			"first failure: %s\n",
+			result.callbackFailures, name);
 	}
-
-	ShutdownButtonSystem();
-	MSYS_Shutdown();
-
-	ShutdownSoundManager();
-
-	DestroyEnglishTransTable( );	// has to go before ShutdownFontManager()
-	ShutdownFontManager();
-
-	ShutdownClockManager();
-
-#ifdef SGP_VIDEO_DEBUGGING
-	PerformVideoInfoDumpIntoFile( "SGPVideoShutdownDump.txt", FALSE );
-#endif
-
-	ShutdownVideoSurfaceManager();
-	ShutdownVideoObjectManager();
-	ShutdownVideoManager();
-
-	ShutdownInputManager();
-	ShutdownFileManager();
-
-#ifdef EXTREME_MEMORY_DEBUGGING
-	DumpMemoryInfoIntoFile( "ExtremeMemoryDump.txt", FALSE );
-#endif
-
-	ShutdownMemoryManager();	// must go last (except for Debug), for MemDebugCounter to work right...
-
-	//
-	// Make sure we unregister the last remaining debug topic before shutting
-	// down the debugging layer
-	UnRegisterDebugTopic(TOPIC_SGP, "Standard Gaming Platform");
-
-	ShutdownDebugManager();
-
-	sgp::Logger::instance().shutdown();
-	vfs::Log::flushDeleteAll();
-	if(vfslog) delete vfslog;
-	vfs::CVirtualFileSystem::shutdownVFS();
-	vfs::ObjectAllocator::clear();
 }
 
 #include "MPJoinScreen.h"
