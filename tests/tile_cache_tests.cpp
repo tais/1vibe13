@@ -140,18 +140,56 @@ int main()
 	Check( InitTileCache(), "tile cache initializes with an owned structure reference" );
 	STRUCTURE_FILE_REF* firstStructure =
 		GetCachedTileStructureRefFromFilename( const_cast<STR8>( "l_dead1" ) );
-	Check( firstStructure != NULL && structureLoads == 1,
+	Check( firstStructure != NULL && structureLoads == 1 && gpTileCache != NULL &&
+	       gpTileCacheStructInfo != NULL &&
+	       gpTileCacheStructInfo[ 0 ].pStructureFileRef == firstStructure &&
+	       guiMaxTileCacheSize == 50 && guiCurTileCacheSize == 0 &&
+	       guiNumTileCacheStructs == 1 && giDefaultStructIndex == 0,
 	       "structure lookup returns the initialized owned reference" );
 	Check( InitTileCache() && structureLoads == 1 &&
 	       GetCachedTileStructureRefFromFilename( const_cast<STR8>( "l_dead1" ) ) == firstStructure,
 	       "repeated initialization preserves live cache IDs and allocations" );
 	DeleteTileCache();
-	Check( gpTileCache == NULL && structureDeletes == 1 &&
+	Check( !IsTileCacheInitialized() && structureDeletes == 1 &&
 	       GetCachedTileStructureRefFromFilename( const_cast<STR8>( "l_dead1" ) ) == NULL,
 	       "delete frees and nulls cache-owned structure state" );
 	DeleteTileCache();
 	Check( structureDeletes == 1, "repeated delete is idempotent" );
 
+	guiMaxTileCacheSize = 3;
+	structureFiles.clear();
+	Check( InitTileCache(), "tile cache accepts a mod-configured capacity" );
+	bool configuredCapacityWorks = gpTileCache != NULL;
+	for ( INT32 index = 0; index < 3; ++index )
+	{
+		const std::string filename =
+			"TILECACHE\\configured-" + std::to_string( index ) + ".sti";
+		configuredCapacityWorks =
+			GetCachedTile( const_cast<STR8>( filename.c_str() ) ) == index &&
+			configuredCapacityWorks;
+	}
+	configuredCapacityWorks =
+		GetCachedTile( const_cast<STR8>( "TILECACHE\\configured-3.sti" ) ) == -1 &&
+		GetCachedTileVideoObject( 2 ) != NULL &&
+		GetCachedTileVideoObject( 3 ) == NULL &&
+		guiCurTileCacheSize == 3 && tileLoads == 3 && tileDeletes == 0 &&
+		configuredCapacityWorks;
+	Check( configuredCapacityWorks,
+	       "configured capacity controls stable slots and rejects overflow" );
+	DeleteTileCache();
+	Check( tileDeletes == 3 && gpTileCache == NULL,
+	       "configured cache teardown releases every owned tile" );
+
+	guiMaxTileCacheSize = 0;
+	Check( !InitTileCache() && !IsTileCacheInitialized() && gpTileCache == NULL,
+	       "zero configured capacity is rejected without partial publication" );
+	guiMaxTileCacheSize = static_cast<UINT32>( INT_MAX ) + 1U;
+	Check( !InitTileCache() && !IsTileCacheInitialized() && gpTileCache == NULL,
+	       "capacity beyond public cache ID range is rejected safely" );
+
+	guiMaxTileCacheSize = 50;
+	tileLoads = 0;
+	tileDeletes = 0;
 	structureFiles.clear();
 	Check( InitTileCache(), "tile cache initializes without game data" );
 	std::array<HVOBJECT, 50> pinnedObjects = {};
@@ -164,20 +202,22 @@ int main()
 		else
 			++failures;
 	}
-	Check( tileLoads == 50,
+	Check( tileLoads == 50 && guiCurTileCacheSize == 50 && gpTileCache != NULL &&
+	       gpTileCache[ 0 ].pImagery != NULL && gpTileCache[ 0 ].sHits == 1,
 	       "fifty unique pinned tiles retain their legacy slot IDs" );
 
 	const INT32 overflow = GetCachedTile( const_cast<STR8>( "TILECACHE\\pinned-50.sti" ) );
 	bool unchanged = overflow == -1 && tileLoads == 50 && tileDeletes == 0;
 	for ( INT32 index = 0; index < 50; ++index )
 		unchanged = unchanged && GetCachedTileVideoObject( index ) == pinnedObjects[ index ] &&
-			gpTileCache[ index ].sHits == 1;
+			GetCachedTileReferenceCount( index ) == 1;
 	Check( unchanged,
 	       "the 51st request fails without evicting or overwriting any pinned entry" );
 
 	Check( GetCachedTile( const_cast<STR8>( "TILECACHE\\pinned-0.sti" ) ) == 0 &&
-	       gpTileCache[ 0 ].sHits == 2 && !RemoveCachedTile( 0 ) &&
-	       gpTileCache[ 0 ].sHits == 1 && GetCachedTileVideoObject( 0 ) == pinnedObjects[ 0 ],
+	       GetCachedTileReferenceCount( 0 ) == 2 && !RemoveCachedTile( 0 ) &&
+	       GetCachedTileReferenceCount( 0 ) == 1 &&
+	       GetCachedTileVideoObject( 0 ) == pinnedObjects[ 0 ],
 	       "duplicate acquisition and release retain the original stable ID" );
 
 	Check( RemoveCachedTile( 17 ) && GetCachedTileVideoObject( 17 ) == NULL &&
@@ -195,14 +235,20 @@ int main()
 	       !RemoveCachedTile( -1 ) && !RemoveCachedTile( 50 ),
 	       "negative and out-of-range public cache access is safe" );
 
-	gpTileCache[ 0 ].sHits = INT16_MAX;
-	Check( GetCachedTile( const_cast<STR8>( "TILECACHE\\pinned-0.sti" ) ) == -1 &&
-	       gpTileCache[ 0 ].sHits == INT16_MAX,
+	bool retainedToLimit = true;
+	for ( INT32 count = 1; count < INT16_MAX; ++count )
+		retainedToLimit = GetCachedTile(
+			const_cast<STR8>( "TILECACHE\\pinned-0.sti" ) ) == 0 && retainedToLimit;
+	Check( retainedToLimit &&
+	       GetCachedTile( const_cast<STR8>( "TILECACHE\\pinned-0.sti" ) ) == -1 &&
+	       GetCachedTileReferenceCount( 0 ) == INT16_MAX,
 	       "reference-count saturation fails rather than wrapping" );
-	gpTileCache[ 0 ].sHits = 1;
 
 	DeleteTileCache();
-	Check( gpTileCache == NULL && tileDeletes == 51,
+	Check( !IsTileCacheInitialized() && gpTileCache == NULL &&
+	       gpTileCacheStructInfo == NULL && tileDeletes == 51 &&
+	       guiCurTileCacheSize == 0 && guiNumTileCacheStructs == 0 &&
+	       giDefaultStructIndex == -1,
 	       "cache teardown deletes each remaining owned surface exactly once" );
 
 	structureFiles = { "first.jsd", "second.jsd" };
@@ -211,10 +257,10 @@ int main()
 	bool lifecycleCycles = true;
 	for ( int cycle = 0; cycle < 8; ++cycle )
 	{
-		lifecycleCycles = lifecycleCycles && InitTileCache() && gpTileCache != NULL;
+		lifecycleCycles = lifecycleCycles && InitTileCache() && IsTileCacheInitialized();
 		DeleteTileCache();
 		DeleteTileCache();
-		lifecycleCycles = lifecycleCycles && gpTileCache == NULL;
+		lifecycleCycles = lifecycleCycles && !IsTileCacheInitialized();
 	}
 	Check( lifecycleCycles && structureLoads - loadsBeforeCycles == 16 &&
 	       structureDeletes - deletesBeforeCycles == 16,

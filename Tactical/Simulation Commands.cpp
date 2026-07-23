@@ -13,6 +13,7 @@
 #include "Overhead.h"
 #include "Soldier Control.h"
 #include "Soldier Functions.h"
+#include "TacticalEntityHost.h"
 
 namespace
 {
@@ -46,13 +47,9 @@ namespace
 
 	SOLDIERTYPE* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
 	{
-		if (!gfWorldLoaded || !actor.valid() || actor.slot >= TOTAL_SOLDIERS)
-			return nullptr;
-		SOLDIERTYPE* soldier = MercPtrs[actor.slot];
-		if (!soldier || !soldier->bActive || !soldier->bInSector ||
-			static_cast<std::uint16_t>(soldier->ubID) != actor.slot ||
-			soldier->uiUniqueSoldierIdValue != actor.incarnation)
-			return nullptr;
+		if (!gfWorldLoaded) return nullptr;
+		SOLDIERTYPE* soldier = ResolveJa2TacticalEntity(actor);
+		if (!soldier || !soldier->bInSector) return nullptr;
 		return soldier;
 	}
 
@@ -400,12 +397,7 @@ SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(
 	std::uint16_t soldierId, std::uint8_t stance,
 	SimulationCommandSource source) noexcept
 {
-	TacticalEntityId soldier;
-	if (soldierId < TOTAL_SOLDIERS && MercPtrs[soldierId] != nullptr)
-	{
-		soldier = TacticalEntityId{
-			soldierId, MercPtrs[soldierId]->uiUniqueSoldierIdValue};
-	}
+	const TacticalEntityId soldier = GetJa2TacticalEntityId(soldierId);
 	return TryDispatchSimulationCommandNow(
 		SimulationCommand{ChangeStanceCommand{soldier, stance, source}});
 }

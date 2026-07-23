@@ -25,6 +25,7 @@
 	#include "Interface.h"
 	#include "Game Events.h"
 	#include "GameSettings.h"
+	#include "TacticalWorldAdapter.h"
 	#include "Strategic AI.h"
 	#include "interface Dialogue.h"
 	#include "Quests.h"
@@ -907,9 +908,7 @@ void DoneFadeOutMeanwhileOnceDone( )
 	{
 		TrashWorld( );
 		// NB no world is loaded!
-		gWorldSectorX = 0;
-		gWorldSectorY = 0;
-		gbWorldSectorZ = -1;
+		ClearJa2TacticalWorldSector();
 	}
 
 	ChangeSelectedMapSector( gsOldSelectedSectorX, gsOldSelectedSectorY, (INT8) gsOldSelectedSectorZ );

@@ -214,6 +214,137 @@ std::string PackageSaveStateSidecarPath(const std::string& savePath)
 	return savePath.empty() ? std::string{} : savePath + PackageStateSuffix;
 }
 
+PreparedSaveMetadata PrepareSaveMetadata(GameContext& context) noexcept
+{
+	PreparedSaveMetadata prepared;
+	try
+	{
+		prepared.checkpoint = context.runtime().makeRuntimeCheckpoint();
+		prepared.checkpointError = RuntimeCheckpointSaveError::None;
+		PackageSaveStateCaptureResult captured = context.capturePackageSaveState();
+		prepared.packageCaptureError = captured.error;
+		prepared.packageId = std::move(captured.packageId);
+		if (captured)
+		{
+			prepared.stateful = !captured.snapshot.records.empty() ||
+				!captured.snapshot.engineRecords.empty();
+			prepared.packageState = std::move(captured.snapshot);
+		}
+	}
+	catch (...)
+	{
+		if (prepared.checkpointError != RuntimeCheckpointSaveError::None)
+			prepared.checkpointError = RuntimeCheckpointSaveError::StorageError;
+		else if (prepared.packageCaptureError != PackageSaveStateError::None)
+			prepared.packageCaptureError = PackageSaveStateError::AllocationFailure;
+	}
+	return prepared;
+}
+
+PreparedSaveMetadataCommitResult CommitPreparedSaveMetadata(
+	GameContext& context, const std::string& savePath,
+	PreparedSaveMetadata prepared) noexcept
+{
+	PreparedSaveMetadataCommitResult result;
+	result.checkpointError = prepared.checkpointError;
+	result.packages.stateful = prepared.stateful;
+	result.packages.captureError = prepared.packageCaptureError;
+	result.packageId = std::move(prepared.packageId);
+	try
+	{
+		const std::string checkpointPath = RuntimeCheckpointSidecarPath(savePath);
+		const std::string packagePath = PackageSaveStateSidecarPath(savePath);
+		if (checkpointPath.empty() || packagePath.empty())
+		{
+			result.checkpointError = RuntimeCheckpointSaveError::InvalidCheckpoint;
+			result.packages.archiveError = PackageSaveArchiveSaveError::InvalidArchive;
+			return result;
+		}
+		if (!prepared)
+		{
+			RemoveSaveCompatibilityMetadata(context, savePath);
+			return result;
+		}
+
+		result.checkpointError = context.runtime().runtimeCheckpoints().save(
+			checkpointPath, prepared.checkpoint);
+		if (result.checkpointError != RuntimeCheckpointSaveError::None)
+		{
+			RemoveSaveCompatibilityMetadata(context, savePath);
+			return result;
+		}
+
+		if (prepared.stateful)
+		{
+			result.packages.archiveError = context.packageSaveArchives().save(
+				packagePath, PackageSaveArchive{
+					prepared.checkpoint.compatibility,
+					std::move(prepared.packageState)});
+		}
+		else if (!context.persistence().storage().remove(packagePath))
+			result.packages.archiveError = PackageSaveArchiveSaveError::StorageError;
+
+		if (result.packages.archiveError != PackageSaveArchiveSaveError::None)
+			RemoveSaveCompatibilityMetadata(context, savePath);
+		return result;
+	}
+	catch (...)
+	{
+		result.packages.archiveError = PackageSaveArchiveSaveError::StorageError;
+		RemoveSaveCompatibilityMetadata(context, savePath);
+		return result;
+	}
+}
+
+PreparedLoadMetadata PrepareLoadMetadata(const GameContext& context,
+	const std::string& savePath, SaveCompatibilityPolicy policy) noexcept
+{
+	PreparedLoadMetadata prepared;
+	prepared.policy = policy;
+	if (policy == SaveCompatibilityPolicy::Ignore)
+	{
+		prepared.compatibility.state = SaveCompatibilityState::Compatible;
+		prepared.packages.state = PackageSaveMetadataState::NotRequired;
+		return prepared;
+	}
+	prepared.compatibility = InspectSaveCompatibilityMetadata(context, savePath);
+	prepared.compatibilityAction = EvaluateSaveCompatibility(
+		prepared.compatibility.state, policy);
+	prepared.packages = InspectPackageSaveStateMetadata(context, savePath);
+	prepared.packageAction = EvaluatePackageSaveMetadata(
+		prepared.packages.state, policy);
+	prepared.packageRestorePending_ =
+		prepared.packages.state == PackageSaveMetadataState::Ready &&
+		prepared.packageAction != SaveCompatibilityLoadAction::Reject &&
+		prepared.compatibilityAction != SaveCompatibilityLoadAction::Reject;
+	return prepared;
+}
+
+PreparedLoadMetadataGateResult EvaluatePreparedLoadMetadataGate(
+	const PreparedLoadMetadata& prepared) noexcept
+{
+	PreparedLoadMetadataGateResult result;
+	result.compatibilityNotice =
+		prepared.compatibilityAction != SaveCompatibilityLoadAction::Allow;
+	result.packageNotice =
+		prepared.packageAction != SaveCompatibilityLoadAction::Allow;
+	if (prepared.compatibilityAction == SaveCompatibilityLoadAction::Reject)
+		result.rejection = PreparedLoadMetadataRejection::RuntimeCompatibility;
+	else if (prepared.packageAction == SaveCompatibilityLoadAction::Reject)
+		result.rejection = PreparedLoadMetadataRejection::PackageState;
+	return result;
+}
+
+PackageSaveStateLoadResult RestorePreparedPackageSaveState(
+	GameContext& context, PreparedLoadMetadata& prepared) noexcept
+{
+	if (!prepared.packageRestorePending_)
+		return {};
+	prepared.packageRestorePending_ = false;
+	PackageSaveStateSnapshot snapshot = std::move(prepared.packages.archive.state);
+	return context.restorePackageSaveState(snapshot);
+}
+
 RuntimeCheckpointSaveError WriteSaveCompatibilityMetadata(
 	const GameContext& context, const std::string& savePath) noexcept
 {

@@ -100,6 +100,7 @@
 #include "DynamicDialogue.h"	// added by Flugente for HandleDynamicOpinions()
 #include "Strategic Town Loyalty.h"		// added by Flugente for gTownLoyalty
 #include "Rebel Command.h"
+#include "TacticalEntityHost.h"
 
 
 #ifdef JA2UB
@@ -2570,6 +2571,10 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 
 	if ( this != NULL )
 	{
+		// Invalidate the exact incarnation before dismantling its legacy
+		// resources. A late delete for a reused slot cannot remove its successor.
+		(void)ReleaseJa2TacticalEntity(*this);
+
 		//if(this->pBackGround!=NULL)
 		//MemFree(this->pBackGround);
 

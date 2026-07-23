@@ -1,476 +1,493 @@
 #include "builddefines.h"
 
-	#include <climits>
-	#include <cstdio>
-	#include <cstring>
-	#include "DEBUG.H"
-	#include "Debug Control.h"
-	#include "FileMan.h"
-	#include "MemMan.h"
-	#include "structure.h"
-	#include "Tile Surface.h"
-	#include "Tile Cache.h"
+#include <cstdio>
+#include <cstring>
+#include <limits>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "DEBUG.H"
+#include "Debug Control.h"
+#include "FileMan.h"
+#include "structure.h"
+#include "Tile Surface.h"
+#include "Tile Cache.h"
 #ifdef JA2TESTVERSION
 	#include "Sys Globals.h"
 #endif
 
-UINT32	guiNumTileCacheStructs = 0;
-UINT32 guiMaxTileCacheSize		= 50;
-UINT32 guiCurTileCacheSize		= 0;
-INT32	giDefaultStructIndex	= -1;
+#include <Engine/Core/PinnedSlotCache.h>
+#include <Engine/Core/UniqueResourcePtr.h>
 
-TILE_CACHE_ELEMENT		*gpTileCache = NULL;
-TILE_CACHE_STRUCT			*gpTileCacheStructInfo = NULL;
+UINT32 guiNumTileCacheStructs = 0;
+UINT32 guiMaxTileCacheSize = 50;
+UINT32 guiCurTileCacheSize = 0;
+INT32 giDefaultStructIndex = -1;
+TILE_CACHE_ELEMENT* gpTileCache = NULL;
+TILE_CACHE_STRUCT* gpTileCacheStructInfo = NULL;
 
 namespace
 {
-	void ResetTileCacheElement( TILE_CACHE_ELEMENT& element )
+	constexpr std::size_t TileNameCapacity = 128;
+	constexpr std::size_t TileRootCapacity = 30;
+	constexpr std::size_t StructureFilenameCapacity = 150;
+
+	struct TileSurfaceReleaser
 	{
-		std::memset( &element, 0, sizeof( element ) );
-		element.sStructRefID = -1;
+		void operator()(TILE_IMAGERY* imagery) const { DeleteTileSurface(imagery); }
+	};
+
+	struct StructureFileReleaser
+	{
+		void operator()(STRUCTURE_FILE_REF* structure) const
+		{
+			FreeStructureFile(structure);
+		}
+	};
+
+	using OwnedTileSurface = UniqueResourcePtr<TILE_IMAGERY, TileSurfaceReleaser>;
+	using OwnedStructureFile =
+		UniqueResourcePtr<STRUCTURE_FILE_REF, StructureFileReleaser>;
+
+	struct TileCacheResource
+	{
+		TileCacheResource(OwnedTileSurface tileImagery, const CHAR8* tileName,
+			const CHAR8* rootName, UINT8 frameCount, INT16 structureIndex)
+			: imagery(std::move(tileImagery)), name(tileName), root(rootName),
+			  frames(frameCount), structureRefID(structureIndex)
+		{
+		}
+
+		OwnedTileSurface imagery;
+		std::string name;
+		std::string root;
+		UINT8 frames = 1;
+		INT16 structureRefID = -1;
+	};
+
+	struct TileCacheStructure
+	{
+		TileCacheStructure(const CHAR8* structureFilename, const CHAR8* rootName,
+			OwnedStructureFile structure)
+			: reference(std::move(structure)), filename(structureFilename), root(rootName)
+		{
+		}
+
+		OwnedStructureFile reference;
+		std::string filename;
+		std::string root;
+	};
+
+	using TileSlots = PinnedSlotCache<TileCacheResource, INT16>;
+	std::optional<TileSlots> gTileCache;
+	std::vector<TileCacheStructure> gTileCacheStructures;
+	std::vector<TILE_CACHE_ELEMENT> gTileCacheCompatibility;
+	std::vector<TILE_CACHE_STRUCT> gTileCacheStructureCompatibility;
+
+	void ResetCompatibilityElement(TILE_CACHE_ELEMENT& view)
+	{
+		std::memset(&view, 0, sizeof(view));
+		view.sStructRefID = -1;
 	}
 
-	BOOLEAN IsLiveTileCacheIndex( INT32 index )
+	void ResetCompatibilitySlot(std::size_t slot)
 	{
-		return gpTileCache != NULL && index >= 0 &&
-			static_cast<UINT32>( index ) < guiCurTileCacheSize &&
-			static_cast<UINT32>( index ) < guiMaxTileCacheSize &&
-			gpTileCache[ index ].pImagery != NULL && gpTileCache[ index ].sHits > 0;
+		if (slot >= gTileCacheCompatibility.size()) return;
+		ResetCompatibilityElement(gTileCacheCompatibility[slot]);
 	}
 
-	void ReportTileCacheFailure( const CHAR8* reason, const STR8 filename = NULL )
+	void SyncCompatibilitySlot(std::size_t slot)
 	{
-		std::fprintf( stderr, "[tile-cache] %s%s%s\n", reason,
-			filename != NULL ? ": " : "", filename != NULL ? filename : "" );
+		ResetCompatibilitySlot(slot);
+		if (!gTileCache) return;
+		const TileCacheResource* const resource = gTileCache->find(slot);
+		if (!resource) return;
+
+		TILE_CACHE_ELEMENT& view = gTileCacheCompatibility[slot];
+		std::snprintf(view.zName, sizeof(view.zName), "%s", resource->name.c_str());
+		std::snprintf(view.zRootName, sizeof(view.zRootName), "%s",
+			resource->root.c_str());
+		view.pImagery = resource->imagery.get();
+		view.sHits = gTileCache->pins(slot);
+		view.ubNumFrames = resource->frames;
+		view.sStructRefID = resource->structureRefID;
 	}
 
-	BOOLEAN CopyRootName( CHAR8* destination, size_t destinationSize, const STR8 source )
+	void PublishCompatibilityViews()
 	{
-		if ( destination == NULL || destinationSize == 0 || source == NULL )
+		for (TILE_CACHE_ELEMENT& view : gTileCacheCompatibility)
+			ResetCompatibilityElement(view);
+
+		gTileCacheStructureCompatibility.clear();
+		gTileCacheStructureCompatibility.resize(gTileCacheStructures.size());
+		for (std::size_t index = 0; index < gTileCacheStructures.size(); ++index)
+		{
+			TILE_CACHE_STRUCT& view = gTileCacheStructureCompatibility[index];
+			std::snprintf(view.Filename, sizeof(view.Filename), "%s",
+				gTileCacheStructures[index].filename.c_str());
+			std::snprintf(view.zRootName, sizeof(view.zRootName), "%s",
+				gTileCacheStructures[index].root.c_str());
+			view.pStructureFileRef = gTileCacheStructures[index].reference.get();
+		}
+
+		gpTileCache = gTileCacheCompatibility.data();
+		gpTileCacheStructInfo = gTileCacheStructureCompatibility.empty()
+			? NULL : gTileCacheStructureCompatibility.data();
+	}
+
+	void SyncTileCacheDiagnostics()
+	{
+		guiCurTileCacheSize = gTileCache
+			? static_cast<UINT32>(gTileCache->highWaterMark()) : 0;
+		guiNumTileCacheStructs =
+			static_cast<UINT32>(gTileCacheStructures.size());
+	}
+
+	BOOLEAN IsLiveTileCacheIndex(INT32 index)
+	{
+		return gTileCache && index >= 0 &&
+			gTileCache->find(static_cast<std::size_t>(index)) != nullptr &&
+			gTileCache->pins(static_cast<std::size_t>(index)) > 0;
+	}
+
+	void ReportTileCacheFailure(const CHAR8* reason, const STR8 filename = NULL)
+	{
+		std::fprintf(stderr, "[tile-cache] %s%s%s\n", reason,
+			filename != NULL ? ": " : "", filename != NULL ? filename : "");
+	}
+
+	BOOLEAN CopyRootName(CHAR8* destination, size_t destinationSize,
+		const STR8 source)
+	{
+		if (destination == NULL || destinationSize == 0 || source == NULL)
 			return FALSE;
 
 		const CHAR8* root = source;
-		const CHAR8* backslash = std::strrchr( source, '\\' );
-		const CHAR8* slash = std::strrchr( source, '/' );
-		if ( backslash != NULL && ( slash == NULL || backslash > slash ) )
+		const CHAR8* backslash = std::strrchr(source, '\\');
+		const CHAR8* slash = std::strrchr(source, '/');
+		if (backslash != NULL && (slash == NULL || backslash > slash))
 			root = backslash + 1;
-		else if ( slash != NULL )
+		else if (slash != NULL)
 			root = slash + 1;
 
-		const CHAR8* extension = std::strchr( root, '.' );
+		const CHAR8* extension = std::strchr(root, '.');
 		const size_t length = extension != NULL
-			? static_cast<size_t>( extension - root ) : std::strlen( root );
-		if ( length >= destinationSize )
+			? static_cast<size_t>(extension - root) : std::strlen(root);
+		if (length >= destinationSize)
 		{
-			destination[ 0 ] = '\0';
+			destination[0] = '\0';
 			return FALSE;
 		}
 
-		std::memcpy( destination, root, length );
-		destination[ length ] = '\0';
+		std::memcpy(destination, root, length);
+		destination[length] = '\0';
 		return TRUE;
 	}
-}
 
-
-
-BOOLEAN InitTileCache(	)
-{
-	UINT32				cnt;
-	GETFILESTRUCT FileInfo;
-	UINT32					sFiles = 0;
-
-	// Repeated initialization must neither leak the old cache nor invalidate live IDs.
-	if ( gpTileCache != NULL )
-		return TRUE;
-
-	// Recover safely from any earlier partial initialization.
-	DeleteTileCache();
-
-	gpTileCache = (TILE_CACHE_ELEMENT *)MemAlloc( sizeof( TILE_CACHE_ELEMENT ) * guiMaxTileCacheSize );
-	if ( gpTileCache == NULL )
-		return FALSE;
-
-	// Zero entries
-	for ( cnt = 0; cnt < guiMaxTileCacheSize; cnt++ )
+	UINT32 CountStructureFiles()
 	{
-		ResetTileCacheElement( gpTileCache[ cnt ] );
-	}
-
-	guiCurTileCacheSize = 0;
-	guiNumTileCacheStructs = 0;
-	giDefaultStructIndex = -1;
-
-
-	// OK, look for JSD files in the tile cache directory and
-	// load any we find....
-	if( GetFileFirst("TILECACHE\\*.jsd", &FileInfo) )
-	{
+		GETFILESTRUCT fileInfo{};
+		UINT32 count = 0;
+		if (!GetFileFirst("TILECACHE\\*.jsd", &fileInfo)) return 0;
 		do
 		{
-			sFiles++;
-		} while( GetFileNext(&FileInfo) );
-		GetFileClose(&FileInfo);
+			++count;
+		} while (GetFileNext(&fileInfo));
+		GetFileClose(&fileInfo);
+		return count;
 	}
 
-	// Allocate memory...
-	if ( sFiles > 0 )
+	void LoadStructureFiles(std::vector<TileCacheStructure>& structures,
+		INT32& defaultStructure)
 	{
-		cnt = 0;
+		structures.reserve(CountStructureFiles());
+		GETFILESTRUCT fileInfo{};
+		if (!GetFileFirst("TILECACHE\\*.jsd", &fileInfo)) return;
 
-		gpTileCacheStructInfo = (TILE_CACHE_STRUCT *)MemAlloc( sizeof( TILE_CACHE_STRUCT ) * sFiles );
-		if ( gpTileCacheStructInfo == NULL )
-		{
-			DeleteTileCache();
-			return FALSE;
-		}
-		std::memset( gpTileCacheStructInfo, 0, sizeof( TILE_CACHE_STRUCT ) * sFiles );
-
-		// Loop through and set filenames
-		if( GetFileFirst("TILECACHE\\*.jsd", &FileInfo) )
+		try
 		{
 			do
 			{
-				// The directory can change between the count and load passes.
-				if ( cnt >= sFiles )
+				if (structures.size() >=
+					static_cast<std::size_t>(std::numeric_limits<INT16>::max()))
+				{
+					ReportTileCacheFailure("too many structure files");
 					break;
-				const int filenameLength = snprintf( gpTileCacheStructInfo[ cnt ].Filename,
-					sizeof(gpTileCacheStructInfo[cnt].Filename), "TILECACHE\\%s", FileInfo.zFileName );
-				if ( filenameLength < 0 ||
-					static_cast<size_t>( filenameLength ) >= sizeof( gpTileCacheStructInfo[ cnt ].Filename ) )
+				}
+				CHAR8 filename[StructureFilenameCapacity]{};
+				const int filenameLength = std::snprintf(filename, sizeof(filename),
+					"TILECACHE\\%s", fileInfo.zFileName);
+				if (filenameLength < 0 ||
+					static_cast<size_t>(filenameLength) >= sizeof(filename))
 				{
-					ReportTileCacheFailure( "structure filename is too long", FileInfo.zFileName );
+					ReportTileCacheFailure("structure filename is too long",
+						fileInfo.zFileName);
 					continue;
 				}
 
-				// Get root name
-				if ( !CopyRootName( gpTileCacheStructInfo[ cnt ].zRootName,
-					sizeof( gpTileCacheStructInfo[ cnt ].zRootName ),
-					gpTileCacheStructInfo[ cnt ].Filename ) )
+				CHAR8 root[TileRootCapacity]{};
+				if (!CopyRootName(root, sizeof(root), filename))
 				{
-					ReportTileCacheFailure( "structure root name is too long",
-						gpTileCacheStructInfo[ cnt ].Filename );
+					ReportTileCacheFailure("structure root name is too long", filename);
 					continue;
 				}
 
-				// Load struc data....
-				gpTileCacheStructInfo[ cnt ].pStructureFileRef = LoadStructureFile( gpTileCacheStructInfo[ cnt ].Filename );
-
+				OwnedStructureFile loaded(LoadStructureFile(filename));
 #ifdef JA2TESTVERSION
-				if ( gpTileCacheStructInfo[ cnt ].pStructureFileRef == NULL )
-				{
-					SET_ERROR(	"Cannot load tilecache JSD: %s", gpTileCacheStructInfo[ cnt ].Filename );
-				}
+				if (!loaded)
+					SET_ERROR("Cannot load tilecache JSD: %s", filename);
 #endif
-				if ( _stricmp( gpTileCacheStructInfo[ cnt ].zRootName, "l_dead1" ) == 0 )
-				{
-					giDefaultStructIndex = cnt;
-				}
-
-				cnt++;
-			} while( GetFileNext(&FileInfo) );
-			guiNumTileCacheStructs = cnt;
-			GetFileClose(&FileInfo);
+				structures.emplace_back(filename, root, std::move(loaded));
+				if (_stricmp(root, "l_dead1") == 0)
+					defaultStructure =
+						static_cast<INT32>(structures.size() - 1);
+			} while (GetFileNext(&fileInfo));
 		}
-
-		if ( guiNumTileCacheStructs == 0 )
+		catch (...)
 		{
-			MemFree( gpTileCacheStructInfo );
-			gpTileCacheStructInfo = NULL;
+			GetFileClose(&fileInfo);
+			throw;
 		}
+		GetFileClose(&fileInfo);
 	}
 
-	return( TRUE );
+	INT16 FindCacheStructDataIndex(const STR8 filename)
+	{
+		if (filename == NULL) return -1;
+		for (std::size_t index = 0; index < gTileCacheStructures.size(); ++index)
+		{
+			if (_stricmp(gTileCacheStructures[index].root.c_str(), filename) == 0)
+				return static_cast<INT16>(index);
+		}
+		return -1;
+	}
+
+	STRUCTURE_FILE_REF* StructureAt(INT16 index)
+	{
+		if (index < 0 ||
+			static_cast<std::size_t>(index) >= gTileCacheStructures.size())
+			return NULL;
+		return gTileCacheStructures[static_cast<std::size_t>(index)].reference.get();
+	}
 }
 
-void DeleteTileCache( )
+BOOLEAN InitTileCache()
 {
-	UINT32 cnt;
+	if (gTileCache) return TRUE;
+	DeleteTileCache();
 
-	// Allocate entries
-	if ( gpTileCache != NULL )
+	try
 	{
-		// Loop through and delete any entries
-		for ( cnt = 0; cnt < guiMaxTileCacheSize; cnt++ )
+		if (guiMaxTileCacheSize == 0 ||
+			guiMaxTileCacheSize >
+				static_cast<UINT32>(std::numeric_limits<INT32>::max()))
 		{
-			if ( gpTileCache[ cnt ].pImagery != NULL )
-			{
-				DeleteTileSurface( gpTileCache[ cnt ].pImagery );
-			}
-			ResetTileCacheElement( gpTileCache[ cnt ] );
+			ReportTileCacheFailure("configured capacity is outside the supported range");
+			return FALSE;
 		}
-		MemFree( gpTileCache );
-		gpTileCache = NULL;
-	}
 
-	if ( gpTileCacheStructInfo != NULL )
+		const std::size_t capacity =
+			static_cast<std::size_t>(guiMaxTileCacheSize);
+		TileSlots stagedCache(capacity);
+		std::vector<TILE_CACHE_ELEMENT> stagedCompatibility(capacity);
+		for (TILE_CACHE_ELEMENT& view : stagedCompatibility)
+			ResetCompatibilityElement(view);
+		std::vector<TileCacheStructure> stagedStructures;
+		INT32 stagedDefaultStructure = -1;
+		LoadStructureFiles(stagedStructures, stagedDefaultStructure);
+
+		gTileCache.emplace(std::move(stagedCache));
+		gTileCacheCompatibility = std::move(stagedCompatibility);
+		gTileCacheStructures = std::move(stagedStructures);
+		giDefaultStructIndex = stagedDefaultStructure;
+		PublishCompatibilityViews();
+		SyncTileCacheDiagnostics();
+		return TRUE;
+	}
+	catch (...)
 	{
-		for ( cnt = 0; cnt < guiNumTileCacheStructs; ++cnt )
-		{
-			if ( gpTileCacheStructInfo[ cnt ].pStructureFileRef != NULL )
-			{
-				FreeStructureFile( gpTileCacheStructInfo[ cnt ].pStructureFileRef );
-				gpTileCacheStructInfo[ cnt ].pStructureFileRef = NULL;
-			}
-		}
-		MemFree( gpTileCacheStructInfo );
-		gpTileCacheStructInfo = NULL;
+		DeleteTileCache();
+		ReportTileCacheFailure("initialization allocation failed");
+		return FALSE;
 	}
+}
 
+void DeleteTileCache()
+{
+	gpTileCache = NULL;
+	gpTileCacheStructInfo = NULL;
+	gTileCache.reset();
+	std::vector<TileCacheStructure>().swap(gTileCacheStructures);
+	std::vector<TILE_CACHE_ELEMENT>().swap(gTileCacheCompatibility);
+	std::vector<TILE_CACHE_STRUCT>().swap(gTileCacheStructureCompatibility);
 	guiCurTileCacheSize = 0;
 	guiNumTileCacheStructs = 0;
 	giDefaultStructIndex = -1;
 }
 
-INT16 FindCacheStructDataIndex( STR8 cFilename )
+BOOLEAN IsTileCacheInitialized()
 {
-	UINT32 cnt;
-	if ( cFilename == NULL || gpTileCacheStructInfo == NULL )
-		return -1;
-
-	for ( cnt = 0; cnt < guiNumTileCacheStructs; cnt++ )
-	{
-		if ( _stricmp( gpTileCacheStructInfo[ cnt ].zRootName, cFilename ) == 0 )
-		{
-			return(	(INT16)cnt );
-		}
-	}
-
-	return( -1 );
+	return gTileCache.has_value() ? TRUE : FALSE;
 }
 
-INT32 GetCachedTile( const STR8 cFilename )
+INT16 GetCachedTileReferenceCount(INT32 index)
 {
-	UINT32			cnt;
+	if (!gTileCache || index < 0) return 0;
+	return gTileCache->pins(static_cast<std::size_t>(index));
+}
 
-	if ( gpTileCache == NULL )
+INT32 GetCachedTile(const STR8 filename)
+{
+	if (!gTileCache)
 	{
-		ReportTileCacheFailure( "request before initialization", cFilename );
+		ReportTileCacheFailure("request before initialization", filename);
 		return -1;
 	}
-	if ( cFilename == NULL || cFilename[ 0 ] == '\0' )
+	if (filename == NULL || filename[0] == '\0')
 	{
-		ReportTileCacheFailure( "empty tile filename" );
+		ReportTileCacheFailure("empty tile filename");
 		return -1;
 	}
-	if ( std::strlen( cFilename ) >= sizeof( gpTileCache[ 0 ].zName ) )
+	if (std::strlen(filename) >= TileNameCapacity)
 	{
-		ReportTileCacheFailure( "tile filename is too long", cFilename );
+		ReportTileCacheFailure("tile filename is too long", filename);
 		return -1;
 	}
 
-	// Check to see if surface exists already
-	for ( cnt = 0; cnt < guiCurTileCacheSize; cnt++ )
+	for (std::size_t slot = 0; slot < gTileCache->highWaterMark(); ++slot)
 	{
-		if ( gpTileCache[ cnt ].pImagery != NULL )
+		TileCacheResource* const resource = gTileCache->find(slot);
+		if (!resource || _stricmp(resource->name.c_str(), filename) != 0) continue;
+		if (!gTileCache->retain(slot))
 		{
-			if ( _stricmp( gpTileCache[ cnt ].zName, cFilename ) == 0 )
-			{
-				if ( gpTileCache[ cnt ].sHits <= 0 || gpTileCache[ cnt ].sHits == INT16_MAX )
-				{
-					ReportTileCacheFailure( "invalid or saturated tile reference count", cFilename );
-					return -1;
-				}
-
-				// Found surface, retain it and preserve its stable cache ID.
-				gpTileCache[ cnt ].sHits++;
-				return( (INT32)cnt );
-			}
+			ReportTileCacheFailure("invalid or saturated tile reference count", filename);
+			return -1;
 		}
+		SyncCompatibilitySlot(slot);
+		return static_cast<INT32>(slot);
 	}
 
-	// Zero-reference entries are deleted by RemoveCachedTile. Therefore every
-	// occupied slot is pinned and must never be selected as an eviction victim.
-	for ( cnt = 0; cnt < guiMaxTileCacheSize; cnt++ )
+	if (gTileCache->full())
 	{
-		if ( gpTileCache[ cnt ].pImagery == NULL )
-		{
-			TILE_IMAGERY* imagery = LoadTileSurface( cFilename );
-			if ( imagery == NULL )
-			{
-				ReportTileCacheFailure( "could not load tile surface", cFilename );
-				return( -1 );
-			}
-
-			ResetTileCacheElement( gpTileCache[ cnt ] );
-			gpTileCache[ cnt ].pImagery = imagery;
-			std::strcpy( gpTileCache[ cnt ].zName, cFilename );
-			gpTileCache[ cnt ].sHits = 1;
-
-			// Get root name
-			if ( !CopyRootName( gpTileCache[ cnt ].zRootName,
-				sizeof( gpTileCache[ cnt ].zRootName ), cFilename ) )
-			{
-				ReportTileCacheFailure( "tile root name is too long", cFilename );
-				DeleteTileSurface( gpTileCache[ cnt ].pImagery );
-				ResetTileCacheElement( gpTileCache[ cnt ] );
-				return -1;
-			}
-
-			gpTileCache[ cnt ].sStructRefID = FindCacheStructDataIndex( gpTileCache[ cnt ].zRootName );
-
-			// ATE: Add z-strip info
-			if ( gpTileCache[ cnt ].sStructRefID != -1 )
-			{
-				STRUCTURE_FILE_REF* structureRef =
-					gpTileCacheStructInfo[ gpTileCache[ cnt ].sStructRefID ].pStructureFileRef;
-				if ( structureRef != NULL )
-					AddZStripInfoToVObject( gpTileCache[ cnt ].pImagery->vo,
-						structureRef, TRUE, 0 );
-			}
-
-			if ( gpTileCache[ cnt ].pImagery->pAuxData != NULL )
-			{
-				gpTileCache[ cnt ].ubNumFrames = gpTileCache[ cnt ].pImagery->	pAuxData->ubNumberOfFrames;
-			}
-			else
-			{
-				gpTileCache[ cnt ].ubNumFrames = 1;
-			}
-
-			// Has our cache size increased?
-			if ( cnt >= guiCurTileCacheSize )
-			{
-				guiCurTileCacheSize = cnt + 1;;
-			}
-
-			return( cnt );
-		}
+		UINT32 references = 0;
+		gTileCache->forEach([&references](std::size_t, const TileCacheResource&,
+			INT16 pins) { references += static_cast<UINT32>(pins); });
+		CHAR8 capacityFailure[128];
+		std::snprintf(capacityFailure, sizeof(capacityFailure),
+			"capacity %u exhausted by %u live reference%s", guiMaxTileCacheSize,
+			references, references == 1 ? "" : "s");
+		ReportTileCacheFailure(capacityFailure, filename);
+		return -1;
 	}
 
-	UINT32 references = 0;
-	for ( cnt = 0; cnt < guiMaxTileCacheSize; ++cnt )
+	CHAR8 root[TileRootCapacity]{};
+	if (!CopyRootName(root, sizeof(root), filename))
 	{
-		if ( gpTileCache[ cnt ].sHits > 0 )
-			references += static_cast<UINT32>( gpTileCache[ cnt ].sHits );
+		ReportTileCacheFailure("tile root name is too long", filename);
+		return -1;
 	}
-	CHAR8 capacityFailure[ 128 ];
-	snprintf( capacityFailure, sizeof( capacityFailure ),
-		"capacity %u exhausted by %u live reference%s", guiMaxTileCacheSize,
-		references, references == 1 ? "" : "s" );
-	ReportTileCacheFailure( capacityFailure, cFilename );
-	return( -1 );
+
+	OwnedTileSurface loaded(LoadTileSurface(filename));
+	if (!loaded)
+	{
+		ReportTileCacheFailure("could not load tile surface", filename);
+		return -1;
+	}
+
+	const INT16 structureIndex = FindCacheStructDataIndex(root);
+	STRUCTURE_FILE_REF* const structure = StructureAt(structureIndex);
+	if (structure != NULL)
+		AddZStripInfoToVObject(loaded->vo, structure, TRUE, 0);
+	const UINT8 frames = loaded->pAuxData != NULL
+		? loaded->pAuxData->ubNumberOfFrames : 1;
+
+	try
+	{
+		const std::optional<std::size_t> slot = gTileCache->insert(
+			TileCacheResource(std::move(loaded), filename, root, frames,
+				structureIndex));
+		if (!slot) return -1;
+		SyncCompatibilitySlot(*slot);
+		SyncTileCacheDiagnostics();
+		return static_cast<INT32>(*slot);
+	}
+	catch (...)
+	{
+		ReportTileCacheFailure("tile publication allocation failed", filename);
+		return -1;
+	}
 }
 
-
-BOOLEAN RemoveCachedTile( INT32 iCachedTile )
+BOOLEAN RemoveCachedTile(INT32 cachedTile)
 {
-	if ( !IsLiveTileCacheIndex( iCachedTile ) )
-		return FALSE;
-
-	TILE_CACHE_ELEMENT& element = gpTileCache[ iCachedTile ];
-	if ( element.sHits > 1 )
-	{
-		--element.sHits;
-		return FALSE;
-	}
-
-	DeleteTileSurface( element.pImagery );
-	ResetTileCacheElement( element );
-	while ( guiCurTileCacheSize > 0 &&
-		gpTileCache[ guiCurTileCacheSize - 1 ].pImagery == NULL )
-	{
-		--guiCurTileCacheSize;
-	}
-	return TRUE;
+	if (!gTileCache || cachedTile < 0) return FALSE;
+	const TileSlots::ReleaseResult result =
+		gTileCache->release(static_cast<std::size_t>(cachedTile));
+	if (static_cast<std::size_t>(cachedTile) <
+		gTileCacheCompatibility.size())
+		SyncCompatibilitySlot(static_cast<std::size_t>(cachedTile));
+	SyncTileCacheDiagnostics();
+	return result == TileSlots::ReleaseResult::Removed ? TRUE : FALSE;
 }
 
-
-HVOBJECT GetCachedTileVideoObject( INT32 iIndex )
+HVOBJECT GetCachedTileVideoObject(INT32 index)
 {
-	if ( !IsLiveTileCacheIndex( iIndex ) )
-		return( NULL );
-
-	return( gpTileCache[ iIndex ].pImagery->vo );
+	if (!IsLiveTileCacheIndex(index)) return NULL;
+	return gTileCache->find(static_cast<std::size_t>(index))->imagery->vo;
 }
 
-
-UINT8 GetCachedTileFrameCount( INT32 iIndex )
+UINT8 GetCachedTileFrameCount(INT32 index)
 {
-	if ( !IsLiveTileCacheIndex( iIndex ) )
-		return 0;
-
-	return gpTileCache[ iIndex ].ubNumFrames;
+	if (!IsLiveTileCacheIndex(index)) return 0;
+	return gTileCache->find(static_cast<std::size_t>(index))->frames;
 }
 
-
-STRUCTURE_FILE_REF *GetCachedTileStructureRef( INT32 iIndex )
+STRUCTURE_FILE_REF* GetCachedTileStructureRef(INT32 index)
 {
-	if ( !IsLiveTileCacheIndex( iIndex ) || gpTileCacheStructInfo == NULL )
-		return( NULL );
-
-	const INT16 structureIndex = gpTileCache[ iIndex ].sStructRefID;
-	if ( structureIndex < 0 || static_cast<UINT32>( structureIndex ) >= guiNumTileCacheStructs )
-	{
-		return( NULL );
-	}
-
-	return( gpTileCacheStructInfo[ structureIndex ].pStructureFileRef );
+	if (!IsLiveTileCacheIndex(index)) return NULL;
+	const TileCacheResource* const resource =
+		gTileCache->find(static_cast<std::size_t>(index));
+	return StructureAt(resource->structureRefID);
 }
 
-
-STRUCTURE_FILE_REF *GetCachedTileStructureRefFromFilename( const STR8 cFilename )
+STRUCTURE_FILE_REF* GetCachedTileStructureRefFromFilename(const STR8 filename)
 {
-	INT16 sStructDataIndex;
-
-	// Given filename, look for index
-	sStructDataIndex = FindCacheStructDataIndex( cFilename );
-
-	if ( sStructDataIndex == -1 )
-	{
-		return( NULL );
-	}
-
-	return( gpTileCacheStructInfo[ sStructDataIndex ].pStructureFileRef );
+	return StructureAt(FindCacheStructDataIndex(filename));
 }
 
-
-void CheckForAndAddTileCacheStructInfo( LEVELNODE *pNode, INT32 sGridNo, INT8 bLevel, UINT16 usIndex, UINT16 usSubIndex )
+void CheckForAndAddTileCacheStructInfo(LEVELNODE* node, INT32 gridNo,
+	INT8 level, UINT16 index, UINT16 subIndex)
 {
-	STRUCTURE_FILE_REF *pStructureFileRef;
+	STRUCTURE_FILE_REF* structure = GetCachedTileStructureRef(index);
+	if (node == NULL || structure == NULL ||
+		subIndex >= structure->usNumberOfStructures)
+		return;
 
-	pStructureFileRef = GetCachedTileStructureRef( usIndex );
+	if (AddStructureToWorld(gridNo, level,
+		&(structure->pDBStructureRef[subIndex]), node))
+		return;
 
-	if ( pNode != NULL && pStructureFileRef != NULL &&
-		usSubIndex < pStructureFileRef->usNumberOfStructures )
-	{
-		if ( !AddStructureToWorld( sGridNo, bLevel, &( pStructureFileRef->pDBStructureRef[ usSubIndex ] ), pNode ) )
-	{
-		if ( giDefaultStructIndex >= 0 && gpTileCacheStructInfo != NULL &&
-			static_cast<UINT32>( giDefaultStructIndex ) < guiNumTileCacheStructs )
-		{
-		pStructureFileRef = gpTileCacheStructInfo[ giDefaultStructIndex ].pStructureFileRef;
-
-		if ( pStructureFileRef != NULL && usSubIndex < pStructureFileRef->usNumberOfStructures )
-		{
-			AddStructureToWorld( sGridNo, bLevel, &( pStructureFileRef->pDBStructureRef[ usSubIndex ] ), pNode );
-		}
-		}
-	}
-	}
+	structure = StructureAt(static_cast<INT16>(giDefaultStructIndex));
+	if (structure != NULL && subIndex < structure->usNumberOfStructures)
+		AddStructureToWorld(gridNo, level,
+			&(structure->pDBStructureRef[subIndex]), node);
 }
 
-void CheckForAndDeleteTileCacheStructInfo( LEVELNODE *pNode, UINT16 usIndex )
+void CheckForAndDeleteTileCacheStructInfo(LEVELNODE* node, UINT16 index)
 {
-	STRUCTURE_FILE_REF *pStructureFileRef;
-
-	if ( usIndex >= TILE_CACHE_START_INDEX )
-	{
-		pStructureFileRef = GetCachedTileStructureRef( ( usIndex - TILE_CACHE_START_INDEX ) );
-
-		if ( pNode != NULL && pNode->pStructureData != NULL && pStructureFileRef != NULL)
-		{
-			DeleteStructureFromWorld( pNode->pStructureData );
-		}
-	}
+	if (index < TILE_CACHE_START_INDEX) return;
+	STRUCTURE_FILE_REF* const structure =
+		GetCachedTileStructureRef(index - TILE_CACHE_START_INDEX);
+	if (node != NULL && node->pStructureData != NULL && structure != NULL)
+		DeleteStructureFromWorld(node->pStructureData);
 }
 
-void GetRootName( CHAR8 *pDestStr, const STR8 pSrcStr )
+void GetRootName(CHAR8* destination, const STR8 source)
 {
 	// Legacy pointer-only API retained for compatibility. Its existing callers
 	// all pass buffers at least 128 bytes wide; bounded cache-owned buffers use
 	// CopyRootName directly above.
-	CopyRootName( pDestStr, 128, pSrcStr );
+	CopyRootName(destination, 128, source);
 }
-
-

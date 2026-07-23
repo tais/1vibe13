@@ -49,6 +49,7 @@ set(engine_core_public_headers
   PackageTaskQueue.h
   PackageTasks.h
   PersistenceService.h
+  PinnedSlotCache.h
   RandomSource.h
   RuntimeCapabilities.h
   RuntimeCheckpoint.h
@@ -68,6 +69,7 @@ set(engine_core_public_headers
   StateRegistry.h
   StateStack.h
   StateTransition.h
+  StableResourceRegistry.h
   TimeSource.h
   UniqueResourceHandle.h
   UniqueResourcePtr.h)

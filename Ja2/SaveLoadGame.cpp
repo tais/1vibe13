@@ -25,6 +25,8 @@
 #include "SaveLoadGame.h"
 #include "GameContext.h"
 #include "SaveCompatibility.h"
+#include "TacticalEntityHost.h"
+#include "TacticalWorldAdapter.h"
 #include "Tactical Save.h"
 #include "Squads.h"
 #include "environment.h"
@@ -484,7 +486,6 @@ UINT8			gubSaveGameLoc=0;
 UINT32		guiScreenToGotoAfterLoadingSavedGame = 0;
 
 extern		EmailPtr	pEmailList;
-extern		UINT32		guiCurrentUniqueSoldierId;
 extern		BOOLEAN		gfHavePurchasedItemsFromTony;
 
 /////////////////////////////////////////////////////
@@ -2575,6 +2576,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	INT32		iSaveLoadGameMessageBoxID = -1;
 	UINT16	usPosX, usActualWidth, usActualHeight;
 	BOOLEAN fWePausedIt = FALSE;
+	PreparedSaveMetadata preparedFrameworkMetadata;
 	
 	CHAR16	zString[128];
 
@@ -2661,6 +2663,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Set the fact that we are saving a game
 	gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
+	// Capture both sidecars from this single paused-game boundary. They are
+	// committed only after the legacy save has closed successfully.
+	preparedFrameworkMetadata = PrepareSaveMetadata( GetGameContext() );
 
 
 	//ADB this has been moved ahead of SaveCurrentSectorsInformationToTempItemFile
@@ -3623,45 +3628,29 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	FileClose( hFile );
 
 	// Metadata is deliberately best-effort: a valid legacy save remains valid
-	// even when the optional framework sidecar cannot be written.
+	// even when the optional framework sidecars cannot be committed.
 	{
-		const RuntimeCheckpointSaveError compatibilityMetadata =
-			WriteSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
-		if ( compatibilityMetadata != RuntimeCheckpointSaveError::None )
+		const PreparedSaveMetadataCommitResult metadata = CommitPreparedSaveMetadata(
+			GetGameContext(), zSaveGameName, std::move( preparedFrameworkMetadata ) );
+		if ( !metadata )
 		{
-			RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
 			try
 			{
 				GetGameContext().log().write( LogRecord{
 					LogSeverity::Warning, "save-compatibility",
-					"Could not write save compatibility metadata for " +
-						std::string( zSaveGameName ) + " (code " +
-						std::to_string( static_cast<int>( compatibilityMetadata ) ) + ")" } );
-				}
-				catch ( ... ) {}
+					"Could not commit prepared save metadata for " +
+						std::string( zSaveGameName ) + " (checkpoint " +
+						std::to_string( static_cast<int>( metadata.checkpointError ) ) +
+						", capture " + std::to_string(
+							static_cast<int>( metadata.packages.captureError ) ) +
+						", archive " + std::to_string(
+							static_cast<int>( metadata.packages.archiveError ) ) +
+						(metadata.packageId.empty() ? ")" :
+							", package " + metadata.packageId + ")") } );
 			}
-			else
-			{
-				const PackageSaveMetadataWriteResult packageMetadata =
-					WritePackageSaveStateMetadata( GetGameContext(), zSaveGameName );
-				if ( !packageMetadata )
-				{
-					GetGameContext().persistence().storage().remove(
-						PackageSaveStateSidecarPath( zSaveGameName ) );
-					try
-					{
-						GetGameContext().log().write( LogRecord{
-							LogSeverity::Warning, "save-compatibility",
-							"Could not write package save state for " +
-								std::string( zSaveGameName ) + " (capture " +
-								std::to_string( static_cast<int>( packageMetadata.captureError ) ) +
-								", archive " + std::to_string(
-									static_cast<int>( packageMetadata.archiveError ) ) + ")" } );
-					}
-					catch ( ... ) {}
-				}
-			}
+			catch ( ... ) {}
 		}
+	}
 
 	// This defines, which savegame is highlighted in the load screen
 	if (ubSaveGameID == SAVE__END_TURN_NUM)
@@ -3810,6 +3799,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	CHAR8		zSaveGameName[ MAX_PATH ];
 	UINT32 uiRelStartPerc;
 	UINT32 uiRelEndPerc;
+	PreparedLoadMetadata preparedFrameworkMetadata;
 
 #ifdef JA2BETAVERSION
 	gfDisplaySaveGamesNowInvalidatedMsg = FALSE;
@@ -3830,13 +3820,17 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
 	{
 		const SaveCompatibilityPolicy policy = GetSaveCompatibilityPolicy();
+		preparedFrameworkMetadata = PrepareLoadMetadata(
+			GetGameContext(), zSaveGameName, policy );
 		if ( policy != SaveCompatibilityPolicy::Ignore )
 		{
-			const SaveCompatibilityResult compatibility =
-				InspectSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
+			const PreparedLoadMetadataGateResult gate =
+				EvaluatePreparedLoadMetadataGate( preparedFrameworkMetadata );
+			const SaveCompatibilityResult& compatibility =
+				preparedFrameworkMetadata.compatibility;
 			const SaveCompatibilityLoadAction action =
-				EvaluateSaveCompatibility( compatibility.state, policy );
-			if ( action != SaveCompatibilityLoadAction::Allow )
+				preparedFrameworkMetadata.compatibilityAction;
+			if ( gate.compatibilityNotice )
 			{
 				try
 				{
@@ -3849,40 +3843,38 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 							" under policy " + SaveCompatibilityPolicyName( policy ) } );
 				}
 				catch ( ... ) {}
-				if ( action == SaveCompatibilityLoadAction::Reject )
-				{
-					ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
-						L"Save compatibility check rejected this save; see the log for details." );
-						return( FALSE );
-					}
-				}
+			}
 
-				const PackageSaveMetadataResult packageMetadata =
-					InspectPackageSaveStateMetadata( GetGameContext(), zSaveGameName );
-				const SaveCompatibilityLoadAction packageAction =
-					EvaluatePackageSaveMetadata( packageMetadata.state, policy );
-				if ( packageAction != SaveCompatibilityLoadAction::Allow )
+			const PackageSaveMetadataResult& packageMetadata =
+				preparedFrameworkMetadata.packages;
+			const SaveCompatibilityLoadAction packageAction =
+				preparedFrameworkMetadata.packageAction;
+			if ( gate.packageNotice )
+			{
+				try
 				{
-					try
-					{
-						GetGameContext().log().write( LogRecord{
-							packageAction == SaveCompatibilityLoadAction::Reject
-								? LogSeverity::Error : LogSeverity::Warning,
-							"save-compatibility",
-							"Package state preflight for " + std::string( zSaveGameName ) +
-								": " + PackageSaveMetadataStateName( packageMetadata.state ) +
-								" under policy " + SaveCompatibilityPolicyName( policy ) } );
-					}
-					catch ( ... ) {}
-					if ( packageAction == SaveCompatibilityLoadAction::Reject )
-					{
-						ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
-							L"Package save state rejected this save; see the log for details." );
-						return( FALSE );
-					}
+					GetGameContext().log().write( LogRecord{
+						packageAction == SaveCompatibilityLoadAction::Reject
+							? LogSeverity::Error : LogSeverity::Warning,
+						"save-compatibility",
+						"Package state preflight for " + std::string( zSaveGameName ) +
+							": " + PackageSaveMetadataStateName( packageMetadata.state ) +
+							" under policy " + SaveCompatibilityPolicyName( policy ) } );
 				}
+				catch ( ... ) {}
+			}
+
+			if ( !gate )
+			{
+				ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
+					gate.rejection ==
+						PreparedLoadMetadataRejection::RuntimeCompatibility
+						? L"Save compatibility check rejected this save; see the log for details."
+						: L"Package save state rejected this save; see the log for details." );
+				return( FALSE );
 			}
 		}
+	}
 
 #ifdef LOADSAVEGAME_LOGTIME
 	TimingLogInitialize("TimeLog_LoadSavedGame.txt");
@@ -4137,7 +4129,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		bLoadSectorZ = gbWorldSectorZ;
 
 		// This will guarantee that the sector will be loaded
-		gbWorldSectorZ = -1;
+		SetJa2TacticalWorldDepth(-1);
 
 
 		//if we should load a sector ( if the person didnt just start the game game )
@@ -4149,7 +4141,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	}
 	else
 	{ //By clearing these values, we can avoid "in sector" checks -- at least, that's the theory.
-		gWorldSectorX = gWorldSectorY = 0;
+		SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 
 		//Since there is no 
 		if( SaveGameHeader.sSectorX == -1 || SaveGameHeader.sSectorY == -1 || SaveGameHeader.bSectorZ == -1 )
@@ -6012,14 +6004,10 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// succeeded. A package callback failure is diagnosed but cannot retroactively
 	// turn the already-loaded, compatible JA2 save into a failed load.
 	{
-		const SaveCompatibilityPolicy policy = GetSaveCompatibilityPolicy();
-		const PackageSaveMetadataResult packageMetadata = policy == SaveCompatibilityPolicy::Ignore
-			? PackageSaveMetadataResult{ PackageSaveMetadataState::NotRequired }
-			: InspectPackageSaveStateMetadata( GetGameContext(), zSaveGameName );
-		if ( packageMetadata.state == PackageSaveMetadataState::Ready )
+		if ( preparedFrameworkMetadata.restorePending() )
 		{
-			const PackageSaveStateLoadResult restored =
-				GetGameContext().restorePackageSaveState( packageMetadata.archive.state );
+			const PackageSaveStateLoadResult restored = RestorePreparedPackageSaveState(
+				GetGameContext(), preparedFrameworkMetadata );
 			if ( !restored )
 			{
 				try
@@ -7009,6 +6997,9 @@ template<class Ar> static void XferTacticalStatus( Ar& ar, TacticalStatusType& s
 BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten;
+	const INT16 savedSectorX = gWorldSectorX;
+	const INT16 savedSectorY = gWorldSectorY;
+	const INT8 savedSectorZ = gbWorldSectorZ;
 
 	//write the gTacticalStatus to the saved game file (portable v2)
 	{
@@ -7026,24 +7017,24 @@ BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 	//
 
 	// save gWorldSectorX
-	FileWrite( hFile, &gWorldSectorX, sizeof( gWorldSectorX ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( gWorldSectorX ) )
+	FileWrite( hFile, &savedSectorX, sizeof( savedSectorX ), &uiNumBytesWritten );
+	if( uiNumBytesWritten != sizeof( savedSectorX ) )
 	{
 		return(FALSE);
 	}
 
 
 	// save gWorldSectorY
-	FileWrite( hFile, &gWorldSectorY, sizeof( gWorldSectorY ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( gWorldSectorY ) )
+	FileWrite( hFile, &savedSectorY, sizeof( savedSectorY ), &uiNumBytesWritten );
+	if( uiNumBytesWritten != sizeof( savedSectorY ) )
 	{
 		return(FALSE);
 	}
 
 
 	// save gbWorldSectorZ
-	FileWrite( hFile, &gbWorldSectorZ, sizeof( gbWorldSectorZ ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( gbWorldSectorZ ) )
+	FileWrite( hFile, &savedSectorZ, sizeof( savedSectorZ ), &uiNumBytesWritten );
+	if( uiNumBytesWritten != sizeof( savedSectorZ ) )
 	{
 		return(FALSE);
 	}
@@ -7062,6 +7053,9 @@ void FailedLoadingGameCallBack( UINT8 bExitValue );
 BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesRead;
+	INT16 loadedSectorX = 0;
+	INT16 loadedSectorY = 0;
+	INT8 loadedSectorZ = -1;
 
 	//Read the gTacticalStatus from the saved game file (portable v2)
 	{
@@ -7160,28 +7154,27 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 	//Load the current sector location to the saved game file
 	//
 
-	// Load gWorldSectorX
-	FileRead( hFile, &gWorldSectorX, sizeof( gWorldSectorX ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( gWorldSectorX ) )
+	// Stage all three coordinates before publishing the authoritative session.
+	FileRead( hFile, &loadedSectorX, sizeof( loadedSectorX ), &uiNumBytesRead );
+	if( uiNumBytesRead != sizeof( loadedSectorX ) )
 	{
 		return(FALSE);
 	}
 
 
-	// Load gWorldSectorY
-	FileRead( hFile, &gWorldSectorY, sizeof( gWorldSectorY ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( gWorldSectorY ) )
+	FileRead( hFile, &loadedSectorY, sizeof( loadedSectorY ), &uiNumBytesRead );
+	if( uiNumBytesRead != sizeof( loadedSectorY ) )
 	{
 		return(FALSE);
 	}
 
 
-	// Load gbWorldSectorZ
-	FileRead( hFile, &gbWorldSectorZ, sizeof( gbWorldSectorZ ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( gbWorldSectorZ ) )
+	FileRead( hFile, &loadedSectorZ, sizeof( loadedSectorZ ), &uiNumBytesRead );
+	if( uiNumBytesRead != sizeof( loadedSectorZ ) )
 	{
 		return(FALSE);
 	}
+	SetJa2TacticalWorldSector( loadedSectorX, loadedSectorY, loadedSectorZ );
 
 	return( TRUE );
 }
@@ -7724,7 +7717,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	memset( &sGeneralInfo, 0, sizeof( GENERAL_SAVE_INFO ) );
 
 	sGeneralInfo.ubMusicMode = GetMusicMode();
-	sGeneralInfo.uiCurrentUniqueSoldierId = guiCurrentUniqueSoldierId;
+	sGeneralInfo.uiCurrentUniqueSoldierId = NextJa2TacticalEntityIncarnation();
 	sGeneralInfo.uiCurrentScreen = guiPreviousOptionScreen;
 
 	sGeneralInfo.usSelectedSoldier = gusSelectedSoldier;
@@ -8254,7 +8247,8 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 
 	gMusicModeToPlay = sGeneralInfo.ubMusicMode;
 
-	guiCurrentUniqueSoldierId = sGeneralInfo.uiCurrentUniqueSoldierId;
+	RestoreJa2TacticalEntityIncarnationSequence(
+		sGeneralInfo.uiCurrentUniqueSoldierId);
 
 	guiScreenToGotoAfterLoadingSavedGame = sGeneralInfo.uiCurrentScreen;
 

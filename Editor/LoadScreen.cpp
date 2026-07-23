@@ -40,6 +40,7 @@
 	#include "MessageBoxScreen.h"
 	#include <vfs/Core/vfs.h>//dnl ch37 110909
 	#include "Exit Grids.h"//dnl ch86 190214
+	#include "TacticalWorldAdapter.h"
 
 //===========================================================================
 
@@ -1028,7 +1029,15 @@ UINT32 ProcessFileIO()
 			}
 			if( gfShowPits )
 				AddAllPits();
-			GetSectorFromFileName(gzFilename, gWorldSectorX, gWorldSectorY, gbWorldSectorZ, fAltMap);//dnl ch31 140909
+			{
+				INT16 parsedSectorX = gWorldSectorX;
+				INT16 parsedSectorY = gWorldSectorY;
+				INT8 parsedSectorZ = gbWorldSectorZ;
+				GetSectorFromFileName(
+					gzFilename, parsedSectorX, parsedSectorY, parsedSectorZ, fAltMap);
+				SetJa2TacticalWorldSector(
+					parsedSectorX, parsedSectorY, parsedSectorZ);
+			}
 			if( gfGlobalSummaryExists )
 				UpdateSectorSummary( gzFilename, gfUpdateSummaryInfo );
 			else//dnl ch30 150909
@@ -1073,7 +1082,15 @@ UINT32 ProcessFileIO()
 			}
 			//ADB these are NOT set yet! but they need to be, duh
 			CompileWorldMovementCosts();
-			GetSectorFromFileName(gzFilename, gWorldSectorX, gWorldSectorY, gbWorldSectorZ, fAltMap);//dnl ch31 140909
+			{
+				INT16 parsedSectorX = gWorldSectorX;
+				INT16 parsedSectorY = gWorldSectorY;
+				INT8 parsedSectorZ = gbWorldSectorZ;
+				GetSectorFromFileName(
+					gzFilename, parsedSectorX, parsedSectorY, parsedSectorZ, fAltMap);
+				SetJa2TacticalWorldSector(
+					parsedSectorX, parsedSectorY, parsedSectorZ);
+			}
 			RestoreFontSettings();
 
 			//Load successful, update necessary information.

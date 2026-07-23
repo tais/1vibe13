@@ -32,7 +32,9 @@
 #include "Summary Info.h"
 #include "GameSettings.h"
 #include "GameContext.h"
+#include "CampaignPackage.h"
 #include "RuntimeReportHost.h"
+#include "TacticalWorldAdapter.h"
 #include "Game Init.h"
 #include "Init.h"
 #include "jascreens.h"
@@ -1425,28 +1427,13 @@ UINT32 InitializeJA2(void)
 
 	HandleJA2CDCheck( );
 
-	gfWorldLoaded = FALSE;
+	NotifyJa2TacticalWorldUnloaded();
 
-	//Load external game mechanic data
-	//if ( !LoadExternalGameplayData(TABLEDATA_DIRECTORY))
-	//{
-	//	return( ERROR_SCREEN );
-	//}
-	SGP_TRYCATCH_RETHROW(LoadExternalGameplayData(TABLEDATA_DIRECTORY, false),L"Loading external data failed");
-
-	// sun_alf: set itemId to each Magazine to avoid searching over Item[] on each MagazineClassIndexToItemType() call.
-	for (int i = 0; i < gMAXITEMS_READ; i++)
-	{
-		if (Item[i].usItemClass == IC_AMMO)
-		{
-			Magazine[Item[i].ubClassIndex].uiIndex = Item[i].uiIndex;
-		}
-	}
-
-	// Load external text
-	LoadAllExternalText();
+	// The active compiled campaign owns legacy table/text loading. As the first
+	// active package it completes that work before extension LoadContent hooks.
 	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::LoadContent))
 	{
+		GetCompiledCampaignPackage().rethrowBootstrapFailure();
 		return ERROR_SCREEN;
 	}
 
@@ -1580,8 +1567,7 @@ UINT32 InitializeJA2(void)
 			//For editor purposes, need to know the default map file.
 			sprintf( gubFilename, "none");
 			//also set the sector
-			gWorldSectorX = 0;
-			gWorldSectorY = 0;
+			SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 			gfAutoLoadA9 = FALSE;
 			gfIntendOnEnteringEditor = TRUE;
 			gGameOptions.fGunNut = TRUE;
@@ -1594,8 +1580,7 @@ UINT32 InitializeJA2(void)
 			//For editor purposes, need to know the default map file.
 			sprintf( gubFilename, "none");
 			//also set the sector
-			gWorldSectorX = 0;
-			gWorldSectorY = 0;
+			SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 			gfAutoLoadA9 = FALSE;
 			gfIntendOnEnteringEditor = TRUE;
 			gGameOptions.fGunNut = TRUE;
@@ -1611,8 +1596,7 @@ UINT32 InitializeJA2(void)
 			//For editor purposes, need to know the default map file.
 			sprintf( gubFilename, "none");
 			//also set the sector
-			gWorldSectorX = 0;
-			gWorldSectorY = 0;
+			SetJa2TacticalWorldSector(0, 0, gbWorldSectorZ);
 			gfAutoLoadA9 = TRUE;
 			gfIntendOnEnteringEditor = TRUE;
 			gGameOptions.fGunNut = TRUE;
@@ -1622,14 +1606,10 @@ UINT32 InitializeJA2(void)
 	#endif
 #endif
 
-#ifdef JA2UB
-	InitGridNoUB();
-#endif
-
-//Lua
-	IniLuaGlobal();
+	// The campaign starts legacy grid/Lua globals before extension runtimes.
 	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime))
 	{
+		GetCompiledCampaignPackage().rethrowBootstrapFailure();
 		return ERROR_SCREEN;
 	}
 	if (!initialization.markRunning())

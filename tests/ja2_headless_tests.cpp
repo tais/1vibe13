@@ -25,6 +25,7 @@
 #include <fstream>
 #include <list>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <type_traits>
@@ -77,6 +78,7 @@
 #include "SaveCompatibility.h"
 #include "Simulation Commands.h"
 #include "TacticalCommandHost.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include "popup_class.h"
@@ -495,6 +497,11 @@ public:
 		}
 		bootstrapCalls.push_back(static_cast<int>(phase));
 		if (static_cast<int>(phase) == throwPhase) throw "test package bootstrap exception";
+		if (static_cast<int>(phase) == failOncePhase)
+		{
+			failOncePhase = -1;
+			return false;
+		}
 		return static_cast<int>(phase) != failPhase_;
 	}
 	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
@@ -588,6 +595,7 @@ public:
 	int deactivateCalls = 0;
 	bool activationSucceeds = true;
 	int throwPhase = -1;
+	int failOncePhase = -1;
 	bool throwOnInput = false;
 	bool throwOnRuntimeUpdate = false;
 	bool throwOnMessage = false;
@@ -645,6 +653,40 @@ private:
 	int failPhase_;
 	AssetSource* assets_;
 	bool active_ = false;
+};
+
+class TestCampaignBootstrapHooks final : public LegacyCampaignBootstrapHooks
+{
+public:
+	bool loadContent(const GameCapabilities& capabilities) override
+	{
+		contentCampaigns.push_back(capabilities.campaign);
+		if (trace)
+			trace->push_back(capabilities.isUnfinishedBusiness()
+				? "campaign:load-content:ub" : "campaign:load-content:ja2");
+		if (throwOnLoadContent)
+			throw std::runtime_error("test campaign content exception");
+		return loadContentSucceeds;
+	}
+
+	bool startRuntime(const GameCapabilities& capabilities) override
+	{
+		runtimeCampaigns.push_back(capabilities.campaign);
+		if (trace)
+			trace->push_back(capabilities.isUnfinishedBusiness()
+				? "campaign:start-runtime:ub" : "campaign:start-runtime:ja2");
+		if (throwOnStartRuntime)
+			throw std::runtime_error("test campaign runtime exception");
+		return startRuntimeSucceeds;
+	}
+
+	std::vector<GameCampaign> contentCampaigns;
+	std::vector<GameCampaign> runtimeCampaigns;
+	std::vector<std::string>* trace = nullptr;
+	bool loadContentSucceeds = true;
+	bool startRuntimeSucceeds = true;
+	bool throwOnLoadContent = false;
+	bool throwOnStartRuntime = false;
 };
 
 class ThrowingPackageEventSink final : public PackageEventSink
@@ -1344,6 +1386,91 @@ int main( int, char** )
 				contractMismatch.state, SaveCompatibilityPolicy::EnforceKnown ) ==
 				SaveCompatibilityLoadAction::Reject,
 		       "JA2 package-state sidecars write, preflight, classify legacy saves, and obey policy" );
+	}
+
+	{
+		TestLifecyclePackage stagedPackage(
+			"rules.staged-save-boundary", PackageKind::Rules );
+		stagedPackage.setSaveStateSchema( 3 );
+		GAME_SETTINGS settings = {};
+		GAME_OPTIONS options = {};
+		MemoryByteStorage storage;
+		EngineServices services{
+			ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage };
+		GameContext context( settings, options, GameCapabilities{}, services );
+		const bool ready =
+			context.packages().registerPackage( stagedPackage ) ==
+				PackageRegistrationError::None &&
+			context.packages().activate( "rules.staged-save-boundary" ) ==
+				PackageActivationError::None &&
+			context.beginInitialization() &&
+			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			context.markRunning();
+		const std::string savePath = "SavedGames/SaveGamePrepared.sav";
+		const std::vector<std::uint8_t> capturedPayload =
+			stagedPackage.saveStatePayload;
+		PreparedSaveMetadata prepared = PrepareSaveMetadata( context );
+		const bool preparedWasStateful = prepared.stateful;
+		const bool prepareDidNotWrite =
+			!storage.exists( RuntimeCheckpointSidecarPath( savePath ) ) &&
+			!storage.exists( PackageSaveStateSidecarPath( savePath ) );
+		stagedPackage.saveStatePayload = { 9, 8, 7, 6 };
+		const PreparedSaveMetadataCommitResult committed =
+			CommitPreparedSaveMetadata( context, savePath, std::move( prepared ) );
+		PackageSaveArchive committedArchive;
+		const PackageSaveArchiveLoadResult archiveLoaded =
+			context.packageSaveArchives().load(
+				PackageSaveStateSidecarPath( savePath ),
+				context.runtime().compatibilityFingerprint(),
+				context.runtime().preAggregateCatalogCompatibilityFingerprint(),
+				committedArchive );
+		stagedPackage.saveStatePayload = capturedPayload;
+		PreparedLoadMetadata stagedLoad = PrepareLoadMetadata(
+			context, savePath, SaveCompatibilityPolicy::Warn );
+		storage.remove( RuntimeCheckpointSidecarPath( savePath ) );
+		storage.writeAll( PackageSaveStateSidecarPath( savePath ), { 1, 2, 3 } );
+		const PackageSaveStateLoadResult restored =
+			RestorePreparedPackageSaveState( context, stagedLoad );
+		const PackageSaveStateLoadResult restoredAgain =
+			RestorePreparedPackageSaveState( context, stagedLoad );
+		const PreparedLoadMetadata corrupted = PrepareLoadMetadata(
+			context, savePath, SaveCompatibilityPolicy::EnforceKnown );
+		const PreparedLoadMetadataGateResult corruptedGate =
+			EvaluatePreparedLoadMetadataGate( corrupted );
+		CHECK( ready && preparedWasStateful && prepareDidNotWrite && committed &&
+		       stagedPackage.saveStateCalls == 1 && archiveLoaded &&
+		       committedArchive.state.records.size() == 1 &&
+		       committedArchive.state.records[0].payload == capturedPayload,
+		       "prepared save metadata commits the one captured paused-game snapshot" );
+		CHECK(
+		       stagedLoad.compatibility.state == SaveCompatibilityState::Compatible &&
+		       stagedLoad.packages.state == PackageSaveMetadataState::Ready &&
+		       restored && restoredAgain && stagedPackage.validateStateCalls == 1 &&
+		       stagedPackage.loadedStatePayload == capturedPayload &&
+		       stagedPackage.loadStateCalls == 1,
+		       "prepared load metadata survives backing-file changes and restores once" );
+		CHECK(
+		       corrupted.packages.state == PackageSaveMetadataState::InvalidMetadata &&
+		       corrupted.packageAction == SaveCompatibilityLoadAction::Reject &&
+		       corrupted.rejected() && !corruptedGate &&
+		       !corruptedGate.compatibilityNotice && corruptedGate.packageNotice &&
+		       corruptedGate.rejection ==
+		           PreparedLoadMetadataRejection::PackageState,
+		       "the destructive-load gate independently rejects corrupt package metadata beside a compatible checkpoint" );
+
+		stagedPackage.saveStateSucceeds = false;
+		storage.writeAll( RuntimeCheckpointSidecarPath( savePath ), { 4 } );
+		storage.writeAll( PackageSaveStateSidecarPath( savePath ), { 5 } );
+		PreparedSaveMetadata failedPreparation = PrepareSaveMetadata( context );
+		const PreparedSaveMetadataCommitResult failedCommit =
+			CommitPreparedSaveMetadata(
+				context, savePath, std::move( failedPreparation ) );
+		CHECK( !failedCommit &&
+		       failedCommit.packages.captureError ==
+		           PackageSaveStateError::CallbackFailed &&
+		       !storage.exists( RuntimeCheckpointSidecarPath( savePath ) ) &&
+		       !storage.exists( PackageSaveStateSidecarPath( savePath ) ),
+		       "a failed optional metadata capture cannot leave a partial sidecar pair" );
 	}
 
 	{
@@ -2360,6 +2487,189 @@ int main( int, char** )
 	}
 
 	{
+		TestCampaignBootstrapHooks campaignHooks;
+		LegacyCampaignPackage campaign( GameCapabilities{}, campaignHooks );
+		TestLifecyclePackage extension(
+			"extension.campaign-bootstrap", PackageKind::Extension, -1, nullptr,
+			{{ "ja2.arulco", "1.13" }} );
+		std::vector<std::string> lifecycleTrace;
+		campaignHooks.trace = &lifecycleTrace;
+		extension.lifecycleTrace = &lifecycleTrace;
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		const bool activated =
+			packages.registerPackage( extension ) == PackageRegistrationError::None &&
+			packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+			packages.activate( "extension.campaign-bootstrap" ) ==
+				PackageActivationError::None;
+		const PackageDescriptor* descriptorIdentity = &campaign.descriptor();
+		const PackageCatalogSnapshot catalogBeforeBootstrap = packages.catalog();
+		const RuntimeCompatibilityFingerprint fingerprintBeforeBootstrap =
+			BuildRuntimeCompatibilityFingerprint(
+				catalogBeforeBootstrap, std::vector<EngineServiceDescriptor>{},
+				std::vector<RuntimeConfigurationEntry>{},
+				catalogBeforeBootstrap.activeCapabilities,
+				std::vector<DefinitionRecord>{} );
+		const bool configured = packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+			PackageBootstrapError::None;
+		const bool configureOrder = lifecycleTrace == std::vector<std::string>({
+			"bootstrap:extension.campaign-bootstrap" });
+		lifecycleTrace.clear();
+		const bool contentLoaded = packages.bootstrap(
+			PackageBootstrapPhase::LoadContent ) == PackageBootstrapError::None;
+		const bool contentOrder = lifecycleTrace == std::vector<std::string>({
+			"campaign:load-content:ja2",
+			"bootstrap:extension.campaign-bootstrap" });
+		lifecycleTrace.clear();
+		const bool runtimeStarted = packages.bootstrap(
+			PackageBootstrapPhase::StartRuntime ) == PackageBootstrapError::None;
+		const bool runtimeOrder = lifecycleTrace == std::vector<std::string>({
+			"campaign:start-runtime:ja2",
+			"bootstrap:extension.campaign-bootstrap" });
+		const PackageCatalogSnapshot catalogAfterBootstrap = packages.catalog();
+		const RuntimeCompatibilityFingerprint fingerprintAfterBootstrap =
+			BuildRuntimeCompatibilityFingerprint(
+				catalogAfterBootstrap, std::vector<EngineServiceDescriptor>{},
+				std::vector<RuntimeConfigurationEntry>{},
+				catalogAfterBootstrap.activeCapabilities,
+				std::vector<DefinitionRecord>{} );
+		CHECK( activated && configured && configureOrder &&
+		       contentLoaded && runtimeStarted &&
+		       contentOrder && runtimeOrder &&
+		       packages.activationOrder() == std::vector<std::string>({
+		           "ja2.arulco", "extension.campaign-bootstrap" }) &&
+		       descriptorIdentity == &campaign.descriptor() &&
+		       campaign.descriptor().content.id == "ja2.arulco" &&
+		       campaign.descriptor().content.version == "1.13" &&
+		       fingerprintBeforeBootstrap == fingerprintAfterBootstrap &&
+		       campaignHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }) &&
+		       campaignHooks.runtimeCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }),
+		       "compiled campaign hooks own exact phase order without changing package identity or compatibility" );
+		const PackageBootstrapShutdownResult shutdown = packages.shutdownBootstrap();
+		CHECK( shutdown && shutdown.shutdownPhases == 3 &&
+		       extension.shutdownCalls == std::vector<int>({ 2, 1, 0 }) &&
+		       campaignHooks.contentCampaigns.size() == 1 &&
+		       campaignHooks.runtimeCampaigns.size() == 1 &&
+		       packages.isActive( "ja2.arulco" ),
+		       "campaign lifecycle shutdown preserves intentionally non-hot-unloaded legacy state" );
+	}
+
+	{
+		TestCampaignBootstrapHooks failingHooks;
+		failingHooks.throwOnLoadContent = true;
+		LegacyCampaignPackage campaign( GameCapabilities{}, failingHooks );
+		TestLifecyclePackage extension(
+			"extension.after-campaign-failure", PackageKind::Extension, -1, nullptr,
+			{{ "ja2.arulco", "1.13" }} );
+		std::vector<std::string> lifecycleTrace;
+		failingHooks.trace = &lifecycleTrace;
+		extension.lifecycleTrace = &lifecycleTrace;
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		const bool ready =
+			packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+			packages.registerPackage( extension ) == PackageRegistrationError::None &&
+			packages.activate( "extension.after-campaign-failure" ) ==
+				PackageActivationError::None &&
+			packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+				PackageBootstrapError::None;
+		lifecycleTrace.clear();
+		const PackageBootstrapResult failed = packages.bootstrapDetailed(
+			PackageBootstrapPhase::LoadContent );
+		bool detailedFailurePreserved = false;
+		try
+		{
+			campaign.rethrowBootstrapFailure();
+		}
+		catch ( const std::runtime_error& error )
+		{
+			detailedFailurePreserved =
+				std::string( error.what() ) == "test campaign content exception";
+		}
+		CHECK( ready && failed.error == PackageBootstrapError::CallbackFailed &&
+		       failed.failedPhaseRollback.shutdownPhases == 1 &&
+		       failed.failedPhaseRollback.callbacks == 1 &&
+		       failed.failedPhaseRollback.callbackFailures == 0 &&
+		       packages.completedBootstrapPhases() == 1 &&
+		       extension.bootstrapCalls == std::vector<int>({ 0 }) &&
+		       detailedFailurePreserved &&
+		       lifecycleTrace == std::vector<std::string>({
+		           "campaign:load-content:ja2" }),
+		       "campaign content failure preserves diagnostics and rolls back before later packages observe the phase" );
+		failingHooks.throwOnLoadContent = false;
+		const PackageBootstrapResult unsafeRetry = packages.bootstrapDetailed(
+			PackageBootstrapPhase::LoadContent );
+		CHECK( !unsafeRetry &&
+		       failingHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }),
+		       "a partially failed process-lifetime campaign phase is never replayed in-process" );
+		packages.shutdownBootstrap();
+	}
+
+	{
+		TestCampaignBootstrapHooks campaignHooks;
+		LegacyCampaignPackage campaign( GameCapabilities{}, campaignHooks );
+		TestLifecyclePackage extension(
+			"extension.retry-after-campaign", PackageKind::Extension, -1, nullptr,
+			{{ "ja2.arulco", "1.13" }} );
+		extension.failOncePhase =
+			static_cast<int>( PackageBootstrapPhase::LoadContent );
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		PackageLifecycle lifecycle( packages );
+		const bool ready =
+			packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+			packages.registerPackage( extension ) == PackageRegistrationError::None &&
+			packages.activate( "extension.retry-after-campaign" ) ==
+				PackageActivationError::None;
+		const PackageLifecycleAdvanceResult first =
+			lifecycle.advanceTo( PackageBootstrapPhase::LoadContent );
+		const PackageLifecycleAdvanceResult retry =
+			lifecycle.advanceTo( PackageBootstrapPhase::LoadContent );
+		CHECK( ready && !first && first.rolledBack &&
+		       first.phase == PackageBootstrapPhase::LoadContent &&
+		       first.completedPhases == 0 && retry &&
+		       campaignHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }) &&
+		       extension.bootstrapCalls == std::vector<int>({ 0, 1, 0, 1 }),
+		       "a later extension rollback can retry without reloading process-lifetime campaign tables" );
+		lifecycle.rollback();
+	}
+
+	{
+		TestCampaignBootstrapHooks unfinishedBusinessHooks;
+		GameCapabilities unfinishedBusinessCapabilities;
+		unfinishedBusinessCapabilities.campaign = GameCampaign::UnfinishedBusiness;
+		LegacyCampaignPackage unfinishedBusiness(
+			unfinishedBusinessCapabilities, unfinishedBusinessHooks );
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		const bool started =
+			packages.registerPackage( unfinishedBusiness ) ==
+				PackageRegistrationError::None &&
+			packages.activate( "ja2.unfinished-business" ) ==
+				PackageActivationError::None &&
+			packages.bootstrap( PackageBootstrapPhase::Configure ) ==
+				PackageBootstrapError::None &&
+			packages.bootstrap( PackageBootstrapPhase::LoadContent ) ==
+				PackageBootstrapError::None &&
+			packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
+				PackageBootstrapError::None;
+		CHECK( started && unfinishedBusinessHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::UnfinishedBusiness }) &&
+		       unfinishedBusinessHooks.runtimeCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::UnfinishedBusiness }) &&
+		       unfinishedBusiness.descriptor().content.id ==
+		           "ja2.unfinished-business" &&
+		       packages.hasCapability(
+		           GameCapability::CampaignUnfinishedBusiness ),
+		       "campaign bootstrap selects the JA2 or Unfinished Business legacy hooks by package capability" );
+		packages.shutdownBootstrap();
+	}
+
+	{
 		GameContext& compiledContext = GetGameContext();
 		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
 		const std::string& packageId = compiledPackage.descriptor().content.id;
@@ -2409,14 +2719,17 @@ int main( int, char** )
 		const SimulationCommand staleMove{ MoveToGridCommand{
 			staleActor, 100, WALKING, true, true,
 			SimulationCommandSource::System } };
-		const BOOLEAN previousCommandWorldLoaded = gfWorldLoaded;
+		const TacticalWorldSession::Snapshot previousCommandWorldSession =
+			compiledContext.runtime().tacticalWorldSession().snapshot();
 		SOLDIERTYPE* const previousCommandActor = MercPtrs[0];
+		const TacticalEntityId previousCommandEntity =
+			GetJa2TacticalEntityId( 0 );
 		SOLDIERTYPE commandHostActor;
 		commandHostActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
 		commandHostActor.uiUniqueSoldierIdValue = 0x12345678u;
 		commandHostActor.bActive = TRUE;
 		commandHostActor.bInSector = TRUE;
-		gfWorldLoaded = FALSE;
+		NotifyJa2TacticalWorldUnloaded();
 		const Ja2TacticalCommandHostDiagnostics commandHostInitially =
 			GetJa2TacticalCommandHostDiagnostics();
 		const TacticalCommandSubmissionResult teardownPending = tacticalCommands
@@ -2470,8 +2783,18 @@ int main( int, char** )
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
 		const Ja2TacticalCommandHostDiagnostics commandHostAfterInvalidContext =
 			GetJa2TacticalCommandHostDiagnostics();
-		gfWorldLoaded = TRUE;
+		NotifyJa2TacticalWorldLoaded(
+			previousCommandWorldSession.worldGeneration != 0
+				? previousCommandWorldSession.worldGeneration : 1 );
 		MercPtrs[0] = &commandHostActor;
+		const bool commandHostActorAdopted =
+			AdoptJa2TacticalEntity( commandHostActor );
+		CHECK( commandHostActorAdopted &&
+		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 0x12345678u } ) &&
+		       ResolveJa2TacticalEntity( TacticalEntityId{ 0, 0x12345678u } ) ==
+		           &commandHostActor &&
+		       ResolveJa2TacticalEntity( staleActor ) == nullptr,
+		       "runtime entity directory rejects a stale incarnation for a reused pool slot" );
 		const TacticalCommandSubmissionResult staleRequest =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -2953,8 +3276,11 @@ int main( int, char** )
 		CHECK( GetJa2TacticalCommandHostDiagnostics().pendingReceipts == 0 &&
 		       liveRuntimeMessages.queued() == 0,
 		       "receipt reserve saturation fixture drains all retained terminal results" );
+		(void)ReleaseJa2TacticalEntity( commandHostActor );
 		MercPtrs[0] = previousCommandActor;
-		gfWorldLoaded = previousCommandWorldLoaded;
+		if ( previousCommandEntity.valid() && previousCommandActor )
+			(void)AdoptJa2TacticalEntity( *previousCommandActor );
+		RestoreJa2TacticalWorldSession( previousCommandWorldSession );
 
 		const auto tacticalWorld =
 			compiledContext.serviceCatalog().resolve( TacticalWorldServiceContract );
@@ -3007,6 +3333,8 @@ int main( int, char** )
 		       "pre-world safe frames harmlessly retain an unavailable observer service" );
 
 		SOLDIERTYPE* previousSlot = MercPtrs[0];
+		const TacticalEntityId previousWorldEntity =
+			GetJa2TacticalEntityId( 0 );
 		const INT8 previousActive = Menptr[0].bActive;
 		const INT8 previousInSector = Menptr[0].bInSector;
 		const SoldierID previousId = Menptr[0].ubID;
@@ -3022,11 +3350,8 @@ int main( int, char** )
 		const INT8 previousMaximumLife = Menptr[0].stats.bLifeMax;
 		const INT8 previousBreath = Menptr[0].bBreath;
 		const INT8 previousMaximumBreath = Menptr[0].bBreathMax;
-		const BOOLEAN previousWorldLoaded = gfWorldLoaded;
-		const UINT64 previousWorldGeneration = guiWorldLoadGeneration;
-		const INT16 previousSectorX = gWorldSectorX;
-		const INT16 previousSectorY = gWorldSectorY;
-		const INT8 previousSectorZ = gbWorldSectorZ;
+		const TacticalWorldSession::Snapshot previousWorldSession =
+			compiledContext.runtime().tacticalWorldSession().snapshot();
 		MercPtrs[0] = &Menptr[0];
 		Menptr[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
 		Menptr[0].uiUniqueSoldierIdValue = 701;
@@ -3043,11 +3368,38 @@ int main( int, char** )
 		Menptr[0].stats.bLifeMax = 80;
 		Menptr[0].bBreath = 64;
 		Menptr[0].bBreathMax = 90;
-		gfWorldLoaded = TRUE;
-		guiWorldLoadGeneration = 23;
-		gWorldSectorX = 9;
-		gWorldSectorY = 1;
-		gbWorldSectorZ = 0;
+		const bool worldActorAdopted = AdoptJa2TacticalEntity( Menptr[0] );
+		CHECK( worldActorAdopted &&
+		       compiledContext.runtime().tacticalEntityDirectory().identity( 0 ) ==
+		           ( TacticalEntityId{ 0, 701 } ),
+		       "legacy pool actors publish liveness through the runtime-owned directory" );
+		SOLDIERTYPE* const previousSwapTargetPointer = MercPtrs[1];
+		const SOLDIERTYPE previousSwapTarget = Menptr[1];
+		Menptr[1] = Menptr[0];
+		MercPtrs[1] = &Menptr[1];
+		Menptr[1].ubID = SoldierID{ static_cast<UINT16>( 1 ) };
+		Menptr[1].uiUniqueSoldierIdValue = 702;
+		Menptr[1].sGridNo = 678;
+		const bool swapTargetAdopted = AdoptJa2TacticalEntity( Menptr[1] );
+		const bool entitySlotsSwapped = SwapJa2TacticalEntitySlots( 0, 1 );
+		const bool swappedEntitiesResolvable =
+			GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 702 } ) &&
+			GetJa2TacticalEntityId( 1 ) == ( TacticalEntityId{ 1, 701 } ) &&
+			ResolveJa2TacticalEntity( TacticalEntityId{ 0, 702 } ) == &Menptr[0] &&
+			ResolveJa2TacticalEntity( TacticalEntityId{ 1, 701 } ) == &Menptr[1] &&
+			Menptr[0].sGridNo == 678 && Menptr[1].sGridNo == 345;
+		const bool entitySlotsRestored = SwapJa2TacticalEntitySlots( 0, 1 );
+		CHECK( swapTargetAdopted && entitySlotsSwapped && swappedEntitiesResolvable &&
+		       entitySlotsRestored &&
+		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 701 } ) &&
+		       !SwapJa2TacticalEntitySlots( 0, 0 ) &&
+		       !SwapJa2TacticalEntitySlots( TOTAL_SOLDIERS, 0 ),
+		       "whole-record portrait swaps rebuild authoritative tactical entity identities" );
+		Menptr[1] = previousSwapTarget;
+		MercPtrs[1] = previousSwapTargetPointer;
+		RebuildJa2TacticalEntityDirectory();
+		SetJa2TacticalWorldSector( 9, 1, 0 );
+		NotifyJa2TacticalWorldLoaded( 23 );
 		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );
 		turnIdentityFixture.onWorldLoaded( 23 );
 		const Ja2TacticalTurnIdentity loadedTurnIdentity =
@@ -3385,7 +3737,7 @@ int main( int, char** )
 		       observerDiagnostics.publicationFailures == 4,
 		       "a partial transfer cannot be split across runtime message buses" );
 
-		gfWorldLoaded = FALSE;
+		NotifyJa2TacticalWorldUnloaded();
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		const PackageSaveStateCaptureResult packageSaveAfterObservation =
@@ -3431,7 +3783,7 @@ int main( int, char** )
 		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 348 &&
 		       Menptr[0].stats.bLife == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
-		MercPtrs[0] = previousSlot;
+		(void)ReleaseJa2TacticalEntity( Menptr[0] );
 		Menptr[0].bActive = previousActive;
 		Menptr[0].bInSector = previousInSector;
 		Menptr[0].ubID = previousId;
@@ -3447,15 +3799,10 @@ int main( int, char** )
 		Menptr[0].stats.bLifeMax = previousMaximumLife;
 		Menptr[0].bBreath = previousBreath;
 		Menptr[0].bBreathMax = previousMaximumBreath;
-		gfWorldLoaded = previousWorldLoaded;
-		guiWorldLoadGeneration = previousWorldGeneration;
-		if ( previousWorldLoaded && previousWorldGeneration != 0 )
-			NotifyJa2TacticalWorldLoaded( previousWorldGeneration );
-		else
-			NotifyJa2TacticalWorldUnloaded();
-		gWorldSectorX = previousSectorX;
-		gWorldSectorY = previousSectorY;
-		gbWorldSectorZ = previousSectorZ;
+		MercPtrs[0] = previousSlot;
+		if ( previousWorldEntity.valid() && previousSlot )
+			(void)AdoptJa2TacticalEntity( *previousSlot );
+		RestoreJa2TacticalWorldSession( previousWorldSession );
 
 		RuntimeMessageBus tacticalDeltaMessages( 1, 256 );
 		HeadlessRuntimeMessageSink tacticalDeltaSink;

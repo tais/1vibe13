@@ -15,9 +15,11 @@
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
+#include <Engine/Core/PinnedSlotCache.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeReportJson.h>
 #include <Engine/Core/SimulationTick.h>
+#include <Engine/Core/StableResourceRegistry.h>
 #include <Engine/Core/StateRegistry.h>
 
 #include <cstdint>
@@ -347,6 +349,37 @@ public:
 	unsigned value() const override { return 42; }
 };
 
+class RegistryResource
+{
+public:
+	RegistryResource(int value, int& destructions)
+		: value(value), destructions_(&destructions)
+	{
+	}
+	~RegistryResource() { if (destructions_) ++*destructions_; }
+	RegistryResource(const RegistryResource&) = delete;
+	RegistryResource& operator=(const RegistryResource&) = delete;
+	RegistryResource(RegistryResource&& other) noexcept
+		: value(other.value), destructions_(other.destructions_)
+	{
+		other.destructions_ = nullptr;
+	}
+	RegistryResource& operator=(RegistryResource&& other) noexcept
+	{
+		if (this == &other) return *this;
+		if (destructions_) ++*destructions_;
+		value = other.value;
+		destructions_ = other.destructions_;
+		other.destructions_ = nullptr;
+		return *this;
+	}
+
+	int value = 0;
+
+private:
+	int* destructions_ = nullptr;
+};
+
 void check(bool condition, const char* message)
 {
 	if (!condition)
@@ -361,6 +394,51 @@ void check(bool condition, const char* message)
 
 int main()
 {
+	int registryDestructions = 0;
+	StableResourceRegistry<RegistryResource> registry(
+		StableResourceRegistry<RegistryResource>::Limits{2, 2, 6, 3});
+	const auto registryFirst = registry.insert(RegistryResource(10, registryDestructions));
+	const auto registrySecond = registry.insert(RegistryResource(20, registryDestructions));
+	check(registryFirst == 2 && registrySecond == 4 && registry.size() == 2 &&
+		registry.find(2) && registry.find(2)->value == 10 &&
+		registry.erase(2) && !registry.find(2) && registryDestructions == 1,
+		"stable resource registries own move-only values behind configured handles");
+	const auto registryThird = registry.insert(RegistryResource(30, registryDestructions));
+	const auto registryExhausted = registry.insert(RegistryResource(40, registryDestructions));
+	check(registryThird == 6 && !registryExhausted && registry.exhausted() &&
+		registry.size() == 2 && registryDestructions == 2,
+		"stable resource registries reject exhausted IDs without leaking rejected values");
+	registry.clear();
+	const auto registryRestarted = registry.insert(RegistryResource(50, registryDestructions));
+	check(registryRestarted == 2 && registry.size() == 1 && registryDestructions == 4,
+		"clearing a stable registry destroys live values and starts a fresh handle lifetime");
+	registry.clear();
+
+	int slotDestructions = 0;
+	PinnedSlotCache<RegistryResource, std::uint8_t> slots(3);
+	const auto slotFirst = slots.insert(RegistryResource(10, slotDestructions));
+	const auto slotSecond = slots.insert(RegistryResource(20, slotDestructions));
+	check(slotFirst == 0 && slotSecond == 1 && slots.highWaterMark() == 2 &&
+		slots.retain(0) && slots.pins(0) == 2 &&
+		slots.release(0) == decltype(slots)::ReleaseResult::Retained &&
+		slots.release(0) == decltype(slots)::ReleaseResult::Removed &&
+		slotDestructions == 1,
+		"pinned slot caches retain stable live IDs until their final release");
+	const auto reusedSlot = slots.insert(RegistryResource(30, slotDestructions));
+	const auto finalSlot = slots.insert(RegistryResource(40, slotDestructions));
+	const auto fullSlot = slots.insert(RegistryResource(50, slotDestructions));
+	check(reusedSlot == 0 && finalSlot == 2 && !fullSlot && slots.full() &&
+		slots.find(1) && slots.find(1)->value == 20 && slotDestructions == 2,
+		"pinned slot caches choose the lowest free slot and reject full insertion safely");
+	bool retainedToLimit = true;
+	for (unsigned count = 1; count < 255; ++count)
+		retainedToLimit = slots.retain(1) && retainedToLimit;
+	check(retainedToLimit && slots.pins(1) == 255 && !slots.retain(1),
+		"pinned slot caches reject saturated reference counts without wrapping");
+	slots.clear();
+	check(slots.empty() && slots.highWaterMark() == 0 && slotDestructions == 5,
+		"clearing a pinned slot cache releases each owned resource exactly once");
+
 	std::string path;
 	check(NormalizeAssetPath("TableData\\Items.XML", path) &&
 		path == "tabledata/items.xml",

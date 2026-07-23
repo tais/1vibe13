@@ -41,6 +41,7 @@
 	#include "Soldier macros.h"		// added by Flugente
 	#include "MilitiaIndividual.h"	// added by Flugente
 	#include "Rebel Command.h"
+#include "TacticalEntityHost.h"
 #include "connect.h"
 #include "message.h"
 #include "GameInitOptionsScreen.h"
@@ -487,8 +488,6 @@ void ReduceHighExpLevels( INT8 *pbExpLevel );
 
 BOOLEAN gfProfiledEnemyAdded = FALSE;
 
-UINT32 guiCurrentUniqueSoldierId = 1;
-
 // CJC note: trust me, it's easiest just to put this here; this is the only
 // place it should need to be used
 /* CHRISL: There's nothing to fix here.  This array is only used on non-hireable NPCs to designate whether an object can
@@ -627,9 +626,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 	// Some values initialized here but could be changed before going to the common one
 	InitSoldierStruct( &Soldier );
 
-	Soldier.uiUniqueSoldierIdValue = guiCurrentUniqueSoldierId;
-
-	guiCurrentUniqueSoldierId++;
+	Soldier.uiUniqueSoldierIdValue = IssueJa2TacticalEntityIncarnation();
 
 	// Flugente: if this is a miltia, set individual ID
 	// do not do so during loading of a savegame
@@ -1224,6 +1221,11 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 	
 	if( guiCurrentScreen != AUTORESOLVE_SCREEN )
 	{
+		// Publish liveness only after the legacy pool object completed common
+		// construction. Failed creation still consumes the incarnation above,
+		// preserving the historical sequence and save compatibility.
+		(void)AdoptJa2TacticalEntity(*MercPtrs[Soldier.ubID]);
+
 		if( pCreateStruct->fOnRoof && FlatRoofAboveGridNo( pCreateStruct->sInsertionGridNo ) )
 		{
 			MercPtrs[ Soldier.ubID ]->SetSoldierHeight( 58.0 );

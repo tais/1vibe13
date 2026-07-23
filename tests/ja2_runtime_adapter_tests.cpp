@@ -283,6 +283,82 @@ int main()
 		legacyBraceRuntime.runtimeMessages().maxQueuedMessages() == 1024,
 		"empty-brace runtime construction retains default EngineServices semantics");
 
+	TacticalWorldSession worldSession;
+	check(!worldSession.snapshot().loaded &&
+		worldSession.snapshot().sector == TacticalWorldSession::Sector{} &&
+		worldSession.snapshot().worldGeneration == 0 &&
+		worldSession.snapshot().turnSerial == 0,
+		"tactical world sessions start unloaded without an identity");
+	worldSession.setSector({9, 1, 0});
+	const std::uint64_t firstWorldGeneration = worldSession.commitLoad();
+	worldSession.beginTeamTurn();
+	check(firstWorldGeneration == 1 && worldSession.snapshot().loaded &&
+		worldSession.snapshot().sector == TacticalWorldSession::Sector{9, 1, 0} &&
+		worldSession.snapshot().turnSerial == 2,
+		"committed tactical worlds own sector generation and turn identity");
+	worldSession.unload();
+	check(!worldSession.snapshot().loaded &&
+		worldSession.snapshot().sector == TacticalWorldSession::Sector{9, 1, 0} &&
+		worldSession.snapshot().worldGeneration == 1 &&
+		worldSession.snapshot().turnSerial == 0,
+		"world unload preserves the selected legacy sector and generation");
+	worldSession.restore({
+		{2, 3, -1}, true, std::numeric_limits<std::uint64_t>::max(),
+		std::numeric_limits<std::uint64_t>::max()});
+	worldSession.beginTeamTurn();
+	const std::uint64_t wrappedWorldGeneration = worldSession.commitLoad();
+	check(wrappedWorldGeneration == 1 && worldSession.snapshot().turnSerial == 1,
+		"world generation retains legacy nonzero wrap while turn serial saturates");
+	check(&legacyBraceRuntime.tacticalWorldSession() ==
+		&legacyBraceRuntime.tacticalWorldSession(),
+		"EngineRuntime owns one stable tactical world session");
+
+	TacticalEntityDirectory entityDirectory(2);
+	check(entityDirectory.maximumSlots() == 2 &&
+		entityDirectory.activeCount() == 0 &&
+		entityDirectory.nextIncarnation() == 1,
+		"tactical entity directories are bounded and start empty");
+	const std::uint32_t failedCreateIncarnation =
+		entityDirectory.issueIncarnation();
+	check(failedCreateIncarnation == 1 && entityDirectory.activeCount() == 0 &&
+		entityDirectory.nextIncarnation() == 2,
+		"failed creation consumes its legacy incarnation without publishing liveness");
+	const TacticalEntityId firstDirectoryEntity{
+		0, entityDirectory.issueIncarnation()};
+	check(entityDirectory.activate(firstDirectoryEntity) &&
+		entityDirectory.contains(firstDirectoryEntity) &&
+		entityDirectory.identity(0) == firstDirectoryEntity &&
+		entityDirectory.activeCount() == 1,
+		"successful creation publishes one exact slot incarnation");
+	const TacticalEntityId replacementDirectoryEntity{
+		0, entityDirectory.issueIncarnation()};
+	check(entityDirectory.activate(replacementDirectoryEntity) &&
+		!entityDirectory.contains(firstDirectoryEntity) &&
+		!entityDirectory.release(firstDirectoryEntity) &&
+		entityDirectory.contains(replacementDirectoryEntity) &&
+		entityDirectory.activeCount() == 1,
+		"slot reuse rejects stale resolution and stale deletion");
+	check(entityDirectory.release(replacementDirectoryEntity) &&
+		!entityDirectory.identity(0).valid() && entityDirectory.activeCount() == 0,
+		"exact deletion retires the live incarnation");
+	entityDirectory.restoreNextIncarnation(700);
+	const std::uint32_t loadTemporaryIncarnation =
+		entityDirectory.issueIncarnation();
+	const TacticalEntityId savedEntity{1, 77};
+	check(loadTemporaryIncarnation == 700 &&
+		entityDirectory.activate(savedEntity) &&
+		entityDirectory.identity(1) == savedEntity &&
+		entityDirectory.nextIncarnation() == 701,
+		"save restoration preserves the serialized identity after consuming its temporary creation ID");
+	entityDirectory.reset();
+	check(entityDirectory.activeCount() == 0 &&
+		entityDirectory.nextIncarnation() == 701,
+		"pool reset clears liveness without rewinding the save-compatible sequence");
+	check(&legacyBraceRuntime.tacticalEntityDirectory() ==
+		&legacyBraceRuntime.tacticalEntityDirectory() &&
+		legacyBraceRuntime.tacticalEntityDirectory().maximumSlots() >= 2048,
+		"EngineRuntime owns one stable bounded tactical entity directory");
+
 	constexpr TacticalEntityId invalidEntity;
 	constexpr TacticalEntityId firstIncarnation{7, 9001};
 	constexpr TacticalEntityId reusedSlot{7, 9002};

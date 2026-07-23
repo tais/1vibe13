@@ -23,18 +23,27 @@ typedef struct
 
 } TILE_CACHE_STRUCT;
 
-
-extern TILE_CACHE_ELEMENT		*gpTileCache;
-
+// Non-owning compatibility views retained for native mods and diagnostics.
+// Treat the pointed-to records as read-only: ownership and pin decisions live
+// in the cache APIs, and the views are synchronized after each API mutation.
+extern TILE_CACHE_ELEMENT* gpTileCache;
+extern TILE_CACHE_STRUCT* gpTileCacheStructInfo;
+extern UINT32 guiNumTileCacheStructs;
+// Native mods may set the desired capacity before InitTileCache().
+extern UINT32 guiMaxTileCacheSize;
+extern UINT32 guiCurTileCacheSize;
+extern INT32 giDefaultStructIndex;
 
 
 BOOLEAN InitTileCache( );
 void DeleteTileCache( );
+BOOLEAN IsTileCacheInitialized( );
 
 
 INT32 GetCachedTile( const STR8 cFilename );
 
 BOOLEAN RemoveCachedTile( INT32 iCachedTile );
+INT16 GetCachedTileReferenceCount( INT32 iCachedTile );
 
 STRUCTURE_FILE_REF *GetCachedTileStructureRefFromFilename( const STR8 cFilename );
 

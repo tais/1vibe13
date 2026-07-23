@@ -17,9 +17,6 @@
 
 FLOAT gdMajorMapVersion = MAJOR_MAP_VERSION;
 
-BOOLEAN gfWorldLoaded;
-UINT64 guiWorldLoadGeneration;
-
 MAPCREATE_STRUCT gMapInformation;
 
 //CHRISL: MINOR_MAP_VERSION information moved to worlddef.h by ADB.  We're using these values elsewhere and need them

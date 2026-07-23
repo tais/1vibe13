@@ -525,6 +525,9 @@ int main()
 	Check(videoInitialized, "SDL dummy video manager initializes");
 	if (videoInitialized)
 	{
+		const bool videoObjectsInitialized = InitializeVideoObjectManager();
+		Check(videoObjectsInitialized,
+			"video object registry initializes from an empty lifetime");
 		Check(InitializeVideoSurfaceManager(),
 			"video surface manager publishes all primary wrappers");
 
@@ -550,6 +553,30 @@ int main()
 		if (tileStructureFile) FileClose(tileStructureFile);
 		Check(tilePngWritten && tileStructureWritten,
 			"tile image and auxiliary-structure fixtures are written through VFS");
+
+		VOBJECT_DESC managedObjectDescription{};
+		managedObjectDescription.fCreateFlags =
+			VOBJECT_CREATE_FROMFILE | VOBJECT_CREATE_FROMPNG;
+		std::strcpy(managedObjectDescription.ImageFile, "tile.surface.png");
+		std::vector<UINT32> managedObjectIDs;
+		bool objectSequenceStable = videoObjectsInitialized;
+		for (UINT32 expected = 1; expected <= 32 && objectSequenceStable; ++expected)
+		{
+			UINT32 objectID = 0;
+			objectSequenceStable = AddStandardVideoObject(
+				&managedObjectDescription, &objectID) && objectID == expected;
+			if (objectSequenceStable) managedObjectIDs.push_back(objectID);
+		}
+		HVOBJECT managedObject = nullptr;
+		objectSequenceStable = objectSequenceStable && managedObjectIDs.size() == 32 &&
+			GetVideoObject(&managedObject, managedObjectIDs.back()) && managedObject;
+		for (UINT32 objectID : managedObjectIDs)
+			objectSequenceStable = DeleteVideoObjectFromIndex(objectID) &&
+				objectSequenceStable;
+		Check(objectSequenceStable && !managedObjectIDs.empty() &&
+			!GetVideoObject(&managedObject, managedObjectIDs.front()),
+			"managed video objects retain sequential IDs through ownership churn");
+
 		TileSurfaceTestHooks::FailAllocationAfter(0);
 		TILE_IMAGERY* failedTile = LoadTileSurface(
 			const_cast<CHAR8*>("tile.surface.png"));
@@ -713,8 +740,9 @@ int main()
 		AniTileTestHooks::FailAfterLevelNodeInsertion();
 		Check(CreateAnimationTile(&cachedParams) == nullptr &&
 			pAniTileHead == savedAniTileHead &&
-			testWorld.pTopmostHead == nullptr && gpTileCache &&
-			gpTileCache[0].pImagery == nullptr && gpTileCache[0].sHits == 0,
+			testWorld.pTopmostHead == nullptr && IsTileCacheInitialized() &&
+			GetCachedTileVideoObject(0) == nullptr &&
+			GetCachedTileReferenceCount(0) == 0,
 			"post-insertion animation failure rolls back list, world, and cache");
 		AniTileTestHooks::ResetFailures();
 		DeleteTileCache();
@@ -782,6 +810,21 @@ int main()
 			!GetVideoSurface(&managedSurface, managedIndex) &&
 			giMemUsedInSurfaces == baselineSurfaceBytes,
 			"managed video surface deletion removes registry and owned storage");
+		std::vector<UINT32> surfaceIDs;
+		bool surfaceSequenceStable = true;
+		for (UINT32 ordinal = 0; ordinal < 64 && surfaceSequenceStable; ++ordinal)
+		{
+			UINT32 surfaceID = 0;
+			surfaceSequenceStable = AddStandardVideoSurface(
+				&validDescription, &surfaceID) &&
+				surfaceID == 4 + ordinal * 2;
+			if (surfaceSequenceStable) surfaceIDs.push_back(surfaceID);
+		}
+		for (UINT32 surfaceID : surfaceIDs)
+			surfaceSequenceStable = DeleteVideoSurfaceFromIndex(surfaceID) &&
+				surfaceSequenceStable;
+		Check(surfaceSequenceStable && giMemUsedInSurfaces == baselineSurfaceBytes,
+			"managed video surfaces retain even IDs and release every churn allocation");
 
 		InitializeBaseDirtyRectQueue();
 		Check(InitializeBackgroundRects(),
@@ -917,10 +960,22 @@ int main()
 		Check(ShutdownVideoSurfaceManager() && giMemUsedInSurfaces == 0 &&
 			!GetVideoSurface(&primary, PRIMARY_SURFACE),
 			"video surface shutdown clears primary and managed lifecycle state");
-		Check(InitializeVideoSurfaceManager() && ShutdownVideoSurfaceManager(),
-			"video surface manager survives a complete restart cycle");
+		UINT32 restartedSurfaceID = 0;
+		Check(InitializeVideoSurfaceManager() &&
+			AddStandardVideoSurface(&validDescription, &restartedSurfaceID) &&
+			restartedSurfaceID == 2 &&
+			DeleteVideoSurfaceFromIndex(restartedSurfaceID) &&
+			ShutdownVideoSurfaceManager(),
+			"video surface manager restarts from its compatibility ID boundary");
 		Check(ShutdownVideoSurfaceManager(),
 			"video surface manager shutdown is idempotent");
+		UINT32 restartedObjectID = 0;
+		Check(ShutdownVideoObjectManager() && InitializeVideoObjectManager() &&
+			AddStandardVideoObject(&managedObjectDescription, &restartedObjectID) &&
+			restartedObjectID == 1 &&
+			DeleteVideoObjectFromIndex(restartedObjectID) &&
+			ShutdownVideoObjectManager(),
+			"video object manager restarts from its compatibility ID boundary");
 		ShutdownVideoManager();
 	}
 

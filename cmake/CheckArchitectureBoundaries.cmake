@@ -133,5 +133,100 @@ foreach(tactical_file IN LISTS tactical_cpp_files)
   endforeach()
 endforeach()
 
+# Tactical world identity is owned by EngineRuntime's TacticalWorldSession.
+# Exact legacy globals remain readable compatibility mirrors, but a second
+# production writer would silently split world and turn identity again.
+set(world_state_source_directories
+  Editor
+  Ja2
+  Laptop
+  ModularizedTacticalAI
+  Multiplayer
+  Strategic
+  Tactical
+  TacticalAI
+  TileEngine
+  Utils
+  sgp)
+set(world_state_files)
+foreach(source_directory IN LISTS world_state_source_directories)
+  file(GLOB_RECURSE source_files
+    "${SOURCE_ROOT}/${source_directory}/*.cpp")
+  list(APPEND world_state_files ${source_files})
+endforeach()
+
+set(world_state_owner "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp")
+set(world_state_mirrors
+  gWorldSectorX
+  gWorldSectorY
+  gbWorldSectorZ
+  gfWorldLoaded
+  guiWorldLoadGeneration)
+foreach(source_file IN LISTS world_state_files)
+  if("${source_file}" STREQUAL "${world_state_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  foreach(mirror IN LISTS world_state_mirrors)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${mirror}[ \t\r\n]*(\\+\\+|--|[+*/%-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*${mirror}([^A-Za-z0-9_]|$)"
+      world_state_write "${contents}")
+    if(world_state_write)
+      message(FATAL_ERROR
+        "Production code writes tactical-world compatibility mirror '${mirror}' in ${source_file}; route the transition through TacticalWorldAdapter")
+    endif()
+    string(REGEX MATCH
+      "(^|[^&])&[ \t\r\n]*${mirror}([^A-Za-z0-9_]|$)"
+      world_state_address_escape "${contents}")
+    if(world_state_address_escape)
+      message(FATAL_ERROR
+        "Production code passes tactical-world compatibility mirror '${mirror}' by address in ${source_file}; stage a local value and route writes through TacticalWorldAdapter")
+    endif()
+    string(REGEX MATCH
+      "GetSectorFromFileName[ \t\r\n]*\\([^\\)]*${mirror}([^A-Za-z0-9_]|$)"
+      world_state_reference_escape "${contents}")
+    if(world_state_reference_escape)
+      message(FATAL_ERROR
+        "Editor filename parsing passes tactical-world compatibility mirror '${mirror}' by mutable reference in ${source_file}; parse locals and route writes through TacticalWorldAdapter")
+    endif()
+  endforeach()
+endforeach()
+
+# The legacy incarnation counter remains an exported compatibility mirror for
+# old modules and save tools. Only the entity host may synchronize it with the
+# runtime-owned allocation sequence.
+set(entity_sequence_owner "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp")
+foreach(source_file IN LISTS world_state_files)
+  if("${source_file}" STREQUAL "${entity_sequence_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])guiCurrentUniqueSoldierId[ \t\r\n]*(\\+\\+|--|[+*/%-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*guiCurrentUniqueSoldierId([^A-Za-z0-9_]|$)"
+    entity_sequence_write "${contents}")
+  if(entity_sequence_write)
+    message(FATAL_ERROR
+      "Production code writes the tactical-entity incarnation compatibility mirror in ${source_file}; route the transition through TacticalEntityHost")
+  endif()
+endforeach()
+
+# Whole SOLDIERTYPE record relocation changes which incarnation occupies a
+# legacy pool slot. Keep those rare mutations in the entity host so the
+# runtime directory is rebuilt atomically with the compatibility pool.
+set(entity_pool_owner "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp")
+foreach(source_file IN LISTS world_state_files)
+  if("${source_file}" STREQUAL "${entity_pool_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "Menptr[ \t\r\n]*\\[[^\\]]+\\][ \t\r\n]*=[^=]"
+    entity_pool_record_write "${contents}")
+  if(entity_pool_record_write)
+    message(FATAL_ERROR
+      "Production code relocates a complete tactical-entity pool record in ${source_file}; route the swap through TacticalEntityHost")
+  endif()
+endforeach()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")
