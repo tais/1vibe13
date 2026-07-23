@@ -29,6 +29,7 @@ typedef struct
 extern TILE_CACHE_ELEMENT* gpTileCache;
 extern TILE_CACHE_STRUCT* gpTileCacheStructInfo;
 extern UINT32 guiNumTileCacheStructs;
+// Native mods may set the desired capacity before InitTileCache().
 extern UINT32 guiMaxTileCacheSize;
 extern UINT32 guiCurTileCacheSize;
 extern INT32 giDefaultStructIndex;

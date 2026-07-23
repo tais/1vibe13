@@ -156,6 +156,40 @@ int main()
 	DeleteTileCache();
 	Check( structureDeletes == 1, "repeated delete is idempotent" );
 
+	guiMaxTileCacheSize = 3;
+	structureFiles.clear();
+	Check( InitTileCache(), "tile cache accepts a mod-configured capacity" );
+	bool configuredCapacityWorks = gpTileCache != NULL;
+	for ( INT32 index = 0; index < 3; ++index )
+	{
+		const std::string filename =
+			"TILECACHE\\configured-" + std::to_string( index ) + ".sti";
+		configuredCapacityWorks =
+			GetCachedTile( const_cast<STR8>( filename.c_str() ) ) == index &&
+			configuredCapacityWorks;
+	}
+	configuredCapacityWorks =
+		GetCachedTile( const_cast<STR8>( "TILECACHE\\configured-3.sti" ) ) == -1 &&
+		GetCachedTileVideoObject( 2 ) != NULL &&
+		GetCachedTileVideoObject( 3 ) == NULL &&
+		guiCurTileCacheSize == 3 && tileLoads == 3 && tileDeletes == 0 &&
+		configuredCapacityWorks;
+	Check( configuredCapacityWorks,
+	       "configured capacity controls stable slots and rejects overflow" );
+	DeleteTileCache();
+	Check( tileDeletes == 3 && gpTileCache == NULL,
+	       "configured cache teardown releases every owned tile" );
+
+	guiMaxTileCacheSize = 0;
+	Check( !InitTileCache() && !IsTileCacheInitialized() && gpTileCache == NULL,
+	       "zero configured capacity is rejected without partial publication" );
+	guiMaxTileCacheSize = static_cast<UINT32>( INT_MAX ) + 1U;
+	Check( !InitTileCache() && !IsTileCacheInitialized() && gpTileCache == NULL,
+	       "capacity beyond public cache ID range is rejected safely" );
+
+	guiMaxTileCacheSize = 50;
+	tileLoads = 0;
+	tileDeletes = 0;
 	structureFiles.clear();
 	Check( InitTileCache(), "tile cache initializes without game data" );
 	std::array<HVOBJECT, 50> pinnedObjects = {};

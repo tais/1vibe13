@@ -1,6 +1,5 @@
 #include "builddefines.h"
 
-#include <array>
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -34,7 +33,6 @@ namespace
 	constexpr std::size_t TileNameCapacity = 128;
 	constexpr std::size_t TileRootCapacity = 30;
 	constexpr std::size_t StructureFilenameCapacity = 150;
-	constexpr std::size_t TileSlotCapacity = 50;
 
 	struct TileSurfaceReleaser
 	{
@@ -55,9 +53,9 @@ namespace
 
 	struct TileCacheResource
 	{
-		TileCacheResource(TILE_IMAGERY* tileImagery, const CHAR8* tileName,
+		TileCacheResource(OwnedTileSurface tileImagery, const CHAR8* tileName,
 			const CHAR8* rootName, UINT8 frameCount, INT16 structureIndex)
-			: imagery(tileImagery), name(tileName), root(rootName),
+			: imagery(std::move(tileImagery)), name(tileName), root(rootName),
 			  frames(frameCount), structureRefID(structureIndex)
 		{
 		}
@@ -85,14 +83,19 @@ namespace
 	using TileSlots = PinnedSlotCache<TileCacheResource, INT16>;
 	std::optional<TileSlots> gTileCache;
 	std::vector<TileCacheStructure> gTileCacheStructures;
-	std::array<TILE_CACHE_ELEMENT, TileSlotCapacity> gTileCacheCompatibility{};
+	std::vector<TILE_CACHE_ELEMENT> gTileCacheCompatibility;
 	std::vector<TILE_CACHE_STRUCT> gTileCacheStructureCompatibility;
+
+	void ResetCompatibilityElement(TILE_CACHE_ELEMENT& view)
+	{
+		std::memset(&view, 0, sizeof(view));
+		view.sStructRefID = -1;
+	}
 
 	void ResetCompatibilitySlot(std::size_t slot)
 	{
-		TILE_CACHE_ELEMENT& view = gTileCacheCompatibility[slot];
-		std::memset(&view, 0, sizeof(view));
-		view.sStructRefID = -1;
+		if (slot >= gTileCacheCompatibility.size()) return;
+		ResetCompatibilityElement(gTileCacheCompatibility[slot]);
 	}
 
 	void SyncCompatibilitySlot(std::size_t slot)
@@ -114,8 +117,8 @@ namespace
 
 	void PublishCompatibilityViews()
 	{
-		for (std::size_t slot = 0; slot < TileSlotCapacity; ++slot)
-			ResetCompatibilitySlot(slot);
+		for (TILE_CACHE_ELEMENT& view : gTileCacheCompatibility)
+			ResetCompatibilityElement(view);
 
 		gTileCacheStructureCompatibility.clear();
 		gTileCacheStructureCompatibility.resize(gTileCacheStructures.size());
@@ -277,12 +280,26 @@ BOOLEAN InitTileCache()
 
 	try
 	{
-		TileSlots stagedCache(TileSlotCapacity);
+		if (guiMaxTileCacheSize == 0 ||
+			guiMaxTileCacheSize >
+				static_cast<UINT32>(std::numeric_limits<INT32>::max()))
+		{
+			ReportTileCacheFailure("configured capacity is outside the supported range");
+			return FALSE;
+		}
+
+		const std::size_t capacity =
+			static_cast<std::size_t>(guiMaxTileCacheSize);
+		TileSlots stagedCache(capacity);
+		std::vector<TILE_CACHE_ELEMENT> stagedCompatibility(capacity);
+		for (TILE_CACHE_ELEMENT& view : stagedCompatibility)
+			ResetCompatibilityElement(view);
 		std::vector<TileCacheStructure> stagedStructures;
 		INT32 stagedDefaultStructure = -1;
 		LoadStructureFiles(stagedStructures, stagedDefaultStructure);
 
 		gTileCache.emplace(std::move(stagedCache));
+		gTileCacheCompatibility = std::move(stagedCompatibility);
 		gTileCacheStructures = std::move(stagedStructures);
 		giDefaultStructIndex = stagedDefaultStructure;
 		PublishCompatibilityViews();
@@ -299,13 +316,12 @@ BOOLEAN InitTileCache()
 
 void DeleteTileCache()
 {
-	gTileCache.reset();
-	gTileCacheStructures.clear();
-	gTileCacheStructureCompatibility.clear();
-	for (std::size_t slot = 0; slot < TileSlotCapacity; ++slot)
-		ResetCompatibilitySlot(slot);
 	gpTileCache = NULL;
 	gpTileCacheStructInfo = NULL;
+	gTileCache.reset();
+	std::vector<TileCacheStructure>().swap(gTileCacheStructures);
+	std::vector<TILE_CACHE_ELEMENT>().swap(gTileCacheCompatibility);
+	std::vector<TILE_CACHE_STRUCT>().swap(gTileCacheStructureCompatibility);
 	guiCurTileCacheSize = 0;
 	guiNumTileCacheStructs = 0;
 	giDefaultStructIndex = -1;
@@ -373,8 +389,8 @@ INT32 GetCachedTile(const STR8 filename)
 		return -1;
 	}
 
-	TILE_IMAGERY* const loaded = LoadTileSurface(filename);
-	if (loaded == NULL)
+	OwnedTileSurface loaded(LoadTileSurface(filename));
+	if (!loaded)
 	{
 		ReportTileCacheFailure("could not load tile surface", filename);
 		return -1;
@@ -390,7 +406,8 @@ INT32 GetCachedTile(const STR8 filename)
 	try
 	{
 		const std::optional<std::size_t> slot = gTileCache->insert(
-			TileCacheResource(loaded, filename, root, frames, structureIndex));
+			TileCacheResource(std::move(loaded), filename, root, frames,
+				structureIndex));
 		if (!slot) return -1;
 		SyncCompatibilitySlot(*slot);
 		SyncTileCacheDiagnostics();
@@ -408,7 +425,8 @@ BOOLEAN RemoveCachedTile(INT32 cachedTile)
 	if (!gTileCache || cachedTile < 0) return FALSE;
 	const TileSlots::ReleaseResult result =
 		gTileCache->release(static_cast<std::size_t>(cachedTile));
-	if (static_cast<std::size_t>(cachedTile) < TileSlotCapacity)
+	if (static_cast<std::size_t>(cachedTile) <
+		gTileCacheCompatibility.size())
 		SyncCompatibilitySlot(static_cast<std::size_t>(cachedTile));
 	SyncTileCacheDiagnostics();
 	return result == TileSlots::ReleaseResult::Removed ? TRUE : FALSE;
