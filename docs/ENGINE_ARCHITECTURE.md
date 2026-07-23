@@ -114,17 +114,18 @@ the engine must not contain SDL types in its public domain model.
   Its bounded XML document adapter now owns the common Expat lifetime and
   all-or-nothing asset read path used by the conventional tactical definition
   loaders, campaign/bootstrap definitions, startup layout, editor action data,
-  explosion metadata, multiplayer team definitions, and the historical
-  `ParseXMLFile` compatibility callers.
+  explosion metadata, multiplayer team definitions, Laptop content
+  definitions, and the historical `ParseXMLFile` compatibility callers.
   It accepts any `AssetSource` as well as the compatibility VFS, so the same
   legacy callbacks can consume memory/package content without importing
   FileMan. Missing and I/O failures preserve the loaders' silent fallback
   behavior; malformed, oversized, allocation, and parser failures return
   structured diagnostics. A before-parse hook runs only after a successful
   bounded read, preserving loaders whose table reset must not occur when an
-  optional asset is absent. Strategic now has no direct Expat parser ownership;
-  its sector/difficulty-specific extra-item loader also uses bounded asset
-  reads while retaining its established selection order. Tactical's
+  optional asset is absent. Strategic and Laptop now have no direct Expat
+  parser ownership; Strategic's sector/difficulty-specific extra-item loader
+  also uses bounded asset reads while retaining its established selection
+  order. Tactical's
   logical-body external-entity loader and dealer-inventory semantic diagnostic
   parser remain deliberate bespoke paths.
 - The legacy SGP, Utils, and Laptop manifests explicitly separate

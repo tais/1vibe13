@@ -31,6 +31,7 @@
 #include "Tile Cache.h"
 #include "Weapons.h"
 #include "XML.h"
+#include "aim.h"
 #include "input.h"
 #include "sdl_input.h"
 #include "soundman.h"
@@ -534,6 +535,20 @@ int main()
 	Check(ReadInIntroNames("tables/optional-intro-files.xml", TRUE) &&
 		!ReadInIntroNames("tables/required-intro-files.xml", FALSE),
 		"localized startup XML preserves its established missing-file policy");
+
+	const std::string aimAvailabilityXml =
+		"<AIM_AVAILABLES><AIM><uiIndex>3</uiIndex><ProfilId>17</ProfilId>"
+		"<AIMBioID>5</AIMBioID></AIM></AIM_AVAILABLES>";
+	Check(storage.writeAll("tables/aim-availability-probe.xml",
+			std::vector<std::uint8_t>(
+				aimAvailabilityXml.begin(), aimAvailabilityXml.end())) &&
+		ReadInAimAvailability("TABLES\\AIM-AVAILABILITY-PROBE.XML", FALSE) &&
+		gAimAvailability[3].ProfilId == 17 &&
+		gAimAvailability[3].AimBio == 5,
+		"a Laptop content loader reads definitions through the bounded adapter");
+	Check(ReadInHistorys("tables/optional-history.xml", TRUE) &&
+		!ReadInHistorys("tables/required-history.xml", FALSE),
+		"localized Laptop XML preserves its established missing-file policy");
 
 	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
 		"platform byte storage removal is idempotent and observable");
