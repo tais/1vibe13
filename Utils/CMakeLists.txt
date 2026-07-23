@@ -1,32 +1,24 @@
-set(UtilsSrc
+set(UtilsCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Animated ProgressBar.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Cinematics Bink.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Cinematics.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Cursors.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Debug Control.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Encrypted File.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/Event Pump.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/Font Control.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/ImportStrings.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/INIReader.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/KeyMap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/LocalizedStrings.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/MapUtility.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/MercTextBox.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/message.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Multilingual Text Code Generator.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Music Control.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PopUpBox.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/popup_class.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/popup_definition.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Quantize Wrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Quantize.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Slider.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/Sound Control.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/STIConvert.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Text Input.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Text Utils.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/Timer Control.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Utilities.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/WordWrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/XMLProperties.cpp"
@@ -34,4 +26,22 @@ set(UtilsSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/XML_Items.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/XML_Language.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/XML_SenderNameList.cpp"
-PARENT_SCOPE)
+)
+
+# These sources consume JA2/UB/editor definitions directly or through legacy
+# headers. They deliberately remain in every application-specific archive.
+set(UtilsVariantSrc
+"${CMAKE_CURRENT_SOURCE_DIR}/Event Pump.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/Font Control.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/MapUtility.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/message.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/popup_class.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/popup_definition.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/Sound Control.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/Timer Control.cpp"
+)
+
+set(UtilsSrc ${UtilsCommonSrc} ${UtilsVariantSrc})
+set(UtilsCommonSrc ${UtilsCommonSrc} PARENT_SCOPE)
+set(UtilsVariantSrc ${UtilsVariantSrc} PARENT_SCOPE)
+set(UtilsSrc ${UtilsSrc} PARENT_SCOPE)

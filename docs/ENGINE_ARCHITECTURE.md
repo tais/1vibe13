@@ -111,6 +111,14 @@ the engine must not contain SDL types in its public domain model.
   adapter object target and embedded in each SGP application archive. This
   keeps SDL/VFS/sound/video dependencies below the application composition
   root while making the remaining upward legacy calls visible and replaceable.
+- The legacy SGP, Utils, and Laptop manifests explicitly separate
+  campaign-neutral translation units from sources that still consume
+  JA2/UB/editor definitions. The neutral object layers compile once and are
+  embedded into each unchanged application archive; sensitive sources remain
+  per application. A source moves into the neutral partition only after its
+  objects match for JA2, UB, Map Editor, and UB Map Editor in both Release and
+  Debug/ASan builds. This reduces build duplication without pretending that
+  legacy UI code has already become an engine service.
 - `AssetSource` exposes normalized, read-only logical content with provenance
   and deterministic, case-insensitive overlays. `PackageRegistry` mounts an
   active package's optional source above the trusted host source, in activation

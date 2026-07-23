@@ -1,4 +1,4 @@
-set(sgpSrc
+set(sgpCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Button Sound Control.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Button System.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Compression.cpp"
@@ -16,7 +16,6 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/input.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/LibraryDataBase.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/line.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/MemMan.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/mousesystem.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PCX.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/PngLoader.cpp"
@@ -38,4 +37,16 @@ set(sgpSrc
 # WinFont.cpp (GDI + DirectDraw font rasterizer) retired in the SDL3
 # port; WinFont.h now provides no-op stubs on every platform.
 )
+
+# MemMan's emitted Release object changes with the application definitions.
+# Keep it in each campaign archive even though the current Debug objects happen
+# to match. A source may enter the common list only when every supported
+# application produces the same object in both Release and Debug/ASan builds.
+set(sgpVariantSrc
+"${CMAKE_CURRENT_SOURCE_DIR}/MemMan.cpp"
+)
+
+set(sgpSrc ${sgpCommonSrc} ${sgpVariantSrc})
+set(sgpCommonSrc ${sgpCommonSrc} PARENT_SCOPE)
+set(sgpVariantSrc ${sgpVariantSrc} PARENT_SCOPE)
 set(sgpSrc ${sgpSrc} PARENT_SCOPE)
