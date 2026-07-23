@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "builddefines.h"
 
 #include "strategicmap.h"
@@ -685,67 +687,35 @@ samsiteEndElementHandle( void *userData, const XML_Char *name )
 	pData->currentDepth--;
 }
 
-BOOLEAN ReadInSAMInfo( STR fileName )
+static void PrepareSamSitesDocument(void*)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate( NULL );
-
-	samsiteParseData pData;
-
-
-
-	// Open weapons file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return(FALSE);
-
-	uiFSize = FileGetSize( hFile );
-	lpcBuffer = (CHAR8 *)MemAlloc( uiFSize + 1 );
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree( lpcBuffer );
-		return(FALSE);
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler( parser, samsiteStartElementHandle, samsiteEndElementHandle );
-	XML_SetCharacterDataHandler( parser, samsiteCharacterDataHandle );
-
-
-	memset( &pData, 0, sizeof(pData) );
 	NUMBER_OF_SAMS = 0;
 
 	// invalidate cached per-SAM max distances: SAM list / ubSAMControlledSectors are about to be (re)loaded
 	for ( int samidx = 0; samidx < MAX_NUMBER_OF_SAMS; ++samidx )
 		g_samMaxDistCache[samidx] = -1.0f;
+}
 
-	XML_SetUserData( parser, &pData );
+BOOLEAN ReadInSAMInfo( STR fileName )
+{
+	samsiteParseData pData;
 
-
-	if ( !XML_Parse( parser, lpcBuffer, uiFSize, TRUE ) )
+	memset( &pData, 0, sizeof(pData) );
+	const LegacyXmlCallbacks callbacks{
+		&pData, samsiteStartElementHandle, samsiteEndElementHandle,
+		samsiteCharacterDataHandle, PrepareSamSitesDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf( errorBuf, "XML Parser Error in SamSites.xml: %s at line %d", XML_ErrorString( XML_GetErrorCode( parser ) ), XML_GetCurrentLineNumber( parser ) );
-		LiveMessage( errorBuf );
-
-		MemFree( lpcBuffer );
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree( lpcBuffer );
-
-	XML_ParserFree( parser );
 
 	return TRUE;
 }
@@ -1417,66 +1387,37 @@ BOOLEAN WriteInStrategicMapSectorTownNames( STR fileName )
 	return TRUE;
 }
 
+static void PrepareCityTableDocument(void*)
+{
+	NUM_TOWNS = 0;
+}
+
 BOOLEAN ReadInStrategicMapSectorTownNames( STR fileName, BOOLEAN localizedVersion )
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate( NULL );
-
 	citytableParseData pData;
 
 	localizedMapTextOnly = localizedVersion;
 
-	// Open weapons file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return(FALSE);
-
-	uiFSize = FileGetSize( hFile );
-	lpcBuffer = (CHAR8 *)MemAlloc( uiFSize + 1 );
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree( lpcBuffer );
-		return(FALSE);
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler( parser, citytableStartElementHandle, citytableEndElementHandle );
-	XML_SetCharacterDataHandler( parser, citytableCharacterDataHandle );
-
-
 	// TODO: ROMAN
 	//pData.curCityInfo
 
-
 	memset( &pData, 0, sizeof(pData) );
-	NUM_TOWNS = 0;
-	XML_SetUserData( parser, &pData );
 
-
-	if ( !XML_Parse( parser, lpcBuffer, uiFSize, TRUE ) )
+	const LegacyXmlCallbacks callbacks{
+		&pData, citytableStartElementHandle, citytableEndElementHandle,
+		citytableCharacterDataHandle, PrepareCityTableDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf( errorBuf, "XML Parser Error in Cities.xml: %s at line %d", XML_ErrorString( XML_GetErrorCode( parser ) ), XML_GetCurrentLineNumber( parser ) );
-		LiveMessage( errorBuf );
-
-		MemFree( lpcBuffer );
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree( lpcBuffer );
-
-	XML_ParserFree( parser );
 
 	return TRUE;
 }

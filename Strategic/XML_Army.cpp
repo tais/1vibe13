@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "builddefines.h"
 
 	#include <stdio.h>
@@ -143,64 +145,32 @@ garrisonEndElementHandle(void *userData, const XML_Char *name)
 	pData->currentDepth--;
 }
 
+static void PrepareGarrisonDocument(void*)
+{
+	iOrigGarrisonArraySize = 0;
+}
+
 BOOLEAN ReadInGarrisonInfo(STR fileName)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	garrisonParseData pData;
 
-
-	// Open weapons file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-	{
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, garrisonStartElementHandle, garrisonEndElementHandle);
-	XML_SetCharacterDataHandler(parser, garrisonCharacterDataHandle);
-
-
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
-	iOrigGarrisonArraySize = 0;
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, garrisonStartElementHandle, garrisonEndElementHandle,
+		garrisonCharacterDataHandle, PrepareGarrisonDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in GarrisonGroups.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 
 	return TRUE;
 }
@@ -492,64 +462,32 @@ patrolEndElementHandle(void *userData, const XML_Char *name)
 }
 
 
+static void PreparePatrolDocument(void*)
+{
+	iOrigPatrolArraySize = 0;
+}
+
 BOOLEAN ReadInPatrolInfo(STR fileName)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	patrolParseData pData;
 
-
-	// Open weapons file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-	{
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, patrolStartElementHandle, patrolEndElementHandle);
-	XML_SetCharacterDataHandler(parser, patrolCharacterDataHandle);
-
-
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
-	iOrigPatrolArraySize = 0;
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, patrolStartElementHandle, patrolEndElementHandle,
+		patrolCharacterDataHandle, PreparePatrolDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in PatrolGroups.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 
 	return TRUE;
 }
@@ -812,63 +750,32 @@ compositionEndElementHandle(void *userData, const XML_Char *name)
 	pData->currentDepth--;
 }
 
+static void PrepareArmyCompositionDocument(void*)
+{
+	NUM_ARMY_COMPOSITIONS = 0;
+}
+
 BOOLEAN ReadInArmyCompositionInfo(STR fileName)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	compositionParseData pData;
 
-	// Open weapons file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-	{
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, compositionStartElementHandle, compositionEndElementHandle);
-	XML_SetCharacterDataHandler(parser, compositionCharacterDataHandle);
-
-
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
-	NUM_ARMY_COMPOSITIONS = 0;
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, compositionStartElementHandle, compositionEndElementHandle,
+		compositionCharacterDataHandle, PrepareArmyCompositionDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in ArmyComposition.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 
 	return TRUE;
 }

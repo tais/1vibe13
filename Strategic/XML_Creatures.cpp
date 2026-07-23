@@ -1,8 +1,8 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "expat.h"
 	#include "string.h"
 	#include "Campaign Types.h"
-	#include "FileMan.h"
-	#include "MemMan.h"
 	#include "Debug Control.h"
 	#include "Creature Spreading.h"
 
@@ -595,58 +595,33 @@ creatureplacementEndElementHandle(void *userData, const XML_Char *name)
 	pData->currentDepth--;
 }
 
-BOOLEAN ReadInCreaturePlacements(STR fileName)
+static void PrepareCreaturePlacementsDocument(void*)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
-	CreatureParseData pData;
-
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( FALSE );
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, creatureplacementStartElementHandle, creatureplacementEndElementHandle);
-	XML_SetCharacterDataHandler(parser, creatureplacementCharacterDataHandle);
-
-
-	memset(&pData,0,sizeof(pData));
 	NUMBER_OF_INFECTIBLE_SITES = 0;
 	NUMBER_OF_CREATURE_COMPOSITIONS = 0;
-	XML_SetUserData(parser, &pData);
+}
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+BOOLEAN ReadInCreaturePlacements(STR fileName)
+{
+	CreatureParseData pData;
+
+	memset(&pData,0,sizeof(pData));
+
+	const LegacyXmlCallbacks callbacks{
+		&pData, creatureplacementStartElementHandle, creatureplacementEndElementHandle,
+		creatureplacementCharacterDataHandle, PrepareCreaturePlacementsDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-		sprintf(errorBuf, "XML Parser Error in CreaturePlacements.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 
 	return TRUE;
 }

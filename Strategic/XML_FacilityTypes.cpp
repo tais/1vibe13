@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 ///////////////////////////////////////////////////////////////////////////////
 // HEADROCK HAM 3.5: Facility Type Externalization
 //
@@ -14,7 +16,6 @@
 	#include "expat.h"
 	#include "GameSettings.h"
 	#include "XML.h"
-	#include "FileMan.h"
 	#include "Campaign Types.h"
 
 FACILITYTYPE gFacilityTypes[ MAX_NUM_FACILITY_TYPES ];
@@ -1306,65 +1307,32 @@ facilitytypeEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInFacilityTypes(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	facilitytypeParseData pData;
-	
+
 	FacilityTypes_TextOnly = localizedVersion;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading FacilityTypes.xml" );
-
-	// Open merges file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( localizedVersion );
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, facilitytypeStartElementHandle, facilitytypeEndElementHandle);
-	XML_SetCharacterDataHandler(parser, facilitytypeCharacterDataHandle);
-
 
 	pData = facilitytypeParseData();
 	pData.maxArraySize = MAXITEMS;
 	pData.curIndex = 0;
 
-	XML_SetUserData(parser, &pData);
-
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, facilitytypeStartElementHandle, facilitytypeEndElementHandle,
+		facilitytypeCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in FacilityTypes.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status == LegacyXmlStatus::NotFound)
+			return localizedVersion;
+		if (result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
 
 	return( TRUE );
 }

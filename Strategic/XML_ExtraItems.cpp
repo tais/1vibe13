@@ -1,5 +1,8 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "builddefines.h"
 #include <stdio.h>
+#include <string>
 #include "XML.h"
 #include "expat.h"
 #include "DEBUG.H"
@@ -31,6 +34,11 @@ typedef struct
 	UINT32					condition;
 	UINT32					gridno;
 	BOOLEAN					visible;
+
+	bool					sectorIsLoaded;
+	UINT8					sectorX;
+	UINT8					sectorY;
+	UINT8					sectorZ;
 } ExtraItemsParseData;
 
 
@@ -158,118 +166,95 @@ ExtraItemsEndElementHandle(void *userData, const XML_Char *name)
 }
 
 
+static void PrepareExtraItemsDocument(void *userData)
+{
+	ExtraItemsParseData *pData = (ExtraItemsParseData *)userData;
+	gSectorIsLoaded = pData->sectorIsLoaded;
+	gX = pData->sectorX;
+	gY = pData->sectorY;
+	gZ = pData->sectorZ;
+}
+
 void AddExtraItems(UINT8 x, UINT8 y, UINT8 z, bool sectorIsLoaded)
 {
-	char fileName[MAX_PATH];
-	strcpy(fileName, TABLEDATA_DIRECTORY);
+	std::string baseFileName = TABLEDATA_DIRECTORY;
 	if (x < 10) {
-		strcat(fileName, EXTRAITEMSFILENAME);
-		char* spot = strstr(fileName, "A9_0");
-		Assert(spot);
-		if (!spot)
+		baseFileName += EXTRAITEMSFILENAME;
+		const std::string::size_type spot = baseFileName.find("A9_0");
+		Assert(spot != std::string::npos);
+		if (spot == std::string::npos)
 			return;
-		*spot = 'A' + y-1;
-		*(spot+1) = '0' + x;
-		*(spot+3) = '0' + z;
+		baseFileName[spot] = 'A' + y - 1;
+		baseFileName[spot + 1] = '0' + x;
+		baseFileName[spot + 3] = '0' + z;
 	} else {
-		strcat(fileName, EXTRAITEMSFILENAME2);
-		char* spot = strstr(fileName, "A11_0");
-		Assert(spot);
-		if (!spot)
+		baseFileName += EXTRAITEMSFILENAME2;
+		const std::string::size_type spot = baseFileName.find("A11_0");
+		Assert(spot != std::string::npos);
+		if (spot == std::string::npos)
 			return;
-		*spot = 'A' + y-1;
-		*(spot+1) = '0' + x / 10;
-		*(spot+2) = '0' + x % 10;
-		*(spot+4) = '0' + z;
+		baseFileName[spot] = 'A' + y - 1;
+		baseFileName[spot + 1] = '0' + x / 10;
+		baseFileName[spot + 2] = '0' + x % 10;
+		baseFileName[spot + 4] = '0' + z;
 	}
 
-	// Remember the base file name length
-	int baseFNLength = strlen(fileName);
-
 	// Append a suffix based on the difficulty
+	std::string difficultySuffix;
 	switch (gGameOptions.ubDifficultyLevel)
 	{
 		case DIF_LEVEL_EASY:
-			strcat(fileName, "_Novice");
+			difficultySuffix = "_Novice";
 			break;
 		case DIF_LEVEL_MEDIUM:
-			strcat(fileName, "_Experienced");
+			difficultySuffix = "_Experienced";
 			break;
 		case DIF_LEVEL_HARD:
-			strcat(fileName, "_Expert");
+			difficultySuffix = "_Expert";
 			break;
 		case DIF_LEVEL_INSANE:
-			strcat(fileName, "_Insane");
+			difficultySuffix = "_Insane";
 			break;
 		default:
-			{
-				CHAR8 str[20];
-				sprintf( str, "_Diff_%d", gGameOptions.ubDifficultyLevel );
-				strcat( fileName, str );
-			}
-			break;		
+			difficultySuffix =
+				"_Diff_" + std::to_string(gGameOptions.ubDifficultyLevel);
+			break;
 	}
-	
-	strcat(fileName, ".xml");
-	if(!FileExists(fileName))//dnl ch75 261013 just to avoid sdd::exception under debug from VFS when file not exist
+
+	const std::string difficultyFileName =
+		baseFileName + difficultySuffix + ".xml";
+	if(!FileExists(difficultyFileName.c_str()))//dnl ch75 261013 just to avoid sdd::exception under debug from VFS when file not exist
 		return;
 
-	// Open extra items file
-	HWFILE hFile;
-	// Try "special" difficulty level file first
-	if (!(hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE ))) {
-		// OK, that didn't work so try the "plain" file
-		fileName[baseFNLength] = '\0';
-		if (!(hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE ))) {
-			// There isn't a file for this sector, just return
-			return;
-		}
-	}
-
-	gSectorIsLoaded = sectorIsLoaded;
-	gX = x;
-	gY = y;
-	gZ = z;
-
-	UINT32		uiBytesRead;
-	XML_Parser	parser = XML_ParserCreate(NULL);
 	ExtraItemsParseData pData;
-
-	UINT32 uiFSize = FileGetSize(hFile);
-	CHAR8 * lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) ) {
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
-		return;
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-	// Setup expat callbacks
-	XML_SetElementHandler(parser, ExtraItemsStartElementHandle, ExtraItemsEndElementHandle);
-	XML_SetCharacterDataHandler(parser, ExtraItemsCharacterDataHandle);
-
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
+	pData.sectorIsLoaded = sectorIsLoaded;
+	pData.sectorX = x;
+	pData.sectorY = y;
+	pData.sectorZ = z;
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, ExtraItemsStartElementHandle, ExtraItemsEndElementHandle,
+		ExtraItemsCharacterDataHandle, PrepareExtraItemsDocument};
+	std::string selectedFileName = difficultyFileName;
+	LegacyXmlResult result =
+		ParseLegacyXmlFile(selectedFileName.c_str(), callbacks);
+	if (result.status == LegacyXmlStatus::NotFound)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in ExtraItems.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		selectedFileName = baseFileName;
+		result = ParseLegacyXmlFile(selectedFileName.c_str(), callbacks);
+	}
+	if (!result)
+	{
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message =
+				FormatLegacyXmlFailure(selectedFileName.c_str(), result);
+			LiveMessage(message.data());
+		}
 		return;
 	}
 
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 	return;
 }
