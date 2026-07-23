@@ -111,6 +111,14 @@ the engine must not contain SDL types in its public domain model.
   adapter object target and embedded in each SGP application archive. This
   keeps SDL/VFS/sound/video dependencies below the application composition
   root while making the remaining upward legacy calls visible and replaceable.
+  Its bounded XML document adapter now owns the common Expat lifetime and
+  all-or-nothing asset read path used by the first tactical definition loaders.
+  It accepts any `AssetSource` as well as the compatibility VFS, so the same
+  legacy callbacks can consume memory/package content without importing
+  FileMan. Missing and I/O failures preserve the loaders' silent fallback
+  behavior; malformed, oversized, allocation, and parser failures return
+  structured diagnostics. The external-entity loader remains a deliberate
+  bespoke path.
 - The legacy SGP, Utils, and Laptop manifests explicitly separate
   campaign-neutral translation units from sources that still consume
   JA2/UB/editor definitions. The neutral object layers compile once and are

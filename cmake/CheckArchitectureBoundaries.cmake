@@ -18,6 +18,7 @@ set(core_standard_headers
   cmath
   cstddef
   cstdint
+  cstdio
   cstring
   deque
   exception
@@ -65,6 +66,7 @@ file(GLOB_RECURSE legacy_adapter_files
 # a service cannot quietly pull unrelated game systems into Engine.
 set(legacy_compatibility_headers
   FileMan.h
+  expat.h
   soundman.h
   video.h
   SDL3/SDL_log.h)
