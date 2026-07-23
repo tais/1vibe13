@@ -1417,7 +1417,8 @@ private:
 	static EngineServices withAssets(EngineServices services, const AssetSource& assets)
 	{
 		return EngineServices{services.time, services.random, services.storage, services.log,
-			services.input, services.audio, services.frames, assets};
+			services.input, services.audio, services.frames, assets,
+			services.frameInvalidation};
 	}
 
 	void logError(const char* prefix, const std::string& packageId) noexcept

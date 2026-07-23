@@ -4,6 +4,7 @@
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/AudioOutput.h>
 #include <Engine/Core/ByteStorage.h>
+#include <Engine/Core/FrameInvalidator.h>
 #include <Engine/Core/FramePresenter.h>
 #include <Engine/Core/InputSource.h>
 #include <Engine/Core/LogSink.h>
@@ -26,6 +27,7 @@ struct EngineServices
 	AudioOutput& audio = NullAudioOutput::instance();
 	FramePresenter& frames = NullFramePresenter::instance();
 	const AssetSource& assets = NullAssetSource::instance();
+	FrameInvalidator& frameInvalidation = NullFrameInvalidator::instance();
 
 	static EngineServices defaults()
 	{

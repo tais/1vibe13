@@ -1858,10 +1858,21 @@ int main()
 	ManualTimeSource frameTime;
 	MemoryInputSource frameInput;
 	RecordingFramePresenter framePresenter;
+	RecordingFrameInvalidator frameInvalidation;
 	EngineServices frameServices{
 		frameTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
 		NullLogSink::instance(), frameInput,
-		NullAudioOutput::instance(), framePresenter, NullAssetSource::instance()};
+		NullAudioOutput::instance(), framePresenter, NullAssetSource::instance(),
+		frameInvalidation};
+	frameServices.frameInvalidation.invalidateRegion(FrameRegion{-2, 3, 8, 13});
+	frameServices.frameInvalidation.invalidateAll();
+	frameServices.frameInvalidation.markChanged();
+	check(frameInvalidation.regions() ==
+			std::vector<FrameRegion>({FrameRegion{-2, 3, 8, 13}}) &&
+		frameInvalidation.fullInvalidations() == 1 &&
+		frameInvalidation.changeMarks() == 1,
+		"engine services expose deterministic headless frame invalidation");
+	frameInvalidation.clear();
 	InputDispatcher inputDispatcher(frameInput, 1);
 	TestInputSink receivingInput;
 	TestInputSink throwingInput;

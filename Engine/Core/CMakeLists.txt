@@ -20,6 +20,7 @@ set(engine_core_public_headers
   EngineServices.h
   EntityRegistry.h
   FrameDriver.h
+  FrameInvalidator.h
   FramePresenter.h
   FrameTelemetry.h
   Identifier.h
