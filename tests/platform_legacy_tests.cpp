@@ -2311,8 +2311,54 @@ int main()
 			routedDepthCommand.comparison ==
 				RenderDepthCompareMode::GreaterOrEqual &&
 			routedDepthCommand.depthWrite ==
-				RenderDepthWriteMode::ReplaceOnPass,
+				RenderDepthWriteMode::ReplaceOnPass &&
+			routedDepthCommand.effect ==
+				RenderImageDepthEffect::SourcePalette,
 			"pointer-owned tactical images receive stable opaque depth-command identities");
+
+		RecordingRenderCommandSink recordedDepthPaletteEffects;
+		BindLegacyRenderCommands(recordedDepthPaletteEffects);
+		const bool pointerBlendRouted = liveImageCreated &&
+			BltVideoObjectDepthPaletteToSurface(
+				copyDestinationID, liveImage, 0, -1, 2, 0x2340,
+				FALSE, VOBJECT_DEPTH_PALETTE_BLEND_50_PERCENT,
+				&imageSurfaceClip);
+		const bool pointerCheckerboardRouted = liveImageCreated &&
+			BltVideoObjectDepthPaletteToSurface(
+				copyDestinationID, liveImage, 0, 3, -1, 0x2341,
+				TRUE, VOBJECT_DEPTH_PALETTE_CHECKERBOARD,
+				&imageSurfaceClip);
+		const bool invalidDepthPaletteEffectRejected =
+			!BltVideoObjectDepthPaletteToSurface(
+				copyDestinationID, liveImage, 0, 0, 0, 1, TRUE,
+				static_cast<VideoObjectDepthPaletteEffect>(255),
+				&imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		const std::vector<RenderImageDepthDrawCommand>
+			expectedDepthPaletteEffects{
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER,
+					routedDepthCommand.image, 0,
+					RenderSurfacePoint{-1, 2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 0x2340,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						BlendSourcePalette50Percent},
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER,
+					routedDepthCommand.image, 0,
+					RenderSurfacePoint{3, -1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 0x2341,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						CheckerboardSourcePalette}};
+		Check(pointerBlendRouted && pointerCheckerboardRouted &&
+			invalidDepthPaletteEffectRejected &&
+			recordedDepthPaletteEffects.imageDepthCommands() ==
+				expectedDepthPaletteEffects,
+			"tactical palette effects retain stable image identity and explicit compositing policies");
 
 		RecordingRenderCommandSink recordedDepthMask;
 		BindLegacyRenderCommands(recordedDepthMask);
@@ -2438,6 +2484,15 @@ int main()
 					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
 					RenderSurfacePoint{},
 					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						CheckerboardSourcePalette}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
 					RenderDepthCompareMode::GreaterOrEqual,
 					RenderDepthWriteMode::ReplaceOnPass,
 					RenderImageDepthEffect::ShadeDestination}) &&
@@ -2467,6 +2522,175 @@ int main()
 				imageDepthBuffer[1] == 4 &&
 				imageDepthBuffer[2] == 10 &&
 				imageDepthBuffer[3] == 4;
+		}
+
+		if (copyDestinationPixels && imageDepthBuffer)
+		{
+			for (std::size_t y = 1; y < 3; ++y)
+			{
+				PIXEL* const colorRow = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				UINT16* const depthRow = reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(imageDepthBuffer) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0; x < 5; ++x)
+				{
+					colorRow[x] = depthBackground;
+					depthRow[x] = 4;
+				}
+			}
+			reinterpret_cast<UINT16*>(
+				reinterpret_cast<BYTE*>(imageDepthBuffer) +
+					2 * copyDestinationPitch)[0] = 11;
+			reinterpret_cast<UINT16*>(
+				reinterpret_cast<BYTE*>(imageDepthBuffer) +
+					2 * copyDestinationPitch)[1] = 10;
+		}
+		const bool preservedBlendAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						BlendSourcePalette50Percent});
+		const bool replacedBlendAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						BlendSourcePalette50Percent});
+		const bool skippedCheckerboardAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{2, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						CheckerboardSourcePalette});
+		const bool replacedCheckerboardAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{3, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						CheckerboardSourcePalette});
+		const bool clippedPaletteEffectAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{4, 1},
+					RenderSurfaceRegion{0, 0, 4, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						BlendSourcePalette50Percent});
+		const bool blockedBlendAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						BlendSourcePalette50Percent});
+		const bool equalBlendAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						BlendSourcePalette50Percent});
+		const bool preservedCheckerboardAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{2, 2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						CheckerboardSourcePalette});
+		const bool skippedReplacementAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{3, 2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						CheckerboardSourcePalette});
+		bool depthPaletteEffectsMatch =
+			copyDestinationPixels && imageDepthBuffer;
+		if (depthPaletteEffectsMatch)
+		{
+			const PIXEL expectedBlend =
+				PixBlend50(copiedRed, depthBackground);
+			const PIXEL* const firstColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+						copyDestinationPitch);
+			const UINT16* const firstDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						imageDepthBuffer) +
+						copyDestinationPitch);
+			const PIXEL* const secondColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+						2 * copyDestinationPitch);
+			const UINT16* const secondDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						imageDepthBuffer) +
+						2 * copyDestinationPitch);
+			depthPaletteEffectsMatch =
+				firstColorRow[0] == expectedBlend &&
+				firstDepthRow[0] == 4 &&
+				firstColorRow[1] == expectedBlend &&
+				firstDepthRow[1] == 10 &&
+				firstColorRow[2] == depthBackground &&
+				firstDepthRow[2] == 4 &&
+				firstColorRow[3] == copiedRed &&
+				firstDepthRow[3] == 10 &&
+				firstColorRow[4] == depthBackground &&
+				firstDepthRow[4] == 4 &&
+				secondColorRow[0] == depthBackground &&
+				secondDepthRow[0] == 11 &&
+				secondColorRow[1] == expectedBlend &&
+				secondDepthRow[1] == 10 &&
+				secondColorRow[2] == copiedRed &&
+				secondDepthRow[2] == 4 &&
+				secondColorRow[3] == depthBackground &&
+				secondDepthRow[3] == 4;
 		}
 
 		const PIXEL depthMaskInput =
@@ -2567,6 +2791,13 @@ int main()
 			depthImagePixelsMatch &&
 			imageDepthReleased,
 			"depth image commands preserve inclusive tests, optional writes, clipping, and exact ETRLE pixels");
+		Check(preservedBlendAccepted && replacedBlendAccepted &&
+			skippedCheckerboardAccepted &&
+			replacedCheckerboardAccepted &&
+			clippedPaletteEffectAccepted && blockedBlendAccepted &&
+			equalBlendAccepted && preservedCheckerboardAccepted &&
+			skippedReplacementAccepted && depthPaletteEffectsMatch,
+			"depth palette effects preserve exact blending, checkerboard phase, clipping, and optional writes");
 		Check(equalShadowMaskAccepted &&
 			preservedShadowMaskAccepted && replacedShadowMaskAccepted &&
 			preservedIntensityMaskAccepted &&

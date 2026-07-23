@@ -62,6 +62,96 @@ bool ClearTacticalDepthBuffer(INT32 bottom)
 		LAND_Z_LEVEL});
 }
 
+BOOLEAN DrawTacticalDepthPaletteSprite(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	UINT16* depthBuffer,
+	UINT16 depth,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	BOOLEAN writeDepth,
+	VideoObjectDepthPaletteEffect effect,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectDepthPaletteToSurface(
+		destinationSurface, source, frame,
+		destinationX, destinationY, depth, writeDepth,
+		effect, clipping))
+		return TRUE;
+
+	// Pointer-built fixtures and rejecting external hosts retain the exact
+	// established blitter. This fallback can be removed only after every image
+	// producer has a stable engine resource identity.
+	switch (effect)
+	{
+	case VOBJECT_DEPTH_PALETTE_COPY:
+		if (clipping)
+		{
+			return writeDepth ?
+				Blt8BPPDataTo16BPPBufferTransZClip(
+					destination, destinationPitchBytes,
+					depthBuffer, depth, source,
+					destinationX, destinationY, frame, clipping) :
+				Blt8BPPDataTo16BPPBufferTransZNBClip(
+					destination, destinationPitchBytes,
+					depthBuffer, depth, source,
+					destinationX, destinationY, frame, clipping);
+		}
+		return writeDepth ?
+			Blt8BPPDataTo16BPPBufferTransZ(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame) :
+			Blt8BPPDataTo16BPPBufferTransZNB(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame);
+	case VOBJECT_DEPTH_PALETTE_BLEND_50_PERCENT:
+		if (clipping)
+		{
+			return writeDepth ?
+				Blt8BPPDataTo16BPPBufferTransZClipTranslucent(
+					destination, destinationPitchBytes,
+					depthBuffer, depth, source,
+					destinationX, destinationY, frame, clipping) :
+				Blt8BPPDataTo16BPPBufferTransZNBClipTranslucent(
+					destination, destinationPitchBytes,
+					depthBuffer, depth, source,
+					destinationX, destinationY, frame, clipping);
+		}
+		return writeDepth ?
+			Blt8BPPDataTo16BPPBufferTransZTranslucent(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame) :
+			Blt8BPPDataTo16BPPBufferTransZNBTranslucent(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame);
+	case VOBJECT_DEPTH_PALETTE_CHECKERBOARD:
+		if (clipping)
+		{
+			return writeDepth ?
+				Blt8BPPDataTo16BPPBufferTransZClipPixelate(
+					destination, destinationPitchBytes,
+					depthBuffer, depth, source,
+					destinationX, destinationY, frame, clipping) :
+				Blt8BPPDataTo16BPPBufferTransZNBClipPixelate(
+					destination, destinationPitchBytes,
+					depthBuffer, depth, source,
+					destinationX, destinationY, frame, clipping);
+		}
+		return writeDepth ?
+			Blt8BPPDataTo16BPPBufferTransZPixelate(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame) :
+			Blt8BPPDataTo16BPPBufferTransZNBPixelate(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame);
+	default:
+		return FALSE;
+	}
+}
+
 BOOLEAN DrawBasicTacticalDepthSprite(
 	UINT32 destinationSurface,
 	PIXEL* destination,
@@ -75,31 +165,10 @@ BOOLEAN DrawBasicTacticalDepthSprite(
 	BOOLEAN writeDepth,
 	SGPRect* clipping)
 {
-	if (BltVideoObjectDepthToSurface(
-		destinationSurface, source, frame,
-		destinationX, destinationY, depth, writeDepth, clipping))
-		return TRUE;
-
-	// Pointer-built fixtures and rejecting external hosts retain the exact
-	// established blitter. This fallback can be removed only after every image
-	// producer has a stable engine resource identity.
-	if (clipping)
-	{
-		return writeDepth ?
-			Blt8BPPDataTo16BPPBufferTransZClip(
-				destination, destinationPitchBytes, depthBuffer, depth,
-				source, destinationX, destinationY, frame, clipping) :
-			Blt8BPPDataTo16BPPBufferTransZNBClip(
-				destination, destinationPitchBytes, depthBuffer, depth,
-				source, destinationX, destinationY, frame, clipping);
-	}
-	return writeDepth ?
-		Blt8BPPDataTo16BPPBufferTransZ(
-			destination, destinationPitchBytes, depthBuffer, depth,
-			source, destinationX, destinationY, frame) :
-		Blt8BPPDataTo16BPPBufferTransZNB(
-			destination, destinationPitchBytes, depthBuffer, depth,
-			source, destinationX, destinationY, frame);
+	return DrawTacticalDepthPaletteSprite(
+		destinationSurface, destination, destinationPitchBytes,
+		depthBuffer, depth, source, destinationX, destinationY,
+		frame, writeDepth, VOBJECT_DEPTH_PALETTE_COPY, clipping);
 }
 
 BOOLEAN DrawBasicTacticalEffectSprite(
@@ -2883,20 +2952,15 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										{
 											if (fPixelate)
 											{
-												if (fTranslucencyType)
-												{
-													//if(fZWrite)
-													//	Blt8BPPDataTo16BPPBufferTransZClipTranslucent((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-													//else
-													Blt8BPPDataTo16BPPBufferTransZNBClipTranslucent((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-												}
-												else
-												{
-													//if(fZWrite)
-													//	Blt8BPPDataTo16BPPBufferTransZClipPixelate((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-													//else
-													Blt8BPPDataTo16BPPBufferTransZNBClipPixelate((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-												}
+												DrawTacticalDepthPaletteSprite(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, gpZBuffer,
+													sZLevel, hVObject, sXPos, sYPos,
+													usImageIndex, FALSE,
+													fTranslucencyType ?
+														VOBJECT_DEPTH_PALETTE_BLEND_50_PERCENT :
+														VOBJECT_DEPTH_PALETTE_CHECKERBOARD,
+													&gClippingRect);
 											}
 											else if (fMerc)
 											{
@@ -3133,20 +3197,15 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										{
 											if (fPixelate)
 											{
-												if (fTranslucencyType)
-												{
-													if (fZWrite)
-														Blt8BPPDataTo16BPPBufferTransZTranslucent((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-													else
-														Blt8BPPDataTo16BPPBufferTransZNBTranslucent((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-												}
-												else
-												{
-													if (fZWrite)
-														Blt8BPPDataTo16BPPBufferTransZPixelate((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-													else
-														Blt8BPPDataTo16BPPBufferTransZNBPixelate((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-												}
+												DrawTacticalDepthPaletteSprite(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, gpZBuffer,
+													sZLevel, hVObject, sXPos, sYPos,
+													usImageIndex, fZWrite,
+													fTranslucencyType ?
+														VOBJECT_DEPTH_PALETTE_BLEND_50_PERCENT :
+														VOBJECT_DEPTH_PALETTE_CHECKERBOARD,
+													NULL);
 											}
 											else if (fMerc)
 											{
