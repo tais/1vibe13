@@ -22,6 +22,8 @@ bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept;
 bool ReleaseJa2TacticalEntity(const SOLDIERTYPE& soldier) noexcept;
 void ResetJa2TacticalEntityDirectory() noexcept;
 void RebuildJa2TacticalEntityDirectory() noexcept;
+bool SwapJa2TacticalEntitySlots(
+	std::uint16_t firstSlot, std::uint16_t secondSlot);
 
 TacticalEntityId GetJa2TacticalEntityId(std::uint16_t slot) noexcept;
 SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept;

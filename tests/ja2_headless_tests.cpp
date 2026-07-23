@@ -3064,6 +3064,31 @@ int main( int, char** )
 		       compiledContext.runtime().tacticalEntityDirectory().identity( 0 ) ==
 		           ( TacticalEntityId{ 0, 701 } ),
 		       "legacy pool actors publish liveness through the runtime-owned directory" );
+		SOLDIERTYPE* const previousSwapTargetPointer = MercPtrs[1];
+		const SOLDIERTYPE previousSwapTarget = Menptr[1];
+		Menptr[1] = Menptr[0];
+		MercPtrs[1] = &Menptr[1];
+		Menptr[1].ubID = SoldierID{ static_cast<UINT16>( 1 ) };
+		Menptr[1].uiUniqueSoldierIdValue = 702;
+		Menptr[1].sGridNo = 678;
+		const bool swapTargetAdopted = AdoptJa2TacticalEntity( Menptr[1] );
+		const bool entitySlotsSwapped = SwapJa2TacticalEntitySlots( 0, 1 );
+		const bool swappedEntitiesResolvable =
+			GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 702 } ) &&
+			GetJa2TacticalEntityId( 1 ) == ( TacticalEntityId{ 1, 701 } ) &&
+			ResolveJa2TacticalEntity( TacticalEntityId{ 0, 702 } ) == &Menptr[0] &&
+			ResolveJa2TacticalEntity( TacticalEntityId{ 1, 701 } ) == &Menptr[1] &&
+			Menptr[0].sGridNo == 678 && Menptr[1].sGridNo == 345;
+		const bool entitySlotsRestored = SwapJa2TacticalEntitySlots( 0, 1 );
+		CHECK( swapTargetAdopted && entitySlotsSwapped && swappedEntitiesResolvable &&
+		       entitySlotsRestored &&
+		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 701 } ) &&
+		       !SwapJa2TacticalEntitySlots( 0, 0 ) &&
+		       !SwapJa2TacticalEntitySlots( TOTAL_SOLDIERS, 0 ),
+		       "whole-record portrait swaps rebuild authoritative tactical entity identities" );
+		Menptr[1] = previousSwapTarget;
+		MercPtrs[1] = previousSwapTargetPointer;
+		RebuildJa2TacticalEntityDirectory();
 		SetJa2TacticalWorldSector( 9, 1, 0 );
 		NotifyJa2TacticalWorldLoaded( 23 );
 		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );

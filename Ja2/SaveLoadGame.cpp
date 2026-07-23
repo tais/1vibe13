@@ -7010,6 +7010,9 @@ template<class Ar> static void XferTacticalStatus( Ar& ar, TacticalStatusType& s
 BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten;
+	const INT16 savedSectorX = gWorldSectorX;
+	const INT16 savedSectorY = gWorldSectorY;
+	const INT8 savedSectorZ = gbWorldSectorZ;
 
 	//write the gTacticalStatus to the saved game file (portable v2)
 	{
@@ -7027,24 +7030,24 @@ BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 	//
 
 	// save gWorldSectorX
-	FileWrite( hFile, &gWorldSectorX, sizeof( gWorldSectorX ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( gWorldSectorX ) )
+	FileWrite( hFile, &savedSectorX, sizeof( savedSectorX ), &uiNumBytesWritten );
+	if( uiNumBytesWritten != sizeof( savedSectorX ) )
 	{
 		return(FALSE);
 	}
 
 
 	// save gWorldSectorY
-	FileWrite( hFile, &gWorldSectorY, sizeof( gWorldSectorY ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( gWorldSectorY ) )
+	FileWrite( hFile, &savedSectorY, sizeof( savedSectorY ), &uiNumBytesWritten );
+	if( uiNumBytesWritten != sizeof( savedSectorY ) )
 	{
 		return(FALSE);
 	}
 
 
 	// save gbWorldSectorZ
-	FileWrite( hFile, &gbWorldSectorZ, sizeof( gbWorldSectorZ ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( gbWorldSectorZ ) )
+	FileWrite( hFile, &savedSectorZ, sizeof( savedSectorZ ), &uiNumBytesWritten );
+	if( uiNumBytesWritten != sizeof( savedSectorZ ) )
 	{
 		return(FALSE);
 	}
@@ -7063,6 +7066,9 @@ void FailedLoadingGameCallBack( UINT8 bExitValue );
 BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesRead;
+	INT16 loadedSectorX = 0;
+	INT16 loadedSectorY = 0;
+	INT8 loadedSectorZ = -1;
 
 	//Read the gTacticalStatus from the saved game file (portable v2)
 	{
@@ -7161,28 +7167,27 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 	//Load the current sector location to the saved game file
 	//
 
-	// Load gWorldSectorX
-	FileRead( hFile, &gWorldSectorX, sizeof( gWorldSectorX ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( gWorldSectorX ) )
+	// Stage all three coordinates before publishing the authoritative session.
+	FileRead( hFile, &loadedSectorX, sizeof( loadedSectorX ), &uiNumBytesRead );
+	if( uiNumBytesRead != sizeof( loadedSectorX ) )
 	{
 		return(FALSE);
 	}
 
 
-	// Load gWorldSectorY
-	FileRead( hFile, &gWorldSectorY, sizeof( gWorldSectorY ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( gWorldSectorY ) )
+	FileRead( hFile, &loadedSectorY, sizeof( loadedSectorY ), &uiNumBytesRead );
+	if( uiNumBytesRead != sizeof( loadedSectorY ) )
 	{
 		return(FALSE);
 	}
 
 
-	// Load gbWorldSectorZ
-	FileRead( hFile, &gbWorldSectorZ, sizeof( gbWorldSectorZ ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( gbWorldSectorZ ) )
+	FileRead( hFile, &loadedSectorZ, sizeof( loadedSectorZ ), &uiNumBytesRead );
+	if( uiNumBytesRead != sizeof( loadedSectorZ ) )
 	{
 		return(FALSE);
 	}
+	SetJa2TacticalWorldSector( loadedSectorX, loadedSectorY, loadedSectorZ );
 
 	return( TRUE );
 }

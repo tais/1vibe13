@@ -99,6 +99,22 @@ void RebuildJa2TacticalEntityDirectory() noexcept
 	}
 }
 
+bool SwapJa2TacticalEntitySlots(
+	std::uint16_t firstSlot, std::uint16_t secondSlot)
+{
+	if (firstSlot >= TOTAL_SOLDIERS || secondSlot >= TOTAL_SOLDIERS ||
+		firstSlot == secondSlot)
+		return false;
+
+	SOLDIERTYPE first = Menptr[firstSlot];
+	Menptr[firstSlot] = Menptr[secondSlot];
+	Menptr[secondSlot] = first;
+	Menptr[firstSlot].ubID = SoldierID{firstSlot};
+	Menptr[secondSlot].ubID = SoldierID{secondSlot};
+	RebuildJa2TacticalEntityDirectory();
+	return true;
+}
+
 SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept
 {
 	if (!BoundDirectory()->contains(entity) || entity.slot >= TOTAL_SOLDIERS)

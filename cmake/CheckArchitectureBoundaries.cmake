@@ -175,6 +175,20 @@ foreach(source_file IN LISTS world_state_files)
       message(FATAL_ERROR
         "Production code writes tactical-world compatibility mirror '${mirror}' in ${source_file}; route the transition through TacticalWorldAdapter")
     endif()
+    string(REGEX MATCH
+      "(^|[^&])&[ \t\r\n]*${mirror}([^A-Za-z0-9_]|$)"
+      world_state_address_escape "${contents}")
+    if(world_state_address_escape)
+      message(FATAL_ERROR
+        "Production code passes tactical-world compatibility mirror '${mirror}' by address in ${source_file}; stage a local value and route writes through TacticalWorldAdapter")
+    endif()
+    string(REGEX MATCH
+      "GetSectorFromFileName[ \t\r\n]*\\([^\\)]*${mirror}([^A-Za-z0-9_]|$)"
+      world_state_reference_escape "${contents}")
+    if(world_state_reference_escape)
+      message(FATAL_ERROR
+        "Editor filename parsing passes tactical-world compatibility mirror '${mirror}' by mutable reference in ${source_file}; parse locals and route writes through TacticalWorldAdapter")
+    endif()
   endforeach()
 endforeach()
 
@@ -193,6 +207,24 @@ foreach(source_file IN LISTS world_state_files)
   if(entity_sequence_write)
     message(FATAL_ERROR
       "Production code writes the tactical-entity incarnation compatibility mirror in ${source_file}; route the transition through TacticalEntityHost")
+  endif()
+endforeach()
+
+# Whole SOLDIERTYPE record relocation changes which incarnation occupies a
+# legacy pool slot. Keep those rare mutations in the entity host so the
+# runtime directory is rebuilt atomically with the compatibility pool.
+set(entity_pool_owner "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp")
+foreach(source_file IN LISTS world_state_files)
+  if("${source_file}" STREQUAL "${entity_pool_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "Menptr[ \t\r\n]*\\[[^\\]]+\\][ \t\r\n]*=[^=]"
+    entity_pool_record_write "${contents}")
+  if(entity_pool_record_write)
+    message(FATAL_ERROR
+      "Production code relocates a complete tactical-entity pool record in ${source_file}; route the swap through TacticalEntityHost")
   endif()
 endforeach()
 

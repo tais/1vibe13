@@ -61,6 +61,7 @@
 #include "soldier tile.h"
 #include "Soldier Functions.h"
 #include "Simulation Commands.h"
+#include "TacticalEntityHost.h"
 #include "english.h"
 #include "random.h"
 #include "Map Screen Interface.h"
@@ -7243,8 +7244,6 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	{
 		return;
 	}
-	SOLDIERTYPE TempMenptr = Menptr[ ubSourceMerc ];
-
 	// anv: vehicle passengers are swapped differently
 	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
@@ -7280,16 +7279,15 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 		iTargetFace = ubTargetMerc->iFaceIndex;
 		FACETYPE TempFace = gFacesData[ iSourceFace ];
 
-		// swap the data
-		Menptr[ ubSourceMerc ] = Menptr[ ubTargetMerc ];
-		Menptr[ ubTargetMerc ] = TempMenptr; 
+		// Swap through the entity host so slot incarnations remain resolvable.
+		if ( !SwapJa2TacticalEntitySlots( ubSourceMerc, ubTargetMerc ) )
+		{
+			return;
+		}
 		// also swap face data, otherwise face gear, opp count etc won't update
 		gFacesData[ iSourceFace ] = gFacesData[ iTargetFace ];
 		gFacesData[ iTargetFace ] = TempFace;
 
-		// update IDs in the data so they match array index again
-		Menptr[ ubSourceMerc ].ubID = ubSourceMerc;
-		Menptr[ ubTargetMerc ].ubID = ubTargetMerc;
 		gFacesData[ iSourceFace ].iID = iSourceFace;
 		gFacesData[ iTargetFace ].iID = iTargetFace;
 
