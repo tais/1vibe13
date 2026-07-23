@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "sgp.h"
 #include "Overhead Types.h"
 #include "Overhead.h"
@@ -205,68 +207,33 @@ deliveryMethodEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInDeliveryMethods(STR fileName)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	deliveryMethodParseData pData;
+	DestinationDeliveryInfoReadInTable destinationInfos;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading DeliveryMethods.xml" );
 
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( FALSE );
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0;
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, deliveryMethodStartElementHandle, deliveryMethodEndElementHandle);
-	XML_SetCharacterDataHandler(parser, deliveryMethodCharacterDataHandle);
-
-
 	memset(&pData,0,sizeof(pData));
-	pData.CurDeliveryMethod.DestinationDeliveryInfos = new DestinationDeliveryInfoReadInTable();
+	pData.CurDeliveryMethod.DestinationDeliveryInfos = &destinationInfos;
 	pData.maxArraySize = sizeof(UINT16);
 
-	XML_SetUserData(parser, &pData);
-
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, deliveryMethodStartElementHandle, deliveryMethodEndElementHandle,
+		deliveryMethodCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in DeliveryMethods.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
 
-	if(pData.CurDeliveryMethod.DestinationDeliveryInfos)
-	{
-		delete pData.CurDeliveryMethod.DestinationDeliveryInfos;
-	}
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
-
 	// Interface stuff for the old game code. Once Bobby Ray and the laptop are fully C++'ized and/or externalised, this stuff can go
-	
+
 
 	return( TRUE );
 }

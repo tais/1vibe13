@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -127,62 +129,31 @@ emailMercAvailableEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInEmailMercAvailable(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	emailMercAvailableParseData pData;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading EmailMercAvailable.xml" );
 
 	EmailMercAvailable_TextOnly = localizedVersion;
-	
-	// Open file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		{ XML_ParserFree(parser); return( localizedVersion ); }
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		{ XML_ParserFree(parser); return( FALSE ); }
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, emailMercAvailableStartElementHandle, emailMercAvailableEndElementHandle);
-	XML_SetCharacterDataHandler(parser, emailMercAvailableCharacterDataHandle);
-
 
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
 
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, emailMercAvailableStartElementHandle,
+		emailMercAvailableEndElementHandle,
+		emailMercAvailableCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in EmailMercAvailable.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		{ XML_ParserFree(parser); return FALSE; }
+		if (result.status == LegacyXmlStatus::NotFound)
+			return localizedVersion;
+		if (result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
+		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
-
 
 	return( TRUE );
 }
