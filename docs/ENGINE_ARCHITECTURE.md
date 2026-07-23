@@ -125,9 +125,13 @@ the engine must not contain SDL types in its public domain model.
   optional asset is absent. Strategic and Laptop now have no direct Expat
   parser ownership; Strategic's sector/difficulty-specific extra-item loader
   also uses bounded asset reads while retaining its established selection
-  order. Tactical's
-  logical-body external-entity loader and dealer-inventory semantic diagnostic
-  parser remain deliberate bespoke paths.
+  order. A parser-ready hook lets the older object-oriented property,
+  tileset/structure, and image-app-data readers borrow that same scoped parser
+  without taking over its lifetime. Utils and SGP now have no direct Expat
+  parser ownership, and an uncompiled duplicate weapon reader has been removed.
+  Dealer-inventory semantic diagnostics retain live parser line numbers through
+  that hook. Tactical's logical-body external-entity loader is now the sole
+  deliberate bespoke parser path.
 - The legacy SGP, Utils, and Laptop manifests explicitly separate
   campaign-neutral translation units from sources that still consume
   JA2/UB/editor definitions. The neutral object layers compile once and are
