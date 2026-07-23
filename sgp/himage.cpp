@@ -10,6 +10,7 @@
 	#include "pcx.h"
 	#include "STCI.h"
 	#include "PngLoader.h"
+	#include "render_palette_registry.h"
 	#include "WCheck.h"
 	#include "Compression.h"
 	#include "vobject.h"
@@ -201,6 +202,9 @@ BOOLEAN ReleaseImageData( HIMAGE hImage, UINT16 fContents )
 
 		if ( hImage->pui16BPPPalette != NULL )
 		{
+			UnregisterLegacyRenderPalette(
+				reinterpret_cast<const PIXEL*>(
+					hImage->pui16BPPPalette));
 			MemFree( hImage->pui16BPPPalette );
 			hImage->pui16BPPPalette = NULL;
 		}
@@ -770,6 +774,7 @@ PIXEL *Create16BPPPalette( SGPPaletteEntry *pPalette )
 		p16BPPPalette[ cnt ] = usColor;
 	}
 
+	(void)RegisterLegacyRenderPalette(p16BPPPalette);
 	return( p16BPPPalette );
 #endif
 }
@@ -862,6 +867,7 @@ PIXEL *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT3
 
 		p16BPPPalette[ cnt ] = usColor;
 	}
+	(void)RegisterLegacyRenderPalette(p16BPPPalette);
 	return( p16BPPPalette );
 #endif
 }
@@ -895,6 +901,9 @@ UINT32 *Create32BPPPalette( SGPPaletteEntry *pPalette )
 		           | ((UINT32)pPalette[ cnt ].peGreen << 8)
 		           |  (UINT32)pPalette[ cnt ].peBlue;
 	}
+#if SGP_PIXEL_DEPTH == 32
+	(void)RegisterLegacyRenderPalette(pal);
+#endif
 	return( pal );
 }
 
@@ -929,6 +938,9 @@ UINT32 *Create32BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT
 
 		pal[ cnt ] = 0xFF000000u | ((UINT32)r << 16) | ((UINT32)g << 8) | (UINT32)b;
 	}
+#if SGP_PIXEL_DEPTH == 32
+	(void)RegisterLegacyRenderPalette(pal);
+#endif
 	return( pal );
 }
 

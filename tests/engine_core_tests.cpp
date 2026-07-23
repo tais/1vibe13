@@ -2515,6 +2515,11 @@ int main()
 		51, 901, 7, RenderSurfacePoint{-3, 12},
 		RenderSurfaceRegion{-8, 0, 100, 80},
 		RenderImageCompositeMode::Intensity};
+	const RenderImageDrawCommand imagePaletteCommand{
+		51, 907, 13, RenderSurfacePoint{9, -18},
+		RenderSurfaceRegion{-9, 5, 99, 75},
+		RenderImageCompositeMode::PaletteWithShadowMarker,
+		(RenderPaletteId{1} << 32) + 7, 908, true};
 	const RenderImageDepthDrawCommand imageDepthCommand{
 		51, 61, 903, 9, RenderSurfacePoint{-5, 14},
 		RenderSurfaceRegion{-4, 2, 96, 72}, 0x3456,
@@ -2533,6 +2538,13 @@ int main()
 		RenderDepthCompareMode::Greater,
 		RenderDepthWriteMode::ReplaceOnDraw,
 		RenderImageDepthEffect::PixelateObscuredSourcePalette};
+	const RenderImageDepthDrawCommand imageDepthPaletteShadowCommand{
+		51, 61, 909, 14, RenderSurfacePoint{10, -19},
+		RenderSurfaceRegion{-10, 6, 100, 76}, 0x789a,
+		RenderDepthCompareMode::GreaterOrEqual,
+		RenderDepthWriteMode::Preserve,
+		RenderImageDepthEffect::PaletteWithShadowMarker,
+		(RenderPaletteId{1} << 32) + 9, 910, true};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},
@@ -2547,12 +2559,16 @@ int main()
 		RenderColor{21, 43, 65, 87}, true};
 	check(!mappedCommands.drawImage(imageCommand),
 		"mapped surface commands reject images without a host resource adapter");
+	check(!mappedCommands.drawImage(imagePaletteCommand),
+		"mapped surface commands reject palette images without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthCommand),
 		"mapped surface commands reject depth images without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthPaletteCommand),
 		"mapped surface commands reject depth palette effects without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthObscuredCommand),
 		"mapped surface commands reject obscured depth images without a host resource adapter");
+	check(!mappedCommands.drawImageDepth(imageDepthPaletteShadowCommand),
+		"mapped surface commands reject palette-shadow depth images without a host resource adapter");
 	check(!mappedCommands.drawImageOutline(imageOutlineCommand),
 		"mapped surface commands reject image outlines without a host resource adapter");
 	check(!mappedCommands.drawImageDepthOutline(imageDepthOutlineCommand),
@@ -2565,9 +2581,12 @@ int main()
 		recordedCommands.shadeSurface(shadeCommand) &&
 		recordedCommands.fillDepth(depthFillCommand) &&
 		recordedCommands.drawImage(imageCommand) &&
+		recordedCommands.drawImage(imagePaletteCommand) &&
 		recordedCommands.drawImageDepth(imageDepthCommand) &&
 		recordedCommands.drawImageDepth(imageDepthPaletteCommand) &&
 		recordedCommands.drawImageDepth(imageDepthObscuredCommand) &&
+		recordedCommands.drawImageDepth(
+			imageDepthPaletteShadowCommand) &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.drawImageDepthOutline(imageDepthOutlineCommand) &&
 		recordedCommands.commands() ==
@@ -2581,11 +2600,13 @@ int main()
 		recordedCommands.depthFillCommands() ==
 			std::vector<RenderDepthFillCommand>{depthFillCommand} &&
 		recordedCommands.imageCommands() ==
-			std::vector<RenderImageDrawCommand>{imageCommand} &&
+			std::vector<RenderImageDrawCommand>{
+				imageCommand, imagePaletteCommand} &&
 		recordedCommands.imageDepthCommands() ==
 			std::vector<RenderImageDepthDrawCommand>{
 				imageDepthCommand, imageDepthPaletteCommand,
-				imageDepthObscuredCommand} &&
+				imageDepthObscuredCommand,
+				imageDepthPaletteShadowCommand} &&
 		recordedCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{imageOutlineCommand} &&
 		recordedCommands.imageDepthOutlineCommands() ==

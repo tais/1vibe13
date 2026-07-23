@@ -290,9 +290,17 @@ int main()
 		1, 44, 3, RenderSurfacePoint{-2, 5},
 		RenderSurfaceRegion{0, 0, 4, 4},
 		RenderImageCompositeMode::Intensity};
+	const RenderImageDrawCommand externalPaletteImageCommand{
+		1, 48, 7, RenderSurfacePoint{2, -5},
+		RenderSurfaceRegion{0, 0, 4, 4},
+		RenderImageCompositeMode::PaletteWithShadowMarker,
+		(RenderPaletteId{1} << 32) + 1, 49, true};
 	if (!recordedImageCommands.drawImage(externalImageCommand) ||
+		!recordedImageCommands.drawImage(
+			externalPaletteImageCommand) ||
 		recordedImageCommands.imageCommands() !=
-			std::vector<RenderImageDrawCommand>{externalImageCommand})
+			std::vector<RenderImageDrawCommand>{
+				externalImageCommand, externalPaletteImageCommand})
 		return 48;
 	const RenderImageDepthDrawCommand externalDepthImageCommand{
 		1, 3, 46, 5, RenderSurfacePoint{-1, 2},
@@ -305,6 +313,21 @@ int main()
 		recordedImageCommands.imageDepthCommands() !=
 			std::vector<RenderImageDepthDrawCommand>{
 				externalDepthImageCommand})
+		return 48;
+	const RenderImageDepthDrawCommand
+		externalPaletteDepthImageCommand{
+			1, 3, 50, 8, RenderSurfacePoint{1, -2},
+			RenderSurfaceRegion{0, 0, 4, 4}, 0x4444,
+			RenderDepthCompareMode::GreaterOrEqual,
+			RenderDepthWriteMode::Preserve,
+			RenderImageDepthEffect::PaletteWithShadowMarker,
+			(RenderPaletteId{1} << 32) + 2, 51, true};
+	if (!recordedImageCommands.drawImageDepth(
+			externalPaletteDepthImageCommand) ||
+		recordedImageCommands.imageDepthCommands() !=
+			std::vector<RenderImageDepthDrawCommand>{
+				externalDepthImageCommand,
+				externalPaletteDepthImageCommand})
 		return 48;
 	const RenderImageOutlineCommand externalOutlineCommand{
 		1, 45, 4, RenderSurfacePoint{3, -1},

@@ -5,6 +5,7 @@
 	#include "vsurface.h"
 	#include "WCheck.h"
 	#include "Font Control.h"
+#include "render_palette_registry.h"
 #include <language.hpp>
 
 INT32		  giCurWinFont = 0;
@@ -247,6 +248,7 @@ UINT16 CreateFontPaletteTables(HVOBJECT pObj )
 			pObj->pShades[ count ] = NULL;
 		else if ( pObj->pShades[ count ] != NULL )
 		{
+			UnregisterLegacyRenderPalette(pObj->pShades[count]);
 			MemFree( pObj->pShades[ count ] );
 			pObj->pShades[ count ] = NULL;
 		}

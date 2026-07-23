@@ -5,6 +5,7 @@
 	#include "himage.h"
 	#include "vobject.h"
 	#include "vobject_blitters.h"
+	#include "render_palette_registry.h"
 	#include "shading.h"
 
 BOOLEAN ShadesCalculateTables(SGPPaletteEntry *p8BPPPalette);
@@ -163,6 +164,7 @@ void BuildShadeTable(void)
 #endif
 
 	memset( White16BPPPalette, 65535, sizeof( White16BPPPalette ) );
+	(void)RegisterLegacyRenderPalette(White16BPPPalette);
 }
 
 
@@ -238,4 +240,3 @@ BOOLEAN Set8BitModePalette(SGPPaletteEntry *pPal)
 	Set8BPPPalette(pPal);
 	return(TRUE);
 }
-

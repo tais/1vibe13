@@ -339,10 +339,15 @@ stable values, plus a destination anchor and explicit opaque,
 source-transparent, destination-shadow, or destination-intensity composite
 mode. Shadow and intensity treat visible source runs as a mask over the existing
 destination; the platform adapter retains their exact shade-table behavior.
+`PaletteWithShadowMarker` names a host-owned immutable 256-entry lookup through
+`RenderPaletteId`, treats source index 254 as destination shading unless
+`ignoreShadows` is set, and can name a parallel alpha image through another
+stable `RenderImageId`.
 The half-open clipping region is part of the command, so recording and
 forwarding hosts do not depend on mutable renderer-global clip state.
-Image-local offsets, compression, palettes, and physical storage remain adapter
-concerns; engine and package code never receives an `HVOBJECT` or ETRLE pointer.
+Image-local offsets, compression, palette storage, and physical pixels remain
+adapter concerns; engine and package code never receives an `HVOBJECT`, ETRLE
+pointer, native palette pointer, or backend pixel layout.
 `RenderImageOutlineCommand` uses the same stable image identity and explicit
 clip while distinguishing colour-outline rendering from body-shadow rendering.
 Its RGBA colour and `drawOutline` switch replace packed framebuffer colours and
@@ -363,9 +368,11 @@ strict greater-than test, and transform the destination colour.
 `PixelateObscuredSourcePalette` also uses a strict test: passing pixels render
 normally while failed pixels sample through the same stable checkerboard.
 `ReplaceOnPass` updates front-facing depth only; `ReplaceOnDraw` additionally
-updates sampled obscured pixels. Unsupported effect, comparison, and write
-pairings are rejected rather than acquiring backend-specific meaning. Alpha
-remains a separate contract.
+updates sampled obscured pixels. `PaletteWithShadowMarker` pairs with the
+inclusive test and preserve/replace-on-pass policy while retaining custom
+palette remapping, marker shading, ignore behavior, and optional parallel
+alpha. Unsupported resources and effect, comparison, or write pairings are
+rejected rather than acquiring backend-specific meaning.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
@@ -389,11 +396,17 @@ The clipped mask path now honors the preserve-depth policy instead of selecting
 its writing compatibility blitter. Every successfully created host video
 object receives a stable opaque render identity without changing its legacy
 manager handle; deletion retires that identity before releasing image storage.
+Generated render palettes receive their own opaque identities above the legacy
+32-bit manager range. Re-registering the same live pointer is idempotent,
+retired identities are never reused, and palette owners retire their borrowed
+registry entry before replacement or destruction.
 Rejecting hosts and manually assembled fixtures fall back to the exact old
 blitter. Basic non-depth transparent, shadow, and intensity tactical sprites
-use the regular image command with the same fallback. Other direct
-pointer-owned image operations remain on the compatibility path until their
-individual semantics migrate.
+use the regular image command with the same fallback. Ordinary merc and corpse
+palette-shadow draws, including clipped/unclipped, alpha, and depth-write
+variants, now use the same command boundary. Specialized obscured
+palette-shadow and multi-Z-strip operations remain on the compatibility path
+until their extra semantics are modelled.
 The platform surface adapter reference-counts nested maps and rejects deletion
 or replacement through a live mapping. Legacy packed colours, mutable shade
 percentages, and RGB565 transparency tokens are translated only in compatibility

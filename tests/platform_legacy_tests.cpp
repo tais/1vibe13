@@ -45,6 +45,7 @@
 #include "XML.h"
 #include "aim.h"
 #include "input.h"
+#include "render_palette_registry.h"
 #include "sdl_input.h"
 #include "soundman.h"
 #include "timer.h"
@@ -2141,6 +2142,46 @@ int main()
 			AddStandardVideoObject(
 				&managedObjectDescription, &liveImageID) &&
 			GetVideoObject(&liveImage, liveImageID) && liveImage;
+		PIXEL commandPalette[256] = {};
+		commandPalette[1] = copiedGreen;
+		const std::size_t paletteCountBefore =
+			LegacyRenderPaletteCount();
+		RenderPaletteId retiredPaletteID = 0;
+		RenderPaletteId duplicatePaletteID = 0;
+		const bool paletteRegistered =
+			RegisterLegacyRenderPalette(
+				commandPalette, &retiredPaletteID);
+		const bool duplicatePaletteRegistered =
+			RegisterLegacyRenderPalette(
+				commandPalette, &duplicatePaletteID);
+		RenderPaletteId foundPaletteID = 0;
+		const bool paletteFound =
+			FindLegacyRenderPalette(
+				commandPalette, foundPaletteID);
+		const bool firstPaletteResolved =
+			ResolveLegacyRenderPalette(retiredPaletteID) ==
+				commandPalette;
+		UnregisterLegacyRenderPalette(commandPalette);
+		const bool retiredPaletteRejected =
+			ResolveLegacyRenderPalette(retiredPaletteID) == nullptr &&
+			LegacyRenderPaletteCount() == paletteCountBefore;
+		RenderPaletteId commandPaletteID = 0;
+		const bool paletteReregistered =
+			RegisterLegacyRenderPalette(
+				commandPalette, &commandPaletteID);
+		Check(paletteRegistered && duplicatePaletteRegistered &&
+			paletteFound && firstPaletteResolved &&
+			retiredPaletteRejected && paletteReregistered &&
+			retiredPaletteID >
+				std::numeric_limits<UINT32>::max() &&
+			duplicatePaletteID == retiredPaletteID &&
+			foundPaletteID == retiredPaletteID &&
+			commandPaletteID != retiredPaletteID &&
+			commandPaletteID >
+				std::numeric_limits<UINT32>::max() &&
+			LegacyRenderPaletteCount() ==
+				paletteCountBefore + 1,
+			"render palettes use stable idempotent identities and reject retired handles");
 		SGPRect imageOriginalClip;
 		GetClippingRect(&imageOriginalClip);
 		SGPRect imageSurfaceClip{
@@ -2253,6 +2294,150 @@ int main()
 			intensityImagePixel == PixIntensity(imageEffectInput),
 			"engine image commands retain exact clipping, palette, shadow, and intensity pixels");
 
+		UINT8* const paletteEncodedPixels =
+			liveImageCreated && liveImage->pPixData &&
+				liveImage->pETRLEObject ?
+				static_cast<UINT8*>(liveImage->pPixData) +
+					liveImage->pETRLEObject[0].uiDataOffset :
+				nullptr;
+		const bool paletteFixtureReady =
+			paletteEncodedPixels &&
+			liveImage->ubBitDepth == 8 &&
+			liveImage->usNumberOfObjects == 1 &&
+			liveImage->pETRLEObject[0].usWidth == 1 &&
+			liveImage->pETRLEObject[0].usHeight == 1 &&
+			liveImage->pETRLEObject[0].uiDataOffset + 3 <=
+				liveImage->uiSizePixData &&
+			paletteEncodedPixels[0] == 1 &&
+			paletteEncodedPixels[1] == 1 &&
+			paletteEncodedPixels[2] == 0;
+		const UINT8 paletteOriginalEncodedPixel =
+			paletteFixtureReady ? paletteEncodedPixels[1] : 0;
+		const PIXEL paletteBackground =
+			Get16BPPColor(FROMRGB(0, 0, 255));
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copyDestinationPixels)
+		{
+			PIXEL* const paletteRow = reinterpret_cast<PIXEL*>(
+				reinterpret_cast<BYTE*>(copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			for (std::size_t x = 0; x < 5; ++x)
+				paletteRow[x] = paletteBackground;
+			UnLockVideoSurface(copyDestinationID);
+		}
+		const bool customPaletteDrawn = paletteFixtureReady &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{0, 2},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool alphaPaletteDrawn = paletteFixtureReady &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{1, 2},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					commandPaletteID, liveImageID});
+		const bool clippedPaletteSkipped = paletteFixtureReady &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{2, 2},
+					RenderSurfaceRegion{0, 0, 2, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		if (paletteFixtureReady) paletteEncodedPixels[1] = 254;
+		const bool paletteShadowDrawn = paletteFixtureReady &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{3, 2},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool paletteShadowIgnored = paletteFixtureReady &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{4, 2},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					commandPaletteID, 0, true});
+		if (paletteFixtureReady)
+			paletteEncodedPixels[1] =
+				paletteOriginalEncodedPixel;
+		const bool invalidPaletteCommandsRejected =
+			!GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker}) &&
+			!GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::SourceTransparency,
+					commandPaletteID}) &&
+			!GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					retiredPaletteID}) &&
+			!GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					commandPaletteID,
+					std::numeric_limits<RenderImageId>::max()});
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		bool palettePixelsMatch = copyDestinationPixels != nullptr;
+		if (copyDestinationPixels)
+		{
+			const PIXEL* const paletteRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			palettePixelsMatch =
+				paletteRow[0] == copiedGreen &&
+				paletteRow[1] ==
+					blendWithAlpha(
+						copiedGreen, paletteBackground, 1) &&
+				paletteRow[2] == paletteBackground &&
+				paletteRow[3] == PixShade(paletteBackground) &&
+				paletteRow[4] == paletteBackground;
+			UnLockVideoSurface(copyDestinationID);
+		}
+		Check(customPaletteDrawn && alphaPaletteDrawn &&
+			clippedPaletteSkipped && paletteShadowDrawn &&
+			paletteShadowIgnored &&
+			invalidPaletteCommandsRejected &&
+			palettePixelsMatch,
+			"palette-shadow commands preserve remapping, alpha, marker shading, ignore, and clipping semantics");
+
 		RecordingRenderCommandSink recordedImageEffect;
 		BindLegacyRenderCommands(recordedImageEffect);
 		const bool pointerImageEffectRouted = liveImageCreated &&
@@ -2284,6 +2469,97 @@ int main()
 			routedImageEffectCommand.mode ==
 				RenderImageCompositeMode::Intensity,
 			"tactical colour effects retain stable image identity and explicit clipping");
+
+		PIXEL unregisteredCommandPalette[256] = {};
+		RecordingRenderCommandSink recordedPaletteShadow;
+		BindLegacyRenderCommands(recordedPaletteShadow);
+		const bool pointerPaletteShadowRouted = liveImageCreated &&
+			BltVideoObjectPaletteShadowToSurface(
+				copyDestinationID, liveImage, nullptr, 0,
+				-1, 2, commandPalette, FALSE,
+				&imageSurfaceClip);
+		const bool pointerAlphaPaletteShadowRouted =
+			liveImageCreated &&
+			BltVideoObjectPaletteShadowToSurface(
+				copyDestinationID, liveImage, liveImage, 0,
+				3, -1, commandPalette, TRUE,
+				&imageSurfaceClip);
+		const bool pointerPaletteShadowDepthRouted =
+			liveImageCreated &&
+			BltVideoObjectPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, nullptr, 0,
+				2, 1, 0x3456, FALSE, commandPalette,
+				FALSE, &imageSurfaceClip);
+		const bool pointerAlphaPaletteShadowDepthRouted =
+			liveImageCreated &&
+			BltVideoObjectPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, liveImage, 0,
+				4, -2, 0x4567, TRUE, commandPalette,
+				TRUE, &imageSurfaceClip);
+		const bool unregisteredPaletteRejected =
+			!BltVideoObjectPaletteShadowToSurface(
+				copyDestinationID, liveImage, nullptr, 0,
+				0, 0, unregisteredCommandPalette, FALSE,
+				&imageSurfaceClip) &&
+			!BltVideoObjectPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, nullptr, 0,
+				0, 0, 1, TRUE, unregisteredCommandPalette,
+				FALSE, &imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		RenderImageDrawCommand routedPaletteShadow;
+		RenderImageDrawCommand routedAlphaPaletteShadow;
+		if (recordedPaletteShadow.imageCommands().size() == 2)
+		{
+			routedPaletteShadow =
+				recordedPaletteShadow.imageCommands()[0];
+			routedAlphaPaletteShadow =
+				recordedPaletteShadow.imageCommands()[1];
+		}
+		RenderImageDepthDrawCommand routedPaletteShadowDepth;
+		RenderImageDepthDrawCommand routedAlphaPaletteShadowDepth;
+		if (recordedPaletteShadow.imageDepthCommands().size() == 2)
+		{
+			routedPaletteShadowDepth =
+				recordedPaletteShadow.imageDepthCommands()[0];
+			routedAlphaPaletteShadowDepth =
+				recordedPaletteShadow.imageDepthCommands()[1];
+		}
+		Check(pointerPaletteShadowRouted &&
+			pointerAlphaPaletteShadowRouted &&
+			pointerPaletteShadowDepthRouted &&
+			pointerAlphaPaletteShadowDepthRouted &&
+			unregisteredPaletteRejected &&
+			recordedPaletteShadow.imageCommands().size() == 2 &&
+			recordedPaletteShadow.imageDepthCommands().size() == 2 &&
+			routedPaletteShadow.image >
+				std::numeric_limits<UINT32>::max() &&
+			routedPaletteShadow.mode ==
+				RenderImageCompositeMode::PaletteWithShadowMarker &&
+			routedPaletteShadow.palette == commandPaletteID &&
+			routedPaletteShadow.alphaImage == 0 &&
+			!routedPaletteShadow.ignoreShadows &&
+			routedAlphaPaletteShadow.image ==
+				routedPaletteShadow.image &&
+			routedAlphaPaletteShadow.alphaImage ==
+				routedPaletteShadow.image &&
+			routedAlphaPaletteShadow.ignoreShadows &&
+			routedPaletteShadowDepth.depthSurface == DEPTH_BUFFER &&
+			routedPaletteShadowDepth.comparison ==
+				RenderDepthCompareMode::GreaterOrEqual &&
+			routedPaletteShadowDepth.depthWrite ==
+				RenderDepthWriteMode::Preserve &&
+			routedPaletteShadowDepth.effect ==
+				RenderImageDepthEffect::PaletteWithShadowMarker &&
+			routedPaletteShadowDepth.palette == commandPaletteID &&
+			routedPaletteShadowDepth.alphaImage == 0 &&
+			routedAlphaPaletteShadowDepth.image ==
+				routedPaletteShadow.image &&
+			routedAlphaPaletteShadowDepth.alphaImage ==
+				routedPaletteShadow.image &&
+			routedAlphaPaletteShadowDepth.depthWrite ==
+				RenderDepthWriteMode::ReplaceOnPass &&
+			routedAlphaPaletteShadowDepth.ignoreShadows,
+			"palette-shadow bridges retain stable image, palette, alpha, and depth policies");
 
 		RecordingRenderCommandSink recordedDepthImage;
 		BindLegacyRenderCommands(recordedDepthImage);
@@ -3001,6 +3277,291 @@ int main()
 			replacedIntensityMaskAccepted && depthMaskPixelsMatch,
 			"depth mask commands preserve strict tests, clipped no-write behavior, and exact destination effects");
 
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		UINT16* const paletteDepthBuffer = copyDestinationPixels ?
+			InitZBuffer(
+				copyDestinationPitch,
+				copySurfaceDescription.usHeight) : nullptr;
+		if (copyDestinationPixels && paletteDepthBuffer)
+		{
+			for (std::size_t y = 0; y < 3; ++y)
+			{
+				PIXEL* const colorRow = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				UINT16* const depthRow = reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(paletteDepthBuffer) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0; x < 5; ++x)
+				{
+					colorRow[x] = paletteBackground;
+					depthRow[x] = 4;
+				}
+			}
+			UINT16* const ordinaryDepthRow = paletteDepthBuffer;
+			ordinaryDepthRow[2] = 11;
+			ordinaryDepthRow[3] = 10;
+			UINT16* const markerDepthRow =
+				reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(paletteDepthBuffer) +
+						copyDestinationPitch);
+			markerDepthRow[3] = 11;
+		}
+		const bool paletteDepthReplaced = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 0},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool paletteDepthPreserved = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 0},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool paletteDepthBlocked = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{2, 0},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool paletteDepthEqual = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{3, 0},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool paletteDepthClipped = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{4, 0},
+					RenderSurfaceRegion{0, 0, 4, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		if (paletteFixtureReady) paletteEncodedPixels[1] = 254;
+		const bool markerDepthPreserved = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool markerDepthReplaced = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		const bool markerDepthIgnored = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{2, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID, 0, true});
+		const bool markerDepthBlocked = paletteFixtureReady &&
+			paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{3, 1},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID});
+		if (paletteFixtureReady)
+			paletteEncodedPixels[1] =
+				paletteOriginalEncodedPixel;
+		const bool alphaPaletteDepthReplaced =
+			paletteFixtureReady && paletteDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID, liveImageID});
+		const bool invalidPaletteDepthCommandsRejected =
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnDraw,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::SourcePalette,
+					commandPaletteID}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					retiredPaletteID}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarker,
+					commandPaletteID,
+					std::numeric_limits<RenderImageId>::max()});
+		bool paletteDepthPixelsMatch =
+			copyDestinationPixels && paletteDepthBuffer;
+		if (paletteDepthPixelsMatch)
+		{
+			const PIXEL* const ordinaryColorRow =
+				copyDestinationPixels;
+			const UINT16* const ordinaryDepthRow =
+				paletteDepthBuffer;
+			const PIXEL* const markerColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+					copyDestinationPitch);
+			const UINT16* const markerDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						paletteDepthBuffer) +
+					copyDestinationPitch);
+			const PIXEL* const alphaColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			const UINT16* const alphaDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						paletteDepthBuffer) +
+					2 * copyDestinationPitch);
+			paletteDepthPixelsMatch =
+				ordinaryColorRow[0] == copiedGreen &&
+				ordinaryDepthRow[0] == 10 &&
+				ordinaryColorRow[1] == copiedGreen &&
+				ordinaryDepthRow[1] == 4 &&
+				ordinaryColorRow[2] == paletteBackground &&
+				ordinaryDepthRow[2] == 11 &&
+				ordinaryColorRow[3] == copiedGreen &&
+				ordinaryDepthRow[3] == 10 &&
+				ordinaryColorRow[4] == paletteBackground &&
+				ordinaryDepthRow[4] == 4 &&
+				markerColorRow[0] ==
+					PixShade(paletteBackground) &&
+				markerDepthRow[0] == 4 &&
+				markerColorRow[1] ==
+					PixShade(paletteBackground) &&
+				markerDepthRow[1] == 10 &&
+				markerColorRow[2] == paletteBackground &&
+				markerDepthRow[2] == 10 &&
+				markerColorRow[3] == paletteBackground &&
+				markerDepthRow[3] == 11 &&
+				alphaColorRow[0] ==
+					blendWithAlpha(
+						copiedGreen, paletteBackground, 1) &&
+				alphaDepthRow[0] == 10;
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		const bool paletteDepthReleased =
+			!paletteDepthBuffer ||
+			ShutdownZBuffer(paletteDepthBuffer);
+		Check(paletteDepthReplaced && paletteDepthPreserved &&
+			paletteDepthBlocked && paletteDepthEqual &&
+			paletteDepthClipped && markerDepthPreserved &&
+			markerDepthReplaced && markerDepthIgnored &&
+			markerDepthBlocked && alphaPaletteDepthReplaced &&
+			invalidPaletteDepthCommandsRejected &&
+			paletteDepthPixelsMatch && paletteDepthReleased,
+			"palette-shadow depth commands preserve inclusive tests, writes, alpha, marker shading, and clipping");
+
 		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
 		UINT8* const encodedImagePixels =
 			liveImageCreated && liveImage->pPixData &&
@@ -3380,6 +3941,19 @@ int main()
 			invalidDepthOutlineModesRejected &&
 			depthOutlinePixelsMatch && outlineDepthReleased,
 			"depth-outline commands preserve marker depth, clipping, strict equality, and obscured pixelation");
+
+		UnregisterLegacyRenderPalette(commandPalette);
+		Check(ResolveLegacyRenderPalette(commandPaletteID) == nullptr &&
+			LegacyRenderPaletteCount() == paletteCountBefore &&
+			!GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageCompositeMode::
+						PaletteWithShadowMarker,
+					commandPaletteID}),
+			"retired palette resources cannot be drawn through stale command handles");
 
 		const bool liveImageDeleted = !liveImageCreated ||
 			DeleteVideoObjectFromIndex(liveImageID);

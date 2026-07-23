@@ -210,12 +210,19 @@ inline bool operator!=(
 // boundary without exposing the backing image representation.
 using RenderImageId = std::uint64_t;
 
+// Opaque identity for an immutable indexed-colour lookup table supplied by the
+// host render-resource adapter. Zero selects no external palette. Keeping the
+// table behind a stable ID lets commands describe soldier/corpse recolouring
+// without exposing native PIXEL pointers or a backend pixel layout.
+using RenderPaletteId = std::uint64_t;
+
 enum class RenderImageCompositeMode : std::uint8_t
 {
-	Opaque,
-	SourceTransparency,
-	Shadow,
-	Intensity
+	Opaque = 0,
+	SourceTransparency = 1,
+	Shadow = 2,
+	Intensity = 3,
+	PaletteWithShadowMarker = 4
 };
 
 // Draws one frame/sub-image at its anchor point inside an explicit half-open
@@ -232,6 +239,9 @@ struct RenderImageDrawCommand
 	RenderSurfaceRegion clippingRegion;
 	RenderImageCompositeMode mode =
 		RenderImageCompositeMode::SourceTransparency;
+	RenderPaletteId palette = 0;
+	RenderImageId alphaImage = 0;
+	bool ignoreShadows = false;
 };
 
 inline bool operator==(
@@ -243,7 +253,10 @@ inline bool operator==(
 		left.frame == right.frame &&
 		left.destinationOrigin == right.destinationOrigin &&
 		left.clippingRegion == right.clippingRegion &&
-		left.mode == right.mode;
+		left.mode == right.mode &&
+		left.palette == right.palette &&
+		left.alphaImage == right.alphaImage &&
+		left.ignoreShadows == right.ignoreShadows;
 }
 
 inline bool operator!=(
@@ -273,7 +286,8 @@ enum class RenderImageDepthEffect : std::uint8_t
 	IntensifyDestination = 2,
 	BlendSourcePalette50Percent = 3,
 	CheckerboardSourcePalette = 4,
-	PixelateObscuredSourcePalette = 5
+	PixelateObscuredSourcePalette = 5,
+	PaletteWithShadowMarker = 6
 };
 
 // Draws the visible runs of one image frame after a depth test. Palette
@@ -283,8 +297,10 @@ enum class RenderImageDepthEffect : std::uint8_t
 // PixelateObscuredSourcePalette uses a strict test: front-facing pixels render
 // normally and failed pixels sample through the checkerboard. ReplaceOnPass
 // updates only front-facing pixels; ReplaceOnDraw also updates sampled obscured
-// pixels. Colour and depth storage remain separate resources. Alpha semantics
-// remain a distinct contract.
+// pixels. PaletteWithShadowMarker uses an external palette, optional parallel
+// alpha image, and index-254 destination shading with an inclusive test and
+// preserve/replace-on-pass policy. Colour and depth storage remain separate
+// resources.
 struct RenderImageDepthDrawCommand
 {
 	RenderSurfaceId destination = 0;
@@ -300,6 +316,9 @@ struct RenderImageDepthDrawCommand
 		RenderDepthWriteMode::ReplaceOnPass;
 	RenderImageDepthEffect effect =
 		RenderImageDepthEffect::SourcePalette;
+	RenderPaletteId palette = 0;
+	RenderImageId alphaImage = 0;
+	bool ignoreShadows = false;
 };
 
 inline bool operator==(
@@ -315,7 +334,10 @@ inline bool operator==(
 		left.depth == right.depth &&
 		left.comparison == right.comparison &&
 		left.depthWrite == right.depthWrite &&
-		left.effect == right.effect;
+		left.effect == right.effect &&
+		left.palette == right.palette &&
+		left.alphaImage == right.alphaImage &&
+		left.ignoreShadows == right.ignoreShadows;
 }
 
 inline bool operator!=(

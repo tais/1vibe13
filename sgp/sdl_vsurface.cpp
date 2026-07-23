@@ -23,6 +23,7 @@
 #include "himage.h"
 #include "video.h"
 #include "MemMan.h"
+#include "render_palette_registry.h"
 #include "WCheck.h"
 #include "DEBUG.H"
 
@@ -327,7 +328,12 @@ void FreePalette(HVSURFACE s)
 {
 	if (!s) return;
 	if (s->pPalette)      { std::free(s->pPalette);      s->pPalette = nullptr; }
-	if (s->p16BPPPalette) { MemFree(s->p16BPPPalette);    s->p16BPPPalette = nullptr; }
+	if (s->p16BPPPalette)
+	{
+		UnregisterLegacyRenderPalette(s->p16BPPPalette);
+		MemFree(s->p16BPPPalette);
+		s->p16BPPPalette = nullptr;
+	}
 }
 
 // Build an HVSURFACE wrapper around a buffer we do or don't own.
@@ -811,7 +817,11 @@ BOOLEAN SetVideoSurfacePalette(HVSURFACE hVSurface, SGPPaletteEntry* pSrcPalette
 	}
 	std::memcpy(hVSurface->pPalette, pSrcPalette, sizeof(SGPPaletteEntry) * 256);
 
-	if (hVSurface->p16BPPPalette) MemFree(hVSurface->p16BPPPalette);
+	if (hVSurface->p16BPPPalette)
+	{
+		UnregisterLegacyRenderPalette(hVSurface->p16BPPPalette);
+		MemFree(hVSurface->p16BPPPalette);
+	}
 	hVSurface->p16BPPPalette = Create16BPPPalette(pSrcPalette);
 	return hVSurface->p16BPPPalette != nullptr;
 }

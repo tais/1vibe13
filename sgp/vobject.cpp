@@ -4,6 +4,7 @@
 #include "video.h"
 #include "himage.h"
 #include "vobject.h"
+#include "render_palette_registry.h"
 #include "WCheck.h"
 #include "vobject_blitters.h"
 #include "sgp.h"
@@ -128,6 +129,8 @@ std::optional<UINT32> LegacyFlagsFor(RenderImageCompositeMode mode)
 		return VO_BLT_SRCTRANSPARENCY;
 	case RenderImageCompositeMode::Shadow: return VO_BLT_SHADOW;
 	case RenderImageCompositeMode::Intensity: return std::nullopt;
+	case RenderImageCompositeMode::PaletteWithShadowMarker:
+		return std::nullopt;
 	}
 	return std::nullopt;
 }
@@ -143,6 +146,7 @@ bool UsesSourcePalette(RenderImageDepthEffect effect)
 		return true;
 	case RenderImageDepthEffect::ShadeDestination:
 	case RenderImageDepthEffect::IntensifyDestination:
+	case RenderImageDepthEffect::PaletteWithShadowMarker:
 		return false;
 	}
 	return false;
@@ -355,6 +359,51 @@ bool SubmitVideoObjectEffectDraw(
 		mode});
 }
 
+bool SubmitVideoObjectPaletteShadowDraw(
+	UINT32 destination,
+	HVOBJECT object,
+	HVOBJECT alphaObject,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	PIXEL* palette,
+	BOOLEAN ignoreShadows,
+	const SGPRect* clipping)
+{
+	if (!object || object->ubBitDepth != 8 ||
+		frame >= object->usNumberOfObjects ||
+		!object->pETRLEObject || !object->pPixData ||
+		!palette)
+		return false;
+	RenderImageId image = 0;
+	if (!FindRenderImage(object, image)) return false;
+	RenderImageId alphaImage = 0;
+	if (alphaObject && !FindRenderImage(alphaObject, alphaImage))
+		return false;
+	RenderPaletteId paletteIdentity = 0;
+	if (!FindLegacyRenderPalette(palette, paletteIdentity))
+		return false;
+
+	SGPRect currentClipping;
+	if (!clipping)
+	{
+		GetClippingRect(&currentClipping);
+		clipping = &currentClipping;
+	}
+	return DrawLegacyRenderImage(RenderImageDrawCommand{
+		destination,
+		image,
+		frame,
+		RenderSurfacePoint{destinationX, destinationY},
+		RenderSurfaceRegion{
+			clipping->iLeft, clipping->iTop,
+			clipping->iRight, clipping->iBottom},
+		RenderImageCompositeMode::PaletteWithShadowMarker,
+		paletteIdentity,
+		alphaImage,
+		ignoreShadows != FALSE});
+}
+
 bool SubmitVideoObjectDepthDraw(
 	UINT32 destination,
 	HVOBJECT object,
@@ -364,12 +413,18 @@ bool SubmitVideoObjectDepthDraw(
 	UINT16 depth,
 	RenderDepthWriteMode depthWrite,
 	RenderImageDepthEffect effect,
-	const SGPRect* clipping)
+	const SGPRect* clipping,
+	RenderPaletteId palette = 0,
+	RenderImageId alphaImage = 0,
+	bool ignoreShadows = false)
 {
 	if (!object || object->ubBitDepth != 8 ||
 		frame >= object->usNumberOfObjects ||
 		!object->pETRLEObject || !object->pPixData ||
 		(UsesSourcePalette(effect) && !object->pShadeCurrent))
+		return false;
+	if (effect != RenderImageDepthEffect::PaletteWithShadowMarker &&
+		(palette != 0 || alphaImage != 0 || ignoreShadows))
 		return false;
 	RenderDepthCompareMode comparison;
 	switch (effect)
@@ -394,6 +449,13 @@ bool SubmitVideoObjectDepthDraw(
 			depthWrite != RenderDepthWriteMode::ReplaceOnDraw)
 			return false;
 		comparison = RenderDepthCompareMode::Greater;
+		break;
+	case RenderImageDepthEffect::PaletteWithShadowMarker:
+		if (palette == 0 ||
+			(depthWrite != RenderDepthWriteMode::Preserve &&
+			 depthWrite != RenderDepthWriteMode::ReplaceOnPass))
+			return false;
+		comparison = RenderDepthCompareMode::GreaterOrEqual;
 		break;
 	default:
 		return false;
@@ -423,7 +485,10 @@ bool SubmitVideoObjectDepthDraw(
 		depth,
 		comparison,
 		depthWrite,
-		effect});
+		effect,
+		palette,
+		alphaImage,
+		ignoreShadows});
 }
 
 bool SubmitVideoObjectOutline(
@@ -913,10 +978,9 @@ BOOLEAN GetVideoObject( HVOBJECT *hVObject, UINT32 uiIndex )
 
 namespace
 {
-bool PlatformVideoObjectDestinationEffect(
+bool PlatformVideoObjectMappedDraw(
 	const RenderImageDrawCommand& command,
-	HVOBJECT source,
-	bool intensity)
+	HVOBJECT source)
 {
 	if (!source || source->ubBitDepth != 8 ||
 		command.frame >= source->usNumberOfObjects ||
@@ -927,6 +991,48 @@ bool PlatformVideoObjectDestinationEffect(
 	if (image.usWidth == 0 || image.usHeight == 0 ||
 		image.uiDataOffset >= source->uiSizePixData)
 		return false;
+
+	bool intensity = false;
+	bool paletteShadow = false;
+	PIXEL* palette = nullptr;
+	HVOBJECT alpha = nullptr;
+	switch (command.mode)
+	{
+	case RenderImageCompositeMode::Shadow:
+		if (command.palette != 0 || command.alphaImage != 0 ||
+			command.ignoreShadows)
+			return false;
+		break;
+	case RenderImageCompositeMode::Intensity:
+		if (command.palette != 0 || command.alphaImage != 0 ||
+			command.ignoreShadows)
+			return false;
+		intensity = true;
+		break;
+	case RenderImageCompositeMode::PaletteWithShadowMarker:
+		if (command.palette == 0) return false;
+		palette = const_cast<PIXEL*>(
+			ResolveLegacyRenderPalette(command.palette));
+		if (!palette) return false;
+		paletteShadow = true;
+		if (command.alphaImage != 0)
+		{
+			alpha = ResolveRenderImage(command.alphaImage);
+			if (!alpha || alpha->ubBitDepth != 8 ||
+				command.frame >= alpha->usNumberOfObjects ||
+				!alpha->pETRLEObject || !alpha->pPixData)
+				return false;
+			const ETRLEObject& alphaFrame =
+				alpha->pETRLEObject[frame];
+			if (alphaFrame.usWidth != image.usWidth ||
+				alphaFrame.usHeight != image.usHeight ||
+				alphaFrame.uiDataOffset >= alpha->uiSizePixData)
+				return false;
+		}
+		break;
+	default:
+		return false;
+	}
 
 	PlatformSurfaceMappingLease destination(command.destination);
 	if (!destination) return false;
@@ -977,6 +1083,22 @@ bool PlatformVideoObjectDestinationEffect(
 		imageRight <= clipRight && imageBottom <= clipBottom;
 	if (fullyInside)
 	{
+		if (paletteShadow)
+		{
+			return alpha ?
+				Blt8BPPDataTo16BPPBufferTransShadowAlpha(
+					pixels, pitch, source, alpha,
+					command.destinationOrigin.x,
+					command.destinationOrigin.y, frame,
+					palette,
+					command.ignoreShadows ? TRUE : FALSE) != FALSE :
+				Blt8BPPDataTo16BPPBufferTransShadow(
+					pixels, pitch, source,
+					command.destinationOrigin.x,
+					command.destinationOrigin.y, frame,
+					palette,
+					command.ignoreShadows ? TRUE : FALSE) != FALSE;
+		}
 		return intensity ?
 			Blt8BPPDataTo16BPPBufferIntensity(
 				pixels, pitch, source,
@@ -993,6 +1115,22 @@ bool PlatformVideoObjectDestinationEffect(
 		static_cast<INT32>(clipTop),
 		static_cast<INT32>(clipRight),
 		static_cast<INT32>(clipBottom)};
+	if (paletteShadow)
+	{
+		return alpha ?
+			Blt8BPPDataTo16BPPBufferTransShadowClipAlpha(
+				pixels, pitch, source, alpha,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				&clipping, palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE :
+			Blt8BPPDataTo16BPPBufferTransShadowClip(
+				pixels, pitch, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				&clipping, palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE;
+	}
 	return intensity ?
 		Blt8BPPDataTo16BPPBufferIntensityClip(
 			pixels, pitch, source,
@@ -1017,13 +1155,14 @@ bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
 	switch (command.mode)
 	{
 	case RenderImageCompositeMode::Shadow:
-		return PlatformVideoObjectDestinationEffect(
-			command, source, false);
 	case RenderImageCompositeMode::Intensity:
-		return PlatformVideoObjectDestinationEffect(
-			command, source, true);
+	case RenderImageCompositeMode::PaletteWithShadowMarker:
+		return PlatformVideoObjectMappedDraw(command, source);
 	case RenderImageCompositeMode::Opaque:
 	case RenderImageCompositeMode::SourceTransparency:
+		if (command.palette != 0 || command.alphaImage != 0 ||
+			command.ignoreShadows)
+			return false;
 		break;
 	default:
 		return false;
@@ -1051,6 +1190,13 @@ bool PlatformVideoObjectDepthDraw(
 		command.depthSurface > std::numeric_limits<UINT32>::max() ||
 		command.frame > std::numeric_limits<UINT16>::max())
 		return false;
+	const bool paletteShadow =
+		command.effect ==
+			RenderImageDepthEffect::PaletteWithShadowMarker;
+	if (!paletteShadow &&
+		(command.palette != 0 || command.alphaImage != 0 ||
+		 command.ignoreShadows))
+		return false;
 	switch (command.effect)
 	{
 	case RenderImageDepthEffect::SourcePalette:
@@ -1071,6 +1217,15 @@ bool PlatformVideoObjectDepthDraw(
 		if (command.comparison != RenderDepthCompareMode::Greater ||
 			(command.depthWrite != RenderDepthWriteMode::ReplaceOnPass &&
 			 command.depthWrite != RenderDepthWriteMode::ReplaceOnDraw))
+			return false;
+		break;
+	case RenderImageDepthEffect::PaletteWithShadowMarker:
+		if (command.palette == 0 ||
+			command.comparison !=
+				RenderDepthCompareMode::GreaterOrEqual ||
+			(command.depthWrite != RenderDepthWriteMode::Preserve &&
+			 command.depthWrite !=
+				RenderDepthWriteMode::ReplaceOnPass))
 			return false;
 		break;
 	default:
@@ -1097,6 +1252,29 @@ bool PlatformVideoObjectDepthDraw(
 	if (image.usWidth == 0 || image.usHeight == 0 ||
 		image.uiDataOffset >= source->uiSizePixData)
 		return false;
+
+	PIXEL* palette = nullptr;
+	HVOBJECT alpha = nullptr;
+	if (paletteShadow)
+	{
+		palette = const_cast<PIXEL*>(
+			ResolveLegacyRenderPalette(command.palette));
+		if (!palette) return false;
+		if (command.alphaImage != 0)
+		{
+			alpha = ResolveRenderImage(command.alphaImage);
+			if (!alpha || alpha->ubBitDepth != 8 ||
+				command.frame >= alpha->usNumberOfObjects ||
+				!alpha->pETRLEObject || !alpha->pPixData)
+				return false;
+			const ETRLEObject& alphaFrame =
+				alpha->pETRLEObject[frame];
+			if (alphaFrame.usWidth != image.usWidth ||
+				alphaFrame.usHeight != image.usHeight ||
+				alphaFrame.uiDataOffset >= alpha->uiSizePixData)
+				return false;
+		}
+	}
 
 	PlatformSurfaceMappingLease destination(command.destination);
 	if (!destination) return false;
@@ -1217,6 +1395,76 @@ bool PlatformVideoObjectDepthDraw(
 			destinationPixels, pitch, depthPixels, command.depth,
 			source, command.destinationOrigin.x,
 			command.destinationOrigin.y, frame, &clipping) != FALSE;
+	case RenderImageDepthEffect::PaletteWithShadowMarker:
+		if (fullyInside)
+		{
+			if (alpha)
+			{
+				return replaceDepth ?
+					Blt8BPPDataTo16BPPBufferTransShadowZAlpha(
+						destinationPixels, pitch, depthPixels,
+						command.depth, source, alpha,
+						command.destinationOrigin.x,
+						command.destinationOrigin.y, frame,
+						palette,
+						command.ignoreShadows ? TRUE : FALSE) != FALSE :
+					Blt8BPPDataTo16BPPBufferTransShadowZNBAlpha(
+						destinationPixels, pitch, depthPixels,
+						command.depth, source, alpha,
+						command.destinationOrigin.x,
+						command.destinationOrigin.y, frame,
+						palette,
+						command.ignoreShadows ? TRUE : FALSE) != FALSE;
+			}
+			return replaceDepth ?
+				Blt8BPPDataTo16BPPBufferTransShadowZ(
+					destinationPixels, pitch, depthPixels,
+					command.depth, source,
+					command.destinationOrigin.x,
+					command.destinationOrigin.y, frame,
+					palette,
+					command.ignoreShadows ? TRUE : FALSE) != FALSE :
+				Blt8BPPDataTo16BPPBufferTransShadowZNB(
+					destinationPixels, pitch, depthPixels,
+					command.depth, source,
+					command.destinationOrigin.x,
+					command.destinationOrigin.y, frame,
+					palette,
+					command.ignoreShadows ? TRUE : FALSE) != FALSE;
+		}
+		if (alpha)
+		{
+			return replaceDepth ?
+				Blt8BPPDataTo16BPPBufferTransShadowZClipAlpha(
+					destinationPixels, pitch, depthPixels,
+					command.depth, source, alpha,
+					command.destinationOrigin.x,
+					command.destinationOrigin.y, frame,
+					&clipping, palette,
+					command.ignoreShadows ? TRUE : FALSE) != FALSE :
+				Blt8BPPDataTo16BPPBufferTransShadowZNBClipAlpha(
+					destinationPixels, pitch, depthPixels,
+					command.depth, source, alpha,
+					command.destinationOrigin.x,
+					command.destinationOrigin.y, frame,
+					&clipping, palette,
+					command.ignoreShadows ? TRUE : FALSE) != FALSE;
+		}
+		return replaceDepth ?
+			Blt8BPPDataTo16BPPBufferTransShadowZClip(
+				destinationPixels, pitch, depthPixels,
+				command.depth, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				&clipping, palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE :
+			Blt8BPPDataTo16BPPBufferTransShadowZNBClip(
+				destinationPixels, pitch, depthPixels,
+				command.depth, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				&clipping, palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE;
 	case RenderImageDepthEffect::ShadeDestination:
 		return replaceDepth ?
 			Blt8BPPDataTo16BPPBufferShadowZClip(
@@ -1619,6 +1867,37 @@ BOOLEAN BltVideoObjectObscuredDepthToSurface(
 		pClipRegion) ? TRUE : FALSE;
 }
 
+BOOLEAN BltVideoObjectPaletteShadowDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	HVOBJECT hAlphaVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	PIXEL* pPalette,
+	BOOLEAN fIgnoreShadows,
+	const SGPRect* pClipRegion)
+{
+	RenderPaletteId palette = 0;
+	if (!FindLegacyRenderPalette(pPalette, palette))
+		return FALSE;
+	RenderImageId alphaImage = 0;
+	if (hAlphaVObject &&
+		!FindRenderImage(hAlphaVObject, alphaImage))
+		return FALSE;
+	return SubmitVideoObjectDepthDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, usDepth,
+		fWriteDepth != FALSE ?
+			RenderDepthWriteMode::ReplaceOnPass :
+			RenderDepthWriteMode::Preserve,
+		RenderImageDepthEffect::PaletteWithShadowMarker,
+		pClipRegion, palette, alphaImage,
+		fIgnoreShadows != FALSE) ? TRUE : FALSE;
+}
+
 BOOLEAN BltVideoObjectEffectToSurface(
 	UINT32 uiDestVSurface,
 	HVOBJECT hSrcVObject,
@@ -1646,6 +1925,23 @@ BOOLEAN BltVideoObjectEffectToSurface(
 	return SubmitVideoObjectEffectDraw(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
 		iDestX, iDestY, mode, pClipRegion) ? TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectPaletteShadowToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	HVOBJECT hAlphaVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	PIXEL* pPalette,
+	BOOLEAN fIgnoreShadows,
+	const SGPRect* pClipRegion)
+{
+	return SubmitVideoObjectPaletteShadowDraw(
+		uiDestVSurface, hSrcVObject, hAlphaVObject,
+		usRegionIndex, iDestX, iDestY, pPalette,
+		fIgnoreShadows, pClipRegion) ? TRUE : FALSE;
 }
 
 BOOLEAN BltVideoObjectDepthMaskToSurface(
@@ -1992,6 +2288,7 @@ BOOLEAN SetVideoObjectPalette( HVOBJECT hVObject, SGPPaletteEntry *pSrcPalette )
 	// Delete 16BPP Palette if one exists
 	if ( hVObject->p16BPPPalette != NULL )
 	{
+		UnregisterLegacyRenderPalette(hVObject->p16BPPPalette);
 		MemFree( hVObject->p16BPPPalette );
 		hVObject->p16BPPPalette = NULL;
 	}
@@ -2105,6 +2402,7 @@ UINT32 count;
 			pObj->pShades[ count ] = NULL;
 		else if ( pObj->pShades[ count ] != NULL )
 		{
+			UnregisterLegacyRenderPalette(pObj->pShades[count]);
 			MemFree( pObj->pShades[ count ] );
 			pObj->pShades[ count ] = NULL;
 		}
@@ -2347,6 +2645,8 @@ BOOLEAN f16BitPal;
 				else
 					f16BitPal = FALSE;
 
+				UnregisterLegacyRenderPalette(
+					hVObject->pShades[x]);
 				MemFree( hVObject->pShades[x] );
 				hVObject->pShades[x] = NULL;
 
@@ -2358,6 +2658,7 @@ BOOLEAN f16BitPal;
 
 	if ( hVObject->p16BPPPalette != NULL )
 	{
+		UnregisterLegacyRenderPalette(hVObject->p16BPPPalette);
 		MemFree( hVObject->p16BPPPalette );
 		hVObject->p16BPPPalette = NULL;
 	}

@@ -5,6 +5,7 @@
 	#include "worlddef.h"
 	#include "vsurface.h"
 	#include "Render Dirty.h"
+	#include "render_palette_registry.h"
 	#include "sysutil.h"
 	#include "WCheck.h"
 	#include "video.h"
@@ -171,6 +172,8 @@ void SetPalettes(HVOBJECT *hVObject, UINT32 uiIndex)
 	{
 		if ( (*hVObject)->pShades[ uiShadeSlots[uiSlot] ] != NULL )
 		{
+			UnregisterLegacyRenderPalette(
+				(*hVObject)->pShades[uiShadeSlots[uiSlot]]);
 			MemFree( (*hVObject)->pShades[ uiShadeSlots[uiSlot] ] );
 			(*hVObject)->pShades[ uiShadeSlots[uiSlot] ] = NULL;
 		}

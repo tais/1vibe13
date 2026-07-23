@@ -18,6 +18,7 @@
 #include "worldman.h"
 #include "Isometric Utils.h"
 #include "renderworld.h"
+#include "render_palette_registry.h"
 #include "video.h"
 #include "Points.h"
 #include "Sound Control.h"
@@ -2613,6 +2614,7 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 
 		if ( this->p16BPPPalette != NULL )
 		{
+			UnregisterLegacyRenderPalette(this->p16BPPPalette);
 			MemFree( this->p16BPPPalette );
 			this->p16BPPPalette = NULL;
 		}
@@ -2621,6 +2623,7 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 		{
 			if ( this->pShades[cnt] != NULL )
 			{
+				UnregisterLegacyRenderPalette(this->pShades[cnt]);
 				MemFree( this->pShades[cnt] );
 				this->pShades[cnt] = NULL;
 			}
@@ -2629,6 +2632,8 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 		{
 			if ( this->pEffectShades[cnt] != NULL )
 			{
+				UnregisterLegacyRenderPalette(
+					this->pEffectShades[cnt]);
 				MemFree( this->pEffectShades[cnt] );
 				this->pEffectShades[cnt] = NULL;
 			}
@@ -2639,6 +2644,8 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 		{
 			if ( this->pGlowShades[cnt] != NULL )
 			{
+				UnregisterLegacyRenderPalette(
+					this->pGlowShades[cnt]);
 				MemFree( this->pGlowShades[cnt] );
 				this->pGlowShades[cnt] = NULL;
 			}
@@ -8668,6 +8675,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 
 	if ( this->p16BPPPalette != NULL )
 	{
+		UnregisterLegacyRenderPalette(this->p16BPPPalette);
 		MemFree( this->p16BPPPalette );
 		this->p16BPPPalette = NULL;
 	}
@@ -8679,6 +8687,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 	{
 		if ( this->pShades[iWhich] != NULL )
 		{
+			UnregisterLegacyRenderPalette(this->pShades[iWhich]);
 			MemFree( this->pShades[iWhich] );
 			this->pShades[iWhich] = NULL;
 		}
@@ -8688,6 +8697,8 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 	{
 		if ( this->pEffectShades[iWhich] != NULL )
 		{
+			UnregisterLegacyRenderPalette(
+				this->pEffectShades[iWhich]);
 			MemFree( this->pEffectShades[iWhich] );
 			this->pEffectShades[iWhich] = NULL;
 		}
@@ -8697,6 +8708,8 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 	{
 		if ( this->pGlowShades[iWhich] != NULL )
 		{
+			UnregisterLegacyRenderPalette(
+				this->pGlowShades[iWhich]);
 			MemFree( this->pGlowShades[iWhich] );
 			this->pGlowShades[iWhich] = NULL;
 		}
@@ -14234,6 +14247,7 @@ PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UI
 
 		p16BPPPalette[cnt] = usColor;
 	}
+	(void)RegisterLegacyRenderPalette(p16BPPPalette);
 	return(p16BPPPalette);
 }
 
@@ -14301,6 +14315,7 @@ PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale
 
 		p16BPPPalette[cnt] = usColor;
 	}
+	(void)RegisterLegacyRenderPalette(p16BPPPalette);
 	return(p16BPPPalette);
 }
 
