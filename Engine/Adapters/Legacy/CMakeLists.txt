@@ -1,5 +1,6 @@
 set(engine_legacy_adapter_sources
   LegacyAudioGateway.cpp
+  LegacyFrameGateway.cpp
   LegacyXmlDocument.cpp
   LegacyVfsFile.cpp
   PlatformAssets.cpp

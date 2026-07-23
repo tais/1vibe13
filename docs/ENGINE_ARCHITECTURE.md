@@ -103,14 +103,21 @@ the engine must not contain SDL types in its public domain model.
   and `Engine/Core` never depends on SDL or the legacy debug manager.
 - `EngineServices` is the non-owning service table assembled by `GameContext`.
   Packages receive engine contracts for time, randomness, byte storage, and
-  logging, input, audio, and frame presentation while the application retains ownership of
-  SDL/VFS/legacy adapters. Headless and replay hosts can inject deterministic
-  memory input, capture audio requests, and record frame presentation without devices.
+  logging, input, audio, and frame presentation while the application retains
+  ownership of SDL/VFS/legacy adapters. Headless and replay hosts can inject
+  deterministic memory input, capture audio requests, and record frame
+  presentation without devices.
 - `Engine/Adapters/Legacy` contains the production compatibility implementations
   of engine-owned service contracts. They are compiled once into an explicit
   adapter object target and embedded in each SGP application archive. This
   keeps SDL/VFS/sound/video dependencies below the application composition
   root while making the remaining upward legacy calls visible and replaceable.
+  Existing `RefreshScreen` and `PresentNow` callers now enter a bindable
+  `FramePresenter` gateway, preserving paced versus immediate behavior while
+  allowing headless hosts to capture forced legacy presentations. Nested
+  gateway calls are suppressed and presenter exceptions cannot unwind through
+  old UI code. Raw SDL presentation entry points are private to the platform
+  adapter and protected by the architecture check.
   Its bounded XML document adapter now owns the common Expat lifetime and
   all-or-nothing asset read path used by the conventional tactical definition
   loaders, campaign/bootstrap definitions, startup layout, editor action data,
@@ -229,8 +236,11 @@ the engine must not contain SDL types in its public domain model.
 - `FrameDriver` owns the update/present/complete sequence and deterministic
   identity of every completed application frame. The live JA2 loop is routed
   through it while preserving its established screen-update, presentation,
-  clock, and network ordering. Headless hosts use the same driver with injected
-  time and presentation services instead of a window or renderer.
+  clock, and network ordering. Forced presentation from loading, progress,
+  splash, fade, and legacy UI paths reaches the same bound presenter through
+  source-compatible entry points. Headless hosts use the same driver and
+  gateway with injected time and presentation services instead of a window or
+  renderer.
 - `FrameTelemetry` records bounded, value-only phase timings and input/package
   failure totals for every completed live frame. Recording is best effort and
   cannot fail a frame, while tools and headless hosts can copy stable snapshots

@@ -1,6 +1,6 @@
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 
-#include "video.h"
+#include <Engine/Adapters/Legacy/PlatformVideoBackend.h>
 
 namespace
 {
@@ -10,14 +10,14 @@ public:
 	void present(FramePresentMode mode) override
 	{
 		if (mode == FramePresentMode::Immediate)
-			PresentNow();
+			PlatformVideoPresentImmediate();
 		else
-			RefreshScreen(nullptr);
+			PlatformVideoPresentPaced();
 	}
 };
 }
 
-FramePresenter& GetPlatformFramePresenter()
+FramePresenter& GetPlatformFramePresenter() noexcept
 {
 	static LegacyFramePresenter presenter;
 	return presenter;

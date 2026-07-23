@@ -3,6 +3,6 @@
 
 #include <Engine/Core/FramePresenter.h>
 
-FramePresenter& GetPlatformFramePresenter();
+FramePresenter& GetPlatformFramePresenter() noexcept;
 
 #endif

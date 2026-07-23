@@ -60,6 +60,7 @@
 #include <Engine/Core/RandomSource.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
@@ -2694,6 +2695,7 @@ int main( int, char** )
 		       &compiledContext.services().input == &GetPlatformInputSource() &&
 		       &compiledContext.services().audio == &GetPlatformAudioOutput() &&
 		       &compiledContext.services().frames == &GetPlatformFramePresenter() &&
+		       &compiledContext.services().frames == &GetLegacyFramePresenter() &&
 		       &compiledContext.services().assets == &compiledContext.packages().assets() &&
 		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),

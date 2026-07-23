@@ -11,6 +11,7 @@
 #include <Engine/Adapters/Legacy/PlatformInput.h>
 #include <Engine/Adapters/Legacy/PlatformAudio.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include "random.h"
@@ -35,6 +36,11 @@ GameContext& GetGameContext()
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
 		               GetPlatformFramePresenter(), GetPlatformAssetSource()},
 		packageEvents);
+	static const bool legacyFrameGatewayBound = [&] {
+		BindLegacyFramePresenter(context.services().frames);
+		return true;
+	}();
+	(void)legacyFrameGatewayBound;
 	static const bool tacticalCommandHostBound = BindJa2TacticalCommandHost(context);
 	(void)tacticalCommandHostBound;
 	static const bool tacticalEntityDirectoryBound = [&] {

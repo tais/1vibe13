@@ -17,6 +17,8 @@
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformAudio.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
+#include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
@@ -385,6 +387,29 @@ protected:
 		throw std::bad_alloc();
 	}
 };
+
+class ReentrantFramePresenter final : public FramePresenter
+{
+public:
+	void present(FramePresentMode mode) override
+	{
+		++presentations;
+		lastMode = mode;
+		PresentNow();
+	}
+
+	int presentations = 0;
+	FramePresentMode lastMode = FramePresentMode::Immediate;
+};
+
+class ThrowingFramePresenter final : public FramePresenter
+{
+public:
+	void present(FramePresentMode) override
+	{
+		throw std::runtime_error("frame presenter probe");
+	}
+};
 }
 
 int main()
@@ -393,6 +418,30 @@ int main()
 		"surface registry IDs must preserve the native pointer width");
 	std::printf("== platform_legacy_tests ==\n");
 	Check(SDL_Init(SDL_INIT_EVENTS), "SDL event subsystem initializes");
+
+	RecordingFramePresenter recordedFrames;
+	BindLegacyFramePresenter(recordedFrames);
+	RefreshScreen(nullptr);
+	PresentNow();
+	Check(recordedFrames.presentations().size() == 2 &&
+		recordedFrames.presentations()[0] == FramePresentMode::Paced &&
+		recordedFrames.presentations()[1] == FramePresentMode::Immediate,
+		"legacy frame entry points preserve pacing while using the bound engine presenter");
+
+	ReentrantFramePresenter reentrantFrames;
+	BindLegacyFramePresenter(reentrantFrames);
+	Check(PresentLegacyFrame(FramePresentMode::Paced) &&
+		reentrantFrames.presentations == 1 &&
+		reentrantFrames.lastMode == FramePresentMode::Paced,
+		"legacy frame gateway suppresses recursive presentation");
+
+	ThrowingFramePresenter throwingFrames;
+	BindLegacyFramePresenter(throwingFrames);
+	Check(!PresentLegacyFrame(FramePresentMode::Immediate),
+		"legacy frame gateway contains presenter exceptions");
+	ResetLegacyFramePresenter();
+	Check(&GetLegacyFramePresenter() == &GetPlatformFramePresenter(),
+		"legacy frame gateway resets to the SDL platform presenter");
 
 	const std::filesystem::path root = std::filesystem::temp_directory_path() /
 		("ja2-platform-legacy-" + std::to_string(
@@ -990,6 +1039,9 @@ int main()
 	Check(videoInitialized, "SDL dummy video manager initializes");
 	if (videoInitialized)
 	{
+		Check(PresentLegacyFrame(FramePresentMode::Paced) &&
+			PresentLegacyFrame(FramePresentMode::Immediate),
+			"default frame gateway reaches paced and immediate SDL presentation");
 		const bool videoObjectsInitialized = InitializeVideoObjectManager();
 		Check(videoObjectsInitialized,
 			"video object registry initializes from an empty lifetime");
