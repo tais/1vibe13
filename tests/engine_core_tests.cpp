@@ -2514,7 +2514,7 @@ int main()
 	const RenderImageDrawCommand imageCommand{
 		51, 901, 7, RenderSurfacePoint{-3, 12},
 		RenderSurfaceRegion{-8, 0, 100, 80},
-		RenderImageCompositeMode::Shadow};
+		RenderImageCompositeMode::Intensity};
 	const RenderImageDepthDrawCommand imageDepthCommand{
 		51, 61, 903, 9, RenderSurfacePoint{-5, 14},
 		RenderSurfaceRegion{-4, 2, 96, 72}, 0x3456,

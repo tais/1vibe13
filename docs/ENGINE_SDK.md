@@ -336,11 +336,13 @@ ordering value and never touches row padding. It is intentionally separate from
 RGB565 colour work: colour fill, copy, stretch, and shade reject depth surfaces.
 `RenderImageDrawCommand` identifies a host-owned image and frame with opaque
 stable values, plus a destination anchor and explicit opaque,
-source-transparent, or shadow composite mode. Its half-open clipping region is
-part of the command, so recording and forwarding hosts do not depend on mutable
-renderer-global clip state. Image-local offsets, compression, palettes, and
-physical storage remain adapter concerns; engine and package code never
-receives an `HVOBJECT` or ETRLE pointer.
+source-transparent, destination-shadow, or destination-intensity composite
+mode. Shadow and intensity treat visible source runs as a mask over the existing
+destination; the platform adapter retains their exact shade-table behavior.
+The half-open clipping region is part of the command, so recording and
+forwarding hosts do not depend on mutable renderer-global clip state.
+Image-local offsets, compression, palettes, and physical storage remain adapter
+concerns; engine and package code never receives an `HVOBJECT` or ETRLE pointer.
 `RenderImageOutlineCommand` uses the same stable image identity and explicit
 clip while distinguishing colour-outline rendering from body-shadow rendering.
 Its RGBA colour and `drawOutline` switch replace packed framebuffer colours and
@@ -369,8 +371,9 @@ the preserve-depth policy instead of selecting its writing compatibility
 blitter. Every successfully created host video object receives a stable opaque
 render identity without changing its legacy manager handle; deletion retires
 that identity before releasing image storage. Rejecting hosts and manually
-assembled fixtures
-fall back to the exact old blitter. Other direct pointer-owned image operations
+assembled fixtures fall back to the exact old blitter. Basic non-depth
+transparent, shadow, and intensity tactical sprites use the regular image
+command with the same fallback. Other direct pointer-owned image operations
 remain on the compatibility path until their individual semantics migrate.
 The platform surface adapter reference-counts nested maps and rejects deletion
 or replacement through a live mapping. Legacy packed colours, mutable shade
