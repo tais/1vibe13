@@ -3,6 +3,7 @@ set(engine_legacy_adapter_sources
   LegacyFrameGateway.cpp
   LegacyFrameInvalidationGateway.cpp
   LegacyXmlDocument.cpp
+  LegacyRenderSurfaceGateway.cpp
   LegacyVfsFile.cpp
   PlatformAssets.cpp
   PlatformAudio.cpp
@@ -11,6 +12,7 @@ set(engine_legacy_adapter_sources
   PlatformFramePresenter.cpp
   PlatformInput.cpp
   PlatformLog.cpp
+  PlatformRenderSurfaceAccess.cpp
   PlatformTime.cpp)
 
 # These adapters intentionally point upward into the compatibility layer while

@@ -9,6 +9,7 @@
 #include <Engine/Core/InputSource.h>
 #include <Engine/Core/LogSink.h>
 #include <Engine/Core/RandomSource.h>
+#include <Engine/Core/RenderSurfaceAccess.h>
 #include <Engine/Core/TimeSource.h>
 
 // Non-owning engine service table. The application owns adapters for at least
@@ -28,6 +29,7 @@ struct EngineServices
 	FramePresenter& frames = NullFramePresenter::instance();
 	const AssetSource& assets = NullAssetSource::instance();
 	FrameInvalidator& frameInvalidation = NullFrameInvalidator::instance();
+	RenderSurfaceAccess& renderSurfaces = NullRenderSurfaceAccess::instance();
 
 	static EngineServices defaults()
 	{

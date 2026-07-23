@@ -30,6 +30,7 @@
 
 #include <Engine/Core/StableResourceRegistry.h>
 #include <Engine/Core/UniqueResourcePtr.h>
+#include <Engine/Adapters/Legacy/PlatformVideoSurfaceBackend.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -641,14 +642,21 @@ BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 	return TRUE;
 }
 
-BOOLEAN GetVideoSurfaceDescription(UINT32 uiIndex, UINT16* usWidth, UINT16* usHeight, UINT8* ubBitDepth)
+bool PlatformVideoSurfaceDescribe(
+	std::uint32_t uiIndex,
+	std::uint32_t& width,
+	std::uint32_t& height,
+	std::uint8_t& contentBitDepth,
+	std::uint8_t& pixelBytes)
 {
 	HVSURFACE s = nullptr;
-	if (!GetVideoSurface(&s, uiIndex) || !s) return FALSE;
-	if (usWidth)    *usWidth    = s->usWidth;
-	if (usHeight)   *usHeight   = s->usHeight;
-	if (ubBitDepth) *ubBitDepth = s->ubBitDepth;
-	return TRUE;
+	if (!GetVideoSurface(&s, uiIndex) || !s) return false;
+	width = s->usWidth;
+	height = s->usHeight;
+	contentBitDepth = s->ubBitDepth;
+	pixelBytes = static_cast<std::uint8_t>(
+		BytesPerPixelFor(s->ubBitDepth));
+	return true;
 }
 
 BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
@@ -661,23 +669,29 @@ BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 
 void UnLockVideoSurfaceBuffer(HVSURFACE /*hVSurface*/) {}
 
-BYTE* LockVideoSurface(UINT32 uiVSurface, UINT32* puiPitch)
+std::uint8_t* PlatformVideoSurfaceMap(
+	std::uint32_t uiVSurface, std::uint32_t& pitchBytes)
 {
 	if (iUseWinFonts) CurrentSurface = uiVSurface;
 	switch (uiVSurface)
 	{
-	case PRIMARY_SURFACE: return SurfaceData::SetSurfaceData(uiVSurface, (BYTE*)LockPrimarySurface(puiPitch));
-	case BACKBUFFER:      return SurfaceData::SetSurfaceData(uiVSurface, (BYTE*)LockBackBuffer(puiPitch));
-	case FRAME_BUFFER:    return SurfaceData::SetSurfaceData(uiVSurface, (BYTE*)LockFrameBuffer(puiPitch));
-	case MOUSE_BUFFER:    return SurfaceData::SetSurfaceData(uiVSurface, (BYTE*)LockMouseBuffer(puiPitch));
+	case PRIMARY_SURFACE: return SurfaceData::SetSurfaceData(
+		uiVSurface, (BYTE*)LockPrimarySurface(&pitchBytes));
+	case BACKBUFFER: return SurfaceData::SetSurfaceData(
+		uiVSurface, (BYTE*)LockBackBuffer(&pitchBytes));
+	case FRAME_BUFFER: return SurfaceData::SetSurfaceData(
+		uiVSurface, (BYTE*)LockFrameBuffer(&pitchBytes));
+	case MOUSE_BUFFER: return SurfaceData::SetSurfaceData(
+		uiVSurface, (BYTE*)LockMouseBuffer(&pitchBytes));
 	default: break;
 	}
 	HVSURFACE const surface = FindSurfaceByIndex(uiVSurface);
 	if (!surface) return nullptr;
-	return SurfaceData::SetSurfaceData(uiVSurface, LockVideoSurfaceBuffer(surface, puiPitch));
+	return SurfaceData::SetSurfaceData(
+		uiVSurface, LockVideoSurfaceBuffer(surface, &pitchBytes));
 }
 
-void UnLockVideoSurface(UINT32 uiVSurface)
+void PlatformVideoSurfaceUnmap(std::uint32_t uiVSurface)
 {
 	SurfaceData::ReleaseSurfaceData(uiVSurface);
 	switch (uiVSurface)

@@ -69,6 +69,7 @@ set(legacy_compatibility_headers
   expat.h
   soundman.h
   video.h
+  vsurface.h
   SDL3/SDL_log.h)
 
 foreach(adapter_file IN LISTS legacy_adapter_files)
@@ -94,8 +95,10 @@ endforeach()
 # change instead of an incidental include.
 set(platform_video_adapter_consumers
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoBackend.h"
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoSurfaceBackend.h"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformFramePresenter.cpp"
-  "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformFrameInvalidator.cpp")
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformFrameInvalidator.cpp"
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.cpp")
 foreach(adapter_file IN LISTS legacy_adapter_files)
   list(FIND platform_video_adapter_consumers
     "${adapter_file}" platform_video_consumer_index)
@@ -104,7 +107,7 @@ foreach(adapter_file IN LISTS legacy_adapter_files)
   endif()
   file(READ "${adapter_file}" contents)
   string(REGEX MATCH
-    "PlatformVideoBackend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "PlatformVideo(Surface)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface)[A-Za-z0-9_]*[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
@@ -291,18 +294,22 @@ endforeach()
 # Raw SDL frame output belongs to the platform adapters. The video manager
 # implements that backend, while normal FrameDriver work and established
 # RefreshScreen/PresentNow/Invalidate* callers cross engine-owned contracts.
-set(platform_video_backend_owner "${SOURCE_ROOT}/sgp/sdl_video.cpp")
+set(platform_video_backend_owners
+  "${SOURCE_ROOT}/sgp/sdl_video.cpp"
+  "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp")
 foreach(source_file IN LISTS world_state_files)
-  if("${source_file}" STREQUAL "${platform_video_backend_owner}")
+  list(FIND platform_video_backend_owners
+    "${source_file}" platform_video_backend_owner_index)
+  if(NOT platform_video_backend_owner_index EQUAL -1)
     continue()
   endif()
   file(READ "${source_file}" contents)
   string(REGEX MATCH
-    "PlatformVideoBackend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "PlatformVideo(Surface)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface)[A-Za-z0-9_]*[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
-      "Production code bypasses the engine frame gateway in ${source_file}; use FramePresenter, FrameInvalidator, or the public compatibility API")
+      "Production code bypasses an engine renderer gateway in ${source_file}; use FramePresenter, FrameInvalidator, RenderSurfaceAccess, or the public compatibility API")
   endif()
 endforeach()
 
