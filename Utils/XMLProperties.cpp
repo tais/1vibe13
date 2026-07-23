@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include <vfs/Core/vfs_types.h>
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_file_raii.h>
@@ -123,6 +125,26 @@ private:
 	vfs::String						current_key;
 };
 
+struct PropertyParserContext
+{
+	PropertyParserContext(vfs::PropertyContainer& container,
+		vfs::PropertyContainer::TagMap& tagmap)
+		: document(container, tagmap, parser, NULL)
+	{
+	}
+
+	XML_Parser parser = NULL;
+	CPropertyXMLParser document;
+};
+
+static void PreparePropertyParser(XML_Parser parser, void *userData)
+{
+	PropertyParserContext *context =
+		(PropertyParserContext *)userData;
+	context->parser = parser;
+	context->document.grabParser();
+}
+
 
 void CPropertyXMLParser::onStartElement(const XML_Char *name, const XML_Char **atts)
 {
@@ -206,23 +228,23 @@ bool vfs::PropertyContainer::initFromXMLFile(vfs::Path const& sFileName, vfs::Pr
 	file->close();
 	if(delete_file) delete file;
 
-	XML_Parser parser = XML_ParserCreate(NULL);
-
-	CPropertyXMLParser pp(*this,tagmap,parser,NULL);
-	pp.grabParser();
-
-	if(!XML_Parse(parser, &buffer[0], size, TRUE))
+	PropertyParserContext context(*this, tagmap);
+	LegacyXmlCallbacks callbacks;
+	callbacks.userData = &context;
+	callbacks.parserReady = PreparePropertyParser;
+	const LegacyXmlResult result =
+		ParseLegacyXmlBytes(&buffer[0], size, callbacks);
+	if (!result)
 	{
+		const std::string logicalPath = sFileName.to_string();
+		const auto message =
+			FormatLegacyXmlFailure(logicalPath.c_str(), result);
+		const std::wstring wideMessage =
+			vfs::String::as_utf16(message.data());
 		std::wstringstream wss;
-		wss << L"XML Parser Error in Groups.xml: "
-			<< vfs::String::as_utf16(XML_ErrorString(XML_GetErrorCode(parser)))
-			<< L" at line "
-			<< XML_GetCurrentLineNumber(parser);
-		XML_ParserFree(parser);  // grabParser() only re-points callbacks; nothing else frees it
+		wss << wideMessage;
 		SGP_THROW(wss.str().c_str());
-		//return false;
 	}
 
-	XML_ParserFree(parser);
 	return true;
 }

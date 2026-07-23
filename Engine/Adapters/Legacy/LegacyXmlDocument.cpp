@@ -93,6 +93,8 @@ LegacyXmlResult ParseLegacyXmlBytes(const void* bytes, std::size_t byteCount,
 		XML_SetElementHandler(parser.get(),
 			callbacks.startElement, callbacks.endElement);
 		XML_SetCharacterDataHandler(parser.get(), callbacks.characterData);
+		if (callbacks.parserReady)
+			callbacks.parserReady(parser.get(), callbacks.userData);
 		if (callbacks.beforeParse) callbacks.beforeParse(callbacks.userData);
 
 		static constexpr char emptyDocument = '\0';

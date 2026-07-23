@@ -27,6 +27,8 @@ enum class LegacyXmlStatus
 };
 
 using LegacyXmlBeforeParseHandler = void (*)(void* userData);
+using LegacyXmlParserReadyHandler =
+	void (*)(XML_Parser parser, void* userData);
 
 struct LegacyXmlCallbacks
 {
@@ -39,6 +41,10 @@ struct LegacyXmlCallbacks
 	// cannot be read, allowing legacy table replacement to remain transactional
 	// with respect to missing and I/O-failed files.
 	LegacyXmlBeforeParseHandler beforeParse = nullptr;
+	// Runs after the default callbacks are installed and before beforeParse.
+	// Object-oriented legacy readers may rebind the parser here, but ownership
+	// remains with this adapter for the complete parse lifetime.
+	LegacyXmlParserReadyHandler parserReady = nullptr;
 };
 
 struct LegacyXmlResult

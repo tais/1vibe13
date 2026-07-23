@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "FileMan.h"
 #include "Item Types.h"
@@ -93,16 +95,35 @@ bool firstUIFlagEncountered = true;
 int y = 20;							// Where to start showing errors on the screen
 int errorsLeftBeforeGivingUp = 5;	// This many then we stop reporting them
 
-static void DisplayAndLogParserError (const char *err, const XML_Char *name) {
-	if (errorsLeftBeforeGivingUp-- == 0)
+static void DisplayAndLogMessage(const char *message)
+{
+	if (errorsLeftBeforeGivingUp <= 0)
 		return;
-	CHAR8 errorBuf[511];
-	sprintf(errorBuf, "XML Parser Error at line %d in file %s: %s %s", XML_GetCurrentLineNumber(parser), gFileName, err, name);
-	LiveMessage(errorBuf);
+	--errorsLeftBeforeGivingUp;
+	LiveMessage(message);
 	CHAR16 str[511];
-	swprintf( str, L"%S", errorBuf );
+	swprintf( str, L"%S", message );
     DisplayWrappedString( 10, y+=28, 630, 2, FONT12ARIAL, FONT_RED, str, FONT_BLACK, TRUE, LEFT_JUSTIFIED );
 	errorInData = true;
+}
+
+static void DisplayAndLogParserErrorAtLine(
+	UINT64 line, const char *err, const XML_Char *name)
+{
+	CHAR8 errorBuf[511];
+	snprintf(errorBuf, sizeof(errorBuf),
+		"XML Parser Error at line %llu in file %s: %s %s",
+		(unsigned long long)line,
+		gFileName ? gFileName : "<invalid path>",
+		err ? err : "unknown parser error",
+		name ? name : "");
+	errorBuf[sizeof(errorBuf) - 1] = '\0';
+	DisplayAndLogMessage(errorBuf);
+}
+
+static void DisplayAndLogParserError (const char *err, const XML_Char *name) {
+	DisplayAndLogParserErrorAtLine(
+		parser ? XML_GetCurrentLineNumber(parser) : 0, err, name);
 }
 
 #define NameIs(a) (strcmp(name, a) == 0)
@@ -620,42 +641,21 @@ inventoryEndElementHandle(void *userData, const XML_Char *name)
 
 
 
+static void PrepareInventoryParser(XML_Parser activeParser, void*)
+{
+	parser = activeParser;
+}
+
 BOOLEAN ReadInInventoryStats(DEALER_POSSIBLE_INV *pInv, STR fileName)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
 	gFileName = fileName;
+	errorInData = false;
+	errorsLeftBeforeGivingUp = 5;
+	y = 20;
 
 	inventoryParseData pData;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading Inventory.xml" );
-
-	// Open inventory file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( FALSE );
-
-	parser = XML_ParserCreate(NULL);
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		FileClose(hFile);
-		XML_ParserFree(parser);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-	FileClose( hFile );
-
-	XML_SetElementHandler(parser, inventoryStartElementHandle, inventoryEndElementHandle);
-	XML_SetCharacterDataHandler(parser, inventoryCharacterDataHandle);
 
 	// Set the default values
 	memset(&pData,0,sizeof(pData));
@@ -664,16 +664,28 @@ BOOLEAN ReadInInventoryStats(DEALER_POSSIBLE_INV *pInv, STR fileName)
 	pData.curArray = pInv;
 	pData.maxArraySize = MAXITEMS;
 
-	XML_SetUserData(parser, &pData);
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	LegacyXmlCallbacks callbacks{
+		&pData, inventoryStartElementHandle, inventoryEndElementHandle,
+		inventoryCharacterDataHandle};
+	callbacks.parserReady = PrepareInventoryParser;
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	parser = 0;
+	if (!result)
 	{
-		DisplayAndLogParserError (XML_ErrorString(XML_GetErrorCode(parser)), "");
-		errorInData = true;
+		if (result.status == LegacyXmlStatus::Malformed)
+		{
+			DisplayAndLogParserErrorAtLine(
+				result.line, XML_ErrorString(result.parserError), "");
+		}
+		else if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			DisplayAndLogMessage(message.data());
+		}
+		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-	XML_ParserFree(parser);
 
 	if (errorInData)
 		// Assume message already generated
