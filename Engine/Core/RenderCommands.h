@@ -178,10 +178,57 @@ inline bool operator!=(
 	return !(left == right);
 }
 
+// Opaque image identity supplied by the host's render-resource adapter. Zero
+// is reserved as "no image". Unlike a native pointer, this value can be
+// recorded, inspected by headless hosts, and forwarded across an engine
+// boundary without exposing the backing image representation.
+using RenderImageId = std::uint64_t;
+
+enum class RenderImageCompositeMode : std::uint8_t
+{
+	Opaque,
+	SourceTransparency,
+	Shadow
+};
+
+// Draws one frame/sub-image at its anchor point inside an explicit half-open
+// clipping region. Image-local offsets, palettes, compression, and physical
+// storage remain responsibilities of the host adapter; callers and recording
+// hosts see only stable engine values.
+struct RenderImageDrawCommand
+{
+	RenderSurfaceId destination = 0;
+	RenderImageId image = 0;
+	std::uint32_t frame = 0;
+	RenderSurfacePoint destinationOrigin;
+	RenderSurfaceRegion clippingRegion;
+	RenderImageCompositeMode mode =
+		RenderImageCompositeMode::SourceTransparency;
+};
+
+inline bool operator==(
+	const RenderImageDrawCommand& left,
+	const RenderImageDrawCommand& right)
+{
+	return left.destination == right.destination &&
+		left.image == right.image &&
+		left.frame == right.frame &&
+		left.destinationOrigin == right.destinationOrigin &&
+		left.clippingRegion == right.clippingRegion &&
+		left.mode == right.mode;
+}
+
+inline bool operator!=(
+	const RenderImageDrawCommand& left,
+	const RenderImageDrawCommand& right)
+{
+	return !(left == right);
+}
+
 // High-level renderer boundary. Commands use engine values and opaque surface
-// identities; hosts decide whether to execute, record, forward, or reject them.
-// New command methods default to rejection so existing external sinks remain
-// source-compatible as the SDK surface grows.
+// and image identities; hosts decide whether to execute, record, forward, or
+// reject them. New command methods default to rejection so existing external
+// sinks remain source-compatible as the SDK surface grows.
 class RenderCommandSink
 {
 public:
@@ -193,6 +240,7 @@ public:
 		return false;
 	}
 	virtual bool shadeSurface(const RenderSurfaceShadeCommand&) { return false; }
+	virtual bool drawImage(const RenderImageDrawCommand&) { return false; }
 };
 
 class NullRenderCommandSink final : public RenderCommandSink
@@ -205,6 +253,7 @@ public:
 		return false;
 	}
 	bool shadeSurface(const RenderSurfaceShadeCommand&) override { return false; }
+	bool drawImage(const RenderImageDrawCommand&) override { return false; }
 	static NullRenderCommandSink& instance()
 	{
 		static NullRenderCommandSink commands;
@@ -239,6 +288,12 @@ public:
 		return accepting_;
 	}
 
+	bool drawImage(const RenderImageDrawCommand& command) override
+	{
+		imageCommands_.push_back(command);
+		return accepting_;
+	}
+
 	const std::vector<RenderSurfaceFillCommand>& commands() const
 	{
 		return fillCommands_;
@@ -255,6 +310,10 @@ public:
 	{
 		return shadeCommands_;
 	}
+	const std::vector<RenderImageDrawCommand>& imageCommands() const
+	{
+		return imageCommands_;
+	}
 	void setAccepting(bool accepting) { accepting_ = accepting; }
 	void clear()
 	{
@@ -262,6 +321,7 @@ public:
 		copyCommands_.clear();
 		stretchCommands_.clear();
 		shadeCommands_.clear();
+		imageCommands_.clear();
 	}
 
 private:
@@ -269,6 +329,7 @@ private:
 	std::vector<RenderSurfaceCopyCommand> copyCommands_;
 	std::vector<RenderSurfaceStretchCommand> stretchCommands_;
 	std::vector<RenderSurfaceShadeCommand> shadeCommands_;
+	std::vector<RenderImageDrawCommand> imageCommands_;
 	bool accepting_ = true;
 };
 

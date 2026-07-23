@@ -120,21 +120,30 @@ the engine must not contain SDL types in its public domain model.
   preserving clipping, union, full-redraw, and change-marker behavior while
   making damage captureable without a renderer. `RenderSurfaceAccess` is the
   lower pixel-storage seam: surface roles, descriptions, and mapped bytes are
-  engine values, while the established numeric SGP handles and every existing
-  pointer-based blitter remain compatibility adapters. `RenderCommandSink` is
-  the higher-level draw seam; live rectangle fills and numeric surface copies
-  cross it alongside numeric surface stretching and rectangular shading, then
-  execute through the same compiled mapped-surface implementation available to
-  headless hosts. Copy and nearest-neighbour stretch commands cover clipped
+  engine values, while the established numeric SGP handles remain compatibility
+  adapters. `RenderCommandSink` is the higher-level draw seam; live rectangle
+  fills and numeric surface copies cross it alongside numeric surface
+  stretching, rectangular shading, and managed video-object draws.
+  `RenderImageDrawCommand` carries only an opaque stable image identity, frame,
+  destination, anchor, explicit clipping region, and composite mode. Numeric
+  `BltVideoObjectFromIndex` calls and direct `BltVideoObject` calls whose object
+  belongs to the stable manager therefore traverse the same bindable service
+  used by packages and headless recorders. The production sink resolves that
+  identity and executes the established ETRLE/palette blitter, so asset formats,
+  clipping, shade palettes, and physical pixels remain unchanged.
+  Application-owned pointer images that have not yet entered the stable
+  registry deliberately retain their exact compatibility path instead of
+  exposing process pointers as engine resource IDs. Copy and nearest-neighbour
+  stretch commands cover clipped
   opaque and RGB-colour-key operations, including defined same-surface overlap;
   shade commands preserve alpha and carry their factor explicitly. Legacy
   packed colours, mutable shade percentages, and RGB565 transparency tokens are
-  decoded only in the compatibility gateway. Legacy image tiling is now a
-  bounded, clipped compatibility operation instead of a stub. Mapping is
-  serialized with renderer lifetime and storage remains adapter-owned. Raw
-  SGP/SDL presentation, invalidation, and surface-mapping entry points are
-  private to the platform adapters, while ownership of legacy draw entry points
-  is protected by the architecture check.
+  decoded only in compatibility code. Legacy image tiling is now a bounded,
+  clipped compatibility operation instead of a stub. Mapping is serialized with
+  renderer lifetime and storage remains adapter-owned. Raw SGP/SDL presentation,
+  invalidation, surface-mapping, and managed-image execution entry points are
+  private to platform adapters, while ownership of legacy draw entry points is
+  protected by the architecture check.
   Its bounded XML document adapter now owns the common Expat lifetime and
   all-or-nothing asset read path used by the conventional tactical definition
   loaders, campaign/bootstrap definitions, startup layout, editor action data,

@@ -576,19 +576,29 @@ public:
 		nestedShadeAccepted = ShadeLegacyRenderSurface(command);
 		return true;
 	}
+	bool drawImage(const RenderImageDrawCommand& command) override
+	{
+		++images;
+		lastImageCommand = command;
+		nestedImageAccepted = DrawLegacyRenderImage(command);
+		return true;
+	}
 
 	int fills = 0;
 	int copies = 0;
 	int stretches = 0;
 	int shades = 0;
+	int images = 0;
 	bool nestedAccepted = true;
 	bool nestedCopyAccepted = true;
 	bool nestedStretchAccepted = true;
 	bool nestedShadeAccepted = true;
+	bool nestedImageAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
 	RenderSurfaceCopyCommand lastCopyCommand;
 	RenderSurfaceStretchCommand lastStretchCommand;
 	RenderSurfaceShadeCommand lastShadeCommand;
+	RenderImageDrawCommand lastImageCommand;
 };
 
 class ThrowingRenderCommandSink final : public RenderCommandSink
@@ -609,6 +619,10 @@ public:
 	bool shadeSurface(const RenderSurfaceShadeCommand&) override
 	{
 		throw std::runtime_error("render shade command probe");
+	}
+	bool drawImage(const RenderImageDrawCommand&) override
+	{
+		throw std::runtime_error("render image command probe");
 	}
 };
 }
@@ -760,10 +774,15 @@ int main()
 		RenderSurfaceCopyMode::Opaque, {}};
 	const RenderSurfaceShadeCommand expectedShadeCommand{
 		71, RenderSurfaceRegion{1, 2, 5, 6}, 48, 100};
+	const RenderImageDrawCommand expectedImageCommand{
+		71, 88, 3, RenderSurfacePoint{-4, 9},
+		RenderSurfaceRegion{1, 2, 30, 40},
+		RenderImageCompositeMode::SourceTransparency};
 	Check(ColorFillVideoSurfaceArea(71, 5, 6, 1, 2, legacyRed) &&
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
+		DrawLegacyRenderImage(expectedImageCommand) &&
 		recordedRenderCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{expectedFillCommand} &&
 		recordedRenderCommands.copyCommands() ==
@@ -771,7 +790,9 @@ int main()
 		recordedRenderCommands.stretchCommands() ==
 			std::vector<RenderSurfaceStretchCommand>{expectedStretchCommand} &&
 		recordedRenderCommands.shadeCommands() ==
-			std::vector<RenderSurfaceShadeCommand>{expectedShadeCommand},
+			std::vector<RenderSurfaceShadeCommand>{expectedShadeCommand} &&
+		recordedRenderCommands.imageCommands() ==
+			std::vector<RenderImageDrawCommand>{expectedImageCommand},
 		"legacy surface drawing submits every portable render command");
 
 	ReentrantRenderCommandSink reentrantRenderCommands;
@@ -780,19 +801,23 @@ int main()
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
+		DrawLegacyRenderImage(expectedImageCommand) &&
 		reentrantRenderCommands.fills == 1 &&
 		reentrantRenderCommands.copies == 1 &&
 		reentrantRenderCommands.stretches == 1 &&
 		reentrantRenderCommands.shades == 1 &&
+		reentrantRenderCommands.images == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
 		reentrantRenderCommands.lastCopyCommand == expectedCopyCommand &&
 		reentrantRenderCommands.lastStretchCommand ==
 			expectedStretchCommand &&
 		reentrantRenderCommands.lastShadeCommand == expectedShadeCommand &&
+		reentrantRenderCommands.lastImageCommand == expectedImageCommand &&
 		!reentrantRenderCommands.nestedAccepted &&
 		!reentrantRenderCommands.nestedCopyAccepted &&
 		!reentrantRenderCommands.nestedStretchAccepted &&
-		!reentrantRenderCommands.nestedShadeAccepted,
+		!reentrantRenderCommands.nestedShadeAccepted &&
+		!reentrantRenderCommands.nestedImageAccepted,
 		"legacy render command gateway suppresses recursive drawing");
 
 	ThrowingRenderCommandSink throwingRenderCommands;
@@ -800,7 +825,8 @@ int main()
 	Check(!FillLegacyRenderSurface(expectedFillCommand) &&
 		!CopyLegacyRenderSurface(expectedCopyCommand) &&
 		!StretchLegacyRenderSurface(expectedStretchCommand) &&
-		!ShadeLegacyRenderSurface(expectedShadeCommand),
+		!ShadeLegacyRenderSurface(expectedShadeCommand) &&
+		!DrawLegacyRenderImage(expectedImageCommand),
 		"legacy render command gateway contains adapter exceptions");
 	ResetLegacyRenderCommands();
 	ResetLegacyRenderSurfaceAccess();
@@ -1468,6 +1494,36 @@ int main()
 		HVOBJECT managedObject = nullptr;
 		objectSequenceStable = objectSequenceStable && managedObjectIDs.size() == 32 &&
 			GetVideoObject(&managedObject, managedObjectIDs.back()) && managedObject;
+		RecordingRenderCommandSink recordedObjectDraws;
+		BindLegacyRenderCommands(recordedObjectDraws);
+		SGPRect previousObjectClip;
+		GetClippingRect(&previousObjectClip);
+		SGPRect routedObjectClip{1, 2, 31, 32};
+		SetClippingRect(&routedObjectClip);
+		const bool indexedObjectRouted = objectSequenceStable &&
+			BltVideoObjectFromIndex(
+				7'123, managedObjectIDs.back(), 0, -3, 9,
+				VO_BLT_SRCTRANSPARENCY, nullptr);
+		const bool resolvedObjectRouted = objectSequenceStable &&
+			BltVideoObject(
+				7'124, managedObject, 0, 4, -5,
+				VO_BLT_SHADOW, nullptr);
+		ClippingRect = previousObjectClip;
+		ResetLegacyRenderCommands();
+		const std::vector<RenderImageDrawCommand> expectedObjectDraws{
+			RenderImageDrawCommand{
+				7'123, managedObjectIDs.back(), 0,
+				RenderSurfacePoint{-3, 9},
+				RenderSurfaceRegion{1, 2, 31, 32},
+				RenderImageCompositeMode::SourceTransparency},
+			RenderImageDrawCommand{
+				7'124, managedObjectIDs.back(), 0,
+				RenderSurfacePoint{4, -5},
+				RenderSurfaceRegion{1, 2, 31, 32},
+				RenderImageCompositeMode::Shadow}};
+		Check(indexedObjectRouted && resolvedObjectRouted &&
+			recordedObjectDraws.imageCommands() == expectedObjectDraws,
+			"managed video-object draws cross the engine image command boundary");
 		for (UINT32 objectID : managedObjectIDs)
 			objectSequenceStable = DeleteVideoObjectFromIndex(objectID) &&
 				objectSequenceStable;
@@ -1502,6 +1558,7 @@ int main()
 		gpWorldLevelData = &testWorld;
 
 		LEVELNODE existingNode{};
+		existingNode.pAniTile = nullptr;
 		existingNode.uiFlags = LEVELNODE_REVEAL;
 		existingNode.sCurrentFrame = 0;
 		ANITILE_PARAMS existingParams{};
@@ -1565,6 +1622,7 @@ int main()
 			"out-of-range animation frames reject before node publication");
 
 		LEVELNODE pauseNode{};
+		pauseNode.pAniTile = nullptr;
 		const UINT32 pauseOriginalFlags =
 			LEVELNODE_REVEAL | LEVELNODE_NOZBLITTER;
 		pauseNode.uiFlags = pauseOriginalFlags;
@@ -1586,6 +1644,7 @@ int main()
 			pauseNode.sCurrentFrame == 0,
 			"existing animation teardown restores owned flags and invalid frame state");
 		LEVELNODE fourDirectionNode{};
+		fourDirectionNode.pAniTile = nullptr;
 		existingParams.pGivenLevelNode = &fourDirectionNode;
 		existingParams.uiFlags = ANITILE_EXISTINGTILE | ANITILE_FORWARD |
 			ANITILE_USE_4DIRECTION_FOR_START_FRAME;
@@ -1839,6 +1898,62 @@ int main()
 			copiedRedDestination == copiedRed &&
 			copiedGreenDestination == copiedGreen,
 			"mapped legacy blits skip the key and copy exact live pixels");
+
+		UINT32 liveImageID = 0;
+		HVOBJECT liveImage = nullptr;
+		const bool liveImageCreated =
+			AddStandardVideoObject(
+				&managedObjectDescription, &liveImageID) &&
+			GetVideoObject(&liveImage, liveImageID) && liveImage;
+		SGPRect imageOriginalClip;
+		GetClippingRect(&imageOriginalClip);
+		SGPRect imageSurfaceClip{
+			0, 0,
+			static_cast<INT32>(copySurfaceDescription.usWidth),
+			static_cast<INT32>(copySurfaceDescription.usHeight)};
+		SetClippingRect(&imageSurfaceClip);
+		const bool explicitClipAccepted = liveImageCreated &&
+			GetPlatformRenderCommands().drawImage(RenderImageDrawCommand{
+				copyDestinationID, liveImageID, 0,
+				RenderSurfacePoint{0, 2},
+				RenderSurfaceRegion{1, 2, 5, 3},
+				RenderImageCompositeMode::SourceTransparency});
+		const bool indexedImageDrawn = liveImageCreated &&
+			BltVideoObjectFromIndex(
+				copyDestinationID, liveImageID, 0, 1, 2,
+				VO_BLT_SRCTRANSPARENCY, nullptr);
+		const bool resolvedImageDrawn = liveImageCreated &&
+			BltVideoObject(
+				copyDestinationID, liveImage, 0, 2, 2,
+				VO_BLT_SRCTRANSPARENCY, nullptr);
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		PIXEL clippedImagePixel = 1;
+		PIXEL indexedImagePixel = 0;
+		PIXEL resolvedImagePixel = 0;
+		if (copyDestinationPixels)
+		{
+			const PIXEL* const imageRow = reinterpret_cast<const PIXEL*>(
+				reinterpret_cast<const BYTE*>(copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			clippedImagePixel = imageRow[0];
+			indexedImagePixel = imageRow[1];
+			resolvedImagePixel = imageRow[2];
+			UnLockVideoSurface(copyDestinationID);
+		}
+		ClippingRect = imageOriginalClip;
+		Check(explicitClipAccepted && indexedImageDrawn &&
+			resolvedImageDrawn &&
+			copyDestinationPixels &&
+			clippedImagePixel == 0 &&
+			indexedImagePixel == copiedRed &&
+			resolvedImagePixel == copiedRed,
+			"engine image commands retain explicit clipping and exact ETRLE pixels");
+		Check(!liveImageCreated ||
+			DeleteVideoObjectFromIndex(liveImageID),
+			"engine-routed image resources release through the stable registry");
 
 		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
 		copySourcePixels = copySurfacesCreated ?

@@ -328,15 +328,26 @@ portable nearest-neighbour scaling; clipping retains the original sampling
 phase, out-of-range source texels are skipped, and scaled same-surface work
 snapshots its bounded source before writing. `RenderSurfaceShadeCommand`
 multiplies RGB by an explicit rational fraction while preserving ARGB alpha.
+`RenderImageDrawCommand` identifies a host-owned image and frame with opaque
+stable values, plus a destination anchor and explicit opaque,
+source-transparent, or shadow composite mode. Its half-open clipping region is
+part of the command, so recording and forwarding hosts do not depend on mutable
+renderer-global clip state. Image-local offsets, compression, palettes, and
+physical storage remain adapter concerns; engine and package code never
+receives an `HVOBJECT` or ETRLE pointer.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
-map. `RecordingRenderCommandSink` captures all four command types without a
-renderer. The compiled host routes existing rectangle fills, numeric
-`BltVideoSurface`/`BltStretchVideoSurface`, and surface-shadow calls through
-this service. Legacy packed colours, mutable shade percentages, and RGB565
-transparency tokens are translated only in the compatibility adapter; package
-code uses explicit engine values.
+map. Image commands require a host resource adapter, so the generic mapped sink
+rejects them while `RecordingRenderCommandSink` captures all five command types
+without a renderer. The compiled host routes existing rectangle fills, numeric
+`BltVideoSurface`/`BltStretchVideoSurface`, surface-shadow calls, and stable
+managed video-object draws through this service. Its default image adapter
+continues to execute the exact ETRLE/palette blitters. Direct pointer-owned
+images remain on the compatibility path until their owner publishes a stable
+resource identity. Legacy packed colours, mutable shade percentages, and RGB565
+transparency tokens are translated only in compatibility code; package code
+uses explicit engine values.
 
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each

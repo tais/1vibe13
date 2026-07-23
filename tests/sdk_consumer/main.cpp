@@ -252,6 +252,15 @@ int main()
 		renderSurfaces.mappingCount(1) != 0 ||
 		renderSurfaces.mappingCount(2) != 0)
 		return 48;
+	RecordingRenderCommandSink recordedImageCommands;
+	const RenderImageDrawCommand externalImageCommand{
+		1, 44, 3, RenderSurfacePoint{-2, 5},
+		RenderSurfaceRegion{0, 0, 4, 4},
+		RenderImageCompositeMode::SourceTransparency};
+	if (!recordedImageCommands.drawImage(externalImageCommand) ||
+		recordedImageCommands.imageCommands() !=
+			std::vector<RenderImageDrawCommand>{externalImageCommand})
+		return 48;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
 	EngineHostOptions hostOptions;

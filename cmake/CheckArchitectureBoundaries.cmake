@@ -95,9 +95,11 @@ endforeach()
 # change instead of an incidental include.
 set(platform_video_adapter_consumers
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoBackend.h"
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoObjectBackend.h"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformVideoSurfaceBackend.h"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformFramePresenter.cpp"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformFrameInvalidator.cpp"
+  "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformRenderCommands.cpp"
   "${SOURCE_ROOT}/Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.cpp")
 foreach(adapter_file IN LISTS legacy_adapter_files)
   list(FIND platform_video_adapter_consumers
@@ -107,7 +109,7 @@ foreach(adapter_file IN LISTS legacy_adapter_files)
   endif()
   file(READ "${adapter_file}" contents)
   string(REGEX MATCH
-    "PlatformVideo(Surface)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw)[A-Za-z0-9_]*[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
@@ -297,7 +299,8 @@ endforeach()
 # engine-owned contracts.
 set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/sdl_video.cpp"
-  "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp")
+  "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp"
+  "${SOURCE_ROOT}/sgp/vobject.cpp")
 foreach(source_file IN LISTS world_state_files)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
@@ -335,6 +338,15 @@ foreach(source_file IN LISTS world_state_files)
     message(FATAL_ERROR
       "Production code implements the legacy low-intensity surface-shade entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
   endif()
+  if(NOT "${source_file}" STREQUAL "${SOURCE_ROOT}/sgp/vobject.cpp")
+    string(REGEX MATCH
+      "BOOLEAN[ \t\r\n]+BltVideoObject(FromIndex)?[ \t\r\n]*\\("
+      direct_image_draw_implementation "${contents}")
+    if(direct_image_draw_implementation)
+      message(FATAL_ERROR
+        "Production code implements a legacy video-object draw entry point in ${source_file}; keep image command translation in the video-object compatibility owner")
+    endif()
+  endif()
 
   list(FIND platform_video_backend_owners
     "${source_file}" platform_video_backend_owner_index)
@@ -342,7 +354,7 @@ foreach(source_file IN LISTS world_state_files)
     continue()
   endif()
   string(REGEX MATCH
-    "PlatformVideo(Surface)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw)[A-Za-z0-9_]*[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
