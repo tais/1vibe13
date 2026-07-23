@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "builddefines.h"
 	#include <stdio.h>
 	#include <list>
@@ -264,11 +266,12 @@ static AdditionalFiles_Descriptor* AdditionalFiles_LoadTextFile( FilesUnitPtr fi
 	{
 		ClearFileStringList();
 
-		CHAR8 fileName[MAX_PATH + 1] = TABLEDATA_DIRECTORY TABLEDATA_LAPTOP_DIRECTORY;
-		strncat( fileName, descr->path, MAX_PATH );
-		if ( FileExists( fileName ) )
+		const std::string fileName =
+			TABLEDATA_DIRECTORY TABLEDATA_LAPTOP_DIRECTORY +
+			std::string(descr->path);
+		if ( FileExists( fileName.c_str() ) )
 		{
-			HWFILE hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
+			HWFILE hFile = FileOpen( fileName.c_str(), FILE_ACCESS_READ, FALSE );
 			if ( hFile )
 			{
 				std::string utf8Line;
@@ -297,9 +300,10 @@ static INT32 AdditionalFiles_GetFontHandler( UINT8 font )
 static BOOLEAN AdditionalFiles_IsValid( AdditionalFiles_Descriptor *descr )
 {
 	BOOLEAN result = FALSE;
-	CHAR8 fileName[MAX_PATH] = TABLEDATA_DIRECTORY TABLEDATA_LAPTOP_DIRECTORY;
-	strcat( fileName, descr->path );
-	BOOLEAN exists = FileExists( fileName );
+	const std::string fileName =
+		TABLEDATA_DIRECTORY TABLEDATA_LAPTOP_DIRECTORY +
+		std::string(descr->path);
+	BOOLEAN exists = FileExists( fileName.c_str() );
 
 	if ( exists && wcslen( descr->name ) > 0 &&
 		(INT32)descr->font <= MAX_FONTS &&
@@ -408,42 +412,22 @@ static void LocateAdditionalFiles( )
 {
 	g_AdditionalFilesList.clear();
 
-	CHAR8 fileName[MAX_PATH] = TABLEDATA_DIRECTORY TABLEDATA_LAPTOP_DIRECTORY;
-	strcat( fileName, LAPTOPADDITIONALFILESFILENAME );
-
-	if ( FileExists( fileName ) )
+	const std::string fileName =
+		TABLEDATA_DIRECTORY TABLEDATA_LAPTOP_DIRECTORY
+		LAPTOPADDITIONALFILESFILENAME;
+	AdditionalFiles_ParseData pData;
+	memset( &pData, 0, sizeof( pData ) );
+	const LegacyXmlCallbacks callbacks{
+		&pData, AdditionalFiles_StartElementHandler,
+		AdditionalFiles_EndElementHandler,
+		AdditionalFiles_CharacterDataHandler};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName.c_str(), callbacks);
+	if (!result && result.status != LegacyXmlStatus::NotFound &&
+		result.status != LegacyXmlStatus::ReadError)
 	{
-		HWFILE hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-		if ( hFile )
-		{
-			UINT32 uiBytesRead;
-			UINT32 uiFileSize = FileGetSize( hFile );
-			CHAR8 *fileBuffer = (CHAR8*)MemAlloc( uiFileSize + 1 );
-
-			if ( FileRead( hFile, fileBuffer, uiFileSize, &uiBytesRead ) )
-			{
-				XML_Parser parser = XML_ParserCreate( NULL );
-				XML_SetElementHandler( parser, AdditionalFiles_StartElementHandler, AdditionalFiles_EndElementHandler );
-				XML_SetCharacterDataHandler( parser, AdditionalFiles_CharacterDataHandler );
-
-				AdditionalFiles_ParseData pData;
-				memset( &pData, 0, sizeof( pData ) );
-				XML_SetUserData( parser, &pData );
-
-				fileBuffer[uiFileSize] = 0;  // put a safe-guard null terminator
-				if ( XML_Parse( parser, fileBuffer, uiFileSize, TRUE ) != XML_STATUS_OK )
-				{
-					CHAR8 errorBuf[MAX_CHAR_DATA_LENGTH];
-					sprintf( errorBuf, "XML Parser Error in %s: %s at line %d", LAPTOPADDITIONALFILESFILENAME, XML_ErrorString( XML_GetErrorCode( parser ) ), XML_GetCurrentLineNumber( parser ) );
-					LiveMessage( errorBuf );
-				}
-
-				XML_ParserFree( parser );
-			}
-
-			MemFree( fileBuffer );
-			FileClose( hFile );
-		}
+		const auto message = FormatLegacyXmlFailure(fileName.c_str(), result);
+		LiveMessage(message.data());
 	}
 }
 

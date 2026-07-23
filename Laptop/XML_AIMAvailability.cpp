@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -44,7 +46,8 @@ aimAvailabilityStartElementHandle(void *userData, const XML_Char *name, const XM
 		else if(pData->curElement == ELEMENT &&
 			   (strcmp(name, "uiIndex") == 0 ||
 			    strcmp(name, "ProfilId") == 0 ||
-				strcmp(name, "AimBioID") == 0 ))
+				strcmp(name, "AimBioID") == 0 ||
+				strcmp(name, "AIMBioID") == 0 ))
 		{
 			pData->curElement = ELEMENT_PROPERTY;
 
@@ -124,7 +127,8 @@ aimAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 			pData->curElement = ELEMENT;
 			pData->curAimAvailability.ProfilId	= (UINT8) atol(pData->szCharData);
 		}	
-		else if(strcmp(name, "AimBioID") == 0)
+		else if(strcmp(name, "AimBioID") == 0 ||
+			strcmp(name, "AIMBioID") == 0)
 		{
 			pData->curElement = ELEMENT;
 			pData->curAimAvailability.AimBio	= (UINT8) atol(pData->szCharData);
@@ -137,63 +141,30 @@ aimAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInAimAvailability(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	aimAvailabilityParseData pData;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading AimAvailability.xml" );
 
 	AimAvailability_TextOnly = localizedVersion;
-	
-	// Open file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( localizedVersion );
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, aimAvailabilityStartElementHandle, aimAvailabilityEndElementHandle);
-	XML_SetCharacterDataHandler(parser, aimCharacterDataHandle);
-
 
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
 
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, aimAvailabilityStartElementHandle, aimAvailabilityEndElementHandle,
+		aimCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in AimAvailability.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status == LegacyXmlStatus::NotFound)
+			return localizedVersion;
+		if (result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
-
 
 	return( TRUE );
 }

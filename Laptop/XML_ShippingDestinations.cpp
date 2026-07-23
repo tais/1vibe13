@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "sgp.h"
 #include "Overhead Types.h"
 #include "Overhead.h"
@@ -177,64 +179,31 @@ destinationEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInShippingDestinations(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	destinationParseData pData;
 
 	ShippingDestinations_TextOnly = localizedVersion;
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading ShippingDestinations.xml" );
-
-	// Open ShippingDestinations.xml
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( FALSE );
-	
-	// Get ShippingDestinations.xml file size and alloc buffer
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-	
-	//Read in ShippingDestinations.xml to the buffer
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; // terminator for buffer array
-
-	FileClose( hFile ); // done with ShippingDestinations.xml
-
-	// setup Interpreter Callback functions
-	XML_SetElementHandler(parser, destinationStartElementHandle, destinationEndElementHandle);
-	XML_SetCharacterDataHandler(parser, destinationCharacterDataHandle);
 
 	// Initialize Data container
 	memset(&pData,0,sizeof(pData));
 	pData.maxArraySize = sizeof(UINT16);
 	pData.curIndex = -1;
 
-	XML_SetUserData(parser, &pData); // establish address of data container for Interpreter callbacks
-
-	// Parse the buffer, 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, destinationStartElementHandle, destinationEndElementHandle,
+		destinationCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in ShippingDestinations.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 
 	return( TRUE );
 }
