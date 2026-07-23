@@ -119,6 +119,23 @@ bool FindVideoObjectHandle(HVOBJECT object, UINT32& handle)
 	return true;
 }
 
+PIXEL LegacyPixelFor(const RenderColor& color) noexcept
+{
+	if constexpr (sizeof(PIXEL) == sizeof(std::uint32_t))
+	{
+		return static_cast<PIXEL>(
+			(static_cast<std::uint32_t>(color.alpha) << 24) |
+			(static_cast<std::uint32_t>(color.red) << 16) |
+			(static_cast<std::uint32_t>(color.green) << 8) |
+			static_cast<std::uint32_t>(color.blue));
+	}
+	else
+	{
+		return Get16BPPColor(FROMRGB(
+			color.red, color.green, color.blue));
+	}
+}
+
 class ClippingRegionLease
 {
 public:
@@ -162,6 +179,37 @@ bool SubmitVideoObjectDraw(
 		CompositeModeFor(flags)});
 }
 
+bool SubmitVideoObjectOutline(
+	UINT32 destination,
+	UINT32 image,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	RenderImageOutlineMode mode,
+	PIXEL color,
+	BOOLEAN drawOutline)
+{
+	SGPRect clipping;
+	GetClippingRect(&clipping);
+	const RenderColor commandColor =
+		mode == RenderImageOutlineMode::Color ?
+			DecodeLegacyRenderColor(
+				static_cast<std::uint32_t>(color)) :
+			RenderColor{};
+	return DrawLegacyRenderImageOutline(RenderImageOutlineCommand{
+		destination,
+		image,
+		frame,
+		RenderSurfacePoint{destinationX, destinationY},
+		RenderSurfaceRegion{
+			clipping.iLeft, clipping.iTop,
+			clipping.iRight, clipping.iBottom},
+		mode,
+		commandColor,
+		mode == RenderImageOutlineMode::Color &&
+			drawOutline != FALSE});
+}
+
 BOOLEAN DrawVideoObjectToSurface(
 	UINT32 destination,
 	HVOBJECT object,
@@ -190,6 +238,130 @@ BOOLEAN DrawVideoObjectToSurface(
 	}
 	UnLockVideoSurface(destination);
 	return drawn;
+}
+
+BOOLEAN Draw8BitVideoObjectOutlineToSurface(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	RenderImageOutlineMode mode,
+	PIXEL color,
+	BOOLEAN drawOutline)
+{
+	UINT32 pitch = 0;
+	PIXEL* const buffer =
+		reinterpret_cast<PIXEL*>(LockVideoSurface(destination, &pitch));
+	if (!buffer) return FALSE;
+
+	try
+	{
+		const bool clipped =
+			BltIsClipped(
+				object, destinationX, destinationY,
+				frame, &ClippingRect) != FALSE;
+		switch (mode)
+		{
+		case RenderImageOutlineMode::Color:
+			if (clipped)
+			{
+				Blt8BPPDataTo16BPPBufferOutlineClip(
+					buffer, pitch, object,
+					destinationX, destinationY, frame,
+					color, drawOutline, &ClippingRect);
+			}
+			else
+			{
+				Blt8BPPDataTo16BPPBufferOutline(
+					buffer, pitch, object,
+					destinationX, destinationY, frame,
+					color, drawOutline);
+			}
+			break;
+		case RenderImageOutlineMode::Shadow:
+			if (clipped)
+			{
+				Blt8BPPDataTo16BPPBufferOutlineShadowClip(
+					buffer, pitch, object,
+					destinationX, destinationY, frame,
+					&ClippingRect);
+			}
+			else
+			{
+				Blt8BPPDataTo16BPPBufferOutlineShadow(
+					buffer, pitch, object,
+					destinationX, destinationY, frame);
+			}
+			break;
+		default:
+			UnLockVideoSurface(destination);
+			return FALSE;
+		}
+	}
+	catch (...)
+	{
+		UnLockVideoSurface(destination);
+		throw;
+	}
+	UnLockVideoSurface(destination);
+	return TRUE;
+}
+
+BOOLEAN DrawManagedVideoObjectOutlineShadowToSurface(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY)
+{
+	if (object->ubBitDepth == 8)
+	{
+		return Draw8BitVideoObjectOutlineToSurface(
+			destination, object, frame,
+			destinationX, destinationY,
+			RenderImageOutlineMode::Shadow, 0, FALSE);
+	}
+
+	UINT32 pitch = 0;
+	PIXEL* const buffer =
+		reinterpret_cast<PIXEL*>(LockVideoSurface(destination, &pitch));
+	if (!buffer) return FALSE;
+
+	try
+	{
+		SixteenBPPObjectInfo& image = object->p16BPPObject[0];
+		if (object->ubBitDepth == 16)
+		{
+			Blt16BPPTo16BPPTransShadow(
+				buffer, pitch, image.p16BPPData,
+				image.usWidth * sizeof(PIXEL),
+				destinationX, destinationY,
+				0, 0, image.usWidth, image.usHeight,
+				PixFromColor16(0x1f));
+		}
+		else if (object->ubBitDepth == 32)
+		{
+			Blt32BPPTo16BPPTransShadow(
+				buffer, pitch,
+				reinterpret_cast<UINT32*>(image.p16BPPData),
+				image.usWidth * sizeof(UINT32),
+				destinationX, destinationY,
+				0, 0, image.usWidth, image.usHeight);
+		}
+		else
+		{
+			UnLockVideoSurface(destination);
+			return FALSE;
+		}
+	}
+	catch (...)
+	{
+		UnLockVideoSurface(destination);
+		throw;
+	}
+	UnLockVideoSurface(destination);
+	return TRUE;
 }
 }
 
@@ -392,6 +564,74 @@ bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
 		command.destinationOrigin.y,
 		*flags,
 		nullptr) != FALSE;
+}
+
+bool PlatformVideoObjectOutline(
+	const RenderImageOutlineCommand& command)
+{
+	if (command.destination == 0 || command.image == 0 ||
+		command.destination > std::numeric_limits<UINT32>::max() ||
+		command.image > std::numeric_limits<UINT32>::max() ||
+		command.frame > std::numeric_limits<UINT16>::max())
+		return false;
+
+	HVOBJECT source = nullptr;
+	if (!GetVideoObject(
+		&source, static_cast<UINT32>(command.image)) ||
+		!source)
+		return false;
+
+	const UINT16 frame = static_cast<UINT16>(command.frame);
+	switch (command.mode)
+	{
+	case RenderImageOutlineMode::Color:
+		if (source->ubBitDepth != 8 ||
+			frame >= source->usNumberOfObjects ||
+			!source->pETRLEObject)
+			return false;
+		break;
+	case RenderImageOutlineMode::Shadow:
+		if (source->ubBitDepth == 8)
+		{
+			if (frame >= source->usNumberOfObjects ||
+				!source->pETRLEObject)
+				return false;
+		}
+		else if (source->ubBitDepth == 16 ||
+			source->ubBitDepth == 32)
+		{
+			if (frame >= source->usNumberOf16BPPObjects ||
+				!source->p16BPPObject)
+				return false;
+		}
+		else
+		{
+			return false;
+		}
+		break;
+	default:
+		return false;
+	}
+
+	ClippingRegionLease clipping(command.clippingRegion);
+	if (command.mode == RenderImageOutlineMode::Color)
+	{
+		return Draw8BitVideoObjectOutlineToSurface(
+			static_cast<UINT32>(command.destination),
+			source,
+			frame,
+			command.destinationOrigin.x,
+			command.destinationOrigin.y,
+			command.mode,
+			LegacyPixelFor(command.color),
+			command.drawOutline ? TRUE : FALSE) != FALSE;
+	}
+	return DrawManagedVideoObjectOutlineShadowToSurface(
+		static_cast<UINT32>(command.destination),
+		source,
+		frame,
+		command.destinationOrigin.x,
+		command.destinationOrigin.y) != FALSE;
 }
 
 BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT16 usRegionIndex, INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx *pBltFx )
@@ -1464,148 +1704,72 @@ BOOLEAN ConvertVObjectRegionTo16BPP( HVOBJECT hVObject, UINT16 usRegionIndex, UI
 
 BOOLEAN BltVideoObjectOutlineFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {
-	PIXEL				*pBuffer;
-	UINT32								uiPitch;
-	HVOBJECT							hSrcVObject;
-
-	// Lock video surface
-	pBuffer = (PIXEL *)LockVideoSurface( uiDestVSurface, &uiPitch );
-
-	if ( pBuffer == NULL )
-	{
-		return( FALSE );
-	}
-
-	// Get video object
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_BLTVIDEOOBJECTOUTLINEFROMINDEX;
 	#endif
-	CHECKF( GetVideoObject( &hSrcVObject, uiSrcVObject ) );
-
-	if( BltIsClipped( hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect) )
-	{
-		Blt8BPPDataTo16BPPBufferOutlineClip((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex, s16BPPColor, fDoOutline, &ClippingRect );
-	}
-	else
-	{
-		Blt8BPPDataTo16BPPBufferOutline((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex, s16BPPColor, fDoOutline );
-	}
-
-	// Now we have the video object and surface, call the VO blitter function
-
-	UnLockVideoSurface( uiDestVSurface );
-	return( TRUE );
+	HVOBJECT source = nullptr;
+	if (!GetVideoObject(&source, uiSrcVObject)) return FALSE;
+	(void)source;
+	return SubmitVideoObjectOutline(
+		uiDestVSurface, uiSrcVObject, usIndex,
+		iDestX, iDestY,
+		RenderImageOutlineMode::Color,
+		s16BPPColor, fDoOutline) ? TRUE : FALSE;
 }
 
 BOOLEAN BltVideoObjectOutline(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {
-	PIXEL				*pBuffer;
-	UINT32								uiPitch;
-	// Lock video surface
-	pBuffer = (PIXEL *)LockVideoSurface( uiDestVSurface, &uiPitch );
-
-	if ( pBuffer == NULL )
+	UINT32 image = 0;
+	if (hSrcVObject && hSrcVObject->ubBitDepth == 8 &&
+		FindVideoObjectHandle(hSrcVObject, image))
 	{
-		return( FALSE );
+		return SubmitVideoObjectOutline(
+			uiDestVSurface, image, usIndex,
+			iDestX, iDestY,
+			RenderImageOutlineMode::Color,
+			s16BPPColor, fDoOutline) ? TRUE : FALSE;
 	}
-
-	if( BltIsClipped( hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect) )
-	{
-		Blt8BPPDataTo16BPPBufferOutlineClip((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex, s16BPPColor, fDoOutline, &ClippingRect );
-	}
-	else
-	{
-		Blt8BPPDataTo16BPPBufferOutline((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex, s16BPPColor, fDoOutline );
-	}
-
-	// Now we have the video object and surface, call the VO blitter function
-
-	UnLockVideoSurface( uiDestVSurface );
-	return( TRUE );
+	return Draw8BitVideoObjectOutlineToSurface(
+		uiDestVSurface, hSrcVObject, usIndex,
+		iDestX, iDestY,
+		RenderImageOutlineMode::Color,
+		s16BPPColor, fDoOutline);
 }
 
 
 
 BOOLEAN BltVideoObjectOutlineShadowFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY )
 {
-	CHAR8 errorText[512];
-	PIXEL *pBuffer;
-	UINT32 uiPitch;
-	HVOBJECT hSrcVObject;
-
-	// Lock video surface
-	pBuffer = (PIXEL *)LockVideoSurface( uiDestVSurface, &uiPitch );
-
-	if ( pBuffer == NULL )
-	{
-		return( FALSE );
-	}
-
-	// Get video object
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_BLTVIDEOOBJECTOUTLINESHADOWFROMINDEX;
 	#endif
-	CHECKF( GetVideoObject( &hSrcVObject, uiSrcVObject ) );
-
-	if(hSrcVObject->ubBitDepth == 8)
-	{
-		if( BltIsClipped( hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect) )
-		{
-			Blt8BPPDataTo16BPPBufferOutlineShadowClip((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect );
-		}
-		else
-		{
-			Blt8BPPDataTo16BPPBufferOutlineShadow((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex );
-		}
-	}
-	else if(hSrcVObject->ubBitDepth == 16)
-	{
-		sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
-		SGP_THROW_IFFALSE(usIndex < hSrcVObject->usNumberOf16BPPObjects, errorText);
-		SixteenBPPObjectInfo &image = hSrcVObject->p16BPPObject[0];
-		Blt16BPPTo16BPPTransShadow(pBuffer, uiPitch, image.p16BPPData, image.usWidth * sizeof(PIXEL),
-			iDestX, iDestY, 0, 0, image.usWidth, image.usHeight, PixFromColor16(0x1F));
-	}
-	else if(hSrcVObject->ubBitDepth == 32)
-	{
-		sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
-		SGP_THROW_IFFALSE(usIndex < hSrcVObject->usNumberOf16BPPObjects, errorText);
-		SixteenBPPObjectInfo &image = hSrcVObject->p16BPPObject[0];
-		Blt32BPPTo16BPPTransShadow(pBuffer, uiPitch, (UINT32*)image.p16BPPData, image.usWidth * sizeof(UINT32),
-			iDestX, iDestY, 0, 0, image.usWidth, image.usHeight);
-	}
-
-	// Now we have the video object and surface, call the VO blitter function
-
-	UnLockVideoSurface( uiDestVSurface );
-	return( TRUE );
+	HVOBJECT source = nullptr;
+	if (!GetVideoObject(&source, uiSrcVObject)) return FALSE;
+	(void)source;
+	return SubmitVideoObjectOutline(
+		uiDestVSurface, uiSrcVObject, usIndex,
+		iDestX, iDestY,
+		RenderImageOutlineMode::Shadow,
+		0, FALSE) ? TRUE : FALSE;
 }
 
 BOOLEAN BltVideoObjectOutlineShadow(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY )
 {
-	PIXEL				*pBuffer;
-	UINT32								uiPitch;
-	// Lock video surface
-	pBuffer = (PIXEL *)LockVideoSurface( uiDestVSurface, &uiPitch );
-
-	if ( pBuffer == NULL )
+	UINT32 image = 0;
+	if (hSrcVObject && hSrcVObject->ubBitDepth == 8 &&
+		FindVideoObjectHandle(hSrcVObject, image))
 	{
-		return( FALSE );
+		return SubmitVideoObjectOutline(
+			uiDestVSurface, image, usIndex,
+			iDestX, iDestY,
+			RenderImageOutlineMode::Shadow,
+			0, FALSE) ? TRUE : FALSE;
 	}
-
-	if( BltIsClipped( hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect) )
-	{
-		Blt8BPPDataTo16BPPBufferOutlineShadowClip((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect );
-	}
-	else
-	{
-		Blt8BPPDataTo16BPPBufferOutlineShadow((PIXEL *)pBuffer, uiPitch, hSrcVObject, iDestX, iDestY, usIndex );
-	}
-
-	// Now we have the video object and surface, call the VO blitter function
-
-	UnLockVideoSurface( uiDestVSurface );
-	return( TRUE );
+	return Draw8BitVideoObjectOutlineToSurface(
+		uiDestVSurface, hSrcVObject, usIndex,
+		iDestX, iDestY,
+		RenderImageOutlineMode::Shadow,
+		0, FALSE);
 }
 
 #ifdef _DEBUG

@@ -583,22 +583,34 @@ public:
 		nestedImageAccepted = DrawLegacyRenderImage(command);
 		return true;
 	}
+	bool drawImageOutline(
+		const RenderImageOutlineCommand& command) override
+	{
+		++imageOutlines;
+		lastImageOutlineCommand = command;
+		nestedImageOutlineAccepted =
+			DrawLegacyRenderImageOutline(command);
+		return true;
+	}
 
 	int fills = 0;
 	int copies = 0;
 	int stretches = 0;
 	int shades = 0;
 	int images = 0;
+	int imageOutlines = 0;
 	bool nestedAccepted = true;
 	bool nestedCopyAccepted = true;
 	bool nestedStretchAccepted = true;
 	bool nestedShadeAccepted = true;
 	bool nestedImageAccepted = true;
+	bool nestedImageOutlineAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
 	RenderSurfaceCopyCommand lastCopyCommand;
 	RenderSurfaceStretchCommand lastStretchCommand;
 	RenderSurfaceShadeCommand lastShadeCommand;
 	RenderImageDrawCommand lastImageCommand;
+	RenderImageOutlineCommand lastImageOutlineCommand;
 };
 
 class ThrowingRenderCommandSink final : public RenderCommandSink
@@ -623,6 +635,10 @@ public:
 	bool drawImage(const RenderImageDrawCommand&) override
 	{
 		throw std::runtime_error("render image command probe");
+	}
+	bool drawImageOutline(const RenderImageOutlineCommand&) override
+	{
+		throw std::runtime_error("render image outline command probe");
 	}
 };
 }
@@ -778,11 +794,17 @@ int main()
 		71, 88, 3, RenderSurfacePoint{-4, 9},
 		RenderSurfaceRegion{1, 2, 30, 40},
 		RenderImageCompositeMode::SourceTransparency};
+	const RenderImageOutlineCommand expectedImageOutlineCommand{
+		71, 89, 4, RenderSurfacePoint{6, -2},
+		RenderSurfaceRegion{1, 2, 30, 40},
+		RenderImageOutlineMode::Color,
+		RenderColor{19, 29, 39, 49}, true};
 	Check(ColorFillVideoSurfaceArea(71, 5, 6, 1, 2, legacyRed) &&
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
+		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		recordedRenderCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{expectedFillCommand} &&
 		recordedRenderCommands.copyCommands() ==
@@ -792,7 +814,10 @@ int main()
 		recordedRenderCommands.shadeCommands() ==
 			std::vector<RenderSurfaceShadeCommand>{expectedShadeCommand} &&
 		recordedRenderCommands.imageCommands() ==
-			std::vector<RenderImageDrawCommand>{expectedImageCommand},
+			std::vector<RenderImageDrawCommand>{expectedImageCommand} &&
+		recordedRenderCommands.imageOutlineCommands() ==
+			std::vector<RenderImageOutlineCommand>{
+				expectedImageOutlineCommand},
 		"legacy surface drawing submits every portable render command");
 
 	ReentrantRenderCommandSink reentrantRenderCommands;
@@ -802,22 +827,27 @@ int main()
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
 		ShadeLegacyRenderSurface(expectedShadeCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
+		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		reentrantRenderCommands.fills == 1 &&
 		reentrantRenderCommands.copies == 1 &&
 		reentrantRenderCommands.stretches == 1 &&
 		reentrantRenderCommands.shades == 1 &&
 		reentrantRenderCommands.images == 1 &&
+		reentrantRenderCommands.imageOutlines == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
 		reentrantRenderCommands.lastCopyCommand == expectedCopyCommand &&
 		reentrantRenderCommands.lastStretchCommand ==
 			expectedStretchCommand &&
 		reentrantRenderCommands.lastShadeCommand == expectedShadeCommand &&
 		reentrantRenderCommands.lastImageCommand == expectedImageCommand &&
+		reentrantRenderCommands.lastImageOutlineCommand ==
+			expectedImageOutlineCommand &&
 		!reentrantRenderCommands.nestedAccepted &&
 		!reentrantRenderCommands.nestedCopyAccepted &&
 		!reentrantRenderCommands.nestedStretchAccepted &&
 		!reentrantRenderCommands.nestedShadeAccepted &&
-		!reentrantRenderCommands.nestedImageAccepted,
+		!reentrantRenderCommands.nestedImageAccepted &&
+		!reentrantRenderCommands.nestedImageOutlineAccepted,
 		"legacy render command gateway suppresses recursive drawing");
 
 	ThrowingRenderCommandSink throwingRenderCommands;
@@ -826,7 +856,8 @@ int main()
 		!CopyLegacyRenderSurface(expectedCopyCommand) &&
 		!StretchLegacyRenderSurface(expectedStretchCommand) &&
 		!ShadeLegacyRenderSurface(expectedShadeCommand) &&
-		!DrawLegacyRenderImage(expectedImageCommand),
+		!DrawLegacyRenderImage(expectedImageCommand) &&
+		!DrawLegacyRenderImageOutline(expectedImageOutlineCommand),
 		"legacy render command gateway contains adapter exceptions");
 	ResetLegacyRenderCommands();
 	ResetLegacyRenderSurfaceAccess();
@@ -1508,6 +1539,22 @@ int main()
 			BltVideoObject(
 				7'124, managedObject, 0, 4, -5,
 				VO_BLT_SHADOW, nullptr);
+		const PIXEL routedOutlineColor =
+			Get16BPPColor(FROMRGB(0, 255, 0));
+		const bool indexedOutlineRouted = objectSequenceStable &&
+			BltVideoObjectOutlineFromIndex(
+				7'125, managedObjectIDs.back(), 0, 6, -7,
+				routedOutlineColor, TRUE);
+		const bool resolvedOutlineRouted = objectSequenceStable &&
+			BltVideoObjectOutline(
+				7'126, managedObject, 0, -8, 10,
+				0, FALSE);
+		const bool indexedOutlineShadowRouted = objectSequenceStable &&
+			BltVideoObjectOutlineShadowFromIndex(
+				7'127, managedObjectIDs.back(), 0, 11, -12);
+		const bool resolvedOutlineShadowRouted = objectSequenceStable &&
+			BltVideoObjectOutlineShadow(
+				7'128, managedObject, 0, -13, 14);
 		ClippingRect = previousObjectClip;
 		ResetLegacyRenderCommands();
 		const std::vector<RenderImageDrawCommand> expectedObjectDraws{
@@ -1521,9 +1568,40 @@ int main()
 				RenderSurfacePoint{4, -5},
 				RenderSurfaceRegion{1, 2, 31, 32},
 				RenderImageCompositeMode::Shadow}};
+		const std::vector<RenderImageOutlineCommand>
+			expectedObjectOutlines{
+				RenderImageOutlineCommand{
+					7'125, managedObjectIDs.back(), 0,
+					RenderSurfacePoint{6, -7},
+					RenderSurfaceRegion{1, 2, 31, 32},
+					RenderImageOutlineMode::Color,
+					RenderColor{0, 255, 0, 255}, true},
+				RenderImageOutlineCommand{
+					7'126, managedObjectIDs.back(), 0,
+					RenderSurfacePoint{-8, 10},
+					RenderSurfaceRegion{1, 2, 31, 32},
+					RenderImageOutlineMode::Color,
+					DecodeLegacyRenderColor(0), false},
+				RenderImageOutlineCommand{
+					7'127, managedObjectIDs.back(), 0,
+					RenderSurfacePoint{11, -12},
+					RenderSurfaceRegion{1, 2, 31, 32},
+					RenderImageOutlineMode::Shadow,
+					RenderColor{}, false},
+				RenderImageOutlineCommand{
+					7'128, managedObjectIDs.back(), 0,
+					RenderSurfacePoint{-13, 14},
+					RenderSurfaceRegion{1, 2, 31, 32},
+					RenderImageOutlineMode::Shadow,
+					RenderColor{}, false}};
 		Check(indexedObjectRouted && resolvedObjectRouted &&
-			recordedObjectDraws.imageCommands() == expectedObjectDraws,
-			"managed video-object draws cross the engine image command boundary");
+			indexedOutlineRouted && resolvedOutlineRouted &&
+			indexedOutlineShadowRouted &&
+			resolvedOutlineShadowRouted &&
+			recordedObjectDraws.imageCommands() == expectedObjectDraws &&
+			recordedObjectDraws.imageOutlineCommands() ==
+				expectedObjectOutlines,
+			"managed video-object draws and outlines cross engine command boundaries");
 		for (UINT32 objectID : managedObjectIDs)
 			objectSequenceStable = DeleteVideoObjectFromIndex(objectID) &&
 				objectSequenceStable;
@@ -1951,11 +2029,137 @@ int main()
 			indexedImagePixel == copiedRed &&
 			resolvedImagePixel == copiedRed,
 			"engine image commands retain explicit clipping and exact ETRLE pixels");
-		Check(!liveImageCreated ||
-			DeleteVideoObjectFromIndex(liveImageID),
-			"engine-routed image resources release through the stable registry");
 
 		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
+		UINT8* const encodedImagePixels =
+			liveImageCreated && liveImage->pPixData &&
+				liveImage->pETRLEObject ?
+				static_cast<UINT8*>(liveImage->pPixData) +
+					liveImage->pETRLEObject[0].uiDataOffset :
+				nullptr;
+		const bool outlineFixtureReady =
+			encodedImagePixels &&
+			liveImage->ubBitDepth == 8 &&
+			liveImage->usNumberOfObjects == 1 &&
+			liveImage->pETRLEObject[0].usWidth == 1 &&
+			liveImage->pETRLEObject[0].usHeight == 1 &&
+			liveImage->pETRLEObject[0].uiDataOffset + 3 <=
+				liveImage->uiSizePixData &&
+			encodedImagePixels[0] == 1 &&
+			encodedImagePixels[2] == 0;
+		const UINT8 originalEncodedPixel =
+			outlineFixtureReady ? encodedImagePixels[1] : 0;
+		if (outlineFixtureReady) encodedImagePixels[1] = 254;
+
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copyDestinationPixels)
+		{
+			PIXEL* const outlineRow = reinterpret_cast<PIXEL*>(
+				reinterpret_cast<BYTE*>(copyDestinationPixels));
+			for (std::size_t x = 0;
+				x < copySurfaceDescription.usWidth; ++x)
+				outlineRow[x] = copiedBlue;
+			UnLockVideoSurface(copyDestinationID);
+		}
+
+		SetClippingRect(&imageSurfaceClip);
+		const bool coloredOutlineDrawn = outlineFixtureReady &&
+			GetPlatformRenderCommands().drawImageOutline(
+				RenderImageOutlineCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{0, 0},
+					RenderSurfaceRegion{0, 0, 1, 1},
+					RenderImageOutlineMode::Color,
+					RenderColor{0, 255, 0, 255}, true});
+		const bool disabledOutlineSkipped = outlineFixtureReady &&
+			BltVideoObjectOutlineFromIndex(
+				copyDestinationID, liveImageID, 0, 1, 0,
+				0, FALSE);
+		const bool outlineMarkerShadowSkipped = outlineFixtureReady &&
+			BltVideoObjectOutlineShadowFromIndex(
+				copyDestinationID, liveImageID, 0, 2, 0);
+		const bool clippedOutlineSkipped = outlineFixtureReady &&
+			GetPlatformRenderCommands().drawImageOutline(
+				RenderImageOutlineCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{3, 0},
+					RenderSurfaceRegion{0, 0, 3, 1},
+					RenderImageOutlineMode::Color,
+					RenderColor{255, 0, 0, 255}, true});
+		SGPRect restoredOutlineClip;
+		GetClippingRect(&restoredOutlineClip);
+		if (outlineFixtureReady) encodedImagePixels[1] = originalEncodedPixel;
+		const bool bodyOutlineShadowDrawn = outlineFixtureReady &&
+			BltVideoObjectOutlineShadow(
+				copyDestinationID, liveImage, 0, 4, 0);
+		const bool invalidOutlineRejected = liveImageCreated &&
+			!GetPlatformRenderCommands().drawImageOutline(
+				RenderImageOutlineCommand{
+					copyDestinationID, liveImageID, 99,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					RenderImageOutlineMode::Color,
+					RenderColor{255, 255, 255, 255}, true}) &&
+			!GetPlatformRenderCommands().drawImageOutline(
+				RenderImageOutlineCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 3},
+					static_cast<RenderImageOutlineMode>(255),
+					RenderColor{}, false});
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		PIXEL coloredOutlinePixel = 0;
+		PIXEL disabledOutlinePixel = 0;
+		PIXEL markerShadowPixel = 0;
+		PIXEL clippedOutlinePixel = 0;
+		PIXEL bodyShadowPixel = 0;
+		if (copyDestinationPixels)
+		{
+			const PIXEL* const outlineRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels));
+			coloredOutlinePixel = outlineRow[0];
+			disabledOutlinePixel = outlineRow[1];
+			markerShadowPixel = outlineRow[2];
+			clippedOutlinePixel = outlineRow[3];
+			bodyShadowPixel = outlineRow[4];
+			UnLockVideoSurface(copyDestinationID);
+		}
+		ClippingRect = imageOriginalClip;
+		Check(outlineFixtureReady && copyDestinationPixels &&
+			coloredOutlineDrawn && disabledOutlineSkipped &&
+			outlineMarkerShadowSkipped && clippedOutlineSkipped &&
+			bodyOutlineShadowDrawn && invalidOutlineRejected &&
+			coloredOutlinePixel == copiedGreen &&
+			disabledOutlinePixel == copiedBlue &&
+			markerShadowPixel == copiedBlue &&
+			clippedOutlinePixel == copiedBlue &&
+			bodyShadowPixel == PixShade(copiedBlue) &&
+			restoredOutlineClip.iLeft == imageSurfaceClip.iLeft &&
+			restoredOutlineClip.iTop == imageSurfaceClip.iTop &&
+			restoredOutlineClip.iRight == imageSurfaceClip.iRight &&
+			restoredOutlineClip.iBottom == imageSurfaceClip.iBottom,
+			"engine outline commands preserve markers, shadows, clipping, and exact pixels");
+		const bool liveImageDeleted = !liveImageCreated ||
+			DeleteVideoObjectFromIndex(liveImageID);
+		Check(liveImageDeleted &&
+			(!liveImageCreated ||
+				!GetPlatformRenderCommands().drawImageOutline(
+					RenderImageOutlineCommand{
+						copyDestinationID, liveImageID, 0,
+						RenderSurfacePoint{},
+						RenderSurfaceRegion{0, 0, 5, 3},
+						RenderImageOutlineMode::Shadow,
+						RenderColor{}, false})),
+			"engine-routed image resources reject stale outline identities");
+
 		copySourcePixels = copySurfacesCreated ?
 			reinterpret_cast<PIXEL*>(
 				LockVideoSurface(copySourceID, &copySourcePitch)) : nullptr;
@@ -2167,6 +2371,33 @@ int main()
 
 		HVOBJECT tiledObject =
 			CreateVideoObject(&managedObjectDescription);
+		SGPRect pointerOutlineOriginalClip;
+		GetClippingRect(&pointerOutlineOriginalClip);
+		SGPRect pointerOutlineClip{0, 0, 5, 3};
+		SetClippingRect(&pointerOutlineClip);
+		RecordingRenderCommandSink pointerOwnedRecorder;
+		BindLegacyRenderCommands(pointerOwnedRecorder);
+		const bool pointerOwnedOutlineDrawn = tiledObject &&
+			BltVideoObjectOutline(
+				copyDestinationID, tiledObject, 0, 0, 0,
+				0, FALSE);
+		ResetLegacyRenderCommands();
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		PIXEL pointerOwnedOutlinePixel = 0;
+		if (copyDestinationPixels)
+		{
+			pointerOwnedOutlinePixel = copyDestinationPixels[0];
+			UnLockVideoSurface(copyDestinationID);
+		}
+		ClippingRect = pointerOutlineOriginalClip;
+		Check(pointerOwnedOutlineDrawn && copyDestinationPixels &&
+			pointerOwnedOutlinePixel == copiedRed &&
+			pointerOwnedRecorder.imageOutlineCommands().empty(),
+			"pointer-owned outlines retain their exact compatibility path");
+
 		copyDestinationPixels = copySurfacesCreated ?
 			reinterpret_cast<PIXEL*>(
 				LockVideoSurface(

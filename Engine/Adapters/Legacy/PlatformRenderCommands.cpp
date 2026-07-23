@@ -45,6 +45,19 @@ public:
 		}
 	}
 
+	bool drawImageOutline(
+		const RenderImageOutlineCommand& command) override
+	{
+		try
+		{
+			return PlatformVideoObjectOutline(command);
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
 private:
 	MappedRenderCommandSink mapped_;
 };

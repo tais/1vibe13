@@ -109,7 +109,7 @@ foreach(adapter_file IN LISTS legacy_adapter_files)
   endif()
   file(READ "${adapter_file}" contents)
   string(REGEX MATCH
-    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw|ObjectOutline)[A-Za-z0-9_]*[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
@@ -340,7 +340,7 @@ foreach(source_file IN LISTS world_state_files)
   endif()
   if(NOT "${source_file}" STREQUAL "${SOURCE_ROOT}/sgp/vobject.cpp")
     string(REGEX MATCH
-      "BOOLEAN[ \t\r\n]+BltVideoObject(FromIndex)?[ \t\r\n]*\\("
+      "BOOLEAN[ \t\r\n]+BltVideoObject[A-Za-z0-9_]*[ \t\r\n]*\\("
       direct_image_draw_implementation "${contents}")
     if(direct_image_draw_implementation)
       message(FATAL_ERROR
@@ -354,7 +354,7 @@ foreach(source_file IN LISTS world_state_files)
     continue()
   endif()
   string(REGEX MATCH
-    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw)[A-Za-z0-9_]*[ \t\r\n]*\\("
+    "PlatformVideo(Surface|Object)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface|ObjectDraw|ObjectOutline)[A-Za-z0-9_]*[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
