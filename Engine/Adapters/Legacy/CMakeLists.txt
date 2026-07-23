@@ -1,4 +1,5 @@
 set(engine_legacy_adapter_sources
+  LegacyXmlDocument.cpp
   LegacyVfsFile.cpp
   PlatformAssets.cpp
   PlatformAudio.cpp
@@ -22,5 +23,10 @@ target_compile_features(ja2_engine_legacy_adapters PRIVATE cxx_std_17)
 target_link_libraries(ja2_engine_legacy_adapters PRIVATE
   JA2::EngineCore
   SDL3::SDL3)
+if(TARGET EXPAT::EXPAT)
+  target_link_libraries(ja2_engine_legacy_adapters PRIVATE EXPAT::EXPAT)
+elseif(TARGET expat)
+  target_link_libraries(ja2_engine_legacy_adapters PRIVATE expat)
+endif()
 set_target_properties(ja2_engine_legacy_adapters PROPERTIES
   POSITION_INDEPENDENT_CODE ON)

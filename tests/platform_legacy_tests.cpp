@@ -7,6 +7,8 @@
 #include <cstring>
 #include <cwchar>
 #include <filesystem>
+#include <limits>
+#include <new>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -15,6 +17,7 @@
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
 #include "FileMan.h"
 #include "Font.h"
@@ -203,6 +206,60 @@ void CountSoundEnd(void* callbackData)
 {
 	if (callbackData) ++*static_cast<int*>(callbackData);
 }
+
+struct XmlProbe
+{
+	int starts = 0;
+	int ends = 0;
+	int characterCalls = 0;
+	std::string characters;
+};
+
+void XMLCALL ProbeXmlStart(void* userData, const XML_Char*,
+	const XML_Char**)
+{
+	if (userData) ++static_cast<XmlProbe*>(userData)->starts;
+}
+
+void XMLCALL ProbeXmlEnd(void* userData, const XML_Char*)
+{
+	if (userData) ++static_cast<XmlProbe*>(userData)->ends;
+}
+
+void XMLCALL ProbeXmlCharacters(void* userData, const XML_Char* text, int length)
+{
+	if (!userData || !text || length <= 0) return;
+	XmlProbe& probe = *static_cast<XmlProbe*>(userData);
+	++probe.characterCalls;
+	probe.characters.append(text, static_cast<std::size_t>(length));
+}
+
+class ShortReadAssetSource final : public AssetSource
+{
+protected:
+	bool existsNormalized(const std::string&) const override { return true; }
+
+	AssetReadResult readNormalized(const std::string&, AssetData& asset,
+		std::size_t) const override
+	{
+		// Model a source that obtained only a prefix before reporting I/O
+		// failure. AssetSource must clear that partial result before returning.
+		asset.bytes = {'<', 'R'};
+		return AssetReadResult::IoError;
+	}
+};
+
+class OutOfMemoryAssetSource final : public AssetSource
+{
+protected:
+	bool existsNormalized(const std::string&) const override { return true; }
+
+	AssetReadResult readNormalized(const std::string&, AssetData&,
+		std::size_t) const override
+	{
+		throw std::bad_alloc();
+	}
+};
 }
 
 int main()
@@ -306,6 +363,90 @@ int main()
 	Check(assets.read("adapter.bin", asset, 1) == AssetReadResult::TooLarge &&
 		asset.bytes.empty() && asset.provenance.empty(),
 		"failed asset reads clear stale public result data");
+
+	const std::string validXml = "<ROOT><VALUE>ok</VALUE></ROOT>";
+	MemoryAssetSource memoryXml("test-memory");
+	Check(memoryXml.put("tables/probe.xml",
+		std::vector<std::uint8_t>(validXml.begin(), validXml.end())),
+		"memory XML fixture enters the engine asset namespace");
+	XmlProbe xmlProbe;
+	const LegacyXmlCallbacks xmlCallbacks{
+		&xmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters};
+	LegacyXmlResult xmlResult = ParseLegacyXmlAsset(
+		memoryXml, "tables/probe.xml", xmlCallbacks);
+	Check(xmlResult && xmlResult.byteCount == validXml.size() &&
+		xmlProbe.starts == 2 && xmlProbe.ends == 2 &&
+		xmlProbe.characterCalls == 1 && xmlProbe.characters == "ok",
+		"legacy XML adapter parses engine assets with the original Expat callbacks");
+
+	xmlResult = ParseLegacyXmlAsset(
+		memoryXml, "tables/probe.xml", xmlCallbacks);
+	Check(xmlResult && xmlProbe.starts == 4 && xmlProbe.ends == 4 &&
+		xmlProbe.characters == "okok",
+		"legacy XML adapter creates an independent parser for every invocation");
+
+	XmlProbe rejectedXmlProbe;
+	const LegacyXmlCallbacks rejectedXmlCallbacks{
+		&rejectedXmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters};
+	xmlResult = ParseLegacyXmlAsset(
+		memoryXml, "tables/probe.xml", rejectedXmlCallbacks, 4);
+	Check(xmlResult.status == LegacyXmlStatus::TooLarge &&
+		xmlResult.byteLimit == 4 && rejectedXmlProbe.starts == 0,
+		"bounded XML asset reads reject oversized definitions before callbacks run");
+
+	ShortReadAssetSource shortReadXml;
+	xmlResult = ParseLegacyXmlAsset(
+		shortReadXml, "tables/short.xml", rejectedXmlCallbacks);
+	Check(xmlResult.status == LegacyXmlStatus::ReadError &&
+		rejectedXmlProbe.starts == 0,
+		"short XML asset reads discard partial bytes without invoking callbacks");
+
+	OutOfMemoryAssetSource outOfMemoryXml;
+	xmlResult = ParseLegacyXmlAsset(
+		outOfMemoryXml, "tables/allocation.xml", rejectedXmlCallbacks);
+	Check(xmlResult.status == LegacyXmlStatus::OutOfMemory &&
+		rejectedXmlProbe.starts == 0,
+		"XML asset allocation failures remain contained before parsing");
+
+	const std::string malformedXml = "<ROOT>\n<VALUE></ROOT>";
+	xmlResult = ParseLegacyXmlBytes(
+		malformedXml.data(), malformedXml.size(), rejectedXmlCallbacks);
+	const auto malformedMessage =
+		FormatLegacyXmlFailure("tables/malformed.xml", xmlResult);
+	Check(xmlResult.status == LegacyXmlStatus::Malformed &&
+		xmlResult.parserError != XML_ERROR_NONE && xmlResult.line == 2 &&
+		std::strstr(malformedMessage.data(), "tables/malformed.xml") &&
+		std::strstr(malformedMessage.data(), "line 2"),
+		"malformed XML returns structured Expat diagnostics and a bounded message");
+
+	const char unusedXmlByte = '\0';
+	const int callbacksBeforeOversizedXml = rejectedXmlProbe.starts;
+	xmlResult = ParseLegacyXmlBytes(&unusedXmlByte,
+		static_cast<std::size_t>(std::numeric_limits<int>::max()) + 1,
+		rejectedXmlCallbacks);
+	Check(xmlResult.status == LegacyXmlStatus::TooLarge &&
+		rejectedXmlProbe.starts == callbacksBeforeOversizedXml,
+		"in-memory XML rejects lengths Expat cannot represent without reading them");
+
+	xmlResult = ParseLegacyXmlBytes(nullptr, 1, rejectedXmlCallbacks);
+	Check(xmlResult.status == LegacyXmlStatus::InvalidInput,
+		"XML byte parsing rejects a null non-empty input");
+
+	std::filesystem::create_directories(root / "tables", error);
+	Check(!error && storage.writeAll("tables/vfs-probe.xml",
+		std::vector<std::uint8_t>(validXml.begin(), validXml.end())),
+		"VFS XML fixture is available to compatibility loaders");
+	XmlProbe vfsXmlProbe;
+	const LegacyXmlCallbacks vfsXmlCallbacks{
+		&vfsXmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters};
+	xmlResult = ParseLegacyXmlFile("TABLES\\VFS-PROBE.XML", vfsXmlCallbacks);
+	Check(xmlResult && vfsXmlProbe.starts == 2 &&
+		vfsXmlProbe.characters == "ok",
+		"legacy XML file parsing preserves case-insensitive backslash VFS paths");
+	xmlResult = ParseLegacyXmlFile(
+		"tables/missing.xml", rejectedXmlCallbacks);
+	Check(xmlResult.status == LegacyXmlStatus::NotFound,
+		"legacy XML file parsing distinguishes missing assets");
 
 	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
 		"platform byte storage removal is idempotent and observable");
