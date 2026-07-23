@@ -261,8 +261,9 @@ enum class RenderDepthCompareMode : std::uint8_t
 
 enum class RenderDepthWriteMode : std::uint8_t
 {
-	Preserve,
-	ReplaceOnPass
+	Preserve = 0,
+	ReplaceOnPass = 1,
+	ReplaceOnDraw = 2
 };
 
 enum class RenderImageDepthEffect : std::uint8_t
@@ -271,16 +272,19 @@ enum class RenderImageDepthEffect : std::uint8_t
 	ShadeDestination = 1,
 	IntensifyDestination = 2,
 	BlendSourcePalette50Percent = 3,
-	CheckerboardSourcePalette = 4
+	CheckerboardSourcePalette = 4,
+	PixelateObscuredSourcePalette = 5
 };
 
 // Draws the visible runs of one image frame after a depth test. Palette
 // effects pair with an inclusive test and respectively copy, blend at 50%, or
 // sample through a stable absolute-coordinate checkerboard. Destination
 // shade/intensity effects use the image as a mask and pair with a strict test.
-// Colour and depth storage remain separate resources, and ReplaceOnPass updates
-// depth only for sampled source pixels which pass. Alpha and
-// pixelate-when-obscured semantics remain distinct contracts.
+// PixelateObscuredSourcePalette uses a strict test: front-facing pixels render
+// normally and failed pixels sample through the checkerboard. ReplaceOnPass
+// updates only front-facing pixels; ReplaceOnDraw also updates sampled obscured
+// pixels. Colour and depth storage remain separate resources. Alpha semantics
+// remain a distinct contract.
 struct RenderImageDepthDrawCommand
 {
 	RenderSurfaceId destination = 0;

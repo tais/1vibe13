@@ -2527,6 +2527,12 @@ int main()
 		RenderDepthCompareMode::GreaterOrEqual,
 		RenderDepthWriteMode::ReplaceOnPass,
 		RenderImageDepthEffect::BlendSourcePalette50Percent};
+	const RenderImageDepthDrawCommand imageDepthObscuredCommand{
+		51, 61, 906, 12, RenderSurfacePoint{-8, 17},
+		RenderSurfaceRegion{-7, 4, 98, 74}, 0x6789,
+		RenderDepthCompareMode::Greater,
+		RenderDepthWriteMode::ReplaceOnDraw,
+		RenderImageDepthEffect::PixelateObscuredSourcePalette};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},
@@ -2545,6 +2551,8 @@ int main()
 		"mapped surface commands reject depth images without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthPaletteCommand),
 		"mapped surface commands reject depth palette effects without a host resource adapter");
+	check(!mappedCommands.drawImageDepth(imageDepthObscuredCommand),
+		"mapped surface commands reject obscured depth images without a host resource adapter");
 	check(!mappedCommands.drawImageOutline(imageOutlineCommand),
 		"mapped surface commands reject image outlines without a host resource adapter");
 	check(!mappedCommands.drawImageDepthOutline(imageDepthOutlineCommand),
@@ -2559,6 +2567,7 @@ int main()
 		recordedCommands.drawImage(imageCommand) &&
 		recordedCommands.drawImageDepth(imageDepthCommand) &&
 		recordedCommands.drawImageDepth(imageDepthPaletteCommand) &&
+		recordedCommands.drawImageDepth(imageDepthObscuredCommand) &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.drawImageDepthOutline(imageDepthOutlineCommand) &&
 		recordedCommands.commands() ==
@@ -2575,7 +2584,8 @@ int main()
 			std::vector<RenderImageDrawCommand>{imageCommand} &&
 		recordedCommands.imageDepthCommands() ==
 			std::vector<RenderImageDepthDrawCommand>{
-				imageDepthCommand, imageDepthPaletteCommand} &&
+				imageDepthCommand, imageDepthPaletteCommand,
+				imageDepthObscuredCommand} &&
 		recordedCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{imageOutlineCommand} &&
 		recordedCommands.imageDepthOutlineCommands() ==

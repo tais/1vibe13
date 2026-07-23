@@ -224,6 +224,25 @@ BOOLEAN BltVideoObjectDepthPaletteToSurface(
 	VideoObjectDepthPaletteEffect effect,
 	const SGPRect* pClipRegion);
 
+enum VideoObjectObscuredDepthWriteMode : UINT8
+{
+	VOBJECT_OBSCURED_DEPTH_WRITE_FRONT_PIXELS,
+	VOBJECT_OBSCURED_DEPTH_WRITE_DRAWN_PIXELS
+};
+
+// Compatibility bridge for a depth-tested sprite which renders front-facing
+// pixels normally and obscured pixels through a stable checkerboard. The
+// write mode preserves the historical clipped/unclipped depth distinction.
+BOOLEAN BltVideoObjectObscuredDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	VideoObjectObscuredDepthWriteMode writeMode,
+	const SGPRect* pClipRegion);
+
 enum VideoObjectDepthMaskEffect : UINT8
 {
 	VOBJECT_DEPTH_MASK_SHADOW,

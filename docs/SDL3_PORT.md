@@ -863,8 +863,10 @@ variants, with the `254 == outline marker` semantics preserved), the
 `Shadow*`, `Half` / `HalfRect`, `Mask` (which the legacy asm never
 actually used as a mask — dead-code preserved), and the
 `PixelateObscured` variants (front-facing pixels render normally and
-update Z; obscured pixels render only on a checkerboard mask, no Z
-update).
+update Z; obscured pixels render only on a checkerboard mask. The
+clipped plain-sprite variant preserves obscured depth while its
+unclipped counterpart replaces depth for every drawn pixel; the
+non-writing shadow variants preserve depth throughout).
 
 (Historical note: at the time of the asm port the 8bpp palette LUT was
 still RGB565. The pixel-format conversion to RGBA8888 has since landed —

@@ -139,6 +139,7 @@ bool UsesSourcePalette(RenderImageDepthEffect effect)
 	case RenderImageDepthEffect::SourcePalette:
 	case RenderImageDepthEffect::BlendSourcePalette50Percent:
 	case RenderImageDepthEffect::CheckerboardSourcePalette:
+	case RenderImageDepthEffect::PixelateObscuredSourcePalette:
 		return true;
 	case RenderImageDepthEffect::ShadeDestination:
 	case RenderImageDepthEffect::IntensifyDestination:
@@ -361,7 +362,7 @@ bool SubmitVideoObjectDepthDraw(
 	INT32 destinationX,
 	INT32 destinationY,
 	UINT16 depth,
-	BOOLEAN writeDepth,
+	RenderDepthWriteMode depthWrite,
 	RenderImageDepthEffect effect,
 	const SGPRect* clipping)
 {
@@ -376,10 +377,22 @@ bool SubmitVideoObjectDepthDraw(
 	case RenderImageDepthEffect::SourcePalette:
 	case RenderImageDepthEffect::BlendSourcePalette50Percent:
 	case RenderImageDepthEffect::CheckerboardSourcePalette:
+		if (depthWrite != RenderDepthWriteMode::Preserve &&
+			depthWrite != RenderDepthWriteMode::ReplaceOnPass)
+			return false;
 		comparison = RenderDepthCompareMode::GreaterOrEqual;
 		break;
 	case RenderImageDepthEffect::ShadeDestination:
 	case RenderImageDepthEffect::IntensifyDestination:
+		if (depthWrite != RenderDepthWriteMode::Preserve &&
+			depthWrite != RenderDepthWriteMode::ReplaceOnPass)
+			return false;
+		comparison = RenderDepthCompareMode::Greater;
+		break;
+	case RenderImageDepthEffect::PixelateObscuredSourcePalette:
+		if (depthWrite != RenderDepthWriteMode::ReplaceOnPass &&
+			depthWrite != RenderDepthWriteMode::ReplaceOnDraw)
+			return false;
 		comparison = RenderDepthCompareMode::Greater;
 		break;
 	default:
@@ -409,9 +422,7 @@ bool SubmitVideoObjectDepthDraw(
 			clipping->iRight, clipping->iBottom},
 		depth,
 		comparison,
-		writeDepth != FALSE ?
-			RenderDepthWriteMode::ReplaceOnPass :
-			RenderDepthWriteMode::Preserve,
+		depthWrite,
 		effect});
 }
 
@@ -1046,12 +1057,20 @@ bool PlatformVideoObjectDepthDraw(
 	case RenderImageDepthEffect::BlendSourcePalette50Percent:
 	case RenderImageDepthEffect::CheckerboardSourcePalette:
 		if (command.comparison !=
-			RenderDepthCompareMode::GreaterOrEqual)
+				RenderDepthCompareMode::GreaterOrEqual ||
+			command.depthWrite == RenderDepthWriteMode::ReplaceOnDraw)
 			return false;
 		break;
 	case RenderImageDepthEffect::ShadeDestination:
 	case RenderImageDepthEffect::IntensifyDestination:
-		if (command.comparison != RenderDepthCompareMode::Greater)
+		if (command.comparison != RenderDepthCompareMode::Greater ||
+			command.depthWrite == RenderDepthWriteMode::ReplaceOnDraw)
+			return false;
+		break;
+	case RenderImageDepthEffect::PixelateObscuredSourcePalette:
+		if (command.comparison != RenderDepthCompareMode::Greater ||
+			(command.depthWrite != RenderDepthWriteMode::ReplaceOnPass &&
+			 command.depthWrite != RenderDepthWriteMode::ReplaceOnDraw))
 			return false;
 		break;
 	default:
@@ -1061,6 +1080,7 @@ bool PlatformVideoObjectDepthDraw(
 	{
 	case RenderDepthWriteMode::Preserve:
 	case RenderDepthWriteMode::ReplaceOnPass:
+	case RenderDepthWriteMode::ReplaceOnDraw:
 		break;
 	default:
 		return false;
@@ -1136,6 +1156,9 @@ bool PlatformVideoObjectDepthDraw(
 		imageBottom > std::numeric_limits<INT32>::max())
 		return false;
 
+	const bool fullyInside =
+		imageLeft >= clipLeft && imageTop >= clipTop &&
+		imageRight <= clipRight && imageBottom <= clipBottom;
 	SGPRect clipping{
 		static_cast<INT32>(clipLeft),
 		static_cast<INT32>(clipTop),
@@ -1181,6 +1204,19 @@ bool PlatformVideoObjectDepthDraw(
 				destinationPixels, pitch, depthPixels, command.depth,
 				source, command.destinationOrigin.x,
 				command.destinationOrigin.y, frame, &clipping) != FALSE;
+	case RenderImageDepthEffect::PixelateObscuredSourcePalette:
+		if (command.depthWrite == RenderDepthWriteMode::ReplaceOnDraw)
+		{
+			if (!fullyInside) return false;
+			return Blt8BPPDataTo16BPPBufferTransZPixelateObscured(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame) != FALSE;
+		}
+		return Blt8BPPDataTo16BPPBufferTransZClipPixelateObscured(
+			destinationPixels, pitch, depthPixels, command.depth,
+			source, command.destinationOrigin.x,
+			command.destinationOrigin.y, frame, &clipping) != FALSE;
 	case RenderImageDepthEffect::ShadeDestination:
 		return replaceDepth ?
 			Blt8BPPDataTo16BPPBufferShadowZClip(
@@ -1547,8 +1583,40 @@ BOOLEAN BltVideoObjectDepthPaletteToSurface(
 	}
 	return SubmitVideoObjectDepthDraw(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
-		iDestX, iDestY, usDepth, fWriteDepth,
+		iDestX, iDestY, usDepth,
+		fWriteDepth != FALSE ?
+			RenderDepthWriteMode::ReplaceOnPass :
+			RenderDepthWriteMode::Preserve,
 		commandEffect, pClipRegion) ? TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectObscuredDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	VideoObjectObscuredDepthWriteMode writeMode,
+	const SGPRect* pClipRegion)
+{
+	RenderDepthWriteMode commandWriteMode;
+	switch (writeMode)
+	{
+	case VOBJECT_OBSCURED_DEPTH_WRITE_FRONT_PIXELS:
+		commandWriteMode = RenderDepthWriteMode::ReplaceOnPass;
+		break;
+	case VOBJECT_OBSCURED_DEPTH_WRITE_DRAWN_PIXELS:
+		commandWriteMode = RenderDepthWriteMode::ReplaceOnDraw;
+		break;
+	default:
+		return FALSE;
+	}
+	return SubmitVideoObjectDepthDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, usDepth, commandWriteMode,
+		RenderImageDepthEffect::PixelateObscuredSourcePalette,
+		pClipRegion) ? TRUE : FALSE;
 }
 
 BOOLEAN BltVideoObjectEffectToSurface(
@@ -1605,7 +1673,10 @@ BOOLEAN BltVideoObjectDepthMaskToSurface(
 	}
 	return SubmitVideoObjectDepthDraw(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
-		iDestX, iDestY, usDepth, fWriteDepth,
+		iDestX, iDestY, usDepth,
+		fWriteDepth != FALSE ?
+			RenderDepthWriteMode::ReplaceOnPass :
+			RenderDepthWriteMode::Preserve,
 		commandEffect, pClipRegion) ? TRUE : FALSE;
 }
 
