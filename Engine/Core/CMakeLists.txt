@@ -90,6 +90,7 @@ add_library(ja2_engine_core STATIC
   PackageSaveArchive.cpp
   PersistenceService.cpp
   PackageResourceUsage.cpp
+  RenderCommands.cpp
   RuntimeCapabilities.cpp
   RuntimeCheckpoint.cpp
   RuntimeFingerprint.cpp

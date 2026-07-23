@@ -13,5 +13,9 @@ bool FillLegacyRenderSurface(
 	const RenderSurfaceFillCommand& command) noexcept;
 bool CopyLegacyRenderSurface(
 	const RenderSurfaceCopyCommand& command) noexcept;
+bool StretchLegacyRenderSurface(
+	const RenderSurfaceStretchCommand& command) noexcept;
+bool ShadeLegacyRenderSurface(
+	const RenderSurfaceShadeCommand& command) noexcept;
 
 #endif

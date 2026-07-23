@@ -2169,14 +2169,321 @@ int main()
 	check(copySourceInitialized && drawSurfaces.mappingCount(54) == 0,
 		"same-surface opaque copies choose a corruption-safe row order");
 
+	const RenderSurfaceDescription stretchSourceDescription{
+		2, 2, RenderPixelFormat::Argb8888, 32};
+	const RenderSurfaceDescription stretchDestinationDescription{
+		4, 4, RenderPixelFormat::Argb8888, 32};
+	check(drawSurfaces.defineSurface(57, stretchSourceDescription) &&
+		drawSurfaces.defineSurface(58, stretchDestinationDescription),
+		"memory render surfaces define deterministic stretch targets");
+	const std::uint32_t stretchSourcePixels[] = {
+		0xff100001u, 0xff200002u,
+		0xff300003u, 0xff400004u};
+	MutableRenderSurface stretchSource;
+	bool stretchSourceInitialized = drawSurfaces.map(57, stretchSource);
+	for (std::size_t index = 0;
+		stretchSourceInitialized && index < 4; ++index)
+	{
+		std::memcpy(
+			stretchSource.pixels + index * sizeof(std::uint32_t),
+			&stretchSourcePixels[index], sizeof(std::uint32_t));
+	}
+	if (stretchSourceInitialized) drawSurfaces.unmap(57);
+	const RenderSurfaceStretchCommand stretchCommand{
+		57, 58, RenderSurfaceRegion{0, 0, 2, 2},
+		RenderSurfaceRegion{0, 0, 4, 4},
+		RenderSurfaceCopyMode::Opaque, {}};
+	check(stretchSourceInitialized &&
+		mappedCommands.stretchSurface(stretchCommand),
+		"mapped surface stretches execute deterministic nearest-neighbour scaling");
+	MutableRenderSurface stretchDestination;
+	bool stretchMatches = drawSurfaces.map(58, stretchDestination);
+	for (std::uint32_t y = 0; stretchMatches && y < 4; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint32_t pixel = 0;
+			std::memcpy(
+				&pixel,
+				stretchDestination.pixels +
+					y * stretchDestination.pitchBytes +
+					x * sizeof(pixel),
+				sizeof(pixel));
+			const std::uint32_t expected =
+				stretchSourcePixels[(y / 2u) * 2u + x / 2u];
+			if (pixel != expected) stretchMatches = false;
+		}
+	}
+	if (stretchDestination) drawSurfaces.unmap(58);
+	check(stretchMatches &&
+		drawSurfaces.mappingCount(57) == 0 &&
+		drawSurfaces.mappingCount(58) == 0,
+		"mapped surface stretches replicate exact source texels");
+
+	const std::uint32_t stretchSentinel = 0xdeadbeefu;
+	bool stretchDestinationInitialized =
+		drawSurfaces.map(58, stretchDestination);
+	for (std::size_t index = 0;
+		stretchDestinationInitialized && index < 16; ++index)
+	{
+		std::memcpy(
+			stretchDestination.pixels +
+				(index / 4) * stretchDestination.pitchBytes +
+				(index % 4) * sizeof(stretchSentinel),
+			&stretchSentinel, sizeof(stretchSentinel));
+	}
+	if (stretchDestinationInitialized) drawSurfaces.unmap(58);
+	check(stretchDestinationInitialized &&
+		mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			57, 58, RenderSurfaceRegion{0, 0, 2, 2},
+			RenderSurfaceRegion{-2, -2, 2, 2},
+			RenderSurfaceCopyMode::Opaque, {}}),
+		"mapped surface stretches clip destinations without changing sampling phase");
+	stretchMatches = drawSurfaces.map(58, stretchDestination);
+	for (std::uint32_t y = 0; stretchMatches && y < 4; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint32_t pixel = 0;
+			std::memcpy(
+				&pixel,
+				stretchDestination.pixels +
+					y * stretchDestination.pitchBytes +
+					x * sizeof(pixel),
+				sizeof(pixel));
+			const std::uint32_t expected =
+				x < 2 && y < 2 ? stretchSourcePixels[3] :
+					stretchSentinel;
+			if (pixel != expected) stretchMatches = false;
+		}
+	}
+	if (stretchDestination) drawSurfaces.unmap(58);
+	check(stretchMatches,
+		"clipped surface stretches retain their original source phase");
+
+	stretchDestinationInitialized = drawSurfaces.map(58, stretchDestination);
+	for (std::size_t index = 0;
+		stretchDestinationInitialized && index < 16; ++index)
+	{
+		std::memcpy(
+			stretchDestination.pixels +
+				(index / 4) * stretchDestination.pitchBytes +
+				(index % 4) * sizeof(stretchSentinel),
+			&stretchSentinel, sizeof(stretchSentinel));
+	}
+	if (stretchDestinationInitialized) drawSurfaces.unmap(58);
+	check(stretchDestinationInitialized &&
+		mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			57, 58, RenderSurfaceRegion{-1, 0, 3, 2},
+			RenderSurfaceRegion{0, 0, 4, 4},
+			RenderSurfaceCopyMode::Opaque, {}}),
+		"mapped surface stretches safely accept partially external source regions");
+	stretchMatches = drawSurfaces.map(58, stretchDestination);
+	for (std::uint32_t y = 0; stretchMatches && y < 4; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint32_t pixel = 0;
+			std::memcpy(
+				&pixel,
+				stretchDestination.pixels +
+					y * stretchDestination.pitchBytes +
+					x * sizeof(pixel),
+				sizeof(pixel));
+			std::uint32_t expected = stretchSentinel;
+			if (x == 1)
+				expected = stretchSourcePixels[(y / 2u) * 2u];
+			else if (x == 2)
+				expected = stretchSourcePixels[(y / 2u) * 2u + 1u];
+			if (pixel != expected) stretchMatches = false;
+		}
+	}
+	if (stretchDestination) drawSurfaces.unmap(58);
+	check(stretchMatches,
+		"external stretch texels remain transparent without out-of-bounds reads");
+
+	const std::uint32_t keyedStretchSource[] = {
+		0x00112233u, 0x80445566u};
+	stretchSourceInitialized = drawSurfaces.map(57, stretchSource);
+	stretchDestinationInitialized = drawSurfaces.map(58, stretchDestination);
+	for (std::size_t index = 0;
+		stretchSourceInitialized && stretchDestinationInitialized &&
+			index < 2; ++index)
+	{
+		std::memcpy(
+			stretchSource.pixels + index * sizeof(std::uint32_t),
+			&keyedStretchSource[index], sizeof(std::uint32_t));
+	}
+	for (std::size_t index = 0;
+		stretchSourceInitialized && stretchDestinationInitialized &&
+			index < 4; ++index)
+	{
+		std::memcpy(
+			stretchDestination.pixels + index * sizeof(stretchSentinel),
+			&stretchSentinel, sizeof(stretchSentinel));
+	}
+	if (stretchSourceInitialized) drawSurfaces.unmap(57);
+	if (stretchDestinationInitialized) drawSurfaces.unmap(58);
+	check(stretchSourceInitialized && stretchDestinationInitialized &&
+		mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			57, 58, RenderSurfaceRegion{0, 0, 2, 1},
+			RenderSurfaceRegion{0, 0, 4, 1},
+			RenderSurfaceCopyMode::SourceColorKeyRgb,
+			RenderColor{0x11, 0x22, 0x33, 0xff}}),
+		"mapped surface stretches accept RGB colour-key commands");
+	stretchMatches = drawSurfaces.map(58, stretchDestination);
+	const std::uint32_t keyedStretchExpected[] = {
+		stretchSentinel, stretchSentinel,
+		keyedStretchSource[1], keyedStretchSource[1]};
+	for (std::size_t x = 0; stretchMatches && x < 4; ++x)
+	{
+		std::uint32_t pixel = 0;
+		std::memcpy(
+			&pixel,
+			stretchDestination.pixels + x * sizeof(pixel),
+			sizeof(pixel));
+		if (pixel != keyedStretchExpected[x]) stretchMatches = false;
+	}
+	if (stretchDestination) drawSurfaces.unmap(58);
+	check(stretchMatches,
+		"ARGB8888 stretch colour keys compare RGB while preserving alpha");
+
+	indexedCopyMatches = drawSurfaces.map(56, indexedPixels);
+	for (std::size_t x = 0; indexedCopyMatches && x < 6; ++x)
+		indexedPixels.pixels[x] = static_cast<std::byte>(x + 1);
+	if (indexedCopyMatches) drawSurfaces.unmap(56);
+	check(indexedCopyMatches &&
+		mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			56, 56, RenderSurfaceRegion{0, 0, 3, 1},
+			RenderSurfaceRegion{1, 0, 6, 1},
+			RenderSurfaceCopyMode::Opaque, {}}),
+		"same-surface scaled stretches accept overlapping indexed storage");
+	indexedCopyMatches = drawSurfaces.map(56, indexedPixels);
+	const std::byte overlappingStretchExpected[] = {
+		std::byte{1}, std::byte{1}, std::byte{1},
+		std::byte{2}, std::byte{2}, std::byte{3}};
+	for (std::size_t x = 0; indexedCopyMatches && x < 6; ++x)
+	{
+		if (indexedPixels.pixels[x] != overlappingStretchExpected[x])
+			indexedCopyMatches = false;
+	}
+	if (indexedPixels) drawSurfaces.unmap(56);
+	check(indexedCopyMatches && drawSurfaces.mappingCount(56) == 0,
+		"same-surface scaled stretches snapshot source bytes before writing");
+
+	check(!mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			56, 56, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderSurfaceRegion{0, 0, 2, 1},
+			RenderSurfaceCopyMode::SourceColorKeyRgb,
+			RenderColor{1, 2, 3, 255}}) &&
+		!mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			54, 52, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderSurfaceRegion{0, 0, 2, 1},
+			RenderSurfaceCopyMode::Opaque, {}}) &&
+		!mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			99, 58, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderSurfaceRegion{0, 0, 2, 1},
+			RenderSurfaceCopyMode::Opaque, {}}) &&
+		mappedCommands.stretchSurface(RenderSurfaceStretchCommand{
+			57, 58, RenderSurfaceRegion{0, 0, 0, 2},
+			RenderSurfaceRegion{0, 0, 4, 4},
+			RenderSurfaceCopyMode::Opaque, {}}),
+		"mapped surface stretches reject invalid contracts and keep empty work a no-op");
+
+	const std::uint32_t shadeSourcePixel = 0xa0643210u;
+	bool shadeInitialized = drawSurfaces.map(51, argbPixels);
+	for (std::uint32_t y = 0; shadeInitialized && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::memcpy(
+				argbPixels.pixels + y * argbPixels.pitchBytes +
+					x * sizeof(shadeSourcePixel),
+				&shadeSourcePixel, sizeof(shadeSourcePixel));
+		}
+	}
+	if (shadeInitialized) drawSurfaces.unmap(51);
+	const RenderSurfaceShadeCommand shadeCommand{
+		51, RenderSurfaceRegion{-1, 1, 3, 5}, 48, 100};
+	check(shadeInitialized && mappedCommands.shadeSurface(shadeCommand),
+		"mapped surface shades clip against the actual target");
+	bool shadeMatches = drawSurfaces.map(51, argbPixels);
+	for (std::uint32_t y = 0; shadeMatches && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint32_t pixel = 0;
+			std::memcpy(
+				&pixel,
+				argbPixels.pixels + y * argbPixels.pitchBytes +
+					x * sizeof(pixel),
+				sizeof(pixel));
+			const std::uint32_t expected =
+				y >= 1 && x < 3 ? 0xa0301807u : shadeSourcePixel;
+			if (pixel != expected) shadeMatches = false;
+		}
+	}
+	if (argbPixels) drawSurfaces.unmap(51);
+	check(shadeMatches && drawSurfaces.mappingCount(51) == 0,
+		"ARGB8888 shades scale RGB exactly while retaining alpha");
+
+	const std::uint16_t fullRgb565 = 0xffffu;
+	shadeInitialized = drawSurfaces.map(52, rgb565Pixels);
+	for (std::size_t x = 0; shadeInitialized && x < 2; ++x)
+	{
+		std::memcpy(
+			rgb565Pixels.pixels + x * sizeof(fullRgb565),
+			&fullRgb565, sizeof(fullRgb565));
+	}
+	if (shadeInitialized) drawSurfaces.unmap(52);
+	check(shadeInitialized &&
+		mappedCommands.shadeSurface(RenderSurfaceShadeCommand{
+			52, RenderSurfaceRegion{0, 0, 2, 1}, 4, 5}),
+		"mapped surface shades accept RGB565 targets");
+	shadeMatches = drawSurfaces.map(52, rgb565Pixels);
+	for (std::size_t x = 0; shadeMatches && x < 2; ++x)
+	{
+		std::uint16_t pixel = 0;
+		std::memcpy(
+			&pixel, rgb565Pixels.pixels + x * sizeof(pixel),
+			sizeof(pixel));
+		if (pixel != 0xc658u) shadeMatches = false;
+	}
+	if (rgb565Pixels) drawSurfaces.unmap(52);
+	check(shadeMatches &&
+		mappedCommands.shadeSurface(RenderSurfaceShadeCommand{
+			52, RenderSurfaceRegion{0, 0, 2, 1}, 1, 1}) &&
+		mappedCommands.shadeSurface(RenderSurfaceShadeCommand{
+			52, RenderSurfaceRegion{20, 20, 30, 30}, 0, 1}) &&
+		!mappedCommands.shadeSurface(RenderSurfaceShadeCommand{
+			53, RenderSurfaceRegion{0, 0, 1, 1}, 1, 2}) &&
+		!mappedCommands.shadeSurface(RenderSurfaceShadeCommand{
+			52, RenderSurfaceRegion{0, 0, 1, 1}, 1, 0}) &&
+		!mappedCommands.shadeSurface(RenderSurfaceShadeCommand{
+			52, RenderSurfaceRegion{0, 0, 1, 1}, 2, 1}) &&
+		drawSurfaces.mappingCount(52) == 0,
+		"RGB565 shades are exact and invalid or empty shade work is contained");
+
 	RecordingRenderCommandSink recordedCommands;
 	check(recordedCommands.fillSurface(fillCommand) &&
 		recordedCommands.copySurface(clippedCopy) &&
+		recordedCommands.stretchSurface(stretchCommand) &&
+		recordedCommands.shadeSurface(shadeCommand) &&
 		recordedCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{fillCommand} &&
 		recordedCommands.copyCommands() ==
-			std::vector<RenderSurfaceCopyCommand>{clippedCopy},
+			std::vector<RenderSurfaceCopyCommand>{clippedCopy} &&
+		recordedCommands.stretchCommands() ==
+			std::vector<RenderSurfaceStretchCommand>{stretchCommand} &&
+		recordedCommands.shadeCommands() ==
+			std::vector<RenderSurfaceShadeCommand>{shadeCommand},
 		"recording render commands expose deterministic headless drawing");
+	recordedCommands.clear();
+	check(recordedCommands.commands().empty() &&
+		recordedCommands.copyCommands().empty() &&
+		recordedCommands.stretchCommands().empty() &&
+		recordedCommands.shadeCommands().empty(),
+		"recorded render command streams clear as one deterministic frame");
 
 	EngineServices frameServices{
 		frameTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
