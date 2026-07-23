@@ -8,11 +8,15 @@
 #include "vobject_blitters.h"
 #include "sgp.h"
 
+#include <Engine/Adapters/Legacy/LegacyRenderCommandGateway.h>
+#include <Engine/Adapters/Legacy/PlatformVideoObjectBackend.h>
 #include <Engine/Core/StableResourceRegistry.h>
 #include <Engine/Core/UniqueResourcePtr.h>
 
+#include <limits>
 #include <optional>
 #include <string>
+#include <unordered_map>
 
 // ******************************************************************************
 //
@@ -82,6 +86,111 @@ using VideoObjectRegistry = StableResourceRegistry<VideoObjectResource, UINT32>;
 
 VideoObjectRegistry gVideoObjects(
 	VideoObjectRegistry::Limits{1, 1, 0xffffffefu});
+std::unordered_map<HVOBJECT, UINT32> gVideoObjectHandles;
+
+RenderImageCompositeMode CompositeModeFor(UINT32 flags)
+{
+	// Preserve the established priority in BltVideoObjectToBuffer: the
+	// transparency bit wins when combined with any other legacy flag.
+	if (flags & VO_BLT_SRCTRANSPARENCY)
+		return RenderImageCompositeMode::SourceTransparency;
+	if (flags & VO_BLT_SHADOW)
+		return RenderImageCompositeMode::Shadow;
+	return RenderImageCompositeMode::Opaque;
+}
+
+std::optional<UINT32> LegacyFlagsFor(RenderImageCompositeMode mode)
+{
+	switch (mode)
+	{
+	case RenderImageCompositeMode::Opaque: return 0;
+	case RenderImageCompositeMode::SourceTransparency:
+		return VO_BLT_SRCTRANSPARENCY;
+	case RenderImageCompositeMode::Shadow: return VO_BLT_SHADOW;
+	}
+	return std::nullopt;
+}
+
+bool FindVideoObjectHandle(HVOBJECT object, UINT32& handle)
+{
+	const auto found = gVideoObjectHandles.find(object);
+	if (found == gVideoObjectHandles.end()) return false;
+	handle = found->second;
+	return true;
+}
+
+class ClippingRegionLease
+{
+public:
+	explicit ClippingRegionLease(const RenderSurfaceRegion& region)
+		: previous_(ClippingRect)
+	{
+		ClippingRect = SGPRect{
+			region.left, region.top, region.right, region.bottom};
+	}
+
+	~ClippingRegionLease()
+	{
+		ClippingRect = previous_;
+	}
+
+	ClippingRegionLease(const ClippingRegionLease&) = delete;
+	ClippingRegionLease& operator=(const ClippingRegionLease&) = delete;
+
+private:
+	SGPRect previous_;
+};
+
+bool SubmitVideoObjectDraw(
+	UINT32 destination,
+	UINT32 image,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT32 flags)
+{
+	SGPRect clipping;
+	GetClippingRect(&clipping);
+	return DrawLegacyRenderImage(RenderImageDrawCommand{
+		destination,
+		image,
+		frame,
+		RenderSurfacePoint{destinationX, destinationY},
+		RenderSurfaceRegion{
+			clipping.iLeft, clipping.iTop,
+			clipping.iRight, clipping.iBottom},
+		CompositeModeFor(flags)});
+}
+
+BOOLEAN DrawVideoObjectToSurface(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT32 flags,
+	blt_fx* effects)
+{
+	UINT32 pitch = 0;
+	PIXEL* const buffer =
+		reinterpret_cast<PIXEL*>(LockVideoSurface(destination, &pitch));
+	if (!buffer) return FALSE;
+
+	BOOLEAN drawn = FALSE;
+	try
+	{
+		drawn = BltVideoObjectToBuffer(
+			buffer, pitch, object, frame,
+			destinationX, destinationY, flags, effects);
+	}
+	catch (...)
+	{
+		UnLockVideoSurface(destination);
+		throw;
+	}
+	UnLockVideoSurface(destination);
+	return drawn;
+}
 }
 
 UINT32				guiVObjectIndex = 1;
@@ -138,7 +247,7 @@ BOOLEAN InitializeVideoObjectManager( )
 	if (gfVideoObjectsInit) return TRUE;
 	//Shouldn't be calling this if the video object manager already exists.
 	//Call shutdown first...
-	if (!gVideoObjects.empty()) return FALSE;
+	if (!gVideoObjects.empty() || !gVideoObjectHandles.empty()) return FALSE;
 	RegisterDebugTopic(TOPIC_VIDEOOBJECT, "Video Object Manager");
 	gfVideoObjectsInit=TRUE;
 	return TRUE ;
@@ -146,6 +255,7 @@ BOOLEAN InitializeVideoObjectManager( )
 
 BOOLEAN ShutdownVideoObjectManager( )
 {
+	gVideoObjectHandles.clear();
 	gVideoObjects.clear();
 	guiVObjectIndex = 1;
 	guiVObjectSize = 0;
@@ -192,6 +302,21 @@ BOOLEAN AddStandardVideoObject( VOBJECT_DESC *pVObjectDesc, UINT32 *puiIndex )
 		return FALSE;
 	}
 	if (!handle) return FALSE;
+	try
+	{
+		const auto reverse =
+			gVideoObjectHandles.emplace(hVObject, *handle);
+		if (!reverse.second)
+		{
+			(void)gVideoObjects.erase(*handle);
+			return FALSE;
+		}
+	}
+	catch (...)
+	{
+		(void)gVideoObjects.erase(*handle);
+		return FALSE;
+	}
 
 	*puiIndex = *handle;
 	guiVObjectIndex = gVideoObjects.nextHandle();
@@ -243,40 +368,44 @@ BOOLEAN GetVideoObject( HVOBJECT *hVObject, UINT32 uiIndex )
 	return FALSE;
 }
 
+bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
+{
+	if (command.destination == 0 || command.image == 0 ||
+		command.destination > std::numeric_limits<UINT32>::max() ||
+		command.image > std::numeric_limits<UINT32>::max() ||
+		command.frame > std::numeric_limits<UINT16>::max())
+		return false;
+	const std::optional<UINT32> flags = LegacyFlagsFor(command.mode);
+	if (!flags) return false;
+
+	HVOBJECT source = nullptr;
+	if (!GetVideoObject(
+		&source, static_cast<UINT32>(command.image)))
+		return false;
+
+	ClippingRegionLease clipping(command.clippingRegion);
+	return DrawVideoObjectToSurface(
+		static_cast<UINT32>(command.destination),
+		source,
+		static_cast<UINT16>(command.frame),
+		command.destinationOrigin.x,
+		command.destinationOrigin.y,
+		*flags,
+		nullptr) != FALSE;
+}
+
 BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT16 usRegionIndex, INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx *pBltFx )
 {
-	PIXEL				*pBuffer;
-	UINT32								uiPitch;
-	HVOBJECT							hSrcVObject;
-
-	// Lock video surface
-	pBuffer = (PIXEL *)LockVideoSurface( uiDestVSurface, &uiPitch );
-
-	if ( pBuffer == NULL )
-	{
-		return( FALSE );
-	}
-
-	// Get video object
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_BLTVIDEOOBJECTFROMINDEX;
 	#endif
-	if( !GetVideoObject( &hSrcVObject, uiSrcVObject ) )
-	{
-		UnLockVideoSurface( uiDestVSurface );
-		return FALSE;
-	}
-
-	// Now we have the video object and surface, call the VO blitter function
-	if ( !BltVideoObjectToBuffer( pBuffer, uiPitch, hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags, pBltFx ) )
-	{
-		UnLockVideoSurface( uiDestVSurface );
-		// VO Blitter will set debug messages for error conditions
-		return FALSE;
-	}
-
-	UnLockVideoSurface( uiDestVSurface );
-	return( TRUE );
+	HVOBJECT source = nullptr;
+	if (!GetVideoObject(&source, uiSrcVObject)) return FALSE;
+	(void)source;
+	(void)pBltFx; // The established high-level blitter does not consume effects.
+	return SubmitVideoObjectDraw(
+		uiDestVSurface, uiSrcVObject, usRegionIndex,
+		iDestX, iDestY, fBltFlags) ? TRUE : FALSE;
 }
 
 
@@ -286,6 +415,9 @@ BOOLEAN DeleteVideoObjectFromIndex( UINT32 uiVObject	)
 		gubVODebugCode = DEBUGSTR_DELETEVIDEOOBJECTFROMINDEX;
 		CheckValidVObjectIndex( uiVObject );
 	#endif
+	VideoObjectResource* const resource = gVideoObjects.find(uiVObject);
+	if (!resource) return FALSE;
+	gVideoObjectHandles.erase(resource->object.get());
 	if (!gVideoObjects.erase(uiVObject)) return FALSE;
 	guiVObjectSize = static_cast<UINT32>(gVideoObjects.size());
 	return TRUE;
@@ -306,27 +438,21 @@ BOOLEAN BltVideoObject(	UINT32	uiDestVSurface,
 												blt_fx *pBltFx )
 {
 
-	PIXEL								*pBuffer;
-	UINT32								uiPitch;
-
-	// Lock video surface
-	pBuffer = (PIXEL *)LockVideoSurface( uiDestVSurface, &uiPitch );
-
-	if ( pBuffer == NULL )
+	UINT32 image = 0;
+	if (FindVideoObjectHandle(hSrcVObject, image))
 	{
-		return( FALSE );
+		(void)pBltFx;
+		return SubmitVideoObjectDraw(
+			uiDestVSurface, image, usRegionIndex,
+			iDestX, iDestY, fBltFlags) ? TRUE : FALSE;
 	}
 
-	// Now we have the video object and surface, call the VO blitter function
-	if ( !BltVideoObjectToBuffer( pBuffer, uiPitch, hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags, pBltFx ) )
-	{
-		UnLockVideoSurface( uiDestVSurface );
-		// VO Blitter will set debug messages for error conditions
-		return( FALSE );
-	}
-
-	UnLockVideoSurface( uiDestVSurface );
-	return( TRUE );
+	// Button art, editor previews, and other application-owned images may not
+	// belong to the stable manager yet. Keep those pointer-owned objects on the
+	// exact compatibility implementation until their ownership is migrated.
+	return DrawVideoObjectToSurface(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, fBltFlags, pBltFx);
 }
 
 BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usRegionIndex, SGPRectangle Region, UINT32 fBltFlags, blt_fx* pBltFx)

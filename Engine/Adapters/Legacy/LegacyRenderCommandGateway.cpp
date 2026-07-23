@@ -157,6 +157,21 @@ bool ShadeLegacyRenderSurface(
 	}
 }
 
+bool DrawLegacyRenderImage(
+	const RenderImageDrawCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().drawImage(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 BOOLEAN ColorFillVideoSurfaceArea(
 	UINT32 surface,
 	INT32 left,

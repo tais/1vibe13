@@ -2464,11 +2464,19 @@ int main()
 		drawSurfaces.mappingCount(52) == 0,
 		"RGB565 shades are exact and invalid or empty shade work is contained");
 
+	const RenderImageDrawCommand imageCommand{
+		51, 901, 7, RenderSurfacePoint{-3, 12},
+		RenderSurfaceRegion{-8, 0, 100, 80},
+		RenderImageCompositeMode::Shadow};
+	check(!mappedCommands.drawImage(imageCommand),
+		"mapped surface commands reject images without a host resource adapter");
+
 	RecordingRenderCommandSink recordedCommands;
 	check(recordedCommands.fillSurface(fillCommand) &&
 		recordedCommands.copySurface(clippedCopy) &&
 		recordedCommands.stretchSurface(stretchCommand) &&
 		recordedCommands.shadeSurface(shadeCommand) &&
+		recordedCommands.drawImage(imageCommand) &&
 		recordedCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{fillCommand} &&
 		recordedCommands.copyCommands() ==
@@ -2476,13 +2484,16 @@ int main()
 		recordedCommands.stretchCommands() ==
 			std::vector<RenderSurfaceStretchCommand>{stretchCommand} &&
 		recordedCommands.shadeCommands() ==
-			std::vector<RenderSurfaceShadeCommand>{shadeCommand},
+			std::vector<RenderSurfaceShadeCommand>{shadeCommand} &&
+		recordedCommands.imageCommands() ==
+			std::vector<RenderImageDrawCommand>{imageCommand},
 		"recording render commands expose deterministic headless drawing");
 	recordedCommands.clear();
 	check(recordedCommands.commands().empty() &&
 		recordedCommands.copyCommands().empty() &&
 		recordedCommands.stretchCommands().empty() &&
-		recordedCommands.shadeCommands().empty(),
+		recordedCommands.shadeCommands().empty() &&
+		recordedCommands.imageCommands().empty(),
 		"recorded render command streams clear as one deterministic frame");
 
 	EngineServices frameServices{
