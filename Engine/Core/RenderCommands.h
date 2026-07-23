@@ -362,6 +362,62 @@ inline bool operator!=(
 	return !(left == right);
 }
 
+enum class RenderImageDepthOutlineVisibility : std::uint8_t
+{
+	VisibleOnly,
+	PixelateWhenObscured
+};
+
+// Draws an outline-aware image against separate colour and depth surfaces.
+// VisibleOnly renders pixels which pass the selected comparison; normal pixels
+// optionally replace depth while image-defined outline markers never do.
+// PixelateWhenObscured renders failed pixels through the host's stable
+// checkerboard pattern and replaces depth for every front-facing pixel,
+// including an outline marker.
+struct RenderImageDepthOutlineCommand
+{
+	RenderSurfaceId destination = 0;
+	RenderSurfaceId depthSurface = 0;
+	RenderImageId image = 0;
+	std::uint32_t frame = 0;
+	RenderSurfacePoint destinationOrigin;
+	RenderSurfaceRegion clippingRegion;
+	std::uint16_t depth = 0;
+	RenderDepthCompareMode comparison =
+		RenderDepthCompareMode::GreaterOrEqual;
+	RenderDepthWriteMode depthWrite =
+		RenderDepthWriteMode::ReplaceOnPass;
+	RenderImageDepthOutlineVisibility visibility =
+		RenderImageDepthOutlineVisibility::VisibleOnly;
+	RenderColor color;
+	bool drawOutline = false;
+};
+
+inline bool operator==(
+	const RenderImageDepthOutlineCommand& left,
+	const RenderImageDepthOutlineCommand& right)
+{
+	return left.destination == right.destination &&
+		left.depthSurface == right.depthSurface &&
+		left.image == right.image &&
+		left.frame == right.frame &&
+		left.destinationOrigin == right.destinationOrigin &&
+		left.clippingRegion == right.clippingRegion &&
+		left.depth == right.depth &&
+		left.comparison == right.comparison &&
+		left.depthWrite == right.depthWrite &&
+		left.visibility == right.visibility &&
+		left.color == right.color &&
+		left.drawOutline == right.drawOutline;
+}
+
+inline bool operator!=(
+	const RenderImageDepthOutlineCommand& left,
+	const RenderImageDepthOutlineCommand& right)
+{
+	return !(left == right);
+}
+
 // High-level renderer boundary. Commands use engine values and opaque surface
 // and image identities; hosts decide whether to execute, record, forward, or
 // reject them. New command methods default to rejection so existing external
@@ -387,6 +443,11 @@ public:
 	{
 		return false;
 	}
+	virtual bool drawImageDepthOutline(
+		const RenderImageDepthOutlineCommand&)
+	{
+		return false;
+	}
 };
 
 class NullRenderCommandSink final : public RenderCommandSink
@@ -406,6 +467,11 @@ public:
 		return false;
 	}
 	bool drawImageOutline(const RenderImageOutlineCommand&) override
+	{
+		return false;
+	}
+	bool drawImageDepthOutline(
+		const RenderImageDepthOutlineCommand&) override
 	{
 		return false;
 	}
@@ -468,6 +534,13 @@ public:
 		return accepting_;
 	}
 
+	bool drawImageDepthOutline(
+		const RenderImageDepthOutlineCommand& command) override
+	{
+		imageDepthOutlineCommands_.push_back(command);
+		return accepting_;
+	}
+
 	const std::vector<RenderSurfaceFillCommand>& commands() const
 	{
 		return fillCommands_;
@@ -501,6 +574,11 @@ public:
 	{
 		return imageOutlineCommands_;
 	}
+	const std::vector<RenderImageDepthOutlineCommand>&
+	imageDepthOutlineCommands() const
+	{
+		return imageDepthOutlineCommands_;
+	}
 	void setAccepting(bool accepting) { accepting_ = accepting; }
 	void clear()
 	{
@@ -512,6 +590,7 @@ public:
 		imageCommands_.clear();
 		imageDepthCommands_.clear();
 		imageOutlineCommands_.clear();
+		imageDepthOutlineCommands_.clear();
 	}
 
 private:
@@ -523,6 +602,7 @@ private:
 	std::vector<RenderImageDrawCommand> imageCommands_;
 	std::vector<RenderImageDepthDrawCommand> imageDepthCommands_;
 	std::vector<RenderImageOutlineCommand> imageOutlineCommands_;
+	std::vector<RenderImageDepthOutlineCommand> imageDepthOutlineCommands_;
 	bool accepting_ = true;
 };
 

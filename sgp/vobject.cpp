@@ -430,6 +430,130 @@ bool SubmitVideoObjectOutline(
 			drawOutline != FALSE});
 }
 
+bool SubmitVideoObjectOutlineDraw(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	RenderImageOutlineMode mode,
+	PIXEL color,
+	BOOLEAN drawOutline,
+	const SGPRect* clipping)
+{
+	if (!object || object->ubBitDepth != 8 ||
+		frame >= object->usNumberOfObjects ||
+		!object->pETRLEObject || !object->pPixData ||
+		(mode == RenderImageOutlineMode::Color &&
+			!object->pShadeCurrent))
+		return false;
+	switch (mode)
+	{
+	case RenderImageOutlineMode::Color:
+	case RenderImageOutlineMode::Shadow:
+		break;
+	default:
+		return false;
+	}
+	RenderImageId image = 0;
+	if (!FindRenderImage(object, image)) return false;
+
+	SGPRect currentClipping;
+	if (!clipping)
+	{
+		GetClippingRect(&currentClipping);
+		clipping = &currentClipping;
+	}
+	return DrawLegacyRenderImageOutline(RenderImageOutlineCommand{
+		destination,
+		image,
+		frame,
+		RenderSurfacePoint{destinationX, destinationY},
+		RenderSurfaceRegion{
+			clipping->iLeft, clipping->iTop,
+			clipping->iRight, clipping->iBottom},
+		mode,
+		mode == RenderImageOutlineMode::Color ?
+			DecodeLegacyRenderColor(
+				static_cast<std::uint32_t>(color)) :
+			RenderColor{},
+		mode == RenderImageOutlineMode::Color &&
+			drawOutline != FALSE});
+}
+
+bool SubmitVideoObjectDepthOutlineDraw(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 depth,
+	BOOLEAN writeDepth,
+	RenderDepthCompareMode comparison,
+	RenderImageDepthOutlineVisibility visibility,
+	PIXEL color,
+	BOOLEAN drawOutline,
+	const SGPRect* clipping)
+{
+	if (!object || object->ubBitDepth != 8 ||
+		frame >= object->usNumberOfObjects ||
+		!object->pETRLEObject || !object->pPixData ||
+		!object->pShadeCurrent)
+		return false;
+	switch (comparison)
+	{
+	case RenderDepthCompareMode::GreaterOrEqual:
+	case RenderDepthCompareMode::Greater:
+		break;
+	default:
+		return false;
+	}
+	switch (visibility)
+	{
+	case RenderImageDepthOutlineVisibility::VisibleOnly:
+		if (comparison != RenderDepthCompareMode::GreaterOrEqual)
+			return false;
+		break;
+	case RenderImageDepthOutlineVisibility::PixelateWhenObscured:
+		if (writeDepth == FALSE) return false;
+		break;
+	default:
+		return false;
+	}
+	RenderImageId image = 0;
+	if (!FindRenderImage(object, image)) return false;
+	const RenderSurfaceId depthSurface =
+		GetLegacyRenderSurfaceAccess().surfaceFor(
+			RenderSurfaceRole::DepthBuffer);
+	if (depthSurface == 0) return false;
+
+	SGPRect currentClipping;
+	if (!clipping)
+	{
+		GetClippingRect(&currentClipping);
+		clipping = &currentClipping;
+	}
+	return DrawLegacyRenderImageDepthOutline(
+		RenderImageDepthOutlineCommand{
+			destination,
+			depthSurface,
+			image,
+			frame,
+			RenderSurfacePoint{destinationX, destinationY},
+			RenderSurfaceRegion{
+				clipping->iLeft, clipping->iTop,
+				clipping->iRight, clipping->iBottom},
+			depth,
+			comparison,
+			writeDepth != FALSE ?
+				RenderDepthWriteMode::ReplaceOnPass :
+				RenderDepthWriteMode::Preserve,
+			visibility,
+			DecodeLegacyRenderColor(
+				static_cast<std::uint32_t>(color)),
+			drawOutline != FALSE});
+}
+
 BOOLEAN DrawVideoObjectToSurface(
 	UINT32 destination,
 	HVOBJECT object,
@@ -1109,6 +1233,171 @@ bool PlatformVideoObjectOutline(
 		command.destinationOrigin.y) != FALSE;
 }
 
+bool PlatformVideoObjectDepthOutline(
+	const RenderImageDepthOutlineCommand& command)
+{
+	if (command.destination == 0 || command.depthSurface == 0 ||
+		command.image == 0 ||
+		command.destination > std::numeric_limits<UINT32>::max() ||
+		command.depthSurface > std::numeric_limits<UINT32>::max() ||
+		command.frame > std::numeric_limits<UINT16>::max())
+		return false;
+	switch (command.depthWrite)
+	{
+	case RenderDepthWriteMode::Preserve:
+	case RenderDepthWriteMode::ReplaceOnPass:
+		break;
+	default:
+		return false;
+	}
+	switch (command.visibility)
+	{
+	case RenderImageDepthOutlineVisibility::VisibleOnly:
+		if (command.comparison !=
+			RenderDepthCompareMode::GreaterOrEqual)
+			return false;
+		break;
+	case RenderImageDepthOutlineVisibility::PixelateWhenObscured:
+		if ((command.comparison !=
+				RenderDepthCompareMode::GreaterOrEqual &&
+			 command.comparison != RenderDepthCompareMode::Greater) ||
+			command.depthWrite != RenderDepthWriteMode::ReplaceOnPass)
+			return false;
+		break;
+	default:
+		return false;
+	}
+
+	HVOBJECT const source = ResolveRenderImage(command.image);
+	if (!source || source->ubBitDepth != 8 ||
+		command.frame >= source->usNumberOfObjects ||
+		!source->pETRLEObject || !source->pPixData ||
+		!source->pShadeCurrent)
+		return false;
+	const UINT16 frame = static_cast<UINT16>(command.frame);
+	const ETRLEObject& image = source->pETRLEObject[frame];
+	if (image.usWidth == 0 || image.usHeight == 0 ||
+		image.uiDataOffset >= source->uiSizePixData)
+		return false;
+
+	PlatformSurfaceMappingLease destination(command.destination);
+	if (!destination) return false;
+	PlatformSurfaceMappingLease depth(command.depthSurface);
+	if (!depth) return false;
+	const MutableRenderSurface& destinationMapping =
+		destination.mapping();
+	const MutableRenderSurface& depthMapping = depth.mapping();
+	if (!IsValidRenderSurfaceMapping(destinationMapping) ||
+		!IsValidRenderSurfaceMapping(depthMapping) ||
+		destinationMapping.description.contentBitDepth != 16 ||
+		RenderPixelBytes(destinationMapping.description.format) !=
+			sizeof(PIXEL) ||
+		depthMapping.description.format != RenderPixelFormat::Depth16 ||
+		depthMapping.description.contentBitDepth != 16 ||
+		destinationMapping.description.width !=
+			depthMapping.description.width ||
+		destinationMapping.description.height !=
+			depthMapping.description.height ||
+		destinationMapping.pitchBytes != depthMapping.pitchBytes ||
+		destinationMapping.pitchBytes >
+			std::numeric_limits<UINT32>::max() ||
+		destinationMapping.description.width >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()) ||
+		destinationMapping.description.height >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()))
+		return false;
+
+	const std::int64_t clipLeft = std::max<std::int64_t>(
+		0, command.clippingRegion.left);
+	const std::int64_t clipTop = std::max<std::int64_t>(
+		0, command.clippingRegion.top);
+	const std::int64_t clipRight = std::min<std::int64_t>(
+		destinationMapping.description.width,
+		command.clippingRegion.right);
+	const std::int64_t clipBottom = std::min<std::int64_t>(
+		destinationMapping.description.height,
+		command.clippingRegion.bottom);
+	if (clipLeft >= clipRight || clipTop >= clipBottom) return true;
+
+	const std::int64_t imageLeft =
+		static_cast<std::int64_t>(command.destinationOrigin.x) +
+		image.sOffsetX;
+	const std::int64_t imageTop =
+		static_cast<std::int64_t>(command.destinationOrigin.y) +
+		image.sOffsetY;
+	const std::int64_t imageRight = imageLeft + image.usWidth;
+	const std::int64_t imageBottom = imageTop + image.usHeight;
+	if (imageLeft >= clipRight || imageTop >= clipBottom ||
+		imageRight <= clipLeft || imageBottom <= clipTop)
+		return true;
+	if (imageLeft < std::numeric_limits<INT32>::min() ||
+		imageTop < std::numeric_limits<INT32>::min() ||
+		imageRight > std::numeric_limits<INT32>::max() ||
+		imageBottom > std::numeric_limits<INT32>::max())
+		return false;
+
+	const bool fullyInside =
+		imageLeft >= clipLeft && imageTop >= clipTop &&
+		imageRight <= clipRight && imageBottom <= clipBottom;
+	SGPRect clipping{
+		static_cast<INT32>(clipLeft),
+		static_cast<INT32>(clipTop),
+		static_cast<INT32>(clipRight),
+		static_cast<INT32>(clipBottom)};
+	PIXEL* const destinationPixels =
+		reinterpret_cast<PIXEL*>(destinationMapping.pixels);
+	UINT16* const depthPixels =
+		reinterpret_cast<UINT16*>(depthMapping.pixels);
+	const UINT32 pitch =
+		static_cast<UINT32>(destinationMapping.pitchBytes);
+	const PIXEL outlineColor = LegacyPixelFor(command.color);
+	const BOOLEAN drawOutline = command.drawOutline ? TRUE : FALSE;
+
+	switch (command.visibility)
+	{
+	case RenderImageDepthOutlineVisibility::VisibleOnly:
+		if (command.depthWrite == RenderDepthWriteMode::Preserve)
+		{
+			if (!fullyInside) return false;
+			return Blt8BPPDataTo16BPPBufferOutlineZNB(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				outlineColor, drawOutline) != FALSE;
+		}
+		return fullyInside ?
+			Blt8BPPDataTo16BPPBufferOutlineZ(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				outlineColor, drawOutline) != FALSE :
+			Blt8BPPDataTo16BPPBufferOutlineZClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				outlineColor, drawOutline, &clipping) != FALSE;
+	case RenderImageDepthOutlineVisibility::PixelateWhenObscured:
+		if (command.comparison == RenderDepthCompareMode::Greater)
+		{
+			if (!fullyInside) return false;
+			return Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame,
+				outlineColor, drawOutline) != FALSE;
+		}
+		return Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip(
+			destinationPixels, pitch, depthPixels, command.depth,
+			source, command.destinationOrigin.x,
+			command.destinationOrigin.y, frame,
+			outlineColor, drawOutline, &clipping) != FALSE;
+	default:
+		return false;
+	}
+}
+
 BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT16 usRegionIndex, INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx *pBltFx )
 {
 	#ifdef _DEBUG
@@ -1248,6 +1537,82 @@ BOOLEAN BltVideoObjectDepthMaskToSurface(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
 		iDestX, iDestY, usDepth, fWriteDepth,
 		commandEffect, pClipRegion) ? TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectOutlineToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	VideoObjectOutlineEffect effect,
+	PIXEL usOutlineColor,
+	BOOLEAN fDrawOutline,
+	const SGPRect* pClipRegion)
+{
+	RenderImageOutlineMode mode;
+	switch (effect)
+	{
+	case VOBJECT_OUTLINE_COLOR:
+		mode = RenderImageOutlineMode::Color;
+		break;
+	case VOBJECT_OUTLINE_SHADE_DESTINATION:
+		mode = RenderImageOutlineMode::Shadow;
+		break;
+	default:
+		return FALSE;
+	}
+	return SubmitVideoObjectOutlineDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, mode, usOutlineColor,
+		fDrawOutline, pClipRegion) ? TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectDepthOutlineToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	VideoObjectDepthComparison comparison,
+	VideoObjectDepthOutlineVisibility visibility,
+	PIXEL usOutlineColor,
+	BOOLEAN fDrawOutline,
+	const SGPRect* pClipRegion)
+{
+	RenderDepthCompareMode commandComparison;
+	switch (comparison)
+	{
+	case VOBJECT_DEPTH_GREATER_OR_EQUAL:
+		commandComparison = RenderDepthCompareMode::GreaterOrEqual;
+		break;
+	case VOBJECT_DEPTH_GREATER:
+		commandComparison = RenderDepthCompareMode::Greater;
+		break;
+	default:
+		return FALSE;
+	}
+	RenderImageDepthOutlineVisibility commandVisibility;
+	switch (visibility)
+	{
+	case VOBJECT_DEPTH_OUTLINE_VISIBLE_ONLY:
+		commandVisibility =
+			RenderImageDepthOutlineVisibility::VisibleOnly;
+		break;
+	case VOBJECT_DEPTH_OUTLINE_PIXELATE_WHEN_OBSCURED:
+		commandVisibility =
+			RenderImageDepthOutlineVisibility::PixelateWhenObscured;
+		break;
+	default:
+		return FALSE;
+	}
+	return SubmitVideoObjectDepthOutlineDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, usDepth, fWriteDepth,
+		commandComparison, commandVisibility,
+		usOutlineColor, fDrawOutline, pClipRegion) ? TRUE : FALSE;
 }
 // *******************************************************************************
 // Video Object Manipulation Functions

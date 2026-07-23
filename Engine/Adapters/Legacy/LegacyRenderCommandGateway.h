@@ -29,5 +29,7 @@ bool DrawLegacyRenderImageDepth(
 	const RenderImageDepthDrawCommand& command) noexcept;
 bool DrawLegacyRenderImageOutline(
 	const RenderImageOutlineCommand& command) noexcept;
+bool DrawLegacyRenderImageDepthOutline(
+	const RenderImageDepthOutlineCommand& command) noexcept;
 
 #endif

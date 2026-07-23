@@ -224,6 +224,52 @@ BOOLEAN BltVideoObjectDepthMaskToSurface(
 	VideoObjectDepthMaskEffect effect,
 	const SGPRect* pClipRegion);
 
+enum VideoObjectOutlineEffect : UINT8
+{
+	VOBJECT_OUTLINE_COLOR,
+	VOBJECT_OUTLINE_SHADE_DESTINATION
+};
+
+// Explicit-clip compatibility bridge for outline-aware ETRLE images.
+BOOLEAN BltVideoObjectOutlineToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	VideoObjectOutlineEffect effect,
+	PIXEL usOutlineColor,
+	BOOLEAN fDrawOutline,
+	const SGPRect* pClipRegion);
+
+enum VideoObjectDepthComparison : UINT8
+{
+	VOBJECT_DEPTH_GREATER_OR_EQUAL,
+	VOBJECT_DEPTH_GREATER
+};
+
+enum VideoObjectDepthOutlineVisibility : UINT8
+{
+	VOBJECT_DEPTH_OUTLINE_VISIBLE_ONLY,
+	VOBJECT_DEPTH_OUTLINE_PIXELATE_WHEN_OBSCURED
+};
+
+// Compatibility bridge for outline-aware ETRLE images with an explicit colour
+// surface, depth policy, visibility policy, and clip.
+BOOLEAN BltVideoObjectDepthOutlineToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	VideoObjectDepthComparison comparison,
+	VideoObjectDepthOutlineVisibility visibility,
+	PIXEL usOutlineColor,
+	BOOLEAN fDrawOutline,
+	const SGPRect* pClipRegion);
+
 BOOLEAN BltVideoObjectFromIndex(  UINT32	uiDestVSurface,
 												 UINT32 uiSrcVObject, 
 												 UINT16 usRegionIndex, 

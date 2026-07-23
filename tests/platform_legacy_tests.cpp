@@ -608,6 +608,15 @@ public:
 			DrawLegacyRenderImageOutline(command);
 		return true;
 	}
+	bool drawImageDepthOutline(
+		const RenderImageDepthOutlineCommand& command) override
+	{
+		++imageDepthOutlines;
+		lastImageDepthOutlineCommand = command;
+		nestedImageDepthOutlineAccepted =
+			DrawLegacyRenderImageDepthOutline(command);
+		return true;
+	}
 
 	int fills = 0;
 	int copies = 0;
@@ -617,6 +626,7 @@ public:
 	int images = 0;
 	int depthImages = 0;
 	int imageOutlines = 0;
+	int imageDepthOutlines = 0;
 	bool nestedAccepted = true;
 	bool nestedCopyAccepted = true;
 	bool nestedStretchAccepted = true;
@@ -625,6 +635,7 @@ public:
 	bool nestedImageAccepted = true;
 	bool nestedDepthImageAccepted = true;
 	bool nestedImageOutlineAccepted = true;
+	bool nestedImageDepthOutlineAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
 	RenderSurfaceCopyCommand lastCopyCommand;
 	RenderSurfaceStretchCommand lastStretchCommand;
@@ -633,6 +644,7 @@ public:
 	RenderImageDrawCommand lastImageCommand;
 	RenderImageDepthDrawCommand lastDepthImageCommand;
 	RenderImageOutlineCommand lastImageOutlineCommand;
+	RenderImageDepthOutlineCommand lastImageDepthOutlineCommand;
 };
 
 class ThrowingRenderCommandSink final : public RenderCommandSink
@@ -669,6 +681,12 @@ public:
 	bool drawImageOutline(const RenderImageOutlineCommand&) override
 	{
 		throw std::runtime_error("render image outline command probe");
+	}
+	bool drawImageDepthOutline(
+		const RenderImageDepthOutlineCommand&) override
+	{
+		throw std::runtime_error(
+			"render image depth-outline command probe");
 	}
 };
 }
@@ -837,6 +855,14 @@ int main()
 		RenderSurfaceRegion{1, 2, 30, 40},
 		RenderImageOutlineMode::Color,
 		RenderColor{19, 29, 39, 49}, true};
+	const RenderImageDepthOutlineCommand
+		expectedImageDepthOutlineCommand{
+			71, 73, 91, 6, RenderSurfacePoint{-7, 8},
+			RenderSurfaceRegion{1, 2, 30, 40}, 0x5678,
+			RenderDepthCompareMode::Greater,
+			RenderDepthWriteMode::ReplaceOnPass,
+			RenderImageDepthOutlineVisibility::PixelateWhenObscured,
+			RenderColor{59, 69, 79, 89}, true};
 	Check(ColorFillVideoSurfaceArea(71, 5, 6, 1, 2, legacyRed) &&
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
@@ -845,6 +871,8 @@ int main()
 		DrawLegacyRenderImage(expectedImageCommand) &&
 		DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
+		DrawLegacyRenderImageDepthOutline(
+			expectedImageDepthOutlineCommand) &&
 		recordedRenderCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{expectedFillCommand} &&
 		recordedRenderCommands.copyCommands() ==
@@ -862,7 +890,10 @@ int main()
 				expectedDepthImageCommand} &&
 		recordedRenderCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{
-				expectedImageOutlineCommand},
+				expectedImageOutlineCommand} &&
+		recordedRenderCommands.imageDepthOutlineCommands() ==
+			std::vector<RenderImageDepthOutlineCommand>{
+				expectedImageDepthOutlineCommand},
 		"legacy surface drawing submits every portable render command");
 
 	ReentrantRenderCommandSink reentrantRenderCommands;
@@ -875,6 +906,8 @@ int main()
 		DrawLegacyRenderImage(expectedImageCommand) &&
 		DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
+		DrawLegacyRenderImageDepthOutline(
+			expectedImageDepthOutlineCommand) &&
 		reentrantRenderCommands.fills == 1 &&
 		reentrantRenderCommands.copies == 1 &&
 		reentrantRenderCommands.stretches == 1 &&
@@ -883,6 +916,7 @@ int main()
 		reentrantRenderCommands.images == 1 &&
 		reentrantRenderCommands.depthImages == 1 &&
 		reentrantRenderCommands.imageOutlines == 1 &&
+		reentrantRenderCommands.imageDepthOutlines == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
 		reentrantRenderCommands.lastCopyCommand == expectedCopyCommand &&
 		reentrantRenderCommands.lastStretchCommand ==
@@ -895,6 +929,8 @@ int main()
 			expectedDepthImageCommand &&
 		reentrantRenderCommands.lastImageOutlineCommand ==
 			expectedImageOutlineCommand &&
+		reentrantRenderCommands.lastImageDepthOutlineCommand ==
+			expectedImageDepthOutlineCommand &&
 		!reentrantRenderCommands.nestedAccepted &&
 		!reentrantRenderCommands.nestedCopyAccepted &&
 		!reentrantRenderCommands.nestedStretchAccepted &&
@@ -902,7 +938,8 @@ int main()
 		!reentrantRenderCommands.nestedDepthFillAccepted &&
 		!reentrantRenderCommands.nestedImageAccepted &&
 		!reentrantRenderCommands.nestedDepthImageAccepted &&
-		!reentrantRenderCommands.nestedImageOutlineAccepted,
+		!reentrantRenderCommands.nestedImageOutlineAccepted &&
+		!reentrantRenderCommands.nestedImageDepthOutlineAccepted,
 		"legacy render command gateway suppresses recursive drawing");
 
 	ThrowingRenderCommandSink throwingRenderCommands;
@@ -914,7 +951,9 @@ int main()
 		!FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		!DrawLegacyRenderImage(expectedImageCommand) &&
 		!DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
-		!DrawLegacyRenderImageOutline(expectedImageOutlineCommand),
+		!DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
+		!DrawLegacyRenderImageDepthOutline(
+			expectedImageDepthOutlineCommand),
 		"legacy render command gateway contains adapter exceptions");
 	ResetLegacyRenderCommands();
 	ResetLegacyRenderSurfaceAccess();
@@ -2653,6 +2692,269 @@ int main()
 			restoredOutlineClip.iRight == imageSurfaceClip.iRight &&
 			restoredOutlineClip.iBottom == imageSurfaceClip.iBottom,
 			"engine outline commands preserve markers, shadows, clipping, and exact pixels");
+
+		RecordingRenderCommandSink recordedTacticalOutlines;
+		BindLegacyRenderCommands(recordedTacticalOutlines);
+		const bool pointerOutlineRouted = outlineFixtureReady &&
+			BltVideoObjectOutlineToSurface(
+				copyDestinationID, liveImage, 0, -3, 1,
+				VOBJECT_OUTLINE_COLOR, routedOutlineColor,
+				TRUE, &imageSurfaceClip);
+		const bool pointerDepthOutlineRouted = outlineFixtureReady &&
+			BltVideoObjectDepthOutlineToSurface(
+				copyDestinationID, liveImage, 0, 2, -1, 0x3456,
+				TRUE, VOBJECT_DEPTH_GREATER,
+				VOBJECT_DEPTH_OUTLINE_PIXELATE_WHEN_OBSCURED,
+				routedOutlineColor, TRUE, &imageSurfaceClip);
+		const bool invalidOutlineEffectRejected =
+			!BltVideoObjectOutlineToSurface(
+				copyDestinationID, liveImage, 0, 0, 0,
+				static_cast<VideoObjectOutlineEffect>(255), 0,
+				FALSE, &imageSurfaceClip);
+		const bool invalidDepthOutlineComparisonRejected =
+			!BltVideoObjectDepthOutlineToSurface(
+				copyDestinationID, liveImage, 0, 0, 0, 1, TRUE,
+				static_cast<VideoObjectDepthComparison>(255),
+				VOBJECT_DEPTH_OUTLINE_VISIBLE_ONLY,
+				0, FALSE, &imageSurfaceClip);
+		const bool invalidDepthOutlineVisibilityRejected =
+			!BltVideoObjectDepthOutlineToSurface(
+				copyDestinationID, liveImage, 0, 0, 0, 1, TRUE,
+				VOBJECT_DEPTH_GREATER_OR_EQUAL,
+				static_cast<VideoObjectDepthOutlineVisibility>(255),
+				0, FALSE, &imageSurfaceClip);
+		const bool invalidDepthOutlinePolicyRejected =
+			!BltVideoObjectDepthOutlineToSurface(
+				copyDestinationID, liveImage, 0, 0, 0, 1, FALSE,
+				VOBJECT_DEPTH_GREATER_OR_EQUAL,
+				VOBJECT_DEPTH_OUTLINE_PIXELATE_WHEN_OBSCURED,
+				0, FALSE, &imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		RenderImageOutlineCommand routedOutlineCommand;
+		if (recordedTacticalOutlines.imageOutlineCommands().size() == 1)
+			routedOutlineCommand =
+				recordedTacticalOutlines.imageOutlineCommands().front();
+		RenderImageDepthOutlineCommand routedDepthOutlineCommand;
+		if (recordedTacticalOutlines.imageDepthOutlineCommands().size() == 1)
+			routedDepthOutlineCommand =
+				recordedTacticalOutlines.imageDepthOutlineCommands().front();
+		Check(pointerOutlineRouted && pointerDepthOutlineRouted &&
+			invalidOutlineEffectRejected &&
+			invalidDepthOutlineComparisonRejected &&
+			invalidDepthOutlineVisibilityRejected &&
+			invalidDepthOutlinePolicyRejected &&
+			recordedTacticalOutlines.imageOutlineCommands().size() == 1 &&
+			recordedTacticalOutlines.imageDepthOutlineCommands().size() == 1 &&
+			routedOutlineCommand.destination == copyDestinationID &&
+			routedOutlineCommand.image >
+				std::numeric_limits<UINT32>::max() &&
+			routedOutlineCommand.destinationOrigin ==
+				RenderSurfacePoint{-3, 1} &&
+			routedOutlineCommand.clippingRegion ==
+				RenderSurfaceRegion{0, 0, 5, 3} &&
+			routedOutlineCommand.mode == RenderImageOutlineMode::Color &&
+			routedOutlineCommand.color ==
+				RenderColor{0, 255, 0, 255} &&
+			routedOutlineCommand.drawOutline &&
+			routedDepthOutlineCommand.destination == copyDestinationID &&
+			routedDepthOutlineCommand.depthSurface == DEPTH_BUFFER &&
+			routedDepthOutlineCommand.image >
+				std::numeric_limits<UINT32>::max() &&
+			routedDepthOutlineCommand.destinationOrigin ==
+				RenderSurfacePoint{2, -1} &&
+			routedDepthOutlineCommand.depth == 0x3456 &&
+			routedDepthOutlineCommand.comparison ==
+				RenderDepthCompareMode::Greater &&
+			routedDepthOutlineCommand.depthWrite ==
+				RenderDepthWriteMode::ReplaceOnPass &&
+			routedDepthOutlineCommand.visibility ==
+				RenderImageDepthOutlineVisibility::PixelateWhenObscured &&
+			routedDepthOutlineCommand.color ==
+				RenderColor{0, 255, 0, 255} &&
+			routedDepthOutlineCommand.drawOutline,
+			"tactical outline bridges retain stable image identity and explicit policies");
+
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		UINT16* const outlineDepthBuffer = copyDestinationPixels ?
+			InitZBuffer(
+				copyDestinationPitch,
+				copySurfaceDescription.usHeight) : nullptr;
+		if (copyDestinationPixels && outlineDepthBuffer)
+		{
+			for (std::size_t y = 0; y < 2; ++y)
+			{
+				PIXEL* const colorRow = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				UINT16* const depthRow = reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(outlineDepthBuffer) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0; x < 5; ++x)
+				{
+					colorRow[x] = copiedBlue;
+					depthRow[x] = 4;
+				}
+			}
+			UINT16* const bodyDepthRow = reinterpret_cast<UINT16*>(
+				reinterpret_cast<BYTE*>(outlineDepthBuffer) +
+					copyDestinationPitch);
+			bodyDepthRow[0] = 11;
+			bodyDepthRow[2] = 10;
+			bodyDepthRow[3] = 10;
+		}
+
+		if (outlineFixtureReady) encodedImagePixels[1] = 254;
+		const bool visibleMarkerOutlineDrawn = outlineDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 0},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthOutlineVisibility::VisibleOnly,
+					RenderColor{0, 255, 0, 255}, true});
+		const bool pixelatedMarkerOutlineDrawn = outlineDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 0},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthOutlineVisibility::
+						PixelateWhenObscured,
+					RenderColor{0, 255, 0, 255}, true});
+		if (outlineFixtureReady)
+			encodedImagePixels[1] = originalEncodedPixel;
+
+		const bool blockedDepthOutlineAccepted = outlineDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 1},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthOutlineVisibility::VisibleOnly,
+					RenderColor{}, false});
+		const bool preservedDepthOutlineAccepted = outlineDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 1},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthOutlineVisibility::VisibleOnly,
+					RenderColor{}, false});
+		const bool clippedPixelateOutlineAccepted = outlineDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{2, 1},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthOutlineVisibility::
+						PixelateWhenObscured,
+					RenderColor{}, false});
+		const bool strictPixelateOutlineAccepted = outlineDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{3, 1},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthOutlineVisibility::
+						PixelateWhenObscured,
+					RenderColor{}, false});
+		const bool clippedOutDepthOutlineAccepted = outlineDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{4, 1},
+					RenderSurfaceRegion{0, 0, 4, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthOutlineVisibility::VisibleOnly,
+					RenderColor{}, false});
+		const bool invalidDepthOutlineModesRejected =
+			!GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthOutlineVisibility::VisibleOnly}) &&
+			!GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthOutlineVisibility::
+						PixelateWhenObscured}) &&
+			!GetPlatformRenderCommands().drawImageDepthOutline(
+				RenderImageDepthOutlineCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 2}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					static_cast<
+						RenderImageDepthOutlineVisibility>(255)});
+		bool depthOutlinePixelsMatch =
+			copyDestinationPixels && outlineDepthBuffer;
+		if (depthOutlinePixelsMatch)
+		{
+			const PIXEL* const markerColorRow = copyDestinationPixels;
+			const UINT16* const markerDepthRow = outlineDepthBuffer;
+			const PIXEL* const bodyColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(copyDestinationPixels) +
+						copyDestinationPitch);
+			const UINT16* const bodyDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(outlineDepthBuffer) +
+						copyDestinationPitch);
+			depthOutlinePixelsMatch =
+				markerColorRow[0] == copiedGreen &&
+				markerDepthRow[0] == 4 &&
+				markerColorRow[1] == copiedGreen &&
+				markerDepthRow[1] == 10 &&
+				bodyColorRow[0] == copiedBlue &&
+				bodyDepthRow[0] == 11 &&
+				bodyColorRow[1] == copiedRed &&
+				bodyDepthRow[1] == 4 &&
+				bodyColorRow[2] == copiedRed &&
+				bodyDepthRow[2] == 10 &&
+				bodyColorRow[3] == copiedRed &&
+				bodyDepthRow[3] == 10 &&
+				bodyColorRow[4] == copiedBlue &&
+				bodyDepthRow[4] == 4;
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		const bool outlineDepthReleased =
+			!outlineDepthBuffer || ShutdownZBuffer(outlineDepthBuffer);
+		Check(visibleMarkerOutlineDrawn &&
+			pixelatedMarkerOutlineDrawn &&
+			blockedDepthOutlineAccepted &&
+			preservedDepthOutlineAccepted &&
+			clippedPixelateOutlineAccepted &&
+			strictPixelateOutlineAccepted &&
+			clippedOutDepthOutlineAccepted &&
+			invalidDepthOutlineModesRejected &&
+			depthOutlinePixelsMatch && outlineDepthReleased,
+			"depth-outline commands preserve marker depth, clipping, strict equality, and obscured pixelation");
+
 		const bool liveImageDeleted = !liveImageCreated ||
 			DeleteVideoObjectFromIndex(liveImageID);
 		Check(liveImageDeleted &&
@@ -2666,7 +2968,10 @@ int main()
 						RenderColor{}, false})) &&
 			(!liveImageCreated ||
 				!GetPlatformRenderCommands().drawImageDepth(
-					routedDepthCommand)),
+					routedDepthCommand)) &&
+			(!liveImageCreated ||
+				!GetPlatformRenderCommands().drawImageDepthOutline(
+					routedDepthOutlineCommand)),
 			"engine-routed image resources reject stale outline and depth identities");
 
 		copySourcePixels = copySurfacesCreated ?
@@ -2904,7 +3209,8 @@ int main()
 		ClippingRect = pointerOutlineOriginalClip;
 		Check(pointerOwnedOutlineDrawn && copyDestinationPixels &&
 			pointerOwnedOutlinePixel == copiedRed &&
-			pointerOwnedRecorder.imageOutlineCommands().empty(),
+			pointerOwnedRecorder.imageOutlineCommands().empty() &&
+			pointerOwnedRecorder.imageDepthOutlineCommands().empty(),
 			"pointer-owned outlines retain their exact compatibility path");
 
 		copyDestinationPixels = copySurfacesCreated ?

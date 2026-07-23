@@ -151,6 +151,122 @@ BOOLEAN DrawBasicTacticalEffectSprite(
 	}
 }
 
+BOOLEAN DrawBasicTacticalOutlineSprite(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	VideoObjectOutlineEffect effect,
+	PIXEL outlineColor,
+	BOOLEAN drawOutline,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectOutlineToSurface(
+		destinationSurface, source, frame,
+		destinationX, destinationY, effect,
+		outlineColor, drawOutline, clipping))
+		return TRUE;
+
+	switch (effect)
+	{
+	case VOBJECT_OUTLINE_COLOR:
+		return clipping ?
+			Blt8BPPDataTo16BPPBufferOutlineClip(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame,
+				outlineColor, drawOutline, clipping) :
+			Blt8BPPDataTo16BPPBufferOutline(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame,
+				outlineColor, drawOutline);
+	case VOBJECT_OUTLINE_SHADE_DESTINATION:
+		return clipping ?
+			Blt8BPPDataTo16BPPBufferOutlineShadowClip(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame, clipping) :
+			Blt8BPPDataTo16BPPBufferOutlineShadow(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame);
+	default:
+		return FALSE;
+	}
+}
+
+BOOLEAN DrawTacticalDepthOutline(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	UINT16* depthBuffer,
+	UINT16 depth,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	BOOLEAN writeDepth,
+	VideoObjectDepthComparison comparison,
+	VideoObjectDepthOutlineVisibility visibility,
+	PIXEL outlineColor,
+	BOOLEAN drawOutline,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectDepthOutlineToSurface(
+		destinationSurface, source, frame,
+		destinationX, destinationY, depth, writeDepth,
+		comparison, visibility, outlineColor,
+		drawOutline, clipping))
+		return TRUE;
+
+	switch (visibility)
+	{
+	case VOBJECT_DEPTH_OUTLINE_VISIBLE_ONLY:
+		if (comparison != VOBJECT_DEPTH_GREATER_OR_EQUAL)
+			return FALSE;
+		if (clipping)
+		{
+			if (!writeDepth) return FALSE;
+			return Blt8BPPDataTo16BPPBufferOutlineZClip(
+				destination, destinationPitchBytes,
+				depthBuffer, depth, source,
+				destinationX, destinationY, frame,
+				outlineColor, drawOutline, clipping);
+		}
+		return writeDepth ?
+			Blt8BPPDataTo16BPPBufferOutlineZ(
+				destination, destinationPitchBytes,
+				depthBuffer, depth, source,
+				destinationX, destinationY, frame,
+				outlineColor, drawOutline) :
+			Blt8BPPDataTo16BPPBufferOutlineZNB(
+				destination, destinationPitchBytes,
+				depthBuffer, depth, source,
+				destinationX, destinationY, frame,
+				outlineColor, drawOutline);
+	case VOBJECT_DEPTH_OUTLINE_PIXELATE_WHEN_OBSCURED:
+		if (!writeDepth) return FALSE;
+		if (clipping)
+		{
+			if (comparison != VOBJECT_DEPTH_GREATER_OR_EQUAL)
+				return FALSE;
+			return Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip(
+				destination, destinationPitchBytes,
+				depthBuffer, depth, source,
+				destinationX, destinationY, frame,
+				outlineColor, drawOutline, clipping);
+		}
+		if (comparison != VOBJECT_DEPTH_GREATER) return FALSE;
+		return Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured(
+			destination, destinationPitchBytes,
+			depthBuffer, depth, source,
+			destinationX, destinationY, frame,
+			outlineColor, drawOutline);
+	default:
+		return FALSE;
+	}
+}
+
 BOOLEAN DrawTacticalDepthMask(
 	UINT32 destinationSurface,
 	PIXEL* destination,
@@ -2543,16 +2659,33 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										{
 											if (fObscuredBlitter)
 											{
-												Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline);
+												DrawTacticalDepthOutline(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, gpZBuffer, sZLevel,
+													hVObject, sXPos, sYPos, usImageIndex,
+													TRUE, VOBJECT_DEPTH_GREATER,
+													VOBJECT_DEPTH_OUTLINE_PIXELATE_WHEN_OBSCURED,
+													usOutlineColor, bItemOutline, NULL);
 											}
 											else
 											{
-												Blt8BPPDataTo16BPPBufferOutlineZ((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline);
+												DrawTacticalDepthOutline(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, gpZBuffer, sZLevel,
+													hVObject, sXPos, sYPos, usImageIndex,
+													TRUE, VOBJECT_DEPTH_GREATER_OR_EQUAL,
+													VOBJECT_DEPTH_OUTLINE_VISIBLE_ONLY,
+													usOutlineColor, bItemOutline, NULL);
 											}
 										}
 										else
 										{
-											Blt8BPPDataTo16BPPBufferOutline((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline);
+											DrawBasicTacticalOutlineSprite(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, hVObject,
+												sXPos, sYPos, usImageIndex,
+												VOBJECT_OUTLINE_COLOR,
+												usOutlineColor, bItemOutline, NULL);
 										}
 									}
 									else if (bBlitClipVal == TRUE)
@@ -2561,16 +2694,36 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										{
 											if (fObscuredBlitter)
 											{
-												Blt8BPPDataTo16BPPBufferOutlineZPixelateObscuredClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline, &gClippingRect);
+												DrawTacticalDepthOutline(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, gpZBuffer, sZLevel,
+													hVObject, sXPos, sYPos, usImageIndex,
+													TRUE, VOBJECT_DEPTH_GREATER_OR_EQUAL,
+													VOBJECT_DEPTH_OUTLINE_PIXELATE_WHEN_OBSCURED,
+													usOutlineColor, bItemOutline,
+													&gClippingRect);
 											}
 											else
 											{
-												Blt8BPPDataTo16BPPBufferOutlineZClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline, &gClippingRect);
+												DrawTacticalDepthOutline(
+													FRAME_BUFFER, (PIXEL*)pDestBuf,
+													uiDestPitchBYTES, gpZBuffer, sZLevel,
+													hVObject, sXPos, sYPos, usImageIndex,
+													TRUE, VOBJECT_DEPTH_GREATER_OR_EQUAL,
+													VOBJECT_DEPTH_OUTLINE_VISIBLE_ONLY,
+													usOutlineColor, bItemOutline,
+													&gClippingRect);
 											}
 										}
 										else
 										{
-											Blt8BPPDataTo16BPPBufferOutlineClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline, &gClippingRect);
+											DrawBasicTacticalOutlineSprite(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, hVObject,
+												sXPos, sYPos, usImageIndex,
+												VOBJECT_OUTLINE_COLOR,
+												usOutlineColor, bItemOutline,
+												&gClippingRect);
 										}
 									}
 								}
@@ -2607,11 +2760,23 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 									{
 										if (bBlitClipVal == FALSE)
 										{
-											Blt8BPPDataTo16BPPBufferOutlineZNB((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline);
+											DrawTacticalDepthOutline(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, gpZBuffer, sZLevel,
+												hVObject, sXPos, sYPos, usImageIndex,
+												FALSE, VOBJECT_DEPTH_GREATER_OR_EQUAL,
+												VOBJECT_DEPTH_OUTLINE_VISIBLE_ONLY,
+												usOutlineColor, bItemOutline, NULL);
 										}
 										else if (bBlitClipVal == TRUE)
 										{
-											Blt8BPPDataTo16BPPBufferOutlineClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, usOutlineColor, bItemOutline, &gClippingRect);
+											DrawBasicTacticalOutlineSprite(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, hVObject,
+												sXPos, sYPos, usImageIndex,
+												VOBJECT_OUTLINE_COLOR,
+												usOutlineColor, bItemOutline,
+												&gClippingRect);
 										}
 									}
 								}
