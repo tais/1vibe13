@@ -739,6 +739,11 @@ LONGLONG GetJA2Microseconds()
 	return NowMicroseconds();
 }
 
+UINT64 GetJA2MonotonicMilliseconds()
+{
+	return ClockNowMicroseconds() / 1000u;
+}
+
 BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft)
 {
 	if (counter == 0) {

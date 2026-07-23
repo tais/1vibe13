@@ -1459,7 +1459,7 @@ UINT32 UndergroundTacticalTraversalTime( INT8 bExitDirection )
 void BeginLoadScreen( void )
 {
 	SGPRect SrcRect, DstRect;
-	UINT32 uiStartTime, uiCurrTime;
+	UINT64 uiStartTime, uiCurrTime;
 	INT32 iPercentage, iFactor;
 	UINT32 uiTimeRange;
 	INT32 iLastShadePercentage;
@@ -1483,13 +1483,13 @@ void BeginLoadScreen( void )
 			uiTimeRange = 2000;
 			iPercentage = 0;
 			iLastShadePercentage = 0;
-			uiStartTime = GetJA2Clock( );
+			uiStartTime = GetJA2MonotonicMilliseconds( );
 
 			BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
 			PlayJA2SampleFromFile( "SOUNDS\\Final Psionic Blast 01 (16-44).wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 			while ( iPercentage < 100 )
 			{
-				uiCurrTime = GetJA2Clock( );
+				uiCurrTime = GetJA2MonotonicMilliseconds( );
 				iPercentage = (uiCurrTime - uiStartTime) * 100 / uiTimeRange;
 				iPercentage = min( iPercentage, 100 );
 

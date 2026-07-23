@@ -82,6 +82,11 @@ BOOLEAN ResetJA2ClockSchedule( UINT64 nowMicroseconds );
 BOOLEAN SetJA2ClockTestTimeSource( JA2_CLOCK_TIME_SOURCE source );
 BOOLEAN SetJA2ClockTestKeyStateSource( JA2_CLOCK_KEY_STATE_SOURCE source );
 
+// Real elapsed time for synchronous transitions that must make progress while
+// the frame-owned legacy clock is not being pumped. This clock is monotonic,
+// expressed in milliseconds, and is unaffected by PauseTime.
+UINT64 GetJA2MonotonicMilliseconds( void );
+
 #define GetJA2Clock()						guiBaseJA2Clock
 
 #define GetJA2NoPauseClock()           guiBaseJA2NoPauseClock

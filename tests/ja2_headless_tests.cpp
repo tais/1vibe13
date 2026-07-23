@@ -4990,6 +4990,12 @@ int main( int, char** )
 		PauseTime( FALSE );
 		guiBaseJA2Clock = 0;
 		guiBaseJA2NoPauseClock = 0;
+		const UINT64 blockingTransitionStart = GetJA2MonotonicMilliseconds();
+		gInjectedLegacyClockTime += 250000;
+		CHECK( GetJA2MonotonicMilliseconds() == blockingTransitionStart + 250 &&
+		       guiBaseJA2Clock == 0 && guiBaseJA2NoPauseClock == 0,
+		       "blocking transition time advances without pumping legacy game state" );
+		gInjectedLegacyClockTime = 1000000;
 		CHECK( InitializeJA2Clock() && IsJA2TimerThread(),
 		       "legacy clock assigns timer ownership to its initializing game thread" );
 

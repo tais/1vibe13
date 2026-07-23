@@ -8,6 +8,7 @@
 	#include "gamescreen.h"
 	#include "strategicmap.h"
 	#include "Game Clock.h"
+	#include "Timer Control.h"
 	#include "Music Control.h"
 	#include "sysutil.h"
 	#include "Font Control.h"
@@ -1095,7 +1096,7 @@ void DoTransitionFromMapscreenToPreBattleInterface()
 	gfZoomDone = FALSE;
 
 	SGPRect DstRect, PBIRect;
-	UINT32 uiStartTime, uiCurrTime;
+	UINT64 uiStartTime, uiCurrTime;
 	INT32 iPercentage, iFactor;
 	UINT32 uiTimeRange;
 	INT16 sStartLeft, sEndLeft, sStartTop, sEndTop;
@@ -1115,7 +1116,7 @@ void DoTransitionFromMapscreenToPreBattleInterface()
 
 	uiTimeRange = 1000;
 	iPercentage = 0;
-	uiStartTime = GetJA2Clock();
+	uiStartTime = GetJA2MonotonicMilliseconds();
 
 	GetScreenXYFromMapXY( gubPBSectorX, gubPBSectorY, &sStartLeft, &sStartTop );
 	sStartLeft += UI_MAP.GridSize.iX / 2;
@@ -1162,7 +1163,7 @@ void DoTransitionFromMapscreenToPreBattleInterface()
 
 	while( iPercentage < 100	)
 	{
-		uiCurrTime = GetJA2Clock();
+		uiCurrTime = GetJA2MonotonicMilliseconds();
 		iPercentage = (uiCurrTime-uiStartTime) * 100 / uiTimeRange;
 		iPercentage = min( iPercentage, 100 );
 
