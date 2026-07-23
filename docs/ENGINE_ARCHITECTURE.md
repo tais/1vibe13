@@ -163,7 +163,11 @@ the engine must not contain SDL types in its public domain model.
   distinguishes replacing only front-facing depth from replacing every drawn
   pixel. The depth form of `PaletteWithShadowMarker` retains its inclusive
   comparison, optional preserve/replace-on-pass depth policy, marker shading,
-  ignore behavior, and optional alpha image. Unsupported resource, effect,
+  ignore behavior, and optional alpha image. Its obscured variant preserves
+  depth, draws passing pixels with the same palette/marker/alpha rules, and
+  samples failed non-marker pixels through the absolute-coordinate
+  checkerboard. Marker shading remains strictly front-facing, including the
+  historical no-shadow-at-equal-depth rule. Unsupported resource, effect,
   comparison, and write combinations are rejected at the platform boundary.
   The production sink resolves image identities and executes the established
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
@@ -178,7 +182,8 @@ the engine must not contain SDL types in its public domain model.
   sprites, 50% blended, checkerboard-sampled, or
   checkerboard-when-obscured depth sprites, basic depth-tested
   shadow/intensity masks, regular or depth-tested item outlines, and ordinary
-  palette-remapped merc/corpse sprites with optional alpha can
+  or checkerboard-when-obscured palette-remapped merc/corpse sprites with
+  optional alpha can
   therefore use engine commands even when their image is owned by the
   animation, tile, or logical-body subsystem. The palette-effect route
   preserves inclusive depth testing, the checkerboard's absolute screen phase,
@@ -192,10 +197,9 @@ the engine must not contain SDL types in its public domain model.
   with its unclipped counterpart. Rejecting hosts and manually constructed
   fixtures retain the exact raw fallback. Basic non-depth tactical
   transparent/shadow/intensity sprites and ordinary palette-shadow sprites
-  traverse the regular image command through the same stable identities. The
-  specialized obscured palette-shadow and multi-Z-strip families retain their
-  compatibility paths until their additional semantics are modelled. The
-  historical clipped physics-object
+  traverse the regular image command through the same stable identities.
+  Multi-Z-strip families retain their compatibility paths until their
+  additional semantics are modelled. The historical clipped physics-object
   outline remains non-depth and uses the regular outline command. Other
   application-owned pointer image operations deliberately retain their
   compatibility path until their individual command semantics migrate. Copy
