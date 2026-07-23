@@ -184,6 +184,9 @@ int main()
 	if (!renderSurfaces.defineSurface(
 			1, RenderSurfaceDescription{
 				4, 4, RenderPixelFormat::Argb8888, 32}) ||
+		!renderSurfaces.defineSurface(
+			2, RenderSurfaceDescription{
+				2, 1, RenderPixelFormat::Argb8888, 32}) ||
 		!renderSurfaces.setSurfaceFor(RenderSurfaceRole::FrameBuffer, 1))
 		return 48;
 	MutableRenderSurface externalSurface;
@@ -207,6 +210,29 @@ int main()
 	renderSurfaces.unmap(1);
 	if (externalPixel != 0xff123456u ||
 		renderSurfaces.mappingCount(1) != 0)
+		return 48;
+	MutableRenderSurface copySource;
+	if (!renderSurfaces.map(2, copySource)) return 48;
+	const std::uint32_t externalCopyPixel = 0xffabcdefu;
+	std::memcpy(
+		copySource.pixels + sizeof(externalCopyPixel),
+		&externalCopyPixel, sizeof(externalCopyPixel));
+	renderSurfaces.unmap(2);
+	if (!renderCommands.copySurface(RenderSurfaceCopyCommand{
+			2, 1, RenderSurfaceRegion{1, 0, 2, 1},
+			RenderSurfacePoint{3, 3}, RenderSurfaceCopyMode::Opaque, {}}) ||
+		!renderSurfaces.map(1, externalSurface))
+		return 48;
+	externalPixel = 0;
+	std::memcpy(
+		&externalPixel,
+		externalSurface.pixels + 3 * externalSurface.pitchBytes +
+			3 * sizeof(externalPixel),
+		sizeof(externalPixel));
+	renderSurfaces.unmap(1);
+	if (externalPixel != externalCopyPixel ||
+		renderSurfaces.mappingCount(1) != 0 ||
+		renderSurfaces.mappingCount(2) != 0)
 		return 48;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};

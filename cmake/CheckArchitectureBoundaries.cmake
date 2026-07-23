@@ -307,6 +307,13 @@ foreach(source_file IN LISTS world_state_files)
     message(FATAL_ERROR
       "Production code implements the legacy surface-fill entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
   endif()
+  string(REGEX MATCH
+    "BOOLEAN[ \t\r\n]+BltVideoSurface[ \t\r\n]*\\("
+    direct_surface_copy_implementation "${contents}")
+  if(direct_surface_copy_implementation)
+    message(FATAL_ERROR
+      "Production code implements the legacy numeric surface-copy entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
+  endif()
 
   list(FIND platform_video_backend_owners
     "${source_file}" platform_video_backend_owner_index)

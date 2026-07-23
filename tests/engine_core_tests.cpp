@@ -1968,10 +1968,214 @@ int main()
 		drawSurfaces.mappingCount(51) == 0 &&
 		drawSurfaces.mappingCount(52) == 0,
 		"mapped render commands write exact ARGB8888 and RGB565 pixels");
+
+	const RenderSurfaceDescription copyDescription{
+		4, 3, RenderPixelFormat::Argb8888, 32};
+	check(drawSurfaces.defineSurface(54, copyDescription) &&
+		drawSurfaces.defineSurface(55, copyDescription) &&
+		drawSurfaces.defineSurface(
+			56, RenderSurfaceDescription{
+				6, 1, RenderPixelFormat::Indexed8, 8}),
+		"memory render surfaces define deterministic copy targets");
+	MutableRenderSurface copySource;
+	bool copySourceInitialized = drawSurfaces.map(54, copySource);
+	for (std::uint32_t y = 0; copySourceInitialized && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			const std::uint32_t pixel =
+				0x40000000u | (y * 4u + x + 1u);
+			std::memcpy(
+				copySource.pixels + y * copySource.pitchBytes +
+					x * sizeof(pixel),
+				&pixel, sizeof(pixel));
+		}
+	}
+	if (copySourceInitialized) drawSurfaces.unmap(54);
+	const RenderSurfaceCopyCommand clippedCopy{
+		54, 55, RenderSurfaceRegion{-1, -1, 4, 3},
+		RenderSurfacePoint{-2, 0}, RenderSurfaceCopyMode::Opaque, {}};
+	check(copySourceInitialized &&
+		mappedCommands.copySurface(clippedCopy) &&
+		mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			54, 55, RenderSurfaceRegion{8, 8, 9, 9},
+			RenderSurfacePoint{}, RenderSurfaceCopyMode::Opaque, {}}),
+		"mapped surface copies clip source and destination with empty copies as no-ops");
+	MutableRenderSurface copyDestination;
+	bool clippedCopyMatches = drawSurfaces.map(55, copyDestination);
+	for (std::uint32_t y = 0; clippedCopyMatches && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint32_t pixel = 0;
+			std::memcpy(
+				&pixel,
+				copyDestination.pixels + y * copyDestination.pitchBytes +
+					x * sizeof(pixel),
+				sizeof(pixel));
+			const std::uint32_t expected =
+				y >= 1 && x < 3 ?
+					0x40000000u | ((y - 1u) * 4u + x + 2u) : 0;
+			if (pixel != expected) clippedCopyMatches = false;
+		}
+	}
+	if (copyDestination) drawSurfaces.unmap(55);
+	check(clippedCopyMatches &&
+		drawSurfaces.mappingCount(54) == 0 &&
+		drawSurfaces.mappingCount(55) == 0,
+		"mapped surface copies write only the clipped destination pixels");
+
+	const std::uint32_t keyedSourcePixels[] = {
+		0x00112233u, 0x7f112233u, 0x80445566u, 0xff778899u};
+	const std::uint32_t keyedDestinationPixel = 0xaabbccddu;
+	copySourceInitialized = drawSurfaces.map(54, copySource);
+	clippedCopyMatches = drawSurfaces.map(55, copyDestination);
+	for (std::size_t x = 0;
+		copySourceInitialized && clippedCopyMatches && x < 4; ++x)
+	{
+		std::memcpy(
+			copySource.pixels + x * sizeof(std::uint32_t),
+			&keyedSourcePixels[x], sizeof(std::uint32_t));
+		std::memcpy(
+			copyDestination.pixels + x * sizeof(std::uint32_t),
+			&keyedDestinationPixel, sizeof(std::uint32_t));
+	}
+	if (copySourceInitialized) drawSurfaces.unmap(54);
+	if (clippedCopyMatches) drawSurfaces.unmap(55);
+	check(copySourceInitialized && clippedCopyMatches &&
+		mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			54, 55, RenderSurfaceRegion{0, 0, 4, 1},
+			RenderSurfacePoint{}, RenderSurfaceCopyMode::SourceColorKeyRgb,
+			RenderColor{0x11, 0x22, 0x33, 0xff}}),
+		"mapped surface copies accept RGB colour-key commands");
+	clippedCopyMatches = drawSurfaces.map(55, copyDestination);
+	const std::uint32_t keyedExpectedPixels[] = {
+		keyedDestinationPixel, keyedDestinationPixel,
+		keyedSourcePixels[2], keyedSourcePixels[3]};
+	for (std::size_t x = 0; clippedCopyMatches && x < 4; ++x)
+	{
+		std::uint32_t pixel = 0;
+		std::memcpy(
+			&pixel,
+			copyDestination.pixels + x * sizeof(std::uint32_t),
+			sizeof(pixel));
+		if (pixel != keyedExpectedPixels[x]) clippedCopyMatches = false;
+	}
+	if (copyDestination) drawSurfaces.unmap(55);
+	check(clippedCopyMatches,
+		"ARGB8888 colour keys compare RGB while preserving copied alpha");
+
+	MutableRenderSurface indexedPixels;
+	bool indexedCopyMatches = drawSurfaces.map(56, indexedPixels);
+	for (std::size_t x = 0; indexedCopyMatches && x < 6; ++x)
+		indexedPixels.pixels[x] = static_cast<std::byte>(x + 1);
+	if (indexedCopyMatches) drawSurfaces.unmap(56);
+	check(indexedCopyMatches &&
+		mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			56, 56, RenderSurfaceRegion{0, 0, 5, 1},
+			RenderSurfacePoint{1, 0}, RenderSurfaceCopyMode::Opaque, {}}) &&
+		!mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			56, 56, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderSurfacePoint{}, RenderSurfaceCopyMode::SourceColorKeyRgb,
+			RenderColor{1, 2, 3, 255}}) &&
+		!mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			54, 52, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderSurfacePoint{}, RenderSurfaceCopyMode::Opaque, {}}) &&
+		!mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			99, 55, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderSurfacePoint{}, RenderSurfaceCopyMode::Opaque, {}}) &&
+		!mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			54, 55, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderSurfacePoint{},
+			static_cast<RenderSurfaceCopyMode>(255), {}}),
+		"mapped surface copies support indexed opaque storage and reject invalid contracts");
+	indexedCopyMatches = drawSurfaces.map(56, indexedPixels);
+	const std::byte indexedExpected[] = {
+		std::byte{1}, std::byte{1}, std::byte{2},
+		std::byte{3}, std::byte{4}, std::byte{5}};
+	for (std::size_t x = 0; indexedCopyMatches && x < 6; ++x)
+		if (indexedPixels.pixels[x] != indexedExpected[x])
+			indexedCopyMatches = false;
+	if (indexedPixels) drawSurfaces.unmap(56);
+	check(indexedCopyMatches && drawSurfaces.mappingCount(56) == 0,
+		"same-surface opaque copies preserve overlapping source bytes");
+
+	copySourceInitialized = drawSurfaces.map(54, copySource);
+	const std::uint32_t overlappingKeyedPixels[] = {
+		0x00112233u, 0xff445566u, 0xff778899u, 0xffaabbccu};
+	for (std::size_t x = 0; copySourceInitialized && x < 4; ++x)
+		std::memcpy(
+			copySource.pixels + x * sizeof(std::uint32_t),
+			&overlappingKeyedPixels[x], sizeof(std::uint32_t));
+	if (copySourceInitialized) drawSurfaces.unmap(54);
+	check(copySourceInitialized &&
+		mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			54, 54, RenderSurfaceRegion{0, 0, 3, 1},
+			RenderSurfacePoint{1, 0},
+			RenderSurfaceCopyMode::SourceColorKeyRgb,
+			RenderColor{0x11, 0x22, 0x33, 0xff}}),
+		"same-surface keyed copies accept overlapping regions");
+	copySourceInitialized = drawSurfaces.map(54, copySource);
+	const std::uint32_t overlappingKeyedExpected[] = {
+		0x00112233u, 0xff445566u, 0xff445566u, 0xff778899u};
+	for (std::size_t x = 0; copySourceInitialized && x < 4; ++x)
+	{
+		std::uint32_t pixel = 0;
+		std::memcpy(
+			&pixel, copySource.pixels + x * sizeof(std::uint32_t),
+			sizeof(pixel));
+		if (pixel != overlappingKeyedExpected[x])
+			copySourceInitialized = false;
+	}
+	if (copySource) drawSurfaces.unmap(54);
+	check(copySourceInitialized && drawSurfaces.mappingCount(54) == 0,
+		"same-surface keyed copies choose a corruption-safe pixel order");
+
+	copySourceInitialized = drawSurfaces.map(54, copySource);
+	for (std::uint32_t y = 0; copySourceInitialized && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			const std::uint32_t pixel = y * 4u + x + 1u;
+			std::memcpy(
+				copySource.pixels + y * copySource.pitchBytes +
+					x * sizeof(pixel),
+				&pixel, sizeof(pixel));
+		}
+	}
+	if (copySourceInitialized) drawSurfaces.unmap(54);
+	check(copySourceInitialized &&
+		mappedCommands.copySurface(RenderSurfaceCopyCommand{
+			54, 54, RenderSurfaceRegion{0, 0, 4, 2},
+			RenderSurfacePoint{0, 1}, RenderSurfaceCopyMode::Opaque, {}}),
+		"same-surface opaque copies accept vertically overlapping regions");
+	copySourceInitialized = drawSurfaces.map(54, copySource);
+	for (std::uint32_t y = 0; copySourceInitialized && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint32_t pixel = 0;
+			std::memcpy(
+				&pixel,
+				copySource.pixels + y * copySource.pitchBytes +
+					x * sizeof(pixel),
+				sizeof(pixel));
+			const std::uint32_t expected =
+				(y == 0 ? 0u : y - 1u) * 4u + x + 1u;
+			if (pixel != expected) copySourceInitialized = false;
+		}
+	}
+	if (copySource) drawSurfaces.unmap(54);
+	check(copySourceInitialized && drawSurfaces.mappingCount(54) == 0,
+		"same-surface opaque copies choose a corruption-safe row order");
+
 	RecordingRenderCommandSink recordedCommands;
 	check(recordedCommands.fillSurface(fillCommand) &&
+		recordedCommands.copySurface(clippedCopy) &&
 		recordedCommands.commands() ==
-			std::vector<RenderSurfaceFillCommand>{fillCommand},
+			std::vector<RenderSurfaceFillCommand>{fillCommand} &&
+		recordedCommands.copyCommands() ==
+			std::vector<RenderSurfaceCopyCommand>{clippedCopy},
 		"recording render commands expose deterministic headless drawing");
 
 	EngineServices frameServices{

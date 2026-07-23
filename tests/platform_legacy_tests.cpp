@@ -555,10 +555,20 @@ public:
 		nestedAccepted = FillLegacyRenderSurface(command);
 		return true;
 	}
+	bool copySurface(const RenderSurfaceCopyCommand& command) override
+	{
+		++copies;
+		lastCopyCommand = command;
+		nestedCopyAccepted = CopyLegacyRenderSurface(command);
+		return true;
+	}
 
 	int fills = 0;
+	int copies = 0;
 	bool nestedAccepted = true;
+	bool nestedCopyAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
+	RenderSurfaceCopyCommand lastCopyCommand;
 };
 
 class ThrowingRenderCommandSink final : public RenderCommandSink
@@ -567,6 +577,10 @@ public:
 	bool fillSurface(const RenderSurfaceFillCommand&) override
 	{
 		throw std::runtime_error("render command probe");
+	}
+	bool copySurface(const RenderSurfaceCopyCommand&) override
+	{
+		throw std::runtime_error("render copy command probe");
 	}
 };
 }
@@ -709,22 +723,33 @@ int main()
 	const RenderSurfaceFillCommand expectedFillCommand{
 		71, RenderSurfaceRegion{5, 6, 1, 2},
 		RenderColor{255, 0, 0, 255}};
+	const RenderSurfaceCopyCommand expectedCopyCommand{
+		72, 71, RenderSurfaceRegion{1, 2, 5, 6},
+		RenderSurfacePoint{7, 8}, RenderSurfaceCopyMode::Opaque, {}};
 	Check(ColorFillVideoSurfaceArea(71, 5, 6, 1, 2, legacyRed) &&
+		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		recordedRenderCommands.commands() ==
-			std::vector<RenderSurfaceFillCommand>{expectedFillCommand},
-		"legacy surface fill converts packed colour into an engine command");
+			std::vector<RenderSurfaceFillCommand>{expectedFillCommand} &&
+		recordedRenderCommands.copyCommands() ==
+			std::vector<RenderSurfaceCopyCommand>{expectedCopyCommand},
+		"legacy surface drawing submits engine fill and copy commands");
 
 	ReentrantRenderCommandSink reentrantRenderCommands;
 	BindLegacyRenderCommands(reentrantRenderCommands);
 	Check(FillLegacyRenderSurface(expectedFillCommand) &&
+		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		reentrantRenderCommands.fills == 1 &&
+		reentrantRenderCommands.copies == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
-		!reentrantRenderCommands.nestedAccepted,
-		"legacy render command gateway suppresses recursive submission");
+		reentrantRenderCommands.lastCopyCommand == expectedCopyCommand &&
+		!reentrantRenderCommands.nestedAccepted &&
+		!reentrantRenderCommands.nestedCopyAccepted,
+		"legacy render command gateway suppresses recursive drawing");
 
 	ThrowingRenderCommandSink throwingRenderCommands;
 	BindLegacyRenderCommands(throwingRenderCommands);
-	Check(!FillLegacyRenderSurface(expectedFillCommand),
+	Check(!FillLegacyRenderSurface(expectedFillCommand) &&
+		!CopyLegacyRenderSurface(expectedCopyCommand),
 		"legacy render command gateway contains adapter exceptions");
 	ResetLegacyRenderCommands();
 	ResetLegacyRenderSurfaceAccess();
@@ -1671,6 +1696,103 @@ int main()
 				surfaceSequenceStable;
 		Check(surfaceSequenceStable && giMemUsedInSurfaces == baselineSurfaceBytes,
 			"managed video surfaces retain even IDs and release every churn allocation");
+
+		VSURFACE_DESC copySurfaceDescription{};
+		copySurfaceDescription.fCreateFlags =
+			VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
+		copySurfaceDescription.usWidth = 5;
+		copySurfaceDescription.usHeight = 3;
+		copySurfaceDescription.ubBitDepth = 16;
+		UINT32 copySourceID = 0;
+		UINT32 copyDestinationID = 0;
+		const bool copySurfacesCreated =
+			AddVideoSurface(&copySurfaceDescription, &copySourceID) &&
+			AddVideoSurface(&copySurfaceDescription, &copyDestinationID);
+		const UINT16 copyColorKey = Get16BPPColorToken(255, 255, 0);
+		const PIXEL copyKeyPixel = PixFromColor16(copyColorKey);
+		const PIXEL copiedRed = Get16BPPColor(FROMRGB(255, 0, 0));
+		const PIXEL copiedGreen = Get16BPPColor(FROMRGB(0, 255, 0));
+		UINT32 copySourcePitch = 0;
+		UINT32 copyDestinationPitch = 0;
+		PIXEL* copySourcePixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(copySourceID, &copySourcePitch)) : nullptr;
+		PIXEL* copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copySourcePixels && copyDestinationPixels)
+		{
+			std::memset(
+				copySourcePixels, 0,
+				static_cast<std::size_t>(copySourcePitch) *
+					copySurfaceDescription.usHeight);
+			std::memset(
+				copyDestinationPixels, 0,
+				static_cast<std::size_t>(copyDestinationPitch) *
+					copySurfaceDescription.usHeight);
+			copySourcePixels[0] = copyKeyPixel;
+			copySourcePixels[1] = copiedRed;
+			copySourcePixels[2] = copiedGreen;
+		}
+		if (copySourcePixels) UnLockVideoSurface(copySourceID);
+		if (copyDestinationPixels) UnLockVideoSurface(copyDestinationID);
+		Check(copySurfacesCreated && copySourcePixels &&
+			copyDestinationPixels &&
+			SetVideoSurfaceTransparency(copySourceID, copyColorKey),
+			"legacy test surfaces prepare a colour-keyed copy");
+
+		blt_vs_fx copyEffects{};
+		copyEffects.SrcRect = SGPRect{0, 0, 3, 1};
+		RecordingRenderCommandSink recordedLegacyCopy;
+		BindLegacyRenderCommands(recordedLegacyCopy);
+		const bool copyTranslated = BltVideoSurface(
+			copyDestinationID, copySourceID, 0, 1, 1,
+			VS_BLT_FAST | VS_BLT_USECOLORKEY | VS_BLT_SRCSUBRECT,
+			&copyEffects);
+		const RenderSurfaceCopyCommand translatedCopyCommand{
+			copySourceID, copyDestinationID,
+			RenderSurfaceRegion{0, 0, 3, 1},
+			RenderSurfacePoint{1, 1},
+			RenderSurfaceCopyMode::SourceColorKeyRgb,
+			RenderColor{255, 255, 0, 255}};
+		Check(copyTranslated &&
+			recordedLegacyCopy.copyCommands() ==
+				std::vector<RenderSurfaceCopyCommand>{
+					translatedCopyCommand},
+			"numeric legacy blits preserve subrect and RGB565 colour-key semantics");
+		ResetLegacyRenderCommands();
+		Check(BltVideoSurface(
+				copyDestinationID, copySourceID, 0, 1, 1,
+				VS_BLT_FAST | VS_BLT_USECOLORKEY | VS_BLT_SRCSUBRECT,
+				&copyEffects),
+			"numeric legacy blits execute through the mapped platform renderer");
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		PIXEL copiedKeyDestination = 1;
+		PIXEL copiedRedDestination = 0;
+		PIXEL copiedGreenDestination = 0;
+		if (copyDestinationPixels)
+		{
+			PIXEL* const copiedRow = reinterpret_cast<PIXEL*>(
+				reinterpret_cast<BYTE*>(copyDestinationPixels) +
+					copyDestinationPitch);
+			copiedKeyDestination = copiedRow[1];
+			copiedRedDestination = copiedRow[2];
+			copiedGreenDestination = copiedRow[3];
+			UnLockVideoSurface(copyDestinationID);
+		}
+		Check(copyDestinationPixels && copiedKeyDestination == 0 &&
+			copiedRedDestination == copiedRed &&
+			copiedGreenDestination == copiedGreen,
+			"mapped legacy blits skip the key and copy exact live pixels");
+		Check((copySourceID == 0 ||
+				DeleteVideoSurfaceFromIndex(copySourceID)) &&
+			(copyDestinationID == 0 ||
+				DeleteVideoSurfaceFromIndex(copyDestinationID)),
+			"legacy copy test surfaces release through the manager");
 
 		InitializeBaseDirtyRectQueue();
 		Check(InitializeBackgroundRects(),

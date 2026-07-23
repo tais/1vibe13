@@ -1037,18 +1037,6 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 	return TRUE;
 }
 
-BOOLEAN BltVideoSurface(UINT32 uiDest, UINT32 uiSrc, UINT16 usRegionIndex,
-                        INT32 iDestX, INT32 iDestY, UINT32 fBltFlags,
-                        blt_vs_fx* pBltFx)
-{
-	HVSURFACE hDst = nullptr, hSrc = nullptr;
-	if (!GetVideoSurface(&hDst, uiDest) || !hDst) return FALSE;
-	if (!GetVideoSurface(&hSrc, uiSrc)  || !hSrc) return FALSE;
-	return BltVideoSurfaceToVideoSurface(hDst, hSrc, usRegionIndex,
-	                                     iDestX, iDestY,
-	                                     (INT32)fBltFlags, pBltFx);
-}
-
 BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
                                INT32 /*iDestX*/, INT32 /*iDestY*/,
                                UINT32 fBltFlags,
