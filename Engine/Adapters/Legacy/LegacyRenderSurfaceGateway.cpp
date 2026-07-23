@@ -47,31 +47,6 @@ bool AccessSurface(Callback&& callback) noexcept
 	}
 }
 
-bool ValidDescription(const RenderSurfaceDescription& description)
-{
-	const std::size_t pixelBytes = RenderPixelBytes(description.format);
-	return description.width != 0 && description.height != 0 &&
-		description.contentBitDepth != 0 && pixelBytes != 0;
-}
-
-bool ValidMapping(const MutableRenderSurface& mapping)
-{
-	if (!mapping || !ValidDescription(mapping.description))
-		return false;
-	const std::size_t pixelBytes =
-		RenderPixelBytes(mapping.description.format);
-	if (mapping.description.width >
-		std::numeric_limits<std::size_t>::max() / pixelBytes)
-		return false;
-	const std::size_t minimumPitch =
-		static_cast<std::size_t>(mapping.description.width) * pixelBytes;
-	if (mapping.pitchBytes < minimumPitch ||
-		mapping.description.height >
-			std::numeric_limits<std::size_t>::max() / mapping.pitchBytes)
-		return false;
-	return mapping.sizeBytes >=
-		mapping.pitchBytes * mapping.description.height;
-}
 }
 
 void BindLegacyRenderSurfaceAccess(RenderSurfaceAccess& access) noexcept
@@ -98,7 +73,7 @@ bool DescribeLegacyRenderSurface(
 	const bool described = AccessSurface(
 		[surface, &candidate](RenderSurfaceAccess& access) {
 			return access.describe(surface, candidate) &&
-				ValidDescription(candidate);
+				IsValidRenderSurfaceDescription(candidate);
 		});
 	if (described) description = candidate;
 	return described;
@@ -111,7 +86,7 @@ bool MapLegacyRenderSurface(
 	const bool mapped = AccessSurface(
 		[surface, &candidate](RenderSurfaceAccess& access) {
 			if (!access.map(surface, candidate)) return false;
-			if (ValidMapping(candidate)) return true;
+			if (IsValidRenderSurfaceMapping(candidate)) return true;
 			access.unmap(surface);
 			candidate = MutableRenderSurface{};
 			return false;

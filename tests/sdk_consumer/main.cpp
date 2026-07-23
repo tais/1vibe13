@@ -9,11 +9,13 @@
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/EngineHostOptions.h>
 #include <Engine/Core/EngineServiceContracts.h>
+#include <Engine/Core/RenderCommands.h>
 #include <Engine/Core/RenderSurfaceAccess.h>
 #include <Engine/Core/ServiceCatalog.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <utility>
 #include <variant>
@@ -191,6 +193,21 @@ int main()
 	externalSurface.pixels[0] = std::byte{0x2a};
 	renderSurfaces.unmap(1);
 	if (renderSurfaces.mappingCount(1) != 0) return 48;
+	MappedRenderCommandSink renderCommands(renderSurfaces);
+	if (!renderCommands.fillSurface(RenderSurfaceFillCommand{
+			1, RenderSurfaceRegion{1, 1, 3, 3},
+			RenderColor{0x12, 0x34, 0x56, 0xff}}) ||
+		!renderSurfaces.map(1, externalSurface))
+		return 48;
+	std::uint32_t externalPixel = 0;
+	std::memcpy(
+		&externalPixel,
+		externalSurface.pixels + externalSurface.pitchBytes + 4,
+		sizeof(externalPixel));
+	renderSurfaces.unmap(1);
+	if (externalPixel != 0xff123456u ||
+		renderSurfaces.mappingCount(1) != 0)
+		return 48;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
 	EngineHostOptions hostOptions;

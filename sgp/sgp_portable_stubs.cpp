@@ -25,9 +25,9 @@
 
 // (Blitter stubs moved into sdl_vsurface.cpp: BltVideoSurface,
 // BltVideoSurfaceToVideoSurface, BltStretchVideoSurface,
-// BltVSurfaceUsingDD, ColorFillVideoSurfaceArea got CPU
-// implementations; ImageFillVideoSurfaceArea / Shadow* still return
-// FALSE pending the Phase 6 RGB565 blender retirement.)
+// BltVSurfaceUsingDD and the Shadow* paths got CPU implementations.
+// ColorFillVideoSurfaceArea now enters through the engine render-command
+// gateway; ImageFillVideoSurfaceArea still returns FALSE.)
 
 // (video.cpp stubs moved into sdl_video.cpp -- it now provides real
 // SDL3-backed implementations of FatalError, DirtyCursor, PrintScreen,

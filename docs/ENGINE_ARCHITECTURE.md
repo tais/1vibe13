@@ -121,10 +121,14 @@ the engine must not contain SDL types in its public domain model.
   making damage captureable without a renderer. `RenderSurfaceAccess` is the
   lower pixel-storage seam: surface roles, descriptions, and mapped bytes are
   engine values, while the established numeric SGP handles and every existing
-  blitter remain compatibility adapters. Mapping is serialized with renderer
-  lifetime and storage remains adapter-owned. Raw SGP/SDL presentation,
-  invalidation, and surface-mapping entry points are private to the platform
-  adapters and protected by the architecture check.
+  blitter remain compatibility adapters. `RenderCommandSink` is the
+  higher-level draw seam; the live rectangle-fill path already crosses it and
+  executes through the same mapped-surface implementation available to
+  headless hosts. Legacy packed colours are decoded only in the compatibility
+  gateway. Mapping is serialized with renderer lifetime and storage remains
+  adapter-owned. Raw SGP/SDL presentation, invalidation, and surface-mapping
+  entry points are private to the platform adapters, while ownership of legacy
+  draw entry points is protected by the architecture check.
   Its bounded XML document adapter now owns the common Expat lifetime and
   all-or-nothing asset read path used by the conventional tactical definition
   loaders, campaign/bootstrap definitions, startup layout, editor action data,

@@ -81,6 +81,33 @@ struct MutableRenderSurface
 	}
 };
 
+inline bool IsValidRenderSurfaceDescription(
+	const RenderSurfaceDescription& description)
+{
+	const std::size_t pixelBytes = RenderPixelBytes(description.format);
+	return description.width != 0 && description.height != 0 &&
+		description.contentBitDepth != 0 && pixelBytes != 0 &&
+		description.width <=
+			std::numeric_limits<std::size_t>::max() / pixelBytes;
+}
+
+inline bool IsValidRenderSurfaceMapping(
+	const MutableRenderSurface& mapping)
+{
+	if (!mapping || !IsValidRenderSurfaceDescription(mapping.description))
+		return false;
+	const std::size_t pixelBytes =
+		RenderPixelBytes(mapping.description.format);
+	const std::size_t minimumPitch =
+		static_cast<std::size_t>(mapping.description.width) * pixelBytes;
+	if (mapping.pitchBytes < minimumPitch ||
+		mapping.description.height >
+			std::numeric_limits<std::size_t>::max() / mapping.pitchBytes)
+		return false;
+	return mapping.sizeBytes >=
+		mapping.pitchBytes * mapping.description.height;
+}
+
 // Low-level, platform-neutral access to renderer-owned pixel surfaces. Mapped
 // storage remains owned by the implementation and is valid only until the
 // matching unmap call. Hosts must serialize mapping, renderer lifetime, and

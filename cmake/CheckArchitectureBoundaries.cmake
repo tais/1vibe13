@@ -293,23 +293,32 @@ endforeach()
 
 # Raw SDL frame output belongs to the platform adapters. The video manager
 # implements that backend, while normal FrameDriver work and established
-# RefreshScreen/PresentNow/Invalidate* callers cross engine-owned contracts.
+# RefreshScreen/PresentNow/Invalidate*/ColorFillVideoSurfaceArea callers cross
+# engine-owned contracts.
 set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/sdl_video.cpp"
   "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp")
 foreach(source_file IN LISTS world_state_files)
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "BOOLEAN[ \t\r\n]+ColorFillVideoSurfaceArea[ \t\r\n]*\\("
+    direct_surface_fill_implementation "${contents}")
+  if(direct_surface_fill_implementation)
+    message(FATAL_ERROR
+      "Production code implements the legacy surface-fill entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
+  endif()
+
   list(FIND platform_video_backend_owners
     "${source_file}" platform_video_backend_owner_index)
   if(NOT platform_video_backend_owner_index EQUAL -1)
     continue()
   endif()
-  file(READ "${source_file}" contents)
   string(REGEX MATCH
     "PlatformVideo(Surface)?Backend\\.h|(^|[^A-Za-z0-9_])PlatformVideo(Present|Invalidate|MarkFrameChanged|Surface)[A-Za-z0-9_]*[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR
-      "Production code bypasses an engine renderer gateway in ${source_file}; use FramePresenter, FrameInvalidator, RenderSurfaceAccess, or the public compatibility API")
+      "Production code bypasses an engine renderer gateway in ${source_file}; use FramePresenter, FrameInvalidator, RenderSurfaceAccess, RenderCommandSink, or the public compatibility API")
   endif()
 endforeach()
 

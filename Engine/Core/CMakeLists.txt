@@ -52,6 +52,7 @@ set(engine_core_public_headers
   PersistenceService.h
   PinnedSlotCache.h
   RandomSource.h
+  RenderCommands.h
   RenderSurfaceAccess.h
   RuntimeCapabilities.h
   RuntimeCheckpoint.h
