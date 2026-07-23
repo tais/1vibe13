@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -39,6 +41,8 @@ typedef struct
 	UINT32			curIndex;
 	UINT32			currentDepth;
 	UINT32			maxReadDepth;
+	LANGUAGE_LOCATION *destination;
+	UINT32			fileType;
 }languageLocationParseData;
 
 
@@ -141,68 +145,42 @@ languageLocationEndElementHandle(void *userData, const XML_Char *name)
 	pData->currentDepth--;
 }
 
+static void PrepareLanguageDocument(void *userData)
+{
+	languageLocationParseData *pData =
+		(languageLocationParseData *)userData;
+	pLang = pData->destination;
+	FileTypeXml = pData->fileType;
+}
+
 BOOLEAN ReadInLanguageLocation(STR fileName, BOOLEAN localizedVersion, LANGUAGE_LOCATION *Lang, UINT32 FileType2 )
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	languageLocationParseData pData;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading NewTacticalMessages.xml" );
 
 	LanguageLocation_TextOnly = localizedVersion;
-	
-	// Open file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( localizedVersion );
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, languageLocationStartElementHandle, languageLocationEndElementHandle);
-	XML_SetCharacterDataHandler(parser, languageLocationCharacterDataHandle);
-
 
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
-	
-	pLang = Lang;
-	FileTypeXml = FileType2;
+	pData.destination = Lang;
+	pData.fileType = FileType2;
 
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, languageLocationStartElementHandle, languageLocationEndElementHandle,
+		languageLocationCharacterDataHandle, PrepareLanguageDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in NewTacticalMessages.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status == LegacyXmlStatus::NotFound)
+			return localizedVersion;
+		if (result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
-
 
 	return( TRUE );
 }

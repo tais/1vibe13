@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "PngLoader.h"
 #include "FileMan.h"
 #include "DEBUG.H"
@@ -412,6 +414,26 @@ void CAppDataParser::onTextElement(const XML_Char *str, int len)
 
 }
 
+struct AppDataParserContext
+{
+	explicit AppDataParserContext(HIMAGE image)
+		: document(parser)
+	{
+		document.setImage(image);
+	}
+
+	XML_Parser parser = NULL;
+	CAppDataParser document;
+};
+
+static void PrepareAppDataParser(XML_Parser parser, void *userData)
+{
+	AppDataParserContext *context =
+		(AppDataParserContext *)userData;
+	context->parser = parser;
+	context->document.grabParser();
+}
+
 
 bool IndexedSTIImage::readAppDataFromXMLFile(HIMAGE hImage, vfs::tReadableFile* pFile)
 {
@@ -436,21 +458,20 @@ bool IndexedSTIImage::readAppDataFromXMLFile(HIMAGE hImage, vfs::tReadableFile* 
 		SGP_RETHROW(L"", ex);
 	}
 
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
-	CAppDataParser adp(parser);
-	adp.grabParser();
-	adp.setImage(hImage);
-
 	try
 	{
-		if(!XML_Parse(parser, &vBuffer[0], uiSize, TRUE))
+		AppDataParserContext context(hImage);
+		LegacyXmlCallbacks callbacks;
+		callbacks.userData = &context;
+		callbacks.parserReady = PrepareAppDataParser;
+		const LegacyXmlResult result =
+			ParseLegacyXmlBytes(&vBuffer[0], uiSize, callbacks);
+		if (!result)
 		{
+			const auto message =
+				FormatLegacyXmlFailure("<image app data>", result);
 			std::wstringstream wss;
-			wss << L"XML Parser Error in Groups.xml: " 
-				<< vfs::String(XML_ErrorString(XML_GetErrorCode(parser))).c_wcs()
-				<< L" at line " 
-				<< XML_GetCurrentLineNumber(parser);
+			wss << vfs::String::as_utf16(message.data());
 			SGP_THROW(wss.str().c_str());
 		}
 	}
@@ -1050,4 +1071,3 @@ void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& in
 	}
 	hImage->fFlags |= IMAGE_PALETTE;
 }
-

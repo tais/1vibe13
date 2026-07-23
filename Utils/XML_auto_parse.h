@@ -1,6 +1,8 @@
 #ifndef XML_AUTO_PARSE_H
 #define XML_AUTO_PARSE_H
 
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include <vfs/Core/vfs_debug.h>
 #include <vfs/Core/Interface/vfs_file_interface.h>
 #include "XML_Parser.h"
@@ -115,18 +117,12 @@ namespace xml_auto
 	public:
 		typedef TBaseStructure<T, typename T::States> struct_t;
 		TGenericXMLParser(struct_t* base, IXMLParser* caller = NULL)
-			: IXMLParser("",NULL,caller), m_base(base), m_state(T::STATE_NONE)
+			: IXMLParser("",NULL,caller), parser(NULL), m_base(base),
+			m_state(T::STATE_NONE)
 		{
-			parser = XML_ParserCreate(NULL);
 			setParser(&parser);
 		};
-		~TGenericXMLParser()
-		{
-			if(parser)
-			{
-				XML_ParserFree(parser);
-			}
-		}
+		~TGenericXMLParser() {}
 		virtual void onStartElement(const XML_Char* name, const XML_Char** atts)
 		{
 			typename struct_t::transition_t* tr = m_base->getTransition(m_state.state(), name);
@@ -162,15 +158,18 @@ namespace xml_auto
 
 		void parseBuffer(vfs::Byte* buffer, vfs::size_t length)
 		{
-			this->grabParser();
-			XML_Parser& _parser = this->getParser();
-			if(!XML_Parse(_parser, buffer, length, TRUE))
+			LegacyXmlCallbacks callbacks;
+			callbacks.userData = this;
+			callbacks.parserReady = TGenericXMLParser::prepareParser;
+			const LegacyXmlResult result =
+				ParseLegacyXmlBytes(buffer, length, callbacks);
+			parser = NULL;
+			if (!result)
 			{
+				const auto message =
+					FormatLegacyXmlFailure("<memory XML>", result);
 				std::wstringstream wss;
-				wss << L"XML Parser Error : "
-					<< vfs::String::as_utf16(XML_ErrorString(XML_GetErrorCode(_parser)))
-					<< L" in line "
-					<< XML_GetCurrentLineNumber(_parser);
+				wss << vfs::String::as_utf16(message.data());
 				SGP_THROW(wss.str().c_str());
 			}
 		}
@@ -203,6 +202,14 @@ namespace xml_auto
 		}
 
 	private:
+		static void prepareParser(XML_Parser parser, void* userData)
+		{
+			TGenericXMLParser *self =
+				(TGenericXMLParser *)userData;
+			self->parser = parser;
+			self->grabParser();
+		}
+
 		XML_Parser parser;
 
 		typedef IXMLParser::ParserState<typename T::States> ParserState_t;

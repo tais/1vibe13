@@ -29,6 +29,7 @@
 #include "Tile Animation.h"
 #include "Tile Surface.h"
 #include "Tile Cache.h"
+#include "Text.h"
 #include "Weapons.h"
 #include "XML.h"
 #include "aim.h"
@@ -256,6 +257,16 @@ void XMLCALL ProbeXmlCharacters(void* userData, const XML_Char* text, int length
 	probe.sequence.push_back('C');
 }
 
+void PrepareReboundXmlProbe(XML_Parser parser, void* userData)
+{
+	if (!userData) return;
+	XmlProbe& probe = *static_cast<XmlProbe*>(userData);
+	probe.sequence.push_back('R');
+	XML_SetUserData(parser, userData);
+	XML_SetElementHandler(parser, ProbeXmlStart, ProbeXmlEnd);
+	XML_SetCharacterDataHandler(parser, ProbeXmlCharacters);
+}
+
 void ThrowingXmlPreparation(void*)
 {
 	throw 1;
@@ -416,6 +427,18 @@ int main()
 		xmlProbe.characters == "okok",
 		"legacy XML adapter prepares and creates an independent parser per invocation");
 
+	XmlProbe reboundXmlProbe;
+	LegacyXmlCallbacks reboundXmlCallbacks;
+	reboundXmlCallbacks.userData = &reboundXmlProbe;
+	reboundXmlCallbacks.beforeParse = PrepareXmlProbe;
+	reboundXmlCallbacks.parserReady = PrepareReboundXmlProbe;
+	xmlResult = ParseLegacyXmlBytes(
+		validXml.data(), validXml.size(), reboundXmlCallbacks);
+	Check(xmlResult && reboundXmlProbe.sequence == "RPSSCEE" &&
+		reboundXmlProbe.starts == 2 && reboundXmlProbe.ends == 2 &&
+		reboundXmlProbe.characters == "ok",
+		"legacy XML adapter lends parser setup to object-oriented readers without transferring ownership");
+
 	XmlProbe rejectedXmlProbe;
 	const LegacyXmlCallbacks rejectedXmlCallbacks{
 		&rejectedXmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters,
@@ -549,6 +572,16 @@ int main()
 	Check(ReadInHistorys("tables/optional-history.xml", TRUE) &&
 		!ReadInHistorys("tables/required-history.xml", FALSE),
 		"localized Laptop XML preserves its established missing-file policy");
+
+	const std::string senderNamesXml =
+		"<SENDER_LIST><NAME><uiIndex>499</uiIndex>"
+		"<Name>Adapter Sender</Name></NAME></SENDER_LIST>";
+	Check(storage.writeAll("tables/sender-names-probe.xml",
+			std::vector<std::uint8_t>(
+				senderNamesXml.begin(), senderNamesXml.end())) &&
+		ReadInSenderNameList("TABLES\\SENDER-NAMES-PROBE.XML", FALSE) &&
+		std::wcscmp(pSenderNameList[499], L"Adapter Sender") == 0,
+		"a shared Utils XML loader reads definitions through the bounded adapter");
 
 	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
 		"platform byte storage removal is idempotent and observable");
