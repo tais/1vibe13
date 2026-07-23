@@ -77,6 +77,7 @@ bool Map(
 
 bool SupportsCopyMode(RenderSurfaceCopyMode mode, RenderPixelFormat format)
 {
+	if (format == RenderPixelFormat::Depth16) return false;
 	switch (mode)
 	{
 	case RenderSurfaceCopyMode::Opaque:
@@ -115,6 +116,7 @@ std::size_t EncodeColor(
 		return sizeof(packed);
 	}
 	case RenderPixelFormat::Indexed8:
+	case RenderPixelFormat::Depth16:
 		break;
 	}
 	return 0;
@@ -313,6 +315,7 @@ void CopyColorKeyed(
 		break;
 	}
 	case RenderPixelFormat::Indexed8:
+	case RenderPixelFormat::Depth16:
 		break;
 	}
 }
@@ -590,6 +593,8 @@ bool DispatchStretch(
 			command, area, source, destination, packedKey,
 			0x00ffffffu);
 	}
+	case RenderPixelFormat::Depth16:
+		return false;
 	}
 	return false;
 }
@@ -711,7 +716,8 @@ bool MappedRenderCommandSink::fillSurface(
 	if (!Map(surfaces_, command.surface, mapping)) return false;
 	MappingLease lease(surfaces_, command.surface);
 	if (!IsValidRenderSurfaceMapping(mapping) ||
-		mapping.description.format == RenderPixelFormat::Indexed8)
+		mapping.description.format == RenderPixelFormat::Indexed8 ||
+		mapping.description.format == RenderPixelFormat::Depth16)
 		return false;
 
 	std::int64_t left = command.region.left;
@@ -922,7 +928,8 @@ bool MappedRenderCommandSink::shadeSurface(
 
 	RenderSurfaceDescription description;
 	if (!Describe(surfaces_, command.surface, description) ||
-		description.format == RenderPixelFormat::Indexed8)
+		description.format == RenderPixelFormat::Indexed8 ||
+		description.format == RenderPixelFormat::Depth16)
 		return false;
 
 	std::int64_t left = 0;
@@ -954,7 +961,65 @@ bool MappedRenderCommandSink::shadeSurface(
 			command.numerator, command.denominator);
 		break;
 	case RenderPixelFormat::Indexed8:
+	case RenderPixelFormat::Depth16:
 		return false;
+	}
+	return lease.close();
+}
+
+bool MappedRenderCommandSink::fillDepth(
+	const RenderDepthFillCommand& command)
+{
+	if (command.surface == 0) return false;
+
+	RenderSurfaceDescription description;
+	if (!Describe(surfaces_, command.surface, description) ||
+		description.format != RenderPixelFormat::Depth16 ||
+		description.contentBitDepth != 16)
+		return false;
+
+	std::int64_t left = 0;
+	std::int64_t top = 0;
+	std::int64_t right = 0;
+	std::int64_t bottom = 0;
+	if (!ClipRegion(
+		command.region, description, left, top, right, bottom))
+		return true;
+
+	MutableRenderSurface mapping;
+	if (!Map(surfaces_, command.surface, mapping)) return false;
+	MappingLease lease(surfaces_, command.surface);
+	if (!IsValidRenderSurfaceMapping(mapping) ||
+		mapping.description != description)
+		return false;
+
+	std::array<std::byte, sizeof(std::uint16_t)> encoded{};
+	std::memcpy(
+		encoded.data(), &command.depth, sizeof(command.depth));
+	const std::size_t rowBytes =
+		static_cast<std::size_t>(right - left) *
+		sizeof(std::uint16_t);
+	std::byte* const firstRow =
+		mapping.pixels +
+		static_cast<std::size_t>(top) * mapping.pitchBytes +
+		static_cast<std::size_t>(left) * sizeof(std::uint16_t);
+
+	std::memcpy(firstRow, encoded.data(), encoded.size());
+	for (std::size_t filled = encoded.size(); filled < rowBytes;)
+	{
+		const std::size_t copied =
+			std::min(filled, rowBytes - filled);
+		std::memcpy(firstRow + filled, firstRow, copied);
+		filled += copied;
+	}
+	for (std::int64_t row = top + 1; row < bottom; ++row)
+	{
+		std::byte* const destination =
+			mapping.pixels +
+			static_cast<std::size_t>(row) * mapping.pitchBytes +
+			static_cast<std::size_t>(left) *
+				sizeof(std::uint16_t);
+		std::memcpy(destination, firstRow, rowBytes);
 	}
 	return lease.close();
 }

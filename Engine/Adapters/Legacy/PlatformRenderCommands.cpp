@@ -33,6 +33,11 @@ public:
 		return mapped_.shadeSurface(command);
 	}
 
+	bool fillDepth(const RenderDepthFillCommand& command) override
+	{
+		return mapped_.fillDepth(command);
+	}
+
 	bool drawImage(const RenderImageDrawCommand& command) override
 	{
 		try

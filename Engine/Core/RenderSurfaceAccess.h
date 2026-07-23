@@ -20,6 +20,7 @@ enum class RenderSurfaceRole : std::uint8_t
 	BackBuffer,
 	FrameBuffer,
 	Cursor,
+	DepthBuffer,
 	Count
 };
 
@@ -30,7 +31,8 @@ enum class RenderPixelFormat : std::uint8_t
 {
 	Indexed8,
 	Rgb565,
-	Argb8888
+	Argb8888,
+	Depth16
 };
 
 inline std::size_t RenderPixelBytes(RenderPixelFormat format)
@@ -40,6 +42,7 @@ inline std::size_t RenderPixelBytes(RenderPixelFormat format)
 	case RenderPixelFormat::Indexed8: return 1;
 	case RenderPixelFormat::Rgb565: return 2;
 	case RenderPixelFormat::Argb8888: return 4;
+	case RenderPixelFormat::Depth16: return 2;
 	}
 	return 0;
 }

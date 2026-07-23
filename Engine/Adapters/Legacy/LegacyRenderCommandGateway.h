@@ -21,6 +21,8 @@ bool StretchLegacyRenderSurface(
 	const RenderSurfaceStretchCommand& command) noexcept;
 bool ShadeLegacyRenderSurface(
 	const RenderSurfaceShadeCommand& command) noexcept;
+bool FillLegacyRenderDepth(
+	const RenderDepthFillCommand& command) noexcept;
 bool DrawLegacyRenderImage(
 	const RenderImageDrawCommand& command) noexcept;
 bool DrawLegacyRenderImageOutline(
