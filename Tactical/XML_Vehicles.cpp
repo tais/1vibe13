@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include "sgp.h"
 #include "Debug Control.h"
 #include "expat.h"
@@ -337,62 +339,31 @@ newCarEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInNewVehicles(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	newCarParseData pData;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading Vehicles.xml" );
 
 	NewCar_TextOnly = localizedVersion;
-	
-	// Open file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-	{
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( localizedVersion );
-	}
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-	XML_SetElementHandler(parser, newCarStartElementHandle, newCarEndElementHandle);
-	XML_SetCharacterDataHandler(parser, newCarCharacterDataHandle);
 
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, newCarStartElementHandle, newCarEndElementHandle,
+		newCarCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in Vehicles.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status == LegacyXmlStatus::NotFound)
+			return localizedVersion;
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 
 	return( TRUE );
 }

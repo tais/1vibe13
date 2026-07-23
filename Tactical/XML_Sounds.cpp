@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 #include <string.h>
 #include "sgp.h"
 #include "Sound Control.h"
@@ -90,51 +92,27 @@ soundEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInSoundArray(STR fileName)
 {
-    HWFILE		hFile;
-    UINT32		uiBytesRead;
-    UINT32		uiFSize;
-    CHAR8 *		lpcBuffer;
-    XML_Parser	parser;
     soundParseData pData;
     DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("Loading %s",SOUNDSFILENAME ) );
 
-    // Open sounds file
-    hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-    if ( !hFile )
-        return( FALSE );
-
-    parser = XML_ParserCreate(NULL);
-
-    uiFSize = FileGetSize(hFile);
-    lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-    //Read in block
-    if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-    {
-        MemFree(lpcBuffer);
-        FileClose( hFile );
-        XML_ParserFree(parser);
-        return( FALSE );
-    }
-    lpcBuffer[uiFSize] = 0; //add a null terminator
-    FileClose( hFile );
-
-    XML_SetElementHandler(parser, soundStartElementHandle, soundEndElementHandle);
-    XML_SetCharacterDataHandler(parser, soundCharacterDataHandle);
     memset(&pData,0,sizeof(pData));
     pData.maxArraySize = MAX_SAMPLES;
     pData.curIndex = -1;
-    XML_SetUserData(parser, &pData);
-    if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
-    {
-        CHAR8 errorBuf[511];
-        sprintf(errorBuf, "XML Parser Error in %s.xml: %s at line %d", SOUNDSFILENAME, XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-        LiveMessage(errorBuf);
-        MemFree(lpcBuffer);
-        XML_ParserFree(parser);
-        return FALSE;
-    }
-    MemFree(lpcBuffer);
-    XML_ParserFree(parser);
+	const LegacyXmlCallbacks callbacks{
+		&pData, soundStartElementHandle, soundEndElementHandle,
+		soundCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
+	{
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
+		return FALSE;
+	}
     return( TRUE );
 }
 

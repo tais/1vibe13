@@ -28,6 +28,7 @@
 #include "Tile Animation.h"
 #include "Tile Surface.h"
 #include "Tile Cache.h"
+#include "Weapons.h"
 #include "XML.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -210,21 +211,37 @@ void CountSoundEnd(void* callbackData)
 
 struct XmlProbe
 {
+	int preparations = 0;
 	int starts = 0;
 	int ends = 0;
 	int characterCalls = 0;
 	std::string characters;
+	std::string sequence;
 };
+
+void PrepareXmlProbe(void* userData)
+{
+	if (!userData) return;
+	XmlProbe& probe = *static_cast<XmlProbe*>(userData);
+	++probe.preparations;
+	probe.sequence.push_back('P');
+}
 
 void XMLCALL ProbeXmlStart(void* userData, const XML_Char*,
 	const XML_Char**)
 {
-	if (userData) ++static_cast<XmlProbe*>(userData)->starts;
+	if (!userData) return;
+	XmlProbe& probe = *static_cast<XmlProbe*>(userData);
+	++probe.starts;
+	probe.sequence.push_back('S');
 }
 
 void XMLCALL ProbeXmlEnd(void* userData, const XML_Char*)
 {
-	if (userData) ++static_cast<XmlProbe*>(userData)->ends;
+	if (!userData) return;
+	XmlProbe& probe = *static_cast<XmlProbe*>(userData);
+	++probe.ends;
+	probe.sequence.push_back('E');
 }
 
 void XMLCALL ProbeXmlCharacters(void* userData, const XML_Char* text, int length)
@@ -233,6 +250,12 @@ void XMLCALL ProbeXmlCharacters(void* userData, const XML_Char* text, int length
 	XmlProbe& probe = *static_cast<XmlProbe*>(userData);
 	++probe.characterCalls;
 	probe.characters.append(text, static_cast<std::size_t>(length));
+	probe.sequence.push_back('C');
+}
+
+void ThrowingXmlPreparation(void*)
+{
+	throw 1;
 }
 
 class ShortReadAssetSource final : public AssetSource
@@ -372,10 +395,12 @@ int main()
 		"memory XML fixture enters the engine asset namespace");
 	XmlProbe xmlProbe;
 	const LegacyXmlCallbacks xmlCallbacks{
-		&xmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters};
+		&xmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters,
+		PrepareXmlProbe};
 	LegacyXmlResult xmlResult = ParseLegacyXmlAsset(
 		memoryXml, "tables/probe.xml", xmlCallbacks);
 	Check(xmlResult && xmlResult.byteCount == validXml.size() &&
+		xmlProbe.preparations == 1 && xmlProbe.sequence == "PSSCEE" &&
 		xmlProbe.starts == 2 && xmlProbe.ends == 2 &&
 		xmlProbe.characterCalls == 1 && xmlProbe.characters == "ok",
 		"legacy XML adapter parses engine assets with the original Expat callbacks");
@@ -383,31 +408,42 @@ int main()
 	xmlResult = ParseLegacyXmlAsset(
 		memoryXml, "tables/probe.xml", xmlCallbacks);
 	Check(xmlResult && xmlProbe.starts == 4 && xmlProbe.ends == 4 &&
+		xmlProbe.preparations == 2 &&
+		xmlProbe.sequence == "PSSCEEPSSCEE" &&
 		xmlProbe.characters == "okok",
-		"legacy XML adapter creates an independent parser for every invocation");
+		"legacy XML adapter prepares and creates an independent parser per invocation");
 
 	XmlProbe rejectedXmlProbe;
 	const LegacyXmlCallbacks rejectedXmlCallbacks{
-		&rejectedXmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters};
+		&rejectedXmlProbe, ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters,
+		PrepareXmlProbe};
 	xmlResult = ParseLegacyXmlAsset(
 		memoryXml, "tables/probe.xml", rejectedXmlCallbacks, 4);
 	Check(xmlResult.status == LegacyXmlStatus::TooLarge &&
-		xmlResult.byteLimit == 4 && rejectedXmlProbe.starts == 0,
-		"bounded XML asset reads reject oversized definitions before callbacks run");
+		xmlResult.byteLimit == 4 && rejectedXmlProbe.preparations == 0 &&
+		rejectedXmlProbe.starts == 0,
+		"bounded XML asset reads reject oversized definitions before preparation");
 
 	ShortReadAssetSource shortReadXml;
 	xmlResult = ParseLegacyXmlAsset(
 		shortReadXml, "tables/short.xml", rejectedXmlCallbacks);
 	Check(xmlResult.status == LegacyXmlStatus::ReadError &&
-		rejectedXmlProbe.starts == 0,
-		"short XML asset reads discard partial bytes without invoking callbacks");
+		rejectedXmlProbe.preparations == 0 && rejectedXmlProbe.starts == 0,
+		"short XML asset reads discard partial bytes without preparing tables");
 
 	OutOfMemoryAssetSource outOfMemoryXml;
 	xmlResult = ParseLegacyXmlAsset(
 		outOfMemoryXml, "tables/allocation.xml", rejectedXmlCallbacks);
 	Check(xmlResult.status == LegacyXmlStatus::OutOfMemory &&
-		rejectedXmlProbe.starts == 0,
-		"XML asset allocation failures remain contained before parsing");
+		rejectedXmlProbe.preparations == 0 && rejectedXmlProbe.starts == 0,
+		"XML asset allocation failures remain contained before preparation");
+
+	const LegacyXmlCallbacks throwingPreparation{
+		nullptr, nullptr, nullptr, nullptr, ThrowingXmlPreparation};
+	xmlResult = ParseLegacyXmlBytes(
+		validXml.data(), validXml.size(), throwingPreparation);
+	Check(xmlResult.status == LegacyXmlStatus::CallbackError,
+		"XML preparation exceptions are contained as callback failures");
 
 	const std::string malformedXml = "<ROOT>\n<VALUE></ROOT>";
 	xmlResult = ParseLegacyXmlBytes(
@@ -449,6 +485,13 @@ int main()
 	Check(xmlResult.status == LegacyXmlStatus::NotFound,
 		"legacy XML file parsing distinguishes missing assets");
 
+	XmlProbe helperXmlProbe;
+	Check(ParseXMLFile("TABLES\\VFS-PROBE.XML",
+			ProbeXmlStart, ProbeXmlEnd, ProbeXmlCharacters,
+			&helperXmlProbe, "vfs-probe.xml") &&
+		helperXmlProbe.starts == 2 && helperXmlProbe.characters == "ok",
+		"the legacy ParseXMLFile compatibility entry point uses the bounded adapter");
+
 	const std::string clothesXml =
 		"<CLOTHESLIST><CLOTHES><uiIndex>1</uiIndex><szName>probe</szName>"
 		"<Vest>BLUEVEST</Vest><Pants>BLACKPANTS</Pants></CLOTHES></CLOTHESLIST>";
@@ -458,6 +501,20 @@ int main()
 		std::strcmp(Clothes[1].vest, "BLUEVEST") == 0 &&
 		std::strcmp(Clothes[1].pants, "BLACKPANTS") == 0,
 		"a migrated production XML loader populates its legacy definition table");
+
+	const std::string weaponsXml =
+		"<WEAPONLIST><WEAPON><uiIndex>1</uiIndex><ubImpact>73</ubImpact>"
+		"<usRange>456</usRange></WEAPON></WEAPONLIST>";
+	Check(storage.writeAll("tables/weapons-probe.xml",
+			std::vector<std::uint8_t>(weaponsXml.begin(), weaponsXml.end())) &&
+		ReadInWeaponStats("TABLES\\WEAPONS-PROBE.XML") &&
+		Weapon[1].ubImpact == 73 && Weapon[1].usRange == 456,
+		"a second-wave tactical loader reads definitions through the bounded adapter");
+	Check(ReadInFoodOpinionStats("tables/optional-food-opinions.xml"),
+		"optional tactical XML preserves its missing-file success fallback");
+	Check(ReadInEnemyNames("tables/optional-enemy-names.xml", TRUE) &&
+		!ReadInEnemyNames("tables/required-enemy-names.xml", FALSE),
+		"localized tactical XML preserves its established missing-file policy");
 
 	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
 		"platform byte storage removal is idempotent and observable");

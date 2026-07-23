@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 ///////////////////////////////////////////////////////////////////////////////
 // HEADROCK PROFEX: PROFile EXternalization
 //
@@ -1234,68 +1236,32 @@ void AnalyzeProfiles()
 
 BOOLEAN ReadInMercProfiles(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	profileParseData pData;
 
 	MercProfiles_TextOnly = localizedVersion;
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading MercProfiles.xml" );
 
-	// Open merges file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-	{
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( localizedVersion );
-	}
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser); // leak: free parser on error path
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-
-	XML_SetElementHandler(parser, profileStartElementHandle, profileEndElementHandle);
-	XML_SetCharacterDataHandler(parser, profileCharacterDataHandle);
-
-
 	memset(&pData,0,sizeof(pData));
 	pData.maxArraySize = MAXITEMS;
 	pData.curIndex = -1;
 
-	XML_SetUserData(parser, &pData);
-
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, profileStartElementHandle, profileEndElementHandle,
+		profileCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in MercProfiles.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status == LegacyXmlStatus::NotFound)
+			return localizedVersion;
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
 
 	// Flugente hack: analyze profiles and print out the result
 	//AnalyzeProfiles();
