@@ -288,8 +288,10 @@ asset path, may stop or retune only their own group, and cannot exceed the
 host's sealed playback capacity. Configure rollback and package shutdown stop
 all remaining owned playback. Completed one-shot playback is pruned through
 the adapter's `isPlaying` contract before it can strand bounded capacity.
-Existing game audio remains on direct
-`AudioOutput` adapters while it is migrated incrementally.
+Volume and pan are retained in diagnostics and may be changed for a complete
+owned group. Existing JA2 `Sound*` calls keep their public signatures and
+session-local handles, but now pass through the same `AudioOutput` contract;
+the raw SDL mixer identifiers remain private to the legacy platform adapter.
 
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each

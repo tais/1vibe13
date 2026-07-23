@@ -31,6 +31,11 @@ public:
 	{
 		return service_.setGroupVolume(packageId_, group, volume);
 	}
+	PackageAudioOperationResult setGroupPan(
+		const std::string& group, std::uint32_t pan) const noexcept
+	{
+		return service_.setGroupPan(packageId_, group, pan);
+	}
 
 private:
 	std::string packageId_;

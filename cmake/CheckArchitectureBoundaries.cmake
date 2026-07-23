@@ -246,5 +246,23 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
+# Raw mixer handles belong to the platform adapter. The sound manager provides
+# that backend, but every production caller must use the stable Sound* gateway
+# so engine-owned and legacy playback cannot alias each other's identifiers.
+set(platform_audio_backend_owner "${SOURCE_ROOT}/sgp/soundman.cpp")
+foreach(source_file IN LISTS world_state_files)
+  if("${source_file}" STREQUAL "${platform_audio_backend_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])PlatformSound[A-Za-z0-9_]*[ \t\r\n]*\\("
+    direct_platform_audio_call "${contents}")
+  if(direct_platform_audio_call)
+    message(FATAL_ERROR
+      "Production code bypasses the engine audio gateway in ${source_file}; use the public Sound* compatibility API")
+  endif()
+endforeach()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")

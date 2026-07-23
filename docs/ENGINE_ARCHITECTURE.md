@@ -359,7 +359,9 @@ the engine must not contain SDL types in its public domain model.
   groups above the existing platform output. Assets are normalized, playbacks
   are bounded and inspectable, packages cannot control another owner's sounds,
   and rollback or shutdown stops everything they still own. Legacy JA2 callers
-  keep their direct `AudioOutput` path during migration.
+  retain their `Sound*` signatures and handle semantics through a bounded
+  gateway into the same `AudioOutput`; raw mixer handles cannot escape the
+  legacy platform adapter.
 - `PackageTaskQueue` is the live bounded main-thread deferral path for package
   callbacks. Each frame drains only work that was already queued, exceptions
   become fault records, recursive scheduling waits for a later frame, and

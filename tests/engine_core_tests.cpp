@@ -11,6 +11,7 @@
 #include <Engine/Core/FrameDriver.h>
 #include <Engine/Core/LocalizationCatalog.h>
 #include <Engine/Core/LocalizationDocument.h>
+#include <Engine/Core/PackageAudio.h>
 #include <Engine/Core/PackageEntities.h>
 #include <Engine/Core/PackageRandomSource.h>
 #include <Engine/Core/PackageContentLoader.h>
@@ -767,21 +768,38 @@ int main()
 	AudioGroupService audioGroups(groupedAudioOutput, 2);
 	const PackageAudioPlayResult firstGroupedPlayback = audioGroups.play(
 		"mod.audio", "ui",
-		AudioPlaybackRequest{"Audio\\Clicks//Select.wav", 22050, 100, 64, 1, false});
+		AudioPlaybackRequest{"Audio\\Clicks//Select.wav", 22050, 100, 32, 1, false});
 	const PackageAudioPlayResult secondGroupedPlayback = audioGroups.play(
 		"mod.audio", "ui",
-		AudioPlaybackRequest{"audio/clicks/confirm.wav", 22050, 90, 64, 1, false});
+		AudioPlaybackRequest{"audio/clicks/confirm.wav", 22050, 90, 96, 1, false});
+	PackageAudio ownedAudio("mod.audio", audioGroups);
 	const PackageAudioOperationResult changedGroup =
 		audioGroups.setGroupVolume("mod.audio", "ui", 80);
+	const PackageAudioOperationResult pannedGroup =
+		ownedAudio.setGroupPan("ui", 48);
+	const PackageAudioOperationResult rejectedPan =
+		ownedAudio.setGroupPan("ui", 128);
+	const std::vector<PackageAudioPlaybackSnapshot> tunedAudio =
+		audioGroups.snapshot();
+	const PackageAudioPlayResult invalidPanPlayback = audioGroups.play(
+		"mod.audio", "ui",
+		AudioPlaybackRequest{"audio/invalid-pan.wav", 11025, 127, 128, 1, false});
 	check(firstGroupedPlayback && secondGroupedPlayback &&
 		groupedAudioOutput.requests().size() == 2 &&
 		groupedAudioOutput.requests()[0].asset == "audio/clicks/select.wav" &&
 		!audioGroups.stop("other.package", firstGroupedPlayback.playback) &&
 		changedGroup.matched == 2 && changedGroup.succeeded == 2 &&
+		pannedGroup.matched == 2 && pannedGroup.succeeded == 2 &&
+		rejectedPan.matched == 0 && rejectedPan.succeeded == 0 &&
+		groupedAudioOutput.volumeChanges().size() == 2 &&
+		groupedAudioOutput.panChanges().size() == 2 &&
+		tunedAudio.size() == 2 && tunedAudio[0].volume == 80 &&
+		tunedAudio[0].pan == 48 && tunedAudio[1].pan == 48 &&
+		invalidPanPlayback.error == PackageAudioPlayError::InvalidPan &&
 		audioGroups.play("mod.audio", "ui",
 			AudioPlaybackRequest{"audio/third.wav"}).error ==
 			PackageAudioPlayError::CapacityReached,
-		"package audio groups normalize assets, isolate owners, and enforce a live bound");
+		"package audio groups normalize assets, isolate owners, retune playback, and enforce bounds");
 	groupedAudioOutput.finish(firstGroupedPlayback.playback);
 	const PackageAudioPruneResult prunedAudio = audioGroups.pruneFinished();
 	const PackageAudioPlayResult replacementGroupedPlayback = audioGroups.play(

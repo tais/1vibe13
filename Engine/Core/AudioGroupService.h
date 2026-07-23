@@ -13,14 +13,15 @@
 
 enum class PackageAudioPlayError
 {
-	None,
-	InvalidOwner,
-	InvalidGroup,
-	InvalidAsset,
-	InvalidVolume,
-	CapacityReached,
-	AdapterFailure,
-	TrackingFailure
+	None = 0,
+	InvalidOwner = 1,
+	InvalidGroup = 2,
+	InvalidAsset = 3,
+	InvalidVolume = 4,
+	CapacityReached = 5,
+	AdapterFailure = 6,
+	TrackingFailure = 7,
+	InvalidPan = 8
 };
 
 struct PackageAudioPlayResult
@@ -54,11 +55,12 @@ struct PackageAudioPlaybackSnapshot
 	std::string group;
 	std::string asset;
 	std::uint32_t volume = 0;
+	std::uint32_t pan = 64;
 };
 
-// Package ownership and logical groups above the existing platform output.
-// Legacy callers retain direct AudioOutput access; new packages cannot stop or
-// retune another package's playback and teardown releases tracked sounds.
+// Package ownership and logical groups above the engine audio output. Packages
+// cannot stop or retune another owner's playback, and teardown releases every
+// tracked sound.
 class AudioGroupService
 {
 public:
@@ -77,6 +79,8 @@ public:
 			return PackageAudioPlayResult{PackageAudioPlayError::InvalidAsset, 0};
 		if (request.volume > 127)
 			return PackageAudioPlayResult{PackageAudioPlayError::InvalidVolume, 0};
+		if (request.pan > 127)
+			return PackageAudioPlayResult{PackageAudioPlayError::InvalidPan, 0};
 		pruneFinished();
 		if (playbacks_.size() >= maximumPlaybacks_)
 			return PackageAudioPlayResult{PackageAudioPlayError::CapacityReached, 0};
@@ -95,7 +99,8 @@ public:
 		try
 		{
 			playbacks_.push_back(PackageAudioPlaybackSnapshot{
-				playback, packageId, std::move(group), std::move(normalizedAsset), request.volume});
+				playback, packageId, std::move(group), std::move(normalizedAsset),
+				request.volume, request.pan});
 		}
 		catch (...)
 		{
@@ -150,6 +155,28 @@ public:
 				if (output_.setVolume(record.playback, volume))
 				{
 					record.volume = volume;
+					++result.succeeded;
+				}
+			}
+			catch (...) {}
+		}
+		return result;
+	}
+
+	PackageAudioOperationResult setGroupPan(const std::string& packageId,
+		const std::string& group, std::uint32_t pan) noexcept
+	{
+		PackageAudioOperationResult result;
+		if (pan > 127) return result;
+		for (PackageAudioPlaybackSnapshot& record : playbacks_)
+		{
+			if (record.packageId != packageId || record.group != group) continue;
+			++result.matched;
+			try
+			{
+				if (output_.setPan(record.playback, pan))
+				{
+					record.pan = pan;
 					++result.succeeded;
 				}
 			}
