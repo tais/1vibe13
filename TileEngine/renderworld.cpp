@@ -152,6 +152,44 @@ BOOLEAN DrawTacticalDepthPaletteSprite(
 	}
 }
 
+BOOLEAN DrawTacticalObscuredDepthSprite(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	UINT16* depthBuffer,
+	UINT16 depth,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	VideoObjectObscuredDepthWriteMode writeMode,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectObscuredDepthToSurface(
+		destinationSurface, source, frame,
+		destinationX, destinationY, depth, writeMode, clipping))
+		return TRUE;
+
+	// The clipped compatibility blitter replaces depth only for front-facing
+	// pixels. Its unclipped counterpart replaces depth for every rendered
+	// pixel, including checkerboard-sampled obscured pixels.
+	switch (writeMode)
+	{
+	case VOBJECT_OBSCURED_DEPTH_WRITE_FRONT_PIXELS:
+		if (!clipping) return FALSE;
+		return Blt8BPPDataTo16BPPBufferTransZClipPixelateObscured(
+			destination, destinationPitchBytes, depthBuffer, depth,
+			source, destinationX, destinationY, frame, clipping);
+	case VOBJECT_OBSCURED_DEPTH_WRITE_DRAWN_PIXELS:
+		if (clipping) return FALSE;
+		return Blt8BPPDataTo16BPPBufferTransZPixelateObscured(
+			destination, destinationPitchBytes, depthBuffer, depth,
+			source, destinationX, destinationY, frame);
+	default:
+		return FALSE;
+	}
+}
+
 BOOLEAN DrawBasicTacticalDepthSprite(
 	UINT32 destinationSurface,
 	PIXEL* destination,
@@ -3149,7 +3187,13 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 												{
 													if (fObscuredBlitter)
 													{
-														Blt8BPPDataTo16BPPBufferTransZClipPixelateObscured((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+														DrawTacticalObscuredDepthSprite(
+															FRAME_BUFFER, (PIXEL*)pDestBuf,
+															uiDestPitchBYTES, gpZBuffer,
+															sZLevel, hVObject, sXPos, sYPos,
+															usImageIndex,
+															VOBJECT_OBSCURED_DEPTH_WRITE_FRONT_PIXELS,
+															&gClippingRect);
 													}
 													else
 													{
@@ -3408,7 +3452,13 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 													if (fObscuredBlitter)
 													{
-														Blt8BPPDataTo16BPPBufferTransZPixelateObscured((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
+														DrawTacticalObscuredDepthSprite(
+															FRAME_BUFFER, (PIXEL*)pDestBuf,
+															uiDestPitchBYTES, gpZBuffer,
+															sZLevel, hVObject, sXPos, sYPos,
+															usImageIndex,
+															VOBJECT_OBSCURED_DEPTH_WRITE_DRAWN_PIXELS,
+															NULL);
 													}
 													else
 													{

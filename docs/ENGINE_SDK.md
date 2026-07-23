@@ -359,11 +359,13 @@ separately. `SourcePalette`, `BlendSourcePalette50Percent`, and
 test and respectively copy, blend, or sample source palette colour through a
 stable absolute-coordinate checkerboard. `ShadeDestination` and
 `IntensifyDestination` use the source image as a mask, perform the established
-strict greater-than test, and transform the destination colour. Each effect
-explicitly chooses whether sampled passing pixels preserve depth or replace it.
-Unsupported effect/comparison pairings are rejected rather than acquiring
-backend-specific meaning. Alpha and pixelate-when-obscured effects remain
-separate contracts.
+strict greater-than test, and transform the destination colour.
+`PixelateObscuredSourcePalette` also uses a strict test: passing pixels render
+normally while failed pixels sample through the same stable checkerboard.
+`ReplaceOnPass` updates front-facing depth only; `ReplaceOnDraw` additionally
+updates sampled obscured pixels. Unsupported effect, comparison, and write
+pairings are rejected rather than acquiring backend-specific meaning. Alpha
+remains a separate contract.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
@@ -377,6 +379,9 @@ ordinary transparent-Z tactical sprites plus basic tactical shadow and
 intensity masks use the depth-image command. Depth-tested 50% blends and
 checkerboard-sampled tactical sprites use it as well, preserving inclusive
 testing, absolute checkerboard phase, clipping, and optional depth writes.
+Checkerboard-when-obscured tactical sprites now use the same command while
+retaining their strict front test and their historical clipped versus
+unclipped depth-update distinction.
 Tactical item outlines use the regular or depth-outline command, preserving
 their exact marker-depth, strict-versus-inclusive equality, clipping, and
 obscured checkerboard rules.

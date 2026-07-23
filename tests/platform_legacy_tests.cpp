@@ -2360,6 +2360,54 @@ int main()
 				expectedDepthPaletteEffects,
 			"tactical palette effects retain stable image identity and explicit compositing policies");
 
+		RecordingRenderCommandSink recordedObscuredDepth;
+		BindLegacyRenderCommands(recordedObscuredDepth);
+		const bool pointerObscuredFrontWriteRouted =
+			liveImageCreated &&
+			BltVideoObjectObscuredDepthToSurface(
+				copyDestinationID, liveImage, 0, -2, 2, 0x3450,
+				VOBJECT_OBSCURED_DEPTH_WRITE_FRONT_PIXELS,
+				&imageSurfaceClip);
+		const bool pointerObscuredDrawWriteRouted =
+			liveImageCreated &&
+			BltVideoObjectObscuredDepthToSurface(
+				copyDestinationID, liveImage, 0, 4, -2, 0x3451,
+				VOBJECT_OBSCURED_DEPTH_WRITE_DRAWN_PIXELS,
+				&imageSurfaceClip);
+		const bool invalidObscuredDepthWriteRejected =
+			!BltVideoObjectObscuredDepthToSurface(
+				copyDestinationID, liveImage, 0, 0, 0, 1,
+				static_cast<
+					VideoObjectObscuredDepthWriteMode>(255),
+				&imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		const std::vector<RenderImageDepthDrawCommand>
+			expectedObscuredDepthCommands{
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER,
+					routedDepthCommand.image, 0,
+					RenderSurfacePoint{-2, 2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 0x3450,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PixelateObscuredSourcePalette},
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER,
+					routedDepthCommand.image, 0,
+					RenderSurfacePoint{4, -2},
+					RenderSurfaceRegion{0, 0, 5, 3}, 0x3451,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnDraw,
+					RenderImageDepthEffect::
+						PixelateObscuredSourcePalette}};
+		Check(pointerObscuredFrontWriteRouted &&
+			pointerObscuredDrawWriteRouted &&
+			invalidObscuredDepthWriteRejected &&
+			recordedObscuredDepth.imageDepthCommands() ==
+				expectedObscuredDepthCommands,
+			"obscured tactical sprites retain explicit clipped and unclipped depth-write policies");
+
 		RecordingRenderCommandSink recordedDepthMask;
 		BindLegacyRenderCommands(recordedDepthMask);
 		const bool pointerDepthMaskRouted = liveImageCreated &&
@@ -2496,6 +2544,32 @@ int main()
 					RenderDepthCompareMode::GreaterOrEqual,
 					RenderDepthWriteMode::ReplaceOnPass,
 					RenderImageDepthEffect::ShadeDestination}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnDraw,
+					RenderImageDepthEffect::SourcePalette}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PixelateObscuredSourcePalette}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						PixelateObscuredSourcePalette}) &&
 			!GetPlatformRenderCommands().drawImageDepth(
 				RenderImageDepthDrawCommand{
 					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
@@ -2693,6 +2767,116 @@ int main()
 				secondDepthRow[3] == 4;
 		}
 
+		if (copyDestinationPixels && imageDepthBuffer)
+		{
+			const UINT16 initialObscuredDepth[2][5]{
+				{4, 10, 10, 11, 11},
+				{11, 11, 11, 11, 4}};
+			for (std::size_t y = 0; y < 2; ++y)
+			{
+				PIXEL* const colorRow = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				UINT16* const depthRow = reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(imageDepthBuffer) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0; x < 5; ++x)
+				{
+					colorRow[x] = depthBackground;
+					depthRow[x] = initialObscuredDepth[y][x];
+				}
+			}
+		}
+		const auto drawObscuredDepth =
+			[&](INT32 x, INT32 y, RenderDepthWriteMode writeMode)
+			{
+				return liveImageCreated && imageDepthBuffer &&
+					GetPlatformRenderCommands().drawImageDepth(
+						RenderImageDepthDrawCommand{
+							copyDestinationID, DEPTH_BUFFER,
+							liveImageID, 0,
+							RenderSurfacePoint{x, y},
+							RenderSurfaceRegion{0, 0, 5, 3}, 10,
+							RenderDepthCompareMode::Greater,
+							writeMode,
+							RenderImageDepthEffect::
+								PixelateObscuredSourcePalette});
+			};
+		const bool frontObscuredEffectAccepted =
+			drawObscuredDepth(
+				0, 0, RenderDepthWriteMode::ReplaceOnPass);
+		const bool equalSkippedObscuredEffectAccepted =
+			drawObscuredDepth(
+				1, 0, RenderDepthWriteMode::ReplaceOnPass);
+		const bool equalSampledObscuredEffectAccepted =
+			drawObscuredDepth(
+				2, 0, RenderDepthWriteMode::ReplaceOnPass);
+		const bool blockedSkippedObscuredEffectAccepted =
+			drawObscuredDepth(
+				3, 0, RenderDepthWriteMode::ReplaceOnPass);
+		const bool blockedSampledFrontWriteAccepted =
+			drawObscuredDepth(
+				4, 0, RenderDepthWriteMode::ReplaceOnPass);
+		const bool blockedSkippedDrawWriteAccepted =
+			drawObscuredDepth(
+				0, 1, RenderDepthWriteMode::ReplaceOnDraw);
+		const bool blockedSampledDrawWriteAccepted =
+			drawObscuredDepth(
+				1, 1, RenderDepthWriteMode::ReplaceOnDraw);
+		const bool secondSkippedDrawWriteAccepted =
+			drawObscuredDepth(
+				2, 1, RenderDepthWriteMode::ReplaceOnDraw);
+		const bool secondSampledFrontWriteAccepted =
+			drawObscuredDepth(
+				3, 1, RenderDepthWriteMode::ReplaceOnPass);
+		const bool frontDrawWriteAccepted =
+			drawObscuredDepth(
+				4, 1, RenderDepthWriteMode::ReplaceOnDraw);
+		bool obscuredDepthPixelsMatch =
+			copyDestinationPixels && imageDepthBuffer;
+		if (obscuredDepthPixelsMatch)
+		{
+			const PIXEL* const firstColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels));
+			const UINT16* const firstDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						imageDepthBuffer));
+			const PIXEL* const secondColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+						copyDestinationPitch);
+			const UINT16* const secondDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						imageDepthBuffer) +
+						copyDestinationPitch);
+			obscuredDepthPixelsMatch =
+				firstColorRow[0] == copiedRed &&
+				firstDepthRow[0] == 10 &&
+				firstColorRow[1] == depthBackground &&
+				firstDepthRow[1] == 10 &&
+				firstColorRow[2] == copiedRed &&
+				firstDepthRow[2] == 10 &&
+				firstColorRow[3] == depthBackground &&
+				firstDepthRow[3] == 11 &&
+				firstColorRow[4] == copiedRed &&
+				firstDepthRow[4] == 11 &&
+				secondColorRow[0] == depthBackground &&
+				secondDepthRow[0] == 11 &&
+				secondColorRow[1] == copiedRed &&
+				secondDepthRow[1] == 10 &&
+				secondColorRow[2] == depthBackground &&
+				secondDepthRow[2] == 11 &&
+				secondColorRow[3] == copiedRed &&
+				secondDepthRow[3] == 11 &&
+				secondColorRow[4] == copiedRed &&
+				secondDepthRow[4] == 10;
+		}
+
 		const PIXEL depthMaskInput =
 			Get16BPPColor(FROMRGB(200, 120, 80));
 		if (copyDestinationPixels && imageDepthBuffer)
@@ -2798,6 +2982,17 @@ int main()
 			equalBlendAccepted && preservedCheckerboardAccepted &&
 			skippedReplacementAccepted && depthPaletteEffectsMatch,
 			"depth palette effects preserve exact blending, checkerboard phase, clipping, and optional writes");
+		Check(frontObscuredEffectAccepted &&
+			equalSkippedObscuredEffectAccepted &&
+			equalSampledObscuredEffectAccepted &&
+			blockedSkippedObscuredEffectAccepted &&
+			blockedSampledFrontWriteAccepted &&
+			blockedSkippedDrawWriteAccepted &&
+			blockedSampledDrawWriteAccepted &&
+			secondSkippedDrawWriteAccepted &&
+			secondSampledFrontWriteAccepted &&
+			frontDrawWriteAccepted && obscuredDepthPixelsMatch,
+			"obscured depth effects preserve strict tests, checkerboard phase, and clipped versus unclipped writes");
 		Check(equalShadowMaskAccepted &&
 			preservedShadowMaskAccepted && replacedShadowMaskAccepted &&
 			preservedIntensityMaskAccepted &&

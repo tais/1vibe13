@@ -147,35 +147,39 @@ the engine must not contain SDL types in its public domain model.
   colour without mutating depth; the pixelated form retains the legacy rule
   that every front-facing pixel, including a marker, replaces depth.
   `RenderImageDepthDrawCommand` names colour and depth destinations separately
-  and makes its effect, comparison, and preserve/replace-on-pass policy
+  and makes its effect, comparison, and preserve/replace-on-pass/replace-on-draw
+  policy
   explicit. Palette effects can copy source colour, blend it with the
   destination at 50%, or sample it through an absolute-coordinate
   checkerboard; all retain their inclusive greater-or-equal test and update
   depth only for sampled passing pixels when requested. Shadow and intensity
-  images are
-  destination-transforming masks and retain their strict greater-than test.
-  Unsupported combinations are rejected at the platform boundary. Alpha and
-  pixelate-when-obscured effects remain distinct migration work rather than
-  ambiguous flags.
+  images are destination-transforming masks and retain their strict
+  greater-than test. The obscured-sprite effect uses a strict front test,
+  renders failed pixels through the stable checkerboard, and explicitly
+  distinguishes replacing only front-facing depth from replacing every drawn
+  pixel. Unsupported combinations are rejected at the platform boundary.
+  Alpha remains distinct migration work rather than an ambiguous flag.
   The production sink resolves image identities and executes the established
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
   physical pixels remain unchanged. Every successful `CreateVideoObject`
   allocation receives a non-pointer render identity above the legacy 32-bit
   manager range; deletion retires it before releasing storage. Sequential
   compatibility manager handles are unchanged. Common tactical transparent-Z
-  sprites, 50% blended or checkerboard-sampled depth sprites, basic
-  depth-tested shadow/intensity masks, and regular or depth-tested item
-  outlines can therefore use engine commands even when their image is owned by
-  the animation, tile, or logical-body subsystem. The palette-effect route
+  sprites, 50% blended, checkerboard-sampled, or
+  checkerboard-when-obscured depth sprites, basic depth-tested
+  shadow/intensity masks, and regular or depth-tested item outlines can
+  therefore use engine commands even when their image is owned by the
+  animation, tile, or logical-body subsystem. The palette-effect route
   preserves inclusive depth testing, the checkerboard's absolute screen phase,
-  clipping, and optional writes; the historical clipped tactical branch
-  continues to preserve depth. The outline route preserves the legacy strict
-  comparison for unclipped obscured sprites, inclusive comparison for their
-  clipped counterpart, marker-specific depth behavior, and stable checkerboard
-  pixelation. The mask bridge also corrects the clipped no-write path to
-  preserve depth consistently with its unclipped counterpart. Rejecting hosts
-  and manually constructed fixtures retain the exact raw fallback. Basic
-  non-depth tactical
+  clipping, and optional writes. The obscured route preserves its strict front
+  test and the historical distinction where the clipped blitter updates only
+  front-facing depth while the unclipped blitter updates every drawn pixel.
+  The outline route preserves the legacy strict comparison for unclipped
+  obscured sprites, inclusive comparison for their clipped counterpart,
+  marker-specific depth behavior, and stable checkerboard pixelation. The mask
+  bridge also corrects the clipped no-write path to preserve depth consistently
+  with its unclipped counterpart. Rejecting hosts and manually constructed
+  fixtures retain the exact raw fallback. Basic non-depth tactical
   transparent/shadow/intensity sprites traverse the regular image command
   through the same stable identity. The historical clipped physics-object
   outline remains non-depth and uses the regular outline command. Other
