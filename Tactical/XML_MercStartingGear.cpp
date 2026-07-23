@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "FileMan.h"
 #include "Item Types.h"
@@ -574,80 +576,45 @@ MercStartingGearEndElementHandle(void *userData, const XML_Char *name)
 
 
 
+static void PrepareMercStartingGearDocument(void*)
+{
+	if (localizedTextOnly_MercStartingGear) return;
+	for (int profile = 0; profile < NUM_PROFILES; ++profile)
+	{
+		for (int kit = 0; kit < NUM_MERCSTARTINGGEAR_KITS; ++kit)
+			gMercProfileGear[profile][kit].clearInventory();
+	}
+}
+
 BOOLEAN ReadInMercStartingGearStats(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-	
 	MercStartingGearParseData pData;
 
 	localizedTextOnly_MercStartingGear = localizedVersion;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading MercStartingGear.xml" );
 
-	// Open gMercProfileGear file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( FALSE );
-	
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-	
-	XML_SetElementHandler(parser, MercStartingGearStartElementHandle, MercStartingGearEndElementHandle);
-	XML_SetCharacterDataHandler(parser, MercStartingGearCharacterDataHandle);
-
-	
 	memset(&pData,0,sizeof(pData));
 
 	pData.curArray = gMercProfileGear;
 
-	pData.maxArraySize = NUM_PROFILES; 
-	
-	XML_SetUserData(parser, &pData);
+	pData.maxArraySize = NUM_PROFILES;
 
-	if (!localizedTextOnly_MercStartingGear)
+	const LegacyXmlCallbacks callbacks{
+		&pData, MercStartingGearStartElementHandle, MercStartingGearEndElementHandle,
+		MercStartingGearCharacterDataHandle, PrepareMercStartingGearDocument};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		for(int i=0; i<NUM_PROFILES; ++i)
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
 		{
-			for(int i2=0; i2<NUM_MERCSTARTINGGEAR_KITS; ++i2)
-			{
-				gMercProfileGear[i][i2].clearInventory();
-			}
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
 		}
-	}
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
-	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in MercStartingGear.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
-
 
 	return( TRUE );
 }

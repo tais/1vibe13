@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "popup_class.h"
 	#include "popup_definition.h"
@@ -421,53 +423,25 @@ pocketPopupEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInLBEPocketPopups(STR fileName)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-	
 	pocketPopupParseData pData;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading pocketPopups.xml" );
 
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( FALSE );
-	
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-	
-	XML_SetElementHandler(parser, pocketPopupStartElementHandle, pocketPopupEndElementHandle);
-	XML_SetCharacterDataHandler(parser, pocketPopupCharacterDataHandle);
-
-	
 	memset(&pData,0,sizeof(pData));
-	XML_SetUserData(parser, &pData);
-	
-	XML_SetUserData(parser, &pData);
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, pocketPopupStartElementHandle, pocketPopupEndElementHandle,
+		pocketPopupCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in Pocket.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
 
@@ -481,12 +455,6 @@ BOOLEAN ReadInLBEPocketPopups(STR fileName)
 
 	LBEPocketPopup[5] = *popup;
 	*/
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
-
 
 	return( TRUE );
 }

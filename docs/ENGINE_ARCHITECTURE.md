@@ -112,13 +112,16 @@ the engine must not contain SDL types in its public domain model.
   keeps SDL/VFS/sound/video dependencies below the application composition
   root while making the remaining upward legacy calls visible and replaceable.
   Its bounded XML document adapter now owns the common Expat lifetime and
-  all-or-nothing asset read path used by the first tactical definition loaders.
+  all-or-nothing asset read path used by the conventional tactical definition
+  loaders and the historical `ParseXMLFile` compatibility callers.
   It accepts any `AssetSource` as well as the compatibility VFS, so the same
   legacy callbacks can consume memory/package content without importing
   FileMan. Missing and I/O failures preserve the loaders' silent fallback
   behavior; malformed, oversized, allocation, and parser failures return
-  structured diagnostics. The external-entity loader remains a deliberate
-  bespoke path.
+  structured diagnostics. A before-parse hook runs only after a successful
+  bounded read, preserving loaders whose table reset must not occur when an
+  optional asset is absent. Tactical's logical-body external-entity loader and
+  dealer-inventory semantic diagnostic parser remain deliberate bespoke paths.
 - The legacy SGP, Utils, and Laptop manifests explicitly separate
   campaign-neutral translation units from sources that still consume
   JA2/UB/editor definitions. The neutral object layers compile once and are

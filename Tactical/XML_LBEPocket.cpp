@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "FileMan.h"
 #include "Item Types.h"
@@ -448,67 +450,33 @@ lbepocketParseData * pData = (lbepocketParseData *)userData;
 
 BOOLEAN ReadInLBEPocketStats(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-	
 	lbepocketParseData pData;
 
 	onlyLocalizedText = localizedVersion;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading LBEPocket.xml" );
 
-	// Open loadbearingequipment file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	//CHRISL: If the file fails to load, then return the value of localizedVersion.  This will allow the program to continue
-	//	to load if all we're missing are the localized xml files.
-	if ( !hFile )
-		return( localizedVersion );
-	
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-	
-	XML_SetElementHandler(parser, lbepocketStartElementHandle, lbepocketEndElementHandle);
-	XML_SetCharacterDataHandler(parser, lbepocketCharacterDataHandle);
-
-	
 	memset(&pData,0,sizeof(pData));
 	//pData.curArray = LBEPocketType;
-	//pData.maxArraySize = MAXITEMS; 
-	
-	XML_SetUserData(parser, &pData);
+	//pData.maxArraySize = MAXITEMS;
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, lbepocketStartElementHandle, lbepocketEndElementHandle,
+		lbepocketCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in Pocket.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status == LegacyXmlStatus::NotFound)
+			return localizedVersion;
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-
-	XML_ParserFree(parser);
-
 
 	return( TRUE );
 }

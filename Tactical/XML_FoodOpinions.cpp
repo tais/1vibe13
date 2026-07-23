@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "FileMan.h"
 #include "Soldier Control.h"
@@ -142,62 +144,32 @@ foodopinionEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInFoodOpinionStats(STR fileName)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	foodopinionParseData pData;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading FoodOpinion.xml" );
-
-	// Open file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-
-	// if the file does not exist, exit
-	// Flugente: no need to quit the game if the xml does not exist - this data just won't be there, but the game will still work
-	if ( !hFile )
-		return( TRUE );
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-	XML_SetElementHandler(parser, foodopinionStartElementHandle, foodopinionEndElementHandle);
-	XML_SetCharacterDataHandler(parser, foodopinionCharacterDataHandle);
 
 	memset(&pData,0,sizeof(pData));
 	pData.curArray = FoodOpinions;
 	pData.maxArraySize = NUM_PROFILES;
 
-	XML_SetUserData(parser, &pData);
-
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, foodopinionStartElementHandle, foodopinionEndElementHandle,
+		foodopinionCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in FoodOpinion.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		// This table is optional; preserve the established missing-file fallback.
+		if (result.status == LegacyXmlStatus::NotFound)
+			return TRUE;
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
-
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
 
 	return( TRUE );
 }
