@@ -76,6 +76,19 @@ public:
 		}
 	}
 
+	bool drawImageDepthOutline(
+		const RenderImageDepthOutlineCommand& command) override
+	{
+		try
+		{
+			return PlatformVideoObjectDepthOutline(command);
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
 private:
 	MappedRenderCommandSink mapped_;
 };

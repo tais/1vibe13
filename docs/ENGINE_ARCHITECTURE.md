@@ -140,27 +140,38 @@ the engine must not contain SDL types in its public domain model.
   under the visible source mask. `RenderImageOutlineCommand`
   separately models colour outlines, transparent outline markers, and
   body-shadow rendering without leaking ETRLE marker values or packed legacy
-  colours through the engine API. `RenderImageDepthDrawCommand` names colour
-  and `Depth16` destinations separately and makes its effect, comparison, and
-  preserve/replace-on-pass policy explicit. Ordinary source-transparent palette
-  draws retain their inclusive greater-or-equal test. Shadow and intensity
-  images are destination-transforming masks and retain their strict
-  greater-than test. Unsupported combinations are rejected at the platform
-  boundary. Alpha, translucency, pixelation, and obscured effects remain
-  distinct migration work rather than ambiguous flags.
+  colours through the engine API. `RenderImageDepthOutlineCommand` combines
+  that outline vocabulary with separate colour and `Depth16` destinations,
+  an explicit front comparison and depth-write policy, plus visible-only or
+  checkerboard-when-obscured behavior. Visible-only outline markers can paint
+  colour without mutating depth; the pixelated form retains the legacy rule
+  that every front-facing pixel, including a marker, replaces depth.
+  `RenderImageDepthDrawCommand` names colour and depth destinations separately
+  and makes its effect, comparison, and preserve/replace-on-pass policy
+  explicit. Ordinary source-transparent palette draws retain their inclusive
+  greater-or-equal test. Shadow and intensity images are
+  destination-transforming masks and retain their strict greater-than test.
+  Unsupported combinations are rejected at the platform boundary. Other
+  alpha, translucency, and pixelation effects remain distinct migration work
+  rather than ambiguous flags.
   The production sink resolves image identities and executes the established
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
   physical pixels remain unchanged. Every successful `CreateVideoObject`
   allocation receives a non-pointer render identity above the legacy 32-bit
   manager range; deletion retires it before releasing storage. Sequential
   compatibility manager handles are unchanged. Common tactical transparent-Z
-  sprites and basic depth-tested shadow/intensity masks can therefore use engine
-  commands even when their image is owned by the animation, tile, or
-  logical-body subsystem. The mask bridge also corrects the clipped no-write
-  path to preserve depth consistently with its unclipped counterpart. Rejecting
-  hosts and manually constructed fixtures retain the exact raw fallback. Basic
-  non-depth tactical transparent/shadow/intensity sprites traverse the regular
-  image command through the same stable identity. Other
+  sprites, basic depth-tested shadow/intensity masks, and regular or
+  depth-tested item outlines can therefore use engine commands even when their
+  image is owned by the animation, tile, or logical-body subsystem. The
+  outline route preserves the legacy strict comparison for unclipped obscured
+  sprites, inclusive comparison for their clipped counterpart, marker-specific
+  depth behavior, and stable checkerboard pixelation. The mask bridge also
+  corrects the clipped no-write path to preserve depth consistently with its
+  unclipped counterpart. Rejecting hosts and manually constructed fixtures
+  retain the exact raw fallback. Basic non-depth tactical
+  transparent/shadow/intensity sprites traverse the regular image command
+  through the same stable identity. The historical clipped physics-object
+  outline remains non-depth and uses the regular outline command. Other
   application-owned pointer image operations deliberately retain their
   compatibility path until their individual command semantics migrate. Copy
   and nearest-neighbour

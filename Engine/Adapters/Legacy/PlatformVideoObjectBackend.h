@@ -11,5 +11,7 @@ bool PlatformVideoObjectDepthDraw(
 	const RenderImageDepthDrawCommand& command);
 bool PlatformVideoObjectOutline(
 	const RenderImageOutlineCommand& command);
+bool PlatformVideoObjectDepthOutline(
+	const RenderImageDepthOutlineCommand& command);
 
 #endif

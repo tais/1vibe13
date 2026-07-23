@@ -316,6 +316,19 @@ int main()
 			std::vector<RenderImageOutlineCommand>{
 				externalOutlineCommand})
 		return 48;
+	const RenderImageDepthOutlineCommand externalDepthOutlineCommand{
+		1, 3, 47, 6, RenderSurfacePoint{-3, 2},
+		RenderSurfaceRegion{0, 0, 4, 4}, 0x3333,
+		RenderDepthCompareMode::Greater,
+		RenderDepthWriteMode::ReplaceOnPass,
+		RenderImageDepthOutlineVisibility::PixelateWhenObscured,
+		RenderColor{20, 30, 40, 255}, true};
+	if (!recordedImageCommands.drawImageDepthOutline(
+			externalDepthOutlineCommand) ||
+		recordedImageCommands.imageDepthOutlineCommands() !=
+			std::vector<RenderImageDepthOutlineCommand>{
+				externalDepthOutlineCommand})
+		return 48;
 	if (!recordedImageCommands.fillDepth(externalDepthCommand) ||
 		recordedImageCommands.depthFillCommands() !=
 			std::vector<RenderDepthFillCommand>{externalDepthCommand})

@@ -222,6 +222,21 @@ bool DrawLegacyRenderImageOutline(
 	}
 }
 
+bool DrawLegacyRenderImageDepthOutline(
+	const RenderImageDepthOutlineCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().drawImageDepthOutline(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 BOOLEAN ColorFillVideoSurfaceArea(
 	UINT32 surface,
 	INT32 left,

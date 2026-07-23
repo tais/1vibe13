@@ -347,6 +347,12 @@ concerns; engine and package code never receives an `HVOBJECT` or ETRLE pointer.
 clip while distinguishing colour-outline rendering from body-shadow rendering.
 Its RGBA colour and `drawOutline` switch replace packed framebuffer colours and
 format-specific marker values at the SDK boundary.
+`RenderImageDepthOutlineCommand` adds separate colour and `Depth16` surface
+identities, explicit strict or inclusive comparison, preserve/replace depth
+policy, and visible-only or checkerboard-when-obscured behavior. Image-defined
+outline markers do not change depth in visible-only mode. The pixelated form
+retains the legacy rule that every front-facing pixel, including a marker,
+replaces depth.
 `RenderImageDepthDrawCommand` identifies its colour and `Depth16` surfaces
 separately. `SourcePalette` performs the established inclusive
 greater-or-equal test and writes the source palette colour. `ShadeDestination`
@@ -354,27 +360,30 @@ and `IntensifyDestination` use the source image as a mask, perform the
 established strict greater-than test, and transform the destination colour.
 Each effect explicitly chooses whether passing pixels preserve depth or replace
 it. Unsupported effect/comparison pairings are rejected rather than acquiring
-backend-specific meaning. Alpha, translucency, pixelation, and obscured effects
+backend-specific meaning. Other alpha, translucency, and pixelation effects
 remain separate contracts.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
 map. Image commands require a host resource adapter, so the generic mapped sink
-rejects them while `RecordingRenderCommandSink` captures all eight command types
+rejects them while `RecordingRenderCommandSink` captures all nine command types
 without a renderer. The compiled host routes existing rectangle fills, numeric
 `BltVideoSurface`/`BltStretchVideoSurface`, surface-shadow calls, and stable
 managed video-object draws and outlines through this service. Tactical
 full-world redraws clear the live Z-buffer through the depth-fill command, and
 ordinary transparent-Z tactical sprites plus basic tactical shadow and
-intensity masks use the depth-image command. The clipped mask path now honors
-the preserve-depth policy instead of selecting its writing compatibility
-blitter. Every successfully created host video object receives a stable opaque
-render identity without changing its legacy manager handle; deletion retires
-that identity before releasing image storage. Rejecting hosts and manually
-assembled fixtures fall back to the exact old blitter. Basic non-depth
-transparent, shadow, and intensity tactical sprites use the regular image
-command with the same fallback. Other direct pointer-owned image operations
-remain on the compatibility path until their individual semantics migrate.
+intensity masks use the depth-image command. Tactical item outlines use the
+regular or depth-outline command, preserving their exact marker-depth,
+strict-versus-inclusive equality, clipping, and obscured checkerboard rules.
+The clipped mask path now honors the preserve-depth policy instead of selecting
+its writing compatibility blitter. Every successfully created host video
+object receives a stable opaque render identity without changing its legacy
+manager handle; deletion retires that identity before releasing image storage.
+Rejecting hosts and manually assembled fixtures fall back to the exact old
+blitter. Basic non-depth transparent, shadow, and intensity tactical sprites
+use the regular image command with the same fallback. Other direct
+pointer-owned image operations remain on the compatibility path until their
+individual semantics migrate.
 The platform surface adapter reference-counts nested maps and rejects deletion
 or replacement through a live mapping. Legacy packed colours, mutable shade
 percentages, and RGB565 transparency tokens are translated only in compatibility
