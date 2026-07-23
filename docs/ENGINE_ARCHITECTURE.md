@@ -124,12 +124,13 @@ the engine must not contain SDL types in its public domain model.
   adapters. `RenderCommandSink` is the higher-level draw seam; live rectangle
   fills and numeric surface copies cross it alongside numeric surface
   stretching, rectangular shading, typed depth fills, managed video-object
-  draws, and outline-aware image effects. The tactical Z-buffer is exposed as
-  the standard `DepthBuffer` role with `Depth16` storage. Full-world redraws
-  clear it through `RenderDepthFillCommand`, so they no longer lock an unrelated
-  colour surface merely to rediscover the row pitch. Depth remains physically
-  compatible with the established padded SGP allocation and is not accepted by
-  colour fill, copy, stretch, or shade commands.
+  draws, basic depth-tested image draws, and outline-aware image effects. The
+  tactical Z-buffer is exposed as the standard `DepthBuffer` role with
+  `Depth16` storage. Full-world redraws clear it through
+  `RenderDepthFillCommand`, so they no longer lock an unrelated colour surface
+  merely to rediscover the row pitch. Depth remains physically compatible with
+  the established padded SGP allocation and is not accepted by colour fill,
+  copy, stretch, or shade commands.
   `RenderImageDrawCommand` carries only an opaque stable image identity, frame,
   destination, anchor, explicit clipping region, and composite mode. Numeric
   `BltVideoObjectFromIndex` calls and direct `BltVideoObject` calls whose object
@@ -137,12 +138,23 @@ the engine must not contain SDL types in its public domain model.
   used by packages and headless recorders. `RenderImageOutlineCommand`
   separately models colour outlines, transparent outline markers, and
   body-shadow rendering without leaking ETRLE marker values or packed legacy
-  colours through the engine API. The production sink resolves that
-  identity and executes the established ETRLE/palette blitter, so asset formats,
-  clipping, shade palettes, and physical pixels remain unchanged.
-  Application-owned pointer images that have not yet entered the stable
-  registry deliberately retain their exact compatibility path instead of
-  exposing process pointers as engine resource IDs. Copy and nearest-neighbour
+  colours through the engine API. `RenderImageDepthDrawCommand` names colour
+  and `Depth16` destinations separately, makes the inclusive comparison and
+  preserve/replace-on-pass policy explicit, and covers only the ordinary
+  source-transparent palette operation. Shadow, alpha, translucency,
+  pixelation, and obscured effects remain distinct migration work rather than
+  ambiguous flags.
+  The production sink resolves image identities and executes the established
+  ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
+  physical pixels remain unchanged. Every successful `CreateVideoObject`
+  allocation receives a non-pointer render identity above the legacy 32-bit
+  manager range; deletion retires it before releasing storage. Sequential
+  compatibility manager handles are unchanged. Common tactical transparent-Z
+  sprites can therefore use engine commands even when their image is owned by
+  the animation, tile, or logical-body subsystem. Rejecting hosts and manually
+  constructed fixtures retain the exact raw fallback. Other application-owned
+  pointer image operations deliberately retain their compatibility path until
+  their individual command semantics migrate. Copy and nearest-neighbour
   stretch commands cover clipped
   opaque and RGB-colour-key operations, including defined same-surface overlap;
   shade commands preserve alpha and carry their factor explicitly. Depth fills
@@ -150,7 +162,10 @@ the engine must not contain SDL types in its public domain model.
   packed colours, mutable shade percentages, and RGB565 transparency tokens are
   decoded only in compatibility code. Legacy image tiling is now a bounded,
   clipped compatibility operation instead of a stub. Mapping is serialized with
-  renderer lifetime and storage remains adapter-owned. Raw SGP/SDL presentation,
+  renderer lifetime and storage remains adapter-owned. Repeated maps of one
+  platform surface are reference-counted, so a nested engine command cannot
+  retire the outer render pass's pointer identity; replacement and deletion
+  reject live mappings. Raw SGP/SDL presentation,
   invalidation, surface-mapping, and managed-image execution entry points are
   private to platform adapters, while ownership of legacy draw entry points is
   protected by the architecture check.

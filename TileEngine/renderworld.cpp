@@ -61,6 +61,46 @@ bool ClearTacticalDepthBuffer(INT32 bottom)
 		RenderSurfaceRegion{0, 0, SCREEN_WIDTH, bottom},
 		LAND_Z_LEVEL});
 }
+
+BOOLEAN DrawBasicTacticalDepthSprite(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	UINT16* depthBuffer,
+	UINT16 depth,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	BOOLEAN writeDepth,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectDepthToSurface(
+		destinationSurface, source, frame,
+		destinationX, destinationY, depth, writeDepth, clipping))
+		return TRUE;
+
+	// Pointer-built fixtures and rejecting external hosts retain the exact
+	// established blitter. This fallback can be removed only after every image
+	// producer has a stable engine resource identity.
+	if (clipping)
+	{
+		return writeDepth ?
+			Blt8BPPDataTo16BPPBufferTransZClip(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame, clipping) :
+			Blt8BPPDataTo16BPPBufferTransZNBClip(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame, clipping);
+	}
+	return writeDepth ?
+		Blt8BPPDataTo16BPPBufferTransZ(
+			destination, destinationPitchBytes, depthBuffer, depth,
+			source, destinationX, destinationY, frame) :
+		Blt8BPPDataTo16BPPBufferTransZNB(
+			destination, destinationPitchBytes, depthBuffer, depth,
+			source, destinationX, destinationY, frame);
+}
 }
 
 INT16	gsCurrentGlowFrame		= 0;
@@ -2741,12 +2781,20 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 													}
 													else
 													{
-														Blt8BPPDataTo16BPPBufferTransZClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+														DrawBasicTacticalDepthSprite(
+															FRAME_BUFFER, (PIXEL*)pDestBuf,
+															uiDestPitchBYTES, gpZBuffer, sZLevel,
+															hVObject, sXPos, sYPos, usImageIndex,
+															TRUE, &gClippingRect);
 													}
 												}
 												else
 												{
-													Blt8BPPDataTo16BPPBufferTransZNBClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+													DrawBasicTacticalDepthSprite(
+														FRAME_BUFFER, (PIXEL*)pDestBuf,
+														uiDestPitchBYTES, gpZBuffer, sZLevel,
+														hVObject, sXPos, sYPos, usImageIndex,
+														FALSE, &gClippingRect);
 												}
 
 												if ((uiLevelNodeFlags & LEVELNODE_UPDATESAVEBUFFERONCE))
@@ -2754,7 +2802,11 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 													pSaveBuf = LockVideoSurface(guiSAVEBUFFER, &uiSaveBufferPitchBYTES);
 
 													// BLIT HERE
-													Blt8BPPDataTo16BPPBufferTransZClip((PIXEL*)pSaveBuf, uiSaveBufferPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+													DrawBasicTacticalDepthSprite(
+														guiSAVEBUFFER, (PIXEL*)pSaveBuf,
+														uiSaveBufferPitchBYTES, gpZBuffer,
+														sZLevel, hVObject, sXPos, sYPos,
+														usImageIndex, TRUE, &gClippingRect);
 
 													UnLockVideoSurface(guiSAVEBUFFER);
 												}
@@ -2974,11 +3026,19 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 													}
 													else
 													{
-														Blt8BPPDataTo16BPPBufferTransZ((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
+														DrawBasicTacticalDepthSprite(
+															FRAME_BUFFER, (PIXEL*)pDestBuf,
+															uiDestPitchBYTES, gpZBuffer,
+															sZLevel, hVObject, sXPos, sYPos,
+															usImageIndex, TRUE, NULL);
 													}
 												}
 												else
-													Blt8BPPDataTo16BPPBufferTransZNB((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
+													DrawBasicTacticalDepthSprite(
+														FRAME_BUFFER, (PIXEL*)pDestBuf,
+														uiDestPitchBYTES, gpZBuffer, sZLevel,
+														hVObject, sXPos, sYPos, usImageIndex,
+														FALSE, NULL);
 
 
 												if ((uiLevelNodeFlags & LEVELNODE_UPDATESAVEBUFFERONCE))
@@ -2986,7 +3046,11 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 													pSaveBuf = LockVideoSurface(guiSAVEBUFFER, &uiSaveBufferPitchBYTES);
 
 													// BLIT HERE
-													Blt8BPPDataTo16BPPBufferTransZ((PIXEL*)pSaveBuf, uiSaveBufferPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
+													DrawBasicTacticalDepthSprite(
+														guiSAVEBUFFER, (PIXEL*)pSaveBuf,
+														uiSaveBufferPitchBYTES, gpZBuffer,
+														sZLevel, hVObject, sXPos, sYPos,
+														usImageIndex, TRUE, NULL);
 
 													UnLockVideoSurface(guiSAVEBUFFER);
 												}

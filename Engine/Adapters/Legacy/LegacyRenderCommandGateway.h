@@ -25,6 +25,8 @@ bool FillLegacyRenderDepth(
 	const RenderDepthFillCommand& command) noexcept;
 bool DrawLegacyRenderImage(
 	const RenderImageDrawCommand& command) noexcept;
+bool DrawLegacyRenderImageDepth(
+	const RenderImageDepthDrawCommand& command) noexcept;
 bool DrawLegacyRenderImageOutline(
 	const RenderImageOutlineCommand& command) noexcept;
 

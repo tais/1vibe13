@@ -2515,6 +2515,11 @@ int main()
 		51, 901, 7, RenderSurfacePoint{-3, 12},
 		RenderSurfaceRegion{-8, 0, 100, 80},
 		RenderImageCompositeMode::Shadow};
+	const RenderImageDepthDrawCommand imageDepthCommand{
+		51, 61, 903, 9, RenderSurfacePoint{-5, 14},
+		RenderSurfaceRegion{-4, 2, 96, 72}, 0x3456,
+		RenderDepthCompareMode::GreaterOrEqual,
+		RenderDepthWriteMode::Preserve};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},
@@ -2522,6 +2527,8 @@ int main()
 		RenderColor{12, 34, 56, 78}, true};
 	check(!mappedCommands.drawImage(imageCommand),
 		"mapped surface commands reject images without a host resource adapter");
+	check(!mappedCommands.drawImageDepth(imageDepthCommand),
+		"mapped surface commands reject depth images without a host resource adapter");
 	check(!mappedCommands.drawImageOutline(imageOutlineCommand),
 		"mapped surface commands reject image outlines without a host resource adapter");
 
@@ -2532,6 +2539,7 @@ int main()
 		recordedCommands.shadeSurface(shadeCommand) &&
 		recordedCommands.fillDepth(depthFillCommand) &&
 		recordedCommands.drawImage(imageCommand) &&
+		recordedCommands.drawImageDepth(imageDepthCommand) &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{fillCommand} &&
@@ -2545,6 +2553,9 @@ int main()
 			std::vector<RenderDepthFillCommand>{depthFillCommand} &&
 		recordedCommands.imageCommands() ==
 			std::vector<RenderImageDrawCommand>{imageCommand} &&
+		recordedCommands.imageDepthCommands() ==
+			std::vector<RenderImageDepthDrawCommand>{
+				imageDepthCommand} &&
 		recordedCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{imageOutlineCommand},
 		"recording render commands expose deterministic headless drawing");
@@ -2555,6 +2566,7 @@ int main()
 		recordedCommands.shadeCommands().empty() &&
 		recordedCommands.depthFillCommands().empty() &&
 		recordedCommands.imageCommands().empty() &&
+		recordedCommands.imageDepthCommands().empty() &&
 		recordedCommands.imageOutlineCommands().empty(),
 		"recorded render command streams clear as one deterministic frame");
 

@@ -50,6 +50,19 @@ public:
 		}
 	}
 
+	bool drawImageDepth(
+		const RenderImageDepthDrawCommand& command) override
+	{
+		try
+		{
+			return PlatformVideoObjectDepthDraw(command);
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
 	bool drawImageOutline(
 		const RenderImageOutlineCommand& command) override
 	{

@@ -345,20 +345,31 @@ receives an `HVOBJECT` or ETRLE pointer.
 clip while distinguishing colour-outline rendering from body-shadow rendering.
 Its RGBA colour and `drawOutline` switch replace packed framebuffer colours and
 format-specific marker values at the SDK boundary.
+`RenderImageDepthDrawCommand` identifies its colour and `Depth16` surfaces
+separately. It performs an inclusive greater-or-equal test for each visible
+source-transparent palette pixel and explicitly chooses whether passing pixels
+preserve depth or replace it. Specialized shadow, alpha, translucency,
+pixelation, and obscured effects are intentionally not collapsed into this
+contract.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
 map. Image commands require a host resource adapter, so the generic mapped sink
-rejects them while `RecordingRenderCommandSink` captures all seven command types
+rejects them while `RecordingRenderCommandSink` captures all eight command types
 without a renderer. The compiled host routes existing rectangle fills, numeric
 `BltVideoSurface`/`BltStretchVideoSurface`, surface-shadow calls, and stable
 managed video-object draws and outlines through this service. Tactical
-full-world redraws also clear the live Z-buffer through the depth-fill command.
-Its default image adapter continues to execute the exact ETRLE/palette blitters.
-Direct pointer-owned images remain on the compatibility path until their owner
-publishes a stable resource identity. Legacy packed colours, mutable shade
-percentages, and RGB565 transparency tokens are translated only in
-compatibility code; package code uses explicit engine values.
+full-world redraws clear the live Z-buffer through the depth-fill command, and
+ordinary transparent-Z tactical sprites use the depth-image command. Every
+successfully created host video object receives a stable opaque render identity
+without changing its legacy manager handle; deletion retires that identity
+before releasing image storage. Rejecting hosts and manually assembled fixtures
+fall back to the exact old blitter. Other direct pointer-owned image operations
+remain on the compatibility path until their individual semantics migrate.
+The platform surface adapter reference-counts nested maps and rejects deletion
+or replacement through a live mapping. Legacy packed colours, mutable shade
+percentages, and RGB565 transparency tokens are translated only in compatibility
+code; package code uses explicit engine values.
 
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each

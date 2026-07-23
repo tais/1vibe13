@@ -9,10 +9,13 @@
 #include "sgp.h"
 
 #include <Engine/Adapters/Legacy/LegacyRenderCommandGateway.h>
+#include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
+#include <Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.h>
 #include <Engine/Adapters/Legacy/PlatformVideoObjectBackend.h>
 #include <Engine/Core/StableResourceRegistry.h>
 #include <Engine/Core/UniqueResourcePtr.h>
 
+#include <algorithm>
 #include <limits>
 #include <optional>
 #include <string>
@@ -84,6 +87,23 @@ struct VideoObjectResource
 
 using VideoObjectRegistry = StableResourceRegistry<VideoObjectResource, UINT32>;
 
+struct RenderImageResource
+{
+	HVOBJECT object = nullptr;
+};
+
+using RenderImageRegistry =
+	StableResourceRegistry<RenderImageResource, RenderImageId>;
+
+// Render-image IDs deliberately live above the 32-bit compatibility-manager
+// range. This lets every CreateVideoObject allocation participate in engine
+// commands without changing the sequential UINT32 handles exposed by the
+// legacy manager.
+RenderImageRegistry gRenderImages(RenderImageRegistry::Limits{
+	RenderImageId{1} << 32, 1,
+	std::numeric_limits<RenderImageId>::max()});
+std::unordered_map<HVOBJECT, RenderImageId> gRenderImageHandles;
+
 VideoObjectRegistry gVideoObjects(
 	VideoObjectRegistry::Limits{1, 1, 0xffffffefu});
 std::unordered_map<HVOBJECT, UINT32> gVideoObjectHandles;
@@ -117,6 +137,67 @@ bool FindVideoObjectHandle(HVOBJECT object, UINT32& handle)
 	if (found == gVideoObjectHandles.end()) return false;
 	handle = found->second;
 	return true;
+}
+
+bool RegisterRenderImage(HVOBJECT object)
+{
+	if (!object) return false;
+	std::optional<RenderImageId> image;
+	try
+	{
+		image = gRenderImages.insert(RenderImageResource{object});
+	}
+	catch (...)
+	{
+		return false;
+	}
+	if (!image) return false;
+	try
+	{
+		const auto inserted = gRenderImageHandles.emplace(object, *image);
+		if (inserted.second) return true;
+	}
+	catch (...)
+	{
+	}
+	(void)gRenderImages.erase(*image);
+	return false;
+}
+
+void UnregisterRenderImage(HVOBJECT object)
+{
+	const auto found = gRenderImageHandles.find(object);
+	if (found == gRenderImageHandles.end()) return;
+	const RenderImageId image = found->second;
+	gRenderImageHandles.erase(found);
+	(void)gRenderImages.erase(image);
+}
+
+bool FindRenderImage(HVOBJECT object, RenderImageId& image)
+{
+	const auto found = gRenderImageHandles.find(object);
+	if (found == gRenderImageHandles.end()) return false;
+	image = found->second;
+	return true;
+}
+
+HVOBJECT ResolveRenderImage(RenderImageId image)
+{
+	if (image <= std::numeric_limits<UINT32>::max())
+	{
+		VideoObjectResource* const managed =
+			gVideoObjects.find(static_cast<UINT32>(image));
+		if (managed) return managed->object.get();
+	}
+	RenderImageResource* const resource = gRenderImages.find(image);
+	return resource ? resource->object : nullptr;
+}
+
+HVOBJECT FinishVideoObjectCreation(HVOBJECT object)
+{
+	if (RegisterRenderImage(object)) return object;
+	(void)DeleteVideoObject(object);
+	return nullptr;
 }
 
 PIXEL LegacyPixelFor(const RenderColor& color) noexcept
@@ -158,6 +239,40 @@ private:
 	SGPRect previous_;
 };
 
+class PlatformSurfaceMappingLease
+{
+public:
+	explicit PlatformSurfaceMappingLease(RenderSurfaceId surface)
+		: surface_(surface),
+		  mapped_(GetPlatformRenderSurfaceAccess().map(surface_, mapping_))
+	{
+	}
+
+	~PlatformSurfaceMappingLease() noexcept
+	{
+		if (!mapped_) return;
+		try
+		{
+			GetPlatformRenderSurfaceAccess().unmap(surface_);
+		}
+		catch (...)
+		{
+		}
+	}
+
+	PlatformSurfaceMappingLease(const PlatformSurfaceMappingLease&) = delete;
+	PlatformSurfaceMappingLease& operator=(
+		const PlatformSurfaceMappingLease&) = delete;
+
+	explicit operator bool() const { return mapped_; }
+	const MutableRenderSurface& mapping() const { return mapping_; }
+
+private:
+	RenderSurfaceId surface_;
+	MutableRenderSurface mapping_;
+	bool mapped_ = false;
+};
+
 bool SubmitVideoObjectDraw(
 	UINT32 destination,
 	UINT32 image,
@@ -177,6 +292,50 @@ bool SubmitVideoObjectDraw(
 			clipping.iLeft, clipping.iTop,
 			clipping.iRight, clipping.iBottom},
 		CompositeModeFor(flags)});
+}
+
+bool SubmitVideoObjectDepthDraw(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 depth,
+	BOOLEAN writeDepth,
+	const SGPRect* clipping)
+{
+	if (!object || object->ubBitDepth != 8 ||
+		frame >= object->usNumberOfObjects ||
+		!object->pETRLEObject || !object->pPixData ||
+		!object->pShadeCurrent)
+		return false;
+	RenderImageId image = 0;
+	if (!FindRenderImage(object, image)) return false;
+	const RenderSurfaceId depthSurface =
+		GetLegacyRenderSurfaceAccess().surfaceFor(
+			RenderSurfaceRole::DepthBuffer);
+	if (depthSurface == 0) return false;
+
+	SGPRect currentClipping;
+	if (!clipping)
+	{
+		GetClippingRect(&currentClipping);
+		clipping = &currentClipping;
+	}
+	return DrawLegacyRenderImageDepth(RenderImageDepthDrawCommand{
+		destination,
+		depthSurface,
+		image,
+		frame,
+		RenderSurfacePoint{destinationX, destinationY},
+		RenderSurfaceRegion{
+			clipping->iLeft, clipping->iTop,
+			clipping->iRight, clipping->iBottom},
+		depth,
+		RenderDepthCompareMode::GreaterOrEqual,
+		writeDepth != FALSE ?
+			RenderDepthWriteMode::ReplaceOnPass :
+			RenderDepthWriteMode::Preserve});
 }
 
 bool SubmitVideoObjectOutline(
@@ -544,16 +703,13 @@ bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
 {
 	if (command.destination == 0 || command.image == 0 ||
 		command.destination > std::numeric_limits<UINT32>::max() ||
-		command.image > std::numeric_limits<UINT32>::max() ||
 		command.frame > std::numeric_limits<UINT16>::max())
 		return false;
 	const std::optional<UINT32> flags = LegacyFlagsFor(command.mode);
 	if (!flags) return false;
 
-	HVOBJECT source = nullptr;
-	if (!GetVideoObject(
-		&source, static_cast<UINT32>(command.image)))
-		return false;
+	HVOBJECT const source = ResolveRenderImage(command.image);
+	if (!source) return false;
 
 	ClippingRegionLease clipping(command.clippingRegion);
 	return DrawVideoObjectToSurface(
@@ -566,20 +722,129 @@ bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
 		nullptr) != FALSE;
 }
 
+bool PlatformVideoObjectDepthDraw(
+	const RenderImageDepthDrawCommand& command)
+{
+	if (command.destination == 0 || command.depthSurface == 0 ||
+		command.image == 0 ||
+		command.destination > std::numeric_limits<UINT32>::max() ||
+		command.depthSurface > std::numeric_limits<UINT32>::max() ||
+		command.frame > std::numeric_limits<UINT16>::max() ||
+		command.comparison != RenderDepthCompareMode::GreaterOrEqual)
+		return false;
+	switch (command.depthWrite)
+	{
+	case RenderDepthWriteMode::Preserve:
+	case RenderDepthWriteMode::ReplaceOnPass:
+		break;
+	default:
+		return false;
+	}
+
+	HVOBJECT const source = ResolveRenderImage(command.image);
+	if (!source || source->ubBitDepth != 8 ||
+		command.frame >= source->usNumberOfObjects ||
+		!source->pETRLEObject || !source->pPixData ||
+		!source->pShadeCurrent)
+		return false;
+	const UINT16 frame = static_cast<UINT16>(command.frame);
+	const ETRLEObject& image = source->pETRLEObject[frame];
+	if (image.usWidth == 0 || image.usHeight == 0 ||
+		image.uiDataOffset >= source->uiSizePixData)
+		return false;
+
+	PlatformSurfaceMappingLease destination(command.destination);
+	if (!destination) return false;
+	PlatformSurfaceMappingLease depth(command.depthSurface);
+	if (!depth) return false;
+	const MutableRenderSurface& destinationMapping =
+		destination.mapping();
+	const MutableRenderSurface& depthMapping = depth.mapping();
+	if (!IsValidRenderSurfaceMapping(destinationMapping) ||
+		!IsValidRenderSurfaceMapping(depthMapping) ||
+		destinationMapping.description.contentBitDepth != 16 ||
+		RenderPixelBytes(destinationMapping.description.format) !=
+			sizeof(PIXEL) ||
+		depthMapping.description.format != RenderPixelFormat::Depth16 ||
+		depthMapping.description.contentBitDepth != 16 ||
+		destinationMapping.description.width !=
+			depthMapping.description.width ||
+		destinationMapping.description.height !=
+			depthMapping.description.height ||
+		destinationMapping.pitchBytes != depthMapping.pitchBytes ||
+		destinationMapping.pitchBytes >
+			std::numeric_limits<UINT32>::max() ||
+		destinationMapping.description.width >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()) ||
+		destinationMapping.description.height >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()))
+		return false;
+
+	const std::int64_t clipLeft = std::max<std::int64_t>(
+		0, command.clippingRegion.left);
+	const std::int64_t clipTop = std::max<std::int64_t>(
+		0, command.clippingRegion.top);
+	const std::int64_t clipRight = std::min<std::int64_t>(
+		destinationMapping.description.width,
+		command.clippingRegion.right);
+	const std::int64_t clipBottom = std::min<std::int64_t>(
+		destinationMapping.description.height,
+		command.clippingRegion.bottom);
+	if (clipLeft >= clipRight || clipTop >= clipBottom) return true;
+
+	const std::int64_t imageLeft =
+		static_cast<std::int64_t>(command.destinationOrigin.x) +
+		image.sOffsetX;
+	const std::int64_t imageTop =
+		static_cast<std::int64_t>(command.destinationOrigin.y) +
+		image.sOffsetY;
+	const std::int64_t imageRight = imageLeft + image.usWidth;
+	const std::int64_t imageBottom = imageTop + image.usHeight;
+	if (imageLeft >= clipRight || imageTop >= clipBottom ||
+		imageRight <= clipLeft || imageBottom <= clipTop)
+		return true;
+	if (imageLeft < std::numeric_limits<INT32>::min() ||
+		imageTop < std::numeric_limits<INT32>::min() ||
+		imageRight > std::numeric_limits<INT32>::max() ||
+		imageBottom > std::numeric_limits<INT32>::max())
+		return false;
+
+	SGPRect clipping{
+		static_cast<INT32>(clipLeft),
+		static_cast<INT32>(clipTop),
+		static_cast<INT32>(clipRight),
+		static_cast<INT32>(clipBottom)};
+	PIXEL* const destinationPixels =
+		reinterpret_cast<PIXEL*>(destinationMapping.pixels);
+	UINT16* const depthPixels =
+		reinterpret_cast<UINT16*>(depthMapping.pixels);
+	const UINT32 pitch =
+		static_cast<UINT32>(destinationMapping.pitchBytes);
+	if (command.depthWrite == RenderDepthWriteMode::ReplaceOnPass)
+	{
+		return Blt8BPPDataTo16BPPBufferTransZClip(
+			destinationPixels, pitch, depthPixels, command.depth,
+			source, command.destinationOrigin.x,
+			command.destinationOrigin.y, frame, &clipping) != FALSE;
+	}
+	return Blt8BPPDataTo16BPPBufferTransZNBClip(
+		destinationPixels, pitch, depthPixels, command.depth,
+		source, command.destinationOrigin.x,
+		command.destinationOrigin.y, frame, &clipping) != FALSE;
+}
+
 bool PlatformVideoObjectOutline(
 	const RenderImageOutlineCommand& command)
 {
 	if (command.destination == 0 || command.image == 0 ||
 		command.destination > std::numeric_limits<UINT32>::max() ||
-		command.image > std::numeric_limits<UINT32>::max() ||
 		command.frame > std::numeric_limits<UINT16>::max())
 		return false;
 
-	HVOBJECT source = nullptr;
-	if (!GetVideoObject(
-		&source, static_cast<UINT32>(command.image)) ||
-		!source)
-		return false;
+	HVOBJECT const source = ResolveRenderImage(command.image);
+	if (!source) return false;
 
 	const UINT16 frame = static_cast<UINT16>(command.frame);
 	switch (command.mode)
@@ -699,6 +964,22 @@ BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usReg
 {
 	return BltVideoObject(uiDestVSurface, hSrcVObject, usRegionIndex, Region.x, Region.y, fBltFlags, pBltFx);
 }
+
+BOOLEAN BltVideoObjectDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	const SGPRect* pClipRegion)
+{
+	return SubmitVideoObjectDepthDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, usDepth, fWriteDepth, pClipRegion) ?
+		TRUE : FALSE;
+}
 // *******************************************************************************
 // Video Object Manipulation Functions
 // *******************************************************************************
@@ -794,7 +1075,7 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 					DestroyImage( hImage );
 				}
 
-				return hVObject;
+				return FinishVideoObjectCreation(hVObject);
 			}
 			else if(hImage->ubBitDepth == 16)
 			{
@@ -840,7 +1121,7 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 					DestroyImage( hImage );
 				}
 
-				return hVObject;
+				return FinishVideoObjectCreation(hVObject);
 			}
 
 			// Check if returned himage is TRLE compressed - return error if not
@@ -905,7 +1186,7 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 	// All is well
 //	DbgMessage( TOPIC_VIDEOOBJECT, DBG_LEVEL_3, String("Success in Creating Video Object" ) );
 
-	return( hVObject );
+	return FinishVideoObjectCreation(hVObject);
 }
 
 
@@ -970,6 +1251,10 @@ BOOLEAN DeleteVideoObject( HVOBJECT hVObject )
 
 	// Assertions
 	CHECKF( hVObject != NULL );
+
+	// Retire the opaque renderer identity before releasing any backing memory,
+	// so a stale command can never resolve a partially destroyed image.
+	UnregisterRenderImage(hVObject);
 
 	DestroyObjectPaletteTables(hVObject);
 

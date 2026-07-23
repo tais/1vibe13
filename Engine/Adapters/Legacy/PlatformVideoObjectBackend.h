@@ -7,6 +7,8 @@
 // game and compatibility callers submit image commands through the
 // engine-owned command boundary.
 bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command);
+bool PlatformVideoObjectDepthDraw(
+	const RenderImageDepthDrawCommand& command);
 bool PlatformVideoObjectOutline(
 	const RenderImageOutlineCommand& command);
 
