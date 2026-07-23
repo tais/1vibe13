@@ -101,6 +101,70 @@ BOOLEAN DrawBasicTacticalDepthSprite(
 			destination, destinationPitchBytes, depthBuffer, depth,
 			source, destinationX, destinationY, frame);
 }
+
+BOOLEAN DrawTacticalDepthMask(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	UINT16* depthBuffer,
+	UINT16 depth,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	BOOLEAN writeDepth,
+	VideoObjectDepthMaskEffect effect,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectDepthMaskToSurface(
+		destinationSurface, source, frame,
+		destinationX, destinationY, depth, writeDepth, effect, clipping))
+		return TRUE;
+
+	// Preserve exact compatibility for pointer-built fixtures and hosts which
+	// reject the command. Shadow and intensity use a strict depth comparison.
+	switch (effect)
+	{
+	case VOBJECT_DEPTH_MASK_SHADOW:
+		if (clipping)
+		{
+			return writeDepth ?
+				Blt8BPPDataTo16BPPBufferShadowZClip(
+					destination, destinationPitchBytes, depthBuffer, depth,
+					source, destinationX, destinationY, frame, clipping) :
+				Blt8BPPDataTo16BPPBufferShadowZNBClip(
+					destination, destinationPitchBytes, depthBuffer, depth,
+					source, destinationX, destinationY, frame, clipping);
+		}
+		return writeDepth ?
+			Blt8BPPDataTo16BPPBufferShadowZ(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame) :
+			Blt8BPPDataTo16BPPBufferShadowZNB(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame);
+	case VOBJECT_DEPTH_MASK_INTENSITY:
+		if (clipping)
+		{
+			return writeDepth ?
+				Blt8BPPDataTo16BPPBufferIntensityZClip(
+					destination, destinationPitchBytes, depthBuffer, depth,
+					source, destinationX, destinationY, frame, clipping) :
+				Blt8BPPDataTo16BPPBufferIntensityZNBClip(
+					destination, destinationPitchBytes, depthBuffer, depth,
+					source, destinationX, destinationY, frame, clipping);
+		}
+		return writeDepth ?
+			Blt8BPPDataTo16BPPBufferIntensityZ(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame) :
+			Blt8BPPDataTo16BPPBufferIntensityZNB(
+				destination, destinationPitchBytes, depthBuffer, depth,
+				source, destinationX, destinationY, frame);
+	default:
+		return FALSE;
+	}
+}
 }
 
 INT16	gsCurrentGlowFrame		= 0;
@@ -2472,11 +2536,22 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 									{
 										if (bBlitClipVal == FALSE)
 										{
-											Blt8BPPDataTo16BPPBufferShadowZNB((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
+											DrawTacticalDepthMask(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, gpZBuffer,
+												sZLevel, hVObject, sXPos, sYPos,
+												usImageIndex, FALSE,
+												VOBJECT_DEPTH_MASK_SHADOW, NULL);
 										}
 										else
 										{
-											Blt8BPPDataTo16BPPBufferShadowZNBClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+											DrawTacticalDepthMask(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, gpZBuffer,
+												sZLevel, hVObject, sXPos, sYPos,
+												usImageIndex, FALSE,
+												VOBJECT_DEPTH_MASK_SHADOW,
+												&gClippingRect);
 										}
 									}
 									else
@@ -2740,35 +2815,39 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 															&gClippingRect,
 															pShadeTable,
 															fIgnoreShadows);
-													}
-												}
 											}
-											else if (fShadowBlitter)
-											{
-												if (fZBlitter)
-												{
-													if (fZWrite)
-														Blt8BPPDataTo16BPPBufferShadowZClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-													else
-														Blt8BPPDataTo16BPPBufferShadowZClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-												}
-												else
-												{
-													Blt8BPPDataTo16BPPBufferShadowClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-												}
-											}
-											else if (fIntensityBlitter)
-											{
-												if (fZBlitter)
-												{
-													if (fZWrite)
-														Blt8BPPDataTo16BPPBufferIntensityZClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-													else
-														Blt8BPPDataTo16BPPBufferIntensityZClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
-												}
-												else
-												{
-													Blt8BPPDataTo16BPPBufferIntensityClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+										}
+									}
+									else if (fShadowBlitter)
+									{
+										if (fZBlitter)
+										{
+											DrawTacticalDepthMask(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, gpZBuffer, sZLevel,
+												hVObject, sXPos, sYPos, usImageIndex,
+												fZWrite, VOBJECT_DEPTH_MASK_SHADOW,
+												&gClippingRect);
+										}
+										else
+										{
+											Blt8BPPDataTo16BPPBufferShadowClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
+										}
+									}
+									else if (fIntensityBlitter)
+									{
+										if (fZBlitter)
+										{
+											DrawTacticalDepthMask(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, gpZBuffer, sZLevel,
+												hVObject, sXPos, sYPos, usImageIndex,
+												fZWrite, VOBJECT_DEPTH_MASK_INTENSITY,
+												&gClippingRect);
+										}
+										else
+										{
+											Blt8BPPDataTo16BPPBufferIntensityClip((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex, &gClippingRect);
 												}
 											}
 											else if (fZBlitter)
@@ -2984,33 +3063,37 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 												{
 													ShowRiotShield( pSoldier, (PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel );
 												}
-											}
-											else if (fShadowBlitter)
-											{
-												if (fZBlitter)
-												{
-													if (fZWrite)
-														Blt8BPPDataTo16BPPBufferShadowZ((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-													else
-														Blt8BPPDataTo16BPPBufferShadowZNB((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-												}
-												else
-												{
-													Blt8BPPDataTo16BPPBufferShadow((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
-												}
-											}
-											else if (fIntensityBlitter)
-											{
-												if (fZBlitter)
-												{
-													if (fZWrite)
-														Blt8BPPDataTo16BPPBufferIntensityZ((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-													else
-														Blt8BPPDataTo16BPPBufferIntensityZNB((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel, hVObject, sXPos, sYPos, usImageIndex);
-												}
-												else
-												{
-													Blt8BPPDataTo16BPPBufferIntensity((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
+									}
+									else if (fShadowBlitter)
+									{
+										if (fZBlitter)
+										{
+											DrawTacticalDepthMask(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, gpZBuffer, sZLevel,
+												hVObject, sXPos, sYPos, usImageIndex,
+												fZWrite, VOBJECT_DEPTH_MASK_SHADOW,
+												NULL);
+										}
+										else
+										{
+											Blt8BPPDataTo16BPPBufferShadow((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
+										}
+									}
+									else if (fIntensityBlitter)
+									{
+										if (fZBlitter)
+										{
+											DrawTacticalDepthMask(
+												FRAME_BUFFER, (PIXEL*)pDestBuf,
+												uiDestPitchBYTES, gpZBuffer, sZLevel,
+												hVObject, sXPos, sYPos, usImageIndex,
+												fZWrite, VOBJECT_DEPTH_MASK_INTENSITY,
+												NULL);
+										}
+										else
+										{
+											Blt8BPPDataTo16BPPBufferIntensity((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
 												}
 											}
 											else if (fZBlitter)

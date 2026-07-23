@@ -2518,8 +2518,9 @@ int main()
 	const RenderImageDepthDrawCommand imageDepthCommand{
 		51, 61, 903, 9, RenderSurfacePoint{-5, 14},
 		RenderSurfaceRegion{-4, 2, 96, 72}, 0x3456,
-		RenderDepthCompareMode::GreaterOrEqual,
-		RenderDepthWriteMode::Preserve};
+		RenderDepthCompareMode::Greater,
+		RenderDepthWriteMode::Preserve,
+		RenderImageDepthEffect::IntensifyDestination};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},

@@ -139,22 +139,27 @@ the engine must not contain SDL types in its public domain model.
   separately models colour outlines, transparent outline markers, and
   body-shadow rendering without leaking ETRLE marker values or packed legacy
   colours through the engine API. `RenderImageDepthDrawCommand` names colour
-  and `Depth16` destinations separately, makes the inclusive comparison and
-  preserve/replace-on-pass policy explicit, and covers only the ordinary
-  source-transparent palette operation. Shadow, alpha, translucency,
-  pixelation, and obscured effects remain distinct migration work rather than
-  ambiguous flags.
+  and `Depth16` destinations separately and makes its effect, comparison, and
+  preserve/replace-on-pass policy explicit. Ordinary source-transparent palette
+  draws retain their inclusive greater-or-equal test. Shadow and intensity
+  images are destination-transforming masks and retain their strict
+  greater-than test. Unsupported combinations are rejected at the platform
+  boundary. Alpha, translucency, pixelation, and obscured effects remain
+  distinct migration work rather than ambiguous flags.
   The production sink resolves image identities and executes the established
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
   physical pixels remain unchanged. Every successful `CreateVideoObject`
   allocation receives a non-pointer render identity above the legacy 32-bit
   manager range; deletion retires it before releasing storage. Sequential
   compatibility manager handles are unchanged. Common tactical transparent-Z
-  sprites can therefore use engine commands even when their image is owned by
-  the animation, tile, or logical-body subsystem. Rejecting hosts and manually
-  constructed fixtures retain the exact raw fallback. Other application-owned
-  pointer image operations deliberately retain their compatibility path until
-  their individual command semantics migrate. Copy and nearest-neighbour
+  sprites and basic depth-tested shadow/intensity masks can therefore use engine
+  commands even when their image is owned by the animation, tile, or
+  logical-body subsystem. The mask bridge also corrects the clipped no-write
+  path to preserve depth consistently with its unclipped counterpart. Rejecting
+  hosts and manually constructed fixtures retain the exact raw fallback. Other
+  application-owned pointer image operations deliberately retain their
+  compatibility path until their individual command semantics migrate. Copy
+  and nearest-neighbour
   stretch commands cover clipped
   opaque and RGB-colour-key operations, including defined same-surface overlap;
   shade commands preserve alpha and carry their factor explicitly. Depth fills

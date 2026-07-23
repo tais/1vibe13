@@ -253,7 +253,8 @@ inline bool operator!=(
 
 enum class RenderDepthCompareMode : std::uint8_t
 {
-	GreaterOrEqual
+	GreaterOrEqual,
+	Greater
 };
 
 enum class RenderDepthWriteMode : std::uint8_t
@@ -262,11 +263,19 @@ enum class RenderDepthWriteMode : std::uint8_t
 	ReplaceOnPass
 };
 
-// Draws the source-transparent palette pixels of one image frame after an
-// inclusive depth test. Colour and depth storage remain separate resources;
-// ReplaceOnPass updates depth only for visible source pixels which pass the
-// comparison. More specialized legacy effects use distinct commands rather
-// than hiding shadow, alpha, pixelation, or obscured semantics in this one.
+enum class RenderImageDepthEffect : std::uint8_t
+{
+	SourcePalette,
+	ShadeDestination,
+	IntensifyDestination
+};
+
+// Draws the visible runs of one image frame after a depth test. SourcePalette
+// pairs with an inclusive test and writes palette colours; destination
+// shade/intensity effects use the image as a mask and pair with a strict test.
+// Colour and depth storage remain separate resources, and ReplaceOnPass updates
+// depth only for visible source pixels which pass. More specialized alpha,
+// pixelation, and obscured semantics use distinct commands.
 struct RenderImageDepthDrawCommand
 {
 	RenderSurfaceId destination = 0;
@@ -280,6 +289,8 @@ struct RenderImageDepthDrawCommand
 		RenderDepthCompareMode::GreaterOrEqual;
 	RenderDepthWriteMode depthWrite =
 		RenderDepthWriteMode::ReplaceOnPass;
+	RenderImageDepthEffect effect =
+		RenderImageDepthEffect::SourcePalette;
 };
 
 inline bool operator==(
@@ -294,7 +305,8 @@ inline bool operator==(
 		left.clippingRegion == right.clippingRegion &&
 		left.depth == right.depth &&
 		left.comparison == right.comparison &&
-		left.depthWrite == right.depthWrite;
+		left.depthWrite == right.depthWrite &&
+		left.effect == right.effect;
 }
 
 inline bool operator!=(

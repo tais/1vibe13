@@ -185,6 +185,26 @@ BOOLEAN BltVideoObjectDepthToSurface(
 	BOOLEAN fWriteDepth,
 	const SGPRect* pClipRegion);
 
+enum VideoObjectDepthMaskEffect : UINT8
+{
+	VOBJECT_DEPTH_MASK_SHADOW,
+	VOBJECT_DEPTH_MASK_INTENSITY
+};
+
+// Compatibility bridge for ETRLE images used as depth-tested destination
+// masks. The image selects pixels while the effect transforms the existing
+// destination colour; registered images submit a portable engine command.
+BOOLEAN BltVideoObjectDepthMaskToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	VideoObjectDepthMaskEffect effect,
+	const SGPRect* pClipRegion);
+
 BOOLEAN BltVideoObjectFromIndex(  UINT32	uiDestVSurface,
 												 UINT32 uiSrcVObject, 
 												 UINT16 usRegionIndex, 
