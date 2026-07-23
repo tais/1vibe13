@@ -5,7 +5,9 @@
 
 #include "vsurface.h"
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
 
 namespace
 {
@@ -62,6 +64,20 @@ RenderColor DecodeLegacyColor(PIXEL color) noexcept
 			255};
 	}
 }
+
+bool LegacyShadeFraction(
+	bool lowPercent,
+	std::uint16_t& numerator,
+	std::uint16_t& denominator) noexcept
+{
+	const float fraction = lowPercent ? 0.80f : guiShadePercent;
+	if (!std::isfinite(fraction)) return false;
+	const float clipped = std::max(0.0f, std::min(fraction, 1.0f));
+	denominator = 1000;
+	numerator = static_cast<std::uint16_t>(
+		std::lround(clipped * denominator));
+	return true;
+}
 }
 
 void BindLegacyRenderCommands(RenderCommandSink& commands) noexcept
@@ -104,6 +120,36 @@ bool CopyLegacyRenderSurface(
 	try
 	{
 		return GetLegacyRenderCommands().copySurface(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+bool StretchLegacyRenderSurface(
+	const RenderSurfaceStretchCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().stretchSurface(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+bool ShadeLegacyRenderSurface(
+	const RenderSurfaceShadeCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().shadeSurface(command);
 	}
 	catch (...)
 	{
@@ -221,4 +267,105 @@ BOOLEAN BltVideoSurface(
 		RenderSurfacePoint{destinationX, destinationY},
 		mode,
 		colorKey}) ? TRUE : FALSE;
+}
+
+BOOLEAN BltStretchVideoSurface(
+	UINT32 destination,
+	UINT32 source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT32 flags,
+	SGPRect* sourceRegion,
+	SGPRect* destinationRegion)
+{
+	// The DirectDraw-era API carried an extra point, but both the original
+	// implementation and the SDL port use the explicit destination rectangle.
+	(void)destinationX;
+	(void)destinationY;
+	if (!sourceRegion || !destinationRegion) return FALSE;
+
+	HVSURFACE destinationSurface = nullptr;
+	HVSURFACE sourceSurface = nullptr;
+	if (!GetVideoSurface(&destinationSurface, destination) ||
+		!destinationSurface ||
+		!GetVideoSurface(&sourceSurface, source) ||
+		!sourceSurface ||
+		destinationSurface->ubBitDepth != 16 ||
+		sourceSurface->ubBitDepth != 16)
+		return FALSE;
+
+	RenderSurfaceCopyMode mode = RenderSurfaceCopyMode::Opaque;
+	RenderColor colorKey;
+	if (flags & VS_BLT_USECOLORKEY)
+	{
+		mode = RenderSurfaceCopyMode::SourceColorKeyRgb;
+		colorKey = DecodeLegacyColor(static_cast<PIXEL>(
+			static_cast<UINT16>(sourceSurface->TransparentColor)));
+	}
+
+	return StretchLegacyRenderSurface(RenderSurfaceStretchCommand{
+		source,
+		destination,
+		RenderSurfaceRegion{
+			sourceRegion->iLeft,
+			sourceRegion->iTop,
+			sourceRegion->iRight,
+			sourceRegion->iBottom},
+		RenderSurfaceRegion{
+			destinationRegion->iLeft,
+			destinationRegion->iTop,
+			destinationRegion->iRight,
+			destinationRegion->iBottom},
+		mode,
+		colorKey}) ? TRUE : FALSE;
+}
+
+namespace
+{
+BOOLEAN ShadeLegacySurfaceRegion(
+	UINT32 surface,
+	INT32 left,
+	INT32 top,
+	INT32 right,
+	INT32 bottom,
+	bool lowPercent)
+{
+	if (right <= left || bottom <= top) return FALSE;
+	RenderSurfaceDescription description;
+	if (!DescribeLegacyRenderSurface(surface, description) ||
+		description.contentBitDepth != 16)
+		return FALSE;
+
+	std::uint16_t numerator = 0;
+	std::uint16_t denominator = 0;
+	if (!LegacyShadeFraction(lowPercent, numerator, denominator))
+		return FALSE;
+	return ShadeLegacyRenderSurface(RenderSurfaceShadeCommand{
+		surface,
+		RenderSurfaceRegion{left, top, right, bottom},
+		numerator,
+		denominator}) ? TRUE : FALSE;
+}
+}
+
+BOOLEAN ShadowVideoSurfaceRect(
+	UINT32 surface,
+	INT32 left,
+	INT32 top,
+	INT32 right,
+	INT32 bottom)
+{
+	return ShadeLegacySurfaceRegion(
+		surface, left, top, right, bottom, false);
+}
+
+BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(
+	UINT32 surface,
+	INT32 left,
+	INT32 top,
+	INT32 right,
+	INT32 bottom)
+{
+	return ShadeLegacySurfaceRegion(
+		surface, left, top, right, bottom, true);
 }

@@ -562,13 +562,33 @@ public:
 		nestedCopyAccepted = CopyLegacyRenderSurface(command);
 		return true;
 	}
+	bool stretchSurface(const RenderSurfaceStretchCommand& command) override
+	{
+		++stretches;
+		lastStretchCommand = command;
+		nestedStretchAccepted = StretchLegacyRenderSurface(command);
+		return true;
+	}
+	bool shadeSurface(const RenderSurfaceShadeCommand& command) override
+	{
+		++shades;
+		lastShadeCommand = command;
+		nestedShadeAccepted = ShadeLegacyRenderSurface(command);
+		return true;
+	}
 
 	int fills = 0;
 	int copies = 0;
+	int stretches = 0;
+	int shades = 0;
 	bool nestedAccepted = true;
 	bool nestedCopyAccepted = true;
+	bool nestedStretchAccepted = true;
+	bool nestedShadeAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
 	RenderSurfaceCopyCommand lastCopyCommand;
+	RenderSurfaceStretchCommand lastStretchCommand;
+	RenderSurfaceShadeCommand lastShadeCommand;
 };
 
 class ThrowingRenderCommandSink final : public RenderCommandSink
@@ -581,6 +601,14 @@ public:
 	bool copySurface(const RenderSurfaceCopyCommand&) override
 	{
 		throw std::runtime_error("render copy command probe");
+	}
+	bool stretchSurface(const RenderSurfaceStretchCommand&) override
+	{
+		throw std::runtime_error("render stretch command probe");
+	}
+	bool shadeSurface(const RenderSurfaceShadeCommand&) override
+	{
+		throw std::runtime_error("render shade command probe");
 	}
 };
 }
@@ -726,30 +754,53 @@ int main()
 	const RenderSurfaceCopyCommand expectedCopyCommand{
 		72, 71, RenderSurfaceRegion{1, 2, 5, 6},
 		RenderSurfacePoint{7, 8}, RenderSurfaceCopyMode::Opaque, {}};
+	const RenderSurfaceStretchCommand expectedStretchCommand{
+		72, 71, RenderSurfaceRegion{1, 2, 5, 6},
+		RenderSurfaceRegion{7, 8, 15, 20},
+		RenderSurfaceCopyMode::Opaque, {}};
+	const RenderSurfaceShadeCommand expectedShadeCommand{
+		71, RenderSurfaceRegion{1, 2, 5, 6}, 48, 100};
 	Check(ColorFillVideoSurfaceArea(71, 5, 6, 1, 2, legacyRed) &&
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
+		StretchLegacyRenderSurface(expectedStretchCommand) &&
+		ShadeLegacyRenderSurface(expectedShadeCommand) &&
 		recordedRenderCommands.commands() ==
 			std::vector<RenderSurfaceFillCommand>{expectedFillCommand} &&
 		recordedRenderCommands.copyCommands() ==
-			std::vector<RenderSurfaceCopyCommand>{expectedCopyCommand},
-		"legacy surface drawing submits engine fill and copy commands");
+			std::vector<RenderSurfaceCopyCommand>{expectedCopyCommand} &&
+		recordedRenderCommands.stretchCommands() ==
+			std::vector<RenderSurfaceStretchCommand>{expectedStretchCommand} &&
+		recordedRenderCommands.shadeCommands() ==
+			std::vector<RenderSurfaceShadeCommand>{expectedShadeCommand},
+		"legacy surface drawing submits every portable render command");
 
 	ReentrantRenderCommandSink reentrantRenderCommands;
 	BindLegacyRenderCommands(reentrantRenderCommands);
 	Check(FillLegacyRenderSurface(expectedFillCommand) &&
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
+		StretchLegacyRenderSurface(expectedStretchCommand) &&
+		ShadeLegacyRenderSurface(expectedShadeCommand) &&
 		reentrantRenderCommands.fills == 1 &&
 		reentrantRenderCommands.copies == 1 &&
+		reentrantRenderCommands.stretches == 1 &&
+		reentrantRenderCommands.shades == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
 		reentrantRenderCommands.lastCopyCommand == expectedCopyCommand &&
+		reentrantRenderCommands.lastStretchCommand ==
+			expectedStretchCommand &&
+		reentrantRenderCommands.lastShadeCommand == expectedShadeCommand &&
 		!reentrantRenderCommands.nestedAccepted &&
-		!reentrantRenderCommands.nestedCopyAccepted,
+		!reentrantRenderCommands.nestedCopyAccepted &&
+		!reentrantRenderCommands.nestedStretchAccepted &&
+		!reentrantRenderCommands.nestedShadeAccepted,
 		"legacy render command gateway suppresses recursive drawing");
 
 	ThrowingRenderCommandSink throwingRenderCommands;
 	BindLegacyRenderCommands(throwingRenderCommands);
 	Check(!FillLegacyRenderSurface(expectedFillCommand) &&
-		!CopyLegacyRenderSurface(expectedCopyCommand),
+		!CopyLegacyRenderSurface(expectedCopyCommand) &&
+		!StretchLegacyRenderSurface(expectedStretchCommand) &&
+		!ShadeLegacyRenderSurface(expectedShadeCommand),
 		"legacy render command gateway contains adapter exceptions");
 	ResetLegacyRenderCommands();
 	ResetLegacyRenderSurfaceAccess();
@@ -1788,6 +1839,288 @@ int main()
 			copiedRedDestination == copiedRed &&
 			copiedGreenDestination == copiedGreen,
 			"mapped legacy blits skip the key and copy exact live pixels");
+
+		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
+		copySourcePixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(copySourceID, &copySourcePitch)) : nullptr;
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copySourcePixels && copyDestinationPixels)
+		{
+			std::memset(
+				copySourcePixels, 0,
+				static_cast<std::size_t>(copySourcePitch) *
+					copySurfaceDescription.usHeight);
+			std::memset(
+				copyDestinationPixels, 0,
+				static_cast<std::size_t>(copyDestinationPitch) *
+					copySurfaceDescription.usHeight);
+			PIXEL* const firstSourceRow = reinterpret_cast<PIXEL*>(
+				reinterpret_cast<BYTE*>(copySourcePixels));
+			PIXEL* const secondSourceRow = reinterpret_cast<PIXEL*>(
+				reinterpret_cast<BYTE*>(copySourcePixels) +
+					copySourcePitch);
+			firstSourceRow[0] = copyKeyPixel;
+			firstSourceRow[1] = copiedRed;
+			secondSourceRow[0] = copiedGreen;
+			secondSourceRow[1] = copiedBlue;
+		}
+		if (copySourcePixels) UnLockVideoSurface(copySourceID);
+		if (copyDestinationPixels) UnLockVideoSurface(copyDestinationID);
+
+		SGPRect stretchSourceRegion{0, 0, 2, 2};
+		SGPRect stretchDestinationRegion{0, 0, 4, 2};
+		RecordingRenderCommandSink recordedSurfaceEffects;
+		BindLegacyRenderCommands(recordedSurfaceEffects);
+		const bool stretchTranslated = BltStretchVideoSurface(
+			copyDestinationID, copySourceID, 91, 92,
+			VS_BLT_USECOLORKEY,
+			&stretchSourceRegion, &stretchDestinationRegion);
+		const bool normalShadeTranslated = ShadowVideoSurfaceRect(
+			copyDestinationID, -1, 0, 3, 2);
+		const bool lowShadeTranslated =
+			ShadowVideoSurfaceRectUsingLowPercentTable(
+				copyDestinationID, 1, -2, 5, 3);
+		const RenderSurfaceStretchCommand translatedStretchCommand{
+			copySourceID, copyDestinationID,
+			RenderSurfaceRegion{0, 0, 2, 2},
+			RenderSurfaceRegion{0, 0, 4, 2},
+			RenderSurfaceCopyMode::SourceColorKeyRgb,
+			RenderColor{255, 255, 0, 255}};
+		const RenderSurfaceShadeCommand translatedNormalShade{
+			copyDestinationID, RenderSurfaceRegion{-1, 0, 3, 2},
+			480, 1000};
+		const RenderSurfaceShadeCommand translatedLowShade{
+			copyDestinationID, RenderSurfaceRegion{1, -2, 5, 3},
+			800, 1000};
+		Check(stretchTranslated && normalShadeTranslated &&
+			lowShadeTranslated &&
+			recordedSurfaceEffects.stretchCommands() ==
+				std::vector<RenderSurfaceStretchCommand>{
+					translatedStretchCommand} &&
+			recordedSurfaceEffects.shadeCommands() ==
+				std::vector<RenderSurfaceShadeCommand>{
+					translatedNormalShade, translatedLowShade},
+			"legacy stretch and shade entry points preserve portable command semantics");
+
+		ETRLEObject shadowObject{};
+		shadowObject.usWidth = 5;
+		shadowObject.usHeight = 4;
+		SGPVObject shadowImage{};
+		shadowImage.pETRLEObject = &shadowObject;
+		shadowImage.usNumberOfObjects = 1;
+		const bool imageShadowTranslated = ShadowVideoSurfaceImage(
+			copyDestinationID, &shadowImage, 1, 2);
+		const std::vector<RenderSurfaceShadeCommand> expectedImageShades{
+			translatedNormalShade,
+			translatedLowShade,
+			RenderSurfaceShadeCommand{
+				copyDestinationID, RenderSurfaceRegion{4, 6, 6, 9},
+				480, 1000},
+			RenderSurfaceShadeCommand{
+				copyDestinationID, RenderSurfaceRegion{6, 5, 9, 6},
+				480, 1000}};
+		Check(imageShadowTranslated &&
+			recordedSurfaceEffects.shadeCommands() == expectedImageShades,
+			"legacy image shadows submit their horizontal and vertical regions");
+		ResetLegacyRenderCommands();
+
+		Check(BltStretchVideoSurface(
+				copyDestinationID, copySourceID, 0, 0,
+				VS_BLT_USECOLORKEY,
+				&stretchSourceRegion, &stretchDestinationRegion),
+			"legacy surface stretches execute through the mapped platform renderer");
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		bool stretchedPixelsMatch = copyDestinationPixels != nullptr;
+		const PIXEL expectedStretchedRows[][4] = {
+			{0, 0, copiedRed, copiedRed},
+			{copiedGreen, copiedGreen, copiedBlue, copiedBlue}};
+		for (std::size_t y = 0; stretchedPixelsMatch && y < 2; ++y)
+		{
+			const PIXEL* const row = reinterpret_cast<const PIXEL*>(
+				reinterpret_cast<const BYTE*>(copyDestinationPixels) +
+					y * copyDestinationPitch);
+			for (std::size_t x = 0; x < 4; ++x)
+			{
+				if (row[x] != expectedStretchedRows[y][x])
+					stretchedPixelsMatch = false;
+			}
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		Check(stretchedPixelsMatch,
+			"mapped legacy stretches scale exact pixels and retain keyed destinations");
+
+		const PIXEL shadeInput =
+			Get16BPPColor(FROMRGB(200, 100, 50));
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copyDestinationPixels)
+		{
+			for (std::size_t y = 0;
+				y < copySurfaceDescription.usHeight; ++y)
+			{
+				PIXEL* const row = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0;
+					x < copySurfaceDescription.usWidth; ++x)
+					row[x] = shadeInput;
+			}
+			UnLockVideoSurface(copyDestinationID);
+		}
+		Check(copyDestinationPixels &&
+			ShadowVideoSurfaceRect(
+				copyDestinationID, -20, -20, 20, 20),
+			"legacy rectangle shading clips to small live surfaces");
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		bool normalShadeMatches = copyDestinationPixels != nullptr;
+		for (std::size_t y = 0; normalShadeMatches &&
+			y < copySurfaceDescription.usHeight; ++y)
+		{
+			const PIXEL* const row = reinterpret_cast<const PIXEL*>(
+				reinterpret_cast<const BYTE*>(copyDestinationPixels) +
+					y * copyDestinationPitch);
+			for (std::size_t x = 0;
+				x < copySurfaceDescription.usWidth; ++x)
+			{
+				if (row[x] != PixShade(shadeInput))
+					normalShadeMatches = false;
+			}
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		Check(normalShadeMatches,
+			"mapped normal shading matches the established shade factor");
+
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copyDestinationPixels)
+		{
+			for (std::size_t y = 0;
+				y < copySurfaceDescription.usHeight; ++y)
+			{
+				PIXEL* const row = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0;
+					x < copySurfaceDescription.usWidth; ++x)
+					row[x] = shadeInput;
+			}
+			UnLockVideoSurface(copyDestinationID);
+		}
+		Check(copyDestinationPixels &&
+			ShadowVideoSurfaceRectUsingLowPercentTable(
+				copyDestinationID, -20, -20, 20, 20),
+			"legacy low-percent shading executes independently");
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		bool lowShadeMatches = copyDestinationPixels != nullptr;
+		for (std::size_t y = 0; lowShadeMatches &&
+			y < copySurfaceDescription.usHeight; ++y)
+		{
+			const PIXEL* const row = reinterpret_cast<const PIXEL*>(
+				reinterpret_cast<const BYTE*>(copyDestinationPixels) +
+					y * copyDestinationPitch);
+			for (std::size_t x = 0;
+				x < copySurfaceDescription.usWidth; ++x)
+			{
+				if (row[x] != PixIntensity(shadeInput))
+					lowShadeMatches = false;
+			}
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		Check(lowShadeMatches && PixIntensity(shadeInput) !=
+				PixShade(shadeInput),
+			"mapped low-percent shading retains its distinct 80-percent table");
+
+		HVOBJECT tiledObject =
+			CreateVideoObject(&managedObjectDescription);
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		if (copyDestinationPixels)
+		{
+			std::memset(
+				copyDestinationPixels, 0,
+				static_cast<std::size_t>(copyDestinationPitch) *
+					copySurfaceDescription.usHeight);
+			UnLockVideoSurface(copyDestinationID);
+		}
+		SGPRect originalClip;
+		GetClippingRect(&originalClip);
+		SGPRect tiledClip{1, 0, 4, 2};
+		SetClippingRect(&tiledClip);
+		const bool imageFillAccepted = tiledObject &&
+			ImageFillVideoSurfaceArea(
+				copyDestinationID, 0, 0, 5, 3,
+				tiledObject, 0, 0, 0);
+		SGPRect restoredClip;
+		GetClippingRect(&restoredClip);
+		if (originalClip.iLeft < originalClip.iRight &&
+			originalClip.iTop < originalClip.iBottom)
+		{
+			SetClippingRect(&originalClip);
+		}
+		else
+		{
+			SGPRect fullScreenClip{
+				0, 0,
+				static_cast<INT32>(SCREEN_WIDTH),
+				static_cast<INT32>(SCREEN_HEIGHT)};
+			SetClippingRect(&fullScreenClip);
+		}
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		bool tiledPixelsMatch = copyDestinationPixels != nullptr;
+		const PIXEL tiledRed = Get16BPPColor(FROMRGB(255, 0, 0));
+		for (std::size_t y = 0; tiledPixelsMatch &&
+			y < copySurfaceDescription.usHeight; ++y)
+		{
+			const PIXEL* const row = reinterpret_cast<const PIXEL*>(
+				reinterpret_cast<const BYTE*>(copyDestinationPixels) +
+					y * copyDestinationPitch);
+			for (std::size_t x = 0;
+				x < copySurfaceDescription.usWidth; ++x)
+			{
+				const PIXEL expected =
+					x >= 1 && x < 4 && y < 2 ? tiledRed : 0;
+				if (row[x] != expected) tiledPixelsMatch = false;
+			}
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		Check(imageFillAccepted && tiledPixelsMatch &&
+			restoredClip.iLeft == tiledClip.iLeft &&
+			restoredClip.iTop == tiledClip.iTop &&
+			restoredClip.iRight == tiledClip.iRight &&
+			restoredClip.iBottom == tiledClip.iBottom,
+			"legacy image fills tile their clipped area and restore caller clipping");
+		Check(!ImageFillVideoSurfaceArea(
+				copyDestinationID, 0, 0, 5, 3,
+				nullptr, 0, 0, 0),
+			"legacy image fills reject invalid objects without changing surfaces");
+		if (tiledObject) DeleteVideoObject(tiledObject);
+
 		Check((copySourceID == 0 ||
 				DeleteVideoSurfaceFromIndex(copySourceID)) &&
 			(copyDestinationID == 0 ||

@@ -234,6 +234,24 @@ int main()
 		renderSurfaces.mappingCount(1) != 0 ||
 		renderSurfaces.mappingCount(2) != 0)
 		return 48;
+	if (!renderCommands.stretchSurface(RenderSurfaceStretchCommand{
+			2, 1, RenderSurfaceRegion{0, 0, 2, 1},
+			RenderSurfaceRegion{0, 0, 4, 1},
+			RenderSurfaceCopyMode::Opaque, {}}) ||
+		!renderCommands.shadeSurface(RenderSurfaceShadeCommand{
+			1, RenderSurfaceRegion{2, 0, 4, 1}, 1, 2}) ||
+		!renderSurfaces.map(1, externalSurface))
+		return 48;
+	externalPixel = 0;
+	std::memcpy(
+		&externalPixel,
+		externalSurface.pixels + 2 * sizeof(externalPixel),
+		sizeof(externalPixel));
+	renderSurfaces.unmap(1);
+	if (externalPixel != 0xff556677u ||
+		renderSurfaces.mappingCount(1) != 0 ||
+		renderSurfaces.mappingCount(2) != 0)
+		return 48;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
 	EngineHostOptions hostOptions;

@@ -322,14 +322,21 @@ draw commands layer above it rather than exposing SDL objects.
 `EngineServices::renderCommands` is that higher-level boundary.
 `RenderSurfaceFillCommand` uses an opaque surface ID, a half-open region, and
 an RGBA colour. `RenderSurfaceCopyCommand` adds a source region, destination
-origin, and either opaque or RGB source-colour-key copying. The mapped
-implementation clips against both surfaces, supports indexed opaque and
-true-colour copies, defines corruption-safe same-surface overlap, never writes
-row padding, and balances every successful map. `RecordingRenderCommandSink`
-captures fills and copies without a renderer. The compiled host routes existing
-rectangle fills and numeric `BltVideoSurface` calls through this service.
-Legacy packed colours and RGB565 transparency tokens are decoded only in the
-compatibility adapter; package code uses `RenderColor` directly.
+origin, and either opaque or RGB source-colour-key copying.
+`RenderSurfaceStretchCommand` uses explicit source and destination regions for
+portable nearest-neighbour scaling; clipping retains the original sampling
+phase, out-of-range source texels are skipped, and scaled same-surface work
+snapshots its bounded source before writing. `RenderSurfaceShadeCommand`
+multiplies RGB by an explicit rational fraction while preserving ARGB alpha.
+The mapped implementation supports indexed opaque copy/stretch and true-colour
+fill, copy, stretch, and shade operations, defines corruption-safe
+same-surface overlap, never writes row padding, and balances every successful
+map. `RecordingRenderCommandSink` captures all four command types without a
+renderer. The compiled host routes existing rectangle fills, numeric
+`BltVideoSurface`/`BltStretchVideoSurface`, and surface-shadow calls through
+this service. Legacy packed colours, mutable shade percentages, and RGB565
+transparency tokens are translated only in the compatibility adapter; package
+code uses explicit engine values.
 
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each

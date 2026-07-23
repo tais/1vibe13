@@ -11,11 +11,10 @@
 // field that legacy code used to hold a LPDIRECTDRAWSURFACE2 now holds
 // that heap pointer directly.
 //
-// CPU blitters, stretching, shadowing, and packed-surface operations are
-// implemented below. The public rectangle fill enters through the engine
-// RenderCommandSink and maps back into this storage manager. ImageFill remains
-// a placeholder, and Restore/Backup stays a no-op because heap surfaces have
-// no DirectDraw restore semantics.
+// Packed pointer blitters and legacy image tiling are implemented below.
+// Numeric fills, copies, stretching, and shading enter through the engine
+// RenderCommandSink and map back into this storage manager. Restore/Backup
+// stays a no-op because heap surfaces have no DirectDraw restore semantics.
 
 #include "types.h"
 #include "vobject.h"  // VO_BLT_SRCTRANSPARENCY
@@ -31,6 +30,7 @@
 #include <Engine/Core/UniqueResourcePtr.h>
 #include <Engine/Adapters/Legacy/PlatformVideoSurfaceBackend.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -1037,73 +1037,6 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 	return TRUE;
 }
 
-BOOLEAN BltStretchVideoSurface(UINT32 uiDest, UINT32 uiSrc,
-                               INT32 /*iDestX*/, INT32 /*iDestY*/,
-                               UINT32 fBltFlags,
-                               SGPRect* SrcRect, SGPRect* DestRect)
-{
-	if (!SrcRect || !DestRect) return FALSE;
-	HVSURFACE hDst = nullptr, hSrc = nullptr;
-	if (!GetVideoSurface(&hDst, uiDest) || !hDst) return FALSE;
-	if (!GetVideoSurface(&hSrc, uiSrc)  || !hSrc) return FALSE;
-	if (hDst->ubBitDepth != 16 || hSrc->ubBitDepth != 16) return FALSE;
-
-	const INT32 sW = SrcRect->iRight - SrcRect->iLeft;
-	const INT32 sH = SrcRect->iBottom - SrcRect->iTop;
-	const INT32 dW = DestRect->iRight - DestRect->iLeft;
-	const INT32 dH = DestRect->iBottom - DestRect->iTop;
-	if (sW <= 0 || sH <= 0 || dW <= 0 || dH <= 0) return TRUE;
-
-	UINT32 srcPitch = 0, dstPitch = 0;
-	PIXEL* srcBuf = (PIXEL*)LockVideoSurfaceBuffer(hSrc, &srcPitch);
-	PIXEL* dstBuf = (PIXEL*)LockVideoSurfaceBuffer(hDst, &dstPitch);
-	if (!srcBuf || !dstBuf)
-	{
-		UnLockVideoSurfaceBuffer(hSrc);
-		UnLockVideoSurfaceBuffer(hDst);
-		return FALSE;
-	}
-
-	// If the caller asked for VO_BLT_SRCTRANSPARENCY (the menu / UI
-	// panel path does), skip source pixels equal to the source
-	// surface's TransparentColor (typically RGB(0,0,0) = 0x0000 in
-	// RGB565). Without this, layered images like the JA2 logo over
-	// the flag background get rendered as opaque rectangles.
-	const bool transparent = (fBltFlags & VO_BLT_SRCTRANSPARENCY) != 0;
-	const PIXEL transColor = (PIXEL)hSrc->TransparentColor;
-	(void)transColor;
-
-	// Nearest-neighbour stretch. Integer ratios; good enough for the
-	// UI panels JA2 stretches. Phase 6 / shaders can do better.
-	for (INT32 dy = 0; dy < dH; ++dy)
-	{
-		INT32 absDstY = DestRect->iTop + dy;
-		if (absDstY < 0 || absDstY >= (INT32)hDst->usHeight) continue;
-		const INT32 sy = SrcRect->iTop + (dy * sH) / dH;
-		const PIXEL* srcRow = (const PIXEL*)((const UINT8*)srcBuf + sy * srcPitch);
-		PIXEL* dstRow = (PIXEL*)((UINT8*)dstBuf + absDstY * dstPitch);
-		for (INT32 dx = 0; dx < dW; ++dx)
-		{
-			INT32 absDstX = DestRect->iLeft + dx;
-			if (absDstX < 0 || absDstX >= (INT32)hDst->usWidth) continue;
-			const INT32 sx = SrcRect->iLeft + (dx * sW) / dW;
-			const PIXEL px = srcRow[sx];
-#if SGP_PIXEL_DEPTH == 32
-			// Color-key on RGB (ignore alpha); transparent areas of the
-			// menu art are keyed black, matching the RGB565 transColor==0.
-			if (transparent && (px & 0x00FFFFFFu) == 0u) continue;
-#else
-			if (transparent && px == transColor) continue;
-#endif
-			dstRow[absDstX] = px;
-		}
-	}
-
-	UnLockVideoSurfaceBuffer(hSrc);
-	UnLockVideoSurfaceBuffer(hDst);
-	return TRUE;
-}
-
 // BltVSurfaceUsingDD: the "UsingDD" name is vestigial -- the SDL3 path
 // has no DirectDraw blits, so this is just an alias for the CPU blit.
 // RECT* parameter (Win32 type) preserved for ABI; mapped to the same
@@ -1125,67 +1058,159 @@ BOOLEAN BltVSurfaceUsingDD(HVSURFACE hDst, HVSURFACE hSrc, UINT32 fBltFlags,
 	                                     (INT32)flags, &fx);
 }
 
-// Image-tile fill, alpha shadow, and the low-percent-table darken
-// operations need the same blender math the inline-asm blocks in
-// vobject_blitters.cpp provide. They're not exercised yet in the
-// macOS startup path; once a real game loop drives them the real
-// implementations come in alongside the Phase 6 RGB565-asm
-// retirement.
-BOOLEAN ImageFillVideoSurfaceArea(UINT32, INT32, INT32, INT32, INT32,
-                                  HVOBJECT, UINT16, INT16, INT16) { return FALSE; }
-BOOLEAN ShadowVideoSurfaceImage(UINT32, HVOBJECT, INT32, INT32) { return FALSE; }
-
-// Darken every RGB565 pixel inside the rectangle to half-brightness.
-// JA2 uses this to shadow the interior of FastHelp tooltips, button
-// hover popups, prone-merc info boxes -- anywhere the legacy code
-// wants a translucent dark overlay on the existing pixels. The Win32
-// path drove a precomputed shadow lookup table; for our purposes a
-// per-channel right-shift produces the same visible effect (50% of
-// each channel's value, clipped to RGB565 bit widths) without the
-// table-build complexity.
-//
-// Pairs with the same call inside DisplayFastHelp (mousesystem.cpp)
-// where the previous stub left tooltips with no background at all --
-// world content showed straight through and the only "tooltip" was
-// the two outline rectangles drawn just before.
-BOOLEAN ShadowVideoSurfaceRect(UINT32 uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2)
+BOOLEAN ImageFillVideoSurfaceArea(
+	UINT32 destination,
+	INT32 destinationLeft,
+	INT32 destinationTop,
+	INT32 destinationRight,
+	INT32 destinationBottom,
+	HVOBJECT background,
+	UINT16 index,
+	INT16 offsetX,
+	INT16 offsetY)
 {
-	if (X2 <= X1 || Y2 <= Y1) return FALSE;
-	UINT32 pitchBytes = 0;
-	PIXEL* pBuf = (PIXEL*)LockVideoSurface(uiDestVSurface, &pitchBytes);
-	if (!pBuf) return FALSE;
-	const INT32 stridePx = (INT32)(pitchBytes / sizeof(PIXEL));
-	const INT32 xL = X1 < 0 ? 0 : X1;
-	const INT32 yT = Y1 < 0 ? 0 : Y1;
-	const INT32 xR = X2 > (INT32)SCREEN_WIDTH  ? (INT32)SCREEN_WIDTH  : X2;
-	const INT32 yB = Y2 > (INT32)SCREEN_HEIGHT ? (INT32)SCREEN_HEIGHT : Y2;
-	for (INT32 y = yT; y < yB; ++y) {
-		PIXEL* row = pBuf + y * stridePx;
-		for (INT32 x = xL; x < xR; ++x) {
-			const PIXEL p = row[x];
-#if SGP_PIXEL_DEPTH == 32
-			const UINT32 a =  p & 0xFF000000u;
-			const UINT32 r = (p >> 16) & 0xFFu;
-			const UINT32 g = (p >>  8) & 0xFFu;
-			const UINT32 b =  p        & 0xFFu;
-			row[x] = a | ((r >> 1) << 16) | ((g >> 1) << 8) | (b >> 1);
-#else
-			const UINT16 r = (p >> 11) & 0x1F;
-			const UINT16 g = (p >>  5) & 0x3F;
-			const UINT16 b =  p        & 0x1F;
-			row[x] = (UINT16)(((r >> 1) << 11) | ((g >> 1) << 5) | (b >> 1));
-#endif
+	if (!background || !background->pETRLEObject ||
+		index >= background->usNumberOfObjects ||
+		destinationRight <= destinationLeft ||
+		destinationBottom <= destinationTop)
+		return FALSE;
+
+	HVSURFACE destinationSurface = nullptr;
+	if (!GetVideoSurface(&destinationSurface, destination) ||
+		!destinationSurface)
+		return FALSE;
+
+	const ETRLEObject& tile = background->pETRLEObject[index];
+	const std::int64_t periodX =
+		static_cast<std::int64_t>(tile.usWidth) + tile.sOffsetX;
+	const std::int64_t periodY =
+		static_cast<std::int64_t>(tile.usHeight) + tile.sOffsetY;
+	if (periodX <= 0 || periodY <= 0) return FALSE;
+
+	SGPRect oldClip;
+	GetClippingRect(&oldClip);
+	if (oldClip.iLeft >= oldClip.iRight ||
+		oldClip.iTop >= oldClip.iBottom)
+	{
+		oldClip = SGPRect{
+			0, 0,
+			static_cast<INT32>(destinationSurface->usWidth),
+			static_cast<INT32>(destinationSurface->usHeight)};
+	}
+	SGPRect fillClip{
+		std::max<INT32>(
+			std::max<INT32>(destinationLeft, oldClip.iLeft), 0),
+		std::max<INT32>(
+			std::max<INT32>(destinationTop, oldClip.iTop), 0),
+		std::min<INT32>(
+			std::min<INT32>(destinationRight, oldClip.iRight),
+			destinationSurface->usWidth),
+		std::min<INT32>(
+			std::min<INT32>(destinationBottom, oldClip.iBottom),
+			destinationSurface->usHeight)};
+	if (fillClip.iLeft >= fillClip.iRight ||
+		fillClip.iTop >= fillClip.iBottom)
+		return FALSE;
+
+	class ClipRestore
+	{
+	public:
+		explicit ClipRestore(const SGPRect& clip) : clip_(clip) {}
+		~ClipRestore() { SetClippingRect(&clip_); }
+
+	private:
+		SGPRect clip_;
+	} restore(oldClip);
+	SetClippingRect(&fillClip);
+
+	auto normalizeOffset = [](std::int64_t offset, std::int64_t period)
+	{
+		offset %= period;
+		if (offset >= 0) offset -= period;
+		return offset;
+	};
+	const std::int64_t firstX =
+		static_cast<std::int64_t>(destinationLeft) +
+		normalizeOffset(offsetX, periodX);
+	const std::int64_t firstY =
+		static_cast<std::int64_t>(destinationTop) +
+		normalizeOffset(offsetY, periodY);
+	auto advanceToVisible = [](
+		std::int64_t first,
+		std::int64_t visible,
+		std::int64_t period)
+	{
+		if (first < visible)
+			first += ((visible - first) / period) * period;
+		return first;
+	};
+	const std::int64_t visibleFirstX =
+		advanceToVisible(firstX, fillClip.iLeft, periodX);
+	const std::int64_t visibleFirstY =
+		advanceToVisible(firstY, fillClip.iTop, periodY);
+	const std::int64_t lastX =
+		static_cast<std::int64_t>(fillClip.iRight) - tile.sOffsetX;
+	const std::int64_t lastY =
+		static_cast<std::int64_t>(fillClip.iBottom) - tile.sOffsetY;
+	for (std::int64_t y = visibleFirstY; y < lastY; y += periodY)
+	{
+		if (y < std::numeric_limits<INT32>::min() ||
+			y > std::numeric_limits<INT32>::max())
+			continue;
+		for (std::int64_t x = visibleFirstX;
+			x < lastX; x += periodX)
+		{
+			if (x < std::numeric_limits<INT32>::min() ||
+				x > std::numeric_limits<INT32>::max())
+				continue;
+			if (!BltVideoObject(
+				destination,
+				background,
+				index,
+				static_cast<INT32>(x),
+				static_cast<INT32>(y),
+				VO_BLT_SRCTRANSPARENCY,
+				nullptr))
+				return FALSE;
 		}
 	}
-	UnLockVideoSurface(uiDestVSurface);
 	return TRUE;
 }
 
-// Low-percent darken: same as above for now (the legacy code used a
-// gentler 25% shade table; visually 50% reads as "darker tooltip
-// background", which is fine for the few call sites that use this
-// variant -- they're all tooltip-style overlays).
-BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(UINT32 uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2)
+BOOLEAN ShadowVideoSurfaceImage(
+	UINT32 destination,
+	HVOBJECT image,
+	INT32 positionX,
+	INT32 positionY)
 {
-	return ShadowVideoSurfaceRect(uiDestVSurface, X1, Y1, X2, Y2);
+	if (!image || !image->pETRLEObject ||
+		image->usNumberOfObjects == 0)
+		return FALSE;
+
+	const ETRLEObject& object = image->pETRLEObject[0];
+	const std::int64_t left = positionX;
+	const std::int64_t top = positionY;
+	const std::int64_t right = left + object.usWidth;
+	const std::int64_t bottom = top + object.usHeight;
+	if (left < std::numeric_limits<INT32>::min() ||
+		top < std::numeric_limits<INT32>::min() ||
+		right + 3 > std::numeric_limits<INT32>::max() ||
+		bottom + 3 > std::numeric_limits<INT32>::max())
+		return FALSE;
+
+	(void)ShadowVideoSurfaceRect(
+		destination,
+		static_cast<INT32>(left + 3),
+		static_cast<INT32>(bottom),
+		static_cast<INT32>(right),
+		static_cast<INT32>(bottom + 3));
+	(void)ShadowVideoSurfaceRect(
+		destination,
+		static_cast<INT32>(right),
+		static_cast<INT32>(top + 3),
+		static_cast<INT32>(right + 3),
+		static_cast<INT32>(bottom));
+	// The original API reports success once a valid image is accepted; callers
+	// do not use the individual clipped shadow results.
+	return TRUE;
 }

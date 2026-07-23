@@ -123,14 +123,18 @@ the engine must not contain SDL types in its public domain model.
   engine values, while the established numeric SGP handles and every existing
   pointer-based blitter remain compatibility adapters. `RenderCommandSink` is
   the higher-level draw seam; live rectangle fills and numeric surface copies
-  cross it and execute through the same mapped-surface implementation available
-  to headless hosts. Copy commands cover clipped opaque and RGB-colour-key
-  operations, including defined same-surface overlap. Legacy packed colours and
-  RGB565 transparency tokens are decoded only in the compatibility gateway.
-  Mapping is serialized with renderer lifetime and storage remains
-  adapter-owned. Raw SGP/SDL presentation, invalidation, and surface-mapping
-  entry points are private to the platform adapters, while ownership of legacy
-  draw entry points is protected by the architecture check.
+  cross it alongside numeric surface stretching and rectangular shading, then
+  execute through the same compiled mapped-surface implementation available to
+  headless hosts. Copy and nearest-neighbour stretch commands cover clipped
+  opaque and RGB-colour-key operations, including defined same-surface overlap;
+  shade commands preserve alpha and carry their factor explicitly. Legacy
+  packed colours, mutable shade percentages, and RGB565 transparency tokens are
+  decoded only in the compatibility gateway. Legacy image tiling is now a
+  bounded, clipped compatibility operation instead of a stub. Mapping is
+  serialized with renderer lifetime and storage remains adapter-owned. Raw
+  SGP/SDL presentation, invalidation, and surface-mapping entry points are
+  private to the platform adapters, while ownership of legacy draw entry points
+  is protected by the architecture check.
   Its bounded XML document adapter now owns the common Expat lifetime and
   all-or-nothing asset read path used by the conventional tactical definition
   loaders, campaign/bootstrap definitions, startup layout, editor action data,

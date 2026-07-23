@@ -314,6 +314,27 @@ foreach(source_file IN LISTS world_state_files)
     message(FATAL_ERROR
       "Production code implements the legacy numeric surface-copy entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
   endif()
+  string(REGEX MATCH
+    "BOOLEAN[ \t\r\n]+BltStretchVideoSurface[ \t\r\n]*\\("
+    direct_surface_stretch_implementation "${contents}")
+  if(direct_surface_stretch_implementation)
+    message(FATAL_ERROR
+      "Production code implements the legacy numeric surface-stretch entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
+  endif()
+  string(REGEX MATCH
+    "BOOLEAN[ \t\r\n]+ShadowVideoSurfaceRect[ \t\r\n]*\\("
+    direct_surface_shade_implementation "${contents}")
+  if(direct_surface_shade_implementation)
+    message(FATAL_ERROR
+      "Production code implements the legacy surface-shade entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
+  endif()
+  string(REGEX MATCH
+    "BOOLEAN[ \t\r\n]+ShadowVideoSurfaceRectUsingLowPercentTable[ \t\r\n]*\\("
+    direct_surface_low_shade_implementation "${contents}")
+  if(direct_surface_low_shade_implementation)
+    message(FATAL_ERROR
+      "Production code implements the legacy low-intensity surface-shade entry point in ${source_file}; keep it in LegacyRenderCommandGateway")
+  endif()
 
   list(FIND platform_video_backend_owners
     "${source_file}" platform_video_backend_owner_index)
