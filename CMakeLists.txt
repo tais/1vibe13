@@ -316,7 +316,10 @@ if(WIN32)
   )
 endif()
 
-# static libraries whose translation units rely on Application preprocessor definitions.
+# Legacy static-library source manifests. Three high-fanout libraries now
+# explicitly partition campaign-neutral translation units from sources that
+# consume Application preprocessor definitions; the remaining libraries are
+# still compiled wholly per application.
 set(Ja2_Libs
   Editor
   Ja2
@@ -349,6 +352,39 @@ ValidateOptions("${ValidApplications}" "Applications" "${Applications}" "Applica
 # preprocessor definitions for Debug build, per the legacy MSBuild
 set(debugFlags $<IF:$<CONFIG:Debug>,JA2BETAVERSION;JA2TESTVERSION;DEBUG_ATTACKBUSY,>)
 
+# SGP, Utils, and Laptop contained 128 translation units whose Release and
+# Debug/ASan objects were proven identical across JA2, UB, Map Editor, and UB
+# Map Editor. Compile those once per build configuration, then place the same
+# objects into each application's existing archive. The archive names and final
+# link topology stay unchanged, so this is compatible with every executable,
+# headless test, and downstream build that consumes the legacy targets.
+include(cmake/CampaignNeutralLibraries.cmake)
+set(CampaignNeutralLibs sgp Utils Laptop)
+foreach(lib IN LISTS CampaignNeutralLibs)
+  ja2_validate_campaign_source_partition(${lib})
+
+  string(TOLOWER "${lib}" lib_lower)
+  set(common_target "ja2_campaign_neutral_${lib_lower}")
+  add_library(${common_target} OBJECT ${${lib}CommonSrc})
+  target_compile_definitions(${common_target} PRIVATE ${debugFlags})
+  target_link_libraries(${common_target} PRIVATE JA2::RuntimeAdapter)
+  set_target_properties(${common_target} PROPERTIES
+    FOLDER "Campaign-neutral legacy objects")
+endforeach()
+
+# Preserve the compile usage requirements formerly inherited by every
+# application-specific copy of these sources.
+target_compile_definitions(ja2_campaign_neutral_sgp PRIVATE
+  NO_ZLIB_COMPRESSION)
+target_link_libraries(ja2_campaign_neutral_sgp PRIVATE
+  libpng
+  SDL3::SDL3
+  SDL3_mixer::SDL3_mixer
+  libsmacker)
+target_link_libraries(ja2_campaign_neutral_utils PRIVATE
+  SDL3::SDL3
+  libsmacker)
+
 foreach(app IN LISTS ApplicationTargets)
   set(isEditor $<STREQUAL:${app},JA2MAPEDITOR>)
   set(isUb $<STREQUAL:${app},JA2UB>)
@@ -370,7 +406,14 @@ foreach(app IN LISTS ApplicationTargets)
     # to make these default to SHARED -- explicit STATIC keeps the
     # final executable a clean single-archive link.
     add_library(${game_library} STATIC)
-    target_sources(${game_library} PRIVATE ${${lib}Src})
+    if("${lib}" IN_LIST CampaignNeutralLibs)
+      string(TOLOWER "${lib}" lib_lower)
+      target_sources(${game_library} PRIVATE
+        ${${lib}VariantSrc}
+        $<TARGET_OBJECTS:ja2_campaign_neutral_${lib_lower}>)
+    else()
+      target_sources(${game_library} PRIVATE ${${lib}Src})
+    endif()
     if(${lib} STREQUAL "sgp")
       target_sources(${game_library} PRIVATE
         $<TARGET_OBJECTS:ja2_engine_legacy_adapters>)
