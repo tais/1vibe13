@@ -116,8 +116,15 @@ the engine must not contain SDL types in its public domain model.
   `FramePresenter` gateway, preserving paced versus immediate behavior while
   allowing headless hosts to capture forced legacy presentations. Nested
   gateway calls are suppressed and presenter exceptions cannot unwind through
-  old UI code. Raw SDL presentation entry points are private to the platform
-  adapter and protected by the architecture check.
+  old UI code. Legacy dirty rectangles likewise enter `FrameInvalidator`,
+  preserving clipping, union, full-redraw, and change-marker behavior while
+  making damage captureable without a renderer. `RenderSurfaceAccess` is the
+  lower pixel-storage seam: surface roles, descriptions, and mapped bytes are
+  engine values, while the established numeric SGP handles and every existing
+  blitter remain compatibility adapters. Mapping is serialized with renderer
+  lifetime and storage remains adapter-owned. Raw SGP/SDL presentation,
+  invalidation, and surface-mapping entry points are private to the platform
+  adapters and protected by the architecture check.
   Its bounded XML document adapter now owns the common Expat lifetime and
   all-or-nothing asset read path used by the conventional tactical definition
   loaders, campaign/bootstrap definitions, startup layout, editor action data,

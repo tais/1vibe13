@@ -15,6 +15,8 @@
 #include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
 #include <Engine/Adapters/Legacy/PlatformFrameInvalidator.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
+#include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
+#include <Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include "random.h"
 
@@ -37,7 +39,8 @@ GameContext& GetGameContext()
 		               GetPlatformByteStorage(), GetPlatformLogSink(),
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
 		               GetPlatformFramePresenter(), GetPlatformAssetSource(),
-		               GetPlatformFrameInvalidator()},
+		               GetPlatformFrameInvalidator(),
+		               GetPlatformRenderSurfaceAccess()},
 		packageEvents);
 	static const bool legacyFrameGatewayBound = [&] {
 		BindLegacyFramePresenter(context.services().frames);
@@ -49,6 +52,11 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)legacyFrameInvalidatorBound;
+	static const bool legacyRenderSurfaceAccessBound = [&] {
+		BindLegacyRenderSurfaceAccess(context.services().renderSurfaces);
+		return true;
+	}();
+	(void)legacyRenderSurfaceAccessBound;
 	static const bool tacticalCommandHostBound = BindJa2TacticalCommandHost(context);
 	(void)tacticalCommandHostBound;
 	static const bool tacticalEntityDirectoryBound = [&] {

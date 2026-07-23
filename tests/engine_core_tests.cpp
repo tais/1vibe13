@@ -1859,11 +1859,54 @@ int main()
 	MemoryInputSource frameInput;
 	RecordingFramePresenter framePresenter;
 	RecordingFrameInvalidator frameInvalidation;
+	MemoryRenderSurfaceAccess renderSurfaces(1024);
+	const RenderSurfaceDescription testSurfaceDescription{
+		4, 3, RenderPixelFormat::Argb8888, 16};
+	check(renderSurfaces.defineSurface(41, testSurfaceDescription) &&
+		renderSurfaces.setSurfaceFor(RenderSurfaceRole::FrameBuffer, 41) &&
+		renderSurfaces.surfaceFor(RenderSurfaceRole::FrameBuffer) == 41 &&
+		!renderSurfaces.setSurfaceFor(RenderSurfaceRole::Cursor, 99),
+		"memory render surfaces define only valid target identities");
+	MutableRenderSurface mappedSurface;
+	RenderSurfaceDescription describedSurface;
+	check(renderSurfaces.describe(41, describedSurface) &&
+		describedSurface == testSurfaceDescription &&
+		renderSurfaces.map(41, mappedSurface) &&
+		mappedSurface.pitchBytes == 16 && mappedSurface.sizeBytes == 48 &&
+		renderSurfaces.mappingCount(41) == 1 &&
+		!renderSurfaces.removeSurface(41) &&
+		!renderSurfaces.defineSurface(41, testSurfaceDescription),
+		"memory render surface mappings retain bounded storage and block replacement");
+	mappedSurface.pixels[0] = std::byte{0x2a};
+	renderSurfaces.unmap(41);
+	check(renderSurfaces.mappingCount(41) == 0 &&
+		renderSurfaces.removeSurface(41) &&
+		renderSurfaces.surfaceFor(RenderSurfaceRole::FrameBuffer) == 0 &&
+		!renderSurfaces.describe(41, describedSurface),
+		"memory render surfaces release storage and assigned targets");
+	check(renderSurfaces.defineSurface(
+			42, RenderSurfaceDescription{
+				8, 8, RenderPixelFormat::Argb8888, 32}) &&
+		renderSurfaces.defineSurface(
+			43, RenderSurfaceDescription{
+				16, 12, RenderPixelFormat::Argb8888, 32}) &&
+		renderSurfaces.size() == 2 &&
+		renderSurfaces.totalBytes() == 1024 &&
+		renderSurfaces.maximumBytes() == 1024 &&
+		!renderSurfaces.defineSurface(
+			44, RenderSurfaceDescription{
+				1, 1, RenderPixelFormat::Argb8888, 32}) &&
+		renderSurfaces.removeSurface(42) &&
+		renderSurfaces.defineSurface(
+			44, RenderSurfaceDescription{
+				1, 1, RenderPixelFormat::Argb8888, 32}) &&
+		renderSurfaces.totalBytes() == 772,
+		"memory render surfaces enforce one aggregate byte ceiling");
 	EngineServices frameServices{
 		frameTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
 		NullLogSink::instance(), frameInput,
 		NullAudioOutput::instance(), framePresenter, NullAssetSource::instance(),
-		frameInvalidation};
+		frameInvalidation, renderSurfaces};
 	frameServices.frameInvalidation.invalidateRegion(FrameRegion{-2, 3, 8, 13});
 	frameServices.frameInvalidation.invalidateAll();
 	frameServices.frameInvalidation.markChanged();
@@ -1872,6 +1915,8 @@ int main()
 		frameInvalidation.fullInvalidations() == 1 &&
 		frameInvalidation.changeMarks() == 1,
 		"engine services expose deterministic headless frame invalidation");
+	check(&frameServices.renderSurfaces == &renderSurfaces,
+		"engine services expose replaceable headless render surfaces");
 	frameInvalidation.clear();
 	InputDispatcher inputDispatcher(frameInput, 1);
 	TestInputSink receivingInput;

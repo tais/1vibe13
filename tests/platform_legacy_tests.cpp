@@ -19,9 +19,11 @@
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/LegacyFrameInvalidationGateway.h>
 #include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
+#include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
 #include <Engine/Adapters/Legacy/PlatformFrameInvalidator.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
+#include <Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
@@ -446,6 +448,100 @@ public:
 		throw std::runtime_error("frame invalidator probe");
 	}
 };
+
+class ReentrantRenderSurfaceAccess final : public RenderSurfaceAccess
+{
+public:
+	RenderSurfaceId surfaceFor(RenderSurfaceRole) const override
+	{
+		return 77;
+	}
+
+	bool describe(
+		RenderSurfaceId surface,
+		RenderSurfaceDescription& description) const override
+	{
+		++descriptions;
+		RenderSurfaceDescription nested;
+		nestedDescribeAccepted =
+			DescribeLegacyRenderSurface(surface, nested);
+		description =
+			RenderSurfaceDescription{
+				2, 2, RenderPixelFormat::Argb8888, 16};
+		return true;
+	}
+
+	bool map(
+		RenderSurfaceId surface, MutableRenderSurface& mapping) override
+	{
+		++maps;
+		MutableRenderSurface nested;
+		nestedMapAccepted = MapLegacyRenderSurface(surface, nested);
+		mapping = MutableRenderSurface{
+			pixels, sizeof(pixels), 8,
+			RenderSurfaceDescription{
+				2, 2, RenderPixelFormat::Argb8888, 16}};
+		return true;
+	}
+
+	void unmap(RenderSurfaceId surface) override
+	{
+		++unmaps;
+		nestedUnmapAccepted = UnmapLegacyRenderSurface(surface);
+	}
+
+	mutable int descriptions = 0;
+	mutable bool nestedDescribeAccepted = true;
+	int maps = 0;
+	int unmaps = 0;
+	bool nestedMapAccepted = true;
+	bool nestedUnmapAccepted = true;
+	std::byte pixels[16]{};
+};
+
+class ThrowingRenderSurfaceAccess final : public RenderSurfaceAccess
+{
+public:
+	RenderSurfaceId surfaceFor(RenderSurfaceRole) const override
+	{
+		throw std::runtime_error("surface target probe");
+	}
+	bool describe(
+		RenderSurfaceId, RenderSurfaceDescription&) const override
+	{
+		throw std::runtime_error("surface description probe");
+	}
+	bool map(RenderSurfaceId, MutableRenderSurface&) override
+	{
+		throw std::runtime_error("surface map probe");
+	}
+	void unmap(RenderSurfaceId) override
+	{
+		throw std::runtime_error("surface unmap probe");
+	}
+};
+
+class InvalidRenderSurfaceAccess final : public RenderSurfaceAccess
+{
+public:
+	RenderSurfaceId surfaceFor(RenderSurfaceRole) const override { return 91; }
+	bool describe(
+		RenderSurfaceId, RenderSurfaceDescription& description) const override
+	{
+		description =
+			RenderSurfaceDescription{
+				2, 2, RenderPixelFormat::Argb8888, 16};
+		return true;
+	}
+	bool map(RenderSurfaceId, MutableRenderSurface& mapping) override
+	{
+		mapping = MutableRenderSurface{};
+		return true;
+	}
+	void unmap(RenderSurfaceId) override { ++unmaps; }
+
+	int unmaps = 0;
+};
 }
 
 int main()
@@ -520,6 +616,64 @@ int main()
 	Check(&GetLegacyFrameInvalidator() == &GetPlatformFrameInvalidator(),
 		"legacy invalidation gateway resets to the SDL platform invalidator");
 	guiFrameBufferState = BUFFER_READY;
+
+	MemoryRenderSurfaceAccess memorySurfaces(1024);
+	const RenderSurfaceDescription memoryDescription{
+		3, 2, RenderPixelFormat::Argb8888, 16};
+	Check(memorySurfaces.defineSurface(71, memoryDescription) &&
+		memorySurfaces.setSurfaceFor(RenderSurfaceRole::FrameBuffer, 71),
+		"headless render surface fixture initializes");
+	BindLegacyRenderSurfaceAccess(memorySurfaces);
+	UINT16 memoryWidth = 0;
+	UINT16 memoryHeight = 0;
+	UINT8 memoryBitDepth = 0;
+	UINT32 memoryPitch = 0;
+	BYTE* const memoryPixels = LockVideoSurface(71, &memoryPitch);
+	Check(GetVideoSurfaceDescription(
+			71, &memoryWidth, &memoryHeight, &memoryBitDepth) &&
+		memoryWidth == 3 && memoryHeight == 2 && memoryBitDepth == 16 &&
+		memoryPixels != nullptr && memoryPitch == 12 &&
+		memorySurfaces.mappingCount(71) == 1 &&
+		GetLegacyRenderSurfaceAccess().surfaceFor(
+			RenderSurfaceRole::FrameBuffer) == 71,
+		"legacy surface lookup and mapping use the bound engine service");
+	UnLockVideoSurface(71);
+	Check(memorySurfaces.mappingCount(71) == 0 &&
+		LockVideoSurface(71, nullptr) == nullptr &&
+		memorySurfaces.mappingCount(71) == 0,
+		"legacy surface unmapping balances successful maps and rejects a null pitch");
+
+	ReentrantRenderSurfaceAccess reentrantSurfaces;
+	BindLegacyRenderSurfaceAccess(reentrantSurfaces);
+	RenderSurfaceDescription reentrantDescription;
+	MutableRenderSurface reentrantMapping;
+	Check(DescribeLegacyRenderSurface(77, reentrantDescription) &&
+		MapLegacyRenderSurface(77, reentrantMapping) &&
+		UnmapLegacyRenderSurface(77) &&
+		reentrantSurfaces.descriptions == 1 &&
+		reentrantSurfaces.maps == 1 && reentrantSurfaces.unmaps == 1 &&
+		!reentrantSurfaces.nestedDescribeAccepted &&
+		!reentrantSurfaces.nestedMapAccepted &&
+		!reentrantSurfaces.nestedUnmapAccepted,
+		"legacy render surface gateway suppresses recursive access");
+
+	InvalidRenderSurfaceAccess invalidSurfaces;
+	BindLegacyRenderSurfaceAccess(invalidSurfaces);
+	MutableRenderSurface invalidMapping;
+	Check(!MapLegacyRenderSurface(91, invalidMapping) &&
+		invalidSurfaces.unmaps == 1,
+		"legacy render surface gateway balances an invalid successful map");
+
+	ThrowingRenderSurfaceAccess throwingSurfaces;
+	BindLegacyRenderSurfaceAccess(throwingSurfaces);
+	Check(!DescribeLegacyRenderSurface(81, reentrantDescription) &&
+		!MapLegacyRenderSurface(81, reentrantMapping) &&
+		!UnmapLegacyRenderSurface(81),
+		"legacy render surface gateway contains adapter exceptions");
+	ResetLegacyRenderSurfaceAccess();
+	Check(&GetLegacyRenderSurfaceAccess() ==
+			&GetPlatformRenderSurfaceAccess(),
+		"legacy render surface gateway resets to the SGP platform adapter");
 
 	const std::filesystem::path root = std::filesystem::temp_directory_path() /
 		("ja2-platform-legacy-" + std::to_string(
@@ -1368,6 +1522,18 @@ int main()
 		HVSURFACE primary = nullptr;
 		Check(GetVideoSurface(&primary, PRIMARY_SURFACE) && primary != nullptr,
 			"primary surface wrapper is registered after initialization");
+		RenderSurfaceDescription platformFrameDescription;
+		Check(GetPlatformRenderSurfaceAccess().surfaceFor(
+				RenderSurfaceRole::FrameBuffer) == FRAME_BUFFER &&
+			GetPlatformRenderSurfaceAccess().describe(
+				FRAME_BUFFER, platformFrameDescription) &&
+			platformFrameDescription.width == SCREEN_WIDTH &&
+			platformFrameDescription.height == SCREEN_HEIGHT &&
+			platformFrameDescription.contentBitDepth == 16 &&
+			platformFrameDescription.format ==
+				(sizeof(PIXEL) == 4 ? RenderPixelFormat::Argb8888 :
+					RenderPixelFormat::Rgb565),
+			"platform render surface adapter exposes the live framebuffer");
 		UINT32 framePitch = 0;
 		BYTE* firstFrameLock = LockVideoSurface(FRAME_BUFFER, &framePitch);
 		BYTE* secondFrameLock = LockVideoSurface(FRAME_BUFFER, &framePitch);

@@ -302,6 +302,23 @@ presenter while exercising legacy loading and UI flows; recursive gateway calls
 are suppressed and presenter exceptions are contained. Raw SDL submission
 remains private to the platform adapter.
 
+Framebuffer damage is separate from presentation. Bind
+`EngineServices::frameInvalidation` to capture half-open dirty regions, complete
+redraws, and semantic change markers without creating a window. The compiled
+host routes the legacy `Invalidate*` entry points through this service while
+retaining their clipping and buffer-state behavior.
+
+`EngineServices::renderSurfaces` provides the low-level pixel-storage boundary.
+It resolves standard surface roles, describes dimensions, storage format, and
+logical content depth, and maps adapter-owned mutable bytes until the matching
+`unmap`. Hosts must serialize mapping, renderer lifetime, and surface
+registration on their render thread. `MemoryRenderSurfaceAccess` supplies
+bounded deterministic surfaces for headless tools and tests. Existing SGP
+numeric handles remain accepted by the compatibility gateway, but new package
+code should treat `RenderSurfaceId` values as opaque and obtain standard targets
+through `surfaceFor`. This is a storage/access contract; higher-level portable
+draw commands will layer above it rather than exposing SDL objects.
+
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each
 requirement against host and active-package capabilities before the first

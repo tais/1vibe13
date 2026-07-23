@@ -9,6 +9,7 @@
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/EngineHostOptions.h>
 #include <Engine/Core/EngineServiceContracts.h>
+#include <Engine/Core/RenderSurfaceAccess.h>
 #include <Engine/Core/ServiceCatalog.h>
 
 #include <cstddef>
@@ -177,6 +178,19 @@ int main()
 		legacyBraceRuntime.serviceCatalog().size() != 14) return 42;
 
 	MemoryByteStorage storage;
+	MemoryRenderSurfaceAccess renderSurfaces(1024);
+	if (!renderSurfaces.defineSurface(
+			1, RenderSurfaceDescription{
+				4, 4, RenderPixelFormat::Argb8888, 32}) ||
+		!renderSurfaces.setSurfaceFor(RenderSurfaceRole::FrameBuffer, 1))
+		return 48;
+	MutableRenderSurface externalSurface;
+	if (!renderSurfaces.map(1, externalSurface) ||
+		externalSurface.pitchBytes != 16 || externalSurface.sizeBytes != 64)
+		return 48;
+	externalSurface.pixels[0] = std::byte{0x2a};
+	renderSurfaces.unmap(1);
+	if (renderSurfaces.mappingCount(1) != 0) return 48;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
 	EngineHostOptions hostOptions;

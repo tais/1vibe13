@@ -62,8 +62,10 @@
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/LegacyFrameInvalidationGateway.h>
 #include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
+#include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
 #include <Engine/Adapters/Legacy/PlatformFrameInvalidator.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
+#include <Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.h>
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
 #include <Engine/Adapters/Legacy/PlatformAudio.h>
@@ -2702,6 +2704,10 @@ int main( int, char** )
 		           &GetPlatformFrameInvalidator() &&
 		       &compiledContext.services().frameInvalidation ==
 		           &GetLegacyFrameInvalidator() &&
+		       &compiledContext.services().renderSurfaces ==
+		           &GetPlatformRenderSurfaceAccess() &&
+		       &compiledContext.services().renderSurfaces ==
+		           &GetLegacyRenderSurfaceAccess() &&
 		       &compiledContext.services().assets == &compiledContext.packages().assets() &&
 		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
@@ -4264,9 +4270,11 @@ int main( int, char** )
 		MemoryInputSource packageInput;
 		RecordingAudioOutput packageAudio;
 		RecordingFramePresenter packageFrames;
+		MemoryRenderSurfaceAccess packageSurfaces;
 		MemoryAssetSource packageAssets( "rules.test" );
 		EngineServices services{packageTime, packageRandom, packageStorage, logSink, packageInput,
-		                        packageAudio, packageFrames, packageAssets};
+		                        packageAudio, packageFrames, packageAssets,
+		                        NullFrameInvalidator::instance(), packageSurfaces};
 		packageInput.push( EngineInputEvent{ 17, 2, 1, 65, 0 } );
 		EngineInputEvent injectedInput;
 		CHECK( services.input.poll( injectedInput ) && injectedInput.timestamp == 17 &&
@@ -4312,7 +4320,9 @@ int main( int, char** )
 		CHECK( packages.bootstrap( PackageBootstrapPhase::Configure ) == PackageBootstrapError::None &&
 		       packages.completedBootstrapPhases() == 1 && first.observedContentApi.major == 1 &&
 		       first.observedTime == 42000 && first.observedRandom == 73 &&
-		       first.observedAssetProvenance == "rules.test",
+		       first.observedAssetProvenance == "rules.test" &&
+		       first.observedServices &&
+		       &first.observedServices->renderSurfaces == &packageSurfaces,
 		       "package bootstrap advances through ordered phases" );
 		CHECK( packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
 		       PackageBootstrapError::OutOfOrder,
