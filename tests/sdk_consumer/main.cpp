@@ -297,8 +297,9 @@ int main()
 	const RenderImageDepthDrawCommand externalDepthImageCommand{
 		1, 3, 46, 5, RenderSurfacePoint{-1, 2},
 		RenderSurfaceRegion{0, 0, 4, 4}, 0x2222,
-		RenderDepthCompareMode::GreaterOrEqual,
-		RenderDepthWriteMode::ReplaceOnPass};
+		RenderDepthCompareMode::Greater,
+		RenderDepthWriteMode::ReplaceOnPass,
+		RenderImageDepthEffect::ShadeDestination};
 	if (!recordedImageCommands.drawImageDepth(
 			externalDepthImageCommand) ||
 		recordedImageCommands.imageDepthCommands() !=

@@ -302,13 +302,28 @@ bool SubmitVideoObjectDepthDraw(
 	INT32 destinationY,
 	UINT16 depth,
 	BOOLEAN writeDepth,
+	RenderImageDepthEffect effect,
 	const SGPRect* clipping)
 {
 	if (!object || object->ubBitDepth != 8 ||
 		frame >= object->usNumberOfObjects ||
 		!object->pETRLEObject || !object->pPixData ||
-		!object->pShadeCurrent)
+		(effect == RenderImageDepthEffect::SourcePalette &&
+			!object->pShadeCurrent))
 		return false;
+	RenderDepthCompareMode comparison;
+	switch (effect)
+	{
+	case RenderImageDepthEffect::SourcePalette:
+		comparison = RenderDepthCompareMode::GreaterOrEqual;
+		break;
+	case RenderImageDepthEffect::ShadeDestination:
+	case RenderImageDepthEffect::IntensifyDestination:
+		comparison = RenderDepthCompareMode::Greater;
+		break;
+	default:
+		return false;
+	}
 	RenderImageId image = 0;
 	if (!FindRenderImage(object, image)) return false;
 	const RenderSurfaceId depthSurface =
@@ -332,10 +347,11 @@ bool SubmitVideoObjectDepthDraw(
 			clipping->iLeft, clipping->iTop,
 			clipping->iRight, clipping->iBottom},
 		depth,
-		RenderDepthCompareMode::GreaterOrEqual,
+		comparison,
 		writeDepth != FALSE ?
 			RenderDepthWriteMode::ReplaceOnPass :
-			RenderDepthWriteMode::Preserve});
+			RenderDepthWriteMode::Preserve,
+		effect});
 }
 
 bool SubmitVideoObjectOutline(
@@ -729,9 +745,23 @@ bool PlatformVideoObjectDepthDraw(
 		command.image == 0 ||
 		command.destination > std::numeric_limits<UINT32>::max() ||
 		command.depthSurface > std::numeric_limits<UINT32>::max() ||
-		command.frame > std::numeric_limits<UINT16>::max() ||
-		command.comparison != RenderDepthCompareMode::GreaterOrEqual)
+		command.frame > std::numeric_limits<UINT16>::max())
 		return false;
+	switch (command.effect)
+	{
+	case RenderImageDepthEffect::SourcePalette:
+		if (command.comparison !=
+			RenderDepthCompareMode::GreaterOrEqual)
+			return false;
+		break;
+	case RenderImageDepthEffect::ShadeDestination:
+	case RenderImageDepthEffect::IntensifyDestination:
+		if (command.comparison != RenderDepthCompareMode::Greater)
+			return false;
+		break;
+	default:
+		return false;
+	}
 	switch (command.depthWrite)
 	{
 	case RenderDepthWriteMode::Preserve:
@@ -745,7 +775,8 @@ bool PlatformVideoObjectDepthDraw(
 	if (!source || source->ubBitDepth != 8 ||
 		command.frame >= source->usNumberOfObjects ||
 		!source->pETRLEObject || !source->pPixData ||
-		!source->pShadeCurrent)
+		(command.effect == RenderImageDepthEffect::SourcePalette &&
+			!source->pShadeCurrent))
 		return false;
 	const UINT16 frame = static_cast<UINT16>(command.frame);
 	const ETRLEObject& image = source->pETRLEObject[frame];
@@ -822,17 +853,43 @@ bool PlatformVideoObjectDepthDraw(
 		reinterpret_cast<UINT16*>(depthMapping.pixels);
 	const UINT32 pitch =
 		static_cast<UINT32>(destinationMapping.pitchBytes);
-	if (command.depthWrite == RenderDepthWriteMode::ReplaceOnPass)
+	const bool replaceDepth =
+		command.depthWrite == RenderDepthWriteMode::ReplaceOnPass;
+	switch (command.effect)
 	{
-		return Blt8BPPDataTo16BPPBufferTransZClip(
-			destinationPixels, pitch, depthPixels, command.depth,
-			source, command.destinationOrigin.x,
-			command.destinationOrigin.y, frame, &clipping) != FALSE;
+	case RenderImageDepthEffect::SourcePalette:
+		return replaceDepth ?
+			Blt8BPPDataTo16BPPBufferTransZClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE :
+			Blt8BPPDataTo16BPPBufferTransZNBClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE;
+	case RenderImageDepthEffect::ShadeDestination:
+		return replaceDepth ?
+			Blt8BPPDataTo16BPPBufferShadowZClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE :
+			Blt8BPPDataTo16BPPBufferShadowZNBClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE;
+	case RenderImageDepthEffect::IntensifyDestination:
+		return replaceDepth ?
+			Blt8BPPDataTo16BPPBufferIntensityZClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE :
+			Blt8BPPDataTo16BPPBufferIntensityZNBClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE;
+	default:
+		return false;
 	}
-	return Blt8BPPDataTo16BPPBufferTransZNBClip(
-		destinationPixels, pitch, depthPixels, command.depth,
-		source, command.destinationOrigin.x,
-		command.destinationOrigin.y, frame, &clipping) != FALSE;
 }
 
 bool PlatformVideoObjectOutline(
@@ -977,8 +1034,38 @@ BOOLEAN BltVideoObjectDepthToSurface(
 {
 	return SubmitVideoObjectDepthDraw(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
-		iDestX, iDestY, usDepth, fWriteDepth, pClipRegion) ?
+		iDestX, iDestY, usDepth, fWriteDepth,
+		RenderImageDepthEffect::SourcePalette, pClipRegion) ?
 		TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectDepthMaskToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	VideoObjectDepthMaskEffect effect,
+	const SGPRect* pClipRegion)
+{
+	RenderImageDepthEffect commandEffect;
+	switch (effect)
+	{
+	case VOBJECT_DEPTH_MASK_SHADOW:
+		commandEffect = RenderImageDepthEffect::ShadeDestination;
+		break;
+	case VOBJECT_DEPTH_MASK_INTENSITY:
+		commandEffect = RenderImageDepthEffect::IntensifyDestination;
+		break;
+	default:
+		return FALSE;
+	}
+	return SubmitVideoObjectDepthDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, usDepth, fWriteDepth,
+		commandEffect, pClipRegion) ? TRUE : FALSE;
 }
 // *******************************************************************************
 // Video Object Manipulation Functions

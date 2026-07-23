@@ -829,8 +829,9 @@ int main()
 	const RenderImageDepthDrawCommand expectedDepthImageCommand{
 		71, 73, 90, 5, RenderSurfacePoint{-6, 7},
 		RenderSurfaceRegion{1, 2, 30, 40}, 0x4567,
-		RenderDepthCompareMode::GreaterOrEqual,
-		RenderDepthWriteMode::Preserve};
+		RenderDepthCompareMode::Greater,
+		RenderDepthWriteMode::Preserve,
+		RenderImageDepthEffect::ShadeDestination};
 	const RenderImageOutlineCommand expectedImageOutlineCommand{
 		71, 89, 4, RenderSurfacePoint{6, -2},
 		RenderSurfaceRegion{1, 2, 30, 40},
@@ -2177,6 +2178,40 @@ int main()
 				RenderDepthWriteMode::ReplaceOnPass,
 			"pointer-owned tactical images receive stable opaque depth-command identities");
 
+		RecordingRenderCommandSink recordedDepthMask;
+		BindLegacyRenderCommands(recordedDepthMask);
+		const bool pointerDepthMaskRouted = liveImageCreated &&
+			BltVideoObjectDepthMaskToSurface(
+				copyDestinationID, liveImage, 0, 2, 1, 0x2345,
+				FALSE, VOBJECT_DEPTH_MASK_INTENSITY,
+				&imageSurfaceClip);
+		const bool invalidDepthMaskRejected =
+			!BltVideoObjectDepthMaskToSurface(
+				copyDestinationID, liveImage, 0, 2, 1, 0x2345,
+				FALSE, static_cast<VideoObjectDepthMaskEffect>(255),
+				&imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		RenderImageDepthDrawCommand routedDepthMaskCommand;
+		if (recordedDepthMask.imageDepthCommands().size() == 1)
+			routedDepthMaskCommand =
+				recordedDepthMask.imageDepthCommands().front();
+		Check(pointerDepthMaskRouted && invalidDepthMaskRejected &&
+			recordedDepthMask.imageDepthCommands().size() == 1 &&
+			routedDepthMaskCommand.destination == copyDestinationID &&
+			routedDepthMaskCommand.depthSurface == DEPTH_BUFFER &&
+			routedDepthMaskCommand.image >
+				std::numeric_limits<UINT32>::max() &&
+			routedDepthMaskCommand.destinationOrigin ==
+				RenderSurfacePoint{2, 1} &&
+			routedDepthMaskCommand.depth == 0x2345 &&
+			routedDepthMaskCommand.comparison ==
+				RenderDepthCompareMode::Greater &&
+			routedDepthMaskCommand.depthWrite ==
+				RenderDepthWriteMode::Preserve &&
+			routedDepthMaskCommand.effect ==
+				RenderImageDepthEffect::IntensifyDestination,
+			"tactical destination masks expose strict depth and explicit effects");
+
 		const PIXEL depthBackground =
 			Get16BPPColor(FROMRGB(0, 0, 255));
 		copyDestinationPixels = copySurfacesCreated ?
@@ -2253,6 +2288,31 @@ int main()
 					RenderSurfaceRegion{0, 0, 5, 1}, 10,
 					RenderDepthCompareMode::GreaterOrEqual,
 					static_cast<RenderDepthWriteMode>(255)}));
+		const bool invalidDepthEffectsRejected = !liveImageCreated ||
+			(!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::SourcePalette}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::ShadeDestination}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					static_cast<RenderImageDepthEffect>(255)}));
 		bool depthImagePixelsMatch =
 			copyDestinationPixels && imageDepthBuffer &&
 			SurfaceData::GetSurfaceID(
@@ -2272,6 +2332,94 @@ int main()
 				imageDepthBuffer[2] == 10 &&
 				imageDepthBuffer[3] == 4;
 		}
+
+		const PIXEL depthMaskInput =
+			Get16BPPColor(FROMRGB(200, 120, 80));
+		if (copyDestinationPixels && imageDepthBuffer)
+		{
+			PIXEL* const colorRow = copyDestinationPixels;
+			for (std::size_t x = 0; x < 5; ++x)
+			{
+				colorRow[x] = depthMaskInput;
+				imageDepthBuffer[x] = x == 0 ? 10 : 4;
+			}
+		}
+		const bool equalShadowMaskAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{0, 0},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::ShadeDestination});
+		const bool preservedShadowMaskAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{1, 0},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::ShadeDestination});
+		const bool replacedShadowMaskAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{2, 0},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::ShadeDestination});
+		const bool preservedIntensityMaskAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{3, 0},
+					RenderSurfaceRegion{0, 0, 4, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::IntensifyDestination});
+		const bool clippedIntensityMaskAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{4, 0},
+					RenderSurfaceRegion{0, 0, 4, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::IntensifyDestination});
+		const bool clippedIntensityMaskUnchanged =
+			copyDestinationPixels && imageDepthBuffer &&
+			copyDestinationPixels[4] == depthMaskInput &&
+			imageDepthBuffer[4] == 4;
+		const bool replacedIntensityMaskAccepted = liveImageCreated &&
+			imageDepthBuffer &&
+			GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{4, 0},
+					RenderSurfaceRegion{0, 0, 5, 1}, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::IntensifyDestination});
+		const bool depthMaskPixelsMatch =
+			copyDestinationPixels && imageDepthBuffer &&
+			copyDestinationPixels[0] == depthMaskInput &&
+			copyDestinationPixels[1] == PixShade(depthMaskInput) &&
+			copyDestinationPixels[2] == PixShade(depthMaskInput) &&
+			copyDestinationPixels[3] == PixIntensity(depthMaskInput) &&
+			copyDestinationPixels[4] == PixIntensity(depthMaskInput) &&
+			imageDepthBuffer[0] == 10 &&
+			imageDepthBuffer[1] == 4 &&
+			imageDepthBuffer[2] == 10 &&
+			imageDepthBuffer[3] == 4 &&
+			imageDepthBuffer[4] == 10;
 		if (copyDestinationPixels)
 			UnLockVideoSurface(copyDestinationID);
 		const bool imageDepthReleased =
@@ -2279,9 +2427,17 @@ int main()
 		SetClippingRect(&imageSurfaceClip);
 		Check(blockedDepthAccepted && preservedDepthAccepted &&
 			replacedDepthAccepted && clippedDepthAccepted &&
-			invalidDepthModesRejected && depthImagePixelsMatch &&
+			invalidDepthModesRejected && invalidDepthEffectsRejected &&
+			depthImagePixelsMatch &&
 			imageDepthReleased,
 			"depth image commands preserve inclusive tests, optional writes, clipping, and exact ETRLE pixels");
+		Check(equalShadowMaskAccepted &&
+			preservedShadowMaskAccepted && replacedShadowMaskAccepted &&
+			preservedIntensityMaskAccepted &&
+			clippedIntensityMaskAccepted &&
+			clippedIntensityMaskUnchanged &&
+			replacedIntensityMaskAccepted && depthMaskPixelsMatch,
+			"depth mask commands preserve strict tests, clipped no-write behavior, and exact destination effects");
 
 		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
 		UINT8* const encodedImagePixels =
