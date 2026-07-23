@@ -261,6 +261,16 @@ int main()
 		recordedImageCommands.imageCommands() !=
 			std::vector<RenderImageDrawCommand>{externalImageCommand})
 		return 48;
+	const RenderImageOutlineCommand externalOutlineCommand{
+		1, 45, 4, RenderSurfacePoint{3, -1},
+		RenderSurfaceRegion{0, 0, 4, 4},
+		RenderImageOutlineMode::Color,
+		RenderColor{10, 20, 30, 255}, true};
+	if (!recordedImageCommands.drawImageOutline(externalOutlineCommand) ||
+		recordedImageCommands.imageOutlineCommands() !=
+			std::vector<RenderImageOutlineCommand>{
+				externalOutlineCommand})
+		return 48;
 	EngineServices services{
 		ZeroTimeSource::instance(), ZeroRandomSource::instance(), storage};
 	EngineHostOptions hostOptions;

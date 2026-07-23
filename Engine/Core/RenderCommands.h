@@ -225,6 +225,50 @@ inline bool operator!=(
 	return !(left == right);
 }
 
+enum class RenderImageOutlineMode : std::uint8_t
+{
+	Color,
+	Shadow
+};
+
+// Draws the outline-aware form of one image frame. Color mode renders normal
+// image pixels and either paints or skips image-defined outline markers.
+// Shadow mode darkens destination pixels covered by normal image pixels while
+// leaving outline markers untouched. Physical marker values and shade tables
+// remain host-adapter details.
+struct RenderImageOutlineCommand
+{
+	RenderSurfaceId destination = 0;
+	RenderImageId image = 0;
+	std::uint32_t frame = 0;
+	RenderSurfacePoint destinationOrigin;
+	RenderSurfaceRegion clippingRegion;
+	RenderImageOutlineMode mode = RenderImageOutlineMode::Color;
+	RenderColor color;
+	bool drawOutline = false;
+};
+
+inline bool operator==(
+	const RenderImageOutlineCommand& left,
+	const RenderImageOutlineCommand& right)
+{
+	return left.destination == right.destination &&
+		left.image == right.image &&
+		left.frame == right.frame &&
+		left.destinationOrigin == right.destinationOrigin &&
+		left.clippingRegion == right.clippingRegion &&
+		left.mode == right.mode &&
+		left.color == right.color &&
+		left.drawOutline == right.drawOutline;
+}
+
+inline bool operator!=(
+	const RenderImageOutlineCommand& left,
+	const RenderImageOutlineCommand& right)
+{
+	return !(left == right);
+}
+
 // High-level renderer boundary. Commands use engine values and opaque surface
 // and image identities; hosts decide whether to execute, record, forward, or
 // reject them. New command methods default to rejection so existing external
@@ -241,6 +285,10 @@ public:
 	}
 	virtual bool shadeSurface(const RenderSurfaceShadeCommand&) { return false; }
 	virtual bool drawImage(const RenderImageDrawCommand&) { return false; }
+	virtual bool drawImageOutline(const RenderImageOutlineCommand&)
+	{
+		return false;
+	}
 };
 
 class NullRenderCommandSink final : public RenderCommandSink
@@ -254,6 +302,10 @@ public:
 	}
 	bool shadeSurface(const RenderSurfaceShadeCommand&) override { return false; }
 	bool drawImage(const RenderImageDrawCommand&) override { return false; }
+	bool drawImageOutline(const RenderImageOutlineCommand&) override
+	{
+		return false;
+	}
 	static NullRenderCommandSink& instance()
 	{
 		static NullRenderCommandSink commands;
@@ -294,6 +346,12 @@ public:
 		return accepting_;
 	}
 
+	bool drawImageOutline(const RenderImageOutlineCommand& command) override
+	{
+		imageOutlineCommands_.push_back(command);
+		return accepting_;
+	}
+
 	const std::vector<RenderSurfaceFillCommand>& commands() const
 	{
 		return fillCommands_;
@@ -314,6 +372,10 @@ public:
 	{
 		return imageCommands_;
 	}
+	const std::vector<RenderImageOutlineCommand>& imageOutlineCommands() const
+	{
+		return imageOutlineCommands_;
+	}
 	void setAccepting(bool accepting) { accepting_ = accepting; }
 	void clear()
 	{
@@ -322,6 +384,7 @@ public:
 		stretchCommands_.clear();
 		shadeCommands_.clear();
 		imageCommands_.clear();
+		imageOutlineCommands_.clear();
 	}
 
 private:
@@ -330,6 +393,7 @@ private:
 	std::vector<RenderSurfaceStretchCommand> stretchCommands_;
 	std::vector<RenderSurfaceShadeCommand> shadeCommands_;
 	std::vector<RenderImageDrawCommand> imageCommands_;
+	std::vector<RenderImageOutlineCommand> imageOutlineCommands_;
 	bool accepting_ = true;
 };
 

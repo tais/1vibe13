@@ -34,7 +34,7 @@ private:
 	bool acquired_;
 };
 
-RenderColor DecodeLegacyColor(PIXEL color) noexcept
+RenderColor DecodeLegacyColor(std::uint32_t color) noexcept
 {
 	const PIXEL normalized = PixFromColor16(color);
 	if constexpr (sizeof(PIXEL) == sizeof(std::uint32_t))
@@ -78,6 +78,11 @@ bool LegacyShadeFraction(
 		std::lround(clipped * denominator));
 	return true;
 }
+}
+
+RenderColor DecodeLegacyRenderColor(std::uint32_t color) noexcept
+{
+	return DecodeLegacyColor(color);
 }
 
 void BindLegacyRenderCommands(RenderCommandSink& commands) noexcept
@@ -172,6 +177,21 @@ bool DrawLegacyRenderImage(
 	}
 }
 
+bool DrawLegacyRenderImageOutline(
+	const RenderImageOutlineCommand& command) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired()) return false;
+	try
+	{
+		return GetLegacyRenderCommands().drawImageOutline(command);
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
 BOOLEAN ColorFillVideoSurfaceArea(
 	UINT32 surface,
 	INT32 left,
@@ -187,7 +207,7 @@ BOOLEAN ColorFillVideoSurfaceArea(
 	return FillLegacyRenderSurface(RenderSurfaceFillCommand{
 		surface,
 		RenderSurfaceRegion{left, top, right, bottom},
-		DecodeLegacyColor(color)}) ? TRUE : FALSE;
+		DecodeLegacyRenderColor(color)}) ? TRUE : FALSE;
 }
 
 BOOLEAN BltVideoSurface(
@@ -218,7 +238,7 @@ BOOLEAN BltVideoSurface(
 				effects->FillRect.iTop,
 				effects->FillRect.iRight,
 				effects->FillRect.iBottom},
-			DecodeLegacyColor(effects->ColorFill)}) ? TRUE : FALSE;
+			DecodeLegacyRenderColor(effects->ColorFill)}) ? TRUE : FALSE;
 	}
 	if (flags & VS_BLT_COLORFILL)
 	{
@@ -229,7 +249,7 @@ BOOLEAN BltVideoSurface(
 				0, 0,
 				static_cast<std::int32_t>(destinationSurface->usWidth),
 				static_cast<std::int32_t>(destinationSurface->usHeight)},
-			DecodeLegacyColor(effects->ColorFill)}) ? TRUE : FALSE;
+			DecodeLegacyRenderColor(effects->ColorFill)}) ? TRUE : FALSE;
 	}
 
 	RenderSurfaceRegion sourceRegion;
@@ -271,7 +291,7 @@ BOOLEAN BltVideoSurface(
 		// This is deliberately the historical conversion. TransparentColor is
 		// a COLORVAL, but the blitter has always treated its low 16 bits as an
 		// RGB565 token before widening it to the physical pixel format.
-		colorKey = DecodeLegacyColor(static_cast<PIXEL>(
+		colorKey = DecodeLegacyRenderColor(static_cast<PIXEL>(
 			static_cast<UINT16>(sourceSurface->TransparentColor)));
 	}
 
@@ -314,7 +334,7 @@ BOOLEAN BltStretchVideoSurface(
 	if (flags & VS_BLT_USECOLORKEY)
 	{
 		mode = RenderSurfaceCopyMode::SourceColorKeyRgb;
-		colorKey = DecodeLegacyColor(static_cast<PIXEL>(
+		colorKey = DecodeLegacyRenderColor(static_cast<PIXEL>(
 			static_cast<UINT16>(sourceSurface->TransparentColor)));
 	}
 

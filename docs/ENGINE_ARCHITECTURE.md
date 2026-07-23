@@ -123,12 +123,16 @@ the engine must not contain SDL types in its public domain model.
   engine values, while the established numeric SGP handles remain compatibility
   adapters. `RenderCommandSink` is the higher-level draw seam; live rectangle
   fills and numeric surface copies cross it alongside numeric surface
-  stretching, rectangular shading, and managed video-object draws.
+  stretching, rectangular shading, managed video-object draws, and
+  outline-aware image effects.
   `RenderImageDrawCommand` carries only an opaque stable image identity, frame,
   destination, anchor, explicit clipping region, and composite mode. Numeric
   `BltVideoObjectFromIndex` calls and direct `BltVideoObject` calls whose object
   belongs to the stable manager therefore traverse the same bindable service
-  used by packages and headless recorders. The production sink resolves that
+  used by packages and headless recorders. `RenderImageOutlineCommand`
+  separately models colour outlines, transparent outline markers, and
+  body-shadow rendering without leaking ETRLE marker values or packed legacy
+  colours through the engine API. The production sink resolves that
   identity and executes the established ETRLE/palette blitter, so asset formats,
   clipping, shade palettes, and physical pixels remain unchanged.
   Application-owned pointer images that have not yet entered the stable

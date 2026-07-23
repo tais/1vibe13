@@ -9,6 +9,10 @@ void BindLegacyRenderCommands(RenderCommandSink& commands) noexcept;
 void ResetLegacyRenderCommands() noexcept;
 RenderCommandSink& GetLegacyRenderCommands() noexcept;
 
+// Packed SGP colours are normalized at the compatibility edge so command
+// streams remain independent of the host framebuffer's physical format.
+RenderColor DecodeLegacyRenderColor(std::uint32_t color) noexcept;
+
 bool FillLegacyRenderSurface(
 	const RenderSurfaceFillCommand& command) noexcept;
 bool CopyLegacyRenderSurface(
@@ -19,5 +23,7 @@ bool ShadeLegacyRenderSurface(
 	const RenderSurfaceShadeCommand& command) noexcept;
 bool DrawLegacyRenderImage(
 	const RenderImageDrawCommand& command) noexcept;
+bool DrawLegacyRenderImageOutline(
+	const RenderImageOutlineCommand& command) noexcept;
 
 #endif
