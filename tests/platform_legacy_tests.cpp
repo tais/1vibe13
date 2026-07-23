@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
+#include <Engine/Adapters/Legacy/PlatformAudio.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
@@ -874,9 +875,18 @@ int main()
 	soundParameters.uiLoop = 0;
 	soundParameters.EOSCallback = CountSoundEnd;
 	soundParameters.pCallbackData = &callbackCount;
+	const AudioPlaybackId frameworkSound = GetPlatformAudioOutput().play(
+		AudioPlaybackRequest{"lifecycle.wav", 8000, 91, 32, 0, false});
 	const UINT32 firstSound = SoundPlayStreamedFile(
 		const_cast<char*>("lifecycle.wav"), &soundParameters);
-	Check(firstSound == 1, "first sound session allocates a clean channel ID");
+	std::uint32_t frameworkVolume = 0;
+	Check(frameworkSound != 0 && firstSound == 1 &&
+		SoundIsPlaying(firstSound) &&
+		SoundSetVolume(firstSound, 73) && SoundGetVolume(firstSound) == 73 &&
+		SoundSetPan(firstSound, 21) &&
+		GetPlatformAudioOutput().getVolume(frameworkSound, frameworkVolume) &&
+		frameworkVolume == 91,
+		"legacy audio keeps opaque session handles while sharing the engine output");
 	ShutdownSoundManager();
 	Check(callbackCount == 0,
 		"sound shutdown suppresses callbacks from destroyed tracks");
@@ -885,16 +895,24 @@ int main()
 	SoundServiceStreams();
 	Check(callbackCount == 0,
 		"a restarted sound manager cannot observe stale callback state");
-	soundParameters.EOSCallback = nullptr;
-	soundParameters.pCallbackData = nullptr;
+	soundParameters.EOSCallback = CountSoundEnd;
+	soundParameters.pCallbackData = &callbackCount;
 	const UINT32 secondSound = SoundPlayStreamedFile(
 		const_cast<char*>("lifecycle.wav"), &soundParameters);
 	Check(secondSound == 1,
 		"sound restart resets channel metadata and the public ID sequence");
-	if (secondSound != NO_SAMPLE) SoundStop(secondSound);
+	const BOOLEAN stoppedSecondSound =
+		secondSound == NO_SAMPLE ? FALSE : SoundStop(secondSound);
+	Check(stoppedSecondSound && callbackCount == 0,
+		"legacy stop defers its completion callback to the service boundary");
+	SoundServiceStreams();
+	const bool stoppedSoundRetired = !SoundIsPlaying(secondSound);
+	SoundServiceStreams();
+	Check(stoppedSoundRetired && callbackCount == 1,
+		"legacy completion callbacks run exactly once from the main thread");
 	ShutdownSoundManager();
 	ShutdownSoundManager();
-	Check(SoundGetDriverHandle() == nullptr,
+	Check(SoundGetDriverHandle() == nullptr && callbackCount == 1,
 		"sound shutdown is idempotent after a restart cycle");
 
 	std::vector<PIXEL> unregisteredDestination(4, static_cast<PIXEL>(0));

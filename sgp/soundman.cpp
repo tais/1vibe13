@@ -19,6 +19,8 @@
 #include "FileMan.h"
 #include "DEBUG.H"
 
+#include <Engine/Adapters/Legacy/LegacyAudioGateway.h>
+#include <Engine/Adapters/Legacy/PlatformSoundBackend.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include <SDL3/SDL.h>
@@ -323,11 +325,15 @@ BOOLEAN InitializeSoundManager(void)
 	gMixer = mixer;
 	gNextSoundID = 1;
 	gSoundEnabled = true;
+	ResetLegacyAudioGateway();
 	return TRUE;
 }
 
 void ShutdownSoundManager(void)
 {
+	// Drop compatibility callbacks and handle translations before stopping the
+	// device. Shutdown has always suppressed end-of-stream callbacks.
+	ResetLegacyAudioGateway();
 	for (SoundChannel& channel : gChannels) {
 		MIX_Track* const track = channel.track;
 		// Clear IDs and callback pointers before crossing into the mixer. A
@@ -512,14 +518,14 @@ static UINT32 SoundPlayInternal(STR pFilename, SOUNDPARMS* pParms, bool useEOSCa
 	return ch.uiSoundID;
 }
 
-UINT32 SoundPlay(STR pFilename, SOUNDPARMS* pParms)
+UINT32 PlatformSoundPlay(STR pFilename, SOUNDPARMS* pParms)
 {
 	// Generic-SFX path: ignore the SOUNDPARMS EOSCallback (callers
 	// don't reliably zero-init the struct, so the field is stack junk).
 	return SoundPlayInternal(pFilename, pParms, /*useEOSCallback=*/false);
 }
 
-UINT32 SoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
+UINT32 PlatformSoundPlayStreamedFile(STR pFilename, SOUNDPARMS* pParms)
 {
 	// Music/streamed files use the same load+play path under the hood
 	// (predecode=true; if memory becomes an issue we can switch to
@@ -569,14 +575,14 @@ UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms)
 	return idx;
 }
 
-BOOLEAN SoundIsPlaying(UINT32 uiSoundID)
+BOOLEAN PlatformSoundIsPlaying(UINT32 uiSoundID)
 {
 	UINT32 idx = FindChannelByID(uiSoundID);
 	if (idx == NO_SAMPLE) return FALSE;
 	return (gChannels[idx].track && MIX_TrackPlaying(gChannels[idx].track)) ? TRUE : FALSE;
 }
 
-BOOLEAN SoundStop(UINT32 uiSoundID)
+BOOLEAN PlatformSoundStop(UINT32 uiSoundID)
 {
 	UINT32 idx = FindChannelByID(uiSoundID);
 	if (idx == NO_SAMPLE) return FALSE;
@@ -619,7 +625,7 @@ BOOLEAN SoundStopAllRandom(void)
 
 // ---- Public API: per-instance controls -----------------------------------
 
-BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume)
+BOOLEAN PlatformSoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume)
 {
 	UINT32 idx = FindChannelByID(uiSoundID);
 	if (idx == NO_SAMPLE || !gChannels[idx].track) return FALSE;
@@ -628,7 +634,7 @@ BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume)
 	return TRUE;
 }
 
-BOOLEAN SoundSetPan(UINT32 uiSoundID, UINT32 uiPan)
+BOOLEAN PlatformSoundSetPan(UINT32 uiSoundID, UINT32 uiPan)
 {
 	UINT32 idx = FindChannelByID(uiSoundID);
 	if (idx == NO_SAMPLE || !gChannels[idx].track) return FALSE;
@@ -637,13 +643,13 @@ BOOLEAN SoundSetPan(UINT32 uiSoundID, UINT32 uiPan)
 	return TRUE;
 }
 
-UINT32 SoundGetVolume(UINT32 uiSoundID)
+UINT32 PlatformSoundGetVolume(UINT32 uiSoundID)
 {
 	UINT32 idx = FindChannelByID(uiSoundID);
 	return (idx == NO_SAMPLE) ? 0 : gChannels[idx].uiVolume;
 }
 
-UINT32 SoundGetPosition(UINT32 uiSoundID)
+UINT32 PlatformSoundGetPosition(UINT32 uiSoundID)
 {
 	UINT32 idx = FindChannelByID(uiSoundID);
 	if (idx == NO_SAMPLE || !gChannels[idx].track) return 0;
@@ -659,7 +665,7 @@ UINT32 SoundGetPosition(UINT32 uiSoundID)
 
 // ---- Public API: service loop --------------------------------------------
 
-BOOLEAN SoundServiceStreams(void)
+BOOLEAN PlatformSoundServiceStreams(void)
 {
 	// SDL3_mixer streams audio internally, so there are no decode buffers to
 	// refill here. BUT finished tracks are reaped lazily on the main thread

@@ -1,6 +1,6 @@
 #include <Engine/Adapters/Legacy/PlatformAudio.h>
 
-#include "soundman.h"
+#include <Engine/Adapters/Legacy/PlatformSoundBackend.h>
 
 #include <limits>
 
@@ -19,27 +19,56 @@ public:
 		parameters.uiPriority = PRIORITY_MAX;
 		char* asset = const_cast<char*>(request.asset.c_str());
 		const UINT32 id = request.streaming
-			? SoundPlayStreamedFile(asset, &parameters)
-			: SoundPlay(asset, &parameters);
+			? PlatformSoundPlayStreamedFile(asset, &parameters)
+			: PlatformSoundPlay(asset, &parameters);
 		return id == SOUND_ERROR ? 0 : static_cast<AudioPlaybackId>(id) + 1;
 	}
 
 	bool stop(AudioPlaybackId playback) override
 	{
 		UINT32 id;
-		return legacyId(playback, id) && SoundStop(id);
+		return legacyId(playback, id) && PlatformSoundStop(id);
 	}
 
 	bool isPlaying(AudioPlaybackId playback) const override
 	{
 		UINT32 id;
-		return legacyId(playback, id) && SoundIsPlaying(id);
+		return legacyId(playback, id) && PlatformSoundIsPlaying(id);
 	}
 
 	bool setVolume(AudioPlaybackId playback, std::uint32_t volume) override
 	{
 		UINT32 id;
-		return legacyId(playback, id) && SoundSetVolume(id, volume);
+		return legacyId(playback, id) && PlatformSoundSetVolume(id, volume);
+	}
+
+	void service() override
+	{
+		(void)PlatformSoundServiceStreams();
+	}
+
+	bool setPan(AudioPlaybackId playback, std::uint32_t pan) override
+	{
+		UINT32 id;
+		return legacyId(playback, id) && PlatformSoundSetPan(id, pan);
+	}
+
+	bool getVolume(
+		AudioPlaybackId playback, std::uint32_t& volume) const override
+	{
+		UINT32 id;
+		if (!legacyId(playback, id) || !PlatformSoundIsPlaying(id)) return false;
+		volume = PlatformSoundGetVolume(id);
+		return true;
+	}
+
+	bool getPositionMilliseconds(
+		AudioPlaybackId playback, std::uint32_t& position) const override
+	{
+		UINT32 id;
+		if (!legacyId(playback, id) || !PlatformSoundIsPlaying(id)) return false;
+		position = PlatformSoundGetPosition(id);
+		return true;
 	}
 
 private:
