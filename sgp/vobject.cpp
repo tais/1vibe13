@@ -132,6 +132,21 @@ std::optional<UINT32> LegacyFlagsFor(RenderImageCompositeMode mode)
 	return std::nullopt;
 }
 
+bool UsesSourcePalette(RenderImageDepthEffect effect)
+{
+	switch (effect)
+	{
+	case RenderImageDepthEffect::SourcePalette:
+	case RenderImageDepthEffect::BlendSourcePalette50Percent:
+	case RenderImageDepthEffect::CheckerboardSourcePalette:
+		return true;
+	case RenderImageDepthEffect::ShadeDestination:
+	case RenderImageDepthEffect::IntensifyDestination:
+		return false;
+	}
+	return false;
+}
+
 bool FindVideoObjectHandle(HVOBJECT object, UINT32& handle)
 {
 	const auto found = gVideoObjectHandles.find(object);
@@ -353,13 +368,14 @@ bool SubmitVideoObjectDepthDraw(
 	if (!object || object->ubBitDepth != 8 ||
 		frame >= object->usNumberOfObjects ||
 		!object->pETRLEObject || !object->pPixData ||
-		(effect == RenderImageDepthEffect::SourcePalette &&
-			!object->pShadeCurrent))
+		(UsesSourcePalette(effect) && !object->pShadeCurrent))
 		return false;
 	RenderDepthCompareMode comparison;
 	switch (effect)
 	{
 	case RenderImageDepthEffect::SourcePalette:
+	case RenderImageDepthEffect::BlendSourcePalette50Percent:
+	case RenderImageDepthEffect::CheckerboardSourcePalette:
 		comparison = RenderDepthCompareMode::GreaterOrEqual;
 		break;
 	case RenderImageDepthEffect::ShadeDestination:
@@ -1027,6 +1043,8 @@ bool PlatformVideoObjectDepthDraw(
 	switch (command.effect)
 	{
 	case RenderImageDepthEffect::SourcePalette:
+	case RenderImageDepthEffect::BlendSourcePalette50Percent:
+	case RenderImageDepthEffect::CheckerboardSourcePalette:
 		if (command.comparison !=
 			RenderDepthCompareMode::GreaterOrEqual)
 			return false;
@@ -1052,8 +1070,7 @@ bool PlatformVideoObjectDepthDraw(
 	if (!source || source->ubBitDepth != 8 ||
 		command.frame >= source->usNumberOfObjects ||
 		!source->pETRLEObject || !source->pPixData ||
-		(command.effect == RenderImageDepthEffect::SourcePalette &&
-			!source->pShadeCurrent))
+		(UsesSourcePalette(command.effect) && !source->pShadeCurrent))
 		return false;
 	const UINT16 frame = static_cast<UINT16>(command.frame);
 	const ETRLEObject& image = source->pETRLEObject[frame];
@@ -1141,6 +1158,26 @@ bool PlatformVideoObjectDepthDraw(
 				source, command.destinationOrigin.x,
 				command.destinationOrigin.y, frame, &clipping) != FALSE :
 			Blt8BPPDataTo16BPPBufferTransZNBClip(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE;
+	case RenderImageDepthEffect::BlendSourcePalette50Percent:
+		return replaceDepth ?
+			Blt8BPPDataTo16BPPBufferTransZClipTranslucent(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE :
+			Blt8BPPDataTo16BPPBufferTransZNBClipTranslucent(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE;
+	case RenderImageDepthEffect::CheckerboardSourcePalette:
+		return replaceDepth ?
+			Blt8BPPDataTo16BPPBufferTransZClipPixelate(
+				destinationPixels, pitch, depthPixels, command.depth,
+				source, command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping) != FALSE :
+			Blt8BPPDataTo16BPPBufferTransZNBClipPixelate(
 				destinationPixels, pitch, depthPixels, command.depth,
 				source, command.destinationOrigin.x,
 				command.destinationOrigin.y, frame, &clipping) != FALSE;
@@ -1474,11 +1511,44 @@ BOOLEAN BltVideoObjectDepthToSurface(
 	BOOLEAN fWriteDepth,
 	const SGPRect* pClipRegion)
 {
+	return BltVideoObjectDepthPaletteToSurface(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		iDestX, iDestY, usDepth, fWriteDepth,
+		VOBJECT_DEPTH_PALETTE_COPY, pClipRegion);
+}
+
+BOOLEAN BltVideoObjectDepthPaletteToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	VideoObjectDepthPaletteEffect effect,
+	const SGPRect* pClipRegion)
+{
+	RenderImageDepthEffect commandEffect;
+	switch (effect)
+	{
+	case VOBJECT_DEPTH_PALETTE_COPY:
+		commandEffect = RenderImageDepthEffect::SourcePalette;
+		break;
+	case VOBJECT_DEPTH_PALETTE_BLEND_50_PERCENT:
+		commandEffect =
+			RenderImageDepthEffect::BlendSourcePalette50Percent;
+		break;
+	case VOBJECT_DEPTH_PALETTE_CHECKERBOARD:
+		commandEffect =
+			RenderImageDepthEffect::CheckerboardSourcePalette;
+		break;
+	default:
+		return FALSE;
+	}
 	return SubmitVideoObjectDepthDraw(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
 		iDestX, iDestY, usDepth, fWriteDepth,
-		RenderImageDepthEffect::SourcePalette, pClipRegion) ?
-		TRUE : FALSE;
+		commandEffect, pClipRegion) ? TRUE : FALSE;
 }
 
 BOOLEAN BltVideoObjectEffectToSurface(

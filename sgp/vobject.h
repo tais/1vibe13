@@ -204,6 +204,26 @@ BOOLEAN BltVideoObjectDepthToSurface(
 	BOOLEAN fWriteDepth,
 	const SGPRect* pClipRegion);
 
+enum VideoObjectDepthPaletteEffect : UINT8
+{
+	VOBJECT_DEPTH_PALETTE_COPY,
+	VOBJECT_DEPTH_PALETTE_BLEND_50_PERCENT,
+	VOBJECT_DEPTH_PALETTE_CHECKERBOARD
+};
+
+// Compatibility bridge for depth-tested palette draws with explicit
+// compositing, depth-write, and clipping policies.
+BOOLEAN BltVideoObjectDepthPaletteToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fWriteDepth,
+	VideoObjectDepthPaletteEffect effect,
+	const SGPRect* pClipRegion);
+
 enum VideoObjectDepthMaskEffect : UINT8
 {
 	VOBJECT_DEPTH_MASK_SHADOW,

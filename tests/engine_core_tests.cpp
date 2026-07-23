@@ -2521,6 +2521,12 @@ int main()
 		RenderDepthCompareMode::Greater,
 		RenderDepthWriteMode::Preserve,
 		RenderImageDepthEffect::IntensifyDestination};
+	const RenderImageDepthDrawCommand imageDepthPaletteCommand{
+		51, 61, 905, 11, RenderSurfacePoint{7, -16},
+		RenderSurfaceRegion{-6, 3, 97, 73}, 0x5678,
+		RenderDepthCompareMode::GreaterOrEqual,
+		RenderDepthWriteMode::ReplaceOnPass,
+		RenderImageDepthEffect::BlendSourcePalette50Percent};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},
@@ -2537,6 +2543,8 @@ int main()
 		"mapped surface commands reject images without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthCommand),
 		"mapped surface commands reject depth images without a host resource adapter");
+	check(!mappedCommands.drawImageDepth(imageDepthPaletteCommand),
+		"mapped surface commands reject depth palette effects without a host resource adapter");
 	check(!mappedCommands.drawImageOutline(imageOutlineCommand),
 		"mapped surface commands reject image outlines without a host resource adapter");
 	check(!mappedCommands.drawImageDepthOutline(imageDepthOutlineCommand),
@@ -2550,6 +2558,7 @@ int main()
 		recordedCommands.fillDepth(depthFillCommand) &&
 		recordedCommands.drawImage(imageCommand) &&
 		recordedCommands.drawImageDepth(imageDepthCommand) &&
+		recordedCommands.drawImageDepth(imageDepthPaletteCommand) &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.drawImageDepthOutline(imageDepthOutlineCommand) &&
 		recordedCommands.commands() ==
@@ -2566,7 +2575,7 @@ int main()
 			std::vector<RenderImageDrawCommand>{imageCommand} &&
 		recordedCommands.imageDepthCommands() ==
 			std::vector<RenderImageDepthDrawCommand>{
-				imageDepthCommand} &&
+				imageDepthCommand, imageDepthPaletteCommand} &&
 		recordedCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{imageOutlineCommand} &&
 		recordedCommands.imageDepthOutlineCommands() ==

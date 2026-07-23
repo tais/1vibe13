@@ -354,14 +354,16 @@ outline markers do not change depth in visible-only mode. The pixelated form
 retains the legacy rule that every front-facing pixel, including a marker,
 replaces depth.
 `RenderImageDepthDrawCommand` identifies its colour and `Depth16` surfaces
-separately. `SourcePalette` performs the established inclusive
-greater-or-equal test and writes the source palette colour. `ShadeDestination`
-and `IntensifyDestination` use the source image as a mask, perform the
-established strict greater-than test, and transform the destination colour.
-Each effect explicitly chooses whether passing pixels preserve depth or replace
-it. Unsupported effect/comparison pairings are rejected rather than acquiring
-backend-specific meaning. Other alpha, translucency, and pixelation effects
-remain separate contracts.
+separately. `SourcePalette`, `BlendSourcePalette50Percent`, and
+`CheckerboardSourcePalette` perform the established inclusive greater-or-equal
+test and respectively copy, blend, or sample source palette colour through a
+stable absolute-coordinate checkerboard. `ShadeDestination` and
+`IntensifyDestination` use the source image as a mask, perform the established
+strict greater-than test, and transform the destination colour. Each effect
+explicitly chooses whether sampled passing pixels preserve depth or replace it.
+Unsupported effect/comparison pairings are rejected rather than acquiring
+backend-specific meaning. Alpha and pixelate-when-obscured effects remain
+separate contracts.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
@@ -372,9 +374,12 @@ without a renderer. The compiled host routes existing rectangle fills, numeric
 managed video-object draws and outlines through this service. Tactical
 full-world redraws clear the live Z-buffer through the depth-fill command, and
 ordinary transparent-Z tactical sprites plus basic tactical shadow and
-intensity masks use the depth-image command. Tactical item outlines use the
-regular or depth-outline command, preserving their exact marker-depth,
-strict-versus-inclusive equality, clipping, and obscured checkerboard rules.
+intensity masks use the depth-image command. Depth-tested 50% blends and
+checkerboard-sampled tactical sprites use it as well, preserving inclusive
+testing, absolute checkerboard phase, clipping, and optional depth writes.
+Tactical item outlines use the regular or depth-outline command, preserving
+their exact marker-depth, strict-versus-inclusive equality, clipping, and
+obscured checkerboard rules.
 The clipped mask path now honors the preserve-depth policy instead of selecting
 its writing compatibility blitter. Every successfully created host video
 object receives a stable opaque render identity without changing its legacy
