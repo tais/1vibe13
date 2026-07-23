@@ -37,20 +37,16 @@ protected:
 		CHAR8 szCharData[MAX_CHAR_DATA_LENGTH + 1];
 		CHAR8 szErrorTxt[MAX_PATH + 1];
 	} typedef ParseData;
-	struct ExternalEntityArgs {
-		const char* directoryName;
-		const char* fileName;
-		XML_Parser* pParser;
-	} typedef ExternalEntityArgs;
 	typedef ParseData* (*ParseDataFactoryFunc) (XML_Parser* parser);
 
 private:
+	struct ParserContext;
 	XML_StartElementHandler startElementHandler;
 	XML_EndElementHandler endElementHandler;
 	XML_CharacterDataHandler characterDataHandler;
 	ParseDataFactoryFunc parseDataFactFuncPntr;
-	char directoryName[MAX_PATH + 1];
-	char fileName[MAX_PATH + 1];
+	std::string directoryName;
+	std::string fileName;
 
 public:
 	AbstractXMLLoader(XML_StartElementHandler startHandler, XML_EndElementHandler endHandler, XML_CharacterDataHandler charHandler, ParseDataFactoryFunc parseDataFactF = MakeParseData);
@@ -78,10 +74,8 @@ protected:
 	static ParseData* MakeParseData(XML_Parser* parser);
 
 private:
-	static AbstractXMLLoader& Instance();
-	static void XMLCALL StartElementHandle(void* userData, const XML_Char* name, const XML_Char** atts);
-	static void XMLCALL EndElementHandle(void* userData, const XML_Char* name);
-	static void XMLCALL CharacterDataHandle(void* userData, const XML_Char* str, int len);
+	static void PrepareParser(XML_Parser parser, void* userData);
+	static void PrepareExternalParser(XML_Parser parser, void* userData);
 	static int XMLCALL ExternalEntityHandler(XML_Parser args, const XML_Char *context, const XML_Char *base, const XML_Char *systemId, const XML_Char *publicId);
 
 };

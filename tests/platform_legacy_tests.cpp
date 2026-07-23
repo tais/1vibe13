@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <limits>
 #include <new>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -21,6 +22,7 @@
 
 #include "FileMan.h"
 #include "Font.h"
+#include "LogicalBodyTypes/AbstractXMLLoader.h"
 #include "MemMan.h"
 #include "Music Control.h"
 #include "Map Screen Helicopter.h"
@@ -272,6 +274,90 @@ void ThrowingXmlPreparation(void*)
 	throw 1;
 }
 
+void XMLCALL ThrowingXmlStart(void*, const XML_Char*, const XML_Char**)
+{
+	throw std::runtime_error("semantic callback probe");
+}
+
+struct ExternalXmlProbe
+{
+	const AssetSource* assets = nullptr;
+	XML_Parser parentParser = nullptr;
+	LegacyXmlResult entityResult;
+	int starts = 0;
+	int ends = 0;
+	std::string characters;
+};
+
+void XMLCALL ExternalXmlStart(void* userData, const XML_Char*,
+	const XML_Char**)
+{
+	if (userData) ++static_cast<ExternalXmlProbe*>(userData)->starts;
+}
+
+void XMLCALL ExternalXmlEnd(void* userData, const XML_Char*)
+{
+	if (userData) ++static_cast<ExternalXmlProbe*>(userData)->ends;
+}
+
+void XMLCALL ExternalXmlCharacters(
+	void* userData, const XML_Char* text, int length)
+{
+	if (!userData || !text || length <= 0) return;
+	static_cast<ExternalXmlProbe*>(userData)->characters.append(
+		text, static_cast<std::size_t>(length));
+}
+
+int XMLCALL ParseExternalXmlEntity(XML_Parser parserArgument,
+	const XML_Char* context, const XML_Char*, const XML_Char* systemId,
+	const XML_Char*)
+{
+	ExternalXmlProbe* probe =
+		reinterpret_cast<ExternalXmlProbe*>(parserArgument);
+	if (!probe || !probe->assets || !probe->parentParser || !systemId)
+		return XML_STATUS_ERROR;
+
+	LegacyXmlCallbacks callbacks;
+	callbacks.userData = probe;
+	callbacks.startElement = ExternalXmlStart;
+	callbacks.endElement = ExternalXmlEnd;
+	callbacks.characterData = ExternalXmlCharacters;
+	probe->entityResult = ParseLegacyXmlExternalEntityAsset(
+		*probe->assets, systemId, probe->parentParser, context, callbacks);
+	return probe->entityResult ? XML_STATUS_OK : XML_STATUS_ERROR;
+}
+
+void PrepareExternalXmlProbe(XML_Parser parser, void* userData)
+{
+	ExternalXmlProbe* probe = static_cast<ExternalXmlProbe*>(userData);
+	if (!probe) return;
+	probe->parentParser = parser;
+	XML_SetExternalEntityRefHandler(parser, ParseExternalXmlEntity);
+	XML_SetExternalEntityRefHandlerArg(parser, probe);
+}
+
+int logicalBodyStarts = 0;
+int logicalBodyEnds = 0;
+std::string logicalBodyCharacters;
+
+void XMLCALL LogicalBodyXmlStart(
+	void*, const XML_Char*, const XML_Char**)
+{
+	++logicalBodyStarts;
+}
+
+void XMLCALL LogicalBodyXmlEnd(void*, const XML_Char*)
+{
+	++logicalBodyEnds;
+}
+
+void XMLCALL LogicalBodyXmlCharacters(
+	void*, const XML_Char* text, int length)
+{
+	if (text && length > 0)
+		logicalBodyCharacters.append(text, static_cast<std::size_t>(length));
+}
+
 class ShortReadAssetSource final : public AssetSource
 {
 protected:
@@ -438,6 +524,63 @@ int main()
 		reboundXmlProbe.starts == 2 && reboundXmlProbe.ends == 2 &&
 		reboundXmlProbe.characters == "ok",
 		"legacy XML adapter lends parser setup to object-oriented readers without transferring ownership");
+
+	LegacyXmlCallbacks semanticFailureCallbacks;
+	semanticFailureCallbacks.startElement = ThrowingXmlStart;
+	xmlResult = ParseLegacyXmlBytes(
+		validXml.data(), validXml.size(), semanticFailureCallbacks);
+	const auto semanticFailureMessage =
+		FormatLegacyXmlFailure("tables/semantic.xml", xmlResult);
+	Check(xmlResult.status == LegacyXmlStatus::CallbackError &&
+		xmlResult.line == 1 &&
+		std::strstr(xmlResult.callbackDiagnostic.data(),
+			"semantic callback probe") &&
+		std::strstr(semanticFailureMessage.data(),
+			"semantic callback probe"),
+		"legacy XML adapter contains semantic callback exceptions without discarding their diagnostics");
+
+	const std::string externalFragment = "<CHILD>external</CHILD>";
+	Check(memoryXml.put("fragment.xml",
+		std::vector<std::uint8_t>(
+			externalFragment.begin(), externalFragment.end())),
+		"external XML fixture enters the engine asset namespace");
+	const std::string externalRoot =
+		"<!DOCTYPE ROOT [<!ENTITY child SYSTEM \"fragment.xml\">]>"
+		"<ROOT>&child;</ROOT>";
+	ExternalXmlProbe externalXmlProbe;
+	externalXmlProbe.assets = &memoryXml;
+	LegacyXmlCallbacks externalXmlCallbacks;
+	externalXmlCallbacks.userData = &externalXmlProbe;
+	externalXmlCallbacks.startElement = ExternalXmlStart;
+	externalXmlCallbacks.endElement = ExternalXmlEnd;
+	externalXmlCallbacks.characterData = ExternalXmlCharacters;
+	externalXmlCallbacks.parserReady = PrepareExternalXmlProbe;
+	xmlResult = ParseLegacyXmlBytes(
+		externalRoot.data(), externalRoot.size(), externalXmlCallbacks);
+	Check(xmlResult && externalXmlProbe.entityResult &&
+		externalXmlProbe.entityResult.byteCount == externalFragment.size() &&
+		externalXmlProbe.starts == 2 && externalXmlProbe.ends == 2 &&
+		externalXmlProbe.characters == "external",
+		"legacy XML adapter owns bounded external-entity child parsers and reads through AssetSource");
+
+	Check(storage.writeAll("tables/lbt-root.xml",
+			std::vector<std::uint8_t>(
+				externalRoot.begin(), externalRoot.end())) &&
+		storage.writeAll("tables/fragment.xml",
+			std::vector<std::uint8_t>(
+				externalFragment.begin(), externalFragment.end())),
+		"logical-body XML fixtures are available through the compatibility VFS");
+	logicalBodyStarts = 0;
+	logicalBodyEnds = 0;
+	logicalBodyCharacters.clear();
+	LogicalBodyTypes::AbstractXMLLoader logicalBodyLoader(
+		LogicalBodyXmlStart, LogicalBodyXmlEnd, LogicalBodyXmlCharacters);
+	CHAR8 logicalBodyError[512]{};
+	Check(logicalBodyLoader.LoadFromFile(
+			"tables/", "lbt-root.xml", logicalBodyError) &&
+		logicalBodyStarts == 2 && logicalBodyEnds == 2 &&
+		logicalBodyCharacters == "external",
+		"logical-body production loader uses adapter-owned root and external parsers");
 
 	XmlProbe rejectedXmlProbe;
 	const LegacyXmlCallbacks rejectedXmlCallbacks{

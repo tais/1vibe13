@@ -12,6 +12,7 @@
 
 constexpr std::size_t DefaultLegacyXmlReadLimit = DefaultAssetReadLimit;
 constexpr std::size_t LegacyXmlFailureMessageBytes = 512;
+constexpr std::size_t LegacyXmlCallbackDiagnosticBytes = 256;
 
 enum class LegacyXmlStatus
 {
@@ -55,6 +56,10 @@ struct LegacyXmlResult
 	std::uint64_t column = 0;
 	std::size_t byteCount = 0;
 	std::size_t byteLimit = 0;
+	// Callback exceptions are contained at the adapter boundary. Standard
+	// exception text is retained in fixed storage so semantic content errors
+	// remain actionable without allowing an exception to escape through Expat.
+	std::array<char, LegacyXmlCallbackDiagnosticBytes> callbackDiagnostic{};
 
 	explicit operator bool() const noexcept
 	{
@@ -67,10 +72,22 @@ struct LegacyXmlResult
 LegacyXmlResult ParseLegacyXmlBytes(const void* bytes, std::size_t byteCount,
 	const LegacyXmlCallbacks& callbacks) noexcept;
 
+// Parses an external entity with an Expat child parser owned by this adapter.
+// The parent parser and entity context remain borrowed for the duration of the
+// call. This is suitable for an XML_ExternalEntityRefHandler implementation.
+LegacyXmlResult ParseLegacyXmlExternalEntityBytes(XML_Parser parentParser,
+	const XML_Char* context, const void* bytes, std::size_t byteCount,
+	const LegacyXmlCallbacks& callbacks) noexcept;
+
 // AssetSource overload keeps legacy table parsing usable by package, memory,
 // and composite sources instead of hard-wiring it to FileMan.
 LegacyXmlResult ParseLegacyXmlAsset(const AssetSource& assets,
 	const std::string& logicalPath, const LegacyXmlCallbacks& callbacks,
+	std::size_t maximumBytes = DefaultLegacyXmlReadLimit) noexcept;
+
+LegacyXmlResult ParseLegacyXmlExternalEntityAsset(const AssetSource& assets,
+	const std::string& logicalPath, XML_Parser parentParser,
+	const XML_Char* context, const LegacyXmlCallbacks& callbacks,
 	std::size_t maximumBytes = DefaultLegacyXmlReadLimit) noexcept;
 
 // Compatibility entry point for existing VFS-backed game loaders.

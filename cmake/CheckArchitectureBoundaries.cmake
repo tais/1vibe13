@@ -231,5 +231,20 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
+# Expat parser allocation and release are an engine-adapter responsibility.
+# Production loaders may borrow a parser during setup and keep their existing
+# callbacks, but direct ownership would bypass bounded AssetSource reads,
+# structured diagnostics, and the common lifetime guard.
+foreach(source_file IN LISTS world_state_files)
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "XML_(ExternalEntity)?ParserCreate[ \t\r\n]*\\("
+    direct_xml_parser_create "${contents}")
+  if(direct_xml_parser_create)
+    message(FATAL_ERROR
+      "Production code directly creates an Expat parser in ${source_file}; use LegacyXmlDocument")
+  endif()
+endforeach()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")

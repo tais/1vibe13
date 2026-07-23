@@ -130,8 +130,12 @@ the engine must not contain SDL types in its public domain model.
   without taking over its lifetime. Utils and SGP now have no direct Expat
   parser ownership, and an uncompiled duplicate weapon reader has been removed.
   Dealer-inventory semantic diagnostics retain live parser line numbers through
-  that hook. Tactical's logical-body external-entity loader is now the sole
-  deliberate bespoke parser path.
+  that hook. The logical-body loader now uses the same bounded `AssetSource`
+  pipeline for both its root document and external entities. Its specialized
+  callbacks still receive the live root or child parser, and semantic callback
+  exceptions retain their bounded message and parser position. Parser and
+  buffer ownership is consequently centralized below the game layer, with an
+  architecture check preventing new production-owned Expat parsers.
 - The legacy SGP, Utils, and Laptop manifests explicitly separate
   campaign-neutral translation units from sources that still consume
   JA2/UB/editor definitions. The neutral object layers compile once and are

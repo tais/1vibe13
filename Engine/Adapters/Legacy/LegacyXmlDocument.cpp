@@ -3,6 +3,7 @@
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 
 #include <cstdio>
+#include <exception>
 #include <limits>
 #include <new>
 #include <vector>
@@ -63,32 +64,46 @@ const char* SafeParserError(XML_Error error) noexcept
 	const XML_LChar* description = XML_ErrorString(error);
 	return description ? description : "unknown parser error";
 }
-}
 
-LegacyXmlResult ParseLegacyXmlBytes(const void* bytes, std::size_t byteCount,
-	const LegacyXmlCallbacks& callbacks) noexcept
+LegacyXmlResult ValidateXmlBytes(
+	const void* bytes, std::size_t byteCount) noexcept
 {
 	LegacyXmlResult result;
 	result.byteCount = byteCount;
 	result.byteLimit = static_cast<std::size_t>(std::numeric_limits<int>::max());
-	if ((!bytes && byteCount != 0) ||
-		byteCount > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+	if ((!bytes && byteCount != 0) || byteCount > result.byteLimit)
 	{
 		result.status = byteCount > result.byteLimit
 			? LegacyXmlStatus::TooLarge
 			: LegacyXmlStatus::InvalidInput;
 		return result;
 	}
+	result.status = LegacyXmlStatus::Success;
+	return result;
+}
+
+void CaptureParserPosition(
+	XML_Parser parser, LegacyXmlResult& result) noexcept
+{
+	if (!parser) return;
+	result.line = XML_GetCurrentLineNumber(parser);
+	result.column = XML_GetCurrentColumnNumber(parser);
+}
+
+LegacyXmlResult ParseWithOwnedParser(XML_Parser rawParser,
+	const void* bytes, std::size_t byteCount,
+	const LegacyXmlCallbacks& callbacks,
+	LegacyXmlResult result) noexcept
+{
+	ScopedXmlParser parser(rawParser);
+	if (!parser.get())
+	{
+		result.status = LegacyXmlStatus::ParserUnavailable;
+		return result;
+	}
 
 	try
 	{
-		ScopedXmlParser parser(XML_ParserCreate(nullptr));
-		if (!parser.get())
-		{
-			result.status = LegacyXmlStatus::ParserUnavailable;
-			return result;
-		}
-
 		XML_SetUserData(parser.get(), callbacks.userData);
 		XML_SetElementHandler(parser.get(),
 			callbacks.startElement, callbacks.endElement);
@@ -110,25 +125,35 @@ LegacyXmlResult ParseLegacyXmlBytes(const void* bytes, std::size_t byteCount,
 
 		result.status = LegacyXmlStatus::Malformed;
 		result.parserError = XML_GetErrorCode(parser.get());
-		result.line = XML_GetCurrentLineNumber(parser.get());
-		result.column = XML_GetCurrentColumnNumber(parser.get());
+		CaptureParserPosition(parser.get(), result);
 		return result;
 	}
 	catch (const std::bad_alloc&)
 	{
 		result.status = LegacyXmlStatus::OutOfMemory;
+		CaptureParserPosition(parser.get(), result);
+		return result;
+	}
+	catch (const std::exception& error)
+	{
+		result.status = LegacyXmlStatus::CallbackError;
+		CaptureParserPosition(parser.get(), result);
+		std::snprintf(result.callbackDiagnostic.data(),
+			result.callbackDiagnostic.size(), "%s", error.what());
+		result.callbackDiagnostic.back() = '\0';
 		return result;
 	}
 	catch (...)
 	{
 		result.status = LegacyXmlStatus::CallbackError;
+		CaptureParserPosition(parser.get(), result);
 		return result;
 	}
 }
 
-LegacyXmlResult ParseLegacyXmlAsset(const AssetSource& assets,
-	const std::string& logicalPath, const LegacyXmlCallbacks& callbacks,
-	std::size_t maximumBytes) noexcept
+LegacyXmlResult ReadXmlAsset(const AssetSource& assets,
+	const std::string& logicalPath, std::size_t maximumBytes,
+	AssetData& asset) noexcept
 {
 	const std::size_t parserLimit =
 		static_cast<std::size_t>(std::numeric_limits<int>::max());
@@ -136,14 +161,14 @@ LegacyXmlResult ParseLegacyXmlAsset(const AssetSource& assets,
 		maximumBytes < parserLimit ? maximumBytes : parserLimit;
 	try
 	{
-		AssetData asset;
 		const AssetReadResult readResult =
 			assets.read(logicalPath, asset, effectiveLimit);
 		if (readResult != AssetReadResult::Success)
 			return ReadFailure(readResult, effectiveLimit);
 
-		LegacyXmlResult result = ParseLegacyXmlBytes(
-			asset.bytes.data(), asset.bytes.size(), callbacks);
+		LegacyXmlResult result;
+		result.status = LegacyXmlStatus::Success;
+		result.byteCount = asset.bytes.size();
 		result.byteLimit = effectiveLimit;
 		return result;
 	}
@@ -161,6 +186,75 @@ LegacyXmlResult ParseLegacyXmlAsset(const AssetSource& assets,
 		result.byteLimit = effectiveLimit;
 		return result;
 	}
+}
+}
+
+LegacyXmlResult ParseLegacyXmlBytes(const void* bytes, std::size_t byteCount,
+	const LegacyXmlCallbacks& callbacks) noexcept
+{
+	LegacyXmlResult result = ValidateXmlBytes(bytes, byteCount);
+	if (!result) return result;
+	return ParseWithOwnedParser(
+		XML_ParserCreate(nullptr), bytes, byteCount, callbacks, result);
+}
+
+LegacyXmlResult ParseLegacyXmlExternalEntityBytes(XML_Parser parentParser,
+	const XML_Char* context, const void* bytes, std::size_t byteCount,
+	const LegacyXmlCallbacks& callbacks) noexcept
+{
+	LegacyXmlResult result = ValidateXmlBytes(bytes, byteCount);
+	if (!result) return result;
+	if (!parentParser)
+	{
+		result.status = LegacyXmlStatus::InvalidInput;
+		return result;
+	}
+	return ParseWithOwnedParser(
+		XML_ExternalEntityParserCreate(parentParser, context, nullptr),
+		bytes, byteCount, callbacks, result);
+}
+
+LegacyXmlResult ParseLegacyXmlAsset(const AssetSource& assets,
+	const std::string& logicalPath, const LegacyXmlCallbacks& callbacks,
+	std::size_t maximumBytes) noexcept
+{
+	AssetData asset;
+	LegacyXmlResult result =
+		ReadXmlAsset(assets, logicalPath, maximumBytes, asset);
+	if (!result) return result;
+	result = ParseLegacyXmlBytes(
+		asset.bytes.data(), asset.bytes.size(), callbacks);
+	result.byteLimit = maximumBytes <
+		static_cast<std::size_t>(std::numeric_limits<int>::max())
+			? maximumBytes
+			: static_cast<std::size_t>(std::numeric_limits<int>::max());
+	return result;
+}
+
+LegacyXmlResult ParseLegacyXmlExternalEntityAsset(const AssetSource& assets,
+	const std::string& logicalPath, XML_Parser parentParser,
+	const XML_Char* context, const LegacyXmlCallbacks& callbacks,
+	std::size_t maximumBytes) noexcept
+{
+	if (!parentParser)
+	{
+		LegacyXmlResult result;
+		result.status = LegacyXmlStatus::InvalidInput;
+		result.byteLimit = maximumBytes;
+		return result;
+	}
+
+	AssetData asset;
+	LegacyXmlResult result =
+		ReadXmlAsset(assets, logicalPath, maximumBytes, asset);
+	if (!result) return result;
+	result = ParseLegacyXmlExternalEntityBytes(parentParser, context,
+		asset.bytes.data(), asset.bytes.size(), callbacks);
+	result.byteLimit = maximumBytes <
+		static_cast<std::size_t>(std::numeric_limits<int>::max())
+			? maximumBytes
+			: static_cast<std::size_t>(std::numeric_limits<int>::max());
+	return result;
 }
 
 LegacyXmlResult ParseLegacyXmlFile(const char* logicalPath,
@@ -232,8 +326,18 @@ std::array<char, LegacyXmlFailureMessageBytes> FormatLegacyXmlFailure(
 				"Unable to create XML parser for %s", path);
 			break;
 		case LegacyXmlStatus::CallbackError:
-			std::snprintf(message.data(), message.size(),
-				"XML callback failed while processing %s", path);
+			if (result.callbackDiagnostic[0] && result.line)
+				std::snprintf(message.data(), message.size(),
+					"XML callback failed while processing %s at line %llu: %s",
+					path, static_cast<unsigned long long>(result.line),
+					result.callbackDiagnostic.data());
+			else if (result.callbackDiagnostic[0])
+				std::snprintf(message.data(), message.size(),
+					"XML callback failed while processing %s: %s",
+					path, result.callbackDiagnostic.data());
+			else
+				std::snprintf(message.data(), message.size(),
+					"XML callback failed while processing %s", path);
 			break;
 		case LegacyXmlStatus::Malformed:
 			std::snprintf(message.data(), message.size(),
