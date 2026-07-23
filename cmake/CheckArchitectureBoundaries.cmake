@@ -264,5 +264,23 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
+# Raw SDL frame submission belongs to the platform adapter. The video manager
+# implements that backend, while normal FrameDriver work and established
+# RefreshScreen/PresentNow callers both cross the engine-owned presenter.
+set(platform_video_backend_owner "${SOURCE_ROOT}/sgp/sdl_video.cpp")
+foreach(source_file IN LISTS world_state_files)
+  if("${source_file}" STREQUAL "${platform_video_backend_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "PlatformVideoBackend\\.h|(^|[^A-Za-z0-9_])PlatformVideoPresent[A-Za-z0-9_]*[ \t\r\n]*\\("
+    direct_platform_video_access "${contents}")
+  if(direct_platform_video_access)
+    message(FATAL_ERROR
+      "Production code bypasses the engine frame gateway in ${source_file}; use FramePresenter or the public RefreshScreen/PresentNow compatibility API")
+  endif()
+endforeach()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")

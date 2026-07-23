@@ -59,6 +59,7 @@ extern INT16 gsVIEWPORT_WINDOW_END_Y;
 #include <SDL3/SDL.h>
 
 #include <Engine/Core/UniqueResourcePtr.h>
+#include <Engine/Adapters/Legacy/PlatformVideoBackend.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include <cstdio>
@@ -957,14 +958,16 @@ static void RefreshScreenInternal(bool throttle)
 	guiFrameBufferState = BUFFER_READY;
 }
 
-// The normal present: frame-rate capped, used by the game loop and animations.
-void RefreshScreen(void* /*dummy*/) { RefreshScreenInternal(true); }
+// Raw presentation remains private to the engine's SDL adapter. The public
+// RefreshScreen/PresentNow compatibility symbols live in LegacyFrameGateway
+// and route through FramePresenter before reaching these functions.
+void PlatformVideoPresentPaced() { RefreshScreenInternal(true); }
 
 // Uncapped present for serial loading/progress flows -- no per-present pacing, so
 // many back-to-back redraws (e.g. a save/load progress bar) don't accumulate the
 // 16.6ms-per-frame stall. NOT for the game loop or fades/intro (those rely on the
 // cap as their timing/anti-spin source).
-void PresentNow(void) { RefreshScreenInternal(false); }
+void PlatformVideoPresentImmediate() { RefreshScreenInternal(false); }
 
 // ---- Mouse cursor & misc (minimal so the stubs go away) -------------------
 

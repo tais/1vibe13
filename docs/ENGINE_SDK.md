@@ -293,6 +293,15 @@ owned group. Existing JA2 `Sound*` calls keep their public signatures and
 session-local handles, but now pass through the same `AudioOutput` contract;
 the raw SDL mixer identifiers remain private to the legacy platform adapter.
 
+Supply frame presentation through `EngineServices::frames`. `FrameDriver`
+delivers normal completed frames directly to that engine-owned contract. The
+compiled JA2 host also binds its established `RefreshScreen` and `PresentNow`
+entry points to the same presenter, retaining paced and immediate semantics
+without exposing the SDL renderer. A headless host can bind a recording or null
+presenter while exercising legacy loading and UI flows; recursive gateway calls
+are suppressed and presenter exceptions are contained. Raw SDL submission
+remains private to the platform adapter.
+
 Packages may declare `requiredCapabilities` alongside contributed
 `capabilities`. The host validates the list at registration and preflights each
 requirement against host and active-package capabilities before the first
