@@ -9,6 +9,7 @@
 #include <Engine/Core/InputSource.h>
 #include <Engine/Core/LogSink.h>
 #include <Engine/Core/RandomSource.h>
+#include <Engine/Core/RenderCommands.h>
 #include <Engine/Core/RenderSurfaceAccess.h>
 #include <Engine/Core/TimeSource.h>
 
@@ -30,6 +31,7 @@ struct EngineServices
 	const AssetSource& assets = NullAssetSource::instance();
 	FrameInvalidator& frameInvalidation = NullFrameInvalidator::instance();
 	RenderSurfaceAccess& renderSurfaces = NullRenderSurfaceAccess::instance();
+	RenderCommandSink& renderCommands = NullRenderCommandSink::instance();
 
 	static EngineServices defaults()
 	{

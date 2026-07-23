@@ -11,12 +11,11 @@
 // field that legacy code used to hold a LPDIRECTDRAWSURFACE2 now holds
 // that heap pointer directly.
 //
-// Still stubbed in sgp_portable_stubs.cpp:
-//   - Blitters: BltVideoSurface, BltVideoSurfaceToVideoSurface,
-//     BltStretchVideoSurface, BltVSurfaceUsingDD,
-//     ColorFillVideoSurfaceArea, ImageFillVideoSurfaceArea,
-//     ShadowVideoSurfaceRect{,Image,UsingLowPercentTable}.
-//   - Restore/Backup logic (no DD restore semantics on SDL3 path).
+// CPU blitters, stretching, shadowing, and packed-surface operations are
+// implemented below. The public rectangle fill enters through the engine
+// RenderCommandSink and maps back into this storage manager. ImageFill remains
+// a placeholder, and Restore/Backup stays a no-op because heap surfaces have
+// no DirectDraw restore semantics.
 
 #include "types.h"
 #include "vobject.h"  // VO_BLT_SRCTRANSPARENCY
@@ -941,33 +940,6 @@ void FillRect16(PIXEL* dst, UINT32 dstPitchBytes,
 }
 
 } // namespace
-
-BOOLEAN ColorFillVideoSurfaceArea(UINT32 uiDestVSurface,
-                                  INT32 iDestX1, INT32 iDestY1,
-                                  INT32 iDestX2, INT32 iDestY2,
-                                  PIXEL Color16BPP)
-{
-	HVSURFACE hDst = nullptr;
-	if (!GetVideoSurface(&hDst, uiDestVSurface) || !hDst) return FALSE;
-	if (hDst->ubBitDepth != 16) return FALSE;
-
-	// Normalise + clip.
-	if (iDestX2 < iDestX1) std::swap(iDestX1, iDestX2);
-	if (iDestY2 < iDestY1) std::swap(iDestY1, iDestY2);
-	if (iDestX1 < 0) iDestX1 = 0;
-	if (iDestY1 < 0) iDestY1 = 0;
-	if (iDestX2 > (INT32)hDst->usWidth)  iDestX2 = hDst->usWidth;
-	if (iDestY2 > (INT32)hDst->usHeight) iDestY2 = hDst->usHeight;
-	if (iDestX1 >= iDestX2 || iDestY1 >= iDestY2) return TRUE;
-
-	UINT32 dstPitch = 0;
-	PIXEL* dstBuf = (PIXEL*)LockVideoSurfaceBuffer(hDst, &dstPitch);
-	if (!dstBuf) return FALSE;
-	FillRect16(dstBuf, dstPitch, iDestX1, iDestY1,
-	           iDestX2 - iDestX1, iDestY2 - iDestY1, Color16BPP);
-	UnLockVideoSurfaceBuffer(hDst);
-	return TRUE;
-}
 
 BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
                                       UINT16 usIndex, INT32 iDestX, INT32 iDestY,

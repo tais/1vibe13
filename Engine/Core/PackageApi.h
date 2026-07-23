@@ -1418,7 +1418,8 @@ private:
 	{
 		return EngineServices{services.time, services.random, services.storage, services.log,
 			services.input, services.audio, services.frames, assets,
-			services.frameInvalidation, services.renderSurfaces};
+			services.frameInvalidation, services.renderSurfaces,
+			services.renderCommands};
 	}
 
 	void logError(const char* prefix, const std::string& packageId) noexcept

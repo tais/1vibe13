@@ -19,10 +19,12 @@
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/LegacyFrameInvalidationGateway.h>
 #include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
+#include <Engine/Adapters/Legacy/LegacyRenderCommandGateway.h>
 #include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
 #include <Engine/Adapters/Legacy/PlatformFrameInvalidator.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
+#include <Engine/Adapters/Legacy/PlatformRenderCommands.h>
 #include <Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
@@ -542,6 +544,31 @@ public:
 
 	int unmaps = 0;
 };
+
+class ReentrantRenderCommandSink final : public RenderCommandSink
+{
+public:
+	bool fillSurface(const RenderSurfaceFillCommand& command) override
+	{
+		++fills;
+		lastCommand = command;
+		nestedAccepted = FillLegacyRenderSurface(command);
+		return true;
+	}
+
+	int fills = 0;
+	bool nestedAccepted = true;
+	RenderSurfaceFillCommand lastCommand;
+};
+
+class ThrowingRenderCommandSink final : public RenderCommandSink
+{
+public:
+	bool fillSurface(const RenderSurfaceFillCommand&) override
+	{
+		throw std::runtime_error("render command probe");
+	}
+};
 }
 
 int main()
@@ -674,6 +701,35 @@ int main()
 	Check(&GetLegacyRenderSurfaceAccess() ==
 			&GetPlatformRenderSurfaceAccess(),
 		"legacy render surface gateway resets to the SGP platform adapter");
+
+	BindLegacyRenderSurfaceAccess(memorySurfaces);
+	RecordingRenderCommandSink recordedRenderCommands;
+	BindLegacyRenderCommands(recordedRenderCommands);
+	const PIXEL legacyRed = Get16BPPColor(FROMRGB(255, 0, 0));
+	const RenderSurfaceFillCommand expectedFillCommand{
+		71, RenderSurfaceRegion{5, 6, 1, 2},
+		RenderColor{255, 0, 0, 255}};
+	Check(ColorFillVideoSurfaceArea(71, 5, 6, 1, 2, legacyRed) &&
+		recordedRenderCommands.commands() ==
+			std::vector<RenderSurfaceFillCommand>{expectedFillCommand},
+		"legacy surface fill converts packed colour into an engine command");
+
+	ReentrantRenderCommandSink reentrantRenderCommands;
+	BindLegacyRenderCommands(reentrantRenderCommands);
+	Check(FillLegacyRenderSurface(expectedFillCommand) &&
+		reentrantRenderCommands.fills == 1 &&
+		reentrantRenderCommands.lastCommand == expectedFillCommand &&
+		!reentrantRenderCommands.nestedAccepted,
+		"legacy render command gateway suppresses recursive submission");
+
+	ThrowingRenderCommandSink throwingRenderCommands;
+	BindLegacyRenderCommands(throwingRenderCommands);
+	Check(!FillLegacyRenderSurface(expectedFillCommand),
+		"legacy render command gateway contains adapter exceptions");
+	ResetLegacyRenderCommands();
+	ResetLegacyRenderSurfaceAccess();
+	Check(&GetLegacyRenderCommands() == &GetPlatformRenderCommands(),
+		"legacy render command gateway resets to the mapped platform renderer");
 
 	const std::filesystem::path root = std::filesystem::temp_directory_path() /
 		("ja2-platform-legacy-" + std::to_string(
@@ -1534,12 +1590,24 @@ int main()
 				(sizeof(PIXEL) == 4 ? RenderPixelFormat::Argb8888 :
 					RenderPixelFormat::Rgb565),
 			"platform render surface adapter exposes the live framebuffer");
+		const PIXEL platformFillColor =
+			Get16BPPColor(FROMRGB(0, 255, 0));
+		Check(ColorFillVideoSurfaceArea(
+				FRAME_BUFFER, 3, 3, 1, 1, platformFillColor),
+			"legacy surface fill executes through the platform render command");
 		UINT32 framePitch = 0;
 		BYTE* firstFrameLock = LockVideoSurface(FRAME_BUFFER, &framePitch);
 		BYTE* secondFrameLock = LockVideoSurface(FRAME_BUFFER, &framePitch);
+		PIXEL filledFramePixel = 0;
+		if (firstFrameLock)
+			std::memcpy(
+				&filledFramePixel,
+				firstFrameLock + framePitch + sizeof(PIXEL),
+				sizeof(filledFramePixel));
 		Check(firstFrameLock && firstFrameLock == secondFrameLock &&
+			filledFramePixel == PixFromColor16(platformFillColor) &&
 			SurfaceData::GetSurfaceID(firstFrameLock) == FRAME_BUFFER,
-			"repeated locks safely re-register the same primary data tuple");
+			"mapped fill writes the live framebuffer and repeated locks remain stable");
 		UnLockVideoSurface(FRAME_BUFFER);
 		Check(SetPrimaryVideoSurfaces(),
 			"primary wrappers can be replaced as one complete transaction");

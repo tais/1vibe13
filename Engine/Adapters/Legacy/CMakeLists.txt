@@ -2,6 +2,7 @@ set(engine_legacy_adapter_sources
   LegacyAudioGateway.cpp
   LegacyFrameGateway.cpp
   LegacyFrameInvalidationGateway.cpp
+  LegacyRenderCommandGateway.cpp
   LegacyXmlDocument.cpp
   LegacyRenderSurfaceGateway.cpp
   LegacyVfsFile.cpp
@@ -12,6 +13,7 @@ set(engine_legacy_adapter_sources
   PlatformFramePresenter.cpp
   PlatformInput.cpp
   PlatformLog.cpp
+  PlatformRenderCommands.cpp
   PlatformRenderSurfaceAccess.cpp
   PlatformTime.cpp)
 

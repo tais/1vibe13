@@ -17,6 +17,7 @@
 #include <Engine/Core/PackageContentLoader.h>
 #include <Engine/Core/PersistenceService.h>
 #include <Engine/Core/PinnedSlotCache.h>
+#include <Engine/Core/RenderCommands.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeReportJson.h>
 #include <Engine/Core/SimulationTick.h>
@@ -26,6 +27,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <stdexcept>
@@ -1902,11 +1904,81 @@ int main()
 				1, 1, RenderPixelFormat::Argb8888, 32}) &&
 		renderSurfaces.totalBytes() == 772,
 		"memory render surfaces enforce one aggregate byte ceiling");
+
+	MemoryRenderSurfaceAccess drawSurfaces(1024);
+	MappedRenderCommandSink mappedCommands(drawSurfaces);
+	const RenderSurfaceFillCommand fillCommand{
+		51, RenderSurfaceRegion{3, 3, -1, 1},
+		RenderColor{0x12, 0x34, 0x56, 0x78}};
+	check(drawSurfaces.defineSurface(
+			51, RenderSurfaceDescription{
+				4, 3, RenderPixelFormat::Argb8888, 32}) &&
+		drawSurfaces.defineSurface(
+			52, RenderSurfaceDescription{
+				2, 1, RenderPixelFormat::Rgb565, 16}) &&
+		drawSurfaces.defineSurface(
+			53, RenderSurfaceDescription{
+				2, 1, RenderPixelFormat::Indexed8, 8}) &&
+		mappedCommands.fillSurface(fillCommand) &&
+		mappedCommands.fillSurface(RenderSurfaceFillCommand{
+			51, RenderSurfaceRegion{20, 20, 30, 30},
+			RenderColor{1, 2, 3, 4}}) &&
+		mappedCommands.fillSurface(RenderSurfaceFillCommand{
+			52, RenderSurfaceRegion{0, 0, 2, 1},
+			RenderColor{255, 128, 0, 255}}) &&
+		!mappedCommands.fillSurface(RenderSurfaceFillCommand{
+			53, RenderSurfaceRegion{0, 0, 2, 1},
+			RenderColor{1, 2, 3, 4}}) &&
+		!mappedCommands.fillSurface(RenderSurfaceFillCommand{
+			99, RenderSurfaceRegion{0, 0, 1, 1},
+			RenderColor{1, 2, 3, 4}}) &&
+		drawSurfaces.mappingCount(51) == 0 &&
+		drawSurfaces.mappingCount(52) == 0 &&
+		drawSurfaces.mappingCount(53) == 0,
+		"mapped render commands clip, normalize, and balance true-colour surfaces");
+	MutableRenderSurface argbPixels;
+	MutableRenderSurface rgb565Pixels;
+	bool argbFillMatches = drawSurfaces.map(51, argbPixels);
+	for (std::uint32_t y = 0; argbFillMatches && y < 3; ++y)
+	{
+		for (std::uint32_t x = 0; x < 4; ++x)
+		{
+			std::uint32_t pixel = 0;
+			std::memcpy(
+				&pixel,
+				argbPixels.pixels + y * argbPixels.pitchBytes +
+					x * sizeof(pixel),
+				sizeof(pixel));
+			const std::uint32_t expected =
+				y >= 1 && x < 3 ? 0x78123456u : 0;
+			if (pixel != expected) argbFillMatches = false;
+		}
+	}
+	drawSurfaces.unmap(51);
+	bool rgb565FillMatches = drawSurfaces.map(52, rgb565Pixels);
+	for (std::uint32_t x = 0; rgb565FillMatches && x < 2; ++x)
+	{
+		std::uint16_t pixel = 0;
+		std::memcpy(
+			&pixel, rgb565Pixels.pixels + x * sizeof(pixel), sizeof(pixel));
+		if (pixel != 0xfc00u) rgb565FillMatches = false;
+	}
+	drawSurfaces.unmap(52);
+	check(argbFillMatches && rgb565FillMatches &&
+		drawSurfaces.mappingCount(51) == 0 &&
+		drawSurfaces.mappingCount(52) == 0,
+		"mapped render commands write exact ARGB8888 and RGB565 pixels");
+	RecordingRenderCommandSink recordedCommands;
+	check(recordedCommands.fillSurface(fillCommand) &&
+		recordedCommands.commands() ==
+			std::vector<RenderSurfaceFillCommand>{fillCommand},
+		"recording render commands expose deterministic headless drawing");
+
 	EngineServices frameServices{
 		frameTime, ZeroRandomSource::instance(), NullByteStorage::instance(),
 		NullLogSink::instance(), frameInput,
 		NullAudioOutput::instance(), framePresenter, NullAssetSource::instance(),
-		frameInvalidation, renderSurfaces};
+		frameInvalidation, renderSurfaces, mappedCommands};
 	frameServices.frameInvalidation.invalidateRegion(FrameRegion{-2, 3, 8, 13});
 	frameServices.frameInvalidation.invalidateAll();
 	frameServices.frameInvalidation.markChanged();
@@ -1917,6 +1989,8 @@ int main()
 		"engine services expose deterministic headless frame invalidation");
 	check(&frameServices.renderSurfaces == &renderSurfaces,
 		"engine services expose replaceable headless render surfaces");
+	check(&frameServices.renderCommands == &mappedCommands,
+		"engine services expose replaceable render commands");
 	frameInvalidation.clear();
 	InputDispatcher inputDispatcher(frameInput, 1);
 	TestInputSink receivingInput;

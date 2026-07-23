@@ -62,9 +62,11 @@
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
 #include <Engine/Adapters/Legacy/LegacyFrameInvalidationGateway.h>
 #include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
+#include <Engine/Adapters/Legacy/LegacyRenderCommandGateway.h>
 #include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
 #include <Engine/Adapters/Legacy/PlatformFrameInvalidator.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
+#include <Engine/Adapters/Legacy/PlatformRenderCommands.h>
 #include <Engine/Adapters/Legacy/PlatformRenderSurfaceAccess.h>
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
@@ -2708,6 +2710,10 @@ int main( int, char** )
 		           &GetPlatformRenderSurfaceAccess() &&
 		       &compiledContext.services().renderSurfaces ==
 		           &GetLegacyRenderSurfaceAccess() &&
+		       &compiledContext.services().renderCommands ==
+		           &GetPlatformRenderCommands() &&
+		       &compiledContext.services().renderCommands ==
+		           &GetLegacyRenderCommands() &&
 		       &compiledContext.services().assets == &compiledContext.packages().assets() &&
 		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
@@ -4271,10 +4277,12 @@ int main( int, char** )
 		RecordingAudioOutput packageAudio;
 		RecordingFramePresenter packageFrames;
 		MemoryRenderSurfaceAccess packageSurfaces;
+		MappedRenderCommandSink packageCommands(packageSurfaces);
 		MemoryAssetSource packageAssets( "rules.test" );
 		EngineServices services{packageTime, packageRandom, packageStorage, logSink, packageInput,
 		                        packageAudio, packageFrames, packageAssets,
-		                        NullFrameInvalidator::instance(), packageSurfaces};
+		                        NullFrameInvalidator::instance(), packageSurfaces,
+		                        packageCommands};
 		packageInput.push( EngineInputEvent{ 17, 2, 1, 65, 0 } );
 		EngineInputEvent injectedInput;
 		CHECK( services.input.poll( injectedInput ) && injectedInput.timestamp == 17 &&
@@ -4322,7 +4330,8 @@ int main( int, char** )
 		       first.observedTime == 42000 && first.observedRandom == 73 &&
 		       first.observedAssetProvenance == "rules.test" &&
 		       first.observedServices &&
-		       &first.observedServices->renderSurfaces == &packageSurfaces,
+		       &first.observedServices->renderSurfaces == &packageSurfaces &&
+		       &first.observedServices->renderCommands == &packageCommands,
 		       "package bootstrap advances through ordered phases" );
 		CHECK( packages.bootstrap( PackageBootstrapPhase::StartRuntime ) ==
 		       PackageBootstrapError::OutOfOrder,
