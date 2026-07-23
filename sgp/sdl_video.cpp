@@ -181,7 +181,7 @@ static INT32 gDirtyL = 0, gDirtyT = 0, gDirtyR = 0, gDirtyB = 0;
 // it only feeds the would-be-skippable counter. Single-threaded (render + game
 // logic both run on the main thread), so a plain bool is sufficient.
 static bool gFrameDirty = true;
-void MarkFrameDirty(void) { gFrameDirty = true; }
+static void MarkFrameDirtyInternal() { gFrameDirty = true; }
 
 // Optional frame-end callback the game uses for overlays.
 static void (*gRefreshOverride)() = nullptr;
@@ -203,7 +203,7 @@ static void ExpandDirtyRect(INT32 L, INT32 T, INT32 R, INT32 B)
 	if (R > (INT32)SCREEN_WIDTH)  R = SCREEN_WIDTH;
 	if (B > (INT32)SCREEN_HEIGHT) B = SCREEN_HEIGHT;
 	if (L >= R || T >= B) return;
-	MarkFrameDirty();   // a non-empty invalidation == a real visual change this frame
+	MarkFrameDirtyInternal(); // a non-empty invalidation == a real visual change this frame
 	if (gDirtyL >= gDirtyR || gDirtyT >= gDirtyB) {
 		gDirtyL = L; gDirtyT = T; gDirtyR = R; gDirtyB = B;
 	} else {
@@ -216,9 +216,29 @@ static void ExpandDirtyRect(INT32 L, INT32 T, INT32 R, INT32 B)
 
 static void DirtyFullScreen()
 {
-	MarkFrameDirty();
+	MarkFrameDirtyInternal();
 	gDirtyL = 0; gDirtyT = 0;
 	gDirtyR = SCREEN_WIDTH; gDirtyB = SCREEN_HEIGHT;
+}
+
+// Raw damage accumulation remains private to the SDL adapter. Public
+// Invalidate* compatibility symbols live in LegacyFrameInvalidationGateway and
+// cross the engine-owned FrameInvalidator contract before reaching these.
+void PlatformVideoInvalidateRegion(
+	std::int32_t left, std::int32_t top,
+	std::int32_t right, std::int32_t bottom)
+{
+	ExpandDirtyRect(left, top, right, bottom);
+}
+
+void PlatformVideoInvalidateAll()
+{
+	DirtyFullScreen();
+}
+
+void PlatformVideoMarkFrameChanged()
+{
+	MarkFrameDirtyInternal();
 }
 
 // ---- Public API -----------------------------------------------------------
@@ -410,28 +430,6 @@ void GetCurrentVideoSettings(UINT16* w, UINT16* h, UINT8* depth)
 
 BOOLEAN CanBlitToFrameBuffer(void) { return TRUE; }
 BOOLEAN CanBlitToMouseBuffer(void) { return TRUE; }
-
-void InvalidateRegion(INT32 L, INT32 T, INT32 R, INT32 B)
-{
-	ExpandDirtyRect(L, T, R, B);
-}
-
-void InvalidateRegions(SGPRect* rects, UINT32 n)
-{
-	if (!rects) return;
-	for (UINT32 i = 0; i < n; ++i) {
-		ExpandDirtyRect(rects[i].iLeft, rects[i].iTop,
-		                rects[i].iRight, rects[i].iBottom);
-	}
-}
-
-void InvalidateScreen(void)       { DirtyFullScreen(); }
-void InvalidateFrameBuffer(void)  { DirtyFullScreen(); guiFrameBufferState = BUFFER_DIRTY; }
-
-void InvalidateRegionEx(INT32 L, INT32 T, INT32 R, INT32 B, UINT32 /*flags*/)
-{
-	ExpandDirtyRect(L, T, R, B);
-}
 
 void SetFrameBufferRefreshOverride(PTR cb)
 {

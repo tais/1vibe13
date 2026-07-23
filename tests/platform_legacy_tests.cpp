@@ -17,7 +17,9 @@
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformAudio.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/LegacyFrameInvalidationGateway.h>
 #include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
+#include <Engine/Adapters/Legacy/PlatformFrameInvalidator.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
@@ -410,6 +412,40 @@ public:
 		throw std::runtime_error("frame presenter probe");
 	}
 };
+
+class ReentrantFrameInvalidator final : public FrameInvalidator
+{
+public:
+	void invalidateRegion(FrameRegion region) override
+	{
+		++invalidations;
+		lastRegion = region;
+		nestedAccepted = InvalidateLegacyFrameRegion(region);
+	}
+	void invalidateAll() override {}
+	void markChanged() override {}
+
+	int invalidations = 0;
+	bool nestedAccepted = true;
+	FrameRegion lastRegion;
+};
+
+class ThrowingFrameInvalidator final : public FrameInvalidator
+{
+public:
+	void invalidateRegion(FrameRegion) override
+	{
+		throw std::runtime_error("frame invalidator probe");
+	}
+	void invalidateAll() override
+	{
+		throw std::runtime_error("frame invalidator probe");
+	}
+	void markChanged() override
+	{
+		throw std::runtime_error("frame invalidator probe");
+	}
+};
 }
 
 int main()
@@ -442,6 +478,48 @@ int main()
 	ResetLegacyFramePresenter();
 	Check(&GetLegacyFramePresenter() == &GetPlatformFramePresenter(),
 		"legacy frame gateway resets to the SDL platform presenter");
+
+	RecordingFrameInvalidator recordedInvalidation;
+	BindLegacyFrameInvalidator(recordedInvalidation);
+	SGPRect damageRegions[] = {
+		{3, 4, 13, 14},
+		{20, 21, 30, 31}};
+	guiFrameBufferState = BUFFER_READY;
+	InvalidateRegion(-2, 1, 8, 9);
+	InvalidateRegions(damageRegions, 2);
+	InvalidateRegions(nullptr, 2);
+	InvalidateRegionEx(40, 41, 50, 51, 0xfeedu);
+	InvalidateScreen();
+	InvalidateFrameBuffer();
+	MarkFrameDirty();
+	const std::vector<FrameRegion> expectedDamage{
+		{-2, 1, 8, 9},
+		{3, 4, 13, 14},
+		{20, 21, 30, 31},
+		{40, 41, 50, 51}};
+	Check(recordedInvalidation.regions() == expectedDamage &&
+		recordedInvalidation.fullInvalidations() == 2 &&
+		recordedInvalidation.changeMarks() == 1 &&
+		guiFrameBufferState == BUFFER_DIRTY,
+		"legacy invalidation entry points preserve region, full-frame, and buffer-state semantics");
+
+	ReentrantFrameInvalidator reentrantInvalidation;
+	BindLegacyFrameInvalidator(reentrantInvalidation);
+	const FrameRegion reentrantRegion{7, 8, 17, 18};
+	Check(InvalidateLegacyFrameRegion(reentrantRegion) &&
+		reentrantInvalidation.invalidations == 1 &&
+		!reentrantInvalidation.nestedAccepted &&
+		reentrantInvalidation.lastRegion == reentrantRegion,
+		"legacy invalidation gateway suppresses recursive submission");
+
+	ThrowingFrameInvalidator throwingInvalidation;
+	BindLegacyFrameInvalidator(throwingInvalidation);
+	Check(!InvalidateLegacyFrameAll(),
+		"legacy invalidation gateway contains invalidator exceptions");
+	ResetLegacyFrameInvalidator();
+	Check(&GetLegacyFrameInvalidator() == &GetPlatformFrameInvalidator(),
+		"legacy invalidation gateway resets to the SDL platform invalidator");
+	guiFrameBufferState = BUFFER_READY;
 
 	const std::filesystem::path root = std::filesystem::temp_directory_path() /
 		("ja2-platform-legacy-" + std::to_string(
@@ -1039,9 +1117,13 @@ int main()
 	Check(videoInitialized, "SDL dummy video manager initializes");
 	if (videoInitialized)
 	{
-		Check(PresentLegacyFrame(FramePresentMode::Paced) &&
+		InvalidateRegion(-10, -10, 10, 10);
+		InvalidateFrameBuffer();
+		Check(guiFrameBufferState == BUFFER_DIRTY &&
+			PresentLegacyFrame(FramePresentMode::Paced) &&
+			guiFrameBufferState == BUFFER_READY &&
 			PresentLegacyFrame(FramePresentMode::Immediate),
-			"default frame gateway reaches paced and immediate SDL presentation");
+			"default frame gateways reach SDL damage accumulation and paced/immediate presentation");
 		const bool videoObjectsInitialized = InitializeVideoObjectManager();
 		Check(videoObjectsInitialized,
 			"video object registry initializes from an empty lifetime");

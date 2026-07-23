@@ -24,6 +24,7 @@
 
 
 extern UINT32				 guiMouseBufferState;	// BUFFER_READY, BUFFER_DIRTY, BUFFER_DISABLED
+extern UINT32				 guiFrameBufferState;	// BUFFER_READY, BUFFER_DIRTY
 //#ifdef WINFONTS
 extern UINT32 CurrentSurface;
 //#endif

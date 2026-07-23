@@ -1,11 +1,13 @@
 set(engine_legacy_adapter_sources
   LegacyAudioGateway.cpp
   LegacyFrameGateway.cpp
+  LegacyFrameInvalidationGateway.cpp
   LegacyXmlDocument.cpp
   LegacyVfsFile.cpp
   PlatformAssets.cpp
   PlatformAudio.cpp
   PlatformFileSystem.cpp
+  PlatformFrameInvalidator.cpp
   PlatformFramePresenter.cpp
   PlatformInput.cpp
   PlatformLog.cpp

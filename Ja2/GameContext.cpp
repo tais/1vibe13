@@ -11,7 +11,9 @@
 #include <Engine/Adapters/Legacy/PlatformInput.h>
 #include <Engine/Adapters/Legacy/PlatformAudio.h>
 #include <Engine/Adapters/Legacy/PlatformFileSystem.h>
+#include <Engine/Adapters/Legacy/LegacyFrameInvalidationGateway.h>
 #include <Engine/Adapters/Legacy/LegacyFrameGateway.h>
+#include <Engine/Adapters/Legacy/PlatformFrameInvalidator.h>
 #include <Engine/Adapters/Legacy/PlatformFramePresenter.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include "random.h"
@@ -34,13 +36,19 @@ GameContext& GetGameContext()
 		EngineServices{GetPlatformTimeSource(), GetGameRandomSource(),
 		               GetPlatformByteStorage(), GetPlatformLogSink(),
 		               GetPlatformInputSource(), GetPlatformAudioOutput(),
-		               GetPlatformFramePresenter(), GetPlatformAssetSource()},
+		               GetPlatformFramePresenter(), GetPlatformAssetSource(),
+		               GetPlatformFrameInvalidator()},
 		packageEvents);
 	static const bool legacyFrameGatewayBound = [&] {
 		BindLegacyFramePresenter(context.services().frames);
 		return true;
 	}();
 	(void)legacyFrameGatewayBound;
+	static const bool legacyFrameInvalidatorBound = [&] {
+		BindLegacyFrameInvalidator(context.services().frameInvalidation);
+		return true;
+	}();
+	(void)legacyFrameInvalidatorBound;
 	static const bool tacticalCommandHostBound = BindJa2TacticalCommandHost(context);
 	(void)tacticalCommandHostBound;
 	static const bool tacticalEntityDirectoryBound = [&] {
