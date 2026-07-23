@@ -28,6 +28,7 @@
 #include "Tile Animation.h"
 #include "Tile Surface.h"
 #include "Tile Cache.h"
+#include "XML.h"
 #include "input.h"
 #include "sdl_input.h"
 #include "soundman.h"
@@ -447,6 +448,16 @@ int main()
 		"tables/missing.xml", rejectedXmlCallbacks);
 	Check(xmlResult.status == LegacyXmlStatus::NotFound,
 		"legacy XML file parsing distinguishes missing assets");
+
+	const std::string clothesXml =
+		"<CLOTHESLIST><CLOTHES><uiIndex>1</uiIndex><szName>probe</szName>"
+		"<Vest>BLUEVEST</Vest><Pants>BLACKPANTS</Pants></CLOTHES></CLOTHESLIST>";
+	Check(storage.writeAll("tables/clothes-probe.xml",
+			std::vector<std::uint8_t>(clothesXml.begin(), clothesXml.end())) &&
+		ReadInClothesStats("TABLES\\CLOTHES-PROBE.XML") &&
+		std::strcmp(Clothes[1].vest, "BLUEVEST") == 0 &&
+		std::strcmp(Clothes[1].pants, "BLACKPANTS") == 0,
+		"a migrated production XML loader populates its legacy definition table");
 
 	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
 		"platform byte storage removal is idempotent and observable");

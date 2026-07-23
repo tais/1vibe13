@@ -1,3 +1,5 @@
+#include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+
 	#include "sgp.h"
 	#include "FileMan.h"
 #include "Item Types.h"
@@ -177,41 +179,13 @@ attachmentslotEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInAttachmentSlotsStats(STR fileName, BOOLEAN localizedVersion)
 {
-	HWFILE		hFile;
-	UINT32		uiBytesRead;
-	UINT32		uiFSize;
-	CHAR8 *		lpcBuffer;
-	XML_Parser	parser = XML_ParserCreate(NULL);
-
 	attachmentslotParseData pData;
 
 	localizedTextOnly_AttachmentSlots = localizedVersion;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading AttachmentSlots.xml" );
 
-	// Open attachmentinfo file
-	hFile = FileOpen( fileName, FILE_ACCESS_READ, FALSE );
-	if ( !hFile )
-		return( FALSE );
-
-	uiFSize = FileGetSize(hFile);
-	lpcBuffer = (CHAR8 *) MemAlloc(uiFSize+1);
-
-	//Read in block
-	if ( !FileRead( hFile, lpcBuffer, uiFSize, &uiBytesRead ) )
-	{
-		MemFree(lpcBuffer);
-		return( FALSE );
-	}
-
-	lpcBuffer[uiFSize] = 0; //add a null terminator
-
-	FileClose( hFile );
-
-	XML_SetElementHandler(parser, attachmentslotStartElementHandle, attachmentslotEndElementHandle);
-	XML_SetCharacterDataHandler(parser, attachmentslotCharacterDataHandle);
-
-	// This should fix the crash in a Release Version with VS 2008	
+	// This should fix the crash in a Release Version with VS 2008
 	//memset(&pData,0,sizeof(pData));
 	
 	pData.curElement = ELEMENT_NONE;
@@ -219,26 +193,24 @@ BOOLEAN ReadInAttachmentSlotsStats(STR fileName, BOOLEAN localizedVersion)
 	pData.currentDepth = 0;
 	pData.maxReadDepth = 0;	
 	pData.curArray = AttachmentSlots;
-	pData.maxArraySize = MAXITEMS;	
-	
-	XML_SetUserData(parser, &pData);
+	pData.maxArraySize = MAXITEMS;
 
-	if(!XML_Parse(parser, lpcBuffer, uiFSize, TRUE))
+	const LegacyXmlCallbacks callbacks{
+		&pData, attachmentslotStartElementHandle, attachmentslotEndElementHandle,
+		attachmentslotCharacterDataHandle};
+	const LegacyXmlResult result =
+		ParseLegacyXmlFile(fileName, callbacks);
+	if (!result)
 	{
-		CHAR8 errorBuf[511];
-
-		sprintf(errorBuf, "XML Parser Error in AttachmentSlots.xml: %s at line %d", XML_ErrorString(XML_GetErrorCode(parser)), XML_GetCurrentLineNumber(parser));
-		LiveMessage(errorBuf);
-
-		MemFree(lpcBuffer);
-		XML_ParserFree(parser);
+		if (result.status != LegacyXmlStatus::NotFound &&
+			result.status != LegacyXmlStatus::ReadError)
+		{
+			const auto message = FormatLegacyXmlFailure(fileName, result);
+			LiveMessage(message.data());
+		}
 		return FALSE;
 	}
 
-	MemFree(lpcBuffer);
-
-	XML_ParserFree(parser);
-	
 	return( TRUE );
 }
 
