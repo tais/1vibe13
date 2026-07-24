@@ -478,27 +478,30 @@ the engine must not contain SDL types in its public domain model.
   frame, audio, and task state stays outside the digest so saves, replays, and
   multiplayer handshakes can compare the runtime that interprets their data.
 - `RuntimeCheckpointService` persists that fingerprint with active package
-  identities/versions and the completed frame/tick boundary in the existing
-  bounded checksummed envelope. Loads are transactional and reject a different
-  runtime before publishing metadata or invoking domain/legacy deserializers;
-  game state remains owned by versioned adapters during the migration.
-  The JA2 save adapter now uses this as a sidecar preflight documented in
-  [Save compatibility metadata](SAVE_COMPATIBILITY.md).
+  identities/versions and the completed frame/tick boundary in a bounded
+  checksummed envelope. It can encode/decode in memory so the checkpoint is a
+  typed section of an application-owned save transaction. Loads are
+  transactional and require the exact current runtime before publishing data
+  or invoking domain deserializers.
+- `RuntimeSaveContainerService` owns the outer one-file save contract. It seals
+  an opaque domain prefix together with bounded typed sections and a fixed
+  trailer carrying exact region lengths and independent checksums. JA2 requires
+  checkpoint and package-state sections and completes their strict preflight
+  before dismantling live game state. This incremental boundary is documented
+  in [Runtime save container](RUNTIME_SAVES.md).
 - `PackageSaveArchiveService` carries bounded opaque state for packages that
   declare a non-zero per-save schema. The registry captures in activation
   order, validates every identity/version/schema before callbacks, runs a
   non-mutating validation pass, and restores only after the application-owned
-  domain save succeeds. JA2 transports it in a companion sidecar so the legacy
-  serializer and old builds remain compatible. Its value model has a separate
-  engine-owned per-package section for framework services such as deterministic
-  random streams; this does not change package callback payload schemas. Archive
-  v2 writes that bounded section while the loader retains byte-compatible v1
-  support, treating old saves as having no engine-owned checkpoint. Encoded
-  engine records and streams share the package-save aggregate byte budget with
-  opaque payloads; the general persistence-envelope limit remains a final cap.
-  The registry stages every package's replacement RNG map before callbacks,
-  rolls callback draws back for capture/v1/failure paths, and publishes v2 state
-  across the active set only through a final series of no-throw swaps.
+  domain load succeeds. Its value model separates package-defined bytes from
+  engine-owned per-package state such as deterministic random streams, without
+  changing callback payload schemas. Archive v3 has one mandatory engine-record
+  count and intentionally rejects older archive versions. Encoded engine
+  records and streams share the aggregate package-save byte budget with opaque
+  payloads; the persistence-envelope limit remains a final cap. The registry
+  stages every replacement RNG map before callbacks, rolls callback draws back
+  on capture or failure, and publishes state across the active set only through
+  a final series of no-throw swaps.
 - `RuntimeFaultJournal` records every contained package service, lifecycle,
   input, update, simulation, and message failure in a bounded sequence. It is
   separate from logarithmically rate-limited logs, so suppression reduces I/O

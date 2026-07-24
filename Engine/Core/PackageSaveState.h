@@ -33,9 +33,6 @@ struct PackageSaveStateSnapshot
 {
 	std::vector<PackageSaveStateRecord> records;
 	std::vector<PackageEngineSaveStateRecord> engineRecords;
-	// False identifies legacy archive payloads that predate engine-owned state.
-	// An explicitly present empty section is distinct and valid for no packages.
-	bool engineStatePresent = false;
 
 	const PackageSaveStateRecord* find(const std::string& packageId) const
 	{

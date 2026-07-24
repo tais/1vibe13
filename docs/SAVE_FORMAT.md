@@ -14,6 +14,13 @@ the field-by-field approach the codebase already started. Recommendation:
 thousands of text-rendering call sites, and yields a format that's identical on
 every platform.
 
+The current `.sav` also has an engine-owned outer container. The portable
+domain stream remains at offset zero, followed by mandatory runtime-checkpoint
+and package-state sections plus an exact-length, independently checksummed
+trailer. See [Runtime save container](RUNTIME_SAVES.md). This outer contract
+does not replace the field-by-field work described below; it gives that
+migration one bounded, inspectable transaction.
+
 ---
 
 ## The problem
@@ -209,19 +216,21 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   blobs written via direct `FileWrite`/`FileRead`. The wide-char-bearing
   structs (the portability priority) are now all migrated; this is the
   remaining breadth.
-- ☐ Bump `SAVE_GAME_VERSION`; verify save→quit→reload + round-trip diff on macOS;
-  cross-check a save loads on Windows/Linux.
+- ☑ Gate the loader at `PORTABLE_SAVE_FORMAT` / save version 1002 so older
+  layouts fail before format-dependent reads.
+- ☐ Add direct primitive/struct golden-byte coverage and cross-check a complete
+  save round trip between macOS, Windows, and Linux.
 
 ### Verification
 
-There is no test framework in the repo yet (that's a separate task). Until then,
-verification is by **playtesting**: save → quit → reload, and confirm a save made
-on one OS loads on another. When a test framework lands, the ideal coverage for
-this work is (a) serializer round-trip tests (write → read → assert-equal for
-every primitive incl. non-ASCII `wstr`) and (b) **golden-byte tests** that assert
-the exact little-endian bytes for known values — those run in CI on Win/Lin/Mac
-and would *prove* cross-platform format parity rather than assuming it. The
-serializer is easy to make memory-buffer-backed for that.
+The test framework now covers the engine-owned outer container and its
+application transaction: section round trips, bounds, corruption, exact runtime
+matching, package contracts, staged restore, and incomplete-save cleanup run in
+engine-core and headless tests. Full domain serialization is still verified by
+**playtesting** (save → quit → reload). Direct serializer round-trip and
+golden-byte tests for every primitive, including non-ASCII `wstr`, remain useful
+follow-up work to prove cross-platform domain parity rather than infer it from
+the shared implementation.
 
 **Status (macOS playtest):** a save written by the migrated build loads
 end-to-end into the strategic view — soldiers (incl. inventory), merc profiles,

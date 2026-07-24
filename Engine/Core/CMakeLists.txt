@@ -64,6 +64,7 @@ set(engine_core_public_headers
   RuntimeReport.h
   RuntimeReportJson.h
   RuntimeReportService.h
+  RuntimeSaveContainer.h
   RuntimeSession.h
   RuntimeUpdate.h
   ServiceCatalog.h
@@ -97,6 +98,7 @@ add_library(ja2_engine_core STATIC
   RuntimeReport.cpp
   RuntimeReportJson.cpp
   RuntimeReportService.cpp
+  RuntimeSaveContainer.cpp
   SubsystemRuntime.cpp
   ${engine_core_public_headers})
 add_library(JA2::EngineCore ALIAS ja2_engine_core)

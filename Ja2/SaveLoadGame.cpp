@@ -24,7 +24,7 @@
 #include "Queen Command.h"
 #include "SaveLoadGame.h"
 #include "GameContext.h"
-#include "SaveCompatibility.h"
+#include "RuntimeSaveState.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "Tactical Save.h"
@@ -2569,14 +2569,15 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	UINT32	uiNumBytesWritten=0;
 	HWFILE	hFile=0;
 	SAVED_GAME_HEADER SaveGameHeader;
-	CHAR8		zSaveGameName[ MAX_PATH ];
+	CHAR8		zSaveGameName[ MAX_PATH ] = {};
 	//UINT8		saveDir[100];
 	BOOLEAN	fPausedStateBeforeSaving = gfGamePaused;
 	BOOLEAN	fLockPauseStateBeforeSaving = gfLockPauseState;
 	INT32		iSaveLoadGameMessageBoxID = -1;
 	UINT16	usPosX, usActualWidth, usActualHeight;
 	BOOLEAN fWePausedIt = FALSE;
-	PreparedSaveMetadata preparedFrameworkMetadata;
+	BOOLEAN fSaveFileCreated = FALSE;
+	PreparedRuntimeSave preparedRuntimeSave;
 	
 	CHAR16	zString[128];
 
@@ -2663,9 +2664,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Set the fact that we are saving a game
 	gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
-	// Capture both sidecars from this single paused-game boundary. They are
-	// committed only after the legacy save has closed successfully.
-	preparedFrameworkMetadata = PrepareSaveMetadata( GetGameContext() );
+	// Capture framework state at this single paused-game boundary. It is sealed
+	// into the same file only after the domain serializer closes successfully.
+	preparedRuntimeSave = PrepareRuntimeSave( GetGameContext() );
 
 
 	//ADB this has been moved ahead of SaveCurrentSectorsInformationToTempItemFile
@@ -2769,9 +2770,6 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Create the name of the file
 	CreateSavedGameFileNameFromNumber( ubSaveGameID, zSaveGameName, sizeof( zSaveGameName ) );
-	// The legacy save is about to be replaced, so its old engine identity must
-	// never survive a partial or failed replacement.
-	RemoveSaveCompatibilityMetadata( GetGameContext(), zSaveGameName );
 #if LOADSAVEGAME_LOGTIME
 	TimingLogWrite("Save ");
 	TimingLogWrite(zSaveGameName);
@@ -2790,7 +2788,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	if(gGameExternalOptions.fEnableInventoryPoolQ)//dnl ch51 081009
 		if(!SaveInventoryPoolQ(ubSaveGameID))
-			return(FALSE);
+			goto FAILED_TO_SAVE;
 
 	// create the save game file
 	hFile = FileOpen( zSaveGameName, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE );
@@ -2799,6 +2797,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR, L"ERROR creating new save");
 		goto FAILED_TO_SAVE;
 	}
+	fSaveFileCreated = TRUE;
 
 	#ifdef JA2BETAVERSION
 		SaveGameFilePosition( FileGetPos( hFile ), "Just Opened File" );
@@ -3626,29 +3625,33 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	//Close the saved game file
 	FileClose( hFile );
+	hFile = 0;
 
-	// Metadata is deliberately best-effort: a valid legacy save remains valid
-	// even when the optional framework sidecars cannot be committed.
+	// Runtime/package state is part of the save contract. A file that cannot be
+	// sealed as one complete container is removed and reported as a failed save.
 	{
-		const PreparedSaveMetadataCommitResult metadata = CommitPreparedSaveMetadata(
-			GetGameContext(), zSaveGameName, std::move( preparedFrameworkMetadata ) );
-		if ( !metadata )
+		const RuntimeSaveCommitResult runtimeSave = CommitRuntimeSave(
+			GetGameContext(), zSaveGameName, std::move( preparedRuntimeSave ) );
+		if ( !runtimeSave )
 		{
 			try
 			{
 				GetGameContext().log().write( LogRecord{
-					LogSeverity::Warning, "save-compatibility",
-					"Could not commit prepared save metadata for " +
+					LogSeverity::Error, "runtime-save",
+					"Could not seal runtime save " +
 						std::string( zSaveGameName ) + " (checkpoint " +
-						std::to_string( static_cast<int>( metadata.checkpointError ) ) +
+						std::to_string( static_cast<int>( runtimeSave.checkpointError ) ) +
 						", capture " + std::to_string(
-							static_cast<int>( metadata.packages.captureError ) ) +
+							static_cast<int>( runtimeSave.packageCaptureError ) ) +
 						", archive " + std::to_string(
-							static_cast<int>( metadata.packages.archiveError ) ) +
-						(metadata.packageId.empty() ? ")" :
-							", package " + metadata.packageId + ")") } );
+							static_cast<int>( runtimeSave.packageArchiveError ) ) +
+						", container " + std::to_string(
+							static_cast<int>( runtimeSave.containerError ) ) +
+						(runtimeSave.packageId.empty() ? ")" :
+							", package " + runtimeSave.packageId + ")") } );
 			}
 			catch ( ... ) {}
+			goto FAILED_TO_SAVE;
 		}
 	}
 
@@ -3737,13 +3740,30 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 FAILED_TO_SAVE:
 
 #ifdef JA2BETAVERSION
-	SaveGameFilePosition( FileGetPos( hFile ), "Failed to Save!!!" );
+	if ( hFile )
+		SaveGameFilePosition( FileGetPos( hFile ), "Failed to Save!!!" );
 #endif
 #if LOADSAVEGAME_LOGTIME
 	TimingLogStop();
 #endif
 
-	FileClose( hFile );
+	if ( hFile )
+	{
+		FileClose( hFile );
+		hFile = 0;
+	}
+
+	if ( fSaveFileCreated )
+	{
+		try
+		{
+			GetGameContext().persistence().storage().remove( zSaveGameName );
+		}
+		catch ( ... ) {}
+	}
+
+	// A failed save must not leave tactical input in the global load/save state.
+	gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;
 
 	if ( fWePausedIt )
 	{
@@ -3799,7 +3819,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	CHAR8		zSaveGameName[ MAX_PATH ];
 	UINT32 uiRelStartPerc;
 	UINT32 uiRelEndPerc;
-	PreparedLoadMetadata preparedFrameworkMetadata;
+	PreparedRuntimeLoad preparedRuntimeLoad;
 
 #ifdef JA2BETAVERSION
 	gfDisplaySaveGamesNowInvalidatedMsg = FALSE;
@@ -3818,62 +3838,30 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 
 	CreateSavedGameFileNameFromNumber(
 		ubSavedGameID, zSaveGameName, sizeof( zSaveGameName ) );
+	preparedRuntimeLoad = PrepareRuntimeLoad(
+		GetGameContext(), zSaveGameName );
+	if ( !preparedRuntimeLoad )
 	{
-		const SaveCompatibilityPolicy policy = GetSaveCompatibilityPolicy();
-		preparedFrameworkMetadata = PrepareLoadMetadata(
-			GetGameContext(), zSaveGameName, policy );
-		if ( policy != SaveCompatibilityPolicy::Ignore )
+		try
 		{
-			const PreparedLoadMetadataGateResult gate =
-				EvaluatePreparedLoadMetadataGate( preparedFrameworkMetadata );
-			const SaveCompatibilityResult& compatibility =
-				preparedFrameworkMetadata.compatibility;
-			const SaveCompatibilityLoadAction action =
-				preparedFrameworkMetadata.compatibilityAction;
-			if ( gate.compatibilityNotice )
-			{
-				try
-				{
-					GetGameContext().log().write( LogRecord{
-						action == SaveCompatibilityLoadAction::Reject
-							? LogSeverity::Error : LogSeverity::Warning,
-						"save-compatibility",
-						"Save compatibility preflight for " + std::string( zSaveGameName ) +
-							": " + SaveCompatibilityStateName( compatibility.state ) +
-							" under policy " + SaveCompatibilityPolicyName( policy ) } );
-				}
-				catch ( ... ) {}
-			}
-
-			const PackageSaveMetadataResult& packageMetadata =
-				preparedFrameworkMetadata.packages;
-			const SaveCompatibilityLoadAction packageAction =
-				preparedFrameworkMetadata.packageAction;
-			if ( gate.packageNotice )
-			{
-				try
-				{
-					GetGameContext().log().write( LogRecord{
-						packageAction == SaveCompatibilityLoadAction::Reject
-							? LogSeverity::Error : LogSeverity::Warning,
-						"save-compatibility",
-						"Package state preflight for " + std::string( zSaveGameName ) +
-							": " + PackageSaveMetadataStateName( packageMetadata.state ) +
-							" under policy " + SaveCompatibilityPolicyName( policy ) } );
-				}
-				catch ( ... ) {}
-			}
-
-			if ( !gate )
-			{
-				ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
-					gate.rejection ==
-						PreparedLoadMetadataRejection::RuntimeCompatibility
-						? L"Save compatibility check rejected this save; see the log for details."
-						: L"Package save state rejected this save; see the log for details." );
-				return( FALSE );
-			}
+			GetGameContext().log().write( LogRecord{
+				LogSeverity::Error, "runtime-save",
+				"Runtime save preflight rejected " + std::string( zSaveGameName ) +
+					" (container " + RuntimeSaveContainerLoadErrorName(
+						preparedRuntimeLoad.containerError ) +
+					", checkpoint " + RuntimeCheckpointLoadErrorName(
+						preparedRuntimeLoad.checkpointError ) +
+					", packages " + PackageSaveArchiveLoadErrorName(
+						preparedRuntimeLoad.packageArchiveError ) +
+					", contract " + std::to_string( static_cast<int>(
+						preparedRuntimeLoad.packageContractError ) ) +
+					(preparedRuntimeLoad.packageId.empty() ? ")" :
+						", package " + preparedRuntimeLoad.packageId + ")") } );
 		}
+		catch ( ... ) {}
+		ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR,
+			L"This save is not a valid save for the active engine and package stack; see the log." );
+		return( FALSE );
 	}
 
 #ifdef LOADSAVEGAME_LOGTIME
@@ -5557,6 +5545,26 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	TimingLog("File read done", 10);
 #endif
 
+	const INT32 loadedDomainBytes = FileGetPos( hFile );
+	if ( loadedDomainBytes < 0 ||
+		static_cast<std::uint64_t>( loadedDomainBytes ) !=
+			preparedRuntimeLoad.domainBytes )
+	{
+		try
+		{
+			GetGameContext().log().write( LogRecord{
+				LogSeverity::Error, "runtime-save",
+				"Domain loader consumed " + std::to_string( loadedDomainBytes ) +
+					" bytes from " + std::string( zSaveGameName ) +
+					", expected " +
+					std::to_string( preparedRuntimeLoad.domainBytes ) } );
+		}
+		catch ( ... ) {}
+		FileClose( hFile );
+		gTacticalStatus.uiFlags &= ~LOADING_SAVED_GAME;
+		return( FALSE );
+	}
+
 	//
 	//Close the saved game file
 	//
@@ -6000,20 +6008,20 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// Reinforcement parameter is not stored in the savegame so we have to reset it here.
 	gGameExternalOptions.gfAllowReinforcements = zDiffSetting[gGameOptions.ubDifficultyLevel].bAllowReinforcements;
 
-	// Apply package-owned campaign state only after every legacy load step has
-	// succeeded. A package callback failure is diagnosed but cannot retroactively
-	// turn the already-loaded, compatible JA2 save into a failed load.
+	// Apply package-owned state only after every domain load step succeeds.
+	// Package bytes came from the already-validated in-file runtime container
+	// and are consumed at most once.
 	{
-		if ( preparedFrameworkMetadata.restorePending() )
+		if ( preparedRuntimeLoad.restorePending() )
 		{
-			const PackageSaveStateLoadResult restored = RestorePreparedPackageSaveState(
-				GetGameContext(), preparedFrameworkMetadata );
+			const PackageSaveStateLoadResult restored = RestorePreparedRuntimeSave(
+				GetGameContext(), preparedRuntimeLoad );
 			if ( !restored )
 			{
 				try
 				{
 					GetGameContext().log().write( LogRecord{
-						LogSeverity::Error, "save-compatibility",
+						LogSeverity::Error, "runtime-save",
 						"Package state restore failed for " + std::string( zSaveGameName ) +
 							" at package " + restored.packageId + " (code " +
 							std::to_string( static_cast<int>( restored.error ) ) + ")" } );

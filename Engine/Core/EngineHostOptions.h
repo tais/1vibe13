@@ -48,6 +48,12 @@ struct EngineHostLimits
 	std::size_t maximumTotalDefinitionPayloadBytes = sizeof(std::size_t) >= 8
 		? static_cast<std::size_t>(64ull * 1024ull * 1024ull * 1024ull)
 		: std::numeric_limits<std::size_t>::max();
+
+	// The outer save transaction enforces these independently from the
+	// persistence-envelope limit and from one another.
+	std::size_t maximumRuntimeSaveDomainBytes = 64u * 1024u * 1024u;
+	std::size_t maximumRuntimeSaveContainerBytes = 64u * 1024u * 1024u;
+	std::size_t maximumRuntimeSaveSections = 64;
 };
 
 struct EngineHostOptions
@@ -141,7 +147,13 @@ inline EngineHostOptionsValidationResult ValidateEngineHostOptions(
 		{options.limits.maximumTotalLocalizationTextBytes,
 			"limits.maximumTotalLocalizationTextBytes"},
 		{options.limits.maximumTotalDefinitionPayloadBytes,
-			"limits.maximumTotalDefinitionPayloadBytes"}
+			"limits.maximumTotalDefinitionPayloadBytes"},
+		{options.limits.maximumRuntimeSaveDomainBytes,
+			"limits.maximumRuntimeSaveDomainBytes"},
+		{options.limits.maximumRuntimeSaveContainerBytes,
+			"limits.maximumRuntimeSaveContainerBytes"},
+		{options.limits.maximumRuntimeSaveSections,
+			"limits.maximumRuntimeSaveSections"}
 	};
 	for (const NamedLimit& limit : limits)
 		if (static_cast<std::uintmax_t>(limit.value) > configurationMaximum)

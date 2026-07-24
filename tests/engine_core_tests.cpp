@@ -20,6 +20,7 @@
 #include <Engine/Core/RenderCommands.h>
 #include <Engine/Core/RuntimeCapabilities.h>
 #include <Engine/Core/RuntimeReportJson.h>
+#include <Engine/Core/RuntimeSaveContainer.h>
 #include <Engine/Core/SimulationTick.h>
 #include <Engine/Core/StableResourceRegistry.h>
 #include <Engine/Core/StateRegistry.h>
@@ -882,7 +883,6 @@ int main()
 		exhaustedRandom.checkpoint() == exhaustedCheckpoint,
 		"package random generation rejects counter exhaustion without wrapping state");
 	PackageSaveStateSnapshot separatedEngineState;
-	separatedEngineState.engineStatePresent = true;
 	separatedEngineState.engineRecords.push_back(PackageEngineSaveStateRecord{
 		"rules.ballistics", "1", randomCheckpoint});
 	check(separatedEngineState.records.empty() &&
@@ -982,7 +982,7 @@ int main()
 		0, 64, 16667, 4, 128, 64u * 1024u * 1024u, 256, 2, 3, 4, 5);
 	check(defaultOptionsValidation &&
 		legacyDefaultHost.serviceCatalog().size() == 14 &&
-		legacyDefaultHost.configuration().size() == 23 &&
+		legacyDefaultHost.configuration().size() == 26 &&
 		namedDefaultHost.serviceCatalog().size() ==
 			legacyDefaultHost.serviceCatalog().size() &&
 		namedDefaultHost.configuration().size() ==
@@ -1003,6 +1003,12 @@ int main()
 			PackageRegistry::MaximumSaveStateRecords &&
 		namedDefaultHost.packageSaveArchives().maximumRecords() ==
 			PackageRegistry::MaximumSaveStateRecords &&
+		namedDefaultHost.runtimeSaveContainers().maximumDomainBytes() ==
+			RuntimeSaveContainerService::DefaultMaximumDomainBytes &&
+		namedDefaultHost.runtimeSaveContainers().maximumContainerBytes() ==
+			RuntimeSaveContainerService::DefaultMaximumContainerBytes &&
+		namedDefaultHost.runtimeSaveContainers().maximumSections() ==
+			RuntimeSaveContainerService::DefaultMaximumSections &&
 		legacyCapacityHost.localization().maximumTotalTextBytes() == 6 &&
 		legacyCapacityHost.definitions().maximumTotalPayloadBytes() == 20,
 		"named host defaults preserve the positional host contract and fingerprint");
@@ -1067,6 +1073,9 @@ int main()
 	customHostOptions.limits.maximumPackageSaveStateRecords = 15;
 	customHostOptions.limits.maximumPackageSaveStateBytes = 107;
 	customHostOptions.limits.maximumTotalPackageSaveStateBytes = 108;
+	customHostOptions.limits.maximumRuntimeSaveDomainBytes = 109;
+	customHostOptions.limits.maximumRuntimeSaveContainerBytes = 110;
+	customHostOptions.limits.maximumRuntimeSaveSections = 16;
 	EngineHost<unsigned> customHost(customHostOptions, optionServices);
 	const PackageCatalogSnapshot customCatalog = customHost.packageCatalog();
 	check(customHost.hasCapability("host.named-options") &&
@@ -1100,7 +1109,10 @@ int main()
 		customHost.packageSaveArchives().maximumRecords() == 15 &&
 		customHost.packageSaveArchives().maximumPackageBytes() == 107 &&
 		customHost.packageSaveArchives().maximumTotalBytes() == 108 &&
-		customHost.packageSaveArchives().maximumRandomStreamsPerPackage() == 2,
+		customHost.packageSaveArchives().maximumRandomStreamsPerPackage() == 2 &&
+		customHost.runtimeSaveContainers().maximumDomainBytes() == 109 &&
+		customHost.runtimeSaveContainers().maximumContainerBytes() == 110 &&
+		customHost.runtimeSaveContainers().maximumSections() == 16,
 		"named host options configure every owned bounded subsystem coherently");
 
 	EngineHostOptions invalidHostOptions;
@@ -1152,8 +1164,7 @@ int main()
 		zeroSaveBudgetHost.capturePackageSaveState();
 	check(zeroSaveBudgetReady && zeroSaveBudgetCapture &&
 		zeroSaveBudgetCapture.snapshot.records.empty() &&
-		zeroSaveBudgetCapture.snapshot.engineRecords.empty() &&
-		!zeroSaveBudgetCapture.snapshot.engineStatePresent,
+		zeroSaveBudgetCapture.snapshot.engineRecords.empty(),
 		"an empty runtime captures no package metadata even with a zero-byte save budget");
 
 	RandomSavePackage firstRandomSavePackage("rules.random-save-a", 7);
@@ -1189,7 +1200,6 @@ int main()
 	randomSaveHost.simulationTicks().advance(
 		randomSaveHost.simulationTicks().stepMicroseconds());
 	check(randomSaveReady && capturedRandomState &&
-		capturedRandomState.snapshot.engineStatePresent &&
 		capturedRandomState.snapshot.records.size() == 2 &&
 		capturedRandomState.snapshot.engineRecords.size() == 2 &&
 		capturedRandomState.snapshot.engineRecords[0].random.streams.size() == 1 &&
@@ -1201,42 +1211,44 @@ int main()
 		secondRandomSavePackage.simulationValues[2] == expectedSecondRandom,
 		"package save restore rewinds all deterministic random streams atomically");
 
-	const PackageSaveStateCaptureResult beforeLegacyRandomRestore =
+	const PackageSaveStateCaptureResult beforeIncompleteRandomRestore =
 		randomSaveHost.capturePackageSaveState();
-	PackageSaveStateSnapshot legacyRandomState = beforeLegacyRandomRestore.snapshot;
-	legacyRandomState.engineRecords.clear();
-	legacyRandomState.engineStatePresent = false;
-	const PackageSaveStateLoadResult restoredLegacyRandomState =
-		randomSaveHost.restorePackageSaveState(legacyRandomState);
-	const PackageSaveStateCaptureResult afterLegacyRandomRestore =
+	PackageSaveStateSnapshot incompleteRandomState =
+		beforeIncompleteRandomRestore.snapshot;
+	incompleteRandomState.engineRecords.clear();
+	const PackageSaveStateLoadResult rejectedIncompleteRandomState =
+		randomSaveHost.restorePackageSaveState(incompleteRandomState);
+	const PackageSaveStateCaptureResult afterIncompleteRandomRestore =
 		randomSaveHost.capturePackageSaveState();
-	const bool legacyRandomUnchanged = beforeLegacyRandomRestore &&
-		afterLegacyRandomRestore &&
-		beforeLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
-		afterLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
-		beforeLegacyRandomRestore.snapshot.engineRecords[0].random ==
-			afterLegacyRandomRestore.snapshot.engineRecords[0].random &&
-		beforeLegacyRandomRestore.snapshot.engineRecords[1].random ==
-			afterLegacyRandomRestore.snapshot.engineRecords[1].random;
-	check(restoredLegacyRandomState &&
-		restoredLegacyRandomState.engineRecordsRestored == 0 && legacyRandomUnchanged,
-		"v1 package state callbacks cannot perturb live random streams");
+	const bool incompleteRandomUnchanged = beforeIncompleteRandomRestore &&
+		afterIncompleteRandomRestore &&
+		beforeIncompleteRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterIncompleteRandomRestore.snapshot.engineRecords.size() == 2 &&
+		beforeIncompleteRandomRestore.snapshot.engineRecords[0].random ==
+			afterIncompleteRandomRestore.snapshot.engineRecords[0].random &&
+		beforeIncompleteRandomRestore.snapshot.engineRecords[1].random ==
+			afterIncompleteRandomRestore.snapshot.engineRecords[1].random;
+	check(rejectedIncompleteRandomState.error ==
+			PackageSaveStateError::EngineStateMismatch &&
+		rejectedIncompleteRandomState.packageId == "rules.random-save-a" &&
+		incompleteRandomUnchanged,
+		"package restores require complete engine-owned random state");
 
 	PackageSaveStateSnapshot invalidLaterRandomState =
-		afterLegacyRandomRestore.snapshot;
+		afterIncompleteRandomRestore.snapshot;
 	if (invalidLaterRandomState.engineRecords.size() == 2)
 		invalidLaterRandomState.engineRecords[1].random.schema = 99;
 	const PackageSaveStateLoadResult invalidLaterRandomRestore =
 		randomSaveHost.restorePackageSaveState(invalidLaterRandomState);
 	const PackageSaveStateCaptureResult afterInvalidRandomRestore =
 		randomSaveHost.capturePackageSaveState();
-	const bool invalidRandomUnchanged = afterLegacyRandomRestore &&
+	const bool invalidRandomUnchanged = afterIncompleteRandomRestore &&
 		afterInvalidRandomRestore &&
-		afterLegacyRandomRestore.snapshot.engineRecords.size() == 2 &&
+		afterIncompleteRandomRestore.snapshot.engineRecords.size() == 2 &&
 		afterInvalidRandomRestore.snapshot.engineRecords.size() == 2 &&
-		afterLegacyRandomRestore.snapshot.engineRecords[0].random ==
+		afterIncompleteRandomRestore.snapshot.engineRecords[0].random ==
 			afterInvalidRandomRestore.snapshot.engineRecords[0].random &&
-		afterLegacyRandomRestore.snapshot.engineRecords[1].random ==
+		afterIncompleteRandomRestore.snapshot.engineRecords[1].random ==
 			afterInvalidRandomRestore.snapshot.engineRecords[1].random;
 	check(invalidLaterRandomRestore.error ==
 			PackageSaveStateError::EngineStateMismatch &&
@@ -1575,7 +1587,7 @@ int main()
 		sessionHost.configuration().sealed() &&
 		sessionHost.configuration().set("host.test-value", std::int64_t{43}) ==
 			RuntimeConfigurationSetError::Sealed &&
-		sessionHost.configuration().size() == 24,
+		sessionHost.configuration().size() == 27,
 		"runtime configuration publishes typed stable values and seals before bootstrap");
 	const RuntimeDiagnosticsSnapshot diagnostics = sessionHost.diagnostics();
 	const RuntimeReport runtimeReport = sessionHost.runtimeReport();
@@ -1586,7 +1598,7 @@ int main()
 		diagnostics.entities.empty() && diagnostics.packageAudio.empty() &&
 		diagnostics.packageTasks.queued.empty() &&
 		diagnostics.packageResources.packages.empty() && diagnostics.services.size() == 15 &&
-		diagnostics.configuration.size() == 24 &&
+		diagnostics.configuration.size() == 27 &&
 		diagnostics.compatibility == sessionHost.compatibilityFingerprint() &&
 		diagnostics.queuedMessages == 0 &&
 		diagnostics.completedFrames == 0 && diagnostics.completedSimulationTicks == 0,
@@ -1594,7 +1606,7 @@ int main()
 	check(runtimeReport.lifecycle == EngineLifecycle::Stopped && runtimeReport.healthy() &&
 		runtimeReport.completedFrames == 0 && runtimeReport.completedSimulationTicks == 0 &&
 		runtimeReport.registeredPackages == 0 && runtimeReport.activePackages == 0 &&
-		runtimeReport.services.size() == 15 && runtimeReport.configuration.size() == 24 &&
+		runtimeReport.services.size() == 15 && runtimeReport.configuration.size() == 27 &&
 		runtimeReport.compatibility == diagnostics.compatibility &&
 		runtimeReport.frames.completedFrames == diagnostics.frames.summary.completedFrames,
 		"runtime report condenses diagnostics without retaining sensitive content payloads");
@@ -3017,32 +3029,87 @@ int main()
 		persistenceStorage.remove("engine.record") &&
 		!persistenceStorage.remove(""),
 		"byte storage removes records idempotently and rejects empty paths");
+	MemoryByteStorage containerStorage;
+	RuntimeSaveContainerService runtimeSaveContainers(containerStorage, 16, 64, 2);
+	const std::vector<std::uint8_t> domainPrefix{0xde, 0xad, 0xbe, 0xef};
+	const std::vector<RuntimeSaveSection> runtimeSections{
+		{0x504b4843u, {1, 2, 3}},
+		{0x54534750u, {4, 5}}};
+	containerStorage.writeAll("runtime.sav", domainPrefix);
+	const RuntimeSaveContainerSaveError sealedRuntimeSave =
+		runtimeSaveContainers.seal("runtime.sav", runtimeSections);
+	std::vector<std::uint8_t> sealedRuntimeBytes;
+	containerStorage.readAll("runtime.sav", sealedRuntimeBytes);
+	RuntimeSaveContainer inspectedRuntimeSave;
+	const RuntimeSaveContainerLoadResult inspectedRuntimeResult =
+		runtimeSaveContainers.inspect("runtime.sav", inspectedRuntimeSave);
+	check(sealedRuntimeSave == RuntimeSaveContainerSaveError::None &&
+		inspectedRuntimeResult && inspectedRuntimeSave.domainBytes == domainPrefix.size() &&
+		sealedRuntimeBytes.size() > domainPrefix.size() &&
+		std::vector<std::uint8_t>(
+			sealedRuntimeBytes.begin(),
+			sealedRuntimeBytes.begin() + domainPrefix.size()) == domainPrefix &&
+		inspectedRuntimeSave.sections.size() == 2 &&
+		inspectedRuntimeSave.find(0x504b4843u) &&
+		inspectedRuntimeSave.find(0x504b4843u)->payload ==
+			std::vector<std::uint8_t>({1, 2, 3}) &&
+		inspectedRuntimeSave.find(0x54534750u) &&
+		inspectedRuntimeSave.find(0x54534750u)->payload ==
+			std::vector<std::uint8_t>({4, 5}),
+		"runtime save containers preserve the domain prefix and publish typed sections");
+	RuntimeSaveContainer unchangedContainer;
+	unchangedContainer.domainBytes = 99;
+	unchangedContainer.sections.push_back({7, {9}});
+	sealedRuntimeBytes[0] ^= 0xffu;
+	containerStorage.writeAll("runtime.corrupt", sealedRuntimeBytes);
+	const RuntimeSaveContainerLoadResult corruptRuntimeResult =
+		runtimeSaveContainers.inspect("runtime.corrupt", unchangedContainer);
+	check(corruptRuntimeResult.error ==
+			RuntimeSaveContainerLoadError::IntegrityFailure &&
+		unchangedContainer.domainBytes == 99 &&
+		unchangedContainer.sections.size() == 1 &&
+		unchangedContainer.sections[0].type == 7 &&
+		unchangedContainer.sections[0].payload ==
+			std::vector<std::uint8_t>({9}),
+		"runtime save integrity failures leave the caller snapshot unchanged");
+	containerStorage.writeAll("runtime.plain", domainPrefix);
+	RuntimeSaveContainer rejectedPlainContainer;
+	check(runtimeSaveContainers.inspect(
+			"runtime.plain", rejectedPlainContainer).error ==
+			RuntimeSaveContainerLoadError::InvalidOrUnsupported &&
+		runtimeSaveContainers.inspect(
+			"runtime.missing", rejectedPlainContainer).error ==
+			RuntimeSaveContainerLoadError::NotFound &&
+		runtimeSaveContainers.seal(
+			"runtime.plain", {{1, {}}, {1, {}}}) ==
+			RuntimeSaveContainerSaveError::DuplicateSection &&
+		runtimeSaveContainers.seal("runtime.plain", {{0, {}}}) ==
+			RuntimeSaveContainerSaveError::InvalidRequest &&
+		runtimeSaveContainers.seal(
+			"runtime.plain", {{1, {}}, {2, {}}, {3, {}}}) ==
+			RuntimeSaveContainerSaveError::TooManySections,
+		"runtime save containers reject plain files and invalid section contracts");
+	MemoryByteStorage boundedContainerStorage;
+	RuntimeSaveContainerService boundedRuntimeSaveContainers(
+		boundedContainerStorage, 3, 16, 2);
+	boundedContainerStorage.writeAll("domain.large", domainPrefix);
+	boundedContainerStorage.writeAll("container.large", {1});
+	boundedContainerStorage.writeAll("header.large", {1});
+	RuntimeSaveContainerService headerBoundedRuntimeSaveContainers(
+		boundedContainerStorage, 3, 3, 2);
+	check(boundedRuntimeSaveContainers.seal(
+			"domain.large", {{1, {}}}) ==
+			RuntimeSaveContainerSaveError::DomainTooLarge &&
+		boundedRuntimeSaveContainers.seal(
+			"container.large", {{1, {1, 2, 3, 4, 5}}}) ==
+			RuntimeSaveContainerSaveError::ContainerTooLarge &&
+		headerBoundedRuntimeSaveContainers.seal(
+			"header.large", {}) ==
+			RuntimeSaveContainerSaveError::ContainerTooLarge,
+		"runtime save containers enforce independent domain and section bounds");
 	MemoryByteStorage checkpointStorage;
 	PersistenceService checkpointPersistence(checkpointStorage, 4096);
 	RuntimeCheckpointService checkpoints(checkpointPersistence, 1);
-	EngineServices checkpointHostServices{
-		ZeroTimeSource::instance(), ZeroRandomSource::instance(), checkpointStorage};
-	EngineHost<unsigned> checkpointHost(checkpointHostServices);
-	const RuntimeCompatibilityFingerprint currentHostFingerprint =
-		checkpointHost.compatibilityFingerprint();
-	const RuntimeCompatibilityFingerprint preAggregateHostFingerprint =
-		checkpointHost.preAggregateCatalogCompatibilityFingerprint();
-	const RuntimeCheckpoint preAggregateCheckpoint{
-		preAggregateHostFingerprint, 31, 47, {}};
-	check(currentHostFingerprint != preAggregateHostFingerprint &&
-		checkpointHost.runtimeCheckpoints().save(
-			"runtime.checkpoint-pre-aggregate", preAggregateCheckpoint) ==
-			RuntimeCheckpointSaveError::None,
-		"the reconstructed pre-aggregate host configuration has its own real fingerprint");
-	RuntimeCheckpoint loadedPreAggregateCheckpoint;
-	const RuntimeCheckpointLoadResult loadedPreAggregateResult =
-		checkpointHost.loadRuntimeCheckpoint(
-			"runtime.checkpoint-pre-aggregate", loadedPreAggregateCheckpoint);
-	check(loadedPreAggregateResult &&
-		loadedPreAggregateCheckpoint.compatibility == preAggregateHostFingerprint &&
-		loadedPreAggregateCheckpoint.completedFrames == 31 &&
-		loadedPreAggregateCheckpoint.completedSimulationTicks == 47,
-		"runtime checkpoints made with the pre-aggregate configuration remain loadable");
 	const RuntimeCheckpoint savedCheckpoint{
 		firstFingerprint, 17, 23, {{"rules.fingerprint", "2.0"}}};
 	check(checkpoints.save("runtime.checkpoint", savedCheckpoint) ==
@@ -3073,7 +3140,6 @@ int main()
 		PackageSaveStateSnapshot{{
 			PackageSaveStateRecord{"rules.fingerprint", "2.0", 1, {4, 2}},
 			PackageSaveStateRecord{"extension.state", "1.0", 3, {1, 3, 3, 7}}}}};
-	savedPackageArchive.state.engineStatePresent = true;
 	savedPackageArchive.state.engineRecords.push_back(PackageEngineSaveStateRecord{
 		"rules.fingerprint", "2.0",
 		PackageRandomCheckpoint{PackageRandomCheckpoint::CurrentSchema,
@@ -3081,12 +3147,13 @@ int main()
 	check(packageArchives.save("package-state", savedPackageArchive) ==
 			PackageSaveArchiveSaveError::None,
 		"package save archive writes ordered bounded state through persistence envelopes");
-	PackageSaveArchive missingEngineMarker = savedPackageArchive;
-	missingEngineMarker.state.engineStatePresent = false;
-	check(packageArchives.save("package-state-invalid", missingEngineMarker) ==
+	PackageSaveArchive duplicateEngineRecord = savedPackageArchive;
+	duplicateEngineRecord.state.engineRecords.push_back(
+		duplicateEngineRecord.state.engineRecords.front());
+	check(packageArchives.save("package-state-invalid", duplicateEngineRecord) ==
 			PackageSaveArchiveSaveError::InvalidArchive &&
 		!checkpointStorage.exists("package-state-invalid"),
-		"package save archives reject hidden engine records transactionally");
+		"package save archives reject duplicate engine records transactionally");
 	PackageSaveArchiveService tightPackageArchives(
 		checkpointPersistence, 2, 8, 12, 64);
 	check(tightPackageArchives.save("package-state-over-budget", savedPackageArchive) ==
@@ -3104,13 +3171,12 @@ int main()
 		loadedPackageArchive.state.records[1].schemaVersion == 3 &&
 		loadedPackageArchive.state.records[1].payload ==
 			std::vector<std::uint8_t>({1, 3, 3, 7}) &&
-		loadedPackageArchive.state.engineStatePresent &&
 		loadedPackageArchive.state.engineRecords.size() == 1 &&
 		loadedPackageArchive.state.engineRecords[0].random.streams.size() == 1 &&
 		loadedPackageArchive.state.engineRecords[0].random.streams[0].state == 123 &&
-		encodedPackageArchive.size() >= 6 && encodedPackageArchive[4] == 2 &&
+		encodedPackageArchive.size() >= 6 && encodedPackageArchive[4] == 3 &&
 		encodedPackageArchive[5] == 0,
-		"package save archive v2 round-trips opaque and engine-owned state");
+		"package save archive v3 round-trips opaque and engine-owned state");
 	PackageSaveArchive tightLoadOutput{firstFingerprint,
 		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
 	const PackageSaveArchiveLoadResult tightLoad = tightPackageArchives.load(
@@ -3127,63 +3193,17 @@ int main()
 		0x00, 0x00, 0x70, 0x01, 0x00, 0x00, 0x00, 0x76, 0x01, 0x00, 0x00,
 		0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7f};
 	checkpointStorage.writeAll("package-state-v1", versionOneArchiveFixture);
-	PackageSaveArchive loadedVersionOneArchive;
-	const PackageSaveArchiveLoadResult loadedVersionOneState = packageArchives.load(
+	PackageSaveArchive rejectedVersionOneArchive{firstFingerprint,
+		PackageSaveStateSnapshot{{
+			PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
+	const PackageSaveArchiveLoadResult rejectedVersionOne = packageArchives.load(
 		"package-state-v1", RuntimeCompatibilityFingerprint{1, 2, 3},
-		loadedVersionOneArchive);
-	check(loadedVersionOneState && loadedVersionOneArchive.state.records.size() == 1 &&
-		loadedVersionOneArchive.state.records[0].packageId == "p" &&
-		loadedVersionOneArchive.state.records[0].packageVersion == "v" &&
-		loadedVersionOneArchive.state.records[0].payload ==
-			std::vector<std::uint8_t>({0x7f}) &&
-		!loadedVersionOneArchive.state.engineStatePresent &&
-		loadedVersionOneArchive.state.engineRecords.empty(),
-		"package save archive loads the exact pre-v2 byte fixture unchanged");
-	BinaryWriter preAggregateVersionOnePayload;
-	preAggregateVersionOnePayload.writeU32(preAggregateHostFingerprint.schema);
-	preAggregateVersionOnePayload.writeU64(preAggregateHostFingerprint.high);
-	preAggregateVersionOnePayload.writeU64(preAggregateHostFingerprint.low);
-	preAggregateVersionOnePayload.writeU32(1);
-	preAggregateVersionOnePayload.writeString("p");
-	preAggregateVersionOnePayload.writeString("v");
-	preAggregateVersionOnePayload.writeU32(1);
-	preAggregateVersionOnePayload.writeU64(1);
-	preAggregateVersionOnePayload.writeU8(0x7f);
-	check(checkpointPersistence.saveEnvelope("package-state-pre-aggregate-v1",
-			PersistenceHeader{0x54534750u, 1}, preAggregateVersionOnePayload.bytes()) ==
-			PersistenceSaveResult::Success,
-		"tests can reproduce the pre-v2 package archive with a real old host fingerprint");
-	PackageSaveArchive loadedPreAggregateVersionOneArchive;
-	const PackageSaveArchiveLoadResult loadedPreAggregateVersionOne =
-		packageArchives.load("package-state-pre-aggregate-v1", currentHostFingerprint,
-			preAggregateHostFingerprint, loadedPreAggregateVersionOneArchive);
-	check(loadedPreAggregateVersionOne &&
-		loadedPreAggregateVersionOneArchive.compatibility == preAggregateHostFingerprint &&
-		loadedPreAggregateVersionOneArchive.state.records.size() == 1 &&
-		loadedPreAggregateVersionOneArchive.state.records[0].payload ==
-			std::vector<std::uint8_t>({0x7f}),
-		"v1 package archives validate against the reconstructed pre-aggregate fingerprint");
-	PackageSaveArchive rejectedPreAggregateVersionOne;
-	const PackageSaveArchiveLoadResult rejectedWithoutPreAggregateFingerprint =
-		packageArchives.load("package-state-pre-aggregate-v1", currentHostFingerprint,
-			rejectedPreAggregateVersionOne);
-	check(rejectedWithoutPreAggregateFingerprint.error ==
-			PackageSaveArchiveLoadError::IncompatibleRuntime,
-		"v1 package archive compatibility remains validated rather than bypassed");
-	PackageSaveArchive preAggregateVersionTwoArchive{
-		preAggregateHostFingerprint, PackageSaveStateSnapshot{}};
-	preAggregateVersionTwoArchive.state.engineStatePresent = true;
-	check(packageArchives.save(
-			"package-state-pre-aggregate-v2", preAggregateVersionTwoArchive) ==
-			PackageSaveArchiveSaveError::None,
-		"tests can encode a structurally valid v2 archive with the legacy fingerprint");
-	PackageSaveArchive rejectedPreAggregateVersionTwo;
-	const PackageSaveArchiveLoadResult rejectedPreAggregateVersionTwoResult =
-		packageArchives.load("package-state-pre-aggregate-v2", currentHostFingerprint,
-			preAggregateHostFingerprint, rejectedPreAggregateVersionTwo);
-	check(rejectedPreAggregateVersionTwoResult.error ==
-			PackageSaveArchiveLoadError::IncompatibleRuntime,
-		"v2 package archives cannot use the pre-aggregate compatibility alternative");
+		rejectedVersionOneArchive);
+	check(rejectedVersionOne.error ==
+			PackageSaveArchiveLoadError::InvalidOrUnsupported &&
+		rejectedVersionOneArchive.state.records.size() == 1 &&
+		rejectedVersionOneArchive.state.records[0].packageId == "unchanged",
+		"package save archives reject pre-container versions transactionally");
 	PackageSaveArchive unchangedPackageArchive{firstFingerprint,
 		PackageSaveStateSnapshot{{PackageSaveStateRecord{"unchanged", "1", 1, {9}}}}};
 	const PackageSaveArchiveLoadResult incompatiblePackageState = packageArchives.load(

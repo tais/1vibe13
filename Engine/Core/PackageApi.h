@@ -736,7 +736,6 @@ public:
 			PackageSaveStateCaptureResult result;
 			result.snapshot.records.reserve(statefulPackages);
 			result.snapshot.engineRecords.reserve(active_.size());
-			result.snapshot.engineStatePresent = true;
 			std::size_t totalBytes = 0;
 			if (!addSaveStateBytes(
 				totalBytes, sizeof(std::uint32_t), maximumTotalSaveStateBytes_))
@@ -793,43 +792,37 @@ public:
 				snapshot.engineRecords.size() > maximumSaveStateRecords_)
 				return {PackageSaveStateError::TooManyRecords, {}, 0};
 			std::size_t totalBytes = 0;
-			if (snapshot.engineStatePresent)
-			{
-				if (snapshot.engineRecords.size() != active_.size())
-					return {PackageSaveStateError::EngineStateMismatch,
-						snapshot.engineRecords.size() < active_.size()
-							? active_[snapshot.engineRecords.size()]
-							: snapshot.engineRecords[active_.size()].packageId, 0};
-				if (!addSaveStateBytes(
-					totalBytes, sizeof(std::uint32_t), maximumTotalSaveStateBytes_))
-					return {PackageSaveStateError::TotalTooLarge, {}, 0};
-				for (std::size_t index = 0; index < active_.size(); ++index)
-				{
-					const std::string& packageId = active_[index];
-					const RegisteredPackage& registered = packages_.at(packageId);
-					const PackageEngineSaveStateRecord& record =
-						snapshot.engineRecords[index];
-					if (record.packageId != packageId ||
-						record.random.packageId != packageId)
-						return {PackageSaveStateError::EngineStateMismatch, packageId, 0};
-					if (record.packageVersion != registered.version)
-						return {PackageSaveStateError::VersionMismatch, packageId, 0};
-					const PackageRandomCheckpointError randomValidation =
-						registered.random.validateCheckpoint(record.random);
-					if (randomValidation != PackageRandomCheckpointError::None)
-						return {randomValidation == PackageRandomCheckpointError::AllocationFailure
-								? PackageSaveStateError::AllocationFailure
-								: PackageSaveStateError::EngineStateMismatch,
-							packageId, 0};
-					if (!addEngineSaveStateBytes(
-						totalBytes, record, maximumTotalSaveStateBytes_))
-						return {PackageSaveStateError::TotalTooLarge, packageId, 0};
-				}
-			}
-			else if (!snapshot.engineRecords.empty())
+			if (snapshot.engineRecords.size() != active_.size())
 			{
 				return {PackageSaveStateError::EngineStateMismatch,
-					snapshot.engineRecords.front().packageId, 0};
+					snapshot.engineRecords.size() < active_.size()
+						? active_[snapshot.engineRecords.size()]
+						: snapshot.engineRecords[active_.size()].packageId, 0};
+			}
+			if (!addSaveStateBytes(
+				totalBytes, sizeof(std::uint32_t), maximumTotalSaveStateBytes_))
+				return {PackageSaveStateError::TotalTooLarge, {}, 0};
+			for (std::size_t index = 0; index < active_.size(); ++index)
+			{
+				const std::string& packageId = active_[index];
+				const RegisteredPackage& registered = packages_.at(packageId);
+				const PackageEngineSaveStateRecord& record =
+					snapshot.engineRecords[index];
+				if (record.packageId != packageId ||
+					record.random.packageId != packageId)
+					return {PackageSaveStateError::EngineStateMismatch, packageId, 0};
+				if (record.packageVersion != registered.version)
+					return {PackageSaveStateError::VersionMismatch, packageId, 0};
+				const PackageRandomCheckpointError randomValidation =
+					registered.random.validateCheckpoint(record.random);
+				if (randomValidation != PackageRandomCheckpointError::None)
+					return {randomValidation == PackageRandomCheckpointError::AllocationFailure
+							? PackageSaveStateError::AllocationFailure
+							: PackageSaveStateError::EngineStateMismatch,
+						packageId, 0};
+				if (!addEngineSaveStateBytes(
+					totalBytes, record, maximumTotalSaveStateBytes_))
+					return {PackageSaveStateError::TotalTooLarge, packageId, 0};
 			}
 
 			std::size_t recordIndex = 0;
@@ -874,21 +867,18 @@ public:
 			std::vector<PackageRandomSource> originalRandom = copyRandomStates();
 			RandomStateGuard randomState(*this, originalRandom);
 			std::vector<PackageRandomSource> restoredRandom;
-			if (snapshot.engineStatePresent)
+			restoredRandom.reserve(originalRandom.size());
+			for (std::size_t index = 0; index < originalRandom.size(); ++index)
 			{
-				restoredRandom.reserve(originalRandom.size());
-				for (std::size_t index = 0; index < originalRandom.size(); ++index)
-				{
-					restoredRandom.push_back(originalRandom[index]);
-					const PackageRandomCheckpointError restored =
-						restoredRandom.back().restoreCheckpoint(
-							snapshot.engineRecords[index].random);
-					if (restored != PackageRandomCheckpointError::None)
-						return {restored == PackageRandomCheckpointError::AllocationFailure
-								? PackageSaveStateError::AllocationFailure
-								: PackageSaveStateError::EngineStateMismatch,
-							active_[index], 0};
-				}
+				restoredRandom.push_back(originalRandom[index]);
+				const PackageRandomCheckpointError restored =
+					restoredRandom.back().restoreCheckpoint(
+						snapshot.engineRecords[index].random);
+				if (restored != PackageRandomCheckpointError::None)
+					return {restored == PackageRandomCheckpointError::AllocationFailure
+							? PackageSaveStateError::AllocationFailure
+							: PackageSaveStateError::EngineStateMismatch,
+						active_[index], 0};
 			}
 			std::size_t recordIndex = 0;
 			for (const std::string& packageId : active_)
@@ -935,13 +925,10 @@ public:
 				}
 				++restored;
 			}
-			if (snapshot.engineStatePresent)
-			{
-				swapRandomStates(restoredRandom);
-				randomState.release();
-			}
+			swapRandomStates(restoredRandom);
+			randomState.release();
 			return {PackageSaveStateError::None, {}, restored,
-				snapshot.engineStatePresent ? snapshot.engineRecords.size() : 0};
+				snapshot.engineRecords.size()};
 		}
 		catch (...)
 		{
@@ -1088,18 +1075,6 @@ public:
 		for (const std::string& packageId : active_)
 			capabilities.addAll(packages_.at(packageId).capabilities);
 		return capabilities;
-	}
-
-	bool requiresEngineSaveState() const noexcept
-	{
-		for (const std::string& packageId : active_)
-		{
-			const auto registered = packages_.find(packageId);
-			if (registered != packages_.end() &&
-				registered->second.random.streamCount() != 0)
-				return true;
-		}
-		return false;
 	}
 
 	std::vector<PackageRandomUsageSnapshot> randomUsageSnapshot() const

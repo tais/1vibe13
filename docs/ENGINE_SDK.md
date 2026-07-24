@@ -66,19 +66,21 @@ options.hostCapabilities.add("host.map-tool");
 options.packageRandomSeed = 42;
 options.limits.maximumQueuedRuntimeMessages = 2048;
 options.limits.maximumPersistencePayloadBytes = 32u * 1024u * 1024u;
+options.limits.maximumRuntimeSaveDomainBytes = 64u * 1024u * 1024u;
+options.limits.maximumRuntimeSaveContainerBytes = 16u * 1024u * 1024u;
 
 EngineHost<> host(std::move(options), services, packageEvents);
 ```
 
 `EngineHostLimits` names every host-owned resource ceiling, including message,
-input, telemetry, package-state, and persistence bounds that were previously
-implicit. `ValidateEngineHostOptions` provides a non-throwing preflight; the
-named constructor rejects an invalid range before constructing services or
-registering sinks. Zero remains valid where the underlying service supports a
-disabled mode. The original positional constructor and all of its defaults are
-retained, and default named options produce the same configuration and runtime
-fingerprint as that compatibility path. `EngineRuntime` exposes the same named
-constructor above the JA2 adapter.
+input, telemetry, package-state, persistence, and outer-save bounds that were
+previously implicit. `ValidateEngineHostOptions` provides a non-throwing
+preflight; the named constructor rejects an invalid range before constructing
+services or registering sinks. Zero remains valid where the underlying service
+supports a disabled mode. The original positional constructor and all of its
+defaults are retained, and default named options produce the same configuration
+and runtime fingerprint as that compatibility path. `EngineRuntime` exposes the
+same named constructor above the JA2 adapter.
 
 `RuntimeSession` treats application startup and package bootstrap as one
 transaction. `markRunning()` succeeds only after `StartRuntime`; cancelling an
@@ -214,7 +216,7 @@ Portable package, capability, service, message, locale, definition, and record
 identifiers are limited to 256 bytes; opaque package version labels use the
 same ceiling. Logical asset paths are limited to 4096 bytes before
 normalization. These metadata bounds are separate from payload limits and are
-enforced consistently by live queues, catalogs, and persisted sidecars.
+enforced consistently by live queues, catalogs, and persisted records.
 
 State that belongs to a particular game save uses a separate contract. Set
 `PackageDescriptor::saveStateSchemaVersion` to a non-zero version and override
@@ -241,7 +243,7 @@ For new deterministic package logic, use `PackageBootstrapContext::random` and
 a stable portable stream name such as `combat` or `loot`. Streams are isolated
 by package and name, use unbiased bounded values, and expose sorted usage
 snapshots for replay diagnostics. Versioned checkpoints include the generator
-state and draw counter for every stream; package save archive v2 captures them
+state and draw counter for every stream; package save archive v3 captures them
 without changing a package's opaque callback schema. The host seed and
 per-package stream limit are composition settings; the legacy
 `EngineServices::random` remains intact.

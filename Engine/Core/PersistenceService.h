@@ -54,6 +54,13 @@ public:
 	// Engine envelope wire format: caller magic/version, explicit 64-bit payload
 	// length, FNV-1a checksum, then payload. It rejects truncation, trailing data,
 	// oversized records, and corruption before publishing output values.
+	PersistenceSaveResult encodeEnvelope(PersistenceHeader header,
+		const std::vector<std::uint8_t>& payload,
+		std::vector<std::uint8_t>& encoded) const noexcept;
+	PersistenceLoadResult decodeEnvelope(const std::vector<std::uint8_t>& encoded,
+		std::uint32_t expectedMagic, std::uint16_t minimumVersion,
+		std::uint16_t maximumVersion, PersistenceHeader& header,
+		std::vector<std::uint8_t>& payload) const noexcept;
 	PersistenceSaveResult saveEnvelope(const std::string& path, PersistenceHeader header,
 		const std::vector<std::uint8_t>& payload) const noexcept;
 	PersistenceLoadResult loadEnvelope(const std::string& path, std::uint32_t expectedMagic,

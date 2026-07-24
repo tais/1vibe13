@@ -80,10 +80,6 @@ public:
 	{
 		return runtime_.capturePackageSaveState();
 	}
-	bool requiresPackageEngineSaveState() const noexcept
-	{
-		return runtime_.requiresPackageEngineSaveState();
-	}
 	PackageSaveStateLoadResult validatePackageSaveState(
 		const PackageSaveStateSnapshot& snapshot) const noexcept
 	{
@@ -101,6 +97,14 @@ public:
 	const PackageSaveArchiveService& packageSaveArchives() const
 	{
 		return runtime_.packageSaveArchives();
+	}
+	RuntimeSaveContainerService& runtimeSaveContainers()
+	{
+		return runtime_.runtimeSaveContainers();
+	}
+	const RuntimeSaveContainerService& runtimeSaveContainers() const
+	{
+		return runtime_.runtimeSaveContainers();
 	}
 	bool hasCapability(const std::string& capability) const
 	{
