@@ -173,6 +173,19 @@ BOOLEAN BltNativePixelDataToBufferTransparentClip( PIXEL *pBuffer, UINT32 uiDest
 // Historical source-compatible spelling. The cached source is now a dense
 // native PIXEL image plus an opacity mask, not packed 16-bit ETRLE data.
 BOOLEAN Blt16BPPDataTo16BPPBufferTransparentClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
+// Draws an imported true-colour image that was normalized to native PIXEL
+// storage at the HIMAGE boundary. Source transparency retains the RGB565 blue
+// key for legacy 16-bit artwork; 32-bit artwork always uses its opacity plane.
+BOOLEAN BltNativePixelImageToBufferClip(
+	PIXEL *pBuffer,
+	UINT32 uiDestPitchBYTES,
+	HVOBJECT hSrcVObject,
+	INT32 iX,
+	INT32 iY,
+	UINT16 usIndex,
+	BOOLEAN fSourceTransparency,
+	BOOLEAN fShadow,
+	const SGPRect *clipregion);
 BOOLEAN Blt16BPPDataTo16BPPBufferTransZClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
 
 // ATE: New blitters for showing an outline at color 254

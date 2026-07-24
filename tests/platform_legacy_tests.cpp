@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -98,6 +99,12 @@ namespace AniTileTestHooks
 void FailAllocationAfter(INT32 successfulAllocations);
 void FailAfterLevelNodeInsertion();
 void ResetFailures();
+}
+
+namespace NativeImageTestHooks
+{
+void FailAllocationAfter(INT32 successfulAllocations);
+void ResetAllocationFailure();
 }
 
 void ShutdownWithErrorBox(const CHAR8* message)
@@ -1533,6 +1540,54 @@ int main()
 		unregisteredDestination == std::vector<PIXEL>(4, static_cast<PIXEL>(0)),
 		"raw blits reject an unknown destination without fabricating clip data");
 
+	alignas(UINT32) UINT8 directRgbaSourceBytes[] = {
+		10, 10, 10, 255, 255, 0, 0, 255, 0, 255, 0, 255,
+		20, 20, 20, 255, 0, 0, 255, 255, 255, 0, 0, 0
+	};
+	UINT32* const directRgbaSource =
+		reinterpret_cast<UINT32*>(directRgbaSourceBytes);
+	image_type directRgbaImage{};
+	directRgbaImage.usWidth = 3;
+	directRgbaImage.usHeight = 2;
+	directRgbaImage.ubBitDepth = 32;
+	directRgbaImage.p32BPPData = directRgbaSource;
+	SGPRect directRgbaRegion{1, 0, 2, 1};
+	const PIXEL directRgbaSentinel = PixFromColor16(0x001Fu);
+	std::vector<PIXEL> directRgbaDestination(
+		3 * 2, directRgbaSentinel);
+	const bool directRgbaCopied = CopyImageToBuffer(
+		&directRgbaImage, BUFFER_16BPP,
+		reinterpret_cast<BYTE*>(directRgbaDestination.data()),
+		3, 2, 1, 0, &directRgbaRegion);
+	const std::vector<PIXEL> expectedDirectRgbaDestination{
+		directRgbaSentinel,
+		PixFromColor16(0xF800u),
+		PixFromColor16(0x07E0u),
+		directRgbaSentinel,
+		PixFromColor16(0x001Fu),
+		directRgbaSentinel};
+	SGPRect invalidDirectRgbaRegion{2, 0, 3, 1};
+	const std::vector<PIXEL> directRgbaBeforeInvalid =
+		directRgbaDestination;
+	const bool invalidDirectRgbaRejected =
+		!CopyImageToBuffer(
+			&directRgbaImage, BUFFER_16BPP,
+			reinterpret_cast<BYTE*>(
+				directRgbaDestination.data()),
+			3, 2, 0, 0, &invalidDirectRgbaRegion) &&
+		directRgbaDestination == directRgbaBeforeInvalid &&
+		!Blt32BPPTo16BPPTrans(
+			directRgbaDestination.data(),
+			3 * sizeof(PIXEL),
+			directRgbaSource,
+			3 * sizeof(UINT32),
+			0, 0, 0, 0, 0, 1);
+	Check(directRgbaCopied &&
+		directRgbaDestination ==
+			expectedDirectRgbaDestination &&
+		invalidDirectRgbaRejected,
+		"direct HIMAGE compatibility copies honor RGBA source pitch, subrects, destinations, alpha, and malformed geometry");
+
 	PIXEL nativeCachePalette[256] = {};
 	nativeCachePalette[1] = 0xFF000000u;
 	nativeCachePalette[2] = 0xFF123456u;
@@ -1572,17 +1627,17 @@ int main()
 		nativeCache->storage ==
 			NativePixelObjectStorage::MaskedSprite &&
 		nativeCache->pNativePixels &&
-		nativeCache->pNativeTransparencyMask &&
+		nativeCache->pNativeOpacity &&
 		nativeCache->pNativePixels[0] == 0 &&
 		nativeCache->pNativePixels[1] == nativeCachePalette[1] &&
 		nativeCache->pNativePixels[2] == nativeCachePalette[2] &&
 		nativeCache->pNativePixels[4] == nativeCachePalette[2] &&
-		nativeCache->pNativeTransparencyMask[0] == 0 &&
-		nativeCache->pNativeTransparencyMask[1] == 1 &&
-		nativeCache->pNativeTransparencyMask[2] == 1 &&
-		nativeCache->pNativeTransparencyMask[3] == 0 &&
-		nativeCache->pNativeTransparencyMask[4] == 1 &&
-		nativeCache->pNativeTransparencyMask[5] == 1 &&
+		nativeCache->pNativeOpacity[0] == 0 &&
+		nativeCache->pNativeOpacity[1] == 255 &&
+		nativeCache->pNativeOpacity[2] == 255 &&
+		nativeCache->pNativeOpacity[3] == 0 &&
+		nativeCache->pNativeOpacity[4] == 255 &&
+		nativeCache->pNativeOpacity[5] == 255 &&
 		PixToColor16(nativeCachePalette[2]) == 0x11AAu;
 
 	const PIXEL nativeCacheSentinel = 0xFFABCDEFu;
@@ -1661,7 +1716,7 @@ int main()
 		{
 			MemFree(
 				nativeCacheSource.pNativePixelObject[index].
-					pNativeTransparencyMask);
+					pNativeOpacity);
 			MemFree(
 				nativeCacheSource.pNativePixelObject[index].
 					pNativePixels);
@@ -2320,6 +2375,318 @@ int main()
 			copiedRedDestination == copiedRed &&
 			copiedGreenDestination == copiedGreen,
 			"mapped legacy blits skip the key and copy exact live pixels");
+
+		ETRLEObject trueColorRegion{};
+		trueColorRegion.usWidth = 2;
+		trueColorRegion.usHeight = 1;
+		alignas(UINT32) UINT8 trueColorSourceBytes[] = {
+			255, 0, 0, 255, // opaque red
+			0, 255, 0, 128  // half-opacity green
+		};
+		UINT32* const trueColorSourcePixels =
+			reinterpret_cast<UINT32*>(
+				trueColorSourceBytes);
+		image_type trueColorImage{};
+		trueColorImage.usWidth = 2;
+		trueColorImage.usHeight = 1;
+		trueColorImage.ubBitDepth = 32;
+		trueColorImage.usNumberOfObjects = 1;
+		trueColorImage.pETRLEObject = &trueColorRegion;
+		trueColorImage.p32BPPData = trueColorSourcePixels;
+		std::strcpy(trueColorImage.ImageFile, "native-rgba-fixture");
+		VOBJECT_DESC trueColorDescription{};
+		trueColorDescription.fCreateFlags =
+			VOBJECT_CREATE_FROMHIMAGE;
+		trueColorDescription.hImage = &trueColorImage;
+
+		ETRLEObject zeroSizeRegion = trueColorRegion;
+		zeroSizeRegion.usWidth = 0;
+		image_type zeroSizeImage = trueColorImage;
+		zeroSizeImage.pETRLEObject = &zeroSizeRegion;
+		VOBJECT_DESC zeroSizeDescription = trueColorDescription;
+		zeroSizeDescription.hImage = &zeroSizeImage;
+		image_type missingPixelsImage = trueColorImage;
+		missingPixelsImage.p32BPPData = nullptr;
+		VOBJECT_DESC missingPixelsDescription = trueColorDescription;
+		missingPixelsDescription.hImage = &missingPixelsImage;
+		ETRLEObject hugeRegion{};
+		hugeRegion.usWidth = std::numeric_limits<UINT16>::max();
+		hugeRegion.usHeight = std::numeric_limits<UINT16>::max();
+		image_type hugeImage = trueColorImage;
+		hugeImage.usWidth = 0;
+		hugeImage.usHeight = 0;
+		hugeImage.pETRLEObject = &hugeRegion;
+		VOBJECT_DESC hugeDescription = trueColorDescription;
+		hugeDescription.hImage = &hugeImage;
+		Check(CreateVideoObject(nullptr) == nullptr &&
+			CreateVideoObject(&zeroSizeDescription) == nullptr &&
+			CreateVideoObject(&missingPixelsDescription) == nullptr &&
+			CreateVideoObject(&hugeDescription) == nullptr,
+			"native image import rejects null, empty, incomplete, and overflowing descriptions");
+
+		NativeImageTestHooks::FailAllocationAfter(1);
+		HVOBJECT failedNativeImportAfterMetadata =
+			CreateVideoObject(&trueColorDescription);
+		NativeImageTestHooks::FailAllocationAfter(2);
+		HVOBJECT failedNativeImportAfterPixels =
+			CreateVideoObject(&trueColorDescription);
+		NativeImageTestHooks::ResetAllocationFailure();
+		const bool callerOwnedNativeImagePreserved =
+			failedNativeImportAfterMetadata == nullptr &&
+			failedNativeImportAfterPixels == nullptr &&
+			trueColorImage.p32BPPData == trueColorSourcePixels &&
+			trueColorImage.pETRLEObject == &trueColorRegion &&
+			std::memcmp(
+				trueColorSourceBytes,
+				"\xFF\x00\x00\xFF\x00\xFF\x00\x80",
+				sizeof(trueColorSourceBytes)) == 0;
+		Check(callerOwnedNativeImagePreserved,
+			"transactional native image allocation failure releases staging and preserves caller-owned HIMAGE data");
+
+		HVOBJECT trueColorObject =
+			CreateVideoObject(&trueColorDescription);
+#if SGP_PIXEL_DEPTH == 32
+		const PIXEL expectedImportedHalfGreen = 0x8000FF00u;
+		const PIXEL expectedHalfGreenOverBlue = 0xFF00807Fu;
+#else
+		const PIXEL expectedImportedHalfGreen =
+			PixFromColor16(0x07E0u);
+		const PIXEL expectedHalfGreenOverBlue =
+			PixFromColor16(0x040Fu);
+#endif
+		const bool trueColorImported =
+			trueColorObject &&
+			trueColorObject->ubBitDepth == 32 &&
+			trueColorObject->usNumberOfNativePixelObjects == 1 &&
+			trueColorObject->pNativePixelObject &&
+			trueColorObject->pNativePixelObject[0].storage ==
+				NativePixelObjectStorage::LinearPixels &&
+			trueColorObject->pNativePixelObject[0].pNativePixels &&
+			trueColorObject->pNativePixelObject[0].pNativeOpacity &&
+			trueColorObject->pNativePixelObject[0].
+				pNativePixels[0] == PixFromColor16(0xF800u) &&
+			trueColorObject->pNativePixelObject[0].
+				pNativePixels[1] == expectedImportedHalfGreen &&
+			trueColorObject->pNativePixelObject[0].
+				pNativeOpacity[0] == 255 &&
+			trueColorObject->pNativePixelObject[0].
+				pNativeOpacity[1] == 128;
+
+		auto fillCopyDestination = [&](PIXEL color)
+		{
+			PIXEL* const pixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			if (!pixels) return false;
+			for (UINT32 y = 0;
+				y < copySurfaceDescription.usHeight; ++y)
+			{
+				PIXEL* const row = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(pixels) +
+						y * copyDestinationPitch);
+				std::fill(
+					row,
+					row + copySurfaceDescription.usWidth,
+					color);
+			}
+			UnLockVideoSurface(copyDestinationID);
+			return true;
+		};
+		auto readCopyDestination = [&](UINT32 x, UINT32 y)
+		{
+			PIXEL value = 0;
+			PIXEL* const pixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			if (pixels && x < copySurfaceDescription.usWidth &&
+				y < copySurfaceDescription.usHeight)
+			{
+				const PIXEL* const row =
+					reinterpret_cast<const PIXEL*>(
+						reinterpret_cast<const BYTE*>(pixels) +
+							y * copyDestinationPitch);
+				value = row[x];
+			}
+			if (pixels) UnLockVideoSurface(copyDestinationID);
+			return value;
+		};
+
+		SGPRect previousNativeImageClip;
+		GetClippingRect(&previousNativeImageClip);
+		SGPRect fullNativeImageClip{
+			0, 0,
+			static_cast<INT32>(copySurfaceDescription.usWidth),
+			static_cast<INT32>(copySurfaceDescription.usHeight)};
+		SetClippingRect(&fullNativeImageClip);
+		const PIXEL nativeBlue = PixFromColor16(0x001Fu);
+		const bool trueColorDrawn =
+			trueColorImported &&
+			fillCopyDestination(nativeBlue) &&
+			BltVideoObject(
+				copyDestinationID, trueColorObject,
+				0, 1, 1, 0, nullptr);
+		const bool trueColorPixelsBlended =
+			trueColorDrawn &&
+			readCopyDestination(1, 1) ==
+				PixFromColor16(0xF800u) &&
+			readCopyDestination(2, 1) ==
+				expectedHalfGreenOverBlue &&
+			readCopyDestination(0, 1) == nativeBlue &&
+			readCopyDestination(3, 1) == nativeBlue;
+
+		SGPRect narrowNativeImageClip{2, 1, 3, 2};
+		SetClippingRect(&narrowNativeImageClip);
+		const bool trueColorClipHonored =
+			fillCopyDestination(nativeBlue) &&
+			BltVideoObject(
+				copyDestinationID, trueColorObject,
+				0, 1, 1, 0, nullptr) &&
+			readCopyDestination(1, 1) == nativeBlue &&
+			readCopyDestination(2, 1) ==
+				expectedHalfGreenOverBlue;
+
+		SGPRect oversizedNativeImageClip{
+			-100, -100, 100, 100};
+		SetClippingRect(&oversizedNativeImageClip);
+		const bool trueColorSurfaceBoundsHonored =
+			fillCopyDestination(nativeBlue) &&
+			BltVideoObject(
+				copyDestinationID, trueColorObject,
+				0, std::numeric_limits<INT32>::max() - 1,
+				std::numeric_limits<INT32>::max() - 1,
+				0, nullptr) &&
+			readCopyDestination(0, 0) == nativeBlue &&
+			readCopyDestination(4, 2) == nativeBlue;
+
+		SetClippingRect(&fullNativeImageClip);
+		const PIXEL nativeWhite =
+			Get16BPPColor(FROMRGB(255, 255, 255));
+		const PIXEL fullyShadedWhite = PixShade(nativeWhite);
+#if SGP_PIXEL_DEPTH == 32
+		const UINT8 halfShadowChannel = static_cast<UINT8>(
+			(127u * 255u) / 255u +
+			(128u * (fullyShadedWhite & 0xFFu)) / 255u);
+		const PIXEL expectedHalfShadow =
+			0xFF000000u |
+			(static_cast<UINT32>(halfShadowChannel) << 16) |
+			(static_cast<UINT32>(halfShadowChannel) << 8) |
+			halfShadowChannel;
+#endif
+		const bool trueColorShadowDrawn =
+			fillCopyDestination(nativeWhite) &&
+			BltVideoObjectOutlineShadow(
+				copyDestinationID, trueColorObject,
+				0, 1, 1);
+		const PIXEL partialShadow =
+			readCopyDestination(2, 1);
+		const bool trueColorShadowExact =
+			trueColorShadowDrawn &&
+			readCopyDestination(1, 1) == fullyShadedWhite &&
+#if SGP_PIXEL_DEPTH == 32
+			partialShadow == expectedHalfShadow;
+#else
+			partialShadow != nativeWhite &&
+			partialShadow != fullyShadedWhite;
+#endif
+
+		ETRLEObject legacyTrueColorRegion{};
+		legacyTrueColorRegion.usWidth = 2;
+		legacyTrueColorRegion.usHeight = 1;
+		UINT16 legacyTrueColorPixels[] = {
+			0xF800u, 0x001Fu
+		};
+		image_type legacyTrueColorImage{};
+		legacyTrueColorImage.usWidth = 2;
+		legacyTrueColorImage.usHeight = 1;
+		legacyTrueColorImage.ubBitDepth = 16;
+		legacyTrueColorImage.usNumberOfObjects = 1;
+		legacyTrueColorImage.pETRLEObject =
+			&legacyTrueColorRegion;
+		legacyTrueColorImage.p16BPPData =
+			legacyTrueColorPixels;
+		VOBJECT_DESC legacyTrueColorDescription{};
+		legacyTrueColorDescription.fCreateFlags =
+			VOBJECT_CREATE_FROMHIMAGE;
+		legacyTrueColorDescription.hImage =
+			&legacyTrueColorImage;
+		HVOBJECT legacyTrueColorObject =
+			CreateVideoObject(&legacyTrueColorDescription);
+		const bool legacyTrueColorImported =
+			legacyTrueColorObject &&
+			legacyTrueColorObject->ubBitDepth == 16 &&
+			legacyTrueColorObject->
+				usNumberOfNativePixelObjects == 1 &&
+			legacyTrueColorObject->pNativePixelObject &&
+			legacyTrueColorObject->pNativePixelObject[0].
+				pNativeOpacity == nullptr &&
+			legacyTrueColorObject->pNativePixelObject[0].
+				pNativePixels[0] == PixFromColor16(0xF800u) &&
+			legacyTrueColorObject->pNativePixelObject[0].
+				pNativePixels[1] == nativeBlue;
+		const bool legacyColorKeyDrawn =
+			legacyTrueColorImported &&
+			fillCopyDestination(nativeWhite) &&
+			BltVideoObject(
+				copyDestinationID, legacyTrueColorObject,
+				0, 1, 0,
+				VO_BLT_SRCTRANSPARENCY, nullptr) &&
+			readCopyDestination(1, 0) ==
+				PixFromColor16(0xF800u) &&
+			readCopyDestination(2, 0) == nativeWhite;
+		PIXEL manualNativePixels[] = {
+			PixFromColor16(0xF800u),
+			expectedImportedHalfGreen
+		};
+		UINT8 manualNativeOpacity[] = {255, 128};
+		NativePixelObjectInfo manualNativeImage{};
+		manualNativeImage.pNativePixels =
+			manualNativePixels;
+		manualNativeImage.pNativeOpacity =
+			manualNativeOpacity;
+		manualNativeImage.usWidth = 2;
+		manualNativeImage.usHeight = 1;
+		manualNativeImage.storage =
+			NativePixelObjectStorage::LinearPixels;
+		SGPVObject manualNativeObject{};
+		manualNativeObject.ubBitDepth = 32;
+		manualNativeObject.pNativePixelObject =
+			&manualNativeImage;
+		manualNativeObject.usNumberOfNativePixelObjects = 1;
+		const bool manualNativeFallbackDrawn =
+			fillCopyDestination(nativeBlue) &&
+			BltVideoObject(
+				copyDestinationID, &manualNativeObject,
+				0, 1, 1, 0, nullptr) &&
+			readCopyDestination(1, 1) ==
+				PixFromColor16(0xF800u) &&
+			readCopyDestination(2, 1) ==
+				expectedHalfGreenOverBlue;
+		Check(trueColorImported && trueColorPixelsBlended &&
+			trueColorClipHonored &&
+			trueColorSurfaceBoundsHonored &&
+			trueColorShadowExact &&
+			legacyTrueColorImported && legacyColorKeyDrawn &&
+			manualNativeFallbackDrawn,
+			"native image draws preserve exact ARGB channels, alpha, clipping, shadows, and RGB565 colour-key compatibility");
+
+		if (legacyTrueColorObject)
+			DeleteVideoObject(legacyTrueColorObject);
+		if (trueColorObject)
+			DeleteVideoObject(trueColorObject);
+		fillCopyDestination(0);
+		ClippingRect = previousNativeImageClip;
+		Check(trueColorImage.p32BPPData ==
+				trueColorSourcePixels &&
+			trueColorImage.pETRLEObject == &trueColorRegion &&
+			legacyTrueColorImage.p16BPPData ==
+				legacyTrueColorPixels &&
+			legacyTrueColorImage.pETRLEObject ==
+				&legacyTrueColorRegion,
+			"native video-object deletion leaves caller-owned HIMAGE storage untouched");
 
 		UINT32 liveImageID = 0;
 		HVOBJECT liveImage = nullptr;

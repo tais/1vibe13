@@ -67,7 +67,14 @@ typedef struct
 		// PIXEL-sized data, even when an imported asset was stored as RGB565.
 		PIXEL *		p16BPPData;
 	};
-	UINT8 *			pNativeTransparencyMask;
+	union
+	{
+		// Per-pixel opacity. Linear true-colour images use the full 0..255
+		// range; decoded indexed sprites use 0 or 255.
+		UINT8 *		pNativeOpacity;
+		// Historical name retained for source compatibility.
+		UINT8 *		pNativeTransparencyMask;
+	};
 	UINT16			usRegionIndex;
 	UINT8			ubShadeLevel;
 	UINT16			usWidth;

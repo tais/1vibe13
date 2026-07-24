@@ -348,7 +348,29 @@ BOOLEAN CopyImageToBuffer( HIMAGE hImage, UINT32 fBufferType, BYTE *pDestBuf, UI
 	if ( hImage->ubBitDepth == 32 && fBufferType == BUFFER_16BPP )
 	{
 		DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, "Copying 32 BPP Imagery to 16BPP Buffer." );
-		return Blt32BPPTo16BPPTrans((PIXEL *)pDestBuf, usDestWidth * sizeof(PIXEL), hImage->p32BPPData, usDestWidth*sizeof(UINT32), 0,0,0,0,usDestWidth, usDestHeight);
+		if (!pDestBuf || !hImage->p32BPPData || !srcRect ||
+			srcRect->iLeft < 0 || srcRect->iTop < 0 ||
+			srcRect->iRight < srcRect->iLeft ||
+			srcRect->iBottom < srcRect->iTop ||
+			srcRect->iRight >= hImage->usWidth ||
+			srcRect->iBottom >= hImage->usHeight ||
+			usX >= usDestWidth || usY >= usDestHeight)
+			return FALSE;
+		const UINT32 width = static_cast<UINT32>(
+			srcRect->iRight - srcRect->iLeft + 1);
+		const UINT32 height = static_cast<UINT32>(
+			srcRect->iBottom - srcRect->iTop + 1);
+		if (width > static_cast<UINT32>(usDestWidth - usX) ||
+			height > static_cast<UINT32>(usDestHeight - usY))
+			return FALSE;
+		return Blt32BPPTo16BPPTrans(
+			reinterpret_cast<PIXEL*>(pDestBuf),
+			usDestWidth * sizeof(PIXEL),
+			hImage->p32BPPData,
+			hImage->usWidth * sizeof(UINT32),
+			usX, usY,
+			srcRect->iLeft, srcRect->iTop,
+			width, height);
 	}
 
 	return( FALSE );
