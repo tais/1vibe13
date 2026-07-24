@@ -1,4 +1,5 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
+#include <Engine/Adapters/JA2/CampaignClockScheduler.h>
 #include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
@@ -372,6 +373,81 @@ int main()
 	check(&legacyBraceRuntime.campaignClockSession() ==
 		&legacyBraceRuntime.campaignClockSession(),
 		"EngineRuntime owns one stable campaign clock session");
+	CampaignClockScheduler campaignScheduler;
+	const CampaignClockScheduleResult inactiveCampaignSchedule =
+		campaignScheduler.schedule(123, 0, 1);
+	const CampaignClockScheduleResult invalidCampaignResolution =
+		campaignScheduler.schedule(
+			123, 1, CampaignClockScheduler::MaximumResolution + 1);
+	check(inactiveCampaignSchedule.error ==
+			CampaignClockScheduleError::Inactive &&
+		inactiveCampaignSchedule.droppedElapsedMicroseconds == 123 &&
+		invalidCampaignResolution.error ==
+			CampaignClockScheduleError::InvalidResolution &&
+		invalidCampaignResolution.droppedElapsedMicroseconds == 123 &&
+		campaignScheduler.elapsedWithinSecondMicroseconds() == 0,
+		"campaign scheduling rejects inactive and invalid controls transactionally");
+	const CampaignClockScheduleResult almostOneSecond =
+		campaignScheduler.schedule(999999, 1, 1);
+	const CampaignClockScheduleResult oneSecondBoundary =
+		campaignScheduler.schedule(1, 1, 1);
+	check(almostOneSecond && almostOneSecond.advanceSeconds == 0 &&
+		oneSecondBoundary && oneSecondBoundary.advanceSeconds == 1 &&
+		oneSecondBoundary.completedRealSeconds == 1 &&
+		campaignScheduler.elapsedWithinSecondMicroseconds() == 0,
+		"campaign scheduling advances one-times time at an exact fixed-step boundary");
+	campaignScheduler.reset();
+	const CampaignClockScheduleResult beforeCompressedSlice =
+		campaignScheduler.schedule(199999, 300, 5);
+	const CampaignClockScheduleResult firstCompressedSlice =
+		campaignScheduler.schedule(1, 300, 5);
+	const CampaignClockScheduleResult middleCompressedSlices =
+		campaignScheduler.schedule(600000, 300, 5);
+	const CampaignClockScheduleResult finalCompressedSlice =
+		campaignScheduler.schedule(200000, 300, 5);
+	check(beforeCompressedSlice.advanceSeconds == 0 &&
+		firstCompressedSlice.advanceSeconds == 60 &&
+		middleCompressedSlices.advanceSeconds == 180 &&
+		finalCompressedSlice.advanceSeconds == 60 &&
+		finalCompressedSlice.completedRealSeconds == 1,
+		"campaign scheduling preserves established speed and resolution slices");
+	campaignScheduler.reset();
+	std::uint64_t fixedStepCampaignSeconds = 0;
+	std::uint32_t completedFixedStepSeconds = 0;
+	for (std::size_t tick = 0; tick < 60; ++tick)
+	{
+		const CampaignClockScheduleResult scheduled =
+			campaignScheduler.schedule(16667, 3600, 60);
+		fixedStepCampaignSeconds += scheduled.advanceSeconds;
+		completedFixedStepSeconds += scheduled.completedRealSeconds;
+	}
+	check(fixedStepCampaignSeconds == 3600 &&
+		completedFixedStepSeconds == 1 &&
+		campaignScheduler.elapsedWithinSecondMicroseconds() == 20,
+		"sixty engine ticks deterministically schedule one compressed real second");
+	campaignScheduler.reset();
+	const CampaignClockScheduleResult coarseCampaignPhase =
+		campaignScheduler.schedule(500000, 300, 5);
+	const CampaignClockScheduleResult refinedCampaignPhase =
+		campaignScheduler.schedule(16667, 300, 30);
+	const CampaignClockScheduleResult loweredCampaignRate =
+		campaignScheduler.schedule(16667, 60, 30);
+	check(coarseCampaignPhase.advanceSeconds == 120 &&
+		refinedCampaignPhase.advanceSeconds == 30 &&
+		loweredCampaignRate.advanceSeconds == 0 &&
+		campaignScheduler.emittedGameSecondsWithinSecond() == 150,
+		"mid-second control changes preserve monotonic campaign progress");
+	campaignScheduler.reset();
+	const CampaignClockScheduleResult boundedCampaignStep =
+		campaignScheduler.schedule(2500000, 300, 5);
+	check(boundedCampaignStep.advanceSeconds == 300 &&
+		boundedCampaignStep.acceptedElapsedMicroseconds == 1000000 &&
+		boundedCampaignStep.droppedElapsedMicroseconds == 1500000 &&
+		boundedCampaignStep.completedRealSeconds == 1,
+		"campaign scheduling bounds a misconfigured fixed step explicitly");
+	check(&legacyBraceRuntime.campaignClockScheduler() ==
+			&legacyBraceRuntime.campaignClockScheduler(),
+		"EngineRuntime owns one stable campaign pacing scheduler");
 	CampaignClockSessionService campaignClockService(campaignClock);
 	ServiceCatalog campaignClockServices;
 	check(RegisterCampaignClockService(

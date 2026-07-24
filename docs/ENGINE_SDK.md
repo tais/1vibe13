@@ -107,6 +107,14 @@ monotonic tick, derives day/hour/minute without platform APIs, and reports when
 legacy globals are intentionally outside the SDK; external tools can inspect,
 restore, and advance the session without linking any game or save code.
 
+`CampaignClockScheduler`, also owned by `EngineRuntime`, converts elapsed
+fixed-step microseconds into the existing campaign speed/resolution model
+without consulting a platform clock. It retains only fractional pacing state,
+reports accepted and dropped elapsed time, rejects resolutions above 60, and
+bounds one call to one real second. Strategic-event execution remains a host
+responsibility: headless and replay hosts can consume the scheduled seconds
+without linking the JA2 application adapter.
+
 `CampaignClockService` is the versioned, read-only package and tooling view of
 that state (`ja2.campaign-clock`, version 1.0). The application registers its
 runtime-owned provider before package bootstrap. Each capture copies one
@@ -252,7 +260,11 @@ Packages may override `EnginePackage::simulate` for fixed-step work that should
 not depend on rendering cadence. The host publishes the configured step and
 maximum catch-up count, executes only that bounded number after a hitch, and
 records dropped ticks in frame telemetry. `updateRuntime` remains the per-frame
-hook for interpolation, UI, and other presentation-paced work.
+hook for interpolation, UI, and other presentation-paced work. Hosts can use
+`SimulationTickDispatcher::addSinkBefore` when authoritative system state must
+commit before a package-facing sink. The JA2 application uses that ordering for
+campaign time, so package callbacks observe the clock after the corresponding
+strategic slice.
 
 Message, input, runtime-update, simulation-tick, deferred-task, and registered
 state callbacks are non-reentrant boundaries. A nested dispatch or lifecycle

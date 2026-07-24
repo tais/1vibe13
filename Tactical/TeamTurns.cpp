@@ -242,9 +242,6 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 		// Dirty panel interface!
 		fInterfacePanelDirty = DIRTYLEVEL2;
 
-		// Adjust time now!
-		UpdateClock( );
-
 		if ( !fEnteringCombatMode )
 		{
 			CheckForEndOfCombatMode( TRUE );

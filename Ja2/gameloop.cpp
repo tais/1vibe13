@@ -622,8 +622,9 @@ static void CompleteGameFrame()
 {
 	guiGameCycleCounter++;
 
-	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: update clock");
-	UpdateClock();
+	// Campaign time advances before package simulation callbacks on the fixed
+	// tick stream. The render-paced portion only maintains the clock UI.
+	UpdateClockPresentation();
 
 #ifdef JA2BETAVERSION
 	if( gubReportMapscreenLock )

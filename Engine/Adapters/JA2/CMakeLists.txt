@@ -1,6 +1,7 @@
 include(GNUInstallDirs)
 
 set(ja2_runtime_adapter_public_headers
+  CampaignClockScheduler.h
   CampaignClockService.h
   CampaignClockSession.h
   CampaignEventQueue.h
@@ -29,6 +30,7 @@ set(ja2_runtime_adapter_public_headers
 # vocabularies sit above the reusable engine. The adapter depends on
 # Engine/Core; Core never depends on this target or on legacy game headers.
 add_library(ja2_runtime_adapter STATIC
+  CampaignClockScheduler.cpp
   CampaignClockSession.cpp
   CampaignEventQueue.cpp
   CommandReplay.cpp

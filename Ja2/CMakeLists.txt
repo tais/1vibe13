@@ -3,6 +3,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignClockAdapter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignEventAdapter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignPackage.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/CampaignSimulationHost.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Credits.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Fade Screen.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/FeaturesScreen.cpp"

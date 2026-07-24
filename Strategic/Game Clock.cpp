@@ -1,9 +1,9 @@
 #include "sgp.h"
 #include "CampaignClockAdapter.h"
 #include "Game Clock.h"
+#include <Engine/Adapters/JA2/CampaignClockScheduler.h>
 #include "Font.h"
 #include "Render Dirty.h"
-#include "Timer Control.h"
 #include "Overhead.h"
 #include "environment.h"
 #include "message.h"
@@ -22,7 +22,8 @@
 #include "GameSettings.h"
 #include "LuaInitNPCs.h"
 
-//#define DEBUG_GAME_CLOCK
+#include <algorithm>
+#include <limits>
 
 extern	BOOLEAN			gfFadeOut;
 
@@ -83,7 +84,6 @@ BOOLEAN			gfTimeInterrupt					= FALSE;
 BOOLEAN			gfTimeInterruptPause	= FALSE;
 BOOLEAN			fSuperCompression				= FALSE;
 UINT32			guiGameSecondsPerRealSecond;
-UINT32			guiTimesThisSecondProcessed = 0;
 INT32			iPausedPopUpBox = -1;
 CHAR16			gswzWorldTimeStr[20];
 INT32				giTimeCompressSpeeds[ NUM_TIME_COMPRESS_SPEEDS ] = { 0, 1, 5 * 60, 30 * 60, 60 * 60 };
@@ -718,130 +718,73 @@ UINT8 ClockResolution()
 }
 
 
-//There are two factors that influence the flow of time in the game.
-//-Speed:	The speed is the amount of game time passes per real second of time.	The higher this
-//		 value, the faster the game time flows.
-//-Resolution:	The higher the resolution, the more often per second the clock is actually updated.
-//				This value doesn't affect how much game time passes per real second, but allows for
-//				a more accurate representation of faster time flows.
+CampaignClockScheduleResult AdvanceClockFromFixedStep(
+	CampaignClockScheduler& scheduler,
+	std::uint64_t elapsedMicroseconds)
+{
+#ifdef JA2BETAVERSION
+	const bool supportedScreen =
+		guiCurrentScreen == GAME_SCREEN ||
+		guiCurrentScreen == MAP_SCREEN ||
+		guiCurrentScreen == AIVIEWER_SCREEN;
+#else
+	const bool supportedScreen =
+		guiCurrentScreen == GAME_SCREEN ||
+		guiCurrentScreen == MAP_SCREEN;
+#endif
+	const bool paused =
+		!supportedScreen || gfGamePaused || gfTimeInterruptPause ||
+		gubClockResolution == 0 || guiGameSecondsPerRealSecond == 0 ||
+		ARE_IN_FADE_IN() || gfFadeOut ||
+		((gTacticalStatus.uiFlags & TURNBASED) &&
+			(gTacticalStatus.uiFlags & INCOMBAT));
+	if (paused)
+	{
+		scheduler.reset();
+		if (!supportedScreen || gfGamePaused || gfTimeInterruptPause ||
+			gubClockResolution == 0 || guiGameSecondsPerRealSecond == 0 ||
+			ARE_IN_FADE_IN() || gfFadeOut)
+			gfTimeInterruptPause = FALSE;
+		CampaignClockScheduleResult inactive;
+		inactive.error = CampaignClockScheduleError::Inactive;
+		inactive.droppedElapsedMicroseconds = elapsedMicroseconds;
+		return inactive;
+	}
+
+	CampaignClockScheduleResult scheduled = scheduler.schedule(
+		elapsedMicroseconds, guiGameSecondsPerRealSecond, gubClockResolution);
+	if (!scheduled || scheduled.advanceSeconds == 0) return scheduled;
+
+	std::uint64_t remaining = scheduled.advanceSeconds;
+	while (remaining != 0)
+	{
+		const UINT32 adjustment = static_cast<UINT32>(std::min(
+			remaining,
+			static_cast<std::uint64_t>(std::numeric_limits<UINT32>::max())));
+		WarpGameTime(adjustment, WARPTIME_PROCESS_EVENTS_NORMALLY);
+		remaining -= adjustment;
+
+		// An event is allowed to stop compression during this strategic slice.
+		// Discard any impossible oversized remainder rather than applying time
+		// after the established interrupt boundary.
+		if (gfGamePaused || gfTimeInterruptPause ||
+			gubClockResolution == 0 || guiGameSecondsPerRealSecond == 0)
+		{
+			scheduler.reset();
+			break;
+		}
+	}
+	return scheduled;
+}
+
+void UpdateClockPresentation()
+{
+	CreateDestroyScreenMaskForPauseGame();
+}
+
 void UpdateClock()
 {
-	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"UpdateClock");
-
-	UINT32 uiNewTime;
-	UINT32 uiThousandthsOfThisSecondProcessed;
-	UINT32 uiTimeSlice;
-	UINT32 uiNewTimeProcessed;
-	UINT32 uiAmountToAdvanceTime;
-	static UINT8 ubLastResolution = 1;
-	static UINT32 uiLastSecondTime = 0;
-	static UINT32 uiLastTimeProcessed = 0;
-#ifdef DEBUG_GAME_CLOCK
-	UINT32 uiOrigNewTime;
-	UINT32 uiOrigLastSecondTime;
-	UINT32 uiOrigThousandthsOfThisSecondProcessed;
-	UINT8 ubOrigClockResolution;
-	UINT32 uiOrigTimesThisSecondProcessed;
-	UINT8 ubOrigLastResolution;
-#endif
-	// check game state for pause screen masks
-	CreateDestroyScreenMaskForPauseGame( );
-
-#ifdef JA2BETAVERSION
-	if( guiCurrentScreen != GAME_SCREEN && guiCurrentScreen != MAP_SCREEN && guiCurrentScreen != AIVIEWER_SCREEN && guiCurrentScreen != GAME_SCREEN )
-#else
-	if( guiCurrentScreen != GAME_SCREEN && guiCurrentScreen != MAP_SCREEN && guiCurrentScreen != GAME_SCREEN )
-#endif
-	{
-		uiLastSecondTime = GetJA2Clock( );
-		gfTimeInterruptPause = FALSE;
-		return;
-	}
-
-	if( gfGamePaused || gfTimeInterruptPause || ( gubClockResolution == 0 ) || !guiGameSecondsPerRealSecond || ARE_IN_FADE_IN( ) || gfFadeOut )
-	{
-		uiLastSecondTime = GetJA2Clock( );
-		gfTimeInterruptPause = FALSE;
-		return;
-	}
-
-	if( ( gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT ) )
-		return; //time is currently stopped!
-
-
-	uiNewTime = GetJA2Clock();
-
-#ifdef DEBUG_GAME_CLOCK
-	uiOrigNewTime = uiNewTime;
-	uiOrigLastSecondTime = uiLastSecondTime;
-	uiOrigThousandthsOfThisSecondProcessed = uiThousandthsOfThisSecondProcessed;
-	ubOrigClockResolution = gubClockResolution;
-	uiOrigTimesThisSecondProcessed = guiTimesThisSecondProcessed;
-	ubOrigLastResolution = ubLastResolution;
-#endif
-
-	//Because we debug so much, breakpoints tend to break the game, and cause unnecessary headaches.
-	//This line ensures that no more than 1 real-second passes between frames.	This otherwise has
-	//no effect on anything else.
-	uiLastSecondTime = max( uiNewTime - 1000, uiLastSecondTime );
-
-	//1000's of a second difference since last second.
-	uiThousandthsOfThisSecondProcessed = uiNewTime - uiLastSecondTime;
-
-	if( uiThousandthsOfThisSecondProcessed >= 1000 && gubClockResolution == 1 )
-	{
-		uiLastSecondTime = uiNewTime;
-		guiTimesThisSecondProcessed = uiLastTimeProcessed = 0;
-		AdvanceClock( WARPTIME_PROCESS_EVENTS_NORMALLY );
-	}
-	else if( gubClockResolution > 1 )
-	{
-		if( gubClockResolution != ubLastResolution )
-		{
-			//guiTimesThisSecondProcessed = guiTimesThisSecondProcessed * ubLastResolution / gubClockResolution % gubClockResolution;
-			guiTimesThisSecondProcessed = guiTimesThisSecondProcessed * gubClockResolution / ubLastResolution;
-			uiLastTimeProcessed = uiLastTimeProcessed * gubClockResolution / ubLastResolution;
-			ubLastResolution = gubClockResolution;
-		}
-		uiTimeSlice = 1000000/gubClockResolution;
-		if( uiThousandthsOfThisSecondProcessed >= uiTimeSlice * (guiTimesThisSecondProcessed+1)/1000 )
-		{
-			guiTimesThisSecondProcessed = uiThousandthsOfThisSecondProcessed*1000 / uiTimeSlice;
-			uiNewTimeProcessed = guiGameSecondsPerRealSecond * guiTimesThisSecondProcessed / gubClockResolution;
-
-			uiNewTimeProcessed = max( uiNewTimeProcessed, uiLastTimeProcessed );
-
-			uiAmountToAdvanceTime = uiNewTimeProcessed - uiLastTimeProcessed;
-
-			#ifdef DEBUG_GAME_CLOCK
-				if( uiAmountToAdvanceTime > 0x80000000 || guiGameClock + uiAmountToAdvanceTime < guiPreviousGameClock )
-				{
-					uiNewTimeProcessed = uiNewTimeProcessed;
-				}
-			#endif
-
-			WarpGameTime( uiNewTimeProcessed - uiLastTimeProcessed, WARPTIME_PROCESS_EVENTS_NORMALLY );
-			if( uiNewTimeProcessed < guiGameSecondsPerRealSecond )
-			{ //Processed the same real second
-				uiLastTimeProcessed =	uiNewTimeProcessed;
-			}
-			else
-			{ //We have moved into a new real second.
-				uiLastTimeProcessed = uiNewTimeProcessed % guiGameSecondsPerRealSecond;
-				if ( gubClockResolution > 0 )
-				{
-					guiTimesThisSecondProcessed %= gubClockResolution;
-				}
-				else
-				{
-					// this branch occurs whenever an event during WarpGameTime stops time compression!
-					guiTimesThisSecondProcessed = 0;
-				}
-				uiLastSecondTime = uiNewTime;
-			}
-		}
-	}
-	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"UpdateClock done");
+	UpdateClockPresentation();
 }
 
 

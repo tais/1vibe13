@@ -2734,6 +2734,38 @@ int main()
 	check(simulationTicks.addSink(receivingTicks) ==
 		SimulationTickSinkRegistrationError::None,
 		"fixed-step simulation accepts deterministic non-owning subscribers");
+	SimulationTickDispatcher orderedSimulationTicks(1, 1);
+	CallbackSimulationTickSink systemSimulationTick;
+	CallbackSimulationTickSink packageSimulationTick;
+	CallbackSimulationTickSink missingSimulationAnchor;
+	CallbackSimulationTickSink lateSimulationTick;
+	std::vector<unsigned> simulationTickOrder;
+	SimulationTickSinkRegistrationError inDispatchSimulationRegistration =
+		SimulationTickSinkRegistrationError::None;
+	systemSimulationTick.callback = [&] {
+		inDispatchSimulationRegistration =
+			orderedSimulationTicks.addSinkBefore(
+				lateSimulationTick, packageSimulationTick);
+		simulationTickOrder.push_back(1);
+	};
+	packageSimulationTick.callback = [&] { simulationTickOrder.push_back(2); };
+	check(orderedSimulationTicks.addSink(packageSimulationTick) ==
+			SimulationTickSinkRegistrationError::None &&
+		orderedSimulationTicks.addSinkBefore(
+			systemSimulationTick, packageSimulationTick) ==
+			SimulationTickSinkRegistrationError::None &&
+		orderedSimulationTicks.addSinkBefore(
+			systemSimulationTick, packageSimulationTick) ==
+			SimulationTickSinkRegistrationError::Duplicate &&
+		orderedSimulationTicks.addSinkBefore(
+			missingSimulationAnchor, missingSimulationAnchor) ==
+			SimulationTickSinkRegistrationError::NotFound &&
+		orderedSimulationTicks.advance(1).delivered == 2 &&
+		inDispatchSimulationRegistration ==
+			SimulationTickSinkRegistrationError::DispatchInProgress &&
+		orderedSimulationTicks.sinkCount() == 2 &&
+		simulationTickOrder == std::vector<unsigned>({1, 2}),
+		"fixed-step system adapters commit before package observers without mutating an active dispatch");
 	FrameTelemetry frameTelemetry(1);
 	RuntimeMessageBus runtimeMessages(4, 8);
 	TestMessageSink receivingMessages;

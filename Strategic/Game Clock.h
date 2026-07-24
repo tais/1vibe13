@@ -1,7 +1,10 @@
 #ifndef __WORLD_CLOCK
 #define __WORLD_CLOCK
 
+#include <cstdint>
 
+class CampaignClockScheduler;
+struct CampaignClockScheduleResult;
 
 //Moa: renderable area should match the background area where ClockString gets rendered, !use even numbers!
 #define			CLOCK_AREA_HEIGHT					14	//hight of renderable area should match the background area where ClockString gets rendered
@@ -124,9 +127,15 @@ void WarpGameTime( UINT32 uiAdjustment, UINT8 ubWarpCode );
 
 void AdvanceToNextDay();
 
-//This function is called once per cycle in the game loop.	This determine how often the clock should be
-//as well as how much to update the clock by.
+// Per-frame compatibility entry point retained for existing callers. Campaign
+// time itself advances through AdvanceClockFromFixedStep; this now maintains
+// only the clock's presentation/input region.
 void UpdateClock();
+void UpdateClockPresentation();
+
+CampaignClockScheduleResult AdvanceClockFromFixedStep(
+	CampaignClockScheduler& scheduler,
+	std::uint64_t elapsedMicroseconds);
 
 
 extern CHAR16 gswzWorldTimeStr[ 20 ]; //Day 99, 23:55
