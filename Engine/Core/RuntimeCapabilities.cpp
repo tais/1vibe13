@@ -43,3 +43,19 @@ bool RuntimeCapabilities::isValidList(const std::vector<std::string>& capabiliti
 	}
 	return true;
 }
+
+bool RuntimeCapabilities::isHostOwned(const std::string& capability)
+{
+	return capability.compare(0, 12, "application.") == 0 ||
+		capability.compare(0, 7, "engine.") == 0 ||
+		capability.compare(0, 5, "host.") == 0;
+}
+
+bool RuntimeCapabilities::isValidPackageProvidedList(
+	const std::vector<std::string>& capabilities)
+{
+	if (!isValidList(capabilities)) return false;
+	for (const std::string& capability : capabilities)
+		if (isHostOwned(capability)) return false;
+	return true;
+}

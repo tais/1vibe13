@@ -476,7 +476,12 @@ Packages may declare `requiredCapabilities` alongside contributed
 requirement against host and active-package capabilities before the first
 bootstrap callback. A missing feature produces a structured package/capability
 failure and a fault-journal record instead of forcing mod code to inspect build
-targets or global campaign state.
+targets or global campaign state. Capability provider names beginning with
+`application.`, `engine.`, or `host.` are reserved for
+`EngineHostOptions::hostCapabilities`. Packages may require those features, but
+package registration rejects any attempt to contribute them; package-owned
+capabilities should use domains such as `campaign.`, `rules.`, `ui.`, or a
+project-specific prefix.
 
 Use `PackageBootstrapContext::tasks.defer` for small pieces of package-owned
 main-thread work that should run on a later frame. The queue and per-frame drain

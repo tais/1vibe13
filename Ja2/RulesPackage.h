@@ -1,13 +1,17 @@
-#ifndef JA2_CAMPAIGN_PACKAGE_H
-#define JA2_CAMPAIGN_PACKAGE_H
+#ifndef JA2_RULES_PACKAGE_H
+#define JA2_RULES_PACKAGE_H
 
 #include "LegacyGameplayRuntime.h"
+
 #include <Engine/Core/PackageApi.h>
 
-class LegacyCampaignPackage final : public EnginePackage
+// The compiled 1.13 rules compatibility layer is a real package dependency of
+// every built-in or data campaign. It owns legacy table/text loading; campaign
+// packages retain campaign identity, assets, and runtime-specific startup.
+class LegacyRulesPackage final : public EnginePackage
 {
 public:
-	explicit LegacyCampaignPackage(LegacyGameplayRuntime& runtime);
+	explicit LegacyRulesPackage(LegacyGameplayRuntime& runtime);
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
 	bool activate() noexcept override;
@@ -17,7 +21,6 @@ public:
 	void shutdown(PackageBootstrapContext& context,
 		PackageBootstrapPhase phase) override;
 	bool active() const { return active_; }
-	const GameCapabilities& capabilities() const { return runtime_.capabilities(); }
 
 private:
 	LegacyGameplayRuntime& runtime_;
@@ -25,6 +28,6 @@ private:
 	bool active_ = false;
 };
 
-LegacyCampaignPackage& GetCompiledCampaignPackage();
+LegacyRulesPackage& GetCompiledRulesPackage();
 
 #endif

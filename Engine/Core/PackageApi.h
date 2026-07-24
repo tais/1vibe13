@@ -85,7 +85,8 @@ public:
 		OperationGuard operation(operationInProgress_);
 		const PackageDescriptor& descriptor = package.descriptor();
 		const std::string& id = descriptor.content.id;
-		if (!RuntimeCapabilities::isValidList(descriptor.capabilities) ||
+		if (!RuntimeCapabilities::isValidPackageProvidedList(
+				descriptor.capabilities) ||
 			!RuntimeCapabilities::isValidList(descriptor.messageTopics) ||
 			!ServiceCatalog::isValidRequirements(descriptor.requiredServices) ||
 			!RuntimeCapabilities::isValidList(descriptor.requiredCapabilities) ||

@@ -1433,7 +1433,7 @@ UINT32 InitializeJA2(void)
 	// active package it completes that work before extension LoadContent hooks.
 	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::LoadContent))
 	{
-		GetCompiledCampaignPackage().rethrowBootstrapFailure();
+		GetCompiledGameplayRuntime().rethrowBootstrapFailure();
 		return ERROR_SCREEN;
 	}
 
@@ -1609,7 +1609,7 @@ UINT32 InitializeJA2(void)
 	// The campaign starts legacy grid/Lua globals before extension runtimes.
 	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime))
 	{
-		GetCompiledCampaignPackage().rethrowBootstrapFailure();
+		GetCompiledGameplayRuntime().rethrowBootstrapFailure();
 		return ERROR_SCREEN;
 	}
 	if (!initialization.markRunning())

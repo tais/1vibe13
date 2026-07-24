@@ -168,7 +168,9 @@ pulled from source. Multiplayer is deferred (currently stubbed).
 Mod authors can optionally wrap existing content in a validated, dependency-
 ordered [Data Package](docs/DATA_PACKAGES.md) manifest. Version 4 can select a
 complete data campaign in place of the built-in fallback while retaining the
-existing `Data-*` directories and file formats.
+existing `Data-*` directories and file formats. Built-in and external
+campaigns both activate over the explicit compiled `ja2.1.13` rules package,
+making the campaign → rules → engine layering part of production startup.
 
 
 ## Reports & participation

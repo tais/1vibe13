@@ -9,7 +9,8 @@ Every older manifest remains valid. Version 2 adds opt-in dependency policy.
 Version 3 adds declarative localization documents and opaque, schema-versioned
 definition assets through the engine-owned content catalogs. Version 4 makes a
 data campaign a selectable peer of the built-in JA2 or Unfinished Business
-campaign.
+campaign. The host layers either campaign over the compiled `ja2.1.13@1.13`
+rules package, which owns the existing 1.13 table and text bootstrap.
 
 Existing `Data-*` directories, XML, maps, STI/PNG artwork, sounds, and
 `vfs_config.ini` profiles remain valid and unchanged. If no package setting or
@@ -149,6 +150,15 @@ Lua bootstrap runs. A total conversion targeting the main executable still
 uses `ja2`; the family describes the compiled runtime contract, not the
 campaign's fictional setting.
 
+Every v4 campaign automatically receives the exact host-managed requirement
+`ja2.1.13@1.13`. Do not mention that ID in `REQUIRES`, `OPTIONAL_REQUIRES`,
+`CONFLICTS`, or `LOAD_AFTER`; doing so is rejected as an ambiguous attempt to
+redefine the application-owned rules boundary.
+The host inserts this base layer first; ordinary declared requirements follow
+in their stable declaration order and can therefore extend or override it
+before the campaign loads. The compiled rules package contributes the portable
+`rules.ja2-1.13` capability while active.
+
 `REQUIRES` is optional and is a comma-separated, ordered list. Each entry is
 one of:
 
@@ -175,7 +185,8 @@ The v2 policy keys are optional comma-separated ordered lists:
   active. Engine and mod code can query these IDs at runtime without knowing a
   concrete package ID or build target. Capability IDs use the same lowercase
   portable alphabet and 128-character limit as package IDs, and must be unique
-  within the manifest.
+  within the manifest. Provider names beginning with `application.`, `engine.`,
+  or `host.` are reserved to the application and are rejected here.
 - `REQUIRED_CAPABILITIES` uses the same feature-ID format. Every entry must be
   supplied by the host or an active package before bootstrap begins; otherwise
   startup fails before package code runs and exposes the missing ID in
@@ -228,7 +239,11 @@ The built-in JA2 or UB campaign is registered as a fallback rather than
 pre-activated. An extension/rules/tool-only selection composes over that
 fallback automatically. If the selected dependency closure contains a v4 data
 campaign, that campaign is selected instead. The package registry still
-enforces exactly one active campaign.
+enforces exactly one active campaign. In both cases activation first selects
+the compiled `ja2.1.13` rules package, loads the legacy 1.13 tables and text,
+then starts the selected campaign runtime. External package VFS overlays remain
+mounted only for data packages; the compiled rules package has no separate
+external mount.
 
 The equivalent command-line options are repeatable and also accept comma lists:
 
@@ -270,6 +285,8 @@ The v4 host enforces these portability and safety rules:
 
 - at most 32 roots, 4,096 discovered or selected packages, 128 total dependency
   relationships per manifest, and 1,000,000 indexed asset files across startup;
+  a v4 campaign may author 127 relationships because its host-managed
+  `ja2.1.13` requirement occupies the final bounded slot;
 - a `package.ini` of at most 64 KiB and at most 250,000 indexed asset files per
   package;
 - real package-root/package directories and a regular manifest; symbolic-link

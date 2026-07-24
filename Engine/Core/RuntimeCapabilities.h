@@ -19,6 +19,11 @@ public:
 	bool empty() const { return capabilities_.empty(); }
 
 	static bool isValidList(const std::vector<std::string>& capabilities);
+	// The application owns application.*, engine.*, and host.* feature claims.
+	// Packages may require them but cannot provide them and impersonate a host.
+	static bool isHostOwned(const std::string& capability);
+	static bool isValidPackageProvidedList(
+		const std::vector<std::string>& capabilities);
 
 private:
 	std::vector<std::string> capabilities_;

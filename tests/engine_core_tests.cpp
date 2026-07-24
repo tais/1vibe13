@@ -895,9 +895,26 @@ int main()
 		capabilities.add("tool.map-editor") &&
 		!capabilities.add("engine.rendering") &&
 		!capabilities.add("invalid/capability") &&
+		RuntimeCapabilities::isHostOwned("application.map-editor") &&
+		RuntimeCapabilities::isHostOwned("engine.rendering") &&
+		RuntimeCapabilities::isHostOwned("host.map-tool") &&
+		!RuntimeCapabilities::isHostOwned("rules.rendering") &&
+		RuntimeCapabilities::isValidPackageProvidedList({
+			"campaign.example", "rules.example"}) &&
+		!RuntimeCapabilities::isValidPackageProvidedList({
+			"rules.example", "host.map-tool"}) &&
 		capabilities.ids() == std::vector<std::string>({
 			"engine.rendering", "tool.map-editor"}),
 		"runtime capabilities are portable, unique, and deterministically ordered");
+	ContentRegistry reservedCapabilityContent(CurrentContentApiVersion);
+	PackageRegistry reservedCapabilityPackages(reservedCapabilityContent);
+	DeclaredContentPackage hostImpersonatingPackage(PackageDescriptor{
+		ContentManifest{"rules.host-impersonation", "1", ContentApiVersion{1, 3}},
+		PackageKind::Rules, {"host.map-tool"}});
+	check(reservedCapabilityPackages.registerPackage(hostImpersonatingPackage) ==
+			PackageRegistrationError::InvalidManifest &&
+		reservedCapabilityPackages.catalog().packages.empty(),
+		"packages cannot provide host-owned capability namespaces");
 	PackageCatalogSnapshot fingerprintPackages;
 	fingerprintPackages.supportedApi = ContentApiVersion{1, 3};
 	fingerprintPackages.activationOrder = {"rules.fingerprint"};

@@ -13,7 +13,7 @@ class PropertyContainer;
 }
 
 class PackageRegistry;
-class LegacyCampaignRuntime;
+class LegacyGameplayRuntime;
 
 // Optional startup configuration. With no package keys or command-line package
 // arguments, enabled remains false and the application selects its registered
@@ -96,7 +96,7 @@ public:
 class PackageHost
 {
 public:
-	explicit PackageHost(LegacyCampaignRuntime* campaignRuntime = nullptr);
+	explicit PackageHost(LegacyGameplayRuntime* gameplayRuntime = nullptr);
 	~PackageHost();
 	PackageHost(const PackageHost&) = delete;
 	PackageHost& operator=(const PackageHost&) = delete;
@@ -117,7 +117,7 @@ private:
 	static std::unique_ptr<OwnedPackage> readPackageManifest(
 		const std::filesystem::path& packageDirectory,
 		const std::filesystem::path& manifestPath,
-		std::size_t remainingTotalFiles, LegacyCampaignRuntime* campaignRuntime,
+		std::size_t remainingTotalFiles, LegacyGameplayRuntime* gameplayRuntime,
 		PackageHostResult& error);
 
 	std::vector<std::unique_ptr<OwnedPackage>> packages_;
@@ -125,7 +125,7 @@ private:
 	std::vector<std::string> registeredIds_;
 	std::vector<std::string> activatedIds_;
 	std::vector<std::string> mountedIds_;
-	LegacyCampaignRuntime* campaignRuntime_ = nullptr;
+	LegacyGameplayRuntime* gameplayRuntime_ = nullptr;
 	bool attempted_ = false;
 };
 

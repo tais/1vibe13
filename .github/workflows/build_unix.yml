@@ -67,6 +67,8 @@ jobs:
             sccache-${{ matrix.platform.name }}-
 
       - name: Set up sccache
+        id: sccache
+        continue-on-error: true
         uses: mozilla-actions/sccache-action@v0.0.6
 
       - name: Install Linux build deps
@@ -120,7 +122,22 @@ jobs:
           echo "CXXFLAGS=--target=x86_64-pc-windows-msvc"  >> $GITHUB_ENV
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLanguages=ENGLISH -DApplications=${{ matrix.application }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+        shell: bash
+        run: |
+          set -eux
+          cache_args=()
+          if command -v sccache >/dev/null 2>&1; then
+            cache_args+=(
+              -DCMAKE_C_COMPILER_LAUNCHER=sccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=sccache)
+          else
+            echo "::warning::sccache setup unavailable; building without a compiler cache"
+          fi
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLanguages=ENGLISH \
+            -DApplications=${{ matrix.application }} \
+            "${cache_args[@]}"
 
       - name: Build
         run: cmake --build build
@@ -134,7 +151,13 @@ jobs:
 
       - name: sccache stats
         if: always()
-        run: sccache --show-stats
+        shell: bash
+        run: |
+          if command -v sccache >/dev/null 2>&1; then
+            sccache --show-stats
+          else
+            echo "sccache unavailable; no cache statistics"
+          fi
 
       - name: List build artifacts (unix)
         if: matrix.platform.name != 'windows'
@@ -184,6 +207,8 @@ jobs:
             sccache-linux-
 
       - name: Set up sccache
+        id: sccache
+        continue-on-error: true
         uses: mozilla-actions/sccache-action@v0.0.6
 
       - name: Install Linux build deps
@@ -203,7 +228,23 @@ jobs:
           echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Configure Debug with AddressSanitizer
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DLanguages=ENGLISH -DApplications=JA2 -DADDRESS_SANITIZER=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+        shell: bash
+        run: |
+          set -eux
+          cache_args=()
+          if command -v sccache >/dev/null 2>&1; then
+            cache_args+=(
+              -DCMAKE_C_COMPILER_LAUNCHER=sccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=sccache)
+          else
+            echo "::warning::sccache setup unavailable; building without a compiler cache"
+          fi
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DLanguages=ENGLISH \
+            -DApplications=JA2 \
+            -DADDRESS_SANITIZER=ON \
+            "${cache_args[@]}"
 
       - name: Build test binaries
         run: cmake --build build --target ja2_headless_tests platform_legacy_tests mp_netshim_tests engine_core_tests ja2_runtime_adapter_tests tactical_observer_allocation_tests tile_cache_tests
@@ -215,4 +256,10 @@ jobs:
 
       - name: sccache stats
         if: always()
-        run: sccache --show-stats
+        shell: bash
+        run: |
+          if command -v sccache >/dev/null 2>&1; then
+            sccache --show-stats
+          else
+            echo "sccache unavailable; no cache statistics"
+          fi
