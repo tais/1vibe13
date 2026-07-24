@@ -2908,6 +2908,10 @@ BOOLEAN DeleteVideoObject( HVOBJECT hVObject )
 	{
 		for( usLoop = 0; usLoop < hVObject->usNumberOf16BPPObjects; usLoop++)
 		{
+			if ( hVObject->p16BPPObject[usLoop].pNativeTransparencyMask )
+			{
+				MemFree( hVObject->p16BPPObject[usLoop].pNativeTransparencyMask );
+			}
 			MemFree( hVObject->p16BPPObject[usLoop].p16BPPData );
 		}
 		MemFree( hVObject->p16BPPObject );
@@ -3410,6 +3414,36 @@ BOOLEAN SetVideoObjectPalette8BPP(INT32 uiVideoObject, SGPPaletteEntry *pPal8)
 	return( SetVideoObjectPalette( hVObject, pPal8 ) );
 }
 
+BOOLEAN SetVideoObjectPaletteNativePixels(
+	INT32 uiVideoObject,
+	const PIXEL *pPalette)
+{
+	HVOBJECT hVObject;
+	CHECKF(pPalette != NULL);
+	CHECKF(GetVideoObject(&hVObject, uiVideoObject));
+	CHECKF(hVObject->p16BPPPalette != NULL);
+
+	memcpy(
+		hVObject->p16BPPPalette,
+		pPalette,
+		sizeof(PIXEL) * 256);
+	return TRUE;
+}
+
+BOOLEAN SetVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16 *pPal16)
+{
+	HVOBJECT hVObject;
+	CHECKF(pPal16 != NULL);
+	CHECKF(GetVideoObject(&hVObject, uiVideoObject));
+	CHECKF(hVObject->p16BPPPalette != NULL);
+
+	for (UINT32 index = 0; index < 256; ++index)
+	{
+		hVObject->p16BPPPalette[index] =
+			PixFromColor16(pPal16[index]);
+	}
+	return TRUE;
+}
 
 BOOLEAN GetVideoObjectPalette16BPP(INT32 uiVideoObject, PIXEL **ppPal16)
 {
@@ -3419,6 +3453,7 @@ BOOLEAN GetVideoObjectPalette16BPP(INT32 uiVideoObject, PIXEL **ppPal16)
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_GETVIDEOOBJECTPALETTE16BPP;
 	#endif
+	CHECKF( ppPal16 != NULL );
 	CHECKF( GetVideoObject( &hVObject, uiVideoObject ) );
 
 	*ppPal16 = hVObject->p16BPPPalette;
@@ -3426,182 +3461,43 @@ BOOLEAN GetVideoObjectPalette16BPP(INT32 uiVideoObject, PIXEL **ppPal16)
 	return( TRUE );
 }
 
+BOOLEAN CopyVideoObjectPaletteNativePixels(
+	INT32 uiVideoObject,
+	PIXEL *pPalette)
+{
+	HVOBJECT hVObject;
+	CHECKF(pPalette != NULL);
+	CHECKF(GetVideoObject(&hVObject, uiVideoObject));
+	CHECKF(hVObject->p16BPPPalette != NULL);
+
+	memcpy(
+		pPalette,
+		hVObject->p16BPPPalette,
+		sizeof(PIXEL) * 256);
+	return TRUE;
+}
+
 BOOLEAN CopyVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16 *ppPal16)
 {
-	HVOBJECT							hVObject;
+	HVOBJECT hVObject;
 
-	// Get video object
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_COPYVIDEOOBJECTPALETTE16BPP;
 	#endif
-	CHECKF( GetVideoObject( &hVObject, uiVideoObject ) );
+	CHECKF(ppPal16 != NULL);
+	CHECKF(GetVideoObject(&hVObject, uiVideoObject));
+	CHECKF(hVObject->p16BPPPalette != NULL);
 
-	memcpy(ppPal16, hVObject->p16BPPPalette, 256*2);
-
-	return( TRUE );
+	// This function's UINT16 destination is a compatibility contract. Convert
+	// every live native pixel to an RGB565 token instead of copying half of the
+	// ARGB8888 palette byte stream.
+	for (UINT32 index = 0; index < 256; ++index)
+	{
+		ppPal16[index] =
+			PixToColor16(hVObject->p16BPPPalette[index]);
+	}
+	return TRUE;
 }
-
-BOOLEAN CheckFor16BPPRegion( HVOBJECT hVObject, UINT16 usRegionIndex, UINT8 ubShadeLevel, UINT16 * pusIndex )
-{
-	UINT16					usLoop;
-	SixteenBPPObjectInfo *	p16BPPObject;
-
-	if (hVObject->usNumberOf16BPPObjects > 0)
-	{
-		for (usLoop = 0; usLoop < hVObject->usNumberOf16BPPObjects; usLoop++)
-		{
-			p16BPPObject = &(hVObject->p16BPPObject[usLoop]);
-			if (p16BPPObject->usRegionIndex == usRegionIndex && p16BPPObject->ubShadeLevel == ubShadeLevel)
-			{
-				if (pusIndex != NULL)
-				{
-					*pusIndex = usLoop;
-				}
-				return( TRUE );
-			}
-		}
-	}
-	return( FALSE );
-}
-
-BOOLEAN ConvertVObjectRegionTo16BPP( HVOBJECT hVObject, UINT16 usRegionIndex, UINT8 ubShadeLevel )
-{
-	SixteenBPPObjectInfo *	p16BPPObject;
-	UINT8 *					pInput;
-	UINT8 *					pOutput;
-	PIXEL *				p16BPPPalette;
-	UINT32					uiDataLoop;
-	UINT32					uiDataLength;
-	UINT8					ubRunLoop;
-	//UINT8					ubRunLength;
-	INT8					bData;
-	UINT32					uiLen;
-
-	// check for existing 16BPP region and then allocate memory
-	if (usRegionIndex >= hVObject->usNumberOfObjects || ubShadeLevel >= HVOBJECT_SHADE_TABLES)
-	{
-		return( FALSE );
-	}
-	if (CheckFor16BPPRegion( hVObject, usRegionIndex, ubShadeLevel, NULL) == TRUE)
-	{
-		// it already exists; no need to do anything!
-		return( TRUE );
-	}
-
-	if (hVObject->usNumberOf16BPPObjects > 0)
-	{
-		// have to reallocate memory
-		hVObject->p16BPPObject = (SixteenBPPObjectInfo *) MemRealloc( hVObject->p16BPPObject, sizeof( SixteenBPPObjectInfo ) * (hVObject->usNumberOf16BPPObjects + 1) );
-	}
-	else
-	{
-		// allocate memory for the first 16BPPObject
-		hVObject->p16BPPObject = (SixteenBPPObjectInfo *) MemAlloc( sizeof( SixteenBPPObjectInfo ) );
-	}
-	if (hVObject->p16BPPObject == NULL)
-	{
-		hVObject->usNumberOf16BPPObjects = 0;
-		return( FALSE );
-	}
-
-	// the new object is the last one in the array
-	p16BPPObject = &(hVObject->p16BPPObject[hVObject->usNumberOf16BPPObjects]);
-
-	// need twice as much memory because of going from 8 to 16 bits
-	p16BPPObject->p16BPPData = (PIXEL *) MemAlloc( hVObject->pETRLEObject[usRegionIndex].uiDataLength * 2 );
-	if (p16BPPObject->p16BPPData == NULL)
-	{
-		return( FALSE );
-	}
-
-	p16BPPObject->usRegionIndex = usRegionIndex;
-	p16BPPObject->ubShadeLevel = ubShadeLevel;
-	p16BPPObject->usHeight = hVObject->pETRLEObject[ usRegionIndex ].usHeight;
-	p16BPPObject->usWidth = hVObject->pETRLEObject[ usRegionIndex ].usWidth;
-	p16BPPObject->sOffsetX=hVObject->pETRLEObject[ usRegionIndex ].sOffsetX;
-	p16BPPObject->sOffsetY=hVObject->pETRLEObject[ usRegionIndex ].sOffsetY;
-
-	// get the palette
-	p16BPPPalette = hVObject->pShades[ubShadeLevel];
-	pInput = (UINT8 *) hVObject->pPixData + hVObject->pETRLEObject[ usRegionIndex ].uiDataOffset;
-
-	uiDataLength=hVObject->pETRLEObject[usRegionIndex].uiDataLength;
-
-	// now actually do the conversion
-
-	uiLen=0;
-	pOutput = (UINT8 *)p16BPPObject->p16BPPData;
-	for (uiDataLoop = 0; uiDataLoop < uiDataLength; uiDataLoop++)
-	{
-		bData= *pInput;
-		if(bData&0x80)
-		{
-			// transparent
-			*pOutput = *pInput;
-			pOutput++;
-			pInput++;
-			//uiDataLoop++;
-			uiLen+=(UINT32)(bData&0x7f);
-		}
-		else if(bData > 0)
-		{
-			// nontransparent
-			*pOutput = *pInput;
-			pOutput++;
-			pInput++;
-			//uiDataLoop++;
-			for(ubRunLoop=0; ubRunLoop < bData; ubRunLoop++)
-			{
-				*((UINT16 *)pOutput) = p16BPPPalette[*pInput];
-				pOutput++;
-				pOutput++;
-				pInput++;
-				uiDataLoop++;
-			}
-			uiLen+=(UINT32)bData;
-		}
-		else
-		{
-			// eol
-			*pOutput = *pInput;
-			pOutput++;
-			pInput++;
-			//uiDataLoop++;
-			if(uiLen!=p16BPPObject->usWidth)
-		 DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_1, String( "Actual pixel width different from header width" ));
-			uiLen=0;
-		}
-
-		// copy the run-length byte
-	/*	*pOutput = *pInput;
-		pOutput++;
-		if (((*pInput) & COMPRESS_TRANSPARENT) == 0 && *pInput > 0)
-		{
-			// non-transparent run; deal with the pixel data
-			ubRunLoop = 0;
-			ubRunLength = ((*pInput) & COMPRESS_RUN_LIMIT);
-			// skip to the next input byte
-			pInput++;
-			for (ubRunLoop = 0; ubRunLoop < ubRunLength; ubRunLoop++)
-			{
-				*((UINT16 *)pOutput) = p16BPPPalette[*pInput];
-				// advance two bytes in output, one in input
-				pOutput++;
-				pOutput++;
-				pInput++;
-				uiDataLoop++;
-			}
-		}
-		else
-		{
-			// transparent run or end of scanline; skip to the next input byte
-			pInput++;
-		} */
-	}
-	hVObject->usNumberOf16BPPObjects++;
-	return( TRUE );
-}
-
 
 BOOLEAN BltVideoObjectOutlineFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {

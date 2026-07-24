@@ -32,20 +32,24 @@ Every framebuffer, video surface, blitter and palette now stores `PIXEL`
 (currently `UINT32`). The change is deliberately contained to the pixel-format
 layer; the rest of the engine stays depth-agnostic.
 
-### Key idea: "logical colour" stays RGB565
+### Key idea: live colour is native; RGB565 is an explicit compatibility token
 
-JA2 computes colours in **hundreds** of places via `Get16BPPColor()` and stores
-them in `UINT16`s (UI fills, lines, boxes, font foreground, cover tints, …).
-Re-typing all of those was not viable. Instead:
+`Get16BPPColor()` is a historical name, not the current storage contract. In
+the shipped build it returns a `PIXEL` containing full ARGB8888. UI colours,
+palette tables, imported true-colour images, framebuffers, and intermediate
+render surfaces therefore retain all eight bits of every colour channel.
 
-> **The engine still computes colours as RGB565 "logical" values; they are
-> expanded to ARGB8888 only at the moment a pixel is written**, via the
-> `PixFromColor16()` inline in `pixfmt.h`.
+Some old mod-facing fields and asset formats genuinely remain `UINT16`.
+Those boundaries use `Get16BPPColorToken()` / `PixToColor16()` to pack RGB565
+and `PixFromColor16()` to expand it. A raw RGB565 token must never be confused
+with live colour storage.
 
-8-bit indexed art is different — it goes through a **palette lookup table**
-(`Create16BPPPalette` → `Create32BPPPalette`) that now produces ARGB8888
-entries directly, so indexed sprites are full-colour-correct without per-write
-conversion.
+8-bit indexed art remains indexed on disk and in its ETRLE source stream. Its
+palette lookup tables contain native ARGB8888, so ordinary sprite draws expand
+directly to full-colour pixels. The optional converted-sprite cache now decodes
+ETRLE once into a dense native-`PIXEL` array plus an explicit opacity mask;
+the mask keeps an opaque black pixel distinct from transparency and removes the
+last packed 2-byte colour cache from the renderer.
 
 The Z-buffer stays **16-bit** throughout (it stores depth, not colour). It is
 now also visible through the engine renderer boundary as a typed `Depth16`

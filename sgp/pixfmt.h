@@ -1,24 +1,25 @@
 #ifndef SGP_PIXFMT_H
 #define SGP_PIXFMT_H
 
-// Internal framebuffer pixel-format selector for the Phase 6b RGBA8888
-// experiment.
+// Internal framebuffer pixel format.
 //
 //   SGP_PIXEL_DEPTH == 16  ->  transitional RGB565 (original JA2 format)
-//   SGP_PIXEL_DEPTH == 32  ->  RGBA8888 (0xAARRGGBB, SDL_PIXELFORMAT_ARGB8888)
+//   SGP_PIXEL_DEPTH == 32  ->  ARGB8888 (0xAARRGGBB, SDL_PIXELFORMAT_ARGB8888)
 //
 // All framebuffers, surfaces and blitters store `PIXEL` and route the
 // format-specific per-pixel operations through the inlines below, so the
-// rest of the engine is depth-agnostic and flipping the depth is contained
-// to this header plus the palette-LUT and SDL-texture setup.
-//
-// While the migration is in progress the default stays 16 so the build is
-// byte-for-byte the current RGB565 pipeline.
+// rest of the engine is depth-agnostic. The shipped SDL3 runtime is ARGB8888;
+// the 16-bit selection remains available only as a source-compatibility mode
+// for embedders and asset-boundary validation.
 
 #include "types.h"
 
 #ifndef SGP_PIXEL_DEPTH
 #define SGP_PIXEL_DEPTH 32
+#endif
+
+#if SGP_PIXEL_DEPTH != 16 && SGP_PIXEL_DEPTH != 32
+#error "SGP_PIXEL_DEPTH must be 16 (RGB565) or 32 (ARGB8888)"
 #endif
 
 #if SGP_PIXEL_DEPTH == 32
@@ -95,6 +96,24 @@ inline PIXEL PixFromColor16(UINT32 c)
 	return 0xFF000000u | (r8 << 16) | (g8 << 8) | b8;
 #else
 	return c;
+#endif
+}
+
+// Pack a physical screen pixel back into the historical RGB565 token format.
+// This is for compatibility APIs and serialized/asset boundaries only; live
+// colour buffers and palettes remain PIXEL-sized.
+inline UINT16 PixToColor16(PIXEL p)
+{
+#if SGP_PIXEL_DEPTH == 32
+	const UINT16 r = static_cast<UINT16>((p >> 16) & 0xFFu);
+	const UINT16 g = static_cast<UINT16>((p >> 8) & 0xFFu);
+	const UINT16 b = static_cast<UINT16>(p & 0xFFu);
+	return static_cast<UINT16>(
+		((r >> 3) << 11) |
+		((g >> 2) << 5) |
+		(b >> 3));
+#else
+	return p;
 #endif
 }
 

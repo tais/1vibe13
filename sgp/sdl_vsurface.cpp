@@ -6,10 +6,9 @@
 // heap pixel buffer, transparency colour, palette, primary surface
 // wrappers, and the SurfaceData + ClipRectangle helpers.
 //
-// Each SGPVSurface owns a heap byte buffer (UINT16* for 16bpp, UINT8*
-// for 8bpp) instead of a DirectDraw surface. The hVSurface->pSurfaceData
-// field that legacy code used to hold a LPDIRECTDRAWSURFACE2 now holds
-// that heap pointer directly.
+// Each SGPVSurface owns a heap byte buffer (native PIXEL for renderable
+// surfaces, UINT8 for indexed sources) instead of a DirectDraw surface. The
+// pSurfaceData field now holds that allocation directly.
 //
 // Packed pointer blitters and legacy image tiling are implemented below.
 // Numeric fills, copies, stretching, and shading enter through the engine
@@ -287,8 +286,8 @@ std::map<std::uint32_t, PlatformVideoSurfaceMapping>
 
 std::size_t BytesPerPixelFor(UINT8 bpp)
 {
-	// 8bpp source surfaces stay 1 byte; everything else is a render-format
-	// surface stored at the screen pixel width (RGB565=2, RGBA8888=4).
+	// 8bpp source surfaces stay one byte; renderable surfaces use the active
+	// native PIXEL width (four bytes in the shipped ARGB8888 runtime).
 	return (bpp <= 8) ? 1u : sizeof(PIXEL);
 }
 
