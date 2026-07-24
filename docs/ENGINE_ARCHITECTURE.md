@@ -77,16 +77,20 @@ the engine must not contain SDL types in its public domain model.
 - Mandatory and optional requirements express package identity plus an optional
   exact version. Versions are opaque, case-sensitive strings rather than SemVer
   ranges. Conflict and ordering relationships express identity only.
-- `LegacyCampaignPackage` exposes the compiled JA2 or UB campaign through that
-  runtime contract. It is the compatibility bridge to replace with discovered
-  package manifests and campaign bootstrap hooks incrementally.
-- `PackageHost` provides the first optional, data-only discovery adapter around
-  that bridge. [Data Package v1](DATA_PACKAGES.md) validates manifests and
-  dependency graphs at startup, then mounts legacy-format assets in resolved
-  overlay order. With no package configuration it is a strict no-op: existing
-  `Data-*` trees and `vfs_config.ini` behavior remain unchanged. This version
-  deliberately has no native-code loading, runtime rescan/unload, or
-  disk-discovered campaign bootstrap.
+- `LegacyCampaignRuntime` is the narrow process-lifetime adapter for compiled
+  table, text, grid, and Lua initialization. The built-in `LegacyCampaignPackage`
+  is now a registered fallback rather than a pre-activated singleton.
+  A Data Package v4 `campaign` is a peer package that can own campaign assets,
+  declared content, identity, dependencies, and capabilities while driving the
+  same compatibility runtime. `CAMPAIGN_FAMILY` and a host capability reject a
+  JA2/UB mismatch before legacy bootstrap.
+- `PackageHost` is the optional, data-only discovery adapter around that
+  bridge. [Data Packages](DATA_PACKAGES.md) validate manifests and dependency
+  graphs at startup, then mount legacy-format assets in resolved overlay order.
+  An extension-only selection automatically includes the built-in campaign;
+  a selected v4 campaign replaces it. With no package configuration discovery
+  remains a no-op and startup selects the registered built-in fallback.
+  There is still no native-code loading or runtime rescan/hot-unload.
 - Package-host startup is transactional across discovery registration, engine
   activation, and legacy VFS mounting. Resolution, preflight, activation, or
   mount failure reverses named VFS profiles, newly activated packages, and all
@@ -305,7 +309,8 @@ the engine must not contain SDL types in its public domain model.
   that depend on lifecycle-mounted asset sources; 1.2 adds ordered package
   requirements; 1.3 adds optional requirements, conflicts, and weak ordering;
   1.4 adds inspectable localization-file and versioned definition-asset
-  declarations. Older content remains valid when it does not use newer contracts.
+  declarations; 1.5 adds application-hosted data campaign selection. Older
+  content remains valid when it does not use newer contracts.
 - `EngineHost` is the command- and game-agnostic composition root. It owns
   lifecycle, screen state, content, packages, capabilities, persistence, and
   service bindings for games, tools, package hosts, and tests.

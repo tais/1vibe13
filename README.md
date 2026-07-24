@@ -166,8 +166,9 @@ colour is 32-bit internally, and the build is CMake-only with dependencies
 pulled from source. Multiplayer is deferred (currently stubbed).
 
 Mod authors can optionally wrap existing content in a validated, dependency-
-ordered [Data Package v1](docs/DATA_PACKAGES.md) manifest. This startup layer
-does not replace or convert legacy `Data-*` directories or file formats.
+ordered [Data Package](docs/DATA_PACKAGES.md) manifest. Version 4 can select a
+complete data campaign in place of the built-in fallback while retaining the
+existing `Data-*` directories and file formats.
 
 
 ## Reports & participation

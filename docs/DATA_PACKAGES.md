@@ -1,13 +1,15 @@
-# Data Packages v1-v3
+# Data Packages v1-v4
 
 Data Packages are an optional startup layer for discovering and selecting
 read-only content overlays. It adds package identity, dependencies, validation,
 and deterministic load order around the content formats the game already uses.
 It does **not** replace or convert those formats.
 
-Every v1 and v2 manifest remains valid. Version 2 adds opt-in dependency
-policy. Version 3 adds declarative localization documents and opaque,
-schema-versioned definition assets through the engine-owned content catalogs.
+Every older manifest remains valid. Version 2 adds opt-in dependency policy.
+Version 3 adds declarative localization documents and opaque, schema-versioned
+definition assets through the engine-owned content catalogs. Version 4 makes a
+data campaign a selectable peer of the built-in JA2 or Unfinished Business
+campaign.
 
 Existing `Data-*` directories, XML, maps, STI/PNG artwork, sounds, and
 `vfs_config.ini` profiles remain valid and unchanged. If no package setting or
@@ -15,7 +17,7 @@ package command-line option is present, package discovery is not run and the
 legacy startup path is unchanged. An unmanifested installation therefore
 continues to work exactly as before.
 
-Data Package v3 is currently data-only and startup-only:
+Data Package v4 is currently data-only and startup-only:
 
 - it loads no DLL, shared library, native plugin, or package-supplied code;
 - it does not add a new XML, map, artwork, sound, or save-game schema;
@@ -52,6 +54,12 @@ files populate the new engine catalogs. Selecting it therefore demonstrates
 discovery, mounting, and declared-content import without changing gameplay.
 From the repository root, its package arguments are
 `--package-root examples --package example.readme`.
+
+[`examples/campaign-package`](../examples/campaign-package) is a safe v4
+campaign template. It inherits the installed JA2 data beneath its empty
+gameplay overlay, so selecting it exercises campaign replacement without
+changing the game:
+`--package-root examples --package example.campaign`.
 
 ## Manifest
 
@@ -100,24 +108,46 @@ LOCALIZATION = en@Localization/en.lang, nl@Localization/nl.lang
 DEFINITIONS = item:community.field-kit@1=Definitions/field-kit.json
 ```
 
+A v4 campaign opts into startup campaign selection with `CONTENT_API = 1.5`:
+
+```ini
+[Package]
+MANIFEST_VERSION = 4
+ID = community.total-conversion
+VERSION = 1.0.0-alpha1
+CONTENT_API = 1.5
+TYPE = campaign
+CAMPAIGN_FAMILY = ja2
+ASSET_ROOT = Data
+LOCALIZATION = en@Localization/campaign.lang
+DEFINITIONS = campaign:community.total-conversion@1=Definitions/campaign.json
+```
+
 The required keys are:
 
 - `MANIFEST_VERSION`: `1` for the original contract, `2` for dependency
-  policy, or `3` for declared content. Older manifests cannot use keys from a
-  newer contract.
+  policy, `3` for declared content, or `4` for selectable campaigns. Older
+  manifests cannot use keys from a newer contract.
 - `ID`: a unique lowercase identifier containing only `a-z`, `0-9`, `.`, `_`,
   or `-`, with at most 128 characters.
 - `VERSION`: a non-empty opaque version of at most 128 characters. Its allowed
   characters are ASCII letters, digits, `.`, `_`, `-`, and `+`.
-- `CONTENT_API`: this implementation accepts `1.1` through `1.4`. A package
+- `CONTENT_API`: this implementation accepts `1.1` through `1.5`. A package
   that declares `REQUIRES` must use at least `1.2`; a v2 manifest must use
-  at least `1.3`; a v3 manifest must use `1.4`. Newer or different major
-  versions are rejected.
-- `TYPE`: `rules`, `extension`, or `tool`. Disk-discovered campaign packages
-  are deliberately outside v1; the compiled JA2 or Unfinished Business
-  campaign remains the active compatibility bridge.
+  at least `1.3`; a v3 manifest must use `1.4`; and a v4 manifest must use
+  `1.5`. Newer or different major versions are rejected.
+- `TYPE`: `campaign`, `rules`, `extension`, or `tool`. `campaign` requires a
+  v4 manifest.
 - `ASSET_ROOT`: a portable, relative, non-empty directory path inside the
   package, such as `Data`.
+
+`CAMPAIGN_FAMILY` is required for `TYPE=campaign` and forbidden for other
+types. It is `ja2` for the main Arulco executable family or
+`unfinished-business` for the UB executable family. The host rejects a
+campaign built for the other family before any legacy table, text, grid, or
+Lua bootstrap runs. A total conversion targeting the main executable still
+uses `ja2`; the family describes the compiled runtime contract, not the
+campaign's fictional setting.
 
 `REQUIRES` is optional and is a comma-separated, ordered list. Each entry is
 one of:
@@ -194,6 +224,12 @@ selection is configured without any roots, the root defaults to `Packages`.
 Configuring roots without a selection discovers, validates, and registers the
 packages but activates no external package overlay.
 
+The built-in JA2 or UB campaign is registered as a fallback rather than
+pre-activated. An extension/rules/tool-only selection composes over that
+fallback automatically. If the selected dependency closure contains a v4 data
+campaign, that campaign is selected instead. The package registry still
+enforces exactly one active campaign.
+
 The equivalent command-line options are repeatable and also accept comma lists:
 
 ```text
@@ -230,7 +266,7 @@ bfVFS cannot remove an arbitrary middle profile, so the host never attempts to
 continue after a mount error: earlier profiles may remain present only during
 the ensuing fatal shutdown, where normal whole-VFS teardown removes them.
 
-The v3 host enforces these portability and safety rules:
+The v4 host enforces these portability and safety rules:
 
 - at most 32 roots, 4,096 discovered or selected packages, 128 total dependency
   relationships per manifest, and 1,000,000 indexed asset files across startup;
@@ -252,7 +288,7 @@ IDs across roots are an error. A package root is scanned deterministically and
 may contain ordinary directories without `package.ini`, which are ignored, but
 symbolic-link entries are rejected.
 
-Treat Data Package v3 as a strict packaging envelope around trusted legacy mod
+Treat Data Package v4 as a strict packaging envelope around trusted legacy mod
 content, not as a sandbox for hostile files. It reduces ambiguous discovery and
 path behavior, but it does not reinterpret or make the legacy parsers themselves
 security boundaries.

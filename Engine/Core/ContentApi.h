@@ -20,11 +20,13 @@ struct ContentApiVersion
 // 1.1 adds package-owned AssetSource overlays; 1.2 adds exact or unversioned
 // package requirements; 1.3 adds optional dependencies, conflicts, and weak
 // ordering relationships; 1.4 adds declarative localization and definition
-// sources. Older manifests remain valid when they do not use newer contracts.
-constexpr ContentApiVersion CurrentContentApiVersion{1, 4};
+// sources; 1.5 lets application hosts expose selectable data campaigns.
+// Older manifests remain valid when they do not use newer contracts.
+constexpr ContentApiVersion CurrentContentApiVersion{1, 5};
 constexpr ContentApiVersion PackageRequirementsContentApiVersion{1, 2};
 constexpr ContentApiVersion PackagePolicyContentApiVersion{1, 3};
 constexpr ContentApiVersion PackageDeclaredContentApiVersion{1, 4};
+constexpr ContentApiVersion PackageCampaignContentApiVersion{1, 5};
 
 struct ContentRequirement
 {
