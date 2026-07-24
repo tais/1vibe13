@@ -53,7 +53,6 @@
 #include "connect.h"
 
 UINT32 guiCurrentScreen;
-UINT32 guiPendingScreen = NO_PENDING_SCREEN;
 UINT32 guiPreviousScreen = NO_PENDING_SCREEN;
 
 static bool IsOverlayScreen(UINT32 screen)
@@ -70,14 +69,25 @@ static StateTransitionResult RecordScreenTransition(UINT32 screen)
 
 static void RequestScreenTransition(UINT32 screen)
 {
-	GetGameContext().screenController().request(screen);
-	guiPendingScreen = screen;
+	StateController<UINT32>& controller =
+		GetGameContext().screenController();
+	if (screen == NO_PENDING_SCREEN)
+		controller.cancelPending();
+	else
+		controller.request(screen);
 }
 
 static StateTransitionResult CommitPendingScreenTransition()
 {
 	return GetGameContext().screenController().commitPending(
 		[](UINT32 candidate) { return IsOverlayScreen(candidate); });
+}
+
+UINT32 GetPendingNewScreen()
+{
+	const UINT32* pending =
+		GetGameContext().screenController().pending();
+	return pending ? *pending : NO_PENDING_SCREEN;
 }
 
 INT32	giStartingMemValue = 0;
@@ -497,18 +507,16 @@ static FramePlan PrepareGameFrame()
 	{
 		RequestScreenTransition(MP_CHAT_SCREEN);
 	}
-	if ( guiPendingScreen != NO_PENDING_SCREEN )
+	const UINT32 pendingScreen = GetPendingNewScreen();
+	if ( pendingScreen != NO_PENDING_SCREEN )
 	{
-		// Direct legacy writers are adopted here; callers using
-		// SetPendingNewScreen have already populated the controller.
-		GetGameContext().screenController().request(guiPendingScreen);
 		// Based on active screen, deinit!
-		if( guiPendingScreen != guiCurrentScreen )
+		if( pendingScreen != guiCurrentScreen )
 		{
 			switch( guiCurrentScreen )
 			{
 			case MAP_SCREEN:
-				if( guiPendingScreen != MSG_BOX_SCREEN && guiPendingScreen != MP_CHAT_SCREEN )
+				if( pendingScreen != MSG_BOX_SCREEN && pendingScreen != MP_CHAT_SCREEN )
 				{
 					EndMapScreen( FALSE );
 				}
@@ -520,16 +528,15 @@ static FramePlan PrepareGameFrame()
 		}
 
 		// if the screen has chnaged
-		if( uiOldScreen != guiPendingScreen )
+		if( uiOldScreen != pendingScreen )
 		{
 			// Set the fact that the screen has changed
-			uiOldScreen = guiPendingScreen;
+			uiOldScreen = pendingScreen;
 
-			HandleNewScreenChange( guiPendingScreen, guiCurrentScreen );
+			HandleNewScreenChange( pendingScreen, guiCurrentScreen );
 		}
 		CommitPendingScreenTransition();
-		guiCurrentScreen = guiPendingScreen;
-		guiPendingScreen = NO_PENDING_SCREEN;
+		guiCurrentScreen = pendingScreen;
 
 	}
 

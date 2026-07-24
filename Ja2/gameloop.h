@@ -17,6 +17,7 @@ extern void	GameLoop(void);
 void HandleShortCutExitState( void );
 
 void SetPendingNewScreen( UINT32 uiNewScreen );
+UINT32 GetPendingNewScreen();
 
 #ifdef USE_HIGHSPEED_GAMELOOP_TIMER
 	struct InputAtom;

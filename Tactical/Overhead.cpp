@@ -10791,7 +10791,7 @@ void HandleThePlayerBeNotifiedOfSomeoneElseInSector()
     if( gTacticalStatus.fAutoBandageMode ||
             DialogueActive( ) ||
             gTacticalStatus.fAutoBandagePending ||
-            guiPendingScreen == MSG_BOX_SCREEN ||
+            GetPendingNewScreen() == MSG_BOX_SCREEN ||
             guiCurrentScreen == MSG_BOX_SCREEN ||
             AreWeInAUIMenu( )
       )

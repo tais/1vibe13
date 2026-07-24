@@ -81,6 +81,7 @@
 #include "sdl_input.h"
 #include "english.h"
 #include "GameContext.h"
+#include "gameloop.h"
 #include "CampaignClockAdapter.h"
 #include "CampaignEventAdapter.h"
 #include "CampaignPackage.h"
@@ -2754,6 +2755,16 @@ int main( int, char** )
 
 	{
 		GameContext& compiledContext = GetGameContext();
+		SetPendingNewScreen( 11 );
+		const bool pendingScreenOwnedByController =
+			GetPendingNewScreen() == 11 &&
+			compiledContext.screenController().pending() &&
+			*compiledContext.screenController().pending() == 11;
+		SetPendingNewScreen( NO_PENDING_SCREEN );
+		CHECK( pendingScreenOwnedByController &&
+		       GetPendingNewScreen() == NO_PENDING_SCREEN &&
+		       !compiledContext.screenController().hasPending(),
+		       "pending application screen state has one controller-owned representation" );
 		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
 		LegacyRulesPackage& compiledRules = GetCompiledRulesPackage();
 		const std::string& packageId = compiledPackage.descriptor().content.id;

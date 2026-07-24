@@ -290,6 +290,20 @@ foreach(source_file IN LISTS world_state_declaration_files)
   endforeach()
 endforeach()
 
+# Pending application screen state is owned by StateController. The former
+# scalar mirror has no serialization or external ABI requirement and must not
+# return as a second source of truth.
+foreach(source_file IN LISTS world_state_declaration_files)
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])guiPendingScreen([^A-Za-z0-9_]|$)"
+    retired_pending_screen_mirror "${contents}")
+  if(retired_pending_screen_mirror)
+    message(FATAL_ERROR
+      "Retired pending-screen mirror returned in ${source_file}; use SetPendingNewScreen and GetPendingNewScreen")
+  endif()
+endforeach()
+
 # Loaded-world turn identity is owned by TacticalWorldSession. The old
 # gTacticalStatus fields remain readable, but mode/team writers must publish
 # through TacticalWorldAdapter so package snapshots cannot observe split state.

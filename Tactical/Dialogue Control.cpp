@@ -24,6 +24,7 @@
 	#include "strategicmap.h"
 	#include "PreBattle Interface.h"
 	#include "Game Clock.h"
+	#include "gameloop.h"
 	#include "Quests.h"
 	#include "Cursors.h"
 	#include "gamescreen.h"
@@ -113,7 +114,6 @@ extern INT32 giMapInvNext;
 extern BOOLEAN gfSKIScreenExit;
 extern SOLDIERTYPE *pProcessingSoldier;
 extern BOOLEAN fProcessingAMerc;
-extern UINT32 guiPendingScreen;
 extern BOOLEAN fReDrawFace;
 extern BOOLEAN gfWaitingForTriggerTimer;
 
@@ -551,7 +551,7 @@ void HandleDialogue( )
 		if ( !gfInTalkPanel )
 		{
 			// ATE: NOT if we have a message box pending....
-			if ( guiPendingScreen != MSG_BOX_SCREEN && guiCurrentScreen != MSG_BOX_SCREEN	)
+			if ( GetPendingNewScreen() != MSG_BOX_SCREEN && guiCurrentScreen != MSG_BOX_SCREEN	)
 			{
 				// No, so we should lock the UI!
 				guiPendingOverrideEvent = LU_BEGINUILOCK;

@@ -562,7 +562,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 
 				//if we are not loading a saved game
 				// OJW - 20090427 - fix bug leaving gamescree/tactical for MAIN_MENU
-				if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) && guiCurrentScreen == GAME_SCREEN && guiPendingScreen != MAINMENU_SCREEN )
+				if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) && guiCurrentScreen == GAME_SCREEN && GetPendingNewScreen() != MAINMENU_SCREEN )
 				{
 					UpdateCurrentlySelectedMerc( pCharacter, ( INT8 )iCounterA );
 				}

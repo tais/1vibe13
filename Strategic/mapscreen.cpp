@@ -635,7 +635,6 @@ extern INT16 gsCiviliansEatenByMonsters;
 
 extern BOOLEAN			gfFadeOutDone;
 
-extern UINT32 guiPendingScreen;
 
 extern CHAR16		gzUserDefinedButton1[ 128 ];
 extern CHAR16		gzUserDefinedButton2[ 128 ];
@@ -5435,7 +5434,7 @@ UINT32 MapScreenHandle(void)
 
 
 	// if not going anywhere else
-	if ( guiPendingScreen == NO_PENDING_SCREEN )
+	if ( GetPendingNewScreen() == NO_PENDING_SCREEN )
 	{
 		if ( HandleFadeOutCallback( ) )
 		{
@@ -6052,7 +6051,7 @@ UINT32 MapScreenHandle(void)
 	HandleDialogue();
 
 	// if not going anywhere else
-	if ( guiPendingScreen == NO_PENDING_SCREEN )
+	if ( GetPendingNewScreen() == NO_PENDING_SCREEN )
 	{
 		if ( HandleFadeInCallback( ) )
 		{
@@ -6925,9 +6924,10 @@ UINT32 HandleMapUI( )
 
 
 	// if we pressed something that will cause a screen change
-	if ( guiPendingScreen != NO_PENDING_SCREEN )
+	const UINT32 pendingScreen = GetPendingNewScreen();
+	if ( pendingScreen != NO_PENDING_SCREEN )
 	{
-		uiNewScreen = guiPendingScreen;
+		uiNewScreen = pendingScreen;
 	}
 
 	return( uiNewScreen );
@@ -8957,7 +8957,7 @@ INT32 iCounter2 = 0;
 	}
 
 	// if going to tactical next
-	if ( guiPendingScreen == GAME_SCREEN )
+	if ( GetPendingNewScreen() == GAME_SCREEN )
 	{
 		// set compressed mode to Normal (X1)
 		SetGameTimeCompressionLevel( TIME_COMPRESS_X1 );
