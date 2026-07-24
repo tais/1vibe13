@@ -190,12 +190,16 @@ the engine must not contain SDL types in its public domain model.
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
   physical pixels remain unchanged. Every successful `CreateVideoObject`
   allocation receives a non-pointer render identity above the legacy 32-bit
-  manager range; deletion retires it before releasing storage. Every generated
-  256-entry render palette likewise receives a non-pointer identity above that
-  range. Registration is idempotent for a live palette pointer, identities are
-  never reused, and each owning replacement/destructor retires the identity
-  before freeing its borrowed immutable storage. Sequential compatibility
-  manager handles are unchanged. Common tactical transparent-Z
+  manager range. Ordinary, shadow, intensity, outline, depth, palette-effect,
+  and multi-Z draws use that identity whether or not the object was also
+  inserted into the legacy manager; deletion retires it before releasing
+  storage. Only manually assembled compatibility fixtures without a
+  `CreateVideoObject` lifetime retain the exact pointer-backed fallback. Every
+  generated 256-entry render palette likewise receives a non-pointer identity
+  above that range. Registration is idempotent for a live palette pointer,
+  identities are never reused, and each owning replacement/destructor retires
+  the identity before freeing its borrowed immutable storage. Sequential
+  compatibility manager handles are unchanged. Common tactical transparent-Z
   sprites, 50% blended, checkerboard-sampled, or
   checkerboard-when-obscured depth sprites, basic depth-tested
   shadow/intensity masks, regular or depth-tested item outlines, and ordinary
@@ -232,10 +236,9 @@ the engine must not contain SDL types in its public domain model.
   `renderworld.cpp` owns orchestration only. The historical clipped
   physics-object outline remains non-depth
   and uses the regular outline command. Other
-  application-owned pointer image operations deliberately retain their
-  compatibility path until their individual command semantics migrate. Copy
-  and nearest-neighbour
-  stretch commands cover clipped
+  raw application buffer operations deliberately retain their compatibility
+  path until their individual command semantics migrate. Copy and
+  nearest-neighbour stretch commands cover clipped
   opaque and RGB-colour-key operations, including defined same-surface overlap;
   shade commands preserve alpha and carry their factor explicitly. Depth fills
   clip to logical pixels without writing row padding. Legacy

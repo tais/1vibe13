@@ -1882,6 +1882,9 @@ int main()
 				7'128, managedObject, 0, -13, 14);
 		ClippingRect = previousObjectClip;
 		ResetLegacyRenderCommands();
+		const RenderImageId resolvedObjectIdentity =
+			recordedObjectDraws.imageCommands().size() == 2 ?
+				recordedObjectDraws.imageCommands()[1].image : 0;
 		const std::vector<RenderImageDrawCommand> expectedObjectDraws{
 			RenderImageDrawCommand{
 				7'123, managedObjectIDs.back(), 0,
@@ -1889,7 +1892,7 @@ int main()
 				RenderSurfaceRegion{1, 2, 31, 32},
 				RenderImageCompositeMode::SourceTransparency},
 			RenderImageDrawCommand{
-				7'124, managedObjectIDs.back(), 0,
+				7'124, resolvedObjectIdentity, 0,
 				RenderSurfacePoint{4, -5},
 				RenderSurfaceRegion{1, 2, 31, 32},
 				RenderImageCompositeMode::Shadow}};
@@ -1902,7 +1905,7 @@ int main()
 					RenderImageOutlineMode::Color,
 					RenderColor{0, 255, 0, 255}, true},
 				RenderImageOutlineCommand{
-					7'126, managedObjectIDs.back(), 0,
+					7'126, resolvedObjectIdentity, 0,
 					RenderSurfacePoint{-8, 10},
 					RenderSurfaceRegion{1, 2, 31, 32},
 					RenderImageOutlineMode::Color,
@@ -1914,7 +1917,7 @@ int main()
 					RenderImageOutlineMode::Shadow,
 					RenderColor{}, false},
 				RenderImageOutlineCommand{
-					7'128, managedObjectIDs.back(), 0,
+					7'128, resolvedObjectIdentity, 0,
 					RenderSurfacePoint{-13, 14},
 					RenderSurfaceRegion{1, 2, 31, 32},
 					RenderImageOutlineMode::Shadow,
@@ -1923,10 +1926,12 @@ int main()
 			indexedOutlineRouted && resolvedOutlineRouted &&
 			indexedOutlineShadowRouted &&
 			resolvedOutlineShadowRouted &&
+			resolvedObjectIdentity >
+				std::numeric_limits<UINT32>::max() &&
 			recordedObjectDraws.imageCommands() == expectedObjectDraws &&
 			recordedObjectDraws.imageOutlineCommands() ==
 				expectedObjectOutlines,
-			"managed video-object draws and outlines cross engine command boundaries");
+			"managed handles and created-object identities cross the same engine command boundary");
 		for (UINT32 objectID : managedObjectIDs)
 			objectSequenceStable = DeleteVideoObjectFromIndex(objectID) &&
 				objectSequenceStable;
@@ -5507,11 +5512,47 @@ int main()
 		SetClippingRect(&pointerOutlineClip);
 		RecordingRenderCommandSink pointerOwnedRecorder;
 		BindLegacyRenderCommands(pointerOwnedRecorder);
+		const bool pointerOwnedImageRecorded = tiledObject &&
+			BltVideoObject(
+				copyDestinationID, tiledObject, 0, 1, 0,
+				VO_BLT_SRCTRANSPARENCY, nullptr);
+		const bool pointerOwnedOutlineRecorded = tiledObject &&
+			BltVideoObjectOutline(
+				copyDestinationID, tiledObject, 0, 0, 0,
+				0, FALSE);
+		SGPVObject unregisteredImage =
+			tiledObject ? *tiledObject : SGPVObject{};
+		const bool unregisteredImageFallbackDrawn = tiledObject &&
+			BltVideoObject(
+				copyDestinationID, &unregisteredImage, 0, 2, 0,
+				VO_BLT_SRCTRANSPARENCY, nullptr);
+		RenderImageDrawCommand pointerOwnedImageCommand;
+		if (pointerOwnedRecorder.imageCommands().size() == 1)
+			pointerOwnedImageCommand =
+				pointerOwnedRecorder.imageCommands().front();
+		RenderImageOutlineCommand pointerOwnedOutlineCommand;
+		if (pointerOwnedRecorder.imageOutlineCommands().size() == 1)
+			pointerOwnedOutlineCommand =
+				pointerOwnedRecorder.imageOutlineCommands().front();
+		ResetLegacyRenderCommands();
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		PIXEL unregisteredFallbackPixel = 0;
+		if (copyDestinationPixels)
+		{
+			unregisteredFallbackPixel = copyDestinationPixels[2];
+			std::memset(
+				copyDestinationPixels, 0,
+				static_cast<std::size_t>(copyDestinationPitch) *
+					copySurfaceDescription.usHeight);
+			UnLockVideoSurface(copyDestinationID);
+		}
 		const bool pointerOwnedOutlineDrawn = tiledObject &&
 			BltVideoObjectOutline(
 				copyDestinationID, tiledObject, 0, 0, 0,
 				0, FALSE);
-		ResetLegacyRenderCommands();
 		copyDestinationPixels = copySurfacesCreated ?
 			reinterpret_cast<PIXEL*>(
 				LockVideoSurface(
@@ -5523,11 +5564,31 @@ int main()
 			UnLockVideoSurface(copyDestinationID);
 		}
 		ClippingRect = pointerOutlineOriginalClip;
-		Check(pointerOwnedOutlineDrawn && copyDestinationPixels &&
+		Check(pointerOwnedImageRecorded &&
+			pointerOwnedOutlineRecorded &&
+			unregisteredImageFallbackDrawn &&
+			unregisteredFallbackPixel == copiedRed &&
+			pointerOwnedOutlineDrawn && copyDestinationPixels &&
 			pointerOwnedOutlinePixel == copiedRed &&
-			pointerOwnedRecorder.imageOutlineCommands().empty() &&
-			pointerOwnedRecorder.imageDepthOutlineCommands().empty(),
-			"pointer-owned outlines retain their exact compatibility path");
+			pointerOwnedRecorder.imageCommands().size() == 1 &&
+			pointerOwnedRecorder.imageOutlineCommands().size() == 1 &&
+			pointerOwnedImageCommand.image >
+				std::numeric_limits<UINT32>::max() &&
+			pointerOwnedOutlineCommand.image ==
+				pointerOwnedImageCommand.image &&
+			pointerOwnedImageCommand.destination ==
+				copyDestinationID &&
+			pointerOwnedImageCommand.destinationOrigin ==
+				RenderSurfacePoint{1, 0} &&
+			pointerOwnedImageCommand.clippingRegion ==
+				RenderSurfaceRegion{0, 0, 5, 3} &&
+			pointerOwnedImageCommand.mode ==
+				RenderImageCompositeMode::SourceTransparency &&
+			pointerOwnedOutlineCommand.destinationOrigin ==
+				RenderSurfacePoint{0, 0} &&
+			pointerOwnedOutlineCommand.clippingRegion ==
+				RenderSurfaceRegion{0, 0, 5, 3},
+			"created pointer-owned images use stable commands while manual fixtures retain their exact fallback");
 
 		copyDestinationPixels = copySurfacesCreated ?
 			reinterpret_cast<PIXEL*>(
@@ -5597,6 +5658,12 @@ int main()
 				nullptr, 0, 0, 0),
 			"legacy image fills reject invalid objects without changing surfaces");
 		if (tiledObject) DeleteVideoObject(tiledObject);
+		Check(pointerOwnedImageCommand.image != 0 &&
+			!GetPlatformRenderCommands().drawImage(
+				pointerOwnedImageCommand) &&
+			!GetPlatformRenderCommands().drawImageOutline(
+				pointerOwnedOutlineCommand),
+			"deleting a pointer-owned image retires every recorded draw identity");
 
 		Check((copySourceID == 0 ||
 				DeleteVideoSurfaceFromIndex(copySourceID)) &&
