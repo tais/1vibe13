@@ -32,7 +32,10 @@ extern	CHAR16		zBuildInformation[256];
 // 1001: ROTTING_CORPSE_DEFINITION now serialized field-by-field (CHAR16 name
 //       written 16-bit) instead of a raw struct blob, so corpse temp files are
 //       cross-platform. Bumping this also rejects <1001 saves at the gate.
-#define			PORTABLE_SAVE_FORMAT							1001
+// 1002: the strategic-event queue is EngineRuntime-owned and serialized as a
+//       bounded, versioned EVQ2 value stream. Raw node layout and padding are
+//       gone; load validates fully before atomically replacing the live queue.
+#define			PORTABLE_SAVE_FORMAT							1002
 
 #define			INCREASED_TEAMSIZES								186 // Asdow: SOLDIERTYPE ubID changed from UINT8 -> UINT16
 #define			MERC_PROFILE_INSERTION_DATA					    185 // Bigmap support for AddProfileToMap function
