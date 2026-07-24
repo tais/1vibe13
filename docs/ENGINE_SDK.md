@@ -371,8 +371,11 @@ normally while failed pixels sample through the same stable checkerboard.
 updates sampled obscured pixels. `PaletteWithShadowMarker` pairs with the
 inclusive test and preserve/replace-on-pass policy while retaining custom
 palette remapping, marker shading, ignore behavior, and optional parallel
-alpha. Unsupported resources and effect, comparison, or write pairings are
-rejected rather than acquiring backend-specific meaning.
+alpha. `PaletteWithShadowMarkerPixelateObscured` preserves depth, applies those
+same rules to passing pixels, and samples failed non-marker pixels through the
+absolute-coordinate checkerboard; marker shading remains strictly
+front-facing. Unsupported resources and effect, comparison, or write pairings
+are rejected rather than acquiring backend-specific meaning.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
@@ -404,9 +407,10 @@ Rejecting hosts and manually assembled fixtures fall back to the exact old
 blitter. Basic non-depth transparent, shadow, and intensity tactical sprites
 use the regular image command with the same fallback. Ordinary merc and corpse
 palette-shadow draws, including clipped/unclipped, alpha, and depth-write
-variants, now use the same command boundary. Specialized obscured
-palette-shadow and multi-Z-strip operations remain on the compatibility path
-until their extra semantics are modelled.
+variants, now use the same command boundary. Their obscured variants also use
+it while preserving inclusive front pixels, checkerboard phase, strict marker
+shading, alpha, clipping, and unchanged depth. Multi-Z-strip operations remain
+on the compatibility path until their extra semantics are modelled.
 The platform surface adapter reference-counts nested maps and rejects deletion
 or replacement through a live mapping. Legacy packed colours, mutable shade
 percentages, and RGB565 transparency tokens are translated only in compatibility

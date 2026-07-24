@@ -377,6 +377,54 @@ BOOLEAN DrawTacticalPaletteShadowDepthSprite(
 			palette, ignoreShadows);
 }
 
+BOOLEAN DrawTacticalObscuredPaletteShadowDepthSprite(
+	UINT32 destinationSurface,
+	PIXEL* destination,
+	UINT32 destinationPitchBytes,
+	UINT16* depthBuffer,
+	UINT16 depth,
+	HVOBJECT source,
+	HVOBJECT alphaSource,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame,
+	PIXEL* palette,
+	BOOLEAN ignoreShadows,
+	SGPRect* clipping)
+{
+	if (BltVideoObjectObscuredPaletteShadowDepthToSurface(
+		destinationSurface, source, alphaSource, frame,
+		destinationX, destinationY, depth, palette,
+		ignoreShadows, clipping))
+		return TRUE;
+
+	if (clipping)
+	{
+		return alphaSource ?
+			Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClipAlpha(
+				destination, destinationPitchBytes,
+				depthBuffer, depth, source, alphaSource,
+				destinationX, destinationY, frame, clipping,
+				palette, ignoreShadows) :
+			Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClip(
+				destination, destinationPitchBytes,
+				depthBuffer, depth, source,
+				destinationX, destinationY, frame, clipping,
+				palette, ignoreShadows);
+	}
+	return alphaSource ?
+		Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredAlpha(
+			destination, destinationPitchBytes,
+			depthBuffer, depth, source, alphaSource,
+			destinationX, destinationY, frame,
+			palette, ignoreShadows) :
+		Blt8BPPDataTo16BPPBufferTransShadowZNBObscured(
+			destination, destinationPitchBytes,
+			depthBuffer, depth, source,
+			destinationX, destinationY, frame,
+			palette, ignoreShadows);
+}
+
 BOOLEAN DrawBasicTacticalOutlineSprite(
 	UINT32 destinationSurface,
 	PIXEL* destination,
@@ -3137,27 +3185,16 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 													{
 														if (fObscuredBlitter)
 														{
-															if (hVObjectAlpha != NULL)
-															{
-																Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClipAlpha((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel,
-																	hVObject,
-																	hVObjectAlpha,
-																	sXPos, sYPos,
-																	usImageIndex,
-																	&gClippingRect,
-																	pShadeTable,
-																	fIgnoreShadows);
-															}
-															else
-															{
-																Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClip((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel,
-																	hVObject,
-																	sXPos, sYPos,
-																	usImageIndex,
-																	&gClippingRect,
-																	pShadeTable,
-																	fIgnoreShadows);
-															}
+															DrawTacticalObscuredPaletteShadowDepthSprite(
+																FRAME_BUFFER,
+																(PIXEL*)pDestBuf,
+																uiDestPitchBYTES,
+																gpZBuffer, sZLevel,
+																hVObject, hVObjectAlpha,
+																sXPos, sYPos,
+																usImageIndex, pShadeTable,
+																fIgnoreShadows,
+																&gClippingRect);
 														}
 														else
 														{
@@ -3342,23 +3379,15 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 													{
 														if (fObscuredBlitter)
 														{
-															if (hVObjectAlpha != NULL) {
-																Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredAlpha((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel,
-																	hVObject,
-																	hVObjectAlpha,
-																	sXPos, sYPos,
-																	usImageIndex,
-																	pShadeTable,
-																	fIgnoreShadows);
-															}
-															else {
-																Blt8BPPDataTo16BPPBufferTransShadowZNBObscured((PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel,
-																	hVObject,
-																	sXPos, sYPos,
-																	usImageIndex,
-																	pShadeTable,
-																	fIgnoreShadows);
-															}
+															DrawTacticalObscuredPaletteShadowDepthSprite(
+																FRAME_BUFFER,
+																(PIXEL*)pDestBuf,
+																uiDestPitchBYTES,
+																gpZBuffer, sZLevel,
+																hVObject, hVObjectAlpha,
+																sXPos, sYPos,
+																usImageIndex, pShadeTable,
+																fIgnoreShadows, NULL);
 														}
 														else
 														{

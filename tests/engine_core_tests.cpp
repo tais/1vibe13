@@ -2545,6 +2545,15 @@ int main()
 		RenderDepthWriteMode::Preserve,
 		RenderImageDepthEffect::PaletteWithShadowMarker,
 		(RenderPaletteId{1} << 32) + 9, 910, true};
+	const RenderImageDepthDrawCommand
+		imageDepthObscuredPaletteShadowCommand{
+			51, 61, 911, 15, RenderSurfacePoint{-11, 20},
+			RenderSurfaceRegion{-11, 7, 101, 77}, 0x89ab,
+			RenderDepthCompareMode::GreaterOrEqual,
+			RenderDepthWriteMode::Preserve,
+			RenderImageDepthEffect::
+				PaletteWithShadowMarkerPixelateObscured,
+			(RenderPaletteId{1} << 32) + 10, 912, false};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},
@@ -2569,6 +2578,9 @@ int main()
 		"mapped surface commands reject obscured depth images without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthPaletteShadowCommand),
 		"mapped surface commands reject palette-shadow depth images without a host resource adapter");
+	check(!mappedCommands.drawImageDepth(
+			imageDepthObscuredPaletteShadowCommand),
+		"mapped surface commands reject obscured palette-shadow images without a host resource adapter");
 	check(!mappedCommands.drawImageOutline(imageOutlineCommand),
 		"mapped surface commands reject image outlines without a host resource adapter");
 	check(!mappedCommands.drawImageDepthOutline(imageDepthOutlineCommand),
@@ -2587,6 +2599,8 @@ int main()
 		recordedCommands.drawImageDepth(imageDepthObscuredCommand) &&
 		recordedCommands.drawImageDepth(
 			imageDepthPaletteShadowCommand) &&
+		recordedCommands.drawImageDepth(
+			imageDepthObscuredPaletteShadowCommand) &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.drawImageDepthOutline(imageDepthOutlineCommand) &&
 		recordedCommands.commands() ==
@@ -2606,7 +2620,8 @@ int main()
 			std::vector<RenderImageDepthDrawCommand>{
 				imageDepthCommand, imageDepthPaletteCommand,
 				imageDepthObscuredCommand,
-				imageDepthPaletteShadowCommand} &&
+				imageDepthPaletteShadowCommand,
+				imageDepthObscuredPaletteShadowCommand} &&
 		recordedCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{imageOutlineCommand} &&
 		recordedCommands.imageDepthOutlineCommands() ==

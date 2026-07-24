@@ -2496,6 +2496,18 @@ int main()
 				copyDestinationID, liveImage, liveImage, 0,
 				4, -2, 0x4567, TRUE, commandPalette,
 				TRUE, &imageSurfaceClip);
+		const bool pointerObscuredPaletteShadowDepthRouted =
+			liveImageCreated &&
+			BltVideoObjectObscuredPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, nullptr, 0,
+				-3, 2, 0x5678, commandPalette,
+				FALSE, &imageSurfaceClip);
+		const bool pointerAlphaObscuredPaletteShadowDepthRouted =
+			liveImageCreated &&
+			BltVideoObjectObscuredPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, liveImage, 0,
+				5, -3, 0x6789, commandPalette,
+				TRUE, &imageSurfaceClip);
 		const bool unregisteredPaletteRejected =
 			!BltVideoObjectPaletteShadowToSurface(
 				copyDestinationID, liveImage, nullptr, 0,
@@ -2504,6 +2516,10 @@ int main()
 			!BltVideoObjectPaletteShadowDepthToSurface(
 				copyDestinationID, liveImage, nullptr, 0,
 				0, 0, 1, TRUE, unregisteredCommandPalette,
+				FALSE, &imageSurfaceClip) &&
+			!BltVideoObjectObscuredPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, nullptr, 0,
+				0, 0, 1, unregisteredCommandPalette,
 				FALSE, &imageSurfaceClip);
 		ResetLegacyRenderCommands();
 		RenderImageDrawCommand routedPaletteShadow;
@@ -2517,20 +2533,29 @@ int main()
 		}
 		RenderImageDepthDrawCommand routedPaletteShadowDepth;
 		RenderImageDepthDrawCommand routedAlphaPaletteShadowDepth;
-		if (recordedPaletteShadow.imageDepthCommands().size() == 2)
+		RenderImageDepthDrawCommand routedObscuredPaletteShadowDepth;
+		RenderImageDepthDrawCommand
+			routedAlphaObscuredPaletteShadowDepth;
+		if (recordedPaletteShadow.imageDepthCommands().size() == 4)
 		{
 			routedPaletteShadowDepth =
 				recordedPaletteShadow.imageDepthCommands()[0];
 			routedAlphaPaletteShadowDepth =
 				recordedPaletteShadow.imageDepthCommands()[1];
+			routedObscuredPaletteShadowDepth =
+				recordedPaletteShadow.imageDepthCommands()[2];
+			routedAlphaObscuredPaletteShadowDepth =
+				recordedPaletteShadow.imageDepthCommands()[3];
 		}
 		Check(pointerPaletteShadowRouted &&
 			pointerAlphaPaletteShadowRouted &&
 			pointerPaletteShadowDepthRouted &&
 			pointerAlphaPaletteShadowDepthRouted &&
+			pointerObscuredPaletteShadowDepthRouted &&
+			pointerAlphaObscuredPaletteShadowDepthRouted &&
 			unregisteredPaletteRejected &&
 			recordedPaletteShadow.imageCommands().size() == 2 &&
-			recordedPaletteShadow.imageDepthCommands().size() == 2 &&
+			recordedPaletteShadow.imageDepthCommands().size() == 4 &&
 			routedPaletteShadow.image >
 				std::numeric_limits<UINT32>::max() &&
 			routedPaletteShadow.mode ==
@@ -2558,8 +2583,21 @@ int main()
 				routedPaletteShadow.image &&
 			routedAlphaPaletteShadowDepth.depthWrite ==
 				RenderDepthWriteMode::ReplaceOnPass &&
-			routedAlphaPaletteShadowDepth.ignoreShadows,
-			"palette-shadow bridges retain stable image, palette, alpha, and depth policies");
+			routedAlphaPaletteShadowDepth.ignoreShadows &&
+			routedObscuredPaletteShadowDepth.depthWrite ==
+				RenderDepthWriteMode::Preserve &&
+			routedObscuredPaletteShadowDepth.comparison ==
+				RenderDepthCompareMode::GreaterOrEqual &&
+			routedObscuredPaletteShadowDepth.effect ==
+				RenderImageDepthEffect::
+					PaletteWithShadowMarkerPixelateObscured &&
+			routedObscuredPaletteShadowDepth.palette ==
+				commandPaletteID &&
+			routedObscuredPaletteShadowDepth.alphaImage == 0 &&
+			routedAlphaObscuredPaletteShadowDepth.alphaImage ==
+				routedPaletteShadow.image &&
+			routedAlphaObscuredPaletteShadowDepth.ignoreShadows,
+			"palette-shadow bridges retain stable image, palette, alpha, obscured, and depth policies");
 
 		RecordingRenderCommandSink recordedDepthImage;
 		BindLegacyRenderCommands(recordedDepthImage);
@@ -3561,6 +3599,239 @@ int main()
 			invalidPaletteDepthCommandsRejected &&
 			paletteDepthPixelsMatch && paletteDepthReleased,
 			"palette-shadow depth commands preserve inclusive tests, writes, alpha, marker shading, and clipping");
+
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		UINT16* const obscuredPaletteDepthBuffer =
+			copyDestinationPixels ?
+				InitZBuffer(
+					copyDestinationPitch,
+					copySurfaceDescription.usHeight) : nullptr;
+		if (copyDestinationPixels && obscuredPaletteDepthBuffer)
+		{
+			for (std::size_t y = 0; y < 3; ++y)
+			{
+				PIXEL* const colorRow = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				UINT16* const depthRow = reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(
+						obscuredPaletteDepthBuffer) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0; x < 5; ++x)
+				{
+					colorRow[x] = paletteBackground;
+					depthRow[x] = 4;
+				}
+			}
+			UINT16* const ordinaryDepthRow =
+				obscuredPaletteDepthBuffer;
+			ordinaryDepthRow[1] = 10;
+			ordinaryDepthRow[2] = 11;
+			ordinaryDepthRow[3] = 11;
+			ordinaryDepthRow[4] = 11;
+			UINT16* const markerDepthRow =
+				reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(
+						obscuredPaletteDepthBuffer) +
+						copyDestinationPitch);
+			markerDepthRow[1] = 10;
+			markerDepthRow[2] = 11;
+			UINT16* const alphaDepthRow =
+				reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(
+						obscuredPaletteDepthBuffer) +
+						2 * copyDestinationPitch);
+			alphaDepthRow[0] = 11;
+			alphaDepthRow[1] = 11;
+		}
+		const RenderSurfaceRegion fullPaletteRegion{0, 0, 5, 3};
+		const auto drawObscuredPalette =
+			[&](INT32 x, INT32 y, RenderImageId alpha,
+				bool ignoreShadows,
+				RenderSurfaceRegion clippingRegion)
+			{
+				return paletteFixtureReady &&
+					obscuredPaletteDepthBuffer &&
+					GetPlatformRenderCommands().drawImageDepth(
+						RenderImageDepthDrawCommand{
+							copyDestinationID, DEPTH_BUFFER,
+							liveImageID, 0,
+							RenderSurfacePoint{x, y},
+							clippingRegion, 10,
+							RenderDepthCompareMode::GreaterOrEqual,
+							RenderDepthWriteMode::Preserve,
+							RenderImageDepthEffect::
+								PaletteWithShadowMarkerPixelateObscured,
+							commandPaletteID, alpha,
+							ignoreShadows});
+			};
+		const bool obscuredPaletteFrontDrawn =
+			drawObscuredPalette(
+				0, 0, 0, false, fullPaletteRegion);
+		const bool obscuredPaletteEqualDrawn =
+			drawObscuredPalette(
+				1, 0, 0, false, fullPaletteRegion);
+		const bool obscuredPaletteCheckerDrawn =
+			drawObscuredPalette(
+				2, 0, 0, false, fullPaletteRegion);
+		const bool obscuredPaletteCheckerSkipped =
+			drawObscuredPalette(
+				3, 0, 0, false, fullPaletteRegion);
+		const bool obscuredPaletteClipped =
+			drawObscuredPalette(
+				4, 0, 0, false,
+				RenderSurfaceRegion{0, 0, 4, 3});
+		if (paletteFixtureReady) paletteEncodedPixels[1] = 254;
+		const bool obscuredMarkerFrontDrawn =
+			drawObscuredPalette(
+				0, 1, 0, false, fullPaletteRegion);
+		const bool obscuredMarkerEqualSkipped =
+			drawObscuredPalette(
+				1, 1, 0, false, fullPaletteRegion);
+		const bool obscuredMarkerBehindSkipped =
+			drawObscuredPalette(
+				2, 1, 0, false, fullPaletteRegion);
+		const bool obscuredMarkerIgnored =
+			drawObscuredPalette(
+				3, 1, 0, true, fullPaletteRegion);
+		if (paletteFixtureReady)
+			paletteEncodedPixels[1] =
+				paletteOriginalEncodedPixel;
+		const bool obscuredAlphaCheckerDrawn =
+			drawObscuredPalette(
+				0, 2, liveImageID, false, fullPaletteRegion);
+		const bool obscuredAlphaCheckerSkipped =
+			drawObscuredPalette(
+				1, 2, liveImageID, false, fullPaletteRegion);
+		const bool invalidObscuredPaletteCommandsRejected =
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					fullPaletteRegion, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarkerPixelateObscured}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					fullPaletteRegion, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarkerPixelateObscured,
+					commandPaletteID}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					fullPaletteRegion, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarkerPixelateObscured,
+					commandPaletteID}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					fullPaletteRegion, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarkerPixelateObscured,
+					retiredPaletteID}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER, liveImageID, 0,
+					RenderSurfacePoint{},
+					fullPaletteRegion, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::Preserve,
+					RenderImageDepthEffect::
+						PaletteWithShadowMarkerPixelateObscured,
+					commandPaletteID,
+					std::numeric_limits<RenderImageId>::max()});
+		bool obscuredPalettePixelsMatch =
+			copyDestinationPixels && obscuredPaletteDepthBuffer;
+		if (obscuredPalettePixelsMatch)
+		{
+			const PIXEL* const ordinaryColorRow =
+				copyDestinationPixels;
+			const UINT16* const ordinaryDepthRow =
+				obscuredPaletteDepthBuffer;
+			const PIXEL* const markerColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+					copyDestinationPitch);
+			const UINT16* const markerDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						obscuredPaletteDepthBuffer) +
+					copyDestinationPitch);
+			const PIXEL* const alphaColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			const UINT16* const alphaDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						obscuredPaletteDepthBuffer) +
+					2 * copyDestinationPitch);
+			obscuredPalettePixelsMatch =
+				ordinaryColorRow[0] == copiedGreen &&
+				ordinaryDepthRow[0] == 4 &&
+				ordinaryColorRow[1] == copiedGreen &&
+				ordinaryDepthRow[1] == 10 &&
+				ordinaryColorRow[2] == copiedGreen &&
+				ordinaryDepthRow[2] == 11 &&
+				ordinaryColorRow[3] == paletteBackground &&
+				ordinaryDepthRow[3] == 11 &&
+				ordinaryColorRow[4] == paletteBackground &&
+				ordinaryDepthRow[4] == 11 &&
+				markerColorRow[0] ==
+					PixShade(paletteBackground) &&
+				markerDepthRow[0] == 4 &&
+				markerColorRow[1] == paletteBackground &&
+				markerDepthRow[1] == 10 &&
+				markerColorRow[2] == paletteBackground &&
+				markerDepthRow[2] == 11 &&
+				markerColorRow[3] == paletteBackground &&
+				markerDepthRow[3] == 4 &&
+				alphaColorRow[0] ==
+					blendWithAlpha(
+						copiedGreen, paletteBackground, 1) &&
+				alphaDepthRow[0] == 11 &&
+				alphaColorRow[1] == paletteBackground &&
+				alphaDepthRow[1] == 11;
+		}
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		const bool obscuredPaletteDepthReleased =
+			!obscuredPaletteDepthBuffer ||
+			ShutdownZBuffer(obscuredPaletteDepthBuffer);
+		Check(obscuredPaletteFrontDrawn &&
+			obscuredPaletteEqualDrawn &&
+			obscuredPaletteCheckerDrawn &&
+			obscuredPaletteCheckerSkipped &&
+			obscuredPaletteClipped &&
+			obscuredMarkerFrontDrawn &&
+			obscuredMarkerEqualSkipped &&
+			obscuredMarkerBehindSkipped &&
+			obscuredMarkerIgnored &&
+			obscuredAlphaCheckerDrawn &&
+			obscuredAlphaCheckerSkipped &&
+			invalidObscuredPaletteCommandsRejected &&
+			obscuredPalettePixelsMatch &&
+			obscuredPaletteDepthReleased,
+			"obscured palette-shadow commands preserve inclusive front pixels, absolute checkerboard, marker rules, alpha, clipping, and depth");
 
 		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
 		UINT8* const encodedImagePixels =

@@ -287,7 +287,8 @@ enum class RenderImageDepthEffect : std::uint8_t
 	BlendSourcePalette50Percent = 3,
 	CheckerboardSourcePalette = 4,
 	PixelateObscuredSourcePalette = 5,
-	PaletteWithShadowMarker = 6
+	PaletteWithShadowMarker = 6,
+	PaletteWithShadowMarkerPixelateObscured = 7
 };
 
 // Draws the visible runs of one image frame after a depth test. Palette
@@ -299,8 +300,10 @@ enum class RenderImageDepthEffect : std::uint8_t
 // updates only front-facing pixels; ReplaceOnDraw also updates sampled obscured
 // pixels. PaletteWithShadowMarker uses an external palette, optional parallel
 // alpha image, and index-254 destination shading with an inclusive test and
-// preserve/replace-on-pass policy. Colour and depth storage remain separate
-// resources.
+// preserve/replace-on-pass policy. Its PixelateObscured variant preserves depth,
+// draws front-facing pixels normally, and samples failed non-marker pixels
+// through the same absolute-coordinate checkerboard. Colour and depth storage
+// remain separate resources.
 struct RenderImageDepthDrawCommand
 {
 	RenderSurfaceId destination = 0;

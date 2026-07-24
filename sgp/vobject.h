@@ -256,6 +256,21 @@ BOOLEAN BltVideoObjectObscuredDepthToSurface(
 	VideoObjectObscuredDepthWriteMode writeMode,
 	const SGPRect* pClipRegion);
 
+// Preserves depth while drawing palette-remapped front pixels normally and
+// obscured pixels through the stable checkerboard. Index 254 shades only
+// strictly front-facing destinations; an optional image supplies alpha.
+BOOLEAN BltVideoObjectObscuredPaletteShadowDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	HVOBJECT hAlphaVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	PIXEL* pPalette,
+	BOOLEAN fIgnoreShadows,
+	const SGPRect* pClipRegion);
+
 // Depth-tested palette-remapped source with index-254 destination shading and
 // an optional parallel alpha image.
 BOOLEAN BltVideoObjectPaletteShadowDepthToSurface(
