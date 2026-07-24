@@ -570,17 +570,27 @@ void RandomizeRainDropsPosition()
 
 void RainClipVideoOverlay()
 {
-	BACKGROUND_SAVE *pCurr;
-
+	// guiNumVideoOverlays is a high-water mark: removing a non-tail overlay
+	// intentionally leaves a reusable hole below it.
 	for ( UINT32 uiIndex = 0; uiIndex < guiNumVideoOverlays; ++uiIndex )
 	{
-		pCurr = gVideoOverlays[ uiIndex ].pBackground;
+		const VIDEO_OVERLAY& overlay = gVideoOverlays[ uiIndex ];
+		if( !overlay.fAllocated || overlay.fDisabled || !overlay.pBackground )
+			continue;
 
-		if(!(pCurr->uiFlags & BGND_FLAG_IGNORE_RAIN) && (pCurr->sLeft < gRainRegion.right ||
-			pCurr->sTop < gRainRegion.bottom ||
-			pCurr->sRight >= gRainRegion.left ||
-			pCurr->sBottom >= gRainRegion.top))
-				ColorFillVideoSurfaceArea( guiRainRenderSurface, pCurr->sLeft, pCurr->sTop, pCurr->sRight, pCurr->sBottom, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+		const BACKGROUND_SAVE& background = *overlay.pBackground;
+		if( background.fAllocated && !background.fDisabled &&
+			!(background.uiFlags & BGND_FLAG_IGNORE_RAIN) &&
+			background.sLeft < gRainRegion.right &&
+			background.sTop < gRainRegion.bottom &&
+			background.sRight >= gRainRegion.left &&
+			background.sBottom >= gRainRegion.top )
+		{
+			ColorFillVideoSurfaceArea( guiRainRenderSurface,
+				background.sLeft, background.sTop,
+				background.sRight, background.sBottom,
+				Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+		}
 	}
 }
 
