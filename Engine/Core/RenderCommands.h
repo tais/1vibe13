@@ -222,14 +222,17 @@ enum class RenderImageCompositeMode : std::uint8_t
 	SourceTransparency = 1,
 	Shadow = 2,
 	Intensity = 3,
-	PaletteWithShadowMarker = 4
+	PaletteWithShadowMarker = 4,
+	ClearDestination = 5
 };
 
 // Draws one frame/sub-image at its anchor point inside an explicit half-open
 // clipping region. Image-local offsets, palettes, compression, and physical
 // storage remain responsibilities of the host adapter. Shadow and Intensity
 // use visible image runs as a mask which transforms the destination rather than
-// sampling palette colours. Callers and recording hosts see only stable values.
+// sampling palette colours. ClearDestination writes transparent black through
+// those same visible runs without exposing the image's compression or the
+// destination pixel stride. Callers and recording hosts see only stable values.
 struct RenderImageDrawCommand
 {
 	RenderSurfaceId destination = 0;
@@ -359,6 +362,50 @@ inline bool operator!=(
 	return !(left == right);
 }
 
+// Result of asking whether a depth-tested image has any visible source pixel.
+// Unsupported lets external hosts reject the read operation without conflating
+// rejection with a fully occluded image, so compatibility callers can retain an
+// exact local fallback.
+enum class RenderImageDepthVisibility : std::uint8_t
+{
+	Unsupported = 0,
+	FullyOccluded = 1,
+	Visible = 2
+};
+
+// Read-only counterpart to RenderImageDepthDrawCommand. Visible source runs are
+// tested against a Depth16 surface inside an explicit half-open clipping
+// region. The signed depth value preserves JA2's historical ordering at the
+// compatibility boundary while surface and image storage remain host-owned.
+struct RenderImageDepthVisibilityQuery
+{
+	RenderSurfaceId depthSurface = 0;
+	RenderImageId image = 0;
+	std::uint32_t frame = 0;
+	RenderSurfacePoint destinationOrigin;
+	RenderSurfaceRegion clippingRegion;
+	std::int16_t depth = 0;
+};
+
+inline bool operator==(
+	const RenderImageDepthVisibilityQuery& left,
+	const RenderImageDepthVisibilityQuery& right)
+{
+	return left.depthSurface == right.depthSurface &&
+		left.image == right.image &&
+		left.frame == right.frame &&
+		left.destinationOrigin == right.destinationOrigin &&
+		left.clippingRegion == right.clippingRegion &&
+		left.depth == right.depth;
+}
+
+inline bool operator!=(
+	const RenderImageDepthVisibilityQuery& left,
+	const RenderImageDepthVisibilityQuery& right)
+{
+	return !(left == right);
+}
+
 enum class RenderImageOutlineMode : std::uint8_t
 {
 	Color,
@@ -480,6 +527,11 @@ public:
 	{
 		return false;
 	}
+	virtual RenderImageDepthVisibility queryImageDepthVisibility(
+		const RenderImageDepthVisibilityQuery&)
+	{
+		return RenderImageDepthVisibility::Unsupported;
+	}
 	virtual bool drawImageOutline(const RenderImageOutlineCommand&)
 	{
 		return false;
@@ -506,6 +558,11 @@ public:
 	bool drawImageDepth(const RenderImageDepthDrawCommand&) override
 	{
 		return false;
+	}
+	RenderImageDepthVisibility queryImageDepthVisibility(
+		const RenderImageDepthVisibilityQuery&) override
+	{
+		return RenderImageDepthVisibility::Unsupported;
 	}
 	bool drawImageOutline(const RenderImageOutlineCommand&) override
 	{
@@ -569,6 +626,13 @@ public:
 		return accepting_;
 	}
 
+	RenderImageDepthVisibility queryImageDepthVisibility(
+		const RenderImageDepthVisibilityQuery& query) override
+	{
+		imageDepthVisibilityQueries_.push_back(query);
+		return imageDepthVisibilityResult_;
+	}
+
 	bool drawImageOutline(const RenderImageOutlineCommand& command) override
 	{
 		imageOutlineCommands_.push_back(command);
@@ -611,6 +675,11 @@ public:
 	{
 		return imageDepthCommands_;
 	}
+	const std::vector<RenderImageDepthVisibilityQuery>&
+	imageDepthVisibilityQueries() const
+	{
+		return imageDepthVisibilityQueries_;
+	}
 	const std::vector<RenderImageOutlineCommand>& imageOutlineCommands() const
 	{
 		return imageOutlineCommands_;
@@ -621,6 +690,11 @@ public:
 		return imageDepthOutlineCommands_;
 	}
 	void setAccepting(bool accepting) { accepting_ = accepting; }
+	void setImageDepthVisibilityResult(
+		RenderImageDepthVisibility result)
+	{
+		imageDepthVisibilityResult_ = result;
+	}
 	void clear()
 	{
 		fillCommands_.clear();
@@ -630,6 +704,7 @@ public:
 		depthFillCommands_.clear();
 		imageCommands_.clear();
 		imageDepthCommands_.clear();
+		imageDepthVisibilityQueries_.clear();
 		imageOutlineCommands_.clear();
 		imageDepthOutlineCommands_.clear();
 	}
@@ -642,9 +717,13 @@ private:
 	std::vector<RenderDepthFillCommand> depthFillCommands_;
 	std::vector<RenderImageDrawCommand> imageCommands_;
 	std::vector<RenderImageDepthDrawCommand> imageDepthCommands_;
+	std::vector<RenderImageDepthVisibilityQuery>
+		imageDepthVisibilityQueries_;
 	std::vector<RenderImageOutlineCommand> imageOutlineCommands_;
 	std::vector<RenderImageDepthOutlineCommand> imageDepthOutlineCommands_;
 	bool accepting_ = true;
+	RenderImageDepthVisibility imageDepthVisibilityResult_ =
+		RenderImageDepthVisibility::Unsupported;
 };
 
 // CPU implementation shared by the compiled game, headless hosts, and tools.

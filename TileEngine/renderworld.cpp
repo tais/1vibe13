@@ -48,6 +48,7 @@ extern	INT16	gsVIEWPORT_END_X;
 
 UINT16	*gpZBuffer				= NULL;
 BOOLEAN gfTagAnimatedTiles		= TRUE;
+extern SGPRect gClippingRect;
 
 namespace
 {
@@ -60,6 +61,41 @@ bool ClearTacticalDepthBuffer(INT32 bottom)
 		depthBuffer,
 		RenderSurfaceRegion{0, 0, SCREEN_WIDTH, bottom},
 		LAND_Z_LEVEL});
+}
+
+BOOLEAN IsTacticalTileFullyOccluded(
+	UINT32 depthPitchBytes,
+	UINT16* depthBuffer,
+	INT16 depth,
+	HVOBJECT source,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 frame)
+{
+	const VideoObjectDepthVisibility visibility =
+		QueryVideoObjectDepthVisibility(
+			source, frame, destinationX, destinationY,
+			depth, &gClippingRect);
+	switch (visibility)
+	{
+	case VOBJECT_DEPTH_FULLY_OCCLUDED:
+		return TRUE;
+	case VOBJECT_DEPTH_VISIBLE:
+		return FALSE;
+	case VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED:
+	default:
+		break;
+	}
+
+	// Pointer-built fixtures and rejecting external hosts retain the exact
+	// signed-depth query against the caller's mapped compatibility buffer.
+	BOOLEAN fullyOccluded = FALSE;
+	if (!Query8BPPDataToDepthBufferOcclusion(
+			depthPitchBytes, depthBuffer, depth, source,
+			destinationX, destinationY, frame, nullptr,
+			&fullyOccluded))
+		return FALSE;
+	return fullyOccluded;
 }
 
 BOOLEAN DrawTacticalDepthPaletteSprite(
@@ -251,6 +287,14 @@ BOOLEAN DrawBasicTacticalEffectSprite(
 				destination, destinationPitchBytes, source,
 				destinationX, destinationY, frame, clipping) :
 			Blt8BPPDataTo16BPPBufferIntensity(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame);
+	case VOBJECT_DRAW_CLEAR_DESTINATION:
+		return clipping ?
+			Zero8BPPDataTo16BPPBufferTransparentClip(
+				destination, destinationPitchBytes, source,
+				destinationX, destinationY, frame, clipping) :
+			Zero8BPPDataTo16BPPBufferTransparent(
 				destination, destinationPitchBytes, source,
 				destinationX, destinationY, frame);
 	default:
@@ -1307,7 +1351,13 @@ static void ShowRiotShield( SOLDIERTYPE* pSoldier, PIXEL *pBuffer, UINT32 uiDest
 			}
 		}
 		
-		Blt8BPPDataTo16BPPBufferTransZNB( pBuffer, uiDestPitchBYTES, pZBuffer, usZValue, hSrcVObject, sScreenX - 20 + offset_x, sScreenY - 60 + offset_y, offset * 8 + pSoldier->ubDirection );
+		DrawBasicTacticalDepthSprite(
+			FRAME_BUFFER, pBuffer, uiDestPitchBYTES, pZBuffer,
+			usZValue, hSrcVObject,
+			sScreenX - 20 + offset_x,
+			sScreenY - 60 + offset_y,
+			offset * 8 + pSoldier->ubDirection,
+			FALSE, &gClippingRect);
 	}
 }
 
@@ -1467,7 +1517,12 @@ static void ShowDecal( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer
 						if ( BltIsClippedOrOffScreen( hSrcVObject, displayX, displayY, graphic, &gClippingRect ) )
 							return;
 
-						Blt8BPPDataTo16BPPBufferTransZNB( pBuffer, uiDestPitchBYTES, pZBuffer, usZValue, hSrcVObject, displayX, displayY, graphic );
+						DrawBasicTacticalDepthSprite(
+							FRAME_BUFFER, pBuffer,
+							uiDestPitchBYTES, pZBuffer,
+							usZValue, hSrcVObject,
+							displayX, displayY, graphic,
+							FALSE, &gClippingRect);
 					}
 				}
 
@@ -1513,7 +1568,12 @@ static void ShowDecal( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer
 						if ( BltIsClippedOrOffScreen( hSrcVObject, displayX, displayY, graphic, &gClippingRect ) )
 							return;
 
-						Blt8BPPDataTo16BPPBufferTransZNB( pBuffer, uiDestPitchBYTES, pZBuffer, usZValue, hSrcVObject, displayX, displayY, graphic );
+						DrawBasicTacticalDepthSprite(
+							FRAME_BUFFER, pBuffer,
+							uiDestPitchBYTES, pZBuffer,
+							usZValue, hSrcVObject,
+							displayX, displayY, graphic,
+							FALSE, &gClippingRect);
 					}
 				}
 			}
@@ -2971,8 +3031,14 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								}
 								else if ((uiLevelNodeFlags  & LEVELNODE_ERASEZ) && !(uiFlags&TILES_DIRTY))
 								{
-									Zero8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex);
-									//Zero8BPPDataTo16BPPBufferTransparent( (UINT16*)gpZBuffer, uiDestPitchBYTES, hVObject, sXPos, sYPos, usImageIndex );
+									DrawBasicTacticalEffectSprite(
+										FRAME_BUFFER,
+										(PIXEL*)pDestBuf,
+										uiDestPitchBYTES,
+										hVObject, sXPos, sYPos,
+										usImageIndex,
+										VOBJECT_DRAW_CLEAR_DESTINATION,
+										&gClippingRect);
 								}
 								else if ((uiLevelNodeFlags  & LEVELNODE_ITEM) && !(uiFlags&TILES_DIRTY))
 								{
@@ -6162,7 +6228,12 @@ void ExamineZBufferForHiddenTiles( INT16 sStartPointX_M, INT16 sStartPointY_M, I
 						// Don't let this happen for roads!
 						pObject = gpWorldLevelData[usTileIndex ].pObjectHead;
 
-						if ( IsTileRedundent( uiDestPitchBYTES, gpZBuffer, sZLevel, TileElem->hTileSurface, sX, sY, TileElem->usRegionIndex ) )
+						if ( IsTacticalTileFullyOccluded(
+								uiDestPitchBYTES, gpZBuffer,
+								sZLevel,
+								TileElem->hTileSurface,
+								sX, sY,
+								TileElem->usRegionIndex ) )
 						{
 							// Mark in the world!
 							gpWorldLevelData[ usTileIndex ].uiFlags |= MAPELEMENT_REDUNDENT;
@@ -6346,193 +6417,6 @@ void ResetRenderParameters(  )
 
 
 
-
-BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
-{
-	UINT32 uiOffset;
-	UINT32 usHeight, usWidth;
-	UINT8	 *SrcPtr, *DestPtr;
-	UINT32 LineSkip;
-	ETRLEObject *pTrav;
-	INT32	 iTempX, iTempY;
-
-
-	// Assertions
-	Assert( hSrcVObject != NULL );
-	Assert( pBuffer != NULL );
-
-	// Get Offsets from Index into structure
-	pTrav = &(hSrcVObject->pETRLEObject[ usIndex ] );
-	usHeight				= (UINT32)pTrav->usHeight;
-	usWidth					= (UINT32)pTrav->usWidth;
-	uiOffset				= pTrav->uiDataOffset;
-
-	// Add to start position of dest buffer
-	iTempX = iX + pTrav->sOffsetX;
-	iTempY = iY + pTrav->sOffsetY;
-
-	// Validations
-	CHECKF( iTempX >= 0 );
-	CHECKF( iTempY >= 0 );
-
-
-	SrcPtr= (UINT8 *)hSrcVObject->pPixData + uiOffset;
-	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*sizeof(PIXEL));
-	LineSkip=(uiDestPitchBYTES-(usWidth*2));
-
-	// Portable replacement for the former 32-bit x86 __asm. Walks the
-	// ETRLE and writes 0 into the destination (the Z-buffer) for every
-	// opaque source pixel, zeroing the sprite's footprint. Non-clipped,
-	// run-length driven -- matches the original asm exactly.
-	{
-		const UINT8* src = SrcPtr;
-		UINT8*       dst = DestPtr;
-		for (UINT32 row = 0; row < usHeight; ++row) {
-			for (;;) {
-				const UINT8 cmd = *src++;
-				if (cmd == 0) break;            // end-of-line
-				if (cmd & 0x80) {               // transparent run: skip dest
-					dst += 2 * (cmd & 0x7F);
-				} else {                        // opaque run: zero each pixel
-					for (UINT8 i = 0; i < cmd; ++i) { *(UINT16*)dst = 0; dst += 2; src++; }
-				}
-			}
-			dst += LineSkip;
-		}
-	}
-
-	return(TRUE);
-
-}
-
-
-BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
-{
-	PIXEL *p16BPPPalette;
-	UINT32 uiOffset;
-	UINT32 usHeight, usWidth;
-	UINT8	 *SrcPtr, *DestPtr, *ZPtr;
-	UINT32 LineSkip;
-	ETRLEObject *pTrav;
-	INT32	 iTempX, iTempY;
-
-
-	// Assertions
-	Assert( hSrcVObject != NULL );
-	Assert( pBuffer != NULL );
-
-	// Get Offsets from Index into structure
-	pTrav = &(hSrcVObject->pETRLEObject[ usIndex ] );
-	usHeight				= (UINT32)pTrav->usHeight;
-	usWidth					= (UINT32)pTrav->usWidth;
-	uiOffset				= pTrav->uiDataOffset;
-
-	// Add to start position of dest buffer
-	iTempX = iX + pTrav->sOffsetX;
-	iTempY = iY + pTrav->sOffsetY;
-
-	// Validations
-	CHECKF( iTempX >= 0 );
-	CHECKF( iTempY >= 0 );
-
-
-	SrcPtr= (UINT8 *)hSrcVObject->pPixData + uiOffset;
-	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*sizeof(PIXEL));
-	ZPtr = (UINT8 *)pZBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*2);
-	p16BPPPalette = hSrcVObject->pShadeCurrent;
-	LineSkip=(uiDestPitchBYTES-(usWidth*2));
-
-	// Portable replacement for the former 32-bit x86 __asm. "Inverse Z":
-	// draws each opaque pixel only where usZValue == the existing Z value
-	// (does not update Z). Non-clipped, run-length driven.
-	{
-		const UINT8* src = SrcPtr;
-		UINT8*       dst = DestPtr;
-		UINT8*       zp  = ZPtr;
-		for (UINT32 row = 0; row < usHeight; ++row) {
-			for (;;) {
-				const UINT8 cmd = *src++;
-				if (cmd == 0) break;
-				if (cmd & 0x80) { const UINT32 n = cmd & 0x7F; dst += 2 * n; zp += 2 * n; }
-				else {
-					for (UINT8 i = 0; i < cmd; ++i) {
-						if (usZValue == *(UINT16*)zp) *(UINT16*)dst = p16BPPPalette[*src];
-						src++; dst += 2; zp += 2;
-					}
-				}
-			}
-			dst += LineSkip; zp += LineSkip;
-		}
-	}
-
-	return(TRUE);
-
-}
-
-
-
-BOOLEAN IsTileRedundent( UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex )
-{
-	PIXEL *p16BPPPalette;
-	UINT32 uiOffset;
-	UINT32 usHeight, usWidth;
-	UINT8	 *SrcPtr, *ZPtr;
-	UINT32 LineSkip;
-	ETRLEObject *pTrav;
-	INT32	 iTempX, iTempY;
-	BOOLEAN		fHidden = TRUE;
-
-
-	// Assertions
-	Assert( hSrcVObject != NULL );
-
-	// Get Offsets from Index into structure
-	pTrav = &(hSrcVObject->pETRLEObject[ usIndex ] );
-	usHeight				= (UINT32)pTrav->usHeight;
-	usWidth					= (UINT32)pTrav->usWidth;
-	uiOffset				= pTrav->uiDataOffset;
-
-	// Add to start position of dest buffer
-	iTempX = iX + pTrav->sOffsetX;
-	iTempY = iY + pTrav->sOffsetY;
-
-	// Validations
-	CHECKF( iTempX >= 0 );
-	CHECKF( iTempY >= 0 );
-
-
-	SrcPtr= (UINT8 *)hSrcVObject->pPixData + uiOffset;
-	ZPtr = (UINT8 *)pZBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*2);
-	p16BPPPalette = hSrcVObject->pShadeCurrent;
-	LineSkip=(uiDestPitchBYTES-(usWidth*2));
-
-	// Portable replacement for the former 32-bit x86 __asm. The tile is
-	// "redundant" (fully hidden) iff every opaque pixel is at or behind
-	// the existing Z value; if any pixel would be in front (usZValue >
-	// stored Z) the tile is visible. Non-clipped, reads Z only.
-	{
-		const UINT8* src = SrcPtr;
-		UINT8*       zp  = ZPtr;
-		for (UINT32 row = 0; row < usHeight && fHidden; ++row) {
-			for (;;) {
-				const UINT8 cmd = *src++;
-				if (cmd == 0) break;
-				if (cmd & 0x80) { zp += 2 * (cmd & 0x7F); }
-				else {
-					for (UINT8 i = 0; i < cmd; ++i) {
-						if ((INT16)usZValue > (INT16)*(UINT16*)zp) { fHidden = FALSE; break; }
-						src++; zp += 2;
-					}
-					if (!fHidden) break;
-				}
-			}
-			zp += LineSkip;  // per-row Z stride -- the asm does 'add ebx, LineSkip' at BlitDoneLine
-		}
-	}
-
-	return(fHidden);
-
-}
 
 void SetMercGlowFast( )
 {

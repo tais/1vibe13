@@ -886,6 +886,13 @@ and corpses submit an engine depth-image command carrying the source-owned
 profile frame; the backend preserves their distinct strip increments,
 same-depth wall pass-through, obscured checkerboard writes, palette marker,
 and optional-alpha rules.
+The remaining tactical-world raster tail is now separated too:
+`ClearDestination` image commands own sprite-footprint clearing with the real
+RGBA8888 stride, `RenderImageDepthVisibilityQuery` owns tile-redundancy reads,
+and riot shields/wall decals use the ordinary depth-image command. Raw
+footprint, inverse-equality-depth, and signed occlusion loops live in
+`sgp/vobject_mask_blitters.cpp` and `sgp/vobject_depth_queries.cpp`; none remain
+implemented in `TileEngine/renderworld.cpp`.
 - `DebugBreakpoint()` in `sgp/DEBUG.H` switched from `__asm { int 3 }`
   to `__builtin_debugtrap` / `__debugbreak`.
 - The vendor headers (`sgp/RAD.H`, `sgp/Mss.h`, `sgp/Mss-old.h`) still

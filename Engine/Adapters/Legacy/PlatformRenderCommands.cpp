@@ -63,6 +63,19 @@ public:
 		}
 	}
 
+	RenderImageDepthVisibility queryImageDepthVisibility(
+		const RenderImageDepthVisibilityQuery& query) override
+	{
+		try
+		{
+			return PlatformVideoObjectDepthVisibility(query);
+		}
+		catch (...)
+		{
+			return RenderImageDepthVisibility::Unsupported;
+		}
+	}
+
 	bool drawImageOutline(
 		const RenderImageOutlineCommand& command) override
 	{

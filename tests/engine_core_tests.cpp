@@ -2520,6 +2520,10 @@ int main()
 		RenderSurfaceRegion{-9, 5, 99, 75},
 		RenderImageCompositeMode::PaletteWithShadowMarker,
 		(RenderPaletteId{1} << 32) + 7, 908, true};
+	const RenderImageDrawCommand imageClearCommand{
+		51, 915, 17, RenderSurfacePoint{-13, 22},
+		RenderSurfaceRegion{-13, 9, 103, 79},
+		RenderImageCompositeMode::ClearDestination};
 	const RenderImageDepthDrawCommand imageDepthCommand{
 		51, 61, 903, 9, RenderSurfacePoint{-5, 14},
 		RenderSurfaceRegion{-4, 2, 96, 72}, 0x3456,
@@ -2562,6 +2566,9 @@ int main()
 		RenderImageDepthEffect::
 			StripDepthPaletteWithShadowMarkerPixelateObscured,
 		(RenderPaletteId{1} << 32) + 11, 914, true, 7};
+	const RenderImageDepthVisibilityQuery imageDepthVisibilityQuery{
+		61, 916, 18, RenderSurfacePoint{-14, 23},
+		RenderSurfaceRegion{-14, 10, 104, 80}, -1234};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},
@@ -2578,6 +2585,8 @@ int main()
 		"mapped surface commands reject images without a host resource adapter");
 	check(!mappedCommands.drawImage(imagePaletteCommand),
 		"mapped surface commands reject palette images without a host resource adapter");
+	check(!mappedCommands.drawImage(imageClearCommand),
+		"mapped surface commands reject clear-mask images without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthCommand),
 		"mapped surface commands reject depth images without a host resource adapter");
 	check(!mappedCommands.drawImageDepth(imageDepthPaletteCommand),
@@ -2597,6 +2606,8 @@ int main()
 		"mapped surface commands reject depth outlines without a host resource adapter");
 
 	RecordingRenderCommandSink recordedCommands;
+	recordedCommands.setImageDepthVisibilityResult(
+		RenderImageDepthVisibility::Visible);
 	check(recordedCommands.fillSurface(fillCommand) &&
 		recordedCommands.copySurface(clippedCopy) &&
 		recordedCommands.stretchSurface(stretchCommand) &&
@@ -2604,6 +2615,7 @@ int main()
 		recordedCommands.fillDepth(depthFillCommand) &&
 		recordedCommands.drawImage(imageCommand) &&
 		recordedCommands.drawImage(imagePaletteCommand) &&
+		recordedCommands.drawImage(imageClearCommand) &&
 		recordedCommands.drawImageDepth(imageDepthCommand) &&
 		recordedCommands.drawImageDepth(imageDepthPaletteCommand) &&
 		recordedCommands.drawImageDepth(imageDepthObscuredCommand) &&
@@ -2612,6 +2624,9 @@ int main()
 		recordedCommands.drawImageDepth(
 			imageDepthObscuredPaletteShadowCommand) &&
 		recordedCommands.drawImageDepth(imageStripDepthCommand) &&
+		recordedCommands.queryImageDepthVisibility(
+			imageDepthVisibilityQuery) ==
+			RenderImageDepthVisibility::Visible &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.drawImageDepthOutline(imageDepthOutlineCommand) &&
 		recordedCommands.commands() ==
@@ -2626,7 +2641,7 @@ int main()
 			std::vector<RenderDepthFillCommand>{depthFillCommand} &&
 		recordedCommands.imageCommands() ==
 			std::vector<RenderImageDrawCommand>{
-				imageCommand, imagePaletteCommand} &&
+				imageCommand, imagePaletteCommand, imageClearCommand} &&
 		recordedCommands.imageDepthCommands() ==
 			std::vector<RenderImageDepthDrawCommand>{
 				imageDepthCommand, imageDepthPaletteCommand,
@@ -2634,6 +2649,9 @@ int main()
 				imageDepthPaletteShadowCommand,
 				imageDepthObscuredPaletteShadowCommand,
 				imageStripDepthCommand} &&
+		recordedCommands.imageDepthVisibilityQueries() ==
+			std::vector<RenderImageDepthVisibilityQuery>{
+				imageDepthVisibilityQuery} &&
 		recordedCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{imageOutlineCommand} &&
 		recordedCommands.imageDepthOutlineCommands() ==
@@ -2648,6 +2666,7 @@ int main()
 		recordedCommands.depthFillCommands().empty() &&
 		recordedCommands.imageCommands().empty() &&
 		recordedCommands.imageDepthCommands().empty() &&
+		recordedCommands.imageDepthVisibilityQueries().empty() &&
 		recordedCommands.imageOutlineCommands().empty() &&
 		recordedCommands.imageDepthOutlineCommands().empty(),
 		"recorded render command streams clear as one deterministic frame");

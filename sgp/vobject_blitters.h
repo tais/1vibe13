@@ -82,6 +82,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 
 BOOLEAN Blt8BPPDataTo16BPPBufferTransZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
 BOOLEAN Blt8BPPDataTo16BPPBufferTransZNB( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
+BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
 BOOLEAN Blt8BPPDataTo16BPPBufferTransZClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
 BOOLEAN Blt8BPPDataTo16BPPBufferTransZNBClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
 BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZ(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows);
@@ -111,6 +112,22 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensity( PIXEL *pBuffer, UINT32 uiDestPitchBYT
 
 BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
 BOOLEAN Blt8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
+BOOLEAN Zero8BPPDataTo16BPPBufferTransparentClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, const SGPRect *clipregion);
+BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
+
+// Reads a Depth16 surface through an ETRLE image mask. A successful query
+// reports whether every in-clip opaque source pixel is hidden by an equal or
+// greater signed legacy depth.
+BOOLEAN Query8BPPDataToDepthBufferOcclusion(
+	UINT32 uiDestPitchBYTES,
+	UINT16 *pZBuffer,
+	INT16 sZValue,
+	HVOBJECT hSrcVObject,
+	INT32 iX,
+	INT32 iY,
+	UINT16 usIndex,
+	const SGPRect *clipregion,
+	BOOLEAN *pFullyOccluded);
 
 BOOLEAN Blt8BPPDataTo16BPPBufferTransShadow(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows);
 BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowAlpha(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows);

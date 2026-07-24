@@ -339,6 +339,8 @@ stable values, plus a destination anchor and explicit opaque,
 source-transparent, destination-shadow, or destination-intensity composite
 mode. Shadow and intensity treat visible source runs as a mask over the existing
 destination; the platform adapter retains their exact shade-table behavior.
+`ClearDestination` uses the same visible runs to write transparent black while
+respecting the destination format, pitch, row padding, and explicit clip.
 `PaletteWithShadowMarker` names a host-owned immutable 256-entry lookup through
 `RenderPaletteId`, treats source index 254 as destination shading unless
 `ignoreShadows` is set, and can name a parallel alpha image through another
@@ -382,12 +384,18 @@ their own profile increment, optional alpha, marker behavior, and the
 historical alpha-obscured strict comparison versus the non-alpha inclusive
 comparison. Unsupported resources, profiles, effects, comparisons, or write
 pairings are rejected rather than acquiring backend-specific meaning.
+`RenderImageDepthVisibilityQuery` performs the corresponding read-only
+occlusion test against a `Depth16` surface. Its tri-state
+`RenderImageDepthVisibility` result separates `FullyOccluded`, `Visible`, and
+`Unsupported`; the last value is essential for safe compatibility fallback and
+must never be interpreted as hidden.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
 map. Image commands require a host resource adapter, so the generic mapped sink
 rejects them while `RecordingRenderCommandSink` captures all nine command types
-without a renderer. The compiled host routes existing rectangle fills, numeric
+and depth-visibility queries without a renderer. The compiled host routes
+existing rectangle fills, numeric
 `BltVideoSurface`/`BltStretchVideoSurface`, surface-shadow calls, and stable
 managed video-object draws and outlines through this service. Tactical
 full-world redraws clear the live Z-buffer through the depth-fill command, and
