@@ -25,10 +25,30 @@ public:
 
 	struct Snapshot
 	{
+		struct Turn
+		{
+			bool turnBased = false;
+			bool inCombat = false;
+			std::uint8_t currentTeam = 0;
+
+			friend bool operator==(const Turn& lhs, const Turn& rhs) noexcept
+			{
+				return lhs.turnBased == rhs.turnBased &&
+					lhs.inCombat == rhs.inCombat &&
+					lhs.currentTeam == rhs.currentTeam;
+			}
+
+			friend bool operator!=(const Turn& lhs, const Turn& rhs) noexcept
+			{
+				return !(lhs == rhs);
+			}
+		};
+
 		Sector sector;
 		bool loaded = false;
 		std::uint64_t worldGeneration = 0;
 		std::uint64_t turnSerial = 0;
+		Turn turn;
 	};
 
 	const Snapshot& snapshot() const noexcept { return state_; }
@@ -36,6 +56,19 @@ public:
 	void setSector(Sector sector) noexcept { state_.sector = sector; }
 	void setDepth(std::int8_t depth) noexcept { state_.sector.z = depth; }
 	void clearSector() noexcept { state_.sector = Sector{}; }
+	void setTurnState(Snapshot::Turn turn) noexcept { state_.turn = turn; }
+	void setTurnBased(bool turnBased) noexcept
+	{
+		state_.turn.turnBased = turnBased;
+	}
+	void setCombatActive(bool inCombat) noexcept
+	{
+		state_.turn.inCombat = inCombat;
+	}
+	void setCurrentTeam(std::uint8_t currentTeam) noexcept
+	{
+		state_.turn.currentTeam = currentTeam;
+	}
 
 	// Preserve the legacy generation sequence: zero is reserved, and wrapping
 	// the unsigned counter starts again at one. A committed world starts with

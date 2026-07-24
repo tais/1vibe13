@@ -87,6 +87,7 @@
 #include "Arms Dealer Init.h"
 #include "Interface Utils.h"
 #include "Air Raid.h"
+#include "TacticalWorldAdapter.h"
 #include "Civ Quotes.h"
 #include "Drugs And Alcohol.h"
 #include "history.h"
@@ -752,7 +753,8 @@ BOOLEAN InitOverhead( )
 
 
     // Set other tactical flags
-    gTacticalStatus.uiFlags = TURNBASED | TRANSLUCENCY_TYPE;
+    RestoreJa2TacticalTurnMirrors(
+        TURNBASED | TRANSLUCENCY_TYPE, gTacticalStatus.ubCurrentTeam);
     gTacticalStatus.sSlideTarget = NOWHERE;
     gTacticalStatus.uiTimeOfLastInput = GetJA2Clock();
     gTacticalStatus.uiTimeSinceDemoOn = GetJA2Clock();
@@ -4987,7 +4989,7 @@ UINT32 EnterTacticalDemoMode()
 
     // Switch into realtime/demo
     gTacticalStatus.uiFlags |= ( REALTIME | DEMOMODE );
-    gTacticalStatus.uiFlags &= (~TURNBASED);
+    SetJa2TacticalTurnBasedMode( false );
     gTacticalStatus.uiFlags &= (~NPC_TEAM_DEAD);
     gTacticalStatus.uiFlags &= (~PLAYER_TEAM_DEAD);
 
@@ -6351,7 +6353,7 @@ void CommonEnterCombatModeCode( )
     UINT32                  cnt;
     SOLDIERTYPE          *pSoldier;
 
-    gTacticalStatus.uiFlags |= INCOMBAT;
+    SetJa2TacticalCombatMode( true );
 
     //gTacticalStatus.ubAttackBusyCount = 0;
 
@@ -6585,7 +6587,7 @@ void ExitCombatMode( )
     DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Exiting combat mode" );
 
     // Leave combat mode
-    gTacticalStatus.uiFlags &= (~INCOMBAT);
+    SetJa2TacticalCombatMode( false );
 
     EndTopMessage( );
 

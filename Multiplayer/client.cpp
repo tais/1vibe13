@@ -70,6 +70,7 @@
 #include "SmokeEffects.h"
 #include "MPChatScreen.h"
 #include "sgp_logger.h"
+#include "TacticalWorldAdapter.h"
 
 #include "MessageIdentifiers.h"
 #include "RakNetworkFactory.h"
@@ -2570,7 +2571,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 	}
 	
 	if(INT.bTeam !=netbTeam)
-		gTacticalStatus.ubCurrentTeam=INT.bTeam;
+		SetJa2TacticalCurrentTeam( INT.bTeam );
 
 	// PORTABLE WIRE FORMAT (L6): serialize the fixed-width header + only the consumed
 	// (gubOutOfTurnPersons+1) order entries instead of memcpy'ing the whole MAXMERCS array.
@@ -2712,7 +2713,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				// HARD-obey the arbiter: hand turn ownership to the interrupting team so
 				// the engine's real not-your-turn lock engages (the cosmetic freeze alone
 				// let us keep acting -> "both sides act"). EndInterrupt restores it on resume.
-				gTacticalStatus.ubCurrentTeam = INT->bTeam;
+				SetJa2TacticalCurrentTeam( INT->bTeam );
 				InitEnemyUIBar( 0, 0 );
 				// Flip the top banner off green "PLAYER'S TURN": the freeze + ubCurrentTeam
 				// hand-over already block input (clock cursor), but InitEnemyUIBar only sets
@@ -5355,7 +5356,7 @@ void turn_callback (UINT8 ubResult)
 	
 				if(!( gTacticalStatus.uiFlags & INCOMBAT ))
 				{
-					gTacticalStatus.uiFlags |= INCOMBAT;
+					SetJa2TacticalCombatMode( true );
 				}
 
 				EndTurn( ubResult+5 );
@@ -5635,7 +5636,7 @@ void gotoRT(RPCParameters *rpcParameters)
 	getReal=true;//MAY NOT BE NEEDED ANY MORE
 
 	gTacticalStatus.bConsNumTurnsNotSeen = 0;
-	gTacticalStatus.ubCurrentTeam = OUR_TEAM;
+	SetJa2TacticalCurrentTeam( OUR_TEAM );
 	guiPendingOverrideEvent = LA_ENDUIOUTURNLOCK;
 	ExitCombatMode();
 	fInterfacePanelDirty = DIRTYLEVEL2;
