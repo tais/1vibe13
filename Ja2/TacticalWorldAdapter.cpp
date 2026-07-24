@@ -8,12 +8,24 @@
 #include "TacticalEntityHost.h"
 #include "strategicmap.h"
 
-// Exact legacy coordinate symbols retained as read-compatible mirrors. The
-// session is authoritative; these are updated together only by this translation
-// unit.
-INT16 gWorldSectorX = 0;
-INT16 gWorldSectorY = 0;
-INT8 gbWorldSectorZ = -1;
+namespace
+{
+struct TacticalWorldCompatibilityProjection
+{
+	INT16 x = 0;
+	INT16 y = 0;
+	INT8 z = -1;
+};
+
+TacticalWorldCompatibilityProjection tacticalWorldProjection;
+}
+
+// Exact legacy coordinate names remain cheap lvalue reads, but their public
+// types are references to const. TacticalWorldSession is authoritative and
+// only this translation unit can update the hidden projection storage.
+const INT16& gWorldSectorX = tacticalWorldProjection.x;
+const INT16& gWorldSectorY = tacticalWorldProjection.y;
+const INT8& gbWorldSectorZ = tacticalWorldProjection.z;
 
 namespace
 {
@@ -32,9 +44,9 @@ TacticalStance SnapshotStance(const SOLDIERTYPE& soldier)
 void SynchronizeLegacyWorldMirrors(const TacticalWorldSession& session) noexcept
 {
 	const TacticalWorldSession::Snapshot& state = session.snapshot();
-	gWorldSectorX = static_cast<INT16>(state.sector.x);
-	gWorldSectorY = static_cast<INT16>(state.sector.y);
-	gbWorldSectorZ = static_cast<INT8>(state.sector.z);
+	tacticalWorldProjection.x = static_cast<INT16>(state.sector.x);
+	tacticalWorldProjection.y = static_cast<INT16>(state.sector.y);
+	tacticalWorldProjection.z = static_cast<INT8>(state.sector.z);
 }
 
 void SynchronizeLegacyTurnMirrors(const TacticalWorldSession& session) noexcept

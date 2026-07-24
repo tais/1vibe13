@@ -25,10 +25,13 @@ enum{
 	UNCONTROLLED,
 };
 
-// For speed, etc lets make these globals, forget the functions if you want
-extern INT16	gWorldSectorX;
-extern INT16	gWorldSectorY;
-extern INT8		gbWorldSectorZ;
+// Hot read-compatible projections of TacticalWorldSession.  Their reference
+// targets are updated only by TacticalWorldAdapter; const qualification makes
+// accidental legacy writers a compile error without adding accessor calls to
+// sector-heavy tactical paths.
+extern const INT16&	gWorldSectorX;
+extern const INT16&	gWorldSectorY;
+extern const INT8&	gbWorldSectorZ;
 
 extern BOOLEAN	gfHiddenTown			[ MAX_TOWNS ];
 extern BOOLEAN	gfDrawHiddenTown		[ MAX_TOWNS ];

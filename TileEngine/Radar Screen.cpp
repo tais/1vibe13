@@ -14,6 +14,7 @@
 	#include "Utilities.h"
 	#include "Interface Control.h"
 	#include "Game Clock.h"
+	#include "strategicmap.h"
 	#include "Map Screen Interface Map Inventory.h"
 	#include "Animation Data.h"
 
@@ -21,7 +22,6 @@
 class OBJECTTYPE;
 class SOLDIERTYPE;
 extern std::vector<std::wstring> gSquadNameVector;
-extern INT8	gbWorldSectorZ;
 extern BOOLEAN AreInMeanwhile();
 #include "connect.h"
 

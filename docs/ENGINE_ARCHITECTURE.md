@@ -568,8 +568,13 @@ the engine must not contain SDL types in its public domain model.
   adapter. The duplicate world-loaded and generation scalars have been deleted;
   lifecycle consumers query the session directly through
   `IsJa2TacticalWorldLoaded` or `CaptureJa2TacticalWorld`. `gTacticalStatus`
-  retains exact readable turn mirrors for the old game. `TacticalWorldService`
-  captures these values without consulting split mutable turn globals.
+  retains exact readable turn mirrors for the old game. The sector-heavy
+  compatibility names `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
+  are const-reference projections backed only by the application adapter:
+  legacy reads retain their allocation-free lvalue path, while the compiler
+  and architecture ratchet reject any second writer or mismatched declaration.
+  `TacticalWorldService` captures these values without consulting split mutable
+  turn globals.
 - `TacticalEntityDirectory` owns the bounded slot/incarnation identity used by
   commands, observations, and stale-reference rejection while JA2 retains its
   fixed `SOLDIERTYPE` storage. The host adopts, releases, and swaps pool entries
