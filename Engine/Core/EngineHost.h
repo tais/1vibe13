@@ -33,6 +33,7 @@
 #include <Engine/Core/RuntimeFaultJournal.h>
 #include <Engine/Core/RuntimeReport.h>
 #include <Engine/Core/RuntimeReportService.h>
+#include <Engine/Core/RuntimeSaveContainer.h>
 #include <Engine/Core/RuntimeSession.h>
 #include <Engine/Core/RuntimeUpdate.h>
 #include <Engine/Core/SimulationTick.h>
@@ -151,6 +152,10 @@ private:
 		                       options.limits.maximumPackageSaveStateBytes,
 		                       options.limits.maximumTotalPackageSaveStateBytes,
 		                       options.limits.maximumPackageRandomStreams),
+		  runtimeSaveContainers_(packages_.services().storage,
+		                         options.limits.maximumRuntimeSaveDomainBytes,
+		                         options.limits.maximumRuntimeSaveContainerBytes,
+		                         options.limits.maximumRuntimeSaveSections),
 		  runtimeReports_(persistence_, options.limits.maximumRuntimeReportBytes)
 	{
 		serviceCatalog_.registerService(FrameTelemetryServiceContract, frameTelemetry_);
@@ -211,6 +216,12 @@ private:
 			static_cast<std::int64_t>(packageSaveArchives_.maximumPackageBytes()));
 		runtimeConfiguration_.set("engine.package-save.total-byte-limit",
 			static_cast<std::int64_t>(packageSaveArchives_.maximumTotalBytes()));
+		runtimeConfiguration_.set("engine.runtime-save.domain-byte-limit",
+			static_cast<std::int64_t>(runtimeSaveContainers_.maximumDomainBytes()));
+		runtimeConfiguration_.set("engine.runtime-save.container-byte-limit",
+			static_cast<std::int64_t>(runtimeSaveContainers_.maximumContainerBytes()));
+		runtimeConfiguration_.set("engine.runtime-save.section-limit",
+			static_cast<std::int64_t>(runtimeSaveContainers_.maximumSections()));
 		runtimeConfiguration_.set("engine.reports.maximum-bytes",
 			static_cast<std::int64_t>(runtimeReports_.maximumBytes()));
 		inputDispatcher_.addSink(packages_);
@@ -285,10 +296,6 @@ public:
 	{
 		return packages_.captureSaveState();
 	}
-	bool requiresPackageEngineSaveState() const noexcept
-	{
-		return packages_.requiresEngineSaveState();
-	}
 	PackageSaveStateLoadResult validatePackageSaveState(
 		const PackageSaveStateSnapshot& snapshot) const noexcept
 	{
@@ -314,21 +321,6 @@ public:
 	{
 		return BuildRuntimeCompatibilityFingerprint(
 			packages_.catalog(), serviceCatalog_.snapshot(), runtimeConfiguration_.entries(),
-			runtimeCapabilities(), definitions_.records());
-	}
-	RuntimeCompatibilityFingerprint preAggregateCatalogCompatibilityFingerprint() const
-	{
-		std::vector<RuntimeConfigurationEntry> preAggregateConfiguration;
-		preAggregateConfiguration.reserve(runtimeConfiguration_.entries().size());
-		for (const RuntimeConfigurationEntry& entry : runtimeConfiguration_.entries())
-		{
-			if (entry.key == "engine.localization.total-text-byte-limit" ||
-				entry.key == "engine.definitions.total-payload-byte-limit")
-				continue;
-			preAggregateConfiguration.push_back(entry);
-		}
-		return BuildRuntimeCompatibilityFingerprint(
-			packages_.catalog(), serviceCatalog_.snapshot(), preAggregateConfiguration,
 			runtimeCapabilities(), definitions_.records());
 	}
 	RuntimeDiagnosticsSnapshot diagnostics() const
@@ -381,6 +373,14 @@ public:
 	const RuntimeCheckpointService& runtimeCheckpoints() const { return runtimeCheckpoints_; }
 	PackageSaveArchiveService& packageSaveArchives() { return packageSaveArchives_; }
 	const PackageSaveArchiveService& packageSaveArchives() const { return packageSaveArchives_; }
+	RuntimeSaveContainerService& runtimeSaveContainers()
+	{
+		return runtimeSaveContainers_;
+	}
+	const RuntimeSaveContainerService& runtimeSaveContainers() const
+	{
+		return runtimeSaveContainers_;
+	}
 	RuntimeCheckpoint makeRuntimeCheckpoint() const
 	{
 		RuntimeCheckpoint checkpoint;
@@ -407,8 +407,8 @@ public:
 	{
 		try
 		{
-			return runtimeCheckpoints_.load(path, compatibilityFingerprint(),
-				preAggregateCatalogCompatibilityFingerprint(), checkpoint);
+			return runtimeCheckpoints_.load(
+				path, compatibilityFingerprint(), checkpoint);
 		}
 		catch (...) { return RuntimeCheckpointLoadResult{
 			RuntimeCheckpointLoadError::StorageError, {}}; }
@@ -531,6 +531,7 @@ private:
 	PersistenceService persistence_;
 	RuntimeCheckpointService runtimeCheckpoints_;
 	PackageSaveArchiveService packageSaveArchives_;
+	RuntimeSaveContainerService runtimeSaveContainers_;
 	RuntimeReportService runtimeReports_;
 };
 

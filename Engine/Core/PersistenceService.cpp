@@ -154,6 +154,25 @@ PersistenceSaveResult PersistenceService::saveEnvelope(const std::string& path,
 	PersistenceHeader header, const std::vector<std::uint8_t>& payload) const noexcept
 {
 	if (path.empty()) return PersistenceSaveResult::InvalidRequest;
+	std::vector<std::uint8_t> encoded;
+	const PersistenceSaveResult result = encodeEnvelope(header, payload, encoded);
+	if (result != PersistenceSaveResult::Success) return result;
+	try
+	{
+		return storage_.writeAll(path, encoded)
+			? PersistenceSaveResult::Success
+			: PersistenceSaveResult::StorageError;
+	}
+	catch (...)
+	{
+		return PersistenceSaveResult::StorageError;
+	}
+}
+
+PersistenceSaveResult PersistenceService::encodeEnvelope(PersistenceHeader header,
+	const std::vector<std::uint8_t>& payload,
+	std::vector<std::uint8_t>& encoded) const noexcept
+{
 	if (payload.size() > maximumPayloadBytes_ ||
 		payload.size() > std::numeric_limits<std::size_t>::max() - EnvelopeHeaderBytes)
 		return PersistenceSaveResult::TooLarge;
@@ -164,9 +183,8 @@ PersistenceSaveResult PersistenceService::saveEnvelope(const std::string& path,
 		writer.writeU64(static_cast<std::uint64_t>(payload.size()));
 		writer.writeU32(PayloadChecksum(payload));
 		writer.writeBytes(payload.data(), payload.size());
-		return storage_.writeAll(path, writer.bytes())
-			? PersistenceSaveResult::Success
-			: PersistenceSaveResult::StorageError;
+		encoded = writer.bytes();
+		return PersistenceSaveResult::Success;
 	}
 	catch (...)
 	{
@@ -188,10 +206,28 @@ PersistenceLoadResult PersistenceService::loadEnvelope(const std::string& path,
 			path, MaximumStoredBytes(maximumPayloadBytes_, EnvelopeHeaderBytes), bytes);
 		if (storageResult != ByteStorageReadResult::Success)
 			return MapStorageReadResult(storageResult);
-		if (bytes.size() < EnvelopeHeaderBytes)
+		return decodeEnvelope(bytes, expectedMagic, minimumVersion, maximumVersion,
+			header, payload);
+	}
+	catch (...)
+	{
+		return PersistenceLoadResult::StorageError;
+	}
+}
+
+PersistenceLoadResult PersistenceService::decodeEnvelope(
+	const std::vector<std::uint8_t>& encoded, std::uint32_t expectedMagic,
+	std::uint16_t minimumVersion, std::uint16_t maximumVersion,
+	PersistenceHeader& header, std::vector<std::uint8_t>& payload) const noexcept
+{
+	if (minimumVersion > maximumVersion)
+		return PersistenceLoadResult::InvalidOrUnsupported;
+	try
+	{
+		if (encoded.size() < EnvelopeHeaderBytes)
 			return PersistenceLoadResult::InvalidOrUnsupported;
 
-		BinaryReader reader(bytes);
+		BinaryReader reader(encoded);
 		PersistenceHeader decodedHeader{};
 		std::uint64_t encodedSize = 0;
 		std::uint32_t encodedChecksum = 0;

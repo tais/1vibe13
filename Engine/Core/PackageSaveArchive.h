@@ -2,7 +2,9 @@
 #define ENGINE_CORE_PACKAGE_SAVE_ARCHIVE_H
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include <Engine/Core/PackageSaveState.h>
 #include <Engine/Core/PersistenceService.h>
@@ -66,16 +68,13 @@ public:
 
 	PackageSaveArchiveSaveError save(
 		const std::string& path, const PackageSaveArchive& archive) const noexcept;
+	PackageSaveArchiveSaveError encode(const PackageSaveArchive& archive,
+		std::vector<std::uint8_t>& encoded) const noexcept;
 	PackageSaveArchiveLoadResult load(const std::string& path,
 		RuntimeCompatibilityFingerprint expectedCompatibility,
 		PackageSaveArchive& archive) const noexcept;
-	// Version-one archives predate engine-owned state and may carry the exact
-	// compatibility fingerprint produced before v2-only host limits existed.
-	// The alternate remains version-gated; v2 archives must match the current
-	// fingerprint.
-	PackageSaveArchiveLoadResult load(const std::string& path,
+	PackageSaveArchiveLoadResult decode(const std::vector<std::uint8_t>& encoded,
 		RuntimeCompatibilityFingerprint expectedCompatibility,
-		RuntimeCompatibilityFingerprint versionOneExpectedCompatibility,
 		PackageSaveArchive& archive) const noexcept;
 
 	std::size_t maximumRecords() const { return maximumRecords_; }
@@ -87,6 +86,10 @@ public:
 	}
 
 private:
+	PackageSaveArchiveLoadResult decodePayload(const std::vector<std::uint8_t>& payload,
+		RuntimeCompatibilityFingerprint expectedCompatibility,
+		PackageSaveArchive& archive) const;
+
 	PersistenceService& persistence_;
 	std::size_t maximumRecords_;
 	std::size_t maximumPackageBytes_;

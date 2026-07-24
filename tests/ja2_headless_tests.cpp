@@ -86,7 +86,7 @@
 #include "RulesPackage.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
-#include "SaveCompatibility.h"
+#include "RuntimeSaveState.h"
 #include "Simulation Commands.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
@@ -1321,61 +1321,61 @@ int main( int, char** )
 		GameContext second( secondSettings, secondOptions, GameCapabilities{}, secondServices );
 		first.configuration().set( "test.save-profile", std::string( "first" ) );
 		second.configuration().set( "test.save-profile", std::string( "second" ) );
+		const bool firstReady = first.beginInitialization() &&
+			first.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			first.markRunning();
+		const bool secondReady = second.beginInitialization() &&
+			second.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
+			second.markRunning();
 		const std::string savePath = "SavedGames/SaveGame01.sav";
-		const std::string sidecarPath = RuntimeCheckpointSidecarPath( savePath );
-		const SaveCompatibilityResult missing =
-			InspectSaveCompatibilityMetadata( first, savePath );
-		const RuntimeCheckpointSaveError written =
-			WriteSaveCompatibilityMetadata( first, savePath );
-		const SaveCompatibilityResult compatible =
-			InspectSaveCompatibilityMetadata( first, savePath );
-		const SaveCompatibilityResult incompatible =
-			InspectSaveCompatibilityMetadata( second, savePath );
+		const std::vector<std::uint8_t> domain = { 0x4a, 0x41, 0x32, 0x01 };
+		storage.writeAll( savePath, domain );
+		PreparedRuntimeSave prepared = PrepareRuntimeSave( first );
+		std::vector<std::uint8_t> domainAfterCapture;
+		const bool captureDidNotWrite =
+			storage.readAll( savePath, domainAfterCapture ) &&
+			domainAfterCapture == domain;
+		const RuntimeSaveCommitResult committed =
+			CommitRuntimeSave( first, savePath, std::move( prepared ) );
+		RuntimeSaveContainer inspected;
+		const RuntimeSaveContainerLoadResult containerLoaded =
+			first.runtimeSaveContainers().inspect( savePath, inspected );
+		const PreparedRuntimeLoad compatible =
+			PrepareRuntimeLoad( first, savePath );
+		const PreparedRuntimeLoad incompatible =
+			PrepareRuntimeLoad( second, savePath );
 		std::vector<std::uint8_t> corrupted;
-		storage.readAll( sidecarPath, corrupted );
-		if ( !corrupted.empty() ) corrupted.back() ^= 0xffu;
-		storage.writeAll( sidecarPath, corrupted );
-		const std::string packageSidecarPath = PackageSaveStateSidecarPath( savePath );
-		storage.writeAll( packageSidecarPath, std::vector<std::uint8_t>{ 1, 2, 3 } );
-		const SaveCompatibilityResult invalid =
-			InspectSaveCompatibilityMetadata( first, savePath );
-		const bool removed = RemoveSaveCompatibilityMetadata( first, savePath );
-		const SaveCompatibilityResult removedMetadata =
-			InspectSaveCompatibilityMetadata( first, savePath );
-		CHECK( sidecarPath == savePath + ".engine-checkpoint" &&
-		       missing.state == SaveCompatibilityState::LegacyWithoutMetadata &&
-		       missing.permitsCompatibleLoad() &&
-		       written == RuntimeCheckpointSaveError::None &&
-		       compatible.state == SaveCompatibilityState::Compatible &&
-		       compatible.checkpoint.compatibility == first.runtime().compatibilityFingerprint() &&
-		       incompatible.state == SaveCompatibilityState::IncompatibleRuntime &&
-		       incompatible.storedCompatibility == first.runtime().compatibilityFingerprint() &&
-		       !incompatible.permitsCompatibleLoad() &&
-		       invalid.state == SaveCompatibilityState::InvalidMetadata &&
-		       !invalid.permitsCompatibleLoad() && removed &&
-		       !storage.exists( packageSidecarPath ) &&
-		       removedMetadata.state == SaveCompatibilityState::LegacyWithoutMetadata,
-		       "save sidecars classify compatibility and follow their owning save lifecycle" );
-		CHECK( ParseSaveCompatibilityPolicy( " Enforce_Known " ) ==
-				SaveCompatibilityPolicy::EnforceKnown &&
-		       ParseSaveCompatibilityPolicy( "future-value",
-				SaveCompatibilityPolicy::Ignore ) == SaveCompatibilityPolicy::Ignore &&
-		       std::string( SaveCompatibilityPolicyName(
-				SaveCompatibilityPolicy::RequireMetadata ) ) == "require-metadata" &&
-		       EvaluateSaveCompatibility( missing.state,
-				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Allow &&
-		       EvaluateSaveCompatibility( incompatible.state,
-				SaveCompatibilityPolicy::Warn ) == SaveCompatibilityLoadAction::AllowWithWarning &&
-		       EvaluateSaveCompatibility( incompatible.state,
-				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Reject &&
-		       EvaluateSaveCompatibility( invalid.state,
-				SaveCompatibilityPolicy::EnforceKnown ) == SaveCompatibilityLoadAction::Reject &&
-		       EvaluateSaveCompatibility( missing.state,
-				SaveCompatibilityPolicy::RequireMetadata ) == SaveCompatibilityLoadAction::Reject &&
-		       EvaluateSaveCompatibility( SaveCompatibilityState::StorageError,
-				SaveCompatibilityPolicy::EnforceKnown ) ==
-				SaveCompatibilityLoadAction::AllowWithWarning,
-		       "save compatibility policy preserves legacy saves and makes strictness explicit" );
+		storage.readAll( savePath, corrupted );
+		if ( !corrupted.empty() ) corrupted.front() ^= 0xffu;
+		storage.writeAll( savePath, corrupted );
+		const PreparedRuntimeLoad invalid =
+			PrepareRuntimeLoad( first, savePath );
+		const std::string plainPath = "SavedGames/SaveGamePlain.sav";
+		storage.writeAll( plainPath, domain );
+		const PreparedRuntimeLoad plain =
+			PrepareRuntimeLoad( first, plainPath );
+		CHECK( firstReady && secondReady && captureDidNotWrite && committed &&
+		       containerLoaded && inspected.domainBytes == domain.size() &&
+		       inspected.sections.size() == 2 &&
+		       compatible.domainBytes == domain.size() && compatible &&
+		       compatible.checkpoint.compatibility ==
+		           first.runtime().compatibilityFingerprint() &&
+		       !incompatible &&
+		       incompatible.checkpointError ==
+		           RuntimeCheckpointLoadError::IncompatibleRuntime &&
+		       !invalid &&
+		       invalid.containerError ==
+		           RuntimeSaveContainerLoadError::IntegrityFailure &&
+		       !plain &&
+		       plain.containerError ==
+		           RuntimeSaveContainerLoadError::InvalidOrUnsupported,
+		       "one-file runtime saves require intact domain, checkpoint, and package sections" );
+		CHECK(
+		       std::string( RuntimeSaveContainerLoadErrorName(
+		           invalid.containerError ) ) == "integrity-failure" &&
+		       std::string( RuntimeCheckpointLoadErrorName(
+		           incompatible.checkpointError ) ) == "incompatible-runtime",
+		       "runtime save preflight exposes stable diagnostic classifications" );
 	}
 
 	{
@@ -1396,33 +1396,40 @@ int main( int, char** )
 			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime );
 		const bool running = context.markRunning();
 		const std::string savePath = "SavedGames/SaveGame02.sav";
-		const PackageSaveMetadataWriteResult written =
-			WritePackageSaveStateMetadata( context, savePath );
-		const PackageSaveMetadataResult ready =
-			InspectPackageSaveStateMetadata( context, savePath );
-		PackageSaveArchive wrongSchema = ready.archive;
+		const std::vector<std::uint8_t> domain = { 7, 8, 9 };
+		storage.writeAll( savePath, domain );
+		PreparedRuntimeSave captured = PrepareRuntimeSave( context );
+		const RuntimeSaveCommitResult written =
+			CommitRuntimeSave( context, savePath, std::move( captured ) );
+		PreparedRuntimeLoad ready = PrepareRuntimeLoad( context, savePath );
+		PackageSaveArchive wrongSchema = ready.packages;
 		wrongSchema.state.records[0].schemaVersion = 6;
-		const PackageSaveArchiveSaveError replaced = context.packageSaveArchives().save(
-			PackageSaveStateSidecarPath( savePath ), wrongSchema );
-		const PackageSaveMetadataResult contractMismatch =
-			InspectPackageSaveStateMetadata( context, savePath );
-		storage.remove( PackageSaveStateSidecarPath( savePath ) );
-		const PackageSaveMetadataResult legacy =
-			InspectPackageSaveStateMetadata( context, savePath );
+		std::vector<std::uint8_t> checkpointBytes;
+		const RuntimeCheckpointSaveError checkpointEncoded =
+			context.runtime().runtimeCheckpoints().encode(
+				ready.checkpoint, checkpointBytes );
+		std::vector<std::uint8_t> packageBytes;
+		const PackageSaveArchiveSaveError packageEncoded =
+			context.packageSaveArchives().encode( wrongSchema, packageBytes );
+		const std::string wrongPath = "SavedGames/SaveGameWrongSchema.sav";
+		storage.writeAll( wrongPath, domain );
+		const RuntimeSaveContainerSaveError wrongSealed =
+			context.runtimeSaveContainers().seal( wrongPath, {
+				{ 0x504b4843u, checkpointBytes },
+				{ 0x54534750u, packageBytes } } );
+		const PreparedRuntimeLoad contractMismatch =
+			PrepareRuntimeLoad( context, wrongPath );
 		CHECK( registered && activated && initializing && advanced && running && written &&
-		       written.stateful && ready.state == PackageSaveMetadataState::Ready &&
-		       ready.archive.state.records.size() == 1 &&
-		       ready.archive.state.records[0].payload == statePackage.saveStatePayload &&
-		       replaced == PackageSaveArchiveSaveError::None &&
-		       contractMismatch.state == PackageSaveMetadataState::PackageContractMismatch &&
-		       contractMismatch.contractError == PackageSaveStateError::SchemaMismatch &&
-		       legacy.state == PackageSaveMetadataState::LegacyWithoutMetadata &&
-		       EvaluatePackageSaveMetadata( legacy.state, SaveCompatibilityPolicy::Warn ) ==
-				SaveCompatibilityLoadAction::AllowWithWarning &&
-		       EvaluatePackageSaveMetadata(
-				contractMismatch.state, SaveCompatibilityPolicy::EnforceKnown ) ==
-				SaveCompatibilityLoadAction::Reject,
-		       "JA2 package-state sidecars write, preflight, classify legacy saves, and obey policy" );
+		       ready && ready.packages.state.records.size() == 1 &&
+		       ready.packages.state.records[0].payload ==
+		           statePackage.saveStatePayload &&
+		       checkpointEncoded == RuntimeCheckpointSaveError::None &&
+		       packageEncoded == PackageSaveArchiveSaveError::None &&
+		       wrongSealed == RuntimeSaveContainerSaveError::None &&
+		       !contractMismatch &&
+		       contractMismatch.packageContractError ==
+		           PackageSaveStateError::SchemaMismatch,
+		       "embedded package state is mandatory and contract-checked before domain load" );
 	}
 
 	{
@@ -1444,70 +1451,60 @@ int main( int, char** )
 			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
 			context.markRunning();
 		const std::string savePath = "SavedGames/SaveGamePrepared.sav";
+		const std::vector<std::uint8_t> domain = { 3, 1, 4, 1, 5 };
+		storage.writeAll( savePath, domain );
 		const std::vector<std::uint8_t> capturedPayload =
 			stagedPackage.saveStatePayload;
-		PreparedSaveMetadata prepared = PrepareSaveMetadata( context );
-		const bool preparedWasStateful = prepared.stateful;
+		PreparedRuntimeSave prepared = PrepareRuntimeSave( context );
+		std::vector<std::uint8_t> domainAfterPrepare;
 		const bool prepareDidNotWrite =
-			!storage.exists( RuntimeCheckpointSidecarPath( savePath ) ) &&
-			!storage.exists( PackageSaveStateSidecarPath( savePath ) );
+			storage.readAll( savePath, domainAfterPrepare ) &&
+			domainAfterPrepare == domain;
 		stagedPackage.saveStatePayload = { 9, 8, 7, 6 };
-		const PreparedSaveMetadataCommitResult committed =
-			CommitPreparedSaveMetadata( context, savePath, std::move( prepared ) );
-		PackageSaveArchive committedArchive;
-		const PackageSaveArchiveLoadResult archiveLoaded =
-			context.packageSaveArchives().load(
-				PackageSaveStateSidecarPath( savePath ),
-				context.runtime().compatibilityFingerprint(),
-				context.runtime().preAggregateCatalogCompatibilityFingerprint(),
-				committedArchive );
+		const RuntimeSaveCommitResult committed =
+			CommitRuntimeSave( context, savePath, std::move( prepared ) );
 		stagedPackage.saveStatePayload = capturedPayload;
-		PreparedLoadMetadata stagedLoad = PrepareLoadMetadata(
-			context, savePath, SaveCompatibilityPolicy::Warn );
-		storage.remove( RuntimeCheckpointSidecarPath( savePath ) );
-		storage.writeAll( PackageSaveStateSidecarPath( savePath ), { 1, 2, 3 } );
+		PreparedRuntimeLoad stagedLoad = PrepareRuntimeLoad( context, savePath );
+		const bool stagedPayloadCaptured = stagedLoad &&
+			stagedLoad.packages.state.records.size() == 1 &&
+			stagedLoad.packages.state.records[0].payload == capturedPayload;
+		std::vector<std::uint8_t> corruptedBytes;
+		storage.readAll( savePath, corruptedBytes );
+		if ( !corruptedBytes.empty() ) corruptedBytes.back() ^= 0x80u;
+		storage.writeAll( savePath, corruptedBytes );
 		const PackageSaveStateLoadResult restored =
-			RestorePreparedPackageSaveState( context, stagedLoad );
+			RestorePreparedRuntimeSave( context, stagedLoad );
 		const PackageSaveStateLoadResult restoredAgain =
-			RestorePreparedPackageSaveState( context, stagedLoad );
-		const PreparedLoadMetadata corrupted = PrepareLoadMetadata(
-			context, savePath, SaveCompatibilityPolicy::EnforceKnown );
-		const PreparedLoadMetadataGateResult corruptedGate =
-			EvaluatePreparedLoadMetadataGate( corrupted );
-		CHECK( ready && preparedWasStateful && prepareDidNotWrite && committed &&
-		       stagedPackage.saveStateCalls == 1 && archiveLoaded &&
-		       committedArchive.state.records.size() == 1 &&
-		       committedArchive.state.records[0].payload == capturedPayload,
-		       "prepared save metadata commits the one captured paused-game snapshot" );
+			RestorePreparedRuntimeSave( context, stagedLoad );
+		const PreparedRuntimeLoad corrupted =
+			PrepareRuntimeLoad( context, savePath );
+		CHECK( ready && prepareDidNotWrite && committed &&
+		       stagedPackage.saveStateCalls == 1 &&
+		       stagedPayloadCaptured,
+		       "prepared runtime save seals the one captured paused-game snapshot" );
 		CHECK(
-		       stagedLoad.compatibility.state == SaveCompatibilityState::Compatible &&
-		       stagedLoad.packages.state == PackageSaveMetadataState::Ready &&
 		       restored && restoredAgain && stagedPackage.validateStateCalls == 1 &&
 		       stagedPackage.loadedStatePayload == capturedPayload &&
 		       stagedPackage.loadStateCalls == 1,
-		       "prepared load metadata survives backing-file changes and restores once" );
+		       "prepared runtime load survives backing-file changes and restores once" );
 		CHECK(
-		       corrupted.packages.state == PackageSaveMetadataState::InvalidMetadata &&
-		       corrupted.packageAction == SaveCompatibilityLoadAction::Reject &&
-		       corrupted.rejected() && !corruptedGate &&
-		       !corruptedGate.compatibilityNotice && corruptedGate.packageNotice &&
-		       corruptedGate.rejection ==
-		           PreparedLoadMetadataRejection::PackageState,
-		       "the destructive-load gate independently rejects corrupt package metadata beside a compatible checkpoint" );
+		       !corrupted &&
+		       corrupted.containerError ==
+		           RuntimeSaveContainerLoadError::IntegrityFailure,
+		       "the destructive-load gate rejects a corrupted in-file runtime trailer" );
 
 		stagedPackage.saveStateSucceeds = false;
-		storage.writeAll( RuntimeCheckpointSidecarPath( savePath ), { 4 } );
-		storage.writeAll( PackageSaveStateSidecarPath( savePath ), { 5 } );
-		PreparedSaveMetadata failedPreparation = PrepareSaveMetadata( context );
-		const PreparedSaveMetadataCommitResult failedCommit =
-			CommitPreparedSaveMetadata(
-				context, savePath, std::move( failedPreparation ) );
+		const std::string failedPath = "SavedGames/SaveGameFailed.sav";
+		storage.writeAll( failedPath, domain );
+		PreparedRuntimeSave failedPreparation = PrepareRuntimeSave( context );
+		const RuntimeSaveCommitResult failedCommit =
+			CommitRuntimeSave(
+				context, failedPath, std::move( failedPreparation ) );
 		CHECK( !failedCommit &&
-		       failedCommit.packages.captureError ==
+		       failedCommit.packageCaptureError ==
 		           PackageSaveStateError::CallbackFailed &&
-		       !storage.exists( RuntimeCheckpointSidecarPath( savePath ) ) &&
-		       !storage.exists( PackageSaveStateSidecarPath( savePath ) ),
-		       "a failed optional metadata capture cannot leave a partial sidecar pair" );
+		       !storage.exists( failedPath ),
+		       "a failed runtime-state capture cannot leave a partial save container" );
 	}
 
 	{
@@ -1529,42 +1526,19 @@ int main( int, char** )
 			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
 			context.markRunning();
 		const std::string savePath = "SavedGames/SaveGame03.sav";
-		const PackageSaveMetadataWriteResult written =
-			WritePackageSaveStateMetadata( context, savePath );
-		const PackageSaveMetadataResult inspected =
-			InspectPackageSaveStateMetadata( context, savePath );
-		storage.remove( PackageSaveStateSidecarPath( savePath ) );
-		const PackageSaveMetadataResult missing =
-			InspectPackageSaveStateMetadata( context, savePath );
-		const RuntimeCompatibilityFingerprint preAggregateFingerprint =
-			context.runtime().preAggregateCatalogCompatibilityFingerprint();
-		BinaryWriter versionOnePayload;
-		versionOnePayload.writeU32( preAggregateFingerprint.schema );
-		versionOnePayload.writeU64( preAggregateFingerprint.high );
-		versionOnePayload.writeU64( preAggregateFingerprint.low );
-		versionOnePayload.writeU32( 0 );
-		const PersistenceSaveResult versionOneSaved = context.persistence().saveEnvelope(
-			PackageSaveStateSidecarPath( savePath ), PersistenceHeader{ 0x54534750u, 1 },
-			versionOnePayload.bytes() );
-		const PackageSaveMetadataResult versionOne =
-			InspectPackageSaveStateMetadata( context, savePath );
-		CHECK( ready && written && written.stateful &&
-		       inspected.state == PackageSaveMetadataState::Ready &&
-		       inspected.archive.state.records.empty() &&
-		       inspected.archive.state.engineStatePresent &&
-		       inspected.archive.state.engineRecords.size() == 1 &&
-		       inspected.archive.state.engineRecords[0].packageId ==
+		storage.writeAll( savePath, { 4, 2 } );
+		PreparedRuntimeSave prepared = PrepareRuntimeSave( context );
+		const RuntimeSaveCommitResult written =
+			CommitRuntimeSave( context, savePath, std::move( prepared ) );
+		const PreparedRuntimeLoad inspected =
+			PrepareRuntimeLoad( context, savePath );
+		CHECK( ready && written && inspected &&
+		       inspected.packages.state.records.empty() &&
+		       inspected.packages.state.engineRecords.size() == 1 &&
+		       inspected.packages.state.engineRecords[0].packageId ==
 		           "rules.random-only-save" &&
-		       inspected.archive.state.engineRecords[0].random.streams.size() == 1 &&
-		       missing.state == PackageSaveMetadataState::LegacyWithoutMetadata &&
-		       EvaluatePackageSaveMetadata(
-			   missing.state, SaveCompatibilityPolicy::RequireMetadata ) ==
-			   SaveCompatibilityLoadAction::Reject &&
-		       versionOneSaved == PersistenceSaveResult::Success &&
-		       versionOne.state == PackageSaveMetadataState::Ready &&
-		       !versionOne.archive.state.engineStatePresent &&
-		       versionOne.archive.state.engineRecords.empty(),
-		       "JA2 requires missing RNG metadata while retaining actual v1 sidecar support" );
+		       inspected.packages.state.engineRecords[0].random.streams.size() == 1,
+		       "random-only engine state is mandatory inside the one-file runtime save" );
 	}
 
 	{
@@ -1578,12 +1552,16 @@ int main( int, char** )
 			context.advancePackagesTo( PackageBootstrapPhase::StartRuntime ) &&
 			context.markRunning();
 		const std::string savePath = "SavedGames/SaveGame04.sav";
-		const std::string sidecarPath = PackageSaveStateSidecarPath( savePath );
-		storage.writeAll( sidecarPath, { 1, 2, 3 } );
-		const PackageSaveMetadataWriteResult written =
-			WritePackageSaveStateMetadata( context, savePath );
-		CHECK( ready && written && !written.stateful && !storage.exists( sidecarPath ),
-		       "an empty package runtime removes an obsolete package-state sidecar" );
+		storage.writeAll( savePath, { 1, 2, 3 } );
+		PreparedRuntimeSave prepared = PrepareRuntimeSave( context );
+		const RuntimeSaveCommitResult written =
+			CommitRuntimeSave( context, savePath, std::move( prepared ) );
+		const PreparedRuntimeLoad inspected =
+			PrepareRuntimeLoad( context, savePath );
+		CHECK( ready && written && inspected &&
+		       inspected.packages.state.records.empty() &&
+		       inspected.packages.state.engineRecords.empty(),
+		       "an empty package runtime remains valid in its explicit in-file state section" );
 	}
 
 	{
@@ -4626,30 +4604,6 @@ int main( int, char** )
 		       GetRuntimeReportOptions().path == configuredReports.path,
 		       "runtime report options support opt-in INI settings and CLI override/disable" );
 
-		vfs::PropertyContainer saveCompatibilityProperties;
-		saveCompatibilityProperties.setStringProperty(
-			L"Ja2 Settings", L"SAVE_COMPATIBILITY_POLICY", L"enforce-known" );
-		std::vector<std::string> saveCompatibilityArguments = {
-			"ja2", "--save-compatibility", "require-metadata" };
-		std::vector<char*> saveCompatibilityArgumentPointers;
-		for ( std::string& argument : saveCompatibilityArguments )
-			saveCompatibilityArgumentPointers.push_back( &argument[0] );
-		const SaveCompatibilityPolicy requiredMetadata = ReadSaveCompatibilityPolicy(
-			saveCompatibilityProperties,
-			static_cast<int>( saveCompatibilityArgumentPointers.size() ),
-			saveCompatibilityArgumentPointers.data() );
-		char disableSaveCompatibility[] = "--no-save-compatibility";
-		char* disableSaveCompatibilityArguments[] = {
-			executable, disableSaveCompatibility };
-		const SaveCompatibilityPolicy ignored = ReadSaveCompatibilityPolicy(
-			saveCompatibilityProperties, 2, disableSaveCompatibilityArguments );
-		ConfigureSaveCompatibilityPolicy( requiredMetadata );
-		const bool configuredSaveCompatibility =
-			GetSaveCompatibilityPolicy() == SaveCompatibilityPolicy::RequireMetadata;
-		ConfigureSaveCompatibilityPolicy( SaveCompatibilityPolicy::Warn );
-		CHECK( requiredMetadata == SaveCompatibilityPolicy::RequireMetadata &&
-		       ignored == SaveCompatibilityPolicy::Ignore && configuredSaveCompatibility,
-		       "save compatibility policy supports INI defaults and explicit CLI overrides" );
 	}
 
 	{

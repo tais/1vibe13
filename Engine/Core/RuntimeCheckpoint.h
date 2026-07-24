@@ -65,12 +65,13 @@ public:
 
 	RuntimeCheckpointSaveError save(
 		const std::string& path, const RuntimeCheckpoint& checkpoint) const noexcept;
+	RuntimeCheckpointSaveError encode(const RuntimeCheckpoint& checkpoint,
+		std::vector<std::uint8_t>& encoded) const noexcept;
 	RuntimeCheckpointLoadResult load(const std::string& path,
 		RuntimeCompatibilityFingerprint expectedCompatibility,
 		RuntimeCheckpoint& checkpoint) const noexcept;
-	RuntimeCheckpointLoadResult load(const std::string& path,
+	RuntimeCheckpointLoadResult decode(const std::vector<std::uint8_t>& encoded,
 		RuntimeCompatibilityFingerprint expectedCompatibility,
-		RuntimeCompatibilityFingerprint alternateExpectedCompatibility,
 		RuntimeCheckpoint& checkpoint) const noexcept;
 
 	std::size_t maximumPackages() const { return maximumPackages_; }

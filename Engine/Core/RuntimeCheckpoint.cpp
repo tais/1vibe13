@@ -32,10 +32,82 @@ RuntimeCheckpointLoadError Translate(PersistenceLoadResult error)
 	}
 	return RuntimeCheckpointLoadError::StorageError;
 }
+
+RuntimeCheckpointSaveError Translate(PersistenceSaveResult error)
+{
+	switch (error)
+	{
+		case PersistenceSaveResult::Success: return RuntimeCheckpointSaveError::None;
+		case PersistenceSaveResult::InvalidRequest:
+			return RuntimeCheckpointSaveError::InvalidCheckpoint;
+		case PersistenceSaveResult::TooLarge: return RuntimeCheckpointSaveError::TooLarge;
+		case PersistenceSaveResult::StorageError:
+			return RuntimeCheckpointSaveError::StorageError;
+	}
+	return RuntimeCheckpointSaveError::StorageError;
+}
+
+RuntimeCheckpointLoadResult DecodeCheckpointPayload(
+	const std::vector<std::uint8_t>& payload,
+	RuntimeCompatibilityFingerprint expectedCompatibility,
+	std::size_t maximumPackages, RuntimeCheckpoint& checkpoint)
+{
+	BinaryReader reader(payload);
+	RuntimeCheckpoint decoded;
+	std::uint32_t packageCount = 0;
+	if (!reader.readU32(decoded.compatibility.schema) ||
+		!reader.readU64(decoded.compatibility.high) ||
+		!reader.readU64(decoded.compatibility.low) ||
+		!reader.readU64(decoded.completedFrames) ||
+		!reader.readU64(decoded.completedSimulationTicks) ||
+		!reader.readU32(packageCount))
+		return RuntimeCheckpointLoadResult{
+			RuntimeCheckpointLoadError::MalformedPayload, {}};
+	if (packageCount > maximumPackages)
+		return RuntimeCheckpointLoadResult{
+			RuntimeCheckpointLoadError::TooManyPackages, decoded.compatibility};
+	decoded.activePackages.reserve(packageCount);
+	std::unordered_set<std::string> unique;
+	unique.reserve(packageCount);
+	for (std::uint32_t index = 0; index < packageCount; ++index)
+	{
+		RuntimeCheckpointPackage package;
+		if (!reader.readStringBounded(
+				package.id, MaximumEngineIdentifierBytes) ||
+			!reader.readStringBounded(
+				package.version, MaximumEngineVersionBytes) ||
+			!ValidPackage(package) || !unique.insert(package.id).second)
+			return RuntimeCheckpointLoadResult{
+				RuntimeCheckpointLoadError::MalformedPayload, decoded.compatibility};
+		decoded.activePackages.push_back(std::move(package));
+	}
+	if (reader.remaining() != 0)
+		return RuntimeCheckpointLoadResult{
+			RuntimeCheckpointLoadError::MalformedPayload, decoded.compatibility};
+	if (decoded.compatibility != expectedCompatibility)
+		return RuntimeCheckpointLoadResult{
+			RuntimeCheckpointLoadError::IncompatibleRuntime, decoded.compatibility};
+	checkpoint = std::move(decoded);
+	return RuntimeCheckpointLoadResult{
+		RuntimeCheckpointLoadError::None, checkpoint.compatibility};
+}
 }
 
 RuntimeCheckpointSaveError RuntimeCheckpointService::save(
 	const std::string& path, const RuntimeCheckpoint& checkpoint) const noexcept
+{
+	if (path.empty()) return RuntimeCheckpointSaveError::InvalidCheckpoint;
+	std::vector<std::uint8_t> encoded;
+	const RuntimeCheckpointSaveError encodedResult = encode(checkpoint, encoded);
+	if (encodedResult != RuntimeCheckpointSaveError::None) return encodedResult;
+	return persistence_.saveRaw(path, encoded)
+		? RuntimeCheckpointSaveError::None
+		: RuntimeCheckpointSaveError::StorageError;
+}
+
+RuntimeCheckpointSaveError RuntimeCheckpointService::encode(
+	const RuntimeCheckpoint& checkpoint,
+	std::vector<std::uint8_t>& encoded) const noexcept
 {
 	if (checkpoint.compatibility.schema == 0)
 		return RuntimeCheckpointSaveError::InvalidCheckpoint;
@@ -60,16 +132,9 @@ RuntimeCheckpointSaveError RuntimeCheckpointService::save(
 			writer.writeString(package.id);
 			writer.writeString(package.version);
 		}
-		const PersistenceSaveResult saved = persistence_.saveEnvelope(
-			path, PersistenceHeader{CheckpointMagic, CheckpointVersion}, writer.bytes());
-		switch (saved)
-		{
-			case PersistenceSaveResult::Success: return RuntimeCheckpointSaveError::None;
-			case PersistenceSaveResult::InvalidRequest:
-				return RuntimeCheckpointSaveError::InvalidCheckpoint;
-			case PersistenceSaveResult::TooLarge: return RuntimeCheckpointSaveError::TooLarge;
-			case PersistenceSaveResult::StorageError: return RuntimeCheckpointSaveError::StorageError;
-		}
+		return Translate(persistence_.encodeEnvelope(
+			PersistenceHeader{CheckpointMagic, CheckpointVersion},
+			writer.bytes(), encoded));
 	}
 	catch (...)
 	{
@@ -82,14 +147,6 @@ RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& pa
 	RuntimeCompatibilityFingerprint expectedCompatibility,
 	RuntimeCheckpoint& checkpoint) const noexcept
 {
-	return load(path, expectedCompatibility, expectedCompatibility, checkpoint);
-}
-
-RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& path,
-	RuntimeCompatibilityFingerprint expectedCompatibility,
-	RuntimeCompatibilityFingerprint alternateExpectedCompatibility,
-	RuntimeCheckpoint& checkpoint) const noexcept
-{
 	try
 	{
 		PersistenceHeader header{};
@@ -98,49 +155,34 @@ RuntimeCheckpointLoadResult RuntimeCheckpointService::load(const std::string& pa
 			CheckpointVersion, CheckpointVersion, header, payload);
 		if (loaded != PersistenceLoadResult::Success)
 			return RuntimeCheckpointLoadResult{Translate(loaded), {}};
-
-		BinaryReader reader(payload);
-		RuntimeCheckpoint decoded;
-		std::uint32_t packageCount = 0;
-		if (!reader.readU32(decoded.compatibility.schema) ||
-			!reader.readU64(decoded.compatibility.high) ||
-			!reader.readU64(decoded.compatibility.low) ||
-			!reader.readU64(decoded.completedFrames) ||
-			!reader.readU64(decoded.completedSimulationTicks) ||
-			!reader.readU32(packageCount))
-			return RuntimeCheckpointLoadResult{
-				RuntimeCheckpointLoadError::MalformedPayload, {}};
-		if (packageCount > maximumPackages_)
-			return RuntimeCheckpointLoadResult{
-				RuntimeCheckpointLoadError::TooManyPackages, decoded.compatibility};
-		decoded.activePackages.reserve(packageCount);
-		std::unordered_set<std::string> unique;
-		unique.reserve(packageCount);
-		for (std::uint32_t index = 0; index < packageCount; ++index)
-		{
-			RuntimeCheckpointPackage package;
-			if (!reader.readStringBounded(
-					package.id, MaximumEngineIdentifierBytes) ||
-				!reader.readStringBounded(
-					package.version, MaximumEngineVersionBytes) ||
-				!ValidPackage(package) || !unique.insert(package.id).second)
-				return RuntimeCheckpointLoadResult{
-					RuntimeCheckpointLoadError::MalformedPayload, decoded.compatibility};
-			decoded.activePackages.push_back(std::move(package));
-		}
-		if (reader.remaining() != 0)
-			return RuntimeCheckpointLoadResult{
-				RuntimeCheckpointLoadError::MalformedPayload, decoded.compatibility};
-		if (decoded.compatibility != expectedCompatibility &&
-			decoded.compatibility != alternateExpectedCompatibility)
-			return RuntimeCheckpointLoadResult{
-				RuntimeCheckpointLoadError::IncompatibleRuntime, decoded.compatibility};
-		checkpoint = std::move(decoded);
-		return RuntimeCheckpointLoadResult{
-			RuntimeCheckpointLoadError::None, checkpoint.compatibility};
+		return DecodeCheckpointPayload(
+			payload, expectedCompatibility, maximumPackages_, checkpoint);
 	}
 	catch (...)
 	{
 		return RuntimeCheckpointLoadResult{RuntimeCheckpointLoadError::StorageError, {}};
+	}
+}
+
+RuntimeCheckpointLoadResult RuntimeCheckpointService::decode(
+	const std::vector<std::uint8_t>& encoded,
+	RuntimeCompatibilityFingerprint expectedCompatibility,
+	RuntimeCheckpoint& checkpoint) const noexcept
+{
+	try
+	{
+		PersistenceHeader header{};
+		std::vector<std::uint8_t> payload;
+		const PersistenceLoadResult loaded = persistence_.decodeEnvelope(encoded,
+			CheckpointMagic, CheckpointVersion, CheckpointVersion, header, payload);
+		if (loaded != PersistenceLoadResult::Success)
+			return RuntimeCheckpointLoadResult{Translate(loaded), {}};
+		return DecodeCheckpointPayload(
+			payload, expectedCompatibility, maximumPackages_, checkpoint);
+	}
+	catch (...)
+	{
+		return RuntimeCheckpointLoadResult{
+			RuntimeCheckpointLoadError::StorageError, {}};
 	}
 }
