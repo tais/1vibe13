@@ -32,7 +32,6 @@
 #include "Summary Info.h"
 #include "GameSettings.h"
 #include "GameContext.h"
-#include "CampaignPackage.h"
 #include "RuntimeReportHost.h"
 #include "TacticalWorldAdapter.h"
 #include "Game Init.h"
@@ -72,6 +71,7 @@
 
 #include <language.hpp>
 
+#include <exception>
 #include <string>
 
 extern INT16 APBPConstants[TOTAL_APBP_VALUES] = {0};
@@ -1429,11 +1429,14 @@ UINT32 InitializeJA2(void)
 
 	NotifyJa2TacticalWorldUnloaded();
 
-	// The active compiled campaign owns legacy table/text loading. As the first
-	// active package it completes that work before extension LoadContent hooks.
-	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::LoadContent))
+	// The active 1.13 rules package owns legacy table/text loading. As the
+	// campaign dependency it completes that work before extension LoadContent.
+	const RuntimeSessionAdvanceResult contentLoad =
+		gameContext.advancePackagesTo(PackageBootstrapPhase::LoadContent);
+	if (!contentLoad)
 	{
-		GetCompiledGameplayRuntime().rethrowBootstrapFailure();
+		if (contentLoad.packages.callbackException)
+			std::rethrow_exception(contentLoad.packages.callbackException);
 		return ERROR_SCREEN;
 	}
 
@@ -1607,9 +1610,12 @@ UINT32 InitializeJA2(void)
 #endif
 
 	// The campaign starts legacy grid/Lua globals before extension runtimes.
-	if (!gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime))
+	const RuntimeSessionAdvanceResult runtimeStart =
+		gameContext.advancePackagesTo(PackageBootstrapPhase::StartRuntime);
+	if (!runtimeStart)
 	{
-		GetCompiledGameplayRuntime().rethrowBootstrapFailure();
+		if (runtimeStart.packages.callbackException)
+			std::rethrow_exception(runtimeStart.packages.callbackException);
 		return ERROR_SCREEN;
 	}
 	if (!initialization.markRunning())

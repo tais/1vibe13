@@ -92,6 +92,10 @@ source-compatible. Hosts that need diagnostics can call `tryBeginInitialization`
 `tryCancelInitialization`, `tryMarkRunning`, `tryBeginShutdown`, and
 `tryMarkStopped` to receive `RuntimeSessionTransitionResult`, including rollback
 phase/callback counts and structured incomplete/failure errors.
+`RuntimeSessionAdvanceResult::packages.callbackException` retains a thrown
+bootstrap callback after deterministic rollback for local application
+diagnostics. It is not portable package state and must never be serialized or
+used as a package-to-package contract.
 
 The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,

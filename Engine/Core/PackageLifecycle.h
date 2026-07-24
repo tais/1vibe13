@@ -2,6 +2,7 @@
 #define ENGINE_CORE_PACKAGE_LIFECYCLE_H
 
 #include <cstddef>
+#include <exception>
 #include <limits>
 
 #include <Engine/Core/PackageApi.h>
@@ -20,6 +21,7 @@ struct PackageLifecycleAdvanceResult
 	std::size_t completedPhases = 0;
 	bool rolledBack = false;
 	PackageLifecycleRollbackResult rollback;
+	std::exception_ptr callbackException;
 
 	explicit operator bool() const { return error == PackageBootstrapError::None; }
 };
@@ -68,7 +70,8 @@ public:
 				PackageLifecycleRollbackResult rollback = this->rollback();
 				mergeRollback(rollback.packages, bootstrap.failedPhaseRollback);
 				return PackageLifecycleAdvanceResult{
-					bootstrap.error, phase, packages_.completedBootstrapPhases(), true, rollback};
+					bootstrap.error, phase, packages_.completedBootstrapPhases(), true,
+					rollback, bootstrap.callbackException};
 			}
 			completed = packages_.completedBootstrapPhases();
 		}

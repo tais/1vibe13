@@ -139,35 +139,44 @@ foreach(adapter_file IN LISTS ja2_adapter_files)
   endforeach()
 endforeach()
 
-# Application package layers share the neutral compatibility runtime, not one
-# another's C++ interface. Campaigns may require rules through their manifest;
-# a source include in the opposite direction would recreate compile-time
-# campaign identity behind the runtime-selected package graph.
+# Application package layers reach process-lifetime work through separate host
+# ports, not one another's C++ interface. Campaigns may require rules through
+# their manifest; a source include would recreate compile-time identity behind
+# the runtime-selected package graph.
 set(rules_package_files
   "${SOURCE_ROOT}/Ja2/RulesPackage.h"
   "${SOURCE_ROOT}/Ja2/RulesPackage.cpp")
 foreach(package_file IN LISTS rules_package_files)
   file(READ "${package_file}" contents)
   string(REGEX MATCH
-    "#[ \t]*include[ \t]*[<\"]CampaignPackage\\.h[>\"]"
+    "#[ \t]*include[ \t]*[<\"](CampaignPackage|CampaignRuntimeBootstrap)\\.h[>\"]"
     rules_campaign_dependency "${contents}")
   if(rules_campaign_dependency)
     message(FATAL_ERROR
-      "The 1.13 rules package depends on the campaign package in ${package_file}; share only LegacyGameplayRuntime below both layers")
+      "The 1.13 rules package depends on campaign C++ identity in ${package_file}; use only RulesContentBootstrapHost")
   endif()
 endforeach()
 
-set(gameplay_runtime_files
+set(campaign_package_files
+  "${SOURCE_ROOT}/Ja2/CampaignPackage.h"
+  "${SOURCE_ROOT}/Ja2/CampaignPackage.cpp")
+foreach(package_file IN LISTS campaign_package_files)
+  file(READ "${package_file}" contents)
+  string(REGEX MATCH
+    "#[ \t]*include[ \t]*[<\"](RulesPackage|RulesContentBootstrap)\\.h[>\"]"
+    campaign_rules_dependency "${contents}")
+  if(campaign_rules_dependency)
+    message(FATAL_ERROR
+      "A campaign package depends on 1.13 rules C++ identity in ${package_file}; use only CampaignRuntimeBootstrapHost")
+  endif()
+endforeach()
+
+foreach(retired_gameplay_runtime_file IN ITEMS
   "${SOURCE_ROOT}/Ja2/LegacyGameplayRuntime.h"
   "${SOURCE_ROOT}/Ja2/LegacyGameplayRuntime.cpp")
-foreach(runtime_file IN LISTS gameplay_runtime_files)
-  file(READ "${runtime_file}" contents)
-  string(REGEX MATCH
-    "#[ \t]*include[ \t]*[<\"](CampaignPackage|RulesPackage)\\.h[>\"]"
-    runtime_package_dependency "${contents}")
-  if(runtime_package_dependency)
+  if(EXISTS "${retired_gameplay_runtime_file}")
     message(FATAL_ERROR
-      "LegacyGameplayRuntime depends on a package identity in ${runtime_file}; keep it below both campaign and rules packages")
+      "Retired shared package runtime returned at ${retired_gameplay_runtime_file}; keep rules and campaign ownership separate")
   endif()
 endforeach()
 

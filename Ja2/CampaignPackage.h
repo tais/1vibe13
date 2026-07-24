@@ -1,13 +1,14 @@
 #ifndef JA2_CAMPAIGN_PACKAGE_H
 #define JA2_CAMPAIGN_PACKAGE_H
 
-#include "LegacyGameplayRuntime.h"
+#include "CampaignRuntimeBootstrap.h"
 #include <Engine/Core/PackageApi.h>
 
 class LegacyCampaignPackage final : public EnginePackage
 {
 public:
-	explicit LegacyCampaignPackage(LegacyGameplayRuntime& runtime);
+	LegacyCampaignPackage(GameCapabilities capabilities,
+		CampaignRuntimeBootstrapHost& bootstrapHost);
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
 	bool activate() noexcept override;
@@ -17,12 +18,15 @@ public:
 	void shutdown(PackageBootstrapContext& context,
 		PackageBootstrapPhase phase) override;
 	bool active() const { return active_; }
-	const GameCapabilities& capabilities() const { return runtime_.capabilities(); }
+	const GameCapabilities& capabilities() const { return capabilities_; }
 
 private:
-	LegacyGameplayRuntime& runtime_;
+	GameCapabilities capabilities_;
+	CampaignRuntimeBootstrapHost& bootstrapHost_;
 	PackageDescriptor descriptor_;
 	bool active_ = false;
+	bool runtimeStartAttempted_ = false;
+	bool runtimeStarted_ = false;
 };
 
 LegacyCampaignPackage& GetCompiledCampaignPackage();

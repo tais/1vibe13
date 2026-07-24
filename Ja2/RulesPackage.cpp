@@ -2,8 +2,11 @@
 
 #include "GameCapabilities.h"
 
-LegacyRulesPackage::LegacyRulesPackage(LegacyGameplayRuntime& runtime)
-	: runtime_(runtime),
+LegacyRulesPackage::LegacyRulesPackage(
+	GameCapabilities capabilities,
+	RulesContentBootstrapHost& bootstrapHost)
+	: capabilities_(capabilities),
+	  bootstrapHost_(bootstrapHost),
 	  descriptor_{
 		ContentManifest{
 			GamePackage::Rules113,
@@ -37,7 +40,12 @@ bool LegacyRulesPackage::bootstrap(
 		case PackageBootstrapPhase::StartRuntime:
 			return true;
 		case PackageBootstrapPhase::LoadContent:
-			return runtime_.loadRulesContent();
+			if (contentLoaded_) return true;
+			if (contentLoadAttempted_) return false;
+			contentLoadAttempted_ = true;
+			if (!bootstrapHost_.loadRulesContent(capabilities_)) return false;
+			contentLoaded_ = true;
+			return true;
 	}
 	return false;
 }
@@ -45,12 +53,15 @@ bool LegacyRulesPackage::bootstrap(
 void LegacyRulesPackage::shutdown(
 	PackageBootstrapContext&, PackageBootstrapPhase phase)
 {
-	if (phase == PackageBootstrapPhase::LoadContent)
-		runtime_.shutdownRulesContent();
+	(void)phase;
+	// Legacy gameplay tables and text remain process-lifetime state until their
+	// consumers no longer retain raw pointers into the loaded collections.
 }
 
 LegacyRulesPackage& GetCompiledRulesPackage()
 {
-	static LegacyRulesPackage package(GetCompiledGameplayRuntime());
+	static LegacyRulesPackage package(
+		GetCompiledGameCapabilities(),
+		GetCompiledRulesContentBootstrapHost());
 	return package;
 }

@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <list>
@@ -672,7 +673,9 @@ private:
 	bool active_ = false;
 };
 
-class TestGameplayBootstrapHooks final : public LegacyGameplayBootstrapHooks
+class TestGameplayBootstrapHooks final
+	: public RulesContentBootstrapHost,
+	  public CampaignRuntimeBootstrapHost
 {
 public:
 	bool loadRulesContent(const GameCapabilities& capabilities) override
@@ -2477,14 +2480,12 @@ int main( int, char** )
 			GamePackage::Rules113, PackageKind::Rules, -1, nullptr, {},
 			GamePackage::Rules113Version, { GameCapability::Rules113 } );
 		TestGameplayBootstrapHooks arulcoHooks;
-		LegacyGameplayRuntime arulcoRuntime( GameCapabilities{}, arulcoHooks );
-		LegacyCampaignPackage arulco( arulcoRuntime );
+		LegacyCampaignPackage arulco( GameCapabilities{}, arulcoHooks );
 		GameCapabilities ubCapabilities;
 		ubCapabilities.campaign = GameCampaign::UnfinishedBusiness;
 		TestGameplayBootstrapHooks unfinishedBusinessHooks;
-		LegacyGameplayRuntime unfinishedBusinessRuntime(
+		LegacyCampaignPackage unfinishedBusiness(
 			ubCapabilities, unfinishedBusinessHooks );
-		LegacyCampaignPackage unfinishedBusiness( unfinishedBusinessRuntime );
 		PackageRegistry packages( content );
 		CHECK( packages.registerPackage( rules ) == PackageRegistrationError::None &&
 		       packages.registerPackage( arulco ) == PackageRegistrationError::None &&
@@ -2516,9 +2517,8 @@ int main( int, char** )
 
 	{
 		TestGameplayBootstrapHooks campaignHooks;
-		LegacyGameplayRuntime gameplayRuntime( GameCapabilities{}, campaignHooks );
-		LegacyCampaignPackage campaign( gameplayRuntime );
-		LegacyRulesPackage rules( gameplayRuntime );
+		LegacyCampaignPackage campaign( GameCapabilities{}, campaignHooks );
+		LegacyRulesPackage rules( GameCapabilities{}, campaignHooks );
 		TestLifecyclePackage extension(
 			"extension.campaign-bootstrap", PackageKind::Extension, -1, nullptr,
 			{{ "ja2.arulco", "1.13" }} );
@@ -2592,9 +2592,8 @@ int main( int, char** )
 	{
 		TestGameplayBootstrapHooks failingHooks;
 		failingHooks.throwOnLoadContent = true;
-		LegacyGameplayRuntime gameplayRuntime( GameCapabilities{}, failingHooks );
-		LegacyCampaignPackage campaign( gameplayRuntime );
-		LegacyRulesPackage rules( gameplayRuntime );
+		LegacyCampaignPackage campaign( GameCapabilities{}, failingHooks );
+		LegacyRulesPackage rules( GameCapabilities{}, failingHooks );
 		TestLifecyclePackage extension(
 			"extension.after-campaign-failure", PackageKind::Extension, -1, nullptr,
 			{{ "ja2.arulco", "1.13" }} );
@@ -2617,7 +2616,8 @@ int main( int, char** )
 		bool detailedFailurePreserved = false;
 		try
 		{
-			gameplayRuntime.rethrowBootstrapFailure();
+			if (failed.callbackException)
+				std::rethrow_exception(failed.callbackException);
 		}
 		catch ( const std::runtime_error& error )
 		{
@@ -2645,10 +2645,50 @@ int main( int, char** )
 	}
 
 	{
+		TestGameplayBootstrapHooks failingHooks;
+		failingHooks.throwOnStartRuntime = true;
+		LegacyCampaignPackage campaign( GameCapabilities{}, failingHooks );
+		LegacyRulesPackage rules( GameCapabilities{}, failingHooks );
+		ContentRegistry content( CurrentContentApiVersion );
+		PackageRegistry packages( content );
+		PackageLifecycle lifecycle( packages );
+		const bool ready =
+			packages.registerPackage( rules ) == PackageRegistrationError::None &&
+			packages.registerPackage( campaign ) == PackageRegistrationError::None &&
+			packages.activate( "ja2.arulco" ) == PackageActivationError::None;
+		const PackageLifecycleAdvanceResult failed =
+			lifecycle.advanceTo( PackageBootstrapPhase::StartRuntime );
+		bool detailedFailurePreserved = false;
+		try
+		{
+			if (failed.callbackException)
+				std::rethrow_exception(failed.callbackException);
+		}
+		catch ( const std::runtime_error& error )
+		{
+			detailedFailurePreserved =
+				std::string( error.what() ) == "test campaign runtime exception";
+		}
+		failingHooks.throwOnStartRuntime = false;
+		const PackageLifecycleAdvanceResult unsafeRetry =
+			lifecycle.advanceTo( PackageBootstrapPhase::StartRuntime );
+		CHECK( ready && !failed &&
+		       failed.error == PackageBootstrapError::CallbackFailed &&
+		       failed.phase == PackageBootstrapPhase::StartRuntime &&
+		       failed.rolledBack && failed.completedPhases == 0 &&
+		       detailedFailurePreserved && !unsafeRetry &&
+		       failingHooks.contentCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }) &&
+		       failingHooks.runtimeCampaigns ==
+		           std::vector<GameCampaign>({ GameCampaign::Arulco }),
+		       "campaign-owned runtime startup preserves diagnostics and cannot replay a partial process-lifetime attempt" );
+		lifecycle.rollback();
+	}
+
+	{
 		TestGameplayBootstrapHooks campaignHooks;
-		LegacyGameplayRuntime gameplayRuntime( GameCapabilities{}, campaignHooks );
-		LegacyCampaignPackage campaign( gameplayRuntime );
-		LegacyRulesPackage rules( gameplayRuntime );
+		LegacyCampaignPackage campaign( GameCapabilities{}, campaignHooks );
+		LegacyRulesPackage rules( GameCapabilities{}, campaignHooks );
 		TestLifecyclePackage extension(
 			"extension.retry-after-campaign", PackageKind::Extension, -1, nullptr,
 			{{ "ja2.arulco", "1.13" }} );
@@ -2681,10 +2721,10 @@ int main( int, char** )
 		TestGameplayBootstrapHooks unfinishedBusinessHooks;
 		GameCapabilities unfinishedBusinessCapabilities;
 		unfinishedBusinessCapabilities.campaign = GameCampaign::UnfinishedBusiness;
-		LegacyGameplayRuntime gameplayRuntime(
+		LegacyCampaignPackage unfinishedBusiness(
 			unfinishedBusinessCapabilities, unfinishedBusinessHooks );
-		LegacyCampaignPackage unfinishedBusiness( gameplayRuntime );
-		LegacyRulesPackage rules( gameplayRuntime );
+		LegacyRulesPackage rules(
+			unfinishedBusinessCapabilities, unfinishedBusinessHooks );
 		ContentRegistry content( CurrentContentApiVersion );
 		PackageRegistry packages( content );
 		const bool started =
@@ -4676,9 +4716,8 @@ int main( int, char** )
 	{
 		ScopedPackageFixture fixture;
 		TestGameplayBootstrapHooks hooks;
-		LegacyGameplayRuntime gameplayRuntime( GameCapabilities{}, hooks );
-		LegacyRulesPackage rulesPackage( gameplayRuntime );
-		PackageHost host( &gameplayRuntime );
+		LegacyRulesPackage rulesPackage( GameCapabilities{}, hooks );
+		PackageHost host( &hooks );
 		TestLifecyclePackage campaignSupport(
 			"fixture.campaign-support", PackageKind::Rules, -1, nullptr, {},
 			"1.0.0" );
@@ -4778,9 +4817,8 @@ int main( int, char** )
 	{
 		ScopedPackageFixture fixture;
 		TestGameplayBootstrapHooks hooks;
-		LegacyGameplayRuntime gameplayRuntime( GameCapabilities{}, hooks );
-		LegacyRulesPackage rulesPackage( gameplayRuntime );
-		PackageHost host( &gameplayRuntime );
+		LegacyRulesPackage rulesPackage( GameCapabilities{}, hooks );
+		PackageHost host( &hooks );
 		EngineHostOptions hostOptions;
 		hostOptions.hostCapabilities.add( GameCapability::HostCampaignArulco );
 		EngineRuntime<unsigned> runtime( hostOptions );
