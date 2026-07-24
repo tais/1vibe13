@@ -177,6 +177,19 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClipAlpha(PIXEL *pBuffer, 
 BOOLEAN Blt8BPPDataTo16BPPBufferTransZClipPixelateObscured( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
 BOOLEAN Blt8BPPDataTo16BPPBufferTransZPixelateObscured( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
 
+// Per-column depth-profile blitters. The profile belongs to the source image;
+// the explicit profile-frame forms support animation frames sharing one
+// structure shape.
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipProfile(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion, UINT16 usZStripIndex, BOOLEAN fSameDepthPasses);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion, INT16 sZStripIndex);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClipProfile(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion, UINT16 usZStripIndex);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion, INT16 sZIndex, PIXEL* p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion, INT16 sZIndex, PIXEL* p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion, INT16 sZIndex, PIXEL* p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
+BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(PIXEL* pBuffer, UINT32 uiDestPitchBYTES, UINT16* pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect* clipregion, INT16 sZIndex, PIXEL* p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
+
 BOOLEAN FillRect16BPP(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 y1, INT32 x2, INT32 y2, PIXEL color);
 
 /*

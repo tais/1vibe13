@@ -2554,6 +2554,14 @@ int main()
 			RenderImageDepthEffect::
 				PaletteWithShadowMarkerPixelateObscured,
 			(RenderPaletteId{1} << 32) + 10, 912, false};
+	const RenderImageDepthDrawCommand imageStripDepthCommand{
+		51, 61, 913, 16, RenderSurfacePoint{-12, 21},
+		RenderSurfaceRegion{-12, 8, 102, 78}, 0x9abc,
+		RenderDepthCompareMode::Greater,
+		RenderDepthWriteMode::ReplaceOnDraw,
+		RenderImageDepthEffect::
+			StripDepthPaletteWithShadowMarkerPixelateObscured,
+		(RenderPaletteId{1} << 32) + 11, 914, true, 7};
 	const RenderImageOutlineCommand imageOutlineCommand{
 		51, 902, 8, RenderSurfacePoint{4, -9},
 		RenderSurfaceRegion{0, -3, 90, 70},
@@ -2581,6 +2589,8 @@ int main()
 	check(!mappedCommands.drawImageDepth(
 			imageDepthObscuredPaletteShadowCommand),
 		"mapped surface commands reject obscured palette-shadow images without a host resource adapter");
+	check(!mappedCommands.drawImageDepth(imageStripDepthCommand),
+		"mapped surface commands reject strip-depth images without a host resource adapter");
 	check(!mappedCommands.drawImageOutline(imageOutlineCommand),
 		"mapped surface commands reject image outlines without a host resource adapter");
 	check(!mappedCommands.drawImageDepthOutline(imageDepthOutlineCommand),
@@ -2601,6 +2611,7 @@ int main()
 			imageDepthPaletteShadowCommand) &&
 		recordedCommands.drawImageDepth(
 			imageDepthObscuredPaletteShadowCommand) &&
+		recordedCommands.drawImageDepth(imageStripDepthCommand) &&
 		recordedCommands.drawImageOutline(imageOutlineCommand) &&
 		recordedCommands.drawImageDepthOutline(imageDepthOutlineCommand) &&
 		recordedCommands.commands() ==
@@ -2621,7 +2632,8 @@ int main()
 				imageDepthCommand, imageDepthPaletteCommand,
 				imageDepthObscuredCommand,
 				imageDepthPaletteShadowCommand,
-				imageDepthObscuredPaletteShadowCommand} &&
+				imageDepthObscuredPaletteShadowCommand,
+				imageStripDepthCommand} &&
 		recordedCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{imageOutlineCommand} &&
 		recordedCommands.imageDepthOutlineCommands() ==

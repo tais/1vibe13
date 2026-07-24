@@ -288,7 +288,11 @@ enum class RenderImageDepthEffect : std::uint8_t
 	CheckerboardSourcePalette = 4,
 	PixelateObscuredSourcePalette = 5,
 	PaletteWithShadowMarker = 6,
-	PaletteWithShadowMarkerPixelateObscured = 7
+	PaletteWithShadowMarkerPixelateObscured = 7,
+	StripDepthSourcePalette = 8,
+	StripDepthPixelateObscuredSourcePalette = 9,
+	StripDepthPaletteWithShadowMarker = 10,
+	StripDepthPaletteWithShadowMarkerPixelateObscured = 11
 };
 
 // Draws the visible runs of one image frame after a depth test. Palette
@@ -302,8 +306,11 @@ enum class RenderImageDepthEffect : std::uint8_t
 // alpha image, and index-254 destination shading with an inclusive test and
 // preserve/replace-on-pass policy. Its PixelateObscured variant preserves depth,
 // draws front-facing pixels normally, and samples failed non-marker pixels
-// through the same absolute-coordinate checkerboard. Colour and depth storage
-// remain separate resources.
+// through the same absolute-coordinate checkerboard. StripDepth effects use
+// the source image's depthProfileFrame to vary the tested depth across
+// successive vertical strips of the image. Their comparison and write policies
+// retain wall, multi-tile actor, corpse, marker, alpha, and obscured behavior.
+// Colour and depth storage remain separate resources.
 struct RenderImageDepthDrawCommand
 {
 	RenderSurfaceId destination = 0;
@@ -322,6 +329,7 @@ struct RenderImageDepthDrawCommand
 	RenderPaletteId palette = 0;
 	RenderImageId alphaImage = 0;
 	bool ignoreShadows = false;
+	std::uint32_t depthProfileFrame = 0;
 };
 
 inline bool operator==(
@@ -340,7 +348,8 @@ inline bool operator==(
 		left.effect == right.effect &&
 		left.palette == right.palette &&
 		left.alphaImage == right.alphaImage &&
-		left.ignoreShadows == right.ignoreShadows;
+		left.ignoreShadows == right.ignoreShadows &&
+		left.depthProfileFrame == right.depthProfileFrame;
 }
 
 inline bool operator!=(

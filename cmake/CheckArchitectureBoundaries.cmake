@@ -302,7 +302,10 @@ set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/sdl_video.cpp"
   "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp"
   "${SOURCE_ROOT}/sgp/vobject.cpp"
-  "${SOURCE_ROOT}/sgp/vobject_blitters.cpp")
+  "${SOURCE_ROOT}/sgp/vobject_blitters.cpp"
+  "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp")
+set(multiz_blitter_owner
+  "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp")
 foreach(source_file IN LISTS world_state_files)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
@@ -354,6 +357,15 @@ foreach(source_file IN LISTS world_state_files)
     if(direct_image_draw_implementation)
       message(FATAL_ERROR
         "Production code implements a legacy video-object draw entry point in ${source_file}; keep image command translation in the video-object compatibility owner")
+    endif()
+  endif()
+  if(NOT "${source_file}" STREQUAL "${multiz_blitter_owner}")
+    string(REGEX MATCH
+      "BOOLEAN[ \t\r\n]+Blt8BPPDataTo16BPPBufferTransZ(Inc|TransShadowInc)[A-Za-z0-9_]*[ \t\r\n]*\\("
+      direct_multiz_blitter_implementation "${contents}")
+    if(direct_multiz_blitter_implementation)
+      message(FATAL_ERROR
+        "Production code implements a raw multi-Z blitter in ${source_file}; keep strip-depth rasterization in the dedicated SGP backend")
     endif()
   endif()
 

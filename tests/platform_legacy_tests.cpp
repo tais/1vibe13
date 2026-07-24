@@ -2142,6 +2142,43 @@ int main()
 			AddStandardVideoObject(
 				&managedObjectDescription, &liveImageID) &&
 			GetVideoObject(&liveImage, liveImageID) && liveImage;
+		bool liveDepthProfileCreated = false;
+		if (liveImageCreated)
+		{
+			liveImage->ppZStripInfo = static_cast<ZStripInfo**>(
+				MemAlloc(sizeof(ZStripInfo*)));
+			if (liveImage->ppZStripInfo)
+			{
+				liveImage->ppZStripInfo[0] =
+					static_cast<ZStripInfo*>(
+						MemAlloc(sizeof(ZStripInfo)));
+				if (liveImage->ppZStripInfo[0])
+				{
+					std::memset(
+						liveImage->ppZStripInfo[0], 0,
+						sizeof(ZStripInfo));
+					liveImage->ppZStripInfo[0]->
+						ubFirstZStripWidth = 2;
+					liveImage->ppZStripInfo[0]->pbZChange =
+						static_cast<INT8*>(MemAlloc(1));
+					if (liveImage->ppZStripInfo[0]->pbZChange)
+					{
+						liveImage->ppZStripInfo[0]->pbZChange[0] = 0;
+						liveDepthProfileCreated = true;
+					}
+				}
+			}
+			if (!liveDepthProfileCreated)
+			{
+				if (liveImage->ppZStripInfo)
+				{
+					if (liveImage->ppZStripInfo[0])
+						MemFree(liveImage->ppZStripInfo[0]);
+					MemFree(liveImage->ppZStripInfo);
+					liveImage->ppZStripInfo = nullptr;
+				}
+			}
+		}
 		PIXEL commandPalette[256] = {};
 		commandPalette[1] = copiedGreen;
 		const std::size_t paletteCountBefore =
@@ -2598,6 +2635,192 @@ int main()
 				routedPaletteShadow.image &&
 			routedAlphaObscuredPaletteShadowDepth.ignoreShadows,
 			"palette-shadow bridges retain stable image, palette, alpha, obscured, and depth policies");
+
+		RecordingRenderCommandSink recordedStripDepth;
+		BindLegacyRenderCommands(recordedStripDepth);
+		const bool strictStripDepthRouted =
+			liveDepthProfileCreated &&
+			BltVideoObjectStripDepthToSurface(
+				copyDestinationID, liveImage, 0, 0,
+				-2, 1, 0x1111, FALSE, FALSE,
+				&imageSurfaceClip);
+		const bool inclusiveStripDepthRouted =
+			liveDepthProfileCreated &&
+			BltVideoObjectStripDepthToSurface(
+				copyDestinationID, liveImage, 0, 0,
+				-1, 2, 0x2222, TRUE, FALSE,
+				&imageSurfaceClip);
+		const bool obscuredStripDepthRouted =
+			liveDepthProfileCreated &&
+			BltVideoObjectStripDepthToSurface(
+				copyDestinationID, liveImage, 0, 0,
+				3, -2, 0x3333, FALSE, TRUE,
+				&imageSurfaceClip);
+		const bool paletteStripDepthRouted =
+			liveDepthProfileCreated &&
+			BltVideoObjectStripPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, nullptr, 0, 0,
+				4, -1, 0x4444, commandPalette,
+				FALSE, FALSE, &imageSurfaceClip);
+		const bool alphaObscuredStripDepthRouted =
+			liveDepthProfileCreated &&
+			BltVideoObjectStripPaletteShadowDepthToSurface(
+				copyDestinationID, liveImage, liveImage, 0, 0,
+				5, -3, 0x5555, commandPalette,
+				TRUE, TRUE, &imageSurfaceClip);
+		const bool invalidStripDepthRejected =
+			!BltVideoObjectStripDepthToSurface(
+				copyDestinationID, liveImage, 0, 0,
+				0, 0, 1, TRUE, TRUE, &imageSurfaceClip) &&
+			!BltVideoObjectStripDepthToSurface(
+				copyDestinationID, liveImage, 0, 1,
+				0, 0, 1, FALSE, FALSE, &imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		const auto& stripDepthCommands =
+			recordedStripDepth.imageDepthCommands();
+		Check(strictStripDepthRouted &&
+			inclusiveStripDepthRouted &&
+			obscuredStripDepthRouted &&
+			paletteStripDepthRouted &&
+			alphaObscuredStripDepthRouted &&
+			invalidStripDepthRejected &&
+			stripDepthCommands.size() == 5 &&
+			stripDepthCommands[0].comparison ==
+				RenderDepthCompareMode::Greater &&
+			stripDepthCommands[0].depthWrite ==
+				RenderDepthWriteMode::ReplaceOnPass &&
+			stripDepthCommands[0].effect ==
+				RenderImageDepthEffect::StripDepthSourcePalette &&
+			stripDepthCommands[0].depthProfileFrame == 0 &&
+			stripDepthCommands[1].comparison ==
+				RenderDepthCompareMode::GreaterOrEqual &&
+			stripDepthCommands[2].effect ==
+				RenderImageDepthEffect::
+					StripDepthPixelateObscuredSourcePalette &&
+			stripDepthCommands[2].depthWrite ==
+				RenderDepthWriteMode::ReplaceOnDraw &&
+			stripDepthCommands[3].effect ==
+				RenderImageDepthEffect::
+					StripDepthPaletteWithShadowMarker &&
+			stripDepthCommands[3].palette == commandPaletteID &&
+			stripDepthCommands[4].effect ==
+				RenderImageDepthEffect::
+					StripDepthPaletteWithShadowMarkerPixelateObscured &&
+			stripDepthCommands[4].comparison ==
+				RenderDepthCompareMode::Greater &&
+			stripDepthCommands[4].alphaImage ==
+				stripDepthCommands[0].image &&
+			stripDepthCommands[4].ignoreShadows,
+			"strip-depth bridges retain profile, comparison, write, palette, alpha, and obscured policies");
+
+		UINT8 stripEncodedPixels[27] = {};
+		UINT8 stripAlphaPixels[27] = {};
+		stripEncodedPixels[0] = 25;
+		stripAlphaPixels[0] = 25;
+		for (std::size_t index = 1; index <= 25; ++index)
+		{
+			stripEncodedPixels[index] = 1;
+			stripAlphaPixels[index] = 255;
+		}
+		PIXEL stripSourcePalette[256] = {};
+		stripSourcePalette[1] = copiedGreen;
+		ETRLEObject stripImage{
+			0, sizeof(stripEncodedPixels), 0, 0, 1, 25};
+		INT8 stripDepthChanges[2]{1, -1};
+		ZStripInfo stripDepthProfile{
+			0, 5, 2, stripDepthChanges};
+		ZStripInfo* stripDepthProfiles[1]{&stripDepthProfile};
+		SGPVObject stripObject{};
+		stripObject.uiSizePixData = sizeof(stripEncodedPixels);
+		stripObject.pPixData = stripEncodedPixels;
+		stripObject.pETRLEObject = &stripImage;
+		stripObject.pShadeCurrent = stripSourcePalette;
+		stripObject.ppZStripInfo = stripDepthProfiles;
+		stripObject.usNumberOfObjects = 1;
+		stripObject.ubBitDepth = 8;
+		SGPVObject stripAlphaObject = stripObject;
+		stripAlphaObject.uiSizePixData = sizeof(stripAlphaPixels);
+		stripAlphaObject.pPixData = stripAlphaPixels;
+		std::vector<PIXEL> stripDestination(25, 0);
+		std::vector<PIXEL> stripDepthStorage(25, 0);
+		UINT16* const stripDepth =
+			reinterpret_cast<UINT16*>(
+				stripDepthStorage.data());
+		const UINT32 stripPitch =
+			static_cast<UINT32>(
+				stripDestination.size() * sizeof(PIXEL));
+		SGPRect stripClip{0, 0, 25, 1};
+		const bool strictStripPixelsDrawn =
+			Blt8BPPDataTo16BPPBufferTransZIncClipProfile(
+				stripDestination.data(), stripPitch, stripDepth,
+				100, &stripObject, 0, 0, 0, &stripClip, 0, FALSE);
+		const bool strictStripDepthsMatch =
+			strictStripPixelsDrawn &&
+			stripDestination[4] == copiedGreen &&
+			stripDestination[5] == copiedGreen &&
+			stripDepth[4] == 100 &&
+			stripDepth[5] == 180 &&
+			stripDepth[24] == 180;
+
+		std::fill(
+			stripDestination.begin(), stripDestination.end(), 0);
+		std::fill(
+			stripDepthStorage.begin(), stripDepthStorage.end(), 0);
+		stripDepth[0] = 100;
+		const bool inclusiveStripPixelsDrawn =
+			Blt8BPPDataTo16BPPBufferTransZIncClipProfile(
+				stripDestination.data(), stripPitch, stripDepth,
+				100, &stripObject, 0, 0, 0, &stripClip, 0, TRUE);
+		const bool inclusiveStripDepthsMatch =
+			inclusiveStripPixelsDrawn &&
+			stripDestination[0] == copiedGreen &&
+			stripDepth[0] == 100 &&
+			stripDepth[5] == 180;
+
+		std::fill(
+			stripDestination.begin(), stripDestination.end(), 0);
+		std::fill(
+			stripDepthStorage.begin(), stripDepthStorage.end(), 0);
+		const bool paletteStripPixelsDrawn =
+			Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(
+				stripDestination.data(), stripPitch, stripDepth,
+				100, &stripObject, 0, 0, 0, &stripClip, 0,
+				commandPalette, FALSE);
+		const bool paletteStripDepthsMatch =
+			paletteStripPixelsDrawn &&
+			stripDestination[4] == copiedGreen &&
+			stripDestination[5] == copiedGreen &&
+			stripDepth[4] == 100 &&
+			stripDepth[5] == 108 &&
+			stripDepth[24] == 108;
+
+		std::fill(
+			stripDestination.begin(), stripDestination.end(),
+			paletteBackground);
+		std::fill(
+			stripDepthStorage.begin(), stripDepthStorage.end(), 0);
+		const std::uintptr_t stripAddress =
+			reinterpret_cast<std::uintptr_t>(
+				stripDestination.data());
+		const INT32 checkerboardSkipX =
+			(stripAddress & sizeof(PIXEL)) != 0 ? 0 : 1;
+		stripDepth[checkerboardSkipX] = 100;
+		const bool alphaObscuredStripPixelsDrawn =
+			Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(
+				stripDestination.data(), stripPitch, stripDepth,
+				100, &stripObject, &stripAlphaObject,
+				checkerboardSkipX, 0, 0, &stripClip, 0,
+				commandPalette, FALSE);
+		const bool alphaObscuredStrictEqualSkipped =
+			alphaObscuredStripPixelsDrawn &&
+			stripDestination[checkerboardSkipX] ==
+				paletteBackground &&
+			stripDepth[checkerboardSkipX] == 100;
+		Check(strictStripDepthsMatch &&
+			inclusiveStripDepthsMatch &&
+			paletteStripDepthsMatch &&
+			alphaObscuredStrictEqualSkipped,
+			"multi-Z backend preserves strip transitions, wall equality, palette deltas, and alpha-obscured comparison");
 
 		RecordingRenderCommandSink recordedDepthImage;
 		BindLegacyRenderCommands(recordedDepthImage);
@@ -3832,6 +4055,269 @@ int main()
 			obscuredPalettePixelsMatch &&
 			obscuredPaletteDepthReleased,
 			"obscured palette-shadow commands preserve inclusive front pixels, absolute checkerboard, marker rules, alpha, clipping, and depth");
+
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		UINT16* const stripPlatformDepthBuffer =
+			copyDestinationPixels ?
+				InitZBuffer(
+					copyDestinationPitch,
+					copySurfaceDescription.usHeight) : nullptr;
+		if (copyDestinationPixels && stripPlatformDepthBuffer)
+		{
+			for (std::size_t y = 0; y < 3; ++y)
+			{
+				PIXEL* const colorRow = reinterpret_cast<PIXEL*>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+						y * copyDestinationPitch);
+				UINT16* const depthRow = reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(
+						stripPlatformDepthBuffer) +
+						y * copyDestinationPitch);
+				for (std::size_t x = 0; x < 5; ++x)
+				{
+					colorRow[x] = paletteBackground;
+					depthRow[x] = 0;
+				}
+			}
+		}
+		if (liveDepthProfileCreated)
+			liveImage->ppZStripInfo[0]->bInitialZChange = 1;
+		const RenderSurfaceRegion fullStripRegion{0, 0, 5, 3};
+		const auto drawStripPlatform =
+			[&](
+				INT32 x, INT32 y,
+				RenderImageDepthEffect effect,
+				RenderDepthCompareMode comparison,
+				RenderDepthWriteMode writeMode,
+				RenderPaletteId palette = 0,
+				RenderImageId alpha = 0)
+			{
+				return liveDepthProfileCreated &&
+					stripPlatformDepthBuffer &&
+					GetPlatformRenderCommands().drawImageDepth(
+						RenderImageDepthDrawCommand{
+							copyDestinationID, DEPTH_BUFFER,
+							liveImageID, 0,
+							RenderSurfacePoint{x, y},
+							fullStripRegion, 10, comparison,
+							writeMode, effect, palette, alpha,
+							false, 0});
+			};
+		UINT16* const stripFirstDepthRow =
+			stripPlatformDepthBuffer;
+		if (stripFirstDepthRow)
+		{
+			stripFirstDepthRow[0] = 89;
+			stripFirstDepthRow[1] = 90;
+			stripFirstDepthRow[2] = 90;
+		}
+		const bool stripPlatformStrictFront =
+			drawStripPlatform(
+				0, 0,
+				RenderImageDepthEffect::StripDepthSourcePalette,
+				RenderDepthCompareMode::Greater,
+				RenderDepthWriteMode::ReplaceOnPass);
+		const bool stripPlatformStrictEqual =
+			drawStripPlatform(
+				1, 0,
+				RenderImageDepthEffect::StripDepthSourcePalette,
+				RenderDepthCompareMode::Greater,
+				RenderDepthWriteMode::ReplaceOnPass);
+		const bool stripPlatformInclusiveEqual =
+			drawStripPlatform(
+				2, 0,
+				RenderImageDepthEffect::StripDepthSourcePalette,
+				RenderDepthCompareMode::GreaterOrEqual,
+				RenderDepthWriteMode::ReplaceOnPass);
+
+		INT32 stripCheckerDrawX = 0;
+		INT32 stripCheckerSkipX = 1;
+		if (copyDestinationPixels && stripPlatformDepthBuffer)
+		{
+			const std::uintptr_t rowAddress =
+				reinterpret_cast<std::uintptr_t>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+					copyDestinationPitch);
+			const bool firstPixelParity =
+				(rowAddress & sizeof(PIXEL)) != 0;
+			stripCheckerDrawX = firstPixelParity ? 0 : 1;
+			stripCheckerSkipX = firstPixelParity ? 1 : 0;
+			UINT16* const depthRow = reinterpret_cast<UINT16*>(
+				reinterpret_cast<BYTE*>(
+					stripPlatformDepthBuffer) +
+					copyDestinationPitch);
+			depthRow[stripCheckerDrawX] = 91;
+			depthRow[stripCheckerSkipX] = 91;
+		}
+		const bool stripPlatformObscuredDraw =
+			drawStripPlatform(
+				stripCheckerDrawX, 1,
+				RenderImageDepthEffect::
+					StripDepthPixelateObscuredSourcePalette,
+				RenderDepthCompareMode::Greater,
+				RenderDepthWriteMode::ReplaceOnDraw);
+		const bool stripPlatformObscuredSkip =
+			drawStripPlatform(
+				stripCheckerSkipX, 1,
+				RenderImageDepthEffect::
+					StripDepthPixelateObscuredSourcePalette,
+				RenderDepthCompareMode::Greater,
+				RenderDepthWriteMode::ReplaceOnDraw);
+
+		UINT16* const stripThirdDepthRow =
+			stripPlatformDepthBuffer ?
+				reinterpret_cast<UINT16*>(
+					reinterpret_cast<BYTE*>(
+						stripPlatformDepthBuffer) +
+						2 * copyDestinationPitch) : nullptr;
+		if (stripThirdDepthRow)
+		{
+			stripThirdDepthRow[0] = 90;
+			stripThirdDepthRow[1] = 90;
+		}
+		const bool stripPlatformPaletteEqual =
+			drawStripPlatform(
+				0, 2,
+				RenderImageDepthEffect::
+					StripDepthPaletteWithShadowMarker,
+				RenderDepthCompareMode::GreaterOrEqual,
+				RenderDepthWriteMode::ReplaceOnPass,
+				commandPaletteID);
+		const bool stripPlatformPaletteObscuredEqual =
+			drawStripPlatform(
+				1, 2,
+				RenderImageDepthEffect::
+					StripDepthPaletteWithShadowMarkerPixelateObscured,
+				RenderDepthCompareMode::GreaterOrEqual,
+				RenderDepthWriteMode::ReplaceOnDraw,
+				commandPaletteID);
+
+		INT32 stripAlphaSkipX = 3;
+		if (copyDestinationPixels && stripThirdDepthRow)
+		{
+			const std::uintptr_t rowAddress =
+				reinterpret_cast<std::uintptr_t>(
+					reinterpret_cast<BYTE*>(copyDestinationPixels) +
+					2 * copyDestinationPitch);
+			stripAlphaSkipX =
+				(rowAddress & sizeof(PIXEL)) != 0 ? 3 : 4;
+			if (((rowAddress +
+					stripAlphaSkipX * sizeof(PIXEL)) &
+					sizeof(PIXEL)) == 0)
+				stripAlphaSkipX = stripAlphaSkipX == 3 ? 4 : 3;
+			stripThirdDepthRow[stripAlphaSkipX] = 90;
+		}
+		if (paletteFixtureReady)
+		{
+			paletteEncodedPixels[1] = 255;
+			commandPalette[255] = copiedGreen;
+		}
+		const bool stripPlatformAlphaObscuredEqual =
+			drawStripPlatform(
+				stripAlphaSkipX, 2,
+				RenderImageDepthEffect::
+					StripDepthPaletteWithShadowMarkerPixelateObscured,
+				RenderDepthCompareMode::Greater,
+				RenderDepthWriteMode::ReplaceOnDraw,
+				commandPaletteID, liveImageID);
+		if (paletteFixtureReady)
+		{
+			paletteEncodedPixels[1] =
+				paletteOriginalEncodedPixel;
+			commandPalette[255] = 0;
+		}
+		const bool invalidStripPlatformCommandsRejected =
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER,
+					liveImageID, 0, {},
+					fullStripRegion, 10,
+					RenderDepthCompareMode::Greater,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::StripDepthSourcePalette,
+					0, 0, false, 1}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER,
+					liveImageID, 0, {},
+					fullStripRegion, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::
+						StripDepthPixelateObscuredSourcePalette,
+					0, 0, false, 0}) &&
+			!GetPlatformRenderCommands().drawImageDepth(
+				RenderImageDepthDrawCommand{
+					copyDestinationID, DEPTH_BUFFER,
+					liveImageID, 0, {},
+					fullStripRegion, 10,
+					RenderDepthCompareMode::GreaterOrEqual,
+					RenderDepthWriteMode::ReplaceOnPass,
+					RenderImageDepthEffect::SourcePalette,
+					0, 0, false, 1});
+		bool stripPlatformPixelsMatch =
+			copyDestinationPixels && stripPlatformDepthBuffer;
+		if (stripPlatformPixelsMatch)
+		{
+			const PIXEL* const firstColorRow =
+				copyDestinationPixels;
+			const PIXEL* const secondColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+						copyDestinationPitch);
+			const UINT16* const secondDepthRow =
+				reinterpret_cast<const UINT16*>(
+					reinterpret_cast<const BYTE*>(
+						stripPlatformDepthBuffer) +
+						copyDestinationPitch);
+			const PIXEL* const thirdColorRow =
+				reinterpret_cast<const PIXEL*>(
+					reinterpret_cast<const BYTE*>(
+						copyDestinationPixels) +
+						2 * copyDestinationPitch);
+			stripPlatformPixelsMatch =
+				firstColorRow[0] == copiedRed &&
+				stripFirstDepthRow[0] == 90 &&
+				firstColorRow[1] == paletteBackground &&
+				stripFirstDepthRow[1] == 90 &&
+				firstColorRow[2] == copiedRed &&
+				stripFirstDepthRow[2] == 90 &&
+				secondColorRow[stripCheckerDrawX] == copiedRed &&
+				secondDepthRow[stripCheckerDrawX] == 90 &&
+				secondColorRow[stripCheckerSkipX] ==
+					paletteBackground &&
+				secondDepthRow[stripCheckerSkipX] == 91 &&
+				thirdColorRow[0] == copiedGreen &&
+				stripThirdDepthRow[0] == 90 &&
+				thirdColorRow[1] == copiedGreen &&
+				stripThirdDepthRow[1] == 90 &&
+				thirdColorRow[stripAlphaSkipX] ==
+					paletteBackground &&
+				stripThirdDepthRow[stripAlphaSkipX] == 90;
+		}
+		if (liveDepthProfileCreated)
+			liveImage->ppZStripInfo[0]->bInitialZChange = 0;
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		const bool stripPlatformDepthReleased =
+			!stripPlatformDepthBuffer ||
+			ShutdownZBuffer(stripPlatformDepthBuffer);
+		Check(stripPlatformStrictFront &&
+			stripPlatformStrictEqual &&
+			stripPlatformInclusiveEqual &&
+			stripPlatformObscuredDraw &&
+			stripPlatformObscuredSkip &&
+			stripPlatformPaletteEqual &&
+			stripPlatformPaletteObscuredEqual &&
+			stripPlatformAlphaObscuredEqual &&
+			invalidStripPlatformCommandsRejected &&
+			stripPlatformPixelsMatch &&
+			stripPlatformDepthReleased,
+			"strip-depth commands execute exact profile, equality, checkerboard, palette, and alpha policies");
 
 		const PIXEL copiedBlue = Get16BPPColor(FROMRGB(0, 0, 255));
 		UINT8* const encodedImagePixels =
