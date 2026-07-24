@@ -6929,10 +6929,10 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 										if( AutoPlaceObjectToWorld(pSoldier, &tempStack) )
 										{
 											clipCreated = true;
-											if(guiCurrentScreen == GAME_SCREEN)
+											if(GetCurrentScreen() == GAME_SCREEN)
 												NotifySoldiersToLookforItems( );
 										}
-										/*if(guiCurrentScreen == MAP_SCREEN && fShowMapInventoryPool == TRUE)
+										/*if(GetCurrentScreen() == MAP_SCREEN && fShowMapInventoryPool == TRUE)
 										{
 											if(AutoPlaceObjectInInventoryStash(&tempStack, pSoldier->sGridNo))
 												clipCreated = true;
@@ -6976,7 +6976,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 
 		if (bPos == HANDPOS && AM_A_ROBOT(pSoldier))
 		{
-			DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_CHANGE_INSTALLED_WEAPON], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
+			DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_CHANGE_INSTALLED_WEAPON], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
 			return FALSE;
 		}
 
@@ -7337,7 +7337,7 @@ BOOLEAN AutoPlaceObjectToWorld(SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, INT8 b
 		bLevel = pSoldier->pathing.bLevel;
 	}
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		// the_bob : added the check for whether pSoldier actually points to something to handle calling this function with pSoldier = NULL
 		if (pSoldier)

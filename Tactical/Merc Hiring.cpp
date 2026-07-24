@@ -475,7 +475,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	}
 #endif
 	//shadooow: if all mercs were killed or captured and default arrival sector is Omerta, force helidrop arrival animation
-	if (guiCurrentScreen == MAP_SCREEN && pSoldier->flags.fUseLandingZoneForArrival && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
+	if (GetCurrentScreen() == MAP_SCREEN && pSoldier->flags.fUseLandingZoneForArrival && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
 		gsMercArriveSectorX == gGameExternalOptions.ubDefaultArrivalSectorX && gsMercArriveSectorY == gGameExternalOptions.ubDefaultArrivalSectorY)
 	{
 		bool force_helidrop = true;
@@ -531,7 +531,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 			}
 
 			// OK, If we are in mapscreen, get out...
-			if ( guiCurrentScreen == MAP_SCREEN )
+			if ( GetCurrentScreen() == MAP_SCREEN )
 			{
 				// ATE: Make sure the current one is selected!
 				ChangeSelectedMapSector( gWorldSectorX, gWorldSectorY, 0 );

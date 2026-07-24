@@ -1468,10 +1468,10 @@ void BeginLoadScreen( void )
 	SetCurrentCursorFromDatabase( VIDEO_NO_CURSOR );
 
 #ifdef JA2UB
-	if ( guiCurrentScreen == MAP_SCREEN && !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
+	if ( GetCurrentScreen() == MAP_SCREEN && !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
 #else
 	//Ja25: No meanwhiles
-	if ( guiCurrentScreen == MAP_SCREEN && !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) && !AreInMeanwhile( ) )
+	if ( GetCurrentScreen() == MAP_SCREEN && !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) && !AreInMeanwhile( ) )
 #endif
 	{
 		if ( !gGameExternalOptions.fDisableStrategicTransition )
@@ -5073,7 +5073,7 @@ void UpdateAirspaceControl( void )
 
 		// confirm the change with overlay message
 		// HEADROCK HAM 3.5: If we do this during SaveLoad, the message box prevents loading the game at all!
-		if ( guiCurrentScreen != SAVE_LOAD_SCREEN )
+		if ( GetCurrentScreen() != SAVE_LOAD_SCREEN )
 		{
 			DoScreenIndependantMessageBox( sMsgString, MSG_BOX_FLAG_OK, NULL );
 		}
@@ -6356,7 +6356,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 
 	GetCurrentBattleSectorXYZ( &sBattleSectorX, &sBattleSectorY, &sBattleSectorZ );
 
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 	{ //The user has decided to let the game autoresolve the current battle.
 		if ( gWorldSectorX == sBattleSectorX && gWorldSectorY == sBattleSectorY && gbWorldSectorZ == sBattleSectorZ )
 		{
@@ -6422,7 +6422,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 	// JA2Gold: Leaving sector, so get rid of ambients!
 	DeleteAllAmbients( );
 
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 	{
 		if ( !gfTacticalTraversal )
 		{ //if we are in tactical and don't intend on going to another sector immediately, then
@@ -6440,7 +6440,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 		return FALSE;
 	}
 
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 	{
 		//Yes, this is and looks like a hack.  The conditions of this if statement doesn't work inside
 		//TrashWorld() or more specifically, TacticalRemoveSoldier() from within TrashWorld().  Because
@@ -6449,9 +6449,9 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 		//screen, it'll delete the soldiers in the loaded world properly, then later on, once autoresolve is
 		//complete, it'll delete the autoresolve soldiers properly.  As you can now see, the above if conditions
 		//don't change throughout this whole process which makes it necessary to do it this way.
-		guiCurrentScreen = MAP_SCREEN;
+		[[maybe_unused]] auto currentScreenOverride =
+			OverrideCurrentScreen(MAP_SCREEN);
 		TrashWorld( );
-		guiCurrentScreen = AUTORESOLVE_SCREEN;
 	}
 	else
 	{
@@ -6603,7 +6603,7 @@ void CrippledVersionFailureToLoadMapCallBack( UINT8 bExitValue )
 	ReStartingGame( );
 
 	//go to the main menu
-	if ( guiCurrentScreen == MAP_SCREEN )
+	if ( GetCurrentScreen() == MAP_SCREEN )
 	{
 		SetPendingNewScreen( MAINMENU_SCREEN );
 	}

@@ -178,7 +178,7 @@ CHAR16	zString[128];
 				{
 					if( CanGameBeSaved() || ( gGameOptions.ubIronManMode == 3 && GetWorldHour() == gGameExternalOptions.ubExtremeIronManSavingHour ) )
 					{
-						SetOptionsPreviousScreen(guiCurrentScreen);
+						SetOptionsPreviousScreen(GetCurrentScreen());
 						swprintf( zString, L"%s%d",pMessageStrings[ MSG_SAVE_AUTOSAVE_TEXT ],SAVE__TIMED_AUTOSAVE_SLOT1);
 						DoAutoSave(SAVE__TIMED_AUTOSAVE_SLOT1,zString);
 
@@ -193,7 +193,7 @@ CHAR16	zString[128];
 				{
 					if( CanGameBeSaved() || ( gGameOptions.ubIronManMode == 3 && GetWorldHour() == gGameExternalOptions.ubExtremeIronManSavingHour ) )
 					{
-						SetOptionsPreviousScreen(guiCurrentScreen);
+						SetOptionsPreviousScreen(GetCurrentScreen());
 						swprintf( zString, L"%s%d",pMessageStrings[ MSG_SAVE_AUTOSAVE_TEXT ],SAVE__TIMED_AUTOSAVE_SLOT2);
 						DoAutoSave(SAVE__TIMED_AUTOSAVE_SLOT2,zString);
 
@@ -208,7 +208,7 @@ CHAR16	zString[128];
 				{
 					if( CanGameBeSaved() || ( gGameOptions.ubIronManMode == 3 && GetWorldHour() == gGameExternalOptions.ubExtremeIronManSavingHour ) )
 					{
-						SetOptionsPreviousScreen(guiCurrentScreen);
+						SetOptionsPreviousScreen(GetCurrentScreen());
 						swprintf( zString, L"%s%d",pMessageStrings[ MSG_SAVE_AUTOSAVE_TEXT ],SAVE__TIMED_AUTOSAVE_SLOT3);
 						DoAutoSave(SAVE__TIMED_AUTOSAVE_SLOT3,zString);
 
@@ -223,7 +223,7 @@ CHAR16	zString[128];
 				{
 					if( CanGameBeSaved() || ( gGameOptions.ubIronManMode == 3 && GetWorldHour() == gGameExternalOptions.ubExtremeIronManSavingHour ) )
 					{
-						SetOptionsPreviousScreen(guiCurrentScreen);
+						SetOptionsPreviousScreen(GetCurrentScreen());
 						swprintf( zString, L"%s%d",pMessageStrings[ MSG_SAVE_AUTOSAVE_TEXT ],SAVE__TIMED_AUTOSAVE_SLOT4);
 						DoAutoSave(SAVE__TIMED_AUTOSAVE_SLOT4,zString);
 
@@ -238,7 +238,7 @@ CHAR16	zString[128];
 				{
 					if( CanGameBeSaved() || ( gGameOptions.ubIronManMode == 3 && GetWorldHour() == gGameExternalOptions.ubExtremeIronManSavingHour ) )
 					{
-						SetOptionsPreviousScreen(guiCurrentScreen);
+						SetOptionsPreviousScreen(GetCurrentScreen());
 						swprintf( zString, L"%s%d",pMessageStrings[ MSG_SAVE_AUTOSAVE_TEXT ],SAVE__TIMED_AUTOSAVE_SLOT5);
 						DoAutoSave(SAVE__TIMED_AUTOSAVE_SLOT5,zString);
 
@@ -265,7 +265,7 @@ CHAR16	zString[128];
 		else if( gGameExternalOptions.ubExtremeIronManSavingTimeNotification == 0 )
 		{
 			gfSaveGame = TRUE;
-			SetOptionsPreviousScreen(guiCurrentScreen);
+			SetOptionsPreviousScreen(GetCurrentScreen());
 			SetPendingNewScreen( SAVE_LOAD_SCREEN );
 		}
 	}
@@ -385,7 +385,7 @@ void HourlyLarryUpdate()
 			const std::vector<INT16> drugItems = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_ITEMS);
 			const std::vector<INT16> drugTypes = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_TYPES);
 
-			if ( pSoldier->bAssignment < ON_DUTY && !pSoldier->flags.fBetweenSectors && !( gTacticalStatus.fEnemyInSector || guiCurrentScreen == GAME_SCREEN ) )
+			if ( pSoldier->bAssignment < ON_DUTY && !pSoldier->flags.fBetweenSectors && !( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) )
 			{
 				// Flugente: reworked this for the new drug system. We now loop over our entire inventory
 				INT8 invsize = (INT8)pSoldier->inv.size();										// remember inventorysize, so we don't call size() repeatedly
@@ -779,7 +779,7 @@ void HourlyStealUpdate()
 			&& pSoldier->bAssignment != ASSIGNMENT_POW
 			&& pSoldier->bAssignment != ASSIGNMENT_MINIEVENT
 			&& pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND
-			&& !( ( ( gWorldSectorX == pSoldier->sSectorX ) && ( gWorldSectorY == pSoldier->sSectorY ) && ( gbWorldSectorZ == pSoldier->bSectorZ ) ) && ( gTacticalStatus.fEnemyInSector || guiCurrentScreen == GAME_SCREEN ) ) )
+			&& !( ( ( gWorldSectorX == pSoldier->sSectorX ) && ( gWorldSectorY == pSoldier->sSectorY ) && ( gbWorldSectorZ == pSoldier->bSectorZ ) ) && ( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) ) )
 		{
 			UINT8 ubSectorId = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
 			UINT16 wealth = SectorExternalData[ubSectorId][0].wealth;

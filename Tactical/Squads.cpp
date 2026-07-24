@@ -562,7 +562,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 
 				//if we are not loading a saved game
 				// OJW - 20090427 - fix bug leaving gamescree/tactical for MAIN_MENU
-				if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) && guiCurrentScreen == GAME_SCREEN && GetPendingNewScreen() != MAINMENU_SCREEN )
+				if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) && GetCurrentScreen() == GAME_SCREEN && GetPendingNewScreen() != MAINMENU_SCREEN )
 				{
 					UpdateCurrentlySelectedMerc( pCharacter, ( INT8 )iCounterA );
 				}
@@ -853,7 +853,7 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 
 	// ARM: can't call SetCurrentSquad() in mapscreen, it calls SelectSoldier(), that will initialize interface panels!!!
 	// ATE: Adjusted conditions a bit ( sometimes were not getting selected )
-	if ( guiCurrentScreen == LAPTOP_SCREEN || guiCurrentScreen == MAP_SCREEN )
+	if ( GetCurrentScreen() == LAPTOP_SCREEN || GetCurrentScreen() == MAP_SCREEN )
 	{
 		return( FALSE );
 	}

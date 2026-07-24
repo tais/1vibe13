@@ -3599,7 +3599,7 @@ void ShowWebsiteAvailableMessage()
 		return;
 
 	StopTimeCompression();
-	DoMessageBox(MSG_BOX_MINIEVENT_STYLE, szRebelCommandText[RCT_WEBSITE_AVAILABLE], guiCurrentScreen, MSG_BOX_FLAG_OK | MSG_BOX_FLAG_BIGGER, NULL, NULL);
+	DoMessageBox(MSG_BOX_MINIEVENT_STYLE, szRebelCommandText[RCT_WEBSITE_AVAILABLE], GetCurrentScreen(), MSG_BOX_FLAG_OK | MSG_BOX_FLAG_BIGGER, NULL, NULL);
 }
 
 void DailyUpdate()
@@ -5027,7 +5027,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 		StopTimeCompression();
 	}
 
-	DoMessageBox(MSG_BOX_BASIC_STYLE, msgBoxText, guiCurrentScreen, MSG_BOX_FLAG_OK, NULL, NULL);
+	DoMessageBox(MSG_BOX_BASIC_STYLE, msgBoxText, GetCurrentScreen(), MSG_BOX_FLAG_OK, NULL, NULL);
 }
 
 void SendSuppliesToTownMission()

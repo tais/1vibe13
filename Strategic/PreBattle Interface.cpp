@@ -356,7 +356,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		//If we are currently in the AI Viewer development utility, then remove it first.	It automatically
 		//returns to the mapscreen upon removal, which is where we want to go.
 #ifdef JA2BETAVERSION
-		if( guiCurrentScreen == AIVIEWER_SCREEN )
+		if( GetCurrentScreen() == AIVIEWER_SCREEN )
 		{
 			gfExitViewer = TRUE;
 			gpBattleGroup = pBattleGroup;
@@ -370,8 +370,8 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		// ATE: Added check for fPersistantPBI = TRUE if pBattleGroup == NULL
 		// Searched code and saw that this condition only happens for creatures
 			// fixing a bug
-		//if( guiCurrentScreen == GAME_SCREEN && pBattleGroup )
-		if( guiCurrentScreen == GAME_SCREEN && ( pBattleGroup || fPersistantPBI ) )
+		//if( GetCurrentScreen() == GAME_SCREEN && pBattleGroup )
+		if( GetCurrentScreen() == GAME_SCREEN && ( pBattleGroup || fPersistantPBI ) )
 		{
 			gpBattleGroup = pBattleGroup;
 			gfEnteringMapScreen = TRUE;
@@ -479,7 +479,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	// silversurfer: moved this up here because this check needs to be done before we draw anything on the map screen - otherwise CTD.
 	// Also the necessary variables have to be set.
 	//If we are currently in tactical, then set the flag to automatically bring up the mapscreen.
-	if( guiCurrentScreen == GAME_SCREEN )
+	if( GetCurrentScreen() == GAME_SCREEN )
 	{
 		gfEnteringMapScreen = TRUE;
 		gfEnteringMapScreenToEnterPreBattleInterface = TRUE;

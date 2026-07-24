@@ -2729,7 +2729,7 @@ BOOLEAN DoQuickLoad()
 	gbSelectedSaveLocation = 0;
 
 	//if the game is paused, and we are in tactical, unpause
-	if( guiCurrentScreen == GAME_SCREEN )
+	if( GetCurrentScreen() == GAME_SCREEN )
 	{
 		PauseTime( FALSE );
 	}

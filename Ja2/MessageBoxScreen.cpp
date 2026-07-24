@@ -303,7 +303,7 @@ INT32 DoMessageBox( UINT8 ubStyle, const STR16 zString, UINT32 uiExitScreen, UIN
 	gMsgBox.sX = (INT16)( ( ( ( aRect.iRight	- aRect.iLeft ) - usTextBoxWidth ) / 2 ) + aRect.iLeft );
 	gMsgBox.sY = (INT16)( ( ( ( aRect.iBottom - aRect.iTop ) - usTextBoxHeight ) / 2 ) + aRect.iTop );
 
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 	{
 		gfStartedFromGameScreen = TRUE;
 	}
@@ -1821,14 +1821,14 @@ void DoScreenIndependantMessageBoxWithRect( const STR16 zString, UINT32 usFlags,
 
 	// Map Screen (excluding AI Viewer)
 #ifdef JA2BETAVERSION
-	if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) && ( guiCurrentScreen != AIVIEWER_SCREEN ) )
+	if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) && ( GetCurrentScreen() != AIVIEWER_SCREEN ) )
 #else
 	if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
 #endif
 	{
 
 		// auto resolve is a special case
-		if( guiCurrentScreen == AUTORESOLVE_SCREEN )
+		if( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 		{
 			DoMessageBox( MSG_BOX_BASIC_STYLE, zString, AUTORESOLVE_SCREEN, usFlags, ReturnCallback, pCenteringRect );
 		}
@@ -1840,33 +1840,33 @@ void DoScreenIndependantMessageBoxWithRect( const STR16 zString, UINT32 usFlags,
 	}
 
 	//Laptop
-	else if( guiCurrentScreen == LAPTOP_SCREEN )
+	else if( GetCurrentScreen() == LAPTOP_SCREEN )
 	{
 		// set up for laptop
 		DoLapTopSystemMessageBoxWithRect( MSG_BOX_LAPTOP_DEFAULT, zString, LAPTOP_SCREEN, usFlags, ReturnCallback, pCenteringRect );
 	}
 
 	//Save Load Screen
-	else if( guiCurrentScreen == SAVE_LOAD_SCREEN )
+	else if( GetCurrentScreen() == SAVE_LOAD_SCREEN )
 	{
 		DoSaveLoadMessageBoxWithRect( MSG_BOX_BASIC_STYLE, zString, SAVE_LOAD_SCREEN, usFlags, ReturnCallback, pCenteringRect );
 	}
 
 	//Options Screen
-	else if( guiCurrentScreen == OPTIONS_SCREEN )
+	else if( GetCurrentScreen() == OPTIONS_SCREEN )
 	{
 		DoOptionsMessageBoxWithRect( MSG_BOX_BASIC_STYLE, zString, OPTIONS_SCREEN, usFlags, ReturnCallback, pCenteringRect );
 	}
 
-	else if( guiCurrentScreen == FEATURES_SCREEN )
+	else if( GetCurrentScreen() == FEATURES_SCREEN )
 	{
 		FeaturesScreen::DoMessageBoxWithRect( MSG_BOX_BASIC_STYLE, zString, FEATURES_SCREEN, usFlags, ReturnCallback, pCenteringRect );
 	}
 
 	// Tactical
-	else if( guiCurrentScreen == GAME_SCREEN )
+	else if( GetCurrentScreen() == GAME_SCREEN )
 	{
-		DoMessageBox(	MSG_BOX_BASIC_STYLE, zString,	guiCurrentScreen, usFlags,	ReturnCallback,	pCenteringRect );
+		DoMessageBox(	MSG_BOX_BASIC_STYLE, zString,	GetCurrentScreen(), usFlags,	ReturnCallback,	pCenteringRect );
 	}
 }
 

@@ -87,7 +87,7 @@ void BtnEncyclopedia_newSelectDataPageBtnCallBack ( GUI_BUTTON *btn, INT32 reaso
 /**
 * Checks for all required graphic files.
 *
-* Called when a new game is started (guiCurrentScreen == 0), entering new game screen/loading game from main menu (guiCurrentScreen == MAINMENU_SCREEN) and quitting game (guiCurrentScreen == MSG_BOX_SCREEN).
+* Called when a new game is started (GetCurrentScreen() == 0), entering new game screen/loading game from main menu (GetCurrentScreen() == MAINMENU_SCREEN) and quitting game (GetCurrentScreen() == MSG_BOX_SCREEN).
 * Checks for all needed graphic files. Initializes button and image handles.
 * Shows error message and deactivates Encyclopedia if a file is missing.
 * @todo show a msg to user. MsgBox is crashing JA2 because of multithread. Maybe pause game?
@@ -98,7 +98,7 @@ void GameInitEncyclopedia_NEW()
 	memset( giEncyclopediaBtn, BUTTON_NO_SLOT, sizeof(giEncyclopediaBtn) );
 	giEncyclopediaBtnImage = BUTTON_NO_IMAGE;
 	// check for files only on start of JA2
-	CHECKV( guiCurrentScreen == 0 && gGameExternalOptions.gEncyclopedia );
+	CHECKV( GetCurrentScreen() == 0 && gGameExternalOptions.gEncyclopedia );
 
 	if ( !FileExists( "ENCYCLOPEDIA\\encyclopediabackground.sti" ) )
 	{

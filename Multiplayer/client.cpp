@@ -2014,7 +2014,7 @@ void send_donegui ( UINT8 ubResult )
 		info.status=1;
 		
 		SGPRect CenterRect = { 100 + xResOffset, 100 + yResOffset, SCREEN_WIDTH - 100 - xResOffset, 300 + yResOffset };
-		DoMessageBox( MSG_BOX_BASIC_STYLE, MPClientMessage[12],  guiCurrentScreen, MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT, send_donegui,  &CenterRect );
+		DoMessageBox( MSG_BOX_BASIC_STYLE, MPClientMessage[12],  GetCurrentScreen(), MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT, send_donegui,  &CenterRect );
 
 		if(numready==cMaxClients && is_server)//all done
 		{
@@ -2262,7 +2262,7 @@ void start_battle ( void )
 			else
 			{
 				SGPRect CenterRect = { 100 + xResOffset, 100 + yResOffset, SCREEN_WIDTH - 100 - xResOffset, 300 + yResOffset };
-				DoMessageBox( MSG_BOX_BASIC_STYLE, MPClientMessage[35],  guiCurrentScreen, MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT, allowlaptop_callback,  &CenterRect );
+				DoMessageBox( MSG_BOX_BASIC_STYLE, MPClientMessage[35],  GetCurrentScreen(), MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT, allowlaptop_callback,  &CenterRect );
 			}
 		}
 	}
@@ -2342,7 +2342,7 @@ void start_battle ( void )
 
 			// this closes the chat window if its open and the game is starting
 			// if this is open then the client will crash when the screen returns
-			if (guiCurrentScreen == MP_CHAT_SCREEN)
+			if (GetCurrentScreen() == MP_CHAT_SCREEN)
 			{
 				gChatBox.bHandled = MSG_BOX_RETURN_NO;
 				bClosingChatBoxToStartGame = true;
@@ -3043,7 +3043,7 @@ void requestSETID(RPCParameters *rpcParameters)
 				serverAddr = rpcParameters->sender;
 				
 				SGPRect CenteringRect= {0 + xResOffset, 0 + yResOffset, SCREEN_WIDTH - xResOffset, SCREEN_HEIGHT - yResOffset };
-				DoMessageBox( MSG_BOX_BASIC_STYLE , MPClientMessage[64] , guiCurrentScreen, MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT, allowDownloadCallback, &CenteringRect );
+				DoMessageBox( MSG_BOX_BASIC_STYLE , MPClientMessage[64] , GetCurrentScreen(), MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT, allowDownloadCallback, &CenteringRect );
 			}
 		}
 	}
@@ -3382,7 +3382,7 @@ void recieveSETTINGS (RPCParameters *rpcParameters) //recive settings from serve
 		if ( UsingNewInventorySystem() == true && !IsNIVModeValid(true) )
 		{
 			SGPRect CenteringRect= {0 + xResOffset, 0 + yResOffset, SCREEN_WIDTH-1 - 2 * xResOffset, SCREEN_HEIGHT-1 - 2 * yResOffset };
-			DoMessageBox( MSG_BOX_BASIC_STYLE , MPClientMessage[69] , guiCurrentScreen, MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT, InvalidClientSettingsOkBoxCallback, &CenteringRect );
+			DoMessageBox( MSG_BOX_BASIC_STYLE , MPClientMessage[69] , GetCurrentScreen(), MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT, InvalidClientSettingsOkBoxCallback, &CenteringRect );
 		}
 		else
 		{
@@ -5251,7 +5251,7 @@ void kick_player (void)
 		
 		SGPRect CenterRect = { 100 + xResOffset, 100 + yResOffset, SCREEN_WIDTH - xResOffset, 300 + yResOffset };
 
-		DoMessageBox( MSG_BOX_BASIC_STYLE, Cmsg,  guiCurrentScreen, MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS | MSG_BOX_FLAG_USE_CENTERING_RECT, kick_callback,  &CenterRect );
+		DoMessageBox( MSG_BOX_BASIC_STYLE, Cmsg,  GetCurrentScreen(), MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS | MSG_BOX_FLAG_USE_CENTERING_RECT, kick_callback,  &CenterRect );
 	}
 	else	
 		ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, MPClientMessage[22] );
@@ -5332,7 +5332,7 @@ void overide_turn (void)
 			
 		SGPRect CenterRect = { 100 + xResOffset, 100 + yResOffset, SCREEN_WIDTH - 100 - xResOffset, 300 + yResOffset };
 		
-		DoMessageBox( MSG_BOX_BASIC_STYLE, Cmsg,  guiCurrentScreen, MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS | MSG_BOX_FLAG_USE_CENTERING_RECT | MSG_BOX_FLAG_OK, turn_callback,  &CenterRect );
+		DoMessageBox( MSG_BOX_BASIC_STYLE, Cmsg,  GetCurrentScreen(), MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS | MSG_BOX_FLAG_USE_CENTERING_RECT | MSG_BOX_FLAG_OK, turn_callback,  &CenterRect );
 	}
 	else	
 		ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, MPClientMessage[22] );
@@ -5488,14 +5488,14 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 	memset(&client_ready[cl_num-1],0,sizeof(int));
 	memset(&client_teams[cl_num-1],0,sizeof(int));
 
-	if (guiCurrentScreen == MAP_SCREEN && !(gTacticalStatus.uiFlags & INCOMBAT))
+	if (GetCurrentScreen() == MAP_SCREEN && !(gTacticalStatus.uiFlags & INCOMBAT))
 	{
 		// in the map screen and not in combat
 		// refresh player list to remove from the game
 		fDrawCharacterList = true; // set the character list to be redrawn
 		fTeamPanelDirty = true; // redraw the background
 	}
-	else if (guiCurrentScreen == GAME_SCREEN) // <TODO> get a more valid check that the game is in progress here
+	else if (GetCurrentScreen() == GAME_SCREEN) // <TODO> get a more valid check that the game is in progress here
 	{
 		// in tactical screen and in combat
 		// kill the dead clients mercs out of the game
@@ -5588,7 +5588,7 @@ void disconnected_callback(UINT8 ubResult)
 // Gracefully handle self-disconnection of the client by Dropout
 void HandleClientConnectionLost()
 {
-	if (guiCurrentScreen != MP_SCORE_SCREEN)
+	if (GetCurrentScreen() != MP_SCORE_SCREEN)
 	{
 		// cleanup client
 		client_disconnect();
@@ -5598,16 +5598,16 @@ void HandleClientConnectionLost()
 			server_disconnect();
 
 		// connection lost, let user know via popup then quit to main menu
-		iDisconnectedScreen = guiCurrentScreen;
+		iDisconnectedScreen = GetCurrentScreen();
 		SGPRect CenteringRect= {0 + xResOffset, 0 + yResOffset, SCREEN_WIDTH - xResOffset, SCREEN_HEIGHT - yResOffset };
 
 		if (wcscmp(gszDisconnectReason,L"")==0)
 		{
-			UINT32 giMPHMessageBox = DoMessageBox(	MSG_BOX_BASIC_STYLE,	MPClientMessage[48],	guiCurrentScreen, ( UINT16 ) ( MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT ),disconnected_callback,	&CenteringRect );
+			UINT32 giMPHMessageBox = DoMessageBox(	MSG_BOX_BASIC_STYLE,	MPClientMessage[48],	GetCurrentScreen(), ( UINT16 ) ( MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT ),disconnected_callback,	&CenteringRect );
 		}
 		else
 		{
-			UINT32 giMPHMessageBox = DoMessageBox(	MSG_BOX_BASIC_STYLE,	gszDisconnectReason,	guiCurrentScreen, ( UINT16 ) ( MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT ),disconnected_callback,	&CenteringRect );
+			UINT32 giMPHMessageBox = DoMessageBox(	MSG_BOX_BASIC_STYLE,	gszDisconnectReason,	GetCurrentScreen(), ( UINT16 ) ( MSG_BOX_FLAG_OK | MSG_BOX_FLAG_USE_CENTERING_RECT ),disconnected_callback,	&CenteringRect );
 		}
 
 	}
@@ -6291,5 +6291,5 @@ void ChatCallback( UINT8 ubResult )
 
 void OpenChatMsgBox( void )
 {
-	DoChatBox((guiCurrentScreen == GAME_SCREEN? true : false),gzMPChatboxText[1],guiCurrentScreen,ChatCallback,NULL);
+	DoChatBox((GetCurrentScreen() == GAME_SCREEN? true : false),gzMPChatboxText[1],GetCurrentScreen(),ChatCallback,NULL);
 }

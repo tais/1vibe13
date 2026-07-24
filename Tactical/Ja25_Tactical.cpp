@@ -1110,7 +1110,7 @@ BOOLEAN HandleNewGunComment( SOLDIERTYPE *pSoldier, INT32 iItemIndex, BOOLEAN fF
 	}
 	
 	//if we are not in tactical or map screen, 
-	if( guiCurrentScreen != GAME_SCREEN && guiCurrentScreen != MAP_SCREEN )
+	if( GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MAP_SCREEN )
 	{
 		//only remeber that we have picked up the gun at some point
 		SetNewGunQuoteToBePlayedForThisGun( iItemIndex );

@@ -49,7 +49,7 @@ void HandleRPCDescription(	)
 	}
 
 	// ATE: postpone if we are not in tactical
-	if ( guiCurrentScreen != GAME_SCREEN )
+	if ( GetCurrentScreen() != GAME_SCREEN )
 	{
 	return;
 	}
@@ -297,7 +297,7 @@ void HandleTacticalEndTurn( )
 	CoolDownWorldItems();
 
 	// Flugente: raise zombies if in gamescreen and option set
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 	{
 		RaiseZombies();
 	}

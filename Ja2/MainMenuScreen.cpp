@@ -215,7 +215,7 @@ void HandleMainMenuScreen()
 
 			case LOAD_GAME:
 				// Select the game which is to be restored
-				SetOptionsPreviousScreen(guiCurrentScreen);
+				SetOptionsPreviousScreen(GetCurrentScreen());
 				guiMainMenuExitScreen = SAVE_LOAD_SCREEN;
 				gbHandledMainMenu = 0;
 				gfSaveGame = FALSE;
@@ -223,7 +223,7 @@ void HandleMainMenuScreen()
 				break;
 
 			case PREFERENCES:
-				SetOptionsPreviousScreen(guiCurrentScreen);
+				SetOptionsPreviousScreen(GetCurrentScreen());
 				guiMainMenuExitScreen = OPTIONS_SCREEN;
 				gbHandledMainMenu = 0;
 				gfMainMenuScreenExit = TRUE;

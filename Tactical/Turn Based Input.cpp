@@ -1931,7 +1931,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						if( CanGameBeSaved() )
 						{
 							guiPreviousOptionScreen = GAME_SCREEN;
-							//guiPreviousOptionScreen = guiCurrentScreen;
+							//guiPreviousOptionScreen = GetCurrentScreen();
 							DoQuickSave();
 						}
 						else
@@ -2504,7 +2504,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						AttemptToChangeFloorLevel( -1 ); //try to go up towards ground level
 				}
 
-				if ( guiCurrentScreen != DEBUG_SCREEN )
+				if ( GetCurrentScreen() != DEBUG_SCREEN )
 				{
 					if ( gusSelectedSoldier != NOBODY )
 					{
@@ -2524,7 +2524,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						AttemptToChangeFloorLevel( +1 ); //try to enter a lower underground level
 				}
 
-				if ( guiCurrentScreen != DEBUG_SCREEN )
+				if ( GetCurrentScreen() != DEBUG_SCREEN )
 				{
 					if ( gusSelectedSoldier != NOBODY )
 					{
@@ -4400,7 +4400,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 								if ( CanGameBeSaved() )
 								{
 									SetOptionsPreviousScreen(GAME_SCREEN);
-									//guiPreviousOptionScreen = guiCurrentScreen;
+									//guiPreviousOptionScreen = GetCurrentScreen();
 									DoQuickSave();
 								}
 								else

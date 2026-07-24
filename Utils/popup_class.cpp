@@ -370,7 +370,7 @@ static void unShadeOpenSubPopup( POPUP_SUB_POPUP_OPTION * opt ){
 	SetStringForeground( opt->stringHandle, FONT_LTGREEN);
 
 	// if in mapscreen, redraw the UI
-	if( guiCurrentScreen == MAP_SCREEN ){
+	if( GetCurrentScreen() == MAP_SCREEN ){
 		fTeamPanelDirty = TRUE;
 		fMapPanelDirty = TRUE;
 		RenderTeamRegionBackground();
@@ -1286,7 +1286,7 @@ void POPUP::CreateMouseRegions( void )
 
 	gfIgnoreScrolling = FALSE;
 
-	if( ( guiCurrentScreen == MAP_SCREEN ) ) 
+	if( ( GetCurrentScreen() == MAP_SCREEN ) )
 	{
 	  SetBoxPosition( this->boxId, this->Position );
 	}

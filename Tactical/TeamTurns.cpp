@@ -470,7 +470,7 @@ void EndTurnEvents( void )
 	CoolDownWorldItems( );	
 
 	// Flugente: raise zombies if in gamescreen and option set
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 	{
 		RaiseZombies();
 	}

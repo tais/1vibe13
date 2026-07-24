@@ -9285,7 +9285,7 @@ void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 	{
 		if ( IS_DOCTOR(pSoldier->bAssignment) )
 		{
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				pSoldier->ChangeSoldierState( END_DOCTOR, 1, TRUE );
 			}
@@ -9296,7 +9296,7 @@ void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 		}
 		else if ( IS_REPAIR(pSoldier->bAssignment) )
 		{
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				pSoldier->ChangeSoldierState( END_REPAIRMAN, 1, TRUE );
 			}
@@ -9307,7 +9307,7 @@ void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 		}
 		else if ( IS_PATIENT(pSoldier->bAssignment) )
 		{
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				pSoldier->ChangeSoldierStance( ANIM_CROUCH );
 			}
@@ -9620,7 +9620,7 @@ void CreateDestroyMouseRegionsForAssignmentMenu( void )
 	{
 		gfIgnoreScrolling = FALSE;
 
-		if( ( fShowAssignmentMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		if( ( fShowAssignmentMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		{
 		SetBoxPosition( ghAssignmentBox, AssignmentPosition );
 		}
@@ -10116,7 +10116,7 @@ void CreateDestroyMouseRegionForRepairMenu( void )
 	{
 		// Moa: removed below: repositioning now the same way as for training in AssignmentMenuBtnCB as it caused missplaced box for higher resolutions then 3.
 		//CheckAndUpdateTacticalAssignmentPopUpPositions( );
-		//if( ( fShowRepairMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		//if( ( fShowRepairMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		//{
 		// //SetBoxPosition( ghRepairBox ,RepairPosition);
 		//}
@@ -11756,7 +11756,7 @@ void CreateDestroyMouseRegionsForAttributeMenu( void )
 	if( ( fShowAttributeMenu == TRUE ) && ( fCreated == FALSE ) )
 	{
 		// Moa: removed, this missplaces popups when screensize>3.
-		//if( ( fShowAssignmentMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		//if( ( fShowAssignmentMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		//{
 		//SetBoxPosition( ghAssignmentBox, AssignmentPosition );
 		//}
@@ -12067,7 +12067,7 @@ void CreateDestroyMouseRegionsForSnitchMenu( void )
 	if ( gAssignMenuState == ASMENU_SNITCH && !fCreated )
 	{
 		// Moa: removed, this missplaces popups when screensize>3.
-		//if( ( fShowTrainingMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		//if( ( fShowTrainingMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		//{
 		//SetBoxPosition( ghTrainingBox, TrainPosition );
 		//}
@@ -12170,7 +12170,7 @@ void CreateDestroyMouseRegionsForSnitchToggleMenu( void )
 	if( ( fShowSnitchToggleMenu == TRUE ) && ( fCreated == FALSE ) )
 	{
 		// Moa: removed, this missplaces popups when screensize>3.
-		//if( ( fShowTrainingMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		//if( ( fShowTrainingMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		//{
 		//SetBoxPosition( ghTrainingBox, TrainPosition );
 		//}
@@ -12278,7 +12278,7 @@ void CreateDestroyMouseRegionsForSnitchSectorMenu( void )
 	if( ( fShowSnitchSectorMenu == TRUE ) && ( fCreated == FALSE ) )
 	{
 		// Moa: removed, this missplaces popups when screensize>3.
-		//if( ( fShowTrainingMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		//if( ( fShowTrainingMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		//{
 		//SetBoxPosition( ghTrainingBox, TrainPosition );
 		//}
@@ -18027,7 +18027,7 @@ BOOLEAN PutMercInAsleepState( SOLDIERTYPE *pSoldier )
 	{
 		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
 		{
-			if( guiCurrentScreen == GAME_SCREEN )
+			if( GetCurrentScreen() == GAME_SCREEN )
 			{
 				pSoldier->ChangeSoldierState( GOTO_SLEEP, 1, TRUE );
 			}
@@ -18070,7 +18070,7 @@ BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier )
 	{
 		if ( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
 		{
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				pSoldier->ChangeSoldierState( WKAEUP_FROM_SLEEP, 1, TRUE );
 			}
@@ -18268,7 +18268,7 @@ BOOLEAN AssignMercToAMovementGroup( SOLDIERTYPE *pSoldier )
 void NotifyPlayerOfAssignmentAttemptFailure( INT8 bAssignment )
 {
 	// notify player
-	if ( guiCurrentScreen != MSG_BOX_SCREEN )
+	if ( GetCurrentScreen() != MSG_BOX_SCREEN )
 	{
 		DoScreenIndependantMessageBox( pMapErrorString[ 18 ], MSG_BOX_FLAG_OK, NULL);
 	}
@@ -21335,7 +21335,7 @@ void HandleInterfaceMessageForCostOfOperatingFacility( SOLDIERTYPE *pSoldier, UI
 	swprintf( sString, New113HAMMessage[13], iFacilityOperatingCost );
 
 	// if we are in mapscreen, make a pop up
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_YESNO, PayFacilityCostsYesNoBoxCallback );
 	}
@@ -21439,7 +21439,7 @@ BOOLEAN IsOutstandingFacilityDebtWithErrorReport()
 			{
 				// Do message "want to pay entire sum?"
 				swprintf( sString, New113HAMMessage[18], giTotalOwedForFacilityOperationsToday );
-				if( guiCurrentScreen == MAP_SCREEN )
+				if( GetCurrentScreen() == MAP_SCREEN )
 				{
 					DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_YESNO, PayFacilityDebtManuallyYesNoBoxCallback );
 				}
@@ -21514,7 +21514,7 @@ void CreateDestroyMouseRegionsForFacilityAssignmentMenu( void )
 	if( ( fShowFacilityAssignmentMenu == TRUE ) && ( fCreated == FALSE ) )
 	{
 		// Moa: removed, this missplaces popups when screensize>3.
-		//if( ( fShowAssignmentMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		//if( ( fShowAssignmentMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		//{
 		//	SetBoxPosition( ghAssignmentBox, AssignmentPosition );
 		//}
@@ -22563,7 +22563,7 @@ void CreateDestroyMouseRegionForMoveItemMenu( void )
 	{
 		// Moa: removed below: repositioning now the same way as for training in AssignmentMenuBtnCB as it caused missplaced box for higher resolutions then 3.
 		//CheckAndUpdateTacticalAssignmentPopUpPositions( );
-		//if( ( fShowMoveItemMenu ) && ( guiCurrentScreen == MAP_SCREEN ) )
+		//if( ( fShowMoveItemMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		//{
 		// //SetBoxPosition( ghMoveItemBox ,RepairPosition);
 		//}

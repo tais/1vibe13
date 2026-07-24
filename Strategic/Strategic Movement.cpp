@@ -1195,7 +1195,7 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 		{
 			//Reinforcements have arrived!
 			#ifdef JA2BETAVERSION
-			if( guiCurrentScreen == AIVIEWER_SCREEN )
+			if( GetCurrentScreen() == AIVIEWER_SCREEN )
 			{
 				gfExitViewer = TRUE;
 			}
@@ -1404,7 +1404,7 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 		}
 
 #ifdef JA2BETAVERSION
-		if( guiCurrentScreen == AIVIEWER_SCREEN )
+		if( GetCurrentScreen() == AIVIEWER_SCREEN )
 			gfExitViewer = TRUE;
 #endif
 
@@ -2546,7 +2546,7 @@ BOOLEAN PossibleToCoordinateSimultaneousGroupArrivals( GROUP *pFirstGroup )
 		//Kris August 03, 1999 Bug fix:	Changed 1st line to 2nd line to fix game breaking if this dialog came up while in tactical.
 		//								It would kick you to mapscreen, where things would break...
 		//DoMapMessageBox( MSG_BOX_BASIC_STYLE, str, MAP_SCREEN, MSG_BOX_FLAG_YESNO, PlanSimultaneousGroupArrivalCallback );
-		DoMapMessageBox( MSG_BOX_BASIC_STYLE, str, guiCurrentScreen, MSG_BOX_FLAG_YESNO, PlanSimultaneousGroupArrivalCallback );
+		DoMapMessageBox( MSG_BOX_BASIC_STYLE, str, GetCurrentScreen(), MSG_BOX_FLAG_YESNO, PlanSimultaneousGroupArrivalCallback );
 
 		gfWaitingForInput = TRUE;
 		return TRUE;
@@ -5408,7 +5408,7 @@ void NotifyPlayerOfBloodcatBattle( UINT8 ubSectorX, UINT8 ubSectorY )
 		swprintf( str, pMapErrorString[ 13 ], zTempString );
 	}
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{	//Force render mapscreen (need to update the position of the group before the dialog appears.
 		fMapPanelDirty = TRUE;
 		MapScreenHandle();
@@ -6147,7 +6147,7 @@ void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 s
 		}
 
 #ifdef JA2BETAVERSION
-		if ( guiCurrentScreen == AIVIEWER_SCREEN )
+		if ( GetCurrentScreen() == AIVIEWER_SCREEN )
 			gfExitViewer = TRUE;
 #endif
 

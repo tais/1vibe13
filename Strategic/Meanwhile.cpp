@@ -382,12 +382,12 @@ void BringupMeanwhileBox( )
 	if ( gCurrentMeanwhileDef.ubMeanwhileID != INTERROGATION && MeanwhileSceneSeen( gCurrentMeanwhileDef.ubMeanwhileID ) )
 #endif
 	{
-		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, guiCurrentScreen, MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
+		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, GetCurrentScreen(), MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
 	}
 	else
 	{
-		//DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_OK, BeginMeanwhileCallBack, NULL );
-		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, guiCurrentScreen, MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
+		//DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_OK, BeginMeanwhileCallBack, NULL );
+		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, GetCurrentScreen(), MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
 	}
 }
 
@@ -439,9 +439,9 @@ void CheckForMeanwhileOKStart( )
 
 		gfMeanwhileTryingToStart = FALSE;
 
-		guiOldScreen = guiCurrentScreen;
+		guiOldScreen = GetCurrentScreen();
 
-		if ( guiCurrentScreen == GAME_SCREEN )
+		if ( GetCurrentScreen() == GAME_SCREEN )
 		{
 			LeaveTacticalScreen( GAME_SCREEN );
 		}

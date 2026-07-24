@@ -7305,7 +7305,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 #else
 					if(fCtrl && fShowMapInventoryPool && !(gpItemPointer || InSectorStackPopup() || InItemStackPopup() || InItemDescriptionBox() || InKeyRingPopup()))
 					{
-						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
+						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
 						break;
 					}
 #endif
@@ -7777,7 +7777,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 								fShowMapInventoryPool = TRUE;
 								CreateDestroyMapInventoryPoolButtons( TRUE );
 							}
-							DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL );
+							DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL );
 							if(fShowMapInventoryPool)
 							{
 								fShowMapInventoryPool = FALSE;
@@ -7787,7 +7787,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 #else
 					if(fCtrl && fShowMapInventoryPool && !(gpItemPointer || InSectorStackPopup() || InItemStackPopup() || InItemDescriptionBox() || InKeyRingPopup()))
 					{
-						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
+						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
 						break;
 					}
 #endif
@@ -8249,7 +8249,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							//if the game CAN be saved
 							if( CanGameBeSaved() )
 							{
-								SetOptionsPreviousScreen(guiCurrentScreen);
+								SetOptionsPreviousScreen(GetCurrentScreen());
 								DoQuickSave();
 							}
 							else
@@ -8297,7 +8297,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 									fShowMapInventoryPool = TRUE;
 									CreateDestroyMapInventoryPoolButtons( TRUE );
 								}
-								DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_SELL_ALL], guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, BeginSellAllCallBack, NULL );
+								DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_SELL_ALL], GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, BeginSellAllCallBack, NULL );
 								if(fShowMapInventoryPool)
 								{
 									fShowMapInventoryPool = FALSE;
@@ -8940,15 +8940,14 @@ INT32 iCounter2 = 0;
 
 
 	SetAllAutoFacesInactive( );
+	[[maybe_unused]] auto currentScreenOverride =
+		OverrideCurrentScreen(fLapTop ? LAPTOP_SCREEN : GAME_SCREEN);
 	if(fLapTop)
 	{
 		StopAnyCurrentlyTalkingSpeech( );
-	guiCurrentScreen=LAPTOP_SCREEN;
 	}
 	else
 	{
-	guiCurrentScreen = GAME_SCREEN;
-
 		// remove the progress bar
 		RemoveProgressBar( 0 );
 
@@ -10156,7 +10155,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 			// rftr: robot can't unequip weapon
 			if (AM_A_ROBOT(pSoldier) && uiHandPos == HANDPOS)
 			{
-				DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_CHANGE_INSTALLED_WEAPON], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
+				DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_CHANGE_INSTALLED_WEAPON], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
 				return;
 			}
 
@@ -10285,7 +10284,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				// rftr: robot can't equip weapon attachments
 				if (AM_A_ROBOT(pSoldier) && uiHandPos == HANDPOS)
 				{
-					DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
+					DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
 					return;
 				}
 
@@ -10444,7 +10443,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		// rftr: robot can't equip weapon attachments
 		if (AM_A_ROBOT(pSoldier) && uiHandPos == HANDPOS)
 		{
-			DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
+			DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
 			return;
 		}
 
@@ -17351,7 +17350,7 @@ void HandleWhenPlayerHasNoMercsAndNoLaptop()
 
 	if( gJa25SaveStruct.ubDisplayPlayerLostMsgBox == 0 || 
 			gJa25SaveStruct.ubDisplayPlayerLostMsgBox >= ubNumLoopsToDisplay ||
-			guiCurrentScreen == MSG_BOX_SCREEN )
+			GetCurrentScreen() == MSG_BOX_SCREEN )
 	{
 		return;
 	}

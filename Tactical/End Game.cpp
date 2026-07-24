@@ -399,7 +399,7 @@ void DoneFadeOutEndCinematic( void )
 //	InternalLeaveTacticalScreen( MAINMENU_SCREEN );
 
 	InternalLeaveTacticalScreen( INTRO_SCREEN );
-//	guiCurrentScreen = INTRO_SCREEN;
+//	GetCurrentScreen() = INTRO_SCREEN;
 
 
 	SetIntroType( INTRO_ENDING );

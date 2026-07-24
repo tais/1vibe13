@@ -37,7 +37,7 @@ void SetNextGame( UINT32 ausGame, UINT32 ausGameState )
 	gMiniGame = ausGame;
 	gMiniGameState = ausGameState;
 
-	guiMiniGamePreviousScreen = guiCurrentScreen;
+	guiMiniGamePreviousScreen = GetCurrentScreen();
 }
 
 void MiniGameDataInit()

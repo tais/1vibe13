@@ -558,7 +558,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 		UnSetUIBusy( pSoldier->ubID );
 
 		// can't call SelectSoldier in mapscreen, that will initialize interface panels!!!
-		if ( guiCurrentScreen == GAME_SCREEN && pSoldier->bTeam == gbPlayerNum )
+		if ( GetCurrentScreen() == GAME_SCREEN && pSoldier->bTeam == gbPlayerNum )
 		{
 			SelectSoldier( pVehicleSoldier->ubID, FALSE, TRUE );
 		}
@@ -692,7 +692,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 				pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
 
 				// can't call SetCurrentSquad OR SelectSoldier in mapscreen, that will initialize interface panels!!!
-				if ( pSoldier->bTeam == gbPlayerNum && guiCurrentScreen == GAME_SCREEN )
+				if ( pSoldier->bTeam == gbPlayerNum && GetCurrentScreen() == GAME_SCREEN )
 				{
 					SetCurrentSquad( pVehicleSoldier->bAssignment, TRUE );
 				}
@@ -1810,7 +1810,7 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 		}
 
 		// can't call SetCurrentSquad OR SelectSoldier in mapscreen, that will initialize interface panels!!!
-		if ( guiCurrentScreen == GAME_SCREEN )
+		if ( GetCurrentScreen() == GAME_SCREEN )
 		{
 			if( gGameExternalOptions.fPassengerLeavingSwitchToNewSquad )
 			{

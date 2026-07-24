@@ -1398,7 +1398,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 						//DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 						break;
 					}
-					if( guiCurrentScreen == GAME_SCREEN )
+					if( GetCurrentScreen() == GAME_SCREEN )
 					{
 						if ( pGroup->ubGroupSize <= iMaxEnemyGroupSize && pGroup->pEnemyGroup->ubNumElites != pGroup->pEnemyGroup->ubElitesInBattle && !gfPendingNonPlayerTeam[ENEMY_TEAM] ||
 								pGroup->ubGroupSize > iMaxEnemyGroupSize /* || pGroup->pEnemyGroup->ubNumElites > 50 || pGroup->pEnemyGroup->ubElitesInBattle > 50*/ )
@@ -1424,7 +1424,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 						//DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 						break;
 					}
-					if( guiCurrentScreen == GAME_SCREEN )
+					if( GetCurrentScreen() == GAME_SCREEN )
 					{
 						if ( pGroup->ubGroupSize <= iMaxEnemyGroupSize && pGroup->pEnemyGroup->ubNumTroops != pGroup->pEnemyGroup->ubTroopsInBattle && !gfPendingNonPlayerTeam[ENEMY_TEAM] ||
 								pGroup->ubGroupSize > iMaxEnemyGroupSize /*|| pGroup->pEnemyGroup->ubNumTroops > 50 || pGroup->pEnemyGroup->ubTroopsInBattle > 50*/ )
@@ -1455,7 +1455,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 						//DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 						break;
 					}
-					if( guiCurrentScreen == GAME_SCREEN )
+					if( GetCurrentScreen() == GAME_SCREEN )
 					{
 						if ( pGroup->ubGroupSize <= iMaxEnemyGroupSize && pGroup->pEnemyGroup->ubNumAdmins != pGroup->pEnemyGroup->ubAdminsInBattle && !gfPendingNonPlayerTeam[ENEMY_TEAM] ||
 						pGroup->ubGroupSize > iMaxEnemyGroupSize /*|| pGroup->pEnemyGroup->ubNumAdmins > 50 || pGroup->pEnemyGroup->ubAdminsInBattle > 50*/ )
@@ -1508,7 +1508,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			{
 				case SOLDIER_CLASS_ADMINISTRATOR:
 					#ifdef JA2BETAVERSION
-						if( guiCurrentScreen == GAME_SCREEN )
+						if( GetCurrentScreen() == GAME_SCREEN )
 						{
 							if( ubTotalEnemies <= gGameExternalOptions.ubGameMaximumNumberOfEnemies && pSector->ubNumAdmins != pSector->ubAdminsInBattle ||
 								!pSector->ubNumAdmins || !pSector->ubAdminsInBattle ||
@@ -1529,7 +1529,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 					break;
 				case SOLDIER_CLASS_ARMY:
 					#ifdef JA2BETAVERSION
-						if( guiCurrentScreen == GAME_SCREEN )
+						if( GetCurrentScreen() == GAME_SCREEN )
 						{
 							if( ubTotalEnemies <= gGameExternalOptions.ubGameMaximumNumberOfEnemies && pSector->ubNumTroops != pSector->ubTroopsInBattle ||
 									!pSector->ubNumTroops || !pSector->ubTroopsInBattle ||
@@ -1551,7 +1551,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 					break;
 				case SOLDIER_CLASS_ELITE:
 					#ifdef JA2BETAVERSION
-						if( guiCurrentScreen == GAME_SCREEN )
+						if( GetCurrentScreen() == GAME_SCREEN )
 						{
 							if( ubTotalEnemies <= gGameExternalOptions.ubGameMaximumNumberOfEnemies && pSector->ubNumElites != pSector->ubElitesInBattle ||
 									!pSector->ubNumElites || !pSector->ubElitesInBattle ||
@@ -1586,7 +1586,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 					if( pSoldier->ubBodyType != BLOODCAT )
 					{
 						#ifdef JA2BETAVERSION
-							if( guiCurrentScreen == GAME_SCREEN )
+							if( GetCurrentScreen() == GAME_SCREEN )
 							{
 								if( ubTotalEnemies <= (UINT32)iMaxEnemyGroupSize && pSector->ubNumCreatures != pSector->ubCreaturesInBattle ||
 									!pSector->ubNumCreatures || !pSector->ubCreaturesInBattle ||

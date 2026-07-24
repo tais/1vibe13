@@ -353,7 +353,7 @@ INT32 GetFreeBackgroundBuffer(void)
 	else
 	{
 		//else display an error message
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("ERROR! GetFreeBackgroundBuffer(): Trying to allocate more saves then there is room:	guiCurrentScreen = %d", guiCurrentScreen ) );
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("ERROR! GetFreeBackgroundBuffer(): Trying to allocate more saves then there is room:	GetCurrentScreen() = %d", GetCurrentScreen() ) );
 	}
 #endif
 	return(-1);

@@ -294,6 +294,7 @@ endforeach()
 # The former scalar mirrors have no serialization or external ABI requirement
 # and must not return as second sources of truth.
 set(retired_screen_state_mirrors
+  guiCurrentScreen
   guiPendingScreen
   guiPreviousScreen)
 foreach(source_file IN LISTS world_state_declaration_files)

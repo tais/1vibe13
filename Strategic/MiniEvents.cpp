@@ -1592,9 +1592,9 @@ static int MiniEventsLua_MessageBox(lua_State* LS)
 	w_str[sizeof(w_str) / sizeof(w_str[0]) - 1] = '\0';
 
 	// we need to cache the screen here so that the second msgbox doesn't keep the global screen state in MSG_BOX_SCREEN (causes infinite recursion)
-	guiMiniEventsCachedScreen = guiCurrentScreen;
+	guiMiniEventsCachedScreen = GetCurrentScreen();
 	DoMessageBox(MSG_BOX_MINIEVENT_STYLE, w_str,
-		guiCurrentScreen, MSG_BOX_FLAG_WIDE_BUTTONS | MSG_BOX_FLAG_BIGGER, MiniEventsLua_MessageBoxCallback , NULL);
+		GetCurrentScreen(), MSG_BOX_FLAG_WIDE_BUTTONS | MSG_BOX_FLAG_BIGGER, MiniEventsLua_MessageBoxCallback , NULL);
 
 	return 0;
 }

@@ -381,7 +381,7 @@ void ScrollString( )
 	// might have pop up text timer
 	HandleLastQuotePopUpTimer( );
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		return;
 	}
@@ -509,7 +509,7 @@ void ScrollString( )
 		}
 
 		//check if new meesage we have not seen since mapscreen..if so, beep
-			if( ( fOkToBeepNewMessage == TRUE ) && ( gpDisplayList[ ubLines - 2 ] == NULL ) && ( ( guiCurrentScreen == GAME_SCREEN ) || ( guiCurrentScreen == MAP_SCREEN ) ) && ( gfFacePanelActive == FALSE ) )
+			if( ( fOkToBeepNewMessage == TRUE ) && ( gpDisplayList[ ubLines - 2 ] == NULL ) && ( ( GetCurrentScreen() == GAME_SCREEN ) || ( GetCurrentScreen() == MAP_SCREEN ) ) && ( gfFacePanelActive == FALSE ) )
 			{
 				PlayNewMessageSound( );
 			}
@@ -553,7 +553,7 @@ void HideMessagesDuringNPCDialogue( void )
 	UINT8 ubLines = 0;
 
 	// HEADROCK HAM 3.6: Different number of lines shown in Tactical and Strategic modes.
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		ubLines = MAX_LINE_COUNT;
 	}
@@ -591,7 +591,7 @@ void UnHideMessagesDuringNPCDialogue( void )
 	UINT8 ubLines = 0;
 
 	// HEADROCK HAM 3.6: Different number of lines shown in Tactical and Strategic modes.
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		ubLines = MAX_LINE_COUNT;
 	}
@@ -698,7 +698,7 @@ void ScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ...)
 		}
 
 
-		if( guiCurrentScreen == MAP_SCREEN )
+		if( GetCurrentScreen() == MAP_SCREEN )
 		{
 			PlayNewMessageSound( );
 		}
@@ -1216,7 +1216,7 @@ void EnableDisableScrollStringVideoOverlay( BOOLEAN fEnable )
 	INT8 bCounter = 0;
 	UINT8 ubLines = 0;
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		ubLines = MAX_LINE_COUNT;
 	}

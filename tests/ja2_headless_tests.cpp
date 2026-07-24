@@ -2018,6 +2018,40 @@ int main( int, char** )
 		       screens.commitPending( overlay ) == StateTransitionResult::Unchanged &&
 		       screens.current() && *screens.current() == 1,
 		       "state controller can cancel a pending transition without changing current state" );
+		CHECK( screens.transitionTo( 100, overlay ) == StateTransitionResult::OverlayPushed &&
+		       screens.current() && *screens.current() == 100 &&
+		       screens.previous() && *screens.previous() == 1,
+		       "state controller prepares overlay history for a scoped override" );
+		{
+			[[maybe_unused]] auto override =
+				screens.scopedCurrentOverride( 7 );
+			CHECK( screens.current() && *screens.current() == 7 &&
+			       screens.stack().current() &&
+			       screens.stack().current()->state == 100 &&
+			       screens.stack().underlay() &&
+			       screens.stack().underlay()->state == 1 &&
+			       screens.previous() && *screens.previous() == 1,
+			       "scoped state override changes the visible state without changing transition history" );
+		}
+		CHECK( screens.current() && *screens.current() == 100 &&
+		       screens.stack().underlay() &&
+		       screens.stack().underlay()->state == 1 &&
+		       screens.previous() && *screens.previous() == 1,
+		       "scoped state override restores the complete overlay stack" );
+		{
+			[[maybe_unused]] auto override =
+				screens.scopedCurrentOverride( 7 );
+			CHECK( screens.transitionTo( 2, overlay ) ==
+			           StateTransitionResult::Replaced &&
+			       screens.current() && *screens.current() == 7 &&
+			       screens.stack().current() &&
+			       screens.stack().current()->state == 2 &&
+			       screens.previous() && *screens.previous() == 100,
+			       "scoped state override keeps underlying transitions live" );
+		}
+		CHECK( screens.current() && *screens.current() == 2 &&
+		       screens.previous() && *screens.previous() == 100,
+		       "scoped state override reveals transitions completed inside its lifetime" );
 	}
 
 	{
@@ -2761,18 +2795,31 @@ int main( int, char** )
 		const bool previousScreenOwnedByController =
 			GetPreviousScreen() == 7;
 		compiledContext.screenController().reset( 9 );
+		bool currentScreenOwnedByController = false;
+		{
+			[[maybe_unused]] auto override =
+				OverrideCurrentScreen( 14 );
+			currentScreenOwnedByController =
+				GetCurrentScreen() == 14 &&
+				compiledContext.screenController().current() &&
+				*compiledContext.screenController().current() == 14;
+		}
+		currentScreenOwnedByController =
+			currentScreenOwnedByController &&
+			GetCurrentScreen() == 9;
 		SetPendingNewScreen( 11 );
 		const bool pendingScreenOwnedByController =
 			GetPendingNewScreen() == 11 &&
 			compiledContext.screenController().pending() &&
 			*compiledContext.screenController().pending() == 11;
 		SetPendingNewScreen( NO_PENDING_SCREEN );
-		CHECK( previousScreenOwnedByController &&
+		CHECK( currentScreenOwnedByController &&
+		       previousScreenOwnedByController &&
 		       GetPreviousScreen() == NO_PENDING_SCREEN &&
 		       pendingScreenOwnedByController &&
 		       GetPendingNewScreen() == NO_PENDING_SCREEN &&
 		       !compiledContext.screenController().hasPending(),
-		       "pending and previous application screen state have one controller-owned representation" );
+		       "current, pending, and previous application screen state have one controller-owned representation" );
 		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
 		LegacyRulesPackage& compiledRules = GetCompiledRulesPackage();
 		const std::string& packageId = compiledPackage.descriptor().content.id;

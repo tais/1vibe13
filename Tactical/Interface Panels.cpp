@@ -1118,7 +1118,7 @@ void ReevaluateItemHatches( SOLDIERTYPE *pSoldier, BOOLEAN fAllValid )
 
 			// !!! ATTACHING/MERGING ITEMS IN MAP SCREEN IS NOT SUPPORTED !!!
 			// CJC: seems to be supported now...
-			//if( guiCurrentScreen != MAP_SCREEN )
+			//if( GetCurrentScreen() != MAP_SCREEN )
 			{
 				// Check attachments, override to valid placement if valid merge...
 				if ( ValidAttachment( gpItemPointer->usItem, &(pSoldier->inv[ cnt ]) ) )
@@ -4034,7 +4034,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		UINT8 isLimit = ItemSlotLimit( &gpSMCurrentMerc->inv[ uiHandPos ], uiHandPos, gpSMCurrentMerc );
 
 		// access description box directly if CTRL is pressed for stack items
-		if( !( ( gpSMCurrentMerc->inv[ uiHandPos ].ubNumberOfObjects > 1 && isLimit > 0 ) && ( guiCurrentScreen != MAP_SCREEN ) ) || _KeyDown( CTRL ) )
+		if( !( ( gpSMCurrentMerc->inv[ uiHandPos ].ubNumberOfObjects > 1 && isLimit > 0 ) && ( GetCurrentScreen() != MAP_SCREEN ) ) || _KeyDown( CTRL ) )
 		{
 			if ( !InItemDescriptionBox( ) )
 			{
@@ -4898,7 +4898,7 @@ void BtnOptionsCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		SetOptionsPreviousScreen(guiCurrentScreen);
+		SetOptionsPreviousScreen(GetCurrentScreen());
 		LeaveTacticalScreen( OPTIONS_SCREEN );
 
 	}
@@ -5845,7 +5845,7 @@ void BtnRostermodeCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		if ( guiCurrentScreen == GAME_SCREEN )
+		if ( GetCurrentScreen() == GAME_SCREEN )
 		{
 			GoToMapScreenFromTactical();
 			EnableRadarScreenRender( );
@@ -7302,7 +7302,7 @@ void KeyRingItemPanelButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	INT16 sStartYPosition = 0;
 	INT16 sWidth = 0, sHeight = 0;
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		if( bSelectedInfoChar == -1 )
 		{
@@ -7344,7 +7344,7 @@ void KeyRingItemPanelButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
-		if( guiCurrentScreen == MAP_SCREEN )
+		if( GetCurrentScreen() == MAP_SCREEN )
 		{
 			// want the inv done button shutdown and the region behind the keyring shaded
 			//ForceButtonUnDirty( giMapInvDoneButton );
@@ -7779,7 +7779,7 @@ void SMInvMoneyButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				//ask the user if they are sure they want to deposit the money
 				swprintf( zText, gzMoneyWithdrawMessageText[ CONFIRMATION_TO_DEPOSIT_MONEY_TO_ACCOUNT ], zMoney );
 
-				if( guiCurrentScreen == SHOPKEEPER_SCREEN )
+				if( GetCurrentScreen() == SHOPKEEPER_SCREEN )
 				{
 					//if we are in the shop keeper interface, free the cursor
 					if( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE )

@@ -2157,7 +2157,7 @@ void UpdateMapScreenAssignmentPositions( void )
 	SGPPoint pNewPoint;
 	SGPRect pDimensions;
 	
-	if( guiCurrentScreen != MAP_SCREEN )
+	if( GetCurrentScreen() != MAP_SCREEN )
 	{
 		return;
 	}
@@ -2318,7 +2318,7 @@ void UpdateMapScreenMilitiaControlPositions( void )
 	// set the position of the pop up boxes
 	SGPPoint pPoint;
 
-	if( guiCurrentScreen != MAP_SCREEN )
+	if( GetCurrentScreen() != MAP_SCREEN )
 	{
 		return;
 	}
@@ -2721,7 +2721,7 @@ void HandleMinerEvent( UINT8 ubHeadMinerIndex, INT16 sSectorX, INT16 sSectorY, I
 	BOOLEAN fFromMapscreen = FALSE;
 
 
-	if ( guiCurrentScreen == MAP_SCREEN )
+	if ( GetCurrentScreen() == MAP_SCREEN )
 	{
 		fFromMapscreen = TRUE;
 	}

@@ -1020,7 +1020,7 @@ UINT32 ProcessFileIO()
 				}
 				gbCurrentFileIOStatus = IOSTATUS_NONE;
 				CreateMessageBox((STR16)(_BS(L" Error saving ") << (const char*)ubNewFilename << L" file. Try another filename? " << _BS::wget).c_str() );
-				return(guiCurrentScreen);
+				return(GetCurrentScreen());
 			}
 			if(gfShowExitGrids)//dnl ch86 190214
 			{
@@ -1078,7 +1078,7 @@ UINT32 ProcessFileIO()
 				gfGlobalError = FALSE;
 				gfLoadError = TRUE;
 				CreateMessageBox((STR16)(_BS(L" Error loading ") << (const char*)ubNewFilename << L" file. Try another filename? " << _BS::wget).c_str());
-				return(guiCurrentScreen);
+				return(GetCurrentScreen());
 			}
 			//ADB these are NOT set yet! but they need to be, duh
 			CompileWorldMovementCosts();

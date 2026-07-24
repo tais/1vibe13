@@ -595,8 +595,8 @@ void IniGlobalGameSetting(lua_State *L)
 	lua_setglobal(L, "cMin");
 	
 	
-	lua_pushinteger(L, guiCurrentScreen);
-	lua_setglobal(L, "guiCurrentScreen");
+	lua_pushinteger(L, GetCurrentScreen());
+	lua_setglobal(L, "GetCurrentScreen()");
 
 #ifdef JA2UB
 	//old

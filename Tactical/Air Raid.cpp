@@ -250,7 +250,7 @@ BOOLEAN BeginAirRaid( )
 
 		if (	gAirRaidDef.sSectorX != gWorldSectorX ||
 				gAirRaidDef.sSectorY != gWorldSectorY ||
-				gAirRaidDef.sSectorZ != gbWorldSectorZ || guiCurrentScreen == MAP_SCREEN )
+				gAirRaidDef.sSectorZ != gbWorldSectorZ || GetCurrentScreen() == MAP_SCREEN )
 		{
 			// sector not loaded
 			// Set flag for handling raid....

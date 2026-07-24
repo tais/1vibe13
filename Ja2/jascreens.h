@@ -158,7 +158,7 @@ void HandleTitleScreenAnimation();
 
 //External Globals
 extern CHAR8					gubFilename[ 200 ];
-extern UINT32				guiCurrentScreen;
+UINT32 GetCurrentScreen();
 
 typedef void (*RENDER_HOOK)( void );
 

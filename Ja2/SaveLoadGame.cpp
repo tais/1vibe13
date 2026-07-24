@@ -2635,19 +2635,19 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	//
 
 	//if we are in the game screen
-	if( guiCurrentScreen == GAME_SCREEN )
+	if( GetCurrentScreen() == GAME_SCREEN )
 	{
 		SetRenderFlags( RENDER_FLAG_FULL );
 	}
 
-	else if( guiCurrentScreen == MAP_SCREEN )
+	else if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		fMapPanelDirty = TRUE;
 		fTeamPanelDirty = TRUE;
 		fCharacterInfoPanelDirty = TRUE;
 	}
 
-	else if( guiCurrentScreen == SAVE_LOAD_SCREEN )
+	else if( GetCurrentScreen() == SAVE_LOAD_SCREEN )
 	{
 		gfRedrawSaveLoadScreen = TRUE;
 	}
@@ -8875,7 +8875,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 void PauseBeforeSaveGame( void )
 {
 	//if we are not in the save load screen
-	if( guiCurrentScreen != SAVE_LOAD_SCREEN )
+	if( GetCurrentScreen() != SAVE_LOAD_SCREEN )
 	{
 		//Pause the game
 		PauseGame();
@@ -8885,7 +8885,7 @@ void PauseBeforeSaveGame( void )
 void UnPauseAfterSaveGame( void )
 {
 	//if we are not in the save load screen
-	if( guiCurrentScreen != SAVE_LOAD_SCREEN )
+	if( GetCurrentScreen() != SAVE_LOAD_SCREEN )
 	{
 		//UnPause time compression
 		UnPauseGame();

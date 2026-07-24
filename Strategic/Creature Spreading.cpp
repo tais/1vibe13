@@ -327,7 +327,7 @@ void InitCreatureQuest()
 	}
 
 	#ifdef JA2BETAVERSION
-	if( guiCurrentScreen != AIVIEWER_SCREEN )
+	if( GetCurrentScreen() != AIVIEWER_SCREEN )
 	{
 		fPlayMeanwhile = TRUE;
 	}
@@ -409,7 +409,7 @@ void InitCreatureQuest()
 	}
 
 	#ifdef JA2BETAVERSION
-	if( guiCurrentScreen == AIVIEWER_SCREEN )
+	if( GetCurrentScreen() == AIVIEWER_SCREEN )
 	{ //If in the AIViewer, allow any mine to get infected
 		memset( fMineInfectible, 1, sizeof( BOOLEAN ) * NUMBER_OF_INFECTIBLE_SITES );
 	}
@@ -1181,7 +1181,7 @@ void CreatureAttackTown( UINT8 ubSectorID, BOOLEAN fOverrideTest )
 		{
 			//This is the currently loaded sector.	All we have to do is change the music and insert
 			//the creatures tactically.
-			if( guiCurrentScreen == GAME_SCREEN )
+			if( GetCurrentScreen() == GAME_SCREEN )
 			{
 				gubCreatureBattleCode = CREATURE_BATTLE_CODE_TACTICALLYADD;
 			}
@@ -1363,7 +1363,7 @@ void CreatureAttackTown_OtherCreatures( UINT8 ubSectorID, UINT8 ubType )
 		{
 			//This is the currently loaded sector.	All we have to do is change the music and insert
 			//the creatures tactically.
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				gubCreatureBattleCode = CREATURE_BATTLE_CODE_TACTICALLYADD;
 			}

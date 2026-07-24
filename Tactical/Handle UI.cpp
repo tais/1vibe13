@@ -1344,7 +1344,7 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		//if( FileExists( "..\\AutoSave.pls" ) && CanGameBeSaved() )
 		if (GetGameContext().settings().fOptions[TOPTION_USE_AUTO_SAVE] == TRUE && CanGameBeSaved() )
 		{
-			SetOptionsPreviousScreen(guiCurrentScreen);
+			SetOptionsPreviousScreen(GetCurrentScreen());
 
 			//increment end turn number
 			++guiLastSaveGameNum;
@@ -6512,7 +6512,7 @@ BOOLEAN HandleTalkInit(	)
 			}
 
 			// If Q on, turn off.....
-			if ( guiCurrentScreen == DEBUG_SCREEN )
+			if ( GetCurrentScreen() == DEBUG_SCREEN )
 			{
 				gfExitDebugScreen = TRUE;
 			}

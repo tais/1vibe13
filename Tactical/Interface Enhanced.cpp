@@ -70,7 +70,7 @@ UINT8 UsingEDBSystem()
 
 	if(gGameSettings.fOptions[ TOPTION_ENHANCED_DESC_BOX ] == TRUE)
 	{
-		if(guiCurrentScreen == MAP_SCREEN)	//Strategic
+		if(GetCurrentScreen() == MAP_SCREEN)	//Strategic
 		{
 			if(gGameExternalOptions.iEnhancedDescriptionBox == 0 || gGameExternalOptions.iEnhancedDescriptionBox == 1 )
 				return 1;
@@ -112,7 +112,7 @@ void InitEDBCoords(OBJECTTYPE * pObject)
 			UDBOffsetY += sNASYCorrection(pObject);
 		}
 		// If no NAS, adjust tactical screen coordinates separately.
-		if (guiCurrentScreen != MAP_SCREEN)
+		if (GetCurrentScreen() != MAP_SCREEN)
 		{
 			UDBOffsetX += 224;
 			UDBOffsetY += -114;
@@ -125,7 +125,7 @@ void InitEDBCoords(OBJECTTYPE * pObject)
 		///////////////////////////////////////////////////////////
 		// HEADROCK HAM 4: UDB LBE background coordinates
 		// These depend on Strategic/Tactical...
-		if (guiCurrentScreen == MAP_SCREEN)
+		if (GetCurrentScreen() == MAP_SCREEN)
 		{
 			gItemDescLBEBackground[0].sLeft = 58 + UDBOffsetX;	gItemDescLBEBackground[0].sTop = 366 + UDBOffsetY;
 			gItemDescLBEBackground[1].sLeft = 15 + UDBOffsetX;	gItemDescLBEBackground[1].sTop = 416 + UDBOffsetY;
@@ -478,7 +478,7 @@ void InitEDBCoords(OBJECTTYPE * pObject)
 		///////////////////////////////////////////////////////////
 		// HEADROCK HAM 4: UDB LBE background coordinates
 		// These depend on Strategic/Tactical...
-		if (guiCurrentScreen == MAP_SCREEN)
+		if (GetCurrentScreen() == MAP_SCREEN)
 		{
 			INT16 sOffsetY = sNASYCorrection( pObject );
 
@@ -686,7 +686,7 @@ void InitDescStatCoords(OBJECTTYPE *pObject)
 {	
 	std::vector<UINT16>	usAttachmentSlotIndexVector = GetItemSlots(pObject);
 	memset(gItemDescAttachmentsXY, 0, MAX_ATTACHMENTS);
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{	
 		//WarmSteel - If we're using the new attachment system and the item in question does not have an empty attachment list.
 		if(UsingNewAttachmentSystem()==true && !usAttachmentSlotIndexVector.empty() && UseNASDesc(pObject))
@@ -743,7 +743,7 @@ void InitDescStatCoords(OBJECTTYPE *pObject)
 
 void InitLBECoords()
 {
-	if(guiCurrentScreen ==MAP_SCREEN)	//Strategic
+	if(GetCurrentScreen() ==MAP_SCREEN)	//Strategic
 	{
 		if(UsingEDBSystem() > 0)
 		{
@@ -1085,7 +1085,7 @@ void InitItemDescriptionBoxOffsets(OBJECTTYPE * pObject)
 		INT16 sX = gsInvDescX + sNASXCorrection(pObject);
 
 		// Initiate variables for Enhanced Item Description Box system
-		if(guiCurrentScreen ==MAP_SCREEN)	//Strategic
+		if(GetCurrentScreen() ==MAP_SCREEN)	//Strategic
 		{
 			if(UsingEDBSystem() > 0)
 			{
@@ -1231,7 +1231,7 @@ void InitItemDescriptionBoxOffsets(OBJECTTYPE * pObject)
 		INT16 sX = gsInvDescX;
 
 		// Initiate variables for Enhanced Item Description Box system
-		if(guiCurrentScreen ==MAP_SCREEN)	//Strategic
+		if(GetCurrentScreen() ==MAP_SCREEN)	//Strategic
 		{
 			if(UsingEDBSystem() > 0)
 			{
@@ -1362,7 +1362,7 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 			MSYS_RemoveRegion( &gUDBFasthelpRegions[ cnt ]);
 	}
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 		threshold = 13;
 	else
 		threshold = 11;
