@@ -1,5 +1,6 @@
 #include "PackageHost.h"
 
+#include "CampaignPackage.h"
 #include "GameContext.h"
 
 #include <Engine/Core/AssetSource.h>
@@ -585,6 +586,7 @@ PackageKind ParsePackageKind(const std::string& text, bool& valid)
 {
 	const std::string kind = LowerAscii(text);
 	valid = true;
+	if (kind == "campaign") return PackageKind::Campaign;
 	if (kind == "rules") return PackageKind::Rules;
 	if (kind == "extension") return PackageKind::Extension;
 	if (kind == "tool") return PackageKind::Tool;
@@ -703,6 +705,7 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	std::filesystem::path manifestPath;
 	std::filesystem::path assetRoot;
 	std::unique_ptr<DirectoryAssetSource> assets;
+	LegacyCampaignRuntime* campaignRuntime = nullptr;
 	bool active = false;
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
@@ -716,6 +719,10 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	const AssetSource* assetSource() const noexcept override { return assets.get(); }
 	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
+		if (descriptor_.kind == PackageKind::Campaign)
+		{
+			if (!campaignRuntime || !campaignRuntime->bootstrap(phase)) return false;
+		}
 		if (phase != PackageBootstrapPhase::LoadContent) return true;
 		if (!assets) return false;
 		const PackageContentLoadResult loaded = LoadDeclaredPackageContent(
@@ -732,6 +739,8 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	{
 		if (phase == PackageBootstrapPhase::LoadContent)
 			UnloadDeclaredPackageContent(context.localization, context.definitions);
+		if (descriptor_.kind == PackageKind::Campaign && campaignRuntime)
+			campaignRuntime->shutdown(phase);
 	}
 
 private:
@@ -754,7 +763,7 @@ private:
 std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	const std::filesystem::path& packageDirectory,
 	const std::filesystem::path& manifestPath, std::size_t remainingTotalFiles,
-	PackageHostResult& error)
+	LegacyCampaignRuntime* campaignRuntime, PackageHostResult& error)
 {
 	std::error_code filesystemError;
 	const std::uintmax_t manifestBytes = std::filesystem::file_size(manifestPath, filesystemError);
@@ -794,8 +803,12 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	std::string apiText;
 	std::string kindText;
 	std::string assetRootText;
+	std::string campaignFamilyText;
+	const bool hasCampaignFamily =
+		ReadManifestString(properties, L"CAMPAIGN_FAMILY", campaignFamilyText);
 	if (!ReadManifestString(properties, L"MANIFEST_VERSION", schemaText) ||
-		(schemaText != "1" && schemaText != "2" && schemaText != "3") ||
+		(schemaText != "1" && schemaText != "2" &&
+		 schemaText != "3" && schemaText != "4") ||
 		!ReadManifestString(properties, L"ID", id) ||
 		!ReadManifestString(properties, L"VERSION", version) ||
 		!ReadManifestString(properties, L"CONTENT_API", apiText) ||
@@ -803,10 +816,12 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 		!ReadManifestString(properties, L"ASSET_ROOT", assetRootText))
 	{
 		error = Failure(PackageHostError::InvalidManifest,
-			"manifest requires MANIFEST_VERSION=1, 2, or 3, ID, VERSION, CONTENT_API, TYPE, and ASSET_ROOT",
+			"manifest requires MANIFEST_VERSION=1, 2, 3, or 4, ID, VERSION, CONTENT_API, TYPE, and ASSET_ROOT",
 			manifestPath, id);
 		return nullptr;
 	}
+	const unsigned schemaVersion =
+		static_cast<unsigned>(schemaText[0] - '0');
 	if (!IsLowercaseIdentifier(id))
 	{
 		error = Failure(PackageHostError::InvalidManifest,
@@ -832,7 +847,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	if (!kindValid)
 	{
 		error = Failure(PackageHostError::InvalidManifest,
-			"data package TYPE must be rules, extension, or tool", manifestPath, id);
+			"data package TYPE must be campaign, rules, extension, or tool",
+			manifestPath, id);
 		return nullptr;
 	}
 
@@ -904,6 +920,51 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 		!ReadDefinitionSourceList(properties, definitionSources,
 			manifestPath, id, error))
 		return nullptr;
+
+	if (kind == PackageKind::Campaign)
+	{
+		const std::string family = LowerAscii(campaignFamilyText);
+		const char* providedCapability = nullptr;
+		const char* requiredHostCapability = nullptr;
+		if (family == "ja2")
+		{
+			providedCapability = GameCapability::CampaignArulco;
+			requiredHostCapability = GameCapability::HostCampaignArulco;
+		}
+		else if (family == "unfinished-business")
+		{
+			providedCapability = GameCapability::CampaignUnfinishedBusiness;
+			requiredHostCapability = GameCapability::HostCampaignUnfinishedBusiness;
+		}
+		if (schemaVersion != 4 || api.major != PackageCampaignContentApiVersion.major ||
+			api.minor < PackageCampaignContentApiVersion.minor ||
+			!hasCampaignFamily || !providedCapability)
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"data campaigns need MANIFEST_VERSION=4, CONTENT_API 1.5 or newer, and CAMPAIGN_FAMILY=ja2 or unfinished-business",
+				manifestPath, id);
+			return nullptr;
+		}
+		if (std::find(capabilities.begin(), capabilities.end(), providedCapability) !=
+				capabilities.end() ||
+			std::find(requiredCapabilities.begin(), requiredCapabilities.end(),
+				requiredHostCapability) != requiredCapabilities.end())
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"CAMPAIGN_FAMILY capabilities are host-managed and must not be repeated",
+				manifestPath, id);
+			return nullptr;
+		}
+		capabilities.push_back(providedCapability);
+		requiredCapabilities.push_back(requiredHostCapability);
+	}
+	else if (hasCampaignFamily)
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"CAMPAIGN_FAMILY is valid only for TYPE=campaign", manifestPath, id);
+		return nullptr;
+	}
+
 	if (localizationSources.size() + definitionSources.size() >
 		MaximumDeclaredContentSources)
 	{
@@ -919,8 +980,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	}
 	const bool hasPolicy = !optionalRequirements.empty() || !conflicts.empty() ||
 		!loadAfter.empty() || !capabilities.empty() || !requiredCapabilities.empty();
-	if ((schemaText == "1" && hasPolicy) ||
-		((schemaText == "2" || schemaText == "3") &&
+	if ((schemaVersion < 2 && hasPolicy) ||
+		(schemaVersion >= 2 &&
 			(api.major != PackagePolicyContentApiVersion.major ||
 			api.minor < PackagePolicyContentApiVersion.minor)))
 	{
@@ -929,13 +990,22 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 			manifestPath, id);
 		return nullptr;
 	}
-	if (((!localizationSources.empty() || !definitionSources.empty()) && schemaText != "3") ||
-		(schemaText == "3" &&
+	if (((!localizationSources.empty() || !definitionSources.empty()) && schemaVersion < 3) ||
+		(schemaVersion >= 3 &&
 			(api.major != PackageDeclaredContentApiVersion.major ||
 			 api.minor < PackageDeclaredContentApiVersion.minor)))
 	{
 		error = Failure(PackageHostError::InvalidManifest,
-			"Data Package v3 declared content needs MANIFEST_VERSION=3 and CONTENT_API 1.4 or newer",
+			"declared content needs MANIFEST_VERSION=3 or newer and CONTENT_API 1.4 or newer",
+			manifestPath, id);
+		return nullptr;
+	}
+	if (schemaVersion >= 4 &&
+		(api.major != PackageCampaignContentApiVersion.major ||
+		 api.minor < PackageCampaignContentApiVersion.minor))
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"Data Package v4 needs MANIFEST_VERSION=4 and CONTENT_API 1.5 or newer",
 			manifestPath, id);
 		return nullptr;
 	}
@@ -954,6 +1024,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	package->manifestPath = manifestPath;
 	package->assetRoot = canonicalAssetRoot;
 	package->assets = std::move(assets);
+	package->campaignRuntime = kind == PackageKind::Campaign
+		? campaignRuntime : nullptr;
 	return package;
 }
 
@@ -1023,13 +1095,50 @@ PackageStartupOptions ReadPackageStartupOptions(
 	return options;
 }
 
-PackageHost::PackageHost() = default;
+PackageHost::PackageHost(LegacyCampaignRuntime* campaignRuntime)
+	: campaignRuntime_(campaignRuntime)
+{
+}
 PackageHost::~PackageHost() = default;
 
 PackageHostResult PackageHost::initialize(PackageRegistry& registry,
-	const PackageStartupOptions& options, PackageAssetMounter& mounter)
+	const PackageStartupOptions& options, PackageAssetMounter& mounter,
+	const std::string& fallbackCampaignId)
 {
-	if (!options.enabled) return PackageHostResult{};
+	if (!options.enabled)
+	{
+		if (fallbackCampaignId.empty()) return PackageHostResult{};
+		PackageHostResult result;
+		try
+		{
+			PackageActivationResult activation =
+				registry.activateAll({fallbackCampaignId});
+			if (!activation)
+			{
+				result.error = PackageHostError::ActivationFailed;
+				result.packageId = activation.packageId;
+				result.diagnosticPath = std::move(activation.diagnosticPath);
+				result.message = "default campaign activation failed with code " +
+					std::to_string(static_cast<int>(activation.error));
+				return result;
+			}
+			result.activated = std::move(activation.activated);
+			return result;
+		}
+		catch (const std::exception& exception)
+		{
+			result.error = PackageHostError::ActivationFailed;
+			result.message = "default campaign activation threw: " +
+				std::string(exception.what());
+			return result;
+		}
+		catch (...)
+		{
+			result.error = PackageHostError::ActivationFailed;
+			result.message = "default campaign activation threw an unknown exception";
+			return result;
+		}
+	}
 	if (attempted_)
 		return Failure(PackageHostError::AlreadyInitialized,
 			"startup package host has already been initialized");
@@ -1156,7 +1265,8 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 			PackageHostResult manifestError;
 			std::unique_ptr<OwnedPackage> package =
 				readPackageManifest(packageDirectory, manifest,
-					MaximumTotalIndexedFiles - indexedFiles, manifestError);
+					MaximumTotalIndexedFiles - indexedFiles,
+					campaignRuntime_, manifestError);
 			if (!package) return manifestError;
 			indexedFiles += package->assets->fileCount();
 			const std::string& id = package->descriptor_.content.id;
@@ -1274,46 +1384,86 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 
 	PackageHostResult result;
 	result.discovered = discoveredIds_;
-	if (options.selected.empty())
+	std::vector<std::string> requested = options.selected;
+	if (requested.empty() && fallbackCampaignId.empty())
 	{
 		registeredIds_ = registeredIds;
 		attempt.retain = true;
 		return result;
 	}
+	if (requested.empty()) requested.push_back(fallbackCampaignId);
+
 	PackageActivationPlan plan;
-	try
+	auto resolvePlan = [&](const std::vector<std::string>& roots) -> bool
 	{
-		plan = registry.resolveActivation(options.selected);
-	}
-	catch (const std::exception& exception)
-	{
-		result.error = PackageHostError::ResolutionFailed;
-		result.message = "package dependency resolution threw: " +
-			std::string(exception.what());
-		rollbackStartup(result, {});
-		return result;
-	}
-	catch (...)
-	{
-		result.error = PackageHostError::ResolutionFailed;
-		result.message = "package dependency resolution threw an unknown exception";
-		rollbackStartup(result, {});
-		return result;
-	}
-	if (!plan)
-	{
+		try
+		{
+			plan = registry.resolveActivation(roots);
+		}
+		catch (const std::exception& exception)
+		{
+			result.error = PackageHostError::ResolutionFailed;
+			result.message = "package dependency resolution threw: " +
+				std::string(exception.what());
+			return false;
+		}
+		catch (...)
+		{
+			result.error = PackageHostError::ResolutionFailed;
+			result.message = "package dependency resolution threw an unknown exception";
+			return false;
+		}
+		if (plan) return true;
 		result.error = PackageHostError::ResolutionFailed;
 		result.packageId = plan.packageId;
 		result.diagnosticPath = plan.diagnosticPath;
 		result.message = "package dependency resolution failed with code " +
 			std::to_string(static_cast<int>(plan.error));
+		return false;
+	};
+	if (!resolvePlan(requested))
+	{
 		rollbackStartup(result, {});
 		return result;
+	}
+	if (!options.selected.empty() && !fallbackCampaignId.empty())
+	{
+		const PackageCatalogSnapshot catalog = registry.catalog();
+		bool campaignSelected = false;
+		for (const std::string& id : plan.order)
+		{
+			const PackageCatalogEntry* entry = catalog.find(id);
+			if (entry && entry->descriptor.kind == PackageKind::Campaign)
+			{
+				campaignSelected = true;
+				break;
+			}
+		}
+		if (!campaignSelected)
+		{
+			requested.insert(requested.begin(), fallbackCampaignId);
+			if (!resolvePlan(requested))
+			{
+				rollbackStartup(result, {});
+				return result;
+			}
+		}
 	}
 	for (const std::string& id : plan.order)
 	{
 		const auto package = packagesById.find(id);
 		if (package == packagesById.end()) continue;
+		if (package->second->descriptor_.kind == PackageKind::Campaign &&
+			!package->second->campaignRuntime)
+		{
+			result.error = PackageHostError::ActivationFailed;
+			result.packageId = id;
+			result.path = package->second->manifestPath;
+			result.message =
+				"the application host has no campaign bootstrap runtime";
+			rollbackStartup(result, {});
+			return result;
+		}
 		std::string mountError;
 		bool readyToMount = false;
 		try
@@ -1342,7 +1492,7 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 	PackageActivationResult activation;
 	try
 	{
-		activation = registry.activateAll(options.selected);
+		activation = registry.activateAll(requested);
 	}
 	catch (const std::exception& exception)
 	{
@@ -1497,17 +1647,19 @@ PackageHostShutdownResult PackageHost::shutdown(
 
 PackageHost& GetStartupPackageHost()
 {
-	static PackageHost host;
+	static PackageHost host(&GetCompiledCampaignRuntime());
 	return host;
 }
 
 PackageHostResult InitializeStartupDataPackages(const PackageStartupOptions& options)
 {
-	if (!options.enabled) return PackageHostResult{};
 	VfsPackageAssetMounter mounter;
 	GameContext& game = GetGameContext();
+	const std::string& fallbackCampaignId =
+		GetCompiledCampaignPackage().descriptor().content.id;
 	PackageHostResult result =
-		GetStartupPackageHost().initialize(game.packages(), options, mounter);
+		GetStartupPackageHost().initialize(
+			game.packages(), options, mounter, fallbackCampaignId);
 	if (result)
 	{
 		game.log().write(LogRecord{LogSeverity::Info, "packages",

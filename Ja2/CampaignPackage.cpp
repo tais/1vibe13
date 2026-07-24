@@ -66,7 +66,7 @@ LegacyCampaignPackage::LegacyCampaignPackage(GameCapabilities capabilities)
 
 LegacyCampaignPackage::LegacyCampaignPackage(GameCapabilities capabilities,
 	LegacyCampaignBootstrapHooks& bootstrapHooks)
-	: capabilities_(capabilities),
+	: runtime_(capabilities, bootstrapHooks),
 	  descriptor_{
 		ContentManifest{
 			capabilities.isUnfinishedBusiness() ? "ja2.unfinished-business" : "ja2.arulco",
@@ -77,8 +77,7 @@ LegacyCampaignPackage::LegacyCampaignPackage(GameCapabilities capabilities,
 		{capabilities.isUnfinishedBusiness()
 			? GameCapability::CampaignUnfinishedBusiness
 			: GameCapability::CampaignArulco}
-	  },
-	  bootstrapHooks_(bootstrapHooks)
+	  }
 {
 }
 
@@ -96,6 +95,28 @@ void LegacyCampaignPackage::deactivate() noexcept
 
 bool LegacyCampaignPackage::bootstrap(
 	PackageBootstrapContext&, PackageBootstrapPhase phase)
+{
+	return runtime_.bootstrap(phase);
+}
+
+void LegacyCampaignPackage::shutdown(
+	PackageBootstrapContext&, PackageBootstrapPhase phase)
+{
+	runtime_.shutdown(phase);
+}
+
+void LegacyCampaignPackage::rethrowBootstrapFailure()
+{
+	runtime_.rethrowBootstrapFailure();
+}
+
+LegacyCampaignRuntime::LegacyCampaignRuntime(
+	GameCapabilities capabilities, LegacyCampaignBootstrapHooks& bootstrapHooks)
+	: capabilities_(capabilities), bootstrapHooks_(bootstrapHooks)
+{
+}
+
+bool LegacyCampaignRuntime::bootstrap(PackageBootstrapPhase phase)
 {
 	switch (phase)
 	{
@@ -137,15 +158,14 @@ bool LegacyCampaignPackage::bootstrap(
 	return false;
 }
 
-void LegacyCampaignPackage::shutdown(
-	PackageBootstrapContext&, PackageBootstrapPhase)
+void LegacyCampaignRuntime::shutdown(PackageBootstrapPhase)
 {
 	// Legacy gameplay tables, text, grids, and Lua globals are process-lifetime
 	// state. The package owns their startup order but intentionally does not
 	// pretend they can be hot-unloaded during lifecycle rollback/shutdown.
 }
 
-void LegacyCampaignPackage::rethrowBootstrapFailure()
+void LegacyCampaignRuntime::rethrowBootstrapFailure()
 {
 	if (!bootstrapFailure_) return;
 	const std::exception_ptr failure = bootstrapFailure_;
@@ -157,4 +177,9 @@ LegacyCampaignPackage& GetCompiledCampaignPackage()
 {
 	static LegacyCampaignPackage package(GetCompiledGameCapabilities());
 	return package;
+}
+
+LegacyCampaignRuntime& GetCompiledCampaignRuntime()
+{
+	return GetCompiledCampaignPackage().runtime();
 }

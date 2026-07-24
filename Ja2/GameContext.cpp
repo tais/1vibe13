@@ -27,12 +27,11 @@
 
 GameContext& GetGameContext()
 {
-	// External package objects are non-owningly referenced by GameContext's
-	// registry. Construct their application owner first so it is destroyed last.
-	(void)GetStartupPackageHost();
-	// Construct the application-owned package first so it also outlives the
-	// registry's non-owning package and asset references during static teardown.
+	// The compiled fallback owns the shared campaign runtime. Construct it
+	// before the external host, then construct both before the registry that
+	// non-owningly references their package objects.
 	(void)GetCompiledCampaignPackage();
+	(void)GetStartupPackageHost();
 	// The command host receives lifecycle events from this context, so construct
 	// its application owner first and destroy it after the runtime registry.
 	PackageEventSink& packageEvents = GetJa2TacticalCommandPackageEventSink();
@@ -165,12 +164,12 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)screenRegistrationReported;
-	static const bool packageActivated = [] {
+	static const bool packageRegistered = [] {
 		LegacyCampaignPackage& package = GetCompiledCampaignPackage();
 		GameContext& game = context;
-		return game.packages().registerPackage(package) == PackageRegistrationError::None &&
-			game.packages().activate(package.descriptor().content.id) == PackageActivationError::None;
+		return game.packages().registerPackage(package) ==
+			PackageRegistrationError::None;
 	}();
-	(void)packageActivated;
+	(void)packageRegistered;
 	return context;
 }

@@ -2709,13 +2709,21 @@ int main( int, char** )
 		GameContext& compiledContext = GetGameContext();
 		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
 		const std::string& packageId = compiledPackage.descriptor().content.id;
-		CHECK( compiledContext.packages().activeCampaign() == packageId &&
+		const bool fallbackSelectionDeferred =
+			compiledContext.packages().activeCampaign().empty() &&
+			compiledContext.packages().find( packageId ) != nullptr &&
+			!compiledPackage.active();
+		const PackageActivationError fallbackActivated =
+			compiledContext.packages().activate( packageId );
+		CHECK( fallbackSelectionDeferred &&
+		       fallbackActivated == PackageActivationError::None &&
+		       compiledContext.packages().activeCampaign() == packageId &&
 		       compiledContext.packages().isActive( packageId ) && compiledPackage.active() &&
 		       compiledContext.hasCapability(
 		           compiledContext.capabilities().isUnfinishedBusiness()
 		               ? GameCapability::CampaignUnfinishedBusiness
 		               : GameCapability::CampaignArulco ),
-		       "legacy compiled campaign is bound through the runtime package registry" );
+		       "the registered legacy campaign remains the deferred startup fallback" );
 		CHECK( compiledPackage.capabilities().campaign == compiledContext.capabilities().campaign,
 		       "campaign adapter preserves the compiled JA2 or UB compatibility default" );
 		CHECK( compiledContext.stateRegistry().size() == MAX_SCREENS &&
@@ -4612,6 +4620,238 @@ int main( int, char** )
 		CHECK( requiredMetadata == SaveCompatibilityPolicy::RequireMetadata &&
 		       ignored == SaveCompatibilityPolicy::Ignore && configuredSaveCompatibility,
 		       "save compatibility policy supports INI defaults and explicit CLI overrides" );
+	}
+
+	{
+		TestLifecyclePackage fallbackCampaign(
+			"fixture.default-campaign", PackageKind::Campaign, -1, nullptr, {},
+			"1.0", { GameCapability::CampaignArulco } );
+		EngineRuntime<unsigned> runtime;
+		PackageHost host;
+		RecordingPackageAssetMounter mounter;
+		PackageStartupOptions disabled;
+		const bool registered =
+			runtime.packages().registerPackage( fallbackCampaign ) ==
+				PackageRegistrationError::None;
+		const PackageHostResult selected = host.initialize(
+			runtime.packages(), disabled, mounter,
+			fallbackCampaign.descriptor().content.id );
+		CHECK( registered && selected &&
+		       selected.activated == std::vector<std::string>({
+		           "fixture.default-campaign" }) &&
+		       runtime.packages().activeCampaign() == "fixture.default-campaign" &&
+		       !host.attempted() && mounter.preflighted.empty() &&
+		       mounter.mounted.empty(),
+		       "disabled discovery still selects the registered built-in campaign fallback" );
+		runtime.packages().deactivate( "fixture.default-campaign" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		TestLifecyclePackage fallbackCampaign(
+			"fixture.default-campaign", PackageKind::Campaign, -1, nullptr, {},
+			"1.0", { GameCapability::CampaignArulco } );
+		EngineRuntime<unsigned> runtime;
+		PackageHost host;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady =
+			AddPackageFixture( fixture, "extension", "fixture.with-default" ) &&
+			runtime.packages().registerPackage( fallbackCampaign ) ==
+				PackageRegistrationError::None;
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.with-default" };
+		PackageHostResult result;
+		if ( fixtureReady )
+			result = host.initialize(
+				runtime.packages(), options, mounter,
+				fallbackCampaign.descriptor().content.id );
+		CHECK( fixtureReady && result &&
+		       result.activated == std::vector<std::string>({
+		           "fixture.default-campaign", "fixture.with-default" }) &&
+		       runtime.packages().activeCampaign() == "fixture.default-campaign" &&
+		       mounter.preflighted == std::vector<std::string>({
+		           "fixture.with-default" }) &&
+		       mounter.mounted == mounter.preflighted,
+		       "an extension-only selection composes over the deferred built-in campaign" );
+		const PackageHostShutdownResult shutdown =
+			host.shutdown( runtime.packages(), mounter );
+		CHECK( shutdown && runtime.packages().find( "fixture.with-default" ) == nullptr &&
+		       runtime.packages().find( "fixture.default-campaign" ) != nullptr &&
+		       runtime.packages().activeCampaign().empty(),
+		       "package-host teardown removes external packages but preserves the registered fallback" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		TestCampaignBootstrapHooks hooks;
+		LegacyCampaignRuntime campaignRuntime( GameCapabilities{}, hooks );
+		PackageHost host( &campaignRuntime );
+		TestLifecyclePackage fallbackCampaign(
+			"fixture.default-campaign", PackageKind::Campaign, -1, nullptr, {},
+			"1.0", { GameCapability::CampaignArulco } );
+		EngineHostOptions hostOptions;
+		hostOptions.hostCapabilities.add( GameCapability::HostCampaignArulco );
+		EngineRuntime<unsigned> runtime( hostOptions );
+		RecordingPackageAssetMounter mounter;
+		const std::string manifest =
+			"[Package]\n"
+			"MANIFEST_VERSION = 4\n"
+			"ID = fixture.total-conversion\n"
+			"VERSION = 1.0.0\n"
+			"CONTENT_API = 1.5\n"
+			"TYPE = campaign\n"
+			"CAMPAIGN_FAMILY = ja2\n"
+			"ASSET_ROOT = Data\n"
+			"LOCALIZATION = en@Localization/campaign.lang\n";
+		const bool fixtureReady =
+			fixture.write( "campaign/package.ini", manifest ) &&
+			fixture.write( "campaign/Data/Localization/campaign.lang",
+				"JA2-LOCALIZATION 1\ncampaign.name = Total Conversion\n" ) &&
+			runtime.packages().registerPackage( fallbackCampaign ) ==
+				PackageRegistrationError::None;
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.total-conversion" };
+		PackageHostResult result;
+		if ( fixtureReady )
+			result = host.initialize(
+				runtime.packages(), options, mounter,
+				fallbackCampaign.descriptor().content.id );
+		const RuntimeSessionAdvanceResult started =
+			result ? runtime.runtimeSession().advancePackagesTo(
+				PackageBootstrapPhase::StartRuntime ) : RuntimeSessionAdvanceResult{};
+		const PackageCatalogSnapshot campaignCatalog = runtime.packageCatalog();
+		const PackageCatalogEntry* campaign =
+			campaignCatalog.find( "fixture.total-conversion" );
+		const LocalizedTextView campaignName =
+			runtime.localization().resolve( "en", "campaign.name" );
+		CHECK( fixtureReady && result && started &&
+		       result.activated == std::vector<std::string>({
+		           "fixture.total-conversion" }) &&
+		       runtime.packages().activeCampaign() == "fixture.total-conversion" &&
+		       !fallbackCampaign.active() &&
+		       mounter.preflighted == result.activated &&
+		       mounter.mounted == result.activated && campaign &&
+		       campaign->descriptor.kind == PackageKind::Campaign &&
+		       campaign->descriptor.content.requiredApi.minor == 5 &&
+		       campaign->descriptor.capabilities == std::vector<std::string>({
+		           GameCapability::CampaignArulco }) &&
+		       campaign->descriptor.requiredCapabilities == std::vector<std::string>({
+		           GameCapability::HostCampaignArulco }) &&
+		       hooks.contentCampaigns == std::vector<GameCampaign>({
+		           GameCampaign::Arulco }) &&
+		       hooks.runtimeCampaigns == std::vector<GameCampaign>({
+		           GameCampaign::Arulco }) &&
+		       campaignName && *campaignName.text == "Total Conversion",
+		       "Data Package v4 selects and boots a first-class external campaign" );
+		runtime.packageLifecycle().shutdown();
+		const PackageHostShutdownResult shutdown =
+			host.shutdown( runtime.packages(), mounter );
+		CHECK( shutdown && runtime.packages().find( "fixture.total-conversion" ) == nullptr &&
+		       runtime.packages().find( "fixture.default-campaign" ) != nullptr &&
+		       runtime.localization().size() == 0,
+		       "external campaign teardown preserves fallback ownership and removes declared content" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		TestCampaignBootstrapHooks hooks;
+		LegacyCampaignRuntime campaignRuntime( GameCapabilities{}, hooks );
+		PackageHost host( &campaignRuntime );
+		EngineHostOptions hostOptions;
+		hostOptions.hostCapabilities.add( GameCapability::HostCampaignArulco );
+		EngineRuntime<unsigned> runtime( hostOptions );
+		RecordingPackageAssetMounter mounter;
+		const std::string manifest =
+			"[Package]\n"
+			"MANIFEST_VERSION = 4\n"
+			"ID = fixture.wrong-family\n"
+			"VERSION = 1.0.0\n"
+			"CONTENT_API = 1.5\n"
+			"TYPE = campaign\n"
+			"CAMPAIGN_FAMILY = unfinished-business\n"
+			"ASSET_ROOT = Data\n";
+		const bool fixtureReady =
+			fixture.write( "wrong-family/package.ini", manifest ) &&
+			fixture.makeDirectory( "wrong-family/Data" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.wrong-family" };
+		PackageHostResult result;
+		if ( fixtureReady )
+			result = host.initialize( runtime.packages(), options, mounter );
+		const RuntimeSessionAdvanceResult configured =
+			result ? runtime.runtimeSession().advancePackagesTo(
+				PackageBootstrapPhase::Configure ) : RuntimeSessionAdvanceResult{};
+		CHECK( fixtureReady && result && !configured &&
+		       configured.error == RuntimeSessionError::PackageBootstrapFailed &&
+		       hooks.contentCampaigns.empty() && hooks.runtimeCampaigns.empty() &&
+		       runtime.packages().completedBootstrapPhases() == 0,
+		       "a campaign for another binary family fails before legacy bootstrap" );
+		host.shutdown( runtime.packages(), mounter );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady =
+			fixture.makeDirectory( "old-campaign/Data" ) &&
+			fixture.write( "old-campaign/package.ini",
+				"[Package]\n"
+				"MANIFEST_VERSION = 3\n"
+				"ID = fixture.old-campaign\n"
+				"VERSION = 1.0.0\n"
+				"CONTENT_API = 1.4\n"
+				"TYPE = campaign\n"
+				"CAMPAIGN_FAMILY = ja2\n"
+				"ASSET_ROOT = Data\n" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.old-campaign" };
+		PackageHostResult result;
+		if ( fixtureReady )
+			result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::InvalidManifest &&
+		       result.packageId == "fixture.old-campaign" &&
+		       runtime.packageCatalog().packages.empty(),
+		       "older manifests cannot silently opt into selectable campaigns" );
+	}
+
+	{
+		ScopedPackageFixture fixture;
+		PackageHost host;
+		EngineRuntime<unsigned> runtime;
+		RecordingPackageAssetMounter mounter;
+		const bool fixtureReady =
+			fixture.makeDirectory( "campaign-without-host/Data" ) &&
+			fixture.write( "campaign-without-host/package.ini",
+				"[Package]\n"
+				"MANIFEST_VERSION = 4\n"
+				"ID = fixture.campaign-without-host\n"
+				"VERSION = 1.0.0\n"
+				"CONTENT_API = 1.5\n"
+				"TYPE = campaign\n"
+				"CAMPAIGN_FAMILY = ja2\n"
+				"ASSET_ROOT = Data\n" );
+		PackageStartupOptions options;
+		options.enabled = true;
+		options.roots = { fixture.root() };
+		options.selected = { "fixture.campaign-without-host" };
+		PackageHostResult result;
+		if ( fixtureReady )
+			result = host.initialize( runtime.packages(), options, mounter );
+		CHECK( fixtureReady && result.error == PackageHostError::ActivationFailed &&
+		       result.packageId == "fixture.campaign-without-host" &&
+		       mounter.preflighted.empty() && mounter.mounted.empty() &&
+		       runtime.packageCatalog().packages.empty(),
+		       "a generic data host rejects campaigns before activation without a runtime adapter" );
 	}
 
 	{

@@ -179,6 +179,9 @@ private:
 	static RuntimeCapabilities makeHostCapabilities(GameCapabilities capabilities)
 	{
 		RuntimeCapabilities result;
+		result.add(capabilities.isUnfinishedBusiness()
+			? GameCapability::HostCampaignUnfinishedBusiness
+			: GameCapability::HostCampaignArulco);
 		if (capabilities.isEditor()) result.add(GameCapability::ApplicationMapEditor);
 		return result;
 	}

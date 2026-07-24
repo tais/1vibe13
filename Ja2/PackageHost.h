@@ -13,10 +13,11 @@ class PropertyContainer;
 }
 
 class PackageRegistry;
+class LegacyCampaignRuntime;
 
 // Optional startup configuration. With no package keys or command-line package
-// arguments, enabled remains false and the application follows its legacy VFS
-// and compiled-campaign startup path without performing discovery.
+// arguments, enabled remains false and the application selects its registered
+// built-in campaign fallback without performing discovery.
 struct PackageStartupOptions
 {
 	bool enabled = false;
@@ -90,12 +91,12 @@ public:
 
 // Owns every discovered package and directory asset source at stable addresses
 // for at least as long as the PackageRegistry keeps its non-owning references.
-// Data Package v3 is deliberately startup-only; create a new host to test a new
+// Data Package v4 is deliberately startup-only; create a new host to test a new
 // configuration rather than rescanning or unloading a running game.
 class PackageHost
 {
 public:
-	PackageHost();
+	explicit PackageHost(LegacyCampaignRuntime* campaignRuntime = nullptr);
 	~PackageHost();
 	PackageHost(const PackageHost&) = delete;
 	PackageHost& operator=(const PackageHost&) = delete;
@@ -103,7 +104,8 @@ public:
 	PackageHost& operator=(PackageHost&&) = delete;
 
 	PackageHostResult initialize(PackageRegistry& registry,
-		const PackageStartupOptions& options, PackageAssetMounter& mounter);
+		const PackageStartupOptions& options, PackageAssetMounter& mounter,
+		const std::string& fallbackCampaignId = {});
 	PackageHostShutdownResult shutdown(PackageRegistry& registry,
 		PackageAssetMounter& mounter);
 
@@ -115,13 +117,15 @@ private:
 	static std::unique_ptr<OwnedPackage> readPackageManifest(
 		const std::filesystem::path& packageDirectory,
 		const std::filesystem::path& manifestPath,
-		std::size_t remainingTotalFiles, PackageHostResult& error);
+		std::size_t remainingTotalFiles, LegacyCampaignRuntime* campaignRuntime,
+		PackageHostResult& error);
 
 	std::vector<std::unique_ptr<OwnedPackage>> packages_;
 	std::vector<std::string> discoveredIds_;
 	std::vector<std::string> registeredIds_;
 	std::vector<std::string> activatedIds_;
 	std::vector<std::string> mountedIds_;
+	LegacyCampaignRuntime* campaignRuntime_ = nullptr;
 	bool attempted_ = false;
 };
 
@@ -129,7 +133,8 @@ private:
 // registry during static teardown.
 PackageHost& GetStartupPackageHost();
 
-// Production composition hook. A disabled options object is a strict no-op.
+// Production composition hook. Disabled discovery still selects the registered
+// built-in campaign fallback.
 PackageHostResult InitializeStartupDataPackages(const PackageStartupOptions& options);
 PackageHostShutdownResult ShutdownStartupDataPackages();
 

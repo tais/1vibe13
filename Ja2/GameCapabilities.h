@@ -5,6 +5,9 @@ namespace GameCapability
 {
 constexpr const char* CampaignArulco = "campaign.ja2";
 constexpr const char* CampaignUnfinishedBusiness = "campaign.unfinished-business";
+constexpr const char* HostCampaignArulco = "host.campaign-family.ja2";
+constexpr const char* HostCampaignUnfinishedBusiness =
+	"host.campaign-family.unfinished-business";
 constexpr const char* ApplicationMapEditor = "application.map-editor";
 }
 
