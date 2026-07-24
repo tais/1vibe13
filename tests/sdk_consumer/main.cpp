@@ -1,4 +1,5 @@
 #include <Engine/Adapters/JA2/CommandReplay.h>
+#include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
@@ -187,6 +188,19 @@ int main()
 			90121, 90121, 1, 1, 2} ||
 		&legacyBraceRuntime.campaignClockSession() !=
 			&legacyBraceRuntime.campaignClockSession()) return 49;
+	legacyBraceRuntime.campaignClockSession().restore(
+		externalCampaignClock.snapshot());
+	if (RegisterCampaignClockService(
+			legacyBraceRuntime.serviceCatalog(),
+			legacyBraceRuntime.campaignClockService()) !=
+			EngineServiceRegistrationError::None) return 50;
+	const auto externalCampaignClockService =
+		legacyBraceRuntime.serviceCatalog().resolve(CampaignClockServiceContract);
+	CampaignClockSession::Snapshot capturedCampaignClock;
+	if (!externalCampaignClockService ||
+		externalCampaignClockService.service->capture(capturedCampaignClock) !=
+			CampaignClockCaptureResult::Success ||
+		capturedCampaignClock != externalCampaignClock.snapshot()) return 50;
 
 	MemoryByteStorage storage;
 	MemoryRenderSurfaceAccess renderSurfaces(1024);

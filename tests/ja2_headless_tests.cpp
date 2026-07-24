@@ -2742,6 +2742,16 @@ int main( int, char** )
 		       guiGameClock == committedCampaignClock.totalSeconds &&
 		       guiPreviousGameClock == committedCampaignClock.previousTotalSeconds,
 		       "application campaign-clock gateway keeps runtime ownership and legacy mirrors synchronized" );
+		const auto campaignClockService =
+			compiledContext.serviceCatalog().resolve( CampaignClockServiceContract );
+		CampaignClockSession::Snapshot packageCampaignClock;
+		CHECK( campaignClockService &&
+		       campaignClockService.service ==
+		           &compiledContext.runtime().campaignClockService() &&
+		       campaignClockService.service->capture( packageCampaignClock ) ==
+		           CampaignClockCaptureResult::Success &&
+		       packageCampaignClock == committedCampaignClock,
+		       "application registers its live campaign clock as a read-only package service" );
 		RestoreJa2CampaignClockSession( previousCampaignClock );
 
 		const auto tacticalCommands =
