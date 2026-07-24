@@ -562,6 +562,12 @@ the engine must not contain SDL types in its public domain model.
   adapter; `gTacticalStatus` retains exact readable mirrors for the old game.
   `TacticalWorldService` captures these values without consulting split mutable
   turn globals.
+- `TacticalEntityDirectory` owns the bounded slot/incarnation identity used by
+  commands, observations, and stale-reference rejection while JA2 retains its
+  fixed `SOLDIERTYPE` storage. The host adopts, releases, and swaps pool entries
+  atomically with that directory. Its former exported incarnation counter has
+  been deleted; pre-composition allocations transfer the fallback directory's
+  sequence directly when `EngineRuntime` is bound.
 - `CampaignEventQueue` moves strategic-event allocation, ordering, stable
   identity, capacity, replacement, and destruction into `EngineRuntime`.
   Equal timestamps remain FIFO and legacy `STRATEGICEVENT` callers retain

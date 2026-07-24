@@ -8,8 +8,9 @@
 
 class SOLDIERTYPE;
 
-// Composition and compatibility gateways between the pointer-free runtime
-// directory and JA2's fixed SOLDIERTYPE/MercPtrs pool.
+// Composition gateways between the pointer-free runtime directory and JA2's
+// fixed SOLDIERTYPE/MercPtrs pool. The directory owns the incarnation sequence
+// directly; no independently synchronized counter remains.
 void BindJa2TacticalEntityDirectory(TacticalEntityDirectory& directory) noexcept;
 TacticalEntityDirectory& GetJa2TacticalEntityDirectory() noexcept;
 

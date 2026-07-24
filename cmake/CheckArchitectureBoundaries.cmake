@@ -357,21 +357,17 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
-# The legacy incarnation counter remains an exported compatibility mirror for
-# old modules and save tools. Only the entity host may synchronize it with the
-# runtime-owned allocation sequence.
-set(entity_sequence_owner "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp")
+# TacticalEntityDirectory owns the incarnation sequence directly. The former
+# exported counter was unused outside the host and must not return as a second
+# authority.
 foreach(source_file IN LISTS world_state_files)
-  if("${source_file}" STREQUAL "${entity_sequence_owner}")
-    continue()
-  endif()
   file(READ "${source_file}" contents)
   string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])guiCurrentUniqueSoldierId[ \t\r\n]*(\\+\\+|--|[+*/%-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*guiCurrentUniqueSoldierId([^A-Za-z0-9_]|$)"
-    entity_sequence_write "${contents}")
-  if(entity_sequence_write)
+    "(^|[^A-Za-z0-9_])guiCurrentUniqueSoldierId([^A-Za-z0-9_]|$)"
+    retired_entity_sequence_mirror "${contents}")
+  if(retired_entity_sequence_mirror)
     message(FATAL_ERROR
-      "Production code writes the tactical-entity incarnation compatibility mirror in ${source_file}; route the transition through TacticalEntityHost")
+      "Retired tactical-entity incarnation mirror returned in ${source_file}; use TacticalEntityHost sequence gateways")
   endif()
 endforeach()
 

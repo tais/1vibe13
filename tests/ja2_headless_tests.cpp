@@ -2811,6 +2811,20 @@ int main( int, char** )
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
 
+		const std::uint32_t previousEntityIncarnation =
+			NextJa2TacticalEntityIncarnation();
+		const std::uint32_t issuedEntityIncarnation =
+			IssueJa2TacticalEntityIncarnation();
+		const std::uint32_t nextEntityIncarnation =
+			NextJa2TacticalEntityIncarnation();
+		RestoreJa2TacticalEntityIncarnationSequence(
+			previousEntityIncarnation );
+		CHECK( issuedEntityIncarnation == previousEntityIncarnation &&
+		       nextEntityIncarnation == previousEntityIncarnation + 1 &&
+		       NextJa2TacticalEntityIncarnation() ==
+		           previousEntityIncarnation,
+		       "tactical entity directory exclusively owns its incarnation sequence" );
+
 		const CampaignClockSession::Snapshot previousCampaignClock =
 			CaptureJa2CampaignClock();
 		InitializeJa2CampaignClock( 90061 );
