@@ -708,9 +708,17 @@ below).
    GetCurrentVideoSettings / GetPrimaryRGBDistributionMasks /
    StartFrameBufferRender / EndFrameBufferRender / VideoCaptureToggle /
    PrintScreen / FatalError / EraseMouseCursor /
-   SetMouseCursorProperties / etc. Heap UINT16* buffers behind the
+   SetMouseCursorProperties / etc. Heap native-`PIXEL` buffers behind the
    Lock entry points; `SDL_UpdateTexture` + `RenderTexture` +
-   `RenderPresent` in RefreshScreen.
+   `RenderPresent` in RefreshScreen. `PrintScreen` now writes one
+   logical-resolution PNG per keypress under `Screenshots/`; the old
+   Ctrl+PrintScreen continuous frame dumper remains deliberately retired
+   because it could consume gigabytes in minutes. The legacy cursor-file,
+   object-cursor, visibility, and composite-blit entry points execute real
+   SDL-buffer work rather than returning success without doing anything.
+   Suspend/restore and blit-readiness calls expose the actual SDL buffer
+   lifecycle, and `EndFrameBufferRender` publishes direct legacy writes into
+   the partial-upload damage path.
 2. Same treatment for [sgp/vsurface.cpp](../sgp/vsurface.cpp).
    **Done as [sgp/sdl_vsurface.cpp](../sgp/sdl_vsurface.cpp)**.
    - Pure-C++ pieces (ClipRectangle, SurfaceData registries).
@@ -723,14 +731,23 @@ below).
      DeleteVideoSurfaceFromIndex; Lock/UnLockVideoSurface (dispatches
      PRIMARY/BACK/FRAME/MOUSE to sdl_video.cpp's Lock*Buffer);
      SetVideoSurfaceTransparency / Palette / GetVSurfacePaletteEntries;
-     Region-list helpers.
+     Transactional region-list helpers; transactional
+     video-object-to-surface conversion; clipped surface pixelation. The old
+     DirectDraw multi-rectangle `SetClipList` contract has no SDL equivalent
+     and now fails explicitly instead of pretending that a requested clip was
+     installed.
    - CPU blitters: BltVideoSurfaceToVideoSurface (memcpy + colour-key
      loop), BltVideoSurface (Get + dispatch), BltStretchVideoSurface
      (nearest-neighbour), BltVSurfaceUsingDD (alias to the CPU blit
-     path), ColorFillVideoSurfaceArea (direct rect fill).
-   - Still returning FALSE: ImageFillVideoSurfaceArea (tile-fill),
-     the ShadowVideoSurface* family (alpha shadow blends). These
-     wait for Phase 6's RGB565 blender retirement.
+     path), ColorFillVideoSurfaceArea (direct rect fill). The pointer
+     compatibility path clips source and destination geometry together with
+     overflow-safe arithmetic, retains destination regions, horizontal
+     mirroring, source/destination colour keys, indexed fills, and
+     overlap-safe same-surface copies.
+   - Tile fill, shadow, copy, stretch, shade, and image draw operations now
+     route through the mapped engine render-command boundary. Direct HIMAGE
+     compatibility covers indexed, RGB565, 24-bit RGB TGA, and 32-bit RGBA
+     sources with checked subrect and destination geometry.
 3. ~~Delete [sgp/DirectDraw Calls.cpp](../sgp/DirectDraw%20Calls.cpp),
    [sgp/DirectX Common.cpp](../sgp/DirectX%20Common.cpp),
    [sgp/ddraw.h](../sgp/ddraw.h), `ddraw.lib`.~~ **Done** (Phase 5b
@@ -969,7 +986,8 @@ to the original plan:
    True-colour video objects also normalize the PNG loader's RGBA byte sequence
    once at import into native ARGB plus a separate opacity plane; their clipped
    alpha and shadow draws use the native-pixel backend.
-6. ⏳ Screenshot/TGA writer not yet re-added (minor; tracked separately).
+6. ✅ F12 screenshot output is restored as bounded PNG capture at the
+   logical framebuffer resolution.
 7. ✅ Z-buffer stays `UINT16` (depth, not colour).
 
 **Colour-truncation gotcha (closed).** The migration's main hazard was

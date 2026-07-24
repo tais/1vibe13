@@ -1006,12 +1006,8 @@ UINT32 CountVideoObjectNodes()
 
 BOOLEAN AddStandardVideoObject( VOBJECT_DESC *pVObjectDesc, UINT32 *puiIndex )
 {
-
+	if (!pVObjectDesc || !puiIndex) return FALSE;
 	HVOBJECT hVObject;
-
-	// Assertions
-	Assert( puiIndex );
-	Assert( pVObjectDesc );
 
 	// Create video object
 	hVObject = CreateVideoObject( pVObjectDesc );
@@ -1086,6 +1082,7 @@ BOOLEAN SetVideoObjectTransparency( UINT32 uiIndex, COLORVAL TransColor )
 
 BOOLEAN GetVideoObject( HVOBJECT *hVObject, UINT32 uiIndex )
 {
+	if (!hVObject) return FALSE;
 
 	#ifdef _DEBUG
 		CheckValidVObjectIndex( uiIndex );
@@ -2781,7 +2778,15 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 				hVObject->pShade8=ubColorTables[DEFAULT_SHADE_LEVEL];
 				hVObject->pGlow8=ubColorTables[0];
 
-				SetVideoObjectPalette( hVObject, hImage->pPalette );
+				if (!SetVideoObjectPalette(
+					hVObject, hImage->pPalette))
+				{
+					if (VObjectDesc->fCreateFlags &
+						VOBJECT_CREATE_FROMFILE)
+						DestroyImage(hImage);
+					DeleteVideoObject(hVObject);
+					return NULL;
+				}
 
 			}
 
@@ -2815,50 +2820,70 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 // Palette setting is expensive, need to set both DDPalette and create 16BPP palette
 BOOLEAN SetVideoObjectPalette( HVOBJECT hVObject, SGPPaletteEntry *pSrcPalette )
 {
+	if (!hVObject || !pSrcPalette) return FALSE;
 
-	Assert( hVObject != NULL );
-	Assert( pSrcPalette != NULL );
-
-	// Create palette object if not already done so
-	if ( hVObject->pPaletteEntry == NULL )
+	PIXEL* replacement = nullptr;
+	try
 	{
-		// Create palette
-		hVObject->pPaletteEntry = (SGPPaletteEntry *) MemAlloc( sizeof( SGPPaletteEntry ) * 256 );
-		CHECKF( hVObject->pPaletteEntry != NULL );
-
-		// Copy src into palette
-		memcpy( hVObject->pPaletteEntry, pSrcPalette, sizeof( SGPPaletteEntry ) * 256 );
-
+		replacement = Create16BPPPalette(pSrcPalette);
 	}
-	else
+	catch (...)
 	{
-		// Just Change entries
-		memcpy( hVObject->pPaletteEntry, pSrcPalette, sizeof( SGPPaletteEntry ) * 256 );
+		return FALSE;
 	}
+	if (!replacement) return FALSE;
 
-	// Delete 16BPP Palette if one exists
-	if ( hVObject->p16BPPPalette != NULL )
+	SGPPaletteEntry* palette = hVObject->pPaletteEntry;
+	if (!palette)
 	{
-		UnregisterLegacyRenderPalette(hVObject->p16BPPPalette);
-		MemFree( hVObject->p16BPPPalette );
-		hVObject->p16BPPPalette = NULL;
+		try
+		{
+			palette = static_cast<SGPPaletteEntry*>(
+				MemAlloc(sizeof(SGPPaletteEntry) * 256));
+		}
+		catch (...)
+		{
+			UnregisterLegacyRenderPalette(replacement);
+			MemFree(replacement);
+			return FALSE;
+		}
+		if (!palette)
+		{
+			UnregisterLegacyRenderPalette(replacement);
+			MemFree(replacement);
+			return FALSE;
+		}
 	}
+	memcpy(
+		palette, pSrcPalette,
+		sizeof(SGPPaletteEntry) * 256);
 
-	// Create 16BPP Palette
-	hVObject->p16BPPPalette = Create16BPPPalette( pSrcPalette );
-	hVObject->pShadeCurrent = hVObject->p16BPPPalette;
+	PIXEL* const previous = hVObject->p16BPPPalette;
+	if (previous)
+	{
+		for (PIXEL*& shade : hVObject->pShades)
+		{
+			if (shade == previous) shade = replacement;
+		}
+	}
+	hVObject->pPaletteEntry = palette;
+	hVObject->p16BPPPalette = replacement;
+	hVObject->pShadeCurrent = replacement;
+	if (previous)
+	{
+		UnregisterLegacyRenderPalette(previous);
+		MemFree(previous);
+	}
 
 //	DbgMessage(TOPIC_VIDEOOBJECT, DBG_LEVEL_3, String("Video Object Palette change successfull" ));
-	return( TRUE );
+	return TRUE;
 }
 
 // Transparency needs to take RGB value and find best fit and place it into DD Surface
 // colorkey value.
 BOOLEAN SetVideoObjectTransparencyColor( HVOBJECT hVObject, COLORVAL TransColor )
 {
-
-	// Assertions
-	Assert( hVObject != NULL );
+	if (!hVObject) return FALSE;
 
 	//Set trans color into video object
 	hVObject->TransparentColor = TransColor;
@@ -3121,47 +3146,8 @@ BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 
 BOOLEAN PixelateVideoObjectRect(	UINT32	uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2)
 {
-	PIXEL *pBuffer;
-	UINT32 uiPitch;
-	SGPRect	area;
-	UINT8 uiPattern[8][8]={	{0,1,0,1,0,1,0,1},
-													{1,0,1,0,1,0,1,0},
-													{0,1,0,1,0,1,0,1},
-													{1,0,1,0,1,0,1,0},
-													{0,1,0,1,0,1,0,1},
-													{1,0,1,0,1,0,1,0},
-													{0,1,0,1,0,1,0,1},
-													{1,0,1,0,1,0,1,0}};
-
-	// Lock video surface
-	pBuffer = (PIXEL *)LockVideoSurface( uiDestVSurface, &uiPitch );
-
-	if ( pBuffer == NULL )
-	{
-		return( FALSE );
-	}
-
-	area.iTop=Y1;
-	area.iBottom=Y2;
-	area.iLeft=X1;
-	area.iRight=X2;
-
-	// Now we have the video object and surface, call the shadow function
-	if(!Blt16BPPBufferPixelateRect(pBuffer, uiPitch, &area, uiPattern))
-	{
-		UnLockVideoSurface( uiDestVSurface );
-		// Blit has failed if false returned
-		return( FALSE );
-	}
-
-	// Mark as dirty if it's the backbuffer
-	//if ( uiDestVSurface == BACKBUFFER )
-	//{
-	//	InvalidateBackbuffer( );
-	//}
-
-	UnLockVideoSurface( uiDestVSurface );
-	return( TRUE );
+	return PixelateVideoSurfaceRect(
+		uiDestVSurface, X1, Y1, X2, Y2);
 }
 
 
@@ -3177,6 +3163,7 @@ BOOLEAN DestroyObjectPaletteTables(HVOBJECT hVObject)
 {
 UINT32 x;
 BOOLEAN f16BitPal;
+	if (!hVObject) return FALSE;
 
 	for ( x = 0; x < HVOBJECT_SHADE_TABLES; x++ )
 	{
@@ -3282,123 +3269,110 @@ UINT32	uiPitch;
 ********************************************************************************************/
 BOOLEAN GetETRLEPixelValue( UINT8 * pDest, HVOBJECT hVObject, UINT16 usETRLEIndex, UINT16 usX, UINT16 usY )
 {
-	UINT8 *					pCurrent;
-	UINT16					usLoopX = 0;
-	UINT16					usLoopY = 0;
-	UINT16					ubRunLength;
-	ETRLEObject *		pETRLEObject;
+	if (!pDest || !hVObject || !hVObject->pETRLEObject ||
+		!hVObject->pPixData ||
+		usETRLEIndex >= hVObject->usNumberOfObjects)
+		return FALSE;
+	const ETRLEObject& object =
+		hVObject->pETRLEObject[usETRLEIndex];
+	if (usX >= object.usWidth || usY >= object.usHeight ||
+		object.uiDataOffset >= hVObject->uiSizePixData)
+		return FALSE;
 
-	// Do a bunch of checks
-	CHECKF( hVObject != NULL );
-	CHECKF( usETRLEIndex < hVObject->usNumberOfObjects );
-
-	pETRLEObject = &(hVObject->pETRLEObject[usETRLEIndex]);
-
-	CHECKF( usX < pETRLEObject->usWidth );
-	CHECKF( usY < pETRLEObject->usHeight );
-
-	// Assuming everything's okay, go ahead and look...
-	pCurrent = &((UINT8 *)hVObject->pPixData)[pETRLEObject->uiDataOffset];
-
-	// Skip past all uninteresting scanlines
-	while( usLoopY < usY )
+	const UINT8* current =
+		static_cast<const UINT8*>(hVObject->pPixData) +
+		object.uiDataOffset;
+	const UINT8* const end =
+		static_cast<const UINT8*>(hVObject->pPixData) +
+		hVObject->uiSizePixData;
+	for (UINT16 y = 0; y <= usY; ++y)
 	{
-		while( *pCurrent != 0 )
+		UINT32 x = 0;
+		bool lineEnded = false;
+		while (current < end)
 		{
-			if (*pCurrent & COMPRESS_TRANSPARENT)
+			const UINT8 header = *current++;
+			if (header == 0)
 			{
-				pCurrent++;
+				lineEnded = true;
+				break;
+			}
+			const UINT32 run = header & COMPRESS_RUN_MASK;
+			if (run == 0 || x > object.usWidth ||
+				run > object.usWidth - x)
+				return FALSE;
+			const bool contains =
+				y == usY && usX >= x && usX < x + run;
+			if (header & COMPRESS_TRANSPARENT)
+			{
+				if (contains)
+				{
+					*pDest = 0;
+					return TRUE;
+				}
 			}
 			else
 			{
-				pCurrent += *pCurrent & COMPRESS_RUN_MASK;
+				if (static_cast<std::size_t>(end - current) < run)
+					return FALSE;
+				if (contains)
+				{
+					*pDest = current[usX - x];
+					return TRUE;
+				}
+				current += run;
 			}
+			x += run;
 		}
-		usLoopY++;
+		if (!lineEnded) return FALSE;
+		if (y == usY) return FALSE;
 	}
-
-	// Now look in this scanline for the appropriate byte
-	do
-	{
-		ubRunLength = *pCurrent & COMPRESS_RUN_MASK;
-
-		if (*pCurrent & COMPRESS_TRANSPARENT)
-		{
-			if (usLoopX + ubRunLength >= usX)
-			{
-				*pDest = 0;
-				return( TRUE );
-			}
-			else
-			{
-				pCurrent++;
-			}
-		}
-		else
-		{
-			if (usLoopX + ubRunLength >= usX)
-			{
-				// skip to the correct byte; skip at least 1 to get past the byte defining the run
-				pCurrent += (usX - usLoopX) + 1;
-				*pDest = *pCurrent;
-				return( TRUE );
-			}
-			else
-			{
-				pCurrent += ubRunLength + 1;
-			}
-		}
-		usLoopX += ubRunLength;
-	}
-	while( usLoopX < usX );
-	// huh???
-	return( FALSE );
+	return FALSE;
 }
 
 BOOLEAN GetVideoObjectETRLEProperties( HVOBJECT hVObject, ETRLEObject *pETRLEObject, UINT16 usIndex )
 {
-	CHECKF( usIndex >= 0 );
-	CHECKF( usIndex < hVObject->usNumberOfObjects );
-
-	memcpy( pETRLEObject, &( hVObject->pETRLEObject[ usIndex ] ), sizeof( ETRLEObject ) );
-
-	return( TRUE );
-
+	if (!hVObject || !pETRLEObject ||
+		!hVObject->pETRLEObject ||
+		usIndex >= hVObject->usNumberOfObjects)
+		return FALSE;
+	*pETRLEObject = hVObject->pETRLEObject[usIndex];
+	return TRUE;
 }
 
 BOOLEAN GetVideoObjectETRLESubregionProperties( UINT32 uiVideoObject, UINT16 usIndex, UINT16 *pusWidth, UINT16 *pusHeight )
 {
-	HVOBJECT							hVObject;
-	ETRLEObject						ETRLEObject;
+	if (!pusWidth || !pusHeight) return FALSE;
+	HVOBJECT hVObject = nullptr;
+	ETRLEObject properties{};
 
 	// Get video object
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_GETVIDEOOBJECTETRLESUBREGIONPROPERTIES;
 	#endif
-	CHECKF( GetVideoObject( &hVObject, uiVideoObject ) );
-
-	CHECKF( GetVideoObjectETRLEProperties( hVObject, &ETRLEObject, usIndex ) );
-
-	*pusWidth = ETRLEObject.usWidth;
-	*pusHeight = ETRLEObject.usHeight;
-
-	return( TRUE );
+	if (!GetVideoObject(&hVObject, uiVideoObject) ||
+		!GetVideoObjectETRLEProperties(
+			hVObject, &properties, usIndex))
+		return FALSE;
+	*pusWidth = properties.usWidth;
+	*pusHeight = properties.usHeight;
+	return TRUE;
 }
 
 
 BOOLEAN GetVideoObjectETRLEPropertiesFromIndex( UINT32 uiVideoObject, ETRLEObject *pETRLEObject, UINT16 usIndex )
 {
-	HVOBJECT							hVObject;
+	if (!pETRLEObject) return FALSE;
+	HVOBJECT hVObject = nullptr;
 
 	// Get video object
 	#ifdef _DEBUG
 		gubVODebugCode = DEBUGSTR_GETVIDEOOBJECTETRLEPROPERTIESFROMINDEX;
 	#endif
-	CHECKF( GetVideoObject( &hVObject, uiVideoObject ) );
-
-	CHECKF( GetVideoObjectETRLEProperties( hVObject, pETRLEObject, usIndex ) );
-
-	return( TRUE );
+	if (!GetVideoObject(&hVObject, uiVideoObject))
+		return FALSE;
+	return GetVideoObjectETRLEProperties(
+		hVObject, pETRLEObject, usIndex);
 }
 
 BOOLEAN SetVideoObjectPalette8BPP(INT32 uiVideoObject, SGPPaletteEntry *pPal8)

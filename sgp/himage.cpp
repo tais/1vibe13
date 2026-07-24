@@ -286,10 +286,58 @@ BOOLEAN LoadImageData( HIMAGE hImage, UINT16 fContents )
 
 }
 
+namespace
+{
+struct ImageCopyRegion
+{
+	UINT32 sourceX = 0;
+	UINT32 sourceY = 0;
+	UINT32 width = 0;
+	UINT32 height = 0;
+};
+
+bool ResolveImageCopyRegion(
+	HIMAGE image,
+	UINT16 destinationWidth,
+	UINT16 destinationHeight,
+	UINT16 destinationX,
+	UINT16 destinationY,
+	const SGPRect* sourceRect,
+	ImageCopyRegion& region)
+{
+	region = {};
+	if (!image || !sourceRect ||
+		image->usWidth == 0 || image->usHeight == 0 ||
+		destinationWidth == 0 || destinationHeight == 0 ||
+		sourceRect->iLeft < 0 || sourceRect->iTop < 0 ||
+		sourceRect->iRight < sourceRect->iLeft ||
+		sourceRect->iBottom < sourceRect->iTop ||
+		sourceRect->iRight >= image->usWidth ||
+		sourceRect->iBottom >= image->usHeight ||
+		destinationX >= destinationWidth ||
+		destinationY >= destinationHeight)
+		return false;
+
+	const UINT32 width = static_cast<UINT32>(
+		sourceRect->iRight - sourceRect->iLeft + 1);
+	const UINT32 height = static_cast<UINT32>(
+		sourceRect->iBottom - sourceRect->iTop + 1);
+	if (width > static_cast<UINT32>(destinationWidth - destinationX) ||
+		height > static_cast<UINT32>(destinationHeight - destinationY))
+		return false;
+
+	region.sourceX = static_cast<UINT32>(sourceRect->iLeft);
+	region.sourceY = static_cast<UINT32>(sourceRect->iTop);
+	region.width = width;
+	region.height = height;
+	return true;
+}
+}
+
 BOOLEAN CopyImageToBuffer( HIMAGE hImage, UINT32 fBufferType, BYTE *pDestBuf, UINT16 usDestWidth, UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect *srcRect )
 {
 	// Use blitter based on type of image
-	Assert( hImage != NULL );
+	if (!hImage) return FALSE;
 
 	if ( hImage->ubBitDepth == 8 && fBufferType == BUFFER_8BPP )
 	{
@@ -341,27 +389,44 @@ BOOLEAN CopyImageToBuffer( HIMAGE hImage, UINT32 fBufferType, BYTE *pDestBuf, UI
 	if ( hImage->ubBitDepth == 24 && fBufferType == BUFFER_16BPP )
 	{
 		DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, "Copying 24 BPP Imagery to 16BPP Buffer." );
-        AssertMsg(false,"not yet implemented");
-		return( FALSE );
+		ImageCopyRegion region;
+		if (!pDestBuf || !hImage->p8BPPData ||
+			!ResolveImageCopyRegion(
+				hImage, usDestWidth, usDestHeight, usX, usY,
+				srcRect, region))
+			return FALSE;
+
+		PIXEL* const destination =
+			reinterpret_cast<PIXEL*>(pDestBuf);
+		for (UINT32 row = 0; row < region.height; ++row)
+		{
+			const UINT8* source =
+				hImage->p8BPPData +
+				(static_cast<std::size_t>(region.sourceY + row) *
+					hImage->usWidth + region.sourceX) * 3;
+			PIXEL* output =
+				destination +
+				static_cast<std::size_t>(usY + row) * usDestWidth +
+				usX;
+			for (UINT32 column = 0; column < region.width; ++column)
+			{
+				output[column] = Get16BPPColor(FROMRGB(
+					source[column * 3],
+					source[column * 3 + 1],
+					source[column * 3 + 2]));
+			}
+		}
+		return TRUE;
 	}
 
 	if ( hImage->ubBitDepth == 32 && fBufferType == BUFFER_16BPP )
 	{
 		DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, "Copying 32 BPP Imagery to 16BPP Buffer." );
-		if (!pDestBuf || !hImage->p32BPPData || !srcRect ||
-			srcRect->iLeft < 0 || srcRect->iTop < 0 ||
-			srcRect->iRight < srcRect->iLeft ||
-			srcRect->iBottom < srcRect->iTop ||
-			srcRect->iRight >= hImage->usWidth ||
-			srcRect->iBottom >= hImage->usHeight ||
-			usX >= usDestWidth || usY >= usDestHeight)
-			return FALSE;
-		const UINT32 width = static_cast<UINT32>(
-			srcRect->iRight - srcRect->iLeft + 1);
-		const UINT32 height = static_cast<UINT32>(
-			srcRect->iBottom - srcRect->iTop + 1);
-		if (width > static_cast<UINT32>(usDestWidth - usX) ||
-			height > static_cast<UINT32>(usDestHeight - usY))
+		ImageCopyRegion region;
+		if (!pDestBuf || !hImage->p32BPPData ||
+			!ResolveImageCopyRegion(
+				hImage, usDestWidth, usDestHeight, usX, usY,
+				srcRect, region))
 			return FALSE;
 		return Blt32BPPTo16BPPTrans(
 			reinterpret_cast<PIXEL*>(pDestBuf),
@@ -369,8 +434,8 @@ BOOLEAN CopyImageToBuffer( HIMAGE hImage, UINT32 fBufferType, BYTE *pDestBuf, UI
 			hImage->p32BPPData,
 			hImage->usWidth * sizeof(UINT32),
 			usX, usY,
-			srcRect->iLeft, srcRect->iTop,
-			width, height);
+			region.sourceX, region.sourceY,
+			region.width, region.height);
 	}
 
 	return( FALSE );
@@ -569,43 +634,24 @@ BOOLEAN Copy16BPPCompressedImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UI
 
 BOOLEAN Copy8BPPImageTo8BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDestWidth, UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect *srcRect )
 {
-	UINT32 uiSrcStart, uiDestStart, uiNumLines, uiLineSize;
-	UINT32 cnt;
-	UINT8 *pDest, *pSrc;
+	ImageCopyRegion region;
+	if (!pDestBuf || !hImage || !hImage->p8BPPData ||
+		!ResolveImageCopyRegion(
+			hImage, usDestWidth, usDestHeight, usX, usY,
+			srcRect, region))
+		return FALSE;
 
-	// Assertions
-	Assert( hImage != NULL );
-	Assert( hImage->p16BPPData != NULL );
-
-	// Validations
-	CHECKF( usX >= 0 );
-	CHECKF( usX < usDestWidth );
-	CHECKF( usY >= 0 );
-	CHECKF( usY < usDestHeight );
-	CHECKF( srcRect->iRight > srcRect->iLeft );
-	CHECKF( srcRect->iBottom > srcRect->iTop );
-
-	// Determine memcopy coordinates
-	uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
-	uiDestStart = usY * usDestWidth + usX;
-	uiNumLines = ( srcRect->iBottom - srcRect->iTop ) + 1;
-	uiLineSize = ( srcRect->iRight - srcRect->iLeft ) + 1;
-
-	Assert( usDestWidth >= uiLineSize );
-	Assert( usDestHeight >= uiNumLines );
-
-	// Copy line by line
-	pDest = ( UINT8*)pDestBuf + uiDestStart;
-	pSrc =	hImage->p8BPPData + uiSrcStart;
-
-	for( cnt = 0; cnt < uiNumLines-1; cnt++ )
+	UINT8* destination = pDestBuf +
+		static_cast<std::size_t>(usY) * usDestWidth + usX;
+	const UINT8* source = hImage->p8BPPData +
+		static_cast<std::size_t>(region.sourceY) * hImage->usWidth +
+		region.sourceX;
+	for (UINT32 row = 0; row < region.height; ++row)
 	{
-		memcpy( pDest, pSrc, uiLineSize );
-		pDest += usDestWidth;
-		pSrc	+= hImage->usWidth;
+		memcpy(destination, source, region.width);
+		destination += usDestWidth;
+		source += hImage->usWidth;
 	}
-	// Do last line
-	memcpy( pDest, pSrc, uiLineSize );
 
 	return( TRUE );
 
@@ -613,53 +659,32 @@ BOOLEAN Copy8BPPImageTo8BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDestW
 
 BOOLEAN Copy16BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDestWidth, UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect *srcRect )
 {
-	UINT32 uiSrcStart, uiDestStart, uiNumLines, uiLineSize;
-	UINT32 cnt;
-	PIXEL  *pDest;
-	UINT16 *pSrc;
-
-	Assert( hImage != NULL );
-	Assert( hImage->p16BPPData != NULL );
-
-	// Validations
-	CHECKF( usX >= 0 );
-	CHECKF( usX < hImage->usWidth );
-	CHECKF( usY >= 0 );
-	CHECKF( usY < hImage->usHeight );
-	CHECKF( srcRect->iRight > srcRect->iLeft );
-	CHECKF( srcRect->iBottom > srcRect->iTop );
-
-	// Determine memcopy coordinates
-	uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
-	uiDestStart = usY * usDestWidth + usX;
-	uiNumLines = ( srcRect->iBottom - srcRect->iTop ) + 1;
-	uiLineSize = ( srcRect->iRight - srcRect->iLeft ) + 1;
-
-	CHECKF( usDestWidth >= uiLineSize );
-	CHECKF( usDestHeight >= uiNumLines );
+	ImageCopyRegion region;
+	if (!pDestBuf || !hImage || !hImage->p16BPPData ||
+		!ResolveImageCopyRegion(
+			hImage, usDestWidth, usDestHeight, usX, usY,
+			srcRect, region))
+		return FALSE;
 
 	// Copy line by line. The source is 16bpp RGB565; at 32bpp it must be
 	// expanded per pixel (a raw memcpy would pack two RGB565 pixels into
 	// one ARGB pixel -- halving the width and scrambling colours).
-	pDest = ( PIXEL*)pDestBuf + uiDestStart;
-	pSrc =	hImage->p16BPPData + uiSrcStart;
-
-	for( cnt = 0; cnt < uiNumLines-1; cnt++ )
+	PIXEL* destination = reinterpret_cast<PIXEL*>(pDestBuf) +
+		static_cast<std::size_t>(usY) * usDestWidth + usX;
+	const UINT16* source = hImage->p16BPPData +
+		static_cast<std::size_t>(region.sourceY) * hImage->usWidth +
+		region.sourceX;
+	for (UINT32 row = 0; row < region.height; ++row)
 	{
 #if SGP_PIXEL_DEPTH == 32
-		for ( UINT32 i = 0; i < uiLineSize; ++i ) pDest[i] = PixFromColor16( pSrc[i] );
+		for (UINT32 column = 0; column < region.width; ++column)
+			destination[column] = PixFromColor16(source[column]);
 #else
-		memcpy( pDest, pSrc, uiLineSize * 2 );
+		memcpy(destination, source, region.width * sizeof(UINT16));
 #endif
-		pDest += usDestWidth;
-		pSrc	+= hImage->usWidth;
+		destination += usDestWidth;
+		source += hImage->usWidth;
 	}
-	// Do last line
-#if SGP_PIXEL_DEPTH == 32
-	for ( UINT32 i = 0; i < uiLineSize; ++i ) pDest[i] = PixFromColor16( pSrc[i] );
-#else
-	memcpy( pDest, pSrc, uiLineSize * 2 );
-#endif
 
 	return( TRUE );
 
@@ -680,68 +705,27 @@ BOOLEAN Extract16BPPCompressedImageToBuffer( HIMAGE hImage, BYTE *pDestBuf )
 
 BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDestWidth, UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect *srcRect )
 {
-	UINT32 uiSrcStart, uiDestStart, uiNumLines, uiLineSize;
-	UINT32 rows, cols;
-	UINT8	*pSrc, *pSrcTemp;
-	PIXEL *pDest, *pDestTemp;
-	PIXEL *p16BPPPalette;
+	ImageCopyRegion region;
+	if (!pDestBuf || !hImage || !hImage->p8BPPData ||
+		!hImage->pui16BPPPalette ||
+		!ResolveImageCopyRegion(
+			hImage, usDestWidth, usDestHeight, usX, usY,
+			srcRect, region))
+		return FALSE;
 
-
-	p16BPPPalette = hImage->pui16BPPPalette;
-
-	// Assertions
-	Assert( p16BPPPalette != NULL );
-	Assert( hImage != NULL );
-
-	// Validations
-	CHECKF( hImage->p16BPPData != NULL );
-	CHECKF( usX >= 0 );
-	CHECKF( usX < usDestWidth );
-	CHECKF( usY >= 0 );
-	CHECKF( usY < usDestHeight );
-	CHECKF( srcRect->iRight > srcRect->iLeft );
-	CHECKF( srcRect->iBottom > srcRect->iTop );
-
-	// Determine memcopy coordinates
-	uiSrcStart = srcRect->iTop * hImage->usWidth + srcRect->iLeft;
-	uiDestStart = usY * usDestWidth + usX;
-	uiNumLines = ( srcRect->iBottom - srcRect->iTop ) + 1;
-	uiLineSize = ( srcRect->iRight - srcRect->iLeft ) + 1;
-
-	CHECKF( usDestWidth >= uiLineSize );
-	CHECKF( usDestHeight >= uiNumLines );
-
-	// Convert to Pixel specification
-	pDest = ( PIXEL*)pDestBuf + uiDestStart;
-	pSrc =	hImage->p8BPPData + uiSrcStart;
-	DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, String( "Start Copying at %p", pDest ) );
-
-	// For every entry, look up into 16BPP palette
-	for( rows = 0; rows < uiNumLines-1; rows++ )
+	PIXEL* destination = reinterpret_cast<PIXEL*>(pDestBuf) +
+		static_cast<std::size_t>(usY) * usDestWidth + usX;
+	const UINT8* source = hImage->p8BPPData +
+		static_cast<std::size_t>(region.sourceY) * hImage->usWidth +
+		region.sourceX;
+	for (UINT32 row = 0; row < region.height; ++row)
 	{
-		pDestTemp = pDest;
-		pSrcTemp = pSrc;
-
-		for ( cols = 0; cols < uiLineSize; cols++ )
-		{
-			*pDestTemp = p16BPPPalette[ *pSrcTemp ];
-			pDestTemp++;
-			pSrcTemp++;
-		}
-
-		pDest += usDestWidth;
-		pSrc	+= hImage->usWidth;
+		for (UINT32 column = 0; column < region.width; ++column)
+			destination[column] =
+				hImage->pui16BPPPalette[source[column]];
+		destination += usDestWidth;
+		source += hImage->usWidth;
 	}
-	// Do last line
-	pDestTemp = pDest;
-	pSrcTemp = pSrc;
-	for ( cols = 0; cols < uiLineSize; cols++ )
-	{
-		*pDestTemp = p16BPPPalette[ *pSrcTemp ];
-		pDestTemp++;
-		pSrcTemp++;
-	}
-	DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, String( "End Copying at %p", pDest ) );
 
 	return( TRUE );
 

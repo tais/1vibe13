@@ -288,6 +288,40 @@ BOOLEAN BltVideoSurface(
 		!sourceSurface ||
 		destinationSurface->ubBitDepth != sourceSurface->ubBitDepth)
 		return FALSE;
+	if ((flags & VS_BLT_SRCREGION) &&
+		(flags & VS_BLT_SRCSUBRECT))
+		return FALSE;
+	if ((flags & VS_BLT_COLORFILL) &&
+		(flags & VS_BLT_COLORFILLRECT))
+		return FALSE;
+
+	// Mirroring and destination colour keys are retained compatibility modes,
+	// not part of the engine's deliberately smaller copy command. Indexed
+	// colour keys likewise operate on palette indices rather than RenderColor.
+	// Keep those modes functional through the bounded pointer implementation
+	// instead of silently dropping their flags at this translation boundary.
+	if ((flags & (VS_BLT_MIRROR_Y | VS_BLT_USEDESTCOLORKEY)) ||
+		(destinationSurface->ubBitDepth == 8 &&
+			(flags & (VS_BLT_USECOLORKEY |
+				VS_BLT_COLORFILL | VS_BLT_COLORFILLRECT))))
+	{
+		return BltVideoSurfaceToVideoSurface(
+			destinationSurface, sourceSurface, sourceRegionIndex,
+			destinationX, destinationY,
+			static_cast<INT32>(flags), effects);
+	}
+
+	if (flags & VS_BLT_DESTREGION)
+	{
+		if (!effects) return FALSE;
+		VSURFACE_REGION destinationRegion{};
+		if (!GetVSurfaceRegion(
+			destinationSurface, effects->DestRegion,
+			&destinationRegion))
+			return FALSE;
+		destinationX = destinationRegion.RegionCoords.iLeft;
+		destinationY = destinationRegion.RegionCoords.iTop;
+	}
 
 	if (flags & VS_BLT_COLORFILLRECT)
 	{
@@ -379,6 +413,10 @@ BOOLEAN BltStretchVideoSurface(
 	(void)destinationX;
 	(void)destinationY;
 	if (!sourceRegion || !destinationRegion) return FALSE;
+	if (flags & (VS_BLT_USEDESTCOLORKEY |
+		VS_BLT_MIRROR_Y | VS_BLT_DESTREGION |
+		VS_BLT_COLORFILL | VS_BLT_COLORFILLRECT))
+		return FALSE;
 
 	HVSURFACE destinationSurface = nullptr;
 	HVSURFACE sourceSurface = nullptr;
