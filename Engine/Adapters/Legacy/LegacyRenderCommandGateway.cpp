@@ -207,6 +207,22 @@ bool DrawLegacyRenderImageDepth(
 	}
 }
 
+RenderImageDepthVisibility QueryLegacyRenderImageDepthVisibility(
+	const RenderImageDepthVisibilityQuery& query) noexcept
+{
+	RenderCommandGuard guard;
+	if (!guard.acquired())
+		return RenderImageDepthVisibility::Unsupported;
+	try
+	{
+		return GetLegacyRenderCommands().queryImageDepthVisibility(query);
+	}
+	catch (...)
+	{
+		return RenderImageDepthVisibility::Unsupported;
+	}
+}
+
 bool DrawLegacyRenderImageOutline(
 	const RenderImageOutlineCommand& command) noexcept
 {

@@ -176,7 +176,8 @@ enum VideoObjectDrawEffect : UINT8
 {
 	VOBJECT_DRAW_SOURCE_TRANSPARENCY,
 	VOBJECT_DRAW_SHADE_DESTINATION,
-	VOBJECT_DRAW_INTENSIFY_DESTINATION
+	VOBJECT_DRAW_INTENSIFY_DESTINATION,
+	VOBJECT_DRAW_CLEAR_DESTINATION
 };
 
 // Compatibility bridge for the common 8-bit image effects. Registered video
@@ -215,6 +216,24 @@ BOOLEAN BltVideoObjectDepthToSurface(
 	INT32 iDestY,
 	UINT16 usDepth,
 	BOOLEAN fWriteDepth,
+	const SGPRect* pClipRegion);
+
+enum VideoObjectDepthVisibility : UINT8
+{
+	VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED,
+	VOBJECT_DEPTH_FULLY_OCCLUDED,
+	VOBJECT_DEPTH_VISIBLE
+};
+
+// Read-only visibility bridge for registered ETRLE images. Unsupported is
+// distinct from fully occluded so pointer-built objects and rejecting hosts
+// can use their exact raw compatibility query.
+VideoObjectDepthVisibility QueryVideoObjectDepthVisibility(
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	INT16 sDepth,
 	const SGPRect* pClipRegion);
 
 enum VideoObjectDepthPaletteEffect : UINT8

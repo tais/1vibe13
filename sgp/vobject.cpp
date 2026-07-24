@@ -131,6 +131,8 @@ std::optional<UINT32> LegacyFlagsFor(RenderImageCompositeMode mode)
 	case RenderImageCompositeMode::Intensity: return std::nullopt;
 	case RenderImageCompositeMode::PaletteWithShadowMarker:
 		return std::nullopt;
+	case RenderImageCompositeMode::ClearDestination:
+		return std::nullopt;
 	}
 	return std::nullopt;
 }
@@ -372,6 +374,7 @@ bool SubmitVideoObjectEffectDraw(
 	case RenderImageCompositeMode::SourceTransparency:
 	case RenderImageCompositeMode::Shadow:
 	case RenderImageCompositeMode::Intensity:
+	case RenderImageCompositeMode::ClearDestination:
 		break;
 	default:
 		return false;
@@ -1137,6 +1140,7 @@ bool PlatformVideoObjectMappedDraw(
 
 	bool intensity = false;
 	bool paletteShadow = false;
+	bool clearDestination = false;
 	PIXEL* palette = nullptr;
 	HVOBJECT alpha = nullptr;
 	switch (command.mode)
@@ -1151,6 +1155,12 @@ bool PlatformVideoObjectMappedDraw(
 			command.ignoreShadows)
 			return false;
 		intensity = true;
+		break;
+	case RenderImageCompositeMode::ClearDestination:
+		if (command.palette != 0 || command.alphaImage != 0 ||
+			command.ignoreShadows)
+			return false;
+		clearDestination = true;
 		break;
 	case RenderImageCompositeMode::PaletteWithShadowMarker:
 		if (command.palette == 0) return false;
@@ -1226,6 +1236,13 @@ bool PlatformVideoObjectMappedDraw(
 		imageRight <= clipRight && imageBottom <= clipBottom;
 	if (fullyInside)
 	{
+		if (clearDestination)
+		{
+			return Zero8BPPDataTo16BPPBufferTransparent(
+				pixels, pitch, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame) != FALSE;
+		}
 		if (paletteShadow)
 		{
 			return alpha ?
@@ -1258,6 +1275,13 @@ bool PlatformVideoObjectMappedDraw(
 		static_cast<INT32>(clipTop),
 		static_cast<INT32>(clipRight),
 		static_cast<INT32>(clipBottom)};
+	if (clearDestination)
+	{
+		return Zero8BPPDataTo16BPPBufferTransparentClip(
+			pixels, pitch, source,
+			command.destinationOrigin.x,
+			command.destinationOrigin.y, frame, &clipping) != FALSE;
+	}
 	if (paletteShadow)
 	{
 		return alpha ?
@@ -1300,6 +1324,7 @@ bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
 	case RenderImageCompositeMode::Shadow:
 	case RenderImageCompositeMode::Intensity:
 	case RenderImageCompositeMode::PaletteWithShadowMarker:
+	case RenderImageCompositeMode::ClearDestination:
 		return PlatformVideoObjectMappedDraw(command, source);
 	case RenderImageCompositeMode::Opaque:
 	case RenderImageCompositeMode::SourceTransparency:
@@ -1773,6 +1798,86 @@ bool PlatformVideoObjectDepthDraw(
 	default:
 		return false;
 	}
+}
+
+RenderImageDepthVisibility PlatformVideoObjectDepthVisibility(
+	const RenderImageDepthVisibilityQuery& query)
+{
+	if (query.depthSurface == 0 || query.image == 0 ||
+		query.depthSurface > std::numeric_limits<UINT32>::max() ||
+		query.frame > std::numeric_limits<UINT16>::max())
+		return RenderImageDepthVisibility::Unsupported;
+	HVOBJECT const source = ResolveRenderImage(query.image);
+	if (!source || source->ubBitDepth != 8 ||
+		query.frame >= source->usNumberOfObjects ||
+		!source->pETRLEObject || !source->pPixData)
+		return RenderImageDepthVisibility::Unsupported;
+	const UINT16 frame = static_cast<UINT16>(query.frame);
+	const ETRLEObject& image = source->pETRLEObject[frame];
+	if (image.usWidth == 0 || image.usHeight == 0 ||
+		image.uiDataOffset >= source->uiSizePixData)
+		return RenderImageDepthVisibility::Unsupported;
+
+	PlatformSurfaceMappingLease depth(query.depthSurface);
+	if (!depth)
+		return RenderImageDepthVisibility::Unsupported;
+	const MutableRenderSurface& mapping = depth.mapping();
+	if (!IsValidRenderSurfaceMapping(mapping) ||
+		mapping.description.format != RenderPixelFormat::Depth16 ||
+		mapping.description.contentBitDepth != 16 ||
+		mapping.pitchBytes > std::numeric_limits<UINT32>::max() ||
+		mapping.description.width >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()) ||
+		mapping.description.height >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()))
+		return RenderImageDepthVisibility::Unsupported;
+
+	const std::int64_t clipLeft = std::max<std::int64_t>(
+		0, query.clippingRegion.left);
+	const std::int64_t clipTop = std::max<std::int64_t>(
+		0, query.clippingRegion.top);
+	const std::int64_t clipRight = std::min<std::int64_t>(
+		mapping.description.width, query.clippingRegion.right);
+	const std::int64_t clipBottom = std::min<std::int64_t>(
+		mapping.description.height, query.clippingRegion.bottom);
+	if (clipLeft >= clipRight || clipTop >= clipBottom)
+		return RenderImageDepthVisibility::FullyOccluded;
+
+	const std::int64_t imageLeft =
+		static_cast<std::int64_t>(query.destinationOrigin.x) +
+		image.sOffsetX;
+	const std::int64_t imageTop =
+		static_cast<std::int64_t>(query.destinationOrigin.y) +
+		image.sOffsetY;
+	const std::int64_t imageRight = imageLeft + image.usWidth;
+	const std::int64_t imageBottom = imageTop + image.usHeight;
+	if (imageLeft >= clipRight || imageTop >= clipBottom ||
+		imageRight <= clipLeft || imageBottom <= clipTop)
+		return RenderImageDepthVisibility::FullyOccluded;
+	if (imageLeft < std::numeric_limits<INT32>::min() ||
+		imageTop < std::numeric_limits<INT32>::min() ||
+		imageRight > std::numeric_limits<INT32>::max() ||
+		imageBottom > std::numeric_limits<INT32>::max())
+		return RenderImageDepthVisibility::Unsupported;
+
+	SGPRect clipping{
+		static_cast<INT32>(clipLeft),
+		static_cast<INT32>(clipTop),
+		static_cast<INT32>(clipRight),
+		static_cast<INT32>(clipBottom)};
+	BOOLEAN fullyOccluded = FALSE;
+	if (!Query8BPPDataToDepthBufferOcclusion(
+			static_cast<UINT32>(mapping.pitchBytes),
+			reinterpret_cast<UINT16*>(mapping.pixels),
+			query.depth, source, query.destinationOrigin.x,
+			query.destinationOrigin.y, frame, &clipping,
+			&fullyOccluded))
+		return RenderImageDepthVisibility::Unsupported;
+	return fullyOccluded ?
+		RenderImageDepthVisibility::FullyOccluded :
+		RenderImageDepthVisibility::Visible;
 }
 
 bool PlatformVideoObjectOutline(
@@ -2301,12 +2406,65 @@ BOOLEAN BltVideoObjectEffectToSurface(
 	case VOBJECT_DRAW_INTENSIFY_DESTINATION:
 		mode = RenderImageCompositeMode::Intensity;
 		break;
+	case VOBJECT_DRAW_CLEAR_DESTINATION:
+		mode = RenderImageCompositeMode::ClearDestination;
+		break;
 	default:
 		return FALSE;
 	}
 	return SubmitVideoObjectEffectDraw(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
 		iDestX, iDestY, mode, pClipRegion) ? TRUE : FALSE;
+}
+
+VideoObjectDepthVisibility QueryVideoObjectDepthVisibility(
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	INT16 sDepth,
+	const SGPRect* pClipRegion)
+{
+	if (!hSrcVObject || hSrcVObject->ubBitDepth != 8 ||
+		usRegionIndex >= hSrcVObject->usNumberOfObjects ||
+		!hSrcVObject->pETRLEObject || !hSrcVObject->pPixData)
+		return VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED;
+	RenderImageId image = 0;
+	if (!FindRenderImage(hSrcVObject, image))
+		return VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED;
+	const RenderSurfaceId depthSurface =
+		GetLegacyRenderSurfaceAccess().surfaceFor(
+			RenderSurfaceRole::DepthBuffer);
+	if (depthSurface == 0)
+		return VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED;
+
+	SGPRect currentClipping;
+	if (!pClipRegion)
+	{
+		GetClippingRect(&currentClipping);
+		pClipRegion = &currentClipping;
+	}
+	const RenderImageDepthVisibility result =
+		QueryLegacyRenderImageDepthVisibility(
+			RenderImageDepthVisibilityQuery{
+				depthSurface,
+				image,
+				usRegionIndex,
+				RenderSurfacePoint{iDestX, iDestY},
+				RenderSurfaceRegion{
+					pClipRegion->iLeft, pClipRegion->iTop,
+					pClipRegion->iRight, pClipRegion->iBottom},
+				sDepth});
+	switch (result)
+	{
+	case RenderImageDepthVisibility::FullyOccluded:
+		return VOBJECT_DEPTH_FULLY_OCCLUDED;
+	case RenderImageDepthVisibility::Visible:
+		return VOBJECT_DEPTH_VISIBLE;
+	case RenderImageDepthVisibility::Unsupported:
+	default:
+		return VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED;
+	}
 }
 
 BOOLEAN BltVideoObjectPaletteShadowToSurface(

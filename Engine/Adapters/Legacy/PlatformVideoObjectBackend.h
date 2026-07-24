@@ -9,6 +9,8 @@
 bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command);
 bool PlatformVideoObjectDepthDraw(
 	const RenderImageDepthDrawCommand& command);
+RenderImageDepthVisibility PlatformVideoObjectDepthVisibility(
+	const RenderImageDepthVisibilityQuery& query);
 bool PlatformVideoObjectOutline(
 	const RenderImageOutlineCommand& command);
 bool PlatformVideoObjectDepthOutline(

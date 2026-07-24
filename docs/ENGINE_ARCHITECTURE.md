@@ -137,7 +137,10 @@ the engine must not contain SDL types in its public domain model.
   belongs to the stable manager therefore traverse the same bindable service
   used by packages and headless recorders. Its source-transparent mode samples
   palette colour, while shadow and intensity modes transform destination pixels
-  under the visible source mask. `PaletteWithShadowMarker` additionally names
+  under the visible source mask. `ClearDestination` writes transparent black
+  through that mask using the destination's actual pixel width, which replaces
+  the tactical renderer's last hard-coded 16-bit colour stride.
+  `PaletteWithShadowMarker` additionally names
   an immutable host palette through `RenderPaletteId`; source index 254 shades
   the destination unless explicitly ignored, and an optional stable image
   identity supplies the parallel legacy alpha stream. Neither palette pointers
@@ -177,6 +180,12 @@ the engine must not contain SDL types in its public domain model.
   strict comparison versus the non-alpha inclusive comparison. Unsupported
   resource, profile, effect, comparison, and write combinations are rejected
   at the platform boundary.
+  `RenderImageDepthVisibilityQuery` is the read-only depth counterpart. It
+  names only a `Depth16` surface, stable image/frame, anchor, clip, and signed
+  legacy depth, and returns `FullyOccluded`, `Visible`, or `Unsupported`.
+  Keeping rejection distinct from occlusion lets external/headless hosts
+  decline the read while pointer-built compatibility images fall back to the
+  exact local query.
   The production sink resolves image identities and executes the established
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
   physical pixels remain unchanged. Every successful `CreateVideoObject`
@@ -210,7 +219,12 @@ the engine must not contain SDL types in its public domain model.
   depth-image command with their explicit profile frame. Their seven formerly
   duplicated implementations live in the dedicated SGP multi-Z backend rather
   than the tactical world renderer; rejecting hosts retain the exact raw
-  fallback. The historical clipped physics-object outline remains non-depth
+  fallback. Riot shields and wall decals also use the ordinary depth-image
+  command, while sprite-footprint clears and tile-redundancy reads use the
+  clear-mask command and visibility query. Their raw RGBA8888 mask, inverse-Z,
+  and signed occlusion implementations now live in dedicated SGP backends;
+  `renderworld.cpp` owns orchestration only. The historical clipped
+  physics-object outline remains non-depth
   and uses the regular outline command. Other
   application-owned pointer image operations deliberately retain their
   compatibility path until their individual command semantics migrate. Copy

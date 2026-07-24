@@ -27,6 +27,8 @@ bool DrawLegacyRenderImage(
 	const RenderImageDrawCommand& command) noexcept;
 bool DrawLegacyRenderImageDepth(
 	const RenderImageDepthDrawCommand& command) noexcept;
+RenderImageDepthVisibility QueryLegacyRenderImageDepthVisibility(
+	const RenderImageDepthVisibilityQuery& query) noexcept;
 bool DrawLegacyRenderImageOutline(
 	const RenderImageOutlineCommand& command) noexcept;
 bool DrawLegacyRenderImageDepthOutline(

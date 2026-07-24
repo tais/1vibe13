@@ -303,9 +303,15 @@ set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp"
   "${SOURCE_ROOT}/sgp/vobject.cpp"
   "${SOURCE_ROOT}/sgp/vobject_blitters.cpp"
+  "${SOURCE_ROOT}/sgp/vobject_depth_queries.cpp"
+  "${SOURCE_ROOT}/sgp/vobject_mask_blitters.cpp"
   "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp")
 set(multiz_blitter_owner
   "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp")
+set(depth_query_owner
+  "${SOURCE_ROOT}/sgp/vobject_depth_queries.cpp")
+set(mask_blitter_owner
+  "${SOURCE_ROOT}/sgp/vobject_mask_blitters.cpp")
 foreach(source_file IN LISTS world_state_files)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
@@ -368,6 +374,24 @@ foreach(source_file IN LISTS world_state_files)
         "Production code implements a raw multi-Z blitter in ${source_file}; keep strip-depth rasterization in the dedicated SGP backend")
     endif()
   endif()
+  if(NOT "${source_file}" STREQUAL "${mask_blitter_owner}")
+    string(REGEX MATCH
+      "BOOLEAN[ \t\r\n]+Zero8BPPDataTo16BPPBufferTransparent[A-Za-z0-9_]*[ \t\r\n]*\\("
+      direct_mask_clear_implementation "${contents}")
+    if(direct_mask_clear_implementation)
+      message(FATAL_ERROR
+        "Production code implements a raw image-mask clear in ${source_file}; keep footprint clearing in the dedicated SGP backend")
+    endif()
+  endif()
+  if(NOT "${source_file}" STREQUAL "${depth_query_owner}")
+    string(REGEX MATCH
+      "BOOLEAN[ \t\r\n]+(Blt8BPPDataTo16BPPBufferTransInvZ|Query8BPPDataToDepthBufferOcclusion|IsTileRedundent)[ \t\r\n]*\\("
+      direct_depth_query_implementation "${contents}")
+    if(direct_depth_query_implementation)
+      message(FATAL_ERROR
+        "Production code implements a raw inverse-depth draw or visibility query in ${source_file}; keep depth reads in the dedicated SGP backend")
+    endif()
+  endif()
 
   list(FIND platform_video_backend_owners
     "${source_file}" platform_video_backend_owner_index)
@@ -375,7 +399,7 @@ foreach(source_file IN LISTS world_state_files)
     continue()
   endif()
   string(REGEX MATCH
-    "Platform(DepthBuffer|Video(Surface|Object)?)Backend\\.h|(^|[^A-Za-z0-9_])Platform(DepthBuffer(Describe|Map|Unmap)|Video(Present|Invalidate|MarkFrameChanged|Surface|Object(DepthDraw|Draw|Outline))[A-Za-z0-9_]*)[ \t\r\n]*\\("
+    "Platform(DepthBuffer|Video(Surface|Object)?)Backend\\.h|(^|[^A-Za-z0-9_])Platform(DepthBuffer(Describe|Map|Unmap)|Video(Present|Invalidate|MarkFrameChanged|Surface|Object(DepthDraw|DepthVisibility|Draw|Outline))[A-Za-z0-9_]*)[ \t\r\n]*\\("
     direct_platform_video_access "${contents}")
   if(direct_platform_video_access)
     message(FATAL_ERROR

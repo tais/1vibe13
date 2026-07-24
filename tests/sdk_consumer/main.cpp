@@ -295,12 +295,19 @@ int main()
 		RenderSurfaceRegion{0, 0, 4, 4},
 		RenderImageCompositeMode::PaletteWithShadowMarker,
 		(RenderPaletteId{1} << 32) + 1, 49, true};
+	const RenderImageDrawCommand externalClearImageCommand{
+		1, 55, 11, RenderSurfacePoint{-4, 6},
+		RenderSurfaceRegion{0, 0, 4, 4},
+		RenderImageCompositeMode::ClearDestination};
 	if (!recordedImageCommands.drawImage(externalImageCommand) ||
 		!recordedImageCommands.drawImage(
 			externalPaletteImageCommand) ||
+		!recordedImageCommands.drawImage(
+			externalClearImageCommand) ||
 		recordedImageCommands.imageCommands() !=
 			std::vector<RenderImageDrawCommand>{
-				externalImageCommand, externalPaletteImageCommand})
+				externalImageCommand, externalPaletteImageCommand,
+				externalClearImageCommand})
 		return 48;
 	const RenderImageDepthDrawCommand externalDepthImageCommand{
 		1, 3, 46, 5, RenderSurfacePoint{-1, 2},
@@ -361,6 +368,19 @@ int main()
 				externalPaletteDepthImageCommand,
 				externalObscuredPaletteDepthImageCommand,
 				externalStripDepthImageCommand})
+		return 48;
+	const RenderImageDepthVisibilityQuery
+		externalDepthVisibilityQuery{
+			3, 56, 12, RenderSurfacePoint{-5, 7},
+			RenderSurfaceRegion{0, 0, 4, 4}, -321};
+	recordedImageCommands.setImageDepthVisibilityResult(
+		RenderImageDepthVisibility::FullyOccluded);
+	if (recordedImageCommands.queryImageDepthVisibility(
+			externalDepthVisibilityQuery) !=
+			RenderImageDepthVisibility::FullyOccluded ||
+		recordedImageCommands.imageDepthVisibilityQueries() !=
+			std::vector<RenderImageDepthVisibilityQuery>{
+				externalDepthVisibilityQuery})
 		return 48;
 	const RenderImageOutlineCommand externalOutlineCommand{
 		1, 45, 4, RenderSurfacePoint{3, -1},

@@ -600,6 +600,15 @@ public:
 			DrawLegacyRenderImageDepth(command);
 		return true;
 	}
+	RenderImageDepthVisibility queryImageDepthVisibility(
+		const RenderImageDepthVisibilityQuery& query) override
+	{
+		++depthVisibilityQueries;
+		lastDepthVisibilityQuery = query;
+		nestedDepthVisibility =
+			QueryLegacyRenderImageDepthVisibility(query);
+		return RenderImageDepthVisibility::Visible;
+	}
 	bool drawImageOutline(
 		const RenderImageOutlineCommand& command) override
 	{
@@ -626,6 +635,7 @@ public:
 	int depthFills = 0;
 	int images = 0;
 	int depthImages = 0;
+	int depthVisibilityQueries = 0;
 	int imageOutlines = 0;
 	int imageDepthOutlines = 0;
 	bool nestedAccepted = true;
@@ -635,6 +645,8 @@ public:
 	bool nestedDepthFillAccepted = true;
 	bool nestedImageAccepted = true;
 	bool nestedDepthImageAccepted = true;
+	RenderImageDepthVisibility nestedDepthVisibility =
+		RenderImageDepthVisibility::Visible;
 	bool nestedImageOutlineAccepted = true;
 	bool nestedImageDepthOutlineAccepted = true;
 	RenderSurfaceFillCommand lastCommand;
@@ -644,6 +656,7 @@ public:
 	RenderDepthFillCommand lastDepthFillCommand;
 	RenderImageDrawCommand lastImageCommand;
 	RenderImageDepthDrawCommand lastDepthImageCommand;
+	RenderImageDepthVisibilityQuery lastDepthVisibilityQuery;
 	RenderImageOutlineCommand lastImageOutlineCommand;
 	RenderImageDepthOutlineCommand lastImageDepthOutlineCommand;
 };
@@ -678,6 +691,12 @@ public:
 	bool drawImageDepth(const RenderImageDepthDrawCommand&) override
 	{
 		throw std::runtime_error("render depth-image command probe");
+	}
+	RenderImageDepthVisibility queryImageDepthVisibility(
+		const RenderImageDepthVisibilityQuery&) override
+	{
+		throw std::runtime_error(
+			"render depth-visibility query probe");
 	}
 	bool drawImageOutline(const RenderImageOutlineCommand&) override
 	{
@@ -851,6 +870,10 @@ int main()
 		RenderDepthCompareMode::Greater,
 		RenderDepthWriteMode::Preserve,
 		RenderImageDepthEffect::ShadeDestination};
+	const RenderImageDepthVisibilityQuery
+		expectedDepthVisibilityQuery{
+			73, 92, 7, RenderSurfacePoint{-8, 9},
+			RenderSurfaceRegion{1, 2, 30, 40}, -123};
 	const RenderImageOutlineCommand expectedImageOutlineCommand{
 		71, 89, 4, RenderSurfacePoint{6, -2},
 		RenderSurfaceRegion{1, 2, 30, 40},
@@ -864,6 +887,8 @@ int main()
 			RenderDepthWriteMode::ReplaceOnPass,
 			RenderImageDepthOutlineVisibility::PixelateWhenObscured,
 			RenderColor{59, 69, 79, 89}, true};
+	recordedRenderCommands.setImageDepthVisibilityResult(
+		RenderImageDepthVisibility::FullyOccluded);
 	Check(ColorFillVideoSurfaceArea(71, 5, 6, 1, 2, legacyRed) &&
 		CopyLegacyRenderSurface(expectedCopyCommand) &&
 		StretchLegacyRenderSurface(expectedStretchCommand) &&
@@ -871,6 +896,9 @@ int main()
 		FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
 		DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
+		QueryLegacyRenderImageDepthVisibility(
+			expectedDepthVisibilityQuery) ==
+			RenderImageDepthVisibility::FullyOccluded &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		DrawLegacyRenderImageDepthOutline(
 			expectedImageDepthOutlineCommand) &&
@@ -889,6 +917,9 @@ int main()
 		recordedRenderCommands.imageDepthCommands() ==
 			std::vector<RenderImageDepthDrawCommand>{
 				expectedDepthImageCommand} &&
+		recordedRenderCommands.imageDepthVisibilityQueries() ==
+			std::vector<RenderImageDepthVisibilityQuery>{
+				expectedDepthVisibilityQuery} &&
 		recordedRenderCommands.imageOutlineCommands() ==
 			std::vector<RenderImageOutlineCommand>{
 				expectedImageOutlineCommand} &&
@@ -906,6 +937,9 @@ int main()
 		FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		DrawLegacyRenderImage(expectedImageCommand) &&
 		DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
+		QueryLegacyRenderImageDepthVisibility(
+			expectedDepthVisibilityQuery) ==
+			RenderImageDepthVisibility::Visible &&
 		DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		DrawLegacyRenderImageDepthOutline(
 			expectedImageDepthOutlineCommand) &&
@@ -916,6 +950,7 @@ int main()
 		reentrantRenderCommands.depthFills == 1 &&
 		reentrantRenderCommands.images == 1 &&
 		reentrantRenderCommands.depthImages == 1 &&
+		reentrantRenderCommands.depthVisibilityQueries == 1 &&
 		reentrantRenderCommands.imageOutlines == 1 &&
 		reentrantRenderCommands.imageDepthOutlines == 1 &&
 		reentrantRenderCommands.lastCommand == expectedFillCommand &&
@@ -928,6 +963,8 @@ int main()
 		reentrantRenderCommands.lastImageCommand == expectedImageCommand &&
 		reentrantRenderCommands.lastDepthImageCommand ==
 			expectedDepthImageCommand &&
+		reentrantRenderCommands.lastDepthVisibilityQuery ==
+			expectedDepthVisibilityQuery &&
 		reentrantRenderCommands.lastImageOutlineCommand ==
 			expectedImageOutlineCommand &&
 		reentrantRenderCommands.lastImageDepthOutlineCommand ==
@@ -939,6 +976,8 @@ int main()
 		!reentrantRenderCommands.nestedDepthFillAccepted &&
 		!reentrantRenderCommands.nestedImageAccepted &&
 		!reentrantRenderCommands.nestedDepthImageAccepted &&
+		reentrantRenderCommands.nestedDepthVisibility ==
+			RenderImageDepthVisibility::Unsupported &&
 		!reentrantRenderCommands.nestedImageOutlineAccepted &&
 		!reentrantRenderCommands.nestedImageDepthOutlineAccepted,
 		"legacy render command gateway suppresses recursive drawing");
@@ -952,6 +991,9 @@ int main()
 		!FillLegacyRenderDepth(expectedDepthFillCommand) &&
 		!DrawLegacyRenderImage(expectedImageCommand) &&
 		!DrawLegacyRenderImageDepth(expectedDepthImageCommand) &&
+		QueryLegacyRenderImageDepthVisibility(
+			expectedDepthVisibilityQuery) ==
+			RenderImageDepthVisibility::Unsupported &&
 		!DrawLegacyRenderImageOutline(expectedImageOutlineCommand) &&
 		!DrawLegacyRenderImageDepthOutline(
 			expectedImageDepthOutlineCommand),
@@ -2331,6 +2373,54 @@ int main()
 			intensityImagePixel == PixIntensity(imageEffectInput),
 			"engine image commands retain exact clipping, palette, shadow, and intensity pixels");
 
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		const PIXEL clearSentinel =
+			Get16BPPColor(FROMRGB(12, 34, 56));
+		if (copyDestinationPixels)
+		{
+			copyDestinationPixels[1] = clearSentinel;
+			copyDestinationPixels[2] = clearSentinel;
+			UnLockVideoSurface(copyDestinationID);
+		}
+		const bool clippedClearAccepted = liveImageCreated &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{2, 0},
+					RenderSurfaceRegion{0, 0, 2, 1},
+					RenderImageCompositeMode::ClearDestination});
+		const bool clearAccepted = liveImageCreated &&
+			GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{2, 0},
+					RenderSurfaceRegion{0, 0, 5, 1},
+					RenderImageCompositeMode::ClearDestination});
+		const bool invalidClearRejected = !liveImageCreated ||
+			!GetPlatformRenderCommands().drawImage(
+				RenderImageDrawCommand{
+					copyDestinationID, liveImageID, 0,
+					RenderSurfacePoint{2, 0},
+					RenderSurfaceRegion{0, 0, 5, 1},
+					RenderImageCompositeMode::ClearDestination,
+					commandPaletteID});
+		copyDestinationPixels = copySurfacesCreated ?
+			reinterpret_cast<PIXEL*>(
+				LockVideoSurface(
+					copyDestinationID, &copyDestinationPitch)) : nullptr;
+		const bool clearPixelsMatch =
+			copyDestinationPixels &&
+			copyDestinationPixels[1] == clearSentinel &&
+			copyDestinationPixels[2] == 0;
+		if (copyDestinationPixels)
+			UnLockVideoSurface(copyDestinationID);
+		Check(clippedClearAccepted && clearAccepted &&
+			invalidClearRejected && clearPixelsMatch,
+			"clear-mask image commands clip safely and clear whole RGBA8888 pixels");
+
 		UINT8* const paletteEncodedPixels =
 			liveImageCreated && liveImage->pPixData &&
 				liveImage->pETRLEObject ?
@@ -2482,6 +2572,11 @@ int main()
 				copyDestinationID, liveImage, 0, -2, 1,
 				VOBJECT_DRAW_INTENSIFY_DESTINATION,
 				&imageSurfaceClip);
+		const bool pointerClearEffectRouted = liveImageCreated &&
+			BltVideoObjectEffectToSurface(
+				copyDestinationID, liveImage, 0, 3, -1,
+				VOBJECT_DRAW_CLEAR_DESTINATION,
+				&imageSurfaceClip);
 		const bool invalidImageEffectRejected =
 			!BltVideoObjectEffectToSurface(
 				copyDestinationID, liveImage, 0, -2, 1,
@@ -2489,12 +2584,17 @@ int main()
 				&imageSurfaceClip);
 		ResetLegacyRenderCommands();
 		RenderImageDrawCommand routedImageEffectCommand;
-		if (recordedImageEffect.imageCommands().size() == 1)
+		RenderImageDrawCommand routedClearEffectCommand;
+		if (recordedImageEffect.imageCommands().size() == 2)
+		{
 			routedImageEffectCommand =
 				recordedImageEffect.imageCommands().front();
-		Check(pointerImageEffectRouted &&
+			routedClearEffectCommand =
+				recordedImageEffect.imageCommands().back();
+		}
+		Check(pointerImageEffectRouted && pointerClearEffectRouted &&
 			invalidImageEffectRejected &&
-			recordedImageEffect.imageCommands().size() == 1 &&
+			recordedImageEffect.imageCommands().size() == 2 &&
 			routedImageEffectCommand.destination == copyDestinationID &&
 			routedImageEffectCommand.image >
 				std::numeric_limits<UINT32>::max() &&
@@ -2504,8 +2604,18 @@ int main()
 			routedImageEffectCommand.clippingRegion ==
 				RenderSurfaceRegion{0, 0, 5, 3} &&
 			routedImageEffectCommand.mode ==
-				RenderImageCompositeMode::Intensity,
-			"tactical colour effects retain stable image identity and explicit clipping");
+				RenderImageCompositeMode::Intensity &&
+			routedClearEffectCommand.destination ==
+				copyDestinationID &&
+			routedClearEffectCommand.image ==
+				routedImageEffectCommand.image &&
+			routedClearEffectCommand.destinationOrigin ==
+				RenderSurfacePoint{3, -1} &&
+			routedClearEffectCommand.clippingRegion ==
+				RenderSurfaceRegion{0, 0, 5, 3} &&
+			routedClearEffectCommand.mode ==
+				RenderImageCompositeMode::ClearDestination,
+			"tactical image effects retain stable identity, clipping, and clear-mask semantics");
 
 		PIXEL unregisteredCommandPalette[256] = {};
 		RecordingRenderCommandSink recordedPaletteShadow;
@@ -2822,6 +2932,175 @@ int main()
 			alphaObscuredStrictEqualSkipped,
 			"multi-Z backend preserves strip transitions, wall equality, palette deltas, and alpha-obscured comparison");
 
+		UINT8 maskEncodedPixels[] = {
+			4, 1, 1, 1, 1, 0,
+			4, 1, 1, 1, 1, 0};
+		ETRLEObject maskImage{
+			0, sizeof(maskEncodedPixels), 0, 0, 2, 4};
+		PIXEL maskPalette[256] = {};
+		maskPalette[1] = copiedGreen;
+		SGPVObject maskObject{};
+		maskObject.uiSizePixData = sizeof(maskEncodedPixels);
+		maskObject.pPixData = maskEncodedPixels;
+		maskObject.pETRLEObject = &maskImage;
+		maskObject.pShadeCurrent = maskPalette;
+		maskObject.usNumberOfObjects = 1;
+		maskObject.ubBitDepth = 8;
+		constexpr std::size_t maskPitchPixels = 6;
+		const UINT32 maskPitch = static_cast<UINT32>(
+			maskPitchPixels * sizeof(PIXEL));
+		const PIXEL maskSentinel =
+			Get16BPPColor(FROMRGB(91, 73, 55));
+		std::vector<PIXEL> maskDestination(
+			maskPitchPixels * 2, maskSentinel);
+		const SGPRect maskClip{1, 0, 3, 2};
+		const bool maskCleared =
+			Zero8BPPDataTo16BPPBufferTransparentClip(
+				maskDestination.data(), maskPitch, &maskObject,
+				0, 0, 0, &maskClip);
+		bool maskClearPixelsMatch = maskCleared;
+		for (std::size_t row = 0;
+			maskClearPixelsMatch && row < 2; ++row)
+		{
+			for (std::size_t column = 0;
+				column < maskPitchPixels; ++column)
+			{
+				const PIXEL expected =
+					column == 1 || column == 2 ?
+						0 : maskSentinel;
+				if (maskDestination[
+						row * maskPitchPixels + column] !=
+					expected)
+					maskClearPixelsMatch = false;
+			}
+		}
+		UINT8 malformedMaskPixels[] = {5, 1, 1, 1, 1, 1, 0};
+		ETRLEObject malformedMaskImage{
+			0, sizeof(malformedMaskPixels), 0, 0, 1, 4};
+		SGPVObject malformedMaskObject = maskObject;
+		malformedMaskObject.uiSizePixData =
+			sizeof(malformedMaskPixels);
+		malformedMaskObject.pPixData = malformedMaskPixels;
+		malformedMaskObject.pETRLEObject = &malformedMaskImage;
+		const std::vector<PIXEL> beforeMalformedMask =
+			maskDestination;
+		const bool malformedMaskRejected =
+			!Zero8BPPDataTo16BPPBufferTransparent(
+				maskDestination.data(), maskPitch,
+				&malformedMaskObject, 0, 0, 0) &&
+			maskDestination == beforeMalformedMask;
+		Check(maskClearPixelsMatch && malformedMaskRejected,
+			"sprite footprint clearing respects RGBA8888 stride, clipping, row padding, and malformed ETRLE input");
+
+		std::fill(
+			maskDestination.begin(), maskDestination.end(),
+			maskSentinel);
+		std::vector<PIXEL> maskDepthStorage(
+			maskPitchPixels * 2, 0);
+		UINT16* const firstMaskDepthRow =
+			reinterpret_cast<UINT16*>(
+				maskDepthStorage.data());
+		UINT16* const secondMaskDepthRow =
+			reinterpret_cast<UINT16*>(
+				reinterpret_cast<UINT8*>(
+					maskDepthStorage.data()) + maskPitch);
+		const UINT16 inverseDepth = 7;
+		firstMaskDepthRow[0] = inverseDepth;
+		firstMaskDepthRow[1] = inverseDepth - 1;
+		firstMaskDepthRow[2] = inverseDepth;
+		firstMaskDepthRow[3] = inverseDepth - 1;
+		secondMaskDepthRow[0] = inverseDepth - 1;
+		secondMaskDepthRow[1] = inverseDepth;
+		secondMaskDepthRow[2] = inverseDepth - 1;
+		secondMaskDepthRow[3] = inverseDepth;
+		const bool inverseDepthDrawn =
+			Blt8BPPDataTo16BPPBufferTransInvZ(
+				maskDestination.data(), maskPitch,
+				firstMaskDepthRow, inverseDepth,
+				&maskObject, 0, 0, 0);
+		bool inverseDepthPixelsMatch = inverseDepthDrawn;
+		const bool expectedInversePixels[][4] = {
+			{true, false, true, false},
+			{false, true, false, true}};
+		for (std::size_t row = 0;
+			inverseDepthPixelsMatch && row < 2; ++row)
+		{
+			for (std::size_t column = 0; column < 4; ++column)
+			{
+				const PIXEL expected =
+					expectedInversePixels[row][column] ?
+						copiedGreen : maskSentinel;
+				if (maskDestination[
+						row * maskPitchPixels + column] !=
+					expected)
+					inverseDepthPixelsMatch = false;
+			}
+			for (std::size_t column = 4;
+				column < maskPitchPixels; ++column)
+			{
+				if (maskDestination[
+						row * maskPitchPixels + column] !=
+					maskSentinel)
+					inverseDepthPixelsMatch = false;
+			}
+		}
+		Check(inverseDepthPixelsMatch,
+			"legacy equal-depth draws advance whole RGBA8888 pixels while preserving depth and row padding");
+
+		for (std::size_t column = 0; column < 4; ++column)
+		{
+			firstMaskDepthRow[column] = inverseDepth;
+			secondMaskDepthRow[column] = inverseDepth;
+		}
+		BOOLEAN fullyOccluded = FALSE;
+		const bool equalDepthOccluded =
+			Query8BPPDataToDepthBufferOcclusion(
+				maskPitch, firstMaskDepthRow,
+				static_cast<INT16>(inverseDepth),
+				&maskObject, 0, 0, 0, nullptr,
+				&fullyOccluded) &&
+			fullyOccluded;
+		secondMaskDepthRow[3] = inverseDepth - 1;
+		const SGPRect occlusionClip{0, 0, 3, 2};
+		const bool clippedVisiblePixelIgnored =
+			Query8BPPDataToDepthBufferOcclusion(
+				maskPitch, firstMaskDepthRow,
+				static_cast<INT16>(inverseDepth),
+				&maskObject, 0, 0, 0, &occlusionClip,
+				&fullyOccluded) &&
+			fullyOccluded;
+		const bool lowerDepthVisible =
+			Query8BPPDataToDepthBufferOcclusion(
+				maskPitch, firstMaskDepthRow,
+				static_cast<INT16>(inverseDepth),
+				&maskObject, 0, 0, 0, nullptr,
+				&fullyOccluded) &&
+			!fullyOccluded;
+		for (std::size_t column = 0; column < 4; ++column)
+		{
+			firstMaskDepthRow[column] = 0;
+			secondMaskDepthRow[column] = 0;
+		}
+		const bool negativeDepthRemainsOccluded =
+			Query8BPPDataToDepthBufferOcclusion(
+				maskPitch, firstMaskDepthRow, -1,
+				&maskObject, 0, 0, 0, nullptr,
+				&fullyOccluded) &&
+			fullyOccluded;
+		secondMaskDepthRow[2] =
+			std::numeric_limits<UINT16>::max();
+		const bool signedNegativeStoredDepthVisible =
+			Query8BPPDataToDepthBufferOcclusion(
+				maskPitch, firstMaskDepthRow, 0,
+				&maskObject, 0, 0, 0, nullptr,
+				&fullyOccluded) &&
+			!fullyOccluded;
+		Check(equalDepthOccluded &&
+			clippedVisiblePixelIgnored && lowerDepthVisible &&
+			negativeDepthRemainsOccluded &&
+			signedNegativeStoredDepthVisible,
+			"depth visibility queries preserve clipping and signed legacy ordering without writing the depth surface");
+
 		RecordingRenderCommandSink recordedDepthImage;
 		BindLegacyRenderCommands(recordedDepthImage);
 		const bool pointerDepthRouted = liveImageCreated &&
@@ -2852,6 +3131,44 @@ int main()
 			routedDepthCommand.effect ==
 				RenderImageDepthEffect::SourcePalette,
 			"pointer-owned tactical images receive stable opaque depth-command identities");
+
+		RecordingRenderCommandSink recordedDepthVisibility;
+		recordedDepthVisibility.setImageDepthVisibilityResult(
+			RenderImageDepthVisibility::Visible);
+		BindLegacyRenderCommands(recordedDepthVisibility);
+		const VideoObjectDepthVisibility routedDepthVisibility =
+			liveImageCreated ?
+				QueryVideoObjectDepthVisibility(
+					liveImage, 0, -3, 2, -77,
+					&imageSurfaceClip) :
+				VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED;
+		const VideoObjectDepthVisibility
+			unregisteredDepthVisibility =
+				QueryVideoObjectDepthVisibility(
+					&maskObject, 0, 0, 0, 1,
+					&imageSurfaceClip);
+		ResetLegacyRenderCommands();
+		RenderImageDepthVisibilityQuery routedVisibilityQuery;
+		if (recordedDepthVisibility.
+				imageDepthVisibilityQueries().size() == 1)
+			routedVisibilityQuery =
+				recordedDepthVisibility.
+					imageDepthVisibilityQueries().front();
+		Check(routedDepthVisibility == VOBJECT_DEPTH_VISIBLE &&
+			unregisteredDepthVisibility ==
+				VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED &&
+			recordedDepthVisibility.
+				imageDepthVisibilityQueries().size() == 1 &&
+			routedVisibilityQuery.depthSurface == DEPTH_BUFFER &&
+			routedVisibilityQuery.image ==
+				routedDepthCommand.image &&
+			routedVisibilityQuery.frame == 0 &&
+			routedVisibilityQuery.destinationOrigin ==
+				RenderSurfacePoint{-3, 2} &&
+			routedVisibilityQuery.clippingRegion ==
+				RenderSurfaceRegion{0, 0, 5, 3} &&
+			routedVisibilityQuery.depth == -77,
+			"registered tactical images expose tri-state depth visibility while pointer fixtures remain on fallback");
 
 		RecordingRenderCommandSink recordedDepthPaletteEffects;
 		BindLegacyRenderCommands(recordedDepthPaletteEffects);
@@ -3004,6 +3321,58 @@ int main()
 			depthRow[2] = 4;
 			depthRow[3] = 4;
 		}
+		const RenderImageDepthVisibility platformOccluded =
+			liveImageCreated && imageDepthBuffer ?
+				GetPlatformRenderCommands().
+					queryImageDepthVisibility(
+						RenderImageDepthVisibilityQuery{
+							DEPTH_BUFFER, liveImageID, 0,
+							RenderSurfacePoint{0, 0},
+							RenderSurfaceRegion{0, 0, 5, 1},
+							10}) :
+				RenderImageDepthVisibility::Unsupported;
+		const RenderImageDepthVisibility platformVisible =
+			liveImageCreated && imageDepthBuffer ?
+				GetPlatformRenderCommands().
+					queryImageDepthVisibility(
+						RenderImageDepthVisibilityQuery{
+							DEPTH_BUFFER, liveImageID, 0,
+							RenderSurfacePoint{0, 0},
+							RenderSurfaceRegion{0, 0, 5, 1},
+							12}) :
+				RenderImageDepthVisibility::Unsupported;
+		const RenderImageDepthVisibility clippedVisibility =
+			liveImageCreated && imageDepthBuffer ?
+				GetPlatformRenderCommands().
+					queryImageDepthVisibility(
+						RenderImageDepthVisibilityQuery{
+							DEPTH_BUFFER, liveImageID, 0,
+							RenderSurfacePoint{4, 0},
+							RenderSurfaceRegion{0, 0, 4, 1},
+							12}) :
+				RenderImageDepthVisibility::Unsupported;
+		const RenderImageDepthVisibility invalidVisibility =
+			GetPlatformRenderCommands().queryImageDepthVisibility(
+				RenderImageDepthVisibilityQuery{
+					DEPTH_BUFFER, 0, 0,
+					RenderSurfacePoint{},
+					RenderSurfaceRegion{0, 0, 5, 1}, 12});
+		const VideoObjectDepthVisibility bridgedVisibility =
+			liveImageCreated && imageDepthBuffer ?
+				QueryVideoObjectDepthVisibility(
+					liveImage, 0, 0, 0, 12,
+					&imageSurfaceClip) :
+				VOBJECT_DEPTH_VISIBILITY_UNSUPPORTED;
+		Check(platformOccluded ==
+				RenderImageDepthVisibility::FullyOccluded &&
+			platformVisible ==
+				RenderImageDepthVisibility::Visible &&
+			clippedVisibility ==
+				RenderImageDepthVisibility::FullyOccluded &&
+			invalidVisibility ==
+				RenderImageDepthVisibility::Unsupported &&
+			bridgedVisibility == VOBJECT_DEPTH_VISIBLE,
+			"platform depth visibility distinguishes occlusion, visibility, clipping, rejection, and the legacy bridge");
 		const bool blockedDepthAccepted = liveImageCreated &&
 			imageDepthBuffer &&
 			GetPlatformRenderCommands().drawImageDepth(
