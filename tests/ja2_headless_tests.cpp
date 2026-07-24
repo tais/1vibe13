@@ -2859,7 +2859,6 @@ int main( int, char** )
 				{ 190800, 71, 0, ONETIME_EVENT, 17, SEF_PREVENT_DELETION },
 				{ 190800, 72, 3600, PERIODIC_EVENT, 18,
 					SEF_DELETION_PENDING } } );
-		SynchronizeJa2CampaignEventListMirror();
 		STRATEGICEVENT* const firstCampaignEvent = liveCampaignEventQueue.head();
 		STRATEGICEVENT* const secondCampaignEvent =
 			firstCampaignEvent ? firstCampaignEvent->next : nullptr;
@@ -2867,7 +2866,7 @@ int main( int, char** )
 			AddAdvancedStrategicEvent( ONETIME_EVENT, 19, 190900, 73 );
 		const bool campaignEventGatewayOwned =
 			gatewayCampaignEvent != nullptr &&
-			gpEventList == liveCampaignEventQueue.head() &&
+			GetStrategicEventListHead() == liveCampaignEventQueue.head() &&
 			DeleteStrategicEvent( 19, 73 ) == TRUE &&
 			liveCampaignEventQueue.size() == 2;
 		CampaignEventQueueSnapshot liveCampaignEvents;
@@ -2894,12 +2893,11 @@ int main( int, char** )
 			secondCampaignEvent->next = nullptr;
 		const CampaignEventQueueError previousCampaignEventsRestored =
 			liveCampaignEventQueue.replace( previousCampaignEvents );
-		SynchronizeJa2CampaignEventListMirror();
 		CHECK( previousCampaignEventsCaptured &&
 		       campaignEventFixtureInstalled == CampaignEventQueueError::None &&
 		       campaignEventGatewayOwned &&
 		       previousCampaignEventsRestored == CampaignEventQueueError::None &&
-		       gpEventList == liveCampaignEventQueue.head() &&
+		       GetStrategicEventListHead() == liveCampaignEventQueue.head() &&
 		       campaignEventService &&
 		       campaignEventService.service == &GetJa2CampaignEventAdapter() &&
 		       liveCampaignEventCapture == CampaignEventCaptureResult::Success &&

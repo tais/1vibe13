@@ -344,33 +344,16 @@ if(render_paced_campaign_clock)
 endif()
 
 # Strategic-event nodes and ordering are owned by EngineRuntime's
-# CampaignEventQueue. gpEventList remains a readable source-compatibility view,
-# but only the application adapter may republish its head.
-set(campaign_event_owner "${SOURCE_ROOT}/Ja2/CampaignEventAdapter.cpp")
-set(campaign_event_definition "${SOURCE_ROOT}/Strategic/Game Events.cpp")
+# CampaignEventQueue. The former gpEventList mirror has been retired; callers
+# must query the live runtime-owned head when they begin a traversal.
 foreach(source_file IN LISTS world_state_files)
-  if("${source_file}" STREQUAL "${campaign_event_owner}")
-    continue()
-  endif()
   file(READ "${source_file}" contents)
-  if("${source_file}" STREQUAL "${campaign_event_definition}")
-    string(REGEX REPLACE
-      "STRATEGICEVENT[ \t\r\n]*\\*[ \t\r\n]*gpEventList[ \t\r\n]*=[ \t\r\n]*NULL[ \t\r\n]*;"
-      "" contents "${contents}")
-  endif()
   string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])gpEventList[ \t\r\n]*(\\+\\+|--|[+*/%-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*gpEventList([^A-Za-z0-9_]|$)"
-    campaign_event_write "${contents}")
-  if(campaign_event_write)
+    "(^|[^A-Za-z0-9_])gpEventList([^A-Za-z0-9_]|$)"
+    retired_campaign_event_head "${contents}")
+  if(retired_campaign_event_head)
     message(FATAL_ERROR
-      "Production code writes the strategic-event compatibility head in ${source_file}; route ownership changes through CampaignEventQueue")
-  endif()
-  string(REGEX MATCH
-    "(^|[^&])&[ \t\r\n]*gpEventList([^A-Za-z0-9_]|$)"
-    campaign_event_address_escape "${contents}")
-  if(campaign_event_address_escape)
-    message(FATAL_ERROR
-      "Production code passes the strategic-event compatibility head by address in ${source_file}; route ownership changes through CampaignEventQueue")
+      "Retired strategic-event head mirror returned in ${source_file}; begin traversal with GetStrategicEventListHead")
   endif()
 endforeach()
 

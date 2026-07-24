@@ -35,6 +35,8 @@ extern BOOLEAN gfEventDeletionPending;
 
 BOOLEAN DeleteEventsWithDeletionPending();
 
-extern STRATEGICEVENT *gpEventList;
+// Returns the live runtime-owned queue head. The pointer remains stable until
+// that event is erased; no independently synchronized list-head global exists.
+STRATEGICEVENT* GetStrategicEventListHead() noexcept;
 
 #endif

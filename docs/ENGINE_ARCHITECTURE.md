@@ -565,9 +565,11 @@ the engine must not contain SDL types in its public domain model.
 - `CampaignEventQueue` moves strategic-event allocation, ordering, stable
   identity, capacity, replacement, and destruction into `EngineRuntime`.
   Equal timestamps remain FIFO and legacy `STRATEGICEVENT` callers retain
-  stable node addresses, but `gpEventList` is now only a synchronized readable
-  compatibility head. Scheduling, deletion, reposting, processing traversal,
-  and save restoration all mutate the runtime-owned queue. Its EVQ2 save
+  stable node addresses. The former `gpEventList` compatibility mirror has
+  been deleted; established traversal code queries the runtime-owned head when
+  it begins, so queue mutation cannot leave a duplicate pointer stale.
+  Scheduling, deletion, reposting, processing traversal, and save restoration
+  all mutate the runtime-owned queue. Its EVQ2 save
   section is bounded and loaded transactionally, so malformed or incomplete
   input cannot erase the active campaign.
 - `CampaignEventService` projects that owned queue into bounded, pointer-free

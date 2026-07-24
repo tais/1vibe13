@@ -2326,7 +2326,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 	UINT32 uiCurrTimeStamp;
 	GROUP *pGroup;
 	uiCurrTimeStamp = GetWorldTotalSeconds();
-	pEvent = gpEventList;
+	pEvent = GetStrategicEventListHead();
 	gubNumGroupsArrivedSimultaneously = 0;
 	while( pEvent && pEvent->uiTimeStamp <= uiCurrTimeStamp )
 	{
@@ -2346,7 +2346,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 						pGroup->uiFlags |= GROUPFLAG_GROUP_ARRIVED_SIMULTANEOUSLY;
 					++gubNumGroupsArrivedSimultaneously;
 					DeleteStrategicEvent( EVENT_GROUP_ARRIVAL, (UINT8)pEvent->uiParam );
-					pEvent = gpEventList;
+					pEvent = GetStrategicEventListHead();
 					continue;
 				}
 			}
