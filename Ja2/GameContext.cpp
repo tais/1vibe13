@@ -1,5 +1,6 @@
 #include "GameContext.h"
 #include "CampaignClockAdapter.h"
+#include "CampaignEventAdapter.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "Screens.h"
@@ -90,6 +91,17 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)campaignClockRegistrationReported;
+	static const EngineServiceRegistrationError campaignEventsRegistered =
+		RegisterCampaignEventService(
+			context.serviceCatalog(), GetJa2CampaignEventAdapter());
+	static const bool campaignEventsRegistrationReported = [&] {
+		if (campaignEventsRegistered != EngineServiceRegistrationError::None)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "services",
+				"Campaign event service registration failed"});
+		return true;
+	}();
+	(void)campaignEventsRegistrationReported;
 	static const EngineServiceRegistrationError tacticalWorldRegistered =
 		[&] {
 			BindJa2TacticalWorldSession(context.runtime().tacticalWorldSession());

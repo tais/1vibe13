@@ -94,9 +94,9 @@ phase/callback counts and structured incomplete/failure errors.
 The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,
 and builds the fresh project against `find_package(JA2Engine)`. It exercises
-Core plus campaign-clock ownership, the command codec, durable replay, runtime
-composition, tactical world diff/codec/observer, message publisher, and
-tactical command service surfaces.
+Core plus campaign-clock ownership, campaign-event snapshots, the command
+codec, durable replay, runtime composition, tactical world
+diff/codec/observer, message publisher, and tactical command service surfaces.
 
 `CampaignClockSession` is the value-only strategic-time state owned by each
 `EngineRuntime`. It distinguishes uncommitted event slices from a completed
@@ -114,6 +114,19 @@ When `totalSeconds` differs from `previousTotalSeconds`, the snapshot represents
 an in-progress strategic-event slice rather than a committed outer clock tick.
 `MemoryCampaignClockService` and `NullCampaignClockService` let package tests,
 replay tools, and headless hosts use the same contract without the JA2 process.
+
+`CampaignEventService` exposes a versioned, read-only view of scheduled
+strategic work (`ja2.campaign-events`, version 1.0). Each
+`CampaignEventQueueSnapshot` contains only values: scheduled seconds, parameter,
+interval, raw event type, raw callback ID, and flags. Numeric values stay opaque
+so mods can extend the legacy vocabulary without importing game headers or
+changing the SDK. Captures are bounded, validate nondecreasing timestamps,
+preserve FIFO order for equal timestamps, and replace caller state only after a
+complete capture. The JA2 adapter also rejects cyclic legacy lists. This
+contract does not yet grant event creation, deletion, dispatch, or save
+authority; those operations remain in the legacy strategic subsystem.
+`MemoryCampaignEventService` and `NullCampaignEventService` provide equivalent
+package-test, replay-tool, and headless-host fixtures.
 
 `TacticalCommandService` is the package-facing, pointer-free write boundary for
 JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it

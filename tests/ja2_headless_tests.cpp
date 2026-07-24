@@ -44,6 +44,7 @@
 #include <Engine/Core/EngineHost.h>
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/CommandDispatch.h>
+#include <Engine/Adapters/JA2/CampaignEventService.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -80,6 +81,7 @@
 #include "english.h"
 #include "GameContext.h"
 #include "CampaignClockAdapter.h"
+#include "CampaignEventAdapter.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
@@ -89,6 +91,7 @@
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
+#include "Game Events.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "Animation Control.h"
@@ -2778,6 +2781,68 @@ int main( int, char** )
 		       packageCampaignClock == committedCampaignClock,
 		       "application registers its live campaign clock as a read-only package service" );
 		RestoreJa2CampaignClockSession( previousCampaignClock );
+
+		const auto campaignEventService =
+			compiledContext.serviceCatalog().resolve( CampaignEventServiceContract );
+		STRATEGICEVENT firstCampaignEvent{};
+		firstCampaignEvent.uiTimeStamp = 190800;
+		firstCampaignEvent.uiParam = 71;
+		firstCampaignEvent.uiTimeOffset = 0;
+		firstCampaignEvent.ubEventType = ONETIME_EVENT;
+		firstCampaignEvent.ubCallbackID = 17;
+		firstCampaignEvent.ubFlags = SEF_PREVENT_DELETION;
+		STRATEGICEVENT secondCampaignEvent{};
+		secondCampaignEvent.uiTimeStamp = 190800;
+		secondCampaignEvent.uiParam = 72;
+		secondCampaignEvent.uiTimeOffset = 3600;
+		secondCampaignEvent.ubEventType = PERIODIC_EVENT;
+		secondCampaignEvent.ubCallbackID = 18;
+		secondCampaignEvent.ubFlags = SEF_DELETION_PENDING;
+		firstCampaignEvent.next = &secondCampaignEvent;
+		STRATEGICEVENT* const previousCampaignEventList = gpEventList;
+		gpEventList = &firstCampaignEvent;
+		CampaignEventQueueSnapshot liveCampaignEvents;
+		const CampaignEventCaptureResult liveCampaignEventCapture =
+			campaignEventService
+				? campaignEventService.service->capture( liveCampaignEvents )
+				: CampaignEventCaptureResult::Unavailable;
+		const std::size_t liveCampaignEventCapacity =
+			liveCampaignEvents.events().capacity();
+		const CampaignEventCaptureResult repeatedCampaignEventCapture =
+			campaignEventService
+				? campaignEventService.service->capture( liveCampaignEvents )
+				: CampaignEventCaptureResult::Unavailable;
+		Ja2CampaignEventAdapter boundedCampaignEvents( 1 );
+		const CampaignEventCaptureResult boundedCampaignEventCapture =
+			boundedCampaignEvents.capture( liveCampaignEvents );
+		secondCampaignEvent.next = &firstCampaignEvent;
+		const CampaignEventCaptureResult cyclicCampaignEventCapture =
+			campaignEventService
+				? campaignEventService.service->capture( liveCampaignEvents )
+				: CampaignEventCaptureResult::Unavailable;
+		secondCampaignEvent.next = nullptr;
+		gpEventList = previousCampaignEventList;
+		CHECK( campaignEventService &&
+		       campaignEventService.service == &GetJa2CampaignEventAdapter() &&
+		       liveCampaignEventCapture == CampaignEventCaptureResult::Success &&
+		       repeatedCampaignEventCapture ==
+		           CampaignEventCaptureResult::Success &&
+		       liveCampaignEvents.size() == 2 &&
+		       liveCampaignEvents.events().capacity() ==
+		           liveCampaignEventCapacity &&
+		       liveCampaignEvents.events()[0] ==
+		           ( CampaignEventSnapshot{
+			           190800, 71, 0, ONETIME_EVENT, 17,
+			           SEF_PREVENT_DELETION } ) &&
+		       liveCampaignEvents.events()[1] ==
+		           ( CampaignEventSnapshot{
+			           190800, 72, 3600, PERIODIC_EVENT, 18,
+			           SEF_DELETION_PENDING } ) &&
+		       boundedCampaignEventCapture ==
+		           CampaignEventCaptureResult::CapacityReached &&
+		       cyclicCampaignEventCapture ==
+		           CampaignEventCaptureResult::AdapterFailure,
+		       "application exposes bounded FIFO campaign events and rejects cyclic legacy queues transactionally" );
 
 		const auto tacticalCommands =
 			compiledContext.serviceCatalog().resolve( TacticalCommandServiceContract );
