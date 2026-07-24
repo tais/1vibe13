@@ -1,6 +1,8 @@
 #ifndef JA2_PACKAGE_HOST_H
 #define JA2_PACKAGE_HOST_H
 
+#include "GameCapabilities.h"
+
 #include <cstddef>
 #include <filesystem>
 #include <memory>
@@ -13,7 +15,7 @@ class PropertyContainer;
 }
 
 class PackageRegistry;
-class LegacyGameplayRuntime;
+class CampaignRuntimeBootstrapHost;
 
 // Optional startup configuration. With no package keys or command-line package
 // arguments, enabled remains false and the application selects its registered
@@ -96,7 +98,9 @@ public:
 class PackageHost
 {
 public:
-	explicit PackageHost(LegacyGameplayRuntime* gameplayRuntime = nullptr);
+	explicit PackageHost(
+		CampaignRuntimeBootstrapHost* campaignBootstrapHost = nullptr,
+		GameCapabilities gameCapabilities = {});
 	~PackageHost();
 	PackageHost(const PackageHost&) = delete;
 	PackageHost& operator=(const PackageHost&) = delete;
@@ -117,7 +121,9 @@ private:
 	static std::unique_ptr<OwnedPackage> readPackageManifest(
 		const std::filesystem::path& packageDirectory,
 		const std::filesystem::path& manifestPath,
-		std::size_t remainingTotalFiles, LegacyGameplayRuntime* gameplayRuntime,
+		std::size_t remainingTotalFiles,
+		CampaignRuntimeBootstrapHost* campaignBootstrapHost,
+		GameCapabilities gameCapabilities,
 		PackageHostResult& error);
 
 	std::vector<std::unique_ptr<OwnedPackage>> packages_;
@@ -125,7 +131,8 @@ private:
 	std::vector<std::string> registeredIds_;
 	std::vector<std::string> activatedIds_;
 	std::vector<std::string> mountedIds_;
-	LegacyGameplayRuntime* gameplayRuntime_ = nullptr;
+	CampaignRuntimeBootstrapHost* campaignBootstrapHost_ = nullptr;
+	GameCapabilities gameCapabilities_;
 	bool attempted_ = false;
 };
 

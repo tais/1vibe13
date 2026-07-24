@@ -2,6 +2,7 @@
 #define ENGINE_CORE_PACKAGE_RESULTS_H
 
 #include <cstddef>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -188,6 +189,11 @@ struct PackageBootstrapResult
 {
 	PackageBootstrapError error = PackageBootstrapError::None;
 	PackageBootstrapShutdownResult failedPhaseRollback;
+	// Local diagnostic identity only; packages still communicate portable
+	// runtime state through value contracts. Retaining the original exception
+	// lets an application surface its established fatal-loading diagnostic
+	// after the registry has completed deterministic rollback.
+	std::exception_ptr callbackException;
 
 	explicit operator bool() const
 	{

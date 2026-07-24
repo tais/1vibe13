@@ -1,8 +1,8 @@
 #include "PackageHost.h"
 
 #include "CampaignPackage.h"
+#include "CampaignRuntimeBootstrap.h"
 #include "GameContext.h"
-#include "LegacyGameplayRuntime.h"
 
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/Identifier.h>
@@ -706,8 +706,11 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	std::filesystem::path manifestPath;
 	std::filesystem::path assetRoot;
 	std::unique_ptr<DirectoryAssetSource> assets;
-	LegacyGameplayRuntime* gameplayRuntime = nullptr;
+	CampaignRuntimeBootstrapHost* campaignBootstrapHost = nullptr;
+	GameCapabilities gameCapabilities;
 	bool active = false;
+	bool runtimeStartAttempted = false;
+	bool runtimeStarted = false;
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
 	bool activate() noexcept override
@@ -723,8 +726,13 @@ struct PackageHost::OwnedPackage final : EnginePackage
 		if (descriptor_.kind == PackageKind::Campaign &&
 			phase == PackageBootstrapPhase::StartRuntime)
 		{
-			if (!gameplayRuntime || !gameplayRuntime->startCampaignRuntime())
+			if (runtimeStarted) return true;
+			if (runtimeStartAttempted) return false;
+			runtimeStartAttempted = true;
+			if (!campaignBootstrapHost ||
+				!campaignBootstrapHost->startCampaignRuntime(gameCapabilities))
 				return false;
+			runtimeStarted = true;
 		}
 		if (phase != PackageBootstrapPhase::LoadContent) return true;
 		if (!assets) return false;
@@ -742,9 +750,8 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	{
 		if (phase == PackageBootstrapPhase::LoadContent)
 			UnloadDeclaredPackageContent(context.localization, context.definitions);
-		if (descriptor_.kind == PackageKind::Campaign && gameplayRuntime &&
-			phase == PackageBootstrapPhase::StartRuntime)
-			gameplayRuntime->shutdownCampaignRuntime();
+		// Campaign grid/Lua state is still process-lifetime. The selected data
+		// package owns startup order but does not pretend hot-unload is safe.
 	}
 
 private:
@@ -767,7 +774,8 @@ private:
 std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	const std::filesystem::path& packageDirectory,
 	const std::filesystem::path& manifestPath, std::size_t remainingTotalFiles,
-	LegacyGameplayRuntime* gameplayRuntime, PackageHostResult& error)
+	CampaignRuntimeBootstrapHost* campaignBootstrapHost,
+	GameCapabilities gameCapabilities, PackageHostResult& error)
 {
 	std::error_code filesystemError;
 	const std::uintmax_t manifestBytes = std::filesystem::file_size(manifestPath, filesystemError);
@@ -1057,8 +1065,9 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	package->manifestPath = manifestPath;
 	package->assetRoot = canonicalAssetRoot;
 	package->assets = std::move(assets);
-	package->gameplayRuntime = kind == PackageKind::Campaign
-		? gameplayRuntime : nullptr;
+	package->campaignBootstrapHost = kind == PackageKind::Campaign
+		? campaignBootstrapHost : nullptr;
+	package->gameCapabilities = gameCapabilities;
 	return package;
 }
 
@@ -1128,8 +1137,11 @@ PackageStartupOptions ReadPackageStartupOptions(
 	return options;
 }
 
-PackageHost::PackageHost(LegacyGameplayRuntime* gameplayRuntime)
-	: gameplayRuntime_(gameplayRuntime)
+PackageHost::PackageHost(
+	CampaignRuntimeBootstrapHost* campaignBootstrapHost,
+	GameCapabilities gameCapabilities)
+	: campaignBootstrapHost_(campaignBootstrapHost),
+	  gameCapabilities_(gameCapabilities)
 {
 }
 PackageHost::~PackageHost() = default;
@@ -1299,7 +1311,7 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 			std::unique_ptr<OwnedPackage> package =
 				readPackageManifest(packageDirectory, manifest,
 					MaximumTotalIndexedFiles - indexedFiles,
-					gameplayRuntime_, manifestError);
+					campaignBootstrapHost_, gameCapabilities_, manifestError);
 			if (!package) return manifestError;
 			indexedFiles += package->assets->fileCount();
 			const std::string& id = package->descriptor_.content.id;
@@ -1487,13 +1499,13 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		const auto package = packagesById.find(id);
 		if (package == packagesById.end()) continue;
 		if (package->second->descriptor_.kind == PackageKind::Campaign &&
-			!package->second->gameplayRuntime)
+			!package->second->campaignBootstrapHost)
 		{
 			result.error = PackageHostError::ActivationFailed;
 			result.packageId = id;
 			result.path = package->second->manifestPath;
 			result.message =
-				"the application host has no campaign bootstrap runtime";
+				"the application has no campaign runtime bootstrap host";
 			rollbackStartup(result, {});
 			return result;
 		}
@@ -1680,7 +1692,9 @@ PackageHostShutdownResult PackageHost::shutdown(
 
 PackageHost& GetStartupPackageHost()
 {
-	static PackageHost host(&GetCompiledGameplayRuntime());
+	static PackageHost host(
+		&GetCompiledCampaignRuntimeBootstrapHost(),
+		GetCompiledGameCapabilities());
 	return host;
 }
 

@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <functional>
 #include <limits>
 #include <stdexcept>
@@ -251,6 +252,8 @@ public:
 				cancelDuringBootstrap->tryCancelInitialization();
 			cancelDuringBootstrap = nullptr;
 		}
+		if (static_cast<int>(phase) == throwOnBootstrapPhase)
+			throw std::runtime_error("injected bootstrap failure");
 		return static_cast<int>(phase) != failOnBootstrapPhase;
 	}
 	void shutdown(PackageBootstrapContext&, PackageBootstrapPhase phase) override
@@ -272,6 +275,7 @@ public:
 	RuntimeSessionTransitionResult cancelDuringBootstrapResult;
 	RuntimeSession* shutdownDuringShutdown = nullptr;
 	RuntimeSessionShutdownResult shutdownDuringShutdownResult;
+	int throwOnBootstrapPhase = -1;
 	int throwOnShutdownPhase = -1;
 	int failOnBootstrapPhase = -1;
 	int deactivateCalls = 0;
@@ -1406,7 +1410,7 @@ int main()
 
 	TransactionalLifecyclePackage failedPhaseRollbackPackage(
 		"rules.failed-phase-rollback");
-	failedPhaseRollbackPackage.failOnBootstrapPhase =
+	failedPhaseRollbackPackage.throwOnBootstrapPhase =
 		static_cast<int>(PackageBootstrapPhase::LoadContent);
 	failedPhaseRollbackPackage.throwOnShutdownPhase =
 		static_cast<int>(PackageBootstrapPhase::LoadContent);
@@ -1420,6 +1424,18 @@ int main()
 	const RuntimeSessionAdvanceResult failedPhaseRollback =
 		failedPhaseRollbackHost.runtimeSession().advancePackagesTo(
 			PackageBootstrapPhase::LoadContent);
+	bool bootstrapExceptionPreserved = false;
+	try
+	{
+		if (failedPhaseRollback.packages.callbackException)
+			std::rethrow_exception(
+				failedPhaseRollback.packages.callbackException);
+	}
+	catch (const std::runtime_error& error)
+	{
+		bootstrapExceptionPreserved =
+			std::string(error.what()) == "injected bootstrap failure";
+	}
 	const RuntimeSessionTransitionResult failedPhaseRollbackRecovery =
 		failedPhaseRollbackHost.tryCancelInitialization();
 	check(failedPhaseRollbackReady &&
@@ -1433,6 +1449,7 @@ int main()
 		failedPhaseRollback.packages.rollback.packages.shutdownPhases == 2 &&
 		failedPhaseRollback.packages.rollback.packages.callbacks == 2 &&
 		failedPhaseRollback.packages.rollback.packages.callbackFailures == 1 &&
+		bootstrapExceptionPreserved &&
 		failedPhaseRollbackPackage.shutdownCalls == std::vector<int>({1, 0}) &&
 		failedPhaseRollbackRecovery &&
 		failedPhaseRollbackHost.lifecycle() == EngineLifecycle::Stopped,

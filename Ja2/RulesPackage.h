@@ -1,7 +1,7 @@
 #ifndef JA2_RULES_PACKAGE_H
 #define JA2_RULES_PACKAGE_H
 
-#include "LegacyGameplayRuntime.h"
+#include "RulesContentBootstrap.h"
 
 #include <Engine/Core/PackageApi.h>
 
@@ -11,7 +11,8 @@
 class LegacyRulesPackage final : public EnginePackage
 {
 public:
-	explicit LegacyRulesPackage(LegacyGameplayRuntime& runtime);
+	LegacyRulesPackage(GameCapabilities capabilities,
+		RulesContentBootstrapHost& bootstrapHost);
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
 	bool activate() noexcept override;
@@ -23,9 +24,12 @@ public:
 	bool active() const { return active_; }
 
 private:
-	LegacyGameplayRuntime& runtime_;
+	GameCapabilities capabilities_;
+	RulesContentBootstrapHost& bootstrapHost_;
 	PackageDescriptor descriptor_;
 	bool active_ = false;
+	bool contentLoadAttempted_ = false;
+	bool contentLoaded_ = false;
 };
 
 LegacyRulesPackage& GetCompiledRulesPackage();

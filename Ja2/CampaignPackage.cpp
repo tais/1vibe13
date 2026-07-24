@@ -1,17 +1,20 @@
 #include "CampaignPackage.h"
 
-LegacyCampaignPackage::LegacyCampaignPackage(LegacyGameplayRuntime& runtime)
-	: runtime_(runtime),
+LegacyCampaignPackage::LegacyCampaignPackage(
+	GameCapabilities capabilities,
+	CampaignRuntimeBootstrapHost& bootstrapHost)
+	: capabilities_(capabilities),
+	  bootstrapHost_(bootstrapHost),
 	  descriptor_{
 		ContentManifest{
-			runtime.capabilities().isUnfinishedBusiness()
+			capabilities.isUnfinishedBusiness()
 				? "ja2.unfinished-business" : "ja2.arulco",
 			"1.13",
 			ContentApiVersion{1, 2},
 			{{GamePackage::Rules113, GamePackage::Rules113Version}}
 		},
 		PackageKind::Campaign,
-		{runtime.capabilities().isUnfinishedBusiness()
+		{capabilities.isUnfinishedBusiness()
 			? GameCapability::CampaignUnfinishedBusiness
 			: GameCapability::CampaignArulco}
 	  }
@@ -39,7 +42,12 @@ bool LegacyCampaignPackage::bootstrap(
 		case PackageBootstrapPhase::LoadContent:
 			return true;
 		case PackageBootstrapPhase::StartRuntime:
-			return runtime_.startCampaignRuntime();
+			if (runtimeStarted_) return true;
+			if (runtimeStartAttempted_) return false;
+			runtimeStartAttempted_ = true;
+			if (!bootstrapHost_.startCampaignRuntime(capabilities_)) return false;
+			runtimeStarted_ = true;
+			return true;
 	}
 	return false;
 }
@@ -47,12 +55,15 @@ bool LegacyCampaignPackage::bootstrap(
 void LegacyCampaignPackage::shutdown(
 	PackageBootstrapContext&, PackageBootstrapPhase phase)
 {
-	if (phase == PackageBootstrapPhase::StartRuntime)
-		runtime_.shutdownCampaignRuntime();
+	(void)phase;
+	// Grid and Lua globals remain process-lifetime until their consumers have
+	// explicit teardown ownership. The package still owns their startup order.
 }
 
 LegacyCampaignPackage& GetCompiledCampaignPackage()
 {
-	static LegacyCampaignPackage package(GetCompiledGameplayRuntime());
+	static LegacyCampaignPackage package(
+		GetCompiledGameCapabilities(),
+		GetCompiledCampaignRuntimeBootstrapHost());
 	return package;
 }

@@ -28,10 +28,8 @@
 
 GameContext& GetGameContext()
 {
-	// The neutral compatibility runtime outlives both package layers. Construct
-	// the complete application-owned graph before the registry and external host
-	// that keep non-owning references into it.
-	(void)GetCompiledGameplayRuntime();
+	// Construct the application-owned package graph before the registry and
+	// external host that keep non-owning references into it.
 	(void)GetCompiledRulesPackage();
 	(void)GetCompiledCampaignPackage();
 	(void)GetStartupPackageHost();

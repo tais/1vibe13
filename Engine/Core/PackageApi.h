@@ -602,6 +602,7 @@ public:
 			PackageBootstrapContext context = contextFor(active_[index]);
 			bool succeeded = false;
 			bool threw = false;
+			std::exception_ptr callbackException;
 			try
 			{
 				succeeded = packages_.at(active_[index]).package->bootstrap(context, phase);
@@ -609,6 +610,7 @@ public:
 			catch (...)
 			{
 				threw = true;
+				callbackException = std::current_exception();
 			}
 			if (succeeded)
 			{
@@ -624,6 +626,7 @@ public:
 			// so include it in the reverse rollback contract.
 			PackageBootstrapResult result;
 			result.error = PackageBootstrapError::CallbackFailed;
+			result.callbackException = std::move(callbackException);
 			result.failedPhaseRollback.shutdownPhases = 1;
 			for (std::size_t rollback = index + 1; rollback > 0; --rollback)
 			{

@@ -554,7 +554,8 @@ int main()
 	if (!host.screens().current() || host.screens().current()->state != 7 ||
 		!initializing ||
 		prematureRunning.error != RuntimeSessionError::PackageBootstrapIncomplete ||
-		!packagesStarted || !package.issuedIdentity() ||
+		!packagesStarted || packagesStarted.packages.callbackException ||
+		!package.issuedIdentity() ||
 		package.issuedIdentity().id() != "external.rules" || !running) return 5;
 	const PackageSaveStateCaptureResult capturedExternalState =
 		host.capturePackageSaveState();

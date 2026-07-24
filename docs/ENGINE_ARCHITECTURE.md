@@ -77,16 +77,18 @@ the engine must not contain SDL types in its public domain model.
 - Mandatory and optional requirements express package identity plus an optional
   exact version. Versions are opaque, case-sensitive strings rather than SemVer
   ranges. Conflict and ordering relationships express identity only.
-- `LegacyGameplayRuntime` is the narrow process-lifetime adapter shared below
-  package identity; neither the rules package nor campaign package includes the
-  other's interface. The compiled `ja2.1.13@1.13` rules package owns legacy
-  table and text loading during `LoadContent` and contributes
+- `RulesContentBootstrapHost` and `CampaignRuntimeBootstrapHost` are separate
+  narrow application ports for the process-lifetime work not yet represented
+  as data. There is no shared gameplay-runtime object or cross-package C++
+  lifecycle: each package owns its one-shot admission and the engine package
+  transaction owns rollback. The compiled `ja2.1.13@1.13` rules package owns
+  legacy table and text loading during `LoadContent` and contributes
   `rules.ja2-1.13`. Every built-in or v4 data campaign has that exact package as
   a mandatory dependency. Campaigns own their identity, assets, declared
   content, and grid/Lua startup during `StartRuntime`.
   `LegacyCampaignPackage` is a registered fallback rather than a pre-activated
   singleton. A Data Package v4 `campaign` is its peer and drives the same
-  compatibility runtime without duplicating process-lifetime state.
+  application bootstrap port.
   `CAMPAIGN_FAMILY` and a host capability reject a JA2/UB mismatch before any
   rules or campaign bootstrap callback runs.
 - `PackageHost` is the optional, data-only discovery adapter around that
@@ -108,6 +110,9 @@ the engine must not contain SDL types in its public domain model.
 - Package bootstrap advances through ordered configure, content-load, and
   runtime-start phases. A failed phase rolls back in reverse package order;
   shutdown unwinds completed phases in reverse before legacy engine teardown.
+  The detailed engine result retains the original local callback exception
+  after rollback, so the application can surface established loading
+  diagnostics without a package-specific exception mailbox.
 - `LogSink` gives engine and package code a structured, captureable logging
   contract. The application binds an SDL sink; tests use an in-memory sink,
   and `Engine/Core` never depends on SDL or the legacy debug manager.
