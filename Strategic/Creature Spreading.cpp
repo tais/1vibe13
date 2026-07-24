@@ -327,7 +327,7 @@ void InitCreatureQuest()
 	}
 
 	#ifdef JA2BETAVERSION
-	if( guiCurrentScreen != AIVIEWER_SCREEN )
+	if( GetCurrentScreen() != AIVIEWER_SCREEN )
 	{
 		fPlayMeanwhile = TRUE;
 	}
@@ -409,7 +409,7 @@ void InitCreatureQuest()
 	}
 
 	#ifdef JA2BETAVERSION
-	if( guiCurrentScreen == AIVIEWER_SCREEN )
+	if( GetCurrentScreen() == AIVIEWER_SCREEN )
 	{ //If in the AIViewer, allow any mine to get infected
 		memset( fMineInfectible, 1, sizeof( BOOLEAN ) * NUMBER_OF_INFECTIBLE_SITES );
 	}
@@ -1129,7 +1129,7 @@ void CreatureAttackTown( UINT8 ubSectorID, BOOLEAN fOverrideTest )
 	UNDERGROUND_SECTORINFO *pSector;
 	UINT8 ubSectorX, ubSectorY;
 
-	if( gfWorldLoaded && gTacticalStatus.fEnemyInSector )
+	if( IsJa2TacticalWorldLoaded() && gTacticalStatus.fEnemyInSector )
 	{ //Battle currently in progress, repost the event
 		AddStrategicEvent( EVENT_CREATURE_ATTACK, GetWorldTotalMin() + Random( 10 ), ubSectorID );
 		return;
@@ -1181,7 +1181,7 @@ void CreatureAttackTown( UINT8 ubSectorID, BOOLEAN fOverrideTest )
 		{
 			//This is the currently loaded sector.	All we have to do is change the music and insert
 			//the creatures tactically.
-			if( guiCurrentScreen == GAME_SCREEN )
+			if( GetCurrentScreen() == GAME_SCREEN )
 			{
 				gubCreatureBattleCode = CREATURE_BATTLE_CODE_TACTICALLYADD;
 			}
@@ -1230,7 +1230,7 @@ void CreatureAttackTown( UINT8 ubSectorID, BOOLEAN fOverrideTest )
 
 void CreatureAttackTown_OtherCreatures( UINT8 ubSectorID, UINT8 ubType )
 {
-	if ( gfWorldLoaded && gTacticalStatus.fEnemyInSector )
+	if ( IsJa2TacticalWorldLoaded() && gTacticalStatus.fEnemyInSector )
 	{
 		//Battle currently in progress, repost the event
 		AddStrategicEvent( ubType, GetWorldTotalMin() + Random( 10 ), ubSectorID );
@@ -1363,7 +1363,7 @@ void CreatureAttackTown_OtherCreatures( UINT8 ubSectorID, UINT8 ubType )
 		{
 			//This is the currently loaded sector.	All we have to do is change the music and insert
 			//the creatures tactically.
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				gubCreatureBattleCode = CREATURE_BATTLE_CODE_TACTICALLYADD;
 			}
@@ -2283,7 +2283,7 @@ BOOLEAN GetWarpOutOfMineCodes( INT16 *psSectorX, INT16 *psSectorY, INT8 *pbSecto
 {
 	INT32 iSwitchValue;
 
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 	{
 		return FALSE;
 	}

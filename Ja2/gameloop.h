@@ -3,6 +3,8 @@
 
 #include "types.h"
 
+#include <Engine/Core/StateController.h>
+
 // main game loop systems
 #define INIT_SYSTEM										0
 
@@ -17,6 +19,12 @@ extern void	GameLoop(void);
 void HandleShortCutExitState( void );
 
 void SetPendingNewScreen( UINT32 uiNewScreen );
+UINT32 GetCurrentScreen();
+UINT32 GetPendingNewScreen();
+UINT32 GetPreviousScreen();
+using ScopedCurrentScreenOverride =
+	StateController<UINT32>::ScopedCurrentOverride;
+ScopedCurrentScreenOverride OverrideCurrentScreen(UINT32 screen);
 
 #ifdef USE_HIGHSPEED_GAMELOOP_TIMER
 	struct InputAtom;

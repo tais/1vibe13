@@ -2635,19 +2635,19 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	//
 
 	//if we are in the game screen
-	if( guiCurrentScreen == GAME_SCREEN )
+	if( GetCurrentScreen() == GAME_SCREEN )
 	{
 		SetRenderFlags( RENDER_FLAG_FULL );
 	}
 
-	else if( guiCurrentScreen == MAP_SCREEN )
+	else if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		fMapPanelDirty = TRUE;
 		fTeamPanelDirty = TRUE;
 		fCharacterInfoPanelDirty = TRUE;
 	}
 
-	else if( guiCurrentScreen == SAVE_LOAD_SCREEN )
+	else if( GetCurrentScreen() == SAVE_LOAD_SCREEN )
 	{
 		gfRedrawSaveLoadScreen = TRUE;
 	}
@@ -2706,7 +2706,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	SaveGameHeader.fAlternateSector = GetSectorFlagStatus( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, SF_USE_ALTERNATE_MAP );
 
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		SaveGameHeader.fWorldLoaded = TRUE;
 		SaveGameHeader.ubLoadScreenID = GetLoadScreenID( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
@@ -2826,7 +2826,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 /*
 
 	//if the current sector is valid
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		SaveGameHeader.sSectorX = gWorldSectorX;
 		SaveGameHeader.sSectorY = gWorldSectorY;
@@ -8793,7 +8793,7 @@ void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HWFILE hSaveFi
 void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *pbSectorZ )
 {
 	//if the current sector is valid
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		*psSectorX = gWorldSectorX;
 		*psSectorY = gWorldSectorY;
@@ -8875,7 +8875,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 void PauseBeforeSaveGame( void )
 {
 	//if we are not in the save load screen
-	if( guiCurrentScreen != SAVE_LOAD_SCREEN )
+	if( GetCurrentScreen() != SAVE_LOAD_SCREEN )
 	{
 		//Pause the game
 		PauseGame();
@@ -8885,7 +8885,7 @@ void PauseBeforeSaveGame( void )
 void UnPauseAfterSaveGame( void )
 {
 	//if we are not in the save load screen
-	if( guiCurrentScreen != SAVE_LOAD_SCREEN )
+	if( GetCurrentScreen() != SAVE_LOAD_SCREEN )
 	{
 		//UnPause time compression
 		UnPauseGame();

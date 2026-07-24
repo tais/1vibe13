@@ -64,7 +64,6 @@ void SaveMapInformation(HWFILE hFile, FLOAT dMajorMapVersion, UINT8 ubMinorMapVe
 void ValidateAndUpdateMapVersionIfNecessary();
 BOOLEAN ValidateEntryPointGridNo( INT32 *sGridNo );
 
-extern BOOLEAN gfWorldLoaded;
-extern UINT64 guiWorldLoadGeneration;
+bool IsJa2TacticalWorldLoaded() noexcept;
 
 #endif

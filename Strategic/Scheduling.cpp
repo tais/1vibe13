@@ -206,7 +206,7 @@ void ProcessTacticalSchedule( UINT8 ubScheduleID )
 	//Okay, now we have good pointers to the soldier and the schedule.
 	//Now, determine which time in this schedule that we are processing.
 	fAutoProcess = FALSE;
-	if( guiCurrentScreen != GAME_SCREEN )
+	if( GetCurrentScreen() != GAME_SCREEN )
 	{
 		#ifdef JA2TESTVERSION
 			//ScreenMsg( FONT_RED, MSG_TESTVERSION, L"Schedule callback occurred outside of tactical -- Auto processing!" );

@@ -81,6 +81,7 @@
 #include "sdl_input.h"
 #include "english.h"
 #include "GameContext.h"
+#include "gameloop.h"
 #include "CampaignClockAdapter.h"
 #include "CampaignEventAdapter.h"
 #include "CampaignPackage.h"
@@ -2017,6 +2018,40 @@ int main( int, char** )
 		       screens.commitPending( overlay ) == StateTransitionResult::Unchanged &&
 		       screens.current() && *screens.current() == 1,
 		       "state controller can cancel a pending transition without changing current state" );
+		CHECK( screens.transitionTo( 100, overlay ) == StateTransitionResult::OverlayPushed &&
+		       screens.current() && *screens.current() == 100 &&
+		       screens.previous() && *screens.previous() == 1,
+		       "state controller prepares overlay history for a scoped override" );
+		{
+			[[maybe_unused]] auto override =
+				screens.scopedCurrentOverride( 7 );
+			CHECK( screens.current() && *screens.current() == 7 &&
+			       screens.stack().current() &&
+			       screens.stack().current()->state == 100 &&
+			       screens.stack().underlay() &&
+			       screens.stack().underlay()->state == 1 &&
+			       screens.previous() && *screens.previous() == 1,
+			       "scoped state override changes the visible state without changing transition history" );
+		}
+		CHECK( screens.current() && *screens.current() == 100 &&
+		       screens.stack().underlay() &&
+		       screens.stack().underlay()->state == 1 &&
+		       screens.previous() && *screens.previous() == 1,
+		       "scoped state override restores the complete overlay stack" );
+		{
+			[[maybe_unused]] auto override =
+				screens.scopedCurrentOverride( 7 );
+			CHECK( screens.transitionTo( 2, overlay ) ==
+			           StateTransitionResult::Replaced &&
+			       screens.current() && *screens.current() == 7 &&
+			       screens.stack().current() &&
+			       screens.stack().current()->state == 2 &&
+			       screens.previous() && *screens.previous() == 100,
+			       "scoped state override keeps underlying transitions live" );
+		}
+		CHECK( screens.current() && *screens.current() == 2 &&
+		       screens.previous() && *screens.previous() == 100,
+		       "scoped state override reveals transitions completed inside its lifetime" );
 	}
 
 	{
@@ -2754,6 +2789,37 @@ int main( int, char** )
 
 	{
 		GameContext& compiledContext = GetGameContext();
+		compiledContext.screenController().reset( 7 );
+		compiledContext.screenController().transitionTo(
+			9, []( UINT32 ) { return false; } );
+		const bool previousScreenOwnedByController =
+			GetPreviousScreen() == 7;
+		compiledContext.screenController().reset( 9 );
+		bool currentScreenOwnedByController = false;
+		{
+			[[maybe_unused]] auto override =
+				OverrideCurrentScreen( 14 );
+			currentScreenOwnedByController =
+				GetCurrentScreen() == 14 &&
+				compiledContext.screenController().current() &&
+				*compiledContext.screenController().current() == 14;
+		}
+		currentScreenOwnedByController =
+			currentScreenOwnedByController &&
+			GetCurrentScreen() == 9;
+		SetPendingNewScreen( 11 );
+		const bool pendingScreenOwnedByController =
+			GetPendingNewScreen() == 11 &&
+			compiledContext.screenController().pending() &&
+			*compiledContext.screenController().pending() == 11;
+		SetPendingNewScreen( NO_PENDING_SCREEN );
+		CHECK( currentScreenOwnedByController &&
+		       previousScreenOwnedByController &&
+		       GetPreviousScreen() == NO_PENDING_SCREEN &&
+		       pendingScreenOwnedByController &&
+		       GetPendingNewScreen() == NO_PENDING_SCREEN &&
+		       !compiledContext.screenController().hasPending(),
+		       "current, pending, and previous application screen state have one controller-owned representation" );
 		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
 		LegacyRulesPackage& compiledRules = GetCompiledRulesPackage();
 		const std::string& packageId = compiledPackage.descriptor().content.id;
@@ -2810,6 +2876,20 @@ int main( int, char** )
 		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
+
+		const std::uint32_t previousEntityIncarnation =
+			NextJa2TacticalEntityIncarnation();
+		const std::uint32_t issuedEntityIncarnation =
+			IssueJa2TacticalEntityIncarnation();
+		const std::uint32_t nextEntityIncarnation =
+			NextJa2TacticalEntityIncarnation();
+		RestoreJa2TacticalEntityIncarnationSequence(
+			previousEntityIncarnation );
+		CHECK( issuedEntityIncarnation == previousEntityIncarnation &&
+		       nextEntityIncarnation == previousEntityIncarnation + 1 &&
+		       NextJa2TacticalEntityIncarnation() ==
+		           previousEntityIncarnation,
+		       "tactical entity directory exclusively owns its incarnation sequence" );
 
 		const CampaignClockSession::Snapshot previousCampaignClock =
 			CaptureJa2CampaignClock();
@@ -3553,6 +3633,25 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == queuedBeforeWorld,
 		       "pre-world safe frames harmlessly retain an unavailable observer service" );
 
+		Ja2TacticalWorldAdapter worldBindingFixture;
+		worldBindingFixture.session().setSector( { 8, 9, 1 } );
+		const std::uint64_t bindingFixtureGeneration =
+			worldBindingFixture.session().commitLoad();
+		worldBindingFixture.session().setTurnState(
+			{ true, true, 3 } );
+		TacticalWorldSession boundWorldFixture;
+		worldBindingFixture.bindSession( boundWorldFixture );
+		const TacticalWorldSession::Snapshot& boundWorldState =
+			boundWorldFixture.snapshot();
+		CHECK( &worldBindingFixture.session() == &boundWorldFixture &&
+		       boundWorldState.sector ==
+		           ( TacticalWorldSession::Sector{ 8, 9, 1 } ) &&
+		       boundWorldState.loaded &&
+		       boundWorldState.worldGeneration == bindingFixtureGeneration &&
+		       boundWorldState.turn ==
+		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 3 } ),
+		       "tactical world composition transfers pre-runtime state without a generation mirror" );
+
 		SOLDIERTYPE* previousSlot = MercPtrs[0];
 		const TacticalEntityId previousWorldEntity =
 			GetJa2TacticalEntityId( 0 );
@@ -3621,6 +3720,9 @@ int main( int, char** )
 		RebuildJa2TacticalEntityDirectory();
 		SetJa2TacticalWorldSector( 9, 1, 0 );
 		NotifyJa2TacticalWorldLoaded( 23 );
+		CHECK( IsJa2TacticalWorldLoaded() &&
+		       CaptureJa2TacticalWorld().loaded,
+		       "world-loaded state is read from the runtime-owned tactical session" );
 		SetJa2TacticalTurnBasedMode( true );
 		SetJa2TacticalCombatMode( true );
 		SetJa2TacticalCurrentTeam( 1 );
@@ -3646,8 +3748,10 @@ int main( int, char** )
 		       loadedTurnIdentity.serial == 1 && advancedTurnIdentity.worldGeneration == 23 &&
 		       advancedTurnIdentity.serial == 2 && !unloadedTurnIdentity,
 		       "live tactical turn identity is nonzero, advances, and resets with its world" );
-		NotifyJa2TacticalWorldLoaded( guiWorldLoadGeneration );
-		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
+		NotifyJa2TacticalWorldLoaded(
+			CaptureJa2TacticalWorld().worldGeneration );
+		NotifyJa2TacticalTeamTurnBegan(
+			CaptureJa2TacticalWorld().worldGeneration );
 		TacticalWorldSnapshot liveWorld;
 		const TacticalWorldCaptureResult liveCapture =
 			tacticalWorld.service->capture( liveWorld );
@@ -3705,7 +3809,8 @@ int main( int, char** )
 		const TacticalWorldSnapshot* baselinePublicationStorage = observedPublication.snapshot;
 		const TacticalWorldDelta* baselineDeltaStorage = observedPublication.delta;
 
-		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
+		NotifyJa2TacticalTeamTurnBegan(
+			CaptureJa2TacticalWorld().worldGeneration );
 		Menptr[0].sGridNo = 346;
 		Menptr[0].stats.bLife = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
@@ -3977,7 +4082,8 @@ int main( int, char** )
 			compiledContext.capturePackageSaveState();
 		const std::vector<RecordedSimulationCommand> replayAfterObservation =
 			compiledContext.commandJournal().snapshot();
-		CHECK( observerDiagnostics.lastUpdate ==
+		CHECK( !IsJa2TacticalWorldLoaded() &&
+		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::SourceUnavailable &&
 		       observerDiagnostics.publicationSerial == 0 &&
 		       tacticalWorldObserver && !tacticalWorldObserver.service->latest() &&

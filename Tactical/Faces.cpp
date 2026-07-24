@@ -829,7 +829,7 @@ void SetAutoFaceInActive(INT32 iFaceIndex )
 			pSoldier = pFace->ubSoldierID;
 
 			// IF we are in tactical
-			if ( pSoldier->bAssignment == iCurrentTacticalSquad && guiCurrentScreen == GAME_SCREEN )
+			if ( pSoldier->bAssignment == iCurrentTacticalSquad && GetCurrentScreen() == GAME_SCREEN )
 			{
 				// Make the interfac panel dirty..
 				// This will dirty the panel next frame...
@@ -1099,7 +1099,7 @@ void HandleFaceHilights( FACETYPE *pFace, UINT32 uiBuffer, INT16 sFaceX, INT16 s
 
 	if ( !gFacesData[ iFaceIndex ].fDisabled )
 	{
-		if ( pFace->uiAutoDisplayBuffer == FRAME_BUFFER && guiCurrentScreen == GAME_SCREEN )
+		if ( pFace->uiAutoDisplayBuffer == FRAME_BUFFER && GetCurrentScreen() == GAME_SCREEN )
 	{
 	 // If we are highlighted, do this now!
 	 if ( ( pFace->uiFlags & FACE_SHOW_WHITE_HILIGHT ) )
@@ -3069,7 +3069,7 @@ void HandleAutoFaces( )
 					fRerender = TRUE;
 				}
 
-				if (	fInterfacePanelDirty == DIRTYLEVEL2 && guiCurrentScreen == GAME_SCREEN )
+				if (	fInterfacePanelDirty == DIRTYLEVEL2 && GetCurrentScreen() == GAME_SCREEN )
 				{
 					fRerender = TRUE;
 				}

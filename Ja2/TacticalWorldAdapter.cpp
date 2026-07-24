@@ -8,10 +8,9 @@
 #include "TacticalEntityHost.h"
 #include "strategicmap.h"
 
-// Exact legacy symbols retained as read-compatible mirrors. The session is
-// authoritative; these are updated together only by this translation unit.
-BOOLEAN gfWorldLoaded = FALSE;
-UINT64 guiWorldLoadGeneration = 0;
+// Exact legacy coordinate symbols retained as read-compatible mirrors. The
+// session is authoritative; these are updated together only by this translation
+// unit.
 INT16 gWorldSectorX = 0;
 INT16 gWorldSectorY = 0;
 INT8 gbWorldSectorZ = -1;
@@ -36,8 +35,6 @@ void SynchronizeLegacyWorldMirrors(const TacticalWorldSession& session) noexcept
 	gWorldSectorX = static_cast<INT16>(state.sector.x);
 	gWorldSectorY = static_cast<INT16>(state.sector.y);
 	gbWorldSectorZ = static_cast<INT8>(state.sector.z);
-	gfWorldLoaded = state.loaded ? TRUE : FALSE;
-	guiWorldLoadGeneration = state.worldGeneration;
 }
 
 void SynchronizeLegacyTurnMirrors(const TacticalWorldSession& session) noexcept
@@ -163,6 +160,16 @@ Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter()
 {
 	static Ja2TacticalWorldAdapter adapter(TOTAL_SOLDIERS);
 	return adapter;
+}
+
+const TacticalWorldSession::Snapshot& CaptureJa2TacticalWorld() noexcept
+{
+	return GetJa2TacticalWorldAdapter().session().snapshot();
+}
+
+bool IsJa2TacticalWorldLoaded() noexcept
+{
+	return CaptureJa2TacticalWorld().loaded;
 }
 
 void BindJa2TacticalWorldSession(TacticalWorldSession& session) noexcept

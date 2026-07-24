@@ -902,7 +902,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
 		}
 
 		// if we are in mapscreen, make a pop up
-		if ( guiCurrentScreen == MAP_SCREEN )
+		if ( GetCurrentScreen() == MAP_SCREEN )
 		{
 			DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_YESNO, PayMilitiaTrainingYesNoBoxCallback );
 		}
@@ -1493,7 +1493,7 @@ void HandleContinueOfTownTraining( void )
 	if( fContinueEventPosted )
 	{
 	// ATE: If this event happens in tactical mode we will be switching at some time to mapscreen...
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 	{
 		gfEnteringMapScreen = TRUE;
 	}

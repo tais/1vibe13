@@ -2444,7 +2444,7 @@ BOOLEAN EvaluateWorld(STR8 pSector, UINT8 ubLevel)
 	if(ValidMapFileName(szFileName))
 		snprintf(szFilename, sizeof(szFilename), "%s", pSector ? pSector : "");
 	snprintf(szDirFilename, sizeof(szDirFilename), "MAPS\\%s", szFilename);
-	if(guiCurrentScreen == LOADSAVE_SCREEN)
+	if(GetCurrentScreen() == LOADSAVE_SCREEN)
 		hfile = FileOpen(szDirFilename, FILE_ACCESS_READ, FALSE, gzProfileName);
 	else
 		hfile = FileOpen(szDirFilename, FILE_ACCESS_READ);
@@ -2872,7 +2872,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 		snprintf(aFilename, sizeof(aFilename), "MAPS\\%s", puiFilename);
 	// Open file
 #ifdef JA2EDITOR
-	if(guiCurrentScreen == LOADSAVE_SCREEN)
+	if(GetCurrentScreen() == LOADSAVE_SCREEN)
 		hfile = FileOpen(aFilename, FILE_ACCESS_READ, FALSE, gzProfileName);
 	else
 		hfile = FileOpen(aFilename, FILE_ACCESS_READ);
@@ -3238,7 +3238,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 		//We are above ground.
 		gfBasement = FALSE;
 		gfCaves = FALSE;
-		if(!gfEditMode && guiCurrentScreen != MAPUTILITY_SCREEN)
+		if(!gfEditMode && GetCurrentScreen() != MAPUTILITY_SCREEN)
 			ubAmbientLightLevel = GetTimeOfDayAmbientLightLevel();
 		else
 			ubAmbientLightLevel = 4;
@@ -3348,7 +3348,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	uiLoadWorldTime = GetJA2Clock() - uiLoadWorldStartTime;
 #endif
 	// ATE: Not while updating maps!
-	if(guiCurrentScreen != MAPUTILITY_SCREEN)
+	if(GetCurrentScreen() != MAPUTILITY_SCREEN)
 		GenerateBuildings();
 	RenderProgressBar(0, 100);
 	DequeueAllKeyBoardEvents();
@@ -3409,7 +3409,7 @@ void TrashWorld( void )
 	INT32					cnt;
 	SOLDIERTYPE		*pSoldier;
 
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 		return;
 
 
@@ -4308,7 +4308,7 @@ void LoadMapLights( INT8 **hBuffer )
 		iLSprite = LightSpriteCreate( str, TmpLight.uiLightType );
 		//if this fails, then we will ignore the light.
 		// ATE: Don't add ANY lights of mapscreen util is on
-		if( iLSprite != -1/* && guiCurrentScreen != MAPUTILITY_SCREEN*/ )//dnl ch79 301113 lights will be reset in map utility screen
+		if( iLSprite != -1/* && GetCurrentScreen() != MAPUTILITY_SCREEN*/ )//dnl ch79 301113 lights will be reset in map utility screen
 		{
 			if( !gfCaves || gfEditMode )
 			{

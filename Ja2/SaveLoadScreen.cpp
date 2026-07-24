@@ -668,8 +668,7 @@ BOOLEAN	EnterSaveLoadScreen()
 	RenderImage = TRUE;
 
 	// this is where we came from; if loading of resources fails, this is also where we go next/back
-	extern UINT32 guiPreviousScreen;
-	guiSaveLoadExitScreen = guiPreviousScreen;
+	guiSaveLoadExitScreen = GetPreviousScreen();
 
 	//init the list
 	InitSaveGameArray();
@@ -2730,7 +2729,7 @@ BOOLEAN DoQuickLoad()
 	gbSelectedSaveLocation = 0;
 
 	//if the game is paused, and we are in tactical, unpause
-	if( guiCurrentScreen == GAME_SCREEN )
+	if( GetCurrentScreen() == GAME_SCREEN )
 	{
 		PauseTime( FALSE );
 	}

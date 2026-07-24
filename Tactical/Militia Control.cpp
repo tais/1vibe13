@@ -27,6 +27,7 @@
 	#include "Isometric Utils.h"
 	#include "MilitiaSquads.h"
 	#include "MilitiaIndividual.h"	// added by Flugente
+	#include "gameloop.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -139,11 +140,11 @@ void ResetMilitia()
 	{
 		// I truly hope that we remove such inane control methods from the soldier create code when we break the merc slot barrier
 		// Hacks like this really depress me.
-		UINT32 cs = guiCurrentScreen;
-		// Make sure we aren't on the AUTORESOLVE screen for this.  Even if we are.  We are removing and creating soldiers for 
-		// tactical here, not autoresolve.  In my opinion the CreateSoldierXXX and TacticalRemoveSoldierXXX functions should take 
+		// Make sure we aren't on the AUTORESOLVE screen for this.  Even if we are.  We are removing and creating soldiers for
+		// tactical here, not autoresolve.  In my opinion the CreateSoldierXXX and TacticalRemoveSoldierXXX functions should take
 		// a flag for autoresolve if different initialization or destruction is desired.
-		guiCurrentScreen = GAME_SCREEN;
+		[[maybe_unused]] auto currentScreenOverride =
+			OverrideCurrentScreen(GAME_SCREEN);
 
 		// Flugente: cause all militia whose equipment is from this sector to drop it
 		TeamDropAll( MILITIA_TEAM );
@@ -154,9 +155,6 @@ void ResetMilitia()
 		ubNumVet = MilitiaInSectorOfRank(gWorldSectorX, gWorldSectorY, ELITE_MILITIA);
 
 		AddSoldierInitListMilitia( ubNumGreen, ubNumReg, ubNumVet );
-
-		// Now restore the original screen setting so the game doesn't go wacky.
-		guiCurrentScreen = cs;
 
 		gfStrategicMilitiaChangesMade = FALSE;
 	}
@@ -600,7 +598,7 @@ void CreateDestroyMouseRegionsForMilitiaControlMenu( void )
 	{
 		gfIgnoreScrolling = FALSE;
 
-		if( ( fShowMilitiaControlMenu ) && ( guiCurrentScreen == MAP_SCREEN ) ) 
+		if( ( fShowMilitiaControlMenu ) && ( GetCurrentScreen() == MAP_SCREEN ) )
 		{
 		  SetBoxPosition( ghMilitiaControlBox, MilitiaControlPosition );
 		}

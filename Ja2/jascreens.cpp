@@ -669,7 +669,7 @@ static BOOLEAN CheckForAndExitTacticalDebug( )
 
 static void ExitDebugScreen( )
 {
-	if ( guiCurrentScreen == DEBUG_SCREEN )
+	if ( GetCurrentScreen() == DEBUG_SCREEN )
 	{
 		gfExitDebugScreen = TRUE;
 	}

@@ -1290,11 +1290,11 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 		if( fInSector == FALSE )
 		{
 			// set up for all otherscreens
-			DoMessageBox(	MSG_BOX_BASIC_STYLE, sString,	guiCurrentScreen, ( UINT16 ) ( MSG_BOX_FLAG_USE_CENTERING_RECT | ( fAddRehireButton ? MSG_BOX_FLAG_GENERICCONTRACT : MSG_BOX_FLAG_GENERIC_TWO_BUTTONS ) ),	MercDepartEquipmentBoxCallBack,	&pCenteringRect );
+			DoMessageBox(	MSG_BOX_BASIC_STYLE, sString,	GetCurrentScreen(), ( UINT16 ) ( MSG_BOX_FLAG_USE_CENTERING_RECT | ( fAddRehireButton ? MSG_BOX_FLAG_GENERICCONTRACT : MSG_BOX_FLAG_GENERIC_TWO_BUTTONS ) ),	MercDepartEquipmentBoxCallBack,	&pCenteringRect );
 		}
 		else
 		{
-			DoMessageBox(	MSG_BOX_BASIC_STYLE, sString,	guiCurrentScreen, ( UINT16 ) ( MSG_BOX_FLAG_USE_CENTERING_RECT | ( fAddRehireButton ? MSG_BOX_FLAG_OKCONTRACT : MSG_BOX_FLAG_OK	) ) ,	MercDepartEquipmentBoxCallBack,	&pCenteringRect );
+			DoMessageBox(	MSG_BOX_BASIC_STYLE, sString,	GetCurrentScreen(), ( UINT16 ) ( MSG_BOX_FLAG_USE_CENTERING_RECT | ( fAddRehireButton ? MSG_BOX_FLAG_OKCONTRACT : MSG_BOX_FLAG_OK	) ) ,	MercDepartEquipmentBoxCallBack,	&pCenteringRect );
 		}
 	}
 

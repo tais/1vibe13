@@ -5389,7 +5389,7 @@ INT32 FindActiveTimedBomb( void )
 
 BOOLEAN ActiveTimedBombExists( void )
 {
-	if ( gfWorldLoaded )
+	if ( IsJa2TacticalWorldLoaded() )
 	{
 		return( FindActiveTimedBomb() != -1 );
 	}

@@ -1115,7 +1115,7 @@ void SAIReportError( STR16 wErrorString )
 		StopTimeCompression();
 
 		// report the error
-		if( guiCurrentScreen != SAVE_LOAD_SCREEN )
+		if( GetCurrentScreen() != SAVE_LOAD_SCREEN )
 		{
 			DoScreenIndependantMessageBox( wErrorString, MSG_BOX_FLAG_OK, NULL );
 		}
@@ -1123,7 +1123,7 @@ void SAIReportError( STR16 wErrorString )
 		{
 			ScreenMsg( FONT_LTBLUE, MSG_BETAVERSION, wErrorString );
 		}
-		if( guiCurrentScreen == AIVIEWER_SCREEN )
+		if( GetCurrentScreen() == AIVIEWER_SCREEN )
 		{
 			CHAR8 str[ 512 ];
 			sprintf( str, "%S\n", wErrorString );
@@ -4508,7 +4508,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Strategic7");
 			}
 			if( iFactor >= 15 )
 			{ //Make the actual elites in sector match the new garrison percentage
-				if( !gfWorldLoaded || gbWorldSectorZ ||
+				if( !IsJa2TacticalWorldLoaded() || gbWorldSectorZ ||
 						gWorldSectorX != SECTORX( gGarrisonGroup[ i ].ubSectorID ) ||
 						gWorldSectorY != SECTORY( gGarrisonGroup[ i ].ubSectorID ) )
 				{ //Also make sure the sector isn't currently loaded!
@@ -5489,7 +5489,7 @@ void LogStrategicMsg( STR8	str, ... )
 	{
 		ScreenMsg( FONT_LTKHAKI, MSG_DIALOG, L"%S", string );
 	}
-	if( guiCurrentScreen == AIVIEWER_SCREEN )
+	if( GetCurrentScreen() == AIVIEWER_SCREEN )
 	{
 		OutputDebugString( (LPCSTR)String( "%s\n", string ) );
 	}
@@ -5508,7 +5508,7 @@ void LogStrategicEvent( STR8	str, ... )
 	{
 		ScreenMsg( FONT_LTKHAKI, MSG_DIALOG, L"%S", string );
 	}
-	if( guiCurrentScreen == AIVIEWER_SCREEN )
+	if( GetCurrentScreen() == AIVIEWER_SCREEN )
 	{
 		OutputDebugString( (LPCSTR)String( "%s\n", string ) );
 	}
@@ -5537,7 +5537,7 @@ void InvestigateSector( UINT8 ubSectorID )
 		sSectorX = (INT16)SECTORX( ubSectorID );
 		sSectorY = (INT16)SECTORY( ubSectorID );
 
-		if( guiCurrentScreen != GAME_SCREEN )
+		if( GetCurrentScreen() != GAME_SCREEN )
 		{ //If we aren't in tactical, then don't do this.	It is strictly added flavour and would be irritating if
 			//you got the prebattle interface in mapscreen while compressing time (right after clearing it...)
 			return;

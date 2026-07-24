@@ -269,7 +269,7 @@ void MoveRadarScreen()
 	// CHRISL: Reset coords
 	InitRadarScreenCoords();
 	// Move based on inventory panel
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		gsRadarX = RADAR_WINDOW_STRAT_X;
 		gsRadarY = RADAR_WINDOW_STRAT_Y;
@@ -446,8 +446,8 @@ void RenderRadarScreen( )
 		// WANNE - MP: Only darken the radarmap in single player mode
 		if( NightTime() && !is_networked )//hayden
 		{
-			if( guiCurrentScreen == MAP_SCREEN && !iCurrentMapSectorZ ||
-					guiCurrentScreen == GAME_SCREEN && !gbWorldSectorZ )
+			if( GetCurrentScreen() == MAP_SCREEN && !iCurrentMapSectorZ ||
+					GetCurrentScreen() == GAME_SCREEN && !gbWorldSectorZ )
 			{
 				SetObjectHandleShade( gusRadarImage, 1 );
 			}
@@ -858,7 +858,7 @@ BOOLEAN CreateDestroyMouseRegionsForSquadList( void )
 		fCreated = FALSE;
 
 
-		if ( guiCurrentScreen == GAME_SCREEN )
+		if ( GetCurrentScreen() == GAME_SCREEN )
 		{
 			// dirty region
 			fInterfacePanelDirty = DIRTYLEVEL2;

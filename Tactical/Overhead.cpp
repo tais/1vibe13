@@ -3266,7 +3266,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
 
     // ARM: can't call SelectSoldier() in mapscreen, that will initialize interface panels!!!
     // ATE: Adjusted conditions a bit ( sometimes were not getting selected )
-    if ( guiCurrentScreen == LAPTOP_SCREEN || guiCurrentScreen == MAP_SCREEN )
+    if ( GetCurrentScreen() == LAPTOP_SCREEN || GetCurrentScreen() == MAP_SCREEN )
     {
         return;
     }
@@ -8470,7 +8470,7 @@ BOOLEAN CheckForLosingEndOfBattle( )
         // Are there militia in sector?
         if ( fMilitiaInSector )
         {
-            if( guiCurrentScreen != AUTORESOLVE_SCREEN )
+            if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
             {
                 // if here, check if we should autoresolve.
                 // if we have at least one guy unconscious, call below function...
@@ -10152,7 +10152,7 @@ void RemoveSoldierFromTacticalSector( SOLDIERTYPE *pSoldier, BOOLEAN fAdjustSele
     // Select next avialiable guy....
     if ( fAdjustSelected )
     {
-        if ( guiCurrentScreen == GAME_SCREEN )
+        if ( GetCurrentScreen() == GAME_SCREEN )
         {
             if ( gusSelectedSoldier == pSoldier->ubID   )
             {
@@ -10185,7 +10185,7 @@ void RemoveSoldierFromTacticalSector( SOLDIERTYPE *pSoldier, BOOLEAN fAdjustSele
         {
             gusSelectedSoldier = NOBODY;
 
-            if ( guiCurrentScreen == GAME_SCREEN )
+            if ( GetCurrentScreen() == GAME_SCREEN )
             {
                 // otherwise, make sure interface is team panel...
                 UpdateTeamPanelAssignments( );
@@ -10791,8 +10791,8 @@ void HandleThePlayerBeNotifiedOfSomeoneElseInSector()
     if( gTacticalStatus.fAutoBandageMode ||
             DialogueActive( ) ||
             gTacticalStatus.fAutoBandagePending ||
-            guiPendingScreen == MSG_BOX_SCREEN ||
-            guiCurrentScreen == MSG_BOX_SCREEN ||
+            GetPendingNewScreen() == MSG_BOX_SCREEN ||
+            GetCurrentScreen() == MSG_BOX_SCREEN ||
             AreWeInAUIMenu( )
       )
     {
@@ -11334,7 +11334,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 // Flugente: disguised mercs can distract enemies by talking to them. In order to display that, we sometimes display excerpts of their 'chats'
 void CheckChatPartners()
 {
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 	{
 		if ( !CivQuoteActive() )
 		{
@@ -11414,7 +11414,7 @@ void HandleSurrenderOffer( SOLDIERTYPE* pSoldier )
 		wcscpy( gzUserDefinedButton[3], TacticalStr[PRISONER_TALK_STR] );
 	}
 
-    DoMessageBox( MSG_BOX_BASIC_MEDIUM_BUTTONS, TacticalStr[ PRISONER_OFFER_SURRENDER ], guiCurrentScreen, MSG_BOX_FLAG_GENERIC_FOUR_BUTTONS, PrisonerSurrenderMessageBoxCallBack, NULL );
+    DoMessageBox( MSG_BOX_BASIC_MEDIUM_BUTTONS, TacticalStr[ PRISONER_OFFER_SURRENDER ], GetCurrentScreen(), MSG_BOX_FLAG_GENERIC_FOUR_BUTTONS, PrisonerSurrenderMessageBoxCallBack, NULL );
 }
 
 void TeamDropAll(UINT8 bTeam, BOOLEAN fForce)

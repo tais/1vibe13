@@ -840,19 +840,19 @@ void ExitOptionsScreen()
 
 	//if the user changed the TREE TOP option, AND a world is loaded
 	// sevenfm: always update tree top state
-	//if( gfSettingOfTreeTopStatusOnEnterOfOptionScreen != gGameSettings.fOptions[ TOPTION_TOGGLE_TREE_TOPS ] && gfWorldLoaded )
-	if (gfWorldLoaded)
+	//if( gfSettingOfTreeTopStatusOnEnterOfOptionScreen != gGameSettings.fOptions[ TOPTION_TOGGLE_TREE_TOPS ] && IsJa2TacticalWorldLoaded() )
+	if (IsJa2TacticalWorldLoaded())
 	{
 		SetTreeTopStateForMap();
 	}
 
 	//if the user has changed the item glow option AND a world is loaded
-	if( gfSettingOfItemGlowStatusOnEnterOfOptionScreen != gGameSettings.fOptions[ TOPTION_GLOW_ITEMS ] && gfWorldLoaded )
+	if( gfSettingOfItemGlowStatusOnEnterOfOptionScreen != gGameSettings.fOptions[ TOPTION_GLOW_ITEMS ] && IsJa2TacticalWorldLoaded() )
 	{
 		ToggleItemGlow( gGameSettings.fOptions[ TOPTION_GLOW_ITEMS ] );
 	}
 
-	if( gfSettingOfDontAnimateSmoke != gGameSettings.fOptions[ TOPTION_ANIMATE_SMOKE ] && gfWorldLoaded )
+	if( gfSettingOfDontAnimateSmoke != gGameSettings.fOptions[ TOPTION_ANIMATE_SMOKE ] && IsJa2TacticalWorldLoaded() )
 	{
 		UpdateSmokeEffectGraphics( );
 	}

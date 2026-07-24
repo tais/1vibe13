@@ -4025,7 +4025,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 						gTacticalStatus.ubEnemyKilledOnAttackKiller = ubAttacker;
 
 						// also check if we are in mapscreen, if so update soldier's list
-						if( guiCurrentScreen == MAP_SCREEN )
+						if( GetCurrentScreen() == MAP_SCREEN )
 						{
 							ReBuildCharactersList( );
 						}

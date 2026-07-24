@@ -753,7 +753,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 		// Given team, get an ID for this guy!
 
-		if( guiCurrentScreen != AUTORESOLVE_SCREEN )
+		if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			SoldierID cnt = gTacticalStatus.Team[ Soldier.bTeam ].bFirstID;
 
@@ -831,7 +831,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			UINT8 sector = SECTOR( Soldier.sSectorX, Soldier.sSectorY );
 			
 			// if this is autoresolve, we have to get the sector in a different way..
-			if ( guiCurrentScreen == AUTORESOLVE_SCREEN )
+			if ( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 				sector = GetAutoResolveSectorID( );
 
 			if ( gsStrategicDiseaseOriginSector > 0 )
@@ -988,7 +988,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 				}
 			}
 
-			if( guiCurrentScreen != AUTORESOLVE_SCREEN )
+			if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 			{
 				// also, if an army guy has camouflage, roll to determine whether they start camouflaged
 				if ( ( Soldier.bTeam == ENEMY_TEAM ) || ( Soldier.bTeam == MILITIA_TEAM ) )
@@ -1179,7 +1179,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			}
 		}
 
-		if( guiCurrentScreen != AUTORESOLVE_SCREEN )
+		if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			// Copy into merc struct
 			*MercPtrs[ Soldier.ubID ] = Soldier;
@@ -1219,7 +1219,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 //		Menptr[ Soldier.ubID ].usAniFrame = Soldier.usAniFrame;
 	}
 	
-	if( guiCurrentScreen != AUTORESOLVE_SCREEN )
+	if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 	{
 		// Publish liveness only after the legacy pool object completed common
 		// construction. Failed creation still consumes the incarnation above,
@@ -2194,7 +2194,7 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 		HandleCrowLeave( pSoldier );
 	}
 
-	if( guiCurrentScreen != AUTORESOLVE_SCREEN )
+	if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 	{
 		// remove character from squad list.. if they are on one
 		RemoveCharacterFromSquads( pSoldier );
@@ -3079,7 +3079,7 @@ SOLDIERTYPE* TacticalCreateAdministrator()
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_ADMINISTRATOR );
 		if( pSoldier ) return pSoldier;
@@ -3112,7 +3112,7 @@ SOLDIERTYPE* TacticalCreateArmyTroop()
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_ARMY );
 		if( pSoldier ) return pSoldier;
@@ -3146,7 +3146,7 @@ SOLDIERTYPE* TacticalCreateEliteEnemy()
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_ELITE );
 		if( pSoldier ) return pSoldier;
@@ -3188,7 +3188,7 @@ SOLDIERTYPE* TacticalCreateEnemyTank()
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_TANK );
 
@@ -3230,7 +3230,7 @@ SOLDIERTYPE* TacticalCreateEnemyJeep( )
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_JEEP );
 
@@ -3273,7 +3273,7 @@ SOLDIERTYPE* TacticalCreateEnemyRobot()
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_ROBOT );
 
@@ -3316,7 +3316,7 @@ SOLDIERTYPE* TacticalCreateZombie()
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_ZOMBIE );
 		if( pSoldier ) return pSoldier;
@@ -3394,7 +3394,7 @@ SOLDIERTYPE* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY )
 		gpBattleGroup->ubSectorZ == gbWorldSectorZ &&
 		gpBattleGroup->ubSectorX == gWorldSectorX &&
 		gpBattleGroup->ubSectorY == gWorldSectorY &&
-		guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+		GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalMilitiaSoldierForAutoresolve( ubMilitiaClass );
 		if( pSoldier ) return pSoldier;
@@ -3412,7 +3412,7 @@ SOLDIERTYPE* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY )
 	CreateDetailedPlacementGivenBasicPlacementInfo( &pp, &bp, sX, sY );
 
 	// Flugente: this might not be properly filled in autoresolve
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 	{
 		pp.sSectorX = sX;
 		pp.sSectorY = sY;
@@ -3431,7 +3431,7 @@ SOLDIERTYPE* TacticalCreateCreature( INT8 bCreatureBodyType )
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_CREATURE );
 		if( pSoldier ) return pSoldier;
@@ -3462,7 +3462,7 @@ SOLDIERTYPE* TacticalCreateArmedCivilian( UINT8 usSoldierClass )
 		return NULL;
 
 	// not in autoresolve!
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 		return NULL;
 	
 	memset( &bp, 0, sizeof(BASIC_SOLDIERCREATE_STRUCT) );
@@ -3483,7 +3483,7 @@ SOLDIERTYPE* TacticalCreateArmedCivilian( UINT8 usSoldierClass )
 		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
 		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
 
-		if ( guiCurrentScreen != AUTORESOLVE_SCREEN )
+		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			// random clothes
 			SetClothes( pSoldier, Random( NUMSHIRTS ), Random( NUMPANTS ) );
@@ -3500,7 +3500,7 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 									 INT16 sItem1, INT16 sItem2, INT16 sItem3, INT16 sItem4 )
 {
 	// not in autoresolve!
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 		return NULL;
 
 	SoldierID				ubID = NOBODY;
@@ -3569,7 +3569,7 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 				pSoldier->aiData.bOrders = ONGUARD;
 		}
 
-		if ( guiCurrentScreen != AUTORESOLVE_SCREEN )
+		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			// make him wear administrator uniform
 			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
@@ -3610,7 +3610,7 @@ SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 		return NULL;
 
 	// not in autoresolve!
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 	{
 		return NULL;
 	}
@@ -3670,7 +3670,7 @@ SOLDIERTYPE* TacticalCreateBandit()
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if ( guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI )
+	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalSoldierForAutoresolve( SOLDIER_CLASS_BANDIT );
 		if ( pSoldier ) return pSoldier;
@@ -3697,7 +3697,7 @@ SOLDIERTYPE* TacticalCreateBandit()
 		pSoldier->aiData.sNoiseGridno = ( CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS );
 		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
 
-		if ( guiCurrentScreen != AUTORESOLVE_SCREEN )
+		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
 
@@ -3892,7 +3892,7 @@ void CreatePrisonerOfWar()
 
 		swprintf( pSoldier->name, TacticalStr[ POW_TEAM_MERC_NAME ] );
 
-		if ( guiCurrentScreen != AUTORESOLVE_SCREEN )
+		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			// make him wear 'prisoner garb' (just what Shank and Dynamo are wearing)
 			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );

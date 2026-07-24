@@ -2502,7 +2502,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 			/// if we don't have a world loaded, and are in a bad anim, goto standing.
 			// bad anims are: HOPFENCE,
 			// CLIMBDOWNROOF, FALLFORWARD_ROOF,FALLOFF, CLIMBUPROOF
-			if ( !gfWorldLoaded &&
+			if ( !IsJa2TacticalWorldLoaded() &&
 				 (usState == HOPFENCE || usState == JUMPWINDOWS ||
 				 usState == CLIMBDOWNROOF ||
 
@@ -10153,7 +10153,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	// Calculate bandage
 	bBandage = this->stats.bLifeMax - this->stats.bLife - this->bBleeding;
 
-	if ( guiCurrentScreen == MAP_SCREEN )
+	if ( GetCurrentScreen() == MAP_SCREEN )
 	{
 		fReDrawFace = TRUE;
 	}
@@ -10912,7 +10912,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 
 	if ( fDoSub )
 	{
-		if ( guiCurrentScreen != GAME_SCREEN )
+		if ( GetCurrentScreen() != GAME_SCREEN )
 		{
 			PlayJA2Sample( uiSubSoundID, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 		}
@@ -18164,7 +18164,7 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 		break;
 
 	case SKILLS_FILL_CANTEENS:
-		if ( !((guiCurrentScreen != GAME_SCREEN && guiCurrentScreen != MSG_BOX_SCREEN) || (gTacticalStatus.uiFlags & INCOMBAT) || gTacticalStatus.fEnemyInSector || gusSelectedSoldier == NOBODY) )
+		if ( !((GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN) || (gTacticalStatus.uiFlags & INCOMBAT) || gTacticalStatus.fEnemyInSector || gusSelectedSoldier == NOBODY) )
 			canuse = TRUE;
 		break;
 
@@ -21869,14 +21869,14 @@ void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed )
 	// A banaged bleed does not show damage taken , just through existing bandages
 
 	// ATE: Do this ONLY if buddy is in sector.....
-	if ( (pSoldier->bInSector && guiCurrentScreen == GAME_SCREEN) || guiCurrentScreen != GAME_SCREEN )
+	if ( (pSoldier->bInSector && GetCurrentScreen() == GAME_SCREEN) || GetCurrentScreen() != GAME_SCREEN )
 	{
 		pSoldier->flags.fFlashPortrait = TRUE;
 		pSoldier->bFlashPortraitFrame = FLASH_PORTRAIT_STARTSHADE;
 		RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
 
 		// If we are in mapscreen, set this person as selected
-		if ( guiCurrentScreen == MAP_SCREEN )
+		if ( GetCurrentScreen() == MAP_SCREEN )
 		{
 			SetInfoChar( pSoldier->ubID );
 		}
@@ -23789,7 +23789,7 @@ void SOLDIERTYPE::HandleSoldierTakeDamageFeedback( void )
 		}
 	}
 	// shadooow: Do this ONLY if buddy is in sector.....
-	if ((this->bInSector && guiCurrentScreen == GAME_SCREEN) || guiCurrentScreen != GAME_SCREEN)
+	if ((this->bInSector && GetCurrentScreen() == GAME_SCREEN) || GetCurrentScreen() != GAME_SCREEN)
 	{
 		// Flash portrait....
 		this->flags.fFlashPortrait = TRUE;
@@ -24051,7 +24051,7 @@ void DebugValidateSoldierData( )
 		{
 			SAIReportError( sString );
 			/*
-			if ( guiCurrentScreen == MAP_SCREEN )
+			if ( GetCurrentScreen() == MAP_SCREEN )
 			DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_OK, MapScreenDefaultOkBoxCallback );
 			else
 			DoMessageBox( MSG_BOX_BASIC_STYLE, sString, GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );

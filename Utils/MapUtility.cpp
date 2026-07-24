@@ -162,7 +162,7 @@ UINT32 MapUtilScreenHandle(void)
 	bAvR = bAvG = bAvB = 0;
 	// Zero out area!
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, 0, 0, (INT16)(SCREEN_WIDTH), (INT16)(SCREEN_HEIGHT), Get16BPPColor(FROMRGB(0, 0, 0)));
-	if(fEditModeFirstTime == FALSE && gfWorldLoaded && FListNode == NULL)// Just create radarmap for current loaded world
+	if(fEditModeFirstTime == FALSE && IsJa2TacticalWorldLoaded() && FListNode == NULL)// Just create radarmap for current loaded world
 		sprintf(zFilename, "%s", gubFilename);
 	else
 	{
@@ -330,7 +330,7 @@ UINT32 MapUtilScreenHandle(void)
 		FListNode = FListNode->pNext;
 	if(fEditModeFirstTime == FALSE && FListNode == NULL)
 	{
-		if(gfWorldLoaded)
+		if(IsJa2TacticalWorldLoaded())
 		{
 			gfMapUtilityWindowActive = TRUE;
 			return(MAPUTILITY_SCREEN);

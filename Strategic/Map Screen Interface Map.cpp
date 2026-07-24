@@ -7800,7 +7800,7 @@ void InitMapSecrets( void )
 BOOLEAN CanRedistributeMilitiaInSector( INT16 sClickedSectorX, INT16 sClickedSectorY, INT8 bClickedTownId )
 {
 	// if no world is loaded, we can't be in combat (PBI/Auto-resolve locks out normal mapscreen interface for this)
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 	{
 		// ok to redistribute
 		return( TRUE );

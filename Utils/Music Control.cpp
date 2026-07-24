@@ -483,7 +483,7 @@ BOOLEAN MusicPoll(BOOLEAN /*fForce*/)
 			// If we were in victory mode, change!
 			if (gbVictorySongCount == 1 || gbDeathSongCount == 1)
 			{
-				if (gbDeathSongCount == 1 && guiCurrentScreen == GAME_SCREEN)
+				if (gbDeathSongCount == 1 && GetCurrentScreen() == GAME_SCREEN)
 				{
 					CheckAndHandleUnloadingOfCurrentWorld();
 				}

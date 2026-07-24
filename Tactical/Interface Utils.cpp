@@ -227,7 +227,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 	}
 
 	// DO MAX BREATH
-	if( guiCurrentScreen != MAP_SCREEN )
+	if( GetCurrentScreen() != MAP_SCREEN )
 	{
 		if( gusSelectedSoldier == pSoldier->ubID && gTacticalStatus.ubCurrentTeam == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
 		{

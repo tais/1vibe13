@@ -339,7 +339,7 @@ void UpdateFireAmbient(void)
 		return;
 	}
 
-	if (guiCurrentScreen != GAME_SCREEN)
+	if (GetCurrentScreen() != GAME_SCREEN)
 	{
 		return;
 	}

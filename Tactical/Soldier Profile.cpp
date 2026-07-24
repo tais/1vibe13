@@ -1702,7 +1702,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 			HandleCheckForDeathCommonCode( pSoldier );
 		}
 
-		if ( gfWorldLoaded &&	pSoldier->bInSector
+		if ( IsJa2TacticalWorldLoaded() &&	pSoldier->bInSector
 		//pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ
 		)
 		{

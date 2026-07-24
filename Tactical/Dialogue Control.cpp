@@ -24,6 +24,7 @@
 	#include "strategicmap.h"
 	#include "PreBattle Interface.h"
 	#include "Game Clock.h"
+	#include "gameloop.h"
 	#include "Quests.h"
 	#include "Cursors.h"
 	#include "gamescreen.h"
@@ -113,7 +114,6 @@ extern INT32 giMapInvNext;
 extern BOOLEAN gfSKIScreenExit;
 extern SOLDIERTYPE *pProcessingSoldier;
 extern BOOLEAN fProcessingAMerc;
-extern UINT32 guiPendingScreen;
 extern BOOLEAN fReDrawFace;
 extern BOOLEAN gfWaitingForTriggerTimer;
 
@@ -551,7 +551,7 @@ void HandleDialogue( )
 		if ( !gfInTalkPanel )
 		{
 			// ATE: NOT if we have a message box pending....
-			if ( guiPendingScreen != MSG_BOX_SCREEN && guiCurrentScreen != MSG_BOX_SCREEN	)
+			if ( GetPendingNewScreen() != MSG_BOX_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN	)
 			{
 				// No, so we should lock the UI!
 				guiPendingOverrideEvent = LU_BEGINUILOCK;
@@ -573,7 +573,7 @@ void HandleDialogue( )
 			//	CHANGE FROM TEAM TO INV INTERFACE
 
 			// Where are we and where did this face once exist?
-			if ( guiScreenIDUsedWhenUICreated == GAME_SCREEN && guiCurrentScreen == MAP_SCREEN )
+			if ( guiScreenIDUsedWhenUICreated == GAME_SCREEN && GetCurrentScreen() == MAP_SCREEN )
 			{
 				// GO FROM GAMESCREEN TO MAPSCREEN
 				// REMOVE OLD UI
@@ -610,12 +610,12 @@ void HandleDialogue( )
 					gfFacePanelActive = FALSE;
 				}
 
-				guiScreenIDUsedWhenUICreated = guiCurrentScreen;
+				guiScreenIDUsedWhenUICreated = GetCurrentScreen();
 			}
-			else if ( guiScreenIDUsedWhenUICreated == MAP_SCREEN && guiCurrentScreen == GAME_SCREEN )
+			else if ( guiScreenIDUsedWhenUICreated == MAP_SCREEN && GetCurrentScreen() == GAME_SCREEN )
 			{
 				HandleTacticalSpeechUI( gubCurrentTalkingID, gpCurrentTalkingFace->iID );
-				guiScreenIDUsedWhenUICreated = guiCurrentScreen;
+				guiScreenIDUsedWhenUICreated = GetCurrentScreen();
 			}
 			return;
 		}
@@ -1121,13 +1121,13 @@ void HandleDialogue( )
 				break;
 
 				case( 6 ):
-					if( guiCurrentScreen == SHOPKEEPER_SCREEN )
+					if( GetCurrentScreen() == SHOPKEEPER_SCREEN )
 					{
 						DisableButton( guiSKI_TransactionButton );
 					}
 				break;
 				case( 7 ):
-					if( guiCurrentScreen == SHOPKEEPER_SCREEN )
+					if( GetCurrentScreen() == SHOPKEEPER_SCREEN )
 					{
 						EnableButton( guiSKI_TransactionButton );
 					}
@@ -2089,7 +2089,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 					gMercProfiles[ubCharacterNum].bDisability == FEAR_OF_INSECTS))
 					//usQuoteNum == QUOTE_STARTING_TO_WHINE ||
 #ifdef JA2BETAVERSION
-					|| usQuoteNum == QUOTE_WHINE_EQUIPMENT) && (guiCurrentScreen != QUEST_DEBUG_SCREEN) )
+					|| usQuoteNum == QUOTE_WHINE_EQUIPMENT) && (GetCurrentScreen() != QUEST_DEBUG_SCREEN) )
 #else
 			) )
 #endif
@@ -2171,7 +2171,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 	// Set global handler ID value, used when face desides it's done...
 	gbUIHandlerID = bUIHandlerID;
 
-	guiScreenIDUsedWhenUICreated = guiCurrentScreen;
+	guiScreenIDUsedWhenUICreated = GetCurrentScreen();
 
 	return( TRUE );
 }
@@ -2201,7 +2201,7 @@ BOOLEAN ExecuteSnitchCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum,
 		// Set global handleer ID value, used when face desides it's done...
 		gbUIHandlerID = DIALOGUE_TACTICAL_UI;
 
-		guiScreenIDUsedWhenUICreated = guiCurrentScreen;
+		guiScreenIDUsedWhenUICreated = GetCurrentScreen();
 	}
 
 	return( TRUE );
@@ -2237,7 +2237,7 @@ BOOLEAN LuaCallsToDoDialogueStuff( UINT8 ubProfile, INT32 iFaceIndex, const char
 	// Set global handleer ID value, used when face desides it's done...
 	gbUIHandlerID = DIALOGUE_TACTICAL_UI;
 
-	guiScreenIDUsedWhenUICreated = guiCurrentScreen;
+	guiScreenIDUsedWhenUICreated = GetCurrentScreen();
 
 	return TRUE;
 }
@@ -2734,7 +2734,7 @@ void HandleTacticalNPCTextUI( UINT8 ubCharacterNum, STR16 zQuoteStr )
 	CHAR16									zText[ QUOTE_MESSAGE_SIZE ];
 
 	// Setup dialogue text box
-	if ( guiCurrentScreen != MAP_SCREEN )
+	if ( GetCurrentScreen() != MAP_SCREEN )
 	{
 		gTalkPanel.fRenderSubTitlesNow = TRUE;
 		gTalkPanel.fSetupSubTitles = TRUE;
@@ -2754,7 +2754,7 @@ void DisplayTextForExternalNPC(	UINT8 ubCharacterNum, STR16 zQuoteStr )
 	INT16									sLeft;
 
 	// Setup dialogue text box
-	if ( guiCurrentScreen != MAP_SCREEN )
+	if ( GetCurrentScreen() != MAP_SCREEN )
 	{
 		gTalkPanel.fRenderSubTitlesNow = TRUE;
 		gTalkPanel.fSetupSubTitles = TRUE;
@@ -2765,7 +2765,7 @@ void DisplayTextForExternalNPC(	UINT8 ubCharacterNum, STR16 zQuoteStr )
 	swprintf( zText, L"%s: \"%s\"", gMercProfiles[ ubCharacterNum ].zNickname, zQuoteStr );
 	MapScreenMessage( FONT_MCOLOR_WHITE, MSG_DIALOG, L"%s",	zText );
 
-	if ( guiCurrentScreen == MAP_SCREEN )
+	if ( GetCurrentScreen() == MAP_SCREEN )
 	{
 		sLeft			= ( gsExternPanelXPosition + 97 + xResOffset );
 		gsTopPosition = gsExternPanelYPosition + yResOffset;
@@ -2793,7 +2793,7 @@ void HandleTacticalTextUI( INT32 iFaceIndex, SOLDIERTYPE *pSoldier, STR16 zQuote
 	swprintf( zText, L"\"%s\"", zQuoteStr );
 
 	// TODO.RW: Wenn wir in tactical sind, dann normal. In strategy den offset dazurechnen!
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 	{
 		sLeft = 110;
 	}
@@ -2886,7 +2886,7 @@ void HandleExternNPCSpeechFace( INT32 iIndex )
 	// WDS - bug fix: VideoOverlayDesc must be initialized! - 07/16/2007
 	memset( &VideoOverlayDesc, 0, sizeof( VIDEO_OVERLAY_DESC ) );
 
-	if ( guiCurrentScreen != MAP_SCREEN )
+	if ( GetCurrentScreen() != MAP_SCREEN )
 	{
 		// Setup video overlay!
 		VideoOverlayDesc.sLeft			= 10 + xResOffset;
@@ -2957,7 +2957,7 @@ void HandleTacticalSpeechUI( UINT8 ubCharacterNum, INT32 iFaceIndex	)
 	else
 	{
 		// If we are not an active face!
-		if ( guiCurrentScreen != MAP_SCREEN )
+		if ( GetCurrentScreen() != MAP_SCREEN )
 		{
 			fDoExternPanel = TRUE;
 		}
@@ -2972,7 +2972,7 @@ void HandleTacticalSpeechUI( UINT8 ubCharacterNum, INT32 iFaceIndex	)
 		gFacesData[ iFaceIndex ].uiFlags |= ( FACE_INACTIVE_HANDLED_ELSEWHERE | FACE_MAKEACTIVE_ONCE_DONE );
 
 		// IF we are in tactical and this soldier is on the current squad
-		if ( ( guiCurrentScreen == GAME_SCREEN ) && ( pSoldier != NULL ) && ( pSoldier->bAssignment == iCurrentTacticalSquad ) )
+		if ( ( GetCurrentScreen() == GAME_SCREEN ) && ( pSoldier != NULL ) && ( pSoldier->bAssignment == iCurrentTacticalSquad ) )
 		{
 			// Make the interface panel dirty..
 			// This will dirty the panel next frame...
@@ -3008,7 +3008,7 @@ void HandleTacticalSpeechUI( UINT8 ubCharacterNum, INT32 iFaceIndex	)
 		gfFacePanelActive = TRUE;
 
 	}
-	else if ( guiCurrentScreen == MAP_SCREEN )
+	else if ( GetCurrentScreen() == MAP_SCREEN )
 	{
 		// Are we in mapscreen?
 		// If so, set current guy active to talk.....
@@ -3111,7 +3111,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 					{
 						swprintf( sHelicopterRepairPromptText, pHelicopterRepairRefuelStrings[ STR_HELI_RR_REPAIR_PROMPT ], gMercProfiles[ WALDO ].zNickname, CalculateHelicopterRepairCost( TRUE ),  gHelicopterSettings.ubHelicopterSeriousRepairTime );
 					}
-					DoMessageBox( MSG_BOX_BASIC_STYLE, sHelicopterRepairPromptText, guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, OfferHelicopterRepairBoxCallBack, NULL );
+					DoMessageBox( MSG_BOX_BASIC_STYLE, sHelicopterRepairPromptText, GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, OfferHelicopterRepairBoxCallBack, NULL );
 				}
 
 				// anv: after merc finishes his quote, we want enemy to answer

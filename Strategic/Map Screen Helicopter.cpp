@@ -751,7 +751,7 @@ BOOLEAN CheckIfHelicopterHasEnoughFuelToReturn( INT16 sX, INT16 sY )
 				MakeHeliReturnToBase( HELICOPTER_RETURN_REASON_LOW_FUEL );
 			}
 			else
-				DoMessageBox( MSG_BOX_BASIC_STYLE, pHelicopterEtaStrings[ STR_HELI_ETA_KICK_OUT_PASSENGERS_PROMPT ], guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, KickOutPassengersBoxCallBack, NULL );
+				DoMessageBox( MSG_BOX_BASIC_STYLE, pHelicopterEtaStrings[ STR_HELI_ETA_KICK_OUT_PASSENGERS_PROMPT ], GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, KickOutPassengersBoxCallBack, NULL );
 		}
 		else
 			MakeHeliReturnToBase( HELICOPTER_RETURN_REASON_LOW_FUEL );
@@ -954,7 +954,7 @@ void OfferHelicopterRepair( void )
 		{
 			// no dialogue, show popup right away
 			swprintf( sHelicopterRepairPromptText, pHelicopterRepairRefuelStrings[ STR_HELI_RR_REPAIR_PROMPT ], gMercProfiles[ WALDO ].zNickname, CalculateHelicopterRepairCost( FALSE ), gHelicopterSettings.ubHelicopterBasicRepairTime );
-			DoMessageBox( MSG_BOX_BASIC_STYLE, sHelicopterRepairPromptText, guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, OfferHelicopterRepairBoxCallBack, NULL );
+			DoMessageBox( MSG_BOX_BASIC_STYLE, sHelicopterRepairPromptText, GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, OfferHelicopterRepairBoxCallBack, NULL );
 		}
 	}
 	else if( CheckFact(FACT_HELI_SERIOUSLY_DAMAGED_CAN_START_REPAIR, 0 ) == TRUE )
@@ -966,7 +966,7 @@ void OfferHelicopterRepair( void )
 		else
 		{
 			swprintf( sHelicopterRepairPromptText, pHelicopterRepairRefuelStrings[ STR_HELI_RR_REPAIR_PROMPT ], gMercProfiles[ WALDO ].zNickname,  CalculateHelicopterRepairCost( TRUE ), gHelicopterSettings.ubHelicopterSeriousRepairTime );
-			DoMessageBox( MSG_BOX_BASIC_STYLE, sHelicopterRepairPromptText, guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, OfferHelicopterRepairBoxCallBack, NULL );
+			DoMessageBox( MSG_BOX_BASIC_STYLE, sHelicopterRepairPromptText, GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, OfferHelicopterRepairBoxCallBack, NULL );
 		}
 	}
 
@@ -1374,7 +1374,7 @@ void HandleHeliHoverTooLong( void )
 			MakeHeliReturnToBase( HELICOPTER_RETURN_REASON_LOW_FUEL );
 		}
 		else
-			DoMessageBox( MSG_BOX_BASIC_STYLE, pHelicopterEtaStrings[ STR_HELI_ETA_KICK_OUT_PASSENGERS_PROMPT ], guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, KickOutPassengersBoxCallBack, NULL );
+			DoMessageBox( MSG_BOX_BASIC_STYLE, pHelicopterEtaStrings[ STR_HELI_ETA_KICK_OUT_PASSENGERS_PROMPT ], GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, KickOutPassengersBoxCallBack, NULL );
 	}
 	else
 		MakeHeliReturnToBase( HELICOPTER_RETURN_REASON_LOW_FUEL );

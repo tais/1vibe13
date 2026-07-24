@@ -2036,14 +2036,14 @@ void HandleExitsFromMapScreen( void )
 					break;
 
 				case MAP_EXIT_TO_OPTIONS:
-					SetOptionsPreviousScreen(guiCurrentScreen);
+					SetOptionsPreviousScreen(GetCurrentScreen());
 					SetPendingNewScreen( OPTIONS_SCREEN );
 					break;
 
 				case MAP_EXIT_TO_SAVE:
 				case MAP_EXIT_TO_LOAD:
 					gfCameDirectlyFromGame = TRUE;
-					SetOptionsPreviousScreen(guiCurrentScreen);
+					SetOptionsPreviousScreen(GetCurrentScreen());
 					SetPendingNewScreen( SAVE_LOAD_SCREEN );
 					break;
 				// OJW - 20090210 - clean resources on disconnect

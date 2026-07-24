@@ -8,6 +8,7 @@
 #include <list>
 #include <vfs/Core/vfs_string.h>
 #include "FeaturesScreen.h"
+#include "gameloop.h"
 
 extern UINT32 EditScreenInit(void);
 extern UINT32 EditScreenHandle(void);
@@ -157,10 +158,9 @@ void HandleTitleScreenAnimation();
 
 //External Globals
 extern CHAR8					gubFilename[ 200 ];
-extern UINT32				guiCurrentScreen;
-extern UINT32				guiPendingScreen;
+UINT32 GetCurrentScreen();
 
-typedef void (*RENDER_HOOK)( void );	
+typedef void (*RENDER_HOOK)( void );
 
 void SetRenderHook( RENDER_HOOK pRenderOverride );
 void SetCurrentScreen( UINT32 uiNewScreen );

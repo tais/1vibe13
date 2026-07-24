@@ -425,7 +425,7 @@ void RefreshItemPools(std::vector<WORLDITEM>& pItemList, INT32 iNumberOfItems)
 static BOOLEAN fShowMoveItem = TRUE;
 BOOLEAN IsShowMoveItem()
 {
-	return (fShowMoveItem && guiCurrentScreen == MAP_SCREEN);
+	return (fShowMoveItem && GetCurrentScreen() == MAP_SCREEN);
 }
 
 void ToggleShowMoveItem()
@@ -3051,7 +3051,7 @@ void MapInventoryWriteEquipmentTemplate(GUI_BUTTON *btn, INT32 reason)
 			SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
 			if ( pSoldier )
 			{
-				DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, szGearTemplateText[0], guiCurrentScreen, MSG_BOX_FLAG_INPUTBOX, TemplateNameInputCallBack, NULL );
+				DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, szGearTemplateText[0], GetCurrentScreen(), MSG_BOX_FLAG_INPUTBOX, TemplateNameInputCallBack, NULL );
 			}
 		}
 	}

@@ -9,7 +9,7 @@ void SpecifyButtonSoundScheme( INT32 iButtonID, INT8 bSoundScheme )
 	ButtonList[ iButtonID ]->ubSoundSchemeID = (UINT8)bSoundScheme;
 	if( bSoundScheme == BUTTON_SOUND_SCHEME_GENERIC )
 	{
-		switch( guiCurrentScreen )
+		switch( GetCurrentScreen() )
 		{
 			case MAINMENU_SCREEN:
 			case OPTIONS_SCREEN:

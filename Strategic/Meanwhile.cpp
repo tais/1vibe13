@@ -382,12 +382,12 @@ void BringupMeanwhileBox( )
 	if ( gCurrentMeanwhileDef.ubMeanwhileID != INTERROGATION && MeanwhileSceneSeen( gCurrentMeanwhileDef.ubMeanwhileID ) )
 #endif
 	{
-		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, guiCurrentScreen, MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
+		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, GetCurrentScreen(), MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
 	}
 	else
 	{
-		//DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_OK, BeginMeanwhileCallBack, NULL );
-		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, guiCurrentScreen, MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
+		//DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_OK, BeginMeanwhileCallBack, NULL );
+		DoMessageBox( MSG_BOX_BASIC_STYLE, zStr, GetCurrentScreen(), MSG_BOX_FLAG_OKSKIP, BeginMeanwhileCallBack, NULL );
 	}
 }
 
@@ -439,9 +439,9 @@ void CheckForMeanwhileOKStart( )
 
 		gfMeanwhileTryingToStart = FALSE;
 
-		guiOldScreen = guiCurrentScreen;
+		guiOldScreen = GetCurrentScreen();
 
-		if ( guiCurrentScreen == GAME_SCREEN )
+		if ( GetCurrentScreen() == GAME_SCREEN )
 		{
 			LeaveTacticalScreen( GAME_SCREEN );
 		}
@@ -459,7 +459,7 @@ void StartMeanwhile( )
 	INT32 iIndex;
 
 	// OK, save old position...
-	if ( gfWorldLoaded )
+	if ( IsJa2TacticalWorldLoaded() )
 	{
 		gsOldSectorX = gWorldSectorX;
 		gsOldSectorY = gWorldSectorY;
@@ -476,7 +476,7 @@ void StartMeanwhile( )
 	SetMusicMode( MUSIC_MAIN_MENU );
 
 
-	gfWorldWasLoaded = gfWorldLoaded;
+	gfWorldWasLoaded = IsJa2TacticalWorldLoaded();
 
 	// OK, we have been told to start.....
 	SetCurrentInterfacePanel( (UINT8)TEAM_PANEL );

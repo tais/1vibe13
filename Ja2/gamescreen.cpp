@@ -692,7 +692,7 @@ UINT32	MainGameScreenHandle(void)
 		return( GAME_SCREEN );
 	}
 
-	if ( guiCurrentScreen != MSG_BOX_SCREEN && guiCurrentScreen != MP_CHAT_SCREEN )
+	if ( GetCurrentScreen() != MSG_BOX_SCREEN && GetCurrentScreen() != MP_CHAT_SCREEN )
 	{
 		if ( HandleBeginFadeOut( GAME_SCREEN ) )
 		{
@@ -748,7 +748,7 @@ UINT32	MainGameScreenHandle(void)
 		}
 
 		// Handle animated cursors
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 		{
 			HandleAnimatedCursors( );
 

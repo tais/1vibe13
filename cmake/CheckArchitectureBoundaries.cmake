@@ -233,9 +233,7 @@ set(world_state_owner "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp")
 set(world_state_mirrors
   gWorldSectorX
   gWorldSectorY
-  gbWorldSectorZ
-  gfWorldLoaded
-  guiWorldLoadGeneration)
+  gbWorldSectorZ)
 foreach(source_file IN LISTS world_state_files)
   if("${source_file}" STREQUAL "${world_state_owner}")
     continue()
@@ -262,6 +260,52 @@ foreach(source_file IN LISTS world_state_files)
     if(world_state_reference_escape)
       message(FATAL_ERROR
         "Editor filename parsing passes tactical-world compatibility mirror '${mirror}' by mutable reference in ${source_file}; parse locals and route writes through TacticalWorldAdapter")
+    endif()
+  endforeach()
+endforeach()
+
+# World-load state and generation have no legacy storage requirement. They are
+# read directly from TacticalWorldSession and must not return as duplicate
+# scalar owners.
+set(retired_tactical_world_mirrors
+  gfWorldLoaded
+  guiWorldLoadGeneration)
+set(world_state_declaration_files ${world_state_files})
+foreach(source_directory IN LISTS world_state_source_directories)
+  file(GLOB_RECURSE declaration_files
+    "${SOURCE_ROOT}/${source_directory}/*.h"
+    "${SOURCE_ROOT}/${source_directory}/*.hpp")
+  list(APPEND world_state_declaration_files ${declaration_files})
+endforeach()
+foreach(source_file IN LISTS world_state_declaration_files)
+  file(READ "${source_file}" contents)
+  foreach(mirror IN LISTS retired_tactical_world_mirrors)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${mirror}([^A-Za-z0-9_]|$)"
+      retired_tactical_world_mirror "${contents}")
+    if(retired_tactical_world_mirror)
+      message(FATAL_ERROR
+        "Retired tactical-world mirror '${mirror}' returned in ${source_file}; read TacticalWorldSession through IsJa2TacticalWorldLoaded or CaptureJa2TacticalWorld")
+    endif()
+  endforeach()
+endforeach()
+
+# Pending and previous application screen state are owned by StateController.
+# The former scalar mirrors have no serialization or external ABI requirement
+# and must not return as second sources of truth.
+set(retired_screen_state_mirrors
+  guiCurrentScreen
+  guiPendingScreen
+  guiPreviousScreen)
+foreach(source_file IN LISTS world_state_declaration_files)
+  file(READ "${source_file}" contents)
+  foreach(mirror IN LISTS retired_screen_state_mirrors)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${mirror}([^A-Za-z0-9_]|$)"
+      retired_screen_state_mirror "${contents}")
+    if(retired_screen_state_mirror)
+      message(FATAL_ERROR
+        "Retired screen-state mirror '${mirror}' returned in ${source_file}; query StateController through the gameloop screen accessors")
     endif()
   endforeach()
 endforeach()
@@ -357,21 +401,17 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
-# The legacy incarnation counter remains an exported compatibility mirror for
-# old modules and save tools. Only the entity host may synchronize it with the
-# runtime-owned allocation sequence.
-set(entity_sequence_owner "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp")
+# TacticalEntityDirectory owns the incarnation sequence directly. The former
+# exported counter was unused outside the host and must not return as a second
+# authority.
 foreach(source_file IN LISTS world_state_files)
-  if("${source_file}" STREQUAL "${entity_sequence_owner}")
-    continue()
-  endif()
   file(READ "${source_file}" contents)
   string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])guiCurrentUniqueSoldierId[ \t\r\n]*(\\+\\+|--|[+*/%-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*guiCurrentUniqueSoldierId([^A-Za-z0-9_]|$)"
-    entity_sequence_write "${contents}")
-  if(entity_sequence_write)
+    "(^|[^A-Za-z0-9_])guiCurrentUniqueSoldierId([^A-Za-z0-9_]|$)"
+    retired_entity_sequence_mirror "${contents}")
+  if(retired_entity_sequence_mirror)
     message(FATAL_ERROR
-      "Production code writes the tactical-entity incarnation compatibility mirror in ${source_file}; route the transition through TacticalEntityHost")
+      "Retired tactical-entity incarnation mirror returned in ${source_file}; use TacticalEntityHost sequence gateways")
   endif()
 endforeach()
 

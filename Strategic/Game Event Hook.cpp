@@ -122,7 +122,7 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 	#ifdef JA2BETAVERSION
 		//If we are currently in the AIViewer, only process the events that we want to process.
 		//The rest of the events will be delayed until AFTER we leave the viewer.
-		if( guiCurrentScreen == AIVIEWER_SCREEN )
+		if( GetCurrentScreen() == AIVIEWER_SCREEN )
 		{
 			if( pEvent->ubCallbackID != EVENT_BEGIN_CREATURE_QUEST &&
 					pEvent->ubCallbackID != EVENT_CREATURE_SPREAD &&
@@ -705,7 +705,7 @@ void CrippledVersionEndGameCheckCallBack( UINT8 bExitValue )
 		ReStartingGame();
 
 		//go to the main menu
-		if( guiCurrentScreen == MAP_SCREEN )
+		if( GetCurrentScreen() == MAP_SCREEN )
 		{
 			SetPendingNewScreen(MAINMENU_SCREEN);
 		}

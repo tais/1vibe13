@@ -3,11 +3,6 @@
 #include "Overhead.h"
 #include "Soldier Control.h"
 
-// Exact compatibility symbol retained for legacy modules and save tooling.
-// TacticalEntityDirectory is authoritative; host gateways synchronize this
-// mirror after every sequence transition.
-UINT32 guiCurrentUniqueSoldierId = 1;
-
 namespace
 {
 TacticalEntityDirectory& StandaloneDirectory() noexcept
@@ -22,11 +17,6 @@ TacticalEntityDirectory*& BoundDirectory() noexcept
 	return directory;
 }
 
-void SynchronizeLegacyIncarnationMirror() noexcept
-{
-	guiCurrentUniqueSoldierId = BoundDirectory()->nextIncarnation();
-}
-
 TacticalEntityId LegacyIdentity(const SOLDIERTYPE& soldier) noexcept
 {
 	return TacticalEntityId{
@@ -37,10 +27,11 @@ TacticalEntityId LegacyIdentity(const SOLDIERTYPE& soldier) noexcept
 
 void BindJa2TacticalEntityDirectory(TacticalEntityDirectory& directory) noexcept
 {
-	directory.restoreNextIncarnation(guiCurrentUniqueSoldierId);
+	const std::uint32_t nextIncarnation =
+		BoundDirectory()->nextIncarnation();
 	BoundDirectory() = &directory;
+	directory.restoreNextIncarnation(nextIncarnation);
 	RebuildJa2TacticalEntityDirectory();
-	SynchronizeLegacyIncarnationMirror();
 }
 
 TacticalEntityDirectory& GetJa2TacticalEntityDirectory() noexcept
@@ -50,9 +41,7 @@ TacticalEntityDirectory& GetJa2TacticalEntityDirectory() noexcept
 
 std::uint32_t IssueJa2TacticalEntityIncarnation() noexcept
 {
-	const std::uint32_t issued = BoundDirectory()->issueIncarnation();
-	SynchronizeLegacyIncarnationMirror();
-	return issued;
+	return BoundDirectory()->issueIncarnation();
 }
 
 std::uint32_t NextJa2TacticalEntityIncarnation() noexcept
@@ -64,7 +53,6 @@ void RestoreJa2TacticalEntityIncarnationSequence(
 	std::uint32_t nextIncarnation) noexcept
 {
 	BoundDirectory()->restoreNextIncarnation(nextIncarnation);
-	SynchronizeLegacyIncarnationMirror();
 }
 
 bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept

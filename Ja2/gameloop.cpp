@@ -52,10 +52,6 @@
 //network headers
 #include "connect.h"
 
-UINT32 guiCurrentScreen;
-UINT32 guiPendingScreen = NO_PENDING_SCREEN;
-UINT32 guiPreviousScreen = NO_PENDING_SCREEN;
-
 static bool IsOverlayScreen(UINT32 screen)
 {
 	return screen == MSG_BOX_SCREEN || screen == MP_CHAT_SCREEN;
@@ -70,14 +66,44 @@ static StateTransitionResult RecordScreenTransition(UINT32 screen)
 
 static void RequestScreenTransition(UINT32 screen)
 {
-	GetGameContext().screenController().request(screen);
-	guiPendingScreen = screen;
+	StateController<UINT32>& controller =
+		GetGameContext().screenController();
+	if (screen == NO_PENDING_SCREEN)
+		controller.cancelPending();
+	else
+		controller.request(screen);
 }
 
 static StateTransitionResult CommitPendingScreenTransition()
 {
 	return GetGameContext().screenController().commitPending(
 		[](UINT32 candidate) { return IsOverlayScreen(candidate); });
+}
+
+UINT32 GetPendingNewScreen()
+{
+	const UINT32* pending =
+		GetGameContext().screenController().pending();
+	return pending ? *pending : NO_PENDING_SCREEN;
+}
+
+UINT32 GetCurrentScreen()
+{
+	const UINT32* current =
+		GetGameContext().screenController().current();
+	return current ? *current : EDIT_SCREEN;
+}
+
+UINT32 GetPreviousScreen()
+{
+	const UINT32* previous =
+		GetGameContext().screenController().previous();
+	return previous ? *previous : NO_PENDING_SCREEN;
+}
+
+ScopedCurrentScreenOverride OverrideCurrentScreen(UINT32 screen)
+{
+	return GetGameContext().screenController().scopedCurrentOverride(screen);
 }
 
 INT32	giStartingMemValue = 0;
@@ -301,8 +327,7 @@ BOOLEAN InitializeGame(void)
 		return FALSE;
 	}
 
-	guiCurrentScreen = INIT_SCREEN;
-	GetGameContext().screenController().reset(guiCurrentScreen);
+	GetGameContext().screenController().reset(INIT_SCREEN);
 
 	gGameManagerInitialized = true;
 	startup.commit();
@@ -378,7 +403,7 @@ static FramePlan PrepareGameFrame()
 
 	InputAtom	InputEvent;
 	POINT		MousePos;
-	UINT32		uiOldScreen=guiCurrentScreen;
+	UINT32		uiOldScreen=GetCurrentScreen();
 
 	if(_LeftButtonDown | _RightButtonDown)//dnl ch77 191113 to prevent memory corruption during resize
 		ResizeWorldItems();
@@ -438,8 +463,7 @@ static FramePlan PrepareGameFrame()
 	{
 		//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: global error");
 
-		guiCurrentScreen = ERROR_SCREEN;
-		RecordScreenTransition(guiCurrentScreen);
+		RecordScreenTransition(ERROR_SCREEN);
 	}
 
 /*
@@ -449,7 +473,7 @@ static FramePlan PrepareGameFrame()
 	if( gubCheckForFreeSpaceOnHardDriveCount < DONT_CHECK_FOR_FREE_SPACE )
 	{
 		//only if we are in a screen that can get this check
-		if( guiCurrentScreen == MAP_SCREEN || guiCurrentScreen == GAME_SCREEN || guiCurrentScreen == SAVE_LOAD_SCREEN )
+		if( GetCurrentScreen() == MAP_SCREEN || GetCurrentScreen() == GAME_SCREEN || GetCurrentScreen() == SAVE_LOAD_SCREEN )
 		{
 			//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: check for free hard drive space");
 			if( gubCheckForFreeSpaceOnHardDriveCount < 1 )
@@ -497,18 +521,17 @@ static FramePlan PrepareGameFrame()
 	{
 		RequestScreenTransition(MP_CHAT_SCREEN);
 	}
-	if ( guiPendingScreen != NO_PENDING_SCREEN )
+	const UINT32 pendingScreen = GetPendingNewScreen();
+	if ( pendingScreen != NO_PENDING_SCREEN )
 	{
-		// Direct legacy writers are adopted here; callers using
-		// SetPendingNewScreen have already populated the controller.
-		GetGameContext().screenController().request(guiPendingScreen);
+		const UINT32 currentScreen = GetCurrentScreen();
 		// Based on active screen, deinit!
-		if( guiPendingScreen != guiCurrentScreen )
+		if( pendingScreen != currentScreen )
 		{
-			switch( guiCurrentScreen )
+			switch( currentScreen )
 			{
 			case MAP_SCREEN:
-				if( guiPendingScreen != MSG_BOX_SCREEN && guiPendingScreen != MP_CHAT_SCREEN )
+				if( pendingScreen != MSG_BOX_SCREEN && pendingScreen != MP_CHAT_SCREEN )
 				{
 					EndMapScreen( FALSE );
 				}
@@ -520,37 +543,34 @@ static FramePlan PrepareGameFrame()
 		}
 
 		// if the screen has chnaged
-		if( uiOldScreen != guiPendingScreen )
+		if( uiOldScreen != pendingScreen )
 		{
 			// Set the fact that the screen has changed
-			uiOldScreen = guiPendingScreen;
+			uiOldScreen = pendingScreen;
 
-			HandleNewScreenChange( guiPendingScreen, guiCurrentScreen );
+			HandleNewScreenChange( pendingScreen, currentScreen );
 		}
 		CommitPendingScreenTransition();
-		guiCurrentScreen = guiPendingScreen;
-		guiPendingScreen = NO_PENDING_SCREEN;
 
 	}
 
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: screen changed");
-	uiOldScreen = HandleRegisteredScreen(guiCurrentScreen);
+	const UINT32 handledScreen = GetCurrentScreen();
+	uiOldScreen = HandleRegisteredScreen(handledScreen);
 
 	// if the screen has changed
-	if( uiOldScreen != guiCurrentScreen )
+	if( uiOldScreen != handledScreen )
 	{
-		HandleNewScreenChange( uiOldScreen, guiCurrentScreen );
-		guiPreviousScreen = guiCurrentScreen;
+		HandleNewScreenChange( uiOldScreen, handledScreen );
 		RecordScreenTransition(uiOldScreen);
-		guiCurrentScreen = uiOldScreen;
 
 	{	// dedicated server console: announce screen transitions
 		extern BOOLEAN gfDedicatedServer;
 		static UINT32 uiLastLoggedScreen = 0xFFFFFFFF;
-		if ( gfDedicatedServer && guiCurrentScreen != uiLastLoggedScreen )
+		if ( gfDedicatedServer && uiOldScreen != uiLastLoggedScreen )
 		{
-			uiLastLoggedScreen = guiCurrentScreen;
-			printf( "[dedicated] screen -> %u\n", (unsigned)guiCurrentScreen );
+			uiLastLoggedScreen = uiOldScreen;
+			printf( "[dedicated] screen -> %u\n", (unsigned)uiOldScreen );
 			fflush( stdout );
 		}
 	}
@@ -560,7 +580,7 @@ static FramePlan PrepareGameFrame()
 	RenderRain();
 
 	// sevenfm: update tactical ambients
-	if (guiCurrentScreen == GAME_SCREEN)
+	if (GetCurrentScreen() == GAME_SCREEN)
 	{
 		UpdateFireAmbient();
 	}
@@ -676,8 +696,7 @@ void GameLoop(void)
 void SetCurrentScreen( UINT32 uiNewScreen )
 {
 	RecordScreenTransition(uiNewScreen);
-	guiCurrentScreen = uiNewScreen;
-	HandleRegisteredScreen(guiCurrentScreen);
+	HandleRegisteredScreen(GetCurrentScreen());
 
 }
 
@@ -743,15 +762,15 @@ void HandleShortCutExitState( void )
 	// use YES/NO Pop up box, settup for particular screen
 	SGPRect pCenteringRect= {0 + xResOffset, 0, SCREEN_WIDTH - xResOffset, INV_INTERFACE_START_Y };
 
-	if( guiCurrentScreen == ERROR_SCREEN )
+	if( GetCurrentScreen() == ERROR_SCREEN )
 	{ //an assert failure, don't bring up the box!
 		gfProgramIsRunning = FALSE;
 		return;
 	}
 
-	if( guiCurrentScreen == AUTORESOLVE_SCREEN )
+	if( GetCurrentScreen() == AUTORESOLVE_SCREEN )
 	{
-		DoMessageBox(	MSG_BOX_BASIC_STYLE, pMessageStrings[ MSG_EXITGAME ],	guiCurrentScreen, ( MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT ),	EndGameMessageBoxCallBack,	&pCenteringRect );
+		DoMessageBox(	MSG_BOX_BASIC_STYLE, pMessageStrings[ MSG_EXITGAME ],	GetCurrentScreen(), ( MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT ),	EndGameMessageBoxCallBack,	&pCenteringRect );
 		return;
 	}
 
@@ -762,12 +781,12 @@ void HandleShortCutExitState( void )
 		DoMapMessageBox( MSG_BOX_BASIC_STYLE, pMessageStrings[ MSG_EXITGAME ], MAP_SCREEN, MSG_BOX_FLAG_YESNO, EndGameMessageBoxCallBack );
 
 	}
-	else if( guiCurrentScreen == LAPTOP_SCREEN )
+	else if( GetCurrentScreen() == LAPTOP_SCREEN )
 	{
 		// set up for laptop
 		DoLapTopSystemMessageBox( MSG_BOX_LAPTOP_DEFAULT,	pMessageStrings[ MSG_EXITGAME ], LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, EndGameMessageBoxCallBack );
 	}
-	else if( guiCurrentScreen == SHOPKEEPER_SCREEN )
+	else if( GetCurrentScreen() == SHOPKEEPER_SCREEN )
 	{
 		DoSkiMessageBox( MSG_BOX_BASIC_STYLE, pMessageStrings[ MSG_EXITGAME ], SHOPKEEPER_SCREEN, MSG_BOX_FLAG_YESNO, EndGameMessageBoxCallBack );
 	}
@@ -776,7 +795,7 @@ void HandleShortCutExitState( void )
 
 		// check if error or editor
 #ifdef JA2BETAVERSION
-		if ( guiCurrentScreen == AIVIEWER_SCREEN || guiCurrentScreen == QUEST_DEBUG_SCREEN )
+		if ( GetCurrentScreen() == AIVIEWER_SCREEN || GetCurrentScreen() == QUEST_DEBUG_SCREEN )
 		{
 			// then don't prompt
 			gfProgramIsRunning = FALSE;
@@ -784,7 +803,7 @@ void HandleShortCutExitState( void )
 		}
 #endif
 
-		if( ( guiCurrentScreen == ERROR_SCREEN ) || ( guiCurrentScreen == EDIT_SCREEN ) || ( guiCurrentScreen == DEBUG_SCREEN ) )
+		if( ( GetCurrentScreen() == ERROR_SCREEN ) || ( GetCurrentScreen() == EDIT_SCREEN ) || ( GetCurrentScreen() == DEBUG_SCREEN ) )
 		{
 			// then don't prompt
 			gfProgramIsRunning = FALSE;
@@ -792,7 +811,7 @@ void HandleShortCutExitState( void )
 		}
 
 		// set up for all otherscreens
-		DoMessageBox(	MSG_BOX_BASIC_STYLE, pMessageStrings[ MSG_EXITGAME ],	guiCurrentScreen, ( UINT8 ) ( MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT ),	EndGameMessageBoxCallBack,	&pCenteringRect );
+		DoMessageBox(	MSG_BOX_BASIC_STYLE, pMessageStrings[ MSG_EXITGAME ],	GetCurrentScreen(), ( UINT8 ) ( MSG_BOX_FLAG_YESNO | MSG_BOX_FLAG_USE_CENTERING_RECT ),	EndGameMessageBoxCallBack,	&pCenteringRect );
 	}
 }
 

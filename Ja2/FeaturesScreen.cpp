@@ -52,7 +52,7 @@ BOOLEAN		gfRedrawFeaturesScreen = TRUE;
 BOOLEAN		gfEnteredFromMapScreen = FALSE; // entered from options screen or new game screen
 
 UINT32		guiFeaturesScreen = FEATURES_SCREEN;
-UINT32		guiPreviousScreen = FEATURES_SCREEN;
+UINT32		guiFeaturesPreviousScreen = FEATURES_SCREEN;
 
 BOOLEAN		gfExitFeaturesDueToMessageBox = FALSE;
 BOOLEAN		gfExitFeaturesAfterMessageBox = FALSE;
@@ -530,7 +530,7 @@ BOOLEAN EnterScreen()
 		OPT_SAVE_BTN_X, OPT_SAVE_BTN_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 		DEFAULT_MOVE_CALLBACK, BtnOptGotoSaveGameCallback);
 	SpecifyDisabledButtonStyle(guiOptGotoSaveGameBtn, DISABLED_STYLE_HATCHED);
-	if (guiPreviousScreen == MAINMENU_SCREEN || !CanGameBeSaved() || guiPreviousScreen == GAME_INIT_OPTIONS_SCREEN)
+	if (guiFeaturesPreviousScreen == MAINMENU_SCREEN || !CanGameBeSaved() || guiFeaturesPreviousScreen == GAME_INIT_OPTIONS_SCREEN)
 	{
 		DisableButton(guiOptGotoSaveGameBtn);
 	}
@@ -645,7 +645,7 @@ void ExitScreen()
 		EnterTacticalScreen();
 	}
 
-	if (guiFeaturesScreen == SAVE_LOAD_SCREEN && guiPreviousScreen == MAINMENU_SCREEN)
+	if (guiFeaturesScreen == SAVE_LOAD_SCREEN && guiFeaturesPreviousScreen == MAINMENU_SCREEN)
 	{
 		giMAXIMUM_NUMBER_OF_PLAYER_SLOTS = CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS;
 		InitDependingGameStyleOptions();
@@ -782,7 +782,7 @@ void GetUserInput()
 			break;
 
 			case ESC:
-				SetExitScreen(guiPreviousScreen);
+				SetExitScreen(guiFeaturesPreviousScreen);
 				break;
 
 				//Enter the save game screen
@@ -1130,7 +1130,7 @@ void BtnDoneCallback(GUI_BUTTON* btn, INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON);
 
-		SetExitScreen(guiPreviousScreen);
+		SetExitScreen(guiFeaturesPreviousScreen);
 
 		InvalidateRegion(btn->Area.RegionTopLeftX, btn->Area.RegionTopLeftY,
 			btn->Area.RegionBottomRightX, btn->Area.RegionBottomRightY);
@@ -1592,7 +1592,7 @@ void DrawLeftPanel()
 
 void SetPreviousScreen(UINT32 screenId, BOOLEAN setOptionsToo)
 {
-	guiPreviousScreen = screenId;
+	guiFeaturesPreviousScreen = screenId;
 
 	if (setOptionsToo)
 		SetOptionsPreviousScreen(screenId, FALSE);

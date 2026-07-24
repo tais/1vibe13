@@ -30,7 +30,12 @@ public:
 		: session_(&ownedSession_), maximumActors_(maximumActors) {}
 
 	TacticalWorldCaptureResult capture(TacticalWorldSnapshot& output) noexcept override;
-	void bindSession(TacticalWorldSession& session) noexcept { session_ = &session; }
+	void bindSession(TacticalWorldSession& session) noexcept
+	{
+		if (session_ == &session) return;
+		session.restore(session_->snapshot());
+		session_ = &session;
+	}
 	TacticalWorldSession& session() noexcept { return *session_; }
 	const TacticalWorldSession& session() const noexcept { return *session_; }
 
@@ -53,6 +58,8 @@ private:
 };
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
+const TacticalWorldSession::Snapshot& CaptureJa2TacticalWorld() noexcept;
+bool IsJa2TacticalWorldLoaded() noexcept;
 
 // Application composition and the only production write gateway for the
 // legacy tactical-world compatibility globals.

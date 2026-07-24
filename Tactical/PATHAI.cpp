@@ -3879,7 +3879,7 @@ ENDOFLOOP:
 		if (gfDisplayCoverValues && gfDrawPathPoints)
 		{
 			SetRenderFlags( RENDER_FLAG_FULL );
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				RenderWorld();
 				RenderCoverDebug( );

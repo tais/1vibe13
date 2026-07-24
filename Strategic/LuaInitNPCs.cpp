@@ -11545,7 +11545,7 @@ static int l_DisplayPictureTactical(lua_State* L)
 		const char* str = lua_tolstring(L, 1, &len);
 		bool stretch = lua_tointeger(L, 2);
 
-		if (guiCurrentScreen == GAME_SCREEN
+		if (GetCurrentScreen() == GAME_SCREEN
 			&& (std::strstr(str, ".png") != NULL || std::strstr(str, ".PNG") != NULL))
 		{
 			SetInteractivePicture(str, stretch);

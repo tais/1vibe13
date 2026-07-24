@@ -2138,7 +2138,7 @@ void HandleSoldierUseRemote( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 
 void HandleTacticalFunctionSelection( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 {
-	if ( guiCurrentScreen == GAME_SCREEN )
+	if ( GetCurrentScreen() == GAME_SCREEN )
 		StartTacticalFunctionSelectionMessageBox( pSoldier, sGridNo, pSoldier->pathing.bLevel );
 }
 
@@ -5404,7 +5404,7 @@ void UpdateGear()
 		return;
 
 	// no functionality if not in tactical or in combat, or nobody is here
-	if ( (guiCurrentScreen != GAME_SCREEN && guiCurrentScreen != MSG_BOX_SCREEN) )
+	if ( (GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN) )
 		return;
 		
 	SoldierID									bMercID, bLastTeamID;
@@ -9279,7 +9279,7 @@ void ExtendedDisarmMessageBox(void)
         wcscpy( gzUserDefinedButton[2], TacticalStr[ DISARM_DIALOG_REMOVE_BLUEFLAG ] );
         wcscpy( gzUserDefinedButton[3], TacticalStr[ DISARM_DIALOG_BLOWUP ] );
 	}
-        DoMessageBox( MSG_BOX_BASIC_MEDIUM_BUTTONS, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], guiCurrentScreen, MSG_BOX_FLAG_GENERIC_FOUR_BUTTONS, ExtendedBoobyTrapMessageBoxCallBack, NULL, MSG_BOX_DEFAULT_BUTTON_1 );
+        DoMessageBox( MSG_BOX_BASIC_MEDIUM_BUTTONS, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], GetCurrentScreen(), MSG_BOX_FLAG_GENERIC_FOUR_BUTTONS, ExtendedBoobyTrapMessageBoxCallBack, NULL, MSG_BOX_DEFAULT_BUTTON_1 );
 }
 
 void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )

@@ -635,7 +635,6 @@ extern INT16 gsCiviliansEatenByMonsters;
 
 extern BOOLEAN			gfFadeOutDone;
 
-extern UINT32 guiPendingScreen;
 
 extern CHAR16		gzUserDefinedButton1[ 128 ];
 extern CHAR16		gzUserDefinedButton2[ 128 ];
@@ -5435,7 +5434,7 @@ UINT32 MapScreenHandle(void)
 
 
 	// if not going anywhere else
-	if ( guiPendingScreen == NO_PENDING_SCREEN )
+	if ( GetPendingNewScreen() == NO_PENDING_SCREEN )
 	{
 		if ( HandleFadeOutCallback( ) )
 		{
@@ -5841,7 +5840,7 @@ UINT32 MapScreenHandle(void)
 	RenderClock(INTERFACE_CLOCK_X, INTERFACE_CLOCK_Y);
 
 	#ifdef JA2TESTVERSION
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 	{
 		SetFont( FONT10ARIAL );
 		if( GetJA2Clock() % 1000 < 500 )
@@ -6052,7 +6051,7 @@ UINT32 MapScreenHandle(void)
 	HandleDialogue();
 
 	// if not going anywhere else
-	if ( guiPendingScreen == NO_PENDING_SCREEN )
+	if ( GetPendingNewScreen() == NO_PENDING_SCREEN )
 	{
 		if ( HandleFadeInCallback( ) )
 		{
@@ -6925,9 +6924,10 @@ UINT32 HandleMapUI( )
 
 
 	// if we pressed something that will cause a screen change
-	if ( guiPendingScreen != NO_PENDING_SCREEN )
+	const UINT32 pendingScreen = GetPendingNewScreen();
+	if ( pendingScreen != NO_PENDING_SCREEN )
 	{
-		uiNewScreen = guiPendingScreen;
+		uiNewScreen = pendingScreen;
 	}
 
 	return( uiNewScreen );
@@ -7305,7 +7305,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 #else
 					if(fCtrl && fShowMapInventoryPool && !(gpItemPointer || InSectorStackPopup() || InItemStackPopup() || InItemDescriptionBox() || InKeyRingPopup()))
 					{
-						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
+						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
 						break;
 					}
 #endif
@@ -7777,7 +7777,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 								fShowMapInventoryPool = TRUE;
 								CreateDestroyMapInventoryPoolButtons( TRUE );
 							}
-							DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL );
+							DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL );
 							if(fShowMapInventoryPool)
 							{
 								fShowMapInventoryPool = FALSE;
@@ -7787,7 +7787,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 #else
 					if(fCtrl && fShowMapInventoryPool && !(gpItemPointer || InSectorStackPopup() || InItemStackPopup() || InItemDescriptionBox() || InKeyRingPopup()))
 					{
-						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
+						DoMessageBox(MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_DELETE_ALL], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_YESNO, BeginDeleteAllCallBack, NULL);
 						break;
 					}
 #endif
@@ -8249,7 +8249,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							//if the game CAN be saved
 							if( CanGameBeSaved() )
 							{
-								SetOptionsPreviousScreen(guiCurrentScreen);
+								SetOptionsPreviousScreen(GetCurrentScreen());
 								DoQuickSave();
 							}
 							else
@@ -8297,7 +8297,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 									fShowMapInventoryPool = TRUE;
 									CreateDestroyMapInventoryPoolButtons( TRUE );
 								}
-								DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_SELL_ALL], guiCurrentScreen, ( UINT8 )MSG_BOX_FLAG_YESNO, BeginSellAllCallBack, NULL );
+								DoMessageBox( MSG_BOX_BASIC_STYLE, NewInvMessage[NIV_SELL_ALL], GetCurrentScreen(), ( UINT8 )MSG_BOX_FLAG_YESNO, BeginSellAllCallBack, NULL );
 								if(fShowMapInventoryPool)
 								{
 									fShowMapInventoryPool = FALSE;
@@ -8940,15 +8940,14 @@ INT32 iCounter2 = 0;
 
 
 	SetAllAutoFacesInactive( );
+	[[maybe_unused]] auto currentScreenOverride =
+		OverrideCurrentScreen(fLapTop ? LAPTOP_SCREEN : GAME_SCREEN);
 	if(fLapTop)
 	{
 		StopAnyCurrentlyTalkingSpeech( );
-	guiCurrentScreen=LAPTOP_SCREEN;
 	}
 	else
 	{
-	guiCurrentScreen = GAME_SCREEN;
-
 		// remove the progress bar
 		RemoveProgressBar( 0 );
 
@@ -8957,7 +8956,7 @@ INT32 iCounter2 = 0;
 	}
 
 	// if going to tactical next
-	if ( guiPendingScreen == GAME_SCREEN )
+	if ( GetPendingNewScreen() == GAME_SCREEN )
 	{
 		// set compressed mode to Normal (X1)
 		SetGameTimeCompressionLevel( TIME_COMPRESS_X1 );
@@ -10156,7 +10155,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 			// rftr: robot can't unequip weapon
 			if (AM_A_ROBOT(pSoldier) && uiHandPos == HANDPOS)
 			{
-				DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_CHANGE_INSTALLED_WEAPON], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
+				DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_CHANGE_INSTALLED_WEAPON], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
 				return;
 			}
 
@@ -10285,7 +10284,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				// rftr: robot can't equip weapon attachments
 				if (AM_A_ROBOT(pSoldier) && uiHandPos == HANDPOS)
 				{
-					DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
+					DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
 					return;
 				}
 
@@ -10444,7 +10443,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		// rftr: robot can't equip weapon attachments
 		if (AM_A_ROBOT(pSoldier) && uiHandPos == HANDPOS)
 		{
-			DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], guiCurrentScreen, (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
+			DoMessageBox(MSG_BOX_BASIC_STYLE, szRobotText[ROBOT_TEXT_CANNOT_ADD_ATTACHMENTS], GetCurrentScreen(), (UINT8)MSG_BOX_FLAG_OK, NULL, NULL);
 			return;
 		}
 
@@ -17351,7 +17350,7 @@ void HandleWhenPlayerHasNoMercsAndNoLaptop()
 
 	if( gJa25SaveStruct.ubDisplayPlayerLostMsgBox == 0 || 
 			gJa25SaveStruct.ubDisplayPlayerLostMsgBox >= ubNumLoopsToDisplay ||
-			guiCurrentScreen == MSG_BOX_SCREEN )
+			GetCurrentScreen() == MSG_BOX_SCREEN )
 	{
 		return;
 	}

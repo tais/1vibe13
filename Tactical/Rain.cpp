@@ -96,7 +96,7 @@ FLOAT fpMinDropLength = 0;
 FLOAT fpMinDropSpeed = 0;
 
 
-extern UINT32 guiCurrentScreen;
+extern UINT32 GetCurrentScreen();
 
 extern INT16 gsVIEWPORT_WINDOW_END_Y;
 extern INT16 gsVIEWPORT_WINDOW_START_Y;
@@ -120,7 +120,7 @@ BOOLEAN IsItAllowedToRenderRain()
 		|| currentWeather == WEATHER_FORECAST_SANDSTORM || currentWeather == WEATHER_FORECAST_SNOW ) )
 		return FALSE;
 
-	if( guiCurrentScreen != GAME_SCREEN && guiCurrentScreen != SHOPKEEPER_SCREEN )
+	if( GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != SHOPKEEPER_SCREEN )
 		return FALSE;
 
 	return TRUE;
@@ -605,7 +605,7 @@ void RenderRain()
 	if( !IsItAllowedToRenderRain() )
 		return;
 
-	if( guiCurrentScreen == SHOPKEEPER_SCREEN )
+	if( GetCurrentScreen() == SHOPKEEPER_SCREEN )
 	{
 		ColorFillVideoSurfaceArea( guiRainRenderSurface, SKI_X_OFFSET, SKI_Y_OFFSET, 535, 340, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
 		return;

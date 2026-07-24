@@ -2522,7 +2522,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										}
 									}
 
-									if (guiCurrentScreen == EDIT_SCREEN)
+									if (GetCurrentScreen() == EDIT_SCREEN)
 									{
 										// ATE: If in the editor, change this to a little higher value
 										if (bItemCount == MAX_RENDERED_ITEMS)
@@ -5347,7 +5347,7 @@ BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOL
 	sRadarCX	= (INT16)( gsCX * gdScaleX );
 	sRadarCY	= (INT16)( gsCY * gdScaleY );
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		gsRadarX = RADAR_WINDOW_STRAT_X;
 		gsRadarY = RADAR_WINDOW_STRAT_Y;

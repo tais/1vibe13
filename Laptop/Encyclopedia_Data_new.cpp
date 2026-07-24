@@ -1312,7 +1312,7 @@ void BtnEncyclopedia_Data_NextPreviousDataBtnCallBack ( GUI_BUTTON *btn, INT32 r
 /**
 * Checks for all needed files (graphics, xmls, ini option).
 *
-* Called when a new game is started (guiCurrentScreen == 0), entering new game screen/loading game from main menu (guiCurrentScreen == MAINMENU_SCREEN) and quitting game (guiCurrentScreen == MSG_BOX_SCREEN).
+* Called when a new game is started (GetCurrentScreen() == 0), entering new game screen/loading game from main menu (GetCurrentScreen() == MAINMENU_SCREEN) and quitting game (GetCurrentScreen() == MSG_BOX_SCREEN).
 * Sets gui element initial values.
 * Shows error message and deactivates the Encyclopedia if a file is missing.
 * @todo check for all files needed by data page here.
@@ -1324,10 +1324,10 @@ void GameInitEncyclopediaData_NEW(  )
 	giEncyclopedia_DataBtnImage = BUTTON_NO_IMAGE;
 	memset( giEncyclopedia_DataFilterBtn, BUTTON_NO_SLOT, sizeof(giEncyclopedia_DataFilterBtn) );
 	giEncyclopedia_DataFilterBtnImage = BUTTON_NO_IMAGE;
-	if( guiCurrentScreen == MAINMENU_SCREEN )
+	if( GetCurrentScreen() == MAINMENU_SCREEN )
 		EncyclopediaInitItemsVisibility();
 	// do following only once at start of JA2
-	CHECKV( guiCurrentScreen == 0 );
+	CHECKV( GetCurrentScreen() == 0 );
 	//prepare indexes for subfilter texts defined in _LanguageText.cpp, assuming there are blank separators between filter button texts ("1", "2", "3", "", "1", "", "1", "2", "3", "4")
 	STR16 *pText, testStr;
 	UINT8 failsafe = 1, index;

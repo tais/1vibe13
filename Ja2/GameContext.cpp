@@ -26,7 +26,11 @@
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include "random.h"
 
-GameContext& GetGameContext()
+namespace
+{
+GameContext* composedGameContext = nullptr;
+
+GameContext& ComposeGameContext()
 {
 	// Construct the application-owned package graph before the registry and
 	// external host that keep non-owning references into it.
@@ -48,6 +52,10 @@ GameContext& GetGameContext()
 		               GetPlatformRenderSurfaceAccess(),
 		               GetPlatformRenderCommands()},
 		packageEvents);
+	// Publish the stable composition address before binding adapters. A binding
+	// may query the context recursively; subsequent hot-path lookups should not
+	// repeat the complete static-registration chain below.
+	composedGameContext = &context;
 	static const bool legacyFrameGatewayBound = [&] {
 		BindLegacyFramePresenter(context.services().frames);
 		return true;
@@ -202,4 +210,10 @@ GameContext& GetGameContext()
 	}();
 	(void)packagesRegistered;
 	return context;
+}
+}
+
+GameContext& GetGameContext()
+{
+	return composedGameContext ? *composedGameContext : ComposeGameContext();
 }

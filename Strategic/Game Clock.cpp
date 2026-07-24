@@ -478,7 +478,7 @@ void IncreaseGameTimeCompressionRate( )
 		giTimeCompressMode++;
 
 		// in map screen, we wanna have to skip over x1 compression and go straight to 5x
-		if( ( guiCurrentScreen == MAP_SCREEN ) && ( giTimeCompressMode == TIME_COMPRESS_X1 ) )
+		if( ( GetCurrentScreen() == MAP_SCREEN ) && ( giTimeCompressMode == TIME_COMPRESS_X1 ) )
 		{
 			giTimeCompressMode++;
 		}
@@ -504,7 +504,7 @@ void DecreaseGameTimeCompressionRate()
 		giTimeCompressMode--;
 
 		// in map screen, we wanna have to skip over x1 compression and go straight to 5x
-		if( ( guiCurrentScreen == MAP_SCREEN ) && ( giTimeCompressMode == TIME_COMPRESS_X1 ) )
+		if( ( GetCurrentScreen() == MAP_SCREEN ) && ( giTimeCompressMode == TIME_COMPRESS_X1 ) )
 		{
 			giTimeCompressMode--;
 		}
@@ -521,7 +521,7 @@ void SetGameTimeCompressionLevel( UINT32 uiCompressionRate )
 	if( uiCompressionRate == TIME_COMPRESS_X0 )
 		stopTimeCompressionNextHour = false;
 
-	if( guiCurrentScreen == GAME_SCREEN )
+	if( GetCurrentScreen() == GAME_SCREEN )
 	{
 		if( uiCompressionRate != TIME_COMPRESS_X1 )
 		{
@@ -529,7 +529,7 @@ void SetGameTimeCompressionLevel( UINT32 uiCompressionRate )
 		}
 	}
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		if( uiCompressionRate == TIME_COMPRESS_X1 )
 		{
@@ -738,13 +738,13 @@ CampaignClockScheduleResult AdvanceClockFromFixedStep(
 {
 #ifdef JA2BETAVERSION
 	const bool supportedScreen =
-		guiCurrentScreen == GAME_SCREEN ||
-		guiCurrentScreen == MAP_SCREEN ||
-		guiCurrentScreen == AIVIEWER_SCREEN;
+		GetCurrentScreen() == GAME_SCREEN ||
+		GetCurrentScreen() == MAP_SCREEN ||
+		GetCurrentScreen() == AIVIEWER_SCREEN;
 #else
 	const bool supportedScreen =
-		guiCurrentScreen == GAME_SCREEN ||
-		guiCurrentScreen == MAP_SCREEN;
+		GetCurrentScreen() == GAME_SCREEN ||
+		GetCurrentScreen() == MAP_SCREEN;
 #endif
 	const bool paused =
 		!supportedScreen || gfGamePaused || gfTimeInterruptPause ||
@@ -1047,7 +1047,7 @@ void HandlePlayerPauseUnPauseOfGame( void )
 	if( gfGamePaused && gfPauseDueToPlayerGamePause )
 	{
 		// If in game screen...
-		if ( guiCurrentScreen == GAME_SCREEN )
+		if ( GetCurrentScreen() == GAME_SCREEN )
 		{
 			if( giTimeCompressMode == TIME_COMPRESS_X0 )
 			{
@@ -1173,7 +1173,7 @@ void ClearTacticalStuffDueToTimeCompression( void )
 		// clear tactical message queue
 		ClearTacticalMessageQueue( );
 
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 		{
 			// clear tactical actions
 			CencelAllActionsForTimeCompression( );

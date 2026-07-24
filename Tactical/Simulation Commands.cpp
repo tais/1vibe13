@@ -40,14 +40,14 @@ namespace
 	bool HasEndTurnExecutionContext() noexcept
 	{
 		constexpr UINT32 RequiredFlags = TURNBASED | INCOMBAT;
-		return gfWorldLoaded &&
+		return IsJa2TacticalWorldLoaded() &&
 			(gTacticalStatus.uiFlags & RequiredFlags) == RequiredFlags &&
 			gTacticalStatus.ubCurrentTeam < MAXTEAMS;
 	}
 
 	SOLDIERTYPE* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
 	{
-		if (!gfWorldLoaded) return nullptr;
+		if (!IsJa2TacticalWorldLoaded()) return nullptr;
 		SOLDIERTYPE* soldier = ResolveJa2TacticalEntity(actor);
 		if (!soldier || !soldier->bInSector) return nullptr;
 		return soldier;

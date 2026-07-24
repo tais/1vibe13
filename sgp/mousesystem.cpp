@@ -664,7 +664,7 @@ void MSYS_UpdateMouseRegion(void)
 	found=FALSE;
 
 	// WANNE: Error handling Bugfix by birdflu (to avoid Stack Overflow)
-	if(guiCurrentScreen == ERROR_SCREEN)
+	if(GetCurrentScreen() == ERROR_SCREEN)
 	{
 		return;
 	}
@@ -1358,7 +1358,7 @@ void SetRegionFastHelpText( MOUSE_REGION *region, const STR16 szText )
 	// ATE: We could be replacing already existing, active text
 	// so let's remove the region so it be rebuilt...
 
-	if ( guiCurrentScreen != MAP_SCREEN )
+	if ( GetCurrentScreen() != MAP_SCREEN )
 	{
 
 	#ifdef _JA2_RENDER_DIRTY

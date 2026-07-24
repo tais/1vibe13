@@ -317,7 +317,7 @@ void RefreshBoxes( )
 
 	// dialogue should only happen in GAME_SCREEN or MAP_SCREEN, at other times it would be too distracting
 	// also halt dialogue if sector inventory is open
-	if ( guiCurrentScreen == GAME_SCREEN || guiCurrentScreen == MAP_SCREEN && !fShowMapInventoryPool )
+	if ( GetCurrentScreen() == GAME_SCREEN || GetCurrentScreen() == MAP_SCREEN && !fShowMapInventoryPool )
 	{
 		// if we are scrolling, don't redraw the boxes as often
 		if (gfScrollPending || gfScrollInertia)
@@ -356,7 +356,7 @@ void RefreshBoxes( )
 		else
 		{
 			// boxes are active, thus we have to refresh them
-			if (guiCurrentScreen == MAP_SCREEN)
+			if (GetCurrentScreen() == MAP_SCREEN)
 				fMapPanelDirty = TRUE;
 		}
 	}

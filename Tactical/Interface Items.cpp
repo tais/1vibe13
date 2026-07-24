@@ -67,6 +67,7 @@
 	#include "random.h"					// added by Flugente
 	#include "Explosion Control.h"		// added by Flugente
 	#include "Sound Control.h"
+	#include "gameloop.h"
 
 #include <language.hpp>
 
@@ -1058,7 +1059,7 @@ BOOLEAN UseNASDesc(OBJECTTYPE *pObject){
 	if(pObject->exists() == FALSE)
 		return FALSE;
 	// silversurfer: We allow it now but only in EDB.
-	if(guiCurrentScreen == MAP_SCREEN && !UsingEDBSystem() && Item[pObject->usItem].usItemClass & IC_LBEGEAR) //Item[pObject->usItem].usItemClass == IC_LBEGEAR && UsingNewAttachmentSystem()==true && gGameSettings.fOptions[TOPTION_SHOW_LBE_CONTENT])
+	if(GetCurrentScreen() == MAP_SCREEN && !UsingEDBSystem() && Item[pObject->usItem].usItemClass & IC_LBEGEAR) //Item[pObject->usItem].usItemClass == IC_LBEGEAR && UsingNewAttachmentSystem()==true && gGameSettings.fOptions[TOPTION_SHOW_LBE_CONTENT])
 		return FALSE;	// the map screen can't support NAS and LBEGEAR.
 	return (/*Item[pObject->usItem].usItemClass != IC_LBEGEAR && Item[pObject->usItem].usItemClass != IC_MONEY && */UsingNewAttachmentSystem()==true);
 }
@@ -1070,7 +1071,7 @@ INT16 sNASYCorrection(OBJECTTYPE * pObject){
 	if(UseNASDesc(pObject)){
 		if(UsingEDBSystem() > 0)
 		{
-			if( guiCurrentScreen == MAP_SCREEN )
+			if( GetCurrentScreen() == MAP_SCREEN )
 			{
 				return 113;
 			}
@@ -1088,7 +1089,7 @@ INT16 sNASYCorrection(OBJECTTYPE * pObject){
 		}
 		else
 		{
-			if(guiCurrentScreen ==MAP_SCREEN)
+			if(GetCurrentScreen() ==MAP_SCREEN)
 			{
 				return 113;
 			}
@@ -1108,7 +1109,7 @@ INT16 sNASXCorrection(OBJECTTYPE * pObject){
 	if(UseNASDesc(pObject)){
 		if(UsingEDBSystem() > 0)
 		{
-			if( guiCurrentScreen == MAP_SCREEN )
+			if( GetCurrentScreen() == MAP_SCREEN )
 			{
 				return 0;
 			}
@@ -1122,7 +1123,7 @@ INT16 sNASXCorrection(OBJECTTYPE * pObject){
 		}
 		else //ODB
 		{
-			if(guiCurrentScreen ==MAP_SCREEN)
+			if(GetCurrentScreen() ==MAP_SCREEN)
 			{
 				return 0;
 			}
@@ -1392,7 +1393,7 @@ BOOLEAN InitInvSlotInterface( INV_REGION_DESC *pRegionDesc , INV_REGION_DESC *pC
 
 	// CHRISL: Adjusted location of the Money button on the tactical inventory screen
 	// HEADROCK: Readjusted this, for the TACTICAL Enhanced Description Box 
-	if ( guiCurrentScreen == MAP_SCREEN )
+	if ( GetCurrentScreen() == MAP_SCREEN )
 	{
 		if(UsingNewAttachmentSystem() == true)
 		{
@@ -1935,7 +1936,7 @@ void popupCallbackAmmo(UINT16 item, UINT16 pocket, SOLDIERTYPE* pSoldier ){
 				if( AutoPlaceObjectToWorld(pSoldier, &tempStack) )
 				{
 					clipCreated = true;
-					if(guiCurrentScreen == GAME_SCREEN)
+					if(GetCurrentScreen() == GAME_SCREEN)
 						NotifySoldiersToLookforItems( );
 				}
 			}
@@ -2569,7 +2570,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 	UINT32		iClass;
 
 	//Assign the screen
-	guiCurrentItemDescriptionScreen = guiCurrentScreen;
+	guiCurrentItemDescriptionScreen = GetCurrentScreen();
 
 	pObject = &(pSoldier->inv[ sPocket ]);
 
@@ -5002,7 +5003,7 @@ BOOLEAN InitItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 s
 
 //DEF:
 	//if we are in the shopkeeper screen, and we are to use the
-	if( guiCurrentScreen == SHOPKEEPER_SCREEN && ubPosition == 255 )
+	if( GetCurrentScreen() == SHOPKEEPER_SCREEN && ubPosition == 255 )
 	{
 		pObject = pShopKeeperItemDescObject;
 	}
@@ -5037,7 +5038,7 @@ void InitItemDescriptionBoxStartCoords( BOOLEAN fIsEnhanced, BOOLEAN fUsingNAS )
 			ITEMDESC_START_Y	= (1-(ITEMDESC_HEIGHT-INV_INTERFACE_HEIGHT) + INV_INTERFACE_START_Y);
 		}
 
-		if(UsingNewInventorySystem() == true && (guiCurrentScreen == GAME_SCREEN || guiCurrentScreen == SHOPKEEPER_SCREEN))
+		if(UsingNewInventorySystem() == true && (GetCurrentScreen() == GAME_SCREEN || GetCurrentScreen() == SHOPKEEPER_SCREEN))
 		{
 			if (iResolution >= _640x480 && iResolution < _800x600)
 				ITEMDESC_WIDTH = 526;
@@ -5048,7 +5049,7 @@ void InitItemDescriptionBoxStartCoords( BOOLEAN fIsEnhanced, BOOLEAN fUsingNAS )
 		}
 
 		//CHRISL: This allows EDB to work in Strategic OIV mode
-		if(guiCurrentScreen == MAP_SCREEN)
+		if(GetCurrentScreen() == MAP_SCREEN)
 		{
 			if (iResolution >= _640x480 && iResolution < _800x600)
 				ITEMDESC_HEIGHT = 268;
@@ -5078,7 +5079,7 @@ void InitItemDescriptionBoxStartCoords( BOOLEAN fIsEnhanced, BOOLEAN fUsingNAS )
 			ITEMDESC_WIDTH		= 320; // OIV only
 		}
 
-		if(UsingNewInventorySystem() == true && guiCurrentScreen == GAME_SCREEN || guiCurrentScreen == SHOPKEEPER_SCREEN)
+		if(UsingNewInventorySystem() == true && GetCurrentScreen() == GAME_SCREEN || GetCurrentScreen() == SHOPKEEPER_SCREEN)
 		{
 			if (iResolution >= _640x480 && iResolution < _800x600)
 				ITEMDESC_WIDTH = 526;
@@ -5089,7 +5090,7 @@ void InitItemDescriptionBoxStartCoords( BOOLEAN fIsEnhanced, BOOLEAN fUsingNAS )
 		}
 
 		//CHRISL: This allows EDB to work in Strategic OIV mode
-		if(guiCurrentScreen == MAP_SCREEN)
+		if(GetCurrentScreen() == MAP_SCREEN)
 		{
 			if (iResolution >= _640x480 && iResolution < _800x600)
 				ITEMDESC_HEIGHT = 268;
@@ -5152,13 +5153,13 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 	}
 
 	//Set the current screen
-	guiCurrentItemDescriptionScreen = guiCurrentScreen;
+	guiCurrentItemDescriptionScreen = GetCurrentScreen();
 
 	// Set up start coordinates for the box.
 	InitItemDescriptionBoxStartCoords( gGameExternalOptions.iEnhancedDescriptionBox, UseNASDesc( pObject )  );
 
 	// Set X, Y
-	if(guiCurrentScreen == GAME_SCREEN || (sX == 0 && sY == 0))
+	if(GetCurrentScreen() == GAME_SCREEN || (sX == 0 && sY == 0))
 	{
 		gsInvDescX = ITEMDESC_START_X;	//sX;
 		gsInvDescY = ITEMDESC_START_Y;	//sY;
@@ -5420,7 +5421,7 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 		CHECKF( AddVideoObject( &VObjectDesc, &guiMoneyGraphicsForDescBox) );
 
 		//Create buttons for the money
-//		if (guiCurrentScreen ==  MAP_SCREEN )
+//		if (GetCurrentScreen() ==  MAP_SCREEN )
 		if( guiCurrentItemDescriptionScreen == MAP_SCREEN )
 		{
 			guiMoneyButtonImage = LoadButtonImage("INTERFACE\\Info_bil.sti", -1,1,-1,2,-1 );
@@ -6397,12 +6398,12 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				// Flugente: if we are trying to remove the detonators of an armed bomb, auto-fail: it explodes
 				if ( gpItemPointerSoldier && ( (Item[gpItemDescObject->usItem].usItemClass & (IC_BOMB)) && ( ( (*gpItemDescObject)[ubStatusIndex]->data.misc.bDetonatorType == BOMB_TIMED ) || ( (*gpItemDescObject)[ubStatusIndex]->data.misc.bDetonatorType == BOMB_REMOTE ) ) )  )
 				{
-					if ( guiCurrentScreen == GAME_SCREEN )
+					if ( GetCurrentScreen() == GAME_SCREEN )
 					{
 						// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
 						IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, gpItemPointerSoldier->sX, gpItemPointerSoldier->sY, (INT16) (gpWorldLevelData[gpItemPointerSoldier->sGridNo].sHeight), gpItemPointerSoldier->sGridNo, gpItemDescObject->usItem, gpItemPointerSoldier->pathing.bLevel, gpItemPointerSoldier->ubDirection, gpItemDescObject );
 					}
-					else if ( (guiCurrentScreen == MAP_SCREEN) || (guiCurrentScreen == MSG_BOX_SCREEN) )
+					else if ( (GetCurrentScreen() == MAP_SCREEN) || (GetCurrentScreen() == MSG_BOX_SCREEN) )
 					{
 						// no explosions in map screen - instead we simply damage the inventory and harm our health
 						gpItemPointerSoldier->InventoryExplosion();
@@ -6976,7 +6977,7 @@ void RenderItemDescriptionBox( )
 			//		- the item is a grenade
 			//		- the item is a bomb and has a detonator or remote detonator attached				
 			BOOLEAN renderTransformIcon = FALSE;
-			if ( ((guiCurrentScreen == GAME_SCREEN || guiCurrentScreen == MAP_SCREEN) && gpItemDescObject->ubNumberOfObjects == 1) &&
+			if ( ((GetCurrentScreen() == GAME_SCREEN || GetCurrentScreen() == MAP_SCREEN) && gpItemDescObject->ubNumberOfObjects == 1) &&
 					((Item[gpItemDescObject->usItem].usItemClass == IC_GRENADE) ||
 					((Item[gpItemDescObject->usItem].usItemClass == IC_BOMB) && HasAttachmentOfClass( gpItemDescObject, (AC_DETONATOR | AC_REMOTEDET) )) ||
 					CanDelayGrenadeExplosion(gpItemDescObject->usItem) && Item[ gpItemDescObject->usItem ].ubCursor == TOSSCURS) )
@@ -9625,7 +9626,7 @@ BOOLEAN InitSectorStackPopup( SOLDIERTYPE *pSoldier, WORLDITEM *pInventoryPoolLi
 	sOffSetY				= 120;
 
 	// Set some globals
-	guiCurrentItemDescriptionScreen = guiCurrentScreen;
+	guiCurrentItemDescriptionScreen = GetCurrentScreen();
 	gsItemPopupInvX			= sInvX;
 	gsItemPopupInvY			= sInvY;
 	gsItemPopupInvWidth		= sInvWidth;
@@ -9735,7 +9736,7 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 	//sOffSetX = xResOffset;
 
 	RenderBackpackButtons(DEACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		sItemWidth						= MAP_INV_ITEM_ROW_WIDTH;
 		sOffSetY						= 120;
@@ -9790,15 +9791,15 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 		if((ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)))
 		{
 			usPopupWidth = 75;
-			if(guiCurrentScreen != MAP_SCREEN)
+			if(GetCurrentScreen() != MAP_SCREEN)
 				sItemWidth -= 2;
-			else if(guiCurrentScreen == MAP_SCREEN)
+			else if(GetCurrentScreen() == MAP_SCREEN)
 				sItemWidth -= 1;
 		}
 		else if(ubPosition >=MEDPOCKSTART && ubPosition < MEDPOCKFINAL)
 		{
 			usPopupWidth = 58;
-			if(guiCurrentScreen != MAP_SCREEN)
+			if(GetCurrentScreen() != MAP_SCREEN)
 				sItemWidth -= 1;
 		}
 	}
@@ -9943,7 +9944,7 @@ void RenderItemStackPopup( BOOLEAN fFullRender )
 	int				sID;
 
 	// CHRISL: Setup witdh and offset to layer inventory boxes if necessary
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		sItemWidth						= MAP_INV_ITEM_ROW_WIDTH;
 		sOffSetY						= 120;
@@ -9962,9 +9963,9 @@ void RenderItemStackPopup( BOOLEAN fFullRender )
 		// Shadow Area
 		if ( fFullRender )
 		{
-			if(UsingNewInventorySystem() == false || guiCurrentScreen == MAP_SCREEN)
+			if(UsingNewInventorySystem() == false || GetCurrentScreen() == MAP_SCREEN)
 				ShadowVideoSurfaceRect( FRAME_BUFFER, gsItemPopupInvX, gsItemPopupInvY, gsItemPopupInvX + gsItemPopupInvWidth , gsItemPopupInvY + gsItemPopupInvHeight  );
-			else if(UsingNewInventorySystem() == true && iResolution >= _800x600 /* && guiItemDescBoxBackground != 0 */ && guiCurrentScreen != MAP_SCREEN)
+			else if(UsingNewInventorySystem() == true && iResolution >= _800x600 /* && guiItemDescBoxBackground != 0 */ && GetCurrentScreen() != MAP_SCREEN)
 			{
 				ShadowNIVPanel(gsItemPopupInvX, gsItemPopupInvY);
 				
@@ -9995,9 +9996,9 @@ void RenderItemStackPopup( BOOLEAN fFullRender )
 	{
 		if(ubPosition == -1 || (ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && (MercPtrs[sID]->flags.uiStatusFlags & SOLDIER_VEHICLE)))
 		{
-			if(guiCurrentScreen != MAP_SCREEN)
+			if(GetCurrentScreen() != MAP_SCREEN)
 				sItemWidth -= 2;
-			else if(guiCurrentScreen == MAP_SCREEN)
+			else if(GetCurrentScreen() == MAP_SCREEN)
 				sItemWidth -= 1;
 			usWidth = 75;
 			sWidth = 60;
@@ -10005,7 +10006,7 @@ void RenderItemStackPopup( BOOLEAN fFullRender )
 		}
 		else if(ubPosition >=MEDPOCKSTART && ubPosition < MEDPOCKFINAL)
 		{
-			if(guiCurrentScreen != MAP_SCREEN)
+			if(GetCurrentScreen() != MAP_SCREEN)
 				sItemWidth -= 1;
 			usWidth = 58;
 			sWidth = 43;
@@ -10100,7 +10101,7 @@ BOOLEAN InitKeyRingPopup( SOLDIERTYPE *pSoldier, INT16 sInvX, INT16 sInvY, INT16
 	INT16			sKeyRingItemWidth = 0;
 
 	RenderBackpackButtons(DEACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		gsKeyRingPopupInvX	= xResOffset;
 		sKeyRingItemWidth	= MAP_KEY_RING_ROW_WIDTH;
@@ -10207,7 +10208,7 @@ void RenderKeyRingPopup( BOOLEAN fFullRender )
 	INT16 sKeyRingItemWidth = 0;
 	INT16 sOffSetY = 0, sOffSetX = 0;
 
-	if( guiCurrentScreen != MAP_SCREEN )
+	if( GetCurrentScreen() != MAP_SCREEN )
 	{
 		sOffSetY = 8;
 	}
@@ -10226,9 +10227,9 @@ void RenderKeyRingPopup( BOOLEAN fFullRender )
 		// Shadow Area
 		if ( fFullRender )
 		{
-			if(UsingNewInventorySystem() == false || guiCurrentScreen == MAP_SCREEN)
+			if(UsingNewInventorySystem() == false || GetCurrentScreen() == MAP_SCREEN)
 				ShadowVideoSurfaceRect( FRAME_BUFFER, 0, gsKeyRingPopupInvY, gsKeyRingPopupInvX + gsKeyRingPopupInvWidth , gsKeyRingPopupInvY + gsKeyRingPopupInvHeight );
-			else if(UsingNewInventorySystem() == true && iResolution >= _800x600 /* && guiItemDescBoxBackground != 0 */ && guiCurrentScreen != MAP_SCREEN)
+			else if(UsingNewInventorySystem() == true && iResolution >= _800x600 /* && guiItemDescBoxBackground != 0 */ && GetCurrentScreen() != MAP_SCREEN)
 			{
 				ShadowNIVPanel(gsKeyRingPopupInvX, gsKeyRingPopupInvY);
 
@@ -10253,7 +10254,7 @@ void RenderKeyRingPopup( BOOLEAN fFullRender )
 	usHeight				= (UINT32)pTrav->usHeight;
 	usWidth					= (UINT32)pTrav->usWidth;
 
-	if( guiCurrentScreen == MAP_SCREEN )
+	if( GetCurrentScreen() == MAP_SCREEN )
 	{
 		sKeyRingItemWidth						= MAP_KEY_RING_ROW_WIDTH;
 	}
@@ -11916,7 +11917,7 @@ void BtnMoneyButtonCallback(GUI_BUTTON *btn,INT32 reason)
 					//if the player is removing money from their account, and they are removing more then $20,000
 					if( gfAddingMoneyToMercFromPlayersAccount &&  ( gRemoveMoney.uiMoneyRemoving + 1000 ) > MAX_MONEY_PER_SLOT )
 					{
-						if( guiCurrentScreen == SHOPKEEPER_SCREEN )
+						if( GetCurrentScreen() == SHOPKEEPER_SCREEN )
 							DoMessageBox( MSG_BOX_BASIC_STYLE, gzMoneyWithdrawMessageText[ MONEY_TEXT_WITHDRAW_MORE_THEN_MAXIMUM ], SHOPKEEPER_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );
 						else
 							DoMessageBox( MSG_BOX_BASIC_STYLE, gzMoneyWithdrawMessageText[ MONEY_TEXT_WITHDRAW_MORE_THEN_MAXIMUM ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );
@@ -13502,7 +13503,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 
 			// Flugente: we can also arm/disarm bombs in our inventory via this menu
 			BOOLEAN fHaveToDisarm = FALSE;		// important check: if item is an armed bomb, we have to disarm it prior to any transformation
-			if ( ((guiCurrentScreen == GAME_SCREEN) || (guiCurrentScreen == MAP_SCREEN)) && gpItemDescObject->ubNumberOfObjects == 1 )
+			if ( ((GetCurrentScreen() == GAME_SCREEN) || (GetCurrentScreen() == MAP_SCREEN)) && gpItemDescObject->ubNumberOfObjects == 1 )
 			{
 				if ( Item[gpItemDescObject->usItem].usItemClass == IC_BOMB && HasAttachmentOfClass( gpItemDescObject, (AC_DETONATOR | AC_REMOTEDET)) )
 				{
@@ -13744,7 +13745,7 @@ void TransformationMenuPopup_Transform( TransformInfoStruct * Transform)
 	{
 		//Ask for confirmation
 		gTransformInProgress = Transform;
-		guiTransformInProgressPrevScreen = guiCurrentScreen;
+		guiTransformInProgressPrevScreen = GetCurrentScreen();
 		CHAR16 pStr[500];
 		swprintf( pStr, gzTransformationMessage[ 5 ], gpItemDescObject->ubNumberOfObjects );
 		DoScreenIndependantMessageBox( pStr, MSG_BOX_FLAG_YESNO, ConfirmTransformationMessageBoxCallBack );
@@ -13802,7 +13803,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 	}
 	else
 	{
-		INT8 screen = guiCurrentScreen;
+		INT8 screen = GetCurrentScreen();
 		if ( screen != GAME_SCREEN && screen != MAP_SCREEN )
 			return;
 
@@ -13824,7 +13825,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 				DeductPoints( gpItemDescSoldier, (INT16)usAPCost, iBPCost, false );
 			}
 
-			INT8 screen = guiCurrentScreen;
+			INT8 screen = GetCurrentScreen();
 			if ( screen == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
@@ -14001,7 +14002,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Arming of bomb failed. Resulting explosion damages %s's inventory and health", gpItemDescSoldier->name );
 
-				INT8 screen = guiCurrentScreen;
+				INT8 screen = GetCurrentScreen();
 				if ( screen == GAME_SCREEN )
 				{
 					// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
@@ -14185,12 +14186,12 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Disarming of bomb failed. Resulting explosion damages %s's inventory and health", gpItemDescSoldier->name );
 
-			if ( guiCurrentScreen == GAME_SCREEN )
+			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
 				IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, gpItemDescSoldier->sX, gpItemDescSoldier->sY, (INT16) (gpWorldLevelData[gpItemDescSoldier->sGridNo].sHeight), gpItemDescSoldier->sGridNo, gpItemDescObject->usItem, gpItemDescSoldier->pathing.bLevel, gpItemDescSoldier->ubDirection, gpItemDescObject );
 			}
-			else if ( guiCurrentScreen == MAP_SCREEN || guiCurrentScreen == MSG_BOX_SCREEN )
+			else if ( GetCurrentScreen() == MAP_SCREEN || GetCurrentScreen() == MSG_BOX_SCREEN )
 			{
 				// no explosions in map screen - instead we simply damage the inventory and harm our health
 				gpItemDescSoldier->InventoryExplosion();
@@ -14572,10 +14573,9 @@ void ConfirmTransformationMessageBoxCallBack( UINT8 bExitValue )
 {
 	if( bExitValue == MSG_BOX_RETURN_YES )
 	{
-		UINT32 iTempScreen = guiCurrentScreen;
-		guiCurrentScreen = guiTransformInProgressPrevScreen;
+		[[maybe_unused]] auto currentScreenOverride =
+			OverrideCurrentScreen(guiTransformInProgressPrevScreen);
 		TransformFromItemDescBox( gTransformInProgress );
-		guiCurrentScreen = iTempScreen;
 		guiTransformInProgressPrevScreen = 0;
 	}
 }
