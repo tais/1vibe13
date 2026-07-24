@@ -346,6 +346,22 @@ int main()
 				externalPaletteDepthImageCommand,
 				externalObscuredPaletteDepthImageCommand})
 		return 48;
+	const RenderImageDepthDrawCommand externalStripDepthImageCommand{
+		1, 3, 54, 10, RenderSurfacePoint{-3, 4},
+		RenderSurfaceRegion{0, 0, 4, 4}, 0x6666,
+		RenderDepthCompareMode::GreaterOrEqual,
+		RenderDepthWriteMode::ReplaceOnPass,
+		RenderImageDepthEffect::StripDepthSourcePalette,
+		0, 0, false, 2};
+	if (!recordedImageCommands.drawImageDepth(
+			externalStripDepthImageCommand) ||
+		recordedImageCommands.imageDepthCommands() !=
+			std::vector<RenderImageDepthDrawCommand>{
+				externalDepthImageCommand,
+				externalPaletteDepthImageCommand,
+				externalObscuredPaletteDepthImageCommand,
+				externalStripDepthImageCommand})
+		return 48;
 	const RenderImageOutlineCommand externalOutlineCommand{
 		1, 45, 4, RenderSurfacePoint{3, -1},
 		RenderSurfaceRegion{0, 0, 4, 4},

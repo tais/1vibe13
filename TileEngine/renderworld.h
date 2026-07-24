@@ -197,8 +197,6 @@ void ConcealAllWalls(void);
 
 BOOLEAN ApplyScrolling( INT16 sTempRenderCenterX, INT16 sTempRenderCenterY, BOOLEAN fForceAdjust, BOOLEAN fCheckOnly );
 
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
-
 void RenderStaticWorldRect(INT16, INT16, INT16, INT16, BOOLEAN );
 void RenderMarkedWorld(void);
 void RenderDynamicMercWorld( void );
@@ -220,13 +218,6 @@ void RenderFOVDebug( );
 #endif
 
 BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZStripIndex );
-
 BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion);
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
-BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue, HVOBJECT hSrcVObject, HVOBJECT hAlphaVObject, INT32 iX, INT32 iY, UINT16 usIndex, SGPRect *clipregion, INT16 sZIndex, PIXEL *p16BPPPalette, BOOLEAN fIgnoreShadows = FALSE);
 
 #endif

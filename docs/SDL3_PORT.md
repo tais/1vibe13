@@ -878,6 +878,14 @@ gone:
 
 - `sgp/shading.cpp` `FindIndecies` (a brute-force nearest-color
   palette lookup) is now portable C.
+
+The seven portable multi-Z-strip variants originally left inside
+`TileEngine/renderworld.cpp` now share
+`sgp/vobject_multiz_blitters.cpp`. Walls, structures, multi-tile actors,
+and corpses submit an engine depth-image command carrying the source-owned
+profile frame; the backend preserves their distinct strip increments,
+same-depth wall pass-through, obscured checkerboard writes, palette marker,
+and optional-alpha rules.
 - `DebugBreakpoint()` in `sgp/DEBUG.H` switched from `__asm { int 3 }`
   to `__builtin_debugtrap` / `__debugbreak`.
 - The vendor headers (`sgp/RAD.H`, `sgp/Mss.h`, `sgp/Mss-old.h`) still

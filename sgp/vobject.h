@@ -271,6 +271,37 @@ BOOLEAN BltVideoObjectObscuredPaletteShadowDepthToSurface(
 	BOOLEAN fIgnoreShadows,
 	const SGPRect* pClipRegion);
 
+// Draws with a per-column depth profile owned by the source image. Ordinary
+// strips replace passing depth; obscured strips also replace checkerboard
+// samples. same-depth pass-through is the wall-specific inclusive form.
+BOOLEAN BltVideoObjectStripDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	UINT16 usDepthProfileRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fSameDepthPasses,
+	BOOLEAN fObscured,
+	const SGPRect* pClipRegion);
+
+// Per-column depth-profile form of the palette-remapped marker draw. The
+// source owns the profile; an optional parallel image supplies alpha.
+BOOLEAN BltVideoObjectStripPaletteShadowDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	HVOBJECT hAlphaVObject,
+	UINT16 usRegionIndex,
+	UINT16 usDepthProfileRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	PIXEL* pPalette,
+	BOOLEAN fIgnoreShadows,
+	BOOLEAN fObscured,
+	const SGPRect* pClipRegion);
+
 // Depth-tested palette-remapped source with index-254 destination shading and
 // an optional parallel alpha image.
 BOOLEAN BltVideoObjectPaletteShadowDepthToSurface(

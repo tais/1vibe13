@@ -143,12 +143,19 @@ bool UsesSourcePalette(RenderImageDepthEffect effect)
 	case RenderImageDepthEffect::BlendSourcePalette50Percent:
 	case RenderImageDepthEffect::CheckerboardSourcePalette:
 	case RenderImageDepthEffect::PixelateObscuredSourcePalette:
+	case RenderImageDepthEffect::StripDepthSourcePalette:
+	case RenderImageDepthEffect::
+		StripDepthPixelateObscuredSourcePalette:
 		return true;
 	case RenderImageDepthEffect::ShadeDestination:
 	case RenderImageDepthEffect::IntensifyDestination:
 	case RenderImageDepthEffect::PaletteWithShadowMarker:
 	case RenderImageDepthEffect::
 		PaletteWithShadowMarkerPixelateObscured:
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarker:
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarkerPixelateObscured:
 		return false;
 	}
 	return false;
@@ -158,7 +165,28 @@ bool UsesExternalPalette(RenderImageDepthEffect effect)
 {
 	return effect == RenderImageDepthEffect::PaletteWithShadowMarker ||
 		effect == RenderImageDepthEffect::
-			PaletteWithShadowMarkerPixelateObscured;
+			PaletteWithShadowMarkerPixelateObscured ||
+		effect == RenderImageDepthEffect::
+			StripDepthPaletteWithShadowMarker ||
+		effect == RenderImageDepthEffect::
+			StripDepthPaletteWithShadowMarkerPixelateObscured;
+}
+
+bool UsesStripDepthProfile(RenderImageDepthEffect effect)
+{
+	switch (effect)
+	{
+	case RenderImageDepthEffect::StripDepthSourcePalette:
+	case RenderImageDepthEffect::
+		StripDepthPixelateObscuredSourcePalette:
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarker:
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarkerPixelateObscured:
+		return true;
+	default:
+		return false;
+	}
 }
 
 bool FindVideoObjectHandle(HVOBJECT object, UINT32& handle)
@@ -505,6 +533,105 @@ bool SubmitVideoObjectDepthDraw(
 		palette,
 		alphaImage,
 		ignoreShadows});
+}
+
+bool SubmitVideoObjectStripDepthDraw(
+	UINT32 destination,
+	HVOBJECT object,
+	UINT16 frame,
+	UINT16 depthProfileFrame,
+	INT32 destinationX,
+	INT32 destinationY,
+	UINT16 depth,
+	RenderDepthCompareMode comparison,
+	RenderDepthWriteMode depthWrite,
+	RenderImageDepthEffect effect,
+	const SGPRect* clipping,
+	RenderPaletteId palette = 0,
+	RenderImageId alphaImage = 0,
+	bool ignoreShadows = false)
+{
+	if (!UsesStripDepthProfile(effect) || !object ||
+		object->ubBitDepth != 8 ||
+		frame >= object->usNumberOfObjects ||
+		depthProfileFrame >= object->usNumberOfObjects ||
+		depthProfileFrame >
+			static_cast<UINT16>(std::numeric_limits<INT16>::max()) ||
+		!object->pETRLEObject || !object->pPixData ||
+		!object->ppZStripInfo ||
+		!object->ppZStripInfo[depthProfileFrame] ||
+		!object->ppZStripInfo[depthProfileFrame]->pbZChange ||
+		(UsesSourcePalette(effect) && !object->pShadeCurrent))
+		return false;
+	if (!UsesExternalPalette(effect) &&
+		(palette != 0 || alphaImage != 0 || ignoreShadows))
+		return false;
+
+	switch (effect)
+	{
+	case RenderImageDepthEffect::StripDepthSourcePalette:
+		if ((comparison != RenderDepthCompareMode::Greater &&
+			 comparison != RenderDepthCompareMode::GreaterOrEqual) ||
+			depthWrite != RenderDepthWriteMode::ReplaceOnPass)
+			return false;
+		break;
+	case RenderImageDepthEffect::
+		StripDepthPixelateObscuredSourcePalette:
+		if (comparison != RenderDepthCompareMode::Greater ||
+			depthWrite != RenderDepthWriteMode::ReplaceOnDraw)
+			return false;
+		break;
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarker:
+		if (palette == 0 ||
+			comparison != RenderDepthCompareMode::GreaterOrEqual ||
+			depthWrite != RenderDepthWriteMode::ReplaceOnPass)
+			return false;
+		break;
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarkerPixelateObscured:
+		if (palette == 0 ||
+			comparison !=
+				(alphaImage == 0 ?
+					RenderDepthCompareMode::GreaterOrEqual :
+					RenderDepthCompareMode::Greater) ||
+			depthWrite != RenderDepthWriteMode::ReplaceOnDraw)
+			return false;
+		break;
+	default:
+		return false;
+	}
+
+	RenderImageId image = 0;
+	if (!FindRenderImage(object, image)) return false;
+	const RenderSurfaceId depthSurface =
+		GetLegacyRenderSurfaceAccess().surfaceFor(
+			RenderSurfaceRole::DepthBuffer);
+	if (depthSurface == 0) return false;
+
+	SGPRect currentClipping;
+	if (!clipping)
+	{
+		GetClippingRect(&currentClipping);
+		clipping = &currentClipping;
+	}
+	return DrawLegacyRenderImageDepth(RenderImageDepthDrawCommand{
+		destination,
+		depthSurface,
+		image,
+		frame,
+		RenderSurfacePoint{destinationX, destinationY},
+		RenderSurfaceRegion{
+			clipping->iLeft, clipping->iTop,
+			clipping->iRight, clipping->iBottom},
+		depth,
+		comparison,
+		depthWrite,
+		effect,
+		palette,
+		alphaImage,
+		ignoreShadows,
+		depthProfileFrame});
 }
 
 bool SubmitVideoObjectOutline(
@@ -1207,9 +1334,16 @@ bool PlatformVideoObjectDepthDraw(
 		command.frame > std::numeric_limits<UINT16>::max())
 		return false;
 	const bool paletteShadow = UsesExternalPalette(command.effect);
+	const bool stripDepth = UsesStripDepthProfile(command.effect);
 	if (!paletteShadow &&
 		(command.palette != 0 || command.alphaImage != 0 ||
 		 command.ignoreShadows))
+		return false;
+	if ((!stripDepth && command.depthProfileFrame != 0) ||
+		(stripDepth &&
+		 command.depthProfileFrame >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT16>::max())))
 		return false;
 	switch (command.effect)
 	{
@@ -1250,6 +1384,39 @@ bool PlatformVideoObjectDepthDraw(
 			command.depthWrite != RenderDepthWriteMode::Preserve)
 			return false;
 		break;
+	case RenderImageDepthEffect::StripDepthSourcePalette:
+		if ((command.comparison != RenderDepthCompareMode::Greater &&
+			 command.comparison !=
+				RenderDepthCompareMode::GreaterOrEqual) ||
+			command.depthWrite !=
+				RenderDepthWriteMode::ReplaceOnPass)
+			return false;
+		break;
+	case RenderImageDepthEffect::
+		StripDepthPixelateObscuredSourcePalette:
+		if (command.comparison != RenderDepthCompareMode::Greater ||
+			command.depthWrite != RenderDepthWriteMode::ReplaceOnDraw)
+			return false;
+		break;
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarker:
+		if (command.palette == 0 ||
+			command.comparison !=
+				RenderDepthCompareMode::GreaterOrEqual ||
+			command.depthWrite !=
+				RenderDepthWriteMode::ReplaceOnPass)
+			return false;
+		break;
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarkerPixelateObscured:
+		if (command.palette == 0 ||
+			command.comparison !=
+				(command.alphaImage == 0 ?
+					RenderDepthCompareMode::GreaterOrEqual :
+					RenderDepthCompareMode::Greater) ||
+			command.depthWrite != RenderDepthWriteMode::ReplaceOnDraw)
+			return false;
+		break;
 	default:
 		return false;
 	}
@@ -1268,6 +1435,12 @@ bool PlatformVideoObjectDepthDraw(
 		command.frame >= source->usNumberOfObjects ||
 		!source->pETRLEObject || !source->pPixData ||
 		(UsesSourcePalette(command.effect) && !source->pShadeCurrent))
+		return false;
+	if (stripDepth &&
+		(command.depthProfileFrame >= source->usNumberOfObjects ||
+		 !source->ppZStripInfo ||
+		 !source->ppZStripInfo[command.depthProfileFrame] ||
+		 !source->ppZStripInfo[command.depthProfileFrame]->pbZChange))
 		return false;
 	const UINT16 frame = static_cast<UINT16>(command.frame);
 	const ETRLEObject& image = source->pETRLEObject[frame];
@@ -1374,6 +1547,61 @@ bool PlatformVideoObjectDepthDraw(
 		command.depthWrite == RenderDepthWriteMode::ReplaceOnPass;
 	switch (command.effect)
 	{
+	case RenderImageDepthEffect::StripDepthSourcePalette:
+		return Blt8BPPDataTo16BPPBufferTransZIncClipProfile(
+			destinationPixels, pitch, depthPixels, command.depth,
+			source, command.destinationOrigin.x,
+			command.destinationOrigin.y, frame, &clipping,
+			static_cast<UINT16>(command.depthProfileFrame),
+			command.comparison ==
+					RenderDepthCompareMode::GreaterOrEqual ?
+				TRUE : FALSE) != FALSE;
+	case RenderImageDepthEffect::
+		StripDepthPixelateObscuredSourcePalette:
+		return Blt8BPPDataTo16BPPBufferTransZIncObscureClipProfile(
+			destinationPixels, pitch, depthPixels, command.depth,
+			source, command.destinationOrigin.x,
+			command.destinationOrigin.y, frame, &clipping,
+			static_cast<UINT16>(
+				command.depthProfileFrame)) != FALSE;
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarker:
+		return alpha ?
+			Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(
+				destinationPixels, pitch, depthPixels,
+				command.depth, source, alpha,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping,
+				static_cast<INT16>(command.depthProfileFrame),
+				palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE :
+			Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(
+				destinationPixels, pitch, depthPixels,
+				command.depth, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping,
+				static_cast<INT16>(command.depthProfileFrame),
+				palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE;
+	case RenderImageDepthEffect::
+		StripDepthPaletteWithShadowMarkerPixelateObscured:
+		return alpha ?
+			Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(
+				destinationPixels, pitch, depthPixels,
+				command.depth, source, alpha,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping,
+				static_cast<INT16>(command.depthProfileFrame),
+				palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE :
+			Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(
+				destinationPixels, pitch, depthPixels,
+				command.depth, source,
+				command.destinationOrigin.x,
+				command.destinationOrigin.y, frame, &clipping,
+				static_cast<INT16>(command.depthProfileFrame),
+				palette,
+				command.ignoreShadows ? TRUE : FALSE) != FALSE;
 	case RenderImageDepthEffect::SourcePalette:
 		return replaceDepth ?
 			Blt8BPPDataTo16BPPBufferTransZClip(
@@ -1949,6 +2177,74 @@ BOOLEAN BltVideoObjectObscuredPaletteShadowDepthToSurface(
 		RenderDepthWriteMode::Preserve,
 		RenderImageDepthEffect::
 			PaletteWithShadowMarkerPixelateObscured,
+		pClipRegion, palette, alphaImage,
+		fIgnoreShadows != FALSE) ? TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectStripDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	UINT16 usRegionIndex,
+	UINT16 usDepthProfileRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	BOOLEAN fSameDepthPasses,
+	BOOLEAN fObscured,
+	const SGPRect* pClipRegion)
+{
+	if (fObscured && fSameDepthPasses) return FALSE;
+	return SubmitVideoObjectStripDepthDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		usDepthProfileRegionIndex, iDestX, iDestY, usDepth,
+		fSameDepthPasses ?
+			RenderDepthCompareMode::GreaterOrEqual :
+			RenderDepthCompareMode::Greater,
+		fObscured ?
+			RenderDepthWriteMode::ReplaceOnDraw :
+			RenderDepthWriteMode::ReplaceOnPass,
+		fObscured ?
+			RenderImageDepthEffect::
+				StripDepthPixelateObscuredSourcePalette :
+			RenderImageDepthEffect::StripDepthSourcePalette,
+		pClipRegion) ? TRUE : FALSE;
+}
+
+BOOLEAN BltVideoObjectStripPaletteShadowDepthToSurface(
+	UINT32 uiDestVSurface,
+	HVOBJECT hSrcVObject,
+	HVOBJECT hAlphaVObject,
+	UINT16 usRegionIndex,
+	UINT16 usDepthProfileRegionIndex,
+	INT32 iDestX,
+	INT32 iDestY,
+	UINT16 usDepth,
+	PIXEL* pPalette,
+	BOOLEAN fIgnoreShadows,
+	BOOLEAN fObscured,
+	const SGPRect* pClipRegion)
+{
+	RenderPaletteId palette = 0;
+	if (!FindLegacyRenderPalette(pPalette, palette))
+		return FALSE;
+	RenderImageId alphaImage = 0;
+	if (hAlphaVObject &&
+		!FindRenderImage(hAlphaVObject, alphaImage))
+		return FALSE;
+	return SubmitVideoObjectStripDepthDraw(
+		uiDestVSurface, hSrcVObject, usRegionIndex,
+		usDepthProfileRegionIndex, iDestX, iDestY, usDepth,
+		fObscured && hAlphaVObject ?
+			RenderDepthCompareMode::Greater :
+			RenderDepthCompareMode::GreaterOrEqual,
+		fObscured ?
+			RenderDepthWriteMode::ReplaceOnDraw :
+			RenderDepthWriteMode::ReplaceOnPass,
+		fObscured ?
+			RenderImageDepthEffect::
+				StripDepthPaletteWithShadowMarkerPixelateObscured :
+			RenderImageDepthEffect::
+				StripDepthPaletteWithShadowMarker,
 		pClipRegion, palette, alphaImage,
 		fIgnoreShadows != FALSE) ? TRUE : FALSE;
 }

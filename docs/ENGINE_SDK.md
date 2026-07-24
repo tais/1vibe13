@@ -374,8 +374,14 @@ palette remapping, marker shading, ignore behavior, and optional parallel
 alpha. `PaletteWithShadowMarkerPixelateObscured` preserves depth, applies those
 same rules to passing pixels, and samples failed non-marker pixels through the
 absolute-coordinate checkerboard; marker shading remains strictly
-front-facing. Unsupported resources and effect, comparison, or write pairings
-are rejected rather than acquiring backend-specific meaning.
+front-facing. `StripDepthSourcePalette` and its obscured form name
+`depthProfileFrame`, a source-owned profile that varies depth across successive
+vertical strips, while retaining strict structure or inclusive wall comparison
+and pass-only or sampled depth writes. The strip palette/marker forms preserve
+their own profile increment, optional alpha, marker behavior, and the
+historical alpha-obscured strict comparison versus the non-alpha inclusive
+comparison. Unsupported resources, profiles, effects, comparisons, or write
+pairings are rejected rather than acquiring backend-specific meaning.
 The mapped implementation supports indexed opaque copy/stretch and true-colour
 fill, copy, stretch, and shade operations, defines corruption-safe
 same-surface overlap, never writes row padding, and balances every successful
@@ -409,8 +415,10 @@ use the regular image command with the same fallback. Ordinary merc and corpse
 palette-shadow draws, including clipped/unclipped, alpha, and depth-write
 variants, now use the same command boundary. Their obscured variants also use
 it while preserving inclusive front pixels, checkerboard phase, strict marker
-shading, alpha, clipping, and unchanged depth. Multi-Z-strip operations remain
-on the compatibility path until their extra semantics are modelled.
+shading, alpha, clipping, and unchanged depth. Multi-Z walls, structures,
+multi-tile actors, and corpses use the same boundary with an explicit profile
+frame. The platform adapter executes their consolidated SGP backend; rejecting
+hosts and manually assembled fixtures retain the exact raw fallback.
 The platform surface adapter reference-counts nested maps and rejects deletion
 or replacement through a live mapping. Legacy packed colours, mutable shade
 percentages, and RGB565 transparency tokens are translated only in compatibility

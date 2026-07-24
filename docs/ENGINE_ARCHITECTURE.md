@@ -167,8 +167,16 @@ the engine must not contain SDL types in its public domain model.
   depth, draws passing pixels with the same palette/marker/alpha rules, and
   samples failed non-marker pixels through the absolute-coordinate
   checkerboard. Marker shading remains strictly front-facing, including the
-  historical no-shadow-at-equal-depth rule. Unsupported resource, effect,
-  comparison, and write combinations are rejected at the platform boundary.
+  historical no-shadow-at-equal-depth rule. Strip-depth effects additionally
+  name a source-owned `depthProfileFrame`. That profile varies depth across
+  successive vertical strips without exposing `ZStripInfo`: ordinary
+  structures use strict or wall-inclusive comparison and replace passing
+  depth, while obscured structures replace checkerboard samples too.
+  Palette/marker strip effects retain their separate profile increment,
+  optional alpha image, marker handling, and the historical alpha-obscured
+  strict comparison versus the non-alpha inclusive comparison. Unsupported
+  resource, profile, effect, comparison, and write combinations are rejected
+  at the platform boundary.
   The production sink resolves image identities and executes the established
   ETRLE/palette blitters, so asset formats, clipping, shade palettes, and
   physical pixels remain unchanged. Every successful `CreateVideoObject`
@@ -198,9 +206,12 @@ the engine must not contain SDL types in its public domain model.
   fixtures retain the exact raw fallback. Basic non-depth tactical
   transparent/shadow/intensity sprites and ordinary palette-shadow sprites
   traverse the regular image command through the same stable identities.
-  Multi-Z-strip families retain their compatibility paths until their
-  additional semantics are modelled. The historical clipped physics-object
-  outline remains non-depth and uses the regular outline command. Other
+  Multi-Z walls, structures, multi-tile actors, and corpses now traverse the
+  depth-image command with their explicit profile frame. Their seven formerly
+  duplicated implementations live in the dedicated SGP multi-Z backend rather
+  than the tactical world renderer; rejecting hosts retain the exact raw
+  fallback. The historical clipped physics-object outline remains non-depth
+  and uses the regular outline command. Other
   application-owned pointer image operations deliberately retain their
   compatibility path until their individual command semantics migrate. Copy
   and nearest-neighbour
