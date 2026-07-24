@@ -517,8 +517,31 @@ BOOLEAN ShutdownVideoSurfaceManager()
 	return TRUE;
 }
 
-BOOLEAN RestoreVideoSurfaces() { return TRUE; }
-BOOLEAN RestoreVideoSurface(HVSURFACE) { return TRUE; }
+BOOLEAN RestoreVideoSurface(HVSURFACE hVSurface)
+{
+	// Heap-backed surfaces cannot be "lost" like DirectDraw video memory, so
+	// restoration is validation rather than a copy from a shadow allocation.
+	return hVSurface && hVSurface->pSurfaceData &&
+		hVSurface->usWidth != 0 && hVSurface->usHeight != 0 &&
+		IsSupportedBitDepth(hVSurface->ubBitDepth);
+}
+
+BOOLEAN RestoreVideoSurfaces()
+{
+	if (!gVideoSurfaceManagerInitialized ||
+		!RestoreVideoSurface(ghPrimary) ||
+		!RestoreVideoSurface(ghBackBuffer) ||
+		!RestoreVideoSurface(ghFrameBuffer) ||
+		!RestoreVideoSurface(ghMouseBuffer))
+		return FALSE;
+	bool valid = true;
+	gVideoSurfaces.forEach(
+		[&](UINT32, OwnedVideoSurface& surface)
+		{
+			if (!RestoreVideoSurface(surface.get())) valid = false;
+		});
+	return valid ? TRUE : FALSE;
+}
 
 // Forward decls of surface-loading helpers that need access to file-IO
 // types from himage.h. Implementations below.
@@ -638,7 +661,8 @@ static HVSURFACE FindSurfaceByIndex(UINT32 uiIndex)
 
 BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
 {
-	Assert(hVSurface);
+	if (!hVSurface) return FALSE;
+	*hVSurface = nullptr;
 	switch (uiIndex)
 	{
 	case PRIMARY_SURFACE: *hVSurface = ghPrimary;     return ghPrimary    != nullptr;
@@ -684,8 +708,8 @@ bool PlatformVideoSurfaceDescribe(
 
 BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 {
-	Assert(hVSurface != nullptr);
-	Assert(pPitch != nullptr);
+	if (!hVSurface || !pPitch || !hVSurface->pSurfaceData)
+		return nullptr;
 	*pPitch = hVSurface->usWidth * BytesPerPixelFor(hVSurface->ubBitDepth);
 	return (BYTE*)hVSurface->pSurfaceData;
 }
@@ -809,20 +833,42 @@ BOOLEAN SetVideoSurfaceTransparency(UINT32 uiIndex, COLORVAL TransColor)
 BOOLEAN SetVideoSurfacePalette(HVSURFACE hVSurface, SGPPaletteEntry* pSrcPalette)
 {
 	if (!hVSurface || !pSrcPalette) return FALSE;
+	PIXEL* replacement = nullptr;
+	try
+	{
+		replacement = Create16BPPPalette(pSrcPalette);
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
+	if (!replacement) return FALSE;
+
+	SGPPaletteEntry* palette =
+		static_cast<SGPPaletteEntry*>(hVSurface->pPalette);
 	if (!hVSurface->pPalette)
 	{
-		hVSurface->pPalette = std::malloc(sizeof(SGPPaletteEntry) * 256);
-		if (!hVSurface->pPalette) return FALSE;
+		palette = static_cast<SGPPaletteEntry*>(
+			std::malloc(sizeof(SGPPaletteEntry) * 256));
+		if (!palette)
+		{
+			UnregisterLegacyRenderPalette(replacement);
+			MemFree(replacement);
+			return FALSE;
+		}
 	}
-	std::memcpy(hVSurface->pPalette, pSrcPalette, sizeof(SGPPaletteEntry) * 256);
+	std::memcpy(
+		palette, pSrcPalette, sizeof(SGPPaletteEntry) * 256);
 
-	if (hVSurface->p16BPPPalette)
+	PIXEL* const previous = hVSurface->p16BPPPalette;
+	hVSurface->pPalette = palette;
+	hVSurface->p16BPPPalette = replacement;
+	if (previous)
 	{
-		UnregisterLegacyRenderPalette(hVSurface->p16BPPPalette);
-		MemFree(hVSurface->p16BPPPalette);
+		UnregisterLegacyRenderPalette(previous);
+		MemFree(previous);
 	}
-	hVSurface->p16BPPPalette = Create16BPPPalette(pSrcPalette);
-	return hVSurface->p16BPPPalette != nullptr;
+	return TRUE;
 }
 
 BOOLEAN GetVSurfacePaletteEntries(HVSURFACE hVSurface, SGPPaletteEntry* pPalette)
@@ -838,10 +884,7 @@ BOOLEAN GetVSurfacePaletteEntries(HVSURFACE hVSurface, SGPPaletteEntry* pPalette
 BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage,
                                       UINT16 usX, UINT16 usY, SGPRect* pSrcRect)
 {
-	Assert(hVSurface);
-	Assert(hImage);
-	CHECKF(hImage->usWidth  >= hVSurface->usWidth);
-	CHECKF(hImage->usHeight >= hVSurface->usHeight);
+	if (!hVSurface || !hImage || !pSrcRect) return FALSE;
 
 	UINT32 fBufferBPP = 0;
 	if (hImage->ubBitDepth != hVSurface->ubBitDepth)
@@ -853,7 +896,7 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage,
 	{
 		fBufferBPP = (hImage->ubBitDepth == 8) ? BUFFER_8BPP : BUFFER_16BPP;
 	}
-	Assert(fBufferBPP != 0);
+	if (fBufferBPP == 0) return FALSE;
 
 	UINT32 uiPitch = 0;
 	BYTE* pDest = LockVideoSurfaceBuffer(hVSurface, &uiPitch);
@@ -874,8 +917,64 @@ HVSURFACE GetBackBufferVideoSurface() { return ghBackBuffer; }
 BOOLEAN AddVSurfaceRegion(HVSURFACE hVSurface, VSURFACE_REGION* pNewRegion)
 {
 	if (!hVSurface || !pNewRegion) return FALSE;
-	hVSurface->RegionList.push_back(*pNewRegion);
-	return TRUE;
+	try
+	{
+		hVSurface->RegionList.push_back(*pNewRegion);
+		return TRUE;
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
+}
+
+BOOLEAN AddVSurfaceRegionAtIndex(
+	HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* pNewRegion)
+{
+	if (!hVSurface || !pNewRegion ||
+		usIndex >= hVSurface->RegionList.size())
+		return FALSE;
+	try
+	{
+		hVSurface->RegionList.insert(
+			hVSurface->RegionList.begin() + usIndex, *pNewRegion);
+		return TRUE;
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
+}
+
+BOOLEAN AddVSurfaceRegions(
+	HVSURFACE hVSurface, VSURFACE_REGION** ppNewRegions,
+	UINT16 uiNumRegions)
+{
+	if (!hVSurface) return FALSE;
+	if (uiNumRegions == 0) return TRUE;
+	if (!ppNewRegions) return FALSE;
+	for (UINT16 index = 0; index < uiNumRegions; ++index)
+	{
+		if (!ppNewRegions[index]) return FALSE;
+	}
+
+	// Publish the group as one transaction. A failed allocation or malformed
+	// later pointer must not leave an arbitrary prefix installed.
+	try
+	{
+		std::vector<VSURFACE_REGION> staged = hVSurface->RegionList;
+		if (uiNumRegions > staged.max_size() - staged.size())
+			return FALSE;
+		staged.reserve(staged.size() + uiNumRegions);
+		for (UINT16 index = 0; index < uiNumRegions; ++index)
+			staged.push_back(*ppNewRegions[index]);
+		hVSurface->RegionList.swap(staged);
+		return TRUE;
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
 }
 
 BOOLEAN ClearAllVSurfaceRegions(HVSURFACE hVSurface)
@@ -895,6 +994,9 @@ BOOLEAN GetVSurfaceRegion(HVSURFACE hVSurface, UINT16 usIndex, VSURFACE_REGION* 
 BOOLEAN GetNumRegions(HVSURFACE hVSurface, UINT32* puiNumRegions)
 {
 	if (!hVSurface || !puiNumRegions) return FALSE;
+	if (hVSurface->RegionList.size() >
+		std::numeric_limits<UINT32>::max())
+		return FALSE;
 	*puiNumRegions = (UINT32)hVSurface->RegionList.size();
 	return TRUE;
 }
@@ -913,20 +1015,97 @@ BOOLEAN AddVideoSurfaceRegion(UINT32 uiIndex, VSURFACE_REGION* pNewRegion)
 	return AddVSurfaceRegion(s, pNewRegion);
 }
 
-BOOLEAN MakeVSurfaceFromVObject(UINT32 /*uiVObject*/, UINT16 /*usSubIndex*/, UINT32* /*puiVSurface*/)
+BOOLEAN MakeVSurfaceFromVObject(
+	UINT32 uiVObject, UINT16 usSubIndex, UINT32* puiVSurface)
 {
-	// Not exercised in the current path; stub returning failure.
-	return FALSE;
+	if (!puiVSurface) return FALSE;
+
+	HVOBJECT source = nullptr;
+	if (!GetVideoObject(&source, uiVObject) || !source ||
+		!source->pETRLEObject ||
+		usSubIndex >= source->usNumberOfObjects)
+		return FALSE;
+	const ETRLEObject& region = source->pETRLEObject[usSubIndex];
+	if (region.usWidth == 0 || region.usHeight == 0) return FALSE;
+
+	VSURFACE_DESC description{};
+	description.fCreateFlags = VSURFACE_CREATE_DEFAULT;
+	description.usWidth = region.usWidth;
+	description.usHeight = region.usHeight;
+	description.ubBitDepth = 16;
+
+	UINT32 surface = 0;
+	if (!AddStandardVideoSurface(&description, &surface))
+		return FALSE;
+	if (!BltVideoObjectFromIndex(
+		surface, uiVObject, usSubIndex, 0, 0,
+		VO_BLT_SRCTRANSPARENCY, nullptr))
+	{
+		DeleteVideoSurfaceFromIndex(surface);
+		return FALSE;
+	}
+
+	*puiVSurface = surface;
+	return TRUE;
 }
 
-BOOLEAN PixelateVideoSurfaceRect(UINT32, INT32, INT32, INT32, INT32)
+BOOLEAN PixelateVideoSurfaceRect(
+	UINT32 destination, INT32 x1, INT32 y1, INT32 x2, INT32 y2)
 {
-	// Stop-gap; the real implementation needs the alpha blitters from
-	// Phase 6.
-	return FALSE;
+	HVSURFACE surface = nullptr;
+	if (!GetVideoSurface(&surface, destination) || !surface ||
+		surface->ubBitDepth <= 8 || x1 > x2 || y1 > y2)
+		return FALSE;
+
+	SGPRect previousClip{};
+	GetClippingRect(&previousClip);
+	SGPRect surfaceClip{
+		std::max<INT32>(previousClip.iLeft, 0),
+		std::max<INT32>(previousClip.iTop, 0),
+		std::min<INT32>(
+			previousClip.iRight,
+			static_cast<INT32>(surface->usWidth)),
+		std::min<INT32>(
+			previousClip.iBottom,
+			static_cast<INT32>(surface->usHeight))};
+	if (surfaceClip.iLeft >= surfaceClip.iRight ||
+		surfaceClip.iTop >= surfaceClip.iBottom)
+		return FALSE;
+
+	UINT8 pattern[8][8] = {
+		{0, 1, 0, 1, 0, 1, 0, 1},
+		{1, 0, 1, 0, 1, 0, 1, 0},
+		{0, 1, 0, 1, 0, 1, 0, 1},
+		{1, 0, 1, 0, 1, 0, 1, 0},
+		{0, 1, 0, 1, 0, 1, 0, 1},
+		{1, 0, 1, 0, 1, 0, 1, 0},
+		{0, 1, 0, 1, 0, 1, 0, 1},
+		{1, 0, 1, 0, 1, 0, 1, 0}};
+	SGPRect area{x1, y1, x2, y2};
+	UINT32 pitch = 0;
+	PIXEL* const pixels =
+		reinterpret_cast<PIXEL*>(LockVideoSurface(destination, &pitch));
+	if (!pixels) return FALSE;
+
+	SetClippingRect(&surfaceClip);
+	const BOOLEAN result = Blt16BPPBufferPixelateRect(
+		pixels, pitch, &area, pattern);
+	SetClippingRect(&previousClip);
+	UnLockVideoSurface(destination);
+	return result;
 }
 
-BOOLEAN SetClipList(HVSURFACE, SGPRect*, UINT16) { return TRUE; }
+BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* regionData, UINT16 numRegions)
+{
+	if (!hVSurface || !regionData || numRegions == 0) return FALSE;
+
+	// This was a DirectDraw multi-rectangle clipper attached to subsequent
+	// hardware blits. SDL heap surfaces have no equivalent persistent object,
+	// and the CPU/engine commands currently accept one rectangular clip.
+	// Reporting failure is intentional: claiming success while ignoring a
+	// mod-provided clip list can draw outside every requested region.
+	return FALSE;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Blitters
@@ -938,84 +1117,202 @@ BOOLEAN SetClipList(HVSURFACE, SGPRect*, UINT16) { return TRUE; }
 
 namespace {
 
-// Clip a src-rect blit against the destination surface bounds.
-// On entry, SrcRect / DestRect are integer pixel coords. On exit,
-// they're adjusted so the copy is fully in-bounds, or returns false
-// if there's nothing to copy.
-bool ClipBlitRect(HVSURFACE hDst, HVSURFACE hSrc,
-                  INT32& iDestX, INT32& iDestY,
-                  INT32& iSrcL, INT32& iSrcT, INT32& iSrcR, INT32& iSrcB)
+struct ClippedBlit
 {
-	const INT32 dW = (INT32)hDst->usWidth;
-	const INT32 dH = (INT32)hDst->usHeight;
-	(void)hSrc;
-	INT32 w = iSrcR - iSrcL;
-	INT32 h = iSrcB - iSrcT;
-	if (w <= 0 || h <= 0) return false;
-	if (iDestX >= dW || iDestY >= dH) return false;
-	if (iDestX + w <= 0 || iDestY + h <= 0) return false;
-	if (iDestX + w > dW) { INT32 d = (iDestX + w) - dW; iSrcR -= d; }
-	if (iDestY + h > dH) { INT32 d = (iDestY + h) - dH; iSrcB -= d; }
-	if (iDestX < 0)      { iSrcL -= iDestX; iDestX = 0; }
-	if (iDestY < 0)      { iSrcT -= iDestY; iDestY = 0; }
-	return (iSrcR > iSrcL) && (iSrcB > iSrcT);
-}
+	INT32 destinationX = 0;
+	INT32 destinationY = 0;
+	INT32 sourceX = 0;
+	INT32 sourceY = 0;
+	INT32 width = 0;
+	INT32 height = 0;
+	bool mirrorHorizontally = false;
+};
 
-void Blit16_Opaque(PIXEL* dst, UINT32 dstPitchBytes,
-                   const PIXEL* src, UINT32 srcPitchBytes,
-                   INT32 dstX, INT32 dstY,
-                   INT32 srcX, INT32 srcY,
-                   INT32 w, INT32 h)
+// Resolve a half-open source rectangle and destination origin without doing
+// signed 32-bit additions. For mirrored copies, sourceX is the rightmost
+// source pixel corresponding to the leftmost visible destination pixel.
+bool ResolveBlit(
+	HVSURFACE destination, HVSURFACE source,
+	INT32 destinationX, INT32 destinationY,
+	INT32 sourceLeft, INT32 sourceTop,
+	INT32 sourceRight, INT32 sourceBottom,
+	bool mirrorHorizontally, ClippedBlit& result)
 {
-	UINT8* dstRow = (UINT8*)dst + dstY * dstPitchBytes + dstX * sizeof(PIXEL);
-	const UINT8* srcRow = (const UINT8*)src + srcY * srcPitchBytes + srcX * sizeof(PIXEL);
-	for (INT32 y = 0; y < h; ++y)
+	if (!destination || !source) return false;
+	const std::int64_t width =
+		static_cast<std::int64_t>(sourceRight) - sourceLeft;
+	const std::int64_t height =
+		static_cast<std::int64_t>(sourceBottom) - sourceTop;
+	if (width <= 0 || height <= 0) return false;
+
+	std::int64_t firstColumn = 0;
+	std::int64_t lastColumn = width;
+	firstColumn = std::max<std::int64_t>(
+		firstColumn, -static_cast<std::int64_t>(destinationX));
+	lastColumn = std::min<std::int64_t>(
+		lastColumn,
+		static_cast<std::int64_t>(destination->usWidth) - destinationX);
+	if (mirrorHorizontally)
 	{
-		std::memcpy(dstRow, srcRow, (size_t)w * sizeof(PIXEL));
-		dstRow += dstPitchBytes;
-		srcRow += srcPitchBytes;
+		firstColumn = std::max<std::int64_t>(
+			firstColumn,
+			static_cast<std::int64_t>(sourceRight) - source->usWidth);
+		lastColumn = std::min<std::int64_t>(
+			lastColumn, static_cast<std::int64_t>(sourceRight));
 	}
+	else
+	{
+		firstColumn = std::max<std::int64_t>(
+			firstColumn, -static_cast<std::int64_t>(sourceLeft));
+		lastColumn = std::min<std::int64_t>(
+			lastColumn,
+			static_cast<std::int64_t>(source->usWidth) - sourceLeft);
+	}
+
+	std::int64_t firstRow = 0;
+	std::int64_t lastRow = height;
+	firstRow = std::max<std::int64_t>(
+		firstRow, -static_cast<std::int64_t>(destinationY));
+	lastRow = std::min<std::int64_t>(
+		lastRow,
+		static_cast<std::int64_t>(destination->usHeight) - destinationY);
+	firstRow = std::max<std::int64_t>(
+		firstRow, -static_cast<std::int64_t>(sourceTop));
+	lastRow = std::min<std::int64_t>(
+		lastRow,
+		static_cast<std::int64_t>(source->usHeight) - sourceTop);
+	if (firstColumn >= lastColumn || firstRow >= lastRow) return false;
+
+	result.destinationX = static_cast<INT32>(
+		static_cast<std::int64_t>(destinationX) + firstColumn);
+	result.destinationY = static_cast<INT32>(
+		static_cast<std::int64_t>(destinationY) + firstRow);
+	result.sourceX = static_cast<INT32>(
+		mirrorHorizontally
+			? static_cast<std::int64_t>(sourceRight) - 1 - firstColumn
+			: static_cast<std::int64_t>(sourceLeft) + firstColumn);
+	result.sourceY = static_cast<INT32>(
+		static_cast<std::int64_t>(sourceTop) + firstRow);
+	result.width = static_cast<INT32>(lastColumn - firstColumn);
+	result.height = static_cast<INT32>(lastRow - firstRow);
+	result.mirrorHorizontally = mirrorHorizontally;
+	return true;
 }
 
-void Blit16_ColorKey(PIXEL* dst, UINT32 dstPitchBytes,
-                     const PIXEL* src, UINT32 srcPitchBytes,
-                     INT32 dstX, INT32 dstY,
-                     INT32 srcX, INT32 srcY,
-                     INT32 w, INT32 h, PIXEL key)
+template <typename Pixel>
+bool MatchesColorKey(Pixel pixel, Pixel key)
 {
-	for (INT32 y = 0; y < h; ++y)
+	if constexpr (sizeof(Pixel) == sizeof(std::uint32_t))
 	{
-		PIXEL* dstP = (PIXEL*)((UINT8*)dst + (dstY + y) * dstPitchBytes) + dstX;
-		const PIXEL* srcP = (const PIXEL*)((const UINT8*)src + (srcY + y) * srcPitchBytes) + srcX;
-		for (INT32 x = 0; x < w; ++x)
+		return (static_cast<std::uint32_t>(pixel) & 0x00ffffffu) ==
+			(static_cast<std::uint32_t>(key) & 0x00ffffffu);
+	}
+	return pixel == key;
+}
+
+template <typename Pixel>
+bool BlitPixels(
+	Pixel* destination, UINT32 destinationPitch,
+	const Pixel* source, UINT32 sourcePitch,
+	const ClippedBlit& area,
+	bool useSourceKey, Pixel sourceKey,
+	bool useDestinationKey, Pixel destinationKey)
+{
+	if (!destination || !source ||
+		destinationPitch < sizeof(Pixel) ||
+		sourcePitch < sizeof(Pixel))
+		return false;
+	const bool aliases = destination == source;
+
+	if (!area.mirrorHorizontally &&
+		!useSourceKey && !useDestinationKey)
+	{
+		const std::size_t rowBytes =
+			static_cast<std::size_t>(area.width) * sizeof(Pixel);
+		const bool bottomUp =
+			aliases && area.destinationY > area.sourceY;
+		for (INT32 iteration = 0; iteration < area.height; ++iteration)
 		{
-			PIXEL v = srcP[x];
-#if SGP_PIXEL_DEPTH == 32
-			// Compare on RGB only: 8bpp art keys transparency on palette
-			// index 0 (black), which Create32BPPPalette maps to opaque
-			// 0xFF000000 -- alpha would never equal the 0-alpha key.
-			if ((v & 0x00FFFFFFu) != (key & 0x00FFFFFFu)) dstP[x] = v;
-#else
-			if (v != key) dstP[x] = v;
-#endif
+			const INT32 row = bottomUp
+				? area.height - iteration - 1 : iteration;
+			const Pixel* sourceRow = reinterpret_cast<const Pixel*>(
+				reinterpret_cast<const UINT8*>(source) +
+					static_cast<std::size_t>(area.sourceY + row) *
+						sourcePitch) +
+				area.sourceX;
+			Pixel* destinationRow = reinterpret_cast<Pixel*>(
+				reinterpret_cast<UINT8*>(destination) +
+					static_cast<std::size_t>(area.destinationY + row) *
+						destinationPitch) +
+				area.destinationX;
+			if (aliases)
+				std::memmove(destinationRow, sourceRow, rowBytes);
+			else
+				std::memcpy(destinationRow, sourceRow, rowBytes);
+		}
+		return true;
+	}
+
+	std::vector<Pixel> mirroredSource;
+	if (aliases && area.mirrorHorizontally)
+	{
+		try
+		{
+			mirroredSource.resize(static_cast<std::size_t>(area.width));
+		}
+		catch (...)
+		{
+			return false;
 		}
 	}
-}
 
-void Blit8_Opaque(UINT8* dst, UINT32 dstPitchBytes,
-                  const UINT8* src, UINT32 srcPitchBytes,
-                  INT32 dstX, INT32 dstY,
-                  INT32 srcX, INT32 srcY,
-                  INT32 w, INT32 h)
-{
-	UINT8* dstRow = dst + dstY * dstPitchBytes + dstX;
-	const UINT8* srcRow = src + srcY * srcPitchBytes + srcX;
-	for (INT32 y = 0; y < h; ++y)
+	const bool bottomUp = aliases && area.destinationY > area.sourceY;
+	const bool rightToLeft =
+		aliases && !area.mirrorHorizontally &&
+		area.destinationY == area.sourceY &&
+		area.destinationX > area.sourceX;
+	for (INT32 rowIteration = 0;
+		rowIteration < area.height; ++rowIteration)
 	{
-		std::memcpy(dstRow, srcRow, (size_t)w);
-		dstRow += dstPitchBytes;
-		srcRow += srcPitchBytes;
+		const INT32 row = bottomUp
+			? area.height - rowIteration - 1 : rowIteration;
+		const Pixel* sourceRow = reinterpret_cast<const Pixel*>(
+			reinterpret_cast<const UINT8*>(source) +
+				static_cast<std::size_t>(area.sourceY + row) *
+					sourcePitch);
+		Pixel* destinationRow = reinterpret_cast<Pixel*>(
+			reinterpret_cast<UINT8*>(destination) +
+				static_cast<std::size_t>(area.destinationY + row) *
+					destinationPitch);
+		if (!mirroredSource.empty())
+		{
+			for (INT32 column = 0; column < area.width; ++column)
+				mirroredSource[static_cast<std::size_t>(column)] =
+					sourceRow[area.sourceX - column];
+		}
+
+		for (INT32 columnIteration = 0;
+			columnIteration < area.width; ++columnIteration)
+		{
+			const INT32 column = rightToLeft
+				? area.width - columnIteration - 1 : columnIteration;
+			const Pixel value = !mirroredSource.empty()
+				? mirroredSource[static_cast<std::size_t>(column)]
+				: sourceRow[
+					area.mirrorHorizontally
+						? area.sourceX - column
+						: area.sourceX + column];
+			if (useSourceKey && MatchesColorKey(value, sourceKey))
+				continue;
+			Pixel& target =
+				destinationRow[area.destinationX + column];
+			if (useDestinationKey &&
+				!MatchesColorKey(target, destinationKey))
+				continue;
+			target = value;
+		}
 	}
+	return true;
 }
 
 void FillRect16(PIXEL* dst, UINT32 dstPitchBytes,
@@ -1029,36 +1326,103 @@ void FillRect16(PIXEL* dst, UINT32 dstPitchBytes,
 	}
 }
 
+void FillRect8(UINT8* destination, UINT32 pitchBytes,
+	INT32 x, INT32 y, INT32 width, INT32 height, UINT8 color)
+{
+	for (INT32 row = 0; row < height; ++row)
+	{
+		std::memset(
+			destination +
+				static_cast<std::size_t>(y + row) * pitchBytes + x,
+			color, static_cast<std::size_t>(width));
+	}
+}
+
+BOOLEAN FillSurfaceDirect(
+	HVSURFACE destination, const SGPRect& requested, COLORVAL color)
+{
+	if (!destination) return FALSE;
+	std::int64_t left = std::min<std::int64_t>(
+		requested.iLeft, requested.iRight);
+	std::int64_t right = std::max<std::int64_t>(
+		requested.iLeft, requested.iRight);
+	std::int64_t top = std::min<std::int64_t>(
+		requested.iTop, requested.iBottom);
+	std::int64_t bottom = std::max<std::int64_t>(
+		requested.iTop, requested.iBottom);
+	left = std::max<std::int64_t>(left, 0);
+	top = std::max<std::int64_t>(top, 0);
+	right = std::min<std::int64_t>(right, destination->usWidth);
+	bottom = std::min<std::int64_t>(bottom, destination->usHeight);
+	if (left >= right || top >= bottom) return TRUE;
+
+	UINT32 pitch = 0;
+	BYTE* const pixels = LockVideoSurfaceBuffer(destination, &pitch);
+	if (!pixels) return FALSE;
+	BOOLEAN result = FALSE;
+	if (destination->ubBitDepth == 16)
+	{
+		FillRect16(
+			reinterpret_cast<PIXEL*>(pixels), pitch,
+			static_cast<INT32>(left), static_cast<INT32>(top),
+			static_cast<INT32>(right - left),
+			static_cast<INT32>(bottom - top),
+			static_cast<PIXEL>(color));
+		result = TRUE;
+	}
+	else if (destination->ubBitDepth == 8)
+	{
+		FillRect8(
+			pixels, pitch,
+			static_cast<INT32>(left), static_cast<INT32>(top),
+			static_cast<INT32>(right - left),
+			static_cast<INT32>(bottom - top),
+			static_cast<UINT8>(color));
+		result = TRUE;
+	}
+	UnLockVideoSurfaceBuffer(destination);
+	return result;
+}
+
 } // namespace
 
 BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
                                       UINT16 usIndex, INT32 iDestX, INT32 iDestY,
                                       INT32 fBltFlags, blt_vs_fx* pBltFx)
 {
-	if (!hDst || !hSrc) return FALSE;
-	if (hDst->ubBitDepth != hSrc->ubBitDepth) return FALSE;
+	if (!hDst) return FALSE;
+	if ((fBltFlags & VS_BLT_SRCREGION) &&
+		(fBltFlags & VS_BLT_SRCSUBRECT))
+		return FALSE;
+	if ((fBltFlags & VS_BLT_COLORFILL) &&
+		(fBltFlags & VS_BLT_COLORFILLRECT))
+		return FALSE;
 
-	// Color-fill rect via the dedicated entry point.
+	if (fBltFlags & VS_BLT_DESTREGION)
+	{
+		if (!pBltFx) return FALSE;
+		VSURFACE_REGION region{};
+		if (!GetVSurfaceRegion(hDst, pBltFx->DestRegion, &region))
+			return FALSE;
+		iDestX = region.RegionCoords.iLeft;
+		iDestY = region.RegionCoords.iTop;
+	}
+
 	if (fBltFlags & VS_BLT_COLORFILLRECT)
 	{
 		if (!pBltFx) return FALSE;
-		return ColorFillVideoSurfaceArea(
-			PRIMARY_SURFACE, // unused -- we go through GetVideoSurface dispatch below
-			pBltFx->FillRect.iLeft, pBltFx->FillRect.iTop,
-			pBltFx->FillRect.iRight, pBltFx->FillRect.iBottom,
-			pBltFx->ColorFill) ? TRUE : FALSE;
+		return FillSurfaceDirect(
+			hDst, pBltFx->FillRect, pBltFx->ColorFill);
 	}
 	if (fBltFlags & VS_BLT_COLORFILL)
 	{
 		if (!pBltFx) return FALSE;
-		UINT32 pitch = 0;
-		PIXEL* buf = (PIXEL*)LockVideoSurfaceBuffer(hDst, &pitch);
-		if (!buf) return FALSE;
-		FillRect16(buf, pitch, 0, 0, hDst->usWidth, hDst->usHeight,
-		           pBltFx->ColorFill);
-		UnLockVideoSurfaceBuffer(hDst);
-		return TRUE;
+		const SGPRect wholeSurface{
+			0, 0, hDst->usWidth, hDst->usHeight};
+		return FillSurfaceDirect(
+			hDst, wholeSurface, pBltFx->ColorFill);
 	}
+	if (!hSrc || hDst->ubBitDepth != hSrc->ubBitDepth) return FALSE;
 
 	// Source rect: VS_BLT_SRCREGION (region table index), VS_BLT_SRCSUBRECT
 	// (rect in pBltFx->SrcRect), or default (whole source surface).
@@ -1085,7 +1449,11 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 		sL = 0; sT = 0; sR = hSrc->usWidth; sB = hSrc->usHeight;
 	}
 
-	if (!ClipBlitRect(hDst, hSrc, iDestX, iDestY, sL, sT, sR, sB)) return TRUE;
+	ClippedBlit area;
+	if (!ResolveBlit(
+		hDst, hSrc, iDestX, iDestY, sL, sT, sR, sB,
+		(fBltFlags & VS_BLT_MIRROR_Y) != 0, area))
+		return TRUE;
 
 	UINT32 srcPitch = 0, dstPitch = 0;
 	BYTE* srcBuf = LockVideoSurfaceBuffer(hSrc, &srcPitch);
@@ -1097,34 +1465,37 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDst, HVSURFACE hSrc,
 		return FALSE;
 	}
 
-	const INT32 w = sR - sL;
-	const INT32 h = sB - sT;
+	const bool useSourceKey =
+		(fBltFlags & VS_BLT_USECOLORKEY) != 0;
+	const bool useDestinationKey =
+		(fBltFlags & VS_BLT_USEDESTCOLORKEY) != 0;
+	BOOLEAN result = FALSE;
 	if (hDst->ubBitDepth == 16)
 	{
-		if (fBltFlags & VS_BLT_USECOLORKEY)
-		{
-			Blit16_ColorKey((PIXEL*)dstBuf, dstPitch,
-			                (const PIXEL*)srcBuf, srcPitch,
-			                iDestX, iDestY, sL, sT, w, h,
-			                PixFromColor16((UINT16)hSrc->TransparentColor));
-		}
-		else
-		{
-			Blit16_Opaque((PIXEL*)dstBuf, dstPitch,
-			              (const PIXEL*)srcBuf, srcPitch,
-			              iDestX, iDestY, sL, sT, w, h);
-		}
+		result = BlitPixels(
+			reinterpret_cast<PIXEL*>(dstBuf), dstPitch,
+			reinterpret_cast<const PIXEL*>(srcBuf), srcPitch,
+			area,
+			useSourceKey,
+			PixFromColor16(static_cast<UINT16>(
+				hSrc->TransparentColor)),
+			useDestinationKey,
+			PixFromColor16(static_cast<UINT16>(
+				hDst->TransparentColor))) ? TRUE : FALSE;
 	}
 	else if (hDst->ubBitDepth == 8)
 	{
-		Blit8_Opaque((UINT8*)dstBuf, dstPitch,
-		             (const UINT8*)srcBuf, srcPitch,
-		             iDestX, iDestY, sL, sT, w, h);
+		result = BlitPixels(
+			dstBuf, dstPitch, srcBuf, srcPitch, area,
+			useSourceKey,
+			static_cast<UINT8>(hSrc->TransparentColor),
+			useDestinationKey,
+			static_cast<UINT8>(hDst->TransparentColor)) ? TRUE : FALSE;
 	}
 
 	UnLockVideoSurfaceBuffer(hSrc);
 	UnLockVideoSurfaceBuffer(hDst);
-	return TRUE;
+	return result;
 }
 
 // BltVSurfaceUsingDD: the "UsingDD" name is vestigial -- the SDL3 path

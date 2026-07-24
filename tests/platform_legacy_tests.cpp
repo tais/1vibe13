@@ -1588,6 +1588,78 @@ int main()
 		invalidDirectRgbaRejected,
 		"direct HIMAGE compatibility copies honor RGBA source pitch, subrects, destinations, alpha, and malformed geometry");
 
+	UINT8 directRgbSource[] = {
+		255, 0, 0, 0, 255, 0, 0, 0, 255,
+		255, 255, 0, 255, 0, 255, 0, 255, 255};
+	image_type directRgbImage{};
+	directRgbImage.usWidth = 3;
+	directRgbImage.usHeight = 2;
+	directRgbImage.ubBitDepth = 24;
+	directRgbImage.p8BPPData = directRgbSource;
+	SGPRect directRgbRegion{1, 0, 2, 1};
+	std::vector<PIXEL> directRgbDestination(
+		3 * 2, directRgbaSentinel);
+	const bool directRgbCopied = CopyImageToBuffer(
+		&directRgbImage, BUFFER_16BPP,
+		reinterpret_cast<BYTE*>(directRgbDestination.data()),
+		3, 2, 1, 0, &directRgbRegion);
+	const std::vector<PIXEL> expectedDirectRgbDestination{
+		directRgbaSentinel,
+		Get16BPPColor(FROMRGB(0, 255, 0)),
+		Get16BPPColor(FROMRGB(0, 0, 255)),
+		directRgbaSentinel,
+		Get16BPPColor(FROMRGB(255, 0, 255)),
+		Get16BPPColor(FROMRGB(0, 255, 255))};
+	const std::vector<PIXEL> directRgbBeforeInvalid =
+		directRgbDestination;
+	SGPRect overflowingDirectRgbRegion{0, 0, 2, 1};
+	const bool overflowingDirectRgbRejected =
+		!CopyImageToBuffer(
+			&directRgbImage, BUFFER_16BPP,
+			reinterpret_cast<BYTE*>(
+				directRgbDestination.data()),
+			3, 2, 1, 0, &overflowingDirectRgbRegion) &&
+		directRgbDestination == directRgbBeforeInvalid;
+	SGPRect onePixelRegion{2, 1, 2, 1};
+	PIXEL onePixelRgbDestination = 0;
+	UINT8 onePixelIndexedSource = 7;
+	UINT8 onePixelIndexedDestination = 0;
+	image_type onePixelIndexedImage{};
+	onePixelIndexedImage.usWidth = 1;
+	onePixelIndexedImage.usHeight = 1;
+	onePixelIndexedImage.ubBitDepth = 8;
+	onePixelIndexedImage.p8BPPData = &onePixelIndexedSource;
+	SGPRect indexedPixelRegion{0, 0, 0, 0};
+	UINT16 onePixel565Source = 0xF800u;
+	PIXEL onePixel565Destination = 0;
+	image_type onePixel565Image{};
+	onePixel565Image.usWidth = 1;
+	onePixel565Image.usHeight = 1;
+	onePixel565Image.ubBitDepth = 16;
+	onePixel565Image.p16BPPData = &onePixel565Source;
+	const bool onePixelCopiesAccepted =
+		CopyImageToBuffer(
+			&directRgbImage, BUFFER_16BPP,
+			reinterpret_cast<BYTE*>(&onePixelRgbDestination),
+			1, 1, 0, 0, &onePixelRegion) &&
+		onePixelRgbDestination ==
+			Get16BPPColor(FROMRGB(0, 255, 255)) &&
+		CopyImageToBuffer(
+			&onePixelIndexedImage, BUFFER_8BPP,
+			&onePixelIndexedDestination,
+			1, 1, 0, 0, &indexedPixelRegion) &&
+		onePixelIndexedDestination == 7 &&
+		CopyImageToBuffer(
+			&onePixel565Image, BUFFER_16BPP,
+			reinterpret_cast<BYTE*>(&onePixel565Destination),
+			1, 1, 0, 0, &indexedPixelRegion) &&
+		onePixel565Destination == PixFromColor16(0xF800u);
+	Check(directRgbCopied &&
+		directRgbDestination == expectedDirectRgbDestination &&
+		overflowingDirectRgbRejected &&
+		onePixelCopiesAccepted,
+		"24-bit RGB and retained indexed/RGB565 HIMAGE copies support exact one-pixel regions and reject destination overflow");
+
 	PIXEL nativeCachePalette[256] = {};
 	nativeCachePalette[1] = 0xFF000000u;
 	nativeCachePalette[2] = 0xFF123456u;
@@ -1704,10 +1776,43 @@ int main()
 			8 * sizeof(PIXEL),
 			&nativeCacheSource, 0, 0,
 			1, &nativeCacheClip);
+	UINT8 transparentEtrlePixel = 0xFF;
+	UINT8 opaqueEtrlePixel = 0;
+	UINT8 secondRowEtrlePixel = 0;
+	UINT8 malformedEtrlePixel = 0xCC;
+	ETRLEObject observedEtrleProperties{};
+	const bool etrleQueriesBounded =
+		GetETRLEPixelValue(
+			&transparentEtrlePixel,
+			&nativeCacheSource, 0, 0, 0) &&
+		transparentEtrlePixel == 0 &&
+		GetETRLEPixelValue(
+			&opaqueEtrlePixel,
+			&nativeCacheSource, 0, 1, 0) &&
+		opaqueEtrlePixel == 1 &&
+		GetETRLEPixelValue(
+			&secondRowEtrlePixel,
+			&nativeCacheSource, 0, 0, 1) &&
+		secondRowEtrlePixel == 2 &&
+		!GetETRLEPixelValue(
+			&malformedEtrlePixel,
+			&malformedNativeCacheSource, 0, 3, 0) &&
+		malformedEtrlePixel == 0xCC &&
+		!GetETRLEPixelValue(
+			nullptr, &nativeCacheSource, 0, 0, 0) &&
+		GetVideoObjectETRLEProperties(
+			&nativeCacheSource,
+			&observedEtrleProperties, 0) &&
+		observedEtrleProperties.usWidth == 4 &&
+		!GetVideoObjectETRLEProperties(
+			nullptr, &observedEtrleProperties, 0) &&
+		!GetVideoObjectETRLEProperties(
+			&nativeCacheSource, nullptr, 0);
 	Check(nativeCacheBuilt && compatibilityCacheNames &&
 		nativeCachePixelsExact && nativeCacheClippedDraw &&
-		compatibilityCacheDraw && malformedNativeCacheRejected,
-		"native sprite caches decode exact ARGB8888 pixels, preserve opaque black, clip safely, and reject malformed ETRLE");
+		compatibilityCacheDraw && malformedNativeCacheRejected &&
+		etrleQueriesBounded,
+		"native sprite caches and pixel queries decode exact ARGB8888 data, preserve opaque black, clip safely, and reject malformed ETRLE");
 	if (nativeCacheSource.pNativePixelObject)
 	{
 		for (UINT16 index = 0;
@@ -1840,6 +1945,116 @@ int main()
 	Check(videoInitialized, "SDL dummy video manager initializes");
 	if (videoInitialized)
 	{
+		UINT32 compatibilityRedMask = 0;
+		UINT32 compatibilityGreenMask = 0;
+		UINT32 compatibilityBlueMask = 0;
+		SGPPaletteEntry compatibilityPalette[256] = {};
+		compatibilityPalette[7] =
+			SGPPaletteEntry{12, 34, 56, 0};
+		const bool colorCompatibilityReady =
+			GetRGBDistribution() &&
+			GetPrimaryRGBDistributionMasks(
+				&compatibilityRedMask,
+				&compatibilityGreenMask,
+				&compatibilityBlueMask) &&
+			compatibilityRedMask == 0xF800u &&
+			compatibilityGreenMask == 0x07E0u &&
+			compatibilityBlueMask == 0x001Fu &&
+			!GetPrimaryRGBDistributionMasks(
+				nullptr, &compatibilityGreenMask,
+				&compatibilityBlueMask) &&
+			!Set8BPPPalette(nullptr) &&
+			Set8BPPPalette(compatibilityPalette) &&
+			gSgpPalette[7].peRed == 12 &&
+			gSgpPalette[7].peGreen == 34 &&
+			gSgpPalette[7].peBlue == 56;
+		guiFrameBufferState = BUFFER_READY;
+		StartFrameBufferRender();
+		EndFrameBufferRender();
+		const bool renderBracketPublished =
+			guiFrameBufferState == BUFFER_DIRTY &&
+			PresentLegacyFrame(FramePresentMode::Immediate) &&
+			guiFrameBufferState == BUFFER_READY;
+		Check(colorCompatibilityReady &&
+			renderBracketPublished,
+			"fixed RGB565 token metadata, palette updates, and render brackets publish real compatibility state");
+
+		const bool initialBlitReadiness =
+			CanBlitToFrameBuffer() &&
+			!CanBlitToMouseBuffer() &&
+			!RestoreVideoManager();
+		EnableCursor(FALSE);
+		const bool cursorBecameReady =
+			CanBlitToMouseBuffer();
+		SuspendVideoManager();
+		const bool activeVideoRestored =
+			RestoreVideoManager() &&
+			guiFrameBufferState == BUFFER_DIRTY &&
+			guiMouseBufferState == BUFFER_DIRTY &&
+			!CanBlitToFrameBuffer() &&
+			!CanBlitToMouseBuffer() &&
+			PresentLegacyFrame(FramePresentMode::Immediate) &&
+			CanBlitToFrameBuffer() &&
+			CanBlitToMouseBuffer();
+		HideMouseCursor();
+		SuspendVideoManager();
+		const bool hiddenCursorPreserved =
+			RestoreVideoManager() &&
+			guiMouseBufferState == BUFFER_DISABLED &&
+			PresentLegacyFrame(FramePresentMode::Immediate) &&
+			!CanBlitToMouseBuffer();
+		Check(initialBlitReadiness && cursorBecameReady &&
+			activeVideoRestored && hiddenCursorPreserved,
+			"video suspend, restore, and blit readiness expose real SDL buffer lifecycle state");
+
+		UINT32 screenshotPitch = 0;
+		PIXEL* const screenshotFrame =
+			static_cast<PIXEL*>(LockFrameBuffer(&screenshotPitch));
+		const PIXEL originalScreenshotPixel =
+			screenshotFrame ? screenshotFrame[0] : 0;
+		if (screenshotFrame)
+			screenshotFrame[0] =
+				Get16BPPColor(FROMRGB(237, 19, 83));
+		const std::filesystem::path previousWorkingDirectory =
+			std::filesystem::current_path(error);
+		error.clear();
+		std::filesystem::current_path(root, error);
+		const bool screenshotDirectorySelected = !error;
+		if (screenshotDirectorySelected) PrintScreen();
+		const bool screenshotPresented =
+			screenshotDirectorySelected &&
+			PresentLegacyFrame(FramePresentMode::Immediate);
+		const std::filesystem::path screenshotPath =
+			root / "Screenshots" / "SCREEN00000.png";
+		SDL_Surface* screenshot = screenshotPresented ?
+			SDL_LoadPNG(screenshotPath.string().c_str()) : nullptr;
+		Uint8 screenshotRed = 0;
+		Uint8 screenshotGreen = 0;
+		Uint8 screenshotBlue = 0;
+		Uint8 screenshotAlpha = 0;
+		const bool screenshotPixelRead = screenshot &&
+			SDL_ReadSurfacePixel(
+				screenshot, 0, 0,
+				&screenshotRed, &screenshotGreen,
+				&screenshotBlue, &screenshotAlpha);
+		const bool screenshotExact =
+			screenshotPixelRead &&
+			screenshot->w == SCREEN_WIDTH &&
+			screenshot->h == SCREEN_HEIGHT &&
+			screenshotRed == 237 &&
+			screenshotGreen == 19 &&
+			screenshotBlue == 83 &&
+			screenshotAlpha == 255;
+		SDL_DestroySurface(screenshot);
+		error.clear();
+		std::filesystem::current_path(
+			previousWorkingDirectory, error);
+		if (screenshotFrame)
+			screenshotFrame[0] = originalScreenshotPixel;
+		UnlockFrameBuffer();
+		Check(screenshotExact && !error,
+			"PrintScreen writes an exact logical-resolution PNG through the SDL framebuffer boundary");
+
 		InvalidateRegion(-10, -10, 10, 10);
 		InvalidateFrameBuffer();
 		Check(guiFrameBufferState == BUFFER_DIRTY &&
@@ -1850,6 +2065,16 @@ int main()
 		const bool videoObjectsInitialized = InitializeVideoObjectManager();
 		Check(videoObjectsInitialized,
 			"video object registry initializes from an empty lifetime");
+		UINT32 untouchedObjectID = 0xA5A55A5Au;
+		Check(!AddStandardVideoObject(
+				nullptr, &untouchedObjectID) &&
+			untouchedObjectID == 0xA5A55A5Au &&
+			!AddStandardVideoObject(nullptr, nullptr) &&
+			!GetVideoObject(nullptr, 1) &&
+			!SetVideoObjectTransparencyColor(nullptr, 0) &&
+			!SetVideoObjectPalette(nullptr, nullptr) &&
+			!DestroyObjectPaletteTables(nullptr),
+			"video object manager and palette APIs reject null compatibility inputs without mutation");
 		Check(InitializeVideoSurfaceManager(),
 			"video surface manager publishes all primary wrappers");
 		FontTranslationTable* firstTable = CreateEnglishTransTable();
@@ -2176,6 +2401,15 @@ int main()
 		HVSURFACE primary = nullptr;
 		Check(GetVideoSurface(&primary, PRIMARY_SURFACE) && primary != nullptr,
 			"primary surface wrapper is registered after initialization");
+		UINT32 invalidPointerPitch = 0;
+		Check(RestoreVideoSurfaces() &&
+			RestoreVideoSurface(primary) &&
+			!RestoreVideoSurface(nullptr) &&
+			!GetVideoSurface(nullptr, PRIMARY_SURFACE) &&
+			LockVideoSurfaceBuffer(
+				nullptr, &invalidPointerPitch) == nullptr &&
+			LockVideoSurfaceBuffer(primary, nullptr) == nullptr,
+			"heap surface restore and pointer APIs validate their live compatibility boundaries");
 		RenderSurfaceDescription platformFrameDescription;
 		Check(GetPlatformRenderSurfaceAccess().surfaceFor(
 				RenderSurfaceRole::FrameBuffer) == FRAME_BUFFER &&
@@ -2371,12 +2605,567 @@ int main()
 			copiedGreenDestination = copiedRow[3];
 			UnLockVideoSurface(copyDestinationID);
 		}
-		Check(copyDestinationPixels && copiedKeyDestination == 0 &&
-			copiedRedDestination == copiedRed &&
-			copiedGreenDestination == copiedGreen,
-			"mapped legacy blits skip the key and copy exact live pixels");
+			Check(copyDestinationPixels && copiedKeyDestination == 0 &&
+				copiedRedDestination == copiedRed &&
+				copiedGreenDestination == copiedGreen,
+				"mapped legacy blits skip the key and copy exact live pixels");
 
-		ETRLEObject trueColorRegion{};
+			HVSURFACE copySourceSurface = nullptr;
+			HVSURFACE copyDestinationSurface = nullptr;
+			const bool copySurfaceHandlesAvailable =
+				GetVideoSurface(
+					&copySourceSurface, copySourceID) &&
+				copySourceSurface &&
+				GetVideoSurface(
+					&copyDestinationSurface,
+					copyDestinationID) &&
+				copyDestinationSurface;
+
+			VSURFACE_REGION firstRegion{};
+			firstRegion.RegionCoords = SGPRect{0, 0, 1, 1};
+			firstRegion.Origin = SGPPoint{1, 2};
+			firstRegion.ubHitMask = 3;
+			VSURFACE_REGION secondRegion{};
+			secondRegion.RegionCoords = SGPRect{1, 0, 2, 1};
+			VSURFACE_REGION thirdRegion{};
+			thirdRegion.RegionCoords = SGPRect{2, 0, 3, 1};
+			VSURFACE_REGION insertedRegion{};
+			insertedRegion.RegionCoords = SGPRect{4, 0, 5, 1};
+			VSURFACE_REGION* regionGroup[] = {
+				&secondRegion, &thirdRegion};
+			VSURFACE_REGION* invalidRegionGroup[] = {
+				&firstRegion, nullptr};
+			UINT32 regionCount = 0;
+			VSURFACE_REGION observedRegion{};
+			const bool regionApisComplete =
+				copySurfaceHandlesAvailable &&
+				ClearAllVSurfaceRegions(copyDestinationSurface) &&
+				AddVSurfaceRegion(
+					copyDestinationSurface, &firstRegion) &&
+				AddVSurfaceRegions(
+					copyDestinationSurface, regionGroup, 2) &&
+				AddVSurfaceRegionAtIndex(
+					copyDestinationSurface, 1,
+					&insertedRegion) &&
+				GetNumRegions(
+					copyDestinationSurface, &regionCount) &&
+				regionCount == 4 &&
+				GetVSurfaceRegion(
+					copyDestinationSurface, 1,
+					&observedRegion) &&
+				observedRegion.RegionCoords.iLeft == 4 &&
+				!AddVSurfaceRegionAtIndex(
+					copyDestinationSurface,
+					static_cast<UINT16>(regionCount),
+					&insertedRegion) &&
+				!AddVSurfaceRegions(
+					copyDestinationSurface,
+					invalidRegionGroup, 2) &&
+				GetNumRegions(
+					copyDestinationSurface, &regionCount) &&
+				regionCount == 4 &&
+				AddVSurfaceRegions(
+					copyDestinationSurface, nullptr, 0);
+			SGPRect unsupportedClipRegion{0, 0, 1, 1};
+			const bool clipListHonest =
+				copySurfaceHandlesAvailable &&
+				!SetClipList(
+					copyDestinationSurface,
+					&unsupportedClipRegion, 1) &&
+				!SetClipList(
+					copyDestinationSurface, nullptr, 0);
+			Check(regionApisComplete && clipListHonest,
+				"surface region groups publish transactionally and unsupported DirectDraw clip lists fail explicitly");
+			if (copyDestinationSurface)
+				ClearAllVSurfaceRegions(copyDestinationSurface);
+
+			UINT32 fillProbePitch = 0;
+			PIXEL* const fillProbeFrame =
+				static_cast<PIXEL*>(
+					LockFrameBuffer(&fillProbePitch));
+			PIXEL originalFillProbe = 0;
+			if (fillProbeFrame)
+			{
+				PIXEL* const probeRow =
+					reinterpret_cast<PIXEL*>(
+						reinterpret_cast<BYTE*>(
+							fillProbeFrame) +
+						fillProbePitch);
+				originalFillProbe = probeRow[1];
+				probeRow[1] = copiedRed;
+				UnlockFrameBuffer();
+			}
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			if (copyDestinationPixels)
+			{
+				std::memset(
+					copyDestinationPixels, 0,
+					static_cast<std::size_t>(
+						copyDestinationPitch) *
+						copySurfaceDescription.usHeight);
+				UnLockVideoSurface(copyDestinationID);
+			}
+			blt_vs_fx directFillEffects{};
+			directFillEffects.FillRect =
+				SGPRect{-2, -2, 3, 2};
+			directFillEffects.ColorFill = copiedGreen;
+			const bool pointerFillAccepted =
+				copySurfaceHandlesAvailable &&
+				BltVideoSurfaceToVideoSurface(
+					copyDestinationSurface,
+					copySourceSurface, 0, 0, 0,
+					VS_BLT_COLORFILLRECT,
+					&directFillEffects);
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			bool pointerFillExact =
+				copyDestinationPixels != nullptr;
+			for (UINT32 y = 0; pointerFillExact &&
+				y < copySurfaceDescription.usHeight; ++y)
+			{
+				const PIXEL* const row =
+					reinterpret_cast<const PIXEL*>(
+						reinterpret_cast<const BYTE*>(
+							copyDestinationPixels) +
+						y * copyDestinationPitch);
+				for (UINT32 x = 0; x <
+					copySurfaceDescription.usWidth; ++x)
+				{
+					const PIXEL expected =
+						x < 3 && y < 2 ?
+							copiedGreen : 0;
+					if (row[x] != expected)
+						pointerFillExact = false;
+				}
+			}
+			if (copyDestinationPixels)
+				UnLockVideoSurface(copyDestinationID);
+			PIXEL fillProbeAfter = 0;
+			PIXEL* const checkedFillProbe =
+				static_cast<PIXEL*>(
+					LockFrameBuffer(&fillProbePitch));
+			if (checkedFillProbe)
+			{
+				PIXEL* const probeRow =
+					reinterpret_cast<PIXEL*>(
+						reinterpret_cast<BYTE*>(
+							checkedFillProbe) +
+						fillProbePitch);
+				fillProbeAfter = probeRow[1];
+				probeRow[1] = originalFillProbe;
+				UnlockFrameBuffer();
+			}
+			Check(pointerFillAccepted && pointerFillExact &&
+				checkedFillProbe &&
+				fillProbeAfter == copiedRed,
+				"pointer rectangle fills clip to their actual destination without painting the primary surface");
+
+			VSURFACE_DESC indexedFillDescription{};
+			indexedFillDescription.fCreateFlags =
+				VSURFACE_CREATE_DEFAULT;
+			indexedFillDescription.usWidth = 4;
+			indexedFillDescription.usHeight = 2;
+			indexedFillDescription.ubBitDepth = 8;
+			HVSURFACE indexedFillSurface =
+				CreateVideoSurface(&indexedFillDescription);
+			blt_vs_fx indexedFillEffects{};
+			indexedFillEffects.ColorFill = 0xA5u;
+			const bool indexedFillAccepted =
+				indexedFillSurface &&
+				RestoreVideoSurface(indexedFillSurface) &&
+				BltVideoSurfaceToVideoSurface(
+					indexedFillSurface, nullptr, 0, 0, 0,
+					VS_BLT_COLORFILL,
+					&indexedFillEffects) &&
+				!SetVideoSurfaceDataFromHImage(
+					indexedFillSurface,
+					&onePixel565Image, 0, 0,
+					&indexedPixelRegion);
+			UINT32 indexedFillPitch = 0;
+			const UINT8* const indexedFillPixels =
+				indexedFillSurface ?
+					LockVideoSurfaceBuffer(
+						indexedFillSurface,
+						&indexedFillPitch) : nullptr;
+			bool indexedFillExact =
+				indexedFillPixels &&
+				indexedFillPitch == 4;
+			for (UINT32 index = 0;
+				indexedFillExact && index < 8; ++index)
+			{
+				indexedFillExact =
+					indexedFillPixels[index] == 0xA5u;
+			}
+			if (indexedFillSurface)
+				UnLockVideoSurfaceBuffer(
+					indexedFillSurface);
+			if (indexedFillSurface)
+				DeleteVideoSurface(indexedFillSurface);
+			Check(indexedFillAccepted && indexedFillExact,
+				"pointer whole-surface fills retain indexed compatibility without requiring a source");
+
+			const PIXEL geometrySentinel =
+				static_cast<PIXEL>(0xFFABCDEFu);
+			copySourcePixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copySourceID,
+						&copySourcePitch)) : nullptr;
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			if (copySourcePixels && copyDestinationPixels)
+			{
+				for (UINT32 y = 0;
+					y < copySurfaceDescription.usHeight; ++y)
+				{
+					PIXEL* const sourceRow =
+						reinterpret_cast<PIXEL*>(
+							reinterpret_cast<BYTE*>(
+								copySourcePixels) +
+							y * copySourcePitch);
+					PIXEL* const destinationRow =
+						reinterpret_cast<PIXEL*>(
+							reinterpret_cast<BYTE*>(
+								copyDestinationPixels) +
+							y * copyDestinationPitch);
+					for (UINT32 x = 0;
+						x < copySurfaceDescription.usWidth;
+						++x)
+					{
+						sourceRow[x] =
+							static_cast<PIXEL>(
+								0xFF000000u |
+								(y * 5u + x + 1u));
+						destinationRow[x] =
+							geometrySentinel;
+					}
+				}
+			}
+			if (copySourcePixels)
+				UnLockVideoSurface(copySourceID);
+			if (copyDestinationPixels)
+				UnLockVideoSurface(copyDestinationID);
+			blt_vs_fx clippedPointerEffects{};
+			clippedPointerEffects.SrcRect =
+				SGPRect{-2, -1, 4, 3};
+			const bool clippedPointerAccepted =
+				copySurfaceHandlesAvailable &&
+				BltVideoSurfaceToVideoSurface(
+					copyDestinationSurface,
+					copySourceSurface, 0, -1, 0,
+					VS_BLT_SRCSUBRECT,
+					&clippedPointerEffects);
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			bool clippedPointerExact =
+				copyDestinationPixels != nullptr;
+			std::vector<PIXEL> clippedSnapshot;
+			if (copyDestinationPixels)
+			{
+				clippedSnapshot.reserve(15);
+				for (UINT32 y = 0;
+					y < copySurfaceDescription.usHeight; ++y)
+				{
+					const PIXEL* const row =
+						reinterpret_cast<const PIXEL*>(
+							reinterpret_cast<const BYTE*>(
+								copyDestinationPixels) +
+							y * copyDestinationPitch);
+					for (UINT32 x = 0;
+						x < copySurfaceDescription.usWidth;
+						++x)
+					{
+						const bool copied =
+							y >= 1 && x >= 1 && x < 5;
+						const PIXEL expected = copied
+							? static_cast<PIXEL>(
+								0xFF000000u |
+								((y - 1u) * 5u + x))
+							: geometrySentinel;
+						if (row[x] != expected)
+							clippedPointerExact = false;
+						clippedSnapshot.push_back(row[x]);
+					}
+				}
+				UnLockVideoSurface(copyDestinationID);
+			}
+			blt_vs_fx extremePointerEffects{};
+			extremePointerEffects.SrcRect = SGPRect{
+				std::numeric_limits<INT32>::min(),
+				std::numeric_limits<INT32>::min(),
+				std::numeric_limits<INT32>::max(),
+				std::numeric_limits<INT32>::max()};
+			const bool extremePointerNoOp =
+				copySurfaceHandlesAvailable &&
+				BltVideoSurfaceToVideoSurface(
+					copyDestinationSurface,
+					copySourceSurface, 0, 0, 0,
+					VS_BLT_SRCSUBRECT,
+					&extremePointerEffects);
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			bool extremePointerPreserved =
+				copyDestinationPixels &&
+				clippedSnapshot.size() == 15;
+			std::size_t snapshotIndex = 0;
+			for (UINT32 y = 0; extremePointerPreserved &&
+				y < copySurfaceDescription.usHeight; ++y)
+			{
+				const PIXEL* const row =
+					reinterpret_cast<const PIXEL*>(
+						reinterpret_cast<const BYTE*>(
+							copyDestinationPixels) +
+						y * copyDestinationPitch);
+				for (UINT32 x = 0; x <
+					copySurfaceDescription.usWidth; ++x)
+				{
+					if (row[x] !=
+						clippedSnapshot[snapshotIndex++])
+						extremePointerPreserved = false;
+				}
+			}
+			if (copyDestinationPixels)
+				UnLockVideoSurface(copyDestinationID);
+			const bool conflictingSourceModesRejected =
+				copySurfaceHandlesAvailable &&
+				!BltVideoSurfaceToVideoSurface(
+					copyDestinationSurface,
+					copySourceSurface, 0, 0, 0,
+					VS_BLT_SRCREGION |
+						VS_BLT_SRCSUBRECT,
+					&clippedPointerEffects);
+			Check(clippedPointerAccepted &&
+				clippedPointerExact &&
+				extremePointerNoOp &&
+				extremePointerPreserved &&
+				conflictingSourceModesRejected,
+				"pointer blits clip source and destination together, reject conflicting modes, and contain extreme coordinates");
+
+			const PIXEL compatibilityBlue =
+				Get16BPPColor(FROMRGB(0, 0, 255));
+			copySourcePixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copySourceID,
+						&copySourcePitch)) : nullptr;
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			if (copySourcePixels && copyDestinationPixels)
+			{
+				std::memset(
+					copySourcePixels, 0,
+					static_cast<std::size_t>(
+						copySourcePitch) *
+						copySurfaceDescription.usHeight);
+				std::memset(
+					copyDestinationPixels, 0,
+					static_cast<std::size_t>(
+						copyDestinationPitch) *
+						copySurfaceDescription.usHeight);
+				copySourcePixels[0] = copiedRed;
+				copySourcePixels[1] = copiedGreen;
+				copySourcePixels[2] = compatibilityBlue;
+			}
+			if (copySourcePixels)
+				UnLockVideoSurface(copySourceID);
+			if (copyDestinationPixels)
+				UnLockVideoSurface(copyDestinationID);
+			VSURFACE_REGION mirrorDestinationRegion{};
+			mirrorDestinationRegion.RegionCoords =
+				SGPRect{1, 1, 4, 2};
+			blt_vs_fx mirrorEffects{};
+			mirrorEffects.SrcRect =
+				SGPRect{0, 0, 3, 1};
+			mirrorEffects.DestRegion = 0;
+			const bool mirroredThroughCompatibility =
+				copySurfaceHandlesAvailable &&
+				ClearAllVSurfaceRegions(
+					copyDestinationSurface) &&
+				AddVSurfaceRegion(
+					copyDestinationSurface,
+					&mirrorDestinationRegion) &&
+				BltVideoSurface(
+					copyDestinationID, copySourceID, 0,
+					99, 99,
+					VS_BLT_SRCSUBRECT |
+						VS_BLT_DESTREGION |
+						VS_BLT_MIRROR_Y,
+					&mirrorEffects);
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			bool mirroredExact = false;
+			if (copyDestinationPixels)
+			{
+				const PIXEL* const row =
+					reinterpret_cast<const PIXEL*>(
+						reinterpret_cast<const BYTE*>(
+							copyDestinationPixels) +
+						copyDestinationPitch);
+				mirroredExact =
+					row[1] == compatibilityBlue &&
+					row[2] == copiedGreen &&
+					row[3] == copiedRed;
+				UnLockVideoSurface(copyDestinationID);
+			}
+
+			const UINT16 destinationKey =
+				Get16BPPColorToken(0, 0, 255);
+			copySourcePixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copySourceID,
+						&copySourcePitch)) : nullptr;
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			if (copySourcePixels && copyDestinationPixels)
+			{
+				copySourcePixels[0] = copiedRed;
+				copySourcePixels[1] = copyKeyPixel;
+				copySourcePixels[2] = copiedGreen;
+				copyDestinationPixels[0] = compatibilityBlue;
+				copyDestinationPixels[1] = compatibilityBlue;
+				copyDestinationPixels[2] = copiedRed;
+			}
+			if (copySourcePixels)
+				UnLockVideoSurface(copySourceID);
+			if (copyDestinationPixels)
+				UnLockVideoSurface(copyDestinationID);
+			blt_vs_fx destinationKeyEffects{};
+			destinationKeyEffects.SrcRect =
+				SGPRect{0, 0, 3, 1};
+			const bool combinedKeysAccepted =
+				SetVideoSurfaceTransparency(
+					copyDestinationID,
+					destinationKey) &&
+				BltVideoSurface(
+					copyDestinationID, copySourceID, 0,
+					0, 0,
+					VS_BLT_SRCSUBRECT |
+						VS_BLT_USECOLORKEY |
+						VS_BLT_USEDESTCOLORKEY,
+					&destinationKeyEffects);
+			copyDestinationPixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copyDestinationID,
+						&copyDestinationPitch)) : nullptr;
+			bool combinedKeysExact = false;
+			if (copyDestinationPixels)
+			{
+				combinedKeysExact =
+					copyDestinationPixels[0] == copiedRed &&
+					copyDestinationPixels[1] == compatibilityBlue &&
+					copyDestinationPixels[2] == copiedRed;
+				UnLockVideoSurface(copyDestinationID);
+			}
+			copySourcePixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copySourceID,
+						&copySourcePitch)) : nullptr;
+			if (copySourcePixels)
+			{
+				copySourcePixels[0] = copiedRed;
+				copySourcePixels[1] = copiedGreen;
+				copySourcePixels[2] = compatibilityBlue;
+				copySourcePixels[3] = copyKeyPixel;
+				copySourcePixels[4] = 0;
+				UnLockVideoSurface(copySourceID);
+			}
+			blt_vs_fx overlappingEffects{};
+			overlappingEffects.SrcRect =
+				SGPRect{0, 0, 4, 1};
+			const bool overlappingPointerAccepted =
+				copySourceSurface &&
+				BltVideoSurfaceToVideoSurface(
+					copySourceSurface,
+					copySourceSurface, 0, 1, 0,
+					VS_BLT_SRCSUBRECT,
+					&overlappingEffects);
+			copySourcePixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copySourceID,
+						&copySourcePitch)) : nullptr;
+			const bool overlappingPointerExact =
+				copySourcePixels &&
+				copySourcePixels[0] == copiedRed &&
+				copySourcePixels[1] == copiedRed &&
+				copySourcePixels[2] == copiedGreen &&
+				copySourcePixels[3] == compatibilityBlue &&
+				copySourcePixels[4] == copyKeyPixel;
+			if (copySourcePixels)
+			{
+				copySourcePixels[0] = copiedRed;
+				copySourcePixels[1] = copiedGreen;
+				copySourcePixels[2] = compatibilityBlue;
+				copySourcePixels[3] = copyKeyPixel;
+				copySourcePixels[4] = 0;
+				UnLockVideoSurface(copySourceID);
+			}
+			overlappingEffects.SrcRect =
+				SGPRect{0, 0, 5, 1};
+			const bool selfMirrorAccepted =
+				copySourceSurface &&
+				BltVideoSurfaceToVideoSurface(
+					copySourceSurface,
+					copySourceSurface, 0, 0, 0,
+					VS_BLT_SRCSUBRECT |
+						VS_BLT_MIRROR_Y,
+					&overlappingEffects);
+			copySourcePixels = copySurfacesCreated ?
+				reinterpret_cast<PIXEL*>(
+					LockVideoSurface(
+						copySourceID,
+						&copySourcePitch)) : nullptr;
+			const bool selfMirrorExact =
+				copySourcePixels &&
+				copySourcePixels[0] == 0 &&
+				copySourcePixels[1] == copyKeyPixel &&
+				copySourcePixels[2] == compatibilityBlue &&
+				copySourcePixels[3] == copiedGreen &&
+				copySourcePixels[4] == copiedRed;
+			if (copySourcePixels)
+				UnLockVideoSurface(copySourceID);
+			if (copyDestinationSurface)
+				ClearAllVSurfaceRegions(
+					copyDestinationSurface);
+			Check(mirroredThroughCompatibility &&
+				mirroredExact &&
+				combinedKeysAccepted &&
+				combinedKeysExact &&
+				overlappingPointerAccepted &&
+				overlappingPointerExact &&
+				selfMirrorAccepted &&
+				selfMirrorExact,
+				"legacy destination regions, horizontal mirroring, combined colour keys, and overlapping pointer copies remain functional");
+
+			ETRLEObject trueColorRegion{};
 		trueColorRegion.usWidth = 2;
 		trueColorRegion.usHeight = 1;
 		alignas(UINT32) UINT8 trueColorSourceBytes[] = {
@@ -2514,6 +3303,56 @@ int main()
 			if (pixels) UnLockVideoSurface(copyDestinationID);
 			return value;
 		};
+
+		SGPRect previousPixelateClip{};
+		GetClippingRect(&previousPixelateClip);
+		SGPRect broadPixelateClip{-10, -10, 20, 20};
+		SetClippingRect(&broadPixelateClip);
+		bool pixelateSurfaceExact =
+			fillCopyDestination(copiedRed) &&
+			PixelateVideoSurfaceRect(
+				copyDestinationID, -2, -2, 10, 10);
+		const PIXEL pixelateBlack = PixFromColor16(0);
+		for (UINT32 y = 0;
+			pixelateSurfaceExact &&
+			y < copySurfaceDescription.usHeight; ++y)
+		{
+			for (UINT32 x = 0;
+				pixelateSurfaceExact &&
+				x < copySurfaceDescription.usWidth; ++x)
+			{
+				const PIXEL expected =
+					((x + y) & 1u) != 0 ?
+						pixelateBlack : copiedRed;
+				pixelateSurfaceExact =
+					readCopyDestination(x, y) == expected;
+			}
+		}
+		SGPRect restoredPixelateClip{};
+		GetClippingRect(&restoredPixelateClip);
+		PIXEL malformedPixelateBuffer[4] = {};
+		SGPRect malformedPixelateArea{0, 0, 1, 1};
+		UINT8 malformedPixelatePattern[8][8] = {};
+		const bool invalidPixelateRejected =
+			!PixelateVideoSurfaceRect(
+				copyDestinationID, 10, 10, 12, 12) &&
+			!Blt16BPPBufferPixelateRect(
+				malformedPixelateBuffer,
+				sizeof(PIXEL) - 1,
+				&malformedPixelateArea,
+				malformedPixelatePattern);
+		ClippingRect = previousPixelateClip;
+		Check(pixelateSurfaceExact &&
+			invalidPixelateRejected &&
+			restoredPixelateClip.iLeft ==
+				broadPixelateClip.iLeft &&
+			restoredPixelateClip.iTop ==
+				broadPixelateClip.iTop &&
+			restoredPixelateClip.iRight ==
+				broadPixelateClip.iRight &&
+			restoredPixelateClip.iBottom ==
+				broadPixelateClip.iBottom,
+			"surface pixelation clips to mapped storage, restores global clip state, and rejects malformed geometry");
 
 		SGPRect previousNativeImageClip;
 		GetClippingRect(&previousNativeImageClip);
@@ -2694,6 +3533,86 @@ int main()
 			AddStandardVideoObject(
 				&managedObjectDescription, &liveImageID) &&
 			GetVideoObject(&liveImage, liveImageID) && liveImage;
+		UINT32 convertedSurfaceID = 0;
+		HVSURFACE convertedSurface = nullptr;
+		UINT16 convertedWidth = 0;
+		UINT16 convertedHeight = 0;
+		UINT8 convertedDepth = 0;
+		UINT32 untouchedSurfaceID = 0xA55AA55Au;
+		const bool objectConvertedToSurface =
+			liveImageCreated &&
+			MakeVSurfaceFromVObject(
+				liveImageID, 0, &convertedSurfaceID) &&
+			GetVideoSurface(
+				&convertedSurface, convertedSurfaceID) &&
+			GetVideoSurfaceDescription(
+				convertedSurfaceID,
+				&convertedWidth, &convertedHeight,
+				&convertedDepth) &&
+			convertedSurface &&
+			convertedWidth == 1 &&
+			convertedHeight == 1 &&
+			convertedDepth == 16;
+		const bool failedObjectConversionTransactional =
+			!MakeVSurfaceFromVObject(
+				liveImageID,
+				std::numeric_limits<UINT16>::max(),
+				&untouchedSurfaceID) &&
+			untouchedSurfaceID == 0xA55AA55Au &&
+			!MakeVSurfaceFromVObject(
+				liveImageID, 0, nullptr);
+		const bool convertedSurfaceReleased =
+			convertedSurfaceID == 0 ||
+			DeleteVideoSurfaceFromIndex(convertedSurfaceID);
+		Check(objectConvertedToSurface &&
+			failedObjectConversionTransactional &&
+			convertedSurfaceReleased,
+			"video-object to surface conversion publishes only a complete native surface");
+
+		SGPRect previousCursorClip{};
+		GetClippingRect(&previousCursorClip);
+		SGPRect cursorClip{
+			0, 0, MAX_CURSOR_WIDTH, MAX_CURSOR_HEIGHT};
+		SetClippingRect(&cursorClip);
+		const bool managedCursorLoaded =
+			liveImageCreated &&
+			SetMouseCursorFromObject(
+				liveImageID, 0, 0, 0);
+		UINT32 cursorPitch = 0;
+		const PIXEL* const managedCursorPixels =
+			static_cast<const PIXEL*>(
+				LockMouseBuffer(&cursorPitch));
+		const bool managedCursorExact =
+			managedCursorLoaded &&
+			managedCursorPixels &&
+			cursorPitch ==
+				MAX_CURSOR_WIDTH * sizeof(PIXEL) &&
+			managedCursorPixels[0] !=
+				static_cast<PIXEL>(0xFFFF00FFu) &&
+			guiMouseBufferState == BUFFER_DIRTY;
+		UnlockMouseBuffer();
+		char overlongCursorPath[512];
+		std::memset(
+			overlongCursorPath, 'x',
+			sizeof(overlongCursorPath) - 1);
+		overlongCursorPath[
+			sizeof(overlongCursorPath) - 1] = '\0';
+		const bool cursorFileTransactional =
+			LoadCursorFile(
+				const_cast<CHAR8*>("tile.surface.png")) &&
+			SetCurrentCursor(0, 0, 0) &&
+			!LoadCursorFile(overlongCursorPath) &&
+			SetCurrentCursor(0, 0, 0);
+		const bool cursorHidden =
+			HideMouseCursor() &&
+			guiMouseBufferState == BUFFER_DISABLED;
+		EraseMouseCursor();
+		HideMouseCursor();
+		ClippingRect = previousCursorClip;
+		Check(managedCursorExact &&
+			cursorFileTransactional && cursorHidden,
+			"legacy cursor endpoints draw real sprites, retain a valid file on replacement failure, and honor visibility");
+
 		std::vector<PIXEL> originalNativePalette(256);
 		std::vector<PIXEL> copiedNativePalette(256);
 		std::vector<UINT16> copiedCompatibilityPalette(256);
@@ -6188,6 +7107,29 @@ int main()
 			DeleteVideoObjectFromIndex(restartedObjectID) &&
 			ShutdownVideoObjectManager(),
 			"video object manager restarts from its compatibility ID boundary");
+		SetMouseCursorProperties(0, 0, 1, 1);
+		ShutdownVideoManager();
+		const bool videoRestarted = InitializeVideoManager();
+		UINT32 restartedMousePitch = 0;
+		PIXEL* const restartedMouse =
+			videoRestarted ?
+				static_cast<PIXEL*>(
+					LockMouseBuffer(&restartedMousePitch)) :
+				nullptr;
+		if (restartedMouse)
+		{
+			std::fill_n(
+				restartedMouse,
+				static_cast<std::size_t>(
+					MAX_CURSOR_WIDTH) *
+					MAX_CURSOR_HEIGHT,
+				static_cast<PIXEL>(0xFF123456u));
+			UnlockMouseBuffer();
+		}
+		Check(videoRestarted && restartedMouse &&
+			restartedMousePitch ==
+				MAX_CURSOR_WIDTH * sizeof(PIXEL),
+			"video restart retains the fixed cursor capacity behind its advertised row pitch");
 		ShutdownVideoManager();
 	}
 

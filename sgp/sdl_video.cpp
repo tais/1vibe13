@@ -92,9 +92,14 @@ struct TextureReleaser
 {
 	void operator()(SDL_Texture* texture) const { SDL_DestroyTexture(texture); }
 };
+struct SurfaceReleaser
+{
+	void operator()(SDL_Surface* surface) const { SDL_DestroySurface(surface); }
+};
 using WindowOwner = UniqueResourcePtr<SDL_Window, WindowReleaser>;
 using RendererOwner = UniqueResourcePtr<SDL_Renderer, RendererReleaser>;
 using TextureOwner = UniqueResourcePtr<SDL_Texture, TextureReleaser>;
+using SurfaceOwner = UniqueResourcePtr<SDL_Surface, SurfaceReleaser>;
 
 static WindowOwner gWindow;
 
@@ -142,6 +147,9 @@ static INT16   gMouseCursorHotY = 0;
 // changes explicitly so a stationary, unchanged cursor does not force a texture
 // upload on every idle frame.
 static bool    gCursorDirty = true;
+static HVOBJECT gLegacyCursorStore = nullptr;
+static bool    gScreenshotRequested = false;
+static bool    gVideoSuspended = false;
 
 // Magenta sentinel marking transparent pixels in gMouseBuf. ETRLE blits only
 // write opaque pixels; surrounding pixels retain this key. It deliberately
@@ -200,6 +208,18 @@ static void DirtyFullScreen()
 	MarkFrameDirtyInternal();
 	gDirtyL = 0; gDirtyT = 0;
 	gDirtyR = SCREEN_WIDTH; gDirtyB = SCREEN_HEIGHT;
+}
+
+static void ConfigureCompatibilityRgbDistribution()
+{
+	// Live storage is native PIXEL/ARGB8888, but STCI, old mod fields, and
+	// APIs with "16BPP" in their names still exchange RGB565 tokens.
+	gusRedMask = 0xF800;
+	gusGreenMask = 0x07E0;
+	gusBlueMask = 0x001F;
+	gusRedShift = 8;
+	gusGreenShift = 3;
+	gusBlueShift = -3;
 }
 
 // Raw damage accumulation remains private to the SDL adapter. Public
@@ -337,7 +357,12 @@ BOOLEAN InitializeVideoManager(void)
 	}
 
 	const size_t framePixels = (size_t)SCREEN_WIDTH * SCREEN_HEIGHT;
-	const size_t mousePixels = (size_t)gMouseBufW * gMouseBufH;
+	// The lock API always exposes a MAX_CURSOR_WIDTH stride. Allocate that
+	// fixed capacity on every initialization too; using the dimensions of the
+	// last cursor made a video-manager restart allocate a smaller buffer while
+	// retaining the larger pitch, so the next multi-row cursor wrote past it.
+	const size_t mousePixels =
+		(size_t)MAX_CURSOR_WIDTH * MAX_CURSOR_HEIGHT;
 	auto frameBuffer = std::unique_ptr<PIXEL[]>(new (std::nothrow) PIXEL[framePixels]());
 	auto backBuffer  = std::unique_ptr<PIXEL[]>(new (std::nothrow) PIXEL[framePixels]());
 	auto mouseBuffer = std::unique_ptr<PIXEL[]>(new (std::nothrow) PIXEL[mousePixels]());
@@ -346,12 +371,20 @@ BOOLEAN InitializeVideoManager(void)
 		ShutdownVideoManager();
 		return FALSE;
 	}
+	std::fill_n(mouseBuffer.get(), mousePixels, kCursorTransparent);
 	gFrameBufferStorage = std::move(frameBuffer);
 	gBackBufferStorage  = std::move(backBuffer);
 	gMouseBufferStorage = std::move(mouseBuffer);
 	gFrameBuffer = gFrameBufferStorage.get();
 	gBackBuffer  = gBackBufferStorage.get();
 	gMouseBuf    = gMouseBufferStorage.get();
+	gMouseBufW = MAX_CURSOR_WIDTH;
+	gMouseBufH = MAX_CURSOR_HEIGHT;
+	gMouseCursorHotX = 0;
+	gMouseCursorHotY = 0;
+	gCursorDirty = true;
+	gScreenshotRequested = false;
+	gVideoSuspended = false;
 
 	// Initialize the historical RGB565 token masks from himage.cpp. Live
 	// framebuffer colours are ARGB8888, but asset and mod-compatibility APIs
@@ -365,12 +398,7 @@ BOOLEAN InitializeVideoManager(void)
 	// b becomes 5-bit b shifted right 3 (masked 0x001F).
 	// Keeping them initialized also makes the optional 16-bit compatibility
 	// build and old token-producing mod code deterministic.
-	gusRedMask   = 0xF800;
-	gusGreenMask = 0x07E0;
-	gusBlueMask  = 0x001F;
-	gusRedShift   = 8;
-	gusGreenShift = 3;
-	gusBlueShift  = -3;
+	ConfigureCompatibilityRgbDistribution();
 
 	DirtyFullScreen();
 	guiFrameBufferState = BUFFER_READY;
@@ -380,6 +408,13 @@ BOOLEAN InitializeVideoManager(void)
 
 void ShutdownVideoManager(void)
 {
+	if (gLegacyCursorStore)
+	{
+		DeleteVideoObject(gLegacyCursorStore);
+		gLegacyCursorStore = nullptr;
+	}
+	gScreenshotRequested = false;
+	gVideoSuspended = false;
 	gFrameBuffer = nullptr;
 	gBackBuffer  = nullptr;
 	gMouseBuf    = nullptr;
@@ -397,8 +432,31 @@ void ShutdownVideoManager(void)
 // coordinates into the renderer's logical 640x480 space.
 SDL_Renderer* SGP_GetSDLRenderer(void) { return gRenderer.get(); }
 
-void    SuspendVideoManager(void) {}
-BOOLEAN RestoreVideoManager(void) { return TRUE; }
+void SuspendVideoManager(void)
+{
+	// SDL retains the renderer resources across ordinary focus/minimize
+	// transitions, but preserve the legacy lifecycle state so callers can
+	// distinguish a real resume from a spurious restore request.
+	gVideoSuspended =
+		gFrameBuffer && gBackBuffer && gMouseBuf &&
+		gRenderer && gFrameTex;
+}
+
+BOOLEAN RestoreVideoManager(void)
+{
+	if (!gVideoSuspended) return FALSE;
+	if (!gFrameBuffer || !gBackBuffer || !gMouseBuf ||
+		!gRenderer || !gFrameTex)
+		return FALSE;
+
+	gVideoSuspended = false;
+	guiFrameBufferState = BUFFER_DIRTY;
+	if (guiMouseBufferState != BUFFER_DISABLED)
+		guiMouseBufferState = BUFFER_DIRTY;
+	gCursorDirty = true;
+	DirtyFullScreen();
+	return TRUE;
+}
 
 void GetCurrentVideoSettings(UINT16* w, UINT16* h, UINT8* depth)
 {
@@ -407,8 +465,15 @@ void GetCurrentVideoSettings(UINT16* w, UINT16* h, UINT8* depth)
 	if (depth) *depth = 16;
 }
 
-BOOLEAN CanBlitToFrameBuffer(void) { return TRUE; }
-BOOLEAN CanBlitToMouseBuffer(void) { return TRUE; }
+BOOLEAN CanBlitToFrameBuffer(void)
+{
+	return gFrameBuffer && guiFrameBufferState == BUFFER_READY;
+}
+
+BOOLEAN CanBlitToMouseBuffer(void)
+{
+	return gMouseBuf && guiMouseBufferState == BUFFER_READY;
+}
 
 void SetFrameBufferRefreshOverride(PTR cb)
 {
@@ -438,19 +503,26 @@ void UnlockFrameBuffer(void)           {}
 PTR  LockMouseBuffer(UINT32* pitch)    { if (pitch) *pitch = MAX_CURSOR_WIDTH * sizeof(PIXEL); return gMouseBuf; }
 void UnlockMouseBuffer(void)           {}
 
-BOOLEAN GetRGBDistribution(void) { return TRUE; }
+BOOLEAN GetRGBDistribution(void)
+{
+	ConfigureCompatibilityRgbDistribution();
+	return TRUE;
+}
 
 BOOLEAN GetPrimaryRGBDistributionMasks(UINT32* r, UINT32* g, UINT32* b)
 {
-	if (r) *r = 0xF800;
-	if (g) *g = 0x07E0;
-	if (b) *b = 0x001F;
+	if (!r || !g || !b) return FALSE;
+	ConfigureCompatibilityRgbDistribution();
+	*r = gusRedMask;
+	*g = gusGreenMask;
+	*b = gusBlueMask;
 	return TRUE;
 }
 
 BOOLEAN Set8BPPPalette(SGPPaletteEntry* pal)
 {
-	if (pal) std::memcpy(gSgpPalette, pal, sizeof(gSgpPalette));
+	if (!pal) return FALSE;
+	std::memcpy(gSgpPalette, pal, sizeof(gSgpPalette));
 	return TRUE;
 }
 
@@ -589,7 +661,15 @@ static void ShiftFrameBufferForScroll()
 }
 
 void StartFrameBufferRender(void) {}
-void EndFrameBufferRender(void)   {}
+void EndFrameBufferRender(void)
+{
+	// This pair historically bracketed direct framebuffer writes. There is no
+	// lock to release on heap storage, but ending the bracket still promises
+	// that new pixels will be presented. A state-only update would leave the
+	// SDL partial-upload rectangle empty and retain stale texture pixels.
+	guiFrameBufferState = BUFFER_DIRTY;
+	DirtyFullScreen();
+}
 
 // Explicit hook called from gamescreen.cpp's HandleTacticalScreen
 // between ScrollWorld() (which COMMITS the scroll and sets
@@ -641,6 +721,7 @@ static void CompositeCursorOntoFramebuffer()
 {
 	gCursorSaveX0 = gCursorSaveX1 = 0;
 	if (!gMouseBuf || !gFrameBuffer) return;
+	if (guiMouseBufferState == BUFFER_DISABLED) return;
 	if (gMouseBufW <= 0 || gMouseBufH <= 0) return;
 
 	const INT32 dstX = (INT32)gusMouseXPos - (INT32)gMouseCursorHotX;
@@ -690,6 +771,75 @@ static void RestoreCursorPixels()
 		PIXEL* fbRow = gFrameBuffer + (size_t)(gCursorStampDstY + sy) * SCREEN_WIDTH + gCursorStampDstX;
 		for (INT32 sx = gCursorSaveX0; sx < gCursorSaveX1; ++sx) fbRow[sx] = saveRow[sx];
 	}
+}
+
+static bool SaveFrameBufferPng(const char* path)
+{
+	if (!path || !path[0] || !gFrameBuffer ||
+		SCREEN_WIDTH == 0 || SCREEN_HEIGHT == 0)
+		return false;
+	SurfaceOwner surface(SDL_CreateSurfaceFrom(
+		SCREEN_WIDTH, SCREEN_HEIGHT,
+#if SGP_PIXEL_DEPTH == 32
+		// The renderer ignores framebuffer alpha. Mark it unused here too so
+		// cleared 0x00000000 pixels are saved as opaque black, matching what
+		// the player saw instead of becoming transparent in the PNG.
+		SDL_PIXELFORMAT_XRGB8888,
+#else
+		SDL_PIXELFORMAT_RGB565,
+#endif
+		gFrameBuffer, SCREEN_WIDTH * sizeof(PIXEL)));
+	if (!surface)
+	{
+		std::fprintf(stderr,
+			"[video] Could not create screenshot surface: %s\n",
+			SDL_GetError());
+		return false;
+	}
+	if (!SDL_SavePNG(surface.get(), path))
+	{
+		std::fprintf(stderr,
+			"[video] Could not save screenshot %s: %s\n",
+			path, SDL_GetError());
+		return false;
+	}
+	return true;
+}
+
+static void SaveRequestedScreenshot()
+{
+	if (!gScreenshotRequested) return;
+	gScreenshotRequested = false;
+	if (!SDL_CreateDirectory("Screenshots"))
+	{
+		std::fprintf(stderr,
+			"[video] Could not create Screenshots directory: %s\n",
+			SDL_GetError());
+		return;
+	}
+
+	char path[64] = {};
+	bool available = false;
+	for (unsigned index = 0; index < 100000; ++index)
+	{
+		const int length = std::snprintf(
+			path, sizeof(path), "Screenshots/SCREEN%05u.png", index);
+		if (length <= 0 || static_cast<std::size_t>(length) >= sizeof(path))
+			return;
+		if (!SDL_GetPathInfo(path, nullptr))
+		{
+			available = true;
+			break;
+		}
+	}
+	if (!available)
+	{
+		std::fprintf(stderr,
+			"[video] Screenshot sequence is full\n");
+		return;
+	}
+	if (SaveFrameBufferPng(path))
+		std::fprintf(stderr, "[video] Saved screenshot: %s\n", path);
 }
 
 // Push gFrameBuffer to the streaming texture and present. If the
@@ -754,6 +904,7 @@ static void RefreshScreenInternal(bool throttle)
 	// framebuffer ends up unchanged so non-tactical screens don't get
 	// a cursor trail across frames.
 	CompositeCursorOntoFramebuffer();
+	SaveRequestedScreenshot();
 
 	// ---- Idle-frame instrumentation (perf v3 #7) ------------------------------
 	// MEASUREMENT ONLY -- does NOT change what is presented. Opt in with
@@ -908,6 +1059,8 @@ static void RefreshScreenInternal(bool throttle)
 			                          uploadBytes);
 		}
 		gCursorDirty = false;
+		if (guiMouseBufferState != BUFFER_DISABLED)
+			guiMouseBufferState = BUFFER_READY;
 	}
 	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;
 
@@ -946,7 +1099,7 @@ void PlatformVideoPresentPaced() { RefreshScreenInternal(true); }
 // cap as their timing/anti-spin source).
 void PlatformVideoPresentImmediate() { RefreshScreenInternal(false); }
 
-// ---- Mouse cursor & misc (minimal so the stubs go away) -------------------
+// ---- Mouse cursor & misc --------------------------------------------------
 
 BOOLEAN EraseMouseCursor(void) {
 	if (!gMouseBuf) return TRUE;
@@ -960,32 +1113,131 @@ BOOLEAN SetMouseCursorProperties(INT16 hotX, INT16 hotY, UINT16 usCursorHeight, 
 	// -- height comes first. Earlier we had the last two reversed and
 	// the resulting stride mismatch made ETRLE-decoded cursors wrap
 	// every gMouseBufW pixels, producing fragmented/skewed sprites.
+	if (usCursorWidth > MAX_CURSOR_WIDTH ||
+		usCursorHeight > MAX_CURSOR_HEIGHT)
+		return FALSE;
 	gMouseCursorHotX = hotX;
 	gMouseCursorHotY = hotY;
-	if (usCursorWidth  > 0 && usCursorWidth  <= MAX_CURSOR_WIDTH)  gMouseBufW = usCursorWidth;
-	if (usCursorHeight > 0 && usCursorHeight <= MAX_CURSOR_HEIGHT) gMouseBufH = usCursorHeight;
+	gMouseBufW = usCursorWidth;
+	gMouseBufH = usCursorHeight;
 	gCursorDirty = true;
 	return TRUE;
 }
-BOOLEAN SetMouseCursorFromObject(UINT32, UINT16, UINT16, UINT16) { return TRUE; }
-BOOLEAN HideMouseCursor(void) {
-	// Cursor visibility is implicit -- gMouseBuf with all-transparent
-	// pixels composites to nothing. HideMouseCursor() callers also call
-	// EraseMouseCursor() first, which already wipes the buffer.
+
+static bool GetCursorRegion(
+	HVOBJECT object, UINT16 subIndex, ETRLEObject& region,
+	UINT16& width, UINT16& height)
+{
+	if (!object ||
+		!GetVideoObjectETRLEProperties(object, &region, subIndex))
+		return false;
+	const INT32 effectiveWidth =
+		static_cast<INT32>(region.usWidth) + region.sOffsetX;
+	const INT32 effectiveHeight =
+		static_cast<INT32>(region.usHeight) + region.sOffsetY;
+	if (effectiveWidth <= 0 || effectiveHeight <= 0 ||
+		effectiveWidth > MAX_CURSOR_WIDTH ||
+		effectiveHeight > MAX_CURSOR_HEIGHT)
+		return false;
+	width = static_cast<UINT16>(effectiveWidth);
+	height = static_cast<UINT16>(effectiveHeight);
+	return true;
+}
+
+BOOLEAN SetMouseCursorFromObject(
+	UINT32 objectIndex, UINT16 subIndex, UINT16 offsetX, UINT16 offsetY)
+{
+	HVOBJECT object = nullptr;
+	ETRLEObject region{};
+	UINT16 width = 0;
+	UINT16 height = 0;
+	if (!GetVideoObject(&object, objectIndex) ||
+		!GetCursorRegion(object, subIndex, region, width, height))
+		return FALSE;
+	if (!EraseMouseCursor() ||
+		!BltVideoObjectFromIndex(
+			MOUSE_BUFFER, objectIndex, subIndex, 0, 0,
+			VO_BLT_SRCTRANSPARENCY, nullptr))
+		return FALSE;
+	SetMouseCursorProperties(
+		static_cast<INT16>(offsetX), static_cast<INT16>(offsetY),
+		height, width);
+	DirtyCursor();
 	return TRUE;
 }
-BOOLEAN LoadCursorFile(STR8) { return TRUE; }
-BOOLEAN SetCurrentCursor(UINT16, UINT16, UINT16) { return TRUE; }
-BOOLEAN BltToMouseCursor(UINT32, UINT16, UINT16, UINT16) { return TRUE; }
-void    DirtyCursor(void) { gCursorDirty = true; }
-void    EnableCursor(BOOLEAN) { gCursorDirty = true; }
+BOOLEAN HideMouseCursor(void) {
+	guiMouseBufferState = BUFFER_DISABLED;
+	gCursorDirty = true;
+	return TRUE;
+}
+BOOLEAN LoadCursorFile(STR8 filename)
+{
+	if (!filename || !filename[0]) return FALSE;
+	VOBJECT_DESC description{};
+	description.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+	const int length = std::snprintf(
+		description.ImageFile, sizeof(description.ImageFile), "%s", filename);
+	if (length < 0 ||
+		static_cast<std::size_t>(length) >= sizeof(description.ImageFile))
+		return FALSE;
 
+	HVOBJECT replacement = CreateVideoObject(&description);
+	if (!replacement) return FALSE;
+	if (gLegacyCursorStore) DeleteVideoObject(gLegacyCursorStore);
+	gLegacyCursorStore = replacement;
+	return TRUE;
+}
+BOOLEAN SetCurrentCursor(
+	UINT16 subIndex, UINT16 offsetX, UINT16 offsetY)
+{
+	ETRLEObject region{};
+	UINT16 width = 0;
+	UINT16 height = 0;
+	if (!GetCursorRegion(
+		gLegacyCursorStore, subIndex, region, width, height))
+		return FALSE;
+	if (!EraseMouseCursor() ||
+		!BltVideoObject(
+			MOUSE_BUFFER, gLegacyCursorStore, subIndex, 0, 0,
+			VO_BLT_SRCTRANSPARENCY, nullptr))
+		return FALSE;
+	SetMouseCursorProperties(
+		static_cast<INT16>(offsetX), static_cast<INT16>(offsetY),
+		height, width);
+	DirtyCursor();
+	return TRUE;
+}
+BOOLEAN BltToMouseCursor(
+	UINT32 objectIndex, UINT16 subIndex, UINT16 x, UINT16 y)
+{
+	const BOOLEAN result = BltVideoObjectFromIndex(
+		MOUSE_BUFFER, objectIndex, subIndex, x, y,
+		VO_BLT_SRCTRANSPARENCY, nullptr);
+	if (result) DirtyCursor();
+	return result;
+}
+void DirtyCursor(void)
+{
+	guiMouseBufferState = BUFFER_DIRTY;
+	gCursorDirty = true;
+}
+void EnableCursor(BOOLEAN enable)
+{
+	// Preserve the original API's counterintuitive polarity: TRUE disabled
+	// cursor compositing and FALSE restored the ready state.
+	guiMouseBufferState = enable ? BUFFER_DISABLED : BUFFER_READY;
+	gCursorDirty = true;
+}
+
+// The old Ctrl+PrintScreen mode dumped every presented frame and could consume
+// gigabytes in minutes. Keep that test-only capture mode retired; ordinary
+// PrintScreen below is bounded to one image per keypress.
 void VideoCaptureToggle(void) {}
 
-// PrintScreen: SDL3 has SDL_RenderReadPixels + SDL_SaveBMP_IO which
-// could give a real screenshot path here, but JA2 only invokes this
-// from a JA2BETAVERSION-only hotkey. Stub for now.
-void PrintScreen(void) {}
+void PrintScreen(void)
+{
+	if (gFrameBuffer) gScreenshotRequested = true;
+}
 
 // FatalError: route through DEBUG.cpp's logger and abort. JA2 uses
 // this from a handful of asset-load failures; on non-Windows builds

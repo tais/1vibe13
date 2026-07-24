@@ -5288,31 +5288,35 @@ void GetClippingRect(SGPRect *clip)
 *********************************************************************************************/
 BOOLEAN Blt16BPPBufferPixelateRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBYTES, SGPRect *area, UINT8 Pattern[8][8], PIXEL usColor )
 {
-	INT32	width, height;
-	UINT32 LineSkip;
-	PIXEL *DestPtr;
-	INT32	iLeft, iTop, iRight, iBottom;
+	if (!pBuffer || !area || !Pattern ||
+		uiDestPitchBYTES < sizeof(PIXEL) ||
+		uiDestPitchBYTES % sizeof(PIXEL) != 0)
+		return FALSE;
+	if (ClippingRect.iLeft >= ClippingRect.iRight ||
+		ClippingRect.iTop >= ClippingRect.iBottom)
+		return FALSE;
 
-	// Assertions
-	Assert( pBuffer != NULL );
-	Assert( Pattern != NULL );
+	const INT32 pixelsPerRow =
+		static_cast<INT32>(uiDestPitchBYTES / sizeof(PIXEL));
+	const INT32 iLeft = __max(
+		0, __max(ClippingRect.iLeft, area->iLeft));
+	const INT32 iTop = __max(
+		0, __max(ClippingRect.iTop, area->iTop));
+	const INT32 iRight = __min(
+		pixelsPerRow - 1,
+		__min(ClippingRect.iRight - 1, area->iRight));
+	const INT32 iBottom =
+		__min(ClippingRect.iBottom - 1, area->iBottom);
+	if (iLeft > iRight || iTop > iBottom) return FALSE;
 
-	iLeft=__max(ClippingRect.iLeft, area->iLeft);
-	iTop=__max(ClippingRect.iTop, area->iTop);
-	iRight=__min(ClippingRect.iRight-1, area->iRight);
-	iBottom=__min(ClippingRect.iBottom-1, area->iBottom);
-
-	DestPtr=(pBuffer+(iTop*(uiDestPitchBYTES/sizeof(PIXEL)))+iLeft);
-	width=iRight-iLeft+1;
-	height=iBottom-iTop+1;
-	LineSkip=(uiDestPitchBYTES-(width*2));
-
-	CHECKF(width >=1);
-	CHECKF(height >=1);
+	PIXEL* const DestPtr =
+		pBuffer + static_cast<std::size_t>(iTop) * pixelsPerRow + iLeft;
+	const INT32 width = iRight - iLeft + 1;
+	const INT32 height = iBottom - iTop + 1;
 
 	// Tile the 8x8 Pattern over the rect (anchored at the rect's
-	// origin, not the buffer's): for each dest pixel at column x, row
-	// y within the rect, write usColor iff Pattern[y%8][x%8] is set.
+	// clipped origin, preserving the historical blitter's phase): for each
+	// destination pixel, write usColor iff Pattern[y%8][x%8] is set.
 	{
 		const PIXEL pxColor = PixFromColor16(usColor);
 		const UINT8* pat = &Pattern[0][0];
@@ -5326,7 +5330,6 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(PIXEL *pBuffer, UINT32 uiDestPitchBY
 			}
 			rowDest = (PIXEL *)((UINT8 *)rowDest + uiDestPitchBYTES);
 		}
-		(void)LineSkip;
 	}
 
 	return(TRUE);
