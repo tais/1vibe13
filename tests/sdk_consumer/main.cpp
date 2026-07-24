@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/CommandReplay.h>
 #include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
+#include <Engine/Adapters/JA2/CampaignEventService.h>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
@@ -201,6 +202,26 @@ int main()
 		externalCampaignClockService.service->capture(capturedCampaignClock) !=
 			CampaignClockCaptureResult::Success ||
 		capturedCampaignClock != externalCampaignClock.snapshot()) return 50;
+	CampaignEventQueueSnapshot externalCampaignEvents;
+	if (CampaignEventQueueSnapshot::create(
+			{{90121, 7, 0, 0, 17, 0}, {90121, 8, 3600, 4, 18, 1}},
+			externalCampaignEvents) != CampaignEventSnapshotCreateError::None)
+		return 51;
+	MemoryCampaignEventService externalCampaignEventService;
+	externalCampaignEventService.publish(externalCampaignEvents);
+	if (RegisterCampaignEventService(
+			legacyBraceRuntime.serviceCatalog(),
+			externalCampaignEventService) !=
+			EngineServiceRegistrationError::None) return 51;
+	const auto resolvedExternalCampaignEvents =
+		legacyBraceRuntime.serviceCatalog().resolve(CampaignEventServiceContract);
+	CampaignEventQueueSnapshot capturedExternalCampaignEvents;
+	if (!resolvedExternalCampaignEvents ||
+		resolvedExternalCampaignEvents.service->capture(
+			capturedExternalCampaignEvents) !=
+			CampaignEventCaptureResult::Success ||
+		capturedExternalCampaignEvents.events() !=
+			externalCampaignEvents.events()) return 51;
 
 	MemoryByteStorage storage;
 	MemoryRenderSurfaceAccess renderSurfaces(1024);

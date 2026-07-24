@@ -3,6 +3,8 @@ include(GNUInstallDirs)
 set(ja2_runtime_adapter_public_headers
   CampaignClockService.h
   CampaignClockSession.h
+  CampaignEventService.h
+  CampaignEventSnapshot.h
   CommandReplay.h
   EngineRuntime.h
   SimulationCommand.h
@@ -22,9 +24,9 @@ set(ja2_runtime_adapter_public_headers
   TacticalWorldSession.h
   TacticalWorldSnapshot.h)
 
-# JA2's deterministic campaign-time, command, and tactical-world vocabularies
-# sit above the reusable engine. The adapter depends on Engine/Core; Core never
-# depends on this target or on legacy game headers.
+# JA2's deterministic campaign-time/event, command, and tactical-world
+# vocabularies sit above the reusable engine. The adapter depends on
+# Engine/Core; Core never depends on this target or on legacy game headers.
 add_library(ja2_runtime_adapter STATIC
   CampaignClockSession.cpp
   CommandReplay.cpp

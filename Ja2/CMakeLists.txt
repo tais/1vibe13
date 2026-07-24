@@ -1,6 +1,7 @@
 set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/aniviewscreen.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignClockAdapter.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/CampaignEventAdapter.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignPackage.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Credits.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Fade Screen.cpp"

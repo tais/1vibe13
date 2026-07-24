@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
+#include <Engine/Adapters/JA2/CampaignEventService.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -418,6 +419,81 @@ int main()
 		runtimeCampaignClock ==
 			legacyBraceRuntime.campaignClockSession().snapshot(),
 		"EngineRuntime owns one stable read-only view of its campaign clock");
+
+	CampaignEventQueueSnapshot campaignEvents;
+	const std::vector<CampaignEventSnapshot> orderedCampaignEvents{
+		{190800, 11, 0, 0, 21, 0},
+		{190800, 12, 3600, 4, 22, 1},
+		{190861, std::numeric_limits<std::uint32_t>::max(), 60, 255, 255, 255}};
+	check(CampaignEventQueueSnapshot::create(
+			orderedCampaignEvents, campaignEvents) ==
+			CampaignEventSnapshotCreateError::None &&
+		campaignEvents.size() == 3 &&
+		campaignEvents.events()[0] == orderedCampaignEvents[0] &&
+		campaignEvents.events()[1] == orderedCampaignEvents[1] &&
+		campaignEvents.events()[2] == orderedCampaignEvents[2],
+		"campaign event snapshots preserve FIFO order and opaque legacy values");
+	const std::size_t campaignEventCapacity = campaignEvents.events().capacity();
+	std::vector<CampaignEventSnapshot> repeatedCampaignEvents =
+		orderedCampaignEvents;
+	check(CampaignEventQueueSnapshot::createReusableOrdered(
+			repeatedCampaignEvents, campaignEvents) ==
+			CampaignEventSnapshotCreateError::None &&
+		campaignEvents.events().capacity() == campaignEventCapacity,
+		"reusable campaign event captures retain caller-owned output storage");
+	check(CampaignEventQueueSnapshot::create(
+			{{190862, 1, 0, 0, 1, 0}, {190800, 2, 0, 0, 2, 0}},
+			campaignEvents) == CampaignEventSnapshotCreateError::UnorderedEvent &&
+		campaignEvents.size() == 3 &&
+		campaignEvents.events()[0] == orderedCampaignEvents[0] &&
+		CampaignEventQueueSnapshot::create(
+			{{190800, 1, 0, 0, 1, 0}, {190801, 2, 0, 0, 2, 0}},
+			campaignEvents, 1) ==
+			CampaignEventSnapshotCreateError::TooManyEvents &&
+		campaignEvents.size() == 3,
+		"rejected campaign event input preserves the last complete snapshot");
+
+	MemoryCampaignEventService memoryCampaignEvents;
+	ServiceCatalog campaignEventServices;
+	check(RegisterCampaignEventService(
+			campaignEventServices, memoryCampaignEvents) ==
+			EngineServiceRegistrationError::None,
+		"campaign event service registers as an explicit versioned host extension");
+	const auto resolvedCampaignEvents =
+		campaignEventServices.resolve(CampaignEventServiceContract);
+	const auto futureCampaignEvents =
+		campaignEventServices.resolve<CampaignEventService>(
+			CampaignEventServiceId, EngineServiceVersion{1, 1});
+	const auto wrongCampaignEventType =
+		campaignEventServices.resolve<CampaignClockService>(
+			CampaignEventServiceId, CampaignEventServiceVersion);
+	CampaignEventQueueSnapshot retainedCampaignEvents = campaignEvents;
+	check(resolvedCampaignEvents &&
+		resolvedCampaignEvents.service->capture(retainedCampaignEvents) ==
+			CampaignEventCaptureResult::Unavailable &&
+		retainedCampaignEvents.size() == 3 &&
+		futureCampaignEvents.error ==
+			EngineServiceLookupError::IncompatibleVersion &&
+		wrongCampaignEventType.error == EngineServiceLookupError::TypeMismatch,
+		"campaign event lookup enforces type and version without erasing retained state");
+	check(RegisterCampaignEventService(
+			campaignEventServices, memoryCampaignEvents) ==
+			EngineServiceRegistrationError::DuplicateId,
+		"campaign event service IDs cannot be registered twice");
+	memoryCampaignEvents.publish(campaignEvents);
+	CampaignEventQueueSnapshot capturedCampaignEvents;
+	check(memoryCampaignEvents.capture(capturedCampaignEvents) ==
+			CampaignEventCaptureResult::Success &&
+		capturedCampaignEvents.events() == campaignEvents.events(),
+		"memory campaign event services publish isolated deterministic fixtures");
+	memoryCampaignEvents.clear();
+	check(memoryCampaignEvents.capture(capturedCampaignEvents) ==
+			CampaignEventCaptureResult::Unavailable &&
+		capturedCampaignEvents.events() == campaignEvents.events() &&
+		NullCampaignEventService::instance().capture(capturedCampaignEvents) ==
+			CampaignEventCaptureResult::Unavailable &&
+		capturedCampaignEvents.events() == campaignEvents.events(),
+		"cleared and null campaign event services retain the last complete capture");
 
 	TacticalEntityDirectory entityDirectory(2);
 	check(entityDirectory.maximumSlots() == 2 &&
