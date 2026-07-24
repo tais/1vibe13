@@ -53,7 +53,6 @@
 #include "connect.h"
 
 UINT32 guiCurrentScreen;
-UINT32 guiPreviousScreen = NO_PENDING_SCREEN;
 
 static bool IsOverlayScreen(UINT32 screen)
 {
@@ -88,6 +87,13 @@ UINT32 GetPendingNewScreen()
 	const UINT32* pending =
 		GetGameContext().screenController().pending();
 	return pending ? *pending : NO_PENDING_SCREEN;
+}
+
+UINT32 GetPreviousScreen()
+{
+	const UINT32* previous =
+		GetGameContext().screenController().previous();
+	return previous ? *previous : NO_PENDING_SCREEN;
 }
 
 INT32	giStartingMemValue = 0;
@@ -547,7 +553,6 @@ static FramePlan PrepareGameFrame()
 	if( uiOldScreen != guiCurrentScreen )
 	{
 		HandleNewScreenChange( uiOldScreen, guiCurrentScreen );
-		guiPreviousScreen = guiCurrentScreen;
 		RecordScreenTransition(uiOldScreen);
 		guiCurrentScreen = uiOldScreen;
 

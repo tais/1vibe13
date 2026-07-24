@@ -668,8 +668,7 @@ BOOLEAN	EnterSaveLoadScreen()
 	RenderImage = TRUE;
 
 	// this is where we came from; if loading of resources fails, this is also where we go next/back
-	extern UINT32 guiPreviousScreen;
-	guiSaveLoadExitScreen = guiPreviousScreen;
+	guiSaveLoadExitScreen = GetPreviousScreen();
 
 	//init the list
 	InitSaveGameArray();

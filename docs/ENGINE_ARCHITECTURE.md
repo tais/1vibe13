@@ -384,10 +384,11 @@ the engine must not contain SDL types in its public domain model.
   previous-screen globals.
 - `StateController` owns current, previous, and pending application state above
   that stack. The JA2 loop routes immediate and requested transitions through
-  it, including message/chat overlays. The duplicate pending-screen scalar has
-  been deleted and callers query the controller through `GetPendingNewScreen`;
-  the widely read current-screen scalar remains a synchronized compatibility
-  mirror during migration.
+  it, including message/chat overlays. The duplicate pending- and
+  previous-screen scalars have been deleted and callers query the controller
+  through `GetPendingNewScreen` and `GetPreviousScreen`; the widely read
+  current-screen scalar remains a synchronized compatibility mirror during
+  migration.
 - `StateRegistry` owns game-agnostic state lifecycle and dispatch callbacks.
   The live JA2 screen table is registered once as a compatibility adapter, and
   all initialization, handling, and shutdown now run through the runtime host.

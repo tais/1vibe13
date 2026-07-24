@@ -290,18 +290,23 @@ foreach(source_file IN LISTS world_state_declaration_files)
   endforeach()
 endforeach()
 
-# Pending application screen state is owned by StateController. The former
-# scalar mirror has no serialization or external ABI requirement and must not
-# return as a second source of truth.
+# Pending and previous application screen state are owned by StateController.
+# The former scalar mirrors have no serialization or external ABI requirement
+# and must not return as second sources of truth.
+set(retired_screen_state_mirrors
+  guiPendingScreen
+  guiPreviousScreen)
 foreach(source_file IN LISTS world_state_declaration_files)
   file(READ "${source_file}" contents)
-  string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])guiPendingScreen([^A-Za-z0-9_]|$)"
-    retired_pending_screen_mirror "${contents}")
-  if(retired_pending_screen_mirror)
-    message(FATAL_ERROR
-      "Retired pending-screen mirror returned in ${source_file}; use SetPendingNewScreen and GetPendingNewScreen")
-  endif()
+  foreach(mirror IN LISTS retired_screen_state_mirrors)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${mirror}([^A-Za-z0-9_]|$)"
+      retired_screen_state_mirror "${contents}")
+    if(retired_screen_state_mirror)
+      message(FATAL_ERROR
+        "Retired screen-state mirror '${mirror}' returned in ${source_file}; query StateController through the gameloop screen accessors")
+    endif()
+  endforeach()
 endforeach()
 
 # Loaded-world turn identity is owned by TacticalWorldSession. The old

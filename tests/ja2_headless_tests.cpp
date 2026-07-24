@@ -2755,16 +2755,24 @@ int main( int, char** )
 
 	{
 		GameContext& compiledContext = GetGameContext();
+		compiledContext.screenController().reset( 7 );
+		compiledContext.screenController().transitionTo(
+			9, []( UINT32 ) { return false; } );
+		const bool previousScreenOwnedByController =
+			GetPreviousScreen() == 7;
+		compiledContext.screenController().reset( 9 );
 		SetPendingNewScreen( 11 );
 		const bool pendingScreenOwnedByController =
 			GetPendingNewScreen() == 11 &&
 			compiledContext.screenController().pending() &&
 			*compiledContext.screenController().pending() == 11;
 		SetPendingNewScreen( NO_PENDING_SCREEN );
-		CHECK( pendingScreenOwnedByController &&
+		CHECK( previousScreenOwnedByController &&
+		       GetPreviousScreen() == NO_PENDING_SCREEN &&
+		       pendingScreenOwnedByController &&
 		       GetPendingNewScreen() == NO_PENDING_SCREEN &&
 		       !compiledContext.screenController().hasPending(),
-		       "pending application screen state has one controller-owned representation" );
+		       "pending and previous application screen state have one controller-owned representation" );
 		LegacyCampaignPackage& compiledPackage = GetCompiledCampaignPackage();
 		LegacyRulesPackage& compiledRules = GetCompiledRulesPackage();
 		const std::string& packageId = compiledPackage.descriptor().content.id;
