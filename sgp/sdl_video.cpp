@@ -1,21 +1,7 @@
-// SDL3-backed video manager. Phase 5 first slice. Replaces the
-// DirectDraw-driven video.cpp (which compiles to an empty TU on
-// non-Windows). The legacy public API (Lock*Buffer / Unlock*Buffer /
-// InvalidateRegion* / RefreshScreen / etc.) is preserved so callers
-// don't need to change; under the hood every "surface" is just a
-// heap RGB565 buffer (UINT16*) and the framebuffer also has a
-// matching SDL_Texture(SDL_PIXELFORMAT_RGB565, STREAMING) so the GPU
-// gets to do the present.
-//
-// What's NOT here yet (still stubbed in sgp_non_win32_stubs.cpp):
-//   - vsurface.cpp (the surface manager) -- Phase 5 second slice.
-//   - mouse cursor compositing (we treat the OS cursor as authoritative
-//     and let SDL render it).
-//   - 8bpp palette upload (no 8bpp renderer in this slice).
-//   - video capture (gpFrameData[]) -- the replay feature.
-//
-// As subsequent slices land, the stubs in sgp_non_win32_stubs.cpp for
-// their respective subsystems get deleted.
+// SDL3-backed video manager. It owns native PIXEL frame/back/cursor buffers
+// and presents the shipped 32-bit build through an ARGB8888 streaming texture.
+// The legacy Lock*Buffer / InvalidateRegion* / RefreshScreen API remains as a
+// compatibility layer; no DirectDraw surface or RGB565 framebuffer survives.
 
 #include "types.h"
 #include "video.h"
@@ -136,10 +122,9 @@ void ApplyFocusMouseLock(SDL_Window* win, bool focused)
 static RendererOwner gRenderer;
 static TextureOwner gFrameTex;
 
-// Owned RGB565 buffers, one per logical surface. The raw aliases preserve the
-// legacy lock API, while the unique_ptrs make partial initialization and
-// repeated shutdown safe. Pitch is always SCREEN_WIDTH * sizeof(PIXEL) (no row
-// padding).
+// Owned native-pixel buffers, one per logical surface. The raw aliases preserve
+// the legacy lock API, while the unique_ptrs make partial initialization and
+// repeated shutdown safe. Pitch is SCREEN_WIDTH * sizeof(PIXEL) (no padding).
 static std::unique_ptr<PIXEL[]> gFrameBufferStorage;
 static std::unique_ptr<PIXEL[]> gBackBufferStorage;
 static std::unique_ptr<PIXEL[]> gMouseBufferStorage;
@@ -158,13 +143,9 @@ static INT16   gMouseCursorHotY = 0;
 // upload on every idle frame.
 static bool    gCursorDirty = true;
 
-// Magenta-ish sentinel in RGB565 marking "transparent" pixels in
-// gMouseBuf. ETRLE blits only write opaque pixels; surrounding area
-// keeps this value and the composite below skips it. Chosen to be a
-// colour real cursor sprites don't contain (full red + full blue, no
-// green) so the cursor's black outline pixels are preserved -- using
-// 0x0000 as the key ate them and left the cursor looking fragmented
-// against dark backgrounds.
+// Magenta sentinel marking transparent pixels in gMouseBuf. ETRLE blits only
+// write opaque pixels; surrounding pixels retain this key. It deliberately
+// preserves black cursor outlines, which a zero-valued key used to erase.
 #if SGP_PIXEL_DEPTH == 32
 static constexpr PIXEL kCursorTransparent = 0xFFFF00FFu;  // ARGB8888 opaque magenta
 #else
@@ -372,10 +353,9 @@ BOOLEAN InitializeVideoManager(void)
 	gBackBuffer  = gBackBufferStorage.get();
 	gMouseBuf    = gMouseBufferStorage.get();
 
-	// Initialize the RGB565 mask + shift globals from himage.cpp. The
-	// legacy code queried DirectDraw for these and JA2's color /
-	// palette / shade-table code reads them in Get16BPPColor to
-	// convert 8-bit-per-channel RGB triples into RGB565 pixels:
+	// Initialize the historical RGB565 token masks from himage.cpp. Live
+	// framebuffer colours are ARGB8888, but asset and mod-compatibility APIs
+	// still use these masks when explicitly packing a 16-bit token:
 	//     r16 = (r << gusRedShift)   & gusRedMask
 	//     g16 = (g << gusGreenShift) & gusGreenMask
 	//     b16 = (b << gusBlueShift)  & gusBlueMask
@@ -383,9 +363,8 @@ BOOLEAN InitializeVideoManager(void)
 	// becomes 5-bit r by shifting left 8 (then masking with 0xF800);
 	// 8-bit g becomes 6-bit g shifted left 3 (masked 0x07E0); 8-bit
 	// b becomes 5-bit b shifted right 3 (masked 0x001F).
-	// Without these, every Get16BPPColor() returned 0 (or close to
-	// 0), making the rendered screen nearly all black or, with masks
-	// alone, blue-tinted.
+	// Keeping them initialized also makes the optional 16-bit compatibility
+	// build and old token-producing mod code deterministic.
 	gusRedMask   = 0xF800;
 	gusGreenMask = 0x07E0;
 	gusBlueMask  = 0x001F;

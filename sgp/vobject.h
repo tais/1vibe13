@@ -49,16 +49,36 @@ typedef struct
 	INT8 *		pbZChange;			// change to the Z value in each strip (after the first)
 } ZStripInfo;
 
+enum class NativePixelObjectStorage : UINT8
+{
+	// Imported 16/32-bit artwork expanded into a dense native-pixel image.
+	LinearPixels = 0,
+	// An indexed ETRLE region decoded once into dense pixels plus an explicit
+	// opacity mask. The mask keeps opaque black distinct from transparency.
+	MaskedSprite
+};
+
 typedef struct
 {
-	PIXEL *			p16BPPData;
+	union
+	{
+		PIXEL *		pNativePixels;
+		// Historical source-compatible name. The allocation always contains
+		// PIXEL-sized data, even when an imported asset was stored as RGB565.
+		PIXEL *		p16BPPData;
+	};
+	UINT8 *			pNativeTransparencyMask;
 	UINT16			usRegionIndex;
 	UINT8			ubShadeLevel;
 	UINT16			usWidth;
 	UINT16			usHeight;
 	INT16			sOffsetX;
 	INT16			sOffsetY;
-} SixteenBPPObjectInfo;
+	NativePixelObjectStorage storage;
+} NativePixelObjectInfo;
+
+// Keep the original public type name for mods that include this header.
+typedef NativePixelObjectInfo SixteenBPPObjectInfo;
 
 // This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
 // From RGB to COLORVAL
@@ -87,11 +107,15 @@ typedef struct TAG_HVOBJECT
 	UINT32					uiSizePixData;						// ETRLE data size
 	SGPPaletteEntry			*pPaletteEntry;						// 8BPP Palette						  
 	COLORVAL				TransparentColor;					// Defaults to 0,0,0
-	PIXEL					*p16BPPPalette;						// palette used for 8->screen-depth blits (PIXEL: RGB565 or ARGB8888)
+	PIXEL					*p16BPPPalette;						// native palette for indexed sprites; historical name
 
 	PTR						pPixData;							// ETRLE pixel data
 	ETRLEObject				*pETRLEObject;						// Object offset data etc
-	SixteenBPPObjectInfo	*p16BPPObject;
+	union
+	{
+		NativePixelObjectInfo	*pNativePixelObject;
+		SixteenBPPObjectInfo	*p16BPPObject;
+	};
 	PIXEL					*pShades[HVOBJECT_SHADE_TABLES];	// Shading tables (per-shade palettes)
 	PIXEL					*pShadeCurrent;
 	PIXEL					*pGlow;								// glow highlight table
@@ -99,7 +123,11 @@ typedef struct TAG_HVOBJECT
 	UINT8					*pGlow8;							// 8-bit glow table
 	ZStripInfo				**ppZStripInfo;						// Z-value strip info arrays
 
-	UINT16					usNumberOf16BPPObjects;
+	union
+	{
+		UINT16				usNumberOfNativePixelObjects;
+		UINT16				usNumberOf16BPPObjects;
+	};
 	UINT16					usNumberOfObjects;					// Total number of objects
 	UINT8					ubBitDepth;							// BPP 
 	SGPFILENAME				ImageFile;
@@ -484,9 +512,15 @@ BOOLEAN GetVideoObjectETRLESubregionProperties( UINT32 uiVideoObject, UINT16 usI
 
 BOOLEAN SetVideoObjectPalette8BPP(INT32 uiVideoObject, SGPPaletteEntry *pPal8);
 BOOLEAN SetVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16 *pPal16);
+BOOLEAN SetVideoObjectPaletteNativePixels(INT32 uiVideoObject, const PIXEL *pPalette);
 BOOLEAN GetVideoObjectPalette16BPP(INT32 uiVideoObject, PIXEL **ppPal16);
 BOOLEAN CopyVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16 *ppPal16);
+BOOLEAN CopyVideoObjectPaletteNativePixels(INT32 uiVideoObject, PIXEL *pPalette);
 
+BOOLEAN CacheVObjectRegionNativePixels( HVOBJECT hVObject, UINT16 usRegionIndex, UINT8 ubShadeLevel );
+BOOLEAN FindCachedVObjectNativePixelRegion( HVOBJECT hVObject, UINT16 usRegionIndex, UINT8 ubShadeLevel, UINT16 * pusIndex );
+// Historical source-compatible spellings. These now cache native PIXEL data,
+// not a packed 16-bit colour stream.
 BOOLEAN ConvertVObjectRegionTo16BPP( HVOBJECT hVObject, UINT16 usRegionIndex, UINT8 ubShadeLevel );
 BOOLEAN CheckFor16BPPRegion( HVOBJECT hVObject, UINT16 usRegionIndex, UINT8 ubShadeLevel, UINT16 * pusIndex );
 

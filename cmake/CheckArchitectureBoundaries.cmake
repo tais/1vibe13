@@ -305,13 +305,19 @@ set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/vobject_blitters.cpp"
   "${SOURCE_ROOT}/sgp/vobject_depth_queries.cpp"
   "${SOURCE_ROOT}/sgp/vobject_mask_blitters.cpp"
-  "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp")
+  "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp"
+  "${SOURCE_ROOT}/sgp/vobject_native_pixel_blitters.cpp"
+  "${SOURCE_ROOT}/sgp/vobject_native_pixel_cache.cpp")
 set(multiz_blitter_owner
   "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp")
 set(depth_query_owner
   "${SOURCE_ROOT}/sgp/vobject_depth_queries.cpp")
 set(mask_blitter_owner
   "${SOURCE_ROOT}/sgp/vobject_mask_blitters.cpp")
+set(native_pixel_blitter_owner
+  "${SOURCE_ROOT}/sgp/vobject_native_pixel_blitters.cpp")
+set(native_pixel_cache_owner
+  "${SOURCE_ROOT}/sgp/vobject_native_pixel_cache.cpp")
 foreach(source_file IN LISTS world_state_files)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
@@ -390,6 +396,24 @@ foreach(source_file IN LISTS world_state_files)
     if(direct_depth_query_implementation)
       message(FATAL_ERROR
         "Production code implements a raw inverse-depth draw or visibility query in ${source_file}; keep depth reads in the dedicated SGP backend")
+    endif()
+  endif()
+  if(NOT "${source_file}" STREQUAL "${native_pixel_blitter_owner}")
+    string(REGEX MATCH
+      "BOOLEAN[ \t\r\n]+(BltNativePixelDataToBufferTransparentClip|Blt16BPPDataTo16BPPBufferTransparentClip)[ \t\r\n]*\\("
+      direct_native_pixel_blitter_implementation "${contents}")
+    if(direct_native_pixel_blitter_implementation)
+      message(FATAL_ERROR
+        "Production code implements native-pixel cache rasterization in ${source_file}; keep it in the dedicated SGP backend")
+    endif()
+  endif()
+  if(NOT "${source_file}" STREQUAL "${native_pixel_cache_owner}")
+    string(REGEX MATCH
+      "BOOLEAN[ \t\r\n]+(CacheVObjectRegionNativePixels|FindCachedVObjectNativePixelRegion|ConvertVObjectRegionTo16BPP|CheckFor16BPPRegion)[ \t\r\n]*\\("
+      direct_native_pixel_cache_implementation "${contents}")
+    if(direct_native_pixel_cache_implementation)
+      message(FATAL_ERROR
+        "Production code implements native-pixel sprite-cache ownership in ${source_file}; keep it in the dedicated SGP cache backend")
     endif()
   endif()
 

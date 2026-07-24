@@ -1195,7 +1195,9 @@ typedef struct
 	BOOLEAN fMerc;
 	BOOLEAN	fCheckForRedundency;
 	BOOLEAN	fMultiZBlitter;
-	BOOLEAN fConvertTo16;
+	// Retains the historical table layout; the dormant packed-colour cache
+	// toggle was removed when converted sprites became an explicit native cache.
+	BOOLEAN fReserved;
 	BOOLEAN	fObscured;
 } RenderFXType;
 
@@ -1969,7 +1971,6 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 	BOOLEAN			fTranslucencyType = FALSE;
 	INT16				sX, sY;
 	BOOLEAN			fTileInvisible = FALSE;
-	BOOLEAN			fConvertTo16 = FALSE;
 	UINT32			cnt;
 	static			UINT8				ubLevelNodeStartIndex[NUM_RENDER_FX_TYPES];
 	BOOLEAN			bItemOutline;
@@ -1979,7 +1980,6 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 	INT32			uiMapPosIndex;
 	UINT8				bBlitClipVal;
 	INT8				bItemCount, bVisibleItemCount;
-	//UINT16			us16BPPIndex;
 	RenderFXType  RenderingFX;
 	BOOLEAN				fCheckForMouseDetections = FALSE;
 	static				RenderFXType  RenderFXList[NUM_RENDER_FX_TYPES];
@@ -2152,7 +2152,6 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 							fLinkedListDirection = RenderingFX.fLinkedListDirection;
 							fCheckForRedundency = RenderingFX.fCheckForRedundency;
 							fMultiZBlitter = RenderingFX.fMultiZBlitter;
-							fConvertTo16 = RenderingFX.fConvertTo16;
 							fIntensityBlitter = FALSE;
 							fSaveZ = FALSE;
 							fWallTile = FALSE;
@@ -3235,15 +3234,6 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								}
 								else
 								{
-									/*if(fConvertTo16)
-									{
-										ConvertVObjectRegionTo16BPP(hVObject, usImageIndex, 4);
-										if(CheckFor16BPPRegion(hVObject, usImageIndex, 4, &us16BPPIndex))
-										{
-											Blt16BPPDataTo16BPPBufferTransparentClip((PIXEL *)pDestBuf, uiDestPitchBYTES,  hVObject, sXPos, sYPos, us16BPPIndex, &gClippingRect);
-										}
-									}*/
-
 									if (fMultiTransShadowZBlitter)
 									{
 										if (fZBlitter)

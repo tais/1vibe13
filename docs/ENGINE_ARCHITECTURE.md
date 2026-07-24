@@ -223,6 +223,12 @@ the engine must not contain SDL types in its public domain model.
   command, while sprite-footprint clears and tile-redundancy reads use the
   clear-mask command and visibility query. Their raw RGBA8888 mask, inverse-Z,
   and signed occlusion implementations now live in dedicated SGP backends;
+  the historical converted-sprite cache is likewise isolated behind dedicated
+  native-pixel cache and raster backends. It validates indexed ETRLE before
+  allocation, expands shade entries into dense `PIXEL` storage once, and keeps
+  transparency in a separate mask so opaque black is not a colour-key casualty.
+  The old `*16BPP*` entry points remain source-compatible aliases but no longer
+  own or decode packed 2-byte colour data.
   `renderworld.cpp` owns orchestration only. The historical clipped
   physics-object outline remains non-depth
   and uses the regular outline command. Other

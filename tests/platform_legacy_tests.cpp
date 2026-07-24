@@ -715,6 +715,8 @@ int main()
 {
 	static_assert(std::is_same<SurfaceData::tID, std::uintptr_t>::value,
 		"surface registry IDs must preserve the native pointer width");
+	static_assert(SGP_PIXEL_DEPTH == 32 && sizeof(PIXEL) == 4,
+		"the shipped SDL3 platform runtime must remain ARGB8888");
 	std::printf("== platform_legacy_tests ==\n");
 	Check(SDL_Init(SDL_INIT_EVENTS), "SDL event subsystem initializes");
 
@@ -1531,6 +1533,142 @@ int main()
 		unregisteredDestination == std::vector<PIXEL>(4, static_cast<PIXEL>(0)),
 		"raw blits reject an unknown destination without fabricating clip data");
 
+	PIXEL nativeCachePalette[256] = {};
+	nativeCachePalette[1] = 0xFF000000u;
+	nativeCachePalette[2] = 0xFF123456u;
+	UINT8 nativeCacheEtrle[] = {
+		0x81, 0x02, 0x01, 0x02, 0x81, 0x00,
+		0x02, 0x02, 0x01, 0x82, 0x00};
+	ETRLEObject nativeCacheRegion{};
+	nativeCacheRegion.usWidth = 4;
+	nativeCacheRegion.usHeight = 2;
+	nativeCacheRegion.uiDataOffset = 0;
+	nativeCacheRegion.uiDataLength = sizeof(nativeCacheEtrle);
+	SGPVObject nativeCacheSource{};
+	nativeCacheSource.ubBitDepth = 8;
+	nativeCacheSource.usNumberOfObjects = 1;
+	nativeCacheSource.uiSizePixData = sizeof(nativeCacheEtrle);
+	nativeCacheSource.pPixData = nativeCacheEtrle;
+	nativeCacheSource.pETRLEObject = &nativeCacheRegion;
+	nativeCacheSource.pShades[4] = nativeCachePalette;
+	UINT16 nativeCacheIndex = std::numeric_limits<UINT16>::max();
+	const bool nativeCacheBuilt =
+		CacheVObjectRegionNativePixels(&nativeCacheSource, 0, 4) &&
+		FindCachedVObjectNativePixelRegion(
+			&nativeCacheSource, 0, 4, &nativeCacheIndex) &&
+		nativeCacheIndex == 0 &&
+		nativeCacheSource.usNumberOfNativePixelObjects == 1;
+	const bool compatibilityCacheNames =
+		ConvertVObjectRegionTo16BPP(&nativeCacheSource, 0, 4) &&
+		CheckFor16BPPRegion(
+			&nativeCacheSource, 0, 4, &nativeCacheIndex) &&
+		nativeCacheSource.usNumberOfNativePixelObjects == 1;
+	const NativePixelObjectInfo* const nativeCache =
+		nativeCacheBuilt ?
+			&nativeCacheSource.pNativePixelObject[nativeCacheIndex] :
+			nullptr;
+	const bool nativeCachePixelsExact =
+		nativeCache &&
+		nativeCache->storage ==
+			NativePixelObjectStorage::MaskedSprite &&
+		nativeCache->pNativePixels &&
+		nativeCache->pNativeTransparencyMask &&
+		nativeCache->pNativePixels[0] == 0 &&
+		nativeCache->pNativePixels[1] == nativeCachePalette[1] &&
+		nativeCache->pNativePixels[2] == nativeCachePalette[2] &&
+		nativeCache->pNativePixels[4] == nativeCachePalette[2] &&
+		nativeCache->pNativeTransparencyMask[0] == 0 &&
+		nativeCache->pNativeTransparencyMask[1] == 1 &&
+		nativeCache->pNativeTransparencyMask[2] == 1 &&
+		nativeCache->pNativeTransparencyMask[3] == 0 &&
+		nativeCache->pNativeTransparencyMask[4] == 1 &&
+		nativeCache->pNativeTransparencyMask[5] == 1 &&
+		PixToColor16(nativeCachePalette[2]) == 0x11AAu;
+
+	const PIXEL nativeCacheSentinel = 0xFFABCDEFu;
+	std::vector<PIXEL> nativeCacheDestination(
+		8 * 4, nativeCacheSentinel);
+	SGPRect nativeCacheClip{2, 1, 5, 3};
+	const bool nativeCacheClippedDraw =
+		BltNativePixelDataToBufferTransparentClip(
+			nativeCacheDestination.data(),
+			8 * sizeof(PIXEL),
+			&nativeCacheSource, 1, 1,
+			nativeCacheIndex, &nativeCacheClip) &&
+		nativeCacheDestination[8 + 1] == nativeCacheSentinel &&
+		nativeCacheDestination[8 + 2] == nativeCachePalette[1] &&
+		nativeCacheDestination[8 + 3] == nativeCachePalette[2] &&
+		nativeCacheDestination[8 + 4] == nativeCacheSentinel &&
+		nativeCacheDestination[16 + 1] == nativeCacheSentinel &&
+		nativeCacheDestination[16 + 2] == nativeCachePalette[1] &&
+		nativeCacheDestination[16 + 3] == nativeCacheSentinel;
+	std::vector<PIXEL> compatibilityCacheDestination(
+		4 * 2, nativeCacheSentinel);
+	SGPRect compatibilityCacheClip{0, 0, 4, 2};
+	const bool compatibilityCacheDraw =
+		Blt16BPPDataTo16BPPBufferTransparentClip(
+			compatibilityCacheDestination.data(),
+			4 * sizeof(PIXEL),
+			&nativeCacheSource, 0, 0,
+			nativeCacheIndex, &compatibilityCacheClip) &&
+		compatibilityCacheDestination ==
+			std::vector<PIXEL>{
+				nativeCacheSentinel,
+				nativeCachePalette[1],
+				nativeCachePalette[2],
+				nativeCacheSentinel,
+				nativeCachePalette[2],
+				nativeCachePalette[1],
+				nativeCacheSentinel,
+				nativeCacheSentinel};
+
+	UINT8 malformedNativeCacheEtrle[] = {0x02, 0x01, 0x02, 0x00};
+	ETRLEObject malformedNativeCacheRegion{};
+	malformedNativeCacheRegion.usWidth = 4;
+	malformedNativeCacheRegion.usHeight = 1;
+	malformedNativeCacheRegion.uiDataLength =
+		sizeof(malformedNativeCacheEtrle);
+	SGPVObject malformedNativeCacheSource{};
+	malformedNativeCacheSource.ubBitDepth = 8;
+	malformedNativeCacheSource.usNumberOfObjects = 1;
+	malformedNativeCacheSource.uiSizePixData =
+		sizeof(malformedNativeCacheEtrle);
+	malformedNativeCacheSource.pPixData =
+		malformedNativeCacheEtrle;
+	malformedNativeCacheSource.pETRLEObject =
+		&malformedNativeCacheRegion;
+	malformedNativeCacheSource.pShades[4] =
+		nativeCachePalette;
+	const bool malformedNativeCacheRejected =
+		!CacheVObjectRegionNativePixels(
+			&malformedNativeCacheSource, 0, 4) &&
+		malformedNativeCacheSource.pNativePixelObject == nullptr &&
+		malformedNativeCacheSource.usNumberOfNativePixelObjects == 0 &&
+		!BltNativePixelDataToBufferTransparentClip(
+			nativeCacheDestination.data(),
+			8 * sizeof(PIXEL),
+			&nativeCacheSource, 0, 0,
+			1, &nativeCacheClip);
+	Check(nativeCacheBuilt && compatibilityCacheNames &&
+		nativeCachePixelsExact && nativeCacheClippedDraw &&
+		compatibilityCacheDraw && malformedNativeCacheRejected,
+		"native sprite caches decode exact ARGB8888 pixels, preserve opaque black, clip safely, and reject malformed ETRLE");
+	if (nativeCacheSource.pNativePixelObject)
+	{
+		for (UINT16 index = 0;
+			index < nativeCacheSource.usNumberOfNativePixelObjects;
+			++index)
+		{
+			MemFree(
+				nativeCacheSource.pNativePixelObject[index].
+					pNativeTransparencyMask);
+			MemFree(
+				nativeCacheSource.pNativePixelObject[index].
+					pNativePixels);
+		}
+		MemFree(nativeCacheSource.pNativePixelObject);
+	}
+
 	SGPVSurface registeredSurface{};
 	registeredSurface.usWidth = 2;
 	registeredSurface.usHeight = 2;
@@ -2184,6 +2322,58 @@ int main()
 			AddStandardVideoObject(
 				&managedObjectDescription, &liveImageID) &&
 			GetVideoObject(&liveImage, liveImageID) && liveImage;
+		std::vector<PIXEL> originalNativePalette(256);
+		std::vector<PIXEL> copiedNativePalette(256);
+		std::vector<UINT16> copiedCompatibilityPalette(256);
+		const bool nativePaletteCopied = liveImageCreated &&
+			CopyVideoObjectPaletteNativePixels(
+				static_cast<INT32>(liveImageID),
+				originalNativePalette.data()) &&
+			CopyVideoObjectPalette16BPP(
+				static_cast<INT32>(liveImageID),
+				copiedCompatibilityPalette.data()) &&
+			originalNativePalette[1] ==
+				liveImage->p16BPPPalette[1] &&
+			copiedCompatibilityPalette[1] ==
+				PixToColor16(originalNativePalette[1]);
+		bool nativePaletteRoundTrip = false;
+		bool compatibilityPaletteRoundTrip = false;
+		if (nativePaletteCopied)
+		{
+			std::vector<PIXEL> replacement =
+				originalNativePalette;
+			replacement[1] = 0xFF2468ACu;
+			nativePaletteRoundTrip =
+				SetVideoObjectPaletteNativePixels(
+					static_cast<INT32>(liveImageID),
+					replacement.data()) &&
+				CopyVideoObjectPaletteNativePixels(
+					static_cast<INT32>(liveImageID),
+					copiedNativePalette.data()) &&
+				copiedNativePalette[1] == replacement[1];
+
+			std::vector<UINT16> compatibilityReplacement =
+				copiedCompatibilityPalette;
+			compatibilityReplacement[1] = 0x07E0u;
+			compatibilityPaletteRoundTrip =
+				SetVideoObjectPalette16BPP(
+					static_cast<INT32>(liveImageID),
+					compatibilityReplacement.data()) &&
+				CopyVideoObjectPaletteNativePixels(
+					static_cast<INT32>(liveImageID),
+					copiedNativePalette.data()) &&
+				copiedNativePalette[1] ==
+					PixFromColor16(0x07E0u);
+
+			SetVideoObjectPaletteNativePixels(
+				static_cast<INT32>(liveImageID),
+				originalNativePalette.data());
+		}
+		Check(nativePaletteCopied && nativePaletteRoundTrip &&
+			compatibilityPaletteRoundTrip &&
+			liveImage->p16BPPPalette[1] ==
+				originalNativePalette[1],
+			"video-object palette compatibility converts RGB565 tokens without truncating native ARGB8888 storage");
 		bool liveDepthProfileCreated = false;
 		if (liveImageCreated)
 		{

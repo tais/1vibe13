@@ -38,6 +38,8 @@ set(sgpCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_depth_queries.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_mask_blitters.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_multiz_blitters.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/vobject_native_pixel_blitters.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/vobject_native_pixel_cache.cpp"
 # WinFont.cpp (GDI + DirectDraw font rasterizer) retired in the SDL3
 # port; WinFont.h now provides no-op stubs on every platform.
 )

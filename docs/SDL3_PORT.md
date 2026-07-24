@@ -52,7 +52,10 @@ named phase below**; that's the work plan.
   their phase swaps them for SDL3.
 - Internal rendering pipeline is RGBA8888 (32-bit). RGB565 surfaces,
   16-bit palette LUTs, and the inline-asm RGB565 alpha blender are
-  retired.
+  retired. Indexed ETRLE artwork can remain 8-bit at rest, the Z-buffer remains
+  typed `Depth16`, and RGB565 survives only as an explicitly converted
+  asset/mod compatibility token. Converted sprite caches contain dense native
+  `PIXEL` data and a separate opacity mask, never a packed 2-byte colour stream.
 - Audio (SFX, music, Smacker cinematics) replaced with portable
   libraries in this same effort.
 - Build system is CMake-only and fetches its dependencies (no
