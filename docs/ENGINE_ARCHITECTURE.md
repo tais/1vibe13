@@ -455,7 +455,9 @@ the engine must not contain SDL types in its public domain model.
 - `SimulationTickDispatcher` converts monotonic frame elapsed time into a
   fixed-step package callback stream. Catch-up per frame is bounded, discarded
   ticks are explicit telemetry, and render-paced updates remain available for
-  presentation work; the legacy campaign simulation is not switched over.
+  presentation work. Its ordered insertion point lets application-owned
+  simulation adapters commit domain state before package observers without a
+  global priority registry.
 - `AssetSource::metadata` resolves normalized logical path, winning provenance,
   and byte size without copying payloads. Memory, overlay, and legacy VFS
   adapters implement the fast path; unsupported third-party sources report
@@ -530,6 +532,16 @@ the engine must not contain SDL types in its public domain model.
   loads no longer publish a partially read campaign-time identity. This is
   simulation time, not the injectable platform monotonic clock used for frame
   pacing.
+- `CampaignClockScheduler` is the engine-owned fractional pacing state above
+  that session. It deterministically converts fixed 16,667-microsecond ticks
+  into JA2's established speed/resolution slices, bounds a malformed host tick
+  to one real second, and resets rather than catching up across pauses, fades,
+  unsupported screens, or turn-based combat. `CampaignSimulationHost` is
+  registered before the package registry in the production composition root,
+  so strategic events commit through the existing authoritative path before
+  package `simulate` callbacks observe the same tick. `UpdateClock` no longer
+  samples a platform clock or advances simulation; its retained compatibility
+  entry point only maintains the clock UI.
 - `CampaignClockService` exposes that state to packages and tools as a
   versioned, read-only, pointer-free capture. The application registers the
   provider owned by `EngineRuntime`; consumers can observe committed time or an

@@ -61,6 +61,21 @@ public:
 		return SimulationTickSinkRegistrationError::None;
 	}
 
+	// Inserts a system adapter at an explicit point in the deterministic stream.
+	// This lets an application commit authoritative domain state before package
+	// callbacks observe the same tick without assigning global sink priorities.
+	SimulationTickSinkRegistrationError addSinkBefore(
+		SimulationTickSink& sink, SimulationTickSink& before)
+	{
+		if (dispatching_) return SimulationTickSinkRegistrationError::DispatchInProgress;
+		if (std::find(sinks_.begin(), sinks_.end(), &sink) != sinks_.end())
+			return SimulationTickSinkRegistrationError::Duplicate;
+		const auto found = std::find(sinks_.begin(), sinks_.end(), &before);
+		if (found == sinks_.end()) return SimulationTickSinkRegistrationError::NotFound;
+		sinks_.insert(found, &sink);
+		return SimulationTickSinkRegistrationError::None;
+	}
+
 	SimulationTickSinkRegistrationError removeSink(SimulationTickSink& sink)
 	{
 		if (dispatching_) return SimulationTickSinkRegistrationError::DispatchInProgress;

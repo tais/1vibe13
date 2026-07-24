@@ -1,6 +1,7 @@
 #ifndef JA2_GAME_CONTEXT_H
 #define JA2_GAME_CONTEXT_H
 
+#include "CampaignSimulationHost.h"
 #include "GameSettings.h"
 #include "GameCapabilities.h"
 #include <string>
@@ -20,8 +21,15 @@ public:
 	            EngineServices services = EngineServices::defaults(),
 	            PackageEventSink& packageEvents = NullPackageEventSink::instance())
 		: settings_(settings), options_(options), capabilities_(capabilities),
-		  runtime_(makeRuntimeOptions(capabilities), services, packageEvents)
+		  runtime_(makeRuntimeOptions(capabilities), services, packageEvents),
+		  campaignSimulation_(runtime_.campaignClockScheduler())
 	{
+	}
+
+	~GameContext()
+	{
+		if (campaignSimulationRegistered_)
+			(void)runtime_.simulationTicks().removeSink(campaignSimulation_);
 	}
 
 	GAME_SETTINGS& settings() { return settings_; }
@@ -46,6 +54,26 @@ public:
 	const InputDispatcher& inputDispatcher() const { return runtime_.inputDispatcher(); }
 	RuntimeUpdateDispatcher& runtimeUpdates() { return runtime_.runtimeUpdates(); }
 	const RuntimeUpdateDispatcher& runtimeUpdates() const { return runtime_.runtimeUpdates(); }
+	CampaignSimulationHost& campaignSimulation() { return campaignSimulation_; }
+	const CampaignSimulationHost& campaignSimulation() const
+	{
+		return campaignSimulation_;
+	}
+	SimulationTickSinkRegistrationError enableCampaignSimulation()
+	{
+		if (campaignSimulationRegistered_)
+			return SimulationTickSinkRegistrationError::None;
+		const SimulationTickSinkRegistrationError result =
+			runtime_.simulationTicks().addSinkBefore(
+				campaignSimulation_, runtime_.packages());
+		if (result == SimulationTickSinkRegistrationError::None)
+			campaignSimulationRegistered_ = true;
+		return result;
+	}
+	bool campaignSimulationEnabled() const
+	{
+		return campaignSimulationRegistered_;
+	}
 	FrameTelemetry& frameTelemetry() { return runtime_.frameTelemetry(); }
 	const FrameTelemetry& frameTelemetry() const { return runtime_.frameTelemetry(); }
 	RuntimeMessageBus& runtimeMessages() { return runtime_.runtimeMessages(); }
@@ -200,6 +228,8 @@ private:
 	GAME_OPTIONS& options_;
 	GameCapabilities capabilities_;
 	EngineRuntime<UINT32> runtime_;
+	CampaignSimulationHost campaignSimulation_;
+	bool campaignSimulationRegistered_ = false;
 };
 
 class GameInitializationGuard

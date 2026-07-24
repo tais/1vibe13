@@ -323,6 +323,29 @@ foreach(source_file IN LISTS world_state_files)
   endforeach()
 endforeach()
 
+# Campaign pacing is part of the fixed-step runtime. The strategic clock may
+# retain presentation compatibility, but it must not quietly return to
+# sampling a platform timer from the render loop.
+set(campaign_clock_source "${SOURCE_ROOT}/Strategic/Game Clock.cpp")
+file(READ "${campaign_clock_source}" campaign_clock_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])GetJA2Clock[ \t\r\n]*\\("
+  campaign_clock_wall_time_sampling "${campaign_clock_contents}")
+if(campaign_clock_wall_time_sampling)
+  message(FATAL_ERROR
+    "Strategic campaign time samples GetJA2Clock in ${campaign_clock_source}; pace it through CampaignClockScheduler")
+endif()
+
+set(game_loop_source "${SOURCE_ROOT}/Ja2/gameloop.cpp")
+file(READ "${game_loop_source}" game_loop_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])UpdateClock[ \t\r\n]*\\("
+  render_paced_campaign_clock "${game_loop_contents}")
+if(render_paced_campaign_clock)
+  message(FATAL_ERROR
+    "The render loop calls legacy UpdateClock in ${game_loop_source}; campaign time belongs on the fixed-step sink")
+endif()
+
 # Strategic-event nodes and ordering are owned by EngineRuntime's
 # CampaignEventQueue. gpEventList remains a readable source-compatibility view,
 # but only the application adapter may republish its head.

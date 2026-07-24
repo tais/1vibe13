@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <utility>
 
+#include <Engine/Adapters/JA2/CampaignClockScheduler.h>
 #include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CommandReplay.h>
@@ -64,6 +65,11 @@ public:
 	const CommandReplayService& commandReplay() const { return commandReplay_; }
 	CampaignClockSession& campaignClockSession() { return campaignClockSession_; }
 	const CampaignClockSession& campaignClockSession() const { return campaignClockSession_; }
+	CampaignClockScheduler& campaignClockScheduler() { return campaignClockScheduler_; }
+	const CampaignClockScheduler& campaignClockScheduler() const
+	{
+		return campaignClockScheduler_;
+	}
 	CampaignClockService& campaignClockService() { return campaignClockService_; }
 	const CampaignClockService& campaignClockService() const { return campaignClockService_; }
 	CampaignEventQueue& campaignEventQueue() { return campaignEventQueue_; }
@@ -119,6 +125,7 @@ public:
 
 private:
 	CampaignClockSession campaignClockSession_;
+	CampaignClockScheduler campaignClockScheduler_;
 	CampaignClockSessionService campaignClockService_{campaignClockSession_};
 	CampaignEventQueue campaignEventQueue_;
 	TacticalEntityDirectory tacticalEntityDirectory_;

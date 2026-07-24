@@ -1,4 +1,5 @@
 #include <Engine/Adapters/JA2/CommandReplay.h>
+#include <Engine/Adapters/JA2/CampaignClockScheduler.h>
 #include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
@@ -195,6 +196,11 @@ int main()
 			&legacyBraceRuntime.campaignClockSession()) return 49;
 	legacyBraceRuntime.campaignClockSession().restore(
 		externalCampaignClock.snapshot());
+	const CampaignClockScheduleResult externalCampaignSchedule =
+		legacyBraceRuntime.campaignClockScheduler().schedule(1000000, 1, 1);
+	if (!externalCampaignSchedule ||
+		externalCampaignSchedule.advanceSeconds != 1 ||
+		externalCampaignSchedule.completedRealSeconds != 1) return 54;
 	if (RegisterCampaignClockService(
 			legacyBraceRuntime.serviceCatalog(),
 			legacyBraceRuntime.campaignClockService()) !=

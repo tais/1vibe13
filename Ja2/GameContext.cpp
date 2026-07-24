@@ -82,6 +82,17 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)campaignClockSessionBound;
+	static const SimulationTickSinkRegistrationError campaignSimulationRegistered =
+		context.enableCampaignSimulation();
+	static const bool campaignSimulationRegistrationReported = [&] {
+		if (campaignSimulationRegistered !=
+			SimulationTickSinkRegistrationError::None)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "simulation",
+				"Campaign fixed-step registration failed"});
+		return true;
+	}();
+	(void)campaignSimulationRegistrationReported;
 	static const EngineServiceRegistrationError campaignClockRegistered =
 		RegisterCampaignClockService(
 			context.serviceCatalog(), context.runtime().campaignClockService());

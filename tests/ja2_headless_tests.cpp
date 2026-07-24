@@ -1197,6 +1197,9 @@ int main( int, char** )
 		       "game context exposes bound legacy state" );
 		CHECK( &context.runtime().services() == &context.services(),
 		       "game context delegates reusable state to engine runtime" );
+		CHECK( !context.campaignSimulationEnabled() &&
+		       context.runtime().simulationTicks().sinkCount() == 1,
+		       "isolated game contexts do not route fixed ticks into process-global campaign state" );
 		GameCapabilities editorCapabilities;
 		editorCapabilities.editor = true;
 		CHECK( context.setCapabilities( editorCapabilities ) && context.capabilities().isEditor() &&
@@ -2740,6 +2743,9 @@ int main( int, char** )
 		       "live JA2 screens are bound through the generic runtime state registry" );
 		CHECK( &compiledContext.log() == &GetPlatformLogSink(),
 		       "application composition root binds the SDL logging adapter" );
+		CHECK( compiledContext.campaignSimulationEnabled() &&
+		       compiledContext.runtime().simulationTicks().sinkCount() == 2,
+		       "application composition registers engine-owned campaign pacing before package ticks" );
 		CHECK( &compiledContext.services().time == &GetPlatformTimeSource() &&
 		       &compiledContext.services().random == &GetGameRandomSource() &&
 		       &compiledContext.services().storage == &GetPlatformByteStorage() &&
