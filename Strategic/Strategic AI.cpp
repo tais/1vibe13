@@ -4508,7 +4508,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Strategic7");
 			}
 			if( iFactor >= 15 )
 			{ //Make the actual elites in sector match the new garrison percentage
-				if( !gfWorldLoaded || gbWorldSectorZ ||
+				if( !IsJa2TacticalWorldLoaded() || gbWorldSectorZ ||
 						gWorldSectorX != SECTORX( gGarrisonGroup[ i ].ubSectorID ) ||
 						gWorldSectorY != SECTORY( gGarrisonGroup[ i ].ubSectorID ) )
 				{ //Also make sure the sector isn't currently loaded!

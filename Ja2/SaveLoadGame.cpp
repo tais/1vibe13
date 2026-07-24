@@ -2706,7 +2706,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 
 	SaveGameHeader.fAlternateSector = GetSectorFlagStatus( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, SF_USE_ALTERNATE_MAP );
 
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		SaveGameHeader.fWorldLoaded = TRUE;
 		SaveGameHeader.ubLoadScreenID = GetLoadScreenID( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
@@ -2826,7 +2826,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 /*
 
 	//if the current sector is valid
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		SaveGameHeader.sSectorX = gWorldSectorX;
 		SaveGameHeader.sSectorY = gWorldSectorY;
@@ -8793,7 +8793,7 @@ void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HWFILE hSaveFi
 void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *pbSectorZ )
 {
 	//if the current sector is valid
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		*psSectorX = gWorldSectorX;
 		*psSectorY = gWorldSectorY;

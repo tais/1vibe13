@@ -459,7 +459,7 @@ void StartMeanwhile( )
 	INT32 iIndex;
 
 	// OK, save old position...
-	if ( gfWorldLoaded )
+	if ( IsJa2TacticalWorldLoaded() )
 	{
 		gsOldSectorX = gWorldSectorX;
 		gsOldSectorY = gWorldSectorY;
@@ -476,7 +476,7 @@ void StartMeanwhile( )
 	SetMusicMode( MUSIC_MAIN_MENU );
 
 
-	gfWorldWasLoaded = gfWorldLoaded;
+	gfWorldWasLoaded = IsJa2TacticalWorldLoaded();
 
 	// OK, we have been told to start.....
 	SetCurrentInterfacePanel( (UINT8)TEAM_PANEL );

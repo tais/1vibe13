@@ -1173,7 +1173,7 @@ void ClearTacticalStuffDueToTimeCompression( void )
 		// clear tactical message queue
 		ClearTacticalMessageQueue( );
 
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 		{
 			// clear tactical actions
 			CencelAllActionsForTimeCompression( );

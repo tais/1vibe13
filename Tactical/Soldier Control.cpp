@@ -2502,7 +2502,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 			/// if we don't have a world loaded, and are in a bad anim, goto standing.
 			// bad anims are: HOPFENCE,
 			// CLIMBDOWNROOF, FALLFORWARD_ROOF,FALLOFF, CLIMBUPROOF
-			if ( !gfWorldLoaded &&
+			if ( !IsJa2TacticalWorldLoaded() &&
 				 (usState == HOPFENCE || usState == JUMPWINDOWS ||
 				 usState == CLIMBDOWNROOF ||
 

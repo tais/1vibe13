@@ -2932,7 +2932,7 @@ void StripEnemyDetailedPlacementsIfSectorWasPlayerLiberated()
 	SECTORINFO *pSector;
 	SOLDIERINITNODE *curr;
 
-	if( !gfWorldLoaded || gbWorldSectorZ )
+	if( !IsJa2TacticalWorldLoaded() || gbWorldSectorZ )
 	{ //No world loaded or underground.	Underground sectors don't matter
 		//seeing enemies (not creatures) never rejuvenate underground.
 		return;

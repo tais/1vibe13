@@ -233,8 +233,7 @@ set(world_state_owner "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp")
 set(world_state_mirrors
   gWorldSectorX
   gWorldSectorY
-  gbWorldSectorZ
-  gfWorldLoaded)
+  gbWorldSectorZ)
 foreach(source_file IN LISTS world_state_files)
   if("${source_file}" STREQUAL "${world_state_owner}")
     continue()
@@ -265,17 +264,30 @@ foreach(source_file IN LISTS world_state_files)
   endforeach()
 endforeach()
 
-# World-load generation has no legacy storage requirement. It is read directly
-# from TacticalWorldSession and must not return as a duplicate scalar owner.
-foreach(source_file IN LISTS world_state_files)
+# World-load state and generation have no legacy storage requirement. They are
+# read directly from TacticalWorldSession and must not return as duplicate
+# scalar owners.
+set(retired_tactical_world_mirrors
+  gfWorldLoaded
+  guiWorldLoadGeneration)
+set(world_state_declaration_files ${world_state_files})
+foreach(source_directory IN LISTS world_state_source_directories)
+  file(GLOB_RECURSE declaration_files
+    "${SOURCE_ROOT}/${source_directory}/*.h"
+    "${SOURCE_ROOT}/${source_directory}/*.hpp")
+  list(APPEND world_state_declaration_files ${declaration_files})
+endforeach()
+foreach(source_file IN LISTS world_state_declaration_files)
   file(READ "${source_file}" contents)
-  string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])guiWorldLoadGeneration([^A-Za-z0-9_]|$)"
-    retired_world_generation_mirror "${contents}")
-  if(retired_world_generation_mirror)
-    message(FATAL_ERROR
-      "Retired world-generation mirror returned in ${source_file}; read CaptureJa2TacticalWorld().worldGeneration")
-  endif()
+  foreach(mirror IN LISTS retired_tactical_world_mirrors)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${mirror}([^A-Za-z0-9_]|$)"
+      retired_tactical_world_mirror "${contents}")
+    if(retired_tactical_world_mirror)
+      message(FATAL_ERROR
+        "Retired tactical-world mirror '${mirror}' returned in ${source_file}; read TacticalWorldSession through IsJa2TacticalWorldLoaded or CaptureJa2TacticalWorld")
+    endif()
+  endforeach()
 endforeach()
 
 # Loaded-world turn identity is owned by TacticalWorldSession. The old

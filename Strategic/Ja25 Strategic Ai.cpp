@@ -251,7 +251,7 @@ void InitJa25StrategicAi()
 BOOLEAN ShouldEnemiesBeAddedToInitialSector()
 {
 	//if there are still players in the first sector
-	if( gfWorldLoaded && 
+	if( IsJa2TacticalWorldLoaded() &&
 			gWorldSectorX == JA2_5_START_SECTOR_X && 
 			gWorldSectorY == JA2_5_START_SECTOR_Y &&
 			AreAnyPlayerMercsStillInSector( JA2_5_START_SECTOR_X, JA2_5_START_SECTOR_Y, 0 ) )

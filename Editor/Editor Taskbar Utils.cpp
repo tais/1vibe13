@@ -943,7 +943,7 @@ void RenderEditorInfo( )
 	{
 		case TASK_OPTIONS:
 			mprintf(iScreenWidthOffset+71+15, SCREEN_HEIGHT-117, iRenderEditorInfoText[0]);//dnl ch33 160909
-			if( !gfWorldLoaded || giCurrentTilesetID < 0 )
+			if( !IsJa2TacticalWorldLoaded() || giCurrentTilesetID < 0 )
 				mprintf( iScreenWidthOffset + 260, 2 * iScreenHeightOffset + 445, iRenderEditorInfoText[1] );
 			else
 				mprintf( iScreenWidthOffset + 260, 2 * iScreenHeightOffset + 445, iRenderEditorInfoText[2], gubFilename, gTilesets[ giCurrentTilesetID ].zName );

@@ -1129,7 +1129,7 @@ void CreatureAttackTown( UINT8 ubSectorID, BOOLEAN fOverrideTest )
 	UNDERGROUND_SECTORINFO *pSector;
 	UINT8 ubSectorX, ubSectorY;
 
-	if( gfWorldLoaded && gTacticalStatus.fEnemyInSector )
+	if( IsJa2TacticalWorldLoaded() && gTacticalStatus.fEnemyInSector )
 	{ //Battle currently in progress, repost the event
 		AddStrategicEvent( EVENT_CREATURE_ATTACK, GetWorldTotalMin() + Random( 10 ), ubSectorID );
 		return;
@@ -1230,7 +1230,7 @@ void CreatureAttackTown( UINT8 ubSectorID, BOOLEAN fOverrideTest )
 
 void CreatureAttackTown_OtherCreatures( UINT8 ubSectorID, UINT8 ubType )
 {
-	if ( gfWorldLoaded && gTacticalStatus.fEnemyInSector )
+	if ( IsJa2TacticalWorldLoaded() && gTacticalStatus.fEnemyInSector )
 	{
 		//Battle currently in progress, repost the event
 		AddStrategicEvent( ubType, GetWorldTotalMin() + Random( 10 ), ubSectorID );
@@ -2283,7 +2283,7 @@ BOOLEAN GetWarpOutOfMineCodes( INT16 *psSectorX, INT16 *psSectorY, INT8 *pbSecto
 {
 	INT32 iSwitchValue;
 
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 	{
 		return FALSE;
 	}

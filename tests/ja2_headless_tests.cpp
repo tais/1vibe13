@@ -3654,6 +3654,9 @@ int main( int, char** )
 		RebuildJa2TacticalEntityDirectory();
 		SetJa2TacticalWorldSector( 9, 1, 0 );
 		NotifyJa2TacticalWorldLoaded( 23 );
+		CHECK( IsJa2TacticalWorldLoaded() &&
+		       CaptureJa2TacticalWorld().loaded,
+		       "world-loaded state is read from the runtime-owned tactical session" );
 		SetJa2TacticalTurnBasedMode( true );
 		SetJa2TacticalCombatMode( true );
 		SetJa2TacticalCurrentTeam( 1 );
@@ -4013,7 +4016,8 @@ int main( int, char** )
 			compiledContext.capturePackageSaveState();
 		const std::vector<RecordedSimulationCommand> replayAfterObservation =
 			compiledContext.commandJournal().snapshot();
-		CHECK( observerDiagnostics.lastUpdate ==
+		CHECK( !IsJa2TacticalWorldLoaded() &&
+		       observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::SourceUnavailable &&
 		       observerDiagnostics.publicationSerial == 0 &&
 		       tacticalWorldObserver && !tacticalWorldObserver.service->latest() &&

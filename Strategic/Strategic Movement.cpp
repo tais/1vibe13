@@ -1184,7 +1184,7 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 	BOOLEAN fCombatAbleMerc = FALSE;
 	BOOLEAN fBloodCatAmbush = FALSE;
 
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		//look for people arriving in the currently loaded sector. This handles reinforcements.
 		curr = FindMovementGroupInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, OUR_TEAM );

@@ -5841,7 +5841,7 @@ UINT32 MapScreenHandle(void)
 	RenderClock(INTERFACE_CLOCK_X, INTERFACE_CLOCK_Y);
 
 	#ifdef JA2TESTVERSION
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 	{
 		SetFont( FONT10ARIAL );
 		if( GetJA2Clock() % 1000 < 500 )

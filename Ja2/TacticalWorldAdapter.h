@@ -59,6 +59,7 @@ private:
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
 const TacticalWorldSession::Snapshot& CaptureJa2TacticalWorld() noexcept;
+bool IsJa2TacticalWorldLoaded() noexcept;
 
 // Application composition and the only production write gateway for the
 // legacy tactical-world compatibility globals.

@@ -9239,7 +9239,7 @@ INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts )
 void MakeSoldiersTacticalAnimationReflectAssignment( SOLDIERTYPE *pSoldier )
 {
 	// soldier is in tactical, world loaded, he's OKLIFE
-	if( ( pSoldier->bInSector ) && gfWorldLoaded && ( pSoldier->stats.bLife >= OKLIFE ) )
+	if( ( pSoldier->bInSector ) && IsJa2TacticalWorldLoaded() && ( pSoldier->stats.bLife >= OKLIFE ) )
 	{
 		// Set animation based on his assignment
 		if ( IS_DOCTOR(pSoldier->bAssignment) )
@@ -9281,7 +9281,7 @@ void AssignmentAborted( SOLDIERTYPE *pSoldier, UINT8 ubReason )
 
 void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 {
-	if ( ( pSoldier->bInSector ) && ( gfWorldLoaded ) )
+	if ( ( pSoldier->bInSector ) && ( IsJa2TacticalWorldLoaded() ) )
 	{
 		if ( IS_DOCTOR(pSoldier->bAssignment) )
 		{
@@ -9571,7 +9571,7 @@ void CheckIfSoldierUnassigned( SOLDIERTYPE *pSoldier )
 		// unassigned
 		AddCharacterToAnySquad( pSoldier );
 
-		if( ( gfWorldLoaded ) && ( pSoldier->bInSector ) )
+		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
 		{
 			pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
 		}
@@ -18025,7 +18025,7 @@ BOOLEAN PutMercInAsleepState( SOLDIERTYPE *pSoldier )
 {
 	if( pSoldier->flags.fMercAsleep == FALSE )
 	{
-		if( ( gfWorldLoaded ) && ( pSoldier->bInSector ) )
+		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
 		{
 			if( guiCurrentScreen == GAME_SCREEN )
 			{
@@ -18068,7 +18068,7 @@ BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier )
 {
 	if ( pSoldier->flags.fMercAsleep )
 	{
-		if ( ( gfWorldLoaded ) && ( pSoldier->bInSector ) )
+		if ( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
 		{
 			if ( guiCurrentScreen == GAME_SCREEN )
 			{

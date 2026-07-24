@@ -5867,7 +5867,7 @@ BOOLEAN GetCurrentBattleSectorXYZ( INT16 *psSectorX, INT16 *psSectorY, INT16 *ps
 		*psSectorZ = gubPBSectorZ;
 		return TRUE;
 	}
-	else if( gfWorldLoaded )
+	else if( IsJa2TacticalWorldLoaded() )
 	{
 		*psSectorX = gWorldSectorX;
 		*psSectorY = gWorldSectorY;
@@ -5905,7 +5905,7 @@ BOOLEAN GetCurrentBattleSectorXYZAndReturnTRUEIfThereIsABattle( INT16 *psSectorX
 		*psSectorZ = gubPBSectorZ;
 		return TRUE;
 	}
-	else if( gfWorldLoaded )
+	else if( IsJa2TacticalWorldLoaded() )
 	{
 		*psSectorX = gWorldSectorX;
 		*psSectorY = gWorldSectorY;

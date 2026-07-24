@@ -50,7 +50,7 @@ bool RequiresCommandCancellation(PackageEventKind kind) noexcept
 
 bool HasTacticalExecutionContext(const SimulationCommand& command) noexcept
 {
-	if (!gfWorldLoaded || command.valueless_by_exception()) return false;
+	if (!IsJa2TacticalWorldLoaded() || command.valueless_by_exception()) return false;
 	return std::visit([](const auto& value) noexcept {
 		using Command = typename std::decay<decltype(value)>::type;
 		if constexpr (std::is_same<Command, EndTurnCommand>::value)

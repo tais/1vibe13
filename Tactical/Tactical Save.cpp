@@ -3076,7 +3076,7 @@ UINT32	GetNumberOfVisibleWorldItemsFromSectorStructureForSector( INT16 sMapX, IN
 	}
 
 	//if there is a sector loaded
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		//and it is the sector we are interested in
 		if( sMapX == gWorldSectorX && sMapY == gWorldSectorY && bMapZ == gbWorldSectorZ )
@@ -3115,7 +3115,7 @@ UINT32 UpdateLoadedSectorsItemInventory( INT16 sMapX, INT16 sMapY, INT8 bMapZ, U
 	UINT32	uiCounter;
 	UINT32	uiItemCounter=0;
 
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 		return( 0 );
 
 	//loop through all the world items

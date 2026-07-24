@@ -2842,7 +2842,7 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 
 	//Setup the tactical existance of RPCs and CIVs in the last sector before moving on to a new sector.
 	//@@@Evaluate
-	if ( gfWorldLoaded )
+	if ( IsJa2TacticalWorldLoaded() )
 	{
 		for ( SoldierID i = gTacticalStatus.Team[CIV_TEAM].bFirstID; i <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++i )
 		{
@@ -6087,7 +6087,7 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 
 void GetLoadedSectorString( CHAR16 *pString )
 {
-	if ( !gfWorldLoaded )
+	if ( !IsJa2TacticalWorldLoaded() )
 	{
 		sgp_swprintf( pString, 10, L"" );
 		return;
@@ -6339,7 +6339,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 	INT16 sBattleSectorX, sBattleSectorY, sBattleSectorZ;
 
 	//Don't bother checking this if we don't have a world loaded.
-	if ( !gfWorldLoaded )
+	if ( !IsJa2TacticalWorldLoaded() )
 	{
 		return FALSE;
 	}
@@ -6471,7 +6471,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 	gfCaves = FALSE;
 	gfBasement = FALSE;
 
-	//CHRISL: If we're unloading the world, shouldn't be reset the gfWorldLoaded flag?
+	//CHRISL: If we're unloading the world, shouldn't the loaded-world state be reset?
 	NotifyJa2TacticalWorldUnloaded();
 
 	return TRUE;
@@ -6497,7 +6497,7 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	if ( gfWorldLoaded && pSoldier->bActive && pSoldier->bInSector )
+	if ( IsJa2TacticalWorldLoaded() && pSoldier->bActive && pSoldier->bInSector )
 	{ //This soldier is currently in the sector
 
 		//@@@Evaluate -- insert code here

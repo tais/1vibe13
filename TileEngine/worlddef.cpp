@@ -3409,7 +3409,7 @@ void TrashWorld( void )
 	INT32					cnt;
 	SOLDIERTYPE		*pSoldier;
 
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 		return;
 
 

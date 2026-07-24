@@ -240,7 +240,7 @@ void DecayBloodAndSmells( UINT32 uiTime )
 {
 	UINT32					uiCheckTime;
 
-	if ( !gfWorldLoaded )
+	if ( !IsJa2TacticalWorldLoaded() )
 	{
 		return;
 	}

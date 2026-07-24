@@ -748,7 +748,7 @@ UINT32	MainGameScreenHandle(void)
 		}
 
 		// Handle animated cursors
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 		{
 			HandleAnimatedCursors( );
 

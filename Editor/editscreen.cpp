@@ -284,7 +284,7 @@ UINT32 EditScreenShutdown(void)
 	GameShutdownEditorMercsInfo();
 	RemoveAllFromUndoList();
 	KillClipboard();
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		KillItemPoolList();
 	}
@@ -328,7 +328,7 @@ BOOLEAN EditModeInit( void )
 
 	if( fFirstTimeInEditModeInit )
 	{
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 			InitJA2SelectionWindow();
 		fFirstTimeInEditModeInit = FALSE;
 	}
@@ -421,7 +421,7 @@ BOOLEAN EditModeInit( void )
 	EnableUndo();
 
 	RemoveMercsInSector( );
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		gfConfirmExitFirst = TRUE;
 		ShowEntryPoints();
@@ -526,7 +526,7 @@ BOOLEAN EditModeShutdown( void )
 
 	LightSpriteRenderAll();
 
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		ClearRenderFlags( RENDER_FLAG_SAVEOFF );
 		MarkWorldDirty();
@@ -555,7 +555,7 @@ BOOLEAN EditModeShutdown( void )
 	SetFontShadow( DEFAULT_SHADOW );
 
 
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		CompileWorldMovementCosts();
 		RaiseWorldLand();
@@ -2675,7 +2675,7 @@ void CreateNewMap()
 	if( gfSummaryWindowActive )
 		DestroySummaryWindow();
 
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 		LoadMapTileset( 0 );
 
 	LightReset();
@@ -4323,12 +4323,12 @@ UINT32	EditScreenHandle( void )
 	BOOLEAN fShowingCursor;
 	StartFrameBufferRender();
 
-	if( gfWorldLoaded && gMapInformation.ubMapVersion <= 7 && !gfCorruptMap )
+	if( IsJa2TacticalWorldLoaded() && gMapInformation.ubMapVersion <= 7 && !gfCorruptMap )
 	{
 		ScreenMsg( FONT_MCOLOR_RED, MSG_ERROR, pAutoLoadMapText[0] );
 		gfCorruptMap = TRUE;
 	}
-	if( gfWorldLoaded && gubScheduleID > 40 && !gfCorruptSchedules )
+	if( IsJa2TacticalWorldLoaded() && gubScheduleID > 40 && !gfCorruptSchedules )
 	{
 		OptimizeSchedules();
 		if( gubScheduleID > 32 )

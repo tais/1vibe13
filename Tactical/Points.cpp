@@ -1525,7 +1525,7 @@ INT16 GetBreathPerAP( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	//rain
 	// Reduce breath gain on 25%/rain intensity
 	// Lalien: only for soldiers that are in loaded sector,
-	if ( gfWorldLoaded &&  pSoldier->bInSector && !pSoldier->bSectorZ )
+	if ( IsJa2TacticalWorldLoaded() &&  pSoldier->bInSector && !pSoldier->bSectorZ )
 	{
 		if( sBreathPerAP < 0 && ( pSoldier->pathing.bLevel  || !FindStructure( pSoldier->sGridNo, STRUCTURE_ROOF )  )  && pSoldier->bBreath > 1)
 		{

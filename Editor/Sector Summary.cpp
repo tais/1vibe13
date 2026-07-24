@@ -275,7 +275,7 @@ void CreateSummaryWindow()
 	giInitTimer = GetJA2Clock();
 	gfDeniedSummaryCreation = FALSE;
 	gfRenderSummary = TRUE;
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 		gfMapFileDirty = TRUE;
 	//Create all of the buttons here
 	iSummaryButton[ SUMMARY_BACKGROUND ] = 
@@ -391,7 +391,7 @@ void CreateSummaryWindow()
 		gfItemDetailsMode = FALSE;
 	//	gfSetupItemDetailsMode = TRUE;
 	//}
-	if( !gfWorldLoaded )
+	if( !IsJa2TacticalWorldLoaded() )
 	{
 		gfConfirmExitFirst = FALSE;
 		ReleaseSummaryWindow();
@@ -413,7 +413,7 @@ void AutoLoadMap()
 {
 	SummaryLoadMapCallback( ButtonList[ iSummaryButton[ SUMMARY_LOAD ] ], MSYS_CALLBACK_REASON_LBUTTON_UP );
 	ButtonList[ iSummaryButton[ SUMMARY_LOAD ] ]->uiFlags &= ~BUTTON_CLICKED_ON;//dnl ch36 210909
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 		DestroySummaryWindow();
 	gfAutoLoadA9 = FALSE;
 	gfConfirmExitFirst = TRUE;
@@ -426,7 +426,7 @@ void ReleaseSummaryWindow()
 	if( !gfSummaryWindowActive || gfPersistantSummary )
 		return;
 	uiCurrTimer = GetJA2Clock();
-	if( !gfWorldLoaded || uiCurrTimer - giInitTimer < 400 )
+	if( !IsJa2TacticalWorldLoaded() || uiCurrTimer - giInitTimer < 400 )
 	{ //make window persistant
 		for( i = 1; i < NUM_SUMMARY_BUTTONS; i++ )
 			ShowButton( iSummaryButton[ i ] );
@@ -488,7 +488,7 @@ void DestroySummaryWindow()
 		gpNEnemyItemsSummaryArray = NULL;
 		gusNEnemyItemsSummaryArraySize = 0;
 	}
-	if( gfWorldLoaded )
+	if( IsJa2TacticalWorldLoaded() )
 	{
 		gfConfirmExitFirst = TRUE;
 	}
@@ -1011,7 +1011,7 @@ void RenderSummaryWindow()
 		}
 		
 		//This section builds the proper header to be displayed for an existing global summary.
-		if( !gfWorldLoaded )
+		if( !IsJa2TacticalWorldLoaded() )
 		{
 			SetFontForeground( FONT_RED );
 			SetFontShadow( FONT_NEARBLACK );
@@ -1046,7 +1046,7 @@ void RenderSummaryWindow()
 					mprintf( iScreenWidthOffset + 10, iScreenHeightOffset + 30, pRenderSummaryWindowText[8] );
 					goto SPECIALCASE_LABEL;  //OUCH!!!
 				}
-				else if( !gfWorldLoaded )
+				else if( !IsJa2TacticalWorldLoaded() )
 				{
 					SetFontForeground( FONT_YELLOW );
 					mprintf( iScreenWidthOffset + 10, iScreenHeightOffset + 30, pRenderSummaryWindowText[9] );
@@ -1502,7 +1502,7 @@ void RenderSummaryWindow()
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 		SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
 		//Render the grid for the map currently residing in memory (blue).
-		if( gfWorldLoaded && !gfTempFile && gsSectorX )
+		if( IsJa2TacticalWorldLoaded() && !gfTempFile && gsSectorX )
 		{
 			x = MAP_LEFT + (gsSectorX-1) * 13 + 1;
 			y = MAP_TOP + (gsSectorY-1) * 13 + 1;
@@ -1819,7 +1819,7 @@ BOOLEAN HandleSummaryInput( InputAtom *pEvent )
 		switch( pEvent->usParam )
 		{
 			case ESC:
-				if( !gfWorldLoaded )
+				if( !IsJa2TacticalWorldLoaded() )
 				{
 					DestroySummaryWindow();
 					pEvent->usParam = 'x';
@@ -1830,7 +1830,7 @@ BOOLEAN HandleSummaryInput( InputAtom *pEvent )
 			case ENTER:
 				if( GetActiveFieldID() == 1 )
 					SelectNextField();
-				else if( gfWorldLoaded )
+				else if( IsJa2TacticalWorldLoaded() )
 					DestroySummaryWindow();
 				break;
 			case 'y':case 'Y':
@@ -2233,7 +2233,7 @@ void CalculateOverrideStatus()
 	swprintf( gszDisplayName, L"%S", &(szFilename[5]) );
 	if( GetFileFirst( szFilename, &FileInfo) )
 	{
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 		{
 			if( FileInfo.uiFileAttribs & ( FILE_IS_READONLY | FILE_IS_SYSTEM ) )
 				gubOverrideStatus = READONLY;
@@ -2251,7 +2251,7 @@ void CalculateOverrideStatus()
 	{
 		gubOverrideStatus = INACTIVE;
 		HideButton( iSummaryButton[ SUMMARY_OVERRIDE ] );
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 			EnableButton( iSummaryButton[ SUMMARY_SAVE ] );
 	}
 }
@@ -2513,7 +2513,7 @@ void SummaryNewGroundLevelCallback( GUI_BUTTON *btn, INT32 reason )
 	{
 		gfPendingBasement = FALSE;
 		gfPendingCaves = FALSE;
-		if( gfWorldLoaded )
+		if( IsJa2TacticalWorldLoaded() )
 		{
 			iCurrentAction = ACTION_NEW_MAP;
 		}
