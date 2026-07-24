@@ -34,6 +34,5 @@ Ja2CampaignEventAdapter& GetJa2CampaignEventAdapter();
 // queue into EngineRuntime, then makes that runtime queue authoritative.
 void BindJa2CampaignEventQueue(CampaignEventQueue& queue) noexcept;
 CampaignEventQueue& GetJa2CampaignEventQueue() noexcept;
-void SynchronizeJa2CampaignEventListMirror() noexcept;
 
 #endif

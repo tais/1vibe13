@@ -146,8 +146,6 @@ CHAR16 gEventName[NUMBER_OF_EVENT_TYPES_PLUS_ONE][40]={
 
 void ValidateGameEvents();
 
-STRATEGICEVENT									*gpEventList = NULL;
-
 namespace
 {
 constexpr UINT32 CAMPAIGN_EVENT_QUEUE_MAGIC = 0x32515645; // "EVQ2"
@@ -157,6 +155,11 @@ CampaignEventQueue& StrategicEventQueue() noexcept
 {
 	return GetJa2CampaignEventQueue();
 }
+}
+
+STRATEGICEVENT* GetStrategicEventListHead() noexcept
+{
+	return StrategicEventQueue().head();
 }
 
 extern BOOLEAN gfTimeInterruptPause;
@@ -205,7 +208,6 @@ BOOLEAN DeleteEventsWithDeletionPending()
 		prev = curr;
 		curr = curr->next;
 	}
-	SynchronizeJa2CampaignEventListMirror();
 	gfEventDeletionPending = FALSE;
 	return fEventDeleted;
 }
@@ -315,7 +317,6 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 					break;
 			}
 			curr = queue.eraseAfter( prev );
-			SynchronizeJa2CampaignEventListMirror();
 		}
 		else
 		{
@@ -388,7 +389,6 @@ STRATEGICEVENT* AddAdvancedStrategicEvent( UINT8 ubEventType, UINT8 ubCallbackID
 		AssertMsg( FALSE, "Campaign event queue rejected a strategic event" );
 		return NULL;
 	}
-	SynchronizeJa2CampaignEventListMirror();
 	return scheduled.event;
 }
 
@@ -541,13 +541,11 @@ void DeleteAllStrategicEventsOfType( UINT8 ubCallbackID )
 			curr = curr->next;
 		}
 	}
-	SynchronizeJa2CampaignEventListMirror();
 }
 
 void DeleteAllStrategicEvents()
 {
 	StrategicEventQueue().clear();
-	SynchronizeJa2CampaignEventListMirror();
 	gfEventDeletionPending = FALSE;
 }
 
@@ -573,7 +571,6 @@ BOOLEAN DeleteStrategicEvent( UINT8 ubCallbackID, UINT32 uiParam )
 					return FALSE;
 				}
 				(void)queue.eraseAfter( prev );
-				SynchronizeJa2CampaignEventListMirror();
 				return TRUE;
 			}
 		}
@@ -662,7 +659,6 @@ BOOLEAN LoadStrategicEventsFromSavedGame( HWFILE hFile )
 
 	if( queue.replace( events ) != CampaignEventQueueError::None )
 		return FALSE;
-	SynchronizeJa2CampaignEventListMirror();
 
 	InitMiniEvents();
 

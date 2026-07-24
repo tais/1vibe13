@@ -693,7 +693,7 @@ BOOLEAN AreInMeanwhile( )
 	}
 	//Check to make sure a meanwhile scene isn't in the event list occurring at the exact same time as this call.	Meanwhile
 	//scenes have precedence over a new battle if they occur in the same second.
-	curr = gpEventList;
+	curr = GetStrategicEventListHead();
 	while( curr )
 	{
 		if( curr->uiTimeStamp == GetWorldTotalSeconds() )

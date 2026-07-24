@@ -1378,22 +1378,16 @@ void Handle_ButtonStyle_Options( UINT8 Button_UserData_1 )
 
 	if( Button_UserData_1 == TOPTION_FORCE_BOBBY_RAY_SHIPMENTS)
 	{
-		STRATEGICEVENT	*pEvent = gpEventList;
-
 		gGameSettings.fOptions[TOPTION_FORCE_BOBBY_RAY_SHIPMENTS]		= FALSE; // turn it back off
 
 		if ( guiPreviousOptionScreen == MAINMENU_SCREEN) return; //GTFO, not in game,
 
-		if( pEvent ) 
-		{
-			// clean up events prior to the DeliverShipment block (below)
-			// so that we accuately determine EVENT_POSTAL_SERVICE_SHIPMENT events have been removed
-			DeleteEventsWithDeletionPending(); 
-		}
-		else
-		{
+		// Clean up before acquiring the live head. Cleanup may erase the old
+		// head, so retaining a pointer across it would be a use-after-free.
+		DeleteEventsWithDeletionPending();
+		STRATEGICEVENT	*pEvent = GetStrategicEventListHead();
+		if( !pEvent )
 			return; //nothing here, leave
-		}
 
 		while( pEvent )
 		{

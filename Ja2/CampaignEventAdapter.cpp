@@ -1,7 +1,5 @@
 #include "CampaignEventAdapter.h"
 
-#include "Game Events.h"
-
 namespace
 {
 CampaignEventQueue fallbackQueue;
@@ -78,15 +76,9 @@ void BindJa2CampaignEventQueue(CampaignEventQueue& queue) noexcept
 		queue.swap(*activeQueue);
 		activeQueue = &queue;
 	}
-	SynchronizeJa2CampaignEventListMirror();
 }
 
 CampaignEventQueue& GetJa2CampaignEventQueue() noexcept
 {
 	return *activeQueue;
-}
-
-void SynchronizeJa2CampaignEventListMirror() noexcept
-{
-	gpEventList = activeQueue->head();
 }
