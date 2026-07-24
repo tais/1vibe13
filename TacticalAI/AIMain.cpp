@@ -43,6 +43,7 @@
 #include "Sound Control.h"
 #include "Civ Quotes.h"
 #include "Quests.h"
+#include "Game Clock.h"
 #include "Campaign Types.h"
 #include "Queen Command.h"
 #include "Points.h"
@@ -319,10 +320,6 @@ void DebugAI_( INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction 
 	}
 }
 
-extern	UINT32			guiDay;
-extern	UINT32			guiHour;
-extern	UINT32			guiMin;
-
 void DebugQuestInfo(STR szOutput)
 {
 	/*CHAR16 buf16[1024];
@@ -344,7 +341,8 @@ void DebugQuestInfo(STR szOutput)
 	if (DebugFile != NULL)
 	{
 		// first write game clock and date/time
-		sprintf(buf, "(%d) Day %d %d:%d ", GetJA2Clock(), guiDay, guiHour, guiMin);
+		sprintf(buf, "(%d) Day %d %d:%d ", GetJA2Clock(),
+			GetWorldDay(), GetWorldHour(), GetWorldMinutes());
 		fputs(buf, DebugFile);
 
 		fputs(szOutput, DebugFile);

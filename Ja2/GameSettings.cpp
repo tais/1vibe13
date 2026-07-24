@@ -4765,7 +4765,7 @@ BOOLEAN	CanGameBeSaved()
 
 		if( gGameOptions.ubIronManMode == 3 && 
 			( GetWorldHour() != gGameExternalOptions.ubExtremeIronManSavingHour || 
-				guiMin != 0 ) )
+				GetWorldMinutes() != 0 ) )
 		{
 			//no save for you
 			return( FALSE );

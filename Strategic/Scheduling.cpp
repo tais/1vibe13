@@ -794,7 +794,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 				pSoldier->name,
 				pSoldier->ubID,
 				GetWorldHour(),
-				guiMin,
+				GetWorldMinutes(),
 				pSchedule->usTime[ index ] / 60,
 				pSchedule->usTime[ index ] % 60,
 				pSchedule->usData1[ index ]) );
@@ -805,7 +805,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 				gszScheduleActions[ pSchedule->ubAction[ index ] ],
 				pSoldier->ubID,
 				GetWorldHour(),
-				guiMin,
+				GetWorldMinutes(),
 				pSchedule->usTime[ index ] / 60,
 				pSchedule->usTime[ index ] % 60,
 				pSchedule->usData1[ index ]) );

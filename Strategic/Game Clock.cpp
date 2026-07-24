@@ -110,7 +110,9 @@ extern			UINT32		guiEnvDay;
 void InitNewGameClock( )
 {
 	InitializeJa2CampaignClock( gGameExternalOptions.iGameStartingTime );
-	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d", pDayStrings[ 0 ], guiDay, guiHour, guiMin );
+	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
+	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d",
+		pDayStrings[ 0 ], clock.day, clock.hour, clock.minute );
 	guiTimeCurrentSectorWasLastLoaded = 0;
 	guiGameSecondsPerRealSecond = 0;
 	gubClockResolution = 1;
@@ -119,38 +121,44 @@ void InitNewGameClock( )
 
 UINT32 GetWorldTotalMin( )
 {
-	return( guiGameClock / NUM_SEC_IN_MIN );
+	return( CaptureJa2CampaignClock().totalSeconds / NUM_SEC_IN_MIN );
 }
 
 UINT32 GetWorldTotalSeconds( )
 {
-	return( guiGameClock );
+	return( CaptureJa2CampaignClock().totalSeconds );
 }
 
 
 UINT32 GetWorldHour( )
 {
-	return( guiHour );
+	return( CaptureJa2CampaignClock().hour );
+}
+
+UINT32 GetWorldMinutes( )
+{
+	return( CaptureJa2CampaignClock().minute );
 }
 
 UINT32 GetWorldMinutesInDay( )
 {
-	return( ( guiHour * 60 ) + guiMin );
+	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
+	return( ( clock.hour * 60 ) + clock.minute );
 }
 
 UINT32 GetWorldDay( )
 {
-	return( guiDay);
+	return( CaptureJa2CampaignClock().day );
 }
 
 UINT32 GetWorldDayInSeconds( )
 {
-	return( guiDay * NUM_SEC_IN_DAY );
+	return( GetWorldDay() * NUM_SEC_IN_DAY );
 }
 
 UINT32 GetWorldDayInMinutes( )
 {
-	return( ( guiDay * NUM_SEC_IN_DAY ) / NUM_SEC_IN_MIN );
+	return( ( GetWorldDay() * NUM_SEC_IN_DAY ) / NUM_SEC_IN_MIN );
 }
 
 UINT32 GetFutureDayInMinutes( UINT32 uiDay )
@@ -201,7 +209,7 @@ void AdvanceClock( UINT8 ubWarpCode )
 
 	if( ubWarpCode != WARPTIME_NO_PROCESSING_OF_EVENTS )
 	{
-		guiTimeOfLastEventQuery = guiGameClock;
+		guiTimeOfLastEventQuery = GetWorldTotalSeconds();
 		//First of all, events are posted for movements, pending attacks, equipment arrivals, etc.	This time
 		//adjustment using time compression can possibly pass one or more events in a single pass.	So, this list
 		//is looked at and processed in sequential order, until the uiAdjustment is fully applied.
@@ -225,16 +233,22 @@ void AdvanceClock( UINT8 ubWarpCode )
 	}
 
 
-	if ( guiGameClock < guiPreviousGameClock )
+	const CampaignClockSession::AdvanceCommit clockCommit =
+		CommitJa2CampaignClockAdvance();
+	if ( clockCommit.movedBackward )
 	{
-		AssertMsg( FALSE, String( "AdvanceClock: TIME FLOWING BACKWARDS!!! guiPreviousGameClock %d, now %d", guiPreviousGameClock, guiGameClock ) );
+		AssertMsg( FALSE, String(
+			"AdvanceClock: TIME FLOWING BACKWARDS!!! previous total %d, attempted %d",
+			clockCommit.previousTotalSeconds,
+			clockCommit.attemptedTotalSeconds ) );
 	}
 
-	// Clamp backwards flow (if assertions are disabled), commit the monotonic
-	// checkpoint, and refresh the legacy calendar mirrors together.
-	CommitJa2CampaignClockAdvance();
-
-	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d", gpGameClockString[ STR_GAMECLOCK_DAY_NAME ], guiDay, guiHour, guiMin );
+	// Commit clamps backwards flow if assertions are disabled and derives the
+	// calendar fields as one engine-owned state transition.
+	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
+	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d",
+		gpGameClockString[ STR_GAMECLOCK_DAY_NAME ],
+		clock.day, clock.hour, clock.minute );
 
 	if( gfResetAllPlayerKnowsEnemiesFlags && !gTacticalStatus.fEnemyInSector )
 	{
@@ -254,8 +268,8 @@ void AdvanceToNextDay()
 	INT32	uiDiff;
 	UINT32 uiTomorrowTimeInSec;
 
-	uiTomorrowTimeInSec = (guiDay+1)*NUM_SEC_IN_DAY + 8*NUM_SEC_IN_HOUR + 15*NUM_SEC_IN_MIN;
-	uiDiff = uiTomorrowTimeInSec - guiGameClock;
+	uiTomorrowTimeInSec = (GetWorldDay()+1)*NUM_SEC_IN_DAY + 8*NUM_SEC_IN_HOUR + 15*NUM_SEC_IN_MIN;
+	uiDiff = uiTomorrowTimeInSec - GetWorldTotalSeconds();
 	WarpGameTime( uiDiff, WARPTIME_PROCESS_EVENTS_NORMALLY );
 
 	ForecastDayEvents( );
@@ -292,7 +306,7 @@ void RenderClock( INT16 sX, INT16 sY )
 	SetFontBackground( FONT_MCOLOR_BLACK );
 
 #ifdef CRIPPLED_VERSION
-	if( guiDay >= 8 )
+	if( GetWorldDay() >= 8 )
 	{
 		SetFontForeground( FONT_FCOLOR_NICERED );
 		// Erase first!
@@ -959,10 +973,12 @@ BOOLEAN LoadGameClock( HWFILE hFile )
 
 
 	// Publish the serialized clock only after every legacy field was read.
-	// Restore derives the calendar mirrors without changing the byte layout.
+	// Restore derives the calendar without changing the byte layout.
 	RestoreJa2CampaignClock( loadedGameClock, loadedPreviousGameClock );
 
-	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d", pDayStrings[ 0 ], guiDay, guiHour, guiMin );
+	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
+	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d",
+		pDayStrings[ 0 ], clock.day, clock.hour, clock.minute );
 
 	if( !gfBasement && !gfCaves )
 		gfDoLighting		= TRUE;
@@ -1133,13 +1149,15 @@ void RenderPausedGameBox( void )
 BOOLEAN DayTime()
 {
 	//between 7AM and 9PM
-	return ( guiHour >= 7 && guiHour < 21 );
+	const UINT32 hour = GetWorldHour();
+	return ( hour >= 7 && hour < 21 );
 }
 
 BOOLEAN NightTime()
 {
 	//before 7AM or after 9PM
-	return ( guiHour < 7 || guiHour >= 21 );
+	const UINT32 hour = GetWorldHour();
+	return ( hour < 7 || hour >= 21 );
 }
 
 

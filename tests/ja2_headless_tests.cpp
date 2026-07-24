@@ -93,6 +93,7 @@
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
+#include "Game Clock.h"
 #include "Game Events.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
@@ -2829,9 +2830,11 @@ int main( int, char** )
 		       uncommittedCampaignClock == expectedUncommittedCampaignClock &&
 		       !campaignClockCommit.movedBackward &&
 		       committedCampaignClock == expectedCommittedCampaignClock &&
-		       guiGameClock == committedCampaignClock.totalSeconds &&
-		       guiPreviousGameClock == committedCampaignClock.previousTotalSeconds,
-		       "application campaign-clock gateway keeps runtime ownership and legacy mirrors synchronized" );
+		       GetWorldTotalSeconds() == committedCampaignClock.totalSeconds &&
+		       GetWorldDay() == committedCampaignClock.day &&
+		       GetWorldHour() == committedCampaignClock.hour &&
+		       GetWorldMinutes() == committedCampaignClock.minute,
+		       "application campaign-clock gateway is the sole owner behind established clock accessors" );
 		const auto campaignClockService =
 			compiledContext.serviceCatalog().resolve( CampaignClockServiceContract );
 		CampaignClockSession::Snapshot packageCampaignClock;

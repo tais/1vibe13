@@ -34,8 +34,9 @@ the engine must not contain SDL types in its public domain model.
   dependencies in this directory, and `engine_core_tests` links without SDL,
   SGP, JA2 globals, or campaign code so accidental upward dependencies fail at
   the engine boundary rather than hiding in the game executable.
-- `GameContext` is the composition root. It initially binds legacy globals and
-  will replace them service by service without changing save layouts en masse.
+- `GameContext` is the composition root. It binds application adapters to the
+  engine runtime and retires duplicate global owners service by service without
+  changing unrelated save layouts en masse.
 - `GameCapabilities` moves JA2/UB/editor decisions from preprocessing toward
   startup-selected runtime policy.
 - `ContentRegistry` validates package identity, required engine API version,
@@ -530,13 +531,14 @@ the engine must not contain SDL types in its public domain model.
   identities owned by a package are removed during rollback or shutdown.
 - `CampaignClockSession` is the first engine-owned strategic-state slice. The
   JA2 runtime owns total campaign seconds, the monotonic checkpoint, and the
-  derived calendar as pointer-free values. `CampaignClockAdapter` is the only
-  production writer of the exact legacy mirrors; ordinary clock ticks,
-  strategic-event warps, initialization, and save restoration all pass through
-  it. Existing saves retain their primitive field order and size, while failed
-  loads no longer publish a partially read campaign-time identity. This is
-  simulation time, not the injectable platform monotonic clock used for frame
-  pacing.
+  derived calendar as pointer-free values. The five former campaign-clock
+  scalar mirrors have been deleted: `CampaignClockAdapter` binds the session,
+  while the established `GetWorld*` accessors and coherent snapshots read it
+  directly. Ordinary clock ticks, strategic-event warps, initialization, and
+  save restoration all pass through that gateway. Existing saves retain their
+  primitive field order and size, while failed loads no longer publish a
+  partially read campaign-time identity. This is simulation time, not the
+  injectable platform monotonic clock used for frame pacing.
 - `CampaignClockScheduler` is the engine-owned fractional pacing state above
   that session. It deterministically converts fixed 16,667-microsecond ticks
   into JA2's established speed/resolution slices, bounds a malformed host tick
@@ -624,8 +626,8 @@ misread.
 1. Save formats carry explicit versions. A supported migration must be tested;
    an intentionally unsupported older version is rejected before
    format-dependent state is read.
-2. Legacy globals and numeric handles remain adapters until all supported
-   callers have a replacement.
+2. Legacy globals and numeric handles remain adapters only until all supported
+   callers have a replacement; retired mirrors are guarded against returning.
 3. Runtime capability defaults match the old build target until a unified
    executable can select packages at startup.
 4. Serialized entities use semantic field schemas rather than making in-memory

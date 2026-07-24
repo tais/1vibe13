@@ -678,18 +678,19 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 void CrippledVersionEndGameCheck()
 {
 	CHAR16	zString[512];
+	const UINT32 day = GetWorldDay();
 
 	//Dont want this to appear before we arrive
-	if( guiDay == 1 )
+	if( day == 1 )
 		return;
 
-	if( guiDay >= 8 )
+	if( day >= 8 )
 	{
 		swprintf( zString, L"Game Over.	We hope you have enjoyed playing the limited version of Jagged Alliance 2 v1.13." );
 	}
 	else
 	{
-		swprintf( zString, L"You have %d game days left in this limited version of Jagged Alliance 2 v1.13.",	( 8 - guiDay ) );
+		swprintf( zString, L"You have %d game days left in this limited version of Jagged Alliance 2 v1.13.",	( 8 - day ) );
 	}
 
 	DoScreenIndependantMessageBox( zString, MSG_BOX_FLAG_OK, CrippledVersionEndGameCheckCallBack );
@@ -698,7 +699,7 @@ void CrippledVersionEndGameCheck()
 void CrippledVersionEndGameCheckCallBack( UINT8 bExitValue )
 {
 	//if we should restart the game
-	if( guiDay >= 8 )
+	if( GetWorldDay() >= 8 )
 	{
 		//clean up the code
 		ReStartingGame();

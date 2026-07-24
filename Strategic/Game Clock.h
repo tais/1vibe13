@@ -140,10 +140,6 @@ CampaignClockScheduleResult AdvanceClockFromFixedStep(
 
 extern CHAR16 gswzWorldTimeStr[ 20 ]; //Day 99, 23:55
 
-extern	UINT32			guiDay;
-extern	UINT32			guiHour;
-extern	UINT32			guiMin;
-
 //Advanced function used by certain event callbacks.	In the case where time is warped, certain event
 //need to know how much time was warped since the last query to the event list.	
 //This function returns that value
@@ -167,6 +163,7 @@ extern UINT32 guiLockPauseStateLastReasonId;
 UINT32 GetWorldTotalMin( );
 UINT32 GetWorldTotalSeconds( );
 UINT32 GetWorldHour( );
+UINT32 GetWorldMinutes( );
 UINT32 GetWorldDay( );
 UINT32 GetWorldMinutesInDay( );
 UINT32 GetWorldDayInSeconds( );

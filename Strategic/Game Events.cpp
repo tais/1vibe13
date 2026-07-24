@@ -171,7 +171,7 @@ UINT32	guiTimeStampOfCurrentlyExecutingEvent = 0;
 BOOLEAN GameEventsPending( UINT32 uiAdjustment )
 {
 	#ifdef CRIPPLED_VERSION
-	if( guiDay >= 8 )
+	if( GetWorldDay() >= 8 )
 	{
 		return FALSE;
 	}
@@ -215,12 +215,12 @@ static void AdjustClockToEventStamp( STRATEGICEVENT *pEvent, UINT32 *puiAdjustme
 {
 	UINT32 uiDiff;
 
-	uiDiff = pEvent->uiTimeStamp - guiGameClock;
+	uiDiff = pEvent->uiTimeStamp - GetWorldTotalSeconds();
 	SetJa2CampaignClockEventTime( pEvent->uiTimeStamp );
 	*puiAdjustment -= uiDiff;
 
 	#ifdef CRIPPLED_VERSION
-	if( guiDay >= 8 )
+	if( GetWorldDay() >= 8 )
 	{
 		OverrideJa2CampaignClockCalendar( 8, 0, 0 );
 		return;
@@ -228,7 +228,10 @@ static void AdjustClockToEventStamp( STRATEGICEVENT *pEvent, UINT32 *puiAdjustme
 
 	#endif
 
-	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d", gpGameClockString[ STR_GAMECLOCK_DAY_NAME ], guiDay, guiHour, guiMin );
+	const CampaignClockSession::Snapshot& clock = CaptureJa2CampaignClock();
+	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d",
+		gpGameClockString[ STR_GAMECLOCK_DAY_NAME ],
+		clock.day, clock.hour, clock.minute );
 }
 
 //If there are any events pending, they are processed, until the time limit is reached, or
@@ -241,7 +244,7 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 	BOOLEAN fDeleteEvent = FALSE;
 
 	#ifdef CRIPPLED_VERSION
-	if( guiDay >= 8 )
+	if( GetWorldDay() >= 8 )
 	{
 		return;
 	}
@@ -253,13 +256,15 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 	//While we have events inside the time range to be updated, process them...
 	curr = queue.head();
 	prev = NULL; //prev only used when warping time to target time.
-	while( !gfTimeInterrupt && curr && curr->uiTimeStamp <= guiGameClock + uiAdjustment )
+	while( !gfTimeInterrupt && curr &&
+		curr->uiTimeStamp <= GetWorldTotalSeconds() + uiAdjustment )
 	{
 		fDeleteEvent = FALSE;
 		//Update the time by the difference, but ONLY if the event comes after the current time.
 		//In the beginning of the game, series of events are created that are placed in the list
 		//BEFORE the start time.	Those events will be processed without influencing the actual time.
-		if( curr->uiTimeStamp > guiGameClock && ubWarpCode != WARPTIME_PROCESS_TARGET_TIME_FIRST )
+		if( curr->uiTimeStamp > GetWorldTotalSeconds() &&
+			ubWarpCode != WARPTIME_PROCESS_TARGET_TIME_FIRST )
 		{
 			AdjustClockToEventStamp( curr, &uiAdjustment );
 		}
@@ -268,9 +273,10 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 		{
 			fDeleteEvent = ExecuteStrategicEvent( curr );
 		}
-		else if( curr->uiTimeStamp == guiGameClock + uiAdjustment )
+		else if( curr->uiTimeStamp == GetWorldTotalSeconds() + uiAdjustment )
 		{ //if we are warping to the target time to process that event first,
-			if( !curr->next || curr->next->uiTimeStamp > guiGameClock + uiAdjustment )
+			if( !curr->next ||
+				curr->next->uiTimeStamp > GetWorldTotalSeconds() + uiAdjustment )
 			{ //make sure that we are processing the last event for that second
 				AdjustClockToEventStamp( curr, &uiAdjustment );
 

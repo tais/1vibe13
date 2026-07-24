@@ -108,8 +108,9 @@ diff/codec/observer, message publisher, and tactical command service surfaces.
 `EngineRuntime`. It distinguishes uncommitted event slices from a completed
 monotonic tick, derives day/hour/minute without platform APIs, and reports when
 32-bit legacy time would flow backward. The JA2 application gateway and its
-legacy globals are intentionally outside the SDK; external tools can inspect,
-restore, and advance the session without linking any game or save code.
+established `GetWorld*` accessors are intentionally outside the SDK; there are
+no duplicate scalar clock mirrors. External tools can inspect, restore, and
+advance the session without linking any game or save code.
 
 `CampaignClockScheduler`, also owned by `EngineRuntime`, converts elapsed
 fixed-step microseconds into the existing campaign speed/resolution model

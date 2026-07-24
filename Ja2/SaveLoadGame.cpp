@@ -2686,7 +2686,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	//The following will be used to quickly access info to display in the save/load screen
 	SaveGameHeader.uiDay = GetWorldDay();
 	SaveGameHeader.ubHour = (UINT8)GetWorldHour();
-	SaveGameHeader.ubMin = (UINT8)guiMin;
+	SaveGameHeader.ubMin = (UINT8)GetWorldMinutes();
 	if(is_networked)
 	{
 		SaveGameHeader.uiDay = CLIENT_NUM;

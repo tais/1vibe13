@@ -5199,13 +5199,17 @@ void HandleAimMemberKeyBoardInput()
 					break;
 
 				case '~':
+				{
 					// to test going on other assignments, unhired merc improvements & deaths
-					if (guiDay == 1)
+					const CampaignClockSession::Snapshot& clock =
+						CaptureJa2CampaignClock();
+					if (clock.day == 1)
 						OverrideJa2CampaignClockCalendar(
-							guiDay + 1, guiHour, guiMin);
+							clock.day + 1, clock.hour, clock.minute);
 					MercDailyUpdate();
 					gfRedrawScreen = TRUE;
 					break;
+				}
 #endif
 				case '1':
 				case '2':
