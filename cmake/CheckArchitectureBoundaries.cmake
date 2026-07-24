@@ -225,6 +225,40 @@ foreach(source_file IN LISTS world_state_files)
   endforeach()
 endforeach()
 
+# Campaign time identity is owned by EngineRuntime's CampaignClockSession.
+# Legacy totals and calendar fields remain readable across the old game, but
+# every transition must keep the engine session and compatibility mirrors in
+# one atomic gateway update.
+set(campaign_clock_owner "${SOURCE_ROOT}/Ja2/CampaignClockAdapter.cpp")
+set(campaign_clock_mirrors
+  guiGameClock
+  guiPreviousGameClock
+  guiDay
+  guiHour
+  guiMin)
+foreach(source_file IN LISTS world_state_files)
+  if("${source_file}" STREQUAL "${campaign_clock_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  foreach(mirror IN LISTS campaign_clock_mirrors)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${mirror}[ \\t\\r\\n]*(\\+\\+|--|[+*/%-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \\t\\r\\n]*${mirror}([^A-Za-z0-9_]|$)"
+      campaign_clock_write "${contents}")
+    if(campaign_clock_write)
+      message(FATAL_ERROR
+        "Production code writes campaign-clock compatibility mirror '${mirror}' in ${source_file}; route the transition through CampaignClockAdapter")
+    endif()
+    string(REGEX MATCH
+      "(^|[^&])&[ \\t\\r\\n]*${mirror}([^A-Za-z0-9_]|$)"
+      campaign_clock_address_escape "${contents}")
+    if(campaign_clock_address_escape)
+      message(FATAL_ERROR
+        "Production code passes campaign-clock compatibility mirror '${mirror}' by address in ${source_file}; stage a value and route writes through CampaignClockAdapter")
+    endif()
+  endforeach()
+endforeach()
+
 # The legacy incarnation counter remains an exported compatibility mirror for
 # old modules and save tools. Only the entity host may synchronize it with the
 # runtime-owned allocation sequence.

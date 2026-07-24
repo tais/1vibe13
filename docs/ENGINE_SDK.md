@@ -3,9 +3,9 @@
 `JA2::EngineCore` is the campaign- and platform-independent C++17 engine
 surface. It can be installed without SDL, SGP, VFS, game data, or any JA2
 application library and consumed from an unrelated CMake project.
-`JA2::RuntimeAdapter` adds the pointer-free JA2 command, replay, and tactical
-world contracts and links `JA2::EngineCore` transitively. Neither target links
-the legacy game or platform libraries.
+`JA2::RuntimeAdapter` adds the pointer-free JA2 campaign-clock, command, replay,
+and tactical-world contracts and links `JA2::EngineCore` transitively. Neither
+target links the legacy game or platform libraries.
 
 ## Install
 
@@ -52,10 +52,10 @@ prefix or `JA2Engine_DIR` pointing at its `lib/cmake/JA2Engine` directory.
 packages and capabilities, versioned persistence, assets, state control, and
 lifecycle without any game command vocabulary. The generic `CommandStream`,
 queue, processor, and journal building blocks are also public. The repository's
-`Engine/Adapters/JA2` target layers `EngineRuntime`, tactical commands, their
-codec, tactical-world observation/publication, and durable replay on Core. It
-is installed as `JA2::RuntimeAdapter`; platform adapters and legacy game types
-remain outside the SDK boundary.
+`Engine/Adapters/JA2` target layers `EngineRuntime`, campaign-clock state,
+tactical commands, their codec, tactical-world observation/publication, and
+durable replay on Core. It is installed as `JA2::RuntimeAdapter`; platform
+adapters and legacy game types remain outside the SDK boundary.
 
 New hosts should configure the composition root through `EngineHostOptions`
 rather than relying on the legacy positional constructor:
@@ -94,9 +94,16 @@ phase/callback counts and structured incomplete/failure errors.
 The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,
 and builds the fresh project against `find_package(JA2Engine)`. It exercises
-Core plus the command codec, durable replay, runtime composition, tactical
-world diff/codec/observer, message publisher, and tactical command service
-surfaces.
+Core plus campaign-clock ownership, the command codec, durable replay, runtime
+composition, tactical world diff/codec/observer, message publisher, and
+tactical command service surfaces.
+
+`CampaignClockSession` is the value-only strategic-time state owned by each
+`EngineRuntime`. It distinguishes uncommitted event slices from a completed
+monotonic tick, derives day/hour/minute without platform APIs, and reports when
+32-bit legacy time would flow backward. The JA2 application gateway and its
+legacy globals are intentionally outside the SDK; external tools can inspect,
+restore, and advance the session without linking any game or save code.
 
 `TacticalCommandService` is the package-facing, pointer-free write boundary for
 JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it

@@ -504,6 +504,15 @@ the engine must not contain SDL types in its public domain model.
   objects. IDs remain safe across messages, commands, saves, and diagnostics;
   destroyed slots increment generation, exhausted generations retire, and all
   identities owned by a package are removed during rollback or shutdown.
+- `CampaignClockSession` is the first engine-owned strategic-state slice. The
+  JA2 runtime owns total campaign seconds, the monotonic checkpoint, and the
+  derived calendar as pointer-free values. `CampaignClockAdapter` is the only
+  production writer of the exact legacy mirrors; ordinary clock ticks,
+  strategic-event warps, initialization, and save restoration all pass through
+  it. Existing saves retain their primitive field order and size, while failed
+  loads no longer publish a partially read campaign-time identity. This is
+  simulation time, not the injectable platform monotonic clock used for frame
+  pacing.
 - `AudioGroupService` binds new audio playback to package identity and logical
   groups above the existing platform output. Assets are normalized, playbacks
   are bounded and inspectable, packages cannot control another owner's sounds,

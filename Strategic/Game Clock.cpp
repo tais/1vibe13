@@ -1,4 +1,5 @@
 #include "sgp.h"
+#include "CampaignClockAdapter.h"
 #include "Game Clock.h"
 #include "Font.h"
 #include "Render Dirty.h"
@@ -81,14 +82,9 @@ BOOLEAN			gfGamePaused						= TRUE;
 BOOLEAN			gfTimeInterrupt					= FALSE;
 BOOLEAN			gfTimeInterruptPause	= FALSE;
 BOOLEAN			fSuperCompression				= FALSE;
-UINT32			guiGameClock				= gGameExternalOptions.iGameStartingTime;
-UINT32			guiPreviousGameClock = 0;		// used only for error-checking purposes
 UINT32			guiGameSecondsPerRealSecond;
 UINT32			guiTimesThisSecondProcessed = 0;
 INT32			iPausedPopUpBox = -1;
-UINT32			guiDay;
-UINT32			guiHour;
-UINT32			guiMin;
 CHAR16			gswzWorldTimeStr[20];
 INT32				giTimeCompressSpeeds[ NUM_TIME_COMPRESS_SPEEDS ] = { 0, 1, 5 * 60, 30 * 60, 60 * 60 };
 UINT16		usPausedActualWidth;
@@ -113,11 +109,7 @@ extern			UINT32		guiEnvDay;
 
 void InitNewGameClock( )
 {
-	guiGameClock = gGameExternalOptions.iGameStartingTime;
-	guiPreviousGameClock = gGameExternalOptions.iGameStartingTime;
-	guiDay = ( guiGameClock / NUM_SEC_IN_DAY );
-	guiHour = ( guiGameClock - ( guiDay * NUM_SEC_IN_DAY ) ) / NUM_SEC_IN_HOUR;
-	guiMin	= ( guiGameClock - ( ( guiDay * NUM_SEC_IN_DAY ) + ( guiHour * NUM_SEC_IN_HOUR ) ) ) / NUM_SEC_IN_MIN;
+	InitializeJa2CampaignClock( gGameExternalOptions.iGameStartingTime );
 	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d", pDayStrings[ 0 ], guiDay, guiHour, guiMin );
 	guiTimeCurrentSectorWasLastLoaded = 0;
 	guiGameSecondsPerRealSecond = 0;
@@ -224,31 +216,23 @@ void AdvanceClock( UINT8 ubWarpCode )
 		else
 		{
 			//Adjust the game clock now.
-			guiGameClock += guiGameSecondsPerRealSecond;
+			AdvanceJa2CampaignClockUncommitted( guiGameSecondsPerRealSecond );
 		}
 	}
 	else
 	{
-		guiGameClock += guiGameSecondsPerRealSecond;
+		AdvanceJa2CampaignClockUncommitted( guiGameSecondsPerRealSecond );
 	}
 
 
 	if ( guiGameClock < guiPreviousGameClock )
 	{
 		AssertMsg( FALSE, String( "AdvanceClock: TIME FLOWING BACKWARDS!!! guiPreviousGameClock %d, now %d", guiPreviousGameClock, guiGameClock ) );
-
-		// fix it if assertions are disabled
-		guiGameClock = guiPreviousGameClock;
 	}
 
-	// store previous game clock value (for error-checking purposes only)
-	guiPreviousGameClock = guiGameClock;
-
-
-	//Calculate the day, hour, and minutes.
-	guiDay = ( guiGameClock / NUM_SEC_IN_DAY );
-	guiHour = ( guiGameClock - ( guiDay * NUM_SEC_IN_DAY ) ) / NUM_SEC_IN_HOUR;
-	guiMin	= ( guiGameClock - ( ( guiDay * NUM_SEC_IN_DAY ) + ( guiHour * NUM_SEC_IN_HOUR ) ) ) / NUM_SEC_IN_MIN;
+	// Clamp backwards flow (if assertions are disabled), commit the monotonic
+	// checkpoint, and refresh the legacy calendar mirrors together.
+	CommitJa2CampaignClockAdvance();
 
 	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d", gpGameClockString[ STR_GAMECLOCK_DAY_NAME ], guiDay, guiHour, guiMin );
 
@@ -865,6 +849,7 @@ void UpdateClock()
 BOOLEAN SaveGameClock( HWFILE hFile, BOOLEAN fGamePaused, BOOLEAN fLockPauseState )
 {
 	UINT32	uiNumBytesWritten=0;
+	const CampaignClockSession::Snapshot savedClock = CaptureJa2CampaignClock();
 
 	FileWrite( hFile, &giTimeCompressMode, sizeof( INT32 ), &uiNumBytesWritten );
 	if( uiNumBytesWritten != sizeof( INT32 ) )
@@ -886,7 +871,7 @@ BOOLEAN SaveGameClock( HWFILE hFile, BOOLEAN fGamePaused, BOOLEAN fLockPauseStat
 	if( uiNumBytesWritten != sizeof( BOOLEAN ) )
 		return(FALSE);
 
-	FileWrite( hFile, &guiGameClock, sizeof( UINT32 ), &uiNumBytesWritten );
+	FileWrite( hFile, &savedClock.totalSeconds, sizeof( UINT32 ), &uiNumBytesWritten );
 	if( uiNumBytesWritten != sizeof( UINT32 ) )
 		return(FALSE);
 
@@ -930,7 +915,7 @@ BOOLEAN SaveGameClock( HWFILE hFile, BOOLEAN fGamePaused, BOOLEAN fLockPauseStat
 	if( uiNumBytesWritten != sizeof( BOOLEAN ) )
 		return(FALSE);
 
-	FileWrite( hFile, &guiPreviousGameClock, sizeof( UINT32 ), &uiNumBytesWritten );
+	FileWrite( hFile, &savedClock.previousTotalSeconds, sizeof( UINT32 ), &uiNumBytesWritten );
 	if( uiNumBytesWritten != sizeof( UINT32 ) )
 		return(FALSE);
 
@@ -949,6 +934,8 @@ BOOLEAN SaveGameClock( HWFILE hFile, BOOLEAN fGamePaused, BOOLEAN fLockPauseStat
 BOOLEAN LoadGameClock( HWFILE hFile )
 {
 	UINT32	uiNumBytesRead;
+	UINT32 loadedGameClock;
+	UINT32 loadedPreviousGameClock;
 
 	FileRead( hFile, &giTimeCompressMode, sizeof( INT32 ), &uiNumBytesRead );
 	if( uiNumBytesRead != sizeof( INT32 ) )
@@ -970,7 +957,7 @@ BOOLEAN LoadGameClock( HWFILE hFile )
 	if( uiNumBytesRead != sizeof( BOOLEAN ) )
 		return(FALSE);
 
-	FileRead( hFile, &guiGameClock, sizeof( UINT32 ), &uiNumBytesRead );
+	FileRead( hFile, &loadedGameClock, sizeof( UINT32 ), &uiNumBytesRead );
 	if( uiNumBytesRead != sizeof( UINT32 ) )
 		return(FALSE);
 
@@ -1014,7 +1001,7 @@ BOOLEAN LoadGameClock( HWFILE hFile )
 	if( uiNumBytesRead != sizeof( BOOLEAN ) )
 		return(FALSE);
 
-	FileRead( hFile, &guiPreviousGameClock, sizeof( UINT32 ), &uiNumBytesRead );
+	FileRead( hFile, &loadedPreviousGameClock, sizeof( UINT32 ), &uiNumBytesRead );
 	if( uiNumBytesRead != sizeof( UINT32 ) )
 		return(FALSE);
 
@@ -1028,10 +1015,9 @@ BOOLEAN LoadGameClock( HWFILE hFile )
 		return(FALSE);
 
 
-	//Update the game clock
-	guiDay = ( guiGameClock / NUM_SEC_IN_DAY );
-	guiHour = ( guiGameClock - ( guiDay * NUM_SEC_IN_DAY ) ) / NUM_SEC_IN_HOUR;
-	guiMin	= ( guiGameClock - ( ( guiDay * NUM_SEC_IN_DAY ) + ( guiHour * NUM_SEC_IN_HOUR ) ) ) / NUM_SEC_IN_MIN;
+	// Publish the serialized clock only after every legacy field was read.
+	// Restore derives the calendar mirrors without changing the byte layout.
+	RestoreJa2CampaignClock( loadedGameClock, loadedPreviousGameClock );
 
 	swprintf( WORLDTIMESTR, L"%s %d, %02d:%02d", pDayStrings[ 0 ], guiDay, guiHour, guiMin );
 

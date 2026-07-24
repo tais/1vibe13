@@ -1,6 +1,7 @@
 	#include "builddefines.h"
 	#include <stdio.h>
 	#include "types.h"
+	#include "CampaignClockAdapter.h"
 	#include "Game Events.h"
 	#include "SaveSerializer.h"
 	#include "Game Clock.h"
@@ -147,7 +148,6 @@ void ValidateGameEvents();
 
 STRATEGICEVENT									*gpEventList = NULL;
 
-extern UINT32 guiGameClock;
 extern BOOLEAN gfTimeInterruptPause;
 BOOLEAN gfPreventDeletionOfAnyEvent = FALSE;
 BOOLEAN gfEventDeletionPending = FALSE;
@@ -220,20 +220,13 @@ static void AdjustClockToEventStamp( STRATEGICEVENT *pEvent, UINT32 *puiAdjustme
 	UINT32 uiDiff;
 
 	uiDiff = pEvent->uiTimeStamp - guiGameClock;
-	guiGameClock += uiDiff;
+	SetJa2CampaignClockEventTime( pEvent->uiTimeStamp );
 	*puiAdjustment -= uiDiff;
-
-	//Calculate the day, hour, and minutes.
-	guiDay = ( guiGameClock / NUM_SEC_IN_DAY );
-	guiHour = ( guiGameClock - ( guiDay * NUM_SEC_IN_DAY ) ) / NUM_SEC_IN_HOUR;
-	guiMin	= ( guiGameClock - ( ( guiDay * NUM_SEC_IN_DAY ) + ( guiHour * NUM_SEC_IN_HOUR ) ) ) / NUM_SEC_IN_MIN;
 
 	#ifdef CRIPPLED_VERSION
 	if( guiDay >= 8 )
 	{
-		guiDay = 8;
-		guiHour = 0;
-		guiMin = 0;
+		OverrideJa2CampaignClockCalendar( 8, 0, 0 );
 		return;
 	}
 
@@ -355,7 +348,7 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 	}
 
 	if( uiAdjustment && !gfTimeInterrupt )
-		guiGameClock += uiAdjustment;
+		AdvanceJa2CampaignClockUncommitted( uiAdjustment );
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"ProcessPendingGameEvents done");
 }
