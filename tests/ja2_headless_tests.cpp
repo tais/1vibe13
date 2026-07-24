@@ -96,6 +96,8 @@
 #include "Overhead.h"
 #include "strategicmap.h"
 #include "MovementDestinationPolicy.h"
+#include "Rain.h"
+#include "Render Dirty.h"
 #include "Timer Control.h"
 #include <vfs/Tools/vfs_hp_timer.h>
 #include <vfs/Tools/vfs_profiler.h>
@@ -125,6 +127,9 @@ void ShutdownWithErrorBox( const CHAR8* pcMessage )
 static int g_failures = 0;
 static UINT64 gInjectedLegacyClockTime = 0;
 static BOOLEAN gInjectedFastForwardKeyDown = FALSE;
+
+extern VIDEO_OVERLAY gVideoOverlays[];
+extern UINT32 guiNumVideoOverlays;
 
 static UINT64 InjectedLegacyClockTime()
 {
@@ -743,6 +748,26 @@ int main( int, char** )
 		const int required = sprintf( tiny, "%s", "abcdef" );
 		CHECK( required == 6 && std::strcmp( tiny, "abcd" ) == 0,
 		       "legacy narrow formatting truncates safely and reports required size" );
+	}
+
+	{
+		const UINT32 savedOverlayCount = guiNumVideoOverlays;
+		const VIDEO_OVERLAY savedOverlays[2] = {
+			gVideoOverlays[0], gVideoOverlays[1] };
+		gVideoOverlays[0] = VIDEO_OVERLAY{};
+		gVideoOverlays[1] = VIDEO_OVERLAY{};
+		gVideoOverlays[1].fAllocated = TRUE;
+		gVideoOverlays[1].fDisabled = TRUE;
+		guiNumVideoOverlays = 2;
+		RainClipVideoOverlay();
+		CHECK( !gVideoOverlays[0].fAllocated &&
+		       !gVideoOverlays[0].pBackground &&
+		       gVideoOverlays[1].fAllocated &&
+		       !gVideoOverlays[1].pBackground,
+		       "rain clipping skips sparse and disabled overlay slots without dereferencing null backgrounds" );
+		gVideoOverlays[0] = savedOverlays[0];
+		gVideoOverlays[1] = savedOverlays[1];
+		guiNumVideoOverlays = savedOverlayCount;
 	}
 
 	{

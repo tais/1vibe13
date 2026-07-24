@@ -4,5 +4,6 @@
 BOOLEAN IsItAllowedToRenderRain();
 void RenderRain();
 void ResetRain();
+void RainClipVideoOverlay();
 
 #endif
