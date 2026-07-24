@@ -559,9 +559,10 @@ the engine must not contain SDL types in its public domain model.
   turn serial, turn-based/combat mode, and current team as one runtime value.
   World loading, tactical combat transitions, team turns, multiplayer turn
   messages, editor mode, and save restoration pass through the application
-  adapter; `gTacticalStatus` retains exact readable mirrors for the old game.
-  `TacticalWorldService` captures these values without consulting split mutable
-  turn globals.
+  adapter. The duplicate world-generation scalar has been deleted and lifecycle
+  consumers read the session snapshot directly; `gTacticalStatus` retains exact
+  readable turn mirrors for the old game. `TacticalWorldService` captures these
+  values without consulting split mutable turn globals.
 - `TacticalEntityDirectory` owns the bounded slot/incarnation identity used by
   commands, observations, and stale-reference rejection while JA2 retains its
   fixed `SOLDIERTYPE` storage. The host adopts, releases, and swaps pool entries

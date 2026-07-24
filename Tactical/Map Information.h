@@ -65,6 +65,5 @@ void ValidateAndUpdateMapVersionIfNecessary();
 BOOLEAN ValidateEntryPointGridNo( INT32 *sGridNo );
 
 extern BOOLEAN gfWorldLoaded;
-extern UINT64 guiWorldLoadGeneration;
 
 #endif

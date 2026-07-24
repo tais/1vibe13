@@ -234,8 +234,7 @@ set(world_state_mirrors
   gWorldSectorX
   gWorldSectorY
   gbWorldSectorZ
-  gfWorldLoaded
-  guiWorldLoadGeneration)
+  gfWorldLoaded)
 foreach(source_file IN LISTS world_state_files)
   if("${source_file}" STREQUAL "${world_state_owner}")
     continue()
@@ -264,6 +263,19 @@ foreach(source_file IN LISTS world_state_files)
         "Editor filename parsing passes tactical-world compatibility mirror '${mirror}' by mutable reference in ${source_file}; parse locals and route writes through TacticalWorldAdapter")
     endif()
   endforeach()
+endforeach()
+
+# World-load generation has no legacy storage requirement. It is read directly
+# from TacticalWorldSession and must not return as a duplicate scalar owner.
+foreach(source_file IN LISTS world_state_files)
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])guiWorldLoadGeneration([^A-Za-z0-9_]|$)"
+    retired_world_generation_mirror "${contents}")
+  if(retired_world_generation_mirror)
+    message(FATAL_ERROR
+      "Retired world-generation mirror returned in ${source_file}; read CaptureJa2TacticalWorld().worldGeneration")
+  endif()
 endforeach()
 
 # Loaded-world turn identity is owned by TacticalWorldSession. The old

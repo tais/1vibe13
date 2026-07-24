@@ -575,7 +575,8 @@ void BeginTeamTurn( UINT8 ubTeam )
 
 		// This is the first point at which skipped/inactive teams have been
 		// resolved and a real team turn is about to begin.
-		NotifyJa2TacticalTeamTurnBegan(guiWorldLoadGeneration);
+		NotifyJa2TacticalTeamTurnBegan(
+			CaptureJa2TacticalWorld().worldGeneration);
 
 		if ( gTacticalStatus.uiFlags & TURNBASED )
 		{

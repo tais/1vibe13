@@ -3567,6 +3567,25 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == queuedBeforeWorld,
 		       "pre-world safe frames harmlessly retain an unavailable observer service" );
 
+		Ja2TacticalWorldAdapter worldBindingFixture;
+		worldBindingFixture.session().setSector( { 8, 9, 1 } );
+		const std::uint64_t bindingFixtureGeneration =
+			worldBindingFixture.session().commitLoad();
+		worldBindingFixture.session().setTurnState(
+			{ true, true, 3 } );
+		TacticalWorldSession boundWorldFixture;
+		worldBindingFixture.bindSession( boundWorldFixture );
+		const TacticalWorldSession::Snapshot& boundWorldState =
+			boundWorldFixture.snapshot();
+		CHECK( &worldBindingFixture.session() == &boundWorldFixture &&
+		       boundWorldState.sector ==
+		           ( TacticalWorldSession::Sector{ 8, 9, 1 } ) &&
+		       boundWorldState.loaded &&
+		       boundWorldState.worldGeneration == bindingFixtureGeneration &&
+		       boundWorldState.turn ==
+		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 3 } ),
+		       "tactical world composition transfers pre-runtime state without a generation mirror" );
+
 		SOLDIERTYPE* previousSlot = MercPtrs[0];
 		const TacticalEntityId previousWorldEntity =
 			GetJa2TacticalEntityId( 0 );
@@ -3660,8 +3679,10 @@ int main( int, char** )
 		       loadedTurnIdentity.serial == 1 && advancedTurnIdentity.worldGeneration == 23 &&
 		       advancedTurnIdentity.serial == 2 && !unloadedTurnIdentity,
 		       "live tactical turn identity is nonzero, advances, and resets with its world" );
-		NotifyJa2TacticalWorldLoaded( guiWorldLoadGeneration );
-		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
+		NotifyJa2TacticalWorldLoaded(
+			CaptureJa2TacticalWorld().worldGeneration );
+		NotifyJa2TacticalTeamTurnBegan(
+			CaptureJa2TacticalWorld().worldGeneration );
 		TacticalWorldSnapshot liveWorld;
 		const TacticalWorldCaptureResult liveCapture =
 			tacticalWorld.service->capture( liveWorld );
@@ -3719,7 +3740,8 @@ int main( int, char** )
 		const TacticalWorldSnapshot* baselinePublicationStorage = observedPublication.snapshot;
 		const TacticalWorldDelta* baselineDeltaStorage = observedPublication.delta;
 
-		NotifyJa2TacticalTeamTurnBegan( guiWorldLoadGeneration );
+		NotifyJa2TacticalTeamTurnBegan(
+			CaptureJa2TacticalWorld().worldGeneration );
 		Menptr[0].sGridNo = 346;
 		Menptr[0].stats.bLife = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
