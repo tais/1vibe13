@@ -2,6 +2,7 @@
 
 #include "CampaignPackage.h"
 #include "GameContext.h"
+#include "LegacyGameplayRuntime.h"
 
 #include <Engine/Core/AssetSource.h>
 #include <Engine/Core/Identifier.h>
@@ -705,7 +706,7 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	std::filesystem::path manifestPath;
 	std::filesystem::path assetRoot;
 	std::unique_ptr<DirectoryAssetSource> assets;
-	LegacyCampaignRuntime* campaignRuntime = nullptr;
+	LegacyGameplayRuntime* gameplayRuntime = nullptr;
 	bool active = false;
 
 	const PackageDescriptor& descriptor() const override { return descriptor_; }
@@ -719,9 +720,11 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	const AssetSource* assetSource() const noexcept override { return assets.get(); }
 	bool bootstrap(PackageBootstrapContext& context, PackageBootstrapPhase phase) override
 	{
-		if (descriptor_.kind == PackageKind::Campaign)
+		if (descriptor_.kind == PackageKind::Campaign &&
+			phase == PackageBootstrapPhase::StartRuntime)
 		{
-			if (!campaignRuntime || !campaignRuntime->bootstrap(phase)) return false;
+			if (!gameplayRuntime || !gameplayRuntime->startCampaignRuntime())
+				return false;
 		}
 		if (phase != PackageBootstrapPhase::LoadContent) return true;
 		if (!assets) return false;
@@ -739,8 +742,9 @@ struct PackageHost::OwnedPackage final : EnginePackage
 	{
 		if (phase == PackageBootstrapPhase::LoadContent)
 			UnloadDeclaredPackageContent(context.localization, context.definitions);
-		if (descriptor_.kind == PackageKind::Campaign && campaignRuntime)
-			campaignRuntime->shutdown(phase);
+		if (descriptor_.kind == PackageKind::Campaign && gameplayRuntime &&
+			phase == PackageBootstrapPhase::StartRuntime)
+			gameplayRuntime->shutdownCampaignRuntime();
 	}
 
 private:
@@ -763,7 +767,7 @@ private:
 std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	const std::filesystem::path& packageDirectory,
 	const std::filesystem::path& manifestPath, std::size_t remainingTotalFiles,
-	LegacyCampaignRuntime* campaignRuntime, PackageHostResult& error)
+	LegacyGameplayRuntime* gameplayRuntime, PackageHostResult& error)
 {
 	std::error_code filesystemError;
 	const std::uintmax_t manifestBytes = std::filesystem::file_size(manifestPath, filesystemError);
@@ -955,6 +959,24 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 				manifestPath, id);
 			return nullptr;
 		}
+		if (relationshipIds.find(GamePackage::Rules113) != relationshipIds.end())
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"the 1.13 rules dependency is host-managed and cannot appear in campaign dependency policy",
+				manifestPath, id);
+			return nullptr;
+		}
+		if (relationshipIds.size() >= MaximumRequirements ||
+			capabilities.size() >= MaximumRequirements ||
+			requiredCapabilities.size() >= MaximumRequirements)
+		{
+			error = Failure(PackageHostError::InvalidManifest,
+				"campaign declarations leave no room for their host-managed rules or capability contracts",
+				manifestPath, id);
+			return nullptr;
+		}
+		requirements.insert(requirements.begin(), ContentRequirement{
+			GamePackage::Rules113, GamePackage::Rules113Version});
 		capabilities.push_back(providedCapability);
 		requiredCapabilities.push_back(requiredHostCapability);
 	}
@@ -962,6 +984,17 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	{
 		error = Failure(PackageHostError::InvalidManifest,
 			"CAMPAIGN_FAMILY is valid only for TYPE=campaign", manifestPath, id);
+		return nullptr;
+	}
+	if (std::find_if(capabilities.begin(), capabilities.end(),
+			[](const std::string& capability)
+			{
+				return RuntimeCapabilities::isHostOwned(capability);
+			}) != capabilities.end())
+	{
+		error = Failure(PackageHostError::InvalidManifest,
+			"CAPABILITIES cannot provide reserved application.*, engine.*, or host.* features",
+			manifestPath, id);
 		return nullptr;
 	}
 
@@ -1024,8 +1057,8 @@ std::unique_ptr<PackageHost::OwnedPackage> PackageHost::readPackageManifest(
 	package->manifestPath = manifestPath;
 	package->assetRoot = canonicalAssetRoot;
 	package->assets = std::move(assets);
-	package->campaignRuntime = kind == PackageKind::Campaign
-		? campaignRuntime : nullptr;
+	package->gameplayRuntime = kind == PackageKind::Campaign
+		? gameplayRuntime : nullptr;
 	return package;
 }
 
@@ -1095,8 +1128,8 @@ PackageStartupOptions ReadPackageStartupOptions(
 	return options;
 }
 
-PackageHost::PackageHost(LegacyCampaignRuntime* campaignRuntime)
-	: campaignRuntime_(campaignRuntime)
+PackageHost::PackageHost(LegacyGameplayRuntime* gameplayRuntime)
+	: gameplayRuntime_(gameplayRuntime)
 {
 }
 PackageHost::~PackageHost() = default;
@@ -1266,7 +1299,7 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 			std::unique_ptr<OwnedPackage> package =
 				readPackageManifest(packageDirectory, manifest,
 					MaximumTotalIndexedFiles - indexedFiles,
-					campaignRuntime_, manifestError);
+					gameplayRuntime_, manifestError);
 			if (!package) return manifestError;
 			indexedFiles += package->assets->fileCount();
 			const std::string& id = package->descriptor_.content.id;
@@ -1454,7 +1487,7 @@ PackageHostResult PackageHost::initialize(PackageRegistry& registry,
 		const auto package = packagesById.find(id);
 		if (package == packagesById.end()) continue;
 		if (package->second->descriptor_.kind == PackageKind::Campaign &&
-			!package->second->campaignRuntime)
+			!package->second->gameplayRuntime)
 		{
 			result.error = PackageHostError::ActivationFailed;
 			result.packageId = id;
@@ -1647,7 +1680,7 @@ PackageHostShutdownResult PackageHost::shutdown(
 
 PackageHost& GetStartupPackageHost()
 {
-	static PackageHost host(&GetCompiledCampaignRuntime());
+	static PackageHost host(&GetCompiledGameplayRuntime());
 	return host;
 }
 

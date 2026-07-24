@@ -5,10 +5,17 @@ namespace GameCapability
 {
 constexpr const char* CampaignArulco = "campaign.ja2";
 constexpr const char* CampaignUnfinishedBusiness = "campaign.unfinished-business";
+constexpr const char* Rules113 = "rules.ja2-1.13";
 constexpr const char* HostCampaignArulco = "host.campaign-family.ja2";
 constexpr const char* HostCampaignUnfinishedBusiness =
 	"host.campaign-family.unfinished-business";
 constexpr const char* ApplicationMapEditor = "application.map-editor";
+}
+
+namespace GamePackage
+{
+constexpr const char* Rules113 = "ja2.1.13";
+constexpr const char* Rules113Version = "1.13";
 }
 
 enum class GameCampaign

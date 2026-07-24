@@ -3,6 +3,7 @@
 #include "CampaignEventAdapter.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
+#include "RulesPackage.h"
 #include "Screens.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
@@ -27,9 +28,11 @@
 
 GameContext& GetGameContext()
 {
-	// The compiled fallback owns the shared campaign runtime. Construct it
-	// before the external host, then construct both before the registry that
-	// non-owningly references their package objects.
+	// The neutral compatibility runtime outlives both package layers. Construct
+	// the complete application-owned graph before the registry and external host
+	// that keep non-owning references into it.
+	(void)GetCompiledGameplayRuntime();
+	(void)GetCompiledRulesPackage();
 	(void)GetCompiledCampaignPackage();
 	(void)GetStartupPackageHost();
 	// The command host receives lifecycle events from this context, so construct
@@ -164,12 +167,30 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)screenRegistrationReported;
-	static const bool packageRegistered = [] {
+	static const bool packagesRegistered = [] {
+		LegacyRulesPackage& rules = GetCompiledRulesPackage();
 		LegacyCampaignPackage& package = GetCompiledCampaignPackage();
 		GameContext& game = context;
-		return game.packages().registerPackage(package) ==
-			PackageRegistrationError::None;
+		const PackageRegistrationError rulesError =
+			game.packages().registerPackage(rules);
+		if (rulesError != PackageRegistrationError::None)
+		{
+			game.log().write(LogRecord{LogSeverity::Error, "packages",
+				"Compiled 1.13 rules registration failed with code " +
+					std::to_string(static_cast<int>(rulesError))});
+			return false;
+		}
+		const PackageRegistrationError campaignError =
+			game.packages().registerPackage(package);
+		if (campaignError != PackageRegistrationError::None)
+		{
+			game.log().write(LogRecord{LogSeverity::Error, "packages",
+				"Compiled campaign registration failed with code " +
+					std::to_string(static_cast<int>(campaignError))});
+			return false;
+		}
+		return true;
 	}();
-	(void)packageRegistered;
+	(void)packagesRegistered;
 	return context;
 }

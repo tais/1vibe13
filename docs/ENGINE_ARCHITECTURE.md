@@ -77,19 +77,25 @@ the engine must not contain SDL types in its public domain model.
 - Mandatory and optional requirements express package identity plus an optional
   exact version. Versions are opaque, case-sensitive strings rather than SemVer
   ranges. Conflict and ordering relationships express identity only.
-- `LegacyCampaignRuntime` is the narrow process-lifetime adapter for compiled
-  table, text, grid, and Lua initialization. The built-in `LegacyCampaignPackage`
-  is now a registered fallback rather than a pre-activated singleton.
-  A Data Package v4 `campaign` is a peer package that can own campaign assets,
-  declared content, identity, dependencies, and capabilities while driving the
-  same compatibility runtime. `CAMPAIGN_FAMILY` and a host capability reject a
-  JA2/UB mismatch before legacy bootstrap.
+- `LegacyGameplayRuntime` is the narrow process-lifetime adapter shared below
+  package identity; neither the rules package nor campaign package includes the
+  other's interface. The compiled `ja2.1.13@1.13` rules package owns legacy
+  table and text loading during `LoadContent` and contributes
+  `rules.ja2-1.13`. Every built-in or v4 data campaign has that exact package as
+  a mandatory dependency. Campaigns own their identity, assets, declared
+  content, and grid/Lua startup during `StartRuntime`.
+  `LegacyCampaignPackage` is a registered fallback rather than a pre-activated
+  singleton. A Data Package v4 `campaign` is its peer and drives the same
+  compatibility runtime without duplicating process-lifetime state.
+  `CAMPAIGN_FAMILY` and a host capability reject a JA2/UB mismatch before any
+  rules or campaign bootstrap callback runs.
 - `PackageHost` is the optional, data-only discovery adapter around that
   bridge. [Data Packages](DATA_PACKAGES.md) validate manifests and dependency
   graphs at startup, then mount legacy-format assets in resolved overlay order.
   An extension-only selection automatically includes the built-in campaign;
-  a selected v4 campaign replaces it. With no package configuration discovery
-  remains a no-op and startup selects the registered built-in fallback.
+  a selected v4 campaign replaces it. Both resolve through the registered
+  `ja2.1.13` rules package. With no package configuration discovery remains a
+  no-op and startup selects the registered rules → built-in campaign graph.
   There is still no native-code loading or runtime rescan/hot-unload.
 - Package-host startup is transactional across discovery registration, engine
   activation, and legacy VFS mounting. Resolution, preflight, activation, or
@@ -356,7 +362,10 @@ the engine must not contain SDL types in its public domain model.
 - Package capability contracts are validated at registration and preflighted
   against that combined runtime view before configuration callbacks. Missing
   features produce structured diagnostics and a fault record without exposing
-  campaign flags or application types to package code.
+  campaign flags or application types to package code. `application.*`,
+  `engine.*`, and `host.*` are host-owned provider namespaces: packages may
+  require those capabilities but cannot contribute them and impersonate the
+  application environment.
 - `BinaryArchive` provides bounded, endian-defined, versioned persistence.
   `EngineHost` owns the `PersistenceService` bound to its configured byte
   storage, so package hosts, games, and tools share one persistence boundary.

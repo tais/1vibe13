@@ -139,6 +139,38 @@ foreach(adapter_file IN LISTS ja2_adapter_files)
   endforeach()
 endforeach()
 
+# Application package layers share the neutral compatibility runtime, not one
+# another's C++ interface. Campaigns may require rules through their manifest;
+# a source include in the opposite direction would recreate compile-time
+# campaign identity behind the runtime-selected package graph.
+set(rules_package_files
+  "${SOURCE_ROOT}/Ja2/RulesPackage.h"
+  "${SOURCE_ROOT}/Ja2/RulesPackage.cpp")
+foreach(package_file IN LISTS rules_package_files)
+  file(READ "${package_file}" contents)
+  string(REGEX MATCH
+    "#[ \t]*include[ \t]*[<\"]CampaignPackage\\.h[>\"]"
+    rules_campaign_dependency "${contents}")
+  if(rules_campaign_dependency)
+    message(FATAL_ERROR
+      "The 1.13 rules package depends on the campaign package in ${package_file}; share only LegacyGameplayRuntime below both layers")
+  endif()
+endforeach()
+
+set(gameplay_runtime_files
+  "${SOURCE_ROOT}/Ja2/LegacyGameplayRuntime.h"
+  "${SOURCE_ROOT}/Ja2/LegacyGameplayRuntime.cpp")
+foreach(runtime_file IN LISTS gameplay_runtime_files)
+  file(READ "${runtime_file}" contents)
+  string(REGEX MATCH
+    "#[ \t]*include[ \t]*[<\"](CampaignPackage|RulesPackage)\\.h[>\"]"
+    runtime_package_dependency "${contents}")
+  if(runtime_package_dependency)
+    message(FATAL_ERROR
+      "LegacyGameplayRuntime depends on a package identity in ${runtime_file}; keep it below both campaign and rules packages")
+  endif()
+endforeach()
+
 # Production callers must use the structured TryDispatch... result.  The
 # sequence-returning wrappers remain part of the compatibility surface, but a
 # zero sequence cannot distinguish rejection from a valid first command.
