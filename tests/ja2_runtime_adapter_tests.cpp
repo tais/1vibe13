@@ -1,4 +1,5 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
+#include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
@@ -358,6 +359,65 @@ int main()
 	check(&legacyBraceRuntime.campaignClockSession() ==
 		&legacyBraceRuntime.campaignClockSession(),
 		"EngineRuntime owns one stable campaign clock session");
+	CampaignClockSessionService campaignClockService(campaignClock);
+	ServiceCatalog campaignClockServices;
+	check(RegisterCampaignClockService(
+			campaignClockServices, campaignClockService) ==
+			EngineServiceRegistrationError::None,
+		"campaign clock service registers as an explicit versioned host extension");
+	const auto resolvedCampaignClock =
+		campaignClockServices.resolve(CampaignClockServiceContract);
+	const auto futureCampaignClock =
+		campaignClockServices.resolve<CampaignClockService>(
+			CampaignClockServiceId, EngineServiceVersion{1, 1});
+	const auto wrongCampaignClockType =
+		campaignClockServices.resolve<TacticalWorldService>(
+			CampaignClockServiceId, CampaignClockServiceVersion);
+	CampaignClockSession::Snapshot capturedCampaignClock;
+	check(resolvedCampaignClock &&
+		resolvedCampaignClock.service->capture(capturedCampaignClock) ==
+			CampaignClockCaptureResult::Success &&
+		capturedCampaignClock == campaignClock.snapshot() &&
+		futureCampaignClock.error ==
+			EngineServiceLookupError::IncompatibleVersion &&
+		wrongCampaignClockType.error == EngineServiceLookupError::TypeMismatch,
+		"packages capture campaign time by value with type and version checks");
+	check(RegisterCampaignClockService(
+			campaignClockServices, campaignClockService) ==
+			EngineServiceRegistrationError::DuplicateId,
+		"campaign clock service IDs cannot be registered twice");
+	MemoryCampaignClockService memoryCampaignClock;
+	CampaignClockSession::Snapshot retainedCampaignClock{
+		7, 6, 5, 4, 3};
+	check(memoryCampaignClock.capture(retainedCampaignClock) ==
+			CampaignClockCaptureResult::Unavailable &&
+		retainedCampaignClock ==
+			CampaignClockSession::Snapshot{7, 6, 5, 4, 3},
+		"unavailable memory campaign clocks preserve the caller's last capture");
+	const CampaignClockSession::Snapshot publishedCampaignClock{
+		190861, 190800, 2, 5, 1};
+	memoryCampaignClock.publish(publishedCampaignClock);
+	check(memoryCampaignClock.capture(retainedCampaignClock) ==
+			CampaignClockCaptureResult::Success &&
+		retainedCampaignClock == publishedCampaignClock,
+		"memory campaign clocks publish deterministic package and replay fixtures");
+	memoryCampaignClock.clear();
+	check(memoryCampaignClock.capture(retainedCampaignClock) ==
+			CampaignClockCaptureResult::Unavailable &&
+		retainedCampaignClock == publishedCampaignClock &&
+		NullCampaignClockService::instance().capture(retainedCampaignClock) ==
+			CampaignClockCaptureResult::Unavailable &&
+		retainedCampaignClock == publishedCampaignClock,
+		"cleared and null campaign clocks retain the last complete capture");
+	CampaignClockSession::Snapshot runtimeCampaignClock;
+	legacyBraceRuntime.campaignClockSession().initialize(90061);
+	check(&legacyBraceRuntime.campaignClockService() ==
+			&legacyBraceRuntime.campaignClockService() &&
+		legacyBraceRuntime.campaignClockService().capture(runtimeCampaignClock) ==
+			CampaignClockCaptureResult::Success &&
+		runtimeCampaignClock ==
+			legacyBraceRuntime.campaignClockSession().snapshot(),
+		"EngineRuntime owns one stable read-only view of its campaign clock");
 
 	TacticalEntityDirectory entityDirectory(2);
 	check(entityDirectory.maximumSlots() == 2 &&

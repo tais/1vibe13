@@ -105,6 +105,16 @@ monotonic tick, derives day/hour/minute without platform APIs, and reports when
 legacy globals are intentionally outside the SDK; external tools can inspect,
 restore, and advance the session without linking any game or save code.
 
+`CampaignClockService` is the versioned, read-only package and tooling view of
+that state (`ja2.campaign-clock`, version 1.0). The application registers its
+runtime-owned provider before package bootstrap. Each capture copies one
+pointer-free snapshot; consumers cannot mutate the live clock or retain a
+reference into the runtime. Capture it on the main-thread package boundary.
+When `totalSeconds` differs from `previousTotalSeconds`, the snapshot represents
+an in-progress strategic-event slice rather than a committed outer clock tick.
+`MemoryCampaignClockService` and `NullCampaignClockService` let package tests,
+replay tools, and headless hosts use the same contract without the JA2 process.
+
 `TacticalCommandService` is the package-facing, pointer-free write boundary for
 JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it
 as `ja2.tactical-commands` before package bootstrap, validates application

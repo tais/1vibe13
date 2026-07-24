@@ -7,6 +7,7 @@
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
+#include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
 #include <Engine/Adapters/Legacy/PlatformLog.h>
 #include <Engine/Adapters/Legacy/PlatformInput.h>
@@ -78,6 +79,17 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)campaignClockSessionBound;
+	static const EngineServiceRegistrationError campaignClockRegistered =
+		RegisterCampaignClockService(
+			context.serviceCatalog(), context.runtime().campaignClockService());
+	static const bool campaignClockRegistrationReported = [&] {
+		if (campaignClockRegistered != EngineServiceRegistrationError::None)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "services",
+				"Campaign clock service registration failed"});
+		return true;
+	}();
+	(void)campaignClockRegistrationReported;
 	static const EngineServiceRegistrationError tacticalWorldRegistered =
 		[&] {
 			BindJa2TacticalWorldSession(context.runtime().tacticalWorldSession());

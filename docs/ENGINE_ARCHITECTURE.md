@@ -513,6 +513,12 @@ the engine must not contain SDL types in its public domain model.
   loads no longer publish a partially read campaign-time identity. This is
   simulation time, not the injectable platform monotonic clock used for frame
   pacing.
+- `CampaignClockService` exposes that state to packages and tools as a
+  versioned, read-only, pointer-free capture. The application registers the
+  provider owned by `EngineRuntime`; consumers can observe committed time or an
+  in-progress event slice without gaining mutation authority or retaining a
+  reference into the session. Memory and null providers keep package, replay,
+  and headless tests on the same contract.
 - `AudioGroupService` binds new audio playback to package identity and logical
   groups above the existing platform output. Assets are normalized, playbacks
   are bounded and inspectable, packages cannot control another owner's sounds,
