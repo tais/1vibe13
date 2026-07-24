@@ -14,7 +14,7 @@ struct CampaignEventSnapshot
 {
 	std::uint32_t scheduledSeconds = 0;
 	std::uint32_t parameter = 0;
-	std::uint32_t intervalSeconds = 0;
+	std::uint32_t timeOffsetSeconds = 0;
 	std::uint8_t type = 0;
 	std::uint8_t callbackId = 0;
 	std::uint8_t flags = 0;
@@ -26,7 +26,7 @@ inline bool operator==(
 {
 	return left.scheduledSeconds == right.scheduledSeconds &&
 		left.parameter == right.parameter &&
-		left.intervalSeconds == right.intervalSeconds &&
+		left.timeOffsetSeconds == right.timeOffsetSeconds &&
 		left.type == right.type &&
 		left.callbackId == right.callbackId &&
 		left.flags == right.flags;

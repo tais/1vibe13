@@ -92,8 +92,11 @@ GameContext& GetGameContext()
 	}();
 	(void)campaignClockRegistrationReported;
 	static const EngineServiceRegistrationError campaignEventsRegistered =
-		RegisterCampaignEventService(
-			context.serviceCatalog(), GetJa2CampaignEventAdapter());
+		[&] {
+			BindJa2CampaignEventQueue(context.runtime().campaignEventQueue());
+			return RegisterCampaignEventService(
+				context.serviceCatalog(), GetJa2CampaignEventAdapter());
+		}();
 	static const bool campaignEventsRegistrationReported = [&] {
 		if (campaignEventsRegistered != EngineServiceRegistrationError::None)
 			context.log().write(LogRecord{

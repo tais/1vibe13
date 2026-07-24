@@ -2784,23 +2784,27 @@ int main( int, char** )
 
 		const auto campaignEventService =
 			compiledContext.serviceCatalog().resolve( CampaignEventServiceContract );
-		STRATEGICEVENT firstCampaignEvent{};
-		firstCampaignEvent.uiTimeStamp = 190800;
-		firstCampaignEvent.uiParam = 71;
-		firstCampaignEvent.uiTimeOffset = 0;
-		firstCampaignEvent.ubEventType = ONETIME_EVENT;
-		firstCampaignEvent.ubCallbackID = 17;
-		firstCampaignEvent.ubFlags = SEF_PREVENT_DELETION;
-		STRATEGICEVENT secondCampaignEvent{};
-		secondCampaignEvent.uiTimeStamp = 190800;
-		secondCampaignEvent.uiParam = 72;
-		secondCampaignEvent.uiTimeOffset = 3600;
-		secondCampaignEvent.ubEventType = PERIODIC_EVENT;
-		secondCampaignEvent.ubCallbackID = 18;
-		secondCampaignEvent.ubFlags = SEF_DELETION_PENDING;
-		firstCampaignEvent.next = &secondCampaignEvent;
-		STRATEGICEVENT* const previousCampaignEventList = gpEventList;
-		gpEventList = &firstCampaignEvent;
+		CampaignEventQueue& liveCampaignEventQueue =
+			compiledContext.runtime().campaignEventQueue();
+		std::vector<CampaignEventSnapshot> previousCampaignEvents;
+		const bool previousCampaignEventsCaptured =
+			liveCampaignEventQueue.capture( previousCampaignEvents );
+		const CampaignEventQueueError campaignEventFixtureInstalled =
+			liveCampaignEventQueue.replace( {
+				{ 190800, 71, 0, ONETIME_EVENT, 17, SEF_PREVENT_DELETION },
+				{ 190800, 72, 3600, PERIODIC_EVENT, 18,
+					SEF_DELETION_PENDING } } );
+		SynchronizeJa2CampaignEventListMirror();
+		STRATEGICEVENT* const firstCampaignEvent = liveCampaignEventQueue.head();
+		STRATEGICEVENT* const secondCampaignEvent =
+			firstCampaignEvent ? firstCampaignEvent->next : nullptr;
+		STRATEGICEVENT* const gatewayCampaignEvent =
+			AddAdvancedStrategicEvent( ONETIME_EVENT, 19, 190900, 73 );
+		const bool campaignEventGatewayOwned =
+			gatewayCampaignEvent != nullptr &&
+			gpEventList == liveCampaignEventQueue.head() &&
+			DeleteStrategicEvent( 19, 73 ) == TRUE &&
+			liveCampaignEventQueue.size() == 2;
 		CampaignEventQueueSnapshot liveCampaignEvents;
 		const CampaignEventCaptureResult liveCampaignEventCapture =
 			campaignEventService
@@ -2815,14 +2819,23 @@ int main( int, char** )
 		Ja2CampaignEventAdapter boundedCampaignEvents( 1 );
 		const CampaignEventCaptureResult boundedCampaignEventCapture =
 			boundedCampaignEvents.capture( liveCampaignEvents );
-		secondCampaignEvent.next = &firstCampaignEvent;
+		if( secondCampaignEvent )
+			secondCampaignEvent->next = firstCampaignEvent;
 		const CampaignEventCaptureResult cyclicCampaignEventCapture =
 			campaignEventService
 				? campaignEventService.service->capture( liveCampaignEvents )
 				: CampaignEventCaptureResult::Unavailable;
-		secondCampaignEvent.next = nullptr;
-		gpEventList = previousCampaignEventList;
-		CHECK( campaignEventService &&
+		if( secondCampaignEvent )
+			secondCampaignEvent->next = nullptr;
+		const CampaignEventQueueError previousCampaignEventsRestored =
+			liveCampaignEventQueue.replace( previousCampaignEvents );
+		SynchronizeJa2CampaignEventListMirror();
+		CHECK( previousCampaignEventsCaptured &&
+		       campaignEventFixtureInstalled == CampaignEventQueueError::None &&
+		       campaignEventGatewayOwned &&
+		       previousCampaignEventsRestored == CampaignEventQueueError::None &&
+		       gpEventList == liveCampaignEventQueue.head() &&
+		       campaignEventService &&
 		       campaignEventService.service == &GetJa2CampaignEventAdapter() &&
 		       liveCampaignEventCapture == CampaignEventCaptureResult::Success &&
 		       repeatedCampaignEventCapture ==
@@ -2842,7 +2855,7 @@ int main( int, char** )
 		           CampaignEventCaptureResult::CapacityReached &&
 		       cyclicCampaignEventCapture ==
 		           CampaignEventCaptureResult::AdapterFailure,
-		       "application exposes bounded FIFO campaign events and rejects cyclic legacy queues transactionally" );
+		       "application owns campaign events in its runtime and exposes bounded FIFO captures" );
 
 		const auto tacticalCommands =
 			compiledContext.serviceCatalog().resolve( TacticalCommandServiceContract );

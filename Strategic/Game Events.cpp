@@ -1,13 +1,13 @@
-	#include "builddefines.h"
-	#include <stdio.h>
-	#include "types.h"
-	#include "CampaignClockAdapter.h"
-	#include "Game Events.h"
-	#include "SaveSerializer.h"
-	#include "Game Clock.h"
-	#include "MemMan.h"
-	#include "DEBUG.H"
-	#include "Font Control.h"
+#include "builddefines.h"
+#include <stdio.h>
+#include "types.h"
+#include "CampaignClockAdapter.h"
+#include "CampaignEventAdapter.h"
+#include "Game Events.h"
+#include "SaveSerializer.h"
+#include "Game Clock.h"
+#include "DEBUG.H"
+#include "Font Control.h"
 	#include "message.h"
 	#include "MiniEvents.h"
 	#include "Text.h"
@@ -148,6 +148,17 @@ void ValidateGameEvents();
 
 STRATEGICEVENT									*gpEventList = NULL;
 
+namespace
+{
+constexpr UINT32 CAMPAIGN_EVENT_QUEUE_MAGIC = 0x32515645; // "EVQ2"
+constexpr UINT16 CAMPAIGN_EVENT_QUEUE_VERSION = 1;
+
+CampaignEventQueue& StrategicEventQueue() noexcept
+{
+	return GetJa2CampaignEventQueue();
+}
+}
+
 extern BOOLEAN gfTimeInterruptPause;
 BOOLEAN gfPreventDeletionOfAnyEvent = FALSE;
 BOOLEAN gfEventDeletionPending = FALSE;
@@ -165,9 +176,10 @@ BOOLEAN GameEventsPending( UINT32 uiAdjustment )
 		return FALSE;
 	}
 	#endif
-	if( !gpEventList )
+	const STRATEGICEVENT* const nextEvent = StrategicEventQueue().head();
+	if( !nextEvent )
 		return FALSE;
-	if( gpEventList->uiTimeStamp <= GetWorldTotalSeconds() + uiAdjustment )
+	if( nextEvent->uiTimeStamp <= GetWorldTotalSeconds() + uiAdjustment )
 		return TRUE;
 	return FALSE;
 }
@@ -175,41 +187,25 @@ BOOLEAN GameEventsPending( UINT32 uiAdjustment )
 //returns TRUE if any events were deleted
 BOOLEAN DeleteEventsWithDeletionPending()
 {
-	STRATEGICEVENT *curr, *prev, *temp;
+	CampaignEventQueue& queue = StrategicEventQueue();
+	STRATEGICEVENT *curr, *prev;
 	BOOLEAN fEventDeleted = FALSE;
 	//ValidateGameEvents();
-	curr = gpEventList;
+	curr = queue.head();
 	prev = NULL;
 	while( curr )
 	{
 		//ValidateGameEvents();
 		if( curr->ubFlags & SEF_DELETION_PENDING )
 		{
-			if( prev )
-			{ //deleting node in middle
-				prev->next = curr->next;
-				temp = curr;
-				curr = curr->next;
-				MemFree( temp );
-				fEventDeleted = TRUE;
-				//ValidateGameEvents();
-				continue;
-			}
-			else
-			{ //deleting head
-				gpEventList = gpEventList->next;
-				temp = curr;
-				prev = NULL;
-				curr = curr->next;
-				MemFree( temp );
-				fEventDeleted = TRUE;
-				//ValidateGameEvents();
-				continue;
-			}
+			curr = queue.eraseAfter( prev );
+			fEventDeleted = TRUE;
+			continue;
 		}
 		prev = curr;
 		curr = curr->next;
 	}
+	SynchronizeJa2CampaignEventListMirror();
 	gfEventDeletionPending = FALSE;
 	return fEventDeleted;
 }
@@ -240,8 +236,9 @@ static void AdjustClockToEventStamp( STRATEGICEVENT *pEvent, UINT32 *puiAdjustme
 void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"ProcessPendingGameEvents");
-	STRATEGICEVENT *curr, *pEvent, *prev, *temp;
-	BOOLEAN fDeleteEvent = FALSE, fDeleteQueuedEvent = FALSE;
+	CampaignEventQueue& queue = StrategicEventQueue();
+	STRATEGICEVENT *curr, *pEvent, *prev;
+	BOOLEAN fDeleteEvent = FALSE;
 
 	#ifdef CRIPPLED_VERSION
 	if( guiDay >= 8 )
@@ -254,7 +251,7 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 	gfProcessingGameEvents = TRUE;
 
 	//While we have events inside the time range to be updated, process them...
-	curr = gpEventList;
+	curr = queue.head();
 	prev = NULL; //prev only used when warping time to target time.
 	while( !gfTimeInterrupt && curr && curr->uiTimeStamp <= guiGameClock + uiAdjustment )
 	{
@@ -278,11 +275,6 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 				AdjustClockToEventStamp( curr, &uiAdjustment );
 
 				fDeleteEvent = ExecuteStrategicEvent( curr );
-
-				if( curr && prev && fDeleteQueuedEvent )
-				{ //The only case where we are deleting a node in the middle of the list
-					prev->next = curr->next;
-				}
 			}
 			else
 			{ //We are at the current target warp time however, there are still other events following in this time cycle.
@@ -316,22 +308,8 @@ void ProcessPendingGameEvents( UINT32 uiAdjustment, UINT8 ubWarpCode )
 					AddAdvancedStrategicEvent( EVERYDAY_EVENT, curr->ubCallbackID, curr->uiTimeStamp+NUM_SEC_IN_DAY, curr->uiParam );
 					break;
 			}
-			if( curr == gpEventList )
-			{
-				gpEventList = gpEventList->next;
-				MemFree( curr );
-				curr = gpEventList;
-				prev = NULL;
-				//ValidateGameEvents();
-			}
-			else
-			{
-				temp = curr;
-				prev->next = curr->next;
-				curr = curr->next;
-				MemFree( temp );
-				//ValidateGameEvents();
-			}
+			curr = queue.eraseAfter( prev );
+			SynchronizeJa2CampaignEventListMirror();
 		}
 		else
 		{
@@ -380,8 +358,6 @@ BOOLEAN AddFutureDayStrategicEventUsingSeconds( UINT8 ubCallbackID, UINT32 uiSec
 
 STRATEGICEVENT* AddAdvancedStrategicEvent( UINT8 ubEventType, UINT8 ubCallbackID, UINT32 uiTimeStamp, UINT32 uiParam )
 {
-	STRATEGICEVENT		*pNode, *pNewNode, *pPrevNode;
-
 	if( gfProcessingGameEvents && uiTimeStamp <= guiTimeStampOfCurrentlyExecutingEvent )
 	{ //Prevents infinite loops of posting events that are the same time or earlier than the event
 		//currently being processed.
@@ -398,61 +374,16 @@ STRATEGICEVENT* AddAdvancedStrategicEvent( UINT8 ubEventType, UINT8 ubCallbackID
 		return NULL;
 	}
 
-	pNewNode = (STRATEGICEVENT *) MemAlloc( sizeof( STRATEGICEVENT ) );
-	Assert( pNewNode );
-	memset( pNewNode, 0, sizeof( STRATEGICEVENT ) );
-	pNewNode->ubCallbackID		= ubCallbackID;
-	pNewNode->uiParam					= uiParam;
-	pNewNode->ubEventType			= ubEventType;
-	pNewNode->uiTimeStamp			= uiTimeStamp;
-	pNewNode->uiTimeOffset			= 0;
-
-	// Search list for a place to insert
-	pNode = gpEventList;
-
-	// If it's the first head, do this!
-	if( !pNode )
+	const CampaignEventScheduleResult scheduled =
+		StrategicEventQueue().schedule(CampaignEventSnapshot{
+			uiTimeStamp, uiParam, 0, ubEventType, ubCallbackID, 0});
+	if( !scheduled )
 	{
-		gpEventList = pNewNode;
-		pNewNode->next = NULL;
+		AssertMsg( FALSE, "Campaign event queue rejected a strategic event" );
+		return NULL;
 	}
-	else
-	{
-		pPrevNode = NULL;
-		while( pNode )
-		{
-			if( uiTimeStamp < pNode->uiTimeStamp )
-			{
-				break;
-			}
-			pPrevNode = pNode;
-			pNode = pNode->next;
-		}
-
-		// If we are at the end, set at the end!
-		if ( !pNode )
-		{
-			pPrevNode->next = pNewNode;
-			pNewNode->next	= NULL;
-		}
-		else
-		{
-			// We have a previous node here
-			// Insert IN FRONT!
-			if ( pPrevNode )
-			{
-				pNewNode->next = pPrevNode->next;
-				pPrevNode->next = pNewNode;
-			}
-			else
-			{	// It's the head
-				pNewNode->next = gpEventList;
-				gpEventList = pNewNode;
-			}
-		}
-	}
-
-	return pNewNode ;
+	SynchronizeJa2CampaignEventListMirror();
+	return scheduled.event;
 }
 
 BOOLEAN AddStrategicEvent( UINT8 ubCallbackID, UINT32 uiMinStamp, UINT32 uiParam )
@@ -580,9 +511,10 @@ BOOLEAN AddPeriodStrategicEventUsingSecondsWithOffset( UINT8 ubCallbackID, UINT3
 
 void DeleteAllStrategicEventsOfType( UINT8 ubCallbackID )
 {
-	STRATEGICEVENT	*curr, *prev, *temp;
+	CampaignEventQueue& queue = StrategicEventQueue();
+	STRATEGICEVENT	*curr, *prev;
 	prev = NULL;
-	curr = gpEventList;
+	curr = queue.head();
 	while( curr )
 	{
 		if( curr->ubCallbackID == ubCallbackID && !(curr->ubFlags & SEF_DELETION_PENDING) )
@@ -595,17 +527,7 @@ void DeleteAllStrategicEventsOfType( UINT8 ubCallbackID )
 				curr = curr->next;
 				continue;
 			}
-			//Detach the node
-			if( prev )
-				prev->next = curr->next;
-			else
-				gpEventList = curr->next;
-
-			//isolate and remove curr
-			temp = curr;
-			curr = curr->next;
-			MemFree( temp );
-			//ValidateGameEvents();
+			curr = queue.eraseAfter( prev );
 		}
 		else
 		{	//Advance all the nodes
@@ -613,20 +535,14 @@ void DeleteAllStrategicEventsOfType( UINT8 ubCallbackID )
 			curr = curr->next;
 		}
 	}
+	SynchronizeJa2CampaignEventListMirror();
 }
 
 void DeleteAllStrategicEvents()
 {
-	STRATEGICEVENT *temp;
-	while( gpEventList )
-	{
-		temp = gpEventList;
-		gpEventList = gpEventList->next;
-		MemFree( temp );
-		//ValidateGameEvents();
-		temp = NULL;
-	}
-	gpEventList = NULL;
+	StrategicEventQueue().clear();
+	SynchronizeJa2CampaignEventListMirror();
+	gfEventDeletionPending = FALSE;
 }
 
 //Searches for and removes the first event matching the supplied information.	There may very well be a need
@@ -634,8 +550,9 @@ void DeleteAllStrategicEvents()
 //no events were found or if the event wasn't deleted due to delete lock,
 BOOLEAN DeleteStrategicEvent( UINT8 ubCallbackID, UINT32 uiParam )
 {
+	CampaignEventQueue& queue = StrategicEventQueue();
 	STRATEGICEVENT *curr, *prev;
-	curr = gpEventList;
+	curr = queue.head();
 	prev = NULL;
 	while( curr )
 	{ //deleting middle
@@ -649,16 +566,8 @@ BOOLEAN DeleteStrategicEvent( UINT8 ubCallbackID, UINT32 uiParam )
 					gfEventDeletionPending = TRUE;
 					return FALSE;
 				}
-				if( prev )
-				{
-					prev->next = curr->next;
-				}
-				else
-				{
-					gpEventList = gpEventList->next;
-				}
-				MemFree( curr );
-				//ValidateGameEvents();
+				(void)queue.eraseAfter( prev );
+				SynchronizeJa2CampaignEventListMirror();
 				return TRUE;
 			}
 		}
@@ -672,7 +581,7 @@ std::vector< std::pair<UINT32, UINT32> > GetAllStrategicEventsOfType( UINT8 ubCa
 {
 	std::vector< std::pair<UINT32, UINT32> > vec;
 
-	STRATEGICEVENT* curr = gpEventList;
+	const STRATEGICEVENT* curr = StrategicEventQueue().head();
 	while ( curr )
 	{
 		if ( curr->ubCallbackID == ubCallbackID )
@@ -689,130 +598,65 @@ std::vector< std::pair<UINT32, UINT32> > GetAllStrategicEventsOfType( UINT8 ubCa
 //part of the game.sav files (not map files)
 BOOLEAN SaveStrategicEventsToSavedGame( HWFILE hFile )
 {
-	UINT32	uiNumBytesWritten=0;
-	STRATEGICEVENT sGameEvent;
+	std::vector<CampaignEventSnapshot> events;
+	if( !StrategicEventQueue().capture( events ) )
+		return FALSE;
 
-	UINT32	uiNumGameEvents=0;
-	STRATEGICEVENT *pTempEvent = gpEventList;
-
-	//Go through the list and determine the number of events
-	while( pTempEvent )
+	SaveWriter writer( hFile );
+	writer.u32( CAMPAIGN_EVENT_QUEUE_MAGIC );
+	writer.u16( CAMPAIGN_EVENT_QUEUE_VERSION );
+	writer.u32( static_cast<UINT32>( events.size() ) );
+	for( const CampaignEventSnapshot& event : events )
 	{
-		pTempEvent = pTempEvent->next;
-		uiNumGameEvents++;
+		writer.u32( event.scheduledSeconds );
+		writer.u32( event.parameter );
+		writer.u32( event.timeOffsetSeconds );
+		writer.u8( event.type );
+		writer.u8( event.callbackId );
+		writer.u8( event.flags );
 	}
-
-
-	//write the number of strategic events
-	FileWrite( hFile, &uiNumGameEvents, sizeof( UINT32 ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( UINT32 ) )
-	{
-		return(FALSE);
-	}
-
-
-	//loop through all the events and save them.
-	pTempEvent = gpEventList;
-	while( pTempEvent )
-	{
-		//write the current strategic event (portable v2; 'next' is a runtime
-		//linked-list pointer, rebuilt on load -> not persisted)
-		{
-			SaveWriter w(hFile);
-			w.u32(pTempEvent->uiTimeStamp);
-			w.u32(pTempEvent->uiParam);
-			w.u32(pTempEvent->uiTimeOffset);
-			w.u8 (pTempEvent->ubEventType);
-			w.u8 (pTempEvent->ubCallbackID);
-			w.u8 (pTempEvent->ubFlags);
-			w.bytes(pTempEvent->bPadding, sizeof(pTempEvent->bPadding));
-			if( !w.good() )
-			{
-				return(FALSE);
-			}
-		}
-
-		pTempEvent = pTempEvent->next;
-	}
-
-
-	return( TRUE );
+	return writer.good() ? TRUE : FALSE;
 }
 
 
 BOOLEAN LoadStrategicEventsFromSavedGame( HWFILE hFile )
 {
-	UINT32		uiNumGameEvents;
-	STRATEGICEVENT sGameEvent;
-	UINT32		cnt;
-	UINT32		uiNumBytesRead=0;
-	STRATEGICEVENT *pTemp = NULL;
+	SaveReader reader( hFile );
+	if( reader.u32() != CAMPAIGN_EVENT_QUEUE_MAGIC ||
+		reader.u16() != CAMPAIGN_EVENT_QUEUE_VERSION )
+		return FALSE;
 
+	const UINT32 eventCount = reader.u32();
+	CampaignEventQueue& queue = StrategicEventQueue();
+	if( !reader.good() || eventCount > queue.maximumEvents() )
+		return FALSE;
 
-	//erase the old Game Event queue
-	DeleteAllStrategicEvents();
-
-
-	//Read the number of strategic events
-	FileRead( hFile, &uiNumGameEvents, sizeof( UINT32 ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( UINT32 ) )
+	std::vector<CampaignEventSnapshot> events;
+	try
 	{
-		return(FALSE);
+		events.reserve( eventCount );
+		for( UINT32 index = 0; index < eventCount; ++index )
+		{
+			CampaignEventSnapshot event;
+			event.scheduledSeconds = reader.u32();
+			event.parameter = reader.u32();
+			event.timeOffsetSeconds = reader.u32();
+			event.type = reader.u8();
+			event.callbackId = reader.u8();
+			event.flags = reader.u8();
+			events.push_back( event );
+		}
 	}
-
-
-	pTemp = NULL;
-
-	//loop through all the events and save them.
-	for( cnt=0; cnt<uiNumGameEvents; cnt++ )
+	catch( ... )
 	{
-		STRATEGICEVENT *pTempEvent = NULL;
-
-		// allocate memory for the event
-		pTempEvent = (STRATEGICEVENT *) MemAlloc( sizeof( STRATEGICEVENT ) );
-		if( pTempEvent == NULL )
-			return( FALSE );
-
-		//Read the current strategic event (portable v2; 'next' rebuilt below)
-		{
-			SaveReader r(hFile);
-			pTempEvent->next         = NULL;
-			pTempEvent->uiTimeStamp  = r.u32();
-			pTempEvent->uiParam      = r.u32();
-			pTempEvent->uiTimeOffset = r.u32();
-			pTempEvent->ubEventType  = r.u8();
-			pTempEvent->ubCallbackID = r.u8();
-			pTempEvent->ubFlags      = r.u8();
-			r.bytes(pTempEvent->bPadding, sizeof(pTempEvent->bPadding));
-			if( !r.good() )
-			{
-				return(FALSE);
-			}
-		}
-
-		// Add the new node to the list
-
-		//if its the first node,
-		if( cnt == 0 )
-		{
-			// assign it as the head node
-			gpEventList = pTempEvent;
-
-			//assign the 'current node' to the head node
-			pTemp = gpEventList;
-		}
-		else
-		{
-			// add the new node to the next field of the current node
-			pTemp->next = pTempEvent;
-
-			//advance the current node to the next node
-			pTemp = pTemp->next;
-		}
-
-		// NULL out the next field ( cause there is no next field yet )
-		pTempEvent->next = NULL;
+		return FALSE;
 	}
+	if( !reader.good() )
+		return FALSE;
+
+	if( queue.replace( events ) != CampaignEventQueueError::None )
+		return FALSE;
+	SynchronizeJa2CampaignEventListMirror();
 
 	InitMiniEvents();
 
@@ -831,14 +675,7 @@ void UnlockStrategicEventFromDeletion( STRATEGICEVENT *pEvent )
 
 void ValidateGameEvents()
 {
-	STRATEGICEVENT *curr;
-	curr = gpEventList;
-	while( curr )
-	{
-		curr = curr->next;
-		if( curr == (STRATEGICEVENT*)0xdddddddd )
-		{
-			return;
-		}
-	}
+	AssertMsg(
+		StrategicEventQueue().validate(),
+		"Campaign event queue ownership or ordering invariant failed" );
 }

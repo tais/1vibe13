@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
+#include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CampaignEventService.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
@@ -452,6 +453,63 @@ int main()
 			CampaignEventSnapshotCreateError::TooManyEvents &&
 		campaignEvents.size() == 3,
 		"rejected campaign event input preserves the last complete snapshot");
+
+	CampaignEventQueue ownedCampaignEvents(3);
+	const CampaignEventScheduleResult laterCampaignEvent =
+		ownedCampaignEvents.schedule({190861, 13, 0, 0, 23, 0});
+	const CampaignEventScheduleResult equalTimeCampaignEvent =
+		ownedCampaignEvents.schedule({190861, 14, 60, 4, 24, 1});
+	const CampaignEventScheduleResult earlierCampaignEvent =
+		ownedCampaignEvents.schedule({190800, 12, 0, 0, 22, 0});
+	const CampaignEventScheduleResult excessCampaignEvent =
+		ownedCampaignEvents.schedule({190900, 15, 0, 0, 25, 0});
+	std::vector<CampaignEventSnapshot> ownedCampaignEventSnapshot;
+	check(laterCampaignEvent && equalTimeCampaignEvent && earlierCampaignEvent &&
+		!excessCampaignEvent &&
+		excessCampaignEvent.error == CampaignEventQueueError::CapacityReached &&
+		ownedCampaignEvents.validate() &&
+		ownedCampaignEvents.capture(ownedCampaignEventSnapshot) &&
+		ownedCampaignEventSnapshot ==
+			std::vector<CampaignEventSnapshot>({
+				{190800, 12, 0, 0, 22, 0},
+				{190861, 13, 0, 0, 23, 0},
+				{190861, 14, 60, 4, 24, 1}}) &&
+		earlierCampaignEvent.event->id != laterCampaignEvent.event->id &&
+		laterCampaignEvent.event->id != equalTimeCampaignEvent.event->id,
+		"engine-owned campaign event queues are bounded, ordered, stable, and FIFO");
+	const CampaignEventId identityBeforeClear = equalTimeCampaignEvent.event->id;
+	const std::vector<CampaignEventSnapshot> retainedOwnedCampaignEvents =
+		ownedCampaignEventSnapshot;
+	check(ownedCampaignEvents.replace(
+			{{190900, 1, 0, 0, 1, 0}, {190800, 2, 0, 0, 2, 0}}) ==
+			CampaignEventQueueError::UnorderedInput &&
+		ownedCampaignEvents.capture(ownedCampaignEventSnapshot) &&
+		ownedCampaignEventSnapshot == retainedOwnedCampaignEvents,
+		"campaign event replacement rejects unordered state transactionally");
+	ownedCampaignEvents.clear();
+	const CampaignEventScheduleResult eventAfterClear =
+		ownedCampaignEvents.schedule({200000, 16, 0, 0, 26, 0});
+	check(eventAfterClear &&
+		eventAfterClear.event->id.value > identityBeforeClear.value &&
+		ownedCampaignEvents.size() == 1 &&
+		ownedCampaignEvents.validate(),
+		"campaign event identities do not repeat when a runtime queue is cleared");
+	const CampaignEventId identityBeforeDamagedClear =
+		eventAfterClear.event->id;
+	eventAfterClear.event->next = eventAfterClear.event;
+	ownedCampaignEvents.clear();
+	const CampaignEventScheduleResult eventAfterDamagedClear =
+		ownedCampaignEvents.schedule({200001, 17, 0, 0, 27, 0});
+	check(eventAfterDamagedClear &&
+		eventAfterDamagedClear.event->id.value >
+			identityBeforeDamagedClear.value &&
+		ownedCampaignEvents.size() == 1 &&
+		ownedCampaignEvents.validate(),
+		"campaign event teardown breaks damaged cycles without repeating identity");
+	check(&legacyBraceRuntime.campaignEventQueue() ==
+			&legacyBraceRuntime.campaignEventQueue() &&
+		legacyBraceRuntime.campaignEventQueue().empty(),
+		"EngineRuntime owns one stable strategic event queue");
 
 	MemoryCampaignEventService memoryCampaignEvents;
 	ServiceCatalog campaignEventServices;

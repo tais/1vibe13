@@ -3,6 +3,7 @@ include(GNUInstallDirs)
 set(ja2_runtime_adapter_public_headers
   CampaignClockService.h
   CampaignClockSession.h
+  CampaignEventQueue.h
   CampaignEventService.h
   CampaignEventSnapshot.h
   CommandReplay.h
@@ -29,6 +30,7 @@ set(ja2_runtime_adapter_public_headers
 # Engine/Core; Core never depends on this target or on legacy game headers.
 add_library(ja2_runtime_adapter STATIC
   CampaignClockSession.cpp
+  CampaignEventQueue.cpp
   CommandReplay.cpp
   SimulationCommandCodec.cpp
   TacticalCommandService.cpp
@@ -55,9 +57,10 @@ set_target_properties(ja2_runtime_adapter PROPERTIES
   DEBUG_POSTFIX _debug
   POSITION_INDEPENDENT_CODE ON)
 
-# RuntimeAdapter is the JA2-specific, pointer-free SDK layer above Engine/Core.
-# Export it in the same package so external tools can consume the tactical and
-# command contracts without inheriting application or legacy game headers.
+# RuntimeAdapter is the JA2-specific SDK layer above Engine/Core. Its package
+# contracts are value-only; CampaignEventQueue additionally exposes the
+# host-side stable-node bridge needed to migrate the established game callback
+# surface without importing application or legacy headers here.
 install(TARGETS ja2_runtime_adapter
   EXPORT JA2EngineTargets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT EngineSDK

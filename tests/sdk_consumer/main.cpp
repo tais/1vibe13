@@ -1,6 +1,7 @@
 #include <Engine/Adapters/JA2/CommandReplay.h>
 #include <Engine/Adapters/JA2/CampaignClockService.h>
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
+#include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CampaignEventService.h>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
@@ -222,6 +223,16 @@ int main()
 			CampaignEventCaptureResult::Success ||
 		capturedExternalCampaignEvents.events() !=
 			externalCampaignEvents.events()) return 51;
+	const CampaignEventScheduleResult runtimeOwnedCampaignEvent =
+		legacyBraceRuntime.campaignEventQueue().schedule(
+			{90122, 9, 0, 0, 19, 0});
+	std::vector<CampaignEventSnapshot> runtimeOwnedCampaignEvents;
+	if (!runtimeOwnedCampaignEvent ||
+		!legacyBraceRuntime.campaignEventQueue().capture(
+			runtimeOwnedCampaignEvents) ||
+		runtimeOwnedCampaignEvents !=
+			std::vector<CampaignEventSnapshot>{{90122, 9, 0, 0, 19, 0}})
+		return 52;
 
 	MemoryByteStorage storage;
 	MemoryRenderSurfaceAccess renderSurfaces(1024);

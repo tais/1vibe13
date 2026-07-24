@@ -519,13 +519,19 @@ the engine must not contain SDL types in its public domain model.
   in-progress event slice without gaining mutation authority or retaining a
   reference into the session. Memory and null providers keep package, replay,
   and headless tests on the same contract.
-- `CampaignEventService` is the first boundary around JA2's strategic event
-  queue. Its live adapter copies the linked list into a bounded, pointer-free,
-  timestamp-ordered snapshot while preserving equal-time FIFO order and opaque
-  mod-defined type/callback values. Cycles, ordering damage, capacity pressure,
-  and allocation failure preserve the consumer's last complete capture. Queue
-  mutation, callback execution, reposting, and save layout deliberately remain
-  legacy-owned until this observation seam has proved stable.
+- `CampaignEventQueue` moves strategic-event allocation, ordering, stable
+  identity, capacity, replacement, and destruction into `EngineRuntime`.
+  Equal timestamps remain FIFO and legacy `STRATEGICEVENT` callers retain
+  stable node addresses, but `gpEventList` is now only a synchronized readable
+  compatibility head. Scheduling, deletion, reposting, processing traversal,
+  and save restoration all mutate the runtime-owned queue. Its EVQ2 save
+  section is bounded and loaded transactionally, so malformed or incomplete
+  input cannot erase the active campaign.
+- `CampaignEventService` projects that owned queue into bounded, pointer-free
+  snapshots for packages and tools. Numeric type/callback values remain opaque
+  for mods, and capture failures preserve the consumer's last complete view.
+  Packages receive observation authority only; the node bridge is a host-side
+  compatibility surface rather than a package ABI.
 - `AudioGroupService` binds new audio playback to package identity and logical
   groups above the existing platform output. Assets are normalized, playbacks
   are bounded and inspectable, packages cannot control another owner's sounds,

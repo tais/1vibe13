@@ -309,10 +309,11 @@ There is no separate schema file — the layout *is* the per-struct field list:
 ### Versioning
 
 `SAVE_GAME_VERSION` (in `Ja2/GameVersion.h`) gates old vs new format at load. It is
-now `PORTABLE_SAVE_FORMAT = 1001` — a generational jump clear of upstream's
+now `PORTABLE_SAVE_FORMAT = 1002` — a generational jump clear of upstream's
 sequential numbering (~186), marking the clean break and avoiding collisions with
 future 1.13 increments. (1000 was the initial portable format; 1001 added
-field-by-field `ROTTING_CORPSE_DEFINITION` serialization — see below.) `LoadSavedGame`
+field-by-field `ROTTING_CORPSE_DEFINITION` serialization; 1002 moved strategic
+events into the runtime-owned EVQ2 value stream.) `LoadSavedGame`
 **rejects any save below the current `PORTABLE_SAVE_FORMAT`** up front
 (before any format-dependent read), so pre-migration saves fail cleanly instead of
 mis-reading old bytes as v2. `uiSavedGameVersion` is the first field in the file,
@@ -400,7 +401,8 @@ pointer-alignment padding differs between 32- and 64-bit):
 | email subject, map-screen messages | CHAR16 `*2` | `sizeof(CHAR16)` + bounded reads |
 | `VEHICLETYPE` | ptrs (pMercPath, pPassengers) | skip; passenger profile IDs as fixed `u32` |
 | `PathSt` (vehicle/militia/merc paths) | ptrs (pNext/pPrev) | shared node helper; links rebuilt |
-| `STRATEGICEVENT`, `UNDERGROUND_SECTORINFO` | linked-list `next` | skip; rebuilt on load |
+| `STRATEGICEVENT` | linked-list `next`, runtime ID | EVQ2 queue section: magic/version/count plus six semantic fields per node; links and IDs rebuilt transactionally |
+| `UNDERGROUND_SECTORINFO` | linked-list `next` | skip; rebuilt on load |
 | `LaptopSaveInfoStruct` | 2 array ptrs | skip (arrays saved separately); scalars/sub-structs as bytes |
 | `BULLET` | ptrs (firer/tracer/anitiles) | skip; firer re-derived from ID |
 | `GROUP` + `WAYPOINT` | ptrs (waypoints/union/next) | skip; sub-lists saved separately, links rebuilt |

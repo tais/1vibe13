@@ -2,6 +2,12 @@
 
 #include "Game Events.h"
 
+namespace
+{
+CampaignEventQueue fallbackQueue;
+CampaignEventQueue* activeQueue = &fallbackQueue;
+}
+
 CampaignEventCaptureResult Ja2CampaignEventAdapter::capture(
 	CampaignEventQueueSnapshot& output) noexcept
 {
@@ -12,9 +18,10 @@ CampaignEventCaptureResult Ja2CampaignEventAdapter::capture(
 			maximumEvents_ < 256 ? maximumEvents_ : 256;
 		eventScratch_.reserve(initialCapacity);
 
-		const STRATEGICEVENT* current = gpEventList;
-		const STRATEGICEVENT* cycleSlow = gpEventList;
-		const STRATEGICEVENT* cycleFast = gpEventList;
+		const CampaignEventQueue& queue = GetJa2CampaignEventQueue();
+		const CampaignEventQueueNode* current = queue.head();
+		const CampaignEventQueueNode* cycleSlow = queue.head();
+		const CampaignEventQueueNode* cycleFast = queue.head();
 		while (current)
 		{
 			if (eventScratch_.size() >= maximumEvents_)
@@ -62,4 +69,24 @@ Ja2CampaignEventAdapter& GetJa2CampaignEventAdapter()
 {
 	static Ja2CampaignEventAdapter adapter;
 	return adapter;
+}
+
+void BindJa2CampaignEventQueue(CampaignEventQueue& queue) noexcept
+{
+	if (activeQueue != &queue)
+	{
+		queue.swap(*activeQueue);
+		activeQueue = &queue;
+	}
+	SynchronizeJa2CampaignEventListMirror();
+}
+
+CampaignEventQueue& GetJa2CampaignEventQueue() noexcept
+{
+	return *activeQueue;
+}
+
+void SynchronizeJa2CampaignEventListMirror() noexcept
+{
+	gpEventList = activeQueue->head();
 }
