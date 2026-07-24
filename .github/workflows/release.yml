@@ -85,6 +85,8 @@ jobs:
             sccache-${{ matrix.platform.name }}-
 
       - name: Set up sccache
+        id: sccache
+        continue-on-error: true
         uses: mozilla-actions/sccache-action@v0.0.6
 
       # ---- toolchain / build deps (identical to build_unix.yml) ----
@@ -129,6 +131,14 @@ jobs:
         shell: bash
         run: |
           set -eux
+          cache_args=()
+          if command -v sccache >/dev/null 2>&1; then
+            cache_args+=(
+              -DCMAKE_C_COMPILER_LAUNCHER=sccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=sccache)
+          else
+            echo "::warning::sccache setup unavailable; building without a compiler cache"
+          fi
           # SDL3, SDL3_mixer and their vendored codecs are linked statically
           # (BUILD_SHARED_LIBS=OFF / SDL_STATIC in CMakeLists), so the
           # executables are self-contained and no rpath / bundled libs are
@@ -138,8 +148,7 @@ jobs:
             -DLanguages=ENGLISH \
             "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
             -DBUILD_JA2SERVER=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            "${cache_args[@]}"
 
       - name: Build
         shell: bash
@@ -148,7 +157,12 @@ jobs:
       - name: sccache stats
         if: always()
         shell: bash
-        run: sccache --show-stats
+        run: |
+          if command -v sccache >/dev/null 2>&1; then
+            sccache --show-stats
+          else
+            echo "sccache unavailable; no cache statistics"
+          fi
 
       # ---- stage: self-contained executables (SDL3/SDL3_mixer + codecs are
       # statically linked in, so no runtime libs to ship) ----
