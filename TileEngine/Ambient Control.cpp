@@ -695,7 +695,7 @@ void SetSSA(void)
 	}
 
 	// pick random file	
-	ubChosenSound = (guiHour % ubNumSounds) + 1;
+	ubChosenSound = (GetWorldHour() % ubNumSounds) + 1;
 	//ubChosenSound = Random(ubNumSounds) + 1;
 
 	// make a file name

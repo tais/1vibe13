@@ -572,22 +572,26 @@ void IniGlobalGameSetting(lua_State *L)
 	lua_pushinteger(L, gbIntroScreenMode);
 	lua_setglobal(L, "gbIntroScreenMode");	
 	
-	lua_pushinteger(L, guiDay);
+	const UINT32 campaignDay = GetWorldDay();
+	const UINT32 campaignHour = GetWorldHour();
+	const UINT32 campaignMinute = GetWorldMinutes();
+
+	lua_pushinteger(L, campaignDay);
 	lua_setglobal(L, "guiDay");
 	
-	lua_pushinteger(L, guiHour);
+	lua_pushinteger(L, campaignHour);
 	lua_setglobal(L, "guiHour");
 	
-	lua_pushinteger(L, guiMin);
+	lua_pushinteger(L, campaignMinute);
 	lua_setglobal(L, "guiMin");
 	
-	lua_pushinteger(L, guiDay);
+	lua_pushinteger(L, campaignDay);
 	lua_setglobal(L, "cDay");
 	
-	lua_pushinteger(L, guiHour);
+	lua_pushinteger(L, campaignHour);
 	lua_setglobal(L, "cHour");
 	
-	lua_pushinteger(L, guiMin);
+	lua_pushinteger(L, campaignMinute);
 	lua_setglobal(L, "cMin");
 	
 	

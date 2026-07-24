@@ -5,13 +5,9 @@
 
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
 
-// Exact legacy mirrors remain available to old modules as read-only by
-// convention. Architecture checks below the gateway enforce that convention.
-extern std::uint32_t guiGameClock;
-extern std::uint32_t guiPreviousGameClock;
-
-// Application composition and the only production write gateway for JA2's
-// campaign-time compatibility globals.
+// Application composition and the only production mutation gateway for JA2
+// campaign time. Callers observe value snapshots or the established
+// GetWorld* accessors; no writable scalar mirrors remain.
 void BindJa2CampaignClockSession(CampaignClockSession& session) noexcept;
 const CampaignClockSession::Snapshot& CaptureJa2CampaignClock() noexcept;
 void InitializeJa2CampaignClock(std::uint32_t startingSeconds) noexcept;

@@ -1559,7 +1559,7 @@ BOOLEAN DisplaySaveGameEntry( INT32 bEntryID )
 			//the user has selected a spot to save.	Fill out all the required information
 			SaveGameHeader.uiDay = GetWorldDay();
 			SaveGameHeader.ubHour = (UINT8)GetWorldHour();
-			SaveGameHeader.ubMin = (UINT8)guiMin;
+			SaveGameHeader.ubMin = (UINT8)GetWorldMinutes();
 
 			//Get the sector value to save.
 			GetBestPossibleSectorXYZValues( &SaveGameHeader.sSectorX, &SaveGameHeader.sSectorY, &SaveGameHeader.bSectorZ );

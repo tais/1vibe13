@@ -405,7 +405,6 @@ STR16		PocketText[] = {
 //
 //*******************************
 
-extern UINT32 guiGameClock;
 extern UINT32 guiBrownBackgroundForTeamPanel;
 
 
@@ -3064,8 +3063,8 @@ void ChangeDayNumber( INT32 iDayToChangeTo )
 
 	if( iDayToChangeTo )
 	{
-		uiNewDayTimeInSec = (guiDay+iDayToChangeTo)*NUM_SEC_IN_DAY + 8*NUM_SEC_IN_HOUR + 15*NUM_SEC_IN_MIN;
-		uiDiff = uiNewDayTimeInSec - guiGameClock;
+		uiNewDayTimeInSec = (GetWorldDay()+iDayToChangeTo)*NUM_SEC_IN_DAY + 8*NUM_SEC_IN_HOUR + 15*NUM_SEC_IN_MIN;
+		uiDiff = uiNewDayTimeInSec - GetWorldTotalSeconds();
 		WarpGameTime( uiDiff, WARPTIME_PROCESS_EVENTS_NORMALLY );
 
 		ForecastDayEvents( );

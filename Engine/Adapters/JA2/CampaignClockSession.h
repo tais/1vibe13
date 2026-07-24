@@ -3,11 +3,12 @@
 
 #include <cstdint>
 
-// Engine-owned campaign-time identity. The legacy application retains exact
-// read-compatible globals while its writers migrate through the JA2 gateway.
-// Calendar fields intentionally remain part of the snapshot: old test and
-// compatibility paths can temporarily override them independently of the
-// serialized total without exposing that quirk to reusable Engine/Core code.
+// Engine-owned campaign-time identity. The legacy application reads this state
+// through value accessors and routes every mutation through the JA2 gateway;
+// no duplicate writable scalars remain. Calendar fields intentionally remain
+// part of the snapshot: old test and compatibility paths can temporarily
+// override them independently of the serialized total without exposing that
+// quirk to reusable Engine/Core code.
 class CampaignClockSession
 {
 public:
