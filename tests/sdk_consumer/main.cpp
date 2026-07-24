@@ -182,6 +182,9 @@ int main()
 	EngineRuntime<> legacyBraceRuntime({});
 	if (legacyBraceHost.serviceCatalog().size() != 14 ||
 		legacyBraceRuntime.serviceCatalog().size() != 14) return 42;
+	legacyBraceRuntime.tacticalWorldSession().setTurnState({true, true, 2});
+	if (legacyBraceRuntime.tacticalWorldSession().snapshot().turn !=
+		TacticalWorldSession::Snapshot::Turn{true, true, 2}) return 53;
 	CampaignClockSession externalCampaignClock;
 	externalCampaignClock.initialize(90061);
 	externalCampaignClock.advanceUncommitted(60);

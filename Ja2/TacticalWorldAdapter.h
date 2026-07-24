@@ -65,6 +65,16 @@ std::uint64_t CommitJa2TacticalWorldLoad() noexcept;
 void RestoreJa2TacticalWorldSession(
 	TacticalWorldSession::Snapshot state) noexcept;
 
+// Tactical turn identity is part of the same runtime session. These are the
+// only production writers for the corresponding gTacticalStatus mirrors.
+void ImportJa2TacticalTurnState() noexcept;
+void RestoreJa2TacticalTurnMirrors(
+	std::uint32_t tacticalFlags, std::uint8_t currentTeam) noexcept;
+void SetJa2TacticalTurnBasedMode(bool active) noexcept;
+void SetJa2TacticalCombatMode(bool active) noexcept;
+void SetJa2TacticalCurrentTeam(std::uint8_t team) noexcept;
+void AdvanceJa2TacticalCurrentTeam() noexcept;
+
 // Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
 // is not exposed as another mutable JA2 global.
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept;

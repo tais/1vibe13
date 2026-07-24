@@ -3558,6 +3558,17 @@ int main( int, char** )
 		RebuildJa2TacticalEntityDirectory();
 		SetJa2TacticalWorldSector( 9, 1, 0 );
 		NotifyJa2TacticalWorldLoaded( 23 );
+		SetJa2TacticalTurnBasedMode( true );
+		SetJa2TacticalCombatMode( true );
+		SetJa2TacticalCurrentTeam( 1 );
+		const TacticalWorldSession::Snapshot::Turn ownedTacticalTurn =
+			compiledContext.runtime().tacticalWorldSession().snapshot().turn;
+		CHECK( ownedTacticalTurn ==
+		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 1 } ) &&
+		       ( gTacticalStatus.uiFlags & TURNBASED ) != 0 &&
+		       ( gTacticalStatus.uiFlags & INCOMBAT ) != 0 &&
+		       gTacticalStatus.ubCurrentTeam == 1,
+		       "tactical mode and current team are runtime-owned with exact legacy mirrors" );
 		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );
 		turnIdentityFixture.onWorldLoaded( 23 );
 		const Ja2TacticalTurnIdentity loadedTurnIdentity =
@@ -3581,7 +3592,8 @@ int main( int, char** )
 			liveWorld.find( TacticalEntityId{ 0, 701 } );
 		CHECK( liveCapture == TacticalWorldCaptureResult::Success &&
 		       liveWorld.epoch() == 23 && liveWorld.sector().x == 9 &&
-		       liveWorld.turn().serial == 2 &&
+		       liveWorld.turn().serial == 2 && liveWorld.turn().turnBased &&
+		       liveWorld.turn().inCombat && liveWorld.turn().activeTeam == 1 &&
 		       liveActor && liveActor->grid == 345 && liveActor->level == 1 &&
 		       liveActor->stance == TacticalStance::Standing && liveActor->life == 76,
 		       "live tactical service captures stable pointer-free legacy soldier state" );

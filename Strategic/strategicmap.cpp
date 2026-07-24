@@ -6223,7 +6223,7 @@ BOOLEAN HandleDefiniteUnloadingOfWorld( UINT8 ubUnloadCode )
 	{
 		//Clear any potential battle flags.  They will be set if necessary.
 		gTacticalStatus.fEnemyInSector = FALSE;
-		gTacticalStatus.uiFlags &= ~INCOMBAT;
+		SetJa2TacticalCombatMode( false );
 	}
 
 	// Flugente: update possible fortification potential in current sector
@@ -6460,7 +6460,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 
 	//Clear all combat related flags.
 	gTacticalStatus.fEnemyInSector = FALSE;
-	gTacticalStatus.uiFlags &= ~INCOMBAT;
+	SetJa2TacticalCombatMode( false );
 	EndTopMessage( );
 
 

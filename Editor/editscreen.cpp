@@ -68,6 +68,7 @@
 	#include "Music Control.h"
 	#include "Soldier Profile.h"
 	#include "GameSettings.h"
+	#include "TacticalWorldAdapter.h"
 	#include "Summary Info.h"
 	#include "connect.h"//dnl
 	#include "Cursors.h"//dnl ch2 210909
@@ -347,7 +348,8 @@ BOOLEAN EditModeInit( void )
 	//editor.
 	guiSaveTacticalStatusFlags = (gTacticalStatus.uiFlags & ~DEMOMODE);
 	gTacticalStatus.uiFlags &= ~REALTIME;
-	gTacticalStatus.uiFlags |= TURNBASED | SHOW_ALL_ITEMS;
+	gTacticalStatus.uiFlags |= SHOW_ALL_ITEMS;
+	SetJa2TacticalTurnBasedMode( true );
 	gTacticalStatus.uiTimeOfLastInput = GetJA2Clock();
 	gTacticalStatus.uiTimeSinceDemoOn = gTacticalStatus.uiTimeOfLastInput;
 	gTacticalStatus.fGoingToEnterDemo = FALSE;
@@ -500,7 +502,8 @@ BOOLEAN EditModeShutdown( void )
 	CreateMouseRegionForPauseOfClock( INTERFACE_CLOCK_X, INTERFACE_CLOCK_Y );
 
 	iOldTaskMode = iCurrentTaskbar;
-	gTacticalStatus.uiFlags = guiSaveTacticalStatusFlags;
+	RestoreJa2TacticalTurnMirrors(
+		guiSaveTacticalStatusFlags, gTacticalStatus.ubCurrentTeam );
 
 	RemoveLightPositionHandles( );
 

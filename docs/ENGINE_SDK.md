@@ -166,9 +166,11 @@ world. In the JA2 host, `snapshot.epoch()` is the nonzero world-load generation
 and `snapshot.turn().serial` is a nonzero identity scoped to that epoch: serial
 one denotes the newly loaded pre-turn state, each accepted `BeginTeamTurn`
 boundary advances it, and exhaustion saturates instead of wrapping. Compare a
-turn serial only within the same epoch. The existing tactical-delta wire already
-encodes the complete turn snapshot, so live turn identities require no wire or
-service-version change.
+turn serial only within the same epoch. `EngineRuntime` also owns the
+turn-based/combat mode and current team in that same session; the JA2 adapter
+is the only writer of their established `gTacticalStatus` mirrors. The existing
+tactical-delta wire already encodes the complete turn snapshot, so this
+ownership move requires no wire or service-version change.
 
 `TacticalWorldObserver` invalidates `latest()` when its source becomes
 unavailable or the host calls `reset()`; any previously returned publication

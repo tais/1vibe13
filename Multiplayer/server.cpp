@@ -37,6 +37,7 @@
 #include "fresh_header.h"
 #include "Debug Control.h"
 #include "MPXmlTeams.hpp"
+#include "TacticalWorldAdapter.h"
 
 extern CHAR16 gzFileTransferDirectory[100];
 
@@ -512,7 +513,7 @@ void startCOMBAT(RPCParameters *rpcParameters)
 	
 	{
 
-		gTacticalStatus.uiFlags |= INCOMBAT;
+		SetJa2TacticalCombatMode( true );
 
 		sc_struct* data = (sc_struct*)rpcParameters->input;
 		EndTurn( data->ubStartingTeam );

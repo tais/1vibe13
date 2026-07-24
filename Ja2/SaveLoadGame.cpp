@@ -7066,6 +7066,7 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 			return(FALSE);
 		}
 	}
+	ImportJa2TacticalTurnState();
 
 //	for (unsigned idx=0; idx <= MAXTEAMS; ++idx) {
 //		gTacticalStatus.Team[idx] = savedTeamSettings[idx];

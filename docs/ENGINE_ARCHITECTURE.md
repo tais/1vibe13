@@ -519,6 +519,13 @@ the engine must not contain SDL types in its public domain model.
   in-progress event slice without gaining mutation authority or retaining a
   reference into the session. Memory and null providers keep package, replay,
   and headless tests on the same contract.
+- `TacticalWorldSession` owns loaded sector identity, world generation,
+  turn serial, turn-based/combat mode, and current team as one runtime value.
+  World loading, tactical combat transitions, team turns, multiplayer turn
+  messages, editor mode, and save restoration pass through the application
+  adapter; `gTacticalStatus` retains exact readable mirrors for the old game.
+  `TacticalWorldService` captures these values without consulting split mutable
+  turn globals.
 - `CampaignEventQueue` moves strategic-event allocation, ordering, stable
   identity, capacity, replacement, and destruction into `EngineRuntime`.
   Equal timestamps remain FIFO and legacy `STRATEGICEVENT` callers retain

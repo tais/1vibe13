@@ -62,6 +62,7 @@
 #include "Soldier Functions.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
+#include "TacticalWorldAdapter.h"
 #include "english.h"
 #include "random.h"
 #include "Map Screen Interface.h"
@@ -5054,7 +5055,7 @@ void ToggleRealTime( UINT32 *puiNewEvent )
 	if ( gTacticalStatus.uiFlags & TURNBASED )
 	{
 		// Change to real-time
-		gTacticalStatus.uiFlags &= (~TURNBASED);
+		SetJa2TacticalTurnBasedMode( false );
 		gTacticalStatus.uiFlags |= REALTIME;
 
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Switching to Realtime." );
@@ -5062,7 +5063,7 @@ void ToggleRealTime( UINT32 *puiNewEvent )
 	else if ( gTacticalStatus.uiFlags & REALTIME )
 	{
 		// Change to turn-based
-		gTacticalStatus.uiFlags |= TURNBASED;
+		SetJa2TacticalTurnBasedMode( true );
 		gTacticalStatus.uiFlags &=( ~REALTIME );
 
 		*puiNewEvent = M_ON_TERRAIN;

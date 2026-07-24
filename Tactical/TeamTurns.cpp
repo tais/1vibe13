@@ -172,7 +172,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 	// PATCH 1.06:
 	//
 	// make sure set properly in gTacticalStatus:
-	gTacticalStatus.ubCurrentTeam = OUR_TEAM;
+	SetJa2TacticalCurrentTeam( OUR_TEAM );
 
 	InitPlayerUIBar( FALSE );
 
@@ -348,7 +348,7 @@ void EndTurn( UINT8 ubNextTeam )
 			}
 		}
 
-		gTacticalStatus.ubCurrentTeam	= ubNextTeam;
+		SetJa2TacticalCurrentTeam( ubNextTeam );
 		
 		gTacticalStatus.ubInterruptPending	= DISABLED_INTERRUPT;
 
@@ -402,7 +402,7 @@ void EndAITurn( void )
 			}
 		}
 
-		gTacticalStatus.ubCurrentTeam++;
+		AdvanceJa2TacticalCurrentTeam();
 		BeginTeamTurn( gTacticalStatus.ubCurrentTeam );
 	}
 }
@@ -436,7 +436,7 @@ void EndAllAITurns( void )
 			}
 		}
 
-		gTacticalStatus.ubCurrentTeam = gbPlayerNum;
+		SetJa2TacticalCurrentTeam( gbPlayerNum );
 		//BeginTeamTurn( gTacticalStatus.ubCurrentTeam );
 		
 		gTacticalStatus.ubInterruptPending	= DISABLED_INTERRUPT;
@@ -546,7 +546,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 			{
 				// End turn!!
 				ubTeam = gbPlayerNum;
-				gTacticalStatus.ubCurrentTeam = gbPlayerNum;
+				SetJa2TacticalCurrentTeam( gbPlayerNum );
 				EndTurnEvents();
 				if(is_server)
 				{
@@ -563,7 +563,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 		{
 			// inactive team, skip to the next one
 			ubTeam++;
-			gTacticalStatus.ubCurrentTeam++;
+			AdvanceJa2TacticalCurrentTeam();
 			// skip back to the top, as we are processing another team now.
 			continue;
 		}
@@ -571,7 +571,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 		{
 			// inactive team, skip to the next one
 			ubTeam++;
-			gTacticalStatus.ubCurrentTeam++;
+			AdvanceJa2TacticalCurrentTeam();
 			// skip back to the top, as we are processing another team now.
 			continue;
 		}
@@ -638,7 +638,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 			AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ ubTeam ] );
 			/*if(is_server && !net_turn) send_EndTurn(ubTeam);
 			if(net_turn == true) net_turn = false;*/
-			gTacticalStatus.ubCurrentTeam = ubTeam;
+			SetJa2TacticalCurrentTeam( ubTeam );
 			if(is_server) send_EndTurn(ubTeam);
 			
 			
@@ -686,7 +686,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 			// This team is dead/inactive/being skipped in boxing
 			// skip back to the top to process the next team
 			ubTeam++;
-			gTacticalStatus.ubCurrentTeam++;
+			AdvanceJa2TacticalCurrentTeam();
 		}
 	}
 }
@@ -775,7 +775,7 @@ void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
 	}
 
 	// Enter combat mode starting with this side's turn
-	gTacticalStatus.ubCurrentTeam	= pActingSoldier->bTeam;
+	SetJa2TacticalCurrentTeam( pActingSoldier->bTeam );
 
 	CommonEnterCombatModeCode( );
 
@@ -990,7 +990,7 @@ void StartInterrupt( void )
 
 			// Dirty panel interface!
 			fInterfacePanelDirty						= DIRTYLEVEL2;
-			gTacticalStatus.ubCurrentTeam	= pSoldier->bTeam;
+			SetJa2TacticalCurrentTeam( pSoldier->bTeam );
 
 			// Signal UI done enemy's turn
 			guiPendingOverrideEvent = LU_ENDUILOCK;
@@ -1093,7 +1093,7 @@ void StartInterrupt( void )
 				}
 				// otherwise it's the AI interrupting another AI team
 
-				gTacticalStatus.ubCurrentTeam	= pTempSoldier->bTeam;
+				SetJa2TacticalCurrentTeam( pTempSoldier->bTeam );
 
 #ifdef JA2BETAVERSION
 				if (is_networked)
@@ -1278,7 +1278,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 
 		// change team
-		gTacticalStatus.ubCurrentTeam	= pSoldier->bTeam;
+		SetJa2TacticalCurrentTeam( pSoldier->bTeam );
 
 		// MP: tell the interrupted player's machine the interrupt is over. The
 		// complete handshake for this (end_interrupt -> "endINTERRUPT" relay ->
@@ -1498,7 +1498,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		else if (is_networked) //its going to another Lan client..//hayden
 		{
 	
-			gTacticalStatus.ubCurrentTeam = pSoldier->bTeam;
+			SetJa2TacticalCurrentTeam( pSoldier->bTeam );
 			AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ gTacticalStatus.ubCurrentTeam ] );
 			if(is_client)
 			{

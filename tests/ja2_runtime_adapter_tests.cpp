@@ -294,18 +294,23 @@ int main()
 		worldSession.snapshot().turnSerial == 0,
 		"tactical world sessions start unloaded without an identity");
 	worldSession.setSector({9, 1, 0});
+	worldSession.setTurnState({true, true, 2});
 	const std::uint64_t firstWorldGeneration = worldSession.commitLoad();
 	worldSession.beginTeamTurn();
 	check(firstWorldGeneration == 1 && worldSession.snapshot().loaded &&
 		worldSession.snapshot().sector == TacticalWorldSession::Sector{9, 1, 0} &&
-		worldSession.snapshot().turnSerial == 2,
-		"committed tactical worlds own sector generation and turn identity");
+		worldSession.snapshot().turnSerial == 2 &&
+		worldSession.snapshot().turn ==
+			TacticalWorldSession::Snapshot::Turn{true, true, 2},
+		"committed tactical worlds own sector, combat mode, team, and turn identity");
 	worldSession.unload();
 	check(!worldSession.snapshot().loaded &&
 		worldSession.snapshot().sector == TacticalWorldSession::Sector{9, 1, 0} &&
 		worldSession.snapshot().worldGeneration == 1 &&
-		worldSession.snapshot().turnSerial == 0,
-		"world unload preserves the selected legacy sector and generation");
+		worldSession.snapshot().turnSerial == 0 &&
+		worldSession.snapshot().turn ==
+			TacticalWorldSession::Snapshot::Turn{true, true, 2},
+		"world unload preserves selected sector, generation, and tactical mode");
 	worldSession.restore({
 		{2, 3, -1}, true, std::numeric_limits<std::uint64_t>::max(),
 		std::numeric_limits<std::uint64_t>::max()});
@@ -313,6 +318,12 @@ int main()
 	const std::uint64_t wrappedWorldGeneration = worldSession.commitLoad();
 	check(wrappedWorldGeneration == 1 && worldSession.snapshot().turnSerial == 1,
 		"world generation retains legacy nonzero wrap while turn serial saturates");
+	worldSession.setTurnBased(false);
+	worldSession.setCombatActive(false);
+	worldSession.setCurrentTeam(4);
+	check(worldSession.snapshot().turn ==
+			TacticalWorldSession::Snapshot::Turn{false, false, 4},
+		"tactical turn transitions update one runtime-owned value state");
 	check(&legacyBraceRuntime.tacticalWorldSession() ==
 		&legacyBraceRuntime.tacticalWorldSession(),
 		"EngineRuntime owns one stable tactical world session");

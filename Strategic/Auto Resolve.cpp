@@ -6,6 +6,7 @@
 #include "Queen Command.h"
 #include "Music Control.h"
 #include "PreBattle Interface.h"
+#include "TacticalWorldAdapter.h"
 #include "Player Command.h"
 #include "mousesystem.h"
 #include "Button System.h"
@@ -2735,7 +2736,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 	}
 
 	//KM : Aug 09, 1999 Patch fix -- Would break future dialog while time compressing
-	gTacticalStatus.ubCurrentTeam = gbPlayerNum;
+	SetJa2TacticalCurrentTeam( gbPlayerNum );
 
 	gpBattleGroup = NULL;
 
