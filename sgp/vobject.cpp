@@ -191,14 +191,6 @@ bool UsesStripDepthProfile(RenderImageDepthEffect effect)
 	}
 }
 
-bool FindVideoObjectHandle(HVOBJECT object, UINT32& handle)
-{
-	const auto found = gVideoObjectHandles.find(object);
-	if (found == gVideoObjectHandles.end()) return false;
-	handle = found->second;
-	return true;
-}
-
 bool RegisterRenderImage(HVOBJECT object)
 {
 	if (!object) return false;
@@ -335,7 +327,7 @@ private:
 
 bool SubmitVideoObjectDraw(
 	UINT32 destination,
-	UINT32 image,
+	RenderImageId image,
 	UINT16 frame,
 	INT32 destinationX,
 	INT32 destinationY,
@@ -639,7 +631,7 @@ bool SubmitVideoObjectStripDepthDraw(
 
 bool SubmitVideoObjectOutline(
 	UINT32 destination,
-	UINT32 image,
+	RenderImageId image,
 	UINT16 frame,
 	INT32 destinationX,
 	INT32 destinationY,
@@ -2152,9 +2144,8 @@ BOOLEAN BltVideoObject(	UINT32	uiDestVSurface,
 												UINT32 fBltFlags,
 												blt_fx *pBltFx )
 {
-
-	UINT32 image = 0;
-	if (FindVideoObjectHandle(hSrcVObject, image))
+	RenderImageId image = 0;
+	if (FindRenderImage(hSrcVObject, image))
 	{
 		(void)pBltFx;
 		return SubmitVideoObjectDraw(
@@ -2162,9 +2153,9 @@ BOOLEAN BltVideoObject(	UINT32	uiDestVSurface,
 			iDestX, iDestY, fBltFlags) ? TRUE : FALSE;
 	}
 
-	// Button art, editor previews, and other application-owned images may not
-	// belong to the stable manager yet. Keep those pointer-owned objects on the
-	// exact compatibility implementation until their ownership is migrated.
+	// Manually assembled compatibility fixtures do not participate in the
+	// CreateVideoObject lifetime and therefore have no stable resource identity.
+	// Keep only those unregistered objects on the exact local implementation.
 	return DrawVideoObjectToSurface(
 		uiDestVSurface, hSrcVObject, usRegionIndex,
 		iDestX, iDestY, fBltFlags, pBltFx);
@@ -3516,9 +3507,9 @@ BOOLEAN BltVideoObjectOutlineFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObjec
 
 BOOLEAN BltVideoObjectOutline(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY, PIXEL s16BPPColor, BOOLEAN fDoOutline )
 {
-	UINT32 image = 0;
+	RenderImageId image = 0;
 	if (hSrcVObject && hSrcVObject->ubBitDepth == 8 &&
-		FindVideoObjectHandle(hSrcVObject, image))
+		FindRenderImage(hSrcVObject, image))
 	{
 		return SubmitVideoObjectOutline(
 			uiDestVSurface, image, usIndex,
@@ -3552,9 +3543,9 @@ BOOLEAN BltVideoObjectOutlineShadowFromIndex(UINT32 uiDestVSurface, UINT32 uiSrc
 
 BOOLEAN BltVideoObjectOutlineShadow(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY )
 {
-	UINT32 image = 0;
+	RenderImageId image = 0;
 	if (hSrcVObject && hSrcVObject->ubBitDepth == 8 &&
-		FindVideoObjectHandle(hSrcVObject, image))
+		FindRenderImage(hSrcVObject, image))
 	{
 		return SubmitVideoObjectOutline(
 			uiDestVSurface, image, usIndex,

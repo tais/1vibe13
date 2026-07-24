@@ -318,6 +318,14 @@ set(native_pixel_blitter_owner
   "${SOURCE_ROOT}/sgp/vobject_native_pixel_blitters.cpp")
 set(native_pixel_cache_owner
   "${SOURCE_ROOT}/sgp/vobject_native_pixel_cache.cpp")
+file(READ "${SOURCE_ROOT}/sgp/vobject.cpp" video_object_owner_contents)
+string(REGEX MATCH
+  "gVideoObjectHandles[ \\t\\r\\n]*\\.[ \\t\\r\\n]*find[ \\t\\r\\n]*\\("
+  manager_only_render_identity "${video_object_owner_contents}")
+if(manager_only_render_identity)
+  message(FATAL_ERROR
+    "Video-object drawing derives render identity from legacy manager membership; every CreateVideoObject lifetime must use its stable render-image identity")
+endif()
 foreach(source_file IN LISTS world_state_files)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
