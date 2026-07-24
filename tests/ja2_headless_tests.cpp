@@ -138,6 +138,12 @@ static BOOLEAN gInjectedFastForwardKeyDown = FALSE;
 extern VIDEO_OVERLAY gVideoOverlays[];
 extern UINT32 guiNumVideoOverlays;
 
+static_assert(
+	std::is_same<decltype( gWorldSectorX ), const INT16&>::value &&
+		std::is_same<decltype( gWorldSectorY ), const INT16&>::value &&
+		std::is_same<decltype( gbWorldSectorZ ), const INT8&>::value,
+	"legacy tactical-sector names must remain compiler-enforced read-only projections" );
+
 static UINT64 InjectedLegacyClockTime()
 {
 	return gInjectedLegacyClockTime;
@@ -3672,6 +3678,8 @@ int main( int, char** )
 		const INT8 previousMaximumBreath = Menptr[0].bBreathMax;
 		const TacticalWorldSession::Snapshot previousWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
+		const UINT32 previousTacticalProjectionFlags = gTacticalStatus.uiFlags;
+		const UINT8 previousTacticalProjectionTeam = gTacticalStatus.ubCurrentTeam;
 		MercPtrs[0] = &Menptr[0];
 		Menptr[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
 		Menptr[0].uiUniqueSoldierIdValue = 701;
@@ -3718,6 +3726,102 @@ int main( int, char** )
 		Menptr[1] = previousSwapTarget;
 		MercPtrs[1] = previousSwapTargetPointer;
 		RebuildJa2TacticalEntityDirectory();
+
+		SetJa2TacticalWorldSector( 4, 5, 2 );
+		CHECK( CaptureJa2TacticalWorld().sector ==
+		           ( TacticalWorldSession::Sector{ 4, 5, 2 } ) &&
+		       gWorldSectorX == 4 && gWorldSectorY == 5 && gbWorldSectorZ == 2,
+		       "sector transitions atomically publish read-only coordinate projections" );
+		SetJa2TacticalWorldDepth( 1 );
+		CHECK( CaptureJa2TacticalWorld().sector ==
+		           ( TacticalWorldSession::Sector{ 4, 5, 1 } ) &&
+		       gWorldSectorX == 4 && gWorldSectorY == 5 && gbWorldSectorZ == 1,
+		       "depth-only transitions cannot split the tactical session and projections" );
+		ClearJa2TacticalWorldSector();
+		CHECK( CaptureJa2TacticalWorld().sector ==
+		           TacticalWorldSession::Sector{} &&
+		       gWorldSectorX == 0 && gWorldSectorY == 0 && gbWorldSectorZ == -1,
+		       "clearing a tactical sector publishes the canonical empty projection" );
+
+		SetJa2TacticalWorldSector( 13, 4, 2 );
+		const std::uint64_t projectionLoadGeneration =
+			CommitJa2TacticalWorldLoad();
+		CHECK( projectionLoadGeneration != 0 &&
+		       CaptureJa2TacticalWorld().loaded &&
+		       CaptureJa2TacticalWorld().worldGeneration ==
+		           projectionLoadGeneration &&
+		       CaptureJa2TacticalWorld().turnSerial == 1 &&
+		       gWorldSectorX == 13 && gWorldSectorY == 4 && gbWorldSectorZ == 2,
+		       "committing a world load retains one session-owned identity and coordinate view" );
+
+		RestoreJa2TacticalTurnMirrors( ACTIVE | TURNBASED, 4 );
+		CHECK( CaptureJa2TacticalWorld().turn ==
+		           ( TacticalWorldSession::Snapshot::Turn{ true, false, 4 } ),
+		       "legacy tactical-turn import initializes the runtime-owned turn projection" );
+		SetJa2TacticalCombatMode( true );
+		SetJa2TacticalTurnBasedMode( false );
+		SetJa2TacticalCurrentTeam( 5 );
+		AdvanceJa2TacticalCurrentTeam();
+		CHECK( CaptureJa2TacticalWorld().turn ==
+		           ( TacticalWorldSession::Snapshot::Turn{ false, true, 6 } ) &&
+		       ( gTacticalStatus.uiFlags & ACTIVE ) != 0 &&
+		       ( gTacticalStatus.uiFlags & TURNBASED ) == 0 &&
+		       ( gTacticalStatus.uiFlags & INCOMBAT ) != 0 &&
+		       gTacticalStatus.ubCurrentTeam == 6,
+		       "turn gateways preserve unrelated tactical flags while publishing exact mirrors" );
+
+		gTacticalStatus.uiFlags = ACTIVE | TURNBASED | INCOMBAT;
+		gTacticalStatus.ubCurrentTeam = 2;
+		ImportJa2TacticalTurnState();
+		CHECK( CaptureJa2TacticalWorld().turn ==
+		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 2 } ),
+		       "save/bootstrap import converges legacy tactical turn values into the session" );
+
+		TacticalWorldSession::Snapshot restoredProjectionState;
+		restoredProjectionState.sector = { 8, 7, 1 };
+		restoredProjectionState.loaded = true;
+		restoredProjectionState.worldGeneration = 77;
+		restoredProjectionState.turnSerial = 11;
+		restoredProjectionState.turn = { true, false, 3 };
+		RestoreJa2TacticalWorldSession( restoredProjectionState );
+		CHECK( CaptureJa2TacticalWorld().sector ==
+		           restoredProjectionState.sector &&
+		       CaptureJa2TacticalWorld().loaded &&
+		       CaptureJa2TacticalWorld().worldGeneration == 77 &&
+		       CaptureJa2TacticalWorld().turnSerial == 11 &&
+		       CaptureJa2TacticalWorld().turn == restoredProjectionState.turn &&
+		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1 &&
+		       ( gTacticalStatus.uiFlags & ACTIVE ) != 0 &&
+		       ( gTacticalStatus.uiFlags & TURNBASED ) != 0 &&
+		       ( gTacticalStatus.uiFlags & INCOMBAT ) == 0 &&
+		       gTacticalStatus.ubCurrentTeam == 3,
+		       "session restore republishes coordinate and turn projections as one boundary" );
+		NotifyJa2TacticalTeamTurnBegan( 77 );
+		CHECK( CaptureJa2TacticalWorld().turnSerial == 12 &&
+		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
+		       "team-turn publication advances identity without disturbing sector projections" );
+		NotifyJa2TacticalWorldLoaded( 78 );
+		CHECK( CaptureJa2TacticalWorld().loaded &&
+		       CaptureJa2TacticalWorld().worldGeneration == 78 &&
+		       CaptureJa2TacticalWorld().turnSerial == 1 &&
+		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
+		       "world lifecycle publication resets turn identity without splitting coordinates" );
+		NotifyJa2TacticalWorldUnloaded();
+		CHECK( !CaptureJa2TacticalWorld().loaded &&
+		       CaptureJa2TacticalWorld().turnSerial == 0 &&
+		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
+		       "world unload retires identity while retaining the selected-sector projection" );
+
+		RestoreJa2TacticalWorldSession( previousWorldSession );
+		RestoreJa2TacticalTurnMirrors(
+			previousTacticalProjectionFlags, previousTacticalProjectionTeam );
+		CHECK( CaptureJa2TacticalWorld().sector == previousWorldSession.sector &&
+		       CaptureJa2TacticalWorld().loaded == previousWorldSession.loaded &&
+		       gWorldSectorX == previousWorldSession.sector.x &&
+		       gWorldSectorY == previousWorldSession.sector.y &&
+		       gbWorldSectorZ == previousWorldSession.sector.z,
+		       "projection invariant fixture restores the pre-test tactical session" );
+
 		SetJa2TacticalWorldSector( 9, 1, 0 );
 		NotifyJa2TacticalWorldLoaded( 23 );
 		CHECK( IsJa2TacticalWorldLoaded() &&

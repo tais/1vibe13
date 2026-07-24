@@ -187,6 +187,17 @@ is the only writer of their established `gTacticalStatus` mirrors. The existing
 tactical-delta wire already encodes the complete turn snapshot, so this
 ownership move requires no wire or service-version change.
 
+The application retains `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
+as const-reference projections for source-compatible, allocation-free hot-path
+reads. Their hidden storage is published only by `TacticalWorldAdapter`; writes
+and mutable address escapes are rejected by both the C++ type system and the
+architecture boundary test. They are compatibility views, not engine storage:
+packages and external tools consume `TacticalWorldService`, and application
+transitions use the adapter gateways. The `TURNBASED`, `INCOMBAT`, and
+`ubCurrentTeam` portions of `gTacticalStatus` follow the same single-writer
+policy while the remaining broad legacy status structure is migrated by its
+own gameplay domains.
+
 `TacticalWorldObserver` invalidates `latest()` when its source becomes
 unavailable or the host calls `reset()`; any previously returned publication
 pointers expire at that boundary. The next available world establishes a fresh

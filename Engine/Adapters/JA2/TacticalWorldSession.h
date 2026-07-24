@@ -4,10 +4,10 @@
 #include <cstdint>
 
 // Engine-owned identity and location of the currently selected tactical world.
-// The legacy application keeps exact global mirrors while production writers
-// migrate through this object. It deliberately does not own map or campaign
-// data yet; committing a load only publishes a world after legacy loading has
-// completed successfully.
+// The legacy application keeps exact read-only coordinate projections while
+// production writers pass through this object. It deliberately does not own
+// map or campaign data yet; committing a load only publishes a world after
+// legacy loading has completed successfully.
 class TacticalWorldSession
 {
 public:

@@ -13,6 +13,7 @@
 	#include "Sys Globals.h"
 	#include "Render Dirty.h"
 	#include "Game Clock.h"
+	#include "strategicmap.h"
 	#include "Interface Panels.h"
 	#include "english.h"
 	#include "line.h"
@@ -31,9 +32,6 @@ extern SOLDIERINITNODE *gpSelected;
 #endif
 
 // Forward declarations
-extern INT16 gWorldSectorX;
-extern INT16 gWorldSectorY;
-extern INT8 gbWorldSectorZ;
 extern TILE_IMAGERY* gTileSurfaceArray[NUMBEROFTILETYPES];
 extern INT32 CurrentSquad();
 extern void HandleAutoFaces();

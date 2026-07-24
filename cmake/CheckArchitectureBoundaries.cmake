@@ -277,6 +277,29 @@ foreach(source_directory IN LISTS world_state_source_directories)
     "${SOURCE_ROOT}/${source_directory}/*.hpp")
   list(APPEND world_state_declaration_files ${declaration_files})
 endforeach()
+
+# Coordinate compatibility names are const-reference projections. This keeps
+# their established cheap read syntax while making an accidental writer fail at
+# compilation even before this source-level ratchet runs. A stale mutable
+# redeclaration in one translation unit would violate the ODR and reinterpret a
+# reference object as an integer, so reject those declarations explicitly.
+foreach(source_file IN LISTS world_state_declaration_files)
+  file(READ "${source_file}" contents)
+  foreach(mirror IN LISTS world_state_mirrors)
+    string(REGEX REPLACE
+      "extern[ \t]+const[ \t]+(INT8|INT16)[ \t]*&[ \t]*${mirror}[ \t]*;"
+      "" contents_without_canonical_world_projection "${contents}")
+    string(REGEX MATCH
+      "extern[^\r\n;]*${mirror}[ \t]*;"
+      invalid_world_projection_declaration
+      "${contents_without_canonical_world_projection}")
+    if(invalid_world_projection_declaration)
+      message(FATAL_ERROR
+        "Tactical-world projection '${mirror}' has a noncanonical declaration in ${source_file}; use the canonical const-reference declaration")
+    endif()
+  endforeach()
+endforeach()
+
 foreach(source_file IN LISTS world_state_declaration_files)
   file(READ "${source_file}" contents)
   foreach(mirror IN LISTS retired_tactical_world_mirrors)
@@ -290,7 +313,8 @@ foreach(source_file IN LISTS world_state_declaration_files)
   endforeach()
 endforeach()
 
-# Pending and previous application screen state are owned by StateController.
+# Current, pending, and previous application screen state are owned by
+# StateController.
 # The former scalar mirrors have no serialization or external ABI requirement
 # and must not return as second sources of truth.
 set(retired_screen_state_mirrors
