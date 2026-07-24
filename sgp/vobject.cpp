@@ -5,6 +5,7 @@
 #include "himage.h"
 #include "vobject.h"
 #include "render_palette_registry.h"
+#include "vobject_native_image.h"
 #include "WCheck.h"
 #include "vobject_blitters.h"
 #include "sgp.h"
@@ -889,6 +890,7 @@ BOOLEAN DrawManagedVideoObjectOutlineShadowToSurface(
 	INT32 destinationX,
 	INT32 destinationY)
 {
+	if (!object) return FALSE;
 	if (object->ubBitDepth == 8)
 	{
 		return Draw8BitVideoObjectOutlineToSurface(
@@ -896,38 +898,23 @@ BOOLEAN DrawManagedVideoObjectOutlineShadowToSurface(
 			destinationX, destinationY,
 			RenderImageOutlineMode::Shadow, 0, FALSE);
 	}
+	if ((object->ubBitDepth != 16 && object->ubBitDepth != 32) ||
+		frame >= object->usNumberOfNativePixelObjects ||
+		!object->pNativePixelObject)
+		return FALSE;
 
 	UINT32 pitch = 0;
 	PIXEL* const buffer =
 		reinterpret_cast<PIXEL*>(LockVideoSurface(destination, &pitch));
 	if (!buffer) return FALSE;
 
+	BOOLEAN drawn = FALSE;
 	try
 	{
-		SixteenBPPObjectInfo& image = object->p16BPPObject[0];
-		if (object->ubBitDepth == 16)
-		{
-			Blt16BPPTo16BPPTransShadow(
-				buffer, pitch, image.p16BPPData,
-				image.usWidth * sizeof(PIXEL),
-				destinationX, destinationY,
-				0, 0, image.usWidth, image.usHeight,
-				PixFromColor16(0x1f));
-		}
-		else if (object->ubBitDepth == 32)
-		{
-			Blt32BPPTo16BPPTransShadow(
-				buffer, pitch,
-				reinterpret_cast<UINT32*>(image.p16BPPData),
-				image.usWidth * sizeof(UINT32),
-				destinationX, destinationY,
-				0, 0, image.usWidth, image.usHeight);
-		}
-		else
-		{
-			UnLockVideoSurface(destination);
-			return FALSE;
-		}
+		drawn = BltNativePixelImageToBufferClip(
+			buffer, pitch, object,
+			destinationX, destinationY, frame,
+			TRUE, TRUE, &ClippingRect);
 	}
 	catch (...)
 	{
@@ -935,7 +922,7 @@ BOOLEAN DrawManagedVideoObjectOutlineShadowToSurface(
 		throw;
 	}
 	UnLockVideoSurface(destination);
-	return TRUE;
+	return drawn;
 }
 }
 
@@ -1116,6 +1103,64 @@ BOOLEAN GetVideoObject( HVOBJECT *hVObject, UINT32 uiIndex )
 
 namespace
 {
+bool PlatformNativePixelDraw(
+	RenderSurfaceId destinationSurface,
+	HVOBJECT source,
+	UINT16 frame,
+	const RenderSurfacePoint& destinationOrigin,
+	const RenderSurfaceRegion& clippingRegion,
+	BOOLEAN sourceTransparency,
+	BOOLEAN shadow)
+{
+	if (!source ||
+		(source->ubBitDepth != 16 && source->ubBitDepth != 32) ||
+		frame >= source->usNumberOfNativePixelObjects ||
+		!source->pNativePixelObject)
+		return false;
+
+	PlatformSurfaceMappingLease destination(destinationSurface);
+	if (!destination) return false;
+	const MutableRenderSurface& mapping = destination.mapping();
+	if (!IsValidRenderSurfaceMapping(mapping) ||
+		mapping.description.contentBitDepth != 16 ||
+		RenderPixelBytes(mapping.description.format) != sizeof(PIXEL) ||
+		mapping.pitchBytes > std::numeric_limits<UINT32>::max() ||
+		mapping.description.width >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()) ||
+		mapping.description.height >
+			static_cast<std::uint32_t>(
+				std::numeric_limits<INT32>::max()))
+		return false;
+
+	const std::int64_t clipLeft = std::max<std::int64_t>(
+		0, clippingRegion.left);
+	const std::int64_t clipTop = std::max<std::int64_t>(
+		0, clippingRegion.top);
+	const std::int64_t clipRight = std::min<std::int64_t>(
+		mapping.description.width, clippingRegion.right);
+	const std::int64_t clipBottom = std::min<std::int64_t>(
+		mapping.description.height, clippingRegion.bottom);
+	if (clipLeft >= clipRight || clipTop >= clipBottom)
+		return true;
+
+	SGPRect clipping{
+		static_cast<INT32>(clipLeft),
+		static_cast<INT32>(clipTop),
+		static_cast<INT32>(clipRight),
+		static_cast<INT32>(clipBottom)};
+	return BltNativePixelImageToBufferClip(
+		reinterpret_cast<PIXEL*>(mapping.pixels),
+		static_cast<UINT32>(mapping.pitchBytes),
+		source,
+		destinationOrigin.x,
+		destinationOrigin.y,
+		frame,
+		sourceTransparency,
+		shadow,
+		&clipping) != FALSE;
+}
+
 bool PlatformVideoObjectMappedDraw(
 	const RenderImageDrawCommand& command,
 	HVOBJECT source)
@@ -1311,9 +1356,43 @@ bool PlatformVideoObjectDraw(const RenderImageDrawCommand& command)
 	HVOBJECT const source = ResolveRenderImage(command.image);
 	if (!source) return false;
 
+	if (source->ubBitDepth == 16 || source->ubBitDepth == 32)
+	{
+		if (command.palette != 0 || command.alphaImage != 0 ||
+			command.ignoreShadows)
+			return false;
+		switch (command.mode)
+		{
+		case RenderImageCompositeMode::Opaque:
+			return PlatformNativePixelDraw(
+				command.destination, source,
+				static_cast<UINT16>(command.frame),
+				command.destinationOrigin,
+				command.clippingRegion,
+				FALSE, FALSE);
+		case RenderImageCompositeMode::SourceTransparency:
+			return PlatformNativePixelDraw(
+				command.destination, source,
+				static_cast<UINT16>(command.frame),
+				command.destinationOrigin,
+				command.clippingRegion,
+				TRUE, FALSE);
+		case RenderImageCompositeMode::Shadow:
+			return PlatformNativePixelDraw(
+				command.destination, source,
+				static_cast<UINT16>(command.frame),
+				command.destinationOrigin,
+				command.clippingRegion,
+				TRUE, TRUE);
+		default:
+			return false;
+		}
+	}
+
 	switch (command.mode)
 	{
 	case RenderImageCompositeMode::Shadow:
+		return PlatformVideoObjectMappedDraw(command, source);
 	case RenderImageCompositeMode::Intensity:
 	case RenderImageCompositeMode::PaletteWithShadowMarker:
 	case RenderImageCompositeMode::ClearDestination:
@@ -1902,8 +1981,8 @@ bool PlatformVideoObjectOutline(
 		else if (source->ubBitDepth == 16 ||
 			source->ubBitDepth == 32)
 		{
-			if (frame >= source->usNumberOf16BPPObjects ||
-				!source->p16BPPObject)
+			if (frame >= source->usNumberOfNativePixelObjects ||
+				!source->pNativePixelObject)
 				return false;
 		}
 		else
@@ -1915,6 +1994,15 @@ bool PlatformVideoObjectOutline(
 		return false;
 	}
 
+	if (command.mode == RenderImageOutlineMode::Shadow &&
+		(source->ubBitDepth == 16 || source->ubBitDepth == 32))
+	{
+		return PlatformNativePixelDraw(
+			command.destination, source, frame,
+			command.destinationOrigin,
+			command.clippingRegion,
+			TRUE, TRUE);
+	}
 	ClippingRegionLease clipping(command.clippingRegion);
 	if (command.mode == RenderImageOutlineMode::Color)
 	{
@@ -2594,6 +2682,8 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 	ETRLEData						TempETRLEData;
 //	UINT32							count;
 
+	if (!VObjectDesc) return NULL;
+
 	// Allocate memory for video object data and initialize
 	hVObject = (HVOBJECT) MemAlloc( sizeof( SGPVObject ) );
 	CHECKF( hVObject != NULL );
@@ -2640,89 +2730,19 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 				}
 			}
 
-			if(hImage->ubBitDepth == 32)
+			if (hImage->ubBitDepth == 16 ||
+				hImage->ubBitDepth == 32)
 			{
-				SGP_THROW_IFFALSE(hImage->usNumberOfObjects > 0, L"bad himage");
-				
-				// create one 16bpp object (that contains 32bpp data)
-				hVObject->p16BPPObject = (SixteenBPPObjectInfo*)MemAlloc(sizeof(SixteenBPPObjectInfo));
-				if(!hVObject->p16BPPObject)
+				const BOOLEAN imported =
+					ImportNativeVideoObjectImage(hVObject, hImage);
+				if (VObjectDesc->fCreateFlags &
+					VOBJECT_CREATE_FROMFILE)
+					DestroyImage(hImage);
+				if (!imported)
 				{
-					SGP_THROW(L"bad alloc");
+					MemFree(hVObject);
+					return NULL;
 				}
-				memset(hVObject->p16BPPObject, 0, sizeof(SixteenBPPObjectInfo));
-
-				int SIZE = hImage->pETRLEObject[0].usHeight * hImage->pETRLEObject[0].usWidth * sizeof(UINT32);
-				hVObject->p16BPPObject->p16BPPData = (PIXEL *)MemAlloc(SIZE); // UINT32*
-				if(!hVObject->p16BPPObject->p16BPPData)
-				{
-					MemFree(hVObject->p16BPPObject);
-					SGP_THROW(L"bad alloc");
-				}
-				memcpy(hVObject->p16BPPObject->p16BPPData, hImage->p32BPPData, SIZE);
-
-				hVObject->p16BPPObject->sOffsetX		= hImage->pETRLEObject[0].sOffsetX;
-				hVObject->p16BPPObject->sOffsetY		= hImage->pETRLEObject[0].sOffsetY;
-				hVObject->p16BPPObject->ubShadeLevel	= 0;
-				hVObject->p16BPPObject->usHeight		= hImage->pETRLEObject[0].usHeight;
-				hVObject->p16BPPObject->usWidth			= hImage->pETRLEObject[0].usWidth;
-				hVObject->p16BPPObject->usRegionIndex	= 0;
-
-				hVObject->usNumberOf16BPPObjects = 1;
-				hVObject->ubBitDepth = hImage->ubBitDepth;
-				strncpy(hVObject->ImageFile, hImage->ImageFile, SGPFILENAME_LEN);
-
-				if ( VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE )
-				{
-					DestroyImage( hImage );
-				}
-
-				return FinishVideoObjectCreation(hVObject);
-			}
-			else if(hImage->ubBitDepth == 16)
-			{
-				SGP_THROW_IFFALSE(hImage->usNumberOfObjects > 0, L"bad himage");
-
-				// create one 16bpp object (that contains 32bpp data)
-				hVObject->p16BPPObject = (SixteenBPPObjectInfo*)MemAlloc(sizeof(SixteenBPPObjectInfo));
-				if(!hVObject->p16BPPObject)
-				{
-					SGP_THROW(L"bad alloc");
-				}
-				memset(hVObject->p16BPPObject, 0, sizeof(SixteenBPPObjectInfo));
-
-				const UINT32 PIXELS = (UINT32)hImage->pETRLEObject[0].usHeight * hImage->pETRLEObject[0].usWidth;
-				UINT32 SIZE = PIXELS * sizeof(PIXEL);
-				hVObject->p16BPPObject->p16BPPData = (PIXEL *)MemAlloc(SIZE);
-				if(!hVObject->p16BPPObject->p16BPPData)
-				{
-					MemFree(hVObject->p16BPPObject);
-					SGP_THROW(L"bad alloc");
-				}
-				// p16BPPData is a native PIXEL (ARGB8888) buffer that the 32bpp
-				// blitters read 4 bytes at a time. The source is 2-byte RGB565, so
-				// expand it once here instead of a raw memcpy -- a byte copy would
-				// both under-allocate (sizeof(UINT16)) and feed packed 565 to code
-				// that reads 32-bit pixels (heap over-read + scrambled colour).
-				for (UINT32 i = 0; i < PIXELS; ++i)
-					hVObject->p16BPPObject->p16BPPData[i] = PixFromColor16(hImage->p16BPPData[i]);
-
-				hVObject->p16BPPObject->sOffsetX		= hImage->pETRLEObject[0].sOffsetX;
-				hVObject->p16BPPObject->sOffsetY		= hImage->pETRLEObject[0].sOffsetY;
-				hVObject->p16BPPObject->ubShadeLevel	= 0;
-				hVObject->p16BPPObject->usHeight		= hImage->pETRLEObject[0].usHeight;
-				hVObject->p16BPPObject->usWidth			= hImage->pETRLEObject[0].usWidth;
-				hVObject->p16BPPObject->usRegionIndex	= 0;
-
-				hVObject->usNumberOf16BPPObjects = 1;
-				hVObject->ubBitDepth = hImage->ubBitDepth;
-				strncpy(hVObject->ImageFile, hImage->ImageFile, SGPFILENAME_LEN);
-
-				if ( VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE )
-				{
-					DestroyImage( hImage );
-				}
-
 				return FinishVideoObjectCreation(hVObject);
 			}
 
@@ -2895,17 +2915,23 @@ BOOLEAN DeleteVideoObject( HVOBJECT hVObject )
 //		hVObject->ppZStripInfo = NULL;
 	}
 
-	if ( hVObject->usNumberOf16BPPObjects > 0)
+	if ( hVObject->usNumberOfNativePixelObjects > 0 &&
+		hVObject->pNativePixelObject )
 	{
-		for( usLoop = 0; usLoop < hVObject->usNumberOf16BPPObjects; usLoop++)
+		for( usLoop = 0;
+			usLoop < hVObject->usNumberOfNativePixelObjects; usLoop++)
 		{
-			if ( hVObject->p16BPPObject[usLoop].pNativeTransparencyMask )
+			if ( hVObject->pNativePixelObject[usLoop].pNativeOpacity )
 			{
-				MemFree( hVObject->p16BPPObject[usLoop].pNativeTransparencyMask );
+				MemFree(
+					hVObject->pNativePixelObject[usLoop].
+						pNativeOpacity );
 			}
-			MemFree( hVObject->p16BPPObject[usLoop].p16BPPData );
+			MemFree(
+				hVObject->pNativePixelObject[usLoop].
+					pNativePixels );
 		}
-		MemFree( hVObject->p16BPPObject );
+		MemFree( hVObject->pNativePixelObject );
 	}
 
 	// Release object
@@ -3023,82 +3049,65 @@ BOOLEAN BltVideoObjectToBuffer( PIXEL *pBuffer, UINT32 uiDestPitchBYTES, HVOBJEC
 		return( FALSE );
 	}
 
-	SixteenBPPObjectInfo *image = NULL;
 	// Check For Flags and bit depths
 	switch( hSrcVObject->ubBitDepth )
 	{
-			case 32:
-				if ( !(usIndex < hSrcVObject->usNumberOf16BPPObjects) )
-				{
-					sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
-					SGP_THROW(errorText);
-				}
-				image = &hSrcVObject->p16BPPObject[usIndex];
-				Blt32BPPTo16BPPTrans( pBuffer, uiDestPitchBYTES, 
-					(UINT32*)image->p16BPPData, image->usWidth * sizeof(UINT32),
-					iDestX, iDestY, 
-					0, 0, image->usWidth, image->usHeight); 
-				break;
+		case 32:
+		case 16:
+			if ( !(usIndex <
+				hSrcVObject->usNumberOfNativePixelObjects) ||
+				!hSrcVObject->pNativePixelObject )
+			{
+				snprintf(
+					errorText, sizeof(errorText),
+					"Video object index is larger than the number of images. Filename: %s",
+					hSrcVObject->ImageFile);
+				SGP_THROW(errorText);
+			}
+			return BltNativePixelImageToBufferClip(
+				pBuffer, uiDestPitchBYTES, hSrcVObject,
+				iDestX, iDestY, usIndex,
+				(fBltFlags & VO_BLT_SRCTRANSPARENCY) ?
+					TRUE : FALSE,
+				(fBltFlags & VO_BLT_SHADOW) ? TRUE : FALSE,
+				&ClippingRect);
 
-			case 16:
-				if ( !(usIndex < hSrcVObject->usNumberOf16BPPObjects) )
-				{
-					sprintf(errorText, "Video object index is larger than the number of images. Filename: %s", hSrcVObject->ImageFile);
-					SGP_THROW(errorText);
-				}
-				image = &hSrcVObject->p16BPPObject[usIndex];
+		case 8:
+			if ( !(hSrcVObject->usNumberOfObjects > usIndex) )
+			{
+				snprintf(
+					errorText, sizeof(errorText),
+					"Video object index is larger than the number of sub images. Filename: %s",
+					hSrcVObject->ImageFile);
+				SGP_THROW(errorText);
+			}
+			// Switch based on flags given
+			do
+			{
 				if ( fBltFlags & VO_BLT_SRCTRANSPARENCY	)
 				{
-					// p16BPPData is now native ARGB8888 (expanded at load), so the
-					// source pitch is sizeof(PIXEL) and the colour key must be the
-					// expanded form of the original RGB565 transparent value (0x1F).
-					Blt16BPPTo16BPPTrans( pBuffer, uiDestPitchBYTES,
-						image->p16BPPData, image->usWidth * sizeof(PIXEL),
-						iDestX, iDestY,
-						0, 0, image->usWidth, image->usHeight, PixFromColor16(0x1F) ); // 0x1f = 5 bits of blue
+					if(BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
+						Blt8BPPDataTo16BPPBufferTransparentClip( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect);
+					else
+						Blt8BPPDataTo16BPPBufferTransparent( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex );
+					break;
 				}
-				else
+				else if ( fBltFlags & VO_BLT_SHADOW	)
 				{
-					Blt16BPPTo16BPP( pBuffer, uiDestPitchBYTES,
-						image->p16BPPData, image->usWidth * sizeof(PIXEL),
-						iDestX, iDestY,
-						0, 0, image->usWidth, image->usHeight );
+					if(BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
+						Blt8BPPDataTo16BPPBufferShadowClip( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect);
+					else
+						Blt8BPPDataTo16BPPBufferShadow( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex );
+					break;
 				}
 
-				break;
+				// Use default blitter here
+				//Blt8BPPDataTo16BPPBuffer( hDestVObject, hSrcVObject, (UINT16)iDestX, (UINT16)iDestY, (SGPRect*)&SrcRect );
 
-			case 8:
-				if ( !(hSrcVObject->usNumberOfObjects > usIndex) )
-				{
-					sprintf(errorText, "Video object index is larger than the number of sub images. Filename: %s", hSrcVObject->ImageFile);
-					SGP_THROW(errorText);
-				}
-				// Switch based on flags given
-				do
-				{
-					if ( fBltFlags & VO_BLT_SRCTRANSPARENCY	)
-					{
-						if(BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
-							Blt8BPPDataTo16BPPBufferTransparentClip( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect);
-						else
-							Blt8BPPDataTo16BPPBufferTransparent( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex );
-						break;
-					}
-					else if ( fBltFlags & VO_BLT_SHADOW	)
-					{
-						if(BltIsClipped(hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect))
-							Blt8BPPDataTo16BPPBufferShadowClip( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex, &ClippingRect);
-						else
-							Blt8BPPDataTo16BPPBufferShadow( pBuffer, uiDestPitchBYTES, hSrcVObject, iDestX, iDestY, usIndex );
-						break;
-					}
-
-					// Use default blitter here
-					//Blt8BPPDataTo16BPPBuffer( hDestVObject, hSrcVObject, (UINT16)iDestX, (UINT16)iDestY, (SGPRect*)&SrcRect );
-
-				} while( FALSE );
-
-				break;
+			} while( FALSE );
+			break;
+		default:
+			return FALSE;
 	}
 
 	return( TRUE );
@@ -3544,8 +3553,7 @@ BOOLEAN BltVideoObjectOutlineShadowFromIndex(UINT32 uiDestVSurface, UINT32 uiSrc
 BOOLEAN BltVideoObjectOutlineShadow(UINT32 uiDestVSurface, HVOBJECT hSrcVObject, UINT16 usIndex, INT32 iDestX, INT32 iDestY )
 {
 	RenderImageId image = 0;
-	if (hSrcVObject && hSrcVObject->ubBitDepth == 8 &&
-		FindRenderImage(hSrcVObject, image))
+	if (hSrcVObject && FindRenderImage(hSrcVObject, image))
 	{
 		return SubmitVideoObjectOutline(
 			uiDestVSurface, image, usIndex,
@@ -3553,11 +3561,9 @@ BOOLEAN BltVideoObjectOutlineShadow(UINT32 uiDestVSurface, HVOBJECT hSrcVObject,
 			RenderImageOutlineMode::Shadow,
 			0, FALSE) ? TRUE : FALSE;
 	}
-	return Draw8BitVideoObjectOutlineToSurface(
+	return DrawManagedVideoObjectOutlineShadowToSurface(
 		uiDestVSurface, hSrcVObject, usIndex,
-		iDestX, iDestY,
-		RenderImageOutlineMode::Shadow,
-		0, FALSE);
+		iDestX, iDestY);
 }
 
 #ifdef _DEBUG
@@ -3740,10 +3746,14 @@ void GetVideoObjectDimensions( HVOBJECT hSrcVObject, UINT16 usIndex, UINT16& rus
 	{
 	case 32:
 	case 16:
-		if ( usIndex < hSrcVObject->usNumberOf16BPPObjects )
+		if ( usIndex <
+			hSrcVObject->usNumberOfNativePixelObjects &&
+			hSrcVObject->pNativePixelObject )
 		{
-			rusWidth = hSrcVObject->p16BPPObject[usIndex].usWidth;
-			rusHeight = hSrcVObject->p16BPPObject[usIndex].usHeight;
+			rusWidth =
+				hSrcVObject->pNativePixelObject[usIndex].usWidth;
+			rusHeight =
+				hSrcVObject->pNativePixelObject[usIndex].usHeight;
 		}
 		break;
 

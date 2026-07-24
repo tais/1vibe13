@@ -232,7 +232,12 @@ the engine must not contain SDL types in its public domain model.
   allocation, expands shade entries into dense `PIXEL` storage once, and keeps
   transparency in a separate mask so opaque black is not a colour-key casualty.
   The old `*16BPP*` entry points remain source-compatible aliases but no longer
-  own or decode packed 2-byte colour data.
+  own or decode packed 2-byte colour data. Imported true-colour video objects
+  follow the same storage contract: a transactional HIMAGE boundary expands
+  RGB565 or normalizes PNG RGBA bytes into native ARGB and records 0–255
+  opacity separately. Clipped normal and shadow draws then share the dedicated
+  native-pixel raster backend, so platform execution never performs a repeated
+  source-channel swizzle.
   `renderworld.cpp` owns orchestration only. The historical clipped
   physics-object outline remains non-depth
   and uses the regular outline command. Other

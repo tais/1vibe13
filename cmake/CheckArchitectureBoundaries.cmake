@@ -306,6 +306,7 @@ set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/vobject_depth_queries.cpp"
   "${SOURCE_ROOT}/sgp/vobject_mask_blitters.cpp"
   "${SOURCE_ROOT}/sgp/vobject_multiz_blitters.cpp"
+  "${SOURCE_ROOT}/sgp/vobject_native_image.cpp"
   "${SOURCE_ROOT}/sgp/vobject_native_pixel_blitters.cpp"
   "${SOURCE_ROOT}/sgp/vobject_native_pixel_cache.cpp")
 set(multiz_blitter_owner
@@ -318,6 +319,8 @@ set(native_pixel_blitter_owner
   "${SOURCE_ROOT}/sgp/vobject_native_pixel_blitters.cpp")
 set(native_pixel_cache_owner
   "${SOURCE_ROOT}/sgp/vobject_native_pixel_cache.cpp")
+set(native_image_import_owner
+  "${SOURCE_ROOT}/sgp/vobject_native_image.cpp")
 file(READ "${SOURCE_ROOT}/sgp/vobject.cpp" video_object_owner_contents)
 string(REGEX MATCH
   "gVideoObjectHandles[ \\t\\r\\n]*\\.[ \\t\\r\\n]*find[ \\t\\r\\n]*\\("
@@ -408,11 +411,11 @@ foreach(source_file IN LISTS world_state_files)
   endif()
   if(NOT "${source_file}" STREQUAL "${native_pixel_blitter_owner}")
     string(REGEX MATCH
-      "BOOLEAN[ \t\r\n]+(BltNativePixelDataToBufferTransparentClip|Blt16BPPDataTo16BPPBufferTransparentClip)[ \t\r\n]*\\("
+      "BOOLEAN[ \t\r\n]+(BltNativePixelDataToBufferTransparentClip|Blt16BPPDataTo16BPPBufferTransparentClip|BltNativePixelImageToBufferClip)[ \t\r\n]*\\("
       direct_native_pixel_blitter_implementation "${contents}")
     if(direct_native_pixel_blitter_implementation)
       message(FATAL_ERROR
-        "Production code implements native-pixel cache rasterization in ${source_file}; keep it in the dedicated SGP backend")
+        "Production code implements native-pixel rasterization in ${source_file}; keep it in the dedicated SGP backend")
     endif()
   endif()
   if(NOT "${source_file}" STREQUAL "${native_pixel_cache_owner}")
@@ -422,6 +425,15 @@ foreach(source_file IN LISTS world_state_files)
     if(direct_native_pixel_cache_implementation)
       message(FATAL_ERROR
         "Production code implements native-pixel sprite-cache ownership in ${source_file}; keep it in the dedicated SGP cache backend")
+    endif()
+  endif()
+  if(NOT "${source_file}" STREQUAL "${native_image_import_owner}")
+    string(REGEX MATCH
+      "BOOLEAN[ \t\r\n]+ImportNativeVideoObjectImage[ \t\r\n]*\\("
+      direct_native_image_import_implementation "${contents}")
+    if(direct_native_image_import_implementation)
+      message(FATAL_ERROR
+        "Production code implements native true-colour image import in ${source_file}; keep byte-order and RGB565 conversion at the dedicated HIMAGE boundary")
     endif()
   endif()
 

@@ -56,6 +56,9 @@ named phase below**; that's the work plan.
   typed `Depth16`, and RGB565 survives only as an explicitly converted
   asset/mod compatibility token. Converted sprite caches contain dense native
   `PIXEL` data and a separate opacity mask, never a packed 2-byte colour stream.
+  True-colour PNG/HIMAGE RGBA bytes are likewise normalized once into native
+  ARGB plus 0–255 opacity when a video object is created; live draws do not
+  retain loader byte order.
 - Audio (SFX, music, Smacker cinematics) replaced with portable
   libraries in this same effort.
 - Build system is CMake-only and fetches its dependencies (no
@@ -963,6 +966,9 @@ to the original plan:
    value through unchanged.
 5. ✅ Texture format is `SDL_PIXELFORMAT_ARGB8888` (see
    [sgp/sdl_video.cpp](../sgp/sdl_video.cpp)).
+   True-colour video objects also normalize the PNG loader's RGBA byte sequence
+   once at import into native ARGB plus a separate opacity plane; their clipped
+   alpha and shadow draws use the native-pixel backend.
 6. ⏳ Screenshot/TGA writer not yet re-added (minor; tracked separately).
 7. ✅ Z-buffer stays `UINT16` (depth, not colour).
 

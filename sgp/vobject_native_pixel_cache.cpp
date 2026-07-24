@@ -15,16 +15,16 @@ bool DecodeIndexedEtrleRegion(
 	UINT16 height,
 	const PIXEL* palette,
 	PIXEL* pixels,
-	UINT8* transparencyMask)
+	UINT8* opacity)
 {
 	if (!source || sourceLength == 0 || width == 0 || height == 0 ||
-		!palette || !pixels || !transparencyMask)
+		!palette || !pixels || !opacity)
 		return false;
 
 	const std::size_t pixelCount =
 		static_cast<std::size_t>(width) * height;
 	std::memset(pixels, 0, pixelCount * sizeof(PIXEL));
-	std::memset(transparencyMask, 0, pixelCount);
+	std::memset(opacity, 0, pixelCount);
 
 	std::size_t sourceOffset = 0;
 	for (std::size_t y = 0; y < height; ++y)
@@ -57,7 +57,7 @@ bool DecodeIndexedEtrleRegion(
 				const std::size_t destination =
 					y * static_cast<std::size_t>(width) + x;
 				pixels[destination] = palette[source[sourceOffset++]];
-				transparencyMask[destination] = 1;
+				opacity[destination] = 255;
 			}
 		}
 		if (!reachedEndOfRow || x != width)
@@ -127,12 +127,12 @@ BOOLEAN CacheVObjectRegionNativePixels(
 
 	PIXEL* const pixels = static_cast<PIXEL*>(
 		MemAlloc(static_cast<UINT32>(pixelCount * sizeof(PIXEL))));
-	UINT8* const transparencyMask = static_cast<UINT8*>(
+	UINT8* const opacity = static_cast<UINT8*>(
 		MemAlloc(static_cast<UINT32>(pixelCount)));
-	if (!pixels || !transparencyMask)
+	if (!pixels || !opacity)
 	{
 		if (pixels) MemFree(pixels);
-		if (transparencyMask) MemFree(transparencyMask);
+		if (opacity) MemFree(opacity);
 		return FALSE;
 	}
 
@@ -141,9 +141,9 @@ BOOLEAN CacheVObjectRegionNativePixels(
 	if (!DecodeIndexedEtrleRegion(
 			source, region.uiDataLength,
 			region.usWidth, region.usHeight,
-			object->pShades[shadeLevel], pixels, transparencyMask))
+			object->pShades[shadeLevel], pixels, opacity))
 	{
-		MemFree(transparencyMask);
+		MemFree(opacity);
 		MemFree(pixels);
 		return FALSE;
 	}
@@ -155,7 +155,7 @@ BOOLEAN CacheVObjectRegionNativePixels(
 		newCount * sizeof(NativePixelObjectInfo);
 	if (allocationSize > std::numeric_limits<UINT32>::max())
 	{
-		MemFree(transparencyMask);
+		MemFree(opacity);
 		MemFree(pixels);
 		return FALSE;
 	}
@@ -175,7 +175,7 @@ BOOLEAN CacheVObjectRegionNativePixels(
 	}
 	if (!expanded)
 	{
-		MemFree(transparencyMask);
+		MemFree(opacity);
 		MemFree(pixels);
 		return FALSE;
 	}
@@ -183,7 +183,7 @@ BOOLEAN CacheVObjectRegionNativePixels(
 	object->pNativePixelObject = expanded;
 	NativePixelObjectInfo cached{};
 	cached.pNativePixels = pixels;
-	cached.pNativeTransparencyMask = transparencyMask;
+	cached.pNativeOpacity = opacity;
 	cached.usRegionIndex = regionIndex;
 	cached.ubShadeLevel = shadeLevel;
 	cached.usWidth = region.usWidth;

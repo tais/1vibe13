@@ -14,6 +14,7 @@
 
 #include <Engine/Adapters/Legacy/PlatformDepthBufferBackend.h>
 
+#include <cstdint>
 #include <limits>
 #include <map>
 std::map<SurfaceData::tID, ClipRectangle> g_SurfaceRectangle;
@@ -107,13 +108,28 @@ BOOLEAN Blt32BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, UINT32 *pSrc, UIN
 	PIXEL *pDestPtr;
 	UINT32 uiLineSkipDest, uiLineSkipSrc;
 
-	Assert(pDest!=NULL);
-	Assert(pSrc!=NULL);
+	if (!pDest || !pSrc || uiWidth == 0 || uiHeight == 0 ||
+		iDestXPos < 0 || iDestYPos < 0 ||
+		iSrcXPos < 0 || iSrcYPos < 0 ||
+		uiDestPitch == 0 || uiSrcPitch == 0 ||
+		uiDestPitch % sizeof(PIXEL) != 0 ||
+		uiSrcPitch % sizeof(UINT32) != 0 ||
+		static_cast<std::uint64_t>(iDestXPos) + uiWidth >
+			uiDestPitch / sizeof(PIXEL) ||
+		static_cast<std::uint64_t>(iSrcXPos) + uiWidth >
+			uiSrcPitch / sizeof(UINT32))
+		return FALSE;
 
-	pSrcPtr			= (UINT32 *)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*4));
+	pSrcPtr = reinterpret_cast<UINT32*>(
+		reinterpret_cast<UINT8*>(pSrc) +
+		static_cast<std::size_t>(iSrcYPos) * uiSrcPitch +
+		static_cast<std::size_t>(iSrcXPos) * sizeof(UINT32));
 	uiLineSkipSrc	= uiSrcPitch-(uiWidth*4);
 
-	pDestPtr		= (PIXEL *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*sizeof(PIXEL)));
+	pDestPtr = reinterpret_cast<PIXEL*>(
+		reinterpret_cast<UINT8*>(pDest) +
+		static_cast<std::size_t>(iDestYPos) * uiDestPitch +
+		static_cast<std::size_t>(iDestXPos) * sizeof(PIXEL));
 	uiLineSkipDest	= uiDestPitch-(uiWidth*sizeof(PIXEL));
 
 	UINT8 alpha, dst_channel, src_channel;
@@ -123,46 +139,43 @@ BOOLEAN Blt32BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, UINT32 *pSrc, UIN
 		UINT32 w = uiWidth;
 		do
 		{
-			// a
-			alpha = (UINT8)((0xFF000000 & *pSrcPtr) >> 24);
-			//alpha = 255;
+			const UINT8* const sourceChannels =
+				reinterpret_cast<const UINT8*>(pSrcPtr);
+			alpha = sourceChannels[3];
 			if(alpha > 0)
 			{
 #if SGP_PIXEL_DEPTH == 32
-				// dest is ARGB8888; source is alpha + R(low),G,B (FROMRGB layout)
+				// The HIMAGE boundary stores RGBA bytes; the destination is
+				// native ARGB8888.
 				const UINT32 d = *pDestPtr;
 				dst_channel = (UINT8)((d >> 16) & 0xFF);
-				src_channel = (UINT8)( *pSrcPtr        & 0xFF);
+				src_channel = sourceChannels[0];
 				red   = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
 
 				dst_channel = (UINT8)((d >>  8) & 0xFF);
-				src_channel = (UINT8)((*pSrcPtr >>  8) & 0xFF);
+				src_channel = sourceChannels[1];
 				green = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
 
 				dst_channel = (UINT8)( d         & 0xFF);
-				src_channel = (UINT8)((*pSrcPtr >> 16) & 0xFF);
+				src_channel = sourceChannels[2];
 				blue  = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
 
 				*pDestPtr = 0xFF000000u | ((UINT32)red << 16) | ((UINT32)green << 8) | (UINT32)blue;
 #else
-				// r
-				dst_channel = (UINT8)((0x1F & *pDestPtr) << 3);
-				src_channel = (UINT8)((0xFF & *pSrcPtr) );
+				dst_channel = static_cast<UINT8>(
+					(((*pDestPtr >> 11) & 0x1Fu) * 255u) / 31u);
+				src_channel = sourceChannels[0];
 				red = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
-				//red = (UINT8)( g_AlphaTimesValueCache[alpha][src_channel] );
 
-				// g
-				dst_channel = (UINT8)((0x7E0 & *pDestPtr) >> 3);
-				src_channel = (UINT8)((0xFF00 & *pSrcPtr) >> 8);
+				dst_channel = static_cast<UINT8>(
+					(((*pDestPtr >> 5) & 0x3Fu) * 255u) / 63u);
+				src_channel = sourceChannels[1];
 				green = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
-				//green = (UINT8)( g_AlphaTimesValueCache[alpha][src_channel] );
 
-				// b
-				dst_channel = (UINT8)((0xF800 & *pDestPtr) >> 8);
-				src_channel = (UINT8)((0xFF0000 & *pSrcPtr) >> 16);
+				dst_channel = static_cast<UINT8>(
+					((*pDestPtr & 0x1Fu) * 255u) / 31u);
+				src_channel = sourceChannels[2];
 				blue = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
-				//blue = (UINT8)( g_AlphaTimesValueCache[alpha][src_channel] );
-
 
 				UINT32 newcolor = FROMRGB(red,green,blue);
 				*pDestPtr = Get16BPPColor(newcolor);
@@ -186,13 +199,28 @@ BOOLEAN Blt32BPPTo16BPPTransShadow(PIXEL *pDst, UINT32 uiDstPitch, UINT32 *pSrc,
 	PIXEL *pDstPtr;
 	UINT32 uiLineSkipDst, uiLineSkipSrc;
 
-	Assert(pDst!=NULL);
-	Assert(pSrc!=NULL);
+	if (!pDst || !pSrc || uiWidth == 0 || uiHeight == 0 ||
+		iDstXPos < 0 || iDstYPos < 0 ||
+		iSrcXPos < 0 || iSrcYPos < 0 ||
+		uiDstPitch == 0 || uiSrcPitch == 0 ||
+		uiDstPitch % sizeof(PIXEL) != 0 ||
+		uiSrcPitch % sizeof(UINT32) != 0 ||
+		static_cast<std::uint64_t>(iDstXPos) + uiWidth >
+			uiDstPitch / sizeof(PIXEL) ||
+		static_cast<std::uint64_t>(iSrcXPos) + uiWidth >
+			uiSrcPitch / sizeof(UINT32))
+		return FALSE;
 
-	pSrcPtr			= (UINT32*)((UINT8*)pSrc + (iSrcYPos * uiSrcPitch) + (iSrcXPos * 4));
+	pSrcPtr = reinterpret_cast<UINT32*>(
+		reinterpret_cast<UINT8*>(pSrc) +
+		static_cast<std::size_t>(iSrcYPos) * uiSrcPitch +
+		static_cast<std::size_t>(iSrcXPos) * sizeof(UINT32));
 	uiLineSkipSrc	= uiSrcPitch-(uiWidth*4);
 
-	pDstPtr			= (PIXEL*)((UINT8*)pDst + (iDstYPos * uiDstPitch) + (iDstXPos * sizeof(PIXEL)));
+	pDstPtr = reinterpret_cast<PIXEL*>(
+		reinterpret_cast<UINT8*>(pDst) +
+		static_cast<std::size_t>(iDstYPos) * uiDstPitch +
+		static_cast<std::size_t>(iDstXPos) * sizeof(PIXEL));
 	uiLineSkipDst	= uiDstPitch-(uiWidth*sizeof(PIXEL));
 
 	UINT8 alpha, dst_channel, src_channel;
@@ -204,9 +232,9 @@ BOOLEAN Blt32BPPTo16BPPTransShadow(PIXEL *pDst, UINT32 uiDstPitch, UINT32 *pSrc,
 		UINT32 w = uiWidth;
 		do
 		{
-			// a
-			alpha = (UINT8)((0xFF000000 & *pSrcPtr) >> 24);
-			//alpha = 255;
+			const UINT8* const sourceChannels =
+				reinterpret_cast<const UINT8*>(pSrcPtr);
+			alpha = sourceChannels[3];
 			if(alpha > 0)
 			{
 				// the darker shade
@@ -230,24 +258,23 @@ BOOLEAN Blt32BPPTo16BPPTransShadow(PIXEL *pDst, UINT32 uiDstPitch, UINT32 *pSrc,
 
 				*pDstPtr = 0xFF000000u | ((UINT32)red << 16) | ((UINT32)green << 8) | (UINT32)blue;
 #else
-				// r
-				dst_channel = (UINT8)((0x1F & *pDstPtr) << 3);
-				//src_channel = (UINT8)((0xFF & tmpVal) );
-				src_channel = (UINT8)((0x1F & tmpVal) << 3);
+				dst_channel = static_cast<UINT8>(
+					(((*pDstPtr >> 11) & 0x1Fu) * 255u) / 31u);
+				src_channel = static_cast<UINT8>(
+					(((tmpVal >> 11) & 0x1Fu) * 255u) / 31u);
 				red = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
 
-				// g
-				dst_channel = (UINT8)((0x7E0  & *pDstPtr) >> 3);
-				//src_channel = (UINT8)((0xFF00 & tmpVal) >> 8);
-				src_channel = (UINT8)((0x7E0 & tmpVal) >> 3);
+				dst_channel = static_cast<UINT8>(
+					(((*pDstPtr >> 5) & 0x3Fu) * 255u) / 63u);
+				src_channel = static_cast<UINT8>(
+					(((tmpVal >> 5) & 0x3Fu) * 255u) / 63u);
 				green = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
 
-				// b
-				dst_channel = (UINT8)((0xF800   & *pDstPtr) >> 8);
-				//src_channel = (UINT8)((0xFF0000 & tmpVal) >> 16);
-				src_channel = (UINT8)((0xF800 & tmpVal) >> 8);
+				dst_channel = static_cast<UINT8>(
+					((*pDstPtr & 0x1Fu) * 255u) / 31u);
+				src_channel = static_cast<UINT8>(
+					((tmpVal & 0x1Fu) * 255u) / 31u);
 				blue = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
-
 
 				newcolor = FROMRGB(red,green,blue);
 				*pDstPtr = Get16BPPColor(newcolor);

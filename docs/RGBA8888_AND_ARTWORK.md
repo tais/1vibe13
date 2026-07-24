@@ -51,6 +51,14 @@ ETRLE once into a dense native-`PIXEL` array plus an explicit opacity mask;
 the mask keeps an opaque black pixel distinct from transparency and removes the
 last packed 2-byte colour cache from the renderer.
 
+True-colour `HIMAGE` data is also normalized at ownership time. The PNG loader
+retains the decoder's RGBA byte sequence as its asset-boundary representation;
+`CreateVideoObject` transactionally converts that sequence to native
+`0xAARRGGBB` pixels and a separate 0–255 opacity plane. Legacy 16-bit bitmap
+data is expanded from RGB565 at the same boundary. Normal, clipped, alpha, and
+shadow draws thereafter consume only native pixels—there is no per-draw channel
+swizzle or packed-RGB565 interpretation in the video-object renderer.
+
 The Z-buffer stays **16-bit** throughout (it stores depth, not colour). It is
 now also visible through the engine renderer boundary as a typed `Depth16`
 surface. Its rows deliberately retain the colour framebuffer pitch for legacy
@@ -194,8 +202,11 @@ vs_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE
 
 `ImageFileType::PNG_FALLBACK` means: *try `<name>.png` first, otherwise fall
 back to the original STI*. The HIMAGE path already supports 24/32-bit images
-(`ubBitDepth == 32`, `p32BPPData`) and the engine fills surfaces from them via
-`Blt32BPPTo16BPPTrans` (which now has a real ARGB destination branch).
+(`ubBitDepth == 32`, `p32BPPData`). That loader-owned RGBA representation is
+converted once into native ARGB plus opacity when a video object takes
+ownership. The old `Blt32BPPTo16BPPTrans` routine remains only for direct
+`HIMAGE` compatibility copies; ordinary video-object draws use the native
+pixel backend.
 
 **So the mechanism to drop in a true-colour replacement for any given sprite
 already exists.** That is the foundation a conversion strategy builds on.
