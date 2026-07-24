@@ -575,17 +575,20 @@ the engine must not contain SDL types in its public domain model.
 
 ## Compatibility policy
 
-Architecture migration must preserve existing campaigns and mods deliberately,
-not accidentally.
+Architecture migration must preserve existing campaign content and mod behavior
+deliberately, not accidentally. Pre-release save bytes are not a compatibility
+contract; incompatible state changes still fail explicitly rather than being
+misread.
 
-1. Existing save formats remain readable. New formats carry magic and schema
-   versions and have explicit migration paths.
+1. Save formats carry explicit versions. A supported migration must be tested;
+   an intentionally unsupported older version is rejected before
+   format-dependent state is read.
 2. Legacy globals and numeric handles remain adapters until all supported
    callers have a replacement.
 3. Runtime capability defaults match the old build target until a unified
    executable can select packages at startup.
-4. `SOLDIERTYPE` data is not reordered until a versioned entity serializer has
-   replaced raw layout persistence.
+4. Serialized entities use semantic field schemas rather than making in-memory
+   `SOLDIERTYPE` layout part of the persistence contract.
 5. Content API major versions signal breaking contracts. A package may require
    an engine minor version no newer than the running engine supports. Exact
    package requirements compare their opaque version strings byte-for-byte.
