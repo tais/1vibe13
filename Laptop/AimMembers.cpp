@@ -15,6 +15,7 @@
 	#include "finances.h"
 	#include "vsurface.h"
 	#include "vobject.h"
+	#include "CampaignClockAdapter.h"
 	#include "Game Clock.h"
 	#include "Overhead.h"
 	#include "faces.h"
@@ -5199,7 +5200,9 @@ void HandleAimMemberKeyBoardInput()
 
 				case '~':
 					// to test going on other assignments, unhired merc improvements & deaths
-					if (guiDay == 1) guiDay++;
+					if (guiDay == 1)
+						OverrideJa2CampaignClockCalendar(
+							guiDay + 1, guiHour, guiMin);
 					MercDailyUpdate();
 					gfRedrawScreen = TRUE;
 					break;

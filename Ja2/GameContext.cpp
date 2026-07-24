@@ -1,4 +1,5 @@
 #include "GameContext.h"
+#include "CampaignClockAdapter.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "Screens.h"
@@ -72,6 +73,11 @@ GameContext& GetGameContext()
 		return true;
 	}();
 	(void)tacticalEntityDirectoryBound;
+	static const bool campaignClockSessionBound = [&] {
+		BindJa2CampaignClockSession(context.runtime().campaignClockSession());
+		return true;
+	}();
+	(void)campaignClockSessionBound;
 	static const EngineServiceRegistrationError tacticalWorldRegistered =
 		[&] {
 			BindJa2TacticalWorldSession(context.runtime().tacticalWorldSession());

@@ -1,6 +1,7 @@
 include(GNUInstallDirs)
 
 set(ja2_runtime_adapter_public_headers
+  CampaignClockSession.h
   CommandReplay.h
   EngineRuntime.h
   SimulationCommand.h
@@ -24,6 +25,7 @@ set(ja2_runtime_adapter_public_headers
 # reusable engine. The adapter depends on Engine/Core; Core never depends on
 # this target or on legacy game headers.
 add_library(ja2_runtime_adapter STATIC
+  CampaignClockSession.cpp
   CommandReplay.cpp
   SimulationCommandCodec.cpp
   TacticalCommandService.cpp

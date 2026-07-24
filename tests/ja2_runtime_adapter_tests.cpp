@@ -1,4 +1,5 @@
 #include <Engine/Adapters/JA2/EngineRuntime.h>
+#include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -312,6 +313,51 @@ int main()
 	check(&legacyBraceRuntime.tacticalWorldSession() ==
 		&legacyBraceRuntime.tacticalWorldSession(),
 		"EngineRuntime owns one stable tactical world session");
+
+	CampaignClockSession campaignClock;
+	campaignClock.initialize(24 * 60 * 60 + 2 * 60 * 60 + 3 * 60 + 5);
+	check(campaignClock.snapshot() == CampaignClockSession::Snapshot{
+			93785, 93785, 1, 2, 3},
+		"campaign clock initializes total, checkpoint, and calendar atomically");
+	campaignClock.advanceUncommitted(61);
+	check(campaignClock.snapshot() == CampaignClockSession::Snapshot{
+			93846, 93785, 1, 2, 3},
+		"campaign event slices defer checkpoint and calendar publication");
+	const CampaignClockSession::AdvanceCommit campaignCommit =
+		campaignClock.commitAdvance();
+	check(!campaignCommit.movedBackward &&
+		campaignCommit.attemptedTotalSeconds == 93846 &&
+		campaignClock.snapshot() == CampaignClockSession::Snapshot{
+			93846, 93846, 1, 2, 4},
+		"campaign tick commit advances its monotonic checkpoint and calendar");
+	campaignClock.restoreSaved(
+		3 * 24 * 60 * 60 + 12 * 60 * 60 + 34 * 60 + 56, 12345);
+	check(campaignClock.snapshot() == CampaignClockSession::Snapshot{
+			304496, 12345, 3, 12, 34},
+		"campaign save restoration derives calendar fields from serialized time");
+	campaignClock.restore({
+		std::numeric_limits<std::uint32_t>::max() - 10,
+		std::numeric_limits<std::uint32_t>::max() - 10, 0, 0, 0});
+	campaignClock.advanceUncommitted(20);
+	const CampaignClockSession::AdvanceCommit wrappedCampaignCommit =
+		campaignClock.commitAdvance();
+	check(wrappedCampaignCommit.movedBackward &&
+		wrappedCampaignCommit.attemptedTotalSeconds == 9 &&
+		campaignClock.snapshot().totalSeconds ==
+			std::numeric_limits<std::uint32_t>::max() - 10 &&
+		campaignClock.snapshot().previousTotalSeconds ==
+			std::numeric_limits<std::uint32_t>::max() - 10,
+		"campaign clock preserves the legacy backwards-time wrap guard");
+	campaignClock.setEventTime(2 * 24 * 60 * 60 + 7 * 60 * 60 + 59 * 60);
+	campaignClock.overrideCalendar(8, 0, 0);
+	check(campaignClock.snapshot().totalSeconds == 201540 &&
+		campaignClock.snapshot().day == 8 &&
+		campaignClock.snapshot().hour == 0 &&
+		campaignClock.snapshot().minute == 0,
+		"campaign clock retains the legacy calendar-only compatibility override");
+	check(&legacyBraceRuntime.campaignClockSession() ==
+		&legacyBraceRuntime.campaignClockSession(),
+		"EngineRuntime owns one stable campaign clock session");
 
 	TacticalEntityDirectory entityDirectory(2);
 	check(entityDirectory.maximumSlots() == 2 &&

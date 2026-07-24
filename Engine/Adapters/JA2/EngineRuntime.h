@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <utility>
 
+#include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/CommandReplay.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/TacticalEntityDirectory.h>
@@ -60,6 +61,8 @@ public:
 	const CommandJournal<SimulationCommand>& commandJournal() const { return commandStream_.journal(); }
 	CommandReplayService& commandReplay() { return commandReplay_; }
 	const CommandReplayService& commandReplay() const { return commandReplay_; }
+	CampaignClockSession& campaignClockSession() { return campaignClockSession_; }
+	const CampaignClockSession& campaignClockSession() const { return campaignClockSession_; }
 	TacticalEntityDirectory& tacticalEntityDirectory() { return tacticalEntityDirectory_; }
 	const TacticalEntityDirectory& tacticalEntityDirectory() const { return tacticalEntityDirectory_; }
 	TacticalWorldSession& tacticalWorldSession() { return tacticalWorldSession_; }
@@ -110,6 +113,7 @@ public:
 	}
 
 private:
+	CampaignClockSession campaignClockSession_;
 	TacticalEntityDirectory tacticalEntityDirectory_;
 	TacticalWorldSession tacticalWorldSession_;
 	CommandReplayService commandReplay_;

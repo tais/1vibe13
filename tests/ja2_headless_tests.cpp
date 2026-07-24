@@ -79,6 +79,7 @@
 #include "sdl_input.h"
 #include "english.h"
 #include "GameContext.h"
+#include "CampaignClockAdapter.h"
 #include "CampaignPackage.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
@@ -2718,6 +2719,30 @@ int main( int, char** )
 		       &compiledContext.persistence().storage() == &GetPlatformByteStorage() &&
 		       compiledContext.services().assets.containsSource( &GetPlatformAssetSource() ),
 		       "application composition root binds platform service adapters" );
+
+		const CampaignClockSession::Snapshot previousCampaignClock =
+			CaptureJa2CampaignClock();
+		InitializeJa2CampaignClock( 90061 );
+		AdvanceJa2CampaignClockUncommitted( 60 );
+		const CampaignClockSession::Snapshot uncommittedCampaignClock =
+			CaptureJa2CampaignClock();
+		const CampaignClockSession::AdvanceCommit campaignClockCommit =
+			CommitJa2CampaignClockAdvance();
+		const CampaignClockSession::Snapshot committedCampaignClock =
+			CaptureJa2CampaignClock();
+		const CampaignClockSession::Snapshot expectedUncommittedCampaignClock{
+			90121, 90061, 1, 1, 1 };
+		const CampaignClockSession::Snapshot expectedCommittedCampaignClock{
+			90121, 90121, 1, 1, 2 };
+		CHECK( &compiledContext.runtime().campaignClockSession().snapshot() ==
+		           &CaptureJa2CampaignClock() &&
+		       uncommittedCampaignClock == expectedUncommittedCampaignClock &&
+		       !campaignClockCommit.movedBackward &&
+		       committedCampaignClock == expectedCommittedCampaignClock &&
+		       guiGameClock == committedCampaignClock.totalSeconds &&
+		       guiPreviousGameClock == committedCampaignClock.previousTotalSeconds,
+		       "application campaign-clock gateway keeps runtime ownership and legacy mirrors synchronized" );
+		RestoreJa2CampaignClockSession( previousCampaignClock );
 
 		const auto tacticalCommands =
 			compiledContext.serviceCatalog().resolve( TacticalCommandServiceContract );

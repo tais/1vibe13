@@ -1,4 +1,5 @@
 #include <Engine/Adapters/JA2/CommandReplay.h>
+#include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
@@ -178,6 +179,14 @@ int main()
 	EngineRuntime<> legacyBraceRuntime({});
 	if (legacyBraceHost.serviceCatalog().size() != 14 ||
 		legacyBraceRuntime.serviceCatalog().size() != 14) return 42;
+	CampaignClockSession externalCampaignClock;
+	externalCampaignClock.initialize(90061);
+	externalCampaignClock.advanceUncommitted(60);
+	if (externalCampaignClock.commitAdvance().movedBackward ||
+		externalCampaignClock.snapshot() != CampaignClockSession::Snapshot{
+			90121, 90121, 1, 1, 2} ||
+		&legacyBraceRuntime.campaignClockSession() !=
+			&legacyBraceRuntime.campaignClockSession()) return 49;
 
 	MemoryByteStorage storage;
 	MemoryRenderSurfaceAccess renderSurfaces(1024);
