@@ -207,6 +207,49 @@ foreach(tactical_file IN LISTS tactical_cpp_files)
   endforeach()
 endforeach()
 
+# Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
+# deterministic command boundary. Internal weapon compatibility corrections,
+# AI retaliation, attachment changes, and the existing multi-merc bulk reload
+# remain local mechanics rather than pretending to be separate player commands.
+set(player_weapon_control_files
+  "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Panels.cpp")
+foreach(player_weapon_control_file IN LISTS player_weapon_control_files)
+  file(READ "${player_weapon_control_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(ChangeWeaponMode|ChangeScopeMode)[ \t\r\n]*\\("
+    direct_player_weapon_mode_call "${contents}")
+  if(direct_player_weapon_mode_call)
+    message(FATAL_ERROR
+      "Player weapon configuration bypasses SimulationCommand in ${player_weapon_control_file}")
+  endif()
+endforeach()
+
+foreach(single_reload_file IN ITEMS
+  "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Panels.cpp")
+  file(READ "${single_reload_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])AutoReload[ \t\r\n]*\\("
+    direct_player_reload_call "${contents}")
+  if(direct_player_reload_call)
+    message(FATAL_ERROR
+      "Player reload intent bypasses SimulationCommand in ${single_reload_file}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  turn_based_input_contents)
+string(REGEX MATCHALL
+  "(^|[^A-Za-z0-9_])AutoReload[ \t\r\n]*\\("
+  turn_based_bulk_reload_calls "${turn_based_input_contents}")
+list(LENGTH turn_based_bulk_reload_calls turn_based_bulk_reload_count)
+if(turn_based_bulk_reload_count GREATER 3)
+  message(FATAL_ERROR
+    "A new turn-based reload bypasses SimulationCommand; only the three established multi-merc bulk reload mechanics may call AutoReload directly")
+endif()
+
 # Tactical world identity is owned by EngineRuntime's TacticalWorldSession.
 # Exact legacy globals remain readable compatibility mirrors, but a second
 # production writer would silently split world and turn identity again.

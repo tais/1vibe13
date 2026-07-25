@@ -35,6 +35,7 @@
 	#include "Soldier macros.h"
 	#include "strategicmap.h"
 	#include "Soldier Functions.h"
+	#include "Simulation Commands.h"
 	#include "gamescreen.h"
 	#include "Assignments.h"
 	#include "Points.h"
@@ -4982,7 +4983,10 @@ void BtnBurstModeCallback(GUI_BUTTON *btn,INT32 reason)
 
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
-		ChangeWeaponMode( gpSMCurrentMerc );
+		if ( gpSMCurrentMerc )
+			TryDispatchCycleWeaponModeCommandNow(
+				gpSMCurrentMerc->ubID,
+				gpSMCurrentMerc->uiUniqueSoldierIdValue );
 //		btn->ImageNum = iBurstButtonImages[ gpSMCurrentMerc->bWeaponMode ];
 //		btn->uiFlags |= BUTTON_DIRTY;
 

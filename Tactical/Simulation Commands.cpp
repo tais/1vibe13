@@ -9,11 +9,14 @@
 
 #include "Animation Control.h"
 #include "GameContext.h"
+#include "Items.h"
 #include "Map Information.h"
 #include "Overhead.h"
 #include "Soldier Control.h"
 #include "Soldier Functions.h"
 #include "TacticalEntityHost.h"
+#include "Weapons.h"
+#include "opplist.h"
 
 namespace
 {
@@ -134,6 +137,34 @@ namespace
 				soldier->StopSoldier();
 				return CommandDisposition::Applied;
 			}
+			else if constexpr (std::is_same<Command, CycleWeaponModeCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !soldier->inv[HANDPOS].exists() ||
+					(gAnimControl[soldier->usAnimState].uiFlags & ANIM_FIRE) != 0)
+					return CommandDisposition::Discard;
+				ChangeWeaponMode(soldier);
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, CycleScopeModeCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !soldier->inv[HANDPOS].exists() ||
+					(gAnimControl[soldier->usAnimState].uiFlags & ANIM_FIRE) != 0)
+					return CommandDisposition::Discard;
+				ChangeScopeMode(soldier, value.targetGrid);
+				ManLooksForOtherTeams(soldier);
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, ReloadWeaponCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !soldier->inv[HANDPOS].exists())
+					return CommandDisposition::Discard;
+				return AutoReload(soldier, value.reloadEvenIfNotEmpty)
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
+			}
 			else
 			{
 				return CommandDisposition::Discard;
@@ -237,9 +268,18 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			}
 			else if constexpr (
 				std::is_same<Command, SetStealthModeCommand>::value ||
-				std::is_same<Command, StopMovementCommand>::value)
+				std::is_same<Command, StopMovementCommand>::value ||
+				std::is_same<Command, CycleWeaponModeCommand>::value ||
+				std::is_same<Command, ReloadWeaponCommand>::value)
 			{
 				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (std::is_same<Command, CycleScopeModeCommand>::value)
+			{
+				return value.targetGrid == TacticalNoTargetGrid ||
+					(value.targetGrid >= 0 && value.targetGrid < WORLD_MAX)
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidTargetGrid;
 			}
 		}
 		return SimulationCommandDomainError::ValuelessCommand;
@@ -461,6 +501,39 @@ SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
 	return TryDispatchSimulationCommandNow(
 		SimulationCommand{StopMovementCommand{
 			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{CycleWeaponModeCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchCycleScopeModeCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t targetGrid,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{CycleScopeModeCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, targetGrid, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	bool reloadEvenIfNotEmpty,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{ReloadWeaponCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			reloadEvenIfNotEmpty, source}});
 }
 
 std::uint64_t DispatchEndTurnCommandNow(
