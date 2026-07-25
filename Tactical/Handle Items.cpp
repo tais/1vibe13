@@ -63,7 +63,10 @@
 	// added by sevenfm - this is needed for _keydown(SHIFT) to work
 	#include "english.h"
 	#include "Simulation Commands.h"
+	#include "TacticalEntityHost.h"
+	#include "TacticalWorldAdapter.h"
 
+	#include <cstdint>
 	#include <iostream>	// added by Flugente
 	#include <fstream>	// added by Flugente
 	#include "DisplayCover.h"		// added by Flugente
@@ -134,6 +137,103 @@ bool DispatchBeginFireWeaponFromHandleItem(
 	if (!dispatch) rejectedSelection.restore(*soldier);
 	return static_cast<bool>(dispatch);
 }
+
+struct TacticalActorCallbackContext
+{
+	Ja2TacticalEntityReference actor;
+	INT32 grid = NOWHERE;
+	INT8 level = 0;
+	UINT16 handItem = NOTHING;
+	std::uint64_t worldGeneration = 0;
+
+	bool capture(
+		SOLDIERTYPE* soldier,
+		INT32 selectedGrid = NOWHERE,
+		INT8 selectedLevel = 0,
+		bool captureHandItem = false) noexcept
+	{
+		reset();
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (!world.loaded || world.worldGeneration == 0 ||
+			!actor.capture(soldier))
+			return false;
+		grid = selectedGrid;
+		level = selectedLevel;
+		handItem = captureHandItem
+			? soldier->inv[HANDPOS].usItem : NOTHING;
+		worldGeneration = world.worldGeneration;
+		return true;
+	}
+
+	SOLDIERTYPE* resolve(bool requireHandItem = false) const noexcept
+	{
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (!world.loaded ||
+			world.worldGeneration != worldGeneration)
+			return nullptr;
+		SOLDIERTYPE* soldier = actor.resolve();
+		if (!soldier ||
+			(requireHandItem &&
+				(!soldier->inv[HANDPOS].exists() ||
+					soldier->inv[HANDPOS].usItem != handItem)))
+			return nullptr;
+		return soldier;
+	}
+
+	void reset() noexcept
+	{
+		actor.reset();
+		grid = NOWHERE;
+		level = 0;
+		handItem = NOTHING;
+		worldGeneration = 0;
+	}
+};
+
+struct SwitchCallbackContext
+{
+	Ja2TacticalEntityReference actor;
+	INT8 frequency = 0;
+	std::uint64_t worldGeneration = 0;
+
+	bool capture(SOLDIERTYPE* soldier, INT8 selectedFrequency) noexcept
+	{
+		reset();
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (!world.loaded || world.worldGeneration == 0 ||
+			!actor.capture(soldier))
+			return false;
+		frequency = selectedFrequency;
+		worldGeneration = world.worldGeneration;
+		return true;
+	}
+
+	SOLDIERTYPE* resolve() const noexcept
+	{
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (!world.loaded ||
+			world.worldGeneration != worldGeneration)
+			return nullptr;
+		return actor.resolve();
+	}
+
+	void reset() noexcept
+	{
+		actor.reset();
+		frequency = 0;
+		worldGeneration = 0;
+	}
+};
+
+TacticalActorCallbackContext gBombCallbackContext;
+TacticalActorCallbackContext gCorpseCallbackContext;
+TacticalActorCallbackContext gTacticalFunctionCallbackContext;
+TacticalActorCallbackContext gOwnershipCallbackContext;
+SwitchCallbackContext gSwitchCallbackContext;
 }
 
 ITEM_POOL_LOCATOR				FlashItemSlots[ NUM_ITEM_FLASH_SLOTS ];
@@ -157,11 +257,6 @@ INT32 GetFreeFlashItemSlot(void);
 void RecountFlashItemSlots(void);
 INT32	AddFlashItemSlot( ITEM_POOL *pItemPool, ITEM_POOL_LOCATOR_HOOK Callback, UINT8 ubFlags );
 BOOLEAN RemoveFlashItemSlot( ITEM_POOL *pItemPool );
-
-// Disgusting hacks: have to keep track of these values for accesses in callbacks
-static SOLDIERTYPE *	gpTempSoldier;
-static INT32					gsTempGridNo;
-static INT8						bTempFrequency;
 
 void BombMessageBoxCallBack( UINT8 ubExitValue );
 void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue );		// Flugente: callback after deciding what tactical function to use
@@ -2505,9 +2600,12 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 						if (gWorldItems[ pItemPool->iItemIndex ].object.usItem == SWITCH)
 						{
 							// ask about activating the switch!
-							bTempFrequency = gWorldItems[ pItemPool->iItemIndex ].object[0]->data.misc.bFrequency;
-							gpTempSoldier = pSoldier;
-							DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ACTIVATE_SWITCH_PROMPT ] , GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, SwitchMessageBoxCallBack, NULL );
+							if ( gSwitchCallbackContext.capture(
+									pSoldier,
+									gWorldItems[ pItemPool->iItemIndex ].object[0]->data.misc.bFrequency ) )
+							{
+								DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ACTIVATE_SWITCH_PROMPT ] , GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, SwitchMessageBoxCallBack, NULL );
+							}
 							pItemPool = pItemPool->pNext;
 						}
 						else
@@ -2652,9 +2750,12 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 				if (gWorldItems[ iItemIndex ].object.usItem == SWITCH)
 				{
 					// handle switch
-					bTempFrequency = gWorldItems[ iItemIndex ].object[0]->data.misc.bFrequency;
-					gpTempSoldier = pSoldier;
-					DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ACTIVATE_SWITCH_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, SwitchMessageBoxCallBack, NULL );
+					if ( gSwitchCallbackContext.capture(
+							pSoldier,
+							gWorldItems[ iItemIndex ].object[0]->data.misc.bFrequency ) )
+					{
+						DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ACTIVATE_SWITCH_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, SwitchMessageBoxCallBack, NULL );
+					}
 				}
 				else
 				{
@@ -2788,9 +2889,12 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 		TacticalCharacterDialogue( pSoldier, (UINT16)( QUOTE_SPOTTED_SOMETHING_ONE + Random( 2 ) ) );
 	}
 
-	gpTempSoldier = pSoldier;
-	gsTempGridNo = sGridNo;
-	SetCustomizableTimerCallbackAndDelay( 1000, CheckForPickedOwnership, TRUE );
+	if ( gOwnershipCallbackContext.capture(
+			pSoldier, sGridNo, pSoldier->pathing.bLevel ) )
+	{
+		SetCustomizableTimerCallbackAndDelay(
+			1000, CheckForPickedOwnership, TRUE );
+	}
 }
 
 
@@ -5157,8 +5261,12 @@ INT32 AdjustGridNoForItemPlacement( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 // Flugente
 void StartCorpseMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo,  INT8 bLevel )
 {
-	gpTempSoldier = pSoldier;
-		
+	if ( !gCorpseCallbackContext.capture(
+			pSoldier, sGridNo, bLevel, true ) )
+	{
+		return;
+	}
+
 	wcscpy( gzUserDefinedButton[0], TacticalStr[ DECAPITATE_STR ] );
 	wcscpy( gzUserDefinedButton[1], TacticalStr[ GUT_STR ] );
 	wcscpy( gzUserDefinedButton[2], TacticalStr[ TAKE_CLOTHES_STR ] );
@@ -5178,8 +5286,12 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		return;
 	}
 
-	gpTempSoldier = pSoldier;
-	gsTempGridNo = sGridNo;
+	if ( !gBombCallbackContext.capture(
+			pSoldier, sGridNo, pSoldier->pathing.bLevel, true ) )
+	{
+		return;
+	}
+	BOOLEAN fCallbackScheduled = FALSE;
 	if (ItemIsRemoteTrigger(pSoldier->inv[HANDPOS].usItem))
 	{
 		wcscpy( gzUserDefinedButton[0], L"1" );
@@ -5192,6 +5304,7 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		wcscpy( gzUserDefinedButton[7], L"D" );
 
 		DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_BOMB_OR_DEFUSE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_EIGHT_BUTTONS, BombMessageBoxCallBack, NULL );
+		fCallbackScheduled = TRUE;
 	}
 	else if (pSoldier->inv[HANDPOS].usItem == REMOTETRIGGER)
 	{
@@ -5228,6 +5341,7 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		{
 			pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 		}
+		gBombCallbackContext.reset();
 	}
 	else if ( HasAttachmentOfClass( &(pSoldier->inv[HANDPOS]), AC_DEFUSE ) )
 	{
@@ -5255,10 +5369,12 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_DETONATOR ) ) )
 		{
 			DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_DETONATE_AND_REMOTE_DEFUSE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_SIXTEEN_BUTTONS, BombMessageBoxCallBack, NULL );
+			fCallbackScheduled = TRUE;
 		}
 		else if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_REMOTEDET) ) )
 		{
 			DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS,  TacticalStr[ CHOOSE_REMOTE_DETONATE_AND_REMOTE_DEFUSE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_SIXTEEN_BUTTONS, BombMessageBoxCallBack, NULL );
+			fCallbackScheduled = TRUE;
 		}
 		else
 		{
@@ -5270,10 +5386,12 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 	else if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_DETONATOR ) )	)
 	{
 		DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_TIMER_STR ], GAME_SCREEN, MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS, BombMessageBoxCallBack, NULL );
+		fCallbackScheduled = TRUE;
 	}
 	else if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_REMOTEDET) ) )
 	{
 		DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_REMOTE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS, BombMessageBoxCallBack, NULL );
+		fCallbackScheduled = TRUE;
 	}
 	else if (ItemIsTripwire((&(pSoldier->inv[HANDPOS]))->usItem))
 	{
@@ -5300,9 +5418,19 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		
 		// sevenfm: if SHIFT is pressed - plant tripwire with last network settings
 		if( gfShiftBombPlant && gubLastTripwire > 0 )
+		{
 			BombMessageBoxCallBack(gubLastTripwire);
+			fCallbackScheduled = TRUE;
+		}
 		else
+		{
 			DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_TRIPWIRE_NETWORK ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_SIXTEEN_BUTTONS, BombMessageBoxCallBack, NULL );
+			fCallbackScheduled = TRUE;
+		}
+	}
+	if ( !fCallbackScheduled )
+	{
+		gBombCallbackContext.reset();
 	}
 }
 
@@ -5312,15 +5440,18 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 	if ( !pSoldier )
 		return;
 
-	gpTempSoldier = pSoldier;
-	gsTempGridNo = sGridNo;
+	if ( !gTacticalFunctionCallbackContext.capture(
+			pSoldier, sGridNo, bLevel ) )
+	{
+		return;
+	}
 
     // sevenfm: reorganized buttons order for new dialog
 	// fill canteens
 	wcscpy( gzUserDefinedButton[0], TacticalStr[FILL_CANTEEN_STR] );
 
 	// remove covert property/clothes
-	if ( gpTempSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+	if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		wcscpy( gzUserDefinedButton[1], TacticalStr[TAKE_OFF_DISGUISE_STR] );
 	else
 		wcscpy( gzUserDefinedButton[1], TacticalStr[TAKE_OFF_CLOTHES_STR] );
@@ -5346,7 +5477,7 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 	}
 
 	// if disguised, allow testing our disguise
-	if ( gpTempSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+	if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		wcscpy( gzUserDefinedButton[6], TacticalStr[SPY_SELFTEST_STR] );
 	else
 		wcscpy( gzUserDefinedButton[6], TacticalStr[UNUSED_STR] );
@@ -5597,6 +5728,12 @@ void UpdateGear()
 
 void BombMessageBoxCallBack( UINT8 ubExitValue )
 {
+	const TacticalActorCallbackContext callbackContext =
+		gBombCallbackContext;
+	gBombCallbackContext.reset();
+	SOLDIERTYPE* gpTempSoldier =
+		callbackContext.resolve(true);
+	const INT32 gsTempGridNo = callbackContext.grid;
 	if (gpTempSoldier)
 	{
 		// sevenfm: remember last tripwire network settings
@@ -5747,11 +5884,12 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 // Flugente: callback after deciding what tactical function to use
 void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 {
+	const TacticalActorCallbackContext callbackContext =
+		gTacticalFunctionCallbackContext;
+	gTacticalFunctionCallbackContext.reset();
+	SOLDIERTYPE* gpTempSoldier = callbackContext.resolve();
 	if (gpTempSoldier)
 	{
-		INT32 nextGridNoinSight = NewGridNo( gpTempSoldier->sGridNo, DirectionInc( gpTempSoldier->ubDirection ) );
-		INT8 level = gpTempSoldier->bTargetLevel;
-
 		switch (ubExitValue)
 		{
 		case 1:
@@ -5794,12 +5932,15 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 // Flugente: callback after deciding what to do with a corpse
 void CorpseMessageBoxCallBack( UINT8 ubExitValue )
 {
+	const TacticalActorCallbackContext callbackContext =
+		gCorpseCallbackContext;
+	gCorpseCallbackContext.reset();
+	SOLDIERTYPE* gpTempSoldier =
+		callbackContext.resolve(true);
 	if (gpTempSoldier)
 	{
-		INT32 nextGridNoinSight = gpTempSoldier->sGridNo;
-		nextGridNoinSight = NewGridNo( nextGridNoinSight, DirectionInc( gpTempSoldier->ubDirection ) );
-
-		INT8 level = gpTempSoldier->bTargetLevel;
+		const INT32 nextGridNoinSight = callbackContext.grid;
+		const INT8 level = callbackContext.level;
 
 		INT16 sAPCost = CalcTotalAPsToAttack( gpTempSoldier, nextGridNoinSight, FALSE, gpTempSoldier->aiData.bAimTime );
 
@@ -6388,12 +6529,17 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 
 void SwitchMessageBoxCallBack( UINT8 ubExitValue )
 {
-	if ( ubExitValue == MSG_BOX_RETURN_YES )
+	const SwitchCallbackContext callbackContext =
+		gSwitchCallbackContext;
+	gSwitchCallbackContext.reset();
+	SOLDIERTYPE* pSoldier = callbackContext.resolve();
+	if ( pSoldier && ubExitValue == MSG_BOX_RETURN_YES )
 	{
 		// Message that switch is activated...
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 60 ] );
 
-		SetOffBombsByFrequency( gpTempSoldier->ubID, bTempFrequency );
+		SetOffBombsByFrequency(
+			pSoldier->ubID, callbackContext.frequency );
 	}
 }
 
@@ -6750,27 +6896,49 @@ void MakeNPCGrumpyForMinorOffense( SOLDIERTYPE * pSoldier, SOLDIERTYPE *pOffendi
 }
 
 
-void TestPotentialOwner( SOLDIERTYPE * pSoldier )
+void TestPotentialOwner(
+	SOLDIERTYPE * pSoldier,
+	SOLDIERTYPE * pOffendingSoldier )
 {
-	if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE )
+	if ( pOffendingSoldier &&
+		pSoldier->bActive && pSoldier->bInSector &&
+		pSoldier->stats.bLife >= OKLIFE )
 	{
-		if ( SoldierToSoldierLineOfSightTest( pSoldier, gpTempSoldier, TRUE, CALC_FROM_ALL_DIRS ) )
+		if ( SoldierToSoldierLineOfSightTest(
+				pSoldier, pOffendingSoldier,
+				TRUE, CALC_FROM_ALL_DIRS ) )
 		{
-			MakeNPCGrumpyForMinorOffense( pSoldier, gpTempSoldier );
+			MakeNPCGrumpyForMinorOffense(
+				pSoldier, pOffendingSoldier );
 		}
 	}
 }
 
 void CheckForPickedOwnership( void )
 {
-	ITEM_POOL * pItemPool;
+	const TacticalActorCallbackContext callbackContext =
+		gOwnershipCallbackContext;
+	gOwnershipCallbackContext.reset();
+	SOLDIERTYPE* pOffendingSoldier =
+		callbackContext.resolve();
+	if ( !pOffendingSoldier )
+	{
+		return;
+	}
+
+	ITEM_POOL * pItemPool = nullptr;
 	UINT8 ubProfile;
 	UINT8 ubCivGroup;
 	SOLDIERTYPE * pSoldier;
 	SoldierID ubLoop;
 
 	// LOOP THROUGH LIST TO FIND NODE WE WANT
-	GetItemPool( gsTempGridNo, &pItemPool, gpTempSoldier->pathing.bLevel );
+	if ( !GetItemPool(
+			callbackContext.grid, &pItemPool,
+			callbackContext.level ) )
+	{
+		return;
+	}
 
 	while( pItemPool )
 	{
@@ -6782,7 +6950,8 @@ void CheckForPickedOwnership( void )
 				pSoldier = FindSoldierByProfileID( ubProfile, FALSE );
 				if ( pSoldier )
 				{
-					TestPotentialOwner( pSoldier );
+					TestPotentialOwner(
+						pSoldier, pOffendingSoldier );
 				}
 			}
 			if ( gWorldItems[ pItemPool->iItemIndex ].object[0]->data.owner.ubOwnerCivGroup != NON_CIV_GROUP )
@@ -6799,7 +6968,8 @@ void CheckForPickedOwnership( void )
 					pSoldier = ubLoop;
 					if ( pSoldier && pSoldier->ubCivilianGroup == ubCivGroup )
 					{
-						TestPotentialOwner( pSoldier );
+						TestPotentialOwner(
+							pSoldier, pOffendingSoldier );
 					}
 				}
 			}
@@ -7321,9 +7491,12 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NOT_ENOUGH_APS_TO_STEAL_ALL], pSoldier->GetName() );
 	}
 
-	gpTempSoldier = pSoldier;
-	gsTempGridNo = sGridNo;
-	SetCustomizableTimerCallbackAndDelay( 1000, CheckForPickedOwnership, TRUE );
+	if ( gOwnershipCallbackContext.capture(
+			pSoldier, sGridNo, pSoldier->pathing.bLevel ) )
+	{
+		SetCustomizableTimerCallbackAndDelay(
+			1000, CheckForPickedOwnership, TRUE );
+	}
 }
 
 INT16 GetTileSetTindexToTileSetName( INT32 asTileSetId, std::string aTileSetName )

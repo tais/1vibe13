@@ -29,4 +29,22 @@ bool SwapJa2TacticalEntitySlots(
 TacticalEntityId GetJa2TacticalEntityId(std::uint16_t slot) noexcept;
 SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept;
 
+// Legacy callbacks often outlive the stack frame that selected an actor. This
+// value-only reference retains the reusable slot plus its incarnation and
+// resolves only while that exact SOLDIERTYPE is still live.
+class Ja2TacticalEntityReference
+{
+public:
+	bool capture(const SOLDIERTYPE* soldier) noexcept;
+	SOLDIERTYPE* resolve() const noexcept;
+	SOLDIERTYPE* consume() noexcept;
+
+	void reset() noexcept { entity_ = {}; }
+	TacticalEntityId identity() const noexcept { return entity_; }
+	bool valid() const noexcept { return entity_.valid(); }
+
+private:
+	TacticalEntityId entity_{};
+};
+
 #endif

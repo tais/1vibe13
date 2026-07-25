@@ -224,6 +224,32 @@ foreach(player_peer_interaction_file IN LISTS player_peer_interaction_files)
   endif()
 endforeach()
 
+# Tactical modal requests must retain actor incarnations rather than raw
+# SOLDIERTYPE globals. The booby-trap workflow has its own world-item context
+# migration; this ratchet covers the completed shared item and attack/surgery
+# requester seams.
+file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  tactical_item_callback_contents)
+string(REGEX MATCH
+  "static[ \t]+SOLDIERTYPE[ \t]*\\*[ \t]*gpTempSoldier"
+  raw_tactical_item_callback_actor
+  "${tactical_item_callback_contents}")
+if(raw_tactical_item_callback_actor)
+  message(FATAL_ERROR
+    "Tactical item callbacks retain a raw SOLDIERTYPE global")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  tactical_requester_callback_contents)
+string(REGEX MATCH
+  "gpRequesterMerc|gpRequesterTargetMerc"
+  raw_tactical_requester_callback_actor
+  "${tactical_requester_callback_contents}")
+if(raw_tactical_requester_callback_actor)
+  message(FATAL_ERROR
+    "Tactical requester callbacks retain raw SOLDIERTYPE globals")
+endif()
+
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
 # deterministic command boundary. Internal weapon compatibility corrections,
 # AI retaliation, attachment changes, and the existing multi-merc bulk reload
