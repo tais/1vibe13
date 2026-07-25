@@ -217,12 +217,24 @@ file(READ "${simulation_command_source}" simulation_command_contents)
 foreach(required_executor_fragment IN ITEMS
     "class Ja2SimulationCommandExecutor final"
     "ApplicationSimulationCommandExecutor"
-    "executor.execute(command, tick, sequence)")
+    "BindJa2SimulationCommandExecutor"
+    "runtime.executeCommandsThrough"
+    "runtime.executeExpectedCommandThrough")
   string(FIND "${simulation_command_contents}"
     "${required_executor_fragment}" required_executor_position)
   if(required_executor_position EQUAL -1)
     message(FATAL_ERROR
       "Production tactical command processing bypasses SimulationCommandExecutor; missing '${required_executor_fragment}'")
+  endif()
+endforeach()
+foreach(retired_application_drain IN ITEMS
+    "ProcessCommandsThrough"
+    "ProcessExpectedNextCommandThrough")
+  string(FIND "${simulation_command_contents}"
+    "${retired_application_drain}" retired_application_drain_position)
+  if(NOT retired_application_drain_position EQUAL -1)
+    message(FATAL_ERROR
+      "Application tactical code owns a parallel command drain '${retired_application_drain}'; use EngineRuntime execution")
   endif()
 endforeach()
 
@@ -235,8 +247,9 @@ if(NOT retired_headless_model_position EQUAL -1)
     "The retired test-local tactical battle model returned; use MemoryTacticalSimulation")
 endif()
 foreach(required_headless_executor_fragment IN ITEMS
-    "MemoryTacticalSimulation model"
-    "SimulationCommandExecutor& executor = model")
+    "MemoryTacticalSimulation captureModel"
+    "runtime.bindSimulationCommandExecutor(executor)"
+    "runtime.executeCommandsThrough(3, 2, &executionSink)")
   string(FIND "${headless_test_contents}"
     "${required_headless_executor_fragment}" required_headless_executor_position)
   if(required_headless_executor_position EQUAL -1)
@@ -244,6 +257,14 @@ foreach(required_headless_executor_fragment IN ITEMS
       "Headless replay bypasses the installed tactical executor; missing '${required_headless_executor_fragment}'")
   endif()
 endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/GameContext.cpp" game_context_contents)
+string(FIND "${game_context_contents}" "BindJa2SimulationCommandExecutor(context)"
+  production_executor_binding_position)
+if(production_executor_binding_position EQUAL -1)
+  message(FATAL_ERROR
+    "The production composition root does not bind EngineRuntime's tactical executor")
+endif()
 
 # Network receive handlers, AI decisions, and scripted dialogue are
 # authoritative command producers. Keep the legacy mutation APIs confined to

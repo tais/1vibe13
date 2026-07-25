@@ -5,24 +5,11 @@
 #include <cstdint>
 
 #include <Engine/Adapters/JA2/SimulationCommand.h>
+#include <Engine/Adapters/JA2/SimulationCommandExecutor.h>
 #include <Engine/Core/CommandProcessor.h>
 
 class SOLDIERTYPE;
-
-// Authoritative completion seam for hosts that must correlate package/network
-// requests with actual simulation disposition. This is independent of the
-// best-effort command journal and is invoked only after queue acknowledgement
-// (or for an explicit retry observation).
-class SimulationCommandExecutionSink
-{
-public:
-	virtual ~SimulationCommandExecutionSink() = default;
-	virtual void commandProcessed(
-		const SimulationCommand& command,
-		std::uint64_t tick,
-		std::uint64_t sequence,
-		CommandDisposition disposition) noexcept = 0;
-};
+class GameContext;
 
 // Installs the application-owned completion observer used by every execution
 // entry point, including synchronous compatibility dispatch. Binding the same
@@ -30,6 +17,10 @@ public:
 // outlive all command execution.
 bool BindSimulationCommandExecutionSink(
 	SimulationCommandExecutionSink& sink) noexcept;
+
+// Composition-time binding of the live JA2 compatibility executor. Runtime
+// ownership prevents command drains from selecting a different world adapter.
+bool BindJa2SimulationCommandExecutor(GameContext& game) noexcept;
 
 enum class SimulationCommandDomainError
 {

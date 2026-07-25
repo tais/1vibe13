@@ -442,13 +442,22 @@ the engine must not contain SDL types in its public domain model.
   `SimulationCommandExecutor` now separates that deterministic stream from its
   world implementation. The production compatibility executor implements the
   same installed interface used by tools and headless tests; queue processing
-  forwards tick and sequence metadata through it rather than invoking a
-  game-only free function. `MemoryTacticalSimulation` is the bounded,
-  pointer-free reference implementation. It transactionally validates and
-  canonicalizes actor incarnations, preallocates its configured state ceilings,
-  and applies the portable movement, stance, facing, fire, synchronization,
-  stop, and turn subset without linking the game or SDL. It deliberately
-  discards unsupported mechanics instead of duplicating JA2 combat policy.
+  is owned by `EngineRuntime` rather than by the game application. The
+  composition root binds one executor for the runtime lifetime; an unbound
+  runtime retries without acknowledging work and a second world binding is
+  rejected. Bounded prefix drains and exact synchronous drains both invoke the
+  bound executor, acknowledge its disposition, update the command journal, and
+  only then notify a best-effort execution sink. Production, package ingress,
+  replay, external SDK consumers, and headless scenarios therefore cannot
+  carry parallel queue/journal loops. The boundary is non-reentrant: an
+  executor or sink that attempts a nested drain receives `QueueChanged`, while
+  the outer acknowledgement and observation complete normally.
+  `MemoryTacticalSimulation` is the bounded, pointer-free reference
+  implementation. It transactionally validates and canonicalizes actor
+  incarnations, preallocates its configured state ceilings, and applies the
+  portable movement, stance, facing, fire, synchronization, stop, and turn
+  subset without linking the game or SDL. It deliberately discards unsupported
+  mechanics instead of duplicating JA2 combat policy.
   Firearm actions, player weapon mode, scope, reload, and ready/lower controls,
   stance changes, drag cancellation, obstacle traversal, world-object
   interaction, conversation, vehicle entry, player stealing and position
@@ -505,11 +514,12 @@ the engine must not contain SDL types in its public domain model.
   runtime gateway used by live commands. The data-free headless suite now runs
   the installed `MemoryTacticalSimulation`, rather than a parallel test-local
   battle model, for a mixed player, AI/script, and network tactical turn through
-  bounded command processing, including an authoritative retry. It encodes the
-  completed journal, decodes and stages it into a fresh runtime, resets the same
-  actor/world snapshot, and requires identical disposition observations,
-  applied order, final state, and journal bytes. This exercises replay
-  determinism without SDL presentation, audio, installed maps, or game data.
+  `EngineRuntime`'s bounded command drain, including an authoritative retry. It
+  encodes the completed journal, decodes and stages it into a fresh runtime,
+  resets the same actor/world snapshot, and requires identical disposition
+  observations, applied order, final state, and journal bytes. This exercises
+  replay determinism without SDL presentation, audio, installed maps, or game
+  data.
   The architecture check also pins each migrated multiplayer receive handler
   and AI/dialogue producer to its command ingress function and rejects the
   corresponding legacy event/path/animation calls outside the dedicated

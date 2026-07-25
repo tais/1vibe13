@@ -1,6 +1,7 @@
 #ifndef ENGINE_ADAPTERS_JA2_ENGINE_RUNTIME_H
 #define ENGINE_ADAPTERS_JA2_ENGINE_RUNTIME_H
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <utility>
@@ -10,6 +11,7 @@
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CommandReplay.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
+#include <Engine/Adapters/JA2/SimulationCommandExecutor.h>
 #include <Engine/Adapters/JA2/StrategicGroupDirectory.h>
 #include <Engine/Adapters/JA2/TacticalEntityDirectory.h>
 #include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
@@ -64,6 +66,102 @@ public:
 	const DeterministicCommandQueue<SimulationCommand>& commands() const { return commandStream_.queue(); }
 	CommandJournal<SimulationCommand>& commandJournal() { return commandStream_.journal(); }
 	const CommandJournal<SimulationCommand>& commandJournal() const { return commandStream_.journal(); }
+	// Binding is stable for the runtime lifetime. The executor is host-owned and
+	// must outlive this EngineRuntime; rebinding to another world is rejected.
+	bool bindSimulationCommandExecutor(
+		SimulationCommandExecutor& executor) noexcept
+	{
+		if (commandExecutor_ != &NullSimulationCommandExecutor::instance() &&
+			commandExecutor_ != &executor)
+			return false;
+		commandExecutor_ = &executor;
+		return true;
+	}
+	bool hasSimulationCommandExecutor() const noexcept
+	{
+		return commandExecutor_ != &NullSimulationCommandExecutor::instance();
+	}
+	SimulationCommandExecutor& simulationCommandExecutor() noexcept
+	{
+		return *commandExecutor_;
+	}
+	const SimulationCommandExecutor& simulationCommandExecutor() const noexcept
+	{
+		return *commandExecutor_;
+	}
+	bool commandExecutionActive() const noexcept
+	{
+		return commandExecutionActive_;
+	}
+
+	CommandProcessingResult executeCommandsThrough(
+		std::uint64_t tick,
+		SimulationCommandExecutionSink* sink = nullptr)
+	{
+		if (commandExecutionActive_)
+		{
+			CommandProcessingResult nested;
+			nested.status = CommandProcessStatus::QueueChanged;
+			return nested;
+		}
+		CommandExecutionScope executionScope{commandExecutionActive_};
+		return executeCommands(
+			[tick](auto& queue, auto&& handler, auto&& observer) {
+				return ProcessCommandsThrough(
+					queue, tick,
+					std::forward<decltype(handler)>(handler),
+					std::forward<decltype(observer)>(observer));
+			},
+			sink);
+	}
+
+	CommandProcessingResult executeCommandsThrough(
+		std::uint64_t tick,
+		std::size_t maximumCommands,
+		SimulationCommandExecutionSink* sink = nullptr)
+	{
+		if (commandExecutionActive_)
+		{
+			CommandProcessingResult nested;
+			nested.status = CommandProcessStatus::QueueChanged;
+			return nested;
+		}
+		CommandExecutionScope executionScope{commandExecutionActive_};
+		return executeCommands(
+			[tick, maximumCommands](
+				auto& queue, auto&& handler, auto&& observer) {
+				return ProcessCommandsThrough(
+					queue, tick, maximumCommands,
+					std::forward<decltype(handler)>(handler),
+					std::forward<decltype(observer)>(observer));
+			},
+			sink);
+	}
+
+	ExpectedCommandProcessingResult executeExpectedCommandThrough(
+		std::uint64_t tick,
+		std::uint64_t sequence,
+		SimulationCommandExecutionSink* sink = nullptr)
+	{
+		if (commandExecutionActive_)
+		{
+			ExpectedCommandProcessingResult nested;
+			nested.status = ExpectedCommandProcessStatus::QueueChanged;
+			nested.expectedSequence = sequence;
+			return nested;
+		}
+		CommandExecutionScope executionScope{commandExecutionActive_};
+		return executeCommands(
+			[tick, sequence](
+				auto& queue, auto&& handler, auto&& observer) {
+				return ProcessExpectedNextCommandThrough(
+					queue, tick, sequence,
+					std::forward<decltype(handler)>(handler),
+					std::forward<decltype(observer)>(observer));
+			},
+			sink);
+	}
+
 	CommandReplayService& commandReplay() { return commandReplay_; }
 	const CommandReplayService& commandReplay() const { return commandReplay_; }
 	CampaignClockSession& campaignClockSession() { return campaignClockSession_; }
@@ -151,6 +249,54 @@ public:
 	}
 
 private:
+	class CommandExecutionScope
+	{
+	public:
+		explicit CommandExecutionScope(bool& active) noexcept
+			: active_(active)
+		{
+			active_ = true;
+		}
+
+		~CommandExecutionScope()
+		{
+			active_ = false;
+		}
+
+		CommandExecutionScope(const CommandExecutionScope&) = delete;
+		CommandExecutionScope& operator=(
+			const CommandExecutionScope&) = delete;
+
+	private:
+		bool& active_;
+	};
+
+	template<typename Process>
+	auto executeCommands(
+		Process&& process,
+		SimulationCommandExecutionSink* sink)
+	{
+		return process(
+			commandStream_.queue(),
+			[this](
+				const SimulationCommand& command,
+				std::uint64_t tick,
+				std::uint64_t sequence) {
+				return commandExecutor_->execute(command, tick, sequence);
+			},
+			[this, sink](
+				const SimulationCommand& command,
+				std::uint64_t tick,
+				std::uint64_t sequence,
+				CommandDisposition disposition) {
+				commandStream_.journal().recordDisposition(
+					sequence, disposition);
+				if (sink)
+					sink->commandProcessed(
+						command, tick, sequence, disposition);
+			});
+	}
+
 	CampaignClockSession campaignClockSession_;
 	CampaignClockScheduler campaignClockScheduler_;
 	CampaignClockSessionService campaignClockService_{campaignClockSession_};
@@ -162,6 +308,9 @@ private:
 	TacticalWorldSession tacticalWorldSession_;
 	CommandReplayService commandReplay_;
 	CommandStream<SimulationCommand> commandStream_;
+	SimulationCommandExecutor* commandExecutor_ =
+		&NullSimulationCommandExecutor::instance();
+	bool commandExecutionActive_ = false;
 };
 
 #endif

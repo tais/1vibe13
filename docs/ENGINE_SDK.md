@@ -170,6 +170,20 @@ JA2 pathing, animation, inventory, dialogue, vehicle, and combat mechanics
 remain. Queue and replay code therefore no longer knows whether it is driving
 the live game, a tool, or a data-free simulation.
 
+Bind that implementation once with
+`EngineRuntime::bindSimulationCommandExecutor`; the host-owned executor must
+outlive the runtime, rebinding to a different world is rejected, and repeating
+the same binding is harmless. An unbound runtime uses
+`NullSimulationCommandExecutor`, which returns `Retry` so staged authoritative
+work remains queued. `executeCommandsThrough` and
+`executeExpectedCommandThrough` are the common bounded and synchronous drains.
+They invoke the bound executor, acknowledge only its applied/discarded result,
+update the runtime journal, and then notify an optional
+`SimulationCommandExecutionSink`. Sink failures are contained by the command
+processor and cannot change delivery. A nested drain from an executor or sink
+returns `QueueChanged` without invoking another command; the outer transaction
+continues normally.
+
 `MemoryTacticalSimulation` is the installed deterministic implementation for
 headless hosts, replay inspection, and package tests. Its reset accepts a
 pointer-free `TacticalSimulationSnapshot`, validates and sorts exact actor
