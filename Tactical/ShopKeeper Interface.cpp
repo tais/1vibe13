@@ -373,8 +373,6 @@ BOOLEAN gfPerformTransactionInProgress = FALSE;
 
 BOOLEAN gfCommonQuoteUsedThisSession[ NUM_COMMON_SK_QUOTES ];
 
-extern		SOLDIERTYPE		*gpSMCurrentMerc;
-extern		SOLDIERTYPE		*gpItemDescSoldier;
 extern		MOUSE_REGION		gItemDescAttachmentRegions[MAX_ATTACHMENTS];
 extern		MOUSE_REGION		gInvDesc;
 extern		BOOLEAN			gfSMDisableForItems;
@@ -683,11 +681,11 @@ UINT32	ShopKeeperScreenHandle()
 	GetShopKeeperInterfaceUserInput();
 	
 	// Check for any newly added items...
-	if ( gpSMCurrentMerc->flags.fCheckForNewlyAddedItems )
+	if ( GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems )
 	{
 		// Startup any newly added items....
-		CheckForAnyNewlyAddedItems( gpSMCurrentMerc );
-		gpSMCurrentMerc->flags.fCheckForNewlyAddedItems = FALSE;
+		CheckForAnyNewlyAddedItems( GetSMCurrentMerc() );
+		GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems = FALSE;
 	}
 
 	HandleShopKeeperInterface();
@@ -1006,7 +1004,7 @@ BOOLEAN EnterShopKeeperInterface()
 		if( ( armsDealerInfo[ gbSelectedArmsDealerID ].ubTypeOfArmsDealer != ARMS_DEALER_REPAIRS ) ||
 			(CountNumberOfItemsInThePlayersOfferArea( ) < (SKI_TRADER_INVENTORY_BOXES_PER_ROW * SKI_TRADER_INVENTORY_BOXES_PER_COL)) )
 		{
-			if ( OfferObjectToDealer( &(gItemToAdd.ItemObject), gpSMCurrentMerc->ubProfile, NO_SLOT ) )
+			if ( OfferObjectToDealer( &(gItemToAdd.ItemObject), GetSMCurrentMerc()->ubProfile, NO_SLOT ) )
 			{
 				fAddedOK = true;
 			}
@@ -1021,7 +1019,7 @@ BOOLEAN EnterShopKeeperInterface()
 		{
 			//add the item back to the current PC into the slot it came from
 			//ADB screw slot, slot is (used to be, before it was deleted) only ever, so autoplace it
-			AutoPlaceObject(gpSMCurrentMerc->ubID, &gItemToAdd.ItemObject, FALSE);
+			AutoPlaceObject(GetSMCurrentMerc()->ubID, &gItemToAdd.ItemObject, FALSE);
 		}
 
 		//Clear the contents of the structure
@@ -1679,7 +1677,7 @@ void		GetShopKeeperInterfaceUserInput()
 						DeleteItemDescriptionBox( );
 
 						// skip Robot and EPCs
-						SoldierID ubID = FindNextActiveAndAliveMerc( gpSMCurrentMerc, FALSE, TRUE );
+						SoldierID ubID = FindNextActiveAndAliveMerc( GetSMCurrentMerc(), FALSE, TRUE );
 						gubSelectSMPanelToMerc = ubID;
 						LocateSoldier( ubID, DONTSETLOCATOR );
 
@@ -2113,7 +2111,7 @@ void SelectDealersInventoryMovementRegionCallBack(MOUSE_REGION * pRegion, INT32 
 
 		gpHighLightedItemObject = &gpTempDealersInventory[ ubSelectedInvSlot ].ItemObject;
 
-		HandleCompatibleAmmoUI( gpSMCurrentMerc, -1, TRUE );
+		HandleCompatibleAmmoUI( GetSMCurrentMerc(), -1, TRUE );
 	}
 	else if(iReason & MSYS_CALLBACK_REASON_LOST_MOUSE )
 	{
@@ -2123,7 +2121,7 @@ void SelectDealersInventoryMovementRegionCallBack(MOUSE_REGION * pRegion, INT32 
 
 		gpHighLightedItemObject = NULL;
 		gubSkiDirtyLevel = SKI_DIRTY_LEVEL1;	//ddd
-		HandleCompatibleAmmoUI( gpSMCurrentMerc, -1, FALSE );
+		HandleCompatibleAmmoUI( GetSMCurrentMerc(), -1, FALSE );
 	}
 }
 
@@ -2141,7 +2139,7 @@ void SelectDealersOfferSlotsMovementRegionCallBack(MOUSE_REGION * pRegion, INT32
 			return;
 
 		gpHighLightedItemObject = &ArmsDealerOfferArea[ ubSelectedInvSlot ].ItemObject;
-		HandleCompatibleAmmoUI( gpSMCurrentMerc, -1, TRUE );
+		HandleCompatibleAmmoUI( GetSMCurrentMerc(), -1, TRUE );
 	}
 	else if(iReason & MSYS_CALLBACK_REASON_LOST_MOUSE )
 	{
@@ -2151,7 +2149,7 @@ void SelectDealersOfferSlotsMovementRegionCallBack(MOUSE_REGION * pRegion, INT32
 
 		gpHighLightedItemObject = NULL;
 		gubSkiDirtyLevel = SKI_DIRTY_LEVEL1;//ddd
-		HandleCompatibleAmmoUI( gpSMCurrentMerc, -1, FALSE );
+		HandleCompatibleAmmoUI( GetSMCurrentMerc(), -1, FALSE );
 	}
 }
 
@@ -2169,7 +2167,7 @@ void SelectPlayersOfferSlotsMovementRegionCallBack(MOUSE_REGION * pRegion, INT32
 			return;
 
 		gpHighLightedItemObject = &PlayersOfferArea[ ubSelectedInvSlot ].ItemObject;
-		HandleCompatibleAmmoUI( gpSMCurrentMerc, -1, TRUE );
+		HandleCompatibleAmmoUI( GetSMCurrentMerc(), -1, TRUE );
 	}
 	else if(iReason & MSYS_CALLBACK_REASON_LOST_MOUSE )
 	{
@@ -2179,7 +2177,7 @@ void SelectPlayersOfferSlotsMovementRegionCallBack(MOUSE_REGION * pRegion, INT32
 
 		gpHighLightedItemObject = NULL;
 		gubSkiDirtyLevel = SKI_DIRTY_LEVEL1;//ddd
-		HandleCompatibleAmmoUI( gpSMCurrentMerc, -1, FALSE );
+		HandleCompatibleAmmoUI( GetSMCurrentMerc(), -1, FALSE );
 	}
 }
 
@@ -2402,7 +2400,7 @@ item description
 			{
 				if ( !InItemDescriptionBox( ) )
 				{
-					InitItemDescriptionBox( gpSMCurrentMerc, (UINT8)PlayersOfferArea[ ubSelectedInvSlot ].bSlotIdInOtherLocation, 214, 1 + INV_INTERFACE_START_Y, 0 );
+					InitItemDescriptionBox( GetSMCurrentMerc(), (UINT8)PlayersOfferArea[ ubSelectedInvSlot ].bSlotIdInOtherLocation, 214, 1 + INV_INTERFACE_START_Y, 0 );
 				}
 				else
 				{
@@ -3204,7 +3202,7 @@ UINT8		ubItemsNotCounted = 0; //ja25 UB
 
 		// Flugente: used in backgrounds now, old code in comments for historical reasons
 		/*// if Flo is doing the dealin' and wheelin'
-		if ( gpSMCurrentMerc->ubProfile == FLO )
+		if ( GetSMCurrentMerc()->ubProfile == FLO )
 		{
 			// if it's a GUN or AMMO (but not Launchers, and all attachments and payload is included)
 			switch ( Item [ usItemID ].usItemClass )
@@ -3234,15 +3232,15 @@ UINT8		ubItemsNotCounted = 0; //ja25 UB
 		// if it's a GUN or AMMO (but not Launchers, and all attachments and payload is included)
 		if ( Item [ usItemID ].usItemClass & (IC_GUN|IC_AMMO) )
 		{
-			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * gpSMCurrentMerc->GetBackgroundValue( BG_PERC_PRICES_GUNS ) );
+			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * GetSMCurrentMerc()->GetBackgroundValue( BG_PERC_PRICES_GUNS ) );
 
 			// Even without backgrounds, Flo gets a discount. Read her M.E.R.C. profile to understand why
-			if ( !UsingBackGroundSystem() && gpSMCurrentMerc->ubProfile == FLO )
+			if ( !UsingBackGroundSystem() && GetSMCurrentMerc()->ubProfile == FLO )
 				pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * FLO_DISCOUNT_PERCENTAGE );
 		}
 		else if ( Item [ usItemID ].usItemClass & (IC_MAPFILTER_MELEE|IC_MAPFILTER_KIT|IC_MAPFILTER_LBE|IC_MAPFILTER_ARMOR|IC_MAPFILTER_MISC) )
 		{
-			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * gpSMCurrentMerc->GetBackgroundValue( BG_PERC_PRICES ) );
+			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * GetSMCurrentMerc()->GetBackgroundValue( BG_PERC_PRICES ) );
 		}
 
 		uiItemPrice[ubCnt] = (uiItemPrice[ubCnt] * pricepercentage) / 100;
@@ -4324,15 +4322,15 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			//if there is an owner of the item
 			if( gMoveingItem.ubIdOfMercWhoOwnsTheItem != -1 )
 			{
-				gpItemPointerSoldier = FindSoldierByProfileID( gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE );
+				(void)SetItemPointerSoldier(FindSoldierByProfileID( gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE ));
 				//make sure the soldier is not null
-				if( gpItemPointerSoldier == NULL )
+				if( GetItemPointerSoldier() == NULL )
 				{
-					gpItemPointerSoldier = gpSMCurrentMerc;
+					(void)SetItemPointerSoldier(GetSMCurrentMerc());
 				}
 			}
 			else
-				gpItemPointerSoldier = gpSMCurrentMerc;
+				(void)SetItemPointerSoldier(GetSMCurrentMerc());
 
 			break;
 
@@ -4370,15 +4368,15 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			//if there is an owner of the item
 			if( gMoveingItem.ubIdOfMercWhoOwnsTheItem != -1 )
 			{
-				gpItemPointerSoldier = FindSoldierByProfileID( gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE );
+				(void)SetItemPointerSoldier(FindSoldierByProfileID( gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE ));
 				//make sure the soldier is not null
-				if( gpItemPointerSoldier == NULL )
+				if( GetItemPointerSoldier() == NULL )
 				{
-					gpItemPointerSoldier = gpSMCurrentMerc;
+					(void)SetItemPointerSoldier(GetSMCurrentMerc());
 				}
 			}
 			else
-				gpItemPointerSoldier = gpSMCurrentMerc;
+				(void)SetItemPointerSoldier(GetSMCurrentMerc());
 #ifdef JA2UB				
 				//ja25 ub
 			//if the dealer is Raul
@@ -4404,10 +4402,10 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			
 		case PLAYERS_INVENTORY:
 			// better be a valid merc pocket index, or -1
-			Assert( ( bSlotNum >= -1 ) && ( bSlotNum < (INT8)gpSMCurrentMerc->inv.size() ) );
+			Assert( ( bSlotNum >= -1 ) && ( bSlotNum < (INT8)GetSMCurrentMerc()->inv.size() ) );
 
 			// if we're supposed to store the original pocket #, but that pocket still holds more of these
-			if ( ( bSlotNum != -1 ) && ( gpSMCurrentMerc->inv[ bSlotNum ].exists() == true ) )
+			if ( ( bSlotNum != -1 ) && ( GetSMCurrentMerc()->inv[ bSlotNum ].exists() == true ) )
 			{
 				// then we can't store the pocket #, because our system can't return stacked objects
 				bSlotNum = -1;
@@ -4417,7 +4415,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			// if that doesn't work (because there isn't enough room in the player's offer area), the item is picked up into
 			// the cursor, and may then get placed into the player's offer area directly, but it will NOT get evaluated that
 			// way, and so has no possibility of entering the dealer's inventory (where complex items aren't permitted).
-			if ( fOfferToDealerFirst && OfferObjectToDealer( gpItemPointer, gpSMCurrentMerc->ubProfile, bSlotNum ) )
+			if ( fOfferToDealerFirst && OfferObjectToDealer( gpItemPointer, GetSMCurrentMerc()->ubProfile, bSlotNum ) )
 			{
 				//Reset the cursor
 				SetSkiCursor( CURSOR_NORMAL );
@@ -4443,7 +4441,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 
 				// By necessity, these items don't belong to a slot (so you can't return them via a right click),
 				// because it would be too much work to handle attachments, members of a stack, or even items swapped out of slots.
-				gMoveingItem.ubIdOfMercWhoOwnsTheItem = gpSMCurrentMerc->ubProfile;
+				gMoveingItem.ubIdOfMercWhoOwnsTheItem = GetSMCurrentMerc()->ubProfile;
 				gMoveingItem.bSlotIdInOtherLocation = bSlotNum;
 
 				//Restrict the cursor to the players offer area and the players inventory
@@ -4456,7 +4454,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 				}
 
 				gpItemPointer = &gMoveingItem.ItemObject;
-				gpItemPointerSoldier = gpSMCurrentMerc;
+				(void)SetItemPointerSoldier(GetSMCurrentMerc());
 			}
 
 			break;
@@ -4466,7 +4464,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 	if ( gpItemPointer != NULL )
 	{
 		//make sure the soldier is not null
-		Assert( gpItemPointerSoldier != NULL );
+		Assert( GetItemPointerSoldier() != NULL );
 
 		// Set mouse
 		SetSkiCursor( EXTERN_CURSOR );
@@ -4514,7 +4512,7 @@ void SetSkiCursor( UINT16	usCursor )
 		if( !gfSMDisableForItems )
 		{
 			// hatch out unavailable merc inventory slots
-			ReevaluateItemHatches( gpSMCurrentMerc, FALSE );
+			ReevaluateItemHatches( GetSMCurrentMerc(), FALSE );
 		}
 
 		// Set mouse
@@ -4563,6 +4561,7 @@ void SetSkiCursor( UINT16	usCursor )
 
 //		gpSkiItemPointer = NULL;
 		gpItemPointer = NULL;
+		(void)SetItemPointerSoldier(NULL);
 
 		DisableTacticalTeamPanelButtons( FALSE );
 
@@ -4573,7 +4572,7 @@ void SetSkiCursor( UINT16	usCursor )
 		if( !gfSMDisableForItems )
 		{
 			// make all merc inventory slots available again
-			ReevaluateItemHatches( gpSMCurrentMerc, TRUE );
+			ReevaluateItemHatches( GetSMCurrentMerc(), TRUE );
 		}
 
 		MSYS_ChangeRegionCursor( &gSMPanelRegion, usCursor );
@@ -6122,7 +6121,7 @@ void InitShopKeeperItemDescBox( OBJECTTYPE *pObject, UINT16 ubPocket, UINT8 ubFr
 	{
 		pShopKeeperItemDescObject = pObject;
 
-		InitItemDescriptionBox( gpSMCurrentMerc, 255, sPosX, sPosY, 0 );
+		InitItemDescriptionBox( GetSMCurrentMerc(), 255, sPosX, sPosY, 0 );
 
 		StartSKIDescriptionBox( );
 	}
@@ -6549,7 +6548,7 @@ BOOLEAN SKITryToReturnInvToOwnerOrCurrentMerc( INVENTORY_IN_SLOT *pInv )
 	if( !gfSMDisableForItems )
 	{
 		// Try to find a place to put in current merc's inventory
-		if ( SKITryToAddInvToMercsInventory( pInv, gpSMCurrentMerc ) )
+		if ( SKITryToAddInvToMercsInventory( pInv, GetSMCurrentMerc() ) )
 		{
 			return( TRUE );
 		}
@@ -6752,7 +6751,7 @@ void DealWithItemsStillOnTheTable()
 	// use the current merc, unless he's ineligible, then use the selected merc instead.
 	if( !gfSMDisableForItems )
 	{
-		pDropSoldier = gpSMCurrentMerc;
+		pDropSoldier = GetSMCurrentMerc();
 	}
 	else
 	{
@@ -6995,7 +6994,7 @@ void SelectArmsDealersDropItemToGroundRegionCallBack(MOUSE_REGION * pRegion, INT
 		// use the current merc, unless he's ineligible, then use the selected merc instead.
 		if( !gfSMDisableForItems )
 		{
-			pDropSoldier = gpSMCurrentMerc;
+			pDropSoldier = GetSMCurrentMerc();
 		}
 		else
 		{

@@ -556,7 +556,6 @@ MOUSE_REGION gTeamListDestinationRegion[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
 MOUSE_REGION gTeamListContractRegion[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
 
 OBJECTTYPE		gItemPointer;
-SOLDIERTYPE		*gpItemPointerSoldier;
 
 PathStPtr gpCharacterPreviousMercPath[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
 PathStPtr gpHelicopterPreviousMercPath = NULL;
@@ -1036,6 +1035,7 @@ void BeginSellAllCallBack( UINT8 bExitValue )
 				// HEADROCK HAM 5: Added argument
 				iPrice += SellItem( gItemPointer, TRUE );
 				gpItemPointer = NULL;
+				(void)SetItemPointerSoldier(NULL);
 				fMapInventoryItem = FALSE;
 				// HEADROCK HAM 5: Sale of $0 now re-enabled.
 				//if (iPrice == 0) {
@@ -1074,6 +1074,7 @@ void BeginDeleteAllCallBack( UINT8 bExitValue )
 				gpItemPointer = &gItemPointer;
 				// Delete Item
 				gpItemPointer = NULL;
+				(void)SetItemPointerSoldier(NULL);
 				fMapInventoryItem = FALSE;
 			}
 		}
@@ -6715,14 +6716,14 @@ UINT32 HandleMapUI( )
 					}
 
 					// if item's owner is known
-					if ( gpItemPointerSoldier != NULL )
+					if ( GetItemPointerSoldier() != NULL )
 					{
 						// make sure it's the owner's sector that's selected
-						if ( ( gpItemPointerSoldier->sSectorX != sSelMapX ) ||
-								( gpItemPointerSoldier->sSectorY != sSelMapY ) ||
-								( gpItemPointerSoldier->bSectorZ != iCurrentMapSectorZ ) )
+						if ( ( GetItemPointerSoldier()->sSectorX != sSelMapX ) ||
+								( GetItemPointerSoldier()->sSectorY != sSelMapY ) ||
+								( GetItemPointerSoldier()->bSectorZ != iCurrentMapSectorZ ) )
 						{
-							ChangeSelectedMapSector( gpItemPointerSoldier->sSectorX, gpItemPointerSoldier->sSectorY, gpItemPointerSoldier->bSectorZ );
+							ChangeSelectedMapSector( GetItemPointerSoldier()->sSectorX, GetItemPointerSoldier()->sSectorY, GetItemPointerSoldier()->bSectorZ );
 						}
 					}
 
@@ -10399,7 +10400,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					// remember which gridno the object came from
 					sObjectSourceGridNo = pSoldier->sGridNo;
 					// and who owned it last
-					gpItemPointerSoldier = pSoldier;
+					(void)SetItemPointerSoldier(pSoldier);
 
 					ReevaluateItemHatches( pSoldier, FALSE );
 				}
@@ -10408,7 +10409,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				gfReEvaluateEveryonesNothingToDo = TRUE;
 
 				// if item came from another merc
-				if ( gpItemPointerSoldier != pSoldier )
+				if ( GetItemPointerSoldier() != pSoldier )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_ITEM_PASSED_TO_MERC ], ShortItemNames[ usNewItemIndex ], pSoldier->name );
 				}
@@ -10506,7 +10507,7 @@ void InternalMAPBeginItemPointer( SOLDIERTYPE *pSoldier )
 
 	// Set global indicator
 	gpItemPointer = &gItemPointer;
-	gpItemPointerSoldier = pSoldier;
+	(void)SetItemPointerSoldier(pSoldier);
 
 	// Set mouse
 	guiExternVo = GetInterfaceGraphicForItem( &(Item[ gpItemPointer->usItem ]) );
@@ -10629,6 +10630,7 @@ void MAPEndItemPointer( )
 	if ( gpItemPointer != NULL )
 	{
 		gpItemPointer = NULL;
+		(void)SetItemPointerSoldier(NULL);
 		MSYS_ChangeRegionCursor( &gMPanelRegion , CURSOR_NORMAL );
 		MSYS_SetCurrentCursor( CURSOR_NORMAL );
 		fMapInventoryItem=FALSE;
@@ -10644,6 +10646,7 @@ void MAPEndItemPointer( )
 			ReevaluateItemHatches( gCharactersList[ bSelectedInfoChar ].usSolID, FALSE );
 		}
 	}
+	(void)SetItemPointerSoldier(NULL);
 }
 
 
@@ -13662,6 +13665,7 @@ void DestroyTheItemInCursor( )
 	// End Item pickup
 	MAPEndItemPointer( );
 	gpItemPointer = NULL;
+	(void)SetItemPointerSoldier(NULL);
 }
 
 
@@ -15203,7 +15207,7 @@ BOOLEAN CanToggleSelectedCharInventory( void )
 	// if not in inventory, and holding an item from sector inventory
 	if( !fShowInventoryFlag &&
 			( ( gMPanelRegion.Cursor == EXTERN_CURSOR ) || gpItemPointer || fMapInventoryItem ) &&
-			( gpItemPointerSoldier == NULL ) )
+			( GetItemPointerSoldier() == NULL ) )
 	{
 		// make sure he's in that sector
 		if ( ( pSoldier->sSectorX != sSelMapX ) ||

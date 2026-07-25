@@ -1,6 +1,8 @@
 #ifndef __INTERFACE_PANELS
 #define __INTERFACE_PANELS
 
+#include "TacticalInventoryUiHost.h"
+
 enum
 {
 	STANCEUP_BUTTON = 0,

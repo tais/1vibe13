@@ -59,7 +59,6 @@ class SOLDIERTYPE;
 
 void SetNewItem( SOLDIERTYPE *pSoldier, UINT8 ubInvPos, BOOLEAN fNewItem );
 
-extern	SOLDIERTYPE *gpItemDescSoldier;
 // HEADROCK HAM 5: We need access to these values for item transformation purposes
 extern BOOLEAN			gfItemDescObjectIsAttachment;
 extern OBJECTTYPE		*gpItemDescObject;

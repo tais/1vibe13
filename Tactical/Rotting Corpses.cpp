@@ -905,7 +905,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	INT32 sNewGridNo;
 
 	// ATE: Change to fix crash when item in hand
-	if ( gpItemPointer != NULL && gpItemPointerSoldier == pSoldier )
+	if ( gpItemPointer != NULL && GetItemPointerSoldier() == pSoldier )
 	{
 		CancelItemPointer( );
 	}

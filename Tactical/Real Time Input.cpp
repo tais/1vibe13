@@ -65,7 +65,6 @@ extern BOOLEAN	gfUIShowExitSouth;
 extern BOOLEAN	fMiddleButtonDown;
 extern BOOLEAN	fX1ButtonDown;
 extern BOOLEAN	fX2ButtonDown;
-extern SOLDIERTYPE *gpSMCurrentMerc;
 
 
 BOOLEAN	gfStartLookingForRubberBanding	= FALSE;
@@ -2168,7 +2167,7 @@ void HandleMouseRTX2Button( UINT32 *puiNewEvent )
 			pTeamSoldier = bLoop;
 			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 			{
-				if ( gpSMCurrentMerc != NULL && bLoop == gpSMCurrentMerc->ubID )
+				if ( GetSMCurrentMerc() != NULL && bLoop == GetSMCurrentMerc()->ubID )
 				{
 					gfUIStanceDifferent = TRUE;
 				}

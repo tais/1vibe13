@@ -10,6 +10,7 @@
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultPublisher.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
@@ -686,6 +687,44 @@ int main()
 		&legacyBraceRuntime.tacticalEntityDirectory() &&
 		legacyBraceRuntime.tacticalEntityDirectory().maximumSlots() >= 2048,
 		"EngineRuntime owns one stable bounded tactical entity directory");
+
+	TacticalInventoryUiSession inventoryUiSession;
+	const TacticalEntityId selectedInventoryActor{3, 301};
+	const TacticalEntityId cursorInventoryActor{4, 401};
+	check(inventoryUiSession.actorContextCount() == 0 &&
+		!inventoryUiSession.hasActor(
+			TacticalInventoryActorRole::SelectedMerc) &&
+		!inventoryUiSession.setActor(
+			TacticalInventoryActorRole::SelectedMerc, {}) &&
+		!inventoryUiSession.setActor(
+			static_cast<TacticalInventoryActorRole>(0xff),
+			selectedInventoryActor),
+		"inventory UI actor sessions start empty and reject invalid identities and roles");
+	check(inventoryUiSession.setActor(
+			TacticalInventoryActorRole::SelectedMerc,
+			selectedInventoryActor) &&
+		inventoryUiSession.setActor(
+			TacticalInventoryActorRole::ItemCursorOwner,
+			cursorInventoryActor) &&
+		inventoryUiSession.actor(
+			TacticalInventoryActorRole::SelectedMerc) ==
+			selectedInventoryActor &&
+		inventoryUiSession.actor(
+			TacticalInventoryActorRole::ItemCursorOwner) ==
+			cursorInventoryActor &&
+		inventoryUiSession.actorContextCount() == 2,
+		"inventory UI actor roles retain exact pointer-free tactical identities");
+	inventoryUiSession.clearActor(
+		TacticalInventoryActorRole::SelectedMerc);
+	check(!inventoryUiSession.hasActor(
+			TacticalInventoryActorRole::SelectedMerc) &&
+		inventoryUiSession.actorContextCount() == 1,
+		"inventory UI actor roles clear independently");
+	inventoryUiSession.reset();
+	check(inventoryUiSession.actorContextCount() == 0 &&
+		&legacyBraceRuntime.tacticalInventoryUiSession() ==
+			&legacyBraceRuntime.tacticalInventoryUiSession(),
+		"EngineRuntime owns one stable resettable inventory UI actor session");
 
 	StrategicGroupDirectory strategicGroupDirectory;
 	check(strategicGroupDirectory.activeCount() == 0 &&

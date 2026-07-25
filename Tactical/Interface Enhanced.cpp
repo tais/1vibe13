@@ -55,7 +55,6 @@ MOUSE_REGION		gUDBFasthelpRegions[NUM_UDB_FASTHELP_REGIONS];
 extern INV_DESC_STATS gMoneyStats[];
 extern INV_DESC_STATS gLBEStats[];
 extern INV_ATTACHXY gItemDescAttachmentsXY[];
-extern SOLDIERTYPE *gpItemDescSoldier;
 // HEADROCK HAM 4: Declare here so other functions may use it.
 void DrawSecondaryStats( OBJECTTYPE * gpItemDescObject );
 void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject );
@@ -2869,9 +2868,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 			}
 		}
 		///////////////////// FLAT BASE MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -2893,9 +2892,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// PERCENT BASE MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -2917,9 +2916,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// FLAT AIM MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -2941,9 +2940,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// PERCENT AIM MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -2965,9 +2964,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// AIMING LEVELS MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS ) != 0
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS ) != 0 )
 		{
 			if (cnt >= sFirstLine && cnt < sLastLine)
 			{
@@ -2992,7 +2991,7 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		///////////////////// AIM BONUS MODIFIER
 		if(UsingNewCTHSystem() == false)
 		{
-			if ( GetAimBonus( gpItemDescSoldier, gpItemDescObject, 100, 1 ) != 0 )
+			if ( GetAimBonus( GetItemDescSoldier(), gpItemDescObject, 100, 1 ) != 0 )
 			{
 				if (cnt >= sFirstLine && cnt < sLastLine)
 				{
@@ -3043,9 +3042,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// CTH CAP MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -3067,9 +3066,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// GUN HANDLING MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -3091,9 +3090,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// DROP COMPENSATION MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -3115,9 +3114,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// TARGET TRACKING MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -3342,9 +3341,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 
 		// HEADROCK HAM 5: Moved here because it makes more sense.
 		///////////////////// MAX COUNTER FORCE
-		if ((CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_STAND ) != 0 
-			|| CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH ) != 0 
-			|| CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE ) != 0 ) )
+		if ((CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND ) != 0
+			|| CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH ) != 0
+			|| CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE ) != 0 ) )
 		{
 			if( UsingNewCTHSystem() == true && Item[gpItemDescObject->usItem].usItemClass == IC_GUN )
 			{
@@ -3366,9 +3365,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// MAX COUNTER FORCE MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true ) //&& Item[gpItemDescObject->usItem].usItemClass == IC_GUN )
 			{
@@ -3390,9 +3389,9 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 		}
 
 		///////////////////// COUNTER FORCE ACCURACY MODIFIER
-		if ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 
-			|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 )
+		if ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0
+			|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 )
 		{
 			if( UsingNewCTHSystem() == true )
 			{
@@ -4203,7 +4202,7 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 			}
 			
 			////////////////////// MORAL MODIFIER
-			if ( FoodOpinions[gpItemDescSoldier->ubProfile].sFoodOpinion[foodtype] != 0 )
+			if ( FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[foodtype] != 0 )
 			{
 				if (cnt >= sFirstLine && cnt < sLastLine)
 				{
@@ -5085,12 +5084,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// FLAT BASE MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5103,12 +5102,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// PERCENT BASE MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5121,12 +5120,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// FLAT AIM MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5139,12 +5138,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// PERCENT AIM MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5157,12 +5156,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// AIM LEVELS MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS ) != 0
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS ) != 0
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() )
 		{
@@ -5178,8 +5177,8 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	if(UsingNewCTHSystem() == false)
 	{
 		//if ( GetFlatAimBonus( gpItemDescObject ) != 0 )
-		if ( ( GetAimBonus( gpItemDescSoldier, gpItemDescObject, 100, 1 ) != 0 ) ||
-			( fComparisonMode && GetAimBonus( gpItemDescSoldier, gpComparedItemDescObject, 100, 1 ) != 0 ) )
+		if ( ( GetAimBonus( GetItemDescSoldier(), gpItemDescObject, 100, 1 ) != 0 ) ||
+			( fComparisonMode && GetAimBonus( GetItemDescSoldier(), gpComparedItemDescObject, 100, 1 ) != 0 ) )
 		{
 			if (cnt >= sFirstLine && cnt < sLastLine)
 			{
@@ -5206,12 +5205,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// CTH CAP MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5224,12 +5223,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// GUN HANDLING MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5242,12 +5241,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// DROP COMPENSATION MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5259,12 +5258,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 		}
 	}
 	///////////////////// TARGET TRACKING MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5391,12 +5390,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 
 	///////////////////// MAX COUNTER FORCE
 	// HEADROCK HAM 5: Moved here because it makes more sense.
-	if ( (CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_STAND ) != 0 
-		|| CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH ) != 0 
-		|| CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE ) != 0 ) ||
-		( fComparisonMode && (CalcCounterForceMax( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND ) != 0 
-		|| CalcCounterForceMax( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH ) != 0 
-		|| CalcCounterForceMax( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE ) != 0 ) ) )
+	if ( (CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND ) != 0
+		|| CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH ) != 0
+		|| CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE ) != 0 ) ||
+		( fComparisonMode && (CalcCounterForceMax( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND ) != 0
+		|| CalcCounterForceMax( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH ) != 0
+		|| CalcCounterForceMax( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true && Item[gpItemDescObject->usItem].usItemClass == IC_GUN )
 		{
@@ -5409,12 +5408,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// MAX COUNTER FORCE MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true ) //&& Item[gpItemDescObject->usItem].usItemClass == IC_GUN )
 		{
@@ -5427,12 +5426,12 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 	}
 
 	///////////////////// COUNTER FORCE ACCURACY MODIFIER
-	if ( ( GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 ) ||
-		( fComparisonMode && ( GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 
-		|| GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 ) ) )
+	if ( ( GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 ) ||
+		( fComparisonMode && ( GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0
+		|| GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY ) != 0 ) ) )
 	{
 		if( UsingNewCTHSystem() == true )
 		{
@@ -5904,8 +5903,8 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 				cnt++;
 			}
 
-			if ( ( FoodOpinions[gpItemDescSoldier->ubProfile].sFoodOpinion[Item[gpItemDescObject->usItem].foodtype] != 0 ) ||
-				( fComparisonMode && FoodOpinions[gpItemDescSoldier->ubProfile].sFoodOpinion[Item[gpComparedItemDescObject->usItem].foodtype] != 0 ) )
+			if ( ( FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[Item[gpItemDescObject->usItem].foodtype] != 0 ) ||
+				( fComparisonMode && FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[Item[gpComparedItemDescObject->usItem].foodtype] != 0 ) )
 			{
 				//////////////////// MORAL MODIFIER
 				if (cnt >= sFirstLine && cnt < sLastLine)
@@ -6798,7 +6797,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 	}
 	else
 	{
-		ubAttackAPs = BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpItemDescObject, gpItemDescSoldier );
+		ubAttackAPs = BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpItemDescObject, GetItemDescSoldier() );
 		ubBasicAttackAPs = BaseAPsToShootOrStabNoModifier( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpItemDescObject );
 	}
 
@@ -7072,7 +7071,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				iRangeValue = (UINT16)((FLOAT)iRangeValue * (FLOAT)(gGameExternalOptions.iGunRangeModifier / 100) * gItemSettings.fRangeModifierThrowingKnife / 10.0f);
 
 			// Get Final Range value
-			UINT16 iFinalRangeValue = (UINT16)( GunRange( gpItemDescObject, gpItemDescSoldier ) / 10.0f );
+			UINT16 iFinalRangeValue = (UINT16)( GunRange( gpItemDescObject, GetItemDescSoldier() ) / 10.0f );
 
 			// Get difference
 			INT16 iRangeModifier = iFinalRangeValue - iRangeValue;
@@ -7100,7 +7099,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 					iComparedRangeValue = (UINT16)((FLOAT)iComparedRangeValue * (FLOAT)(gGameExternalOptions.iGunRangeModifier / 100) * gItemSettings.fRangeModifierThrowingKnife / 10.0f);
 
 				// Get Final Range value
-				UINT16 iComparedFinalRangeValue = (UINT16)( GunRange( gpComparedItemDescObject, gpItemDescSoldier ) / 10.0f );
+				UINT16 iComparedFinalRangeValue = (UINT16)( GunRange( gpComparedItemDescObject, GetItemDescSoldier() ) / 10.0f );
 				// Get difference
 				INT16 iComparedRangeModifier = iComparedFinalRangeValue - iComparedRangeValue;
 				// Print difference in base value
@@ -7157,7 +7156,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				iHandlingValue *= gItemSettings.fHandlingModifierLauncher;
 
 			// Get modifier
-			INT16 iHandlingModifier = (iHandlingValue * GetObjectModifier( gpItemDescSoldier, gpItemDescObject , ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING )) / 100;
+			INT16 iHandlingModifier = (iHandlingValue * GetObjectModifier( GetItemDescSoldier(), gpItemDescObject , ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING )) / 100;
 
 			// Get Final Gun Handling value
 			UINT16 iFinalHandlingValue =  iHandlingValue + iHandlingModifier;
@@ -7181,7 +7180,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				else if ( Item[ gpComparedItemDescObject->usItem ].usItemClass == IC_LAUNCHER )
 					iComparedHandlingValue *= gItemSettings.fHandlingModifierLauncher;
 				// Get modifier
-				INT16 iComparedHandlingModifier = (iHandlingValue * GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject , ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING )) / 100;
+				INT16 iComparedHandlingModifier = (iHandlingValue * GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject , ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING )) / 100;
 				// Get Final Gun Handling value
 				UINT16 iComparedFinalHandlingValue =  iComparedHandlingValue + iComparedHandlingModifier;
 				// Print difference in base value
@@ -7205,7 +7204,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			else if ( Item[ gpComparedItemDescObject->usItem ].usItemClass == IC_LAUNCHER )
 				iHandlingValue *= gItemSettings.fHandlingModifierLauncher;
 			// Get modifier
-			INT16 iHandlingModifier = (iHandlingValue * GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject , ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING )) / 100;
+			INT16 iHandlingModifier = (iHandlingValue * GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject , ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING )) / 100;
 			// Get Final Gun Handling value
 			UINT16 iFinalHandlingValue =  iHandlingValue + iHandlingModifier;
 			// Print base value
@@ -7230,11 +7229,11 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			}
 			
 			// Get Final Aiming Levels
-			UINT16 iFinalAimLevelsValue = GetAllowedAimingLevelsForItem( gpItemDescSoldier, gpItemDescObject, ANIM_STAND );
+			UINT16 iFinalAimLevelsValue = GetAllowedAimingLevelsForItem( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND );
 
 			// Get modifier
-			INT16 iAimLevelsModifier = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
-			iAimLevelsModifier += GetAimLevelsTraitModifier( gpItemDescSoldier, gpItemDescObject );
+			INT16 iAimLevelsModifier = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
+			iAimLevelsModifier += GetAimLevelsTraitModifier( GetItemDescSoldier(), gpItemDescObject );
 
 			// Get Base Value
 			UINT16 iAimLevelsValue = iFinalAimLevelsValue - iAimLevelsModifier;
@@ -7263,11 +7262,11 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			else
 			{
 				// Get Final Aiming Levels
-				UINT16 iComparedFinalAimLevelsValue = GetAllowedAimingLevelsForItem( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND );
+				UINT16 iComparedFinalAimLevelsValue = GetAllowedAimingLevelsForItem( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND );
 
 				// Get modifier
-				INT16 iComparedAimLevelsModifier = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
-				iComparedAimLevelsModifier += GetAimLevelsTraitModifier( gpItemDescSoldier, gpComparedItemDescObject );
+				INT16 iComparedAimLevelsModifier = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
+				iComparedAimLevelsModifier += GetAimLevelsTraitModifier( GetItemDescSoldier(), gpComparedItemDescObject );
 
 				// Get Base Value
 				UINT16 iComparedAimLevelsValue = iComparedFinalAimLevelsValue - iComparedAimLevelsModifier;
@@ -7299,10 +7298,10 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			else
 				ubNumLine = 3;
 			// Get Final Aiming Levels
-			UINT16 iFinalAimLevelsValue = GetAllowedAimingLevelsForItem( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND );
+			UINT16 iFinalAimLevelsValue = GetAllowedAimingLevelsForItem( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND );
 			// Get modifier
-			INT16 iAimLevelsModifier = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
-			iAimLevelsModifier += GetAimLevelsTraitModifier( gpItemDescSoldier, gpComparedItemDescObject );
+			INT16 iAimLevelsModifier = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
+			iAimLevelsModifier += GetAimLevelsTraitModifier( GetItemDescSoldier(), gpComparedItemDescObject );
 			// Get Base Value
 			UINT16 iAimLevelsValue = iFinalAimLevelsValue - iAimLevelsModifier;
 			if (UsingNewCTHSystem() == true)
@@ -7327,7 +7326,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 		//////////////// OCTH AIMING BONUS
 		if ( UsingNewCTHSystem() == false && 
 			(GetFlatAimBonus( gpItemDescObject ) != 0 || Item[gpItemDescObject->usItem].aimbonus != 0) )
-		//if ( UsingNewCTHSystem() == false && GetAimBonus( gpItemDescSoldier, gpItemDescObject, 100, 1 ) != 0 )
+		//if ( UsingNewCTHSystem() == false && GetAimBonus( GetItemDescSoldier(), gpItemDescObject, 100, 1 ) != 0 )
 		{
 			// Set line to draw into
 			ubNumLine = 4;
@@ -7395,7 +7394,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			// Get final Magnification value
 			FLOAT iFinalScopeMagValue = __max( iScopeMagValue, iScopeMagModifier );
 			// get the real effective mag factor for this soldier
-			iFinalScopeMagValue = CalcEffectiveMagFactor(gpItemDescSoldier, iFinalScopeMagValue);
+			iFinalScopeMagValue = CalcEffectiveMagFactor(GetItemDescSoldier(), iFinalScopeMagValue);
 
 			if( !fComparisonMode )
 			{
@@ -7421,7 +7420,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				// Get final Magnification value
 				FLOAT iComparedFinalScopeMagValue = __max( iComparedScopeMagValue, iComparedScopeMagModifier );
 				// get the real effective mag factor for this soldier
-				iComparedFinalScopeMagValue = CalcEffectiveMagFactor(gpItemDescSoldier, iComparedFinalScopeMagValue);
+				iComparedFinalScopeMagValue = CalcEffectiveMagFactor(GetItemDescSoldier(), iComparedFinalScopeMagValue);
 
 				// Print difference in base value
 				DrawPropertyValueInColourFloat( iComparedScopeMagValue - iScopeMagValue, ubNumLine, 1, fComparisonMode, FALSE, TRUE );
@@ -7441,7 +7440,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			// Get final Magnification value
 			FLOAT iFinalScopeMagValue = __max( iScopeMagValue, iScopeMagModifier );
 			// get the real effective mag factor for this soldier
-			iFinalScopeMagValue = CalcEffectiveMagFactor(gpItemDescSoldier, iFinalScopeMagValue);
+			iFinalScopeMagValue = CalcEffectiveMagFactor(GetItemDescSoldier(), iFinalScopeMagValue);
 
 			// Print base value
 			if( iScopeMagValue > 1.0f )
@@ -8057,11 +8056,11 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			if( gGameOptions.fNewTraitSystem )
 			{
 				// LMGs
-				if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_LMG && HAS_SKILL_TRAIT(gpItemDescSoldier, AUTO_WEAPONS_NT) )
-					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubAWPercentReadyLMGReduction * NUM_SKILL_TRAITS(gpItemDescSoldier, AUTO_WEAPONS_NT) ) / 100.0 );
+				if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_LMG && HAS_SKILL_TRAIT(GetItemDescSoldier(), AUTO_WEAPONS_NT) )
+					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubAWPercentReadyLMGReduction * NUM_SKILL_TRAITS(GetItemDescSoldier(), AUTO_WEAPONS_NT) ) / 100.0 );
 				// Pistols and Revolvers
-				else if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_PISTOL && HAS_SKILL_TRAIT(gpItemDescSoldier, GUNSLINGER_NT) )
-					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubGSPercentReadyPistolsReduction * NUM_SKILL_TRAITS(gpItemDescSoldier, GUNSLINGER_NT) ) / 100.0 );
+				else if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_PISTOL && HAS_SKILL_TRAIT(GetItemDescSoldier(), GUNSLINGER_NT) )
+					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubGSPercentReadyPistolsReduction * NUM_SKILL_TRAITS(GetItemDescSoldier(), GUNSLINGER_NT) ) / 100.0 );
 			}
 
 			// Get base Draw Cost
@@ -8087,11 +8086,11 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				if( gGameOptions.fNewTraitSystem )
 				{
 					// LMGs
-					if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_LMG && HAS_SKILL_TRAIT(gpItemDescSoldier, AUTO_WEAPONS_NT) )
-						iComparedFinalDrawAPCost = (FLOAT)iComparedFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubAWPercentReadyLMGReduction * NUM_SKILL_TRAITS(gpItemDescSoldier, AUTO_WEAPONS_NT) ) / 100.0 );
+					if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_LMG && HAS_SKILL_TRAIT(GetItemDescSoldier(), AUTO_WEAPONS_NT) )
+						iComparedFinalDrawAPCost = (FLOAT)iComparedFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubAWPercentReadyLMGReduction * NUM_SKILL_TRAITS(GetItemDescSoldier(), AUTO_WEAPONS_NT) ) / 100.0 );
 					// Pistols and Revolvers
-					else if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_PISTOL && HAS_SKILL_TRAIT(gpItemDescSoldier, GUNSLINGER_NT) )
-						iComparedFinalDrawAPCost = (FLOAT)iComparedFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubGSPercentReadyPistolsReduction * NUM_SKILL_TRAITS(gpItemDescSoldier, GUNSLINGER_NT) ) / 100.0 );
+					else if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_PISTOL && HAS_SKILL_TRAIT(GetItemDescSoldier(), GUNSLINGER_NT) )
+						iComparedFinalDrawAPCost = (FLOAT)iComparedFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubGSPercentReadyPistolsReduction * NUM_SKILL_TRAITS(GetItemDescSoldier(), GUNSLINGER_NT) ) / 100.0 );
 				}
 
 				// Get base Draw Cost
@@ -8115,11 +8114,11 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			if( gGameOptions.fNewTraitSystem )
 			{
 				// LMGs
-				if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_LMG && HAS_SKILL_TRAIT(gpItemDescSoldier, AUTO_WEAPONS_NT) )
-					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubAWPercentReadyLMGReduction * NUM_SKILL_TRAITS(gpItemDescSoldier, AUTO_WEAPONS_NT) ) / 100.0 );
+				if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_LMG && HAS_SKILL_TRAIT(GetItemDescSoldier(), AUTO_WEAPONS_NT) )
+					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubAWPercentReadyLMGReduction * NUM_SKILL_TRAITS(GetItemDescSoldier(), AUTO_WEAPONS_NT) ) / 100.0 );
 				// Pistols and Revolvers
-				else if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_PISTOL && HAS_SKILL_TRAIT(gpItemDescSoldier, GUNSLINGER_NT) )
-					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubGSPercentReadyPistolsReduction * NUM_SKILL_TRAITS(gpItemDescSoldier, GUNSLINGER_NT) ) / 100.0 );
+				else if( Weapon[gpItemDescObject->usItem].ubWeaponType == GUN_PISTOL && HAS_SKILL_TRAIT(GetItemDescSoldier(), GUNSLINGER_NT) )
+					iFinalDrawAPCost = (FLOAT)iFinalDrawAPCost * __max(0, (FLOAT)(100 - gSkillTraitValues.ubGSPercentReadyPistolsReduction * NUM_SKILL_TRAITS(GetItemDescSoldier(), GUNSLINGER_NT) ) / 100.0 );
 			}
 
 			// Get base Draw Cost
@@ -8148,7 +8147,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			ubNumLine = 14;
 
 			// Get final Attack Cost
-			INT16 iFinalSingleAPCost = (INT16)(ubAttackAPs * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpItemDescObject, WM_NORMAL ) + 0.5);
+			INT16 iFinalSingleAPCost = (INT16)(ubAttackAPs * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpItemDescObject, WM_NORMAL ) + 0.5);
 
 			// Get base Attack Cost
 			INT16 iSingleAPCost = ubBasicAttackAPs;
@@ -8168,7 +8167,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			else if( !Weapon[gpComparedItemDescObject->usItem].NoSemiAuto )
 			{
 				// Get final Attack Cost
-				INT16 iComparedFinalSingleAPCost = (INT16)(BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, gpItemDescSoldier ) * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpItemDescObject, WM_NORMAL ) + 0.5);
+				INT16 iComparedFinalSingleAPCost = (INT16)(BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, GetItemDescSoldier() ) * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpItemDescObject, WM_NORMAL ) + 0.5);
 				// Get base Attack Cost
 				INT16 iComparedSingleAPCost = BaseAPsToShootOrStabNoModifier( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject );
 				// Get Attack Cost Modifier
@@ -8192,7 +8191,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			// Set line to draw into
 			ubNumLine = 14;
 			// Get final Attack Cost
-			INT16 iFinalSingleAPCost = (INT16)(BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, gpItemDescSoldier ) * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpItemDescObject, WM_NORMAL ) + 0.5);
+			INT16 iFinalSingleAPCost = (INT16)(BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, GetItemDescSoldier() ) * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpItemDescObject, WM_NORMAL ) + 0.5);
 			// Get base Attack Cost
 			INT16 iSingleAPCost = BaseAPsToShootOrStabNoModifier( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject );
 			// Get Attack Cost Modifier
@@ -8212,7 +8211,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			ubNumLine = 15;
 
 			// Get final Burst Cost
-			INT16 iFinalBurstAPCost = (INT16)( (FLOAT)ubAttackAPs * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpItemDescObject, WM_BURST ) + CalcAPsToBurst( APBPConstants[DEFAULT_APS], gpItemDescObject, gpItemDescSoldier ) + 0.5f );
+			INT16 iFinalBurstAPCost = (INT16)( (FLOAT)ubAttackAPs * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpItemDescObject, WM_BURST ) + CalcAPsToBurst( APBPConstants[DEFAULT_APS], gpItemDescObject, GetItemDescSoldier() ) + 0.5f );
 
 			// Get base Burst Cost
 			INT16 iBurstAPCost = ubBasicAttackAPs + CalcAPsToBurstNoModifier( APBPConstants[DEFAULT_APS], gpItemDescObject );
@@ -8232,9 +8231,9 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			else if( GetShotsPerBurst(gpComparedItemDescObject) > 0 )
 			{
 				// Get final Burst Cost
-				INT16 iComparedFinalBurstAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, gpItemDescSoldier )
-					 * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpComparedItemDescObject, WM_BURST )
-					 + CalcAPsToBurst( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, gpItemDescSoldier ) + 0.5f );
+				INT16 iComparedFinalBurstAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, GetItemDescSoldier() )
+					 * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpComparedItemDescObject, WM_BURST )
+					 + CalcAPsToBurst( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, GetItemDescSoldier() ) + 0.5f );
 				// Get base Burst Cost
 				INT16 iComparedBurstAPCost = BaseAPsToShootOrStabNoModifier( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject )
 					+ CalcAPsToBurstNoModifier( APBPConstants[DEFAULT_APS], gpComparedItemDescObject );
@@ -8258,9 +8257,9 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 		{
 			// Set line to draw into
 			ubNumLine = 15;
-			INT16 iFinalBurstAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, gpItemDescSoldier )
-				 * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpComparedItemDescObject, WM_BURST )
-				 + CalcAPsToBurst( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, gpItemDescSoldier ) + 0.5f );
+			INT16 iFinalBurstAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, GetItemDescSoldier() )
+				 * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpComparedItemDescObject, WM_BURST )
+				 + CalcAPsToBurst( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, GetItemDescSoldier() ) + 0.5f );
 			// Get base Burst Cost
 			INT16 iBurstAPCost = BaseAPsToShootOrStabNoModifier( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject )
 				+ CalcAPsToBurstNoModifier( APBPConstants[DEFAULT_APS], gpComparedItemDescObject );
@@ -8281,7 +8280,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			ubNumLine = 16;
 
 			// Get final Autofire Cost
-			INT16 iFinalAutoAPCost = (INT16)( (FLOAT)ubAttackAPs * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpItemDescObject, WM_AUTOFIRE ) + CalcAPsToAutofire( APBPConstants[DEFAULT_APS], gpItemDescObject, 3, gpItemDescSoldier ) + 0.5f );
+			INT16 iFinalAutoAPCost = (INT16)( (FLOAT)ubAttackAPs * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpItemDescObject, WM_AUTOFIRE ) + CalcAPsToAutofire( APBPConstants[DEFAULT_APS], gpItemDescObject, 3, GetItemDescSoldier() ) + 0.5f );
 
 			// Get base Autofire Cost
 			INT16 iAutoAPCost = ubBasicAttackAPs + CalcAPsToAutofireNoModifier( APBPConstants[DEFAULT_APS], gpItemDescObject, 3 );
@@ -8301,9 +8300,9 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			else if( GetAutofireShotsPerFiveAPs(gpComparedItemDescObject) > 0 )
 			{
 				// Get final Autofire Cost
-				INT16 iComparedFinalAutoAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, gpItemDescSoldier )
-					 * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpComparedItemDescObject, WM_AUTOFIRE )
-					 + CalcAPsToAutofire( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, 3, gpItemDescSoldier ) + 0.5f );
+				INT16 iComparedFinalAutoAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, GetItemDescSoldier() )
+					 * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpComparedItemDescObject, WM_AUTOFIRE )
+					 + CalcAPsToAutofire( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, 3, GetItemDescSoldier() ) + 0.5f );
 				// Get base Autofire Cost
 				INT16 iComparedAutoAPCost = BaseAPsToShootOrStabNoModifier( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject )
 					+ CalcAPsToAutofireNoModifier( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, 3 );
@@ -8328,9 +8327,9 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			// Set line to draw into
 			ubNumLine = 16;
 			// Get final Autofire Cost
-			INT16 iFinalAutoAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, gpItemDescSoldier )
-				 * GetAttackAPTraitMultiplier( gpItemDescSoldier, gpComparedItemDescObject, WM_AUTOFIRE )
-				 + CalcAPsToAutofire( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, 3, gpItemDescSoldier ) + 0.5f );
+			INT16 iFinalAutoAPCost = (INT16)( (FLOAT)BaseAPsToShootOrStab( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject, GetItemDescSoldier() )
+				 * GetAttackAPTraitMultiplier( GetItemDescSoldier(), gpComparedItemDescObject, WM_AUTOFIRE )
+				 + CalcAPsToAutofire( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, 3, GetItemDescSoldier() ) + 0.5f );
 			// Get base Autofire Cost
 			INT16 iAutoAPCost = BaseAPsToShootOrStabNoModifier( APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], gpComparedItemDescObject )
 				+ CalcAPsToAutofireNoModifier( APBPConstants[DEFAULT_APS], gpComparedItemDescObject, 3 );
@@ -8357,19 +8356,19 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				// pistols and revolvers
 				if( Weapon[ gpItemDescObject->usItem ].ubWeaponType == GUN_PISTOL || Weapon[ gpItemDescObject->usItem ].ubWeaponType == GUN_M_PISTOL )
 					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost 
-										* max(0,( 100 - gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * NUM_SKILL_TRAITS( gpItemDescSoldier, GUNSLINGER_NT )
-										- gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
+										* max(0,( 100 - gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * NUM_SKILL_TRAITS( GetItemDescSoldier(), GUNSLINGER_NT )
+										- gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
 				// shotguns
 				else if( Weapon[ gpItemDescObject->usItem ].ubWeaponType == GUN_SHOTGUN && Weapon[gpItemDescObject->usItem].swapClips != 1 )
 					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost 
-										* max(0,(100 - gSkillTraitValues.ubRAReloadSpeedShotgunsManual * NUM_SKILL_TRAITS( gpItemDescSoldier, RANGER_NT ) 
-										- gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
+										* max(0,(100 - gSkillTraitValues.ubRAReloadSpeedShotgunsManual * NUM_SKILL_TRAITS( GetItemDescSoldier(), RANGER_NT )
+										- gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
 				// ambidextrous reload bullets
 				else if( Weapon[gpItemDescObject->usItem].swapClips != 1 )
-					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
+					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
 				// ambidextrous reload magazines
 				else
-					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
+					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
 			}
 
 			// Get base Reload Cost
@@ -8402,19 +8401,19 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 					// pistols and revolvers
 					if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_PISTOL || Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_M_PISTOL )
 						iComparedFinalReloadAPCost = (INT16)( (FLOAT)iComparedFinalReloadAPCost 
-											* max(0,( 100 - gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * NUM_SKILL_TRAITS( gpItemDescSoldier, GUNSLINGER_NT )
-											- gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
+											* max(0,( 100 - gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * NUM_SKILL_TRAITS( GetItemDescSoldier(), GUNSLINGER_NT )
+											- gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
 					// shotguns
 					else if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_SHOTGUN && Weapon[gpComparedItemDescObject->usItem].swapClips != 1 )
 						iComparedFinalReloadAPCost = (INT16)( (FLOAT)iComparedFinalReloadAPCost 
-											* max(0,(100 - gSkillTraitValues.ubRAReloadSpeedShotgunsManual * NUM_SKILL_TRAITS( gpItemDescSoldier, RANGER_NT ) 
-											- gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
+											* max(0,(100 - gSkillTraitValues.ubRAReloadSpeedShotgunsManual * NUM_SKILL_TRAITS( GetItemDescSoldier(), RANGER_NT )
+											- gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
 					// ambidextrous reload bullets
 					else if( Weapon[gpComparedItemDescObject->usItem].swapClips != 1 )
-						iComparedFinalReloadAPCost = (INT16)( (FLOAT)iComparedFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
+						iComparedFinalReloadAPCost = (INT16)( (FLOAT)iComparedFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
 					// ambidextrous reload magazines
 					else
-						iComparedFinalReloadAPCost = (INT16)( (FLOAT)iComparedFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
+						iComparedFinalReloadAPCost = (INT16)( (FLOAT)iComparedFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
 				}
 
 				// Get base Reload Cost
@@ -8451,19 +8450,19 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				// pistols and revolvers
 				if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_PISTOL || Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_M_PISTOL )
 					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost 
-										* max(0,( 100 - gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * NUM_SKILL_TRAITS( gpItemDescSoldier, GUNSLINGER_NT )
-										- gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
+										* max(0,( 100 - gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * NUM_SKILL_TRAITS( GetItemDescSoldier(), GUNSLINGER_NT )
+										- gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT ) ) ) / 100.0f + 0.5f );
 				// shotguns
 				else if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_SHOTGUN && Weapon[gpComparedItemDescObject->usItem].swapClips != 1 )
 					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost 
-										* max(0,(100 - gSkillTraitValues.ubRAReloadSpeedShotgunsManual * NUM_SKILL_TRAITS( gpItemDescSoldier, RANGER_NT ) 
-										- gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT ) ) ) / 100.0 + 0.5f );
+										* max(0,(100 - gSkillTraitValues.ubRAReloadSpeedShotgunsManual * NUM_SKILL_TRAITS( GetItemDescSoldier(), RANGER_NT )
+										- gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT ) ) ) / 100.0 + 0.5f );
 				// ambidextrous reload bullets
 				else if( Weapon[gpComparedItemDescObject->usItem].swapClips != 1 )
-					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
+					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedLoose * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
 				// ambidextrous reload magazines
 				else
-					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( gpItemDescSoldier, AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
+					iFinalReloadAPCost = (INT16)( (FLOAT)iFinalReloadAPCost * max( 0,(100 - gSkillTraitValues.ubAMReloadSpeedMagazines * NUM_SKILL_TRAITS( GetItemDescSoldier(), AMBIDEXTROUS_NT )) ) / 100.0f + 0.5f);
 			}
 
 				// Get base Reload Cost
@@ -8506,10 +8505,10 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			{
 				// rifles and sniper rifles
 				if( Weapon[ gpItemDescObject->usItem ].ubWeaponType == GUN_SN_RIFLE || Weapon[ gpItemDescObject->usItem ].ubWeaponType == GUN_RIFLE )
-					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubSNChamberRoundAPsReduction * NUM_SKILL_TRAITS( gpItemDescSoldier, SNIPER_NT )) / 100.0f + 0.5 );
+					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubSNChamberRoundAPsReduction * NUM_SKILL_TRAITS( GetItemDescSoldier(), SNIPER_NT )) / 100.0f + 0.5 );
 				// shotguns
 				else if( Weapon[ gpItemDescObject->usItem ].ubWeaponType == GUN_SHOTGUN )
-					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( gpItemDescSoldier, RANGER_NT ))  /100.0f + 0.5);
+					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( GetItemDescSoldier(), RANGER_NT ))  /100.0f + 0.5);
 			}
 
 			// Get manual reload cost modifier
@@ -8543,10 +8542,10 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				{
 					// rifles and sniper rifles
 					if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_SN_RIFLE || Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_RIFLE )
-						iComparedFinalManualReloadAPCost = (INT16)( (FLOAT)iComparedFinalManualReloadAPCost * (100 - gSkillTraitValues.ubSNChamberRoundAPsReduction * NUM_SKILL_TRAITS( gpItemDescSoldier, SNIPER_NT )) / 100.0f + 0.5 );
+						iComparedFinalManualReloadAPCost = (INT16)( (FLOAT)iComparedFinalManualReloadAPCost * (100 - gSkillTraitValues.ubSNChamberRoundAPsReduction * NUM_SKILL_TRAITS( GetItemDescSoldier(), SNIPER_NT )) / 100.0f + 0.5 );
 					// shotguns
 					else if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_SHOTGUN )
-						iComparedFinalManualReloadAPCost = (INT16)( (FLOAT)iComparedFinalManualReloadAPCost * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( gpItemDescSoldier, RANGER_NT ))  /100.0f + 0.5);
+						iComparedFinalManualReloadAPCost = (INT16)( (FLOAT)iComparedFinalManualReloadAPCost * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( GetItemDescSoldier(), RANGER_NT ))  /100.0f + 0.5);
 				}
 
 				// Get manual reload cost modifier
@@ -8586,10 +8585,10 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 			{
 				// rifles and sniper rifles
 				if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_SN_RIFLE || Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_RIFLE )
-					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubSNChamberRoundAPsReduction * NUM_SKILL_TRAITS( gpItemDescSoldier, SNIPER_NT )) / 100.0f + 0.5 );
+					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubSNChamberRoundAPsReduction * NUM_SKILL_TRAITS( GetItemDescSoldier(), SNIPER_NT )) / 100.0f + 0.5 );
 				// shotguns
 				else if( Weapon[ gpComparedItemDescObject->usItem ].ubWeaponType == GUN_SHOTGUN )
-					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( gpItemDescSoldier, RANGER_NT ))  /100.0f + 0.5);
+					iFinalManualReloadAPCost = (INT16)( (FLOAT)iFinalManualReloadAPCost * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( GetItemDescSoldier(), RANGER_NT ))  /100.0f + 0.5);
 			}
 
 			// Get manual reload cost modifier
@@ -8617,7 +8616,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				FLOAT iFinalRecoilY = 0;
 
 				// Get final Recoil
-				GetRecoil( gpItemDescSoldier, gpItemDescObject, &iFinalRecoilX, &iFinalRecoilY, 3 );
+				GetRecoil( GetItemDescSoldier(), gpItemDescObject, &iFinalRecoilX, &iFinalRecoilY, 3 );
 
 				// Get base Recoil
 				FLOAT iRecoilX = Weapon[ gpItemDescObject->usItem ].bRecoilX;
@@ -8653,7 +8652,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 					FLOAT iComparedFinalRecoilY = 0;
 
 					// Get final Recoil
-					GetRecoil( gpItemDescSoldier, gpComparedItemDescObject, &iComparedFinalRecoilX, &iComparedFinalRecoilY, 3 );
+					GetRecoil( GetItemDescSoldier(), gpComparedItemDescObject, &iComparedFinalRecoilX, &iComparedFinalRecoilY, 3 );
 
 					// Get base Recoil
 					FLOAT iComparedRecoilX = Weapon[ gpComparedItemDescObject->usItem ].bRecoilX;
@@ -8754,7 +8753,7 @@ void DrawWeaponValues( OBJECTTYPE * gpItemDescObject )
 				FLOAT iFinalRecoilY = 0;
 
 				// Get final Recoil
-				GetRecoil( gpItemDescSoldier, gpComparedItemDescObject, &iFinalRecoilX, &iFinalRecoilY, 3 );
+				GetRecoil( GetItemDescSoldier(), gpComparedItemDescObject, &iFinalRecoilX, &iFinalRecoilY, 3 );
 
 				// Get base Recoil
 				FLOAT iRecoilX = Weapon[ gpComparedItemDescObject->usItem ].bRecoilX;
@@ -10361,14 +10360,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// FLAT BASE MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATBASE );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATBASE );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATBASE );
 	}
 	if ( ( ( iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0 ) ||
 		( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
@@ -10419,14 +10418,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// PERCENT BASE MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTBASE );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTBASE );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTBASE );
 	}
 	if ( ( ( iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0 ) ||
 		( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
@@ -10489,14 +10488,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// FLAT AIM MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_FLATAIM );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_FLATAIM );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_FLATAIM );
 	}
 	if ( ( ( iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0 ) ||
 		( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
@@ -10547,14 +10546,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// PERCENT AIM MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTAIM );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTAIM );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTAIM );
 	}
 	if ( ( ( iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0 ) ||
 		( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
@@ -10619,14 +10618,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	///////////////////// AIM LEVELS MODIFIER
 	if(UsingNewCTHSystem() )
 		{
-		iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
-		iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS );
-		iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS );
+		iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
+		iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS );
+		iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS );
 		if( fComparisonMode )
 		{
-			iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
-			iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS );
-			iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS );
+			iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_AIMLEVELS );
+			iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_AIMLEVELS );
+			iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_AIMLEVELS );
 		}
 		if ( ( (iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0) ) ||
 			( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
@@ -10679,12 +10678,12 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	///////////////////// AIM BONUS MODIFIER
 	if(UsingNewCTHSystem() == false)
 	{
-		iModifier[0] = GetAimBonus( gpItemDescSoldier, gpItemDescObject, 100, 1 );
+		iModifier[0] = GetAimBonus( GetItemDescSoldier(), gpItemDescObject, 100, 1 );
 		iModifier[1] = 0;
 		iModifier[2] = 0;
 		if( fComparisonMode )
 		{
-			iComparedModifier[0] = GetAimBonus( gpItemDescSoldier, gpComparedItemDescObject, 100, 1 );
+			iComparedModifier[0] = GetAimBonus( GetItemDescSoldier(), gpComparedItemDescObject, 100, 1 );
 			iComparedModifier[1] = 0;
 			iComparedModifier[2] = 0;
 		}
@@ -10823,14 +10822,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// CTH CAP MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTCAP );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTCAP );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTCAP );
 	}
 	if ( ( ( iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0 ) ||
 		( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
@@ -10893,14 +10892,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// GUN HANDLING MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_PERCENTHANDLING );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_PERCENTHANDLING );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_PERCENTHANDLING );
 	}
 	if ( ( (iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0) ||
 		( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
@@ -10963,14 +10962,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// DROP COMPENSATION MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_DROPCOMPENSATION );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_DROPCOMPENSATION );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_DROPCOMPENSATION );
 	}
 	if ((((iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0)) || (fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0)))
 		&& UsingNewCTHSystem() == true )
@@ -11032,14 +11031,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// TARGET TRACKING MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_TRACKING );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_TRACKING );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_TRACKING );
 	}
 	if ((((iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0)) || (fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0)))
 		&& UsingNewCTHSystem() == true )
@@ -11643,14 +11642,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 
 	///////////////////// MAX COUNTER FORCE
 	// HEADROCK HAM 5: Moved here because it makes more sense.
-	iFloatModifier[0] = CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_STAND );
-	iFloatModifier[1] = CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH );
-	iFloatModifier[2] = CalcCounterForceMax( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE );
+	iFloatModifier[0] = CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND );
+	iFloatModifier[1] = CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH );
+	iFloatModifier[2] = CalcCounterForceMax( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE );
 	if( fComparisonMode )
 	{
-		iComparedFloatModifier[0] = CalcCounterForceMax( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND );
-		iComparedFloatModifier[1] = CalcCounterForceMax( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH );
-		iComparedFloatModifier[2] = CalcCounterForceMax( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE );
+		iComparedFloatModifier[0] = CalcCounterForceMax( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND );
+		iComparedFloatModifier[1] = CalcCounterForceMax( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH );
+		iComparedFloatModifier[2] = CalcCounterForceMax( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE );
 	}
 	if ( ((iFloatModifier[0] != 0 || iFloatModifier[1] != 0 || iFloatModifier[2] != 0) && UsingNewCTHSystem() == true && Item[gpItemDescObject->usItem].usItemClass == IC_GUN ) ||
 		( fComparisonMode && (iComparedFloatModifier[0] != 0 || iComparedFloatModifier[1] != 0 || iComparedFloatModifier[2] != 0) && UsingNewCTHSystem() == true && Item[gpComparedItemDescObject->usItem].usItemClass == IC_GUN ) )
@@ -11700,14 +11699,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// MAX COUNTER FORCE MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEMAX );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEMAX );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEMAX );
 	}
 	if ( ((iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0) && UsingNewCTHSystem() == true /*&& Item[gpItemDescObject->usItem].usItemClass == IC_GUN*/ ) ||
 		( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) && UsingNewCTHSystem() == true /*&& Item[gpComparedItemDescObject->usItem].usItemClass == IC_GUN*/ ) )
@@ -11769,14 +11768,14 @@ void DrawAdvancedValues( OBJECTTYPE *gpItemDescObject )
 	}
 
 	///////////////////// COUNTER FORCE ACCURACY MODIFIER
-	iModifier[0] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY );
-	iModifier[1] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY );
-	iModifier[2] = GetObjectModifier( gpItemDescSoldier, gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY );
+	iModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY );
+	iModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY );
+	iModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY );
 	if( fComparisonMode )
 	{
-		iComparedModifier[0] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY );
-		iComparedModifier[1] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY );
-		iComparedModifier[2] = GetObjectModifier( gpItemDescSoldier, gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY );
+		iComparedModifier[0] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_STAND, ITEMMODIFIER_COUNTERFORCEACCURACY );
+		iComparedModifier[1] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_CROUCH, ITEMMODIFIER_COUNTERFORCEACCURACY );
+		iComparedModifier[2] = GetObjectModifier( GetItemDescSoldier(), gpComparedItemDescObject, ANIM_PRONE, ITEMMODIFIER_COUNTERFORCEACCURACY );
 	}
 	if ( ( (iModifier[0] != 0 || iModifier[1] != 0 || iModifier[2] != 0) || ( fComparisonMode && (iComparedModifier[0] != 0 || iComparedModifier[1] != 0 || iComparedModifier[2] != 0) ) )
 		&& UsingNewCTHSystem() == true )
@@ -14577,10 +14576,10 @@ if( g_lang == i18n::Lang::zh ) {
 			}
 
 			////////////////////////// MORALE MODIFIER
-			iModifier[0] = FoodOpinions[gpItemDescSoldier->ubProfile].sFoodOpinion[fFoodtype];
+			iModifier[0] = FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[fFoodtype];
 			if( fComparisonMode )
 			{
-				iComparedModifier[0] = FoodOpinions[gpItemDescSoldier->ubProfile].sFoodOpinion[fComparedFoodtype];
+				iComparedModifier[0] = FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[fComparedFoodtype];
 				iModifier[0] = iComparedModifier[0] - iModifier[0];
 			}
 			sTop = gItemDescAdvRegions[cnt-sFirstLine][1].sTop;

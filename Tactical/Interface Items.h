@@ -3,6 +3,7 @@
 
 #include "Items.h"
 #include "Handle Items.h"
+#include "TacticalInventoryUiHost.h"
 #include "popup_class.h"
 
 // DEFINES FOR ITEM SLOT SIZES IN PIXELS
@@ -289,7 +290,6 @@ void BeginKeyRingItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubKeyRingPosition );
 
 extern OBJECTTYPE		*gpItemPointer;
 extern OBJECTTYPE		gItemPointer;
-extern SOLDIERTYPE		*gpItemPointerSoldier;
 extern UINT16				usItemSnapCursor;
 extern PIXEL				us16BPPItemCyclePlacedItemColors[ 20 ];
 extern BOOLEAN				gfItemPointerDifferentThanDefault;

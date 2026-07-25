@@ -215,21 +215,18 @@ MOUSE_REGION				gInvRegions[ NUM_INV_SLOTS ];
 extern	MOUSE_REGION    gMPanelRegion;
 extern	BOOLEAN			fMapInventoryItem;
 extern	BOOLEAN			gfAddingMoneyToMercFromPlayersAccount;
-extern	SOLDIERTYPE		*gpSMCurrentMerc;
 extern  SoldierID		gubSelectSMPanelToMerc;
 extern	MOUSE_REGION		gSM_SELMERCMoneyRegion;
 extern	UINT32			guiMapInvSecondHandBlockout;
 
 //jackaians: global variables added for the stealing pickup menu
 BOOLEAN				gfStealing = FALSE;
-SOLDIERTYPE			*gpOpponent = NULL;
 
 MOUSE_REGION				gInvDesc;
 
 OBJECTTYPE		*gpItemPointer = NULL;
 extern OBJECTTYPE		gItemPointer; // symbol already defined in mapscreen.cpp (jonathanl)
 BOOLEAN				gfItemPointerDifferentThanDefault = FALSE;
-extern SOLDIERTYPE		*gpItemPointerSoldier; // symbol already defined in mapscreen.cpp (jonathanl)
 INT8					gbItemPointerSrcSlot;
 UINT16				gusItemPointer = 255;
 UINT16				usItemSnapCursor;
@@ -287,7 +284,6 @@ UINT8				gubItemDescStatusIndex;
 INT32				giItemDescAmmoButtonImages;
 INT32				giItemDescAmmoButton;
 BOOLEAN			gfItemAmmoDown = FALSE;
-SOLDIERTYPE *gpItemDescSoldier;
 BOOLEAN			fItemDescDelete = FALSE;
 MOUSE_REGION		gItemDescAttachmentRegions[MAX_ATTACHMENTS];
 MOUSE_REGION		gProsAndConsRegions[2];
@@ -340,7 +336,6 @@ INT32				guiMoneyButtonImage;
 INT32				guiMoneyDoneButtonImage;
 
 attachmentList	gOriginalAttachments;
-SOLDIERTYPE * gpAttachSoldier;
 extern BOOLEAN	gfSMDisableForItems;
 
 //CHRISL: moved to Interface Items.h for EDB
@@ -400,7 +395,6 @@ INT16				gsKeyRingPopupInvWidth;
 INT16				gsKeyRingPopupInvHeight;
 
 
-SOLDIERTYPE *gpItemPopupSoldier;
 extern BOOLEAN fMapScreenBottomDirty;
 
 // inventory description done button for mapscreen
@@ -681,6 +675,7 @@ void popupCallbackItem(INT16 itemId){
 		gpItemPointer = bestStack;									// pick up the object (or stack)
 		DoAttachment((UINT8)gubPopupStatusIndex, guiPopupItemPos);	// try to attach it
 		gpItemPointer = NULL;										// and drop it
+		(void)SetItemPointerSoldier(NULL);
 
 		gItemDescAttachmentPopups[giActiveAttachmentPopup]->hide();
 		RenderItemDescriptionBox();
@@ -4946,16 +4941,22 @@ BOOLEAN InItemDescriptionBox( )
 void CycleItemDescriptionItem( INT16 sX, INT16 sY )
 {
 	INT16 usOldItem;
+	SOLDIERTYPE* descriptionOwner = GetItemDescSoldier();
+	if (!descriptionOwner)
+	{
+		DeleteItemDescriptionBox();
+		return;
+	}
 
 	// Delete old box...
 	DeleteItemDescriptionBox( );
 
 	// Cycle item....
-	usOldItem = CycleItems(gpItemDescSoldier->inv[ HANDPOS ].usItem);
+	usOldItem = CycleItems(descriptionOwner->inv[ HANDPOS ].usItem);
 
-	CreateItem( (UINT16)usOldItem, 100, &( gpItemDescSoldier->inv[ HANDPOS ] ) );
+	CreateItem( (UINT16)usOldItem, 100, &( descriptionOwner->inv[ HANDPOS ] ) );
 
-	InternalInitItemDescriptionBox( &( gpItemDescSoldier->inv[ HANDPOS ] ), sX, sY, gubItemDescStatusIndex, gpItemDescSoldier );
+	InternalInitItemDescriptionBox( &( descriptionOwner->inv[ HANDPOS ] ), sX, sY, gubItemDescStatusIndex, descriptionOwner );
 }
 
 INT16 CycleItems( UINT16 usOldItem )
@@ -5180,7 +5181,7 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 
 	gpItemDescObject = pObject;
 	gubItemDescStatusIndex = ubStatusIndex;
-	gpItemDescSoldier = pSoldier;
+	(void)SetItemDescSoldier(pSoldier);
 	fItemDescDelete		= FALSE;
 
 	// Build a mouse region here that is over any others.....
@@ -5595,11 +5596,11 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 
 	if ( gpItemPointer )
 	{
-		gpAttachSoldier = gpItemPointerSoldier;
+		(void)SetAttachSoldier(GetItemPointerSoldier());
 	}
 	else
 	{
-		gpAttachSoldier = pSoldier;
+		(void)SetAttachSoldier(pSoldier);
 	}
 	//CHRISL: Instead of using attachments on item 0, use attachments on item we right clicked on using ubStatusIndex
 	// store attachments that item originally had
@@ -6086,7 +6087,7 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 		gfItemAmmoDown = FALSE;
 
 		//CHRISL: We dont' want to be able to reload guns using the ammo crate from this function
-		if((gpItemPointer != NULL && Magazine[Item[gpItemPointer->usItem].ubClassIndex].ubMagType >= AMMO_BOX) || !EnoughPoints(gpItemDescSoldier, APBPConstants[AP_RELOAD_GUN], 0, TRUE))//dnl ch65 040913
+		if((gpItemPointer != NULL && Magazine[Item[gpItemPointer->usItem].ubClassIndex].ubMagType >= AMMO_BOX) || !EnoughPoints(GetItemDescSoldier(), APBPConstants[AP_RELOAD_GUN], 0, TRUE))//dnl ch65 040913
 		{
 			fInterfacePanelDirty = DIRTYLEVEL2;
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
@@ -6111,7 +6112,7 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 				//holding an item
 				if(Magazine[Item[gpItemPointer->usItem].ubClassIndex].ubCalibre == Weapon[Item[gpItemDescObject->usItem].ubClassIndex].ubCalibre)
 				{
-					ReloadGun(gpItemDescSoldier, gpItemDescObject, gpItemPointer, ubStatusIndex);
+					ReloadGun(GetItemDescSoldier(), gpItemDescObject, gpItemPointer, ubStatusIndex);
 				}
 				if(gpItemPointer->ubNumberOfObjects == 0)
 				{
@@ -6128,18 +6129,18 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 				{
 					// still holding someting so drop the clip we just pulled from the weapon
 					// start by searching merc for a place to put the clip
-					if(AutoPlaceObject(gpItemDescSoldier, &gTempObject, TRUE) == FALSE)
+					if(AutoPlaceObject(GetItemDescSoldier(), &gTempObject, TRUE) == FALSE)
 					{
 						// couldn't find a place on the merc, so drop into the sector
-						AutoPlaceObjectToWorld(gpItemDescSoldier, &gTempObject);
+						AutoPlaceObjectToWorld(GetItemDescSoldier(), &gTempObject);
 						/*if(fShowMapInventoryPool)	//sector inventory panel is open
 						{
-							AutoPlaceObjectInInventoryStash(&gTempObject, gpItemDescSoldier->sGridNo);
+							AutoPlaceObjectInInventoryStash(&gTempObject, GetItemDescSoldier()->sGridNo);
 							fMapPanelDirty = TRUE;
 						}
 						else	//sector inventory panel is closed
 						{
-							AddItemToPool(gpItemDescSoldier->sGridNo, &gTempObject, 1, gpItemDescSoldier->pathing.bLevel, WORLD_ITEM_REACHABLE, 0);
+							AddItemToPool(GetItemDescSoldier()->sGridNo, &gTempObject, 1, GetItemDescSoldier()->pathing.bLevel, WORLD_ITEM_REACHABLE, 0);
 						}*/
 					}
 				}
@@ -6147,7 +6148,7 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 			// OK, END the description box
 			//fItemDescDelete = TRUE;
 			fInterfacePanelDirty = DIRTYLEVEL2;
-			gpItemPointerSoldier = gpItemDescSoldier;
+			(void)SetItemPointerSoldier(GetItemDescSoldier());
 
 			RenderBulletIcon(gpItemDescObject, ubStatusIndex);
 
@@ -6182,7 +6183,7 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 				//holding an item
 				if(Magazine[Item[gpItemPointer->usItem].ubClassIndex].ubCalibre == Weapon[Item[gpItemDescObject->usItem].ubClassIndex].ubCalibre)
 				{
-					ReloadGun(gpItemDescSoldier, gpItemDescObject, gpItemPointer);
+					ReloadGun(GetItemDescSoldier(), gpItemDescObject, gpItemPointer);
 				}
 				if(gpItemPointer->ubNumberOfObjects == 0)
 				{
@@ -6199,13 +6200,13 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 				{
 					// still holding someting so drop the clip we just pulled from the weapon
 					// start by searching merc for a place to put the clip
-					if(AutoPlaceObject(gpItemDescSoldier, &gTempObject, TRUE) == FALSE)
+					if(AutoPlaceObject(GetItemDescSoldier(), &gTempObject, TRUE) == FALSE)
 					{
-						AddItemToPool(gpItemDescSoldier->sGridNo, &gTempObject, 1, gpItemDescSoldier->pathing.bLevel, WORLD_ITEM_REACHABLE, 0);
+						AddItemToPool(GetItemDescSoldier()->sGridNo, &gTempObject, 1, GetItemDescSoldier()->pathing.bLevel, WORLD_ITEM_REACHABLE, 0);
 					}
 				}
 			}
-			gpItemPointerSoldier = gpItemDescSoldier;
+			(void)SetItemPointerSoldier(GetItemDescSoldier());
 
 			// if in SKI, load item into SKI's item pointer
 			if( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE )
@@ -6233,7 +6234,7 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 //CHRISL: We need to know which item in the stack we're working with.
 void DoAttachment( UINT8 subObject, INT32 iItemPos )
 {
-	if ( gpItemDescObject->AttachObject( gpItemDescSoldier, gpItemPointer, TRUE, subObject, iItemPos) )
+	if ( gpItemDescObject->AttachObject( GetItemDescSoldier(), gpItemPointer, TRUE, subObject, iItemPos) )
 	{
 		if (gpItemPointer->exists() == false)
 		{
@@ -6247,6 +6248,7 @@ void DoAttachment( UINT8 subObject, INT32 iItemPos )
 			{
 				// End Item pickup
 				gpItemPointer = NULL;
+				(void)SetItemPointerSoldier(NULL);
 				EnableSMPanelButtons( TRUE , TRUE );
 
 				MSYS_ChangeRegionCursor( &gSMPanelRegion , CURSOR_NORMAL );
@@ -6320,15 +6322,15 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			// This could happen if we just removed it from a weapon and are now low on AP. We will be stuck with an item at the hand cursor.
 			BOOLEAN bFreeSlot = FALSE;
 			// do we have enough AP to attach it again?
-			BOOLEAN bEnoughAP = EnoughPoints( gpItemPointerSoldier, AttachmentAPCost( gpItemPointer->usItem, gpItemDescObject, gpItemPointerSoldier ), 0, FALSE );
+			BOOLEAN bEnoughAP = EnoughPoints( GetItemPointerSoldier(), AttachmentAPCost( gpItemPointer->usItem, gpItemDescObject, GetItemPointerSoldier() ), 0, FALSE );
 
 			// not enough AP to attach so check if we could place the item somewhere in inventory
-			if ( !bEnoughAP && gpItemPointerSoldier )
+			if ( !bEnoughAP && GetItemPointerSoldier() )
 			{
 				for ( UINT8 loop = BODYPOSSTART; loop < SMALLPOCKFINAL; loop++ )
 				{
-					bFreeSlot =	CanItemFitInPosition( gpItemPointerSoldier, gpItemPointer, loop, FALSE );
-					if ( bFreeSlot && CheckPocketEmpty( gpItemPointerSoldier, loop ) )
+					bFreeSlot =	CanItemFitInPosition( GetItemPointerSoldier(), gpItemPointer, loop, FALSE );
+					if ( bFreeSlot && CheckPocketEmpty( GetItemPointerSoldier(), loop ) )
 					{
 						bFreeSlot = TRUE;
 						break;
@@ -6338,9 +6340,9 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				}
 			}
 			// nb pointer could be NULL because of inventory manipulation in mapscreen from sector inv
-//			if ( !gpItemPointerSoldier || EnoughPoints( gpItemPointerSoldier, AttachmentAPCost( gpItemPointer->usItem, gpItemDescObject, gpItemPointerSoldier ), 0, TRUE ) )
+//			if ( !GetItemPointerSoldier() || EnoughPoints( GetItemPointerSoldier(), AttachmentAPCost( gpItemPointer->usItem, gpItemDescObject, GetItemPointerSoldier() ), 0, TRUE ) )
 			// we will attach if we have enough AP or when we don't have enough AP but also no inventory slot to place the attachment
-			if ( !gpItemPointerSoldier || bEnoughAP || ( !bEnoughAP && !bFreeSlot ) )
+			if ( !GetItemPointerSoldier() || bEnoughAP || ( !bEnoughAP && !bFreeSlot ) )
 			{
 //				if ( (Item[ gpItemPointer->usItem ].fFlags & ITEM_INSEPARABLE) && ValidAttachment( gpItemPointer->usItem, gpItemDescObject->usItem ) )
 				if ( (Item[ gpItemPointer->usItem ].inseparable == 1) && ValidAttachment( gpItemPointer->usItem, gpItemDescObject ) )
@@ -6386,27 +6388,27 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			else
 			{
 				// Display message if it's our own guy
-				if ( gpItemPointerSoldier->bTeam == gbPlayerNum )
+				if ( GetItemPointerSoldier()->bTeam == gbPlayerNum )
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NOT_ENOUGH_APS_STR ] );
 			}
 		}
 		else
 		{
 			// shadooow: removed checking extra cost for picking up the item
-			if ( pAttachment->exists() && EnoughPoints( gpItemDescSoldier, ( AttachmentAPCost( pAttachment->usItem, gpItemDescObject, gpItemPointerSoldier )), 0, TRUE ) )
+			if ( pAttachment->exists() && EnoughPoints( GetItemDescSoldier(), ( AttachmentAPCost( pAttachment->usItem, gpItemDescObject, GetItemPointerSoldier() )), 0, TRUE ) )
 			{
 				// Flugente: if we are trying to remove the detonators of an armed bomb, auto-fail: it explodes
-				if ( gpItemPointerSoldier && ( (Item[gpItemDescObject->usItem].usItemClass & (IC_BOMB)) && ( ( (*gpItemDescObject)[ubStatusIndex]->data.misc.bDetonatorType == BOMB_TIMED ) || ( (*gpItemDescObject)[ubStatusIndex]->data.misc.bDetonatorType == BOMB_REMOTE ) ) )  )
+				if ( GetItemPointerSoldier() && ( (Item[gpItemDescObject->usItem].usItemClass & (IC_BOMB)) && ( ( (*gpItemDescObject)[ubStatusIndex]->data.misc.bDetonatorType == BOMB_TIMED ) || ( (*gpItemDescObject)[ubStatusIndex]->data.misc.bDetonatorType == BOMB_REMOTE ) ) )  )
 				{
 					if ( GetCurrentScreen() == GAME_SCREEN )
 					{
 						// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-						IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, gpItemPointerSoldier->sX, gpItemPointerSoldier->sY, (INT16) (gpWorldLevelData[gpItemPointerSoldier->sGridNo].sHeight), gpItemPointerSoldier->sGridNo, gpItemDescObject->usItem, gpItemPointerSoldier->pathing.bLevel, gpItemPointerSoldier->ubDirection, gpItemDescObject );
+						IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemPointerSoldier()->sX, GetItemPointerSoldier()->sY, (INT16) (gpWorldLevelData[GetItemPointerSoldier()->sGridNo].sHeight), GetItemPointerSoldier()->sGridNo, gpItemDescObject->usItem, GetItemPointerSoldier()->pathing.bLevel, GetItemPointerSoldier()->ubDirection, gpItemDescObject );
 					}
 					else if ( (GetCurrentScreen() == MAP_SCREEN) || (GetCurrentScreen() == MSG_BOX_SCREEN) )
 					{
 						// no explosions in map screen - instead we simply damage the inventory and harm our health
-						gpItemPointerSoldier->InventoryExplosion();
+						GetItemPointerSoldier()->InventoryExplosion();
 					}
 
 					DeleteObj( gpItemDescObject );
@@ -6450,17 +6452,17 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 								// we have an item in this pocket
 								if (pLBE && pLBE->inv[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping - 1)].exists()) {
 									// place item on the ground
-									AutoPlaceObjectToWorld(gpItemDescSoldier, &pLBE->inv[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping - 1)], TRUE);
+									AutoPlaceObjectToWorld(GetItemDescSoldier(), &pLBE->inv[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping - 1)], TRUE);
 								}
 							}
 							else // the soldier is wearing the LBE
 							{
 								// we have an item in this pocket
-								if( gpItemDescSoldier->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]].exists() )
+								if( GetItemDescSoldier()->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]].exists() )
 									// place in soldiers inventory
-									if( !AutoPlaceObject(gpItemDescSoldier, &gpItemDescSoldier->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], FALSE) )
+									if( !AutoPlaceObject(GetItemDescSoldier(), &GetItemDescSoldier()->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], FALSE) )
 										// that didn't work. Place on ground instead.
-										AutoPlaceObjectToWorld(gpItemDescSoldier, &gpItemDescSoldier->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], TRUE);
+										AutoPlaceObjectToWorld(GetItemDescSoldier(), &GetItemDescSoldier()->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], TRUE);
 							}
 							break;
 						}
@@ -6469,18 +6471,19 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 				// Get attachment if there is one
 				// The following function will handle if no attachment is here
-				if ( gpItemDescObject->RemoveAttachment( pAttachment, &gItemPointer, ubStatusIndex, gpItemDescSoldier ) )
+				if ( gpItemDescObject->RemoveAttachment( pAttachment, &gItemPointer, ubStatusIndex, GetItemDescSoldier() ) )
 				{
 					gpItemPointer = &gItemPointer;
-					gpItemPointerSoldier = gpItemDescSoldier;
+					(void)SetItemPointerSoldier(GetItemDescSoldier());
 
 					if( guiCurrentItemDescriptionScreen == MAP_SCREEN )
 					{
 						//Autoplace to map sector inventory
 						if (_KeyDown(CTRL))
 						{
-							AutoPlaceObjectToWorld(gpItemPointerSoldier, gpItemPointer);
+							AutoPlaceObjectToWorld(GetItemPointerSoldier(), gpItemPointer);
 							gpItemPointer = NULL;
+							(void)SetItemPointerSoldier(NULL);
 						}
 						else {
 							// Set mouse
@@ -6503,12 +6506,12 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					}
 
 					// Flugente: if we altered a gun's attachments, re-evaluate the scope mode and sight
-					if ( gGameExternalOptions.fScopeModes && gpItemPointerSoldier && Item[gpItemDescObject->usItem].usItemClass == IC_GUN )
+					if ( gGameExternalOptions.fScopeModes && GetItemPointerSoldier() && Item[gpItemDescObject->usItem].usItemClass == IC_GUN )
 					{
-						ChangeScopeMode(gpItemPointerSoldier, NOWHERE);
+						ChangeScopeMode(GetItemPointerSoldier(), NOWHERE);
 
 						// reevaluate sight
-						ManLooksForOtherTeams( gpItemPointerSoldier );
+						ManLooksForOtherTeams( GetItemPointerSoldier() );
 					}
 
 					//Dirty interface
@@ -6572,8 +6575,8 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 			Object2 = *pAttachment;
 			gfItemDescObjectIsAttachment = TRUE;
-			//InternalInitItemDescriptionBox( &Object2, gsInvDescX, gsInvDescY, 0, gpItemDescSoldier );
-			InternalInitItemDescriptionBox( pAttachment, gsInvDescX, gsInvDescY, 0, gpItemDescSoldier );
+			//InternalInitItemDescriptionBox( &Object2, gsInvDescX, gsInvDescY, 0, GetItemDescSoldier() );
+			InternalInitItemDescriptionBox( pAttachment, gsInvDescX, gsInvDescY, 0, GetItemDescSoldier() );
 
 			if ( fShopkeeperItem )
 			{				pShopKeeperItemDescObject = &Object2;
@@ -6829,6 +6832,16 @@ UINT8 GetConditionString( UINT8 ubStatus, UINT8 *ubFontColor )
 
 void RenderItemDescriptionBox( )
 {
+	if (HasJa2TacticalInventoryActorContext(
+			TacticalInventoryActorRole::ItemDescriptionOwner) &&
+		!GetItemDescSoldier())
+	{
+		DeleteItemDescriptionBox();
+		return;
+	}
+	if (!gfInItemDescBox || !gpItemDescObject)
+		return;
+
 	ETRLEObject			*pTrav;
 	UINT32				usHeight, usWidth;
 	INT32				sOffsetX, sOffsetY;
@@ -8111,7 +8124,7 @@ void RenderLBENODEItems( OBJECTTYPE *pObj, int subObject )
 	if(guiCurrentItemDescriptionScreen == MAP_SCREEN)
 		GetSoldier( &pSoldier, gCharactersList[bSelectedInfoChar].usSolID );
 	else
-		pSoldier = gpSMCurrentMerc;
+		pSoldier = GetSMCurrentMerc();
 	
 	// Is the object we're looking at currently worn
 	for(unsigned int x = VESTPOCKPOS; x <= BPACKPOCKPOS; x++)
@@ -8283,9 +8296,20 @@ void HandleItemDescriptionBox( BOOLEAN *pfDirty )
 void DeleteItemDescriptionBox( )
 {
 	INT32 cnt;
+	const bool keyRingObject = InKeyRingPopup() == TRUE;
+	const bool descriptionOwnerStale =
+		HasJa2TacticalInventoryActorContext(
+			TacticalInventoryActorRole::ItemDescriptionOwner) &&
+		!GetItemDescSoldier();
+	const bool descriptionObjectSafe =
+		gpItemDescObject && (!descriptionOwnerStale || keyRingObject);
 
 	if( gfInItemDescBox == FALSE )
 	{
+		ClearJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::ItemDescriptionOwner);
+		ClearJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::AttachmentOwner);
 		return;
 	}
 
@@ -8298,9 +8322,11 @@ void DeleteItemDescriptionBox( )
 	}
 
 	// check for any AP costs
-	if ( ( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( descriptionObjectSafe &&
+		( gTacticalStatus.uiFlags & TURNBASED ) &&
+		( gTacticalStatus.uiFlags & INCOMBAT ) )
 	{
-		if (gpAttachSoldier)
+		if (GetAttachSoldier())
 		{
 			INT16 ubAPCost = 0;
 
@@ -8354,7 +8380,7 @@ void DeleteItemDescriptionBox( )
 				if (newSize < originalSize) 
 				{
 					//an attachment was removed, charge APs
-					ubAPCost = AttachmentAPCost(originalIter->usItem,gpItemDescObject, gpAttachSoldier ); // SANDRO - added argument
+					ubAPCost = AttachmentAPCost(originalIter->usItem,gpItemDescObject, GetAttachSoldier() ); // SANDRO - added argument
 				}
 				else 
 				{
@@ -8386,14 +8412,14 @@ void DeleteItemDescriptionBox( )
 					}
 					else
 					{
-						ubAPCost = AttachmentAPCost(newIter->usItem, gpItemDescObject, gpAttachSoldier); // SANDRO - added argument
+						ubAPCost = AttachmentAPCost(newIter->usItem, gpItemDescObject, GetAttachSoldier()); // SANDRO - added argument
 					}
 				}
 			}
 
 			if (ubAPCost)
 			{
-				DeductPoints( gpAttachSoldier, ubAPCost, 0 );
+				DeductPoints( GetAttachSoldier(), ubAPCost, 0 );
 			}
 		}
 	}
@@ -8473,7 +8499,7 @@ void DeleteItemDescriptionBox( )
 	MSYS_RemoveRegion( &gInvDesc);
 
 
-	if( gpItemDescObject->usItem != MONEY )
+	if( descriptionObjectSafe && gpItemDescObject->usItem != MONEY )
 	{
 		if (UsingNewAttachmentSystem()==true)
 		{
@@ -8510,7 +8536,7 @@ void DeleteItemDescriptionBox( )
 			}
 		}
 	}
-	else
+	else if (descriptionObjectSafe)
 	{
 		UnloadButtonImage( guiMoneyButtonImage );
 		UnloadButtonImage( guiMoneyDoneButtonImage );
@@ -8518,6 +8544,20 @@ void DeleteItemDescriptionBox( )
 		{
 			RemoveButton( guiMoneyButtonBtn[cnt] );
 		}
+	}
+	else
+	{
+		for (cnt = 0; cnt < MAX_ATTACHMENTS; ++cnt)
+		{
+			MSYS_RemoveRegion(&gItemDescAttachmentRegions[cnt]);
+			if (gItemDescAttachmentPopupsInitialized &&
+				gItemDescAttachmentPopups[cnt])
+			{
+				delete gItemDescAttachmentPopups[cnt];
+				gItemDescAttachmentPopups[cnt] = NULL;
+			}
+		}
+		giActiveAttachmentPopup = -1;
 	}
 
 	// HEADROCK HAM 5: Instead of checking the item, check for the regions!!
@@ -8551,17 +8591,22 @@ void DeleteItemDescriptionBox( )
 
 	if( InKeyRingPopup() == TRUE )
 	{
-		DeleteKeyObject(gpItemDescObject);
+		if (gpItemDescObject)
+			DeleteKeyObject(gpItemDescObject);
 		gpItemDescObject = NULL;
 		fShowDescriptionFlag = FALSE;
 		fInterfacePanelDirty = DIRTYLEVEL2;
+		ClearJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::ItemDescriptionOwner);
+		ClearJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::AttachmentOwner);
 		return;
 	}
 
 	fShowDescriptionFlag = FALSE;
 	fInterfacePanelDirty = DIRTYLEVEL2;
 
-	if( gpItemDescObject->usItem == MONEY )
+	if( descriptionObjectSafe && gpItemDescObject->usItem == MONEY )
 	{
 		//if there is no money remaining
 		if( gRemoveMoney.uiMoneyRemaining == 0 && !gfAddingMoneyToMercFromPlayersAccount )
@@ -8580,6 +8625,10 @@ void DeleteItemDescriptionBox( )
 	gpItemDescPrevObject = NULL;
 	// HEADROCK HAM 5: This stores an attachment object while we're looking at its copy.
 	gpItemDescOrigAttachmentObject = NULL;
+	ClearJa2TacticalInventoryActor(
+		TacticalInventoryActorRole::ItemDescriptionOwner);
+	ClearJa2TacticalInventoryActor(
+		TacticalInventoryActorRole::AttachmentOwner);
 
 }
 
@@ -8600,7 +8649,7 @@ void InternalBeginItemPointer( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, INT8 
 	// Dirty interface
 	fInterfacePanelDirty = DIRTYLEVEL2;
 	gpItemPointer = &gItemPointer;
-	gpItemPointerSoldier = pSoldier;
+	(void)SetItemPointerSoldier(pSoldier);
 	gbItemPointerSrcSlot = bHandPos;
 	gbItemPointerLocateGood = TRUE;
 
@@ -8672,7 +8721,7 @@ void BeginKeyRingItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubKeyRingPosition )
 		// Dirty interface
 		fInterfacePanelDirty = DIRTYLEVEL2;
 		gpItemPointer = &gItemPointer;
-		gpItemPointerSoldier = pSoldier;
+		(void)SetItemPointerSoldier(pSoldier);
 		gbItemPointerSrcSlot = ubKeyRingPosition;
 
 		if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
@@ -8719,12 +8768,19 @@ void EndItemPointer( )
 		// re-evaluate repairs
 		gfReEvaluateEveryonesNothingToDo = TRUE;
 	}
+	ClearJa2TacticalInventoryActor(
+		TacticalInventoryActorRole::ItemCursorOwner);
 }
 
 void DrawItemFreeCursor( )
 {
 	//OBJECTTYPE		*gpItemPointer;
 	//UINT16				usItemSnapCursor;
+	if (!gpItemPointer || !GetItemPointerSoldier())
+	{
+		EndItemPointer();
+		return;
+	}
 
 	// Get usIndex and then graphic for item
 	guiExternVo = GetInterfaceGraphicForItem( &(Item[ gpItemPointer->usItem ]) );
@@ -8801,12 +8857,14 @@ void DrawItemTileCursor( )
 	INT16			sDist;
 	INT8				bLevel;
 
+	if (!gpItemPointer || !GetItemPointerSoldier())
+	{
+		EndItemPointer();
+		return;
+	}
+
 	if (GetMouseMapPos( &usMapPos) )
 	{
-		/*CHRISL: For some reason it's possible that gpItemPointerSoldier is not correctly set when we come into this function, but we require it to be set for 
-			this function to work.  So for now, let's set it using gusUIFullTargetID.*/
-		if(gpItemPointerSoldier->exists() == false)
-			gpItemPointerSoldier = gusUIFullTargetID;
 		if ( gfUIFullTargetFound )
 		{
 			// Force mouse position to guy...
@@ -8857,13 +8915,13 @@ void DrawItemTileCursor( )
 		}
 
 		// Get Pyth spaces away.....
-		sDist = PythSpacesAway( gpItemPointerSoldier->sGridNo, gusCurMousePos );
+		sDist = PythSpacesAway( GetItemPointerSoldier()->sGridNo, gusCurMousePos );
 
 		// If we are here and we are not selected, select!
 		// ATE Design discussion propably needed here...
-		if ( gpItemPointerSoldier->ubID != gusSelectedSoldier )
+		if ( GetItemPointerSoldier()->ubID != gusSelectedSoldier )
 		{
-			SelectSoldier( gpItemPointerSoldier->ubID, FALSE, FALSE );
+			SelectSoldier( GetItemPointerSoldier()->ubID, FALSE, FALSE );
 		}
 
 		// ATE: if good for locate, locate to selected soldier....
@@ -8875,7 +8933,7 @@ void DrawItemTileCursor( )
 
 		if ( !fGiveItem )
 		{
-			if ( UIHandleOnMerc( FALSE ) && usMapPos != gpItemPointerSoldier->sGridNo )
+			if ( UIHandleOnMerc( FALSE ) && usMapPos != GetItemPointerSoldier()->sGridNo )
 			{
 				// We are on a guy.. check if they can catch or not....
 				if ( gfUIFullTargetFound )
@@ -8896,7 +8954,7 @@ void DrawItemTileCursor( )
 						else
 						{
 							// Can they see the throw?
-							if ( SoldierCanSeeCatchComing( pSoldier, gpItemPointerSoldier->sGridNo ) )
+							if ( SoldierCanSeeCatchComing( pSoldier, GetItemPointerSoldier()->sGridNo ) )
 							{
 								// OK, set global that this buddy can see catch...
 								gfUIMouseOnValidCatcher = TRUE;
@@ -8918,7 +8976,7 @@ void DrawItemTileCursor( )
 			// If we are tossing...
 			if (  sDist <= 1 && gfUIMouseOnValidCatcher == 0 || gfUIMouseOnValidCatcher == 4 )
 			{
-				gsCurrentActionPoints = GetBasicAPsToPickupItem( gpItemPointerSoldier );
+				gsCurrentActionPoints = GetBasicAPsToPickupItem( GetItemPointerSoldier() );
 			}
 			else
 			{
@@ -8945,7 +9003,7 @@ void DrawItemTileCursor( )
 				if ( !( uiCursorFlags & MOUSE_MOVING ) )
 				{
 					// Find adjacent gridno...
-					sActionGridNo =  FindAdjacentGridEx( gpItemPointerSoldier, gusCurMousePos, &ubDirection, NULL, FALSE, FALSE );
+					sActionGridNo =  FindAdjacentGridEx( GetItemPointerSoldier(), gusCurMousePos, &ubDirection, NULL, FALSE, FALSE );
 					if ( sActionGridNo == -1 )
 					{
 						sActionGridNo = gusCurMousePos;
@@ -8959,11 +9017,11 @@ void DrawItemTileCursor( )
 					// Get AP cost
 					if ( gusUIFullTargetID->flags.uiStatusFlags & SOLDIER_ROBOT )
 					{
-						sAPCost = GetAPsToReloadRobot( gpItemPointerSoldier, gusUIFullTargetID );
+						sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(), gusUIFullTargetID );
 					}
 					else
 					{
-						sAPCost = GetAPsToGiveItem( gpItemPointerSoldier, sActionGridNo );
+						sAPCost = GetAPsToGiveItem( GetItemPointerSoldier(), sActionGridNo );
 					}
 
 					gsCurrentActionPoints = sAPCost;
@@ -8997,7 +9055,7 @@ void DrawItemTileCursor( )
 			}
 			else
 			{
-				if ( usMapPos == gpItemPointerSoldier->sGridNo )
+				if ( usMapPos == GetItemPointerSoldier()->sGridNo )
 				{
 					EndPhysicsTrajectoryUI( );
 				}
@@ -9017,7 +9075,7 @@ void DrawItemTileCursor( )
 
 					gfUIHandlePhysicsTrajectory = TRUE;
 
-					if ( fRecalc && usMapPos != gpItemPointerSoldier->sGridNo )
+					if ( fRecalc && usMapPos != GetItemPointerSoldier()->sGridNo )
 					{
 						if ( gfUIMouseOnValidCatcher )
 						{
@@ -9046,7 +9104,7 @@ void DrawItemTileCursor( )
 						}
 
 						// Calculate chance to throw here.....
-						if ( !CalculateLaunchItemChanceToGetThrough( gpItemPointerSoldier, gpItemPointer, usMapPos, (INT8)gsInterfaceLevel, (INT16)( ( gsInterfaceLevel * 256 ) + sEndZ ), &sFinalGridNo, FALSE, &bLevel, TRUE ) )
+						if ( !CalculateLaunchItemChanceToGetThrough( GetItemPointerSoldier(), gpItemPointer, usMapPos, (INT8)gsInterfaceLevel, (INT16)( ( gsInterfaceLevel * 256 ) + sEndZ ), &sFinalGridNo, FALSE, &bLevel, TRUE ) )
 						{
 							gfBadThrowItemCTGH = TRUE;
 						}
@@ -9104,6 +9162,12 @@ BOOLEAN IsValidAmmoToReloadRobot( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject )
 
 BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 {
+	if (!gpItemPointer || !GetItemPointerSoldier())
+	{
+		EndItemPointer();
+		return FALSE;
+	}
+
 	// Determine what to do
 	if ( SelectedGuyInBusyAnimation( ) )
 	{
@@ -9117,7 +9181,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	}
 
 	// Don't allow if our soldier is a # of things...
-	if ( AM_AN_EPC( gpItemPointerSoldier ) || gpItemPointerSoldier->stats.bLife < OKLIFE || gpItemPointerSoldier->MercInDeepWater( ) )
+	if ( AM_AN_EPC( GetItemPointerSoldier() ) || GetItemPointerSoldier()->stats.bLife < OKLIFE || GetItemPointerSoldier()->MercInDeepWater( ) )
 	{
 		return( FALSE );
 	}
@@ -9155,9 +9219,9 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	}
 
 	// Check if we have APs....
-	if ( !EnoughPoints( gpItemPointerSoldier, gsCurrentActionPoints, 0, TRUE ) )
+	if ( !EnoughPoints( GetItemPointerSoldier(), gsCurrentActionPoints, 0, TRUE ) )
 	{
-		if ( gfDontChargeAPsToPickup && gsCurrentActionPoints == GetBasicAPsToPickupItem( gpItemPointerSoldier ) )
+		if ( gfDontChargeAPsToPickup && gsCurrentActionPoints == GetBasicAPsToPickupItem( GetItemPointerSoldier() ) )
 		{
 
 		}
@@ -9187,7 +9251,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 
 	// Get Pyth spaces away.....
-	sDist = PythSpacesAway( gpItemPointerSoldier->sGridNo, gusCurMousePos );
+	sDist = PythSpacesAway( GetItemPointerSoldier()->sGridNo, gusCurMousePos );
 
 
 	if ( fGiveItem )
@@ -9198,12 +9262,12 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		if ( ubSoldierID->flags.uiStatusFlags & SOLDIER_ROBOT )
 		{
 			// Charge APs to reload robot!
-			sAPCost = GetAPsToReloadRobot( gpItemPointerSoldier,  ubSoldierID );
+			sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(),  ubSoldierID );
 		}
 		else
 		{
 			// Calculate action point costs!
-			sAPCost = GetAPsToGiveItem( gpItemPointerSoldier, usMapPos );
+			sAPCost = GetAPsToGiveItem( GetItemPointerSoldier(), usMapPos );
 		}
 
 		//CHRISL: This doesn't make sense to me.  If we take an item out of a stack and then click on something, why would we first attempt to put the item
@@ -9213,14 +9277,14 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 //		if ( gbItemPointerSrcSlot != NO_SLOT )
 //		{
-//			PlaceObject( gpItemPointerSoldier, gbItemPointerSrcSlot, gpItemPointer );
+//			PlaceObject( GetItemPointerSoldier(), gbItemPointerSrcSlot, gpItemPointer );
 //			fInterfacePanelDirty = DIRTYLEVEL2;
 //		}
 /*
 		//if the user just clicked on an arms dealer
 		if( IsMercADealer( ubSoldierID->ubProfile ) )
 		{
-			if ( EnoughPoints( gpItemPointerSoldier, sAPCost, 0, TRUE ) )
+			if ( EnoughPoints( GetItemPointerSoldier(), sAPCost, 0, TRUE ) )
 			{
 				//Enter the shopkeeper interface
 				EnterShopKeeperInterfaceScreen( ubSoldierID->ubProfile );
@@ -9232,7 +9296,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		}
 */
 
-		if ( EnoughPoints( gpItemPointerSoldier, sAPCost, 0, TRUE ) )
+		if ( EnoughPoints( GetItemPointerSoldier(), sAPCost, 0, TRUE ) )
 		{
 			// If we are a robot, check if this is proper item to reload!
 			if ( ubSoldierID->flags.uiStatusFlags & SOLDIER_ROBOT )
@@ -9246,37 +9310,37 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 					 // Walk up to him and reload!
 					 // See if we can get there to stab
-					 sActionGridNo =  FindAdjacentGridEx( gpItemPointerSoldier, ubSoldierID->sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
+					 sActionGridNo =  FindAdjacentGridEx( GetItemPointerSoldier(), ubSoldierID->sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 
 					 if ( sActionGridNo != -1 && gbItemPointerSrcSlot != NO_SLOT )
 					 {
 							// Make a temp object for ammo...
-							OBJECTTYPE::CopyToOrCreateAt( &gpItemPointerSoldier->pTempObject, &gTempObject);
+							OBJECTTYPE::CopyToOrCreateAt( &GetItemPointerSoldier()->pTempObject, &gTempObject);
 
 							// Remove from soldier's inv...
-							gpItemPointerSoldier->inv[ gbItemPointerSrcSlot ].RemoveObjectsFromStack(1);
+							GetItemPointerSoldier()->inv[ gbItemPointerSrcSlot ].RemoveObjectsFromStack(1);
 
-							gpItemPointerSoldier->aiData.sPendingActionData2  = sAdjustedGridNo;
-							gpItemPointerSoldier->aiData.uiPendingActionData1 = gbItemPointerSrcSlot;
-							gpItemPointerSoldier->aiData.bPendingActionData3  = ubDirection;
-							gpItemPointerSoldier->aiData.ubPendingActionAnimCount = 0;
+							GetItemPointerSoldier()->aiData.sPendingActionData2  = sAdjustedGridNo;
+							GetItemPointerSoldier()->aiData.uiPendingActionData1 = gbItemPointerSrcSlot;
+							GetItemPointerSoldier()->aiData.bPendingActionData3  = ubDirection;
+							GetItemPointerSoldier()->aiData.ubPendingActionAnimCount = 0;
 
 							// CHECK IF WE ARE AT THIS GRIDNO NOW
-							if ( gpItemPointerSoldier->sGridNo != sActionGridNo )
+							if ( GetItemPointerSoldier()->sGridNo != sActionGridNo )
 							{
 								// SEND PENDING ACTION
-								gpItemPointerSoldier->aiData.ubPendingAction = MERC_RELOADROBOT;
+								GetItemPointerSoldier()->aiData.ubPendingAction = MERC_RELOADROBOT;
 
 								// WALK UP TO DEST FIRST
-								gpItemPointerSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, gpItemPointerSoldier->usUIMovementMode, FALSE, FALSE );
+								GetItemPointerSoldier()->EVENT_InternalGetNewSoldierPath( sActionGridNo, GetItemPointerSoldier()->usUIMovementMode, FALSE, FALSE );
 							}
 							else
 							{
-								gpItemPointerSoldier->EVENT_SoldierBeginReloadRobot( sAdjustedGridNo, ubDirection, gbItemPointerSrcSlot );
+								GetItemPointerSoldier()->EVENT_SoldierBeginReloadRobot( sAdjustedGridNo, ubDirection, gbItemPointerSrcSlot );
 							}
 
 							// OK, set UI
-							SetUIBusy( gpItemPointerSoldier->ubID );
+							SetUIBusy( GetItemPointerSoldier()->ubID );
 					 }
 
 				}
@@ -9289,7 +9353,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 				//if (gbItemPointerSrcSlot != NO_SLOT )
 				{
 					// Give guy this item.....
-					SoldierGiveItem( gpItemPointerSoldier, ubSoldierID, &gTempObject, gbItemPointerSrcSlot );
+					SoldierGiveItem( GetItemPointerSoldier(), ubSoldierID, &gTempObject, gbItemPointerSrcSlot );
 
 					gfDontChargeAPsToPickup = FALSE;
 					EndItemPointer( );
@@ -9304,7 +9368,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					}
 					else
 					{
-						SetEngagedInConvFromPCAction( gpItemPointerSoldier );
+						SetEngagedInConvFromPCAction( GetItemPointerSoldier() );
 					}
 				}
 			}
@@ -9314,33 +9378,33 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	}
 
 	// CHECK IF WE ARE NOT ON THE SAME GRIDNO
-	if ( sDist <= 1 && !( gfUIFullTargetFound && gusUIFullTargetID != gpItemPointerSoldier->ubID ) )
+	if ( sDist <= 1 && !( gfUIFullTargetFound && gusUIFullTargetID != GetItemPointerSoldier()->ubID ) )
 	{
 		// Check some things here....
 		// 1 ) are we at the exact gridno that we stand on?
-		if ( usMapPos == gpItemPointerSoldier->sGridNo )
+		if ( usMapPos == GetItemPointerSoldier()->sGridNo )
 		{
 			// Drop
 			if ( !gfDontChargeAPsToPickup )
 			{
 				// Deduct points
-				DeductPoints( gpItemPointerSoldier, GetBasicAPsToPickupItem( gpItemPointerSoldier ), 0 );
+				DeductPoints( GetItemPointerSoldier(), GetBasicAPsToPickupItem( GetItemPointerSoldier() ), 0 );
 			}
 
-			SoldierDropItem( gpItemPointerSoldier, gpItemPointer );
+			SoldierDropItem( GetItemPointerSoldier(), gpItemPointer );
 		}
 		else
 		{
 			// Try to drop in an adjacent area....
 			// 1 ) is this not a good OK destination
 			// this will sound strange, but this is OK......
-			if ( !NewOKDestination( gpItemPointerSoldier, usMapPos, FALSE, gpItemPointerSoldier->pathing.bLevel ) || FindBestPath( gpItemPointerSoldier, usMapPos, gpItemPointerSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, 0 ) == 1 )
+			if ( !NewOKDestination( GetItemPointerSoldier(), usMapPos, FALSE, GetItemPointerSoldier()->pathing.bLevel ) || FindBestPath( GetItemPointerSoldier(), usMapPos, GetItemPointerSoldier()->pathing.bLevel, WALKING, NO_COPYROUTE, 0 ) == 1 )
 			{
 				// Drop
 				if ( !gfDontChargeAPsToPickup )
 				{
 					// Deduct points
-					DeductPoints( gpItemPointerSoldier, GetBasicAPsToPickupItem(gpItemPointerSoldier), 0 );
+					DeductPoints( GetItemPointerSoldier(), GetBasicAPsToPickupItem(GetItemPointerSoldier()), 0 );
 				}
 
 				// Play animation....
@@ -9348,26 +9412,26 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 
 
-				switch ( gAnimControl[ gpItemPointerSoldier->usAnimState ].ubHeight )
+				switch ( gAnimControl[ GetItemPointerSoldier()->usAnimState ].ubHeight )
 				{
 					case ANIM_STAND:
 
-						OBJECTTYPE::CopyToOrCreateAt( &gpItemPointerSoldier->pTempObject, gpItemPointer);
-						if (gpItemPointerSoldier->pTempObject != NULL)
+						OBJECTTYPE::CopyToOrCreateAt( &GetItemPointerSoldier()->pTempObject, gpItemPointer);
+						if (GetItemPointerSoldier()->pTempObject != NULL)
 						{
-							gpItemPointerSoldier->aiData.sPendingActionData2 = usMapPos;
+							GetItemPointerSoldier()->aiData.sPendingActionData2 = usMapPos;
 
 	 						// Turn towards.....gridno
-							gpItemPointerSoldier->EVENT_SetSoldierDesiredDirection( (INT8)GetDirectionFromGridNo( usMapPos, gpItemPointerSoldier ) );
+							GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( (INT8)GetDirectionFromGridNo( usMapPos, GetItemPointerSoldier() ) );
 
-							gpItemPointerSoldier->EVENT_InitNewSoldierAnim( DROP_ADJACENT_OBJECT, 0 , FALSE );
+							GetItemPointerSoldier()->EVENT_InitNewSoldierAnim( DROP_ADJACENT_OBJECT, 0 , FALSE );
 						}
 						break;
 
 					case ANIM_CROUCH:
 					case ANIM_PRONE:
 
-						AddItemToPool( usMapPos, gpItemPointer, 1, gpItemPointerSoldier->pathing.bLevel, 0, -1 );
+						AddItemToPool( usMapPos, gpItemPointer, 1, GetItemPointerSoldier()->pathing.bLevel, 0, -1 );
 						NotifySoldiersToLookforItems( );
 						break;
 				}
@@ -9378,10 +9442,10 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 				if ( !gfDontChargeAPsToPickup )
 				{
 					// Deduct points
-					DeductPoints( gpItemPointerSoldier, GetBasicAPsToPickupItem(gpItemPointerSoldier), 0 );
+					DeductPoints( GetItemPointerSoldier(), GetBasicAPsToPickupItem(GetItemPointerSoldier()), 0 );
 				}
 
-				SoldierDropItem( gpItemPointerSoldier, gpItemPointer );
+				SoldierDropItem( GetItemPointerSoldier(), gpItemPointer );
 			}
 		}
 	}
@@ -9405,20 +9469,20 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					//gbNewPanel = SM_PANEL;
 					//gubNewPanelParam = (UINT8)pSoldier->ubID;
 					if ( !EnoughPoints( pSoldier, 3, 0, TRUE ) ||
-							 !EnoughPoints( gpItemPointerSoldier, 3, 0, TRUE ) )
+							 !EnoughPoints( GetItemPointerSoldier(), 3, 0, TRUE ) )
 					{
 						return( FALSE );
 					}
 
 					// Check LOS....
-					if ( !SoldierTo3DLocationLineOfSightTest( pSoldier, gpItemPointerSoldier->sGridNo,  gpItemPointerSoldier->pathing.bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
+					if ( !SoldierTo3DLocationLineOfSightTest( pSoldier, GetItemPointerSoldier()->sGridNo,  GetItemPointerSoldier()->pathing.bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
 					{
 						return( FALSE );
 					}
 
 					// Charge AP values...
 					DeductPoints( pSoldier, 3, 0, UNTRIGGERED_INTERRUPT );
-					DeductPoints( gpItemPointerSoldier, 3, 0, UNTRIGGERED_INTERRUPT );
+					DeductPoints( GetItemPointerSoldier(), 3, 0, UNTRIGGERED_INTERRUPT );
 
 					usItem = gpItemPointer->usItem;
 
@@ -9438,7 +9502,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  UINT8	ubFacingDirection;
 
 						  // Get direction to face.....
-						  ubFacingDirection = (UINT8)GetDirectionFromGridNo( gpItemPointerSoldier->sGridNo, pSoldier );
+						  ubFacingDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->sGridNo, pSoldier );
 
 						  // Stop merc first....
 						  pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
@@ -9457,14 +9521,14 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						 }
 
 						  // WANNE: Also turn merc if he is crouched and he received the passed item
-						  if ( !gpItemPointerSoldier->MercInWater(  ) )
+						  if ( !GetItemPointerSoldier()->MercInWater(  ) )
 						  {
-							  gpItemPointerSoldier->EVENT_SetSoldierDesiredDirection( gOppositeDirection[ ubFacingDirection ] );
-							  gpItemPointerSoldier->flags.fTurningUntilDone	 = TRUE;
+							  GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( gOppositeDirection[ ubFacingDirection ] );
+							  GetItemPointerSoldier()->flags.fTurningUntilDone	 = TRUE;
 
-							  if (gAnimControl[ gpItemPointerSoldier->usAnimState ].ubEndHeight == ANIM_STAND)
+							  if (gAnimControl[ GetItemPointerSoldier()->usAnimState ].ubEndHeight == ANIM_STAND)
 							  {
-							  gpItemPointerSoldier->usPendingAnimation = PASS_OBJECT;
+							  GetItemPointerSoldier()->usPendingAnimation = PASS_OBJECT;
 						  }
 					  }
 					  }
@@ -9489,8 +9553,8 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 			}
 
 			// Deduct points
-			//DeductPoints( gpItemPointerSoldier, APBPConstants[AP_TOSS_ITEM], 0 );
-			gpItemPointerSoldier->flags.fDontChargeTurningAPs = TRUE;
+			//DeductPoints( GetItemPointerSoldier(), APBPConstants[AP_TOSS_ITEM], 0 );
+			GetItemPointerSoldier()->flags.fDontChargeTurningAPs = TRUE;
 			// Will be dome later....
 
 			ubThrowActionCode = NO_THROW_ACTION;
@@ -9510,7 +9574,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					// OK, on our team,
 
 					// How's our direction?
-					if ( SoldierCanSeeCatchComing( pSoldier, gpItemPointerSoldier->sGridNo ) )
+					if ( SoldierCanSeeCatchComing( pSoldier, GetItemPointerSoldier()->sGridNo ) )
 					{
 						// Setup as being the catch target
 						ubThrowActionCode = THROW_TARGET_MERC_CATCH;
@@ -9542,7 +9606,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						}
 
 						// Get direction
-						ubDirection = (UINT8)GetDirectionFromGridNo( gpItemPointerSoldier->sGridNo, pSoldier );
+						ubDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->sGridNo, pSoldier );
 
 						// ATE: Goto stationary...
 						pSoldier->SoldierGotoStationaryStance( );
@@ -9555,9 +9619,9 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 			}
 
 			// CHANGE DIRECTION AT LEAST
-			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, gpItemPointerSoldier );
-			gpItemPointerSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
-			gpItemPointerSoldier->flags.fTurningUntilDone = TRUE;
+			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, GetItemPointerSoldier() );
+			GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( ubDirection );
+			GetItemPointerSoldier()->flags.fTurningUntilDone = TRUE;
 
 			// Increment attacker count...
 			// gTacticalStatus.ubAttackBusyCount++;
@@ -9566,11 +9630,11 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 
 			// Given our gridno, throw grenade!
-			CalculateLaunchItemParamsForThrow(gpItemPointerSoldier, sGridNo, (UINT8)gsInterfaceLevel, (INT16)(gsInterfaceLevel * 256 + sEndZ), gpItemPointer, 100, ubThrowActionCode, uiThrowActionData, gpItemPointer->usItem);
+			CalculateLaunchItemParamsForThrow(GetItemPointerSoldier(), sGridNo, (UINT8)gsInterfaceLevel, (INT16)(gsInterfaceLevel * 256 + sEndZ), gpItemPointer, 100, ubThrowActionCode, uiThrowActionData, gpItemPointer->usItem);
 
 			// OK, goto throw animation
-			gpItemPointerSoldier->usGrenadeItem = 0;
-			HandleSoldierThrowItem( gpItemPointerSoldier, usMapPos );
+			GetItemPointerSoldier()->usGrenadeItem = 0;
+			HandleSoldierThrowItem( GetItemPointerSoldier(), usMapPos );
 		}
 	}
 
@@ -9582,8 +9646,14 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 BOOLEAN ItemCursorInLobRange( INT32 usMapPos )
 {
+	if (!gpItemPointer || !GetItemPointerSoldier())
+	{
+		EndItemPointer();
+		return FALSE;
+	}
+
 	// Draw item depending on distance from buddy
-	if (PythSpacesAway( usMapPos, gpItemPointerSoldier->sGridNo ) > MIN_LOB_RANGE )
+	if (PythSpacesAway( usMapPos, GetItemPointerSoldier()->sGridNo ) > MIN_LOB_RANGE )
 	{
 		return( FALSE );
 	}
@@ -9631,8 +9701,9 @@ BOOLEAN InitSectorStackPopup( SOLDIERTYPE *pSoldier, WORLDITEM *pInventoryPoolLi
 	gsItemPopupInvY			= sInvY;
 	gsItemPopupInvWidth		= sInvWidth;
 	gsItemPopupInvHeight	= sInvHeight;
-	// Set soldier
-	gpItemPopupSoldier		= pSoldier;
+	// Capture an exact actor identity before the popup retains inventory state.
+	if (!SetItemPopupSoldier(pSoldier))
+		return FALSE;
 	// Determine # of items
 	gpItemPopupObject		= &(pInventoryPoolList->object );
 	gubNumItemPopups		= ItemSlotLimit( gpItemPopupObject, STACK_SIZE_LIMIT );
@@ -9752,7 +9823,8 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 	gsItemPopupInvWidth				= sInvWidth;
 	gsItemPopupInvHeight			= sInvHeight;
 
-	gpItemPopupSoldier = pSoldier;
+	if (!SetItemPopupSoldier(pSoldier))
+		return FALSE;
 
 	// Determine # of items
 	gpItemPopupObject = &(pSoldier->inv[ ubPosition ] );
@@ -9933,6 +10005,14 @@ void ShadowNIVPanel(UINT16 startX1, UINT16 startY1)
 
 void RenderItemStackPopup( BOOLEAN fFullRender )
 {
+	if (HasJa2TacticalInventoryActorContext(
+			TacticalInventoryActorRole::ItemPopupOwner) &&
+		!GetItemPopupSoldier())
+	{
+		DeleteItemStackPopup();
+		return;
+	}
+
 	ETRLEObject						*pTrav;
 	UINT32								usHeight, usWidth;
 	HVOBJECT							hVObject;
@@ -10056,7 +10136,11 @@ void DeleteItemStackPopup( )
 
 	//CHRISL: if neither item or sector stack popups are open, just return.
 	if(!gfInItemStackPopup && !gfInSectorStackPopup)
+	{
+		ClearJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::ItemPopupOwner);
 		return;
+	}
 	//Remove
 	DeleteVideoObjectFromIndex( guiItemPopupBoxes );
 
@@ -10085,6 +10169,8 @@ void DeleteItemStackPopup( )
 	}
 
 	FreeMouseCursor( TRUE );
+	ClearJa2TacticalInventoryActor(
+		TacticalInventoryActorRole::ItemPopupOwner);
 
 }
 
@@ -10120,7 +10206,8 @@ BOOLEAN InitKeyRingPopup( SOLDIERTYPE *pSoldier, INT16 sInvX, INT16 sInvY, INT16
 	gsKeyRingPopupInvWidth				= sInvWidth;
 	gsKeyRingPopupInvHeight				= sInvHeight;
 
-	gpItemPopupSoldier = pSoldier;
+	if (!SetItemPopupSoldier(pSoldier))
+		return FALSE;
 
 	// Load graphics
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
@@ -10201,6 +10288,14 @@ BOOLEAN InitKeyRingPopup( SOLDIERTYPE *pSoldier, INT16 sInvX, INT16 sInvY, INT16
 
 void RenderKeyRingPopup( BOOLEAN fFullRender )
 {
+	if (HasJa2TacticalInventoryActorContext(
+			TacticalInventoryActorRole::ItemPopupOwner) &&
+		!GetItemPopupSoldier())
+	{
+		DeleteKeyRingPopup();
+		return;
+	}
+
   ETRLEObject						*pTrav;
 	UINT32								usHeight, usWidth;
 	HVOBJECT							hVObject;
@@ -10269,17 +10364,17 @@ void RenderKeyRingPopup( BOOLEAN fFullRender )
 		BltVideoObjectFromIndex( FRAME_BUFFER, guiItemPopupBoxes, 0, (INT16)(gsKeyRingPopupInvX + ( cnt % sKeyRingItemWidth * usWidth ) + sOffSetX ), ( INT16 )( gsKeyRingPopupInvY + sOffSetY + ( cnt / sKeyRingItemWidth * usHeight ) ), VO_BLT_SRCTRANSPARENCY, NULL );
 
 		// will want to draw key here.. if there is one
-		if( ( gpItemPopupSoldier->pKeyRing[ cnt ].ubKeyID != INVALID_KEY_NUMBER ) && ( gpItemPopupSoldier->pKeyRing[ cnt ].ubNumber > 0 ) )
+		if( ( GetItemPopupSoldier()->pKeyRing[ cnt ].ubKeyID != INVALID_KEY_NUMBER ) && ( GetItemPopupSoldier()->pKeyRing[ cnt ].ubNumber > 0 ) )
 		{
-			gTempObject.ubNumberOfObjects = gpItemPopupSoldier->pKeyRing[ cnt ].ubNumber;
+			gTempObject.ubNumberOfObjects = GetItemPopupSoldier()->pKeyRing[ cnt ].ubNumber;
 
 			// show 100% status for each
 			DrawItemUIBarEx( &gTempObject, 0, (INT16)( gsKeyRingPopupInvX + sOffSetX + ( cnt % sKeyRingItemWidth * usWidth ) + 7 ), ( INT16 )( gsKeyRingPopupInvY + sOffSetY + ( cnt / sKeyRingItemWidth * usHeight ) + 24 )
 			, ITEM_BAR_WIDTH, ITEM_BAR_HEIGHT, 	Get16BPPColor( STATUS_BAR ), Get16BPPColor( STATUS_BAR_SHADOW ), TRUE , FRAME_BUFFER );
 
 			// set item type
-			//gTempObject.usItem = FIRST_KEY + LockTable[ gpItemPopupSoldier->pKeyRing[ cnt].ubKeyID ].usKeyItem;
-			gTempObject.usItem = KeyTable[ LockTable[gpItemPopupSoldier->pKeyRing[cnt].ubKeyID].usKeyItem ].usItem;
+			//gTempObject.usItem = FIRST_KEY + LockTable[ GetItemPopupSoldier()->pKeyRing[ cnt].ubKeyID ].usKeyItem;
+			gTempObject.usItem = KeyTable[ LockTable[GetItemPopupSoldier()->pKeyRing[cnt].ubKeyID].usKeyItem ].usItem;
 
 			// render the item
 			INVRenderItem( FRAME_BUFFER, NULL, &gTempObject, (INT16)(gsKeyRingPopupInvX + sOffSetX +( cnt % sKeyRingItemWidth * usWidth ) + 8), ( INT16 )( gsKeyRingPopupInvY + sOffSetY + ( cnt / sKeyRingItemWidth * usHeight ) ),
@@ -10304,6 +10399,8 @@ void DeleteKeyRingPopup( )
 	if( gfInKeyRingPopup == FALSE )
 	{
 		// done,
+		ClearJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::ItemPopupOwner);
 		return;
 	}
 
@@ -10332,6 +10429,8 @@ void DeleteKeyRingPopup( )
 	}
 
 	FreeMouseCursor( TRUE );
+	ClearJa2TacticalInventoryActor(
+		TacticalInventoryActorRole::ItemPopupOwner);
 }
 
 UINT32 GetInterfaceGraphicForItem( INVTYPE *pItem )
@@ -10472,7 +10571,7 @@ void ItemDescCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				DeleteItemDescriptionBox( );
 				if (pTemp != NULL)
 				{
-					InternalInitItemDescriptionBox( pTemp, gsInvDescX, gsInvDescY, 0, gpItemDescSoldier );
+					InternalInitItemDescriptionBox( pTemp, gsInvDescX, gsInvDescY, 0, GetItemDescSoldier() );
 				}	
 
 			}
@@ -10495,7 +10594,7 @@ void ItemDescCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				DeleteItemDescriptionBox( );
 				if (pTemp != NULL)
 				{
-					InternalInitItemDescriptionBox( pTemp, gsInvDescX, gsInvDescY, 0, gpItemDescSoldier );
+					InternalInitItemDescriptionBox( pTemp, gsInvDescX, gsInvDescY, 0, GetItemDescSoldier() );
 				}	
 			}
 		}
@@ -10545,6 +10644,15 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	UINT32					iItemCap;
 	SoldierID				ubID;
 	CHAR16					sString[ 128 ];
+
+	if (HasJa2TacticalInventoryActorContext(
+			TacticalInventoryActorRole::ItemPopupOwner) &&
+		!GetItemPopupSoldier())
+	{
+		gfItemPopupRegionCallbackEndFix = TRUE;
+		DeleteItemStackPopup();
+		return;
+	}
 
 	uiItemPos = MSYS_GetRegionUserData( pRegion, 0 );
 	iItemCap = MSYS_GetRegionUserData( pRegion, 1 );
@@ -10611,6 +10719,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				else
 				{
 					gpItemPointer = NULL;
+					(void)SetItemPointerSoldier(NULL);
 					MSYS_ChangeRegionCursor( &gSMPanelRegion , CURSOR_NORMAL );
 					SetCurrentCursorFromDatabase( CURSOR_NORMAL );
 
@@ -10637,7 +10746,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				// remember which gridno the object came from
 				sObjectSourceGridNo = ubID->sGridNo;
 				// and who owned it last
-				gpItemPointerSoldier = ubID;
+				(void)SetItemPointerSoldier(ubID);
 
 				ReevaluateItemHatches( ubID, FALSE );
 			}
@@ -10657,13 +10766,13 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				{
 					// pick it up
 					gpItemPopupObject->RemoveObjectAtIndex( uiItemPos, &gItemPointer );
-					InternalMAPBeginItemPointer( gpItemPopupSoldier );
+					InternalMAPBeginItemPointer( GetItemPopupSoldier() );
 				}
 				else
 				{
 					gpItemPopupObject->RemoveObjectAtIndex( uiItemPos, &gItemPointer );
 					gpItemPointer = &gItemPointer;
-					gpItemPointerSoldier = gpItemPopupSoldier;
+					(void)SetItemPointerSoldier(GetItemPopupSoldier());
 				}
 
 				//if we are in the shop keeper interface
@@ -10727,10 +10836,10 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if ( _KeyDown(SHIFT) && gpItemPointer == NULL && Item[gpItemPopupObject->usItem].usItemClass == IC_GUN && (*gpItemPopupObject)[uiItemPos]->data.gun.ubGunShotsLeft > 0 && !ItemIsSingleShotRocketLauncher(gpItemPopupObject->usItem) )
 					{
 						EmptyWeaponMagazine( gpItemPopupObject, &gItemPointer, uiItemPos );
-						InternalMAPBeginItemPointer( gpItemPopupSoldier );
+						InternalMAPBeginItemPointer( GetItemPopupSoldier() );
 					}
 					else
-						MAPInternalInitItemDescriptionBox( gpItemPopupObject, (UINT8)uiItemPos, gpItemPopupSoldier );
+						MAPInternalInitItemDescriptionBox( gpItemPopupObject, (UINT8)uiItemPos, GetItemPopupSoldier() );
 				}
 			}
 			else
@@ -10739,10 +10848,10 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				{
 					EmptyWeaponMagazine( gpItemPopupObject, &gItemPointer, uiItemPos );
 					gpItemPointer = &gItemPointer;
-					gpItemPointerSoldier = gpItemPopupSoldier;
+					(void)SetItemPointerSoldier(GetItemPopupSoldier());
 				}
 				else
-					InternalInitItemDescriptionBox( gpItemPopupObject, (INT16) ITEMDESC_START_X, (INT16) ITEMDESC_START_Y, (UINT8)uiItemPos, gpItemPopupSoldier );
+					InternalInitItemDescriptionBox( gpItemPopupObject, (INT16) ITEMDESC_START_X, (INT16) ITEMDESC_START_Y, (UINT8)uiItemPos, GetItemPopupSoldier() );
 			}
 		}
 	}
@@ -10821,7 +10930,6 @@ public:
 	INT32 sGridNo;
 	INT8					bZLevel;
 	INT16					sButtomPanelStartY;
-	SOLDIERTYPE		*pSoldier;
 	ITEM_POOL			*ItemPoolSlots[ NUM_PICKUP_SLOTS ];
 	MOUSE_REGION	Regions[ NUM_PICKUP_SLOTS ];
 	MOUSE_REGION	BackRegions;
@@ -10890,11 +10998,13 @@ BOOLEAN InitializeItemPickupMenu( SOLDIERTYPE *pSoldier, INT32 sGridNo, ITEM_POO
 	INT32						cnt;
 	INT16						sCenX, sCenY, sX, sY, sCenterYVal;
 
-	gfStealing=FALSE;
-	gpOpponent=NULL;
-
 	// Erase other menus....
 	EraseInterfaceMenus( TRUE );
+
+	gfStealing = FALSE;
+	(void)SetItemPickupOpponent(NULL);
+	if (!SetItemPickupActor(pSoldier))
+		return FALSE;
 
 	// Make sure menu is located if not on screen
 	LocateSoldier( pSoldier->ubID, FALSE );
@@ -11003,7 +11113,6 @@ BOOLEAN InitializeItemPickupMenu( SOLDIERTYPE *pSoldier, INT32 sGridNo, ITEM_POO
 	gItemPickupMenu.sX					= sX;
 	gItemPickupMenu.sY					= sY;
 	gItemPickupMenu.bCurSelect	= 0;
-	gItemPickupMenu.pSoldier		= pSoldier;
 	gItemPickupMenu.fHandled		= FALSE;
 	gItemPickupMenu.sGridNo			= sGridNo;
 	gItemPickupMenu.bZLevel			= bZLevel;
@@ -11181,7 +11290,7 @@ void SetupPickupPage( INT8 bPage )
 		{
 			gItemPickupMenu.ItemPoolSlots[ cnt - iStart ] = pTempItemPool;
 
-			pObject = (gfStealing)? &gpOpponent->inv[pTempItemPool->iItemIndex]
+			pObject = (gfStealing)? &GetItemPickupOpponent()->inv[pTempItemPool->iItemIndex]
 				:&(gWorldItems[ pTempItemPool->iItemIndex ].object );
 
 		  sValue = (*pObject)[0]->data.objectStatus;
@@ -11307,6 +11416,16 @@ void RenderItemPickupMenu( )
 		return;
 	}
 
+	if ((HasJa2TacticalInventoryActorContext(TacticalInventoryActorRole::PickupActor) &&
+		 !GetItemPickupActor()) ||
+		(gfStealing &&
+		 HasJa2TacticalInventoryActorContext(TacticalInventoryActorRole::PickupOpponent) &&
+		 !GetItemPickupOpponent()))
+	{
+		RemoveItemPickupMenu();
+		return;
+	}
+
 
 	// Do everything!
 	if ( gItemPickupMenu.fDirtyLevel == DIRTYLEVEL2 )
@@ -11362,7 +11481,7 @@ void RenderItemPickupMenu( )
 			if ( gItemPickupMenu.ItemPoolSlots[ cnt ] != NULL )
 			{
 				// Get item to render
-				pObject = (gfStealing)? &gpOpponent->inv[gItemPickupMenu.ItemPoolSlots[ cnt ]->iItemIndex]
+				pObject = (gfStealing)? &GetItemPickupOpponent()->inv[gItemPickupMenu.ItemPoolSlots[ cnt ]->iItemIndex]
 					:&(gWorldItems[ gItemPickupMenu.ItemPoolSlots[ cnt ]->iItemIndex ].object );
 				pItem = &( Item[ pObject->usItem ] );
 
@@ -11515,6 +11634,7 @@ void RenderItemPickupMenu( )
 void RemoveItemPickupMenu( )
 {
 	INT32 cnt;
+	SOLDIERTYPE* pickupActor = GetItemPickupActor();
 
 	if ( gfInItemPickupMenu )
 	{
@@ -11528,10 +11648,12 @@ void RemoveItemPickupMenu( )
 		PauseTime( FALSE );
 
 		// Unfreese guy!
-		gItemPickupMenu.pSoldier->flags.fPauseAllAnimation = FALSE;
+		if (pickupActor)
+			pickupActor->flags.fPauseAllAnimation = FALSE;
 
 		// Flugente: remove the marker notifying we are currently stealing
-		gItemPickupMenu.pSoldier->usSoldierFlagMask &= ~SOLDIER_ACCESSTEAMMEMBER;
+		if (pickupActor)
+			pickupActor->usSoldierFlagMask &= ~SOLDIER_ACCESSTEAMMEMBER;
 
 		// Remove graphics!
 		DeleteVideoObjectFromIndex( gItemPickupMenu.uiPanelVo );
@@ -11591,9 +11713,16 @@ void RemoveItemPickupMenu( )
 		// Turn off Ignore scrolling
 		gfIgnoreScrolling = FALSE;
 		DisableTacticalTeamPanelButtons( FALSE );
-		gubSelectSMPanelToMerc = gpSMCurrentMerc->ubID;
+		if (SOLDIERTYPE* selectedMerc = GetSMCurrentMerc())
+			gubSelectSMPanelToMerc = selectedMerc->ubID;
+		else
+			gubSelectSMPanelToMerc = NOBODY;
 
 	}
+
+	ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupActor);
+	ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupOpponent);
+	gfStealing = FALSE;
 }
 
 
@@ -11652,7 +11781,7 @@ void ItemPickupAll( GUI_BUTTON *btn, INT32 reason )
 		// OK, pickup item....
 		//gItemPickupMenu.fHandled = TRUE;
 		// Tell our soldier to pickup this item!
-		//SoldierGetItemFromWorld( gItemPickupMenu.pSoldier, ITEM_PICKUP_ACTION_ALL, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, NULL );
+		//SoldierGetItemFromWorld( GetItemPickupActor(), ITEM_PICKUP_ACTION_ALL, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, NULL );
 		for ( cnt = 0; cnt < gItemPickupMenu.ubTotalItems; cnt++ )
 		{
 			gItemPickupMenu.pfSelectedArray[ cnt ] = gItemPickupMenu.fAllSelected;
@@ -11689,21 +11818,25 @@ void ItemPickupOK( GUI_BUTTON *btn, INT32 reason )
 
 		// OK, pickup item....
 		gItemPickupMenu.fHandled = TRUE;
+		SOLDIERTYPE* pickupActor = GetItemPickupActor();
+		SOLDIERTYPE* pickupOpponent = GetItemPickupOpponent();
+		if (!pickupActor || (gfStealing && !pickupOpponent))
+			return;
 
 		if (gfStealing)	//jackaians modif
 		{
-			usLastItem=gpOpponent->inv[HANDPOS].usItem;
-			SoldierStealItemFromSoldier( gItemPickupMenu.pSoldier,gpOpponent,gItemPickupMenu.pItemPool, ITEM_PICKUP_SELECTION, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, gItemPickupMenu.pfSelectedArray );
+			usLastItem=pickupOpponent->inv[HANDPOS].usItem;
+			SoldierStealItemFromSoldier( pickupActor, pickupOpponent, gItemPickupMenu.pItemPool, ITEM_PICKUP_SELECTION, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, gItemPickupMenu.pfSelectedArray );
 			DeletePool(gItemPickupMenu.pItemPool);
-			if ((gpOpponent->inv[HANDPOS].exists() == false ) && (usLastItem!=NOTHING))
-				gpOpponent->ReLoadSoldierAnimationDueToHandItemChange( usLastItem, NOTHING );
+			if ((pickupOpponent->inv[HANDPOS].exists() == false ) && (usLastItem!=NOTHING))
+				pickupOpponent->ReLoadSoldierAnimationDueToHandItemChange( usLastItem, NOTHING );
 
-//			PreventFromTheFreezingBug(gItemPickupMenu.pSoldier);
+//			PreventFromTheFreezingBug(pickupActor);
 		}
 		else
 		{
 			// Tell our soldier to pickup this item!
-			SoldierGetItemFromWorld( gItemPickupMenu.pSoldier, ITEM_PICKUP_SELECTION, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, gItemPickupMenu.pfSelectedArray );
+			SoldierGetItemFromWorld( pickupActor, ITEM_PICKUP_SELECTION, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, gItemPickupMenu.pfSelectedArray );
 		}
 	}
 	else if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE )
@@ -11731,7 +11864,7 @@ void ItemPickupCancel( GUI_BUTTON *btn, INT32 reason )
 		{
 			DeletePool(gItemPickupMenu.pItemPool);
 
-//			PreventFromTheFreezingBug(gItemPickupMenu.pSoldier);
+//			PreventFromTheFreezingBug(GetItemPickupActor());
 		}
 	}
 	else if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE )
@@ -11782,7 +11915,7 @@ void ItemPickMenuMouseMoveCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 				// Turn off first...
 				HandleAnyMercInSquadHasCompatibleStuff( (INT8) CurrentSquad( ), NULL, TRUE );
-				InternalHandleCompatibleAmmoUI( gpSMCurrentMerc, &( gItemPickupMenu.CompAmmoObject ), TRUE );
+				InternalHandleCompatibleAmmoUI( GetSMCurrentMerc(), &( gItemPickupMenu.CompAmmoObject ), TRUE );
 
 				// Nonomori: Fix crash caused by stealing ammo in a sector with no items loaded.
 				// HandleAnyMercInSquadHasCompatibleStuff( (INT8)CurrentSquad( ), &(gWorldItems[ pTempItemPool->iItemIndex ].object ), FALSE );
@@ -11800,7 +11933,7 @@ void ItemPickMenuMouseMoveCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		gItemPickupMenu.bCurSelect = 255;
 
-		InternalHandleCompatibleAmmoUI( gpSMCurrentMerc, &( gItemPickupMenu.CompAmmoObject ), FALSE );
+		InternalHandleCompatibleAmmoUI( GetSMCurrentMerc(), &( gItemPickupMenu.CompAmmoObject ), FALSE );
 		HandleAnyMercInSquadHasCompatibleStuff( (INT8) CurrentSquad( ), NULL, TRUE );
 
 		SetItemPickupMenuDirty( DIRTYLEVEL2 );
@@ -11845,7 +11978,7 @@ void ItemPickMenuMouseClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			//pTempItemPool = gItemPickupMenu.ItemPoolSlots[ gItemPickupMenu.bCurSelect - gItemPickupMenu.ubScrollAnchor ];
 
 			// Tell our soldier to pickup this item!
-			//SoldierGetItemFromWorld( gItemPickupMenu.pSoldier, pTempItemPool->iItemIndex, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel );
+			//SoldierGetItemFromWorld( GetItemPickupActor(), pTempItemPool->iItemIndex, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel );
 		}
 
 		// Loop through all and set /unset OK
@@ -11879,6 +12012,16 @@ BOOLEAN HandleItemPickupMenu( )
 	if ( !gfInItemPickupMenu )
 	{
 		return( FALSE );
+	}
+
+	if ((HasJa2TacticalInventoryActorContext(TacticalInventoryActorRole::PickupActor) &&
+		 !GetItemPickupActor()) ||
+		(gfStealing &&
+		 HasJa2TacticalInventoryActorContext(TacticalInventoryActorRole::PickupOpponent) &&
+		 !GetItemPickupOpponent()))
+	{
+		RemoveItemPickupMenu();
+		return FALSE;
 	}
 
 	if ( gItemPickupMenu.fHandled )
@@ -12062,7 +12205,7 @@ void RemoveMoney()
 			CreateMoney(gRemoveMoney.uiMoneyRemoving, &InvSlot.ItemObject );
 
 			//Set the amount thast is being removed
-			InvSlot.ubIdOfMercWhoOwnsTheItem = gpItemDescSoldier->ubProfile;
+			InvSlot.ubIdOfMercWhoOwnsTheItem = GetItemDescSoldier()->ubProfile;
 
 			//if we are removing money from the players account
 			if( gfAddingMoneyToMercFromPlayersAccount )
@@ -12070,7 +12213,7 @@ void RemoveMoney()
 				(*gpItemDescObject)[0]->data.money.uiMoneyAmount = gRemoveMoney.uiMoneyRemoving;
 
 				//take the money from the player
-				AddTransactionToPlayersBook ( TRANSFER_FUNDS_TO_MERC, gpSMCurrentMerc->ubProfile, GetWorldTotalMin() , -(INT32)( gRemoveMoney.uiMoneyRemoving ) );
+				AddTransactionToPlayersBook ( TRANSFER_FUNDS_TO_MERC, GetSMCurrentMerc()->ubProfile, GetWorldTotalMin() , -(INT32)( gRemoveMoney.uiMoneyRemoving ) );
 			}
 			else {
 				//Remove the money from the money in the pocket
@@ -12081,7 +12224,7 @@ void RemoveMoney()
 
 			gItemPointer = InvSlot.ItemObject;
 			gpItemPointer = &gItemPointer;
-			gpItemPointerSoldier = gpSMCurrentMerc;
+			(void)SetItemPointerSoldier(GetSMCurrentMerc());
 
 			// Set mouse
 			SetSkiCursor( EXTERN_CURSOR );
@@ -12103,7 +12246,7 @@ void RemoveMoney()
 				gpItemPointer = &gItemPointer;
 			}
 			//Asign the soldier to be the currently selected soldier
-			gpItemPointerSoldier = gpItemDescSoldier;
+			(void)SetItemPointerSoldier(GetItemDescSoldier());
 
 			//Remove the money from the money in the pocket
 			//if we are removing money from the players account
@@ -12112,7 +12255,7 @@ void RemoveMoney()
 				(*gpItemDescObject)[0]->data.money.uiMoneyAmount = gRemoveMoney.uiMoneyRemoving;
 
 				//take the money from the player
-				AddTransactionToPlayersBook ( TRANSFER_FUNDS_TO_MERC, gpSMCurrentMerc->ubProfile, GetWorldTotalMin() , -(INT32)(gRemoveMoney.uiMoneyRemoving) );
+				AddTransactionToPlayersBook ( TRANSFER_FUNDS_TO_MERC, GetSMCurrentMerc()->ubProfile, GetWorldTotalMin() , -(INT32)(gRemoveMoney.uiMoneyRemoving) );
 			}
 			else
 				(*gpItemDescObject)[0]->data.money.uiMoneyAmount = gRemoveMoney.uiMoneyRemaining;
@@ -12837,16 +12980,16 @@ void CancelItemPointer( )
 		if ( gbItemPointerSrcSlot != NO_SLOT )
 		{
 			// Place it back in our hands!
-			PlaceObject( gpItemPointerSoldier, gbItemPointerSrcSlot, gpItemPointer );
+			PlaceObject( GetItemPointerSoldier(), gbItemPointerSrcSlot, gpItemPointer );
 
 			// ATE: This could potnetially swap!
 			// Make sure # of items is 0, if not, auto place somewhere else...
 			if ( gpItemPointer->exists() == true )
 			{
-				if ( !AutoPlaceObject( gpItemPointerSoldier, gpItemPointer, FALSE ) )
+				if ( !AutoPlaceObject( GetItemPointerSoldier(), gpItemPointer, FALSE ) )
 				{
 					// Alright, place of the friggen ground!
-					AddItemToPool( gpItemPointerSoldier->sGridNo, gpItemPointer, 1, gpItemPointerSoldier->pathing.bLevel, 0, -1 );
+					AddItemToPool( GetItemPointerSoldier()->sGridNo, gpItemPointer, 1, GetItemPointerSoldier()->pathing.bLevel, 0, -1 );
 					NotifySoldiersToLookforItems( );
 				}
 			}
@@ -12854,7 +12997,7 @@ void CancelItemPointer( )
 		else
 		{
 			// We drop it here.....
-			AddItemToPool( gpItemPointerSoldier->sGridNo, gpItemPointer, 1, gpItemPointerSoldier->pathing.bLevel, 0, -1 );
+			AddItemToPool( GetItemPointerSoldier()->sGridNo, gpItemPointer, 1, GetItemPointerSoldier()->pathing.bLevel, 0, -1 );
 			NotifySoldiersToLookforItems( );
 		}
 		EndItemPointer( );
@@ -12879,11 +13022,11 @@ BOOLEAN LoadItemCursorFromSavedGame( HWFILE hFile )
 	// Copy soldier ID
 	if ( SaveStruct.ubSoldierID == NOBODY )
 	{
-		gpItemPointerSoldier = NULL;
+		(void)SetItemPointerSoldier(NULL);
 	}
 	else
 	{
-		gpItemPointerSoldier = SaveStruct.ubSoldierID;
+		(void)SetItemPointerSoldier(SaveStruct.ubSoldierID);
 	}
 
 	// Inv slot
@@ -12898,6 +13041,7 @@ BOOLEAN LoadItemCursorFromSavedGame( HWFILE hFile )
 	else
 	{
 		gpItemPointer = NULL;
+		(void)SetItemPointerSoldier(NULL);
 	}
 
 	return( TRUE );
@@ -12911,9 +13055,9 @@ BOOLEAN SaveItemCursorToSavedGame( HWFILE hFile )
 	SaveStruct.ItemPointerInfo = gItemPointer;
 
 	// Soldier
-	if ( gpItemPointerSoldier != NULL )
+	if ( GetItemPointerSoldier() != NULL )
 	{
-		SaveStruct.ubSoldierID = gpItemPointerSoldier->ubID;
+		SaveStruct.ubSoldierID = GetItemPointerSoldier()->ubID;
 	}
 	else
 	{
@@ -12959,7 +13103,7 @@ void UpdateItemHatches()
 	}
 	else
 	{
-		pSoldier = gpSMCurrentMerc;
+		pSoldier = GetSMCurrentMerc();
 	}
 
 	if ( pSoldier != NULL )
@@ -12979,11 +13123,16 @@ BOOLEAN InitializeStealItemPickupMenu( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOppo
 	INT8 bZLevel	=pOpponent->pathing.bLevel;
 	INT32 sGridNo	=pOpponent->sGridNo;
 	INT32			cnt;
-	gpOpponent		=pOpponent;
-	gfStealing		=TRUE;
-
 	// Erase other menus....
 	EraseInterfaceMenus( TRUE );
+
+	if (!SetItemPickupActor(pSoldier) || !SetItemPickupOpponent(pOpponent))
+	{
+		ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupActor);
+		ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupOpponent);
+		return FALSE;
+	}
+	gfStealing = TRUE;
 
 	// Make sure menu is located if not on screen
 	LocateSoldier( pOpponent->ubID, FALSE );
@@ -13078,7 +13227,6 @@ BOOLEAN InitializeStealItemPickupMenu( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOppo
 	gItemPickupMenu.sX				= sX;
 	gItemPickupMenu.sY				= sY;
 	gItemPickupMenu.bCurSelect		= 0;
-	gItemPickupMenu.pSoldier		= pSoldier;
 	gItemPickupMenu.fHandled		= FALSE;
 	gItemPickupMenu.sGridNo			= sGridNo;
 	gItemPickupMenu.bZLevel			= bZLevel;
@@ -13707,7 +13855,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 		DeleteItemDescriptionBox( );
 		if (pTemp != NULL)
 		{
-			InternalInitItemDescriptionBox( pTemp, gsInvDescX, gsInvDescY, 0, gpItemDescSoldier );
+			InternalInitItemDescriptionBox( pTemp, gsInvDescX, gsInvDescY, 0, GetItemDescSoldier() );
 			if (fShopkeeperItem)
 			{
 				pShopKeeperItemDescObject = pTemp;
@@ -13767,7 +13915,7 @@ BOOLEAN TransformationMenuPopup_TestValid(TransformInfoStruct * Transform)
 		UINT16 usAPCost = Transform->usAPCost;
 		INT32 iBPCost = Transform->iBPCost;
 
-		if (EnoughPoints( gpItemDescSoldier, usAPCost, iBPCost, false ))
+		if (EnoughPoints( GetItemDescSoldier(), usAPCost, iBPCost, false ))
 		{
 			// Flugente: If item is an armed bomb, do not allow any transformation!
 			if ( Item[gpItemDescObject->usItem].usItemClass == IC_BOMB && gpItemDescObject->ubNumberOfObjects == 1 && HasAttachmentOfClass( gpItemDescObject, (AC_DETONATOR | AC_REMOTEDET) ) )
@@ -13815,30 +13963,30 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 			INT32 iBPCost   = APBPConstants[BP_INVENTORY_ARM];
 	
 			// Check whether our soldier can afford this transformation!
-			if (!EnoughPoints( gpItemDescSoldier, (INT16)usAPCost, iBPCost, true ))
+			if (!EnoughPoints( GetItemDescSoldier(), (INT16)usAPCost, iBPCost, true ))
 			{
 				return;
 			}
 			else
 			{
 				// Soldier can afford the transformation. Deduct APBP as necessary.
-				DeductPoints( gpItemDescSoldier, (INT16)usAPCost, iBPCost, false );
+				DeductPoints( GetItemDescSoldier(), (INT16)usAPCost, iBPCost, false );
 			}
 
 			INT8 screen = GetCurrentScreen();
 			if ( screen == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-				IgniteExplosion( gpItemDescSoldier->ubID, gpItemDescSoldier->sX, gpItemDescSoldier->sY, (INT16) (gpWorldLevelData[gpItemDescSoldier->sGridNo].sHeight), gpItemDescSoldier->sGridNo, pObj->usItem, gpItemDescSoldier->pathing.bLevel, gpItemDescSoldier->ubDirection, pObj );
+				IgniteExplosion( GetItemDescSoldier()->ubID, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->sGridNo].sHeight), GetItemDescSoldier()->sGridNo, pObj->usItem, GetItemDescSoldier()->pathing.bLevel, GetItemDescSoldier()->ubDirection, pObj );
 			}
 			else
 			{
 				// no explosions in map screen - instead we simply damage the inventory and harm our health
-				gpItemDescSoldier->InventoryExplosion();
+				GetItemDescSoldier()->InventoryExplosion();
 			}
 
 			// Flugente: blowing up bombs in our inventory can be used to indirectly kill as a spy (via mustard gas), so make this a suspicious action
-			if ( gpItemDescSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+			if ( GetItemDescSoldier()->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			{
 				// if e perform a suspicious action, we are easier to identify 
 				UINT16 appenalty = 50;
@@ -13846,12 +13994,12 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 				if ( appenalty )
 				{
 					// mark us a easily identifiable
-					gpItemDescSoldier->usSoldierFlagMask |= SOLDIER_COVERT_TEMPORARY_OVERT;
+					GetItemDescSoldier()->usSoldierFlagMask |= SOLDIER_COVERT_TEMPORARY_OVERT;
 
 					// in realtime mode, remember the second when this event happened. Once suspicion is checked, we are either uncovered or, if enough time has passed, no longer suspicious
 					// in turnbase mode, remember our current APs. If a new turn has started or enough APs have been used, remove the flag
-					gpItemDescSoldier->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS] = GetWorldTotalSeconds( ) + max( 1, appenalty / 25 );
-					gpItemDescSoldier->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] = appenalty;
+					GetItemDescSoldier()->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS] = GetWorldTotalSeconds( ) + max( 1, appenalty / 25 );
+					GetItemDescSoldier()->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] = appenalty;
 				}
 			}
 
@@ -13930,7 +14078,7 @@ BOOLEAN TransformationMenuPopup_Arm_TestValid(OBJECTTYPE * pObj)
 		UINT16 usAPCost = 20;
 		INT32 iBPCost = 1;
 
-		if (EnoughPoints( gpItemDescSoldier, usAPCost, iBPCost, false ))
+		if (EnoughPoints( GetItemDescSoldier(), usAPCost, iBPCost, false ))
 		{
 			return true;
 		}
@@ -13943,7 +14091,7 @@ BOOLEAN TransformationMenuPopup_Arm_TestValid(OBJECTTYPE * pObj)
 
 void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 {
-	if (gpItemDescSoldier)
+	if (GetItemDescSoldier())
 	{
 		// no planting tripwire in our inventory...
 		if (ItemIsTripwire(gpItemDescObject->usItem))
@@ -13953,24 +14101,24 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			
 		if ( HasAttachmentOfClass( gpItemDescObject, AC_REMOTEDET ) )
 		{
-			iResult = SkillCheck( gpItemDescSoldier, PLANTING_REMOTE_BOMB_CHECK, 0 );
+			iResult = SkillCheck( GetItemDescSoldier(), PLANTING_REMOTE_BOMB_CHECK, 0 );
 		}
 		else if ( HasItemFlag( gpItemDescObject->usItem, BEARTRAP ) )
 		{
-			iResult = SkillCheck( gpItemDescSoldier, PLANTING_MECHANICAL_BOMB_CHECK, 0 );
+			iResult = SkillCheck( GetItemDescSoldier(), PLANTING_MECHANICAL_BOMB_CHECK, 0 );
 		}
 		else
 		{
-			iResult = SkillCheck( gpItemDescSoldier, PLANTING_BOMB_CHECK, 0 );
+			iResult = SkillCheck( GetItemDescSoldier(), PLANTING_BOMB_CHECK, 0 );
 		}
 
 		if ( iResult >= 0 )
 		{
 			if ( HasItemFlag( gpItemDescObject->usItem, BEARTRAP ) )
-				StatChange( gpItemDescSoldier, MECHANAMT, 10, FALSE );
+				StatChange( GetItemDescSoldier(), MECHANAMT, 10, FALSE );
 			else
 				// EXPLOSIVES GAIN (25):	Place a bomb, or buried and armed a mine
-				StatChange( gpItemDescSoldier, EXPLODEAMT, 25, FALSE );
+				StatChange( GetItemDescSoldier(), EXPLODEAMT, 25, FALSE );
 		}
 		else
 		{
@@ -13979,7 +14127,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 				return;
 
 			// EXPLOSIVES GAIN (10):	Failed to place a bomb, or bury and arm a mine
-			StatChange( gpItemDescSoldier, EXPLODEAMT, 10, FROM_FAILURE );
+			StatChange( GetItemDescSoldier(), EXPLODEAMT, 10, FROM_FAILURE );
 
 			// oops!	How badly did we screw up?
 			if ( iResult >= -20 )
@@ -13998,20 +14146,20 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			}
 			else
 			{
-				gpItemDescSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+				GetItemDescSoldier()->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Arming of bomb failed. Resulting explosion damages %s's inventory and health", gpItemDescSoldier->name );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Arming of bomb failed. Resulting explosion damages %s's inventory and health", GetItemDescSoldier()->name );
 
 				INT8 screen = GetCurrentScreen();
 				if ( screen == GAME_SCREEN )
 				{
 					// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-					IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, gpItemDescSoldier->sX, gpItemDescSoldier->sY, (INT16) (gpWorldLevelData[gpItemDescSoldier->sGridNo].sHeight), gpItemDescSoldier->sGridNo, gpItemDescObject->usItem, gpItemDescSoldier->pathing.bLevel, gpItemDescSoldier->ubDirection, gpItemDescObject );
+					IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->sGridNo].sHeight), GetItemDescSoldier()->sGridNo, gpItemDescObject->usItem, GetItemDescSoldier()->pathing.bLevel, GetItemDescSoldier()->ubDirection, gpItemDescObject );
 				}
 				else if ( (screen == MAP_SCREEN) || (screen == MSG_BOX_SCREEN) )
 				{
 					// no explosions in map screen - instead we simply damage the inventory and harm our health
-					gpItemDescSoldier->InventoryExplosion();
+					GetItemDescSoldier()->InventoryExplosion();
 				}
 
 				DeleteObj( gpItemDescObject );
@@ -14028,18 +14176,18 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 		if ( ArmBomb( gpItemDescObject, ubExitValue ) )
 		{
 			// SANDRO - STOMP traits - Demolitions bonus to trap level
-			if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( gpItemDescSoldier, DEMOLITIONS_NT ))
+			if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( GetItemDescSoldier(), DEMOLITIONS_NT ))
 			{
 				// increase trap level for Demolitions trait
-				(*gpItemDescObject)[0]->data.bTrap = __min( max( 10, (8 + gSkillTraitValues.ubDEPlacedBombLevelBonus)), (( EffectiveExplosive( gpItemDescSoldier ) / 20) + (EffectiveExpLevel( gpItemDescSoldier ) / 3) + gSkillTraitValues.ubDEPlacedBombLevelBonus) );
+				(*gpItemDescObject)[0]->data.bTrap = __min( max( 10, (8 + gSkillTraitValues.ubDEPlacedBombLevelBonus)), (( EffectiveExplosive( GetItemDescSoldier() ) / 20) + (EffectiveExpLevel( GetItemDescSoldier() ) / 3) + gSkillTraitValues.ubDEPlacedBombLevelBonus) );
 			}
 			else
 			{
-				(*gpItemDescObject)[0]->data.bTrap = __min( 10, ( EffectiveExplosive( gpItemDescSoldier ) / 20) + (EffectiveExpLevel( gpItemDescSoldier ) / 3) );
+				(*gpItemDescObject)[0]->data.bTrap = __min( 10, ( EffectiveExplosive( GetItemDescSoldier() ) / 20) + (EffectiveExpLevel( GetItemDescSoldier() ) / 3) );
 			}
 
 			// Flugente: backgrounds
-			if ( gpItemDescSoldier->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
+			if ( GetItemDescSoldier()->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
 				(*gpItemDescObject)[0]->data.bTrap++;
 				
 			// Flugente: We armed a bomb in our inventory. We will NOT add it to the item pool and the world bombs.
@@ -14049,12 +14197,12 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			// HACK IMMINENT!
 			// value of 1 is stored in maps for SIDE of bomb owner... when we want to use IDs!
 			// so we add 2 to all owner IDs passed through here and subtract 2 later
-			//if (gpItemDescSoldier->inv[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0) 
+			//if (GetItemDescSoldier()->inv[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0)
 			{
-				(*gpItemDescObject)[0]->data.misc.ubBombOwner = gpItemDescSoldier->ubID + 2;
-				(*gpItemDescObject)[0]->data.ubDirection = gpItemDescSoldier->ubDirection;		// Flugente: direction of bomb is direction of soldier
+				(*gpItemDescObject)[0]->data.misc.ubBombOwner = GetItemDescSoldier()->ubID + 2;
+				(*gpItemDescObject)[0]->data.ubDirection = GetItemDescSoldier()->ubDirection;		// Flugente: direction of bomb is direction of soldier
 
-				//AddItemToPool( gsTempGridNo, &gTempObject, VISIBLE, gpItemDescSoldier->pathing.bLevel, WORLD_ITEM_ARMED_BOMB, 0 );
+				//AddItemToPool( gsTempGridNo, &gTempObject, VISIBLE, GetItemDescSoldier()->pathing.bLevel, WORLD_ITEM_ARMED_BOMB, 0 );
 			}
 		}
 	}
@@ -14062,7 +14210,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 
 void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 {
-	if ( !gpItemDescSoldier )
+	if ( !GetItemDescSoldier() )
 		return;
 
 	if ( !gpItemDescObject )
@@ -14081,8 +14229,8 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 		if((gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.fEnemyInSector))
 		{
 			// SANDRO was here, AP_DISARM_MINE changed to GetAPsToDisarmMine
-			if(EnoughPoints(gpItemDescSoldier, GetAPsToDisarmMine( gpItemDescSoldier ), APBPConstants[BP_DISARM_MINE], TRUE))
-				DeductPoints(gpItemDescSoldier, GetAPsToDisarmMine( gpItemDescSoldier ), APBPConstants[BP_DISARM_MINE], AFTERACTION_INTERRUPT);
+			if(EnoughPoints(GetItemDescSoldier(), GetAPsToDisarmMine( GetItemDescSoldier() ), APBPConstants[BP_DISARM_MINE], TRUE))
+				DeductPoints(GetItemDescSoldier(), GetAPsToDisarmMine( GetItemDescSoldier() ), APBPConstants[BP_DISARM_MINE], AFTERACTION_INTERRUPT);
 			else
 				return;
 		}
@@ -14095,7 +14243,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 		if ( (*gpItemDescObject)[0]->data.misc.ubBombOwner > 1 && ( (INT32)(*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 >= gTacticalStatus.Team[ OUR_TEAM ].bFirstID && (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 <= gTacticalStatus.Team[ OUR_TEAM ].bLastID ) )
 		{
 			// Flugente: get a tripwire-related bonus if we have a wire cutter in our hands
-			if ( ( (&gpItemDescSoldier->inv[HANDPOS])->exists() && ItemIsWirecutters(gpItemDescSoldier->inv[HANDPOS].usItem) ) || ( (&gpItemDescSoldier->inv[SECONDHANDPOS])->exists() && ItemIsWirecutters(gpItemDescSoldier->inv[SECONDHANDPOS].usItem) ) )
+			if ( ( (&GetItemDescSoldier()->inv[HANDPOS])->exists() && ItemIsWirecutters(GetItemDescSoldier()->inv[HANDPOS].usItem) ) || ( (&GetItemDescSoldier()->inv[SECONDHANDPOS])->exists() && ItemIsWirecutters(GetItemDescSoldier()->inv[SECONDHANDPOS].usItem) ) )
 			{
 				// + 10 if item gets activated by tripwire
 				if (ItemHasTripwireActivation(gpItemDescObject->usItem))
@@ -14107,7 +14255,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 			}
 
 			// my own boobytrap!
-			if ( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 == gpItemDescSoldier->ubID )
+			if ( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 == GetItemDescSoldier()->ubID )
 				diff += 40;
 			// our team's boobytrap!
 			else
@@ -14116,11 +14264,11 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 
 		if ( HasItemFlag( gpItemDescObject->usItem, BEARTRAP ) )
 		{
-			iCheckResult = SkillCheck( gpItemDescSoldier, DISARM_MECHANICAL_TRAP_CHECK, diff );
+			iCheckResult = SkillCheck( GetItemDescSoldier(), DISARM_MECHANICAL_TRAP_CHECK, diff );
 		}
 		else
 		{
-			iCheckResult = SkillCheck( gpItemDescSoldier, DISARM_TRAP_CHECK, diff );
+			iCheckResult = SkillCheck( GetItemDescSoldier(), DISARM_TRAP_CHECK, diff );
 		}
 
 		if (iCheckResult >= 0)
@@ -14130,7 +14278,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 			if ( (*gpItemDescObject)[0]->data.misc.ubBombOwner > 1 && ( (INT32)(*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 >= gTacticalStatus.Team[ OUR_TEAM ].bFirstID && (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 <= gTacticalStatus.Team[ OUR_TEAM ].bLastID ) )
 			{
 				// disarmed our own boobytrap!
-				if ( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 == gpItemDescSoldier->ubID )
+				if ( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 == GetItemDescSoldier()->ubID )
 				{
 					gain = (UINT16)(2 * trapdifficulty);
 				}
@@ -14140,7 +14288,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 					gain = (UINT16)(4 * trapdifficulty);
 					
 					// SANDRO - merc records - trap removal count (don't count our own traps)
-					gMercProfiles[ gpItemDescSoldier->ubProfile ].records.usTrapsRemoved++;
+					gMercProfiles[ GetItemDescSoldier()->ubProfile ].records.usTrapsRemoved++;
 				}
 			}
 			else
@@ -14149,16 +14297,16 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 				gain = (UINT16)(6 * trapdifficulty);
 
 				// SANDRO - merc records - trap removal count
-				gMercProfiles[ gpItemDescSoldier->ubProfile ].records.usTrapsRemoved++;
+				gMercProfiles[ GetItemDescSoldier()->ubProfile ].records.usTrapsRemoved++;
 			}
 
 			if ( HasItemFlag( gpItemDescObject->usItem, BEARTRAP ) )
-				StatChange( gpItemDescSoldier, MECHANAMT, gain / 2, FALSE );
+				StatChange( GetItemDescSoldier(), MECHANAMT, gain / 2, FALSE );
 			else
-				StatChange( gpItemDescSoldier, EXPLODEAMT, gain, FALSE );
+				StatChange( GetItemDescSoldier(), EXPLODEAMT, gain, FALSE );
 
 			// have merc say this is good
-			gpItemDescSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+			GetItemDescSoldier()->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 
 			(*gpItemDescObject)[0]->data.ubWireNetworkFlag = 0;
 			(*gpItemDescObject)[0]->data.bDefuseFrequency = 0;
@@ -14176,25 +14324,25 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 		else
 		{
 			// oops! trap goes off
-			gpItemDescSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+			GetItemDescSoldier()->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 
 			// beartraps don't explode...
 			if ( HasItemFlag( gpItemDescObject->usItem, BEARTRAP ) )
 				return;
 
-			StatChange( gpItemDescSoldier, EXPLODEAMT, (INT8) (3 * trapdifficulty ), FROM_FAILURE );
+			StatChange( GetItemDescSoldier(), EXPLODEAMT, (INT8) (3 * trapdifficulty ), FROM_FAILURE );
 
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Disarming of bomb failed. Resulting explosion damages %s's inventory and health", gpItemDescSoldier->name );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Disarming of bomb failed. Resulting explosion damages %s's inventory and health", GetItemDescSoldier()->name );
 
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-				IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, gpItemDescSoldier->sX, gpItemDescSoldier->sY, (INT16) (gpWorldLevelData[gpItemDescSoldier->sGridNo].sHeight), gpItemDescSoldier->sGridNo, gpItemDescObject->usItem, gpItemDescSoldier->pathing.bLevel, gpItemDescSoldier->ubDirection, gpItemDescObject );
+				IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->sGridNo].sHeight), GetItemDescSoldier()->sGridNo, gpItemDescObject->usItem, GetItemDescSoldier()->pathing.bLevel, GetItemDescSoldier()->ubDirection, gpItemDescObject );
 			}
 			else if ( GetCurrentScreen() == MAP_SCREEN || GetCurrentScreen() == MSG_BOX_SCREEN )
 			{
 				// no explosions in map screen - instead we simply damage the inventory and harm our health
-				gpItemDescSoldier->InventoryExplosion();
+				GetItemDescSoldier()->InventoryExplosion();
 			}
 
 			DeleteObj( gpItemDescObject );
@@ -14223,9 +14371,9 @@ void TransformationMenuPopup_Unjam()
 		return;
 	}
 
-	if(EnoughPoints(gpItemDescSoldier, APBPConstants[AP_UNJAM], APBPConstants[BP_UNJAM], FALSE))
+	if(EnoughPoints(GetItemDescSoldier(), APBPConstants[AP_UNJAM], APBPConstants[BP_UNJAM], FALSE))
 	{
-		DeductPoints(gpItemDescSoldier, APBPConstants[AP_UNJAM], APBPConstants[BP_UNJAM]);
+		DeductPoints(GetItemDescSoldier(), APBPConstants[AP_UNJAM], APBPConstants[BP_UNJAM]);
 		INT8 bChanceMod;
 		
 		if ( Weapon[gpItemDescObject->usItem].EasyUnjam )
@@ -14233,7 +14381,7 @@ void TransformationMenuPopup_Unjam()
 		else
 			bChanceMod = (INT8) (GetReliability( gpItemDescObject )* 4);
 		
-		int iResult = SkillCheck( gpItemDescSoldier, UNJAM_GUN_CHECK, bChanceMod); 
+		int iResult = SkillCheck( GetItemDescSoldier(), UNJAM_GUN_CHECK, bChanceMod);
 		
 		if (iResult > 0) 
 		{ 
@@ -14244,8 +14392,8 @@ void TransformationMenuPopup_Unjam()
 			
 			if (bChanceMod < 100) // don't give exp for unjamming an easily unjammable gun
 			{
-				StatChange( gpItemDescSoldier, MECHANAMT, 5, FALSE ); 
-				StatChange( gpItemDescSoldier, DEXTAMT, 5, FALSE ); 
+				StatChange( GetItemDescSoldier(), MECHANAMT, 5, FALSE );
+				StatChange( GetItemDescSoldier(), DEXTAMT, 5, FALSE );
 			}
 		 
 			RenderItemDescriptionBox();
@@ -14255,7 +14403,7 @@ void TransformationMenuPopup_Unjam()
 	}
 	else
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s does not have enough APs to unjam this weapon.", gpItemDescSoldier->name);
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s does not have enough APs to unjam this weapon.", GetItemDescSoldier()->name);
 	}
 	*/
 }
@@ -14286,7 +14434,7 @@ void TransformationMenuPopup_SplitCrate( UINT16 usMagazineItem )
 		
 		MagazineObject.initialize();
 		CreateAmmo(usMagazineItem, &MagazineObject, usBulletsInMag);
-		AutoPlaceObjectToWorld( gpItemDescSoldier, &MagazineObject, true );
+		AutoPlaceObjectToWorld( GetItemDescSoldier(), &MagazineObject, true );
 
 		if (&MagazineObject != NULL)
 		{
@@ -14324,7 +14472,7 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 	UINT8 ubCaliber = Magazine[Item[gpItemDescObject->usItem].ubClassIndex].ubCalibre;
 
 	// Drop into the soldier's inventory.
-	if (gpItemDescSoldier == NULL)
+	if (GetItemDescSoldier() == NULL)
 	{
 		return;
 	}
@@ -14338,7 +14486,7 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 
 		UINT16 usMagazineToCreate = 0;
 
-		OBJECTTYPE *pObjInPocket = &(gpItemDescSoldier->inv[sPocket]);
+		OBJECTTYPE *pObjInPocket = &(GetItemDescSoldier()->inv[sPocket]);
 		if ( pObjInPocket->exists() == true )
 		{
 			if (Magazine[Item[pObjInPocket->usItem].ubClassIndex].ubAmmoType == ubAmmoType &&
@@ -14364,7 +14512,7 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 
 		if (fMagazineInPocketOk)
 		{
-			UINT8 ubCapacity = ItemSlotLimit(pObjInPocket, sPocket, gpItemDescSoldier);
+			UINT8 ubCapacity = ItemSlotLimit(pObjInPocket, sPocket, GetItemDescSoldier());
 			ubCapacity -= pObjInPocket->ubNumberOfObjects;
 
 			for ( UINT16 x = 0; x < ubCapacity && usShotsLeft > 0; x++)
@@ -14373,7 +14521,7 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 		
 				MagazineObject.initialize();
 				CreateAmmo(usMagazineToCreate, &MagazineObject, usBulletsInMag);
-				PlaceObject( gpItemDescSoldier, (INT8)sPocket, &MagazineObject );
+				PlaceObject( GetItemDescSoldier(), (INT8)sPocket, &MagazineObject );
 
 				if (&MagazineObject != NULL)
 				{
@@ -14422,7 +14570,7 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 						TempMagObject.initialize();
 						CreateAmmo(x, &TempMagObject, usTempMagazineSize);
 
-						UINT8 ubCapacity = ItemSlotLimit(&TempMagObject, sPocket, gpItemDescSoldier);
+						UINT8 ubCapacity = ItemSlotLimit(&TempMagObject, sPocket, GetItemDescSoldier());
 						
 						if ((UINT32)(ubCapacity * usTempMagazineSize) > uiBestRoundCapacity)
 						{
@@ -14445,7 +14593,7 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 
 					MagazineObject.initialize();
 					CreateAmmo( usBestItem, &MagazineObject, usBulletsInMag );
-					PlaceObject( gpItemDescSoldier, (INT8)sPocket, &MagazineObject );
+					PlaceObject( GetItemDescSoldier(), (INT8)sPocket, &MagazineObject );
 
 					if (&MagazineObject != NULL)
 					{
@@ -14460,14 +14608,14 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 	
 	if (usOrigShotsLeft > usShotsLeft)
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzTransformationMessage[ 9 ], Item[gpItemDescObject->usItem].szItemName, gpItemDescSoldier->name );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzTransformationMessage[ 9 ], Item[gpItemDescObject->usItem].szItemName, GetItemDescSoldier()->name );
 	}
 	else
 	{
 		// Until we determine whether a box would be better...
-		ScreenMsg( FONT_ORANGE, MSG_INTERFACE, gzTransformationMessage[ 10 ], gpItemDescSoldier->name );
+		ScreenMsg( FONT_ORANGE, MSG_INTERFACE, gzTransformationMessage[ 10 ], GetItemDescSoldier()->name );
 		//CHAR16 pStr[300];
-		//swprintf( pStr, gzTransformationMessage[ 10 ], gpItemDescSoldier->name );
+		//swprintf( pStr, gzTransformationMessage[ 10 ], GetItemDescSoldier()->name );
 		//DoScreenIndependantMessageBox( pStr, MSG_BOX_FLAG_OK, NULL );
 	}
 
@@ -14506,7 +14654,7 @@ void TransformFromItemDescBox( TransformInfoStruct * Transform)
 	BOOLEAN fWasAttachment = gfItemDescObjectIsAttachment;
 
 	// Carry out the transformation on this item, using the data we've received.
-	gpItemDescObject->TransformObject( gpItemDescSoldier, gubItemDescStatusIndex, Transform, gpItemDescPrevObject );
+	gpItemDescObject->TransformObject( GetItemDescSoldier(), gubItemDescStatusIndex, Transform, gpItemDescPrevObject );
 
 	// Check to see if we need to manually erase the ammo button.
 	UINT32 uiNewClass = 0;
@@ -14563,7 +14711,7 @@ void TransformFromItemDescBox( TransformInfoStruct * Transform)
 		gpItemDescOrigAttachmentObject = pTempAttachment;
 
 		// RESTART THE BOX!
-		InternalInitItemDescriptionBox( gpItemDescObject, gsInvDescX, gsInvDescY, 0, gpItemDescSoldier );
+		InternalInitItemDescriptionBox( gpItemDescObject, gsInvDescX, gsInvDescY, 0, GetItemDescSoldier() );
 	}
 }
 
@@ -14725,7 +14873,7 @@ BOOLEAN TransformationMenuPopup_DelayedGrenadeExplosion_TestValid(OBJECTTYPE* pO
 		UINT16 usAPCost = APBPConstants[AP_GRENADE_MODE];
 		INT32 iBPCost = 0;
 
-		if (EnoughPoints( gpItemDescSoldier, usAPCost, iBPCost, false ))
+		if (EnoughPoints( GetItemDescSoldier(), usAPCost, iBPCost, false ))
 		{
 			return true;
 		}
@@ -14747,9 +14895,9 @@ void TransformationMenuPopup_DelayedGrenadeExplosion()
 		gItemDescTransformPopup->hide();
 	}
 
-	if(EnoughPoints(gpItemDescSoldier, usAPCost, iBPCost, FALSE))
+	if(EnoughPoints(GetItemDescSoldier(), usAPCost, iBPCost, FALSE))
 	{
-		DeductPoints(gpItemDescSoldier, usAPCost, iBPCost);
+		DeductPoints(GetItemDescSoldier(), usAPCost, iBPCost);
 
 		if( (*gpItemDescObject)[0]->data.sObjectFlag & DELAYED_GRENADE_EXPLOSION )
 		{
@@ -14759,7 +14907,7 @@ void TransformationMenuPopup_DelayedGrenadeExplosion()
 		{
 			(*gpItemDescObject)[0]->data.sObjectFlag |= DELAYED_GRENADE_EXPLOSION;
 		}
-		PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, gpItemDescSoldier->sGridNo ), 1, SoundDir( gpItemDescSoldier->sGridNo ) );
+		PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, GetItemDescSoldier()->sGridNo ), 1, SoundDir( GetItemDescSoldier()->sGridNo ) );
 
 		RenderItemDescriptionBox();
 	}	

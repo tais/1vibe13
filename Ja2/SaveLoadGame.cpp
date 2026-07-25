@@ -156,7 +156,6 @@ CHAR			gzNameOfMapTempFile[128];
 #include "TimeLogging.h"
 #endif
 
-extern		SOLDIERTYPE		*gpSMCurrentMerc;
 extern		INT32					giSortStateForMapScreenList;
 extern		INT16					sDeadMercs[ NUMBER_OF_SQUADS ][ NUMBER_OF_SOLDIERS_PER_SQUAD ];
 extern		INT32					giRTAILastUpdateTime;
@@ -7826,8 +7825,8 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	sGeneralInfo.sCurInterfacePanel = gsCurInterfacePanel;
 
 	// Save the selected merc
-	if( gpSMCurrentMerc )
-		sGeneralInfo.ubSMCurrentMercID = gpSMCurrentMerc->ubID;
+	if( GetSMCurrentMerc() )
+		sGeneralInfo.ubSMCurrentMercID = GetSMCurrentMerc()->ubID;
 	else
 		sGeneralInfo.ubSMCurrentMercID = NOBODY;
 
@@ -8058,6 +8057,7 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	ResetAdjacentStrategicGroupContext();
 	ResetTacticalTraversalContext();
 	ResetTacticalPlacementActorContexts();
+	ResetTacticalInventoryUiActorContexts();
 
 	GENERAL_SAVE_INFO sGeneralInfo;
 	memset( &sGeneralInfo, 0, sizeof( GENERAL_SAVE_INFO ) );
@@ -8383,9 +8383,9 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 
 	// Restore the selected merc
 	if( sGeneralInfo.ubSMCurrentMercID == NOBODY)
-		gpSMCurrentMerc = NULL;
+		(void)SetSMCurrentMerc(NULL);
 	else
-		gpSMCurrentMerc = sGeneralInfo.ubSMCurrentMercID;
+		(void)SetSMCurrentMerc(sGeneralInfo.ubSMCurrentMercID);
 
 	//Set the interface panel to the team panel
 	ShutdownCurrentPanel( );

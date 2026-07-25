@@ -8,6 +8,7 @@
 #include "StrategicGroupHost.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
+#include "TacticalInventoryUiHost.h"
 #include "TacticalWorldItemHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
@@ -91,6 +92,12 @@ GameContext& ComposeGameContext()
 		return true;
 	}();
 	(void)tacticalEntityDirectoryBound;
+	static const bool tacticalInventoryUiSessionBound = [&] {
+		BindJa2TacticalInventoryUiSession(
+			context.runtime().tacticalInventoryUiSession());
+		return true;
+	}();
+	(void)tacticalInventoryUiSessionBound;
 	static const bool tacticalWorldItemDirectoryBound = [&] {
 		BindJa2TacticalWorldItemDirectory(
 			context.runtime().tacticalWorldItemDirectory());

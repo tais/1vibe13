@@ -680,6 +680,14 @@ the engine must not contain SDL types in its public domain model.
   atomically with that directory. Its former exported incarnation counter has
   been deleted; pre-composition allocations transfer the fallback directory's
   sequence directly when `EngineRuntime` is bound.
+- `TacticalInventoryUiSession` owns the actor identities retained by the
+  selected-merc panel, item cursor, item description and attachment view,
+  stack/keyring popup, and pickup/stealing menu. The application host resolves
+  each role through `TacticalEntityDirectory`; if an actor is released or its
+  pool slot is reused, the modal closes instead of following the replacement
+  soldier or dereferencing stale inventory. Panel, cursor, world, and load
+  teardown clear these runtime-only roles. No soldier, inventory, map, save, or
+  content representation changes.
 - `TacticalWorldItemDirectory` gives reusable `gWorldItems` slots the same
   bounded incarnation protection without moving or reformatting game data.
   Storage grows only through an activated slot and is capped before allocation.

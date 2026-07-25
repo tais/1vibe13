@@ -248,6 +248,39 @@ if(raw_tactical_requester_callback_actor)
     "Tactical requester callbacks retain raw SOLDIERTYPE globals")
 endif()
 
+# Inventory panels and their modal children retain actor incarnations in the
+# runtime-owned TacticalInventoryUiSession. Keep the retired pointer globals
+# and pickup-menu member from returning under another call path.
+set(tactical_inventory_ui_files
+  "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface Map Inventory.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
+  "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Enhanced.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Items.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Items.h"
+  "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Panels.h"
+  "${SOURCE_ROOT}/Tactical/Items.cpp"
+  "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Rotting Corpses.cpp"
+  "${SOURCE_ROOT}/Tactical/ShopKeeper Interface.cpp"
+  "${SOURCE_ROOT}/Tactical/Soldier Profile.cpp"
+  "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp")
+foreach(tactical_inventory_ui_file IN LISTS tactical_inventory_ui_files)
+  file(READ "${tactical_inventory_ui_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(gpSMCurrentMerc|gpItemPointerSoldier|gpItemDescSoldier|gpAttachSoldier|gpItemPopupSoldier|gpOpponent)([^A-Za-z0-9_]|$)|gItemPickupMenu[ \t\r\n]*\\.[ \t\r\n]*pSoldier"
+    raw_tactical_inventory_ui_actor
+    "${contents}")
+  if(raw_tactical_inventory_ui_actor)
+    message(FATAL_ERROR
+      "Inventory UI retains a retired raw actor in ${tactical_inventory_ui_file}; use TacticalInventoryUiHost")
+  endif()
+endforeach()
+
 # Booby-trap and mine-spotted callbacks must not bring back their former raw
 # actor/item-pool/location globals. Callback-local compatibility aliases have
 # initializers and therefore do not match these retired declarations.
