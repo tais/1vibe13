@@ -386,6 +386,12 @@ the engine must not contain SDL types in its public domain model.
   raw pointers available to the next prompt. Insurance prompts snapshot their
   requested duration instead of later rereading the shared AIM hiring-screen
   selection.
+- Active and modal dialogue sessions also retain exact source and destination
+  incarnations. Dialogue UI actions, message-box callbacks, quest facts, and
+  the quest-debug panel resolve participants through one stable boundary; a
+  released or replaced slot therefore cancels actor-specific work instead of
+  redirecting it to the new occupant. Dialogue-independent fact checks do not
+  pay for those resolutions.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard

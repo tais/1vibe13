@@ -215,8 +215,6 @@ enum
 // GLOBAL NPC STRUCT
 NPC_DIALOGUE_TYPE		gTalkPanel;
 BOOLEAN							gfInTalkPanel = FALSE;
-SOLDIERTYPE					*gpSrcSoldier	= NULL;
-SOLDIERTYPE					*gpDestSoldier	= NULL;
 UINT8								gubSrcSoldierProfile;
 UINT8								gubNiceNPCProfile = NO_PROFILE;
 UINT8								gubNastyNPCProfile = NO_PROFILE;
@@ -234,6 +232,22 @@ extern BOOLEAN			fMapPanelDirty;
 
 namespace
 {
+struct DialogueActorSession
+{
+	Ja2TacticalEntityReference destination;
+	Ja2TacticalEntityReference source;
+
+	void assign(
+		const Ja2TacticalEntityReference& selectedDestination,
+		const Ja2TacticalEntityReference& selectedSource) noexcept
+	{
+		destination = selectedDestination;
+		source = selectedSource;
+	}
+};
+
+DialogueActorSession gDialogueActors;
+
 struct PendingConversationContext
 {
 	Ja2TacticalEntityReference destination;
@@ -284,6 +298,28 @@ struct PendingConversationContext
 };
 
 PendingConversationContext gPendingConversation;
+}
+
+SOLDIERTYPE* GetDialogueSourceSoldier( void )
+{
+	return gDialogueActors.source.resolve();
+}
+
+SOLDIERTYPE* GetDialogueDestinationSoldier( void )
+{
+	return gDialogueActors.destination.resolve();
+}
+
+BOOLEAN SetDialogueDestinationSoldier( SOLDIERTYPE *pSoldier )
+{
+	Ja2TacticalEntityReference destination;
+	if (!destination.capture(pSoldier))
+	{
+		gDialogueActors.destination.reset();
+		return FALSE;
+	}
+	gDialogueActors.destination = destination;
+	return TRUE;
 }
 
 INT32 giHospitalTempBalance; // stores amount of money for current doctoring
@@ -372,9 +408,17 @@ void HandlePendingInitConv( )
 BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
 {
 	// OK, init talking menu
-	BOOLEAN	fFromPending;
-
-	fFromPending = gfConversationPending;
+	BOOLEAN	fFromPending = gfConversationPending;
+	Ja2TacticalEntityReference destination;
+	Ja2TacticalEntityReference source;
+	if (!destination.capture(pDestSoldier) ||
+		!source.capture(pSrcSoldier))
+	{
+		gfConversationPending = FALSE;
+		if ( fFromPending )
+			gTacticalStatus.uiFlags &= (~ENGAGED_IN_CONV);
+		return FALSE;
+	}
 
 	// Set pending false
 	gfConversationPending = FALSE;
@@ -399,25 +443,17 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 		return( FALSE );
 	}
 
-	// Set soldier pointer
-	gpSrcSoldier = pSrcSoldier;
-	gpDestSoldier = pDestSoldier;
+	// Publish both actors atomically only after panel creation succeeded.
+	gDialogueActors.assign(destination, source);
 
 	// Say first line...
 	// CHRIS LOOK HERE
-	if ( gpSrcSoldier != NULL )
-	{
-		gubSrcSoldierProfile = gpSrcSoldier->ubProfile;
-	}
-	else
-	{
-		gubSrcSoldierProfile = NO_PROFILE;
-	}
+	gubSrcSoldierProfile = pSrcSoldier->ubProfile;
 
 	// find which squad this guy is, then set selected squad to this guy
 	if ( pSrcSoldier->bTeam == gbPlayerNum && gTacticalStatus.ubCurrentTeam == gbPlayerNum )
 	{
-		SetCurrentSquad( gpSrcSoldier->bAssignment, FALSE );
+		SetCurrentSquad( pSrcSoldier->bAssignment, FALSE );
 
 	SelectSoldier( pSrcSoldier->ubID, FALSE, FALSE );
 	}
@@ -672,6 +708,8 @@ void DoneTalkingButtonClickCallback(GUI_BUTTON *btn, INT32 reason )
 void DeleteTalkingMenu( )
 {
 	INT32 cnt;
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
 
 	if ( !gfInTalkPanel )
 		return;
@@ -729,7 +767,11 @@ void DeleteTalkingMenu( )
 	gfIgnoreScrolling = FALSE;
 
 	// Set this guy up as NOT engaged in conversation
-	gpDestSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION);
+	if ( destination )
+	{
+		destination->flags.uiStatusFlags &=
+			(~SOLDIER_ENGAGEDINACTION);
+	}
 
 	//NOT Engaged on conv...
 	if ( !giNPCReferenceCount )
@@ -1081,6 +1123,13 @@ void TalkPanelClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				}
 				else
 				{
+					SOLDIERTYPE* source =
+						GetDialogueSourceSoldier();
+					SOLDIERTYPE* destination =
+						GetDialogueDestinationSoldier();
+					if (!source || !destination)
+						return;
+
 					// Do something different if we selected the 'give' approach
 					// Close panel, set UI guy to wait a sec, open inv if not done so yet
 					gTalkPanel.fHandled = TRUE;
@@ -1090,17 +1139,17 @@ void TalkPanelClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					// open inv panel...
 					gfSwitchPanel = TRUE;
 					gbNewPanel = SM_PANEL;
-					gubNewPanelParam = gpSrcSoldier->ubID;
+					gubNewPanelParam = source->ubID;
 
 					// Wait!
-					gpDestSoldier->aiData.bNextAction = AI_ACTION_WAIT;
-					gpDestSoldier->aiData.usNextActionData = 10000;
+					destination->aiData.bNextAction = AI_ACTION_WAIT;
+					destination->aiData.usNextActionData = 10000;
 
 					// UNless he's has a pending action, delete what he was doing!
 					// Cancel anything he was doing
-					if ( gpDestSoldier->aiData.bAction != AI_ACTION_PENDING_ACTION )
+					if ( destination->aiData.bAction != AI_ACTION_PENDING_ACTION )
 					{
-						CancelAIAction( gpDestSoldier, TRUE );
+						CancelAIAction( destination, TRUE );
 					}
 				}
 			}
@@ -1223,9 +1272,11 @@ BOOLEAN ProfileCurrentlyTalkingInDialoguePanel( UINT8 ubProfile )
 {
 	if ( gfInTalkPanel )
 	{
-		if ( gpDestSoldier != NULL )
+		SOLDIERTYPE* destination =
+			GetDialogueDestinationSoldier();
+		if ( destination != NULL )
 		{
-			if ( gpDestSoldier->ubProfile == ubProfile )
+			if ( destination->ubProfile == ubProfile )
 			{
 				return( TRUE );
 			}
@@ -1240,6 +1291,8 @@ BOOLEAN HandleTalkingMenuEscape( BOOLEAN fCanDelete , BOOLEAN fFromEscKey )
 {
 	FACETYPE				*pFace;
 	BOOLEAN					fTalking = FALSE;
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
 
 	if ( !gfInTalkPanel )
 	{
@@ -1277,7 +1330,9 @@ BOOLEAN HandleTalkingMenuEscape( BOOLEAN fCanDelete , BOOLEAN fFromEscKey )
 				// Delete panel
 				DeleteTalkingMenu( );
 				// reset records which are on a can-say-once-per-convo basis
-				ResetOncePerConvoRecordsForNPC( gpDestSoldier->ubProfile );
+				if ( destination )
+					ResetOncePerConvoRecordsForNPC(
+						destination->ubProfile);
 				return( TRUE );
 			}
 		}
@@ -1289,7 +1344,9 @@ BOOLEAN HandleTalkingMenuEscape( BOOLEAN fCanDelete , BOOLEAN fFromEscKey )
 			// Delete panel
 			DeleteTalkingMenu( );
 			// reset records which are on a can-say-once-per-convo basis
-			ResetOncePerConvoRecordsForNPC( gpDestSoldier->ubProfile );
+			if ( destination )
+				ResetOncePerConvoRecordsForNPC(
+					destination->ubProfile);
 			return( TRUE );
 		}
 	}
@@ -1493,16 +1550,18 @@ BOOLEAN	NPCClosePanel( )
 BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
 {
 	INT32		sAdjGridNo;
+	SOLDIERTYPE* source = GetDialogueSourceSoldier();
 
-	if ( !gpSrcSoldier )
+	if ( !source )
 	{
 		return( FALSE );
 	}
-	if ( !gpSrcSoldier->bActive || !gpSrcSoldier->bInSector )
+	if ( !source->bActive || !source->bInSector )
 	{
 		return( FALSE );
 	}
-	if ( gpSrcSoldier->stats.bLife < OKLIFE || ( gpSrcSoldier->bBreath < OKBREATH && gpSrcSoldier->bCollapsed ) )
+	if ( source->stats.bLife < OKLIFE ||
+		( source->bBreath < OKBREATH && source->bCollapsed ) )
 	{
 		return( FALSE );
 	}
@@ -1513,12 +1572,15 @@ BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
 	}
 
 	// pointer should always be valid anyhow
-	if( PythSpacesAway( pGiver->sGridNo, gpSrcSoldier->sGridNo ) > gpSrcSoldier->GetMaxDistanceVisible(pGiver->sGridNo, gpSrcSoldier->pathing.bLevel) )
+	if( PythSpacesAway( pGiver->sGridNo, source->sGridNo ) >
+		source->GetMaxDistanceVisible(
+			pGiver->sGridNo, source->pathing.bLevel) )
 	{
 		return FALSE;
 	}
 
-	sAdjGridNo = FindAdjacentGridEx( pGiver, gpSrcSoldier->sGridNo, NULL, NULL, FALSE, FALSE );
+	sAdjGridNo = FindAdjacentGridEx(
+		pGiver, source->sGridNo, NULL, NULL, FALSE, FALSE);
 	if ( sAdjGridNo == -1 )
 	{
 		return( FALSE );
@@ -1540,13 +1602,18 @@ void HandleNPCItemGiven( UINT8 ubNPC, INT8 bInvPos )
 		return;
 	}
 	OBJECTTYPE * pObject = &(pNPC->inv[ bInvPos ]);
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
+	SOLDIERTYPE* source =
+		GetDialogueSourceSoldier();
 
 	DebugQuestInfo(String("HandleNPCItemGiven: <%d> item %d inv %d", ubNPC, pObject->usItem, bInvPos));
 	// Give it to the NPC soldier
-//	AutoPlaceObject( gpDestSoldier, pObject, FALSE );
 
 	// OK< if the timer is < 5000, use who was last in the talk panel box.
-	if ( !SourceSoldierPointerIsValidAndReachableForGive( gpDestSoldier ) )
+	if ( !destination || !source ||
+		!SourceSoldierPointerIsValidAndReachableForGive(
+			destination ) )
 	{
 		// just drop it (walk up to the merc closest to ubNPC)
 		AddItemToPool( pNPC->sGridNo, &(pNPC->inv[bInvPos]), TRUE, 0, 0, 0 );
@@ -1558,7 +1625,8 @@ void HandleNPCItemGiven( UINT8 ubNPC, INT8 bInvPos )
 		DeleteTalkingMenu( );
 
 		// Give this to buddy!
-		SoldierGiveItem( gpDestSoldier, gpSrcSoldier, pObject, bInvPos );
+		SoldierGiveItem(
+			destination, source, pObject, bInvPos);
 	}
 
 }
@@ -1596,7 +1664,8 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 	// IF WE ARE TO DISPLAY MENU AS WELL....
 	if ( gfInTalkPanel )
 	{
-		if ( gpDestSoldier == pSoldier && fShowDialogueMenu )
+		if ( GetDialogueDestinationSoldier() == pSoldier &&
+			fShowDialogueMenu )
 		{
 			HandleNPCTrigger( );
 			return;
@@ -1643,6 +1712,10 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 void HandleNPCTrigger( )
 {
 	SOLDIERTYPE *pSoldier;
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
+	SOLDIERTYPE* source =
+		GetDialogueSourceSoldier();
 	INT32				sPlayerGridNo;
 	UINT16				ubPlayerID;
 
@@ -1654,16 +1727,18 @@ void HandleNPCTrigger( )
 
 	if ( gfInTalkPanel )
 	{
-		if ( pSoldier == gpDestSoldier )
+		if ( pSoldier == destination )
 		{
 			if ( gfShowDialogueMenu )
 			{
 				// Converse another way!
 				Converse( gubTargetNPC, NO_PROFILE, gubTargetApproach, gubTargetRecord );
 			}
-			else if (gpSrcSoldier != NULL) // if we can, reinitialize menu
+			else if (source != NULL) // if we can, reinitialize menu
 			{
-				InitiateConversation( gpDestSoldier, gpSrcSoldier, gubTargetApproach, gubTargetRecord );
+				InitiateConversation(
+					destination, source,
+					gubTargetApproach, gubTargetRecord);
 			}
 		}
 		else
@@ -1676,9 +1751,13 @@ void HandleNPCTrigger( )
 		// Now start new one...
 		if ( gfShowDialogueMenu )
 		{
-			if ( SourceSoldierPointerIsValidAndReachableForGive( pSoldier ) )
+			if ( source &&
+				SourceSoldierPointerIsValidAndReachableForGive(
+					pSoldier ) )
 			{
-					InitiateConversation( pSoldier, gpSrcSoldier, gubTargetApproach, gubTargetRecord );
+					InitiateConversation(
+						pSoldier, source,
+						gubTargetApproach, gubTargetRecord);
 					return;
 			}
 			else
@@ -1880,6 +1959,10 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 {
 	SoldierID	cnt;
 	SOLDIERTYPE *pSoldier, *pSoldier2;
+	SOLDIERTYPE* dialogueDestination =
+		GetDialogueDestinationSoldier();
+	SOLDIERTYPE* dialogueSource =
+		GetDialogueSourceSoldier();
 	INT8			bNumDone = 0;
 	INT32		sGridNo = NOWHERE, sAdjustedGridNo;
 	INT8			bItemIn;
@@ -2476,7 +2559,9 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 			case NPC_ACTION_KROTT_REQUESTOR:
 			case NPC_ACTION_WALDO_REPAIR_REQUESTOR:
 				// Vince or Willis asks about payment? for medical attention
-				if (ubTargetNPC != gpDestSoldier->ubProfile)
+				if (!dialogueDestination ||
+					ubTargetNPC !=
+						dialogueDestination->ubProfile)
 				{
 					#ifdef JA2BETAVERSION
 						ScreenMsg( FONT_MCOLOR_RED, MSG_ERROR, L"Inconsistency between HandleNPCDoAction and target profile IDs" );
@@ -2791,7 +2876,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				// get the soldier
 				pSoldier = FindSoldierByProfileID( gMercProfiles[ DARYL ].bNPCData, FALSE );
-				pSoldier2 = gpDestSoldier;
+				pSoldier2 = dialogueDestination;
 
 				if ( !pSoldier || !pSoldier2 )
 				{
@@ -3888,13 +3973,21 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				break;
 
 			case NPC_ACTION_PLAYER_SAYS_NICE_LATER:
-				SetFactTrue( FACT_NEED_TO_SAY_SOMETHING );
-				gubNiceNPCProfile = gpDestSoldier->ubProfile;
+				if ( dialogueDestination )
+				{
+					SetFactTrue( FACT_NEED_TO_SAY_SOMETHING );
+					gubNiceNPCProfile =
+						dialogueDestination->ubProfile;
+				}
 				break;
 
 			case NPC_ACTION_PLAYER_SAYS_NASTY_LATER:
-				SetFactTrue( FACT_NEED_TO_SAY_SOMETHING );
-				gubNastyNPCProfile = gpDestSoldier->ubProfile;
+				if ( dialogueDestination )
+				{
+					SetFactTrue( FACT_NEED_TO_SAY_SOMETHING );
+					gubNastyNPCProfile =
+						dialogueDestination->ubProfile;
+				}
 				break;
 
 			case NPC_ACTION_CHOOSE_DOCTOR:
@@ -4403,13 +4496,17 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				break;
 			case NPC_ACTION_TRIGGER_HANS_BY_ROOM:
 				{
-					if ( gpSrcSoldier )
+					if ( dialogueSource )
 					{
 						//DBrot: More Rooms
 						//UINT8 ubRoom;
 						UINT16 usRoom;
 
-						if ( InARoom( gpSrcSoldier->sGridNo, &usRoom ) && (usRoom == gModSettings.usPornShopRoomHans) )
+						if ( InARoom(
+								dialogueSource->sGridNo,
+								&usRoom ) &&
+							(usRoom ==
+								gModSettings.usPornShopRoomHans) )
 						{
 							TriggerNPCRecord( HANS, 18 );
 						}
@@ -4767,8 +4864,14 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 {
 	UINT8						ubProfile;
 	SOLDIERTYPE			*pSoldier;
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
+	SOLDIERTYPE* source =
+		GetDialogueSourceSoldier();
 
-	ubProfile = gpDestSoldier->ubProfile;
+	if (!destination)
+		return;
+	ubProfile = destination->ubProfile;
 
 	switch( gusDialogueMessageBoxType )
 	{
@@ -5017,10 +5120,13 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 			}
 			break;
 		case NPC_ACTION_TRIGGER_MARRY_DARYL_PROMPT:
-			gMercProfiles[ gpSrcSoldier->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_ASKED_BY_HICKS;
+			if (!source)
+				return;
+			gMercProfiles[ source->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_ASKED_BY_HICKS;
 			if ( ubExitValue == MSG_BOX_RETURN_YES )
 			{
-				gMercProfiles[ DARYL ].bNPCData = (INT8) gpSrcSoldier->ubProfile;
+				gMercProfiles[ DARYL ].bNPCData =
+					(INT8) source->ubProfile;
 
 				// create key for Daryl to give to player
 				pSoldier = FindSoldierByProfileID( DARYL, FALSE );

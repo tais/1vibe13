@@ -95,6 +95,7 @@
 #include "TacticalWorldItemHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
+#include "interface Dialogue.h"
 #include "Game Clock.h"
 #include "Game Events.h"
 #include "popup_class.h"
@@ -4255,6 +4256,9 @@ int main( int, char** )
 			liveCallbackActor.identity() ==
 				( TacticalEntityId{ 0, 701 } ) &&
 			liveCallbackActor.resolve() == &Menptr[0];
+		const bool dialogueDestinationCaptured =
+			SetDialogueDestinationSoldier( &Menptr[0] ) &&
+			GetDialogueDestinationSoldier() == &Menptr[0];
 		SOLDIERTYPE* consumedCallbackActor =
 			liveCallbackActor.consume();
 		Ja2TacticalEntityReference releasedCallbackActor;
@@ -4264,14 +4268,19 @@ int main( int, char** )
 			ReleaseJa2TacticalEntity( Menptr[0] );
 		const bool releasedCallbackRejected =
 			releasedCallbackActor.resolve() == nullptr;
+		const bool releasedDialogueDestinationRejected =
+			GetDialogueDestinationSoldier() == nullptr;
 		const bool callbackActorReadopted =
 			AdoptJa2TacticalEntity( Menptr[0] );
 		CHECK( callbackActorCaptured &&
+		       dialogueDestinationCaptured &&
 		       consumedCallbackActor == &Menptr[0] &&
 		       !liveCallbackActor.valid() &&
 		       releasedCallbackCaptured && callbackActorReleased &&
-		       releasedCallbackRejected && callbackActorReadopted,
-		       "delayed tactical callbacks consume exact live actor incarnations and reject released slots" );
+		       releasedCallbackRejected &&
+		       releasedDialogueDestinationRejected &&
+		       callbackActorReadopted,
+		       "delayed tactical callbacks and dialogue sessions reject released actor incarnations" );
 		SOLDIERTYPE* const previousSwapTargetPointer = MercPtrs[1];
 		const SOLDIERTYPE previousSwapTarget = Menptr[1];
 		Menptr[1] = Menptr[0];
