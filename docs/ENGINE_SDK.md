@@ -173,6 +173,15 @@ Traversal uses `TacticalTraversalKind`, keeping legacy soldier and structure
 pointers, AP calculations, and animation constants outside the package-facing
 contract.
 
+The JA2 application has a separate actor-reference ingress overload for local
+UI code. It atomically captures the referenced merc's slot and incarnation,
+verifies that the runtime directory resolves that identity back to the same
+object, and only then creates the pointer-free command. Detached or forged
+objects produce `SimulationCommandDispatchStatus::InvalidActor` before queue
+submission. Packages, replay tools, and network hosts never receive this
+application-only overload; they continue to use `TacticalEntityId` command
+values through `TacticalCommandService`.
+
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is
 exhausted, and never exposes `WORLDITEM` or `gWorldItems` through the SDK.

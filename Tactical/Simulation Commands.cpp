@@ -71,6 +71,49 @@ namespace
 		return soldier;
 	}
 
+	bool CaptureCommandActor(
+		const SOLDIERTYPE& soldier, TacticalEntityId& actor) noexcept
+	{
+		actor = GetJa2TacticalEntityId(
+			static_cast<std::uint16_t>(soldier.ubID));
+		return actor.valid() && ResolveJa2TacticalEntity(actor) == &soldier;
+	}
+
+	SimulationCommandDispatchResult InvalidCommandActorResult() noexcept
+	{
+		SimulationCommandDispatchResult result;
+		result.status = SimulationCommandDispatchStatus::InvalidActor;
+		result.tick =
+			GetGameContext().runtime().simulationTicks().completedTickSequence();
+		return result;
+	}
+
+	template <typename Builder>
+	SimulationCommandDispatchResult DispatchActorCommand(
+		SOLDIERTYPE& soldier, Builder&& builder) noexcept
+	{
+		TacticalEntityId actor;
+		if (!CaptureCommandActor(soldier, actor))
+			return InvalidCommandActorResult();
+		return TryDispatchSimulationCommandNow(
+			SimulationCommand{builder(actor)});
+	}
+
+	template <typename Builder>
+	SimulationCommandDispatchResult DispatchActorPairCommand(
+		SOLDIERTYPE& soldier,
+		SOLDIERTYPE& target,
+		Builder&& builder) noexcept
+	{
+		TacticalEntityId actor;
+		TacticalEntityId targetActor;
+		if (!CaptureCommandActor(soldier, actor) ||
+			!CaptureCommandActor(target, targetActor))
+			return InvalidCommandActorResult();
+		return TryDispatchSimulationCommandNow(
+			SimulationCommand{builder(actor, targetActor)});
+	}
+
 	STRUCTURE* ResolveLiveWorldObject(TacticalWorldObjectId object) noexcept
 	{
 		if (!IsJa2TacticalWorldLoaded() ||
@@ -950,6 +993,282 @@ SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 {
 	return TryDispatchSimulationCommandNow(
 		SimulationCommand{EndTurnCommand{nextTeam, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(
+	SOLDIERTYPE& soldier,
+	std::uint8_t stance,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [stance, source](TacticalEntityId actor) {
+			return ChangeStanceCommand{actor, stance, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchBeginFireWeaponCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier,
+		[targetGrid, targetLevel, targetCubeLevel, source](
+			TacticalEntityId actor) {
+			return BeginFireWeaponCommand{
+				actor, targetGrid, targetLevel, targetCubeLevel, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier,
+		[destinationGrid, movementMode, reverse, forceRestart, source](
+			TacticalEntityId actor) {
+			return MoveToGridCommand{
+				actor, destinationGrid, movementMode,
+				reverse, forceRestart, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchSetFacingCommandNow(
+	SOLDIERTYPE& soldier,
+	std::uint8_t direction,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [direction, source](TacticalEntityId actor) {
+			return SetFacingCommand{actor, direction, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchSetStealthModeCommandNow(
+	SOLDIERTYPE& soldier,
+	bool enabled,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [enabled, source](TacticalEntityId actor) {
+			return SetStealthModeCommand{actor, enabled, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
+	SOLDIERTYPE& soldier,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [source](TacticalEntityId actor) {
+			return StopMovementCommand{actor, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
+	SOLDIERTYPE& soldier,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [source](TacticalEntityId actor) {
+			return CycleWeaponModeCommand{actor, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchCycleScopeModeCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [targetGrid, source](TacticalEntityId actor) {
+			return CycleScopeModeCommand{actor, targetGrid, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
+	SOLDIERTYPE& soldier,
+	bool reloadEvenIfNotEmpty,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [reloadEvenIfNotEmpty, source](TacticalEntityId actor) {
+			return ReloadWeaponCommand{
+				actor, reloadEvenIfNotEmpty, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
+	SOLDIERTYPE& soldier,
+	TacticalTraversalKind kind,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [kind, source](TacticalEntityId actor) {
+			return TraverseObstacleCommand{actor, kind, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchActivateWorldObjectCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier,
+		[objectGrid, structureId, direction, source](
+			TacticalEntityId actor) {
+			return ActivateWorldObjectCommand{
+				actor, TacticalWorldObjectId{objectGrid, structureId},
+				direction, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier,
+		[objectGrid, structureId, direction, destinationGrid, movementMode,
+		 reverse, forceRestart, source](TacticalEntityId actor) {
+			return ApproachWorldObjectCommand{
+				actor, TacticalWorldObjectId{objectGrid, structureId},
+				direction, destinationGrid, movementMode,
+				reverse, forceRestart, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchStartConversationCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorPairCommand(
+		soldier, target,
+		[source](TacticalEntityId actor, TacticalEntityId targetActor) {
+			return StartConversationCommand{actor, targetActor, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchApproachConversationCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorPairCommand(
+		soldier, target,
+		[destinationGrid, movementMode, forceRestart, source](
+			TacticalEntityId actor, TacticalEntityId targetActor) {
+			return ApproachConversationCommand{
+				actor, targetActor, destinationGrid, movementMode,
+				forceRestart, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchEnterVehicleCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& vehicle,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorPairCommand(
+		soldier, vehicle,
+		[direction, seatIndex, source](
+			TacticalEntityId actor, TacticalEntityId vehicleActor) {
+			return EnterVehicleCommand{
+				actor, vehicleActor, direction, seatIndex, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& vehicle,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorPairCommand(
+		soldier, vehicle,
+		[direction, seatIndex, destinationGrid, movementMode,
+		 forceRestart, source](
+			TacticalEntityId actor, TacticalEntityId vehicleActor) {
+			return ApproachVehicleCommand{
+				actor, vehicleActor, direction, seatIndex,
+				destinationGrid, movementMode, forceRestart, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
+	SOLDIERTYPE& soldier,
+	TacticalWorldItemId item,
+	std::int32_t grid,
+	std::int8_t renderHeight,
+	TacticalWorldItemPickupKind kind,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [item, grid, renderHeight, kind, source](
+			TacticalEntityId actor) {
+			return PickupWorldItemCommand{
+				actor, item, grid, renderHeight, kind, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchStealFromActorCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorPairCommand(
+		soldier, target,
+		[targetGrid, targetLevel, source](
+			TacticalEntityId actor, TacticalEntityId targetActor) {
+			return StealFromActorCommand{
+				actor, targetActor, targetGrid, targetLevel, source};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	std::int32_t soldierGrid,
+	std::int32_t targetGrid,
+	std::int8_t level,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorPairCommand(
+		soldier, target,
+		[soldierGrid, targetGrid, level, source](
+			TacticalEntityId actor, TacticalEntityId targetActor) {
+			return ExchangePositionsCommand{
+				actor, targetActor, soldierGrid, targetGrid, level, source};
+		});
 }
 
 SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(

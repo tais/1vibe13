@@ -3395,12 +3395,40 @@ int main( int, char** )
 		       compiledContext.commands().empty(),
 		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
 
+		SOLDIERTYPE detachedCommandActor;
+		detachedCommandActor.ubID = commandHostActor.ubID;
+		detachedCommandActor.uiUniqueSoldierIdValue =
+			commandHostActor.uiUniqueSoldierIdValue;
+		detachedCommandActor.bActive = TRUE;
+		detachedCommandActor.bInSector = TRUE;
+		const std::size_t journalBeforeDetachedActor =
+			compiledContext.commandJournal().size();
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult detachedActorRejected =
+			TryDispatchSetStealthModeCommandNow(
+				detachedCommandActor, true, SimulationCommandSource::System );
+		const SimulationCommandDispatchResult detachedTargetRejected =
+			TryDispatchStartConversationCommandNow(
+				commandHostActor, detachedCommandActor,
+				SimulationCommandSource::System );
+		CHECK(
+			detachedActorRejected.status ==
+				SimulationCommandDispatchStatus::InvalidActor &&
+			!detachedActorRejected.submitted &&
+			detachedTargetRejected.status ==
+				SimulationCommandDispatchStatus::InvalidActor &&
+			!detachedTargetRejected.submitted &&
+			compiledContext.commandJournal().size() ==
+				journalBeforeDetachedActor &&
+			compiledContext.commands().empty(),
+			"actor-reference ingress rejects a detached object even when its slot and incarnation fields match a live merc" );
+
 		commandHostActor.usUIMovementMode = WALKING;
 		commandHostActor.bReverse = FALSE;
 		commandHostActor.aiData.ubPendingAction = 7;
 		const SimulationCommandDispatchResult invalidImmediateMove =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+				commandHostActor, -1, RUNNING,
 				true, true, SimulationCommandSource::System );
 		const std::uint64_t invalidImmediateMoveSequence =
 			invalidImmediateMove.sequence;
@@ -3428,7 +3456,7 @@ int main( int, char** )
 		commandHostActor.bStealthMode = FALSE;
 		const SimulationCommandDispatchResult stealthEnabled =
 			TryDispatchSetStealthModeCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, true,
+				commandHostActor, true,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		commandHostActor.sGridNo = 77;
@@ -3437,12 +3465,11 @@ int main( int, char** )
 		commandHostActor.usAnimState = STANDING;
 		const SimulationCommandDispatchResult movementStopped =
 			TryDispatchStopMovementCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
-				SimulationCommandSource::System );
+				commandHostActor, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult facingQueued =
 			TryDispatchSetFacingCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, 3,
+				commandHostActor, 3,
 				SimulationCommandSource::System );
 		CHECK( stealthEnabled.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostActor.bStealthMode == TRUE &&

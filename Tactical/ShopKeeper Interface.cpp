@@ -805,10 +805,8 @@ BOOLEAN EnterShopKeeperInterface()
 			gfNPCCircularDistLimit = FALSE;
 
 			(void)TryDispatchApproachConversationCommandNow(
-				pSoldier->ubID,
-				pSoldier->uiUniqueSoldierIdValue,
-				pShopkeeper->ubID,
-				pShopkeeper->uiUniqueSoldierIdValue,
+				*pSoldier,
+				*pShopkeeper,
 				sGoodGridNo,
 				pSoldier->usUIMovementMode,
 				pSoldier->flags.fNoAPToFinishMove != FALSE);

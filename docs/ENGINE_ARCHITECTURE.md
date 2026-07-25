@@ -446,6 +446,13 @@ the engine must not contain SDL types in its public domain model.
   AP, pathing, structure, vehicle, dialogue, and animation mechanics. Traversal
   and interaction availability, backpack, and AP checks remain at their
   existing player-input sites while the command records only the chosen action.
+  Local UI ingress passes the exact live `SOLDIERTYPE` reference to one
+  application adapter, which captures and verifies its complete
+  `TacticalEntityId` before queue submission. UI sites no longer assemble a
+  reusable slot and incarnation as unrelated integers; a detached object or
+  mismatched peer is rejected without consuming a command sequence or frame
+  budget. Replay, network, and package ingress remain pointer-free and submit
+  the same public command values.
   AI retaliation, dialogue scripting,
   equipment-driven mode correction, automatic/pathfinding door handling,
   pathfinding traversal, and multi-merc bulk reload remain local mechanics

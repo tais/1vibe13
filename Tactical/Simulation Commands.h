@@ -67,6 +67,7 @@ enum class SimulationCommandDispatchStatus
 {
 	Applied,
 	Discarded,
+	InvalidActor,
 	AuthoritativeBackpressure,
 	FrameBudgetExhausted,
 	SequenceExhausted,
@@ -112,6 +113,134 @@ SimulationCommandDispatchResult TryDispatchSimulationCommandNow(
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 	std::uint8_t nextTeam,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+// Player/UI ingress captures a complete identity from the exact live actor
+// reference. This is the production-facing seam: callers cannot accidentally
+// combine one pool slot with another actor's incarnation. Value-only overloads
+// below remain available for replay, network, tests, and legacy compatibility.
+SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(
+	SOLDIERTYPE& soldier,
+	std::uint8_t stance,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchBeginFireWeaponCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSetFacingCommandNow(
+	SOLDIERTYPE& soldier,
+	std::uint8_t direction,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSetStealthModeCommandNow(
+	SOLDIERTYPE& soldier,
+	bool enabled,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
+	SOLDIERTYPE& soldier,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
+	SOLDIERTYPE& soldier,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchCycleScopeModeCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
+	SOLDIERTYPE& soldier,
+	bool reloadEvenIfNotEmpty,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
+	SOLDIERTYPE& soldier,
+	TacticalTraversalKind kind,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchActivateWorldObjectCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
+	SOLDIERTYPE& soldier,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchStartConversationCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchApproachConversationCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchEnterVehicleCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& vehicle,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& vehicle,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
+	SOLDIERTYPE& soldier,
+	TacticalWorldItemId item,
+	std::int32_t grid,
+	std::int8_t renderHeight,
+	TacticalWorldItemPickupKind kind,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchStealFromActorCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
+	SOLDIERTYPE& soldier,
+	SOLDIERTYPE& target,
+	std::int32_t soldierGrid,
+	std::int32_t targetGrid,
+	std::int8_t level,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
 SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(

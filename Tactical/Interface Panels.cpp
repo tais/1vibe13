@@ -4698,8 +4698,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 
 			TryDispatchTraverseObstacleCommandNow(
-				GetSMCurrentMerc()->ubID,
-				GetSMCurrentMerc()->uiUniqueSoldierIdValue,
+				*GetSMCurrentMerc(),
 				TacticalTraversalKind::ClimbDownRoof );
 		}
 
@@ -4712,8 +4711,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 
 			TryDispatchTraverseObstacleCommandNow(
-				GetSMCurrentMerc()->ubID,
-				GetSMCurrentMerc()->uiUniqueSoldierIdValue,
+				*GetSMCurrentMerc(),
 				TacticalTraversalKind::ClimbUpRoof );
 		}
 		
@@ -4730,8 +4728,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( FindWallJumpDirection( GetSMCurrentMerc(), GetSMCurrentMerc()->sGridNo, GetSMCurrentMerc()->ubDirection, &bDirection ) )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					GetSMCurrentMerc()->ubID,
-					GetSMCurrentMerc()->uiUniqueSoldierIdValue,
+					*GetSMCurrentMerc(),
 					TacticalTraversalKind::ClimbWall );
 			}
 		}
@@ -4747,8 +4744,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 
 			TryDispatchTraverseObstacleCommandNow(
-				GetSMCurrentMerc()->ubID,
-				GetSMCurrentMerc()->uiUniqueSoldierIdValue,
+				*GetSMCurrentMerc(),
 				TacticalTraversalKind::JumpFence );
 		}
 	}
@@ -5060,8 +5056,7 @@ void BtnBurstModeCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		if ( GetSMCurrentMerc() )
 			TryDispatchCycleWeaponModeCommandNow(
-				GetSMCurrentMerc()->ubID,
-				GetSMCurrentMerc()->uiUniqueSoldierIdValue );
+				*GetSMCurrentMerc() );
 //		btn->ImageNum = iBurstButtonImages[ GetSMCurrentMerc()->bWeaponMode ];
 //		btn->uiFlags |= BUTTON_DIRTY;
 

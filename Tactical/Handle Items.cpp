@@ -128,8 +128,7 @@ bool DispatchBeginFireWeaponFromHandleItem(
 {
 	const SimulationCommandDispatchResult dispatch =
 		TryDispatchBeginFireWeaponCommandNow(
-		soldier->ubID,
-		soldier->uiUniqueSoldierIdValue,
+		*soldier,
 		targetGrid,
 		soldier->bTargetLevel,
 		soldier->bTargetCubeLevel,

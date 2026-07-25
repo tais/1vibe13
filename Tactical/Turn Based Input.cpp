@@ -2213,8 +2213,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				{
 					// If soldier is not stationary, stop
 					if (TryDispatchStopMovementCommandNow(
-							gusSelectedSoldier->ubID,
-							gusSelectedSoldier->uiUniqueSoldierIdValue))
+							*gusSelectedSoldier))
 						*puiNewEvent = A_CHANGE_TO_MOVE;
 					continue;
 				}
@@ -3859,8 +3858,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
 							{
 								if ( TryDispatchTraverseObstacleCommandNow(
-									pjSoldier->ubID,
-									pjSoldier->uiUniqueSoldierIdValue,
+									*pjSoldier,
 									TacticalTraversalKind::ClimbDownRoof ) )
 									return;
 							}
@@ -3878,8 +3876,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
 							{
 								if ( TryDispatchTraverseObstacleCommandNow(
-									pjSoldier->ubID,
-									pjSoldier->uiUniqueSoldierIdValue,
+									*pjSoldier,
 									TacticalTraversalKind::ClimbUpRoof ) )
 									return;
 							}
@@ -3905,8 +3902,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if ( EnoughPoints( pjSoldier, sAPCost, sBPCost, FALSE )	)
 							{
 								if ( TryDispatchTraverseObstacleCommandNow(
-									pjSoldier->ubID,
-									pjSoldier->uiUniqueSoldierIdValue,
+									*pjSoldier,
 									TacticalTraversalKind::JumpFence ) )
 									return;
 							}
@@ -3927,8 +3923,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 								if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
 								{
 									if ( TryDispatchTraverseObstacleCommandNow(
-										pjSoldier->ubID,
-										pjSoldier->uiUniqueSoldierIdValue,
+										*pjSoldier,
 										TacticalTraversalKind::ClimbWall ) )
 										return;
 								}
@@ -3972,8 +3967,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if (EnoughPoints(lSoldier, sAPCost, sBPCost, FALSE))
 							{
 								TryDispatchTraverseObstacleCommandNow(
-									lSoldier->ubID,
-									lSoldier->uiUniqueSoldierIdValue,
+									*lSoldier,
 									TacticalTraversalKind::JumpWindow );
 							}
    	                    }
@@ -4674,10 +4668,8 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 											{
 												// All's good!
 												(void)TryDispatchExchangePositionsCommandNow(
-													pSoldier1->ubID,
-													pSoldier1->uiUniqueSoldierIdValue,
-													pSoldier2->ubID,
-													pSoldier2->uiUniqueSoldierIdValue,
+													*pSoldier1,
+													*pSoldier2,
 													pSoldier1->sGridNo,
 													pSoldier2->sGridNo,
 													pSoldier1->pathing.bLevel );
@@ -5388,8 +5380,7 @@ void SetBurstMode()
 	if ( gusSelectedSoldier != NOBODY )
 	{
 		TryDispatchCycleWeaponModeCommandNow(
-			gusSelectedSoldier->ubID,
-			gusSelectedSoldier->uiUniqueSoldierIdValue );
+			*gusSelectedSoldier );
 	}
 }
 
@@ -5401,8 +5392,7 @@ void SetScopeMode( INT32 usMapPos )
 		if ( GetMouseMapPos( &usMapPos ))
 			targetGrid = usMapPos;
 		TryDispatchCycleScopeModeCommandNow(
-			gusSelectedSoldier->ubID,
-			gusSelectedSoldier->uiUniqueSoldierIdValue,
+			*gusSelectedSoldier,
 			targetGrid );
 	}
 }
@@ -5712,20 +5702,16 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 						const SimulationCommandDispatchResult vehicleEntry =
 							pSoldier->sGridNo != sActionGridNo
 								? TryDispatchApproachVehicleCommandNow(
-									pSoldier->ubID,
-									pSoldier->uiUniqueSoldierIdValue,
-									pTSoldier->ubID,
-									pTSoldier->uiUniqueSoldierIdValue,
+									*pSoldier,
+									*pTSoldier,
 									ubDirection,
 									ubSeatIndex,
 									sActionGridNo,
 									pSoldier->usUIMovementMode,
 									pSoldier->flags.fNoAPToFinishMove != FALSE)
 								: TryDispatchEnterVehicleCommandNow(
-									pSoldier->ubID,
-									pSoldier->uiUniqueSoldierIdValue,
-									pTSoldier->ubID,
-									pTSoldier->uiUniqueSoldierIdValue,
+									*pSoldier,
+									*pTSoldier,
 									ubDirection,
 									ubSeatIndex);
 						if (!vehicleEntry)
@@ -5833,8 +5819,7 @@ static SimulationCommandDispatchResult TryDispatchPlayerWorldItemPickup(
 		}
 	}
 	return TryDispatchPickupWorldItemCommandNow(
-		pSoldier->ubID,
-		pSoldier->uiUniqueSoldierIdValue,
+		*pSoldier,
 		item,
 		sGridNo,
 		bZLevel,
@@ -5890,10 +5875,8 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
 				{
 					if ( TryDispatchStealFromActorCommandNow(
-							pSoldier->ubID,
-							pSoldier->uiUniqueSoldierIdValue,
-							gusUIFullTargetID->ubID,
-							gusUIFullTargetID->uiUniqueSoldierIdValue,
+							*pSoldier,
+							*gusUIFullTargetID,
 							gusUIFullTargetID->sGridNo,
 							gusUIFullTargetID->pathing.bLevel ) )
 					{
@@ -6117,10 +6100,8 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				if ( CanExchangePlaces( pSoldier, gusUIFullTargetID, TRUE ) )
 				{
 					(void)TryDispatchExchangePositionsCommandNow(
-						pSoldier->ubID,
-						pSoldier->uiUniqueSoldierIdValue,
-						gusUIFullTargetID->ubID,
-						gusUIFullTargetID->uiUniqueSoldierIdValue,
+						*pSoldier,
+						*gusUIFullTargetID,
 						pSoldier->sGridNo,
 						gusUIFullTargetID->sGridNo,
 						pSoldier->pathing.bLevel );
@@ -6212,7 +6193,7 @@ BOOLEAN HandleUIReloading( SOLDIERTYPE *pSoldier )
 			// OK, we have some ammo we can reload.... reload now!
 			const SimulationCommandDispatchResult reload =
 				TryDispatchReloadWeaponCommandNow(
-					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue, false );
+					*pSoldier, false );
 
 			// ATE: Re-examine cursor info!
 			if ( reload.processed() )
@@ -6516,7 +6497,7 @@ void ToggleStealthMode( SOLDIERTYPE *pSoldier )
 
 		const bool enableStealth = pSoldier->bStealthMode == FALSE;
 		if (!TryDispatchSetStealthModeCommandNow(
-				pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+				*pSoldier,
 				enableStealth))
 			return;
 
@@ -7612,8 +7593,7 @@ void HandleMouseTBX2Button( UINT32 *puiNewEvent )
 	{
 		if ( gusSelectedSoldier != NOBODY )
 			TryDispatchReloadWeaponCommandNow(
-				gusSelectedSoldier->ubID,
-				gusSelectedSoldier->uiUniqueSoldierIdValue,
+				*gusSelectedSoldier,
 				true );
 	}
 	else
@@ -7663,7 +7643,7 @@ void HandleTBJump( void )
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+								*pjSoldier,
 								TacticalTraversalKind::ClimbDownRoof );
 						}
 					}
@@ -7677,7 +7657,7 @@ void HandleTBJump( void )
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+								*pjSoldier,
 								TacticalTraversalKind::ClimbUpRoof );
 						}
 					}
@@ -7699,7 +7679,7 @@ void HandleTBJump( void )
 						if ( EnoughPoints( pjSoldier, sAPCost, sBPCost, FALSE )	)
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+								*pjSoldier,
 								TacticalTraversalKind::JumpFence );
 						}
 					}
@@ -7716,7 +7696,7 @@ void HandleTBJump( void )
 							if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
 							{
 								TryDispatchTraverseObstacleCommandNow(
-									pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+									*pjSoldier,
 									TacticalTraversalKind::ClimbWall );
 							}
 						}
@@ -7749,7 +7729,7 @@ void HandleTBJumpThroughWindow( void ){
 				if (EnoughPoints(pjSoldier, sAPCost, sBPCost, FALSE))
 		{
 					TryDispatchTraverseObstacleCommandNow(
-						pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+						*pjSoldier,
 						TacticalTraversalKind::JumpWindow );
 				}
 			}
@@ -8027,8 +8007,7 @@ void HandleTBReload( void )
 {
 	if ( gusSelectedSoldier != NOBODY )
 		TryDispatchReloadWeaponCommandNow(
-			gusSelectedSoldier->ubID,
-			gusSelectedSoldier->uiUniqueSoldierIdValue,
+			*gusSelectedSoldier,
 			true );
 }
 void HandleTBReloadAll( void )
@@ -9210,7 +9189,7 @@ void HandleTacticalReload()
 		// OK, we have some ammo we can reload.... reload now!
 		const SimulationCommandDispatchResult reload =
 			TryDispatchReloadWeaponCommandNow(
-				pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue, false );
+				*pSoldier, false );
 		if ( reload.status == SimulationCommandDispatchStatus::Discarded )
 		{
 			// Do we say we could not reload gun...?
