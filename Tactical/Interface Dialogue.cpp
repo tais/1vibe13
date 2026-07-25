@@ -68,7 +68,6 @@
 #include "Luaglobal.h"
 
 
-#ifdef JA2UB
 #include "Explosion Control.h"
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
@@ -76,11 +75,9 @@
 #include "LOS.h"
 #include "Ja25Update.h"
 #include "ub_config.h"
-#else
 // anv: for playable Speck
 #include "Speck Quotes.h"
 #include "mercs.h"
-#endif
 
 #ifndef _DEBUG
 #include "Cheats.h"
@@ -174,12 +171,13 @@ extern void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier );
 extern UINT16 NumCapableEnemyInSector( );
 
 void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
+void DelayedSayingOfMercQuote( UINT32 uiParam );
+void DisplayJerryBreakingLaptopTransmitterPopup();
 
 #ifdef JA2UB
 //JA25 UB
 void PerformJerryMiloAction301();
 void PerformJerryMiloAction302();
-void DelayedSayingOfMercQuote( UINT32 uiParam );
 void HandleSpecificQuoteWhenLeavingNpcTalkMenu();
 void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileID, UINT32 uiQuoteNum );
 void CheckForValidQuotesWhenLeavingDealer( UINT8 ubProfile );
@@ -5470,6 +5468,8 @@ void PerformJerryMiloAction302()
 	DeleteTalkingMenu();
 }
 
+#endif
+
 void DelayedSayingOfMercQuote( UINT32 uiParam )
 {
 	SOLDIERTYPE *pSoldier=NULL;
@@ -5551,6 +5551,8 @@ void DelayedSayingOfMercQuote( UINT32 uiParam )
 		}
 	}
 }
+
+#ifdef JA2UB
 
 void HandleSpecificQuoteWhenLeavingNpcTalkMenu()
 {
@@ -5865,6 +5867,8 @@ void HandleTexBecomingCamoed()
 	TriggerNPCRecord( TEX_UB, 15 );
 }
 
+#endif
+
 void DisplayJerryBreakingLaptopTransmitterPopup()
 {
 	CHAR16	zString[512];
@@ -5915,6 +5919,8 @@ void DisplayJerryBreakingLaptopTransmitterPopup()
 
 	gJa25SaveStruct.fJerryBreakingLaptopOccuring = TRUE;
 }
+
+#ifdef JA2UB
 
 void HaveNpcOpenUpDealerScreen( UINT8 ubProfileID )
 {

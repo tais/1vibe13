@@ -115,12 +115,10 @@
 #include "GameInitOptionsScreen.h"
 
 
-#ifdef JA2UB
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
 #include "Soldier Control.h"
 #include "ub_config.h"
-#else
 #include "interface Dialogue.h"
 #include "Meanwhile.h"
 #include "Strategic AI.h"
@@ -128,7 +126,6 @@
 #include "End Game.h"
 // anv: for playable Speck
 	#include "mercs.h"
-#endif
 
 
 // OJW - 20090419
@@ -10726,7 +10723,6 @@ INT8 CheckStatusNearbyFriendliesSimple(SOLDIERTYPE *pSoldier)
 	return (INT8)iFriendBonus;
 }
 
-#ifdef JA2UB
 void SetMsgBoxForPlayerBeNotifiedOfSomeoneElseInSector()
 {
     //if the player in the same sector as MANUEL
@@ -10825,7 +10821,6 @@ void HandleDisplayingOfPlayerLostDialogue( )
         gJa25SaveStruct.ubDisplayPlayerLostMsgBox   = 1;    
     }
 }
-#endif
 
 static SoldierID prisonerdialoguetargetID = NOBODY;
 

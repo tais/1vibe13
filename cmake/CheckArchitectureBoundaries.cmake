@@ -255,7 +255,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
   "${SOURCE_ROOT}/Ja2/Intro.cpp"
   "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
-  "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp")
+  "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
+  "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp")
 foreach(runtime_campaign_file IN LISTS
     runtime_campaign_implementation_files runtime_campaign_selection_files)
   file(READ "${runtime_campaign_file}" runtime_campaign_contents)
@@ -265,6 +266,23 @@ foreach(runtime_campaign_file IN LISTS
   if(compiled_campaign_identity)
     message(FATAL_ERROR
       "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
+  runtime_campaign_event_hook_contents)
+foreach(required_runtime_event_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "case EVENT_ATTACK_INITIAL_SECTOR_IF_PLAYER_STILL_THERE:"
+    "case EVENT_SAY_DELAYED_MERC_QUOTE:"
+    "case EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL:"
+    "case EVENT_MEANWHILE:"
+    "case EVENT_KINGPIN_BOUNTY_INITIAL:")
+  string(FIND "${runtime_campaign_event_hook_contents}"
+    "${required_runtime_event_fragment}" runtime_event_fragment_position)
+  if(runtime_event_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic event dispatch lost runtime campaign selection; missing '${required_runtime_event_fragment}'")
   endif()
 endforeach()
 

@@ -418,11 +418,10 @@ extern BOOLEAN	gfInTalkPanel;
 
 // Campaign-neutral scheduling seam used by Unfinished Business content.
 void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
+void DelayedSayingOfMercQuote( UINT32 uiParam );
 
 #ifdef JA2UB
 //JA25 ub
-void DelayedSayingOfMercQuote( UINT32 uiParam );
-
 void CheckForValidQuotesWhenLeavingDealer( UINT8 ubProfile );
 void HaveBiggensDetonatingExplosivesByTheMine();
 

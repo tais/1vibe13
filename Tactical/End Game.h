@@ -8,11 +8,11 @@ void ChangeO3SectorStatue( BOOLEAN fFromExplosion );
 void HandleDoneLastKilledQueenQuote( );
 void HandleDoneLastEndGameQuote( );
 void DoneFadeOutJa25EndCinematic( void );
+void EndGameEveryoneSayTheirGoodByQuotes( void );
 
 #ifdef JA2UB
 void HandleJa25EndGameAndGoToCreditsScreen( BOOLEAN fFromTactical );
 void HandleEveryoneDoneTheirEndGameQuotes();
-void EndGameEveryoneSayTheirGoodByQuotes( void );
 void EnterTacticalInFinalSector();
 extern	BOOLEAN			gfPlayersLaptopWasntWorkingAtEndOfGame;
 #else

@@ -2604,8 +2604,6 @@ BOOLEAN ShouldSpeckStartTalkingDueToActionOnSubPage()
 	return( FALSE );
 }
 
-#ifdef JA2UB
-#else
 BOOLEAN IsSpeckComAvailable() // anv: Prevent Speck from talking if his playable version is out of reach
 {
 	//he's hired, travelling, dead or POW, he cant' talk
@@ -2616,15 +2614,17 @@ BOOLEAN IsSpeckComAvailable() // anv: Prevent Speck from talking if his playable
 
 		//he still can talk if he was just hired, so he can say his recruitment quote
 		&& ( GetAvailableMercIDFromMERCArray( gubCurMercIndex ) != SPECK_PLAYABLE 
-		||  gusMercVideoSpeckSpeech == SPECK_QUOTE_PLAYER_TRIES_TO_HIRE_ALREADY_HIRED_MERC
-		||  gusMercVideoSpeckSpeech == SPECK_QUOTE_BIFF_UNAVALIABLE
-		||  gusMercVideoSpeckSpeech == SPECK_QUOTE_SPECK_UNAVAILABLE
+		||  gusMercVideoSpeckSpeech == JA2_SPECK_QUOTE_ALREADY_HIRED
+		||  gusMercVideoSpeckSpeech == JA2_SPECK_QUOTE_BIFF_UNAVAILABLE
+		||  gusMercVideoSpeckSpeech == JA2_SPECK_QUOTE_SPECK_UNAVAILABLE
 		) )
 	{
 		return(FALSE);
 	}
 	return(TRUE);
 }
+
+#ifndef JA2UB
 
 void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier )  // anv: handle playable Speck witnessing his employee death
 {	
@@ -2891,27 +2891,23 @@ BOOLEAN ShouldTheMercSiteServerGoDown()
 	return( FALSE );
 }
 
-#ifdef JA2UB
-//no UB
-#else
 void GetMercSiteBackOnline()
 {
 	if( IsSpeckComAvailable() )
 	{
 		//Add an email telling the user the site is back up
-		AddEmail(MERC_NEW_SITE_ADDRESS, MERC_NEW_SITE_ADDRESS_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_NEWSITE);
+		AddEmail(JA2_EMAIL_MERC_NEW_SITE_ADDRESS, JA2_EMAIL_MERC_NEW_SITE_ADDRESS_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_NEWSITE);
 		//Set a flag indicating that the server just went up ( so speck can make a comment when the player next visits the site )
 		LaptopSaveInfo.fFirstVisitSinceServerWentDown = TRUE;
 	}
 	else
 	{
 		// anv: Have Speck inform player personally
-		TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_SERVER_WENT_DOWN );
+		TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_SERVER_WENT_DOWN );
 		// don't bring this up again
 		LaptopSaveInfo.fFirstVisitSinceServerWentDown = 2;
 	}
 }
-#endif
 
 void DrawMercVideoBackGround()
 {
