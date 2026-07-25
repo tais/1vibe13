@@ -56,8 +56,6 @@ void HandleUniqueEventWhenPlayerLeavesTeam( SOLDIERTYPE *pSoldier );
 
 UINT32 uiContractTimeMode = 0;
 
-SOLDIERTYPE *pLeaveSoldier = NULL;
-
 BOOLEAN	fEnterMapDueToContract = FALSE;
 extern BOOLEAN fOneFrame;
 extern BOOLEAN fPausedTimeDuringQuote;
@@ -69,14 +67,15 @@ extern CHAR16		gzUserDefinedButton1[ 128 ];
 extern CHAR16		gzUserDefinedButton2[ 128 ];
 
 
-SOLDIERTYPE *pContractReHireSoldier = NULL;
-
 // Established AIM hiring-screen selection. Insurance confirmations snapshot
 // their own requested duration instead of reading this shared UI value later.
 UINT8 gubContractLength = 0;
 
 namespace
 {
+Ja2TacticalEntityReference gLeavingSoldier;
+Ja2TacticalEntityReference gContractRehireSoldier;
+
 struct InsuranceConfirmationContext
 {
 	Ja2TacticalEntityReference soldier;
@@ -102,6 +101,35 @@ struct InsuranceConfirmationContext
 };
 
 InsuranceConfirmationContext gInsuranceConfirmation;
+}
+
+SOLDIERTYPE* GetContractRehireSoldier( void )
+{
+	return gContractRehireSoldier.resolve();
+}
+
+BOOLEAN SetContractRehireSoldier( SOLDIERTYPE *pSoldier )
+{
+	Ja2TacticalEntityReference soldier;
+	if (!soldier.capture(pSoldier))
+	{
+		gContractRehireSoldier.reset();
+		return FALSE;
+	}
+	gContractRehireSoldier = soldier;
+	return TRUE;
+}
+
+void ClearContractRehireSoldier( void )
+{
+	gContractRehireSoldier.reset();
+}
+
+void ResetMercContractActorContexts( void )
+{
+	gLeavingSoldier.reset();
+	gContractRehireSoldier.reset();
+	gInsuranceConfirmation.reset();
 }
 
 // WDS - make number of mercenaries, etc. be configurable
@@ -920,27 +948,47 @@ void CheckIfMercGetsAnotherContract( SOLDIERTYPE *pSoldier )
 //for ubRemoveType pass in the enum from the .h, 	( MERC_QUIT, MERC_FIRED	)
 BOOLEAN BeginStrategicRemoveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fAddRehireButton )
 {
+	// A single modal callback owns this context. Never let a later departure
+	// request redirect an already-visible prompt to a different actor.
+	if (gLeavingSoldier.valid())
+		return FALSE;
+
+	Ja2TacticalEntityReference departureSoldier;
+	if (!departureSoldier.capture(pSoldier))
+		return FALSE;
+
 	InterruptTime( );
 	PauseGame();
 	LockPauseState( 8 );
 
 	//if the soldier may have some special action when he/she leaves the party, handle it
 	HandleUniqueEventWhenPlayerLeavesTeam( pSoldier );
+	pSoldier = departureSoldier.resolve();
+	if (!pSoldier)
+	{
+		UnLockPauseState();
+		UnPauseGame();
+		return FALSE;
+	}
 
 	// IF the soldier is an EPC, don't ask about equipment
 	if ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
 	{
-	UnEscortEPC( pSoldier );
+		UnEscortEPC( pSoldier );
+		gLeavingSoldier.reset();
 	}
 	else
 	{
 		if (!is_networked)
+		{
+			gLeavingSoldier = departureSoldier;
 			NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( pSoldier, fAddRehireButton );
+		}
 		else
 		{
 			// WANNE - MP: Skip all the dialog boxes that appear. Just dismiss the merc
 			StrategicRemoveMerc( pSoldier );
-			pLeaveSoldier = NULL;
+			gLeavingSoldier.reset();
 		}
 	}
 
@@ -1206,8 +1254,6 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 	swprintf( gzUserDefinedButton1, L"%s", zShortTownIDString );
 
 
-	pLeaveSoldier = pSoldier;
-
 	if( pSoldier->flags.fSignedAnotherContract == TRUE )
 	{
 		fAddRehireButton = FALSE;
@@ -1339,25 +1385,29 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 void MercDepartEquipmentBoxCallBack( UINT8 bExitValue )
 {
 	// gear left in current sector?
-	if( pLeaveSoldier == NULL )
+	SOLDIERTYPE* leavingSoldier =
+		gLeavingSoldier.consume();
+	if( leavingSoldier == NULL )
 	{
+		UnLockPauseState();
+		UnPauseGame();
 		return;
 	}
 
 	if( bExitValue == MSG_BOX_RETURN_OK )
 	{
 		// yep (NOTE that this passes the SOLDIER index, not the PROFILE index as the others do)
-		HandleLeavingOfEquipmentInCurrentSector( pLeaveSoldier->ubID );
+		HandleLeavingOfEquipmentInCurrentSector( leavingSoldier->ubID );
 
 		// aim merc will say goodbye when leaving
-		if( ( pLeaveSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
+		if( ( leavingSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
 		{
-		//	TacticalCharacterDialogue( pLeaveSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
+		//	TacticalCharacterDialogue( leavingSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
 		}
 	}
 	else if( bExitValue == MSG_BOX_RETURN_CONTRACT )
 	{
-		HandleExtendMercsContract( pLeaveSoldier );
+		HandleExtendMercsContract( leavingSoldier );
 
 		UnLockPauseState();
 		return;
@@ -1365,12 +1415,12 @@ void MercDepartEquipmentBoxCallBack( UINT8 bExitValue )
 	else if( bExitValue == MSG_BOX_RETURN_YES )
 	{
 		// yep (NOTE that this passes the SOLDIER index, not the PROFILE index as the others do)
-		HandleLeavingOfEquipmentInCurrentSector( pLeaveSoldier->ubID );
+		HandleLeavingOfEquipmentInCurrentSector( leavingSoldier->ubID );
 
 		// aim merc will say goodbye when leaving
-		if( ( pLeaveSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
+		if( ( leavingSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
 		{
-		//	TacticalCharacterDialogue( pLeaveSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
+		//	TacticalCharacterDialogue( leavingSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
 		}
 	}
 	else
@@ -1378,18 +1428,16 @@ void MercDepartEquipmentBoxCallBack( UINT8 bExitValue )
 		// no
 		if( StrategicMap[CALCULATE_STRATEGIC_INDEX( AIRPORT_X, AIRPORT_Y )].fEnemyControlled == FALSE )
 		{
-			HandleMercLeavingEquipmentInDrassen( pLeaveSoldier->ubID );
+			HandleMercLeavingEquipmentInDrassen( leavingSoldier->ubID );
 		}
 		else
 		{
-			HandleMercLeavingEquipmentInOmerta( pLeaveSoldier->ubID );
+			HandleMercLeavingEquipmentInOmerta( leavingSoldier->ubID );
 		}
 	}
 
 
-	StrategicRemoveMerc( pLeaveSoldier );
-
-	pLeaveSoldier = NULL;
+	StrategicRemoveMerc( leavingSoldier );
 
 	return;
 }
@@ -1407,19 +1455,20 @@ BOOLEAN HandleFiredDeadMerc( SOLDIERTYPE *pSoldier )
 
 void HandleExtendMercsContract( SOLDIERTYPE *pSoldier )
 {
+	if (!SetContractRehireSoldier(pSoldier))
+		return;
+
 	if ( !(guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
 	{
 		gfEnteringMapScreen = TRUE;
 
 		fEnterMapDueToContract = TRUE;
-		pContractReHireSoldier = pSoldier;
 		LeaveTacticalScreen( MAP_SCREEN );
 		uiContractTimeMode = TIME_COMPRESS_5MINS;
 	}
 	else
 	{
 		FindAndSetThisContractSoldier( pSoldier );
-		pContractReHireSoldier = pSoldier;
 		uiContractTimeMode = giTimeCompressMode;
 	}
 
@@ -1563,8 +1612,13 @@ void HandleNotifyPlayerCanAffordInsurance( SOLDIERTYPE *pSoldier, UINT8 ubLength
 		return;
 	}
 
-	//Remember the soldier aswell
-	pContractReHireSoldier = pSoldier;
+	if (!SetContractRehireSoldier(pSoldier))
+	{
+		gInsuranceConfirmation.reset();
+		if ( gfInContractMenuFromRenewSequence )
+			EndCurrentContractRenewal();
+		return;
+	}
 
 	// now pop up the message box
 	DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_YESNO, ExtendMercInsuranceContractCallBack );

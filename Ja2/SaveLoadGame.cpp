@@ -7803,8 +7803,11 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	sGeneralInfo.fEnterMapDueToContract = fEnterMapDueToContract;
 	sGeneralInfo.ubQuitType = ubQuitType;
 
-	if( pContractReHireSoldier != NULL )
-		sGeneralInfo.sContractRehireSoldierID = pContractReHireSoldier->ubID;
+	SOLDIERTYPE* contractRehireSoldier =
+		GetContractRehireSoldier();
+	if( contractRehireSoldier != NULL )
+		sGeneralInfo.sContractRehireSoldierID =
+			contractRehireSoldier->ubID;
 	else
 		sGeneralInfo.sContractRehireSoldierID = NOBODY;
 
@@ -8044,6 +8047,10 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	//UINT32	uiNumBytesRead;
 	INT32	numBytesRead = 0;
 	UINT8	filler = 0;
+
+	// Message-box callbacks are not serialized. Drop their process-local actor
+	// identities before restoring the one contract actor that is saved below.
+	ResetMercContractActorContexts();
 
 	GENERAL_SAVE_INFO sGeneralInfo;
 	memset( &sGeneralInfo, 0, sizeof( GENERAL_SAVE_INFO ) );
@@ -8348,9 +8355,10 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 
 	//if the soldier id is valid
 	if( sGeneralInfo.sContractRehireSoldierID == NOBODY )
-		pContractReHireSoldier = NULL;
+		ClearContractRehireSoldier();
 	else
-		pContractReHireSoldier = sGeneralInfo.sContractRehireSoldierID;
+		(void)SetContractRehireSoldier(
+			sGeneralInfo.sContractRehireSoldierID);
 
 	memcpy( &gGameOptions, &sGeneralInfo.GameOptions, sizeof( GAME_OPTIONS ) );
 #ifndef BMP_RANDOM//dnl ch55 111009

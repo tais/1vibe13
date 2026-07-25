@@ -5423,9 +5423,12 @@ UINT32 MapScreenHandle(void)
 
 		if( fEnterMapDueToContract == TRUE )
 		{
-			if( pContractReHireSoldier )
+			SOLDIERTYPE* contractRehireSoldier =
+				GetContractRehireSoldier();
+			if( contractRehireSoldier )
 			{
-				FindAndSetThisContractSoldier( pContractReHireSoldier );
+				FindAndSetThisContractSoldier(
+					contractRehireSoldier );
 			}
 			fEnterMapDueToContract = FALSE;
 		}

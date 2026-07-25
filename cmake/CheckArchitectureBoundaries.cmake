@@ -306,6 +306,27 @@ foreach(delayed_actor_callback_file IN LISTS delayed_actor_callback_files)
   endif()
 endforeach()
 
+# Merc departure prompts and contract-screen transitions retain stable actor
+# incarnations. The save game continues to carry the legacy soldier slot, but
+# save/load code must pass that slot through the resolving contract boundary.
+set(contract_actor_lifetime_files
+  "${SOURCE_ROOT}/Strategic/Merc Contract.cpp"
+  "${SOURCE_ROOT}/Strategic/Merc Contract.h"
+  "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp")
+foreach(contract_actor_lifetime_file IN LISTS contract_actor_lifetime_files)
+  file(READ "${contract_actor_lifetime_file}"
+    contract_actor_lifetime_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(pLeaveSoldier|pContractReHireSoldier)([^A-Za-z0-9_]|$)"
+    raw_contract_lifetime_actor
+    "${contract_actor_lifetime_contents}")
+  if(raw_contract_lifetime_actor)
+    message(FATAL_ERROR
+      "Contract lifecycle retains a raw SOLDIERTYPE global in ${contract_actor_lifetime_file}")
+  endif()
+endforeach()
+
 # The active and modal dialogue session likewise resolves exact actor
 # incarnations. Quest facts and the quest-debug panel may use only the public
 # resolving accessors, never resurrect the former raw participant globals.
