@@ -1428,12 +1428,10 @@ STRUCTURE * SwapStructureForPartnerAndStoreChangeInMap( INT32 sGridNo, STRUCTURE
 	return( InternalSwapStructureForPartner( sGridNo, pStructure, TRUE, TRUE ) );
 }
 
-#ifdef JA2UB
 STRUCTURE * SwapStructureForPartnerForcingGraphicalChange( INT32 sGridNo, STRUCTURE * pStructure )
 {
 	return( InternalSwapStructureForPartner( sGridNo, pStructure, FALSE, TRUE ) );
 }
-#endif
 
 // Finds the first structure with matching flag
 STRUCTURE * FindStructure( INT32 sGridNo, UINT32 fFlags )

@@ -88,9 +88,7 @@ extern BOOLEAN gfOverrideSector;
 //Buggler: Externalized to gModSettings.iMeanwhileInterrogatePOWGridNo
 //INT32 gsInterrogationGridNo[3] = { 7756, 7757, 7758 };
 
-#ifdef JA2UB
 INT32		gsGridNoForMapEdgePointInfo=-1;
-#endif
 
 #ifdef JA2UB
 void HandleBloodCatDeaths( SECTORINFO *pSector );

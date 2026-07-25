@@ -4,9 +4,6 @@
 #include "NetworkEvent.h"
 #endif
 
-#ifdef JA2UB
-
-
 INT16 JA2_5_START_SECTOR_X;
 INT16 JA2_5_START_SECTOR_Y;
 
@@ -29,7 +26,5 @@ typedef struct
 #define	NUM_MERCS_TO_USE_IN_PERCENT_STAT_INCREASE			6
 
 #define	MAX_STAT_INCREASE	30
-
-#endif														
 
 //******************************************************************************

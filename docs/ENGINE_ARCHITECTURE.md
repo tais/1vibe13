@@ -827,6 +827,16 @@ the engine must not contain SDL types in its public domain model.
   phases, Stopped requires a successful package shutdown, and cancellation
   cannot discard completed phases. Existing boolean transition methods remain
   compatibility wrappers over structured `try*` results.
+- JA25 tactical, strategic-AI, and update modules are compiled into every game
+  host as the first campaign-identity extraction slice. Shared quest and fact
+  vocabularies retain their established numeric slots through campaign-named
+  aliases, so this does not rewrite maps, XML, Lua, or other game data. Campaign
+  startup, UB option loading, multiplayer intro policy, and UB cinematic-name
+  registration now select behavior from `GameCapabilities`; the separate JA2,
+  UB, and editor executables still provide the same defaults while remaining
+  preprocessor branches are migrated incrementally. The architecture check
+  prevents the dedicated modules and migrated composition callers from
+  regaining a `JA2UB` build guard.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

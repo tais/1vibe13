@@ -38,9 +38,7 @@
 #pragma comment (lib, "shell32.lib")
 #endif
 
-#ifdef JA2UB
 #include "ub_config.h"
-#endif
 
 // rain
 #include "Rain.h"
@@ -271,9 +269,8 @@ BOOLEAN InitializeGame(void)
 	// Load rebel command settings
 	LoadRebelCommandSettings();
 
-#ifdef JA2UB
-	LoadGameUBOptions(); // JA25 UB
-#endif
+	if (GetGameContext().capabilities().isUnfinishedBusiness())
+		LoadGameUBOptions();
 
 	InitSightRange(); //lal
 

@@ -17,6 +17,7 @@
 	#include "screenids.h"
 	#include "TacticalEntityHost.h"
 	#include "TacticalWorldAdapter.h"
+	#include "ub_config.h"
 
 #ifndef JA2UB
 #include "NPC.h"
@@ -40,7 +41,6 @@
 #include "Ja25_Tactical.h"
 #include "Game Init.h"
 #include "interface Dialogue.h"
-#include "ub_config.h"
 #include "Handle UI.h"
 
 void HandleAddingTheEndGameEmails();
@@ -439,11 +439,12 @@ void DoneFadeOutEndCinematic( void )
 void HandleDoneLastEndGameQuote( )
 {
 #ifdef JA2UB
-//Ja25 No queen	
+//Ja25 No queen
+	gFadeOutDoneCallback = DoneFadeOutJa25EndCinematic;
 #else
 EndQueenDeathEndgame( );
-#endif
 	gFadeOutDoneCallback = DoneFadeOutEndCinematic;
+#endif
 
 	FadeOutGameScreen( );
 }
@@ -766,9 +767,8 @@ void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLe
 }
 #endif
 
-#ifdef JA2UB
 //JA25UB
-void DoneFadeOutEndCinematic( void )
+void DoneFadeOutJa25EndCinematic( void )
 {
 	INT32 cnt;
 	SOLDIERTYPE *pSoldier;
@@ -807,4 +807,3 @@ void DoneFadeOutEndCinematic( void )
 	InternalLeaveTacticalScreen( INTRO_SCREEN );
 	SetIntroType( INTRO_ENDING );
 }
-#endif

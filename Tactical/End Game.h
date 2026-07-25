@@ -7,9 +7,9 @@ void ChangeO3SectorStatue( BOOLEAN fFromExplosion );
 
 void HandleDoneLastKilledQueenQuote( );
 void HandleDoneLastEndGameQuote( );
+void DoneFadeOutJa25EndCinematic( void );
 
 #ifdef JA2UB
-void DoneFadeOutEndCinematic( void );
 void HandleJa25EndGameAndGoToCreditsScreen( BOOLEAN fFromTactical );
 void HandleEveryoneDoneTheirEndGameQuotes();
 void EndGameEveryoneSayTheirGoodByQuotes( void );

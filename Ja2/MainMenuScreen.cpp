@@ -20,15 +20,14 @@
 #include "Multi Language Graphic Utils.h"
 #include "JA2 Splash.h"
 #include "GameVersion.h"
+#include "GameContext.h"
 #include "connect.h"
 #include "strategic.h"
 #include "Strategic Movement.h"
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_profile.h>
 
-#ifdef JA2UB
 #include "ub_config.h"
-#endif
 
 #define	MAINMENU_TEXT_FILE						"LoadScreens\\MainMenu.edt"
 #define MAINMENU_RECORD_SIZE					80 * 2
@@ -392,9 +391,8 @@ void InitDependingGameStyleOptions()
 	// Load rebel command settings
 	LoadRebelCommandSettings();
 
-#ifdef JA2UB
-	LoadGameUBOptions(); // JA25 UB
-#endif
+	if (GetGameContext().capabilities().isUnfinishedBusiness())
+		LoadGameUBOptions();
 
 	InitSightRange(); //lal
 

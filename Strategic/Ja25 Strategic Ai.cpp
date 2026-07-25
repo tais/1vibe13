@@ -1,4 +1,3 @@
-#ifdef JA2UB
 #include "builddefines.h"
 
 	#include "strategicmap.h"
@@ -2773,7 +2772,7 @@ void HandleEnricosUnderstandingEmail()
 	//if the player just got the laptop working again, and we are to send an email when entering a new sector
 	if( gJa25SaveStruct.fSendEmail_10_NextSector )
 	{
-		AddEmail( EMAIL_UNDERSTANDING, EMAIL_UNDERSTANDING_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() , -1 , -1, TYPE_EMAIL_EMAIL_EDT);
+		AddEmail( JA25_EMAIL_UNDERSTANDING, JA25_EMAIL_UNDERSTANDING_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() , -1 , -1, TYPE_EMAIL_EMAIL_EDT);
 
 		//Remeber we sent it
 		gJa25SaveStruct.ubEmailFromSectorFlag |= SECTOR_EMAIL__ANOTHER_SECTOR;
@@ -3002,5 +3001,3 @@ void AddJA25AIDataToSector( JA25_SECTOR_AI *pSectorAIInfo )
 	giNumJA25Sectors++;
 */
 }
-
-#endif

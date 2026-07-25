@@ -1,4 +1,3 @@
-#ifdef JA2UB
 #include "Items.h"
 	#include "Soldier Control.h"
 	#include "Overhead.h"
@@ -1921,7 +1920,6 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 	//
 	// The player Just won the game, remeber this
 	//
-	gGameSettings.fPlayerFinishedTheGame = TRUE;
 	SaveGameSettings();
 	SaveFeatureFlags();
 
@@ -1955,7 +1953,7 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 
 void HandleFadingOutToEndGameCinematics()
 {
-	gFadeOutDoneCallback = DoneFadeOutEndCinematic;
+	gFadeOutDoneCallback = DoneFadeOutJa25EndCinematic;
 
 	FadeOutGameScreen( );	
 
@@ -2002,4 +2000,3 @@ void HandleOpenControlPanelToRevealSwitchInMorrisArea()
 		}
 	}
 }
-#endif
