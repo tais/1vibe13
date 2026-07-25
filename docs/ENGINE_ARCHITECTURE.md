@@ -334,9 +334,10 @@ the engine must not contain SDL types in its public domain model.
   best-effort journal without knowing the game's command vocabulary. Its
   `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
-  Tactical end-turn input is the first production path: it queues an
-  engine-owned value command and processes it at the existing synchronous call
-  boundary before invoking the legacy executor.
+  Production tactical input routes end-turn, stance, movement, facing, firing,
+  stealth, stop-movement, weapon-mode, scope-mode, and single-merc reload
+  intent through engine-owned value commands. Each command is processed at the
+  existing synchronous boundary before invoking its legacy executor.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard
@@ -349,9 +350,11 @@ the engine must not contain SDL types in its public domain model.
   `SimulationCommandCodec` serializes explicit command tags rather than variant
   indexes, providing a stable capture boundary for diagnostics and future
   replay/network hosts.
-  `HandleItem` firearm actions now enter this gateway before the compatibility
-  executor queues the existing soldier event, while legacy AP, animation, and
-  multiplayer behavior remain at their original synchronous boundary.
+  Firearm actions and player weapon controls enter this gateway before the
+  compatibility executor queues events or applies established inventory/AP
+  mechanics. AI retaliation, equipment-driven mode correction, and multi-merc
+  bulk reload remain local mechanics until they receive explicit command
+  semantics rather than masquerading as player intent.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded

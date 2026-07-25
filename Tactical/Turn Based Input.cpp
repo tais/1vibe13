@@ -5371,7 +5371,9 @@ void SetBurstMode()
 {
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		ChangeWeaponMode( gusSelectedSoldier );
+		TryDispatchCycleWeaponModeCommandNow(
+			gusSelectedSoldier->ubID,
+			gusSelectedSoldier->uiUniqueSoldierIdValue );
 	}
 }
 
@@ -5379,13 +5381,13 @@ void SetScopeMode( INT32 usMapPos )
 {
 	if ( gusSelectedSoldier != NOBODY )
 	{
+		INT32 targetGrid = NOWHERE;
 		if ( GetMouseMapPos( &usMapPos ))
-			ChangeScopeMode( gusSelectedSoldier, usMapPos );
-		else
-			ChangeScopeMode( gusSelectedSoldier, NOWHERE );
-
-		// reevaluate sight
-		ManLooksForOtherTeams( gusSelectedSoldier );
+			targetGrid = usMapPos;
+		TryDispatchCycleScopeModeCommandNow(
+			gusSelectedSoldier->ubID,
+			gusSelectedSoldier->uiUniqueSoldierIdValue,
+			targetGrid );
 	}
 }
 
@@ -6149,13 +6151,13 @@ BOOLEAN HandleUIReloading( SOLDIERTYPE *pSoldier )
 		if ( EnoughPoints( pSoldier, bAPs, 0,TRUE ) )
 		{
 			// OK, we have some ammo we can reload.... reload now!
-			if ( !AutoReload( pSoldier, false ) )
-			{
-				// Do we say we could not reload gun...?
-			}
+			const SimulationCommandDispatchResult reload =
+				TryDispatchReloadWeaponCommandNow(
+					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue, false );
 
 			// ATE: Re-examine cursor info!
-			gfUIForceReExamineCursorData = TRUE;
+			if ( reload.processed() )
+				gfUIForceReExamineCursorData = TRUE;
 		}
 		return( TRUE );
 	}
@@ -7548,7 +7550,13 @@ void HandleMouseTBX1Button( UINT32 *puiNewEvent )
 void HandleMouseTBX2Button( UINT32 *puiNewEvent )
 {
 	if ( _KeyDown( ALT ) )
-		AutoReload( gusSelectedSoldier );
+	{
+		if ( gusSelectedSoldier != NOBODY )
+			TryDispatchReloadWeaponCommandNow(
+				gusSelectedSoldier->ubID,
+				gusSelectedSoldier->uiUniqueSoldierIdValue,
+				true );
+	}
 	else
 		HandleTBToggleStealthAll();
 }
@@ -7948,7 +7956,11 @@ void HandleTBToggleStealth( void )
 }
 void HandleTBReload( void )
 {
-	AutoReload( gusSelectedSoldier );
+	if ( gusSelectedSoldier != NOBODY )
+		TryDispatchReloadWeaponCommandNow(
+			gusSelectedSoldier->ubID,
+			gusSelectedSoldier->uiUniqueSoldierIdValue,
+			true );
 }
 void HandleTBReloadAll( void )
 {
@@ -9127,7 +9139,10 @@ void HandleTacticalReload()
 	if (EnoughPoints(pSoldier, bAPs, 0, TRUE))
 	{
 		// OK, we have some ammo we can reload.... reload now!
-		if ( !AutoReload(pSoldier, false) )
+		const SimulationCommandDispatchResult reload =
+			TryDispatchReloadWeaponCommandNow(
+				pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue, false );
+		if ( reload.status == SimulationCommandDispatchStatus::Discarded )
 		{
 			// Do we say we could not reload gun...?
 			pSoldier->DoMercBattleSound(BATTLE_SOUND_CURSE1);
@@ -9135,7 +9150,8 @@ void HandleTacticalReload()
 		}
 
 		// ATE: Re-examine cursor info!
-		gfUIForceReExamineCursorData = TRUE;
+		if ( reload.processed() )
+			gfUIForceReExamineCursorData = TRUE;
 	}
 }
 

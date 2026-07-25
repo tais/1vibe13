@@ -2,6 +2,7 @@
 #define ENGINE_ADAPTERS_JA2_SIMULATION_COMMAND_H
 
 #include <cstdint>
+#include <type_traits>
 #include <variant>
 
 #include <Engine/Adapters/JA2/TacticalEntity.h>
@@ -140,6 +141,30 @@ struct StopMovementCommand
 	SimulationCommandSource source;
 };
 
+struct CycleWeaponModeCommand
+{
+	TacticalEntityId soldier;
+	SimulationCommandSource source;
+};
+
+// A target grid lets the compatibility executor retain the merc's current aim
+// level where possible. -1 is the stable value-only spelling of "no target".
+inline constexpr std::int32_t TacticalNoTargetGrid = -1;
+
+struct CycleScopeModeCommand
+{
+	TacticalEntityId soldier;
+	std::int32_t targetGrid;
+	SimulationCommandSource source;
+};
+
+struct ReloadWeaponCommand
+{
+	TacticalEntityId soldier;
+	bool reloadEvenIfNotEmpty;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -150,6 +175,37 @@ using SimulationCommand = std::variant<
 	MoveToGridCommand,
 	SetFacingCommand,
 	SetStealthModeCommand,
-	StopMovementCommand>;
+	StopMovementCommand,
+	CycleWeaponModeCommand,
+	CycleScopeModeCommand,
+	ReloadWeaponCommand>;
+
+// Shared transport/admission validation deliberately covers only the public
+// value shape. Application-specific ranges and live-world policy belong to the
+// JA2 executor. Keeping this visitor here prevents codecs and package ingress
+// from acquiring subtly different command allowlists as the vocabulary grows.
+inline bool IsStructurallyValidSimulationCommand(
+	const SimulationCommand& command) noexcept
+{
+	if (command.valueless_by_exception()) return false;
+	return std::visit([](const auto& value) noexcept {
+		using Command = typename std::decay<decltype(value)>::type;
+		if (!IsValidSimulationCommandSource(value.source)) return false;
+		if constexpr (std::is_same<Command, EndTurnCommand>::value)
+		{
+			return true;
+		}
+		else
+		{
+			if (!value.soldier.valid()) return false;
+			if constexpr (std::is_same<Command, MoveToGridCommand>::value)
+				return IsValidTacticalMoveOrigin(value.origin) &&
+					IsValidTacticalPendingActionPolicy(value.pendingAction);
+			if constexpr (std::is_same<Command, SetFacingCommand>::value)
+				return IsValidTacticalDirection(value.direction);
+			return true;
+		}
+	}, command);
+}
 
 #endif

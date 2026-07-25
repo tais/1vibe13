@@ -1856,6 +1856,24 @@ int main( int, char** )
 				actor, TacticalDirectionCount,
 				SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidDirection &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				CycleScopeModeCommand{
+					actor, TacticalNoTargetGrid,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				CycleScopeModeCommand{
+					actor, WORLD_MAX,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				CycleWeaponModeCommand{
+					actor, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ReloadWeaponCommand{
+					actor, false, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
@@ -3084,6 +3102,10 @@ int main( int, char** )
 			tacticalCommands.service->submit( packageId, SimulationCommand{ MoveToGridCommand{
 				staleActor, 100, NUMANIMATIONSTATES, false, false,
 				SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidScopeGrid =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ CycleScopeModeCommand{
+					staleActor, WORLD_MAX, SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -3114,16 +3136,16 @@ int main( int, char** )
 			journalAfterCommandHost.size() == journalBeforeCommandHost.size() + 1
 				? &journalAfterCommandHost.back() : nullptr;
 		CHECK( inactiveOwner && invalidTeam && invalidStance && invalidFire &&
-		       invalidMoveGrid && invalidMoveMode &&
+		       invalidMoveGrid && invalidMoveMode && invalidScopeGrid &&
 		       unloadedContext && staleRequest &&
 		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
-		       commandHostAfterInvalidContext.lastDrain.rejected == 7 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 8 &&
 		       commandHostAfterValidation.lastDrain.accepted == 1 &&
 		       commandHostAfterValidation.lastDrain.rejected == 0 &&
 		       commandHostAfterValidation.inactiveOwnerRejections ==
 		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
 		       commandHostAfterValidation.semanticRejections ==
-		           commandHostBeforeValidation.semanticRejections + 5 &&
+		           commandHostBeforeValidation.semanticRejections + 6 &&
 		       commandHostAfterValidation.contextRejections ==
 		           commandHostBeforeValidation.contextRejections + 1 &&
 		       commandHostAfterValidation.lastProcessing.status ==
@@ -3191,6 +3213,30 @@ int main( int, char** )
 		       commandHostActor.pathing.sFinalDestination == commandHostActor.sGridNo &&
 		       facingQueued.status == SimulationCommandDispatchStatus::Applied,
 		       "structured facing, stealth, and stop commands execute through the authoritative path" );
+
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult weaponModeWithoutWeapon =
+			TryDispatchCycleWeaponModeCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult scopeModeWithoutWeapon =
+			TryDispatchCycleScopeModeCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				TacticalNoTargetGrid, SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult reloadWithoutWeapon =
+			TryDispatchReloadWeaponCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				false, SimulationCommandSource::System );
+		CHECK(
+			weaponModeWithoutWeapon.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			scopeModeWithoutWeapon.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			reloadWithoutWeapon.status ==
+				SimulationCommandDispatchStatus::Discarded,
+			"weapon-control commands reject missing live equipment without unsafe legacy calls" );
 
 		const std::uint64_t oneCommandFrame = ++commandTestFrameSequence;
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );

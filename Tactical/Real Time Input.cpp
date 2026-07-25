@@ -29,6 +29,7 @@
 #include "Squads.h"
 #include "Interface Panels.h"
 #include "Soldier Functions.h"
+#include "Simulation Commands.h"
 #include "SkillMenu.h"			// sevenfm: need this for TraitsMenu
 #include "DisplayCover.h"		// added by Sevenfm
 #include "Vehicles.h"	// anv: for switching from soldier to vehicle
@@ -2053,7 +2054,9 @@ void HandleMouseRTMButton( UINT32 *puiNewEvent )
 		// toggle fire mode
 		if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 			( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
-			ChangeWeaponMode( gusSelectedSoldier );
+			TryDispatchCycleWeaponModeCommandNow(
+				gusSelectedSoldier->ubID,
+				gusSelectedSoldier->uiUniqueSoldierIdValue );
 			}
 	else
 		*puiNewEvent = LC_LOOK;
@@ -2122,7 +2125,13 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 void HandleMouseRTX2Button( UINT32 *puiNewEvent )
 {
 	if ( _KeyDown( ALT ) )
-		AutoReload( gusSelectedSoldier );
+	{
+		if ( gusSelectedSoldier != NOBODY )
+			TryDispatchReloadWeaponCommandNow(
+				gusSelectedSoldier->ubID,
+				gusSelectedSoldier->uiUniqueSoldierIdValue,
+				true );
+	}
 	else
 		// Toggle squad's stealth mode.....
 		// For each guy on squad...
@@ -2236,7 +2245,9 @@ void HandleRTToggleFireMode( void )
 	// toggle fire mode
 	if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 		( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
-		ChangeWeaponMode( gusSelectedSoldier );
+		TryDispatchCycleWeaponModeCommandNow(
+			gusSelectedSoldier->ubID,
+			gusSelectedSoldier->uiUniqueSoldierIdValue );
 }
 void HandleRTLocateSoldier( void )
 {

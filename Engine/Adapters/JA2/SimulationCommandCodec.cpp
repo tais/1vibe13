@@ -21,7 +21,10 @@ enum class CommandTag : std::uint8_t
 	MoveToGrid = 4,
 	SetFacing = 5,
 	SetStealthMode = 6,
-	StopMovement = 7
+	StopMovement = 7,
+	CycleWeaponMode = 8,
+	CycleScopeMode = 9,
+	ReloadWeapon = 10
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -57,28 +60,6 @@ bool IsValidPendingActionPolicy(std::uint8_t value)
 {
 	return IsValidTacticalPendingActionPolicy(
 		static_cast<TacticalPendingActionPolicy>(value));
-}
-
-bool IsValidCommand(const SimulationCommand& command)
-{
-	if (command.valueless_by_exception()) return false;
-	return std::visit([](const auto& value) {
-		using Command = typename std::decay<decltype(value)>::type;
-		if (!IsValidSource(static_cast<std::uint8_t>(value.source))) return false;
-		if constexpr (std::is_same<Command, MoveToGridCommand>::value)
-			return value.soldier.valid() &&
-				IsValidTacticalMoveOrigin(value.origin) &&
-				IsValidTacticalPendingActionPolicy(value.pendingAction);
-		if constexpr (std::is_same<Command, SetFacingCommand>::value)
-			return value.soldier.valid() &&
-				IsValidTacticalDirection(value.direction);
-		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value ||
-			std::is_same<Command, SetStealthModeCommand>::value ||
-			std::is_same<Command, StopMovementCommand>::value)
-			return value.soldier.valid();
-		return true;
-	}, command);
 }
 
 void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
@@ -144,6 +125,29 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(static_cast<std::uint8_t>(CommandTag::StopMovement));
 			writer.writeU16(value.soldier.slot);
 			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, CycleWeaponModeCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::CycleWeaponMode));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, CycleScopeModeCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::CycleScopeMode));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.targetGrid);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, ReloadWeaponCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::ReloadWeapon));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.reloadEvenIfNotEmpty ? 1u : 0u);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
@@ -266,6 +270,44 @@ bool ReadCommand(
 			command = value;
 			return true;
 		}
+		case CommandTag::CycleWeaponMode:
+		{
+			if (version < 6) return false;
+			CycleWeaponModeCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() || !ReadSource(reader, value.source))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::CycleScopeMode:
+		{
+			if (version < 6) return false;
+			CycleScopeModeCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.targetGrid) ||
+				!ReadSource(reader, value.source)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::ReloadWeapon:
+		{
+			if (version < 6) return false;
+			ReloadWeaponCommand value{};
+			std::uint8_t reloadEvenIfNotEmpty = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU8(reloadEvenIfNotEmpty) ||
+				reloadEvenIfNotEmpty > 1 ||
+				!ReadSource(reader, value.source)) return false;
+			value.reloadEvenIfNotEmpty = reloadEvenIfNotEmpty != 0;
+			command = value;
+			return true;
+		}
 	}
 	return false;
 }
@@ -286,7 +328,7 @@ bool EncodeSimulationCommandJournal(
 	for (const RecordedSimulationCommand& record : records)
 	{
 		if (!IsValidStatus(static_cast<std::uint8_t>(record.status)) ||
-			!IsValidCommand(record.command))
+			!IsStructurallyValidSimulationCommand(record.command))
 		{
 			return false;
 		}

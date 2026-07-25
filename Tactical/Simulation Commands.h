@@ -142,6 +142,23 @@ SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
 	std::uint32_t uniqueSoldierId,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
+SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchCycleScopeModeCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t targetGrid,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	bool reloadEvenIfNotEmpty,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
 // Source-compatible wrappers for legacy callers. New production migrations use
 // the structured Try variants so backpressure never triggers UI follow-up.
 std::uint64_t DispatchEndTurnCommandNow(

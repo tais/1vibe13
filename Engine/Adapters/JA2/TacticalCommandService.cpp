@@ -2,36 +2,12 @@
 
 #include <algorithm>
 #include <limits>
-#include <type_traits>
 #include <utility>
-#include <variant>
 
 #include <Engine/Core/Identifier.h>
 
 namespace
 {
-bool IsValidPackageCommand(const SimulationCommand& command)
-{
-	if (command.valueless_by_exception()) return false;
-	return std::visit([](const auto& value) {
-		using Command = typename std::decay<decltype(value)>::type;
-		if (!IsValidSimulationCommandSource(value.source)) return false;
-		if constexpr (std::is_same<Command, MoveToGridCommand>::value)
-			return value.soldier.valid() &&
-				IsValidTacticalMoveOrigin(value.origin) &&
-				IsValidTacticalPendingActionPolicy(value.pendingAction);
-		if constexpr (std::is_same<Command, SetFacingCommand>::value)
-			return value.soldier.valid() &&
-				IsValidTacticalDirection(value.direction);
-		if constexpr (std::is_same<Command, ChangeStanceCommand>::value ||
-			std::is_same<Command, BeginFireWeaponCommand>::value ||
-			std::is_same<Command, SetStealthModeCommand>::value ||
-			std::is_same<Command, StopMovementCommand>::value)
-			return value.soldier.valid();
-		return true;
-	}, command);
-}
-
 TacticalCommandSubmissionError ValidateSubmission(
 	const std::string& packageId, const SimulationCommand& command,
 	std::size_t maximumOwnerBytes)
@@ -39,7 +15,7 @@ TacticalCommandSubmissionError ValidateSubmission(
 	if (packageId.size() > maximumOwnerBytes ||
 		!IsValidEngineIdentifier(packageId))
 		return TacticalCommandSubmissionError::InvalidOwner;
-	if (!IsValidPackageCommand(command))
+	if (!IsStructurallyValidSimulationCommand(command))
 		return TacticalCommandSubmissionError::InvalidCommand;
 	return TacticalCommandSubmissionError::None;
 }
