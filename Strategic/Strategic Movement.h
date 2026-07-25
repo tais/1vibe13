@@ -207,9 +207,7 @@ GROUP* CreateNewEnemyGroupDepartingFromSector( UINT32 uiSector, UINT8 ubNumAdmin
 
 GROUP* CreateNewMilitiaGroupDepartingFromSector( UINT32 uiSector, UINT16& arusNumAdmins, UINT16& arusNumTroops, UINT16& arusNumElites );
 
-#ifdef JA2UB
 GROUP* CreateNewEnemyGroupDepartingFromSectorUsingZLevel( UINT32 uiSector, UINT8 ubSectorZ, UINT8 ubNumAdmins, UINT8 ubNumTroops, UINT8 ubNumElites, UINT8 ubNumTanks );
-#endif
 
 //ARRIVALCALLBACK -- None of these functions should be called directly.
 //...............

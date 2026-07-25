@@ -238,6 +238,49 @@ foreach(retired_application_drain IN ITEMS
   endif()
 endforeach()
 
+# The first compiled-campaign-identity slice deliberately makes the dedicated
+# JA25 implementation part of every host. Reintroducing a JA2UB guard here
+# would let an ordinary JA2 build pass while silently dropping the runtime
+# campaign implementation. The selected startup callers likewise branch on
+# GameCapabilities, not on which executable happened to compile them.
+set(runtime_campaign_implementation_files
+  "${SOURCE_ROOT}/Ja2/Ja25Update.cpp"
+  "${SOURCE_ROOT}/Ja2/Ja25Update.h"
+  "${SOURCE_ROOT}/Strategic/Ja25 Strategic Ai.cpp"
+  "${SOURCE_ROOT}/Strategic/Ja25 Strategic Ai.h"
+  "${SOURCE_ROOT}/Tactical/Ja25_Tactical.cpp"
+  "${SOURCE_ROOT}/Tactical/Ja25_Tactical.h")
+set(runtime_campaign_selection_files
+  "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
+  "${SOURCE_ROOT}/Ja2/gameloop.cpp"
+  "${SOURCE_ROOT}/Ja2/Intro.cpp"
+  "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
+  "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp")
+foreach(runtime_campaign_file IN LISTS
+    runtime_campaign_implementation_files runtime_campaign_selection_files)
+  file(READ "${runtime_campaign_file}" runtime_campaign_contents)
+  string(REGEX MATCH
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+    compiled_campaign_identity "${runtime_campaign_contents}")
+  if(compiled_campaign_identity)
+    message(FATAL_ERROR
+      "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
+  compiled_gameplay_bootstrap_contents)
+foreach(required_runtime_campaign_fragment IN ITEMS
+    "capabilities.isUnfinishedBusiness()"
+    "InitGridNoUB()")
+  string(FIND "${compiled_gameplay_bootstrap_contents}"
+    "${required_runtime_campaign_fragment}" runtime_campaign_fragment_position)
+  if(runtime_campaign_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign bootstrap no longer selects JA25 startup at runtime; missing '${required_runtime_campaign_fragment}'")
+  endif()
+endforeach()
+
 set(headless_test_source "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp")
 file(READ "${headless_test_source}" headless_test_contents)
 string(FIND "${headless_test_contents}" "HeadlessTacticalTurnModel"

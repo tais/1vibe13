@@ -4,6 +4,7 @@
 #include "Render Dirty.h"
 #include	"Utilities.h"
 #include "Intro.h"
+#include "GameContext.h"
 #include "Cinematics.h"
 #include "Cinematics Bink.h"
 #include "mainmenuscreen.h"
@@ -230,12 +231,8 @@ enum EGameVideos
 	INTRO_SPLASH_SCREEN,
 	INTRO_SPLASH_TALONSOFT,
 
-#ifdef JA2UB
-
 	INTRO_HELI_CRASH_SCENE_1,
 	INTRO_END_SCENE_1,
-
-#endif
 
 	//there are no more videos shown for the endgame
 	INTRO_LAST_END_GAME,
@@ -313,11 +310,15 @@ UINT32	IntroScreenInit( void )
 	s_VFN[INTRO_SPLASH_SCREEN]				= inireader.ReadString("INTRO_SPLASH","INTRO_SPLASH_SCREEN",    no_defaults ? "" : "INTRO\\SplashScreen");
 	s_VFN[INTRO_SPLASH_TALONSOFT]			= inireader.ReadString("INTRO_SPLASH","INTRO_SPLASH_TALONSOFT", no_defaults ? "" : "INTRO\\TalonSoftid_endhold");
 
-	//UB
-#ifdef JA2UB
-	s_VFN[INTRO_HELI_CRASH_SCENE_1]		= inireader.ReadString("INTRO_BEGINNING","INTRO_HELI_CRASH_SCENE",    no_defaults ? "" : "INTRO\\Intro");
-	s_VFN[INTRO_END_SCENE_1]			= inireader.ReadString("INTRO_ENDING","INTRO_END_SCENE",    no_defaults ? "" : "INTRO\\MissileEnding");
-#endif
+	if (GetGameContext().capabilities().isUnfinishedBusiness())
+	{
+		s_VFN[INTRO_HELI_CRASH_SCENE_1] =
+			inireader.ReadString("INTRO_BEGINNING", "INTRO_HELI_CRASH_SCENE",
+				no_defaults ? "" : "INTRO\\Intro");
+		s_VFN[INTRO_END_SCENE_1] =
+			inireader.ReadString("INTRO_ENDING", "INTRO_END_SCENE",
+				no_defaults ? "" : "INTRO\\MissileEnding");
+	}
 	
 
 	//there are no more videos shown for the endgame

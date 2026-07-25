@@ -415,10 +415,13 @@ extern UINT32 CalcMedicalCost( UINT8 ubId );
 extern void StartDialogueMessageBox( UINT8 ubProfileID, UINT16 usMessageBoxType );
 
 extern BOOLEAN	gfInTalkPanel;
+
+// Campaign-neutral scheduling seam used by Unfinished Business content.
+void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
+
 #ifdef JA2UB
 //JA25 ub
 void DelayedSayingOfMercQuote( UINT32 uiParam );
-void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
 
 void CheckForValidQuotesWhenLeavingDealer( UINT8 ubProfile );
 void HaveBiggensDetonatingExplosivesByTheMine();

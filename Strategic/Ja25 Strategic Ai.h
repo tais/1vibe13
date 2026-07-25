@@ -1,7 +1,6 @@
 #ifndef JA25__STRATEGIC_AI
 #define JA25__STRATEGIC_AI
 
-#ifdef JA2UB
 typedef struct
 {
 	UINT32		uiJerryMiloQuotesFlags;										//used to keep track of the quotes Jerry says.
@@ -329,7 +328,5 @@ INT8 GetSectorEnemyIsToImmediatelySeekEnemyIn();
 
 void AddJA25AIDataToSector( JA25_SECTOR_AI *pSectorAIInfo );
 extern void	SetNumberOfJa25BloodCatsInSector( INT32 iSectorID, INT8 bNumBloodCats, INT8 bBloodCatPlacements  );
-
-#endif
 
 #endif

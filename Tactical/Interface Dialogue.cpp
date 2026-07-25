@@ -173,11 +173,12 @@ extern INT32 FindNearestOpenableNonDoor( INT32 sStartGridNo );
 extern void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier );
 extern UINT16 NumCapableEnemyInSector( );
 
+void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
+
 #ifdef JA2UB
 //JA25 UB
 void PerformJerryMiloAction301();
 void PerformJerryMiloAction302();
-void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
 void DelayedSayingOfMercQuote( UINT32 uiParam );
 void HandleSpecificQuoteWhenLeavingNpcTalkMenu();
 void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileID, UINT32 uiQuoteNum );
@@ -5378,6 +5379,12 @@ void CarmenLeavesSectorCallback( void )
 #endif
 }
 
+void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid )
+{
+	const UINT32 uiParam = usProfileID + ( uiQuoteNum << 16 );
+	AddStrategicEventUsingSeconds( EVENT_SAY_DELAYED_MERC_QUOTE, uiTimeTillQuoteSaid, uiParam );
+}
+
 #ifdef JA2UB
 //JA25 UB
 
@@ -5461,15 +5468,6 @@ void PerformJerryMiloAction302()
 
 	//Close the dialogue panel
 	DeleteTalkingMenu();
-}
-
-void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid )
-{
-	UINT32 uiParam;
-
-	uiParam = usProfileID + ( uiQuoteNum << 16 );
-
-	AddStrategicEventUsingSeconds( EVENT_SAY_DELAYED_MERC_QUOTE, uiTimeTillQuoteSaid, uiParam );
 }
 
 void DelayedSayingOfMercQuote( UINT32 uiParam )

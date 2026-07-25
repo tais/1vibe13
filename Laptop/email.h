@@ -7,6 +7,10 @@
 // defines
 #define MAX_MESSAGES_PAGE 18 // max number of emails per page in inbox
 
+// Stable campaign-qualified IDs available independently of the selected host.
+#define JA25_EMAIL_UNDERSTANDING 35
+#define JA25_EMAIL_UNDERSTANDING_LENGTH 3
+
 //---ja25 ub
 #ifdef JA2UB
 

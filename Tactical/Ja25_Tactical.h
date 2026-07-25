@@ -1,8 +1,6 @@
 #ifndef _JA25_TACTICAL__H_
 #define _JA25_TACTICAL__H_
 
-#ifdef JA2UB
-
 #include "MapScreen Quotes.h"
 
 
@@ -151,7 +149,5 @@ extern void Old_UB_Inventory ();
 extern void New_UB_Inventory ();
 
 extern void InitGridNoUB();
-
-#endif
 
 #endif

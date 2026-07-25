@@ -5967,7 +5967,6 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 	return FALSE;
 }
 
-#ifdef JA2UB
 GROUP* CreateNewEnemyGroupDepartingFromSectorUsingZLevel( UINT32 uiSector, UINT8 ubSectorZ, UINT8 ubNumAdmins, UINT8 ubNumTroops, UINT8 ubNumElites, UINT8 ubNumTanks )
 {
 	GROUP *pNew;
@@ -6024,9 +6023,6 @@ GROUP* CreateNewEnemyGroupDepartingFromSectorUsingZLevel( UINT32 uiSector, UINT8
 		return pNew;
 	return NULL;
 }
-
-
-#endif
 
 void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 sY, INT8 sZ )
 {

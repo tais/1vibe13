@@ -4,6 +4,7 @@
 #include "types.h"
 	#include "MPHostScreen.h"
 	#include "GameSettings.h"
+	#include "GameContext.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "Font Control.h"
@@ -2874,11 +2875,8 @@ void DoneFadeOutForExitMPHScreen( void )
 			
 	gubMPHExitScreen = INTRO_SCREEN;
 
-#ifdef JA2UB
-	//SetIntroType( INTRO_BEGINNING );
-#else
-	SetIntroType( INTRO_BEGINNING );
-#endif
+	if (!GetGameContext().capabilities().isUnfinishedBusiness())
+		SetIntroType( INTRO_BEGINNING );
 
 	ExitMPHScreen(); // cleanup please, if we called a fadeout then we didnt do it above
 

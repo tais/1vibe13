@@ -8,10 +8,7 @@
 #include "Item Types.h"
 #include "Weapons.h"
 #include "DEBUG.H"
-
-#ifdef JA2UB
 #include "Ja25_Tactical.h"
-#endif
 
 namespace
 {
@@ -43,12 +40,8 @@ public:
 
 	bool startCampaignRuntime(const GameCapabilities& capabilities) override
 	{
-#ifdef JA2UB
 		if (capabilities.isUnfinishedBusiness())
 			InitGridNoUB();
-#else
-		(void)capabilities;
-#endif
 		IniLuaGlobal();
 		return true;
 	}

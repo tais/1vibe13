@@ -63,9 +63,7 @@ BOOLEAN OnlyHostileCivsInSector();
 //Buggler: Externalized to gModSettings.iMeanwhileInterrogatePOWGridNo
 //extern INT32 gsInterrogationGridNo[3];
 
-#ifdef JA2UB
 extern	INT32		gsGridNoForMapEdgePointInfo;
-#endif
 
 // Flugente check whether a team has nearby members that can be added to the current battle
 // Note that this requires separate counts of teammembers in the sector and those that are actually fighting

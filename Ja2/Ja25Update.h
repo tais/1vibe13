@@ -3,8 +3,6 @@
 
 #include "types.h"
 
-#ifdef JA2UB
-
 //The starting sector of the Expanion pack
 extern INT16 JA2_5_START_SECTOR_X;
 extern INT16 JA2_5_START_SECTOR_Y;
@@ -24,6 +22,4 @@ UINT32	HandleDifficultyModifierForImportedGames();
 
 BOOLEAN DoesJa25ImportSaveExistAndSeemValid();
 */
-#endif
-
 #endif

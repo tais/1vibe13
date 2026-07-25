@@ -70,19 +70,19 @@ enum Quests
 	QUEST_LEATHER_SHOP_DREAM,
 	QUEST_ESCORT_SHANK = 22,
 
-#ifdef JA2UB
-	QUEST_DESTROY_MISSLES = 23,
-	QUEST_FIX_LAPTOP,
-	QUEST_GET_RID_BLOODCATS_AT_BETTYS,
-	QUEST_FIND_ANTIQUE_MUSKET_FOR_RAUL,
-#else
 	QUEST_23 = 23,
 	QUEST_24 = 24,
 	QUEST_KILL_DEIDRANNA = 25,
 
 	QUEST_KINGPIN_ANGEL_MARIA,		// Flugente: new quest: if the player rescued Maria without implicating himself, Kingpin hires bounty hunters to kill them
 	QUEST_HELD_IN_TIXA,//shadooow: new quest: captured mercs can appear in Tixa prison if conditions are met for players to free them
-#endif
+
+	// Unfinished Business reuses these campaign-local quest slots. Keep both
+	// vocabularies available so campaign code can be selected at runtime.
+	QUEST_DESTROY_MISSLES = QUEST_23,
+	QUEST_FIX_LAPTOP = QUEST_24,
+	QUEST_GET_RID_BLOODCATS_AT_BETTYS = QUEST_KILL_DEIDRANNA,
+	QUEST_FIND_ANTIQUE_MUSKET_FOR_RAUL = QUEST_KINGPIN_ANGEL_MARIA,
 } ;
 /*
 // The first quest is mandatory. Player must find Miguel and deliver letter to him. The tough
@@ -634,7 +634,6 @@ enum Facts
 	FACT_TERRORIST_LOCATION_KNOWN_T_REX,
 	FACT_TERRORIST_LOCATION_KNOWN_DRUGGIST,
 
-#ifdef JA2UB	
 	//Ja25 UB
 	FACT_IMPORTED_SAVE_AND_MARY_WAS_DEAD	=										400,
 	FACT_JOHN_KULBA_OFFERED_TO_BE_RECRUITED,//								401,
@@ -661,8 +660,7 @@ enum Facts
 	FACT_FAN_STOPPPED,//																			422
 	FACT_BIGGENS_ON_TEAM_AND_FAN_STOPPED,//										423
 	FACT_PLAYER_KNOWS_ABOUT_FAN_STOPPING,//										424
-#endif
-	
+
 	FACT_CONVO_MANUEL = 430,
 } ;
 //**	END FACTS *************************
