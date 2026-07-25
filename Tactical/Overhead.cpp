@@ -1451,6 +1451,10 @@ BOOLEAN ExecuteOverhead( )
 
                                     if ( pSoldier->aiData.ubPendingAction == MERC_PICKUPITEM    )
                                     {
+                                        if ( !TryValidatePendingWorldItemPickup( *pSoldier ) )
+                                        {
+                                            continue;
+                                        }
                                         sGridNo = pSoldier->aiData.sPendingActionData2;
 
                                         if ( sGridNo == pSoldier->sGridNo )
@@ -1465,7 +1469,7 @@ BOOLEAN ExecuteOverhead( )
                                                     if ( NewOKDestination( pSoldier, pSoldier->aiData.uiPendingActionData4, TRUE, pSoldier->pathing.bLevel ) )
                                                     {
                                                         // GOTO NEW TILE!
-                                                        SoldierPickupItem( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3 );
+                                                        SoldierPickupItem( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3, pSoldier->uiPendingActionTargetIncarnation );
                                                         continue;
                                                     }
                                                 }

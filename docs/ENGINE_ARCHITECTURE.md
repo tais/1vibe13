@@ -95,6 +95,10 @@ the engine must not contain SDL types in its public domain model.
 - `PackageHost` is the optional, data-only discovery adapter around that
   bridge. [Data Packages](DATA_PACKAGES.md) validate manifests and dependency
   graphs at startup, then mount legacy-format assets in resolved overlay order.
+  A package is an activation, ownership, and mount unit, not a replacement
+  game-data format. Existing `Data-*` layouts, VFS profiles, archives, XML,
+  maps, artwork, audio, dialogue, and Lua remain authoritative and require no
+  conversion; package metadata only selects and layers them.
   An extension-only selection automatically includes the built-in campaign;
   a selected v4 campaign replaces it. Both resolve through the registered
   `ja2.1.13` rules package. With no package configuration discovery remains a
@@ -340,11 +344,13 @@ the engine must not contain SDL types in its public domain model.
   commands. Door, switch, and openable-structure activation uses the same
   boundary; approaching an object combines movement and pending interaction in
   one command. Player conversation, shopkeeper approach, and vehicle entry also
-  carry stable actor and target incarnations. Their temporary SOLDIERTYPE
-  pending-action bridge preserves that identity until movement completes, so a
-  reused pool slot or moved vehicle cannot redirect the original intent. Each
-  command is processed at the existing synchronous boundary before invoking its
-  legacy executor.
+  carry stable actor and target incarnations. Specific player pickup carries a
+  stable world-item slot/incarnation, while grid-search pickup is represented
+  explicitly without inventing an item identity. The temporary SOLDIERTYPE
+  pending-action bridge preserves these identities until movement completes,
+  so a reused pool slot, moved vehicle, or replaced world item cannot redirect
+  the original intent. Each command is processed at the existing synchronous
+  boundary before invoking its legacy executor.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard
@@ -360,11 +366,12 @@ the engine must not contain SDL types in its public domain model.
   reserves a version field, but no speculative historical decoders are carried
   before a format has actually shipped.
   Firearm actions, player weapon controls, obstacle traversal, world-object
-  interaction, conversation, and vehicle entry enter this gateway before the
-  compatibility executor queues events or invokes the established inventory,
-  AP, pathing, structure, vehicle, dialogue, and animation mechanics. Traversal
-  and interaction availability, backpack, and AP checks remain at their
-  existing player-input sites while the command records only the chosen action.
+  interaction, conversation, vehicle entry, and player world-item pickup enter
+  this gateway before the compatibility executor queues events or invokes the
+  established inventory, AP, pathing, structure, vehicle, dialogue, and
+  animation mechanics. Traversal and interaction availability, backpack, and
+  AP checks remain at their existing player-input sites while the command
+  records only the chosen action.
   AI retaliation, dialogue scripting,
   equipment-driven mode correction, automatic/pathfinding door handling,
   pathfinding traversal, and multi-merc bulk reload remain local mechanics
@@ -599,6 +606,14 @@ the engine must not contain SDL types in its public domain model.
   atomically with that directory. Its former exported incarnation counter has
   been deleted; pre-composition allocations transfer the fallback directory's
   sequence directly when `EngineRuntime` is bound.
+- `TacticalWorldItemDirectory` gives reusable `gWorldItems` slots the same
+  bounded incarnation protection without moving or reformatting game data.
+  Storage grows only through an activated slot and is capped before allocation.
+  Add/remove, Lua existence changes, and whole-vector strategic inventory
+  replacement retire or rebuild liveness through the runtime-owned directory.
+  `WORLDITEM` retains only a runtime mirror outside its serialized POD/object
+  payload, so map, save, temp-item, asset, and command-journal versions do not
+  change.
 - `CampaignEventQueue` moves strategic-event allocation, ordering, stable
   identity, capacity, replacement, and destruction into `EngineRuntime`.
   Equal timestamps remain FIFO and legacy `STRATEGICEVENT` callers retain

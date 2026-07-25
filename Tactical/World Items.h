@@ -75,6 +75,11 @@ public:
 	SoldierID				soldierID;
 	char					endOfPod;
 	OBJECTTYPE				object;
+
+	// Runtime-only stable identity mirror. This is deliberately outside the
+	// serialized POD/object payload; the engine directory assigns a fresh
+	// incarnation when a loaded or newly placed item becomes live.
+	UINT32					uiUniqueWorldItemIdValue;
 };
 
 // WANNE - BMP: DONE!

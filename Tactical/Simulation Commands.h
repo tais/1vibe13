@@ -50,7 +50,10 @@ enum class SimulationCommandDomainError
 	InvalidTraversalKind,
 	InvalidObjectGrid,
 	InvalidTargetActor,
-	InvalidVehicleSeat
+	InvalidVehicleSeat,
+	InvalidWorldItem,
+	InvalidWorldItemRenderHeight,
+	InvalidWorldItemPickupKind
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -229,11 +232,26 @@ SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
 	bool forceRestart,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
+SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	TacticalWorldItemId item,
+	std::int32_t grid,
+	std::int8_t renderHeight,
+	TacticalWorldItemPickupKind kind,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
 // Delayed JA2 movement still stores its pending action on SOLDIERTYPE. These
 // compatibility completion seams reconstruct the stable target identity and
 // reject a despawned/reused target instead of acting on the new slot occupant.
 bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept;
 bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept;
+bool TryValidatePendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept;
+bool TryConsumePendingWorldItemPickup(
+	SOLDIERTYPE& soldier,
+	std::int32_t itemIndex,
+	std::int32_t grid,
+	std::int8_t level) noexcept;
 
 // Source-compatible wrappers for legacy callers. New production migrations use
 // the structured Try variants so backpressure never triggers UI follow-up.

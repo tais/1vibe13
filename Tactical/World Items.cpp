@@ -18,6 +18,7 @@
 	#include "Soldier Profile.h"
 	#include "message.h"
 	#include "Map Screen Interface Map Inventory.h"	// added by Flugente
+#include "TacticalWorldItemHost.h"
 #include "connect.h"
 
 
@@ -28,6 +29,10 @@
 //Global dynamic array of all of the items in a loaded map.
 std::vector<WORLDITEM> gWorldItems;//dnl ch75 261013
 UINT32				guiNumWorldItems = 0;
+static_assert(
+	offsetof(WORLDITEM, uiUniqueWorldItemIdValue) >=
+		offsetof(WORLDITEM, object) + sizeof(OBJECTTYPE),
+	"runtime world-item identity must remain outside serialized item data");
 WorldItems gAllWorldItems; // World items for all unloaded sectors
 
 INT32 FindWorldItemSector(INT16 x, INT16 y, INT16 z)
@@ -255,6 +260,7 @@ void WORLDITEM::initialize()
 	this->ubNonExistChance = 0;
 	this->soldierID = NOBODY;
 	this->object.initialize();
+	this->uiUniqueWorldItemIdValue = 0;
 }
 
 WORLDITEM& WORLDITEM::operator=(OLD_WORLDITEM_101& src)
@@ -271,6 +277,7 @@ WORLDITEM& WORLDITEM::operator=(OLD_WORLDITEM_101& src)
 
 	//convert the OBJECTTYPE
 	this->object = src.oldObject;
+	this->uiUniqueWorldItemIdValue = 0;
 	return *this;
 }
 
@@ -287,6 +294,7 @@ WORLDITEM& WORLDITEM::operator=(_OLD_WORLDITEM& src)//dnl ch42 280909
 		ubNonExistChance = src.ubNonExistChance;
 		soldierID = NOBODY;
 		object = src.object;
+		uiUniqueWorldItemIdValue = 0;
 	}
 	return(*this);
 }
@@ -302,6 +310,7 @@ WORLDITEM& WORLDITEM::operator=(const WORLDITEM& src)
 	this->ubNonExistChance = src.ubNonExistChance;
 	this->soldierID = src.soldierID;
 	this->object = src.object;
+	this->uiUniqueWorldItemIdValue = src.uiUniqueWorldItemIdValue;
 	return *this;
 }
 
@@ -316,6 +325,7 @@ WORLDITEM::WORLDITEM(const WORLDITEM& src)
 	this->ubNonExistChance = src.ubNonExistChance;
 	this->soldierID = src.soldierID;
 	this->object = src.object;
+	this->uiUniqueWorldItemIdValue = src.uiUniqueWorldItemIdValue;
 }
 
 INT32 GetFreeWorldBombIndex( void )
@@ -336,6 +346,7 @@ INT32 GetFreeWorldBombIndex( void )
 	newWorldBombs = (WORLDBOMB*)MemRealloc( gWorldBombs, sizeof( WORLDBOMB ) * guiNumWorldBombs );
 	if (newWorldBombs == NULL)
 	{
+		guiNumWorldBombs = uiOldNumWorldBombs;
 		return( -1 );
 	}
 
@@ -625,6 +636,10 @@ INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 
 	}
 
 	iItemIndex = GetFreeWorldItemIndex( );
+	if ( !AssignJa2TacticalWorldItemIdentity( iItemIndex ) )
+	{
+		return( -1 );
+	}
 
 	//Add the new world item to the table.
 	gWorldItems[ iItemIndex ].fExists										= TRUE;
@@ -648,6 +663,7 @@ INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 
 		iReturn = AddBombToWorld( iItemIndex );
 		if (iReturn == -1)
 		{
+			RemoveItemFromWorld( static_cast<INT32>( iItemIndex ) );
 			return( -1 );
 		}
 		else
@@ -691,6 +707,12 @@ INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 
 
 void RemoveItemFromWorld( INT32 iItemIndex )
 {
+	if ( iItemIndex < 0 ||
+		static_cast<std::size_t>( iItemIndex ) >= gWorldItems.size() )
+	{
+		return;
+	}
+
 	// Ensure the item still exists, then if it's a bomb,
 	// remove the appropriate entry from the bomb table
 	if (gWorldItems[ iItemIndex ].fExists)
@@ -699,8 +721,10 @@ void RemoveItemFromWorld( INT32 iItemIndex )
 		{
 			RemoveBombFromWorldByItemIndex( iItemIndex );
 		}
-		gWorldItems[ iItemIndex ].fExists = FALSE;
 	}
+	(void)ReleaseJa2TacticalWorldItem(
+		static_cast<std::uint32_t>( iItemIndex ) );
+	gWorldItems[ iItemIndex ].fExists = FALSE;
 }
 
 void TrashWorldItems()
@@ -719,6 +743,7 @@ void TrashWorldItems()
 		gWorldItems.clear();
 #endif
 	}
+	ResetJa2TacticalWorldItemDirectory();
 	if ( gWorldBombs )
 	{
 		MemFree( gWorldBombs );

@@ -2367,12 +2367,19 @@ BOOLEAN SoldierDropItem( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj )
 	return( TRUE );
 }
 
-void SoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel )
+void SoldierPickupItem(
+	SOLDIERTYPE *pSoldier,
+	INT32 iItemIndex,
+	INT32 sGridNo,
+	INT8 bZLevel,
+	UINT32 uiTargetIncarnation )
 {
 	INT32 sActionGridNo;
 
 	// Remove any previous actions
 	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+	pSoldier->uiPendingActionTargetIncarnation =
+		uiTargetIncarnation;
 
 	sActionGridNo = AdjustGridNoForItemPlacement( pSoldier, sGridNo );
 
@@ -2791,6 +2798,12 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 {
 	ITEM_POOL		*pItemPool;
 	UINT16				usNum;
+
+	if ( !TryConsumePendingWorldItemPickup(
+			*pSoldier, iItemIndex, sGridNo, bZLevel ) )
+	{
+		return;
+	}
 
 	// Draw menu if more than one item!
 	if ( GetItemPool( sGridNo, &pItemPool, pSoldier->pathing.bLevel ) )
@@ -9036,7 +9049,7 @@ void HandleFortificationUpdate()
 									if ( gWorldItems[slot].sGridNo != NOWHERE )
 										RemoveItemFromPool( gWorldItems[slot].sGridNo, slot, gWorldItems[slot].ubLevel );
 
-									gWorldItems[slot].fExists = FALSE;
+									RemoveItemFromWorld( slot );
 								}
 							}
 

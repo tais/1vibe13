@@ -31,7 +31,8 @@ enum class CommandTag : std::uint8_t
 	StartConversation = 14,
 	ApproachConversation = 15,
 	EnterVehicle = 16,
-	ApproachVehicle = 17
+	ApproachVehicle = 17,
+	PickupWorldItem = 18
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -251,6 +252,20 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeI32(value.destinationGrid);
 			writer.writeU16(value.movementMode);
 			writer.writeU8(value.forceRestart ? 1u : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, PickupWorldItemCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::PickupWorldItem));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU32(value.item.slot);
+			writer.writeU32(value.item.incarnation);
+			writer.writeI32(value.grid);
+			writer.writeI8(value.renderHeight);
+			writer.writeU8(static_cast<std::uint8_t>(value.kind));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
@@ -509,6 +524,32 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!reader.readU8(forceRestart) || forceRestart > 1 ||
 				!ReadSource(reader, value.source)) return false;
 			value.forceRestart = forceRestart != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::PickupWorldItem:
+		{
+			PickupWorldItemCommand value{};
+			std::uint8_t kind = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU32(value.item.slot) ||
+				!reader.readU32(value.item.incarnation) ||
+				!reader.readI32(value.grid) ||
+				!reader.readI8(value.renderHeight) ||
+				!reader.readU8(kind) ||
+				!IsValidTacticalWorldItemPickupKind(
+					static_cast<TacticalWorldItemPickupKind>(kind)) ||
+				!ReadSource(reader, value.source))
+				return false;
+			value.kind = static_cast<TacticalWorldItemPickupKind>(kind);
+			if (value.kind ==
+					TacticalWorldItemPickupKind::SpecificItem
+				? !value.item.valid() ||
+					value.item.slot > TacticalMaximumWorldItemSlot
+				: value.item != TacticalWorldItemId{})
+				return false;
 			command = value;
 			return true;
 		}

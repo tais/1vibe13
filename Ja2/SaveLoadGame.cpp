@@ -1970,6 +1970,7 @@ BOOLEAN WORLDITEM::Save(HWFILE hFile, bool fSavingMap)
 // WANNE - BMP: DONE!
 BOOLEAN WORLDITEM::Load(INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMapVersion)//dnl ch42 271009
 {
+	this->uiUniqueWorldItemIdValue = 0;
 	if(dMajorMapVersion >= 6.0 && ubMinorMapVersion > 26)
 	{
 		if(dMajorMapVersion < 7.0)
@@ -2001,6 +2002,7 @@ BOOLEAN WORLDITEM::Load(INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMap
 
 BOOLEAN WORLDITEM::Load(HWFILE hFile)
 {
+	this->uiUniqueWorldItemIdValue = 0;
 	// Portable save-format v2 (savegame path; maps use the Load(...mapVersion) overloads).
 	SaveReader r(hFile);
 	fExists                  = r.boolean();
@@ -2023,7 +2025,8 @@ BOOLEAN WORLDITEM::Load(HWFILE hFile)
 
 BOOLEAN WORLDITEM::Load( HWFILE hFile, float dMajorMapVersion, UINT8 ubMinorMapVersion )
 {
-	UINT32	uiNumBytesRead;	
+	this->uiUniqueWorldItemIdValue = 0;
+	UINT32	uiNumBytesRead;
 	//if we are at the most current version, then fine
 	if(dMajorMapVersion >= 6.0 && ubMinorMapVersion > 26)
 	{

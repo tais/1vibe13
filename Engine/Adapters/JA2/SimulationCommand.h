@@ -2,10 +2,12 @@
 #define ENGINE_ADAPTERS_JA2_SIMULATION_COMMAND_H
 
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 #include <variant>
 
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalWorldItem.h>
 
 enum class SimulationCommandSource : std::uint8_t
 {
@@ -270,6 +272,40 @@ struct ApproachVehicleCommand
 	SimulationCommandSource source;
 };
 
+enum class TacticalWorldItemPickupKind : std::uint8_t
+{
+	SpecificItem = 0,
+	SearchGrid = 1
+};
+
+constexpr bool IsValidTacticalWorldItemPickupKind(
+	TacticalWorldItemPickupKind kind) noexcept
+{
+	switch (kind)
+	{
+		case TacticalWorldItemPickupKind::SpecificItem:
+		case TacticalWorldItemPickupKind::SearchGrid:
+			return true;
+	}
+	return false;
+}
+
+inline constexpr std::uint32_t TacticalMaximumWorldItemSlot =
+	static_cast<std::uint32_t>(
+		std::numeric_limits<std::int32_t>::max());
+
+struct PickupWorldItemCommand
+{
+	TacticalEntityId soldier;
+	TacticalWorldItemId item;
+	std::int32_t grid;
+	// Item-pool display height above its tactical floor, not the actor's
+	// ground/roof level. The JA2 executor validates that floor separately.
+	std::int8_t renderHeight;
+	TacticalWorldItemPickupKind kind;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -290,7 +326,8 @@ using SimulationCommand = std::variant<
 	StartConversationCommand,
 	ApproachConversationCommand,
 	EnterVehicleCommand,
-	ApproachVehicleCommand>;
+	ApproachVehicleCommand,
+	PickupWorldItemCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -332,6 +369,14 @@ inline bool IsStructurallyValidSimulationCommand(
 					value.vehicle != value.soldier &&
 					IsValidTacticalDirection(value.direction) &&
 					value.seatIndex < TacticalMaximumVehicleSeats;
+			if constexpr (
+				std::is_same<Command, PickupWorldItemCommand>::value)
+				return IsValidTacticalWorldItemPickupKind(value.kind) &&
+					(value.kind ==
+						TacticalWorldItemPickupKind::SpecificItem
+						? value.item.valid() &&
+							value.item.slot <= TacticalMaximumWorldItemSlot
+						: value.item == TacticalWorldItemId{});
 			return true;
 		}
 	}, command);

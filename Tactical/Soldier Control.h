@@ -1630,6 +1630,11 @@ public:
 
 	// Debugging data - not saved
 	INT32	sPlotSrcGrid;
+
+	// Runtime-only incarnation for a pending entity or world-item target.
+	// Legacy pending-action fields retain the target slot/grid; this prevents
+	// delayed completion from following a slot after it has been reused.
+	UINT32	uiPendingActionTargetIncarnation;
 	//std::vector<UINT32>	CTH;
 
 	// sevenfm: remember suppression points, shock from last attack

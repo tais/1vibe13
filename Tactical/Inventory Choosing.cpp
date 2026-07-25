@@ -16,6 +16,7 @@
 	#include "message.h"
 	#include "Soldier macros.h"		// added by Flugente
 	#include "Rebel Command.h"
+	#include "TacticalWorldItemHost.h"
 extern WorldItems gAllWorldItems;
 
 /*
@@ -3916,6 +3917,7 @@ void MoveOneMilitiaEquipmentSet(INT16 sSourceX, INT16 sSourceY, INT16 sTargetX, 
 	{
 		guiNumWorldItems = uiTotalNumberOfRealItems;
 		gWorldItems = pWorldItem;
+		RebuildJa2TacticalWorldItemDirectory();
 	}
 	else
 	{
@@ -4714,6 +4716,7 @@ void TakeMilitiaEquipmentfromSector( INT16 sMapX, INT16 sMapY, INT8 sMapZ, SOLDI
 	{
 		guiNumWorldItems = uiTotalNumberOfRealItems;
 		gWorldItems = pWorldItem;
+		RebuildJa2TacticalWorldItemDirectory();
 	}
 	else
 	{

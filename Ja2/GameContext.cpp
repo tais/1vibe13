@@ -7,6 +7,7 @@
 #include "Screens.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
+#include "TacticalWorldItemHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include <Engine/Adapters/JA2/CampaignClockService.h>
@@ -83,6 +84,12 @@ GameContext& ComposeGameContext()
 		return true;
 	}();
 	(void)tacticalEntityDirectoryBound;
+	static const bool tacticalWorldItemDirectoryBound = [&] {
+		BindJa2TacticalWorldItemDirectory(
+			context.runtime().tacticalWorldItemDirectory());
+		return true;
+	}();
+	(void)tacticalWorldItemDirectoryBound;
 	static const bool campaignClockSessionBound = [&] {
 		BindJa2CampaignClockSession(context.runtime().campaignClockSession());
 		return true;

@@ -25,6 +25,7 @@
 #include "Items.h"
 #include "Handle Items.h"
 #include "Overhead.h"
+#include "TacticalWorldItemHost.h"
 #include "LuaInitNPCs.h"
 #include "ShopKeeper Interface.h"
 #include "Explosion Control.h"
@@ -4567,7 +4568,10 @@ static int l_gWorldItemsExists(lua_State* L)
 	if (lua_gettop(L))
 	{
 		UINT32 uiLoop = lua_tointeger(L, 1);
-		BOOLEAN Bool = gWorldItems[uiLoop].fExists;
+		BOOLEAN Bool =
+			uiLoop < guiNumWorldItems &&
+			uiLoop < gWorldItems.size() &&
+			gWorldItems[uiLoop].fExists;
 		lua_pushboolean(L, Bool);
 	}
 
@@ -4581,7 +4585,23 @@ static int l_SetgWorldItemsExists(lua_State* L)
 		UINT32 uiLoop = lua_tointeger(L, 1);
 		BOOLEAN Bool = lua_tointeger(L, 2);
 
-		gWorldItems[uiLoop].fExists = Bool;
+		if (uiLoop < guiNumWorldItems &&
+			uiLoop < gWorldItems.size())
+		{
+			if (!Bool)
+			{
+				RemoveItemFromWorld(static_cast<INT32>(uiLoop));
+			}
+			else if (!gWorldItems[uiLoop].fExists)
+			{
+				if (AssignJa2TacticalWorldItemIdentity(uiLoop))
+					gWorldItems[uiLoop].fExists = TRUE;
+			}
+			else
+			{
+				(void)AdoptJa2TacticalWorldItem(uiLoop);
+			}
+		}
 	}
 
 	return 0;

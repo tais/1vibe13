@@ -71,6 +71,7 @@
 #include <queue>
 #include "GameInitOptionsScreen.h"
 #include "Facilities.h"
+#include "TacticalWorldItemHost.h"
 
 //forward declarations of common classes to eliminate includes
 extern int POP_UP_BOX_X;
@@ -8998,6 +8999,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		{
 			guiNumWorldItems = uiTotalNumberOfRealItems_Target;
 			gWorldItems = pWorldItem_Target;
+			RebuildJa2TacticalWorldItemDirectory();
 		}
 		else
 		{

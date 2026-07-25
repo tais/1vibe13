@@ -10,6 +10,7 @@
 #include "Animation Control.h"
 #include "GameContext.h"
 #include "Handle UI.h"
+#include "Handle Items.h"
 #include "Interactive Tiles.h"
 #include "Items.h"
 #include "Map Information.h"
@@ -18,6 +19,7 @@
 #include "Soldier Functions.h"
 #include "Soldier macros.h"
 #include "TacticalEntityHost.h"
+#include "TacticalWorldItemHost.h"
 #include "Vehicles.h"
 #include "Weapons.h"
 #include "opplist.h"
@@ -109,6 +111,40 @@ namespace
 			!HasValidVehicleSeat(vehicle, seatIndex))
 			return false;
 		return IsEnoughSpaceInVehicle(vehicle.bVehicleID) == TRUE;
+	}
+
+	void ClearPendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
+	{
+		soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
+		soldier.aiData.uiPendingActionData1 = 0;
+		soldier.aiData.sPendingActionData2 = 0;
+		soldier.aiData.bPendingActionData3 = 0;
+		soldier.aiData.uiPendingActionData4 = 0;
+		soldier.uiPendingActionTargetIncarnation = 0;
+		UnSetUIBusy(soldier.ubID);
+	}
+
+	bool PendingWorldItemMatches(
+		const SOLDIERTYPE& soldier,
+		std::int32_t itemIndex,
+		std::int32_t grid,
+		std::int8_t level) noexcept
+	{
+		if (soldier.uiPendingActionTargetIncarnation == 0)
+			return true;
+		const UINT32 rawSlot = soldier.aiData.uiPendingActionData1;
+		const TacticalWorldItemId itemId{
+			rawSlot, soldier.uiPendingActionTargetIncarnation};
+		WORLDITEM* item = ResolveJa2TacticalWorldItem(itemId);
+		return item &&
+			itemIndex >= 0 &&
+			static_cast<UINT32>(itemIndex) == rawSlot &&
+			grid == soldier.aiData.uiPendingActionData4 &&
+			level == soldier.aiData.bPendingActionData3 &&
+			item->sGridNo == grid &&
+			item->ubLevel == soldier.pathing.bLevel &&
+			(level == ITEM_IGNORE_Z_LEVEL ||
+				item->bRenderZHeightAboveLevel == level);
 	}
 
 	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)
@@ -313,6 +349,8 @@ namespace
 					soldier->aiData.bPendingActionData3;
 				const UINT32 previousData4 =
 					soldier->aiData.uiPendingActionData4;
+				const UINT32 previousTargetIncarnation =
+					soldier->uiPendingActionTargetIncarnation;
 				const UINT8 previousAnimCount =
 					soldier->aiData.ubPendingActionAnimCount;
 				const UINT16 previousMovementMode =
@@ -323,7 +361,8 @@ namespace
 				soldier->aiData.uiPendingActionData1 = value.target.slot;
 				soldier->aiData.sPendingActionData2 = 0;
 				soldier->aiData.bPendingActionData3 = 0;
-				soldier->aiData.uiPendingActionData4 =
+				soldier->aiData.uiPendingActionData4 = 0;
+				soldier->uiPendingActionTargetIncarnation =
 					value.target.incarnation;
 				soldier->aiData.ubPendingActionAnimCount = 0;
 				if (soldier->EVENT_InternalGetNewSoldierPath(
@@ -337,6 +376,8 @@ namespace
 				soldier->aiData.sPendingActionData2 = previousData2;
 				soldier->aiData.bPendingActionData3 = previousData3;
 				soldier->aiData.uiPendingActionData4 = previousData4;
+				soldier->uiPendingActionTargetIncarnation =
+					previousTargetIncarnation;
 				soldier->aiData.ubPendingActionAnimCount =
 					previousAnimCount;
 				soldier->usUIMovementMode = previousMovementMode;
@@ -378,6 +419,8 @@ namespace
 					soldier->aiData.bPendingActionData3;
 				const UINT32 previousData4 =
 					soldier->aiData.uiPendingActionData4;
+				const UINT32 previousTargetIncarnation =
+					soldier->uiPendingActionTargetIncarnation;
 				const UINT8 previousAnimCount =
 					soldier->aiData.ubPendingActionAnimCount;
 				const UINT16 previousMovementMode =
@@ -385,7 +428,8 @@ namespace
 
 				soldier->usUIMovementMode = value.movementMode;
 				soldier->aiData.ubPendingAction = MERC_ENTER_VEHICLE;
-				soldier->aiData.uiPendingActionData1 =
+				soldier->aiData.uiPendingActionData1 = 0;
+				soldier->uiPendingActionTargetIncarnation =
 					value.vehicle.incarnation;
 				// The old field held a grid. All production scheduling now
 				// stores the vehicle slot so completion can resolve the exact
@@ -405,10 +449,39 @@ namespace
 				soldier->aiData.sPendingActionData2 = previousData2;
 				soldier->aiData.bPendingActionData3 = previousData3;
 				soldier->aiData.uiPendingActionData4 = previousData4;
+				soldier->uiPendingActionTargetIncarnation =
+					previousTargetIncarnation;
 				soldier->aiData.ubPendingActionAnimCount =
 					previousAnimCount;
 				soldier->usUIMovementMode = previousMovementMode;
 				return CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command, PickupWorldItemCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier) return CommandDisposition::Discard;
+
+				INT32 itemIndex = NOTHING;
+				std::uint32_t targetIncarnation = 0;
+				if (value.kind ==
+					TacticalWorldItemPickupKind::SpecificItem)
+				{
+					WORLDITEM* item =
+						ResolveJa2TacticalWorldItem(value.item);
+					if (!item || item->sGridNo != value.grid ||
+						item->ubLevel != soldier->pathing.bLevel ||
+						item->bRenderZHeightAboveLevel !=
+							value.renderHeight)
+						return CommandDisposition::Discard;
+					itemIndex = static_cast<INT32>(value.item.slot);
+					targetIncarnation = value.item.incarnation;
+				}
+
+				SoldierPickupItem(
+					soldier, itemIndex, value.grid, value.renderHeight,
+					targetIncarnation);
+				return CommandDisposition::Applied;
 			}
 			else
 			{
@@ -597,6 +670,24 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 							ANIM_MOVING) == 0)
 						return SimulationCommandDomainError::InvalidMovementMode;
 				}
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
+				std::is_same<Command, PickupWorldItemCommand>::value)
+			{
+				if (!IsValidTacticalWorldItemPickupKind(value.kind))
+					return SimulationCommandDomainError::InvalidWorldItemPickupKind;
+				if (value.grid < 0 || value.grid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidObjectGrid;
+				if (value.renderHeight < 0)
+					return SimulationCommandDomainError::
+						InvalidWorldItemRenderHeight;
+				if (value.kind ==
+						TacticalWorldItemPickupKind::SpecificItem
+					? !value.item.valid() ||
+						value.item.slot > TacticalMaximumWorldItemSlot
+					: value.item != TacticalWorldItemId{})
+					return SimulationCommandDomainError::InvalidWorldItem;
 				return SimulationCommandDomainError::None;
 			}
 		}
@@ -967,6 +1058,21 @@ SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
 			forceRestart, source}});
 }
 
+SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	TacticalWorldItemId item,
+	std::int32_t grid,
+	std::int8_t renderHeight,
+	TacticalWorldItemPickupKind kind,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{PickupWorldItemCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			item, grid, renderHeight, kind, source}});
+}
+
 bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
 {
 	if (soldier.aiData.ubPendingAction != MERC_TALK) return false;
@@ -975,11 +1081,12 @@ bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
 		targetSlot < TOTAL_SOLDIERS
 			? static_cast<std::uint16_t>(targetSlot)
 			: static_cast<std::uint16_t>(TOTAL_SOLDIERS),
-		soldier.aiData.uiPendingActionData4};
+		soldier.uiPendingActionTargetIncarnation};
 
 	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
 	soldier.aiData.uiPendingActionData1 = 0;
 	soldier.aiData.uiPendingActionData4 = 0;
+	soldier.uiPendingActionTargetIncarnation = 0;
 
 	SOLDIERTYPE* target = ResolveLiveCommandActor(targetId);
 	if (!target || !IsValidConversationPair(soldier, *target)) return false;
@@ -997,13 +1104,14 @@ bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 		targetSlot >= 0 && targetSlot < TOTAL_SOLDIERS
 			? static_cast<std::uint16_t>(targetSlot)
 			: static_cast<std::uint16_t>(TOTAL_SOLDIERS),
-		soldier.aiData.uiPendingActionData1};
+		soldier.uiPendingActionTargetIncarnation};
 
 	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
 	soldier.aiData.uiPendingActionData1 = 0;
 	soldier.aiData.sPendingActionData2 = 0;
 	soldier.aiData.bPendingActionData3 = 0;
 	soldier.aiData.uiPendingActionData4 = 0;
+	soldier.uiPendingActionTargetIncarnation = 0;
 
 	SOLDIERTYPE* vehicle = ResolveLiveCommandActor(vehicleId);
 	if (!vehicle || rawDirection < 0 ||
@@ -1020,6 +1128,40 @@ bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 		vehicle, &soldier, static_cast<std::uint8_t>(rawSeatIndex));
 	UnSetUIBusy(soldier.ubID);
 	return entered == TRUE;
+}
+
+bool TryValidatePendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
+{
+	if (soldier.aiData.ubPendingAction != MERC_PICKUPITEM)
+		return true;
+	if (PendingWorldItemMatches(
+			soldier,
+			static_cast<INT32>(soldier.aiData.uiPendingActionData1),
+			static_cast<INT32>(soldier.aiData.uiPendingActionData4),
+			soldier.aiData.bPendingActionData3))
+		return true;
+	ClearPendingWorldItemPickup(soldier);
+	return false;
+}
+
+bool TryConsumePendingWorldItemPickup(
+	SOLDIERTYPE& soldier,
+	std::int32_t itemIndex,
+	std::int32_t grid,
+	std::int8_t level) noexcept
+{
+	if (soldier.aiData.ubPendingAction != MERC_PICKUPITEM)
+	{
+		soldier.uiPendingActionTargetIncarnation = 0;
+		return true;
+	}
+	if (!PendingWorldItemMatches(soldier, itemIndex, grid, level))
+	{
+		ClearPendingWorldItemPickup(soldier);
+		return false;
+	}
+	soldier.uiPendingActionTargetIncarnation = 0;
+	return true;
 }
 
 std::uint64_t DispatchEndTurnCommandNow(

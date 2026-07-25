@@ -686,6 +686,58 @@ int main()
 		legacyBraceRuntime.tacticalEntityDirectory().maximumSlots() >= 2048,
 		"EngineRuntime owns one stable bounded tactical entity directory");
 
+	TacticalWorldItemDirectory worldItemDirectory(3);
+	check(worldItemDirectory.maximumSlots() == 3 &&
+		worldItemDirectory.trackedSlots() == 0 &&
+		worldItemDirectory.activeCount() == 0 &&
+		worldItemDirectory.nextIncarnation() == 1,
+		"world-item directories are bounded without eagerly allocating their maximum");
+	const TacticalWorldItemId firstWorldItem{
+		2, worldItemDirectory.issueIncarnation()};
+	check(worldItemDirectory.activate(firstWorldItem) &&
+		worldItemDirectory.trackedSlots() == 3 &&
+		worldItemDirectory.identity(2) == firstWorldItem &&
+		worldItemDirectory.activeCount() == 1,
+		"world-item activation grows only through the exact live slot");
+	const TacticalWorldItemId replacementWorldItem{
+		2, worldItemDirectory.issueIncarnation()};
+	check(worldItemDirectory.activate(replacementWorldItem) &&
+		!worldItemDirectory.contains(firstWorldItem) &&
+		!worldItemDirectory.release(firstWorldItem) &&
+		worldItemDirectory.contains(replacementWorldItem) &&
+		worldItemDirectory.activeCount() == 1,
+		"world-item slot reuse replaces the incarnation without duplicating liveness");
+	check(!worldItemDirectory.activate(TacticalWorldItemId{3, 99}) &&
+		worldItemDirectory.trackedSlots() == 3 &&
+		worldItemDirectory.release(replacementWorldItem) &&
+		worldItemDirectory.activeCount() == 0,
+		"out-of-range world-item identities cannot allocate or release storage");
+	worldItemDirectory.reset();
+	check(worldItemDirectory.trackedSlots() == 3 &&
+		worldItemDirectory.nextIncarnation() == 3 &&
+		!worldItemDirectory.identity(2).valid(),
+		"world-item reset retires liveness without shrinking or rewinding identity");
+	TacticalWorldItemDirectory adoptedWorldItemDirectory(1);
+	const TacticalWorldItemId adoptedWorldItem{0, 77};
+	check(adoptedWorldItemDirectory.activate(adoptedWorldItem) &&
+		adoptedWorldItemDirectory.release(adoptedWorldItem) &&
+		adoptedWorldItemDirectory.issueIncarnation() == 78,
+		"adopted world-item identities advance the allocator beyond stale incarnations");
+	TacticalWorldItemDirectory exhaustedWorldItemDirectory(1);
+	exhaustedWorldItemDirectory.mergeNextIncarnation(
+		std::numeric_limits<std::uint32_t>::max());
+	check(exhaustedWorldItemDirectory.issueIncarnation() ==
+			std::numeric_limits<std::uint32_t>::max() &&
+		exhaustedWorldItemDirectory.issueIncarnation() == 0 &&
+		exhaustedWorldItemDirectory.issueIncarnation() == 0 &&
+		exhaustedWorldItemDirectory.nextIncarnation() == 0,
+		"world-item incarnation exhaustion fails closed instead of wrapping into stale identities");
+	check(&legacyBraceRuntime.tacticalWorldItemDirectory() ==
+		&legacyBraceRuntime.tacticalWorldItemDirectory() &&
+		legacyBraceRuntime.tacticalWorldItemDirectory().maximumSlots() >=
+			TacticalWorldItemDirectory::DefaultMaximumSlots,
+		"EngineRuntime owns one stable bounded tactical world-item directory");
+
 	constexpr TacticalEntityId invalidEntity;
 	constexpr TacticalEntityId firstIncarnation{7, 9001};
 	constexpr TacticalEntityId reusedSlot{7, 9002};
@@ -905,6 +957,11 @@ int main()
 			TacticalEntityId{3, 301}, TacticalEntityId{4, 401}, 2,
 			TacticalMaximumVehicleSeats,
 			SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand invalidWorldItem{
+		PickupWorldItemCommand{
+			TacticalEntityId{3, 301}, TacticalWorldItemId{},
+			102, 0, TacticalWorldItemPickupKind::SpecificItem,
+			SimulationCommandSource::LocalPlayer}};
 	const TacticalCommandSubmissionResult invalidOwner =
 		validationInbox.submit("bad/owner", validTurn);
 	const TacticalCommandSubmissionResult oversizedOwner =
@@ -935,6 +992,8 @@ int main()
 		validationInbox.submit("pkg.ok", invalidConversationTarget);
 	const TacticalCommandSubmissionResult invalidVehicleSeatResult =
 		validationInbox.submit("pkg.ok", invalidVehicleSeat);
+	const TacticalCommandSubmissionResult invalidWorldItemResult =
+		validationInbox.submit("pkg.ok", invalidWorldItem);
 	const TacticalCommandSubmissionResult validStanceResult =
 		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
@@ -996,6 +1055,12 @@ int main()
 			"pkg.ok", SimulationCommand{ApproachVehicleCommand{
 				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
 				2, 3, 101, 6, false, SimulationCommandSource::Replay}});
+	const TacticalCommandSubmissionResult validWorldItemResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{PickupWorldItemCommand{
+				TacticalEntityId{3, 301}, TacticalWorldItemId{9, 901},
+				102, 0, TacticalWorldItemPickupKind::SpecificItem,
+				SimulationCommandSource::NetworkPeer}});
 	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
@@ -1014,6 +1079,8 @@ int main()
 			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidVehicleSeatResult.error ==
 			TacticalCommandSubmissionError::InvalidCommand &&
+		invalidWorldItemResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
 		validMoveResult.requestId == 3 && validWeaponModeResult.requestId == 4 &&
@@ -1025,8 +1092,9 @@ int main()
 		validConversationApproachResult.requestId == 11 &&
 		validVehicleResult.requestId == 12 &&
 		validVehicleApproachResult.requestId == 13 &&
-		validationInbox.summary().submitted == 13 &&
-		validationInbox.summary().nextRequestId == 14,
+		validWorldItemResult.requestId == 14 &&
+		validationInbox.summary().submitted == 14 &&
+		validationInbox.summary().nextRequestId == 15,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -2288,7 +2356,13 @@ int main()
 			34, 58, CommandJournalStatus::Queued,
 			SimulationCommand{ApproachVehicleCommand{
 				reusedSlot, firstIncarnation, 5, 8, 6200, 6, false,
-				SimulationCommandSource::System}}}};
+				SimulationCommandSource::System}}},
+		RecordedSimulationCommand{
+			35, 59, CommandJournalStatus::Applied,
+			SimulationCommand{PickupWorldItemCommand{
+				firstIncarnation, TacticalWorldItemId{123456, 9876},
+				6400, 1, TacticalWorldItemPickupKind::SpecificItem,
+				SimulationCommandSource::LocalPlayer}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2300,7 +2374,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 18)
+		decoded.size() == 19)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2330,6 +2404,8 @@ int main()
 			std::get<EnterVehicleCommand>(decoded[16].command);
 		const auto& vehicleApproach =
 			std::get<ApproachVehicleCommand>(decoded[17].command);
+		const auto& worldItem =
+			std::get<PickupWorldItemCommand>(decoded[18].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2396,10 +2472,16 @@ int main()
 			vehicleApproach.destinationGrid == 6200 &&
 			vehicleApproach.movementMode == 6 &&
 			!vehicleApproach.forceRestart &&
-			vehicleApproach.source == SimulationCommandSource::System;
+			vehicleApproach.source == SimulationCommandSource::System &&
+			worldItem.soldier == firstIncarnation &&
+			worldItem.item == TacticalWorldItemId{123456, 9876} &&
+			worldItem.grid == 6400 && worldItem.renderHeight == 1 &&
+			worldItem.kind ==
+				TacticalWorldItemPickupKind::SpecificItem &&
+			worldItem.source == SimulationCommandSource::LocalPlayer;
 	}
 	check(decodedFields,
-		"current commands preserve movement, weapon, traversal, world-object, conversation, and vehicle intent");
+		"current commands preserve movement, weapon, traversal, interaction, and world-item intent");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
@@ -2473,6 +2555,23 @@ int main()
 			invalidVehicle, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
 		"command encoding rejects out-of-range vehicle seats transactionally");
+	std::vector<RecordedSimulationCommand> invalidWorldItemJournal = recorded;
+	std::get<PickupWorldItemCommand>(
+		invalidWorldItemJournal[18].command).item.incarnation = 0;
+	check(!EncodeSimulationCommandJournal(
+			invalidWorldItemJournal, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects unresolved world-item identities transactionally");
+	std::vector<RecordedSimulationCommand> invalidWorldItemSearch = recorded;
+	auto& invalidWorldItemSearchCommand =
+		std::get<PickupWorldItemCommand>(
+			invalidWorldItemSearch[18].command);
+	invalidWorldItemSearchCommand.kind =
+		TacticalWorldItemPickupKind::SearchGrid;
+	check(!EncodeSimulationCommandJournal(
+			invalidWorldItemSearch, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects search intent carrying a specific world-item identity");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);
@@ -2693,6 +2792,61 @@ int main()
 			malformedVehicleApproach,
 			SimulationCommandJournalDecodeResult::Invalid),
 		"vehicle decoding rejects invalid directions, seats, and approach flags transactionally");
+
+	std::vector<RecordedSimulationCommand> oneWorldItem{recorded[18]};
+	std::vector<std::uint8_t> encodedWorldItem;
+	const bool encodedWorldItemCommand =
+		EncodeSimulationCommandJournal(
+			oneWorldItem, 0, encodedWorldItem) &&
+		encodedWorldItem.size() == 57;
+	std::vector<std::uint8_t> unresolvedWorldItem = encodedWorldItem;
+	std::vector<std::uint8_t> oversizedWorldItemSlot = encodedWorldItem;
+	std::vector<std::uint8_t> malformedWorldItemKind = encodedWorldItem;
+	if (encodedWorldItemCommand)
+	{
+		for (std::size_t offset = 46; offset <= 49; ++offset)
+			unresolvedWorldItem[offset] = 0;
+		oversizedWorldItemSlot[42] = 0;
+		oversizedWorldItemSlot[43] = 0;
+		oversizedWorldItemSlot[44] = 0;
+		oversizedWorldItemSlot[45] = 0x80;
+		malformedWorldItemKind[55] = 0xff;
+	}
+	check(encodedWorldItemCommand &&
+		RejectsJournalWithoutPublishing(
+			unresolvedWorldItem,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			oversizedWorldItemSlot,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedWorldItemKind,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"world-item decoding rejects unresolved, oversized, and unknown pickup identities transactionally");
+	std::vector<RecordedSimulationCommand> searchWorldItem = oneWorldItem;
+	auto& searchWorldItemCommand =
+		std::get<PickupWorldItemCommand>(searchWorldItem[0].command);
+	searchWorldItemCommand.item = {};
+	searchWorldItemCommand.kind =
+		TacticalWorldItemPickupKind::SearchGrid;
+	std::vector<std::uint8_t> encodedWorldItemSearch;
+	std::vector<RecordedSimulationCommand> decodedWorldItemSearch;
+	std::uint64_t droppedWorldItemSearch = 0;
+	check(EncodeSimulationCommandJournal(
+			searchWorldItem, 0, encodedWorldItemSearch) &&
+		DecodeSimulationCommandJournal(
+			encodedWorldItemSearch,
+			decodedWorldItemSearch,
+			droppedWorldItemSearch) ==
+			SimulationCommandJournalDecodeResult::Success &&
+		decodedWorldItemSearch.size() == 1 &&
+		std::get<PickupWorldItemCommand>(
+			decodedWorldItemSearch[0].command).item ==
+			TacticalWorldItemId{} &&
+		std::get<PickupWorldItemCommand>(
+			decodedWorldItemSearch[0].command).kind ==
+			TacticalWorldItemPickupKind::SearchGrid,
+		"world-item search intent round-trips without inventing a specific identity");
 
 	CommandJournal<SimulationCommand> journal(1);
 	journal.recordSubmission(
