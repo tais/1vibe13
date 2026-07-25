@@ -2407,6 +2407,10 @@ int main()
 		failureObservedWorld.latest().serial == 1,
 		"a source claiming success with invalid state cannot replace the baseline");
 
+	std::array<std::uint16_t, TacticalReplicatedPathCapacity> replicatedPath{};
+	replicatedPath[0] = 2;
+	replicatedPath[1] = 3;
+	replicatedPath[2] = 4;
 	std::vector<RecordedSimulationCommand> recorded{
 		RecordedSimulationCommand{
 			17, 41, CommandJournalStatus::Applied,
@@ -2514,7 +2518,26 @@ int main()
 		RecordedSimulationCommand{
 			39, 63, CommandJournalStatus::Applied,
 			SimulationCommand{CancelDragCommand{
-				reusedSlot, SimulationCommandSource::LocalPlayer}}}};
+				reusedSlot, SimulationCommandSource::LocalPlayer}}},
+		RecordedSimulationCommand{
+			40, 64, CommandJournalStatus::Queued,
+			SimulationCommand{SynchronizeActorPathCommand{
+				firstIncarnation, 6700, 6703, 6, 1, 3, replicatedPath,
+				SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			41, 65, CommandJournalStatus::Applied,
+			SimulationCommand{SynchronizeActorFireCommand{
+				reusedSlot, 6800, 1, 4, 1234,
+				SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			42, 66, CommandJournalStatus::Applied,
+			SimulationCommand{SynchronizeActorStopCommand{
+				firstIncarnation, 6900, -123, 456, 5, true,
+				SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			43, 67, CommandJournalStatus::Blocked,
+			SimulationCommand{SynchronizeTurnCommand{
+				3, true, false, SimulationCommandSource::Replay}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2526,7 +2549,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 23)
+		decoded.size() == 27)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2566,6 +2589,14 @@ int main()
 			std::get<SetWeaponReadyCommand>(decoded[21].command);
 		const auto& cancelDrag =
 			std::get<CancelDragCommand>(decoded[22].command);
+		const auto& synchronizedPath =
+			std::get<SynchronizeActorPathCommand>(decoded[23].command);
+		const auto& synchronizedFire =
+			std::get<SynchronizeActorFireCommand>(decoded[24].command);
+		const auto& synchronizedStop =
+			std::get<SynchronizeActorStopCommand>(decoded[25].command);
+		const auto& synchronizedTurn =
+			std::get<SynchronizeTurnCommand>(decoded[26].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2653,10 +2684,65 @@ int main()
 			weaponReady.alternativeHold &&
 			weaponReady.source == SimulationCommandSource::NetworkPeer &&
 			cancelDrag.soldier == reusedSlot &&
-			cancelDrag.source == SimulationCommandSource::LocalPlayer;
+			cancelDrag.source == SimulationCommandSource::LocalPlayer &&
+			synchronizedPath.soldier == firstIncarnation &&
+			synchronizedPath.reportedGrid == 6700 &&
+			synchronizedPath.destinationGrid == 6703 &&
+			synchronizedPath.movementState == 6 &&
+			synchronizedPath.currentPathIndex == 1 &&
+			synchronizedPath.pathSize == 3 &&
+			synchronizedPath.path[0] == 2 &&
+			synchronizedPath.path[1] == 3 &&
+			synchronizedPath.path[2] == 4 &&
+			synchronizedPath.path[3] == 0 &&
+			synchronizedPath.source ==
+				SimulationCommandSource::NetworkPeer &&
+			synchronizedFire.soldier == reusedSlot &&
+			synchronizedFire.targetGrid == 6800 &&
+			synchronizedFire.targetLevel == 1 &&
+			synchronizedFire.targetCubeLevel == 4 &&
+			synchronizedFire.attackingWeapon == 1234 &&
+			synchronizedFire.source == SimulationCommandSource::Replay &&
+			synchronizedStop.soldier == firstIncarnation &&
+			synchronizedStop.reportedGrid == 6900 &&
+			synchronizedStop.positionX == -123 &&
+			synchronizedStop.positionY == 456 &&
+			synchronizedStop.direction == 5 &&
+			synchronizedStop.stop &&
+			synchronizedStop.source ==
+				SimulationCommandSource::NetworkPeer &&
+			synchronizedTurn.nextTeam == 3 &&
+			synchronizedTurn.enterCombat &&
+			!synchronizedTurn.endClientTurn &&
+			synchronizedTurn.source == SimulationCommandSource::Replay;
 	}
 	check(decodedFields,
-		"current commands preserve movement, weapon, traversal, world-item, and peer-interaction intent");
+		"current commands preserve player intent and multiplayer reconciliation snapshots");
+
+	std::vector<RecordedSimulationCommand> invalidSynchronization = recorded;
+	std::get<SynchronizeActorPathCommand>(
+		invalidSynchronization[23].command).source =
+			SimulationCommandSource::System;
+	std::vector<std::uint8_t> preservedSynchronizationEncoding{
+		0xa5, 0x5a};
+	check(
+		!EncodeSimulationCommandJournal(
+			invalidSynchronization, 0,
+			preservedSynchronizationEncoding) &&
+		preservedSynchronizationEncoding ==
+			std::vector<std::uint8_t>{0xa5, 0x5a},
+		"multiplayer synchronization commands reject non-network/replay provenance");
+	invalidSynchronization = recorded;
+	std::get<SynchronizeActorPathCommand>(
+		invalidSynchronization[23].command).pathSize =
+			TacticalReplicatedPathCapacity + 1;
+	check(
+		!EncodeSimulationCommandJournal(
+			invalidSynchronization, 0,
+			preservedSynchronizationEncoding) &&
+		preservedSynchronizationEncoding ==
+			std::vector<std::uint8_t>{0xa5, 0x5a},
+		"replicated paths reject sizes beyond the fixed compatibility capacity");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;

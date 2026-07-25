@@ -44,6 +44,10 @@ enum class SimulationCommandDomainError
 	InvalidTargetCubeLevel,
 	InvalidActorGrid,
 	InvalidActorLevel,
+	InvalidReportedGrid,
+	InvalidReplicatedPath,
+	InvalidReplicatedPosition,
+	InvalidAttackingWeapon,
 	InvalidDestinationGrid,
 	InvalidMovementMode,
 	InvalidMoveOrigin,
@@ -68,6 +72,7 @@ enum class SimulationCommandDispatchStatus
 	Applied,
 	Discarded,
 	InvalidActor,
+	InvalidDomain,
 	AuthoritativeBackpressure,
 	FrameBudgetExhausted,
 	SequenceExhausted,
@@ -110,6 +115,48 @@ void ConsumeSimulationCommandFrameBudget(std::size_t commands) noexcept;
 // budget are reported without mutating the queue.
 SimulationCommandDispatchResult TryDispatchSimulationCommandNow(
 	SimulationCommand command) noexcept;
+
+// Reliable network ingress first attempts the established synchronous boundary.
+// If an earlier authoritative producer or the per-frame budget prevents
+// immediate execution, the validated packet is retained in sequence for the
+// safe-frame drain rather than being silently dropped.
+SimulationCommandDispatchResult TryDispatchNetworkSimulationCommand(
+	SimulationCommand command) noexcept;
+
+SimulationCommandDispatchResult TryDispatchNetworkChangeStanceCommand(
+	SOLDIERTYPE& soldier, std::uint8_t stance) noexcept;
+
+SimulationCommandDispatchResult TryDispatchNetworkSetFacingCommand(
+	SOLDIERTYPE& soldier, std::uint8_t direction) noexcept;
+
+SimulationCommandDispatchResult TryDispatchNetworkActorPathCommand(
+	SOLDIERTYPE& soldier,
+	std::int32_t reportedGrid,
+	std::int32_t destinationGrid,
+	std::uint16_t movementState,
+	std::uint16_t currentPathIndex,
+	const std::uint16_t* path,
+	std::uint16_t pathSize) noexcept;
+
+SimulationCommandDispatchResult TryDispatchNetworkActorFireCommand(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	std::uint32_t attackingWeapon) noexcept;
+
+SimulationCommandDispatchResult TryDispatchNetworkActorStopCommand(
+	SOLDIERTYPE& soldier,
+	std::int32_t reportedGrid,
+	std::int16_t positionX,
+	std::int16_t positionY,
+	std::uint8_t direction,
+	bool stop) noexcept;
+
+SimulationCommandDispatchResult TryDispatchNetworkTurnCommand(
+	std::uint8_t nextTeam,
+	bool enterCombat,
+	bool endClientTurn) noexcept;
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 	std::uint8_t nextTeam,

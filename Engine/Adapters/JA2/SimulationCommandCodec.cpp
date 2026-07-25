@@ -36,7 +36,11 @@ enum class CommandTag : std::uint8_t
 	StealFromActor = 19,
 	ExchangePositions = 20,
 	SetWeaponReady = 21,
-	CancelDrag = 22
+	CancelDrag = 22,
+	SynchronizeActorPath = 23,
+	SynchronizeActorFire = 24,
+	SynchronizeActorStop = 25,
+	SynchronizeTurn = 26
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -47,6 +51,11 @@ constexpr std::uint8_t WeaponReadyFlag = 0x01u;
 constexpr std::uint8_t WeaponAlternativeHoldFlag = 0x02u;
 constexpr std::uint8_t WeaponReadyKnownFlags =
 	WeaponReadyFlag | WeaponAlternativeHoldFlag;
+constexpr std::uint8_t StopMovementFlag = 0x01u;
+constexpr std::uint8_t SynchronizeTurnEnterCombatFlag = 0x01u;
+constexpr std::uint8_t SynchronizeTurnEndClientTurnFlag = 0x02u;
+constexpr std::uint8_t SynchronizeTurnKnownFlags =
+	SynchronizeTurnEnterCombatFlag | SynchronizeTurnEndClientTurnFlag;
 
 bool IsValidSource(std::uint8_t value)
 {
@@ -82,6 +91,22 @@ bool IsValidTraversalKind(std::uint8_t value)
 {
 	return IsValidTacticalTraversalKind(
 		static_cast<TacticalTraversalKind>(value));
+}
+
+void WriteI16(BinaryWriter& writer, std::int16_t value)
+{
+	writer.writeU16(static_cast<std::uint16_t>(value));
+}
+
+bool ReadI16(BinaryReader& reader, std::int16_t& value)
+{
+	std::uint16_t encoded = 0;
+	if (!reader.readU16(encoded)) return false;
+	value = encoded <= 0x7fffu
+		? static_cast<std::int16_t>(encoded)
+		: static_cast<std::int16_t>(
+			-1 - static_cast<std::int32_t>(0xffffu - encoded));
+	return true;
 }
 
 void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
@@ -320,6 +345,61 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeI32(value.soldierGrid);
 			writer.writeI32(value.targetGrid);
 			writer.writeI8(value.level);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, SynchronizeActorPathCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::SynchronizeActorPath));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.reportedGrid);
+			writer.writeI32(value.destinationGrid);
+			writer.writeU16(value.movementState);
+			writer.writeU16(value.currentPathIndex);
+			writer.writeU16(value.pathSize);
+			for (const std::uint16_t step : value.path)
+				writer.writeU16(step);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, SynchronizeActorFireCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::SynchronizeActorFire));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.targetGrid);
+			writer.writeI8(value.targetLevel);
+			writer.writeI8(value.targetCubeLevel);
+			writer.writeU32(value.attackingWeapon);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, SynchronizeActorStopCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::SynchronizeActorStop));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.reportedGrid);
+			WriteI16(writer, value.positionX);
+			WriteI16(writer, value.positionY);
+			writer.writeU8(value.direction);
+			writer.writeU8(value.stop ? StopMovementFlag : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, SynchronizeTurnCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::SynchronizeTurn));
+			writer.writeU8(value.nextTeam);
+			writer.writeU8(
+				(value.enterCombat ? SynchronizeTurnEnterCombatFlag : 0u) |
+				(value.endClientTurn
+					? SynchronizeTurnEndClientTurnFlag : 0u));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
@@ -665,6 +745,82 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!reader.readI8(value.level) ||
 				!ReadSource(reader, value.source))
 				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::SynchronizeActorPath:
+		{
+			SynchronizeActorPathCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.reportedGrid) ||
+				!reader.readI32(value.destinationGrid) ||
+				!reader.readU16(value.movementState) ||
+				!reader.readU16(value.currentPathIndex) ||
+				!reader.readU16(value.pathSize) ||
+				value.pathSize > TacticalReplicatedPathCapacity ||
+				value.currentPathIndex > value.pathSize)
+				return false;
+			for (std::uint16_t& step : value.path)
+				if (!reader.readU16(step)) return false;
+			if (!ReadSource(reader, value.source) ||
+				!IsSimulationSynchronizationSource(value.source))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::SynchronizeActorFire:
+		{
+			SynchronizeActorFireCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.targetGrid) ||
+				!reader.readI8(value.targetLevel) ||
+				!reader.readI8(value.targetCubeLevel) ||
+				!reader.readU32(value.attackingWeapon) ||
+				!ReadSource(reader, value.source) ||
+				!IsSimulationSynchronizationSource(value.source))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::SynchronizeActorStop:
+		{
+			SynchronizeActorStopCommand value{};
+			std::uint8_t flags = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.reportedGrid) ||
+				!ReadI16(reader, value.positionX) ||
+				!ReadI16(reader, value.positionY) ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!reader.readU8(flags) ||
+				(flags & ~StopMovementFlag) != 0 ||
+				!ReadSource(reader, value.source) ||
+				!IsSimulationSynchronizationSource(value.source))
+				return false;
+			value.stop = (flags & StopMovementFlag) != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::SynchronizeTurn:
+		{
+			SynchronizeTurnCommand value{};
+			std::uint8_t flags = 0;
+			if (!reader.readU8(value.nextTeam) ||
+				!reader.readU8(flags) ||
+				(flags & ~SynchronizeTurnKnownFlags) != 0 ||
+				!ReadSource(reader, value.source) ||
+				!IsSimulationSynchronizationSource(value.source))
+				return false;
+			value.enterCombat =
+				(flags & SynchronizeTurnEnterCombatFlag) != 0;
+			value.endClientTurn =
+				(flags & SynchronizeTurnEndClientTurnFlag) != 0;
 			command = value;
 			return true;
 		}

@@ -462,6 +462,15 @@ the engine must not contain SDL types in its public domain model.
   implementation in both real-time and turn-based modes. Stopping a
   rubber-band selection likewise submits one `StopMovementCommand` per exact
   live actor instead of duplicating its movement-state mutations in UI code.
+  Multiplayer receive handlers now capture the resolved actor incarnation and
+  enter this same authoritative stream. Stance and desired-facing packets use
+  the existing semantic commands without echoing outbound replication.
+  Authoritative path, fire, stop, and turn packets use explicit synchronization
+  commands because they carry remote state snapshots rather than local
+  pathfinding intent. Their established RakNet packet bytes are unchanged.
+  When synchronous execution is backpressured or the frame budget is spent, a
+  validated reliable packet is retained in sequence for the safe-frame drain
+  instead of being silently lost.
   AI retaliation, dialogue scripting,
   equipment-driven mode correction, automatic/pathfinding door handling,
   pathfinding traversal, and multi-merc bulk reload remain local mechanics

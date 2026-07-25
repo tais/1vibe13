@@ -3926,6 +3926,11 @@ int main( int, char** )
 			TryDispatchMoveToGridCommandNow(
 			0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
 			false, false, SimulationCommandSource::System );
+		const SimulationCommandDispatchResult retainedNetworkPacket =
+			TryDispatchNetworkSimulationCommand(
+				SimulationCommand{ ChangeStanceCommand{
+					staleActor, ANIM_STAND,
+					SimulationCommandSource::NetworkPeer } } );
 		const Ja2TacticalCommandHostDiagnostics afterImmediateMoveDrain =
 			GetJa2TacticalCommandHostDiagnostics();
 		CHECK( immediateMoveDrainedTracked &&
@@ -3937,13 +3942,35 @@ int main( int, char** )
 		       backpressuredImmediateMove.status ==
 		           SimulationCommandDispatchStatus::AuthoritativeBackpressure &&
 		       !backpressuredImmediateMove.submitted &&
+		       retainedNetworkPacket.status ==
+		           SimulationCommandDispatchStatus::RetryDeferred &&
+		       retainedNetworkPacket.submitted &&
 		       afterImmediateMoveDrain.receiptsQueued ==
 		           retainedBeforeImmediateMove.receiptsQueued,
-		       "immediate movement dispatch preserves earlier authoritative package work" );
+		       "local dispatch preserves earlier work while reliable network ingress queues behind it" );
 		// Consume the retained host backpressure frame and publish the receipt
 		// before starting the independent bounded-admission fixture below.
 		beginCommandTestFrame();
 		DrainJa2TacticalCommandsAtSafeFrame( compiledContext );
+		const std::vector<RecordedSimulationCommand>
+			journalAfterRetainedNetworkPacket =
+				compiledContext.commandJournal().snapshot();
+		const RecordedSimulationCommand* retainedNetworkRecord =
+			!journalAfterRetainedNetworkPacket.empty()
+				? &journalAfterRetainedNetworkPacket.back() : nullptr;
+		CHECK(
+			retainedNetworkRecord &&
+			retainedNetworkRecord->sequence ==
+				retainedNetworkPacket.sequence &&
+			retainedNetworkRecord->status ==
+				CommandJournalStatus::Discarded &&
+			std::holds_alternative<ChangeStanceCommand>(
+				retainedNetworkRecord->command ) &&
+			std::get<ChangeStanceCommand>(
+				retainedNetworkRecord->command ).source ==
+				SimulationCommandSource::NetworkPeer &&
+			compiledContext.commands().empty(),
+			"reliable network ingress retains source and ordering through the safe-frame drain" );
 
 		std::vector<std::uint64_t> boundedRequestIds;
 		boundedRequestIds.reserve( productionCommandLimits.maximumPerDrain + 1 );
