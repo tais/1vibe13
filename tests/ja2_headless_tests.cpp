@@ -1885,6 +1885,16 @@ int main( int, char** )
 					actor, false, SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::None &&
 			ValidateSimulationCommandDomain( SimulationCommand{
+				SetWeaponReadyCommand{
+					actor, 3, true, false,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				SetWeaponReadyCommand{
+					actor, TacticalDirectionCount, false, false,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDirection &&
+			ValidateSimulationCommandDomain( SimulationCommand{
 				TraverseObstacleCommand{
 					actor, TacticalTraversalKind::JumpFence,
 					SimulationCommandSource::System } } ) ==
@@ -3495,6 +3505,11 @@ int main( int, char** )
 				0, commandHostActor.uiUniqueSoldierIdValue,
 				false, SimulationCommandSource::System );
 		beginCommandTestFrame();
+		const SimulationCommandDispatchResult readyWithoutWeapon =
+			TryDispatchSetWeaponReadyCommandNow(
+				commandHostActor, 3, true, false,
+				SimulationCommandSource::System );
+		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleTraversal =
 			TryDispatchTraverseObstacleCommandNow(
 				staleActor.slot, staleActor.incarnation,
@@ -3741,6 +3756,8 @@ int main( int, char** )
 			scopeModeWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			reloadWithoutWeapon.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			readyWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			staleTraversal.status ==
 				SimulationCommandDispatchStatus::Discarded &&

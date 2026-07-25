@@ -779,6 +779,8 @@ int main()
 		actorId, TacticalNoTargetGrid, SimulationCommandSource::LocalPlayer}};
 	const SimulationCommand externalReload{ReloadWeaponCommand{
 		actorId, false, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalWeaponReady{SetWeaponReadyCommand{
+		actorId, 2, true, false, SimulationCommandSource::LocalPlayer}};
 	const SimulationCommand externalTraversal{TraverseObstacleCommand{
 		actorId, TacticalTraversalKind::JumpFence,
 		SimulationCommandSource::LocalPlayer}};
@@ -817,6 +819,7 @@ int main()
 		!std::holds_alternative<CycleWeaponModeCommand>(externalWeaponMode) ||
 		!std::holds_alternative<CycleScopeModeCommand>(externalScopeMode) ||
 		!std::holds_alternative<ReloadWeaponCommand>(externalReload) ||
+		!std::holds_alternative<SetWeaponReadyCommand>(externalWeaponReady) ||
 		!std::holds_alternative<TraverseObstacleCommand>(externalTraversal) ||
 		!std::holds_alternative<ActivateWorldObjectCommand>(
 			externalActivation) ||

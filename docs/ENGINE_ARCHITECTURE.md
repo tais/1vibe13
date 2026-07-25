@@ -439,7 +439,8 @@ the engine must not contain SDL types in its public domain model.
   replay/network hosts. It deliberately has one current layout: the header
   reserves a version field, but no speculative historical decoders are carried
   before a format has actually shipped.
-  Firearm actions, player weapon controls, obstacle traversal, world-object
+  Firearm actions, player weapon mode, scope, reload, and ready/lower controls,
+  obstacle traversal, world-object
   interaction, conversation, vehicle entry, player stealing and position
   exchange, and player world-item pickup enter this gateway before the
   compatibility executor queues events or invokes the established inventory,

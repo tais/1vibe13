@@ -1007,7 +1007,7 @@ int main()
 		"tactical command result preparation enforces payload limits transactionally");
 
 	TacticalCommandInbox validationInbox(
-		TacticalCommandInboxLimits{16, 16, 16, 8, 20});
+		TacticalCommandInboxLimits{17, 17, 17, 8, 21});
 	const SimulationCommand validTurn = MakeTurnCommand(1);
 	const SimulationCommand invalidSource = MakeTurnCommand(
 		1, static_cast<SimulationCommandSource>(0xff));
@@ -1076,6 +1076,11 @@ int main()
 		validationInbox.submit("pkg.ok", SimulationCommand{SetFacingCommand{
 			TacticalEntityId{3, 301}, TacticalDirectionCount,
 			SimulationCommandSource::LocalPlayer}});
+	const TacticalCommandSubmissionResult invalidWeaponReadyResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{SetWeaponReadyCommand{
+				TacticalEntityId{3, 301}, TacticalDirectionCount,
+				true, false, SimulationCommandSource::LocalPlayer}});
 	const TacticalCommandSubmissionResult invalidTraversalResult =
 		validationInbox.submit(
 			"pkg.ok", SimulationCommand{invalidTraversalKind});
@@ -1117,6 +1122,11 @@ int main()
 		validationInbox.submit(
 			"pkg.ok", SimulationCommand{ReloadWeaponCommand{
 				TacticalEntityId{3, 301}, false,
+				SimulationCommandSource::NetworkPeer}});
+	const TacticalCommandSubmissionResult validWeaponReadyResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{SetWeaponReadyCommand{
+				TacticalEntityId{3, 301}, 6, true, true,
 				SimulationCommandSource::NetworkPeer}});
 	const TacticalCommandSubmissionResult validTraversalResult =
 		validationInbox.submit(
@@ -1179,6 +1189,8 @@ int main()
 		invalidPendingActionResult.error ==
 			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidFacingResult.error == TacticalCommandSubmissionError::InvalidCommand &&
+		invalidWeaponReadyResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidTraversalResult.error ==
 			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidObjectDirectionResult.error ==
@@ -1197,18 +1209,19 @@ int main()
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
 		validMoveResult.requestId == 3 && validWeaponModeResult.requestId == 4 &&
 		validScopeModeResult.requestId == 5 && validReloadResult.requestId == 6 &&
-		validTraversalResult.requestId == 7 &&
-		validActivationResult.requestId == 8 &&
-		validApproachResult.requestId == 9 &&
-		validConversationResult.requestId == 10 &&
-		validConversationApproachResult.requestId == 11 &&
-		validVehicleResult.requestId == 12 &&
-		validVehicleApproachResult.requestId == 13 &&
-		validWorldItemResult.requestId == 14 &&
-		validStealResult.requestId == 15 &&
-		validExchangeResult.requestId == 16 &&
-		validationInbox.summary().submitted == 16 &&
-		validationInbox.summary().nextRequestId == 17,
+		validWeaponReadyResult.requestId == 7 &&
+		validTraversalResult.requestId == 8 &&
+		validActivationResult.requestId == 9 &&
+		validApproachResult.requestId == 10 &&
+		validConversationResult.requestId == 11 &&
+		validConversationApproachResult.requestId == 12 &&
+		validVehicleResult.requestId == 13 &&
+		validVehicleApproachResult.requestId == 14 &&
+		validWorldItemResult.requestId == 15 &&
+		validStealResult.requestId == 16 &&
+		validExchangeResult.requestId == 17 &&
+		validationInbox.summary().submitted == 17 &&
+		validationInbox.summary().nextRequestId == 18,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -2486,7 +2499,12 @@ int main()
 			37, 61, CommandJournalStatus::Applied,
 			SimulationCommand{ExchangePositionsCommand{
 				reusedSlot, firstIncarnation, 6600, 6601, 0,
-				SimulationCommandSource::System}}}};
+				SimulationCommandSource::System}}},
+		RecordedSimulationCommand{
+			38, 62, CommandJournalStatus::Queued,
+			SimulationCommand{SetWeaponReadyCommand{
+				firstIncarnation, 6, true, true,
+				SimulationCommandSource::NetworkPeer}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2498,7 +2516,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 21)
+		decoded.size() == 22)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2534,6 +2552,8 @@ int main()
 			std::get<StealFromActorCommand>(decoded[19].command);
 		const auto& exchange =
 			std::get<ExchangePositionsCommand>(decoded[20].command);
+		const auto& weaponReady =
+			std::get<SetWeaponReadyCommand>(decoded[21].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2615,7 +2635,11 @@ int main()
 			exchange.target == firstIncarnation &&
 			exchange.soldierGrid == 6600 &&
 			exchange.targetGrid == 6601 && exchange.level == 0 &&
-			exchange.source == SimulationCommandSource::System;
+			exchange.source == SimulationCommandSource::System &&
+			weaponReady.soldier == firstIncarnation &&
+			weaponReady.direction == 6 && weaponReady.ready &&
+			weaponReady.alternativeHold &&
+			weaponReady.source == SimulationCommandSource::NetworkPeer;
 	}
 	check(decodedFields,
 		"current commands preserve movement, weapon, traversal, world-item, and peer-interaction intent");
@@ -2725,6 +2749,13 @@ int main()
 			invalidExchange, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
 		"command encoding rejects self-exchange targets transactionally");
+	std::vector<RecordedSimulationCommand> invalidWeaponReady = recorded;
+	std::get<SetWeaponReadyCommand>(
+		invalidWeaponReady[21].command).direction = TacticalDirectionCount;
+	check(!EncodeSimulationCommandJournal(
+			invalidWeaponReady, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects invalid weapon-ready directions transactionally");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);
@@ -2834,6 +2865,28 @@ int main()
 	check(encodedWeaponControlCommands && RejectsJournalWithoutPublishing(
 		malformedReload, SimulationCommandJournalDecodeResult::Invalid),
 		"reload decoding rejects malformed booleans transactionally");
+
+	std::vector<RecordedSimulationCommand> oneWeaponReady{recorded[21]};
+	std::vector<std::uint8_t> malformedWeaponReadyDirection;
+	std::vector<std::uint8_t> malformedWeaponReadyFlags;
+	const bool encodedWeaponReadyCommand =
+		EncodeSimulationCommandJournal(
+			oneWeaponReady, 0, malformedWeaponReadyDirection) &&
+		malformedWeaponReadyDirection.size() == 45;
+	if (encodedWeaponReadyCommand)
+	{
+		malformedWeaponReadyFlags = malformedWeaponReadyDirection;
+		malformedWeaponReadyDirection[42] = TacticalDirectionCount;
+		malformedWeaponReadyFlags[43] = 0x80;
+	}
+	check(encodedWeaponReadyCommand &&
+		RejectsJournalWithoutPublishing(
+			malformedWeaponReadyDirection,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedWeaponReadyFlags,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"weapon-ready decoding rejects invalid directions and unknown flags transactionally");
 
 	std::vector<RecordedSimulationCommand> oneTraversal{recorded[11]};
 	std::vector<std::uint8_t> encodedTraversal;

@@ -2050,9 +2050,6 @@ UINT32 UIHandleAOnTerrain( UI_EVENT *pUIEvent )
 					// Convert our grid-not into an XY
 					//	ConvertGridNoToXY( sMapPos, &sTargetXPos, &sTargetYPos );
 
-					// Ready weapon
-					//		pSoldier->SoldierReadyWeapon(sTargetXPos, sTargetYPos, FALSE );
-
 					gUITargetReady = TRUE;
 				}
 			}
@@ -3198,9 +3195,13 @@ UINT32 UIHandleAEndAction( UI_EVENT *pUIEvent )
 				ConvertGridNoToXY( usMapPos, &sTargetXPos, &sTargetYPos );
 
 				// UNReady weapon
-				pSoldier->SoldierReadyWeapon( sTargetXPos, sTargetYPos, TRUE, FALSE );
-
-				gUITargetReady = FALSE;
+				if (TryDispatchSetWeaponReadyCommandNow(
+						*pSoldier,
+						static_cast<std::uint8_t>(
+							GetDirectionFromXY(
+								sTargetXPos, sTargetYPos, pSoldier)),
+						false, false))
+					gUITargetReady = FALSE;
 			}
 		}
 	}
@@ -3972,8 +3973,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 				ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) &&
 				bNewStance == ANIM_STAND)
 			{
-				ChangeScopeMode(pSoldier, NOWHERE);
-				ManLooksForOtherTeams(pSoldier);
+				(void)TryDispatchCycleScopeModeCommandNow(
+					*pSoldier, TacticalNoTargetGrid);
 			}
 		}
 		else
@@ -4016,8 +4017,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 			ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) &&
 			bNewStance == ANIM_STAND)
 		{
-			ChangeScopeMode(pSoldier, NOWHERE);
-			ManLooksForOtherTeams(pSoldier);
+			(void)TryDispatchCycleScopeModeCommandNow(
+				*pSoldier, TacticalNoTargetGrid);
 		}
 	}
 
@@ -5585,10 +5586,15 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 
 		if( usAnimState != INVALID_ANIMATION )
 		{
-			if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-				pSoldier->SoldierReadyWeapon( sXPos, sYPos, FALSE, TRUE );
-			else
-				pSoldier->SoldierReadyWeapon( sXPos, sYPos, FALSE, FALSE );
+			const bool alternativeHold =
+				pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD &&
+				gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3;
+			if (!TryDispatchSetWeaponReadyCommandNow(
+					*pSoldier,
+					static_cast<std::uint8_t>(
+						GetDirectionFromXY(sXPos, sYPos, pSoldier)),
+					true, alternativeHold))
+				return( FALSE );
 		}
 
 		pSoldier->bTurningFromUI = TRUE;

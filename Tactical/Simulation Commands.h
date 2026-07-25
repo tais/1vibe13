@@ -167,6 +167,13 @@ SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
 	bool reloadEvenIfNotEmpty,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
+SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
+	SOLDIERTYPE& soldier,
+	std::uint8_t direction,
+	bool ready,
+	bool alternativeHold,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
 SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
 	SOLDIERTYPE& soldier,
 	TacticalTraversalKind kind,
@@ -297,6 +304,14 @@ SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
 	std::uint16_t soldierId,
 	std::uint32_t uniqueSoldierId,
 	bool reloadEvenIfNotEmpty,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint8_t direction,
+	bool ready,
+	bool alternativeHold,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
 SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(

@@ -531,15 +531,16 @@ endforeach()
 set(player_weapon_control_files
   "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
   "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Panels.cpp")
 foreach(player_weapon_control_file IN LISTS player_weapon_control_files)
   file(READ "${player_weapon_control_file}" contents)
   string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])(ChangeWeaponMode|ChangeScopeMode)[ \t\r\n]*\\("
+    "(^|[^A-Za-z0-9_])(ChangeWeaponMode|ChangeScopeMode|InternalSoldierReadyWeapon|SoldierReadyWeapon)[ \t\r\n]*\\("
     direct_player_weapon_mode_call "${contents}")
   if(direct_player_weapon_mode_call)
     message(FATAL_ERROR
-      "Player weapon configuration bypasses SimulationCommand in ${player_weapon_control_file}")
+      "Player weapon configuration or ready intent bypasses SimulationCommand in ${player_weapon_control_file}")
   endif()
 endforeach()
 

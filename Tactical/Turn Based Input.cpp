@@ -2199,8 +2199,10 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							SOLDIERTYPE *pSoldier = cnt;
 							if (pSoldier->bActive && pSoldier->bInSector && pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED && WeaponReady(pSoldier))
 							{
-								pSoldier->InternalSoldierReadyWeapon(pSoldier->ubDirection, TRUE, FALSE);
-								HandleSight(pSoldier, SIGHT_LOOK);
+								if (TryDispatchSetWeaponReadyCommandNow(
+										*pSoldier, pSoldier->ubDirection,
+										false, false))
+									HandleSight(pSoldier, SIGHT_LOOK);
 							}
 						}
 					}
@@ -2234,8 +2236,11 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				gusSelectedSoldier &&
 				WeaponReady(gusSelectedSoldier))
 			{
-				gusSelectedSoldier->InternalSoldierReadyWeapon(gusSelectedSoldier->ubDirection, TRUE, FALSE);
-				HandleSight(gusSelectedSoldier, SIGHT_LOOK);
+				if (TryDispatchSetWeaponReadyCommandNow(
+						*gusSelectedSoldier,
+						gusSelectedSoldier->ubDirection,
+						false, false))
+					HandleSight(gusSelectedSoldier, SIGHT_LOOK);
 				continue;
 			}
 		}
@@ -2292,30 +2297,6 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				if ( INFORMATION_CHEAT_LEVEL( ) )
 				{
 					*puiNewEvent = I_SOLDIERDEBUG;
-				}
-				else
-				{
-					//if ( !( gTacticalStatus.uiFlags & ENGAGED_IN_CONV ) )
-					//	{
-					//		if ( gusSelectedSoldier != NOBODY )
-					//		{
-					//			if ( gTacticalStatus.uiFlags & TURNBASED && !gusSelectedSoldier->fDontChargeReadyAPs )
-					//			{
-					//				INT16 apCost = GetAPsToReadyWeapon( gusSelectedSoldier, 0 );
-					//				if (gusSelectedSoldier->bActionPoints >= apCost )
-					//				{
-					//					DeductPoints( gusSelectedSoldier,apCost , 0 );
-					//					DirtyMercPanelInterface( gusSelectedSoldier, DIRTYLEVEL2 );
-					//					SoldierReadyWeapon( gusSelectedSoldier );
-					//				}
-					//			}
-					//			else
-					//			{
-					//				SoldierReadyWeapon( gusSelectedSoldier );
-					//			}
-
-					//		}
-					//	}
 				}
 			}
 		}
