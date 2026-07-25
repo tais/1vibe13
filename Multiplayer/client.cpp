@@ -70,6 +70,7 @@
 #include "SmokeEffects.h"
 #include "MPChatScreen.h"
 #include "sgp_logger.h"
+#include "Simulation Commands.h"
 #include "TacticalWorldAdapter.h"
 
 #include "MessageIdentifiers.h"
@@ -1214,35 +1215,20 @@ void recievePATH(RPCParameters *rpcParameters)
 	// H6: ubNewState indexes gAnimControl[] / EVENT_InitNewSoldierAnim() -- bound it.
 	if ( !IsValidAnimState( SNetPath->ubNewState ) )
 		return;
+	if ( SNetPath->usPathDataSize > TacticalReplicatedPathCapacity ||
+		SNetPath->usCurrentPathIndex > SNetPath->usPathDataSize )
+		return;
 
-	SOLDIERTYPE *pSoldier = SNetPath->usSoldierID;
+	SOLDIERTYPE *pSoldier = SafeMerc( SNetPath->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
 
-
-	memcpy(pSoldier->pathing.usPathingData, SNetPath->usPathData,sizeof(UINT16)*30);
-
-	pSoldier->pathing.sDestination = SNetPath->sDestGridNo;
-	pSoldier->pathing.sFinalDestination = SNetPath->sDestGridNo;
-	pSoldier->pathing.usPathIndex=SNetPath->usCurrentPathIndex;
-	pSoldier->pathing.usPathDataSize=SNetPath->usPathDataSize;
-
-	SendGetNewSoldierPathEvent( pSoldier, SNetPath->sDestGridNo, SNetPath->ubNewState );	
-
-	INT16 sCellX, sCellY;	
-	ConvertGridNoToCenterCellXY(SNetPath->sAtGridNo, &sCellX, &sCellY);
-
-	if (( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) ) && !(pSoldier->flags.fNoAPToFinishMove ) )
-	{
-	}
-	else
-	{
-		pSoldier->EVENT_InternalSetSoldierPosition( sCellX, sCellY ,FALSE, FALSE, FALSE );		
-	}
-
-	if(pSoldier)pSoldier->EVENT_InitNewSoldierAnim( SNetPath->ubNewState, 0, FALSE );			
+	(void)TryDispatchNetworkActorPathCommand(
+		*pSoldier, SNetPath->sAtGridNo, SNetPath->sDestGridNo,
+		SNetPath->ubNewState, SNetPath->usCurrentPathIndex,
+		SNetPath->usPathData, SNetPath->usPathDataSize );
 }
 
 
@@ -1281,13 +1267,14 @@ void recieveSTANCE(RPCParameters *rpcParameters)
 
 		EV_S_CHANGESTANCE* SChangeStance = (EV_S_CHANGESTANCE*)rpcParameters->input;
 	
-		SOLDIERTYPE *pSoldier = SChangeStance->usSoldierID;
+		SOLDIERTYPE *pSoldier = SafeMerc( SChangeStance->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
 	
-		pSoldier->ChangeSoldierStance( SChangeStance->ubNewStance );
+		(void)TryDispatchNetworkChangeStanceCommand(
+			*pSoldier, SChangeStance->ubNewStance );
 
 		//SendChangeSoldierStanceEvent( pSoldier, SChangeStance->ubNewStance );
 		//AddGameEvent( S_CHANGESTANCE, 0, &SChangeStance );
@@ -1329,13 +1316,17 @@ void recieveDIR(RPCParameters *rpcParameters)
 		EV_S_SETDESIREDDIRECTION* SSetDesiredDirection = (EV_S_SETDESIREDDIRECTION*)rpcParameters->input;			
 			
 
-		SOLDIERTYPE *pSoldier = SSetDesiredDirection->usSoldierID;
+		SOLDIERTYPE *pSoldier = SafeMerc( SSetDesiredDirection->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
+	if ( SSetDesiredDirection->usDesiredDirection >= TacticalDirectionCount )
+		return;
 
-		pSoldier->EVENT_SetSoldierDesiredDirection( SSetDesiredDirection->usDesiredDirection );
+		(void)TryDispatchNetworkSetFacingCommand(
+			*pSoldier,
+			static_cast<UINT8>( SSetDesiredDirection->usDesiredDirection ) );
 
 		//AddGameEvent( S_SETDESIREDDIRECTION, 0, &SSetDesiredDirection );
 		//********* implemented using event pump system ... :)
@@ -1373,18 +1364,17 @@ void recieveFIRE(RPCParameters *rpcParameters)
 	EV_S_BEGINFIREWEAPON* SBeginFireWeapon = (EV_S_BEGINFIREWEAPON*)rpcParameters->input;
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"SendBeginFireWeaponEvent" );
 
-	SOLDIERTYPE *pSoldier = SBeginFireWeapon->usSoldierID;
+	SOLDIERTYPE *pSoldier = SafeMerc( SBeginFireWeapon->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
 
-	pSoldier->sTargetGridNo = SBeginFireWeapon->sTargetGridNo;
-	pSoldier->bTargetLevel = SBeginFireWeapon->bTargetLevel;
-	pSoldier->bTargetCubeLevel = SBeginFireWeapon->bTargetCubeLevel;
-	pSoldier->usAttackingWeapon = SBeginFireWeapon->uiUniqueId; //cheap hack to pass wep id. 
-					
-	SendBeginFireWeaponEvent( pSoldier, SBeginFireWeapon->sTargetGridNo );
+	(void)TryDispatchNetworkActorFireCommand(
+		*pSoldier, SBeginFireWeapon->sTargetGridNo,
+		SBeginFireWeapon->bTargetLevel,
+		SBeginFireWeapon->bTargetCubeLevel,
+		SBeginFireWeapon->uiUniqueId );
 }
 
 
@@ -1753,26 +1743,17 @@ void recieveEndTurn(RPCParameters *rpcParameters)
 	// if the message was recieved from the server..
 	if(is_server || sender_bTeam==6)
 	{
-		// if not the server and we're not in combat...
-		if (!is_server && !(gTacticalStatus.uiFlags & INCOMBAT))
-		{
-			EnterCombatMode(0); 
-		}
-
 		if(ubTeam==netbTeam)ubTeam=0;
 		// M7: ubTeam drives EndTurn()/BeginTeamTurn() (ubCurrentTeam -> Team[]) -- bound it.
 		if(ubTeam>=MAXTEAMS)
 			return;
-		{
-			if(!is_server && is_client)
-				EndTurnEvents();
-		}
-
-		if(!is_server && is_client)
-			EndTurn( ubTeam );
-
-		requested=false ;//request for realtime made or not
-		BeginTeamTurn( ubTeam );
+		const SimulationCommandDispatchResult turn =
+			TryDispatchNetworkTurnCommand(
+				ubTeam,
+				!is_server && !(gTacticalStatus.uiFlags & INCOMBAT),
+				!is_server && is_client );
+		if ( turn.submitted )
+			requested=false ;//request for realtime made or not
 	}
 }
 
@@ -2478,22 +2459,16 @@ void recieveSTOP (RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_STOP_MERC);
 	EV_S_STOP_MERC* SStopMerc =(EV_S_STOP_MERC*)rpcParameters->input;
 	
-	SOLDIERTYPE *pSoldier = SStopMerc->usSoldierID;
+	SOLDIERTYPE *pSoldier = SafeMerc( SStopMerc->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->bActive || !pSoldier->bInSector )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
-		
-	pSoldier->EVENT_InternalSetSoldierPosition( SStopMerc->sXPos, SStopMerc->sYPos,FALSE, FALSE, FALSE );
-	pSoldier->EVENT_SetSoldierDirection( SStopMerc->ubDirection );
-	if ( SStopMerc->fset && pSoldier->bTeam >= LAN_TEAM_ONE
-		&& pSoldier->sGridNo >= 0 && pSoldier->sGridNo < WORLD_MAX
-		&& ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
-	{
-		pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
-	}
-	pSoldier->AdjustNoAPToFinishMove( SStopMerc->fset );
-	pSoldier->flags.bTurningFromPronePosition = FALSE;	
+
+	(void)TryDispatchNetworkActorStopCommand(
+		*pSoldier, SStopMerc->sGridNo,
+		SStopMerc->sXPos, SStopMerc->sYPos,
+		SStopMerc->ubDirection, SStopMerc->fset != FALSE );
 }
 
 // ---- diagnostic logging to the coordinator (serverLog RPC) -------------------

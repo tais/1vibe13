@@ -19,6 +19,7 @@
 #include <Engine/Core/RenderSurfaceAccess.h>
 #include <Engine/Core/ServiceCatalog.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -815,6 +816,24 @@ int main()
 	const SimulationCommand externalExchange{ExchangePositionsCommand{
 		actorId, targetId, 1300, 1301, 0,
 		SimulationCommandSource::LocalPlayer}};
+	std::array<std::uint16_t, TacticalReplicatedPathCapacity>
+		externalReplicatedPath{};
+	externalReplicatedPath[0] = 2;
+	const SimulationCommand externalPathSynchronization{
+		SynchronizeActorPathCommand{
+			actorId, 1300, 1301, 6, 0, 1, externalReplicatedPath,
+			SimulationCommandSource::NetworkPeer}};
+	const SimulationCommand externalFireSynchronization{
+		SynchronizeActorFireCommand{
+			actorId, 1301, 0, 0, 17,
+			SimulationCommandSource::NetworkPeer}};
+	const SimulationCommand externalStopSynchronization{
+		SynchronizeActorStopCommand{
+			actorId, 1300, 5, 5, 2, true,
+			SimulationCommandSource::NetworkPeer}};
+	const SimulationCommand externalTurnSynchronization{
+		SynchronizeTurnCommand{
+			1, false, true, SimulationCommandSource::NetworkPeer}};
 	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
 		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
 		!std::holds_alternative<StopMovementCommand>(externalStop) ||
@@ -839,6 +858,14 @@ int main()
 			externalWorldItemPickup) ||
 		!std::holds_alternative<StealFromActorCommand>(externalSteal) ||
 		!std::holds_alternative<ExchangePositionsCommand>(externalExchange) ||
+		!std::holds_alternative<SynchronizeActorPathCommand>(
+			externalPathSynchronization) ||
+		!std::holds_alternative<SynchronizeActorFireCommand>(
+			externalFireSynchronization) ||
+		!std::holds_alternative<SynchronizeActorStopCommand>(
+			externalStopSynchronization) ||
+		!std::holds_alternative<SynchronizeTurnCommand>(
+			externalTurnSynchronization) ||
 		!worldItemId.valid())
 		return 45;
 	TacticalWorldItemDirectory& externalWorldItems =

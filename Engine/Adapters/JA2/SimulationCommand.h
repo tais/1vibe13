@@ -1,6 +1,8 @@
 #ifndef ENGINE_ADAPTERS_JA2_SIMULATION_COMMAND_H
 #define ENGINE_ADAPTERS_JA2_SIMULATION_COMMAND_H
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <type_traits>
@@ -349,6 +351,71 @@ struct ExchangePositionsCommand
 	SimulationCommandSource source;
 };
 
+// Multiplayer movement packets are authoritative path snapshots, not local
+// pathfinding intent. Keeping the fixed legacy capacity in a value command
+// lets network and replay ingress preserve the exact remote path without
+// exposing SOLDIERTYPE storage or re-running pathfinding on the receiver.
+inline constexpr std::size_t TacticalReplicatedPathCapacity = 30;
+
+struct SynchronizeActorPathCommand
+{
+	TacticalEntityId soldier;
+	std::int32_t reportedGrid;
+	std::int32_t destinationGrid;
+	std::uint16_t movementState;
+	std::uint16_t currentPathIndex;
+	std::uint16_t pathSize;
+	std::array<std::uint16_t, TacticalReplicatedPathCapacity> path{};
+	SimulationCommandSource source;
+};
+
+// The established multiplayer fire packet carries the selected weapon in a
+// field that is separate from the normal fire event. Capture it as part of the
+// same authoritative operation so a queued packet cannot use later actor
+// state.
+struct SynchronizeActorFireCommand
+{
+	TacticalEntityId soldier;
+	std::int32_t targetGrid;
+	std::int8_t targetLevel;
+	std::int8_t targetCubeLevel;
+	std::uint32_t attackingWeapon;
+	SimulationCommandSource source;
+};
+
+// A remote stop is also a small reconciliation snapshot. The receiver first
+// restores the owner's reported cell/direction and then applies the legacy
+// halt/no-AP policy as one ordered command.
+struct SynchronizeActorStopCommand
+{
+	TacticalEntityId soldier;
+	std::int32_t reportedGrid;
+	std::int16_t positionX;
+	std::int16_t positionY;
+	std::uint8_t direction;
+	bool stop;
+	SimulationCommandSource source;
+};
+
+// Network turn synchronization has two host-dependent compatibility actions:
+// clients may need to enter combat and close their current turn before the
+// common BeginTeamTurn boundary. Recording those decisions makes replay
+// execution independent from whatever network role exists later.
+struct SynchronizeTurnCommand
+{
+	std::uint8_t nextTeam;
+	bool enterCombat;
+	bool endClientTurn;
+	SimulationCommandSource source;
+};
+
+constexpr bool IsSimulationSynchronizationSource(
+	SimulationCommandSource source) noexcept
+{
+	return source == SimulationCommandSource::NetworkPeer ||
+		source == SimulationCommandSource::Replay;
+}
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -374,7 +441,11 @@ using SimulationCommand = std::variant<
 	StealFromActorCommand,
 	ExchangePositionsCommand,
 	SetWeaponReadyCommand,
-	CancelDragCommand>;
+	CancelDragCommand,
+	SynchronizeActorPathCommand,
+	SynchronizeActorFireCommand,
+	SynchronizeActorStopCommand,
+	SynchronizeTurnCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -387,13 +458,30 @@ inline bool IsStructurallyValidSimulationCommand(
 	return std::visit([](const auto& value) noexcept {
 		using Command = typename std::decay<decltype(value)>::type;
 		if (!IsValidSimulationCommandSource(value.source)) return false;
-		if constexpr (std::is_same<Command, EndTurnCommand>::value)
+		if constexpr (
+			std::is_same<Command, EndTurnCommand>::value ||
+			std::is_same<Command, SynchronizeTurnCommand>::value)
 		{
+			if constexpr (
+				std::is_same<Command, SynchronizeTurnCommand>::value)
+				return IsSimulationSynchronizationSource(value.source);
 			return true;
 		}
 		else
 		{
 			if (!value.soldier.valid()) return false;
+			if constexpr (
+				std::is_same<Command, SynchronizeActorPathCommand>::value)
+				return IsSimulationSynchronizationSource(value.source) &&
+					value.pathSize <= TacticalReplicatedPathCapacity &&
+					value.currentPathIndex <= value.pathSize;
+			if constexpr (
+				std::is_same<Command, SynchronizeActorFireCommand>::value)
+				return IsSimulationSynchronizationSource(value.source);
+			if constexpr (
+				std::is_same<Command, SynchronizeActorStopCommand>::value)
+				return IsSimulationSynchronizationSource(value.source) &&
+					IsValidTacticalDirection(value.direction);
 			if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 				return IsValidTacticalMoveOrigin(value.origin) &&
 					IsValidTacticalPendingActionPolicy(value.pendingAction);

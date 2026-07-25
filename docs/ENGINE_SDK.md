@@ -179,6 +179,15 @@ Squad controls remain a UI-side fan-out: each accepted stealth or stop intent is
 still an ordinary per-actor command with an independently verified incarnation,
 so no package-only batch type or global squad identity leaks into the engine
 contract.
+Legacy multiplayer path, fire, stop, stance, facing, and turn packets retain
+their existing wire structures. The application adapter resolves their reusable
+soldier slot once and submits the same stable command vocabulary. Path and stop
+packets are represented as explicit bounded reconciliation snapshots rather
+than being misread as local movement intent; synchronized fire captures the
+packet's selected weapon; and synchronized turn capture records whether the
+receiving host must enter combat or close its client turn. These synchronization
+commands accept only network/replay provenance. Reliable network ingress queues
+behind existing authoritative work when immediate execution is unavailable.
 Traversal uses `TacticalTraversalKind`, keeping legacy soldier and structure
 pointers, AP calculations, and animation constants outside the package-facing
 contract.
