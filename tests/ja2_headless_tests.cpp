@@ -5058,31 +5058,60 @@ int main( int, char** )
 		CHECK( CaptureJa2TacticalWorld().turn ==
 		           ( TacticalWorldSession::Snapshot::Turn{ true, false, 4 } ),
 		       "legacy tactical-turn import initializes the runtime-owned turn projection" );
+		ResetJa2TacticalCombatActions();
+		const bool firstCombatActionAccepted =
+			BeginJa2TacticalCombatAction();
+		const bool secondCombatActionAccepted =
+			BeginJa2TacticalCombatAction();
+		const bool combatActionCompleted =
+			CompleteJa2TacticalCombatAction();
+		CHECK( firstCombatActionAccepted && secondCombatActionAccepted &&
+		       combatActionCompleted &&
+		       CaptureJa2TacticalWorld().turn.pendingCombatActions == 1 &&
+		       GetJa2PendingTacticalCombatActions() == 1 &&
+		       gTacticalStatus.ubAttackBusyCount == 1,
+		       "combat-action gateways keep runtime ownership and the legacy save mirror exact" );
+		bool wideCombatActionCountAccepted = true;
+		for ( std::uint32_t pending = 1; pending < 256; ++pending )
+			wideCombatActionCountAccepted =
+				BeginJa2TacticalCombatAction() &&
+				wideCombatActionCountAccepted;
+		CHECK( wideCombatActionCountAccepted &&
+		       GetJa2PendingTacticalCombatActions() == 256 &&
+		       gTacticalStatus.ubAttackBusyCount == 255,
+		       "the engine retains overlapping combat work beyond the bounded legacy projection" );
+		ResetJa2TacticalCombatActions();
+		CHECK( BeginJa2TacticalCombatAction() &&
+		       GetJa2PendingTacticalCombatActions() == 1 &&
+		       gTacticalStatus.ubAttackBusyCount == 1,
+		       "combat-action reset republishes one coherent idle boundary" );
 		SetJa2TacticalCombatMode( true );
 		SetJa2TacticalTurnBasedMode( false );
 		SetJa2TacticalCurrentTeam( 5 );
 		AdvanceJa2TacticalCurrentTeam();
 		CHECK( CaptureJa2TacticalWorld().turn ==
-		           ( TacticalWorldSession::Snapshot::Turn{ false, true, 6 } ) &&
+		           ( TacticalWorldSession::Snapshot::Turn{ false, true, 6, 1 } ) &&
 		       ( gTacticalStatus.uiFlags & ACTIVE ) != 0 &&
 		       ( gTacticalStatus.uiFlags & TURNBASED ) == 0 &&
 		       ( gTacticalStatus.uiFlags & INCOMBAT ) != 0 &&
-		       gTacticalStatus.ubCurrentTeam == 6,
+		       gTacticalStatus.ubCurrentTeam == 6 &&
+		       gTacticalStatus.ubAttackBusyCount == 1,
 		       "turn gateways preserve unrelated tactical flags while publishing exact mirrors" );
 
 		gTacticalStatus.uiFlags = ACTIVE | TURNBASED | INCOMBAT;
 		gTacticalStatus.ubCurrentTeam = 2;
+		gTacticalStatus.ubAttackBusyCount = 7;
 		ImportJa2TacticalTurnState();
 		CHECK( CaptureJa2TacticalWorld().turn ==
-		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 2 } ),
-		       "save/bootstrap import converges legacy tactical turn values into the session" );
+		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 2, 7 } ),
+		       "save/bootstrap import converges legacy tactical battle values into the session" );
 
 		TacticalWorldSession::Snapshot restoredProjectionState;
 		restoredProjectionState.sector = { 8, 7, 1 };
 		restoredProjectionState.loaded = true;
 		restoredProjectionState.worldGeneration = 77;
 		restoredProjectionState.turnSerial = 11;
-		restoredProjectionState.turn = { true, false, 3 };
+		restoredProjectionState.turn = { true, false, 3, 4 };
 		RestoreJa2TacticalWorldSession( restoredProjectionState );
 		CHECK( CaptureJa2TacticalWorld().sector ==
 		           restoredProjectionState.sector &&
@@ -5094,8 +5123,9 @@ int main( int, char** )
 		       ( gTacticalStatus.uiFlags & ACTIVE ) != 0 &&
 		       ( gTacticalStatus.uiFlags & TURNBASED ) != 0 &&
 		       ( gTacticalStatus.uiFlags & INCOMBAT ) == 0 &&
-		       gTacticalStatus.ubCurrentTeam == 3,
-		       "session restore republishes coordinate and turn projections as one boundary" );
+		       gTacticalStatus.ubCurrentTeam == 3 &&
+		       gTacticalStatus.ubAttackBusyCount == 4,
+		       "session restore republishes coordinate and battle projections as one boundary" );
 		NotifyJa2TacticalTeamTurnBegan( 77 );
 		CHECK( CaptureJa2TacticalWorld().turnSerial == 12 &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
@@ -5104,8 +5134,10 @@ int main( int, char** )
 		CHECK( CaptureJa2TacticalWorld().loaded &&
 		       CaptureJa2TacticalWorld().worldGeneration == 78 &&
 		       CaptureJa2TacticalWorld().turnSerial == 1 &&
+		       CaptureJa2TacticalWorld().turn.pendingCombatActions == 0 &&
+		       gTacticalStatus.ubAttackBusyCount == 0 &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
-		       "world lifecycle publication resets turn identity without splitting coordinates" );
+		       "world lifecycle publication resets turn identity and pending work without splitting coordinates" );
 		NotifyJa2TacticalWorldUnloaded();
 		CHECK( !CaptureJa2TacticalWorld().loaded &&
 		       CaptureJa2TacticalWorld().turnSerial == 0 &&

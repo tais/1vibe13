@@ -2028,7 +2028,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							EndAIDeadlock();
 
 							// Decrease global busy	counter...
-							gTacticalStatus.ubAttackBusyCount = 0;
+							ResetJa2TacticalCombatActions();
 #ifdef DEBUG_ATTACKBUSY
 							OutputDebugString( "Resetting attack busy due to keyboard interrupt.\n");
 #endif
@@ -6333,7 +6333,7 @@ void EscapeUILock( )
 	UnSetUIBusy( gusSelectedSoldier );
 
 	// Decrease global busy	counter...
-	gTacticalStatus.ubAttackBusyCount = 0;
+	ResetJa2TacticalCombatActions();
 #ifdef DEBUG_ATTACKBUSY
 	OutputDebugString( "Resetting attack busy due to escape of UI lock.\n");
 #endif

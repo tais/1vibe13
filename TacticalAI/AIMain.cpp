@@ -14,6 +14,7 @@
 #include "worldman.h"
 #include "PATHAI.H"
 #include "Points.h"
+#include "TacticalWorldAdapter.h"
 #include "Weapons.h"
 #include "Items.h"
 #include "Handle Items.h"
@@ -994,7 +995,7 @@ void EndAIDeadlock(void)
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Number of bullets in the air is %ld", guiNumBullets ) );
 
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Setting attack busy count to 0 from deadlock break" ) );
-				gTacticalStatus.ubAttackBusyCount = 0;
+				ResetJa2TacticalCombatActions();
 
 				EndAIGuysTurn(pSoldier);
 				bFound = TRUE;

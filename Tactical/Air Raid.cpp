@@ -27,6 +27,7 @@
 	#include "Meanwhile.h"
 
 #include "GameInitOptionsScreen.h"
+#include "TacticalWorldAdapter.h"
 
 #define		SCRIPT_DELAY													10
 #define		AIR_RAID_SAY_QUOTE_TIME								3000
@@ -634,7 +635,7 @@ static void BeginDive( )
 	gubAirRaidMode = AIR_RAID_DIVING;
 
 	// Increment attacker bust count....
-	gTacticalStatus.ubAttackBusyCount++;
+	BeginJa2TacticalCombatAction();
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack BEGIN DIVE %d", gTacticalStatus.ubAttackBusyCount) );
 	DebugAttackBusy( String("!!!!!!! Starting attack BEGIN DIVE %d", gTacticalStatus.ubAttackBusyCount) );
 
@@ -989,7 +990,7 @@ static void DoBombing(	)
 						{
 							fLocate = TRUE;
 							// Increase attacker busy...
-							gTacticalStatus.ubAttackBusyCount++;
+							BeginJa2TacticalCombatAction();
 							DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( bombs away ), attack count now %d", gTacticalStatus.ubAttackBusyCount) );
 							DebugAttackBusy( String("!!!!!!! Starting attack AIR RAID ( bombs away ), attack count now %d", gTacticalStatus.ubAttackBusyCount) );
 						}
@@ -1272,7 +1273,7 @@ BOOLEAN HandleAirRaidEndTurn( UINT8 ubTeam )
 	//gTacticalStatus.ubAttackBusyCount = 0;
 
 	// Increment attacker bust count....
-	gTacticalStatus.ubAttackBusyCount++;
+	BeginJa2TacticalCombatAction();
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
 	DebugAttackBusy( String("!!!!!!! Starting attack AIR RAID, attack count now %d\n", gTacticalStatus.ubAttackBusyCount) );
 

@@ -5799,7 +5799,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 #ifdef DEBUG_ATTACKBUSY
 		OutputDebugString( "Resetting attack busy due to load game.\n");
 #endif
-		gTacticalStatus.ubAttackBusyCount = 0;
+		ResetJa2TacticalCombatActions();
 		gfPendingNonPlayerTeam[ENEMY_TEAM] = CheckPendingNonPlayerTeam( ENEMY_TEAM );
 		gfPendingNonPlayerTeam[MILITIA_TEAM] = CheckPendingNonPlayerTeam( MILITIA_TEAM );
 	}
@@ -5954,7 +5954,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	{
 		// fix lingering attack busy count problem on loading saved game by resetting a.b.c
 		// if we're not in combat.
-		gTacticalStatus.ubAttackBusyCount = 0;
+		ResetJa2TacticalCombatActions();
 #ifdef DEBUG_ATTACKBUSY
 		OutputDebugString( "Resetting attack busy due to load game.\n");
 #endif

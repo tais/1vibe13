@@ -621,7 +621,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Setting attack busy count to 0 due to no combat" ) );
-		gTacticalStatus.ubAttackBusyCount = 0;
+		ResetJa2TacticalCombatActions();
 	}
 
 	// Check our soldier's life for unconscious!

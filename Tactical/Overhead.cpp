@@ -9175,7 +9175,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 // ATE: Turn off non-interrupt flag ( this NEEDS to be done! )
                 pSoldier->flags.fInNonintAnim = FALSE;
                 pSoldier->flags.fRTInNonintAnim = FALSE;
-                gTacticalStatus.ubAttackBusyCount++;
+                BeginJa2TacticalCombatAction();
                 DebugAttackBusy( String( "Attack busy %d due to suppression fire on %d\n", gTacticalStatus.ubAttackBusyCount, pSoldier->ubID ));
 
 				// sevenfm: switch scope mode as alt holding can only be used in standing stance
@@ -9511,7 +9511,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     //  if ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))
     //  {
 
-    if ( gTacticalStatus.ubAttackBusyCount == 0 )
+    if ( !CompleteJa2TacticalCombatAction() )
     {
         // ATE: We have a problem here... if testversion, report error......
         // But for all means.... DON'T wrap!
@@ -9525,11 +9525,6 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
 #endif
         }
     }
-    else
-    {
-        gTacticalStatus.ubAttackBusyCount--;
-    }
-
     DebugAttackBusy( String( "New attack busy %d\n", gTacticalStatus.ubAttackBusyCount));
 
     DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Ending attack, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
@@ -9933,7 +9928,12 @@ SOLDIERTYPE * FreeUpAttacker( )
     // action and allow the soldier to try something else.
     DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("FreeUpAttacker") );
     DebugAttackBusy( "Freeing up attacker\n");
-    gTacticalStatus.ubAttackBusyCount++;
+    if ( !BeginJa2TacticalCombatAction() )
+    {
+        DebugMsg( TOPIC_JA2, DBG_LEVEL_3,
+            String("FreeUpAttacker could not reserve a combat-action slot") );
+        return( NULL );
+    }
     return( ReduceAttackBusyCount( ) );
 }
 

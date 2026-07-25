@@ -265,10 +265,14 @@ and `snapshot.turn().serial` is a nonzero identity scoped to that epoch: serial
 one denotes the newly loaded pre-turn state, each accepted `BeginTeamTurn`
 boundary advances it, and exhaustion saturates instead of wrapping. Compare a
 turn serial only within the same epoch. `EngineRuntime` also owns the
-turn-based/combat mode and current team in that same session; the JA2 adapter
-is the only writer of their established `gTacticalStatus` mirrors. The existing
-tactical-delta wire already encodes the complete turn snapshot, so this
-ownership move requires no wire or service-version change.
+turn-based/combat mode, current team, and pending asynchronous combat-action
+count in that same session; the JA2 adapter is the only writer of their
+established `gTacticalStatus` mirrors. The pending-work gateway prevents the
+legacy 8-bit counter from wrapping or underflowing; a wider authoritative
+count clamps only that projection while keeping its save bytes and hot-path
+zero/nonzero behavior unchanged. Pending execution work remains host-internal;
+the package-facing tactical turn snapshot still contains mode, team, and turn
+identity, so this ownership move requires no wire or service-version change.
 
 The application retains `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
 as const-reference projections for source-compatible, allocation-free hot-path

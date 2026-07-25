@@ -30,12 +30,18 @@ public:
 			bool turnBased = false;
 			bool inCombat = false;
 			std::uint8_t currentTeam = 0;
+			// Number of asynchronous combat effects that must finish before the
+			// active action can be finalized. This replaces JA2's writable
+			// attack-busy scalar. Its legacy 8-bit projection clamps large
+			// counts while this authoritative value retains the real workload.
+			std::uint32_t pendingCombatActions = 0;
 
 			friend bool operator==(const Turn& lhs, const Turn& rhs) noexcept
 			{
 				return lhs.turnBased == rhs.turnBased &&
 					lhs.inCombat == rhs.inCombat &&
-					lhs.currentTeam == rhs.currentTeam;
+					lhs.currentTeam == rhs.currentTeam &&
+					lhs.pendingCombatActions == rhs.pendingCombatActions;
 			}
 
 			friend bool operator!=(const Turn& lhs, const Turn& rhs) noexcept
@@ -68,6 +74,19 @@ public:
 	void setCurrentTeam(std::uint8_t currentTeam) noexcept
 	{
 		state_.turn.currentTeam = currentTeam;
+	}
+	void setPendingCombatActions(std::uint32_t pending) noexcept
+	{
+		state_.turn.pendingCombatActions = pending;
+	}
+
+	// Invalid duplicate completion and capacity exhaustion fail closed instead
+	// of wrapping and prematurely ending an action.
+	bool beginCombatAction() noexcept;
+	bool completeCombatAction() noexcept;
+	void resetCombatActions() noexcept
+	{
+		state_.turn.pendingCombatActions = 0;
 	}
 
 	// Preserve the legacy generation sequence: zero is reserved, and wrapping

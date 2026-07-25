@@ -1,6 +1,7 @@
 #include "TacticalWorldAdapter.h"
 
 #include <cstdint>
+#include <limits>
 #include "Animation Control.h"
 #include "Map Information.h"
 #include "Overhead.h"
@@ -49,6 +50,13 @@ void SynchronizeLegacyWorldMirrors(const TacticalWorldSession& session) noexcept
 	tacticalWorldProjection.z = static_cast<INT8>(state.sector.z);
 }
 
+UINT8 LegacyCombatActionProjection(std::uint32_t pending) noexcept
+{
+	return pending > std::numeric_limits<UINT8>::max()
+		? std::numeric_limits<UINT8>::max()
+		: static_cast<UINT8>(pending);
+}
+
 void SynchronizeLegacyTurnMirrors(const TacticalWorldSession& session) noexcept
 {
 	const TacticalWorldSession::Snapshot::Turn& turn =
@@ -58,6 +66,16 @@ void SynchronizeLegacyTurnMirrors(const TacticalWorldSession& session) noexcept
 		(turn.turnBased ? TURNBASED : 0) |
 		(turn.inCombat ? INCOMBAT : 0);
 	gTacticalStatus.ubCurrentTeam = turn.currentTeam;
+	gTacticalStatus.ubAttackBusyCount =
+		LegacyCombatActionProjection(turn.pendingCombatActions);
+}
+
+void SynchronizeLegacyCombatActionMirror(
+	const TacticalWorldSession& session) noexcept
+{
+	const std::uint32_t pending =
+		session.snapshot().turn.pendingCombatActions;
+	gTacticalStatus.ubAttackBusyCount = LegacyCombatActionProjection(pending);
 }
 }
 
@@ -67,6 +85,7 @@ void Ja2TacticalWorldAdapter::onWorldLoaded(std::uint64_t worldGeneration) noexc
 	state.loaded = worldGeneration != 0;
 	state.worldGeneration = worldGeneration;
 	state.turnSerial = worldGeneration == 0 ? 0 : 1;
+	state.turn.pendingCombatActions = 0;
 	session_->restore(state);
 }
 
@@ -191,7 +210,8 @@ void BindJa2TacticalWorldSession(TacticalWorldSession& session) noexcept
 	session.setTurnState(TacticalWorldSession::Snapshot::Turn{
 		(gTacticalStatus.uiFlags & TURNBASED) != 0,
 		(gTacticalStatus.uiFlags & INCOMBAT) != 0,
-		gTacticalStatus.ubCurrentTeam});
+		gTacticalStatus.ubCurrentTeam,
+		gTacticalStatus.ubAttackBusyCount});
 	SynchronizeLegacyWorldMirrors(session);
 	SynchronizeLegacyTurnMirrors(session);
 }
@@ -223,6 +243,7 @@ std::uint64_t CommitJa2TacticalWorldLoad() noexcept
 	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
 	const std::uint64_t generation = session.commitLoad();
 	SynchronizeLegacyWorldMirrors(session);
+	SynchronizeLegacyTurnMirrors(session);
 	return generation;
 }
 
@@ -241,7 +262,8 @@ void ImportJa2TacticalTurnState() noexcept
 	session.setTurnState(TacticalWorldSession::Snapshot::Turn{
 		(gTacticalStatus.uiFlags & TURNBASED) != 0,
 		(gTacticalStatus.uiFlags & INCOMBAT) != 0,
-		gTacticalStatus.ubCurrentTeam});
+		gTacticalStatus.ubCurrentTeam,
+		gTacticalStatus.ubAttackBusyCount});
 	SynchronizeLegacyTurnMirrors(session);
 }
 
@@ -281,11 +303,41 @@ void AdvanceJa2TacticalCurrentTeam() noexcept
 			GetJa2TacticalWorldAdapter().session().snapshot().turn.currentTeam + 1));
 }
 
+bool BeginJa2TacticalCombatAction() noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	const bool accepted = session.beginCombatAction();
+	SynchronizeLegacyCombatActionMirror(session);
+	return accepted;
+}
+
+bool CompleteJa2TacticalCombatAction() noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	const bool completed = session.completeCombatAction();
+	SynchronizeLegacyCombatActionMirror(session);
+	return completed;
+}
+
+void ResetJa2TacticalCombatActions() noexcept
+{
+	TacticalWorldSession& session = GetJa2TacticalWorldAdapter().session();
+	session.resetCombatActions();
+	SynchronizeLegacyCombatActionMirror(session);
+}
+
+std::uint32_t GetJa2PendingTacticalCombatActions() noexcept
+{
+	return GetJa2TacticalWorldAdapter()
+		.session().snapshot().turn.pendingCombatActions;
+}
+
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept
 {
 	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
 	adapter.onWorldLoaded(worldGeneration);
 	SynchronizeLegacyWorldMirrors(adapter.session());
+	SynchronizeLegacyTurnMirrors(adapter.session());
 }
 
 void NotifyJa2TacticalWorldUnloaded() noexcept
@@ -293,6 +345,7 @@ void NotifyJa2TacticalWorldUnloaded() noexcept
 	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
 	adapter.onWorldUnloaded();
 	SynchronizeLegacyWorldMirrors(adapter.session());
+	SynchronizeLegacyTurnMirrors(adapter.session());
 }
 
 void NotifyJa2TacticalTeamTurnBegan(std::uint64_t worldGeneration) noexcept
@@ -300,4 +353,5 @@ void NotifyJa2TacticalTeamTurnBegan(std::uint64_t worldGeneration) noexcept
 	Ja2TacticalWorldAdapter& adapter = GetJa2TacticalWorldAdapter();
 	adapter.onTeamTurnBegan(worldGeneration);
 	SynchronizeLegacyWorldMirrors(adapter.session());
+	SynchronizeLegacyTurnMirrors(adapter.session());
 }

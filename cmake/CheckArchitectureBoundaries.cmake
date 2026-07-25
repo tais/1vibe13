@@ -1053,6 +1053,34 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
+# Pending tactical combat work is owned by the same session. The historical
+# attack-busy byte remains in TacticalStatusType solely as a save-compatible,
+# bounded read mirror; production lifecycle writers must use the adapter so it
+# cannot wrap or diverge from the engine state.
+foreach(source_file IN LISTS world_state_declaration_files)
+  if("${source_file}" STREQUAL "${tactical_turn_owner}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    tactical_combat_action_executable "${contents}")
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubAttackBusyCount[ \t\r\n]*(\\+\\+|--|[+*/%&|^-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubAttackBusyCount([^A-Za-z0-9_]|$)"
+    tactical_combat_action_write "${tactical_combat_action_executable}")
+  if(tactical_combat_action_write)
+    message(FATAL_ERROR
+      "Production code writes the tactical pending-combat mirror in ${source_file}; route the lifecycle through TacticalWorldAdapter")
+  endif()
+  string(REGEX MATCH
+    "(^|[^&])&[ \t\r\n]*gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubAttackBusyCount([^A-Za-z0-9_]|$)"
+    tactical_combat_action_address_escape
+    "${tactical_combat_action_executable}")
+  if(tactical_combat_action_address_escape)
+    message(FATAL_ERROR
+      "Production code passes the tactical pending-combat mirror by address in ${source_file}; stage a value and route writes through TacticalWorldAdapter")
+  endif()
+endforeach()
+
 # Campaign time identity is owned solely by EngineRuntime's
 # CampaignClockSession. These former writable scalars have been retired; the
 # established game reads value accessors backed by the session instead.

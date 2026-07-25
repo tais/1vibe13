@@ -82,6 +82,13 @@ void SetJa2TacticalCombatMode(bool active) noexcept;
 void SetJa2TacticalCurrentTeam(std::uint8_t team) noexcept;
 void AdvanceJa2TacticalCurrentTeam() noexcept;
 
+// The tactical session owns the pending asynchronous combat-action lifecycle.
+// gTacticalStatus.ubAttackBusyCount remains a bounded save-compatible mirror.
+bool BeginJa2TacticalCombatAction() noexcept;
+bool CompleteJa2TacticalCombatAction() noexcept;
+void ResetJa2TacticalCombatActions() noexcept;
+std::uint32_t GetJa2PendingTacticalCombatActions() noexcept;
+
 // Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
 // is not exposed as another mutable JA2 global.
 void NotifyJa2TacticalWorldLoaded(std::uint64_t worldGeneration) noexcept;

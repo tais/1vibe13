@@ -706,13 +706,20 @@ the engine must not contain SDL types in its public domain model.
   reference into the session. Memory and null providers keep package, replay,
   and headless tests on the same contract.
 - `TacticalWorldSession` owns loaded sector identity, world generation,
-  turn serial, turn-based/combat mode, and current team as one runtime value.
+  turn serial, turn-based/combat mode, current team, and the pending
+  asynchronous combat-action count as one runtime value.
   World loading, tactical combat transitions, team turns, multiplayer turn
   messages, editor mode, and save restoration pass through the application
   adapter. The duplicate world-loaded and generation scalars have been deleted;
   lifecycle consumers query the session directly through
   `IsJa2TacticalWorldLoaded` or `CaptureJa2TacticalWorld`. `gTacticalStatus`
-  retains exact readable turn mirrors for the old game. The sector-heavy
+  retains exact readable turn mirrors for the old game. Its historical
+  attack-busy byte is now a bounded save-compatible projection: bullets,
+  explosions, physics, animations, air raids, recovery paths, and world
+  teardown begin, complete, or reset work through the application adapter.
+  The session rejects overflow and underflow rather than wrapping into a false
+  idle state; its wider authoritative count clamps only the legacy projection
+  when more than 255 effects overlap. The sector-heavy
   compatibility names `gWorldSectorX`, `gWorldSectorY`, and `gbWorldSectorZ`
   are const-reference projections backed only by the application adapter:
   legacy reads retain their allocation-free lvalue path, while the compiler
