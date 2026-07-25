@@ -94,6 +94,7 @@
 #include "Luaglobal.h"
 
 #include "GameInitOptionsScreen.h"
+#include "Map Screen Interface Bottom.h"
 
 #ifdef JA2UB
 #include "interface Dialogue.h"
@@ -105,7 +106,6 @@
 #include "Timer Control.h"
 #include "Soldier Control.h"
 #include "Ja25Update.h"
-#include "Map Screen Interface Bottom.h"
 #include "Strategic AI.h"
 #include "ub_config.h"
 #include "Luaglobal.h"
@@ -1531,14 +1531,12 @@ void BeginLoadScreen( void )
 	InvalidateScreen( );
 	RefreshScreen( NULL );
 
-#ifdef JA2UB	
 	//if we are going to the intro screen, return before putting up a loadscreen
 	if ( gbExitingMapScreenToWhere == MAP_EXIT_TO_INTRO_SCREEN )
 	{
 		SetPendingNewScreen( INTRO_SCREEN );
 		return;
 	}
-#endif
 
 	//If we are loading a saved game, use the Loading screen we saved into the SavedGameHeader file
 	// ( which gets reloaded into gubLastLoadingScreenID )

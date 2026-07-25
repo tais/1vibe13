@@ -864,6 +864,12 @@ the engine must not contain SDL types in its public domain model.
   runtime campaign. A typed profile resolver preserves the established 57-65
   Miguel-through-Slay slot shift, and qualified playable-Speck quote IDs keep
   Arulco speech records unchanged when that callback is emitted by a UB host.
+- Tactical dialogue queues, sighting reactions, speech-file selection, Jerry
+  and Morris map-screen quotes, and the UB intro exit now select their flow from
+  the active runtime campaign. Jerry/Morris and Mike/militia implementations are
+  emitted together, while compile-time-checked aliases preserve their shared
+  legacy event and soldier-quote bits. Quote IDs, speech paths, profile slots,
+  and campaign data formats remain unchanged.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

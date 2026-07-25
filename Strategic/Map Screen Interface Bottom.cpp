@@ -40,15 +40,13 @@
 	#include "Soldier macros.h"
 	#include "GameSettings.h"
 	#include "SaveLoadScreen.h"
-	#include "Interface Control.h"
-	#include "Sys Globals.h"
+#include "Interface Control.h"
+#include "Sys Globals.h"
 #include "Game Init.h"
-
-#ifdef JA2UB
 #include "Ja25 Strategic Ai.h"
 #include "MapScreen Quotes.h"
 #include "SaveLoadGame.h"
-#endif
+#include "GameContext.h"
 
 #include "connect.h"
 
@@ -1396,15 +1394,12 @@ BOOLEAN AllowedToTimeCompress( void )
 		return( FALSE );
 	}
 
-#ifdef JA2UB
-//Ja25 no meanwhiles
-#else
 	// meanwhile coming up
-	if ( gfMeanwhileTryingToStart )
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+	     gfMeanwhileTryingToStart )
 	{
 		return( FALSE );
 	}
-#endif
 
 	// someone has something to say
 	if ( !DialogueQueueIsEmpty() )
@@ -1498,9 +1493,9 @@ BOOLEAN AllowedToTimeCompress( void )
 		return FALSE;
 	}
 
-#ifdef JA2UB  
 		//if the player hasnt been to the initial sector yet
-	if( !GetSectorFlagStatus( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY, 0, SF_HAS_ENTERED_TACTICAL ) ) //7, 8
+	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+	    !GetSectorFlagStatus( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY, 0, SF_HAS_ENTERED_TACTICAL ) ) //7, 8
 	{
 		//if there is something that jerry wants to say
 		if( !WillJerryMiloAllowThePlayerToCompressTimeAtBeginingOfGame() )
@@ -1508,7 +1503,6 @@ BOOLEAN AllowedToTimeCompress( void )
 			return( FALSE );
 		}
 	}
-#endif
 	
 	return( TRUE );
 }
@@ -1810,11 +1804,7 @@ BOOLEAN AnyUsableRealMercenariesOnTeam( void )
 
 void RequestTriggerExitFromMapscreen( INT8 bExitToWhere )
 {
-#ifdef JA2UB
-	Assert( ( bExitToWhere >= MAP_EXIT_TO_LAPTOP ) && ( bExitToWhere <= MAP_EXIT_TO_INTRO_SCREEN ));//MAP_EXIT_TO_MAINMENU ) );
-#else
 	Assert( ( bExitToWhere >= MAP_EXIT_TO_LAPTOP ) && ( bExitToWhere <= MAP_EXIT_TO_MAINMENU ));
-#endif
 	// if allowed to do so
 	if ( AllowedToExitFromMapscreenTo( bExitToWhere ) )
 	{
@@ -1869,11 +1859,12 @@ void RequestTriggerExitFromMapscreen( INT8 bExitToWhere )
 
 BOOLEAN AllowedToExitFromMapscreenTo( INT8 bExitToWhere )
 {
-#ifdef JA2UB
-	Assert( ( bExitToWhere >= MAP_EXIT_TO_LAPTOP ) && ( bExitToWhere <= MAP_EXIT_TO_INTRO_SCREEN)); //MAP_EXIT_TO_MAINMENU ) );
-#else
 	Assert( ( bExitToWhere >= MAP_EXIT_TO_LAPTOP ) && ( bExitToWhere <= MAP_EXIT_TO_MAINMENU ) );
-#endif
+	if ( bExitToWhere == MAP_EXIT_TO_INTRO_SCREEN &&
+	     !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return( FALSE );
+	}
 	// if already leaving, disallow any other attempts to exit
 	if ( fLeavingMapScreen )
 	{
@@ -1908,15 +1899,12 @@ BOOLEAN AllowedToExitFromMapscreenTo( INT8 bExitToWhere )
 		return( FALSE );
 	}
 
-#ifdef JA2UB
-//Ja25 No meanwhiles
-#else
 	// meanwhile coming up
-	if ( gfMeanwhileTryingToStart )
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+	     gfMeanwhileTryingToStart )
 	{
 		return( FALSE );
 	}
-#endif
 
 	// if we're locked into paused time compression by some event that enforces that
 	if ( PauseStateLocked() )
@@ -2052,7 +2040,6 @@ void HandleExitsFromMapScreen( void )
 					ReStartingGame();
 					SetPendingNewScreen( MAINMENU_SCREEN );
 					break;
-#ifdef JA2UB
 				//JA25 ub
 				case MAP_EXIT_TO_INTRO_SCREEN:
 					//	SetPendingNewScreen( INTRO_SCREEN );
@@ -2065,7 +2052,6 @@ void HandleExitsFromMapScreen( void )
 
 					BeginLoadScreen();
 					break;
-#endif
 				default:
 					// invalid exit type
 					Assert( FALSE );

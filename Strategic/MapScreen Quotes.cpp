@@ -1,4 +1,3 @@
-#ifdef JA2UB
 #include "Map Screen Interface.h"
 	#include "string.h"
 	#include "Map Screen Interface Map.h"
@@ -472,5 +471,3 @@ BOOLEAN HasJerryAlreadySaidTheMapScreenIntroSequence()
 		return( FALSE );
 	}
 }
-
-#endif
