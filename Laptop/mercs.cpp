@@ -22,6 +22,7 @@
 	#include "Game Event Hook.h"
 	#include "Quests.h"
 	#include "AimMembers.h"
+	#include "CampaignProfileCodes.h"
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -2624,8 +2625,6 @@ BOOLEAN IsSpeckComAvailable() // anv: Prevent Speck from talking if his playable
 	return(TRUE);
 }
 
-#ifndef JA2UB
-
 void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier )  // anv: handle playable Speck witnessing his employee death
 {	
 	if(pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
@@ -2634,12 +2633,12 @@ void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier )  // anv: handle
 		if( !LaptopSaveInfo.fHasAMercDiedAtMercSite )
 		{
 			LaptopSaveInfo.fHasAMercDiedAtMercSite = TRUE;
-			TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_FIRST_MERC_DIES );
+			TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_FIRST_MERC_DIES );
 		}
 		// numerous casualties, Speck whines...
 		else if( CountNumberOfMercMercsWhoAreDead() >= 2 && LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote )
 		{
-			TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_PLAYERS_LOST_MERCS );
+			TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_PLAYERS_LOST_MERCS );
 			//Set it so speck Wont say the quote again till someone else dies
 			LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote = 0;
 		}
@@ -2647,56 +2646,54 @@ void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier )  // anv: handle
 		switch( pSoldier->ubProfile )
 		{
 			case BIFF:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_BIFF_IS_DEAD );
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_BIFF_IS_DEAD );
 				break;
 			case HAYWIRE:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_HAYWIRE_IS_DEAD);
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_HAYWIRE_IS_DEAD);
 				break;
 			case GASKET:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_GASKET_IS_DEAD );
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_GASKET_IS_DEAD );
 				break;
 			case RAZOR:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_RAZOR_IS_DEAD );
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_RAZOR_IS_DEAD );
 				break;
 			case FLO:
 				//if biff is dead
 				if( IsMercDead( BIFF ) )
-					TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_FLO_IS_DEAD_BIFF_IS_DEAD );
+					TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_FLO_IS_DEAD_BIFF_IS_DEAD );
 				else
 				{
-					TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_FLO_IS_DEAD_BIFF_ALIVE);
+					TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_FLO_IS_DEAD_BIFF_ALIVE);
 					MakeBiffAwayForCoupleOfDays();
 				}
 				break;
 
 			case GUMPY:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_GUMPY_IS_DEAD);
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_GUMPY_IS_DEAD);
 				break;
 			case LARRY_NORMAL:
 			case LARRY_DRUNK:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_LARRY_IS_DEAD);
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_LARRY_IS_DEAD);
 				break;
 			case COUGAR:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_COUGER_IS_DEAD);
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_COUGER_IS_DEAD);
 				break;
 			case NUMB:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_NUMB_IS_DEAD);
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_NUMB_IS_DEAD);
 				break;
 			case BUBBA:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_BUBBA_IS_DEAD);
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_BUBBA_IS_DEAD);
 				break;
 
-			case GASTON:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_GASTON_DEAD);
+			case CampaignProfileCode::ArulcoGaston:
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_GASTON_DEAD);
 				break;
-			case STOGIE:
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_STOGIE_DEAD);
+			case CampaignProfileCode::ArulcoStogie:
+				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_STOGIE_DEAD);
 				break;
 		}
 	}
 }
-
-#endif
 
 void AddJohnAsMerc() // anv: add John as playable merc after escorting Kulbas out of country
 {

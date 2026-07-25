@@ -858,6 +858,12 @@ the engine must not contain SDL types in its public domain model.
   records. The JA25 soldier state used by these flows now has one in-memory and
   serialized layout in every host; this intentionally retires the pre-release
   host-specific save layout rather than carrying a second compiled identity.
+- The tactical overhead loop has no compiled campaign identity. NPC and player
+  death consequences, power-generator and fan hooks, first-battle and POW
+  outcomes, meanwhile combat handling, and capture policy branch on the active
+  runtime campaign. A typed profile resolver preserves the established 57-65
+  Miguel-through-Slay slot shift, and qualified playable-Speck quote IDs keep
+  Arulco speech records unchanged when that callback is emitted by a UB host.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized
