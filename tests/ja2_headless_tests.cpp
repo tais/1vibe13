@@ -1874,6 +1874,16 @@ int main( int, char** )
 				ReloadWeaponCommand{
 					actor, false, SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				TraverseObstacleCommand{
+					actor, TacticalTraversalKind::JumpFence,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				TraverseObstacleCommand{
+					actor, static_cast<TacticalTraversalKind>( 0xff ),
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTraversalKind &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
@@ -3229,14 +3239,22 @@ int main( int, char** )
 			TryDispatchReloadWeaponCommandNow(
 				0, commandHostActor.uiUniqueSoldierIdValue,
 				false, SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleTraversal =
+			TryDispatchTraverseObstacleCommandNow(
+				staleActor.slot, staleActor.incarnation,
+				TacticalTraversalKind::JumpFence,
+				SimulationCommandSource::System );
 		CHECK(
 			weaponModeWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			scopeModeWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			reloadWithoutWeapon.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleTraversal.status ==
 				SimulationCommandDispatchStatus::Discarded,
-			"weapon-control commands reject missing live equipment without unsafe legacy calls" );
+			"equipment and traversal commands reject unsafe live-world execution" );
 
 		const std::uint64_t oneCommandFrame = ++commandTestFrameSequence;
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );

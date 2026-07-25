@@ -3171,11 +3171,15 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 
 			if ( gbClimbID	== 1 )
 			{
-				pSoldier->BeginSoldierClimbUpRoof( );
+				TryDispatchTraverseObstacleCommandNow(
+					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					TacticalTraversalKind::ClimbUpRoof );
 			}
 			else if ( gbClimbID == -1 )
 			{
-				pSoldier->BeginSoldierClimbDownRoof( );
+				TryDispatchTraverseObstacleCommandNow(
+					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					TacticalTraversalKind::ClimbDownRoof );
 			}
 			else
 			{
@@ -7069,7 +7073,9 @@ void GotoHeigherStance( SOLDIERTYPE *pSoldier )
 
 			if ( fNearHeigherLevel )
 			{
-				pSoldier->BeginSoldierClimbUpRoof(	);
+				TryDispatchTraverseObstacleCommandNow(
+					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					TacticalTraversalKind::ClimbUpRoof );
 			}
 			break;
 
@@ -7112,7 +7118,9 @@ void GotoLowerStance( SOLDIERTYPE *pSoldier )
 
 			if ( fNearLowerLevel )
 			{
-				pSoldier->BeginSoldierClimbDownRoof(	);
+				TryDispatchTraverseObstacleCommandNow(
+					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					TacticalTraversalKind::ClimbDownRoof );
 			}
 			break;
 	}

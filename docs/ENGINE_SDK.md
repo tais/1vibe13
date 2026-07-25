@@ -154,11 +154,13 @@ host nodes.
 JA2 tactical commands. A host owns a finite `TacticalCommandInbox`, registers it
 as `ja2.tactical-commands` before package bootstrap, validates application
 domains at its safe simulation boundary, and drains only a configured prefix.
-The version-6 command journal vocabulary includes player weapon-mode,
-scope-mode, and reload intent alongside turn, stance, fire, movement, facing,
-stealth, and stop-movement commands. Scope targets use
-`TacticalNoTargetGrid` when no aim tile is available; reload intent explicitly
-records whether a non-empty weapon may be reloaded.
+The version-7 command journal vocabulary includes typed roof, fence, wall, and
+window traversal alongside player weapon-mode, scope-mode, reload, turn,
+stance, fire, movement, facing, stealth, and stop-movement intent. Scope
+targets use `TacticalNoTargetGrid` when no aim tile is available; reload intent
+explicitly records whether a non-empty weapon may be reloaded. Traversal uses
+`TacticalTraversalKind`, keeping legacy soldier pointers, AP calculations, and
+animation constants outside the package-facing contract.
 The service deliberately does not expose draining or cancellation authority.
 Every callback receives a registry-issued `PackageIdentity`. It can be copied
 and passed to package-aware services, but cannot be constructed from an

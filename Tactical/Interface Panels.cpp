@@ -4634,7 +4634,10 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 				return;
 			}
 
-			gpSMCurrentMerc->BeginSoldierClimbDownRoof();
+			TryDispatchTraverseObstacleCommandNow(
+				gpSMCurrentMerc->ubID,
+				gpSMCurrentMerc->uiUniqueSoldierIdValue,
+				TacticalTraversalKind::ClimbDownRoof );
 		}
 
 		if ( fNearHeigherLevel )
@@ -4645,7 +4648,10 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 				return;
 			}
 
-			gpSMCurrentMerc->BeginSoldierClimbUpRoof();
+			TryDispatchTraverseObstacleCommandNow(
+				gpSMCurrentMerc->ubID,
+				gpSMCurrentMerc->uiUniqueSoldierIdValue,
+				TacticalTraversalKind::ClimbUpRoof );
 		}
 		
 		//---------------Legion by JAzz-----------
@@ -4660,7 +4666,10 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 
 			if ( FindWallJumpDirection( gpSMCurrentMerc, gpSMCurrentMerc->sGridNo, gpSMCurrentMerc->ubDirection, &bDirection ) )
 			{
-				gpSMCurrentMerc->BeginSoldierClimbWall();
+				TryDispatchTraverseObstacleCommandNow(
+					gpSMCurrentMerc->ubID,
+					gpSMCurrentMerc->uiUniqueSoldierIdValue,
+					TacticalTraversalKind::ClimbWall );
 			}
 		}
 		
@@ -4674,7 +4683,10 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 				return;
 			}
 
-			gpSMCurrentMerc->BeginSoldierClimbFence();
+			TryDispatchTraverseObstacleCommandNow(
+				gpSMCurrentMerc->ubID,
+				gpSMCurrentMerc->uiUniqueSoldierIdValue,
+				TacticalTraversalKind::JumpFence );
 		}
 	}
 	else if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE )

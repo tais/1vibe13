@@ -165,6 +165,30 @@ namespace
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
 			}
+			else if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier) return CommandDisposition::Discard;
+				switch (value.kind)
+				{
+					case TacticalTraversalKind::ClimbUpRoof:
+						soldier->BeginSoldierClimbUpRoof();
+						break;
+					case TacticalTraversalKind::ClimbDownRoof:
+						soldier->BeginSoldierClimbDownRoof();
+						break;
+					case TacticalTraversalKind::JumpFence:
+						soldier->BeginSoldierClimbFence();
+						break;
+					case TacticalTraversalKind::ClimbWall:
+						soldier->BeginSoldierClimbWall();
+						break;
+					case TacticalTraversalKind::JumpWindow:
+						soldier->BeginSoldierClimbWindow();
+						break;
+				}
+				return CommandDisposition::Applied;
+			}
 			else
 			{
 				return CommandDisposition::Discard;
@@ -280,6 +304,12 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 					(value.targetGrid >= 0 && value.targetGrid < WORLD_MAX)
 					? SimulationCommandDomainError::None
 					: SimulationCommandDomainError::InvalidTargetGrid;
+			}
+			else if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
+			{
+				return IsValidTacticalTraversalKind(value.kind)
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidTraversalKind;
 			}
 		}
 		return SimulationCommandDomainError::ValuelessCommand;
@@ -534,6 +564,17 @@ SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
 		SimulationCommand{ReloadWeaponCommand{
 			TacticalEntityId{soldierId, uniqueSoldierId},
 			reloadEvenIfNotEmpty, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	TacticalTraversalKind kind,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{TraverseObstacleCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, kind, source}});
 }
 
 std::uint64_t DispatchEndTurnCommandNow(

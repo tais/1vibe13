@@ -165,6 +165,38 @@ struct ReloadWeaponCommand
 	SimulationCommandSource source;
 };
 
+// Values are part of the version-7 replay/network vocabulary.
+enum class TacticalTraversalKind : std::uint8_t
+{
+	ClimbUpRoof = 0,
+	ClimbDownRoof = 1,
+	JumpFence = 2,
+	ClimbWall = 3,
+	JumpWindow = 4
+};
+
+constexpr bool IsValidTacticalTraversalKind(
+	TacticalTraversalKind kind) noexcept
+{
+	switch (kind)
+	{
+		case TacticalTraversalKind::ClimbUpRoof:
+		case TacticalTraversalKind::ClimbDownRoof:
+		case TacticalTraversalKind::JumpFence:
+		case TacticalTraversalKind::ClimbWall:
+		case TacticalTraversalKind::JumpWindow:
+			return true;
+	}
+	return false;
+}
+
+struct TraverseObstacleCommand
+{
+	TacticalEntityId soldier;
+	TacticalTraversalKind kind;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -178,7 +210,8 @@ using SimulationCommand = std::variant<
 	StopMovementCommand,
 	CycleWeaponModeCommand,
 	CycleScopeModeCommand,
-	ReloadWeaponCommand>;
+	ReloadWeaponCommand,
+	TraverseObstacleCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -203,6 +236,8 @@ inline bool IsStructurallyValidSimulationCommand(
 					IsValidTacticalPendingActionPolicy(value.pendingAction);
 			if constexpr (std::is_same<Command, SetFacingCommand>::value)
 				return IsValidTacticalDirection(value.direction);
+			if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
+				return IsValidTacticalTraversalKind(value.kind);
 			return true;
 		}
 	}, command);
