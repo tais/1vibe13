@@ -5,6 +5,7 @@
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CampaignEventService.h>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
+#include <Engine/Adapters/JA2/MemoryTacticalSimulation.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
@@ -650,6 +651,29 @@ int main()
 	const TacticalEntityId earlierId{2, 9};
 	if (!actorId.valid() || !earlierId.valid() || actorId == TacticalEntityId{7, 2} ||
 		!(earlierId < actorId)) return 15;
+
+	TacticalSimulationSnapshot externalSimulationState;
+	externalSimulationState.actors = {
+		TacticalSimulationActorState{
+			actorId, 1200, 20, 20, 6, 2, false, true},
+		TacticalSimulationActorState{
+			earlierId, 900, 18, 18, 3, 4, false, true}};
+	MemoryTacticalSimulation externalSimulation{
+		TacticalSimulationLimits{2, 2}};
+	SimulationCommandExecutor& externalExecutor = externalSimulation;
+	if (externalSimulation.reset(std::move(externalSimulationState)) !=
+			TacticalSimulationResetError::None ||
+		externalSimulation.snapshot().actors[0].id != earlierId ||
+		externalExecutor.execute(
+			SimulationCommand{MoveToGridCommand{
+				actorId, 1211, 6, false, true,
+				SimulationCommandSource::Replay,
+				TacticalMoveOrigin::System,
+				TacticalPendingActionPolicy::Preserve}},
+			4, 7) != CommandDisposition::Applied ||
+		externalSimulation.snapshot().actors[1].grid != 1211 ||
+		externalSimulation.snapshot().actors[1].stopped)
+		return 60;
 
 	TacticalActorSnapshot previousActor = MakeExternalActor(
 		actorId, 1200, TacticalStance::Standing, 20, 85);

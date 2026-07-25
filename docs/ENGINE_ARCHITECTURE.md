@@ -439,6 +439,16 @@ the engine must not contain SDL types in its public domain model.
   replay/network hosts. It deliberately has one current layout: the header
   reserves a version field, but no speculative historical decoders are carried
   before a format has actually shipped.
+  `SimulationCommandExecutor` now separates that deterministic stream from its
+  world implementation. The production compatibility executor implements the
+  same installed interface used by tools and headless tests; queue processing
+  forwards tick and sequence metadata through it rather than invoking a
+  game-only free function. `MemoryTacticalSimulation` is the bounded,
+  pointer-free reference implementation. It transactionally validates and
+  canonicalizes actor incarnations, preallocates its configured state ceilings,
+  and applies the portable movement, stance, facing, fire, synchronization,
+  stop, and turn subset without linking the game or SDL. It deliberately
+  discards unsupported mechanics instead of duplicating JA2 combat policy.
   Firearm actions, player weapon mode, scope, reload, and ready/lower controls,
   stance changes, drag cancellation, obstacle traversal, world-object
   interaction, conversation, vehicle entry, player stealing and position
@@ -493,9 +503,10 @@ the engine must not contain SDL types in its public domain model.
   sequence IDs cannot leave a partially mutated simulation queue. Playback
   retains the recorded tick, sequence, value, and source through the same
   runtime gateway used by live commands. The data-free headless suite now runs
-  a mixed player, AI/script, and network tactical turn through bounded command
-  processing, including an authoritative retry. It encodes the completed
-  journal, decodes and stages it into a fresh runtime, resets the same
+  the installed `MemoryTacticalSimulation`, rather than a parallel test-local
+  battle model, for a mixed player, AI/script, and network tactical turn through
+  bounded command processing, including an authoritative retry. It encodes the
+  completed journal, decodes and stages it into a fresh runtime, resets the same
   actor/world snapshot, and requires identical disposition observations,
   applied order, final state, and journal bytes. This exercises replay
   determinism without SDL presentation, audio, installed maps, or game data.

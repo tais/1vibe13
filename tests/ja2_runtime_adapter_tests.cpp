@@ -4,6 +4,7 @@
 #include <Engine/Adapters/JA2/CampaignClockSession.h>
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CampaignEventService.h>
+#include <Engine/Adapters/JA2/MemoryTacticalSimulation.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/StrategicGroupDirectory.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
@@ -289,6 +290,96 @@ int main()
 	check(legacyBraceRuntime.serviceCatalog().size() == 14 &&
 		legacyBraceRuntime.runtimeMessages().maxQueuedMessages() == 1024,
 		"empty-brace runtime construction retains default EngineServices semantics");
+
+	const TacticalEntityId simulatedPlayer{7, 7007};
+	const TacticalEntityId simulatedOpponent{31, 31031};
+	TacticalSimulationSnapshot tacticalBaseline;
+	// Deliberately publish the larger identity first: reset owns canonical
+	// ordering rather than depending on a host's collection order.
+	tacticalBaseline.actors = {
+		TacticalSimulationActorState{
+			simulatedOpponent, 400, 40, 40, 6, 4, false, true},
+		TacticalSimulationActorState{
+			simulatedPlayer, 100, 10, 10, 6, 0, false, true}};
+	MemoryTacticalSimulation tacticalSimulation{
+		TacticalSimulationLimits{2, 1}};
+	check(
+		tacticalSimulation.reset(tacticalBaseline) ==
+			TacticalSimulationResetError::None &&
+		tacticalSimulation.snapshot().actors[0].id == simulatedPlayer &&
+		tacticalSimulation.snapshot().actors[1].id == simulatedOpponent,
+		"memory tactical simulation validates and canonicalizes stable actor state");
+	SimulationCommandExecutor& tacticalExecutor = tacticalSimulation;
+	check(
+		tacticalExecutor.execute(
+			SimulationCommand{MoveToGridCommand{
+				simulatedPlayer, 220, 1, false, true,
+				SimulationCommandSource::System,
+				TacticalMoveOrigin::System,
+				TacticalPendingActionPolicy::Preserve}},
+			1, 4) == CommandDisposition::Applied &&
+		tacticalExecutor.execute(
+			SimulationCommand{ChangeStanceCommand{
+				simulatedPlayer, 3, SimulationCommandSource::System}},
+			1, 5) == CommandDisposition::Applied &&
+		tacticalExecutor.execute(
+			SimulationCommand{BeginSelectedFireWeaponCommand{
+				simulatedPlayer, 390, 0, 0, 1, 17,
+				SimulationCommandSource::System}},
+			2, 6) == CommandDisposition::Applied &&
+		tacticalExecutor.execute(
+			SimulationCommand{SynchronizeTurnCommand{
+				1, true, false, SimulationCommandSource::Replay}},
+			3, 7) == CommandDisposition::Applied &&
+		tacticalSimulation.snapshot().actors[0].grid == 220 &&
+		tacticalSimulation.snapshot().actors[0].stance == 3 &&
+		!tacticalSimulation.snapshot().actors[0].stopped &&
+		tacticalSimulation.snapshot().shots.size() == 1 &&
+		tacticalSimulation.snapshot().shots[0].kind ==
+			TacticalSimulationFireKind::CapturedSelection &&
+		tacticalSimulation.snapshot().shots[0].tick == 2 &&
+		tacticalSimulation.snapshot().shots[0].sequence == 6 &&
+		tacticalSimulation.snapshot().currentTeam == 1 &&
+		tacticalSimulation.snapshot().inCombat &&
+		tacticalSimulation.snapshot().completedTurns == 1,
+		"public executor applies deterministic movement, stance, fire, and turn state");
+	const TacticalSimulationSnapshot acceptedTacticalState =
+		tacticalSimulation.snapshot();
+	TacticalSimulationSnapshot duplicateSimulationActors = tacticalBaseline;
+	duplicateSimulationActors.actors[1].id =
+		duplicateSimulationActors.actors[0].id;
+	check(
+		tacticalSimulation.reset(std::move(duplicateSimulationActors)) ==
+			TacticalSimulationResetError::DuplicateActor &&
+		tacticalSimulation.snapshot() == acceptedTacticalState,
+		"rejected tactical reset is transactional");
+	check(
+		tacticalExecutor.execute(
+			SimulationCommand{BeginFireWeaponCommand{
+				simulatedPlayer, 391, 0, 0,
+				SimulationCommandSource::LocalPlayer}},
+			4, 8) == CommandDisposition::Discard &&
+		tacticalExecutor.execute(
+			SimulationCommand{StopMovementCommand{
+				TacticalEntityId{8, 8008},
+				SimulationCommandSource::System}},
+			4, 9) == CommandDisposition::Discard &&
+		tacticalSimulation.snapshot() == acceptedTacticalState,
+		"bounded shots and stale actors discard without partial state changes");
+	tacticalSimulation.clearShots();
+	check(
+		tacticalSimulation.snapshot().shots.empty() &&
+		tacticalExecutor.execute(
+			SimulationCommand{BeginFireWeaponCommand{
+				simulatedPlayer, 391, 0, 0,
+				SimulationCommandSource::LocalPlayer}},
+			5, 10) == CommandDisposition::Applied &&
+		tacticalSimulation.snapshot().shots.size() == 1 &&
+		tacticalSimulation.snapshot().shots[0].kind ==
+			TacticalSimulationFireKind::CurrentSelection &&
+		tacticalSimulation.snapshot().shots[0].tick == 5 &&
+		tacticalSimulation.snapshot().shots[0].sequence == 10,
+		"headless hosts can consume bounded shot history and continue execution");
 
 	TacticalWorldSession worldSession;
 	check(!worldSession.snapshot().loaded &&
