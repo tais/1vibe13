@@ -158,8 +158,9 @@ The current command vocabulary includes pointer-free world-object activation
 and approach, stable conversation and vehicle-entry targets, typed roof, fence,
 wall, and window traversal, and player weapon-mode, scope-mode, reload,
 ready/lower, turn, stance, fire, movement, facing, stealth, stop-movement,
-stealing, position exchange, and world-item pickup intent. An approach combines movement with its
-pending interaction so command pressure cannot apply one without the other.
+drag cancellation, stealing, position exchange, and world-item pickup intent.
+An approach combines movement with its pending interaction so command pressure
+cannot apply one without the other.
 Conversation partners, vehicles, steal targets, exchange partners, and exact
 pickup targets carry both their reusable slot and incarnation; delayed arrival
 therefore rejects a despawned, moved, or reused target instead of addressing
@@ -171,6 +172,9 @@ Scope targets use `TacticalNoTargetGrid` when no aim tile is available; reload
 intent explicitly records whether a non-empty weapon may be reloaded.
 Ready/lower intent records the selected eight-way direction and alternative
 weapon-hold choice rather than a cursor position or an animation constant.
+Stance intent remains one value command for both stationary and moving actors;
+the JA2 executor selects the established real-time movement animation where
+needed. Drag cancellation carries only the exact actor identity.
 Traversal uses `TacticalTraversalKind`, keeping legacy soldier and structure
 pointers, AP calculations, and animation constants outside the package-facing
 contract.

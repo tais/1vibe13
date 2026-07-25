@@ -1007,7 +1007,7 @@ int main()
 		"tactical command result preparation enforces payload limits transactionally");
 
 	TacticalCommandInbox validationInbox(
-		TacticalCommandInboxLimits{17, 17, 17, 8, 21});
+		TacticalCommandInboxLimits{18, 18, 18, 8, 22});
 	const SimulationCommand validTurn = MakeTurnCommand(1);
 	const SimulationCommand invalidSource = MakeTurnCommand(
 		1, static_cast<SimulationCommandSource>(0xff));
@@ -1179,6 +1179,11 @@ int main()
 			"pkg.ok", SimulationCommand{ExchangePositionsCommand{
 				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
 				101, 102, 0, SimulationCommandSource::Replay}});
+	const TacticalCommandSubmissionResult validCancelDragResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{CancelDragCommand{
+				TacticalEntityId{3, 301},
+				SimulationCommandSource::LocalPlayer}});
 	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
@@ -1220,8 +1225,9 @@ int main()
 		validWorldItemResult.requestId == 15 &&
 		validStealResult.requestId == 16 &&
 		validExchangeResult.requestId == 17 &&
-		validationInbox.summary().submitted == 17 &&
-		validationInbox.summary().nextRequestId == 18,
+		validCancelDragResult.requestId == 18 &&
+		validationInbox.summary().submitted == 18 &&
+		validationInbox.summary().nextRequestId == 19,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -2504,7 +2510,11 @@ int main()
 			38, 62, CommandJournalStatus::Queued,
 			SimulationCommand{SetWeaponReadyCommand{
 				firstIncarnation, 6, true, true,
-				SimulationCommandSource::NetworkPeer}}}};
+				SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			39, 63, CommandJournalStatus::Applied,
+			SimulationCommand{CancelDragCommand{
+				reusedSlot, SimulationCommandSource::LocalPlayer}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2516,7 +2526,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 22)
+		decoded.size() == 23)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2554,6 +2564,8 @@ int main()
 			std::get<ExchangePositionsCommand>(decoded[20].command);
 		const auto& weaponReady =
 			std::get<SetWeaponReadyCommand>(decoded[21].command);
+		const auto& cancelDrag =
+			std::get<CancelDragCommand>(decoded[22].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2639,7 +2651,9 @@ int main()
 			weaponReady.soldier == firstIncarnation &&
 			weaponReady.direction == 6 && weaponReady.ready &&
 			weaponReady.alternativeHold &&
-			weaponReady.source == SimulationCommandSource::NetworkPeer;
+			weaponReady.source == SimulationCommandSource::NetworkPeer &&
+			cancelDrag.soldier == reusedSlot &&
+			cancelDrag.source == SimulationCommandSource::LocalPlayer;
 	}
 	check(decodedFields,
 		"current commands preserve movement, weapon, traversal, world-item, and peer-interaction intent");
@@ -2887,6 +2901,23 @@ int main()
 			malformedWeaponReadyFlags,
 			SimulationCommandJournalDecodeResult::Invalid),
 		"weapon-ready decoding rejects invalid directions and unknown flags transactionally");
+
+	std::vector<RecordedSimulationCommand> oneCancelDrag{recorded[22]};
+	std::vector<std::uint8_t> unresolvedCancelDrag;
+	const bool encodedCancelDragCommand =
+		EncodeSimulationCommandJournal(
+			oneCancelDrag, 0, unresolvedCancelDrag) &&
+		unresolvedCancelDrag.size() == 43;
+	if (encodedCancelDragCommand)
+	{
+		for (std::size_t offset = 38; offset <= 41; ++offset)
+			unresolvedCancelDrag[offset] = 0;
+	}
+	check(encodedCancelDragCommand &&
+		RejectsJournalWithoutPublishing(
+			unresolvedCancelDrag,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"cancel-drag decoding rejects unresolved actor identities transactionally");
 
 	std::vector<RecordedSimulationCommand> oneTraversal{recorded[11]};
 	std::vector<std::uint8_t> encodedTraversal;

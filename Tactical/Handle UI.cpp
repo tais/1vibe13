@@ -3958,7 +3958,6 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		if ( SoldierCanAffordNewStance( pSoldier, bNewStance ) )
 		{
 			// Adjust stance
-			//pSoldier->ChangeSoldierStance( bNewStance );
 			if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
 				return;
 
@@ -3986,28 +3985,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	// If realtime- change walking animation!
 	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
 	{
-
-		// If we are stationary, do something else!
-		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY )
-		{
-			// Change stance normally
-			if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
-				return;
-		}
-		else
-		{
-			// Pick moving animation based on stance
-
-			// LOCK VARIBLE FOR NO UPDATE INDEX...
-			pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( bNewStance );
-			pSoldier->ubDesiredHeight = NO_DESIRED_HEIGHT;
-
-			{
-				pSoldier->usDontUpdateNewGridNoOnMoveAnimChange = 1;
-			}
-
-			pSoldier->ChangeSoldierState( pSoldier->usUIMovementMode, 0, FALSE );
-		}
+		if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
+			return;
 
 		// sevenfm: switch from alt weapon holding when changing stance in realtime
 		if (pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||

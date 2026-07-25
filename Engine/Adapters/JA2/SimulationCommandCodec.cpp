@@ -35,7 +35,8 @@ enum class CommandTag : std::uint8_t
 	PickupWorldItem = 18,
 	StealFromActor = 19,
 	ExchangePositions = 20,
-	SetWeaponReady = 21
+	SetWeaponReady = 21,
+	CancelDrag = 22
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -144,6 +145,13 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 		else if constexpr (std::is_same<Command, StopMovementCommand>::value)
 		{
 			writer.writeU8(static_cast<std::uint8_t>(CommandTag::StopMovement));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, CancelDragCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::CancelDrag));
 			writer.writeU16(value.soldier.slot);
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
@@ -414,6 +422,16 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 		case CommandTag::StopMovement:
 		{
 			StopMovementCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() || !ReadSource(reader, value.source))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::CancelDrag:
+		{
+			CancelDragCommand value{};
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
 				!value.soldier.valid() || !ReadSource(reader, value.source))

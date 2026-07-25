@@ -440,7 +440,7 @@ the engine must not contain SDL types in its public domain model.
   reserves a version field, but no speculative historical decoders are carried
   before a format has actually shipped.
   Firearm actions, player weapon mode, scope, reload, and ready/lower controls,
-  obstacle traversal, world-object
+  stance changes, drag cancellation, obstacle traversal, world-object
   interaction, conversation, vehicle entry, player stealing and position
   exchange, and player world-item pickup enter this gateway before the
   compatibility executor queues events or invokes the established inventory,
@@ -454,6 +454,9 @@ the engine must not contain SDL types in its public domain model.
   mismatched peer is rejected without consuming a command sequence or frame
   budget. Replay, network, and package ingress remain pointer-free and submit
   the same public command values.
+  The stance executor also owns the established real-time moving-animation
+  transition; UI code no longer rewrites movement mode, desired height, and
+  animation bookkeeping after deciding on a stance.
   AI retaliation, dialogue scripting,
   equipment-driven mode correction, automatic/pathfinding door handling,
   pathfinding traversal, and multi-merc bulk reload remain local mechanics

@@ -2226,8 +2226,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				gusSelectedSoldier &&
 				gusSelectedSoldier->IsDragging())
 			{
-				gusSelectedSoldier->CancelDrag();
-				DirtyMercPanelInterface(gusSelectedSoldier, DIRTYLEVEL2);
+				if (TryDispatchCancelDragCommandNow(*gusSelectedSoldier))
+					DirtyMercPanelInterface(
+						gusSelectedSoldier, DIRTYLEVEL2);
 				continue;
 			}
 

@@ -231,6 +231,30 @@ foreach(player_command_ingress_file IN LISTS player_command_ingress_files)
   endif()
 endforeach()
 
+# Stance intent owns both stationary events and real-time moving-animation
+# transitions inside the compatibility executor. Escape-driven drag
+# cancellation is an actor command as well; UI code may react to an Applied
+# result but may not mutate either gameplay state directly.
+file(READ "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  player_stance_input_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])ChangeSoldierState[ \t\r\n]*\\(|usDontUpdateNewGridNoOnMoveAnimChange"
+  direct_player_stance_transition "${player_stance_input_contents}")
+if(direct_player_stance_transition)
+  message(FATAL_ERROR
+    "Player stance input bypasses the SimulationCommand executor in Tactical/Handle UI.cpp")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  player_drag_input_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])CancelDrag[ \t\r\n]*\\("
+  direct_player_drag_cancellation "${player_drag_input_contents}")
+if(direct_player_drag_cancellation)
+  message(FATAL_ERROR
+    "Player drag cancellation bypasses SimulationCommand in Tactical/Turn Based Input.cpp")
+endif()
+
 # Player peer interactions must cross the stable two-actor command boundary.
 # AI/path obstruction swaps remain compatibility mechanics in their own
 # subsystems, but UI input may not retain raw target pointers across execution.

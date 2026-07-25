@@ -153,6 +153,10 @@ SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
 	SOLDIERTYPE& soldier,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
+SimulationCommandDispatchResult TryDispatchCancelDragCommandNow(
+	SOLDIERTYPE& soldier,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
 SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
 	SOLDIERTYPE& soldier,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
@@ -285,6 +289,11 @@ SimulationCommandDispatchResult TryDispatchSetStealthModeCommandNow(
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
 SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchCancelDragCommandNow(
 	std::uint16_t soldierId,
 	std::uint32_t uniqueSoldierId,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;

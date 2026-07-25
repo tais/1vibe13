@@ -773,6 +773,8 @@ int main()
 		actorId, true, SimulationCommandSource::LocalPlayer}};
 	const SimulationCommand externalStop{StopMovementCommand{
 		actorId, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalCancelDrag{CancelDragCommand{
+		actorId, SimulationCommandSource::LocalPlayer}};
 	const SimulationCommand externalWeaponMode{CycleWeaponModeCommand{
 		actorId, SimulationCommandSource::LocalPlayer}};
 	const SimulationCommand externalScopeMode{CycleScopeModeCommand{
@@ -816,6 +818,7 @@ int main()
 	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
 		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
 		!std::holds_alternative<StopMovementCommand>(externalStop) ||
+		!std::holds_alternative<CancelDragCommand>(externalCancelDrag) ||
 		!std::holds_alternative<CycleWeaponModeCommand>(externalWeaponMode) ||
 		!std::holds_alternative<CycleScopeModeCommand>(externalScopeMode) ||
 		!std::holds_alternative<ReloadWeaponCommand>(externalReload) ||
