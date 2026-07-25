@@ -399,6 +399,13 @@ the engine must not contain SDL types in its public domain model.
   released or replaced slot therefore cancels actor-specific work instead of
   redirecting it to the new occupant. Dialogue-independent fact checks do not
   pay for those resolutions.
+- Facility staffing and militia-training confirmations retain exact actor
+  incarnations in private, one-shot prompt contexts. Militia prompts also
+  snapshot their start/continue mode, sector, quoted total, and promotion-cost
+  multiplier, so a later callback cannot be redirected by shared globals and
+  every confirmed sector is charged at the displayed rate. These unsaved modal
+  contexts are discarded at the load boundary; game-data and save layouts are
+  unchanged.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard

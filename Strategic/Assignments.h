@@ -592,11 +592,11 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 void HandleInterfaceMessageForCostOfOperatingFacility( SOLDIERTYPE *pSoldier, UINT8 ubAssignmentType );
 void PayFacilityCostsYesNoBoxCallback( UINT8 bExitValue );
 void FacilityStaffingRejected( void );
+void ResetFacilityStaffingPromptContext( void );
 void ResetAllExpensiveFacilityAssignments();
 BOOLEAN IsOutstandingFacilityDebtWithErrorReport();
 extern INT8 gubFacilityInSubmenu;
 extern UINT8 gubFacilityLineForSubmenu;
-extern SOLDIERTYPE *gpFacilityStaffer;
 
 // SANDRO - function to award record points for militia training
 void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 sZ, UINT8 ubMilitiaTrained );

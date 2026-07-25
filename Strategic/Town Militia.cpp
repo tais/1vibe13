@@ -28,6 +28,7 @@
 	#include "Campaign.h"						// added by Flugente
 	#include "message.h"						// added by Flugente
 	#include "Rebel Command.h"
+	#include "TacticalEntityHost.h"
 
 // HEADROCK HAM 3: include these files so that a militia trainer's Effective Leadership can be determined. Used
 // to determine the number of militia trained by this merc per session. In the future may also determine QUALITY
@@ -43,15 +44,79 @@ UINT8 gubTownSectorServerTownId = BLANK_SECTOR;
 INT16 gsTownSectorServerSkipX = -1;
 INT16	gsTownSectorServerSkipY = -1;
 UINT8 gubTownSectorServerIndex = 0;
-BOOLEAN gfYesNoPromptIsForContinue = FALSE;		// this flag remembers whether we're starting new training, or continuing
-INT32 giTotalCostOfTraining = 0;
-BOOLEAN gfAreWePromotingGreen = FALSE;
-BOOLEAN gfAreWePromotingRegular = FALSE;
 
 
 //the completed list of sector soldiers for training militia
 SoldierID giListOfMercsInSectorsCompletedMilitiaTraining[ SIZE_OF_MILITIA_COMPLETED_TRAINING_LIST ];
-SOLDIERTYPE *pMilitiaTrainerSoldier = NULL;
+
+namespace
+{
+struct MilitiaTrainingPromptContext
+{
+	Ja2TacticalEntityReference trainer;
+	BOOLEAN continuation = FALSE;
+	UINT8 militiaType = 0;
+	INT16 sectorX = 0;
+	INT16 sectorY = 0;
+	INT32 totalCost = 0;
+	INT32 costMultiplier = 1;
+
+	bool begin(
+		SOLDIERTYPE* selectedTrainer,
+		BOOLEAN isContinuation,
+		UINT8 selectedMilitiaType) noexcept
+	{
+		if (trainer.valid())
+			return false;
+
+		Ja2TacticalEntityReference capturedTrainer;
+		if (!capturedTrainer.capture(selectedTrainer))
+			return false;
+
+		trainer = capturedTrainer;
+		continuation = isContinuation;
+		militiaType = selectedMilitiaType;
+		sectorX = selectedTrainer->sSectorX;
+		sectorY = selectedTrainer->sSectorY;
+		totalCost = 0;
+		costMultiplier = 1;
+		return true;
+	}
+
+	void setPayment(
+		INT32 selectedTotalCost,
+		INT32 selectedCostMultiplier) noexcept
+	{
+		totalCost = selectedTotalCost;
+		costMultiplier = selectedCostMultiplier;
+	}
+
+	void reset() noexcept
+	{
+		trainer.reset();
+		continuation = FALSE;
+		militiaType = 0;
+		sectorX = 0;
+		sectorY = 0;
+		totalCost = 0;
+		costMultiplier = 1;
+	}
+
+	bool active() const noexcept { return trainer.valid(); }
+};
+
+MilitiaTrainingPromptContext gMilitiaTrainingPrompt;
+}
+
+BOOLEAN IsMilitiaTrainingPromptActive( void )
+{
+	return gMilitiaTrainingPrompt.active() ? TRUE : FALSE;
+}
+
+void ResetMilitiaTrainingPromptContext( void )
+{
+	gMilitiaTrainingPrompt.reset();
+}
 
 // note that these sector values are STRATEGIC INDEXES, not 0-255!
 INT16 gsUnpaidStrategicSector[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
@@ -81,7 +146,8 @@ BOOLEAN gfMilitiaAllowedInTown[MAX_TOWNS] =
 void PayMilitiaTrainingYesNoBoxCallback( UINT8 bExitValue );
 void CantTrainMilitiaOkBoxCallback( UINT8 bExitValue );
 
-void PayForTrainingInSector( UINT8 ubSector );
+void PayForTrainingInSector(
+	UINT8 ubSector, UINT8 ubMilitiaType, INT32 costMultiplier );
 
 void InitFriendlyTownSectorServer(UINT8 ubTownId, INT16 sSkipSectorX, INT16 sSkipSectorY);
 BOOLEAN ServeNextFriendlySectorInTown( INT16 *sNeighbourX, INT16 *sNeighbourY );
@@ -90,10 +156,13 @@ BOOLEAN ServeNextFriendlySectorInTown( INT16 *sNeighbourX, INT16 *sNeighbourY );
 // Garrison Militia payment versus Mobile Militie payment.
 void BuildListOfUnpaidTrainableSectors( UINT8 ubMilitiaType );
 INT32 GetNumberOfUnpaidTrainableSectors( UINT8 ubMilitiaType );
-void ContinueTrainingInThisSector( UINT8 ubMilitiaType );
-void StartTrainingInAllUnpaidTrainableSectors( UINT8 ubMilitiaType );
+void ContinueTrainingInThisSector(
+	UINT8 ubMilitiaType, INT16 sectorX, INT16 sectorY,
+	INT32 costMultiplier );
+void StartTrainingInAllUnpaidTrainableSectors(
+	UINT8 ubMilitiaType, INT32 costMultiplier );
 void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitiaType );
-void MilitiaTrainingRejected( UINT8 ubMilitiaType );
+void MilitiaTrainingRejected( void );
 
 // HEADROCK HAM 3.6: Total upkeep costs for keeping militia.
 UINT32 guiTotalUpkeepForMilitia = 0;
@@ -836,8 +905,11 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
 	CHAR16 sString[ 128 ];
 	SGPRect pCenteringRect= {0 + xResOffset, 0, SCREEN_WIDTH - xResOffset, INV_INTERFACE_START_Y };
 	INT32 iNumberOfSectors = 0;
+	INT32 totalCost = 0;
+	INT32 costMultiplier = 1;
 
-	pMilitiaTrainerSoldier = pSoldier;
+	if (!pSoldier || gMilitiaTrainingPrompt.active())
+		return;
 
 	// HEADROCK HAM 3.6: Which kind of militia are we training?
 	UINT8 ubMilitiaType = 0;
@@ -849,6 +921,8 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
 	// grab total number of sectors
 	iNumberOfSectors = GetNumberOfUnpaidTrainableSectors( ubMilitiaType );
 	Assert( iNumberOfSectors > 0 );
+	if (iNumberOfSectors <= 0)
+		return;
 	
 	// get total cost
 	if (ubMilitiaType == TOWN_MILITIA) // Garrison
@@ -856,34 +930,34 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
 		// If Regulars are maxed, and Elites are allowed, calculate cost to upgrade Regular->Elite
 		if (IsMilitiaTrainableFromSoldiersSectorMaxed( pSoldier, REGULAR_MILITIA )
 		&& (gGameExternalOptions.gfTrainVeteranMilitia)
-		&& (GetWorldDay( ) >= gGameExternalOptions.guiTrainVeteranMilitiaDelay))
-		{
-			giTotalCostOfTraining = (iMilitiaTrainingCost*gGameExternalOptions.iVeteranCostModifier) * iNumberOfSectors;
-			Assert( giTotalCostOfTraining > 0 );
-			gfAreWePromotingRegular = TRUE;
+			&& (GetWorldDay( ) >= gGameExternalOptions.guiTrainVeteranMilitiaDelay))
+			{
+				costMultiplier =
+					gGameExternalOptions.iVeteranCostModifier;
+			}
+			else if (IsMilitiaTrainableFromSoldiersSectorMaxed( pSoldier, GREEN_MILITIA ))
+			{
+				costMultiplier =
+					gGameExternalOptions.iRegularCostModifier;
+			}
+			totalCost =
+				(iMilitiaTrainingCost * costMultiplier) *
+				iNumberOfSectors;
+			Assert( totalCost > 0 );
 		}
-		else if (IsMilitiaTrainableFromSoldiersSectorMaxed( pSoldier, GREEN_MILITIA ))
-		{
-			giTotalCostOfTraining = (iMilitiaTrainingCost*gGameExternalOptions.iRegularCostModifier) * iNumberOfSectors;
-			Assert( giTotalCostOfTraining > 0 );
-			gfAreWePromotingGreen = TRUE;
-		}
-		// Normal training.
-		else
-		{
-			giTotalCostOfTraining = iMilitiaTrainingCost * iNumberOfSectors;
-			Assert( giTotalCostOfTraining > 0 );
-		}
-	}
 
-	gfYesNoPromptIsForContinue = FALSE;
+	if (!gMilitiaTrainingPrompt.begin(
+			pSoldier, FALSE, ubMilitiaType))
+		return;
+	gMilitiaTrainingPrompt.setPayment(
+		totalCost, costMultiplier);
 
-	if( LaptopSaveInfo.iCurrentBalance < giTotalCostOfTraining )
+	if( LaptopSaveInfo.iCurrentBalance < totalCost )
 	{
 		// Different message for Mobiles
 		if (ubMilitiaType == TOWN_MILITIA)
 		{
-			swprintf( sString, pMilitiaConfirmStrings[ 8 ], giTotalCostOfTraining );
+			swprintf( sString, pMilitiaConfirmStrings[ 8 ], totalCost );
 			DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, CantTrainMilitiaOkBoxCallback );
 		}
 		return;
@@ -894,11 +968,11 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
 	{
 		if ( iNumberOfSectors > 1 )
 		{
-			swprintf( sString, pMilitiaConfirmStrings[7], iNumberOfSectors, giTotalCostOfTraining, pMilitiaConfirmStrings[1] );
+				swprintf( sString, pMilitiaConfirmStrings[7], iNumberOfSectors, totalCost, pMilitiaConfirmStrings[1] );
 		}
 		else
 		{
-			swprintf( sString, L"%s%d. %s", pMilitiaConfirmStrings[0], giTotalCostOfTraining, pMilitiaConfirmStrings[1] );
+				swprintf( sString, L"%s%d. %s", pMilitiaConfirmStrings[0], totalCost, pMilitiaConfirmStrings[1] );
 		}
 
 		// if we are in mapscreen, make a pop up
@@ -928,37 +1002,33 @@ void DoContinueMilitiaTrainingMessageBox( INT16 sSectorX, INT16 sSectorY, const 
 void HandleInterfaceMessageForContinuingTrainingMilitia( SOLDIERTYPE *pSoldier )
 {
 	CHAR16 sString[ 128 ];
-	INT16 sSectorX = 0, sSectorY = 0;
 	CHAR16 sStringB[ 128 ];
-	INT8 bTownId;
-	BOOLEAN fIsFull = FALSE;
-	INT32 iCounter = 0;
-
 	INT32 iMinLoyaltyToTrain = gGameExternalOptions.iMinLoyaltyToTrain;
 	INT32 iMilitiaTrainingCost = gGameExternalOptions.iMilitiaTrainingCost * RebelCommand::GetMilitiaTrainingCostModifier();
 
 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 
-	sSectorX = pSoldier->sSectorX;
-	sSectorY = pSoldier->sSectorY;
+	if (!pSoldier || gMilitiaTrainingPrompt.active() ||
+		pSoldier->bAssignment != TRAIN_TOWN)
+		return;
 
-	bTownId = GetTownIdForSector( sSectorX, sSectorY );
+	const INT16 sSectorX = pSoldier->sSectorX;
+	const INT16 sSectorY = pSoldier->sSectorY;
+	const INT8 bTownId = GetTownIdForSector( sSectorX, sSectorY );
+	const UINT8 ubMilitiaType = TOWN_MILITIA;
 
-	UINT8 ubMilitiaType = 0;
-	if (pSoldier->bAssignment == TRAIN_TOWN)
+	if (!gMilitiaTrainingPrompt.begin(
+			pSoldier, TRUE, ubMilitiaType))
+		return;
+
+	const UINT8 ubSector = SECTOR( sSectorX, sSectorY );
+	Assert( SectorInfo[ ubSector ].fMilitiaTrainingPaid == FALSE );
+	if (SectorInfo[ ubSector ].fMilitiaTrainingPaid != FALSE)
 	{
-		ubMilitiaType = TOWN_MILITIA;
+		gMilitiaTrainingPrompt.reset();
+		return;
 	}
 
-	if (ubMilitiaType == TOWN_MILITIA)
-	{
-		Assert( SectorInfo[ SECTOR( sSectorX, sSectorY ) ].fMilitiaTrainingPaid == FALSE );
-	}
-
-	pMilitiaTrainerSoldier = pSoldier;
-
-	gfYesNoPromptIsForContinue = TRUE;
-	
 	// is there enough loyalty to continue training
 	if( DoesSectorMercIsInHaveSufficientLoyaltyToTrainMilitia( pSoldier ) == FALSE )
 	{
@@ -990,31 +1060,32 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 		DoContinueMilitiaTrainingMessageBox( sSectorX, sSectorY, sString, MSG_BOX_FLAG_OK, CantTrainMilitiaOkBoxCallback );
 		return;
 	}
-			
+
+	INT32 costMultiplier = 1;
 	{
 		if (IsMilitiaTrainableFromSoldiersSectorMaxed( pSoldier, REGULAR_MILITIA )
 			&& (gGameExternalOptions.gfTrainVeteranMilitia)
 			&& (GetWorldDay( ) >= gGameExternalOptions.guiTrainVeteranMilitiaDelay))
 		{
-			giTotalCostOfTraining = (iMilitiaTrainingCost*gGameExternalOptions.iVeteranCostModifier);
-			gfAreWePromotingRegular = TRUE;
+			costMultiplier =
+				gGameExternalOptions.iVeteranCostModifier;
 		}
 		else if (IsMilitiaTrainableFromSoldiersSectorMaxed( pSoldier, GREEN_MILITIA ))
 		{
-			giTotalCostOfTraining = (iMilitiaTrainingCost*gGameExternalOptions.iRegularCostModifier);
-			gfAreWePromotingGreen = TRUE;
-		}
-		else
-		{
-			giTotalCostOfTraining = (iMilitiaTrainingCost);
+			costMultiplier =
+				gGameExternalOptions.iRegularCostModifier;
 		}
 	}
+	const INT32 totalCost =
+		iMilitiaTrainingCost * costMultiplier;
+	gMilitiaTrainingPrompt.setPayment(
+		totalCost, costMultiplier);
 
 	// can player afford to continue training?
-	if( LaptopSaveInfo.iCurrentBalance < giTotalCostOfTraining )
+	if( LaptopSaveInfo.iCurrentBalance < totalCost )
 	{
 		// can't afford to continue training
-		swprintf( sString, pMilitiaConfirmStrings[ 8 ], giTotalCostOfTraining );
+		swprintf( sString, pMilitiaConfirmStrings[ 8 ], totalCost );
 		if (ubMilitiaType == TOWN_MILITIA)
 		{
 			DoContinueMilitiaTrainingMessageBox( sSectorX, sSectorY, sString, MSG_BOX_FLAG_OK, CantTrainMilitiaOkBoxCallback );
@@ -1027,7 +1098,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 	GetSectorIDString( sSectorX, sSectorY, 0, sStringB, TRUE );
 	if (ubMilitiaType == TOWN_MILITIA)
 	{
-		swprintf( sString, pMilitiaConfirmStrings[ 3 ], sStringB, pMilitiaConfirmStrings[ 4 ], giTotalCostOfTraining );
+		swprintf( sString, pMilitiaConfirmStrings[ 3 ], sStringB, pMilitiaConfirmStrings[ 4 ], totalCost );
 	}
 
 	// ask player whether he'd like to continue training
@@ -1038,36 +1109,69 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 	}
 }
 
-// IMPORTANT: This same callback is used both for initial training and for continue training prompt
-// use 'gfYesNoPromptIsForContinue' flag to tell them apart
+// IMPORTANT: This same callback is used both for initial training and for
+// continuing training. The private prompt context owns the distinction,
+// quoted price, and exact actor incarnation until the answer arrives.
 void PayMilitiaTrainingYesNoBoxCallback( UINT8 bExitValue )
 {
 	CHAR16 sString[ 128 ];
 
-	Assert( giTotalCostOfTraining > 0 );
+	if (!gMilitiaTrainingPrompt.active())
+		return;
+
+	SOLDIERTYPE* trainer =
+		gMilitiaTrainingPrompt.trainer.resolve();
+	if (!trainer ||
+		trainer->bAssignment != TRAIN_TOWN ||
+		trainer->sSectorX != gMilitiaTrainingPrompt.sectorX ||
+		trainer->sSectorY != gMilitiaTrainingPrompt.sectorY)
+	{
+		MilitiaTrainingRejected();
+		return;
+	}
+
+	Assert( gMilitiaTrainingPrompt.totalCost > 0 );
+	if (gMilitiaTrainingPrompt.totalCost <= 0)
+	{
+		MilitiaTrainingRejected();
+		return;
+	}
 
 	// yes
 	if( bExitValue == MSG_BOX_RETURN_YES )
 	{
 		// does the player have enough
-		if( LaptopSaveInfo.iCurrentBalance >= giTotalCostOfTraining )
+		if( LaptopSaveInfo.iCurrentBalance >=
+			gMilitiaTrainingPrompt.totalCost )
 		{
-			if( gfYesNoPromptIsForContinue )
+			const BOOLEAN continuation =
+				gMilitiaTrainingPrompt.continuation;
+			const UINT8 militiaType =
+				gMilitiaTrainingPrompt.militiaType;
+			const INT16 sectorX =
+				gMilitiaTrainingPrompt.sectorX;
+			const INT16 sectorY =
+				gMilitiaTrainingPrompt.sectorY;
+			const INT32 costMultiplier =
+				gMilitiaTrainingPrompt.costMultiplier;
+			gMilitiaTrainingPrompt.reset();
+
+			if( continuation )
 			{
-				ContinueTrainingInThisSector( TOWN_MILITIA );
+				ContinueTrainingInThisSector(
+					militiaType, sectorX, sectorY,
+					costMultiplier );
 			}
 			else
 			{
-				StartTrainingInAllUnpaidTrainableSectors( TOWN_MILITIA );
+				StartTrainingInAllUnpaidTrainableSectors(
+					militiaType, costMultiplier );
 			}
 
 #ifdef JA2BETAVERSION
 			// put this BEFORE training gets handled to avoid detecting an error everytime a sector completes training
 			VerifyTownTrainingIsPaidFor();
 #endif
-
-			// this completes the training prompt sequence
-			pMilitiaTrainerSoldier = NULL;
 		}
 		else	// can't afford it
 		{
@@ -1081,29 +1185,46 @@ void PayMilitiaTrainingYesNoBoxCallback( UINT8 bExitValue )
 	{
 		StopTimeCompression();
 
-		MilitiaTrainingRejected( TOWN_MILITIA );
+		MilitiaTrainingRejected();
+	}
+	else
+	{
+		MilitiaTrainingRejected();
 	}
 }
 
 
 void CantTrainMilitiaOkBoxCallback( UINT8 bExitValue )
 {
-	MilitiaTrainingRejected( TOWN_MILITIA );
+	MilitiaTrainingRejected();
 }
 
-// IMPORTANT: This same callback is used both for initial training and for continue training prompt
-// use 'gfYesNoPromptIsForContinue' flag to tell them apart
-void MilitiaTrainingRejected( UINT8 ubMilitiaType )
+void MilitiaTrainingRejected( void )
 {
-	if( gfYesNoPromptIsForContinue )
+	if (!gMilitiaTrainingPrompt.active())
+		return;
+
+	const BOOLEAN continuation =
+		gMilitiaTrainingPrompt.continuation;
+	const UINT8 militiaType =
+		gMilitiaTrainingPrompt.militiaType;
+	const INT16 sectorX =
+		gMilitiaTrainingPrompt.sectorX;
+	const INT16 sectorY =
+		gMilitiaTrainingPrompt.sectorY;
+	gMilitiaTrainingPrompt.reset();
+
+	if( continuation )
 	{
 		// take all mercs in that sector off militia training
-		ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector( pMilitiaTrainerSoldier->sSectorX, pMilitiaTrainerSoldier->sSectorY, ubMilitiaType );
+		ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector(
+			sectorX, sectorY, militiaType );
 	}
 	else
 	{
 		// take all mercs in unpaid sectors EVERYWHERE off militia training
-		ResetAssignmentsForMercsTrainingUnpaidSectorsInSelectedList( ubMilitiaType );
+		ResetAssignmentsForMercsTrainingUnpaidSectorsInSelectedList(
+			militiaType );
 	}
 
 #ifdef JA2BETAVERSION
@@ -1111,9 +1232,6 @@ void MilitiaTrainingRejected( UINT8 ubMilitiaType )
 	// HEADROCK HAM 3.6: Checks Mobiles and Garrisons
 	VerifyTownTrainingIsPaidFor();
 #endif
-
-	// this completes the training prompt sequence
-	pMilitiaTrainerSoldier = NULL;
 }
 
 void HandleMilitiaStatusInCurrentMapBeforeLoadingNewMap( void )
@@ -1602,7 +1720,8 @@ INT32 GetNumberOfUnpaidTrainableSectors( UINT8 ubMilitiaType )
 
 }
 
-void StartTrainingInAllUnpaidTrainableSectors( UINT8 ubMilitiaType )
+void StartTrainingInAllUnpaidTrainableSectors(
+	UINT8 ubMilitiaType, INT32 costMultiplier )
 {
 	INT32 iCounter = 0;
 	UINT8 ubSector;
@@ -1621,55 +1740,44 @@ void StartTrainingInAllUnpaidTrainableSectors( UINT8 ubMilitiaType )
 		{
 			// convert strategic sector to 0-255 system
 			ubSector = STRATEGIC_INDEX_TO_SECTOR_INFO( gsUnpaidStrategicSector[ iCounter ] );
-			PayForTrainingInSector( ubSector );
+			PayForTrainingInSector(
+				ubSector, ubMilitiaType, costMultiplier );
 		}
 	}
 }
 
-void ContinueTrainingInThisSector( UINT8 ubMilitiaType )
+void ContinueTrainingInThisSector(
+	UINT8 ubMilitiaType, INT16 sectorX, INT16 sectorY,
+	INT32 costMultiplier )
 {
-	UINT8 ubSector;
-
-	Assert( pMilitiaTrainerSoldier );
-
-	// pay up in the sector where pMilitiaTrainerSoldier is
-	ubSector = SECTOR( pMilitiaTrainerSoldier->sSectorX, pMilitiaTrainerSoldier->sSectorY );
-	PayForTrainingInSector( ubSector );
+	const UINT8 ubSector = SECTOR( sectorX, sectorY );
+	PayForTrainingInSector(
+		ubSector, ubMilitiaType, costMultiplier );
 }
 
 
-void PayForTrainingInSector( UINT8 ubSector )
+void PayForTrainingInSector(
+	UINT8 ubSector, UINT8 ubMilitiaType,
+	INT32 costMultiplier )
 {
 	INT32 iMilitiaTrainingCost = gGameExternalOptions.iMilitiaTrainingCost * RebelCommand::GetMilitiaTrainingCostModifier();
 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia6");
 
-	INT32 CostMultiplyer = 0;
-	UINT8 ubMilitiaType = 0;
+	Assert( ubMilitiaType == TOWN_MILITIA );
+	Assert( costMultiplier > 0 );
+	Assert( SectorInfo[ ubSector ].fMilitiaTrainingPaid == FALSE );
+	if (ubMilitiaType != TOWN_MILITIA ||
+		costMultiplier <= 0 ||
+		SectorInfo[ ubSector ].fMilitiaTrainingPaid != FALSE)
+		return;
 
-	// spend the money
-	
-	{
-		Assert( SectorInfo[ ubSector ].fMilitiaTrainingPaid == FALSE );
-		if ( gfAreWePromotingGreen)
-		{
-			CostMultiplyer = gGameExternalOptions.iRegularCostModifier;
-			gfAreWePromotingGreen = FALSE;
-		}
-		else if ( gfAreWePromotingRegular)
-		{
-			CostMultiplyer = gGameExternalOptions.iVeteranCostModifier;
-			gfAreWePromotingRegular = FALSE;
-		}
-		else
-		{
-			CostMultiplyer = 1;
-		}
-		// Mark sector as having paid
-		SectorInfo[ ubSector ].fMilitiaTrainingPaid = TRUE;
-		ubMilitiaType = TOWN_MILITIA;
-	}
+	// Mark the sector paid before resuming its trainers. The multiplier is the
+	// same immutable price quoted by the confirmation prompt.
+	SectorInfo[ ubSector ].fMilitiaTrainingPaid = TRUE;
 
-	AddTransactionToPlayersBook( TRAIN_TOWN_MILITIA, ubSector, GetWorldTotalMin(), -( iMilitiaTrainingCost*CostMultiplyer ) );
+	AddTransactionToPlayersBook(
+		TRAIN_TOWN_MILITIA, ubSector, GetWorldTotalMin(),
+		-( iMilitiaTrainingCost * costMultiplier ) );
 
 	// reset done flags
 	ResetDoneFlagForAllMilitiaTrainersInSector( ubSector, ubMilitiaType );

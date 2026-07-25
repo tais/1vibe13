@@ -348,6 +348,27 @@ foreach(active_dialogue_actor_file IN LISTS active_dialogue_actor_files)
   endif()
 endforeach()
 
+# Facility and militia message-box callbacks retain immutable private prompt
+# contexts. Actor identities must resolve through the tactical entity host, and
+# the militia quote/mode may not return as independently mutable globals.
+set(strategic_assignment_prompt_files
+  "${SOURCE_ROOT}/Strategic/Assignments.cpp"
+  "${SOURCE_ROOT}/Strategic/Assignments.h"
+  "${SOURCE_ROOT}/Strategic/Town Militia.cpp"
+  "${SOURCE_ROOT}/Strategic/Town Militia.h")
+foreach(strategic_assignment_prompt_file IN LISTS strategic_assignment_prompt_files)
+  file(READ "${strategic_assignment_prompt_file}"
+    strategic_assignment_prompt_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(gpFacilityStaffer|pMilitiaTrainerSoldier|gfYesNoPromptIsForContinue|giTotalCostOfTraining|gfAreWePromotingGreen|gfAreWePromotingRegular)([^A-Za-z0-9_]|$)"
+    raw_strategic_assignment_prompt_state
+    "${strategic_assignment_prompt_contents}")
+  if(raw_strategic_assignment_prompt_state)
+    message(FATAL_ERROR
+      "Strategic assignment prompt retains raw shared callback state in ${strategic_assignment_prompt_file}")
+  endif()
+endforeach()
+
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
 # deterministic command boundary. Internal weapon compatibility corrections,
 # AI retaliation, attachment changes, and the existing multi-merc bulk reload
