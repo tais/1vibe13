@@ -101,6 +101,7 @@
 #include "Animation Control.h"
 #include "Map Information.h"
 #include "Overhead.h"
+#include "Vehicles.h"
 #include "strategicmap.h"
 #include "MovementDestinationPolicy.h"
 #include "Rain.h"
@@ -1812,6 +1813,7 @@ int main( int, char** )
 
 	{
 		const TacticalEntityId actor{ 1, 101 };
+		const TacticalEntityId target{ 2, 202 };
 		const SimulationCommand validMove{ MoveToGridCommand{
 			actor, 100, WALKING, false, false,
 			SimulationCommandSource::LocalPlayer } };
@@ -1918,10 +1920,74 @@ int main( int, char** )
 					101, NUMANIMATIONSTATES, false, false,
 					SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidMovementMode &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				StartConversationCommand{
+					actor, target, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				StartConversationCommand{
+					actor, actor, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidTargetActor &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ApproachConversationCommand{
+					actor, target, WORLD_MAX, WALKING, false,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDestinationGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				EnterVehicleCommand{
+					actor, target, TacticalDirectionCount, 0,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDirection &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				EnterVehicleCommand{
+					actor, target, 3, TacticalMaximumVehicleSeats,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidVehicleSeat &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ApproachVehicleCommand{
+					actor, target, 3, 0, 101, NUMANIMATIONSTATES, false,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidMovementMode &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
-			"all tactical execution paths share complete value-domain validation" );
+				"all tactical execution paths share complete value-domain validation" );
+	}
+
+	{
+		VEHICLETYPE* const previousVehicleList = pVehicleList;
+		const UINT8 previousVehicleCount = ubNumberOfVehicles;
+		const INT32 previousCapacity =
+			gNewVehicle[0].iNewSeatingCapacities;
+		VEHICLETYPE vehicleRecord = {};
+		vehicleRecord.fValid = TRUE;
+		vehicleRecord.ubVehicleType = 0;
+		pVehicleList = &vehicleRecord;
+		ubNumberOfVehicles = 1;
+		gNewVehicle[0].iNewSeatingCapacities = 2;
+		SOLDIERTYPE vehicle;
+		vehicle.flags.uiStatusFlags |= SOLDIER_VEHICLE;
+		vehicle.bVehicleID = 0;
+		SOLDIERTYPE passenger;
+		const bool acceptedBoundedCapacity =
+			GetVehicleSeatingCapacity( 0 ) == 2;
+		const bool rejectedLegacyEntrySeat =
+			EnterVehicle(
+				&vehicle, &passenger, TacticalMaximumVehicleSeats ) == FALSE;
+		const bool rejectedLegacyAddSeat =
+			AddSoldierToVehicle(
+				&passenger, 0, TacticalMaximumVehicleSeats ) == FALSE;
+		gNewVehicle[0].iNewSeatingCapacities = MAXPASSENGERS + 1;
+		const bool rejectedMalformedCapacity =
+			GetVehicleSeatingCapacity( 0 ) == 0 &&
+			GetNumberInVehicle( 0 ) == 0 &&
+			EnterVehicle( &vehicle, &passenger, 0 ) == FALSE;
+		pVehicleList = previousVehicleList;
+		ubNumberOfVehicles = previousVehicleCount;
+		gNewVehicle[0].iNewSeatingCapacities = previousCapacity;
+		CHECK( acceptedBoundedCapacity && rejectedLegacyEntrySeat &&
+		       rejectedLegacyAddSeat && rejectedMalformedCapacity,
+		       "legacy vehicle entry validates seat capacity before indexing passenger storage" );
 	}
 
 	{
@@ -3161,6 +3227,29 @@ int main( int, char** )
 					staleActor, TacticalWorldObjectId{ 100, 7 }, 3,
 					101, NUMANIMATIONSTATES, false, false,
 					SimulationCommandSource::System } } );
+		const TacticalEntityId outOfRangeTarget{
+			static_cast<std::uint16_t>( TOTAL_SOLDIERS ), 1 };
+		const TacticalCommandSubmissionResult invalidConversationTarget =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ StartConversationCommand{
+					staleActor, outOfRangeTarget,
+					SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidConversationApproach =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ ApproachConversationCommand{
+					staleActor, TacticalEntityId{ 1, 1 }, -1, WALKING, false,
+					SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidVehicleTarget =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ EnterVehicleCommand{
+					staleActor, outOfRangeTarget, 3, 0,
+					SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidVehicleApproach =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ ApproachVehicleCommand{
+					staleActor, TacticalEntityId{ 1, 1 }, 3, 0, 101,
+					NUMANIMATIONSTATES, false,
+					SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -3193,15 +3282,17 @@ int main( int, char** )
 		CHECK( inactiveOwner && invalidTeam && invalidStance && invalidFire &&
 		       invalidMoveGrid && invalidMoveMode && invalidScopeGrid &&
 		       invalidObjectGrid && invalidApproachMode &&
+		       invalidConversationTarget && invalidConversationApproach &&
+		       invalidVehicleTarget && invalidVehicleApproach &&
 		       unloadedContext && staleRequest &&
 		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
-		       commandHostAfterInvalidContext.lastDrain.rejected == 10 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 14 &&
 		       commandHostAfterValidation.lastDrain.accepted == 1 &&
 		       commandHostAfterValidation.lastDrain.rejected == 0 &&
 		       commandHostAfterValidation.inactiveOwnerRejections ==
 		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
 		       commandHostAfterValidation.semanticRejections ==
-		           commandHostBeforeValidation.semanticRejections + 8 &&
+		           commandHostBeforeValidation.semanticRejections + 12 &&
 		       commandHostAfterValidation.contextRejections ==
 		           commandHostBeforeValidation.contextRejections + 1 &&
 		       commandHostAfterValidation.lastProcessing.status ==
@@ -3302,6 +3393,49 @@ int main( int, char** )
 				staleActor.slot, staleActor.incarnation,
 				100, 7, 3, 101, WALKING, false, false,
 				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleConversationTarget =
+			TryDispatchStartConversationCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				staleActor.slot, staleActor.incarnation,
+				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleConversationApproachTarget =
+			TryDispatchApproachConversationCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				staleActor.slot, staleActor.incarnation,
+				101, WALKING, false, SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleVehicleTarget =
+			TryDispatchEnterVehicleCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				staleActor.slot, staleActor.incarnation,
+				3, 0, SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleVehicleApproachTarget =
+			TryDispatchApproachVehicleCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				staleActor.slot, staleActor.incarnation,
+				3, 0, 101, WALKING, false,
+				SimulationCommandSource::System );
+		commandHostActor.aiData.ubPendingAction = MERC_TALK;
+		commandHostActor.aiData.uiPendingActionData1 = staleActor.slot;
+		commandHostActor.aiData.uiPendingActionData4 =
+			staleActor.incarnation;
+		const bool stalePendingConversationCompleted =
+			TryCompletePendingConversationCommand( commandHostActor );
+		const bool stalePendingConversationCleared =
+			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION;
+		commandHostActor.aiData.ubPendingAction = MERC_ENTER_VEHICLE;
+		commandHostActor.aiData.uiPendingActionData1 =
+			staleActor.incarnation;
+		commandHostActor.aiData.sPendingActionData2 = staleActor.slot;
+		commandHostActor.aiData.bPendingActionData3 = 3;
+		commandHostActor.aiData.uiPendingActionData4 = 0;
+		const bool stalePendingVehicleCompleted =
+			TryCompletePendingVehicleCommand( commandHostActor );
+		const bool stalePendingVehicleCleared =
+			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION;
 		CHECK(
 			weaponModeWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
@@ -3314,8 +3448,20 @@ int main( int, char** )
 			staleActivation.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			staleApproach.status ==
-				SimulationCommandDispatchStatus::Discarded,
-			"equipment, traversal, and world-object commands reject unsafe live-world execution" );
+				SimulationCommandDispatchStatus::Discarded &&
+			staleConversationTarget.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleConversationApproachTarget.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleVehicleTarget.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleVehicleApproachTarget.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			!stalePendingConversationCompleted &&
+			stalePendingConversationCleared &&
+			!stalePendingVehicleCompleted &&
+			stalePendingVehicleCleared,
+			"equipment and interaction commands reject stale actor and delayed target incarnations" );
 
 		const std::uint64_t oneCommandFrame = ++commandTestFrameSequence;
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );

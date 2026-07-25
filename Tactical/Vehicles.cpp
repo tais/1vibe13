@@ -52,6 +52,25 @@ extern INT8 SquadMovementGroups[ ];
 
 NEW_CAR gNewVehicle[NUM_PROFILES];
 
+INT32 GetVehicleSeatingCapacity( INT32 iId )
+{
+	if ( pVehicleList == NULL || iId < 0 || iId >= ubNumberOfVehicles ||
+		pVehicleList[ iId ].fValid == FALSE )
+	{
+		return( 0 );
+	}
+
+	const UINT8 vehicleType = pVehicleList[ iId ].ubVehicleType;
+	if ( vehicleType >= NUM_PROFILES )
+	{
+		return( 0 );
+	}
+
+	const INT32 capacity =
+		gNewVehicle[ vehicleType ].iNewSeatingCapacities;
+	return capacity > 0 && capacity <= MAXPASSENGERS ? capacity : 0;
+}
+
 // Flugente 2013-05-12: saving and loading an array that is read from xml is utterly pointless. The loading function has to remain for compatibility reasons - please remove the next time savegame compatibility is broken
 BOOLEAN LoadNewVehiclesToSaveGameFile( HWFILE hFile );
 
@@ -487,6 +506,12 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 
 	// now check if vehicle is valid
 	if( pVehicleList[ iId ].fValid == FALSE )
+	{
+		return( FALSE );
+	}
+
+	const INT32 seatingCapacity = GetVehicleSeatingCapacity( iId );
+	if ( seatingCapacity == 0 || ubSeatIndex >= seatingCapacity )
 	{
 		return( FALSE );
 	}
@@ -1470,7 +1495,8 @@ INT32 GetNumberInVehicle( INT32 iId )
 		return ( 0 );
 	}
 
-	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
+	const INT32 seatingCapacity = GetVehicleSeatingCapacity( iId );
+	for( iCounter = 0; iCounter < seatingCapacity; iCounter++ )
 	{
 		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
 		{
@@ -1612,7 +1638,9 @@ BOOLEAN IsEnoughSpaceInVehicle( INT32 iID )
 		return ( FALSE );
 	}
 
-	if ( GetNumberInVehicle( iID ) == gNewVehicle[ pVehicleList[ iID ].ubVehicleType ].iNewSeatingCapacities )
+	const INT32 seatingCapacity = GetVehicleSeatingCapacity( iID );
+	if ( seatingCapacity == 0 ||
+		GetNumberInVehicle( iID ) >= seatingCapacity )
 	{
 		return( FALSE );
 	}
@@ -1673,6 +1701,19 @@ BOOLEAN TakeSoldierOutOfVehicle( SOLDIERTYPE *pSoldier )
 
 BOOLEAN EnterVehicle( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubSeatIndex )
 {
+	if ( pVehicle == NULL || pSoldier == NULL ||
+		!( pVehicle->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
+		!VehicleIdIsValid( pVehicle->bVehicleID ) )
+	{
+		return( FALSE );
+	}
+
+	const INT32 seatingCapacity =
+		GetVehicleSeatingCapacity( pVehicle->bVehicleID );
+	if ( seatingCapacity == 0 || ubSeatIndex >= seatingCapacity )
+	{
+		return( FALSE );
+	}
 
 	// TEST IF IT'S VALID...
 	if ( pVehicle->flags.uiStatusFlags & SOLDIER_VEHICLE )
@@ -1836,7 +1877,13 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 }
 
 BOOLEAN ChangeVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubSeatIndex )
-{	
+{
+	if ( pVehicle == NULL || pSoldier == NULL ||
+		ubSeatIndex >= GetVehicleSeatingCapacity( pVehicle->bVehicleID ) )
+	{
+		return( FALSE );
+	}
+
 	// TEST IF IT'S VALID...
 	if ( pVehicle->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
@@ -1897,7 +1944,13 @@ BOOLEAN ChangeVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 u
 }
 
 BOOLEAN SwapVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubSeatIndex )
-{	
+{
+	if ( pVehicle == NULL || pSoldier == NULL ||
+		ubSeatIndex >= GetVehicleSeatingCapacity( pVehicle->bVehicleID ) )
+	{
+		return( FALSE );
+	}
+
 	// TEST IF IT'S VALID...
 	if ( pVehicle->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{

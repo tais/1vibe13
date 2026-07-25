@@ -27,7 +27,11 @@ enum class CommandTag : std::uint8_t
 	ReloadWeapon = 10,
 	TraverseObstacle = 11,
 	ActivateWorldObject = 12,
-	ApproachWorldObject = 13
+	ApproachWorldObject = 13,
+	StartConversation = 14,
+	ApproachConversation = 15,
+	EnterVehicle = 16,
+	ApproachVehicle = 17
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -194,6 +198,59 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(
 				(value.reverse ? MoveReverseFlag : 0u) |
 				(value.forceRestart ? MoveForceRestartFlag : 0u));
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, StartConversationCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::StartConversation));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, ApproachConversationCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::ApproachConversation));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeI32(value.destinationGrid);
+			writer.writeU16(value.movementMode);
+			writer.writeU8(value.forceRestart ? 1u : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, EnterVehicleCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::EnterVehicle));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.vehicle.slot);
+			writer.writeU32(value.vehicle.incarnation);
+			writer.writeU8(value.direction);
+			writer.writeU8(value.seatIndex);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, ApproachVehicleCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::ApproachVehicle));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.vehicle.slot);
+			writer.writeU32(value.vehicle.incarnation);
+			writer.writeU8(value.direction);
+			writer.writeU8(value.seatIndex);
+			writer.writeI32(value.destinationGrid);
+			writer.writeU16(value.movementMode);
+			writer.writeU8(value.forceRestart ? 1u : 0u);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
@@ -382,6 +439,76 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				!ReadSource(reader, value.source)) return false;
 			value.reverse = (flags & MoveReverseFlag) != 0;
 			value.forceRestart = (flags & MoveForceRestartFlag) != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::StartConversation:
+		{
+			StartConversationCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!value.target.valid() || value.target == value.soldier ||
+				!ReadSource(reader, value.source)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::ApproachConversation:
+		{
+			ApproachConversationCommand value{};
+			std::uint8_t forceRestart = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!value.target.valid() || value.target == value.soldier ||
+				!reader.readI32(value.destinationGrid) ||
+				!reader.readU16(value.movementMode) ||
+				!reader.readU8(forceRestart) || forceRestart > 1 ||
+				!ReadSource(reader, value.source)) return false;
+			value.forceRestart = forceRestart != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::EnterVehicle:
+		{
+			EnterVehicleCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU16(value.vehicle.slot) ||
+				!reader.readU32(value.vehicle.incarnation) ||
+				!value.vehicle.valid() || value.vehicle == value.soldier ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!reader.readU8(value.seatIndex) ||
+				value.seatIndex >= TacticalMaximumVehicleSeats ||
+				!ReadSource(reader, value.source)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::ApproachVehicle:
+		{
+			ApproachVehicleCommand value{};
+			std::uint8_t forceRestart = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU16(value.vehicle.slot) ||
+				!reader.readU32(value.vehicle.incarnation) ||
+				!value.vehicle.valid() || value.vehicle == value.soldier ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!reader.readU8(value.seatIndex) ||
+				value.seatIndex >= TacticalMaximumVehicleSeats ||
+				!reader.readI32(value.destinationGrid) ||
+				!reader.readU16(value.movementMode) ||
+				!reader.readU8(forceRestart) || forceRestart > 1 ||
+				!ReadSource(reader, value.source)) return false;
+			value.forceRestart = forceRestart != 0;
 			command = value;
 			return true;
 		}

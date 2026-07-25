@@ -6660,13 +6660,14 @@ BOOLEAN HandleTalkInit(	)
 						return( FALSE );
 					}
 
-					// Now walkup to talk....
-					pSoldier->aiData.ubPendingAction = MERC_TALK;
-					pSoldier->aiData.uiPendingActionData1 = pTSoldier->ubID;
-					pSoldier->aiData.ubPendingActionAnimCount = 0;
-
-					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sGoodGridNo, pSoldier->usUIMovementMode , TRUE , pSoldier->flags.fNoAPToFinishMove );
+					(void)TryDispatchApproachConversationCommandNow(
+						pSoldier->ubID,
+						pSoldier->uiUniqueSoldierIdValue,
+						pTSoldier->ubID,
+						pTSoldier->uiUniqueSoldierIdValue,
+						sGoodGridNo,
+						pSoldier->usUIMovementMode,
+						pSoldier->flags.fNoAPToFinishMove != FALSE);
 
 					return( FALSE );
 				}
@@ -6681,8 +6682,14 @@ BOOLEAN HandleTalkInit(	)
 					return( FALSE );
 				}
 
-				// OK, startup!
-				pSoldier->PlayerSoldierStartTalking( pTSoldier->ubID, FALSE );
+				if (!TryDispatchStartConversationCommandNow(
+						pSoldier->ubID,
+						pSoldier->uiUniqueSoldierIdValue,
+						pTSoldier->ubID,
+						pTSoldier->uiUniqueSoldierIdValue))
+				{
+					return( FALSE );
+				}
 			}
 
 			if ( GetCivType( pTSoldier ) != CIV_TYPE_NA )

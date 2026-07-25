@@ -5708,25 +5708,31 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 
 					if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
 					{
+						const SimulationCommandDispatchResult vehicleEntry =
+							pSoldier->sGridNo != sActionGridNo
+								? TryDispatchApproachVehicleCommandNow(
+									pSoldier->ubID,
+									pSoldier->uiUniqueSoldierIdValue,
+									pTSoldier->ubID,
+									pTSoldier->uiUniqueSoldierIdValue,
+									ubDirection,
+									ubSeatIndex,
+									sActionGridNo,
+									pSoldier->usUIMovementMode,
+									pSoldier->flags.fNoAPToFinishMove != FALSE)
+								: TryDispatchEnterVehicleCommandNow(
+									pSoldier->ubID,
+									pSoldier->uiUniqueSoldierIdValue,
+									pTSoldier->ubID,
+									pTSoldier->uiUniqueSoldierIdValue,
+									ubDirection,
+									ubSeatIndex);
+						if (!vehicleEntry)
+						{
+							return( 0 );
+						}
+
 						pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
-
-						// CHECK IF WE ARE AT THIS GRIDNO NOW
-						if ( pSoldier->sGridNo != sActionGridNo )
-						{
-							// SEND PENDING ACTION
-							pSoldier->aiData.ubPendingAction = MERC_ENTER_VEHICLE;
-							pSoldier->aiData.sPendingActionData2	= pTSoldier->sGridNo;
-							pSoldier->aiData.bPendingActionData3	= ubDirection;
-							pSoldier->aiData.uiPendingActionData4	= ubSeatIndex;
-							pSoldier->aiData.ubPendingActionAnimCount = 0;
-
-							// WALK UP TO DEST FIRST
-							pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, 3 , pSoldier->flags.fNoAPToFinishMove );
-						}
-						else
-						{
-							pSoldier->EVENT_SoldierEnterVehicle( pTSoldier->sGridNo, ubDirection, ubSeatIndex );
-						}
 
 						// OK, set UI
 						SetUIBusy( pSoldier->ubID );

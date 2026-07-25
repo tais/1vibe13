@@ -7,6 +7,8 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Core/CommandProcessor.h>
 
+class SOLDIERTYPE;
+
 // Authoritative completion seam for hosts that must correlate package/network
 // requests with actual simulation disposition. This is independent of the
 // best-effort command journal and is invoked only after queue acknowledgement
@@ -46,7 +48,9 @@ enum class SimulationCommandDomainError
 	InvalidPendingActionPolicy,
 	InvalidDirection,
 	InvalidTraversalKind,
-	InvalidObjectGrid
+	InvalidObjectGrid,
+	InvalidTargetActor,
+	InvalidVehicleSeat
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -186,6 +190,50 @@ SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
 	bool reverse,
 	bool forceRestart,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchStartConversationCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchApproachConversationCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchEnterVehicleCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t vehicleId,
+	std::uint32_t vehicleUniqueSoldierId,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t vehicleId,
+	std::uint32_t vehicleUniqueSoldierId,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+// Delayed JA2 movement still stores its pending action on SOLDIERTYPE. These
+// compatibility completion seams reconstruct the stable target identity and
+// reject a despawned/reused target instead of acting on the new slot occupant.
+bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept;
+bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept;
 
 // Source-compatible wrappers for legacy callers. New production migrations use
 // the structured Try variants so backpressure never triggers UI follow-up.

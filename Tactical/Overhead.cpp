@@ -110,6 +110,7 @@
 #include "LuaInitNPCs.h"
 #include "Vehicles.h"
 #include "TacticalEntityHost.h"
+#include "Simulation Commands.h"
 #include "XML.h"
 #include "GameInitOptionsScreen.h"
 
@@ -1495,8 +1496,7 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->aiData.ubPendingAction == MERC_TALK )
                                     {
-                                        pSoldier->PlayerSoldierStartTalking ( pSoldier->aiData.uiPendingActionData1, TRUE );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        (void)TryCompletePendingConversationCommand( *pSoldier );
                                     }
                                     else if ( pSoldier->aiData.ubPendingAction == MERC_DROPBOMB )
                                     {
@@ -1573,8 +1573,7 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->aiData.ubPendingAction == MERC_ENTER_VEHICLE    )
                                     {
-                                        pSoldier->EVENT_SoldierEnterVehicle( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3, pSoldier->aiData.uiPendingActionData4 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        (void)TryCompletePendingVehicleCommand( *pSoldier );
                                         continue;
                                     }
                                     else if ( pSoldier->aiData.ubPendingAction == MERC_CUTFFENCE )

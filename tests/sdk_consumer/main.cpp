@@ -767,6 +767,18 @@ int main()
 	const SimulationCommand externalApproach{ApproachWorldObjectCommand{
 		actorId, TacticalWorldObjectId{1301, 17}, 2,
 		1300, 6, true, false, SimulationCommandSource::LocalPlayer}};
+	const TacticalEntityId targetId{8, 0x01020305u};
+	const SimulationCommand externalConversation{StartConversationCommand{
+		actorId, targetId, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalConversationApproach{
+		ApproachConversationCommand{
+			actorId, targetId, 1300, 6, false,
+			SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalVehicle{EnterVehicleCommand{
+		actorId, targetId, 2, 0, SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalVehicleApproach{ApproachVehicleCommand{
+		actorId, targetId, 2, 0, 1300, 6, true,
+		SimulationCommandSource::LocalPlayer}};
 	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
 		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
 		!std::holds_alternative<StopMovementCommand>(externalStop) ||
@@ -777,7 +789,14 @@ int main()
 		!std::holds_alternative<ActivateWorldObjectCommand>(
 			externalActivation) ||
 		!std::holds_alternative<ApproachWorldObjectCommand>(
-			externalApproach))
+			externalApproach) ||
+		!std::holds_alternative<StartConversationCommand>(
+			externalConversation) ||
+		!std::holds_alternative<ApproachConversationCommand>(
+			externalConversationApproach) ||
+		!std::holds_alternative<EnterVehicleCommand>(externalVehicle) ||
+		!std::holds_alternative<ApproachVehicleCommand>(
+			externalVehicleApproach))
 		return 45;
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
 		37, MoveToGridCommand{
