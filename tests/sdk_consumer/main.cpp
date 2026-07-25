@@ -784,6 +784,12 @@ int main()
 		actorId, worldItemId, 1301, 0,
 		TacticalWorldItemPickupKind::SpecificItem,
 		SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalSteal{StealFromActorCommand{
+		actorId, targetId, 1301, 0,
+		SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalExchange{ExchangePositionsCommand{
+		actorId, targetId, 1300, 1301, 0,
+		SimulationCommandSource::LocalPlayer}};
 	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
 		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
 		!std::holds_alternative<StopMovementCommand>(externalStop) ||
@@ -804,6 +810,8 @@ int main()
 			externalVehicleApproach) ||
 		!std::holds_alternative<PickupWorldItemCommand>(
 			externalWorldItemPickup) ||
+		!std::holds_alternative<StealFromActorCommand>(externalSteal) ||
+		!std::holds_alternative<ExchangePositionsCommand>(externalExchange) ||
 		!worldItemId.valid())
 		return 45;
 	TacticalWorldItemDirectory& externalWorldItems =

@@ -21,7 +21,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier );
 
 BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce );
 
-void SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 );
+BOOLEAN SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 );
 
 void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, INT8 bValue );
 

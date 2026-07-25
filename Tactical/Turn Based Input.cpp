@@ -181,9 +181,6 @@ extern INT32		iSMPanelButtons[ NUM_SM_BUTTONS ];
 extern INT32		iTEAMPanelButtons[ NUM_TEAM_BUTTONS ];
 extern INT32		giSMStealthButton;
 
-SOLDIERTYPE *gpExchangeSoldier1;
-SOLDIERTYPE *gpExchangeSoldier2;
-
 // Flugente: fortification
 INT16	gCurrentFortificationStructure = -1;
 UINT8	gCurrentFortificationTileLibraryIndex = 0;
@@ -4677,10 +4674,14 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 											if ( CanExchangePlaces( pSoldier1, pSoldier2, TRUE ) )
 											{
 												// All's good!
-												SwapMercPositions( pSoldier1, pSoldier2 );
-
-												DeductPoints( pSoldier1, APBPConstants[AP_EXCHANGE_PLACES], 0 );
-												DeductPoints( pSoldier2, APBPConstants[AP_EXCHANGE_PLACES], 0 );
+												(void)TryDispatchExchangePositionsCommandNow(
+													pSoldier1->ubID,
+													pSoldier1->uiUniqueSoldierIdValue,
+													pSoldier2->ubID,
+													pSoldier2->uiUniqueSoldierIdValue,
+													pSoldier1->sGridNo,
+													pSoldier2->sGridNo,
+													pSoldier1->pathing.bLevel );
 											}
 										}
 										fFoundGoodTarget = TRUE;
@@ -5889,16 +5890,19 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 
 				if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
 				{
-					MercStealFromMerc( pSoldier, gusUIFullTargetID );
-
-					*puiNewEvent = A_CHANGE_TO_MOVE;
-
-					return;
+					if ( TryDispatchStealFromActorCommandNow(
+							pSoldier->ubID,
+							pSoldier->uiUniqueSoldierIdValue,
+							gusUIFullTargetID->ubID,
+							gusUIFullTargetID->uiUniqueSoldierIdValue,
+							gusUIFullTargetID->sGridNo,
+							gusUIFullTargetID->pathing.bLevel ) )
+					{
+						*puiNewEvent = A_CHANGE_TO_MOVE;
+						return;
+					}
 				}
-				else
-				{
-					return;
-				}
+				return;
 			}
 		}
 
@@ -6048,15 +6052,6 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent )
 extern BOOLEAN AnyItemsVisibleOnLevel( ITEM_POOL *pItemPool, INT8 bZLevel );
 
 
-void ExchangeMessageBoxCallBack( UINT8 bExitValue )
-{
-	if ( bExitValue == MSG_BOX_RETURN_YES )
-	{
-		SwapMercPositions( gpExchangeSoldier1, gpExchangeSoldier2 );
-	}
-}
-
-
 INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 {
 	// Look for an item pool
@@ -6122,12 +6117,14 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				// Check if we can...
 				if ( CanExchangePlaces( pSoldier, gusUIFullTargetID, TRUE ) )
 				{
-					gpExchangeSoldier1 = pSoldier;
-					gpExchangeSoldier2 = gusUIFullTargetID;
-
-					// Do message box...
-					//DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ EXCHANGE_PLACES_REQUESTER ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, ExchangeMessageBoxCallBack, NULL );
-					SwapMercPositions( gpExchangeSoldier1, gpExchangeSoldier2 );
+					(void)TryDispatchExchangePositionsCommandNow(
+						pSoldier->ubID,
+						pSoldier->uiUniqueSoldierIdValue,
+						gusUIFullTargetID->ubID,
+						gusUIFullTargetID->uiUniqueSoldierIdValue,
+						pSoldier->sGridNo,
+						gusUIFullTargetID->sGridNo,
+						pSoldier->pathing.bLevel );
 				}
 			}
 			return( -3 );

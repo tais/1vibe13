@@ -962,6 +962,14 @@ int main()
 			TacticalEntityId{3, 301}, TacticalWorldItemId{},
 			102, 0, TacticalWorldItemPickupKind::SpecificItem,
 			SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand invalidStealTarget{
+		StealFromActorCommand{
+			TacticalEntityId{3, 301}, TacticalEntityId{}, 102, 0,
+			SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand invalidExchangeTarget{
+		ExchangePositionsCommand{
+			TacticalEntityId{3, 301}, TacticalEntityId{3, 301},
+			101, 102, 0, SimulationCommandSource::LocalPlayer}};
 	const TacticalCommandSubmissionResult invalidOwner =
 		validationInbox.submit("bad/owner", validTurn);
 	const TacticalCommandSubmissionResult oversizedOwner =
@@ -994,6 +1002,10 @@ int main()
 		validationInbox.submit("pkg.ok", invalidVehicleSeat);
 	const TacticalCommandSubmissionResult invalidWorldItemResult =
 		validationInbox.submit("pkg.ok", invalidWorldItem);
+	const TacticalCommandSubmissionResult invalidStealTargetResult =
+		validationInbox.submit("pkg.ok", invalidStealTarget);
+	const TacticalCommandSubmissionResult invalidExchangeTargetResult =
+		validationInbox.submit("pkg.ok", invalidExchangeTarget);
 	const TacticalCommandSubmissionResult validStanceResult =
 		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
@@ -1061,6 +1073,16 @@ int main()
 				TacticalEntityId{3, 301}, TacticalWorldItemId{9, 901},
 				102, 0, TacticalWorldItemPickupKind::SpecificItem,
 				SimulationCommandSource::NetworkPeer}});
+	const TacticalCommandSubmissionResult validStealResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{StealFromActorCommand{
+				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
+				102, 0, SimulationCommandSource::NetworkPeer}});
+	const TacticalCommandSubmissionResult validExchangeResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{ExchangePositionsCommand{
+				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
+				101, 102, 0, SimulationCommandSource::Replay}});
 	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
@@ -1081,6 +1103,10 @@ int main()
 			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidWorldItemResult.error ==
 			TacticalCommandSubmissionError::InvalidCommand &&
+		invalidStealTargetResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
+		invalidExchangeTargetResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
 		validMoveResult.requestId == 3 && validWeaponModeResult.requestId == 4 &&
@@ -1093,8 +1119,10 @@ int main()
 		validVehicleResult.requestId == 12 &&
 		validVehicleApproachResult.requestId == 13 &&
 		validWorldItemResult.requestId == 14 &&
-		validationInbox.summary().submitted == 14 &&
-		validationInbox.summary().nextRequestId == 15,
+		validStealResult.requestId == 15 &&
+		validExchangeResult.requestId == 16 &&
+		validationInbox.summary().submitted == 16 &&
+		validationInbox.summary().nextRequestId == 17,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -2362,7 +2390,17 @@ int main()
 			SimulationCommand{PickupWorldItemCommand{
 				firstIncarnation, TacticalWorldItemId{123456, 9876},
 				6400, 1, TacticalWorldItemPickupKind::SpecificItem,
-				SimulationCommandSource::LocalPlayer}}}};
+				SimulationCommandSource::LocalPlayer}}},
+		RecordedSimulationCommand{
+			36, 60, CommandJournalStatus::Queued,
+			SimulationCommand{StealFromActorCommand{
+				firstIncarnation, reusedSlot, 6500, 1,
+				SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			37, 61, CommandJournalStatus::Applied,
+			SimulationCommand{ExchangePositionsCommand{
+				reusedSlot, firstIncarnation, 6600, 6601, 0,
+				SimulationCommandSource::System}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2374,7 +2412,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 19)
+		decoded.size() == 21)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2406,6 +2444,10 @@ int main()
 			std::get<ApproachVehicleCommand>(decoded[17].command);
 		const auto& worldItem =
 			std::get<PickupWorldItemCommand>(decoded[18].command);
+		const auto& steal =
+			std::get<StealFromActorCommand>(decoded[19].command);
+		const auto& exchange =
+			std::get<ExchangePositionsCommand>(decoded[20].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2478,10 +2520,19 @@ int main()
 			worldItem.grid == 6400 && worldItem.renderHeight == 1 &&
 			worldItem.kind ==
 				TacticalWorldItemPickupKind::SpecificItem &&
-			worldItem.source == SimulationCommandSource::LocalPlayer;
+			worldItem.source == SimulationCommandSource::LocalPlayer &&
+			steal.soldier == firstIncarnation &&
+			steal.target == reusedSlot &&
+			steal.targetGrid == 6500 && steal.targetLevel == 1 &&
+			steal.source == SimulationCommandSource::NetworkPeer &&
+			exchange.soldier == reusedSlot &&
+			exchange.target == firstIncarnation &&
+			exchange.soldierGrid == 6600 &&
+			exchange.targetGrid == 6601 && exchange.level == 0 &&
+			exchange.source == SimulationCommandSource::System;
 	}
 	check(decodedFields,
-		"current commands preserve movement, weapon, traversal, interaction, and world-item intent");
+		"current commands preserve movement, weapon, traversal, world-item, and peer-interaction intent");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
@@ -2572,6 +2623,22 @@ int main()
 			invalidWorldItemSearch, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
 		"command encoding rejects search intent carrying a specific world-item identity");
+	std::vector<RecordedSimulationCommand> invalidSteal = recorded;
+	std::get<StealFromActorCommand>(
+		invalidSteal[19].command).target.incarnation = 0;
+	check(!EncodeSimulationCommandJournal(
+			invalidSteal, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects unresolved steal targets transactionally");
+	std::vector<RecordedSimulationCommand> invalidExchange = recorded;
+	std::get<ExchangePositionsCommand>(
+		invalidExchange[20].command).target =
+			std::get<ExchangePositionsCommand>(
+				invalidExchange[20].command).soldier;
+	check(!EncodeSimulationCommandJournal(
+			invalidExchange, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects self-exchange targets transactionally");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);

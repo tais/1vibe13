@@ -157,12 +157,14 @@ domains at its safe simulation boundary, and drains only a configured prefix.
 The current command vocabulary includes pointer-free world-object activation
 and approach, stable conversation and vehicle-entry targets, typed roof, fence,
 wall, and window traversal, and player weapon-mode, scope-mode, reload, turn,
-stance, fire, movement, facing, stealth, stop-movement, and world-item pickup
-intent. An approach combines movement with its pending interaction so command
-pressure cannot apply one without the other. Conversation partners, vehicles,
-and exact pickup targets carry both their reusable slot and incarnation;
-delayed arrival therefore rejects a despawned or reused target instead of
-addressing whichever actor or item later occupies the same slot. A
+stance, fire, movement, facing, stealth, stop-movement, stealing, position
+exchange, and world-item pickup intent. An approach combines movement with its
+pending interaction so command pressure cannot apply one without the other.
+Conversation partners, vehicles, steal targets, exchange partners, and exact
+pickup targets carry both their reusable slot and incarnation; delayed arrival
+therefore rejects a despawned, moved, or reused target instead of addressing
+whichever actor or item later occupies the same slot. Exchange also captures
+both issued grids and applies the swap plus both AP deductions atomically. A
 `SearchGrid` pickup deliberately carries the default-invalid world-item ID
 because the selected intent is discovery rather than one exact object.
 Scope targets use `TacticalNoTargetGrid` when no aim tile is available; reload
@@ -176,7 +178,8 @@ only through activated slots, fails closed when its incarnation space is
 exhausted, and never exposes `WORLDITEM` or `gWorldItems` through the SDK.
 JA2 keeps a runtime-only incarnation mirror outside the serialized world-item
 payload. This identity boundary therefore changes neither installed game data
-nor map, save, or temporary-item formats.
+nor map, save, or temporary-item formats. Peer-interaction identity is likewise
+runtime-only and does not add fields to serialized soldiers.
 
 The command journal has one current wire layout. It retains a version field so
 a genuinely published format can evolve later, but unsupported versions are

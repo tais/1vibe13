@@ -32,7 +32,9 @@ enum class CommandTag : std::uint8_t
 	ApproachConversation = 15,
 	EnterVehicle = 16,
 	ApproachVehicle = 17,
-	PickupWorldItem = 18
+	PickupWorldItem = 18,
+	StealFromActor = 19,
+	ExchangePositions = 20
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -266,6 +268,33 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeI32(value.grid);
 			writer.writeI8(value.renderHeight);
 			writer.writeU8(static_cast<std::uint8_t>(value.kind));
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, StealFromActorCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::StealFromActor));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeI32(value.targetGrid);
+			writer.writeI8(value.targetLevel);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, ExchangePositionsCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::ExchangePositions));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeI32(value.soldierGrid);
+			writer.writeI32(value.targetGrid);
+			writer.writeI8(value.level);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
@@ -549,6 +578,39 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				? !value.item.valid() ||
 					value.item.slot > TacticalMaximumWorldItemSlot
 				: value.item != TacticalWorldItemId{})
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::StealFromActor:
+		{
+			StealFromActorCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!value.target.valid() || value.target == value.soldier ||
+				!reader.readI32(value.targetGrid) ||
+				!reader.readI8(value.targetLevel) ||
+				!ReadSource(reader, value.source))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::ExchangePositions:
+		{
+			ExchangePositionsCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!value.target.valid() || value.target == value.soldier ||
+				!reader.readI32(value.soldierGrid) ||
+				!reader.readI32(value.targetGrid) ||
+				!reader.readI8(value.level) ||
+				!ReadSource(reader, value.source))
 				return false;
 			command = value;
 			return true;

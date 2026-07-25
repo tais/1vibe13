@@ -44,6 +44,7 @@
 	#include "lighting.h"
 	#include "Auto Resolve.h"
 	#include "Soldier Functions.h" // added by SANDRO
+	#include "Simulation Commands.h"
 	#include "Drugs And Alcohol.h" // HEADROCK HAM 4: Get drunk level
 	#include "Campaign Types.h"	// added by Flugente
 	#include "CampaignStats.h"	// added by Flugente
@@ -4007,8 +4008,17 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		//SANDRO - actually we will redure them here, but lower and based on number of items stolen.
 	}
 
-	// See if a guy is here!
-	pTargetSoldier = SimpleFindSoldier( sTargetGridNo, pSoldier->bTargetLevel );
+	// Stable player/AI steal scheduling captures the exact target incarnation.
+	// Consume it only at the animation event so a moved or reused slot cannot
+	// turn the delayed action into a steal from a different actor.
+	pTargetSoldier = fStealing
+		? ResolveAndConsumePendingStealTarget(
+			*pSoldier, sTargetGridNo, pSoldier->bTargetLevel)
+		: SimpleFindSoldier( sTargetGridNo, pSoldier->bTargetLevel );
+	if ( fStealing && pTargetSoldier == NULL )
+	{
+		return FALSE;
+	}
 	if ( pTargetSoldier )
 	{
 		// set target as noticed attack

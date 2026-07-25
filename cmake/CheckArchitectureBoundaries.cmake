@@ -207,6 +207,23 @@ foreach(tactical_file IN LISTS tactical_cpp_files)
   endforeach()
 endforeach()
 
+# Player peer interactions must cross the stable two-actor command boundary.
+# AI/path obstruction swaps remain compatibility mechanics in their own
+# subsystems, but UI input may not retain raw target pointers across execution.
+set(player_peer_interaction_files
+  "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Real Time Input.cpp")
+foreach(player_peer_interaction_file IN LISTS player_peer_interaction_files)
+  file(READ "${player_peer_interaction_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(MercStealFromMerc|SwapMercPositions)[ \t\r\n]*\\("
+    direct_player_peer_interaction "${contents}")
+  if(direct_player_peer_interaction)
+    message(FATAL_ERROR
+      "Player peer interaction bypasses SimulationCommand in ${player_peer_interaction_file}")
+  endif()
+endforeach()
+
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
 # deterministic command boundary. Internal weapon compatibility corrections,
 # AI retaliation, attachment changes, and the existing multi-merc bulk reload

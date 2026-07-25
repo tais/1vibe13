@@ -12,9 +12,11 @@
 #include "Handle UI.h"
 #include "Handle Items.h"
 #include "Interactive Tiles.h"
+#include "Isometric Utils.h"
 #include "Items.h"
 #include "Map Information.h"
 #include "Overhead.h"
+#include "Points.h"
 #include "Soldier Control.h"
 #include "Soldier Functions.h"
 #include "Soldier macros.h"
@@ -23,7 +25,9 @@
 #include "Vehicles.h"
 #include "Weapons.h"
 #include "opplist.h"
+#include "soldier tile.h"
 #include "structure.h"
+#include "worldman.h"
 
 namespace
 {
@@ -88,6 +92,31 @@ namespace
 		return soldier.ubID != target.ubID && target.bActive && target.bInSector;
 	}
 
+	bool IsAtIssuedTacticalPosition(
+		const SOLDIERTYPE& soldier,
+		std::int32_t grid,
+		std::int8_t level) noexcept
+	{
+		return soldier.sGridNo == grid && soldier.pathing.bLevel == level;
+	}
+
+	bool CanExecutePositionExchange(
+		SOLDIERTYPE& soldier,
+		SOLDIERTYPE& target,
+		const ExchangePositionsCommand& command) noexcept
+	{
+		if (!IsAtIssuedTacticalPosition(
+				soldier, command.soldierGrid, command.level) ||
+			!IsAtIssuedTacticalPosition(
+				target, command.targetGrid, command.level) ||
+			soldier.stats.bLife < OKLIFE ||
+			target.stats.bLife < OKLIFE ||
+			PythSpacesAway(soldier.sGridNo, target.sGridNo) != 1 ||
+			(!target.aiData.bNeutral && target.bSide != gbPlayerNum))
+			return false;
+		return CanExchangePlaces(&soldier, &target, FALSE) == TRUE;
+	}
+
 	bool HasValidVehicleSeat(
 		const SOLDIERTYPE& vehicle, std::uint8_t seatIndex) noexcept
 	{
@@ -122,6 +151,29 @@ namespace
 		soldier.aiData.uiPendingActionData4 = 0;
 		soldier.uiPendingActionTargetIncarnation = 0;
 		UnSetUIBusy(soldier.ubID);
+	}
+
+	void ClearPendingSteal(SOLDIERTYPE& soldier) noexcept
+	{
+		soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
+		soldier.aiData.uiPendingActionData1 = 0;
+		soldier.aiData.sPendingActionData2 = 0;
+		soldier.aiData.bPendingActionData3 = 0;
+		soldier.aiData.uiPendingActionData4 = 0;
+		soldier.uiPendingActionTargetIncarnation = 0;
+		UnSetUIBusy(soldier.ubID);
+	}
+
+	SOLDIERTYPE* ResolveStablePendingStealTarget(
+		const SOLDIERTYPE& soldier) noexcept
+	{
+		const UINT32 rawSlot = soldier.aiData.uiPendingActionData1;
+		if (rawSlot >= TOTAL_SOLDIERS ||
+			soldier.uiPendingActionTargetIncarnation == 0)
+			return nullptr;
+		return ResolveLiveCommandActor(TacticalEntityId{
+			static_cast<std::uint16_t>(rawSlot),
+			soldier.uiPendingActionTargetIncarnation});
 	}
 
 	bool PendingWorldItemMatches(
@@ -483,6 +535,34 @@ namespace
 					targetIncarnation);
 				return CommandDisposition::Applied;
 			}
+			else if constexpr (
+				std::is_same<Command, StealFromActorCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				if (!soldier || !target ||
+					!IsAtIssuedTacticalPosition(
+						*target, value.targetGrid, value.targetLevel))
+					return CommandDisposition::Discard;
+				return MercStealFromMerc(soldier, target)
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command, ExchangePositionsCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				if (!soldier || !target ||
+					!CanExecutePositionExchange(*soldier, *target, value) ||
+					!SwapMercPositions(soldier, target))
+					return CommandDisposition::Discard;
+				DeductPoints(
+					soldier, APBPConstants[AP_EXCHANGE_PLACES], 0);
+				DeductPoints(
+					target, APBPConstants[AP_EXCHANGE_PLACES], 0);
+				return CommandDisposition::Applied;
+			}
 			else
 			{
 				return CommandDisposition::Discard;
@@ -688,6 +768,36 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 						value.item.slot > TacticalMaximumWorldItemSlot
 					: value.item != TacticalWorldItemId{})
 					return SimulationCommandDomainError::InvalidWorldItem;
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
+				std::is_same<Command, StealFromActorCommand>::value)
+			{
+				if (!value.target.valid() ||
+					value.target.slot >= TOTAL_SOLDIERS ||
+					value.target == value.soldier)
+					return SimulationCommandDomainError::InvalidTargetActor;
+				if (value.targetGrid < 0 || value.targetGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidTargetGrid;
+				if (value.targetLevel != FIRST_LEVEL &&
+					value.targetLevel != SECOND_LEVEL)
+					return SimulationCommandDomainError::InvalidTargetLevel;
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
+				std::is_same<Command, ExchangePositionsCommand>::value)
+			{
+				if (!value.target.valid() ||
+					value.target.slot >= TOTAL_SOLDIERS ||
+					value.target == value.soldier)
+					return SimulationCommandDomainError::InvalidTargetActor;
+				if (value.soldierGrid < 0 || value.soldierGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidActorGrid;
+				if (value.targetGrid < 0 || value.targetGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidTargetGrid;
+				if (value.level != FIRST_LEVEL &&
+					value.level != SECOND_LEVEL)
+					return SimulationCommandDomainError::InvalidActorLevel;
 				return SimulationCommandDomainError::None;
 			}
 		}
@@ -1073,6 +1183,39 @@ SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
 			item, grid, renderHeight, kind, source}});
 }
 
+SimulationCommandDispatchResult TryDispatchStealFromActorCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{StealFromActorCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalEntityId{targetId, targetUniqueSoldierId},
+			targetGrid, targetLevel, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	std::int32_t soldierGrid,
+	std::int32_t targetGrid,
+	std::int8_t level,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{ExchangePositionsCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalEntityId{targetId, targetUniqueSoldierId},
+			soldierGrid, targetGrid, level, source}});
+}
+
 bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
 {
 	if (soldier.aiData.ubPendingAction != MERC_TALK) return false;
@@ -1128,6 +1271,86 @@ bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 		vehicle, &soldier, static_cast<std::uint8_t>(rawSeatIndex));
 	UnSetUIBusy(soldier.ubID);
 	return entered == TRUE;
+}
+
+bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
+{
+	if (soldier.aiData.ubPendingAction != MERC_STEAL) return false;
+
+	SOLDIERTYPE* target = nullptr;
+	if (soldier.uiPendingActionTargetIncarnation != 0)
+	{
+		target = ResolveStablePendingStealTarget(soldier);
+	}
+	else
+	{
+		SoldierID targetId = WhoIsThere2(
+			soldier.aiData.sPendingActionData2,
+			soldier.bTargetLevel);
+		if (targetId != NOBODY) target = targetId;
+	}
+
+	const INT32 rawDirection = soldier.aiData.bPendingActionData3;
+	if (!target ||
+		target->sGridNo != soldier.aiData.sPendingActionData2 ||
+		target->pathing.bLevel != soldier.bTargetLevel ||
+		soldier.pathing.bLevel != target->pathing.bLevel ||
+		PythSpacesAway(soldier.sGridNo, target->sGridNo) != 1 ||
+		rawDirection < 0 ||
+		!IsValidTacticalDirection(
+			static_cast<std::uint8_t>(rawDirection)))
+	{
+		ClearPendingSteal(soldier);
+		return false;
+	}
+
+	soldier.EVENT_SetSoldierDesiredDirection(
+		static_cast<UINT8>(rawDirection));
+	if (gAnimControl[soldier.usAnimState].ubEndHeight == ANIM_PRONE ||
+		gAnimControl[soldier.usAnimState].ubEndHeight == ANIM_CROUCH ||
+		gAnimControl[target->usAnimState].ubEndHeight == ANIM_PRONE)
+	{
+		soldier.EVENT_InitNewSoldierAnim(
+			STEAL_ITEM_CROUCHED, 0, FALSE);
+	}
+	else
+	{
+		soldier.EVENT_InitNewSoldierAnim(STEAL_ITEM, 0, FALSE);
+	}
+	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
+	return true;
+}
+
+SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel) noexcept
+{
+	SOLDIERTYPE* target = nullptr;
+	if (soldier.uiPendingActionTargetIncarnation != 0)
+	{
+		target = ResolveStablePendingStealTarget(soldier);
+	}
+	else
+	{
+		target = SimpleFindSoldier(targetGrid, targetLevel);
+	}
+
+	soldier.aiData.uiPendingActionData1 = 0;
+	soldier.aiData.sPendingActionData2 = 0;
+	soldier.aiData.bPendingActionData3 = 0;
+	soldier.aiData.uiPendingActionData4 = 0;
+	soldier.uiPendingActionTargetIncarnation = 0;
+
+	if (!target || target->sGridNo != targetGrid ||
+		target->pathing.bLevel != targetLevel ||
+		soldier.pathing.bLevel != target->pathing.bLevel ||
+		PythSpacesAway(soldier.sGridNo, target->sGridNo) != 1)
+	{
+		UnSetUIBusy(soldier.ubID);
+		return nullptr;
+	}
+	return target;
 }
 
 bool TryValidatePendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
