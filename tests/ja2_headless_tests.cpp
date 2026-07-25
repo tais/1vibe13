@@ -1881,6 +1881,10 @@ int main( int, char** )
 					actor, SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::None &&
 			ValidateSimulationCommandDomain( SimulationCommand{
+				CancelDragCommand{
+					actor, SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
 				ReloadWeaponCommand{
 					actor, false, SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::None &&
@@ -3489,6 +3493,52 @@ int main( int, char** )
 		       facingQueued.status == SimulationCommandDispatchStatus::Applied,
 		       "structured facing, stealth, and stop commands execute through the authoritative path" );
 
+		const UINT32 stanceFlags = gTacticalStatus.uiFlags;
+		const UINT8 stanceTeam = gTacticalStatus.ubCurrentTeam;
+		RestoreJa2TacticalTurnMirrors(ACTIVE | REALTIME, stanceTeam);
+		commandHostActor.usAnimState = WALKING;
+		commandHostActor.ubDesiredHeight = ANIM_STAND;
+		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
+		const UINT16 expectedMovingStance =
+			commandHostActor.GetMoveStateBasedOnStance(ANIM_CROUCH);
+		const UINT16 movingStanceSurface =
+			DetermineSoldierAnimationSurface(
+				&commandHostActor, expectedMovingStance);
+		UINT16 cachedMovingStanceSurface = movingStanceSurface;
+		INT16 cachedMovingStanceHits = 0;
+		const AnimationSurfaceCacheType previousAnimationCache =
+			commandHostActor.AnimCache;
+		// The data-free host has no animation assets. Seed only the surface lookup
+		// that ChangeSoldierState requires so the production transition itself
+		// remains under test without loading game data.
+		commandHostActor.AnimCache.usCachedSurfaces =
+			&cachedMovingStanceSurface;
+		commandHostActor.AnimCache.sCacheHits = &cachedMovingStanceHits;
+		commandHostActor.AnimCache.ubCacheSize = 1;
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult movingStanceChanged =
+			TryDispatchChangeStanceCommandNow(
+				commandHostActor, ANIM_CROUCH,
+				SimulationCommandSource::System );
+		const bool movingStanceOwnedByExecutor =
+			movingStanceChanged.status ==
+				SimulationCommandDispatchStatus::Applied &&
+			commandHostActor.usUIMovementMode == expectedMovingStance &&
+			commandHostActor.ubDesiredHeight == ANIM_CROUCH &&
+			commandHostActor.usAnimState == START_SWAT &&
+			cachedMovingStanceHits == 1;
+		commandHostActor.AnimCache = previousAnimationCache;
+		RestoreJa2TacticalTurnMirrors(stanceFlags, stanceTeam);
+		commandHostActor.usAnimState = STANDING;
+		commandHostActor.ubDesiredHeight = NO_DESIRED_HEIGHT;
+		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
+		CHECK( movingStanceOwnedByExecutor,
+		       "stance command executor owns real-time moving animation transitions" );
+
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult cancelWithoutDrag =
+			TryDispatchCancelDragCommandNow(
+				commandHostActor, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult weaponModeWithoutWeapon =
 			TryDispatchCycleWeaponModeCommandNow(
@@ -3751,6 +3801,8 @@ int main( int, char** )
 		guiNumWorldItems = previousWorldItemCount;
 		RebuildJa2TacticalWorldItemDirectory();
 		CHECK(
+			cancelWithoutDrag.status ==
+				SimulationCommandDispatchStatus::Discarded &&
 			weaponModeWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			scopeModeWithoutWeapon.status ==

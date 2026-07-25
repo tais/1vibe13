@@ -260,7 +260,24 @@ namespace
 			{
 				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
 				{
-					SendChangeSoldierStanceEvent(soldier, value.stance);
+					const bool realtimeStanceChange =
+						(gTacticalStatus.uiFlags & REALTIME) != 0 ||
+						(gTacticalStatus.uiFlags & INCOMBAT) == 0;
+					if (realtimeStanceChange &&
+						(gAnimControl[soldier->usAnimState].uiFlags &
+							ANIM_STATIONARY) == 0)
+					{
+						soldier->usUIMovementMode =
+							soldier->GetMoveStateBasedOnStance(value.stance);
+						soldier->ubDesiredHeight = NO_DESIRED_HEIGHT;
+						soldier->usDontUpdateNewGridNoOnMoveAnimChange = 1;
+						soldier->ChangeSoldierState(
+							soldier->usUIMovementMode, 0, FALSE);
+					}
+					else
+					{
+						SendChangeSoldierStanceEvent(soldier, value.stance);
+					}
 					return CommandDisposition::Applied;
 				}
 				return CommandDisposition::Discard;
@@ -319,6 +336,14 @@ namespace
 				soldier->flags.fDelayedMovement = FALSE;
 				soldier->pathing.sFinalDestination = soldier->sGridNo;
 				soldier->StopSoldier();
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, CancelDragCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !soldier->IsDragging())
+					return CommandDisposition::Discard;
+				soldier->CancelDrag();
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (std::is_same<Command, CycleWeaponModeCommand>::value)
@@ -722,6 +747,7 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			else if constexpr (
 				std::is_same<Command, SetStealthModeCommand>::value ||
 				std::is_same<Command, StopMovementCommand>::value ||
+				std::is_same<Command, CancelDragCommand>::value ||
 				std::is_same<Command, CycleWeaponModeCommand>::value ||
 				std::is_same<Command, ReloadWeaponCommand>::value)
 			{
@@ -1091,6 +1117,16 @@ SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
 		});
 }
 
+SimulationCommandDispatchResult TryDispatchCancelDragCommandNow(
+	SOLDIERTYPE& soldier,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier, [source](TacticalEntityId actor) {
+			return CancelDragCommand{actor, source};
+		});
+}
+
 SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
 	SOLDIERTYPE& soldier,
 	SimulationCommandSource source) noexcept
@@ -1373,6 +1409,16 @@ SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
 {
 	return TryDispatchSimulationCommandNow(
 		SimulationCommand{StopMovementCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchCancelDragCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{CancelDragCommand{
 			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
 }
 

@@ -140,6 +140,12 @@ struct StopMovementCommand
 	SimulationCommandSource source;
 };
 
+struct CancelDragCommand
+{
+	TacticalEntityId soldier;
+	SimulationCommandSource source;
+};
+
 struct CycleWeaponModeCommand
 {
 	TacticalEntityId soldier;
@@ -367,7 +373,8 @@ using SimulationCommand = std::variant<
 	PickupWorldItemCommand,
 	StealFromActorCommand,
 	ExchangePositionsCommand,
-	SetWeaponReadyCommand>;
+	SetWeaponReadyCommand,
+	CancelDragCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
