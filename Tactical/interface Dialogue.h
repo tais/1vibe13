@@ -4,6 +4,7 @@
 
 #include "mousesystem.h"
 #include "NPC.h"
+#include "CampaignActionCodes.h"
 
 extern UINT8 gubSrcSoldierProfile;
 
@@ -360,26 +361,12 @@ enum
 	NPC_ACTION_TRIGGER_MADLAB_32,
 	NPC_ACTION_TRIGGER_BREWSTER_BY_WARDEN_PROXIMITY, // 298
 	
-#ifdef JA2UB	
-	//JA25
-	NPC_ACTION_TRIGGER_JERRY_CONVERSATION_WITH_PGC_1 = 301,
-	NPC_ACTION_TRIGGER_JERRY_CONVERSATION_WITH_PGC_2,
-
-	NPC_ACTION_LEAVING_NPC_TALK_MENU = 304,
-	NPC_ACTION_BIGGENS_DETONATES_BOMBS = 305,
-
-	NPC_ACTION_RAUL_BLOWS_HIMSELF_UP=306,
-	NPC_ACTION_TEX_FLUSHES_TOILET=307,
-	NPC_ACTION_MARK_TEX_AS_ALREADY_INTRODUCED_HIMSELF=308,
-	NPC_ACTION_MAKE_TEX_CAMOED=309,
-	NPC_ACTION_HAVE_DEALER_OPEN_BUY_SELL_SCREEN=310,
-#endif	
 	// WDS - New AI
-	NPC_ACTION_SEND_WEIGHTED_ASSAULT_TO_LOCATION,  // 1st optional parm is "direness: rating
-	NPC_ACTION_SEND_SPECIFIC_ASSAULT_TO_LOCATION,  // 1st option parm is # of soldiers to send, 2nd is composition
+	NPC_ACTION_SEND_WEIGHTED_ASSAULT_TO_LOCATION = 299,  // 1st optional parm is "direness: rating
+	NPC_ACTION_SEND_SPECIFIC_ASSAULT_TO_LOCATION = 300,  // 1st option parm is # of soldiers to send, 2nd is composition
 
 	// anv: Waldo The Mechanic
-	NPC_ACTION_WALDO_REPAIR_REQUESTOR,
+	NPC_ACTION_WALDO_REPAIR_REQUESTOR = 301,
 	
 	NPC_ACTION_TURN_TO_FACE_NEAREST_MERC = 500,
 	NPC_ACTION_TURN_TO_FACE_PROFILE_ID_0,
@@ -404,6 +391,33 @@ enum
 	NPC_ACTION_UNRECRUIT_EPC = 701,
 };
 
+// Legacy UB source names remain available, but their raw values are decoded
+// using the active runtime campaign before action dispatch.
+inline constexpr UINT16 NPC_ACTION_TRIGGER_JERRY_CONVERSATION_WITH_PGC_1 =
+	CampaignActionCode::UnfinishedBusinessJerryConversation1;
+inline constexpr UINT16 NPC_ACTION_TRIGGER_JERRY_CONVERSATION_WITH_PGC_2 =
+	CampaignActionCode::UnfinishedBusinessJerryConversation2;
+inline constexpr UINT16 NPC_ACTION_LEAVING_NPC_TALK_MENU =
+	CampaignActionCode::UnfinishedBusinessLeavingNpcTalkMenu;
+inline constexpr UINT16 NPC_ACTION_BIGGENS_DETONATES_BOMBS =
+	CampaignActionCode::UnfinishedBusinessBiggensDetonatesBombs;
+inline constexpr UINT16 NPC_ACTION_RAUL_BLOWS_HIMSELF_UP =
+	CampaignActionCode::UnfinishedBusinessRaulBlowsHimselfUp;
+inline constexpr UINT16 NPC_ACTION_TEX_FLUSHES_TOILET =
+	CampaignActionCode::UnfinishedBusinessTexFlushesToilet;
+inline constexpr UINT16 NPC_ACTION_MARK_TEX_AS_ALREADY_INTRODUCED_HIMSELF =
+	CampaignActionCode::UnfinishedBusinessMarkTexIntroduced;
+inline constexpr UINT16 NPC_ACTION_MAKE_TEX_CAMOED =
+	CampaignActionCode::UnfinishedBusinessMakeTexCamoed;
+inline constexpr UINT16 NPC_ACTION_HAVE_DEALER_OPEN_BUY_SELL_SCREEN =
+	CampaignActionCode::UnfinishedBusinessOpenDealerScreen;
+inline constexpr UINT16 JA25_NPC_ACTION_SEND_WEIGHTED_ASSAULT_TO_LOCATION =
+	CampaignActionCode::UnfinishedBusinessWeightedAssault;
+inline constexpr UINT16 JA25_NPC_ACTION_SEND_SPECIFIC_ASSAULT_TO_LOCATION =
+	CampaignActionCode::UnfinishedBusinessSpecificAssault;
+inline constexpr UINT16 JA25_NPC_ACTION_WALDO_REPAIR_REQUESTOR =
+	CampaignActionCode::UnfinishedBusinessWaldoRepairRequestor;
+
 #define HOSPITAL_PATIENT_DISTANCE 9
 
 extern INT32 giHospitalTempBalance;
@@ -420,7 +434,6 @@ extern BOOLEAN	gfInTalkPanel;
 void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
 void DelayedSayingOfMercQuote( UINT32 uiParam );
 
-#ifdef JA2UB
 //JA25 ub
 void CheckForValidQuotesWhenLeavingDealer( UINT8 ubProfile );
 void HaveBiggensDetonatingExplosivesByTheMine();
@@ -429,5 +442,4 @@ void HaveBiggensDetonatingExplosivesByTheMine();
 BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo );
 
 void ReplaceMineEntranceGraphicWithCollapsedEntrance();
-#endif
 #endif
