@@ -49,6 +49,7 @@
 	#include "End Game.h"
 	#include "LOS.h"
 	#include "qarray.h"
+	#include "GameContext.h"
 #include <vector>
 #include <queue>
 
@@ -60,13 +61,11 @@
 #endif // !JA2UB
 
 
-#ifdef JA2UB
 #include "Intro.h"
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
 #include "Animation Control.h"
 #include "ub_config.h"
-#endif
 
 
 #include "history.h"
@@ -149,10 +148,11 @@ UINT32 uiExternalFaceProfileIdsUB[ NUMBER_OF_EXTERNAL_NPC_FACES ]=
 };
 
 
-BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes();
 void		InitJerriesSpeechCallBack();
 void		HandlePlayerClosingMorrisNoteDisplayedOnScreen();
 #endif
+
+BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes();
 
 UINT8	gubMercValidPrecedentQuoteID[ NUMBER_VALID_MERC_PRECEDENT_QUOTES ] =
 					{ 80, 81, 82, 83, 86, 87, 88, 95, 97, 99, 100, 101, 102 };
@@ -1362,65 +1362,64 @@ void HandleDialogue( )
 				ExecuteAdditionalCharacterDialogue( QItem.ubCharacterNum, QItem.iFaceIndex, QItem.usQuoteNum, QItem.uiSpecialEventData2, QItem.uiSpecialEventData3, QItem.uiSpecialEventData4 );
 			}
 
-#ifdef JA2UB
-			//JA25 UB
-			if ( QItem.uiSpecialEventData & MULTIPURPOSE_SPECIAL_EVENT_TEAM_MEMBERS_DONE_TALKING )
+			if (GetGameContext().capabilities().isUnfinishedBusiness())
 			{
-				HandleEveryoneDoneTheirEndGameQuotes();
-			}
-			else if ( QItem.uiSpecialEventData & MULTIPURPOSE_SPECIAL_EVENT_GETUP_AFTER_HELI_CRASH )
-			{
-				// grab soldier ptr from profile ID
-				pSoldier = FindSoldierByProfileID( (UINT8)QItem.uiSpecialEventData2, FALSE );
-
-				// FindSoldier was returning a lot of nullptrs which would crash the game very quickly after Jerry gets up. This check is here to circumvent that.
-				if (pSoldier != nullptr)
+				if ( QItem.uiSpecialEventData & JA25_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING )
 				{
-					// Now, wake these sluts up and have them say quote...
-					pSoldier->fIgnoreGetupFromCollapseCheck = FALSE;
+					HandleEveryoneDoneTheirEndGameQuotes();
+				}
+				else if ( QItem.uiSpecialEventData & JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH )
+				{
+					// grab soldier ptr from profile ID
+					pSoldier = FindSoldierByProfileID( (UINT8)QItem.uiSpecialEventData2, FALSE );
 
-					//Get the soldier up
-					pSoldier->bCollapsed = FALSE;
-					(void)TryDispatchSystemChangeStanceCommand(
-						*pSoldier, ANIM_STAND,
-						TacticalEventPolicy::LocalOnly);
-
-					//if the soldier is Jerry
-					if (FindSoldierByProfileID( JERRY_MILO_UB, FALSE ) == pSoldier) //JERRY
+					// FindSoldier was returning a lot of nullptrs which would crash the game very quickly after Jerry gets up. This check is here to circumvent that.
+					if (pSoldier != nullptr)
 					{
-						//Play the sound of the Antena breaking
-						PlayJA2SampleFromFile( "SOUNDS\\Metal Antenna Crunch.wav", RATE_11025, HIGHVOLUME, 1, MIDDLE );
-					}
+						// Now, wake these sluts up and have them say quote...
+						pSoldier->fIgnoreGetupFromCollapseCheck = FALSE;
 
-					//Turn off the flag saying we are doing the initial heli crash
-					gfFirstTimeInGameHeliCrash = FALSE;
+						//Get the soldier up
+						pSoldier->bCollapsed = FALSE;
+						(void)TryDispatchSystemChangeStanceCommand(
+							*pSoldier, ANIM_STAND,
+							TacticalEventPolicy::LocalOnly);
 
-					//if all the mercs are done their talk
-					if (AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes())
-					{
-						//Trigger Jerry Milo's script record 10 ( call action 301 )
-						//AA 
-						//if ( gGameUBOptions.InGameHeliCrash == TRUE )
-						if (gGameUBOptions.JerryQuotes == TRUE)
-							DelayedMercQuote( JERRY_MILO_UB, 0xffff, 4 ); //JERRY
+						//if the soldier is Jerry
+						if (FindSoldierByProfileID( JERRY_MILO_UB, FALSE ) == pSoldier) //JERRY
+						{
+							//Play the sound of the Antena breaking
+							PlayJA2SampleFromFile( "SOUNDS\\Metal Antenna Crunch.wav", RATE_11025, HIGHVOLUME, 1, MIDDLE );
+						}
 
-						//End the ui Lock
-						guiPendingOverrideEvent = LU_ENDUILOCK;
+						//Turn off the flag saying we are doing the initial heli crash
+						gfFirstTimeInGameHeliCrash = FALSE;
+
+						//if all the mercs are done their talk
+						if (AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes())
+						{
+							//Trigger Jerry Milo's script record 10 ( call action 301 )
+							if (gGameUBOptions.JerryQuotes == TRUE)
+								DelayedMercQuote( JERRY_MILO_UB, 0xffff, 4 ); //JERRY
+
+							//End the ui Lock
+							guiPendingOverrideEvent = LU_ENDUILOCK;
+						}
 					}
 				}
 			}
-		}
-#else //Ja25 No queen
-			if ( QItem.uiSpecialEventData & MULTIPURPOSE_SPECIAL_EVENT_DONE_KILLING_DEIDRANNA )
+			else
 			{
-				HandleDoneLastKilledQueenQuote( );
-			}
-			else if ( QItem.uiSpecialEventData & MULTIPURPOSE_SPECIAL_EVENT_TEAM_MEMBERS_DONE_TALKING )
-			{
-				HandleDoneLastEndGameQuote( );
+				if ( QItem.uiSpecialEventData & JA2_MULTIPURPOSE_EVENT_DONE_KILLING_DEIDRANNA )
+				{
+					HandleDoneLastKilledQueenQuote( );
+				}
+				else if ( QItem.uiSpecialEventData & JA2_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING )
+				{
+					HandleDoneLastEndGameQuote( );
+				}
 			}
 		}
-#endif
 		else if( QItem.uiSpecialEventFlag & DIALOGUE_SPECIAL_EVENT_SLEEP )
 		{
 			// no soldier, leave now
@@ -3822,7 +3821,6 @@ void SetExternMapscreenSpeechPanelXY( INT16 sXPos, INT16 sYPos )
 }
 
 
-#ifdef JA2UB
 //JA25 UB
 BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes()
 {
@@ -3862,6 +3860,8 @@ BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes()
 	//all mercs on the team are done
 	return( TRUE );
 }
+
+#ifdef JA2UB
 
 void InitJerriesSpeechCallBack()
 {

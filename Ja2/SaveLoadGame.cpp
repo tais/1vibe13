@@ -1786,12 +1786,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(s.usBarrelCounter);
 	ar.i32(s.sFocusGridNo); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
 	ar.u32(s.usDisabilityFlagMask); ar.i32(s.sDragGridNo);
-#ifdef JA2UB
 	ar.boolean(s.fIgnoreGetupFromCollapseCheck);
 	ar.i32(s.GetupFromJA25StartCounter);
 	ar.boolean(s.fWaitingToGetupFromJA25Start);
 	for (i = 0; i < NUM_ASSIST_SLOTS; ++i) ar.u8(s.ubPercentDamageInflictedByTeam[i]);
-#endif
 }
 
 BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)

@@ -4378,22 +4378,20 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					// This is not the end, 'cause momma creature is still alive
 					TriggerNPCRecordImmediately( 136, 8 );
-#ifdef JA2UB
-//no Ub
-#else
-					EndQueenDeathEndgame( );
-#endif
+					if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+					{
+						EndQueenDeathEndgame( );
+					}
 
 				}
 				else
 				{
 					// Continue with endgame cimematic..
 					DeleteTalkingMenu( );
-#ifdef JA2UB
-//no Ub
-#else
-					EndQueenDeathEndgameBeginEndCimenatic( );
-#endif
+					if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+					{
+						EndQueenDeathEndgameBeginEndCimenatic( );
+					}
 				}
 				break;
 
@@ -4401,11 +4399,10 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				// Just end queen killed dequence.......
 				DeleteTalkingMenu( );
-#ifdef JA2UB
-// no UB
-#else
-				EndQueenDeathEndgame( );
-#endif
+				if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+				{
+					EndQueenDeathEndgame( );
+				}
 				break;
 
 			case NPC_ACTION_MAKE_ESTONI_A_FUEL_SITE:

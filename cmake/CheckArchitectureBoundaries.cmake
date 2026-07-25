@@ -258,6 +258,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
+  "${SOURCE_ROOT}/Tactical/End Game.cpp"
+  "${SOURCE_ROOT}/Tactical/End Game.h"
   "${SOURCE_ROOT}/Tactical/interface Dialogue.h")
 foreach(runtime_campaign_file IN LISTS
     runtime_campaign_implementation_files runtime_campaign_selection_files)
@@ -316,6 +318,96 @@ foreach(required_runtime_event_fragment IN ITEMS
   if(runtime_event_fragment_position EQUAL -1)
     message(FATAL_ERROR
       "Strategic event dispatch lost runtime campaign selection; missing '${required_runtime_event_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/End Game.cpp"
+  runtime_campaign_endgame_contents)
+foreach(required_runtime_endgame_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "JA2_MULTIPURPOSE_EVENT_DONE_KILLING_DEIDRANNA"
+    "JA2_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING"
+    "JA25_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING"
+    "DoneFadeOutJa25EndCinematic"
+    "EndQueenDeathEndgameBeginEndCimenatic")
+  string(FIND "${runtime_campaign_endgame_contents}"
+    "${required_runtime_endgame_fragment}" runtime_endgame_fragment_position)
+  if(runtime_endgame_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign endgame flow lost runtime composition; missing '${required_runtime_endgame_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  runtime_campaign_dialogue_event_contents)
+foreach(required_runtime_dialogue_event_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH"
+    "JA25_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING"
+    "JA2_MULTIPURPOSE_EVENT_DONE_KILLING_DEIDRANNA"
+    "JA2_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING")
+  string(FIND "${runtime_campaign_dialogue_event_contents}"
+    "${required_runtime_dialogue_event_fragment}" runtime_dialogue_event_fragment_position)
+  if(runtime_dialogue_event_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign dialogue-event flow lost runtime selection; missing '${required_runtime_dialogue_event_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  runtime_campaign_tactical_death_contents)
+foreach(required_runtime_tactical_death_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "BeginHandleDeidrannaDeath("
+    "BeginHandleQueenBitchDeath("
+    "JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH")
+  string(FIND "${runtime_campaign_tactical_death_contents}"
+    "${required_runtime_tactical_death_fragment}" runtime_tactical_death_fragment_position)
+  if(runtime_tactical_death_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical campaign endgame dispatch lost runtime selection; missing '${required_runtime_tactical_death_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/laptop.cpp"
+  runtime_campaign_laptop_endgame_contents)
+foreach(required_runtime_laptop_endgame_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "HandleJa25EndGameAndGoToCreditsScreen(")
+  string(FIND "${runtime_campaign_laptop_endgame_contents}"
+    "${required_runtime_laptop_endgame_fragment}" runtime_laptop_endgame_fragment_position)
+  if(runtime_laptop_endgame_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop exit lost runtime campaign endgame selection; missing '${required_runtime_laptop_endgame_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  runtime_campaign_soldier_state_contents)
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  runtime_campaign_soldier_save_contents)
+foreach(required_runtime_soldier_state_fragment IN ITEMS
+    "fIgnoreGetupFromCollapseCheck"
+    "GetupFromJA25StartCounter"
+    "fWaitingToGetupFromJA25Start"
+    "ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS]")
+  string(FIND "${runtime_campaign_soldier_state_contents}"
+    "${required_runtime_soldier_state_fragment}" runtime_soldier_state_fragment_position)
+  if(runtime_soldier_state_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Unified campaign soldier state lost field '${required_runtime_soldier_state_fragment}'")
+  endif()
+endforeach()
+foreach(required_runtime_soldier_save_fragment IN ITEMS
+    "ar.boolean(s.fIgnoreGetupFromCollapseCheck)"
+    "ar.i32(s.GetupFromJA25StartCounter)"
+    "ar.boolean(s.fWaitingToGetupFromJA25Start)"
+    "ar.u8(s.ubPercentDamageInflictedByTeam[i])")
+  string(FIND "${runtime_campaign_soldier_save_contents}"
+    "${required_runtime_soldier_save_fragment}" runtime_soldier_save_fragment_position)
+  if(runtime_soldier_save_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Unified campaign soldier state lost persistence '${required_runtime_soldier_save_fragment}'")
   endif()
 endforeach()
 
