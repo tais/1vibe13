@@ -349,6 +349,18 @@ namespace
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
 			}
+			else if constexpr (
+				std::is_same<Command, SetWeaponReadyCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier) return CommandDisposition::Discard;
+				return soldier->InternalSoldierReadyWeapon(
+					value.direction,
+					value.ready ? FALSE : TRUE,
+					value.alternativeHold ? TRUE : FALSE)
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
+			}
 			else if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
@@ -714,6 +726,13 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				std::is_same<Command, ReloadWeaponCommand>::value)
 			{
 				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
+				std::is_same<Command, SetWeaponReadyCommand>::value)
+			{
+				return IsValidTacticalDirection(value.direction)
+					? SimulationCommandDomainError::None
+					: SimulationCommandDomainError::InvalidDirection;
 			}
 			else if constexpr (std::is_same<Command, CycleScopeModeCommand>::value)
 			{
@@ -1105,6 +1124,22 @@ SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
 		});
 }
 
+SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
+	SOLDIERTYPE& soldier,
+	std::uint8_t direction,
+	bool ready,
+	bool alternativeHold,
+	SimulationCommandSource source) noexcept
+{
+	return DispatchActorCommand(
+		soldier,
+		[direction, ready, alternativeHold, source](
+			TacticalEntityId actor) {
+			return SetWeaponReadyCommand{
+				actor, direction, ready, alternativeHold, source};
+		});
+}
+
 SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
 	SOLDIERTYPE& soldier,
 	TacticalTraversalKind kind,
@@ -1372,6 +1407,20 @@ SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
 		SimulationCommand{ReloadWeaponCommand{
 			TacticalEntityId{soldierId, uniqueSoldierId},
 			reloadEvenIfNotEmpty, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint8_t direction,
+	bool ready,
+	bool alternativeHold,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{SetWeaponReadyCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			direction, ready, alternativeHold, source}});
 }
 
 SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(

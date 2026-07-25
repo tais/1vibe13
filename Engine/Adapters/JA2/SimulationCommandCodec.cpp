@@ -34,13 +34,18 @@ enum class CommandTag : std::uint8_t
 	ApproachVehicle = 17,
 	PickupWorldItem = 18,
 	StealFromActor = 19,
-	ExchangePositions = 20
+	ExchangePositions = 20,
+	SetWeaponReady = 21
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
 constexpr std::uint8_t MoveForceRestartFlag = 0x02u;
 constexpr std::uint8_t MoveKnownFlags =
 	MoveReverseFlag | MoveForceRestartFlag;
+constexpr std::uint8_t WeaponReadyFlag = 0x01u;
+constexpr std::uint8_t WeaponAlternativeHoldFlag = 0x02u;
+constexpr std::uint8_t WeaponReadyKnownFlags =
+	WeaponReadyFlag | WeaponAlternativeHoldFlag;
 
 bool IsValidSource(std::uint8_t value)
 {
@@ -164,6 +169,18 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.soldier.slot);
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(value.reloadEvenIfNotEmpty ? 1u : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, SetWeaponReadyCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::SetWeaponReady));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(value.direction);
+			writer.writeU8(
+				(value.ready ? WeaponReadyFlag : 0u) |
+				(value.alternativeHold ? WeaponAlternativeHoldFlag : 0u));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 		else if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
@@ -436,6 +453,24 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				reloadEvenIfNotEmpty > 1 ||
 				!ReadSource(reader, value.source)) return false;
 			value.reloadEvenIfNotEmpty = reloadEvenIfNotEmpty != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::SetWeaponReady:
+		{
+			SetWeaponReadyCommand value{};
+			std::uint8_t flags = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!reader.readU8(flags) ||
+				(flags & ~WeaponReadyKnownFlags) != 0 ||
+				!ReadSource(reader, value.source)) return false;
+			value.ready = (flags & WeaponReadyFlag) != 0;
+			value.alternativeHold =
+				(flags & WeaponAlternativeHoldFlag) != 0;
 			command = value;
 			return true;
 		}

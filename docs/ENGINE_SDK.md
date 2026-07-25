@@ -156,9 +156,9 @@ as `ja2.tactical-commands` before package bootstrap, validates application
 domains at its safe simulation boundary, and drains only a configured prefix.
 The current command vocabulary includes pointer-free world-object activation
 and approach, stable conversation and vehicle-entry targets, typed roof, fence,
-wall, and window traversal, and player weapon-mode, scope-mode, reload, turn,
-stance, fire, movement, facing, stealth, stop-movement, stealing, position
-exchange, and world-item pickup intent. An approach combines movement with its
+wall, and window traversal, and player weapon-mode, scope-mode, reload,
+ready/lower, turn, stance, fire, movement, facing, stealth, stop-movement,
+stealing, position exchange, and world-item pickup intent. An approach combines movement with its
 pending interaction so command pressure cannot apply one without the other.
 Conversation partners, vehicles, steal targets, exchange partners, and exact
 pickup targets carry both their reusable slot and incarnation; delayed arrival
@@ -169,6 +169,8 @@ both issued grids and applies the swap plus both AP deductions atomically. A
 because the selected intent is discovery rather than one exact object.
 Scope targets use `TacticalNoTargetGrid` when no aim tile is available; reload
 intent explicitly records whether a non-empty weapon may be reloaded.
+Ready/lower intent records the selected eight-way direction and alternative
+weapon-hold choice rather than a cursor position or an animation constant.
 Traversal uses `TacticalTraversalKind`, keeping legacy soldier and structure
 pointers, AP calculations, and animation constants outside the package-facing
 contract.

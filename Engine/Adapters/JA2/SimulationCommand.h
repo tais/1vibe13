@@ -164,6 +164,18 @@ struct ReloadWeaponCommand
 	SimulationCommandSource source;
 };
 
+// Ready/lower intent records the resolved eight-way direction rather than a
+// mouse coordinate. The compatibility executor may still select JA2's exact
+// animation, while replay and network producers retain the player's choice.
+struct SetWeaponReadyCommand
+{
+	TacticalEntityId soldier;
+	std::uint8_t direction;
+	bool ready;
+	bool alternativeHold;
+	SimulationCommandSource source;
+};
+
 // Explicit values keep the current replay/network vocabulary independent from
 // legacy animation constants.
 enum class TacticalTraversalKind : std::uint8_t
@@ -354,7 +366,8 @@ using SimulationCommand = std::variant<
 	ApproachVehicleCommand,
 	PickupWorldItemCommand,
 	StealFromActorCommand,
-	ExchangePositionsCommand>;
+	ExchangePositionsCommand,
+	SetWeaponReadyCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -378,6 +391,8 @@ inline bool IsStructurallyValidSimulationCommand(
 				return IsValidTacticalMoveOrigin(value.origin) &&
 					IsValidTacticalPendingActionPolicy(value.pendingAction);
 			if constexpr (std::is_same<Command, SetFacingCommand>::value)
+				return IsValidTacticalDirection(value.direction);
+			if constexpr (std::is_same<Command, SetWeaponReadyCommand>::value)
 				return IsValidTacticalDirection(value.direction);
 			if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
 				return IsValidTacticalTraversalKind(value.kind);
