@@ -175,6 +175,10 @@ weapon-hold choice rather than a cursor position or an animation constant.
 Stance intent remains one value command for both stationary and moving actors;
 the JA2 executor selects the established real-time movement animation where
 needed. Drag cancellation carries only the exact actor identity.
+Squad controls remain a UI-side fan-out: each accepted stealth or stop intent is
+still an ordinary per-actor command with an independently verified incarnation,
+so no package-only batch type or global squad identity leaks into the engine
+contract.
 Traversal uses `TacticalTraversalKind`, keeping legacy soldier and structure
 pointers, AP calculations, and animation constants outside the package-facing
 contract.

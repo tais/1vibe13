@@ -5994,9 +5994,7 @@ BOOLEAN StopRubberBandedMercFromMoving(void)
 				{
 					fFound = TRUE;
 				}
-				pSoldier->flags.fDelayedMovement = FALSE;
-				pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
-				pSoldier->StopSoldier( );
+				TryDispatchStopMovementCommandNow(*pSoldier);
 			}
 		}
 	}
