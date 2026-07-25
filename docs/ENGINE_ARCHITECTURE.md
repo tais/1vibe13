@@ -363,6 +363,14 @@ the engine must not contain SDL types in its public domain model.
   cancels the stale callback instead of dereferencing or retargeting a global
   `SOLDIERTYPE*`. These references are runtime-only and do not alter soldier,
   save, map, or content layouts.
+- `Ja2TacticalWorldItemReference` provides the equivalent runtime-only handle
+  for entries in the reusable `gWorldItems` storage. Booby-trap, buried-bomb,
+  map-cursor trap, and mine-spotted dialogue chains now capture independent
+  actor/item/location contexts. A rebuilt item pool, reused world-item slot,
+  changed cursor item, released actor, or sector transition cancels the stale
+  action. The extended inspect path also resolves and snapshots its selected
+  bomb before evaluating it; no save, map, XML, archive, or content format is
+  changed.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard

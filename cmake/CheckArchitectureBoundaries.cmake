@@ -225,9 +225,7 @@ foreach(player_peer_interaction_file IN LISTS player_peer_interaction_files)
 endforeach()
 
 # Tactical modal requests must retain actor incarnations rather than raw
-# SOLDIERTYPE globals. The booby-trap workflow has its own world-item context
-# migration; this ratchet covers the completed shared item and attack/surgery
-# requester seams.
+# SOLDIERTYPE globals.
 file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
   tactical_item_callback_contents)
 string(REGEX MATCH
@@ -248,6 +246,31 @@ string(REGEX MATCH
 if(raw_tactical_requester_callback_actor)
   message(FATAL_ERROR
     "Tactical requester callbacks retain raw SOLDIERTYPE globals")
+endif()
+
+# Booby-trap and mine-spotted callbacks must not bring back their former raw
+# actor/item-pool/location globals. Callback-local compatibility aliases have
+# initializers and therefore do not match these retired declarations.
+string(REGEX MATCH
+  "SOLDIERTYPE[ \t]*\\*[ \t]*gpBoobyTrapSoldier[ \t]*;|ITEM_POOL[ \t]*\\*[ \t]*gpBoobyTrapItemPool[ \t]*;|INT32[ \t]+gsBoobyTrapGridNo[ \t]*;|INT8[ \t]+gbBoobyTrapLevel[ \t]*;|BOOLEAN[ \t]+gfDisarmingBuriedBomb[ \t]*;|INT8[ \t]+gbTrapDifficulty[ \t]*;|BOOLEAN[ \t]+gfJustFoundBoobyTrap"
+  raw_booby_trap_callback_state
+  "${tactical_item_callback_contents}")
+if(raw_booby_trap_callback_state)
+  message(FATAL_ERROR
+    "Booby-trap callbacks retain raw shared callback state")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Handle Items.h"
+  tactical_item_callback_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  tactical_overhead_callback_contents)
+string(REGEX MATCH
+  "gpBoobyTrapSoldier|gsBoobyTrapGridNo"
+  external_booby_trap_callback_state
+  "${tactical_item_callback_header_contents};${tactical_overhead_callback_contents}")
+if(external_booby_trap_callback_state)
+  message(FATAL_ERROR
+    "Mine-spotted callbacks mutate booby-trap callback globals")
 endif()
 
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the

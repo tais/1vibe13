@@ -25,4 +25,22 @@ void RebuildJa2TacticalWorldItemDirectory() noexcept;
 TacticalWorldItemId GetJa2TacticalWorldItemId(std::uint32_t slot) noexcept;
 WORLDITEM* ResolveJa2TacticalWorldItem(TacticalWorldItemId item) noexcept;
 
+// Delayed legacy UI work must not retain an ITEM_POOL or gWorldItems pointer:
+// both containers can be rebuilt while a dialogue is open. This value-only
+// reference resolves only while the same world-item incarnation remains live.
+class Ja2TacticalWorldItemReference
+{
+public:
+	bool capture(std::uint32_t slot) noexcept;
+	WORLDITEM* resolve() const noexcept;
+	WORLDITEM* consume() noexcept;
+
+	void reset() noexcept { item_ = {}; }
+	TacticalWorldItemId identity() const noexcept { return item_; }
+	bool valid() const noexcept { return item_.valid(); }
+
+private:
+	TacticalWorldItemId item_{};
+};
+
 #endif

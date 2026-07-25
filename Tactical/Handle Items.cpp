@@ -65,6 +65,7 @@
 	#include "Simulation Commands.h"
 	#include "TacticalEntityHost.h"
 	#include "TacticalWorldAdapter.h"
+	#include "TacticalWorldItemHost.h"
 
 	#include <cstdint>
 	#include <iostream>	// added by Flugente
@@ -229,11 +230,143 @@ struct SwitchCallbackContext
 	}
 };
 
+enum class BoobyTrapCallbackSource
+{
+	None,
+	TacticalWorldItem,
+	MapCursor
+};
+
+struct BoobyTrapCallbackContext
+{
+	Ja2TacticalEntityReference actor;
+	Ja2TacticalWorldItemReference worldItem;
+	OBJECTTYPE expectedItem;
+	BoobyTrapCallbackSource source = BoobyTrapCallbackSource::None;
+	INT32 grid = NOWHERE;
+	INT8 level = 0;
+	INT8 difficulty = 0;
+	bool disarmingBuriedBomb = false;
+	bool justFound = false;
+	std::uint64_t worldGeneration = 0;
+
+	bool captureTactical(
+		SOLDIERTYPE* soldier,
+		INT32 itemIndex,
+		INT32 selectedGrid,
+		INT8 selectedLevel,
+		bool buriedBomb)
+	{
+		reset();
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (!world.loaded || world.worldGeneration == 0 ||
+			itemIndex < 0 ||
+			!actor.capture(soldier) ||
+			!worldItem.capture(
+				static_cast<std::uint32_t>(itemIndex)))
+		{
+			reset();
+			return false;
+		}
+		WORLDITEM* item = worldItem.resolve();
+		if (!item || item->sGridNo != selectedGrid ||
+			item->ubLevel != selectedLevel ||
+			!item->object.exists())
+		{
+			reset();
+			return false;
+		}
+		expectedItem = item->object;
+		source = BoobyTrapCallbackSource::TacticalWorldItem;
+		grid = selectedGrid;
+		level = selectedLevel;
+		difficulty = item->object[0]->data.bTrap;
+		disarmingBuriedBomb = buriedBomb;
+		worldGeneration = world.worldGeneration;
+		return true;
+	}
+
+	bool captureMapCursor(
+		SOLDIERTYPE* soldier,
+		const OBJECTTYPE* item)
+	{
+		reset();
+		if (!item || item != gpItemPointer || !item->exists() ||
+			!actor.capture(soldier))
+		{
+			reset();
+			return false;
+		}
+		expectedItem = *item;
+		source = BoobyTrapCallbackSource::MapCursor;
+		difficulty = (*item)[0]->data.bTrap;
+		return true;
+	}
+
+	bool resolveTactical(
+		SOLDIERTYPE*& soldier,
+		WORLDITEM*& item) const
+	{
+		soldier = nullptr;
+		item = nullptr;
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (source != BoobyTrapCallbackSource::TacticalWorldItem ||
+			!world.loaded ||
+			world.worldGeneration != worldGeneration)
+			return false;
+		soldier = actor.resolve();
+		item = worldItem.resolve();
+		if (!soldier || !item ||
+			item->sGridNo != grid || item->ubLevel != level ||
+			!(item->object == expectedItem))
+		{
+			soldier = nullptr;
+			item = nullptr;
+			return false;
+		}
+		return true;
+	}
+
+	bool resolveMapCursor(
+		SOLDIERTYPE*& soldier,
+		OBJECTTYPE*& item) const
+	{
+		soldier = nullptr;
+		item = nullptr;
+		if (source != BoobyTrapCallbackSource::MapCursor ||
+			!gpItemPointer ||
+			!(*gpItemPointer == expectedItem))
+			return false;
+		soldier = actor.resolve();
+		item = gpItemPointer;
+		return soldier != nullptr;
+	}
+
+	void reset()
+	{
+		actor.reset();
+		worldItem.reset();
+		expectedItem.initialize();
+		source = BoobyTrapCallbackSource::None;
+		grid = NOWHERE;
+		level = 0;
+		difficulty = 0;
+		disarmingBuriedBomb = false;
+		justFound = false;
+		worldGeneration = 0;
+	}
+};
+
 TacticalActorCallbackContext gBombCallbackContext;
 TacticalActorCallbackContext gCorpseCallbackContext;
 TacticalActorCallbackContext gTacticalFunctionCallbackContext;
 TacticalActorCallbackContext gOwnershipCallbackContext;
+TacticalActorCallbackContext gRemoveBlueFlagCallbackContext;
 SwitchCallbackContext gSwitchCallbackContext;
+BoobyTrapCallbackContext gBoobyTrapCallbackContext;
+BoobyTrapCallbackContext gMineSpottedCallbackContext;
 }
 
 ITEM_POOL_LOCATOR				FlashItemSlots[ NUM_ITEM_FLASH_SLOTS ];
@@ -267,7 +400,7 @@ void BoobyTrapDialogueCallBack( void );
 void MineSpottedDialogueCallBack( void );
 void MineSpottedLocatorCallback( void );
 void RemoveBlueFlagDialogueCallBack( UINT8 ubExitValue );
-INT32 CheckBombDisarmChance(void);
+INT32 CheckBombDisarmChance(SOLDIERTYPE* soldier);
 void ExtendedDisarmMessageBox(void);
 void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue );
 void HandleTakeNewBombFromInventory(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj);
@@ -284,14 +417,7 @@ extern BOOLEAN	gfResetUIMovementOptimization;
 
 BOOLEAN ItemPoolOKForPickup( SOLDIERTYPE * pSoldier, ITEM_POOL *pItemPool, INT8 bZLevel );
 
-SOLDIERTYPE *		gpBoobyTrapSoldier;
-ITEM_POOL *			gpBoobyTrapItemPool;
-INT32						gsBoobyTrapGridNo;
-INT8			gbBoobyTrapLevel;
-BOOLEAN					gfDisarmingBuriedBomb;
 extern BOOLEAN	gfDontChargeAPsToPickup;
-INT8						gbTrapDifficulty;
-BOOLEAN					gfJustFoundBoobyTrap = FALSE;
 
 void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo );
 
@@ -2245,12 +2371,12 @@ void HandleSoldierUseCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
 
 void HandleSoldierDefuseTripwire( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT32 sItem )
 {
-	gpBoobyTrapItemPool   = GetItemPoolForIndex( sGridNo, sItem, pSoldier->pathing.bLevel );
-	gpBoobyTrapSoldier    = pSoldier;
-	gsBoobyTrapGridNo     = sGridNo;
-	gbBoobyTrapLevel      = pSoldier->pathing.bLevel;
-	gfDisarmingBuriedBomb = FALSE;
-	gbTrapDifficulty      = (gWorldItems[ sItem ].object)[0]->data.bTrap;
+	if ( !gBoobyTrapCallbackContext.captureTactical(
+			pSoldier, sItem, sGridNo,
+			pSoldier->pathing.bLevel, false ) )
+	{
+		return;
+	}
 
 	DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, BoobyTrapMessageBoxCallBack, NULL );
 }
@@ -2731,14 +2857,12 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 			// Flugente: if item is tripwireactivated and is a planted bomb, call the defuse dialogue. We obviously know about the items' existence already...
 			if ( gWorldItems[ iItemIndex ].object.exists() && gWorldItems[ iItemIndex ].object.fFlags & OBJECT_ARMED_BOMB && ItemHasTripwireActivation(gWorldItems[ iItemIndex ].object.usItem) )
 			{
-				gpBoobyTrapItemPool = GetItemPoolForIndex( sGridNo, iItemIndex, pSoldier->pathing.bLevel );
-				gpBoobyTrapSoldier = pSoldier;
-				gsBoobyTrapGridNo = sGridNo;
-				gbBoobyTrapLevel	= pSoldier->pathing.bLevel;
-				gfDisarmingBuriedBomb = FALSE;
-				gbTrapDifficulty = (gWorldItems[ iItemIndex ].object)[0]->data.bTrap;
-
-				DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, BoobyTrapMessageBoxCallBack, NULL );
+				if ( gBoobyTrapCallbackContext.captureTactical(
+						pSoldier, iItemIndex, sGridNo,
+						pSoldier->pathing.bLevel, false ) )
+				{
+					DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, BoobyTrapMessageBoxCallBack, NULL );
+				}
 			}
 			else if ( ContinuePastBoobyTrap( pSoldier, sGridNo, bZLevel, iItemIndex, FALSE, &fSaidBoobyTrapQuote ) )
 			{
@@ -2941,12 +3065,12 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 				}
 #endif
 
-				gpBoobyTrapItemPool = GetItemPoolForIndex( sGridNo, iItemIndex, pSoldier->pathing.bLevel );
-				gpBoobyTrapSoldier = pSoldier;
-				gsBoobyTrapGridNo = sGridNo;
-				gbBoobyTrapLevel	= pSoldier->pathing.bLevel;
-				gfDisarmingBuriedBomb = TRUE;
-				gbTrapDifficulty = gWorldItems[ iItemIndex ].object[0]->data.bTrap;
+				if ( !gBoobyTrapCallbackContext.captureTactical(
+						pSoldier, iItemIndex, sGridNo,
+						pSoldier->pathing.bLevel, true ) )
+				{
+					return;
+				}
 
 				// WDS - Use local buffer for storing modified string instead of original copy
 				CHAR16 buffer[99];
@@ -6126,13 +6250,12 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 
 					// Make him warn us:
 
-					// Set things up..
-					gpBoobyTrapSoldier = pSoldier;
-					gpBoobyTrapItemPool = GetItemPoolForIndex( sGridNo, iItemIndex, pSoldier->pathing.bLevel );
-					gsBoobyTrapGridNo = sGridNo;
-					gbBoobyTrapLevel	= pSoldier->pathing.bLevel;
-					gfDisarmingBuriedBomb = FALSE;
-					gbTrapDifficulty = bTrapDifficulty;
+					if ( !gBoobyTrapCallbackContext.captureTactical(
+							pSoldier, iItemIndex, sGridNo,
+							pSoldier->pathing.bLevel, false ) )
+					{
+						return( FALSE );
+					}
 
 					// And make the call for the dialogue
 					SetStopTimeQuoteCallback( BoobyTrapDialogueCallBack );
@@ -6144,15 +6267,15 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 				}
 			}
 
-			gpBoobyTrapItemPool = GetItemPoolForIndex( sGridNo, iItemIndex, pSoldier->pathing.bLevel );
 			if (fBoobyTrapKnowledge)
 			{
 				// have the computer ask us if we want to proceed
-				gpBoobyTrapSoldier = pSoldier;
-				gsBoobyTrapGridNo = sGridNo;
-				gbBoobyTrapLevel	= pSoldier->pathing.bLevel;
-				gfDisarmingBuriedBomb = FALSE;
-				gbTrapDifficulty = (*pObj)[0]->data.bTrap;
+				if ( !gBoobyTrapCallbackContext.captureTactical(
+						pSoldier, iItemIndex, sGridNo,
+						pSoldier->pathing.bLevel, false ) )
+				{
+					return( FALSE );
+				}
 
 				if( fInStrategic )
 				{
@@ -6166,7 +6289,10 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 			else
 			{
 				// oops!
-				SetOffBoobyTrap( gpBoobyTrapItemPool );
+				SetOffBoobyTrap(
+					GetItemPoolForIndex(
+						sGridNo, iItemIndex,
+						pSoldier->pathing.bLevel ) );
 			}
 
 			return( FALSE );
@@ -6180,10 +6306,25 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 
 void BoobyTrapDialogueCallBack( void )
 {
-	gfJustFoundBoobyTrap = TRUE;
+	SOLDIERTYPE* soldier = nullptr;
+	WORLDITEM* worldItem = nullptr;
+	OBJECTTYPE* mapItem = nullptr;
+	const bool tacticalContext =
+		gBoobyTrapCallbackContext.resolveTactical(
+			soldier, worldItem );
+	const bool mapContext =
+		!tacticalContext &&
+		gBoobyTrapCallbackContext.resolveMapCursor(
+			soldier, mapItem );
+	if ( !tacticalContext && !mapContext )
+	{
+		gBoobyTrapCallbackContext.reset();
+		return;
+	}
+	gBoobyTrapCallbackContext.justFound = true;
 
 	// now prompt the user...
-	if( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN )
+	if( mapContext )
 	{
 		DoScreenIndependantMessageBox( TacticalStr[ DISARM_BOOBYTRAP_PROMPT ],	MSG_BOX_FLAG_YESNO, BoobyTrapInMapScreenMessageBoxCallBack );
 	}
@@ -6195,20 +6336,48 @@ void BoobyTrapDialogueCallBack( void )
 
 void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 {
-	if ( gfJustFoundBoobyTrap )
+	const BoobyTrapCallbackContext callbackContext =
+		gBoobyTrapCallbackContext;
+	gBoobyTrapCallbackContext.reset();
+	SOLDIERTYPE* gpBoobyTrapSoldier = nullptr;
+	WORLDITEM* worldItem = nullptr;
+	if ( !callbackContext.resolveTactical(
+			gpBoobyTrapSoldier, worldItem ) )
+	{
+		return;
+	}
+	const INT32 boobyTrapItemIndex =
+		static_cast<INT32>(
+			callbackContext.worldItem.identity().slot);
+	ITEM_POOL* boobyTrapItemPool =
+		GetItemPoolForIndex(
+			callbackContext.grid,
+			boobyTrapItemIndex,
+			callbackContext.level );
+	if ( !boobyTrapItemPool ||
+		boobyTrapItemPool->iItemIndex != boobyTrapItemIndex )
+	{
+		return;
+	}
+	const INT32 gsBoobyTrapGridNo = callbackContext.grid;
+	const INT8 gbBoobyTrapLevel = callbackContext.level;
+	const BOOLEAN gfDisarmingBuriedBomb =
+		callbackContext.disarmingBuriedBomb ? TRUE : FALSE;
+	const INT8 gbTrapDifficulty = callbackContext.difficulty;
+
+	if ( callbackContext.justFound )
 	{
 		// NOW award for finding boobytrap
 		// WISDOM GAIN:	Detected a booby-trap
 		StatChange( gpBoobyTrapSoldier, WISDOMAMT, (UINT16) (3 * gbTrapDifficulty), FALSE );
 		// EXPLOSIVES GAIN:	Detected a booby-trap
 		StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (UINT16) (3 * gbTrapDifficulty), FALSE );
-		gfJustFoundBoobyTrap = FALSE;
 	}
 
 	if (ubExitValue == MSG_BOX_RETURN_YES)
 	{
 		// get the item
-		gTempObject = gWorldItems[ gpBoobyTrapItemPool->iItemIndex ].object;
+		gTempObject = worldItem->object;
 
 		// Snap: make it easier to disarm our own traps.
 		// If we succede - we get exp, but if we fail - we pay fair and square!
@@ -6223,7 +6392,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 				return;
 		}
 
-		if ( CheckBombDisarmChance() >= 0)
+		if ( CheckBombDisarmChance(gpBoobyTrapSoldier) >= 0)
 		{
 			if ( gTempObject[0]->data.misc.ubBombOwner > 1 && ( (INT32)gTempObject[0]->data.misc.ubBombOwner - 2 >= gTacticalStatus.Team[ OUR_TEAM ].bFirstID && gTempObject[0]->data.misc.ubBombOwner - 2 <= gTacticalStatus.Team[ OUR_TEAM ].bLastID ) )
 			{
@@ -6299,7 +6468,13 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 					{
 						OBJECTTYPE TempAttachment;
 						// attach whatever trigger the bomb originally had
-						if (gWorldItems[ gpBoobyTrapItemPool->iItemIndex ].object[0]->data.misc.bDetonatorType == BOMB_REMOTE)
+						WORLDITEM* currentWorldItem =
+							callbackContext.worldItem.resolve();
+						if ( !currentWorldItem )
+						{
+							return;
+						}
+						if (currentWorldItem->object[0]->data.misc.bDetonatorType == BOMB_REMOTE)
 						{
 							// attack a remote detonator, but they will need a trigger to use it :)
 							CreateItem( REMDETONATOR, gTempObject[0]->data.misc.bBombStatus, &TempAttachment );
@@ -6340,9 +6515,9 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 			{
 				// OJW - 20091029 - disarm explosives
 				if (is_networked && is_client)
-						send_disarm_explosive( gsBoobyTrapGridNo, gpBoobyTrapItemPool->iItemIndex, gpBoobyTrapSoldier->ubID );
+						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->ubID );
 				// remove it from the ground
-				RemoveItemFromPool( gsBoobyTrapGridNo, gpBoobyTrapItemPool->iItemIndex, gbBoobyTrapLevel );
+				RemoveItemFromPool( gsBoobyTrapGridNo, boobyTrapItemIndex, gbBoobyTrapLevel );
 			}
 			else
 			{
@@ -6350,21 +6525,27 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 				//	before we assume it's an actual failure.  First, compare our tempObject with the pool item and
 				//	see if they're the same object.  If the above AutoPlaceObject is a complete fail, they should be
 				//	the same.
-				if(gWorldItems[gpBoobyTrapItemPool->iItemIndex].object.operator == (gTempObject))
+				WORLDITEM* currentWorldItem =
+					callbackContext.worldItem.resolve();
+				if ( !currentWorldItem )
+				{
+					return;
+				}
+				if(currentWorldItem->object.operator == (gTempObject))
 				{
 					// make sure the item in the world is untrapped
-					gWorldItems[ gpBoobyTrapItemPool->iItemIndex ].object[0]->data.bTrap = 0;
-					gWorldItems[ gpBoobyTrapItemPool->iItemIndex ].object.fFlags &= ~( OBJECT_KNOWN_TO_BE_TRAPPED );
+					currentWorldItem->object[0]->data.bTrap = 0;
+					currentWorldItem->object.fFlags &= ~( OBJECT_KNOWN_TO_BE_TRAPPED );
 
 					// ATE; If we failed to add to inventory, put failed one in our cursor...
 					gfDontChargeAPsToPickup = TRUE;
-					HandleAutoPlaceFail( gpBoobyTrapSoldier, gpBoobyTrapItemPool->iItemIndex, gsBoobyTrapGridNo );
+					HandleAutoPlaceFail( gpBoobyTrapSoldier, boobyTrapItemIndex, gsBoobyTrapGridNo );
 			
 					// OJW - 20091029 - disarm explosives
 					if (is_networked && is_client)
-						send_disarm_explosive( gsBoobyTrapGridNo, gpBoobyTrapItemPool->iItemIndex, gpBoobyTrapSoldier->ubID );
+						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->ubID );
 
-					RemoveItemFromPool( gsBoobyTrapGridNo, gpBoobyTrapItemPool->iItemIndex, gbBoobyTrapLevel );
+					RemoveItemFromPool( gsBoobyTrapGridNo, boobyTrapItemIndex, gbBoobyTrapLevel );
 				}
 				else
 				{
@@ -6379,10 +6560,10 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 					}
 					// OJW - 20091029 - disarm explosives
 					if (is_networked && is_client)
-						send_disarm_explosive( gsBoobyTrapGridNo, gpBoobyTrapItemPool->iItemIndex, gpBoobyTrapSoldier->ubID );
+						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->ubID );
 
 					// remove it from the ground
-					RemoveItemFromPool( gsBoobyTrapGridNo, gpBoobyTrapItemPool->iItemIndex, gbBoobyTrapLevel );
+					RemoveItemFromPool( gsBoobyTrapGridNo, boobyTrapItemIndex, gbBoobyTrapLevel );
 				}
 			}
 		}
@@ -6402,7 +6583,11 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 			}
 			else
 			{
-				SetOffBoobyTrap( gpBoobyTrapItemPool );
+				SetOffBoobyTrap(
+					GetItemPoolForIndex(
+						gsBoobyTrapGridNo,
+						boobyTrapItemIndex,
+						gbBoobyTrapLevel ) );
 			}
 		}
 	}
@@ -6410,7 +6595,13 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 	{
 		if (gfDisarmingBuriedBomb)
 		{
-			DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ REMOVE_BLUE_FLAG_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, RemoveBlueFlagDialogueCallBack, NULL );
+			if ( gRemoveBlueFlagCallbackContext.capture(
+					gpBoobyTrapSoldier,
+					gsBoobyTrapGridNo,
+					gbBoobyTrapLevel ) )
+			{
+				DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ REMOVE_BLUE_FLAG_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, RemoveBlueFlagDialogueCallBack, NULL );
+			}
 		}
 		// otherwise do nothing
 	}
@@ -6418,7 +6609,19 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 
 void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 {
-	if ( gfJustFoundBoobyTrap )
+	const BoobyTrapCallbackContext callbackContext =
+		gBoobyTrapCallbackContext;
+	gBoobyTrapCallbackContext.reset();
+	SOLDIERTYPE* gpBoobyTrapSoldier = nullptr;
+	OBJECTTYPE* mapItem = nullptr;
+	if ( !callbackContext.resolveMapCursor(
+			gpBoobyTrapSoldier, mapItem ) )
+	{
+		return;
+	}
+	const INT8 gbTrapDifficulty = callbackContext.difficulty;
+
+	if ( callbackContext.justFound )
 	{
 		// NOW award for finding boobytrap
 
@@ -6426,14 +6629,13 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 		StatChange( gpBoobyTrapSoldier, WISDOMAMT, (UINT16) (3 * gbTrapDifficulty), FALSE );
 		// EXPLOSIVES GAIN:	Detected a booby-trap
 		StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (UINT16) (3 * gbTrapDifficulty), FALSE );
-		gfJustFoundBoobyTrap = FALSE;
 	}
 
 	if (ubExitValue == MSG_BOX_RETURN_YES)
 	{
 		INT32						iCheckResult;
 
-		if ( HasItemFlag( gpItemPointer->usItem, BEARTRAP ) )
+		if ( HasItemFlag( mapItem->usItem, BEARTRAP ) )
 		{
 			iCheckResult = SkillCheck( gpBoobyTrapSoldier, DISARM_MECHANICAL_TRAP_CHECK, 0 );
 		}
@@ -6445,7 +6647,7 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 		if (iCheckResult >= 0)
 		{
 			// disarmed a boobytrap!
-			if ( HasItemFlag( gpItemPointer->usItem, BEARTRAP ) )
+			if ( HasItemFlag( mapItem->usItem, BEARTRAP ) )
 				StatChange( gpBoobyTrapSoldier, MECHANAMT, (3 * gbTrapDifficulty), FALSE );
 			else
 				StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (UINT16) (6 * gbTrapDifficulty), FALSE );
@@ -6458,31 +6660,10 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 			gpBoobyTrapSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 
 			// get the item
-			gTempObject = *gpItemPointer;
+			gTempObject = *mapItem;
 
-			if (gfDisarmingBuriedBomb)
-			{
-				if (gTempObject.usItem == SWITCH)
-				{
-					// give the player a remote trigger instead
-					CreateItem( REMOTEBOMBTRIGGER, (INT8) (1 + Random( 9 )), &gTempObject );
-				}
-				else if (gTempObject.usItem == ACTION_ITEM && gTempObject[0]->data.misc.bActionValue != ACTION_ITEM_BLOW_UP )
-				{
-					// give the player a detonator instead
-					CreateItem( DETONATOR, (INT8) (1 + Random( 9 )), &gTempObject );
-				}
-				else
-				{
-					// switch action item to the real item type
-					CreateItem( gTempObject[0]->data.misc.usBombItem, gTempObject[0]->data.misc.bBombStatus, &gTempObject );
-				}
-			}
-			else
-			{
-				gTempObject[0]->data.bTrap = 0;
-				gTempObject.fFlags &= ~( OBJECT_KNOWN_TO_BE_TRAPPED );
-			}
+			gTempObject[0]->data.bTrap = 0;
+			gTempObject.fFlags &= ~( OBJECT_KNOWN_TO_BE_TRAPPED );
 
 			MAPEndItemPointer( );
 
@@ -6500,28 +6681,14 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 			gpBoobyTrapSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 
 			// beartraps don't explode...
-			if ( HasItemFlag( gpItemPointer->usItem, BEARTRAP ) )
+			if ( HasItemFlag( mapItem->usItem, BEARTRAP ) )
 				return;
 
 			StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (INT8) (3 * gbTrapDifficulty ), FROM_FAILURE );
 
-			if (gfDisarmingBuriedBomb)
-			{
-				SetOffBombsInGridNo( gpBoobyTrapSoldier->ubID, gsBoobyTrapGridNo, TRUE, gbBoobyTrapLevel );
-			}
-			else
-			{
-				SetOffBoobyTrap( gpBoobyTrapItemPool );
-			}
+			SetOffBoobyTrapInMapScreen(
+				gpBoobyTrapSoldier, mapItem );
 		}
-	}
-	else
-	{
-		if (gfDisarmingBuriedBomb)
-		{
-			DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ REMOVE_BLUE_FLAG_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, RemoveBlueFlagDialogueCallBack, NULL );
-		}
-		// otherwise do nothing
 	}
 }
 
@@ -6749,9 +6916,65 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 	}
 }
 
+void BeginMineSpottedDialogue(
+	SOLDIERTYPE *pSoldier, INT32 sGridNo )
+{
+	if ( !pSoldier )
+	{
+		gTacticalStatus.fLockItemLocators = FALSE;
+		return;
+	}
+	const INT32 mineItemIndex =
+		FindWorldItemForBuriedBombInGridNo(
+			sGridNo, pSoldier->pathing.bLevel );
+	if ( mineItemIndex < 0 )
+	{
+		gTacticalStatus.fLockItemLocators = FALSE;
+		RemoveBlueFlag(
+			sGridNo, pSoldier->pathing.bLevel );
+		return;
+	}
+	if ( !gMineSpottedCallbackContext.captureTactical(
+			pSoldier, mineItemIndex, sGridNo,
+			pSoldier->pathing.bLevel, true ) )
+	{
+		gTacticalStatus.fLockItemLocators = FALSE;
+		return;
+	}
+
+	// silversurfer: optionally skip the spoken warning while retaining the
+	// same callback boundary.
+	if ( gGameExternalOptions.fMineSpottedNoTalk )
+	{
+		MineSpottedDialogueCallBack();
+	}
+	else
+	{
+		SetStopTimeQuoteCallback( MineSpottedDialogueCallBack );
+		TacticalCharacterDialogue(
+			pSoldier, QUOTE_SUSPICIOUS_GROUND );
+	}
+}
+
 void MineSpottedDialogueCallBack( void )
 {
-	ITEM_POOL * pItemPool;
+	SOLDIERTYPE* mineSpotter = nullptr;
+	WORLDITEM* mineItem = nullptr;
+	if ( !gMineSpottedCallbackContext.resolveTactical(
+			mineSpotter, mineItem ) )
+	{
+		gMineSpottedCallbackContext.reset();
+		gTacticalStatus.fLockItemLocators = FALSE;
+		return;
+	}
+	const INT32 mineGrid =
+		gMineSpottedCallbackContext.grid;
+	const INT8 mineLevel =
+		gMineSpottedCallbackContext.level;
+	const INT32 mineItemIndex =
+		static_cast<INT32>(
+			gMineSpottedCallbackContext.worldItem.identity().slot);
+	ITEM_POOL * pItemPool = nullptr;
 	BOOLEAN playerMine = FALSE;
 
 	// ATE: REALLY IMPORTANT - ALL CALLBACK ITEMS SHOULD UNLOCK
@@ -6759,10 +6982,14 @@ void MineSpottedDialogueCallBack( void )
 
 	// sevenfm: added check - if there is MAPELEMENT_PLAYER_MINE_PRESENT flag but there is no mine at tile
 	// this should prevent crash in rare situations
-	if( !GetItemPool( gsBoobyTrapGridNo, &pItemPool, gbBoobyTrapLevel ) || pItemPool == NULL || FindWorldItemForBuriedBombInGridNo( gsBoobyTrapGridNo, gbBoobyTrapLevel ) == -1 )
+	pItemPool = GetItemPoolForIndex(
+		mineGrid, mineItemIndex, mineLevel );
+	if( pItemPool == NULL ||
+		pItemPool->iItemIndex != mineItemIndex )
 	{
 		// remove blue flag and MINE_PRESENT flags
-		RemoveBlueFlag( gsBoobyTrapGridNo, gbBoobyTrapLevel );
+		RemoveBlueFlag( mineGrid, mineLevel );
+		gMineSpottedCallbackContext.reset();
 		return;
 	}
 
@@ -6776,7 +7003,8 @@ void MineSpottedDialogueCallBack( void )
 		if ( !playerMine )
 			SetItemPoolLocator( pItemPool );
 
-		AddBlueFlag( gsBoobyTrapGridNo, gbBoobyTrapLevel );
+		AddBlueFlag( mineGrid, mineLevel );
+		gMineSpottedCallbackContext.reset();
 	} else {
 		guiPendingOverrideEvent = LU_BEGINUILOCK;
 
@@ -6792,6 +7020,14 @@ void MineSpottedDialogueCallBack( void )
 void MineSpottedLocatorCallback( void )
 {
 	guiPendingOverrideEvent = LU_ENDUILOCK;
+	SOLDIERTYPE* mineSpotter = nullptr;
+	WORLDITEM* mineItem = nullptr;
+	if ( !gMineSpottedCallbackContext.resolveTactical(
+			mineSpotter, mineItem ) )
+	{
+		gMineSpottedCallbackContext.reset();
+		return;
+	}
 
 	// now ask the player if he wants to place a blue flag.
 	DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ PLACE_BLUE_FLAG_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, MineSpottedMessageBoxCallBack, NULL );
@@ -6799,18 +7035,33 @@ void MineSpottedLocatorCallback( void )
 
 void MineSpottedMessageBoxCallBack( UINT8 ubExitValue )
 {
-	if (ubExitValue == MSG_BOX_RETURN_YES)
+	const BoobyTrapCallbackContext callbackContext =
+		gMineSpottedCallbackContext;
+	gMineSpottedCallbackContext.reset();
+	SOLDIERTYPE* mineSpotter = nullptr;
+	WORLDITEM* mineItem = nullptr;
+	if ( callbackContext.resolveTactical(
+			mineSpotter, mineItem ) &&
+		ubExitValue == MSG_BOX_RETURN_YES )
 	{
 		// place a blue flag where the mine was found
-		AddBlueFlag( gsBoobyTrapGridNo, gbBoobyTrapLevel );
+		AddBlueFlag(
+			callbackContext.grid,
+			callbackContext.level );
 	}
 }
 
 void RemoveBlueFlagDialogueCallBack( UINT8 ubExitValue )
 {
-	if (ubExitValue == MSG_BOX_RETURN_YES)
+	const TacticalActorCallbackContext callbackContext =
+		gRemoveBlueFlagCallbackContext;
+	gRemoveBlueFlagCallbackContext.reset();
+	if ( callbackContext.resolve() &&
+		ubExitValue == MSG_BOX_RETURN_YES )
 	{
-		RemoveBlueFlag( gsBoobyTrapGridNo, gbBoobyTrapLevel );
+		RemoveBlueFlag(
+			callbackContext.grid,
+			callbackContext.level );
 	}
 }
 
@@ -7065,7 +7316,11 @@ BOOLEAN ContinuePastBoobyTrapInMapScreen( OBJECTTYPE *pObject, SOLDIERTYPE *pSol
 					fBoobyTrapKnowledge = TRUE;
 
 					// Make him warn us:
-					gpBoobyTrapSoldier = pSoldier;
+					if ( !gBoobyTrapCallbackContext.captureMapCursor(
+							pSoldier, pObject ) )
+					{
+						return( FALSE );
+					}
 
 					// And make the call for the dialogue
 					SetStopTimeQuoteCallback( BoobyTrapDialogueCallBack );
@@ -7078,8 +7333,11 @@ BOOLEAN ContinuePastBoobyTrapInMapScreen( OBJECTTYPE *pObject, SOLDIERTYPE *pSol
 			if (fBoobyTrapKnowledge)
 			{
 				// have the computer ask us if we want to proceed
-				gpBoobyTrapSoldier = pSoldier;
-				gbTrapDifficulty = (*pObject)[0]->data.bTrap;
+				if ( !gBoobyTrapCallbackContext.captureMapCursor(
+						pSoldier, pObject ) )
+				{
+					return( FALSE );
+				}
 				DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], MAP_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, BoobyTrapInMapScreenMessageBoxCallBack, NULL );
 			}
 			else
@@ -9415,7 +9673,7 @@ INT32 GetFirstObjectInSectorPosition( UINT16 ausItem )
 	return -1;
 }
 
-INT32 CheckBombDisarmChance(void)
+INT32 CheckBombDisarmChance(SOLDIERTYPE* gpBoobyTrapSoldier)
 {
 	INT8 diff = 0;
 
@@ -9444,8 +9702,16 @@ void ExtendedDisarmMessageBox(void)
 {
 	CHAR16 buf[256];
 	INT16 disarmAP;
+	SOLDIERTYPE* boobyTrapSoldier = nullptr;
+	WORLDITEM* worldItem = nullptr;
+	if ( !gBoobyTrapCallbackContext.resolveTactical(
+			boobyTrapSoldier, worldItem ) )
+	{
+		gBoobyTrapCallbackContext.reset();
+		return;
+	}
 
-	disarmAP = GetAPsToDisarmMine( gpBoobyTrapSoldier );
+	disarmAP = GetAPsToDisarmMine( boobyTrapSoldier );
 
 	if( (gTacticalStatus.uiFlags & TURNBASED ) && (gTacticalStatus.uiFlags & INCOMBAT) )
 	{
@@ -9470,6 +9736,43 @@ void ExtendedDisarmMessageBox(void)
 
 void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 {
+		if (ubExitValue == 1)
+		{
+			// The standard callback owns the actual disarm operation and
+			// consumes the same stable context.
+			BoobyTrapMessageBoxCallBack(MSG_BOX_RETURN_YES);
+			return;
+		}
+
+		const BoobyTrapCallbackContext callbackContext =
+			gBoobyTrapCallbackContext;
+		gBoobyTrapCallbackContext.reset();
+		SOLDIERTYPE* gpBoobyTrapSoldier = nullptr;
+		WORLDITEM* worldItem = nullptr;
+		if ( !callbackContext.resolveTactical(
+				gpBoobyTrapSoldier, worldItem ) )
+		{
+			return;
+		}
+		const INT32 gsBoobyTrapGridNo = callbackContext.grid;
+		const INT8 gbBoobyTrapLevel = callbackContext.level;
+		const BOOLEAN gfDisarmingBuriedBomb =
+			callbackContext.disarmingBuriedBomb ? TRUE : FALSE;
+		const INT32 boobyTrapItemIndex =
+			static_cast<INT32>(
+				callbackContext.worldItem.identity().slot);
+		ITEM_POOL* gpBoobyTrapItemPool =
+			GetItemPoolForIndex(
+				gsBoobyTrapGridNo,
+				boobyTrapItemIndex,
+				gbBoobyTrapLevel );
+		if ( !gpBoobyTrapItemPool ||
+			gpBoobyTrapItemPool->iItemIndex != boobyTrapItemIndex )
+		{
+			return;
+		}
+		gTempObject = worldItem->object;
+
         INT32   iCheckResult;
 		BOOLEAN playerMine = FALSE;
 		INT16 disarmAP;
@@ -9484,12 +9787,7 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 		if(gpWorldLevelData[gsBoobyTrapGridNo].uiFlags & MAPELEMENT_PLAYER_MINE_PRESENT)
 			playerMine=TRUE;
 
-        if (ubExitValue == 1)
-        {
-			// this already checks AP in turnbased
-                BoobyTrapMessageBoxCallBack(MSG_BOX_RETURN_YES);
-        }
-        else if (ubExitValue == 2)
+        if (ubExitValue == 2)
         { 
 			if( turnbased )
 			{
@@ -9498,7 +9796,7 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 				else
 					return;
 			}
-                iCheckResult=CheckBombDisarmChance();
+                iCheckResult=CheckBombDisarmChance(gpBoobyTrapSoldier);
                 if(iCheckResult>60)
                         ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, TacticalStr[ INSPECT_RESULT_SAFE ] );
                 else if(iCheckResult>20)
