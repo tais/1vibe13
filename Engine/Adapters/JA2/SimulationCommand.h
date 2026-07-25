@@ -42,11 +42,35 @@ struct EndTurnCommand
 	SimulationCommandSource source;
 };
 
+// Whether the JA2 compatibility executor should use the established
+// multiplayer-aware event wrapper or apply the same local action without
+// outbound replication. Keeping this explicit lets AI, dialogue scripts,
+// network ingress, and replay preserve their original behavior independently
+// from command provenance.
+enum class TacticalEventPolicy : std::uint8_t
+{
+	Replicated,
+	LocalOnly
+};
+
+constexpr bool IsValidTacticalEventPolicy(
+	TacticalEventPolicy policy) noexcept
+{
+	switch (policy)
+	{
+		case TacticalEventPolicy::Replicated:
+		case TacticalEventPolicy::LocalOnly:
+			return true;
+	}
+	return false;
+}
+
 struct ChangeStanceCommand
 {
 	TacticalEntityId soldier;
 	std::uint8_t stance;
 	SimulationCommandSource source;
+	TacticalEventPolicy eventPolicy = TacticalEventPolicy::Replicated;
 };
 
 struct BeginFireWeaponCommand
@@ -55,6 +79,20 @@ struct BeginFireWeaponCommand
 	std::int32_t targetGrid;
 	std::int8_t targetLevel;
 	std::int8_t targetCubeLevel;
+	SimulationCommandSource source;
+};
+
+// AI item handling selects an attacking hand/weapon before it reaches the
+// final fire event. Capture that selection with the target so retained System
+// ingress cannot later fire using unrelated mutable actor state.
+struct BeginSelectedFireWeaponCommand
+{
+	TacticalEntityId soldier;
+	std::int32_t targetGrid;
+	std::int8_t targetLevel;
+	std::int8_t targetCubeLevel;
+	std::uint8_t attackingHand;
+	std::uint32_t attackingWeapon;
 	SimulationCommandSource source;
 };
 
@@ -120,6 +158,7 @@ struct SetFacingCommand
 	TacticalEntityId soldier;
 	std::uint8_t direction;
 	SimulationCommandSource source;
+	TacticalEventPolicy eventPolicy = TacticalEventPolicy::Replicated;
 };
 
 inline constexpr std::uint8_t TacticalDirectionCount = 8;
@@ -416,6 +455,13 @@ constexpr bool IsSimulationSynchronizationSource(
 		source == SimulationCommandSource::Replay;
 }
 
+constexpr bool IsSimulationSystemSource(
+	SimulationCommandSource source) noexcept
+{
+	return source == SimulationCommandSource::System ||
+		source == SimulationCommandSource::Replay;
+}
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -423,6 +469,7 @@ using SimulationCommand = std::variant<
 	EndTurnCommand,
 	ChangeStanceCommand,
 	BeginFireWeaponCommand,
+	BeginSelectedFireWeaponCommand,
 	MoveToGridCommand,
 	SetFacingCommand,
 	SetStealthModeCommand,
@@ -476,6 +523,9 @@ inline bool IsStructurallyValidSimulationCommand(
 					value.pathSize <= TacticalReplicatedPathCapacity &&
 					value.currentPathIndex <= value.pathSize;
 			if constexpr (
+				std::is_same<Command, BeginSelectedFireWeaponCommand>::value)
+				return IsSimulationSystemSource(value.source);
+			if constexpr (
 				std::is_same<Command, SynchronizeActorFireCommand>::value)
 				return IsSimulationSynchronizationSource(value.source);
 			if constexpr (
@@ -485,8 +535,15 @@ inline bool IsStructurallyValidSimulationCommand(
 			if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 				return IsValidTacticalMoveOrigin(value.origin) &&
 					IsValidTacticalPendingActionPolicy(value.pendingAction);
+			if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
+				return IsValidTacticalEventPolicy(value.eventPolicy) &&
+					(value.source != SimulationCommandSource::NetworkPeer ||
+						value.eventPolicy == TacticalEventPolicy::LocalOnly);
 			if constexpr (std::is_same<Command, SetFacingCommand>::value)
-				return IsValidTacticalDirection(value.direction);
+				return IsValidTacticalDirection(value.direction) &&
+					IsValidTacticalEventPolicy(value.eventPolicy) &&
+					(value.source != SimulationCommandSource::NetworkPeer ||
+						value.eventPolicy == TacticalEventPolicy::LocalOnly);
 			if constexpr (std::is_same<Command, SetWeaponReadyCommand>::value)
 				return IsValidTacticalDirection(value.direction);
 			if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)

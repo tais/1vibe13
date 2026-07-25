@@ -1834,6 +1834,10 @@ int main( int, char** )
 			ValidateSimulationCommandDomain( SimulationCommand{ ChangeStanceCommand{
 				actor, 0xffu, SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidStance &&
+			ValidateSimulationCommandDomain( SimulationCommand{ ChangeStanceCommand{
+				actor, ANIM_STAND, SimulationCommandSource::System,
+				static_cast<TacticalEventPolicy>( 0xffu ) } } ) ==
+				SimulationCommandDomainError::InvalidEventPolicy &&
 			ValidateSimulationCommandDomain( SimulationCommand{ BeginFireWeaponCommand{
 				actor, -1, FIRST_LEVEL, 0,
 				SimulationCommandSource::System } } ) ==
@@ -1846,6 +1850,21 @@ int main( int, char** )
 				actor, 100, FIRST_LEVEL, PROFILE_Z_SIZE + 1,
 				SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidTargetCubeLevel &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				BeginSelectedFireWeaponCommand{
+					actor, 100, FIRST_LEVEL, 0, NUM_INV_SLOTS, 1,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidAttackingHand &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				BeginSelectedFireWeaponCommand{
+					actor, 100, FIRST_LEVEL, 0, HANDPOS, MAXITEMS,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidAttackingWeapon &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				BeginSelectedFireWeaponCommand{
+					actor, 100, FIRST_LEVEL, 0, HANDPOS, 1,
+					SimulationCommandSource::LocalPlayer } } ) ==
+				SimulationCommandDomainError::InvalidSource &&
 			ValidateSimulationCommandDomain( SimulationCommand{ MoveToGridCommand{
 				actor, WORLD_MAX, WALKING, false, false,
 				SimulationCommandSource::System } } ) ==
@@ -3930,7 +3949,13 @@ int main( int, char** )
 			TryDispatchNetworkSimulationCommand(
 				SimulationCommand{ ChangeStanceCommand{
 					staleActor, ANIM_STAND,
-					SimulationCommandSource::NetworkPeer } } );
+					SimulationCommandSource::NetworkPeer,
+					TacticalEventPolicy::LocalOnly } } );
+		const SimulationCommandDispatchResult retainedSystemAction =
+			TryDispatchSystemSimulationCommand(
+				SimulationCommand{ BeginSelectedFireWeaponCommand{
+					staleActor, 100, FIRST_LEVEL, 0, HANDPOS, 1,
+					SimulationCommandSource::System } } );
 		const Ja2TacticalCommandHostDiagnostics afterImmediateMoveDrain =
 			GetJa2TacticalCommandHostDiagnostics();
 		CHECK( immediateMoveDrainedTracked &&
@@ -3945,9 +3970,14 @@ int main( int, char** )
 		       retainedNetworkPacket.status ==
 		           SimulationCommandDispatchStatus::RetryDeferred &&
 		       retainedNetworkPacket.submitted &&
+		       retainedSystemAction.status ==
+		           SimulationCommandDispatchStatus::RetryDeferred &&
+		       retainedSystemAction.submitted &&
+		       retainedSystemAction.sequence ==
+		           retainedNetworkPacket.sequence + 1 &&
 		       afterImmediateMoveDrain.receiptsQueued ==
 		           retainedBeforeImmediateMove.receiptsQueued,
-		       "local dispatch preserves earlier work while reliable network ingress queues behind it" );
+		       "local dispatch preserves earlier work while reliable network and System ingress queue behind it" );
 		// Consume the retained host backpressure frame and publish the receipt
 		// before starting the independent bounded-admission fixture below.
 		beginCommandTestFrame();
@@ -3956,6 +3986,11 @@ int main( int, char** )
 			journalAfterRetainedNetworkPacket =
 				compiledContext.commandJournal().snapshot();
 		const RecordedSimulationCommand* retainedNetworkRecord =
+			journalAfterRetainedNetworkPacket.size() >= 2
+				? &journalAfterRetainedNetworkPacket[
+					journalAfterRetainedNetworkPacket.size() - 2]
+				: nullptr;
+		const RecordedSimulationCommand* retainedSystemRecord =
 			!journalAfterRetainedNetworkPacket.empty()
 				? &journalAfterRetainedNetworkPacket.back() : nullptr;
 		CHECK(
@@ -3969,8 +4004,23 @@ int main( int, char** )
 			std::get<ChangeStanceCommand>(
 				retainedNetworkRecord->command ).source ==
 				SimulationCommandSource::NetworkPeer &&
+			retainedSystemRecord &&
+			retainedSystemRecord->sequence ==
+				retainedSystemAction.sequence &&
+			retainedSystemRecord->status ==
+				CommandJournalStatus::Discarded &&
+			std::holds_alternative<BeginSelectedFireWeaponCommand>(
+				retainedSystemRecord->command ) &&
+			std::get<BeginSelectedFireWeaponCommand>(
+				retainedSystemRecord->command ).attackingHand ==
+				HANDPOS &&
+			std::get<BeginSelectedFireWeaponCommand>(
+				retainedSystemRecord->command ).attackingWeapon == 1 &&
+			std::get<BeginSelectedFireWeaponCommand>(
+				retainedSystemRecord->command ).source ==
+				SimulationCommandSource::System &&
 			compiledContext.commands().empty(),
-			"reliable network ingress retains source and ordering through the safe-frame drain" );
+			"reliable network and System ingress retain captured state and ordering through the safe-frame drain" );
 
 		std::vector<std::uint64_t> boundedRequestIds;
 		boundedRequestIds.reserve( productionCommandLimits.maximumPerDrain + 1 );

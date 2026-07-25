@@ -7,6 +7,8 @@
 #include "Isometric Utils.h"
 #include "Rotting Corpses.h"
 
+struct SimulationCommandDispatchResult;
+
 #define TESTAICONTROL
 
 extern INT16	gubAIPathCosts[19][19];
@@ -243,7 +245,8 @@ BOOLEAN InitAI( void );
 void MakeClosestEnemyChosenOne();
 void ManChecksOnFriends(SOLDIERTYPE *pSoldier);
 
-void NewDest(SOLDIERTYPE *pSoldier, INT32 sGridNo);
+SimulationCommandDispatchResult NewDest(
+	SOLDIERTYPE *pSoldier, INT32 sGridNo);
 INT32 NextPatrolPoint(SOLDIERTYPE *pSoldier);
 
 INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove);

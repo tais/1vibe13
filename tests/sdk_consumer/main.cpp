@@ -827,6 +827,10 @@ int main()
 		SynchronizeActorFireCommand{
 			actorId, 1301, 0, 0, 17,
 			SimulationCommandSource::NetworkPeer}};
+	const SimulationCommand externalSelectedFire{
+		BeginSelectedFireWeaponCommand{
+			actorId, 1301, 0, 0, 1, 17,
+			SimulationCommandSource::System}};
 	const SimulationCommand externalStopSynchronization{
 		SynchronizeActorStopCommand{
 			actorId, 1300, 5, 5, 2, true,
@@ -862,6 +866,8 @@ int main()
 			externalPathSynchronization) ||
 		!std::holds_alternative<SynchronizeActorFireCommand>(
 			externalFireSynchronization) ||
+		!std::holds_alternative<BeginSelectedFireWeaponCommand>(
+			externalSelectedFire) ||
 		!std::holds_alternative<SynchronizeActorStopCommand>(
 			externalStopSynchronization) ||
 		!std::holds_alternative<SynchronizeTurnCommand>(

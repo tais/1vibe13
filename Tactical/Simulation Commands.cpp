@@ -26,6 +26,7 @@
 #include "TeamTurns.h"
 #include "Vehicles.h"
 #include "Weapons.h"
+#include "connect.h"
 #include "opplist.h"
 #include "soldier tile.h"
 #include "structure.h"
@@ -109,6 +110,17 @@ namespace
 		if (!CaptureCommandActor(soldier, actor))
 			return InvalidCommandActorResult();
 		return TryDispatchNetworkSimulationCommand(
+			SimulationCommand{builder(actor)});
+	}
+
+	template <typename Builder>
+	SimulationCommandDispatchResult DispatchSystemActorCommand(
+		SOLDIERTYPE& soldier, Builder&& builder) noexcept
+	{
+		TacticalEntityId actor;
+		if (!CaptureCommandActor(soldier, actor))
+			return InvalidCommandActorResult();
+		return TryDispatchSystemSimulationCommand(
 			SimulationCommand{builder(actor)});
 	}
 
@@ -290,11 +302,11 @@ namespace
 			{
 				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
 				{
-					if (value.source == SimulationCommandSource::NetworkPeer)
+					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 					{
-						// The normal wrapper owns outbound replication and rejects
-						// non-local mercs on clients. A received packet must apply
-						// directly exactly once instead of being dropped or echoed.
+						// Some received and scripted actions deliberately bypass
+						// outbound replication while retaining the same local
+						// stance transition.
 						soldier->ChangeSoldierStance(value.stance);
 						return CommandDisposition::Applied;
 					}
@@ -330,6 +342,28 @@ namespace
 					return CommandDisposition::Applied;
 				}
 				return CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command, BeginSelectedFireWeaponCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier ||
+					!IsSimulationSystemSource(value.source) ||
+					value.attackingHand >= NUM_INV_SLOTS ||
+					value.attackingWeapon >= MAXITEMS)
+					return CommandDisposition::Discard;
+				soldier->ubAttackingHand = value.attackingHand;
+				soldier->usAttackingWeapon =
+					static_cast<UINT16>(value.attackingWeapon);
+				soldier->sTargetGridNo = value.targetGrid;
+				soldier->bTargetLevel = value.targetLevel;
+				soldier->bTargetCubeLevel = value.targetCubeLevel;
+				SendBeginFireWeaponEvent(soldier, value.targetGrid);
+				if (value.source == SimulationCommandSource::System &&
+					(is_server ||
+						(is_client && soldier->ubID < 20)))
+					send_fire(soldier, value.targetGrid);
+				return CommandDisposition::Applied;
 			}
 			else if constexpr (
 				std::is_same<Command, SynchronizeActorFireCommand>::value)
@@ -369,7 +403,7 @@ namespace
 			{
 				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
 				{
-					if (value.source == SimulationCommandSource::NetworkPeer)
+					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 						soldier->EVENT_SetSoldierDesiredDirection(value.direction);
 					else
 						SendSoldierSetDesiredDirectionEvent(
@@ -826,10 +860,16 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				return SimulationCommandDomainError::InvalidActor;
 			if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
-				return value.stance == ANIM_STAND || value.stance == ANIM_CROUCH ||
+				if (!IsValidTacticalEventPolicy(value.eventPolicy))
+					return SimulationCommandDomainError::InvalidEventPolicy;
+				if (value.source == SimulationCommandSource::NetworkPeer &&
+					value.eventPolicy != TacticalEventPolicy::LocalOnly)
+					return SimulationCommandDomainError::InvalidEventPolicy;
+				return value.stance == ANIM_STAND ||
+					value.stance == ANIM_CROUCH ||
 					value.stance == ANIM_PRONE
-					? SimulationCommandDomainError::None
-					: SimulationCommandDomainError::InvalidStance;
+						? SimulationCommandDomainError::None
+						: SimulationCommandDomainError::InvalidStance;
 			}
 			else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
 			{
@@ -841,6 +881,25 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				if (value.targetCubeLevel < 0 ||
 					value.targetCubeLevel > PROFILE_Z_SIZE)
 					return SimulationCommandDomainError::InvalidTargetCubeLevel;
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
+				std::is_same<Command, BeginSelectedFireWeaponCommand>::value)
+			{
+				if (!IsSimulationSystemSource(value.source))
+					return SimulationCommandDomainError::InvalidSource;
+				if (value.targetGrid < 0 || value.targetGrid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidTargetGrid;
+				if (value.targetLevel != FIRST_LEVEL &&
+					value.targetLevel != SECOND_LEVEL)
+					return SimulationCommandDomainError::InvalidTargetLevel;
+				if (value.targetCubeLevel < 0 ||
+					value.targetCubeLevel > PROFILE_Z_SIZE)
+					return SimulationCommandDomainError::InvalidTargetCubeLevel;
+				if (value.attackingHand >= NUM_INV_SLOTS)
+					return SimulationCommandDomainError::InvalidAttackingHand;
+				if (value.attackingWeapon >= MAXITEMS)
+					return SimulationCommandDomainError::InvalidAttackingWeapon;
 				return SimulationCommandDomainError::None;
 			}
 			else if constexpr (
@@ -893,6 +952,11 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 			}
 			else if constexpr (std::is_same<Command, SetFacingCommand>::value)
 			{
+				if (!IsValidTacticalEventPolicy(value.eventPolicy))
+					return SimulationCommandDomainError::InvalidEventPolicy;
+				if (value.source == SimulationCommandSource::NetworkPeer &&
+					value.eventPolicy != TacticalEventPolicy::LocalOnly)
+					return SimulationCommandDomainError::InvalidEventPolicy;
 				return IsValidTacticalDirection(value.direction)
 					? SimulationCommandDomainError::None
 					: SimulationCommandDomainError::InvalidDirection;
@@ -1203,55 +1267,74 @@ SimulationCommandDispatchResult TryDispatchSimulationCommandNow(
 	return result;
 }
 
+namespace
+{
+	SimulationCommandDispatchResult TryDispatchRetainedSimulationCommand(
+		SimulationCommand command,
+		SimulationCommandSource requiredSource) noexcept
+	{
+		SimulationCommandDispatchResult invalid;
+		invalid.tick =
+			GetGameContext().runtime().simulationTicks().completedTickSequence();
+		const bool ownedByRequiredSource =
+			!command.valueless_by_exception() &&
+			std::visit([requiredSource](const auto& value) noexcept {
+				return value.source == requiredSource;
+			}, command);
+		if (!ownedByRequiredSource ||
+			ValidateSimulationCommandDomain(command) !=
+				SimulationCommandDomainError::None)
+		{
+			invalid.status = SimulationCommandDispatchStatus::InvalidDomain;
+			return invalid;
+		}
+
+		SimulationCommandDispatchResult result =
+			TryDispatchSimulationCommandNow(command);
+		if (result.submitted ||
+			(result.status !=
+					SimulationCommandDispatchStatus::AuthoritativeBackpressure &&
+				result.status !=
+					SimulationCommandDispatchStatus::FrameBudgetExhausted))
+			return result;
+
+		GameContext& game = GetGameContext();
+		if (game.commands().sequenceExhausted())
+		{
+			result.status = SimulationCommandDispatchStatus::SequenceExhausted;
+			return result;
+		}
+		try
+		{
+			result.sequence =
+				game.submitCommand(result.tick, std::move(command));
+			result.submitted = true;
+			result.status = SimulationCommandDispatchStatus::RetryDeferred;
+		}
+		catch (const std::overflow_error&)
+		{
+			result.status = SimulationCommandDispatchStatus::SequenceExhausted;
+		}
+		catch (...)
+		{
+			result.status = SimulationCommandDispatchStatus::SubmissionFailure;
+		}
+		return result;
+	}
+}
+
 SimulationCommandDispatchResult TryDispatchNetworkSimulationCommand(
 	SimulationCommand command) noexcept
 {
-	SimulationCommandDispatchResult invalid;
-	invalid.tick =
-		GetGameContext().runtime().simulationTicks().completedTickSequence();
-	const bool networkOwned = !command.valueless_by_exception() &&
-		std::visit([](const auto& value) noexcept {
-			return value.source == SimulationCommandSource::NetworkPeer;
-		}, command);
-	if (!networkOwned ||
-		ValidateSimulationCommandDomain(command) !=
-			SimulationCommandDomainError::None)
-	{
-		invalid.status = SimulationCommandDispatchStatus::InvalidDomain;
-		return invalid;
-	}
+	return TryDispatchRetainedSimulationCommand(
+		std::move(command), SimulationCommandSource::NetworkPeer);
+}
 
-	SimulationCommandDispatchResult result =
-		TryDispatchSimulationCommandNow(command);
-	if (result.submitted ||
-		(result.status !=
-				SimulationCommandDispatchStatus::AuthoritativeBackpressure &&
-			result.status !=
-				SimulationCommandDispatchStatus::FrameBudgetExhausted))
-		return result;
-
-	GameContext& game = GetGameContext();
-	if (game.commands().sequenceExhausted())
-	{
-		result.status = SimulationCommandDispatchStatus::SequenceExhausted;
-		return result;
-	}
-	try
-	{
-		result.sequence =
-			game.submitCommand(result.tick, std::move(command));
-		result.submitted = true;
-		result.status = SimulationCommandDispatchStatus::RetryDeferred;
-	}
-	catch (const std::overflow_error&)
-	{
-		result.status = SimulationCommandDispatchStatus::SequenceExhausted;
-	}
-	catch (...)
-	{
-		result.status = SimulationCommandDispatchStatus::SubmissionFailure;
-	}
-	return result;
+SimulationCommandDispatchResult TryDispatchSystemSimulationCommand(
+	SimulationCommand command) noexcept
+{
+	return TryDispatchRetainedSimulationCommand(
+		std::move(command), SimulationCommandSource::System);
 }
 
 SimulationCommandDispatchResult TryDispatchNetworkChangeStanceCommand(
@@ -1260,7 +1343,8 @@ SimulationCommandDispatchResult TryDispatchNetworkChangeStanceCommand(
 	return DispatchNetworkActorCommand(
 		soldier, [stance](TacticalEntityId actor) {
 			return ChangeStanceCommand{
-				actor, stance, SimulationCommandSource::NetworkPeer};
+				actor, stance, SimulationCommandSource::NetworkPeer,
+				TacticalEventPolicy::LocalOnly};
 		});
 }
 
@@ -1270,7 +1354,8 @@ SimulationCommandDispatchResult TryDispatchNetworkSetFacingCommand(
 	return DispatchNetworkActorCommand(
 		soldier, [direction](TacticalEntityId actor) {
 			return SetFacingCommand{
-				actor, direction, SimulationCommandSource::NetworkPeer};
+				actor, direction, SimulationCommandSource::NetworkPeer,
+				TacticalEventPolicy::LocalOnly};
 		});
 }
 
@@ -1350,6 +1435,69 @@ SimulationCommandDispatchResult TryDispatchNetworkTurnCommand(
 		SimulationCommand{SynchronizeTurnCommand{
 			nextTeam, enterCombat, endClientTurn,
 			SimulationCommandSource::NetworkPeer}});
+}
+
+SimulationCommandDispatchResult TryDispatchSystemChangeStanceCommand(
+	SOLDIERTYPE& soldier,
+	std::uint8_t stance,
+	TacticalEventPolicy eventPolicy) noexcept
+{
+	return DispatchSystemActorCommand(
+		soldier, [stance, eventPolicy](TacticalEntityId actor) {
+			return ChangeStanceCommand{
+				actor, stance, SimulationCommandSource::System, eventPolicy};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchSystemSetFacingCommand(
+	SOLDIERTYPE& soldier,
+	std::uint8_t direction,
+	TacticalEventPolicy eventPolicy) noexcept
+{
+	return DispatchSystemActorCommand(
+		soldier, [direction, eventPolicy](TacticalEntityId actor) {
+			return SetFacingCommand{
+				actor, direction, SimulationCommandSource::System, eventPolicy};
+		});
+}
+
+SimulationCommandDispatchResult TryDispatchSystemMoveToGridCommand(
+	SOLDIERTYPE& soldier,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart) noexcept
+{
+	return DispatchSystemActorCommand(
+		soldier,
+		[destinationGrid, movementMode, reverse, forceRestart](
+			TacticalEntityId actor) {
+			return MoveToGridCommand{
+				actor, destinationGrid, movementMode, reverse, forceRestart,
+				SimulationCommandSource::System,
+				TacticalMoveOrigin::System,
+				TacticalPendingActionPolicy::Preserve};
+		});
+}
+
+SimulationCommandDispatchResult
+TryDispatchSystemBeginSelectedFireWeaponCommand(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	std::uint8_t attackingHand,
+	std::uint32_t attackingWeapon) noexcept
+{
+	return DispatchSystemActorCommand(
+		soldier,
+		[targetGrid, targetLevel, targetCubeLevel, attackingHand,
+			attackingWeapon](TacticalEntityId actor) {
+			return BeginSelectedFireWeaponCommand{
+				actor, targetGrid, targetLevel, targetCubeLevel,
+				attackingHand, attackingWeapon,
+				SimulationCommandSource::System};
+		});
 }
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(

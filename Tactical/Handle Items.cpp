@@ -126,16 +126,17 @@ bool DispatchBeginFireWeaponFromHandleItem(
 	SOLDIERTYPE* soldier, INT32 targetGrid, BOOLEAN fromUi,
 	const AttackSelectionSnapshot& rejectedSelection)
 {
-	const SimulationCommandDispatchResult dispatch =
-		TryDispatchBeginFireWeaponCommandNow(
-		*soldier,
-		targetGrid,
-		soldier->bTargetLevel,
-		soldier->bTargetCubeLevel,
-		fromUi ? SimulationCommandSource::LocalPlayer
-		       : SimulationCommandSource::System);
-	if (!dispatch) rejectedSelection.restore(*soldier);
-	return static_cast<bool>(dispatch);
+	const SimulationCommandDispatchResult dispatch = fromUi
+		? TryDispatchBeginFireWeaponCommandNow(
+			*soldier, targetGrid, soldier->bTargetLevel,
+			soldier->bTargetCubeLevel,
+			SimulationCommandSource::LocalPlayer)
+		: TryDispatchSystemBeginSelectedFireWeaponCommand(
+			*soldier, targetGrid, soldier->bTargetLevel,
+			soldier->bTargetCubeLevel, soldier->ubAttackingHand,
+			soldier->usAttackingWeapon);
+	if (!dispatch.accepted()) rejectedSelection.restore(*soldier);
+	return dispatch.accepted();
 }
 
 struct TacticalActorCallbackContext
@@ -1109,7 +1110,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 								pSoldier, pSoldier->sSpreadLocations[ 0 ], fFromUI,
 								rejectedFireSelection ))
 							return ITEM_HANDLE_OK;
-						if(is_server || (is_client && pSoldier->ubID <20) ) 
+						if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) )
 							send_fire( pSoldier, pSoldier->sSpreadLocations[ 0 ] );
 
 						//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Handle Items.cpp: SendBeginFireWeaponEvent" );
@@ -1120,7 +1121,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 								pSoldier, sTargetGridNo, fFromUI,
 								rejectedFireSelection ))
 							return ITEM_HANDLE_OK;
-						if(is_server || (is_client && pSoldier->ubID <20) ) 
+						if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) )
 							send_fire( pSoldier, sTargetGridNo );
 
 						//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Handle Items.cpp: SendBeginFireWeaponEvent" );
@@ -1132,7 +1133,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 							pSoldier, sTargetGridNo, fFromUI,
 							rejectedFireSelection ))
 						return ITEM_HANDLE_OK;
-					if(is_server || (is_client && pSoldier->ubID <20) ) send_fire( pSoldier, sTargetGridNo );
+					if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) ) send_fire( pSoldier, sTargetGridNo );
 				}
 
 				// ATE: Here to make cursor go back to move after LAW shot...
@@ -2270,7 +2271,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 						pSoldier, sTargetGridNo, fFromUI,
 						rejectedFireSelection ))
 					return ITEM_HANDLE_OK;
-				if(is_server || (is_client && pSoldier->ubID <20) ) send_fire( pSoldier, sTargetGridNo );
+				if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) ) send_fire( pSoldier, sTargetGridNo );
 
 			}
 

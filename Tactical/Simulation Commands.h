@@ -36,6 +36,7 @@ enum class SimulationCommandDomainError
 	None,
 	ValuelessCommand,
 	InvalidSource,
+	InvalidEventPolicy,
 	InvalidTeam,
 	InvalidActor,
 	InvalidStance,
@@ -47,6 +48,7 @@ enum class SimulationCommandDomainError
 	InvalidReportedGrid,
 	InvalidReplicatedPath,
 	InvalidReplicatedPosition,
+	InvalidAttackingHand,
 	InvalidAttackingWeapon,
 	InvalidDestinationGrid,
 	InvalidMovementMode,
@@ -98,6 +100,15 @@ struct SimulationCommandDispatchResult
 	{
 		return status == SimulationCommandDispatchStatus::Applied ||
 			status == SimulationCommandDispatchStatus::Discarded;
+	}
+
+	// Applied commands and retained commands both represent accepted ingress.
+	// A retained command may finish at the next safe frame; a processed discard
+	// is deliberately not accepted.
+	bool accepted() const
+	{
+		return status == SimulationCommandDispatchStatus::Applied ||
+			(submitted && !processed());
 	}
 };
 
@@ -157,6 +168,40 @@ SimulationCommandDispatchResult TryDispatchNetworkTurnCommand(
 	std::uint8_t nextTeam,
 	bool enterCombat,
 	bool endClientTurn) noexcept;
+
+// AI and script actions have the same reliability requirement as received
+// packets: a full frame or earlier authoritative work must defer, not erase,
+// an action that the state machine already considers started.
+SimulationCommandDispatchResult TryDispatchSystemSimulationCommand(
+	SimulationCommand command) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSystemChangeStanceCommand(
+	SOLDIERTYPE& soldier,
+	std::uint8_t stance,
+	TacticalEventPolicy eventPolicy =
+		TacticalEventPolicy::Replicated) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSystemSetFacingCommand(
+	SOLDIERTYPE& soldier,
+	std::uint8_t direction,
+	TacticalEventPolicy eventPolicy =
+		TacticalEventPolicy::Replicated) noexcept;
+
+SimulationCommandDispatchResult TryDispatchSystemMoveToGridCommand(
+	SOLDIERTYPE& soldier,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart) noexcept;
+
+SimulationCommandDispatchResult
+TryDispatchSystemBeginSelectedFireWeaponCommand(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	std::int8_t targetCubeLevel,
+	std::uint8_t attackingHand,
+	std::uint32_t attackingWeapon) noexcept;
 
 SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 	std::uint8_t nextTeam,
