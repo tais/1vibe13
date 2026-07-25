@@ -11,6 +11,7 @@
 #include <Engine/Adapters/JA2/CommandReplay.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/TacticalEntityDirectory.h>
+#include <Engine/Adapters/JA2/TacticalWorldItemDirectory.h>
 #include <Engine/Adapters/JA2/TacticalWorldSession.h>
 #include <Engine/Core/CommandStream.h>
 #include <Engine/Core/EngineHost.h>
@@ -76,6 +77,14 @@ public:
 	const CampaignEventQueue& campaignEventQueue() const { return campaignEventQueue_; }
 	TacticalEntityDirectory& tacticalEntityDirectory() { return tacticalEntityDirectory_; }
 	const TacticalEntityDirectory& tacticalEntityDirectory() const { return tacticalEntityDirectory_; }
+	TacticalWorldItemDirectory& tacticalWorldItemDirectory()
+	{
+		return tacticalWorldItemDirectory_;
+	}
+	const TacticalWorldItemDirectory& tacticalWorldItemDirectory() const
+	{
+		return tacticalWorldItemDirectory_;
+	}
 	TacticalWorldSession& tacticalWorldSession() { return tacticalWorldSession_; }
 	const TacticalWorldSession& tacticalWorldSession() const { return tacticalWorldSession_; }
 
@@ -129,6 +138,7 @@ private:
 	CampaignClockSessionService campaignClockService_{campaignClockSession_};
 	CampaignEventQueue campaignEventQueue_;
 	TacticalEntityDirectory tacticalEntityDirectory_;
+	TacticalWorldItemDirectory tacticalWorldItemDirectory_;
 	TacticalWorldSession tacticalWorldSession_;
 	CommandReplayService commandReplay_;
 	CommandStream<SimulationCommand> commandStream_;

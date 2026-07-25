@@ -176,7 +176,12 @@ extern STRUCTURE_MOVEPOSSIBLE gStructureMovePossible[STRUCTURE_MOVEPOSSIBLE_MAX]
 
 class SOLDIERTYPE;
 INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHandItem, BOOLEAN fFromUI );
-void SoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel );
+void SoldierPickupItem(
+	SOLDIERTYPE *pSoldier,
+	INT32 iItemIndex,
+	INT32 sGridNo,
+	INT8 bZLevel,
+	UINT32 uiTargetIncarnation = 0 );
 void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel );
 void HandleFlashingItems( );
 

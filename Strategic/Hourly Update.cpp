@@ -23,6 +23,7 @@
 	#include "strategic.h"			// added by Flugente
 	#include "message.h"			// added by Flugente for ScreenMsg(...)
 	#include "Rebel Command.h"
+	#include "TacticalWorldItemHost.h"
 
 #include "Luaglobal.h"
 #include "LuaInitNPCs.h"
@@ -972,6 +973,7 @@ static BOOLEAN RemoveItemInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ
 		{
 			guiNumWorldItems = uiTotalNumberOfRealItems;
 			gWorldItems = pWorldItem;
+			RebuildJa2TacticalWorldItemDirectory();
 		}
 		else
 		{

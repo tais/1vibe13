@@ -62,6 +62,7 @@
 #include "Soldier Functions.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
+#include "TacticalWorldItemHost.h"
 #include "TacticalWorldAdapter.h"
 #include "english.h"
 #include "random.h"
@@ -5805,6 +5806,41 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 	return;
 }
 
+static SimulationCommandDispatchResult TryDispatchPlayerWorldItemPickup(
+	SOLDIERTYPE *pSoldier,
+	ITEM_POOL *pItemPool,
+	INT32 sGridNo,
+	INT8 bZLevel,
+	TacticalWorldItemPickupKind kind )
+{
+	TacticalWorldItemId item;
+	if ( kind == TacticalWorldItemPickupKind::SpecificItem )
+	{
+		while ( pItemPool != NULL &&
+			pItemPool->bRenderZHeightAboveLevel != bZLevel )
+		{
+			pItemPool = pItemPool->pNext;
+		}
+		if ( pItemPool == NULL || pItemPool->iItemIndex < 0 )
+		{
+			return {};
+		}
+		item = GetJa2TacticalWorldItemId(
+			static_cast<std::uint32_t>( pItemPool->iItemIndex ) );
+		if ( !item.valid() )
+		{
+			return {};
+		}
+	}
+	return TryDispatchPickupWorldItemCommandNow(
+		pSoldier->ubID,
+		pSoldier->uiUniqueSoldierIdValue,
+		item,
+		sGridNo,
+		bZLevel,
+		kind );
+}
+
 void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 {
 	SOLDIERTYPE *pSoldier;
@@ -5901,9 +5937,13 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 			{
 				INT8 bZLevel = GetLargestZLevelOfItemPool( pItemPool );
 
-				SoldierPickupItem( pSoldier, pItemPool->iItemIndex, sActionGridNo, bZLevel );
-
-				*puiNewEvent = A_CHANGE_TO_MOVE;
+				if ( TryDispatchPlayerWorldItemPickup(
+						pSoldier, pItemPool,
+						sActionGridNo, bZLevel,
+						TacticalWorldItemPickupKind::SpecificItem ) )
+				{
+					*puiNewEvent = A_CHANGE_TO_MOVE;
+				}
 
 			}
 		}
@@ -5955,8 +5995,12 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 						}
 						else
 						{
-							SoldierPickupItem( pSoldier, NOTHING, sActionGridNo, 0 );
-							*puiNewEvent = A_CHANGE_TO_MOVE;
+							if ( TryDispatchPlayerWorldItemPickup(
+									pSoldier, NULL, sActionGridNo, 0,
+									TacticalWorldItemPickupKind::SearchGrid ) )
+							{
+								*puiNewEvent = A_CHANGE_TO_MOVE;
+							}
 						}
 					}
 				}
@@ -6114,18 +6158,16 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 					{
 						fContinue = FALSE;
 
-						SetUIBusy( pSoldier->ubID );
-
-						if ( ( gTacticalStatus.uiFlags & INCOMBAT ) && ( gTacticalStatus.uiFlags & TURNBASED ) )
-						{
-							//puiNewEvent = C_WAIT_FOR_CONFIRM;
-							SoldierPickupItem( pSoldier, pItemPool->iItemIndex, sIntTileGridNo, bZLevel );
-						}
-						else
+						const SimulationCommandDispatchResult pickup =
+							TryDispatchPlayerWorldItemPickup(
+								pSoldier, pItemPool,
+								sIntTileGridNo, bZLevel,
+								TacticalWorldItemPickupKind::SpecificItem );
+						if ( pickup &&
+							!( ( gTacticalStatus.uiFlags & INCOMBAT ) &&
+								( gTacticalStatus.uiFlags & TURNBASED ) ) )
 						{
 							BeginDisplayTimedCursor( OKHANDCURSOR_UICURSOR, 300 );
-
-							SoldierPickupItem( pSoldier, pItemPool->iItemIndex, sIntTileGridNo, bZLevel );
 						}
 					}
 				}

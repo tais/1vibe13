@@ -22243,6 +22243,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 		{
 			UnSetUIBusy( pSoldier->ubID );
 			HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
+			pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
 			pSoldier->SoldierGotoStationaryStance( );
 			if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
 			{
@@ -22317,6 +22318,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 
 				UnSetUIBusy( pSoldier->ubID );
 				HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
+				pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
 				pSoldier->SoldierGotoStationaryStance( );
 				if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
 				{
@@ -26334,6 +26336,8 @@ void SOLDIERTYPE::StartRadioAnimation(void)
 
 void SOLDIERTYPE::InitializeExtraData(void)
 {
+	this->uiPendingActionTargetIncarnation = 0;
+
 	this->ubLastShock = 0;
 	this->ubLastSuppression = 0;
 	this->ubLastAP = 0;

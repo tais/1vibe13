@@ -314,6 +314,88 @@ foreach(player_vehicle_entry_file IN LISTS player_vehicle_entry_files)
   endif()
 endforeach()
 
+# Player pickup must capture the live world-item incarnation before movement.
+# Calling the legacy helper directly retains only a reusable gWorldItems slot.
+file(READ "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  player_item_input_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])SoldierPickupItem([^A-Za-z0-9_]|$)"
+  direct_player_item_pickup "${player_item_input_contents}")
+if(direct_player_item_pickup)
+  message(FATAL_ERROR
+    "Player world-item pickup bypasses stable SimulationCommand targeting in Tactical/Turn Based Input.cpp")
+endif()
+
+# Strategic inventory code still replaces the complete legacy world-item
+# vector. Keep a matching directory rebuild in every file that owns one of
+# those replacement paths; review keeps the call immediately after assignment.
+set(live_world_item_replacement_files
+  "${SOURCE_ROOT}/Tactical/Inventory Choosing.cpp"
+  "${SOURCE_ROOT}/Strategic/Assignments.cpp"
+  "${SOURCE_ROOT}/Strategic/Hourly Update.cpp")
+foreach(live_world_item_replacement_file IN LISTS live_world_item_replacement_files)
+  file(READ "${live_world_item_replacement_file}"
+    live_world_item_replacement_contents)
+  string(REGEX MATCHALL
+    "gWorldItems[ \t]*=[^=;\r\n]+"
+    live_world_item_replacements
+    "${live_world_item_replacement_contents}")
+  string(REGEX MATCHALL
+    "RebuildJa2TacticalWorldItemDirectory[ \t\r\n]*\\("
+    rebuilt_live_world_item_replacements
+    "${live_world_item_replacement_contents}")
+  list(LENGTH live_world_item_replacements
+    live_world_item_replacement_count)
+  list(LENGTH rebuilt_live_world_item_replacements
+    rebuilt_live_world_item_replacement_count)
+  if(NOT live_world_item_replacement_count EQUAL
+      rebuilt_live_world_item_replacement_count)
+    message(FATAL_ERROR
+      "A whole gWorldItems replacement lacks a matching stable-identity rebuild in ${live_world_item_replacement_file}")
+  endif()
+endforeach()
+
+# New live-vector replacement or direct existence mutation paths must opt into
+# the stable-identity lifecycle deliberately. The low-level world-item owner
+# and the checked Lua adapter are the only remaining existence writers.
+file(GLOB live_world_item_production_files
+  "${SOURCE_ROOT}/Tactical/*.cpp"
+  "${SOURCE_ROOT}/Strategic/*.cpp")
+set(live_world_item_existence_writers
+  "${SOURCE_ROOT}/Tactical/World Items.cpp"
+  "${SOURCE_ROOT}/Strategic/LuaInitNPCs.cpp")
+foreach(live_world_item_production_file IN LISTS live_world_item_production_files)
+  file(READ "${live_world_item_production_file}"
+    live_world_item_production_contents)
+  string(REGEX MATCH
+    "gWorldItems[ \t]*="
+    whole_live_world_item_replacement
+    "${live_world_item_production_contents}")
+  if(whole_live_world_item_replacement)
+    list(FIND live_world_item_replacement_files
+      "${live_world_item_production_file}"
+      live_world_item_replacement_owner_index)
+    if(live_world_item_replacement_owner_index EQUAL -1)
+      message(FATAL_ERROR
+        "Untracked whole gWorldItems replacement in ${live_world_item_production_file}; rebuild TacticalWorldItemDirectory after replacement")
+    endif()
+  endif()
+
+  string(REGEX MATCH
+    "gWorldItems[ \t]*\\[[^\r\n]+\\][ \t]*\\.fExists[ \t]*=[^=]"
+    direct_live_world_item_existence_write
+    "${live_world_item_production_contents}")
+  if(direct_live_world_item_existence_write)
+    list(FIND live_world_item_existence_writers
+      "${live_world_item_production_file}"
+      live_world_item_existence_writer_index)
+    if(live_world_item_existence_writer_index EQUAL -1)
+      message(FATAL_ERROR
+        "Direct live world-item existence mutation bypasses stable identity in ${live_world_item_production_file}")
+    endif()
+  endif()
+endforeach()
+
 # Tactical world identity is owned by EngineRuntime's TacticalWorldSession.
 # Exact legacy globals remain readable compatibility mirrors, but a second
 # production writer would silently split world and turn identity again.

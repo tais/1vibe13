@@ -779,6 +779,11 @@ int main()
 	const SimulationCommand externalVehicleApproach{ApproachVehicleCommand{
 		actorId, targetId, 2, 0, 1300, 6, true,
 		SimulationCommandSource::LocalPlayer}};
+	const TacticalWorldItemId worldItemId{17, 0x01020306u};
+	const SimulationCommand externalWorldItemPickup{PickupWorldItemCommand{
+		actorId, worldItemId, 1301, 0,
+		TacticalWorldItemPickupKind::SpecificItem,
+		SimulationCommandSource::LocalPlayer}};
 	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
 		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
 		!std::holds_alternative<StopMovementCommand>(externalStop) ||
@@ -796,8 +801,20 @@ int main()
 			externalConversationApproach) ||
 		!std::holds_alternative<EnterVehicleCommand>(externalVehicle) ||
 		!std::holds_alternative<ApproachVehicleCommand>(
-			externalVehicleApproach))
+			externalVehicleApproach) ||
+		!std::holds_alternative<PickupWorldItemCommand>(
+			externalWorldItemPickup) ||
+		!worldItemId.valid())
 		return 45;
+	TacticalWorldItemDirectory& externalWorldItems =
+		commandRuntime.tacticalWorldItemDirectory();
+	const TacticalWorldItemId ownedWorldItem{
+		17, externalWorldItems.issueIncarnation()};
+	if (!externalWorldItems.activate(ownedWorldItem) ||
+		!externalWorldItems.contains(ownedWorldItem) ||
+		externalWorldItems.identity(17) != ownedWorldItem ||
+		!externalWorldItems.release(ownedWorldItem))
+		return 55;
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
 		37, MoveToGridCommand{
 			actorId, 1300, 6, true, false,

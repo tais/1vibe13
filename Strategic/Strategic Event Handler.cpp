@@ -625,7 +625,7 @@ void CheckForKingpinsMoneyMissing( BOOLEAN fFirstCheck )
 			if ( gWorldItems[ uiLoop ].fExists && gWorldItems[ uiLoop ].object.usItem == MONEY )
 			{
 				// remove!
-				gWorldItems[ uiLoop ].fExists = FALSE;
+				RemoveItemFromWorld( static_cast<INT32>( uiLoop ) );
 			}
 		}
 	}

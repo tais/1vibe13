@@ -92,6 +92,7 @@
 #include "Simulation Commands.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
+#include "TacticalWorldItemHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include "Game Clock.h"
@@ -102,6 +103,7 @@
 #include "Map Information.h"
 #include "Overhead.h"
 #include "Vehicles.h"
+#include "World Items.h"
 #include "strategicmap.h"
 #include "MovementDestinationPolicy.h"
 #include "Rain.h"
@@ -1948,6 +1950,30 @@ int main( int, char** )
 					actor, target, 3, 0, 101, NUMANIMATIONSTATES, false,
 					SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidMovementMode &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				PickupWorldItemCommand{
+					actor, TacticalWorldItemId{ 7, 707 }, 100, 0,
+					TacticalWorldItemPickupKind::SpecificItem,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				PickupWorldItemCommand{
+					actor, TacticalWorldItemId{ 7, 707 }, 100, -1,
+					TacticalWorldItemPickupKind::SpecificItem,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidWorldItemRenderHeight &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				PickupWorldItemCommand{
+					actor, TacticalWorldItemId{ 7, 707 }, 100, 0,
+					static_cast<TacticalWorldItemPickupKind>( 0xff ),
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidWorldItemPickupKind &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				PickupWorldItemCommand{
+					actor, TacticalWorldItemId{ 7, 707 }, 100, 0,
+					TacticalWorldItemPickupKind::SearchGrid,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidWorldItem &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
@@ -3250,6 +3276,18 @@ int main( int, char** )
 					staleActor, TacticalEntityId{ 1, 1 }, 3, 0, 101,
 					NUMANIMATIONSTATES, false,
 					SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidWorldItemLevel =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ PickupWorldItemCommand{
+					staleActor, TacticalWorldItemId{ 0, 1 }, 100, -1,
+					TacticalWorldItemPickupKind::SpecificItem,
+					SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidWorldItemGrid =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ PickupWorldItemCommand{
+					staleActor, TacticalWorldItemId{}, WORLD_MAX, 0,
+					TacticalWorldItemPickupKind::SearchGrid,
+					SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -3284,15 +3322,16 @@ int main( int, char** )
 		       invalidObjectGrid && invalidApproachMode &&
 		       invalidConversationTarget && invalidConversationApproach &&
 		       invalidVehicleTarget && invalidVehicleApproach &&
+		       invalidWorldItemLevel && invalidWorldItemGrid &&
 		       unloadedContext && staleRequest &&
 		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
-		       commandHostAfterInvalidContext.lastDrain.rejected == 14 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 16 &&
 		       commandHostAfterValidation.lastDrain.accepted == 1 &&
 		       commandHostAfterValidation.lastDrain.rejected == 0 &&
 		       commandHostAfterValidation.inactiveOwnerRejections ==
 		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
 		       commandHostAfterValidation.semanticRejections ==
-		           commandHostBeforeValidation.semanticRejections + 12 &&
+		           commandHostBeforeValidation.semanticRejections + 14 &&
 		       commandHostAfterValidation.contextRejections ==
 		           commandHostBeforeValidation.contextRejections + 1 &&
 		       commandHostAfterValidation.lastProcessing.status ==
@@ -3420,22 +3459,155 @@ int main( int, char** )
 				SimulationCommandSource::System );
 		commandHostActor.aiData.ubPendingAction = MERC_TALK;
 		commandHostActor.aiData.uiPendingActionData1 = staleActor.slot;
-		commandHostActor.aiData.uiPendingActionData4 =
+		commandHostActor.aiData.uiPendingActionData4 = 0;
+		commandHostActor.uiPendingActionTargetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingConversationCompleted =
 			TryCompletePendingConversationCommand( commandHostActor );
 		const bool stalePendingConversationCleared =
 			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION;
 		commandHostActor.aiData.ubPendingAction = MERC_ENTER_VEHICLE;
-		commandHostActor.aiData.uiPendingActionData1 =
-			staleActor.incarnation;
+		commandHostActor.aiData.uiPendingActionData1 = 0;
 		commandHostActor.aiData.sPendingActionData2 = staleActor.slot;
 		commandHostActor.aiData.bPendingActionData3 = 3;
 		commandHostActor.aiData.uiPendingActionData4 = 0;
+		commandHostActor.uiPendingActionTargetIncarnation =
+			staleActor.incarnation;
 		const bool stalePendingVehicleCompleted =
 			TryCompletePendingVehicleCommand( commandHostActor );
 		const bool stalePendingVehicleCleared =
 			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION;
+
+		std::vector<WORLDITEM> previousWorldItems = std::move( gWorldItems );
+		const UINT32 previousWorldItemCount = guiNumWorldItems;
+		gWorldItems.clear();
+		gWorldItems.resize( 1 );
+		guiNumWorldItems = 1;
+		ResetJa2TacticalWorldItemDirectory();
+		gWorldItems[0].fExists = TRUE;
+		gWorldItems[0].sGridNo = 123;
+		gWorldItems[0].ubLevel = 0;
+		gWorldItems[0].bRenderZHeightAboveLevel = 5;
+		const bool firstWorldItemAssigned =
+			AssignJa2TacticalWorldItemIdentity( 0 );
+		const TacticalWorldItemId firstWorldItem =
+			GetJa2TacticalWorldItemId( 0 );
+		const std::size_t firstWorldItemActiveCount =
+			GetJa2TacticalWorldItemDirectory().activeCount();
+		commandHostActor.pathing.bLevel = 0;
+		commandHostActor.aiData.ubPendingAction = MERC_PICKUPITEM;
+		commandHostActor.aiData.uiPendingActionData1 =
+			firstWorldItem.slot;
+		commandHostActor.aiData.sPendingActionData2 = 123;
+		commandHostActor.aiData.bPendingActionData3 = 5;
+		commandHostActor.aiData.uiPendingActionData4 = 123;
+		commandHostActor.uiPendingActionTargetIncarnation =
+			firstWorldItem.incarnation;
+		const bool livePendingWorldItemAccepted =
+			TryValidatePendingWorldItemPickup( commandHostActor ) &&
+			TryConsumePendingWorldItemPickup(
+				commandHostActor, 0, 123, 5 ) &&
+			commandHostActor.uiPendingActionTargetIncarnation == 0;
+		commandHostActor.aiData.ubPendingAction = NO_PENDING_ACTION;
+		WORLDITEM copiedWorldItem = gWorldItems[0];
+		RemoveItemFromWorld( -1 );
+		RemoveItemFromWorld( 1 );
+		const bool invalidWorldItemRemovalPreservedLiveItem =
+			ResolveJa2TacticalWorldItem( firstWorldItem ) ==
+				&gWorldItems[0] &&
+			GetJa2TacticalWorldItemDirectory().activeCount() ==
+				firstWorldItemActiveCount;
+		RemoveItemFromWorld( 0 );
+		const bool firstWorldItemRetired =
+			ResolveJa2TacticalWorldItem( firstWorldItem ) == nullptr &&
+			gWorldItems[0].uiUniqueWorldItemIdValue == 0;
+		gWorldItems[0].fExists = TRUE;
+		gWorldItems[0].sGridNo = 123;
+		gWorldItems[0].ubLevel = 0;
+		const bool replacementWorldItemAssigned =
+			AssignJa2TacticalWorldItemIdentity( 0 );
+		const TacticalWorldItemId replacementWorldItem =
+			GetJa2TacticalWorldItemId( 0 );
+		const bool replacementWorldItemResolved =
+			ResolveJa2TacticalWorldItem( replacementWorldItem ) ==
+				&gWorldItems[0];
+		gWorldItems.resize( 2 );
+		guiNumWorldItems = 2;
+		gWorldItems[1].fExists = TRUE;
+		gWorldItems[1].sGridNo = 124;
+		gWorldItems[1].ubLevel = 0;
+		const bool movableWorldItemAssigned =
+			AssignJa2TacticalWorldItemIdentity( 1 );
+		const TacticalWorldItemId movableWorldItem =
+			GetJa2TacticalWorldItemId( 1 );
+		std::vector<WORLDITEM> compactedWorldItems{
+			gWorldItems[1] };
+		gWorldItems = std::move( compactedWorldItems );
+		guiNumWorldItems = 1;
+		RebuildJa2TacticalWorldItemDirectory();
+		const TacticalWorldItemId movedWorldItem =
+			GetJa2TacticalWorldItemId( 0 );
+		const bool worldItemReplacementRebuilt =
+			movableWorldItemAssigned && movableWorldItem.valid() &&
+			movedWorldItem ==
+				( TacticalWorldItemId{
+					0, movableWorldItem.incarnation } ) &&
+			ResolveJa2TacticalWorldItem( movableWorldItem ) == nullptr &&
+			ResolveJa2TacticalWorldItem( replacementWorldItem ) == nullptr &&
+			ResolveJa2TacticalWorldItem( movedWorldItem ) ==
+				&gWorldItems[0];
+		const TacticalWorldItemId forgedWorldItemMirror{
+			0, movedWorldItem.incarnation == 1 ? 2u : 1u };
+		gWorldItems[0].uiUniqueWorldItemIdValue =
+			forgedWorldItemMirror.incarnation;
+		const TacticalWorldItemId repairedWorldItem =
+			GetJa2TacticalWorldItemId( 0 );
+		const bool splitWorldItemIdentityFailedClosed =
+			repairedWorldItem.valid() &&
+			repairedWorldItem != movedWorldItem &&
+			repairedWorldItem != forgedWorldItemMirror &&
+			ResolveJa2TacticalWorldItem( movedWorldItem ) == nullptr &&
+			ResolveJa2TacticalWorldItem( forgedWorldItemMirror ) == nullptr &&
+			ResolveJa2TacticalWorldItem( repairedWorldItem ) ==
+				&gWorldItems[0];
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleWorldItemPickup =
+			TryDispatchPickupWorldItemCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				firstWorldItem, 123, 0,
+				TacticalWorldItemPickupKind::SpecificItem,
+				SimulationCommandSource::System );
+		commandHostActor.aiData.ubPendingAction = MERC_PICKUPITEM;
+		commandHostActor.aiData.uiPendingActionData1 =
+			firstWorldItem.slot;
+		commandHostActor.aiData.sPendingActionData2 = 123;
+		commandHostActor.aiData.bPendingActionData3 = 0;
+		commandHostActor.aiData.uiPendingActionData4 = 123;
+		commandHostActor.uiPendingActionTargetIncarnation =
+			firstWorldItem.incarnation;
+		const bool stalePendingWorldItemRejected =
+			!TryValidatePendingWorldItemPickup( commandHostActor );
+		const bool stalePendingWorldItemCleared =
+			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION &&
+			commandHostActor.uiPendingActionTargetIncarnation == 0;
+		const bool worldItemIdentityLifecycle =
+			firstWorldItemAssigned && firstWorldItem.valid() &&
+			copiedWorldItem.uiUniqueWorldItemIdValue ==
+				firstWorldItem.incarnation &&
+			livePendingWorldItemAccepted &&
+			invalidWorldItemRemovalPreservedLiveItem &&
+			firstWorldItemRetired &&
+			replacementWorldItemAssigned &&
+			replacementWorldItem.valid() &&
+			replacementWorldItem != firstWorldItem &&
+			replacementWorldItemResolved &&
+			worldItemReplacementRebuilt &&
+			splitWorldItemIdentityFailedClosed &&
+			ResolveJa2TacticalWorldItem( firstWorldItem ) == nullptr;
+		ResetJa2TacticalWorldItemDirectory();
+		gWorldItems = std::move( previousWorldItems );
+		guiNumWorldItems = previousWorldItemCount;
+		RebuildJa2TacticalWorldItemDirectory();
 		CHECK(
 			weaponModeWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
@@ -3460,8 +3632,13 @@ int main( int, char** )
 			!stalePendingConversationCompleted &&
 			stalePendingConversationCleared &&
 			!stalePendingVehicleCompleted &&
-			stalePendingVehicleCleared,
-			"equipment and interaction commands reject stale actor and delayed target incarnations" );
+			stalePendingVehicleCleared &&
+			worldItemIdentityLifecycle &&
+			staleWorldItemPickup.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			stalePendingWorldItemRejected &&
+			stalePendingWorldItemCleared,
+			"equipment and interaction commands reject stale actor, world-item, and delayed target incarnations" );
 
 		const std::uint64_t oneCommandFrame = ++commandTestFrameSequence;
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
