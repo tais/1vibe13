@@ -9,6 +9,7 @@
 
 #include "Animation Control.h"
 #include "GameContext.h"
+#include "Interactive Tiles.h"
 #include "Items.h"
 #include "Map Information.h"
 #include "Overhead.h"
@@ -17,6 +18,7 @@
 #include "TacticalEntityHost.h"
 #include "Weapons.h"
 #include "opplist.h"
+#include "structure.h"
 
 namespace
 {
@@ -56,6 +58,21 @@ namespace
 		return soldier;
 	}
 
+	STRUCTURE* ResolveLiveWorldObject(TacticalWorldObjectId object) noexcept
+	{
+		if (!IsJa2TacticalWorldLoaded() ||
+			object.grid < 0 || object.grid >= WORLD_MAX) return nullptr;
+		return FindStructureByID(object.grid, object.structureId);
+	}
+
+	bool CanBeginWorldObjectInteraction(const SOLDIERTYPE& soldier) noexcept
+	{
+		return soldier.usAnimState != OPEN_STRUCT &&
+			soldier.usAnimState != OPEN_STRUCT_CROUCHED &&
+			soldier.usAnimState != BEGIN_OPENSTRUCT &&
+			soldier.usAnimState != BEGIN_OPENSTRUCT_CROUCHED;
+	}
+
 	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)
 	{
 		if (ValidateSimulationCommandDomain(command) !=
@@ -72,8 +89,6 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
-				// Version-1 replay entries have no incarnation. Reject those
-				// legacy-unresolved references rather than guessing after slot reuse.
 				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
 				{
 					SendChangeSoldierStanceEvent(soldier, value.stance);
@@ -188,6 +203,47 @@ namespace
 						break;
 				}
 				return CommandDisposition::Applied;
+			}
+			else if constexpr (
+				std::is_same<Command, ActivateWorldObjectCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !CanBeginWorldObjectInteraction(*soldier))
+					return CommandDisposition::Discard;
+				STRUCTURE* structure = ResolveLiveWorldObject(value.object);
+				if (!structure) return CommandDisposition::Discard;
+				if (!StartInteractiveObject(
+						value.object.grid, value.object.structureId,
+						soldier, value.direction))
+					return CommandDisposition::Discard;
+				return InteractWithInteractiveObject(
+					soldier, structure, value.direction)
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command, ApproachWorldObjectCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !CanBeginWorldObjectInteraction(*soldier) ||
+					!IsValidMovementMode(soldier, value.movementMode))
+					return CommandDisposition::Discard;
+				STRUCTURE* structure = ResolveLiveWorldObject(value.object);
+				if (!structure) return CommandDisposition::Discard;
+
+				soldier->usUIMovementMode = value.movementMode;
+				soldier->bReverse = value.reverse ? TRUE : FALSE;
+				soldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+				if (!soldier->EVENT_InternalGetNewSoldierPath(
+						value.destinationGrid, value.movementMode,
+						static_cast<BOOLEAN>(TacticalMoveOrigin::PlayerUi),
+						value.forceRestart ? TRUE : FALSE))
+					return CommandDisposition::Discard;
+				return StartInteractiveObject(
+					value.object.grid, value.object.structureId,
+					soldier, value.direction)
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
 			}
 			else
 			{
@@ -310,6 +366,27 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				return IsValidTacticalTraversalKind(value.kind)
 					? SimulationCommandDomainError::None
 					: SimulationCommandDomainError::InvalidTraversalKind;
+			}
+			else if constexpr (
+				std::is_same<Command, ActivateWorldObjectCommand>::value ||
+				std::is_same<Command, ApproachWorldObjectCommand>::value)
+			{
+				if (value.object.grid < 0 || value.object.grid >= WORLD_MAX)
+					return SimulationCommandDomainError::InvalidObjectGrid;
+				if (!IsValidTacticalDirection(value.direction))
+					return SimulationCommandDomainError::InvalidDirection;
+				if constexpr (
+					std::is_same<Command, ApproachWorldObjectCommand>::value)
+				{
+					if (value.destinationGrid < 0 ||
+						value.destinationGrid >= WORLD_MAX)
+						return SimulationCommandDomainError::InvalidDestinationGrid;
+					if (value.movementMode >= NUMANIMATIONSTATES ||
+						(gAnimControl[value.movementMode].uiFlags &
+							ANIM_MOVING) == 0)
+						return SimulationCommandDomainError::InvalidMovementMode;
+				}
+				return SimulationCommandDomainError::None;
 			}
 		}
 		return SimulationCommandDomainError::ValuelessCommand;
@@ -575,6 +652,41 @@ SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
 	return TryDispatchSimulationCommandNow(
 		SimulationCommand{TraverseObstacleCommand{
 			TacticalEntityId{soldierId, uniqueSoldierId}, kind, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchActivateWorldObjectCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{ActivateWorldObjectCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalWorldObjectId{objectGrid, structureId},
+			direction, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{ApproachWorldObjectCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalWorldObjectId{objectGrid, structureId},
+			direction, destinationGrid, movementMode,
+			reverse, forceRestart, source}});
 }
 
 std::uint64_t DispatchEndTurnCommandNow(

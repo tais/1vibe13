@@ -2336,9 +2336,15 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						// check if we are at this location
 						if ( pSoldier->sGridNo == sDestGridNo || bSideOpenDoor )
 						{
+							const SimulationCommandDispatchResult interaction =
+								TryDispatchActivateWorldObjectCommandNow(
+									pSoldier->ubID,
+									pSoldier->uiUniqueSoldierIdValue,
+									sIntTileGridNo,
+									pStructure->usStructureID,
+									ubDirection);
+							if (!interaction) return GAME_SCREEN;
 							SetUIBusy( pSoldier->ubID );
-							StartInteractiveObject( sIntTileGridNo, pStructure->usStructureID, pSoldier, ubDirection );
-							InteractWithInteractiveObject( pSoldier, pStructure, ubDirection );
 							return( GAME_SCREEN );
 						}
 					}
@@ -2370,25 +2376,32 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				else
 				{
 					const SimulationCommandDispatchResult movement =
-						TryDispatchMoveToGridCommandNow(
-						pSoldier->ubID,
-						pSoldier->uiUniqueSoldierIdValue,
-						sDestGridNo,
-						static_cast<std::uint16_t>(pSoldier->usUIMovementMode),
-						gUIUseReverse != FALSE,
-						pSoldier->flags.fNoAPToFinishMove != FALSE);
+						pIntTile != NULL
+							? TryDispatchApproachWorldObjectCommandNow(
+								pSoldier->ubID,
+								pSoldier->uiUniqueSoldierIdValue,
+								sIntTileGridNo,
+								pStructure->usStructureID,
+								ubDirection,
+								sDestGridNo,
+								static_cast<std::uint16_t>(
+									pSoldier->usUIMovementMode),
+								gUIUseReverse != FALSE,
+								pSoldier->flags.fNoAPToFinishMove != FALSE)
+							: TryDispatchMoveToGridCommandNow(
+								pSoldier->ubID,
+								pSoldier->uiUniqueSoldierIdValue,
+								sDestGridNo,
+								static_cast<std::uint16_t>(
+									pSoldier->usUIMovementMode),
+								gUIUseReverse != FALSE,
+								pSoldier->flags.fNoAPToFinishMove != FALSE);
 					if (!movement) return GAME_SCREEN;
 					SetUIBusy( pSoldier->ubID );
 
 					if ( pSoldier->pathing.usPathDataSize > 5 )
 					{
 						pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
-					}
-
-					// HANDLE ANY INTERACTIVE OBJECTS HERE!
-					if ( pIntTile != NULL )
-					{
-						StartInteractiveObject( sIntTileGridNo, pStructure->usStructureID, pSoldier, ubDirection );
 					}
 				}
 			}

@@ -761,13 +761,23 @@ int main()
 	const SimulationCommand externalTraversal{TraverseObstacleCommand{
 		actorId, TacticalTraversalKind::JumpFence,
 		SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalActivation{ActivateWorldObjectCommand{
+		actorId, TacticalWorldObjectId{1301, 17}, 2,
+		SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand externalApproach{ApproachWorldObjectCommand{
+		actorId, TacticalWorldObjectId{1301, 17}, 2,
+		1300, 6, true, false, SimulationCommandSource::LocalPlayer}};
 	if (!std::holds_alternative<SetFacingCommand>(externalFacing) ||
 		!std::holds_alternative<SetStealthModeCommand>(externalStealth) ||
 		!std::holds_alternative<StopMovementCommand>(externalStop) ||
 		!std::holds_alternative<CycleWeaponModeCommand>(externalWeaponMode) ||
 		!std::holds_alternative<CycleScopeModeCommand>(externalScopeMode) ||
 		!std::holds_alternative<ReloadWeaponCommand>(externalReload) ||
-		!std::holds_alternative<TraverseObstacleCommand>(externalTraversal))
+		!std::holds_alternative<TraverseObstacleCommand>(externalTraversal) ||
+		!std::holds_alternative<ActivateWorldObjectCommand>(
+			externalActivation) ||
+		!std::holds_alternative<ApproachWorldObjectCommand>(
+			externalApproach))
 		return 45;
 	const std::uint64_t commandSequence = commandRuntime.submitCommand(
 		37, MoveToGridCommand{

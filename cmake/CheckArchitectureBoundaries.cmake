@@ -270,6 +270,19 @@ foreach(player_traversal_file IN LISTS player_traversal_files)
   endif()
 endforeach()
 
+# Mouse-driven door, switch, and openable-structure intent is a public
+# pointer-free command. Animation completion, AI movement, dialogue scripting,
+# and automatic door handling remain internal legacy mechanics.
+file(READ "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  player_world_object_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])(StartInteractiveObject|InteractWithInteractiveObject)[ \t\r\n]*\\("
+  direct_player_world_object_call "${player_world_object_contents}")
+if(direct_player_world_object_call)
+  message(FATAL_ERROR
+    "Player world-object interaction bypasses SimulationCommand in Tactical/Handle UI.cpp")
+endif()
+
 # Tactical world identity is owned by EngineRuntime's TacticalWorldSession.
 # Exact legacy globals remain readable compatibility mirrors, but a second
 # production writer would silently split world and turn identity again.
