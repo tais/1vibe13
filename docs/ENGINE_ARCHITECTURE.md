@@ -457,6 +457,11 @@ the engine must not contain SDL types in its public domain model.
   The stance executor also owns the established real-time moving-animation
   transition; UI code no longer rewrites movement mode, desired height, and
   animation bookkeeping after deciding on a stance.
+  Single-merc, multi-selection, panel, and current-squad stealth controls all
+  submit the same `SetStealthModeCommand`; current-squad input has one shared
+  implementation in both real-time and turn-based modes. Stopping a
+  rubber-band selection likewise submits one `StopMovementCommand` per exact
+  live actor instead of duplicating its movement-state mutations in UI code.
   AI retaliation, dialogue scripting,
   equipment-driven mode correction, automatic/pathfinding door handling,
   pathfinding traversal, and multi-merc bulk reload remain local mechanics

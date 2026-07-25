@@ -4804,10 +4804,14 @@ void BtnStealthModeCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		GetSMCurrentMerc()->bStealthMode = !	GetSMCurrentMerc()->bStealthMode;
-		gfUIStanceDifferent		= TRUE;
-		gfPlotNewMovement			= TRUE;
-		fInterfacePanelDirty	= DIRTYLEVEL2;
+		SOLDIERTYPE* const soldier = GetSMCurrentMerc();
+		if (soldier && TryDispatchSetStealthModeCommandNow(
+				*soldier, soldier->bStealthMode == FALSE))
+		{
+			gfUIStanceDifferent = TRUE;
+			gfPlotNewMovement = TRUE;
+			fInterfacePanelDirty = DIRTYLEVEL2;
+		}
 	}
 	else if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE )
 	{
@@ -8060,7 +8064,6 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 		}
 	}
 }*/
-
 
 
 

@@ -229,6 +229,14 @@ foreach(player_command_ingress_file IN LISTS player_command_ingress_files)
     message(FATAL_ERROR
       "Player command ingress assembles a reusable actor identity in ${player_command_ingress_file}; pass the exact live SOLDIERTYPE reference")
   endif()
+
+  string(REGEX MATCH
+    "->bStealthMode[ \t]*=[ \t]*[^=]|(^|[^A-Za-z0-9_])StopSoldier[ \t\r\n]*\\("
+    direct_player_squad_state_mutation "${contents}")
+  if(direct_player_squad_state_mutation)
+    message(FATAL_ERROR
+      "Player squad input mutates stealth or movement state directly in ${player_command_ingress_file}; use the existing SimulationCommand")
+  endif()
 endforeach()
 
 # Stance intent owns both stationary events and real-time moving-animation

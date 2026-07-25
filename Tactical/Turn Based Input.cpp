@@ -7739,16 +7739,24 @@ void HandleTBToggleStealthAll( void )
 
 	fStealthOn = !fStealthOn;
 
+	BOOLEAN fChanged = FALSE;
 	for (bLoop=gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop )
 	{
 		pTeamSoldier = bLoop;
 		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad( ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
-			if ( GetSMCurrentMerc() != NULL && bLoop == GetSMCurrentMerc()->ubID )
-				gfUIStanceDifferent = TRUE;
-			pTeamSoldier->bStealthMode = fStealthOn;
+			if (TryDispatchSetStealthModeCommandNow(
+					*pTeamSoldier, fStealthOn != FALSE))
+			{
+				fChanged = TRUE;
+				if ( GetSMCurrentMerc() != NULL && bLoop == GetSMCurrentMerc()->ubID )
+					gfUIStanceDifferent = TRUE;
+			}
 		}
 	}
+
+	if (!fChanged)
+		return;
 
 	fInterfacePanelDirty = DIRTYLEVEL2;
 
