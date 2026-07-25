@@ -2272,17 +2272,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             if (!TileIsOutOfBounds(sMineGridNo))
             {
                 LocateGridNo( sMineGridNo );
-                // we reuse the boobytrap gridno variable here
-                gsBoobyTrapGridNo = sMineGridNo;
-                gpBoobyTrapSoldier = pSoldier;
-                // silversurfer: if TRUE the merc won't comment that he found a mine, otherwise old behaviour
-                if (gGameExternalOptions.fMineSpottedNoTalk )
-                    MineSpottedDialogueCallBack ();
-                else
-                {
-                    SetStopTimeQuoteCallback( MineSpottedDialogueCallBack );
-                    TacticalCharacterDialogue( pSoldier, QUOTE_SUSPICIOUS_GROUND );
-                }
+                BeginMineSpottedDialogue( pSoldier, sMineGridNo );
             }
         }
         else
@@ -2978,17 +2968,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
             if (!TileIsOutOfBounds(sMineGridNo))
             {
                 LocateGridNo( sMineGridNo );
-                // we reuse the boobytrap gridno variable here
-                gsBoobyTrapGridNo = sMineGridNo;
-                gpBoobyTrapSoldier = pSoldier;
-                // silversurfer: if TRUE the merc won't comment that he found a mine, otherwise old behaviour
-                if (gGameExternalOptions.fMineSpottedNoTalk )
-                    MineSpottedDialogueCallBack ();
-                else
-                {
-                    SetStopTimeQuoteCallback( MineSpottedDialogueCallBack );
-                    TacticalCharacterDialogue( pSoldier, QUOTE_SUSPICIOUS_GROUND );
-                }
+                BeginMineSpottedDialogue( pSoldier, sMineGridNo );
             }
         }
         else

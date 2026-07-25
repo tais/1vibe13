@@ -3566,6 +3566,18 @@ int main( int, char** )
 			GetJa2TacticalWorldItemId( 0 );
 		const std::size_t firstWorldItemActiveCount =
 			GetJa2TacticalWorldItemDirectory().activeCount();
+		Ja2TacticalWorldItemReference liveWorldItemReference;
+		const bool liveWorldItemReferenceCaptured =
+			liveWorldItemReference.capture( 0 ) &&
+			liveWorldItemReference.identity() == firstWorldItem &&
+			liveWorldItemReference.resolve() == &gWorldItems[0];
+		WORLDITEM* consumedWorldItemReference =
+			liveWorldItemReference.consume();
+		const bool consumedWorldItemReferenceMatched =
+			consumedWorldItemReference == &gWorldItems[0];
+		Ja2TacticalWorldItemReference removedWorldItemReference;
+		const bool removedWorldItemReferenceCaptured =
+			removedWorldItemReference.capture( 0 );
 		commandHostActor.pathing.bLevel = 0;
 		commandHostActor.aiData.ubPendingAction = MERC_PICKUPITEM;
 		commandHostActor.aiData.uiPendingActionData1 =
@@ -3593,6 +3605,8 @@ int main( int, char** )
 		const bool firstWorldItemRetired =
 			ResolveJa2TacticalWorldItem( firstWorldItem ) == nullptr &&
 			gWorldItems[0].uiUniqueWorldItemIdValue == 0;
+		const bool removedWorldItemReferenceRejected =
+			removedWorldItemReference.resolve() == nullptr;
 		gWorldItems[0].fExists = TRUE;
 		gWorldItems[0].sGridNo = 123;
 		gWorldItems[0].ubLevel = 0;
@@ -3603,6 +3617,8 @@ int main( int, char** )
 		const bool replacementWorldItemResolved =
 			ResolveJa2TacticalWorldItem( replacementWorldItem ) ==
 				&gWorldItems[0];
+		const bool removedWorldItemReferenceRejectedReplacement =
+			removedWorldItemReference.resolve() == nullptr;
 		gWorldItems.resize( 2 );
 		guiNumWorldItems = 2;
 		gWorldItems[1].fExists = TRUE;
@@ -3664,6 +3680,12 @@ int main( int, char** )
 			commandHostActor.uiPendingActionTargetIncarnation == 0;
 		const bool worldItemIdentityLifecycle =
 			firstWorldItemAssigned && firstWorldItem.valid() &&
+			liveWorldItemReferenceCaptured &&
+			consumedWorldItemReferenceMatched &&
+			!liveWorldItemReference.valid() &&
+			removedWorldItemReferenceCaptured &&
+			removedWorldItemReferenceRejected &&
+			removedWorldItemReferenceRejectedReplacement &&
 			copiedWorldItem.uiUniqueWorldItemIdValue ==
 				firstWorldItem.incarnation &&
 			livePendingWorldItemAccepted &&

@@ -145,3 +145,26 @@ TacticalWorldItemId GetJa2TacticalWorldItemId(
 	return ResolveJa2TacticalWorldItem(item)
 		? item : TacticalWorldItemId{};
 }
+
+bool Ja2TacticalWorldItemReference::capture(
+	std::uint32_t slot) noexcept
+{
+	reset();
+	const TacticalWorldItemId item =
+		GetJa2TacticalWorldItemId(slot);
+	if (!item.valid()) return false;
+	item_ = item;
+	return true;
+}
+
+WORLDITEM* Ja2TacticalWorldItemReference::resolve() const noexcept
+{
+	return ResolveJa2TacticalWorldItem(item_);
+}
+
+WORLDITEM* Ja2TacticalWorldItemReference::consume() noexcept
+{
+	WORLDITEM* item = resolve();
+	reset();
+	return item;
+}
