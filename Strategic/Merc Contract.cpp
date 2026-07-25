@@ -30,6 +30,7 @@
 	#include "Vehicles.h"
 	#include "email.h"
 	#include "Map Screen Helicopter.h"
+	#include "TacticalEntityHost.h"
 
 #include "GameSettings.h"
 #include "connect.h"
@@ -70,8 +71,38 @@ extern CHAR16		gzUserDefinedButton2[ 128 ];
 
 SOLDIERTYPE *pContractReHireSoldier = NULL;
 
-UINT8		gubContractLength = 0;		//used when extending a mercs insurance contract
-SOLDIERTYPE *gpInsuranceSoldier=NULL;
+// Established AIM hiring-screen selection. Insurance confirmations snapshot
+// their own requested duration instead of reading this shared UI value later.
+UINT8 gubContractLength = 0;
+
+namespace
+{
+struct InsuranceConfirmationContext
+{
+	Ja2TacticalEntityReference soldier;
+	UINT8 contractLength = 0;
+
+	bool capture(
+		SOLDIERTYPE* selectedSoldier,
+		UINT8 selectedContractLength) noexcept
+	{
+		Ja2TacticalEntityReference capturedSoldier;
+		if (!capturedSoldier.capture(selectedSoldier))
+			return false;
+		soldier = capturedSoldier;
+		contractLength = selectedContractLength;
+		return true;
+	}
+
+	void reset() noexcept
+	{
+		soldier.reset();
+		contractLength = 0;
+	}
+};
+
+InsuranceConfirmationContext gInsuranceConfirmation;
+}
 
 // WDS - make number of mercenaries, etc. be configurable
 // The values need to be saved!
@@ -1525,9 +1556,12 @@ void HandleNotifyPlayerCanAffordInsurance( SOLDIERTYPE *pSoldier, UINT8 ubLength
 
 	swprintf( sString, zMarksMapScreenText[ 10 ], pSoldier->GetName(), FormatMoney(iCost).data(), ubLength );
 
-	//Set the length to the global variable ( so we know how long the contract is in the callback )
-	gubContractLength = ubLength;
-	gpInsuranceSoldier = pSoldier;
+	if (!gInsuranceConfirmation.capture(pSoldier, ubLength))
+	{
+		if ( gfInContractMenuFromRenewSequence )
+			EndCurrentContractRenewal();
+		return;
+	}
 
 	//Remember the soldier aswell
 	pContractReHireSoldier = pSoldier;
@@ -1540,9 +1574,16 @@ void HandleNotifyPlayerCanAffordInsurance( SOLDIERTYPE *pSoldier, UINT8 ubLength
 
 void ExtendMercInsuranceContractCallBack( UINT8 bExitValue )
 {
-	if( bExitValue == MSG_BOX_RETURN_YES )
+	SOLDIERTYPE* soldier =
+		gInsuranceConfirmation.soldier.resolve();
+	const UINT8 contractLength =
+		gInsuranceConfirmation.contractLength;
+	gInsuranceConfirmation.reset();
+
+	if( bExitValue == MSG_BOX_RETURN_YES && soldier )
 	{
-		PurchaseOrExtendInsuranceForSoldier( gpInsuranceSoldier, gubContractLength );
+		PurchaseOrExtendInsuranceForSoldier(
+			soldier, contractLength);
 	}
 
 	// OK, handle ending of renew session
@@ -1551,7 +1592,6 @@ void ExtendMercInsuranceContractCallBack( UINT8 bExitValue )
 		EndCurrentContractRenewal( );
 	}
 
-	gpInsuranceSoldier = NULL;
 }
 
 void HandleUniqueEventWhenPlayerLeavesTeam( SOLDIERTYPE *pSoldier )

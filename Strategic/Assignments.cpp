@@ -71,6 +71,7 @@
 #include <queue>
 #include "GameInitOptionsScreen.h"
 #include "Facilities.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
 
 //forward declarations of common classes to eliminate includes
@@ -295,12 +296,42 @@ extern BOOLEAN fDrawCharacterList;
 
 extern BOOLEAN fSelectedListOfMercsForMapScreen[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
 
-SOLDIERTYPE *gpDismissSoldier = NULL;
+namespace
+{
+Ja2TacticalEntityReference gDismissConfirmationSoldier;
+
+struct SurgeryConfirmationContext
+{
+	Ja2TacticalEntityReference doctor;
+	Ja2TacticalEntityReference patient;
+
+	bool capture(
+		SOLDIERTYPE* selectedDoctor,
+		SOLDIERTYPE* selectedPatient = NULL) noexcept
+	{
+		Ja2TacticalEntityReference capturedDoctor;
+		Ja2TacticalEntityReference capturedPatient;
+		if (!capturedDoctor.capture(selectedDoctor) ||
+			(selectedPatient &&
+				!capturedPatient.capture(selectedPatient)))
+			return false;
+		doctor = capturedDoctor;
+		patient = capturedPatient;
+		return true;
+	}
+
+	void reset() noexcept
+	{
+		doctor.reset();
+		patient.reset();
+	}
+};
+
+SurgeryConfirmationContext gSurgeryConfirmation;
+}
 
 /////////////////////////////////////////////////////////////////////
 // these added by SANDRO
-SOLDIERTYPE *pAutomaticSurgeryDoctor;
-SOLDIERTYPE *pAutomaticSurgeryPatient;
 void SurgeryBeforeDoctoringRequesterCallback( UINT8 bExitValue );
 void SurgeryBeforePatientingRequesterCallback( UINT8 bExitValue );
 INT16 MakeAutomaticSurgeryOnAllPatients( SOLDIERTYPE * pDoctor );
@@ -12770,12 +12801,14 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 
 static void MercDismissConfirmCallBack( UINT8 bExitValue )
 {
-	if ( bExitValue == MSG_BOX_RETURN_YES )
+	SOLDIERTYPE* soldier =
+		gDismissConfirmationSoldier.consume();
+	if ( bExitValue == MSG_BOX_RETURN_YES && soldier )
 	{
 		// Setup history code
-		gpDismissSoldier->ubLeaveHistoryCode = HISTORY_MERC_FIRED;
+		soldier->ubLeaveHistoryCode = HISTORY_MERC_FIRED;
 
-		BeginRemoveMercFromContract( gpDismissSoldier );
+		BeginRemoveMercFromContract( soldier );
 	}
 }
 
@@ -12889,7 +12922,16 @@ void ContractMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			break;
 
 			case( CONTRACT_MENU_TERMINATE ):
-				gpDismissSoldier = pSoldier;
+				{
+					Ja2TacticalEntityReference dismissalSoldier;
+					if (!dismissalSoldier.capture(pSoldier))
+					{
+						fOkToClose = TRUE;
+						break;
+					}
+					gDismissConfirmationSoldier =
+						dismissalSoldier;
+				}
 
 				// If in the renewal sequence.. do right away...
 				// else put up requester.
@@ -13772,19 +13814,20 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 		if ( pBestMedic != NULL )
 		{
 			CHAR16	zStr[200];
-			pAutomaticSurgeryDoctor = pBestMedic;
-			pAutomaticSurgeryPatient = pSoldier;
+			if (!gSurgeryConfirmation.capture(
+					pBestMedic, pSoldier))
+				return;
 
-			INT32 healwithout_bloodbag = pAutomaticSurgeryPatient->iHealableInjury * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pAutomaticSurgeryDoctor, DOCTOR_NT )) / 10000;
+			INT32 healwithout_bloodbag = pSoldier->iHealableInjury * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
 
 			// Flugente: check whether we have a bloodbag we can use
 			INT32 healwith_bloodbag = -1;
-			if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pAutomaticSurgeryDoctor->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
-				healwith_bloodbag = pAutomaticSurgeryPatient->iHealableInjury * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pAutomaticSurgeryDoctor, DOCTOR_NT )) / 10000;
+			if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pBestMedic->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
+				healwith_bloodbag = pSoldier->iHealableInjury * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
 
 			if ( healwith_bloodbag > healwithout_bloodbag )
 			{
-				swprintf( zStr, New113Message[MSG113_SURGERY_BEFORE_DOCTOR_ASSIGNMENT_BLOODBAG], pAutomaticSurgeryPatient->GetName(), healwithout_bloodbag, healwith_bloodbag );
+				swprintf( zStr, New113Message[MSG113_SURGERY_BEFORE_DOCTOR_ASSIGNMENT_BLOODBAG], pSoldier->GetName(), healwithout_bloodbag, healwith_bloodbag );
 
 				wcscpy( gzUserDefinedButton[0], New113Message[MSG113_BLOODBAGOPTIONS_YESSTAR] );
 				wcscpy( gzUserDefinedButton[1], New113Message[MSG113_BLOODBAGOPTIONS_YES] );
@@ -13973,17 +14016,17 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 						///////////////////////////////////////////////////////////////////////////////////////////////////////
 						// SANDRO - added check for surgery
-						if( gGameOptions.fNewTraitSystem && 
+						if( gGameOptions.fNewTraitSystem &&
 							( NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery ) )
 						{
 							CHAR16	zStr[200];
-							pAutomaticSurgeryDoctor = pSoldier;
 
 							UINT8 numsurgerytargets = GetNumberThatCanBeDoctored( pSoldier, HEALABLE_EVER, FALSE, FALSE, TRUE );
 
 							if ( numsurgerytargets )
 							{
 								BOOLEAN offerbloodbagoption = FALSE;
+								SOLDIERTYPE* pSurgeryPatient = NULL;
 
 								if ( numsurgerytargets == 1 && gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pSoldier->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
 								{
@@ -13991,21 +14034,26 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 									if ( pPatient )
 									{
-										pAutomaticSurgeryPatient = pPatient;
+										pSurgeryPatient = pPatient;
 
-										INT32 healwithout_bloodbag = pAutomaticSurgeryPatient->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pAutomaticSurgeryDoctor, DOCTOR_NT ) ) / 10000;
-										INT32 healwith_bloodbag    = pAutomaticSurgeryPatient->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pAutomaticSurgeryDoctor, DOCTOR_NT ) ) / 10000;
+										INT32 healwithout_bloodbag = pSurgeryPatient->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
+										INT32 healwith_bloodbag    = pSurgeryPatient->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
 
 										if ( healwith_bloodbag > healwithout_bloodbag )
 										{
-											swprintf( zStr, New113Message[MSG113_SURGERY_BEFORE_DOCTOR_ASSIGNMENT_BLOODBAG], pAutomaticSurgeryPatient->GetName(), healwithout_bloodbag, healwith_bloodbag );
+											swprintf( zStr, New113Message[MSG113_SURGERY_BEFORE_DOCTOR_ASSIGNMENT_BLOODBAG], pSurgeryPatient->GetName(), healwithout_bloodbag, healwith_bloodbag );
 
 											offerbloodbagoption = TRUE;
 										}
 									}
 								}
 
-								if ( offerbloodbagoption )
+								if (!gSurgeryConfirmation.capture(
+										pSoldier, pSurgeryPatient))
+								{
+									break;
+								}
+								else if ( offerbloodbagoption )
 								{
 									wcscpy( gzUserDefinedButton[0], New113Message[MSG113_BLOODBAGOPTIONS_YESSTAR] );
 									wcscpy( gzUserDefinedButton[1], New113Message[MSG113_BLOODBAGOPTIONS_YES] );
@@ -22115,34 +22163,48 @@ void HandleShadingOfLinesForFacilityAssignmentMenu( void )
 	}
 }
 
+static void ApplySurgeryBloodBagBoost(
+	SOLDIERTYPE* doctor, SOLDIERTYPE* patient)
+{
+	OBJECTTYPE* pObj =
+		doctor->GetObjectWithItemFlag(BLOOD_BAG);
+	if (!pObj)
+		return;
+
+	// If the object is infected, infect the patient.
+	if (((*pObj)[0]->data.sObjectFlag & INFECTED) &&
+		gGameExternalOptions.fDiseaseContaminatesItems)
+	{
+		patient->Infect(0);
+	}
+
+	pObj->RemoveObjectsFromStack(1);
+	if (pObj->ubNumberOfObjects <= 0)
+		DeleteObj(pObj);
+	doctor->usSoldierFlagMask2 |= SOLDIER_SURGERY_BOOSTED;
+}
+
 // SANDRO - function for automatic surgery button callback
 void SurgeryBeforeDoctoringRequesterCallback( UINT8 bExitValue )
 {
-	if ( bExitValue == 1 || bExitValue == MSG_BOX_RETURN_YES )
+	SOLDIERTYPE* doctor =
+		gSurgeryConfirmation.doctor.resolve();
+	SOLDIERTYPE* patient =
+		gSurgeryConfirmation.patient.resolve();
+	gSurgeryConfirmation.reset();
+
+	if ( ( bExitValue == 1 || bExitValue == MSG_BOX_RETURN_YES ) &&
+		doctor )
 	{
 		// Flugente: use up a blood bag if we've requested that and boost surgery
 		if ( bExitValue == 1 )
 		{
-			OBJECTTYPE* pObj = pAutomaticSurgeryDoctor->GetObjectWithItemFlag( BLOOD_BAG );
-
-			if ( pObj )
-			{
-				// if object is infected, infect the victim
-				if ( ( *pObj )[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
-					pAutomaticSurgeryPatient->Infect( 0 );
-
-				pObj->RemoveObjectsFromStack( 1 );
-
-				if ( pObj->ubNumberOfObjects <= 0 )
-				{
-					DeleteObj( pObj );
-				}
-
-				pAutomaticSurgeryDoctor->usSoldierFlagMask2 |= SOLDIER_SURGERY_BOOSTED;
-			}
+			if (!patient)
+				return;
+			ApplySurgeryBloodBagBoost(doctor, patient);
 		}
 
-		if (MakeAutomaticSurgeryOnAllPatients( pAutomaticSurgeryDoctor ) > 0)
+		if (MakeAutomaticSurgeryOnAllPatients( doctor ) > 0)
 		{
 			DoScreenIndependantMessageBox( L"Healed!" , MSG_BOX_FLAG_OK, NULL );
 		}
@@ -22152,41 +22214,28 @@ void SurgeryBeforeDoctoringRequesterCallback( UINT8 bExitValue )
 		}
 
 		// Flugente: after surgery is done, remove the optional blood bag boosting
-		pAutomaticSurgeryDoctor->usSoldierFlagMask2 &= ~SOLDIER_SURGERY_BOOSTED;
-
-		pAutomaticSurgeryDoctor = NULL;
+		doctor->usSoldierFlagMask2 &= ~SOLDIER_SURGERY_BOOSTED;
 	}
 }
 
 // SANDRO - function for automatic surgery button callback
 void SurgeryBeforePatientingRequesterCallback( UINT8 bExitValue )
 {
-	if ( bExitValue == 1 || bExitValue == MSG_BOX_RETURN_YES )
+	SOLDIERTYPE* doctor =
+		gSurgeryConfirmation.doctor.resolve();
+	SOLDIERTYPE* patient =
+		gSurgeryConfirmation.patient.resolve();
+	gSurgeryConfirmation.reset();
+
+	if ( ( bExitValue == 1 || bExitValue == MSG_BOX_RETURN_YES ) &&
+		doctor && patient )
 	{
 		// Flugente: use up a blood bag if we've requested that and boost surgery
 		if ( bExitValue == 1 )
-		{
-			OBJECTTYPE* pObj = pAutomaticSurgeryDoctor->GetObjectWithItemFlag( BLOOD_BAG );
+			ApplySurgeryBloodBagBoost(doctor, patient);
 
-			if ( pObj )
-			{
-				// if object is infected, infect the victim
-				if ( ( *pObj )[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
-					pAutomaticSurgeryPatient->Infect( 0 );
-
-				pObj->RemoveObjectsFromStack( 1 );
-
-				if ( pObj->ubNumberOfObjects <= 0 )
-				{
-					DeleteObj( pObj );
-				}
-
-				pAutomaticSurgeryDoctor->usSoldierFlagMask2 |= SOLDIER_SURGERY_BOOSTED;
-			}
-		}
-
-		if( (CanSoldierBeHealedByDoctor( pAutomaticSurgeryPatient, pAutomaticSurgeryDoctor, FALSE, HEALABLE_EVER, FALSE, FALSE, TRUE ) == TRUE ) &&
-				(MakeAutomaticSurgery( pAutomaticSurgeryPatient, pAutomaticSurgeryDoctor ) == TRUE) )
+		if( (CanSoldierBeHealedByDoctor( patient, doctor, FALSE, HEALABLE_EVER, FALSE, FALSE, TRUE ) == TRUE ) &&
+				(MakeAutomaticSurgery( patient, doctor ) == TRUE) )
 		{
 			DoScreenIndependantMessageBox( L"Healed!" , MSG_BOX_FLAG_OK, NULL );
 		}
@@ -22196,9 +22245,7 @@ void SurgeryBeforePatientingRequesterCallback( UINT8 bExitValue )
 		}
 
 		// Flugente: after surgery is done, remove the optional blood bag boosting
-		pAutomaticSurgeryDoctor->usSoldierFlagMask2 &= ~SOLDIER_SURGERY_BOOSTED;
-
-		pAutomaticSurgeryDoctor = NULL;
+		doctor->usSoldierFlagMask2 &= ~SOLDIER_SURGERY_BOOSTED;
 	}
 }
 // SANDRO - function for automatic surgery on all patients

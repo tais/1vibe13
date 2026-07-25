@@ -15,6 +15,7 @@
 	#include "Soldier macros.h"
 	#include "Strategic Movement.h"
 	#include "screenids.h"
+	#include "TacticalEntityHost.h"
 	#include "TacticalWorldAdapter.h"
 
 #ifndef JA2UB
@@ -61,9 +62,36 @@ class SOLDIERTYPE;
 
 INT32 sStatueGridNos[] = { 13829, 13830, 13669, 13670 };
 
-SOLDIERTYPE *gpKillerSoldier = NULL;
-INT32				 gsGridNo;
-INT8				gbLevel;
+namespace
+{
+struct EndGameDeathCallbackContext
+{
+	Ja2TacticalEntityReference killer;
+	INT32 grid = NOWHERE;
+	INT8 level = 0;
+
+	void capture(
+		SOLDIERTYPE* selectedKiller,
+		INT32 selectedGrid,
+		INT8 selectedLevel) noexcept
+	{
+		reset();
+		if (selectedKiller)
+			(void)killer.capture(selectedKiller);
+		grid = selectedGrid;
+		level = selectedLevel;
+	}
+
+	void reset() noexcept
+	{
+		killer.reset();
+		grid = NOWHERE;
+		level = 0;
+	}
+};
+
+EndGameDeathCallbackContext gEndGameDeathCallback;
+}
 
 
 // This function checks if our statue exists in the current sector at given gridno
@@ -151,15 +179,18 @@ void ChangeO3SectorStatue( BOOLEAN fFromExplosion )
 #else
 static void DeidrannaTimerCallback( void )
 {
-	HandleDeidrannaDeath( gpKillerSoldier, gsGridNo, gbLevel );
+	SOLDIERTYPE* killer = gEndGameDeathCallback.killer.resolve();
+	const INT32 grid = gEndGameDeathCallback.grid;
+	const INT8 level = gEndGameDeathCallback.level;
+	gEndGameDeathCallback.reset();
+	HandleDeidrannaDeath( killer, grid, level );
 }
 
 
 void BeginHandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
-	gpKillerSoldier = pKillerSoldier;
-	gsGridNo = sGridNo;
-	gbLevel	= bLevel;
+	gEndGameDeathCallback.capture(
+		pKillerSoldier, sGridNo, bLevel);
 
 	// Lock the UI.....
 	gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;
@@ -425,7 +456,11 @@ static void QueenBitchTimerCallback( void )
 #ifdef JA2UB
 //no Ub
 #else
-	HandleQueenBitchDeath( gpKillerSoldier, gsGridNo, gbLevel );
+	SOLDIERTYPE* killer = gEndGameDeathCallback.killer.resolve();
+	const INT32 grid = gEndGameDeathCallback.grid;
+	const INT8 level = gEndGameDeathCallback.level;
+	gEndGameDeathCallback.reset();
+	HandleQueenBitchDeath( killer, grid, level );
 #endif
 }
 
@@ -639,9 +674,8 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 	SoldierID cnt;
 
 
-	gpKillerSoldier = pKillerSoldier;
-	gsGridNo = sGridNo;
-	gbLevel	= bLevel;
+	gEndGameDeathCallback.capture(
+		pKillerSoldier, sGridNo, bLevel);
 
 	// Lock the UI.....
 	gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;
