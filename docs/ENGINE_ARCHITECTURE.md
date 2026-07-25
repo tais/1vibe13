@@ -354,6 +354,15 @@ the engine must not contain SDL types in its public domain model.
   slot, moved actor or vehicle, or replaced world item cannot redirect the
   original intent. Each command is processed at the existing synchronous
   boundary before invoking its legacy executor.
+- `Ja2TacticalEntityReference` is the pointer-free compatibility handle for
+  delayed legacy callbacks that have not yet become simulation commands. Bomb
+  setup, corpse actions, switch confirmation, tactical utility selection,
+  delayed ownership checks, and friendly-fire/surgery confirmation now keep
+  separate actor-incarnation contexts tied to the loaded world generation.
+  A released/reused actor, changed hand item, or world transition therefore
+  cancels the stale callback instead of dereferencing or retargeting a global
+  `SOLDIERTYPE*`. These references are runtime-only and do not alter soldier,
+  save, map, or content layouts.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard

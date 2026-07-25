@@ -4227,6 +4227,29 @@ int main( int, char** )
 		       compiledContext.runtime().tacticalEntityDirectory().identity( 0 ) ==
 		           ( TacticalEntityId{ 0, 701 } ),
 		       "legacy pool actors publish liveness through the runtime-owned directory" );
+		Ja2TacticalEntityReference liveCallbackActor;
+		const bool callbackActorCaptured =
+			liveCallbackActor.capture( &Menptr[0] ) &&
+			liveCallbackActor.identity() ==
+				( TacticalEntityId{ 0, 701 } ) &&
+			liveCallbackActor.resolve() == &Menptr[0];
+		SOLDIERTYPE* consumedCallbackActor =
+			liveCallbackActor.consume();
+		Ja2TacticalEntityReference releasedCallbackActor;
+		const bool releasedCallbackCaptured =
+			releasedCallbackActor.capture( &Menptr[0] );
+		const bool callbackActorReleased =
+			ReleaseJa2TacticalEntity( Menptr[0] );
+		const bool releasedCallbackRejected =
+			releasedCallbackActor.resolve() == nullptr;
+		const bool callbackActorReadopted =
+			AdoptJa2TacticalEntity( Menptr[0] );
+		CHECK( callbackActorCaptured &&
+		       consumedCallbackActor == &Menptr[0] &&
+		       !liveCallbackActor.valid() &&
+		       releasedCallbackCaptured && callbackActorReleased &&
+		       releasedCallbackRejected && callbackActorReadopted,
+		       "delayed tactical callbacks consume exact live actor incarnations and reject released slots" );
 		SOLDIERTYPE* const previousSwapTargetPointer = MercPtrs[1];
 		const SOLDIERTYPE previousSwapTarget = Menptr[1];
 		Menptr[1] = Menptr[0];

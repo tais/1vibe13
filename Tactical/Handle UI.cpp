@@ -73,6 +73,9 @@
 
 #include "TeamTurns.h"
 #include "Simulation Commands.h"
+#include "TacticalEntityHost.h"
+#include "TacticalWorldAdapter.h"
+#include <cstdint>
 #include "Map Screen Interface.h"	// added by Flugente for SquadNames
 #include "Keys.h"	// added by silversurfer for door handling from the side
 
@@ -267,9 +270,64 @@ BOOLEAN		gfUISelectiveTargetFound;
 UINT32		guiUISelectiveTargetFlags;
 SoldierID	gusUISelectiveTargetID;
 
-SOLDIERTYPE			*gpRequesterMerc = NULL;
-SOLDIERTYPE			*gpRequesterTargetMerc = NULL;
-INT32						gsRequesterGridNo;	
+namespace
+{
+struct TacticalRequesterCallbackContext
+{
+	Ja2TacticalEntityReference requester;
+	Ja2TacticalEntityReference target;
+	INT32 grid = NOWHERE;
+	std::uint64_t worldGeneration = 0;
+
+	bool capture(
+		SOLDIERTYPE* selectedRequester,
+		SOLDIERTYPE* selectedTarget,
+		INT32 selectedGrid) noexcept
+	{
+		reset();
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (!world.loaded || world.worldGeneration == 0 ||
+			!requester.capture(selectedRequester) ||
+			!target.capture(selectedTarget) ||
+			requester.identity() == target.identity())
+		{
+			reset();
+			return false;
+		}
+		grid = selectedGrid;
+		worldGeneration = world.worldGeneration;
+		return true;
+	}
+
+	bool resolve(
+		SOLDIERTYPE*& resolvedRequester,
+		SOLDIERTYPE*& resolvedTarget) const noexcept
+	{
+		resolvedRequester = nullptr;
+		resolvedTarget = nullptr;
+		const TacticalWorldSession::Snapshot& world =
+			CaptureJa2TacticalWorld();
+		if (!world.loaded ||
+			world.worldGeneration != worldGeneration)
+			return false;
+		resolvedRequester = requester.resolve();
+		resolvedTarget = target.resolve();
+		return resolvedRequester && resolvedTarget;
+	}
+
+	void reset() noexcept
+	{
+		requester.reset();
+		target.reset();
+		grid = NOWHERE;
+		worldGeneration = 0;
+	}
+};
+
+TacticalRequesterCallbackContext gRequesterCallbackContext;
+}
+
 INT32						gsOverItemsGridNo = NOWHERE;
 INT16						gsOverItemsLevel	= 0;
 BOOLEAN					gfUIInterfaceSetBusy = FALSE;
@@ -2919,29 +2977,48 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 
 void AttackRequesterCallback( UINT8 bExitValue )
 {
-	if( bExitValue == MSG_BOX_RETURN_YES )
+	const TacticalRequesterCallbackContext callbackContext =
+		gRequesterCallbackContext;
+	gRequesterCallbackContext.reset();
+	SOLDIERTYPE* pRequester = nullptr;
+	SOLDIERTYPE* pTarget = nullptr;
+	if( callbackContext.resolve( pRequester, pTarget ) &&
+		bExitValue == MSG_BOX_RETURN_YES )
 	{
-		gTacticalStatus.ubLastRequesterTargetID = gpRequesterTargetMerc->ubProfile;
+		gTacticalStatus.ubLastRequesterTargetID =
+			pTarget->ubProfile;
 
-		UIHandleMercAttack( gpRequesterMerc , gpRequesterTargetMerc, gsRequesterGridNo );
+		UIHandleMercAttack(
+			pRequester, pTarget, callbackContext.grid );
 	}
 }
 
 // SANDRO - added function
 void SurgeryRequesterCallback( UINT8 bExitValue )
 {
+	const TacticalRequesterCallbackContext callbackContext =
+		gRequesterCallbackContext;
+	gRequesterCallbackContext.reset();
+	SOLDIERTYPE* pRequester = nullptr;
+	SOLDIERTYPE* pTarget = nullptr;
+	if ( !callbackContext.resolve( pRequester, pTarget ) )
+	{
+		return;
+	}
+
 	if ( bExitValue == 1 || bExitValue == MSG_BOX_RETURN_YES )
 	{
 		// Flugente: use up a blood bag if we've requested that and boost surgery
 		if ( bExitValue == 1 )
 		{
-			OBJECTTYPE* pObj = gpRequesterMerc->GetObjectWithItemFlag( BLOOD_BAG );
+			OBJECTTYPE* pObj =
+				pRequester->GetObjectWithItemFlag( BLOOD_BAG );
 
 			if ( pObj )
 			{
 				// if object is infected, infect the victim
 				if ( ( *pObj )[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
-					gpRequesterTargetMerc->Infect( 0 );
+					pTarget->Infect( 0 );
 				
 				pObj->RemoveObjectsFromStack( 1 );
 
@@ -2950,25 +3027,33 @@ void SurgeryRequesterCallback( UINT8 bExitValue )
 					DeleteObj( pObj );
 				}
 
-				gpRequesterMerc->usSoldierFlagMask2 |= SOLDIER_SURGERY_BOOSTED;
+				pRequester->usSoldierFlagMask2 |=
+					SOLDIER_SURGERY_BOOSTED;
 			}
 		}
 
-		gTacticalStatus.ubLastRequesterSurgeryTargetID = gpRequesterTargetMerc->ubID;
+		gTacticalStatus.ubLastRequesterSurgeryTargetID =
+			pTarget->ubID;
 
-		UIHandleMercAttack( gpRequesterMerc , gpRequesterTargetMerc, gsRequesterGridNo );
+		UIHandleMercAttack(
+			pRequester, pTarget, callbackContext.grid );
 	}
 	else if( bExitValue == MSG_BOX_RETURN_NO || bExitValue == 4 )
 	{
 		gTacticalStatus.ubLastRequesterSurgeryTargetID = NOBODY;
 
-		if (!gpRequesterTargetMerc->bBleeding && gpRequesterTargetMerc->stats.bLife >= OKLIFE)
+		if (!pTarget->bBleeding &&
+			pTarget->stats.bLife >= OKLIFE)
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ CANNOT_NO_NEED_FIRST_AID_STR ], gpRequesterTargetMerc->GetName() );
+			ScreenMsg(
+				FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK,
+				TacticalStr[ CANNOT_NO_NEED_FIRST_AID_STR ],
+				pTarget->GetName() );
 		}
 		else
 		{
-			UIHandleMercAttack( gpRequesterMerc , gpRequesterTargetMerc, gsRequesterGridNo );
+			UIHandleMercAttack(
+				pRequester, pTarget, callbackContext.grid );
 		}
 	}
 }
@@ -3010,9 +3095,11 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 				{
 					CHAR16	zStr[200];
 
-					gpRequesterMerc			= pSoldier;
-					gpRequesterTargetMerc = pTSoldier;
-					gsRequesterGridNo = usMapPos;
+					if ( !gRequesterCallbackContext.capture(
+							pSoldier, pTSoldier, usMapPos ) )
+					{
+						return( GAME_SCREEN );
+					}
 
 					fDidRequester = TRUE;
 
@@ -3030,9 +3117,11 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 				{
 					CHAR16	zStr[200];
 
-					gpRequesterMerc			= pSoldier;
-					gpRequesterTargetMerc = pTSoldier;
-					gsRequesterGridNo = usMapPos;
+					if ( !gRequesterCallbackContext.capture(
+							pSoldier, pTSoldier, usMapPos ) )
+					{
+						return( GAME_SCREEN );
+					}
 	
 					fDidRequester = TRUE;
 
@@ -3041,6 +3130,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 					// Flugente: if we wouldn't really heal anything due to the wound being too small, tell us so
 					if ( !pTSoldier->bBleeding && healwithout_bloodbag <= 0 )
 					{
+						gRequesterCallbackContext.reset();
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[19], pTSoldier->GetName( ) );
 					}
 					else 

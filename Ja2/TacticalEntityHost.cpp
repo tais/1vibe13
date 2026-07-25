@@ -120,3 +120,29 @@ TacticalEntityId GetJa2TacticalEntityId(std::uint16_t slot) noexcept
 	const TacticalEntityId entity = BoundDirectory()->identity(slot);
 	return ResolveJa2TacticalEntity(entity) ? entity : TacticalEntityId{};
 }
+
+bool Ja2TacticalEntityReference::capture(
+	const SOLDIERTYPE* soldier) noexcept
+{
+	reset();
+	if (!soldier) return false;
+	const std::uint16_t slot =
+		static_cast<std::uint16_t>(soldier->ubID);
+	const TacticalEntityId entity = GetJa2TacticalEntityId(slot);
+	if (!entity.valid() || ResolveJa2TacticalEntity(entity) != soldier)
+		return false;
+	entity_ = entity;
+	return true;
+}
+
+SOLDIERTYPE* Ja2TacticalEntityReference::resolve() const noexcept
+{
+	return ResolveJa2TacticalEntity(entity_);
+}
+
+SOLDIERTYPE* Ja2TacticalEntityReference::consume() noexcept
+{
+	SOLDIERTYPE* soldier = resolve();
+	reset();
+	return soldier;
+}
