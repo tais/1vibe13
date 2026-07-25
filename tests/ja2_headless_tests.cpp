@@ -3504,13 +3504,34 @@ int main( int, char** )
 		const UINT16 movingStanceSurface =
 			DetermineSoldierAnimationSurface(
 				&commandHostActor, expectedMovingStance);
+		AnimationSurfaceType& movingStanceSurfaceState =
+			gAnimSurfaceDatabase[movingStanceSurface];
+		const AnimationSurfaceType previousMovingStanceSurfaceState =
+			movingStanceSurfaceState;
+		ETRLEObject movingStanceFrames[8]{};
+		for (ETRLEObject& frame : movingStanceFrames)
+		{
+			frame.usHeight = 1;
+			frame.usWidth = 1;
+		}
+		SGPVObject movingStanceVideoObject{};
+		movingStanceVideoObject.pETRLEObject = movingStanceFrames;
+		movingStanceVideoObject.usNumberOfObjects = 8;
+		movingStanceSurfaceState.ubFlags = 0;
+		movingStanceSurfaceState.uiNumDirections = 8;
+		movingStanceSurfaceState.uiNumFramesPerDir = 1;
+		movingStanceSurfaceState.hVideoObject = &movingStanceVideoObject;
+		movingStanceSurfaceState.bProfile = -1;
 		UINT16 cachedMovingStanceSurface = movingStanceSurface;
 		INT16 cachedMovingStanceHits = 0;
 		const AnimationSurfaceCacheType previousAnimationCache =
 			commandHostActor.AnimCache;
+		const UINT16 previousAnimationSurface =
+			commandHostActor.usAnimSurface;
 		// The data-free host has no animation assets. Seed only the surface lookup
-		// that ChangeSoldierState requires so the production transition itself
-		// remains under test without loading game data.
+		// and one inert eight-direction surface that ChangeSoldierState requires
+		// so the production transition remains under test without loading game
+		// data or entering font-backed missing-asset diagnostics.
 		commandHostActor.AnimCache.usCachedSurfaces =
 			&cachedMovingStanceSurface;
 		commandHostActor.AnimCache.sCacheHits = &cachedMovingStanceHits;
@@ -3528,6 +3549,8 @@ int main( int, char** )
 			commandHostActor.usAnimState == START_SWAT &&
 			cachedMovingStanceHits == 1;
 		commandHostActor.AnimCache = previousAnimationCache;
+		commandHostActor.usAnimSurface = previousAnimationSurface;
+		movingStanceSurfaceState = previousMovingStanceSurfaceState;
 		RestoreJa2TacticalTurnMirrors(stanceFlags, stanceTeam);
 		commandHostActor.usAnimState = STANDING;
 		commandHostActor.ubDesiredHeight = NO_DESIRED_HEIGHT;
