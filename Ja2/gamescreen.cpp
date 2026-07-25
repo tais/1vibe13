@@ -34,6 +34,7 @@
 #include "Air Raid.h"
 #include "Game Clock.h"
 #include "Game Init.h"
+#include "GameContext.h"
 
 //DEF: Test Code
 #ifdef NETWORKED
@@ -108,10 +109,8 @@ extern				BOOLEAN		gfFailedToSaveGameWhenInsideAMessageBox;
 extern				BOOLEAN		gfFirstHeliRun;
 extern				BOOLEAN		gfRenderFullThisFrame;
 
-#ifdef JA2UB
 extern				void HandleCannotAffordNpcMsgBox();
 extern				BOOLEAN	gfDisplayMsgBoxSayingCantAffordNPC;
-#endif
 
 // The InitializeGame function is responsible for setting up all data and Gaming Engine
 // tasks which will run the game
@@ -700,13 +699,12 @@ UINT32	MainGameScreenHandle(void)
 		}
 	}
 
-#ifdef JA2UB
 	//if we are to display a mesg box about cant afford biggens
-	if( gfDisplayMsgBoxSayingCantAffordNPC )
+	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+		gfDisplayMsgBoxSayingCantAffordNPC )
 	{
 		HandleCannotAffordNpcMsgBox();
 	}
-#endif
 
 	#ifdef JA2BETAVERSION
 		if( gfDoDialogOnceGameScreenFadesIn )

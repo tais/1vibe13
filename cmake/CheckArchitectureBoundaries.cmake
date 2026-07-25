@@ -256,7 +256,9 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/Intro.cpp"
   "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
   "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
-  "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp")
+  "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
+  "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
+  "${SOURCE_ROOT}/Tactical/interface Dialogue.h")
 foreach(runtime_campaign_file IN LISTS
     runtime_campaign_implementation_files runtime_campaign_selection_files)
   file(READ "${runtime_campaign_file}" runtime_campaign_contents)
@@ -266,6 +268,37 @@ foreach(runtime_campaign_file IN LISTS
   if(compiled_campaign_identity)
     message(FATAL_ERROR
       "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
+  runtime_campaign_action_code_contents)
+foreach(required_runtime_action_fragment IN ITEMS
+    "decodeDialogueAction("
+    "GameCampaign::Arulco, 301"
+    "GameCampaign::UnfinishedBusiness, 301"
+    "normalizeStrategicAction("
+    "GameCampaign::UnfinishedBusiness, 311")
+  string(FIND "${runtime_campaign_action_code_contents}"
+    "${required_runtime_action_fragment}" runtime_action_fragment_position)
+  if(runtime_action_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign action-code decoding lost runtime compatibility; missing '${required_runtime_action_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  runtime_campaign_dialogue_contents)
+foreach(required_runtime_dialogue_fragment IN ITEMS
+    "TryHandleCampaignDialogueAction("
+    "GetGameContext().capabilities().campaign"
+    "DialogueAction::JerryConversation1"
+    "DialogueAction::WaldoRepairRequestor")
+  string(FIND "${runtime_campaign_dialogue_contents}"
+    "${required_runtime_dialogue_fragment}" runtime_dialogue_fragment_position)
+  if(runtime_dialogue_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "NPC dialogue actions lost runtime campaign dispatch; missing '${required_runtime_dialogue_fragment}'")
   endif()
 endforeach()
 

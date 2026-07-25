@@ -32,6 +32,8 @@
 	#include "ASD.h"		// added by Flugente
 	#include "Rebel Command.h"
 	#include "Strategic Transport Groups.h"
+	#include "CampaignActionCodes.h"
+	#include "GameContext.h"
 
 #include "GameInitOptionsScreen.h"
 
@@ -4546,9 +4548,12 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Strategic7");
 	}
 }
 
-void ExecuteStrategicAIAction( UINT16 usActionCode, INT16 sSectorX, INT16 sSectorY, 
+void ExecuteStrategicAIAction( UINT16 usActionCode, INT16 sSectorX, INT16 sSectorY,
 							   INT32 option1, INT32 option2 )
 {
+	usActionCode = CampaignActionCode::normalizeStrategicAction(
+		GetGameContext().capabilities().campaign, usActionCode);
+
 	GROUP *pGroup, *pGroup0, *pGroup1, *pGroup2, *pGroup3, *pPendingGroup = NULL;
 	SECTORINFO *pSector;
 	UINT8 ubSectorID;

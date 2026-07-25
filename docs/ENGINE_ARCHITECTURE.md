@@ -845,6 +845,12 @@ the engine must not contain SDL types in its public domain model.
   Campaign-qualified email and Speck quote constants are compile-time checked
   against the existing Arulco offsets; the campaign data files and their
   numeric records remain unchanged.
+- NPC dialogue and strategic-AI action records are decoded against the active
+  runtime campaign. This deliberately preserves the existing collision where
+  raw action 301 means Waldo's repair request in Arulco and Jerry's first
+  conversation in Unfinished Business, as well as the 299/300 versus 311/312
+  strategic-assault ranges. The application exposes one campaign-neutral C++
+  action surface while accepting both campaigns' unchanged script data.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

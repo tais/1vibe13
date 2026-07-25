@@ -63,7 +63,8 @@
 	#include "Map Screen Helicopter.h"
 	#include "Soldier Control.h"
 	#include "TacticalEntityHost.h"
-	#include "Simulation Commands.h"
+#include "Simulation Commands.h"
+#include "GameContext.h"
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
 
@@ -174,7 +175,6 @@ void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQ
 void DelayedSayingOfMercQuote( UINT32 uiParam );
 void DisplayJerryBreakingLaptopTransmitterPopup();
 
-#ifdef JA2UB
 //JA25 UB
 void PerformJerryMiloAction301();
 void PerformJerryMiloAction302();
@@ -193,7 +193,6 @@ void HandleTexMakingHimselfAlreadyBeIntroduced();
 void DisplayJerryBreakingLaptopTransmitterPopup();
 void HaveNpcOpenUpDealerScreen( UINT8 ubProfileID );
 void HandleTexBecomingCamoed();
-#endif
 
 UINT8	ubTalkMenuApproachIDs[] =
 {
@@ -327,10 +326,8 @@ INT32 giHospitalRefund; // stores amount of money given to hospital for doctorin
 INT8	gbHospitalPriceModifier; // stores discount being offered
 
 void StartDialogueMessageBox( UINT8 ubProfileID, UINT16 usMessageBoxType );
-#ifdef JA2UB
 //ja25 ub
 BOOLEAN	gfDisplayMsgBoxSayingCantAffordNPC=FALSE;
-#endif
 
 enum
 {
@@ -1954,6 +1951,65 @@ void HandleFactForNPCUnescorted( UINT8 ubNPC )
 	*/
 }
 
+namespace
+{
+bool TryHandleCampaignDialogueAction(
+	UINT8 targetNpc, UINT16 rawAction, SOLDIERTYPE* dialogueDestination)
+{
+	using CampaignActionCode::DialogueAction;
+	switch (CampaignActionCode::decodeDialogueAction(
+		GetGameContext().capabilities().campaign, rawAction))
+	{
+	case DialogueAction::WaldoRepairRequestor:
+		if (!dialogueDestination ||
+			targetNpc != dialogueDestination->ubProfile)
+		{
+#ifdef JA2BETAVERSION
+			ScreenMsg(
+				FONT_MCOLOR_RED, MSG_ERROR,
+				L"Inconsistency between HandleNPCDoAction and target profile IDs");
+#endif
+		}
+		else
+		{
+			DeleteTalkingMenu();
+			StartDialogueMessageBox(targetNpc, rawAction);
+		}
+		return true;
+	case DialogueAction::JerryConversation1:
+		PerformJerryMiloAction301();
+		return true;
+	case DialogueAction::JerryConversation2:
+		PerformJerryMiloAction302();
+		return true;
+	case DialogueAction::LeavingNpcTalkMenu:
+		HandleSpecificQuoteWhenLeavingNpcTalkMenu();
+		return true;
+	case DialogueAction::BiggensDetonatesBombs:
+		HaveBiggensDetonatingExplosivesByTheMine();
+		return true;
+	case DialogueAction::RaulBlowsHimselfUp:
+		HandleRaulBlowingHimselfUp();
+		return true;
+	case DialogueAction::TexFlushesToilet:
+		HandleTexFlushingToilet();
+		return true;
+	case DialogueAction::MarkTexIntroduced:
+		HandleTexMakingHimselfAlreadyBeIntroduced();
+		return true;
+	case DialogueAction::MakeTexCamoed:
+		HandleTexBecomingCamoed();
+		return true;
+	case DialogueAction::OpenDealerScreen:
+		HaveNpcOpenUpDealerScreen(targetNpc);
+		return true;
+	case DialogueAction::None:
+		return false;
+	}
+	return false;
+}
+}
+
 
 void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum )
 {
@@ -1974,6 +2030,10 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 	pSoldier2 = NULL;
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Handling %s, action %d at %ld", gMercProfiles[ ubTargetNPC ].zNickname, usActionCode, GetJA2Clock() );
+
+	if (TryHandleCampaignDialogueAction(
+		ubTargetNPC, usActionCode, dialogueDestination))
+		return;
 
 	// Switch on action code!
 	if (usActionCode > NPC_ACTION_TURN_TO_FACE_NEAREST_MERC && usActionCode < NPC_ACTION_LAST_TURN_TO_FACE_PROFILE)
@@ -2567,7 +2627,6 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 			case NPC_ACTION_MEDICAL_REQUESTOR_2: // at hospital
 			case NPC_ACTION_BUY_VEHICLE_REQUESTOR: // from Dave
 			case NPC_ACTION_KROTT_REQUESTOR:
-			case NPC_ACTION_WALDO_REPAIR_REQUESTOR:
 				// Vince or Willis asks about payment? for medical attention
 				if (!dialogueDestination ||
 					ubTargetNPC !=
@@ -2903,17 +2962,15 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					SetFactTrue( FACT_PC_MARRYING_DARYL_IS_FLO );
 
-#ifdef JA2UB
-#else
 					// anv: make Speck whine about it immediately if on team
-					if( !IsMercDead(BIFF) && !IsSpeckComAvailable() )
+					if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+						!IsMercDead(BIFF) && !IsSpeckComAvailable() )
 					{
-						TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_FLO_MARRIED_A_COUSIN_BIFF_IS_ALIVE );
+						TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_FLO_MARRIED );
 						// don't bring this up again
 						LaptopSaveInfo.fSpeckSaidFloMarriedCousinQuote = TRUE;
 						MakeBiffAwayForCoupleOfDays();
 					}
-#endif
 				}
 
 				HandleMoraleEvent( pSoldier, MORALE_MERC_MARRIED, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
@@ -4203,12 +4260,10 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 			case NPC_ACTION_ADD_JOHNS_GUN_SHIPMENT:
 				AddJohnsGunShipment();
 
-#ifdef JA2UB
-#else
 				// anv: recruitable Kulba
-				if( gGameExternalOptions.fEnableRecruitableJohnKulba == TRUE )
+				if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+					gGameExternalOptions.fEnableRecruitableJohnKulba == TRUE )
 					AddJohnAsMerc();
-#endif
 				// also close panel
 				DeleteTalkingMenu();
 				break;
@@ -4608,45 +4663,6 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					TriggerNPCRecord( WALTER, 15 );
 				}
 				break;
-#ifdef JA2UB
-			//JA25 UB	
-			case NPC_ACTION_TRIGGER_JERRY_CONVERSATION_WITH_PGC_1:
-				PerformJerryMiloAction301();
-				break;
-			
-			case NPC_ACTION_TRIGGER_JERRY_CONVERSATION_WITH_PGC_2:
-				PerformJerryMiloAction302();
-				break;
-
-			case NPC_ACTION_BIGGENS_DETONATES_BOMBS:
-				HaveBiggensDetonatingExplosivesByTheMine();
-				break;
-
-			case NPC_ACTION_LEAVING_NPC_TALK_MENU:
-				HandleSpecificQuoteWhenLeavingNpcTalkMenu();
-				break;
-
-			case NPC_ACTION_RAUL_BLOWS_HIMSELF_UP:
-				HandleRaulBlowingHimselfUp();
-				break;
-
-			case NPC_ACTION_TEX_FLUSHES_TOILET:
-				HandleTexFlushingToilet();
-				break;
-
-			case NPC_ACTION_MARK_TEX_AS_ALREADY_INTRODUCED_HIMSELF:
-				HandleTexMakingHimselfAlreadyBeIntroduced();
-				break;
-
-			case NPC_ACTION_MAKE_TEX_CAMOED:
-				HandleTexBecomingCamoed();
-				break;
-
-			case NPC_ACTION_HAVE_DEALER_OPEN_BUY_SELL_SCREEN:
-				HaveNpcOpenUpDealerScreen( ubTargetNPC );
-				break;
-#endif
-
 			case NPC_ACTION_RECRUIT_PROFILE_TO_EPC:
 					//if ( !CheckNPCIsEPC(ubTargetNPC) )
 						//{
@@ -4853,6 +4869,7 @@ void StartDialogueMessageBox( UINT8 ubProfileID, UINT16 usMessageBoxType )
 			break;
 		// anv: Waldo The Mechanic
 		case NPC_ACTION_WALDO_REPAIR_REQUESTOR:
+		case JA25_NPC_ACTION_WALDO_REPAIR_REQUESTOR:
 			swprintf( zTemp, TacticalStr[ STR_HELI_RR_REPAIR_PROMPT ], gMercProfiles[ubProfileID].zNickname );
 			if( CheckFact(FACT_HELI_DAMAGED_CAN_START_REPAIR, 0) == TRUE )
 			{	
@@ -4931,44 +4948,46 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 		case NPC_ACTION_ASK_ABOUT_PAYING_RPC:
 		case NPC_ACTION_ASK_ABOUT_PAYING_RPC_WITH_DAILY_SALARY:
 
-#ifdef JA2UB
-			if ( ubExitValue == MSG_BOX_RETURN_YES )
+			if ( GetGameContext().capabilities().isUnfinishedBusiness() )
 			{
-				//if the player cannot afford to hire the npc
-				if( LaptopSaveInfo.iCurrentBalance < gMercProfiles[ubProfile].sSalary )
+				if ( ubExitValue == MSG_BOX_RETURN_YES )
 				{
-					//Set a flag indicating that you cannot afford the merc
-					gfDisplayMsgBoxSayingCantAffordNPC = TRUE;
+					//if the player cannot afford to hire the npc
+					if( LaptopSaveInfo.iCurrentBalance < gMercProfiles[ubProfile].sSalary )
+					{
+						//Set a flag indicating that you cannot afford the merc
+						gfDisplayMsgBoxSayingCantAffordNPC = TRUE;
+					}
+					else
+					{
+						//First Deduct the money out of the players account
+						AddTransactionToPlayersBook( PAYMENT_TO_NPC, ubProfile, GetWorldTotalMin(), -gMercProfiles[ubProfile].sSalary );
+
+						TriggerNPCRecord( ubProfile, 1 );
+
+						//if the person is BIGGENS
+						if( ubProfile ==  BIGGENS_UB ) //BIGGENS
+						{
+							SetFactTrue( FACT_BIGGENS_IS_ON_TEAM );
+						}
+					}
 				}
 				else
 				{
-					//First Deduct the money out of the players account
-					AddTransactionToPlayersBook( PAYMENT_TO_NPC, ubProfile, GetWorldTotalMin(), -gMercProfiles[ubProfile].sSalary );
-
-					TriggerNPCRecord( ubProfile, 1 );
-
-					//if the person is BIGGENS
-					if( ubProfile ==  BIGGENS_UB ) //BIGGENS
-					{
-						SetFactTrue( FACT_BIGGENS_IS_ON_TEAM );
-					}
+					TriggerNPCRecord( ubProfile, 0 );
 				}
 			}
 			else
 			{
-				TriggerNPCRecord( ubProfile, 0 );
+				if ( ubExitValue == MSG_BOX_RETURN_YES )
+				{
+					TriggerNPCRecord( ubProfile, 1 );
+				}
+				else
+				{
+					TriggerNPCRecord( ubProfile, 0 );
+				}
 			}
-#else
-			
-			if ( ubExitValue == MSG_BOX_RETURN_YES )
-			{
-				TriggerNPCRecord( ubProfile, 1 );
-			}
-			else
-			{
-				TriggerNPCRecord( ubProfile, 0 );
-			}
-#endif
 			break;
 		case NPC_ACTION_REDUCE_CONRAD_SALARY_CONDITIONS:
 			if ( ubExitValue == MSG_BOX_RETURN_YES )
@@ -5120,6 +5139,7 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 			}
 			break;
 		case NPC_ACTION_WALDO_REPAIR_REQUESTOR:
+		case JA25_NPC_ACTION_WALDO_REPAIR_REQUESTOR:
 			if ( ubExitValue == MSG_BOX_RETURN_YES )
 			{
 				StartHelicopterRepair( FALSE, FALSE );
@@ -5383,7 +5403,6 @@ void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQ
 	AddStrategicEventUsingSeconds( EVENT_SAY_DELAYED_MERC_QUOTE, uiTimeTillQuoteSaid, uiParam );
 }
 
-#ifdef JA2UB
 //JA25 UB
 
 void PerformJerryMiloAction301()
@@ -5467,9 +5486,6 @@ void PerformJerryMiloAction302()
 	//Close the dialogue panel
 	DeleteTalkingMenu();
 }
-
-#endif
-
 void DelayedSayingOfMercQuote( UINT32 uiParam )
 {
 	SOLDIERTYPE *pSoldier=NULL;
@@ -5552,12 +5568,12 @@ void DelayedSayingOfMercQuote( UINT32 uiParam )
 	}
 }
 
-#ifdef JA2UB
-
 void HandleSpecificQuoteWhenLeavingNpcTalkMenu()
 {
 	SetFactTrue( FACT_MERC_SAY_QUOTE_WHEN_TALK_MENU_CLOSES );
 }
+
+#ifdef JA2UB
 
 void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileID, UINT32 uiQuoteNum )
 {
@@ -5658,6 +5674,8 @@ BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo )
 	return( FALSE );
 }
 
+#endif
+
 void HaveBiggensDetonatingExplosivesByTheMine()
 {
 	SOLDIERTYPE *pSoldier = NULL;
@@ -5671,6 +5689,8 @@ void HaveBiggensDetonatingExplosivesByTheMine()
 	//Have Biggens Triger the bombs by the cave wall
 	SetOffBombsByFrequency( ubID, FIRST_MAP_PLACED_FREQUENCY + 1 );
 }
+
+#ifdef JA2UB
 
 void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 {
@@ -5758,6 +5778,8 @@ void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 	// Turn off permenant changes....
 	ApplyMapChangesToMapTempFile( FALSE );
 }
+
+#endif
 
 void HandleCannotAffordNpcMsgBox()
 {
@@ -5866,9 +5888,6 @@ void HandleTexBecomingCamoed()
 	// put on camoflauge
 	TriggerNPCRecord( TEX_UB, 15 );
 }
-
-#endif
-
 void DisplayJerryBreakingLaptopTransmitterPopup()
 {
 	CHAR16	zString[512];
@@ -5920,8 +5939,6 @@ void DisplayJerryBreakingLaptopTransmitterPopup()
 	gJa25SaveStruct.fJerryBreakingLaptopOccuring = TRUE;
 }
 
-#ifdef JA2UB
-
 void HaveNpcOpenUpDealerScreen( UINT8 ubProfileID )
 {
 	DeleteTalkingMenu( );
@@ -5929,4 +5946,3 @@ void HaveNpcOpenUpDealerScreen( UINT8 ubProfileID )
 	//Enter the shopkeeper interface
 	EnterShopKeeperInterfaceScreen( gTalkPanel.ubCharNum );
 }
-#endif
