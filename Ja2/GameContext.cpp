@@ -5,6 +5,7 @@
 #include "PackageHost.h"
 #include "RulesPackage.h"
 #include "Screens.h"
+#include "Simulation Commands.h"
 #include "StrategicGroupHost.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
@@ -59,6 +60,16 @@ GameContext& ComposeGameContext()
 	// may query the context recursively; subsequent hot-path lookups should not
 	// repeat the complete static-registration chain below.
 	composedGameContext = &context;
+	static const bool tacticalSimulationExecutorBound =
+		BindJa2SimulationCommandExecutor(context);
+	static const bool tacticalSimulationExecutorBindingReported = [&] {
+		if (!tacticalSimulationExecutorBound)
+			context.log().write(LogRecord{
+				LogSeverity::Error, "simulation",
+				"Tactical command executor binding failed"});
+		return true;
+	}();
+	(void)tacticalSimulationExecutorBindingReported;
 	static const bool legacyFrameGatewayBound = [&] {
 		BindLegacyFramePresenter(context.services().frames);
 		return true;

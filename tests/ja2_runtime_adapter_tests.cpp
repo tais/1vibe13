@@ -189,6 +189,36 @@ public:
 	TacticalCommandDrainResult nestedDrain;
 };
 
+class ReentrantThrowingSimulationCommandExecutionSink final
+	: public SimulationCommandExecutionSink
+{
+public:
+	explicit ReentrantThrowingSimulationCommandExecutionSink(
+		EngineRuntime<>& runtime) noexcept
+		: runtime_(runtime)
+	{
+	}
+
+	void commandProcessed(
+		const SimulationCommand&,
+		std::uint64_t tick,
+		std::uint64_t,
+		CommandDisposition) override
+	{
+		++calls;
+		sawActiveExecution = runtime_.commandExecutionActive();
+		nested = runtime_.executeCommandsThrough(tick);
+		throw "injected execution sink failure";
+	}
+
+	int calls = 0;
+	bool sawActiveExecution = false;
+	CommandProcessingResult nested;
+
+private:
+	EngineRuntime<>& runtime_;
+};
+
 class ControlledTacticalWorldService final : public TacticalWorldService
 {
 public:
@@ -380,6 +410,57 @@ int main()
 		tacticalSimulation.snapshot().shots[0].tick == 5 &&
 		tacticalSimulation.snapshot().shots[0].sequence == 10,
 		"headless hosts can consume bounded shot history and continue execution");
+	EngineRuntime<> tacticalExecutionRuntime;
+	const std::uint64_t runtimeCommandSequence =
+		tacticalExecutionRuntime.submitCommand(
+			6, SimulationCommand{SetFacingCommand{
+				simulatedPlayer, 3,
+				SimulationCommandSource::LocalPlayer}});
+	const CommandProcessingResult unboundExecution =
+		tacticalExecutionRuntime.executeCommandsThrough(6);
+	const std::vector<RecordedSimulationCommand> blockedRuntimeJournal =
+		tacticalExecutionRuntime.commandJournal().snapshot();
+	check(
+		unboundExecution.status == CommandProcessStatus::Blocked &&
+		unboundExecution.blockedSequence == runtimeCommandSequence &&
+		tacticalExecutionRuntime.commands().size() == 1 &&
+		blockedRuntimeJournal.size() == 1 &&
+		blockedRuntimeJournal[0].status ==
+			CommandJournalStatus::Blocked,
+		"unbound runtime executor retains and journals authoritative work");
+	MemoryTacticalSimulation replacementSimulation{
+		TacticalSimulationLimits{2, 1}};
+	check(
+		tacticalExecutionRuntime.bindSimulationCommandExecutor(
+			tacticalSimulation) &&
+		tacticalExecutionRuntime.bindSimulationCommandExecutor(
+			tacticalSimulation) &&
+		!tacticalExecutionRuntime.bindSimulationCommandExecutor(
+			replacementSimulation) &&
+		tacticalExecutionRuntime.hasSimulationCommandExecutor() &&
+		&tacticalExecutionRuntime.simulationCommandExecutor() ==
+			&tacticalSimulation,
+		"runtime executor binding is idempotent and cannot change worlds");
+	ReentrantThrowingSimulationCommandExecutionSink throwingExecutionSink{
+		tacticalExecutionRuntime};
+	const CommandProcessingResult runtimeExecution =
+		tacticalExecutionRuntime.executeCommandsThrough(
+			6, &throwingExecutionSink);
+	const std::vector<RecordedSimulationCommand> appliedRuntimeJournal =
+		tacticalExecutionRuntime.commandJournal().snapshot();
+	check(
+		runtimeExecution &&
+		runtimeExecution.applied == 1 &&
+		tacticalExecutionRuntime.commands().empty() &&
+		throwingExecutionSink.calls == 1 &&
+		throwingExecutionSink.sawActiveExecution &&
+		throwingExecutionSink.nested.status ==
+			CommandProcessStatus::QueueChanged &&
+		tacticalSimulation.snapshot().actors[0].direction == 3 &&
+		appliedRuntimeJournal.size() == 1 &&
+		appliedRuntimeJournal[0].status ==
+			CommandJournalStatus::Applied,
+		"runtime execution is non-reentrant and contains sink failure");
 
 	TacticalWorldSession worldSession;
 	check(!worldSession.snapshot().loaded &&

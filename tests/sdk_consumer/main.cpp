@@ -674,6 +674,29 @@ int main()
 		externalSimulation.snapshot().actors[1].grid != 1211 ||
 		externalSimulation.snapshot().actors[1].stopped)
 		return 60;
+	EngineRuntime<> externalExecutionRuntime;
+	if (!externalExecutionRuntime.bindSimulationCommandExecutor(
+			externalSimulation) ||
+		!externalExecutionRuntime.hasSimulationCommandExecutor())
+		return 61;
+	const std::uint64_t externalExecutionSequence =
+		externalExecutionRuntime.submitCommand(
+			5, SimulationCommand{StopMovementCommand{
+				actorId, SimulationCommandSource::Replay}});
+	const CommandProcessingResult externalExecution =
+		externalExecutionRuntime.executeCommandsThrough(5);
+	const std::vector<RecordedSimulationCommand> externalExecutionJournal =
+		externalExecutionRuntime.commandJournal().snapshot();
+	if (!externalExecution ||
+		externalExecution.applied != 1 ||
+		!externalExecutionRuntime.commands().empty() ||
+		!externalSimulation.snapshot().actors[1].stopped ||
+		externalExecutionJournal.size() != 1 ||
+		externalExecutionJournal[0].sequence !=
+			externalExecutionSequence ||
+		externalExecutionJournal[0].status !=
+			CommandJournalStatus::Applied)
+		return 61;
 
 	TacticalActorSnapshot previousActor = MakeExternalActor(
 		actorId, 1200, TacticalStance::Standing, 20, 85);

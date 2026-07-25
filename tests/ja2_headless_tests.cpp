@@ -783,6 +783,8 @@ struct HeadlessTacticalTurnRun
 {
 	TacticalSimulationSnapshot snapshot;
 	std::vector<HeadlessTacticalCommandObservation> observations;
+	bool executorBound = false;
+	bool observationFailure = false;
 	bool completed = false;
 	bool sawBudgetExhaustion = false;
 	bool sawRetry = false;
@@ -791,49 +793,90 @@ struct HeadlessTacticalTurnRun
 		TacticalSimulationResetError::None;
 };
 
+class RetrySelectedFireOnceExecutor final
+	: public SimulationCommandExecutor
+{
+public:
+	explicit RetrySelectedFireOnceExecutor(
+		SimulationCommandExecutor& next) noexcept
+		: next_(next)
+	{
+	}
+
+	CommandDisposition execute(
+		const SimulationCommand& command,
+		std::uint64_t tick,
+		std::uint64_t sequence) override
+	{
+		// Exercise queue retention without hiding retry policy inside the
+		// reusable executor. The second attempt applies the exact same captured
+		// command through the public execution contract.
+		if (!selectedFireRetried_ &&
+			std::holds_alternative<
+				BeginSelectedFireWeaponCommand>(command))
+		{
+			selectedFireRetried_ = true;
+			return CommandDisposition::Retry;
+		}
+		return next_.execute(command, tick, sequence);
+	}
+
+private:
+	SimulationCommandExecutor& next_;
+	bool selectedFireRetried_ = false;
+};
+
+class HeadlessTacticalTurnExecutionSink final
+	: public SimulationCommandExecutionSink
+{
+public:
+	explicit HeadlessTacticalTurnExecutionSink(
+		HeadlessTacticalTurnRun& run) noexcept
+		: run_(run)
+	{
+	}
+
+	void commandProcessed(
+		const SimulationCommand& command,
+		std::uint64_t tick,
+		std::uint64_t sequence,
+		CommandDisposition disposition) noexcept override
+	{
+		try
+		{
+			run_.observations.push_back(
+				HeadlessTacticalCommandObservation{
+					tick, sequence, command.index(), disposition});
+		}
+		catch (...)
+		{
+			run_.observationFailure = true;
+		}
+	}
+
+private:
+	HeadlessTacticalTurnRun& run_;
+};
+
 static HeadlessTacticalTurnRun RunHeadlessTacticalTurn(
 	EngineRuntime<unsigned>& runtime,
+	MemoryTacticalSimulation& model,
+	SimulationCommandExecutor& executor,
 	TacticalSimulationSnapshot baseline)
 {
-	MemoryTacticalSimulation model;
 	HeadlessTacticalTurnRun run;
 	run.resetError = model.reset(std::move(baseline));
 	if (run.resetError != TacticalSimulationResetError::None)
 		return run;
-	SimulationCommandExecutor& executor = model;
-	bool selectedFireRetried = false;
+	run.executorBound =
+		runtime.bindSimulationCommandExecutor(executor);
+	if (!run.executorBound) return run;
+	HeadlessTacticalTurnExecutionSink executionSink{run};
 	for (std::size_t pass = 0;
 		pass < 32 && !runtime.commands().empty(); ++pass)
 	{
-		const CommandProcessingResult processing = ProcessCommandsThrough(
-			runtime.commands(), 3, 2,
-			[&executor, &selectedFireRetried](
-				const SimulationCommand& command,
-				std::uint64_t tick,
-				std::uint64_t sequence) {
-				// Exercise queue retention without hiding retry policy inside
-				// the reusable executor. The second attempt applies the exact
-				// same captured command through the public execution contract.
-				if (!selectedFireRetried &&
-					std::holds_alternative<
-						BeginSelectedFireWeaponCommand>(command))
-				{
-					selectedFireRetried = true;
-					return CommandDisposition::Retry;
-				}
-				return executor.execute(command, tick, sequence);
-			},
-			[&runtime, &run](
-				const SimulationCommand& command,
-				std::uint64_t tick,
-				std::uint64_t sequence,
-				CommandDisposition disposition) {
-				runtime.commandJournal().recordDisposition(
-					sequence, disposition);
-				run.observations.push_back(
-					HeadlessTacticalCommandObservation{
-						tick, sequence, command.index(), disposition});
-			});
+		const CommandProcessingResult processing =
+			runtime.executeCommandsThrough(3, 2, &executionSink);
 		run.sawBudgetExhaustion =
 			run.sawBudgetExhaustion ||
 			processing.status == CommandProcessStatus::BudgetExhausted;
@@ -1968,12 +2011,15 @@ int main( int, char** )
 		const TacticalSimulationSnapshot baseline =
 			MakeHeadlessTacticalTurnBaseline( player, opponent );
 
+		MemoryTacticalSimulation captureModel;
+		RetrySelectedFireOnceExecutor captureExecutor{ captureModel };
 		EngineRuntime<unsigned> captureRuntime;
 		const std::vector<std::uint64_t> submitted =
 			SubmitHeadlessTacticalTurn(
 				captureRuntime, player, opponent );
 		const HeadlessTacticalTurnRun captured =
-			RunHeadlessTacticalTurn( captureRuntime, baseline );
+			RunHeadlessTacticalTurn(
+				captureRuntime, captureModel, captureExecutor, baseline );
 		const std::vector<RecordedSimulationCommand> capturedJournal =
 			captureRuntime.commandJournal().snapshot();
 
@@ -1988,12 +2034,15 @@ int main( int, char** )
 			DecodeSimulationCommandJournal(
 				capturedBytes, decodedJournal, decodedDropped );
 
+		MemoryTacticalSimulation replayModel;
+		RetrySelectedFireOnceExecutor replayExecutor{ replayModel };
 		EngineRuntime<unsigned> replayRuntime;
 		const CommandReplayStageResult staged =
 			replayRuntime.stageCommandReplay( SimulationCommandReplay{
 				decodedJournal, decodedDropped } );
 		const HeadlessTacticalTurnRun replayed =
-			RunHeadlessTacticalTurn( replayRuntime, baseline );
+			RunHeadlessTacticalTurn(
+				replayRuntime, replayModel, replayExecutor, baseline );
 		const std::vector<RecordedSimulationCommand> replayedJournal =
 			replayRuntime.commandJournal().snapshot();
 		std::vector<std::uint8_t> replayedBytes;
@@ -2032,6 +2081,9 @@ int main( int, char** )
 		CHECK(
 			captured.resetError == TacticalSimulationResetError::None &&
 			replayed.resetError == TacticalSimulationResetError::None &&
+			captured.executorBound && replayed.executorBound &&
+			!captured.observationFailure &&
+			!replayed.observationFailure &&
 			captured.completed && replayed.completed &&
 			!captured.queueChanged && !replayed.queueChanged &&
 			captured.sawBudgetExhaustion &&
@@ -3258,6 +3310,10 @@ int main( int, char** )
 
 	{
 		GameContext& compiledContext = GetGameContext();
+		CHECK( compiledContext.runtime().hasSimulationCommandExecutor() &&
+		       &compiledContext.runtime().simulationCommandExecutor() !=
+		           &NullSimulationCommandExecutor::instance(),
+		       "production composition binds one runtime-owned tactical command executor" );
 		compiledContext.screenController().reset( 7 );
 		compiledContext.screenController().transitionTo(
 			9, []( UINT32 ) { return false; } );

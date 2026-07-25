@@ -7,7 +7,6 @@
 #include <variant>
 
 #include <Engine/Adapters/JA2/SimulationCommandExecutor.h>
-#include <Engine/Core/CommandProcessor.h>
 
 #include "Animation Control.h"
 #include "GameContext.h"
@@ -816,46 +815,85 @@ namespace
 		return executor;
 	}
 
+	class FanOutSimulationCommandExecutionSink final
+		: public SimulationCommandExecutionSink
+	{
+	public:
+		FanOutSimulationCommandExecutionSink(
+			SimulationCommandExecutionSink* first,
+			SimulationCommandExecutionSink* second) noexcept
+			: first_(first),
+			  second_(second != first ? second : nullptr)
+		{
+		}
+
+		explicit operator bool() const noexcept
+		{
+			return first_ || second_;
+		}
+
+		void commandProcessed(
+			const SimulationCommand& command,
+			std::uint64_t tick,
+			std::uint64_t sequence,
+			CommandDisposition disposition) noexcept override
+		{
+			if (first_)
+			{
+				try
+				{
+					first_->commandProcessed(
+						command, tick, sequence, disposition);
+				}
+				catch (...)
+				{
+				}
+			}
+			if (second_)
+			{
+				try
+				{
+					second_->commandProcessed(
+						command, tick, sequence, disposition);
+				}
+				catch (...)
+				{
+				}
+			}
+		}
+
+	private:
+		SimulationCommandExecutionSink* first_;
+		SimulationCommandExecutionSink* second_;
+	};
+
 	template<typename Process>
 	auto ExecuteSimulationCommands(
 		Process&& process, SimulationCommandExecutionSink* sink = nullptr)
 	{
 		GameContext& game = GetGameContext();
-		SimulationCommandExecutor& executor =
-			ApplicationSimulationCommandExecutor();
-		SimulationCommandExecutionSink* const applicationSink =
-			ApplicationExecutionSink();
-		return process(
-			game.commands(),
-			[&executor](
-				const SimulationCommand& command,
-				std::uint64_t tick,
-				std::uint64_t sequence) {
-				return executor.execute(command, tick, sequence);
-			},
-			[&game, applicationSink, sink](const SimulationCommand& command, std::uint64_t tick,
-				std::uint64_t sequence,
-				CommandDisposition disposition) {
-				game.commandJournal().recordDisposition(sequence, disposition);
-				if (applicationSink)
-					applicationSink->commandProcessed(
-						command, tick, sequence, disposition);
-				if (sink && sink != applicationSink)
-					sink->commandProcessed(command, tick, sequence, disposition);
-			});
+		FanOutSimulationCommandExecutionSink observer{
+			ApplicationExecutionSink(), sink};
+		return process(game.runtime(), observer ? &observer : nullptr);
 	}
 
 	ExpectedCommandProcessingResult ExecuteExpectedSimulationCommand(
 		std::uint64_t tick, std::uint64_t sequence)
 	{
 		return ExecuteSimulationCommands(
-			[tick, sequence](auto& queue, auto&& handler, auto&& observer) {
-				return ProcessExpectedNextCommandThrough(
-					queue, tick, sequence,
-					std::forward<decltype(handler)>(handler),
-					std::forward<decltype(observer)>(observer));
+			[tick, sequence](
+				auto& runtime,
+				SimulationCommandExecutionSink* observer) {
+				return runtime.executeExpectedCommandThrough(
+					tick, sequence, observer);
 			});
 	}
+}
+
+bool BindJa2SimulationCommandExecutor(GameContext& game) noexcept
+{
+	return game.runtime().bindSimulationCommandExecutor(
+		ApplicationSimulationCommandExecutor());
 }
 
 SimulationCommandDomainError ValidateSimulationCommandDomain(
@@ -1192,10 +1230,10 @@ void ConsumeSimulationCommandFrameBudget(std::size_t commands) noexcept
 CommandProcessingResult ExecuteSimulationCommandsThrough(std::uint64_t tick)
 {
 	return ExecuteSimulationCommands(
-		[tick](auto& queue, auto&& handler, auto&& observer) {
-			return ProcessCommandsThrough(
-				queue, tick, std::forward<decltype(handler)>(handler),
-				std::forward<decltype(observer)>(observer));
+		[tick](
+			auto& runtime,
+			SimulationCommandExecutionSink* observer) {
+			return runtime.executeCommandsThrough(tick, observer);
 		});
 }
 
@@ -1203,11 +1241,11 @@ CommandProcessingResult ExecuteSimulationCommandsThrough(
 	std::uint64_t tick, std::size_t maximumCommands)
 {
 	return ExecuteSimulationCommands(
-		[tick, maximumCommands](auto& queue, auto&& handler, auto&& observer) {
-			return ProcessCommandsThrough(
-				queue, tick, maximumCommands,
-				std::forward<decltype(handler)>(handler),
-				std::forward<decltype(observer)>(observer));
+		[tick, maximumCommands](
+			auto& runtime,
+			SimulationCommandExecutionSink* observer) {
+			return runtime.executeCommandsThrough(
+				tick, maximumCommands, observer);
 		});
 }
 
@@ -1216,11 +1254,11 @@ CommandProcessingResult ExecuteSimulationCommandsThrough(
 	SimulationCommandExecutionSink& sink)
 {
 	return ExecuteSimulationCommands(
-		[tick, maximumCommands](auto& queue, auto&& handler, auto&& observer) {
-			return ProcessCommandsThrough(
-				queue, tick, maximumCommands,
-				std::forward<decltype(handler)>(handler),
-				std::forward<decltype(observer)>(observer));
+		[tick, maximumCommands](
+			auto& runtime,
+			SimulationCommandExecutionSink* observer) {
+			return runtime.executeCommandsThrough(
+				tick, maximumCommands, observer);
 		}, &sink);
 }
 
