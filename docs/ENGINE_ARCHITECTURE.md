@@ -346,10 +346,13 @@ the engine must not contain SDL types in its public domain model.
   one command. Player conversation, shopkeeper approach, and vehicle entry also
   carry stable actor and target incarnations. Specific player pickup carries a
   stable world-item slot/incarnation, while grid-search pickup is represented
-  explicitly without inventing an item identity. The temporary SOLDIERTYPE
-  pending-action bridge preserves these identities until movement completes,
-  so a reused pool slot, moved vehicle, or replaced world item cannot redirect
-  the original intent. Each command is processed at the existing synchronous
+  explicitly without inventing an item identity. Player stealing captures the
+  target incarnation, grid, and floor through both its approach and animation
+  event; position exchange captures both actors and positions and applies the
+  swap plus AP cost as one operation. The temporary SOLDIERTYPE pending-action
+  bridge preserves these identities until movement completes, so a reused pool
+  slot, moved actor or vehicle, or replaced world item cannot redirect the
+  original intent. Each command is processed at the existing synchronous
   boundary before invoking its legacy executor.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
@@ -366,12 +369,12 @@ the engine must not contain SDL types in its public domain model.
   reserves a version field, but no speculative historical decoders are carried
   before a format has actually shipped.
   Firearm actions, player weapon controls, obstacle traversal, world-object
-  interaction, conversation, vehicle entry, and player world-item pickup enter
-  this gateway before the compatibility executor queues events or invokes the
-  established inventory, AP, pathing, structure, vehicle, dialogue, and
-  animation mechanics. Traversal and interaction availability, backpack, and
-  AP checks remain at their existing player-input sites while the command
-  records only the chosen action.
+  interaction, conversation, vehicle entry, player stealing and position
+  exchange, and player world-item pickup enter this gateway before the
+  compatibility executor queues events or invokes the established inventory,
+  AP, pathing, structure, vehicle, dialogue, and animation mechanics. Traversal
+  and interaction availability, backpack, and AP checks remain at their
+  existing player-input sites while the command records only the chosen action.
   AI retaliation, dialogue scripting,
   equipment-driven mode correction, automatic/pathfinding door handling,
   pathfinding traversal, and multi-merc bulk reload remain local mechanics

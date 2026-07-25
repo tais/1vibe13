@@ -42,6 +42,8 @@ enum class SimulationCommandDomainError
 	InvalidTargetGrid,
 	InvalidTargetLevel,
 	InvalidTargetCubeLevel,
+	InvalidActorGrid,
+	InvalidActorLevel,
 	InvalidDestinationGrid,
 	InvalidMovementMode,
 	InvalidMoveOrigin,
@@ -241,11 +243,35 @@ SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
 	TacticalWorldItemPickupKind kind,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
+SimulationCommandDispatchResult TryDispatchStealFromActorCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	std::int32_t soldierGrid,
+	std::int32_t targetGrid,
+	std::int8_t level,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
 // Delayed JA2 movement still stores its pending action on SOLDIERTYPE. These
 // compatibility completion seams reconstruct the stable target identity and
 // reject a despawned/reused target instead of acting on the new slot occupant.
 bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept;
 bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept;
+bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept;
+SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
+	SOLDIERTYPE& soldier,
+	std::int32_t targetGrid,
+	std::int8_t targetLevel) noexcept;
 bool TryValidatePendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept;
 bool TryConsumePendingWorldItemPickup(
 	SOLDIERTYPE& soldier,

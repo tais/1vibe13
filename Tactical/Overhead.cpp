@@ -1509,33 +1509,7 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->aiData.ubPendingAction == MERC_STEAL    )
                                     {
-                                        //pSoldier->pathing.bDesiredDirection = pSoldier->aiData.bPendingActionData3;
-                                        pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->aiData.bPendingActionData3 );
-                                        // if we are crouching or prone, use steal in crouch 
-                                        if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE || gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_CROUCH )
-                                        {
-                                            pSoldier->EVENT_InitNewSoldierAnim( STEAL_ITEM_CROUCHED, 0 , FALSE );
-                                        }
-                                        else // otherwise determine our target position
-                                        {
-                                            SoldierID usSoldierIndex = WhoIsThere2( pSoldier->aiData.sPendingActionData2, pSoldier->pathing.bLevel );
-                                            if ( usSoldierIndex != NOBODY )
-                                            {
-                                                SOLDIERTYPE* pTarget = usSoldierIndex;
-
-                                                // we always need to crouch to prone target
-                                                if ( gAnimControl[ pTarget->usAnimState ].ubEndHeight == ANIM_PRONE )
-                                                    pSoldier->EVENT_InitNewSoldierAnim( STEAL_ITEM_CROUCHED, 0 , FALSE );
-                                                else
-                                                    pSoldier->EVENT_InitNewSoldierAnim( STEAL_ITEM, 0 , FALSE );
-                                            }
-                                            else // strange things can happe??
-                                            {
-                                                pSoldier->EVENT_InitNewSoldierAnim( STEAL_ITEM, 0 , FALSE );
-                                            }
-
-                                        }
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        (void)TryCompletePendingStealCommand( *pSoldier );
                                     }
                                     else if ( pSoldier->aiData.ubPendingAction == MERC_KNIFEATTACK)
                                     {

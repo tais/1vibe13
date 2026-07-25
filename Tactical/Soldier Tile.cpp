@@ -749,9 +749,14 @@ BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce )
 }
 
 // Swaps 2 soldier positions...
-void SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 )
+BOOLEAN SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 )
 {
 	INT32 sGridNo1, sGridNo2;
+
+	if ( pSoldier1 == NULL || pSoldier2 == NULL || pSoldier1 == pSoldier2 )
+	{
+		return FALSE;
+	}
 
 	// OK, save positions...
 	sGridNo1 = pSoldier1->sGridNo;
@@ -765,15 +770,17 @@ void SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 )
 	if ( NewOKDestination( pSoldier1, sGridNo2, TRUE, 0 ) && NewOKDestination( pSoldier2, sGridNo1, TRUE, 0 ) )
 	{
 		// OK, call teleport function for each.......
-		TeleportSoldier( pSoldier1, sGridNo2, FALSE );
-		TeleportSoldier( pSoldier2, sGridNo1, FALSE );
+		if ( TeleportSoldier( pSoldier1, sGridNo2, FALSE ) &&
+			TeleportSoldier( pSoldier2, sGridNo1, FALSE ) )
+		{
+			return TRUE;
+		}
 	}
-	else
-	{
-		// Place back...
-		TeleportSoldier( pSoldier1, sGridNo1, TRUE );
-		TeleportSoldier( pSoldier2, sGridNo2, TRUE );
-	}
+
+	// Place back...
+	TeleportSoldier( pSoldier1, sGridNo1, TRUE );
+	TeleportSoldier( pSoldier2, sGridNo2, TRUE );
+	return FALSE;
 }
 
 

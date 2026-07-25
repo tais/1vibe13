@@ -306,6 +306,31 @@ struct PickupWorldItemCommand
 	SimulationCommandSource source;
 };
 
+// Stealing is a delayed actor-to-actor interaction. Capture both the target
+// incarnation and its issued location so walking to the target cannot silently
+// retarget a replacement slot occupant or follow an actor that has moved.
+struct StealFromActorCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::int32_t targetGrid;
+	std::int8_t targetLevel;
+	SimulationCommandSource source;
+};
+
+// Position exchange mutates two actors atomically. Capturing both issued grids
+// and their common level makes a queued/replayed command reject changed world
+// state instead of swapping actors from unrelated later positions.
+struct ExchangePositionsCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::int32_t soldierGrid;
+	std::int32_t targetGrid;
+	std::int8_t level;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -327,7 +352,9 @@ using SimulationCommand = std::variant<
 	ApproachConversationCommand,
 	EnterVehicleCommand,
 	ApproachVehicleCommand,
-	PickupWorldItemCommand>;
+	PickupWorldItemCommand,
+	StealFromActorCommand,
+	ExchangePositionsCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -360,7 +387,9 @@ inline bool IsStructurallyValidSimulationCommand(
 				return IsValidTacticalDirection(value.direction);
 			if constexpr (
 				std::is_same<Command, StartConversationCommand>::value ||
-				std::is_same<Command, ApproachConversationCommand>::value)
+				std::is_same<Command, ApproachConversationCommand>::value ||
+				std::is_same<Command, StealFromActorCommand>::value ||
+				std::is_same<Command, ExchangePositionsCommand>::value)
 				return value.target.valid() && value.target != value.soldier;
 			if constexpr (
 				std::is_same<Command, EnterVehicleCommand>::value ||

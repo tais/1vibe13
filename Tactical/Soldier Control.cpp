@@ -101,6 +101,7 @@
 #include "DynamicDialogue.h"	// added by Flugente for HandleDynamicOpinions()
 #include "Strategic Town Loyalty.h"		// added by Flugente for gTownLoyalty
 #include "Rebel Command.h"
+#include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
 
 
@@ -23193,11 +23194,15 @@ void SOLDIERTYPE::SetSoldierCowerState( BOOLEAN fOn )
 	}
 }
 
-void MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
+BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 {
 	INT32 sActionGridNo, sGridNo, sAdjustedGridNo;
 	UINT8	ubDirection;
 
+	if ( pSoldier == NULL || pTarget == NULL || pSoldier == pTarget )
+	{
+		return FALSE;
+	}
 
 	// OK, find an adjacent gridno....
 	sGridNo = pTarget->sGridNo;
@@ -23206,11 +23211,22 @@ void MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 	sActionGridNo = FindAdjacentGridEx( pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 	if ( sActionGridNo != -1 )
 	{
+		const INT16 sAPCost =
+			GetAPsToStealItem( pSoldier, pTarget, (INT16)sActionGridNo );
+		if ( !EnoughPoints( pSoldier, sAPCost, 0, FALSE ) )
+		{
+			return FALSE;
+		}
+
 		// SEND PENDING ACTION
 		pSoldier->aiData.ubPendingAction = MERC_STEAL;
 		pSoldier->bTargetLevel = pTarget->pathing.bLevel; // Overhaul:  Update the level too!
+		pSoldier->aiData.uiPendingActionData1 = pTarget->ubID;
 		pSoldier->aiData.sPendingActionData2 = pTarget->sGridNo;
 		pSoldier->aiData.bPendingActionData3 = ubDirection;
+		pSoldier->aiData.uiPendingActionData4 = 0;
+		pSoldier->uiPendingActionTargetIncarnation =
+			pTarget->uiUniqueSoldierIdValue;
 		pSoldier->aiData.ubPendingActionAnimCount = 0;
 
 		// CHECK IF WE ARE AT THIS GRIDNO NOW
@@ -23221,12 +23237,10 @@ void MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		}
 		else
 		{
-			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
-
-			if ( gAnimControl[pTarget->usAnimState].ubEndHeight == ANIM_PRONE || gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE || gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_CROUCH )
-				pSoldier->EVENT_InitNewSoldierAnim( STEAL_ITEM_CROUCHED, 0, FALSE );
-			else
-				pSoldier->EVENT_InitNewSoldierAnim( STEAL_ITEM, 0, FALSE );
+			if ( !TryCompletePendingStealCommand( *pSoldier ) )
+			{
+				return FALSE;
+			}
 		}
 
 		// OK, set UI
@@ -23237,7 +23251,10 @@ void MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		DebugAttackBusy( String( "!!!!!!! Starting STEAL attack, attack count now %d\n", gTacticalStatus.ubAttackBusyCount ) );
 
 		SetUIBusy( pSoldier->ubID );
+		return TRUE;
 	}
+
+	return FALSE;
 }
 
 void AbandonBoxingDueToSurrenderCallback(UINT8 ubExitValue)

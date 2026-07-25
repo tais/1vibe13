@@ -1968,13 +1968,48 @@ int main( int, char** )
 					static_cast<TacticalWorldItemPickupKind>( 0xff ),
 					SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidWorldItemPickupKind &&
-			ValidateSimulationCommandDomain( SimulationCommand{
-				PickupWorldItemCommand{
-					actor, TacticalWorldItemId{ 7, 707 }, 100, 0,
-					TacticalWorldItemPickupKind::SearchGrid,
-					SimulationCommandSource::System } } ) ==
-				SimulationCommandDomainError::InvalidWorldItem &&
-			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
+				ValidateSimulationCommandDomain( SimulationCommand{
+					PickupWorldItemCommand{
+						actor, TacticalWorldItemId{ 7, 707 }, 100, 0,
+						TacticalWorldItemPickupKind::SearchGrid,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::InvalidWorldItem &&
+				ValidateSimulationCommandDomain( SimulationCommand{
+					StealFromActorCommand{
+						actor, target, 101, FIRST_LEVEL,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::None &&
+				ValidateSimulationCommandDomain( SimulationCommand{
+					StealFromActorCommand{
+						actor, actor, 101, FIRST_LEVEL,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::InvalidTargetActor &&
+				ValidateSimulationCommandDomain( SimulationCommand{
+					StealFromActorCommand{
+						actor, target, WORLD_MAX, FIRST_LEVEL,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::InvalidTargetGrid &&
+				ValidateSimulationCommandDomain( SimulationCommand{
+					StealFromActorCommand{
+						actor, target, 101, 7,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::InvalidTargetLevel &&
+				ValidateSimulationCommandDomain( SimulationCommand{
+					ExchangePositionsCommand{
+						actor, target, 100, 101, FIRST_LEVEL,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::None &&
+				ValidateSimulationCommandDomain( SimulationCommand{
+					ExchangePositionsCommand{
+						actor, target, WORLD_MAX, 101, FIRST_LEVEL,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::InvalidActorGrid &&
+				ValidateSimulationCommandDomain( SimulationCommand{
+					ExchangePositionsCommand{
+						actor, target, 100, 101, 7,
+						SimulationCommandSource::System } } ) ==
+					SimulationCommandDomainError::InvalidActorLevel &&
+				ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
 				"all tactical execution paths share complete value-domain validation" );
@@ -3288,6 +3323,16 @@ int main( int, char** )
 					staleActor, TacticalWorldItemId{}, WORLD_MAX, 0,
 					TacticalWorldItemPickupKind::SearchGrid,
 					SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidStealGrid =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ StealFromActorCommand{
+					staleActor, TacticalEntityId{ 1, 1 }, WORLD_MAX,
+					FIRST_LEVEL, SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidExchangeLevel =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ ExchangePositionsCommand{
+					staleActor, TacticalEntityId{ 1, 1 }, 100, 101, 7,
+					SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -3323,15 +3368,16 @@ int main( int, char** )
 		       invalidConversationTarget && invalidConversationApproach &&
 		       invalidVehicleTarget && invalidVehicleApproach &&
 		       invalidWorldItemLevel && invalidWorldItemGrid &&
+		       invalidStealGrid && invalidExchangeLevel &&
 		       unloadedContext && staleRequest &&
 		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
-		       commandHostAfterInvalidContext.lastDrain.rejected == 16 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 18 &&
 		       commandHostAfterValidation.lastDrain.accepted == 1 &&
 		       commandHostAfterValidation.lastDrain.rejected == 0 &&
 		       commandHostAfterValidation.inactiveOwnerRejections ==
 		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
 		       commandHostAfterValidation.semanticRejections ==
-		           commandHostBeforeValidation.semanticRejections + 14 &&
+		           commandHostBeforeValidation.semanticRejections + 16 &&
 		       commandHostAfterValidation.contextRejections ==
 		           commandHostBeforeValidation.contextRejections + 1 &&
 		       commandHostAfterValidation.lastProcessing.status ==
@@ -3457,6 +3503,19 @@ int main( int, char** )
 				staleActor.slot, staleActor.incarnation,
 				3, 0, 101, WALKING, false,
 				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleStealTarget =
+			TryDispatchStealFromActorCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				staleActor.slot, staleActor.incarnation,
+				100, FIRST_LEVEL, SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleExchangeTarget =
+			TryDispatchExchangePositionsCommandNow(
+				0, commandHostActor.uiUniqueSoldierIdValue,
+				staleActor.slot, staleActor.incarnation,
+				99, 100, FIRST_LEVEL,
+				SimulationCommandSource::System );
 		commandHostActor.aiData.ubPendingAction = MERC_TALK;
 		commandHostActor.aiData.uiPendingActionData1 = staleActor.slot;
 		commandHostActor.aiData.uiPendingActionData4 = 0;
@@ -3477,6 +3536,19 @@ int main( int, char** )
 			TryCompletePendingVehicleCommand( commandHostActor );
 		const bool stalePendingVehicleCleared =
 			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION;
+		commandHostActor.aiData.ubPendingAction = MERC_STEAL;
+		commandHostActor.aiData.uiPendingActionData1 = staleActor.slot;
+		commandHostActor.aiData.sPendingActionData2 = 100;
+		commandHostActor.aiData.bPendingActionData3 = 3;
+		commandHostActor.aiData.uiPendingActionData4 = 0;
+		commandHostActor.bTargetLevel = FIRST_LEVEL;
+		commandHostActor.uiPendingActionTargetIncarnation =
+			staleActor.incarnation;
+		const bool stalePendingStealCompleted =
+			TryCompletePendingStealCommand( commandHostActor );
+		const bool stalePendingStealCleared =
+			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION &&
+			commandHostActor.uiPendingActionTargetIncarnation == 0;
 
 		std::vector<WORLDITEM> previousWorldItems = std::move( gWorldItems );
 		const UINT32 previousWorldItemCount = guiNumWorldItems;
@@ -3629,10 +3701,16 @@ int main( int, char** )
 				SimulationCommandDispatchStatus::Discarded &&
 			staleVehicleApproachTarget.status ==
 				SimulationCommandDispatchStatus::Discarded &&
+			staleStealTarget.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleExchangeTarget.status ==
+				SimulationCommandDispatchStatus::Discarded &&
 			!stalePendingConversationCompleted &&
 			stalePendingConversationCleared &&
 			!stalePendingVehicleCompleted &&
 			stalePendingVehicleCleared &&
+			!stalePendingStealCompleted &&
+			stalePendingStealCleared &&
 			worldItemIdentityLifecycle &&
 			staleWorldItemPickup.status ==
 				SimulationCommandDispatchStatus::Discarded &&
