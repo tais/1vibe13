@@ -621,7 +621,7 @@ UINT32	HandleTacticalUI( void )
 			UnSetUIBusy( gusSelectedSoldier );
 
 			// Decrease global busy	counter...
-			gTacticalStatus.ubAttackBusyCount = 0;
+			ResetJa2TacticalCombatActions();
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Setting attack busy count to 0 due to ending AI lock" ) );
 
 			guiPendingOverrideEvent = LU_ENDUILOCK;

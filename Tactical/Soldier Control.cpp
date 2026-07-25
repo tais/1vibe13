@@ -103,6 +103,7 @@
 #include "Rebel Command.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
+#include "TacticalWorldAdapter.h"
 
 
 #ifdef JA2UB
@@ -4269,7 +4270,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	if ( this->usOldAniState != this->usAnimState )
 	{
 		if ( uiNewAnimFlags & ANIM_ATTACK ) {
-			gTacticalStatus.ubAttackBusyCount++;
+			BeginJa2TacticalCombatAction();
 			DebugAttackBusy( String( "**** Attack animation transfer to %s for %d.\nABC now %d\n", gAnimControl[usNewState].zAnimStr, this->ubID, gTacticalStatus.ubAttackBusyCount ) );
 		} else if (uiOldAnimFlags & ANIM_ATTACK || this->flags.fChangingStanceDueToSuppression ) {
 			DebugAttackBusy( String( "**** Transfer to %s for %d.\n", gAnimControl[usNewState].zAnimStr, this->ubID ) );

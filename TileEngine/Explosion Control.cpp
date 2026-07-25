@@ -34,6 +34,7 @@
 #include "Points.h"				// added by Flugente
 #include "Interface Control.h"		// added by Flugente for DrawExplosionWarning(...)
 #include "SkillMenu.h"
+#include "TacticalWorldAdapter.h"
 
 #include "Soldier macros.h"
 #include "connect.h"
@@ -536,7 +537,7 @@ void GenerateExplosionFromExplosionPointer( EXPLOSIONTYPE *pExplosion )
 	// But if it succeeds, do it here.	Don't futz with the count in other locations when it can be centralized!
 	if (CreateAnimationTile( &AniParams ) )
 	{
-		gTacticalStatus.ubAttackBusyCount++;
+		BeginJa2TacticalCombatAction();
 		DebugAttackBusy( String( "Explosion started.	Incrementing attack busy, now %d\n", gTacticalStatus.ubAttackBusyCount ) );
 	}
 
@@ -3992,7 +3993,7 @@ void CheckAndFireTripwireGun( OBJECTTYPE* pObj, INT32 sGridNo, INT8 bLevel, Sold
 		FireFragmentsTrapGun( ubId, sGridNo, 0, pObj, ubDirection );
 
 		// this is important... if not set, the game will remain in a loop
-		gTacticalStatus.ubAttackBusyCount = 0;
+		ResetJa2TacticalCombatActions();
 	}
 				
 	// add this gun to the floor

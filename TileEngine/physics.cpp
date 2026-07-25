@@ -21,6 +21,7 @@
 	#include "Map Information.h"	// added by Shadooow
 #include "connect.h"
 #include "PATHAI.H"
+#include "TacticalWorldAdapter.h"
 
 
 //forward declarations of common classes to eliminate includes
@@ -302,7 +303,7 @@ INT32	CreatePhysicalObject( OBJECTTYPE *pGameObj, real dLifeLength, real xPos, r
 	// If this is a real object being created, then increase the ABC
 	if (!fTestObject)
 	{
-		gTacticalStatus.ubAttackBusyCount++;
+		BeginJa2TacticalCombatAction();
 		DebugAttackBusy( String( "@@@@@@@ Increasing attacker busy count..., PHYSICS OBJECT effect started.	Now %d\n", gTacticalStatus.ubAttackBusyCount) );
 	}
 
@@ -1128,7 +1129,7 @@ BOOLEAN	PhysicsCheckForCollisions( REAL_OBJECT *pObject, INT32 *piCollisionID )
 						Explosive[Item[pObject->Obj.usItem].ubClassIndex].ubType == EXPLOSV_STUN ||
 						Explosive[Item[pObject->Obj.usItem].ubClassIndex].ubType == EXPLOSV_FLASHBANG))
 					{
-						gTacticalStatus.ubAttackBusyCount++;
+						BeginJa2TacticalCombatAction();
 						DebugAttackBusy( String( "Incrementing attack busy because of delayed water explosion. Now %d\n", gTacticalStatus.ubAttackBusyCount ) );
 						AniParams.ubKeyFrame1				= 11;
 						AniParams.uiKeyFrame1Code			= ANI_KEYFRAME_CHAIN_WATER_EXPLOSION;

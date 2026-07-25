@@ -20,6 +20,7 @@ std::uint64_t TacticalWorldSession::commitLoad() noexcept
 {
 	state_.worldGeneration = NextNonZero(state_.worldGeneration);
 	state_.turnSerial = 1;
+	state_.turn.pendingCombatActions = 0;
 	state_.loaded = true;
 	return state_.worldGeneration;
 }
@@ -28,6 +29,7 @@ void TacticalWorldSession::unload() noexcept
 {
 	state_.loaded = false;
 	state_.turnSerial = 0;
+	state_.turn.pendingCombatActions = 0;
 }
 
 void TacticalWorldSession::beginTeamTurn() noexcept
@@ -37,12 +39,29 @@ void TacticalWorldSession::beginTeamTurn() noexcept
 	else state_.turnSerial = IncrementSaturated(state_.turnSerial);
 }
 
+bool TacticalWorldSession::beginCombatAction() noexcept
+{
+	if (state_.turn.pendingCombatActions ==
+		std::numeric_limits<std::uint32_t>::max())
+		return false;
+	++state_.turn.pendingCombatActions;
+	return true;
+}
+
+bool TacticalWorldSession::completeCombatAction() noexcept
+{
+	if (state_.turn.pendingCombatActions == 0) return false;
+	--state_.turn.pendingCombatActions;
+	return true;
+}
+
 void TacticalWorldSession::restore(Snapshot state) noexcept
 {
 	if (!state.loaded || state.worldGeneration == 0)
 	{
 		state.loaded = false;
 		state.turnSerial = 0;
+		state.turn.pendingCombatActions = 0;
 	}
 	else if (state.turnSerial == 0)
 	{

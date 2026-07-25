@@ -12,6 +12,7 @@
 	#include "GameSettings.h"
 	#include "FileMan.h"
 	#include "lighting.h"
+	#include "TacticalWorldAdapter.h"
 
 // Defines
 // HEADROCK HAM 5: Increasing... with the hope of making spectacular fragmenting explosives.
@@ -92,7 +93,7 @@ INT32	CreateBullet( SoldierID ubFirerID, BOOLEAN fFake, UINT16 usFlags,UINT16 fr
 		// HEADROCK HAM 5: Do not create for explosives.
 		if (!(Item[fromItem].usItemClass & IC_EXPLOSV))
 		{
-			gTacticalStatus.ubAttackBusyCount++;
+			BeginJa2TacticalCombatAction();
 		}
 		DebugAttackBusy( String( "Creating a new bullet for %d.	ABC now %d\n", ubFirerID, gTacticalStatus.ubAttackBusyCount) );
 	}

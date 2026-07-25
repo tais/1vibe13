@@ -297,23 +297,28 @@ int main()
 		worldSession.snapshot().turnSerial == 0,
 		"tactical world sessions start unloaded without an identity");
 	worldSession.setSector({9, 1, 0});
-	worldSession.setTurnState({true, true, 2});
+	worldSession.setTurnState({true, true, 2, 7});
 	const std::uint64_t firstWorldGeneration = worldSession.commitLoad();
 	worldSession.beginTeamTurn();
 	check(firstWorldGeneration == 1 && worldSession.snapshot().loaded &&
 		worldSession.snapshot().sector == TacticalWorldSession::Sector{9, 1, 0} &&
 		worldSession.snapshot().turnSerial == 2 &&
 		worldSession.snapshot().turn ==
-			TacticalWorldSession::Snapshot::Turn{true, true, 2},
-		"committed tactical worlds own sector, combat mode, team, and turn identity");
+			TacticalWorldSession::Snapshot::Turn{true, true, 2, 0},
+		"committed tactical worlds own sector, combat mode, team, pending work, and turn identity");
+	check(worldSession.beginCombatAction() &&
+		worldSession.beginCombatAction() &&
+		worldSession.completeCombatAction() &&
+		worldSession.snapshot().turn.pendingCombatActions == 1,
+		"pending tactical combat work is counted by the runtime session");
 	worldSession.unload();
 	check(!worldSession.snapshot().loaded &&
 		worldSession.snapshot().sector == TacticalWorldSession::Sector{9, 1, 0} &&
 		worldSession.snapshot().worldGeneration == 1 &&
 		worldSession.snapshot().turnSerial == 0 &&
 		worldSession.snapshot().turn ==
-			TacticalWorldSession::Snapshot::Turn{true, true, 2},
-		"world unload preserves selected sector, generation, and tactical mode");
+			TacticalWorldSession::Snapshot::Turn{true, true, 2, 0},
+		"world unload preserves selected sector, generation, and tactical mode while retiring pending work");
 	worldSession.restore({
 		{2, 3, -1}, true, std::numeric_limits<std::uint64_t>::max(),
 		std::numeric_limits<std::uint64_t>::max()});
@@ -324,8 +329,23 @@ int main()
 	worldSession.setTurnBased(false);
 	worldSession.setCombatActive(false);
 	worldSession.setCurrentTeam(4);
+	worldSession.setPendingCombatActions(
+		std::numeric_limits<std::uint8_t>::max());
+	check(worldSession.beginCombatAction() &&
+		worldSession.snapshot().turn.pendingCombatActions == 256,
+		"authoritative pending work remains exact above the legacy byte range");
+	worldSession.setPendingCombatActions(
+		std::numeric_limits<std::uint32_t>::max());
+	check(!worldSession.beginCombatAction() &&
+		worldSession.snapshot().turn.pendingCombatActions ==
+			std::numeric_limits<std::uint32_t>::max(),
+		"pending tactical work saturates instead of wrapping to idle");
+	worldSession.resetCombatActions();
+	check(!worldSession.completeCombatAction() &&
+		worldSession.snapshot().turn.pendingCombatActions == 0,
+		"duplicate tactical completion fails closed instead of underflowing");
 	check(worldSession.snapshot().turn ==
-			TacticalWorldSession::Snapshot::Turn{false, false, 4},
+			TacticalWorldSession::Snapshot::Turn{false, false, 4, 0},
 		"tactical turn transitions update one runtime-owned value state");
 	check(&legacyBraceRuntime.tacticalWorldSession() ==
 		&legacyBraceRuntime.tacticalWorldSession(),
