@@ -88,6 +88,7 @@
 #include "Interface Utils.h"
 #include "Air Raid.h"
 #include "TacticalWorldAdapter.h"
+#include "GameContext.h"
 #include "Civ Quotes.h"
 #include "Drugs And Alcohol.h"
 #include "history.h"
@@ -1040,10 +1041,9 @@ BOOLEAN ExecuteOverhead( )
                     pSoldier->flags.fPauseAim   = FALSE;
                 }
             }
-#ifdef JA2UB                
-            //Ja25 UB
             // ATE: JA25 additon - poll for getting up from start of game...
-            if( pSoldier->fWaitingToGetupFromJA25Start )
+            if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+                pSoldier->fWaitingToGetupFromJA25Start )
             {
                 if( !DialogueActive( ) )
                 {
@@ -1070,7 +1070,7 @@ BOOLEAN ExecuteOverhead( )
                             pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
                         }
 
-                        SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_GETUP_AFTER_HELI_CRASH, pSoldier->ubProfile, 0, pSoldier->iFaceIndex, 0 );
+                        SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH, pSoldier->ubProfile, 0, pSoldier->iFaceIndex, 0 );
                     }
                 }
                 else
@@ -1079,7 +1079,6 @@ BOOLEAN ExecuteOverhead( )
                 }
             }               
 
-#endif
             // Checkout fading
             if ( pSoldier->flags.fBeginFade )
             {
@@ -3911,41 +3910,40 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         }
 #endif
 
-#ifdef JA2UB
-		if ( pSoldierOld->ubProfile == MORRIS_UB )
+		if ( GetGameContext().capabilities().isUnfinishedBusiness() )
 		{
-            SoldierID bSoldierID;
-			SOLDIERTYPE* pOther = FindSoldierByProfileID( MORRIS_UB, FALSE );
-			if ( pOther )
+			if ( pSoldierOld->ubProfile == MORRIS_UB )
 			{
-				OBJECTTYPE	Object;
-				CreateItem( MORRIS_INSTRUCTION_NOTE, 100, &Object ); 
-				AutoPlaceObject( pOther, &Object, TRUE );		
+				SoldierID bSoldierID;
+				SOLDIERTYPE* pOther = FindSoldierByProfileID( MORRIS_UB, FALSE );
+				if ( pOther )
+				{
+					OBJECTTYPE	Object;
+					CreateItem( MORRIS_INSTRUCTION_NOTE, 100, &Object );
+					AutoPlaceObject( pOther, &Object, TRUE );
+				}
+
+				//Geta a random soldier ID
+				bSoldierID = RandomSoldierIdFromNewMercsOnPlayerTeam();
+
+				//if there is any
+				if( bSoldierID != NOBODY )
+				{
+					//say the MORRIS dead quote
+					TacticalCharacterDialogue( bSoldierID, QUOTE_LEARNED_TO_HATE_ON_TEAM_WONT_RENEW );
+				}
 			}
-					
-            //Geta a random soldier ID
-            bSoldierID = RandomSoldierIdFromNewMercsOnPlayerTeam();
+		}
+		// Are we looking at the queen?
+		else if ( pSoldierOld->ubProfile == QUEEN )
+		{
+			if ( pSoldierOld->ubAttackerID != NOBODY )
+			{
+				pKiller = pSoldierOld->ubAttackerID;
+			}
 
-            //if there is any
-            if( bSoldierID != NOBODY )
-            {
-                //say the MORRIS dead quote
-                TacticalCharacterDialogue( bSoldierID, QUOTE_LEARNED_TO_HATE_ON_TEAM_WONT_RENEW );
-            }
-        }
-        // Ja25no queen
-#else
-        // Are we looking at the queen?
-        if ( pSoldierOld->ubProfile == QUEEN )
-        {
-            if ( pSoldierOld->ubAttackerID != NOBODY )
-            {
-                pKiller = pSoldierOld->ubAttackerID;
-            }
-
-            BeginHandleDeidrannaDeath( pKiller, pSoldierOld->sGridNo, pSoldierOld->pathing.bLevel );
-        }
-#endif
+			BeginHandleDeidrannaDeath( pKiller, pSoldierOld->sGridNo, pSoldierOld->pathing.bLevel );
+		}
         // crows/cows are on the civilian team, but none of the following applies to them
         if ( ( pSoldierOld->ubBodyType != CROW ) && ( pSoldierOld->ubBodyType != COW ) )
         {
@@ -4033,10 +4031,8 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
     else    // enemies and creatures... should any of this stuff not be called if a creature dies?
     {
 
-#ifdef JA2UB
-        //no queen, or queen monster
-#else
-        if ( pSoldierOld->ubBodyType == QUEENMONSTER )
+        if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+             pSoldierOld->ubBodyType == QUEENMONSTER )
         {
             SOLDIERTYPE *pKiller = NULL;
 
@@ -4047,7 +4043,6 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 BeginHandleQueenBitchDeath( pKiller, pSoldierOld->sGridNo, pSoldierOld->pathing.bLevel );
             }
         }
-#endif
         if ( pSoldierOld->bTeam == ENEMY_TEAM )
         {
             gTacticalStatus.ubArmyGuysKilled++;
@@ -4068,15 +4063,14 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
             // reset the chosen one!
             gTacticalStatus.ubTheChosenOne = NOBODY;
         }
-#ifdef JA2UB
-        //no queen, or queen monster
-#else
-        if ( pSoldierOld->ubProfile == QUEEN )
+        if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+             pSoldierOld->ubProfile == QUEEN )
         {
             HandleMoraleEvent( NULL, MORALE_DEIDRANNA_KILLED, gWorldSectorX, gWorldSectorY, gbWorldSectorZ  );
             MaximizeLoyaltyForDeidrannaKilled( );
         }
-        else if ( pSoldierOld->ubBodyType == QUEENMONSTER )
+        else if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+                  pSoldierOld->ubBodyType == QUEENMONSTER )
         {
             HandleMoraleEvent( NULL, MORALE_MONSTER_QUEEN_KILLED, gWorldSectorX, gWorldSectorY, gbWorldSectorZ  );
             IncrementTownLoyaltyEverywhere( LOYALTY_BONUS_KILL_QUEEN_MONSTER );
@@ -4085,7 +4079,6 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
             HandleNPCDoAction( 0, NPC_ACTION_GRANT_EXPERIENCE_5, 0 );
 
         }
-#endif
     }
 
 	// Flugente: backgrounds

@@ -851,6 +851,13 @@ the engine must not contain SDL types in its public domain model.
   conversation in Unfinished Business, as well as the 299/300 versus 311/312
   strategic-assault ranges. The application exposes one campaign-neutral C++
   action surface while accepting both campaigns' unchanged script data.
+- Both campaign endgame state machines are emitted in every game host. Tactical
+  death callbacks, queued dialogue completion, helicopter-crash recovery, and
+  laptop-to-credits transitions select the active flow from `GameCapabilities`.
+  Campaign-qualified event bits and email offsets preserve the existing data
+  records. The JA25 soldier state used by these flows now has one in-memory and
+  serialized layout in every host; this intentionally retires the pre-release
+  host-specific save layout rather than carrying a second compiled identity.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

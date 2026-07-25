@@ -94,12 +94,13 @@
 #include "BriefingRoom_Data.h"
 #include "BriefingRoom.h"
 #include "BriefingRoomM.h"
+#include "End Game.h"
+#include "GameContext.h"
 
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
-#include "End Game.h"
 #include "ub_config.h"
 #endif
 
@@ -1217,13 +1218,11 @@ void ExitLaptop()
 //	CloseLibrary( LIBRARY_LAPTOP );
 	//pause the game because we dont want time to advance in the laptop
 	UnPauseGame();
-#ifdef JA2UB
-//ja25 UB
-	if( gTacticalStatus.uiFlags & IN_ENDGAME_SEQUENCE )
+	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+	    ( gTacticalStatus.uiFlags & IN_ENDGAME_SEQUENCE ) )
 	{
 		HandleJa25EndGameAndGoToCreditsScreen( FALSE );
 	}
-#endif
 }
 
 void

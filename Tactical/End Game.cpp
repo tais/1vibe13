@@ -20,8 +20,8 @@
 	#include "ub_config.h"
 	#include "Ja25_Tactical.h"
 	#include "Handle UI.h"
+	#include "GameContext.h"
 
-#ifndef JA2UB
 #include "NPC.h"
 #include "Music Control.h"
 #include "qarray.h"
@@ -34,10 +34,6 @@
 #include "Strategic Town Loyalty.h"
 #include "Player Command.h"
 #include "Tactical Save.h"
-#endif // !JA2UB
-
-
-#ifdef JA2UB
 #include "email.h"
 #include "Game Clock.h"
 #include "Ja25_Tactical.h"
@@ -52,7 +48,6 @@ void InFinalSectorAfterFadeIn( void );
 void FadeOutToLaptopOnEndGame( void );
 
 BOOLEAN			gfPlayersLaptopWasntWorkingAtEndOfGame;
-#endif
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -176,9 +171,6 @@ void ChangeO3SectorStatue( BOOLEAN fFromExplosion )
 	RecompileLocalMovementCostsFromRadius( 13830, 5 );
 
 }
-#ifdef JA2UB
-//Ja25 no queen
-#else
 static void DeidrannaTimerCallback( void )
 {
 	SOLDIERTYPE* killer = gEndGameDeathCallback.killer.resolve();
@@ -249,7 +241,7 @@ void HandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLev
 	ExecuteStrategicAIAction( STRATEGIC_AI_ACTION_QUEEN_DEAD, 0, 0 );
 
 	// AFTER LAST ONE IS DONE - PUT SPECIAL EVENT ON QUEUE TO BEGIN FADE< ETC
-	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_DONE_KILLING_DEIDRANNA, 0,0,0,0 );
+	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA2_MULTIPURPOSE_EVENT_DONE_KILLING_DEIDRANNA, 0,0,0,0 );
 }
 
 static void DoneFadeInKilledQueen( void )
@@ -405,7 +397,7 @@ void EndQueenDeathEndgameBeginEndCimenatic( )
 	}
 
 	// Add queue event to proceed w/ smacker cimimatic
-	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_TEAM_MEMBERS_DONE_TALKING, 0,0,0,0 );
+	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA2_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING, 0,0,0,0 );
 
 }
 
@@ -436,17 +428,18 @@ void DoneFadeOutEndCinematic( void )
 
 	SetIntroType( INTRO_ENDING );
 }
-#endif
 // OK, end death UI - fade to smaker....
 void HandleDoneLastEndGameQuote( )
 {
-#ifdef JA2UB
-//Ja25 No queen
-	gFadeOutDoneCallback = DoneFadeOutJa25EndCinematic;
-#else
-EndQueenDeathEndgame( );
-	gFadeOutDoneCallback = DoneFadeOutEndCinematic;
-#endif
+	if (GetGameContext().capabilities().isUnfinishedBusiness())
+	{
+		gFadeOutDoneCallback = DoneFadeOutJa25EndCinematic;
+	}
+	else
+	{
+		EndQueenDeathEndgame( );
+		gFadeOutDoneCallback = DoneFadeOutEndCinematic;
+	}
 
 	FadeOutGameScreen( );
 }
@@ -455,15 +448,11 @@ EndQueenDeathEndgame( );
 
 static void QueenBitchTimerCallback( void )
 {
-#ifdef JA2UB
-//no Ub
-#else
 	SOLDIERTYPE* killer = gEndGameDeathCallback.killer.resolve();
 	const INT32 grid = gEndGameDeathCallback.grid;
 	const INT8 level = gEndGameDeathCallback.level;
 	gEndGameDeathCallback.reset();
 	HandleQueenBitchDeath( killer, grid, level );
-#endif
 }
 
 void EndGameEveryoneSayTheirGoodByQuotes( void )
@@ -505,10 +494,8 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	}
 
 	// Add queue event to proceed w/ smacker cimimatic
-	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_TEAM_MEMBERS_DONE_TALKING, 0,0,0,0 );
+	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA25_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING, 0,0,0,0 );
 }
-
-#ifdef JA2UB
 
 void HandleAddingTheEndGameEmails()
 {
@@ -545,37 +532,37 @@ void HandleAddingTheEndGameEmails()
 	// email # 12a - Miguel dead, Manuel never recruited
 	if( !fMiguelAlive && !fManuelHired )
 	{
-		AddEmail(EMAIL_CONGRATS, EMAIL_CONGRATS_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS);
+		AddEmail(JA25_EMAIL_CONGRATS, JA25_EMAIL_CONGRATS_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS);
 	}
 		
 	// email # 12b - Miguel alive, Manuel never recruited
 	else if( fMiguelAlive && !fManuelHired )
 	{
-		AddEmail(EMAIL_CONGRATSICK, EMAIL_CONGRATSICK_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MIGUELSICK);
+		AddEmail(JA25_EMAIL_CONGRATS_MIGUEL_SICK, JA25_EMAIL_CONGRATS_MIGUEL_SICK_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MIGUELSICK);
 	}
 
 	// email # 12c - Miguel alive, Manuel dead
 	else if( fMiguelAlive && !fManuelAlive )
 	{
-		AddEmail(EMAIL_CONGRATMIGMANUELDEAD, EMAIL_CONGRATMIGMANUELDEAD_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MIGUELSICK_MANUELDEAD);
+		AddEmail(JA25_EMAIL_CONGRATS_MIGUEL_SICK_MANUEL_DEAD, JA25_EMAIL_CONGRATS_MIGUEL_SICK_MANUEL_DEAD_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MIGUELSICK_MANUELDEAD);
 	}
 
 	// email # 12d - Miguel alive, Manuel recruited and alive
 	else if( fMiguelAlive && fManuelAlive && fManuelHired )
 	{
-		AddEmail(EMAIL_CONGRATMIGMANUELALIVE, EMAIL_CONGRATMIGMANUELALIVE_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MIGUELSICK_MANUELALIVE);
+		AddEmail(JA25_EMAIL_CONGRATS_MIGUEL_SICK_MANUEL_ALIVE, JA25_EMAIL_CONGRATS_MIGUEL_SICK_MANUEL_ALIVE_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MIGUELSICK_MANUELALIVE);
 	}
 
 	// email # 12e - Miguel dead, Manuel dead
 	else if( !fMiguelAlive && !fManuelAlive )
 	{
-		AddEmail(EMAIL_CONGRATMANUELDEAD, EMAIL_CONGRATMANUELDEAD_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MANUELDEAD);
+		AddEmail(JA25_EMAIL_CONGRATS_MANUEL_DEAD, JA25_EMAIL_CONGRATS_MANUEL_DEAD_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MANUELDEAD);
 	}
 
 	// email # 12f -  Miguel dead, Manuel recruited and alive
 	else if( !fMiguelAlive && fManuelAlive && fManuelHired )
 	{
-		AddEmail(EMAIL_CONGRATMANUELALIVE, EMAIL_CONGRATMANUELALIVE_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MANUELALIVE);
+		AddEmail(JA25_EMAIL_CONGRATS_MANUEL_ALIVE, JA25_EMAIL_CONGRATS_MANUEL_ALIVE_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JA2UB_ENRICO_CONGRATS_MANUELALIVE);
 	}
 
 	else
@@ -668,7 +655,6 @@ void FadeOutToLaptopOnEndGame( void )
 	//Add the end Game Emails
 	HandleAddingTheEndGameEmails();
 }
-#else  //Ja25 no queen
 
 void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
@@ -764,10 +750,9 @@ void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLe
 	// Unset flags...
 	gTacticalStatus.uiFlags &= (~ENGAGED_IN_CONV );
 	// Increment refrence count...
-	giNPCReferenceCount = 0;
+		giNPCReferenceCount = 0;
+		}
 	}
-}
-#endif
 
 //JA25UB
 void DoneFadeOutJa25EndCinematic( void )

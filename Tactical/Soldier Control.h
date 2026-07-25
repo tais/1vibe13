@@ -35,10 +35,8 @@
 #define MAXCIVLASTNAMES		30
 extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
 
-#ifdef JA2UB
 //ja25ub
 #define	NUM_ASSIST_SLOTS				156				//used for when the player asssists in killing the enemty
-#endif
 
 // ANDREW: these are defines for OKDestanation usage - please move to approprite file
 #define IGNOREPEOPLE	0
@@ -1599,14 +1597,12 @@ public:
 	// Flugente: drag structures
 	INT32	sDragGridNo;
 	
-#ifdef JA2UB
 	//ja25
 	BOOLEAN			fIgnoreGetupFromCollapseCheck;
 	TIMECOUNTER		GetupFromJA25StartCounter;
 	BOOLEAN			fWaitingToGetupFromJA25Start;
 
 	UINT8			ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS];			//The percent of damage inflicted by the player team.  Each element corresponds to the Soldier ID.  Each element contains the percent damage inflicted by that merc
-#endif
 	
 	char endOfPOD;	// marker for end of POD (plain old data)
 
@@ -2932,13 +2928,11 @@ public:
 	INT8	snowCamo;	
 	INT8	wornSnowCamo;
 	
-#ifdef JA2UB	
 	BOOLEAN											fIgnoreGetupFromCollapseCheck;
 	TIMECOUNTER									GetupFromJA25StartCounter;
 	BOOLEAN											fWaitingToGetupFromJA25Start;
 
 	UINT8												ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS];			//The percent of damage inflicted by the player team.  Each element corresponds to the Soldier ID.  Each element contains the percent damage inflicted by that merc
-#endif
 	UINT8					bFiller[ 36 ];
 
 	//
