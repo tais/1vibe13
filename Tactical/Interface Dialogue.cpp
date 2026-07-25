@@ -62,6 +62,7 @@
 	#include "End Game.h"
 	#include "Map Screen Helicopter.h"
 	#include "Soldier Control.h"
+	#include "TacticalEntityHost.h"
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
 
@@ -229,11 +230,61 @@ UINT32							guiWaitingForTriggerTime;
 INT32								iInterfaceDialogueBox = -1;
 UINT8								ubRecordThatTriggeredLiePrompt;
 BOOLEAN							gfConversationPending = FALSE;
-SOLDIERTYPE					*gpPendingDestSoldier;
-SOLDIERTYPE					*gpPendingSrcSoldier;
-INT8								gbPendingApproach;
-uintptr_t						guiPendingApproachData;
 extern BOOLEAN			fMapPanelDirty;
+
+namespace
+{
+struct PendingConversationContext
+{
+	Ja2TacticalEntityReference destination;
+	Ja2TacticalEntityReference source;
+	INT8 approach = 0;
+	uintptr_t approachData = 0;
+
+	bool capture(
+		SOLDIERTYPE* selectedDestination,
+		SOLDIERTYPE* selectedSource,
+		INT8 selectedApproach,
+		uintptr_t selectedApproachData) noexcept
+	{
+		Ja2TacticalEntityReference capturedDestination;
+		Ja2TacticalEntityReference capturedSource;
+		if (!capturedDestination.capture(selectedDestination) ||
+			!capturedSource.capture(selectedSource))
+			return false;
+		destination = capturedDestination;
+		source = capturedSource;
+		approach = selectedApproach;
+		approachData = selectedApproachData;
+		return true;
+	}
+
+	bool resolve(
+		SOLDIERTYPE*& resolvedDestination,
+		SOLDIERTYPE*& resolvedSource,
+		INT8& selectedApproach,
+		uintptr_t& selectedApproachData) const noexcept
+	{
+		resolvedDestination = destination.resolve();
+		resolvedSource = source.resolve();
+		if (!resolvedDestination || !resolvedSource)
+			return false;
+		selectedApproach = approach;
+		selectedApproachData = approachData;
+		return true;
+	}
+
+	void reset() noexcept
+	{
+		destination.reset();
+		source.reset();
+		approach = 0;
+		approachData = 0;
+	}
+};
+
+PendingConversationContext gPendingConversation;
+}
 
 INT32 giHospitalTempBalance; // stores amount of money for current doctoring
 INT32 giHospitalRefund; // stores amount of money given to hospital for doctoring that wasn't used
@@ -264,6 +315,7 @@ BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldie
 	if ( DialogueQueueIsEmptyOrSomebodyTalkingNow( ) )
 	{
 		gfConversationPending = FALSE;
+		gPendingConversation.reset();
 
 		// Initiate directly....
 		return( InternalInitiateConversation( pDestSoldier, pSrcSoldier, bApproach, uiApproachData ) );
@@ -271,12 +323,12 @@ BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldie
 	else
 	{
 		// Wait.....
+		if (!gPendingConversation.capture(
+				pDestSoldier, pSrcSoldier, bApproach, uiApproachData))
+		{
+			return FALSE;
+		}
 		gfConversationPending = TRUE;
-
-		gpPendingDestSoldier	= pDestSoldier;
-		gpPendingSrcSoldier		= pSrcSoldier;
-		gbPendingApproach			= bApproach;
-		guiPendingApproachData= uiApproachData;
 
 		//Engaged on conv...
 		gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;
@@ -297,8 +349,22 @@ void HandlePendingInitConv( )
 {
 	if ( gfConversationPending )
 	{
+		SOLDIERTYPE* destination = NULL;
+		SOLDIERTYPE* source = NULL;
+		INT8 approach = 0;
+		uintptr_t approachData = 0;
+		if (!gPendingConversation.resolve(
+				destination, source, approach, approachData))
+		{
+			gPendingConversation.reset();
+			gfConversationPending = FALSE;
+			gTacticalStatus.uiFlags &= (~ENGAGED_IN_CONV);
+			return;
+		}
+		gPendingConversation.reset();
 		// OK, if pending, remove and now call........
-		InternalInitiateConversation( gpPendingDestSoldier, gpPendingSrcSoldier, gbPendingApproach, guiPendingApproachData );
+		InternalInitiateConversation(
+			destination, source, approach, approachData);
 	}
 }
 

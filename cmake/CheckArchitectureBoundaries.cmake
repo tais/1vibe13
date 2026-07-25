@@ -285,6 +285,27 @@ if(raw_production_item_locator)
     "Production item locators retain ITEM_POOL pointers")
 endif()
 
+# Delayed conversations, end-game timers, insurance prompts, and dismissal
+# prompts resolve exact tactical-entity incarnations when work resumes. Their
+# former raw callback globals must not return.
+set(delayed_actor_callback_files
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/End Game.cpp"
+  "${SOURCE_ROOT}/Strategic/Merc Contract.cpp"
+  "${SOURCE_ROOT}/Strategic/Assignments.cpp")
+foreach(delayed_actor_callback_file IN LISTS delayed_actor_callback_files)
+  file(READ "${delayed_actor_callback_file}"
+    delayed_actor_callback_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(gpPendingDestSoldier|gpPendingSrcSoldier|gpKillerSoldier|gpInsuranceSoldier|gpDismissSoldier|pAutomaticSurgeryDoctor|pAutomaticSurgeryPatient)([^A-Za-z0-9_]|$)"
+    raw_delayed_callback_actor
+    "${delayed_actor_callback_contents}")
+  if(raw_delayed_callback_actor)
+    message(FATAL_ERROR
+      "Delayed callback retains a raw SOLDIERTYPE global in ${delayed_actor_callback_file}")
+  endif()
+endforeach()
+
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
 # deterministic command boundary. Internal weapon compatibility corrections,
 # AI retaliation, attachment changes, and the existing multi-merc bulk reload

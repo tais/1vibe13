@@ -377,6 +377,15 @@ the engine must not contain SDL types in its public domain model.
   entries retire safely and run their completion callback at most once. The
   pointer-bearing `ITEM_POOL_LOCATOR` definition remains available only for
   legacy source compatibility and is not instantiated by the runtime.
+- Pending NPC conversations, end-game death timers, insurance, dismissal, and
+  automatic-surgery confirmations retain exact tactical-entity incarnations
+  instead of reusable `SOLDIERTYPE*` slots. A removed or replaced actor now
+  cancels the actor-specific work safely; end-game progression still continues
+  without attributing the kill to a different slot occupant. Surgery prompts
+  also clear both participants on every answer rather than leaving rejected
+  raw pointers available to the next prompt. Insurance prompts snapshot their
+  requested duration instead of later rereading the shared AIM hiring-screen
+  selection.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard
