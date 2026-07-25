@@ -367,10 +367,29 @@ TacticalActorCallbackContext gRemoveBlueFlagCallbackContext;
 SwitchCallbackContext gSwitchCallbackContext;
 BoobyTrapCallbackContext gBoobyTrapCallbackContext;
 BoobyTrapCallbackContext gMineSpottedCallbackContext;
+
+struct ItemPoolLocator
+{
+	Ja2TacticalWorldItemReference item;
+	INT32 grid = NOWHERE;
+	UINT8 level = 0;
+	std::uint64_t worldGeneration = 0;
+	INT8 radioFrame = 0;
+	UINT32 lastFrameUpdate = 0;
+	ITEM_POOL_LOCATOR_HOOK callback = nullptr;
+	BOOLEAN allocated = FALSE;
+	UINT8 flags = 0;
+};
+
+ItemPoolLocator gFlashItemSlots[NUM_ITEM_FLASH_SLOTS];
+UINT32 gFlashItemSlotCount = 0;
+
+ITEM_POOL* ResolveItemPoolLocator(
+	const ItemPoolLocator& locator);
+void ReleaseItemPoolLocator(
+	ItemPoolLocator& locator, bool invokeCallback);
 }
 
-ITEM_POOL_LOCATOR				FlashItemSlots[ NUM_ITEM_FLASH_SLOTS ];
-UINT32									guiNumFlashItemSlots = 0;
 // sevenfm: remember network settings for last planted tripwire
 UINT8 gubLastTripwire = 0;
 // set to TRUE if shift+click was pressed for planting bomb - will use for Improved Bomb Planting feature
@@ -385,6 +404,51 @@ INT8 GetListMouseHotSpot( INT16 sLargestLineWidth, INT8 bNumItemsListed, INT16 s
 void RemoveItemGraphicFromWorld( INVTYPE *pItem, INT32 sGridNo, UINT8 ubLevel, LEVELNODE *pLevelNode );
 
 ITEM_POOL * GetItemPoolForIndex( INT32 sGridNo, INT32 iItemIndex, UINT8 ubLevel );
+
+namespace
+{
+ITEM_POOL* ResolveItemPoolLocator(
+	const ItemPoolLocator& locator)
+{
+	if (!locator.allocated || !locator.item.valid())
+		return nullptr;
+	const TacticalWorldSession::Snapshot& world =
+		CaptureJa2TacticalWorld();
+	if (locator.worldGeneration != 0 &&
+		(!world.loaded ||
+			world.worldGeneration != locator.worldGeneration))
+		return nullptr;
+	WORLDITEM* worldItem = locator.item.resolve();
+	if (!worldItem || worldItem->sGridNo != locator.grid ||
+		worldItem->ubLevel != locator.level)
+		return nullptr;
+	ITEM_POOL* itemPool = GetItemPoolForIndex(
+		locator.grid,
+		static_cast<INT32>(locator.item.identity().slot),
+		locator.level);
+	return itemPool &&
+		itemPool->iItemIndex ==
+			static_cast<INT32>(locator.item.identity().slot)
+		? itemPool : nullptr;
+}
+
+void ReleaseItemPoolLocator(
+	ItemPoolLocator& locator, bool invokeCallback)
+{
+	const ITEM_POOL_LOCATOR_HOOK callback =
+		invokeCallback ? locator.callback : nullptr;
+	locator.item.reset();
+	locator.grid = NOWHERE;
+	locator.level = 0;
+	locator.worldGeneration = 0;
+	locator.radioFrame = 0;
+	locator.lastFrameUpdate = 0;
+	locator.callback = nullptr;
+	locator.allocated = FALSE;
+	locator.flags = 0;
+	if (callback) callback();
+}
+}
 
 INT32 GetFreeFlashItemSlot(void);
 void RecountFlashItemSlots(void);
@@ -4839,14 +4903,14 @@ INT32 GetFreeFlashItemSlot(void)
 {
 	UINT32 uiCount;
 
-	for(uiCount=0; uiCount < guiNumFlashItemSlots; uiCount++)
+	for(uiCount=0; uiCount < gFlashItemSlotCount; uiCount++)
 	{
-		if(( FlashItemSlots[uiCount].fAllocated == FALSE ) )
+		if( gFlashItemSlots[uiCount].allocated == FALSE )
 			return((INT32)uiCount);
 	}
 
-	if(guiNumFlashItemSlots < NUM_ITEM_FLASH_SLOTS )
-		return((INT32)guiNumFlashItemSlots++);
+	if(gFlashItemSlotCount < NUM_ITEM_FLASH_SLOTS )
+		return((INT32)gFlashItemSlotCount++);
 
 	return(-1);
 }
@@ -4854,37 +4918,48 @@ INT32 GetFreeFlashItemSlot(void)
 
 void RecountFlashItemSlots(void)
 {
-	INT32 uiCount;
-
-	for(uiCount=guiNumFlashItemSlots-1; (uiCount >=0) ; uiCount--)
+	while (gFlashItemSlotCount > 0 &&
+		!gFlashItemSlots[gFlashItemSlotCount - 1].allocated)
 	{
-		if( ( FlashItemSlots[uiCount].fAllocated ) )
-		{
-			guiNumFlashItemSlots=(UINT32)(uiCount+1);
-			break;
-		}
+		--gFlashItemSlotCount;
 	}
 }
 
 
 INT32	AddFlashItemSlot( ITEM_POOL *pItemPool, ITEM_POOL_LOCATOR_HOOK Callback, UINT8 ubFlags )
 {
-	INT32			iFlashItemIndex;
+	if (!pItemPool || pItemPool->iItemIndex < 0)
+		return(-1);
+	const TacticalWorldSession::Snapshot& world =
+		CaptureJa2TacticalWorld();
+	Ja2TacticalWorldItemReference item;
+	if (!item.capture(
+			static_cast<std::uint32_t>(
+				pItemPool->iItemIndex)))
+		return(-1);
+	WORLDITEM* worldItem = item.resolve();
+	if (!worldItem || worldItem->sGridNo != pItemPool->sGridNo ||
+		worldItem->ubLevel != pItemPool->ubLevel)
+		return(-1);
 
+	INT32			iFlashItemIndex;
 	if( ( iFlashItemIndex = GetFreeFlashItemSlot() )==(-1) )
 		return(-1);
 
 	ubFlags |= ITEM_LOCATOR_LOCKED;
 
-
-	FlashItemSlots[ iFlashItemIndex ].pItemPool	= pItemPool;
-
-	FlashItemSlots[ iFlashItemIndex ].bRadioFrame				= 0;
-	FlashItemSlots[ iFlashItemIndex ].uiLastFrameUpdate = GetJA2Clock( );
-	FlashItemSlots[ iFlashItemIndex ].Callback				= Callback;
-	FlashItemSlots[ iFlashItemIndex ].fAllocated				= TRUE;
-	FlashItemSlots[ iFlashItemIndex ].ubFlags						= ubFlags;
-
+	ItemPoolLocator& locator =
+		gFlashItemSlots[iFlashItemIndex];
+	locator.item = item;
+	locator.grid = pItemPool->sGridNo;
+	locator.level = pItemPool->ubLevel;
+	locator.worldGeneration =
+		world.loaded ? world.worldGeneration : 0;
+	locator.radioFrame = 0;
+	locator.lastFrameUpdate = GetJA2Clock();
+	locator.callback = Callback;
+	locator.allocated = TRUE;
+	locator.flags = ubFlags;
 
 	return( iFlashItemIndex );
 }
@@ -4895,21 +4970,30 @@ BOOLEAN RemoveFlashItemSlot( ITEM_POOL *pItemPool )
 	UINT32 uiCount;
 
 	CHECKF( pItemPool != NULL );
+	const TacticalWorldItemId targetItem =
+		pItemPool->iItemIndex >= 0
+			? GetJa2TacticalWorldItemId(
+				static_cast<std::uint32_t>(
+					pItemPool->iItemIndex))
+			: TacticalWorldItemId{};
 
-	for( uiCount=0; uiCount < guiNumFlashItemSlots; ++uiCount)
+	for( uiCount=0; uiCount < gFlashItemSlotCount; ++uiCount)
 	{
-		if ( FlashItemSlots[ uiCount ].fAllocated )
+		ItemPoolLocator& locator =
+			gFlashItemSlots[uiCount];
+		if ( locator.allocated )
 		{
-			if ( FlashItemSlots[ uiCount ].pItemPool == pItemPool )
+			const bool sameItem =
+				targetItem.valid()
+					? locator.item.identity() == targetItem
+					: locator.grid == pItemPool->sGridNo &&
+						locator.level == pItemPool->ubLevel &&
+						static_cast<INT32>(
+							locator.item.identity().slot) ==
+							pItemPool->iItemIndex;
+			if ( sameItem )
 			{
-				FlashItemSlots[ uiCount ].fAllocated = FALSE;
-
-				// Check if we have a callback and call it if so!
-				if ( FlashItemSlots[ uiCount ].Callback != NULL )
-				{
-					FlashItemSlots[ uiCount ].Callback( );
-				}
-
+				ReleaseItemPoolLocator(locator, true);
 				return( TRUE );
 			}
 		}
@@ -4923,27 +5007,27 @@ void HandleFlashingItems( )
 {
 	UINT32 cnt;
 	ITEM_POOL		*pItemPool;
-	ITEM_POOL_LOCATOR	*pLocator;
+	ItemPoolLocator	*pLocator;
 	BOOLEAN			fDoLocator = FALSE;
 
 	if ( COUNTERDONE( CYCLERENDERITEMCOLOR ) )
 	{
 		RESETCOUNTER( CYCLERENDERITEMCOLOR );
 
-		for ( cnt = 0; cnt < guiNumFlashItemSlots; ++cnt )
+		for ( cnt = 0; cnt < gFlashItemSlotCount; ++cnt )
 		{
-			pLocator	= &( FlashItemSlots[ cnt ] );
+			pLocator	= &( gFlashItemSlots[ cnt ] );
 
-			if ( pLocator->fAllocated )
+			if ( pLocator->allocated )
 			{
 				fDoLocator = TRUE;
 
-				if ( ( pLocator->ubFlags & ITEM_LOCATOR_LOCKED ) )
+				if ( ( pLocator->flags & ITEM_LOCATOR_LOCKED ) )
 				{
 					if ( gTacticalStatus.fLockItemLocators == FALSE )
 					{
 						// Turn off!
-						pLocator->ubFlags &= (~ITEM_LOCATOR_LOCKED);
+						pLocator->flags &= (~ITEM_LOCATOR_LOCKED);
 					}
 					else
 					{
@@ -4953,23 +5037,28 @@ void HandleFlashingItems( )
 
 				if ( fDoLocator )
 				{
-					pItemPool = pLocator->pItemPool;
+					pItemPool = ResolveItemPoolLocator(*pLocator);
+					if (!pItemPool)
+					{
+						ReleaseItemPoolLocator(*pLocator, true);
+						continue;
+					}
 
 					// Update radio locator
 					{
 						UINT32 uiClock = GetJA2Clock( );
 
 						// Update frame values!
-						if ( ( uiClock - pLocator->uiLastFrameUpdate ) > 80 )
+						if ( ( uiClock - pLocator->lastFrameUpdate ) > 80 )
 						{
-							pLocator->uiLastFrameUpdate = uiClock;
+							pLocator->lastFrameUpdate = uiClock;
 
 							// Update frame
-							pLocator->bRadioFrame++;
+							pLocator->radioFrame++;
 
-							if ( pLocator->bRadioFrame == 5 )
+							if ( pLocator->radioFrame == 5 )
 							{
-								pLocator->bRadioFrame = 0;
+								pLocator->radioFrame = 0;
 							}
 						}
 					}
@@ -4983,7 +5072,7 @@ void HandleFlashingItems( )
 						pItemPool->bFlashColor = 0;
 
 						// REMOVE TIMER!
-						RemoveFlashItemSlot( pItemPool );
+						ReleaseItemPoolLocator(*pLocator, true);
 
 						SetRenderFlags( RENDER_FLAG_FULL );
 					}
@@ -5000,17 +5089,19 @@ void RenderTopmostFlashingItems( )
 {
 	UINT32 cnt;
 	ITEM_POOL		*pItemPool;
-	ITEM_POOL_LOCATOR	*pLocator;
+	ItemPoolLocator	*pLocator;
 
-	for ( cnt = 0; cnt < guiNumFlashItemSlots; ++cnt )
+	for ( cnt = 0; cnt < gFlashItemSlotCount; ++cnt )
 	{
-		pLocator	= &( FlashItemSlots[ cnt ] );
+		pLocator	= &( gFlashItemSlots[ cnt ] );
 
-		if ( pLocator->fAllocated )
+		if ( pLocator->allocated )
 		{
-			if ( !( pLocator->ubFlags & ( ITEM_LOCATOR_LOCKED ) ) )
+			if ( !( pLocator->flags & ( ITEM_LOCATOR_LOCKED ) ) )
 			{
-				pItemPool = pLocator->pItemPool;
+				pItemPool = ResolveItemPoolLocator(*pLocator);
+				if (!pItemPool)
+					continue;
 
 				// Update radio locator
 				{
@@ -5054,7 +5145,7 @@ void RenderTopmostFlashingItems( )
 						SetBackgroundRectFilled( iBack );
 					}
 
-					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO, pLocator->bRadioFrame, sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
+					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO, pLocator->radioFrame, sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 
 					DrawItemPoolList( pItemPool, pItemPool->sGridNo	, ITEMLIST_DISPLAY, pItemPool->bRenderZHeightAboveLevel, sXPos, sYPos );
 				}

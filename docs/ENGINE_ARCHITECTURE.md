@@ -371,6 +371,12 @@ the engine must not contain SDL types in its public domain model.
   action. The extended inspect path also resolves and snapshots its selected
   bomb before evaluating it; no save, map, XML, archive, or content format is
   changed.
+- The production flashing-item locator table is private and stores the same
+  stable world-item identity plus grid, level, and world generation instead of
+  an `ITEM_POOL*`. Both update and render paths reacquire the live pool; stale
+  entries retire safely and run their completion callback at most once. The
+  pointer-bearing `ITEM_POOL_LOCATOR` definition remains available only for
+  legacy source compatibility and is not instantiated by the runtime.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard
