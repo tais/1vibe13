@@ -386,6 +386,13 @@ the engine must not contain SDL types in its public domain model.
   raw pointers available to the next prompt. Insurance prompts snapshot their
   requested duration instead of later rereading the shared AIM hiring-screen
   selection.
+- Merc departure-equipment prompts consume an exact actor incarnation once,
+  and stale prompts release their pause ownership instead of stranding the
+  game. Contract rehire state uses the same stable reference across the
+  tactical-to-map transition. Save games still store and load the established
+  soldier-slot field byte-for-byte; loading validates that slot through the
+  live entity directory before the UI can use it, while unsaved prompt
+  contexts are cleared before restoration.
 - Active and modal dialogue sessions also retain exact source and destination
   incarnations. Dialogue UI actions, message-box callbacks, quest facts, and
   the quest-debug panel resolve participants through one stable boundary; a
