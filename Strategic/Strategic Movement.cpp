@@ -1105,10 +1105,13 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 		}
 	}
 
-	if( gfTacticalTraversal && pInitiatingBattleGroup == gpTacticalTraversalGroup ||
-		pInitiatingBattleGroup && pInitiatingBattleGroup->usGroupTeam != OUR_TEAM &&
+	if( (gfTacticalTraversal &&
+			pInitiatingBattleGroup == ResolveTacticalTraversalGroup()) ||
+		(pInitiatingBattleGroup &&
+			pInitiatingBattleGroup->usGroupTeam != OUR_TEAM &&
 			pInitiatingBattleGroup->ubSectorX == gWorldSectorX &&
-		pInitiatingBattleGroup->ubSectorY == gWorldSectorY && !gbWorldSectorZ )
+			pInitiatingBattleGroup->ubSectorY == gWorldSectorY &&
+			!gbWorldSectorZ) )
 	{	// At least say quote....
 		if ( ubNumMercs > 0 )
 		{
@@ -1120,10 +1123,13 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 			ubChosenMerc = (UINT16)Random( ubNumMercs );
 
 			pSoldier = MercPtrs[ ubMercsInGroup[ ubChosenMerc ] ];
-			gpTacticalTraversalChosenSoldier = pSoldier;
-
-			if( !gfTacticalTraversal )
+			if( gfTacticalTraversal )
 			{
+				CaptureTacticalTraversalChosenSoldier( pSoldier );
+			}
+			else
+			{
+				ResetTacticalTraversalContext();
 				HandleImportantPBIQuote( pSoldier, pInitiatingBattleGroup );
 			}
 
@@ -2751,7 +2757,8 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 	// add sleep, if any
 	pGroup->uiTraverseTime += uiSleepMinutes;
 
-	if ( gfTacticalTraversal && gpTacticalTraversalGroup == pGroup )
+	if ( gfTacticalTraversal &&
+		ResolveTacticalTraversalGroup() == pGroup )
 	{
 		if ( gfUndergroundTacticalTraversal )
 		{

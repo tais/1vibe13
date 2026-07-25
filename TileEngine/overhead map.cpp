@@ -1600,12 +1600,13 @@ void RenderOverheadOverlays()
 		//{// //don't draw person, because they are inside the vehicle.
 		//	ubPassengers++;
 		//}
-		else if( gpTacticalPlacementSelectedSoldier == pSoldier )
+		else if( IsTacticalPlacementSelectedSoldier( pSoldier ) )
 		{ //tactical placement selected merc
 			Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 7 );
 			RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, (INT16)(sX-2), (INT16)(sY-2), (INT16)(sX + 5), (INT16)(sY + 11));
 		}
-		else if( gpTacticalPlacementHilightedSoldier == pSoldier && pSoldier->flags.uiStatusFlags )
+		else if( IsTacticalPlacementHighlightedSoldier( pSoldier ) &&
+			pSoldier->flags.uiStatusFlags )
 		{ //tactical placement hilighted merc
 			Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 8 );
 			RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, (INT16)(sX-2), (INT16)(sY-2), (INT16)(sX + 5), (INT16)(sY + 11));
@@ -1958,11 +1959,13 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 							}
 							else
 							#endif
-							if( gfTacticalPlacementGUIActive && gpTacticalPlacementSelectedSoldier == pSoldier )
+							if( gfTacticalPlacementGUIActive &&
+								IsTacticalPlacementSelectedSoldier( pSoldier ) )
 							{ //tactical placement selected merc
 								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 7 );
 							}
-							else if( gfTacticalPlacementGUIActive && gpTacticalPlacementHilightedSoldier == pSoldier )
+							else if( gfTacticalPlacementGUIActive &&
+								IsTacticalPlacementHighlightedSoldier( pSoldier ) )
 							{ //tactical placement selected merc
 								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 8 );
 							}

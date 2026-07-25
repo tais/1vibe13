@@ -369,6 +369,49 @@ foreach(strategic_assignment_prompt_file IN LISTS strategic_assignment_prompt_fi
   endif()
 endforeach()
 
+# Tactical traversal may cross a sector load and fade before its selected merc
+# speaks. The chosen actor therefore remains an exact incarnation rather than
+# an exported pointer into a reusable soldier slot.
+set(tactical_traversal_actor_files
+  "${SOURCE_ROOT}/Strategic/PreBattle Interface.cpp"
+  "${SOURCE_ROOT}/Strategic/PreBattle Interface.h"
+  "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
+  "${SOURCE_ROOT}/Tactical/Strategic Exit GUI.cpp"
+  "${SOURCE_ROOT}/Tactical/End Game.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp")
+foreach(tactical_traversal_actor_file IN LISTS tactical_traversal_actor_files)
+  file(READ "${tactical_traversal_actor_file}"
+    tactical_traversal_actor_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(gpTacticalTraversalGroup|gpTacticalTraversalChosenSoldier)([^A-Za-z0-9_]|$)"
+    raw_tactical_traversal_identity
+    "${tactical_traversal_actor_contents}")
+  if(raw_tactical_traversal_identity)
+    message(FATAL_ERROR
+      "Tactical traversal retains a raw group or chosen-merc pointer in ${tactical_traversal_actor_file}")
+  endif()
+endforeach()
+
+# Tactical placement retains every participant and its selected/highlighted
+# render state by exact actor incarnation for the full deployment modal.
+set(tactical_placement_actor_files
+  "${SOURCE_ROOT}/TileEngine/Tactical Placement GUI.cpp"
+  "${SOURCE_ROOT}/TileEngine/Tactical Placement GUI.h"
+  "${SOURCE_ROOT}/TileEngine/overhead map.cpp")
+foreach(tactical_placement_actor_file IN LISTS tactical_placement_actor_files)
+  file(READ "${tactical_placement_actor_file}"
+    tactical_placement_actor_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(gpTacticalPlacementSelectedSoldier|gpTacticalPlacementHilightedSoldier)([^A-Za-z0-9_]|$)|\\.pSoldier"
+    raw_tactical_placement_actor
+    "${tactical_placement_actor_contents}")
+  if(raw_tactical_placement_actor)
+    message(FATAL_ERROR
+      "Tactical placement retains raw actor state in ${tactical_placement_actor_file}")
+  endif()
+endforeach()
+
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
 # deterministic command boundary. Internal weapon compatibility corrections,
 # AI retaliation, attachment changes, and the existing multi-merc bulk reload

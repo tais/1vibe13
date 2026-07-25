@@ -8053,6 +8053,8 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	ResetMercContractActorContexts();
 	ResetFacilityStaffingPromptContext();
 	ResetMilitiaTrainingPromptContext();
+	ResetTacticalTraversalContext();
+	ResetTacticalPlacementActorContexts();
 
 	GENERAL_SAVE_INFO sGeneralInfo;
 	memset( &sGeneralInfo, 0, sizeof( GENERAL_SAVE_INFO ) );
