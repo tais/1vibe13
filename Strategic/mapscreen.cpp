@@ -7076,10 +7076,10 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					gfDontStartTransitionFromLaptop = TRUE;
 					
 					if( gfPreBattleInterfaceActive && !gfPersistantPBI )
-					{ //Non persistant PBI.	Allow ESC to close it and return to mapscreen.
-						KillPreBattleInterface();
-						gpBattleGroup = NULL;
-						return;
+						{ //Non persistant PBI.	Allow ESC to close it and return to mapscreen.
+							KillPreBattleInterface();
+							ResetPreBattleGroup();
+							return;
 					}
 
 					if ( gfInChangeArrivalSectorMode )

@@ -50,6 +50,7 @@
 	#include "MilitiaIndividual.h"	// added by Flugente
 	#include "Rebel Command.h"
 	#include "Strategic Transport Groups.h"
+	#include "StrategicGroupHost.h"
 
 #include "MilitiaSquads.h"
 
@@ -77,7 +78,15 @@ extern UINT32		guiLastTacticalRealTime;
 
 GROUP *gpGroupList;
 
-GROUP *gpPendingSimultaneousGroup = NULL;
+namespace
+{
+Ja2StrategicGroupReference gPendingSimultaneousGroup;
+Ja2StrategicGroupReference gGroupPrompting;
+Ja2StrategicGroupReference gInitPrebattleGroup;
+}
+
+// waiting for input from user
+BOOLEAN gfWaitingForInput = FALSE;
 
 // is the bottom of the map panel dirty?
 extern BOOLEAN fMapScreenBottomDirty;
@@ -106,9 +115,6 @@ UINT8 gszTerrain[NUM_TRAVTERRAIN_TYPES][15] =
 
 BOOLEAN gfUndergroundTacticalTraversal = FALSE;
 
-// remembers which player group is the Continue/Stop prompt about?	No need to save as long as you can't save while prompt ON
-GROUP *gpGroupPrompting = NULL;
-
 UINT32 uniqueIDMask[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 
@@ -121,8 +127,15 @@ BOOLEAN PossibleToCoordinateSimultaneousGroupArrivals( GROUP *pGroup );
 
 void HandleNonCombatGroupArrival( GROUP *pGroup, BOOLEAN fMainGroup, BOOLEAN fNeverLeft );
 
-GROUP *gpInitPrebattleGroup = NULL;
 void TriggerPrebattleInterface( UINT8 ubResult );
+
+void ResetStrategicMovementGroupContexts( void )
+{
+	gPendingSimultaneousGroup.reset();
+	gGroupPrompting.reset();
+	gInitPrebattleGroup.reset();
+	gfWaitingForInput = FALSE;
+}
 
 //Save the L.L. for the playerlist into the save game file
 BOOLEAN SavePlayerGroupList( HWFILE hFile, GROUP *pGroup );
@@ -154,9 +167,6 @@ void HandlePlayerGroupEnteringSectorToCheckForNPCsOfNoteCallback( UINT8 ubExitVa
 void DelayEnemyGroupsIfPathsCross( GROUP *pPlayerGroup );
 
 UINT8 NumberMercsInVehicleGroup( GROUP *pGroup );
-
-// waiting for input from user
-BOOLEAN gfWaitingForInput = FALSE;
 
 static WAYPOINT* GetWaypointAtIndex( WAYPOINT *waypoints, UINT8 index)
 {
@@ -925,6 +935,10 @@ UINT8 AddGroupToList( GROUP *pGroup )
 			else //new list
 				gpGroupList = pGroup;
 			pGroup->next = NULL;
+			const bool groupIdentityAdopted =
+				AdoptJa2StrategicGroup(*pGroup);
+			Assert(groupIdentityAdopted);
+			(void)groupIdentityAdopted;
 			return ID;
 		}
 	}
@@ -958,6 +972,9 @@ void RemoveGroupFromList( GROUP *pGroup )
 	curr = gpGroupList;
 	if( !curr )
 		return;
+	if (IsPreBattleGroup(pGroup))
+		ResetPreBattleGroup();
+	(void)ReleaseJa2StrategicGroup(*pGroup);
 	if( curr == pGroup )
 	{ //Removing head
 		gpGroupList = curr->next;
@@ -1013,16 +1030,28 @@ GROUP* GetGroup( UINT8 ubGroupID )
 
 void HandleImportantPBIQuote( SOLDIERTYPE *pSoldier, GROUP *pInitiatingBattleGroup )
 {
+	StrategicGroupId initiatingGroup = pInitiatingBattleGroup
+		? GetJa2StrategicGroupId(pInitiatingBattleGroup->ubGroupID)
+		: StrategicGroupId{};
+	if (pInitiatingBattleGroup && !initiatingGroup.valid())
+		initiatingGroup.slot = pInitiatingBattleGroup->ubGroupID;
+
 	// wake merc up for THIS quote
 	if( pSoldier->flags.fMercAsleep )
 	{
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_SLEEP, 0,0 );
-		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE, (pInitiatingBattleGroup ? pInitiatingBattleGroup->ubGroupID : 0), 0 );
+		TacticalCharacterDialogueWithSpecialEvent(
+			pSoldier, QUOTE_ENEMY_PRESENCE,
+			DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE,
+			initiatingGroup.slot, initiatingGroup.incarnation );
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_SLEEP, 1,0 );
 	}
 	else
 	{
-		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE, (pInitiatingBattleGroup ? pInitiatingBattleGroup->ubGroupID : 0), 0 );
+		TacticalCharacterDialogueWithSpecialEvent(
+			pSoldier, QUOTE_ENEMY_PRESENCE,
+			DIALOGUE_SPECIAL_EVENT_BEGINPREBATTLEINTERFACE,
+			initiatingGroup.slot, initiatingGroup.incarnation );
 	}
 }
 
@@ -1372,7 +1401,7 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 			}
 		}
 
-		gpInitPrebattleGroup = pGroup;
+		(void)gInitPrebattleGroup.capture(pGroup);
 
 		if( GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENTERING_BLOODCAT_LAIR_CODE )
 		{
@@ -1427,12 +1456,14 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 void TriggerPrebattleInterface( UINT8 ubResult )
 {
 	StopTimeCompression();
-	// Pass the group *ID* (not the pointer) through the UINT32 dialogue-event
-	// data field -- a 64-bit GROUP* truncated to 32 bits and was cast back to a
-	// garbage pointer, crashing InitPreBattleInterface. The reader rebuilds it
-	// via GetGroup(). (See the matching read site in Dialogue Control.cpp.)
-	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE, (gpInitPrebattleGroup ? gpInitPrebattleGroup->ubGroupID : 0), 0, 0, 0, 0 );
-	gpInitPrebattleGroup = NULL;
+	// Preserve both parts of the runtime identity through the delayed dialogue
+	// queue. A strategic-group slot is reusable, so the slot alone cannot prove
+	// that the eventual callback still refers to the group that raised it.
+	const StrategicGroupId group = gInitPrebattleGroup.identity();
+	gInitPrebattleGroup.reset();
+	SpecialCharacterDialogueEvent(
+		DIALOGUE_SPECIAL_EVENT_TRIGGERPREBATTLEINTERFACE,
+		group.slot, group.incarnation, 0, 0, 0 );
 }
 
 
@@ -2393,15 +2424,18 @@ void PrepareGroupsForSimultaneousArrival()
 	UINT32 uiLatestArrivalTime = 0;
 	SOLDIERTYPE *pSoldier = NULL;
 	INT32 iVehId = 0;
+	GROUP* pendingGroup = gPendingSimultaneousGroup.resolve();
+	if (!pendingGroup)
+		return;
 
 	pGroup = gpGroupList;
 	while( pGroup )
 	{ //For all of the groups that haven't arrived yet, determine which one is going to take the longest.
-		if( pGroup != gpPendingSimultaneousGroup
+		if( pGroup != pendingGroup
 			&& (pGroup->usGroupTeam == OUR_TEAM || pGroup->usGroupTeam == MILITIA_TEAM)
 				&& pGroup->fBetweenSectors
-				&& pGroup->ubNextX == gpPendingSimultaneousGroup->ubSectorX
-				&& pGroup->ubNextY == gpPendingSimultaneousGroup->ubSectorY &&
+				&& pGroup->ubNextX == pendingGroup->ubSectorX
+				&& pGroup->ubNextY == pendingGroup->ubSectorY &&
 				!IsGroupTheHelicopterGroup( pGroup ) )
 		{
 			uiLatestArrivalTime = max( pGroup->uiArrivalTime, uiLatestArrivalTime );
@@ -2439,7 +2473,7 @@ void PrepareGroupsForSimultaneousArrival()
 
 	//We still have the first group that has arrived. Because they are set up to be in the destination
 	//sector, we will "warp" them back to the last sector, and also setup a new arrival time for them.
-	pGroup = gpPendingSimultaneousGroup;
+	pGroup = pendingGroup;
 	pGroup->ubNextX = pGroup->ubSectorX;
 	pGroup->ubNextY = pGroup->ubSectorY;
 	pGroup->ubSectorX = pGroup->ubPrevX;
@@ -2514,13 +2548,15 @@ BOOLEAN PossibleToCoordinateSimultaneousGroupArrivals( GROUP *pFirstGroup )
 
 	if( ubNumNearbyGroups )
 	{
+		if (!gPendingSimultaneousGroup.capture(pFirstGroup))
+			return FALSE;
+
 		//postpone the battle until the user answers the dialog.
 		CHAR16 str[255];
 		STR16 pStr, pEnemyType;
 		InterruptTime();
 		PauseGame();
 		LockPauseState( 13 );
-		gpPendingSimultaneousGroup = pFirstGroup;
 		//Build the string
 		if( ubNumNearbyGroups == 1 )
 		{
@@ -2544,7 +2580,8 @@ BOOLEAN PossibleToCoordinateSimultaneousGroupArrivals( GROUP *pFirstGroup )
 		//	 about to arrive. Do you wish to coordinate a simultaneous arrival?
 		swprintf( str, pStr,
 			pEnemyType, //Enemy type (Enemies or bloodcats)
-			'A' + gpPendingSimultaneousGroup->ubSectorY - 1, gpPendingSimultaneousGroup->ubSectorX ); //Sector location
+			'A' + pFirstGroup->ubSectorY - 1,
+			pFirstGroup->ubSectorX ); //Sector location
 		wcscat( str, L"  " );
 		wcscat( str, gpStrategicString[ STR_COORDINATE ] );
 		//Setup the dialog
@@ -2563,14 +2600,17 @@ BOOLEAN PossibleToCoordinateSimultaneousGroupArrivals( GROUP *pFirstGroup )
 
 void PlanSimultaneousGroupArrivalCallback( UINT8 bMessageValue )
 {
+	GROUP* pendingGroup = gPendingSimultaneousGroup.resolve();
 	if( bMessageValue == MSG_BOX_RETURN_YES )
 	{
 		PrepareGroupsForSimultaneousArrival();
 	}
-	else
+	else if (pendingGroup)
 	{
-		PrepareForPreBattleInterface( gpPendingSimultaneousGroup, gpPendingSimultaneousGroup );
+		PrepareForPreBattleInterface( pendingGroup, pendingGroup );
 	}
+	gPendingSimultaneousGroup.reset();
+	gfWaitingForInput = FALSE;
 
 	UnLockPauseState();
 	UnPauseGame();
@@ -2921,6 +2961,9 @@ void RemovePGroup( GROUP *pGroup )
 		return;
 		DoScreenIndependantMessageBox( L"Strategic Info Warning:	Attempting to delete a persistant group.", MSG_BOX_FLAG_OK, NULL );
 	}
+	if (IsPreBattleGroup(pGroup))
+		ResetPreBattleGroup();
+	(void)ReleaseJa2StrategicGroup(*pGroup);
 	//if removing head, then advance head first.
 	if( pGroup == gpGroupList )
 		gpGroupList = gpGroupList->next;
@@ -2973,18 +3016,16 @@ void RemovePGroup( GROUP *pGroup )
 
 	uniqueIDMask[ index ] -= mask;
 
-	if (gpBattleGroup == pGroup) {
-		gpBattleGroup = NULL;
-	}
-
 	MemFree( pGroup );
 	pGroup = NULL;
 }
 
 void RemoveAllGroups()
 {
-	// Since we are removing all groups, clear the gpBattleGroup
-	gpBattleGroup = NULL;
+	ResetPreBattleGroup();
+	ResetTacticalTraversalContext();
+	ResetStrategicMovementGroupContexts();
+	ResetAdjacentStrategicGroupContext();
 
 	gfRemovingAllGroups = TRUE;
 	while( gpGroupList )
@@ -2992,6 +3033,7 @@ void RemoveAllGroups()
 		RemovePGroup( gpGroupList );
 	}
 	gfRemovingAllGroups = FALSE;
+	ResetJa2StrategicGroupDirectory();
 }
 
 void SetGroupSectorValue( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, UINT8 ubGroupID )
@@ -3707,10 +3749,12 @@ BOOLEAN PlayersBetweenTheseSectors( INT16 sSource, INT16 sDest, INT32 *iCountEnt
 	*iCountExit = 0;
 	*fAboutToArriveEnter = FALSE;
 
-	if( gpBattleGroup )
+	GROUP* battleGroup = ResolvePreBattleGroup();
+	if( battleGroup )
 	{
 //		Assert( gfPreBattleInterfaceActive );
-		sBattleSector = (INT16)SECTOR( gpBattleGroup->ubSectorX, gpBattleGroup->ubSectorY );
+		sBattleSector = (INT16)SECTOR(
+			battleGroup->ubSectorX, battleGroup->ubSectorY );
 	}
 
 	// debug only
@@ -4165,6 +4209,7 @@ BOOLEAN LoadStrategicMovementGroupsFromSavedGameFile( HWFILE hFile )
 		return( FALSE );
 	}
 
+	RebuildJa2StrategicGroupDirectory();
 	return( TRUE );
 }
 
@@ -5581,7 +5626,7 @@ BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )
 	}
 
 	// if we're already in the middle of a prompt (possible with simultaneously group arrivals!), don't try to prompt again
-	if ( gpGroupPrompting != NULL )
+	if ( gGroupPrompting.resolve() )
 	{
 		return( FALSE );
 	}
@@ -5628,8 +5673,8 @@ BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )
 	}
 
 
-	// store the group ptr for use by the callback function
-	gpGroupPrompting = pGroup;
+	if (!gGroupPrompting.capture(pGroup))
+		return FALSE;
 
 	// build string for squad
 	GetSectorIDString( sSectorX, sSectorY, bSectorZ, wSectorName, FALSE );
@@ -5706,32 +5751,39 @@ BOOLEAN WildernessSectorWithAllProfiledNPCsNotSpokenWith( INT16 sSectorX, INT16 
 
 void HandlePlayerGroupEnteringSectorToCheckForNPCsOfNoteCallback( UINT8 ubExitValue )
 {
-	Assert( gpGroupPrompting );
+	GROUP* promptingGroup = gGroupPrompting.consume();
+	if (!promptingGroup)
+	{
+		fMapPanelDirty = TRUE;
+		fMapScreenBottomDirty = TRUE;
+		return;
+	}
 
 	if ( (ubExitValue == MSG_BOX_RETURN_YES) ||
 			(ubExitValue == MSG_BOX_RETURN_OK) )
 	{
 		// NPCs now checked, continue moving if appropriate
-		PlayerGroupArrivedSafelyInSector( gpGroupPrompting, FALSE );
+		PlayerGroupArrivedSafelyInSector( promptingGroup, FALSE );
 	}
 	else if( ubExitValue == MSG_BOX_RETURN_NO )
 	{
 		// stop here
 
 		// clear their strategic movement (mercpaths and waypoints)
-		ClearMercPathsAndWaypointsForAllInGroup( gpGroupPrompting );
+		ClearMercPathsAndWaypointsForAllInGroup( promptingGroup );
 
 //		// if currently selected sector has nobody in it
 //		if ( PlayerMercsInSector( ( UINT8 ) sSelMapX, ( UINT8 ) sSelMapY, ( UINT8 ) iCurrentMapSectorZ ) == 0 )
 		// New: ALWAYS make this sector strategically selected, even if there were mercs in the previously selected one
 		{
-			ChangeSelectedMapSector( gpGroupPrompting->ubSectorX, gpGroupPrompting->ubSectorY, gpGroupPrompting->ubSectorZ );
+			ChangeSelectedMapSector(
+				promptingGroup->ubSectorX,
+				promptingGroup->ubSectorY,
+				promptingGroup->ubSectorZ );
 		}
 
 		StopTimeCompression();
 	}
-
-	gpGroupPrompting = NULL;
 
 	fMapPanelDirty = TRUE;
 	fMapScreenBottomDirty = TRUE;
@@ -6115,7 +6167,6 @@ void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 s
 			}
 		}
 
-		//gpInitPrebattleGroup = pGroup;
 
 		if ( GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENTERING_BLOODCAT_LAIR_CODE )
 		{

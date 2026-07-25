@@ -176,6 +176,7 @@ void AllMercsHaveWalkedOffSector( );
 void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT8 ubTacticalDirection );
 
 void AllMercsWalkedToExitGrid();
+void ResetAdjacentStrategicGroupContext( void );
 
 void PrepareLoadedSector();
 

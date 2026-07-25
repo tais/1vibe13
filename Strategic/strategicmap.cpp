@@ -87,6 +87,7 @@
 #include "Auto Resolve.h"
 #include "Cursors.h"
 #include "GameVersion.h"
+#include "StrategicGroupHost.h"
 #include "TacticalWorldAdapter.h"
 
 #include "LuaInitNPCs.h"
@@ -157,7 +158,6 @@ extern BOOLEAN		gfGettingNameFromSaveLoadScreen; // symbol already declared glob
 
 INT16			gsAdjacentSectorX, gsAdjacentSectorY;
 INT8			gbAdjacentSectorZ;
-GROUP			*gpAdjacentGroup = NULL;
 UINT8			gubAdjacentJumpCode;
 UINT32		guiAdjacentTraverseTime;
 UINT8			gubTacticalDirection;
@@ -170,6 +170,16 @@ BOOLEAN		gfLoneEPCAttemptingTraversal = FALSE;
 BOOLEAN		gfRobotWithoutControllerAttemptingTraversal = FALSE;
 BOOLEAN		gubLoneMercAttemptingToAbandonEPCs = 0;
 SoldierID	gbPotentiallyAbandonedEPCSlotID = NOBODY;
+
+namespace
+{
+Ja2StrategicGroupReference gAdjacentGroup;
+}
+
+void ResetAdjacentStrategicGroupContext( void )
+{
+	gAdjacentGroup.reset();
+}
 
 INT8 gbGreenToElitePromotions = 0;
 INT8 gbGreenToRegPromotions = 0;
@@ -2606,7 +2616,7 @@ void PrepareLoadedSector( )
 		UnPauseGame( );
 	}
 
-	gpBattleGroup = NULL;
+	ResetPreBattleGroup();
 
 	if ( gfTacticalTraversal )
 	{
@@ -3835,7 +3845,11 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 
 	// Setup some globals so our callback that deals when guys go off screen is handled....
 	// Look in the handler function AllMercsHaveWalkedOffSector() below...
-	gpAdjacentGroup = pGroup;
+	if (!gAdjacentGroup.capture(pGroup))
+	{
+		gfInvalidTraversal = TRUE;
+		return;
+	}
 	gubAdjacentJumpCode = ubJumpCode;
 	guiAdjacentTraverseTime = uiTraverseTime;
 	gubTacticalDirection = ubTacticalDirection;
@@ -4081,6 +4095,14 @@ void AllMercsWalkedToExitGrid( )
 {
 	PLAYERGROUP *pPlayer;
 	BOOLEAN fDone;
+	GROUP* adjacentGroup = gAdjacentGroup.resolve();
+	if (!adjacentGroup)
+	{
+		gfTacticalTraversal = FALSE;
+		ResetTacticalTraversalContext();
+		ResetAdjacentStrategicGroupContext();
+		return;
+	}
 	// SANDRO was here.. made some tweaks, fixed some stuff
 	BOOLEAN fEnemiesInLoadedSector = FALSE;
 	if ( NumEnemiesInAnySector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) )
@@ -4092,7 +4114,7 @@ void AllMercsWalkedToExitGrid( )
 		// if all mercs leaving, morale gets hit
 		// if one merc only leaves, but there are others fighting on, don't reduce the morale
 		// if sector is about to be loaded and there are enemies in the current, then all mercs are leaving, so the morale gets hit
-		if ( (gubAdjacentJumpCode == JUMP_ALL_NO_LOAD && gpAdjacentGroup->ubGroupSize >= PlayerMercsInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, (UINT8)gbWorldSectorZ )) ||
+		if ( (gubAdjacentJumpCode == JUMP_ALL_NO_LOAD && adjacentGroup->ubGroupSize >= PlayerMercsInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, (UINT8)gbWorldSectorZ )) ||
 			 (gubAdjacentJumpCode == JUMP_SINGLE_NO_LOAD && PlayerMercsInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, (UINT8)gbWorldSectorZ ) <= 1) ||
 			 (gubAdjacentJumpCode == JUMP_ALL_LOAD_NEW || gubAdjacentJumpCode == JUMP_SINGLE_LOAD_NEW) )
 		{
@@ -4101,14 +4123,12 @@ void AllMercsWalkedToExitGrid( )
 		}
 		////////////////////////////////////////////////////////////////////////////////////////
 
-		HandlePotentialMoraleHitForSkimmingSectors( gpAdjacentGroup );
+		HandlePotentialMoraleHitForSkimmingSectors( adjacentGroup );
 	}
 
 	if ( gubAdjacentJumpCode == JUMP_ALL_NO_LOAD || gubAdjacentJumpCode == JUMP_SINGLE_NO_LOAD )
 	{
-		Assert( gpAdjacentGroup );
-		//pPlayer = gpAdjacentGroup->pPlayerList; // SANDRO - why was this here twice?
-		pPlayer = gpAdjacentGroup->pPlayerList;
+		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
 			/////////////////////////////////////////////////////////////////////////////////
@@ -4124,8 +4144,8 @@ void AllMercsWalkedToExitGrid( )
 			pPlayer = pPlayer->next;
 		}
 
-		SetGroupSectorValue( gsAdjacentSectorX, gsAdjacentSectorY, (INT16)gbAdjacentSectorZ, gpAdjacentGroup->ubGroupID );
-		AttemptToMergeSeparatedGroups( gpAdjacentGroup, FALSE );
+		SetGroupSectorValue( gsAdjacentSectorX, gsAdjacentSectorY, (INT16)gbAdjacentSectorZ, adjacentGroup->ubGroupID );
+		AttemptToMergeSeparatedGroups( adjacentGroup, FALSE );
 
 		SetDefaultSquadOnSectorEntry( TRUE );
 
@@ -4146,7 +4166,7 @@ void AllMercsWalkedToExitGrid( )
 		//to bring up the prebattle interface when we arrive if there are enemies there.  This flag
 		//ignores the initialization of the prebattle interface and clears the flag.
 		gfTacticalTraversal = TRUE;
-		CaptureTacticalTraversalGroup( gpAdjacentGroup );
+		CaptureTacticalTraversalGroup( adjacentGroup );
 
 		//Check for any unconcious and/or dead merc and remove them from the current squad, so that they
 		//don't get moved to the new sector.
@@ -4154,7 +4174,7 @@ void AllMercsWalkedToExitGrid( )
 		while ( !fDone )
 		{
 			fDone = FALSE;
-			pPlayer = gpAdjacentGroup->pPlayerList;
+			pPlayer = adjacentGroup->pPlayerList;
 			while ( pPlayer )
 			{
 				if ( pPlayer->pSoldier->stats.bLife < OKLIFE )
@@ -4172,8 +4192,7 @@ void AllMercsWalkedToExitGrid( )
 		}
 
 		// OK, Set insertion direction for all these guys....
-		Assert( gpAdjacentGroup );
-		pPlayer = gpAdjacentGroup->pPlayerList;
+		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
 			/////////////////////////////////////////////////////////////////////////////////
@@ -4186,8 +4205,8 @@ void AllMercsWalkedToExitGrid( )
 
 			pPlayer = pPlayer->next;
 		}
-		SetGroupSectorValue( gsAdjacentSectorX, gsAdjacentSectorY, (INT16)gbAdjacentSectorZ, gpAdjacentGroup->ubGroupID );
-		AttemptToMergeSeparatedGroups( gpAdjacentGroup, FALSE );
+		SetGroupSectorValue( gsAdjacentSectorX, gsAdjacentSectorY, (INT16)gbAdjacentSectorZ, adjacentGroup->ubGroupID );
+		AttemptToMergeSeparatedGroups( adjacentGroup, FALSE );
 
 		gFadeOutDoneCallback = DoneFadeOutExitGridSector;
 		FadeOutGameScreen( );
@@ -4201,6 +4220,7 @@ void AllMercsWalkedToExitGrid( )
 	{
 		gfTacticalTraversal = FALSE;
 		ResetTacticalTraversalContext();
+		ResetAdjacentStrategicGroupContext();
 	}
 }
 
@@ -4208,9 +4228,11 @@ void SetupTacticalTraversalInformation( )
 {
 	SOLDIERTYPE *pSoldier;
 	PLAYERGROUP *pPlayer;
+	GROUP* adjacentGroup = gAdjacentGroup.resolve();
+	if (!adjacentGroup)
+		return;
 
-	Assert( gpAdjacentGroup );
-	pPlayer = gpAdjacentGroup->pPlayerList;
+	pPlayer = adjacentGroup->pPlayerList;
 	while ( pPlayer )
 	{
 		pSoldier = pPlayer->pSoldier;
@@ -4239,6 +4261,7 @@ void SetupTacticalTraversalInformation( )
 	{
 		gfTacticalTraversal = FALSE;
 		ResetTacticalTraversalContext();
+		ResetAdjacentStrategicGroupContext();
 	}
 }
 
@@ -4248,6 +4271,14 @@ void AllMercsHaveWalkedOffSector( )
 
 	PLAYERGROUP *pPlayer;
 	BOOLEAN fEnemiesInLoadedSector = FALSE;
+	GROUP* adjacentGroup = gAdjacentGroup.resolve();
+	if (!adjacentGroup)
+	{
+		gfTacticalTraversal = FALSE;
+		ResetTacticalTraversalContext();
+		ResetAdjacentStrategicGroupContext();
+		return;
+	}
 
 	if ( NumEnemiesInAnySector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) )
 	{
@@ -4258,7 +4289,7 @@ void AllMercsHaveWalkedOffSector( )
 		// if all mercs leaving, morale gets hit
 		// if one merc only leaves, but there are others fighting on, don't reduce the morale
 		// if sector is about to be loaded and there are enemies in the current, then all mercs are leaving alway
-		if ( (gubAdjacentJumpCode == JUMP_ALL_NO_LOAD && gpAdjacentGroup->ubGroupSize >= PlayerMercsInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, (UINT8)gbWorldSectorZ )) ||
+		if ( (gubAdjacentJumpCode == JUMP_ALL_NO_LOAD && adjacentGroup->ubGroupSize >= PlayerMercsInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, (UINT8)gbWorldSectorZ )) ||
 			 (gubAdjacentJumpCode == JUMP_SINGLE_NO_LOAD && PlayerMercsInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, (UINT8)gbWorldSectorZ ) <= 1) ||
 			 (gubAdjacentJumpCode == JUMP_ALL_LOAD_NEW || gubAdjacentJumpCode == JUMP_SINGLE_LOAD_NEW) )
 		{
@@ -4272,15 +4303,15 @@ void AllMercsHaveWalkedOffSector( )
 	if ( guiAdjacentTraverseTime <= 5 )
 	{
 		gfTacticalTraversal = TRUE;
-		CaptureTacticalTraversalGroup( gpAdjacentGroup );
+		CaptureTacticalTraversalGroup( adjacentGroup );
 
 		if ( gbAdjacentSectorZ > 0 && guiAdjacentTraverseTime <= 5 )
 		{	//Nasty strategic movement logic doesn't like underground sectors!
 			gfUndergroundTacticalTraversal = TRUE;
 		}
 	}
-	ClearMercPathsAndWaypointsForAllInGroup( gpAdjacentGroup );
-	AddWaypointToPGroup( gpAdjacentGroup, (UINT8)gsAdjacentSectorX, (UINT8)gsAdjacentSectorY );
+	ClearMercPathsAndWaypointsForAllInGroup( adjacentGroup );
+	AddWaypointToPGroup( adjacentGroup, (UINT8)gsAdjacentSectorX, (UINT8)gsAdjacentSectorY );
 	if ( gbAdjacentSectorZ > 0 && guiAdjacentTraverseTime <= 5 )
 	{	//Nasty strategic movement logic doesn't like underground sectors!
 		gfUndergroundTacticalTraversal = TRUE;
@@ -4292,7 +4323,7 @@ void AllMercsHaveWalkedOffSector( )
 	if ( (gubAdjacentJumpCode == JUMP_ALL_NO_LOAD || gubAdjacentJumpCode == JUMP_SINGLE_NO_LOAD) )
 	{ //Case 1:  Group is leaving sector, but there are other mercs in sector and player wants to stay, or
 		//         there are other mercs in sector while a battle is in progress.
-		pPlayer = gpAdjacentGroup->pPlayerList;
+		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
 			/////////////////////////////////////////////////////////////////////////////////
@@ -4321,7 +4352,7 @@ void AllMercsHaveWalkedOffSector( )
 		{
 			/////////////////////////////////////////////////////////////////////////////////
 			// SANDRO - merc records - times retreated counter
-			pPlayer = gpAdjacentGroup->pPlayerList;
+			pPlayer = adjacentGroup->pPlayerList;
 			while ( pPlayer )
 			{
 				if ( fEnemiesInLoadedSector && pPlayer->pSoldier->ubProfile != NO_PROFILE )
@@ -4383,6 +4414,10 @@ void AllMercsHaveWalkedOffSector( )
 				SetMusicMode( MUSIC_TACTICAL_NOTHING );
 		}
 	}
+	if (gubAdjacentJumpCode == JUMP_ALL_NO_LOAD ||
+		gubAdjacentJumpCode == JUMP_SINGLE_NO_LOAD ||
+		guiAdjacentTraverseTime > 5)
+		ResetAdjacentStrategicGroupContext();
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "AllMercsHaveWalkedOffSector done" );
 }
 
@@ -4403,6 +4438,7 @@ void DoneFadeOutExitGridSector( )
 	}
 	gfTacticalTraversal = FALSE;
 	ResetTacticalTraversalContext();
+	ResetAdjacentStrategicGroupContext();
 	FadeInGameScreen( );
 }
 
@@ -4426,6 +4462,7 @@ void DoneFadeOutAdjacentSector( )
 	}
 	gfTacticalTraversal = FALSE;
 	ResetTacticalTraversalContext();
+	GROUP* adjacentGroup = gAdjacentGroup.resolve();
 
 	if ( gfCaves )
 	{
@@ -4436,7 +4473,7 @@ void DoneFadeOutAdjacentSector( )
 	}
 
 	// OK, give our guys new orders...
-	if ( gpAdjacentGroup->usGroupTeam == OUR_TEAM )
+	if ( adjacentGroup && adjacentGroup->usGroupTeam == OUR_TEAM )
 	{
 		//For player groups, update the soldier information
 		PLAYERGROUP *curr;
@@ -4444,7 +4481,7 @@ void DoneFadeOutAdjacentSector( )
 		INT32 sGridNo, sOldGridNo;
 		UINT8				ubNum = 0;
 		INT16 sWorldX, sWorldY;
-		curr = gpAdjacentGroup->pPlayerList;
+		curr = adjacentGroup->pPlayerList;
 		while ( curr )
 		{
 			if ( !(curr->pSoldier->flags.uiStatusFlags & SOLDIER_IS_TACTICALLY_VALID) )
@@ -4496,6 +4533,7 @@ void DoneFadeOutAdjacentSector( )
 		gfPathAroundObstacles = TRUE;
 
 	}
+	ResetAdjacentStrategicGroupContext();
 	FadeInGameScreen( );
 }
 

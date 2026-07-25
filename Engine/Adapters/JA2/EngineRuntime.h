@@ -10,6 +10,7 @@
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CommandReplay.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
+#include <Engine/Adapters/JA2/StrategicGroupDirectory.h>
 #include <Engine/Adapters/JA2/TacticalEntityDirectory.h>
 #include <Engine/Adapters/JA2/TacticalWorldItemDirectory.h>
 #include <Engine/Adapters/JA2/TacticalWorldSession.h>
@@ -75,6 +76,14 @@ public:
 	const CampaignClockService& campaignClockService() const { return campaignClockService_; }
 	CampaignEventQueue& campaignEventQueue() { return campaignEventQueue_; }
 	const CampaignEventQueue& campaignEventQueue() const { return campaignEventQueue_; }
+	StrategicGroupDirectory& strategicGroupDirectory()
+	{
+		return strategicGroupDirectory_;
+	}
+	const StrategicGroupDirectory& strategicGroupDirectory() const
+	{
+		return strategicGroupDirectory_;
+	}
 	TacticalEntityDirectory& tacticalEntityDirectory() { return tacticalEntityDirectory_; }
 	const TacticalEntityDirectory& tacticalEntityDirectory() const { return tacticalEntityDirectory_; }
 	TacticalWorldItemDirectory& tacticalWorldItemDirectory()
@@ -137,6 +146,7 @@ private:
 	CampaignClockScheduler campaignClockScheduler_;
 	CampaignClockSessionService campaignClockService_{campaignClockSession_};
 	CampaignEventQueue campaignEventQueue_;
+	StrategicGroupDirectory strategicGroupDirectory_;
 	TacticalEntityDirectory tacticalEntityDirectory_;
 	TacticalWorldItemDirectory tacticalWorldItemDirectory_;
 	TacticalWorldSession tacticalWorldSession_;

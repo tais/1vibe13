@@ -5,6 +5,7 @@
 #include <Engine/Adapters/JA2/CampaignEventQueue.h>
 #include <Engine/Adapters/JA2/CampaignEventService.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
+#include <Engine/Adapters/JA2/StrategicGroupDirectory.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultPublisher.h>
@@ -685,6 +686,52 @@ int main()
 		&legacyBraceRuntime.tacticalEntityDirectory() &&
 		legacyBraceRuntime.tacticalEntityDirectory().maximumSlots() >= 2048,
 		"EngineRuntime owns one stable bounded tactical entity directory");
+
+	StrategicGroupDirectory strategicGroupDirectory;
+	check(strategicGroupDirectory.activeCount() == 0 &&
+		strategicGroupDirectory.nextIncarnation() == 1 &&
+		!strategicGroupDirectory.identity(0).valid(),
+		"strategic-group directories reserve the legacy no-group ID and start empty");
+	const StrategicGroupId firstStrategicGroup =
+		strategicGroupDirectory.adopt(7);
+	check(firstStrategicGroup == (StrategicGroupId{7, 1}) &&
+		strategicGroupDirectory.contains(firstStrategicGroup) &&
+		strategicGroupDirectory.identity(7) == firstStrategicGroup &&
+		strategicGroupDirectory.activeCount() == 1 &&
+		!strategicGroupDirectory.adopt(7).valid(),
+		"strategic-group adoption publishes one exact reusable-ID incarnation");
+	check(strategicGroupDirectory.release(firstStrategicGroup) &&
+		!strategicGroupDirectory.contains(firstStrategicGroup) &&
+		strategicGroupDirectory.activeCount() == 0,
+		"strategic-group deletion retires its exact incarnation");
+	const StrategicGroupId replacementStrategicGroup =
+		strategicGroupDirectory.adopt(7);
+	check(replacementStrategicGroup == (StrategicGroupId{7, 2}) &&
+		!strategicGroupDirectory.contains(firstStrategicGroup) &&
+		!strategicGroupDirectory.release(firstStrategicGroup) &&
+		strategicGroupDirectory.contains(replacementStrategicGroup),
+		"reused strategic group IDs reject stale resolution and stale deletion");
+	strategicGroupDirectory.reset();
+	check(strategicGroupDirectory.activeCount() == 0 &&
+		strategicGroupDirectory.nextIncarnation() == 3 &&
+		!strategicGroupDirectory.identity(7).valid(),
+		"strategic-group reset clears liveness without rewinding identity");
+	strategicGroupDirectory.mergeNextIncarnation(1);
+	check(strategicGroupDirectory.nextIncarnation() == 3,
+		"strategic-group allocator merging cannot rewind into stale identities");
+	strategicGroupDirectory.mergeNextIncarnation(
+		std::numeric_limits<std::uint32_t>::max());
+	const StrategicGroupId finalStrategicGroup =
+		strategicGroupDirectory.adopt(8);
+	check(finalStrategicGroup ==
+			(StrategicGroupId{
+				8, std::numeric_limits<std::uint32_t>::max()}) &&
+		!strategicGroupDirectory.adopt(9).valid() &&
+		strategicGroupDirectory.nextIncarnation() == 0,
+		"strategic-group identity exhaustion fails closed instead of wrapping");
+	check(&legacyBraceRuntime.strategicGroupDirectory() ==
+		&legacyBraceRuntime.strategicGroupDirectory(),
+		"EngineRuntime owns one stable strategic-group directory");
 
 	TacticalWorldItemDirectory worldItemDirectory(3);
 	check(worldItemDirectory.maximumSlots() == 3 &&

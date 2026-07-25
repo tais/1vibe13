@@ -90,6 +90,7 @@
 #include "RuntimeReportHost.h"
 #include "RuntimeSaveState.h"
 #include "Simulation Commands.h"
+#include "StrategicGroupHost.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
@@ -107,6 +108,7 @@
 #include "Overhead.h"
 #include "Vehicles.h"
 #include "World Items.h"
+#include "Strategic Movement.h"
 #include "strategicmap.h"
 #include "MovementDestinationPolicy.h"
 #include "Rain.h"
@@ -4324,6 +4326,56 @@ int main( int, char** )
 		Menptr[1] = previousSwapTarget;
 		MercPtrs[1] = previousSwapTargetPointer;
 		RebuildJa2TacticalEntityDirectory();
+
+		RebuildJa2StrategicGroupDirectory();
+		UINT16 strategicGroupSlot = 255;
+		while (strategicGroupSlot > 0 &&
+			GetGroup(static_cast<UINT8>(strategicGroupSlot)))
+			--strategicGroupSlot;
+		CHECK(strategicGroupSlot > 0,
+			"headless strategic-group fixture finds one unused legacy ID");
+		GROUP strategicGroupFixture{};
+		strategicGroupFixture.ubGroupID =
+			static_cast<UINT8>(strategicGroupSlot);
+		GROUP* const previousStrategicGroupList = gpGroupList;
+		strategicGroupFixture.next = previousStrategicGroupList;
+		gpGroupList = &strategicGroupFixture;
+		const bool strategicGroupAdopted =
+			AdoptJa2StrategicGroup(strategicGroupFixture);
+		Ja2StrategicGroupReference delayedStrategicGroup;
+		const bool delayedStrategicGroupCaptured =
+			delayedStrategicGroup.capture(&strategicGroupFixture);
+		const bool preBattleGroupCaptured =
+			SetPreBattleGroup(&strategicGroupFixture) &&
+			ResolvePreBattleGroup() == &strategicGroupFixture;
+		const bool traversalGroupCaptured =
+			CaptureTacticalTraversalGroup(&strategicGroupFixture) &&
+			ResolveTacticalTraversalGroup() == &strategicGroupFixture;
+		const StrategicGroupId firstStrategicIdentity =
+			GetJa2StrategicGroupId(strategicGroupFixture.ubGroupID);
+		const bool strategicGroupReleased =
+			ReleaseJa2StrategicGroup(strategicGroupFixture);
+		const bool staleStrategicContextsRejected =
+			!delayedStrategicGroup.resolve() &&
+			!ResolvePreBattleGroup() &&
+			!ResolveTacticalTraversalGroup();
+		const bool strategicGroupReadopted =
+			AdoptJa2StrategicGroup(strategicGroupFixture);
+		const StrategicGroupId replacementStrategicIdentity =
+			GetJa2StrategicGroupId(strategicGroupFixture.ubGroupID);
+		CHECK(strategicGroupAdopted && delayedStrategicGroupCaptured &&
+			preBattleGroupCaptured && traversalGroupCaptured &&
+			firstStrategicIdentity.valid() && strategicGroupReleased &&
+			staleStrategicContextsRejected && strategicGroupReadopted &&
+			replacementStrategicIdentity.valid() &&
+			firstStrategicIdentity != replacementStrategicIdentity &&
+			!delayedStrategicGroup.resolve(),
+			"battle, traversal, and delayed strategic contexts reject reused group IDs");
+		ResetPreBattleGroup();
+		ResetTacticalTraversalContext();
+		(void)ReleaseJa2StrategicGroup(strategicGroupFixture);
+		gpGroupList = previousStrategicGroupList;
+		RebuildJa2StrategicGroupDirectory();
 
 		SetJa2TacticalWorldSector( 4, 5, 2 );
 		CHECK( CaptureJa2TacticalWorld().sector ==

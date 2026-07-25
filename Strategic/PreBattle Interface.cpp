@@ -41,6 +41,7 @@
 	#include "history.h"
 	#include "Cheats.h"
 	#include "Tactical Save.h"
+	#include "StrategicGroupHost.h"
 	#include "TacticalEntityHost.h"
 	#include "message.h"
 	#include "CampaignStats.h"				// added by Flugente
@@ -71,25 +72,46 @@ BOOLEAN gfTacticalTraversal = FALSE;
 
 namespace
 {
-UINT8 gTacticalTraversalGroupId = 0;
+Ja2StrategicGroupReference gPreBattleGroup;
+Ja2StrategicGroupReference gTacticalTraversalGroup;
 Ja2TacticalEntityReference gTacticalTraversalChosenSoldier;
+}
+
+BOOLEAN SetPreBattleGroup( GROUP *pGroup )
+{
+	if (!pGroup)
+	{
+		gPreBattleGroup.reset();
+		return TRUE;
+	}
+	return gPreBattleGroup.capture(pGroup) ? TRUE : FALSE;
+}
+
+GROUP *ResolvePreBattleGroup( void )
+{
+	return gPreBattleGroup.resolve();
+}
+
+BOOLEAN IsPreBattleGroup( const GROUP *pGroup )
+{
+	return pGroup && gPreBattleGroup.resolve() == pGroup
+		? TRUE : FALSE;
+}
+
+void ResetPreBattleGroup( void )
+{
+	gPreBattleGroup.reset();
 }
 
 BOOLEAN CaptureTacticalTraversalGroup( GROUP *pGroup )
 {
-	gTacticalTraversalGroupId = 0;
-	if (!pGroup || pGroup->ubGroupID == 0 ||
-		GetGroup(pGroup->ubGroupID) != pGroup)
-		return FALSE;
-
-	gTacticalTraversalGroupId = pGroup->ubGroupID;
-	return TRUE;
+	return gTacticalTraversalGroup.capture(pGroup)
+		? TRUE : FALSE;
 }
 
 GROUP *ResolveTacticalTraversalGroup( void )
 {
-	return gTacticalTraversalGroupId
-		? GetGroup(gTacticalTraversalGroupId) : NULL;
+	return gTacticalTraversalGroup.resolve();
 }
 
 BOOLEAN CaptureTacticalTraversalChosenSoldier( SOLDIERTYPE *pSoldier )
@@ -105,7 +127,7 @@ SOLDIERTYPE *ResolveTacticalTraversalChosenSoldier( void )
 
 void ResetTacticalTraversalContext( void )
 {
-	gTacticalTraversalGroupId = 0;
+	gTacticalTraversalGroup.reset();
 	gTacticalTraversalChosenSoldier.reset();
 }
 
@@ -156,8 +178,6 @@ UINT16 ubAllowedListHeight = 0;
 
 BOOLEAN gfDisplayPotentialRetreatPaths = FALSE;
 UINT16 gusRetreatButtonLeft, gusRetreatButtonTop, gusRetreatButtonRight, gusRetreatButtonBottom;
-
-GROUP *gpBattleGroup = NULL;
 
 void AutoResolveBattleCallback( GUI_BUTTON *btn, INT32 reason );
 void GoToSectorCallback( GUI_BUTTON *btn, INT32 reason );
@@ -398,7 +418,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		if( GetCurrentScreen() == AIVIEWER_SCREEN )
 		{
 			gfExitViewer = TRUE;
-			gpBattleGroup = pBattleGroup;
+			(void)SetPreBattleGroup(pBattleGroup);
 			gfEnteringMapScreen = TRUE;
 			gfEnteringMapScreenToEnterPreBattleInterface = TRUE;
 			gfUsePersistantPBI = TRUE;
@@ -412,7 +432,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		//if( GetCurrentScreen() == GAME_SCREEN && pBattleGroup )
 		if( GetCurrentScreen() == GAME_SCREEN && ( pBattleGroup || fPersistantPBI ) )
 		{
-			gpBattleGroup = pBattleGroup;
+			(void)SetPreBattleGroup(pBattleGroup);
 			gfEnteringMapScreen = TRUE;
 			gfEnteringMapScreenToEnterPreBattleInterface = TRUE;
 			gfUsePersistantPBI = TRUE;
@@ -435,14 +455,15 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 
 	}
 
-	gpBattleGroup = pBattleGroup;
+	(void)SetPreBattleGroup(pBattleGroup);
+	pBattleGroup = ResolvePreBattleGroup();
 
 	//calc sector values
-	if( gpBattleGroup )
+	if( pBattleGroup )
 	{
-		gubPBSectorX = gpBattleGroup->ubSectorX;
-		gubPBSectorY = gpBattleGroup->ubSectorY;
-		gubPBSectorZ = gpBattleGroup->ubSectorZ;
+		gubPBSectorX = pBattleGroup->ubSectorX;
+		gubPBSectorY = pBattleGroup->ubSectorY;
+		gubPBSectorZ = pBattleGroup->ubSectorZ;
 
 		fMapPanelDirty = TRUE;
 	}
@@ -652,8 +673,11 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 					//we set a flag which determines whether to use the singular help text or plural version
 					//for the retreat button.
 					ubGroupID = pSoldier->ubGroupID;
-					if( !gpBattleGroup )
-						gpBattleGroup = GetGroup( ubGroupID );
+					if( !pBattleGroup )
+					{
+						pBattleGroup = GetGroup( ubGroupID );
+						(void)SetPreBattleGroup(pBattleGroup);
+					}
 					//if( bBestExpLevel > pSoldier->stats.bExpLevel ) // SANDRO - WTF!! This is a bug!
 					if( bBestExpLevel < pSoldier->stats.bExpLevel ) // SANDRO - WTF!! This is a bug!
 						bBestExpLevel = pSoldier->stats.bExpLevel;
@@ -752,12 +776,12 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 				}
 			}
 		}
-		else if ( gpBattleGroup->usGroupTeam == OUR_TEAM )
+		else if ( pBattleGroup->usGroupTeam == OUR_TEAM )
 		{
 			if( GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE && GetEnemyEncounterCode() != ENTERING_BLOODCAT_LAIR_CODE )
 			{
 				// Flugente: if the group that causes a battle is a result of a merc no longer being concealed, special code
-				if ( gpBattleGroup->pPlayerList->pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
+				if ( pBattleGroup->pPlayerList->pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
 				{
 					SetEnemyEncounterCode( CONCEALINSERTION_CODE );
 				}
@@ -773,7 +797,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 					BOOLEAN encounteredTransportGroup = FALSE;
 					while (pGroup)
 					{
-						if (pGroup->usGroupTeam == ENEMY_TEAM && pGroup->pEnemyGroup->ubIntention == TRANSPORT && pGroup->ubSectorX == gpBattleGroup->ubSectorX && pGroup->ubSectorY == gpBattleGroup->ubSectorY && pGroup->ubSectorZ == gpBattleGroup->ubSectorZ)
+						if (pGroup->usGroupTeam == ENEMY_TEAM && pGroup->pEnemyGroup->ubIntention == TRANSPORT && pGroup->ubSectorX == pBattleGroup->ubSectorX && pGroup->ubSectorY == pBattleGroup->ubSectorY && pGroup->ubSectorZ == pBattleGroup->ubSectorZ)
 						{
 							encounteredTransportGroup = TRUE;
 							break;
@@ -1808,7 +1832,9 @@ void GoToSectorCallback( GUI_BUTTON *btn, INT32 reason )
 				return;
 			}
 
-			if ( gfPersistantPBI && gpBattleGroup && gpBattleGroup->usGroupTeam == OUR_TEAM &&
+			GROUP* battleGroup = ResolvePreBattleGroup();
+			if ( gfPersistantPBI && battleGroup &&
+				battleGroup->usGroupTeam == OUR_TEAM &&
 				GetEnemyEncounterCode() != ENEMY_AMBUSH_CODE &&
 				GetEnemyEncounterCode() != CREATURE_ATTACK_CODE &&
 				GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE &&
@@ -1842,11 +1868,11 @@ void GoToSectorCallback( GUI_BUTTON *btn, INT32 reason )
 				ClearMovementForAllInvolvedPlayerGroups( );
 			}
 			else
-			{ //Clear the battlegroup pointer.
-				gpBattleGroup = NULL;
+			{ //Clear the battlegroup identity.
+				ResetPreBattleGroup();
 			}
 
-			// must come AFTER anything that needs gpBattleGroup, as it wipes it out
+			// Must come after anything that needs the battle-group identity.
 			SetCurrentWorldSector( gubPBSectorX, gubPBSectorY, gubPBSectorZ );
 
 			KillPreBattleInterface();
@@ -1899,7 +1925,7 @@ void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason )
 			RefreshScreen( NULL );
 			KillPreBattleInterface();
 			StopTimeCompression();
-			gpBattleGroup = NULL;
+			ResetPreBattleGroup();
 			gfBlitBattleSectorLocator = FALSE;
 
 			SetMusicMode( MUSIC_TACTICAL_NOTHING );
@@ -2744,7 +2770,7 @@ void HandlePreBattleInterfaceStates()
 		}
 		else
 		{
-			InitPreBattleInterface( gpBattleGroup, TRUE );
+			InitPreBattleInterface( ResolvePreBattleGroup(), TRUE );
 		}
 	}
 	else if( gfDelayAutoResolveStart && gfPreBattleInterfaceActive )

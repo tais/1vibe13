@@ -619,12 +619,14 @@ BOOLEAN PrepareEnemyForSectorBattle()
 	if( gbWorldSectorZ > 0 )
 		return PrepareEnemyForUndergroundBattle();
 
+	GROUP* battleGroup = ResolvePreBattleGroup();
+
 	// Add the invading group
-	if ( gpBattleGroup && gpBattleGroup->usGroupTeam == ENEMY_TEAM )
+	if ( battleGroup && battleGroup->usGroupTeam == ENEMY_TEAM )
 	{
 		//The enemy has instigated the battle which means they are the ones entering the conflict.
 		//The player was actually in the sector first, and the enemy doesn't use reinforced placements
-		HandleArrivalOfReinforcements( gpBattleGroup );
+		HandleArrivalOfReinforcements( battleGroup );
 
 		// Reinforcement groups?  Bring it on!
 		// Omerta has a special setting
@@ -659,9 +661,9 @@ BOOLEAN PrepareEnemyForSectorBattle()
 			pGroup = gpGroupList;
 			while( pGroup )
 			{
-				if ( pGroup != gpBattleGroup && pGroup->usGroupTeam != OUR_TEAM && !pGroup->fVehicle &&
-					  pGroup->ubSectorX == gpBattleGroup->ubSectorX &&
-						pGroup->ubSectorY == gpBattleGroup->ubSectorY &&
+				if ( pGroup != battleGroup && pGroup->usGroupTeam != OUR_TEAM && !pGroup->fVehicle &&
+					  pGroup->ubSectorX == battleGroup->ubSectorX &&
+						pGroup->ubSectorY == battleGroup->ubSectorY &&
 						!pGroup->pEnemyGroup->ubAdminsInBattle &&
 						!pGroup->pEnemyGroup->ubTroopsInBattle &&
 						!pGroup->pEnemyGroup->ubElitesInBattle &&
@@ -691,7 +693,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 
 		ValidateEnemiesHaveWeapons();
 		UnPauseGame();
-		return ( ( BOOLEAN) ( gpBattleGroup->ubGroupSize > 0 ) );
+		return ( ( BOOLEAN) ( battleGroup->ubGroupSize > 0 ) );
 	}
 
 	// WDS Count the number of placements.  This will limit the maximum number of enemies we can place on the map

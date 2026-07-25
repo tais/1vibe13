@@ -134,7 +134,6 @@ BOOLEAN fLockOutMapScreenInterface = FALSE;
 extern INT32 giMercPanelImage;
 extern BOOLEAN fShowDescriptionFlag;
 extern BOOLEAN fInMapMode;
-extern GROUP *gpBattleGroup;
 
 CHAR16 gsCustomErrorString[ 128 ];
 

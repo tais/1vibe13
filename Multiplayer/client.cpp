@@ -2296,13 +2296,13 @@ void start_battle ( void )
 				}
 			}
 
-			extern BOOLEAN gfDedicatedServer;
-			if ( pSoldier != NULL )
+			GROUP* battleGroup = pSoldier
+				? GetGroup(pSoldier->ubGroupID) : NULL;
+			if ( battleGroup && SetPreBattleGroup(battleGroup) )
 			{
-				gpBattleGroup = GetGroup( pSoldier->ubGroupID );
-				gubPBSectorX = gpBattleGroup->ubSectorX;
-				gubPBSectorY = gpBattleGroup->ubSectorY;
-				gubPBSectorZ = gpBattleGroup->ubSectorZ;
+				gubPBSectorX = battleGroup->ubSectorX;
+				gubPBSectorY = battleGroup->ubSectorY;
+				gubPBSectorZ = battleGroup->ubSectorZ;
 				gfEnterTacticalPlacementGUI = 1;
 			}
 			else
@@ -2310,7 +2310,7 @@ void start_battle ( void )
 				// Dedicated/non-playing host: no mercs of our own. The battle
 				// sector is the shared MP arrival sector; we load it as the world
 				// authority but have nothing to place ourselves.
-				gpBattleGroup = NULL;
+				ResetPreBattleGroup();
 				gubPBSectorX = gsMercArriveSectorX;
 				gubPBSectorY = gsMercArriveSectorY;
 				gubPBSectorZ = 0;
@@ -2939,14 +2939,22 @@ void overide_callback( UINT8 ubResult )
 			SOLDIERTYPE *pSoldier = MercPtrs[ 0 ];
 			UINT8 ubGroupID = pSoldier->ubGroupID;
 
-			GROUP *pGroup;
-			pGroup = GetGroup( ubGroupID ); 
-			gpBattleGroup = pGroup;
-			gubPBSectorX = gpBattleGroup->ubSectorX;
-			gubPBSectorY = gpBattleGroup->ubSectorY;
-			gubPBSectorZ = gpBattleGroup->ubSectorZ;
-
-			gfEnterTacticalPlacementGUI = 1;
+			GROUP *pGroup = GetGroup( ubGroupID );
+			if (pGroup && SetPreBattleGroup(pGroup))
+			{
+				gubPBSectorX = pGroup->ubSectorX;
+				gubPBSectorY = pGroup->ubSectorY;
+				gubPBSectorZ = pGroup->ubSectorZ;
+				gfEnterTacticalPlacementGUI = 1;
+			}
+			else
+			{
+				ResetPreBattleGroup();
+				gubPBSectorX = gsMercArriveSectorX;
+				gubPBSectorY = gsMercArriveSectorY;
+				gubPBSectorZ = 0;
+				gfEnterTacticalPlacementGUI = 0;
+			}
 			goahead=1;
 			readystage=1;
 			ready_struct info; //send
