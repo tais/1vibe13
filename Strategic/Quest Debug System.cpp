@@ -502,7 +502,6 @@ extern			BOOLEAN			gfFacePanelActive;
 BOOLEAN			gfAddNpcToTeam=FALSE;
 BOOLEAN			gfRpcToSaySectorDesc=FALSE;
 BOOLEAN			gfNpcPanelIsUsedForTalkingMerc=FALSE;
-extern			SOLDIERTYPE * gpDestSoldier;
 
 BOOLEAN			gfBackgroundMaskEnabled=FALSE;
 
@@ -3900,7 +3899,8 @@ void SetQDSMercProfile()
 			gfNpcPanelIsUsedForTalkingMerc = TRUE;
 
 			InternalInitTalkingMenu( gTalkingMercSoldier->ubProfile, 10, 10 );
-			gpDestSoldier = &Menptr[21];
+			(void)SetDialogueDestinationSoldier(
+				gTalkingMercSoldier);
 		}
 	}
 }

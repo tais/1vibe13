@@ -47,6 +47,12 @@ typedef struct
 // GLOBAL NPC STRUCT
 extern NPC_DIALOGUE_TYPE		gTalkPanel;
 
+// Conversation participants are reusable SOLDIERTYPE slots. Resolve them
+// through the stable tactical-entity directory each time delayed dialogue or
+// quest work resumes.
+SOLDIERTYPE* GetDialogueSourceSoldier( void );
+SOLDIERTYPE* GetDialogueDestinationSoldier( void );
+BOOLEAN SetDialogueDestinationSoldier( SOLDIERTYPE *pSoldier );
 
 
 // uiApproachData is pointer-wide: APPROACH_GIVINGITEM passes an OBJECTTYPE*

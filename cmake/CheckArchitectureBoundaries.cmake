@@ -306,6 +306,27 @@ foreach(delayed_actor_callback_file IN LISTS delayed_actor_callback_files)
   endif()
 endforeach()
 
+# The active and modal dialogue session likewise resolves exact actor
+# incarnations. Quest facts and the quest-debug panel may use only the public
+# resolving accessors, never resurrect the former raw participant globals.
+set(active_dialogue_actor_files
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/interface Dialogue.h"
+  "${SOURCE_ROOT}/Strategic/Quests.cpp"
+  "${SOURCE_ROOT}/Strategic/Quest Debug System.cpp")
+foreach(active_dialogue_actor_file IN LISTS active_dialogue_actor_files)
+  file(READ "${active_dialogue_actor_file}"
+    active_dialogue_actor_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(gpSrcSoldier|gpDestSoldier)([^A-Za-z0-9_]|$)"
+    raw_dialogue_session_actor
+    "${active_dialogue_actor_contents}")
+  if(raw_dialogue_session_actor)
+    message(FATAL_ERROR
+      "Dialogue session retains a raw SOLDIERTYPE global in ${active_dialogue_actor_file}")
+  endif()
+endforeach()
+
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
 # deterministic command boundary. Internal weapon compatibility corrections,
 # AI retaliation, attachment changes, and the existing multi-merc bulk reload

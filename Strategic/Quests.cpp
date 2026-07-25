@@ -47,9 +47,6 @@
 
 #define TESTQUESTS
 
-extern SOLDIERTYPE * gpSrcSoldier;
-extern SOLDIERTYPE * gpDestSoldier;
-
 UINT8 gubQuest[MAX_QUESTS];
 UINT8 gubFact[ NUM_FACTS ]; // this has to be updated when we figure out how many facts we have
 
@@ -422,44 +419,60 @@ BOOLEAN PCInSameRoom( UINT8 ubProfileID )
 
 BOOLEAN CheckTalkerStrong( void )
 {
-	if (gpSrcSoldier && gpSrcSoldier->bTeam == gbPlayerNum)
+	SOLDIERTYPE* source = GetDialogueSourceSoldier();
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
+	if (source && source->bTeam == gbPlayerNum)
 	{
-		return( gpSrcSoldier->stats.bStrength >= 84 );
+		return( source->stats.bStrength >= 84 );
 	}
-	else if (gpDestSoldier && gpDestSoldier->bTeam == gbPlayerNum)
+	else if (destination &&
+		destination->bTeam == gbPlayerNum)
 	{
-		return( gpDestSoldier->stats.bStrength >= 84 );
+		return( destination->stats.bStrength >= 84 );
 	}
 	return( FALSE );
 }
 
 BOOLEAN CheckTalkerFemale( void )
 {
-	if (gpSrcSoldier && gpSrcSoldier->bTeam == gbPlayerNum && gpSrcSoldier->ubProfile != NO_PROFILE)
+	SOLDIERTYPE* source = GetDialogueSourceSoldier();
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
+	if (source && source->bTeam == gbPlayerNum &&
+		source->ubProfile != NO_PROFILE)
 	{
-		return( gMercProfiles[ gpSrcSoldier->ubProfile ].bSex == FEMALE );
+		return( gMercProfiles[ source->ubProfile ].bSex == FEMALE );
 	}
-	else if (gpDestSoldier && gpDestSoldier->bTeam == gbPlayerNum && gpDestSoldier->ubProfile != NO_PROFILE)
+	else if (destination &&
+		destination->bTeam == gbPlayerNum &&
+		destination->ubProfile != NO_PROFILE)
 	{
-		return( gMercProfiles[ gpDestSoldier->ubProfile ].bSex == FEMALE );
+		return( gMercProfiles[ destination->ubProfile ].bSex == FEMALE );
 	}
 	return( FALSE );
 }
 
 BOOLEAN CheckTalkerUnpropositionedFemale( void )
 {
-	if (gpSrcSoldier && gpSrcSoldier->bTeam == gbPlayerNum && gpSrcSoldier->ubProfile != NO_PROFILE)
+	SOLDIERTYPE* source = GetDialogueSourceSoldier();
+	SOLDIERTYPE* destination =
+		GetDialogueDestinationSoldier();
+	if (source && source->bTeam == gbPlayerNum &&
+		source->ubProfile != NO_PROFILE)
 	{
-		if ( !(gMercProfiles[ gpSrcSoldier->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
+		if ( !(gMercProfiles[ source->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
 		{
-			return( gMercProfiles[ gpSrcSoldier->ubProfile ].bSex == FEMALE );
+			return( gMercProfiles[ source->ubProfile ].bSex == FEMALE );
 		}
 	}
-	else if (gpDestSoldier && gpDestSoldier->bTeam == gbPlayerNum && gpDestSoldier->ubProfile != NO_PROFILE)
+	else if (destination &&
+		destination->bTeam == gbPlayerNum &&
+		destination->ubProfile != NO_PROFILE)
 	{
-		if ( !(gMercProfiles[ gpDestSoldier->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
+		if ( !(gMercProfiles[ destination->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
 		{
-			return( gMercProfiles[ gpDestSoldier->ubProfile ].bSex == FEMALE );
+			return( gMercProfiles[ destination->ubProfile ].bSex == FEMALE );
 		}
 	}
 	return( FALSE );
@@ -899,8 +912,12 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			gubFact[usFact] = ( ( gMercProfiles[ SLAY ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) && ( gMercProfiles[ SLAY ].usTotalDaysServed > 1 ) );
 			break;
 		case FACT_SHANK_IN_SQUAD_BUT_NOT_SPEAKING:
-			gubFact[usFact] = ( ( FindSoldierByProfileID( SHANK, TRUE ) != NULL) && ( gMercProfiles[ SHANK ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) && ( gpSrcSoldier == NULL || gpSrcSoldier->ubProfile != SHANK ) );
+		{
+			SOLDIERTYPE* dialogueSource =
+				GetDialogueSourceSoldier();
+			gubFact[usFact] = ( ( FindSoldierByProfileID( SHANK, TRUE ) != NULL) && ( gMercProfiles[ SHANK ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) && ( dialogueSource == NULL || dialogueSource->ubProfile != SHANK ) );
 			break;
+		}
 		case FACT_SHANK_NOT_IN_SECTOR:
 			gubFact[usFact] = ( FindSoldierByProfileID( SHANK, FALSE ) == NULL );
 			break;
@@ -937,8 +954,12 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			gubFact[usFact] = ( gMercProfiles[ DYNAMO ].bMercStatus != MERC_IS_DEAD );
 			break;
 		case FACT_DYNAMO_SPEAKING_OR_NEARBY:
-			gubFact[usFact] = ( gpSrcSoldier != NULL && (gpSrcSoldier->ubProfile == DYNAMO || ( CheckNPCWithin( gpSrcSoldier->ubProfile, DYNAMO, 10 ) && CheckGuyVisible( gpSrcSoldier->ubProfile, DYNAMO ) ) ) );
+		{
+			SOLDIERTYPE* dialogueSource =
+				GetDialogueSourceSoldier();
+			gubFact[usFact] = ( dialogueSource != NULL && (dialogueSource->ubProfile == DYNAMO || ( CheckNPCWithin( dialogueSource->ubProfile, DYNAMO, 10 ) && CheckGuyVisible( dialogueSource->ubProfile, DYNAMO ) ) ) );
 			break;
+		}
 		case FACT_JOHN_EPC:
 			gubFact[usFact] = CheckNPCIsEPC( JOHN );
 			break;
@@ -1043,8 +1064,14 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_SPEAKER_AIM_OR_AIM_NEARBY:
-			gubFact[usFact] = gpDestSoldier && AIMMercWithin( gpDestSoldier->sGridNo, 10 );
+		{
+			SOLDIERTYPE* dialogueDestination =
+				GetDialogueDestinationSoldier();
+			gubFact[usFact] = dialogueDestination &&
+				AIMMercWithin(
+					dialogueDestination->sGridNo, 10 );
 			break;
+		}
 
 		case FACT_MALE_SPEAKING_FEMALE_PRESENT:
 			gubFact[usFact] = ( !CheckTalkerFemale() && FemalePresent( ubProfileID ) );
@@ -1162,8 +1189,12 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_PC_HAS_CONRADS_RECRUIT_OPINION:
-			gubFact[usFact] = ( gpDestSoldier && (CalcDesireToTalk( gpDestSoldier->ubProfile, gubSrcSoldierProfile, APPROACH_RECRUIT ) >= 50) );
+		{
+			SOLDIERTYPE* dialogueDestination =
+				GetDialogueDestinationSoldier();
+			gubFact[usFact] = ( dialogueDestination && (CalcDesireToTalk( dialogueDestination->ubProfile, gubSrcSoldierProfile, APPROACH_RECRUIT ) >= 50) );
 			break;
+		}
 
 		case FACT_NPC_HOSTILE_OR_PISSED_OFF:
 			gubFact[usFact] = CheckNPCIsEnemy( ubProfileID ) || (gMercProfiles[ ubProfileID ].ubMiscFlags3 & PROFILE_MISC_FLAG3_NPC_PISSED_OFF);
@@ -1175,8 +1206,12 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_SHANK_SPEAKING:
-			gubFact[usFact] = ( gpSrcSoldier && gpSrcSoldier->ubProfile == SHANK );
+		{
+			SOLDIERTYPE* dialogueSource =
+				GetDialogueSourceSoldier();
+			gubFact[usFact] = ( dialogueSource && dialogueSource->ubProfile == SHANK );
 			break;
+		}
 
 		case FACT_ROCKET_RIFLE_EXISTS:
 			gubFact[usFact] = ItemTypeExistsAtLocation( gModSettings.sRocketRifleGridNo, ROCKET_RIFLE, 0, NULL );
@@ -1299,8 +1334,12 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_DYNAMO_NOT_SPEAKER:
-			gubFact[usFact] = !( gpSrcSoldier != NULL && (gpSrcSoldier->ubProfile == DYNAMO ) );
+		{
+			SOLDIERTYPE* dialogueSource =
+				GetDialogueSourceSoldier();
+			gubFact[usFact] = !( dialogueSource != NULL && (dialogueSource->ubProfile == DYNAMO ) );
 			break;
+		}
 
 		case FACT_PABLO_BRIBED:
 			gubFact[usFact] = !CheckFact( FACT_PABLOS_BRIBED, ubProfileID );
