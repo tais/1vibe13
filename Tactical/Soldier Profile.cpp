@@ -26,6 +26,7 @@
 	#include "GameSettings.h"
 	#include "strategic town reputation.h"
 	#include "Interface Utils.h"
+	#include "TacticalInventoryUiHost.h"
 	#include "Game Event Hook.h"
 	#include "Map Information.h"
 	#include "history.h"
@@ -232,7 +233,6 @@ INT16 CalcMedicalDeposit( MERCPROFILESTRUCT * pProfile );
 extern void HandleEndDemoInCreatureLevel( );
 void DecideActiveTerrorists( void );
 
-extern SOLDIERTYPE			*gpSMCurrentMerc;
 extern BOOLEAN	gfRerenderInterfaceFromHelpText;
 
 BOOLEAN LoadNewSystemMercsToSaveGameFile( HWFILE hFile )
@@ -1729,7 +1729,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 	// AT the low level check if this poor guy is in inv panel, else
 	// remove....
-	if ( gsCurInterfacePanel == SM_PANEL && gpSMCurrentMerc == pSoldier )
+	if ( gsCurInterfacePanel == SM_PANEL && GetSMCurrentMerc() == pSoldier )
 	{
 		// Switch....
 		SetCurrentInterfacePanel( TEAM_PANEL );

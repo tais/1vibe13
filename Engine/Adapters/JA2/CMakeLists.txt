@@ -19,6 +19,7 @@ set(ja2_runtime_adapter_public_headers
   TacticalCommandResultPublisher.h
   TacticalEntity.h
   TacticalEntityDirectory.h
+  TacticalInventoryUiSession.h
   TacticalWorldItem.h
   TacticalWorldItemDirectory.h
   TacticalWorldDelta.h
@@ -44,6 +45,7 @@ add_library(ja2_runtime_adapter STATIC
   TacticalCommandResultCodec.cpp
   TacticalCommandResultPublisher.cpp
   TacticalEntityDirectory.cpp
+  TacticalInventoryUiSession.cpp
   TacticalWorldItemDirectory.cpp
   TacticalWorldDelta.cpp
   TacticalWorldDeltaCodec.cpp

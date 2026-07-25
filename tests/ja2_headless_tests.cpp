@@ -93,6 +93,7 @@
 #include "StrategicGroupHost.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
+#include "TacticalInventoryUiHost.h"
 #include "TacticalWorldItemHost.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
@@ -4274,6 +4275,16 @@ int main( int, char** )
 		Ja2TacticalEntityReference releasedCallbackActor;
 		const bool releasedCallbackCaptured =
 			releasedCallbackActor.capture( &Menptr[0] );
+		ResetTacticalInventoryUiActorContexts();
+		const bool inventoryUiActorsCaptured =
+			SetSMCurrentMerc( &Menptr[0] ) &&
+			SetItemPointerSoldier( &Menptr[0] ) &&
+			SetItemDescSoldier( &Menptr[0] ) &&
+			SetAttachSoldier( &Menptr[0] ) &&
+			SetItemPopupSoldier( &Menptr[0] ) &&
+			SetItemPickupActor( &Menptr[0] ) &&
+			SetItemPickupOpponent( &Menptr[0] ) &&
+			GetJa2TacticalInventoryUiSession().actorContextCount() == 7;
 		const bool callbackActorReleased =
 			ReleaseJa2TacticalEntity( Menptr[0] );
 		const bool releasedCallbackRejected =
@@ -4284,6 +4295,33 @@ int main( int, char** )
 			GetContractRehireSoldier() == nullptr;
 		const bool releasedTraversalActorRejected =
 			ResolveTacticalTraversalChosenSoldier() == nullptr;
+		const bool releasedInventoryUiActorsRejected =
+			HasJa2TacticalInventoryActorContext(
+				TacticalInventoryActorRole::SelectedMerc) &&
+			HasJa2TacticalInventoryActorContext(
+				TacticalInventoryActorRole::PickupActor) &&
+			!GetSMCurrentMerc() &&
+			!GetItemPointerSoldier() &&
+			!GetItemDescSoldier() &&
+			!GetAttachSoldier() &&
+			!GetItemPopupSoldier() &&
+			!GetItemPickupActor() &&
+			!GetItemPickupOpponent();
+		Menptr[0].uiUniqueSoldierIdValue = 703;
+		const bool replacementInventoryActorAdopted =
+			AdoptJa2TacticalEntity( Menptr[0] );
+		const bool replacementInventoryActorRejected =
+			!GetSMCurrentMerc() &&
+			!GetItemPointerSoldier() &&
+			!GetItemDescSoldier() &&
+			!GetAttachSoldier() &&
+			!GetItemPopupSoldier() &&
+			!GetItemPickupActor() &&
+			!GetItemPickupOpponent();
+		const bool replacementInventoryActorReleased =
+			ReleaseJa2TacticalEntity( Menptr[0] );
+		ResetTacticalInventoryUiActorContexts();
+		Menptr[0].uiUniqueSoldierIdValue = 701;
 		ResetMercContractActorContexts();
 		ResetTacticalTraversalContext();
 		const bool callbackActorReadopted =
@@ -4299,8 +4337,13 @@ int main( int, char** )
 		       releasedContractRehireRejected &&
 		       traversalActorCaptured &&
 		       releasedTraversalActorRejected &&
+		       inventoryUiActorsCaptured &&
+		       releasedInventoryUiActorsRejected &&
+		       replacementInventoryActorAdopted &&
+		       replacementInventoryActorRejected &&
+		       replacementInventoryActorReleased &&
 		       callbackActorReadopted,
-		       "delayed callbacks, dialogue, contracts, and traversal reject released actor incarnations" );
+		       "delayed callbacks and inventory UI roles reject released and reused actor incarnations" );
 		SOLDIERTYPE* const previousSwapTargetPointer = MercPtrs[1];
 		const SOLDIERTYPE previousSwapTarget = Menptr[1];
 		Menptr[1] = Menptr[0];

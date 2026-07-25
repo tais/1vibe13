@@ -181,6 +181,14 @@ payload. This identity boundary therefore changes neither installed game data
 nor map, save, or temporary-item formats. Peer-interaction identity is likewise
 runtime-only and does not add fields to serialized soldiers.
 
+Every `EngineRuntime` also owns one `TacticalInventoryUiSession`. It is a
+pointer-free table of `TacticalInventoryActorRole` to `TacticalEntityId` for
+application inventory panels and modal children. Hosts can set, query, clear,
+count, or reset these value-only roles without importing `SOLDIERTYPE`.
+Resolution and stale-modal cancellation remain responsibilities of the JA2
+application adapter, so this SDK type grants neither inventory mutation nor UI
+control and changes no game-data or persistence format.
+
 The command journal has one current wire layout. It retains a version field so
 a genuinely published format can evolve later, but unsupported versions are
 rejected rather than supported speculatively.

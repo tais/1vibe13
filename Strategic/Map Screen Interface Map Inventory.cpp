@@ -196,7 +196,7 @@ std::vector<WORLDITEM> pInventoryPoolList;
 INT32 iCurrentInventoryPoolPage = 0;
 INT32 iLastInventoryPoolPage = 0;
 
-INT32 sObjectSourceGridNo = -1;//shadooow: I don't see much of a sense in this, we have gpItemPointerSoldier and we can use gpItemPointerSoldier->sGridNo to do this, this is actually unused
+INT32 sObjectSourceGridNo = -1;//shadooow: I don't see much of a sense in this, we have GetItemPointerSoldier() and we can use GetItemPointerSoldier()->sGridNo to do this, this is actually unused
 SoldierID  sObjectSourseSoldierID = NOBODY;
 
 // number of unseen items in sector
@@ -1432,6 +1432,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 
 							PlayJA2Sample( COMPUTER_BEEP2_IN, RATE_11025, 15, 1, MIDDLEPAN );
 							gpItemPointer = NULL;
+							(void)SetItemPointerSoldier(NULL);
 							fMapInventoryItem = FALSE;
 
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szSMilitiaResourceText[0], Item[usItem].szItemName );
@@ -1755,10 +1756,10 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 					INT8 bLevel = 0;
 
 					// is this sector loaded?
-					if (gpItemPointerSoldier && (gpItemPointerSoldier->sSectorX == gWorldSectorX) && (gpItemPointerSoldier->sSectorY == gWorldSectorY) && (gpItemPointerSoldier->bSectorZ == gbWorldSectorZ))
+					if (GetItemPointerSoldier() && (GetItemPointerSoldier()->sSectorX == gWorldSectorX) && (GetItemPointerSoldier()->sSectorY == gWorldSectorY) && (GetItemPointerSoldier()->bSectorZ == gbWorldSectorZ))
 					{
-						sGridNo = gpItemPointerSoldier->sGridNo;
-						bLevel = gpItemPointerSoldier->pathing.bLevel;
+						sGridNo = GetItemPointerSoldier()->sGridNo;
+						bLevel = GetItemPointerSoldier()->pathing.bLevel;
 					}
 					// set a grid no for item from mercs with invalid grid no in sector inventory, e.g. merc arriving in sector with a different tactical map loaded
 					if (sGridNo != 0)
@@ -2548,6 +2549,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 					fInterfacePanelDirty = DIRTYLEVEL2;
 					fMapInventoryItem = FALSE;
 					gpItemPointer = NULL;
+					(void)SetItemPointerSoldier(NULL);
 				}
 				else 
 				{
@@ -2561,10 +2563,11 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 						fInterfacePanelDirty = DIRTYLEVEL2;
 						fMapInventoryItem = FALSE;
 						gpItemPointer = NULL;
+						(void)SetItemPointerSoldier(NULL);
 					}
 					else // pick item up to indicate no more room for autoplace
 					{
-						gpItemPointerSoldier = NULL;
+						(void)SetItemPointerSoldier(NULL);
 
 						// now set the cursor
 						guiExternVo = GetInterfaceGraphicForItem( &(Item[ gpItemPointer->usItem ]) );
@@ -2591,6 +2594,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 			INT32 iPrice = SellItem( gItemPointer, TRUE );
 			PlayJA2Sample( COMPUTER_BEEP2_IN, RATE_11025, 15, 1, MIDDLEPAN );
 			gpItemPointer = NULL;
+			(void)SetItemPointerSoldier(NULL);
 			fMapInventoryItem = FALSE;
 			if ( _KeyDown( 89 ) ) //Lalien: sell all items of this type on Alt+Y
 			{
@@ -2632,7 +2636,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 		}
 		else
 		{
-			gpItemPointerSoldier = NULL;
+			(void)SetItemPointerSoldier(NULL);
 
 			// now set the cursor
 			guiExternVo = GetInterfaceGraphicForItem( &(Item[ gpItemPointer->usItem ]) );

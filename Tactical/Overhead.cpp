@@ -638,6 +638,7 @@ BOOLEAN InitTacticalEngine( )
 
 void ShutdownTacticalEngine( )
 {
+    ResetTacticalInventoryUiActorContexts();
     DeletePaletteData( );
     ShutdownStaticExternalNPCFaces( );
     ShutDownPathAI();
@@ -651,6 +652,7 @@ BOOLEAN InitOverhead( )
     UINT32  cnt;
 
     ResetJa2TacticalEntityDirectory();
+    ResetTacticalInventoryUiActorContexts();
 
     // Set pointers list
     for( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
@@ -782,7 +784,7 @@ BOOLEAN InitOverhead( )
 
     // Reset cursor
     gpItemPointer = NULL;
-    gpItemPointerSoldier = NULL;
+    (void)SetItemPointerSoldier(NULL);
     memset( gbInvalidPlacementSlot, 0, sizeof( gbInvalidPlacementSlot ) );
 
     InitCivQuoteSystem( );

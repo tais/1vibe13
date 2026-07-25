@@ -114,7 +114,6 @@ extern BOOLEAN fIgnoreLeftUp;
 extern UINT32	guiCurrentEvent;
 extern UINT8	gubIntTileCheckFlags;
 extern UINT32	guiCurrentUICursor;
-extern SOLDIERTYPE *gpSMCurrentMerc;
 extern INT32 gsOverItemsGridNo;
 extern INT16 gsOverItemsLevel;
 extern BOOLEAN	gfUIShowExitSouth;
@@ -2568,7 +2567,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					if ( gsCurInterfacePanel == SM_PANEL )
 					{
 						// Remember soldier's new value
-						gpSMCurrentMerc->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
+						GetSMCurrentMerc()->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
 					}
 				}
 				break;
@@ -6522,7 +6521,7 @@ void ToggleStealthMode( SOLDIERTYPE *pSoldier )
 			return;
 
 		// ATE: Toggle stealth
-		if ( gpSMCurrentMerc != NULL && pSoldier->ubID == gpSMCurrentMerc->ubID )
+		if ( GetSMCurrentMerc() != NULL && pSoldier->ubID == GetSMCurrentMerc()->ubID )
 		{
 			gfUIStanceDifferent = TRUE;
 		}
@@ -7783,7 +7782,7 @@ void HandleTBToggleStealthAll( void )
 		pTeamSoldier = bLoop;
 		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad( ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
-			if ( gpSMCurrentMerc != NULL && bLoop == gpSMCurrentMerc->ubID )
+			if ( GetSMCurrentMerc() != NULL && bLoop == GetSMCurrentMerc()->ubID )
 				gfUIStanceDifferent = TRUE;
 			pTeamSoldier->bStealthMode = fStealthOn;
 		}
@@ -8375,7 +8374,7 @@ void HandleTBLevelDown(void)
 		if (gsCurInterfacePanel == SM_PANEL)
 		{
 			// Remember soldier's new value
-			gpSMCurrentMerc->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
+			GetSMCurrentMerc()->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
 		}
 	}
 }
@@ -8391,7 +8390,7 @@ void HandleTBLevelUp(void)
 		if (gsCurInterfacePanel == SM_PANEL)
 		{
 			// Remember soldier's new value
-			gpSMCurrentMerc->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
+			GetSMCurrentMerc()->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
 		}
 	}
 }

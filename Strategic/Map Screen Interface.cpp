@@ -2500,7 +2500,7 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 	}
 
 	// if showing sector inventory, and the item came from there
-	if ( fShowMapInventoryPool && !gpItemPointerSoldier && fMapInventoryItem )
+	if ( fShowMapInventoryPool && !GetItemPointerSoldier() && fMapInventoryItem )
 	{
 		// disallow passing items to anyone not in that sector
 		if ( pNewSoldier->sSectorX != sSelMapX ||
@@ -2518,9 +2518,9 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 
 
 	// if we know who it came from
-	if ( gpItemPointerSoldier )
+	if ( GetItemPointerSoldier() )
 	{
-		pOldSoldier = gpItemPointerSoldier;
+		pOldSoldier = GetItemPointerSoldier();
 	}
 	else
 	{

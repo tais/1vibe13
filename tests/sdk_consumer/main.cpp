@@ -8,6 +8,7 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
+#include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
@@ -194,6 +195,18 @@ int main()
 		!legacyBraceRuntime.strategicGroupDirectory().release(
 			externalStrategicGroup))
 		return 58;
+	const TacticalEntityId externalInventoryActor{3, 0x01020304u};
+	if (!legacyBraceRuntime.tacticalInventoryUiSession().setActor(
+			TacticalInventoryActorRole::SelectedMerc,
+			externalInventoryActor) ||
+		legacyBraceRuntime.tacticalInventoryUiSession().actor(
+			TacticalInventoryActorRole::SelectedMerc) !=
+			externalInventoryActor ||
+		legacyBraceRuntime.tacticalInventoryUiSession().actorContextCount() != 1)
+		return 59;
+	legacyBraceRuntime.tacticalInventoryUiSession().reset();
+	if (legacyBraceRuntime.tacticalInventoryUiSession().actorContextCount() != 0)
+		return 59;
 	CampaignClockSession externalCampaignClock;
 	externalCampaignClock.initialize(90061);
 	externalCampaignClock.advanceUncommitted(60);
