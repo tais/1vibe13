@@ -20,8 +20,9 @@ extern BOOLEAN gfTacticalPlacementGUIActive;
 extern BOOLEAN gfEnterTacticalPlacementGUI;
 extern BOOLEAN gfTacticalPlacementGUIDirty;//dnl ch45 071009
 
-extern SOLDIERTYPE *gpTacticalPlacementSelectedSoldier;
-extern SOLDIERTYPE *gpTacticalPlacementHilightedSoldier;
+BOOLEAN IsTacticalPlacementSelectedSoldier( const SOLDIERTYPE *pSoldier );
+BOOLEAN IsTacticalPlacementHighlightedSoldier( const SOLDIERTYPE *pSoldier );
+void ResetTacticalPlacementActorContexts( void );
 
 //Saved value.	Contains the last choice for future battles.
 extern UINT8	gubDefaultButton;

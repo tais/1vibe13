@@ -8051,6 +8051,10 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	// Message-box callbacks are not serialized. Drop their process-local actor
 	// identities before restoring the one contract actor that is saved below.
 	ResetMercContractActorContexts();
+	ResetFacilityStaffingPromptContext();
+	ResetMilitiaTrainingPromptContext();
+	ResetTacticalTraversalContext();
+	ResetTacticalPlacementActorContexts();
 
 	GENERAL_SAVE_INFO sGeneralInfo;
 	memset( &sGeneralInfo, 0, sizeof( GENERAL_SAVE_INFO ) );

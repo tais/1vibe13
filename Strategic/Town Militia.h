@@ -61,6 +61,8 @@ void HandleInterfaceMessageForCostOfTrainingMilitia( SOLDIERTYPE *pSoldier );
 
 // continue training?
 void HandleInterfaceMessageForContinuingTrainingMilitia( SOLDIERTYPE *pSoldier );
+BOOLEAN IsMilitiaTrainingPromptActive( void );
+void ResetMilitiaTrainingPromptContext( void );
 
 // call this when the sector changes...
 void HandleMilitiaStatusInCurrentMapBeforeLoadingNewMap( void );

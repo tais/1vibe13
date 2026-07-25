@@ -5156,8 +5156,7 @@ void	DoneFadeOutActionBasement( )
 
 	// OK, once down here, adjust the above map with crate info....
 	gfTacticalTraversal = FALSE;
-	gpTacticalTraversalGroup = NULL;
-	gpTacticalTraversalChosenSoldier = NULL;
+	ResetTacticalTraversalContext();
 
 	// Remove crate
 	RemoveStructFromUnLoadedMapTempFile( gModSettings.iHideoutEntryGrid, gModSettings.usCrateTileDef, gModSettings.ubHideoutSurfaceX, gModSettings.ubHideoutSurfaceY, gModSettings.ubHideoutSurfaceZ );
@@ -5222,8 +5221,7 @@ void	DoneFadeOutActionLeaveBasement( )
 	SetCurrentWorldSector( 10, 1, 0 );
 
 	gfTacticalTraversal = FALSE;
-	gpTacticalTraversalGroup = NULL;
-	gpTacticalTraversalChosenSoldier = NULL;
+	ResetTacticalTraversalContext();
 
 	gFadeInDoneCallback = DoneFadeInActionLeaveBasement;
 

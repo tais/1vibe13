@@ -364,8 +364,7 @@ static void DoneFadeOutKilledQueen( void )
 
 	// OK, once down here, adjust the above map with crate info....
 	gfTacticalTraversal = FALSE;
-	gpTacticalTraversalGroup = NULL;
-	gpTacticalTraversalChosenSoldier = NULL;
+	ResetTacticalTraversalContext();
 
 	gFadeInDoneCallback = DoneFadeInKilledQueen;
 

@@ -17,8 +17,11 @@ extern BOOLEAN fDisableMapInterfaceDueToBattle;
 extern GROUP *gpBattleGroup;
 
 extern BOOLEAN gfTacticalTraversal;
-extern GROUP *gpTacticalTraversalGroup;
-extern SOLDIERTYPE *gpTacticalTraversalChosenSoldier;
+BOOLEAN CaptureTacticalTraversalGroup( GROUP *pGroup );
+GROUP *ResolveTacticalTraversalGroup( void );
+BOOLEAN CaptureTacticalTraversalChosenSoldier( SOLDIERTYPE *pSoldier );
+SOLDIERTYPE *ResolveTacticalTraversalChosenSoldier( void );
+void ResetTacticalTraversalContext( void );
 
 extern BOOLEAN gfGotoSectorTransition;
 extern BOOLEAN gfEnteringMapScreenToEnterPreBattleInterface;

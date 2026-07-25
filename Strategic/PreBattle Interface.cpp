@@ -41,6 +41,7 @@
 	#include "history.h"
 	#include "Cheats.h"
 	#include "Tactical Save.h"
+	#include "TacticalEntityHost.h"
 	#include "message.h"
 	#include "CampaignStats.h"				// added by Flugente
 	#include "MilitiaSquads.h"				// added by Flugente
@@ -67,8 +68,46 @@ extern BOOLEAN fMapScreenBottomDirty;
 #include "connect.h"
 
 BOOLEAN gfTacticalTraversal = FALSE;
-GROUP *gpTacticalTraversalGroup = NULL;
-SOLDIERTYPE *gpTacticalTraversalChosenSoldier = NULL;
+
+namespace
+{
+UINT8 gTacticalTraversalGroupId = 0;
+Ja2TacticalEntityReference gTacticalTraversalChosenSoldier;
+}
+
+BOOLEAN CaptureTacticalTraversalGroup( GROUP *pGroup )
+{
+	gTacticalTraversalGroupId = 0;
+	if (!pGroup || pGroup->ubGroupID == 0 ||
+		GetGroup(pGroup->ubGroupID) != pGroup)
+		return FALSE;
+
+	gTacticalTraversalGroupId = pGroup->ubGroupID;
+	return TRUE;
+}
+
+GROUP *ResolveTacticalTraversalGroup( void )
+{
+	return gTacticalTraversalGroupId
+		? GetGroup(gTacticalTraversalGroupId) : NULL;
+}
+
+BOOLEAN CaptureTacticalTraversalChosenSoldier( SOLDIERTYPE *pSoldier )
+{
+	return gTacticalTraversalChosenSoldier.capture(pSoldier)
+		? TRUE : FALSE;
+}
+
+SOLDIERTYPE *ResolveTacticalTraversalChosenSoldier( void )
+{
+	return gTacticalTraversalChosenSoldier.resolve();
+}
+
+void ResetTacticalTraversalContext( void )
+{
+	gTacticalTraversalGroupId = 0;
+	gTacticalTraversalChosenSoldier.reset();
+}
 
 
 BOOLEAN gfAutomaticallyStartAutoResolve = FALSE;
@@ -380,7 +419,9 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 			return;
 		}
 
-		if( gfTacticalTraversal && (pBattleGroup == gpTacticalTraversalGroup || gbWorldSectorZ > 0) )
+		if( gfTacticalTraversal &&
+			(pBattleGroup == ResolveTacticalTraversalGroup() ||
+				gbWorldSectorZ > 0) )
 		{
 			return;
 		}

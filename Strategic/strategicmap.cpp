@@ -4146,7 +4146,7 @@ void AllMercsWalkedToExitGrid( )
 		//to bring up the prebattle interface when we arrive if there are enemies there.  This flag
 		//ignores the initialization of the prebattle interface and clears the flag.
 		gfTacticalTraversal = TRUE;
-		gpTacticalTraversalGroup = gpAdjacentGroup;
+		CaptureTacticalTraversalGroup( gpAdjacentGroup );
 
 		//Check for any unconcious and/or dead merc and remove them from the current squad, so that they
 		//don't get moved to the new sector.
@@ -4200,8 +4200,7 @@ void AllMercsWalkedToExitGrid( )
 	if ( gubAdjacentJumpCode == JUMP_ALL_NO_LOAD || gubAdjacentJumpCode == JUMP_SINGLE_NO_LOAD )
 	{
 		gfTacticalTraversal = FALSE;
-		gpTacticalTraversalGroup = NULL;
-		gpTacticalTraversalChosenSoldier = NULL;
+		ResetTacticalTraversalContext();
 	}
 }
 
@@ -4239,8 +4238,7 @@ void SetupTacticalTraversalInformation( )
 	if ( gubAdjacentJumpCode == JUMP_ALL_NO_LOAD || gubAdjacentJumpCode == JUMP_SINGLE_NO_LOAD )
 	{
 		gfTacticalTraversal = FALSE;
-		gpTacticalTraversalGroup = NULL;
-		gpTacticalTraversalChosenSoldier = NULL;
+		ResetTacticalTraversalContext();
 	}
 }
 
@@ -4274,7 +4272,7 @@ void AllMercsHaveWalkedOffSector( )
 	if ( guiAdjacentTraverseTime <= 5 )
 	{
 		gfTacticalTraversal = TRUE;
-		gpTacticalTraversalGroup = gpAdjacentGroup;
+		CaptureTacticalTraversalGroup( gpAdjacentGroup );
 
 		if ( gbAdjacentSectorZ > 0 && guiAdjacentTraverseTime <= 5 )
 		{	//Nasty strategic movement logic doesn't like underground sectors!
@@ -4391,16 +4389,20 @@ void AllMercsHaveWalkedOffSector( )
 void DoneFadeOutExitGridSector( )
 {
 	SetCurrentWorldSector( gsAdjacentSectorX, gsAdjacentSectorY, gbAdjacentSectorZ );
-	if ( gfTacticalTraversal && gpTacticalTraversalGroup && gpTacticalTraversalChosenSoldier )
+	SOLDIERTYPE* traversalSoldier =
+		ResolveTacticalTraversalChosenSoldier();
+	if ( gfTacticalTraversal &&
+		ResolveTacticalTraversalGroup() && traversalSoldier )
 	{
 		if ( gTacticalStatus.fEnemyInSector )
 		{
-			TacticalCharacterDialogueWithSpecialEvent( gpTacticalTraversalChosenSoldier, QUOTE_ENEMY_PRESENCE, 0, 0, 0 );
+			TacticalCharacterDialogueWithSpecialEvent(
+				traversalSoldier, QUOTE_ENEMY_PRESENCE,
+				0, 0, 0 );
 		}
 	}
 	gfTacticalTraversal = FALSE;
-	gpTacticalTraversalGroup = NULL;
-	gpTacticalTraversalChosenSoldier = NULL;
+	ResetTacticalTraversalContext();
 	FadeInGameScreen( );
 }
 
@@ -4410,16 +4412,20 @@ void DoneFadeOutAdjacentSector( )
 	SetCurrentWorldSector( gsAdjacentSectorX, gsAdjacentSectorY, gbAdjacentSectorZ );
 
 	ubDirection = GetStrategicInsertionDataFromAdjacentMoveDirection( gubTacticalDirection, gsAdditionalData );
-	if ( gfTacticalTraversal && gpTacticalTraversalGroup && gpTacticalTraversalChosenSoldier )
+	SOLDIERTYPE* traversalSoldier =
+		ResolveTacticalTraversalChosenSoldier();
+	if ( gfTacticalTraversal &&
+		ResolveTacticalTraversalGroup() && traversalSoldier )
 	{
 		if ( gTacticalStatus.fEnemyInSector )
 		{
-			TacticalCharacterDialogueWithSpecialEvent( gpTacticalTraversalChosenSoldier, QUOTE_ENEMY_PRESENCE, 0, 0, 0 );
+			TacticalCharacterDialogueWithSpecialEvent(
+				traversalSoldier, QUOTE_ENEMY_PRESENCE,
+				0, 0, 0 );
 		}
 	}
 	gfTacticalTraversal = FALSE;
-	gpTacticalTraversalGroup = NULL;
-	gpTacticalTraversalChosenSoldier = NULL;
+	ResetTacticalTraversalContext();
 
 	if ( gfCaves )
 	{

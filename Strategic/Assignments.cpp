@@ -269,7 +269,6 @@ BOOLEAN fFirstClickInAssignmentScreenMask = FALSE;
 // render pre battle interface?
 extern BOOLEAN gfRenderPBInterface;
 extern BOOLEAN fMapScreenBottomDirty;
-extern SOLDIERTYPE *pMilitiaTrainerSoldier;
 extern BOOLEAN gfCantRetreatInPBI;
 
 // in the mapscreen?
@@ -328,6 +327,7 @@ struct SurgeryConfirmationContext
 };
 
 SurgeryConfirmationContext gSurgeryConfirmation;
+Ja2TacticalEntityReference gFacilityStaffer;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -340,8 +340,6 @@ BOOLEAN MakeAutomaticSurgery( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pDoctor );
 
 BOOLEAN gfReEvaluateEveryonesNothingToDo = FALSE;
 
-// HEADROCK HAM 3.6: Stored Facility worker (for callback purposes)
-SOLDIERTYPE *gpFacilityStaffer;
 // HEADROCK HAM 3.6: Current FacilityType whose Assignments are shown in the Sub-Menu
 INT8 gubFacilityInSubmenu;
 UINT8 gubFacilityLineForSubmenu; // Which line to highlight in the facility menu...
@@ -16947,7 +16945,7 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 
 				ChangeSoldiersAssignment( pSoldier, TRAIN_TOWN );
 
-				if( pMilitiaTrainerSoldier == NULL )
+				if( !IsMilitiaTrainingPromptActive() )
 				{
 					if( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ].fMilitiaTrainingPaid == FALSE )
 					{
@@ -16988,7 +16986,7 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 
 				ChangeSoldiersAssignment( pSoldier, TRAIN_WORKERS );
 
-				if( pMilitiaTrainerSoldier == NULL )
+				if( !IsMilitiaTrainingPromptActive() )
 				{
 					// show a message to confirm player wants to charge cost
 					HandleInterfaceMessageForCostOfTrainingMilitia( pSoldier );
@@ -21371,13 +21369,25 @@ void HandleShadingOfLinesForFacilityMenu( void )
 
 void HandleInterfaceMessageForCostOfOperatingFacility( SOLDIERTYPE *pSoldier, UINT8 ubAssignmentType )
 {
+	if (!pSoldier)
+		return;
+
 	// If you hit this assertion, then the soldier was not told to operate any facility before this function
 	// was called. Generally, it should happen RIGHT BEFORE calling this function!
 	Assert (pSoldier->sFacilityTypeOperated != -1);
 
+	// Only one modal prompt may own the facility actor. If another prompt is
+	// already active, undo this new assignment instead of redirecting it.
+	if (gFacilityStaffer.valid() ||
+		!gFacilityStaffer.capture(pSoldier))
+	{
+		pSoldier->sFacilityTypeOperated = -1;
+		AddCharacterToAnySquad(pSoldier);
+		return;
+	}
+
 	UINT8 ubFacilityType = (UINT8)pSoldier->sFacilityTypeOperated;
 	INT32 iFacilityOperatingCost = gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].sCostPerHour;
-	gpFacilityStaffer = pSoldier;
 
 	CHAR16 sString[ 128 ];
 	SGPRect pCenteringRect= {0, 0, 640, INV_INTERFACE_START_Y };
@@ -21401,14 +21411,18 @@ void PayFacilityCostsYesNoBoxCallback( UINT8 bExitValue )
 	// yes
 	if( bExitValue == MSG_BOX_RETURN_YES )
 	{
-		// reset staffer variable. We've already set his assignment so everything's good.
-		gpFacilityStaffer = NULL;
+		// We've already set the assignment, so accepting consumes the prompt.
+		gFacilityStaffer.reset();
 	}
 	else if( bExitValue == MSG_BOX_RETURN_NO )
 	{
 		StopTimeCompression();
 
 		FacilityStaffingRejected();
+	}
+	else
+	{
+		gFacilityStaffer.reset();
 	}
 }
 
@@ -21427,8 +21441,6 @@ static void PayFacilityDebtManuallyYesNoBoxCallback( UINT8 bExitValue )
 		giTotalOwedForFacilityOperationsToday = 0;
 		gfOutstandingFacilityDebt = FALSE;
 
-		// reset staffer variable. We've already set his assignment so everything's good.
-		gpFacilityStaffer = NULL;
 	}
 	else if( bExitValue == MSG_BOX_RETURN_NO )
 	{
@@ -21439,12 +21451,19 @@ static void PayFacilityDebtManuallyYesNoBoxCallback( UINT8 bExitValue )
 // IMPORTANT: Rejected player prompt to pay hourly for using a facility.
 void FacilityStaffingRejected( )
 {
-	// take the selected merc off Facility work.
-	gpFacilityStaffer->sFacilityTypeOperated = -1;
-	AddCharacterToAnySquad( gpFacilityStaffer );
+	SOLDIERTYPE* facilityStaffer =
+		gFacilityStaffer.consume();
+	if (!facilityStaffer)
+		return;
 
-	// this completes the facility costs prompt sequence
-	gpFacilityStaffer = NULL;
+	// take the selected merc off Facility work.
+	facilityStaffer->sFacilityTypeOperated = -1;
+	AddCharacterToAnySquad( facilityStaffer );
+}
+
+void ResetFacilityStaffingPromptContext( )
+{
+	gFacilityStaffer.reset();
 }
 
 // Resets all assignments for characters working at facilities that cost money to operate. This is run whenever the
