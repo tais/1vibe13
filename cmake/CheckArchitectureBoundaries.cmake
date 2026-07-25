@@ -257,9 +257,11 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
   "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
+  "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
   "${SOURCE_ROOT}/Tactical/End Game.cpp"
   "${SOURCE_ROOT}/Tactical/End Game.h"
+  "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/interface Dialogue.h")
 foreach(runtime_campaign_file IN LISTS
     runtime_campaign_implementation_files runtime_campaign_selection_files)
@@ -286,6 +288,26 @@ foreach(required_runtime_action_fragment IN ITEMS
   if(runtime_action_fragment_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign action-code decoding lost runtime compatibility; missing '${required_runtime_action_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
+  runtime_campaign_profile_code_contents)
+foreach(required_runtime_profile_fragment IN ITEMS
+    "constexpr std::uint8_t profile("
+    "GameCampaign campaign, Role role"
+    "matches("
+    "GameCampaign::Arulco, Role::Miguel"
+    "GameCampaign::UnfinishedBusiness, Role::Miguel"
+    "GameCampaign::Arulco, Role::Robot"
+    "GameCampaign::UnfinishedBusiness, Role::Robot"
+    "GameCampaign::Arulco, Role::Slay"
+    "GameCampaign::UnfinishedBusiness, Role::Slay")
+  string(FIND "${runtime_campaign_profile_code_contents}"
+    "${required_runtime_profile_fragment}" runtime_profile_fragment_position)
+  if(runtime_profile_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign profile-code decoding lost runtime compatibility; missing '${required_runtime_profile_fragment}'")
   endif()
 endforeach()
 
@@ -358,14 +380,37 @@ file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   runtime_campaign_tactical_death_contents)
 foreach(required_runtime_tactical_death_fragment IN ITEMS
     "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "CampaignProfileCode::Role::Robot"
+    "CampaignProfileCode::Role::Slay"
     "BeginHandleDeidrannaDeath("
     "BeginHandleQueenBitchDeath("
-    "JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH")
+    "JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH"
+    "HandleDeathInPowerGenSector("
+    "HandleFanStartingAtEndOfCombat("
+    "HandlePOWQuestState("
+    "HandleFirstBattleEndingWhileInTown("
+    "AttemptToCapturePlayerSoldiers()")
   string(FIND "${runtime_campaign_tactical_death_contents}"
     "${required_runtime_tactical_death_fragment}" runtime_tactical_death_fragment_position)
   if(runtime_tactical_death_fragment_position EQUAL -1)
     message(FATAL_ERROR
       "Tactical campaign endgame dispatch lost runtime selection; missing '${required_runtime_tactical_death_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/mercs.cpp"
+  runtime_campaign_speck_death_contents)
+foreach(required_runtime_speck_death_fragment IN ITEMS
+    "HandleSpeckWitnessingEmployeeDeath("
+    "CampaignProfileCode::ArulcoGaston"
+    "CampaignProfileCode::ArulcoStogie"
+    "JA2_SPECK_PLAYABLE_QUOTE_FIRST_MERC_DIES"
+    "JA2_SPECK_PLAYABLE_QUOTE_STOGIE_DEAD")
+  string(FIND "${runtime_campaign_speck_death_contents}"
+    "${required_runtime_speck_death_fragment}" runtime_speck_death_fragment_position)
+  if(runtime_speck_death_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Arulco Speck death callback lost campaign-neutral emission; missing '${required_runtime_speck_death_fragment}'")
   endif()
 endforeach()
 

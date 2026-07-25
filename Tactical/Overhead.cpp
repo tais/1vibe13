@@ -88,6 +88,7 @@
 #include "Interface Utils.h"
 #include "Air Raid.h"
 #include "TacticalWorldAdapter.h"
+#include "CampaignProfileCodes.h"
 #include "GameContext.h"
 #include "Civ Quotes.h"
 #include "Drugs And Alcohol.h"
@@ -206,10 +207,7 @@ extern void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKiller
 extern UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 extern void PlayStealthySoldierFootstepSound( SOLDIERTYPE *pSoldier );
 
-#ifdef JA2UB
 BOOLEAN CanMsgBoxForPlayerToBeNotifiedOfSomeoneElseInSector();
-extern void PlayStealthySoldierFootstepSound( SOLDIERTYPE *pSoldier );
-#endif
 
 extern BOOLEAN gfSurrendered;
 
@@ -3637,41 +3635,42 @@ void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
 					default:
 						break;
 				}
-#ifdef JA2UB
-#else
 				// anv: handle Speck witnessing his employee death
-				if( pTeamSoldier->ubProfile == SPECK_PLAYABLE && pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+				if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+					pTeamSoldier->ubProfile == SPECK_PLAYABLE &&
+					pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
 					HandleSpeckWitnessingEmployeeDeath( pSoldier );
-#endif
             }
         }
 
         // handle stuff for Carmen if Slay is killed
-        switch( pSoldier->ubProfile )
+        const GameCampaign campaign =
+            GetGameContext().capabilities().campaign;
+        if ( campaign == GameCampaign::Arulco &&
+             CampaignProfileCode::matches(
+                 campaign, CampaignProfileCode::Role::Slay,
+                 pSoldier->ubProfile ) )
         {
-#ifdef JA2UB
-            //Ja25 No carmen
-#else
-            case SLAY:
-                pTeamSoldier = FindSoldierByProfileID( CARMEN, FALSE );         
-                if (pTeamSoldier && pTeamSoldier->aiData.bAttitude == ATTACKSLAYONLY && !TileIsOutOfBounds(ClosestPC( pTeamSoldier, NULL )) )
-                {
-                    // Carmen now becomes friendly again
-                    TriggerNPCRecord( CARMEN, 29 );
-                }
-                break;
-#endif
-            case ROBOT:
-                if (CheckFact( FACT_FIRST_ROBOT_DESTROYED, 0 ) == FALSE )
-                {
-                    SetFactTrue( FACT_FIRST_ROBOT_DESTROYED );
-                    SetFactFalse( FACT_ROBOT_READY );
-                }
-                else
-                {
-                    SetFactTrue( FACT_SECOND_ROBOT_DESTROYED );
-                }
-                break;
+            pTeamSoldier = FindSoldierByProfileID( CARMEN, FALSE );
+            if (pTeamSoldier && pTeamSoldier->aiData.bAttitude == ATTACKSLAYONLY && !TileIsOutOfBounds(ClosestPC( pTeamSoldier, NULL )) )
+            {
+                // Carmen now becomes friendly again
+                TriggerNPCRecord( CARMEN, 29 );
+            }
+        }
+        else if ( CampaignProfileCode::matches(
+                      campaign, CampaignProfileCode::Role::Robot,
+                      pSoldier->ubProfile ) )
+        {
+            if (CheckFact( FACT_FIRST_ROBOT_DESTROYED, 0 ) == FALSE )
+            {
+                SetFactTrue( FACT_FIRST_ROBOT_DESTROYED );
+                SetFactFalse( FACT_ROBOT_READY );
+            }
+            else
+            {
+                SetFactTrue( FACT_SECOND_ROBOT_DESTROYED );
+            }
         }
     }
 		
@@ -3734,20 +3733,15 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 
     if (pSoldierOld->bTeam == CIV_TEAM )
     {
-#ifdef JA2UB
-		
-#else
         SOLDIERTYPE * pOther;
-#endif
         // ATE: Added string to player
         if ( bVisible != -1 && pSoldierOld->ubProfile != NO_PROFILE )
         {
             ScreenMsg( FONT_RED, MSG_INTERFACE, pMercDeadString[ 0 ], pSoldierOld->GetName() );
         }
 
-#ifdef JA2UB
-
-#else //Ja25: none of these characters are in the exp.		
+        if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+        {
         switch( pSoldierOld->ubProfile )
         {
 
@@ -3765,7 +3759,8 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
             case PABLO:
                 AddFutureDayStrategicEvent( EVENT_SECOND_AIRPORT_ATTENDANT_ARRIVED, 480 + Random( 60 ), 0, 1 );
                 break;
-            case ROBOT:
+            case CampaignProfileCode::profile(
+                GameCampaign::Arulco, CampaignProfileCode::Role::Robot):
                 if (CheckFact( FACT_FIRST_ROBOT_DESTROYED, 0 ) == FALSE )
                 {
                     SetFactTrue( FACT_FIRST_ROBOT_DESTROYED );
@@ -3776,7 +3771,8 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 }
                 break;
             case DRUGGIST:
-            case SLAY:
+            case CampaignProfileCode::profile(
+                GameCampaign::Arulco, CampaignProfileCode::Role::Slay):
             case ANNIE:
             case CHRIS:
             case TIFFANY:
@@ -3854,7 +3850,11 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 // Carmen must have seen Slay, to finish the quest properly, he must know we betrayd him
                 if ( pSoldierOld->aiData.bAttitude == ATTACKSLAYONLY )
                 {
-                    pOther = FindSoldierByProfileID( SLAY, FALSE );         
+                    pOther = FindSoldierByProfileID(
+                        CampaignProfileCode::profile(
+                            GameCampaign::Arulco,
+                            CampaignProfileCode::Role::Slay),
+                        FALSE );
                     if (pOther && pOther->stats.bLife && pOther->bTeam == gbPlayerNum &&
                             pSoldierOld->sSectorX == pOther->sSectorX && pSoldierOld->sSectorY == pOther->sSectorY)
                     {
@@ -3908,7 +3908,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 				fSkyRiderAvailable = FALSE;
 				break;
         }
-#endif
+        }
 
 		if ( GetGameContext().capabilities().isUnfinishedBusiness() )
 		{
@@ -3976,10 +3976,9 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 			}
 		}
 
-#ifdef JA2UB
-#else
 		// if Angel an Maria are dead and the bounty hunter quest is still ongoing, then finish it
-		if ( gubQuest[QUEST_KINGPIN_ANGEL_MARIA] == QUESTINPROGRESS )
+		if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+		     gubQuest[QUEST_KINGPIN_ANGEL_MARIA] == QUESTINPROGRESS )
 		{
 			if ( pSoldierOld->ubProfile == ANGEL && gMercProfiles[MARIA].bMercStatus == MERC_IS_DEAD ||
 					pSoldierOld->ubProfile == MARIA && gMercProfiles[ANGEL].bMercStatus == MERC_IS_DEAD )
@@ -3991,7 +3990,6 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 				DeleteStrategicEvent( EVENT_KINGPIN_BOUNTY_END_TIME_PASSED, 0 );
 			}
 		}
-#endif
 
     }
     else if ( pSoldierOld->bTeam == MILITIA_TEAM )
@@ -4154,17 +4152,18 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
     //if the NPC is a dealer, add the dealers items to the ground
 	AddDeadArmsDealerItemsToWorld( pSoldierOld->ubProfile, pSoldierOld->ubID );
 
-#ifdef JA2UB
-    HandleDeathInPowerGenSector( pSoldierOld ); //ja25 ub
-    HandleWhenCertainPercentageOfEnemiesDie();  //ja25 ub
-#endif
+    if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+    {
+        HandleDeathInPowerGenSector( pSoldierOld );
+        HandleWhenCertainPercentageOfEnemiesDie();
+    }
 
     //The queen AI layer must process the event by subtracting forces, etc.
     ProcessQueenCmdImplicationsOfDeath( pSoldierOld );
-#ifdef JA2UB
-    //------------------- ja25 ub -------------------------
     //if the person was Raul, and we are to say the blown up quotes
-    if( pSoldierOld->ubProfile == RAUL_UB /*RAUL */ && IsJa25GeneralFlagSet( JA_GF__RAUL_BLOW_HIMSELF_UP ) )
+    if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+        pSoldierOld->ubProfile == RAUL_UB &&
+        IsJa25GeneralFlagSet( JA_GF__RAUL_BLOW_HIMSELF_UP ) )
     {
         SoldierID SoldierId1;
         SoldierID SoldierId2;
@@ -4185,7 +4184,6 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
             TacticalCharacterDialogue( SoldierId2, QUOTE_SMALL_TALK );
         }
     }
-#endif
     // OK, check for existence of any more badguys!
     CheckForEndOfBattle( FALSE );
 }
@@ -4302,16 +4300,26 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
 	// default is hostile to player, allied to army
 	INT8 bNewSide = 1;
 
-    switch( pSoldier->ubProfile )
+    const GameCampaign campaign =
+        GetGameContext().capabilities().campaign;
+    if ( campaign == GameCampaign::Arulco &&
+         ( CampaignProfileCode::matches(
+               campaign, CampaignProfileCode::Role::Ira,
+               pSoldier->ubProfile ) ||
+           CampaignProfileCode::matches(
+               campaign, CampaignProfileCode::Role::Dimitri,
+               pSoldier->ubProfile ) ||
+           CampaignProfileCode::matches(
+               campaign, CampaignProfileCode::Role::Miguel,
+               pSoldier->ubProfile ) ||
+           CampaignProfileCode::matches(
+               campaign, CampaignProfileCode::Role::Carlos,
+               pSoldier->ubProfile ) ) )
     {
-#ifdef JA2UB
-        //Ja25 No Ira, miguel, etc
-#else
-        case IRA:
-        case DIMITRI:
-        case MIGUEL:
-        case CARLOS:
-#endif  
+        bNewSide = 2;
+    }
+    else switch( pSoldier->ubProfile )
+    {
         case MADLAB:
         case DYNAMO:
         case SHANK:
@@ -6631,10 +6639,11 @@ void ExitCombatMode( )
     gTacticalStatus.uiTimeSinceLastOpplistDecay = __max( 0, GetWorldTotalSeconds() - TIME_BETWEEN_RT_OPPLIST_DECAYS );
     NonCombatDecayPublicOpplist( GetWorldTotalSeconds() );
 
-#ifdef JA2UB    
-    //if we are in J13 and the fan is stopped, handle it
-    HandleFanStartingAtEndOfCombat();
-#endif
+    if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+    {
+        //if we are in J13 and the fan is stopped, handle it
+        HandleFanStartingAtEndOfCombat();
+    }
 }
 
 
@@ -6654,12 +6663,9 @@ void SetEnemyPresence()
 
 		// If we are just starting game, don't do this!
 
-#ifdef JA2UB    
-		//Ja25: no meanwhiles
-		if ( !DidGameJustStart() )
-#else
-		if ( !DidGameJustStart() && !AreInMeanwhile() )
-#endif
+		if ( !DidGameJustStart() &&
+		     ( GetGameContext().capabilities().isUnfinishedBusiness() ||
+		       !AreInMeanwhile() ) )
 		{
 
             CheckForZombieMusic();
@@ -7525,11 +7531,12 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 			HandleGlobalLoyaltyEvent(GLOBAL_LOYALTY_BATTLE_LOST, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
 		}
 
-		#ifndef JA2UB
-        HandlePOWQuestState(Q_FAIL, QUEST_INTERROGATION, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
-        HandlePOWQuestState(Q_FAIL, QUEST_HELD_IN_ALMA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
-        HandlePOWQuestState(Q_FAIL, QUEST_HELD_IN_TIXA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
-        #endif
+		if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		{
+			HandlePOWQuestState(Q_FAIL, QUEST_INTERROGATION, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
+			HandlePOWQuestState(Q_FAIL, QUEST_HELD_IN_ALMA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
+			HandlePOWQuestState(Q_FAIL, QUEST_HELD_IN_TIXA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
+		}
 
         // Play death music
 		#ifdef NEWMUSIC
@@ -7556,11 +7563,10 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
             SetFactTrue( FACT_FIRST_BATTLE_FOUGHT );
             SetFactFalse( FACT_FIRST_BATTLE_BEING_FOUGHT );
             SetTheFirstBattleSector( (INT16) (gWorldSectorX + gWorldSectorY * MAP_WORLD_X) );
-#ifdef JA2UB
-            //Ja25  no meanwhile
-#else
-            HandleFirstBattleEndingWhileInTown( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, FALSE );
-#endif
+            if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+            {
+                HandleFirstBattleEndingWhileInTown( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, FALSE );
+            }
         }
 
         if( NumEnemyInSectorExceptCreatures() )
@@ -7726,11 +7732,12 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                         ShouldBeginAutoBandage( );
                 }
 
-                #ifndef JA2UB
-                HandlePOWQuestState(Q_SUCCESS, QUEST_INTERROGATION, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
-                HandlePOWQuestState(Q_SUCCESS, QUEST_HELD_IN_ALMA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
-                HandlePOWQuestState(Q_SUCCESS, QUEST_HELD_IN_TIXA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
-                #endif
+                if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+                {
+                    HandlePOWQuestState(Q_SUCCESS, QUEST_INTERROGATION, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
+                    HandlePOWQuestState(Q_SUCCESS, QUEST_HELD_IN_ALMA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
+                    HandlePOWQuestState(Q_SUCCESS, QUEST_HELD_IN_TIXA, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
+                }
                 // Say battle end quote....
 
                 if (fAnEnemyRetreated)
@@ -7848,11 +7855,10 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                 SetFactTrue( FACT_FIRST_BATTLE_WON );
                 SetFactFalse( FACT_FIRST_BATTLE_BEING_FOUGHT );
                 SetTheFirstBattleSector( (INT16) (gWorldSectorX + gWorldSectorY * MAP_WORLD_X) );
-#ifdef JA2UB
-                //Ja25  no meanwhile
-#else
-                HandleFirstBattleEndingWhileInTown( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, FALSE );
-#endif
+                if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+                {
+                    HandleFirstBattleEndingWhileInTown( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, FALSE );
+                }
             }
         }
 
@@ -8450,14 +8456,15 @@ BOOLEAN CheckForLosingEndOfBattle( )
                 {
                     //if( GetWorldDay() > STARTDAY_ALLOW_PLAYER_CAPTURE_FOR_RESCUE && !( gStrategicStatus.uiFlags & STRATEGIC_PLAYER_CAPTURED_FOR_RESCUE ))
                     {
-						#ifndef JA2UB
-						if ( gubQuest[ QUEST_HELD_IN_ALMA ] == QUESTNOTSTARTED || gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED || gubQuest[ QUEST_INTERROGATION ] == QUESTNOTSTARTED )
+						if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+						     ( gubQuest[ QUEST_HELD_IN_ALMA ] == QUESTNOTSTARTED ||
+						       gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED ||
+						       gubQuest[ QUEST_INTERROGATION ] == QUESTNOTSTARTED ) )
                         {
                             fDoCapture = TRUE;
                             // CJC Dec 1 2002: fix capture sequences
                             BeginCaptureSquence();
                         }
-                        #endif
                     }
                 }
             }
@@ -9279,9 +9286,16 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
         }
     }
     // JA2 Gold: fix Slay
-    else if ( (pTarget->bTeam == CIV_TEAM && pTarget->aiData.bNeutral) && pTarget->ubProfile == SLAY && pTarget->stats.bLife >= OKLIFE && CheckFact( 155, 0 ) == FALSE )
+    else if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+              (pTarget->bTeam == CIV_TEAM && pTarget->aiData.bNeutral) &&
+              CampaignProfileCode::matches(
+                  GameCampaign::Arulco,
+                  CampaignProfileCode::Role::Slay,
+                  pTarget->ubProfile ) &&
+              pTarget->stats.bLife >= OKLIFE &&
+              CheckFact( 155, 0 ) == FALSE )
     {
-        TriggerNPCRecord( SLAY, 1 );
+        TriggerNPCRecord( pTarget->ubProfile, 1 );
     }
     else if ( (pTarget->bTeam == CIV_TEAM) && (pTarget->ubCivilianGroup == 0) && (pTarget->aiData.bNeutral) && !( pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
     {
@@ -9367,19 +9381,19 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     else
     {
 
-#ifdef JA2UB
-        //Ja25: No carmen
-#else
-        if (pTarget->ubProfile == CARMEN)// Carmen
+        if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+             pTarget->ubProfile == CARMEN )
         {
             // Special stuff for Carmen the bounty hunter
-            if (pSoldier->ubProfile != SLAY) // attacked by someone other than Slay
+            if ( !CampaignProfileCode::matches(
+                     GameCampaign::Arulco,
+                     CampaignProfileCode::Role::Slay,
+                     pSoldier->ubProfile ) )
             {
                 // change attitude
                 pTarget->aiData.bAttitude = AGGRESSIVE;
             }
         }
-#endif
         if ( pTarget->ubCivilianGroup && ( (pTarget->bTeam == gbPlayerNum) || pTarget->aiData.bNeutral ) )
         {
 #ifdef JA2TESTVERSION
@@ -9603,18 +9617,16 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
             return( NULL );
         }
     }
-#ifdef JA2UB
-    //Ja25 no queen
-#else
     // ATE: IN MEANWHILES, we have 'combat' in realtime....
     // this is so we DON'T call freeupattacker() which will cancel
     // the AI guy's meanwhile NPC stuff.
     // OK< let's NOT do this if it was the queen attacking....
-    if ( AreInMeanwhile( ) && pSoldier != NULL && pSoldier->ubProfile != QUEEN )
+    if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+         AreInMeanwhile( ) && pSoldier != NULL &&
+         pSoldier->ubProfile != QUEEN )
     {
         return( NULL );
     }
-#endif
 
     if (pSoldier)
     {
@@ -9744,11 +9756,8 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
             // Go into combat!
 
             // If we are in a meanwhile... don't enter combat here...
-#ifdef JA2UB
-            //Ja25 no meanwhiles
-#else
-            if ( !AreInMeanwhile( ) )
-#endif
+            if ( GetGameContext().capabilities().isUnfinishedBusiness() ||
+                 !AreInMeanwhile( ) )
             {
                 EnterCombatMode( pSoldier->bTeam );
             }
@@ -10980,9 +10989,12 @@ static void EscapeTimerCallback()
 
 void AttemptToCapturePlayerSoldiers()
 {
-#ifdef JA2UB
-    ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szPrisonerTextStr[STR_PRISONER_REFUSE_TAKE_PRISONERS]);
-#else
+    if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+    {
+        ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szPrisonerTextStr[STR_PRISONER_REFUSE_TAKE_PRISONERS]);
+        return;
+    }
+
     // in order for this to work, there must be no militia present, the enemy must not already have offered asked you to surrender, and certain quests may not be active
     if (!(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && gTacticalStatus.Team[MILITIA_TEAM].bMenInSector == 0)
     {
@@ -11050,7 +11062,6 @@ void AttemptToCapturePlayerSoldiers()
         SetCustomizableTimerCallbackAndDelay(500, CaptureTimerCallback, FALSE);
         CheckForEndOfBattle(FALSE);
     }
-#endif
 }
 
 static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )

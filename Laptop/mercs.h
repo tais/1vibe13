@@ -153,9 +153,7 @@ void MakeBiffAwayForCoupleOfDays();
 
 // anv: for playable Speck
 BOOLEAN IsSpeckComAvailable();
-#ifndef JA2UB
-	void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier );
-#endif
+void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier );
 
 // anv: for Kulba hireable after escort quest
 void AddJohnAsMerc( );
