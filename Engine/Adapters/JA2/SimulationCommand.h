@@ -40,9 +40,6 @@ struct EndTurnCommand
 
 struct ChangeStanceCommand
 {
-	// Incarnation zero is reserved for decoded version-1 journals and is never
-	// emitted by the version-2 encoder. Executors must deliberately resolve or
-	// reject such a legacy-unresolved reference before changing live state.
 	TacticalEntityId soldier;
 	std::uint8_t stance;
 	SimulationCommandSource source;
@@ -165,7 +162,8 @@ struct ReloadWeaponCommand
 	SimulationCommandSource source;
 };
 
-// Values are part of the version-7 replay/network vocabulary.
+// Explicit values keep the current replay/network vocabulary independent from
+// legacy animation constants.
 enum class TacticalTraversalKind : std::uint8_t
 {
 	ClimbUpRoof = 0,
@@ -197,6 +195,38 @@ struct TraverseObstacleCommand
 	SimulationCommandSource source;
 };
 
+// A map-local, pointer-free identity for an interactive structure. The grid
+// and structure ID are resolved against the live tactical world only by the
+// JA2 compatibility executor.
+struct TacticalWorldObjectId
+{
+	std::int32_t grid;
+	std::uint16_t structureId;
+};
+
+struct ActivateWorldObjectCommand
+{
+	TacticalEntityId soldier;
+	TacticalWorldObjectId object;
+	std::uint8_t direction;
+	SimulationCommandSource source;
+};
+
+// Approaching an object must be one authoritative operation: accepting a
+// movement command without its pending door/structure action would leave the
+// actor at the destination with the player's interaction silently lost.
+struct ApproachWorldObjectCommand
+{
+	TacticalEntityId soldier;
+	TacticalWorldObjectId object;
+	std::uint8_t direction;
+	std::int32_t destinationGrid;
+	std::uint16_t movementMode;
+	bool reverse;
+	bool forceRestart;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -211,7 +241,9 @@ using SimulationCommand = std::variant<
 	CycleWeaponModeCommand,
 	CycleScopeModeCommand,
 	ReloadWeaponCommand,
-	TraverseObstacleCommand>;
+	TraverseObstacleCommand,
+	ActivateWorldObjectCommand,
+	ApproachWorldObjectCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -238,6 +270,10 @@ inline bool IsStructurallyValidSimulationCommand(
 				return IsValidTacticalDirection(value.direction);
 			if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
 				return IsValidTacticalTraversalKind(value.kind);
+			if constexpr (
+				std::is_same<Command, ActivateWorldObjectCommand>::value ||
+				std::is_same<Command, ApproachWorldObjectCommand>::value)
+				return IsValidTacticalDirection(value.direction);
 			return true;
 		}
 	}, command);

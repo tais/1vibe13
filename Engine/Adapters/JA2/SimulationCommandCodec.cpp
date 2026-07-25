@@ -25,7 +25,9 @@ enum class CommandTag : std::uint8_t
 	CycleWeaponMode = 8,
 	CycleScopeMode = 9,
 	ReloadWeapon = 10,
-	TraverseObstacle = 11
+	TraverseObstacle = 11,
+	ActivateWorldObject = 12,
+	ApproachWorldObject = 13
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -165,6 +167,35 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU8(static_cast<std::uint8_t>(value.kind));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
+		else if constexpr (
+			std::is_same<Command, ActivateWorldObjectCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::ActivateWorldObject));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.object.grid);
+			writer.writeU16(value.object.structureId);
+			writer.writeU8(value.direction);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, ApproachWorldObjectCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::ApproachWorldObject));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI32(value.object.grid);
+			writer.writeU16(value.object.structureId);
+			writer.writeU8(value.direction);
+			writer.writeI32(value.destinationGrid);
+			writer.writeU16(value.movementMode);
+			writer.writeU8(
+				(value.reverse ? MoveReverseFlag : 0u) |
+				(value.forceRestart ? MoveForceRestartFlag : 0u));
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
 	}, command);
 }
 
@@ -176,8 +207,7 @@ bool ReadSource(BinaryReader& reader, SimulationCommandSource& source)
 	return true;
 }
 
-bool ReadCommand(
-	BinaryReader& reader, std::uint16_t version, SimulationCommand& command)
+bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 {
 	std::uint8_t rawTag = 0;
 	if (!reader.readU8(rawTag)) return false;
@@ -194,13 +224,8 @@ bool ReadCommand(
 		case CommandTag::ChangeStance:
 		{
 			ChangeStanceCommand value{};
-			if (!reader.readU16(value.soldier.slot)) return false;
-			if (version == 1)
-			{
-				value.soldier.incarnation = 0;
-				if (!value.soldier.legacyUnresolved()) return false;
-			}
-			else if (!reader.readU32(value.soldier.incarnation) ||
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
 				!value.soldier.valid()) return false;
 			if (!reader.readU8(value.stance) || !ReadSource(reader, value.source))
 				return false;
@@ -222,35 +247,30 @@ bool ReadCommand(
 		}
 		case CommandTag::MoveToGrid:
 		{
-			if (version < 3) return false;
 			MoveToGridCommand value{};
 			std::uint8_t flags = 0;
+			std::uint8_t origin = 0;
+			std::uint8_t pendingAction = 0;
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
 				!value.soldier.valid() ||
 				!reader.readI32(value.destinationGrid) ||
 				!reader.readU16(value.movementMode) ||
 				!reader.readU8(flags) || (flags & ~MoveKnownFlags) != 0 ||
-				!ReadSource(reader, value.source)) return false;
+				!ReadSource(reader, value.source) ||
+				!reader.readU8(origin) || !IsValidMoveOrigin(origin) ||
+				!reader.readU8(pendingAction) ||
+				!IsValidPendingActionPolicy(pendingAction)) return false;
 			value.reverse = (flags & MoveReverseFlag) != 0;
 			value.forceRestart = (flags & MoveForceRestartFlag) != 0;
-			if (version >= 4)
-			{
-				std::uint8_t origin = 0;
-				std::uint8_t pendingAction = 0;
-				if (!reader.readU8(origin) || !IsValidMoveOrigin(origin) ||
-					!reader.readU8(pendingAction) ||
-					!IsValidPendingActionPolicy(pendingAction)) return false;
-				value.origin = static_cast<TacticalMoveOrigin>(origin);
-				value.pendingAction =
-					static_cast<TacticalPendingActionPolicy>(pendingAction);
-			}
+			value.origin = static_cast<TacticalMoveOrigin>(origin);
+			value.pendingAction =
+				static_cast<TacticalPendingActionPolicy>(pendingAction);
 			command = value;
 			return true;
 		}
 		case CommandTag::SetFacing:
 		{
-			if (version < 5) return false;
 			SetFacingCommand value{};
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
@@ -263,7 +283,6 @@ bool ReadCommand(
 		}
 		case CommandTag::SetStealthMode:
 		{
-			if (version < 5) return false;
 			SetStealthModeCommand value{};
 			std::uint8_t enabled = 0;
 			if (!reader.readU16(value.soldier.slot) ||
@@ -276,7 +295,6 @@ bool ReadCommand(
 		}
 		case CommandTag::StopMovement:
 		{
-			if (version < 5) return false;
 			StopMovementCommand value{};
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
@@ -287,7 +305,6 @@ bool ReadCommand(
 		}
 		case CommandTag::CycleWeaponMode:
 		{
-			if (version < 6) return false;
 			CycleWeaponModeCommand value{};
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
@@ -298,7 +315,6 @@ bool ReadCommand(
 		}
 		case CommandTag::CycleScopeMode:
 		{
-			if (version < 6) return false;
 			CycleScopeModeCommand value{};
 			if (!reader.readU16(value.soldier.slot) ||
 				!reader.readU32(value.soldier.incarnation) ||
@@ -310,7 +326,6 @@ bool ReadCommand(
 		}
 		case CommandTag::ReloadWeapon:
 		{
-			if (version < 6) return false;
 			ReloadWeaponCommand value{};
 			std::uint8_t reloadEvenIfNotEmpty = 0;
 			if (!reader.readU16(value.soldier.slot) ||
@@ -325,7 +340,6 @@ bool ReadCommand(
 		}
 		case CommandTag::TraverseObstacle:
 		{
-			if (version < 7) return false;
 			TraverseObstacleCommand value{};
 			std::uint8_t kind = 0;
 			if (!reader.readU16(value.soldier.slot) ||
@@ -334,6 +348,40 @@ bool ReadCommand(
 				!reader.readU8(kind) || !IsValidTraversalKind(kind) ||
 				!ReadSource(reader, value.source)) return false;
 			value.kind = static_cast<TacticalTraversalKind>(kind);
+			command = value;
+			return true;
+		}
+		case CommandTag::ActivateWorldObject:
+		{
+			ActivateWorldObjectCommand value{};
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.object.grid) ||
+				!reader.readU16(value.object.structureId) ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!ReadSource(reader, value.source)) return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::ApproachWorldObject:
+		{
+			ApproachWorldObjectCommand value{};
+			std::uint8_t flags = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI32(value.object.grid) ||
+				!reader.readU16(value.object.structureId) ||
+				!reader.readU8(value.direction) ||
+				!IsValidTacticalDirection(value.direction) ||
+				!reader.readI32(value.destinationGrid) ||
+				!reader.readU16(value.movementMode) ||
+				!reader.readU8(flags) || (flags & ~MoveKnownFlags) != 0 ||
+				!ReadSource(reader, value.source)) return false;
+			value.reverse = (flags & MoveReverseFlag) != 0;
+			value.forceRestart = (flags & MoveForceRestartFlag) != 0;
 			command = value;
 			return true;
 		}
@@ -380,8 +428,7 @@ SimulationCommandJournalDecodeResult DecodeSimulationCommandJournal(
 	if (!reader.readU32(header.magic) || !reader.readU16(header.version) ||
 		header.magic != CommandJournalMagic)
 		return SimulationCommandJournalDecodeResult::Invalid;
-	if (header.version < OldestSimulationCommandJournalWireVersion ||
-		header.version > SimulationCommandJournalWireVersion)
+	if (header.version != SimulationCommandJournalWireVersion)
 		return SimulationCommandJournalDecodeResult::UnsupportedVersion;
 
 	std::uint64_t decodedDroppedCount = 0;
@@ -401,7 +448,7 @@ SimulationCommandJournalDecodeResult DecodeSimulationCommandJournal(
 		std::uint8_t status = 0;
 		if (!reader.readU64(record.tick) || !reader.readU64(record.sequence) ||
 			!reader.readU8(status) || !IsValidStatus(status) ||
-			!ReadCommand(reader, header.version, record.command))
+			!ReadCommand(reader, record.command))
 			return SimulationCommandJournalDecodeResult::Invalid;
 		record.status = static_cast<CommandJournalStatus>(status);
 		decoded.push_back(std::move(record));

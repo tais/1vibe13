@@ -1884,6 +1884,40 @@ int main( int, char** )
 					actor, static_cast<TacticalTraversalKind>( 0xff ),
 					SimulationCommandSource::System } } ) ==
 				SimulationCommandDomainError::InvalidTraversalKind &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ActivateWorldObjectCommand{
+					actor, TacticalWorldObjectId{ 100, 7 }, 3,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ActivateWorldObjectCommand{
+					actor, TacticalWorldObjectId{ WORLD_MAX, 7 }, 3,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidObjectGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ActivateWorldObjectCommand{
+					actor, TacticalWorldObjectId{ 100, 7 },
+					TacticalDirectionCount,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDirection &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ApproachWorldObjectCommand{
+					actor, TacticalWorldObjectId{ 100, 7 }, 3,
+					101, WALKING, false, false,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ApproachWorldObjectCommand{
+					actor, TacticalWorldObjectId{ 100, 7 }, 3,
+					WORLD_MAX, WALKING, false, false,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidDestinationGrid &&
+			ValidateSimulationCommandDomain( SimulationCommand{
+				ApproachWorldObjectCommand{
+					actor, TacticalWorldObjectId{ 100, 7 }, 3,
+					101, NUMANIMATIONSTATES, false, false,
+					SimulationCommandSource::System } } ) ==
+				SimulationCommandDomainError::InvalidMovementMode &&
 			ValidateSimulationCommandDomain( SimulationCommand{ EndTurnCommand{
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
@@ -3116,6 +3150,17 @@ int main( int, char** )
 			tacticalCommands.service->submit(
 				packageId, SimulationCommand{ CycleScopeModeCommand{
 					staleActor, WORLD_MAX, SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidObjectGrid =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ ActivateWorldObjectCommand{
+					staleActor, TacticalWorldObjectId{ WORLD_MAX, 7 }, 3,
+					SimulationCommandSource::System } } );
+		const TacticalCommandSubmissionResult invalidApproachMode =
+			tacticalCommands.service->submit(
+				packageId, SimulationCommand{ ApproachWorldObjectCommand{
+					staleActor, TacticalWorldObjectId{ 100, 7 }, 3,
+					101, NUMANIMATIONSTATES, false, false,
+					SimulationCommandSource::System } } );
 		const TacticalCommandSubmissionResult unloadedContext =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -3147,15 +3192,16 @@ int main( int, char** )
 				? &journalAfterCommandHost.back() : nullptr;
 		CHECK( inactiveOwner && invalidTeam && invalidStance && invalidFire &&
 		       invalidMoveGrid && invalidMoveMode && invalidScopeGrid &&
+		       invalidObjectGrid && invalidApproachMode &&
 		       unloadedContext && staleRequest &&
 		       commandHostAfterInvalidContext.lastDrain.accepted == 0 &&
-		       commandHostAfterInvalidContext.lastDrain.rejected == 8 &&
+		       commandHostAfterInvalidContext.lastDrain.rejected == 10 &&
 		       commandHostAfterValidation.lastDrain.accepted == 1 &&
 		       commandHostAfterValidation.lastDrain.rejected == 0 &&
 		       commandHostAfterValidation.inactiveOwnerRejections ==
 		           commandHostBeforeValidation.inactiveOwnerRejections + 1 &&
 		       commandHostAfterValidation.semanticRejections ==
-		           commandHostBeforeValidation.semanticRejections + 6 &&
+		           commandHostBeforeValidation.semanticRejections + 8 &&
 		       commandHostAfterValidation.contextRejections ==
 		           commandHostBeforeValidation.contextRejections + 1 &&
 		       commandHostAfterValidation.lastProcessing.status ==
@@ -3245,6 +3291,17 @@ int main( int, char** )
 				staleActor.slot, staleActor.incarnation,
 				TacticalTraversalKind::JumpFence,
 				SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleActivation =
+			TryDispatchActivateWorldObjectCommandNow(
+				staleActor.slot, staleActor.incarnation,
+				100, 7, 3, SimulationCommandSource::System );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleApproach =
+			TryDispatchApproachWorldObjectCommandNow(
+				staleActor.slot, staleActor.incarnation,
+				100, 7, 3, 101, WALKING, false, false,
+				SimulationCommandSource::System );
 		CHECK(
 			weaponModeWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
@@ -3253,8 +3310,12 @@ int main( int, char** )
 			reloadWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			staleTraversal.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleActivation.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleApproach.status ==
 				SimulationCommandDispatchStatus::Discarded,
-			"equipment and traversal commands reject unsafe live-world execution" );
+			"equipment, traversal, and world-object commands reject unsafe live-world execution" );
 
 		const std::uint64_t oneCommandFrame = ++commandTestFrameSequence;
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );

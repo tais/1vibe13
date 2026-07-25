@@ -45,7 +45,8 @@ enum class SimulationCommandDomainError
 	InvalidMoveOrigin,
 	InvalidPendingActionPolicy,
 	InvalidDirection,
-	InvalidTraversalKind
+	InvalidTraversalKind,
+	InvalidObjectGrid
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -164,6 +165,26 @@ SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
 	std::uint16_t soldierId,
 	std::uint32_t uniqueSoldierId,
 	TacticalTraversalKind kind,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchActivateWorldObjectCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::int32_t objectGrid,
+	std::uint16_t structureId,
+	std::uint8_t direction,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool reverse,
+	bool forceRestart,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
 // Source-compatible wrappers for legacy callers. New production migrations use

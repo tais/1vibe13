@@ -337,7 +337,9 @@ the engine must not contain SDL types in its public domain model.
   Production tactical input routes end-turn, stance, movement, facing, firing,
   stealth, stop-movement, weapon-mode, scope-mode, single-merc reload, and
   typed roof/fence/wall/window traversal intent through engine-owned value
-  commands. Each command is processed at the existing synchronous boundary
+  commands. Door, switch, and openable-structure activation uses the same
+  boundary; approaching an object combines movement and pending interaction in
+  one command. Each command is processed at the existing synchronous boundary
   before invoking its legacy executor.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
@@ -347,18 +349,22 @@ the engine must not contain SDL types in its public domain model.
   accidental unbounded same-tick dispatch.
 - `CommandJournal` records a bounded, best-effort history of submitted command
   values and their queued/applied/discarded/blocked state. Recording failures
-  never alter simulation delivery. The JA2 adapter's versioned
+  never alter simulation delivery. The JA2 adapter's
   `SimulationCommandCodec` serializes explicit command tags rather than variant
-  indexes, providing a stable capture boundary for diagnostics and future
-  replay/network hosts.
-  Firearm actions, player weapon controls, and obstacle traversal enter this
-  gateway before the compatibility executor queues events or invokes the
-  established inventory, AP, and animation mechanics. Traversal availability,
-  backpack, and AP checks remain at their existing player-input sites while the
-  command records only the chosen action. AI retaliation, equipment-driven
-  mode correction, pathfinding traversal, and multi-merc bulk reload remain
-  local mechanics until they receive explicit command semantics rather than
-  masquerading as player intent.
+  indexes, providing a capture boundary for diagnostics and future
+  replay/network hosts. It deliberately has one current layout: the header
+  reserves a version field, but no speculative historical decoders are carried
+  before a format has actually shipped.
+  Firearm actions, player weapon controls, obstacle traversal, and world-object
+  interaction enter this gateway before the compatibility executor queues
+  events or invokes the established inventory, AP, pathing, structure, and
+  animation mechanics. Traversal and interaction availability, backpack, and
+  AP checks remain at their existing player-input sites while the command
+  records only the chosen action. AI retaliation, dialogue scripting,
+  equipment-driven mode correction, automatic/pathfinding door handling,
+  pathfinding traversal, and multi-merc bulk reload remain local mechanics
+  until they receive explicit command semantics rather than masquerading as
+  player intent.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded

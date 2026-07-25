@@ -869,7 +869,7 @@ int main()
 		"tactical command result preparation enforces payload limits transactionally");
 
 	TacticalCommandInbox validationInbox(
-		TacticalCommandInboxLimits{8, 8, 8, 8, 10});
+		TacticalCommandInboxLimits{12, 12, 12, 8, 16});
 	const SimulationCommand validTurn = MakeTurnCommand(1);
 	const SimulationCommand invalidSource = MakeTurnCommand(
 		1, static_cast<SimulationCommandSource>(0xff));
@@ -893,6 +893,9 @@ int main()
 		TacticalEntityId{3, 301},
 		static_cast<TacticalTraversalKind>(0xff),
 		SimulationCommandSource::LocalPlayer};
+	ActivateWorldObjectCommand invalidObjectDirection{
+		TacticalEntityId{3, 301}, TacticalWorldObjectId{102, 7},
+		TacticalDirectionCount, SimulationCommandSource::LocalPlayer};
 	const TacticalCommandSubmissionResult invalidOwner =
 		validationInbox.submit("bad/owner", validTurn);
 	const TacticalCommandSubmissionResult oversizedOwner =
@@ -916,6 +919,9 @@ int main()
 	const TacticalCommandSubmissionResult invalidTraversalResult =
 		validationInbox.submit(
 			"pkg.ok", SimulationCommand{invalidTraversalKind});
+	const TacticalCommandSubmissionResult invalidObjectDirectionResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{invalidObjectDirection});
 	const TacticalCommandSubmissionResult validStanceResult =
 		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
@@ -947,6 +953,16 @@ int main()
 			"pkg.ok", SimulationCommand{TraverseObstacleCommand{
 				TacticalEntityId{3, 301}, TacticalTraversalKind::ClimbWall,
 				SimulationCommandSource::LocalPlayer}});
+	const TacticalCommandSubmissionResult validActivationResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{ActivateWorldObjectCommand{
+				TacticalEntityId{3, 301}, TacticalWorldObjectId{102, 7}, 3,
+				SimulationCommandSource::NetworkPeer}});
+	const TacticalCommandSubmissionResult validApproachResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{ApproachWorldObjectCommand{
+				TacticalEntityId{3, 301}, TacticalWorldObjectId{102, 7}, 3,
+				101, 6, true, false, SimulationCommandSource::Replay}});
 	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
@@ -959,13 +975,17 @@ int main()
 		invalidFacingResult.error == TacticalCommandSubmissionError::InvalidCommand &&
 		invalidTraversalResult.error ==
 			TacticalCommandSubmissionError::InvalidCommand &&
+		invalidObjectDirectionResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
 		validMoveResult.requestId == 3 && validWeaponModeResult.requestId == 4 &&
 		validScopeModeResult.requestId == 5 && validReloadResult.requestId == 6 &&
 		validTraversalResult.requestId == 7 &&
-		validationInbox.summary().submitted == 7 &&
-		validationInbox.summary().nextRequestId == 8,
+		validActivationResult.requestId == 8 &&
+		validApproachResult.requestId == 9 &&
+		validationInbox.summary().submitted == 9 &&
+		validationInbox.summary().nextRequestId == 10,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -2196,18 +2216,30 @@ int main()
 			28, 52, CommandJournalStatus::Applied,
 			SimulationCommand{TraverseObstacleCommand{
 				firstIncarnation, TacticalTraversalKind::JumpWindow,
-				SimulationCommandSource::LocalPlayer}}}};
+				SimulationCommandSource::LocalPlayer}}},
+		RecordedSimulationCommand{
+			29, 53, CommandJournalStatus::Applied,
+			SimulationCommand{ActivateWorldObjectCommand{
+				reusedSlot, TacticalWorldObjectId{4567, 0x1234}, 6,
+				SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			30, 54, CommandJournalStatus::Queued,
+			SimulationCommand{ApproachWorldObjectCommand{
+				firstIncarnation, TacticalWorldObjectId{5678, 0x2345}, 4,
+				5600, 6, true, false,
+				SimulationCommandSource::Replay}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
 		encoded[5] == 0,
-		"JA2 adapter emits version-7 simulation command journals");
+		"JA2 adapter emits the single current simulation command format");
 	std::vector<RecordedSimulationCommand> decoded;
 	std::uint64_t dropped = 0;
 	const SimulationCommandJournalDecodeResult decodeResult =
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
-	if (decodeResult == SimulationCommandJournalDecodeResult::Success && decoded.size() == 12)
+	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
+		decoded.size() == 14)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2225,6 +2257,10 @@ int main()
 			std::get<ReloadWeaponCommand>(decoded[10].command);
 		const auto& traversal =
 			std::get<TraverseObstacleCommand>(decoded[11].command);
+		const auto& activation =
+			std::get<ActivateWorldObjectCommand>(decoded[12].command);
+		const auto& approach =
+			std::get<ApproachWorldObjectCommand>(decoded[13].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2257,54 +2293,81 @@ int main()
 			reload.source == SimulationCommandSource::Replay &&
 			traversal.soldier == firstIncarnation &&
 			traversal.kind == TacticalTraversalKind::JumpWindow &&
-			traversal.source == SimulationCommandSource::LocalPlayer;
+			traversal.source == SimulationCommandSource::LocalPlayer &&
+			activation.soldier == reusedSlot &&
+			activation.object.grid == 4567 &&
+			activation.object.structureId == 0x1234 &&
+			activation.direction == 6 &&
+			activation.source == SimulationCommandSource::NetworkPeer &&
+			approach.soldier == firstIncarnation &&
+			approach.object.grid == 5678 &&
+			approach.object.structureId == 0x2345 &&
+			approach.direction == 4 &&
+			approach.destinationGrid == 5600 &&
+			approach.movementMode == 6 && approach.reverse &&
+			!approach.forceRestart &&
+			approach.source == SimulationCommandSource::Replay;
 	}
 	check(decodedFields,
-		"version-7 commands preserve movement, weapon, and traversal intent");
+		"current commands preserve movement, weapon, traversal, and world-object intent");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
 	std::vector<std::uint8_t> preservedEncoding{0xa5, 0x5a};
 	check(!EncodeSimulationCommandJournal(unresolved, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-7 encoding rejects unresolved actor identities transactionally");
+		"command encoding rejects unresolved actor identities transactionally");
 	std::vector<RecordedSimulationCommand> invalidFire = recorded;
 	std::get<BeginFireWeaponCommand>(invalidFire[2].command).soldier =
 		TacticalEntityId{};
 	check(!EncodeSimulationCommandJournal(invalidFire, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-7 encoding validates fire-command actors");
+		"command encoding validates fire-command actors");
 	std::vector<RecordedSimulationCommand> invalidMove = recorded;
 	std::get<MoveToGridCommand>(invalidMove[3].command).soldier =
 		TacticalEntityId{};
 	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-7 encoding validates move-command actors");
+		"command encoding validates move-command actors");
 	invalidMove = recorded;
 	std::get<MoveToGridCommand>(invalidMove[3].command).origin =
 		static_cast<TacticalMoveOrigin>(0xff);
 	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-7 encoding rejects unknown movement origins transactionally");
+		"command encoding rejects unknown movement origins transactionally");
 	invalidMove = recorded;
 	std::get<MoveToGridCommand>(invalidMove[3].command).pendingAction =
 		static_cast<TacticalPendingActionPolicy>(0xff);
 	check(!EncodeSimulationCommandJournal(invalidMove, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-7 encoding rejects unknown pending-action policy transactionally");
+		"command encoding rejects unknown pending-action policy transactionally");
 	std::vector<RecordedSimulationCommand> invalidFacing = recorded;
 	std::get<SetFacingCommand>(invalidFacing[5].command).direction =
 		TacticalDirectionCount;
 	check(!EncodeSimulationCommandJournal(invalidFacing, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-7 encoding rejects invalid tactical directions transactionally");
+		"command encoding rejects invalid tactical directions transactionally");
 	std::vector<RecordedSimulationCommand> invalidTraversal = recorded;
 	std::get<TraverseObstacleCommand>(invalidTraversal[11].command).kind =
 		static_cast<TacticalTraversalKind>(0xff);
 	check(!EncodeSimulationCommandJournal(
 			invalidTraversal, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
-		"version-7 encoding rejects unknown traversal kinds transactionally");
+		"command encoding rejects unknown traversal kinds transactionally");
+	std::vector<RecordedSimulationCommand> invalidActivation = recorded;
+	std::get<ActivateWorldObjectCommand>(
+		invalidActivation[12].command).direction = TacticalDirectionCount;
+	check(!EncodeSimulationCommandJournal(
+			invalidActivation, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects invalid world-object directions transactionally");
+	std::vector<RecordedSimulationCommand> invalidApproach = recorded;
+	std::get<ApproachWorldObjectCommand>(
+		invalidApproach[13].command).direction = TacticalDirectionCount;
+	check(!EncodeSimulationCommandJournal(
+			invalidApproach, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects invalid approach directions transactionally");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);
@@ -2312,101 +2375,45 @@ int main()
 		trailing, SimulationCommandJournalDecodeResult::Invalid),
 		"JA2 command codec rejects trailing data without publishing partial output");
 
-	// Literal version-1 bytes guard the historical slot-only stance layout.
-	const std::vector<std::uint8_t> versionOneStance{
-		0x53, 0x4d, 0x43, 0x31, 0x01, 0x00,
-		0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x01, 0x00, 0x00, 0x00,
-		0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x29, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x01, 0x02, 0x07, 0x00, 0x02, 0x03};
-	std::vector<RecordedSimulationCommand> legacyDecoded;
-	std::uint64_t legacyDropped = 0;
-	const SimulationCommandJournalDecodeResult legacyResult =
-		DecodeSimulationCommandJournal(
-			versionOneStance, legacyDecoded, legacyDropped);
-	bool legacyFields = false;
-	if (legacyResult == SimulationCommandJournalDecodeResult::Success &&
-		legacyDecoded.size() == 1)
-	{
-		const auto& stance =
-			std::get<ChangeStanceCommand>(legacyDecoded[0].command);
-		legacyFields = legacyDropped == 3 && legacyDecoded[0].tick == 17 &&
-			legacyDecoded[0].sequence == 41 &&
-			legacyDecoded[0].status == CommandJournalStatus::Applied &&
-			stance.soldier == TacticalEntityId{7, 0} &&
-			stance.soldier.legacyUnresolved() && !stance.soldier.valid() &&
-			stance.stance == 2 && stance.source == SimulationCommandSource::Replay;
-	}
-	check(legacyFields,
-		"version-1 stance slots decode explicitly as legacy-unresolved identities");
-	std::vector<std::uint8_t> refusedUpgrade{0xcc};
-	check(!EncodeSimulationCommandJournal(
-		legacyDecoded, legacyDropped, refusedUpgrade) &&
-		refusedUpgrade == std::vector<std::uint8_t>{0xcc},
-		"legacy-unresolved stance identities cannot be emitted as version 7");
-
-	std::vector<std::uint8_t> malformedV1 = versionOneStance;
-	malformedV1[36] = 0xff;
-	malformedV1[37] = 0xff;
+	std::vector<std::uint8_t> unsupportedVersion = encoded;
+	unsupportedVersion[4] = 2;
 	check(RejectsJournalWithoutPublishing(
-		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
-		"version-1 decoding rejects an invalid sentinel actor slot");
-	malformedV1 = versionOneStance;
-	malformedV1[34] = 0xff;
-	check(RejectsJournalWithoutPublishing(
-		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
-		"version-1 decoding rejects unknown journal statuses");
-	malformedV1 = versionOneStance;
-	malformedV1[35] = 0xff;
-	check(RejectsJournalWithoutPublishing(
-		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
-		"version-1 decoding rejects unknown command tags");
-	malformedV1 = versionOneStance;
-	malformedV1[39] = 0xff;
-	check(RejectsJournalWithoutPublishing(
-		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
-		"version-1 decoding rejects unknown command sources");
-	malformedV1 = versionOneStance;
-	malformedV1.pop_back();
-	check(RejectsJournalWithoutPublishing(
-		malformedV1, SimulationCommandJournalDecodeResult::Invalid),
-		"version-1 decoding rejects truncated records transactionally");
-	malformedV1 = versionOneStance;
-	malformedV1[4] = 8;
-	check(RejectsJournalWithoutPublishing(
-		malformedV1, SimulationCommandJournalDecodeResult::UnsupportedVersion),
+		unsupportedVersion,
+		SimulationCommandJournalDecodeResult::UnsupportedVersion),
 		"command journals reject unsupported future wire versions");
 
 	std::vector<RecordedSimulationCommand> oneStance{recorded[0]};
-	std::vector<std::uint8_t> malformedV7;
-	const bool encodedV7Fixture =
-		EncodeSimulationCommandJournal(oneStance, 0, malformedV7) &&
-		malformedV7.size() == 44;
-	check(encodedV7Fixture,
-		"version-7 stance fixture encodes for corruption checks");
-	std::vector<std::uint8_t> compatibleV2 = malformedV7;
-	if (encodedV7Fixture)
+	std::vector<std::uint8_t> malformedStance;
+	const bool encodedStanceFixture =
+		EncodeSimulationCommandJournal(oneStance, 0, malformedStance) &&
+		malformedStance.size() == 44;
+	std::vector<std::uint8_t> invalidStatus = malformedStance;
+	std::vector<std::uint8_t> invalidTag = malformedStance;
+	std::vector<std::uint8_t> invalidSourceBytes = malformedStance;
+	std::vector<std::uint8_t> truncatedStance = malformedStance;
+	if (encodedStanceFixture)
 	{
-		compatibleV2[4] = 2;
-		malformedV7[38] = 0;
-		malformedV7[39] = 0;
-		malformedV7[40] = 0;
-		malformedV7[41] = 0;
+		malformedStance[38] = 0;
+		malformedStance[39] = 0;
+		malformedStance[40] = 0;
+		malformedStance[41] = 0;
+		invalidStatus[34] = 0xff;
+		invalidTag[35] = 0xff;
+		invalidSourceBytes[43] = 0xff;
+		truncatedStance.pop_back();
 	}
-	std::vector<RecordedSimulationCommand> compatibleV2Decoded;
-	std::uint64_t compatibleV2Dropped = 1;
-	check(encodedV7Fixture &&
-		DecodeSimulationCommandJournal(
-			compatibleV2, compatibleV2Decoded, compatibleV2Dropped) ==
-				SimulationCommandJournalDecodeResult::Success &&
-		compatibleV2Dropped == 0 && compatibleV2Decoded.size() == 1 &&
-		std::get<ChangeStanceCommand>(compatibleV2Decoded[0].command).soldier ==
-			firstIncarnation,
-		"version-7 decoder retains version-2 generational command compatibility");
-	check(RejectsJournalWithoutPublishing(
-		malformedV7, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 decoding rejects zero-incarnation actor identities");
+	check(encodedStanceFixture &&
+		RejectsJournalWithoutPublishing(
+			malformedStance, SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			invalidStatus, SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			invalidTag, SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			invalidSourceBytes, SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			truncatedStance, SimulationCommandJournalDecodeResult::Invalid),
+		"the current command format rejects malformed record identity, status, tag, source, and length");
 
 	std::vector<RecordedSimulationCommand> oneMove{recorded[3]};
 	std::vector<std::uint8_t> malformedMove;
@@ -2414,41 +2421,14 @@ int main()
 		EncodeSimulationCommandJournal(oneMove, 0, malformedMove) &&
 		malformedMove.size() == 52;
 	check(encodedMoveFixture,
-		"version-7 move fixture encodes its stable value fields");
-	std::vector<std::uint8_t> compatibleV3Move = malformedMove;
+		"the current move fixture encodes all stable value fields");
 	if (encodedMoveFixture)
 	{
-		compatibleV3Move[4] = 3;
-		compatibleV3Move.resize(compatibleV3Move.size() - 2);
 		malformedMove[48] = 0x80;
 	}
-	std::vector<RecordedSimulationCommand> compatibleV3MoveDecoded;
-	std::uint64_t compatibleV3MoveDropped = 1;
-	const bool decodedCompatibleV3Move = encodedMoveFixture &&
-		DecodeSimulationCommandJournal(
-			compatibleV3Move, compatibleV3MoveDecoded,
-			compatibleV3MoveDropped) ==
-			SimulationCommandJournalDecodeResult::Success &&
-		compatibleV3MoveDecoded.size() == 1;
-	bool compatibleV3MoveDefaults = false;
-	if (decodedCompatibleV3Move)
-	{
-		const MoveToGridCommand& move =
-			std::get<MoveToGridCommand>(compatibleV3MoveDecoded[0].command);
-		compatibleV3MoveDefaults =
-			move.origin == TacticalMoveOrigin::PlayerUi &&
-			move.pendingAction == TacticalPendingActionPolicy::Clear;
-	}
-	check(compatibleV3MoveDefaults,
-		"version-3 moves decode with legacy UI and clear-pending defaults");
-	std::vector<std::uint8_t> moveWithOldVersion = compatibleV3Move;
-	if (encodedMoveFixture) moveWithOldVersion[4] = 2;
-	check(RejectsJournalWithoutPublishing(
-		moveWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
-		"version-2 journals cannot smuggle the version-3 move tag");
 	check(RejectsJournalWithoutPublishing(
 		malformedMove, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 move decoding rejects unknown packed flags transactionally");
+		"move decoding rejects unknown packed flags transactionally");
 	std::vector<std::uint8_t> malformedMoveOrigin;
 	std::vector<std::uint8_t> malformedPendingAction;
 	if (encodedMoveFixture)
@@ -2460,111 +2440,96 @@ int main()
 	}
 	check(encodedMoveFixture && RejectsJournalWithoutPublishing(
 		malformedMoveOrigin, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 move decoding rejects unknown movement origins transactionally");
+		"move decoding rejects unknown movement origins transactionally");
 	check(encodedMoveFixture && RejectsJournalWithoutPublishing(
 		malformedPendingAction, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 move decoding rejects unknown pending-action policy transactionally");
+		"move decoding rejects unknown pending-action policy transactionally");
 
 	std::vector<RecordedSimulationCommand> oneFacing{recorded[5]};
 	std::vector<RecordedSimulationCommand> oneStealth{recorded[6]};
-	std::vector<RecordedSimulationCommand> oneStop{recorded[7]};
 	std::vector<std::uint8_t> malformedFacing;
 	std::vector<std::uint8_t> malformedStealth;
-	std::vector<std::uint8_t> stopWithOldVersion;
-	std::vector<std::uint8_t> compatibleVersionFiveStop;
 	const bool encodedNewCommands =
 		EncodeSimulationCommandJournal(oneFacing, 0, malformedFacing) &&
 		EncodeSimulationCommandJournal(oneStealth, 0, malformedStealth) &&
-		EncodeSimulationCommandJournal(oneStop, 0, stopWithOldVersion) &&
-		malformedFacing.size() == 44 && malformedStealth.size() == 44 &&
-		stopWithOldVersion.size() == 43;
+		malformedFacing.size() == 44 && malformedStealth.size() == 44;
 	if (encodedNewCommands)
 	{
 		malformedFacing[42] = TacticalDirectionCount;
 		malformedStealth[42] = 2;
-		compatibleVersionFiveStop = stopWithOldVersion;
-		compatibleVersionFiveStop[4] = 5;
-		stopWithOldVersion[4] = 4;
 	}
-	std::vector<RecordedSimulationCommand> versionFiveDecoded;
-	std::uint64_t versionFiveDropped = 1;
 	check(encodedNewCommands && RejectsJournalWithoutPublishing(
 		malformedFacing, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 facing decoding rejects invalid directions transactionally");
+		"facing decoding rejects invalid directions transactionally");
 	check(encodedNewCommands && RejectsJournalWithoutPublishing(
 		malformedStealth, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 stealth decoding rejects malformed booleans transactionally");
-	check(encodedNewCommands &&
-		DecodeSimulationCommandJournal(
-			compatibleVersionFiveStop, versionFiveDecoded,
-			versionFiveDropped) ==
-				SimulationCommandJournalDecodeResult::Success &&
-		versionFiveDropped == 0 && versionFiveDecoded.size() == 1 &&
-		std::holds_alternative<StopMovementCommand>(
-			versionFiveDecoded[0].command),
-		"version-7 decoder retains complete version-5 command compatibility");
-	check(encodedNewCommands && RejectsJournalWithoutPublishing(
-		stopWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
-		"version-4 journals cannot smuggle version-5 command tags");
+		"stealth decoding rejects malformed booleans transactionally");
 
-	std::vector<RecordedSimulationCommand> oneWeaponMode{recorded[8]};
-	std::vector<RecordedSimulationCommand> oneScopeMode{recorded[9]};
 	std::vector<RecordedSimulationCommand> oneReload{recorded[10]};
-	std::vector<std::uint8_t> weaponModeWithOldVersion;
-	std::vector<std::uint8_t> compatibleVersionSixWeaponMode;
-	std::vector<std::uint8_t> encodedScopeMode;
 	std::vector<std::uint8_t> malformedReload;
 	const bool encodedWeaponControlCommands =
-		EncodeSimulationCommandJournal(
-			oneWeaponMode, 0, weaponModeWithOldVersion) &&
-		EncodeSimulationCommandJournal(oneScopeMode, 0, encodedScopeMode) &&
 		EncodeSimulationCommandJournal(oneReload, 0, malformedReload) &&
-		weaponModeWithOldVersion.size() == 43 &&
-		encodedScopeMode.size() == 47 && malformedReload.size() == 44;
+		malformedReload.size() == 44;
 	if (encodedWeaponControlCommands)
 	{
-		compatibleVersionSixWeaponMode = weaponModeWithOldVersion;
-		compatibleVersionSixWeaponMode[4] = 6;
-		weaponModeWithOldVersion[4] = 5;
 		malformedReload[42] = 2;
 	}
-	std::vector<RecordedSimulationCommand> versionSixDecoded;
-	std::uint64_t versionSixDropped = 1;
-	check(encodedWeaponControlCommands &&
-		DecodeSimulationCommandJournal(
-			compatibleVersionSixWeaponMode, versionSixDecoded,
-			versionSixDropped) ==
-				SimulationCommandJournalDecodeResult::Success &&
-		versionSixDropped == 0 && versionSixDecoded.size() == 1 &&
-		std::holds_alternative<CycleWeaponModeCommand>(
-			versionSixDecoded[0].command),
-		"version-7 decoder retains complete version-6 command compatibility");
-	check(encodedWeaponControlCommands && RejectsJournalWithoutPublishing(
-		weaponModeWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
-		"version-5 journals cannot smuggle version-6 weapon-control tags");
 	check(encodedWeaponControlCommands && RejectsJournalWithoutPublishing(
 		malformedReload, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 reload decoding rejects malformed booleans transactionally");
+		"reload decoding rejects malformed booleans transactionally");
 
 	std::vector<RecordedSimulationCommand> oneTraversal{recorded[11]};
-	std::vector<std::uint8_t> traversalWithOldVersion;
+	std::vector<std::uint8_t> encodedTraversal;
 	std::vector<std::uint8_t> malformedTraversalKind;
 	const bool encodedTraversalCommand =
 		EncodeSimulationCommandJournal(
-			oneTraversal, 0, traversalWithOldVersion) &&
-		traversalWithOldVersion.size() == 44;
+			oneTraversal, 0, encodedTraversal) &&
+		encodedTraversal.size() == 44;
 	if (encodedTraversalCommand)
 	{
-		malformedTraversalKind = traversalWithOldVersion;
-		traversalWithOldVersion[4] = 6;
+		malformedTraversalKind = encodedTraversal;
 		malformedTraversalKind[42] = 0xff;
 	}
 	check(encodedTraversalCommand && RejectsJournalWithoutPublishing(
-		traversalWithOldVersion, SimulationCommandJournalDecodeResult::Invalid),
-		"version-6 journals cannot smuggle version-7 traversal tags");
-	check(encodedTraversalCommand && RejectsJournalWithoutPublishing(
 		malformedTraversalKind, SimulationCommandJournalDecodeResult::Invalid),
-		"version-7 traversal decoding rejects unknown kinds transactionally");
+		"traversal decoding rejects unknown kinds transactionally");
+
+	std::vector<RecordedSimulationCommand> oneActivation{recorded[12]};
+	std::vector<RecordedSimulationCommand> oneApproach{recorded[13]};
+	std::vector<std::uint8_t> encodedActivation;
+	std::vector<std::uint8_t> malformedActivationDirection;
+	std::vector<std::uint8_t> encodedApproach;
+	std::vector<std::uint8_t> malformedApproachDirection;
+	std::vector<std::uint8_t> malformedApproachFlags;
+	const bool encodedWorldObjectCommands =
+		EncodeSimulationCommandJournal(
+			oneActivation, 0, encodedActivation) &&
+		EncodeSimulationCommandJournal(
+			oneApproach, 0, encodedApproach) &&
+		encodedActivation.size() == 50 &&
+		encodedApproach.size() == 57;
+	if (encodedWorldObjectCommands)
+	{
+		malformedActivationDirection = encodedActivation;
+		malformedApproachDirection = encodedApproach;
+		malformedApproachFlags = encodedApproach;
+		malformedActivationDirection[48] = TacticalDirectionCount;
+		malformedApproachDirection[48] = TacticalDirectionCount;
+		malformedApproachFlags[55] = 0x80;
+	}
+	check(encodedWorldObjectCommands &&
+		RejectsJournalWithoutPublishing(
+			malformedActivationDirection,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedApproachDirection,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"world-object decoding rejects invalid directions transactionally");
+	check(encodedWorldObjectCommands &&
+		RejectsJournalWithoutPublishing(
+			malformedApproachFlags,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"approach decoding rejects unknown movement flags transactionally");
 
 	CommandJournal<SimulationCommand> journal(1);
 	journal.recordSubmission(
