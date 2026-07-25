@@ -49,6 +49,7 @@
 	#include "InterfaceItemImages.h"
 	#include "Animation Control.h"	// added by Flugente
 	#include "Town Militia.h"		// added by Flugente
+	#include "Simulation Commands.h"
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -805,13 +806,14 @@ BOOLEAN EnterShopKeeperInterface()
 			INT32 sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, pSoldier->usUIMovementMode, pShopkeeper->sGridNo, (NPC_TALK_RADIUS-1), &ubDirection, TRUE );
 			gfNPCCircularDistLimit = FALSE;
 
-			// Now walkup to talk....
-			pSoldier->aiData.ubPendingAction = MERC_TALK;
-			pSoldier->aiData.uiPendingActionData1 = pShopkeeper->ubID;
-			pSoldier->aiData.ubPendingActionAnimCount = 0;
-
-			// WALK UP TO DEST FIRST
-			pSoldier->EVENT_InternalGetNewSoldierPath(sGoodGridNo, pSoldier->usUIMovementMode , TRUE , pSoldier->flags.fNoAPToFinishMove );
+			(void)TryDispatchApproachConversationCommandNow(
+				pSoldier->ubID,
+				pSoldier->uiUniqueSoldierIdValue,
+				pShopkeeper->ubID,
+				pShopkeeper->uiUniqueSoldierIdValue,
+				sGoodGridNo,
+				pSoldier->usUIMovementMode,
+				pSoldier->flags.fNoAPToFinishMove != FALSE);
 
 			return( FALSE );
 		}

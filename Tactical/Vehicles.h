@@ -349,6 +349,10 @@ INT32 GetTravelTimeOfVehicle( INT32 iId );
 // is this vehicle a valid one?
 BOOLEAN VehicleIdIsValid( INT32 iId );
 
+// Returns a passenger-array-safe capacity, or zero for an invalid vehicle or
+// malformed vehicle definition.
+INT32 GetVehicleSeatingCapacity( INT32 iId );
+
 // Test whether a soldier is actually a vehicle
 BOOLEAN IsVehicle(SOLDIERTYPE *pSoldier);
 

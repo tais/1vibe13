@@ -9,19 +9,26 @@
 
 #include "Animation Control.h"
 #include "GameContext.h"
+#include "Handle UI.h"
 #include "Interactive Tiles.h"
 #include "Items.h"
 #include "Map Information.h"
 #include "Overhead.h"
 #include "Soldier Control.h"
 #include "Soldier Functions.h"
+#include "Soldier macros.h"
 #include "TacticalEntityHost.h"
+#include "Vehicles.h"
 #include "Weapons.h"
 #include "opplist.h"
 #include "structure.h"
 
 namespace
 {
+	static_assert(
+		TacticalMaximumVehicleSeats == MAXPASSENGERS,
+		"public vehicle command seat bound must match legacy passenger storage");
+
 	struct SimulationCommandFrameBudget
 	{
 		std::uint64_t frameSequence = 0;
@@ -71,6 +78,37 @@ namespace
 			soldier.usAnimState != OPEN_STRUCT_CROUCHED &&
 			soldier.usAnimState != BEGIN_OPENSTRUCT &&
 			soldier.usAnimState != BEGIN_OPENSTRUCT_CROUCHED;
+	}
+
+	bool IsValidConversationPair(
+		const SOLDIERTYPE& soldier, const SOLDIERTYPE& target) noexcept
+	{
+		return soldier.ubID != target.ubID && target.bActive && target.bInSector;
+	}
+
+	bool HasValidVehicleSeat(
+		const SOLDIERTYPE& vehicle, std::uint8_t seatIndex) noexcept
+	{
+		const INT32 capacity =
+			GetVehicleSeatingCapacity(vehicle.bVehicleID);
+		return capacity > 0 && seatIndex < capacity;
+	}
+
+	bool CanEnterCommandVehicle(
+		SOLDIERTYPE& soldier, SOLDIERTYPE& vehicle,
+		std::uint8_t seatIndex) noexcept
+	{
+		if (soldier.ubID == vehicle.ubID ||
+			(soldier.flags.uiStatusFlags &
+				(SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE)) != 0 ||
+			!OK_ENTERABLE_VEHICLE((&vehicle)) ||
+			vehicle.bVisible == -1 ||
+			!OKUseVehicle(vehicle.ubProfile) ||
+			!IsThisVehicleAccessibleToSoldier(
+				&soldier, vehicle.bVehicleID) ||
+			!HasValidVehicleSeat(vehicle, seatIndex))
+			return false;
+		return IsEnoughSpaceInVehicle(vehicle.bVehicleID) == TRUE;
 	}
 
 	CommandDisposition ExecuteSimulationCommand(const SimulationCommand& command)
@@ -245,6 +283,133 @@ namespace
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
 			}
+			else if constexpr (
+				std::is_same<Command, StartConversationCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				if (!soldier || !target ||
+					!IsValidConversationPair(*soldier, *target))
+					return CommandDisposition::Discard;
+				(void)soldier->PlayerSoldierStartTalking(target->ubID, FALSE);
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (
+				std::is_same<Command, ApproachConversationCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				if (!soldier || !target ||
+					!IsValidConversationPair(*soldier, *target) ||
+					!IsValidMovementMode(soldier, value.movementMode))
+					return CommandDisposition::Discard;
+
+				const UINT8 previousAction = soldier->aiData.ubPendingAction;
+				const UINT32 previousData1 =
+					soldier->aiData.uiPendingActionData1;
+				const INT32 previousData2 =
+					soldier->aiData.sPendingActionData2;
+				const INT8 previousData3 =
+					soldier->aiData.bPendingActionData3;
+				const UINT32 previousData4 =
+					soldier->aiData.uiPendingActionData4;
+				const UINT8 previousAnimCount =
+					soldier->aiData.ubPendingActionAnimCount;
+				const UINT16 previousMovementMode =
+					soldier->usUIMovementMode;
+
+				soldier->usUIMovementMode = value.movementMode;
+				soldier->aiData.ubPendingAction = MERC_TALK;
+				soldier->aiData.uiPendingActionData1 = value.target.slot;
+				soldier->aiData.sPendingActionData2 = 0;
+				soldier->aiData.bPendingActionData3 = 0;
+				soldier->aiData.uiPendingActionData4 =
+					value.target.incarnation;
+				soldier->aiData.ubPendingActionAnimCount = 0;
+				if (soldier->EVENT_InternalGetNewSoldierPath(
+						value.destinationGrid, value.movementMode,
+						static_cast<BOOLEAN>(TacticalMoveOrigin::PlayerUi),
+						value.forceRestart ? TRUE : FALSE))
+					return CommandDisposition::Applied;
+
+				soldier->aiData.ubPendingAction = previousAction;
+				soldier->aiData.uiPendingActionData1 = previousData1;
+				soldier->aiData.sPendingActionData2 = previousData2;
+				soldier->aiData.bPendingActionData3 = previousData3;
+				soldier->aiData.uiPendingActionData4 = previousData4;
+				soldier->aiData.ubPendingActionAnimCount =
+					previousAnimCount;
+				soldier->usUIMovementMode = previousMovementMode;
+				return CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command, EnterVehicleCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				SOLDIERTYPE* vehicle = ResolveLiveCommandActor(value.vehicle);
+				if (!soldier || !vehicle ||
+					!CanEnterCommandVehicle(
+						*soldier, *vehicle, value.seatIndex))
+					return CommandDisposition::Discard;
+				const BOOLEAN entered =
+					EnterVehicle(vehicle, soldier, value.seatIndex);
+				UnSetUIBusy(soldier->ubID);
+				return entered
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
+			}
+			else if constexpr (
+				std::is_same<Command, ApproachVehicleCommand>::value)
+			{
+				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				SOLDIERTYPE* vehicle = ResolveLiveCommandActor(value.vehicle);
+				if (!soldier || !vehicle ||
+					!CanEnterCommandVehicle(
+						*soldier, *vehicle, value.seatIndex) ||
+					!IsValidMovementMode(soldier, value.movementMode))
+					return CommandDisposition::Discard;
+
+				const UINT8 previousAction = soldier->aiData.ubPendingAction;
+				const UINT32 previousData1 =
+					soldier->aiData.uiPendingActionData1;
+				const INT32 previousData2 =
+					soldier->aiData.sPendingActionData2;
+				const INT8 previousData3 =
+					soldier->aiData.bPendingActionData3;
+				const UINT32 previousData4 =
+					soldier->aiData.uiPendingActionData4;
+				const UINT8 previousAnimCount =
+					soldier->aiData.ubPendingActionAnimCount;
+				const UINT16 previousMovementMode =
+					soldier->usUIMovementMode;
+
+				soldier->usUIMovementMode = value.movementMode;
+				soldier->aiData.ubPendingAction = MERC_ENTER_VEHICLE;
+				soldier->aiData.uiPendingActionData1 =
+					value.vehicle.incarnation;
+				// The old field held a grid. All production scheduling now
+				// stores the vehicle slot so completion can resolve the exact
+				// incarnation even if the target moves.
+				soldier->aiData.sPendingActionData2 = value.vehicle.slot;
+				soldier->aiData.bPendingActionData3 = value.direction;
+				soldier->aiData.uiPendingActionData4 = value.seatIndex;
+				soldier->aiData.ubPendingActionAnimCount = 0;
+				if (soldier->EVENT_InternalGetNewSoldierPath(
+						value.destinationGrid, value.movementMode,
+						static_cast<BOOLEAN>(TacticalMoveOrigin::TeamAwareUi),
+						value.forceRestart ? TRUE : FALSE))
+					return CommandDisposition::Applied;
+
+				soldier->aiData.ubPendingAction = previousAction;
+				soldier->aiData.uiPendingActionData1 = previousData1;
+				soldier->aiData.sPendingActionData2 = previousData2;
+				soldier->aiData.bPendingActionData3 = previousData3;
+				soldier->aiData.uiPendingActionData4 = previousData4;
+				soldier->aiData.ubPendingActionAnimCount =
+					previousAnimCount;
+				soldier->usUIMovementMode = previousMovementMode;
+				return CommandDisposition::Discard;
+			}
 			else
 			{
 				return CommandDisposition::Discard;
@@ -377,6 +542,52 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 					return SimulationCommandDomainError::InvalidDirection;
 				if constexpr (
 					std::is_same<Command, ApproachWorldObjectCommand>::value)
+				{
+					if (value.destinationGrid < 0 ||
+						value.destinationGrid >= WORLD_MAX)
+						return SimulationCommandDomainError::InvalidDestinationGrid;
+					if (value.movementMode >= NUMANIMATIONSTATES ||
+						(gAnimControl[value.movementMode].uiFlags &
+							ANIM_MOVING) == 0)
+						return SimulationCommandDomainError::InvalidMovementMode;
+				}
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
+				std::is_same<Command, StartConversationCommand>::value ||
+				std::is_same<Command, ApproachConversationCommand>::value)
+			{
+				if (!value.target.valid() ||
+					value.target.slot >= TOTAL_SOLDIERS ||
+					value.target == value.soldier)
+					return SimulationCommandDomainError::InvalidTargetActor;
+				if constexpr (
+					std::is_same<Command, ApproachConversationCommand>::value)
+				{
+					if (value.destinationGrid < 0 ||
+						value.destinationGrid >= WORLD_MAX)
+						return SimulationCommandDomainError::InvalidDestinationGrid;
+					if (value.movementMode >= NUMANIMATIONSTATES ||
+						(gAnimControl[value.movementMode].uiFlags &
+							ANIM_MOVING) == 0)
+						return SimulationCommandDomainError::InvalidMovementMode;
+				}
+				return SimulationCommandDomainError::None;
+			}
+			else if constexpr (
+				std::is_same<Command, EnterVehicleCommand>::value ||
+				std::is_same<Command, ApproachVehicleCommand>::value)
+			{
+				if (!value.vehicle.valid() ||
+					value.vehicle.slot >= TOTAL_SOLDIERS ||
+					value.vehicle == value.soldier)
+					return SimulationCommandDomainError::InvalidTargetActor;
+				if (!IsValidTacticalDirection(value.direction))
+					return SimulationCommandDomainError::InvalidDirection;
+				if (value.seatIndex >= TacticalMaximumVehicleSeats)
+					return SimulationCommandDomainError::InvalidVehicleSeat;
+				if constexpr (
+					std::is_same<Command, ApproachVehicleCommand>::value)
 				{
 					if (value.destinationGrid < 0 ||
 						value.destinationGrid >= WORLD_MAX)
@@ -687,6 +898,128 @@ SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
 			TacticalWorldObjectId{objectGrid, structureId},
 			direction, destinationGrid, movementMode,
 			reverse, forceRestart, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchStartConversationCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{StartConversationCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalEntityId{targetId, targetUniqueSoldierId},
+			source}});
+}
+
+SimulationCommandDispatchResult TryDispatchApproachConversationCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t targetId,
+	std::uint32_t targetUniqueSoldierId,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{ApproachConversationCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalEntityId{targetId, targetUniqueSoldierId},
+			destinationGrid, movementMode, forceRestart, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchEnterVehicleCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t vehicleId,
+	std::uint32_t vehicleUniqueSoldierId,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{EnterVehicleCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalEntityId{vehicleId, vehicleUniqueSoldierId},
+			direction, seatIndex, source}});
+}
+
+SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
+	std::uint16_t soldierId,
+	std::uint32_t uniqueSoldierId,
+	std::uint16_t vehicleId,
+	std::uint32_t vehicleUniqueSoldierId,
+	std::uint8_t direction,
+	std::uint8_t seatIndex,
+	std::int32_t destinationGrid,
+	std::uint16_t movementMode,
+	bool forceRestart,
+	SimulationCommandSource source) noexcept
+{
+	return TryDispatchSimulationCommandNow(
+		SimulationCommand{ApproachVehicleCommand{
+			TacticalEntityId{soldierId, uniqueSoldierId},
+			TacticalEntityId{vehicleId, vehicleUniqueSoldierId},
+			direction, seatIndex, destinationGrid, movementMode,
+			forceRestart, source}});
+}
+
+bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
+{
+	if (soldier.aiData.ubPendingAction != MERC_TALK) return false;
+	const UINT32 targetSlot = soldier.aiData.uiPendingActionData1;
+	const TacticalEntityId targetId{
+		targetSlot < TOTAL_SOLDIERS
+			? static_cast<std::uint16_t>(targetSlot)
+			: static_cast<std::uint16_t>(TOTAL_SOLDIERS),
+		soldier.aiData.uiPendingActionData4};
+
+	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
+	soldier.aiData.uiPendingActionData1 = 0;
+	soldier.aiData.uiPendingActionData4 = 0;
+
+	SOLDIERTYPE* target = ResolveLiveCommandActor(targetId);
+	if (!target || !IsValidConversationPair(soldier, *target)) return false;
+	(void)soldier.PlayerSoldierStartTalking(target->ubID, TRUE);
+	return true;
+}
+
+bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
+{
+	if (soldier.aiData.ubPendingAction != MERC_ENTER_VEHICLE) return false;
+	const INT32 targetSlot = soldier.aiData.sPendingActionData2;
+	const INT32 rawDirection = soldier.aiData.bPendingActionData3;
+	const UINT32 rawSeatIndex = soldier.aiData.uiPendingActionData4;
+	const TacticalEntityId vehicleId{
+		targetSlot >= 0 && targetSlot < TOTAL_SOLDIERS
+			? static_cast<std::uint16_t>(targetSlot)
+			: static_cast<std::uint16_t>(TOTAL_SOLDIERS),
+		soldier.aiData.uiPendingActionData1};
+
+	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
+	soldier.aiData.uiPendingActionData1 = 0;
+	soldier.aiData.sPendingActionData2 = 0;
+	soldier.aiData.bPendingActionData3 = 0;
+	soldier.aiData.uiPendingActionData4 = 0;
+
+	SOLDIERTYPE* vehicle = ResolveLiveCommandActor(vehicleId);
+	if (!vehicle || rawDirection < 0 ||
+		!IsValidTacticalDirection(static_cast<std::uint8_t>(rawDirection)) ||
+		rawSeatIndex >= TacticalMaximumVehicleSeats ||
+		!CanEnterCommandVehicle(
+			soldier, *vehicle, static_cast<std::uint8_t>(rawSeatIndex)))
+	{
+		UnSetUIBusy(soldier.ubID);
+		return false;
+	}
+
+	const BOOLEAN entered = EnterVehicle(
+		vehicle, &soldier, static_cast<std::uint8_t>(rawSeatIndex));
+	UnSetUIBusy(soldier.ubID);
+	return entered == TRUE;
 }
 
 std::uint64_t DispatchEndTurnCommandNow(

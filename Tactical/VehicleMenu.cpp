@@ -13,6 +13,7 @@
 #include "Handle UI.h"
 #include "Squads.h"
 #include "Font Control.h"
+#include "Simulation Commands.h"
 
 // sevenfm: need this for correct calculation of vehicle menu position
 extern INT16 gsInterfaceLevel;
@@ -66,16 +67,18 @@ VehicleSelection::Setup( UINT32 aVal )
 	if ( pCurrentVehicle == NULL )
 		return;
 
+	const INT32 bVehicleID = pCurrentVehicle->bVehicleID;
+	const INT32 iSeatingCapacity =
+		GetVehicleSeatingCapacity( bVehicleID );
+	if ( iSeatingCapacity == 0 )
+		return;
+	const INT8 bSeatIndex = GetSeatIndexFromSoldier( pCurrentSoldier );
+
 	SetupPopup("VehicleSelection");
 
 	POPUP_OPTION *pOption;
 	
 	CHAR16 pStr[300];
-
-	// create entries for each vehicle seat
-	INT8 bVehicleID = pCurrentVehicle->bVehicleID;
-	INT8 bSeatIndex = GetSeatIndexFromSoldier( pCurrentSoldier );
-	INT32 iSeatingCapacity = gNewVehicle[ pVehicleList[ bVehicleID ].ubVehicleType ].iNewSeatingCapacities;
 
 	for ( int i = 0; i < iSeatingCapacity; ++i)
 	{
@@ -157,6 +160,14 @@ VehicleSelection::Functions( UINT32 aVal  )
 
 	Cancel();
 
+	if ( pCurrentSoldier == NULL || pCurrentVehicle == NULL ||
+		aVal >= static_cast<UINT32>(
+			GetVehicleSeatingCapacity( pCurrentVehicle->bVehicleID ) ) )
+	{
+		gVehicleSelection.Cancel();
+		return;
+	}
+
 	if( pCurrentSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->iVehicleId == pCurrentVehicle->bVehicleID )
 	{
 		if( SwapVehicleSeat( pCurrentVehicle, pCurrentSoldier, aVal ) )
@@ -179,25 +190,33 @@ VehicleSelection::Functions( UINT32 aVal  )
 
 			if ( EnoughPoints( pCurrentSoldier, sAPCost, 0, TRUE ) )
 			{
+				const SimulationCommandDispatchResult vehicleEntry =
+					pCurrentSoldier->sGridNo != sActionGridNo
+						? TryDispatchApproachVehicleCommandNow(
+							pCurrentSoldier->ubID,
+							pCurrentSoldier->uiUniqueSoldierIdValue,
+							pCurrentVehicle->ubID,
+							pCurrentVehicle->uiUniqueSoldierIdValue,
+							ubDirection,
+							static_cast<UINT8>(aVal),
+							sActionGridNo,
+							pCurrentSoldier->usUIMovementMode,
+							pCurrentSoldier->flags.fNoAPToFinishMove != FALSE)
+						: TryDispatchEnterVehicleCommandNow(
+							pCurrentSoldier->ubID,
+							pCurrentSoldier->uiUniqueSoldierIdValue,
+							pCurrentVehicle->ubID,
+							pCurrentVehicle->uiUniqueSoldierIdValue,
+							ubDirection,
+							static_cast<UINT8>(aVal));
+				if (!vehicleEntry)
+				{
+					Cancel();
+					gVehicleSelection.Cancel();
+					return;
+				}
+
 				pCurrentSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
-
-				// CHECK IF WE ARE AT THIS GRIDNO NOW
-				if ( pCurrentSoldier->sGridNo != sActionGridNo )
-				{
-					// SEND PENDING ACTION
-					pCurrentSoldier->aiData.ubPendingAction = MERC_ENTER_VEHICLE;
-					pCurrentSoldier->aiData.sPendingActionData2	= pCurrentVehicle->sGridNo;
-					pCurrentSoldier->aiData.bPendingActionData3	= ubDirection;
-					pCurrentSoldier->aiData.uiPendingActionData4	= aVal;
-					pCurrentSoldier->aiData.ubPendingActionAnimCount = 0;
-
-					// WALK UP TO DEST FIRST
-					pCurrentSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pCurrentSoldier->usUIMovementMode, 3 , pCurrentSoldier->flags.fNoAPToFinishMove );
-				}
-				else
-				{
-					pCurrentSoldier->EVENT_SoldierEnterVehicle( pCurrentVehicle->sGridNo, ubDirection, aVal );
-				}
 
 				// OK, set UI
 				SetUIBusy( pCurrentSoldier->ubID );

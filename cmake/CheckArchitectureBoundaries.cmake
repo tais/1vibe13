@@ -283,6 +283,37 @@ if(direct_player_world_object_call)
     "Player world-object interaction bypasses SimulationCommand in Tactical/Handle UI.cpp")
 endif()
 
+# Player conversation and vehicle-entry targets are stable tactical entity
+# identities. In particular, delayed movement must not retain only a reusable
+# SoldierID or a grid containing a different actor by completion time.
+set(player_conversation_files
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  "${SOURCE_ROOT}/Tactical/ShopKeeper Interface.cpp")
+foreach(player_conversation_file IN LISTS player_conversation_files)
+  file(READ "${player_conversation_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(PlayerSoldierStartTalking|MERC_TALK)([^A-Za-z0-9_]|$)"
+    direct_player_conversation_call "${contents}")
+  if(direct_player_conversation_call)
+    message(FATAL_ERROR
+      "Player conversation bypasses stable SimulationCommand targeting in ${player_conversation_file}")
+  endif()
+endforeach()
+
+set(player_vehicle_entry_files
+  "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  "${SOURCE_ROOT}/Tactical/VehicleMenu.cpp")
+foreach(player_vehicle_entry_file IN LISTS player_vehicle_entry_files)
+  file(READ "${player_vehicle_entry_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(EVENT_SoldierEnterVehicle|EnterVehicle|MERC_ENTER_VEHICLE)([^A-Za-z0-9_]|$)"
+    direct_player_vehicle_entry_call "${contents}")
+  if(direct_player_vehicle_entry_call)
+    message(FATAL_ERROR
+      "Player vehicle entry bypasses stable SimulationCommand targeting in ${player_vehicle_entry_file}")
+  endif()
+endforeach()
+
 # Tactical world identity is owned by EngineRuntime's TacticalWorldSession.
 # Exact legacy globals remain readable compatibility mirrors, but a second
 # production writer would silently split world and turn identity again.

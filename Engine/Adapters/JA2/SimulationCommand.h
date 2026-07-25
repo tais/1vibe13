@@ -227,6 +227,49 @@ struct ApproachWorldObjectCommand
 	SimulationCommandSource source;
 };
 
+// Entity-to-entity player intent always carries both incarnations. Soldier
+// pool slots are reused, including while an actor is walking toward a delayed
+// interaction, so a slot alone is not an authoritative target identity.
+struct StartConversationCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	SimulationCommandSource source;
+};
+
+struct ApproachConversationCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId target;
+	std::int32_t destinationGrid;
+	std::uint16_t movementMode;
+	bool forceRestart;
+	SimulationCommandSource source;
+};
+
+inline constexpr std::uint8_t TacticalMaximumVehicleSeats = 10;
+
+struct EnterVehicleCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId vehicle;
+	std::uint8_t direction;
+	std::uint8_t seatIndex;
+	SimulationCommandSource source;
+};
+
+struct ApproachVehicleCommand
+{
+	TacticalEntityId soldier;
+	TacticalEntityId vehicle;
+	std::uint8_t direction;
+	std::uint8_t seatIndex;
+	std::int32_t destinationGrid;
+	std::uint16_t movementMode;
+	bool forceRestart;
+	SimulationCommandSource source;
+};
+
 // A closed, value-only command set keeps the deterministic queue independent
 // from JA2 globals and pointers. New commands extend this variant while their
 // legacy executors remain in the compatibility layer during migration.
@@ -243,7 +286,11 @@ using SimulationCommand = std::variant<
 	ReloadWeaponCommand,
 	TraverseObstacleCommand,
 	ActivateWorldObjectCommand,
-	ApproachWorldObjectCommand>;
+	ApproachWorldObjectCommand,
+	StartConversationCommand,
+	ApproachConversationCommand,
+	EnterVehicleCommand,
+	ApproachVehicleCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -274,6 +321,17 @@ inline bool IsStructurallyValidSimulationCommand(
 				std::is_same<Command, ActivateWorldObjectCommand>::value ||
 				std::is_same<Command, ApproachWorldObjectCommand>::value)
 				return IsValidTacticalDirection(value.direction);
+			if constexpr (
+				std::is_same<Command, StartConversationCommand>::value ||
+				std::is_same<Command, ApproachConversationCommand>::value)
+				return value.target.valid() && value.target != value.soldier;
+			if constexpr (
+				std::is_same<Command, EnterVehicleCommand>::value ||
+				std::is_same<Command, ApproachVehicleCommand>::value)
+				return value.vehicle.valid() &&
+					value.vehicle != value.soldier &&
+					IsValidTacticalDirection(value.direction) &&
+					value.seatIndex < TacticalMaximumVehicleSeats;
 			return true;
 		}
 	}, command);

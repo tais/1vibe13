@@ -869,7 +869,7 @@ int main()
 		"tactical command result preparation enforces payload limits transactionally");
 
 	TacticalCommandInbox validationInbox(
-		TacticalCommandInboxLimits{12, 12, 12, 8, 16});
+		TacticalCommandInboxLimits{16, 16, 16, 8, 20});
 	const SimulationCommand validTurn = MakeTurnCommand(1);
 	const SimulationCommand invalidSource = MakeTurnCommand(
 		1, static_cast<SimulationCommandSource>(0xff));
@@ -896,6 +896,15 @@ int main()
 	ActivateWorldObjectCommand invalidObjectDirection{
 		TacticalEntityId{3, 301}, TacticalWorldObjectId{102, 7},
 		TacticalDirectionCount, SimulationCommandSource::LocalPlayer};
+	const SimulationCommand invalidConversationTarget{
+		StartConversationCommand{
+			TacticalEntityId{3, 301}, TacticalEntityId{},
+			SimulationCommandSource::LocalPlayer}};
+	const SimulationCommand invalidVehicleSeat{
+		EnterVehicleCommand{
+			TacticalEntityId{3, 301}, TacticalEntityId{4, 401}, 2,
+			TacticalMaximumVehicleSeats,
+			SimulationCommandSource::LocalPlayer}};
 	const TacticalCommandSubmissionResult invalidOwner =
 		validationInbox.submit("bad/owner", validTurn);
 	const TacticalCommandSubmissionResult oversizedOwner =
@@ -922,6 +931,10 @@ int main()
 	const TacticalCommandSubmissionResult invalidObjectDirectionResult =
 		validationInbox.submit(
 			"pkg.ok", SimulationCommand{invalidObjectDirection});
+	const TacticalCommandSubmissionResult invalidConversationTargetResult =
+		validationInbox.submit("pkg.ok", invalidConversationTarget);
+	const TacticalCommandSubmissionResult invalidVehicleSeatResult =
+		validationInbox.submit("pkg.ok", invalidVehicleSeat);
 	const TacticalCommandSubmissionResult validStanceResult =
 		validationInbox.submit("pkg.ok", SimulationCommand{ChangeStanceCommand{
 			TacticalEntityId{3, 301}, 2, SimulationCommandSource::Replay}});
@@ -963,6 +976,26 @@ int main()
 			"pkg.ok", SimulationCommand{ApproachWorldObjectCommand{
 				TacticalEntityId{3, 301}, TacticalWorldObjectId{102, 7}, 3,
 				101, 6, true, false, SimulationCommandSource::Replay}});
+	const TacticalCommandSubmissionResult validConversationResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{StartConversationCommand{
+				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
+				SimulationCommandSource::LocalPlayer}});
+	const TacticalCommandSubmissionResult validConversationApproachResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{ApproachConversationCommand{
+				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
+				101, 6, true, SimulationCommandSource::Replay}});
+	const TacticalCommandSubmissionResult validVehicleResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{EnterVehicleCommand{
+				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
+				2, 3, SimulationCommandSource::NetworkPeer}});
+	const TacticalCommandSubmissionResult validVehicleApproachResult =
+		validationInbox.submit(
+			"pkg.ok", SimulationCommand{ApproachVehicleCommand{
+				TacticalEntityId{3, 301}, TacticalEntityId{4, 401},
+				2, 3, 101, 6, false, SimulationCommandSource::Replay}});
 	check(invalidOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		oversizedOwner.error == TacticalCommandSubmissionError::InvalidOwner &&
 		invalidSourceResult.error == TacticalCommandSubmissionError::InvalidCommand &&
@@ -977,6 +1010,10 @@ int main()
 			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidObjectDirectionResult.error ==
 			TacticalCommandSubmissionError::InvalidCommand &&
+		invalidConversationTargetResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
+		invalidVehicleSeatResult.error ==
+			TacticalCommandSubmissionError::InvalidCommand &&
 		invalidOwner.requestId == 0 && invalidSourceResult.requestId == 0 &&
 		validStanceResult.requestId == 1 && validFireResult.requestId == 2 &&
 		validMoveResult.requestId == 3 && validWeaponModeResult.requestId == 4 &&
@@ -984,8 +1021,12 @@ int main()
 		validTraversalResult.requestId == 7 &&
 		validActivationResult.requestId == 8 &&
 		validApproachResult.requestId == 9 &&
-		validationInbox.summary().submitted == 9 &&
-		validationInbox.summary().nextRequestId == 10,
+		validConversationResult.requestId == 10 &&
+		validConversationApproachResult.requestId == 11 &&
+		validVehicleResult.requestId == 12 &&
+		validVehicleApproachResult.requestId == 13 &&
+		validationInbox.summary().submitted == 13 &&
+		validationInbox.summary().nextRequestId == 14,
 		"package command validation rejects malformed ownership and unresolved actors without consuming IDs");
 
 	TacticalCommandInbox capacityInbox(
@@ -2227,7 +2268,27 @@ int main()
 			SimulationCommand{ApproachWorldObjectCommand{
 				firstIncarnation, TacticalWorldObjectId{5678, 0x2345}, 4,
 				5600, 6, true, false,
-				SimulationCommandSource::Replay}}}};
+				SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			31, 55, CommandJournalStatus::Applied,
+			SimulationCommand{StartConversationCommand{
+				firstIncarnation, reusedSlot,
+				SimulationCommandSource::LocalPlayer}}},
+		RecordedSimulationCommand{
+			32, 56, CommandJournalStatus::Queued,
+			SimulationCommand{ApproachConversationCommand{
+				reusedSlot, firstIncarnation, 6000, 6, true,
+				SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			33, 57, CommandJournalStatus::Applied,
+			SimulationCommand{EnterVehicleCommand{
+				firstIncarnation, reusedSlot, 2, 3,
+				SimulationCommandSource::NetworkPeer}}},
+		RecordedSimulationCommand{
+			34, 58, CommandJournalStatus::Queued,
+			SimulationCommand{ApproachVehicleCommand{
+				reusedSlot, firstIncarnation, 5, 8, 6200, 6, false,
+				SimulationCommandSource::System}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2239,7 +2300,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 14)
+		decoded.size() == 18)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2261,6 +2322,14 @@ int main()
 			std::get<ActivateWorldObjectCommand>(decoded[12].command);
 		const auto& approach =
 			std::get<ApproachWorldObjectCommand>(decoded[13].command);
+		const auto& conversation =
+			std::get<StartConversationCommand>(decoded[14].command);
+		const auto& conversationApproach =
+			std::get<ApproachConversationCommand>(decoded[15].command);
+		const auto& vehicle =
+			std::get<EnterVehicleCommand>(decoded[16].command);
+		const auto& vehicleApproach =
+			std::get<ApproachVehicleCommand>(decoded[17].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
@@ -2306,10 +2375,31 @@ int main()
 			approach.destinationGrid == 5600 &&
 			approach.movementMode == 6 && approach.reverse &&
 			!approach.forceRestart &&
-			approach.source == SimulationCommandSource::Replay;
+			approach.source == SimulationCommandSource::Replay &&
+			conversation.soldier == firstIncarnation &&
+			conversation.target == reusedSlot &&
+			conversation.source == SimulationCommandSource::LocalPlayer &&
+			conversationApproach.soldier == reusedSlot &&
+			conversationApproach.target == firstIncarnation &&
+			conversationApproach.destinationGrid == 6000 &&
+			conversationApproach.movementMode == 6 &&
+			conversationApproach.forceRestart &&
+			conversationApproach.source == SimulationCommandSource::Replay &&
+			vehicle.soldier == firstIncarnation &&
+			vehicle.vehicle == reusedSlot && vehicle.direction == 2 &&
+			vehicle.seatIndex == 3 &&
+			vehicle.source == SimulationCommandSource::NetworkPeer &&
+			vehicleApproach.soldier == reusedSlot &&
+			vehicleApproach.vehicle == firstIncarnation &&
+			vehicleApproach.direction == 5 &&
+			vehicleApproach.seatIndex == 8 &&
+			vehicleApproach.destinationGrid == 6200 &&
+			vehicleApproach.movementMode == 6 &&
+			!vehicleApproach.forceRestart &&
+			vehicleApproach.source == SimulationCommandSource::System;
 	}
 	check(decodedFields,
-		"current commands preserve movement, weapon, traversal, and world-object intent");
+		"current commands preserve movement, weapon, traversal, world-object, conversation, and vehicle intent");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
@@ -2368,6 +2458,21 @@ int main()
 			invalidApproach, 0, preservedEncoding) &&
 		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
 		"command encoding rejects invalid approach directions transactionally");
+	std::vector<RecordedSimulationCommand> invalidConversation = recorded;
+	std::get<StartConversationCommand>(
+		invalidConversation[14].command).target.incarnation = 0;
+	check(!EncodeSimulationCommandJournal(
+			invalidConversation, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects unresolved conversation targets transactionally");
+	std::vector<RecordedSimulationCommand> invalidVehicle = recorded;
+	std::get<EnterVehicleCommand>(
+		invalidVehicle[16].command).seatIndex =
+			TacticalMaximumVehicleSeats;
+	check(!EncodeSimulationCommandJournal(
+			invalidVehicle, 0, preservedEncoding) &&
+		preservedEncoding == std::vector<std::uint8_t>{0xa5, 0x5a},
+		"command encoding rejects out-of-range vehicle seats transactionally");
 
 	std::vector<std::uint8_t> trailing = encoded;
 	trailing.push_back(0xff);
@@ -2530,6 +2635,64 @@ int main()
 			malformedApproachFlags,
 			SimulationCommandJournalDecodeResult::Invalid),
 		"approach decoding rejects unknown movement flags transactionally");
+
+	std::vector<RecordedSimulationCommand> oneConversation{recorded[14]};
+	std::vector<RecordedSimulationCommand> oneConversationApproach{recorded[15]};
+	std::vector<RecordedSimulationCommand> oneVehicle{recorded[16]};
+	std::vector<RecordedSimulationCommand> oneVehicleApproach{recorded[17]};
+	std::vector<std::uint8_t> encodedConversation;
+	std::vector<std::uint8_t> encodedConversationApproach;
+	std::vector<std::uint8_t> encodedVehicle;
+	std::vector<std::uint8_t> encodedVehicleApproach;
+	const bool encodedEntityInteractionCommands =
+		EncodeSimulationCommandJournal(
+			oneConversation, 0, encodedConversation) &&
+		EncodeSimulationCommandJournal(
+			oneConversationApproach, 0, encodedConversationApproach) &&
+		EncodeSimulationCommandJournal(
+			oneVehicle, 0, encodedVehicle) &&
+		EncodeSimulationCommandJournal(
+			oneVehicleApproach, 0, encodedVehicleApproach) &&
+		encodedConversation.size() == 49 &&
+		encodedConversationApproach.size() == 56 &&
+		encodedVehicle.size() == 51 &&
+		encodedVehicleApproach.size() == 58;
+	std::vector<std::uint8_t> unresolvedConversationTarget =
+		encodedConversation;
+	std::vector<std::uint8_t> malformedConversationApproach =
+		encodedConversationApproach;
+	std::vector<std::uint8_t> malformedVehicleDirection = encodedVehicle;
+	std::vector<std::uint8_t> malformedVehicleSeat = encodedVehicle;
+	std::vector<std::uint8_t> malformedVehicleApproach =
+		encodedVehicleApproach;
+	if (encodedEntityInteractionCommands)
+	{
+		for (std::size_t offset = 44; offset <= 47; ++offset)
+			unresolvedConversationTarget[offset] = 0;
+		malformedConversationApproach[54] = 2;
+		malformedVehicleDirection[48] = TacticalDirectionCount;
+		malformedVehicleSeat[49] = TacticalMaximumVehicleSeats;
+		malformedVehicleApproach[56] = 2;
+	}
+	check(encodedEntityInteractionCommands &&
+		RejectsJournalWithoutPublishing(
+			unresolvedConversationTarget,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedConversationApproach,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"conversation decoding rejects unresolved targets and malformed approach flags transactionally");
+	check(encodedEntityInteractionCommands &&
+		RejectsJournalWithoutPublishing(
+			malformedVehicleDirection,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedVehicleSeat,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
+			malformedVehicleApproach,
+			SimulationCommandJournalDecodeResult::Invalid),
+		"vehicle decoding rejects invalid directions, seats, and approach flags transactionally");
 
 	CommandJournal<SimulationCommand> journal(1);
 	journal.recordSubmission(
