@@ -63,6 +63,7 @@
 	#include "Map Screen Helicopter.h"
 	#include "Soldier Control.h"
 	#include "TacticalEntityHost.h"
+	#include "Simulation Commands.h"
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
 
@@ -1989,7 +1990,9 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 			// if not already facing in that direction,
 			if (pSoldier->ubDirection != ubDesiredMercDir)
 			{
-				pSoldier->EVENT_SetSoldierDesiredDirection( ubDesiredMercDir );
+				(void)TryDispatchSystemSetFacingCommand(
+					*pSoldier, ubDesiredMercDir,
+					TacticalEventPolicy::LocalOnly);
 			}
 		}
 	}
@@ -2221,7 +2224,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier)
 				{
-					SendSoldierSetDesiredDirectionEvent( pSoldier, NORTHWEST );
+					(void)TryDispatchSystemSetFacingCommand(
+						*pSoldier, NORTHWEST);
 				}
 				break;
 
@@ -2236,7 +2240,12 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (pSoldier)
 				{
 					// screen NORTHEAST corresponds to in-game NORTH
-					SendSoldierSetDesiredDirectionEvent( pSoldier, (UINT16) (NORTH + (usActionCode - NPC_ACTION_FACE_NORTH_EAST)) );
+					(void)TryDispatchSystemSetFacingCommand(
+						*pSoldier,
+						static_cast<UINT8>(
+							NORTH +
+							(usActionCode -
+								NPC_ACTION_FACE_NORTH_EAST)));
 				}
 				break;
 
@@ -2470,7 +2479,9 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						// if not already facing in that direction,
 						if (pSoldier->ubDirection != ubDesiredMercDir)
 						{
-							pSoldier->EVENT_SetSoldierDesiredDirection( ubDesiredMercDir );
+							(void)TryDispatchSystemSetFacingCommand(
+								*pSoldier, ubDesiredMercDir,
+								TacticalEventPolicy::LocalOnly);
 						}
 					}
 				}

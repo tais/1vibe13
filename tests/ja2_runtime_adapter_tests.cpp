@@ -2415,7 +2415,8 @@ int main()
 		RecordedSimulationCommand{
 			17, 41, CommandJournalStatus::Applied,
 			SimulationCommand{ChangeStanceCommand{
-				firstIncarnation, 2, SimulationCommandSource::LocalPlayer}}},
+				firstIncarnation, 2, SimulationCommandSource::LocalPlayer,
+				TacticalEventPolicy::LocalOnly}}},
 		RecordedSimulationCommand{
 			18, 42, CommandJournalStatus::Queued,
 			SimulationCommand{ChangeStanceCommand{
@@ -2437,7 +2438,8 @@ int main()
 		RecordedSimulationCommand{
 			22, 46, CommandJournalStatus::Applied,
 			SimulationCommand{SetFacingCommand{
-				firstIncarnation, 7, SimulationCommandSource::LocalPlayer}}},
+				firstIncarnation, 7, SimulationCommandSource::LocalPlayer,
+				TacticalEventPolicy::LocalOnly}}},
 		RecordedSimulationCommand{
 			23, 47, CommandJournalStatus::Applied,
 			SimulationCommand{SetStealthModeCommand{
@@ -2537,7 +2539,12 @@ int main()
 		RecordedSimulationCommand{
 			43, 67, CommandJournalStatus::Blocked,
 			SimulationCommand{SynchronizeTurnCommand{
-				3, true, false, SimulationCommandSource::Replay}}}};
+				3, true, false, SimulationCommandSource::Replay}}},
+		RecordedSimulationCommand{
+			44, 68, CommandJournalStatus::Queued,
+			SimulationCommand{BeginSelectedFireWeaponCommand{
+				firstIncarnation, 7000, 0, 3, 1, 4321,
+				SimulationCommandSource::System}}}};
 	std::vector<std::uint8_t> encoded;
 	check(EncodeSimulationCommandJournal(recorded, 3, encoded) &&
 		encoded.size() > 5 && encoded[4] == SimulationCommandJournalWireVersion &&
@@ -2549,7 +2556,7 @@ int main()
 		DecodeSimulationCommandJournal(encoded, decoded, dropped);
 	bool decodedFields = false;
 	if (decodeResult == SimulationCommandJournalDecodeResult::Success &&
-		decoded.size() == 27)
+		decoded.size() == 28)
 	{
 		const auto& oldOccupant = std::get<ChangeStanceCommand>(decoded[0].command);
 		const auto& newOccupant = std::get<ChangeStanceCommand>(decoded[1].command);
@@ -2597,11 +2604,16 @@ int main()
 			std::get<SynchronizeActorStopCommand>(decoded[25].command);
 		const auto& synchronizedTurn =
 			std::get<SynchronizeTurnCommand>(decoded[26].command);
+		const auto& selectedFire =
+			std::get<BeginSelectedFireWeaponCommand>(
+				decoded[27].command);
 		decodedFields = dropped == 3 && decoded[0].tick == 17 &&
 			decoded[0].sequence == 41 &&
 			decoded[0].status == CommandJournalStatus::Applied &&
 			oldOccupant.soldier == firstIncarnation && oldOccupant.stance == 2 &&
+			oldOccupant.eventPolicy == TacticalEventPolicy::LocalOnly &&
 			newOccupant.soldier == reusedSlot && newOccupant.stance == 1 &&
+			newOccupant.eventPolicy == TacticalEventPolicy::Replicated &&
 			oldOccupant.soldier != newOccupant.soldier &&
 			fire.soldier == firstIncarnation &&
 			fire.targetGrid == -123 && fire.targetLevel == -1 &&
@@ -2616,6 +2628,7 @@ int main()
 			turn.source == SimulationCommandSource::NetworkPeer &&
 			facing.soldier == firstIncarnation && facing.direction == 7 &&
 			facing.source == SimulationCommandSource::LocalPlayer &&
+			facing.eventPolicy == TacticalEventPolicy::LocalOnly &&
 			stealth.soldier == reusedSlot && stealth.enabled &&
 			stealth.source == SimulationCommandSource::Replay &&
 			stop.soldier == firstIncarnation &&
@@ -2714,7 +2727,14 @@ int main()
 			synchronizedTurn.nextTeam == 3 &&
 			synchronizedTurn.enterCombat &&
 			!synchronizedTurn.endClientTurn &&
-			synchronizedTurn.source == SimulationCommandSource::Replay;
+			synchronizedTurn.source == SimulationCommandSource::Replay &&
+			selectedFire.soldier == firstIncarnation &&
+			selectedFire.targetGrid == 7000 &&
+			selectedFire.targetLevel == 0 &&
+			selectedFire.targetCubeLevel == 3 &&
+			selectedFire.attackingHand == 1 &&
+			selectedFire.attackingWeapon == 4321 &&
+			selectedFire.source == SimulationCommandSource::System;
 	}
 	check(decodedFields,
 		"current commands preserve player intent and multiplayer reconciliation snapshots");
@@ -2743,6 +2763,40 @@ int main()
 		preservedSynchronizationEncoding ==
 			std::vector<std::uint8_t>{0xa5, 0x5a},
 		"replicated paths reject sizes beyond the fixed compatibility capacity");
+	std::vector<RecordedSimulationCommand> invalidSystemAction = recorded;
+	std::get<BeginSelectedFireWeaponCommand>(
+		invalidSystemAction[27].command).source =
+			SimulationCommandSource::LocalPlayer;
+	check(
+		!EncodeSimulationCommandJournal(
+			invalidSystemAction, 0,
+			preservedSynchronizationEncoding) &&
+		preservedSynchronizationEncoding ==
+			std::vector<std::uint8_t>{0xa5, 0x5a},
+		"selected System fire rejects player/network provenance");
+	invalidSystemAction = recorded;
+	std::get<SetFacingCommand>(
+		invalidSystemAction[5].command).eventPolicy =
+			static_cast<TacticalEventPolicy>(0xffu);
+	check(
+		!EncodeSimulationCommandJournal(
+			invalidSystemAction, 0,
+			preservedSynchronizationEncoding) &&
+		preservedSynchronizationEncoding ==
+			std::vector<std::uint8_t>{0xa5, 0x5a},
+		"event policy validation rejects unknown local/replicated behavior");
+	invalidSystemAction = recorded;
+	auto& invalidNetworkPolicy = std::get<ChangeStanceCommand>(
+		invalidSystemAction[0].command);
+	invalidNetworkPolicy.source = SimulationCommandSource::NetworkPeer;
+	invalidNetworkPolicy.eventPolicy = TacticalEventPolicy::Replicated;
+	check(
+		!EncodeSimulationCommandJournal(
+			invalidSystemAction, 0,
+			preservedSynchronizationEncoding) &&
+		preservedSynchronizationEncoding ==
+			std::vector<std::uint8_t>{0xa5, 0x5a},
+		"received stance/facing commands cannot echo outbound replication");
 
 	std::vector<RecordedSimulationCommand> unresolved = recorded;
 	std::get<ChangeStanceCommand>(unresolved[0].command).soldier.incarnation = 0;
@@ -2874,10 +2928,11 @@ int main()
 	std::vector<std::uint8_t> malformedStance;
 	const bool encodedStanceFixture =
 		EncodeSimulationCommandJournal(oneStance, 0, malformedStance) &&
-		malformedStance.size() == 44;
+		malformedStance.size() == 45;
 	std::vector<std::uint8_t> invalidStatus = malformedStance;
 	std::vector<std::uint8_t> invalidTag = malformedStance;
 	std::vector<std::uint8_t> invalidSourceBytes = malformedStance;
+	std::vector<std::uint8_t> invalidEventPolicyBytes = malformedStance;
 	std::vector<std::uint8_t> truncatedStance = malformedStance;
 	if (encodedStanceFixture)
 	{
@@ -2888,6 +2943,7 @@ int main()
 		invalidStatus[34] = 0xff;
 		invalidTag[35] = 0xff;
 		invalidSourceBytes[43] = 0xff;
+		invalidEventPolicyBytes[44] = 0xff;
 		truncatedStance.pop_back();
 	}
 	check(encodedStanceFixture &&
@@ -2900,8 +2956,11 @@ int main()
 		RejectsJournalWithoutPublishing(
 			invalidSourceBytes, SimulationCommandJournalDecodeResult::Invalid) &&
 		RejectsJournalWithoutPublishing(
+			invalidEventPolicyBytes,
+			SimulationCommandJournalDecodeResult::Invalid) &&
+		RejectsJournalWithoutPublishing(
 			truncatedStance, SimulationCommandJournalDecodeResult::Invalid),
-		"the current command format rejects malformed record identity, status, tag, source, and length");
+		"the current command format rejects malformed record identity, status, tag, source, policy, and length");
 
 	std::vector<RecordedSimulationCommand> oneMove{recorded[3]};
 	std::vector<std::uint8_t> malformedMove;
@@ -2940,7 +2999,7 @@ int main()
 	const bool encodedNewCommands =
 		EncodeSimulationCommandJournal(oneFacing, 0, malformedFacing) &&
 		EncodeSimulationCommandJournal(oneStealth, 0, malformedStealth) &&
-		malformedFacing.size() == 44 && malformedStealth.size() == 44;
+		malformedFacing.size() == 45 && malformedStealth.size() == 44;
 	if (encodedNewCommands)
 	{
 		malformedFacing[42] = TacticalDirectionCount;

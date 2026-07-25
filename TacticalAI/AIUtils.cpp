@@ -27,6 +27,7 @@
 	#include "SmokeEffects.h"		// sevenfm
 
 #include "GameInitOptionsScreen.h"
+#include "Simulation Commands.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -570,7 +571,8 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 	}
 }
 
-void NewDest(SOLDIERTYPE *pSoldier, INT32 usGridNo)
+SimulationCommandDispatchResult NewDest(
+	SOLDIERTYPE *pSoldier, INT32 usGridNo)
 {
 	// sevenfm: always use DetermineMovementMode with new code
 	if (gGameExternalOptions.fAIMovementMode)
@@ -650,7 +652,10 @@ void NewDest(SOLDIERTYPE *pSoldier, INT32 usGridNo)
 	// ATE: Using this more versatile version
 	// Last parameter says whether to re-start the soldier's animation
 	// This should be done if buddy was paused for fNoApstofinishMove...
-	pSoldier->EVENT_InternalGetNewSoldierPath( usGridNo, pSoldier->usUIMovementMode , FALSE, pSoldier->flags.fNoAPToFinishMove );
+	return TryDispatchSystemMoveToGridCommand(
+		*pSoldier, usGridNo, pSoldier->usUIMovementMode,
+		pSoldier->bReverse != FALSE,
+		pSoldier->flags.fNoAPToFinishMove != FALSE);
 }
 
 

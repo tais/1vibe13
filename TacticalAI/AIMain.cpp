@@ -22,6 +22,7 @@
 #include "LOS.h"
 #include "message.h"
 #include "TeamTurns.h"
+#include "Simulation Commands.h"
 #include "NPC.h"
 #include "Dialogue Control.h"
 #include "Soldier Profile.h"
@@ -1968,7 +1969,14 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             sprintf( tempstr, "ExecuteAction: SkipCoverCheck ON\n" );
             DebugAI (tempstr);
 #endif
-            SendSoldierSetDesiredDirectionEvent( pSoldier, pSoldier->aiData.usActionData );
+			if (!TryDispatchSystemSetFacingCommand(
+					*pSoldier,
+					static_cast<UINT8>(
+						pSoldier->aiData.usActionData)).accepted())
+			{
+				ActionDone(pSoldier);
+				return FALSE;
+			}
             // now we'll have to wait for the turning to finish; no need to call TurnSoldier here
             break;
 
@@ -2033,6 +2041,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
         case AI_ACTION_FLANK_RIGHT:
         case AI_ACTION_RUN:
         case AI_ACTION_MOVE_TO_CLIMB:
+		{
             if ( pSoldier->aiData.bAction == AI_ACTION_MOVE_TO_CLIMB )
             {
                 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Executing: AI_ACTION_MOVE_TO_CLIMB");
@@ -2174,10 +2183,17 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 break;
             }
 
-            NewDest(pSoldier,pSoldier->aiData.usActionData);    // set new->pathing.sDestination to actionData
+			const SimulationCommandDispatchResult movement =
+				NewDest(
+					pSoldier,
+					pSoldier->aiData.usActionData);
+			if (movement.accepted() && !movement.processed())
+				return TRUE;
 
             // make sure it worked (check that pSoldier->pathing.sDestination == pSoldier->aiData.usActionData)
-            if (pSoldier->pathing.sFinalDestination != pSoldier->aiData.usActionData)
+            if (!movement.accepted() ||
+				pSoldier->pathing.sFinalDestination !=
+					pSoldier->aiData.usActionData)
             {
 #ifdef BETAVERSION
                 // this should NEVER happen, indicates AI picked an illegal spot!
@@ -2208,6 +2224,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // cancel any old black-listed gridno, got a valid new->pathing.sDestination
             pSoldier->pathing.sBlackList = NOWHERE;
             break;
+		}
 
         case AI_ACTION_ESCORTED_MOVE:         // go where told to by escortPlayer
             // since this is a delayed move, gotta make sure that it hasn't become
@@ -2308,11 +2325,13 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // turn to face trigger first
             if ( FindStructure( pSoldier->sGridNo + DirectionInc( NORTH ), STRUCTURE_SWITCH ) )
             {
-                SendSoldierSetDesiredDirectionEvent( pSoldier, NORTH );
+				(void)TryDispatchSystemSetFacingCommand(
+					*pSoldier, NORTH);
             }
             else
             {
-                SendSoldierSetDesiredDirectionEvent( pSoldier, WEST );
+				(void)TryDispatchSystemSetFacingCommand(
+					*pSoldier, WEST);
             }
 
             pSoldier->EVENT_InitNewSoldierAnim( AI_PULL_SWITCH, 0 , FALSE );
@@ -2403,7 +2422,14 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             sprintf( tempstr, "ExecuteAction: SkipCoverCheck ON\n" );
             DebugAI (tempstr);
 #endif
-            SendChangeSoldierStanceEvent( pSoldier, (UINT8) pSoldier->aiData.usActionData );
+			if (!TryDispatchSystemChangeStanceCommand(
+					*pSoldier,
+					static_cast<UINT8>(
+						pSoldier->aiData.usActionData)).accepted())
+			{
+				ActionDone(pSoldier);
+				return FALSE;
+			}
             break;
 
         case AI_ACTION_COWER:

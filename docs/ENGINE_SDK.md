@@ -188,6 +188,15 @@ packet's selected weapon; and synchronized turn capture records whether the
 receiving host must enter combat or close its client turn. These synchronization
 commands accept only network/replay provenance. Reliable network ingress queues
 behind existing authoritative work when immediate execution is unavailable.
+AI and script producers use an equivalent retained `System` ingress path.
+AI movement preserves System path origin and pending-action state; final fire
+captures the attacking hand and weapon rather than consulting mutable actor
+selection after a delay. `ChangeStanceCommand` and `SetFacingCommand` carry an
+explicit `TacticalEventPolicy`, allowing the adapter to preserve either the
+legacy replicated wrapper or local-only application independently from command
+source. Network stance/facing ingress is required to be local-only, preventing
+received commands from being echoed. Dialogue-directed movement, stance, and
+facing now share these semantics.
 Traversal uses `TacticalTraversalKind`, keeping legacy soldier and structure
 pointers, AP calculations, and animation constants outside the package-facing
 contract.

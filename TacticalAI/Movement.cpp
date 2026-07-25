@@ -14,6 +14,7 @@
 	#include "Soldier macros.h"
 	#include "Render Fun.h"
 	#include "Soldier Functions.h"		// added by Flugente
+#include "Simulation Commands.h"
 #include "connect.h"
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -135,13 +136,15 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 
 		pSoldier->pathing.bPathStored = TRUE;	// optimization - Ian
 
-		// make him go to it (needed to continue movement across multiple turns)
-		NewDest(pSoldier,sGridNo);
-
-		ubSuccess = TRUE;
+		// Make him go to it. A retained command is already owned by the
+		// authoritative queue, even though the destination changes next frame.
+		const SimulationCommandDispatchResult movement =
+			NewDest(pSoldier, sGridNo);
 
 		// make sure that it worked (check that pSoldier->pathing.sDestination == pSoldier->sGridNo)
-		if (pSoldier->pathing.sDestination == sGridNo)
+		if (movement.accepted() &&
+			(!movement.processed() ||
+				pSoldier->pathing.sDestination == sGridNo))
 		{
 			ubSuccess = TRUE;
 		}
@@ -207,11 +210,14 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 				// GoAsFar... sets pathStored TRUE only if he could go all the way
 
 				// make him go to it (needed to continue movement across multiple turns)
-				NewDest(pSoldier,sGridNo);
+				const SimulationCommandDispatchResult movement =
+					NewDest(pSoldier, sGridNo);
 
 
 				// make sure that it worked (check that pSoldier->pathing.sDestination == pSoldier->sGridNo)
-				if (pSoldier->pathing.sDestination == sGridNo)
+				if (movement.accepted() &&
+					(!movement.processed() ||
+						pSoldier->pathing.sDestination == sGridNo))
 					ubSuccess = TRUE;
 				else
 					ubGottaCancel = TRUE;
@@ -824,9 +830,18 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 	if (pSoldier->bActionPoints >= bAPCost)
 	{
 		// seems to have enough points...
-		NewDest(pSoldier,usNewGridNo);
+		const SimulationCommandDispatchResult movement =
+			NewDest(pSoldier, usNewGridNo);
 		// maybe we didn't actually start the action last turn...
-		pSoldier->aiData.bActionInProgress = TRUE;
+		if (movement.accepted())
+			pSoldier->aiData.bActionInProgress = TRUE;
+		else
+		{
+			DebugAI(
+				AI_MSG_INFO, pSoldier,
+				String("CancelAIAction: movement command rejected"));
+			CancelAIAction(pSoldier, DONTFORCE);
+		}
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
 						String("Soldier (%d) continues along path",pSoldier->ubID) );

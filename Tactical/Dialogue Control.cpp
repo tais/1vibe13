@@ -42,6 +42,7 @@
 	#include "Map Screen Interface Map.h"
 	#include "opplist.h"
 	#include "ai.h"
+	#include "Simulation Commands.h"
 	#include "worldman.h"
 	#include "Map Screen Interface Bottom.h"
 	#include "Campaign.h"
@@ -1380,7 +1381,9 @@ void HandleDialogue( )
 
 					//Get the soldier up
 					pSoldier->bCollapsed = FALSE;
-					pSoldier->ChangeSoldierStance( ANIM_STAND );
+					(void)TryDispatchSystemChangeStanceCommand(
+						*pSoldier, ANIM_STAND,
+						TacticalEventPolicy::LocalOnly);
 
 					//if the soldier is Jerry
 					if (FindSoldierByProfileID( JERRY_MILO_UB, FALSE ) == pSoldier) //JERRY

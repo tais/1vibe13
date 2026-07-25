@@ -471,11 +471,21 @@ the engine must not contain SDL types in its public domain model.
   When synchronous execution is backpressured or the frame budget is spent, a
   validated reliable packet is retained in sequence for the safe-frame drain
   instead of being silently lost.
-  AI retaliation, dialogue scripting,
-  equipment-driven mode correction, automatic/pathfinding door handling,
-  pathfinding traversal, and multi-merc bulk reload remain local mechanics
-  until they receive explicit command semantics rather than masquerading as
-  player intent.
+  AI locomotion, stance, facing, and the final selected-weapon fire event now
+  use retained `System` ingress as well. A busy authoritative frame therefore
+  delays an AI action the state machine already considers started instead of
+  dropping it. Movement explicitly preserves the stored AI path, System path
+  origin, pending action, reverse state, and restart decision. Fire captures
+  the chosen hand and weapon before deferral and delays multiplayer emission
+  with the local action. Dialogue-driven movement reaches this boundary through
+  the same AI executor; scripted stance and facing actions also record whether
+  their established behavior was local-only or multiplayer-aware. This event
+  policy is independent from provenance, so a received command cannot
+  accidentally echo itself and replay retains the original behavior.
+  Equipment-driven mode correction, automatic/pathfinding door handling,
+  low-level path traversal, non-positional dialogue effects, and multi-merc
+  bulk reload remain local mechanics until they receive explicit command
+  semantics rather than masquerading as player intent.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded
