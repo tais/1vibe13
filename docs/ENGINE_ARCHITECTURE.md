@@ -335,9 +335,10 @@ the engine must not contain SDL types in its public domain model.
   `DeterministicCommandQueue` provides tick/sequence ordering for simulation,
   replays, multiplayer synchronization, and headless tests.
   Production tactical input routes end-turn, stance, movement, facing, firing,
-  stealth, stop-movement, weapon-mode, scope-mode, and single-merc reload
-  intent through engine-owned value commands. Each command is processed at the
-  existing synchronous boundary before invoking its legacy executor.
+  stealth, stop-movement, weapon-mode, scope-mode, single-merc reload, and
+  typed roof/fence/wall/window traversal intent through engine-owned value
+  commands. Each command is processed at the existing synchronous boundary
+  before invoking its legacy executor.
 - `ProcessCommandsThrough` snapshots one bounded ready set and acknowledges
   commands only after their handler returns. Applied commands run exactly once;
   retry blocks later deterministic work without removing it; explicit discard
@@ -350,11 +351,14 @@ the engine must not contain SDL types in its public domain model.
   `SimulationCommandCodec` serializes explicit command tags rather than variant
   indexes, providing a stable capture boundary for diagnostics and future
   replay/network hosts.
-  Firearm actions and player weapon controls enter this gateway before the
-  compatibility executor queues events or applies established inventory/AP
-  mechanics. AI retaliation, equipment-driven mode correction, and multi-merc
-  bulk reload remain local mechanics until they receive explicit command
-  semantics rather than masquerading as player intent.
+  Firearm actions, player weapon controls, and obstacle traversal enter this
+  gateway before the compatibility executor queues events or invokes the
+  established inventory, AP, and animation mechanics. Traversal availability,
+  backpack, and AP checks remain at their existing player-input sites while the
+  command records only the chosen action. AI retaliation, equipment-driven
+  mode correction, pathfinding traversal, and multi-merc bulk reload remain
+  local mechanics until they receive explicit command semantics rather than
+  masquerading as player intent.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded

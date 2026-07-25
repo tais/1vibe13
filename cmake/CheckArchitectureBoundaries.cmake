@@ -250,6 +250,26 @@ if(turn_based_bulk_reload_count GREATER 3)
     "A new turn-based reload bypasses SimulationCommand; only the three established multi-merc bulk reload mechanics may call AutoReload directly")
 endif()
 
+# Player obstacle traversal now enters the same deterministic value-command
+# boundary from keyboard, mouse, and stance UI paths. Pathfinding, AI movement,
+# and animation internals remain legacy executor mechanics and may still invoke
+# the low-level soldier methods while their distinct intent is modeled.
+set(player_traversal_files
+  "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Panels.cpp")
+foreach(player_traversal_file IN LISTS player_traversal_files)
+  file(READ "${player_traversal_file}" contents)
+  string(REGEX MATCH
+    "BeginSoldierClimb(UpRoof|DownRoof|Fence|Wall|Window)[ \t\r\n]*\\("
+    direct_player_traversal_call "${contents}")
+  if(direct_player_traversal_call)
+    message(FATAL_ERROR
+      "Player tactical traversal bypasses SimulationCommand in ${player_traversal_file}")
+  endif()
+endforeach()
+
 # Tactical world identity is owned by EngineRuntime's TacticalWorldSession.
 # Exact legacy globals remain readable compatibility mirrors, but a second
 # production writer would silently split world and turn identity again.

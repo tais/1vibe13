@@ -2079,10 +2079,12 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 
                     if ( GetSoldier( &lSoldier, gusSelectedSoldier ) )
 					{
-			 			if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
+						if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
 						{
-							lSoldier->BeginSoldierClimbWindow(	);
-   	                    }
+							TryDispatchTraverseObstacleCommandNow(
+								lSoldier->ubID, lSoldier->uiUniqueSoldierIdValue,
+								TacticalTraversalKind::JumpWindow );
+						}
 					}
 				}
 			}
@@ -2111,13 +2113,19 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 					GetMercClimbDirection( pjSoldier->ubID, &fNearLowerLevel, &fNearHeigherLevel );
 
 					if ( fNearLowerLevel )
-						pjSoldier->BeginSoldierClimbDownRoof( );
-					
+						TryDispatchTraverseObstacleCommandNow(
+							pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+							TacticalTraversalKind::ClimbDownRoof );
+
 					if ( fNearHeigherLevel )
-						pjSoldier->BeginSoldierClimbUpRoof(	);
-					
+						TryDispatchTraverseObstacleCommandNow(
+							pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+							TacticalTraversalKind::ClimbUpRoof );
+
 					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
-						pjSoldier->BeginSoldierClimbFence(	);
+						TryDispatchTraverseObstacleCommandNow(
+							pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+							TacticalTraversalKind::JumpFence );
 				}
 			}
 }
@@ -2213,13 +2221,19 @@ void HandleRTJump( void )
 		GetMercClimbDirection( pjSoldier->ubID, &fNearLowerLevel, &fNearHeigherLevel );
 
 		if ( fNearLowerLevel )
-			pjSoldier->BeginSoldierClimbDownRoof( );
-		
+			TryDispatchTraverseObstacleCommandNow(
+				pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+				TacticalTraversalKind::ClimbDownRoof );
+
 		if ( fNearHeigherLevel )
-			pjSoldier->BeginSoldierClimbUpRoof(	);
-					
+			TryDispatchTraverseObstacleCommandNow(
+				pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+				TacticalTraversalKind::ClimbUpRoof );
+
 		if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
-			pjSoldier->BeginSoldierClimbFence(	);
+			TryDispatchTraverseObstacleCommandNow(
+				pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+				TacticalTraversalKind::JumpFence );
 	}
 }
 void HandleRTJumpThroughWindow( void )
@@ -2233,7 +2247,9 @@ void HandleRTJumpThroughWindow( void )
 		{
 			if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
 			{
-				lSoldier->BeginSoldierClimbWindow(	);
+				TryDispatchTraverseObstacleCommandNow(
+					lSoldier->ubID, lSoldier->uiUniqueSoldierIdValue,
+					TacticalTraversalKind::JumpWindow );
             }
 		}
 	}

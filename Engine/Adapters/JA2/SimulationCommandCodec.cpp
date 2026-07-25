@@ -24,7 +24,8 @@ enum class CommandTag : std::uint8_t
 	StopMovement = 7,
 	CycleWeaponMode = 8,
 	CycleScopeMode = 9,
-	ReloadWeapon = 10
+	ReloadWeapon = 10,
+	TraverseObstacle = 11
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -60,6 +61,12 @@ bool IsValidPendingActionPolicy(std::uint8_t value)
 {
 	return IsValidTacticalPendingActionPolicy(
 		static_cast<TacticalPendingActionPolicy>(value));
+}
+
+bool IsValidTraversalKind(std::uint8_t value)
+{
+	return IsValidTacticalTraversalKind(
+		static_cast<TacticalTraversalKind>(value));
 }
 
 void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
@@ -148,6 +155,14 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.soldier.slot);
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(value.reloadEvenIfNotEmpty ? 1u : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
+		{
+			writer.writeU8(static_cast<std::uint8_t>(CommandTag::TraverseObstacle));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeU8(static_cast<std::uint8_t>(value.kind));
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 	}, command);
@@ -305,6 +320,20 @@ bool ReadCommand(
 				reloadEvenIfNotEmpty > 1 ||
 				!ReadSource(reader, value.source)) return false;
 			value.reloadEvenIfNotEmpty = reloadEvenIfNotEmpty != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::TraverseObstacle:
+		{
+			if (version < 7) return false;
+			TraverseObstacleCommand value{};
+			std::uint8_t kind = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readU8(kind) || !IsValidTraversalKind(kind) ||
+				!ReadSource(reader, value.source)) return false;
+			value.kind = static_cast<TacticalTraversalKind>(kind);
 			command = value;
 			return true;
 		}

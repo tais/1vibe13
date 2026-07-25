@@ -3861,8 +3861,11 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
 							{
-								pjSoldier->BeginSoldierClimbDownRoof( );
-								return;
+								if ( TryDispatchTraverseObstacleCommandNow(
+									pjSoldier->ubID,
+									pjSoldier->uiUniqueSoldierIdValue,
+									TacticalTraversalKind::ClimbDownRoof ) )
+									return;
 							}
 						}
 
@@ -3877,8 +3880,11 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
 							{
-								pjSoldier->BeginSoldierClimbUpRoof(	);
-								return;
+								if ( TryDispatchTraverseObstacleCommandNow(
+									pjSoldier->ubID,
+									pjSoldier->uiUniqueSoldierIdValue,
+									TacticalTraversalKind::ClimbUpRoof ) )
+									return;
 							}
 						}
 
@@ -3901,9 +3907,12 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 							if ( EnoughPoints( pjSoldier, sAPCost, sBPCost, FALSE )	)
 							{
-								pjSoldier->BeginSoldierClimbFence(	);
-								return;
-							}	
+								if ( TryDispatchTraverseObstacleCommandNow(
+									pjSoldier->ubID,
+									pjSoldier->uiUniqueSoldierIdValue,
+									TacticalTraversalKind::JumpFence ) )
+									return;
+							}
 						}
 						
 						// Climb on walls
@@ -3920,8 +3929,11 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							{
 								if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
 								{
-									pjSoldier->BeginSoldierClimbWall(  );
-									return;
+									if ( TryDispatchTraverseObstacleCommandNow(
+										pjSoldier->ubID,
+										pjSoldier->uiUniqueSoldierIdValue,
+										TacticalTraversalKind::ClimbWall ) )
+										return;
 								}
 							}
 						}
@@ -3962,7 +3974,10 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							
 							if (EnoughPoints(lSoldier, sAPCost, sBPCost, FALSE))
 							{
-								lSoldier->BeginSoldierClimbWindow(	);
+								TryDispatchTraverseObstacleCommandNow(
+									lSoldier->ubID,
+									lSoldier->uiUniqueSoldierIdValue,
+									TacticalTraversalKind::JumpWindow );
 							}
    	                    }
 					}
@@ -7603,7 +7618,9 @@ void HandleTBJump( void )
 
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
 						{
-							pjSoldier->BeginSoldierClimbDownRoof( );
+							TryDispatchTraverseObstacleCommandNow(
+								pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+								TacticalTraversalKind::ClimbDownRoof );
 						}
 					}
 					
@@ -7615,7 +7632,9 @@ void HandleTBJump( void )
 
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
 						{
-							pjSoldier->BeginSoldierClimbUpRoof(	);
+							TryDispatchTraverseObstacleCommandNow(
+								pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+								TacticalTraversalKind::ClimbUpRoof );
 						}
 					}
 					
@@ -7635,7 +7654,9 @@ void HandleTBJump( void )
 
 						if ( EnoughPoints( pjSoldier, sAPCost, sBPCost, FALSE )	)
 						{
-							pjSoldier->BeginSoldierClimbFence(	);
+							TryDispatchTraverseObstacleCommandNow(
+								pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+								TacticalTraversalKind::JumpFence );
 						}
 					}
 
@@ -7650,7 +7671,9 @@ void HandleTBJump( void )
 
 							if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
 							{
-								pjSoldier->BeginSoldierClimbWall(  );
+								TryDispatchTraverseObstacleCommandNow(
+									pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+									TacticalTraversalKind::ClimbWall );
 							}
 						}
 					}
@@ -7681,7 +7704,9 @@ void HandleTBJumpThroughWindow( void ){
 		}
 				if (EnoughPoints(pjSoldier, sAPCost, sBPCost, FALSE))
 		{
-					pjSoldier->BeginSoldierClimbWindow();
+					TryDispatchTraverseObstacleCommandNow(
+						pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+						TacticalTraversalKind::JumpWindow );
 				}
 			}
 		}
