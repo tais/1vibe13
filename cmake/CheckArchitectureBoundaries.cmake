@@ -273,6 +273,18 @@ if(external_booby_trap_callback_state)
     "Mine-spotted callbacks mutate booby-trap callback globals")
 endif()
 
+# Multi-frame item locators resolve a stable world-item identity every update
+# and render. The pointer-bearing ITEM_POOL_LOCATOR definition remains only as
+# a legacy source-compatibility layout and must not back the production table.
+string(REGEX MATCH
+  "struct[ \t]+ItemPoolLocator[^}]*ITEM_POOL[ \t]*\\*|(^|[\r\n \t])FlashItemSlots[ \t]*\\[|guiNumFlashItemSlots"
+  raw_production_item_locator
+  "${tactical_item_callback_contents}")
+if(raw_production_item_locator)
+  message(FATAL_ERROR
+    "Production item locators retain ITEM_POOL pointers")
+endif()
+
 # Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
 # deterministic command boundary. Internal weapon compatibility corrections,
 # AI retaliation, attachment changes, and the existing multi-merc bulk reload

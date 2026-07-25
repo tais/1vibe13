@@ -50,7 +50,7 @@ class WORLDITEM;
 struct LEVELNODE;
 
 typedef struct TAG_ITEM_POOL
-{	
+{
 	struct TAG_ITEM_POOL	*pNext;
 	struct TAG_ITEM_POOL	*pPrev;
 	
@@ -66,17 +66,17 @@ typedef struct TAG_ITEM_POOL
 
 } ITEM_POOL;
 
-typedef struct 
+// Legacy source-compatibility layout. The production flashing-item table uses
+// a private stable-identity record and never instantiates this pointer-bearing
+// type.
+typedef struct
 {
 	ITEM_POOL								*pItemPool;
-
-	// Additional info for locators
 	INT8										bRadioFrame;
 	UINT32									uiLastFrameUpdate;
 	ITEM_POOL_LOCATOR_HOOK	Callback;
 	BOOLEAN									fAllocated;
 	UINT8										ubFlags;
-
 } ITEM_POOL_LOCATOR;
 
 // silversurfer: added this to prevent tons of compiler warnings in VS2010 because of new behaviour for array initialization used in below structs
