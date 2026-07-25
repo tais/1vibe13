@@ -1665,8 +1665,9 @@ void ShowTeamAndVehicles(INT32 fShowFlags)
 	INT16 sMapY = 0;
 	INT32 iIconOffset = 0;
 	BOOLEAN fContemplatingRetreating = FALSE;
+	GROUP* battleGroup = ResolvePreBattleGroup();
 	
-	if( gfDisplayPotentialRetreatPaths && gpBattleGroup )
+	if( gfDisplayPotentialRetreatPaths && battleGroup )
 	{
 		fContemplatingRetreating = TRUE;
 	}
@@ -1676,7 +1677,9 @@ void ShowTeamAndVehicles(INT32 fShowFlags)
 		for(sMapY=1; sMapY <MAP_WORLD_Y-1; sMapY++)
 		{
 			// don't show mercs/vehicles currently in this sector if player is contemplating retreating from THIS sector
-			if ( !fContemplatingRetreating || ( sMapX != gpBattleGroup->ubSectorX ) || ( sMapY != gpBattleGroup->ubSectorY ) )
+			if ( !fContemplatingRetreating ||
+				( sMapX != battleGroup->ubSectorX ) ||
+				( sMapY != battleGroup->ubSectorY ) )
 			{
 				if(fShowFlags & SHOW_TEAMMATES)
 				{
@@ -3660,10 +3663,12 @@ void ShowPeopleInMotion( INT16 sX, INT16 sY )
 			BOOLEAN fDrawOnlyOne = FALSE;
 
 			// Find any battle raging at the moment.
-			if( gpBattleGroup )
+			GROUP* battleGroup = ResolvePreBattleGroup();
+			if( battleGroup )
 			{
 				// Get its sector
-				sBattleSector = (INT16)SECTOR( gpBattleGroup->ubSectorX, gpBattleGroup->ubSectorY );
+				sBattleSector = (INT16)SECTOR(
+					battleGroup->ubSectorX, battleGroup->ubSectorY );
 			}
 
 			// If we are showing escape routes from the battle sector, we'll need to handle the arrows

@@ -406,12 +406,19 @@ the engine must not contain SDL types in its public domain model.
   every confirmed sector is charged at the displayed rate. These unsaved modal
   contexts are discarded at the load boundary; game-data and save layouts are
   unchanged.
-- Tactical traversal retains its group by canonical group ID and its chosen
-  speaker as an exact incarnation across sector loading and screen fades.
-  Both identities are resolved only when needed after the destination sector
-  is live, so deleted groups and released or reused actor slots fail closed.
-  Completion, alternate warps, end-game transitions, and save loading all
-  discard the unsaved traversal context.
+- `StrategicGroupDirectory` gives the legacy one-byte movement-group registry
+  runtime-owned liveness and incarnation. Creation, deletion, whole-list
+  teardown, and save restoration publish through the directory without adding
+  fields to `GROUP` or changing save bytes. Prebattle/autoresolve, tactical
+  traversal, adjacent-sector movement, simultaneous-arrival, and wilderness
+  prompts retain `StrategicGroupId` values rather than linked-list pointers.
+  A deleted and recreated group with the same compatibility ID cannot inherit
+  pending UI or transition work.
+- Tactical traversal retains both its group and chosen speaker as exact
+  incarnations across sector loading and screen fades. Both identities are
+  resolved only when needed after the destination sector is live, so deleted
+  groups and released or reused actor slots fail closed. Completion, alternate
+  warps, end-game transitions, and save loading discard the unsaved context.
 - Tactical placement stores exact actor identities for every deployable merc,
   including its selected and highlighted render state. Each frame validates
   the complete placement roster before UI callbacks or rendering; a released

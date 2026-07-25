@@ -14,7 +14,10 @@ extern BOOLEAN gfDisplayPotentialRetreatPaths;
 extern BOOLEAN gfAutomaticallyStartAutoResolve;
 extern BOOLEAN fDisableMapInterfaceDueToBattle;
 
-extern GROUP *gpBattleGroup;
+BOOLEAN SetPreBattleGroup( GROUP *pGroup );
+GROUP *ResolvePreBattleGroup( void );
+BOOLEAN IsPreBattleGroup( const GROUP *pGroup );
+void ResetPreBattleGroup( void );
 
 extern BOOLEAN gfTacticalTraversal;
 BOOLEAN CaptureTacticalTraversalGroup( GROUP *pGroup );

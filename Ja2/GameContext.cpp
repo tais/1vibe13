@@ -5,6 +5,7 @@
 #include "PackageHost.h"
 #include "RulesPackage.h"
 #include "Screens.h"
+#include "StrategicGroupHost.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
@@ -79,6 +80,12 @@ GameContext& ComposeGameContext()
 	(void)legacyRenderCommandsBound;
 	static const bool tacticalCommandHostBound = BindJa2TacticalCommandHost(context);
 	(void)tacticalCommandHostBound;
+	static const bool strategicGroupDirectoryBound = [&] {
+		BindJa2StrategicGroupDirectory(
+			context.runtime().strategicGroupDirectory());
+		return true;
+	}();
+	(void)strategicGroupDirectoryBound;
 	static const bool tacticalEntityDirectoryBound = [&] {
 		BindJa2TacticalEntityDirectory(context.runtime().tacticalEntityDirectory());
 		return true;

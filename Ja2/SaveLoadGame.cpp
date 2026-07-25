@@ -8053,6 +8053,9 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	ResetMercContractActorContexts();
 	ResetFacilityStaffingPromptContext();
 	ResetMilitiaTrainingPromptContext();
+	ResetPreBattleGroup();
+	ResetStrategicMovementGroupContexts();
+	ResetAdjacentStrategicGroupContext();
 	ResetTacticalTraversalContext();
 	ResetTacticalPlacementActorContexts();
 

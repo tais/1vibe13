@@ -3390,10 +3390,11 @@ SOLDIERTYPE* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY )
 	SoldierID ubID;
 	SOLDIERTYPE * pSoldier;
 
-	if (gpBattleGroup &&
-		gpBattleGroup->ubSectorZ == gbWorldSectorZ &&
-		gpBattleGroup->ubSectorX == gWorldSectorX &&
-		gpBattleGroup->ubSectorY == gWorldSectorY &&
+	GROUP* battleGroup = ResolvePreBattleGroup();
+	if (battleGroup &&
+		battleGroup->ubSectorZ == gbWorldSectorZ &&
+		battleGroup->ubSectorX == gWorldSectorX &&
+		battleGroup->ubSectorY == gWorldSectorY &&
 		GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
 		pSoldier = ReserveTacticalMilitiaSoldierForAutoresolve( ubMilitiaClass );

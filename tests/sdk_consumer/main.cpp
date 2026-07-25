@@ -186,6 +186,14 @@ int main()
 	legacyBraceRuntime.tacticalWorldSession().setTurnState({true, true, 2});
 	if (legacyBraceRuntime.tacticalWorldSession().snapshot().turn !=
 		TacticalWorldSession::Snapshot::Turn{true, true, 2}) return 53;
+	const StrategicGroupId externalStrategicGroup =
+		legacyBraceRuntime.strategicGroupDirectory().adopt(7);
+	if (externalStrategicGroup != (StrategicGroupId{7, 1}) ||
+		!legacyBraceRuntime.strategicGroupDirectory().contains(
+			externalStrategicGroup) ||
+		!legacyBraceRuntime.strategicGroupDirectory().release(
+			externalStrategicGroup))
+		return 58;
 	CampaignClockSession externalCampaignClock;
 	externalCampaignClock.initialize(90061);
 	externalCampaignClock.advanceUncommitted(60);

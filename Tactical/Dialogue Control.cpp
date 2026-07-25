@@ -23,6 +23,7 @@
 	#include "Interface Utils.h"
 	#include "strategicmap.h"
 	#include "PreBattle Interface.h"
+	#include "StrategicGroupHost.h"
 	#include "Game Clock.h"
 	#include "gameloop.h"
 	#include "Quests.h"
@@ -646,10 +647,15 @@ void HandleDialogue( )
 			if ( gpCurrentTalkingFace->uiFlags & FACE_TRIGGER_PREBATTLE_INT )
 			{
 				UnLockPauseState();
-				// uiUserData1 holds the battle group's *ID* (a UINT8), not a
-				// pointer: a 64-bit GROUP* truncated to this 32-bit field and
-				// crashed when cast back. Rebuild it via GetGroup().
-				InitPreBattleInterface( GetGroup( (UINT8)gpCurrentTalkingFace->uiUserData1 ), TRUE );
+				const StrategicGroupId initiatingGroup{
+					(UINT8)gpCurrentTalkingFace->uiUserData1,
+					gpCurrentTalkingFace->uiUserData2 };
+				if (initiatingGroup.slot == 0 &&
+					initiatingGroup.incarnation == 0)
+					InitPreBattleInterface( NULL, TRUE );
+				else if (GROUP* group =
+					ResolveJa2StrategicGroup(initiatingGroup))
+					InitPreBattleInterface( group, TRUE );
 				//Reset flag!
 				gpCurrentTalkingFace->uiFlags &= (~FACE_TRIGGER_PREBATTLE_INT );
 			}
@@ -1020,11 +1026,12 @@ void HandleDialogue( )
 		{
 			UnLockPauseState();
 
-			// uiSpecialEventData holds the battle group's *ID* (a UINT8), not a
-			// pointer -- a 64-bit GROUP* truncated into this UINT32 and was cast
-			// back to garbage. Rebuild via GetGroup() (the fix the original
-			// author already sketched here but left commented out).
-			GROUP* pGroup = GetGroup( (UINT8)QItem.uiSpecialEventData );
+			// The dialogue queue preserves the group's exact runtime identity.
+			// Reusing its 8-bit legacy slot cannot redirect this callback to a
+			// different group.
+			GROUP* pGroup = ResolveJa2StrategicGroup( StrategicGroupId{
+				(UINT8)QItem.uiSpecialEventData,
+				QItem.uiSpecialEventData2 } );
 			if ( pGroup )
 				InitPreBattleInterface( pGroup, TRUE );
 		}

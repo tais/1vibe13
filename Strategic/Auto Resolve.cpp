@@ -463,16 +463,17 @@ void EliminateAllEnemies( UINT8 ubSectorX, UINT8 ubSectorY )
 				ClearPreviousAIGroupAssignment( pGroup );
 				pDeleteGroup = pGroup;
 				pGroup = pGroup->next;
-				if( gpBattleGroup == pDeleteGroup )
-					gpBattleGroup = NULL;
+				if( IsPreBattleGroup(pDeleteGroup) )
+					ResetPreBattleGroup();
 				RemovePGroup( pDeleteGroup );
 			}
 			else
 				pGroup = pGroup->next;
 		}
-		if( gpBattleGroup )
+		GROUP* battleGroup = ResolvePreBattleGroup();
+		if( battleGroup )
 		{
-			CalculateNextMoveIntention( gpBattleGroup );
+			CalculateNextMoveIntention( battleGroup );
 		}
 		// set this sector as taken over
 		SetThisSectorAsPlayerControlled( ubSectorX, ubSectorY, 0, TRUE );
@@ -490,7 +491,7 @@ void EliminateAllEnemies( UINT8 ubSectorX, UINT8 ubSectorY )
 		}
 		gpAR->ubAliveEnemies = 0;
 	}
-	gpBattleGroup = NULL;
+	ResetPreBattleGroup();
 }
 
 #define ORIG_LEFT			26
@@ -655,7 +656,7 @@ UINT32 AutoResolveScreenInit()
 
 UINT32 AutoResolveScreenShutdown()
 {
-	gpBattleGroup = NULL;
+	ResetPreBattleGroup();
 	return TRUE;
 }
 
@@ -1993,7 +1994,7 @@ static void ARCreateMilitia( UINT8 mclass, INT32 i, INT16 sX, INT16 sY)
 	ResetMortarsOnTeamCount();
 	ResetNumSquadleadersInArmyGroup(); // added by SANDRO
 
-	if( !gpBattleGroup ) {
+	if( !ResolvePreBattleGroup() ) {
 		//AssertMsg(0, "No battle group set while creating militia");
 	}
 
@@ -2738,7 +2739,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 	//KM : Aug 09, 1999 Patch fix -- Would break future dialog while time compressing
 	SetJa2TacticalCurrentTeam( gbPlayerNum );
 
-	gpBattleGroup = NULL;
+	ResetPreBattleGroup();
 
 	if ( GetEnemyEncounterCode() == CREATURE_ATTACK_CODE || 
 		GetEnemyEncounterCode() == BLOODCAT_ATTACK_CODE ||

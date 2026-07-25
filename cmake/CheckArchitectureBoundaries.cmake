@@ -393,6 +393,61 @@ foreach(tactical_traversal_actor_file IN LISTS tactical_traversal_actor_files)
   endif()
 endforeach()
 
+# Every delayed strategic-group context now retains the runtime incarnation,
+# not a reusable one-byte ID or a pointer into the legacy linked list.
+set(strategic_group_context_files
+  "${SOURCE_ROOT}/Strategic/PreBattle Interface.cpp"
+  "${SOURCE_ROOT}/Strategic/PreBattle Interface.h"
+  "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
+  "${SOURCE_ROOT}/Strategic/strategicmap.h"
+  "${SOURCE_ROOT}/Strategic/Auto Resolve.cpp"
+  "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
+  "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
+  "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  "${SOURCE_ROOT}/Multiplayer/client.cpp")
+foreach(strategic_group_context_file IN LISTS strategic_group_context_files)
+  file(READ "${strategic_group_context_file}"
+    strategic_group_context_contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(gpBattleGroup|gpAdjacentGroup|gpPendingSimultaneousGroup|gpGroupPrompting|gpInitPrebattleGroup)([^A-Za-z0-9_]|$)"
+    raw_strategic_group_context
+    "${strategic_group_context_contents}")
+  if(raw_strategic_group_context)
+    message(FATAL_ERROR
+      "Delayed strategic work retains a raw GROUP context in ${strategic_group_context_file}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  strategic_group_dialogue_contents)
+string(REGEX MATCH
+  "GetGroup[ \t\r\n]*\\([^\\)]*(uiSpecialEventData|uiUserData)"
+  raw_dialogue_group_slot_resolution
+  "${strategic_group_dialogue_contents}")
+if(raw_dialogue_group_slot_resolution)
+  message(FATAL_ERROR
+    "Delayed dialogue resolves a reusable strategic-group slot without its incarnation")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  strategic_group_lifecycle_contents)
+foreach(strategic_group_lifecycle_gateway IN ITEMS
+  AdoptJa2StrategicGroup
+  ReleaseJa2StrategicGroup
+  RebuildJa2StrategicGroupDirectory)
+  string(FIND "${strategic_group_lifecycle_contents}"
+    "${strategic_group_lifecycle_gateway}"
+    strategic_group_lifecycle_gateway_index)
+  if(strategic_group_lifecycle_gateway_index EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic group storage bypasses ${strategic_group_lifecycle_gateway}")
+  endif()
+endforeach()
+
 # Tactical placement retains every participant and its selected/highlighted
 # render state by exact actor incarnation for the full deployment modal.
 set(tactical_placement_actor_files

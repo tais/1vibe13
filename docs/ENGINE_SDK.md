@@ -206,6 +206,14 @@ queue, including a future-tick staged replay, pauses package admission until
 that stream clears. This keeps live ingress from forcing a large replay sort on
 the frame thread or interleaving two authoritative producers.
 
+`EngineRuntime::strategicGroupDirectory()` owns pointer-free liveness for JA2's
+reusable one-byte movement-group IDs. `StrategicGroupId` combines that
+compatibility slot with a runtime incarnation; delayed application adapters
+must resolve the complete identity rather than retaining a linked-list pointer
+or resolving the slot alone. Reset retires every live identity without
+rewinding the sequence, and incarnation exhaustion fails closed. The directory
+does not serialize state or change the established `GROUP` and save layouts.
+
 `TacticalWorldService` exposes immutable, pointer-free snapshots of the loaded
 world. In the JA2 host, `snapshot.epoch()` is the nonzero world-load generation
 and `snapshot.turn().serial` is a nonzero identity scoped to that epoch: serial
