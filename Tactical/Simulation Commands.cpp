@@ -796,6 +796,42 @@ namespace
 		}, command);
 	}
 
+	void SynchronizeExecutedCommandActors(
+		const SimulationCommand& command) noexcept
+	{
+		if (command.valueless_by_exception()) return;
+		std::visit([](const auto& value) noexcept {
+			using Command = typename std::decay<decltype(value)>::type;
+			if constexpr (
+				!std::is_same<Command, EndTurnCommand>::value &&
+				!std::is_same<Command, SynchronizeTurnCommand>::value)
+			{
+				if (SOLDIERTYPE* soldier =
+					ResolveLiveCommandActor(value.soldier))
+					(void)SynchronizeJa2TacticalEntityState(*soldier);
+
+				if constexpr (
+					std::is_same<Command, StartConversationCommand>::value ||
+					std::is_same<Command, ApproachConversationCommand>::value ||
+					std::is_same<Command, StealFromActorCommand>::value ||
+					std::is_same<Command, ExchangePositionsCommand>::value)
+				{
+					if (SOLDIERTYPE* target =
+						ResolveLiveCommandActor(value.target))
+						(void)SynchronizeJa2TacticalEntityState(*target);
+				}
+				else if constexpr (
+					std::is_same<Command, EnterVehicleCommand>::value ||
+					std::is_same<Command, ApproachVehicleCommand>::value)
+				{
+					if (SOLDIERTYPE* vehicle =
+						ResolveLiveCommandActor(value.vehicle))
+						(void)SynchronizeJa2TacticalEntityState(*vehicle);
+				}
+			}
+		}, command);
+	}
+
 	class Ja2SimulationCommandExecutor final
 		: public SimulationCommandExecutor
 	{
@@ -805,7 +841,10 @@ namespace
 			std::uint64_t,
 			std::uint64_t) override
 		{
-			return ExecuteSimulationCommand(command);
+			const CommandDisposition disposition =
+				ExecuteSimulationCommand(command);
+			SynchronizeExecutedCommandActors(command);
+			return disposition;
 		}
 	};
 

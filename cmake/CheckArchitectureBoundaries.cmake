@@ -1213,6 +1213,52 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
+# Package-facing tactical capture consumes state committed in the runtime-owned
+# entity directory. SOLDIERTYPE projection belongs to the application host;
+# putting pool or animation reads back in TacticalWorldAdapter would recreate a
+# second actor-state path beside command execution.
+file(READ "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp"
+  tactical_world_adapter_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])(MercPtrs|SOLDIERTYPE|gAnimControl)([^A-Za-z0-9_]|$)"
+  direct_tactical_world_actor_projection
+  "${tactical_world_adapter_contents}")
+if(direct_tactical_world_actor_projection)
+  message(FATAL_ERROR
+    "TacticalWorldAdapter reads legacy actor storage directly; publish state through TacticalEntityHost")
+endif()
+foreach(required_actor_state_fragment IN ITEMS
+    "SynchronizeJa2TacticalEntityStates"
+    "directory.state(entity)")
+  string(FIND "${tactical_world_adapter_contents}"
+    "${required_actor_state_fragment}" required_actor_state_position)
+  if(required_actor_state_position EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalWorldAdapter bypasses runtime-owned actor state; missing '${required_actor_state_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp"
+  tactical_entity_host_contents)
+foreach(required_actor_projection_fragment IN ITEMS
+    "TacticalActorSnapshot LegacyState"
+    "publishState(LegacyState(soldier))")
+  string(FIND "${tactical_entity_host_contents}"
+    "${required_actor_projection_fragment}" required_actor_projection_position)
+  if(required_actor_projection_position EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalEntityHost no longer commits live actor state; missing '${required_actor_projection_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${simulation_command_contents}"
+  "SynchronizeExecutedCommandActors(command)"
+  executed_actor_state_position)
+if(executed_actor_state_position EQUAL -1)
+  message(FATAL_ERROR
+    "Production command execution no longer commits resulting actor state")
+endif()
+
 # Whole SOLDIERTYPE record relocation changes which incarnation occupies a
 # legacy pool slot. Keep those rare mutations in the entity host so the
 # runtime directory is rebuilt atomically with the compatibility pool.

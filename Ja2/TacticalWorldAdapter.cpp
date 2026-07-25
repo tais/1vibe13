@@ -2,12 +2,8 @@
 
 #include <cstdint>
 #include <limits>
-#include "Animation Control.h"
-#include "Map Information.h"
 #include "Overhead.h"
-#include "Soldier Control.h"
 #include "TacticalEntityHost.h"
-#include "strategicmap.h"
 
 namespace
 {
@@ -30,18 +26,6 @@ const INT8& gbWorldSectorZ = tacticalWorldProjection.z;
 
 namespace
 {
-TacticalStance SnapshotStance(const SOLDIERTYPE& soldier)
-{
-	if (soldier.usAnimState >= NUMANIMATIONSTATES) return TacticalStance::Unknown;
-	switch (gAnimControl[soldier.usAnimState].ubHeight)
-	{
-		case ANIM_STAND: return TacticalStance::Standing;
-		case ANIM_CROUCH: return TacticalStance::Crouched;
-		case ANIM_PRONE: return TacticalStance::Prone;
-		default: return TacticalStance::Unknown;
-	}
-}
-
 void SynchronizeLegacyWorldMirrors(const TacticalWorldSession& session) noexcept
 {
 	const TacticalWorldSession::Snapshot& state = session.snapshot();
@@ -133,35 +117,29 @@ TacticalWorldCaptureResult Ja2TacticalWorldAdapter::capture(
 
 	try
 	{
+		if (!SynchronizeJa2TacticalEntityStates())
+			return TacticalWorldCaptureResult::AdapterFailure;
+		const TacticalEntityDirectory& directory =
+			GetJa2TacticalEntityDirectory();
+		if (directory.activeCount() > maximumActors_)
+			return TacticalWorldCaptureResult::CapacityReached;
+		const std::size_t availableSlots =
+			directory.maximumSlots() < TOTAL_SOLDIERS
+				? directory.maximumSlots()
+				: TOTAL_SOLDIERS;
 		actorScratch_.clear();
 		actorScratch_.reserve(
-			maximumActors_ < TOTAL_SOLDIERS ? maximumActors_ : TOTAL_SOLDIERS);
-		for (std::uint16_t slot = 0; slot < TOTAL_SOLDIERS; ++slot)
+			maximumActors_ < availableSlots
+				? maximumActors_
+				: availableSlots);
+		for (std::size_t slot = 0; slot < availableSlots; ++slot)
 		{
-			const SOLDIERTYPE* legacySoldier = MercPtrs[slot];
-			if (!legacySoldier || !legacySoldier->bActive) continue;
-			const TacticalEntityId entity = GetJa2TacticalEntityId(slot);
-			const SOLDIERTYPE* soldier = ResolveJa2TacticalEntity(entity);
-			if (!soldier)
-				return TacticalWorldCaptureResult::AdapterFailure;
-			if (actorScratch_.size() >= maximumActors_)
-				return TacticalWorldCaptureResult::CapacityReached;
-			actorScratch_.push_back(TacticalActorSnapshot{
-				entity,
-				static_cast<std::uint8_t>(soldier->bTeam),
-				static_cast<std::uint16_t>(soldier->ubProfile),
-				soldier->sGridNo,
-				static_cast<std::int8_t>(soldier->pathing.bLevel),
-				soldier->ubDirection,
-				soldier->usAnimState,
-				SnapshotStance(*soldier),
-				soldier->bActionPoints,
-				soldier->stats.bLife,
-				soldier->stats.bLifeMax,
-				soldier->bBreath,
-				soldier->bBreathMax,
-				soldier->bActive != FALSE,
-				soldier->bInSector != FALSE});
+			const TacticalEntityId entity =
+				directory.identity(static_cast<std::uint16_t>(slot));
+			if (!entity.valid()) continue;
+			const TacticalActorSnapshot* actor = directory.state(entity);
+			if (!actor) return TacticalWorldCaptureResult::AdapterFailure;
+			actorScratch_.push_back(*actor);
 		}
 
 		const TacticalSnapshotCreateError result =

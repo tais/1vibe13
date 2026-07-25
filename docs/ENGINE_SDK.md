@@ -246,6 +246,17 @@ submission. Packages, replay tools, and network hosts never receive this
 application-only overload; they continue to use `TacticalEntityId` command
 values through `TacticalCommandService`.
 
+Every `EngineRuntime` owns a bounded `TacticalEntityDirectory`. In addition to
+slot/incarnation liveness, a host can commit the latest public
+`TacticalActorSnapshot` with `publishState` and retrieve it only through the
+same exact identity with `state`; replacing or releasing an incarnation removes
+its state atomically. This is host authority, not a package mutation service.
+The JA2 host publishes creation and command results immediately and reconciles
+remaining legacy animation/vitals changes at its completed-frame boundary.
+`TacticalWorldService` is built from this committed pointer-free state rather
+than exposing or rereading `SOLDIERTYPE`. The projection is runtime-only and
+does not change soldier, map, save, content, or tactical-delta formats.
+
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is
 exhausted, and never exposes `WORLDITEM` or `gWorldItems` through the SDK.

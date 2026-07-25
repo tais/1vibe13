@@ -3675,12 +3675,17 @@ int main( int, char** )
 		MercPtrs[0] = &commandHostActor;
 		const bool commandHostActorAdopted =
 			AdoptJa2TacticalEntity( commandHostActor );
+		const TacticalActorSnapshot* commandHostInitialState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				TacticalEntityId{ 0, 0x12345678u } );
 		CHECK( commandHostActorAdopted &&
 		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 0x12345678u } ) &&
 		       ResolveJa2TacticalEntity( TacticalEntityId{ 0, 0x12345678u } ) ==
 		           &commandHostActor &&
-		       ResolveJa2TacticalEntity( staleActor ) == nullptr,
-		       "runtime entity directory rejects a stale incarnation for a reused pool slot" );
+		       ResolveJa2TacticalEntity( staleActor ) == nullptr &&
+		       commandHostInitialState && commandHostInitialState->active &&
+		       commandHostInitialState->inSector,
+		       "runtime entity directory rejects stale incarnations and owns the adopted actor projection" );
 		const TacticalCommandSubmissionResult staleRequest =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -3795,13 +3800,20 @@ int main( int, char** )
 			TryDispatchSetFacingCommandNow(
 				commandHostActor, 3,
 				SimulationCommandSource::System );
+		const TacticalActorSnapshot* commandHostExecutedState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				TacticalEntityId{ 0, 0x12345678u } );
 		CHECK( stealthEnabled.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostActor.bStealthMode == TRUE &&
 		       movementStopped.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostActor.flags.fDelayedMovement == FALSE &&
 		       commandHostActor.pathing.sFinalDestination == commandHostActor.sGridNo &&
-		       facingQueued.status == SimulationCommandDispatchStatus::Applied,
-		       "structured facing, stealth, and stop commands execute through the authoritative path" );
+		       facingQueued.status == SimulationCommandDispatchStatus::Applied &&
+		       commandHostExecutedState &&
+		       commandHostExecutedState->grid == commandHostActor.sGridNo &&
+		       commandHostExecutedState->direction == commandHostActor.ubDirection &&
+		       commandHostExecutedState->animation == commandHostActor.usAnimState,
+		       "structured commands execute and commit the resulting public actor state through one path" );
 
 		const UINT32 stanceFlags = gTacticalStatus.uiFlags;
 		const UINT8 stanceTeam = gTacticalStatus.ubCurrentTeam;
@@ -4738,10 +4750,17 @@ int main( int, char** )
 		Menptr[0].bBreath = 64;
 		Menptr[0].bBreathMax = 90;
 		const bool worldActorAdopted = AdoptJa2TacticalEntity( Menptr[0] );
+		const TacticalActorSnapshot* adoptedWorldActorState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				TacticalEntityId{ 0, 701 } );
 		CHECK( worldActorAdopted &&
 		       compiledContext.runtime().tacticalEntityDirectory().identity( 0 ) ==
-		           ( TacticalEntityId{ 0, 701 } ),
-		       "legacy pool actors publish liveness through the runtime-owned directory" );
+		           ( TacticalEntityId{ 0, 701 } ) &&
+		       adoptedWorldActorState &&
+		       adoptedWorldActorState->grid == 345 &&
+		       adoptedWorldActorState->life == 76 &&
+		       adoptedWorldActorState->stance == TacticalStance::Standing,
+		       "legacy pool actors publish liveness and public state through the runtime-owned directory" );
 		Ja2TacticalEntityReference liveCallbackActor;
 		const bool callbackActorCaptured =
 			liveCallbackActor.capture( &Menptr[0] ) &&
@@ -5134,6 +5153,9 @@ int main( int, char** )
 		observedPublication = tacticalWorldObserver.service->latest();
 		observedActor = observedPublication
 			? observedPublication.snapshot->find( TacticalEntityId{ 0, 701 } ) : nullptr;
+		const TacticalActorSnapshot* committedObservedActor =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				TacticalEntityId{ 0, 701 } );
 		CHECK( observerDiagnostics.lastUpdate ==
 		           TacticalWorldObserverUpdateResult::PublishedDelta &&
 		       observerDiagnostics.publicationSerial == 2 && observedPublication &&
@@ -5146,6 +5168,9 @@ int main( int, char** )
 		       std::holds_alternative<TacticalActorVitalsChangedEvent>(
 		           observedPublication.delta->events[2] ) &&
 		       observedActor && observedActor->grid == 346 && observedActor->life == 75 &&
+		       committedObservedActor &&
+		       committedObservedActor->grid == observedActor->grid &&
+		       committedObservedActor->life == observedActor->life &&
 		       observerDiagnostics.bridgeResult ==
 		           Ja2TacticalWorldDeltaBridgeResult::Published &&
 		       observerDiagnostics.lastPublishError == TacticalWorldDeltaPublishError::None &&

@@ -849,19 +849,44 @@ int main()
 	check(entityDirectory.activate(firstDirectoryEntity) &&
 		entityDirectory.contains(firstDirectoryEntity) &&
 		entityDirectory.identity(0) == firstDirectoryEntity &&
-		entityDirectory.activeCount() == 1,
+		entityDirectory.activeCount() == 1 &&
+		entityDirectory.stateCount() == 0,
 		"successful creation publishes one exact slot incarnation");
+	TacticalActorSnapshot firstDirectoryState;
+	firstDirectoryState.id = firstDirectoryEntity;
+	firstDirectoryState.grid = 111;
+	firstDirectoryState.life = 72;
+	firstDirectoryState.active = true;
+	check(entityDirectory.publishState(firstDirectoryState) &&
+		entityDirectory.stateCount() == 1 &&
+		entityDirectory.state(firstDirectoryEntity) &&
+		entityDirectory.state(firstDirectoryEntity)->grid == 111 &&
+		entityDirectory.state(firstDirectoryEntity)->life == 72,
+		"live tactical state is committed beside its exact incarnation");
 	const TacticalEntityId replacementDirectoryEntity{
 		0, entityDirectory.issueIncarnation()};
 	check(entityDirectory.activate(replacementDirectoryEntity) &&
 		!entityDirectory.contains(firstDirectoryEntity) &&
 		!entityDirectory.release(firstDirectoryEntity) &&
+		!entityDirectory.publishState(firstDirectoryState) &&
+		!entityDirectory.state(firstDirectoryEntity) &&
+		entityDirectory.stateCount() == 0 &&
 		entityDirectory.contains(replacementDirectoryEntity) &&
 		entityDirectory.activeCount() == 1,
-		"slot reuse rejects stale resolution and stale deletion");
+		"slot reuse retires stale identity and actor state together");
+	TacticalActorSnapshot replacementDirectoryState = firstDirectoryState;
+	replacementDirectoryState.id = replacementDirectoryEntity;
+	replacementDirectoryState.grid = 222;
+	check(entityDirectory.publishState(replacementDirectoryState) &&
+		entityDirectory.state(replacementDirectoryEntity) &&
+		entityDirectory.state(replacementDirectoryEntity)->grid == 222,
+		"replacement incarnations can publish fresh pointer-free state");
 	check(entityDirectory.release(replacementDirectoryEntity) &&
-		!entityDirectory.identity(0).valid() && entityDirectory.activeCount() == 0,
-		"exact deletion retires the live incarnation");
+		!entityDirectory.identity(0).valid() &&
+		!entityDirectory.state(replacementDirectoryEntity) &&
+		entityDirectory.activeCount() == 0 &&
+		entityDirectory.stateCount() == 0,
+		"exact deletion retires the live incarnation and its state");
 	entityDirectory.restoreNextIncarnation(700);
 	const std::uint32_t loadTemporaryIncarnation =
 		entityDirectory.issueIncarnation();
@@ -871,10 +896,17 @@ int main()
 		entityDirectory.identity(1) == savedEntity &&
 		entityDirectory.nextIncarnation() == 701,
 		"save restoration preserves the serialized identity after consuming its temporary creation ID");
+	TacticalActorSnapshot inactiveSavedState;
+	inactiveSavedState.id = savedEntity;
+	check(!entityDirectory.publishState(inactiveSavedState) &&
+		entityDirectory.stateCount() == 0,
+		"inactive compatibility records cannot become observable actor state");
 	entityDirectory.reset();
 	check(entityDirectory.activeCount() == 0 &&
+		entityDirectory.stateCount() == 0 &&
+		!entityDirectory.state(savedEntity) &&
 		entityDirectory.nextIncarnation() == 701,
-		"pool reset clears liveness without rewinding the save-compatible sequence");
+		"pool reset clears liveness and state without rewinding the save-compatible sequence");
 	check(&legacyBraceRuntime.tacticalEntityDirectory() ==
 		&legacyBraceRuntime.tacticalEntityDirectory() &&
 		legacyBraceRuntime.tacticalEntityDirectory().maximumSlots() >= 2048,
