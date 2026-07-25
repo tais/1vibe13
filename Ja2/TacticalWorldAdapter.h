@@ -19,9 +19,10 @@ struct Ja2TacticalTurnIdentity
 	}
 };
 
-// Read-only production projection of the live JA2 tactical globals. Capture is
-// intended for the main-thread package/frame boundary and never exposes a
-// SOLDIERTYPE pointer to engine or mod code.
+// Read-only production projection of the engine-owned tactical session and
+// actor directory. Capture asks TacticalEntityHost to reconcile remaining
+// compatibility-pool mutations at the main-thread package/frame boundary, then
+// consumes only committed pointer-free state.
 class Ja2TacticalWorldAdapter final : public TacticalWorldService
 {
 public:

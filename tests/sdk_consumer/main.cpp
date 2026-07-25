@@ -675,6 +675,16 @@ int main()
 		externalSimulation.snapshot().actors[1].stopped)
 		return 60;
 	EngineRuntime<> externalExecutionRuntime;
+	TacticalActorSnapshot externalOwnedActor = MakeExternalActor(
+		actorId, 1211, TacticalStance::Crouched, 18, 79);
+	if (!externalExecutionRuntime.tacticalEntityDirectory().activate(actorId) ||
+		!externalExecutionRuntime.tacticalEntityDirectory().publishState(
+			externalOwnedActor) ||
+		externalExecutionRuntime.tacticalEntityDirectory().stateCount() != 1 ||
+		!externalExecutionRuntime.tacticalEntityDirectory().state(actorId) ||
+		externalExecutionRuntime.tacticalEntityDirectory().state(actorId)->grid !=
+			1211)
+		return 62;
 	if (!externalExecutionRuntime.bindSimulationCommandExecutor(
 			externalSimulation) ||
 		!externalExecutionRuntime.hasSimulationCommandExecutor())

@@ -9,8 +9,9 @@
 class SOLDIERTYPE;
 
 // Composition gateways between the pointer-free runtime directory and JA2's
-// fixed SOLDIERTYPE/MercPtrs pool. The directory owns the incarnation sequence
-// directly; no independently synchronized counter remains.
+// fixed SOLDIERTYPE/MercPtrs compatibility pool. The directory owns the
+// incarnation sequence and latest public actor projection directly; no
+// independently synchronized identity or package-facing state path remains.
 void BindJa2TacticalEntityDirectory(TacticalEntityDirectory& directory) noexcept;
 TacticalEntityDirectory& GetJa2TacticalEntityDirectory() noexcept;
 
@@ -21,6 +22,9 @@ void RestoreJa2TacticalEntityIncarnationSequence(
 
 bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept;
 bool ReleaseJa2TacticalEntity(const SOLDIERTYPE& soldier) noexcept;
+bool SynchronizeJa2TacticalEntityState(
+	const SOLDIERTYPE& soldier) noexcept;
+bool SynchronizeJa2TacticalEntityStates() noexcept;
 void ResetJa2TacticalEntityDirectory() noexcept;
 void RebuildJa2TacticalEntityDirectory() noexcept;
 bool SwapJa2TacticalEntitySlots(

@@ -748,11 +748,18 @@ the engine must not contain SDL types in its public domain model.
   `TacticalWorldService` captures these values without consulting split mutable
   turn globals.
 - `TacticalEntityDirectory` owns the bounded slot/incarnation identity used by
-  commands, observations, and stale-reference rejection while JA2 retains its
-  fixed `SOLDIERTYPE` storage. The host adopts, releases, and swaps pool entries
-  atomically with that directory. Its former exported incarnation counter has
-  been deleted; pre-composition allocations transfer the fallback directory's
-  sequence directly when `EngineRuntime` is bound.
+  commands, observations, and stale-reference rejection, plus the latest
+  committed pointer-free `TacticalActorSnapshot`, while JA2 retains its fixed
+  `SOLDIERTYPE` compatibility storage. The host adopts, releases, and swaps pool
+  entries atomically with both identity and state; reuse or release retires the
+  old projection in the same operation. Production command execution commits
+  the resulting primary and peer actor projections before returning, and the
+  completed-frame capture reconciles animation, vitals, and other remaining
+  legacy mutations once before observation. `TacticalWorldAdapter` consequently
+  reads only the runtime directory—it no longer imports soldier storage or
+  animation tables as a parallel package-facing state path. The former exported
+  incarnation counter has been deleted; pre-composition allocations transfer
+  the fallback directory's sequence directly when `EngineRuntime` is bound.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves
