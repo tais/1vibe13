@@ -45,18 +45,12 @@
 	#include "MiniEvents.h"
 	#include "Rebel Command.h"
 	#include "interface Dialogue.h"
-
-
-#ifdef JA2UB
-#include "Explosion Control.h"
-#include "Ja25_Tactical.h"
-#include "Ja25 Strategic Ai.h"
-#include "MapScreen Quotes.h"
-#include "email.h"
-#include "interface Dialogue.h"
-#include "mercs.h"
-#include "ub_config.h"
-#endif
+	#include "GameContext.h"
+	#include "Explosion Control.h"
+	#include "Ja25_Tactical.h"
+	#include "Ja25 Strategic Ai.h"
+	#include "MapScreen Quotes.h"
+	#include "ub_config.h"
 
 
 #ifdef JA2BETAVERSION
@@ -97,6 +91,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 {
 
 	BOOLEAN bMercDayOne = FALSE;
+	const bool unfinishedBusiness =
+		GetGameContext().capabilities().isUnfinishedBusiness();
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"ExecuteStrategicEvent");
 
 	if( gGameExternalOptions.gfEnableEmergencyButton_SkipStrategicEvents && _KeyDown( NUM_LOCK ) )
@@ -203,15 +199,12 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		case EVENT_DAILY_UPDATE_OF_MERC_SITE:
 			DailyUpdateOfMercSite( (UINT16)GetWorldDay() );
 			break;
-	case EVENT_DAY3_ADD_EMAIL_FROM_SPECK:
+		case EVENT_DAY3_ADD_EMAIL_FROM_SPECK:
 			// WANNE: This fixes the bug, that Speck did not sent the email on Day 3, when MERC_WEBSITE_ALL_MERCS_AVAILABLE = TRUE!
-			if ( gGameExternalOptions.fMercDayOne == FALSE /* && gGameExternalOptions.fAllMercsAvailable == FALSE */ )
+			if ( !unfinishedBusiness &&
+				gGameExternalOptions.fMercDayOne == FALSE /* && gGameExternalOptions.fAllMercsAvailable == FALSE */ )
 			{
-			#ifdef JA2UB
-			//No JA25 UB
-			#else
-				AddEmail(MERC_INTRO, MERC_INTRO_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_INTRO);
-			#endif	
+				AddEmail(JA2_EMAIL_MERC_INTRO, JA2_EMAIL_MERC_INTRO_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_INTRO);
 			}
 			break;
 		case EVENT_DAY2_ADD_EMAIL_FROM_IMP:
@@ -340,17 +333,13 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		//	BeginAirRaid( );
 		//	break;
 
-#ifdef JA2UB
-// Ja25 No meanwhiles
-#else
 		case EVENT_MEANWHILE:
-			if( !DelayEventIfBattleInProgress( pEvent ) )
+			if( !unfinishedBusiness && !DelayEventIfBattleInProgress( pEvent ) )
 			{
 				BeginMeanwhile( (UINT8)pEvent->uiParam );
 				InterruptTime();
 			}
 			break;
-#endif
 		case EVENT_BEGIN_CREATURE_QUEST:
 			break;
 		case EVENT_CREATURE_SPREAD:
@@ -407,11 +396,8 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			}
 			break;
 		case EVENT_MERC_SITE_BACK_ONLINE:
-			#ifdef JA2UB
-			// no JA25 UB
-			#else
-			GetMercSiteBackOnline();
-			#endif
+			if (!unfinishedBusiness)
+				GetMercSiteBackOnline();
 			break;
 		case EVENT_INVESTIGATE_SECTOR:
 			InvestigateSector( (UINT8)pEvent->uiParam );
@@ -448,31 +434,34 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		case EVENT_POSTAL_SERVICE_SHIPMENT:
 			gPostalService.DeliverShipment(pEvent->uiParam);
 			break;
-#ifdef JA2UB			
-		//Ja25 UB	
+		//Ja25 UB
 		case EVENT_ATTACK_INITIAL_SECTOR_IF_PLAYER_STILL_THERE:
-			if ( gGameUBOptions.EventAttackInitialSectorIfPlayerStillThere == TRUE )
+			if ( unfinishedBusiness &&
+				gGameUBOptions.EventAttackInitialSectorIfPlayerStillThere == TRUE )
 			{
-			ShouldEnemiesBeAddedToInitialSector();
+				ShouldEnemiesBeAddedToInitialSector();
 			}
 			break;
 
 		case EVENT_SAY_DELAYED_MERC_QUOTE:
-			DelayedSayingOfMercQuote( pEvent->uiParam );
+			if (unfinishedBusiness)
+				DelayedSayingOfMercQuote( pEvent->uiParam );
 			break;
 
 		case EVENT_DELAY_SOMEONE_IN_SECTOR_MSGBOX:
-			SetMsgBoxForPlayerBeNotifiedOfSomeoneElseInSector();
+			if (unfinishedBusiness)
+				SetMsgBoxForPlayerBeNotifiedOfSomeoneElseInSector();
 			break;
 
 		case EVENT_SECTOR_H8_DONT_WAIT_IN_SECTOR:
-			HandleSayingDontStayToLongWarningInSectorH8();
+			if (unfinishedBusiness)
+				HandleSayingDontStayToLongWarningInSectorH8();
 			break;
 
 		case EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL:
-			HandleEnricosUnderstandingEmail();
+			if (unfinishedBusiness)
+				HandleEnricosUnderstandingEmail();
 			break;
-#endif
 
 #ifdef CRIPPLED_VERSION
 		case EVENT_CRIPPLED_VERSION_END_GAME_CHECK:
@@ -483,34 +472,32 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			MilitiaMovementOrder( (UINT8) pEvent->uiParam );
 			break;
 
-#ifdef JA2UB
-		// No PCM in UB
-#else
 		case EVENT_PMC_EMAIL:
-			AddEmail(PMC_INTRO, PMC_INTRO_LENGTH, PMC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KERBERUS_OFFER);
+			if (!unfinishedBusiness)
+				AddEmail(JA2_EMAIL_PMC_INTRO, JA2_EMAIL_PMC_INTRO_LENGTH, PMC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KERBERUS_OFFER);
 			break;
-#endif
-		
+
 		case EVENT_PMC_REINFORCEMENT_ARRIVAL:
 			HandlePMCArrival( (UINT8)pEvent->uiParam );
 			break;
-#ifdef JA2UB
-		// No Kingpin Events in UB
-#else
 		case EVENT_KINGPIN_BOUNTY_INITIAL:
+			if (unfinishedBusiness)
+				break;
 			// if Kingpin, Angel and Maria are still alive, we can start the quest
 			if ( gMercProfiles[KINGPIN].bMercStatus != MERC_IS_DEAD && !CheckFact( FACT_KINGPIN_DEAD, NO_PROFILE ) && !CheckFact( FACT_KINGPIN_IS_ENEMY, NO_PROFILE ) && 
 				 gMercProfiles[MARIA].bMercStatus != MERC_IS_DEAD && gMercProfiles[ANGEL].bMercStatus != MERC_IS_DEAD )
 			{
 				StartQuest( QUEST_KINGPIN_ANGEL_MARIA, gWorldSectorX, gWorldSectorY );
-				AddEmail(KINGPIN_BOUNTY_INITIAL, KINGPIN_BOUNTY_INITIAL_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_JOBOPPORTUNITY);
+				AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_INITIAL, JA2_EMAIL_KINGPIN_BOUNTY_INITIAL_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_JOBOPPORTUNITY);
 			}
 			break;
 
 		case EVENT_KINGPIN_BOUNTY_END_KILLEDTHEM:
+			if (unfinishedBusiness)
+				break;
 			if ( gMercProfiles[KINGPIN].bMercStatus != MERC_IS_DEAD && !CheckFact( FACT_KINGPIN_DEAD, NO_PROFILE ) && !CheckFact( FACT_KINGPIN_IS_ENEMY, NO_PROFILE ) )
 			{
-				AddEmail(KINGPIN_BOUNTY_KINGPIN_REWARD, KINGPIN_BOUNTY_KINGPIN_REWARD_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_WELLDONE);
+				AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_REWARD, JA2_EMAIL_KINGPIN_BOUNTY_REWARD_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_WELLDONE);
 				// also authorise payment from kingpin to the player
 				AddTransactionToPlayersBook( ANONYMOUS_DEPOSIT, 0, GetWorldTotalMin( ), 10000 );
 			}
@@ -521,25 +508,26 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			break;
 
 		case EVENT_KINGPIN_BOUNTY_END_TIME_PASSED:
+			if (unfinishedBusiness)
+				break;
 
 			// if we eliminated all bounty hunters and Angel & Maria are still alive, they send us an email
 			if ( gMercProfiles[MARIA].bMercStatus != MERC_IS_DEAD && gMercProfiles[ANGEL].bMercStatus != MERC_IS_DEAD
 				 && CheckFact( FACT_BOUNTYHUNTER_KILLED_1, NO_PROFILE ) && CheckFact( FACT_BOUNTYHUNTER_KILLED_2, NO_PROFILE ) )
 			{
-				AddEmail(KINGPIN_BOUNTY_ANGEL_THANKS, KINGPIN_BOUNTY_ANGEL_THANKS_LENGTH, ANGEL_DASILVA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_DASILVA_THANKYOU);
-				AddEmail(KINGPIN_BOUNTY_TARGET_GOTAWAY, KINGPIN_BOUNTY_TARGET_GOTAWAY_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_FAILUREOBSTACLES);
+				AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_ANGEL_THANKS, JA2_EMAIL_KINGPIN_BOUNTY_ANGEL_THANKS_LENGTH, ANGEL_DASILVA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_DASILVA_THANKYOU);
+				AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_TARGET_ESCAPED, JA2_EMAIL_KINGPIN_BOUNTY_TARGET_ESCAPED_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_FAILUREOBSTACLES);
 			}
 			// we can assume that the bounty hunters for to them first - Kingpin sends an email and states that someone else finished the job
 			else if ( gMercProfiles[KINGPIN].bMercStatus != MERC_IS_DEAD && !CheckFact( FACT_KINGPIN_DEAD, NO_PROFILE ) && !CheckFact( FACT_KINGPIN_IS_ENEMY, NO_PROFILE ) )
 			{
-				AddEmail(KINGPIN_BOUNTY_BH_GOTTARGET, KINGPIN_BOUNTY_BH_GOTTARGET_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_FAILURE);
+				AddEmail(JA2_EMAIL_KINGPIN_BOUNTY_TARGET_FOUND, JA2_EMAIL_KINGPIN_BOUNTY_TARGET_FOUND_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_FAILURE);
 			}
 
 			// in any case, this quest is now over
 			EndQuest( QUEST_KINGPIN_ANGEL_MARIA, gWorldSectorX, gWorldSectorY );
 
 			break;
-#endif
 
 		case EVENT_ASD_UPDATE:
 			UpdateASD();
@@ -596,11 +584,10 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			RepairSamSite( pEvent->uiParam );
 			break;
 
-#ifndef JA2UB
 		case EVENT_MILITIAROSTER_EMAIL:
-			AddEmail(MILITIAROSTER_INTRO, MILITIAROSTER_INTRO_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_MILITIA_WEBSITE);
+			if (!unfinishedBusiness)
+				AddEmail(JA2_EMAIL_MILITIA_ROSTER_INTRO, JA2_EMAIL_MILITIA_ROSTER_INTRO_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_MILITIA_WEBSITE);
 			break;
-#endif
 
 		// Flugente: localized weather
 		case EVENT_WEATHER_NORMAL:
@@ -623,11 +610,10 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 			ChangeWeather( (UINT8)pEvent->uiParam, WEATHER_FORECAST_SNOW );
 			break;
 
-#ifndef JA2UB
 		case EVENT_INTEL_ENRICO_EMAIL:
-			AddEmail(INTEL_ENRICO_INTRO, INTEL_ENRICO_INTRO_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_INTEL);
+			if (!unfinishedBusiness)
+				AddEmail(JA2_EMAIL_INTEL_INTRO, JA2_EMAIL_INTEL_INTRO_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_INTEL);
 			break;
-#endif
 
 		case EVENT_INTEL_PHOTOFACT_VERIFY:
 			LuaVerifyPhotoState( (INT16)pEvent->uiParam );

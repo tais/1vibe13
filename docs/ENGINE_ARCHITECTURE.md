@@ -837,6 +837,14 @@ the engine must not contain SDL types in its public domain model.
   preprocessor branches are migrated incrementally. The architecture check
   prevents the dedicated modules and migrated composition callers from
   regaining a `JA2UB` build guard.
+- Strategic-event dispatch is compiled identically for both campaign hosts and
+  selects Arulco-only and Unfinished Business-only callbacks from
+  `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared
+  endgame-quote entry point, and the Arulco MERC-site recovery callback are
+  emitted in every host so runtime dispatch never depends on a missing symbol.
+  Campaign-qualified email and Speck quote constants are compile-time checked
+  against the existing Arulco offsets; the campaign data files and their
+  numeric records remain unchanged.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

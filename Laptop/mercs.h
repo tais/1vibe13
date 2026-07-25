@@ -132,11 +132,7 @@ BOOLEAN IsMercMercAvailable( UINT8 ubMercID );
 
 void HandlePlayerHiringMerc( UINT8 ubHiredMercID );
 void EnterInitMercSite();
-#ifdef JA2UB
-//void GetMercSiteBackOnline();
-#else
 void GetMercSiteBackOnline();
-#endif
 void DisableMercSiteButton();
 
 extern	UINT16			gusMercVideoSpeckSpeech;
@@ -156,9 +152,8 @@ extern	BOOLEAN		gfJustHiredAMercMerc;
 void MakeBiffAwayForCoupleOfDays();
 
 // anv: for playable Speck
-#ifdef JA2UB
-#else
-	BOOLEAN IsSpeckComAvailable();
+BOOLEAN IsSpeckComAvailable();
+#ifndef JA2UB
 	void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier );
 #endif
 

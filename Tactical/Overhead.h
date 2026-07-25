@@ -333,9 +333,9 @@ UINT16 NumPCsInSector( );
 void SetSoldierNonNeutral( SOLDIERTYPE * pSoldier );
 void SetSoldierNeutral( SOLDIERTYPE * pSoldier );
 
-#ifdef JA2UB
 void HandleThePlayerBeNotifiedOfSomeoneElseInSector();
 void SetMsgBoxForPlayerBeNotifiedOfSomeoneElseInSector();
+BOOLEAN CanMsgBoxForPlayerToBeNotifiedOfSomeoneElseInSector();
 
 void HandleDisplayingOfPlayerLostDialogue( );
 
@@ -344,7 +344,6 @@ UINT16    NumActiveAndConsciousTeamMembers( UINT8 ubTeam );
 UINT16 NumEnemyInSector( );
 UINT16 NumCapableEnemyInSector( );
 UINT16    NumMercsOnPlayerTeam( );
-#endif
 
 extern BOOLEAN sniperwarning;
 extern BOOLEAN biggunwarning;

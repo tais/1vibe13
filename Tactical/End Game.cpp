@@ -18,6 +18,8 @@
 	#include "TacticalEntityHost.h"
 	#include "TacticalWorldAdapter.h"
 	#include "ub_config.h"
+	#include "Ja25_Tactical.h"
+	#include "Handle UI.h"
 
 #ifndef JA2UB
 #include "NPC.h"
@@ -464,7 +466,6 @@ static void QueenBitchTimerCallback( void )
 #endif
 }
 
-#ifdef JA2UB
 void EndGameEveryoneSayTheirGoodByQuotes( void )
 {
 	INT32 cnt;
@@ -507,6 +508,7 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_TEAM_MEMBERS_DONE_TALKING, 0,0,0,0 );
 }
 
+#ifdef JA2UB
 
 void HandleAddingTheEndGameEmails()
 {

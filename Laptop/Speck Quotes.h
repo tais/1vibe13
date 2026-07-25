@@ -1,6 +1,13 @@
 #ifndef _SPECK_QUOTES_H_
 #define _SPECK_QUOTES_H_
 
+// Arulco quote IDs remain tied to the existing speech data even when the
+// executable default is a different campaign.
+inline constexpr UINT16 JA2_SPECK_QUOTE_BIFF_UNAVAILABLE = 62;
+inline constexpr UINT16 JA2_SPECK_QUOTE_ALREADY_HIRED = 71;
+inline constexpr UINT16 JA2_SPECK_PLAYABLE_QUOTE_SERVER_WENT_DOWN = 84;
+inline constexpr UINT16 JA2_SPECK_QUOTE_SPECK_UNAVAILABLE = 87;
+
 //Enum,s for all of specks quotes
 #ifdef JA2UB
 enum
@@ -303,6 +310,13 @@ enum{
 	SPECK_PLAYABLE_QUOTE_LARRY_RELAPSED,
 	SPECK_PLAYABLE_QUOTE_FLO_MARRIED_A_COUSIN_BIFF_IS_ALIVE,
 };
+#endif
+
+#ifndef JA2UB
+static_assert(JA2_SPECK_QUOTE_BIFF_UNAVAILABLE == SPECK_QUOTE_BIFF_UNAVALIABLE);
+static_assert(JA2_SPECK_QUOTE_ALREADY_HIRED == SPECK_QUOTE_PLAYER_TRIES_TO_HIRE_ALREADY_HIRED_MERC);
+static_assert(JA2_SPECK_PLAYABLE_QUOTE_SERVER_WENT_DOWN == SPECK_PLAYABLE_QUOTE_SERVER_WENT_DOWN);
+static_assert(JA2_SPECK_QUOTE_SPECK_UNAVAILABLE == SPECK_QUOTE_SPECK_UNAVAILABLE);
 #endif
 
 #endif
