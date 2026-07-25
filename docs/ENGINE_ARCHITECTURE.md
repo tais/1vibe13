@@ -492,7 +492,17 @@ the engine must not contain SDL types in its public domain model.
   captures are refused, and whole batches are staged atomically so duplicate
   sequence IDs cannot leave a partially mutated simulation queue. Playback
   retains the recorded tick, sequence, value, and source through the same
-  runtime gateway used by live commands.
+  runtime gateway used by live commands. The data-free headless suite now runs
+  a mixed player, AI/script, and network tactical turn through bounded command
+  processing, including an authoritative retry. It encodes the completed
+  journal, decodes and stages it into a fresh runtime, resets the same
+  actor/world snapshot, and requires identical disposition observations,
+  applied order, final state, and journal bytes. This exercises replay
+  determinism without SDL presentation, audio, installed maps, or game data.
+  The architecture check also pins each migrated multiplayer receive handler
+  and AI/dialogue producer to its command ingress function and rejects the
+  corresponding legacy event/path/animation calls outside the dedicated
+  executor.
 - `RuntimeCapabilities` replaces build-target identity at engine boundaries
   with portable, ordered feature IDs. Hosts contribute application traits and
   active packages contribute campaign, rules, extension, or tool traits;

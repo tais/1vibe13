@@ -207,6 +207,154 @@ foreach(tactical_file IN LISTS tactical_cpp_files)
   endforeach()
 endforeach()
 
+# Network receive handlers, AI decisions, and scripted dialogue are
+# authoritative command producers. Keep the legacy mutation APIs confined to
+# Tactical/Simulation Commands.cpp so future fixes cannot quietly recreate a
+# second execution path beside the deterministic queue.
+function(check_network_command_ingress
+    start_marker end_marker required_call forbidden_calls description)
+  set(network_source_file "${SOURCE_ROOT}/Multiplayer/client.cpp")
+  file(READ "${network_source_file}" network_source_contents)
+  string(FIND "${network_source_contents}" "${start_marker}"
+    ingress_start)
+  if(ingress_start EQUAL -1)
+    message(FATAL_ERROR
+      "Cannot find multiplayer ingress region '${start_marker}'")
+  endif()
+  string(SUBSTRING "${network_source_contents}" ${ingress_start} -1
+    ingress_tail)
+  string(FIND "${ingress_tail}" "${end_marker}" ingress_end)
+  if(ingress_end EQUAL -1)
+    message(FATAL_ERROR
+      "Cannot find end of multiplayer ingress region '${start_marker}'")
+  endif()
+  string(SUBSTRING "${ingress_tail}" 0 ${ingress_end}
+    ingress_region)
+  # Old commented-out examples are documentation, not executable bypasses.
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    ingress_executable "${ingress_region}")
+
+  string(FIND "${ingress_executable}" "${required_call}"
+    required_call_index)
+  if(required_call_index EQUAL -1)
+    message(FATAL_ERROR
+      "${description} no longer enters through ${required_call}")
+  endif()
+  string(REGEX MATCH "${forbidden_calls}"
+    direct_network_action "${ingress_executable}")
+  if(direct_network_action)
+    message(FATAL_ERROR
+      "${description} bypasses SimulationCommand in Multiplayer/client.cpp")
+  endif()
+endfunction()
+
+check_network_command_ingress(
+  "void recievePATH("
+  "void send_stance"
+  "TryDispatchNetworkActorPathCommand"
+  "(^|[^A-Za-z0-9_])(EVENT_InternalGetNewSoldierPath|EVENT_GetNewSoldierPath|SendGetNewSoldierPathEvent|EVENT_InternalSetSoldierPosition|EVENT_InitNewSoldierAnim)[ \t\r\n]*\\(|pSoldier[ \t]*->[ \t]*pathing[ \t]*\\."
+  "Received multiplayer path")
+check_network_command_ingress(
+  "void recieveSTANCE("
+  "void send_dir"
+  "TryDispatchNetworkChangeStanceCommand"
+  "(^|[^A-Za-z0-9_])(SendChangeSoldierStanceEvent|ChangeSoldierStance)[ \t\r\n]*\\("
+  "Received multiplayer stance")
+check_network_command_ingress(
+  "void recieveDIR("
+  "void send_fire("
+  "TryDispatchNetworkSetFacingCommand"
+  "(^|[^A-Za-z0-9_])(SendSoldierSetDesiredDirectionEvent|EVENT_SetSoldierDesiredDirection|EVENT_SetSoldierDirection)[ \t\r\n]*\\("
+  "Received multiplayer facing")
+check_network_command_ingress(
+  "void recieveFIRE("
+  "void send_hit("
+  "TryDispatchNetworkActorFireCommand"
+  "(^|[^A-Za-z0-9_])(SendBeginFireWeaponEvent|EVENT_FireSoldierWeapon|EVENT_SoldierBeginFireWeapon)[ \t\r\n]*\\("
+  "Received multiplayer fire")
+check_network_command_ingress(
+  "void recieveEndTurn("
+  "UINT8 numenemyLAN("
+  "TryDispatchNetworkTurnCommand"
+  "(^|[^A-Za-z0-9_])(EndTurn|BeginTeamTurn|EnterCombatMode|EndTurnEvents)[ \t\r\n]*\\("
+  "Received multiplayer turn")
+check_network_command_ingress(
+  "void recieveSTOP ("
+  "void mp_log_event("
+  "TryDispatchNetworkActorStopCommand"
+  "(^|[^A-Za-z0-9_])(StopSoldier|EVENT_StopMerc|EVENT_InternalSetSoldierPosition|EVENT_SetSoldierDirection|AdjustNoAPToFinishMove)[ \t\r\n]*\\("
+  "Received multiplayer stop")
+
+set(system_command_ingress_files
+  "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  "${SOURCE_ROOT}/TacticalAI/AIUtils.cpp"
+  "${SOURCE_ROOT}/TacticalAI/Movement.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp")
+foreach(system_command_ingress_file IN LISTS system_command_ingress_files)
+  file(READ "${system_command_ingress_file}"
+    system_command_ingress_contents)
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    system_command_ingress_executable
+    "${system_command_ingress_contents}")
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(EVENT_InternalGetNewSoldierPath|SendSoldierSetDesiredDirectionEvent|SendChangeSoldierStanceEvent|EVENT_SetSoldierDesiredDirection|ChangeSoldierStance|SendBeginFireWeaponEvent)[ \t\r\n]*\\("
+    direct_system_action
+    "${system_command_ingress_executable}")
+  if(direct_system_action)
+    message(FATAL_ERROR
+      "AI or script action bypasses reliable System SimulationCommand ingress in ${system_command_ingress_file}")
+  endif()
+endforeach()
+
+function(require_system_command_ingress source_file required_call description)
+  file(READ "${source_file}" source_contents)
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    source_executable "${source_contents}")
+  string(FIND "${source_executable}" "${required_call}" required_call_index)
+  if(required_call_index EQUAL -1)
+    message(FATAL_ERROR
+      "${description} no longer enters through ${required_call}")
+  endif()
+endfunction()
+
+require_system_command_ingress(
+  "${SOURCE_ROOT}/TacticalAI/AIUtils.cpp"
+  "TryDispatchSystemMoveToGridCommand"
+  "AI movement")
+require_system_command_ingress(
+  "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  "TryDispatchSystemSetFacingCommand"
+  "AI facing")
+require_system_command_ingress(
+  "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  "TryDispatchSystemChangeStanceCommand"
+  "AI stance")
+require_system_command_ingress(
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "TryDispatchSystemSetFacingCommand"
+  "Dialogue facing")
+require_system_command_ingress(
+  "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  "TryDispatchSystemChangeStanceCommand"
+  "Scripted stance")
+require_system_command_ingress(
+  "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  "TryDispatchSystemBeginSelectedFireWeaponCommand"
+  "AI selected-weapon fire")
+
+file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  tactical_item_fire_contents)
+string(REGEX REPLACE "//[^\r\n]*" ""
+  tactical_item_fire_executable "${tactical_item_fire_contents}")
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])SendBeginFireWeaponEvent[ \t\r\n]*\\("
+  direct_item_fire_event "${tactical_item_fire_executable}")
+if(direct_item_fire_event)
+  message(FATAL_ERROR
+    "AI item handling bypasses the selected-weapon SimulationCommand")
+endif()
+
 # Player ingress passes the exact live SOLDIERTYPE reference to the application
 # adapter. Reassembling a value command from ubID plus
 # uiUniqueSoldierIdValue at dozens of UI sites lets those values come from

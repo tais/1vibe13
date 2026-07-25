@@ -46,6 +46,7 @@
 #include <Engine/Core/DeterministicCommandQueue.h>
 #include <Engine/Core/CommandDispatch.h>
 #include <Engine/Adapters/JA2/CampaignEventService.h>
+#include <Engine/Adapters/JA2/EngineRuntime.h>
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
@@ -758,6 +759,328 @@ public:
 	std::uint64_t lastSequence = 0;
 	CommandDisposition lastDisposition = CommandDisposition::Retry;
 };
+
+struct HeadlessTacticalActorSnapshot
+{
+	TacticalEntityId id;
+	std::int32_t grid = 0;
+	std::int16_t positionX = 0;
+	std::int16_t positionY = 0;
+	std::uint8_t stance = ANIM_STAND;
+	std::uint8_t direction = 0;
+	bool stealth = false;
+	bool stopped = true;
+
+	friend bool operator==(
+		const HeadlessTacticalActorSnapshot& left,
+		const HeadlessTacticalActorSnapshot& right)
+	{
+		return left.id == right.id &&
+			left.grid == right.grid &&
+			left.positionX == right.positionX &&
+			left.positionY == right.positionY &&
+			left.stance == right.stance &&
+			left.direction == right.direction &&
+			left.stealth == right.stealth &&
+			left.stopped == right.stopped;
+	}
+};
+
+struct HeadlessTacticalShotSnapshot
+{
+	TacticalEntityId soldier;
+	std::int32_t targetGrid = 0;
+	std::int8_t targetLevel = 0;
+	std::int8_t targetCubeLevel = 0;
+	std::uint8_t attackingHand = 0;
+	std::uint32_t attackingWeapon = 0;
+
+	friend bool operator==(
+		const HeadlessTacticalShotSnapshot& left,
+		const HeadlessTacticalShotSnapshot& right)
+	{
+		return left.soldier == right.soldier &&
+			left.targetGrid == right.targetGrid &&
+			left.targetLevel == right.targetLevel &&
+			left.targetCubeLevel == right.targetCubeLevel &&
+			left.attackingHand == right.attackingHand &&
+			left.attackingWeapon == right.attackingWeapon;
+	}
+};
+
+struct HeadlessTacticalTurnSnapshot
+{
+	std::uint8_t currentTeam = 0;
+	bool inCombat = false;
+	std::uint32_t completedTurns = 0;
+	std::vector<HeadlessTacticalActorSnapshot> actors;
+	std::vector<HeadlessTacticalShotSnapshot> shots;
+
+	friend bool operator==(
+		const HeadlessTacticalTurnSnapshot& left,
+		const HeadlessTacticalTurnSnapshot& right)
+	{
+		return left.currentTeam == right.currentTeam &&
+			left.inCombat == right.inCombat &&
+			left.completedTurns == right.completedTurns &&
+			left.actors == right.actors &&
+			left.shots == right.shots;
+	}
+};
+
+struct HeadlessTacticalCommandObservation
+{
+	std::uint64_t tick = 0;
+	std::uint64_t sequence = 0;
+	std::size_t commandIndex = 0;
+	CommandDisposition disposition = CommandDisposition::Discard;
+
+	friend bool operator==(
+		const HeadlessTacticalCommandObservation& left,
+		const HeadlessTacticalCommandObservation& right)
+	{
+		return left.tick == right.tick &&
+			left.sequence == right.sequence &&
+			left.commandIndex == right.commandIndex &&
+			left.disposition == right.disposition;
+	}
+};
+
+class HeadlessTacticalTurnModel
+{
+public:
+	explicit HeadlessTacticalTurnModel(HeadlessTacticalTurnSnapshot snapshot)
+		: snapshot_(std::move(snapshot))
+	{
+	}
+
+	CommandDisposition execute(
+		const SimulationCommand& command,
+		std::uint64_t,
+		std::uint64_t)
+	{
+		if (ValidateSimulationCommandDomain(command) !=
+			SimulationCommandDomainError::None)
+			return CommandDisposition::Discard;
+
+		return std::visit([this](const auto& value) {
+			using Command = typename std::decay<decltype(value)>::type;
+			if constexpr (
+				std::is_same<Command, SynchronizeTurnCommand>::value)
+			{
+				snapshot_.currentTeam = value.nextTeam;
+				snapshot_.inCombat =
+					snapshot_.inCombat || value.enterCombat;
+				++snapshot_.completedTurns;
+				return CommandDisposition::Applied;
+			}
+			else if constexpr (std::is_same<Command, EndTurnCommand>::value)
+			{
+				return CommandDisposition::Discard;
+			}
+			else
+			{
+				HeadlessTacticalActorSnapshot* actor =
+					findActor(value.soldier);
+				if (!actor) return CommandDisposition::Discard;
+
+				if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
+				{
+					actor->stance = value.stance;
+					return CommandDisposition::Applied;
+				}
+				else if constexpr (
+					std::is_same<Command, MoveToGridCommand>::value)
+				{
+					actor->grid = value.destinationGrid;
+					actor->stopped = false;
+					return CommandDisposition::Applied;
+				}
+				else if constexpr (
+					std::is_same<Command, SetFacingCommand>::value)
+				{
+					actor->direction = value.direction;
+					return CommandDisposition::Applied;
+				}
+				else if constexpr (
+					std::is_same<
+						Command,
+						BeginSelectedFireWeaponCommand>::value)
+				{
+					// Exercise a retained authoritative command as part of the
+					// scenario. The first attempt is side-effect free; the
+					// second applies the exact captured selection.
+					if (!selectedFireRetried_)
+					{
+						selectedFireRetried_ = true;
+						return CommandDisposition::Retry;
+					}
+					snapshot_.shots.push_back(HeadlessTacticalShotSnapshot{
+						value.soldier,
+						value.targetGrid,
+						value.targetLevel,
+						value.targetCubeLevel,
+						value.attackingHand,
+						value.attackingWeapon});
+					return CommandDisposition::Applied;
+				}
+				else if constexpr (
+					std::is_same<Command, SetStealthModeCommand>::value)
+				{
+					actor->stealth = value.enabled;
+					return CommandDisposition::Applied;
+				}
+				else if constexpr (
+					std::is_same<Command, StopMovementCommand>::value)
+				{
+					actor->stopped = true;
+					return CommandDisposition::Applied;
+				}
+				else if constexpr (
+					std::is_same<
+						Command,
+						SynchronizeActorStopCommand>::value)
+				{
+					actor->grid = value.reportedGrid;
+					actor->positionX = value.positionX;
+					actor->positionY = value.positionY;
+					actor->direction = value.direction;
+					actor->stopped = value.stop;
+					return CommandDisposition::Applied;
+				}
+				else
+				{
+					return CommandDisposition::Discard;
+				}
+			}
+		}, command);
+	}
+
+	const HeadlessTacticalTurnSnapshot& snapshot() const
+	{
+		return snapshot_;
+	}
+
+private:
+	HeadlessTacticalActorSnapshot* findActor(TacticalEntityId id)
+	{
+		const auto actor = std::find_if(
+			snapshot_.actors.begin(), snapshot_.actors.end(),
+			[id](const HeadlessTacticalActorSnapshot& candidate) {
+				return candidate.id == id;
+			});
+		return actor != snapshot_.actors.end() ? &*actor : nullptr;
+	}
+
+	HeadlessTacticalTurnSnapshot snapshot_;
+	bool selectedFireRetried_ = false;
+};
+
+struct HeadlessTacticalTurnRun
+{
+	HeadlessTacticalTurnSnapshot snapshot;
+	std::vector<HeadlessTacticalCommandObservation> observations;
+	bool completed = false;
+	bool sawBudgetExhaustion = false;
+	bool sawRetry = false;
+	bool queueChanged = false;
+};
+
+static HeadlessTacticalTurnRun RunHeadlessTacticalTurn(
+	EngineRuntime<unsigned>& runtime,
+	HeadlessTacticalTurnSnapshot baseline)
+{
+	HeadlessTacticalTurnModel model(std::move(baseline));
+	HeadlessTacticalTurnRun run;
+	for (std::size_t pass = 0;
+		pass < 32 && !runtime.commands().empty(); ++pass)
+	{
+		const CommandProcessingResult processing = ProcessCommandsThrough(
+			runtime.commands(), 3, 2,
+			[&model](
+				const SimulationCommand& command,
+				std::uint64_t tick,
+				std::uint64_t sequence) {
+				return model.execute(command, tick, sequence);
+			},
+			[&runtime, &run](
+				const SimulationCommand& command,
+				std::uint64_t tick,
+				std::uint64_t sequence,
+				CommandDisposition disposition) {
+				runtime.commandJournal().recordDisposition(
+					sequence, disposition);
+				run.observations.push_back(
+					HeadlessTacticalCommandObservation{
+						tick, sequence, command.index(), disposition});
+			});
+		run.sawBudgetExhaustion =
+			run.sawBudgetExhaustion ||
+			processing.status == CommandProcessStatus::BudgetExhausted;
+		run.sawRetry =
+			run.sawRetry ||
+			processing.status == CommandProcessStatus::Blocked;
+		run.queueChanged =
+			run.queueChanged ||
+			processing.status == CommandProcessStatus::QueueChanged;
+		if (run.queueChanged) break;
+	}
+	run.completed = runtime.commands().empty();
+	run.snapshot = model.snapshot();
+	return run;
+}
+
+static HeadlessTacticalTurnSnapshot MakeHeadlessTacticalTurnBaseline(
+	TacticalEntityId player,
+	TacticalEntityId opponent)
+{
+	HeadlessTacticalTurnSnapshot snapshot;
+	snapshot.actors.push_back(HeadlessTacticalActorSnapshot{
+		player, 100, 10, 10, ANIM_STAND, 0, false, true});
+	snapshot.actors.push_back(HeadlessTacticalActorSnapshot{
+		opponent, 400, 40, 40, ANIM_STAND, 4, false, true});
+	return snapshot;
+}
+
+static std::vector<std::uint64_t> SubmitHeadlessTacticalTurn(
+	EngineRuntime<unsigned>& runtime,
+	TacticalEntityId player,
+	TacticalEntityId opponent)
+{
+	std::vector<std::uint64_t> sequences;
+	sequences.push_back(runtime.submitCommand(
+		3, SimulationCommand{ChangeStanceCommand{
+			player, ANIM_CROUCH, SimulationCommandSource::System,
+			TacticalEventPolicy::Replicated}}));
+	sequences.push_back(runtime.submitCommand(
+		1, SimulationCommand{MoveToGridCommand{
+			player, 220, WALKING, false, true,
+			SimulationCommandSource::System,
+			TacticalMoveOrigin::System,
+			TacticalPendingActionPolicy::Preserve}}));
+	sequences.push_back(runtime.submitCommand(
+		2, SimulationCommand{SetFacingCommand{
+			player, 2, SimulationCommandSource::System,
+			TacticalEventPolicy::LocalOnly}}));
+	sequences.push_back(runtime.submitCommand(
+		2, SimulationCommand{BeginSelectedFireWeaponCommand{
+			player, 390, FIRST_LEVEL, 0, HANDPOS, 17,
+			SimulationCommandSource::System}}));
+	sequences.push_back(runtime.submitCommand(
+		1, SimulationCommand{SynchronizeActorStopCommand{
+			opponent, 390, 20, 30, 6, true,
+			SimulationCommandSource::NetworkPeer}}));
+	sequences.push_back(runtime.submitCommand(
+		2, SimulationCommand{SetStealthModeCommand{
+			player, true, SimulationCommandSource::LocalPlayer}}));
+	sequences.push_back(runtime.submitCommand(
+		3, SimulationCommand{StopMovementCommand{
+			player, SimulationCommandSource::System}}));
+	sequences.push_back(runtime.submitCommand(
+		3, SimulationCommand{SynchronizeTurnCommand{
+			1, true, false, SimulationCommandSource::NetworkPeer}}));
+	return sequences;
+}
 
 int main( int, char** )
 {
@@ -1817,6 +2140,94 @@ int main( int, char** )
 			} );
 		CHECK( observed && observed.applied == 1 && commands.empty(),
 		       "command observers cannot interfere with authoritative delivery" );
+	}
+
+	{
+		const TacticalEntityId player{ 7, 7007 };
+		const TacticalEntityId opponent{ 31, 31031 };
+		const HeadlessTacticalTurnSnapshot baseline =
+			MakeHeadlessTacticalTurnBaseline( player, opponent );
+
+		EngineRuntime<unsigned> captureRuntime;
+		const std::vector<std::uint64_t> submitted =
+			SubmitHeadlessTacticalTurn(
+				captureRuntime, player, opponent );
+		const HeadlessTacticalTurnRun captured =
+			RunHeadlessTacticalTurn( captureRuntime, baseline );
+		const std::vector<RecordedSimulationCommand> capturedJournal =
+			captureRuntime.commandJournal().snapshot();
+
+		std::vector<std::uint8_t> capturedBytes;
+		const bool captureEncoded = EncodeSimulationCommandJournal(
+			capturedJournal,
+			captureRuntime.commandJournal().droppedCount(),
+			capturedBytes );
+		std::vector<RecordedSimulationCommand> decodedJournal;
+		std::uint64_t decodedDropped = 1;
+		const SimulationCommandJournalDecodeResult decoded =
+			DecodeSimulationCommandJournal(
+				capturedBytes, decodedJournal, decodedDropped );
+
+		EngineRuntime<unsigned> replayRuntime;
+		const CommandReplayStageResult staged =
+			replayRuntime.stageCommandReplay( SimulationCommandReplay{
+				decodedJournal, decodedDropped } );
+		const HeadlessTacticalTurnRun replayed =
+			RunHeadlessTacticalTurn( replayRuntime, baseline );
+		const std::vector<RecordedSimulationCommand> replayedJournal =
+			replayRuntime.commandJournal().snapshot();
+		std::vector<std::uint8_t> replayedBytes;
+		const bool replayEncoded = EncodeSimulationCommandJournal(
+			replayedJournal,
+			replayRuntime.commandJournal().droppedCount(),
+			replayedBytes );
+
+		std::vector<std::uint64_t> appliedOrder;
+		for ( const HeadlessTacticalCommandObservation& observation
+			: captured.observations )
+			if ( observation.disposition == CommandDisposition::Applied )
+				appliedOrder.push_back( observation.sequence );
+		const std::vector<std::uint64_t> expectedOrder{
+			submitted[1], submitted[4], submitted[2], submitted[3],
+			submitted[5], submitted[0], submitted[6], submitted[7] };
+
+		HeadlessTacticalTurnSnapshot expected = baseline;
+		expected.currentTeam = 1;
+		expected.inCombat = true;
+		expected.completedTurns = 1;
+		expected.actors[0] = HeadlessTacticalActorSnapshot{
+			player, 220, 10, 10, ANIM_CROUCH, 2, true, true };
+		expected.actors[1] = HeadlessTacticalActorSnapshot{
+			opponent, 390, 20, 30, ANIM_STAND, 6, false, true };
+		expected.shots.push_back( HeadlessTacticalShotSnapshot{
+			player, 390, FIRST_LEVEL, 0, HANDPOS, 17 } );
+
+		const bool everyCaptureRecordApplied = std::all_of(
+			capturedJournal.begin(), capturedJournal.end(),
+			[]( const RecordedSimulationCommand& record ) {
+				return record.status == CommandJournalStatus::Applied;
+			} );
+		CHECK(
+			captured.completed && replayed.completed &&
+			!captured.queueChanged && !replayed.queueChanged &&
+			captured.sawBudgetExhaustion &&
+			replayed.sawBudgetExhaustion &&
+			captured.sawRetry && replayed.sawRetry &&
+			captured.snapshot == expected &&
+			replayed.snapshot == expected &&
+			captured.snapshot == replayed.snapshot &&
+			captured.observations == replayed.observations &&
+			appliedOrder == expectedOrder &&
+			capturedJournal.size() == submitted.size() &&
+			everyCaptureRecordApplied &&
+			captureEncoded &&
+			decoded ==
+				SimulationCommandJournalDecodeResult::Success &&
+			decodedDropped == 0 &&
+			staged == CommandReplayStageResult::Success &&
+			replayEncoded &&
+			replayedBytes == capturedBytes,
+			"data-free tactical turn replay reproduces bounded ordering, retries, actor/world state, and final journal bytes" );
 	}
 
 	{
