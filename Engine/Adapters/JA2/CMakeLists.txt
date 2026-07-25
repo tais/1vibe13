@@ -9,8 +9,10 @@ set(ja2_runtime_adapter_public_headers
   CampaignEventSnapshot.h
   CommandReplay.h
   EngineRuntime.h
+  MemoryTacticalSimulation.h
   SimulationCommand.h
   SimulationCommandCodec.h
+  SimulationCommandExecutor.h
   StrategicGroup.h
   StrategicGroupDirectory.h
   TacticalCommandService.h
@@ -39,6 +41,7 @@ add_library(ja2_runtime_adapter STATIC
   CampaignClockSession.cpp
   CampaignEventQueue.cpp
   CommandReplay.cpp
+  MemoryTacticalSimulation.cpp
   SimulationCommandCodec.cpp
   StrategicGroupDirectory.cpp
   TacticalCommandService.cpp

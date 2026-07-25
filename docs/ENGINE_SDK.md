@@ -161,6 +161,28 @@ ready/lower, turn, stance, fire, movement, facing, stealth, stop-movement,
 drag cancellation, stealing, position exchange, and world-item pickup intent.
 An approach combines movement with its pending interaction so command pressure
 cannot apply one without the other.
+
+`SimulationCommandExecutor` is the host-owned execution boundary beneath that
+value stream. It receives the exact command plus deterministic tick and
+sequence metadata and returns `Applied`, `Retry`, or `Discard`. The compiled
+game implements this interface in its compatibility adapter, where established
+JA2 pathing, animation, inventory, dialogue, vehicle, and combat mechanics
+remain. Queue and replay code therefore no longer knows whether it is driving
+the live game, a tool, or a data-free simulation.
+
+`MemoryTacticalSimulation` is the installed deterministic implementation for
+headless hosts, replay inspection, and package tests. Its reset accepts a
+pointer-free `TacticalSimulationSnapshot`, validates and sorts exact actor
+incarnations transactionally, and reserves the configured actor and shot
+ceilings before publication. Movement, stance, facing, stealth, stop, path/stop
+synchronization, fire, and turn commands update this stable state without SDL,
+game data, or legacy headers. Unsupported commands and stale identities are
+discarded without partial mutation; shot and turn overflow fail closed. Raw
+stance and movement values remain opaque adapter data, so this reference model
+does not invent a second set of JA2 combat rules. Recorded shots retain their
+tick and sequence and can be cleared after a host consumes that bounded event
+history.
+
 Conversation partners, vehicles, steal targets, exchange partners, and exact
 pickup targets carry both their reusable slot and incarnation; delayed arrival
 therefore rejects a despawned, moved, or reused target instead of addressing

@@ -6,6 +6,7 @@
 #include <utility>
 #include <variant>
 
+#include <Engine/Adapters/JA2/SimulationCommandExecutor.h>
 #include <Engine/Core/CommandProcessor.h>
 
 #include "Animation Control.h"
@@ -796,17 +797,41 @@ namespace
 		}, command);
 	}
 
+	class Ja2SimulationCommandExecutor final
+		: public SimulationCommandExecutor
+	{
+	public:
+		CommandDisposition execute(
+			const SimulationCommand& command,
+			std::uint64_t,
+			std::uint64_t) override
+		{
+			return ExecuteSimulationCommand(command);
+		}
+	};
+
+	SimulationCommandExecutor& ApplicationSimulationCommandExecutor()
+	{
+		static Ja2SimulationCommandExecutor executor;
+		return executor;
+	}
+
 	template<typename Process>
 	auto ExecuteSimulationCommands(
 		Process&& process, SimulationCommandExecutionSink* sink = nullptr)
 	{
 		GameContext& game = GetGameContext();
+		SimulationCommandExecutor& executor =
+			ApplicationSimulationCommandExecutor();
 		SimulationCommandExecutionSink* const applicationSink =
 			ApplicationExecutionSink();
 		return process(
 			game.commands(),
-			[](const SimulationCommand& command, std::uint64_t, std::uint64_t) {
-				return ExecuteSimulationCommand(command);
+			[&executor](
+				const SimulationCommand& command,
+				std::uint64_t tick,
+				std::uint64_t sequence) {
+				return executor.execute(command, tick, sequence);
 			},
 			[&game, applicationSink, sink](const SimulationCommand& command, std::uint64_t tick,
 				std::uint64_t sequence,

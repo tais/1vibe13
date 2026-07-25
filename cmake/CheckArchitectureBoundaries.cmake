@@ -207,6 +207,44 @@ foreach(tactical_file IN LISTS tactical_cpp_files)
   endforeach()
 endforeach()
 
+# Command queues must depend on the installed executor contract rather than
+# calling the legacy game implementation directly. The headless replay uses
+# the SDK's bounded executor so a second test-only battle model cannot drift
+# away from production command semantics.
+set(simulation_command_source
+  "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp")
+file(READ "${simulation_command_source}" simulation_command_contents)
+foreach(required_executor_fragment IN ITEMS
+    "class Ja2SimulationCommandExecutor final"
+    "ApplicationSimulationCommandExecutor"
+    "executor.execute(command, tick, sequence)")
+  string(FIND "${simulation_command_contents}"
+    "${required_executor_fragment}" required_executor_position)
+  if(required_executor_position EQUAL -1)
+    message(FATAL_ERROR
+      "Production tactical command processing bypasses SimulationCommandExecutor; missing '${required_executor_fragment}'")
+  endif()
+endforeach()
+
+set(headless_test_source "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp")
+file(READ "${headless_test_source}" headless_test_contents)
+string(FIND "${headless_test_contents}" "HeadlessTacticalTurnModel"
+  retired_headless_model_position)
+if(NOT retired_headless_model_position EQUAL -1)
+  message(FATAL_ERROR
+    "The retired test-local tactical battle model returned; use MemoryTacticalSimulation")
+endif()
+foreach(required_headless_executor_fragment IN ITEMS
+    "MemoryTacticalSimulation model"
+    "SimulationCommandExecutor& executor = model")
+  string(FIND "${headless_test_contents}"
+    "${required_headless_executor_fragment}" required_headless_executor_position)
+  if(required_headless_executor_position EQUAL -1)
+    message(FATAL_ERROR
+      "Headless replay bypasses the installed tactical executor; missing '${required_headless_executor_fragment}'")
+  endif()
+endforeach()
+
 # Network receive handlers, AI decisions, and scripted dialogue are
 # authoritative command producers. Keep the legacy mutation APIs confined to
 # Tactical/Simulation Commands.cpp so future fixes cannot quietly recreate a
