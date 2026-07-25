@@ -207,6 +207,30 @@ foreach(tactical_file IN LISTS tactical_cpp_files)
   endforeach()
 endforeach()
 
+# Player ingress passes the exact live SOLDIERTYPE reference to the application
+# adapter. Reassembling a value command from ubID plus
+# uiUniqueSoldierIdValue at dozens of UI sites lets those values come from
+# different objects; replay/network/package producers remain pointer-free and
+# construct the public Engine command values directly.
+set(player_command_ingress_files
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
+  "${SOURCE_ROOT}/Tactical/VehicleMenu.cpp"
+  "${SOURCE_ROOT}/Tactical/ShopKeeper Interface.cpp")
+foreach(player_command_ingress_file IN LISTS player_command_ingress_files)
+  file(READ "${player_command_ingress_file}" contents)
+  string(REGEX MATCH
+    "TryDispatch[A-Za-z0-9_]+CommandNow[ \t\r\n]*\\([^;]*->ubID|uiUniqueSoldierIdValue"
+    split_player_command_actor "${contents}")
+  if(split_player_command_actor)
+    message(FATAL_ERROR
+      "Player command ingress assembles a reusable actor identity in ${player_command_ingress_file}; pass the exact live SOLDIERTYPE reference")
+  endif()
+endforeach()
+
 # Player peer interactions must cross the stable two-actor command boundary.
 # AI/path obstruction swaps remain compatibility mechanics in their own
 # subsystems, but UI input may not retain raw target pointers across execution.

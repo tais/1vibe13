@@ -2243,7 +2243,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					//else
 					const SimulationCommandDispatchResult movement =
 						TryDispatchMoveToGridCommandNow(
-							pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+							*pSoldier,
 							usMapPos, pSoldier->usUIMovementMode,
 							pSoldier->bReverse != FALSE, false);
 					if ( movement )
@@ -2396,8 +2396,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						{
 							const SimulationCommandDispatchResult interaction =
 								TryDispatchActivateWorldObjectCommandNow(
-									pSoldier->ubID,
-									pSoldier->uiUniqueSoldierIdValue,
+									*pSoldier,
 									sIntTileGridNo,
 									pStructure->usStructureID,
 									ubDirection);
@@ -2436,8 +2435,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					const SimulationCommandDispatchResult movement =
 						pIntTile != NULL
 							? TryDispatchApproachWorldObjectCommandNow(
-								pSoldier->ubID,
-								pSoldier->uiUniqueSoldierIdValue,
+								*pSoldier,
 								sIntTileGridNo,
 								pStructure->usStructureID,
 								ubDirection,
@@ -2447,8 +2445,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 								gUIUseReverse != FALSE,
 								pSoldier->flags.fNoAPToFinishMove != FALSE)
 							: TryDispatchMoveToGridCommandNow(
-								pSoldier->ubID,
-								pSoldier->uiUniqueSoldierIdValue,
+								*pSoldier,
 								sDestGridNo,
 								static_cast<std::uint16_t>(
 									pSoldier->usUIMovementMode),
@@ -3275,13 +3272,13 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 			if ( gbClimbID	== 1 )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					*pSoldier,
 					TacticalTraversalKind::ClimbUpRoof );
 			}
 			else if ( gbClimbID == -1 )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					*pSoldier,
 					TacticalTraversalKind::ClimbDownRoof );
 			}
 			else
@@ -3961,7 +3958,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		{
 			// Adjust stance
 			//pSoldier->ChangeSoldierStance( bNewStance );
-			if (!TryDispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance ))
+			if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
 				return;
 
 			pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
@@ -3993,7 +3990,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY )
 		{
 			// Change stance normally
-			if (!TryDispatchChangeStanceCommandNow( pSoldier->ubID, bNewStance ))
+			if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
 				return;
 		}
 		else
@@ -5522,7 +5519,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 
 		const SimulationCommandDispatchResult facing =
 			TryDispatchSetFacingCommandNow(
-				pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+				*pSoldier,
 				static_cast<std::uint8_t>(sFacingDir));
 		if (!facing) return FALSE;
 
@@ -6154,7 +6151,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 
 				const SimulationCommandDispatchResult movement =
 					TryDispatchMoveToGridCommandNow(
-						pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+						*pSoldier,
 						sIndividualDestGridNo, pSoldier->usUIMovementMode,
 						gUIUseReverse != FALSE,
 						pSoldier->flags.fNoAPToFinishMove != FALSE);
@@ -6751,10 +6748,8 @@ BOOLEAN HandleTalkInit(	)
 					}
 
 					(void)TryDispatchApproachConversationCommandNow(
-						pSoldier->ubID,
-						pSoldier->uiUniqueSoldierIdValue,
-						pTSoldier->ubID,
-						pTSoldier->uiUniqueSoldierIdValue,
+						*pSoldier,
+						*pTSoldier,
 						sGoodGridNo,
 						pSoldier->usUIMovementMode,
 						pSoldier->flags.fNoAPToFinishMove != FALSE);
@@ -6773,10 +6768,8 @@ BOOLEAN HandleTalkInit(	)
 				}
 
 				if (!TryDispatchStartConversationCommandNow(
-						pSoldier->ubID,
-						pSoldier->uiUniqueSoldierIdValue,
-						pTSoldier->ubID,
-						pTSoldier->uiUniqueSoldierIdValue))
+						*pSoldier,
+						*pTSoldier))
 				{
 					return( FALSE );
 				}
@@ -7184,7 +7177,7 @@ void GotoHeigherStance( SOLDIERTYPE *pSoldier )
 			if ( fNearHeigherLevel )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					*pSoldier,
 					TacticalTraversalKind::ClimbUpRoof );
 			}
 			break;
@@ -7229,7 +7222,7 @@ void GotoLowerStance( SOLDIERTYPE *pSoldier )
 			if ( fNearLowerLevel )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					pSoldier->ubID, pSoldier->uiUniqueSoldierIdValue,
+					*pSoldier,
 					TacticalTraversalKind::ClimbDownRoof );
 			}
 			break;

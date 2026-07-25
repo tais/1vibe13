@@ -2054,8 +2054,7 @@ void HandleMouseRTMButton( UINT32 *puiNewEvent )
 		if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 			( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
 			TryDispatchCycleWeaponModeCommandNow(
-				gusSelectedSoldier->ubID,
-				gusSelectedSoldier->uiUniqueSoldierIdValue );
+				*gusSelectedSoldier );
 			}
 	else
 		*puiNewEvent = LC_LOOK;
@@ -2081,7 +2080,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 						if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								lSoldier->ubID, lSoldier->uiUniqueSoldierIdValue,
+								*lSoldier,
 								TacticalTraversalKind::JumpWindow );
 						}
 					}
@@ -2113,17 +2112,17 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 
 					if ( fNearLowerLevel )
 						TryDispatchTraverseObstacleCommandNow(
-							pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+							*pjSoldier,
 							TacticalTraversalKind::ClimbDownRoof );
 
 					if ( fNearHeigherLevel )
 						TryDispatchTraverseObstacleCommandNow(
-							pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+							*pjSoldier,
 							TacticalTraversalKind::ClimbUpRoof );
 
 					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
 						TryDispatchTraverseObstacleCommandNow(
-							pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+							*pjSoldier,
 							TacticalTraversalKind::JumpFence );
 				}
 			}
@@ -2135,8 +2134,7 @@ void HandleMouseRTX2Button( UINT32 *puiNewEvent )
 	{
 		if ( gusSelectedSoldier != NOBODY )
 			TryDispatchReloadWeaponCommandNow(
-				gusSelectedSoldier->ubID,
-				gusSelectedSoldier->uiUniqueSoldierIdValue,
+				*gusSelectedSoldier,
 				true );
 	}
 	else
@@ -2221,17 +2219,17 @@ void HandleRTJump( void )
 
 		if ( fNearLowerLevel )
 			TryDispatchTraverseObstacleCommandNow(
-				pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+				*pjSoldier,
 				TacticalTraversalKind::ClimbDownRoof );
 
 		if ( fNearHeigherLevel )
 			TryDispatchTraverseObstacleCommandNow(
-				pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+				*pjSoldier,
 				TacticalTraversalKind::ClimbUpRoof );
 
 		if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
 			TryDispatchTraverseObstacleCommandNow(
-				pjSoldier->ubID, pjSoldier->uiUniqueSoldierIdValue,
+				*pjSoldier,
 				TacticalTraversalKind::JumpFence );
 	}
 }
@@ -2247,7 +2245,7 @@ void HandleRTJumpThroughWindow( void )
 			if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					lSoldier->ubID, lSoldier->uiUniqueSoldierIdValue,
+					*lSoldier,
 					TacticalTraversalKind::JumpWindow );
             }
 		}
@@ -2261,8 +2259,7 @@ void HandleRTToggleFireMode( void )
 	if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 		( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
 		TryDispatchCycleWeaponModeCommandNow(
-			gusSelectedSoldier->ubID,
-			gusSelectedSoldier->uiUniqueSoldierIdValue );
+			*gusSelectedSoldier );
 }
 void HandleRTLocateSoldier( void )
 {

@@ -193,20 +193,16 @@ VehicleSelection::Functions( UINT32 aVal  )
 				const SimulationCommandDispatchResult vehicleEntry =
 					pCurrentSoldier->sGridNo != sActionGridNo
 						? TryDispatchApproachVehicleCommandNow(
-							pCurrentSoldier->ubID,
-							pCurrentSoldier->uiUniqueSoldierIdValue,
-							pCurrentVehicle->ubID,
-							pCurrentVehicle->uiUniqueSoldierIdValue,
+							*pCurrentSoldier,
+							*pCurrentVehicle,
 							ubDirection,
 							static_cast<UINT8>(aVal),
 							sActionGridNo,
 							pCurrentSoldier->usUIMovementMode,
 							pCurrentSoldier->flags.fNoAPToFinishMove != FALSE)
 						: TryDispatchEnterVehicleCommandNow(
-							pCurrentSoldier->ubID,
-							pCurrentSoldier->uiUniqueSoldierIdValue,
-							pCurrentVehicle->ubID,
-							pCurrentVehicle->uiUniqueSoldierIdValue,
+							*pCurrentSoldier,
+							*pCurrentVehicle,
 							ubDirection,
 							static_cast<UINT8>(aVal));
 				if (!vehicleEntry)
