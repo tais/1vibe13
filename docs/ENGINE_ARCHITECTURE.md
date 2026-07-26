@@ -976,4 +976,6 @@ An engine extraction PR is complete only when:
 - campaign-specific behavior does not enter `Engine/Core`.
 
 The installable public surface and external-consumer contract are documented in
-[`ENGINE_SDK.md`](ENGINE_SDK.md).
+[`ENGINE_SDK.md`](ENGINE_SDK.md). The exact completed runtime-campaign boundary
+and its ratcheted legacy tail are recorded in
+[`CAMPAIGN_RUNTIME_STATUS.md`](CAMPAIGN_RUNTIME_STATUS.md).

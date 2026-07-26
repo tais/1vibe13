@@ -12,7 +12,7 @@ on:
 
 jobs:
   string-sinks:
-    name: string-format sink ratchet
+    name: source safety ratchets
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -24,6 +24,12 @@ jobs:
         # baseline by running `tools/lint_string_sinks.py --update` after
         # converting a legacy site to snprintf / strlcpy / strlcat.
         run: python3 tools/lint_string_sinks.py
+
+      - name: Ratchet compile-time campaign identity
+        # Both campaign implementations are selected through GameCapabilities
+        # in migrated engine/orchestration code. The remaining application and
+        # content guards may only shrink, never move or grow.
+        run: python3 tools/lint_campaign_compile_guards.py
 
       - name: Validate release metadata stamping
         run: |
