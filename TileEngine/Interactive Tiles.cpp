@@ -248,7 +248,7 @@ void HandleStructChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 
 
 		// LOOK for item pool here...
-		if ( GetItemPool( sGridNo, &pItemPool, pSoldier->pathing.bLevel ) )
+		if ( GetItemPool( sGridNo, &pItemPool, pSoldier->position().level() ) )
 		{
 			// Update visiblity....
 			if ( !( pStructure->fFlags & STRUCTURE_OPEN ) )
@@ -517,7 +517,7 @@ void LogMouseOverInteractiveTile( INT32 sGridNo )
 	}
 
 	// Also, don't allow for mercs who are on upper level...
-	if ( gusSelectedSoldier != NOBODY && gusSelectedSoldier->pathing.bLevel == 1 )
+	if ( gusSelectedSoldier != NOBODY && gusSelectedSoldier->position().level() == 1 )
 	{
 		return;
 	}

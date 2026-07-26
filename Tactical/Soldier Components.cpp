@@ -1,5 +1,4 @@
 #include "Soldier Components.h"
-#include "Soldier Control.h"
 
 #include <algorithm>
 
@@ -26,9 +25,9 @@ void SoldierVitalsComponent::reset() noexcept
 	bleeding_ = 0;
 }
 
-INT32& SoldierPositionComponent::gridNo() { return soldier_.sGridNo; }
-const INT32& SoldierPositionComponent::gridNo() const { return soldier_.sGridNo; }
-INT8& SoldierPositionComponent::level() { return soldier_.pathing.bLevel; }
-const INT8& SoldierPositionComponent::level() const { return soldier_.pathing.bLevel; }
-UINT8& SoldierPositionComponent::direction() { return soldier_.ubDirection; }
-const UINT8& SoldierPositionComponent::direction() const { return soldier_.ubDirection; }
+void SoldierPositionComponent::reset() noexcept
+{
+	gridNo_ = 0;
+	level_ = 0;
+	direction_ = 0;
+}

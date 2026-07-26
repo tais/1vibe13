@@ -500,7 +500,7 @@ void HandleBestSightingPositionInRealtime( void )
 				    && pE->bTeam != pSighter->bTeam
 				    && pSighter->aiData.bOppList[ pE->ubID ] == SEEN_CURRENTLY )
 				{
-					INT16 d = PythSpacesAway( pSighter->sGridNo, pE->sGridNo );
+					INT16 d = PythSpacesAway( pSighter->position().gridNo(), pE->position().gridNo() );
 					if ( d < sBest ) { sBest = d; pSeen = pE; }
 				}
 			}
@@ -939,7 +939,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 			// if it's our local player's merc
 			if (PTR_OURTEAM)
 				// revealing roofs and looking for items handled here, too
-				RevealRoofsAndItems(pSoldier,TRUE, TRUE, pSoldier->pathing.bLevel, FALSE );
+				RevealRoofsAndItems(pSoldier,TRUE, TRUE, pSoldier->position().level(), FALSE );
 		}
 		// unless in easy mode allow alerted enemies to radio	
 		else if ( zDiffSetting[gGameOptions.ubDifficultyLevel].bRadioSightings )
@@ -1194,7 +1194,7 @@ INT16 SOLDIERTYPE::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsT
 
 	if (bLevel == -1)
 	{
-		bLevel = this->pathing.bLevel;
+		bLevel = this->position().level();
 	}
 
 	if (calcAsType == CALC_FROM_ALL_DIRS)
@@ -1239,7 +1239,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	}
 
 	// Bob: if gridNo isn't set, this would cause a access violation later on
-	if (pSoldier->sGridNo < 0) {
+	if (pSoldier->position().gridNo() < 0) {
 		// ScreenMsg(FONT_MCOLOR_LTRED, MSG_INTERFACE, L"DistanceVisible(): Caught bad LOS distance check!");
 		return(0);
 	}
@@ -1260,7 +1260,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	{
 		// always calculate direction for tanks so we have something to work with
 		bFacingDir = pSoldier->pathing.bDesiredDirection;
-		bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, sSubjectGridNo );
+		bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sSubjectGridNo );
 		//bSubjectDir = atan8(pSoldier->sX,pSoldier->sY,pOpponent->sX,pOpponent->sY);
 	}
 
@@ -1270,7 +1270,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	}
 	else
 	{
-		if (pSoldier->sGridNo == sSubjectGridNo)
+		if (pSoldier->position().gridNo() == sSubjectGridNo)
 		{
 			// looking up or down or two people accidentally in same tile... don't want it to be 0!
 			sDistVisible = MaxNormalDistanceVisible();
@@ -1288,12 +1288,12 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 			// Lesh: added this
 			if( fLimitedVision )
 			{
-				bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, sSubjectGridNo );
+				bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sSubjectGridNo );
 			}
 
 			if (bFacingDir == DIRECTION_IRRELEVANT)
 			{
-				bFacingDir = pSoldier->ubDirection;
+				bFacingDir = pSoldier->position().direction();
 			}
 
 			sDistVisible = gbLookDistance[bFacingDir][bSubjectDir];
@@ -1332,7 +1332,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		}
 	}
 
-	if (pSoldier->pathing.bLevel != bLevel)
+	if (pSoldier->position().level() != bLevel)
 	{
 		// add two tiles distance to visibility to/from roofs
 		// sDistVisible += (STRAIGHT_RATIO * 2); //2;
@@ -1347,7 +1347,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	if ( TileIsOutOfBounds( sSubjectGridNo ) )
 	{
 		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("113/UC Warning! Tried to detect the light level when character %ls[%d] looks at a location outside of the valid map (gridno %d). Assigning default %d",
-				pSoldier->name, pSoldier->ubID, pSoldier->sGridNo, ubAmbientLightLevel));
+				pSoldier->name, pSoldier->ubID, pSoldier->position().gridNo(), ubAmbientLightLevel));
 
 		bLightLevel = ubAmbientLightLevel;
 	}
@@ -1415,7 +1415,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		sDistVisible = sDistVisible + 5;
 	}
 
-	if ( gpWorldLevelData[ pSoldier->sGridNo ].ubExtFlags[ bLevel ] & (MAPELEMENT_EXT_TEARGAS | MAPELEMENT_EXT_MUSTARDGAS) )
+	if ( gpWorldLevelData[ pSoldier->position().gridNo() ].ubExtFlags[ bLevel ] & (MAPELEMENT_EXT_TEARGAS | MAPELEMENT_EXT_MUSTARDGAS) )
 	{
 		//dnl ch40 200909
 		INT8 bPosOfMask = FindGasMask(pSoldier);
@@ -1427,7 +1427,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		else
 			sDistVisible = __min(sDistVisible, 2);
 	}
-	if ( gpWorldLevelData[ pSoldier->sGridNo ].ubExtFlags[ bLevel ] & MAPELEMENT_EXT_BURNABLEGAS )
+	if ( gpWorldLevelData[ pSoldier->position().gridNo() ].ubExtFlags[ bLevel ] & MAPELEMENT_EXT_BURNABLEGAS )
 	{
 		{
 			// in FLAMETHERgas ; reduce max distance visible to 2 tiles at most
@@ -1489,9 +1489,9 @@ else
 		{
 			if ( pOtherSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
 			{				
-				if (!TileIsOutOfBounds(pOtherSoldier->sGridNo))
+				if (!TileIsOutOfBounds(pOtherSoldier->position().gridNo()))
 				{
-					if ( PythSpacesAway( pOtherSoldier->sGridNo, pSoldier->sGridNo ) > pOtherSoldier->GetMaxDistanceVisible(pSoldier->sGridNo, pSoldier->pathing.bLevel, CALC_FROM_WANTED_DIR ) )
+					if ( PythSpacesAway( pOtherSoldier->position().gridNo(), pSoldier->position().gridNo() ) > pOtherSoldier->GetMaxDistanceVisible(pSoldier->position().gridNo(), pSoldier->position().level(), CALC_FROM_WANTED_DIR ) )
 					{
 						// if this guy can no longer see us, change to seen this turn
 						HandleManNoLongerSeen( pOtherSoldier, pSoldier, &(pOtherSoldier->aiData.bOppList[ pSoldier->ubID ]), &(gbPublicOpplist[ pOtherSoldier->bTeam ][ pSoldier->ubID ] ) );
@@ -1849,7 +1849,7 @@ void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT
 		//UINT8 ubRoom;
 		UINT16 usRoom;
 
-		if ( InARoom( pOpponent->sGridNo, &usRoom ) && IN_BROTHEL( usRoom ) && ( IN_BROTHEL_GUARD_ROOM( usRoom ) ) )
+		if ( InARoom( pOpponent->position().gridNo(), &usRoom ) && IN_BROTHEL( usRoom ) && ( IN_BROTHEL_GUARD_ROOM( usRoom ) ) )
 		{
 			// unauthorized!
 			// make guard run to block guard room
@@ -1982,7 +1982,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 	}
 
 	// if we're somehow looking for a guy who is inactive, at base, or already dead 
-	if (!pOpponent->bActive || !pOpponent->bInSector || pOpponent->vitals().health() <= 0 || TileIsOutOfBounds(pOpponent->sGridNo))
+	if (!pOpponent->bActive || !pOpponent->bInSector || pOpponent->vitals().health() <= 0 || TileIsOutOfBounds(pOpponent->position().gridNo()))
 	{
 /*
 #ifdef BETAVERSION
@@ -2096,7 +2096,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 		//sDistVisible = DistanceVisible(pSoldier, (SoldierHasLimitedVision(pSoldier) ? pSoldier->bDesiredDirection : DIRECTION_IRRELEVANT), 0, pOpponent->sGridNo, pOpponent->bLevel, pOpponent );
 		//if the code below says CALC_FROM_ALL_DIRS, then the opponent will NOT be greyed out if a merc sees him and a second merc turns away from him
 		//calcing from the wanted dir will make the opponent be greyed out, which I think is the intended effect
-		sDistVisible = pSoldier->GetMaxDistanceVisible( pOpponent->sGridNo, pOpponent->pathing.bLevel, CALC_FROM_WANTED_DIR, pOpponent );
+		sDistVisible = pSoldier->GetMaxDistanceVisible( pOpponent->position().gridNo(), pOpponent->position().level(), CALC_FROM_WANTED_DIR, pOpponent );
 		//if (pSoldier->ubID == 0)
 		//sprintf(gDebugStr,"ALREADY KNOW: ME %d him %d val %d",pSoldier->ubID,pOpponent->ubID,pSoldier->bOppList[pOpponent->ubID]);
 	}
@@ -2107,13 +2107,13 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 		// BIG NOTE: must use desdir instead of direction, since in a projected
 		// situation, the direction may still be changing if it's one of the first
 		// few animation steps when this guy's turn to do his stepped look comes up
-		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pOpponent->sGridNo, pOpponent->pathing.bLevel, pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier), pOpponent);
+		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pOpponent->position().gridNo(), pOpponent->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier), pOpponent);
 		//if (pSoldier->ubID == 0)
 		//sprintf(gDebugStr,"dist visible %d: my dir %d to him %d",sDistVisible,pSoldier->bDesiredDirection,bDir);
 	}
 
 	// calculate how many spaces away soldier is (using Pythagoras' theorem)
-	sDistAway = PythSpacesAway(pSoldier->sGridNo,pOpponent->sGridNo);
+	sDistAway = PythSpacesAway(pSoldier->position().gridNo(),pOpponent->position().gridNo());
 
 #ifdef TESTOPPLIST
 	DebugMsg( TOPIC_JA2OPPLIST, DBG_LEVEL_3, String( "MANLOOKSFORMAN: ID %d(%S) to ID %d: sDistAway %d sDistVisible %d",pSoldier->ubID,pSoldier->name,pOpponent->ubID,sDistAway,sDistVisible) );
@@ -2126,7 +2126,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 		// must use the REAL opplist value here since we may or may not know of him
 		if (SoldierToSoldierLineOfSightTest(pSoldier,pOpponent,bAware,sDistVisible))
 		{
-			ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,MANLOOKSFORMAN,ubCaller);
+			ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),MANLOOKSFORMAN,ubCaller);
 			bSuccess = TRUE;
 		}
 #ifdef TESTOPPLIST
@@ -2286,7 +2286,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 								UINT16 usRoom = 0;
 								// if player is in behind the ropes of the museum display
 								// or if alarm has gone off (status red)
-								InARoom( pOpponent->sGridNo, &usRoom );
+								InARoom( pOpponent->position().gridNo(), &usRoom );
 
 								if ( ( CheckFact( FACT_MUSEUM_OPEN, 0 ) == FALSE && usRoom >= 22 && usRoom <= 41 ) || CheckFact( FACT_MUSEUM_ALARM_WENT_OFF, 0 ) || ( usRoom == 39 || usRoom == 40 ) || ( FindObj( pOpponent, CHALICE ) != NO_SLOT ) )
 								{
@@ -2328,7 +2328,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 								DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: NPC: Angel code"));
 								CancelAIAction( pSoldier, TRUE );
 								pSoldier->sAbsoluteFinalDestination = NOWHERE;
-								pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+								pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 								TriggerNPCRecord( ANGEL, 20 );
 								// trigger Angel to walk off afterwards
 								//TriggerNPCRecord( ANGEL, 24 );
@@ -2379,7 +2379,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 						if ( pSoldier->ubCivilianGroup != NON_CIV_GROUP && gTacticalStatus.fCivGroupHostile[ pSoldier->ubCivilianGroup ] >= CIV_GROUP_WILL_BECOME_HOSTILE )
 						{
 							// measure distance to our opponent, only go hostile if he is close enough
-							if ( PythSpacesAway( pSoldier->sGridNo, pOpponent->sGridNo ) <= NPC_TALK_RADIUS * 2 )
+							if ( PythSpacesAway( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) <= NPC_TALK_RADIUS * 2 )
 							{
 								AddToShouldBecomeHostileOrSayQuoteList( pSoldier->ubID );
 								fNotAddedToList = FALSE;
@@ -2434,7 +2434,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 
 							// JA2 Gold: only go hostile if see player IN guard room
 							//if ( InARoom( pOpponent->sGridNo, &ubRoom ) && IN_BROTHEL( ubRoom ) && ( gMercProfiles[ MADAME ].bNPCData == 0 || IN_BROTHEL_GUARD_ROOM( ubRoom ) ) )
-							if ( InARoom( pOpponent->sGridNo, &usRoom ) && IN_BROTHEL_GUARD_ROOM( usRoom ) )
+							if ( InARoom( pOpponent->position().gridNo(), &usRoom ) && IN_BROTHEL_GUARD_ROOM( usRoom ) )
 							{
 								// unauthorized!
 								MakeCivHostile(pSoldier);
@@ -2621,7 +2621,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 				//ExtMen[ptr->guynum].lastCaller = caller;
 				//ExtMen[ptr->guynum].lastCaller2 = caller2;
 
-				IncrementWatchedLoc( pSoldier->ubID, pOpponent->sGridNo, pOpponent->pathing.bLevel );
+				IncrementWatchedLoc( pSoldier->ubID, pOpponent->position().gridNo(), pOpponent->position().level() );
 
 				if ( pSoldier->bTeam == OUR_TEAM && pOpponent->bTeam == ENEMY_TEAM )
 				{
@@ -2633,7 +2633,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			}
 			else
 			{
-				SetWatchedLocAsUsed( pSoldier->ubID, pOpponent->sGridNo, pOpponent->pathing.bLevel );
+				SetWatchedLocAsUsed( pSoldier->ubID, pOpponent->position().gridNo(), pOpponent->position().level() );
 			}
 
 			// we already know the soldier isn't SEEN_CURRENTLY,
@@ -2768,13 +2768,13 @@ if(SEE_MENT)
 		{
 			pOpponent->flags.fBeginFade = FALSE;
 
-			if ( pOpponent->pathing.bLevel > 0 && gpWorldLevelData[ pOpponent->sGridNo ].pRoofHead != NULL )
+			if ( pOpponent->position().level() > 0 && gpWorldLevelData[ pOpponent->position().gridNo() ].pRoofHead != NULL )
 			{
-				pOpponent->ubFadeLevel = gpWorldLevelData[ pOpponent->sGridNo ].pRoofHead->ubShadeLevel;
+				pOpponent->ubFadeLevel = gpWorldLevelData[ pOpponent->position().gridNo() ].pRoofHead->ubShadeLevel;
 			}
 			else
 			{
-				pOpponent->ubFadeLevel = gpWorldLevelData[ pOpponent->sGridNo ].pLandHead->ubShadeLevel;
+				pOpponent->ubFadeLevel = gpWorldLevelData[ pOpponent->position().gridNo() ].pLandHead->ubShadeLevel;
 			}
 
 			// Set levelnode shade level....
@@ -3617,7 +3617,7 @@ void OurTeamSeesSomeone( SOLDIERTYPE * pSoldier, INT8 bNumReRevealed, INT8 bNumN
 	else
 	{
 		// if this merc is selected and he's actually moving
-		//if ((pSoldier->ubID == gusSelectedSoldier) && !pSoldier->pathing.bLevel)
+		//if ((pSoldier->ubID == gusSelectedSoldier) && !pSoldier->position().level())
 		// ATE: Change this to if the guy is ours....
 		// How will this feel?
 		if ( pSoldier->bTeam == gbPlayerNum )
@@ -3972,7 +3972,7 @@ void DebugSoldierPage1( )
 		GetSoldier( &pSoldier, usSoldierIndex );
 
 		SetFont( LARGEFONT1 );
-		gprintf( 0,0,L"DEBUG SOLDIER PAGE ONE, GRIDNO %d", pSoldier->sGridNo );
+		gprintf( 0,0,L"DEBUG SOLDIER PAGE ONE, GRIDNO %d", pSoldier->position().gridNo() );
 		SetFont( LARGEFONT1 );
 
 		ubLine = 2;
@@ -4157,7 +4157,7 @@ void DebugSoldierPage2( )
 		GetSoldier( &pSoldier, usSoldierIndex );
 
 		SetFont( LARGEFONT1 );
-		gprintf( 0,0,L"DEBUG SOLDIER PAGE TWO, GRIDNO %d", pSoldier->sGridNo );
+		gprintf( 0,0,L"DEBUG SOLDIER PAGE TWO, GRIDNO %d", pSoldier->position().gridNo() );
 		SetFont( LARGEFONT1 );
 
 		ubLine = 2;
@@ -4209,7 +4209,7 @@ void DebugSoldierPage2( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Direction:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gzDirectionStr[ pSoldier->ubDirection] );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gzDirectionStr[ pSoldier->position().direction()] );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -4221,7 +4221,7 @@ void DebugSoldierPage2( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"GridNo:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->sGridNo );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->position().gridNo() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -4429,7 +4429,7 @@ void DebugSoldierPage3( )
 		GetSoldier( &pSoldier, usSoldierIndex );
 
 		SetFont( LARGEFONT1 );
-		gprintf( 0,0,L"DEBUG SOLDIER PAGE THREE, GRIDNO %d", pSoldier->sGridNo );
+		gprintf( 0,0,L"DEBUG SOLDIER PAGE THREE, GRIDNO %d", pSoldier->position().gridNo() );
 		SetFont( LARGEFONT1 );
 
 		ubLine = 2;
@@ -4570,7 +4570,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"GridNo:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->sGridNo);
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->position().gridNo());
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -4823,7 +4823,7 @@ void DebugSoldierPage4( )
 		GetSoldier( &pSoldier, usSoldierIndex );
 
 		SetFont( LARGEFONT1 );
-		gprintf( 0,0,L"DEBUG SOLDIER PAGE FOUR, GRIDNO %d", pSoldier->sGridNo );
+		gprintf( 0,0,L"DEBUG SOLDIER PAGE FOUR, GRIDNO %d", pSoldier->position().gridNo() );
 		SetFont( LARGEFONT1 );
 		ubLine = 2;
 
@@ -5335,7 +5335,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 	INT8 bGroundStealthDifficultyModifier = 0;
 	if (gGameExternalOptions.fAdditionalTileProperties)
 	{
-		ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties = GetAllAdditonalTilePropertiesForGrid(pSoldier->sGridNo, pSoldier->pathing.bLevel);
+		ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties = GetAllAdditonalTilePropertiesForGrid(pSoldier->position().gridNo(), pSoldier->position().level());
 		bGroundVolumeModifier = zGivenTileProperties.bSoundModifier;
 		bGroundStealthDifficultyModifier = zGivenTileProperties.bStealthDifficultyModifer;
 	}
@@ -5384,11 +5384,11 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 	}
 
 	// if sneaker is moving through water
-	if (Water(pSoldier->sGridNo, pSoldier->pathing.bLevel))
+	if (Water(pSoldier->position().gridNo(), pSoldier->position().level()))
 	{
 		iStealthSkill -= 10; // 10% penalty
 	}
-	else if (DeepWater(pSoldier->sGridNo, pSoldier->pathing.bLevel))
+	else if (DeepWater(pSoldier->position().gridNo(), pSoldier->position().level()))
 	{
 		iStealthSkill -= 20; // 20% penalty
 	}
@@ -5400,7 +5400,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 		//ubMaxVolume = MAX_MOVEMENT_NOISE - (iStealthSkill / 16);	// 9 - (0 to 6) => 3 to 9
 		sMaxVolume = MAX_MOVEMENT_NOISE - (iStealthSkill / 16) + bGroundVolumeModifier;	// 9 - (0 to 6) => 3 to 9
 
-		if (Water(pSoldier->sGridNo, pSoldier->pathing.bLevel))
+		if (Water(pSoldier->position().gridNo(), pSoldier->position().level()))
 		{
 			sMaxVolume++;		// in water, can be even louder
 		}
@@ -6108,7 +6108,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 				// ALL RIGHT!	Passed all the tests, this listener hears this noise!!!
 				HearNoise(pSoldier,ubSource,sGridNo,bLevel,ubEffVolume,ubNoiseType, (UINT8 *)&bSeen);
 				bHeard = TRUE;
-				ubNoiseDir = GetDirectionFromCenterCellXYGridNo(pSoldier->sGridNo, sGridNo);
+				ubNoiseDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sGridNo);
 
 				// check the 'noise heard & reported' bit for that soldier & direction
 				if ( ubNoiseType != NOISE_MOVEMENT || bTeam != OUR_TEAM || (pSoldier->aiData.bInterruptDuelPts != NO_INTERRUPT) || !(pSoldier->ubMovementNoiseHeard & (1 << ubNoiseDir) ) )
@@ -6270,7 +6270,7 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 
  // calculate the distance (in adjusted pixels) between the source of the
  // noise (gridno) and the location of the would-be listener (pSoldier->gridno)
- iDistance = (INT32) PythSpacesAway( pSoldier->sGridNo, sGridNo );
+ iDistance = (INT32) PythSpacesAway( pSoldier->position().gridNo(), sGridNo );
  /*
  distance = AdjPixelsAway(pSoldier->x,pSoldier->y,CenterX(sGridNo),CenterY(sGridNo));
 
@@ -6339,12 +6339,12 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 	}
 
 	// check for floor/roof difference
-	if (bLevel > pSoldier->pathing.bLevel)
+	if (bLevel > pSoldier->position().level())
 	{
 		// sound is amplified by roof
 		iEffVolume += 5;
 	}
-	else if (bLevel < pSoldier->pathing.bLevel)
+	else if (bLevel < pSoldier->position().level())
 	{
 		// sound is muffled
 		iEffVolume -= 5;
@@ -6418,7 +6418,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	{
 		ConvertGridNoToCenterCellXY(sGridNo, &sNoiseX, &sNoiseY);
 		bDirection = atan8(pSoldier->sX,pSoldier->sY,sNoiseX,sNoiseY);
-		if ( pSoldier->ubDirection != bDirection && pSoldier->ubDirection != gOneCDirection[ bDirection ] && pSoldier->ubDirection != gOneCCDirection[ bDirection ] )
+		if ( pSoldier->position().direction() != bDirection && pSoldier->position().direction() != gOneCDirection[ bDirection ] && pSoldier->position().direction() != gOneCCDirection[ bDirection ] )
 		{
 			// temporarily turn off muzzle flash so DistanceVisible can be calculated without it
 			ubNoiseMaker->flags.fMuzzleFlash = FALSE;
@@ -6434,12 +6434,12 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 		ubNoiseMaker->flags.fMuzzleFlash = TRUE;
 	}
 
-	if (PythSpacesAway(pSoldier->sGridNo,sGridNo) <= sDistVisible )
+	if (PythSpacesAway(pSoldier->position().gridNo(),sGridNo) <= sDistVisible )
 	{
 		// just use the XXadjustedXX center of the gridno
 		ConvertGridNoToCenterCellXY(sGridNo, &sNoiseX, &sNoiseY);
 
-		if (pSoldier->ubDirection != atan8(pSoldier->sX,pSoldier->sY,sNoiseX,sNoiseY))
+		if (pSoldier->position().direction() != atan8(pSoldier->sX,pSoldier->sY,sNoiseX,sNoiseY))
 		{
 			bHadToTurn = TRUE;
 		}
@@ -6472,7 +6472,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 #ifdef RECORDOPPLIST
 		fprintf(OpplistFile,"HN: %s by %2d(g%4d,x%3d,y%3d) at %2d(g%4d,x%3d,y%3d), hTT=%d\n",
 			(bSourceSeen) ? "SCS" : "FLR",
-			pSoldier->guynum,pSoldier->sGridNo,pSoldier->sX,pSoldier->sY,
+			pSoldier->guynum,pSoldier->position().gridNo(),pSoldier->sX,pSoldier->sY,
 			ubNoiseMaker.i,sGridNo,sNoiseX,sNoiseY,
 			bHadToTurn);
 #endif
@@ -6488,7 +6488,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 
 		if (bSourceSeen)
 		{
-			ManSeesMan( pSoldier, ubNoiseMaker, ubNoiseMaker->sGridNo, ubNoiseMaker->pathing.bLevel, HEARNOISE, CALLER_UNKNOWN );
+			ManSeesMan( pSoldier, ubNoiseMaker, ubNoiseMaker->position().gridNo(), ubNoiseMaker->position().level(), HEARNOISE, CALLER_UNKNOWN );
 
 			// if it's an AI soldier, he is not allowed to automatically radio any
 			// noise heard, but manSeesMan has set his newOppCnt, so clear it here
@@ -6778,11 +6778,11 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 			!(ubNoiseMaker->bTeam == MILITIA_TEAM && ubNoiseMaker->bSide == 0))
 		//if( gbPublicOpplist[gbPlayerNum][ubNoiseMaker] != SEEN_CURRENTLY && pSoldier->aiData.bOppList[ubNoiseMaker] != SEEN_CURRENTLY )
 		{
-			if (bLevel == pSoldier->pathing.bLevel)
+			if (bLevel == pSoldier->position().level())
 			{
 				ScreenMsg(MSG_FONT_YELLOW, MSG_INTERFACE, pNewNoiseStr[ubNoiseType], pSoldier->name, pNoiseVolStr[ubVolumeIndex], pDirectionStr[ubNoiseDir]);
 			}
-			else if (bLevel > pSoldier->pathing.bLevel)
+			else if (bLevel > pSoldier->position().level())
 			{
 				// from above!
 				ScreenMsg(MSG_FONT_YELLOW, MSG_INTERFACE, pNewNoiseStr[ubNoiseType], pSoldier->name, pNoiseVolStr[ubVolumeIndex], gzLateLocalizedString[6]);
@@ -6808,7 +6808,7 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 				strlen(filename) != 0 &&
 				strstr(filename, "VoiceTaunts\\") != NULL)
 			{
-				UINT32 playResult = PlayJA2SampleFromFile(filename, RATE_11025, SoundVolume(HIGHVOLUME, pSoldier->sGridNo), 1, SoundDir(pSoldier->sGridNo));
+				UINT32 playResult = PlayJA2SampleFromFile(filename, RATE_11025, SoundVolume(HIGHVOLUME, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
 				if (playResult == SOUND_ERROR && gTauntsSettings.fTauntVoiceShowInfo)
 					ScreenMsg(FONT_MCOLOR_LTRED, MSG_INTERFACE, L"Noise: Failed to play taunt");
 			}
@@ -6832,11 +6832,11 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 			}			
 		}
 	}
-	else if ( bLevel == pSoldier->pathing.bLevel || ubNoiseType == NOISE_EXPLOSION || ubNoiseType == NOISE_SCREAM || ubNoiseType == NOISE_ROCK_IMPACT || ubNoiseType == NOISE_GRENADE_IMPACT )
+	else if ( bLevel == pSoldier->position().level() || ubNoiseType == NOISE_EXPLOSION || ubNoiseType == NOISE_SCREAM || ubNoiseType == NOISE_ROCK_IMPACT || ubNoiseType == NOISE_GRENADE_IMPACT )
 	{
 		ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, pNewNoiseStr[ubNoiseType], pSoldier->name, pNoiseVolStr[ubVolumeIndex], pDirectionStr[ubNoiseDir] );
 	}
-	else if ( bLevel > pSoldier->pathing.bLevel )
+	else if ( bLevel > pSoldier->position().level() )
 	{
 		// from above!
 		ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, pNewNoiseStr[ubNoiseType], pSoldier->name, pNoiseVolStr[ubVolumeIndex], gzLateLocalizedString[6] );
@@ -7351,7 +7351,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 	if ( pAttacker->flags.fMuzzleFlash )
 	{
 		bDirection = atan8( pDefender->sX,pDefender->sY, pAttacker->sX, pAttacker->sY );
-		if ( pDefender->ubDirection != bDirection && pDefender->ubDirection != gOneCDirection[ bDirection ] && pDefender->ubDirection != gOneCCDirection[ bDirection ] )
+		if ( pDefender->position().direction() != bDirection && pDefender->position().direction() != gOneCDirection[ bDirection ] && pDefender->position().direction() != gOneCCDirection[ bDirection ] )
 		{
 			// temporarily turn off muzzle flash so DistanceVisible can be calculated without it
 			pAttacker->flags.fMuzzleFlash = FALSE;
@@ -7370,7 +7370,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 
 	if (fSeesAttacker)
 	{
-		ManSeesMan( pDefender, pAttacker, pAttacker->sGridNo, pAttacker->pathing.bLevel, NOTICEUNSEENATTACKER, CALLER_UNKNOWN );
+		ManSeesMan( pDefender, pAttacker, pAttacker->position().gridNo(), pAttacker->position().level(), NOTICEUNSEENATTACKER, CALLER_UNKNOWN );
 
 		// newOppCnt not needed here (no radioing), must get reset right away
 		// CJC: Huh? well, leave it in for now
@@ -7405,13 +7405,13 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 			CheckForChangingOrders( pDefender );
 		}
 
-		UpdatePersonal( pDefender, pAttacker->ubID, HEARD_THIS_TURN, pAttacker->sGridNo, pAttacker->pathing.bLevel );
+		UpdatePersonal( pDefender, pAttacker->ubID, HEARD_THIS_TURN, pAttacker->position().gridNo(), pAttacker->position().level() );
 
 		// if the victim is a human-controlled soldier, instantly report publicly
 		if (pDefender->flags.uiStatusFlags & SOLDIER_PC)
 		{
 			// mark attacker as having been PUBLICLY heard THIS TURN & remember where
-			UpdatePublic( pDefender->bTeam, pAttacker->ubID, HEARD_THIS_TURN, pAttacker->sGridNo, pAttacker->pathing.bLevel );
+			UpdatePublic( pDefender->bTeam, pAttacker->ubID, HEARD_THIS_TURN, pAttacker->position().gridNo(), pAttacker->position().level() );
 		}
 	}
 
@@ -7479,15 +7479,15 @@ void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier )
 
 			// distance we "see" then depends on the direction he is located from us
 			bDir = atan8(pSoldier->sX,pSoldier->sY,pDyingSoldier->sX,pDyingSoldier->sY);
-			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pDyingSoldier->sGridNo, pDyingSoldier->pathing.bLevel, pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
-			sDistAway = PythSpacesAway( pSoldier->sGridNo, pDyingSoldier->sGridNo );
+			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
+			sDistAway = PythSpacesAway( pSoldier->position().gridNo(), pDyingSoldier->position().gridNo() );
 
 			// if we see close enough to see the soldier
 			if (sDistAway <= sDistVisible)
 			{
 				// and we can trace a line of sight to his x,y coordinates
 				// assume enemies are always aware of their buddies...
-				if ( SoldierTo3DLocationLineOfSightTest( pSoldier, pDyingSoldier->sGridNo, pDyingSoldier->pathing.bLevel, 0, TRUE, sDistVisible ) )
+				if ( SoldierTo3DLocationLineOfSightTest( pSoldier, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), 0, TRUE, sDistVisible ) )
 				{
 					pSoldier->aiData.bAlertStatus = STATUS_RED;
 					CheckForChangingOrders( pSoldier );

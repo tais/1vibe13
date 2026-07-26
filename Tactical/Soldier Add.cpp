@@ -87,9 +87,9 @@ INT32 FindGridNoFromSweetSpot( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, INT8 u
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.pathing.bLevel = 0;
+	soldier.position().level() = 0;
 	soldier.bTeam = 1;
-	soldier.sGridNo = sSweetGridNo;
+	soldier.position().gridNo() = sSweetGridNo;
 	soldier.sDragCorpseID = pSoldier->sDragCorpseID;
 	soldier.sDragGridNo = pSoldier->sDragGridNo;
 	soldier.usDragPersonID = pSoldier->usDragPersonID;
@@ -133,7 +133,7 @@ INT32 FindGridNoFromSweetSpot( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, INT8 u
 				&& gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REACHABLE )
 			{
 				// Go on sweet stop
-				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 				{
 					// ATE: INstead of using absolute range, use the path cost!
 				//uiRange = PlotPath( &soldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, WALKING, NOT_STEALTH, FORWARD, 50 );
@@ -191,9 +191,9 @@ INT32 FindGridNoFromSweetSpotThroughPeople( SOLDIERTYPE *pSoldier, INT32 sSweetG
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.pathing.bLevel = 0;
+	soldier.position().level() = 0;
 	soldier.bTeam = pSoldier->bTeam;
-	soldier.sGridNo = sSweetGridNo;
+	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
 	sBottom = -ubRadius;
@@ -234,7 +234,7 @@ INT32 FindGridNoFromSweetSpotThroughPeople( SOLDIERTYPE *pSoldier, INT32 sSweetG
 				&& gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REACHABLE )
 			{
 				// Go on sweet stop
-				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 				{
 					uiRange = GetRangeInCellCoordsFromGridNoDiff( sSweetGridNo, sGridNo );
 
@@ -291,9 +291,9 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.pathing.bLevel = 0;
+	soldier.position().level() = 0;
 	soldier.bTeam = 1;
-	soldier.sGridNo = sSweetGridNo;
+	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
 	sBottom = -ubRadius;
@@ -301,9 +301,9 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 	sRight	= ubRadius;
 
 	// If we are already at this gridno....
-	if ( pSoldier->sGridNo == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
-	*pubDirection = pSoldier->ubDirection;
+	*pubDirection = pSoldier->position().direction();
 	return( sSweetGridNo );
 	}
 
@@ -341,7 +341,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 				&& gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REACHABLE )
 			{
 				// Go on sweet stop
-				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 				{
 					BOOLEAN fDirectionFound = FALSE;
 					UINT16	usOKToAddStructID;
@@ -377,7 +377,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 					// Check each struct in each direction
 					for ( cnt3 = 0; cnt3 < NUM_WORLD_DIRECTIONS; ++cnt3 )
 					{
-						if (OkayToAddStructureToWorld( sGridNo, pSoldier->pathing.bLevel, &(pStructureFileRef->pDBStructureRef[gOneCDirection[ cnt3 ]]), usOKToAddStructID ) )
+						if (OkayToAddStructureToWorld( sGridNo, pSoldier->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[ cnt3 ]]), usOKToAddStructID ) )
 						{
 							fDirectionFound = TRUE;
 							break;
@@ -389,7 +389,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 					{
 						if ( fClosestToMerc )
 						{
-						uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, NO_COPYROUTE, 0 );
+						uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 );
 
 				if (uiRange == 0 )
 				{
@@ -453,9 +453,9 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.pathing.bLevel = 0;
+	soldier.position().level() = 0;
 	soldier.bTeam = 1;
-	soldier.sGridNo = sSweetGridNo;
+	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
 	sBottom = -ubRadius;
@@ -463,9 +463,9 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 	sRight	= ubRadius;
 
 	// If we are already at this gridno....
-	if ( pSoldier->sGridNo == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
-	*pubDirection = pSoldier->ubDirection;
+	*pubDirection = pSoldier->position().direction();
 	return( sSweetGridNo );
 	}
 
@@ -504,7 +504,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 				&& gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REACHABLE )
 			{
 				// Go on sweet stop
-				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 				{
 					BOOLEAN fDirectionFound = FALSE;
 					UINT16	usOKToAddStructID;
@@ -538,7 +538,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 					}
 
 			// OK, check the perfered given direction first
-					if (OkayToAddStructureToWorld( sGridNo, pSoldier->pathing.bLevel, &(pStructureFileRef->pDBStructureRef[gOneCDirection[ bGivenDirection ]]), usOKToAddStructID ) )
+					if (OkayToAddStructureToWorld( sGridNo, pSoldier->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[ bGivenDirection ]]), usOKToAddStructID ) )
 					{
 						fDirectionFound = TRUE;
 						cnt3 = bGivenDirection;
@@ -550,7 +550,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 						{
 							if ( cnt3 != bGivenDirection )
 							{
-								 if (OkayToAddStructureToWorld( sGridNo, pSoldier->pathing.bLevel, &(pStructureFileRef->pDBStructureRef[gOneCDirection[ cnt3 ]]), usOKToAddStructID ) )
+								 if (OkayToAddStructureToWorld( sGridNo, pSoldier->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[ cnt3 ]]), usOKToAddStructID ) )
 								 {
 									 fDirectionFound = TRUE;
 									 break;
@@ -563,7 +563,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 					{
 						if ( fClosestToMerc )
 						{
-							uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, NO_COPYROUTE, 0 );
+							uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 );
 
 							if (uiRange == 0 )
 							{
@@ -619,7 +619,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 	INT32		sSweetGridNo = NOWHERE;
 	SOLDIERTYPE soldier;
 
-	sSweetGridNo = pSrcSoldier->sGridNo;
+	sSweetGridNo = pSrcSoldier->position().gridNo();
 
 
 	//Save AI pathing vars.	changing the distlimit restricts how
@@ -631,9 +631,9 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.pathing.bLevel = 0;
+	soldier.position().level() = 0;
 	soldier.bTeam = 1;
-	soldier.sGridNo = sSweetGridNo;
+	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
 	sBottom = -ubRadius;
@@ -674,7 +674,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 			{
 				// Go on sweet stop
 				// anv: sometimes it's possible soldier already is on the best grid, NewOKDestination alone would skip it
-				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) || ( fAllowSoldierCurrentGrid && pSoldier->sGridNo == sGridNo ) )
+				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) || ( fAllowSoldierCurrentGrid && pSoldier->position().gridNo() == sGridNo ) )
 				{
 					BOOLEAN fDirectionFound = FALSE;
 					UINT16	usOKToAddStructID;
@@ -700,7 +700,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 						// Check each struct in each direction
 						for ( cnt3 = 0; cnt3 < NUM_WORLD_DIRECTIONS; ++cnt3 )
 						{
-							if (OkayToAddStructureToWorld( sGridNo, pSoldier->pathing.bLevel, &(pStructureFileRef->pDBStructureRef[gOneCDirection[ cnt3 ]]), usOKToAddStructID ) )
+							if (OkayToAddStructureToWorld( sGridNo, pSoldier->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[ cnt3 ]]), usOKToAddStructID ) )
 							{
 								fDirectionFound = TRUE;
 								break;
@@ -717,11 +717,11 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 					{
 						if ( fClosestToMerc == 1 )
 						{
-							uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+							uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 						}
 						else if ( fClosestToMerc == 2 )
 						{
-							uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo ) + GetRangeInCellCoordsFromGridNoDiff( sSweetGridNo, sGridNo );
+							uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo ) + GetRangeInCellCoordsFromGridNoDiff( sSweetGridNo, sGridNo );
 						}
 						else
 						{
@@ -730,7 +730,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 								abs((sSweetGridNo % MAXROW) - (sGridNo % MAXROW));
 						}
 
-						if ( uiRange < uiLowestRange || (uiRange == uiLowestRange && PythSpacesAway( pSoldier->sGridNo, sGridNo ) < PythSpacesAway( pSoldier->sGridNo, sLowestGridNo ) ) )
+						if ( uiRange < uiLowestRange || (uiRange == uiLowestRange && PythSpacesAway( pSoldier->position().gridNo(), sGridNo ) < PythSpacesAway( pSoldier->position().gridNo(), sLowestGridNo ) ) )
 						{
 							ubBestDirection = (UINT8)cnt3;
 							sLowestGridNo		= sGridNo;
@@ -795,7 +795,7 @@ INT32 FindGridNoFromSweetSpotExcludingSweetSpot( SOLDIERTYPE *pSoldier, INT32 sS
 			{
 
 					// Go on sweet stop
-					if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+					if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 					{
 						uiRange = GetRangeInCellCoordsFromGridNoDiff( sSweetGridNo, sGridNo );
 
@@ -870,7 +870,7 @@ INT32 FindGridNoFromSweetSpotExcludingSweetSpotInQuardent( SOLDIERTYPE *pSoldier
 			{
 
 					// Go on sweet stop
-					if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+					if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 					{
 						uiRange = GetRangeInCellCoordsFromGridNoDiff( sSweetGridNo, sGridNo );
 
@@ -906,7 +906,7 @@ BOOLEAN CanSoldierReachGridNoInGivenTileLimit( SOLDIERTYPE *pSoldier, INT32 sGri
 	INT32 sActionGridNo = NOWHERE;
 	UINT8	ubDirection;
 
-	if ( pSoldier->pathing.bLevel != bLevel )
+	if ( pSoldier->position().level() != bLevel )
 	{
 		return( FALSE );
 	}
@@ -918,12 +918,12 @@ BOOLEAN CanSoldierReachGridNoInGivenTileLimit( SOLDIERTYPE *pSoldier, INT32 sGri
 		sActionGridNo = sGridNo;
 	}
 
-	if ( sActionGridNo == pSoldier->sGridNo )
+	if ( sActionGridNo == pSoldier->position().gridNo() )
 	{
 		return( TRUE );
 	}
 
-	iNumTiles = FindBestPath( pSoldier, sActionGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST );
+	iNumTiles = FindBestPath( pSoldier, sActionGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST );
 
 	if ( iNumTiles <= sMaxTiles && iNumTiles != 0 )
 	{
@@ -962,9 +962,9 @@ INT32 FindRandomGridNoFromSweetSpot( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, 
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.pathing.bLevel = 0;
+	soldier.position().level() = 0;
 	soldier.bTeam = 1;
-	soldier.sGridNo = sSweetGridNo;
+	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
 	sBottom = -ubRadius;
@@ -1004,7 +1004,7 @@ INT32 FindRandomGridNoFromSweetSpot( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, 
 				&& gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REACHABLE )
 		{
 			// Go on sweet stop
-			if ( NewOKDestination( pSoldier, sGridNo, TRUE , pSoldier->pathing.bLevel) )
+			if ( NewOKDestination( pSoldier, sGridNo, TRUE , pSoldier->position().level()) )
 			{
 				// If we are a crow, we need this additional check
 				if ( pSoldier->ubBodyType == CROW )
@@ -1062,7 +1062,7 @@ INT32 FindRandomGridNoFromSweetSpotExcludingSweetSpot( SOLDIERTYPE *pSoldier, IN
 		else
 		{
 			// Go on sweet stop
-			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 			{
 				fFound = TRUE;
 			}
@@ -1240,7 +1240,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				if (TileIsOutOfBounds(sGridNo))
 				{
 					// Well, we gotta place this soldier/vehicle somewhere.	Just use the first position for now
-					sGridNo = pSoldier->sGridNo = pSoldier->sInsertionGridNo;
+					sGridNo = pSoldier->position().gridNo() = pSoldier->sInsertionGridNo;
 				}
 				else
 				{
@@ -1252,7 +1252,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				if ( ( is_client && (pSoldier->ubStrategicInsertionCode == INSERTION_CODE_GRIDNO) ) || ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) )
 				{
 					sGridNo = pSoldier->sInsertionGridNo;
-					ubCalculatedDirection = pSoldier->ubDirection;
+					ubCalculatedDirection = pSoldier->position().direction();
 				}
 				else 
 					sGridNo = FindGridNoFromSweetSpot( pSoldier, pSoldier->sInsertionGridNo, 7, &ubCalculatedDirection );
@@ -1338,7 +1338,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 
 		//Add
 		if(gTacticalStatus.uiFlags & LOADING_SAVED_GAME || (pSoldier->ubStrategicInsertionCode == INSERTION_CODE_GRIDNO && !gfHandleHeli && !gfEnteredFromTacticalPlacement))
-			AddSoldierToSectorGridNo( pSoldier, sGridNo, pSoldier->ubDirection, TRUE, -1, 0);//shadooow: hack to make sure animations aren't changed
+			AddSoldierToSectorGridNo( pSoldier, sGridNo, pSoldier->position().direction(), TRUE, -1, 0);//shadooow: hack to make sure animations aren't changed
 		else
 			AddSoldierToSectorGridNo( pSoldier, sGridNo, ubDirection, fUseAnimation, usAnimState, usAnimCode );
 
@@ -1636,7 +1636,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 			if ( pSoldier->bTeam == gbPlayerNum )
 			{
 				if ( !( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) )
-					RevealRoofsAndItems( pSoldier, TRUE, FALSE, pSoldier->pathing.bLevel, TRUE );
+					RevealRoofsAndItems( pSoldier, TRUE, FALSE, pSoldier->position().level(), TRUE );
 
 				// ATE: Patch fix: If we are in an non-interruptable animation, stop!
 				if ( pSoldier->usAnimState == HOPFENCE )
@@ -1690,9 +1690,9 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 		if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 		{
 			// ATE: Double check if we are on the roof that there is a roof there!
-			if ( pSoldier->pathing.bLevel == 1 )
+			if ( pSoldier->position().level() == 1 )
 			{
-				if ( !FindStructure( pSoldier->sGridNo, STRUCTURE_ROOF ) )
+				if ( !FindStructure( pSoldier->position().gridNo(), STRUCTURE_ROOF ) )
 				{
 					pSoldier->SetSoldierHeight( (FLOAT)( 0 )	);
 				}

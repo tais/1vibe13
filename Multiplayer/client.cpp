@@ -1193,7 +1193,7 @@ void send_path (  SOLDIERTYPE *pSoldier, INT32 sDestGridNo, UINT16 usMovementAni
 		else
 			SNetPath.usSoldierID = pSoldier->ubID;
 	
-		SNetPath.sAtGridNo=pSoldier->sGridNo;
+		SNetPath.sAtGridNo=pSoldier->position().gridNo();
 				
 		SNetPath.ubNewState=usMovementAnim;
 		SNetPath.usCurrentPathIndex=pSoldier->pathing.usPathIndex;
@@ -2606,7 +2606,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 				if ( pSoldier == NULL )
 					return;
-				ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
+				ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
 				StartInterrupt();
 			}
 			// It is our team
@@ -2624,7 +2624,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 					SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 					if ( pSoldier == NULL )
 						return;
-					ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
+					ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
 					StartInterrupt();
 				}
 			}
@@ -2646,10 +2646,10 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 			{
 				SOLDIERTYPE* _s = MercPtrs[ _sid ];
 				if ( _s && _s->bActive && _s->bInSector && _s->bTeam >= LAN_TEAM_ONE
-					&& _s->sGridNo >= 0 && _s->sGridNo < WORLD_MAX
+					&& _s->position().gridNo() >= 0 && _s->position().gridNo() < WORLD_MAX
 					&& ( gAnimControl[ _s->usAnimState ].uiFlags & ANIM_MOVING ) )
 				{
-					_s->EVENT_StopMerc( _s->sGridNo, _s->ubDirection );
+					_s->EVENT_StopMerc( _s->position().gridNo(), _s->position().direction() );
 				}
 			}
 
@@ -2719,7 +2719,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 					SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 					if ( pSoldier == NULL )
 						return;
-					ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
+					ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
 					StartInterrupt();
 				}
 			}
@@ -2791,7 +2791,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 				if ( pSoldier == NULL )
 					return;
-				ManSeesMan(pSoldier,pOpponent,pOpponent->sGridNo,pOpponent->pathing.bLevel,2,1);
+				ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
 				StartInterrupt();
 			}
 		}
@@ -5156,10 +5156,10 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 			if(pSoldier->ubID < 20)
 				SUpdateNetworkSoldier.usSoldierID=pSoldier->ubID+ubID_prefix;
 			
-			SUpdateNetworkSoldier.sAtGridNo=pSoldier->sGridNo;
+			SUpdateNetworkSoldier.sAtGridNo=pSoldier->position().gridNo();
 			SUpdateNetworkSoldier.bActionPoints=pSoldier->bActionPoints;	// owner-authoritative AP, reconciled on copies (DeductPoints no longer spends AP on copies)
 			SUpdateNetworkSoldier.bBreath=pSoldier->vitals().breath();
-			SUpdateNetworkSoldier.ubDirection=pSoldier->ubDirection;
+			SUpdateNetworkSoldier.ubDirection=pSoldier->position().direction();
 
 			SUpdateNetworkSoldier.bLife=pSoldier->vitals().health();
 			SUpdateNetworkSoldier.bBleeding=pSoldier->vitals().bleeding();
@@ -5195,12 +5195,12 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 	INT16  sCellX, sCellY;
 	ConvertGridNoToCenterCellXY(SUpdateNetworkSoldier->sAtGridNo, &sCellX, &sCellY);
 
-	if( pSoldier->sGridNo != SUpdateNetworkSoldier->sAtGridNo)
+	if( pSoldier->position().gridNo() != SUpdateNetworkSoldier->sAtGridNo)
 	{
 		pSoldier->EVENT_InternalSetSoldierPosition( sCellX, sCellY ,FALSE, FALSE, FALSE );//new syncing call to correct network lag/drift
 	}
 
-	if(pSoldier->ubDirection != SUpdateNetworkSoldier->ubDirection)
+	if(pSoldier->position().direction() != SUpdateNetworkSoldier->ubDirection)
 	{
 		pSoldier->EVENT_SetSoldierDesiredDirection( SUpdateNetworkSoldier->ubDirection );
 	}

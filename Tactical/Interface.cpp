@@ -1557,11 +1557,11 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	//sStanceOffset -= gpWorldLevelData[ pSoldier->sGridNo ].sHeight;
 
 	// Adjust based on level
-	if (pSoldier->pathing.bLevel == 1 && gsInterfaceLevel == 0)
+	if (pSoldier->position().level() == 1 && gsInterfaceLevel == 0)
 	{
 		//sStanceOffset -= ROOF_LEVEL_HEIGHT;
 	}
-	if (pSoldier->pathing.bLevel == 0 && gsInterfaceLevel == 1)
+	if (pSoldier->position().level() == 0 && gsInterfaceLevel == 1)
 	{
 		//sStanceOffset += ROOF_LEVEL_HEIGHT;
 	}
@@ -1669,7 +1669,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		return;
 	}
 	
-	if (TileIsOutOfBounds(pSoldier->sGridNo))
+	if (TileIsOutOfBounds(pSoldier->position().gridNo()))
 	{
 		return;
 	}
@@ -2214,7 +2214,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	else //pSoldier->ubProfile != NO_PROFILE || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
 		// show (roof) text
-		if ( pSoldier->pathing.bLevel != 0 )
+		if ( pSoldier->position().level() != 0 )
 		{
 			// sevenfm: fix for overlapping with SHOW_ENEMY_WEAPON feature
 			if( !gGameExternalOptions.fShowEnemyWeapon || !gfUIFullTargetFound )
@@ -5844,10 +5844,10 @@ BOOLEAN ShowExactInfo( SOLDIERTYPE* pSoldier, SOLDIERTYPE* pTargetSoldier )
 	if( pTargetSoldier->bVisible == -1 )
 		return FALSE;
 
-	range = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, pTargetSoldier->sGridNo ) / 10;
+	range = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), pTargetSoldier->position().gridNo() ) / 10;
 
 	// visible distance
-	maxExactWeaponDistance = (INT32)( pSoldier->GetMaxDistanceVisible( pTargetSoldier->sGridNo, 0, CALC_FROM_WANTED_DIR) ) / 2 ;
+	maxExactWeaponDistance = (INT32)( pSoldier->GetMaxDistanceVisible( pTargetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) ) / 2 ;
 
 	// apply experience level factor
 	maxExactWeaponDistance = (INT32)( maxExactWeaponDistance * ( 1 + FLOAT( EffectiveExpLevel( pSoldier ) ) / 10.0f ) ); 
@@ -6131,8 +6131,8 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
 	if( gGameExternalOptions.fEnemyRank || gGameExternalOptions.fEnemyNames )
 		return;
 
-	iRange = GetRangeInCellCoordsFromGridNoDiff( pSelectedSoldier->sGridNo, pTargetSoldier->sGridNo ) / 10;
-	iVisibleDistance = (INT32)( pSelectedSoldier->GetMaxDistanceVisible( pTargetSoldier->sGridNo, 0, CALC_FROM_WANTED_DIR) ) ;
+	iRange = GetRangeInCellCoordsFromGridNoDiff( pSelectedSoldier->position().gridNo(), pTargetSoldier->position().gridNo() ) / 10;
+	iVisibleDistance = (INT32)( pSelectedSoldier->GetMaxDistanceVisible( pTargetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) ) ;
 
 	if( iRange > iVisibleDistance )
 		return;

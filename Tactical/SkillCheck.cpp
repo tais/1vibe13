@@ -229,7 +229,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 			// SANDRO - fear of insects, and we are in tropical sector
 			iEffExpLevel -= 1;
 		}
-		else if ( fTactical & DoesMercHaveDisability( pSoldier, AFRAID_OF_HEIGHTS ) && pSoldier->pathing.bLevel > 0 )
+		else if ( fTactical & DoesMercHaveDisability( pSoldier, AFRAID_OF_HEIGHTS ) && pSoldier->position().level() > 0 )
 		{
 			// Flugente: fear of heights
 			iEffExpLevel -= 2;
@@ -885,7 +885,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	iMadeItBy = iChance - iRoll;
 	if (iMadeItBy < 0)
 	{
-		if ( (pSoldier->bLastSkillCheck == bReason) && (pSoldier->sGridNo == pSoldier->sSkillCheckGridNo) )
+		if ( (pSoldier->bLastSkillCheck == bReason) && (pSoldier->position().gridNo() == pSoldier->sSkillCheckGridNo) )
 		{
 			pSoldier->ubSkillCheckAttempts++;
 			if (pSoldier->ubSkillCheckAttempts > 2)
@@ -916,7 +916,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 		{
 			pSoldier->bLastSkillCheck = bReason;
 			pSoldier->ubSkillCheckAttempts = 1;
-			pSoldier->sSkillCheckGridNo = pSoldier->sGridNo;
+			pSoldier->sSkillCheckGridNo = pSoldier->position().gridNo();
 		}
 
 		if ( fForceDamnSound || Random( 100 ) < 40 )
@@ -949,7 +949,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 				pTeamSoldier = iLoop;
 				if ( OK_INSECTOR_MERC( pTeamSoldier ) )
 				{
-					if ( SpacesAway( pSoldier->sGridNo, pTeamSoldier->sGridNo ) < 15 )
+					if ( SpacesAway( pSoldier->position().gridNo(), pTeamSoldier->position().gridNo() ) < 15 )
 					{
 						bBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pSoldier->ubProfile );
 						if ( bBuddyIndex >= 0 )

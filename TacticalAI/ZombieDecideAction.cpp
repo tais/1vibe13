@@ -56,7 +56,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	gubNPCPathCount = 0;
 
-	bInWater = Water( pSoldier->sGridNo, pSoldier->pathing.bLevel );
+	bInWater = Water( pSoldier->position().gridNo(), pSoldier->position().level() );
 
 	if ( bInWater && PreRandom( 2 ) )
 	{
@@ -180,7 +180,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 		// This is the chance that we want to be on the roof.  If already there, invert the chance to see if we want back
 		// down
-		if (pSoldier->pathing.bLevel > 0)
+		if (pSoldier->position().level() > 0)
 		{
 			iChance = 100 - iChance;
 		}
@@ -188,11 +188,11 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		if ((INT16) PreRandom(100) < iChance)
 		{
 			BOOLEAN fUp = FALSE;
-			if ( pSoldier->pathing.bLevel == 0 )
+			if ( pSoldier->position().level() == 0 )
 			{
 				fUp = TRUE;
 			}
-			else if (pSoldier->pathing.bLevel > 0 )
+			else if (pSoldier->position().level() > 0 )
 			{
 				fUp = FALSE;
 			}
@@ -328,7 +328,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 			if (pSoldier->aiData.bAttitude == DEFENSIVE)
 				iChance += 25;
 
-			if ( pSoldier->aiData.bOrders == SNIPER && pSoldier->pathing.bLevel == 1)
+			if ( pSoldier->aiData.bOrders == SNIPER && pSoldier->position().level() == 1)
 				iChance += 35;
 
 			if ((INT16)PreRandom(100) < iChance)
@@ -339,7 +339,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 					// if man has a LEGAL dominant facing, and isn't facing it, he will turn
 					// back towards that facing 50% of the time here (normally just enemies)
 					if ((pSoldier->aiData.bDominantDir >= 0) && (pSoldier->aiData.bDominantDir <= 8) &&
-						(pSoldier->ubDirection != pSoldier->aiData.bDominantDir) && PreRandom(2) && pSoldier->aiData.bOrders != SNIPER )
+						(pSoldier->position().direction() != pSoldier->aiData.bDominantDir) && PreRandom(2) && pSoldier->aiData.bOrders != SNIPER )
 					{
 						pSoldier->aiData.usActionData = pSoldier->aiData.bDominantDir;
 					}
@@ -351,7 +351,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 						INT32 sNoiseGridNo = MostImportantNoiseHeard(pSoldier,&iNoiseValue, &fClimb, &fReachable);
 						UINT8 ubNoiseDir;
 
-						if (TileIsOutOfBounds(sNoiseGridNo) || (ubNoiseDir = AIDirection(pSoldier->sGridNo, sNoiseGridNo)) == pSoldier->ubDirection )
+						if (TileIsOutOfBounds(sNoiseGridNo) || (ubNoiseDir = AIDirection(pSoldier->position().gridNo(), sNoiseGridNo)) == pSoldier->position().direction() )
 						{
 							pSoldier->aiData.usActionData = PreRandom(8);
 						}
@@ -360,7 +360,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 							pSoldier->aiData.usActionData = ubNoiseDir;
 						}
 					}
-				} while (pSoldier->aiData.usActionData == pSoldier->ubDirection);
+				} while (pSoldier->aiData.usActionData == pSoldier->position().direction());
 
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity"));
 				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiData.usActionData, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
@@ -419,13 +419,13 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 
 	// determine direction from this soldier in which the noise lies
-	ubNoiseDir = AIDirection(pSoldier->sGridNo, sNoiseGridNo);
+	ubNoiseDir = AIDirection(pSoldier->position().gridNo(), sNoiseGridNo);
 
 	// if soldier is not already facing in that direction,
 	// and the noise source is close enough that it could possibly be seen
 	if ( GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints )
 	{
-		if ((pSoldier->ubDirection != ubNoiseDir) && PythSpacesAway(pSoldier->sGridNo,sNoiseGridNo) <= pSoldier->GetMaxDistanceVisible(sNoiseGridNo) )
+		if ((pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= pSoldier->GetMaxDistanceVisible(sNoiseGridNo) )
 		{
 			// set base chance according to orders
 			if ((pSoldier->aiData.bOrders == STATIONARY) || (pSoldier->aiData.bOrders == ONGUARD) )
@@ -458,7 +458,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 		iChance = 5 * WhatIKnowThatPublicDont(pSoldier,FALSE);   // use 5 * for YELLOW alert
 
 		// if I actually know something they don't and I ain't swimming (deep water)
-		if (iChance && !DeepWater( pSoldier->sGridNo, pSoldier->pathing.bLevel ))
+		if (iChance && !DeepWater( pSoldier->position().gridNo(), pSoldier->position().level() ))
 		{
 			// CJC: this addition allows for varying difficulty levels for soldier types
 			iChance += gbDiff[ DIFF_RADIO_RED_ALERT ][ SoldierDifficultyLevel( pSoldier ) ] / 2;
@@ -517,7 +517,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	{
 		if ( fClimb )
 		{
-			if ( pSoldier->sGridNo == sNoiseGridNo)
+			if ( pSoldier->position().gridNo() == sNoiseGridNo)
 			{
 				if (IsActionAffordable(pSoldier, pSoldier->aiData.bAction))
 				{
@@ -593,8 +593,8 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	ubCanMove = (pSoldier->bActionPoints >= MinPtsToMove(pSoldier));
 
 	// determine if we happen to be in water (in which case we're in BIG trouble!)
-	bInWater = Water( pSoldier->sGridNo, pSoldier->pathing.bLevel );
-	bInDeepWater = DeepWater( pSoldier->sGridNo, pSoldier->pathing.bLevel );
+	bInWater = Water( pSoldier->position().gridNo(), pSoldier->position().level() );
+	bInDeepWater = DeepWater( pSoldier->position().gridNo(), pSoldier->position().level() );
 	
 	DebugAI( AI_MSG_INFO, pSoldier, String("CanMove %d InWater %d InDeepWater %d", ubCanMove, bInWater, bInDeepWater));
 
@@ -655,7 +655,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 			// SEEK CLOSEST DISTURBANCE: GO DIRECTLY TOWARDS CLOSEST KNOWN OPPONENT
 			//////////////////////////////////////////////////////////////////////
 
-			if (fClimb && pSoldier->sGridNo == sClosestDisturbance)
+			if (fClimb && pSoldier->position().gridNo() == sClosestDisturbance)
 			{
 				DebugAI( AI_MSG_INFO, pSoldier, String("at climb point"));
 
@@ -687,8 +687,8 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 
 				// sevenfm: try to advance using sight cover
 				if( gfTurnBasedAI &&
-					PythSpacesAway(pSoldier->sGridNo, sClosestDisturbance) < TACTICAL_RANGE * 2 &&
-					PythSpacesAway(pSoldier->sGridNo, sClosestDisturbance) > TACTICAL_RANGE / 4 &&
+					PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) < TACTICAL_RANGE * 2 &&
+					PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) > TACTICAL_RANGE / 4 &&
 					!SightCoverAtSpot(pSoldier, pSoldier->aiData.usActionData, TRUE))
 				{
 					INT32 sAdvanceSpot = FindAdvanceSpot(pSoldier, sClosestDisturbance, AI_ACTION_SEEK_OPPONENT, ADVANCE_SPOT_SIGHT_COVER, TRUE);
@@ -707,7 +707,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 					}
 
 					// if we are in cover and new spot has no cover - wait for next turn
-					if( SightCoverAtSpot(pSoldier, pSoldier->sGridNo, TRUE) &&
+					if( SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) &&
 						gfTurnBasedAI && pSoldier->bActionPoints != pSoldier->bInitialActionPoints ) //&&
 						//CountFriendsBlack(pSoldier, sClosestDisturbance) == 0 )
 					{
@@ -716,14 +716,14 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 						if( GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints )
 						{
 							// determine direction from this soldier to the closest opponent
-							ubOpponentDir = AIDirection(pSoldier->sGridNo, sClosestDisturbance);
+							ubOpponentDir = AIDirection(pSoldier->position().gridNo(), sClosestDisturbance);
 
-							DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d disturbance direction %d", pSoldier->ubDirection, ubOpponentDir));
+							DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d disturbance direction %d", pSoldier->position().direction(), ubOpponentDir));
 
 							sDistVisible = pSoldier->GetMaxDistanceVisible(sClosestThreat, 0, CALC_FROM_ALL_DIRS );
 
-							if( pSoldier->ubDirection != ubOpponentDir &&
-								PythSpacesAway(pSoldier->sGridNo,sClosestThreat) <= sDistVisible &&
+							if( pSoldier->position().direction() != ubOpponentDir &&
+								PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
 								pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
 							{
 								pSoldier->aiData.usActionData = ubOpponentDir;
@@ -754,7 +754,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 			// GO DIRECTLY TOWARDS CLOSEST FRIEND UNDER FIRE OR WHO LAST RADIOED
 			//////////////////////////////////////////////////////////////////////			
 
-			if ( fClimb && pSoldier->sGridNo == sClosestFriend )
+			if ( fClimb && pSoldier->position().gridNo() == sClosestFriend )
 			{
 				DebugAI( AI_MSG_INFO, pSoldier, String("at climb spot"));
 
@@ -794,7 +794,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 		// if cannot seek or help - hide
 		if( gfTurnBasedAI &&
 			pSoldier->bActionPoints == pSoldier->bInitialActionPoints &&
-			(!SightCoverAtSpot(pSoldier, pSoldier->sGridNo, TRUE) || pSoldier->aiData.bUnderFire) )
+			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->aiData.bUnderFire) )
 		{
 			pSoldier->aiData.usActionData = FindBestNearbyCover(pSoldier, pSoldier->aiData.bAIMorale, &iDummy);			
 
@@ -825,17 +825,17 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 		!TileIsOutOfBounds(sClosestThreat) )
 	{
 		// determine direction from this soldier to the closest opponent
-		ubOpponentDir = AIDirection(pSoldier->sGridNo, sClosestThreat);
+		ubOpponentDir = AIDirection(pSoldier->position().gridNo(), sClosestThreat);
 
-		DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d opponent direction %d", pSoldier->ubDirection, ubOpponentDir));
+		DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d opponent direction %d", pSoldier->position().direction(), ubOpponentDir));
 
 		// if soldier is not already facing in that direction,
 		// and the opponent is close enough that he could possibly be seen
 		// note, have to change this to use the level returned from ClosestKnownOpponent
 		sDistVisible = pSoldier->GetMaxDistanceVisible(sClosestThreat, 0, CALC_FROM_ALL_DIRS );
 
-		if( pSoldier->ubDirection != ubOpponentDir &&
-			PythSpacesAway(pSoldier->sGridNo,sClosestThreat) <= sDistVisible &&
+		if( pSoldier->position().direction() != ubOpponentDir &&
+			PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
 			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
 		{
 			pSoldier->aiData.usActionData = ubOpponentDir;
@@ -876,10 +876,10 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 		GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints &&
 		!TileIsOutOfBounds( sMostImportantNoise ) )
 	{
-		ubOpponentDir = AIDirection(pSoldier->sGridNo, sMostImportantNoise);
-		DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d noise direction %d", pSoldier->ubDirection, ubOpponentDir));
+		ubOpponentDir = AIDirection(pSoldier->position().gridNo(), sMostImportantNoise);
+		DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d noise direction %d", pSoldier->position().direction(), ubOpponentDir));
 
-		if ( pSoldier->ubDirection != ubOpponentDir &&
+		if ( pSoldier->position().direction() != ubOpponentDir &&
 			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ))
 		{
 			pSoldier->aiData.usActionData = ubOpponentDir;
@@ -936,8 +936,8 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	ubCanMove = (pSoldier->bActionPoints >= MinPtsToMove(pSoldier));
 
 	// determine if we happen to be in water (in which case we're in BIG trouble!)
-	bInWater = Water( pSoldier->sGridNo, pSoldier->pathing.bLevel );
-	bInDeepWater = WaterTooDeepForAttacks( pSoldier->sGridNo, pSoldier->pathing.bLevel );
+	bInWater = Water( pSoldier->position().gridNo(), pSoldier->position().level() );
+	bInDeepWater = WaterTooDeepForAttacks( pSoldier->position().gridNo(), pSoldier->position().level() );
 
 	// calculate our morale
 	pSoldier->aiData.bAIMorale = CalcMorale(pSoldier);
@@ -1132,7 +1132,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 			// SEEK CLOSEST DISTURBANCE: GO DIRECTLY TOWARDS CLOSEST KNOWN OPPONENT
 			//////////////////////////////////////////////////////////////////////
 			
-			if (fClimb && pSoldier->sGridNo == sClosestDisturbance)
+			if (fClimb && pSoldier->position().gridNo() == sClosestDisturbance)
 			{
 				DebugAI( AI_MSG_INFO, pSoldier, String("at climb point"));
 
@@ -1165,8 +1165,8 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 				{
 					// sevenfm: try to advance using sight cover
 					if( gfTurnBasedAI &&
-						PythSpacesAway(pSoldier->sGridNo, sClosestDisturbance) < TACTICAL_RANGE * 2 &&
-						PythSpacesAway(pSoldier->sGridNo, sClosestDisturbance) > TACTICAL_RANGE / 4 &&
+						PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) < TACTICAL_RANGE * 2 &&
+						PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) > TACTICAL_RANGE / 4 &&
 						!SightCoverAtSpot(pSoldier, pSoldier->aiData.usActionData, TRUE))
 					{
 						DebugAI( AI_MSG_INFO, pSoldier, String("[advance spot]"));
@@ -1185,7 +1185,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 								return(AI_ACTION_SEEK_OPPONENT);
 							}							
 						}
-						else if( SightCoverAtSpot(pSoldier, pSoldier->sGridNo, TRUE) &&
+						else if( SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) &&
 								gfTurnBasedAI &&
 								pSoldier->bActionPoints < pSoldier->bInitialActionPoints)
 						{
@@ -1204,7 +1204,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 		// if cannot seek or help - hide
 		if( gfTurnBasedAI &&
 			pSoldier->bActionPoints == pSoldier->bInitialActionPoints &&
-			(!SightCoverAtSpot(pSoldier, pSoldier->sGridNo, TRUE) || pSoldier->aiData.bUnderFire) )
+			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->aiData.bUnderFire) )
 		{
 			pSoldier->aiData.usActionData = FindBestNearbyCover(pSoldier, pSoldier->aiData.bAIMorale, &iDummy);						
 
@@ -1240,11 +1240,11 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 		// if we have a closest seen opponent
 		if (!TileIsOutOfBounds(sClosestOpponent))
 		{
-			bDirection = AIDirection(pSoldier->sGridNo, sClosestOpponent);
-			DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d opponent direction %d", pSoldier->ubDirection, bDirection));
+			bDirection = AIDirection(pSoldier->position().gridNo(), sClosestOpponent);
+			DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d opponent direction %d", pSoldier->position().direction(), bDirection));
 
 			// if we're not facing towards him
-			if( pSoldier->ubDirection != bDirection && 
+			if( pSoldier->position().direction() != bDirection &&
 				pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
 			{
 				pSoldier->aiData.usActionData = bDirection;

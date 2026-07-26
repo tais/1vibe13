@@ -47,7 +47,7 @@ namespace AI
 
         bool CrowSeekCorpsePlan::done() const
         {
-            return SpacesAway( get_npc()->sGridNo, corpse_grid_ ) < 2;
+            return SpacesAway( get_npc()->position().gridNo(), corpse_grid_ ) < 2;
         }
 
         int CrowSeekCorpsePlan::get_corpse_grid() const
@@ -69,7 +69,7 @@ namespace AI
 
             // Change facing
             sFacingDir = GetDirectionFromGridNo( corpse_grid_, get_npc() );
-            if ( sFacingDir != get_npc()->ubDirection )
+            if ( sFacingDir != get_npc()->position().direction() )
             {
                 get_npc()->aiData.usActionData = sFacingDir;
                 get_npc()->aiData.bAction = AI_ACTION_CHANGE_FACING;

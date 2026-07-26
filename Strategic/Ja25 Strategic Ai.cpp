@@ -2457,7 +2457,7 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 
 				if( bID != -1 )
 				{
-					sGridNo = Menptr[ bID ].sGridNo;
+					sGridNo = Menptr[ bID ].position().gridNo();
 				}
 			}
 

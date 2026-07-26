@@ -2084,7 +2084,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->bAssignment != VEHICLE && !SPY_LOCATION(pSoldier->bAssignment) && pSoldier->bAssignment != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->bActive || !pSoldier->bInSector || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
-				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->sGridNo ) || pSoldier->bVehicleID == iHelicopterVehicleId );
+				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
 			}
 		}
 
@@ -2135,7 +2135,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->bAssignment != VEHICLE && pSoldier->bAssignment != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->bActive || !pSoldier->bInSector || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
-				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->sGridNo ) || pSoldier->bVehicleID == iHelicopterVehicleId );
+				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
 			}
 		}
 
@@ -3876,7 +3876,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 				{
 					sGridNo = PickGridNoNearestEdge( curr->pSoldier, ubTacticalDirection );
 
-					curr->pSoldier->sPreTraversalGridNo = curr->pSoldier->sGridNo;
+					curr->pSoldier->sPreTraversalGridNo = curr->pSoldier->position().gridNo();
 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
@@ -4464,7 +4464,7 @@ void DoneFadeOutAdjacentSector( )
 		{
 			if ( !(curr->pSoldier->flags.uiStatusFlags & SOLDIER_IS_TACTICALLY_VALID) )
 			{
-				if ( !TileIsOutOfBounds( curr->pSoldier->sGridNo ) )
+				if ( !TileIsOutOfBounds( curr->pSoldier->position().gridNo() ) )
 				{
 					sGridNo = PickGridNoToWalkIn( curr->pSoldier, ubDirection, &uiAttempts );
 
@@ -4474,14 +4474,14 @@ void DoneFadeOutAdjacentSector( )
 
 					if ( TileIsOutOfBounds( sGridNo ) && uiAttempts == MAX_ATTEMPTS )
 					{
-						sGridNo = curr->pSoldier->sGridNo;
+						sGridNo = curr->pSoldier->position().gridNo();
 					}
 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
 						curr->pSoldier->ubWaitActionToDo = 1;
 						// OK, here we have been given a position, a gridno has been given to use as well....
-						sOldGridNo = curr->pSoldier->sGridNo;
+						sOldGridNo = curr->pSoldier->position().gridNo();
 						ConvertGridNoToCenterCellXY(sGridNo, &sWorldX, &sWorldY);
 
 						curr->pSoldier->EVENT_SetSoldierPosition( sWorldX, sWorldY );
@@ -4528,15 +4528,15 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 	INT16	sAPs;
 
 	// if the soldiers gridno is not NOWHERE	
-	if ( TileIsOutOfBounds( pSoldier->sGridNo ) )
+	if ( TileIsOutOfBounds( pSoldier->position().gridNo() ) )
 		return(FALSE);
 
 	// OK, anyone on roofs cannot!
-	if ( pSoldier->pathing.bLevel > 0 )
+	if ( pSoldier->position().level() > 0 )
 		return(FALSE);
 
 	// get world absolute XY
-	ConvertGridNoToXY( pSoldier->sGridNo, &sXMapPos, &sYMapPos );
+	ConvertGridNoToXY( pSoldier->position().gridNo(), &sXMapPos, &sYMapPos );
 
 	// Get screen coordinates for current position of soldier
 	GetWorldXYAbsoluteScreenXY( sXMapPos, sYMapPos, &sWorldX, &sWorldY );
@@ -5419,9 +5419,9 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 
 	case EAST:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the right!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -5446,7 +5446,7 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 		do
 		{
 			// OK, here we go back one, check for OK destination...
-			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
+			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
 			{
 				return(sGridNo);
 			}
@@ -5482,9 +5482,9 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 
 	case WEST:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the left!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -5509,7 +5509,7 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 		do
 		{
 			// OK, here we go back one, check for OK destination...
-			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
+			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
 			{
 				return(sGridNo);
 			}
@@ -5545,9 +5545,9 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 
 	case NORTH:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the left!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -5572,7 +5572,7 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 		do
 		{
 			// OK, here we go back one, check for OK destination...
-			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
+			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
 			{
 				return(sGridNo);
 			}
@@ -5608,9 +5608,9 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 
 	case SOUTH:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the left!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -5635,7 +5635,7 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 		do
 		{
 			// OK, here we go back one, check for OK destination...
-			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
+			if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
 			{
 				return(sGridNo);
 			}
@@ -5684,7 +5684,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 	if ( pSoldier->pathing.usPathDataSize + 2 > MAX_PATH_LIST_SIZE )
 	{
 
-		sTempGridNo = pSoldier->sGridNo;
+		sTempGridNo = pSoldier->position().gridNo();
 
 		for ( iLoop = 0; iLoop < pSoldier->pathing.usPathDataSize; iLoop++ )
 		{
@@ -5840,9 +5840,9 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 		// we find that is just on the start of visible map...
 	case INSERTION_CODE_WEST:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the left!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -5868,7 +5868,7 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 		{
 			(*puiNumAttempts)++;
 			// OK, here we go back one, check for OK destination...
-			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
+			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
 			{
 				return(sGridNo);
 			}
@@ -5903,9 +5903,9 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 
 	case INSERTION_CODE_EAST:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the right!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -5931,7 +5931,7 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 		{
 			(*puiNumAttempts)++;
 			// OK, here we go back one, check for OK destination...
-			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
+			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
 			{
 				return(sGridNo);
 			}
@@ -5966,9 +5966,9 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 
 	case INSERTION_CODE_NORTH:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the up!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -5994,7 +5994,7 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 		{
 			(*puiNumAttempts)++;
 			// OK, here we go back one, check for OK destination...
-			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
+			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
 			{
 				return(sGridNo);
 			}
@@ -6029,9 +6029,9 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 
 	case INSERTION_CODE_SOUTH:
 
-		sGridNo = pSoldier->sGridNo;
-		sStartGridNo = pSoldier->sGridNo;
-		sOldGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
+		sStartGridNo = pSoldier->position().gridNo();
+		sOldGridNo = pSoldier->position().gridNo();
 
 		// Move directly to the down!
 		while ( GridNoOnVisibleWorldTile( sGridNo ) )
@@ -6057,7 +6057,7 @@ INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UIN
 		{
 			(*puiNumAttempts)++;
 			// OK, here we go back one, check for OK destination...
-			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) && FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
+			if ( (gTacticalStatus.uiFlags & IGNORE_ALL_OBSTACLES) || (NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) && FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE )) )
 			{
 				return(sGridNo);
 			}
@@ -6535,9 +6535,9 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 			}
 			else
 			{
-				if ( pSoldier->pathing.sFinalDestination == pSoldier->sGridNo )
+				if ( pSoldier->pathing.sFinalDestination == pSoldier->position().gridNo() )
 				{
-					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->sGridNo;
+					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->position().gridNo();
 				}
 				else if ( !TileIsOutOfBounds( pSoldier->sAbsoluteFinalDestination ) )
 				{
@@ -7352,19 +7352,19 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 				// move the soldier to the modified location
 				//
 
-				if ( pSoldier->sGridNo == 13959 )
+				if ( pSoldier->position().gridNo() == 13959 )
 				{
 					pSoldier->SetSoldierGridNo( 15705, TRUE );
 					ubNumEnemiesMoved++;
 				}
 
-				if ( pSoldier->sGridNo == 13983 )
+				if ( pSoldier->position().gridNo() == 13983 )
 				{
 					pSoldier->SetSoldierGridNo( 15712, TRUE );
 					ubNumEnemiesMoved++;
 				}
 
-				if ( pSoldier->sGridNo == 12543 )
+				if ( pSoldier->position().gridNo() == 12543 )
 				{
 					pSoldier->SetSoldierGridNo( 15233, TRUE );
 					ubNumEnemiesMoved++;
@@ -7383,9 +7383,9 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 		{
 			pSoldier = cnt;
 			if ( pSoldier->bActive &&
-				 pSoldier->sGridNo != 15705 &&
-				 pSoldier->sGridNo != 15712 &&
-				 pSoldier->sGridNo != 15233 )
+				 pSoldier->position().gridNo() != 15705 &&
+				 pSoldier->position().gridNo() != 15712 &&
+				 pSoldier->position().gridNo() != 15233 )
 			{
 				pSoldier->SetSoldierGridNo(
 					fallbackGridNos[ubNumEnemiesMoved], TRUE );
@@ -7648,7 +7648,7 @@ BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridN
 	for ( pSoldier = MercPtrs[cnt]; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++, pSoldier++ )
 	{
 		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector &&
-			 pSoldier->sGridNo == sSourceGridNo )
+			 pSoldier->position().gridNo() == sSourceGridNo )
 		{
 			pSoldier->SetSoldierHeight( 50.0 );
 

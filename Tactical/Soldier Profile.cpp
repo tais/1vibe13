@@ -1568,7 +1568,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	ubOldID = ubID;
 	uiOldUniqueId = pSoldier->uiUniqueSoldierIdValue;
 
-	sOldGridNo = pSoldier->sGridNo;
+	sOldGridNo = pSoldier->position().gridNo();
 
 	// Remove him from the game!
 	InternalTacticalRemoveSoldier( ubID, FALSE );
@@ -1580,8 +1580,8 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	MercCreateStruct.sSectorX						= pSoldier->sSectorX;
 	MercCreateStruct.sSectorY						= pSoldier->sSectorY;
 	MercCreateStruct.bSectorZ						= pSoldier->bSectorZ;
-	MercCreateStruct.sInsertionGridNo		= pSoldier->sGridNo;
-	MercCreateStruct.ubDirection					= pSoldier->ubDirection;
+	MercCreateStruct.sInsertionGridNo		= pSoldier->position().gridNo();
+	MercCreateStruct.ubDirection					= pSoldier->position().direction();
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
@@ -1997,7 +1997,7 @@ BOOLEAN UnRecruitEPC( UINT8 ubCharNum )
 
 	// how do we decide whether or not to set this?
 	gMercProfiles[ ubCharNum ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE;
-	gMercProfiles[ ubCharNum ].usStrategicInsertionData = pSoldier->sGridNo;
+	gMercProfiles[ ubCharNum ].usStrategicInsertionData = pSoldier->position().gridNo();
 	gMercProfiles[ ubCharNum ].fUseProfileInsertionInfo = TRUE;
 	gMercProfiles[ ubCharNum ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 
@@ -2731,7 +2731,7 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 		if ( pTeammate->bTeam == pSoldier->bTeam && pTeammate->vitals().health() >= OKLIFE )
 		{
 			// Are we close enough?
-			if (PythSpacesAway( pSoldier->sGridNo, pTeammate->sGridNo ) <= 20)
+			if (PythSpacesAway( pSoldier->position().gridNo(), pTeammate->position().gridNo() ) <= 20)
 			{
 				switch ( bCharTraitID )
 				{

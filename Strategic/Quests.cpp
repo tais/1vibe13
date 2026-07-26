@@ -176,7 +176,7 @@ BOOLEAN CheckNPCWithin( UINT8 ubFirstNPC, UINT8 ubSecondNPC, UINT8 ubMaxDistance
 	{
 		return( FALSE );
 	}
-	return( PythSpacesAway( pFirstNPC->sGridNo, pSecondNPC->sGridNo ) <= ubMaxDistance );
+	return( PythSpacesAway( pFirstNPC->position().gridNo(), pSecondNPC->position().gridNo() ) <= ubMaxDistance );
 }
 
 BOOLEAN CheckGuyVisible( UINT16 ubNPC, UINT16 ubGuy )
@@ -209,7 +209,7 @@ BOOLEAN CheckNPCAt( UINT8 ubNPC, INT32 sGridNo )
 	{
 		return( FALSE );
 	}
-	return( pNPC->sGridNo == sGridNo );
+	return( pNPC->position().gridNo() == sGridNo );
 }
 
 BOOLEAN CheckNPCIsEnemy( UINT8 ubProfileID )
@@ -255,10 +255,10 @@ BOOLEAN CheckIfMercIsNearNPC( SOLDIERTYPE *pMerc, UINT8 ubProfileId )
 	{
 		return( FALSE );
 	}
-	sGridNo = pNPC->sGridNo;
+	sGridNo = pNPC->position().gridNo();
 
 	// is the merc and NPC close enough?
-	if (PythSpacesAway( sGridNo, pMerc->sGridNo ) <= 9)
+	if (PythSpacesAway( sGridNo, pMerc->position().gridNo() ) <= 9)
 	{
 		return( TRUE );
 	}
@@ -278,7 +278,7 @@ UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 		return( FALSE );
 	}
 
-	INT32 sGridNo = pNPC->sGridNo;
+	INT32 sGridNo = pNPC->position().gridNo();
 
 	for ( UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
 	{
@@ -287,7 +287,7 @@ UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL
 			 && pSoldier->sSectorX == pNPC->sSectorX && pSoldier->sSectorY == pNPC->sSectorY && pSoldier->bSectorZ == pNPC->bSectorZ )
 		{
-			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= HOSPITAL_PATIENT_DISTANCE)
+			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= HOSPITAL_PATIENT_DISTANCE)
 			{
 				++bNumber;
 			}
@@ -310,7 +310,7 @@ UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist )
 	{
 		return( FALSE );
 	}
-	sGridNo = pNPC->sGridNo;
+	sGridNo = pNPC->position().gridNo();
 
 	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
 	{
@@ -318,7 +318,7 @@ UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist )
 
 		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
 		{
-			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= ubMaxDist)
+			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= ubMaxDist)
 			{
 				bNumber++;
 			}
@@ -367,7 +367,7 @@ BOOLEAN NPCInRoom( UINT8 ubProfileID, UINT16 usRoomID )
 	SOLDIERTYPE *		pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
-	if ( !pNPC || (gusWorldRoomInfo[ pNPC->sGridNo ] != usRoomID) )
+	if ( !pNPC || (gusWorldRoomInfo[ pNPC->position().gridNo() ] != usRoomID) )
 	{
 		return( FALSE );
 	}
@@ -379,7 +379,7 @@ BOOLEAN NPCInRoomRange( UINT8 ubProfileID, UINT16 usRoomID1, UINT16 usRoomID2 )
 	SOLDIERTYPE *		pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
-	if ( !pNPC || (gusWorldRoomInfo[ pNPC->sGridNo ] < usRoomID1) || (gusWorldRoomInfo[ pNPC->sGridNo ] > usRoomID2) )
+	if ( !pNPC || (gusWorldRoomInfo[ pNPC->position().gridNo() ] < usRoomID1) || (gusWorldRoomInfo[ pNPC->position().gridNo() ] > usRoomID2) )
 	{
 		return( FALSE );
 	}
@@ -400,14 +400,14 @@ BOOLEAN PCInSameRoom( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	usRoom = gusWorldRoomInfo[ pNPC->sGridNo ];
+	usRoom = gusWorldRoomInfo[ pNPC->position().gridNo() ];
 
 	for ( bLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; bLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++bLoop )
 	{
 		pSoldier = bLoop;
 		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector )
 		{
-			if ( gusWorldRoomInfo[ pSoldier->sGridNo ] == usRoom )
+			if ( gusWorldRoomInfo[ pSoldier->position().gridNo() ] == usRoom )
 			{
 				return( TRUE );
 			}
@@ -492,7 +492,7 @@ INT8 NumMalesPresent( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	sGridNo = pNPC->sGridNo;
+	sGridNo = pNPC->position().gridNo();
 
 	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
 	{
@@ -502,7 +502,7 @@ INT8 NumMalesPresent( UINT8 ubProfileID )
 		{
 			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile].bSex == MALE )
 			{
-				if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= 8)
+				if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= 8)
 				{
 					bNumber++;
 				}
@@ -526,7 +526,7 @@ BOOLEAN FemalePresent( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	sGridNo = pNPC->sGridNo;
+	sGridNo = pNPC->position().gridNo();
 
 	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
 	{
@@ -536,7 +536,7 @@ BOOLEAN FemalePresent( UINT8 ubProfileID )
 		{
 			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile].bSex == FEMALE )
 			{
-				if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= 10)
+				if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= 10)
 				{
 					return( TRUE );
 				}
@@ -606,7 +606,7 @@ BOOLEAN AIMMercWithin( INT32 sGridNo, INT16 sDistance )
 
 		if ( pSoldier && (pSoldier->bTeam == gbPlayerNum) && (pSoldier->vitals().health() >= OKLIFE) && ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
 		{
-			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= sDistance)
+			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= sDistance)
 			{
 				return( TRUE );
 			}
@@ -1108,7 +1108,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 				GetDialogueDestinationSoldier();
 			gubFact[usFact] = dialogueDestination &&
 				AIMMercWithin(
-					dialogueDestination->sGridNo, 10 );
+					dialogueDestination->position().gridNo(), 10 );
 			break;
 		}
 
@@ -1234,7 +1234,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			SOLDIERTYPE * pKingpin;
 			pKingpin = FindSoldierByProfileID( KINGPIN, FALSE );
 			if ( pKingpin )
-				gubFact[usFact] = ( gubQuest[ QUEST_KINGPIN_MONEY ] == QUESTINPROGRESS || gfBoxersResting || ( !BoxersAvailable() && PythSpacesAway(pKingpin->sGridNo, gModSettings.iKingpinRingTile) > 2 ) );// plus other conditions
+				gubFact[usFact] = ( gubQuest[ QUEST_KINGPIN_MONEY ] == QUESTINPROGRESS || gfBoxersResting || ( !BoxersAvailable() && PythSpacesAway(pKingpin->position().gridNo(), gModSettings.iKingpinRingTile) > 2 ) );// plus other conditions
 			else
 				gubFact[usFact] = TRUE;
 			break;

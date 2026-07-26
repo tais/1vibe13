@@ -323,7 +323,7 @@ BOOLEAN MoveItemsToActivePockets( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBES
 		}
 		else
 		{
-			AddItemToPool( pSoldier->sGridNo, &pSoldier->inv[LBESlots[i]], 1, pSoldier->pathing.bLevel, 0 , -1 );
+			AddItemToPool( pSoldier->sGridNo, &pSoldier->inv[LBESlots[i]], 1, pSoldier->position().level(), 0 , -1 );
 			NotifySoldiersToLookforItems( );
 		}*/
 		DeleteObj(&pSoldier->inv[LBESlots[i]]);
@@ -478,7 +478,7 @@ BOOLEAN MoveItemFromLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, OBJECTTYPE
 			//Now, check one last time and if we still have an object, drop it to the ground
 			if(pLBE->inv[i].exists() == true)
 			{
-				AddItemToPool(pSoldier->sGridNo, &pLBE->inv[i], 1, pSoldier->pathing.bLevel, 0, -1);
+				AddItemToPool(pSoldier->position().gridNo(), &pLBE->inv[i], 1, pSoldier->position().level(), 0, -1);
 				//at this point, if we still haven't removed the item, the only thing left to do is delete it.
 				pLBE->inv[i].initialize();
 			}

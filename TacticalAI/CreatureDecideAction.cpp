@@ -131,14 +131,14 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 		{
 			if (pReceiver->ubBodyType != LARVAE_MONSTER && pReceiver->ubBodyType != INFANT_MONSTER && pReceiver->ubBodyType != QUEENMONSTER)
 			{
-				usDistToCaller = PythSpacesAway( pReceiver->sGridNo, pCaller->sGridNo );
+				usDistToCaller = PythSpacesAway( pReceiver->position().gridNo(), pCaller->position().gridNo() );
 				bPriority = bFullPriority - (INT8) (usDistToCaller / PRIORITY_DECR_DISTANCE);
 				if (bPriority > pReceiver->aiData.bCallPriority)
 				{
 					pReceiver->aiData.bCallPriority = bPriority;
 					pReceiver->aiData.bAlertStatus = STATUS_RED; // our status can't be more than red to begin with
 					pReceiver->aiData.ubCaller = pCaller->ubID;
-					pReceiver->aiData.sCallerGridNo = pCaller->sGridNo;
+					pReceiver->aiData.sCallerGridNo = pCaller->position().gridNo();
 					pReceiver->aiData.bCallActedUpon = FALSE;
 					CancelAIAction(pReceiver, FORCE);
 					if ((bPriority > FRENZY_THRESHOLD) && (pReceiver->ubBodyType == ADULTFEMALEMONSTER || pReceiver->ubBodyType == YAF_MONSTER))
@@ -167,7 +167,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 		return( AI_ACTION_NONE );
 	}
 
-	bInGas = InGas( pSoldier, pSoldier->sGridNo );
+	bInGas = InGas( pSoldier, pSoldier->position().gridNo() );
 
 	if (pSoldier->aiData.bMobility == CREATURE_MOBILE)
 	{
@@ -400,7 +400,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 					// if man has a LEGAL dominant facing, and isn't facing it, he will turn
 					// back towards that facing 50% of the time here (normally just enemies)
 					if ((pSoldier->aiData.bDominantDir >= 0) && (pSoldier->aiData.bDominantDir <= 8) &&
-						(pSoldier->ubDirection != pSoldier->aiData.bDominantDir) && PreRandom(2))
+						(pSoldier->position().direction() != pSoldier->aiData.bDominantDir) && PreRandom(2))
 					{
 						pSoldier->aiData.usActionData = pSoldier->aiData.bDominantDir;
 					}
@@ -408,7 +408,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 					{
 						pSoldier->aiData.usActionData = (UINT16)PreRandom(8);
 					}
-				} while (pSoldier->aiData.usActionData == pSoldier->ubDirection);
+				} while (pSoldier->aiData.usActionData == pSoldier->position().direction());
 
 	#ifdef DEBUGDECISIONS
 				STR16 tempstr;
@@ -484,11 +484,11 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 	if (pSoldier->aiData.bMobility != CREATURE_IMMOBILE)
 	{
 		// determine direction from this soldier in which the noise lies
-		ubNoiseDir = GetDirectionFromCenterCellXYGridNo(pSoldier->sGridNo, sNoiseGridNo);
+		ubNoiseDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sNoiseGridNo);
 
 		// if soldier is not already facing in that direction,
 		// and the noise source is close enough that it could possibly be seen
-		if ((GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints) && (pSoldier->ubDirection != ubNoiseDir) && PythSpacesAway(pSoldier->sGridNo,sNoiseGridNo) <= STRAIGHT)
+		if ((GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints) && (pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= STRAIGHT)
 		{
 			// set base chance according to orders
 			if ((pSoldier->aiData.bOrders == STATIONARY) || (pSoldier->aiData.bOrders == ONGUARD))
@@ -637,7 +637,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
  //bInWater = pSoldier->MercInWater();
 
  // check if standing in tear gas without a gas mask on
- bInGas = InGas( pSoldier, pSoldier->sGridNo );
+ bInGas = InGas( pSoldier, pSoldier->position().gridNo() );
 
 
  ////////////////////////////////////////////////////////////////////////////
@@ -761,7 +761,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 		// Respond to call if any
 		if ( CAN_LISTEN_TO_CALL( pSoldier ) && pSoldier->aiData.ubCaller != NOBODY )
 		{
-			if ( PythSpacesAway( pSoldier->sGridNo, pSoldier->aiData.sCallerGridNo ) <= STOPSHORTDIST )
+			if ( PythSpacesAway( pSoldier->position().gridNo(), pSoldier->aiData.sCallerGridNo ) <= STOPSHORTDIST )
 			{
 				// call completed... hmm, nothing found
 				pSoldier->aiData.ubCaller = NOBODY;
@@ -817,7 +817,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	{
 	pSoldier->aiData.usActionData = FindNearestRottingCorpse( pSoldier );
 		// need smell/visibility check?
-		if (PythSpacesAway( pSoldier->sGridNo, pSoldier->aiData.usActionData) < MAX_EAT_DIST )
+		if (PythSpacesAway( pSoldier->position().gridNo(), pSoldier->aiData.usActionData) < MAX_EAT_DIST )
 		{
 			 INT32 sGridNo;
 
@@ -852,14 +852,14 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 		if (!TileIsOutOfBounds(sClosestOpponent))
 			{
 			// determine direction from this soldier to the closest opponent
-			ubOpponentDir = GetDirectionFromCenterCellXYGridNo(pSoldier->sGridNo, sClosestOpponent);
+			ubOpponentDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 			 // if soldier is not already facing in that direction,
 			 // and the opponent is close enough that he could possibly be seen
 			 // note, have to change this to use the level returned from ClosestKnownOpponent
 			 sDistVisible = pSoldier->GetMaxDistanceVisible(sClosestOpponent, 0 );
 
-			if ((pSoldier->ubDirection != ubOpponentDir) && (PythSpacesAway(pSoldier->sGridNo,sClosestOpponent) <= sDistVisible))
+			if ((pSoldier->position().direction() != ubOpponentDir) && (PythSpacesAway(pSoldier->position().gridNo(),sClosestOpponent) <= sDistVisible))
 				{
 				// set base chance according to orders
 				if ((pSoldier->aiData.bOrders == STATIONARY) || (pSoldier->aiData.bOrders == ONGUARD))
@@ -1003,7 +1003,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
  //bInWater = pSoldier->MercInWater();
 
  // check if standing in tear gas without a gas mask on
-	bInGas = InGas( pSoldier, pSoldier->sGridNo );
+	bInGas = InGas( pSoldier, pSoldier->position().gridNo() );
 
 
  ////////////////////////////////////////////////////////////////////////////
@@ -1387,7 +1387,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 		// if we have a closest reachable opponent		
 		if (!TileIsOutOfBounds(sClosestOpponent))
 		{
-				if ( ubCanMove && PythSpacesAway( pSoldier->sGridNo, sClosestOpponent ) > 2 )
+				if ( ubCanMove && PythSpacesAway( pSoldier->position().gridNo(), sClosestOpponent ) > 2 )
 				{
 					if ( bSpitIn != NO_SLOT )
 					{
@@ -1413,10 +1413,10 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 				}
 				else if (GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints) // turn to face enemy
 				{
-				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->sGridNo, sClosestOpponent);
+				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 				// if we're not facing towards him
-				if (pSoldier->ubDirection != bDirection && ValidCreatureTurn( pSoldier, bDirection ) )
+				if (pSoldier->position().direction() != bDirection && ValidCreatureTurn( pSoldier, bDirection ) )
 				{
 					pSoldier->aiData.usActionData = bDirection;
 

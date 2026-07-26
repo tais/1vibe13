@@ -3790,7 +3790,7 @@ int main( int, char** )
 				commandHostActor, true,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
-		commandHostActor.sGridNo = 77;
+		commandHostActor.position().gridNo() = 77;
 		commandHostActor.pathing.sFinalDestination = 99;
 		commandHostActor.flags.fDelayedMovement = TRUE;
 		commandHostActor.usAnimState = STANDING;
@@ -3809,11 +3809,11 @@ int main( int, char** )
 		       commandHostActor.bStealthMode == TRUE &&
 		       movementStopped.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostActor.flags.fDelayedMovement == FALSE &&
-		       commandHostActor.pathing.sFinalDestination == commandHostActor.sGridNo &&
+		       commandHostActor.pathing.sFinalDestination == commandHostActor.position().gridNo() &&
 		       facingQueued.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostExecutedState &&
-		       commandHostExecutedState->grid == commandHostActor.sGridNo &&
-		       commandHostExecutedState->direction == commandHostActor.ubDirection &&
+		       commandHostExecutedState->grid == commandHostActor.position().gridNo() &&
+		       commandHostExecutedState->direction == commandHostActor.position().direction() &&
 		       commandHostExecutedState->animation == commandHostActor.usAnimState,
 		       "structured commands execute and commit the resulting public actor state through one path" );
 
@@ -4023,7 +4023,7 @@ int main( int, char** )
 		Ja2TacticalWorldItemReference removedWorldItemReference;
 		const bool removedWorldItemReferenceCaptured =
 			removedWorldItemReference.capture( 0 );
-		commandHostActor.pathing.bLevel = 0;
+		commandHostActor.position().level() = 0;
 		commandHostActor.aiData.ubPendingAction = MERC_PICKUPITEM;
 		commandHostActor.aiData.uiPendingActionData1 =
 			firstWorldItem.slot;
@@ -4722,9 +4722,9 @@ int main( int, char** )
 		const UINT32 previousIncarnation = Menptr[0].uiUniqueSoldierIdValue;
 		const INT8 previousTeam = Menptr[0].bTeam;
 		const UINT8 previousProfile = Menptr[0].ubProfile;
-		const INT32 previousGrid = Menptr[0].sGridNo;
-		const INT8 previousLevel = Menptr[0].pathing.bLevel;
-		const UINT8 previousDirection = Menptr[0].ubDirection;
+		const INT32 previousGrid = Menptr[0].position().gridNo();
+		const INT8 previousLevel = Menptr[0].position().level();
+		const UINT8 previousDirection = Menptr[0].position().direction();
 		const UINT16 previousAnimation = Menptr[0].usAnimState;
 		const INT16 previousActionPoints = Menptr[0].bActionPoints;
 		const INT8 previousLife = Menptr[0].vitals().health();
@@ -4743,9 +4743,9 @@ int main( int, char** )
 		Menptr[0].bInSector = TRUE;
 		Menptr[0].bTeam = 1;
 		Menptr[0].ubProfile = 12;
-		Menptr[0].sGridNo = 345;
-		Menptr[0].pathing.bLevel = 1;
-		Menptr[0].ubDirection = 3;
+		Menptr[0].position().gridNo() = 345;
+		Menptr[0].position().level() = 1;
+		Menptr[0].position().direction() = 3;
 		Menptr[0].usAnimState = STANDING;
 		Menptr[0].bActionPoints = 72;
 		Menptr[0].vitals().health() = 76;
@@ -4859,7 +4859,7 @@ int main( int, char** )
 		MercPtrs[1] = &Menptr[1];
 		Menptr[1].ubID = SoldierID{ static_cast<UINT16>( 1 ) };
 		Menptr[1].uiUniqueSoldierIdValue = 702;
-		Menptr[1].sGridNo = 678;
+		Menptr[1].position().gridNo() = 678;
 		const bool swapTargetAdopted = AdoptJa2TacticalEntity( Menptr[1] );
 		const bool entitySlotsSwapped = SwapJa2TacticalEntitySlots( 0, 1 );
 		const bool swappedEntitiesResolvable =
@@ -4867,7 +4867,7 @@ int main( int, char** )
 			GetJa2TacticalEntityId( 1 ) == ( TacticalEntityId{ 1, 701 } ) &&
 			ResolveJa2TacticalEntity( TacticalEntityId{ 0, 702 } ) == &Menptr[0] &&
 			ResolveJa2TacticalEntity( TacticalEntityId{ 1, 701 } ) == &Menptr[1] &&
-			Menptr[0].sGridNo == 678 && Menptr[1].sGridNo == 345;
+			Menptr[0].position().gridNo() == 678 && Menptr[1].position().gridNo() == 345;
 		const bool entitySlotsRestored = SwapJa2TacticalEntitySlots( 0, 1 );
 		CHECK( swapTargetAdopted && entitySlotsSwapped && swappedEntitiesResolvable &&
 		       entitySlotsRestored &&
@@ -5149,7 +5149,7 @@ int main( int, char** )
 
 		NotifyJa2TacticalTeamTurnBegan(
 			CaptureJa2TacticalWorld().worldGeneration );
-		Menptr[0].sGridNo = 346;
+		Menptr[0].position().gridNo() = 346;
 		Menptr[0].vitals().health() = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
@@ -5267,7 +5267,7 @@ int main( int, char** )
 		const RuntimeMessagePublishResult saturatedFiller =
 			saturatedTacticalMessages.publish(
 				RuntimeMessageRequest{ "test.queue-fill", "test.headless", {} } );
-		Menptr[0].sGridNo = 347;
+		Menptr[0].position().gridNo() = 347;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5379,7 +5379,7 @@ int main( int, char** )
 
 		RuntimeMessageBus saturatedChunkMessages(
 			1, TacticalWorldDeltaChunkHeaderBytes + 4 );
-		Menptr[0].sGridNo = 348;
+		Menptr[0].position().gridNo() = 348;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedChunkMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( saturatedChunkMessages.queued() == 1 && observerDiagnostics.lastUpdate ==
@@ -5463,7 +5463,7 @@ int main( int, char** )
 		           replayDroppedBeforeObservation &&
 		       MercPtrs[0] == &Menptr[0] &&
 		       Menptr[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 348 &&
+		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].position().gridNo() == 348 &&
 		       Menptr[0].vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		(void)ReleaseJa2TacticalEntity( Menptr[0] );
@@ -5473,9 +5473,9 @@ int main( int, char** )
 		Menptr[0].uiUniqueSoldierIdValue = previousIncarnation;
 		Menptr[0].bTeam = previousTeam;
 		Menptr[0].ubProfile = previousProfile;
-		Menptr[0].sGridNo = previousGrid;
-		Menptr[0].pathing.bLevel = previousLevel;
-		Menptr[0].ubDirection = previousDirection;
+		Menptr[0].position().gridNo() = previousGrid;
+		Menptr[0].position().level() = previousLevel;
+		Menptr[0].position().direction() = previousDirection;
 		Menptr[0].usAnimState = previousAnimation;
 		Menptr[0].bActionPoints = previousActionPoints;
 		Menptr[0].vitals().health() = previousLife;
@@ -7202,16 +7202,19 @@ int main( int, char** )
 		vitals.maximumHealth() = 90;
 		vitals.health() = 75;
 		vitals.breath() = 60;
-		SoldierPositionComponent position = soldier.position();
+		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
+		position.direction() = 6;
 		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
 		       "soldier vitals component owns the canonical serialized fields" );
 		const SOLDIERTYPE& constSoldier = soldier;
 		CHECK( constSoldier.vitals().health() == 75 && constSoldier.vitals().maximumHealth() == 90,
 		       "const soldier access reads the canonical vitals component" );
-		CHECK( soldier.sGridNo == 1234 && soldier.pathing.bLevel == 1,
-		       "soldier position component aliases the compatible serialized fields" );
+		CHECK( constSoldier.position().gridNo() == 1234 &&
+		       constSoldier.position().level() == 1 &&
+		       constSoldier.position().direction() == 6,
+		       "soldier position component owns the canonical tactical location" );
 		vitals.maximumHealth() = 80;
 		vitals.applyLifeDeduction( 20 );
 		CHECK( vitals.health() == 55,
@@ -7234,6 +7237,10 @@ int main( int, char** )
 		       copiedSoldier.vitals().maximumBreath() == 91 &&
 		       copiedSoldier.vitals().bleeding() == 7,
 		       "soldier copies retain their owned persistent vitals" );
+		CHECK( copiedSoldier.position().gridNo() == 1234 &&
+		       copiedSoldier.position().level() == 1 &&
+		       copiedSoldier.position().direction() == 6,
+		       "soldier copies retain their owned persistent position" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7241,6 +7248,10 @@ int main( int, char** )
 		       copiedSoldier.vitals().maximumBreath() == 0 &&
 		       copiedSoldier.vitals().bleeding() == 0,
 		       "soldier initialization resets the complete vitals domain" );
+		CHECK( copiedSoldier.position().gridNo() == 0 &&
+		       copiedSoldier.position().level() == 0 &&
+		       copiedSoldier.position().direction() == 0,
+		       "soldier initialization resets the complete position domain" );
 	}
 
 	{
@@ -7351,6 +7362,9 @@ int main( int, char** )
 		savedSoldier.vitals().breath() = 62;
 		savedSoldier.vitals().maximumBreath() = 94;
 		savedSoldier.vitals().bleeding() = 11;
+		savedSoldier.position().gridNo() = 1427;
+		savedSoldier.position().level() = 1;
+		savedSoldier.position().direction() = 5;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -7372,8 +7386,11 @@ int main( int, char** )
 		       loadedSoldier.vitals().maximumHealth() == 89 &&
 		       loadedSoldier.vitals().breath() == 62 &&
 		       loadedSoldier.vitals().maximumBreath() == 94 &&
-		       loadedSoldier.vitals().bleeding() == 11,
-		       "soldier save/load round-trips component-owned vitals through the established schema" );
+		       loadedSoldier.vitals().bleeding() == 11 &&
+		       loadedSoldier.position().gridNo() == 1427 &&
+		       loadedSoldier.position().level() == 1 &&
+		       loadedSoldier.position().direction() == 5,
+		       "soldier save/load round-trips component-owned persistent state through the established schema" );
 	}
 
 	{

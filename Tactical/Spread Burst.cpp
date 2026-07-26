@@ -225,7 +225,7 @@ void AIPickBurstLocations( SOLDIERTYPE *pSoldier, INT8 bTargets, SOLDIERTYPE *pT
 		ubLocationNum = (UINT8)( dAccululator );
 
 		// Add to merc location
-		pSoldier->sSpreadLocations[ cnt ] = pTargets[ubLocationNum]->sGridNo;
+		pSoldier->sSpreadLocations[ cnt ] = pTargets[ubLocationNum]->position().gridNo();
 
 		// Acculuate index value
 		dAccululator += dStep;

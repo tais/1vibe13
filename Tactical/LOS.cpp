@@ -839,11 +839,11 @@ INT8 GetSightAdjustmentBehindStructure( const INT16& iRange, STRUCTURE* pStructu
 INT16 GetSightAdjustment(SOLDIERTYPE* pSoldier, INT8 soldierStealth, INT8 soldierLBESightAdjustment, INT32 sGridNo, INT16 bLevel, INT8 bStance)
 {
 	if (sGridNo == -1) {
-		sGridNo = pSoldier->sGridNo;
+		sGridNo = pSoldier->position().gridNo();
 	}
 
 	if (bLevel == -1) {
-		bLevel = gpWorldLevelData[pSoldier->sGridNo].sHeight;
+		bLevel = gpWorldLevelData[pSoldier->position().gridNo()].sHeight;
 	}
 
 	if (bStance == -1) {
@@ -2178,7 +2178,7 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 		*pdZPos = (*pdZPos * 4) / 3;
 	}
 
-	if (pSoldier->pathing.bLevel > 0)
+	if (pSoldier->position().level() > 0)
 	{ // on a roof
 		*pdZPos += WALL_HEIGHT_UNITS;
 	}
@@ -2191,7 +2191,7 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 	}
 
 	// Bob: check if sGridNo is set, otherwise bail out to avoid access violation
-	INT32 grid = pSoldier->sGridNo;
+	INT32 grid = pSoldier->position().gridNo();
 	if (grid > 0) {
 		*pdZPos += CONVERT_PIXELS_TO_HEIGHTUNITS(gpWorldLevelData[grid].sHeight);
 	}
@@ -2274,11 +2274,11 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 	{
 		// monsters use smell instead of sight!
 		dEndZPos = STANDING_LOS_POS; // should avoid low rocks etc
-		if (pEndSoldier->pathing.bLevel > 0)
+		if (pEndSoldier->position().level() > 0)
 		{ // on a roof
 			dEndZPos += WALL_HEIGHT_UNITS;
 		}
-		dEndZPos += CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[pEndSoldier->sGridNo].sHeight );
+		dEndZPos += CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[pEndSoldier->position().gridNo()].sHeight );
 		fSmell = TRUE;
 	}
 	else
@@ -2312,7 +2312,7 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 	{
 		INT16		sDistance;
 
-		sDistance = PythSpacesAway( pStartSoldier->sGridNo, pEndSoldier->sGridNo );
+		sDistance = PythSpacesAway( pStartSoldier->position().gridNo(), pEndSoldier->position().gridNo() );
 
 		if ( sDistance <= 8 )
 		{
@@ -2331,14 +2331,14 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 	// needed for sight limit calculation
 	INT16 iSightAdj = GetSightAdjustment(pEndSoldier, GetStealth(pEndSoldier), GetSightAdjustmentBasedOnLBE(pEndSoldier));
 	if (iTileSightLimit == CALC_FROM_ALL_DIRS || iTileSightLimit == CALC_FROM_WANTED_DIR) {
-		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( pEndSoldier->sGridNo, pEndSoldier->pathing.bLevel, iTileSightLimit );
+		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( pEndSoldier->position().gridNo(), pEndSoldier->position().level(), iTileSightLimit );
 		iTileSightLimit += iTileSightLimit * iSightAdj / 100;
 
 	}
 
 	// needed for gun hit calculation (can you even hit him)
 	else if (iTileSightLimit == NO_DISTANCE_LIMIT) {
-		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( pEndSoldier->sGridNo, pEndSoldier->pathing.bLevel, CALC_FROM_ALL_DIRS );
+		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( pEndSoldier->position().gridNo(), pEndSoldier->position().level(), CALC_FROM_ALL_DIRS );
 		iTileSightLimit += iTileSightLimit * iSightAdj / 100;
 		iTileSightLimit += 255; // this shifts the limit for something special (we don't know yet)
 	}
@@ -2363,7 +2363,7 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 
 		INT32 sStructGridNo;
 		INT16 sX, sY, sX2, sY2;
-		ConvertGridNoToCenterCellXY(pStartSoldier->sGridNo, &sX, &sY);
+		ConvertGridNoToCenterCellXY(pStartSoldier->position().gridNo(), &sX, &sY);
 
 		// loop through all tiles
 		for (UINT8 ubLoop = BASE_TILE; ubLoop < ubNumberOfTiles; ubLoop++)
@@ -2379,8 +2379,8 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 	}
 
 	INT16 sX, sY, sX2, sY2;
-	ConvertGridNoToCenterCellXY(pStartSoldier->sGridNo, &sX, &sY);
-	ConvertGridNoToCenterCellXY(pEndSoldier->sGridNo, &sX2, &sY2);
+	ConvertGridNoToCenterCellXY(pStartSoldier->position().gridNo(), &sX, &sY);
+	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX2, &sY2);
 
 	return( LineOfSightTest( (FLOAT) sX, (FLOAT) sY, dStartZPos, (FLOAT) sX2, (FLOAT) sY2, dEndZPos, iTileSightLimit, bAware, fSmell, NULL, adjustForSight, cthCalc ) );
 	}
@@ -2395,14 +2395,14 @@ INT32 SoldierToLocationWindowTest( SOLDIERTYPE * pStartSoldier, INT32 sEndGridNo
 
 	CHECKF( pStartSoldier );
 	dStartZPos = FixedToFloat( ((gqStandardWindowTopHeight + gqStandardWindowBottomHeight) / 2) );
-	if (pStartSoldier->pathing.bLevel > 0)
+	if (pStartSoldier->position().level() > 0)
 	{ // on a roof
 		dStartZPos += WALL_HEIGHT_UNITS;
 	}
-	dStartZPos += CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[pStartSoldier->sGridNo].sHeight );
+	dStartZPos += CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[pStartSoldier->position().gridNo()].sHeight );
 	dEndZPos = dStartZPos;
 
-	ConvertGridNoToCenterCellXY(pStartSoldier->sGridNo, &sX, &sY);
+	ConvertGridNoToCenterCellXY(pStartSoldier->position().gridNo(), &sX, &sY);
 	ConvertGridNoToCenterCellXY(sEndGridNo, &sX2, &sY2);
 
 	//ADB changed from 255 to 511 to handle new LOS test
@@ -2453,7 +2453,7 @@ INT32 SoldierTo3DLocationLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32 sGr
 		iTileSightLimit = 255 + pStartSoldier->GetMaxDistanceVisible( sGridNo, bLevel, CALC_FROM_ALL_DIRS );
 	}
 
-	ConvertGridNoToCenterCellXY(pStartSoldier->sGridNo, &sX, &sY);
+	ConvertGridNoToCenterCellXY(pStartSoldier->position().gridNo(), &sX, &sY);
 	ConvertGridNoToCenterCellXY(sGridNo, &sX2, &sY2);
 
 	return( LineOfSightTest( (FLOAT) sX, (FLOAT) sY, dStartZPos, (FLOAT) sX2, (FLOAT) sY2, dEndZPos, iTileSightLimit, bAware, HasThermalOptics( pStartSoldier), NULL, adjustForSight ) );
@@ -2499,7 +2499,7 @@ INT32 SoldierToVirtualSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32
 		iTileSightLimit = 255 + pStartSoldier->GetMaxDistanceVisible( sGridNo, bLevel, CALC_FROM_ALL_DIRS );
 	}
 
-	ConvertGridNoToCenterCellXY(pStartSoldier->sGridNo, &startXPos, &startYPos);
+	ConvertGridNoToCenterCellXY(pStartSoldier->position().gridNo(), &startXPos, &startYPos);
 	ConvertGridNoToCenterCellXY(sGridNo, &endXPos, &endYPos);
 	return(LineOfSightTest((FLOAT)startXPos, (FLOAT)startYPos, dStartZPos, (FLOAT)endXPos, (FLOAT)endYPos, dEndZPos, iTileSightLimit, bAware, HasThermalOptics(pStartSoldier), NULL, false));
 }
@@ -2616,7 +2616,7 @@ BOOLEAN DamageRiotShield_Bullet( SOLDIERTYPE* pSoldier, BULLET* pBullet )
 
 		// Add item
 		CreateItem( usItem, usItemStatus, &gTempObject );
-		AddItemToPool( pSoldier->sGridNo, &gTempObject, -1, pSoldier->pathing.bLevel, 0, 0 );
+		AddItemToPool( pSoldier->position().gridNo(), &gTempObject, -1, pSoldier->position().level(), 0, 0 );
 
 		// Make team look for items
 		NotifySoldiersToLookforItems( );
@@ -2715,7 +2715,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		{
 			// Add item
 			CreateItem(usItem, usItemStatus, &gTempObject);
-			AddItemToPool(pTarget->sGridNo, &gTempObject, -1, pTarget->pathing.bLevel, 0, 0);
+			AddItemToPool(pTarget->position().gridNo(), &gTempObject, -1, pTarget->position().level(), 0, 0);
 			// Make team look for items
 			NotifySoldiersToLookforItems();
 
@@ -2786,8 +2786,8 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			if ( (pTarget->ubBodyType >= ADULTFEMALEMONSTER) && (pTarget->ubBodyType <=	YAM_MONSTER) )
 			{
 				// HEADROCK HAM 5.1: Bullet data now contains its original coordinates.
-				ubAttackDirection = (UINT8) GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->sGridNo );
-				if ( ubAttackDirection == pTarget->ubDirection || ubAttackDirection == gOneCCDirection[ pTarget->ubDirection ] || ubAttackDirection == gOneCDirection[ pTarget->ubDirection ] )
+				ubAttackDirection = (UINT8) GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->position().gridNo() );
+				if ( ubAttackDirection == pTarget->position().direction() || ubAttackDirection == gOneCCDirection[ pTarget->position().direction() ] || ubAttackDirection == gOneCDirection[ pTarget->position().direction() ] )
 				{
 					// may hit weak spot!
 					if (0) // check fact
@@ -2914,20 +2914,20 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 							// Flugente: we measure the distance of the bullet's location to the location of the soldier, and to the 2 gridnos his head and leg occupy
 							// From this we can decide what body part was hit
 							INT16 sX, sY;
-							ConvertGridNoToCenterCellXY(pTarget->sGridNo, &sX, &sY);
+							ConvertGridNoToCenterCellXY(pTarget->position().gridNo(), &sX, &sY);
 							FLOAT bodycenterX = (FLOAT) sX;
 							FLOAT bodycenterY = (FLOAT) sY;
 
 							FLOAT difftobodycenter = sqrt( (bodycenterX - x) * (bodycenterX - x) + (bodycenterY - y) * (bodycenterY - y) );
 
-							INT32 viewdirectiongridno = NewGridNo( pTarget->sGridNo, DirectionInc( pTarget->ubDirection ) );
+							INT32 viewdirectiongridno = NewGridNo( pTarget->position().gridNo(), DirectionInc( pTarget->position().direction() ) );
 							ConvertGridNoToCenterCellXY(viewdirectiongridno, &sX, &sY);
 							FLOAT nextgridnocenterX = (FLOAT) sX;
 							FLOAT nextgridnocenterY = (FLOAT) sY;
 
 							FLOAT difftonextgridno = sqrt( (nextgridnocenterX - x) * (nextgridnocenterX - x) + (nextgridnocenterY - y) * (nextgridnocenterY - y) );
 
-							INT32 oppositeviewdirectiongridno = NewGridNo( pTarget->sGridNo, DirectionInc( gOppositeDirection[pTarget->ubDirection] ) );
+							INT32 oppositeviewdirectiongridno = NewGridNo( pTarget->position().gridNo(), DirectionInc( gOppositeDirection[pTarget->position().direction()] ) );
 							ConvertGridNoToCenterCellXY(oppositeviewdirectiongridno, &sX, &sY);
 							FLOAT oppositenextgridnocenterX = (FLOAT) sX;
 							FLOAT oppositenextgridnocenterY = (FLOAT) sY;
@@ -2972,10 +2972,10 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			UINT8			ubOppositeDirection;
 
 			// HEADROCK HAM 5.1: Bullet data now contains its original GridNo
-			ubAttackDirection = (UINT8) GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->sGridNo );
+			ubAttackDirection = (UINT8) GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->position().gridNo() );
 			ubOppositeDirection = gOppositeDirection[ ubAttackDirection ];
 
-			if ( ubOppositeDirection == pTarget->ubDirection || ubOppositeDirection == gOneCCDirection[ pTarget->ubDirection ] || ubOppositeDirection == gOneCDirection[ pTarget->ubDirection ] )
+			if ( ubOppositeDirection == pTarget->position().direction() || ubOppositeDirection == gOneCCDirection[ pTarget->position().direction() ] || ubOppositeDirection == gOneCDirection[ pTarget->position().direction() ] )
 			{				
 				if ( (pTarget->inv[HEAD1POS].exists() == true) && ( PreRandom( 100 ) < (UINT32) (pTarget->inv[HEAD1POS][0]->data.objectStatus) ) && AmmoTypes[ubAmmoType].monsterSpit )
 				{
@@ -3002,7 +3002,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	}
 
 	// Determine damage, checking guy's armour, etc
-	sRange = GetRangeInCellCoordsFromGridNoDiff( pBullet->sOrigGridNo, pTarget->sGridNo );
+	sRange = GetRangeInCellCoordsFromGridNoDiff( pBullet->sOrigGridNo, pTarget->position().gridNo() );
 
 	if ( gTacticalStatus.uiFlags & GODMODE && pTarget->bTeam == OUR_TEAM && pBullet->ubFirerID != NOBODY && !(pFirer->flags.uiStatusFlags & SOLDIER_PC))
 	{
@@ -3418,7 +3418,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		// be legal, but the bLevel May change...
   	sNewGridNo = NewGridNo( pBullet->sGridNo, DirectionInc( gOppositeDirection[ SWeaponHit.usDirection ] ) );
 
-		bSpewBloodLevel = SWeaponHit.usSoldierID->pathing.bLevel;
+		bSpewBloodLevel = SWeaponHit.usSoldierID->position().level();
 		fCanSpewBlood	= TRUE;
 
 		// If on anything other than bLevel of 0, we can pretty much freely spew blood
@@ -3808,9 +3808,9 @@ static BOOLEAN PositionAllowsHit(BULLET * pBullet, STRUCTURE *	pStructure)
 	if (gGameExternalOptions.fAllowTargetHeadAndLegIfProne == TRUE && fPositionAllowsHit == FALSE && pBullet->pFirer != NULL)
 	{
 		UINT32 chance = 0;
-		if (pBullet->pFirer->pathing.bLevel > MercPtrs[pStructure->usStructureID]->pathing.bLevel)  // if firer is on roof and merc is not,
+		if (pBullet->pFirer->position().level() > MercPtrs[pStructure->usStructureID]->position().level())  // if firer is on roof and merc is not,
 			chance = mercStance == ANIM_CROUCH ? uiBottomCrouchHitChance : uiBottomProneHitChance;    // then hit is possible disregarding stance
-		else if (pBullet->pFirer->pathing.bLevel == MercPtrs[pStructure->usStructureID]->pathing.bLevel)  // if both on roof or ground
+		else if (pBullet->pFirer->position().level() == MercPtrs[pStructure->usStructureID]->position().level())  // if both on roof or ground
 			chance = mercStance == ANIM_CROUCH ? uiCrouchHitChance : uiProneHitChance;
 		else  // if merc is on roof and firer is not
 			chance = mercStance == ANIM_CROUCH ? uiTopCrouchHitChance : uiTopProneHitChance;
@@ -4325,7 +4325,7 @@ UINT8 SoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTY
 	// is the AI calculating cover to a location where he might not be any more
 	pStartSoldier->ubCTGTTargetID = pEndSoldier->ubID;
 
-	ConvertGridNoToCenterCellXY(pEndSoldier->sGridNo, &sX, &sY);
+	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
 }
 
@@ -4368,7 +4368,7 @@ UINT8 SoldierToSoldierBodyPartChanceToGetThrough( SOLDIERTYPE * pStartSoldier, S
 	// set startsoldier's target ID ... need an ID stored in case this
 	// is the AI calculating cover to a location where he might not be any more
 	pStartSoldier->ubCTGTTargetID = pEndSoldier->ubID;
-	ConvertGridNoToCenterCellXY(pEndSoldier->sGridNo, &sX, &sY);
+	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
 }
 
@@ -4380,7 +4380,7 @@ UINT8 SoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 sG
 	INT8			bStructHeight;
 	SOLDIERTYPE * pEndSoldier;
 
-	if (pStartSoldier->sGridNo == sGridNo)
+	if (pStartSoldier->position().gridNo() == sGridNo)
 	{
 		return( 0 );
 	}
@@ -4450,7 +4450,7 @@ UINT8 AISoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIER
 	// is the AI calculating cover to a location where he might not be any more
 	pStartSoldier->ubCTGTTargetID = NOBODY;
 
-	ConvertGridNoToCenterCellXY(pEndSoldier->sGridNo, &sX, &sY);
+	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	ubChance = ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos );
 	pStartSoldier->usAnimState = usTrueState;
 	return( ubChance );
@@ -4467,7 +4467,7 @@ UINT8 AISoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 
 	UINT16		usTrueState;
 	UINT8			ubChance;
 
-	if (pStartSoldier->sGridNo == sGridNo)
+	if (pStartSoldier->position().gridNo() == sGridNo)
 	{
 		return( 0 );
 	}
@@ -4789,7 +4789,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 
 	CalculateSoldierZPos( pFirer, FIRING_POS, &dStartZ );
 
-	ConvertGridNoToCenterCellXY(pFirer->sGridNo, &sXPos, &sYPos);
+	ConvertGridNoToCenterCellXY(pFirer->position().gridNo(), &sXPos, &sYPos);
 	dStartX = (FLOAT) sXPos;
 	dStartY = (FLOAT) sYPos;
 
@@ -5163,7 +5163,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 		pBullet->sOrigGridNo = ((INT32)dStartX) / CELL_X_SIZE + ((INT32)dStartY) / CELL_Y_SIZE * WORLD_COLS;
 		pBullet->sTargetGridNo = ((INT32)dEndX) / CELL_X_SIZE + ((INT32)dEndY) / CELL_Y_SIZE * WORLD_COLS;
 
-		pBullet->bStartCubesAboveLevelZ = (INT8) CONVERT_HEIGHTUNITS_TO_INDEX( (INT32)dStartZ - CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[ pFirer->sGridNo ].sHeight ) );
+		pBullet->bStartCubesAboveLevelZ = (INT8) CONVERT_HEIGHTUNITS_TO_INDEX( (INT32)dStartZ - CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[ pFirer->position().gridNo() ].sHeight ) );
 		pBullet->bEndCubesAboveLevelZ = (INT8) CONVERT_HEIGHTUNITS_TO_INDEX( (INT32)dEndZ - CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[ pBullet->sTargetGridNo ].sHeight ) );
 
 		// this distance limit only applies in a "hard" sense to fake bullets for chance-to-get-through,
@@ -5282,7 +5282,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 
 	CalculateSoldierZPos( pFirer, FIRING_POS, &dStartZ );
 
-	ConvertGridNoToCenterCellXY(pFirer->sGridNo, &sXPos, &sYPos);
+	ConvertGridNoToCenterCellXY(pFirer->position().gridNo(), &sXPos, &sYPos);
 	dStartX = (FLOAT) sXPos;
 	dStartY = (FLOAT) sYPos;
 
@@ -5683,7 +5683,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 		pBullet->sOrigGridNo = ((INT32)dStartX) / CELL_X_SIZE + ((INT32)dStartY) / CELL_Y_SIZE * WORLD_COLS;
 		pBullet->sTargetGridNo = ((INT32)dEndX) / CELL_X_SIZE + ((INT32)dEndY) / CELL_Y_SIZE * WORLD_COLS;
 
-		pBullet->bStartCubesAboveLevelZ = (INT8) CONVERT_HEIGHTUNITS_TO_INDEX( (INT32)dStartZ - CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[ pFirer->sGridNo ].sHeight ) );
+		pBullet->bStartCubesAboveLevelZ = (INT8) CONVERT_HEIGHTUNITS_TO_INDEX( (INT32)dStartZ - CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[ pFirer->position().gridNo() ].sHeight ) );
 		pBullet->bEndCubesAboveLevelZ = (INT8) CONVERT_HEIGHTUNITS_TO_INDEX( (INT32)dEndZ - CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[ pBullet->sTargetGridNo ].sHeight ) );
 
 		// this distance limit only applies in a "hard" sense to fake bullets for chance-to-get-through,
@@ -7245,7 +7245,7 @@ void MoveBullet( INT32 iBullet )
 					}
 
 					// this might be a close call
-					if ( pBullet->ubFirerID != NOBODY && pSoldier->bTeam == gbPlayerNum && pBullet->pFirer->bTeam != gbPlayerNum && sDesiredLevel == pSoldier->pathing.bLevel )
+					if ( pBullet->ubFirerID != NOBODY && pSoldier->bTeam == gbPlayerNum && pBullet->pFirer->bTeam != gbPlayerNum && sDesiredLevel == pSoldier->position().level() )
 					{
 						pSoldier->flags.fCloseCall = TRUE;
 					}
@@ -7556,10 +7556,10 @@ void MoveBullet( INT32 iBullet )
 								// check for riot shield contact
 								if ( pTarget && pTarget->IsRiotShieldEquipped( ) )
 								{
-									UINT8 bulletdir_inverse = GetDirectionToGridNoFromGridNo( pTarget->sGridNo, pBullet->sOrigGridNo );
+									UINT8 bulletdir_inverse = GetDirectionToGridNoFromGridNo( pTarget->position().gridNo(), pBullet->sOrigGridNo );
 
 									// check whether the opposite direction of the bullet is the direction the soldier looks, or adjacant to that. That would mean the shield is between bullet and soldier
-									if ( bulletdir_inverse == pTarget->ubDirection || bulletdir_inverse == gOneCCDirection[pTarget->ubDirection] || bulletdir_inverse == gOneCDirection[pTarget->ubDirection] )
+									if ( bulletdir_inverse == pTarget->position().direction() || bulletdir_inverse == gOneCCDirection[pTarget->position().direction()] || bulletdir_inverse == gOneCDirection[pTarget->position().direction()] )
 									{
 										if ( DamageRiotShield_Bullet( pTarget, pBullet ) )
 										{
@@ -7775,10 +7775,10 @@ void MoveBullet( INT32 iBullet )
 								// check for riot shield contact
 								if ( pTarget && pTarget->IsRiotShieldEquipped( ) )
 								{
-									UINT8 bulletdir = GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->sGridNo );
+									UINT8 bulletdir = GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->position().gridNo() );
 
 									// check whether the direction of the bullet is the direction the soldier looks, or adjacant to that. That would mean the shield is hit after the and soldier
-									if ( bulletdir == pTarget->ubDirection || bulletdir == gOneCCDirection[pTarget->ubDirection] || bulletdir == gOneCDirection[pTarget->ubDirection] )
+									if ( bulletdir == pTarget->position().direction() || bulletdir == gOneCCDirection[pTarget->position().direction()] || bulletdir == gOneCDirection[pTarget->position().direction()] )
 									{
 										if ( DamageRiotShield_Bullet( pTarget, pBullet ) )
 										{
@@ -7883,7 +7883,7 @@ void MoveBullet( INT32 iBullet )
 		{
 			// HEADROCK HAM 4: This is kind of a hack. I'm measuring the distance the tile has moved in 2D space,
 			// for purposes of determining whether gravity should take effect.
-			FLOAT dDistanceMoved = PythSpacesAway( pBullet->pFirer->sGridNo, pBullet->sGridNo ) * 10.0f;
+			FLOAT dDistanceMoved = PythSpacesAway( pBullet->pFirer->position().gridNo(), pBullet->sGridNo ) * 10.0f;
 
 			// HEADROCK HAM 4: Now using an INI=set Gravity Constant.
 			if ( (dDistanceMoved > (FLOAT)pBullet->iRange*gGameCTHConstants.RANGE_COEFFICIENT) )
@@ -8005,12 +8005,12 @@ INT32	CheckForCollision( FLOAT dX, FLOAT dY, FLOAT dZ, FLOAT dDeltaX, FLOAT dDel
 		dTargetY = pTarget->dYPos;
 		dTargetZMin = 0.0f;
 		CalculateSoldierZPos( pTarget, HEIGHT, &dTargetZMax );
-		if (pTarget->pathing.bLevel > 0)
+		if (pTarget->position().level() > 0)
 		{
 			// on roof
 			dTargetZMin += WALL_HEIGHT_UNITS;
 		}
-		if ( sX + sY * WORLD_COLS == pTarget->sGridNo)
+		if ( sX + sY * WORLD_COLS == pTarget->position().gridNo())
 		{
 			fIntended = TRUE;
 		}
@@ -8542,7 +8542,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 
 	// Locate absolute center X,Y of the shooter
 	INT16 sXPos, sYPos;
-	ConvertGridNoToCenterCellXY(pShooter->sGridNo, &sXPos, &sYPos);
+	ConvertGridNoToCenterCellXY(pShooter->position().gridNo(), &sXPos, &sYPos);
 	dStartX = (FLOAT) sXPos;
 	dStartY = (FLOAT) sYPos;
 
@@ -9164,7 +9164,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 		// HEADROCK HAM 4: Hopefully the right spot for this: This soldier has no "old" coordinates, so just set them
 		// to wherever he/she is currently standing.
 		INT16 sXPos, sYPos;
-		ConvertGridNoToCenterCellXY(pTarget->sGridNo, &sXPos, &sYPos);
+		ConvertGridNoToCenterCellXY(pTarget->position().gridNo(), &sXPos, &sYPos);
 		pTarget->sOldXPos = sXPos;
 		pTarget->sOldYPos = sYPos;
 		// Since movement is now nonexistent, break the formula here without adjusting coordinates.
@@ -9178,7 +9178,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 	// Find the current position of this soldier.
 	INT16 sCurPosX = 0;
 	INT16 sCurPosY = 0;
-	ConvertGridNoToCellXY(pTarget->sGridNo, &sCurPosX, &sCurPosY);
+	ConvertGridNoToCellXY(pTarget->position().gridNo(), &sCurPosX, &sCurPosY);
 
 	// Figure out the difference between the two coordinates.
 	INT32 sDeltaX = sStartPosX - sCurPosX;
@@ -9402,7 +9402,7 @@ void CalcRangeCompensationOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetY, 
 	// hit, assuming no muzzle adjustment, and pretending there's no ground to collide with. The result is equal to
 	// exactly the amount of extra upwards angle we need to add to the muzzle to make the bullet hit the target!
 	FLOAT dOptimalAddY = iRangeDiff * (iRangeDiff+1) * (dGravity/2);
-	if ( pShooter->pathing.bLevel && pShooter->bTargetLevel == 0 )
+	if ( pShooter->position().level() && pShooter->bTargetLevel == 0 )
 	{
 		dOptimalAddY -= 25.6f;
 		if (dOptimalAddY < 0)
@@ -9671,8 +9671,8 @@ void LimitImpactPointByFacing( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, FLOA
 		return;
 	}
 	
-	UINT8	iShooterFacing = pShooter->ubDirection;
-	UINT8	iTargetFacing = pTarget->ubDirection;
+	UINT8	iShooterFacing = pShooter->position().direction();
+	UINT8	iTargetFacing = pTarget->position().direction();
 	FLOAT	iDivisor = gGameCTHConstants.SIDE_FACING_DIVISOR;
 
 	// sevenfm: lower modifier for crouched

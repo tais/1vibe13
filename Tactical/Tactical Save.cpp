@@ -1172,7 +1172,7 @@ void HandleAllReachAbleItemsInTheSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 			pSoldier = uiCounter;
 			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() > 0 && pSoldier->sSectorX == sSectorX && pSoldier->sSectorY == sSectorY && pSoldier->bSectorZ == bSectorZ )
 			{
-				if ( FindBestPath( pSoldier, sGridNo2, pSoldier->pathing.bLevel, WALKING, NO_COPYROUTE, 0 ) )
+				if ( FindBestPath( pSoldier, sGridNo2, pSoldier->position().level(), WALKING, NO_COPYROUTE, 0 ) )
 				{
 					fSecondary = TRUE;
 					break;
@@ -1928,7 +1928,7 @@ void SaveNPCInformationToProfileStruct( )
 			//if ( gTacticalStatus.uiFlags & LOADING_SAVED_GAME )
 			//{
 				// if we are saving the game, save the NPC's current location
-				pProfile->usStrategicInsertionData = pSoldier->sGridNo;
+				pProfile->usStrategicInsertionData = pSoldier->position().gridNo();
 			//}
 			/*
 			else
@@ -2654,7 +2654,7 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 
 					pWorldItems[ bCount ].fExists = TRUE;
 					pWorldItems[ bCount ].sGridNo = sGridNo;
-					pWorldItems[ bCount ].ubLevel = (UINT8)pSoldier->pathing.bLevel;
+					pWorldItems[ bCount ].ubLevel = (UINT8)pSoldier->position().level();
 					pWorldItems[ bCount ].usFlags = uiFlagsForWorldItems;
 					pWorldItems[ bCount ].bVisible = TRUE;
 					pWorldItems[ bCount ].bRenderZHeightAboveLevel = 0;
@@ -2686,7 +2686,7 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 		}
 	}
 
-  DropKeysInKeyRing( pSoldier, sGridNo, pSoldier->pathing.bLevel, 1, FALSE, 0, TRUE );
+  DropKeysInKeyRing( pSoldier, sGridNo, pSoldier->position().level(), 1, FALSE, 0, TRUE );
 
 	//
 	//Convert the soldier into a rottng corpse
@@ -2709,7 +2709,7 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 	SET_PALETTEREP_ID ( Corpse.SkinPal,		pSoldier->SkinPal );
 	SET_PALETTEREP_ID ( Corpse.PantsPal,   pSoldier->PantsPal );
 
-	Corpse.ubDirection	= pSoldier->ubDirection;
+	Corpse.ubDirection	= pSoldier->position().direction();
 
 	// Set time of death
 	Corpse.uiTimeOfDeath = GetWorldTotalMin( );

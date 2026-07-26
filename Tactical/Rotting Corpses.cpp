@@ -889,7 +889,7 @@ BOOLEAN CreateCorpsePalette( ROTTING_CORPSE *pCorpse )
 
 BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLEAN fCheckForLOS )
 {	
-	if (TileIsOutOfBounds(pSoldier->sGridNo))
+	if (TileIsOutOfBounds(pSoldier->position().gridNo()))
 	{
 		return( FALSE );
 	}
@@ -913,10 +913,10 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	// Setup some values!
 	memset( &Corpse, 0, sizeof( Corpse ) );
 	Corpse.ubBodyType							= pSoldier->ubBodyType;
-	Corpse.sGridNo								= pSoldier->sGridNo;		
+	Corpse.sGridNo								= pSoldier->position().gridNo();
 	Corpse.dXPos									= pSoldier->dXPos;
 	Corpse.dYPos									= pSoldier->dYPos;
-	Corpse.bLevel									= pSoldier->pathing.bLevel;
+	Corpse.bLevel									= pSoldier->position().level();
 	Corpse.ubProfile							= pSoldier->ubProfile;
 
 ///ddd{ for the enemy to be able to detect corpses
@@ -1003,7 +1003,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	// Determine corpse type!
 	ubType = (UINT8)gubAnimSurfaceCorpseID[ pSoldier->ubBodyType][ pSoldier->usAnimState ];
 
-	Corpse.ubDirection	= pSoldier->ubDirection;
+	Corpse.ubDirection	= pSoldier->position().direction();
 
 	// If we are a vehicle.... only use 1 direction....
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
@@ -1071,13 +1071,13 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		ubNumGoo = 6 - ( DiffLevel - DIF_LEVEL_EASY );
 		//ubNumGoo = 6 - ( gGameOptions.ubDifficultyLevel - DIF_LEVEL_EASY );
 		
-		sNewGridNo = pSoldier->sGridNo + ( WORLD_COLS * 2 );
+		sNewGridNo = pSoldier->position().gridNo() + ( WORLD_COLS * 2 );
 
 		for ( cnt = 0; cnt < ubNumGoo; ++cnt )
 		{
 			CreateItem( JAR_QUEEN_CREATURE_BLOOD, 100, &gTempObject );
 
-			AddItemToPool( sNewGridNo, &gTempObject, bVisible , pSoldier->pathing.bLevel, usItemFlags, -1 );
+			AddItemToPool( sNewGridNo, &gTempObject, bVisible , pSoldier->position().level(), usItemFlags, -1 );
 		}
 	}
 	else
@@ -1141,14 +1141,14 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 						if (!(gGameExternalOptions.ubMilitiaDropEquipment == 0 && pSoldier->bTeam == MILITIA_TEAM ) &&
 							!(gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->bTeam == MILITIA_TEAM && pSoldier->ubAttackerID->bTeam == OUR_TEAM ))
 						{
-							AddItemToPool( pSoldier->sGridNo, pObj, bVisible , pSoldier->pathing.bLevel, usItemFlags, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), pObj, bVisible , pSoldier->position().level(), usItemFlags, -1 );
 						}
 					}
 				}
 			}
 		}
 
-		DropKeysInKeyRing( pSoldier, pSoldier->sGridNo, pSoldier->pathing.bLevel, bVisible, FALSE, 0, FALSE );
+		DropKeysInKeyRing( pSoldier, pSoldier->position().gridNo(), pSoldier->position().level(), bVisible, FALSE, 0, FALSE );
 
 		// Flugente: even if we forbid militia from dropping their equipment, they will still drop what they took via sector inventory (this functions only drops what they took)
 		pSoldier->DropSectorEquipment();
@@ -1222,7 +1222,7 @@ INT16 FindNearestRottingCorpse( SOLDIERTYPE *pSoldier )
 			// Check rotting state
 			if ( pCorpse->def.ubType == ROTTING_STAGE2 )
 			{
-				uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, pCorpse->def.sGridNo );
+				uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), pCorpse->def.sGridNo );
 
 				if ( uiRange < uiLowestRange )
 				{
@@ -1324,7 +1324,7 @@ void HandleCrowFlyAway( SOLDIERTYPE *pSoldier )
 	pSoldier->sDesiredHeight			= 100;
 
 	// Change to fly animation
-	sGridNo =	FindRandomGridNoFromSweetSpot( pSoldier, pSoldier->sGridNo, 5, &ubDirection );
+	sGridNo =	FindRandomGridNoFromSweetSpot( pSoldier, pSoldier->position().gridNo(), 5, &ubDirection );
 	pSoldier->usUIMovementMode = CROW_FLY;
 	SendGetNewSoldierPathEvent( pSoldier, sGridNo, pSoldier->usUIMovementMode );
 }
@@ -1452,7 +1452,7 @@ void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam )
 	{
 		pSoldier = cnt;
 		// ATE: Ok, lets check for some basic things here!		
-		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bActive && pSoldier->bInSector )
+		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
 		{
 			// and we can trace a line of sight to his x,y coordinates?
 			// (taking into account we are definitely aware of this guy now)
@@ -1751,7 +1751,7 @@ INT32 FindNearestAvailableGridNoForCorpse( ROTTING_CORPSE_DEFINITION *pDef, INT8
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
 	soldier.bTeam = 1;
-	soldier.sGridNo = sSweetGridNo;
+	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
 	sBottom = -ubRadius;
@@ -1787,7 +1787,7 @@ INT32 FindNearestAvailableGridNoForCorpse( ROTTING_CORPSE_DEFINITION *pDef, INT8
 				gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REACHABLE )
 			{
 				// Go on sweet stop
-				if ( NewOKDestination( &soldier, sGridNo, TRUE, soldier.pathing.bLevel ) )
+				if ( NewOKDestination( &soldier, sGridNo, TRUE, soldier.position().level() ) )
 				{
 					BOOLEAN fDirectionFound = FALSE;
 					BOOLEAN	fCanSetDirection	= FALSE;
@@ -2099,7 +2099,7 @@ BOOLEAN StripCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel )
 
 			CreateItem( peltitem, status + Random(20), &gTempObject );
 			if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-				AddItemToPool( pSoldier->sGridNo, &gTempObject, VISIBLE, bLevel, 0, -1 );
+				AddItemToPool( pSoldier->position().gridNo(), &gTempObject, VISIBLE, bLevel, 0, -1 );
 		}
 		else
 		{
@@ -2111,7 +2111,7 @@ BOOLEAN StripCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel )
 				{
 					CreateItem( vestitem, 100, &gTempObject );
 					if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-						AddItemToPool( pSoldier->sGridNo, &gTempObject, VISIBLE, bLevel, 0, -1 );
+						AddItemToPool( pSoldier->position().gridNo(), &gTempObject, VISIBLE, bLevel, 0, -1 );
 				}
 				else
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
@@ -2124,7 +2124,7 @@ BOOLEAN StripCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel )
 				{
 					CreateItem( pantsitem, 100, &gTempObject );
 					if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-						AddItemToPool( pSoldier->sGridNo, &gTempObject, VISIBLE, bLevel, 0, -1 );
+						AddItemToPool( pSoldier->position().gridNo(), &gTempObject, VISIBLE, bLevel, 0, -1 );
 				}
 				else
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
@@ -2660,7 +2660,7 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 			{
 				pTeamSoldier = cnt;
 				// ATE: Ok, lets check for some basic things here!				
-				if ( pTeamSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->sGridNo) && pTeamSoldier->bActive && pTeamSoldier->bInSector )
+				if ( pTeamSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
 					pTeamSoldier->bCorpseQuoteTolerance++;
 				}

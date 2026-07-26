@@ -1061,7 +1061,7 @@ UINT8 NPCConsiderTalking( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, UINT8 ubRec
 		}		
 		else if(!TileIsOutOfBounds(pNPCQuoteInfo->sRequiredGridNo))//dnl ch46 031009
 		{
-			if(pSoldier->sGridNo != pNPCQuoteInfo->sRequiredGridNo)
+			if(pSoldier->position().gridNo() != pNPCQuoteInfo->sRequiredGridNo)
 				continue;
 		}
 
@@ -1280,7 +1280,7 @@ UINT8 NPCConsiderReceivingItemFromMerc( UINT8 ubNPC, UINT8 ubMerc, OBJECTTYPE * 
 									UINT16 usKingpinRoom;
 
 									pKingpin = FindSoldierByProfileID( KINGPIN, FALSE );
-									if ( pKingpin && InARoom( pKingpin->sGridNo, &usKingpinRoom ) )
+									if ( pKingpin && InARoom( pKingpin->position().gridNo(), &usKingpinRoom ) )
 									{
 										if ( IN_KINGPIN_HOUSE( usKingpinRoom ) )
 										{
@@ -2467,7 +2467,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 						    pSoldier->flags.bHasKeys = TRUE;
 					    }
 
-					    if (pSoldier->sGridNo == pQuotePtr->usGoToGridNo )
+					    if (pSoldier->position().gridNo() == pQuotePtr->usGoToGridNo )
 					    {
 						    // search for quotes to trigger immediately!
 						    pSoldier->ubQuoteRecord = ubRecordNum + 1; // add 1 so that the value is guaranteed nonzero
@@ -2574,7 +2574,7 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 	NPCQuoteInfo *	pNPCQuoteInfoArray;
 
 	CHECKF( pubDesiredMerc );
-	sMyGridNo = pNPC->sGridNo;
+	sMyGridNo = pNPC->position().gridNo();
 
 	ubNPC = pNPC->ubProfile;
 	if (EnsureQuoteFileLoaded( ubNPC ) == FALSE)
@@ -2618,11 +2618,11 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 					ubHighestTalkDesire = ubTalkDesire;
 					ubDesiredMerc = ubMerc;
 					pDesiredMerc = MercSlots[ubMerc];
-					sDesiredMercDist = PythSpacesAway( sMyGridNo, pDesiredMerc->sGridNo );
+					sDesiredMercDist = PythSpacesAway( sMyGridNo, pDesiredMerc->position().gridNo() );
 				}
 				else if (ubTalkDesire == ubHighestTalkDesire)
 				{
-					sDist = PythSpacesAway( sMyGridNo, MercSlots[ubMerc]->sGridNo );
+					sDist = PythSpacesAway( sMyGridNo, MercSlots[ubMerc]->position().gridNo() );
 					if (sDist < sDesiredMercDist)
 					{
 						// we can say the same thing to this merc, and they're closer!
@@ -2642,7 +2642,7 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 	else
 	{
 		*pubDesiredMerc = ubDesiredMerc;
-		return ( pDesiredMerc->sGridNo );
+		return ( pDesiredMerc->position().gridNo() );
 	}
 }
 
@@ -2652,7 +2652,7 @@ UINT8 NPCTryToInitiateConv( SOLDIERTYPE * pNPC )
 	{
 		return( AI_ACTION_NONE );
 	}
-	if (PythSpacesAway( pNPC->sGridNo, MercPtrs[pNPC->aiData.usActionData]->sGridNo ) < CONVO_DIST)
+	if (PythSpacesAway( pNPC->position().gridNo(), MercPtrs[pNPC->aiData.usActionData]->position().gridNo() ) < CONVO_DIST)
 	{
 		// initiate conversation!
 		Converse( pNPC->ubProfile, MercPtrs[pNPC->aiData.usActionData]->ubProfile, NPC_INITIATING_CONV, 0 );
@@ -2738,7 +2738,7 @@ void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
 	// (indicated by a negative gridno in the has-item field)
 	// or an action to perform once we reached this gridno
 
-	if ( pNPC->sGridNo == pQuotePtr->usGoToGridNo )
+	if ( pNPC->position().gridNo() == pQuotePtr->usGoToGridNo )
 	{
 		// check for an after-move action
 		if ( pQuotePtr->sActionData > 0)
@@ -2750,7 +2750,7 @@ void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
 	for ( ubLoop = 0; ubLoop < NUM_NPC_QUOTE_RECORDS; ubLoop++ )
 	{
 		pQuotePtr = &(pNPCQuoteInfoArray[ubLoop]);
-		if ( pNPC->sGridNo == pQuotePtr->sRequiredGridNo )//dnl ch46 031009
+		if ( pNPC->position().gridNo() == pQuotePtr->sRequiredGridNo )//dnl ch46 031009
 		{
 			if ( NPCConsiderQuote( ubNPC, 0, TRIGGER_NPC, ubLoop, 0, pNPCQuoteInfoArray ) )
 			{
@@ -2864,7 +2864,7 @@ void PCsNearNPC( UINT8 ubNPC )
 	for ( ubLoop = 0; ubLoop < NUM_NPC_QUOTE_RECORDS; ubLoop++ )
 	{
 		pQuotePtr = &(pNPCQuoteInfoArray[ubLoop]);
-		if ( pSoldier->sGridNo == pQuotePtr->sRequiredGridNo )//dnl ch46 031009
+		if ( pSoldier->position().gridNo() == pQuotePtr->sRequiredGridNo )//dnl ch46 031009
 		{
 			if ( NPCConsiderQuote( ubNPC, 0, TRIGGER_NPC, ubLoop, 0, pNPCQuoteInfoArray ) )
 			{
@@ -3901,11 +3901,11 @@ void UpdateDarrelScriptToGoTo( SOLDIERTYPE * pSoldier )
 	}
 
 	// find a spot to an alternate location nearby
-	sAdjustedGridNo = FindGridNoFromSweetSpotExcludingSweetSpot( pDarrel, pSoldier->sGridNo, 5, &ubDummyDirection );	
+	sAdjustedGridNo = FindGridNoFromSweetSpotExcludingSweetSpot( pDarrel, pSoldier->position().gridNo(), 5, &ubDummyDirection );
 	if (TileIsOutOfBounds(sAdjustedGridNo))
 	{
 		// yikes! try again with a bigger radius!
-		sAdjustedGridNo = FindGridNoFromSweetSpotExcludingSweetSpot( pDarrel, pSoldier->sGridNo, 10, &ubDummyDirection );		
+		sAdjustedGridNo = FindGridNoFromSweetSpotExcludingSweetSpot( pDarrel, pSoldier->position().gridNo(), 10, &ubDummyDirection );
 		if (TileIsOutOfBounds(sAdjustedGridNo))
 		{
 			// ok, now we're completely foobar

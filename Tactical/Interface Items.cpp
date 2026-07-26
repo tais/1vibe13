@@ -6141,7 +6141,7 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 						}
 						else	//sector inventory panel is closed
 						{
-							AddItemToPool(GetItemDescSoldier()->sGridNo, &gTempObject, 1, GetItemDescSoldier()->pathing.bLevel, WORLD_ITEM_REACHABLE, 0);
+							AddItemToPool(GetItemDescSoldier()->sGridNo, &gTempObject, 1, GetItemDescSoldier()->position().level(), WORLD_ITEM_REACHABLE, 0);
 						}*/
 					}
 				}
@@ -6203,7 +6203,7 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 					// start by searching merc for a place to put the clip
 					if(AutoPlaceObject(GetItemDescSoldier(), &gTempObject, TRUE) == FALSE)
 					{
-						AddItemToPool(GetItemDescSoldier()->sGridNo, &gTempObject, 1, GetItemDescSoldier()->pathing.bLevel, WORLD_ITEM_REACHABLE, 0);
+						AddItemToPool(GetItemDescSoldier()->position().gridNo(), &gTempObject, 1, GetItemDescSoldier()->position().level(), WORLD_ITEM_REACHABLE, 0);
 					}
 				}
 			}
@@ -6404,7 +6404,7 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if ( GetCurrentScreen() == GAME_SCREEN )
 					{
 						// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-						IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemPointerSoldier()->sX, GetItemPointerSoldier()->sY, (INT16) (gpWorldLevelData[GetItemPointerSoldier()->sGridNo].sHeight), GetItemPointerSoldier()->sGridNo, gpItemDescObject->usItem, GetItemPointerSoldier()->pathing.bLevel, GetItemPointerSoldier()->ubDirection, gpItemDescObject );
+						IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemPointerSoldier()->sX, GetItemPointerSoldier()->sY, (INT16) (gpWorldLevelData[GetItemPointerSoldier()->position().gridNo()].sHeight), GetItemPointerSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemPointerSoldier()->position().level(), GetItemPointerSoldier()->position().direction(), gpItemDescObject );
 					}
 					else if ( (GetCurrentScreen() == MAP_SCREEN) || (GetCurrentScreen() == MSG_BOX_SCREEN) )
 					{
@@ -8868,7 +8868,7 @@ void DrawItemTileCursor( )
 		if ( gfUIFullTargetFound )
 		{
 			// Force mouse position to guy...
-			usMapPos = gusUIFullTargetID->sGridNo;
+			usMapPos = gusUIFullTargetID->position().gridNo();
 		}
 
 		gusCurMousePos = usMapPos;
@@ -8915,7 +8915,7 @@ void DrawItemTileCursor( )
 		}
 
 		// Get Pyth spaces away.....
-		sDist = PythSpacesAway( GetItemPointerSoldier()->sGridNo, gusCurMousePos );
+		sDist = PythSpacesAway( GetItemPointerSoldier()->position().gridNo(), gusCurMousePos );
 
 		// If we are here and we are not selected, select!
 		// ATE Design discussion propably needed here...
@@ -8933,7 +8933,7 @@ void DrawItemTileCursor( )
 
 		if ( !fGiveItem )
 		{
-			if ( UIHandleOnMerc( FALSE ) && usMapPos != GetItemPointerSoldier()->sGridNo )
+			if ( UIHandleOnMerc( FALSE ) && usMapPos != GetItemPointerSoldier()->position().gridNo() )
 			{
 				// We are on a guy.. check if they can catch or not....
 				if ( gfUIFullTargetFound )
@@ -8954,7 +8954,7 @@ void DrawItemTileCursor( )
 						else
 						{
 							// Can they see the throw?
-							if ( SoldierCanSeeCatchComing( pSoldier, GetItemPointerSoldier()->sGridNo ) )
+							if ( SoldierCanSeeCatchComing( pSoldier, GetItemPointerSoldier()->position().gridNo() ) )
 							{
 								// OK, set global that this buddy can see catch...
 								gfUIMouseOnValidCatcher = TRUE;
@@ -9055,7 +9055,7 @@ void DrawItemTileCursor( )
 			}
 			else
 			{
-				if ( usMapPos == GetItemPointerSoldier()->sGridNo )
+				if ( usMapPos == GetItemPointerSoldier()->position().gridNo() )
 				{
 					EndPhysicsTrajectoryUI( );
 				}
@@ -9075,7 +9075,7 @@ void DrawItemTileCursor( )
 
 					gfUIHandlePhysicsTrajectory = TRUE;
 
-					if ( fRecalc && usMapPos != GetItemPointerSoldier()->sGridNo )
+					if ( fRecalc && usMapPos != GetItemPointerSoldier()->position().gridNo() )
 					{
 						if ( gfUIMouseOnValidCatcher )
 						{
@@ -9097,7 +9097,7 @@ void DrawItemTileCursor( )
 									break;
 							}
 
-							if ( gubUIValidCatcherID->pathing.bLevel > 0 )
+							if ( gubUIValidCatcherID->position().level() > 0 )
 							{
 								sEndZ = 0;
 							}
@@ -9209,7 +9209,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	if ( gfUIFullTargetFound )
 	{
 		// Force mouse position to guy...
-		usMapPos = gusUIFullTargetID->sGridNo;
+		usMapPos = gusUIFullTargetID->position().gridNo();
 
 		if ( gAnimControl[ gusUIFullTargetID->usAnimState ].uiFlags & ANIM_MOVING )
 		{
@@ -9251,7 +9251,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 
 	// Get Pyth spaces away.....
-	sDist = PythSpacesAway( GetItemPointerSoldier()->sGridNo, gusCurMousePos );
+	sDist = PythSpacesAway( GetItemPointerSoldier()->position().gridNo(), gusCurMousePos );
 
 
 	if ( fGiveItem )
@@ -9310,7 +9310,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 					 // Walk up to him and reload!
 					 // See if we can get there to stab
-					 sActionGridNo =  FindAdjacentGridEx( GetItemPointerSoldier(), ubSoldierID->sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
+					 sActionGridNo =  FindAdjacentGridEx( GetItemPointerSoldier(), ubSoldierID->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 
 					 if ( sActionGridNo != -1 && gbItemPointerSrcSlot != NO_SLOT )
 					 {
@@ -9326,7 +9326,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 							GetItemPointerSoldier()->aiData.ubPendingActionAnimCount = 0;
 
 							// CHECK IF WE ARE AT THIS GRIDNO NOW
-							if ( GetItemPointerSoldier()->sGridNo != sActionGridNo )
+							if ( GetItemPointerSoldier()->position().gridNo() != sActionGridNo )
 							{
 								// SEND PENDING ACTION
 								GetItemPointerSoldier()->aiData.ubPendingAction = MERC_RELOADROBOT;
@@ -9382,7 +9382,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	{
 		// Check some things here....
 		// 1 ) are we at the exact gridno that we stand on?
-		if ( usMapPos == GetItemPointerSoldier()->sGridNo )
+		if ( usMapPos == GetItemPointerSoldier()->position().gridNo() )
 		{
 			// Drop
 			if ( !gfDontChargeAPsToPickup )
@@ -9398,7 +9398,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 			// Try to drop in an adjacent area....
 			// 1 ) is this not a good OK destination
 			// this will sound strange, but this is OK......
-			if ( !NewOKDestination( GetItemPointerSoldier(), usMapPos, FALSE, GetItemPointerSoldier()->pathing.bLevel ) || FindBestPath( GetItemPointerSoldier(), usMapPos, GetItemPointerSoldier()->pathing.bLevel, WALKING, NO_COPYROUTE, 0 ) == 1 )
+			if ( !NewOKDestination( GetItemPointerSoldier(), usMapPos, FALSE, GetItemPointerSoldier()->position().level() ) || FindBestPath( GetItemPointerSoldier(), usMapPos, GetItemPointerSoldier()->position().level(), WALKING, NO_COPYROUTE, 0 ) == 1 )
 			{
 				// Drop
 				if ( !gfDontChargeAPsToPickup )
@@ -9431,7 +9431,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					case ANIM_CROUCH:
 					case ANIM_PRONE:
 
-						AddItemToPool( usMapPos, gpItemPointer, 1, GetItemPointerSoldier()->pathing.bLevel, 0, -1 );
+						AddItemToPool( usMapPos, gpItemPointer, 1, GetItemPointerSoldier()->position().level(), 0, -1 );
 						NotifySoldiersToLookforItems( );
 						break;
 				}
@@ -9475,7 +9475,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					}
 
 					// Check LOS....
-					if ( !SoldierTo3DLocationLineOfSightTest( pSoldier, GetItemPointerSoldier()->sGridNo,  GetItemPointerSoldier()->pathing.bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
+					if ( !SoldierTo3DLocationLineOfSightTest( pSoldier, GetItemPointerSoldier()->position().gridNo(),  GetItemPointerSoldier()->position().level(), 3, TRUE, CALC_FROM_ALL_DIRS ) )
 					{
 						return( FALSE );
 					}
@@ -9502,10 +9502,10 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  UINT8	ubFacingDirection;
 
 						  // Get direction to face.....
-						  ubFacingDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->sGridNo, pSoldier );
+						  ubFacingDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->position().gridNo(), pSoldier );
 
 						  // Stop merc first....
-						  pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+						  pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 						  // WANNE: Also turn merc if he is crouched and he passes an item
 						  if ( !pSoldier->MercInWater( ) )
@@ -9574,13 +9574,13 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					// OK, on our team,
 
 					// How's our direction?
-					if ( SoldierCanSeeCatchComing( pSoldier, GetItemPointerSoldier()->sGridNo ) )
+					if ( SoldierCanSeeCatchComing( pSoldier, GetItemPointerSoldier()->position().gridNo() ) )
 					{
 						// Setup as being the catch target
 						ubThrowActionCode = THROW_TARGET_MERC_CATCH;
 						uiThrowActionData = pSoldier->ubID;
 
-						sGridNo = pSoldier->sGridNo;
+						sGridNo = pSoldier->position().gridNo();
 
 						switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
 						{
@@ -9600,13 +9600,13 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 									break;
 						}
 
-						if ( pSoldier->pathing.bLevel > 0 )
+						if ( pSoldier->position().level() > 0 )
 						{
 							sEndZ = 0;
 						}
 
 						// Get direction
-						ubDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->sGridNo, pSoldier );
+						ubDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->position().gridNo(), pSoldier );
 
 						// ATE: Goto stationary...
 						pSoldier->SoldierGotoStationaryStance( );
@@ -9653,7 +9653,7 @@ BOOLEAN ItemCursorInLobRange( INT32 usMapPos )
 	}
 
 	// Draw item depending on distance from buddy
-	if (PythSpacesAway( usMapPos, GetItemPointerSoldier()->sGridNo ) > MIN_LOB_RANGE )
+	if (PythSpacesAway( usMapPos, GetItemPointerSoldier()->position().gridNo() ) > MIN_LOB_RANGE )
 	{
 		return( FALSE );
 	}
@@ -10744,7 +10744,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				fTeamPanelDirty=TRUE;
 
 				// remember which gridno the object came from
-				sObjectSourceGridNo = ubID->sGridNo;
+				sObjectSourceGridNo = ubID->position().gridNo();
 				// and who owned it last
 				(void)SetItemPointerSoldier(ubID);
 
@@ -12989,7 +12989,7 @@ void CancelItemPointer( )
 				if ( !AutoPlaceObject( GetItemPointerSoldier(), gpItemPointer, FALSE ) )
 				{
 					// Alright, place of the friggen ground!
-					AddItemToPool( GetItemPointerSoldier()->sGridNo, gpItemPointer, 1, GetItemPointerSoldier()->pathing.bLevel, 0, -1 );
+					AddItemToPool( GetItemPointerSoldier()->position().gridNo(), gpItemPointer, 1, GetItemPointerSoldier()->position().level(), 0, -1 );
 					NotifySoldiersToLookforItems( );
 				}
 			}
@@ -12997,7 +12997,7 @@ void CancelItemPointer( )
 		else
 		{
 			// We drop it here.....
-			AddItemToPool( GetItemPointerSoldier()->sGridNo, gpItemPointer, 1, GetItemPointerSoldier()->pathing.bLevel, 0, -1 );
+			AddItemToPool( GetItemPointerSoldier()->position().gridNo(), gpItemPointer, 1, GetItemPointerSoldier()->position().level(), 0, -1 );
 			NotifySoldiersToLookforItems( );
 		}
 		EndItemPointer( );
@@ -13120,8 +13120,8 @@ BOOLEAN InitializeStealItemPickupMenu( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOppo
   VOBJECT_DESC		VObjectDesc;
 	CHAR8			ubString[48];
 	INT16			sCenX, sCenY, sX, sY, sCenterYVal;
-	INT8 bZLevel	=pOpponent->pathing.bLevel;
-	INT32 sGridNo	=pOpponent->sGridNo;
+	INT8 bZLevel	=pOpponent->position().level();
+	INT32 sGridNo	=pOpponent->position().gridNo();
 	INT32			cnt;
 	// Erase other menus....
 	EraseInterfaceMenus( TRUE );
@@ -13977,7 +13977,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 			if ( screen == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-				IgniteExplosion( GetItemDescSoldier()->ubID, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->sGridNo].sHeight), GetItemDescSoldier()->sGridNo, pObj->usItem, GetItemDescSoldier()->pathing.bLevel, GetItemDescSoldier()->ubDirection, pObj );
+				IgniteExplosion( GetItemDescSoldier()->ubID, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), pObj->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), pObj );
 			}
 			else
 			{
@@ -14154,7 +14154,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 				if ( screen == GAME_SCREEN )
 				{
 					// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-					IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->sGridNo].sHeight), GetItemDescSoldier()->sGridNo, gpItemDescObject->usItem, GetItemDescSoldier()->pathing.bLevel, GetItemDescSoldier()->ubDirection, gpItemDescObject );
+					IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), gpItemDescObject );
 				}
 				else if ( (screen == MAP_SCREEN) || (screen == MSG_BOX_SCREEN) )
 				{
@@ -14200,9 +14200,9 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			//if (GetItemDescSoldier()->inv[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0)
 			{
 				(*gpItemDescObject)[0]->data.misc.ubBombOwner = GetItemDescSoldier()->ubID + 2;
-				(*gpItemDescObject)[0]->data.ubDirection = GetItemDescSoldier()->ubDirection;		// Flugente: direction of bomb is direction of soldier
+				(*gpItemDescObject)[0]->data.ubDirection = GetItemDescSoldier()->position().direction();		// Flugente: direction of bomb is direction of soldier
 
-				//AddItemToPool( gsTempGridNo, &gTempObject, VISIBLE, GetItemDescSoldier()->pathing.bLevel, WORLD_ITEM_ARMED_BOMB, 0 );
+				//AddItemToPool( gsTempGridNo, &gTempObject, VISIBLE, GetItemDescSoldier()->position().level(), WORLD_ITEM_ARMED_BOMB, 0 );
 			}
 		}
 	}
@@ -14337,7 +14337,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-				IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->sGridNo].sHeight), GetItemDescSoldier()->sGridNo, gpItemDescObject->usItem, GetItemDescSoldier()->pathing.bLevel, GetItemDescSoldier()->ubDirection, gpItemDescObject );
+				IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), gpItemDescObject );
 			}
 			else if ( GetCurrentScreen() == MAP_SCREEN || GetCurrentScreen() == MSG_BOX_SCREEN )
 			{
@@ -14907,7 +14907,7 @@ void TransformationMenuPopup_DelayedGrenadeExplosion()
 		{
 			(*gpItemDescObject)[0]->data.sObjectFlag |= DELAYED_GRENADE_EXPLOSION;
 		}
-		PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, GetItemDescSoldier()->sGridNo ), 1, SoundDir( GetItemDescSoldier()->sGridNo ) );
+		PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, GetItemDescSoldier()->position().gridNo() ), 1, SoundDir( GetItemDescSoldier()->position().gridNo() ) );
 
 		RenderItemDescriptionBox();
 	}	

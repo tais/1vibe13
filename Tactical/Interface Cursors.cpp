@@ -330,7 +330,7 @@ BOOLEAN DrawUICursor( )
 				// If we are over a target, jump to that....
 				if ( gfUIFullTargetFound )
 				{
-					gusTargetDropPos = gusUIFullTargetID->sGridNo;
+					gusTargetDropPos = gusUIFullTargetID->position().gridNo();
 				}
 
 				// Put tile on the floor

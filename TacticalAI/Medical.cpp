@@ -80,11 +80,11 @@ BOOLEAN FullPatientCheck( SOLDIERTYPE * pPatient )
 		return( TRUE );
 	}
 
-	if ( pPatient->pathing.bLevel != 0 )
+	if ( pPatient->position().level() != 0 )
 	{	// look for a clear spot for jumping up
 
 		// special "closest" search that ignores climb spots IF they are occupied by non-medics
-		return( FindAutobandageClimbPoint( pPatient->sGridNo, TRUE ) );
+		return( FindAutobandageClimbPoint( pPatient->position().gridNo(), TRUE ) );
 	}
 	else
 	{
@@ -97,10 +97,10 @@ BOOLEAN FullPatientCheck( SOLDIERTYPE * pPatient )
 			if ( CanCharacterAutoBandageTeammate( pSoldier ) == TRUE )
 			{
 				// can this guy path to the patient?
-				if ( pSoldier->pathing.bLevel == 0 )
+				if ( pSoldier->position().level() == 0 )
 				{
 					// do a regular path check
-					if ( FindBestPath( pSoldier, pPatient->sGridNo, 0, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
+					if ( FindBestPath( pSoldier, pPatient->position().gridNo(), 0, WALKING, NO_COPYROUTE, PATH_THROUGH_PEOPLE ) )
 					{
 						return( TRUE );
 					}
@@ -269,18 +269,18 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 
 			if (bPatientPriority >= bBestPriority)
 			{
-				if ( !ClimbingNecessary( pSoldier, pPatient->sGridNo, pPatient->pathing.bLevel ) )
+				if ( !ClimbingNecessary( pSoldier, pPatient->position().gridNo(), pPatient->position().level() ) )
 				{
 
-					sPatientGridNo = pPatient->sGridNo;
+					sPatientGridNo = pPatient->position().gridNo();
 					sAdjacentGridNo = FindAdjacentGridEx( pSoldier, sPatientGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
 					if ( sAdjacentGridNo == -1 && gAnimControl[ pPatient->usAnimState ].ubEndHeight == ANIM_PRONE )
 					{
 						// prone; could be the base tile is inaccessible but the rest isn't...
 						for ( cnt2 = 0; cnt2 < NUM_WORLD_DIRECTIONS; cnt2++ )
 						{
-							sPatientGridNo = pPatient->sGridNo + DirectionInc( cnt2 );
-							if ( WhoIsThere2( sPatientGridNo, pPatient->pathing.bLevel ) == pPatient->ubID )
+							sPatientGridNo = pPatient->position().gridNo() + DirectionInc( cnt2 );
+							if ( WhoIsThere2( sPatientGridNo, pPatient->position().level() ) == pPatient->ubID )
 							{
 								// patient is also here, try this location
 								sAdjacentGridNo = FindAdjacentGridEx( pSoldier, sPatientGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
@@ -294,7 +294,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 
 					if (sAdjacentGridNo != -1)
 					{
-						if (sAdjacentGridNo == pSoldier->sGridNo)
+						if (sAdjacentGridNo == pSoldier->position().gridNo())
 						{
 							sPathCost = 1;
 						}
@@ -316,7 +316,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 								if (sOtherAdjacentGridNo != -1)
 								{
 
-									if (sOtherAdjacentGridNo == pOtherMedic->sGridNo)
+									if (sOtherAdjacentGridNo == pOtherMedic->position().gridNo())
 									{
 										sOtherMedicPathCost = 1;
 									}
@@ -357,7 +357,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 				{
 					sClimbGridNo = NOWHERE;
 					// see if guy on another building etc and we need to climb somewhere
-					sPathCost = EstimatePathCostToLocation( pSoldier, pPatient->sGridNo, pPatient->pathing.bLevel, FALSE, &fClimbingNecessary, &sClimbGridNo );
+					sPathCost = EstimatePathCostToLocation( pSoldier, pPatient->position().gridNo(), pPatient->position().level(), FALSE, &fClimbingNecessary, &sClimbGridNo );
 					// if we can get there
 					if ( sPathCost != 0 && fClimbingNecessary && sPathCost < sShortestClimbPath )
 					{
@@ -384,7 +384,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 		}
 		pBestPatient->ubAutoBandagingMedic = pSoldier->ubID;
 		*pfDoClimb = FALSE;
-		if ( CardinalSpacesAway( pSoldier->sGridNo, sBestPatientGridNo ) == 1 )
+		if ( CardinalSpacesAway( pSoldier->position().gridNo(), sBestPatientGridNo ) == 1 )
 		{
 			pSoldier->aiData.usActionData = sBestPatientGridNo;
 			return( AI_ACTION_GIVE_AID );
@@ -434,7 +434,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 	if (pSoldier->vitals().bleeding())
 	{
 		// heal self first!
-		pSoldier->aiData.usActionData = pSoldier->sGridNo;
+		pSoldier->aiData.usActionData = pSoldier->position().gridNo();
 		if (bSlot != HANDPOS)
 		{
 			pSoldier->bSlotItemTakenFrom = bSlot;

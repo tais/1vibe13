@@ -427,7 +427,7 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 		DeleteTalkingMenu( );
 	}
 
-	if ( !InitTalkingMenu( pDestSoldier->ubProfile, pDestSoldier->sGridNo ) )
+	if ( !InitTalkingMenu( pDestSoldier->ubProfile, pDestSoldier->position().gridNo() ) )
 	{
 		// If failed, and we were pending, unlock UI
 		if ( fFromPending )
@@ -806,11 +806,11 @@ void DeleteTalkingMenu( )
 					// find someone to say their "nice guy" line
 					if ( fNice )
 					{
-						SayQuote58FromNearbyMercInSector( pNPC->sGridNo, 10, QUOTE_LISTEN_LIKABLE_PERSON, gMercProfiles[ ubNPC ].bSex );
+						SayQuote58FromNearbyMercInSector( pNPC->position().gridNo(), 10, QUOTE_LISTEN_LIKABLE_PERSON, gMercProfiles[ ubNPC ].bSex );
 					}
 					else
 					{
-						SayQuoteFromNearbyMercInSector( pNPC->sGridNo, 10, QUOTE_ANNOYING_PC );
+						SayQuoteFromNearbyMercInSector( pNPC->position().gridNo(), 10, QUOTE_ANNOYING_PC );
 					}
 					gubNiceNPCProfile = NO_PROFILE;
 					gubNastyNPCProfile = NO_PROFILE;
@@ -1570,15 +1570,15 @@ BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
 	}
 
 	// pointer should always be valid anyhow
-	if( PythSpacesAway( pGiver->sGridNo, source->sGridNo ) >
+	if( PythSpacesAway( pGiver->position().gridNo(), source->position().gridNo() ) >
 		source->GetMaxDistanceVisible(
-			pGiver->sGridNo, source->pathing.bLevel) )
+			pGiver->position().gridNo(), source->position().level()) )
 	{
 		return FALSE;
 	}
 
 	sAdjGridNo = FindAdjacentGridEx(
-		pGiver, source->sGridNo, NULL, NULL, FALSE, FALSE);
+		pGiver, source->position().gridNo(), NULL, NULL, FALSE, FALSE);
 	if ( sAdjGridNo == -1 )
 	{
 		return( FALSE );
@@ -1614,7 +1614,7 @@ void HandleNPCItemGiven( UINT8 ubNPC, INT8 bInvPos )
 			destination ) )
 	{
 		// just drop it (walk up to the merc closest to ubNPC)
-		AddItemToPool( pNPC->sGridNo, &(pNPC->inv[bInvPos]), TRUE, 0, 0, 0 );
+		AddItemToPool( pNPC->position().gridNo(), &(pNPC->inv[bInvPos]), TRUE, 0, 0, 0 );
 		TriggerNPCWithGivenApproach( ubNPC, APPROACH_DONE_GIVING_ITEM, TRUE );
 	}
 	else
@@ -2044,11 +2044,11 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 		if (pSoldier && pSoldier2)
 		{
 			// see if we are facing this person
-			ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
-			ConvertGridNoToCenterCellXY(pSoldier2->sGridNo, &sX2, &sY2);
+			ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
+			ConvertGridNoToCenterCellXY(pSoldier2->position().gridNo(), &sX2, &sY2);
 			ubDesiredMercDir = atan8(sX, sY, sX2, sY2);
 			// if not already facing in that direction,
-			if (pSoldier->ubDirection != ubDesiredMercDir)
+			if (pSoldier->position().direction() != ubDesiredMercDir)
 			{
 				(void)TryDispatchSystemSetFacingCommand(
 					*pSoldier, ubDesiredMercDir,
@@ -2243,7 +2243,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier && pSoldier->inv[HANDPOS].exists() == true)
 				{
-					sGridNo = pSoldier->sGridNo + DirectionInc( pSoldier->ubDirection );
+					sGridNo = pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() );
 					pSoldier->SoldierReadyWeapon( (INT16) (sGridNo % WORLD_COLS), (INT16) (sGridNo / WORLD_COLS), FALSE, FALSE );
 				}
 				break;
@@ -2520,7 +2520,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (bItemIn != NO_SLOT && bItemIn != HANDPOS)
 				{
 					SwapObjs( pSoldier, HANDPOS, bItemIn, TRUE );
-					sGridNo = pSoldier->sGridNo + DirectionInc( pSoldier->ubDirection );
+					sGridNo = pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() );
 					pSoldier->SoldierReadyWeapon( (INT16) (sGridNo % WORLD_COLS), (INT16) (sGridNo / WORLD_COLS), FALSE, FALSE );
 				}
 				// fall through so that the person faces the nearest merc!
@@ -2533,11 +2533,11 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					if (!TileIsOutOfBounds(sGridNo))
 					{
 						// see if we are facing this person
-						ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+						ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 						ConvertGridNoToCenterCellXY(sGridNo, &sX2, &sY2);
 						ubDesiredMercDir = atan8(sX, sY, sX2, sY2);
 						// if not already facing in that direction,
-						if (pSoldier->ubDirection != ubDesiredMercDir)
+						if (pSoldier->position().direction() != ubDesiredMercDir)
 						{
 							(void)TryDispatchSystemSetFacingCommand(
 								*pSoldier, ubDesiredMercDir,
@@ -2675,7 +2675,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					if (pSoldier)
 					{
 						CreateMoney(10000, &gTempObject );
-						AddItemToPoolAndGetIndex( sGridNo, &gTempObject, -1, pSoldier->pathing.bLevel, 0, 0, -1, &iWorldItem );
+						AddItemToPoolAndGetIndex( sGridNo, &gTempObject, -1, pSoldier->position().level(), 0, 0, -1, &iWorldItem );
 
 						// shouldn't have any current action but make sure everything
 						// is clear... and set pending action so the guy won't move
@@ -2698,7 +2698,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (pSoldier)
 				{
 					DeleteTalkingMenu();
-					pSoldier->EVENT_SoldierGotHit( 1, 100, 10, pSoldier->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE );
+					pSoldier->EVENT_SoldierGotHit( 1, 100, 10, pSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE );
 				}
 				break;
 
@@ -3491,7 +3491,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					//UINT8 ubRoom;
 					UINT16 usRoom;
 
-					if ( InARoom( pSoldier->sGridNo, &usRoom ) && (usRoom == 1 || usRoom == 2 || usRoom == 3 ) )
+					if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && (usRoom == 1 || usRoom == 2 || usRoom == 3 ) )
 					{	// Kingpin is in the club
 						TriggerNPCRecord( DARREN, 31 );
 						break;
@@ -3539,7 +3539,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					}
 					else
 					{
-						sGridNo = FindNearestOpenableNonDoor( pSoldier->sGridNo );
+						sGridNo = FindNearestOpenableNonDoor( pSoldier->position().gridNo() );
 					}
 
 					SoldierPickupItem( pSoldier, ITEM_PICKUP_ACTION_ALL, sGridNo, ITEM_IGNORE_Z_LEVEL );
@@ -3620,7 +3620,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					if ( pTarget && pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() != 0 )
 					{
 						pSoldier->aiData.bNextAction = AI_ACTION_KNIFE_MOVE;
-						pSoldier->aiData.usNextActionData = pTarget->sGridNo;
+						pSoldier->aiData.usNextActionData = pTarget->position().gridNo();
 						pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
 
 						// UNless he's has a pending action, delete what he was doing!
@@ -3666,7 +3666,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 						// Make shoot
 						pSoldier->aiData.bNextAction = AI_ACTION_FIRE_GUN;
-						pSoldier->aiData.usNextActionData = pTarget->sGridNo;
+						pSoldier->aiData.usNextActionData = pTarget->position().gridNo();
 						pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
 
 						// UNless he's has a pending action, delete what he was doing!
@@ -3732,7 +3732,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						if ( fGoodTarget )
 						{
 							pSoldier->aiData.bNextAction = AI_ACTION_KNIFE_MOVE;
-							pSoldier->aiData.usNextActionData = pTarget->sGridNo;
+							pSoldier->aiData.usNextActionData = pTarget->position().gridNo();
 							pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
 
 							// UNless he's has a pending action, delete what he was doing!
@@ -3946,7 +3946,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					{
 						pSoldier = cnt;
 						// Are we in this sector, On the current squad?
-						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->sGridNo, pSoldier2->sGridNo ) < HOSPITAL_PATIENT_DISTANCE )
+						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
 						{
 							SetSoldierAssignment( pSoldier, ASSIGNMENT_HOSPITAL, 0, 0, 0 );
 							TriggerNPCRecord( pSoldier->ubProfile, 2 );
@@ -4086,11 +4086,11 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				if( ( pSoldier ) && ( pSoldier2 ) )
 				{
-					if( pSoldier->sGridNo == 10343 )
+					if( pSoldier->position().gridNo() == 10343 )
 					{
 						pSoldier2 = NULL;
 					}
-					else if( pSoldier2->sGridNo == 10343 )
+					else if( pSoldier2->position().gridNo() == 10343 )
 					{
 						pSoldier = NULL;
 					}
@@ -4329,7 +4329,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					gMercProfiles[ BRENDA ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE;
 					gMercProfiles[ BRENDA ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-					gMercProfiles[ BRENDA ].usStrategicInsertionData = pSoldier->sGridNo;
+					gMercProfiles[ BRENDA ].usStrategicInsertionData = pSoldier->position().gridNo();
 					gMercProfiles[ BRENDA ].fUseProfileInsertionInfo = TRUE;
 					pSoldier->aiData.bOrders = STATIONARY;
 				}
@@ -4341,7 +4341,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					gMercProfiles[ MIGUEL ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE;
 					gMercProfiles[ MIGUEL ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-					gMercProfiles[ MIGUEL ].usStrategicInsertionData = pSoldier->sGridNo;
+					gMercProfiles[ MIGUEL ].usStrategicInsertionData = pSoldier->position().gridNo();
 					gMercProfiles[ MIGUEL ].fUseProfileInsertionInfo = TRUE;
 					pSoldier->aiData.bOrders = STATIONARY;
 				}
@@ -4566,7 +4566,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						UINT16 usRoom;
 
 						if ( InARoom(
-								dialogueSource->sGridNo,
+								dialogueSource->position().gridNo(),
 								&usRoom ) &&
 							(usRoom ==
 								gModSettings.usPornShopRoomHans) )
@@ -4608,7 +4608,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if ( pSoldier )
 				{
 					sGridNo = GetGridNoOfCorpseGivenProfileID( WARDEN );					
-					if (!TileIsOutOfBounds(sGridNo) && PythSpacesAway( pSoldier->sGridNo, sGridNo ) <= 10 )
+					if (!TileIsOutOfBounds(sGridNo) && PythSpacesAway( pSoldier->position().gridNo(), sGridNo ) <= 10 )
 					{
 						TriggerNPCRecord( BREWSTER, 16 );
 					}
@@ -4762,7 +4762,7 @@ UINT32 CalcMedicalCost( UINT8 ubId )
 		return( 0 );
 	}
 
-	INT32 sGridNo = pNPC->sGridNo;
+	INT32 sGridNo = pNPC->position().gridNo();
 
 	for ( SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
@@ -4771,7 +4771,7 @@ UINT32 CalcMedicalCost( UINT8 ubId )
 		{
 			if ( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0)
 			{
-				if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= HOSPITAL_PATIENT_DISTANCE)
+				if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= HOSPITAL_PATIENT_DISTANCE)
 				{
 					uiCostSoFar += CalcPatientMedicalCost( pSoldier );
 				}
@@ -5294,7 +5294,7 @@ BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor )
 		}
 		else
 		{
-			sStructGridNo = FindNearestOpenableNonDoor( pSoldier->sGridNo );
+			sStructGridNo = FindNearestOpenableNonDoor( pSoldier->position().gridNo() );
 		}
 		
 		if (TileIsOutOfBounds(sStructGridNo))
@@ -5337,7 +5337,7 @@ BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor )
 	StartInteractiveObject( sStructGridNo, pStructure->usStructureID, pSoldier, ubDirection );
 
 	// check if we are at this location
-	if ( pSoldier->sGridNo == sGridNo )
+	if ( pSoldier->position().gridNo() == sGridNo )
 	{
 		InteractWithInteractiveObject( pSoldier, pStructure, ubDirection );
 	}
@@ -5605,8 +5605,8 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 		pSoldier = &Menptr[ SoldierIdArray[ ubCnt ] ];
 
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->sGridNo, pSoldier->sGridNo ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->flags.fMercAsleep &&
-			SoldierTo3DLocationLineOfSightTest( pSoldier, pNPC->sGridNo, 0, 0, (UINT8)MaxDistanceVisible(), TRUE ) )
+		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->flags.fMercAsleep &&
+			SoldierTo3DLocationLineOfSightTest( pSoldier, pNPC->position().gridNo(), 0, 0, (UINT8)MaxDistanceVisible(), TRUE ) )
 		{
 			ValidSoldierIdArray[ ubNumValidSoldiers ] = pSoldier->ubID;
 			++ubNumValidSoldiers;
@@ -5840,8 +5840,8 @@ void HandleRaulBlowingHimselfUp()
 		//blow himself up with, hmmm, lets say TNT.  :)
 		usItem = HAND_GRENADE;
 		INT16 sX, sY;
-		ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
-		IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, usItem, pSoldier->pathing.bLevel );
+		ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
+		IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), usItem, pSoldier->position().level() );
 
 		SetJa25GeneralFlag( JA_GF__RAUL_BLOW_HIMSELF_UP );
 	}

@@ -657,10 +657,10 @@ void CheckForDisabledForGiveItem( )
 			pSoldier = cnt;
 			if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) )
 			{
-				sDist = PythSpacesAway( currentMerc->sGridNo, pSoldier->sGridNo );
+				sDist = PythSpacesAway( currentMerc->position().gridNo(), pSoldier->position().gridNo() );
 
 				// Check LOS....
-				if ( SoldierTo3DLocationLineOfSightTest( pSoldier, currentMerc->sGridNo, currentMerc->pathing.bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
+				if ( SoldierTo3DLocationLineOfSightTest( pSoldier, currentMerc->position().gridNo(), currentMerc->position().level(), 3, TRUE, CALC_FROM_ALL_DIRS ) )
 				{
 					if ( sDist <= PASSING_ITEM_DISTANCE_NOTOKLIFE )
 					{
@@ -685,11 +685,11 @@ void CheckForDisabledForGiveItem( )
 		{
 			if ( currentMerc->ubID != ubSrcSoldier )
 			{
-				sDestGridNo = currentMerc->sGridNo;
-				bDestLevel	= currentMerc->pathing.bLevel;
+				sDestGridNo = currentMerc->position().gridNo();
+				bDestLevel	= currentMerc->position().level();
 
 				// Get distance....
-				sDist = PythSpacesAway( ubSrcSoldier->sGridNo, sDestGridNo );
+				sDist = PythSpacesAway( ubSrcSoldier->position().gridNo(), sDestGridNo );
 
 				// Check LOS....
 				if ( SoldierTo3DLocationLineOfSightTest( ubSrcSoldier, sDestGridNo,  bDestLevel, 3, TRUE, CALC_FROM_ALL_DIRS )  )
@@ -850,7 +850,7 @@ void UpdateSMPanel( )
 	//BOOLEAN						fNearLowerLevelOkno;
 	//BOOLEAN						fNearHeigherLevelOkno;
 
-	if (TileIsOutOfBounds(GetSMCurrentMerc()->sGridNo))
+	if (TileIsOutOfBounds(GetSMCurrentMerc()->position().gridNo()))
 	{
 		return;
 	}
@@ -1007,7 +1007,7 @@ void UpdateSMPanel( )
 
 	if (gGameExternalOptions.fCanClimbOnWalls == TRUE)
 	{
-		if (FindWallJumpDirection(GetSMCurrentMerc(), GetSMCurrentMerc()->sGridNo, GetSMCurrentMerc()->ubDirection, &bDirection))
+		if (FindWallJumpDirection(GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection))
 		{
 			if (IsValidStance(GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToJumpWall(GetSMCurrentMerc(), FALSE), GetBPsToJumpWall(GetSMCurrentMerc(), FALSE), FALSE))
 			{
@@ -1016,7 +1016,7 @@ void UpdateSMPanel( )
 		}
 	}
 
-	if (FindFenceJumpDirection(GetSMCurrentMerc(), GetSMCurrentMerc()->sGridNo, GetSMCurrentMerc()->ubDirection, &bDirection))
+	if (FindFenceJumpDirection(GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection))
 	{
 		if (IsValidStance(GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToJumpFence(GetSMCurrentMerc(), FALSE), GetBPsToJumpFence(GetSMCurrentMerc(), FALSE), FALSE))
 		{
@@ -4228,8 +4228,8 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 							LBENODE* pLBE = gWorldItems[wi].object.GetLBEPointer(x);
 							if(pLBE && pLBE->lbeIndex != NONE) {
 								// Found an associated backpack so figure out how far that pack is from us
-								iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, gWorldItems[wi].sGridNo );
-								if(gWorldItems[wi].sGridNo == pSoldier->sGridNo)	// standing on pack - pickup regardless
+								iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), gWorldItems[wi].sGridNo );
+								if(gWorldItems[wi].sGridNo == pSoldier->position().gridNo())	// standing on pack - pickup regardless
 								{
 									// Buggler: pickup should cost the same as manually picking it up
 									//sAPCost = 0;
@@ -4272,7 +4272,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 			}
 		}
 		MoveItemToLBEItem( pSoldier, BPACKPOCKPOS );
-		AddItemToPoolAndGetIndex(pSoldier->sGridNo, &pSoldier->inv[BPACKPOCKPOS], 1, pSoldier->pathing.bLevel, 0, -1, pSoldier->ubID, &worldKey );
+		AddItemToPoolAndGetIndex(pSoldier->position().gridNo(), &pSoldier->inv[BPACKPOCKPOS], 1, pSoldier->position().level(), 0, -1, pSoldier->ubID, &worldKey );
 		// Item successfully added to world
 		if(worldKey != ITEM_NOT_FOUND)
 		{
@@ -4726,7 +4726,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 				return;
 			}
 
-			if ( FindWallJumpDirection( GetSMCurrentMerc(), GetSMCurrentMerc()->sGridNo, GetSMCurrentMerc()->ubDirection, &bDirection ) )
+			if ( FindWallJumpDirection( GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection ) )
 			{
 				TryDispatchTraverseObstacleCommandNow(
 					*GetSMCurrentMerc(),
@@ -4736,7 +4736,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 		
 		//------------------------------------------
 
-		if ( FindFenceJumpDirection( GetSMCurrentMerc(), GetSMCurrentMerc()->sGridNo, GetSMCurrentMerc()->ubDirection, &bDirection ) )
+		if ( FindFenceJumpDirection( GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection ) )
 		{
 			if (!GetSMCurrentMerc()->CanClimbWithCurrentBackpack())
 			{

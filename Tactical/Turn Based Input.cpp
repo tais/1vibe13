@@ -1612,7 +1612,7 @@ void CheatCreateItem( )
 		(newobj)[0]->data.bTemperature = temperature;
 					
 		if ( !AutoPlaceObject( gusSelectedSoldier, &newobj, FALSE ) )
-			AddItemToPool( gusSelectedSoldier->sGridNo, &newobj, 1, 0, 0, -1 );
+			AddItemToPool( gusSelectedSoldier->position().gridNo(), &newobj, 1, 0, 0, -1 );
 	}
 }
 
@@ -2200,7 +2200,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if (pSoldier->bActive && pSoldier->bInSector && pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED && WeaponReady(pSoldier))
 							{
 								if (TryDispatchSetWeaponReadyCommandNow(
-										*pSoldier, pSoldier->ubDirection,
+										*pSoldier, pSoldier->position().direction(),
 										false, false))
 									HandleSight(pSoldier, SIGHT_LOOK);
 							}
@@ -2239,7 +2239,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 			{
 				if (TryDispatchSetWeaponReadyCommandNow(
 						*gusSelectedSoldier,
-						gusSelectedSoldier->ubDirection,
+						gusSelectedSoldier->position().direction(),
 						false, false))
 					HandleSight(gusSelectedSoldier, SIGHT_LOOK);
 				continue;
@@ -2930,9 +2930,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						}
 						else if (pSoldier->CanStartDrag())
 						{
-							INT32 sNewGridNo = NewGridNo(pSoldier->sGridNo, DirectionInc(pSoldier->ubDirection));
+							INT32 sNewGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(pSoldier->position().direction()));
 
-							if (!TileIsOutOfBounds(sNewGridNo) && sNewGridNo != pSoldier->sGridNo)
+							if (!TileIsOutOfBounds(sNewGridNo) && sNewGridNo != pSoldier->position().gridNo())
 							{
 								if (EnoughPoints(pSoldier, GetAPsToStartDrag(pSoldier, sNewGridNo), 0, TRUE))
 									pSoldier->StartDrag();
@@ -3502,7 +3502,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					{
 						if(pSoldier->inv[i].exists() == true)
 						{
-							AddItemToPool(pSoldier->sGridNo, &pSoldier->inv[i], 1, pSoldier->pathing.bLevel, 0, -1);
+							AddItemToPool(pSoldier->position().gridNo(), &pSoldier->inv[i], 1, pSoldier->position().level(), 0, -1);
 							//pSoldier->inv[i].initialize();
 							DeleteObj(&pSoldier->inv[i]);
 						}
@@ -3561,7 +3561,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if ( gfUIFullTargetFound )
 							{
 								//Display the range to the target
-								DisplayRangeToTarget( gusSelectedSoldier, gusUIFullTargetID->sGridNo );
+								DisplayRangeToTarget( gusSelectedSoldier, gusUIFullTargetID->position().gridNo() );
 							}
 							else
 							{
@@ -3865,7 +3865,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						}
 
 						// Jump over fence
-						if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
+						if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 						{
 							if (!pjSoldier->CanClimbWithCurrentBackpack())
 							{
@@ -3900,7 +3900,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 								return;
 							}
 
-							if ( FindWallJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
+							if ( FindWallJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 							{
 								if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
 								{
@@ -3930,7 +3930,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						if ( AM_A_ROBOT( lSoldier ) )
 							break;
 
-			 			if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
+						if ( FindWindowJumpDirection( lSoldier, lSoldier->position().gridNo(), lSoldier->position().direction(), &bDirection ) )
 						{
 							if (!lSoldier->CanClimbWithCurrentBackpack())
 							{
@@ -4637,7 +4637,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							{
 								if ( pSoldier2->vitals().health() >= OKLIFE )
 								{
-									if (CanSoldierReachGridNoInGivenTileLimit( pSoldier1, pSoldier2->sGridNo, 1, (INT8)gsInterfaceLevel ) )
+									if (CanSoldierReachGridNoInGivenTileLimit( pSoldier1, pSoldier2->position().gridNo(), 1, (INT8)gsInterfaceLevel ) )
 									{
 										// Exclude enemies....
 										if ( !pSoldier2->aiData.bNeutral && (pSoldier2->bSide != gbPlayerNum ) )
@@ -4652,9 +4652,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 												(void)TryDispatchExchangePositionsCommandNow(
 													*pSoldier1,
 													*pSoldier2,
-													pSoldier1->sGridNo,
-													pSoldier2->sGridNo,
-													pSoldier1->pathing.bLevel );
+													pSoldier1->position().gridNo(),
+													pSoldier2->position().gridNo(),
+													pSoldier1->position().level() );
 											}
 										}
 										fFoundGoodTarget = TRUE;
@@ -5253,7 +5253,7 @@ void TeleportSelectedSoldier()
 			{
 				pSoldier->SetSoldierHeight( 0 );
 				TeleportSoldier( pSoldier, usMapPos, FALSE );
-				pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 			}
 			else
 			{
@@ -5263,7 +5263,7 @@ void TeleportSelectedSoldier()
 					pSoldier->SetSoldierHeight( 50.0 );
 
 					TeleportSoldier( pSoldier, usMapPos, TRUE );
-					pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 				}
 			}
 		}
@@ -5409,7 +5409,7 @@ void ObliterateSector()
 			//	CreateAnimationTile( &AniParams );
 			//PlayJA2Sample( EXPLOSION_1, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 
-			pTSoldier->EVENT_SoldierGotHit( 1, 400, 0, pTSoldier->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTSoldier->bAimShotLocation, 0, NOWHERE );
+			pTSoldier->EVENT_SoldierGotHit( 1, 400, 0, pTSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTSoldier->bAimShotLocation, 0, NOWHERE );
 		}
 	}
 }
@@ -5682,7 +5682,7 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 					if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
 					{
 						const SimulationCommandDispatchResult vehicleEntry =
-							pSoldier->sGridNo != sActionGridNo
+							pSoldier->position().gridNo() != sActionGridNo
 								? TryDispatchApproachVehicleCommandNow(
 									*pSoldier,
 									*pTSoldier,
@@ -5750,14 +5750,14 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 				pTMilitiaSoldier->aiData.usNextActionData = sClimbSpot;
 				pTMilitiaSoldier->sAbsoluteFinalDestination = sMoveSpot;
 
-				BeginMultiPurposeLocator(sClimbSpot, pTMilitiaSoldier->pathing.bLevel, FALSE);
+				BeginMultiPurposeLocator(sClimbSpot, pTMilitiaSoldier->position().level(), FALSE);
 			}
 			else
 			{
 				pTMilitiaSoldier->aiData.bNextAction = AI_ACTION_SEEK_OPPONENT;
 				pTMilitiaSoldier->aiData.usNextActionData = sMoveSpot;
 
-				BeginMultiPurposeLocator(sMoveSpot, pTMilitiaSoldier->pathing.bLevel, FALSE);
+				BeginMultiPurposeLocator(sMoveSpot, pTMilitiaSoldier->position().level(), FALSE);
 			}
 			RESETTIMECOUNTER(pTMilitiaSoldier->timeCounters.AICounter, 100);
 
@@ -5845,7 +5845,7 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 			// Flugente: allow stealing if the other guy is an enemy, OR if we are on the same team
 			if ( (( guiUIFullTargetFlags & ENEMY_MERC ) && !( guiUIFullTargetFlags & UNCONSCIOUS_MERC )) || (AllowedToStealFromTeamMate(pSoldier->ubID, gusUIFullTargetID) && guiUIFullTargetFlags & OWNED_MERC) )
 			{
-				sActionGridNo =	FindAdjacentGridEx( pSoldier, gusUIFullTargetID->sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
+				sActionGridNo =	FindAdjacentGridEx( pSoldier, gusUIFullTargetID->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 				if ( sActionGridNo == -1 )
 				{
 					sActionGridNo = sAdjustedGridNo;
@@ -5859,8 +5859,8 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 					if ( TryDispatchStealFromActorCommandNow(
 							*pSoldier,
 							*gusUIFullTargetID,
-							gusUIFullTargetID->sGridNo,
-							gusUIFullTargetID->pathing.bLevel ) )
+							gusUIFullTargetID->position().gridNo(),
+							gusUIFullTargetID->position().level() ) )
 					{
 						*puiNewEvent = A_CHANGE_TO_MOVE;
 						return;
@@ -5893,7 +5893,7 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 
 		// Check if we are over an item pool
 		// ATE: Ignore items will be set if over a switch interactive tile...
-		if ( GetItemPool( sActionGridNo, &pItemPool, pSoldier->pathing.bLevel ) && ITEMPOOL_VISIBLE( pItemPool ) && !fIgnoreItems )
+		if ( GetItemPool( sActionGridNo, &pItemPool, pSoldier->position().level() ) && ITEMPOOL_VISIBLE( pItemPool ) && !fIgnoreItems )
 		{
 			if ( AM_AN_EPC( pSoldier ) )
 			{
@@ -5926,7 +5926,7 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				}
 
 				// If this is not the same tile as ours, check if we can get to dest!
-				if ( sActionGridNo != pSoldier->sGridNo && gsCurrentActionPoints == 0 )
+				if ( sActionGridNo != pSoldier->position().gridNo() && gsCurrentActionPoints == 0 )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NO_PATH ] );
 				}
@@ -6061,7 +6061,7 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 		}
 
 		// OK, check for height differences.....
-		if ( gpWorldLevelData[ usMapPos ].sHeight != gpWorldLevelData[ pSoldier->sGridNo ].sHeight )
+		if ( gpWorldLevelData[ usMapPos ].sHeight != gpWorldLevelData[ pSoldier->position().gridNo() ].sHeight )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ CANT_GET_THERE ] );
 			return( -1 );
@@ -6084,9 +6084,9 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 					(void)TryDispatchExchangePositionsCommandNow(
 						*pSoldier,
 						*gusUIFullTargetID,
-						pSoldier->sGridNo,
-						gusUIFullTargetID->sGridNo,
-						pSoldier->pathing.bLevel );
+						pSoldier->position().gridNo(),
+						gusUIFullTargetID->position().gridNo(),
+						pSoldier->position().level() );
 				}
 			}
 			return( -3 );
@@ -6100,7 +6100,7 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 
 			// Check if we are over an item pool, take precedence over that.....
 			// EXCEPT FOR SWITCHES!
-			if ((pStructure->fFlags & STRUCTURE_OPEN || !(pStructure->fFlags & STRUCTURE_OPENABLE)) && !(pStructure->fFlags & (STRUCTURE_SWITCH|STRUCTURE_ANYDOOR)) && GetItemPool(sIntTileGridNo, &pItemPool, pSoldier->pathing.bLevel))
+			if ((pStructure->fFlags & STRUCTURE_OPEN || !(pStructure->fFlags & STRUCTURE_OPENABLE)) && !(pStructure->fFlags & (STRUCTURE_SWITCH|STRUCTURE_ANYDOOR)) && GetItemPool(sIntTileGridNo, &pItemPool, pSoldier->position().level()))
 			{
 				if ( AM_AN_EPC( pSoldier ) )
 				{
@@ -6140,7 +6140,7 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				}
 
 				// If this is not the same tile as ours, check if we can get to dest!
-				if ( sActionGridNo != gusSelectedSoldier->sGridNo && gsCurrentActionPoints == 0 )
+				if ( sActionGridNo != gusSelectedSoldier->position().gridNo() && gsCurrentActionPoints == 0 )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NO_PATH ] );
 					bReturnCode = -1;
@@ -7644,7 +7644,7 @@ void HandleTBJump( void )
 					}
 					
 					// Jump over fence
-					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
+					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 					{
 						if (!pjSoldier->CanClimbWithCurrentBackpack())
 						{
@@ -7668,7 +7668,7 @@ void HandleTBJump( void )
 					// Climb on walls
 					if (gGameExternalOptions.fCanClimbOnWalls == TRUE)
 					{ 
-						if ( FindWallJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
+						if ( FindWallJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 						{
 							// No climbing when wearing a backpack!
 							if (!pjSoldier->CanClimbWithCurrentBackpack())
@@ -7695,7 +7695,7 @@ void HandleTBJumpThroughWindow( void ){
 
 		if ( GetSoldier( &pjSoldier, gusSelectedSoldier ) )
 	{
-			if ( FindWindowJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
+			if ( FindWindowJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 		{
 				if (!pjSoldier->CanClimbWithCurrentBackpack())
 			{
@@ -8900,9 +8900,9 @@ void HandleTacticalMoveItems( void )
 
 			for ( UINT32 uiLoop = 0; uiLoop < guiNumWorldItems; ++uiLoop ) //for all items in sector
 			{
-				if ( (gWorldItems[ uiLoop ].bVisible == TRUE) && (gWorldItems[ uiLoop ].fExists) && (gWorldItems[ uiLoop ].usFlags & WORLD_ITEM_REACHABLE) && !(gWorldItems[ uiLoop ].usFlags & WORLD_ITEM_ARMED_BOMB) && (gWorldItems[ uiLoop ].sGridNo != pSoldier->sGridNo) )//item exists and is reachable and is not already on soldiers tile
+				if ( (gWorldItems[ uiLoop ].bVisible == TRUE) && (gWorldItems[ uiLoop ].fExists) && (gWorldItems[ uiLoop ].usFlags & WORLD_ITEM_REACHABLE) && !(gWorldItems[ uiLoop ].usFlags & WORLD_ITEM_ARMED_BOMB) && (gWorldItems[ uiLoop ].sGridNo != pSoldier->position().gridNo()) )//item exists and is reachable and is not already on soldiers tile
 				{
-					MoveItemPools(gWorldItems[ uiLoop ].sGridNo, pSoldier->sGridNo, gWorldItems[ uiLoop ].ubLevel, pSoldier->pathing.bLevel);
+					MoveItemPools(gWorldItems[ uiLoop ].sGridNo, pSoldier->position().gridNo(), gWorldItems[ uiLoop ].ubLevel, pSoldier->position().level());
 				}
 			}
 
@@ -9640,10 +9640,10 @@ void HandleTBSkillsMenu(void)
 	{
 		TraitsMenu(usMapPos);
 	}
-	else if (gusSelectedSoldier != NOBODY && gusSelectedSoldier && !TileIsOutOfBounds(gusSelectedSoldier->sGridNo))
+	else if (gusSelectedSoldier != NOBODY && gusSelectedSoldier && !TileIsOutOfBounds(gusSelectedSoldier->position().gridNo()))
 	{
-		LocateGridNo(gusSelectedSoldier->sGridNo);
-		TraitsMenu(gusSelectedSoldier->sGridNo);
+		LocateGridNo(gusSelectedSoldier->position().gridNo());
+		TraitsMenu(gusSelectedSoldier->position().gridNo());
 	}
 }
 

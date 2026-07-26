@@ -640,7 +640,7 @@ void RenderRadarScreen( )
 
 				// Get FULL screen coordinate for guy's position
 				// Getxy from gridno
-				ConvertGridNoToXY( pSoldier->sGridNo, &sXSoldPos, &sYSoldPos );
+				ConvertGridNoToXY( pSoldier->position().gridNo(), &sXSoldPos, &sYSoldPos );
 				GetWorldXYAbsoluteScreenXY( sXSoldPos, sYSoldPos, &sXSoldScreen, &sYSoldScreen );
 
 				sXSoldRadar = (INT16)( sXSoldScreen * gdScaleX );
@@ -666,7 +666,7 @@ void RenderRadarScreen( )
 					else
 					{
 						// If on roof, make darker....
-						if ( pSoldier->pathing.bLevel > 0 )
+						if ( pSoldier->position().level() > 0 )
 						{
 							usLineColor = Get16BPPColor( FROMRGB( 150, 150, 0 ) );
 						}
@@ -709,7 +709,7 @@ void RenderRadarScreen( )
 					}
 
 					// If on roof, make darker....
-					if ( pSoldier->bTeam == gbPlayerNum && pSoldier->pathing.bLevel > 0 )
+					if ( pSoldier->bTeam == gbPlayerNum && pSoldier->position().level() > 0 )
 					{
 						usLineColor = Get16BPPColor( FROMRGB( 150, 150, 0 ) );
 					}

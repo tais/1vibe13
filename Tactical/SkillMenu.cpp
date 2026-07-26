@@ -786,7 +786,7 @@ SoldierSelection::Setup( UINT32 aVal )
 		// loop through all soldiers around
 		for ( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID ; id <= gTacticalStatus.Team[ CIV_TEAM ].bLastID ; ++id )
 		{
-			INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( sTraitsMenuTargetGridNo, id->sGridNo );
+			INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( sTraitsMenuTargetGridNo, id->position().gridNo() );
 
 			if ( iRange < 100 )
 			{
@@ -878,7 +878,7 @@ DragSelection::Setup( UINT32 aVal )
 		}
 
 		// corpses
-		std::vector<INT16> corpseids = GetCorpseIDsNearGridNo( pSoldier->sGridNo, pSoldier->pathing.bLevel, 1 );
+		std::vector<INT16> corpseids = GetCorpseIDsNearGridNo( pSoldier->position().gridNo(), pSoldier->position().level(), 1 );
 
 		for ( std::vector<INT16>::iterator it = corpseids.begin(); it != corpseids.end(); ++it )
 		{
@@ -895,14 +895,14 @@ DragSelection::Setup( UINT32 aVal )
 		// gridno
 		for ( int ubDirection = 0; ubDirection < NUM_WORLD_DIRECTIONS; ++ubDirection )
 		{
-			INT32 sTempGridNo = NewGridNo( pSoldier->sGridNo, DirectionInc( ubDirection ) );
+			INT32 sTempGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( ubDirection ) );
 
 			UINT32 tiletype;
 			UINT16 structurenumber;
 			UINT8 hitpoints;
 			UINT8 decalflag;
 			if ( pSoldier->CanDragStructure( sTempGridNo )
-				&& IsDragStructurePresent( sTempGridNo, pSoldier->pathing.bLevel, tiletype, structurenumber, hitpoints, decalflag ) )
+				&& IsDragStructurePresent( sTempGridNo, pSoldier->position().level(), tiletype, structurenumber, hitpoints, decalflag ) )
 			{
 				int xmlentry;
 				GetDragStructureXmlEntry( tiletype, structurenumber, xmlentry );

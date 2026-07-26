@@ -2613,11 +2613,11 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		if ( pSoldier->ubBodyType == QUEENMONSTER )
 		{
 			// Queen uses onely one direction....
-			fReturn = AddStructureToWorld( sGridNo, pSoldier->pathing.bLevel, &( pStructureFileRef->pDBStructureRef[ 0 ] ), pSoldier->pLevelNode );
+			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ 0 ] ), pSoldier->pLevelNode );
 		}
 		else
 		{
-			fReturn = AddStructureToWorld( sGridNo, pSoldier->pathing.bLevel, &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ] ), pSoldier->pLevelNode );
+			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ] ), pSoldier->pLevelNode );
 		}
 /*
 		if ( fReturn == FALSE )
@@ -2637,14 +2637,14 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		{
 
 			// Debug msg
-			ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"FAILED: add struct info for merc %d (%s), at %d direction %d", pSoldier->ubID, pSoldier->name, sGridNo, pSoldier->ubDirection );
+			ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"FAILED: add struct info for merc %d (%s), at %d direction %d", pSoldier->ubID, pSoldier->name, sGridNo, pSoldier->position().direction() );
 
 			// pDBStructure can be NULL here (and ubDirection may index a direction the
 			// structure file has no variant for) -- this failure path crashed when a
 			// remote placement collided with an occupied tile.
-			if ( pSoldier->ubDirection < NUM_WORLD_DIRECTIONS
-				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ].pDBStructure != NULL
-				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ].pDBStructure->ubNumberOfTiles > 1 )
+			if ( pSoldier->position().direction() < NUM_WORLD_DIRECTIONS
+				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ].pDBStructure != NULL
+				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ].pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
 				pSoldier->flags.uiStatusFlags |= SOLDIER_MULTITILE_Z;
@@ -2705,7 +2705,7 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 				usOKToAddStructID = INVALID_STRUCTURE_ID;
 			}
 
-			if ( !OkayToAddStructureToWorld( pSoldier->sGridNo, pSoldier->pathing.bLevel, &(pStructFileRef->pDBStructureRef[gOneCDirection[ bDirection ]]), usOKToAddStructID ))
+			if ( !OkayToAddStructureToWorld( pSoldier->position().gridNo(), pSoldier->position().level(), &(pStructFileRef->pDBStructureRef[gOneCDirection[ bDirection ]]), usOKToAddStructID ))
 			{
 				return( FALSE );
 			}
@@ -2727,7 +2727,7 @@ BOOLEAN UpdateMercStructureInfo( SOLDIERTYPE *pSoldier )
 	//DeleteStructureFromWorld( pSoldier->pLevelNode->pStructureData );
 
 	// Add new one!
-	return( AddMercStructureInfo( pSoldier->sGridNo, pSoldier ) );
+	return( AddMercStructureInfo( pSoldier->position().gridNo(), pSoldier ) );
 }
 
 
@@ -3862,7 +3862,7 @@ SoldierID WhoIsThere2( INT32 sGridNo, INT8 bLevel )
 		while ( pStructure )
 		{
 			// person must either have their pSoldier->sGridNo here or be non-passable
-			if ( (pStructure->fFlags & STRUCTURE_PERSON) && ( !(pStructure->fFlags & STRUCTURE_PASSABLE) || MercPtrs[ pStructure->usStructureID ]->sGridNo == sGridNo) )
+			if ( (pStructure->fFlags & STRUCTURE_PERSON) && ( !(pStructure->fFlags & STRUCTURE_PASSABLE) || MercPtrs[ pStructure->usStructureID ]->position().gridNo() == sGridNo) )
 			{
 				if ( ( bLevel == 0 && pStructure->sCubeOffset == 0 ) || (bLevel > 0 && pStructure->sCubeOffset > 0) )
 				{
@@ -4259,10 +4259,10 @@ void UpdateTreeVisibility()
 
 							if (pOpponent &&
 								pOpponent->bVisible != -1 &&
-								!TileIsOutOfBounds(pOpponent->sGridNo) &&
-								(PythSpacesAway(sSpot, pOpponent->sGridNo) <= 2 && AIDirection(sSpot, pOpponent->sGridNo) == 0 ||
-								PythSpacesAway(sSpot, pOpponent->sGridNo) <= 6 && AIDirection(sSpot, pOpponent->sGridNo) == 7 ||
-								PythSpacesAway(sSpot, pOpponent->sGridNo) <= 2 && AIDirection(sSpot, pOpponent->sGridNo) == 6))
+								!TileIsOutOfBounds(pOpponent->position().gridNo()) &&
+								(PythSpacesAway(sSpot, pOpponent->position().gridNo()) <= 2 && AIDirection(sSpot, pOpponent->position().gridNo()) == 0 ||
+								PythSpacesAway(sSpot, pOpponent->position().gridNo()) <= 6 && AIDirection(sSpot, pOpponent->position().gridNo()) == 7 ||
+								PythSpacesAway(sSpot, pOpponent->position().gridNo()) <= 2 && AIDirection(sSpot, pOpponent->position().gridNo()) == 6))
 							{
 								fHideTree = TRUE;
 								break;

@@ -8825,8 +8825,8 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 					sectormercmap[targetsector] = pair;
 				}
 
-				if ( TileIsOutOfBounds(sDropOffGridNo) && !TileIsOutOfBounds( pSoldier->sGridNo ) )
-					sDropOffGridNo = pSoldier->sGridNo;
+				if ( TileIsOutOfBounds(sDropOffGridNo) && !TileIsOutOfBounds( pSoldier->position().gridNo() ) )
+					sDropOffGridNo = pSoldier->position().gridNo();
 			}
 		}
 	}

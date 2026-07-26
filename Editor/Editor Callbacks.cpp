@@ -1312,7 +1312,7 @@ void MercsFindSelectedMercCallback( GUI_BUTTON *btn, INT32 reason )
 		GetSoldier( &pSoldier, gsSelectedMercID );
 		if( !pSoldier )
 			return;
-		CenterScreenAtMapIndex( pSoldier->sGridNo );
+		CenterScreenAtMapIndex( pSoldier->position().gridNo() );
 	}
 }
 

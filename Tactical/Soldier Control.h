@@ -1056,7 +1056,6 @@ public:
 	//INT32												sDesiredDest;//apparently not used
 	INT32												sDestination;
 	INT32												sFinalDestination;
-	INT8												bLevel;
 	INT8												bStopped;
 	INT8												bNeedToLook;
 	// PATH STUFF
@@ -1091,7 +1090,8 @@ public:
 	bool	exists();
 	SoldierVitalsComponent& vitals() noexcept { return vitals_; }
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
-	SoldierPositionComponent position() { return SoldierPositionComponent(*this); }
+	SoldierPositionComponent& position() noexcept { return position_; }
+	const SoldierPositionComponent& position() const noexcept { return position_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -1161,8 +1161,6 @@ public:
 	INT16			sOldXPos;
 	INT16			sOldYPos;
 	INT32			sInitialGridNo;
-	INT32			sGridNo;
-	UINT8			ubDirection;
 	INT16			sHeightAdjustment;
 	INT16			sDesiredHeight;
 	INT32			sTempNewGridNo;			// New grid no for advanced animations
@@ -1617,6 +1615,7 @@ public:
 
 private:
 	SoldierVitalsComponent	vitals_;
+	SoldierPositionComponent	position_;
 
 public:
 	STRUCT_Pathing			pathing;

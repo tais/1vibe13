@@ -3583,7 +3583,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 						if ( !pAmmo->exists() || gTempObject.usItem == pAmmo->usItem )
 							pAmmo->AddObjectsToStack( gTempObject, 1 );
 						else if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0 , -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0 , -1 );
 					}
 				}
 				else
@@ -3599,7 +3599,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 						if ( gTempObject.exists( ) && !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
 						{
 							// put it on the ground
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0 , -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0 , -1 );
 						}
 						// delete the object now in the cursor
 						pAmmo->RemoveObjectsFromStack(1);
@@ -3667,8 +3667,8 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 		if ( usReloadSound != 0 && !IsAutoResolveActive() )
 		{
 			// sevenfm: set volume and pan based on soldier's gridno when reloading
-			if (!TileIsOutOfBounds(pSoldier->sGridNo))
-				PlayJA2Sample(usReloadSound, RATE_11025, SoundVolume((INT8)HIGHVOLUME, pSoldier->sGridNo), 1, SoundDir(pSoldier->sGridNo));
+			if (!TileIsOutOfBounds(pSoldier->position().gridNo()))
+				PlayJA2Sample(usReloadSound, RATE_11025, SoundVolume((INT8)HIGHVOLUME, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
 			else
 				PlayJA2Sample( usReloadSound, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 		}
@@ -3939,7 +3939,7 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 		}
 		////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-		PlayJA2Sample( Weapon[ Item[pObj->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+		PlayJA2Sample( Weapon[ Item[pObj->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 		if ( pSoldier->IsValidSecondHandShot( ) )
 		{
@@ -3948,7 +3948,7 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 			if ((*pObj2)[0]->data.gun.ubGunShotsLeft && !((*pObj2)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
 			{
 				(*pObj2)[0]->data.gun.ubGunState |= GS_CARTRIDGE_IN_CHAMBER;
-				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 			}
 		}
 
@@ -3991,7 +3991,7 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 				}
 				////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 				return TRUE;
 			}
@@ -4242,15 +4242,15 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 				// attachment sounds
 				if ( Item[ this->usItem ].usItemClass & IC_WEAPON || ItemIsTripwire(this->usItem) )  //Madd: attaching items to tripwire makes gun attach sound
 				{
-					PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+					PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 				}
 				else if ( Item[ this->usItem ].usItemClass & IC_ARMOUR )
 				{
-					PlayJA2Sample( ATTACH_CERAMIC_PLATES, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+					PlayJA2Sample( ATTACH_CERAMIC_PLATES, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 				}
 				else if ( Item[ this->usItem ].usItemClass & IC_BOMB )
 				{
-					PlayJA2Sample( ATTACH_DETONATOR, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+					PlayJA2Sample( ATTACH_DETONATOR, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 				}
 			}
 		}
@@ -4873,15 +4873,15 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 				// attachment sounds
 				if ( Item[ this->usItem ].usItemClass & IC_WEAPON || ItemIsTripwire(this->usItem) ) //Madd: attaching items to tripwire makes gun attach sound
 				{
-					PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+					PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 				}
 				else if ( Item[ this->usItem ].usItemClass & IC_ARMOUR )
 				{
-					PlayJA2Sample( ATTACH_CERAMIC_PLATES, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+					PlayJA2Sample( ATTACH_CERAMIC_PLATES, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 				}
 				else if ( Item[ this->usItem ].usItemClass & IC_BOMB )
 				{
-					PlayJA2Sample( ATTACH_DETONATOR, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+					PlayJA2Sample( ATTACH_DETONATOR, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 				}
 			}
 		}
@@ -4957,7 +4957,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 				if (pSoldier) {
 					if ( !AutoPlaceObject( pSoldier, pAttachmentPosition, FALSE ) )
 					{   // put it on the ground
-						AddItemToPool( pSoldier->sGridNo, pAttachmentPosition, 1, pSoldier->pathing.bLevel, 0 , -1 );
+						AddItemToPool( pSoldier->position().gridNo(), pAttachmentPosition, 1, pSoldier->position().level(), 0 , -1 );
 					}
 				}
 			} else {
@@ -5210,14 +5210,14 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 					{
 						CreateItem( usResult, 100, &gTempObject );
 						if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, 0, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, 0, 0, -1 );
 						( *this )[subObject]->data.objectStatus--;
 					}
 					if ( ( *this )[subObject]->data.objectStatus > 0 && usResult2 != NOTHING )
 					{
 						CreateItem( usResult2, 100, &gTempObject );
 						if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, 0, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, 0, 0, -1 );
 						( *this )[subObject]->data.objectStatus--;
 					}
 					if ( ( *this )[subObject]->data.objectStatus == 0 )
@@ -5290,7 +5290,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 					{
 						CreateItem( usResult2, 100, &gTempObject );
 						if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, 0, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, 0, 0, -1 );
 					}
 
 					//AutoPlaceObject( pAttachment );
@@ -6052,7 +6052,7 @@ void RemoveProhibitedAttachments(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, UINT16
 						if (pSoldier) {
 							if ( !AutoPlaceObject( pSoldier, &(*iter), FALSE ) )
 							{   // put it on the ground
-								AddItemToPool( pSoldier->sGridNo, &(*iter), 1, pSoldier->pathing.bLevel, 0 , -1 );
+								AddItemToPool( pSoldier->position().gridNo(), &(*iter), 1, pSoldier->position().level(), 0 , -1 );
 							}
 						}
 					}
@@ -6173,7 +6173,7 @@ attachmentList ReInitMergedItem(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, UINT16 
 				{   // put it on the ground
 					// HEADROCK HAM 5: A much more suitable function. Works in both tactical and mapscreen!
 					AutoPlaceObjectToWorld( pSoldier, &tempAttachment, true );
-					//AddItemToPool( pSoldier->sGridNo, &(*iter), 1, pSoldier->pathing.bLevel, 0 , -1 );
+					//AddItemToPool( pSoldier->sGridNo, &(*iter), 1, pSoldier->position().level(), 0 , -1 );
 				}
 			}
 		}
@@ -6191,7 +6191,7 @@ attachmentList ReInitMergedItem(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, UINT16 
 				{   // put it on the ground
 					// HEADROCK HAM 5: A much more suitable function. Works in both tactical and mapscreen!
 					AutoPlaceObjectToWorld( pSoldier, &tempAttachment, true );
-					//AddItemToPool( pSoldier->sGridNo, &(*iter), 1, pSoldier->pathing.bLevel, 0 , -1 );
+					//AddItemToPool( pSoldier->sGridNo, &(*iter), 1, pSoldier->position().level(), 0 , -1 );
 				}
 			}
 		}
@@ -6214,7 +6214,7 @@ void EjectAmmoAndPlace(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, UINT8 subObject)
 		AutoPlaceObjectAnywhere( pSoldier, &gTempObject, FALSE );
 //		if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
 //		{   // put it on the ground
-//			AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0 , -1 );
+//			AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->position().level(), 0 , -1 );
 //		}
 	}
 	return;
@@ -6699,11 +6699,11 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 	{
 		if (bPos == ROBOT_AMMO_SLOT)
 		{
-			PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+			PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 		}
 		else if (bPos == ROBOT_TARGETING_SLOT || bPos == ROBOT_CHASSIS_SLOT || bPos == ROBOT_UTILITY_SLOT)
 		{
-			PlayJA2Sample(REMOVING_TEXT, RATE_11025, SoundVolume(MIDVOLUME, pSoldier->sGridNo), 1, SoundDir(pSoldier->sGridNo));
+			PlayJA2Sample(REMOVING_TEXT, RATE_11025, SoundVolume(MIDVOLUME, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
 
 			const INT8 targetingSkill = Item[pObj->usItem].bRobotTargetingSkillGrant;
 			const INT8 chassisSkill = Item[pObj->usItem].bRobotChassisSkillGrant;
@@ -6939,7 +6939,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 										}
 										else
 										{
-											if(AddItemToPool(pSoldier->sGridNo, &tempStack, 1, pSoldier->pathing.bLevel, WORLD_ITEM_REACHABLE, -1))
+											if(AddItemToPool(pSoldier->sGridNo, &tempStack, 1, pSoldier->position().level(), WORLD_ITEM_REACHABLE, -1))
 											{
 												NotifySoldiersToLookforItems( );
 												clipCreated = true;
@@ -7325,7 +7325,7 @@ BOOLEAN AutoPlaceObjectToWorld(SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, INT8 b
 	// silversurfer: Bad idea. Our pSoldier always has sGridNo set but it could be from a previous sector so the tile is completely irrelevant if the sector isn't the current merc sector.
 	// The same applies to bLevel. So before we assign anything we need to check if the merc sector is loaded.
 	// INT32 sGridNo = pSoldier?pSoldier->sGridNo:0;
-	// INT8 bLevel = pSoldier?pSoldier->pathing.bLevel:0;
+	// INT8 bLevel = pSoldier?pSoldier->position().level():0;
 
 	INT32 sGridNo = -1;
 	INT8 bLevel = 0;
@@ -7333,8 +7333,8 @@ BOOLEAN AutoPlaceObjectToWorld(SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, INT8 b
 	// is this sector loaded?
 	if ( pSoldier && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
 	{
-		sGridNo = pSoldier->sGridNo;
-		bLevel = pSoldier->pathing.bLevel;
+		sGridNo = pSoldier->position().gridNo();
+		bLevel = pSoldier->position().level();
 	}
 
 	if( GetCurrentScreen() == MAP_SCREEN )
@@ -8782,8 +8782,8 @@ BOOLEAN OBJECTTYPE::RemoveAttachment( OBJECTTYPE * pAttachment, OBJECTTYPE * pNe
 							{
 								iter = (*this)[subObject]->RemoveAttachmentAtIter(iter);
 							} else {	// put it on the ground
-								INT8 pathing = (pSoldier?pSoldier->pathing.bLevel:0);
-								INT32 sGridNo = (pSoldier?pSoldier->sGridNo:0);
+								INT8 pathing = (pSoldier?pSoldier->position().level():0);
+								INT32 sGridNo = (pSoldier?pSoldier->position().gridNo():0);
 								if( AutoPlaceObjectToWorld(pSoldier, &remObj) )
 									iter = (*this)[subObject]->RemoveAttachmentAtIter(iter);
 							}
@@ -8903,7 +8903,7 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 					// remove ammo and drop
 					pSoldier->pTempObject = new OBJECTTYPE;
 					EmptyWeaponMagazine( pObject, pSoldier->pTempObject );
-					AddItemToPool( pSoldier->sGridNo, pSoldier->pTempObject, 1, 0, 0, 0 );
+					AddItemToPool( pSoldier->position().gridNo(), pSoldier->pTempObject, 1, 0, 0, 0 );
 					pSoldier->pTempObject = NULL;
 					// remove attachments and drop them
 					for (attachmentList::iterator iter = (*pObject)[0]->attachments.begin(); iter != (*pObject)[0]->attachments.end();) {
@@ -8916,7 +8916,7 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 						BOOLEAN	old_inseparable = FALSE;
 						UINT32	old_item = iter->usItem;
 						// drop it in Madlab's tile
-						AddItemToPool( pSoldier->sGridNo, &(*iter), 1, 0, 0, 0 );
+						AddItemToPool( pSoldier->position().gridNo(), &(*iter), 1, 0, 0, 0 );
 						old_inseparable = Item[old_item].inseparable;
 						Item[old_item].inseparable = FALSE;
 						pObject->RemoveAttachment(&(*iter));
@@ -9295,15 +9295,15 @@ void CheckEquipmentForDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 		{
 			// blow it up!
 			INT16 sX, sY;
-			ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+			ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 
 			if ( GetJa2PendingTacticalCombatActions() )
 			{
-				IgniteExplosion( pSoldier->ubAttackerID, sX, sY, 0, pSoldier->sGridNo, pSoldier->inv[ bSlot ].usItem, pSoldier->pathing.bLevel, pSoldier->ubDirection, &pSoldier->inv[ bSlot ] );
+				IgniteExplosion( pSoldier->ubAttackerID, sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
 			}
 			else
 			{
-				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, pSoldier->inv[ bSlot ].usItem, pSoldier->pathing.bLevel, pSoldier->ubDirection, &pSoldier->inv[ bSlot ] );
+				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
 			}
 
 			//ADB when something in a stack blows up the whole stack goes, so no need to worry about number of items
@@ -9341,7 +9341,7 @@ void CheckEquipmentForFragileItemDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 				DamageItem( &(pSoldier->inv[bSlot]), iDamage, FALSE );
 				if ( !fPlayedGlassBreak && (ubNumberOfObjects != pSoldier->inv[bSlot].ubNumberOfObjects) )
 				{
-					PlayJA2Sample( GLASS_CRACK, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+					PlayJA2Sample( GLASS_CRACK, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 					fPlayedGlassBreak = TRUE;
 					// only dirty once
 					DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
@@ -10085,7 +10085,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 					{
 						CreateItem( vestitem, 100, &gTempObject );
 						if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, 0, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, 0, 0, -1 );
 					}
 					else
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
@@ -10108,7 +10108,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 					{
 						CreateItem( pantsitem, 100, &gTempObject );
 						if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, 0, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, 0, 0, -1 );
 					}
 					else
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
@@ -10229,7 +10229,7 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->sGridNo, pSoldier2->sGridNo ) < XRAY_RANGE )
+			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
 				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
 				pSoldier2->aiData.ubXRayedBy = pSoldier->ubID;
@@ -10264,7 +10264,7 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->sGridNo, pSoldier2->sGridNo ) < XRAY_RANGE )
+			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
 				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
 				pSoldier2->aiData.ubXRayedBy = pSoldier->ubID;
@@ -13465,7 +13465,7 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	UINT8 weaponType;
 	BOOLEAN fTwoHanded, fUsingBipod;
 
-	UINT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+	UINT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 	rangeMultiplier = GetScopeRangeMultiplier(pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], (FLOAT)uiRange);
 
 	// HEADROCK HAM 4: This function has been radically altered AGAIN for the NCTH project.
@@ -13574,7 +13574,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 	BOOLEAN allowed = TRUE;
 	UINT8 weaponType;
 
-	INT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+	INT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
 	weaponType = Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubWeaponType;
 
@@ -14939,7 +14939,7 @@ BOOLEAN OBJECTTYPE::TransformObject( SOLDIERTYPE * pSoldier, UINT8 ubStatusIndex
 	}
 
 	// Play a gun-cocking sound, it's the best one we've got ATM.
-	PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );		
+	PlayJA2Sample( ATTACH_TO_GUN, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 	// Before we continue, lets check whether our object is in the sector inventory.
 	// Is the sector inventory open?
@@ -15400,7 +15400,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 				continue;
 
 			// check if both soldiers are on the same level
-			if ( pSoldier->pathing.bLevel != pTeamSoldier->pathing.bLevel )
+			if ( pSoldier->position().level() != pTeamSoldier->position().level() )
 				continue;
 
 			// we check if that guy is feeding someone, and that someone is really us

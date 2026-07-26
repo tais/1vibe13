@@ -292,7 +292,7 @@ INT16 TerrainBreathPoints(SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bDir, UINT
 	// This should fix "problems" for special modified maps
 	UINT8 ubTerrainID = gpWorldLevelData[ sGridNo ].ubTerrainID;
 
-	if ( TERRAIN_IS_WATER( ubTerrainID) && pSoldier->pathing.bLevel > 0 )
+	if ( TERRAIN_IS_WATER( ubTerrainID) && pSoldier->position().level() > 0 )
 	{
 		ubTerrainID = FLAT_GROUND;
 
@@ -442,7 +442,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 
 
 	// Get switch value...
-	sSwitchValue = gubWorldMovementCosts[ sGridNo ][ bDir ][ pSoldier->pathing.bLevel ];
+	sSwitchValue = gubWorldMovementCosts[ sGridNo ][ bDir ][ pSoldier->position().level() ];
 
 	// silversurfer: modified handling below because we need to take stance change into account
 /*	// Tile cost should not be reduced based on movement mode...
@@ -455,7 +455,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 	// This should fix "problems" for special modified maps
 	UINT8 ubTerrainID = gpWorldLevelData[ sGridNo ].ubTerrainID;
 
-	if ( TERRAIN_IS_WATER( ubTerrainID) && pSoldier->pathing.bLevel > 0 )
+	if ( TERRAIN_IS_WATER( ubTerrainID) && pSoldier->position().level() > 0 )
 		ubTerrainID = FLAT_GROUND;
 
 	// silversurfer: after we jump over a fence we end in crouched stance so we have to spend AP to get back to the original stance.
@@ -685,7 +685,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 INT16 ActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode )
 {
 	// Compute the terrain tile cost once, then run the shared AP math.
-	INT16 sTileCost = TerrainActionPoints( pSoldier, sGridNo, bDir, pSoldier->pathing.bLevel );
+	INT16 sTileCost = TerrainActionPoints( pSoldier, sGridNo, bDir, pSoldier->position().level() );
 	if (sTileCost == -1)
 	{
 		return 100;
@@ -701,14 +701,14 @@ INT16 EstimateActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, 
 	sPoints = 0;
 
 	// get the tile cost for that tile based on WALKING
-	sTileCost = TerrainActionPoints( pSoldier, sGridNo, bDir, pSoldier->pathing.bLevel );
+	sTileCost = TerrainActionPoints( pSoldier, sGridNo, bDir, pSoldier->position().level() );
 	if (sTileCost == -1)
 	{
 		return 100;
 	}
 
 	// Get switch value...
-	sSwitchValue = gubWorldMovementCosts[ sGridNo ][ bDir ][ pSoldier->pathing.bLevel ];
+	sSwitchValue = gubWorldMovementCosts[ sGridNo ][ bDir ][ pSoldier->position().level() ];
 
 	if ( sSwitchValue == TRAVELCOST_FENCE )
 	{
@@ -908,7 +908,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		pSoldier->bActionPoints = sNewAP;
 	}
 
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Deduct Points (%d at %d) %d %d", pSoldier->ubID, pSoldier->sGridNo, sAPCost, iBPCost	) );
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Deduct Points (%d at %d) %d %d", pSoldier->ubID, pSoldier->position().gridNo(), sAPCost, iBPCost	) );
 
 	if ( AM_A_ROBOT( pSoldier ) )
 	{
@@ -1051,16 +1051,16 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				// adjust by range to target
 				//INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( pOpponent->sGridNo, pSoldier->sGridNo );		// calculate actual range
 				//INT16 iDistVisible = (pOpponent->GetMaxDistanceVisible(pOpponent->sGridNo, pOpponent->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE); // how far do we see
-				INT16 iDistVisible = pOpponent->GetMaxDistanceVisible(pOpponent->sGridNo, pOpponent->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE; // -1% registered by 4% of the difference of how far we can see and how far is the target	
+				INT16 iDistVisible = pOpponent->GetMaxDistanceVisible(pOpponent->position().gridNo(), pOpponent->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE; // -1% registered by 4% of the difference of how far we can see and how far is the target
 				iDistVisible = max(iDistVisible, CELL_X_SIZE);
-				ubPointsRegistered -= min( 25, ( 25 * GetRangeInCellCoordsFromGridNoDiff( pOpponent->sGridNo, pSoldier->sGridNo ) / iDistVisible ));
+				ubPointsRegistered -= min( 25, ( 25 * GetRangeInCellCoordsFromGridNoDiff( pOpponent->position().gridNo(), pSoldier->position().gridNo() ) / iDistVisible ));
 				
 				if ( gGameOptions.fNewTraitSystem )
 				{
 					// without Night Ops, we get small penalty for interrupting a target in dark
 					if ( !(HAS_SKILL_TRAIT( pOpponent, NIGHT_OPS_NT )) && pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY)
 					{
-						INT8 bLightLevel = LightTrueLevel(pSoldier->sGridNo, pSoldier->pathing.bLevel);
+						INT8 bLightLevel = LightTrueLevel(pSoldier->position().gridNo(), pSoldier->position().level());
 						if ( bLightLevel > 6) // 7+ lightlevel is darkness
 						{
 							ubPointsRegistered -= bLightLevel;	// -7 to -12%
@@ -1072,7 +1072,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 						Item[pSoldier->inv[HANDPOS].usItem].usItemClass & (IC_PUNCH|IC_BLADE|IC_NONE)) // only get this if we have no weapon or blade in hands
 					{
 						// check how far we are, we only get this bonus at certain range
-						INT16 sTileDistance = PythSpacesAway(pSoldier->sGridNo, pOpponent->sGridNo);
+						INT16 sTileDistance = PythSpacesAway(pSoldier->position().gridNo(), pOpponent->position().gridNo());
 						if ( (sTileDistance <= 9) && (pOpponent->bTargetLevel == pSoldier->bTargetLevel)) // we must be on the same ground level as well
 						{
 							UINT8 ubBonus = gSkillTraitValues.ubMAReducedAPsRegisteredWhenMoving * NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT );
@@ -1080,7 +1080,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 								ubBonus = ubBonus * (10 - sTileDistance) / 4; // at 9th tile it is only 25% of the trait bonus, from 7th tile it is 100%
 
 							// check direction, we get full bonus if running towards the victim, but others around watching the scene have somehow better chance to interfere
-							if ( pSoldier->ubDirection != GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, pOpponent->sGridNo ) )
+							if ( pSoldier->position().direction() != GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) )
 							{	
 								ubBonus = ubBonus *2/3; // two thirds only sound reasonable
 							}
@@ -1306,7 +1306,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 						pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LOW_BREATH;
 					}
 					// Put gun down....
-					pSoldier->InternalSoldierReadyWeapon(pSoldier->ubDirection, TRUE, FALSE );
+					pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
 				}
 			}
 		}
@@ -1417,7 +1417,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 							pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LOW_BREATH;
 						}
 						// Put gun down....
-						pSoldier->InternalSoldierReadyWeapon(pSoldier->ubDirection, TRUE, FALSE );
+						pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
 					}
 				}
 			}
@@ -1528,7 +1528,7 @@ INT16 GetBreathPerAP( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	// Lalien: only for soldiers that are in loaded sector,
 	if ( IsJa2TacticalWorldLoaded() &&  pSoldier->bInSector && !pSoldier->bSectorZ )
 	{
-		if( sBreathPerAP < 0 && ( pSoldier->pathing.bLevel  || !FindStructure( pSoldier->sGridNo, STRUCTURE_ROOF )  )  && pSoldier->vitals().breath() > 1)
+		if( sBreathPerAP < 0 && ( pSoldier->position().level()  || !FindStructure( pSoldier->position().gridNo(), STRUCTURE_ROOF )  )  && pSoldier->vitals().breath() > 1)
 		{
 			FLOAT weatherpenalty = gGameExternalOptions.dBreathGainReduction[SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather];
 			
@@ -1751,8 +1751,8 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 					
 					// If the weapon has a scope, and the target is within eligible range for scope use
 					
-					if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inv[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo ) >= GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[HANDPOS]) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sGridNo))
-						|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inv[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo ) > 1.0 ) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sGridNo)) )
+					if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inv[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo ) >= GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[HANDPOS]) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sGridNo))
+						|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inv[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo ) > 1.0 ) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sGridNo)) )
 					{
 						// Add an individual cost for EACH click, as necessary.
 
@@ -1802,7 +1802,7 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 	if ( uiItemClass == IC_PUNCH || uiItemClass == IC_BLADE || uiItemClass == IC_TENTACLES )//dnl ch73 031013, silversurfer: tentacles are melee too
 	{
 		// IF we are at this gridno, calc min APs but if not, calc cost to goto this location
-		if ( pSoldier->sGridNo != sGridNo )
+		if ( pSoldier->position().gridNo() != sGridNo )
 		{
 			sAdjustedGridNo = NOWHERE;
 
@@ -1811,7 +1811,7 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 			{
 				sActionGridNo = FindNextToAdjacentGridEx(pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE);
 			}
-			else if (CREATURE_OR_BLOODCAT(pSoldier) && PythSpacesAway(pSoldier->sGridNo, sGridNo) > 1)
+			else if (CREATURE_OR_BLOODCAT(pSoldier) && PythSpacesAway(pSoldier->position().gridNo(), sGridNo) > 1)
 			{
 				sActionGridNo = FindNextToAdjacentGridEx(pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE);
 				if (sActionGridNo == -1)
@@ -1827,7 +1827,7 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 				
 			if (!TileIsOutOfBounds(sActionGridNo))
 			{
-				if (pSoldier->sGridNo == sActionGridNo)
+				if (pSoldier->position().gridNo() == sActionGridNo)
 				{
 					pSoldier->sWalkToAttackWalkToCost = 0;
 				}
@@ -2071,13 +2071,13 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 			// Given a gridno here, check if we are on a guy - if so - get his gridno
 			if ( FindSoldier( sGridNo, &usTargID, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
 			{
-					sGridNo = usTargID->sGridNo;
+					sGridNo = usTargID->position().gridNo();
 			}
 
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, pSoldier );
 
 			// Is it the same as he's facing?
-			if ( ubDirection != pSoldier->ubDirection && !(ubDirection == pSoldier->pathing.bDesiredDirection && pSoldier->aiData.bLastAction == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
+			if ( ubDirection != pSoldier->position().direction() && !(ubDirection == pSoldier->pathing.bDesiredDirection && pSoldier->aiData.bLastAction == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
 			{
 					fAddingTurningCost = TRUE;
 			}
@@ -2162,7 +2162,7 @@ UINT16 CalculateActionTurningCost(SOLDIERTYPE *pSoldier, INT32 sActionGridNo, IN
 {
 	UINT16 sAPCost = 0;
 	// if soldier is already at sActionGridNo, use current direction instead of calculated one
-	if (pSoldier->sGridNo == sActionGridNo) ubDirection = pSoldier->ubDirection;
+	if (pSoldier->position().gridNo() == sActionGridNo) ubDirection = pSoldier->position().direction();
 
 	// Is it the same as direction we need?
 	if (ubDirection != GetDirectionToGridNoFromGridNo(sActionGridNo, sAdjustedGridNo))
@@ -2283,7 +2283,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		// Given a gridno here, check if we are on a guy - if so - get his gridno
 		if ( FindSoldier( sGridNo, &usTargID, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
 		{
-				sGridNo = usTargID->sGridNo;
+				sGridNo = usTargID->position().gridNo();
 		}
 		//usRange = GetRangeFromGridNoDiff( pSoldier->sGridNo, sGridNo );
 	}
@@ -2571,8 +2571,8 @@ INT16 MinPtsToMove(SOLDIERTYPE *pSoldier)
 	// WANNE - BMP: FIX: Valid directions are only from 0-7!!
 	for ( cnt = 0; cnt < NUM_WORLD_DIRECTIONS; ++cnt )
 	{
-		sGridNo = NewGridNo(pSoldier->sGridNo,DirectionInc(cnt));
-		if (sGridNo != pSoldier->sGridNo)
+		sGridNo = NewGridNo(pSoldier->position().gridNo(),DirectionInc(cnt));
+		if (sGridNo != pSoldier->position().gridNo())
 		{
 		    if ( (sCost=ActionPointCost( pSoldier, sGridNo, cnt , pSoldier->usUIMovementMode ) ) < sLowest )
 			{
@@ -2591,7 +2591,7 @@ INT8	PtsToMoveDirection(SOLDIERTYPE *pSoldier, INT8 bDirection )
 	INT8	bOverTerrainType;
 	UINT16	usMoveModeToUse;
 
-	sGridNo = NewGridNo( pSoldier->sGridNo, DirectionInc( bDirection ) );
+	sGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( bDirection ) );
 
 	usMoveModeToUse = pSoldier->usUIMovementMode;
 
@@ -2600,7 +2600,7 @@ INT8	PtsToMoveDirection(SOLDIERTYPE *pSoldier, INT8 bDirection )
 
 	// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
 	// This should fix "problems" for special modified maps
-	if ( TERRAIN_IS_WATER( bOverTerrainType) && pSoldier->pathing.bLevel > 0 )
+	if ( TERRAIN_IS_WATER( bOverTerrainType) && pSoldier->position().level() > 0 )
 		bOverTerrainType = FLAT_GROUND;
 
 	if ( TERRAIN_IS_WATER( bOverTerrainType) )
@@ -2860,12 +2860,12 @@ UINT16 GetAPsToPickupItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 	INT32 sActionGridNo;
 
 	// Check if we are over an item pool
-	if ( GetItemPool( usMapPos, &pItemPool, pSoldier->pathing.bLevel ) )
+	if ( GetItemPool( usMapPos, &pItemPool, pSoldier->position().level() ) )
 	{
 		// If we are in the same tile, just return pickup cost
 		sActionGridNo = AdjustGridNoForItemPlacement( pSoldier, usMapPos );
 
-		if ( pSoldier->sGridNo != sActionGridNo )
+		if ( pSoldier->position().gridNo() != sActionGridNo )
 		{
 			sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
 
@@ -2893,7 +2893,7 @@ UINT16 GetAPsToGiveItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
 
 	// If point cost is zero, return 0
-	if ( sAPCost != 0 || pSoldier->sGridNo == usMapPos )
+	if ( sAPCost != 0 || pSoldier->position().gridNo() == usMapPos )
 	{
 		// ADD APS TO PICKUP
 		sAPCost += APBPConstants[AP_GIVE_ITEM];
@@ -3111,12 +3111,12 @@ UINT16 GetAPsToReloadRobot( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pRobot )
 	UINT8			 ubDirection;
 	INT32 sAdjustedGridNo;
 
-	sActionGridNo = FindAdjacentGridEx( pSoldier, pRobot->sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
+	sActionGridNo = FindAdjacentGridEx( pSoldier, pRobot->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 
 	sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
 
 	// If point cost is zero, return 0
-	if ( sAPCost != 0 || sActionGridNo == pSoldier->sGridNo )
+	if ( sAPCost != 0 || sActionGridNo == pSoldier->position().gridNo() )
 	{
 		// ADD APS TO RELOAD
 		sAPCost += 4;
@@ -3227,7 +3227,7 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 
 	if( pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH) )
 	{
-		if( pSoldier->sGridNo != pSoldier->pathing.sFinalDestination || pSoldier->bGoodContPath	)
+		if( pSoldier->position().gridNo() != pSoldier->pathing.sFinalDestination || pSoldier->bGoodContPath	)
 		{
 			// OK< check if we are the selected guy!
 			if ( pSoldier->ubID == gusSelectedSoldier )
@@ -3244,7 +3244,7 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 					// Do a check if we can afford move here!
 
 					// get a path to dest...
-					if ( FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, NO_COPYROUTE, 0 ) )
+					if ( FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 ) )
 					{
 						sAPCost = PtsToMoveDirection( pSoldier, (UINT8)guiPathingData[ 0 ] );
 
@@ -3661,7 +3661,7 @@ INT16 MinAPsToThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCos
 
 	// moved from above - SANDRO
 	//dnl ch72 180913 someone create throwing grenades from crouch so ANIM_STAND is not only stance for throwing, and as throwing object disappears from our hand when is thrown we need to determine desired height for turning cost
-	if(ubAddTurningCost && !TileIsOutOfBounds(sGridNo) && GetDirectionFromGridNo(sGridNo, pSoldier) != pSoldier->ubDirection)
+	if(ubAddTurningCost && !TileIsOutOfBounds(sGridNo) && GetDirectionFromGridNo(sGridNo, pSoldier) != pSoldier->position().direction())
 		ubAddTurningCost = TRUE;
 	else
 		ubAddTurningCost = FALSE;
@@ -3917,8 +3917,8 @@ INT32 CalcAPCostForAiming( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, INT8 bAim
 			
 			// If the weapon has a scope, and the target is within eligible range for scope use
 			
-			if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inv[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sTargetGridNo ) >= GetMinRangeForAimBonus(pSoldier, &pSoldier->inv[HANDPOS]) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sTargetGridNo))
-				|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inv[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sTargetGridNo ) > 1.0 ) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sTargetGridNo)))
+			if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inv[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sTargetGridNo ) >= GetMinRangeForAimBonus(pSoldier, &pSoldier->inv[HANDPOS]) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sTargetGridNo))
+				|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inv[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sTargetGridNo ) > 1.0 ) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sTargetGridNo)))
 			{
 				// Add an individual cost for EACH click, as necessary.
 
@@ -4395,7 +4395,7 @@ INT16 GetAPsToBreakWindow(SOLDIERTYPE *pSoldier, BOOLEAN fStance)
 {
 	if (fStance)
 	{
-		return MinAPsToPunch(pSoldier, pSoldier->sGridNo);
+		return MinAPsToPunch(pSoldier, pSoldier->position().gridNo());
 	}
 
 	return MinAPsToPunch(pSoldier, NOWHERE);

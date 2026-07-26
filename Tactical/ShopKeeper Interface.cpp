@@ -766,7 +766,7 @@ BOOLEAN EnterShopKeeperInterface()
 	else
 		pShopkeeper = FindSoldierByProfileID( armsDealerInfo[gbSelectedArmsDealerID].ubShopKeeperID, FALSE );
 
-	if (PythSpacesAway( pSoldier->sGridNo, pShopkeeper->sGridNo ) > NPC_TALK_RADIUS )
+	if (PythSpacesAway( pSoldier->position().gridNo(), pShopkeeper->position().gridNo() ) > NPC_TALK_RADIUS )
 	{
 		//so now we know we are too far away to trade, so instead of just quitting,
 		//either post a message or run to the guy like HandleTalkInit does
@@ -786,7 +786,7 @@ BOOLEAN EnterShopKeeperInterface()
 
 			// First get an adjacent gridno....
 			UINT8 ubDirection;
-			INT32 sActionGridNo =  FindAdjacentGridEx( pSoldier, pShopkeeper->sGridNo, &ubDirection, NULL, FALSE, TRUE );
+			INT32 sActionGridNo =  FindAdjacentGridEx( pSoldier, pShopkeeper->position().gridNo(), &ubDirection, NULL, FALSE, TRUE );
 
 			if ( sActionGridNo == -1 )
 			{
@@ -802,7 +802,7 @@ BOOLEAN EnterShopKeeperInterface()
 
 			// Walk up and talk to buddy....
 			gfNPCCircularDistLimit = TRUE;
-			INT32 sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, pSoldier->usUIMovementMode, pShopkeeper->sGridNo, (NPC_TALK_RADIUS-1), &ubDirection, TRUE );
+			INT32 sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, pSoldier->usUIMovementMode, pShopkeeper->position().gridNo(), (NPC_TALK_RADIUS-1), &ubDirection, TRUE );
 			gfNPCCircularDistLimit = FALSE;
 
 			(void)TryDispatchApproachConversationCommandNow(
@@ -6624,13 +6624,13 @@ BOOLEAN CanMercInteractWithSelectedShopkeeper( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= OKLIFE ) &&
 		!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 	{
-		sDestGridNo = pShopkeeper->sGridNo;
-		bDestLevel	= pShopkeeper->pathing.bLevel;
+		sDestGridNo = pShopkeeper->position().gridNo();
+		bDestLevel	= pShopkeeper->position().level();
 		// If he has LOS...
 		if ( SoldierTo3DLocationLineOfSightTest( pSoldier, sDestGridNo, bDestLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
 		{
 			// Get range to shopkeeper
-			uiRange = PythSpacesAway( pSoldier->sGridNo, sDestGridNo );
+			uiRange = PythSpacesAway( pSoldier->position().gridNo(), sDestGridNo );
 
 			// and is close enough to talk to the shopkeeper (use this define INSTEAD of PASSING_ITEM_DISTANCE_OKLIFE!)
 			if ( uiRange <= NPC_TALK_RADIUS )
@@ -6797,7 +6797,7 @@ void ReturnItemToPlayerSomehow( INVENTORY_IN_SLOT *pInvSlot, SOLDIERTYPE *pDropS
 		{
 			// failed to add item, inventory probably filled up or item is unowned and current merc ineligible.
 			// drop it at the specified guy's feet instead
-			ShopkeeperAddItemToPool( pDropSoldier->sGridNo, &pInvSlot->ItemObject, VISIBLE, pDropSoldier->pathing.bLevel, 0, 0 );
+			ShopkeeperAddItemToPool( pDropSoldier->position().gridNo(), &pInvSlot->ItemObject, VISIBLE, pDropSoldier->position().level(), 0, 0 );
 		}
 	}
 
@@ -6806,7 +6806,7 @@ void ReturnItemToPlayerSomehow( INVENTORY_IN_SLOT *pInvSlot, SOLDIERTYPE *pDropS
 	if(UsingNewInventorySystem() == true && pInvSlot->ItemObject.IsActiveLBE(0) == true)
 	{
 		pDropSoldier->inv[pInvSlot->bSlotIdInOtherLocation].initialize();
-		ShopkeeperAddItemToPool( pDropSoldier->sGridNo, &pInvSlot->ItemObject, VISIBLE, pDropSoldier->pathing.bLevel, 0, 0 );
+		ShopkeeperAddItemToPool( pDropSoldier->position().gridNo(), &pInvSlot->ItemObject, VISIBLE, pDropSoldier->position().level(), 0, 0 );
 	}
 }
 
@@ -7005,7 +7005,7 @@ void SelectArmsDealersDropItemToGroundRegionCallBack(MOUSE_REGION * pRegion, INT
 		{
 
 			//add the item to the ground
-			ShopkeeperAddItemToPool( pDropSoldier->sGridNo, &gMoveingItem.ItemObject, VISIBLE, pDropSoldier->pathing.bLevel, 0, 0 );
+			ShopkeeperAddItemToPool( pDropSoldier->sGridNo, &gMoveingItem.ItemObject, VISIBLE, pDropSoldier->position().level(), 0, 0 );
 
 			//Reset the cursor
 			SetSkiCursor( CURSOR_NORMAL );

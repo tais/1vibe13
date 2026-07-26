@@ -320,7 +320,7 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 		if ( pDoorStatus && (pDoorStatus->ubFlags & DOOR_BUSY) )
 		{
 			// Send this guy into stationary stance....
-			pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+			pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 			if ( pSoldier->bTeam == gbPlayerNum )
 			{
@@ -433,7 +433,7 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 	UINT16	usRoom;
 	SOLDIERTYPE *		pGoon;
 	// if player is hacking at a door in the brothel and a kingpin guy can see him
-	if ( (InARoom( pSoldier->sGridNo, &usRoom ) && IN_BROTHEL( usRoom )) || (gWorldSectorX == 5 && gWorldSectorY == MAP_ROW_D && gbWorldSectorZ == 0 && (pSoldier->sGridNo == gModSettings.iBrothelDoor1 || pSoldier->sGridNo == gModSettings.iBrothelDoor2 || pSoldier->sGridNo == gModSettings.iBrothelDoor3 ) ) )//11010,11177,11176
+	if ( (InARoom( pSoldier->position().gridNo(), &usRoom ) && IN_BROTHEL( usRoom )) || (gWorldSectorX == 5 && gWorldSectorY == MAP_ROW_D && gbWorldSectorZ == 0 && (pSoldier->position().gridNo() == gModSettings.iBrothelDoor1 || pSoldier->position().gridNo() == gModSettings.iBrothelDoor2 || pSoldier->position().gridNo() == gModSettings.iBrothelDoor3 ) ) )//11010,11177,11176
 	{
 		// see if a kingpin goon can see us
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
@@ -453,7 +453,7 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 	if ( gWorldSectorX == TIXA_SECTOR_X && gWorldSectorY == TIXA_SECTOR_Y )
 	{
 		pGoon = FindSoldierByProfileID( WARDEN, FALSE );
-		if ( pGoon && pGoon->aiData.bAlertStatus < STATUS_RED && PythSpacesAway( pSoldier->sGridNo, pGoon->sGridNo ) <= 5 )
+		if ( pGoon && pGoon->aiData.bAlertStatus < STATUS_RED && PythSpacesAway( pSoldier->position().gridNo(), pGoon->position().gridNo() ) <= 5 )
 		{
 			// alert her if she hasn't been alerted
 			pGoon->aiData.bAlertStatus = STATUS_RED;
@@ -1153,7 +1153,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 	if (pSoldier && pSoldier->ubDoorOpeningNoise > 0)
 	{		
 		//shadooow: noise handling moved here so we can work with modified value of pSoldier->ubDoorOpeningNoise
-		OurNoise(pSoldier->ubID, pSoldier->aiData.sPendingActionData2, pSoldier->pathing.bLevel, gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING);
+		OurNoise(pSoldier->ubID, pSoldier->aiData.sPendingActionData2, pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING);
 	}
 
 	if ( !(pStructure->fFlags & STRUCTURE_OPEN) )

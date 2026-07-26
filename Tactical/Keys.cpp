@@ -310,7 +310,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	}
 
 	// generate a noise for thumping on the door
-	MakeNoise( pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, CROWBAR_DOOR_VOLUME, NOISE_DOOR_SMASHING );
+	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, CROWBAR_DOOR_VOLUME, NOISE_DOOR_SMASHING );
 
 	if ( !pDoor->fLocked )
 	{
@@ -321,7 +321,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		// award experience points?
 
 		// Play lock busted sound
-		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 		return( TRUE );
 	}
@@ -363,7 +363,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		RemoveDoorInfoFromTable( pDoor->sGridNo );
 
 		// Play lock busted sound
-		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 		return( TRUE );
 	}
@@ -379,7 +379,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			// we came close... so do some damage to the lock
 			pDoor->bLockDamage += (INT8) (10 + iResult);
 		}
-		else if ( iResult > -40 && pSoldier->sGridNo != pSoldier->sSkillCheckGridNo )
+		else if ( iResult > -40 && pSoldier->position().gridNo() != pSoldier->sSkillCheckGridNo )
 		{
 			// give token point for effort :-)
 			StatChange( pSoldier, STRAMT, 1, FALSE );
@@ -398,7 +398,7 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	LOCK * pLock;
 
 	// generate a noise for thumping on the door
-	MakeNoise( pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, SMASHING_DOOR_VOLUME, NOISE_DOOR_SMASHING );
+	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, SMASHING_DOOR_VOLUME, NOISE_DOOR_SMASHING );
 
 	if ( !pDoor->fLocked )
 	{
@@ -409,7 +409,7 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		// award experience points?
 
 		// Play lock busted sound
-		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 		return( TRUE );
 	}
@@ -447,7 +447,7 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		// award experience points?
 
 		// Play lock busted sound
-		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+		PlayJA2Sample( ( (UINT8)BREAK_LOCK ), RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 		return( TRUE );
 	}
@@ -463,7 +463,7 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			// we came close... so do some damage to the lock
 			pDoor->bLockDamage += (INT8) (10 + iResult);
 		}
-		else if ( iResult > -40 && pSoldier->sGridNo != pSoldier->sSkillCheckGridNo )
+		else if ( iResult > -40 && pSoldier->position().gridNo() != pSoldier->sSkillCheckGridNo )
 		{
 			// give token point for effort :-)
 			StatChange( pSoldier, STRAMT, 1, FALSE );
@@ -666,8 +666,8 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		case EXPLOSION:
 			// cause damage as a regular hand grenade
 			INT16 sX, sY;
-			ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
-			IgniteExplosion( NOBODY, sX, sY, 25, pSoldier->sGridNo, HAND_GRENADE, 0 );
+			ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
+			IgniteExplosion( NOBODY, sX, sY, 25, pSoldier->position().gridNo(), HAND_GRENADE, 0 );
 			break;
 
  		case SIREN:
@@ -815,12 +815,12 @@ BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
 		}
 
 		// sevenfm: also make noise
-		MakeNoise(pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_EXPLOSION);
+		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_EXPLOSION);
 	}
 	else
 	{
 		// OOPS! ... BOOM!
-		IgniteExplosion(NOBODY, pSoldier->sX, pSoldier->sY, (INT16)(gpWorldLevelData[pSoldier->sGridNo].sHeight), pSoldier->sGridNo, usItem, 0);
+		IgniteExplosion(NOBODY, pSoldier->sX, pSoldier->sY, (INT16)(gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), usItem, 0);
 	}	
 
 	return fSuccess;
@@ -1413,7 +1413,7 @@ BOOLEAN AllMercsLookForDoor( INT32 sGridNo, BOOLEAN fUpdateValue )
 	{
 		pSoldier = cnt;
 		// ATE: Ok, lets check for some basic things here!		
-		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bActive && pSoldier->bInSector )
+		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
 		{
 			// and we can trace a line of sight to his x,y coordinates?
 			// (taking into account we are definitely aware of this guy now)

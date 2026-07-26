@@ -1378,7 +1378,7 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	}
 
 	// if target gridno is the same as ours, do not fire!
-	if (sTargetGridNo == pSoldier->sGridNo)
+	if (sTargetGridNo == pSoldier->position().gridNo())
 	{
 		// FREE UP NPC!
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - attack on own gridno!") );
@@ -1532,7 +1532,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 	{
 		// SAVE OPP ID
 		pSoldier->ubOppNum = pTargetSoldier->ubID;
-		ConvertGridNoToCenterCellXY(pTargetSoldier->sGridNo, &sX, &sY);
+		ConvertGridNoToCenterCellXY(pTargetSoldier->position().gridNo(), &sX, &sY);
 		dTargetX = (FLOAT) sX;
 		dTargetY = (FLOAT) sY;
 		if (pSoldier->bAimShotLocation == AIM_SHOT_RANDOM)
@@ -1574,7 +1574,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 
 					if ( gGameExternalOptions.fAllowTargetHeadAndLegIfProne && gAnimControl[pTargetSoldier->usAnimState].ubHeight == ANIM_PRONE )
 					{
-						INT32 viewdirectiongridno = NewGridNo( pTargetSoldier->sGridNo, DirectionInc( pTargetSoldier->ubDirection ) );
+						INT32 viewdirectiongridno = NewGridNo( pTargetSoldier->position().gridNo(), DirectionInc( pTargetSoldier->position().direction() ) );
 						INT16 sX, sY;
 						ConvertGridNoToCenterCellXY(viewdirectiongridno, &sX, &sY);
 
@@ -1592,7 +1592,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 
 					if ( gGameExternalOptions.fAllowTargetHeadAndLegIfProne && gAnimControl[pTargetSoldier->usAnimState].ubHeight == ANIM_PRONE )
 					{
-						INT32 viewdirectiongridno = NewGridNo( pTargetSoldier->sGridNo, DirectionInc( gOppositeDirection[pTargetSoldier->ubDirection] ) );
+						INT32 viewdirectiongridno = NewGridNo( pTargetSoldier->position().gridNo(), DirectionInc( gOppositeDirection[pTargetSoldier->position().direction()] ) );
 						INT16 sX, sY;
 						ConvertGridNoToCenterCellXY(viewdirectiongridno, &sX, &sY);
 
@@ -1826,7 +1826,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 		BOOLEAN fRoom = FALSE;
 		BOOLEAN fUnderground = FALSE;
 		BOOLEAN fMainHand = FALSE;
-		INT8	bTerrainType = GetTerrainType(pSoldier->sGridNo);
+		INT8	bTerrainType = GetTerrainType(pSoldier->position().gridNo());
 		BOOLEAN fGround = FALSE;
 		BOOLEAN fEasyUnjam = FALSE;
 		BOOLEAN fManual = FALSE;
@@ -1836,14 +1836,14 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 		UINT16 Room1 = NO_ROOM, Room2 = NO_ROOM;
 
 		// roof check
-		if (pSoldier->pathing.bLevel > 0)
+		if (pSoldier->position().level() > 0)
 			bTerrainType = FLAT_FLOOR;
 		if (pSector)
 			ubSectorType = pSector->ubTraversability[THROUGH_STRATEGIC_MOVE];
-		if (InARoom(pSoldier->sGridNo, NULL) && 
-			pSoldier->pathing.bLevel == 0 && 
+		if (InARoom(pSoldier->position().gridNo(), NULL) &&
+			pSoldier->position().level() == 0 &&
 			bTerrainType == FLAT_FLOOR && 
-			CheckRoof(pSoldier->sGridNo) &&
+			CheckRoof(pSoldier->position().gridNo()) &&
 			pSoldier->bDoBurst <= 1)
 			fRoom = TRUE;
 		if (pSoldier->ubAttackingHand == HANDPOS)
@@ -1901,11 +1901,11 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 			strcpy(zEcho, "echo_underground");
 			iCommonEcho = gCommonEchoUnderground;
 		}
-		else if (InARoom(pSoldier->sGridNo, &Room1) &&
-			pSoldier->pathing.bLevel == 0 &&
+		else if (InARoom(pSoldier->position().gridNo(), &Room1) &&
+			pSoldier->position().level() == 0 &&
 			!TileIsOutOfBounds(pSoldier->sTargetGridNo) &&
 			InARoom(pSoldier->sTargetGridNo, &Room2) &&
-			(SameBuilding(pSoldier->sGridNo, pSoldier->sTargetGridNo) || Room1 == Room2))
+			(SameBuilding(pSoldier->position().gridNo(), pSoldier->sTargetGridNo) || Room1 == Room2))
 		{
 			strcpy(zEcho, "echo_building");
 			iCommonEcho = gCommonEchoBuilding;
@@ -2077,7 +2077,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 		// Try playing sound...
 		if (FileExists(zFilename) && !fSkipSound)
 		{
-			uiResult = PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->sGridNo), SoundDir(pSoldier->sGridNo));
+			uiResult = PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->position().gridNo()), SoundDir(pSoldier->position().gridNo()));
 
 			if (uiResult != SOUND_ERROR)
 			{
@@ -2094,7 +2094,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 						}
 						if (FileExists(zFilename))
 						{
-							PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->sGridNo), SoundDir(pSoldier->sGridNo));
+							PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->position().gridNo()), SoundDir(pSoldier->position().gridNo()));
 						}
 					}
 					else if (fUnderground)
@@ -2107,7 +2107,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 						}
 						if (FileExists(zFilename))
 						{
-							PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->sGridNo), SoundDir(pSoldier->sGridNo));
+							PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->position().gridNo()), SoundDir(pSoldier->position().gridNo()));
 						}
 					}
 				}
@@ -2129,7 +2129,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 					}
 					if (FileExists(zFilename))
 					{
-						PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->sGridNo), SoundDir(pSoldier->sGridNo));
+						PlayWeaponSound(zFilename, SoundVolume(bVolume, pSoldier->position().gridNo()), SoundDir(pSoldier->position().gridNo()));
 					}
 				}
 
@@ -2153,7 +2153,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 					}
 					if (FileExists(zFilename))
 					{
-						PlayWeaponSound(zFilename, SoundVolume(Random(3) == 0 ? MIDVOLUME : LOWVOLUME, pSoldier->sGridNo), SoundDir(pSoldier->sGridNo));
+						PlayWeaponSound(zFilename, SoundVolume(Random(3) == 0 ? MIDVOLUME : LOWVOLUME, pSoldier->position().gridNo()), SoundDir(pSoldier->position().gridNo()));
 					}
 				}
 
@@ -2169,7 +2169,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 					}
 					if (FileExists(zFilename))
 					{
-						PlayWeaponSound(zFilename, SoundVolume(HIGHVOLUME, pSoldier->sGridNo), SoundDir(pSoldier->sGridNo));
+						PlayWeaponSound(zFilename, SoundVolume(HIGHVOLUME, pSoldier->position().gridNo()), SoundDir(pSoldier->position().gridNo()));
 					}
 				}
 			}
@@ -2193,7 +2193,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 						sprintf(zFilename, gzBurstSndStrings[Weapon[usUBItem].sSilencedBurstSound], bShotsToFire);
 
 						// Try playing sound...
-						pSoldier->iBurstSoundID = PlayJA2SampleFromFile(zFilename, RATE_11025, SoundVolume(HIGHVOLUME, pSoldier->sGridNo), 1, SoundDir(pSoldier->sGridNo));
+						pSoldier->iBurstSoundID = PlayJA2SampleFromFile(zFilename, RATE_11025, SoundVolume(HIGHVOLUME, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
 					}
 					else
 					{
@@ -2201,7 +2201,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 						sprintf(zFilename, gzBurstSndStrings[Weapon[usUBItem].sBurstSound], bShotsToFire);
 
 						// Try playing sound...
-						pSoldier->iBurstSoundID = PlayJA2SampleFromFile(zFilename, RATE_11025, SoundVolume((INT8)bVolume, pSoldier->sGridNo), 1, SoundDir(pSoldier->sGridNo));
+						pSoldier->iBurstSoundID = PlayJA2SampleFromFile(zFilename, RATE_11025, SoundVolume((INT8)bVolume, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
 					}
 				}
 			}
@@ -2213,11 +2213,11 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 			{
 				if (fSilenced)
 				{
-					PlayJA2Sample(Weapon[usUBItem].silencedSound, RATE_11025, SoundVolume(HIGHVOLUME, pSoldier->sGridNo), 1, SoundDir(pSoldier->sGridNo));
+					PlayJA2Sample(Weapon[usUBItem].silencedSound, RATE_11025, SoundVolume(HIGHVOLUME, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
 				}
 				else
 				{
-					PlayJA2Sample(Weapon[usUBItem].sSound, RATE_11025, SoundVolume(bVolume, pSoldier->sGridNo), 1, SoundDir(pSoldier->sGridNo));
+					PlayJA2Sample(Weapon[usUBItem].sSound, RATE_11025, SoundVolume(bVolume, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
 				}
 			}
 		}
@@ -2429,7 +2429,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				//CHRISL: This setup assumes that remove() will work successfully, but if it doesn't we'll duplicate the item.
 				// barrel extender falls off!
 				// drop it to ground
-				//AddItemToPool( pSoldier->sGridNo, pAttachment, 1, pSoldier->pathing.bLevel, 0, -1 );
+				//AddItemToPool( pSoldier->sGridNo, pAttachment, 1, pSoldier->position().level(), 0, -1 );
 
 				// since barrel extenders are not removable we cannot call RemoveAttachment here
 				// and must create the item by hand
@@ -2443,7 +2443,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 					iter != (*pObjHand)[0]->attachments.end(); ++iter){
 						if(*iter == *pAttachment)
 						{
-							AddItemToPool( pSoldier->sGridNo, pAttachment, 1, pSoldier->pathing.bLevel, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), pAttachment, 1, pSoldier->position().level(), 0, -1 );
 
 							iter = (*pObjHand)[0]->RemoveAttachmentAtIter(iter);
 
@@ -2525,14 +2525,14 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		if ( WillExplosiveWeaponFail( pSoldier, pObjHand ) )
 		{
 			INT16 sX, sY;
-			ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+			ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 
 			if ( ItemIsSingleShotRocketLauncher(usUBItem)  )
 			{
 				CreateItem( Item[usItemNum].discardedlauncheritem , (*pObjHand)[0]->data.objectStatus, pObjHand );
 				
 				// Flugente: why would we keep a piece of scrap in our hands in the first place? just drop it to the ground
-				AddItemToPool( pSoldier->sGridNo, pObjHand, 1, pSoldier->pathing.bLevel, 0, -1 );
+				AddItemToPool( pSoldier->position().gridNo(), pObjHand, 1, pSoldier->position().level(), 0, -1 );
 
 				// Delete object
 				DeleteObj( pObjHand );
@@ -2542,18 +2542,18 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 				if ( Item[usUBItem].usBuddyItem != 0 && Item[Item[usUBItem].usBuddyItem].usItemClass & IC_EXPLOSV )
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, Item[usUBItem].usBuddyItem, pSoldier->pathing.bLevel );
+					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), Item[usUBItem].usBuddyItem, pSoldier->position().level() );
 				}
 				else
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, C1, pSoldier->pathing.bLevel );
+					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
 				}
 			}
 			else
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("StructureHit: RPG7 item: %d, Ammo: %d", usUBItem , (*pObjHand)[0]->data.gun.usGunAmmoItem ) );
 
-				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, (*pObjHand)[0]->data.gun.usGunAmmoItem, pSoldier->pathing.bLevel );
+				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), (*pObjHand)[0]->data.gun.usGunAmmoItem, pSoldier->position().level() );
 				pSoldier->inv[pSoldier->ubAttackingHand ][0]->data.gun.usGunAmmoItem = NONE;
 			}
 		  // Reduce again for attack end 'cause it has been incremented for a normal attack
@@ -2698,15 +2698,15 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		FLOAT dStartZ;
 		CalculateSoldierZPos(pSoldier, FIRING_POS, &dStartZ);
 
-		INT32 sTempGridNo = NewGridNo(pSoldier->sGridNo, DirectionInc(pSoldier->ubDirection));
-		if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && pSoldier->ubDirection % 2 == 0)
+		INT32 sTempGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(pSoldier->position().direction()));
+		if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && pSoldier->position().direction() % 2 == 0)
 		{
-			sTempGridNo = NewGridNo(sTempGridNo, DirectionInc(pSoldier->ubDirection));
+			sTempGridNo = NewGridNo(sTempGridNo, DirectionInc(pSoldier->position().direction()));
 		}
 		INT16 sX, sY;
 		ConvertGridNoToCenterCellXY(sTempGridNo, &sX, &sY);
 
-		AniParams.sGridNo = pSoldier->sGridNo;
+		AniParams.sGridNo = pSoldier->position().gridNo();
 		AniParams.ubLevelID = ANI_TOPMOST_LEVEL;
 		AniParams.sDelay = (INT16)(100);
 		AniParams.sStartFrame = 0;
@@ -2751,7 +2751,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			CreateItem( Item[usUBItem].discardedlauncheritem, (*pObjHand)[0]->data.objectStatus, pObjHand );
 			
 			// Flugente: why would we keep a piece of scrap in our ahnds in the first place? just drop it to the ground
-			AddItemToPool( pSoldier->sGridNo, pObjHand, 1, pSoldier->pathing.bLevel, 0, -1 );
+			AddItemToPool( pSoldier->position().gridNo(), pObjHand, 1, pSoldier->position().level(), 0, -1 );
 
 			// Delete object
 			DeleteObj( pObjHand );
@@ -2760,11 +2760,11 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 
 		// Direction to center of explosion
-		ubDirection = gOppositeDirection[ pSoldier->ubDirection ];
-		sNewGridNo  = NewGridNo( pSoldier->sGridNo, (UINT16)(1 * DirectionInc( ubDirection ) ) );
+		ubDirection = gOppositeDirection[ pSoldier->position().direction() ];
+		sNewGridNo  = NewGridNo( pSoldier->position().gridNo(), (UINT16)(1 * DirectionInc( ubDirection ) ) );
 
 		// Check if a person exists here and is not prone....
-		ubMerc = WhoIsThere2( sNewGridNo, pSoldier->pathing.bLevel );
+		ubMerc = WhoIsThere2( sNewGridNo, pSoldier->position().level() );
 
 		if ( ubMerc != NOBODY )
 		{
@@ -2775,7 +2775,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
-				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->ubDirection, 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
+				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->position().direction(), 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
 			}
 		}
 	}
@@ -2793,7 +2793,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 	}
 
-	MakeNoise( pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
+	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
 	if ( pSoldier->bDoBurst && !pSoldier->usBarrelCounter )
@@ -2847,7 +2847,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	{
 		sectormod = SectorExternalData[ubSectorId][gbWorldSectorZ].usNaturalDirt;
 		// half dirt value if we are in a building (room)
-		if ( InARoom( pSoldier->sGridNo, NULL ) )
+		if ( InARoom( pSoldier->position().gridNo(), NULL ) )
 			sectormod /= 2;
 	}
 
@@ -3218,7 +3218,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				//CHRISL: This setup assumes that remove() will work successfully, but if it doesn't we'll duplicate the item.
 				// barrel extender falls off!
 				// drop it to ground
-				//AddItemToPool( pSoldier->sGridNo, pAttachment, 1, pSoldier->pathing.bLevel, 0, -1 );
+				//AddItemToPool( pSoldier->sGridNo, pAttachment, 1, pSoldier->position().level(), 0, -1 );
 
 				// since barrel extenders are not removable we cannot call RemoveAttachment here
 				// and must create the item by hand
@@ -3232,7 +3232,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 					iter != (*pObjUsed)[0]->attachments.end(); ++iter){
 						if(*iter == *pAttachment)
 						{
-							AddItemToPool( pSoldier->sGridNo, pAttachment, 1, pSoldier->pathing.bLevel, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), pAttachment, 1, pSoldier->position().level(), 0, -1 );
 
 							iter = (*pObjUsed)[0]->RemoveAttachmentAtIter(iter);
 
@@ -3281,7 +3281,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	#ifdef JA2BETAVERSION
 	if ( gfReportHitChances )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, roll %ld (range %d)", uiHitChance, uiDiceRoll, PythSpacesAway( pSoldier->sGridNo, pSoldier->sTargetGridNo ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, roll %ld (range %d)", uiHitChance, uiDiceRoll, PythSpacesAway( pSoldier->position().gridNo(), pSoldier->sTargetGridNo ) );
 	}
 	#endif
 
@@ -3456,14 +3456,14 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		if ( WillExplosiveWeaponFail( pSoldier, pObjUsed ) )
 		{
 			INT16 sX, sY;
-			ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+			ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 
 			if ( ItemIsSingleShotRocketLauncher(usUBItem)  )
 			{
 				CreateItem( Item[usUBItem].discardedlauncheritem , (*pObjUsed)[0]->data.objectStatus, pObjUsed );
 				
 				// Flugente: why would we keep a piece of scrap in our ahnds in the first place? just drop it to the ground
-				AddItemToPool( pSoldier->sGridNo, pObjUsed, 1, pSoldier->pathing.bLevel, 0, -1 );
+				AddItemToPool( pSoldier->position().gridNo(), pObjUsed, 1, pSoldier->position().level(), 0, -1 );
 
 				// Delete object
 				DeleteObj( pObjUsed );
@@ -3473,18 +3473,18 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 				if ( Item[usUBItem].usBuddyItem != 0 && Item[Item[usUBItem].usBuddyItem].usItemClass & IC_EXPLOSV )
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, C1, pSoldier->pathing.bLevel );
+					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
 				}
 				else
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, C1, pSoldier->pathing.bLevel );
+					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
 				}
 			}
 			else
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("StructureHit: RPG7 item: %d, Ammo: %d", usUBItem , (*pObjUsed)[0]->data.gun.usGunAmmoItem ) );
 
-				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, (*pObjUsed)[0]->data.gun.usGunAmmoItem, pSoldier->pathing.bLevel );
+				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), (*pObjUsed)[0]->data.gun.usGunAmmoItem, pSoldier->position().level() );
 			
 				OBJECTTYPE * pLaunchable = FindLaunchableAttachment( pObjUsed, usUBItem );
 				if(pLaunchable)
@@ -3519,15 +3519,15 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		FLOAT dStartZ;
 		CalculateSoldierZPos(pSoldier, FIRING_POS, &dStartZ);
 
-		INT32 sTempGridNo = NewGridNo(pSoldier->sGridNo, DirectionInc(pSoldier->ubDirection));
-		if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && pSoldier->ubDirection % 2 == 0)
+		INT32 sTempGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(pSoldier->position().direction()));
+		if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && pSoldier->position().direction() % 2 == 0)
 		{
-			sTempGridNo = NewGridNo(sTempGridNo, DirectionInc(pSoldier->ubDirection));
+			sTempGridNo = NewGridNo(sTempGridNo, DirectionInc(pSoldier->position().direction()));
 		}
 		INT16 sX, sY;
 		ConvertGridNoToCenterCellXY(sTempGridNo, &sX, &sY);
 
-		AniParams.sGridNo = pSoldier->sGridNo;
+		AniParams.sGridNo = pSoldier->position().gridNo();
 		AniParams.ubLevelID = ANI_TOPMOST_LEVEL;
 		AniParams.sDelay = (INT16)(100);
 		AniParams.sStartFrame = 0;
@@ -3571,7 +3571,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			CreateItem( Item[usUBItem].discardedlauncheritem, (*pObjUsed)[0]->data.objectStatus, pObjUsed );
 
 			// Flugente: why would we keep a piece of scrap in our ahnds in the first place? just drop it to the ground
-			AddItemToPool( pSoldier->sGridNo, pObjUsed, 1, pSoldier->pathing.bLevel, 0, -1 );
+			AddItemToPool( pSoldier->position().gridNo(), pObjUsed, 1, pSoldier->position().level(), 0, -1 );
 
 			// Delete object
 			DeleteObj( pObjUsed );
@@ -3580,11 +3580,11 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 
 		// Direction to center of explosion
-		ubDirection = gOppositeDirection[ pSoldier->ubDirection ];
-		sNewGridNo  = NewGridNo( pSoldier->sGridNo, (UINT16)(1 * DirectionInc( ubDirection ) ) );
+		ubDirection = gOppositeDirection[ pSoldier->position().direction() ];
+		sNewGridNo  = NewGridNo( pSoldier->position().gridNo(), (UINT16)(1 * DirectionInc( ubDirection ) ) );
 
 		// Check if a person exists here and is not prone....
-		ubMerc = WhoIsThere2( sNewGridNo, pSoldier->pathing.bLevel );
+		ubMerc = WhoIsThere2( sNewGridNo, pSoldier->position().level() );
 
 		if ( ubMerc != NOBODY )
 		{
@@ -3595,7 +3595,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
-				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->ubDirection, 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
+				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->position().direction(), 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
 			}
 		}
 	}
@@ -3613,7 +3613,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}				
 	}
 
-	MakeNoise( pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
+	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
 	if ( pSoldier->bDoBurst && !pSoldier->usBarrelCounter )
@@ -3670,7 +3670,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	{
 		sectormod = SectorExternalData[ubSectorId][gbWorldSectorZ].usNaturalDirt;
 		// half dirt value if we are in a building (room)
-		if ( InARoom( pSoldier->sGridNo, NULL ) )
+		if ( InARoom( pSoldier->position().gridNo(), NULL ) )
 			sectormod /= 2;
 	}
 
@@ -3882,7 +3882,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			SWeaponHit.uiUniqueId       = pTargetSoldier->uiUniqueSoldierIdValue;
 			SWeaponHit.usWeaponIndex		= pSoldier->usAttackingWeapon;
 			SWeaponHit.sDamage					= (INT16) iImpact;
-			SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->sGridNo, pTargetSoldier );
+			SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier );
 			SWeaponHit.sXPos						= (INT16)pTargetSoldier->dXPos;
 			SWeaponHit.sYPos						= (INT16)pTargetSoldier->dYPos;
 			SWeaponHit.sZPos						= 20;
@@ -3964,7 +3964,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_BULLET_IMPACT);
+	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell
 	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 5 ) == 0 )
@@ -4183,7 +4183,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						if (!AutoPlaceObject( pSoldier, &gTempObject, TRUE ))
 						{
 							// Place the item on the ground
-							AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0, -1 );
+							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0, -1 );
 						}
 					}
 
@@ -4232,7 +4232,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							else if (!PlaceInAnyPocket( pSoldier, &pSoldier->inv[HANDPOS], FALSE, 5))
 							{
 								if (!AutoPlaceObject( pSoldier, &pSoldier->inv[HANDPOS], FALSE, 5))
-									AddItemToPool( pSoldier->sGridNo, &pSoldier->inv[HANDPOS], 1, pSoldier->pathing.bLevel, 0, -1 );
+									AddItemToPool( pSoldier->position().gridNo(), &pSoldier->inv[HANDPOS], 1, pSoldier->position().level(), 0, -1 );
 							}
 						}
 						// if twohanded item, place the secondhand item if any to temp space
@@ -4261,7 +4261,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							}
 							else
 							{
-								AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0, -1 );
+								AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0, -1 );
 							}
 						}
 						// if second hand item was removed place it now somewhere
@@ -4271,7 +4271,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							{
 								if (!AutoPlaceObject( pSoldier, &oTempObjectSecondHand, FALSE ))
 								{
-									AddItemToPool( pSoldier->sGridNo, &oTempObjectSecondHand, 1, pSoldier->pathing.bLevel, 0, -1 );
+									AddItemToPool( pSoldier->position().gridNo(), &oTempObjectSecondHand, 1, pSoldier->position().level(), 0, -1 );
 								}
 							}
 						}
@@ -4293,12 +4293,12 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							if (iDiceRoll < iHitChance)
 							{
 								// Drop item in the our tile
-								AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0, -1 );
+								AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0, -1 );
 							}
 							else
 							{
 								// Drop item in the target's tile
-								AddItemToPool( pTargetSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0, -1 );
+								AddItemToPool( pTargetSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0, -1 );
 							}
 						}
 						// add to merc records
@@ -4456,7 +4456,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				// SANDRO - Enhanced Close Combat System - Notice merc after stealing
 				// sevenfm: don't turn when lying prone
 				if ( gGameExternalOptions.fEnhancedCloseCombatSystem && gAnimControl[pTargetSoldier->usAnimState].ubEndHeight != ANIM_PRONE )
-					pTargetSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionFromGridNo( pSoldier->sGridNo, pTargetSoldier ) );
+					pTargetSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier ) );
 
 				// 0verhaul:  Also handled in the animation transition
 				// #ifdef JA2BETAVERSION
@@ -4633,7 +4633,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				SWeaponHit.usSoldierID			= pTargetSoldier->ubID;
 				SWeaponHit.usWeaponIndex		= pSoldier->usAttackingWeapon;
 				SWeaponHit.sDamage					= (INT16) iImpact;
-				SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->sGridNo, pTargetSoldier );
+				SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier );
 				SWeaponHit.sXPos						= (INT16)pTargetSoldier->dXPos;
 				SWeaponHit.sYPos						= (INT16)pTargetSoldier->dYPos;
 				SWeaponHit.sZPos						= 20;
@@ -4689,7 +4689,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					}
 
 					pTargetSoldier->aiData.bAimTime = 0;
-					if (pTargetSoldier->bActionPoints >= MinAPsToAttack(pTargetSoldier, pSoldier->sGridNo, TRUE, 1, 0) && Chance(EffectiveStrength(pTargetSoldier, FALSE) / 4))
+					if (pTargetSoldier->bActionPoints >= MinAPsToAttack(pTargetSoldier, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(EffectiveStrength(pTargetSoldier, FALSE) / 4))
 						pTargetSoldier->aiData.bAimTime = 1;
 
 					pTargetSoldier->bAimMeleeLocation = AIM_SHOT_RANDOM;
@@ -4703,7 +4703,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							pTargetSoldier->bAimMeleeLocation = AIM_SHOT_TORSO;
 					}
 
-					HandleItem(pTargetSoldier, pSoldier->sGridNo, pTargetSoldier->pathing.bLevel, pTargetSoldier->inv[HANDPOS].usItem, FALSE);
+					HandleItem(pTargetSoldier, pSoldier->position().gridNo(), pTargetSoldier->position().level(), pTargetSoldier->inv[HANDPOS].usItem, FALSE);
 				}
 			}
 		}
@@ -4713,7 +4713,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_BULLET_IMPACT);
+	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell (gunpowder smell)
 	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 5 ) == 0 )
@@ -4737,7 +4737,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	#ifdef JA2BETAVERSION
 	if ( gfReportHitChances )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, (range %d)", uiHitChance, PythSpacesAway( pSoldier->sGridNo, sTargetGridNo ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, (range %d)", uiHitChance, PythSpacesAway( pSoldier->position().gridNo(), sTargetGridNo ) );
 	}
 	#endif
 
@@ -4787,7 +4787,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 			// Snap: calculate experience points for strength: weight x distance
 			UINT16 usHandItem = pSoldier->inv[HANDPOS].usItem;
 			// calculate actual range (in world units)
-			INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sTargetGridNo );
+			INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sTargetGridNo );
 			// 10 points for a regular grenade thrown at 100 units (1 cell = 10 units)
 			UINT16 usExpGain = ( Item[usHandItem].ubWeight * iRange + 30) / 60;
 			StatChange( pSoldier, STRAMT, usExpGain, FALSE );
@@ -4844,7 +4844,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if (ubVolume > 0)
 	{
 		// sevenfm: better make it NOISE_GRENADE_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-		MakeNoise(pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_GRENADE_IMPACT);
+		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GRENADE_IMPACT);
 	}
 
 	HandleSoldierThrowItem(pSoldier, pSoldier->sTargetGridNo);
@@ -4967,8 +4967,8 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		// So we still should have ABC > 0
 		// Begin explosion due to failure...
 		INT16 sX, sY;
-		ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
-		IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->sGridNo, Launchable.usItem, pSoldier->pathing.bLevel );
+		ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
+		IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), Launchable.usItem, pSoldier->position().level() );
 
 		// Reduce again for attack end 'cause it has been incremented for a normal attack
 		// Nope, not anymore.
@@ -4995,9 +4995,9 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if ( Weapon[ usItemNum ].sSound != NO_WEAPON_SOUND  )
 	{
 		if (Item[ usItemNum ].usItemClass == IC_GUN  )
-			PlayJA2Sample( Weapon[ UNDER_GLAUNCHER ].sSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+			PlayJA2Sample( Weapon[ UNDER_GLAUNCHER ].sSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 		else
-			PlayJA2Sample( Weapon[ usItemNum ].sSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+			PlayJA2Sample( Weapon[ usItemNum ].sSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 	}
 
 	uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, AIM_SHOT_TORSO );
@@ -5005,7 +5005,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	#ifdef JA2BETAVERSION
 	if ( gfReportHitChances )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, (range %d)", uiHitChance, PythSpacesAway( pSoldier->sGridNo, sTargetGridNo ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, (range %d)", uiHitChance, PythSpacesAway( pSoldier->position().gridNo(), sTargetGridNo ) );
 	}
 	#endif
 	
@@ -5096,7 +5096,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_GUNFIRE instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE);
+	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE);
 
 	return( TRUE );
 }
@@ -5282,7 +5282,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// Get Target
 	pTargetSoldier	= usSoldierID;
 
-	MakeNoise( ubAttackerID, pTargetSoldier->sGridNo, pTargetSoldier->pathing.bLevel, gpWorldLevelData[pTargetSoldier->sGridNo].ubTerrainID, Weapon[ usWeaponIndex ].ubHitVolume, NOISE_BULLET_IMPACT );
+	MakeNoise( ubAttackerID, pTargetSoldier->position().gridNo(), pTargetSoldier->position().level(), gpWorldLevelData[pTargetSoldier->position().gridNo()].ubTerrainID, Weapon[ usWeaponIndex ].ubHitVolume, NOISE_BULLET_IMPACT );
 
 	// CALLAHAN START BUGFIX
 	// Provisions for Fragments, which are resulting from a different weapon than the one we are holding in our hand.
@@ -5311,11 +5311,11 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 			{	
 				if ( Item[usWeaponIndex].usBuddyItem != 0 && Item[Item[usWeaponIndex].usBuddyItem].usItemClass & IC_EXPLOSV )
 				{
-					IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), Item[usWeaponIndex].usBuddyItem, pTargetSoldier->pathing.bLevel );
+					IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), Item[usWeaponIndex].usBuddyItem, pTargetSoldier->position().level() );
 				}
 				else
 				{
-					IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), C1, pTargetSoldier->pathing.bLevel );
+					IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), C1, pTargetSoldier->position().level() );
 				}
 			}
 			// changed rpg type to work only with two flags matching
@@ -5324,7 +5324,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("WeaponHit: RPG7 item: %d, Ammo: %d",pSoldier->inv[HANDPOS].usItem , pSoldier->inv[HANDPOS][0]->data.gun.usGunAmmoItem ) );
 
-				IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), pSoldier->inv[pSoldier->ubAttackingHand ][0]->data.gun.usGunAmmoItem, pTargetSoldier->pathing.bLevel );
+				IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), pSoldier->inv[pSoldier->ubAttackingHand ][0]->data.gun.usGunAmmoItem, pTargetSoldier->position().level() );
 				
 				//This is just to make multishot launchers work in semi auto. It's not really a permanent solution because it still doesn't allow autofire, but it will do for now.
 				OBJECTTYPE * pLaunchable = FindLaunchableAttachment( &(pSoldier->inv[pSoldier->ubAttackingHand ]), pSoldier->inv[pSoldier->ubAttackingHand ].usItem );
@@ -5340,14 +5340,14 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 		    else if ( AmmoTypes[ubAmmoType].explosionSize > 1)
 			{
 				// re-routed the Highexplosive value to define exposion type
-				IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), AmmoTypes[ubAmmoType].highExplosive, pTargetSoldier->pathing.bLevel );
+				IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), AmmoTypes[ubAmmoType].highExplosive, pTargetSoldier->position().level() );
 				// pSoldier->inv[pSoldier->ubAttackingHand ][0]->data.gun.usGunAmmoItem = NONE;
 			}
 		}
 		else // tank cannon
 		{
 			// HEADROCK HAM 5 TODO: TANK_SHELL!
-			IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), TANK_SHELL, pTargetSoldier->pathing.bLevel );
+			IgniteExplosion( ubAttackerID, sXPos, sYPos, 0, GETWORLDINDEXFROMWORLDCOORDS( sYPos, sXPos ), TANK_SHELL, pTargetSoldier->position().level() );
 		}
 
 		// 0verhaul:  No longer necessary
@@ -5356,7 +5356,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 		return;
 	}
 
-	DoSpecialEffectAmmoMiss( ubAttackerID, usWeaponIndex, pTargetSoldier->sGridNo, sXPos, sYPos, sZPos, FALSE, FALSE, 0 );
+	DoSpecialEffectAmmoMiss( ubAttackerID, usWeaponIndex, pTargetSoldier->position().gridNo(), sXPos, sYPos, sZPos, FALSE, FALSE, 0 );
 
 	// OK, SHOT HAS HIT, DO THINGS APPROPRIATELY
 	// ATE: This is 'cause of that darn smoke effect that could potentially kill
@@ -5466,7 +5466,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 
 		UINT8 usDirection = DIRECTION_IRRELEVANT;
 		if ( pSoldier )
-			usDirection = (UINT8)GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, sGridNo );
+			usDirection = (UINT8)GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sGridNo );
 
                  // marke added one 'or' to get this working with HE ammo
 		if (ItemIsRocketLauncher(usWeaponIndex) || (pObj && AmmoTypes[ (*pObj)[0]->data.gun.ubGunAmmoType].explosionSize > 1 ))
@@ -6021,7 +6021,7 @@ BOOLEAN InRange( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	 if ( Item[pObj->usItem].usItemClass & (IC_GUN | IC_THROWING_KNIFE | IC_LAUNCHER) )
 	 {
 		 // Determine range
-		 sRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+		 sRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
 		 if ( Item[pObj->usItem].usItemClass & (IC_THROWING_KNIFE) )
 		 {
@@ -6079,9 +6079,9 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	gCTHDisplay.fMaxAimReached = FALSE;
 
 	// calculate actual range (in units, 10 units = 1 tile)
-	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
-	ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+	ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 	ConvertGridNoToCenterCellXY(sGridNo, &sX2, &sY2);
 	FLOAT dDeltaX = (FLOAT)( sX - sX2 );
 	FLOAT dDeltaY = (FLOAT)( sY - sY2 );
@@ -6468,7 +6468,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Assign range variables -- all range values are in units (10 units = 1 tile)
-	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );	// calculate actual range
+	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );	// calculate actual range
 
 	if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) ) // ignore scopes when firing from hip
 		gbForceWeaponReady = true;
@@ -6720,7 +6720,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	if ( pTarget == NULL )
 	{
 		// Shooting to roof.
-		if ( pSoldier->bTargetLevel > pSoldier->pathing.bLevel )
+		if ( pSoldier->bTargetLevel > pSoldier->position().level() )
 		{
 			iHeightDifference = 3 * pSoldier->bTargetLevel;
 		}
@@ -6731,9 +6731,9 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		UINT32 uiShooterHeight = 0;
 		UINT32 uiTargetHeight = 0;
 
-		if ( pSoldier->pathing.bLevel > 0 )
+		if ( pSoldier->position().level() > 0 )
 		{
-			uiShooterHeight += 3 * pSoldier->pathing.bLevel;
+			uiShooterHeight += 3 * pSoldier->position().level();
 		}
 		
 		switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
@@ -6746,9 +6746,9 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 				break;
 		}
 
-		if (pTarget->pathing.bLevel > 0)
+		if (pTarget->position().level() > 0)
 		{
-			uiTargetHeight += 3 * pTarget->pathing.bLevel;
+			uiTargetHeight += 3 * pTarget->position().level();
 		}
 
 		switch ( gAnimControl[ pTarget->usAnimState ].ubEndHeight )
@@ -6861,7 +6861,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	// Flugente: backgrounds
 	if ( pTarget && pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE ) )
 	{
-		if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->sGridNo, pTarget ) ) )
+		if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 		{
 			iChance += pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE );
 		}
@@ -7251,7 +7251,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		iChance -= usShockPenalty;
 	}
 	// adjust for roof/not on roof
-	if ( pSoldier->pathing.bLevel == 0 )
+	if ( pSoldier->position().level() == 0 )
 	{
 		if ( pSoldier->bTargetLevel > 0 )
 		{
@@ -7259,7 +7259,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 			iChance -= AIM_PENALTY_FIRING_UP;
 		}
 	}
-	else // pSoldier->pathing.bLevel > 0 )
+	else // pSoldier->position().level() > 0 )
 	{
 		if ( pSoldier->bTargetLevel == 0 )
 		{
@@ -7365,11 +7365,11 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 					// HEADROCK HAM B2.8.1: Added formula to make sure that cowering target penalties
 					// are not given when on the roof.
 
-					if (pSoldier->pathing.bLevel == pTarget->pathing.bLevel && pSoldier->pathing.bLevel > 0)
+					if (pSoldier->position().level() == pTarget->position().level() && pSoldier->position().level() > 0)
 						sCoweringPenalty = 0; // No cowering penalties when both are on the roof!
-					else if (pSoldier->pathing.bLevel < pTarget->pathing.bLevel && gAnimControl[ pTarget->usAnimState ].ubHeight == ANIM_PRONE)
+					else if (pSoldier->position().level() < pTarget->position().level() && gAnimControl[ pTarget->usAnimState ].ubHeight == ANIM_PRONE)
 						sCoweringPenalty *= 2; // Much harder to shoot at anyone cowering above you.
-					else if (pSoldier->pathing.bLevel > pTarget->pathing.bLevel)
+					else if (pSoldier->position().level() > pTarget->position().level())
 						sCoweringPenalty /= 2; // Much easier to shoot at cowerers below you.
 					iChance -= sCoweringPenalty;
 				}
@@ -7469,7 +7469,7 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		// we need to take other factors into consideration.
 
 		// distance to target
-		FLOAT d2DDistance = (FLOAT) PythSpacesAway( pSoldier->sGridNo, sGridNo ) * (FLOAT) CELL_X_SIZE;
+		FLOAT d2DDistance = (FLOAT) PythSpacesAway( pSoldier->position().gridNo(), sGridNo ) * (FLOAT) CELL_X_SIZE;
 
 		// magnification (1.0 or higher if scope is used)
 		FLOAT dMagFactor = CalcMagFactor( pSoldier, &(pSoldier->inv[pSoldier->ubAttackingHand]), d2DDistance, sGridNo, (UINT8)ubAimTime );
@@ -7595,21 +7595,21 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 			(IS_MERC_BODY_TYPE(pTarget) || IS_CIV_BODY_TYPE(pTarget)) &&
 			gAnimControl[pTarget->usAnimState].ubEndHeight > ANIM_PRONE &&
 			pSoldier->bAimShotLocation != AIM_SHOT_HEAD &&
-			pSoldier->ubDirection != pTarget->ubDirection &&
-			pSoldier->ubDirection != gOppositeDirection[pTarget->ubDirection])
+			pSoldier->position().direction() != pTarget->position().direction() &&
+			pSoldier->position().direction() != gOppositeDirection[pTarget->position().direction()])
 		{
 			FLOAT iDivisor = 1.0f;
 
-			if (pSoldier->ubDirection == gOneCDirection[pTarget->ubDirection] ||
-				pSoldier->ubDirection == gOneCCDirection[pTarget->ubDirection] ||
-				pSoldier->ubDirection == gOneCDirection[gOppositeDirection[pTarget->ubDirection]] ||
-				pSoldier->ubDirection == gOneCCDirection[gOppositeDirection[pTarget->ubDirection]] ||
+			if (pSoldier->position().direction() == gOneCDirection[pTarget->position().direction()] ||
+				pSoldier->position().direction() == gOneCCDirection[pTarget->position().direction()] ||
+				pSoldier->position().direction() == gOneCDirection[gOppositeDirection[pTarget->position().direction()]] ||
+				pSoldier->position().direction() == gOneCCDirection[gOppositeDirection[pTarget->position().direction()]] ||
 				gAnimControl[pTarget->usAnimState].ubEndHeight == ANIM_CROUCH)
 			{
 				iDivisor = 1.5f;
 			}
-			else if (pSoldier->ubDirection == gTwoCDirection[pTarget->ubDirection] ||
-				pSoldier->ubDirection == gTwoCCDirection[gOppositeDirection[pTarget->ubDirection]])
+			else if (pSoldier->position().direction() == gTwoCDirection[pTarget->position().direction()] ||
+				pSoldier->position().direction() == gTwoCCDirection[gOppositeDirection[pTarget->position().direction()]])
 			{
 				iDivisor = 2.0f;
 			}
@@ -7839,7 +7839,7 @@ INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 i
 						for (attachmentList::iterator iter = (*pArmour)[0]->attachments.begin(); iter != (*pArmour)[0]->attachments.end(); ++iter) {
 							if ( !AutoPlaceObject( pTarget, &(*iter), FALSE ) && iter->exists())
 							{   // put it on the ground
-								AddItemToPool( pTarget->sGridNo, &(*iter), 1, pTarget->pathing.bLevel, 0 , -1 );
+								AddItemToPool( pTarget->position().gridNo(), &(*iter), 1, pTarget->position().level(), 0 , -1 );
 							}
 						}
 
@@ -7866,7 +7866,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	if (pBullet == NULL && pFirer )
 	{
 		usAttackingWeapon = pFirer->inv[pFirer->ubAttackingHand][0]->data.gun.ubGunAmmoType;
-		sOrigGridNo = pFirer->sGridNo;
+		sOrigGridNo = pFirer->position().gridNo();
 
 		ammoitem = pFirer->inv[pFirer->ubAttackingHand][0]->data.gun.usGunAmmoItem;
 	}
@@ -8111,7 +8111,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 				// HEADROCK HAM 3.6: Reattached "Max Distance For Messy Death" tag from the XML! God knows why it wasn't attached when they MADE THAT TAG.
 				//if ( PythSpacesAway( pFirer->sGridNo, pTarget->sGridNo ) <= MAX_DISTANCE_FOR_MESSY_DEATH || (PythSpacesAway( pFirer->sGridNo, pTarget->sGridNo ) <= MAX_BARRETT_DISTANCE_FOR_MESSY_DEATH && pFirer->usAttackingWeapon  == BARRETT ))
 				// HEADROCK HAM 5.1: Using usAttackingWeapon
-				if ( PythSpacesAway( sOrigGridNo, pTarget->sGridNo ) <= ubDistMessy )
+				if ( PythSpacesAway( sOrigGridNo, pTarget->position().gridNo() ) <= ubDistMessy )
 				{
 					if (iImpactForCrits > MIN_DAMAGE_FOR_INSTANT_KILL && iImpactForCrits < pTarget->vitals().health())
 					{
@@ -8165,7 +8165,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 				// HEADROCK HAM 3.6: Reattached "Max Distance For Messy Death" tag from the XML! God knows why it wasn't attached when they MADE THAT TAG.
 				//if ( PythSpacesAway( pFirer->sGridNo, pTarget->sGridNo ) <= MAX_DISTANCE_FOR_MESSY_DEATH || (PythSpacesAway( pFirer->sGridNo, pTarget->sGridNo ) <= MAX_BARRETT_DISTANCE_FOR_MESSY_DEATH && pFirer->usAttackingWeapon  == BARRETT ))
 				// HEADROCK HAM 5.1: Using usAttackingWeapon
-				if ( PythSpacesAway( sOrigGridNo, pTarget->sGridNo ) <= ubDistMessy )
+				if ( PythSpacesAway( sOrigGridNo, pTarget->position().gridNo() ) <= ubDistMessy )
 				{
 					if (iImpact > MIN_DAMAGE_FOR_INSTANT_KILL && iImpact < pTarget->vitals().health())
 					{
@@ -8783,7 +8783,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 		INT32 instakillchance = 0;
 		INT32 resistchance = 20;
 
-		if ( !SoldierTo3DLocationLineOfSightTest( pSoldier, pTarget->sGridNo, pTarget->pathing.bLevel, 3, TRUE, CALC_FROM_WANTED_DIR ) )
+		if ( !SoldierTo3DLocationLineOfSightTest( pSoldier, pTarget->position().gridNo(), pTarget->position().level(), 3, TRUE, CALC_FROM_WANTED_DIR ) )
 			instakillchance += 30;
 
 		UINT8 skilllevel = NUM_SKILL_TRAITS( pSoldier, COVERT_NT );
@@ -9130,7 +9130,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 					garottemodifier += 80;
 
 				// if this guy can see us, get a big malus!
-				else if ( SoldierTo3DLocationLineOfSightTest( pAttacker, pDefender->sGridNo, pDefender->pathing.bLevel, 3, TRUE, CALC_FROM_WANTED_DIR ) )
+				else if ( SoldierTo3DLocationLineOfSightTest( pAttacker, pDefender->position().gridNo(), pDefender->position().level(), 3, TRUE, CALC_FROM_WANTED_DIR ) )
 					garottemodifier -= 80;
 
 				iAttRating += garottemodifier;
@@ -9549,9 +9549,9 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iChance < 100 &&
 		!pAttacker->bBlindedCounter &&
 		gAnimControl[pDefender->usAnimState].ubEndHeight > ANIM_PRONE &&
-		(AIDirection(pAttacker->sGridNo, pDefender->sGridNo) == pDefender->ubDirection ||
-		AIDirection(pAttacker->sGridNo, pDefender->sGridNo) == gOneCDirection[pDefender->ubDirection] ||
-		AIDirection(pAttacker->sGridNo, pDefender->sGridNo) == gOneCCDirection[pDefender->ubDirection]))
+		(AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == pDefender->position().direction() ||
+		AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == gOneCDirection[pDefender->position().direction()] ||
+		AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == gOneCCDirection[pDefender->position().direction()]))
 	{
 		iChance += (100 - iChance) / 2;
 	}
@@ -10187,7 +10187,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	}
 
 	// calculate actual range (in world units)
-	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
 	//NumMessage("ACTUAL RANGE = ",range);
 
@@ -10487,15 +10487,15 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 			if ( pSoldier->ubID != pQueenSoldier->ubID )
 			{
 				// ATE: Ok, lets check for some basic things here!				
-				if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bActive && pSoldier->bInSector )
+				if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
 				{
 					UINT16 usRange = GetModifiedGunRange(CREATURE_QUEEN_TENTACLES);
 
 					// Get Pyth spaces away....
-					if ( GetRangeInCellCoordsFromGridNoDiff( pQueenSoldier->sGridNo, pSoldier->sGridNo ) <= usRange )
+					if ( GetRangeInCellCoordsFromGridNoDiff( pQueenSoldier->position().gridNo(), pSoldier->position().gridNo() ) <= usRange )
 					{
 						// get direction
-						bDir = (INT8)GetDirectionFromGridNo( pSoldier->sGridNo, pQueenSoldier );
+						bDir = (INT8)GetDirectionFromGridNo( pSoldier->position().gridNo(), pQueenSoldier );
 
 						//
 						for ( cnt2 = 0; cnt2 < 2; cnt2++ )
@@ -11439,7 +11439,7 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 	if ( pTarget == NULL )
 	{
 		// Shooting to roof.
-		if ( pSoldier->bTargetLevel > pSoldier->pathing.bLevel )
+		if ( pSoldier->bTargetLevel > pSoldier->position().level() )
 		{
 			iHeightDifference = 3 * pSoldier->bTargetLevel;
 		}
@@ -11451,9 +11451,9 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 		UINT32 uiShooterHeight = 0;
 		UINT32 uiTargetHeight = 0;
 
-		if ( pSoldier->pathing.bLevel > 0 )
+		if ( pSoldier->position().level() > 0 )
 		{
-			uiShooterHeight += 3 * pSoldier->pathing.bLevel;
+			uiShooterHeight += 3 * pSoldier->position().level();
 		}
 		
 		switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
@@ -11466,9 +11466,9 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 				break;
 		}
 
-		if (pTarget->pathing.bLevel > 0)
+		if (pTarget->position().level() > 0)
 		{
-			uiTargetHeight += 3 * pTarget->pathing.bLevel;
+			uiTargetHeight += 3 * pTarget->position().level();
 		}
 
 		switch ( gAnimControl[ pTarget->usAnimState ].ubEndHeight )
@@ -11526,7 +11526,7 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 		// Flugente: backgrounds
 		if ( pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE ) )
 		{
-			if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->sGridNo, pTarget ) ) )
+			if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 			{
 				fBaseModifier += pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE );
 			}
@@ -11759,7 +11759,7 @@ FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarg
 	if ( pTarget == NULL )
 	{
 		// Shooting to roof.
-		if ( pSoldier->bTargetLevel > pSoldier->pathing.bLevel )
+		if ( pSoldier->bTargetLevel > pSoldier->position().level() )
 		{
 			iHeightDifference = 3 * pSoldier->bTargetLevel;
 		}
@@ -11770,9 +11770,9 @@ FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarg
 		UINT32 uiShooterHeight = 0;
 		UINT32 uiTargetHeight = 0;
 
-		if ( pSoldier->pathing.bLevel > 0 )
+		if ( pSoldier->position().level() > 0 )
 		{
-			uiShooterHeight += 3 * pSoldier->pathing.bLevel;
+			uiShooterHeight += 3 * pSoldier->position().level();
 		}
 		
 		switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
@@ -11785,9 +11785,9 @@ FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarg
 				break;
 		}
 
-		if (pTarget->pathing.bLevel > 0)
+		if (pTarget->position().level() > 0)
 		{
-			uiTargetHeight += 3 * pTarget->pathing.bLevel;
+			uiTargetHeight += 3 * pTarget->position().level();
 		}
 
 		switch ( gAnimControl[ pTarget->usAnimState ].ubEndHeight )
@@ -11848,7 +11848,7 @@ FLOAT CalcNewChanceToHitAimTraitBonus(SOLDIERTYPE *pSoldier, FLOAT fAimCap, FLOA
 	FLOAT fAimChance = 0;
 	FLOAT fSniperSkillBonus = 0;
 	UINT16 usInHand = pSoldier->usAttackingWeapon;
-	INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+	INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
 	// SANDRO - added support to Throwing trait
 	if ( fAimCap < gGameExternalOptions.ubMaximumCTH && Item[ usInHand ].usItemClass == IC_THROWING_KNIFE )

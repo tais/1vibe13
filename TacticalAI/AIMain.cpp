@@ -238,7 +238,7 @@ void DebugAI_( INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction 
 
 	sprintf(msg, "");
 
-	sprintf(buf, "[%d] (%d)", pSoldier->ubID.i, pSoldier->sGridNo);
+	sprintf(buf, "[%d] (%d)", pSoldier->ubID.i, pSoldier->position().gridNo());
 	strcat(msg, buf);
 
 	if (pSoldier->ubProfile != NO_PROFILE)
@@ -646,7 +646,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		if ( fProcessNewSituation )
 		{
 			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && pSoldier->ubQuoteActionID >= QUOTE_ACTION_ID_TRAVERSE_EAST &&
-                    pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH && !GridNoOnVisibleWorldTile( pSoldier->sGridNo ) )
+                    pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH && !GridNoOnVisibleWorldTile( pSoldier->position().gridNo() ) )
 			{
 				// traversing offmap, ignore new situations
 			}
@@ -759,20 +759,20 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 				if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
 				{
-					if ( !ACTING_ON_SCHEDULE( pSoldier ) &&  SpacesAway( pSoldier->sGridNo, pSoldier->sAbsoluteFinalDestination ) < 4 )
+					if ( !ACTING_ON_SCHEDULE( pSoldier ) &&  SpacesAway( pSoldier->position().gridNo(), pSoldier->sAbsoluteFinalDestination ) < 4 )
 					{
 						// This is close enough... reached final destination for NPC system move
-						if ( pSoldier->sAbsoluteFinalDestination != pSoldier->sGridNo )
+						if ( pSoldier->sAbsoluteFinalDestination != pSoldier->position().gridNo() )
 						{
 							// update NPC records to replace our final dest with this location
-							ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->sAbsoluteFinalDestination, pSoldier->sGridNo );
+							ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->sAbsoluteFinalDestination, pSoldier->position().gridNo() );
 						}
-						pSoldier->sAbsoluteFinalDestination = pSoldier->sGridNo;
+						pSoldier->sAbsoluteFinalDestination = pSoldier->position().gridNo();
 						// change action data so that we consider this our final destination below
-						pSoldier->aiData.usActionData = pSoldier->sGridNo;
+						pSoldier->aiData.usActionData = pSoldier->position().gridNo();
 					}
 
-					if ( pSoldier->sAbsoluteFinalDestination == pSoldier->sGridNo )
+					if ( pSoldier->sAbsoluteFinalDestination == pSoldier->position().gridNo() )
 					{
 						pSoldier->sAbsoluteFinalDestination = NOWHERE;
 
@@ -798,7 +798,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 				}
 				// for regular guys still have to check for leaving the map
 				else if (pSoldier->ubQuoteActionID >= QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH &&
-						GridNoOnEdgeOfMap(pSoldier->sGridNo, &bEscapeDirection) && EscapeDirectionIsValid(&bEscapeDirection))
+						GridNoOnEdgeOfMap(pSoldier->position().gridNo(), &bEscapeDirection) && EscapeDirectionIsValid(&bEscapeDirection))
 				{
 					HandleAITacticalTraversal( pSoldier );
 					return;
@@ -809,7 +809,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 				DebugMsg( TOPIC_JA2AI, DBG_LEVEL_0, String("OPPONENT %d REACHES DEST - ACTION DONE",pSoldier->ubID ) );
 #endif
 
-				if ( pSoldier->sGridNo == pSoldier->pathing.sFinalDestination )
+				if ( pSoldier->position().gridNo() == pSoldier->pathing.sFinalDestination )
 				{
 					if ( pSoldier->aiData.bAction == AI_ACTION_MOVE_TO_CLIMB )
 					{
@@ -833,7 +833,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 			if (pSoldier->aiData.bAction != AI_ACTION_NONE &&
 				pSoldier->aiData.bNewSituation != IS_NEW_SITUATION &&
 				!TileIsOutOfBounds(pSoldier->aiData.usActionData) &&
-				NewOKDestination(pSoldier, pSoldier->aiData.usActionData, TRUE, pSoldier->pathing.bLevel))
+				NewOKDestination(pSoldier, pSoldier->aiData.usActionData, TRUE, pSoldier->position().level()))
 			{
 				if (pSoldier->flags.fNoAPToFinishMove)
 				{
@@ -1079,7 +1079,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 		if( ( ( pSoldier->bVisible != -1 && pSoldier->vitals().health()) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) ) && ( fInValidSoldier == FALSE ) )
 		{
 			// If we are on a roof, set flag for rendering...
-			if ( pSoldier->pathing.bLevel != 0 && ( IsJa2TacticalCombatActive() ) )
+			if ( pSoldier->position().level() != 0 && ( IsJa2TacticalCombatActive() ) )
 			{
 				gTacticalStatus.uiFlags |= SHOW_ALL_ROOFS;
 				SetRenderFlags( RENDER_FLAG_FULL );
@@ -1130,7 +1130,7 @@ BOOLEAN DestNotSpokenFor(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		pOurTeam = cnt;
 		if ( pOurTeam->bActive )
 		{
-			if (pOurTeam->sGridNo == sGridNo || pOurTeam->aiData.usActionData == sGridNo)
+			if (pOurTeam->position().gridNo() == sGridNo || pOurTeam->aiData.usActionData == sGridNo)
 				return(FALSE);
 		}
 	}
@@ -1151,7 +1151,7 @@ INT32 FindAdjacentSpotBeside(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		sTempGridNo = sGridNo + mods[cnt];
 		if (!OutOfBounds(sGridNo,sTempGridNo))
 		{
-			if (NewOKDestination(pSoldier,sTempGridNo,PEOPLETOO, pSoldier->pathing.bLevel ) && DestNotSpokenFor(pSoldier,sTempGridNo))
+			if (NewOKDestination(pSoldier,sTempGridNo,PEOPLETOO, pSoldier->position().level() ) && DestNotSpokenFor(pSoldier,sTempGridNo))
 			{
 				sMovementCost = PlotPath(pSoldier,sTempGridNo,FALSE,FALSE,FALSE,WALKING,FALSE,FALSE,0);
 				if (sMovementCost < sCheapestCost)
@@ -1207,7 +1207,7 @@ SoldierID GetMostThreateningOpponent( SOLDIERTYPE *pSoldier )
 			continue;  // next opponent
 		}
 
-		iThreatVal = CalcManThreatValue(pTargetSoldier, pSoldier->sGridNo, TRUE, pSoldier);
+		iThreatVal = CalcManThreatValue(pTargetSoldier, pSoldier->position().gridNo(), TRUE, pSoldier);
 		if (iThreatVal < iMinThreat)
 		{
 			iMinThreat			= iThreatVal;
@@ -1279,7 +1279,7 @@ void FreeUpNPCFromTurning(SOLDIERTYPE *pSoldier, INT8 bLook)
 	{
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-			String("FREEUPNPCFROMTURNING: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing.bDesiredDirection,pSoldier->ubDirection) );
+			String("FREEUPNPCFROMTURNING: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing.bDesiredDirection,pSoldier->position().direction()) );
 #endif
 
 
@@ -1338,7 +1338,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		{
 #ifdef TESTAI
 			DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-				String("Cancelling actiondone: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing.bDesiredDirection,pSoldier->ubDirection) );
+				String("Cancelling actiondone: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing.bDesiredDirection,pSoldier->position().direction()) );
 #endif
 		}
 
@@ -1352,11 +1352,11 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		//}
 
 		// cancel any turning & movement by making current settings desired ones
-		pSoldier->pathing.sFinalDestination	= pSoldier->sGridNo;
+		pSoldier->pathing.sFinalDestination	= pSoldier->position().gridNo();
 
 		if ( !pSoldier->flags.fNoAPToFinishMove )
 		{
-			pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+			pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 			pSoldier->AdjustNoAPToFinishMove( FALSE );
 		}
 
@@ -1454,9 +1454,9 @@ void NPCDoesAct(SOLDIERTYPE *pSoldier)
 
 	// CJC Feb 18 99: make sure that soldier is not in the middle of a turn due to visual crap to make enemies
 	// face and point their guns at us
-	if ( pSoldier->pathing.bDesiredDirection != pSoldier->ubDirection )
+	if ( pSoldier->pathing.bDesiredDirection != pSoldier->position().direction() )
 	{
-		pSoldier->pathing.bDesiredDirection = pSoldier->ubDirection;
+		pSoldier->pathing.bDesiredDirection = pSoldier->position().direction();
 	}
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"NPCDoesAct done");
@@ -1622,7 +1622,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 #ifdef DEBUGDECISIONS
 	STR tempstr;
 	sprintf( tempstr, "HandleManAI - DECIDING for guynum %d(%s) at gridno %d, APs %d\n",
-		pSoldier->ubID,pSoldier->name,pSoldier->sGridNo,pSoldier->bActionPoints );
+		pSoldier->ubID,pSoldier->name,pSoldier->position().gridNo(),pSoldier->bActionPoints );
 	DebugAI ( tempstr );
 #endif
 
@@ -1671,7 +1671,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 				{
 					pSoldier->aiData.bAction = AI_ACTION_NONE;
 				}
-				if ( pSoldier->sGridNo == pSoldier->aiData.usNextActionData )
+				if ( pSoldier->position().gridNo() == pSoldier->aiData.usNextActionData )
 				{
 					// no need to walk after this
 					pSoldier->aiData.bNextAction = AI_ACTION_NONE;
@@ -1851,7 +1851,7 @@ void AIDecideRadioAnimation( SOLDIERTYPE *pSoldier )
 	}
 
 	// sevenfm: no radio animation in water
-	if (Water(pSoldier->sGridNo, pSoldier->pathing.bLevel))
+	if (Water(pSoldier->position().gridNo(), pSoldier->position().level()))
 	{
 		// don't play animation
 		ActionDone(pSoldier);
@@ -1923,7 +1923,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 #ifdef TESTAICONTROL
 	if (gfTurnBasedAI || gTacticalStatus.fAutoBandageMode)
 	{
-		DebugAI( String( "%d does %s (a.d. %d) in %d with %d APs left", pSoldier->ubID, gzActionStr[pSoldier->aiData.bAction], pSoldier->aiData.usActionData, pSoldier->sGridNo, pSoldier->bActionPoints ) );
+		DebugAI( String( "%d does %s (a.d. %d) in %d with %d APs left", pSoldier->ubID, gzActionStr[pSoldier->aiData.bAction], pSoldier->aiData.usActionData, pSoldier->position().gridNo(), pSoldier->bActionPoints ) );
 	}
 #endif
 
@@ -1963,7 +1963,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // as long as we don't see anyone new, cover won't have changed
             // if we see someone new, it will cause a new situation & remove this
             // 0verhaul:  If turning and not moving, set the final destination to the current position
-            pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
+            pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
             SkipCoverCheck = TRUE;
 
 #ifdef DEBUGDECISIONS
@@ -2047,21 +2047,21 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             if ( pSoldier->aiData.bAction == AI_ACTION_MOVE_TO_CLIMB )
             {
                 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Executing: AI_ACTION_MOVE_TO_CLIMB");
-                DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("Soldier GridNo = %d, action data = %d ", pSoldier->sGridNo , pSoldier->aiData.usActionData));
+                DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("Soldier GridNo = %d, action data = %d ", pSoldier->position().gridNo() , pSoldier->aiData.usActionData));
             }
 
             if ( gfTurnBasedAI && pSoldier->aiData.bAlertStatus <= STATUS_BLACK )
             {			
                 if (TileIsOutOfBounds(pSoldier->sLastTwoLocations[0]))
                 {
-                    pSoldier->sLastTwoLocations[0] = pSoldier->sGridNo;
+                    pSoldier->sLastTwoLocations[0] = pSoldier->position().gridNo();
                 }			
                 else if (TileIsOutOfBounds(pSoldier->sLastTwoLocations[1]))
                 {
-                    pSoldier->sLastTwoLocations[1] = pSoldier->sGridNo;
+                    pSoldier->sLastTwoLocations[1] = pSoldier->position().gridNo();
                 }
                 // check for loop
-                else if ( pSoldier->aiData.usActionData == pSoldier->sLastTwoLocations[1] && pSoldier->sGridNo == pSoldier->sLastTwoLocations[0] )
+                else if ( pSoldier->aiData.usActionData == pSoldier->sLastTwoLocations[1] && pSoldier->position().gridNo() == pSoldier->sLastTwoLocations[0] )
                 {
                     DebugAI( String( "%d in movement loop, aborting turn", pSoldier->ubID ) );
 
@@ -2072,7 +2072,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 else
                 {
                     pSoldier->sLastTwoLocations[0] = pSoldier->sLastTwoLocations[1];
-                    pSoldier->sLastTwoLocations[1] = pSoldier->sGridNo;
+                    pSoldier->sLastTwoLocations[1] = pSoldier->position().gridNo();
                 }
             }
 
@@ -2083,7 +2083,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 {
                     if ( Random( 2 ) == 0 )
                     {
-                        PlaySoldierJA2Sample( pSoldier->ubID, ( BLOODCAT_GROWL_1 + Random( 4 ) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ), TRUE );
+                        PlaySoldierJA2Sample( pSoldier->ubID, ( BLOODCAT_GROWL_1 + Random( 4 ) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
                     }
                 }
             }
@@ -2124,11 +2124,11 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                         //ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_ERROR, L"AI %s failed to get path for dialogue-related move!", pSoldier->name );
 
                         // Are we close enough?
-                        if ( !ACTING_ON_SCHEDULE( pSoldier ) && SpacesAway( pSoldier->sGridNo, pSoldier->sAbsoluteFinalDestination ) < 4 )
+                        if ( !ACTING_ON_SCHEDULE( pSoldier ) && SpacesAway( pSoldier->position().gridNo(), pSoldier->sAbsoluteFinalDestination ) < 4 )
                         {
                             // This is close enough...
-                            ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->sAbsoluteFinalDestination, pSoldier->sGridNo );
-                            NPCGotoGridNo( pSoldier->ubProfile, pSoldier->sGridNo, (UINT8) (pSoldier->ubQuoteRecord - 1) );
+                            ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->sAbsoluteFinalDestination, pSoldier->position().gridNo() );
+                            NPCGotoGridNo( pSoldier->ubProfile, pSoldier->position().gridNo(), (UINT8) (pSoldier->ubQuoteRecord - 1) );
                         }
                         else
                         {
@@ -2325,7 +2325,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
         case AI_ACTION_PULL_TRIGGER:          // activate an adjacent panic trigger
 
             // turn to face trigger first
-            if ( FindStructure( pSoldier->sGridNo + DirectionInc( NORTH ), STRUCTURE_SWITCH ) )
+            if ( FindStructure( pSoldier->position().gridNo() + DirectionInc( NORTH ), STRUCTURE_SWITCH ) )
             {
 				(void)TryDispatchSystemSetFacingCommand(
 					*pSoldier, NORTH);
@@ -2523,11 +2523,11 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 ubDirection = GetDirectionFromGridNo( pSoldier->aiData.usActionData, pSoldier );
                 if (ubDirection == EAST || ubDirection == SOUTH)
                 {
-                    sDoorGridNo = pSoldier->sGridNo;
+                    sDoorGridNo = pSoldier->position().gridNo();
                 }
                 else
                 {
-                    sDoorGridNo = pSoldier->sGridNo + DirectionInc( ubDirection );
+                    sDoorGridNo = pSoldier->position().gridNo() + DirectionInc( ubDirection );
                 }
 
                 pStructure = FindStructure( sDoorGridNo, STRUCTURE_ANYDOOR );
@@ -2554,7 +2554,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 
         case AI_ACTION_LOWER_GUN:
             // for now, just do "action done"
-            pSoldier->InternalSoldierReadyWeapon(pSoldier->ubDirection,TRUE,FALSE);
+            pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(),TRUE,FALSE);
             HandleSight(pSoldier, SIGHT_LOOK );
             ActionDone( pSoldier );
             break;
@@ -2577,7 +2577,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
         case AI_ACTION_CLIMB_ROOF:
             DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Executing: AI_ACTION_CLIMB_ROOF");
 
-            if (pSoldier->pathing.bLevel == 0)
+            if (pSoldier->position().level() == 0)
             {
                 pSoldier->BeginSoldierClimbUpRoof( );
             }
@@ -2893,7 +2893,7 @@ void ManChecksOnFriends(SOLDIERTYPE *pSoldier)
 #endif
 					pSoldier->aiData.bAlertStatus = STATUS_YELLOW;    // also get suspicious
 					SetNewSituation( pSoldier );
-					pSoldier->aiData.sNoiseGridno = pFriend->sGridNo;  // pretend FRIEND made noise
+					pSoldier->aiData.sNoiseGridno = pFriend->position().gridNo();  // pretend FRIEND made noise
 					pSoldier->aiData.ubNoiseVolume = 3;                // remember this for 3 turns
 					// keep check other friends, too, in case any are already on RED
 				}

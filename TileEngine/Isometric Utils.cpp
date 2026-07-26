@@ -193,13 +193,13 @@ BOOLEAN FindWindowJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bSta
 	INT8			bMinDirection = 0;
 	INT8			direction2 = -1;
 
-    if ( pSoldier->ubDirection == NORTH )
+    if ( pSoldier->position().direction() == NORTH )
         direction2 = NORTH;
-    else if ( pSoldier->ubDirection == EAST )
+    else if ( pSoldier->position().direction() == EAST )
         direction2 = EAST;
-    else if ( pSoldier->ubDirection == SOUTH )
+    else if ( pSoldier->position().direction() == SOUTH )
         direction2 = SOUTH;
-    else if ( pSoldier->ubDirection == WEST )
+    else if ( pSoldier->position().direction() == WEST )
         direction2 = WEST;
 
 	// WANNE: No need to check on SOUTH and EAST tile, because it is the tile that has the fence we are standing on!
@@ -1353,7 +1353,7 @@ BOOLEAN GridNoNearPlayerMercs( INT32 sGridNo, INT16 sRadius )
 		pTeamSoldier = cnt;
 		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector )
 		{
-			if ( PythSpacesAway(sGridNo, pTeamSoldier->sGridNo) < sRadius )
+			if ( PythSpacesAway(sGridNo, pTeamSoldier->position().gridNo()) < sRadius )
 				return( TRUE );
 		}
 	}

@@ -50,11 +50,11 @@ int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, 
 	}
 
 	//dnl ch53 121009 Return false if gridno on different level from merc or inside unvisible area
-	if ((GridNoOnVisibleWorldTile(pSoldier->sGridNo) && gpWorldLevelData[pSoldier->sGridNo].sHeight != gpWorldLevelData[sGridNo].sHeight) || !GridNoOnVisibleWorldTile(sGridNo))
+	if ((GridNoOnVisibleWorldTile(pSoldier->position().gridNo()) && gpWorldLevelData[pSoldier->position().gridNo()].sHeight != gpWorldLevelData[sGridNo].sHeight) || !GridNoOnVisibleWorldTile(sGridNo))
 		return(FALSE);
 
 	// skip mercs if turnbased and adjacent AND not doing an IGNORE_PATH check (which is used almost exclusively by GoAsFarAsPossibleTowards)
-	fSkipTilesWithMercs = (gfTurnBasedAI && ubPathMode != IGNORE_PATH && SpacesAway( pSoldier->sGridNo, sGridNo ) == 1 );
+	fSkipTilesWithMercs = (gfTurnBasedAI && ubPathMode != IGNORE_PATH && SpacesAway( pSoldier->position().gridNo(), sGridNo ) == 1 );
 
 	// if this gridno is an OK destination
 	// AND the gridno is NOT in a tear-gassed tile when we have no gas mask
@@ -64,24 +64,24 @@ int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, 
 	
 	// Nov 28 98: skip people in destination tile if in turnbased
 	// sevenfm: disabled additional checks to prevent AI deadlock
-	if (	NewOKDestination(pSoldier, sGridNo, fSkipTilesWithMercs, pSoldier->pathing.bLevel ) &&
+	if (	NewOKDestination(pSoldier, sGridNo, fSkipTilesWithMercs, pSoldier->position().level() ) &&
 			//!InGas( pSoldier, sGridNo ) &&
 			//!FindBombNearby(pSoldier, sGridNo, DAY_VISION_RANGE/8 ) &&
-			sGridNo != pSoldier->sGridNo &&
+			sGridNo != pSoldier->position().gridNo() &&
 			sGridNo != pSoldier->pathing.sBlackList )
 	{
 		// if water's a problem, and gridno is in a water tile (bridges are OK)
-		if (!ubWaterOK && Water(sGridNo, pSoldier->pathing.bLevel))
+		if (!ubWaterOK && Water(sGridNo, pSoldier->position().level()))
 			return(FALSE);
 
 		//Madd: added to prevent people from running into gas and fire
-		/*if ( (gpWorldLevelData[sGridNo].ubExtFlags[pSoldier->pathing.bLevel] & (MAPELEMENT_EXT_TEARGAS | MAPELEMENT_EXT_MUSTARDGAS)) &&
+		/*if ( (gpWorldLevelData[sGridNo].ubExtFlags[pSoldier->position().level()] & (MAPELEMENT_EXT_TEARGAS | MAPELEMENT_EXT_MUSTARDGAS)) &&
 			 !DoesSoldierWearGasMask( pSoldier ) )
 		{
 			return( FALSE );
 		}
 
-		if ( gpWorldLevelData[sGridNo].ubExtFlags[pSoldier->pathing.bLevel] & MAPELEMENT_EXT_BURNABLEGAS )
+		if ( gpWorldLevelData[sGridNo].ubExtFlags[pSoldier->position().level()] & MAPELEMENT_EXT_BURNABLEGAS )
 		{
 			return( FALSE );
 		}*/
@@ -93,7 +93,7 @@ int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, 
 			// for example), don't bother
 			case IGNORE_PATH	 :	return(TRUE);
 
-			case ENSURE_PATH	 :	if ( FindBestPath( pSoldier, sGridNo, pSoldier->pathing.bLevel, WALKING, COPYROUTE, fFlags ) )
+			case ENSURE_PATH	 :	if ( FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), WALKING, COPYROUTE, fFlags ) )
 									{
 										return(TRUE);		// legal destination
 									}
@@ -277,17 +277,17 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
  sPatrolPoint = pSoldier->aiData.sPatrolGrid[pSoldier->aiData.bNextPatrolPnt];
 
  // if we're already there, advance next patrol point
- if (pSoldier->sGridNo == sPatrolPoint || pSoldier->aiData.bNextPatrolPnt == 0)
+ if (pSoldier->position().gridNo() == sPatrolPoint || pSoldier->aiData.bNextPatrolPnt == 0)
 	{
 	// find next valid patrol point
 	do
 	{
 	 sPatrolPoint = NextPatrolPoint(pSoldier);
 	}	
-	while (( !TileIsOutOfBounds(sPatrolPoint)) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->pathing.bLevel) );
+	while (( !TileIsOutOfBounds(sPatrolPoint)) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->position().level()) );
 
 	// if we're back where we started, then ALL other patrol points are junk!
-	if (pSoldier->sGridNo == sPatrolPoint)
+	if (pSoldier->position().gridNo() == sPatrolPoint)
 	{
 #ifdef BETAVERSION
 	 NumMessage("PROBLEM WITH SCENARIO: All other patrol points are invalid for guynum ",pSoldier->ubID);
@@ -355,7 +355,7 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 	sPatrolPoint = pSoldier->aiData.sPatrolGrid[pSoldier->aiData.bNextPatrolPnt];
 
 	// if we're already there, advance next patrol point
-	if (pSoldier->sGridNo == sPatrolPoint || pSoldier->aiData.bNextPatrolPnt == 0)
+	if (pSoldier->position().gridNo() == sPatrolPoint || pSoldier->aiData.bNextPatrolPnt == 0)
 	{
 		// find next valid patrol point
 		// we keep a count of the # of times we are in here to make sure we don't get into an endless
@@ -368,7 +368,7 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 			sPatrolPoint = pSoldier->aiData.sPatrolGrid[ bPatrolIndex];
 			bCnt++;
 		}		
-		while ( (sPatrolPoint == pSoldier->sGridNo) || ( (!TileIsOutOfBounds(sPatrolPoint)) && (bCnt < pSoldier->aiData.bPatrolCnt) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->pathing.bLevel )) );
+		while ( (sPatrolPoint == pSoldier->position().gridNo()) || ( (!TileIsOutOfBounds(sPatrolPoint)) && (bCnt < pSoldier->aiData.bPatrolCnt) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->position().level() )) );
 
 		if (bCnt == pSoldier->aiData.bPatrolCnt)
 		{
@@ -378,11 +378,11 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 			{
 				sPatrolPoint = NextPatrolPoint(pSoldier);
 			}			
-			while ((!TileIsOutOfBounds(sPatrolPoint)) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->pathing.bLevel) );
+			while ((!TileIsOutOfBounds(sPatrolPoint)) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->position().level()) );
 		}
 
 		// do nothing this time around
-		if (pSoldier->sGridNo == sPatrolPoint)
+		if (pSoldier->position().gridNo() == sPatrolPoint)
 		{
 			return( FALSE );
 		}
@@ -498,14 +498,14 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 #endif
 
 	// if soldier is ALREADY at the desired destination, quit right away
-	if (sDesGrid == pSoldier->sGridNo)
+	if (sDesGrid == pSoldier->position().gridNo())
 	{
 		return(NOWHERE);
 	}
 
 	// don't try to approach go after noises or enemies actually in water
 	// would be too easy to throw rocks in water, etc. & distract the AI
-	if (Water(sDesGrid, pSoldier->pathing.bLevel))
+	if (Water(sDesGrid, pSoldier->position().level()))
 	{
 		return(NOWHERE);
 	}
@@ -602,7 +602,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
  AINumMessage("Tracing along path, pathRouteToGo = ",pSoldier->pathing.usPathIndex);
 #endif
 
- sGoToGrid = pSoldier->sGridNo;		// start back where soldier is standing now
+ sGoToGrid = pSoldier->position().gridNo();		// start back where soldier is standing now
  sAPCost = 0;			// initialize path cost counter
 
  // 0verhaul:  If the destination is within the patrol route, allow it.  This is necessary to allow an errant soldier
@@ -615,7 +615,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
  // we'll only go as far along the plotted route as is within our
  // permitted roaming range, and we'll stop as soon as we're down to <= 5 APs
 
-	sTempDest = pSoldier->sGridNo;
+	sTempDest = pSoldier->position().gridNo();
 
  for (sLoop = 0; sLoop < (pSoldier->pathing.usPathDataSize - pSoldier->pathing.usPathIndex); sLoop++)
 	{
@@ -713,7 +713,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 
 
  // if it turned out we couldn't go even 1 tile towards the desired gridno
- if (sGoToGrid == pSoldier->sGridNo)
+ if (sGoToGrid == pSoldier->position().gridNo())
 	{
 #ifdef DEBUGDECISIONS
    sprintf(tempstr,"%s will go NOWHERE, path doesn't meet criteria",pSoldier->name);
@@ -776,7 +776,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 		return;
 	}
 
-	if (!NewOKDestination( pSoldier,pSoldier->aiData.usActionData, TRUE, pSoldier->pathing.bLevel ))
+	if (!NewOKDestination( pSoldier,pSoldier->aiData.usActionData, TRUE, pSoldier->position().level() ))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: !NewOKDestination"));
 		CancelAIAction(pSoldier,DONTFORCE);
@@ -822,7 +822,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 #endif
 	}
 
-	usNewGridNo = NewGridNo( pSoldier->sGridNo, DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) );
+	usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) );
 
 	// Find out how much it takes to move here!
 	bAPCost = EstimateActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], pSoldier->usUIMovementMode, (INT8) pSoldier->pathing.usPathIndex, (INT8) pSoldier->pathing.usPathDataSize );
@@ -870,8 +870,8 @@ void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 	{
 		EV_S_STOP_MERC				SStopMerc;
 
-		SStopMerc.sGridNo					= pSoldier->sGridNo;
-		SStopMerc.ubDirection			= pSoldier->ubDirection;
+		SStopMerc.sGridNo					= pSoldier->position().gridNo();
+		SStopMerc.ubDirection			= pSoldier->position().direction();
 		SStopMerc.usSoldierID			= pSoldier->ubID;
 		SStopMerc.fset=TRUE;
 		SStopMerc.sXPos=pSoldier->sX;
@@ -969,7 +969,7 @@ INT32 TrackScent( SOLDIERTYPE * pSoldier )
 	UINT8						ubSoughtSmell;
 	MAP_ELEMENT *		pMapElement;
 
-	iStart = pSoldier->sGridNo;
+	iStart = pSoldier->position().gridNo();
 	iXStart = iStart % WORLD_COLS;
 	iYStart = iStart / WORLD_COLS;
 
@@ -1020,7 +1020,7 @@ INT32 TrackScent( SOLDIERTYPE * pSoldier )
 							ubBestStrength = ubStrength;
 							bDir = atan8( (INT16) iXStart, (INT16) iYStart, (INT16) (iXStart + iXDiff), (INT16) (iYStart + iYDiff) );
 							// now convert it into a difference in degree between it and our current dir
-							ubBestDirDiff = abs( pSoldier->ubDirection - bDir );
+							ubBestDirDiff = abs( pSoldier->position().direction() - bDir );
 							if (ubBestDirDiff > 4 ) // dir 0 compared with dir 6, for instance
 							{
 								ubBestDirDiff = 8 - ubBestDirDiff;
@@ -1040,7 +1040,7 @@ INT32 TrackScent( SOLDIERTYPE * pSoldier )
 								// start by calculating direction to the new gridno
 								bDir = atan8( (INT16) iXStart, (INT16) iYStart, (INT16) (iXStart + iXDiff), (INT16) (iYStart + iYDiff) );
 								// now convert it into a difference in degree between it and our current dir
-								ubDirDiff = abs( pSoldier->ubDirection - bDir );
+								ubDirDiff = abs( pSoldier->position().direction() - bDir );
 								if (ubDirDiff > 4 ) // dir 0 compared with dir 6, for instance
 								{
 									ubDirDiff = 8 - ubDirDiff;

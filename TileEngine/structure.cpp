@@ -737,15 +737,15 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 							{	
 								if ( TANK( sSoldierID ) )
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), sSoldierID->ubDirection, 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->sGridNo );
+									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), sSoldierID->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 								else if( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE && sSoldierID->IsFastMovement() )
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(5), Random(100)+Random(100), sSoldierID->ubDirection, 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->sGridNo );
+									pSoldier->EVENT_SoldierGotHit( 0, Random(5), Random(100)+Random(100), sSoldierID->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 								else
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), sSoldierID->ubDirection, 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->sGridNo );
+									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), sSoldierID->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 							}
 							continue;
@@ -1953,7 +1953,7 @@ INT8 DamageStructure( STRUCTURE * pStructure, UINT8 ubDamage, UINT8 ubReason, IN
 			// handle structure revenge - damage to vehicle - to be resolved after movement
 			if ( ubOwner != NOBODY && !ARMED_VEHICLE( ubOwner ) )
 			{
-				ubOwner->SoldierTakeDelayedDamage(0, Random(max(0,(ubBaseArmour-10)/5)) + max(0,(ubBaseArmour-10)/5), 0, TAKE_DAMAGE_STRUCTURE_EXPLOSION, NOBODY, ubOwner->sGridNo, 0, TRUE);
+				ubOwner->SoldierTakeDelayedDamage(0, Random(max(0,(ubBaseArmour-10)/5)) + max(0,(ubBaseArmour-10)/5), 0, TAKE_DAMAGE_STRUCTURE_EXPLOSION, NOBODY, ubOwner->position().gridNo(), 0, TRUE);
 			}
 			
 			// recompile = TRUE means that we destroyed something

@@ -477,8 +477,8 @@ BOOLEAN SaveEnemySoldiersToTempFile( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 					//left the map, so randomize the start locations either current position or original position.
 					if( PreRandom( 2 ) )
 					{ //use current position
-						curr->pDetailedPlacement->fOnRoof								= pSoldier->pathing.bLevel;
-						curr->pDetailedPlacement->sInsertionGridNo			= pSoldier->sGridNo;
+						curr->pDetailedPlacement->fOnRoof								= pSoldier->position().level();
+						curr->pDetailedPlacement->sInsertionGridNo			= pSoldier->position().gridNo();
 					}
 					else
 					{ //use original position

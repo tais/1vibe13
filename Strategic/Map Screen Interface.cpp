@@ -1552,7 +1552,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 	else
 	{
 		// ATE: Mercs can have a gridno of NOWHERE.....
-		sGridNo = uiMercId->sGridNo;
+		sGridNo = uiMercId->position().gridNo();
 
 		if (TileIsOutOfBounds(sGridNo))	
 		{
@@ -1580,7 +1580,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 			{
 				if (inv[iCounter].exists())
 				{
-					AutoPlaceObjectInInventoryStash(&( inv[iCounter] ), uiMercId->sGridNo, uiMercId->pathing.bLevel);
+					AutoPlaceObjectInInventoryStash(&( inv[iCounter] ), uiMercId->position().gridNo(), uiMercId->position().level());
 				}
 			}
 		}
@@ -1600,7 +1600,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 				}
 			}
 			// anv: add all items at once (less file operations = less lag)
-			AddItemsToUnLoadedSector(x, y, sectorz, sGridNo, uiFoundItems, &(invTemporaryBeforeDrop[0]), uiMercId->pathing.bLevel, WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE, 0, 1, FALSE);
+			AddItemsToUnLoadedSector(x, y, sectorz, sGridNo, uiFoundItems, &(invTemporaryBeforeDrop[0]), uiMercId->position().level(), WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE, 0, 1, FALSE);
 		}
 	}
 	else
@@ -1611,12 +1611,12 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 			// check if actual item
 			if(	inv[ iCounter ].exists() == true )
 			{
-				AddItemToPool( sGridNo, &( inv[ iCounter ] ) , 1, uiMercId->pathing.bLevel, WORLD_ITEM_REACHABLE, 0 );
+				AddItemToPool( sGridNo, &( inv[ iCounter ] ) , 1, uiMercId->position().level(), WORLD_ITEM_REACHABLE, 0 );
 			}
 		}
 	}
 
-	DropKeysInKeyRing( uiMercId, sGridNo, uiMercId->pathing.bLevel, 1, FALSE, 0, FALSE );
+	DropKeysInKeyRing( uiMercId, sGridNo, uiMercId->position().level(), 1, FALSE, 0, FALSE );
 }
 
 
@@ -6514,7 +6514,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		UINT16 usRoom;
 		SOLDIERTYPE * pSoldier2;
 
-		if ( InARoom( pSoldier->sGridNo, &usRoom ) && usRoom >= 22 && usRoom <= 41 )
+		if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom >= 22 && usRoom <= 41 )
 		{
 			cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 

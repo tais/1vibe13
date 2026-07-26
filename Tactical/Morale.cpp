@@ -639,11 +639,11 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 		}
 
 		// Flugente: what the heck? why is morale lowered or increased depending on our height? This doesn't make any sense. AT ALL.
-		/*if (pSoldier->pathing.bLevel == 1)
+		/*if (pSoldier->position().level() == 1)
 		{
 			bMoraleMod--;
 		}
-		else if (pSoldier->pathing.bLevel > 5)
+		else if (pSoldier->position().level() > 5)
 		{
 			bMoraleMod++;
 		}*/
@@ -1737,7 +1737,7 @@ BOOLEAN IsShowOffNearBy( SOLDIERTYPE * pSoldier )
 		}
 		// Are we from our team an dalive?
 		if ( pTeammate->bTeam == pSoldier->bTeam && pTeammate->vitals().health() >= OKLIFE &&
-			 DoesMercHavePersonality( pTeammate, CHAR_TRAIT_SHOWOFF ) && PythSpacesAway( pSoldier->sGridNo, pTeammate->sGridNo ) <= 15 )
+			 DoesMercHavePersonality( pTeammate, CHAR_TRAIT_SHOWOFF ) && PythSpacesAway( pSoldier->position().gridNo(), pTeammate->position().gridNo() ) <= 15 )
 		{
 			if ( (pSoldier->ubBodyType <= STOCKYMALE && pTeammate->ubBodyType <= STOCKYMALE) || 
 				(pSoldier->ubBodyType == REGFEMALE && pTeammate->ubBodyType == REGFEMALE) ) 

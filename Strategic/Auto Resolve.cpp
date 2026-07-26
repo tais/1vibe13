@@ -5158,7 +5158,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					/////////////////////////////////////////////////////////////////////////////////////
 					gStrategicStatus.usPlayerKills++;
 					// EXPERIENCE CLASS GAIN:	Earned a kill
-					StatChange( pKiller->pSoldier, EXPERAMT, ( UINT16 )( 10 * pTarget->pSoldier->pathing.bLevel ), FALSE );
+					StatChange( pKiller->pSoldier, EXPERAMT, ( UINT16 )( 10 * pTarget->pSoldier->position().level() ), FALSE );
 					HandleMoraleEvent( pKiller->pSoldier, MORALE_KILLED_ENEMY, gpAR->ubSectorX, gpAR->ubSectorY, 0	);
 				}
 				else if( pKiller->uiFlags & CELL_MILITIA )
@@ -5185,7 +5185,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					}
 					/////////////////////////////////////////////////////////////////////////////////////
 					// EXPERIENCE CLASS GAIN:	Earned an assist
-					StatChange( pAssister1->pSoldier, EXPERAMT, ( UINT16 )( 5 * pTarget->pSoldier->pathing.bLevel ), FALSE );
+					StatChange( pAssister1->pSoldier, EXPERAMT, ( UINT16 )( 5 * pTarget->pSoldier->position().level() ), FALSE );
 				}
 				else if( pAssister1->uiFlags & CELL_MILITIA )
 					pAssister1->pSoldier->ubMilitiaAssists++;
@@ -5211,7 +5211,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					}
 					/////////////////////////////////////////////////////////////////////////////////////
 					// EXPERIENCE CLASS GAIN:	Earned an assist
-					StatChange( pAssister2->pSoldier, EXPERAMT, ( UINT16 )( 5 * pTarget->pSoldier->pathing.bLevel ), FALSE );
+					StatChange( pAssister2->pSoldier, EXPERAMT, ( UINT16 )( 5 * pTarget->pSoldier->position().level() ), FALSE );
 				}
 				else if( pAssister2->uiFlags & CELL_MILITIA )
 					pAssister2->pSoldier->ubMilitiaAssists++;

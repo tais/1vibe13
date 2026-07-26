@@ -6551,7 +6551,7 @@ static int l_ACTION_ITEM_SEX(lua_State* L)
 					if (HookerInRoom(usRoom))
 					{
 						// stop the merc...
-						soldier->EVENT_StopMerc(soldier->sGridNo, soldier->ubDirection);
+						soldier->EVENT_StopMerc(soldier->position().gridNo(), soldier->position().direction());
 
 						if (sGridNo == gModSettings.iCarlaDoorGridNo + 1)
 						{
@@ -7137,7 +7137,7 @@ static int l_EVENT_SoldierGotHit(lua_State* L)
 				DeleteTalkingMenu();
 				if (pTarget2->vitals().health() >= 0)
 				{
-					pTarget2->EVENT_SoldierGotHit(1, 100, 10, pTarget2->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
+					pTarget2->EVENT_SoldierGotHit(1, 100, 10, pTarget2->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
 				}
 			}
 		}
@@ -7821,7 +7821,7 @@ static int l_CreateItemInvOrFloor(lua_State* L)
 
 			if (!AutoPlaceObject(pSoldier, &gTempObject, TRUE))
 			{
-				AddItemToPool(pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, 0, -1);
+				AddItemToPool(pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0, -1);
 			}
 		}
 	}
@@ -8071,7 +8071,7 @@ static int l_EVENT_StopMerc(lua_State* L)
 		SOLDIERTYPE* pSoldier = FindSoldierByProfileID(ubTargetNPC, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->EVENT_StopMerc(pSoldier->sGridNo, pSoldier->ubDirection);
+			pSoldier->EVENT_StopMerc(pSoldier->position().gridNo(), pSoldier->position().direction());
 		}
 	}
 
@@ -8087,7 +8087,7 @@ static int l_GetGridoProfileID(lua_State* L)
 
 		UINT32 gridNo = 0;
 		if (pSoldier)
-			gridNo = pSoldier->sGridNo;
+			gridNo = pSoldier->position().gridNo();
 
 		lua_pushinteger(L, gridNo);
 	}
@@ -8104,7 +8104,7 @@ static int l_GetDirection(lua_State* L)
 
 		UINT32 Direction = 0;
 		if (pSoldier)
-			Direction = pSoldier->ubDirection;
+			Direction = pSoldier->position().direction();
 
 		lua_pushinteger(L, Direction);
 	}
@@ -8607,7 +8607,7 @@ static int l_AnimMercPtsrSoldierGotHit(lua_State* L)
 		{
 			if (ubID->vitals().health() >= 0)
 			{
-				ubID->EVENT_SoldierGotHit(1, 100, 10, ubID->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
+				ubID->EVENT_SoldierGotHit(1, 100, 10, ubID->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
 			}
 		}
 	}
@@ -8798,7 +8798,7 @@ static int l_PythSpacesAway(lua_State* L)
 
 		INT32 sOrigin = 0;
 		if (pSoldier)
-			sOrigin = PythSpacesAway(pSoldier->sGridNo, sDest);
+			sOrigin = PythSpacesAway(pSoldier->position().gridNo(), sDest);
 
 		lua_pushinteger(L, sOrigin);
 	}
