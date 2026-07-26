@@ -267,10 +267,13 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Strategic/Campaign Types.h"
   "${SOURCE_ROOT}/Strategic/Game Init.cpp"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
+  "${SOURCE_ROOT}/Strategic/Hourly Update.cpp"
   "${SOURCE_ROOT}/Strategic/LuaInitNPCs.h"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
   "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
+  "${SOURCE_ROOT}/Strategic/Player Command.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.h"
   "${SOURCE_ROOT}/Tactical/Action Items.h"
@@ -349,6 +352,50 @@ foreach(required_runtime_bootstrap_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/Strategic/Hourly Update.cpp"
+  runtime_campaign_hourly_rules_contents)
+foreach(required_runtime_hourly_rule_fragment IN ITEMS
+    "HourlyCheckIfSlayAloneSoHeCanLeave"
+    "HourlyHelicopterRepair"
+    "GetGameContext().capabilities().isUnfinishedBusiness()")
+  string(FIND "${runtime_campaign_hourly_rules_contents}"
+    "${required_runtime_hourly_rule_fragment}" runtime_hourly_rule_fragment_position)
+  if(runtime_hourly_rule_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Hourly campaign rules lost runtime selection; missing '${required_runtime_hourly_rule_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Player Command.cpp"
+  runtime_campaign_sector_control_contents)
+foreach(required_runtime_sector_control_fragment IN ITEMS
+    "JA2_EMAIL_BOBBYR_NOW_OPEN"
+    "StrategicHandleQueenLosingControlOfSector"
+    "HandlePOWQuestState"
+    "GetGameContext().capabilities().isUnfinishedBusiness()")
+  string(FIND "${runtime_campaign_sector_control_contents}"
+    "${required_runtime_sector_control_fragment}" runtime_sector_control_fragment_position)
+  if(runtime_sector_control_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic sector-control rules lost runtime selection; missing '${required_runtime_sector_control_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  runtime_campaign_group_movement_contents)
+foreach(required_runtime_group_movement_fragment IN ITEMS
+    "const bool isArulcoMeanwhile"
+    "StrategicAILookForAdjacentGroups"
+    "TestForBloodcatAmbush"
+    "GetGameContext().capabilities().isUnfinishedBusiness()")
+  string(FIND "${runtime_campaign_group_movement_contents}"
+    "${required_runtime_group_movement_fragment}" runtime_group_movement_fragment_position)
+  if(runtime_group_movement_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic group movement lost runtime campaign selection; missing '${required_runtime_group_movement_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement Costs.cpp"
   runtime_campaign_movement_cost_contents)
 foreach(required_runtime_movement_cost_fragment IN ITEMS
@@ -423,6 +470,8 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Laptop/email.h"
   runtime_campaign_sector_email_contents)
 foreach(required_runtime_sector_email_fragment IN ITEMS
+    "JA2_EMAIL_BOBBYR_NOW_OPEN = 182"
+    "JA2_EMAIL_BOBBYR_NOW_OPEN_LENGTH = 3"
     "JA25_EMAIL_MIGUEL_SORRY = 25"
     "JA25_EMAIL_MIGUEL_MANUEL = 28"
     "JA25_EMAIL_MIGUEL_SICK = 32"

@@ -28,6 +28,7 @@
 #include "Luaglobal.h"
 #include "LuaInitNPCs.h"
 #include "SaveLoadGame.h"
+#include "GameContext.h"
 #include "GameSettings.h"
 #include "connect.h"
 #include "Options Screen.h"
@@ -55,17 +56,8 @@ extern WorldItems gAllWorldItems;
 
 extern INT32 GetCurrentBalance( void );
 extern void PayOffSkyriderDebtIfAny( );
-#ifdef JA2UB
-//no UB
-#else
 void HourlyCheckIfSlayAloneSoHeCanLeave();
-#endif
-
-#ifdef JA2UB
-//no UB
-#else
 void HourlyHelicopterRepair();
-#endif
 
 void HourlyGatheringInformation();
 
@@ -141,21 +133,19 @@ CHAR16	zString[128];
 
 	HourlyFactoryUpdate();
 
-#ifdef JA2UB
-// no UB
-#else
-	HourlyCheckIfSlayAloneSoHeCanLeave();
-#endif
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		HourlyCheckIfSlayAloneSoHeCanLeave();
+	}
+
 	// WDS - New AI
 	HourlyCheckStrategicAI();
 
-#ifdef JA2UB
-// no UB
-#else
-	PayOffSkyriderDebtIfAny();
-
-	HourlyHelicopterRepair();
-#endif
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		PayOffSkyriderDebtIfAny();
+		HourlyHelicopterRepair();
+	}
 	
 	HourlyDrugUpdate();
 
@@ -1222,12 +1212,13 @@ void HourlyFactoryUpdate()
 	if ( moneyspentonproduction )
 		AddTransactionToPlayersBook ( FACILITY_OPERATIONS, NO_PROFILE, GetWorldTotalMin(), -moneyspentonproduction );
 }
-
-#ifdef JA2UB
-// no JA25 UB
-#else 
 void HourlyCheckIfSlayAloneSoHeCanLeave()
 {
+	if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	if (gGameExternalOptions.fEnableSlayForever || gGameExternalOptions.ubHourlyChanceSlayWillLeave < 1) return;
 
 	SOLDIERTYPE *pSoldier;
@@ -1253,13 +1244,14 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 		}
 	}
 }
-#endif
 
-#ifdef JA2UB
-// no JA25 UB
-#else 
 void HourlyHelicopterRepair()
 {
+	if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	if( gubHelicopterHoursToRepair == 0 )
 	{
 		return;
@@ -1283,7 +1275,6 @@ void HourlyHelicopterRepair()
 		FinishHelicopterRepair();
 	}
 }
-#endif
 
 void HourlyGatheringInformation()
 {
