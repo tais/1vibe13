@@ -107,6 +107,19 @@ struct SoldierRuntimeComponents
 	SoldierCombatFeedbackState combatFeedback;
 	SoldierQuickItemRuntimeState quickItem;
 
+	SoldierRuntimeComponents() = default;
+
+	// A SOLDIERTYPE clone represents a new runtime object. Never copy deferred
+	// callbacks that capture the source soldier, stale target incarnations, or
+	// presentation/UI scratch into that clone.
+	SoldierRuntimeComponents(const SoldierRuntimeComponents&) noexcept {}
+
+	SoldierRuntimeComponents& operator=(const SoldierRuntimeComponents&) noexcept
+	{
+		reset();
+		return *this;
+	}
+
 	void reset() noexcept
 	{
 		pendingAction.reset();

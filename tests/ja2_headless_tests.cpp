@@ -7237,6 +7237,20 @@ int main( int, char** )
 		runtime.quickItem.itemId = 16;
 		runtime.quickItem.slot = 17;
 
+		const SoldierRuntimeComponents copiedRuntime = runtime;
+		SoldierRuntimeComponents assignedRuntime;
+		assignedRuntime = runtime;
+		CHECK( copiedRuntime.pendingAction.pathSearchSourceGrid == 0 &&
+		       copiedRuntime.pendingAction.targetIncarnation == 0 &&
+		       !copiedRuntime.pendingAction.delayedDamage &&
+		       copiedRuntime.combatFeedback.lastShock == 0 &&
+		       copiedRuntime.quickItem.itemId == 0 &&
+		       assignedRuntime.pendingAction.grenadeItem == 0 &&
+		       !assignedRuntime.pendingAction.delayedDamage &&
+		       assignedRuntime.combatFeedback.lastArmourProtection == 0 &&
+		       assignedRuntime.quickItem.slot == 0,
+		       "soldier clones do not inherit transient callbacks or UI state" );
+
 		runtime.reset();
 		CHECK( runtime.pendingAction.pathSearchSourceGrid == 0 &&
 		       runtime.pendingAction.targetIncarnation == 0 &&
