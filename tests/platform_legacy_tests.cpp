@@ -41,6 +41,7 @@
 #include "Render Dirty.h"
 #include "SaveSerializer.h"
 #include "worlddef.h"
+#include "World Tile Map.h"
 #include "Tile Animation.h"
 #include "Tile Surface.h"
 #include "Tile Cache.h"
@@ -1032,6 +1033,29 @@ int main()
 	Check(vfs_init::initVirtualFileSystem(config), "writable VFS profile initializes");
 	Check(InitializeMemoryManager(), "memory manager initializes");
 	Check(InitializeFileManager(NULL), "FileMan initializes");
+
+	ReleaseWorldTileMap();
+	Check(AllocateWorldTileMap(3) &&
+		gpWorldLevelData != nullptr &&
+		GetWorldTileMapSize() == 3 &&
+		GetMapElement(0).uiFlags == 0 &&
+		GetMapElement(2).pStructureHead == nullptr,
+		"world tile owner allocates and publishes zeroed compatibility storage");
+	MAP_ELEMENT* const ownedWorld = gpWorldLevelData;
+	GetMapElement(1).uiFlags = MAPELEMENT_REVEALED;
+	Check(!AllocateWorldTileMap(0) &&
+		gpWorldLevelData == ownedWorld &&
+		GetWorldTileMapSize() == 3 &&
+		GetMapElement(1).uiFlags == MAPELEMENT_REVEALED,
+		"world tile owner rejects invalid replacement without losing live storage");
+	ResetWorldTileMap();
+	Check(GetMapElement(1).uiFlags == 0 &&
+		GetWorldTileMapSize() == 3,
+		"world tile owner resets its complete allocation without changing identity");
+	ReleaseWorldTileMap();
+	ReleaseWorldTileMap();
+	Check(gpWorldLevelData == nullptr && GetWorldTileMapSize() == 0,
+		"world tile owner release is idempotent and invalidates the legacy projection");
 
 	const char* const searchFixtureNames[] = {
 		"find-alpha-one.dat",

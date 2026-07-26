@@ -33,6 +33,7 @@ set(TileEngineSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/TileDat.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/tiledef.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/WorldDat.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/World Tile Map.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/worlddef.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/worldman.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/XML_ExplosionData.cpp"
