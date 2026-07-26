@@ -2,6 +2,7 @@
 
 	#include "worlddef.h"
 	#include "WorldDat.h"
+	#include "World Tile Map.h"
 	#include "WCheck.h"
 	#include "DEBUG.H"
 	#include "worldman.h"
@@ -140,7 +141,6 @@ void SaveMapLights( HWFILE hfile );
 void LoadMapLights( INT8 **hBuffer );
 
 // Global Variables
-MAP_ELEMENT			*gpWorldLevelData;
 INT32						*gpDirtyData;
 UINT32					gSurfaceMemUsage;
 //UINT8						gubWorldMovementCosts[ WORLD_MAX ][MAXDIR][2];
@@ -173,7 +173,7 @@ INT16		gsRecompileAreaBottom = 0;
 BOOLEAN DoorAtGridNo( INT32 iMapIndex )
 {
 	STRUCTURE *pStruct;
-	pStruct = gpWorldLevelData[ iMapIndex ].pStructureHead;
+	pStruct = GetMapElement( iMapIndex ).pStructureHead;
 	while( pStruct )
 	{
 		if( pStruct->fFlags & STRUCTURE_ANYDOOR )
@@ -186,7 +186,7 @@ BOOLEAN DoorAtGridNo( INT32 iMapIndex )
 BOOLEAN OpenableAtGridNo( INT32 iMapIndex )
 {
 	STRUCTURE *pStruct;
-	pStruct = gpWorldLevelData[ iMapIndex ].pStructureHead;
+	pStruct = GetMapElement( iMapIndex ).pStructureHead;
 	while( pStruct )
 	{
 		if( pStruct->fFlags & STRUCTURE_OPENABLE )
@@ -200,7 +200,7 @@ BOOLEAN FloorAtGridNo( INT32 iMapIndex )
 {
 	LEVELNODE	*pLand;
 	UINT32 uiTileType;
-	pLand = gpWorldLevelData[ iMapIndex ].pLandHead;
+	pLand = GetMapElement( iMapIndex ).pLandHead;
 	// Look through all objects and Search for type
 	while( pLand )
 	{
@@ -237,7 +237,7 @@ static void DOIT( )
 	// first level
  	for( uiLoop = 0; uiLoop < WORLD_MAX; uiLoop++ )
 	{
-		pStruct = gpWorldLevelData[ uiLoop ].pStructHead;
+		pStruct = GetMapElement( uiLoop ).pStructHead;
 
 		while ( pStruct != NULL )
 		{
@@ -294,11 +294,7 @@ BOOLEAN InitializeWorld( )
 
 	// Initialize world data
 
-	gpWorldLevelData = (MAP_ELEMENT *)MemAlloc( WORLD_MAX * sizeof( MAP_ELEMENT ) );
-	CHECKF( gpWorldLevelData );
-
-	// Zero world
-	memset( gpWorldLevelData, 0, WORLD_MAX * sizeof( MAP_ELEMENT ) );
+	CHECKF( AllocateWorldTileMap( static_cast<UINT32>( WORLD_MAX ) ) );
 
 	// Init room database
 	InitRoomDatabase( );
@@ -326,8 +322,7 @@ void DeinitializeWorld()
 		MemFree(gusWorldRoomInfo);
 	if(gubWorldMovementCosts)
 		MemFree(gubWorldMovementCosts);
-	if(gpWorldLevelData)
-		MemFree(gpWorldLevelData);
+	ReleaseWorldTileMap();
 #ifdef _DEBUG
 	if(gubFOVDebugInfoInfo)
 		MemFree(gubFOVDebugInfoInfo);
@@ -787,7 +782,7 @@ static void CompileWorldTerrainIDs( void )
 		if (GridNoOnVisibleWorldTile( sGridNo ))
 		{
 			// Check if we have anything in object layer which has a terrain modifier
-			pNode = gpWorldLevelData[ sGridNo ].pObjectHead;
+			pNode = GetMapElement( sGridNo ).pObjectHead;
 
 			// ATE: CRAPOLA! Special case stuff here for the friggen pool since art was fu*ked up
 			
@@ -802,7 +797,7 @@ static void CompileWorldTerrainIDs( void )
 				{
 					if ( pNode->usIndex == ANOTHERDEBRIS4 || pNode->usIndex == ANOTHERDEBRIS6 ||pNode->usIndex == ANOTHERDEBRIS7 )
 					{
-						gpWorldLevelData[sGridNo].ubTerrainID = LOW_WATER;
+						GetMapElement( sGridNo ).ubTerrainID = LOW_WATER;
 						continue;
 					}
 				}
@@ -810,7 +805,7 @@ static void CompileWorldTerrainIDs( void )
 
 			if (pNode == NULL || pNode->usIndex >= giNumberOfTiles || gTileDatabase[ pNode->usIndex ].ubTerrainID == NO_TERRAIN)
 			{	// Try terrain instead!
-				pNode = gpWorldLevelData[ sGridNo ].pLandHead;
+				pNode = GetMapElement( sGridNo ).pLandHead;
 			}
 			pTileElement = &(gTileDatabase[ pNode->usIndex ]);
 			if (pTileElement->ubNumberOfTiles > 1)
@@ -818,12 +813,12 @@ static void CompileWorldTerrainIDs( void )
 				for (ubLoop = 0; ubLoop < pTileElement->ubNumberOfTiles; ubLoop++)
 				{
 					sTempGridNo = sGridNo + pTileElement->pTileLocData[ubLoop].bTileOffsetX + pTileElement->pTileLocData[ubLoop].bTileOffsetY * WORLD_COLS;
-					gpWorldLevelData[sTempGridNo].ubTerrainID = pTileElement->ubTerrainID;
+					GetMapElement( sTempGridNo ).ubTerrainID = pTileElement->ubTerrainID;
 				}
 			}
 			else
 			{
-				gpWorldLevelData[sGridNo].ubTerrainID = pTileElement->ubTerrainID;
+				GetMapElement( sGridNo ).ubTerrainID = pTileElement->ubTerrainID;
 			}
 		}
 	}
@@ -845,7 +840,7 @@ static BOOLEAN IsNotRestrictedWindow(STRUCTURE *	pStructure)
 		//pBase = FindStructure( pStructure->sGridNo, STRUCTURE_WALLNWINDOW );
 		//if(pBase!= NULL)
 			pNode = FindLevelNodeBasedOnStructure( pStructure->sGridNo, pStructure );
-		//pNode = gpWorldLevelData[ pStructure->sGridNo ].pStructHead;
+		//pNode = GetMapElement( pStructure->sGridNo ).pStructHead;
 		if(pNode != NULL)
 			GetTileType( pNode->usIndex, &uiTileType );
 
@@ -882,8 +877,8 @@ static void CompileTileMovementCosts( INT32 usGridNo )
 		// check for land of a different height in adjacent locations
 		for ( ubDirLoop = 0; ubDirLoop < NUM_WORLD_DIRECTIONS; ++ubDirLoop )
 		{
-			if ( gpWorldLevelData[ usGridNo ].sHeight !=
-					 gpWorldLevelData[ usGridNo + DirectionInc( ubDirLoop ) ].sHeight )
+			if ( GetMapElement( usGridNo ).sHeight !=
+					 GetMapElement( usGridNo + DirectionInc( ubDirLoop ) ).sHeight )
 			{
 				SET_CURRMOVEMENTCOST( ubDirLoop, TRAVELCOST_OBSTACLE );
 			}
@@ -907,22 +902,22 @@ static void CompileTileMovementCosts( INT32 usGridNo )
 			SET_MOVEMENTCOST( usGridNo, ubDirLoop,  1, TRAVELCOST_OFF_MAP );
 		}
 
-		if (gpWorldLevelData[usGridNo].pStructureHead == NULL)
+		if (GetMapElement( usGridNo ).pStructureHead == NULL)
 		{
 			return;
 		}
 	}
 
-	if (gpWorldLevelData[usGridNo].pStructureHead != NULL)
+	if (GetMapElement( usGridNo ).pStructureHead != NULL)
 	{
 		// structures in tile
 		// consider the land
-		pLand = gpWorldLevelData[ usGridNo ].pLandHead;
+		pLand = GetMapElement( usGridNo ).pLandHead;
 		if ( pLand != NULL )
 		{
 			// Set TEMPORARY cost here
 			// Get terrain type
-			ubTerrainID =	gpWorldLevelData[usGridNo].ubTerrainID; // = GetTerrainType( (INT16)usGridNo );
+			ubTerrainID =	GetMapElement( usGridNo ).ubTerrainID; // = GetTerrainType( (INT16)usGridNo );
 
 			for (ubDirLoop=0; ubDirLoop < NUM_WORLD_DIRECTIONS; ++ubDirLoop)
 			{
@@ -931,7 +926,7 @@ static void CompileTileMovementCosts( INT32 usGridNo )
 		}
 
 		// now consider all structures
-		pStructure = gpWorldLevelData[usGridNo].pStructureHead;
+		pStructure = GetMapElement( usGridNo ).pStructureHead;
 		fStructuresOnRoof = FALSE;
 		do
 		{
@@ -1484,7 +1479,7 @@ static void CompileTileMovementCosts( INT32 usGridNo )
 		} while (pStructure != NULL);
 
 		// HIGHEST LAYER
-		if ((gpWorldLevelData[ usGridNo ].pRoofHead != NULL))
+		if ((GetMapElement( usGridNo ).pRoofHead != NULL))
 		{
 			if (!fStructuresOnRoof)
 			{
@@ -1515,14 +1510,14 @@ static void CompileTileMovementCosts( INT32 usGridNo )
 		// consider just the land
 
 		// Get terrain type
-		ubTerrainID =	gpWorldLevelData[usGridNo].ubTerrainID; // = GetTerrainType( (INT16)usGridNo );
+		ubTerrainID =	GetMapElement( usGridNo ).ubTerrainID; // = GetTerrainType( (INT16)usGridNo );
 		for ( ubDirLoop = 0; ubDirLoop < NUM_WORLD_DIRECTIONS; ++ubDirLoop )
 		{
 			SET_MOVEMENTCOST( usGridNo ,ubDirLoop, 0, gTileTypeMovementCost[ ubTerrainID ] );
 		}
 
 /*
-		pLand = gpWorldLevelData[ usGridNo ].pLandHead;
+		pLand = GetMapElement( usGridNo ).pLandHead;
 		if ( pLand != NULL )
 		{
 			// Set cost here
@@ -1539,7 +1534,7 @@ static void CompileTileMovementCosts( INT32 usGridNo )
 		}
 */
 		// HIGHEST LEVEL
-		if (gpWorldLevelData[ usGridNo ].pRoofHead != NULL)
+		if (GetMapElement( usGridNo ).pRoofHead != NULL)
 		{
 			for ( ubDirLoop = 0; ubDirLoop < NUM_WORLD_DIRECTIONS; ++ubDirLoop )
 			{
@@ -1666,7 +1661,7 @@ void AddTileToRecompileArea( INT32 sGridNo )
 		return;
 	}
 
-	gpWorldLevelData[ sGridNo ].ubExtFlags[0] |= MAPELEMENT_EXT_RECALCULATE_MOVEMENT;
+	GetMapElement( sGridNo ).ubExtFlags[0] |= MAPELEMENT_EXT_RECALCULATE_MOVEMENT;
 
 	// check Top/Left of recompile region
 	sCheckGridNo = NewGridNo( sGridNo, DirectionInc( NORTHWEST ) );
@@ -1706,7 +1701,7 @@ void RecompileLocalMovementCostsInAreaWithFlags( void )
 		for( sGridX = gsRecompileAreaLeft; sGridX < gsRecompileAreaRight; sGridX++ )
 		{
 			usGridNo = MAPROWCOLTOPOS( sGridY, sGridX );
-			if ( usGridNo < WORLD_MAX && gpWorldLevelData[ usGridNo ].ubExtFlags[0] & MAPELEMENT_EXT_RECALCULATE_MOVEMENT )
+			if ( usGridNo < WORLD_MAX && GetMapElement( usGridNo ).ubExtFlags[0] & MAPELEMENT_EXT_RECALCULATE_MOVEMENT )
 			{
 				// wipe MPs in this tile!
 				for( bDirLoop = 0; bDirLoop < MAXDIR; bDirLoop++)
@@ -1715,7 +1710,7 @@ void RecompileLocalMovementCostsInAreaWithFlags( void )
 					gubWorldMovementCosts[usGridNo][bDirLoop][1] = 0;
 				}
 				// reset flag
-				gpWorldLevelData[ usGridNo ].ubExtFlags[0] &= (~MAPELEMENT_EXT_RECALCULATE_MOVEMENT); 
+				GetMapElement( usGridNo ).ubExtFlags[0] &= (~MAPELEMENT_EXT_RECALCULATE_MOVEMENT);
 			}
 		}
 	}
@@ -1876,7 +1871,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	{
 
 		// Write out height values
-		FileWrite( hfile, &gpWorldLevelData[ cnt ].sHeight, sizeof( INT16 ), &uiBytesWritten );
+		FileWrite( hfile, &GetMapElement( cnt ).sHeight, sizeof( INT16 ), &uiBytesWritten );
 
 	}
 
@@ -1884,7 +1879,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
 		// Determine number of land
-		pLand = gpWorldLevelData[ cnt ].pLandHead;
+		pLand = GetMapElement( cnt ).pLandHead;
 		LayerCount = 0;
 
 		while( pLand != NULL )
@@ -1911,13 +1906,13 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 		bCounts[ cnt ][ 0 ] = LayerCount;
 
 		// Combine # of land layers with worlddef flags ( first 4 bits )
-		ubCombine = (UINT8)( ( LayerCount&0xf ) | ( (gpWorldLevelData[ cnt ].uiFlags&0xf)<<4 ) );
+		ubCombine = (UINT8)( ( LayerCount&0xf ) | ( (GetMapElement( cnt ).uiFlags&0xf)<<4 ) );
 		// Write combination
 		FileWrite( hfile, &ubCombine, sizeof( ubCombine ), &uiBytesWritten );
 
 
 		// Determine # of objects
-		pObject = gpWorldLevelData[ cnt ].pObjectHead;
+		pObject = GetMapElement( cnt ).pObjectHead;
 		ObjectCount = 0;
 		while( pObject != NULL )
 		{
@@ -1951,7 +1946,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 		bCounts[ cnt ][ 1 ] = ObjectCount;
 
 		// Determine # of structs
-		pStruct = gpWorldLevelData[ cnt ].pStructHead;
+		pStruct = GetMapElement( cnt ).pStructHead;
 		StructCount = 0;
 		while( pStruct != NULL )
 		{
@@ -1986,7 +1981,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 
 
 		// Determine # of shadows
-		pShadow = gpWorldLevelData[ cnt ].pShadowHead;
+		pShadow = GetMapElement( cnt ).pShadowHead;
 		ShadowCount = 0;
 		while( pShadow != NULL )
 		{
@@ -2016,7 +2011,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 		bCounts[ cnt ][ 3 ] = ShadowCount;
 
 		// Determine # of Roofs
-		pRoof = gpWorldLevelData[ cnt ].pRoofHead;
+		pRoof = GetMapElement( cnt ).pRoofHead;
 		RoofCount = 0;
 		while( pRoof != NULL )
 		{
@@ -2052,7 +2047,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 
 		// Write OnRoof layer
 		// Determine # of OnRoofs
-		pOnRoof = gpWorldLevelData[ cnt ].pOnRoofHead;
+		pOnRoof = GetMapElement( cnt ).pOnRoofHead;
 		OnRoofCount = 0;
 
 		while( pOnRoof != NULL )
@@ -2102,7 +2097,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 
 			// Write land layers
 			// Write out land peices backwards so that they are loaded properly
-			pLand = gpWorldLevelData[ cnt ].pLandHead;
+			pLand = GetMapElement( cnt ).pLandHead;
 			// GET TAIL
 			while( pLand != NULL )
 			{
@@ -2128,7 +2123,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	{
 
 		// Write object layer
-		pObject = gpWorldLevelData[ cnt ].pObjectHead;
+		pObject = GetMapElement( cnt ).pObjectHead;
 		while( pObject != NULL )
 		{
 			// DON'T WRITE ANY ITEMS
@@ -2154,7 +2149,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
 		// Write struct layer
-		pStruct = gpWorldLevelData[ cnt ].pStructHead;
+		pStruct = GetMapElement( cnt ).pStructHead;
 		while( pStruct != NULL )
 		{
 			// DON'T WRITE ANY ITEMS
@@ -2175,7 +2170,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
 		// Write shadows
-		pShadow = gpWorldLevelData[ cnt ].pShadowHead;
+		pShadow = GetMapElement( cnt ).pShadowHead;
 		while( pShadow != NULL )
 		{
 			// Dont't write any buddys or exit grids
@@ -2201,7 +2196,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
-		pRoof = gpWorldLevelData[ cnt ].pRoofHead;
+		pRoof = GetMapElement( cnt ).pRoofHead;
 		while( pRoof != NULL )
 		{
 			// ATE: Don't save revealed roof info...
@@ -2222,7 +2217,7 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
 		// Write OnRoofs
-		pOnRoof = gpWorldLevelData[ cnt ].pOnRoofHead;
+		pOnRoof = GetMapElement( cnt ).pOnRoofHead;
 		while( pOnRoof != NULL )
 		{
 			// Write out object type and sub-index
@@ -2336,7 +2331,7 @@ static void OptimizeMapForShadows( )
 			{
 				sNewGridNo = NewGridNo( cnt, (UINT16)DirectionInc( bDirectionsForShadowSearch[ dir ] ) );
 
-				if ( gpWorldLevelData[ sNewGridNo ].pStructureHead == NULL )
+				if ( GetMapElement( sNewGridNo ).pStructureHead == NULL )
 				{
 					break;
 				}
@@ -2359,12 +2354,12 @@ static void SetBlueFlagFlags( void )
 
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
-		pNode = gpWorldLevelData[ cnt ].pStructHead;
+		pNode = GetMapElement( cnt ).pStructHead;
 		while ( pNode )
 		{
 			if ( pNode->usIndex == BLUEFLAG_GRAPHIC)
 			{
-				gpWorldLevelData[ cnt ].uiFlags |= MAPELEMENT_PLAYER_MINE_PRESENT;
+				GetMapElement( cnt ).uiFlags |= MAPELEMENT_PLAYER_MINE_PRESENT;
 				break;
 			}
 			pNode = pNode->pNext;
@@ -2521,7 +2516,7 @@ BOOLEAN EvaluateWorld(STR8 pSector, UINT8 ubLevel)
 		LOADDATA(&ubCombine, pBuffer, sizeof(UINT8));
 		// Split
 		bCounts[cnt][0] = (UINT8)(ubCombine & 0x0F);
-		UINT16 uiFlags = (UINT8)((ubCombine & 0xF0) >> 4);//gpWorldLevelData[cnt].uiFlags |= (UINT8)((ubCombine & 0xF0) >> 4);
+		UINT16 uiFlags = (UINT8)((ubCombine & 0xF0) >> 4);//GetMapElement( cnt ).uiFlags |= (UINT8)((ubCombine & 0xF0) >> 4);
 		// Read #objects, structs
 		LOADDATA( &ubCombine, pBuffer, sizeof(UINT8));
 		// Split
@@ -3021,7 +3016,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	for(i=0; i<iWorldSize; i++)
 	{
 		gMapTrn.GetTrnCnt(cnt=i);
-		LOADDATA(&gpWorldLevelData[cnt].sHeight, pBuffer, sizeof(INT16));
+		LOADDATA(&GetMapElement( cnt ).sHeight, pBuffer, sizeof(INT16));
 		// Remove all land from position where old map will be loaded
 		if(gMapTrn.IsTrn())
 			RemoveAllLandsOfTypeRange(cnt, FIRSTTEXTURE, DEEPWATERTEXTURE);
@@ -3037,7 +3032,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 		LOADDATA(&ubCombine, pBuffer, sizeof(UINT8));
 		// Split
 		bCounts[cnt][0] = (UINT8)(ubCombine & 0x0F);
-		gpWorldLevelData[cnt].uiFlags |= (UINT8)((ubCombine & 0xF0) >> 4);
+		GetMapElement( cnt ).uiFlags |= (UINT8)((ubCombine & 0xF0) >> 4);
 		// Read #objects, structs
 		LOADDATA( &ubCombine, pBuffer, sizeof(UINT8));
 		// Split
@@ -3476,7 +3471,7 @@ void TrashWorld( void )
 	// Create world randomly from tiles
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
-		pMapTile = &gpWorldLevelData[ cnt ];
+		pMapTile = &GetMapElement( cnt );
 
 		// Free the memory associated with the map tile link lists
 		pLandNode = pMapTile->pLandHead;
@@ -3555,12 +3550,12 @@ void TrashWorld( void )
 	}
 
 	// Zero world
-	memset( gpWorldLevelData, 0, WORLD_MAX * sizeof( MAP_ELEMENT ) );
+	ResetWorldTileMap();
 
 	// Set some default flags
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
-		gpWorldLevelData[ cnt ].uiFlags |= MAPELEMENT_RECALCULATE_WIREFRAMES;
+		GetMapElement( cnt ).uiFlags |= MAPELEMENT_RECALCULATE_WIREFRAMES;
 	}
 
 	TrashDoorTable();
@@ -3587,7 +3582,7 @@ void TrashMapTile(INT32 MapTile)
 	LEVELNODE			*pOnRoofNode;
 	LEVELNODE			*pTopmostNode;
 
-	pMapTile = &gpWorldLevelData[ MapTile ];
+	pMapTile = &GetMapElement( MapTile );
 
 	// Free the memory associated with the map tile link lists
 	pLandNode = pMapTile->pLandHead;
@@ -3768,7 +3763,7 @@ static void AddWireFrame( INT32 sGridNo, UINT16 usIndex, BOOLEAN fForced )
 	LEVELNODE			*pTopmost, *pTopmostTail;
 
 
-	pTopmost = gpWorldLevelData[ sGridNo ].pTopmostHead;
+	pTopmost = GetMapElement( sGridNo ).pTopmostHead;
 
 	while ( pTopmost != NULL )
 	{
@@ -3805,7 +3800,7 @@ static UINT16 GetWireframeGraphicNumToUseForWall( INT32 sGridNo, STRUCTURE *pStr
 	if ( pBaseStructure )
 	{
 		// Find levelnode...
-		pNode = gpWorldLevelData[sGridNo].pStructHead;
+		pNode = GetMapElement( sGridNo ).pStructHead;
 		while( pNode != NULL )
 		{
 			if (pNode->pStructureData == pBaseStructure)
@@ -3871,7 +3866,7 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 	// Create world randomly from tiles
 	for ( cnt = 0; cnt < WORLD_MAX; cnt++ )
 	{
-		if ( gpWorldLevelData[ cnt ].uiFlags & MAPELEMENT_RECALCULATE_WIREFRAMES || fForce )
+		if ( GetMapElement( cnt ).uiFlags & MAPELEMENT_RECALCULATE_WIREFRAMES || fForce )
 		{
 			if ( cnt == 8377 )
 			{
@@ -3879,7 +3874,7 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 			}
 
 			// Turn off flag
-			gpWorldLevelData[ cnt ].uiFlags &= (~MAPELEMENT_RECALCULATE_WIREFRAMES );
+			GetMapElement( cnt ).uiFlags &= (~MAPELEMENT_RECALCULATE_WIREFRAMES );
 
 			// Remove old ones
 			RemoveWireFrameTiles( cnt );
@@ -3887,12 +3882,12 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 			bNumWallsSameGridNo = 0;
 
 			// Check our gridno, if we have a roof over us that has not beenr evealed, no need for a wiereframe
-			if ( IsRoofVisibleForWireframe( cnt ) && !( gpWorldLevelData[ cnt ].uiFlags & MAPELEMENT_REVEALED ) )
+			if ( IsRoofVisibleForWireframe( cnt ) && !( GetMapElement( cnt ).uiFlags & MAPELEMENT_REVEALED ) )
 			{
 				continue;
 			}
 
-			pStructure = gpWorldLevelData[ cnt ].pStructureHead;
+			pStructure = GetMapElement( cnt ).pStructureHead;
 
 			while ( pStructure != NULL )
 			{
@@ -3914,9 +3909,9 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 								// Get gridno
 								sGridNo = NewGridNo( cnt, DirectionInc( SOUTH ) );
 
-								if ( IsRoofVisibleForWireframe( sGridNo ) && !( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) )
+								if ( IsRoofVisibleForWireframe( sGridNo ) && !( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) )
 								{
-									AddWireFrame( cnt, WIREFRAMES4, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+									AddWireFrame( cnt, WIREFRAMES4, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 								}
 								break;
 
@@ -3926,9 +3921,9 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 								// Get gridno
 								sGridNo = NewGridNo( cnt, DirectionInc( EAST ) );
 
-								if ( IsRoofVisibleForWireframe( sGridNo ) && !( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) )
+								if ( IsRoofVisibleForWireframe( sGridNo ) && !( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) )
 								{
-									AddWireFrame( cnt, WIREFRAMES3 , (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+									AddWireFrame( cnt, WIREFRAMES3 , (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 								}
 								break;
 
@@ -3952,9 +3947,9 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 							// Get gridno
 							  sGridNo = NewGridNo( cnt, DirectionInc( SOUTH ) );
 
-							if ( IsRoofVisibleForWireframe( sGridNo ) && !( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) )
+							if ( IsRoofVisibleForWireframe( sGridNo ) && !( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) )
 							{
-								  AddWireFrame( cnt, WIREFRAMES2, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+								  AddWireFrame( cnt, WIREFRAMES2, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 							}
 							break;
 
@@ -3964,9 +3959,9 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 							// Get gridno
 							sGridNo = NewGridNo( cnt, DirectionInc( EAST ) );
 
-							if ( IsRoofVisibleForWireframe( sGridNo ) && !( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) )
+							if ( IsRoofVisibleForWireframe( sGridNo ) && !( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) )
 							{
-								AddWireFrame( cnt, WIREFRAMES1, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+								AddWireFrame( cnt, WIREFRAMES1, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 							}
 							break;
 
@@ -3995,7 +3990,7 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 								{
 									bNumWallsSameGridNo++;
 
-									AddWireFrame( cnt, usWireFrameIndex, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+									AddWireFrame( cnt, usWireFrameIndex, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 
 									// Check along our direction to see if we are a corner
 									sGridNo = NewGridNo( cnt, DirectionInc( WEST ) );
@@ -4005,7 +4000,7 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 									if ( bHiddenVal == -1 || bHiddenVal == 1 )
 									{
 										// Place corner!
-										   AddWireFrame( cnt, WIREFRAMES9, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+										   AddWireFrame( cnt, WIREFRAMES9, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 									}
 								}
 								break;
@@ -4020,7 +4015,7 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 								{
 									bNumWallsSameGridNo++;
 
-									AddWireFrame( cnt, usWireFrameIndex, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+									AddWireFrame( cnt, usWireFrameIndex, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 
 									// Check along our direction to see if we are a corner
 									sGridNo = NewGridNo( cnt, DirectionInc( NORTH ) );
@@ -4030,7 +4025,7 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 									if ( bHiddenVal == -1 || bHiddenVal == 1 )
 									{
 										// Place corner!
-										AddWireFrame( cnt, WIREFRAMES8, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
+										AddWireFrame( cnt, WIREFRAMES8, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 ) );
 									}
 
 								}
@@ -4043,7 +4038,7 @@ void CalculateWorldWireFrameTiles( BOOLEAN fForce )
 					{
 						sGridNo = NewGridNo( cnt, DirectionInc( EAST ) );
 						sGridNo = NewGridNo( sGridNo, DirectionInc( SOUTH ) );
-						AddWireFrame( cnt, WIREFRAMES7, (BOOLEAN)( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) != 0 )  );
+						AddWireFrame( cnt, WIREFRAMES7, (BOOLEAN)( ( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) != 0 )  );
 					}
 			}
 				}
@@ -4073,7 +4068,7 @@ void RemoveWireFrameTiles( INT32 sGridNo )
 	LEVELNODE			*pTopmost, *pNewTopmost;
 	TILE_ELEMENT *	pTileElement;
 
-	pTopmost = gpWorldLevelData[ sGridNo ].pTopmostHead;
+	pTopmost = GetMapElement( sGridNo ).pTopmostHead;
 
 	while ( pTopmost != NULL )
 	{
@@ -4106,7 +4101,7 @@ INT8 IsHiddenTileMarkerThere( INT32 sGridNo )
 
 		if ( pStructure != NULL )
 		{
-			//if ( !( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) )
+			//if ( !( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) )
 			{
 				return( 2 );
 			}
@@ -4119,7 +4114,7 @@ INT8 IsHiddenTileMarkerThere( INT32 sGridNo )
 	{
 		//if ( InARoom( sGridNo, &ubRoom ) )
 		{
-			//if ( !( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REVEALED ) )
+			//if ( !( GetMapElement( sGridNo ).uiFlags & MAPELEMENT_REVEALED ) )
 			{
 				return( 2 );
 			}
@@ -4348,7 +4343,7 @@ BOOLEAN IsRoofVisibleForWireframe( INT32 sMapPos )
 	{
 		//if ( InARoom( sMapPos, &ubRoom ) )
 		{
-			//if ( !( gpWorldLevelData[ sMapPos ].uiFlags & MAPELEMENT_REVEALED ) )
+			//if ( !( GetMapElement( sMapPos ).uiFlags & MAPELEMENT_REVEALED ) )
 			{
 				return( TRUE );
 			}
@@ -4368,6 +4363,11 @@ void SetWorldSize(INT32 nWorldRows, INT32 nWorldCols)
 	if ( nWorldRows > WORLD_ROWS_MAX ) nWorldRows = WORLD_ROWS_MAX;
 	if ( nWorldCols < 1 ) nWorldCols = 1;
 	if ( nWorldCols > WORLD_COLS_MAX ) nWorldCols = WORLD_COLS_MAX;
+
+	const UINT32 newWorldTileCount =
+		static_cast<UINT32>( nWorldRows ) *
+		static_cast<UINT32>( nWorldCols );
+	CHECKV( AllocateWorldTileMap( newWorldTileCount ) );
 
 	gMapTrn.ResizeTrnCfg(WORLD_ROWS, WORLD_COLS, nWorldRows, nWorldCols);//dnl ch45 011009
 
@@ -4405,13 +4405,6 @@ void SetWorldSize(INT32 nWorldRows, INT32 nWorldCols)
 		MemFree(gubWorldMovementCosts);
 	gubWorldMovementCosts = (UINT8(*)[MAXDIR][2])MemAlloc(WORLD_MAX*MAXDIR*2);
 	memset(gubWorldMovementCosts, 0, sizeof(UINT8)*WORLD_MAX*MAXDIR*2);
-
-	if(gpWorldLevelData != NULL)
-		MemFree(gpWorldLevelData);
-	// Initialize world data
-	gpWorldLevelData = (MAP_ELEMENT*)MemAlloc(sizeof(MAP_ELEMENT)*WORLD_MAX);
-	// Zero world
-	memset(gpWorldLevelData, 0, sizeof(MAP_ELEMENT)*WORLD_MAX);
 
 	ShutDownPathAI();
 	InitPathAI();

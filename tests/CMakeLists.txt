@@ -93,6 +93,10 @@ if(Python3_Interpreter_FOUND)
     NAME campaign_compile_guards
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_SOURCE_DIR}/tools/lint_campaign_compile_guards.py)
+  add_test(
+    NAME world_tile_access
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/lint_world_tile_access.py)
 endif()
 
 # Standalone multiplayer coordinator/relay server (no game engine).

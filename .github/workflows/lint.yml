@@ -31,6 +31,12 @@ jobs:
         # content guards may only shrink, never move or grow.
         run: python3 tools/lint_campaign_compile_guards.py
 
+      - name: Ratchet direct world-tile storage access
+        # World Tile Map owns allocation and exposes gpWorldLevelData only as a
+        # shrinking compatibility projection. New code enters through the
+        # accessor instead of growing the raw global-indexing tail.
+        run: python3 tools/lint_world_tile_access.py
+
       - name: Validate release metadata stamping
         run: |
           python3 tools/stamp_game_version.py \
