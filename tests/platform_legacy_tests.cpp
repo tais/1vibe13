@@ -1336,6 +1336,72 @@ int main()
 		std::vector<UINT8>({'X', 'b', 'Q', 'd', 'e', 'Y'}),
 		"independent writes commit at their own logical positions");
 
+	HWFILE staleReader = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	Check(staleReader != 0,
+		"stale-handle fixture opens through FileMan");
+	FileClose(staleReader);
+	FileClose(staleReader);
+	UINT8 staleByte = 0xA5;
+	UINT32 staleReadCount = 99;
+	std::string staleLine = "unchanged";
+	Check(!FileRead(staleReader, &staleByte, 1, &staleReadCount) &&
+		staleByte == 0 && staleReadCount == 0 &&
+		!FileReadLine(staleReader, &staleLine) &&
+		staleLine == "unchanged" &&
+		!FileSeek(staleReader, 0, FILE_SEEK_FROM_START) &&
+		FileGetPos(staleReader) == BAD_INDEX &&
+		FileGetSize(staleReader) == 0 &&
+		!FileCheckEndOfFile(staleReader),
+		"closed and double-closed file tokens remain safely invalid");
+
+	HWFILE replacementReader = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	UINT8 replacementPrefix[2] = {};
+	UINT32 replacementPrefixRead = 0;
+	FileClose(staleReader);
+	Check(replacementReader && replacementReader != staleReader &&
+		FileRead(replacementReader, replacementPrefix,
+			sizeof(replacementPrefix), &replacementPrefixRead) &&
+		replacementPrefixRead == sizeof(replacementPrefix) &&
+		std::equal(replacementPrefix,
+			replacementPrefix + sizeof(replacementPrefix), "ab"),
+		"a stale generation cannot close or access its reused slot");
+	if (replacementReader) FileClose(replacementReader);
+
+	constexpr std::size_t fileHandleCapacity = 4095;
+	std::vector<HWFILE> saturatedHandles;
+	saturatedHandles.reserve(fileHandleCapacity);
+	for (std::size_t index = 0; index < fileHandleCapacity; ++index)
+	{
+		HWFILE saturated = FileOpen(handleContract,
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		if (!saturated) break;
+		saturatedHandles.push_back(saturated);
+	}
+	HWFILE overflowHandle = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	Check(saturatedHandles.size() == fileHandleCapacity &&
+		overflowHandle == 0,
+		"the bounded file-handle table rejects exhaustion cleanly");
+	if (overflowHandle) FileClose(overflowHandle);
+	const HWFILE oldestSaturatedHandle =
+		saturatedHandles.empty() ? 0 : saturatedHandles.front();
+	for (HWFILE saturated : saturatedHandles)
+		FileClose(saturated);
+	HWFILE recycledAfterSaturation = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	FileClose(oldestSaturatedHandle);
+	UINT8 recycledByte = 0;
+	UINT32 recycledReadCount = 0;
+	Check(recycledAfterSaturation &&
+		recycledAfterSaturation != oldestSaturatedHandle &&
+		FileRead(recycledAfterSaturation, &recycledByte, 1,
+			&recycledReadCount) &&
+		recycledByte == 'a' && recycledReadCount == 1,
+		"capacity recovery advances the slot generation before reuse");
+	if (recycledAfterSaturation) FileClose(recycledAfterSaturation);
+
 	file = FileOpen(handleContract, FILE_ACCESS_READ | FILE_OPEN_EXISTING);
 	UINT32 rejectedWriteCount = 77;
 	const UINT8 rejectedWriteByte = '!';
@@ -7617,10 +7683,31 @@ int main()
 		ShutdownVideoManager();
 	}
 
+	HWFILE shutdownReader = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	Check(shutdownReader != 0,
+		"FileMan shutdown fixture leaves a live managed handle");
 	ShutdownFileManager();
+	UINT8 shutdownByte = 0xA5;
+	UINT32 shutdownReadCount = 99;
+	Check(!FileRead(shutdownReader, &shutdownByte, 1,
+			&shutdownReadCount) &&
+		shutdownByte == 0 && shutdownReadCount == 0,
+		"FileMan shutdown invalidates and closes leaked handles");
 	ShutdownFileManager();
 	Check(InitializeFileManager(NULL),
 		"FileMan restarts after repeated shutdown");
+	HWFILE restartedReader = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	FileClose(shutdownReader);
+	UINT8 restartedByte = 0;
+	UINT32 restartedReadCount = 0;
+	Check(restartedReader && restartedReader != shutdownReader &&
+		FileRead(restartedReader, &restartedByte, 1,
+			&restartedReadCount) &&
+		restartedByte == 'a' && restartedReadCount == 1,
+		"pre-shutdown tokens cannot affect handles opened after restart");
+	if (restartedReader) FileClose(restartedReader);
 	ShutdownFileManager();
 	ShutdownMemoryManager();
 	ShutdownMemoryManager();

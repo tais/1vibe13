@@ -28,7 +28,7 @@
 #define DB_ADD_LIBRARY_ID( exp )				( exp << DB_BITS_FOR_FILE_ID )
 #define DB_ADD_FILE_ID( exp )						( exp & 0xC00000 )
 
-typedef	uintptr_t	HWFILE;  // pointer-wide opaque FileMan handle; see types.h
+typedef	uintptr_t	HWFILE;  // pointer-width opaque FileMan token; see types.h
 
 
 typedef struct

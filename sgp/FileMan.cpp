@@ -43,6 +43,7 @@ using namespace std;
 
 #include <vfs/Core/vfs_file_raii.h>
 #include <vfs/Tools/vfs_parser_tools.h>
+#include <array>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -54,6 +55,13 @@ namespace
 {
 const UINT32 kReadBufferSize = 8192;
 const UINT32 kMaximumFileSearches = 20;
+const UINT32 kFileHandleIndexBits = 12;
+const HWFILE kFileHandleIndexMask =
+	(static_cast<HWFILE>(1) << kFileHandleIndexBits) - 1;
+const UINT32 kMaximumOpenFiles =
+	static_cast<UINT32>(kFileHandleIndexMask);
+static_assert(std::numeric_limits<HWFILE>::digits >
+	kFileHandleIndexBits, "HWFILE must retain generation bits");
 
 typedef vfs::CVirtualFileSystem::Iterator FileSearchIterator;
 std::unique_ptr<FileSearchIterator> s_fileSearches[kMaximumFileSearches];
@@ -248,9 +256,75 @@ FileHandle::~FileHandle() noexcept
 	ReleaseOpenFileState(state);
 }
 
+struct FileHandleSlot
+{
+	std::unique_ptr<FileHandle> handle;
+	HWFILE generation = 0;
+};
+
+std::array<FileHandleSlot, kMaximumOpenFiles> s_fileHandles;
+
+bool DecodeFileHandle(HWFILE token, UINT32& index, HWFILE& generation)
+{
+	const HWFILE encodedIndex = token & kFileHandleIndexMask;
+	generation = token >> kFileHandleIndexBits;
+	if(encodedIndex == 0 || generation == 0)
+		return false;
+
+	index = static_cast<UINT32>(encodedIndex - 1);
+	return index < s_fileHandles.size();
+}
+
 FileHandle* GetFileHandle(HWFILE handle)
 {
-	return reinterpret_cast<FileHandle*>(handle);
+	UINT32 index = 0;
+	HWFILE generation = 0;
+	if(!DecodeFileHandle(handle, index, generation))
+		return nullptr;
+
+	FileHandleSlot& slot = s_fileHandles[index];
+	return slot.generation == generation ? slot.handle.get() : nullptr;
+}
+
+HWFILE StoreFileHandle(std::unique_ptr<FileHandle> handle)
+{
+	if(!handle)
+		return 0;
+
+	const HWFILE maximumGeneration =
+		std::numeric_limits<HWFILE>::max() >> kFileHandleIndexBits;
+	for(UINT32 index = 0; index < s_fileHandles.size(); ++index)
+	{
+		FileHandleSlot& slot = s_fileHandles[index];
+		if(slot.handle)
+			continue;
+
+		slot.generation = (slot.generation + 1) & maximumGeneration;
+		if(slot.generation == 0)
+			slot.generation = 1;
+		slot.handle = std::move(handle);
+		return (slot.generation << kFileHandleIndexBits) |
+			static_cast<HWFILE>(index + 1);
+	}
+	return 0;
+}
+
+void ReleaseFileHandle(HWFILE handle)
+{
+	UINT32 index = 0;
+	HWFILE generation = 0;
+	if(!DecodeFileHandle(handle, index, generation))
+		return;
+
+	FileHandleSlot& slot = s_fileHandles[index];
+	if(slot.generation == generation)
+		slot.handle.reset();
+}
+
+void ReleaseAllFileHandles()
+{
+	for(FileHandleSlot& slot : s_fileHandles)
+		slot.handle.reset();
 }
 
 UINT32 GetBufferedBytes(const FileHandle* handle)
@@ -373,11 +447,11 @@ HWFILE MakeFileHandle(std::shared_ptr<OpenFileState> state)
 {
 	if(!state)
 		return 0;
-	FileHandle* handle =
-		new (std::nothrow) FileHandle(std::move(state));
+	std::unique_ptr<FileHandle> handle(
+		new (std::nothrow) FileHandle(std::move(state)));
 	if(!handle)
 		ReleaseOpenFileState(state);
-	return reinterpret_cast<HWFILE>(handle);
+	return StoreFileHandle(std::move(handle));
 }
 }
 
@@ -489,6 +563,7 @@ BOOLEAN	InitializeFileManager(	STR strIndexFilename )
 void ShutdownFileManager( void )
 {
 	ReleaseAllFileSearches();
+	ReleaseAllFileHandles();
 	if (!gFileManagerInitialized) return;
 	gFileManagerInitialized = false;
 	UnRegisterDebugTopic( TOPIC_FILE_MANAGER, "File Manager" );
@@ -735,7 +810,7 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 //**************************************************************************
 void FileClose( HWFILE hFile )
 {
-	delete GetFileHandle(hFile);
+	ReleaseFileHandle(hFile);
 }
 
 //**************************************************************************
