@@ -549,7 +549,7 @@ void ResetAssignmentsForMercsTrainingUnpaidSectorsInSelectedList( UINT8 ubMiliti
 			continue;
 		}
 
-		pSoldier = gCharactersList[ iCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 		if( pSoldier->bActive == FALSE )
 		{
@@ -583,7 +583,7 @@ void ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector( INT16 sSectorX, 
 			continue;
 		}
 
-		pSoldier = gCharactersList[ iCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 		if( pSoldier->bActive == FALSE )
 		{
@@ -615,7 +615,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 		{
 			if( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE )
 			{
-				pSoldier2 = gCharactersList[ iCounter ].usSolID;
+				pSoldier2 = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 				// skip the guy we are
 				if ( pSoldier == pSoldier2 )
@@ -704,7 +704,7 @@ void SelectUnselectedMercsWhoMustMoveWithThisGuy( void )
 			// if not already selected
 			if( fSelectedListOfMercsForMapScreen[ iCounter ] == FALSE )
 			{
-				pSoldier = gCharactersList[ iCounter ].usSolID;
+				pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 				// if on a squad or in a vehicle
 				if ( ( pSoldier->bAssignment < ON_DUTY ) || ( pSoldier->bAssignment == VEHICLE ) )
@@ -732,7 +732,7 @@ BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( SOLDIERTYPE *pSoldier )
 			// if selected
 			if( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE )
 			{
-				pSoldier2 = gCharactersList[ iCounter ].usSolID;
+				pSoldier2 = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 				// if they have the same assignment
 				if( pSoldier->bAssignment == pSoldier2->bAssignment )
@@ -1293,10 +1293,10 @@ void CheckAndUpdateBasedOnContractTimes( void )
 		if( gCharactersList[iCounter].fValid == TRUE )
 		{
 				// what kind of merc
-			if(gCharactersList[iCounter].usSolID->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if(GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
 			{
 				// amount of time left on contract
-				iTimeRemaining = gCharactersList[iCounter].usSolID->iEndofContractTime - GetWorldTotalMin();
+				iTimeRemaining = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->iEndofContractTime - GetWorldTotalMin();
 				if(iTimeRemaining >60*24)
 				{
 					// more than a day, display in green
@@ -1327,9 +1327,9 @@ void CheckAndUpdateBasedOnContractTimes( void )
 					}
 				}
 			}
-			else if( gCharactersList[iCounter].usSolID->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+			else if( GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
 			{
-				iTimeRemaining = gCharactersList[iCounter].usSolID->iTotalContractLength;
+				iTimeRemaining = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->iTotalContractLength;
 
 				if( iTimeRemaining != iOldContractTimes[ iCounter ])
 				{
@@ -1393,7 +1393,28 @@ void HandleDisplayOfSelectedMercArrows( void )
 		if( gCharactersList[ ubCount + FIRSTmercTOdisplay ].fValid == TRUE )
 		{
 			// are they in the selected list or int he same mvt group as this guy
-			if( ( IsEntryInSelectedListSet( ubCount + FIRSTmercTOdisplay ) == TRUE ) || ( ( GetSelectedDestChar() != - 1 ) ? ( ( gCharactersList[ ubCount + FIRSTmercTOdisplay ].usSolID->ubGroupID != 0 ) ? ( gCharactersList[GetSelectedDestChar()].usSolID->ubGroupID == gCharactersList[ ubCount + FIRSTmercTOdisplay ].usSolID->ubGroupID ) : FALSE ) : FALSE ) )
+			const UINT16 listIndex = ubCount + FIRSTmercTOdisplay;
+			BOOLEAN showArrow =
+				IsEntryInSelectedListSet( listIndex );
+			if (!showArrow)
+			{
+				const INT8 destinationCharacter = GetSelectedDestChar();
+				SOLDIERTYPE* listedSoldier =
+					GetJa2SoldierRepository().resolve(
+						gCharactersList[ listIndex ].usSolID);
+				if (destinationCharacter != -1 && listedSoldier &&
+					listedSoldier->ubGroupID != 0)
+				{
+					const SOLDIERTYPE* destinationSoldier =
+						GetJa2SoldierRepository().resolve(
+							gCharactersList[
+								destinationCharacter ].usSolID);
+					showArrow = destinationSoldier &&
+						destinationSoldier->ubGroupID ==
+							listedSoldier->ubGroupID;
+				}
+			}
+			if( showArrow )
 			{
 				sYPosition = y + ( ubCount * ( Y_SIZE + 2) ) - 1;
 
@@ -1424,7 +1445,7 @@ void HandleDisplayOfItemPopUpForSector( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 	{
 		if( gCharactersList[ bSelectedInfoChar ].fValid == TRUE )
 		{
-			SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if( ( pSoldier->sSectorX == sMapX ) &&
 				( pSoldier->sSectorY == sMapY ) &&
 				( pSoldier->bSectorZ == sMapZ ) &&
@@ -1530,20 +1551,25 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 	// just drop the stuff in the current sector
 	//INT32 iCounter = 0;
 	INT32 sGridNo, sTempGridNo;
+	SOLDIERTYPE* pSoldier =
+		GetJa2SoldierRepository().resolve(uiMercId);
+	if (!pSoldier)
+		return;
 
-	INT8 sectorz = uiMercId->bSectorZ;
-	if ( SPY_LOCATION( uiMercId->bAssignment ) )
+	INT8 sectorz = pSoldier->bSectorZ;
+	if ( SPY_LOCATION( pSoldier->bAssignment ) )
 		sectorz = max( 0, sectorz - 10 ); 
 
-	const auto x = uiMercId->sSectorX;
-	const auto y = uiMercId->sSectorY;
+	const auto x = pSoldier->sSectorX;
+	const auto y = pSoldier->sSectorY;
 
 	if( x != gWorldSectorX || y != gWorldSectorY || sectorz != gbWorldSectorZ )
 	{
 		// ATE: Use insertion gridno if not nowhere and insertion is gridno		
-		if ( uiMercId->ubStrategicInsertionCode == INSERTION_CODE_GRIDNO && !TileIsOutOfBounds(uiMercId->usStrategicInsertionData) )
+		if ( pSoldier->ubStrategicInsertionCode == INSERTION_CODE_GRIDNO &&
+			!TileIsOutOfBounds(pSoldier->usStrategicInsertionData) )
 		{
-			sGridNo = uiMercId->usStrategicInsertionData;
+			sGridNo = pSoldier->usStrategicInsertionData;
 		}
 		else
 		{
@@ -1554,7 +1580,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 	else
 	{
 		// ATE: Mercs can have a gridno of NOWHERE.....
-		sGridNo = uiMercId->position().gridNo();
+		sGridNo = pSoldier->position().gridNo();
 
 		if (TileIsOutOfBounds(sGridNo))	
 		{
@@ -1571,18 +1597,21 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 		}
 	}
 
-	Inventory &inv = uiMercId->inv;
+	Inventory &inv = pSoldier->inv;
 	const UINT32 invsize = inv.size();
 
 	if( x != gWorldSectorX || y != gWorldSectorY || sectorz != gbWorldSectorZ )
 	{
-		if (fShowMapInventoryPool && x == sSelMapX && y == sSelMapY && uiMercId->bSectorZ == iCurrentMapSectorZ)
+		if (fShowMapInventoryPool && x == sSelMapX && y == sSelMapY &&
+			pSoldier->bSectorZ == iCurrentMapSectorZ)
 		{
 			for (UINT32 iCounter = 0; iCounter < invsize; ++iCounter)
 			{
 				if (inv[iCounter].exists())
 				{
-					AutoPlaceObjectInInventoryStash(&( inv[iCounter] ), uiMercId->position().gridNo(), uiMercId->position().level());
+					AutoPlaceObjectInInventoryStash(
+						&( inv[iCounter] ), pSoldier->position().gridNo(),
+						pSoldier->position().level());
 				}
 			}
 		}
@@ -1602,7 +1631,12 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 				}
 			}
 			// anv: add all items at once (less file operations = less lag)
-			AddItemsToUnLoadedSector(x, y, sectorz, sGridNo, uiFoundItems, &(invTemporaryBeforeDrop[0]), uiMercId->position().level(), WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE, 0, 1, FALSE);
+			AddItemsToUnLoadedSector(
+				x, y, sectorz, sGridNo, uiFoundItems,
+				&(invTemporaryBeforeDrop[0]), pSoldier->position().level(),
+				WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO |
+					WORLD_ITEM_REACHABLE,
+				0, 1, FALSE);
 		}
 	}
 	else
@@ -1613,12 +1647,16 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 			// check if actual item
 			if(	inv[ iCounter ].exists() == true )
 			{
-				AddItemToPool( sGridNo, &( inv[ iCounter ] ) , 1, uiMercId->position().level(), WORLD_ITEM_REACHABLE, 0 );
+				AddItemToPool(
+					sGridNo, &( inv[ iCounter ] ) , 1,
+					pSoldier->position().level(), WORLD_ITEM_REACHABLE, 0 );
 			}
 		}
 	}
 
-	DropKeysInKeyRing( uiMercId, sGridNo, uiMercId->position().level(), 1, FALSE, 0, FALSE );
+	DropKeysInKeyRing(
+		pSoldier, sGridNo, pSoldier->position().level(),
+		1, FALSE, 0, FALSE );
 }
 
 
@@ -1858,6 +1896,10 @@ INT32 SetUpDropItemListForMerc( SoldierID uiMercId )
 {
 	// will set up a drop list for this grunt, remove items from inventory, and profile
 	INT32 iSlotIndex = -1;
+	SOLDIERTYPE* pSoldier =
+		GetJa2SoldierRepository().resolve(uiMercId);
+	if (!pSoldier)
+		return( -1 );
 
 	iSlotIndex = FindFreeSlotInLeaveList( );
 	if( iSlotIndex == -1 )
@@ -1865,27 +1907,28 @@ INT32 SetUpDropItemListForMerc( SoldierID uiMercId )
 		return( -1 );
 	}
 
-	UINT32 invsize = uiMercId->inv.size();
+	UINT32 invsize = pSoldier->inv.size();
 	for( UINT32 iCounter = 0; iCounter < invsize; ++iCounter )
 	{
 		// slot found,
 		// check if actual item
-		if(	uiMercId->inv[ iCounter ].exists() == true )
+		if(	pSoldier->inv[ iCounter ].exists() == true )
 		{
 			// make a linked list of the items left behind, with the ptr to its head in this free slot
-			AddItemToLeaveIndex( &( uiMercId->inv[ iCounter ] ), iSlotIndex );
+			AddItemToLeaveIndex( &( pSoldier->inv[ iCounter ] ), iSlotIndex );
 
 			// store owner's profile id for the items added to this leave slot index
-			SetUpMercAboutToLeaveEquipment( uiMercId->ubProfile, iSlotIndex );
+			SetUpMercAboutToLeaveEquipment( pSoldier->ubProfile, iSlotIndex );
 		}
 	}
 
 	// ATE: Added this to drop keyring keys - the 2nd last paramter says to add it to a leave list...
 	// the gridno, level and visiblity are ignored
-	DropKeysInKeyRing( uiMercId, NOWHERE, 0, 0, TRUE, iSlotIndex, FALSE );
+	DropKeysInKeyRing(
+		pSoldier, NOWHERE, 0, 0, TRUE, iSlotIndex, FALSE );
 
 	// zero out profiles
-	gMercProfiles[ uiMercId->ubProfile ].clearInventory();
+	gMercProfiles[ pSoldier->ubProfile ].clearInventory();
 
 	return( iSlotIndex );
 }
@@ -1940,7 +1983,7 @@ void UpdateCharRegionHelpText( void )
 	if( ( bSelectedInfoChar != -1 ) && ( gCharactersList[ bSelectedInfoChar ].fValid == TRUE ) )
 	{
 		// valid soldier selected
-		pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 		// health/energy/morale
 		if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
@@ -2412,7 +2455,7 @@ void RandomMercInGroupSaysQuote( GROUP *pGroup, UINT16 usQuoteNum )
 	if ( ubNumMercs > 0 )
 	{
 		ubChosenMerc = (UINT16)Random( ubNumMercs );
-		pSoldier = ubMercsInGroup[ ubChosenMerc ];
+		pSoldier = GetJa2SoldierRepository().resolve(ubMercsInGroup[ ubChosenMerc ]);
 
 		TacticalCharacterDialogue( pSoldier, usQuoteNum );
 	}
@@ -2494,7 +2537,7 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 	}
 
 
-	pNewSoldier = gCharactersList[ iNewCharSlot ].usSolID;
+	pNewSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iNewCharSlot ].usSolID);
 
 	// if in a hostile sector, disallow
 	if (gTacticalStatus.fEnemyInSector && pNewSoldier->bInSector)
@@ -2534,7 +2577,7 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 		}
 		else
 		{
-			pOldSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+			pOldSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 		}
 	}
 
@@ -3636,7 +3679,7 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 	{
 		if( gCharactersList[ iCounter ].fValid )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			if( ( pSoldier->bActive ) &&
 					( pSoldier->bAssignment != IN_TRANSIT ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->bAssignment ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
@@ -4932,7 +4975,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 		// is the current guy a valid character?
 		if( gCharactersList[ iCounter ].fValid == TRUE )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 			{
@@ -4968,7 +5011,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 	if( GetSelectedDestChar() != -1 )
 	{
 		INT8 pbErrorNumber = -1;
-		pSoldier = gCharactersList[GetSelectedDestChar()].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 		INT8 bSquadValue = pSoldier->bAssignment;
 		if (bSquadValue == VEHICLE)
 		{
@@ -6027,7 +6070,7 @@ void UpdateHelpTextForMapScreenMercIcons( void )
 	else
 	{
 		// if merc is an AIM merc
-		if( gCharactersList[ bSelectedInfoChar ].usSolID->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
 		{
 			SetRegionFastHelpText( &(gContractIconRegion), zMarksMapScreenText[ 22 ] );
 		}
@@ -6037,7 +6080,7 @@ void UpdateHelpTextForMapScreenMercIcons( void )
 		}
 
 		// if merc has life insurance
-		if( gCharactersList[ bSelectedInfoChar ].usSolID->usLifeInsurance > 0 )
+		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->usLifeInsurance > 0 )
 		{
 			SetRegionFastHelpText( &(gInsuranceIconRegion), zMarksMapScreenText[ 3 ] );
 		}
@@ -6047,7 +6090,7 @@ void UpdateHelpTextForMapScreenMercIcons( void )
 		}
 
 		// if merc has a medical deposit
-		if( gCharactersList[ bSelectedInfoChar ].usSolID->usMedicalDeposit > 0 )
+		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->usMedicalDeposit > 0 )
 		{
 			SetRegionFastHelpText( &(gDepositIconRegion), zMarksMapScreenText[ 12 ] );
 		}
@@ -6522,7 +6565,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 
 			for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 			{
-				pSoldier2 = cnt;
+				pSoldier2 = GetJa2SoldierRepository().resolve(cnt);
 				if ( pSoldier2->bActive )
 				{
 					if ( FindObj( pSoldier2, CHALICE ) != ITEM_NOT_FOUND )
@@ -6655,7 +6698,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 		if( gCharactersList[ iCounter ].fValid == TRUE )
 		{
 			// get soldier
-			pCurrentSoldier = gCharactersList[ iCounter ].usSolID;
+			pCurrentSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// skip inactive grunts
 			if( pCurrentSoldier->bActive == FALSE )

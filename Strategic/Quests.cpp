@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "message.h"
 	#include "Quests.h"
@@ -404,7 +405,7 @@ BOOLEAN PCInSameRoom( UINT8 ubProfileID )
 
 	for ( bLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; bLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++bLoop )
 	{
-		pSoldier = bLoop;
+		pSoldier = GetJa2SoldierRepository().resolve(bLoop);
 		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector )
 		{
 			if ( gusWorldRoomInfo[ pSoldier->position().gridNo() ] == usRoom )
@@ -554,7 +555,7 @@ BOOLEAN CheckPlayerHasHead( void )
 
 	for ( SoldierID bLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; bLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++bLoop )
 	{
-		pSoldier = bLoop;
+		pSoldier = GetJa2SoldierRepository().resolve(bLoop);
 
 		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
 		{
@@ -1815,7 +1816,7 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 
 	for ( SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if( pSoldier->bActive && pSoldier->vitals().health() >= CONSCIOUSNESS && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
 			pSoldier->sSectorX == sQuestSectorX && pSoldier->sSectorY == sQuestsSectorY && !pSoldier->flags.fBetweenSectors && pSoldier->bTeam == gbPlayerNum &&
 			pSoldier->bAssignment != IN_TRANSIT && pSoldier->bAssignment != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->ubProfile ].ubBodyType != 21 ) // != ROBOTNOWEAPON )

@@ -5,20 +5,13 @@
 #include "Overhead.h"
 #include "Soldier Control.h"
 
-namespace
-{
-Ja2SoldierRepository& StandaloneRepository() noexcept
+Ja2SoldierRepository& Ja2SoldierRepository::standalone() noexcept
 {
 	static Ja2SoldierRepository repository;
 	return repository;
 }
 
-Ja2SoldierRepository*& BoundRepository() noexcept
-{
-	static Ja2SoldierRepository* repository = &StandaloneRepository();
-	return repository;
-}
-}
+Ja2SoldierRepository* Ja2SoldierRepository::boundRepository_ = nullptr;
 
 Ja2SoldierRepository::Ja2SoldierRepository() noexcept
 	: Ja2SoldierRepository(Menptr, MercPtrs, TOTAL_SOLDIERS)
@@ -94,10 +87,5 @@ bool Ja2SoldierRepository::hasCanonicalBinding(
 void BindJa2SoldierRepository(
 	Ja2SoldierRepository& repository) noexcept
 {
-	BoundRepository() = &repository;
-}
-
-Ja2SoldierRepository& GetJa2SoldierRepository() noexcept
-{
-	return *BoundRepository();
+	Ja2SoldierRepository::boundRepository_ = &repository;
 }

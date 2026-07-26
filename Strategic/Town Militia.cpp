@@ -1495,7 +1495,7 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 			continue;
 		}
 
-		pSoldier = gCharactersList[ iCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 		// valid soldier?
 		if( pSoldier->bActive == FALSE )
@@ -1540,7 +1540,7 @@ void AddSectorForSoldierToListOfSectorsThatCompletedMilitiaTraining( SOLDIERTYPE
 	while( giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ] != NOBODY )
 	{
 		// get the current soldier
-		pCurrentSoldier = giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ];
+		pCurrentSoldier = GetJa2SoldierRepository().resolve(giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ]);
 
 		// get the current sector value
 		sCurrentSector = CALCULATE_STRATEGIC_INDEX( pCurrentSoldier->sSectorX, pCurrentSoldier->sSectorY );
@@ -1588,7 +1588,7 @@ void HandleContinueOfTownTraining( void )
 	while( giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ] != NOBODY )
 	{
 		// get the soldier
-		pSoldier = giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ];
+		pSoldier = GetJa2SoldierRepository().resolve(giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ]);
 
 		if( pSoldier->bActive )
 		{
@@ -1648,7 +1648,7 @@ void BuildListOfUnpaidTrainableSectors( UINT8 ubMilitiaType )
 				// selected?
 				if( ( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE ) || ( iCounter == bSelectedAssignChar ) )
 				{
-					pSoldier = gCharactersList[ iCounter ].usSolID;
+					pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 					// HEADROCK HAM 3.6: Two different conditions depending on the type of militia being trained.
 					if( ubMilitiaType == TOWN_MILITIA )
@@ -1668,7 +1668,7 @@ void BuildListOfUnpaidTrainableSectors( UINT8 ubMilitiaType )
 	else
 	{
 		// handle for tactical
-		pSoldier = gusUIFullTargetID;
+		pSoldier = GetJa2SoldierRepository().resolve(gusUIFullTargetID);
 		iCounter = 0;
 
 		if (ubMilitiaType == TOWN_MILITIA)

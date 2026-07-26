@@ -4,6 +4,7 @@
 */
 
 #include "MilitiaIndividual.h"
+#include "SoldierRepository.h"
 
 #include "random.h"
 #include "Text.h"
@@ -253,7 +254,7 @@ SOLDIERTYPE* GetUsedSoldierToIndividualMilitia( UINT32 aMilitiaId )
 {
 	for ( SoldierID cnt = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; cnt <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; ++cnt )
 	{
-		SOLDIERTYPE *pSoldier = cnt;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pSoldier && pSoldier->bActive && pSoldier->usIndividualMilitiaID == aMilitiaId )
 		{
 			return pSoldier;
@@ -273,7 +274,7 @@ void ApplyTacticalLifeRatioToMilitia()
 	SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 	for ( ; cnt < lastid; ++cnt )
 	{
-		SOLDIERTYPE *pSoldier = cnt;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		MILITIA militia;
 		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
 		{
@@ -299,7 +300,7 @@ void ApplyMilitiaHealthRatioToTactical()
 	SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 	for ( ; cnt < lastid; ++cnt )
 	{
-		SOLDIERTYPE *pSoldier = cnt;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		MILITIA militia;
 		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
 		{
@@ -669,7 +670,7 @@ UINT32 GetIdOfUnusedIndividualMilitia( UINT8 aSoldierClass, UINT8 aSector )
 			SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 			for ( ; cnt < lastid; ++cnt )
 			{
-				SOLDIERTYPE *pSoldier = cnt;
+				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 				
 				if ( pSoldier && pSoldier->bActive && ( *it ).id == pSoldier->usIndividualMilitiaID && IsLegalMilitiaId( pSoldier->usIndividualMilitiaID ) )
 				{
@@ -826,7 +827,7 @@ FLOAT PromoteIndividualMilitiaInSector( UINT8 aSector, FLOAT aPointsToAdd )
 		SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 		for ( ; cnt <= lastid; ++cnt )	// bLastID is the last valid slot (inclusive); was '<' which skipped the last militia soldier
 		{
-			SOLDIERTYPE *pSoldier = cnt;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			MILITIA militia;
 
 			if ( pSoldier && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )

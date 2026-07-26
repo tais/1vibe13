@@ -2889,9 +2889,11 @@ static SOLDIERTYPE* FindSoldierByProfileID2(UINT8 ubProfileID, BOOLEAN fPlayerMe
 
 	for (; soldier <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++soldier)
 	{
-		if (soldier->bActive && soldier->bInSector)
+		SOLDIERTYPE* candidate =
+			GetJa2SoldierRepository().resolve(soldier);
+		if (candidate && candidate->bActive && candidate->bInSector)
 		{
-			return(soldier);
+			return candidate;
 		}
 	}
 	return(NULL);
@@ -5448,7 +5450,7 @@ static int l_ActionInProgress(lua_State* L)
 			SoldierID cnt2 = gTacticalStatus.Team[CIV_TEAM].bFirstID;
 			for (; cnt2 <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++cnt2)
 			{
-				pSoldier = cnt2;
+				pSoldier = GetJa2SoldierRepository().resolve(cnt2);
 				if (pSoldier->bActive && pSoldier->bInSector && pSoldier->ubProfile == NO_PROFILE)
 				{
 					pSoldier->aiData.bActionInProgress = ExecuteAction(pSoldier);
@@ -6544,15 +6546,21 @@ static int l_ACTION_ITEM_SEX(lua_State* L)
 				return 0;
 
 			soldier = WhoIsThere2(sGridNo, 0);
-			if ((soldier != NOBODY) && (soldier->bTeam == gbPlayerNum))
+			SOLDIERTYPE* pSoldier =
+				GetJa2SoldierRepository().resolve(soldier);
+			if (pSoldier && pSoldier->bTeam == gbPlayerNum)
 			{
-				if (InARoom(sGridNo, &usRoom) && InARoom(soldier->sOldGridNo, &usOldRoom) && usOldRoom != usRoom)
+				if (InARoom(sGridNo, &usRoom) &&
+					InARoom(pSoldier->sOldGridNo, &usOldRoom) &&
+					usOldRoom != usRoom)
 				{
 					// also require there to be a miniskirt civ in the room
 					if (HookerInRoom(usRoom))
 					{
 						// stop the merc...
-						soldier->EVENT_StopMerc(soldier->position().gridNo(), soldier->position().direction());
+						pSoldier->EVENT_StopMerc(
+							pSoldier->position().gridNo(),
+							pSoldier->position().direction());
 
 						if (sGridNo == gModSettings.iCarlaDoorGridNo + 1)
 						{
@@ -6582,25 +6590,31 @@ static int l_ACTION_ITEM_SEX(lua_State* L)
 							PerformItemAction(sDoorSpot, &DoorCloser);
 
 							// Flugente: additional dialogue
-							AdditionalTacticalCharacterDialogue_CallsLua(soldier, ADE_SEX);
+							AdditionalTacticalCharacterDialogue_CallsLua(
+								pSoldier, ADE_SEX);
 
 							// have sex
 							HandleNPCDoAction(0, NPC_ACTION_SEX, 0);
 
 							// move the merc outside of the room again
-							sTeleportSpot = FindGridNoFromSweetSpotWithStructData(soldier, STANDING, sTeleportSpot, 2, &ubDirection, FALSE);
-							soldier->ChangeSoldierState(STANDING, 0, TRUE);
-							TeleportSoldier(soldier, sTeleportSpot, FALSE);
+							sTeleportSpot = FindGridNoFromSweetSpotWithStructData(
+								pSoldier, STANDING, sTeleportSpot, 2,
+								&ubDirection, FALSE);
+							pSoldier->ChangeSoldierState(STANDING, 0, TRUE);
+							TeleportSoldier(pSoldier, sTeleportSpot, FALSE);
 
-							HandleMoraleEvent(soldier, MORALE_SEX, gWorldSectorX, gWorldSectorY, gbWorldSectorZ);
-							FatigueCharacter(soldier);
-							FatigueCharacter(soldier);
-							FatigueCharacter(soldier);
-							FatigueCharacter(soldier);
-							DirtyMercPanelInterface(soldier, DIRTYLEVEL1);
+							HandleMoraleEvent(
+								pSoldier, MORALE_SEX, gWorldSectorX,
+								gWorldSectorY, gbWorldSectorZ);
+							FatigueCharacter(pSoldier);
+							FatigueCharacter(pSoldier);
+							FatigueCharacter(pSoldier);
+							FatigueCharacter(pSoldier);
+							DirtyMercPanelInterface(pSoldier, DIRTYLEVEL1);
 
 							// Flugente: we might get a disease from this...
-							HandlePossibleInfection(soldier, NULL, INFECTION_TYPE_SEX);
+							HandlePossibleInfection(
+								pSoldier, NULL, INFECTION_TYPE_SEX);
 						}
 					}
 				}
@@ -6997,8 +7011,10 @@ static int l_EVENT_InitNewSoldierAnim(lua_State* L)
 		}
 		else
 		{
-			if (solID != NOBODY && solID->bInSector)
-				solID->EVENT_InitNewSoldierAnim(ANIM, 0, TRUE);
+			SOLDIERTYPE* pSoldier =
+				GetJa2SoldierRepository().resolve(solID);
+			if (pSoldier && pSoldier->bInSector)
+				pSoldier->EVENT_InitNewSoldierAnim(ANIM, 0, TRUE);
 		}
 	}
 
@@ -7045,7 +7061,7 @@ static int l_SetEnterCombatMode(lua_State* L)
 		SOLDIERTYPE* pGoon = NULL;
 		for (SoldierID ubLoop = gTacticalStatus.Team[CIV_TEAM].bFirstID; ubLoop <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++ubLoop)
 		{
-			pGoon = ubLoop;
+			pGoon = GetJa2SoldierRepository().resolve(ubLoop);
 			if (pGoon->ubCivilianGroup == group && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->aiData.bOppList[ubID] == SEEN_CURRENTLY)
 			{
 				MakeCivHostile(pGoon);
@@ -7080,7 +7096,7 @@ static int l_MakeMercPtrsHostile(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			MakeCivHostile(ubID);
+			MakeCivHostile(GetJa2SoldierRepository().resolve(ubID));
 		}
 	}
 
@@ -7424,10 +7440,12 @@ static int l_ChangeMercPtrsTeam(lua_State* L)
 	{
 		SoldierID UID = lua_tointeger(L, 1);
 		INT8 Side = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(UID);
 
-		if (UID != NOBODY && UID->bInSector && UID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			UID->bSide = Side;
+			pSoldier->bSide = Side;
 		}
 	}
 
@@ -7817,7 +7835,7 @@ static int l_CreateItemInvOrFloor(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			SOLDIERTYPE* pSoldier = ubID;
+			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(ubID);
 			CreateItem(usItem, 100, &gTempObject);
 
 			if (!AutoPlaceObject(pSoldier, &gTempObject, TRUE))
@@ -7839,7 +7857,7 @@ static int l_DestroyOneItemInInventory(lua_State* L)
 
 		if (ubID < TOTAL_SOLDIERS)
 		{
-			ubID->DestroyOneItemInInventory(usItem);
+			GetJa2SoldierRepository().resolve(ubID)->DestroyOneItemInInventory(usItem);
 		}
 	}
 
@@ -7857,7 +7875,7 @@ static int l_HasItemInInventory(lua_State* L)
 
 		if (ubID < TOTAL_SOLDIERS)
 		{
-			Bool = ubID->HasItemInInventory(usItem);
+			Bool = GetJa2SoldierRepository().resolve(ubID)->HasItemInInventory(usItem);
 		}
 	}
 
@@ -8177,7 +8195,7 @@ static int l_CheckMercPtrsAssignment(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			INT32 squad = ubID->bAssignment;
+			INT32 squad = GetJa2SoldierRepository().resolve(ubID)->bAssignment;
 			lua_pushinteger(L, squad);
 		}
 	}
@@ -8192,7 +8210,7 @@ static int l_CheckMercPtrsActive(lua_State* L)
 		SoldierID ubID = lua_tointeger(L, 1);
 		BOOLEAN Bool = FALSE;
 
-		if (ubID != NOBODY && ubID->bActive)
+		if (ubID != NOBODY && GetJa2SoldierRepository().resolve(ubID)->bActive)
 			Bool = TRUE;
 		else
 			Bool = FALSE;
@@ -8210,7 +8228,7 @@ static int l_CheckMercPtsrInSector(lua_State* L)
 		SoldierID ubID = lua_tointeger(L, 1);
 		BOOLEAN Bool = FALSE;
 
-		if (ubID != NOBODY && ubID->bInSector)
+		if (ubID != NOBODY && GetJa2SoldierRepository().resolve(ubID)->bInSector)
 			Bool = TRUE;
 		else
 			Bool = FALSE;
@@ -8228,7 +8246,7 @@ static int l_GetMercPtsrProfileID(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			UINT8 profil = ubID->ubProfile;
+			UINT8 profil = GetJa2SoldierRepository().resolve(ubID)->ubProfile;
 			lua_pushinteger(L, profil);
 		}
 	}
@@ -8243,7 +8261,7 @@ static int l_CheckMercPtrsLife(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			INT8 life = ubID->vitals().health();
+			INT8 life = GetJa2SoldierRepository().resolve(ubID)->vitals().health();
 
 			lua_pushinteger(L, life);
 		}
@@ -8299,22 +8317,17 @@ static int l_CheckMercPtsrTeleportToSector(lua_State* L)
 		SectorZ = lua_tointeger(L, 3);
 		GridNo = lua_tointeger(L, 4);
 		ubID = lua_tointeger(L, 5);
+		pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
-
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			pSoldier = ubID;
+			pSoldier->sSectorX = SectorX;
+			pSoldier->sSectorY = SectorY;
+			pSoldier->bSectorZ = SectorZ;
 
-			if (pSoldier)
-			{
-				pSoldier->sSectorX = SectorX;
-				pSoldier->sSectorY = SectorY;
-				pSoldier->bSectorZ = SectorZ;
-
-				// Set gridno
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = GridNo;
-			}
+			// Set gridno
+			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+			pSoldier->usStrategicInsertionData = GridNo;
 		}
 	}
 
@@ -8329,7 +8342,7 @@ static int l_GetMercPtrsGroup(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			UINT8 GroupID = ubID->ubGroupID;
+			UINT8 GroupID = GetJa2SoldierRepository().resolve(ubID)->ubGroupID;
 			lua_pushinteger(L, GroupID);
 		}
 	}
@@ -8342,10 +8355,12 @@ static int l_WearGasMaskIfAvailable(lua_State* L)
 	if (lua_gettop(L))
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			WearGasMaskIfAvailable(ubID);
+			WearGasMaskIfAvailable(pSoldier);
 		}
 	}
 
@@ -8357,10 +8372,12 @@ static int l_SetNewSituationMercPtsr(lua_State* L)
 	if (lua_gettop(L))
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			SetNewSituation(ubID);
+			SetNewSituation(pSoldier);
 		}
 	}
 
@@ -8400,9 +8417,11 @@ static int l_AnimMercPtsrInSector(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		UINT16 Anim = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector)
-			ubID->EVENT_InitNewSoldierAnim(Anim, 0, TRUE);
+		if (pSoldier && pSoldier->bInSector)
+			pSoldier->EVENT_InitNewSoldierAnim(Anim, 0, TRUE);
 	}
 	return 0;
 }
@@ -8412,9 +8431,11 @@ static int l_AnimMercPtsrfAIFlags(lua_State* L)
 	if (lua_gettop(L))
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector)
-			ubID->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+		if (pSoldier && pSoldier->bInSector)
+			pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
 	}
 	return 0;
 }
@@ -8425,9 +8446,11 @@ static int l_AnimMercPtsrusStrategicInsertionData(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT32 GridNo = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector)
-			ubID->usStrategicInsertionData = GridNo;
+		if (pSoldier && pSoldier->bInSector)
+			pSoldier->usStrategicInsertionData = GridNo;
 	}
 	return 0;
 }
@@ -8439,10 +8462,12 @@ static int l_AnimMercPtsrubStrategicInsertionCode(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT32 GridNo = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
 
-		if (ubID != NOBODY && ubID->bInSector)
-			ubID->ubStrategicInsertionCode = GridNo;
+		if (pSoldier && pSoldier->bInSector)
+			pSoldier->ubStrategicInsertionCode = GridNo;
 	}
 	return 0;
 }
@@ -8455,10 +8480,16 @@ static int l_WhichBuddy(lua_State* L)
 
 		SoldierID ubID1 = lua_tointeger(L, 1);
 		SoldierID ubID2 = lua_tointeger(L, 2);
+		SOLDIERTYPE* firstSoldier =
+			GetJa2SoldierRepository().resolve(ubID1);
+		SOLDIERTYPE* secondSoldier =
+			GetJa2SoldierRepository().resolve(ubID2);
 
 
-		if ((ubID1 != NOBODY && ubID1->bInSector) && (ubID2 != NOBODY && ubID2->bInSector))
-			bBuddyIndex = WhichBuddy(ubID1->ubProfile, ubID2->ubProfile);
+		if (firstSoldier && firstSoldier->bInSector &&
+			secondSoldier && secondSoldier->bInSector)
+			bBuddyIndex = WhichBuddy(
+				firstSoldier->ubProfile, secondSoldier->ubProfile);
 
 		lua_pushinteger(L, bBuddyIndex);
 	}
@@ -8474,9 +8505,11 @@ static int l_AnimMercPtsrsAbsoluteFinalDestination(lua_State* L)
 
 		ubID = lua_tointeger(L, 1);
 		GridNo = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && GridNo != NOWHERE)
-			ubID->sAbsoluteFinalDestination = GridNo;
+		if (pSoldier && pSoldier->bInSector && GridNo != NOWHERE)
+			pSoldier->sAbsoluteFinalDestination = GridNo;
 	}
 	return 0;
 }
@@ -8490,9 +8523,11 @@ static int l_AnimMercPtsrusNextActionData(lua_State* L)
 
 		ubID = lua_tointeger(L, 1);
 		GridNo = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && GridNo != NOWHERE)
-			ubID->aiData.usNextActionData = GridNo;
+		if (pSoldier && pSoldier->bInSector && GridNo != NOWHERE)
+			pSoldier->aiData.usNextActionData = GridNo;
 	}
 	return 0;
 }
@@ -8506,10 +8541,12 @@ static int l_AnimMercPtsrbNextAction(lua_State* L)
 
 		ubID = lua_tointeger(L, 1);
 		AI_ACTION = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
 
-		if (ubID != NOBODY && ubID->bInSector)
-			ubID->aiData.bNextAction = AI_ACTION;
+		if (pSoldier && pSoldier->bInSector)
+			pSoldier->aiData.bNextAction = AI_ACTION;
 	}
 	return 0;
 }
@@ -8523,9 +8560,11 @@ static int l_SetSoldierBodyType(lua_State* L)
 
 		ubID = lua_tointeger(L, 1);
 		Anim = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
-			ubID->ubBodyType = Anim;
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
+			pSoldier->ubBodyType = Anim;
 	}
 	return 0;
 }
@@ -8538,9 +8577,11 @@ static int l_GetSoldierBodyType(lua_State* L)
 		UINT8 Anim = 0;
 
 		ubID = lua_tointeger(L, 1);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
-			Anim = ubID->ubBodyType;
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
+			Anim = pSoldier->ubBodyType;
 
 		lua_pushinteger(L, Anim);
 	}
@@ -8556,8 +8597,11 @@ static int l_CheckSoldierBodyType(lua_State* L)
 
 		ubID = lua_tointeger(L, 1);
 		Anim = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive && ubID->ubBodyType == Anim)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive &&
+			pSoldier->ubBodyType == Anim)
 		{
 			lua_pushboolean(L, true);
 		}
@@ -8574,8 +8618,11 @@ static int l_IS_CIV_BODY_TYPE(lua_State* L)
 	if (lua_gettop(L))
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive && IS_CIV_BODY_TYPE(ubID))
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive &&
+			IS_CIV_BODY_TYPE(pSoldier))
 			lua_pushboolean(L, true);
 		else
 			lua_pushboolean(L, false);
@@ -8603,12 +8650,17 @@ static int l_AnimMercPtsrSoldierGotHit(lua_State* L)
 	if (lua_gettop(L))
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			if (ubID->vitals().health() >= 0)
+			if (pSoldier->vitals().health() >= 0)
 			{
-				ubID->EVENT_SoldierGotHit(1, 100, 10, ubID->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
+				pSoldier->EVENT_SoldierGotHit(
+					1, 100, 10, pSoldier->position().direction(), 320,
+					NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0,
+					NOWHERE);
 			}
 		}
 	}
@@ -8624,7 +8676,7 @@ static int l_CheckMercPtsrubIDSeenubID2(lua_State* L)
 
 		if (ubID != NOBODY && ubID2 != NOBODY)
 		{
-			INT8 seen = ubID->aiData.bOppList[ubID2];
+			INT8 seen = GetJa2SoldierRepository().resolve(ubID)->aiData.bOppList[ubID2];
 			lua_pushinteger(L, seen);
 		}
 	}
@@ -8639,7 +8691,7 @@ static int l_CheckMercPtrsInCivilianGroup(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			UINT8 group = ubID->ubCivilianGroup;
+			UINT8 group = GetJa2SoldierRepository().resolve(ubID)->ubCivilianGroup;
 			lua_pushinteger(L, group);
 		}
 	}
@@ -9345,14 +9397,19 @@ static int l_HealBoxers(lua_State* L)
 {
 	for (UINT8 i = 0; i < NUM_BOXERS; ++i)
 	{
+		SOLDIERTYPE* pBoxer =
+			GetJa2SoldierRepository().resolve(gubBoxerID[i]);
+		if (!pBoxer)
+			continue;
+
 		// Get breath back
-		gubBoxerID[i]->vitals().breath() = gubBoxerID[i]->vitals().maximumBreath();
-		gubBoxerID[i]->sBreathRed = 0;
+		pBoxer->vitals().breath() = pBoxer->vitals().maximumBreath();
+		pBoxer->sBreathRed = 0;
 		// Get life back
-		gubBoxerID[i]->vitals().health() = gubBoxerID[i]->vitals().maximumHealth();
-		gubBoxerID[i]->vitals().bleeding() = 0;
+		pBoxer->vitals().health() = pBoxer->vitals().maximumHealth();
+		pBoxer->vitals().bleeding() = 0;
 		// erase insta-healable injury 
-		gubBoxerID[i]->iHealableInjury = 0;
+		pBoxer->iHealableInjury = 0;
 
 		DebugQuestInfo(String("Lua: healed gubBoxerID[%d] %d back to full health", i, gubBoxerID[i]));
 	}
@@ -10581,7 +10638,7 @@ static int l_HireMerc(lua_State* L)
 			{
 				SoldierID sSoldierID = GetSoldierIDFromMercID(ubCurrentSoldier);
 				if (sSoldierID != NOBODY)
-					sSoldierID->bTypeOfLastContract = CONTRACT_EXTEND_1_WEEK;
+					GetJa2SoldierRepository().resolve(sSoldierID)->bTypeOfLastContract = CONTRACT_EXTEND_1_WEEK;
 
 				gMercProfiles[ubCurrentSoldier].bMercStatus = MERC_OK;
 
@@ -10806,10 +10863,12 @@ static int l_SetMercPtsrSectorZ(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT8 SectorZ = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			ubID->bSectorZ = SectorZ;
+			pSoldier->bSectorZ = SectorZ;
 		}
 	}
 	return 0;
@@ -10821,10 +10880,12 @@ static int l_SetMercPtsrSectorX(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT16 SectorX = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			ubID->sSectorX = SectorX;
+			pSoldier->sSectorX = SectorX;
 		}
 	}
 	return 0;
@@ -10836,10 +10897,12 @@ static int l_SetMercPtsrSectorY(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT16 SectorY = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			ubID->sSectorY = SectorY;
+			pSoldier->sSectorY = SectorY;
 		}
 	}
 	return 0;
@@ -10851,9 +10914,11 @@ static int l_SetMercPtsrubGroupID(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT8 GroupID = lua_tointeger(L, 2);
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
-			ubID->ubGroupID = GroupID;
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
+			pSoldier->ubGroupID = GroupID;
 	}
 	return 0;
 }
@@ -10864,10 +10929,12 @@ static int l_CheckMercPtsrSectorY(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT16 SectorY = 0;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
-			SectorY = ubID->sSectorY;
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
+			SectorY = pSoldier->sSectorY;
 
 		lua_pushinteger(L, SectorY);
 	}
@@ -10880,10 +10947,12 @@ static int l_CheckMercPtsrSectorX(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT16 SectorX = 0;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			SectorX = ubID->sSectorX;
+			SectorX = pSoldier->sSectorX;
 		}
 
 		lua_pushinteger(L, SectorX);
@@ -10897,10 +10966,12 @@ static int l_CheckMercPtsrSectorZ(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		INT8 SectorZ = 0;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			SectorZ = ubID->bSectorZ;
+			SectorZ = pSoldier->bSectorZ;
 		}
 
 		lua_pushinteger(L, SectorZ);
@@ -10914,10 +10985,12 @@ static int l_CheckMercPtsrubGroupID(lua_State* L)
 	{
 		SoldierID ubID = lua_tointeger(L, 1);
 		UINT8 GroupID = NUMBER_OF_SQUADS;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubID);
 
-		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
+		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			GroupID = ubID->ubGroupID;
+			GroupID = pSoldier->ubGroupID;
 		}
 
 		lua_pushinteger(L, GroupID);

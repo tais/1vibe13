@@ -1,6 +1,7 @@
 //Strategic AI Viewer
 
 	#include "builddefines.h"
+#include "SoldierRepository.h"
 	#include <stdio.h>
 	#include "types.h"
 	#include "english.h"
@@ -694,7 +695,7 @@ void RenderInfoInSector()
 	//Count the number of mercs and their states (even for underground sectors)
 	for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		if( pSoldier->bActive && pSoldier->sSectorX == ubSectorX && pSoldier->sSectorY == ubSectorY && pSoldier->bSectorZ == gbViewLevel )
 		{

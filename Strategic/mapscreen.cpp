@@ -2299,21 +2299,21 @@ void RenderIconsForUpperLeftCornerPiece( INT8 bCharNumber )
 	GetVideoObject(&hHandle, guiULICONS);
 
 	// if merc is an AIM merc
-	if( gCharactersList[ bCharNumber ].usSolID->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
 	{
 		// finite contract length icon
 		BltVideoObject( guiSAVEBUFFER, hHandle, 0, x, y, VO_BLT_SRCTRANSPARENCY, NULL );
 	}
 
 	// if merc has life insurance
-	if( gCharactersList[ bCharNumber ].usSolID->usLifeInsurance > 0 )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->usLifeInsurance > 0 )
 	{
 		// draw life insurance icon
 		BltVideoObject( guiSAVEBUFFER, hHandle, 2, x, y + spacing, VO_BLT_SRCTRANSPARENCY, NULL );
 	}
 
 	// if merc has a medical deposit
-	if( gCharactersList[ bCharNumber ].usSolID->usMedicalDeposit > 0 )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->usMedicalDeposit > 0 )
 	{
 		// draw medical deposit icon
 		BltVideoObject( guiSAVEBUFFER, hHandle, 1, x, y + ( 2 * spacing), VO_BLT_SRCTRANSPARENCY, NULL );
@@ -2331,7 +2331,7 @@ void DrawPay(INT16 sCharNumber)
 
 
 	// get merc id
-	usMercProfileID = gCharactersList[ sCharNumber ].usSolID->ubProfile;
+	usMercProfileID = GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID)->ubProfile;
 
 	// grab salary
 	uiSalary=( ( UINT32 ) gMercProfiles[ usMercProfileID ].sSalary );
@@ -2429,7 +2429,7 @@ void DrawCharStats( INT16 sCharNum )
 	//HVOBJECT hCrossHandle;
 	SOLDIERTYPE *pSoldier = NULL;
 
-	pSoldier = gCharactersList[sCharNum].usSolID;
+	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNum].usSolID);
 
 	// set up font
 	SetFont(CHAR_FONT);
@@ -2809,7 +2809,7 @@ void DrawCharHealth( INT16 sCharNum )
 	const auto width = UI_CHARPANEL.Text.CurrentHitpoints.width;
 	const auto height = UI_CHARPANEL.Text.CurrentHitpoints.height;
 
-	pSoldier = gCharactersList[sCharNum].usSolID;
+	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNum].usSolID);
 
 	if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
 	{
@@ -2921,7 +2921,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 		return;
 	}
 
-	pSoldier = gCharactersList[sCharNumber].usSolID;
+	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID);
 
 	if( pSoldier->ubProfile == NO_PROFILE )
 	{
@@ -3231,9 +3231,9 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	}
 
 	// medical deposit
-	if( gMercProfiles[ gCharactersList[ sCharNumber ].usSolID->ubProfile ].sMedicalDepositAmount > 0 )
+	if( gMercProfiles[ GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID)->ubProfile ].sMedicalDepositAmount > 0 )
 	{
-		auto tmpMoney{ FormatMoney(gMercProfiles[gCharactersList[sCharNumber].usSolID->ubProfile].sMedicalDepositAmount) };
+		auto tmpMoney{ FormatMoney(gMercProfiles[GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID)->ubProfile].sMedicalDepositAmount) };
 
 		{
 			const auto x = UI_CHARPANEL.Text.Medical.x;
@@ -3261,7 +3261,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	{
 		if ( pSoldier->vitals().health() != 0 )
 		{
-			GetMoraleString( gCharactersList[sCharNumber].usSolID, sString );
+			GetMoraleString( GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID), sString );
 		}
 		else
 		{
@@ -3306,7 +3306,7 @@ BOOLEAN CharacterIsInTransitAndHasItemPickedUp( INT8 bCharacterNumber )
 	}
 
 	// character in transit?
-	if( gCharactersList[ bCharacterNumber ].usSolID->bAssignment != IN_TRANSIT )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharacterNumber ].usSolID)->bAssignment != IN_TRANSIT )
 	{
 		// nope
 		return( FALSE );
@@ -3336,7 +3336,7 @@ void DisplayCharacterInfo( void )
 	// This section draws STRATEGIC info pages. Another section is in Interface Panels.cpp and draws TACTICAL info pages.
 	// The feature is toggled by Options-Menu switch, and its color is determined in the INI files.
 	{ 
-		SOLDIERTYPE *pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 	
 		UINT8	*pDestBuf;
 		UINT32 uiDestPitchBYTES = 0;
@@ -3562,7 +3562,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 	else
 	{
 		// plotting for a character...
-		SOLDIERTYPE* pSoldier = gCharactersList[GetSelectedDestChar()].usSolID;
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
 		if( pSoldier->bAssignment == VEHICLE )
 		{
@@ -4070,7 +4070,7 @@ void DisplayCharacterList()
 		// skip invalid characters
 		if ( gCharactersList[( sCount + FIRSTmercTOdisplay )].fValid == TRUE )
 		{
-			pSoldier = gCharactersList[(sCount + FIRSTmercTOdisplay)].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[(sCount + FIRSTmercTOdisplay)].usSolID);
 
 			if( sCount == ( INT16 ) giHighLine )
 			{
@@ -6268,7 +6268,7 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 	INT16 usX=0;
 	INT16 usY=0;
 	CHAR16 sString[32];
-	SOLDIERTYPE* pSoldier = gCharactersList[sCharNumber].usSolID;
+	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID);
 
 
 	GetMapscreenMercAssignmentString( pSoldier, sString );
@@ -6379,7 +6379,7 @@ void DrawLocation(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 	INT16 usY=0;
 	CHAR16 sString[32];
 
-	GetMapscreenMercLocationString( gCharactersList[ sCharNumber ].usSolID, sString );
+	GetMapscreenMercLocationString( GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID), sString );
 
 	FindFontCenterCoordinates((short)UI_CHARLIST.xLocation + 1, (short)(UI_CHARLIST.y + (sRowIndex*Y_SIZE)), (short)UI_CHARLIST.widthLocation, (short)Y_SIZE, sString, (long)iFont, &usX, &usY);
 	
@@ -6394,7 +6394,7 @@ void DrawDestination(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 	INT16 usY=0;
 	CHAR16 sString[32];
 
-	GetMapscreenMercDestinationString( gCharactersList[ sCharNumber ].usSolID, sString );
+	GetMapscreenMercDestinationString( GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID), sString );
 
 	if ( wcslen( sString ) == 0 )
 	{
@@ -6414,7 +6414,7 @@ void DrawTimeRemaining( INT16 sCharNumber, INT32 iFont, UINT8 ubFontColor )
 	CHAR16 sString[32];
 
 // marke strogg more mercs MUST override pointer into array by number of skipped mercs
-	GetMapscreenMercDepartureString( gCharactersList[ sCharNumber + FIRSTmercTOdisplay ].usSolID, sString, &ubFontColor );
+	GetMapscreenMercDepartureString( GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber + FIRSTmercTOdisplay ].usSolID), sString, &ubFontColor );
 
 	// if merc is highlighted, override the color decided above with bright white
 	if( sCharNumber == ( INT16 ) giHighLine )
@@ -6633,10 +6633,10 @@ UINT32 HandleMapUI( )
 					break;
 
 				// check if last sector in character's path is same as where mouse is
-				if( GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID ) != CALCULATE_STRATEGIC_INDEX( sMapX, sMapY ) )
+				if( GetLastSectorIdInCharactersPath( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID) ) != CALCULATE_STRATEGIC_INDEX( sMapX, sMapY ) )
 				{
-					sX = ( GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID	) % MAP_WORLD_X );
-					sY = ( GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID	) / MAP_WORLD_X );
+					sX = ( GetLastSectorIdInCharactersPath( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID)	) % MAP_WORLD_X );
+					sY = ( GetLastSectorIdInCharactersPath( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID)	) / MAP_WORLD_X );
 					MousePos.x = gusMouseXPos;
 					MousePos.y = gusMouseYPos;
 					RestoreBackgroundForMapGrid( sX, sY );
@@ -6651,10 +6651,10 @@ UINT32 HandleMapUI( )
 					// Can we get go there?	(NULL temp character path)
 					if ( GetLengthOfPath( pTempCharacterPath ) > 0 )
 					{
-						PlotPathForCharacter( gCharactersList[GetSelectedDestChar()].usSolID, sMapX, sMapY, FALSE );
+						PlotPathForCharacter( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID), sMapX, sMapY, FALSE );
 
 						// copy the path to every other selected character
-						CopyPathToAllSelectedCharacters( GetSoldierMercPathPtr( gCharactersList[GetSelectedDestChar()].usSolID ) );
+						CopyPathToAllSelectedCharacters( GetSoldierMercPathPtr( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID) ) );
 
 						StartConfirmMapMoveMode( sMapY );
 						fMapPanelDirty = TRUE;
@@ -7370,7 +7370,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							if ( bSelectedInfoChar != -1 )
 							{
-								SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+								SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 								if ( pSoldier->inv[ HANDPOS ].exists() == true )
 								{
 									pSoldier->inv[ HANDPOS ][0]->data.objectStatus = 2;
@@ -7381,7 +7381,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							if ( bSelectedInfoChar != -1 )
 							{
-								SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+								SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 								if ( pSoldier->inv[ HANDPOS ].exists() == true )
 								{
 									pSoldier->inv[ HANDPOS ].usItem = GUN_BARREL_EXTENDER;
@@ -7810,7 +7810,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 				case 'E':
 					if(bSelectedInfoChar != -1)
 					{
-						SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 						pSoldier->bInSector = FALSE;
 
 						//CHRISL: Try to update InSector value so we don't have to "activate" a sector
@@ -7937,7 +7937,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					// CTRL-F: Refuel vehicle
 					if( ( fCtrl ) && ( bSelectedInfoChar != -1 ) )
 					{
-						SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 						{
@@ -8009,9 +8009,9 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					break;
 				case 'H':
 					// swap primary & secondary hand
-					if ( bSelectedInfoChar != -1 && fShowInventoryFlag && !AM_A_ROBOT( gCharactersList[ bSelectedInfoChar ].usSolID ))
+					if ( bSelectedInfoChar != -1 && fShowInventoryFlag && !AM_A_ROBOT( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID) ))
 					{
-						SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 						UINT16 usOldHandItem = pSoldier->inv[HANDPOS].usItem;
 						SwapHandItems( pSoldier );
 						
@@ -8047,7 +8047,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					//CHRISL: Swap gunsling
 					if ( bSelectedInfoChar != -1 && fShowInventoryFlag && UsingNewInventorySystem() == true )
 					{
-						SOLDIERTYPE *pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 						if (fAlt)
 							// switch to knife, or from knife to gun
 							pSoldier->SwitchWeapons(TRUE);
@@ -8149,7 +8149,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 				case 'N':
 					if ( bSelectedInfoChar != -1 && fShowInventoryFlag )
 					{
-						SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 						SwapGoggles(pSoldier);
 					}
 					break;
@@ -8189,7 +8189,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						// ALT-P: Make the selected character a POW!
 						if( ( fAlt ) && ( bSelectedInfoChar != -1 ) )
 						{
-							SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 							EnemyCapturesPlayerSoldier( pSoldier );
 
@@ -8324,7 +8324,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							INT16 sDeltaX, sDeltaY;
 							INT16 sPrevX = 0, sPrevY = 0;
-							SOLDIERTYPE *pSoldier = gCharactersList[GetSelectedDestChar()].usSolID;
+							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
 							// can't teleport to where we already are
 							if ( ( sMapX == pSoldier->sSectorX ) && ( sMapY == pSoldier->sSectorY ) )
@@ -8488,7 +8488,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					{
 						if(bSelectedInfoChar != -1)
 						{
-							SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 							//CHRISL: Try to update InSector value so we don't have to "activate" a sector
 							if (pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY && pSoldier->bSectorZ == iCurrentMapSectorZ && !pSoldier->flags.fBetweenSectors)
@@ -9488,7 +9488,7 @@ void CreateDestroyMapInvButton()
 
 		if (bSelectedInfoChar != -1 && gCharactersList[bSelectedInfoChar].fValid)
 		{
-			SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
 			{
 				InitInvSlotInterface(gMapScreenInvPocketXY, &gSCamoXY, MAPInvMoveCallback, MAPInvClickCallback, MAPInvMoveCamoCallback, MAPInvClickCamoCallback, FALSE);
@@ -9948,7 +9948,7 @@ void HandleCursorOverRifleAmmo( )
 
 	if ( gfCheckForMouseOverItem )
 	{
-		if ( HandleCompatibleAmmoUI( gCharactersList[ bSelectedInfoChar ].usSolID, (INT8)gbCheckForMouseOverItemPos, TRUE ) )
+		if ( HandleCompatibleAmmoUI( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID), (INT8)gbCheckForMouseOverItemPos, TRUE ) )
 		{
 			if ( ( GetJA2Clock( ) - guiMouseOverItemTime ) > 100 )
 			{
@@ -9972,7 +9972,7 @@ void MAPInvClickCamoCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		SOLDIERTYPE* pSoldier = NULL;
 		if( (bSelectedInfoChar != -1) && (gCharactersList[bSelectedInfoChar].fValid == TRUE) )
 		{
-			pSoldier = gCharactersList[bSelectedInfoChar].usSolID; 
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 		}
 			
 		if ( gpItemPointer && pSoldier )
@@ -10581,7 +10581,7 @@ void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 	if ( _KeyDown(CTRL) )
 	{
 		// if in battle inform player they will have to do this in tactical
-		if( !CanPlayerUseSectorInventory( gCharactersList[ bSelectedInfoChar ].usSolID ) )
+		if( !CanPlayerUseSectorInventory( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID) ) )
 		{
 			// return item to original slot
 			PlaceObject( pSoldier, ubHandPos, &gItemPointer );
@@ -10648,7 +10648,7 @@ void MAPEndItemPointer( )
 
 		if ( fShowInventoryFlag && bSelectedInfoChar >= 0 )
 		{
-			ReevaluateItemHatches( gCharactersList[ bSelectedInfoChar ].usSolID, FALSE );
+			ReevaluateItemHatches( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID), FALSE );
 		}
 	}
 	(void)SetItemPointerSoldier(NULL);
@@ -10672,7 +10672,7 @@ void RenderAttributeStringsForUpperLeftHandCorner( UINT32 uiBufferToRenderTo )
 
 	if ( ( bSelectedInfoChar != - 1) && ( gCharactersList[ bSelectedInfoChar ].fValid ) )
 	{
-		pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 	}
 
 	SetFont( CHAR_FONT );
@@ -10791,7 +10791,7 @@ void SetUpCursorForStrategicMap( void )
 			else	// yes - by character
 			{
 				// set cursor based on foot or vehicle
-				SOLDIERTYPE* pSoldier = gCharactersList[GetSelectedDestChar()].usSolID;
+				SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 				if( ( pSoldier->bAssignment != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 				{
 					ChangeMapScreenMaskCursor( CURSOR_STRATEGIC_FOOT );
@@ -11356,7 +11356,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 			ChangeSelectedInfoChar( iValue+ FIRSTmercTOdisplay, TRUE );
 
-			pSoldier = gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID);
 
 			// highlight
 			giDestHighLine = -1;
@@ -11404,7 +11404,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 		if( gCharactersList[ iValue + FIRSTmercTOdisplay].fValid == TRUE )
 		{
-			pSoldier = gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID);
 
 			// select this character
 			ChangeSelectedInfoChar( iValue+ FIRSTmercTOdisplay, TRUE );
@@ -11512,7 +11512,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			// reset list if the clicked character isn't also selected
 			ChangeSelectedInfoChar( iValue + FIRSTmercTOdisplay, ( BOOLEAN )( IsEntryInSelectedListSet( iValue  + FIRSTmercTOdisplay) == FALSE ) );
 
-			pSoldier = gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID);
 
 			// if alive (dead guys keep going, use remove menu instead),
 			// and it's between sectors and it can be reassigned (non-vehicles)
@@ -11593,7 +11593,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 		{
 			ChangeSelectedInfoChar( iValue + FIRSTmercTOdisplay, TRUE );
 
-			pSoldier = gCharactersList[ iValue  + FIRSTmercTOdisplay].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iValue  + FIRSTmercTOdisplay].usSolID);
 
 			// highlight
 			giDestHighLine = -1;
@@ -11623,7 +11623,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 					// if not already selected
 					if( fSelectedListOfMercsForMapScreen[ iCounter ] == FALSE )
 					{
-						pSoldier = gCharactersList[ iCounter ].usSolID;
+						pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 						// if on a squad or in a vehicle
 						if ( ( pSoldier->bAssignment < ON_DUTY ) || ( pSoldier->bAssignment == VEHICLE ) )
@@ -11679,7 +11679,7 @@ void TeamListAssignmentRegionMvtCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 		{
 			giHighLine = iValue;
 
-			if( !( gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( !( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
 				giAssignHighLine = iValue;
 			}
@@ -11710,7 +11710,7 @@ void TeamListAssignmentRegionMvtCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 	else if( iReason & MSYS_CALLBACK_REASON_GAIN_MOUSE )
 	{
 		if( ( gCharactersList[ iValue + FIRSTmercTOdisplay ].fValid == TRUE ) && 
-		!( gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		!( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
 			// play click
 		PlayGlowRegionSound( );
@@ -11752,7 +11752,7 @@ void TeamListDestinationRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			ChangeSelectedInfoChar( iValue + FIRSTmercTOdisplay, ( BOOLEAN )( IsEntryInSelectedListSet( iValue + FIRSTmercTOdisplay ) == FALSE ) );
 
 			// deselect any characters/vehicles that can't accompany the clicked merc
-			DeselectSelectedListMercsWhoCantMoveWithThisGuy( gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID );
+			DeselectSelectedListMercsWhoCantMoveWithThisGuy( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID) );
 
 			// select all characters/vehicles that MUST accompany the clicked merc (same squad/vehicle)
 			SelectUnselectedMercsWhoMustMoveWithThisGuy( );
@@ -11765,10 +11765,10 @@ void TeamListDestinationRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 				MakeMapModesSuitableForDestPlotting( ( INT8 ) iValue + FIRSTmercTOdisplay );
 
 				// check if person is in a vehicle
-				if( gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID->bAssignment == VEHICLE )
+				if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->bAssignment == VEHICLE )
 				{
 					// if he's in the helicopter
-					if( gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID->iVehicleId == iHelicopterVehicleId )
+					if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->iVehicleId == iHelicopterVehicleId )
 					{
 						if( RequestGiveSkyriderNewDestination( ) == FALSE )
 						{
@@ -11932,7 +11932,7 @@ void TeamListSleepRegionBtnCallBack( MOUSE_REGION *pRegion, INT32 iReason )
 			// if this slot's sleep status can be changed
 			if ( CanChangeSleepStatusForCharSlot( (INT8) iValue + FIRSTmercTOdisplay ) )
 			{
-				pSoldier = gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID;
+				pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID);
 
 				if( pSoldier->flags.fMercAsleep == TRUE )
 				{
@@ -12056,7 +12056,7 @@ static void HandleSelectedMercsContract()
 		if (gCharactersList[iCounter].fValid)
 		{
 			// get the soldier pointer
-			pSoldier = gCharactersList[iCounter].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID);
 
 			if (pSoldier->bActive == FALSE)
 			{
@@ -12286,7 +12286,7 @@ void PlotPermanentPaths( void )
 	}
 	else if( GetSelectedDestChar() != -1 )
 	{
-		DisplaySoldierPath( gCharactersList[GetSelectedDestChar()].usSolID );
+		DisplaySoldierPath( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID) );
 	}
 }
 
@@ -12341,7 +12341,7 @@ void PlotTemporaryPaths( void )
 		// dest char has been selected,
 		else if( GetSelectedDestChar() != -1 )
 		{
-			PlotATemporaryPathForCharacter( gCharactersList[GetSelectedDestChar()].usSolID, sMapX, sMapY );
+			PlotATemporaryPathForCharacter( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID), sMapX, sMapY );
 
 			// check to see if we are drawing path
 			DisplayThePotentialPathForCurrentDestinationCharacterForMapScreenInterface( sMapX, sMapY );
@@ -12352,7 +12352,7 @@ void PlotTemporaryPaths( void )
 				// clip region
 				ClipBlitsToMapViewRegion( );
 				// blit
-				DisplaySoldierTempPath( gCharactersList[GetSelectedDestChar()].usSolID );
+				DisplaySoldierTempPath( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID) );
 				// restore
 				RestoreClipRegionToFullScreen( );
 			}
@@ -12594,7 +12594,7 @@ void DetermineIfContractMenuCanBeShown( void )
 	// determine which lines selectable
 	HandleShadingOfLinesForContractMenu( );
 
-	if( gCharactersList[ bSelectedInfoChar ].usSolID->vitals().health() == 0 )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->vitals().health() == 0 )
 	{
 		// show basic assignment menu
 		ShowBox( ghRemoveMercAssignBox );
@@ -12662,7 +12662,7 @@ void ContractRegionBtnCallback( MOUSE_REGION *pRegion, INT32 iReason )
 
 		if( CanExtendContractForCharSlot( bSelectedInfoChar ) )
 		{
-			pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 			// create
 			RebuildContractBoxForMerc( pSoldier );
@@ -12765,7 +12765,7 @@ void HandleShadingOfLinesForContractMenu( void )
 	Assert( CanExtendContractForCharSlot( bSelectedContractChar ) );
 
 	// grab the character
-	SOLDIERTYPE* pSoldier = gCharactersList[ bSelectedContractChar ].usSolID;
+	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedContractChar ].usSolID);
 	const bool multipleMercsSelected = (gSelectedSoldiers.size() > 0) ? true : false;
 
 	bool atLeastOneAIMmerc = false;
@@ -12898,9 +12898,9 @@ void ReBuildCharactersList( void )
 	// fills array with presence of player controlled characters
 	for ( SoldierID soldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; soldier <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldier )
 	{
-		if( soldier->bActive )
+		if( GetJa2SoldierRepository().resolve(soldier)->bActive )
 		{
-			AddCharacter( soldier );
+			AddCharacter( GetJa2SoldierRepository().resolve(soldier) );
 		}
 	}
 
@@ -13011,7 +13011,7 @@ void EnableDisableTeamListRegionsAndHelpText( void )
 			MSYS_EnableRegion( &gTeamListLocationRegion[ bCharNum ] );
 
 			// valid character.	If it's a vehicle, however
-			if ( gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if ( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE )
 			{
 				// Can't change assignment for vehicles
 				MSYS_DisableRegion( &gTeamListAssignmentRegion[ bCharNum ] );
@@ -13021,8 +13021,8 @@ void EnableDisableTeamListRegionsAndHelpText( void )
 				MSYS_EnableRegion( &gTeamListAssignmentRegion[ bCharNum ] );
 
 				// POW or dead ?
-				if ( ( gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID->bAssignment == ASSIGNMENT_POW ) ||
-						( gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID->vitals().health() == 0 ) )
+				if ( ( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->bAssignment == ASSIGNMENT_POW ) ||
+						( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->vitals().health() == 0 ) )
 				{
 					// "Remove Merc"
 					SetRegionFastHelpText( &gTeamListAssignmentRegion[ bCharNum ], pRemoveMercStrings[ 0 ] );
@@ -13158,7 +13158,7 @@ BOOLEAN ContinueDialogue(SoldierID id, BOOLEAN fDone )
 			{
 				ChangeSelectedInfoChar( bOldSelectedInfoChar, TRUE );
 
-				SetAutoFaceInActive( gCharactersList[ bSelectedInfoChar ].usSolID->iFaceIndex );
+				SetAutoFaceInActive( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->iFaceIndex );
 			}
 
 	*/
@@ -13284,7 +13284,7 @@ BOOLEAN CheckIfClickOnLastSectorInPath( INT16 sX, INT16 sY )
 			return( FALSE );
 		}
 
-		SOLDIERTYPE* pSoldier = gCharactersList[GetSelectedDestChar()].usSolID;
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
 		if ( CALCULATE_STRATEGIC_INDEX( sX, sY ) == GetLastSectorIdInCharactersPath( pSoldier ) )
 		{
@@ -13371,7 +13371,7 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 	{
 		if( ( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE ) )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 
 			// if he's IN a vehicle or IS a vehicle
@@ -13476,7 +13476,7 @@ void UpdateCursorIfInLastSector( void )
 			if ( GetSelectedDestChar() != -1 )
 			{
 				//c heck if we are in the last sector of the characters path?
-				if ( CALCULATE_STRATEGIC_INDEX( sMapX, sMapY ) == GetLastSectorIdInCharactersPath( gCharactersList[GetSelectedDestChar()].usSolID ) )
+				if ( CALCULATE_STRATEGIC_INDEX( sMapX, sMapY ) == GetLastSectorIdInCharactersPath( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID) ) )
 				{
 					// set cursor to checkmark
 					ChangeMapScreenMaskCursor( CURSOR_CHECKMARK );
@@ -13655,8 +13655,14 @@ void UpDateStatusOfContractBox( void )
 	if( fShowContractMenu == TRUE )
 	{
 		ForceUpDateOfBox( ghContractBox );
+		SOLDIERTYPE* selectedSoldier = bSelectedInfoChar >= 0
+			? GetJa2SoldierRepository().resolve(
+				gCharactersList[ bSelectedInfoChar ].usSolID)
+			: nullptr;
 
-		if( ( gCharactersList[ bSelectedInfoChar ].usSolID->vitals().health() == 0 )||( gCharactersList[bSelectedInfoChar].usSolID->bAssignment == ASSIGNMENT_POW ) )
+		if( selectedSoldier &&
+			( selectedSoldier->vitals().health() == 0 ||
+				selectedSoldier->bAssignment == ASSIGNMENT_POW ) )
 		{
 			ForceUpDateOfBox( ghRemoveMercAssignBox );
 		}
@@ -13809,14 +13815,14 @@ INT16 GetLastValidCharacterInTeamPanelList( void )
 {
 	INT16 iCounter = 0, iValue = 0;
 	SOLDIERTYPE* pSoldier;
-	SOLDIERTYPE* pSelectedSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+	SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 	// run through the list and find the last valid guy in the list
 	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
 	{
 		if( gCharactersList[ iCounter ].fValid == TRUE )
 		{
-			pSoldier = gCharactersList[iCounter].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID);
 
 			if(pSoldier->vitals().health() >= OKLIFE )
 			{
@@ -13866,11 +13872,11 @@ INT8 GetPrevValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 	{
 		if( gCharactersList[ iCounter ].fValid == TRUE )
 		{
-			if( ( gCharactersList[ iCounter ].usSolID->bLife >= OKLIFE ) )
+			if( ( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bLife >= OKLIFE ) )
 			{
 				if( fShowMapInventoryPool )
 				{
-					if(	gCharactersList[ iCounter ].usSolID->sSectorX == sSelMapX &&	gCharactersList[ iCounter ].usSolID->sSectorY == sSelMapY && gCharactersList[ iCounter ].usSolID->bSectorZ == ( INT8 )( iCurrentMapSectorZ ) )
+					if(	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == sSelMapX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == sSelMapY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ == ( INT8 )( iCurrentMapSectorZ ) )
 					{
 						iValue = iCounter;
 					}
@@ -13883,7 +13889,7 @@ INT8 GetPrevValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 						{
 							if( gCharactersList[ bSelectedInfoChar ].fValid == TRUE )
 							{
-								if( gCharactersList[ iCounter ].usSolID->sSectorX == gCharactersList[ bSelectedInfoChar ].usSolID->sSectorX &&	gCharactersList[ iCounter ].usSolID->sSectorY == gCharactersList[ bSelectedInfoChar ].usSolID->sSectorY && gCharactersList[ iCounter ].usSolID->bSectorZ ==gCharactersList[ bSelectedInfoChar ].usSolID->bSectorZ )
+								if( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ ==GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->bSectorZ )
 								{
 									iValue = iCounter;
 									iCounter = 0;
@@ -13913,11 +13919,11 @@ INT8 GetNextValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 	{
 		if( gCharactersList[ iCounter ].fValid == TRUE )
 		{
-			if( ( gCharactersList[ iCounter ].usSolID->bLife >= OKLIFE ) )
+			if( ( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bLife >= OKLIFE ) )
 			{
 				if( fShowMapInventoryPool )
 				{
-					if(	gCharactersList[ iCounter ].usSolID->sSectorX == sSelMapX &&	gCharactersList[ iCounter ].usSolID->sSectorY == sSelMapY && gCharactersList[ iCounter ].usSolID->bSectorZ == ( INT8 )( iCurrentMapSectorZ ) )
+					if(	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == sSelMapX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == sSelMapY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ == ( INT8 )( iCurrentMapSectorZ ) )
 					{
 						iValue = iCounter;
 					}
@@ -13930,7 +13936,7 @@ INT8 GetNextValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 						{
 							if( gCharactersList[ bSelectedInfoChar ].fValid == TRUE )
 							{
-								if( gCharactersList[ iCounter ].usSolID->sSectorX == gCharactersList[ bSelectedInfoChar ].usSolID->sSectorX &&	gCharactersList[ iCounter ].usSolID->sSectorY == gCharactersList[ bSelectedInfoChar ].usSolID->sSectorY && gCharactersList[ iCounter ].usSolID->bSectorZ ==gCharactersList[ bSelectedInfoChar ].usSolID->bSectorZ )
+								if( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ ==GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->bSectorZ )
 								{
 									iValue = iCounter;
 								}
@@ -14160,7 +14166,7 @@ void UpdateBadAssignments( void )
 	{
 		if( gCharactersList[ iCounter ].fValid == TRUE )
 		{
-			CheckIfSoldierUnassigned( gCharactersList[ iCounter ].usSolID );
+			CheckIfSoldierUnassigned( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID) );
 		}
 	}
 
@@ -14218,7 +14224,7 @@ BOOLEAN AnyMercsLeavingRealSoon()
 	{
 		if( gCharactersList[ uiCounter ].fValid == TRUE )
 		{
-			if( ( gCharactersList[uiCounter].usSolID->iEndofContractTime - uiTimeInMin ) <= MINS_TO_FLASH_CONTRACT_TIME )
+			if( ( GetJa2SoldierRepository().resolve(gCharactersList[uiCounter].usSolID)->iEndofContractTime - uiTimeInMin ) <= MINS_TO_FLASH_CONTRACT_TIME )
 			{
 				fFoundOne = TRUE;
 				break;
@@ -14317,9 +14323,15 @@ BOOLEAN CharacterIsInLoadedSectorAndWantsToMoveInventoryButIsNotAllowed( INT16 b
 
 	// get the soldier id
 	SoldierID usSoldierId = gCharactersList[ bCharId ].usSolID;
+	SOLDIERTYPE* pSoldier =
+		GetJa2SoldierRepository().resolve(usSoldierId);
+	if (!pSoldier)
+		return( FALSE );
 
 	// char is in loaded sector
-	if( usSoldierId->sSectorX != gWorldSectorX || usSoldierId->sSectorY != gWorldSectorY || usSoldierId->bSectorZ != gbWorldSectorZ )
+	if( pSoldier->sSectorX != gWorldSectorX ||
+		pSoldier->sSectorY != gWorldSectorY ||
+		pSoldier->bSectorZ != gbWorldSectorZ )
 	{
 		return( FALSE );
 	}
@@ -14696,7 +14708,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 		// if we have anyone valid selected
 		if ( ( bSelectedInfoChar != -1 ) && ( gCharactersList[ bSelectedInfoChar ].fValid ) )
 		{
-			pPreviousSelectedInfoChar = gCharactersList[ bSelectedInfoChar ].usSolID;
+			pPreviousSelectedInfoChar = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 		}
 
 
@@ -14713,7 +14725,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 			}
 
 			// get soldier assoc. with entry
-			pCurrentSoldier = gCharactersList[ iCounter ].usSolID;
+			pCurrentSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// check if soldier is active
 			if( pCurrentSoldier->bActive == FALSE )
@@ -14751,12 +14763,22 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 						break;
 					}
 
-					//if( ( wcscmp( gCharactersList[ iCounterA ].usSolID->name, gCharactersList[ iCounter ].usSolID->name ) > 0 ) && ( iCounterA < iCounter ) )
+					//if( ( wcscmp( GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID)->name, GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->name ) > 0 ) && ( iCounterA < iCounter ) )
 					if( iCounterA < iCounter )
 					{
+						SOLDIERTYPE* first =
+							GetJa2SoldierRepository().resolve(
+								gCharactersList[ iCounterA ].usSolID);
+						SOLDIERTYPE* second =
+							GetJa2SoldierRepository().resolve(
+								gCharactersList[ iCounter ].usSolID);
+						if (!first || !second)
+							continue;
 
-						if((fReverse && ( wcscmp( gCharactersList[ iCounterA ].usSolID->name, gCharactersList[ iCounter ].usSolID->name ) < 0 )) ||
-							(!fReverse && ( wcscmp( gCharactersList[ iCounterA ].usSolID->name, gCharactersList[ iCounter ].usSolID->name ) > 0 )))
+						if((fReverse &&
+								( wcscmp( first->name, second->name ) < 0 )) ||
+							(!fReverse &&
+								( wcscmp( first->name, second->name ) > 0 )))
 						SwapCharactersInList( iCounter, iCounterA );
 					}
 				}
@@ -14770,24 +14792,38 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					{
 						break;
 					}
+					SOLDIERTYPE* first =
+						GetJa2SoldierRepository().resolve(
+							gCharactersList[ iCounterA ].usSolID);
+					SOLDIERTYPE* second =
+						GetJa2SoldierRepository().resolve(
+							gCharactersList[ iCounter ].usSolID);
+					if (!first || !second)
+						continue;
 
-					if( !fReverse && ( gCharactersList[ iCounterA ].usSolID->bAssignment > gCharactersList[ iCounter ].usSolID->bAssignment ) && ( iCounterA < iCounter ) )
+					if( !fReverse &&
+						( first->bAssignment > second->bAssignment ) &&
+						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
 					}
-					else if( fReverse && ( gCharactersList[ iCounterA ].usSolID->bAssignment < gCharactersList[ iCounter ].usSolID->bAssignment ) && ( iCounterA < iCounter ) )
+					else if( fReverse &&
+						( first->bAssignment < second->bAssignment ) &&
+						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
 					}
-					else if( ( gCharactersList[ iCounterA ].usSolID->bAssignment == gCharactersList[ iCounter ].usSolID->bAssignment ) && ( iCounterA < iCounter ) )
+					else if( ( first->bAssignment == second->bAssignment ) &&
+						( iCounterA < iCounter ) )
 					{
 						// same assignment
 
 						// if it's in a vehicle
-						if( gCharactersList[ iCounterA ].usSolID->bAssignment == VEHICLE )
+						if( first->bAssignment == VEHICLE )
 						{
 							// then also compare vehicle IDs
-							if( ( gCharactersList[ iCounterA ].usSolID->iVehicleId > gCharactersList[ iCounter ].usSolID->iVehicleId ) && ( iCounterA < iCounter ) )
+							if( ( first->iVehicleId > second->iVehicleId ) &&
+								( iCounterA < iCounter ) )
 							{
 								SwapCharactersInList( iCounter, iCounterA );
 							}
@@ -14804,12 +14840,26 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					{
 						break;
 					}
+					SOLDIERTYPE* first =
+						GetJa2SoldierRepository().resolve(
+							gCharactersList[ iCounterA ].usSolID);
+					SOLDIERTYPE* second =
+						GetJa2SoldierRepository().resolve(
+							gCharactersList[ iCounter ].usSolID);
+					if (!first || !second)
+						continue;
 
-					if( !fReverse && ( gCharactersList[ iCounterA ].usSolID->flags.fMercAsleep == TRUE ) && ( gCharactersList[ iCounter ].usSolID->flags.fMercAsleep == FALSE ) && ( iCounterA < iCounter ) )
+					if( !fReverse &&
+						( first->flags.fMercAsleep == TRUE ) &&
+						( second->flags.fMercAsleep == FALSE ) &&
+						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
 					}
-					else if( fReverse && ( gCharactersList[ iCounterA ].usSolID->flags.fMercAsleep == FALSE ) && ( gCharactersList[ iCounter ].usSolID->flags.fMercAsleep == TRUE ) && ( iCounterA < iCounter ) )
+					else if( fReverse &&
+						( first->flags.fMercAsleep == FALSE ) &&
+						( second->flags.fMercAsleep == TRUE ) &&
+						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
 					}
@@ -14843,13 +14893,13 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 
 			case( 4 ):
 				// by destination sector
-				if( GetLengthOfMercPath( gCharactersList[ iCounter ].usSolID ) == 0 )
+				if( GetLengthOfMercPath( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID) ) == 0 )
 				{
 					sEndSectorA = 9999;
 				}
 				else
 				{
-					sEndSectorA = GetLastSectorIdInCharactersPath( gCharactersList[ iCounter ].usSolID );
+					sEndSectorA = GetLastSectorIdInCharactersPath( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID) );
 				}
 
 				for( iCounterA = 0; iCounterA < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounterA++ )
@@ -14859,13 +14909,13 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 						break;
 					}
 
-					if( GetLengthOfMercPath( gCharactersList[ iCounterA ].usSolID ) == 0 )
+					if( GetLengthOfMercPath( GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID) ) == 0 )
 					{
 						sEndSectorB = 9999;
 					}
 					else
 					{
-						sEndSectorB = GetLastSectorIdInCharactersPath( gCharactersList[ iCounterA ].usSolID );
+						sEndSectorB = GetLastSectorIdInCharactersPath( GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID) );
 					}
 
 					if( !fReverse && ( sEndSectorB > sEndSectorA ) && ( iCounterA < iCounter ) )
@@ -14880,7 +14930,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 				break;
 
 			case( 5 ):
-				iExpiryTime = GetContractExpiryTime( gCharactersList[ iCounter ].usSolID );
+				iExpiryTime = GetContractExpiryTime( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID) );
 
 				//by contract expiry
 				for( iCounterA = 0; iCounterA < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounterA++ )
@@ -14890,7 +14940,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 						break;
 					}
 
-					iExpiryTimeA = GetContractExpiryTime( gCharactersList[ iCounterA ].usSolID );
+					iExpiryTimeA = GetContractExpiryTime( GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID) );
 
 					if( !fReverse && ( iExpiryTimeA > iExpiryTime ) && ( iCounterA < iCounter ) )
 					{
@@ -14904,7 +14954,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 				break;
 
 			case( 6 ):
-				uiID = gCharactersList[ iCounter ].usSolID->ubID;
+				uiID = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->ubID;
 				//by ubID
 				for( iCounterA = 0; iCounterA < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounterA++ )
 				{
@@ -14912,7 +14962,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					{
 						break;
 					}
-					uiIDA = gCharactersList[ iCounterA ].usSolID->ubID;
+					uiIDA = GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID)->ubID;
 					if( !fReverse && ( uiIDA > uiID ) && ( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
@@ -14951,7 +15001,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					}
 
 					// grab current soldier
-					pCurrentSoldier = gCharactersList[ iCounterA ].usSolID;
+					pCurrentSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID);
 
 					// check if soldier is active
 					if( pCurrentSoldier->bActive == FALSE )
@@ -15090,7 +15140,7 @@ void HandleAssignmentsDoneAndAwaitingFurtherOrders( void )
 				break;
 			}
 
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// toggle and redraw if flash was left ON even though the flag is OFF
 			if( pSoldier->flags.fDoneAssignmentAndNothingToDoFlag || fFlashAssignDone )
@@ -15125,7 +15175,7 @@ void DisplayIconsForMercsAsleep( void )
 	{
 		if( gCharactersList[ iCounter + FIRSTmercTOdisplay ].fValid == TRUE )
 		{
-			pSoldier = gCharactersList[ iCounter + FIRSTmercTOdisplay ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter + FIRSTmercTOdisplay ].usSolID);
 			if( pSoldier->bActive && pSoldier->flags.fMercAsleep && CanChangeSleepStatusForSoldier( pSoldier ) )
 			{
 				BltVideoObject( guiSAVEBUFFER , hHandle, 0, UI_CHARLIST.xSleep + 2, ( INT16 )(UI_CHARLIST.y + (iCounter * ( Y_SIZE + 2 ) ) ) , VO_BLT_SRCTRANSPARENCY,NULL );
@@ -15210,7 +15260,7 @@ BOOLEAN CanToggleSelectedCharInventory( void )
 		return(FALSE);
 	}
 
-	pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 	// if not in inventory, and holding an item from sector inventory
 	if( !fShowInventoryFlag &&
@@ -15251,7 +15301,7 @@ BOOLEAN MapCharacterHasAccessibleInventory( INT16 bCharNumber )
 		return(FALSE);
 	}
 
-	pSoldier = gCharactersList[ bCharNumber ].usSolID;
+	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
 
 	if( ( pSoldier->bAssignment == IN_TRANSIT ) ||
 			( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
@@ -15353,7 +15403,7 @@ BOOLEAN CanChangeDestinationForCharSlot( INT16 bCharNumber, BOOLEAN fShowErrorMe
 	if ( gCharactersList[ bCharNumber ].fValid == FALSE )
 		return (FALSE);
 
-	SOLDIERTYPE* pSoldier = gCharactersList[ bCharNumber ].usSolID;
+	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
 
 	// valid soldier?
 	Assert( pSoldier );
@@ -15386,7 +15436,7 @@ BOOLEAN CanExtendContractForCharSlot( INT16 bCharNumber )
 	if ( gCharactersList[ bCharNumber ].fValid == FALSE )
 		return (FALSE);
 
-	SOLDIERTYPE* pSoldier = gCharactersList[ bCharNumber ].usSolID;
+	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
 
 	// valid soldier?
 	Assert( pSoldier );
@@ -15424,7 +15474,7 @@ BOOLEAN CanChangeSleepStatusForCharSlot( INT16 bCharNumber )
 	if ( gCharactersList[ bCharNumber ].fValid == FALSE )
 		return (FALSE);
 
-	return( CanChangeSleepStatusForSoldier(gCharactersList[bCharNumber].usSolID) );
+	return( CanChangeSleepStatusForSoldier(GetJa2SoldierRepository().resolve(gCharactersList[bCharNumber].usSolID)) );
 }
 
 
@@ -15529,7 +15579,7 @@ void CancelOrShortenPlottedPath( void )
 			return;
 
 		// try to delete portion of path AFTER the current sector for the helicopter
-		uiReturnValue = ClearPathAfterThisSectorForCharacter( gCharactersList[GetSelectedDestChar()].usSolID, sMapX, sMapY );
+		uiReturnValue = ClearPathAfterThisSectorForCharacter( GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID), sMapX, sMapY );
 	}
 
 	switch ( uiReturnValue )
@@ -15583,8 +15633,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 						// if not already selected
 						if( fSelectedListOfMercsForMapScreen[ iCounter ] == FALSE )
 						{
-							SOLDIERTYPE * pSelected = gCharactersList[ bCharNumber ].usSolID;
-							SOLDIERTYPE * pSoldier = gCharactersList[ iCounter ].usSolID;
+							SOLDIERTYPE * pSelected = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
+							SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 							// if on a squad, or in a vehicle, or IS a vehicle
 							if ( pSoldier->bAssignment == VEHICLE )
@@ -15638,8 +15688,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 						// if not already selected
 						if( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE )
 						{
-							SOLDIERTYPE * pSelected = gCharactersList[ bCharNumber ].usSolID;
-							SOLDIERTYPE * pSoldier = gCharactersList[ iCounter ].usSolID;
+							SOLDIERTYPE * pSelected = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
+							SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 							// if on a squad, or in a vehicle, or IS a vehicle
 							if ( pSoldier->bAssignment == VEHICLE )
@@ -15796,7 +15846,7 @@ void ChangeSelectedInfoChar( INT16 bCharNumber, BOOLEAN fResetSelectedList )
 				fShowInventoryFlag = FALSE;
 			}
 			//shadooow: this resets the current highlight item selection to be redrawn again
-			HandleCompatibleAmmoUI(gCharactersList[bCharNumber].usSolID, NO_SLOT, FALSE);
+			HandleCompatibleAmmoUI(GetJa2SoldierRepository().resolve(gCharactersList[bCharNumber].usSolID), NO_SLOT, FALSE);
 			if (gpItemPointer != NULL)
 			{
 				gfCheckForMouseOverItem = TRUE;
@@ -15850,7 +15900,7 @@ void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 	{
 		if( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// skip itself!
 			if ( GetSoldierMercPathPtr( pSoldier ) != pPath )
@@ -15888,7 +15938,7 @@ void CancelPathsOfAllSelectedCharacters()
 		// if we've clicked on a selected valid character
 		if( ( gCharactersList[ bCounter ].fValid == TRUE ) && IsEntryInSelectedListSet( bCounter ) )
 		{
-			pSoldier = gCharactersList[ bCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCounter ].usSolID);
 
 			// and he has a route set
 			if ( GetLengthOfMercPath( pSoldier ) > 0 )
@@ -15959,7 +16009,7 @@ INT32 GetGroundTravelTimeOfCharacter( INT8 bCharNumber )
 	iTravelTime = GetPathTravelTimeDuringPlotting( pTempCharacterPath );
 
 	// add travel time for any prior path segments (stored in the selected character's mercpath, but waypoints aren't built)
-	iTravelTime += GetPathTravelTimeDuringPlotting( GetSoldierMercPathPtr( gCharactersList[ bCharNumber ].usSolID ) );
+	iTravelTime += GetPathTravelTimeDuringPlotting( GetSoldierMercPathPtr( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID) ) );
 
 	return( iTravelTime );
 }
@@ -15987,7 +16037,7 @@ INT16 CalcLocationValueForChar( INT32 iCounter )
 	if( gCharactersList[ iCounter ].fValid == FALSE )
 		return( sLocValue );
 
-	pSoldier = gCharactersList[ iCounter ].usSolID;
+	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 	// don't reveal location of POWs!
 	if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
@@ -16022,7 +16072,7 @@ void MakeMapModesSuitableForDestPlotting( INT8 bCharNumber )
 
 	if( gCharactersList[ bCharNumber ].fValid == TRUE )
 	{
-		pSoldier = gCharactersList[ bCharNumber ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
 
 		CancelSectorInventoryDisplayIfOn( FALSE );
 
@@ -16072,7 +16122,7 @@ BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, IN
 	for( ; id <= iLastId; ++id)
 	{
 		// get the soldier
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// is the soldier active
 		if( pSoldier->bActive == FALSE )
@@ -16324,7 +16374,7 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 	{
 		if( ( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE ) )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 						!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->flags.fMercAsleep )
@@ -16344,7 +16394,7 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 		// select that merc so that when he speaks we're showing his portrait and not someone else
 		ChangeSelectedInfoChar( ubSelectedMercIndex[ ubChosenMerc ], FALSE );
 
-		ubSelectedMercID[ ubChosenMerc ]->DoMercBattleSound( BATTLE_SOUND_OK1 );
+		GetJa2SoldierRepository().resolve(ubSelectedMercID[ ubChosenMerc ])->DoMercBattleSound( BATTLE_SOUND_OK1 );
 		//TacticalCharacterDialogue(
 		//	GetJa2SoldierRepository().resolve(
 		//		ubSelectedMercID[ ubChosenMerc ] ), ubQuoteNum );
@@ -16587,7 +16637,7 @@ void WakeUpAnySleepingSelectedMercsOnFootOrDriving( void )
 	{
 		if( ( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE ) )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// if asleep
 			if ( pSoldier->flags.fMercAsleep )
@@ -16880,10 +16930,10 @@ void RememberPreviousPathForAllSelectedChars( void )
 	{
 		if( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// remember his previous path by copying it to his slot in the array kept for that purpose
-			gpCharacterPreviousMercPath[ iCounter ] = CopyPaths( GetSoldierMercPathPtr( gCharactersList[ iCounter ].usSolID ), gpCharacterPreviousMercPath[ iCounter ] );
+			gpCharacterPreviousMercPath[ iCounter ] = CopyPaths( GetSoldierMercPathPtr( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID) ), gpCharacterPreviousMercPath[ iCounter ] );
 		}
 	}
 }
@@ -16998,7 +17048,7 @@ void RestorePreviousPaths( void )
 			// if selected
 			if( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE )
 			{
-				pSoldier = gCharactersList[ iCounter ].usSolID;
+				pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 				if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 				{
@@ -17099,7 +17149,7 @@ void SelectAllCharactersInSquad( INT8 bSquadNumber )
 		// is this entry is valid
 		if( gCharactersList[ bCounter ].fValid == TRUE )
 		{
-			pSoldier = gCharactersList[ bCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCounter ].usSolID);
 
 			// if this guy is on that squad or in a vehicle which is assigned to that squad
 			// NOTE: There's no way to select everyone aboard Skyrider with this function...
@@ -17229,7 +17279,7 @@ void RequestContractMenu( void )
 	if ( CanExtendContractForCharSlot( bSelectedInfoChar ) )
 	{
 		// create
-		RebuildContractBoxForMerc( gCharactersList[ bSelectedInfoChar ].usSolID );
+		RebuildContractBoxForMerc( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID) );
 
 		// reset selected characters
 		ResetAllSelectedCharacterModes( );
@@ -17238,7 +17288,7 @@ void RequestContractMenu( void )
 		giContractHighLine = bSelectedContractChar;
 
 		// if not triggered internally
-		if ( CheckIfSalaryIncreasedAndSayQuote( gCharactersList[ bSelectedInfoChar ].usSolID, TRUE ) == FALSE )
+		if ( CheckIfSalaryIncreasedAndSayQuote( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID), TRUE ) == FALSE )
 		{
 			// show contract box
 			fShowContractMenu = TRUE;
@@ -17331,7 +17381,7 @@ INT32 GetTotalContractExpenses ( void )
 
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 		// salary
 		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
 		{
@@ -17667,7 +17717,7 @@ BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY )
 	SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
 		{
 			BOOLEAN fRadioOperator = pSoldier->CanUseRadio( FALSE );

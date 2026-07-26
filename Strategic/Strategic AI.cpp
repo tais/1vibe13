@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "SoldierRepository.h"
 	#include <stdio.h>
 	#include "types.h"
 	#include "Strategic Movement.h"
@@ -923,7 +924,7 @@ void ValidatePlayersAreInOneGroupOnly()
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{ //check to see if the merc has a group ID
 
-		pSoldier = i;
+		pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if( !pSoldier || !pSoldier->bActive || !pSoldier->vitals().health() || !pSoldier->ubGroupID )
 		{ //non-existant, dead, or in no group (don't care, skip to next merc)
@@ -4158,10 +4159,10 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 			{ //We are in the basement sector, relocate queen to proper position.
 				for( SoldierID i = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++i )
 				{
-					if( i->ubProfile == QUEEN )
+					if( GetJa2SoldierRepository().resolve(i)->ubProfile == QUEEN )
 					{ //Found queen, relocate her to 16866
 						BumpAnyExistingMerc( 16866 );
-						TeleportSoldier( i, 16866, TRUE );
+						TeleportSoldier( GetJa2SoldierRepository().resolve(i), 16866, TRUE );
 						break;
 					}
 				}

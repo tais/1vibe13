@@ -1,4 +1,5 @@
 	#include "types.h"
+	#include "SoldierRepository.h"
 	#include "FileMan.h"
 	#include "himage.h"
 	#include "Creature Spreading.h"
@@ -1673,7 +1674,7 @@ void DetermineCreatureTownCompositionBasedOnTacticalInformation( UINT16 *pubNumC
 	pSector->ubCreaturesInBattle = 0;
 	for( SoldierID i = gTacticalStatus.Team[ CREATURE_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++i )
 	{
-		pSoldier = i;
+		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			switch( pSoldier->ubBodyType )
@@ -1709,7 +1710,7 @@ void DetermineOtherCreatureTownCompositionBasedOnTacticalInformation( UINT16* pu
 	pSector->ubCreaturesInBattle = 0;
 	for ( SoldierID i = gTacticalStatus.Team[CREATURE_TEAM].bFirstID; i <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++i )
 	{
-		pSoldier = i;
+		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			if ( pSoldier->IsZombie() )
@@ -2261,7 +2262,7 @@ BOOLEAN PlayerGroupIsInACreatureInfestedMine()
 		//see if players are there.
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
-			pSoldier = i;
+			pSoldier = GetJa2SoldierRepository().resolve(i);
 			if( pSoldier->bActive && pSoldier->vitals().health() &&
 					pSoldier->sSectorX == sSectorX &&
 					pSoldier->sSectorY == sSectorY &&

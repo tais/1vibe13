@@ -687,6 +687,12 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	{
 		return;
 	}
+	SOLDIERTYPE* pKiller =
+		GetJa2SoldierRepository().resolve(pSoldier->ubAttackerID);
+	if (!pKiller)
+	{
+		return;
+	}
 
 	// ignore murder of non-civilians!
 	if ( ( pSoldier->bTeam != CIV_TEAM ) || ( pSoldier->ubBodyType == CROW ) )
@@ -737,14 +743,12 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	}
 	*/
 	// set killer team
-	bKillerTeam = pSoldier->ubAttackerID->bTeam;
+	bKillerTeam = pKiller->bTeam;
 
 
 	// if the player did the killing
 	if( bKillerTeam == OUR_TEAM )
 	{
-		SOLDIERTYPE *pKiller = pSoldier->ubAttackerID;
-
 		// apply morale penalty for killing a civilian!
 		HandleMoraleEvent( pKiller, MORALE_KILLED_CIVILIAN, pKiller->sSectorX, pKiller->sSectorY, pKiller->bSectorZ );
 	}
@@ -789,7 +793,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	for( SoldierID iCounter = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; iCounter <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++iCounter )
 	{
 		// set current civ soldier
-		pCivSoldier = iCounter;
+		pCivSoldier = GetJa2SoldierRepository().resolve(iCounter);
 
 		if ( pCivSoldier == pSoldier )
 		{
@@ -797,7 +801,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 		}
 
 		// killer seen by civ?
-		if ( SoldierToSoldierLineOfSightTest( pCivSoldier, pSoldier->ubAttackerID, TRUE, gGameExternalOptions.ubStraightSightRange ) != 0 )
+		if ( SoldierToSoldierLineOfSightTest( pCivSoldier, pKiller, TRUE, gGameExternalOptions.ubStraightSightRange ) != 0 )
 		{
 			bSeenState |= 1;
 		}
@@ -904,8 +908,10 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 			break;
 
 	case CREATURE_TEAM:
+		{
 			// killed by a monster - make sure it was one
-			if( ( pSoldier->ubAttackerID->ubBodyType >= ADULTFEMALEMONSTER ) && ( pSoldier->ubAttackerID->ubBodyType <= QUEENMONSTER ) )
+			if( ( pKiller->ubBodyType >= ADULTFEMALEMONSTER ) &&
+				( pKiller->ubBodyType <= QUEENMONSTER ) )
 			{
 				// increase for the extreme horror of being killed by a monster
 				iLoyaltyChange *= MULTIPLIER_FOR_MURDER_BY_MONSTER;
@@ -921,8 +927,9 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 					// our sector - lose loyalty
 					fIncrement = FALSE;
 				}
-			}
-			break;
+				}
+		}
+		break;
 
 	// Flugente: civilians might also kill somebody, no matter how unlikely that sounds
 	// punish the player - he didnt stop the bloodshed
@@ -2121,7 +2128,7 @@ UINT32 PlayerStrength( void )
 
 	for ( SoldierID ubLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubLoop )
 	{
-		pSoldier = ubLoop;
+		pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 		if ( pSoldier->bActive )
 		{
 			if ( pSoldier->bInSector || (pSoldier->flags.fBetweenSectors && SECTORX( pSoldier->ubPrevSectorID ) == gWorldSectorX && SECTORY( pSoldier->ubPrevSectorID ) == gWorldSectorY && (pSoldier->bSectorZ == gbWorldSectorZ)) )
@@ -2142,7 +2149,7 @@ UINT32 EnemyStrength( void )
 
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 		{
-			pSoldier = ubLoop;
+			pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 			if ( pSoldier->bActive && pSoldier->bInSector && !pSoldier->aiData.bNeutral )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath

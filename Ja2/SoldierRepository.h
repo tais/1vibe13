@@ -5,6 +5,10 @@
 #include <cstdint>
 
 class SOLDIERTYPE;
+class Ja2SoldierRepository;
+
+void BindJa2SoldierRepository(Ja2SoldierRepository& repository) noexcept;
+Ja2SoldierRepository& GetJa2SoldierRepository() noexcept;
 
 // Application-owned boundary around JA2's fixed soldier records and legacy
 // slot table. The arrays remain compatibility storage while callers migrate,
@@ -43,8 +47,14 @@ public:
 	bool swapRecords(std::uint16_t firstSlot, std::uint16_t secondSlot);
 
 private:
-	bool hasCanonicalBinding(std::size_t slot) const noexcept;
+	friend void BindJa2SoldierRepository(
+		Ja2SoldierRepository& repository) noexcept;
+	friend Ja2SoldierRepository& GetJa2SoldierRepository() noexcept;
 
+	bool hasCanonicalBinding(std::size_t slot) const noexcept;
+	static Ja2SoldierRepository& standalone() noexcept;
+
+	static Ja2SoldierRepository* boundRepository_;
 	SOLDIERTYPE* records_ = nullptr;
 	SOLDIERTYPE** slots_ = nullptr;
 	std::size_t capacity_ = 0;
@@ -53,7 +63,11 @@ private:
 // Composition gateway used while legacy application subsystems migrate away
 // from the fixed global arrays. Before GameContext composition it resolves to
 // a repository over the same compatibility backing store.
-void BindJa2SoldierRepository(Ja2SoldierRepository& repository) noexcept;
-Ja2SoldierRepository& GetJa2SoldierRepository() noexcept;
+inline Ja2SoldierRepository& GetJa2SoldierRepository() noexcept
+{
+	return Ja2SoldierRepository::boundRepository_
+		? *Ja2SoldierRepository::boundRepository_
+		: Ja2SoldierRepository::standalone();
+}
 
 #endif

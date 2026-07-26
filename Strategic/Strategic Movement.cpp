@@ -4270,7 +4270,7 @@ BOOLEAN LoadPlayerGroupList( HWFILE hFile, GROUP **pGroup )
 		Assert( sTempID != NOBODY );
 		pTemp->ubID = sTempID;
 
-		pTemp->pSoldier = pTemp->ubID;
+		pTemp->pSoldier = GetJa2SoldierRepository().resolve(pTemp->ubID);
 
 		pTemp->next = NULL;
 
@@ -5383,7 +5383,7 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 		{
 			for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 			{
-				SOLDIERTYPE *pSoldier = i;
+				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 				{
 					if ( pSoldier->sSectorX == pGroup->ubSectorX && pSoldier->sSectorY == pGroup->ubSectorY && pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
@@ -5872,7 +5872,7 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 	// sevenfm: scout should not be sleeping, in vehicle or on assignment
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = i;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive &&
 			pSoldier->vitals().health() >= OKLIFE &&
 			pSoldier->sSectorX == ubSectorNumX &&
@@ -5896,7 +5896,7 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = i;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
 		{
 			if ( pSoldier->sSectorX == ubSectorNumX && pSoldier->sSectorY == ubSectorNumY && pSoldier->bSectorZ == 10 )

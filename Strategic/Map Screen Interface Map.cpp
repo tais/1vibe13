@@ -1399,7 +1399,7 @@ INT32 ShowOnDutyTeam( INT16 sMapX, INT16 sMapY )
 	// run through list
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				( pSoldier->sSectorX == sMapX) &&
@@ -1451,7 +1451,7 @@ INT32 ShowAssignedTeam(INT16 sMapX, INT16 sMapY, INT32 iCount)
 
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// given number of on duty members, find number of assigned chars
 		// start at beginning of list, look for people who are in sector and assigned
@@ -7060,7 +7060,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 	for( ; id <= iLastId; ++id )
 	{
 		// get the soldier
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// is the soldier active
 		if( pSoldier->bActive == FALSE )

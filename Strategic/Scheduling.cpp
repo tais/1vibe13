@@ -190,7 +190,7 @@ void ProcessTacticalSchedule( UINT8 ubScheduleID )
 	}
 
 	//Validate the existance of the soldier.
-	pSoldier = pSchedule->ubSoldierID;
+	pSoldier = GetJa2SoldierRepository().resolve(pSchedule->ubSoldierID);
 	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or dying!
@@ -331,7 +331,7 @@ void PrepareSchedulesForEditorEntry()
 				prev->next = curr->next;
 			else
 				gpScheduleList = gpScheduleList->next;
-			curr->ubSoldierID->ubScheduleID = 0;
+			GetJa2SoldierRepository().resolve(curr->ubSoldierID)->ubScheduleID = 0;
 			temp = curr;
 			curr = curr->next;
 			MemFree( temp );
@@ -748,7 +748,7 @@ BOOLEAN BumpAnyExistingMerc( INT32 sGridNo )
 		return( TRUE );
 	}
 
-	pSoldier = ubID;
+	pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	// what if the existing merc is prone?
 	sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, STANDING, 5, &ubDir, 1, pSoldier );
@@ -780,7 +780,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 		return;
 	}
 
-	pSoldier = pSchedule->ubSoldierID;
+	pSoldier = GetJa2SoldierRepository().resolve(pSchedule->ubSoldierID);
 
 	if (pSoldier->ubID == 0)
 	{
