@@ -1801,6 +1801,48 @@ foreach(source_file IN LISTS world_state_declaration_files)
   endforeach()
 endforeach()
 
+# Transient soldier behavior is owned by SoldierRuntimeComponents. Keep the
+# retired flat tail names from returning to the current SOLDIERTYPE. The v101
+# conversion record must retain its one historical sPlotSrcGrid member, so
+# count that compatibility occurrence instead of banning the name outright.
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  soldier_control_header_contents)
+set(retired_flat_soldier_runtime_fields
+  uiPendingActionTargetIncarnation
+  ubLastShock
+  ubLastSuppression
+  ubLastAP
+  ubLastMorale
+  ubLastShockFromHit
+  ubLastAPFromHit
+  ubLastMoraleFromHit
+  iLastBulletImpact
+  iLastArmourProtection
+  usQuickItemId
+  ubQuickItemSlot
+  usGrenadeItem
+  delayedDamageFunction)
+foreach(retired_field IN LISTS retired_flat_soldier_runtime_fields)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_field}([^A-Za-z0-9_]|$)"
+    retired_flat_soldier_runtime_field
+    "${soldier_control_header_contents}")
+  if(retired_flat_soldier_runtime_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE runtime field '${retired_field}' returned; keep transient state in SoldierRuntimeComponents")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "sPlotSrcGrid"
+  legacy_plot_source_grid_occurrences
+  "${soldier_control_header_contents}")
+list(LENGTH legacy_plot_source_grid_occurrences
+  legacy_plot_source_grid_occurrence_count)
+if(NOT legacy_plot_source_grid_occurrence_count EQUAL 1)
+  message(FATAL_ERROR
+    "sPlotSrcGrid must exist only in the v101 compatibility record; current runtime path scratch belongs to SoldierRuntimeComponents")
+endif()
+
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The
 # former current-team and pending-combat fields no longer exist in
 # TacticalStatusType, and the TURNBASED/INCOMBAT bits are composed only at

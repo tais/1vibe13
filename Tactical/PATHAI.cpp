@@ -2213,7 +2213,7 @@ void ShutDownPathAI(void)
 ////////////////////////////////////////////////////////////////////////
 INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags )
 {
-	s->sPlotSrcGrid = s->sGridNo;
+	s->runtime.pendingAction.pathSearchSourceGrid = s->sGridNo;
 
 	if (gGameSettings.fOptions[TOPTION_ALT_PATHFINDING])
 	{

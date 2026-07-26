@@ -3962,7 +3962,7 @@ int main( int, char** )
 		commandHostActor.aiData.ubPendingAction = MERC_TALK;
 		commandHostActor.aiData.uiPendingActionData1 = staleActor.slot;
 		commandHostActor.aiData.uiPendingActionData4 = 0;
-		commandHostActor.uiPendingActionTargetIncarnation =
+		commandHostActor.runtime.pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingConversationCompleted =
 			TryCompletePendingConversationCommand( commandHostActor );
@@ -3973,7 +3973,7 @@ int main( int, char** )
 		commandHostActor.aiData.sPendingActionData2 = staleActor.slot;
 		commandHostActor.aiData.bPendingActionData3 = 3;
 		commandHostActor.aiData.uiPendingActionData4 = 0;
-		commandHostActor.uiPendingActionTargetIncarnation =
+		commandHostActor.runtime.pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingVehicleCompleted =
 			TryCompletePendingVehicleCommand( commandHostActor );
@@ -3985,13 +3985,13 @@ int main( int, char** )
 		commandHostActor.aiData.bPendingActionData3 = 3;
 		commandHostActor.aiData.uiPendingActionData4 = 0;
 		commandHostActor.bTargetLevel = FIRST_LEVEL;
-		commandHostActor.uiPendingActionTargetIncarnation =
+		commandHostActor.runtime.pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingStealCompleted =
 			TryCompletePendingStealCommand( commandHostActor );
 		const bool stalePendingStealCleared =
 			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION &&
-			commandHostActor.uiPendingActionTargetIncarnation == 0;
+			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
 
 		std::vector<WORLDITEM> previousWorldItems = std::move( gWorldItems );
 		const UINT32 previousWorldItemCount = guiNumWorldItems;
@@ -4028,13 +4028,13 @@ int main( int, char** )
 		commandHostActor.aiData.sPendingActionData2 = 123;
 		commandHostActor.aiData.bPendingActionData3 = 5;
 		commandHostActor.aiData.uiPendingActionData4 = 123;
-		commandHostActor.uiPendingActionTargetIncarnation =
+		commandHostActor.runtime.pendingAction.targetIncarnation =
 			firstWorldItem.incarnation;
 		const bool livePendingWorldItemAccepted =
 			TryValidatePendingWorldItemPickup( commandHostActor ) &&
 			TryConsumePendingWorldItemPickup(
 				commandHostActor, 0, 123, 5 ) &&
-			commandHostActor.uiPendingActionTargetIncarnation == 0;
+			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
 		commandHostActor.aiData.ubPendingAction = NO_PENDING_ACTION;
 		WORLDITEM copiedWorldItem = gWorldItems[0];
 		RemoveItemFromWorld( -1 );
@@ -4114,13 +4114,13 @@ int main( int, char** )
 		commandHostActor.aiData.sPendingActionData2 = 123;
 		commandHostActor.aiData.bPendingActionData3 = 0;
 		commandHostActor.aiData.uiPendingActionData4 = 123;
-		commandHostActor.uiPendingActionTargetIncarnation =
+		commandHostActor.runtime.pendingAction.targetIncarnation =
 			firstWorldItem.incarnation;
 		const bool stalePendingWorldItemRejected =
 			!TryValidatePendingWorldItemPickup( commandHostActor );
 		const bool stalePendingWorldItemCleared =
 			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION &&
-			commandHostActor.uiPendingActionTargetIncarnation == 0;
+			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
 		const bool worldItemIdentityLifecycle =
 			firstWorldItemAssigned && firstWorldItem.valid() &&
 			liveWorldItemReferenceCaptured &&
@@ -7217,6 +7217,58 @@ int main( int, char** )
 		vitals.applyLifeDeduction( 100 );
 		CHECK( !vitals.alive() && vitals.health() == 0,
 		       "soldier vitals component clamps lethal damage to zero" );
+	}
+
+	{
+		SoldierRuntimeComponents runtime;
+		runtime.pendingAction.pathSearchSourceGrid = 1234;
+		runtime.pendingAction.targetIncarnation = 99;
+		runtime.pendingAction.grenadeItem = 42;
+		runtime.pendingAction.delayedDamage = [] {};
+		runtime.combatFeedback.lastShock = 7;
+		runtime.combatFeedback.lastSuppression = 8;
+		runtime.combatFeedback.lastActionPoints = 9;
+		runtime.combatFeedback.lastMorale = 10;
+		runtime.combatFeedback.lastShockFromHit = 11;
+		runtime.combatFeedback.lastActionPointsFromHit = 12;
+		runtime.combatFeedback.lastMoraleFromHit = 13;
+		runtime.combatFeedback.lastBulletImpact = 14;
+		runtime.combatFeedback.lastArmourProtection = 15;
+		runtime.quickItem.itemId = 16;
+		runtime.quickItem.slot = 17;
+
+		const SoldierRuntimeComponents copiedRuntime = runtime;
+		SoldierRuntimeComponents assignedRuntime;
+		assignedRuntime = runtime;
+		CHECK( copiedRuntime.pendingAction.pathSearchSourceGrid == 0 &&
+		       copiedRuntime.pendingAction.targetIncarnation == 0 &&
+		       !copiedRuntime.pendingAction.delayedDamage &&
+		       copiedRuntime.combatFeedback.lastShock == 0 &&
+		       copiedRuntime.quickItem.itemId == 0 &&
+		       assignedRuntime.pendingAction.grenadeItem == 0 &&
+		       !assignedRuntime.pendingAction.delayedDamage &&
+		       assignedRuntime.combatFeedback.lastArmourProtection == 0 &&
+		       assignedRuntime.quickItem.slot == 0,
+		       "soldier clones do not inherit transient callbacks or UI state" );
+
+		runtime.reset();
+		CHECK( runtime.pendingAction.pathSearchSourceGrid == 0 &&
+		       runtime.pendingAction.targetIncarnation == 0 &&
+		       runtime.pendingAction.grenadeItem == 0 &&
+		       !runtime.pendingAction.delayedDamage,
+		       "soldier pending-action runtime component resets transient work" );
+		CHECK( runtime.combatFeedback.lastShock == 0 &&
+		       runtime.combatFeedback.lastSuppression == 0 &&
+		       runtime.combatFeedback.lastActionPoints == 0 &&
+		       runtime.combatFeedback.lastMorale == 0 &&
+		       runtime.combatFeedback.lastShockFromHit == 0 &&
+		       runtime.combatFeedback.lastActionPointsFromHit == 0 &&
+		       runtime.combatFeedback.lastMoraleFromHit == 0 &&
+		       runtime.combatFeedback.lastBulletImpact == 0 &&
+		       runtime.combatFeedback.lastArmourProtection == 0,
+		       "soldier combat-feedback runtime component resets as one domain" );
+		CHECK( runtime.quickItem.itemId == 0 && runtime.quickItem.slot == 0,
+		       "soldier quick-item runtime component resets retained UI state" );
 	}
 
 	// MemAlloc round-trip -- exercises the allocator whose 500+ unchecked call

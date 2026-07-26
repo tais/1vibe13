@@ -1453,13 +1453,13 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 					break;
 				}
 				// show additional hit info
-				if( gGameExternalOptions.fShowHitInfo && ( pSoldier->iLastBulletImpact > 0 || pSoldier->iLastArmourProtection ) )
+				if( gGameExternalOptions.fShowHitInfo && ( pSoldier->runtime.combatFeedback.lastBulletImpact > 0 || pSoldier->runtime.combatFeedback.lastArmourProtection ) )
 				{
 					SetFontBackground( FONT_MCOLOR_BLACK );
 					SetFontForeground( COLOR_ORANGE );
 
-					//swprintf( pStr, L"%d/%d ", pSoldier->iLastBulletImpact, pSoldier->iLastArmourProtection );
-					swprintf( pStr, L"%d ", pSoldier->iLastArmourProtection );
+					//swprintf( pStr, L"%d/%d ", pSoldier->runtime.combatFeedback.lastBulletImpact, pSoldier->runtime.combatFeedback.lastArmourProtection );
+					swprintf( pStr, L"%d ", pSoldier->runtime.combatFeedback.lastArmourProtection );
 					gprintfdirty( sDamageX + widthDamage, sDamageY, pStr );
 					mprintf( sDamageX + widthDamage, sDamageY, pStr );
 					widthDamage += StringPixLength ( pStr, TINYFONT1 );
@@ -1471,20 +1471,20 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 			// do not show suppression info for dying soldier
 			if ( pSoldier->stats.bLife >= OKLIFE )
 			{
-				// replace ubLastSuppression count on screen
-				if( gGameExternalOptions.ubShowSuppressionCountAlt && gGameExternalOptions.ubShowSuppressionCount == 2 && pSoldier->ubLastSuppression > 0 )
+				// replace runtime.combatFeedback.lastSuppression count on screen
+				if( gGameExternalOptions.ubShowSuppressionCountAlt && gGameExternalOptions.ubShowSuppressionCount == 2 && pSoldier->runtime.combatFeedback.lastSuppression > 0 )
 					widthSuppression = 0;
 				// display suppression from last attack
-				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->ubLastSuppression, widthDamage, widthSuppression, 
+				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->runtime.combatFeedback.lastSuppression, widthDamage, widthSuppression,
 										FONT_MCOLOR_LTGRAY, PRINT_SCALE_ASTERISK_SUPPRESSION, gGameExternalOptions.ubShowSuppressionCount );
 				// display shock from last attack
-				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->ubLastShock + pSoldier->ubLastShockFromHit, widthDamage, widthSuppression,
+				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->runtime.combatFeedback.lastShock + pSoldier->runtime.combatFeedback.lastShockFromHit, widthDamage, widthSuppression,
 										FONT_MCOLOR_LTYELLOW, PRINT_SCALE_ASTERISK_SHOCK,  gGameExternalOptions.ubShowShockCount );
 				// display morale hit from last attack
-				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->ubLastMorale + pSoldier->ubLastMoraleFromHit, widthDamage, widthSuppression,
+				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->runtime.combatFeedback.lastMorale + pSoldier->runtime.combatFeedback.lastMoraleFromHit, widthDamage, widthSuppression,
 										FONT_MCOLOR_LTGREEN, PRINT_SCALE_ASTERISK_MORALE, gGameExternalOptions.ubShowMoraleCount );
 				// display AP loss from last attack
-				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->ubLastAP + pSoldier->ubLastAPFromHit, widthDamage, widthSuppression, 
+				PrintSuppressionCounter( sDamageX, sDamageY, sSuppressionX, sSuppressionY, pSoldier->runtime.combatFeedback.lastActionPoints + pSoldier->runtime.combatFeedback.lastActionPointsFromHit, widthDamage, widthSuppression,
 										FONT_MCOLOR_LTBLUE, PRINT_SCALE_ASTERISK_AP, gGameExternalOptions.ubShowAPCount );
 			}
 		} 

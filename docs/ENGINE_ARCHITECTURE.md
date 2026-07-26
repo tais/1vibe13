@@ -924,9 +924,14 @@ the engine must not contain SDL types in its public domain model.
   existing formats and paths.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
-- soldier component views currently split behavior domains while the next
-  internal-structure phase moves their storage out of `SOLDIERTYPE`; portable
-  field serializers already keep persistence independent of its memory layout.
+- soldier components now own the first real storage cut: pending-action
+  scratch, combat feedback, and quick-item retention live in one resettable
+  runtime aggregate instead of unrelated flat `SOLDIERTYPE` tail fields.
+  Soldier clones start with an empty runtime aggregate, so deferred callbacks
+  cannot retain and later mutate the source soldier.
+  Serialized vitals and position still use compatibility views while their
+  storage is migrated next; portable field serializers keep persistence
+  independent of the in-memory layout throughout that work.
 
 ## Compatibility policy
 

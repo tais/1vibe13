@@ -4832,12 +4832,12 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	UINT16 usItem = pSoldier->GetUsedWeaponNumber(&pSoldier->inv[pSoldier->ubAttackingHand]);
 	UINT8 ubVolume = Weapon[usItem].ubAttackVolume;
 
-	pSoldier->usGrenadeItem = 0;
+	pSoldier->runtime.pendingAction.grenadeItem = 0;
 
 	// grenade pin sound
 	if (usItem && Item[usItem].usItemClass != IC_THROWING_KNIFE)
 	{
-		pSoldier->usGrenadeItem = usItem;
+		pSoldier->runtime.pendingAction.grenadeItem = usItem;
 		ubVolume = 10;
 	}
 
@@ -7993,7 +7993,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	}
 
 	// sevenfm: store original impact
-	pTarget->iLastBulletImpact += iOrigImpact;
+	pTarget->runtime.combatFeedback.lastBulletImpact += iOrigImpact;
 
 	if (pubSpecial && (*pubSpecial == FIRE_WEAPON_BLINDED_BY_SPIT_SPECIAL || *pubSpecial == FIRE_WEAPON_BLINDED_SPECIAL) )
 	{
@@ -8005,7 +8005,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 		iImpact = iOrigImpact - iTotalArmourProtection;
 		
 		// sevenfm: store armour protection
-		pTarget->iLastArmourProtection += iTotalArmourProtection;
+		pTarget->runtime.combatFeedback.lastArmourProtection += iTotalArmourProtection;
 	}
 
 	// calc minimum damage

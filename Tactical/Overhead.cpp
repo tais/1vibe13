@@ -1024,8 +1024,8 @@ BOOLEAN ExecuteOverhead( )
                     pSoldier->sDamage = 0;
                     pSoldier->flags.fDisplayDamage = FALSE;
 					// sevenfm: also zero damage info from this attack
-					pSoldier->iLastBulletImpact = 0;
-					pSoldier->iLastArmourProtection = 0;
+					pSoldier->runtime.combatFeedback.lastBulletImpact = 0;
+					pSoldier->runtime.combatFeedback.lastArmourProtection = 0;
                 }
 
             }
@@ -1465,7 +1465,7 @@ BOOLEAN ExecuteOverhead( )
                                                     if ( NewOKDestination( pSoldier, pSoldier->aiData.uiPendingActionData4, TRUE, pSoldier->pathing.bLevel ) )
                                                     {
                                                         // GOTO NEW TILE!
-                                                        SoldierPickupItem( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3, pSoldier->uiPendingActionTargetIncarnation );
+                                                        SoldierPickupItem( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3, pSoldier->runtime.pendingAction.targetIncarnation );
                                                         continue;
                                                     }
                                                 }
@@ -8891,7 +8891,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             // causes him to hide as best as he can from incoming fire.
             // Shock is sliced in half at the start of every turn. Also note that shock may cause "cowering" (see below).
 
-			pSoldier->ubLastShock = 0;
+			pSoldier->runtime.combatFeedback.lastShock = 0;
 			if (gGameExternalOptions.ubMaxSuppressionShock > 0 && gGameExternalOptions.usSuppressionShockEffect > 0)
             {
                 // Can't get shock if we haven't lost APs.
@@ -8912,7 +8912,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 					// Else, original shock was already over the limit. No more shock is added.
 
 					// sevenfm: update ubLastShock
-					pSoldier->ubLastShock = bShockValue;
+					pSoldier->runtime.combatFeedback.lastShock = bShockValue;
                 }
                 // HEADROCK: Cowering is the panic that grips a character due to suffering too much suppression shock. If
                 // enough shock has been accumulated, the soldier goes into this panic. Generally, cowering will cause
@@ -8944,7 +8944,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 }
             }
 
-			pSoldier->ubLastMorale = 0;
+			pSoldier->runtime.combatFeedback.lastMorale = 0;
             // Suppression reduces morale. For every X APs lost, morale goes down by a point. X is defined by INI.
             DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: check for morale effects"));
             if (APBPConstants[AP_LOST_PER_MORALE_DROP] > 0 && sPointsLost > 0)
@@ -8964,7 +8964,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 						HandleMoraleEvent(pSoldier, MORALE_SUPPRESSED, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
 					}
 					// sevenfm: update ubLastMorale
-					pSoldier->ubLastMorale++;
+					pSoldier->runtime.combatFeedback.lastMorale++;
                 }
             }
 
@@ -9191,16 +9191,16 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             }
 
 			// sevenfm: update suppression, AP values for displaying above soldier
-			pSoldier->ubLastSuppression = pSoldier->ubSuppressionPoints;
-			pSoldier->ubLastAP = sPointsLost;
+			pSoldier->runtime.combatFeedback.lastSuppression = pSoldier->ubSuppressionPoints;
+			pSoldier->runtime.combatFeedback.lastActionPoints = sPointsLost;
 
 			// add suppression values from hit to shock values calculated in this function
-			pSoldier->ubLastShock += pSoldier->ubLastShockFromHit;
-			pSoldier->ubLastShockFromHit = 0;
-			pSoldier->ubLastAP += pSoldier->ubLastAPFromHit;
-			pSoldier->ubLastAPFromHit = 0;
-			pSoldier->ubLastMorale += pSoldier->ubLastMoraleFromHit;
-			pSoldier->ubLastMoraleFromHit = 0;
+			pSoldier->runtime.combatFeedback.lastShock += pSoldier->runtime.combatFeedback.lastShockFromHit;
+			pSoldier->runtime.combatFeedback.lastShockFromHit = 0;
+			pSoldier->runtime.combatFeedback.lastActionPoints += pSoldier->runtime.combatFeedback.lastActionPointsFromHit;
+			pSoldier->runtime.combatFeedback.lastActionPointsFromHit = 0;
+			pSoldier->runtime.combatFeedback.lastMorale += pSoldier->runtime.combatFeedback.lastMoraleFromHit;
+			pSoldier->runtime.combatFeedback.lastMoraleFromHit = 0;
 
 			// determine if any suppression value will be shown
 			BOOLEAN showSuppression = FALSE;

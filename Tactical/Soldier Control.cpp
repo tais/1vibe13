@@ -3016,7 +3016,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 	if (usNewState == THROW_GRENADE_STANCE || usNewState == LOB_GRENADE_STANCE || usNewState == THROW_ITEM || usNewState == THROW_ITEM_CROUCHED)
 	{
-		UINT16 usItem = this->usGrenadeItem;
+		UINT16 usItem = this->runtime.pendingAction.grenadeItem;
 		UINT8 ubVolume = Weapon[usItem].ubAttackVolume;
 
 		// play grenade pin sound
@@ -4152,7 +4152,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 										  usNewGridNo = NewGridNo( this->sGridNo, DirectionInc( this->ubDirection ) );
 										  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->ubDirection ) );
 
-										  this->sPlotSrcGrid = this->sGridNo;
+										  this->runtime.pendingAction.pathSearchSourceGrid = this->sGridNo;
 										  this->flags.fPastXDest = FALSE;
 										  this->flags.fPastYDest = FALSE;
 										  this->pathing.usPathDataSize = 0;
@@ -4178,7 +4178,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 						  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->ubDirection ) );
 						  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->ubDirection ) );
 
-						  this->sPlotSrcGrid = this->sGridNo;
+						  this->runtime.pendingAction.pathSearchSourceGrid = this->sGridNo;
 						  this->flags.fPastXDest = FALSE;
 						  this->flags.fPastYDest = FALSE;
 						  this->pathing.usPathDataSize = 0;
@@ -5763,12 +5763,12 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		if ( this->ubAttackerID != NOBODY && this->ubAttackerID->bTeam == gbPlayerNum )
 		{
 			HandleMoraleEvent( this->ubAttackerID, MORALE_DID_LOTS_OF_DAMAGE, this->ubAttackerID->sSectorX, this->ubAttackerID->sSectorY, this->ubAttackerID->bSectorZ );
-			this->ubLastMoraleFromHit++;
+			this->runtime.combatFeedback.lastMoraleFromHit++;
 		}
 		if ( this->bTeam == gbPlayerNum )
 		{
 			HandleMoraleEvent( this, MORALE_TOOK_LOTS_OF_DAMAGE, this->sSectorX, this->sSectorY, this->bSectorZ );
-			this->ubLastMoraleFromHit++;
+			this->runtime.combatFeedback.lastMoraleFromHit++;
 		}
 	}
 
@@ -8009,15 +8009,15 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// HEADROCK HAM 3.5: After considerable testing, suppression is now cleared after every attack. Total APs lost
 		// is cleared every turn (here) and only acts as reference now (no effect on AP loss).
 		this->ubAPsLostToSuppression = 0;
-		this->ubLastShock = 0;
-		this->ubLastSuppression = 0;
-		this->ubLastAP = 0;
-		this->ubLastMorale = 0;
-		this->ubLastAPFromHit = 0;
-		this->ubLastShockFromHit = 0;
-		this->ubLastMoraleFromHit = 0;
-		this->iLastBulletImpact = 0;
-		this->iLastArmourProtection = 0;
+		this->runtime.combatFeedback.lastShock = 0;
+		this->runtime.combatFeedback.lastSuppression = 0;
+		this->runtime.combatFeedback.lastActionPoints = 0;
+		this->runtime.combatFeedback.lastMorale = 0;
+		this->runtime.combatFeedback.lastActionPointsFromHit = 0;
+		this->runtime.combatFeedback.lastShockFromHit = 0;
+		this->runtime.combatFeedback.lastMoraleFromHit = 0;
+		this->runtime.combatFeedback.lastBulletImpact = 0;
+		this->runtime.combatFeedback.lastArmourProtection = 0;
 
 		this->flags.fCloseCall = FALSE;
 
@@ -10388,7 +10388,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	if ( !AM_A_ROBOT( this ) )
 	{
 		DeductPoints( this, sAPCost, sBreathLoss, DISABLED_INTERRUPT );
-		this->ubLastAPFromHit += sAPCost;
+		this->runtime.combatFeedback.lastActionPointsFromHit += sAPCost;
 	}
 
 	ubCombinedLoss = (UINT8)sLifeDeduct / 10 + sBreathLoss / 2000;
@@ -10397,7 +10397,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	if ( !AM_A_ROBOT( this ) )
 	{
 		this->aiData.bShock += ubCombinedLoss;
-		this->ubLastShockFromHit += ubCombinedLoss;
+		this->runtime.combatFeedback.lastShockFromHit += ubCombinedLoss;
 	}
 
 	// start the stopwatch - the blood is gushing!
@@ -10430,12 +10430,12 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			// sevenfm: moved code to function
 			SetDamageDisplayCounter( this );
 			// zero suppression values stored from last attack
-			this->ubLastShock = 0;
-			this->ubLastSuppression = 0;
-			this->ubLastMorale = 0;
-			this->ubLastAP = 0;
-			//this->iLastBulletImpact = 0;
-			//this->iLastArmourProtection = 0;
+			this->runtime.combatFeedback.lastShock = 0;
+			this->runtime.combatFeedback.lastSuppression = 0;
+			this->runtime.combatFeedback.lastMorale = 0;
+			this->runtime.combatFeedback.lastActionPoints = 0;
+			//this->runtime.combatFeedback.lastBulletImpact = 0;
+			//this->runtime.combatFeedback.lastArmourProtection = 0;
 		}
 	}
 	
@@ -10716,7 +10716,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 
 void SOLDIERTYPE::SoldierTakeDelayedDamage(INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathLoss, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage)
 {
-	delayedDamageFunction = [this, bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage]()
+	runtime.pendingAction.delayedDamage = [this, bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage]()
 	{
 		this->SoldierTakeDamage(bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage);
 	};
@@ -10724,10 +10724,10 @@ void SOLDIERTYPE::SoldierTakeDelayedDamage(INT8 bHeight, INT16 sLifeDeduct, INT1
 
 void SOLDIERTYPE::ResolveDelayedDamage()
 {
-	if (delayedDamageFunction)
+	if (runtime.pendingAction.delayedDamage)
 	{
-		delayedDamageFunction();
-		delayedDamageFunction = nullptr;
+		runtime.pendingAction.delayedDamage();
+		runtime.pendingAction.delayedDamage = nullptr;
 	}
 }
 
@@ -23094,7 +23094,7 @@ void SOLDIERTYPE::ChangeToFlybackAnimation( UINT8 flyBackDirection )
 	// Remove any previous actions
 	this->aiData.ubPendingAction = NO_PENDING_ACTION;
 
-	this->sPlotSrcGrid = this->sGridNo;
+	this->runtime.pendingAction.pathSearchSourceGrid = this->sGridNo;
 
 	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
 	// destination a lot of the time
@@ -23141,7 +23141,7 @@ void SOLDIERTYPE::ChangeToFallbackAnimation( UINT8 fallBackDirection )
 	// Remove any previous actions
 	this->aiData.ubPendingAction = NO_PENDING_ACTION;
 
-	this->sPlotSrcGrid = this->sGridNo;
+	this->runtime.pendingAction.pathSearchSourceGrid = this->sGridNo;
 
 	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
 	// destination a lot of the time
@@ -23226,7 +23226,7 @@ BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		pSoldier->aiData.sPendingActionData2 = pTarget->sGridNo;
 		pSoldier->aiData.bPendingActionData3 = ubDirection;
 		pSoldier->aiData.uiPendingActionData4 = 0;
-		pSoldier->uiPendingActionTargetIncarnation =
+		pSoldier->runtime.pendingAction.targetIncarnation =
 			pTarget->uiUniqueSoldierIdValue;
 		pSoldier->aiData.ubPendingActionAnimCount = 0;
 
@@ -26354,22 +26354,5 @@ void SOLDIERTYPE::StartRadioAnimation(void)
 
 void SOLDIERTYPE::InitializeExtraData(void)
 {
-	this->uiPendingActionTargetIncarnation = 0;
-
-	this->ubLastShock = 0;
-	this->ubLastSuppression = 0;
-	this->ubLastAP = 0;
-	this->ubLastMorale = 0;
-	this->ubLastShockFromHit = 0;
-	this->ubLastMoraleFromHit = 0;
-	this->ubLastAPFromHit = 0;
-	this->iLastBulletImpact = 0;
-	this->iLastArmourProtection = 0;
-
-	this->usQuickItemId = 0;
-	this->ubQuickItemSlot = 0;
-
-	this->usGrenadeItem = 0;
-
-	this->delayedDamageFunction = nullptr;
+	this->runtime.reset();
 }

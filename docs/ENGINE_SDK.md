@@ -257,6 +257,14 @@ remaining legacy animation/vitals changes at its completed-frame boundary.
 than exposing or rereading `SOLDIERTYPE`. The projection is runtime-only and
 does not change soldier, map, save, content, or tactical-delta formats.
 
+Inside the JA2 application, transient soldier state is also being separated by
+behavior. Pending-action scratch and deferred work, combat-feedback counters,
+and quick-item retention are owned by a resettable runtime component rather
+than independent flat `SOLDIERTYPE` fields. This component is not exposed
+through the SDK and is deliberately absent from soldier persistence. Serialized
+vitals and position remain behind compatibility views until their storage
+migration is complete, so this step changes neither content nor save bytes.
+
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is
 exhausted, and never exposes `WORLDITEM` or `gWorldItems` through the SDK.

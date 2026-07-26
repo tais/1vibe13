@@ -2663,7 +2663,7 @@ void SoldierPickupItem(
 
 	// Remove any previous actions
 	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
-	pSoldier->uiPendingActionTargetIncarnation =
+	pSoldier->runtime.pendingAction.targetIncarnation =
 		uiTargetIncarnation;
 
 	sActionGridNo = AdjustGridNoForItemPlacement( pSoldier, sGridNo );
