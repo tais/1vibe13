@@ -7423,7 +7423,9 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							if ( bSelectedInfoChar != -1 )
 							{
 								// ALT-F10: force selected character asleep (ignores breathmax)
-								PutMercInAsleepState( gCharactersList[ bSelectedInfoChar ].usSolID );
+								PutMercInAsleepState(
+									GetJa2SoldierRepository().resolve(
+										gCharactersList[ bSelectedInfoChar ].usSolID ) );
 							}
 						}
 					#endif
@@ -7469,7 +7471,10 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							if( bSelectedInfoChar != -1 )
 							{
-								TownMilitiaTrainingCompleted( gCharactersList[ bSelectedInfoChar ].usSolID, sSelMapX, sSelMapY );
+								TownMilitiaTrainingCompleted(
+									GetJa2SoldierRepository().resolve(
+										gCharactersList[ bSelectedInfoChar ].usSolID ),
+									sSelMapX, sSelMapY );
 							}
 						}
 					#endif
@@ -7537,7 +7542,10 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							if( bSelectedInfoChar != -1 )
 							{
-								StatChange( gCharactersList[ bSelectedInfoChar ].usSolID, EXPERAMT, 1000, FROM_SUCCESS );
+								StatChange(
+									GetJa2SoldierRepository().resolve(
+										gCharactersList[ bSelectedInfoChar ].usSolID ),
+									EXPERAMT, 1000, FROM_SUCCESS );
 							}
 						}
 					#endif
@@ -8131,7 +8139,10 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							static UINT16 gQuoteNum = 0;
 							// Get Soldier
-							TacticalCharacterDialogue( gCharactersList[ bSelectedInfoChar ].usSolID, gQuoteNum );
+							TacticalCharacterDialogue(
+								GetJa2SoldierRepository().resolve(
+									gCharactersList[ bSelectedInfoChar ].usSolID ),
+								gQuoteNum );
 							gQuoteNum++;
 						}
 						else if( fCtrl )
@@ -8140,7 +8151,10 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							// Get Soldier
 							if ( giHighLine != -1 )
 							{
-								TacticalCharacterDialogue( gCharactersList[ giHighLine ].usSolID, gQuoteNum );
+								TacticalCharacterDialogue(
+									GetJa2SoldierRepository().resolve(
+										gCharactersList[ giHighLine ].usSolID ),
+									gQuoteNum );
 								gQuoteNum++;
 							}
 						}
