@@ -48,6 +48,8 @@ using namespace std;
 
 namespace
 {
+const UINT32 kReadBufferSize = 8192;
+
 // HWFILE is intentionally opaque outside FileMan. Keep the access mode and the
 // already-resolved VFS interface beside the underlying file instead of looking
 // them up in a process-global std::map for every scalar save/load operation.
@@ -55,9 +57,22 @@ namespace
 // selected by FileOpen is what preserves the legacy read/write separation.
 struct FileHandle
 {
+	FileHandle(vfs::IBaseFile* base, vfs::tReadableFile* read,
+		vfs::tWritableFile* write)
+		: file(base), reader(read), writer(write),
+		  readBufferPos(0), readBufferLen(0)
+	{
+	}
+
 	vfs::IBaseFile* file;
 	vfs::tReadableFile* reader;
 	vfs::tWritableFile* writer;
+	// Windows VFS reads map directly to ReadFile. Cache small legacy reads on
+	// the handle so scalar save fields share one native I/O block across reader
+	// objects while FileGetPos/FileSeek continue to expose a logical position.
+	std::unique_ptr<UINT8[]> readBuffer;
+	UINT32 readBufferPos;
+	UINT32 readBufferLen;
 };
 
 FileHandle* GetFileHandle(HWFILE handle)
@@ -65,11 +80,47 @@ FileHandle* GetFileHandle(HWFILE handle)
 	return reinterpret_cast<FileHandle*>(handle);
 }
 
+UINT32 GetBufferedBytes(const FileHandle* handle)
+{
+	return handle && handle->readBufferLen >= handle->readBufferPos ?
+		handle->readBufferLen - handle->readBufferPos : 0;
+}
+
+void ClearReadBuffer(FileHandle* handle)
+{
+	if (!handle)
+		return;
+	handle->readBufferPos = 0;
+	handle->readBufferLen = 0;
+}
+
+bool EnsureReadBuffer(FileHandle* handle)
+{
+	if (!handle)
+		return false;
+	if (!handle->readBuffer)
+		handle->readBuffer.reset(new (std::nothrow) UINT8[kReadBufferSize]);
+	return handle->readBuffer != nullptr;
+}
+
+void SynchronizeReadBuffer(FileHandle* handle)
+{
+	const UINT32 unread = GetBufferedBytes(handle);
+	if (unread != 0 && handle->reader)
+	{
+		handle->reader->setReadPosition(
+			-static_cast<vfs::offset_t>(unread),
+			vfs::IBaseFile::SD_CURRENT);
+	}
+	ClearReadBuffer(handle);
+}
+
 HWFILE MakeReadHandle(vfs::tReadableFile* file)
 {
 	if(!file)
 		return 0;
-	FileHandle* handle = new (std::nothrow) FileHandle{file, file, nullptr};
+	FileHandle* handle =
+		new (std::nothrow) FileHandle(file, file, nullptr);
 	return reinterpret_cast<HWFILE>(handle);
 }
 
@@ -77,7 +128,8 @@ HWFILE MakeWriteHandle(vfs::tWritableFile* file)
 {
 	if(!file)
 		return 0;
-	FileHandle* handle = new (std::nothrow) FileHandle{file, nullptr, file};
+	FileHandle* handle =
+		new (std::nothrow) FileHandle(file, nullptr, file);
 	return reinterpret_cast<HWFILE>(handle);
 }
 }
@@ -531,16 +583,54 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 #ifdef JA2TESTVERSION
 	TimeCounter timer;
 #endif
+	if(puiBytesRead)
+		*puiBytesRead = 0;
+
 	FileHandle* handle = GetFileHandle(hFile);
 	if(handle && handle->reader)
 	{
 		vfs::tReadableFile *pRF = handle->reader;
-		if(pRF)
+		if(pRF && (pDest || uiBytesToRead == 0))
 		{
-			UINT32 uiBytesRead = 0;
+			UINT8* destination = static_cast<UINT8*>(pDest);
+			UINT32 totalRead = 0;
 			try
 			{
-				uiBytesRead = pRF->read((vfs::Byte*)pDest, uiBytesToRead);
+				while(totalRead < uiBytesToRead)
+				{
+					const UINT32 buffered = GetBufferedBytes(handle);
+					if(buffered != 0)
+					{
+						const UINT32 remaining = uiBytesToRead - totalRead;
+						const UINT32 take =
+							(remaining < buffered) ? remaining : buffered;
+						memcpy(destination + totalRead,
+							handle->readBuffer.get() + handle->readBufferPos,
+							take);
+						handle->readBufferPos += take;
+						totalRead += take;
+						continue;
+					}
+
+					ClearReadBuffer(handle);
+					const UINT32 remaining = uiBytesToRead - totalRead;
+					if(remaining >= kReadBufferSize ||
+						!EnsureReadBuffer(handle))
+					{
+						totalRead += static_cast<UINT32>(pRF->read(
+							reinterpret_cast<vfs::Byte*>(
+								destination + totalRead),
+							remaining));
+						break;
+					}
+
+					handle->readBufferLen = static_cast<UINT32>(
+						pRF->read(reinterpret_cast<vfs::Byte*>(
+								handle->readBuffer.get()),
+							kReadBufferSize));
+					if(handle->readBufferLen == 0)
+						break;
+				}
 			}
 			catch(std::exception& ex)
 			{
@@ -550,15 +640,16 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 
 			if(puiBytesRead)
 			{
-				*puiBytesRead = uiBytesRead;
+				*puiBytesRead = totalRead;
 			}
-			if(uiBytesToRead != uiBytesRead)
+			if(uiBytesToRead != totalRead)
 			{
 				// Zero the tail we did NOT read so a caller that ignores this FALSE return
 				// consumes defined zeros instead of uninitialized memory as data/offsets
 				// (the recurring 'ignored FileRead -> uninitialized-data-as-index' crash class).
-				if ( pDest && uiBytesRead < uiBytesToRead )
-					memset( (UINT8*)pDest + uiBytesRead, 0, uiBytesToRead - uiBytesRead );
+				if ( pDest && totalRead < uiBytesToRead )
+					memset( (UINT8*)pDest + totalRead, 0,
+						uiBytesToRead - totalRead );
 				return FALSE;
 			}
 			return TRUE;
@@ -576,11 +667,16 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 BOOLEAN FileReadLine( HWFILE hFile, std::string* pDest )
 {
 	FileHandle* handle = GetFileHandle(hFile);
-	if ( handle && handle->reader &&
-		FileCheckEndOfFile( hFile ) == FALSE )
+	if ( handle && handle->reader && pDest )
 	{
+		// CReadLine has its own line-sized buffer and rewinds its unread tail.
+		// First put our block cache at the same logical position.
+		SynchronizeReadBuffer(handle);
+		if ( FileCheckEndOfFile( hFile ) != FALSE )
+			return FALSE;
+
 		vfs::tReadableFile *pRF = handle->reader;
-		if ( pRF && pDest )
+		if ( pRF )
 		{
 			vfs::CReadLine rl( *pRF, false );
 			rl.getLine( *pDest );
@@ -806,7 +902,42 @@ BOOLEAN FileSeek( HWFILE hFile, UINT32 uiDistance, UINT8 uiHow )
 			vfs::tReadableFile *pRF = handle->reader;
 			if(pRF)
 			{
-				SGP_TRYCATCH_RETHROW(pRF->setReadPosition(iDistance, eSD), L"");
+				if(eSD == vfs::IBaseFile::SD_CURRENT)
+				{
+					const INT64 bufferedTarget =
+						static_cast<INT64>(handle->readBufferPos) +
+						static_cast<INT64>(iDistance);
+					if(bufferedTarget >= 0 &&
+						bufferedTarget <=
+							static_cast<INT64>(handle->readBufferLen))
+					{
+						handle->readBufferPos =
+							static_cast<UINT32>(bufferedTarget);
+						return TRUE;
+					}
+
+					const vfs::size_t physicalPosition =
+						pRF->getReadPosition();
+					const UINT32 unread = GetBufferedBytes(handle);
+					if(physicalPosition < unread)
+						return FALSE;
+					const INT64 logicalPosition =
+						static_cast<INT64>(physicalPosition - unread);
+					const INT64 targetPosition =
+						logicalPosition + static_cast<INT64>(iDistance);
+					if(targetPosition < 0)
+						return FALSE;
+					SGP_TRYCATCH_RETHROW(
+						pRF->setReadPosition(
+							static_cast<vfs::size_t>(targetPosition)),
+						L"");
+				}
+				else
+				{
+					SGP_TRYCATCH_RETHROW(
+						pRF->setReadPosition(iDistance, eSD), L"");
+				}
+				ClearReadBuffer(handle);
 				return TRUE;
 			}
 		}
@@ -853,7 +984,12 @@ INT32 FileGetPos( HWFILE hFile )
 		vfs::tReadableFile *pRF = handle->reader;
 		if(pRF)
 		{
-			return pRF->getReadPosition();
+			const vfs::size_t physicalPosition =
+				pRF->getReadPosition();
+			const UINT32 unread = GetBufferedBytes(handle);
+			if(physicalPosition < unread)
+				return BAD_INDEX;
+			return static_cast<INT32>(physicalPosition - unread);
 		}
 	}
 
@@ -1033,6 +1169,10 @@ BOOLEAN	FileCheckEndOfFile( HWFILE hFile )
 		if(pRF)
 		{
 			current_position = pRF->getReadPosition();
+			const UINT32 unread = GetBufferedBytes(handle);
+			if(current_position < unread)
+				return FALSE;
+			current_position -= unread;
 			max_position = pRF->getSize();
 			return current_position >= max_position;
 		}
