@@ -55,6 +55,9 @@ namespace
 {
 const UINT32 kReadBufferSize = 8192;
 const UINT32 kMaximumFileSearches = 20;
+const UINT32 kFileSearchIndexBits = 5;
+const UINT32 kFileSearchIndexMask =
+	(static_cast<UINT32>(1) << kFileSearchIndexBits) - 1;
 const UINT32 kFileHandleIndexBits = 12;
 const HWFILE kFileHandleIndexMask =
 	(static_cast<HWFILE>(1) << kFileHandleIndexBits) - 1;
@@ -64,7 +67,12 @@ static_assert(std::numeric_limits<HWFILE>::digits >
 	kFileHandleIndexBits, "HWFILE must retain generation bits");
 
 typedef vfs::CVirtualFileSystem::Iterator FileSearchIterator;
-std::unique_ptr<FileSearchIterator> s_fileSearches[kMaximumFileSearches];
+struct FileSearchSlot
+{
+	std::unique_ptr<FileSearchIterator> iterator;
+	UINT32 generation = 0;
+};
+std::array<FileSearchSlot, kMaximumFileSearches> s_fileSearches;
 
 enum class FileAccessMode
 {
@@ -405,42 +413,74 @@ vfs::size_t WriteNative(FileHandle* handle, const void* source,
 		static_cast<const vfs::Byte*>(source), bytes);
 }
 
+bool DecodeFileSearch(INT32 handle, UINT32& index, UINT32& generation)
+{
+	if(handle <= 0)
+		return false;
+
+	const UINT32 token = static_cast<UINT32>(handle);
+	const UINT32 encodedIndex = token & kFileSearchIndexMask;
+	generation = token >> kFileSearchIndexBits;
+	if(encodedIndex == 0 || encodedIndex > kMaximumFileSearches ||
+		generation == 0)
+		return false;
+
+	index = encodedIndex - 1;
+	return true;
+}
+
 FileSearchIterator* GetFileSearch(INT32 handle)
 {
-	if(handle <= 0 ||
-		handle > static_cast<INT32>(kMaximumFileSearches))
-	{
+	UINT32 index = 0;
+	UINT32 generation = 0;
+	if(!DecodeFileSearch(handle, index, generation))
 		return nullptr;
-	}
-	return s_fileSearches[handle - 1].get();
+
+	FileSearchSlot& slot = s_fileSearches[index];
+	return slot.generation == generation ? slot.iterator.get() : nullptr;
 }
 
 INT32 StoreFileSearch(std::unique_ptr<FileSearchIterator> iterator)
 {
+	if(!iterator)
+		return -1;
+
+	const UINT32 maximumGeneration =
+		static_cast<UINT32>(std::numeric_limits<INT32>::max()) >>
+			kFileSearchIndexBits;
 	for(UINT32 index = 0; index < kMaximumFileSearches; ++index)
 	{
-		if(!s_fileSearches[index])
-		{
-			s_fileSearches[index] = std::move(iterator);
-			return static_cast<INT32>(index + 1);
-		}
+		FileSearchSlot& slot = s_fileSearches[index];
+		if(slot.iterator)
+			continue;
+
+		slot.generation = (slot.generation + 1) & maximumGeneration;
+		if(slot.generation == 0)
+			slot.generation = 1;
+		slot.iterator = std::move(iterator);
+		const UINT32 token =
+			(slot.generation << kFileSearchIndexBits) | (index + 1);
+		return static_cast<INT32>(token);
 	}
 	return -1;
 }
 
 void ReleaseFileSearch(INT32 handle)
 {
-	if(handle > 0 &&
-		handle <= static_cast<INT32>(kMaximumFileSearches))
-	{
-		s_fileSearches[handle - 1].reset();
-	}
+	UINT32 index = 0;
+	UINT32 generation = 0;
+	if(!DecodeFileSearch(handle, index, generation))
+		return;
+
+	FileSearchSlot& slot = s_fileSearches[index];
+	if(slot.generation == generation)
+		slot.iterator.reset();
 }
 
 void ReleaseAllFileSearches()
 {
-	for(UINT32 index = 0; index < kMaximumFileSearches; ++index)
-		s_fileSearches[index].reset();
+	for(FileSearchSlot& slot : s_fileSearches)
+		slot.iterator.reset();
 }
 
 HWFILE MakeFileHandle(std::shared_ptr<OpenFileState> state)

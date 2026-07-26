@@ -1107,6 +1107,49 @@ int main()
 		"closing one legacy file search leaves another search active");
 	GetFileClose(&continuingSearch);
 
+	std::array<GETFILESTRUCT, 20> saturatedSearches{};
+	std::size_t saturatedSearchCount = 0;
+	for (; saturatedSearchCount < saturatedSearches.size();
+		++saturatedSearchCount)
+	{
+		if (!GetFileFirst("find-alpha-*.dat",
+				&saturatedSearches[saturatedSearchCount]))
+			break;
+	}
+	GETFILESTRUCT overflowSearch{};
+	const bool searchCapacityRejected =
+		!GetFileFirst("find-alpha-*.dat", &overflowSearch) &&
+		overflowSearch.iFindHandle == -1;
+	GETFILESTRUCT staleAdvanceSearch =
+		saturatedSearches.front();
+	GETFILESTRUCT staleCloseSearch =
+		saturatedSearches.front();
+	const INT32 staleSearchToken =
+		saturatedSearches.front().iFindHandle;
+	GetFileClose(&saturatedSearches.front());
+	GETFILESTRUCT recycledSearch{};
+	const bool recycledSearchStarted =
+		GetFileFirst("find-beta-*.dat", &recycledSearch) != FALSE;
+	const std::string recycledSearchFirst =
+		recycledSearchStarted ? recycledSearch.zFileName : "";
+	const bool staleAdvanceRejected =
+		!GetFileNext(&staleAdvanceSearch) &&
+		staleAdvanceSearch.iFindHandle == -1;
+	GetFileClose(&staleCloseSearch);
+	const bool recycledSearchAdvanced =
+		recycledSearchStarted &&
+		recycledSearch.iFindHandle != staleSearchToken &&
+		GetFileNext(&recycledSearch) &&
+		recycledSearchFirst != recycledSearch.zFileName;
+	Check(saturatedSearchCount == saturatedSearches.size() &&
+		searchCapacityRejected && staleAdvanceRejected &&
+		staleCloseSearch.iFindHandle == -1 &&
+		recycledSearchAdvanced,
+		"file-search generations reject exhaustion and stale slot access");
+	GetFileClose(&recycledSearch);
+	for (GETFILESTRUCT& saturatedSearch : saturatedSearches)
+		GetFileClose(&saturatedSearch);
+
 	vfs::CVirtualFileSystem::Iterator originalIterator =
 		getVFS()->begin("find-alpha-*.dat");
 	const bool iteratorStarted = !originalIterator.end();
@@ -7685,8 +7728,12 @@ int main()
 
 	HWFILE shutdownReader = FileOpen(handleContract,
 		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	GETFILESTRUCT shutdownSearch{};
 	Check(shutdownReader != 0,
 		"FileMan shutdown fixture leaves a live managed handle");
+	Check(GetFileFirst("find-alpha-*.dat", &shutdownSearch),
+		"FileMan shutdown fixture leaves a live managed search");
+	GETFILESTRUCT invalidatedShutdownSearch = shutdownSearch;
 	ShutdownFileManager();
 	UINT8 shutdownByte = 0xA5;
 	UINT32 shutdownReadCount = 99;
@@ -7694,12 +7741,21 @@ int main()
 			&shutdownReadCount) &&
 		shutdownByte == 0 && shutdownReadCount == 0,
 		"FileMan shutdown invalidates and closes leaked handles");
+	Check(!GetFileNext(&invalidatedShutdownSearch) &&
+		invalidatedShutdownSearch.iFindHandle == -1,
+		"FileMan shutdown invalidates leaked file searches");
 	ShutdownFileManager();
 	Check(InitializeFileManager(NULL),
 		"FileMan restarts after repeated shutdown");
 	HWFILE restartedReader = FileOpen(handleContract,
 		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	GETFILESTRUCT restartedSearch{};
+	const bool restartedSearchStarted =
+		GetFileFirst("find-alpha-*.dat", &restartedSearch) != FALSE;
+	const std::string restartedSearchFirst =
+		restartedSearchStarted ? restartedSearch.zFileName : "";
 	FileClose(shutdownReader);
+	GetFileClose(&shutdownSearch);
 	UINT8 restartedByte = 0;
 	UINT32 restartedReadCount = 0;
 	Check(restartedReader && restartedReader != shutdownReader &&
@@ -7707,7 +7763,12 @@ int main()
 			&restartedReadCount) &&
 		restartedByte == 'a' && restartedReadCount == 1,
 		"pre-shutdown tokens cannot affect handles opened after restart");
+	Check(restartedSearchStarted &&
+		GetFileNext(&restartedSearch) &&
+		restartedSearchFirst != restartedSearch.zFileName,
+		"pre-shutdown tokens cannot affect searches opened after restart");
 	if (restartedReader) FileClose(restartedReader);
+	GetFileClose(&restartedSearch);
 	ShutdownFileManager();
 	ShutdownMemoryManager();
 	ShutdownMemoryManager();
