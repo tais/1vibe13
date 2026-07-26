@@ -335,7 +335,7 @@ void HandleMilitiaPromotions( void )
 	for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 	{
 		pTeamSoldier = cnt;
-		if ( pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->stats.bLife > 0 )
+		if ( pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() > 0 )
 		{
 			// Flugente: take care of promotions and individual militia update
 			HandlePossibleMilitiaPromotion( pTeamSoldier, FALSE );	
@@ -1124,7 +1124,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_ATTACK ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->stats.bLife >= OKLIFE) )
+						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
@@ -1156,7 +1156,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_HOLD ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->stats.bLife >= OKLIFE) )
+						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
@@ -1186,7 +1186,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_RETREAT ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->stats.bLife >= OKLIFE) )
+						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
@@ -1242,7 +1242,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_COMETOME ):
 					if (fCanCommunicate)
 					{	
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->stats.bLife >= OKLIFE) )
+						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
@@ -1292,7 +1292,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_GETDOWN ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->stats.bLife >= OKLIFE) )
+						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
@@ -1322,7 +1322,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_CROUCH ):
 					if (fCanCommunicate)
 					{
-						if ((pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->stats.bLife >= OKLIFE))
+						if ((pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE))
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
@@ -1352,7 +1352,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_TAKE_COVER ):
 					if (fCanCommunicate)
 					{	
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->stats.bLife >= OKLIFE) )
+						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
@@ -1426,7 +1426,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
@@ -1464,7 +1464,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
@@ -1502,7 +1502,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
@@ -1567,7 +1567,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
@@ -1624,7 +1624,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
@@ -1677,7 +1677,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
@@ -1716,7 +1716,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
@@ -1757,7 +1757,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
 							pTeamSoldier = cnt;
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->stats.bLife >= OKLIFE) )
+							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);

@@ -2835,7 +2835,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								usImageIndex = pSoldier->usAniFrame;
 
 								// Flugente: frozen soldiers don't move
-								if (pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] && pSoldier->stats.bLife > 0)
+								if (pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] && pSoldier->vitals().health() > 0)
 								{
 									usImageIndex = pSoldier->CryoAniFrame();
 								}

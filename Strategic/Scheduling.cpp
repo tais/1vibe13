@@ -190,7 +190,7 @@ void ProcessTacticalSchedule( UINT8 ubScheduleID )
 
 	//Validate the existance of the soldier.
 	pSoldier = pSchedule->ubSoldierID;
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or dying!
 		return;

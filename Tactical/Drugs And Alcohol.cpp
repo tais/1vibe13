@@ -225,10 +225,10 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->newdrugs.size[DRUG_EFFECT_HP] )
 	{
 		// note the current hp
-		INT8 oldlife = pSoldier->stats.bLife;
+		INT8 oldlife = pSoldier->vitals().health();
 
 		// increase life
-		pSoldier->stats.bLife = __min( pSoldier->stats.bLife + pSoldier->newdrugs.size[DRUG_EFFECT_HP], pSoldier->stats.bLifeMax );
+		pSoldier->vitals().health() = __min( pSoldier->vitals().health() + pSoldier->newdrugs.size[DRUG_EFFECT_HP], pSoldier->vitals().maximumHealth() );
 
 		//SANDRO - Insta-healable injury reduction
 		if ( pSoldier->newdrugs.size[DRUG_EFFECT_HP] > 0 )
@@ -236,20 +236,20 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 			pSoldier->iHealableInjury = max( 0, (pSoldier->iHealableInjury - (100 * pSoldier->newdrugs.size[DRUG_EFFECT_HP])) );
 		}
 
-		if ( pSoldier->stats.bLife == pSoldier->stats.bLifeMax )
+		if ( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() )
 		{
-			pSoldier->bBleeding = 0;
+			pSoldier->vitals().bleeding() = 0;
 			pSoldier->iHealableInjury = 0;
 		}
-		else if ( pSoldier->bBleeding + pSoldier->stats.bLife > pSoldier->stats.bLifeMax )
+		else if ( pSoldier->vitals().bleeding() + pSoldier->vitals().health() > pSoldier->vitals().maximumHealth() )
 		{
 			// got to reduce amount of bleeding
-			pSoldier->bBleeding = (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+			pSoldier->vitals().bleeding() = (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 		}
 
 		// display health change next time we are in tactical
 		pSoldier->flags.fDisplayDamage = TRUE;
-		pSoldier->sDamage -= pSoldier->stats.bLife - oldlife;
+		pSoldier->sDamage -= pSoldier->vitals().health() - oldlife;
 	}
 
 	pSoldier->bExtraStrength += pSoldier->newdrugs.size[DRUG_EFFECT_STR];

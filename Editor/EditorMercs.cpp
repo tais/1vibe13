@@ -780,11 +780,11 @@ void ChangeBaseSoldierStats( SOLDIERTYPE *pSoldier )
 	if ( pSoldier == NULL )
 		return;
 
-	pSoldier->stats.bLifeMax = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bLife	= pSoldier->stats.bLifeMax;
+	pSoldier->vitals().maximumHealth() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->vitals().health()	= pSoldier->vitals().maximumHealth();
 
-	pSoldier->bBleeding	= 0;
-	pSoldier->bBreath	= 100;
+	pSoldier->vitals().bleeding()	= 0;
+	pSoldier->vitals().breath()	= 100;
 
 	pSoldier->stats.bMarksmanship	= (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
 	pSoldier->stats.bMedical = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
@@ -874,8 +874,8 @@ void DisplayEditMercWindow( void )
 	gprintf( iXPos + 130 + iXOff, iYPos + 90, L"%s", EditMercAttitudes[pSoldier->aiData.bAttitude] );
 
 	// Get stats
-	iEditStat[0] = pSoldier->stats.bLifeMax;			// 12 13
-	iEditStat[1] = pSoldier->stats.bLife;						// 14 15
+	iEditStat[0] = pSoldier->vitals().maximumHealth();			// 12 13
+	iEditStat[1] = pSoldier->vitals().health();						// 14 15
 	iEditStat[2] = pSoldier->stats.bStrength;		// 16 17
 	iEditStat[3] = pSoldier->stats.bAgility;		// 18 19
 	iEditStat[4] = pSoldier->stats.bDexterity;		// 20 21

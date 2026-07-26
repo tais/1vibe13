@@ -442,7 +442,7 @@ BOOLEAN SaveEnemySoldiersToTempFile( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 	{
 		pSoldier = MercPtrs[ i ];
 
-		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->stats.bLife	)
+		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health()	)
 		{ //soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;
 			while( curr && curr->pSoldier != pSoldier )
@@ -626,7 +626,7 @@ BOOLEAN SaveEnemySoldiersToTempFile( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 	for( i = gTacticalStatus.Team[ ubFirstIdTeam ].bFirstID; i <= gTacticalStatus.Team[ ubLastIdTeam ].bLastID; i++ )
 	{
 		pSoldier = MercPtrs[ i ];
-		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->stats.bLife )
+		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health() )
 		{ //soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;
 			while( curr && curr->pSoldier != pSoldier )
@@ -1417,7 +1417,7 @@ BOOLEAN NewWayOfSavingEnemyAndCivliansToTempFile( INT16 sSectorX, INT16 sSectorY
 		pSoldier = i;
 
 		//make sure the person is active, alive, in the sector, and is not a profiled person
-		if( pSoldier && pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->stats.bLife && pSoldier->ubProfile == NO_PROFILE )
+		if( pSoldier && pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health() && pSoldier->ubProfile == NO_PROFILE )
 		{ //soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;
 			while( curr && curr->pSoldier != pSoldier )
@@ -1572,7 +1572,7 @@ BOOLEAN NewWayOfSavingEnemyAndCivliansToTempFile( INT16 sSectorX, INT16 sSectorY
 	{
 		pSoldier = i;
 		// CJC: note that bInSector is not required; the civ could be offmap!
-		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->stats.bLife )
+		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health() )
 		{
 			//soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;

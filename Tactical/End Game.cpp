@@ -276,7 +276,7 @@ static void DoneFadeOutKilledQueen( void )
 	{
 		pSoldier = cnt;
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
 		{
 			gfTacticalTraversal = TRUE;
 			SetGroupSectorValue( VICTORY_X, VICTORY_Y, 0, pSoldier->ubGroupID );
@@ -390,7 +390,7 @@ void EndQueenDeathEndgameBeginEndCimenatic( )
 	{
 		pSoldier = cnt;
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && !AM_AN_EPC( pSoldier ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_END_GAME_COMMENT );
 		}
@@ -474,7 +474,7 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
 	{       
 		// Are we in this sector, On the current squad?
-		if( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && !AM_AN_EPC( pSoldier ) && IsSoldierQualifiedMerc( pSoldier ) )
+		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && IsSoldierQualifiedMerc( pSoldier ) )
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_RENEWING_CAUSE_BUDDY_2_ON_TEAM );	
 		}
@@ -487,7 +487,7 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
 	{       
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && !AM_AN_EPC( pSoldier ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_END_GAME_COMMENT );	
 		}
@@ -683,7 +683,7 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 	{
 		pTeamSoldier = cnt;
 		// Are we active and ALIVE and in sector.....
-		if ( pTeamSoldier->bActive && pTeamSoldier->stats.bLife > 0 )
+		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
 		{
 			// For sure for flag thet they are dead is not set
 			// Check for any more badguys

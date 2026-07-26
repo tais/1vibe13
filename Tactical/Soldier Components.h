@@ -7,29 +7,32 @@
 
 class SOLDIERTYPE;
 
-// Focused views provide domain seams for serialized legacy fields without
-// changing their representation yet. Runtime-only state below is already
-// stored in owned components instead of extending SOLDIERTYPE's flat tail.
+// Canonical soldier vitals storage. Reference accessors keep legacy mutation
+// sites zero-cost while the state itself has one owner and reset boundary.
 class SoldierVitalsComponent
 {
 public:
-	explicit SoldierVitalsComponent(SOLDIERTYPE& soldier) : soldier_(soldier) {}
+	INT8& health() noexcept { return health_; }
+	const INT8& health() const noexcept { return health_; }
+	INT8& maximumHealth() noexcept { return maximumHealth_; }
+	const INT8& maximumHealth() const noexcept { return maximumHealth_; }
+	INT8& breath() noexcept { return breath_; }
+	const INT8& breath() const noexcept { return breath_; }
+	INT8& maximumBreath() noexcept { return maximumBreath_; }
+	const INT8& maximumBreath() const noexcept { return maximumBreath_; }
+	INT8& bleeding() noexcept { return bleeding_; }
+	const INT8& bleeding() const noexcept { return bleeding_; }
 
-	INT8& health();
-	const INT8& health() const;
-	INT8& maximumHealth();
-	const INT8& maximumHealth() const;
-	INT8& breath();
-	const INT8& breath() const;
-	INT8& maximumBreath();
-	const INT8& maximumBreath() const;
-	INT8& bleeding();
-	const INT8& bleeding() const;
-	bool alive() const;
+	bool alive() const noexcept;
 	void applyLifeDeduction(INT16 lifeDeduction);
+	void reset() noexcept;
 
 private:
-	SOLDIERTYPE& soldier_;
+	INT8 health_ = 0;
+	INT8 maximumHealth_ = 0;
+	INT8 breath_ = 0;
+	INT8 maximumBreath_ = 0;
+	INT8 bleeding_ = 0;
 };
 
 class SoldierPositionComponent

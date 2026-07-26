@@ -2273,7 +2273,7 @@ void RenderHandPosItem( void )
 	}
 
 	// check if still alive?
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		return;
 	}
@@ -2388,7 +2388,7 @@ void DrawCharBars( void )
 		}
 
 		// skip POWs, dead guys, mini events
-		if( ( pSoldier->stats.bLife == 0 ) ||
+		if( ( pSoldier->vitals().health() == 0 ) ||
 				( pSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
 				( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
 				( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
@@ -2813,13 +2813,13 @@ void DrawCharHealth( INT16 sCharNum )
 	if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
 	{
 		// find starting X coordinate by centering all 3 substrings together, then print them separately (different colors)!
-		sgp_swprintf( sString, 32,L"%d/%d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax );
+		sgp_swprintf( sString, 32,L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 		FindFontCenterCoordinates(x, y, width, height, sString, CHAR_FONT, &usX, &usY);
 
 
-		if ( pSoldier->stats.bLifeMax > 0 )
+		if ( pSoldier->vitals().maximumHealth() > 0 )
 		{
-			uiHealthPercent = ( pSoldier->stats.bLife * 100 ) / pSoldier->stats.bLifeMax;
+			uiHealthPercent = ( pSoldier->vitals().health() * 100 ) / pSoldier->vitals().maximumHealth();
 		}
 
 		// how is characters life?
@@ -2847,7 +2847,7 @@ void DrawCharHealth( INT16 sCharNum )
 		}
 
 		// current life
-		sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bLife );
+		sgp_swprintf( sString, 32,L"%d", pSoldier->vitals().health() );
 		DrawString( sString, usX, y, CHAR_FONT );
 		usX += StringPixLength( sString, CHAR_FONT );
 
@@ -2879,7 +2879,7 @@ void DrawCharHealth( INT16 sCharNum )
 		}
 
 		// maximum life
-		sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bLifeMax );
+		sgp_swprintf( sString, 32,L"%d", pSoldier->vitals().maximumHealth() );
 		DrawString( sString, usX, y, CHAR_FONT );
 	}
 	else
@@ -3105,7 +3105,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	// remaining contract length
 
 	// dead?
-	if( pSoldier->stats.bLife <= 0 )
+	if( pSoldier->vitals().health() <= 0 )
 	{
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
@@ -3135,7 +3135,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 			// more than a day, display in green
 			iTimeRemaining /= (60*24);
-			if( pSoldier->stats.bLife > 0 )
+			if( pSoldier->vitals().health() > 0 )
 			{
 				SetFontForeground(FONT_LTGREEN);
 			}
@@ -3162,7 +3162,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 				iTimeRemaining /= 60;
 			}
 
-			if( pSoldier->stats.bLife > 0 )
+			if( pSoldier->vitals().health() > 0 )
 			{
 				SetFontForeground(FONT_RED);
 			}
@@ -3256,7 +3256,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	// morale
 	if( pSoldier->bAssignment != ASSIGNMENT_POW )
 	{
-		if ( pSoldier->stats.bLife != 0 )
+		if ( pSoldier->vitals().health() != 0 )
 		{
 			GetMoraleString( gCharactersList[sCharNumber].usSolID, sString );
 		}
@@ -4073,7 +4073,7 @@ void DisplayCharacterList()
 				ubForegroundColor = FONT_WHITE;
 			}
 			// check to see if character is still alive
-			else if(pSoldier->stats.bLife == 0 )
+			else if(pSoldier->vitals().health() == 0 )
 			{
 				ubForegroundColor = FONT_METALGRAY;
 			}
@@ -7938,7 +7938,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 						{
 							pSoldier->sBreathRed = 10000;
-							pSoldier->bBreath = 100;
+							pSoldier->vitals().breath() = 100;
 							ScreenMsg( FONT_MCOLOR_RED, MSG_TESTVERSION, L"Vehicle refueled" );
 
 							fTeamPanelDirty = TRUE;
@@ -9974,7 +9974,7 @@ void MAPInvClickCamoCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		if ( gpItemPointer && pSoldier )
 		{
 			// We are doing this ourselve, continue
-			if ( pSoldier->stats.bLife >= CONSCIOUSNESS )
+			if ( pSoldier->vitals().health() >= CONSCIOUSNESS )
 			{
 				BOOLEAN bApplyConsumable = ApplyConsumable(pSoldier, gpItemPointer, FALSE, TRUE);
 				if (bApplyConsumable == TRUE)
@@ -11365,7 +11365,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			fPlotForMilitia = FALSE;
 
 			// if not dead or POW, select his sector
-			if( ( pSoldier->stats.bLife > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) )//&& !SPY_LOCATION( pSoldier->bAssignment ) )
+			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) )//&& !SPY_LOCATION( pSoldier->bAssignment ) )
 			{
 				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
 			}
@@ -11421,7 +11421,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			fPlotForMilitia = FALSE;
 
 			// if not dead or POW, select his sector
-			if( ( pSoldier->stats.bLife > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->bAssignment ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
+			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->bAssignment ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
 			{
 				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
 			}
@@ -11512,7 +11512,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 			// if alive (dead guys keep going, use remove menu instead),
 			// and it's between sectors and it can be reassigned (non-vehicles)
-			if ( ( pSoldier->bAssignment != ASSIGNMENT_DEAD ) && ( pSoldier->stats.bLife > 0 ) && ( pSoldier->flags.fBetweenSectors ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( ( pSoldier->bAssignment != ASSIGNMENT_DEAD ) && ( pSoldier->vitals().health() > 0 ) && ( pSoldier->flags.fBetweenSectors ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
 				// can't reassign mercs while between sectors
 				DoScreenIndependantMessageBox( pMapErrorString[ 41 ], MSG_BOX_FLAG_OK, NULL );
@@ -11546,7 +11546,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 				fShowAssignmentMenu = TRUE;
 
-				if( ( pSoldier->stats.bLife == 0 ) || ( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+				if( ( pSoldier->vitals().health() == 0 ) || ( pSoldier->bAssignment == ASSIGNMENT_POW ) )
 				{
 					fShowRemoveMenu = TRUE;
 				}
@@ -11604,7 +11604,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
       		fShownAssignmentMenu = FALSE;
 
 			// if not dead or POW, select his sector
-			if( ( pSoldier->stats.bLife > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
+			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
 			{
 				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
 			}
@@ -12588,7 +12588,7 @@ void DetermineIfContractMenuCanBeShown( void )
 	// determine which lines selectable
 	HandleShadingOfLinesForContractMenu( );
 
-	if( gCharactersList[ bSelectedInfoChar ].usSolID->stats.bLife == 0 )
+	if( gCharactersList[ bSelectedInfoChar ].usSolID->vitals().health() == 0 )
 	{
 		// show basic assignment menu
 		ShowBox( ghRemoveMercAssignBox );
@@ -12781,7 +12781,7 @@ void HandleShadingOfLinesForContractMenu( void )
 	}
 
 	// is guy in AIM? and well enough to talk and make such decisions?
-	if( (atLeastOneAIMmerc) && ( pSoldier->stats.bLife >= OKLIFE ) )
+	if( (atLeastOneAIMmerc) && ( pSoldier->vitals().health() >= OKLIFE ) )
 	{
 		MERCPROFILESTRUCT* pProfile = &( gMercProfiles[ pSoldier->ubProfile ] );
 
@@ -13016,7 +13016,7 @@ void EnableDisableTeamListRegionsAndHelpText( void )
 
 				// POW or dead ?
 				if ( ( gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID->bAssignment == ASSIGNMENT_POW ) ||
-						( gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID->stats.bLife == 0 ) )
+						( gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID->vitals().health() == 0 ) )
 				{
 					// "Remove Merc"
 					SetRegionFastHelpText( &gTeamListAssignmentRegion[ bCharNum ], pRemoveMercStrings[ 0 ] );
@@ -13649,7 +13649,7 @@ void UpDateStatusOfContractBox( void )
 	{
 		ForceUpDateOfBox( ghContractBox );
 
-		if( ( gCharactersList[ bSelectedInfoChar ].usSolID->stats.bLife == 0 )||( gCharactersList[bSelectedInfoChar].usSolID->bAssignment == ASSIGNMENT_POW ) )
+		if( ( gCharactersList[ bSelectedInfoChar ].usSolID->vitals().health() == 0 )||( gCharactersList[bSelectedInfoChar].usSolID->bAssignment == ASSIGNMENT_POW ) )
 		{
 			ForceUpDateOfBox( ghRemoveMercAssignBox );
 		}
@@ -13811,7 +13811,7 @@ INT16 GetLastValidCharacterInTeamPanelList( void )
 		{
 			pSoldier = gCharactersList[iCounter].usSolID;
 
-			if(pSoldier->stats.bLife >= OKLIFE )
+			if(pSoldier->vitals().health() >= OKLIFE )
 			{
 				if( fShowMapInventoryPool )
 				{
@@ -15256,7 +15256,7 @@ BOOLEAN MapCharacterHasAccessibleInventory( INT16 bCharNumber )
 			( (!gGameExternalOptions.fVehicleInventory) && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) ) ||
 			( AM_A_ROBOT( pSoldier ) && !gGameExternalOptions.fRobotUpgradeable) ||
 			( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC && !AM_A_ROBOT( pSoldier ) ) ||
-			( pSoldier->stats.bLife < OKLIFE )
+			( pSoldier->vitals().health() < OKLIFE )
 		)
 	{
 		return(FALSE);
@@ -15436,7 +15436,7 @@ BOOLEAN CanChangeSleepStatusForSoldier( SOLDIERTYPE *pSoldier )
 	}
 
 	// if dead
-	if( ( pSoldier->stats.bLife <= 0 ) || ( pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
+	if( ( pSoldier->vitals().health() <= 0 ) || ( pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
 	{
 		return ( FALSE );
 	}
@@ -16080,7 +16080,7 @@ BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, IN
 			( pSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
 			( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
 			( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
-			( pSoldier->stats.bLife == 0 ) )
+			( pSoldier->vitals().health() == 0 ) )
 		{
 			continue;
 		}
@@ -16319,7 +16319,7 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 		{
 			pSoldier = gCharactersList[ iCounter ].usSolID;
 
-			if ( pSoldier->stats.bLife >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 						!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->flags.fMercAsleep )
 			{
 				ubSelectedMercID[ ubNumMercs ] = pSoldier->ubID;
@@ -16731,7 +16731,7 @@ void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] 
 		( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
 		( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
 		SPY_LOCATION( pSoldier->bAssignment ) ||
-		( pSoldier->stats.bLife == 0 ) )
+		( pSoldier->vitals().health() == 0 ) )
 	{
 		return;
 	}
@@ -16784,9 +16784,9 @@ void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], U
 
 #ifdef JA2UB
 //Ja25:		Removed the aim merc check because aim mercs are hired for a 1 time fee
-	if( ( pSoldier->ubProfile != SLAY ) || pSoldier->stats.bLife == 0 )
+	if( ( pSoldier->ubProfile != SLAY ) || pSoldier->vitals().health() == 0 )
 #else
-	if( ( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC && pSoldier->ubProfile != SLAY ) || pSoldier->stats.bLife == 0 )
+	if( ( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC && pSoldier->ubProfile != SLAY ) || pSoldier->vitals().health() == 0 )
 #endif
 	{
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
@@ -17658,7 +17658,7 @@ BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY )
 	for ( ; id <= lastid; ++id)
 	{
 		SOLDIERTYPE *pSoldier = id;
-		if ( pSoldier && pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE )
+		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
 		{
 			BOOLEAN fRadioOperator = pSoldier->CanUseRadio( FALSE );
 

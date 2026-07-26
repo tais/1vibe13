@@ -458,7 +458,7 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 	UINT8 ubType;
 	INT8 bMoraleMod = 0;
 
-	if ( !pSoldier->bActive || ( pSoldier->stats.bLife < CONSCIOUSNESS ) ||
+	if ( !pSoldier->bActive || ( pSoldier->vitals().health() < CONSCIOUSNESS ) ||
 		( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) || AM_AN_EPC( pSoldier ) )
 	{
 		return;
@@ -1736,7 +1736,7 @@ BOOLEAN IsShowOffNearBy( SOLDIERTYPE * pSoldier )
 			continue;
 		}
 		// Are we from our team an dalive?
-		if ( pTeammate->bTeam == pSoldier->bTeam && pTeammate->stats.bLife >= OKLIFE && 
+		if ( pTeammate->bTeam == pSoldier->bTeam && pTeammate->vitals().health() >= OKLIFE &&
 			 DoesMercHavePersonality( pTeammate, CHAR_TRAIT_SHOWOFF ) && PythSpacesAway( pSoldier->sGridNo, pTeammate->sGridNo ) <= 15 )
 		{
 			if ( (pSoldier->ubBodyType <= STOCKYMALE && pTeammate->ubBodyType <= STOCKYMALE) || 

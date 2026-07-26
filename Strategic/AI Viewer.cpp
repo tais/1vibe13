@@ -698,12 +698,12 @@ void RenderInfoInSector()
 
 		if( pSoldier->bActive && pSoldier->sSectorX == ubSectorX && pSoldier->sSectorY == ubSectorY && pSoldier->bSectorZ == gbViewLevel )
 		{
-			if( pSoldier->stats.bLife )
+			if( pSoldier->vitals().health() )
 			{
 				ubMercs++;
-				if( pSoldier->stats.bLife >= OKLIFE )
+				if( pSoldier->vitals().health() >= OKLIFE )
 				{
-					if( pSoldier->bBreath < OKBREATH )
+					if( pSoldier->vitals().breath() < OKBREATH )
 						ubCollapsed++;
 					else
 						ubActive++;

@@ -177,7 +177,7 @@ static_assert(
 #define FOOTPRINTTIME								2
 #define MIN_BLEEDING_THRESHOLD			12		// you're OK while <4 Yellow life bars
 
-#define BANDAGED( s ) (s->stats.bLifeMax - s->stats.bLife - s->bBleeding)
+#define BANDAGED( s ) (s->vitals().maximumHealth() - s->vitals().health() - s->vitals().bleeding())
 
 // amount of time a stats is to be displayed differently, due to change
 #define CHANGE_STAT_RECENTLY_DURATION		60000
@@ -1030,8 +1030,6 @@ class STRUCT_Statistics//last edited at version 102
 public:
 	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
 	INT8												bExpLevel;		// general experience level
-	INT8												bLife;				// current life (hit points or health)
-	INT8												bLifeMax;			// maximum life for this merc
 	INT8												bStrength;
 	INT8												bAgility;			// agility (speed) value
 	INT8												bDexterity;		// dexterity (hand coord) value
@@ -1091,7 +1089,8 @@ public:
 	//	Note that the constructor does this automatically.
 	void initialize();
 	bool	exists();
-	SoldierVitalsComponent vitals() { return SoldierVitalsComponent(*this); }
+	SoldierVitalsComponent& vitals() noexcept { return vitals_; }
+	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
 	SoldierPositionComponent position() { return SoldierPositionComponent(*this); }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
@@ -1121,9 +1120,6 @@ public:
 	UINT8			bInSector;
 	INT8				bFlashPortraitFrame;
 	INT16			sFractLife;		// fraction of life pts (in hundreths)	
-	INT8				bBleeding;		// blood loss control variable
-	INT8				bBreath;			// current breath value
-	INT8				bBreathMax;	// max breath, affected by fatigue/sleep
 	INT8				bStealthMode;
 	INT16			sBreathRed;			// current breath loss value
 	
@@ -1618,6 +1614,11 @@ public:
 	//STRUCT_Drugs			drugs;			// Flugente: drug values are now in newdrugs
 	DRUGS					newdrugs;
 	STRUCT_Statistics		stats;
+
+private:
+	SoldierVitalsComponent	vitals_;
+
+public:
 	STRUCT_Pathing			pathing;
 
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is

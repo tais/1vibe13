@@ -1053,7 +1053,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	// this takes priority over water/gas checks, so that point patrol WILL work
 	// from island to island, and through gas covered areas, too
-	if ((pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->bBreath >= 75))
+	if ((pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->vitals().breath() >= 75))
 	{
 		if (PointPatrolAI(pSoldier))
 		{
@@ -1072,7 +1072,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 	}
 
-	if ((pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->bBreath >=75))
+	if ((pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->vitals().breath() >=75))
 	{
 		if (RandomPointPatrolAI(pSoldier))
 		{
@@ -1121,7 +1121,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: rest if running out of breath"));
 	// if our breath is running a bit low, and we're not in the way or in water
-	if ((pSoldier->bBreath < 75) && !bInWater)
+	if ((pSoldier->vitals().breath() < 75) && !bInWater)
 	{
 		// take a breather for gods sake!
 		// for realtime, AI will use a standard wait set outside of here
@@ -1177,10 +1177,10 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 			iChance += 20;
 
 		// reduce chance for any injury, less likely to hop up if hurt
-		iChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+		iChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 
 		// reduce chance if breath is down
-		//iChance -= (100 - pSoldier->bBreath);         // don't care
+		//iChance -= (100 - pSoldier->vitals().breath());         // don't care
 
 		// This is the chance that we want to be on the roof.  If already there, invert the chance to see if we want back
 		// down
@@ -1271,10 +1271,10 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 
 		// reduce chance for any injury, less likely to wander around when hurt
-		iChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+		iChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 
 		// reduce chance if breath is down, less likely to wander around when tired
-		iChance -= (100 - pSoldier->bBreath);
+		iChance -= (100 - pSoldier->vitals().breath());
 
 
 		// if we're in water with land miles (> 25 tiles) away,
@@ -1341,10 +1341,10 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 
 		// reduce chance for any injury, less likely to wander around when hurt
-		iChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+		iChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 
 		// reduce chance if breath is down
-		iChance -= (100 - pSoldier->bBreath);         // very likely to wait when exhausted
+		iChance -= (100 - pSoldier->vitals().breath());         // very likely to wait when exhausted
 
 
 		if ((INT16) PreRandom(100) < iChance)
@@ -1395,7 +1395,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Snipers like to raise weapons, sniper = %d",pSoldier->sniper));
-	if ( pSoldier->aiData.bOrders == SNIPER && pSoldier->sniper == 0 && ( pSoldier->pathing.bLevel == 1 || Random(100) < 40 ) && (pSoldier->bBreath > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
+	if ( pSoldier->aiData.bOrders == SNIPER && pSoldier->sniper == 0 && ( pSoldier->pathing.bLevel == 1 || Random(100) < 40 ) && (pSoldier->vitals().breath() > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
 	{
 		if (!WeaponReady(pSoldier) && 
 			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
@@ -1425,7 +1425,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
 		{
 			if ((!gfTurnBasedAI || ((GetAPsToReadyWeapon( pSoldier, PickSoldierReadyAnimation( pSoldier, FALSE, FALSE ) ) ) <= pSoldier->bActionPoints)) &&
-				 (pSoldier->bBreath > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
+				 (pSoldier->vitals().breath() > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
 			{
 				iChance = 25;
 				if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA || pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE )
@@ -1831,7 +1831,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				AIPopMessage(tempstr);
 #endif
 				if ( pSoldier->aiData.bOrders == SNIPER && 
-					(pSoldier->bBreath > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30) &&
+					(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30) &&
 					!WeaponReady(pSoldier) &&
 					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
 				{
@@ -1846,7 +1846,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				{
 					if (!WeaponReady(pSoldier) && 
 						PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
-						(pSoldier->bBreath > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
+						(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
 					{
 						if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, PickSoldierReadyAnimation( pSoldier, FALSE, FALSE ) ) <= pSoldier->bActionPoints)
 						{
@@ -1938,7 +1938,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ((pSoldier->bBreath < 25) && !pSoldier->MercInWater())
+	if ((pSoldier->vitals().breath() < 25) && !pSoldier->MercInWater())
 	{
 		// take a breather for gods sake!
 		pSoldier->aiData.usActionData = NOWHERE;
@@ -2084,7 +2084,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 
 
 			// reduce chance if breath is down, less likely to wander around when tired
-			iChance -= (100 - pSoldier->bBreath);
+			iChance -= (100 - pSoldier->vitals().breath());
 
 			//Madd: make militia less likely to go running headlong into trouble
 			if ( pSoldier->bTeam == MILITIA_TEAM )
@@ -2248,7 +2248,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			}
 
 			// reduce chance if breath is down, less likely to wander around when tired
-			iChance -= (100 - pSoldier->bBreath);
+			iChance -= (100 - pSoldier->vitals().breath());
 
 			if ((INT16)PreRandom(100) < iChance)
 			{
@@ -2347,7 +2347,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				iChance += 20;
 
 			// reduce chance if breath is down, less likely to wander around when tired
-			iChance -= (100 - pSoldier->bBreath);
+			iChance -= (100 - pSoldier->vitals().breath());
 
 			if ((INT16)PreRandom(100) < iChance)
 			{
@@ -2400,7 +2400,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			if (!WeaponReady(pSoldier) && 
 				PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
 				pSoldier->ubDirection == ubNoiseDir &&	// if we are facing the direction of where the noise came from
-				(pSoldier->bBreath > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
+				(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
 			{
 				if (!gfTurnBasedAI || (((GetAPsToReadyWeapon( pSoldier, PickSoldierReadyAnimation( pSoldier, FALSE, FALSE ) ) ) + GetAPsToChangeStance( pSoldier, ANIM_CROUCH )) <= pSoldier->bActionPoints))
 				{
@@ -2423,7 +2423,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		if (!WeaponReady(pSoldier) && 
 			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
 			pSoldier->ubDirection == ubNoiseDir && // if we are facing the direction of where the noise came from
-			(pSoldier->bBreath > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
+			(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
 		{
 			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->usAnimState ) <= pSoldier->bActionPoints)
 			{
@@ -2537,7 +2537,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	if (SoldierAI(pSoldier) &&
 		!fCivilian &&
 		ubCanMove &&
-		pSoldier->stats.bLife >= OKLIFE &&
+		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->bCollapsed &&
 		!pSoldier->bBreathCollapsed &&
 		pSoldier->IsCowering())
@@ -2548,7 +2548,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	// sevenfm: stop giving aid
 	if (SoldierAI(pSoldier) &&
 		pSoldier->bActionPoints > 0 &&
-		pSoldier->stats.bLife >= OKLIFE &&
+		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->bCollapsed &&
 		!pSoldier->bBreathCollapsed &&
 		pSoldier->IsGivingAid())
@@ -3476,13 +3476,13 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water or under fire
-	if ((pSoldier->bBreath < 25) && !bInWater && !pSoldier->aiData.bUnderFire)
+	if ((pSoldier->vitals().breath() < 25) && !bInWater && !pSoldier->aiData.bUnderFire)
 	{
 		// if not already crouched, try to crouch down first
 		if (!fCivilian && !PTR_CROUCHED && IsValidStance( pSoldier, ANIM_CROUCH ) && gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_PRONE)
 		{
 #ifdef DEBUGDECISIONS
-			sprintf(tempstr,"%s CROUCHES, NEEDING REST (STATUS RED), breath = %d",pSoldier->name,pSoldier->bBreath);
+			sprintf(tempstr,"%s CROUCHES, NEEDING REST (STATUS RED), breath = %d",pSoldier->name,pSoldier->vitals().breath());
 			AIPopMessage(tempstr);
 #endif
 
@@ -3495,7 +3495,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		}
 
 #ifdef DEBUGDECISIONS
-		sprintf(tempstr,"%s RESTS (STATUS RED), breath = %d",pSoldier->name,pSoldier->bBreath);
+		sprintf(tempstr,"%s RESTS (STATUS RED), breath = %d",pSoldier->name,pSoldier->vitals().breath());
 		AIPopMessage(tempstr);
 #endif
 
@@ -4235,7 +4235,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 						// raise weapon if not raised
 						if (PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
 							!WeaponReady(pSoldier) &&
-							(pSoldier->bBreath > OKBREATH * 2 || GetBPCostPer10APsForGunHolding(pSoldier, TRUE) < 50) &&
+							(pSoldier->vitals().breath() > OKBREATH * 2 || GetBPCostPer10APsForGunHolding(pSoldier, TRUE) < 50) &&
 							pSoldier->bActionPoints >= GetAPsToReadyWeapon(pSoldier, PickSoldierReadyAnimation(pSoldier, FALSE, FALSE)))
 						{
 							DebugAI(AI_MSG_INFO, pSoldier, String("raise weapon"));
@@ -4565,7 +4565,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					if ( pSoldier->aiData.bOrders == SNIPER && 
 						!WeaponReady(pSoldier) && 
 						PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
-						(pSoldier->bBreath > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50) )
+						(pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50) )
 					{
 						if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->bActionPoints)
 						{
@@ -4578,7 +4578,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					{
 						if (!WeaponReady(pSoldier) && 
 							PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
-							(pSoldier->bBreath > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
+							(pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 						{
 							if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->bActionPoints)
 							{
@@ -4600,7 +4600,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					!WeaponReady(pSoldier) &&
 					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
 			{
-				if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->usAnimState ) <= pSoldier->bActionPoints) && (pSoldier->bBreath > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
+				if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->usAnimState ) <= pSoldier->bActionPoints) && (pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 				{
 					if ( pSoldier->aiData.bOrders == SNIPER )
 					{
@@ -4738,10 +4738,10 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	if ( (pSoldier->aiData.bAlertStatus != STATUS_BLACK) && !pSoldier->aiData.bUnderFire && ubCanMove && (!gfTurnBasedAI || pSoldier->bActionPoints >= pSoldier->bInitialActionPoints) && ( TileIsOutOfBounds(ClosestReachableDisturbance(pSoldier, &fClimb))) )
 	{
 		// addition:  if soldier is bleeding then reduce bleeding and do nothing
-		if ( pSoldier->bBleeding > MIN_BLEEDING_THRESHOLD )
+		if ( pSoldier->vitals().bleeding() > MIN_BLEEDING_THRESHOLD )
 		{
 			// reduce bleeding by 1 point per AP (in RT, APs will get recalculated so it's okay)
-			pSoldier->bBleeding = __max( 0, pSoldier->bBleeding - (pSoldier->bActionPoints/2) );
+			pSoldier->vitals().bleeding() = __max( 0, pSoldier->vitals().bleeding() - (pSoldier->bActionPoints/2) );
 			return( AI_ACTION_NONE ); // will end-turn/wait depending on whether we're in TB or realtime
 		}
 #ifdef DEBUGDECISIONS
@@ -4840,7 +4840,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->sniper == 0 )
 		{
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionRed: sniper raising gun..."));
-			if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->bActionPoints) && (pSoldier->bBreath > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
+			if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->bActionPoints) && (pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 			{
 				if (!WeaponReady(pSoldier) &&
 					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
@@ -4862,7 +4862,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		// SANDRO - raise weapon maybe
 		if (!WeaponReady(pSoldier) && 
 			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
-			(pSoldier->bBreath > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
+			(pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 		{
 			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->usAnimState ) <= pSoldier->bActionPoints)
 			{
@@ -4959,7 +4959,7 @@ INT16 ubMinAPCost;
 	if (SoldierAI(pSoldier) &&
 		!fCivilian &&
 		ubCanMove &&
-		pSoldier->stats.bLife >= OKLIFE &&
+		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->bCollapsed &&
 		!pSoldier->bBreathCollapsed &&
 		pSoldier->IsCowering())
@@ -4970,7 +4970,7 @@ INT16 ubMinAPCost;
 	// sevenfm: stop giving aid
 	if (SoldierAI(pSoldier) &&
 		pSoldier->bActionPoints > 0 &&
-		pSoldier->stats.bLife >= OKLIFE &&
+		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->bCollapsed &&
 		!pSoldier->bBreathCollapsed &&
 		pSoldier->IsGivingAid())
@@ -5080,7 +5080,7 @@ INT16 ubMinAPCost;
 		////////////////////////////////////////////////////////////////////////////
 
 		// if we're desperately short on breath (it's OK if we're in water, though!)
-		if (bInGas || (pSoldier->bBreath < 5))
+		if (bInGas || (pSoldier->vitals().breath() < 5))
 		{
 			// if soldier has enough APs left to move at least 1 square's worth
 			if (ubCanMove)
@@ -5091,7 +5091,7 @@ INT16 ubMinAPCost;
 				if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 				{
 #ifdef DEBUGDECISIONS
-					sprintf(tempstr,"%s - GASSED or LOW ON BREATH (%d), RUNNING AWAY to grid %d",pSoldier->name,pSoldier->bBreath,pSoldier->aiData.usActionData);
+					sprintf(tempstr,"%s - GASSED or LOW ON BREATH (%d), RUNNING AWAY to grid %d",pSoldier->name,pSoldier->vitals().breath(),pSoldier->aiData.usActionData);
 					AIPopMessage(tempstr);
 #endif
 
@@ -5102,7 +5102,7 @@ INT16 ubMinAPCost;
 			// REALLY tired, can't get away, force soldier's morale to hopeless state
 			if ( gGameOptions.ubDifficultyLevel == DIF_LEVEL_INSANE )
 			{
-				pSoldier->bBreath = pSoldier->bBreathMax;  //Madd: backed into a corner, so go crazy like a wild animal...
+				pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();  //Madd: backed into a corner, so go crazy like a wild animal...
 				pSoldier->aiData.bAIMorale = MORALE_FEARLESS;
 			}
 			else
@@ -5163,7 +5163,7 @@ INT16 ubMinAPCost;
 		// GAS FILLED ROOM (OR IN WATER MORE THAN 25 TILES FROM NEAREST LAND...)
 		if ( bInGas && gGameOptions.ubDifficultyLevel == DIF_LEVEL_INSANE )
 		{
-			pSoldier->bBreath = pSoldier->bBreathMax;
+			pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
 			pSoldier->aiData.bAIMorale = MORALE_FEARLESS;  // Can't move, can't get away, go nuts instead...
 		}
 		else
@@ -5174,7 +5174,7 @@ INT16 ubMinAPCost;
 #ifndef JA2UB
 	if ( !is_networked ) // No surrender in multiplayer
 	{
-		if ( pSoldier->bTeam == ENEMY_TEAM && pSoldier->bVisible == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->stats.bLife >= pSoldier->stats.bLifeMax / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
+		if ( pSoldier->bTeam == ENEMY_TEAM && pSoldier->bVisible == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
 		{
 			if ( gTacticalStatus.Team[ MILITIA_TEAM ].bMenInSector == 0 && gTacticalStatus.Team[ CREATURE_TEAM ].bMenInSector == 0 && NumPCsInSector() < 4 && gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector >= NumPCsInSector() * 3 )
 			{
@@ -5486,7 +5486,7 @@ INT16 ubMinAPCost;
 			// if the selected opponent is not a threat (unconscious & !serviced)
 			// (usually, this means all the guys we see are unconscious, but, on
 			//  rare occasions, we may not be able to shoot a healthy guy, too)
-			if ((Menptr[BestShot.ubOpponent].stats.bLife < OKLIFE) &&
+			if ((Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) &&
 				!Menptr[BestShot.ubOpponent].bService &&
 				(pSoldier->aiData.bAttitude != AGGRESSIVE || Chance((100 - BestShot.ubChanceToReallyHit) / 2)))
 			{
@@ -5592,7 +5592,7 @@ INT16 ubMinAPCost;
 						// if the selected opponent is not a threat (unconscious & !serviced)
 						// (usually, this means all the guys we see are unconscious, but, on
 						//  rare occasions, we may not be able to shoot a healthy guy, too)
-						if ((Menptr[BestStab.ubOpponent].stats.bLife < OKLIFE) &&
+						if ((Menptr[BestStab.ubOpponent].vitals().health() < OKLIFE) &&
 							!Menptr[BestStab.ubOpponent].bService)
 						{
 							// don't throw a knife at him.
@@ -5796,7 +5796,7 @@ INT16 ubMinAPCost;
 			BestStab.ubOpponent != NOBODY &&
 			gAnimControl[BestStab.ubOpponent->usAnimState].ubEndHeight == ANIM_STAND &&
 			BestStab.ubOpponent->bActionPoints > 0 &&
-			Chance(EffectiveAgility(BestStab.ubOpponent, FALSE) * (100 + BestStab.ubOpponent->bBreath) * EffectiveWisdom(pSoldier) / (100 * 200)))
+			Chance(EffectiveAgility(BestStab.ubOpponent, FALSE) * (100 + BestStab.ubOpponent->vitals().breath()) * EffectiveWisdom(pSoldier) / (100 * 200)))
 		{
 			// find closest spot around opponent, avoid front direction
 			UINT8	ubMovementCost;
@@ -6059,7 +6059,7 @@ INT16 ubMinAPCost;
 					pSoldier->aiData.bOrders != STATIONARY &&
 					(pSoldier->aiData.bUnderFire ||
 					pSoldier->aiData.bShock > 0 ||
-					pSoldier->stats.bLife < pSoldier->stats.bLifeMax * 3 / 4 ||
+					pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() * 3 / 4 ||
 					CountTeamUnderAttack(pSoldier->bTeam, pSoldier->sGridNo, DAY_VISION_RANGE / 2) > CountNearbyFriends(pSoldier, pSoldier->sGridNo, DAY_VISION_RANGE / 2) / 2 ||
 					CountSeenEnemiesLastTurn(pSoldier) > CountNearbyFriends(pSoldier, pSoldier->sGridNo, DAY_VISION_RANGE / 2)) &&
 					(Chance(SoldierDifficultyLevel(pSoldier) * 10) || Chance(TeamPercentKilled(pSoldier->bTeam)) || Chance(CountTeamUnderAttack(pSoldier->bTeam, pSoldier->sGridNo, DAY_VISION_RANGE / 2))) &&
@@ -6138,7 +6138,7 @@ INT16 ubMinAPCost;
 	if ( (pSoldier->bActionPoints == pSoldier->bInitialActionPoints) &&
 		 (ubBestAttackAction == AI_ACTION_FIRE_GUN) && 
 		 (pSoldier->aiData.bShock == 0) && 
-		 (pSoldier->stats.bLife >= pSoldier->stats.bLifeMax / 2) && 
+		 (pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2) &&
 		 (BestAttack.ubChanceToReallyHit < 30) && 
 		 (PythSpacesAway( pSoldier->sGridNo, BestAttack.sTarget ) > usRange / CELL_X_SIZE ) && 
 		 (RangeChangeDesire( pSoldier ) >= 4) )
@@ -6309,7 +6309,7 @@ INT16 ubMinAPCost;
 			//////////////////////////////////////////////////////////////////////////
 
 			if (IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
-				!(Menptr[BestShot.ubOpponent].stats.bLife < OKLIFE) && // don't burst at downed targets
+				!(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
 				pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				(pSoldier->bTeam != gbPlayerNum || pSoldier->aiData.bRTPCombat == RTP_COMBAT_AGGRESSIVE) )
 			{
@@ -6384,7 +6384,7 @@ INT16 ubMinAPCost;
 			}
 
 			if (IsGunAutofireCapable( &pSoldier->inv[BestAttack.bWeaponIn] ) &&
-				!(Menptr[BestShot.ubOpponent].stats.bLife < OKLIFE) && // don't burst at downed targets
+				!(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
 				(( pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				!pSoldier->bDoBurst ) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
@@ -6540,7 +6540,7 @@ L_NEWAIM:
 			// IF WAY OUT OF EFFECTIVE RANGE TRY TO ADVANCE RESERVING ENOUGH AP FOR A SHOT IF NOT ACTED YET
 			if ((pSoldier->bActionPoints > BestAttack.ubAPCost) &&
 				(pSoldier->aiData.bShock == 0) && 
-				(pSoldier->stats.bLife >= pSoldier->stats.bLifeMax / 2) && 
+				(pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2) &&
 				(BestAttack.ubChanceToReallyHit < 8) &&
 				(PythSpacesAway( pSoldier->sGridNo, BestAttack.sTarget ) > usRange / CELL_X_SIZE ) && 
 				(RangeChangeDesire( pSoldier ) >= 3) ) // Cunning and above
@@ -6887,10 +6887,10 @@ L_NEWAIM:
 
 					// decide to restore breath
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData) &&
-						(pSoldier->bBreath < OKBREATH ||
-						pSoldier->bBreath < pSoldier->bBreathMax &&
-						pSoldier->bBreath < ubOpponentID->bBreath &&
-						Chance((100 - pSoldier->bBreath) * (100 - pSoldier->bBreath) / (2 * 100 * 100))))
+						(pSoldier->vitals().breath() < OKBREATH ||
+						pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() &&
+						pSoldier->vitals().breath() < ubOpponentID->vitals().breath() &&
+						Chance((100 - pSoldier->vitals().breath()) * (100 - pSoldier->vitals().breath()) / (2 * 100 * 100))))
 					{
 						DebugAI(AI_MSG_INFO, pSoldier, String("boxer: restore breath"));
 						pSoldier->aiData.usActionData = NOWHERE;
@@ -6911,9 +6911,9 @@ L_NEWAIM:
 						return(AI_ACTION_GET_CLOSER);
 					}
 				}
-				else if (pSoldier->bBreath < OKBREATH ||
-					pSoldier->bBreath < pSoldier->bBreathMax &&
-					(pSoldier->bBreath < ubOpponentID->bBreath || !pSoldier->aiData.bLastAttackHit && pSoldier->TakenLargeHit()))
+				else if (pSoldier->vitals().breath() < OKBREATH ||
+					pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() &&
+					(pSoldier->vitals().breath() < ubOpponentID->vitals().breath() || !pSoldier->aiData.bLastAttackHit && pSoldier->TakenLargeHit()))
 				{
 					// maybe move away from opponent
 					UINT8 ubOpponentDir = AIDirection(pSoldier->sGridNo, sClosestOpponent);
@@ -7403,8 +7403,8 @@ void DecideAlertStatus( SOLDIERTYPE *pSoldier )
 		{
 			// only do this stuff in TB
 			// if a guy on status GREEN or YELLOW is running low on breath
-			if (((pSoldier->aiData.bAlertStatus == STATUS_GREEN)  && (pSoldier->bBreath < 75)) ||
-				((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) && (pSoldier->bBreath < 50)))
+			if (((pSoldier->aiData.bAlertStatus == STATUS_GREEN)  && (pSoldier->vitals().breath() < 75)) ||
+				((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
 			{
 				// as long as he's not in water (standing on a bridge is OK)
 				if (!pSoldier->MercInWater())
@@ -7566,7 +7566,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 
 	// this takes priority over water/gas checks, so that point patrol WILL work
 	// from island to island, and through gas covered areas, too
-	if ( (pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->bBreath >= 75) )
+	if ( (pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->vitals().breath() >= 75) )
 	{
 		if ( PointPatrolAI( pSoldier ) )
 		{
@@ -7585,7 +7585,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if ( (pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->bBreath >= 75) )
+	if ( (pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->vitals().breath() >= 75) )
 	{
 		if ( RandomPointPatrolAI( pSoldier ) )
 		{
@@ -7631,7 +7631,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "DecideActionGreen: rest if running out of breath" ) );
 	// if our breath is running a bit low, and we're not in the way or in water
-	if ( (pSoldier->bBreath < 75) && !bInWater )
+	if ( (pSoldier->vitals().breath() < 75) && !bInWater )
 	{
 		// take a breather for gods sake!
 		// for realtime, AI will use a standard wait set outside of here
@@ -7673,10 +7673,10 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 		}
 
 		// reduce chance for any injury, less likely to wander around when hurt
-		iChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+		iChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 
 		// reduce chance if breath is down, less likely to wander around when tired
-		iChance -= (100 - pSoldier->bBreath);
+		iChance -= (100 - pSoldier->vitals().breath());
 
 		// if we're in water with land miles (> 25 tiles) away,
 		// OR if we roll under the chance calculated
@@ -7742,10 +7742,10 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 		}
 
 		// reduce chance for any injury, less likely to wander around when hurt
-		iChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+		iChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 
 		// reduce chance if breath is down
-		iChance -= (100 - pSoldier->bBreath);         // very likely to wait when exhausted
+		iChance -= (100 - pSoldier->vitals().breath());         // very likely to wait when exhausted
 		
 		if ( (INT16)PreRandom( 100 ) < iChance )
 		{
@@ -8016,7 +8016,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ( (pSoldier->bBreath < 25) && !pSoldier->MercInWater( ) )
+	if ( (pSoldier->vitals().breath() < 25) && !pSoldier->MercInWater( ) )
 	{
 		// take a breather for gods sake!
 		pSoldier->aiData.usActionData = NOWHERE;
@@ -8123,7 +8123,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 		}
 		
 		// reduce chance if breath is down, less likely to wander around when tired
-		iChance -= (100 - pSoldier->bBreath);
+		iChance -= (100 - pSoldier->vitals().breath());
 
 		//Madd: make militia less likely to go running headlong into trouble
 		if ( pSoldier->bTeam == MILITIA_TEAM )
@@ -8252,7 +8252,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 		}
 
 		// reduce chance if breath is down, less likely to wander around when tired
-		iChance -= (100 - pSoldier->bBreath);
+		iChance -= (100 - pSoldier->vitals().breath());
 
 		if ( (INT16)PreRandom( 100 ) < iChance )
 		{
@@ -8308,7 +8308,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 		}
 
 		// reduce chance if breath is down, less likely to wander around when tired
-		iChance -= (100 - pSoldier->bBreath);
+		iChance -= (100 - pSoldier->vitals().breath());
 
 		if ( (INT16)PreRandom( 100 ) < iChance )
 		{
@@ -9599,7 +9599,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 #ifndef JA2UB
 	if ( !is_networked ) // No surrender in multiplayer
 	{
-		if ( pSoldier->bTeam == ENEMY_TEAM && pSoldier->bVisible == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->stats.bLife >= pSoldier->stats.bLifeMax / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
+		if ( pSoldier->bTeam == ENEMY_TEAM && pSoldier->bVisible == TRUE && !(gTacticalStatus.fEnemyFlags & ENEMY_OFFERED_SURRENDER) && pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2 && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )
 		{
 			if ( gTacticalStatus.Team[MILITIA_TEAM].bMenInSector == 0 && gTacticalStatus.Team[CREATURE_TEAM].bMenInSector == 0 && NumPCsInSector() < 4 && gTacticalStatus.Team[ENEMY_TEAM].bMenInSector >= NumPCsInSector() * 3 )
 			{
@@ -9768,7 +9768,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 						// if the selected opponent is not a threat (unconscious & !serviced)
 						// (usually, this means all the guys we see are unconscious, but, on
 						//  rare occasions, we may not be able to shoot a healthy guy, too)
-						if ( (Menptr[BestShot.ubOpponent].stats.bLife < OKLIFE) &&
+						if ( (Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) &&
 							 !Menptr[BestShot.ubOpponent].bService )
 						{
 							// if our attitude is NOT aggressive
@@ -9906,7 +9906,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	if ( (pSoldier->bActionPoints == pSoldier->bInitialActionPoints) &&
 		 (ubBestAttackAction == AI_ACTION_FIRE_GUN) &&
 		 (pSoldier->aiData.bShock == 0) &&
-		 (pSoldier->stats.bLife >= pSoldier->stats.bLifeMax / 2) &&
+		 (pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2) &&
 		 (BestAttack.ubChanceToReallyHit < 30) &&
 		 (PythSpacesAway( pSoldier->sGridNo, BestAttack.sTarget ) > usRange / CELL_X_SIZE) &&
 		 (RangeChangeDesire( pSoldier ) >= 4) )
@@ -10053,7 +10053,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			//////////////////////////////////////////////////////////////////////////
 
 			if ( IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
-				 !(Menptr[BestShot.ubOpponent].stats.bLife < OKLIFE) && // don't burst at downed targets
+				 !(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
 				 pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				 (pSoldier->bTeam != gbPlayerNum || pSoldier->aiData.bRTPCombat == RTP_COMBAT_AGGRESSIVE) )
 			{
@@ -10082,7 +10082,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			}
 
 			if ( IsGunAutofireCapable( &pSoldier->inv[BestAttack.bWeaponIn] ) &&
-				 !(Menptr[BestShot.ubOpponent].stats.bLife < OKLIFE) && // don't burst at downed targets
+				 !(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
 				 ((pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				 !pSoldier->bDoBurst) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
@@ -10164,7 +10164,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			// IF WAY OUT OF EFFECTIVE RANGE TRY TO ADVANCE RESERVING ENOUGH AP FOR A SHOT IF NOT ACTED YET
 			if ( (pSoldier->bActionPoints > BestAttack.ubAPCost) &&
 				 (pSoldier->aiData.bShock == 0) &&
-				 (pSoldier->stats.bLife >= pSoldier->stats.bLifeMax / 2) &&
+				 (pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2) &&
 				 (BestAttack.ubChanceToReallyHit < 8) &&
 				 (PythSpacesAway( pSoldier->sGridNo, BestAttack.sTarget ) > usRange / CELL_X_SIZE) &&
 				 (RangeChangeDesire( pSoldier ) >= 3) ) // Cunning and above
@@ -10368,7 +10368,7 @@ void LogDecideInfo(SOLDIERTYPE *pSoldier)
 	DebugAI(AI_MSG_INFO, pSoldier, String("Turn num %d aware %d", guiTurnCnt, gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition));
 	DebugAI(AI_MSG_INFO, pSoldier, String("current team %d interrupt occurred %d", GetJa2TacticalCurrentTeam(), gTacticalStatus.fInterruptOccurred));
 	DebugAI(AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]));
-	DebugAI(AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d Morale %d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale, pSoldier->aiData.bMorale));
+	DebugAI(AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale, pSoldier->aiData.bMorale));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Spot %d level %d opponents %d", pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->aiData.bOppCnt));
 	DebugAI(AI_MSG_INFO, pSoldier, String("ubServiceCount %d ubServicePartner %d fDoingSurgery %d", pSoldier->ubServiceCount, pSoldier->ubServicePartner, pSoldier->fDoingSurgery));
 	if (pSoldier->IsCowering())

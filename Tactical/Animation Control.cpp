@@ -4401,7 +4401,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 		if ( fAdjustedForItem )
 		{
 			// If life below thresthold for being injured
-			if ( pSoldier->stats.bLife < INJURED_CHANGE_THREASHOLD )
+			if ( pSoldier->vitals().health() < INJURED_CHANGE_THREASHOLD )
 			{
 				// ADJUST FOR INJURED....
 				for ( cnt = 0; cnt < NUM_INJURED_SUBS; cnt++ )
@@ -4416,7 +4416,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 		else
 		{
 			// If life below thresthold for being injured
-			if ( pSoldier->stats.bLife < INJURED_CHANGE_THREASHOLD )
+			if ( pSoldier->vitals().health() < INJURED_CHANGE_THREASHOLD )
 			{
 				// ADJUST FOR INJURED....
 				for ( cnt = 0; cnt < NUM_INJURED_SUBS; cnt++ )

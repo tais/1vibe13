@@ -1102,7 +1102,7 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 	{
 		pSoldier = pPlayer->pSoldier;
 
-		if ( pSoldier->stats.bLife >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !is_client )
 		{
 			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
@@ -1275,11 +1275,11 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 							{
 								if( !AM_A_ROBOT( pSoldier ) &&
 										!AM_AN_EPC( pSoldier ) &&
-										pSoldier->stats.bLife >= OKLIFE )
+										pSoldier->vitals().health() >= OKLIFE )
 								{
 									fCombatAbleMerc = TRUE;
 								}
-								if( pSoldier->stats.bLife > 0 )
+								if( pSoldier->vitals().health() > 0 )
 								{
 									fAliveMerc = TRUE;
 								}
@@ -1593,12 +1593,12 @@ void AwardExperienceForTravelling( GROUP * pGroup )
 		if( pSoldier	&& !AM_A_ROBOT( pSoldier ) &&
 				!AM_AN_EPC( pSoldier ) && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{
-			if ( pSoldier->stats.bLifeMax < 100 )
+			if ( pSoldier->vitals().maximumHealth() < 100 )
 			{
 				// award exp...
 				// amount was originally based on getting 100-bLifeMax points for 12 hours of travel (720)
 				// but changed to flat rate since StatChange makes roll vs 100-lifemax as well!
-				uiPoints = pGroup->uiTraverseTime / (450 / (100 - pSoldier->stats.bLifeMax ) );
+				uiPoints = pGroup->uiTraverseTime / (450 / (100 - pSoldier->vitals().maximumHealth() ) );
 				if ( uiPoints > 0 )
 				{
 					StatChange( pSoldier, HEALTHAMT, (UINT8) uiPoints, FALSE );
@@ -2359,7 +2359,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 
 		for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
 		{
-			if ( pSoldier && pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
+			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
 			{
 				if ( ( pSoldier->sSectorX == ubSectorX ) && ( pSoldier->sSectorY == ubSectorY ) && ( pSoldier->bSectorZ - 10 == ubSectorZ ) )
 				{
@@ -3530,7 +3530,7 @@ UINT8 PlayerMercsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				while( pPlayer )
 				{
 					// robots count as mercs here, because they can fight, but vehicles don't
-					if( ( pPlayer->pSoldier->stats.bLife ) && !( pPlayer->pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+					if( ( pPlayer->pSoldier->vitals().health() ) && !( pPlayer->pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 					{
 						++ubNumMercs;
 					}
@@ -3559,7 +3559,7 @@ UINT8 PlayerGroupsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				pPlayer = pGroup->pPlayerList;
 				while( pPlayer )
 				{
-					if( pPlayer->pSoldier->stats.bLife )
+					if( pPlayer->pSoldier->vitals().health() )
 					{
 						++ubNumGroups;
 						break;
@@ -4370,7 +4370,7 @@ void CheckMembersOfMvtGroupAndComplainAboutBleeding( SOLDIERTYPE *pSoldier )
 	{
 		pCurrentSoldier = pPlayer->pSoldier;
 
-		if( pCurrentSoldier->bBleeding > 0 )
+		if( pCurrentSoldier->vitals().bleeding() > 0 )
 		{
 			// complain about bleeding
 			TacticalCharacterDialogue( pCurrentSoldier, QUOTE_STARTING_TO_BLEED );
@@ -5026,7 +5026,7 @@ BOOLEAN SpendVehicleFuel( SOLDIERTYPE* pSoldier, INT16 sFuelSpent )
 	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
 	pSoldier->sBreathRed -= sFuelSpent;
 	pSoldier->sBreathRed = (INT16)max( 0, pSoldier->sBreathRed );
-	pSoldier->bBreath = (INT8)((pSoldier->sBreathRed+99) / 100);
+	pSoldier->vitals().breath() = (INT8)((pSoldier->sBreathRed+99) / 100);
 	return( FALSE );
 }
 
@@ -5057,7 +5057,7 @@ void AddFuelToVehicle( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle )
 		sFuelAdded = min( sFuelNeeded, sFuelAvailable );
 		//Add to vehicle
 		pVehicle->sBreathRed += sFuelAdded;
-		pVehicle->bBreath = (INT8)(pVehicle->sBreathRed / 100);
+		pVehicle->vitals().breath() = (INT8)(pVehicle->sBreathRed / 100);
 		//Subtract from item
 		(*pItem)[0]->data.objectStatus = (INT8)((*pItem)[0]->data.objectStatus - sFuelAdded / 50);
 		if( !(*pItem)[0]->data.objectStatus )
@@ -5380,9 +5380,9 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 			for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 			{
 				SOLDIERTYPE *pSoldier = i;
-				if( pSoldier->bActive && pSoldier->stats.bLife && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 				{
-					if ( pSoldier->sSectorX == pGroup->ubSectorX && pSoldier->sSectorY == pGroup->ubSectorY && pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND && pSoldier->stats.bLife >= OKLIFE )
+					if ( pSoldier->sSectorX == pGroup->ubSectorX && pSoldier->sSectorY == pGroup->ubSectorY && pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
 					{
 						if( HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->ubProfile != NO_PROFILE )
 						{
@@ -5870,7 +5870,7 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 	{
 		SOLDIERTYPE *pSoldier = i;
 		if( pSoldier->bActive &&
-			pSoldier->stats.bLife >= OKLIFE &&
+			pSoldier->vitals().health() >= OKLIFE &&
 			pSoldier->sSectorX == ubSectorNumX &&
 			pSoldier->sSectorY == ubSectorNumY &&
 			pSoldier->bAssignment < ON_DUTY &&
@@ -5884,9 +5884,9 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 	/*
 	for( i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; i++ )
 	{
-		if( MercPtrs[ i ]->bActive && MercPtrs[ i ]->stats.bLife && !(MercPtrs[ i ]->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+		if( MercPtrs[ i ]->bActive && MercPtrs[ i ]->vitals().health() && !(MercPtrs[ i ]->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{
-			if ( MercPtrs[ i ]->sSectorX == ubSectorNumX && MercPtrs[ i ]->sSectorY == ubSectorNumY && MercPtrs[ i ]->bAssignment != ASSIGNMENT_POW && MercPtrs[ i ]->stats.bLife >= OKLIFE )
+			if ( MercPtrs[ i ]->sSectorX == ubSectorNumX && MercPtrs[ i ]->sSectorY == ubSectorNumY && MercPtrs[ i ]->bAssignment != ASSIGNMENT_POW && MercPtrs[ i ]->vitals().health() >= OKLIFE )
 			{
 				if( HAS_SKILL_TRAIT( MercPtrs[ i ], SCOUTING_NT ))
 				{
@@ -5909,7 +5909,7 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = i;
-		if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
 		{
 			if ( pSoldier->sSectorX == ubSectorNumX && pSoldier->sSectorY == ubSectorNumY && pSoldier->bSectorZ == 10 )
 			{
@@ -6024,11 +6024,11 @@ void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 s
 							{
 								if ( !AM_A_ROBOT( pSoldier ) &&
 									 !AM_AN_EPC( pSoldier ) &&
-									 pSoldier->stats.bLife >= OKLIFE )
+									 pSoldier->vitals().health() >= OKLIFE )
 								{
 									fCombatAbleMerc = TRUE;
 								}
-								if ( pSoldier->stats.bLife > 0 )
+								if ( pSoldier->vitals().health() > 0 )
 								{
 									fAliveMerc = TRUE;
 								}

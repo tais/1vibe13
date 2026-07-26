@@ -1545,7 +1545,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 
 	pSoldier = ubPerson;	// someone is here, and they're gonna get hurt
 
-	if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->stats.bLife )
+	if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->vitals().health() )
 		return( FALSE );
 
 	if ( pSoldier->ubMiscSoldierFlags & SOLDIER_MISC_HURT_BY_EXPLOSION )
@@ -1654,7 +1654,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 		// we can loose stats due to being hit by the blast
 		else if ( gGameOptions.fNewTraitSystem && Explosive[Item[usItem].ubClassIndex].ubType == EXPLOSV_NORMAL && 
 				  !AM_A_ROBOT( pSoldier ) && !(pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER) && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) &&
-			sNewWoundAmt > 2 && sNewWoundAmt < pSoldier->stats.bLife )
+			sNewWoundAmt > 2 && sNewWoundAmt < pSoldier->vitals().health() )
 		{
 			if ( PreRandom( sNewWoundAmt ) > gSkillTraitValues.ubDamageNeededToLoseStats )
 			{
@@ -1796,9 +1796,9 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 				}
 				else if (ubPickStat < 18 ) // 15% chance to lose Health
 				{
-					if (ubStatLoss >= (pSoldier->stats.bLifeMax - OKLIFE))
+					if (ubStatLoss >= (pSoldier->vitals().maximumHealth() - OKLIFE))
 					{
-						ubStatLoss = pSoldier->stats.bLifeMax - OKLIFE - 1;
+						ubStatLoss = pSoldier->vitals().maximumHealth() - OKLIFE - 1;
 					}
 					if ( ubStatLoss > sNewWoundAmt)
 					{
@@ -1806,13 +1806,13 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 					}
 					if ( ubStatLoss > 0 )
 					{
-						pSoldier->stats.bLifeMax -= ubStatLoss;
-						pSoldier->bBleeding -= ubStatLoss;
+						pSoldier->vitals().maximumHealth() -= ubStatLoss;
+						pSoldier->vitals().bleeding() -= ubStatLoss;
 						pSoldier->ubCriticalStatDamage[DAMAGED_STAT_HEALTH] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bLifeMax = pSoldier->stats.bLifeMax;
+							gMercProfiles[ pSoldier->ubProfile ].bLifeMax = pSoldier->vitals().maximumHealth();
 						}
 
 						if (pSoldier->name[0] && pSoldier->bVisible == TRUE)
@@ -1921,7 +1921,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 	FLOAT fGasBreathDamageModifier = 1.0;
 	INT8	bPosOfMask = NO_SLOT;
 
-	if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->stats.bLife || AM_A_ROBOT( pSoldier ) || ENEMYROBOT( pSoldier ) )
+	if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->vitals().health() || AM_A_ROBOT( pSoldier ) || ENEMYROBOT( pSoldier ) )
 	{
 		return( fRecompileMovementCosts );
 	}
@@ -2146,7 +2146,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 			}
 		}
 
-		if ( pSoldier->stats.bLife >= CONSCIOUSNESS )
+		if ( pSoldier->vitals().health() >= CONSCIOUSNESS )
 		{
 			pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
 		}
@@ -2537,7 +2537,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			if ( sSubsequent > 0 && (gpWorldLevelData[sGridNo].ubExtFlags[bLevel] & ANY_SMOKE_EFFECT) )
 				fRecompileMovementCosts = DishOutGasDamage( pSoldier, pExplosive, sSubsequent, fRecompileMovementCosts, sWoundAmt, sBreathAmt, ubOwner );
 			/*
-			if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->stats.bLife || AM_A_ROBOT( pSoldier ) )
+			if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->vitals().health() || AM_A_ROBOT( pSoldier ) )
 			{
 			return( fRecompileMovementCosts );
 			}
@@ -2659,7 +2659,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			}
 			// a gas effect, take damage directly...
 			pSoldier->SoldierTakeDamage( ANIM_STAND, sWoundAmt, sBreathAmt, TAKE_DAMAGE_GAS, NOBODY, NOWHERE, 0, TRUE );
-			if ( pSoldier->stats.bLife >= CONSCIOUSNESS )
+			if ( pSoldier->vitals().health() >= CONSCIOUSNESS )
 			{
 			pSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_HIT1 + Random( 2 ) ) );
 			}
@@ -3286,7 +3286,7 @@ BOOLEAN HookerInRoom( UINT16 usRoom )
 	{
 		pSoldier = ubLoop;
 
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE && pSoldier->aiData.bNeutral && pSoldier->ubBodyType == MINICIV )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiData.bNeutral && pSoldier->ubBodyType == MINICIV )
 		{
 			if ( InARoom( pSoldier->sGridNo, &usTempRoom ) && usTempRoom == usRoom )
 			{
@@ -4456,7 +4456,7 @@ void HandleExplosionWarningAnimations( )
 									gAnimControl[ubID->usAnimState].ubEndHeight == ANIM_PRONE &&
 									!Water(ubID->sGridNo, ubID->pathing.bLevel) &&
 									pSoldier->ubBodyType <= REGFEMALE &&
-									(ubID->bTeam == pSoldier->bTeam || ubID->IsUnconscious() || ubID->stats.bLife < OKLIFE))
+									(ubID->bTeam == pSoldier->bTeam || ubID->IsUnconscious() || ubID->vitals().health() < OKLIFE))
 								{
 									fShow = TRUE;
 								}
@@ -4507,7 +4507,7 @@ void HandleExplosionWarningAnimations( )
 			if (gGameSettings.fOptions[TOPTION_SHOW_ENEMY_LOCATION] &&
 				GetJa2TacticalCurrentTeam() == gbPlayerNum &&
 				!gTacticalStatus.fAtLeastOneGuyOnMultiSelect &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!pSoldier->IsUnconscious() &&
 				IS_MERC_BODY_TYPE(pSoldier) &&
 				!pSoldier->IsSpotting())
@@ -5340,7 +5340,7 @@ void HandleBuldingDestruction( INT32 sGridNo, SoldierID ubOwner )
 	for ( ; cnt <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++cnt )
 	{
 		pSoldier = cnt;
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife && pSoldier->aiData.bNeutral )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiData.bNeutral )
 		{
 			if ( pSoldier->ubProfile != NO_PROFILE )
 			{
@@ -5891,7 +5891,7 @@ void HandleSeeingPowerGenFan( UINT32 sGridNo )
 			for ( pOtherSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pOtherSoldier++)
 			{
 				//if the soldier is in the sector
-				if( pOtherSoldier->bActive && pOtherSoldier->bInSector && ( pOtherSoldier->stats.bLife >= CONSCIOUSNESS ) )
+				if( pOtherSoldier->bActive && pOtherSoldier->bInSector && ( pOtherSoldier->vitals().health() >= CONSCIOUSNESS ) )
 				{
 					INT16 sDistanceAway;
 

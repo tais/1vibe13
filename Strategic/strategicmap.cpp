@@ -3123,7 +3123,7 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 	// OK, determine entrence direction and get sweetspot
 	// Only if we are an OK guy to control....
 	// SOME CHECKS HERE MUST BE FLESHED OUT......
-	if ( pSoldier->bActive )		// This was in the if, removed by DEF:  pSoldier->stats.bLife >= OKLIFE &&
+	if ( pSoldier->bActive )		// This was in the if, removed by DEF:  pSoldier->vitals().health() >= OKLIFE &&
 	{
 		// If we are not in transit...
 		if ( pSoldier->bAssignment != IN_TRANSIT )
@@ -3977,7 +3977,7 @@ void JumpIntoEscapedSector(UINT8 ubTacticalDirection)
 	{
 		SOLDIERTYPE *pSoldier = id;
 		// Are we not active in sector
-		if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->stats.bLife >= OKLIFE)
+		if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->vitals().health() >= OKLIFE)
 		{
 			continue;
 		}
@@ -4155,7 +4155,7 @@ void AllMercsWalkedToExitGrid( )
 			pPlayer = adjacentGroup->pPlayerList;
 			while ( pPlayer )
 			{
-				if ( pPlayer->pSoldier->stats.bLife < OKLIFE )
+				if ( pPlayer->pSoldier->vitals().health() < OKLIFE )
 				{
 					AddCharacterToUniqueSquad( pPlayer->pSoldier );
 					break;
@@ -4952,7 +4952,7 @@ BOOLEAN CanGoToTacticalInSector( INT16 sX, INT16 sY, UINT8 ubZ )
 	{
 		pSoldier = cnt;
 		// ARM: now allows loading of sector with all mercs below OKLIFE as long as they're alive
-		if( ( pSoldier->bActive && pSoldier->stats.bLife ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( ( pSoldier->bActive && pSoldier->vitals().health() ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 			( pSoldier->bAssignment != IN_TRANSIT ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
 			( pSoldier->bAssignment != ASSIGNMENT_DEAD ) && !SoldierAboardAirborneHeli( pSoldier )
 			)
@@ -6134,7 +6134,7 @@ void HandleSlayDailyEvent( void )
 	}
 
 	// valid soldier?
-	if ( (pSoldier->bActive == FALSE) || (pSoldier->stats.bLife == 0) || (pSoldier->bAssignment == IN_TRANSIT) || (pSoldier->bAssignment == ASSIGNMENT_POW) || (pSoldier->bAssignment == ASSIGNMENT_MINIEVENT) || (pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND) )
+	if ( (pSoldier->bActive == FALSE) || (pSoldier->vitals().health() == 0) || (pSoldier->bAssignment == IN_TRANSIT) || (pSoldier->bAssignment == ASSIGNMENT_POW) || (pSoldier->bAssignment == ASSIGNMENT_MINIEVENT) || (pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND) )
 	{
 		// no
 		return;
@@ -6301,7 +6301,7 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 	for ( SoldierID i = gTacticalStatus.Team[ENEMY_TEAM].bFirstID; i <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++i )
 	{
 		SOLDIERTYPE *pEnemy = i;
-		if ( pEnemy->bActive && pEnemy->stats.bLife )
+		if ( pEnemy->bActive && pEnemy->vitals().health() )
 		{
 			if ( pEnemy->sSectorX == pSectorX &&
 				 pEnemy->sSectorY == pSectorY &&
@@ -6310,7 +6310,7 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 				for ( SoldierID j = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; j <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; ++j )
 				{
 					SOLDIERTYPE *pMilitia = j;
-					if ( pMilitia->bActive && pMilitia->stats.bLife && pMilitia->bSide == OUR_TEAM )
+					if ( pMilitia->bActive && pMilitia->vitals().health() && pMilitia->bSide == OUR_TEAM )
 					{
 						if ( pMilitia->sSectorX == pSectorX &&
 							 pMilitia->sSectorY == pSectorY &&
@@ -6378,7 +6378,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 			for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 			{ //If we have a live and valid soldier
 				SOLDIERTYPE *pSoldier = i;
-				if ( pSoldier->bActive && pSoldier->stats.bLife && !pSoldier->flags.fBetweenSectors && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
+				if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 				{
 					if ( pSoldier->sSectorX == gWorldSectorX &&
 						 pSoldier->sSectorY == gWorldSectorY &&
@@ -6396,7 +6396,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 		{ //If we have a live and valid soldier
 			SOLDIERTYPE *pSoldier = i;
-			if ( pSoldier->bActive && pSoldier->stats.bLife && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
+			if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 			{
 				if ( pSoldier->sSectorX == gWorldSectorX &&
 					 pSoldier->sSectorY == gWorldSectorY &&
@@ -7647,7 +7647,7 @@ BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridN
 	cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
 	for ( pSoldier = MercPtrs[cnt]; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++, pSoldier++ )
 	{
-		if ( pSoldier->stats.bLife >= OKLIFE && pSoldier->bActive && pSoldier->bInSector &&
+		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector &&
 			 pSoldier->sGridNo == sSourceGridNo )
 		{
 			pSoldier->SetSoldierHeight( 50.0 );

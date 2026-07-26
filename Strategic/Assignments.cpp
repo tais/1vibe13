@@ -878,7 +878,7 @@ BOOLEAN CanCharacterDoctorButDoesntHaveMedKit( SOLDIERTYPE *pSoldier )
 	}
 
 	// make sure character is alive and conscious
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -1391,7 +1391,7 @@ static BOOLEAN BasicCanCharacterRepair( SOLDIERTYPE * pSoldier )
 	}
 
 	// make sure character is alive and oklife
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -1535,7 +1535,7 @@ BOOLEAN CanCharacterPatient( SOLDIERTYPE *pSoldier )
 
 	// SANDRO - changed a bit
 	// is character alive?
-	if( pSoldier->stats.bLife <= 0 ) 
+	if( pSoldier->vitals().health() <= 0 )
 	{
 		// dead
 		return ( FALSE );
@@ -1584,7 +1584,7 @@ BOOLEAN CanCharacterPatient( SOLDIERTYPE *pSoldier )
 		return TRUE;
 
 	// if we don't have damaged stat, look if we need healing
-	if ( pSoldier->stats.bLife == pSoldier->stats.bLifeMax )
+	if ( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() )
 		return( FALSE );
 
 	// alive and can be healed
@@ -1608,7 +1608,7 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 
 	// make sure character is alive and conscious
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -1729,7 +1729,7 @@ BOOLEAN BasicCanCharacterDrillMilitia( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 
 	// make sure character is alive and conscious
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -2074,7 +2074,7 @@ INT8 CountMilitiaTrainersInSoldiersSector( SOLDIERTYPE * pSoldier, UINT8 ubMilit
 
 	for ( SoldierID OtherSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; OtherSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++OtherSoldier )
 	{
-		if ( pSoldier != OtherSoldier && OtherSoldier->bActive && OtherSoldier->stats.bLife >= OKLIFE && OtherSoldier->sSectorX == pSoldier->sSectorX && OtherSoldier->sSectorY == pSoldier->sSectorY && pSoldier->bSectorZ == OtherSoldier->bSectorZ )
+		if ( pSoldier != OtherSoldier && OtherSoldier->bActive && OtherSoldier->vitals().health() >= OKLIFE && OtherSoldier->sSectorX == pSoldier->sSectorX && OtherSoldier->sSectorY == pSoldier->sSectorY && pSoldier->bSectorZ == OtherSoldier->bSectorZ )
 		{
 			// Count depends on Militia Type requested
 			if (ubMilitiaType == TOWN_MILITIA && OtherSoldier->bAssignment == TRAIN_TOWN )
@@ -2144,7 +2144,7 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 		return( FALSE );
 
 	// alive and conscious
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -2220,13 +2220,13 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 		break;
 		case( HEALTH ):
 			// health
-			if ( pSoldier->stats.bLifeMax < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->vitals().maximumHealth() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bLifeMax < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->vitals().maximumHealth() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bLifeMax >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->vitals().maximumHealth() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
@@ -2325,7 +2325,7 @@ BOOLEAN CanCharacterOnDuty( SOLDIERTYPE *pSoldier )
 
 	// only need to be alive and well to do so right now
 	// alive and conscious
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -2397,7 +2397,7 @@ BOOLEAN CanCharacterPractise( SOLDIERTYPE *pSoldier )
 
 	// only need to be alive and well to do so right now
 	// alive and conscious
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -2492,7 +2492,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 	AssertNotNIL(pSoldier);
 
 	// dead or dying?
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		return( FALSE );
 	}
@@ -2580,7 +2580,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 	// not tired?
 	// HEADROCK HAM 3.5: Facilities can now reduce the maximum fatigue.
 
-	if( pSoldier->bBreathMax >= __min(BREATHMAX_FULLY_RESTED, GetSectorModifier( pSoldier, FACILITY_MAX_BREATH ) ) )
+	if( pSoldier->vitals().maximumBreath() >= __min(BREATHMAX_FULLY_RESTED, GetSectorModifier( pSoldier, FACILITY_MAX_BREATH ) ) )
 	{
 		if( fExplainWhyNot )
 		{
@@ -2602,7 +2602,7 @@ BOOLEAN CanCharacterBeAwakened( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 	AssertNotNIL(pSoldier);
 
 	// if dead tired
-	if( ( pSoldier->bBreathMax <= BREATHMAX_ABSOLUTE_MINIMUM ) && !pSoldier->flags.fMercCollapsedFlag )
+	if( ( pSoldier->vitals().maximumBreath() <= BREATHMAX_ABSOLUTE_MINIMUM ) && !pSoldier->flags.fMercCollapsedFlag )
 	{
 		// should be collapsed, then!
 		pSoldier->flags.fMercCollapsedFlag = TRUE;
@@ -2641,7 +2641,7 @@ BOOLEAN CanCharacterVehicle( SOLDIERTYPE *pSoldier )
 
 	// only need to be alive and well to do so right now
 	// alive and conscious
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -2716,7 +2716,7 @@ INT8 CanCharacterSquad( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
 	}
 
 	// is the character alive and well?
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( CHARACTER_CANT_JOIN_SQUAD );
@@ -2794,7 +2794,7 @@ BOOLEAN CanCharacterSnitch( SOLDIERTYPE *pSoldier )
 
 	// only need to be alive and well to do so right now
 	// alive and conscious
-	if (pSoldier->stats.bLife < OKLIFE)
+	if (pSoldier->vitals().health() < OKLIFE)
 	{
 		// dead or unconscious...
 		return (FALSE);
@@ -3799,7 +3799,7 @@ FLOAT GetBestSAMOperatorCTH_Player( INT16 sSectorX, INT16 sSectorY, INT16 sSecto
 
 	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
 	{
-		if ( pSoldier && pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && (pSoldier->sSectorX == sSectorX) && (pSoldier->sSectorY == sSectorY) && (pSoldier->bSectorZ == sSectorZ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && (pSoldier->sSectorX == sSectorX) && (pSoldier->sSectorY == sSectorY) && (pSoldier->bSectorZ == sSectorZ) )
 		{
 			INT16 personal_bestsamcth = 70.0f +
 				15 * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) +
@@ -3922,7 +3922,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 			{
 				case 0:
 					// drowning
-					while( ubReactionTime > 0 && usDamageTaken < pSoldier->bBreathMax )
+					while( ubReactionTime > 0 && usDamageTaken < pSoldier->vitals().maximumBreath() )
 					{	
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
@@ -3938,9 +3938,9 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 					}
 					// instead of normal damage take breath damage
 					//pSoldier->SoldierTakeDamage( 0, 0, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
-					pSoldier->bBreath = max( 0, pSoldier->bBreath - usDamageTaken );
+					pSoldier->vitals().breath() = max( 0, pSoldier->vitals().breath() - usDamageTaken );
 					// he drowned?
-					if( pSoldier->bBreath == 0 )
+					if( pSoldier->vitals().breath() == 0 )
 					{
 						// dead
 						pSoldier->SoldierTakeDamage( 0, 100, 100, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
@@ -3953,7 +3953,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 					break;
 				case 1:
 					// beating
-					while( ubReactionTime > 0 && usDamageTaken < pSoldier->bBreathMax )
+					while( ubReactionTime > 0 && usDamageTaken < pSoldier->vitals().maximumBreath() )
 					{			
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
@@ -3969,7 +3969,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 					}
 					// he's dead?
 					pSoldier->SoldierTakeDamage( 0, usDamageTaken, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
-					if( pSoldier->stats.bLife == 0 )
+					if( pSoldier->vitals().health() == 0 )
 					{
 						ScreenMsg( FONT_DKRED, MSG_INTERFACE, pSnitchPrisonExposedStrings[ SNITCH_PRISON_EXPOSED_DEAD_BEATEN], pSoldier->GetName() );
 					}
@@ -3980,7 +3980,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 					break;
 				case 2:
 					// knifing
-					while( ubReactionTime > 0 && usDamageTaken < pSoldier->stats.bLife )
+					while( ubReactionTime > 0 && usDamageTaken < pSoldier->vitals().health() )
 					{			
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
@@ -3996,7 +3996,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 					}
 					pSoldier->SoldierTakeDamage( 0, usDamageTaken, usDamageTaken, TAKE_DAMAGE_BLADE, NOBODY, NOWHERE, 0, TRUE );
 					// he's dead?
-					if( pSoldier->stats.bLife == 0 )
+					if( pSoldier->vitals().health() == 0 )
 					{		
 						ScreenMsg( FONT_DKRED, MSG_INTERFACE, pSnitchPrisonExposedStrings[ SNITCH_PRISON_EXPOSED_DEAD_KNIFED], pSoldier->GetName() );
 					}
@@ -4007,7 +4007,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 					break;
 				case 3:
 					// strangulation
-					while( ubReactionTime > 0 && usDamageTaken < pSoldier->bBreathMax )
+					while( ubReactionTime > 0 && usDamageTaken < pSoldier->vitals().maximumBreath() )
 					{			
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
@@ -4023,9 +4023,9 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 					}
 					// instead of normal damage take breath damage
 					//pSoldier->SoldierTakeDamage( 0, 0, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
-					pSoldier->bBreath = max( 0, pSoldier->bBreath - usDamageTaken );
+					pSoldier->vitals().breath() = max( 0, pSoldier->vitals().breath() - usDamageTaken );
 					// he's strangled?
-					if( pSoldier->bBreath == 0 )
+					if( pSoldier->vitals().breath() == 0 )
 					{
 						// dead
 						pSoldier->SoldierTakeDamage( 0, 100, 100, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
@@ -4215,7 +4215,7 @@ void UpdatePatientsWhoAreDoneHealing( void )
 		if( pTeamSoldier->bActive )
 		{
 			// patient who doesn't need healing or curing
-			if ( IS_PATIENT(pTeamSoldier->bAssignment) && !IS_DOCTOR(pTeamSoldier->bAssignment) && (pTeamSoldier->stats.bLife == pTeamSoldier->stats.bLifeMax) && pTeamSoldier->HasDisease(TRUE, TRUE) )
+			if ( IS_PATIENT(pTeamSoldier->bAssignment) && !IS_DOCTOR(pTeamSoldier->bAssignment) && (pTeamSoldier->vitals().health() == pTeamSoldier->vitals().maximumHealth()) && pTeamSoldier->HasDisease(TRUE, TRUE) )
 			{
 				// Flugente: stats can also be damaged
 				if ( !UsingFoodSystem() || ( pTeamSoldier->bFoodLevel > FoodMoraleMods[FOOD_NORMAL].bThreshold && pTeamSoldier->bDrinkLevel > FoodMoraleMods[FOOD_NORMAL].bThreshold) )
@@ -4301,7 +4301,7 @@ void HealCharacters( SOLDIERTYPE *pDoctor, INT16 sX, INT16 sY, INT8 bZ )
 							else
 							{
 								// check to see if this guy is hurt worse than anyone previous?
-								if( pTeamSoldier->stats.bLife < pWorstHurtSoldier->stats.bLife )
+								if( pTeamSoldier->vitals().health() < pWorstHurtSoldier->vitals().health() )
 								{
 									// he is now the worse hurt guy
 									pWorstHurtSoldier = pTeamSoldier;
@@ -4437,7 +4437,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 	}
 
 	// if dead
-	if ( pSoldier->stats.bLife == 0) 
+	if ( pSoldier->vitals().health() == 0)
 	{
 		return(FALSE);
 	}
@@ -4489,7 +4489,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 	BOOLEAN fDisease = pSoldier->HasDisease( TRUE, TRUE );
 
 	// if we have no damaged stat and don't need healing
-	if ( !fHealDamagedStat && !fDisease && (pSoldier->stats.bLife == pSoldier->stats.bLifeMax) )
+	if ( !fHealDamagedStat && !fDisease && (pSoldier->vitals().health() == pSoldier->vitals().maximumHealth()) )
 	{
 		// cannot be healed
 		return( FALSE );
@@ -4501,10 +4501,10 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 // get the minimum skill to handle a character under OKLIFE
 UINT8 GetMinHealingSkillNeeded( SOLDIERTYPE *pPatient )
 {
-	if( pPatient->stats.bLife < OKLIFE )
+	if( pPatient->vitals().health() < OKLIFE )
 	{
 		// less than ok life, return skill needed
-		return( gGameExternalOptions.ubBaseMedicalSkillToDealWithEmergency + ( gGameExternalOptions.ubMultiplierForDifferenceInLifeValueForEmergency * ( OKLIFE - pPatient->stats.bLife ) ) );
+		return( gGameExternalOptions.ubBaseMedicalSkillToDealWithEmergency + ( gGameExternalOptions.ubMultiplierForDifferenceInLifeValueForEmergency * ( OKLIFE - pPatient->vitals().health() ) ) );
 	}
 
 	// only need some skill
@@ -4569,14 +4569,14 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 
 	//////// DETERMINE LIFE HEAL ////////////////////
 	// Look how much life do we need to heal
-	sHundredsToHeal = (pPatient->stats.bLifeMax - pPatient->stats.bLife) * 100;
+	sHundredsToHeal = (pPatient->vitals().maximumHealth() - pPatient->vitals().health()) * 100;
 
 	// negative life hundreds also need to be healed
 	if ( pPatient->sFractLife < 0 )
 		sHundredsToHeal += -pPatient->sFractLife;
 
-	if ( pPatient->stats.bLife < OKLIFE )
-		sHundredsToHeal += 100 * ((OKLIFE - pPatient->stats.bLife) * gGameExternalOptions.ubPointCostPerHealthBelowOkLife);
+	if ( pPatient->vitals().health() < OKLIFE )
+		sHundredsToHeal += 100 * ((OKLIFE - pPatient->vitals().health()) * gGameExternalOptions.ubPointCostPerHealthBelowOkLife);
 
 	if ( sHundredsToHeal > 0 )
 		fWillHealLife = TRUE;
@@ -4672,20 +4672,20 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 		//  add life points to sFractLife. Add a lifepoint for every 100 hundreds
 		pPatient->sFractLife += sHundredsToHeal_Used_withmodifier;
 		
-		if ( pPatient->stats.bLife >= OKLIFE && pPatient->sFractLife >= 100 )
+		if ( pPatient->vitals().health() >= OKLIFE && pPatient->sFractLife >= 100 )
 		{
 			// convert fractions into full points
 			bPointsHealed = (pPatient->sFractLife / 100);
 			pPatient->sFractLife %= 100;
 
-			pPatient->stats.bLife = min( pPatient->stats.bLifeMax, (pPatient->stats.bLife + bPointsHealed) );
+			pPatient->vitals().health() = min( pPatient->vitals().maximumHealth(), (pPatient->vitals().health() + bPointsHealed) );
 		}
-		else if ( pPatient->stats.bLife < OKLIFE && ((pPatient->sFractLife / gGameExternalOptions.ubPointCostPerHealthBelowOkLife) >= 100) )
+		else if ( pPatient->vitals().health() < OKLIFE && ((pPatient->sFractLife / gGameExternalOptions.ubPointCostPerHealthBelowOkLife) >= 100) )
 		{
 			bPointsHealed = ((pPatient->sFractLife / gGameExternalOptions.ubPointCostPerHealthBelowOkLife) / 100);
 			pPatient->sFractLife %= 100;
 
-			pPatient->stats.bLife = min( pPatient->stats.bLifeMax, (pPatient->stats.bLife + bPointsHealed) );
+			pPatient->vitals().health() = min( pPatient->vitals().maximumHealth(), (pPatient->vitals().health() + bPointsHealed) );
 		}
 		
 		// when being healed normally, reduce insta-healable HPs value 
@@ -4726,7 +4726,7 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 		ScreenMsg( FONT_MCOLOR_RED, MSG_TESTVERSION, L"Warning! HealPatient uses more points than it should!" );
 
 	// if this patient is fully healed and cured
-	if ( !pDoctor && pPatient->stats.bLife == pPatient->stats.bLifeMax && !NumberOfDamagedStats( pPatient ) && !pPatient->HasDisease( TRUE, TRUE ) )
+	if ( !pDoctor && pPatient->vitals().health() == pPatient->vitals().maximumHealth() && !NumberOfDamagedStats( pPatient ) && !pPatient->HasDisease( TRUE, TRUE ) )
 	{
 		AssignmentDone( pPatient, TRUE, TRUE );
 	}
@@ -5785,27 +5785,27 @@ BOOLEAN IsItemCleanable( SOLDIERTYPE* pSoldier, UINT16 usItem, INT16 bStatus, IN
 void RestCharacter( SOLDIERTYPE *pSoldier )
 {
 	// handle the sleep of this character, update bBreathMax based on sleep they have	
-	pSoldier->bBreathMax += pSoldier->GetSleepBreathRegeneration( );
+	pSoldier->vitals().maximumBreath() += pSoldier->GetSleepBreathRegeneration( );
 
 	// Flugente: diseases can affect stat effectivity
 	UINT16 diseasemaxbreathreduction = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 		diseasemaxbreathreduction += Disease[i].usMaxBreath * pSoldier->GetDiseaseMagnitude( i );
 
-	pSoldier->bBreathMax = min( pSoldier->bBreathMax, 100 - diseasemaxbreathreduction );
+	pSoldier->vitals().maximumBreath() = min( pSoldier->vitals().maximumBreath(), 100 - diseasemaxbreathreduction );
 
-	if( pSoldier->bBreathMax > 100 )
+	if( pSoldier->vitals().maximumBreath() > 100 )
 	{
-		pSoldier->bBreathMax = 100;
+		pSoldier->vitals().maximumBreath() = 100;
 	}
-	else if( pSoldier->bBreathMax < BREATHMAX_ABSOLUTE_MINIMUM )
+	else if( pSoldier->vitals().maximumBreath() < BREATHMAX_ABSOLUTE_MINIMUM )
 	{
-		pSoldier->bBreathMax = BREATHMAX_ABSOLUTE_MINIMUM;
+		pSoldier->vitals().maximumBreath() = BREATHMAX_ABSOLUTE_MINIMUM;
 	}
 
-	pSoldier->bBreath = pSoldier->bBreathMax;
+	pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
 
-	if ( pSoldier->bBreathMax >= BREATHMAX_CANCEL_TIRED )
+	if ( pSoldier->vitals().maximumBreath() >= BREATHMAX_CANCEL_TIRED )
 	{
 		pSoldier->flags.fComplainedThatTired = FALSE;
 	}
@@ -5897,7 +5897,7 @@ void FatigueCharacter( SOLDIERTYPE *pSoldier )
 	}
 
 	// if breath max is below the "really tired" threshold
-	if( pSoldier->bBreathMax < BREATHMAX_PRETTY_TIRED )
+	if( pSoldier->vitals().maximumBreath() < BREATHMAX_PRETTY_TIRED )
 	{
 		// real tired, fatigue rate is 50% higher
 		bMaxBreathLoss = ( bMaxBreathLoss * 3 / 2 );
@@ -5986,22 +5986,22 @@ void FatigueCharacter( SOLDIERTYPE *pSoldier )
 		if (Chance( (UINT32)(bMaxBreathLoss) ) )
 			bMaxBreathTaken += 1;
 	}
-	pSoldier->bBreathMax -= bMaxBreathTaken;
+	pSoldier->vitals().maximumBreath() -= bMaxBreathTaken;
 	/////////////////////////////////////
 
-	if( pSoldier->bBreathMax > 100 )
+	if( pSoldier->vitals().maximumBreath() > 100 )
 	{
-		pSoldier->bBreathMax = 100;
+		pSoldier->vitals().maximumBreath() = 100;
 	}
-	else if( pSoldier->bBreathMax < BREATHMAX_ABSOLUTE_MINIMUM )
+	else if( pSoldier->vitals().maximumBreath() < BREATHMAX_ABSOLUTE_MINIMUM )
 	{
-		pSoldier->bBreathMax = BREATHMAX_ABSOLUTE_MINIMUM;
+		pSoldier->vitals().maximumBreath() = BREATHMAX_ABSOLUTE_MINIMUM;
 	}
 
 	// current breath can't exceed maximum
-	if( pSoldier->bBreath > pSoldier->bBreathMax )
+	if( pSoldier->vitals().breath() > pSoldier->vitals().maximumBreath() )
 	{
-		pSoldier->bBreath = pSoldier->bBreathMax;
+		pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
 	}
 }
 
@@ -7353,8 +7353,8 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 			bTrainerNatSkill = pInstructor->stats.bAgility;
 		break;
 		case( HEALTH ):
-			bTrainerEffSkill = pInstructor->stats.bLifeMax;
-			bTrainerNatSkill = pInstructor->stats.bLifeMax;
+			bTrainerEffSkill = pInstructor->vitals().maximumHealth();
+			bTrainerNatSkill = pInstructor->vitals().maximumHealth();
 		break;
 		case( LEADERSHIP ):
 			bTrainerEffSkill = EffectiveLeadership( pInstructor );
@@ -7413,7 +7413,7 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 				bTraineeSkill = pStudent->stats.bAgility;
 			break;
 			case( HEALTH ):
-				bTraineeSkill = pStudent->stats.bLifeMax;
+				bTraineeSkill = pStudent->vitals().maximumHealth();
 			break;
 			case( LEADERSHIP ):
 				bTraineeSkill = pStudent->stats.bLeadership;
@@ -7564,7 +7564,7 @@ INT16 GetSoldierTrainingPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pus
 			bSkill = pSoldier->stats.bAgility;
 		break;
 		case( HEALTH ):
-			bSkill = pSoldier->stats.bLifeMax;
+			bSkill = pSoldier->vitals().maximumHealth();
 		break;
 		case( LEADERSHIP ):
 			bSkill = pSoldier->stats.bLeadership;
@@ -7691,7 +7691,7 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 			bSkill = pSoldier->stats.bAgility;
 		break;
 		case( HEALTH ):
-			bSkill = pSoldier->stats.bLifeMax;
+			bSkill = pSoldier->vitals().maximumHealth();
 		break;
 		case( LEADERSHIP ):
 			bSkill = pSoldier->stats.bLeadership;
@@ -9271,7 +9271,7 @@ INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts )
 void MakeSoldiersTacticalAnimationReflectAssignment( SOLDIERTYPE *pSoldier )
 {
 	// soldier is in tactical, world loaded, he's OKLIFE
-	if( ( pSoldier->bInSector ) && IsJa2TacticalWorldLoaded() && ( pSoldier->stats.bLife >= OKLIFE ) )
+	if( ( pSoldier->bInSector ) && IsJa2TacticalWorldLoaded() && ( pSoldier->vitals().health() >= OKLIFE ) )
 	{
 		// Set animation based on his assignment
 		if ( IS_DOCTOR(pSoldier->bAssignment) )
@@ -9440,19 +9440,19 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 	}
 
 	// dead
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		return;
 	}
 
 	// lost any pts?
-	if ( pSoldier->stats.bLife == pSoldier->stats.bLifeMax && !pSoldier->HasDisease( FALSE, FALSE ) )
+	if ( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() && !pSoldier->HasDisease( FALSE, FALSE ) )
 	{
 		return;
 	}
 
 	// any bleeding pts - can't recover if still bleeding!
-	if( pSoldier->bBleeding != 0 )
+	if( pSoldier->vitals().bleeding() != 0 )
 	{
 		return;
 	}
@@ -9495,7 +9495,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 	}
 
 	// what percentage of health is he down to
-	uiPercentHealth = ( pSoldier->stats.bLife * 100 ) / pSoldier->stats.bLifeMax;
+	uiPercentHealth = ( pSoldier->vitals().health() * 100 ) / pSoldier->vitals().maximumHealth();
 	
 	// SANDRO - experimental - increase health regeneration of soldiers when doctors are around
 	if ( gGameOptions.fNewTraitSystem )
@@ -9511,7 +9511,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 			{
 				continue; // NEXT!!!
 			}
-			if (pMedic->stats.bLife >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0 
+			if (pMedic->vitals().health() >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0
 				&& pMedic->ubID != pSoldier->ubID && HAS_SKILL_TRAIT( pMedic, DOCTOR_NT ))
 			{
 				bRegenerationBonus += NUM_SKILL_TRAITS( pMedic, DOCTOR_NT );
@@ -9553,21 +9553,21 @@ void UpDateSoldierLife( SOLDIERTYPE *pSoldier )
 	// update soldier life, make sure we don't go out of bounds
 	INT8 sAddedLife		 = pSoldier->sFractLife/100;
 	
-	INT8 oldlife = pSoldier->stats.bLife;
-	pSoldier->stats.bLife += sAddedLife;
+	INT8 oldlife = pSoldier->vitals().health();
+	pSoldier->vitals().health() += sAddedLife;
 
 	// if we fall below OKLIFE, we start bleeding again...
-	if ( pSoldier->stats.bLife < OKLIFE && oldlife >= OKLIFE && sAddedLife < 0 )
+	if ( pSoldier->vitals().health() < OKLIFE && oldlife >= OKLIFE && sAddedLife < 0 )
 	{
-		/*pSoldier->stats.bLife = 0;
+		/*pSoldier->vitals().health() = 0;
 		BOOLEAN fMadeCorpse;
 		HandleSoldierDeath( pSoldier, &fMadeCorpse );*/
 
-		pSoldier->bBleeding = pSoldier->stats.bLifeMax - pSoldier->stats.bLife;
+		pSoldier->vitals().bleeding() = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health();
 	}
 
 	// Autobandage assigned patients - they might still show bleeding for the first minute, but I haven't seen them lose life from it yet.
-	if (pSoldier->bBleeding > 0)
+	if (pSoldier->vitals().bleeding() > 0)
 		AddStrategicEvent( EVENT_BANDAGE_BLEEDING_MERCS, GetWorldTotalMin() + 1, 0 );
 
 	// SANDRO - when being healed normally, reduce insta-healable HPs value 
@@ -9583,10 +9583,10 @@ void UpDateSoldierLife( SOLDIERTYPE *pSoldier )
 	pSoldier->sFractLife %= 100;
 
 	// check if we have gone too far
-	if( pSoldier->stats.bLife >= pSoldier->stats.bLifeMax )
+	if( pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() )
 	{
 		// reduce
-		pSoldier->stats.bLife = pSoldier->stats.bLifeMax;
+		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 
 		// only set sFractLife to be 0 if > 0
 		if ( pSoldier->sFractLife > 0 )
@@ -9637,7 +9637,7 @@ void CreateDestroyMouseRegionsForAssignmentMenu( void )
 			return;
 		}
 
-		if( ( gCharactersList[bSelectedAssignChar].usSolID->stats.bLife == 0 ) || ( gCharactersList[bSelectedAssignChar].usSolID->bAssignment == ASSIGNMENT_POW ) )
+		if( ( gCharactersList[bSelectedAssignChar].usSolID->vitals().health() == 0 ) || ( gCharactersList[bSelectedAssignChar].usSolID->bAssignment == ASSIGNMENT_POW ) )
 		{
 			// dead guy handle menu stuff
 			fShowRemoveMenu = fShowAssignmentMenu | fShowContractMenu;
@@ -11109,7 +11109,7 @@ void DetermineWhichAssignmentMenusCanBeShown( void )
 	CreateDestroyMouseRegionsForFacilityAssignmentMenu();
 
 	const auto selectedCharacter = gCharactersList[bSelectedInfoChar].usSolID;
-	if( selectedCharacter < NOBODY && ( (selectedCharacter->stats.bLife == 0 )||(selectedCharacter->bAssignment == ASSIGNMENT_POW ) ) && ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) ) )
+	if( selectedCharacter < NOBODY && ( (selectedCharacter->vitals().health() == 0 )||(selectedCharacter->bAssignment == ASSIGNMENT_POW ) ) && ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) ) )
 	{
 		// show basic assignment menu
 		ShowBox( ghRemoveMercAssignBox );
@@ -11591,7 +11591,7 @@ void CreateDestroyMouseRegionsForContractMenu( void )
 
 			return;
 		}
-		if( gCharactersList[bSelectedContractChar].usSolID->stats.bLife == 0 )
+		if( gCharactersList[bSelectedContractChar].usSolID->vitals().health() == 0 )
 		{
 
 			// dead guy handle menu stuff
@@ -12698,7 +12698,7 @@ void RemoveMercMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 {
 	// This function will setup the quote, then start dialogue beginning the actual leave sequence
-	if( ( pSoldier->stats.bLife > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) )
+	if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) )
 	{
 
 #ifdef JA2UB	
@@ -12722,7 +12722,7 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 		BOOLEAN	fAmIaRobot = AM_A_ROBOT( pSoldier );
 
 		// Flugente: If merc is unconscious, just fire him anyway (if talking stuff is called, this leads to a geme lock)
-		if (!fAmIaRobot && pSoldier->stats.bLife > CONSCIOUSNESS )
+		if (!fAmIaRobot && pSoldier->vitals().health() > CONSCIOUSNESS )
 		{
 			if( ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC ) || ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC ) )
 			{
@@ -13796,7 +13796,7 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 			if ( bSlot == NO_SLOT )
 				continue;// no medical kit!
 
-			if ( pMedic->stats.bLife >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) )
+			if ( pMedic->vitals().health() >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) )
 			{
 				if ( pBestMedic != NULL )
 				{
@@ -16433,15 +16433,15 @@ void HandleRestFatigueAndSleepStatus( void )
 			{
 				// Find maximum breath allowed by facilities (lowest limit found will be used)
 				UINT8 ubMaxFatigue = (UINT8)GetSectorModifier( pSoldier, FACILITY_MAX_BREATH );
-				if ( ubMaxFatigue > 0 && pSoldier->bBreathMax > ubMaxFatigue )
+				if ( ubMaxFatigue > 0 && pSoldier->vitals().maximumBreath() > ubMaxFatigue )
 				{
 					// Normalize to the maximum allowed here.
-					pSoldier->bBreathMax = (pSoldier->bBreathMax + ubMaxFatigue) / 2;
+					pSoldier->vitals().maximumBreath() = (pSoldier->vitals().maximumBreath() + ubMaxFatigue) / 2;
 
-					if (pSoldier->bBreath > pSoldier->bBreathMax)
+					if (pSoldier->vitals().breath() > pSoldier->vitals().maximumBreath())
 					{
 						// Adjust breath to max.
-						pSoldier->bBreath = pSoldier->bBreathMax;
+						pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
 					}
 				}
 			}
@@ -16452,7 +16452,7 @@ void HandleRestFatigueAndSleepStatus( void )
 			if ( !pSoldier->flags.fMercAsleep )
 			{
 				// if dead tired
-				if( pSoldier->bBreathMax <= BREATHMAX_ABSOLUTE_MINIMUM )
+				if( pSoldier->vitals().maximumBreath() <= BREATHMAX_ABSOLUTE_MINIMUM )
 				{
 					// if between sectors, don't put tired mercs to sleep...	will be handled when they arrive at the next sector
 					if ( pSoldier->flags.fBetweenSectors )
@@ -16481,7 +16481,7 @@ void HandleRestFatigueAndSleepStatus( void )
 					}
 				}
 				// if pretty tired, and not forced to stay awake
-				else if( ( pSoldier->bBreathMax < BREATHMAX_PRETTY_TIRED ) && ( pSoldier->flags.fForcedToStayAwake == FALSE ) )
+				else if( ( pSoldier->vitals().maximumBreath() < BREATHMAX_PRETTY_TIRED ) && ( pSoldier->flags.fForcedToStayAwake == FALSE ) )
 				{
 					// if not on squad/ in vehicle
 					if( ( pSoldier->bAssignment >= ON_DUTY ) && ( pSoldier->bAssignment != VEHICLE ) )
@@ -16569,7 +16569,7 @@ void HandleRestFatigueAndSleepStatus( void )
 
 			// CHECK FOR MERCS WAKING UP
 
-			if ( pSoldier->bBreathMax >= BREATHMAX_CANCEL_COLLAPSE )
+			if ( pSoldier->vitals().maximumBreath() >= BREATHMAX_CANCEL_COLLAPSE )
 			{
 				// reset the collapsed flag well before reaching the wakeup state
 				pSoldier->flags.fMercCollapsedFlag = FALSE;
@@ -16581,7 +16581,7 @@ void HandleRestFatigueAndSleepStatus( void )
 			{
 				// but has had enough rest?
 				// HEADROCK HAM 3.5: Facilities can reduce maximum fatigue below 95...
-				if( pSoldier->bBreathMax >= __min(BREATHMAX_FULLY_RESTED, GetSectorModifier( pSoldier, FACILITY_MAX_BREATH ) ) )
+				if( pSoldier->vitals().maximumBreath() >= __min(BREATHMAX_FULLY_RESTED, GetSectorModifier( pSoldier, FACILITY_MAX_BREATH ) ) )
 				{
 					// try to wake merc up
 					if( SetMercAwake( pSoldier, FALSE, FALSE ) )
@@ -16725,7 +16725,7 @@ BOOLEAN CanCharacterRepairRobot( SOLDIERTYPE *pSoldier )
 	}
 
 	// if robot isn't damaged at all
-	if( pRobot->stats.bLife == pRobot->stats.bLifeMax )
+	if( pRobot->vitals().health() == pRobot->vitals().maximumHealth() )
 	{
 		return( FALSE );
 	}
@@ -16775,33 +16775,33 @@ UINT8 RepairRobot( SOLDIERTYPE *pRobot, UINT8 ubRepairPts, BOOLEAN *pfNothingLef
 
 
 	// is it "dead" ?
-	if( pRobot->stats.bLife == 0 )
+	if( pRobot->vitals().health() == 0 )
 	{
 		*pfNothingLeftToRepair = TRUE;
 		return( ubPointsUsed );
 	}
 
 	// is it "unhurt" ?
-	if( pRobot->stats.bLife == pRobot->stats.bLifeMax )
+	if( pRobot->vitals().health() == pRobot->vitals().maximumHealth() )
 	{
 		*pfNothingLeftToRepair = TRUE;
 		return( ubPointsUsed );
 	}
 
 	// if we have enough or more than we need
-	if( pRobot->stats.bLife + ubRepairPts >= pRobot->stats.bLifeMax )
+	if( pRobot->vitals().health() + ubRepairPts >= pRobot->vitals().maximumHealth() )
 	{
-		ubPointsUsed = ( pRobot->stats.bLifeMax - pRobot->stats.bLife );
-		pRobot->stats.bLife = pRobot->stats.bLifeMax;
+		ubPointsUsed = ( pRobot->vitals().maximumHealth() - pRobot->vitals().health() );
+		pRobot->vitals().health() = pRobot->vitals().maximumHealth();
 	}
 	else
 	{
 		// not enough, do what we can
 		ubPointsUsed = ubRepairPts;
-		pRobot->stats.bLife += ubRepairPts;
+		pRobot->vitals().health() += ubRepairPts;
 	}
 
-	if ( pRobot->stats.bLife == pRobot->stats.bLifeMax )
+	if ( pRobot->vitals().health() == pRobot->vitals().maximumHealth() )
 	{
 		*pfNothingLeftToRepair = TRUE;
 	}
@@ -16822,7 +16822,7 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 			if( CanCharacterPatient( pSoldier ) )
 			{
 				pSoldier->bOldAssignment = pSoldier->bAssignment;
-				pSoldier->bBleeding = 0;
+				pSoldier->vitals().bleeding() = 0;
 
 				// set dirty flag
 				fTeamPanelDirty = TRUE;
@@ -18029,7 +18029,7 @@ void ReportTrainersTraineesWithoutPartners( void )
 	{
 		pTeamSoldier = &Menptr[ iCounter ];
 
-		if( ( pTeamSoldier->bAssignment == TRAIN_TEAMMATE ) && ( pTeamSoldier->stats.bLife > 0 ) )
+		if( ( pTeamSoldier->bAssignment == TRAIN_TEAMMATE ) && ( pTeamSoldier->vitals().health() > 0 ) )
 		{
 			if ( !ValidTrainingPartnerInSameSectorOnAssignmentFound( pTeamSoldier, TRAIN_BY_OTHER, pTeamSoldier->bTrainStat ) )
 			{
@@ -18043,7 +18043,7 @@ void ReportTrainersTraineesWithoutPartners( void )
 	{
 		pTeamSoldier = &Menptr[ iCounter ];
 
-		if( ( pTeamSoldier->bAssignment == TRAIN_BY_OTHER ) && ( pTeamSoldier->stats.bLife > 0 ) )
+		if( ( pTeamSoldier->bAssignment == TRAIN_BY_OTHER ) && ( pTeamSoldier->vitals().health() > 0 ) )
 		{
 			if ( !ValidTrainingPartnerInSameSectorOnAssignmentFound( pTeamSoldier, TRAIN_TEAMMATE, pTeamSoldier->bTrainStat ) )
 			{
@@ -18141,7 +18141,7 @@ BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier )
 		fTeamPanelDirty = TRUE;
 
 		// determine if merc is being forced to stay awake
-		if ( pSoldier->bBreathMax < BREATHMAX_PRETTY_TIRED )
+		if ( pSoldier->vitals().maximumBreath() < BREATHMAX_PRETTY_TIRED )
 		{
 			pSoldier->flags.fForcedToStayAwake = TRUE;
 		}
@@ -18254,7 +18254,7 @@ BOOLEAN PlayerSoldierTooTiredToTravel( SOLDIERTYPE *pSoldier )
 		if ( ( pSoldier->bAssignment != VEHICLE ) || SoldierMustDriveVehicle( pSoldier, pSoldier->iVehicleId, TRUE ) )
 		{
 			// if awake, but so tired they can't move/drive anymore
-			if ( ( !pSoldier->flags.fMercAsleep ) && ( pSoldier->bBreathMax < BREATHMAX_GOTTA_STOP_MOVING ) )
+			if ( ( !pSoldier->flags.fMercAsleep ) && ( pSoldier->vitals().maximumBreath() < BREATHMAX_GOTTA_STOP_MOVING ) )
 			{
 				return( TRUE );
 			}
@@ -18460,7 +18460,7 @@ void BandageBleedingDyingPatientsBeingTreated( )
 		}
 
 		// and he is bleeding or dying
-		if( ( pSoldier->bBleeding ) || ( pSoldier->stats.bLife < OKLIFE ) )
+		if( ( pSoldier->vitals().bleeding() ) || ( pSoldier->vitals().health() < OKLIFE ) )
 		{
 			// if in the hospital
 			if ((pSoldier->bAssignment == FACILITY_PATIENT) || (pSoldier->bAssignment == ASSIGNMENT_HOSPITAL))
@@ -18468,17 +18468,17 @@ void BandageBleedingDyingPatientsBeingTreated( )
 				// this is instantaneous, and doesn't use up any bandages!
 
 				// stop bleeding automatically
-				pSoldier->bBleeding = 0;
+				pSoldier->vitals().bleeding() = 0;
 
-				if ( pSoldier->stats.bLife < OKLIFE )
+				if ( pSoldier->vitals().health() < OKLIFE )
 				{
 					// SANDRO - added to alter the value of insta-healable injuries for doctors
 					if (pSoldier->iHealableInjury > 0)
 					{
-						pSoldier->iHealableInjury -= ((OKLIFE - pSoldier->stats.bLife) * 100);
+						pSoldier->iHealableInjury -= ((OKLIFE - pSoldier->vitals().health()) * 100);
 					}
 
-					pSoldier->stats.bLife = OKLIFE;
+					pSoldier->vitals().health() = OKLIFE;
 				}
 			}
 			// if treated by fellow merc
@@ -18500,7 +18500,7 @@ void BandageBleedingDyingPatientsBeingTreated( )
 							UseKitPoints( pKit, (UINT16)uiKitPtsUsed, pDoctor );
 
 							// if he is STILL bleeding or dying
-							if( ( pSoldier->bBleeding ) || ( pSoldier->stats.bLife < OKLIFE ) )
+							if( ( pSoldier->vitals().bleeding() ) || ( pSoldier->vitals().health() < OKLIFE ) )
 							{
 								fSomeoneStillBleedingDying = TRUE;
 							}
@@ -19178,7 +19178,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 BOOLEAN IsCharacterAliveAndConscious( SOLDIERTYPE *pCharacter )
 {
 	// is the character alive and conscious?
-	if( pCharacter->stats.bLife < CONSCIOUSNESS )
+	if( pCharacter->vitals().health() < CONSCIOUSNESS )
 	{
 		return( FALSE );
 	}
@@ -19213,7 +19213,7 @@ BOOLEAN ValidTrainingPartnerInSameSectorOnAssignmentFound( SOLDIERTYPE *pTargetS
 					( pSoldier->sSectorY == pTargetSoldier->sSectorY ) &&
 					( pSoldier->bSectorZ == pTargetSoldier->bSectorZ ) &&
 					( pSoldier->bTrainStat == bTargetStat ) &&
-					( pSoldier->stats.bLife > 0 ) )
+					( pSoldier->vitals().health() > 0 ) )
 			{
 				// so far so good, now let's see if the trainer can really teach the student anything new
 
@@ -19409,8 +19409,8 @@ UINT8 CalcSoldierNeedForSleep( SOLDIERTYPE *pSoldier )
 	}
 
 	// HEADROCK HAM 3.5: WTF! This calculation is NOT correct!
-	//ubPercentHealth = pSoldier->stats.bLife / pSoldier->stats.bLifeMax;
-	ubPercentHealth = (pSoldier->stats.bLife*100) / pSoldier->stats.bLifeMax;
+	//ubPercentHealth = pSoldier->vitals().health() / pSoldier->vitals().maximumHealth();
+	ubPercentHealth = (pSoldier->vitals().health()*100) / pSoldier->vitals().maximumHealth();
 
 	// Increase need for sleep based on injuries.
 	if ( ubPercentHealth < 75 )
@@ -19498,7 +19498,7 @@ BOOLEAN CanCharacterRepairAnotherSoldiersStuff( SOLDIERTYPE *pSoldier, SOLDIERTY
 	{
 		return( FALSE );
 	}
-	if ( pOtherSoldier->stats.bLife == 0 )
+	if ( pOtherSoldier->vitals().health() == 0 )
 	{
 		return( FALSE );
 	}
@@ -20282,7 +20282,7 @@ BOOLEAN BasicCanCharacterFacility( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character dead or unconscious?
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		// dead or unconscious...
 		return ( FALSE );
@@ -20779,7 +20779,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 	//////////////////////////////////////////
 	// Does character have sufficient skill?
 	if (pSoldier->stats.bStrength < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumStrength ||
-		pSoldier->stats.bLife < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumHealth ||
+		pSoldier->vitals().health() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumHealth ||
 		pSoldier->stats.bWisdom < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumWisdom ||
 		pSoldier->stats.bAgility < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumAgility ||
 		pSoldier->stats.bDexterity < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumDexterity ||
@@ -20791,7 +20791,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 		pSoldier->stats.bExpLevel < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLevel ||
 
 		pSoldier->aiData.bMorale < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMorale ||
-		pSoldier->bBreathMax < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumBreath
+		pSoldier->vitals().maximumBreath() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumBreath
 		)
 	{
 		// Character is lacking a stat required for this specific assignment.
@@ -20914,7 +20914,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 				}
 
 				// if robot isn't damaged at all
-				if( pRobot->stats.bLife == pRobot->stats.bLifeMax )
+				if( pRobot->vitals().health() == pRobot->vitals().maximumHealth() )
 				{
 					return( FALSE );
 				}
@@ -21102,7 +21102,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bLife < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumHealth)
+	if (pSoldier->vitals().health() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumHealth)
 	{
 		swprintf(sString, gzFacilityErrorMessage[3], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
@@ -21156,7 +21156,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->bBreathMax < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumBreath)
+	if (pSoldier->vitals().maximumBreath() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumBreath)
 	{
 		swprintf(sString, gzFacilityErrorMessage[12], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
@@ -21295,7 +21295,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 				}
 
 				// if robot isn't damaged at all
-				if( pRobot->stats.bLife == pRobot->stats.bLifeMax )
+				if( pRobot->vitals().health() == pRobot->vitals().maximumHealth() )
 				{
 					return( FALSE );
 				}
@@ -22351,7 +22351,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 	// First, get total leadership value of all trainers
 	for ( pTrainer = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt, pTrainer++)
 	{
-		if (pTrainer->bActive && pTrainer->stats.bLife >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ &&	pTrainer->bAssignment == TRAIN_TOWN )
+		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ &&	pTrainer->bAssignment == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );
 
@@ -22394,7 +22394,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 	cnt = 0;
 	for ( pTrainer = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt, pTrainer++)
 	{
-		if (pTrainer->bActive && pTrainer->stats.bLife >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ && pTrainer->bAssignment == TRAIN_TOWN )
+		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ && pTrainer->bAssignment == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );
 

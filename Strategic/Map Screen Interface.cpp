@@ -1164,7 +1164,7 @@ void ActivateSoldierPopup( SOLDIERTYPE *pSoldier, UINT8 ubPopupType, INT16 xp, I
 			bSelectedDestChar = -1;
 			bSelectedContractChar = -1;
 			bSelectedAssignChar = bCharacter;
-			if( ( pSoldier->stats.bLife > 0 ) &&( pSoldier->bAssignment != ASSIGNMENT_POW ) )
+			if( ( pSoldier->vitals().health() > 0 ) &&( pSoldier->bAssignment != ASSIGNMENT_POW ) )
 			{
 				fShowAssignmentMenu = TRUE;
 			}
@@ -1193,7 +1193,7 @@ void ActivateSoldierPopup( SOLDIERTYPE *pSoldier, UINT8 ubPopupType, INT16 xp, I
 			bSelectedAssignChar = -1;
 			RebuildContractBoxForMerc( pSoldier );
 
-			if( ( pSoldier->stats.bLife > 0 ) &&( pSoldier->bAssignment != ASSIGNMENT_POW ) )
+			if( ( pSoldier->vitals().health() > 0 ) &&( pSoldier->bAssignment != ASSIGNMENT_POW ) )
 			{
 				fShowContractMenu = TRUE;
 			}
@@ -1427,7 +1427,7 @@ void HandleDisplayOfItemPopUpForSector( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 				( pSoldier->sSectorY == sMapY ) &&
 				( pSoldier->bSectorZ == sMapZ ) &&
 				( pSoldier->bActive ) &&
-				( pSoldier->stats.bLife >= OKLIFE ) )
+				( pSoldier->vitals().health() >= OKLIFE ) )
 			{
 				// valid character
 				InitializeItemPickupMenu( pSoldier, NOWHERE , pItemPool, MAP_INVEN_POOL_X, MAP_INVEN_POOL_Y, -1 );
@@ -1943,19 +1943,19 @@ void UpdateCharRegionHelpText( void )
 		// health/energy/morale
 		if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
 		{
-			if ( pSoldier->stats.bLife != 0 )
+			if ( pSoldier->vitals().health() != 0 )
 			{
 				if ( AM_A_ROBOT(pSoldier) )
 				{
 					// robot (condition only)
-					swprintf( sString, L"%s: %d/%d", pMapScreenStatusStrings[ 3 ], pSoldier->stats.bLife, pSoldier->stats.bLifeMax );
+					swprintf( sString, L"%s: %d/%d", pMapScreenStatusStrings[ 3 ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 				}
 				else if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 				{
 					// vehicle (condition/fuel)
 					swprintf( sString, L"%s: %d/%d, %s: %d/%d",
-													pMapScreenStatusStrings[ 3 ], pSoldier->stats.bLife, pSoldier->stats.bLifeMax,
-													pMapScreenStatusStrings[ 4 ], pSoldier->bBreath, pSoldier->bBreathMax );
+													pMapScreenStatusStrings[ 3 ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(),
+													pMapScreenStatusStrings[ 4 ], pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath() );
 				}
 				else
 				{
@@ -1964,8 +1964,8 @@ void UpdateCharRegionHelpText( void )
 									
 					{
 						swprintf( sString, L"%s: %d/%d, %s: %d/%d, %s: %s",
-														pMapScreenStatusStrings[ 0 ], pSoldier->stats.bLife, pSoldier->stats.bLifeMax,
-														pMapScreenStatusStrings[ 1 ], pSoldier->bBreath, pSoldier->bBreathMax,
+														pMapScreenStatusStrings[ 0 ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(),
+														pMapScreenStatusStrings[ 1 ], pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(),
 														pMapScreenStatusStrings[ 2 ], pMoraleStr );
 					}
 						
@@ -1990,7 +1990,7 @@ void UpdateCharRegionHelpText( void )
 		SetRegionFastHelpText( &gMapStatusBarsRegion, sString );
 
 		// Buggler: skills/traits tooltip on merc portrait
-		if( ( pSoldier->stats.bLife != 0 ) && !AM_A_ROBOT( pSoldier ) && !IsVehicle( pSoldier ) )
+		if( ( pSoldier->vitals().health() != 0 ) && !AM_A_ROBOT( pSoldier ) && !IsVehicle( pSoldier ) )
 		{
 			// clear pStr value
 			swprintf( sString, L"");
@@ -2396,7 +2396,7 @@ void RandomMercInGroupSaysQuote( GROUP *pGroup, UINT16 usQuoteNum )
 		pSoldier = pPlayer->pSoldier;
 		Assert( pSoldier );
 
-		if ( pSoldier->stats.bLife >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->flags.fMercAsleep )
 		{
 			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
@@ -3653,7 +3653,7 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 				else // soldier
 				{
 					// alive, not aboard Skyrider (airborne or not!)
-					if ( ( pSoldier->stats.bLife >= OKLIFE ) &&
+					if ( ( pSoldier->vitals().health() >= OKLIFE ) &&
 							( ( pSoldier->bAssignment != VEHICLE ) || ( pSoldier->iVehicleId != iHelicopterVehicleId ) ) )
 					{
 						// add soldier
@@ -5304,7 +5304,7 @@ void AddSoldierToUpdateBox( SOLDIERTYPE *pSoldier )
 	// going to load face
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		return;
 	}
@@ -5881,26 +5881,26 @@ void RenderSoldierSmallFaceForUpdatePanel( INT32 iIndex, INT32 iX, INT32 iY )
 	pSoldier = pUpdateSoldierBox[ iIndex ];
 
 	// is the merc alive?
-	if( !pSoldier->stats.bLife )
+	if( !pSoldier->vitals().health() )
 		return;
 
 	//yellow one for bleeding
-	iStartY = iY + 29 - 27*pSoldier->stats.bLifeMax/100;
+	iStartY = iY + 29 - 27*pSoldier->vitals().maximumHealth()/100;
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+36, iStartY, iX+37, iY+29, Get16BPPColor( FROMRGB( 107, 107, 57 ) ) );
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+37, iStartY, iX+38, iY+29, Get16BPPColor( FROMRGB( 222, 181, 115 ) ) );
 		
 	//pink one for bandaged.
-	iStartY = iY + 29 - 27*(pSoldier->stats.bLifeMax - pSoldier->bBleeding)/100;
+	iStartY = iY + 29 - 27*(pSoldier->vitals().maximumHealth() - pSoldier->vitals().bleeding())/100;
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+36, iStartY, iX+37, iY+29, Get16BPPColor( FROMRGB( 156, 57, 57 ) ) );
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+37, iStartY, iX+38, iY+29, Get16BPPColor( FROMRGB( 222, 132, 132 ) ) );
 		
 	//red one for actual health
-	iStartY = iY + 29 - 27*pSoldier->stats.bLife/100;
+	iStartY = iY + 29 - 27*pSoldier->vitals().health()/100;
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+36, iStartY, iX+37, iY+29, Get16BPPColor( FROMRGB( 107, 8, 8 ) ) );
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+37, iStartY, iX+38, iY+29, Get16BPPColor( FROMRGB( 206, 0, 0 ) ) );
 		
 	//BREATH BAR
-	iStartY = iY + 29 - 27*pSoldier->bBreathMax/100;
+	iStartY = iY + 29 - 27*pSoldier->vitals().maximumBreath()/100;
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+39, iStartY, iX+40, iY+29, Get16BPPColor( FROMRGB( 8, 8, 132 ) ) );
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+40, iStartY, iX+41, iY+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
@@ -6413,7 +6413,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		}
 
 		// too damaged?
-		if ( pSoldier->stats.bLife < OKLIFE )
+		if ( pSoldier->vitals().health() < OKLIFE )
 		{
 			*pbErrorNumber = 47;
 			return( FALSE );
@@ -6433,7 +6433,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		if (pSoldier->iVehicleId == iHelicopterVehicleId)
 			; // intentionally do nothing to skip the following checks
 		// too damaged?
-		else if (pVehicle->stats.bLife < OKLIFE)
+		else if (pVehicle->vitals().health() < OKLIFE)
 		{
 			*pbErrorNumber = 47;
 			return(FALSE);
@@ -6448,7 +6448,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	else	// non-vehicle
 	{
 		// dead?
-		if ( pSoldier->stats.bLife <= 0 )
+		if ( pSoldier->vitals().health() <= 0 )
 		{
 			swprintf( gsCustomErrorString, pMapErrorString[ 35 ], pSoldier->name );
 			*pbErrorNumber = -99;	// customized error message!
@@ -6456,7 +6456,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		}
 
 		// too injured?
-		if ( pSoldier->stats.bLife < OKLIFE )
+		if ( pSoldier->vitals().health() < OKLIFE )
 		{
 			swprintf( gsCustomErrorString, pMapErrorString[ 33 ], pSoldier->name );
 			*pbErrorNumber = -99;	// customized error message!

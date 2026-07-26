@@ -191,7 +191,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 		return( FALSE );
 	}
 
-	if ( ! ( pSoldier->stats.bLife >= OKLIFE && pSoldier->bBreath >= OKBREATH ) )
+	if ( ! ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH ) )
 	{
 		return( FALSE );
 	}

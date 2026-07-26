@@ -1120,7 +1120,7 @@ void SkyriderDestroyed( void )
 
 	// kill skyrider
 	fSkyRiderAvailable = FALSE;
-	SoldierSkyRider.stats.bLife = 0;
+	SoldierSkyRider.vitals().health() = 0;
 	gMercProfiles[ SKYRIDER ].bLife = 0;
 
 	// heli no longer available
@@ -1584,7 +1584,7 @@ void SetUpHelicopterForPlayer( INT16 sX, INT16 sY , UINT8 SkyDrive, UINT8 Vehicl
 
 		SoldierSkyRider.initialize();
 		SoldierSkyRider.ubProfile = SkyDrive; //SKYRIDER;
-		SoldierSkyRider.stats.bLife = 80;
+		SoldierSkyRider.vitals().health() = 80;
 
 		pSkyRider = &( SoldierSkyRider );
 

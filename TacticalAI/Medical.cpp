@@ -198,7 +198,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 	}
 
 	// they must have oklife or more, not be collapsed, have some level of medical competence, and have a med kit of some sort
-	if ( (pSoldier->stats.bLife >= OKLIFE) && !(pSoldier->bCollapsed) && (pSoldier->stats.bMedical > 0) && (FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT) )
+	if ( (pSoldier->vitals().health() >= OKLIFE) && !(pSoldier->bCollapsed) && (pSoldier->stats.bMedical > 0) && (FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT) )
 	{
 		return( TRUE );
 	}
@@ -216,7 +216,7 @@ BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	if ( (pSoldier->stats.bLife > 0) && (pSoldier->bBleeding > 0) )
+	if ( (pSoldier->vitals().health() > 0) && (pSoldier->vitals().bleeding() > 0) )
 	{
 		// someone's bleeding and not being given first aid!
 		return( TRUE );
@@ -252,13 +252,13 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 			continue; // NEXT!!!
 		}
 
-		if (pPatient->stats.bLife > 0 && pPatient->bBleeding && pPatient->ubServiceCount == 0)
+		if (pPatient->vitals().health() > 0 && pPatient->vitals().bleeding() && pPatient->ubServiceCount == 0)
 		{
-			if (pPatient->stats.bLife < OKLIFE)
+			if (pPatient->vitals().health() < OKLIFE)
 			{
 				bPatientPriority = 3;
 			}
-			else if (pPatient->stats.bLife < OKLIFE * 2)
+			else if (pPatient->vitals().health() < OKLIFE * 2)
 			{
 				bPatientPriority = 2;
 			}
@@ -431,7 +431,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 		}
 	}
 
-	if (pSoldier->bBleeding)
+	if (pSoldier->vitals().bleeding())
 	{
 		// heal self first!
 		pSoldier->aiData.usActionData = pSoldier->sGridNo;
@@ -506,7 +506,7 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 			continue; // NEXT!!!
 		}
 
-		if (pMedic->stats.bLife >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery))
+		if (pMedic->vitals().health() >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery))
 		{
 			fDoctorHasBeenFound = TRUE;
 		}

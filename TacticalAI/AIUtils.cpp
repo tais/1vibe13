@@ -518,7 +518,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 						pSoldier->bInitialActionPoints > APBPConstants[AP_MINIMUM] &&
 						(!InARoom(pSoldier->sGridNo, NULL) || PythSpacesAway(pSoldier->sGridNo, sClosestThreat) > sDistanceVisible * 2) &&
 						pSoldier->aiData.bAIMorale >= MORALE_NORMAL &&
-						pSoldier->bBreath > 25 &&
+						pSoldier->vitals().breath() > 25 &&
 						pSoldier->pathing.bLevel == 0 &&
 						pSoldier->aiData.bOrders != STATIONARY &&
 						pSoldier->aiData.bOrders != SNIPER &&
@@ -560,7 +560,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 						if (NightTime())
 							return SWATTING;
 
-						if (pSoldier->bBreath < pSoldier->bBreathMax / 2)
+						if (pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() / 2)
 							return WALKING;
 					}
 				}
@@ -1196,7 +1196,7 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 
 		// this is possible if get here from BLACK AI in one of those rare
 		// instances when we couldn't get a meaningful shot off at a guy in sight
-		/*if ((*pbPersOL == SEEN_CURRENTLY) && (pOpponent->stats.bLife >= OKLIFE))
+		/*if ((*pbPersOL == SEEN_CURRENTLY) && (pOpponent->vitals().health() >= OKLIFE))
 		{
 			// don't allow this to return any valid values, this guy remains a
 			// serious threat and the last thing we want to do is approach him!
@@ -1256,10 +1256,10 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 
 			// if we can get there and it's first reachable enemy or closer than other known enemies
 			if (iPathCost != 0 && 
-				(!pClosestOpponent || pClosestOpponent->stats.bLife < OKLIFE || pOpponent->stats.bLife >= OKLIFE) &&
+				(!pClosestOpponent || pClosestOpponent->vitals().health() < OKLIFE || pOpponent->vitals().health() >= OKLIFE) &&
 				(TileIsOutOfBounds(sClosestDisturbance) || 
 				iPathCost < iShortestPath ||
-				pClosestOpponent && !pClosestOpponent->IsZombie() && pClosestOpponent->stats.bLife < OKLIFE && pOpponent->stats.bLife >= OKLIFE))
+				pClosestOpponent && !pClosestOpponent->IsZombie() && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE))
 			{
 				if (fClimbingNecessary)
 				{
@@ -1480,7 +1480,7 @@ INT32 ClosestKnownOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLev
 
 		if (sClosestOpponent == NOWHERE ||
 			iRange < iClosestRange ||
-			pClosestOpponent && !pClosestOpponent->IsZombie() && !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) && pClosestOpponent->stats.bLife < OKLIFE && pOpponent->stats.bLife >= OKLIFE)
+			pClosestOpponent && !pClosestOpponent->IsZombie() && !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE)
 		{
 			iClosestRange = iRange;
 			sClosestOpponent = sGridNo;
@@ -1727,7 +1727,7 @@ INT32 ClosestPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 		}
 
 		// if not conscious, skip him
-		if (pTargetSoldier->stats.bLife < OKLIFE)
+		if (pTargetSoldier->vitals().health() < OKLIFE)
 		{
 		continue;
 		}
@@ -1782,7 +1782,7 @@ INT32 ClosestUnDisguisedPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 			continue;
 				
 		// if not conscious, skip him
-		if (pTargetSoldier->stats.bLife < OKLIFE)
+		if (pTargetSoldier->vitals().health() < OKLIFE)
 			continue;
 
 		if ( AM_AN_EPC( pTargetSoldier ) )
@@ -2201,7 +2201,7 @@ INT16 DistanceToClosestFriend( SOLDIERTYPE * pSoldier )
 				continue;
 			}
 			// if not conscious, skip him
-			else if (pTargetSoldier->stats.bLife < OKLIFE)
+			else if (pTargetSoldier->vitals().health() < OKLIFE)
 			{
 				continue;
 			}
@@ -2215,7 +2215,7 @@ INT16 DistanceToClosestFriend( SOLDIERTYPE * pSoldier )
 			{
 				continue;
 			}
-			else if (pTargetSoldier->stats.bLife < OKLIFE)
+			else if (pTargetSoldier->vitals().health() < OKLIFE)
 			{
 				continue;
 			}
@@ -2433,7 +2433,7 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[uiLoop];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || (pOpponent->stats.bLife < OKLIFE))
+		if (!pOpponent || (pOpponent->vitals().health() < OKLIFE))
 			continue;			// next merc
 
 		// if this merc is neutral/on same side, he's not an opponent, skip him!
@@ -2491,7 +2491,7 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 			pFriend = MercSlots[uiLoop2];
 
 			// if this merc is inactive, at base, on assignment, dead, unconscious
-			if (!pFriend || (pFriend->stats.bLife < OKLIFE))
+			if (!pFriend || (pFriend->vitals().health() < OKLIFE))
 				continue;		// next merc
 
 			// if this merc is not on my side, then he's NOT one of my friends
@@ -2586,31 +2586,31 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 	}
 
 	// if still full of energy
-	if (pSoldier->bBreath > 75)
+	if (pSoldier->vitals().breath() > 75)
 		bMoraleCategory++;
 	else
 	{
 		// if getting a bit low on breath
-		if (pSoldier->bBreath < 40)
+		if (pSoldier->vitals().breath() < 40)
 			bMoraleCategory--;
 
 		// if getting REALLY low on breath
-		if (pSoldier->bBreath < 10)
+		if (pSoldier->vitals().breath() < 10)
 			bMoraleCategory--;
 	}
 
 
 	// if still very healthy
-	if (pSoldier->stats.bLife > 75)
+	if (pSoldier->vitals().health() > 75)
 		bMoraleCategory++;
 	else
 	{
 		// if getting a bit low on life
-		if (pSoldier->stats.bLife < 40)
+		if (pSoldier->vitals().health() < 40)
 			bMoraleCategory--;
 
 		// if getting REALLY low on life
-		if (pSoldier->stats.bLife < 20)
+		if (pSoldier->vitals().health() < 20)
 			bMoraleCategory--;
 	}
 
@@ -2652,7 +2652,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 	BOOLEAN fForCreature = CREATURE_OR_BLOODCAT( pMe );
 
 	// If man is inactive, at base, on assignment, dead, unconscious
-	if (!pEnemy->bActive || !pEnemy->bInSector || !pEnemy->stats.bLife)
+	if (!pEnemy->bActive || !pEnemy->bInSector || !pEnemy->vitals().health())
 	{
 		// he's no threat at all, return a negative number
 		iThreatValue = -999;
@@ -2669,9 +2669,9 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 	if (fForCreature)
 	{
 		// health (1-100)
-		iThreatValue += pEnemy->stats.bLife;
+		iThreatValue += pEnemy->vitals().health();
 		// bleeding (more attactive!) (1-100)
-		iThreatValue += pEnemy->bBleeding;
+		iThreatValue += pEnemy->vitals().bleeding();
 		// decrease according to distance
 		iThreatValue = (iThreatValue * 10) / (10 + PythSpacesAway( sMyGrid, pEnemy->sGridNo ) );
 
@@ -2688,7 +2688,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 		iThreatValue += 25 * pEnemy->bActionPoints / APBPConstants[AP_MAXIMUM] / 2;
 
 		// ADD 1/10 of man's current health (0-10)
-		iThreatValue += (pEnemy->stats.bLife / 10);
+		iThreatValue += (pEnemy->vitals().health() / 10);
 
 		if (pEnemy->bAssignment < ON_DUTY )
 		{
@@ -2706,10 +2706,10 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 		}
 
 		// SUBTRACT 1/5 of man's bleeding (0-20)
-		iThreatValue -= (pEnemy->bBleeding / 5);
+		iThreatValue -= (pEnemy->vitals().bleeding() / 5);
 
 		// SUBTRACT 1/10 of man's breath deficiency (0-10)
-		iThreatValue -= ((100 - pEnemy->bBreath) / 10);
+		iThreatValue -= ((100 - pEnemy->vitals().breath()) / 10);
 
 		// SUBTRACT man's current shock value
 		iThreatValue -= pEnemy->aiData.bShock;
@@ -2734,7 +2734,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 	}
 
 	// if this man is conscious
-	if (pEnemy->stats.bLife >= OKLIFE)
+	if (pEnemy->vitals().health() >= OKLIFE)
 	{
 		// and we were told to reduce threat for my cover		
 		if (ubReduceForCover && (!TileIsOutOfBounds(sMyGrid)))
@@ -2751,7 +2751,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 		if (iThreatValue > 0)
 		{
 			// drastically reduce his threat value (divide by 5 to 18)
-			iThreatValue /= (4 + (OKLIFE - pEnemy->stats.bLife));
+			iThreatValue /= (4 + (OKLIFE - pEnemy->vitals().health()));
 		}
 	}
 
@@ -3176,7 +3176,7 @@ BOOLEAN ArmySeesOpponents( void )
 	{
 		pSoldier = cnt;
 
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE && pSoldier->aiData.bOppCnt > 0 )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiData.bOppCnt > 0 )
 		{
 			return( TRUE );
 		}
@@ -3322,7 +3322,7 @@ BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
 		{
 			pSoldier = cnt;
 
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE)
+			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 			{
 
 
@@ -3334,7 +3334,7 @@ BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
 		{
 			pSoldier = cnt;
 
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE)
+			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 			{
 				// This assertion can be safely removed, assuming the program does what it should. It simply checks
 				// whether the "opponent" is on the same team being checked. That should be avoided when calling this
@@ -3355,7 +3355,7 @@ BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
 		{
 			pSoldier = cnt;
 
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE)
+			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 			{
 				// This assertion can be safely removed, assuming the program does what it should. It simply checks
 				// whether the "opponent" is on the same team being checked. That should be avoided when calling this
@@ -3380,7 +3380,7 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 	INT32	iThreatValue = 0;
 
 	// If man is inactive, at base, on assignment, dead, unconscious
-	if (!pEnemy->bActive || !pEnemy->bInSector || !pEnemy->stats.bLife )
+	if (!pEnemy->bActive || !pEnemy->bInSector || !pEnemy->vitals().health() )
 	{
 		// he's no threat at all, return a negative number
 		iThreatValue = 0;
@@ -3399,7 +3399,7 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 		iThreatValue += 25 * pEnemy->bActionPoints / APBPConstants[AP_MAXIMUM] / 2;
 
 		// ADD 1/10 of man's current health (0-10)
-		iThreatValue += (pEnemy->stats.bLife / 10);
+		iThreatValue += (pEnemy->vitals().health() / 10);
 
 		if (pEnemy->bAssignment < ON_DUTY )
 		{
@@ -3417,23 +3417,23 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 		}
 
 		// SUBTRACT 1/5 of man's bleeding (0-20)
-		iThreatValue -= (pEnemy->bBleeding / 5);
+		iThreatValue -= (pEnemy->vitals().bleeding() / 5);
 
 		// SUBTRACT 1/10 of man's breath deficiency (0-10)
-		iThreatValue -= ((100 - pEnemy->bBreath) / 10);
+		iThreatValue -= ((100 - pEnemy->vitals().breath()) / 10);
 
 		// SUBTRACT man's current shock value
 		iThreatValue -= pEnemy->aiData.bShock;
 	}
 
 	// if this man is conscious
-	if (pEnemy->stats.bLife < OKLIFE)
+	if (pEnemy->vitals().health() < OKLIFE)
 	{
 		// if he's still something of a threat
 		if (iThreatValue > 0)
 		{
 			// drastically reduce his threat value (divide by 5 to 18)
-			iThreatValue /= (4 + (OKLIFE - pEnemy->stats.bLife));
+			iThreatValue /= (4 + (OKLIFE - pEnemy->vitals().health()));
 		}
 	}
 
@@ -3475,7 +3475,7 @@ SoldierID GetClosestFlaggedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 			continue;
 		
 		// skip if this guy is dead
-		if ( pFriend->stats.bLife <= 0 )
+		if ( pFriend->vitals().health() <= 0 )
 			continue;
 
 		// check for flag
@@ -3527,7 +3527,7 @@ SoldierID GetClosestWoundedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 			continue;
 		
 		// skip if this guy is dead, or not wounded (enough)
-		if ( pFriend->stats.bLife <= 0 || pFriend->iHealableInjury < gGameExternalOptions.sEnemyMedicsWoundMinAmount )
+		if ( pFriend->vitals().health() <= 0 || pFriend->iHealableInjury < gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 			continue;
 
 		// are we close enough?
@@ -3575,7 +3575,7 @@ SoldierID GetClosestMedicSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT8 
 			continue;
 
 		// skip this guy if he is dead or unconscious
-		if ( pFriend->stats.bLife < OKLIFE )
+		if ( pFriend->vitals().health() < OKLIFE )
 			continue;
 		
 		// skip if this guy if he is no medic
@@ -3628,8 +3628,8 @@ UINT16 CountFriendsInDirection( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 
 		if (pFriend != pSoldier &&
 			pFriend->bActive &&
-			pFriend->stats.bLife >= OKLIFE &&
-			pFriend->stats.bLife >= pFriend->stats.bLifeMax/2 &&
+			pFriend->vitals().health() >= OKLIFE &&
+			pFriend->vitals().health() >= pFriend->vitals().maximumHealth()/2 &&
 			pFriend->aiData.bOrders > ONGUARD &&
 			pFriend->aiData.bOrders != SNIPER &&
 			(ubFriendDir == ubMyDir || ubFriendDir == gOneCDirection[ubMyDir] || ubFriendDir == gOneCCDirection[ubMyDir]) &&
@@ -3658,7 +3658,7 @@ UINT16 CountNearbyFriends( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistanc
 		pFriend = iCounter;
 		// Make sure that character is alive, not too shocked, and conscious, and of higher experience level
 		// than the character being suppressed.
-		if (pFriend != pSoldier && pFriend->bActive && pFriend->stats.bLife >= OKLIFE &&
+		if (pFriend != pSoldier && pFriend->bActive && pFriend->vitals().health() >= OKLIFE &&
 			PythSpacesAway( sGridNo, pFriend->sGridNo ) <= ubDistance )
 		{
 			ubFriendCount++;
@@ -3720,7 +3720,7 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || (pOpponent->stats.bLife < OKLIFE))
+		if (!pOpponent || (pOpponent->vitals().health() < OKLIFE))
 			continue;			// next merc
 
 		// if this merc is neutral/on same side, he's not an opponent, skip him!
@@ -3778,7 +3778,7 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 			pFriend = MercSlots[ uiLoop2 ];
 
 			// if this merc is inactive, at base, on assignment, dead, unconscious
-			if (!pFriend || (pFriend->stats.bLife < OKLIFE))
+			if (!pFriend || (pFriend->vitals().health() < OKLIFE))
 				continue;		// next merc
 
 			// if this merc is not on my side, then he's NOT one of my friends
@@ -3871,22 +3871,22 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 	}
 
 	// if have good health
-	if( pSoldier->stats.bLife > pSoldier->stats.bLifeMax / 2 )
+	if( pSoldier->vitals().health() > pSoldier->vitals().maximumHealth() / 2 )
 	{
 		bMoraleCategory++;
 	}
 	// bad health
-	if( pSoldier->stats.bLife < pSoldier->stats.bLifeMax / 4 )
+	if( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() / 4 )
 	{
 		bMoraleCategory--;
 	}
 	// good breath
-	if( pSoldier->bBreath > 50 )
+	if( pSoldier->vitals().breath() > 50 )
 	{
 		bMoraleCategory++;
 	}
 	// bad breath
-	if( pSoldier->bBreath < 25 )
+	if( pSoldier->vitals().breath() < 25 )
 	{
 		bMoraleCategory--;
 	}
@@ -3968,7 +3968,7 @@ BOOLEAN WeAttack(INT8 bTeam)
 
 		if (pFriend &&
 			pFriend->bActive &&
-			pFriend->stats.bLife >= OKLIFE &&
+			pFriend->vitals().health() >= OKLIFE &&
 			pFriend->aiData.bOrders != SEEKENEMY)
 		{
 			return FALSE;
@@ -3992,7 +3992,7 @@ UINT8 CountNearbyFriendsLastAttackHit( SOLDIERTYPE *pSoldier, INT32 sGridNo, UIN
 
 		if (pFriend != pSoldier &&
 			pFriend->bActive &&
-			pFriend->stats.bLife >= OKLIFE &&
+			pFriend->vitals().health() >= OKLIFE &&
 			pFriend->aiData.bOrders > ONGUARD &&
 			pFriend->aiData.bOrders != SNIPER &&
 			PythSpacesAway( sGridNo, pFriend->sGridNo ) <= ubDistance &&
@@ -4033,7 +4033,7 @@ UINT8 CountFriendsFlankSameSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 		if (pFriend &&
 			pFriend != pSoldier &&
 			pFriend->bActive &&
-			pFriend->stats.bLife >= OKLIFE &&
+			pFriend->vitals().health() >= OKLIFE &&
 			pFriend->aiData.bAlertStatus == STATUS_RED &&
 			pFriend->aiData.bOrders > ONGUARD &&
 			pFriend->aiData.bOrders != SNIPER)
@@ -4115,14 +4115,14 @@ UINT8 CountFriendsBlack( SOLDIERTYPE *pSoldier, INT32 sClosestOpponent )
 		// Make sure that character is alive, not too shocked, and conscious
 		if (pFriend != pSoldier && 
 			pFriend->bActive && 
-			pFriend->stats.bLife >= OKLIFE)
+			pFriend->vitals().health() >= OKLIFE)
 		{
 			//sFriendClosestOpponent = ClosestKnownOpponent( pFriend, NULL, NULL );
 			sFriendClosestOpponent = ClosestSeenOpponent( pFriend, NULL, NULL );
 			if(!TileIsOutOfBounds(sFriendClosestOpponent) &&
 				PythSpacesAway( sClosestOpponent, sFriendClosestOpponent ) < (INT16)TACTICAL_RANGE / 4 &&
 				pFriend->aiData.bAlertStatus == STATUS_BLACK &&
-				pFriend->stats.bLife > pFriend->stats.bLifeMax / 2 &&
+				pFriend->vitals().health() > pFriend->vitals().maximumHealth() / 2 &&
 				( GetNearestRottingCorpseAIWarning( pFriend->sGridNo ) == 0 && !InLightAtNight(pFriend->sGridNo, pFriend->pathing.bLevel) ||
 				pFriend->bActionPoints > 3*pFriend->bInitialActionPoints/4 || 
 				pFriend->aiData.bLastAttackHit )
@@ -4153,7 +4153,7 @@ UINT16 CountTeamUnderAttack(INT8 bTeam, INT32 sGridNo, INT16 sDistance)
 
 		if (pFriend &&
 			pFriend->bActive &&
-			pFriend->stats.bLife >= OKLIFE &&
+			pFriend->vitals().health() >= OKLIFE &&
 			PythSpacesAway(sGridNo, pFriend->sGridNo) <= sDistance &&
 			(pFriend->aiData.bUnderFire || pFriend->aiData.bShock > 0))
 		{
@@ -4188,7 +4188,7 @@ BOOLEAN ProneSightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlim
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || pOpponent->stats.bLife < OKLIFE)
+		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
 		{
 			continue;			// next merc
 		}
@@ -4278,7 +4278,7 @@ BOOLEAN SightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlimited)
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || pOpponent->stats.bLife < OKLIFE)
+		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
 		{
 			continue;			// next merc
 		}
@@ -4355,7 +4355,7 @@ BOOLEAN EnemySeenSoldierRecently( SOLDIERTYPE *pSoldier, UINT8 ubMax )
 		pOpponent = MercSlots[uiLoop];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if ( !pOpponent || pOpponent->stats.bLife < OKLIFE )
+		if ( !pOpponent || pOpponent->vitals().health() < OKLIFE )
 		{
 			continue;			// next merc
 		}
@@ -4405,7 +4405,7 @@ UINT16 CountTeamSeeSoldier( INT8 bTeam, SOLDIERTYPE *pSoldier )
 
 		if ( pFriend->bActive &&
 			 pFriend->bInSector &&
-			 pFriend->stats.bLife >= OKLIFE &&
+			 pFriend->vitals().health() >= OKLIFE &&
 			 !pFriend->bCollapsed &&
 			 !pFriend->bBreathCollapsed )
 		{
@@ -4749,7 +4749,7 @@ INT16 DistanceToClosestActiveOpponent(SOLDIERTYPE *pSoldier, INT32 sSpot)
 			continue;
 		}
 
-		if (pOpponent->stats.bLife < OKLIFE)
+		if (pOpponent->vitals().health() < OKLIFE)
 		{
 			continue;
 		}
@@ -4790,7 +4790,7 @@ BOOLEAN ValidOpponent(SOLDIERTYPE* pSoldier, SOLDIERTYPE* pOpponent)
 
 	if (!pOpponent->bActive ||
 		!pOpponent->bInSector ||
-		pOpponent->stats.bLife == 0 ||
+		pOpponent->vitals().health() == 0 ||
 		CONSIDERED_NEUTRAL(pSoldier, pOpponent) ||
 		pSoldier->bSide == pOpponent->bSide ||
 		pSoldier->aiData.bAttitude == ATTACKSLAYONLY && pOpponent->ubProfile != SLAY ||
@@ -5551,7 +5551,7 @@ BOOLEAN AnyCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 		pOpponent = MercSlots[uiLoop];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || pOpponent->stats.bLife < OKLIFE)
+		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
 		{
 			continue;			// next merc
 		}
@@ -6028,7 +6028,7 @@ UINT32 PrepareThreatlist(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[uiLoop];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || pOpponent->stats.bLife < OKLIFE)
+		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
 		{
 			continue;			// next merc
 		}
@@ -6119,7 +6119,7 @@ UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 sDist
 		pOpponent = MercSlots[uiLoop];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || pOpponent->stats.bLife < OKLIFE)
+		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
 		{
 			continue;
 		}
@@ -6173,7 +6173,7 @@ UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[uiLoop];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || pOpponent->stats.bLife < OKLIFE)
+		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
 		{
 			continue;
 		}
@@ -6223,7 +6223,7 @@ BOOLEAN CheckSuppressionDirection(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, IN
 			pFriend != pSoldier &&
 			pFriend->bActive &&
 			pFriend->bVisible == TRUE &&
-			pFriend->stats.bLife >= OKLIFE &&
+			pFriend->vitals().health() >= OKLIFE &&
 			(pFriend->bSide == pSoldier->bSide || CONSIDERED_NEUTRAL(pSoldier, pFriend)) &&
 			(pFriend->pathing.bLevel == pSoldier->pathing.bLevel || pFriend->pathing.bLevel == bTargetLevel) &&
 			ubShootingDir == AIDirection(pSoldier->sGridNo, pFriend->sGridNo) &&

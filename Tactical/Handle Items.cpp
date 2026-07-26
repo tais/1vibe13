@@ -625,7 +625,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	}
 
 	// Check our soldier's life for unconscious!
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		return( ITEM_HANDLE_UNCONSCIOUS );
 	}
@@ -7244,7 +7244,7 @@ void TestPotentialOwner(
 {
 	if ( pOffendingSoldier &&
 		pSoldier->bActive && pSoldier->bInSector &&
-		pSoldier->stats.bLife >= OKLIFE )
+		pSoldier->vitals().health() >= OKLIFE )
 	{
 		if ( SoldierToSoldierLineOfSightTest(
 				pSoldier, pOffendingSoldier,
@@ -7591,7 +7591,7 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 		if ((pObject->exists() == true) && !ItemIsUndroppableByDefault(pObject->usItem)) // CHECK! Undroppable items cannot be stolen - SANDRO
 		{
 			// Is the enemy collapsed
-			if ( pOpponent->stats.bLife < OKLIFE || pOpponent->bCollapsed )
+			if ( pOpponent->vitals().health() < OKLIFE || pOpponent->bCollapsed )
 			{
 				// We can steal any of his items in the inventory
 				fStealItem = TRUE;

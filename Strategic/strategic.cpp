@@ -44,7 +44,7 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 
 		ChangeSoldiersAssignment( pSoldier, ASSIGNMENT_DEAD );
 	}
-	else if( ( pSoldier->stats.bLife == 0 )&&( pSoldier->bAssignment != ASSIGNMENT_DEAD ) )
+	else if( ( pSoldier->vitals().health() == 0 )&&( pSoldier->bAssignment != ASSIGNMENT_DEAD ) )
 	{
 		// died in mapscreen
 
@@ -59,7 +59,7 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 		ChangeSoldiersAssignment( pSoldier, ASSIGNMENT_DEAD );
 
 		//s et breath and breath max to 0
-		pSoldier->bBreath = pSoldier->bBreathMax = 0;
+		pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath() = 0;
 
 		// rebuild list
 		ReBuildCharactersList( );
@@ -103,7 +103,7 @@ void HandleSoldierDeadComments( SOLDIERTYPE *pSoldier )
 	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt )
 	{
 		pTeamSoldier = cnt;
-		if ( pTeamSoldier->stats.bLife >= OKLIFE && pTeamSoldier->bActive )
+		if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive )
 		{
 			bBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pSoldier->ubProfile );
 			switch( bBuddyIndex )

@@ -1405,7 +1405,7 @@ INT32 ShowOnDutyTeam( INT16 sMapX, INT16 sMapY )
 				( pSoldier->sSectorY == sMapY) &&
 				( pSoldier->bSectorZ == iCurrentMapSectorZ ) &&
 				( ( pSoldier->bAssignment < ON_DUTY ) || ( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId != iHelicopterVehicleId ) ) ) &&
-				( pSoldier->stats.bLife > 0) &&
+				( pSoldier->vitals().health() > 0) &&
 				( !PlayerIDGroupInMotion( pSoldier->ubGroupID ) ) )
 		{
 			++sNumberOnDuty;
@@ -1464,7 +1464,7 @@ INT32 ShowAssignedTeam(INT16 sMapX, INT16 sMapY, INT32 iCount)
 				( pSoldier->bAssignment != ASSIGNMENT_POW ) &&
 				( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) &&
 				( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
-				( pSoldier->stats.bLife > 0 ) &&
+				( pSoldier->vitals().health() > 0 ) &&
 				( !PlayerIDGroupInMotion( pSoldier->ubGroupID ) ) )
 		{
 			// skip mercs inside the helicopter if we're showing airspace level - they show up inside chopper icon instead
@@ -5151,7 +5151,7 @@ UINT8 NumFriendlyInSector( INT16 sX, INT16 sY, INT8 bZ )
 	// Loop through all mercs and make go
 	for ( pTeamSoldier = Menptr, cnt = 0; cnt < TOTAL_SOLDIERS; pTeamSoldier++, cnt++ )
 	{
-		if ( pTeamSoldier->bActive && pTeamSoldier->stats.bLife > 0 )
+		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
 		{
 			if ( (pTeamSoldier->bSide == gbPlayerNum ) && ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) && ( pTeamSoldier->bSectorZ == bZ ) )
 			{
@@ -7079,7 +7079,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 				( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
 				( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
 				( pSoldier->flags.fMercAsleep == TRUE ) ||
-				( pSoldier->stats.bLife < OKLIFE ) )
+				( pSoldier->vitals().health() < OKLIFE ) )
 		{
 			continue;
 		}
@@ -7226,7 +7226,7 @@ UINT8 NumActiveCharactersInSector( INT16 sSectorX, INT16 sSectorY, INT16 bSector
 		{
 			pSoldier = gCharactersList[ iCounter ].usSolID;
 
-			if( pSoldier->bActive && ( pSoldier->stats.bLife > 0 ) &&
+			if( pSoldier->bActive && ( pSoldier->vitals().health() > 0 ) &&
 					( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != IN_TRANSIT ) )
 			{
 				if( ( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == bSectorZ ) )

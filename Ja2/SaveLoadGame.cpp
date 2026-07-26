@@ -1626,10 +1626,12 @@ template<class Ar> static void XferDrugs( Ar& ar, DRUGS& d )
 	ar.f32(d.drinkstaken);
 }
 
-template<class Ar> static void XferStats( Ar& ar, STRUCT_Statistics& s )
+template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
 {
+	STRUCT_Statistics& s = soldier.stats;
+	SoldierVitalsComponent& vitals = soldier.vitals();
 	int i;
-	ar.i8(s.bExpLevel); ar.i8(s.bLife); ar.i8(s.bLifeMax); ar.i8(s.bStrength); ar.i8(s.bAgility);
+	ar.i8(s.bExpLevel); ar.i8(vitals.health()); ar.i8(vitals.maximumHealth()); ar.i8(s.bStrength); ar.i8(s.bAgility);
 	ar.i8(s.bDexterity); ar.i8(s.bWisdom); ar.i8(s.bLeadership); ar.i8(s.bMarksmanship);
 	ar.i8(s.bMechanical); ar.i8(s.bExplosive); ar.i8(s.bMedical); ar.i8(s.bScientific);
 	for (i = 0; i < 30; ++i) ar.u8(s.ubSkillTraits[i]);
@@ -1656,7 +1658,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(s.bOldLife); ar.i8(s.bVisible); ar.i8(s.bActive); ar.i8(s.bTeam);
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
 	ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(s.sFractLife);
-	ar.i8(s.bBleeding); ar.i8(s.bBreath); ar.i8(s.bBreathMax); ar.i8(s.bStealthMode); ar.i16(s.sBreathRed);
+	ar.i8(s.vitals().bleeding()); ar.i8(s.vitals().breath()); ar.i8(s.vitals().maximumBreath()); ar.i8(s.bStealthMode); ar.i16(s.sBreathRed);
 	ar.u8(s.ubWaitActionToDo); ar.i8(s.ubInsertionDirection); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
 	ar.i8(s.bLastRenderVisibleValue); ar.u8(s.ubAttackingHand); ar.i16(s.sWeightCarriedAtTurnStart);
 	ar.i32(s.iHealableInjury); ar.boolean(s.fDoingSurgery); ar.slong(s.lUnregainableBreath);
@@ -1814,7 +1816,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 	XferTimeChanges(ar, this->timeChanges);
 	XferTimeCounters(ar, this->timeCounters);
 	XferDrugs(ar, this->newdrugs);
-	XferStats(ar, this->stats);
+	XferStats(ar, *this);
 	XferPathing(ar, this->pathing);
 	return wr.good() ? TRUE : FALSE;
 }
@@ -1869,7 +1871,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		XferTimeChanges(ar, this->timeChanges);
 		XferTimeCounters(ar, this->timeCounters);
 		XferDrugs(ar, this->newdrugs);
-		XferStats(ar, this->stats);
+		XferStats(ar, *this);
 		XferPathing(ar, this->pathing);
 		if (!rd.good()) return(FALSE);
 

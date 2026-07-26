@@ -3393,7 +3393,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 								{
 									for ( pSoldier = MercPtrs[ gbPlayerNum ], cnt = 0; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
 									{
-										if ( pSoldier->bActive && pSoldier->stats.bLife > 0 )
+										if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
 										{
 											// Get APs back...
 											pSoldier->CalcNewActionPoints( );
@@ -3817,7 +3817,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						// Make sure the merc is not collapsed!
 						if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 						{
-							if ( pjSoldier->bCollapsed && pjSoldier->bBreath < OKBREATH )
+							if ( pjSoldier->bCollapsed && pjSoldier->vitals().breath() < OKBREATH )
 							{
 								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->GetName() );
 							}
@@ -4113,7 +4113,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					for ( id = gTacticalStatus.Team[gbPlayerNum].bFirstID; id <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++id )
 					{
 						pTeamSoldier = id;
-						if ( !AM_A_ROBOT( pTeamSoldier ) && pTeamSoldier->stats.bLife >= OKLIFE && (pTeamSoldier->sSectorX == gWorldSectorX) && (pTeamSoldier->sSectorY == gWorldSectorY) && (pTeamSoldier->bSectorZ == gbWorldSectorZ) )
+						if ( !AM_A_ROBOT( pTeamSoldier ) && pTeamSoldier->vitals().health() >= OKLIFE && (pTeamSoldier->sSectorX == gWorldSectorX) && (pTeamSoldier->sSectorY == gWorldSectorY) && (pTeamSoldier->bSectorZ == gbWorldSectorZ) )
 						{
 							WearGasMaskIfAvailable( pTeamSoldier );
 						}
@@ -4483,23 +4483,23 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 						for ( pSoldier = MercPtrs[ gbPlayerNum ], cnt = 0; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
 						{
-							if ( pSoldier->bActive && pSoldier->stats.bLife > 0 )
+							if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
 							{
 								if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
 								{
 									// Get breath back
-									pSoldier->bBreath = 100;
+									pSoldier->vitals().breath() = 100;
 									pSoldier->sBreathRed = 10000;
 								}
 								else
 								{
 									// Get breath back
-									pSoldier->bBreath = pSoldier->bBreathMax;
+									pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
 									pSoldier->sBreathRed = 0;
 								}
 								// Get life back
-								pSoldier->stats.bLife = pSoldier->stats.bLifeMax;
-								pSoldier->bBleeding	= 0;
+								pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
+								pSoldier->vitals().bleeding()	= 0;
 
 								// SANDRO - erase insta-healable injury 
 								pSoldier->iHealableInjury = 0; 
@@ -4633,9 +4633,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							pSoldier2 = gusUIFullTargetID;
 
 							// Check if both OK....
-							if ( pSoldier1->stats.bLife >= OKLIFE && pSoldier2->ubID != gusSelectedSoldier )
+							if ( pSoldier1->vitals().health() >= OKLIFE && pSoldier2->ubID != gusSelectedSoldier )
 							{
-								if ( pSoldier2->stats.bLife >= OKLIFE )
+								if ( pSoldier2->vitals().health() >= OKLIFE )
 								{
 									if (CanSoldierReachGridNoInGivenTileLimit( pSoldier1, pSoldier2->sGridNo, 1, (INT8)gsInterfaceLevel ) )
 									{
@@ -5726,7 +5726,7 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 		pTMilitiaSoldier &&
 		pTMilitiaSoldier->bActive &&
 		pTMilitiaSoldier->bInSector &&
-		pTMilitiaSoldier->stats.bLife >= OKLIFE)
+		pTMilitiaSoldier->vitals().health() >= OKLIFE)
 	{
 		INT32 sMoveSpot = usMapPos;
 		BOOLEAN fClimbingNecessary;
@@ -5824,7 +5824,7 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 	if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
 		// If we are out of breath, no cursor...
-		if ( pSoldier->bBreath < OKBREATH && pSoldier->bCollapsed )
+		if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
 		{
 			return;
 		}
@@ -5985,7 +5985,7 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent )
 	if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
 		// If we are out of breath, no cursor...
-		if( pSoldier->bBreath < OKBREATH && pSoldier->bCollapsed )
+		if( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
 		{
 			return;
 		}
@@ -6033,7 +6033,7 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 	if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
 		// If we are out of breath, no cursor...
-		// if ( pSoldier->bBreath < OKBREATH )
+		// if ( pSoldier->vitals().breath() < OKBREATH )
 		//{
 		//	return( -1 );
 		//}
@@ -6453,7 +6453,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 					if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ubAnimHeight)
 						pSoldier->usPendingAnimation = usNewState;
 				}
-				else if (pSoldier->bCollapsed && pSoldier->bBreath >= OKBREATH)
+				else if (pSoldier->bCollapsed && pSoldier->vitals().breath() >= OKBREATH)
 				{
 					pSoldier->BeginSoldierGetup();
 				}
@@ -7292,7 +7292,7 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 		ubTargetMerc = gTeamPanel[ bNewPosition ].ubID;
 
 		// Hey, you're dead. I don't want to swap with you.
-		if ( ubTargetMerc->stats.bLife <= 0 )
+		if ( ubTargetMerc->vitals().health() <= 0 )
 		{
 			RebuildCurrentSquad( );
 			return;
@@ -7607,7 +7607,7 @@ void HandleTBJump( void )
 					// Make sure the merc is not collapsed!
 					if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 					{
-						if ( pjSoldier->bCollapsed && pjSoldier->bBreath < OKBREATH )
+						if ( pjSoldier->bCollapsed && pjSoldier->vitals().breath() < OKBREATH )
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->GetName() );
 						return;
 					}

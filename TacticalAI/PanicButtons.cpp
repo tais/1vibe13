@@ -47,13 +47,13 @@ void MakeClosestEnemyChosenOne()
 		}
 
 		// if this merc is unconscious, or dead
-		if (pSoldier->stats.bLife < OKLIFE)
+		if (pSoldier->vitals().health() < OKLIFE)
 		{
 			continue;	// next soldier
 		}
 
 		// if this guy's too tired to go
-		if (pSoldier->bBreath < OKBREATH)
+		if (pSoldier->vitals().breath() < OKBREATH)
 		{
 			continue;	// next soldier
 		}

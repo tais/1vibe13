@@ -2986,7 +2986,7 @@ void PrepareMission(INT8 index)
 						TakeSoldierOutOfVehicle(pSoldier);
 						RemoveCharacterFromSquads(pSoldier);
 						pSoldier->bSectorZ += REBEL_COMMAND_Z_OFFSET;
-						pSoldier->bBleeding = 0;
+						pSoldier->vitals().bleeding() = 0;
 						SetTimeOfAssignmentChangeForMerc(pSoldier);
 						ChangeSoldiersAssignment(pSoldier, ASSIGNMENT_REBELCOMMAND);
 						break;
@@ -3021,8 +3021,8 @@ void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
 
 	const auto applyPenalties = [](SOLDIERTYPE* pSoldier, UINT8 level)
 	{
-		pSoldier->stats.bLife -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bLifeMax -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->vitals().health() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->vitals().maximumHealth() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->stats.bAgility -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->stats.bDexterity -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->stats.bStrength -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
@@ -3032,11 +3032,11 @@ void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
 		pSoldier->stats.bMechanical -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->stats.bExplosive -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->stats.bMedical -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->bBreath -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->bBreathMax -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->vitals().breath() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->vitals().maximumBreath() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 
-		pSoldier->stats.bLife = static_cast<INT8>(max(25, pSoldier->stats.bLife));
-		pSoldier->stats.bLifeMax = static_cast<INT8>(max(25, pSoldier->stats.bLifeMax));
+		pSoldier->vitals().health() = static_cast<INT8>(max(25, pSoldier->vitals().health()));
+		pSoldier->vitals().maximumHealth() = static_cast<INT8>(max(25, pSoldier->vitals().maximumHealth()));
 		pSoldier->stats.bAgility = static_cast<INT8>(max(25, pSoldier->stats.bAgility));
 		pSoldier->stats.bDexterity = static_cast<INT8>(max(25, pSoldier->stats.bDexterity));
 		pSoldier->stats.bStrength = static_cast<INT8>(max(25, pSoldier->stats.bStrength));
@@ -3046,8 +3046,8 @@ void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
 		pSoldier->stats.bMechanical = static_cast<INT8>(max(25, pSoldier->stats.bMechanical));
 		pSoldier->stats.bExplosive = static_cast<INT8>(max(25, pSoldier->stats.bExplosive));
 		pSoldier->stats.bMedical = static_cast<INT8>(max(25, pSoldier->stats.bMedical));
-		pSoldier->bBreath = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
-		pSoldier->bBreathMax = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
+		pSoldier->vitals().breath() = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
+		pSoldier->vitals().maximumBreath() = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
 	};
 
 	// need to get dist between soldier and town.
@@ -3109,15 +3109,15 @@ void ApplyMilitiaBonuses(SOLDIERTYPE* pMilitia)
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
 
-	pMilitia->stats.bLife += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bLifeMax += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->vitals().health() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->vitals().maximumHealth() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 	pMilitia->stats.bAgility += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 	pMilitia->stats.bDexterity += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 	pMilitia->stats.bStrength += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 	pMilitia->stats.bMarksmanship += (gRebelCommandSettings.iMilitiaMarksmanshipBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 
-	pMilitia->stats.bLife = min(100, pMilitia->stats.bLife);
-	pMilitia->stats.bLifeMax = min(100, pMilitia->stats.bLifeMax);
+	pMilitia->vitals().health() = min(100, pMilitia->vitals().health());
+	pMilitia->vitals().maximumHealth() = min(100, pMilitia->vitals().maximumHealth());
 	pMilitia->stats.bAgility = min(100, pMilitia->stats.bAgility);
 	pMilitia->stats.bDexterity = min(100, pMilitia->stats.bDexterity);
 	pMilitia->stats.bStrength = min(100, pMilitia->stats.bStrength);
@@ -4517,15 +4517,15 @@ void ApplyEnemyMechanicalUnitPenalties(SOLDIERTYPE* pSoldier)
 		default: statLoss = gRebelCommandSettings.iSabotageMechanicalUnitsStatLoss; break;
 		}
 
-		pSoldier->stats.bLife -= statLoss;
-		pSoldier->stats.bLifeMax = pSoldier->stats.bLife;
+		pSoldier->vitals().health() -= statLoss;
+		pSoldier->vitals().maximumHealth() = pSoldier->vitals().health();
 		pSoldier->stats.bAgility -= statLoss;
 		pSoldier->stats.bDexterity -= statLoss;
 		pSoldier->stats.bStrength -= statLoss;
 		pSoldier->stats.bMarksmanship -= statLoss;
 
-		pSoldier->stats.bLife = max(33, pSoldier->stats.bLife);
-		pSoldier->stats.bLifeMax = max(33, pSoldier->stats.bLifeMax);
+		pSoldier->vitals().health() = max(33, pSoldier->vitals().health());
+		pSoldier->vitals().maximumHealth() = max(33, pSoldier->vitals().maximumHealth());
 		pSoldier->stats.bAgility = max(33, pSoldier->stats.bAgility);
 		pSoldier->stats.bDexterity = max(33, pSoldier->stats.bDexterity);
 		pSoldier->stats.bStrength = max(33, pSoldier->stats.bStrength);

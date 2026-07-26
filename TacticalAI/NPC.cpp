@@ -408,7 +408,7 @@ BOOLEAN EnsureQuoteFileLoaded( UINT8 ubNPC )
 			if ( ubNPC != NO_PROFILE )
 			{
 				SOLDIERTYPE * pNull = NULL;
-				pNull->stats.bLife = 0; // crash!
+				pNull->vitals().health() = 0; // crash!
 			}
 #else
 
@@ -432,7 +432,7 @@ BOOLEAN EnsureQuoteFileLoaded( UINT8 ubNPC )
 		{
 			// crash!
 			SOLDIERTYPE * pNull = NULL;
-			pNull->stats.bLife = 0;
+			pNull->vitals().health() = 0;
 		}
 	}
 	
@@ -3680,7 +3680,7 @@ void TriggerFriendWithHostileQuote( UINT8 ubNPC )
 	{
 		pTeamSoldier = cnt;
 		// Add guy if he's a candidate...
-		if ( pTeamSoldier->bActive && pSoldier->bInSector && pTeamSoldier->stats.bLife >= OKLIFE && pTeamSoldier->bBreath >= OKBREATH && pTeamSoldier->aiData.bOppCnt > 0 && pTeamSoldier->ubProfile != NO_PROFILE )
+		if ( pTeamSoldier->bActive && pSoldier->bInSector && pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->vitals().breath() >= OKBREATH && pTeamSoldier->aiData.bOppCnt > 0 && pTeamSoldier->ubProfile != NO_PROFILE )
 		{
 			if ( bTeam == CIV_TEAM && pSoldier->ubCivilianGroup != NON_CIV_GROUP && pTeamSoldier->ubCivilianGroup != pSoldier->ubCivilianGroup )
 			{

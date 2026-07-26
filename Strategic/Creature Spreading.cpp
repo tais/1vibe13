@@ -1674,7 +1674,7 @@ void DetermineCreatureTownCompositionBasedOnTacticalInformation( UINT16 *pubNumC
 	for( SoldierID i = gTacticalStatus.Team[ CREATURE_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++i )
 	{
 		pSoldier = i;
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife )
+		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			switch( pSoldier->ubBodyType )
 			{
@@ -1710,7 +1710,7 @@ void DetermineOtherCreatureTownCompositionBasedOnTacticalInformation( UINT16* pu
 	for ( SoldierID i = gTacticalStatus.Team[CREATURE_TEAM].bFirstID; i <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++i )
 	{
 		pSoldier = i;
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			if ( pSoldier->IsZombie() )
 			{
@@ -2262,7 +2262,7 @@ BOOLEAN PlayerGroupIsInACreatureInfestedMine()
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
 			pSoldier = i;
-			if( pSoldier->bActive && pSoldier->stats.bLife &&
+			if( pSoldier->bActive && pSoldier->vitals().health() &&
 					pSoldier->sSectorX == sSectorX &&
 					pSoldier->sSectorY == sSectorY &&
 					pSoldier->bSectorZ == bSectorZ &&

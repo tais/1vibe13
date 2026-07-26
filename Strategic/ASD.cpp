@@ -1165,7 +1165,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 
 		for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
 		{
-			if ( pSoldier && pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && !pSoldier->bSectorZ &&
+			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !pSoldier->bSectorZ &&
 				 (pSoldier->sSectorX == heli_x && pSoldier->sSectorY == heli_y) ||
 				 (pSoldier->sSectorX == heli_x + 1 && pSoldier->sSectorY == heli_y) ||
 				 (pSoldier->sSectorX == heli_x - 1 && pSoldier->sSectorY == heli_y) ||

@@ -462,7 +462,7 @@ UINT8 GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierI
 				pSoldier->sSectorX == gWorldSectorX &&
 				pSoldier->sSectorY == gWorldSectorY &&
 				pSoldier->bSectorZ == gbWorldSectorZ &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!pSoldier->flags.fBetweenSectors )
 		{
 			//if the merc is one of the mercs we are looking for
@@ -963,7 +963,7 @@ BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( SOLDIERTYPE *pSold
 	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
 	{
     //if the soldier is in the sector
-		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->stats.bLife >= CONSCIOUSNESS ) &&
+		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			bSlot = FindObj( pSoldier, WIRECUTTERS );
@@ -1435,7 +1435,7 @@ BOOLEAN IsSoldierAliveWithInitListGridNo( INT16 sInitListGridNo )
 	{
 		if( curr->pBasicPlacement->usStartingGridNo == sInitListGridNo && curr->pSoldier != NULL )
 		{
-			if ( curr->pSoldier->stats.bLife >= OKLIFE )
+			if ( curr->pSoldier->vitals().health() >= OKLIFE )
 			{
 				return( TRUE );
 			}
@@ -1757,7 +1757,7 @@ INT8 RandomSoldierIdForAnyMercInSector()
 	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
 	{
     //if the soldier is in the sector
-		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->stats.bLife >= CONSCIOUSNESS ) &&
+		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			SoldierIdArray[ ubCount++ ] = cnt;			
@@ -1802,7 +1802,7 @@ void HandleInitialEventsInHeliCrash()
 		//if the merc is alive
 		if( pSoldier->bActive )
 		{
-			pSoldier->stats.bLife -= ( 3 + Random( 5 ) );
+			pSoldier->vitals().health() -= ( 3 + Random( 5 ) );
 			pSoldier->sBreathRed = ( 15 + Random( 15 ) ) * 100;
 			pSoldier->bActionPoints = 0;
 		}
@@ -1938,7 +1938,7 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
 	{       
 		// if the soldier was in the complex
-		if( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bInSector &&
+		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector &&
 				pSoldier->sSectorX == SECTOR_LAUNCH_MISSLES_X && pSoldier->sSectorY == SECTOR_LAUNCH_MISSLES_Y && pSoldier->bSectorZ == SECTOR_LAUNCH_MISSLES_Z )
 		{
 			if( PythSpacesAway( pSoldier->sGridNo, SWITCHTOLAUNCHMISSLES_GRIDNO1 ) < PythSpacesAway( pSoldier->sGridNo, SWITCHTOLAUNCHMISSLES_GRIDNO2 ) )

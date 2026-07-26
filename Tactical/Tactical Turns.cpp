@@ -94,7 +94,7 @@ void HandleRPCDescription(	)
 				// Add guy if he's a candidate...
 				if ( RPC_RECRUITED( pTeamSoldier ) )
 				{
-					if ( pTeamSoldier->stats.bLife >= OKLIFE && pTeamSoldier->bActive &&
+					if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive &&
 						pTeamSoldier->sSectorX == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->sSectorY == gTacticalStatus.bGuideDescriptionSectorY &&
 						pTeamSoldier->bSectorZ == gbWorldSectorZ &&
 						!pTeamSoldier->flags.fBetweenSectors )
@@ -138,7 +138,7 @@ void HandleRPCDescription(	)
 			for ( ; cnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt2 )
 			{
 				pTeamSoldier = cnt2;
-				if ( pTeamSoldier->stats.bLife >= OKLIFE && pTeamSoldier->bActive &&
+				if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive &&
 					pTeamSoldier->sSectorX == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->sSectorY == gTacticalStatus.bGuideDescriptionSectorY &&
 					pTeamSoldier->bSectorZ == gbWorldSectorZ &&
 					!pTeamSoldier->flags.fBetweenSectors )
@@ -240,7 +240,7 @@ void HandleTacticalEndTurn( )
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
 			pSoldier = cnt;
-			if ( pSoldier->bActive && pSoldier->stats.bLife > 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( pSoldier->bActive && pSoldier->vitals().health() > 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
 				// Handle everything from getting breath back, to bleeding, etc
 				pSoldier->EVENT_BeginMercTurn( TRUE, 0 );

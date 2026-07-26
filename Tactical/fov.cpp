@@ -328,7 +328,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	}
 
 	// Return if this guy has no gridno, has bad life, etc	
-	if(TileIsOutOfBounds(pSoldier->sGridNo) || !pSoldier->bInSector || pSoldier->stats.bLife < OKLIFE )
+	if(TileIsOutOfBounds(pSoldier->sGridNo) || !pSoldier->bInSector || pSoldier->vitals().health() < OKLIFE )
 	{
 		return;
 	}

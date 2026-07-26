@@ -91,13 +91,13 @@ void ExitBoxing( void )
                     }
 
 					// if necessary, revive boxer so he can leave ring
-					if (pSoldier->stats.bLife > 0 && (pSoldier->stats.bLife < OKLIFE || pSoldier->bBreath < OKBREATH ) )
+					if (pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < OKLIFE || pSoldier->vitals().breath() < OKBREATH ) )
 					{
-						pSoldier->stats.bLife = __max( OKLIFE * 2, pSoldier->stats.bLife );
-						if (pSoldier->bBreath < 100)
+						pSoldier->vitals().health() = __max( OKLIFE * 2, pSoldier->vitals().health() );
+						if (pSoldier->vitals().breath() < 100)
 						{
 							// deduct -ve BPs to grant some BPs back (properly)
-							DeductPoints( pSoldier, 0, (INT16) - ( (100 - pSoldier->bBreath) * 100 ) );
+							DeductPoints( pSoldier, 0, (INT16) - ( (100 - pSoldier->vitals().breath()) * 100 ) );
 						}
 						pSoldier->BeginSoldierGetup( );
 					}
@@ -390,7 +390,7 @@ BOOLEAN PickABoxer( void )
 			{
 				pBoxer = gubBoxerID[ uiLoop ];
 				// pick this boxer!
-				if ( pBoxer->bActive && pBoxer->bInSector && pBoxer->stats.bLife >= OKLIFE )
+				if ( pBoxer->bActive && pBoxer->bInSector && pBoxer->vitals().health() >= OKLIFE )
 				{
 					pBoxer->flags.uiStatusFlags |= SOLDIER_BOXER;
 					SetSoldierNonNeutral( pBoxer );
@@ -404,7 +404,7 @@ BOOLEAN PickABoxer( void )
 					pBoxer->stats.bStrength = __min( 100, pBoxer->stats.bStrength + gubBoxersRests * 5 );
 					pBoxer->stats.bDexterity = __min( 100, pBoxer->stats.bDexterity + gubBoxersRests * 5 );
 					pBoxer->stats.bAgility = __min( 100, pBoxer->stats.bAgility + gubBoxersRests * 5 );
-					pBoxer->stats.bLifeMax = __min( 100, pBoxer->stats.bLifeMax + gubBoxersRests * 5 );
+					pBoxer->vitals().maximumHealth() = __min( 100, pBoxer->vitals().maximumHealth() + gubBoxersRests * 5 );
 					// give the 2nd boxer Hand to hand - SANDRO
 					if ( (uiLoop == NUM_BOXERS - 2) )
 					{
@@ -445,7 +445,7 @@ BOOLEAN BoxerAvailable( void )
 	{
 		if ( gubBoxerID[ ubLoop ] != NOBODY && !gfBoxerFought[ ubLoop ] )
 		{
-			if( gubBoxerID[ ubLoop ]->bActive && gubBoxerID[ ubLoop ]->bInSector && gubBoxerID[ ubLoop ]->stats.bLife >= OKLIFE )
+			if( gubBoxerID[ ubLoop ]->bActive && gubBoxerID[ ubLoop ]->bInSector && gubBoxerID[ ubLoop ]->vitals().health() >= OKLIFE )
 				return( TRUE );
 		}
 	}
@@ -466,7 +466,7 @@ UINT8 BoxersAvailable( void )
 	{
 		if ( gubBoxerID[ ubLoop ] != NOBODY && !gfBoxerFought[ ubLoop ] )
 		{
-			if( gubBoxerID[ ubLoop ]->bActive && gubBoxerID[ ubLoop ]->bInSector && gubBoxerID[ ubLoop ]->stats.bLife >= OKLIFE )
+			if( gubBoxerID[ ubLoop ]->bActive && gubBoxerID[ ubLoop ]->bInSector && gubBoxerID[ ubLoop ]->vitals().health() >= OKLIFE )
 				++ubCount;
 		}
 	}
@@ -493,7 +493,7 @@ BOOLEAN AnotherFightPossible( void )
 	SoldierID pSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; pSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++pSoldier )
 	{
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife > (OKLIFE + 5) && !pSoldier->bCollapsed )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > (OKLIFE + 5) && !pSoldier->bCollapsed )
 		{
 			return( TRUE );
 		}

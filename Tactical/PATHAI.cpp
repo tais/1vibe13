@@ -1563,7 +1563,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		SOLDIERTYPE* pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || pOpponent->stats.bLife < OKLIFE) {
+		if (!pOpponent || pOpponent->vitals().health() < OKLIFE) {
 			continue;			// next merc
 		}
 
@@ -2081,7 +2081,7 @@ bool AStarPathfinder::WantToTraverse()
 				// look for all mercs on the same team,
 				for ( tS = MercPtrs[ tcnt ]; tcnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; tcnt++,tS++ )
 				{		
-					if ( tS->stats.bLife >= OKLIFE && tS->sGridNo != NOWHERE && tS->bInSector )
+					if ( tS->vitals().health() >= OKLIFE && tS->sGridNo != NOWHERE && tS->bInSector )
 						if ( SoldierTo3DLocationLineOfSightTest(
 							tS, tS->sGridNo, pSoldier->pathing.bLevel, 3, 
 							TRUE, CALC_FROM_WANTED_DIR ))

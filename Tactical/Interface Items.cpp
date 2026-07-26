@@ -9181,7 +9181,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	}
 
 	// Don't allow if our soldier is a # of things...
-	if ( AM_AN_EPC( GetItemPointerSoldier() ) || GetItemPointerSoldier()->stats.bLife < OKLIFE || GetItemPointerSoldier()->MercInDeepWater( ) )
+	if ( AM_AN_EPC( GetItemPointerSoldier() ) || GetItemPointerSoldier()->vitals().health() < OKLIFE || GetItemPointerSoldier()->MercInDeepWater( ) )
 	{
 		return( FALSE );
 	}
@@ -9566,10 +9566,10 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 				pSoldier = gusUIFullTargetID;
 
 				// Kaiden: Vehicle Inventory change - Commented the following If Test:
-				//if ( pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife >= OKLIFE && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				//if ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 
 				// And replaced it with this one:
-				if ( ( pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife >= OKLIFE && !AM_AN_EPC( pSoldier ) ) && !( ( !gGameExternalOptions.fVehicleInventory ) &&  ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+				if ( ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) ) && !( ( !gGameExternalOptions.fVehicleInventory ) &&  ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
 				{
 					// OK, on our team,
 
@@ -14823,19 +14823,19 @@ void UpdateMercBodyRegionHelpText( )
 		// health/energy/morale
 		if ( pSoldier->bAssignment != ASSIGNMENT_POW )
 		{
-			if ( pSoldier->stats.bLife != 0 )
+			if ( pSoldier->vitals().health() != 0 )
 			{
 				if ( AM_A_ROBOT( pSoldier ) )
 				{
 					// robot (condition only)
-					swprintf( sString, L"%s: %d/%d", pMapScreenStatusStrings[3], pSoldier->stats.bLife, pSoldier->stats.bLifeMax );
+					swprintf( sString, L"%s: %d/%d", pMapScreenStatusStrings[3], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 				}
 				else if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 				{
 					// vehicle (condition/fuel)
 					swprintf( sString, L"%s: %d/%d, %s: %d/%d",
-							  pMapScreenStatusStrings[3], pSoldier->stats.bLife, pSoldier->stats.bLifeMax,
-							  pMapScreenStatusStrings[4], pSoldier->bBreath, pSoldier->bBreathMax );
+							  pMapScreenStatusStrings[3], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(),
+							  pMapScreenStatusStrings[4], pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath() );
 				}
 				else
 				{
@@ -14844,8 +14844,8 @@ void UpdateMercBodyRegionHelpText( )
 											
 					{
 						swprintf( sString, L"%s: %d/%d, %s: %d/%d, %s: %s",
-								  pMapScreenStatusStrings[0], pSoldier->stats.bLife, pSoldier->stats.bLifeMax,
-								  pMapScreenStatusStrings[1], pSoldier->bBreath, pSoldier->bBreathMax,
+								  pMapScreenStatusStrings[0], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(),
+								  pMapScreenStatusStrings[1], pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(),
 								  pMapScreenStatusStrings[2], pMoraleStr );
 					}
 

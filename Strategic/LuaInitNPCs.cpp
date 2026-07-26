@@ -7045,7 +7045,7 @@ static int l_SetEnterCombatMode(lua_State* L)
 		for (SoldierID ubLoop = gTacticalStatus.Team[CIV_TEAM].bFirstID; ubLoop <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++ubLoop)
 		{
 			pGoon = ubLoop;
-			if (pGoon->ubCivilianGroup == group && pGoon->bActive && pGoon->bInSector && pGoon->stats.bLife >= OKLIFE && pGoon->aiData.bOppList[ubID] == SEEN_CURRENTLY)
+			if (pGoon->ubCivilianGroup == group && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->aiData.bOppList[ubID] == SEEN_CURRENTLY)
 			{
 				MakeCivHostile(pGoon);
 				if (!(IsJa2TacticalCombatActive()))
@@ -7135,7 +7135,7 @@ static int l_EVENT_SoldierGotHit(lua_State* L)
 			if (pTarget2)
 			{
 				DeleteTalkingMenu();
-				if (pTarget2->stats.bLife >= 0)
+				if (pTarget2->vitals().health() >= 0)
 				{
 					pTarget2->EVENT_SoldierGotHit(1, 100, 10, pTarget2->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
 				}
@@ -8242,7 +8242,7 @@ static int l_CheckMercPtrsLife(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			INT8 life = ubID->stats.bLife;
+			INT8 life = ubID->vitals().health();
 
 			lua_pushinteger(L, life);
 		}
@@ -8605,7 +8605,7 @@ static int l_AnimMercPtsrSoldierGotHit(lua_State* L)
 
 		if (ubID != NOBODY && ubID->bInSector && ubID->bActive)
 		{
-			if (ubID->stats.bLife >= 0)
+			if (ubID->vitals().health() >= 0)
 			{
 				ubID->EVENT_SoldierGotHit(1, 100, 10, ubID->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
 			}
@@ -9343,11 +9343,11 @@ static int l_HealBoxers(lua_State* L)
 	for (UINT8 i = 0; i < NUM_BOXERS; ++i)
 	{
 		// Get breath back
-		gubBoxerID[i]->bBreath = gubBoxerID[i]->bBreathMax;
+		gubBoxerID[i]->vitals().breath() = gubBoxerID[i]->vitals().maximumBreath();
 		gubBoxerID[i]->sBreathRed = 0;
 		// Get life back
-		gubBoxerID[i]->stats.bLife = gubBoxerID[i]->stats.bLifeMax;
-		gubBoxerID[i]->bBleeding = 0;
+		gubBoxerID[i]->vitals().health() = gubBoxerID[i]->vitals().maximumHealth();
+		gubBoxerID[i]->vitals().bleeding() = 0;
 		// erase insta-healable injury 
 		gubBoxerID[i]->iHealableInjury = 0;
 

@@ -114,7 +114,7 @@ void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWi
 		RestoreExternBackgroundRect( sXPos, (INT16)(sYPos - sHeight), sWidth, (INT16)(sHeight + 1 ) );
 	}
 
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		// are they dead?
 		return;
@@ -127,7 +127,7 @@ void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWi
 	dEnd			= 0;
 	
 	// FIRST DO MAX LIFE
-	dPercentage = (FLOAT)pSoldier->stats.bLife / (FLOAT)100;
+	dPercentage = (FLOAT)pSoldier->vitals().health() / (FLOAT)100;
 	FLOAT	dstart1		= dStart - dEnd;
 	dStart				= (FLOAT)( dStart - dEnd );
 	dEnd				=	dPercentage * sHeight;
@@ -145,7 +145,7 @@ void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWi
 		
 	// Calculate bandage
 	FLOAT	dstart2		= dStart - dEnd;
-	bBandage = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
+	bBandage = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
 	if ( bBandage )
 	{
@@ -165,9 +165,9 @@ void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWi
 
 	// NOW DO BLEEDING
 	FLOAT	dstart3		= dStart - dEnd;
-	if ( pSoldier->bBleeding )
+	if ( pSoldier->vitals().bleeding() )
 	{
-		dPercentage = (FLOAT)pSoldier->bBleeding / (FLOAT)100;
+		dPercentage = (FLOAT)pSoldier->vitals().bleeding() / (FLOAT)100;
 		dStart			= (FLOAT)( dStart - dEnd );
 		dEnd				=	( dPercentage * sHeight );
 
@@ -201,7 +201,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 		RestoreExternBackgroundRect( sXPos, (INT16)(sYPos - sHeight), sWidth, (INT16)(sHeight + 1 ) );
 	}
 
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		// are they dead?
 		return;
@@ -250,9 +250,9 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 	pDestBuf = LockVideoSurface( uiBuffer, &uiDestPitchBYTES );
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
 
-	if( pSoldier->bBreathMax <= 97 )
+	if( pSoldier->vitals().maximumBreath() <= 97 )
 	{
-		dPercentage = (FLOAT)( ( pSoldier->bBreathMax + 3 ) )/ (FLOAT)100;
+		dPercentage = (FLOAT)( ( pSoldier->vitals().maximumBreath() + 3 ) )/ (FLOAT)100;
 		dEnd				=	dPercentage * sHeight;
 		dStart			= sYPos;
 
@@ -267,7 +267,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 		RectangleDraw( TRUE, sXPos+ 2, (INT32)dStart, sXPos + 2, (INT32)( dStart - dEnd ), usLineColor, pDestBuf );
 	}
 
-	dPercentage = (FLOAT)pSoldier->bBreathMax / (FLOAT)100;
+	dPercentage = (FLOAT)pSoldier->vitals().maximumBreath() / (FLOAT)100;
 	dEnd				=	dPercentage * sHeight;
 	dStart			= sYPos;
 
@@ -281,7 +281,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 	RectangleDraw( TRUE, sXPos+ 2, (INT32)dStart, sXPos + 2, (INT32)( dStart - dEnd ), usLineColor, pDestBuf );
 
 	// NOW DO BREATH
-	dPercentage = (FLOAT)pSoldier->bBreath / (FLOAT)100;
+	dPercentage = (FLOAT)pSoldier->vitals().breath() / (FLOAT)100;
 	dEnd				=	dPercentage * sHeight;
 	dStart			= sYPos;
 
@@ -312,7 +312,7 @@ void DrawMoraleUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 		RestoreExternBackgroundRect( sXPos, (INT16)(sYPos - sHeight), sWidth, (INT16)(sHeight + 1 ) );
 	}
 
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		// are they dead?
 		return;

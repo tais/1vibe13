@@ -746,7 +746,7 @@ void InitTacticalPlacementGUI()
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = i;
-		if( pSoldier->bActive && pSoldier->stats.bLife && !pSoldier->flags.fBetweenSectors &&
+		if( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors &&
 			CurrentBattleSectorIs( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) &&
 				pSoldier->bAssignment != ASSIGNMENT_POW &&
 				pSoldier->bAssignment != ASSIGNMENT_MINIEVENT &&
@@ -1119,26 +1119,26 @@ void RenderTacticalPlacementGUI()
 			BltVideoObjectFromIndex( FRAME_BUFFER, gMercPlacement[ j ].uiVObjectID, 0, xp+2, yp+2, VO_BLT_SRCTRANSPARENCY, NULL );
 			//HEALTH BAR
 
-			if( !pSoldier->stats.bLife )
+			if( !pSoldier->vitals().health() )
 				continue;
 
 			//yellow one for bleeding
-			iStartY = yp + 29 - 27*pSoldier->stats.bLifeMax/100;
+			iStartY = yp + 29 - 27*pSoldier->vitals().maximumHealth()/100;
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+36, iStartY, xp+37, yp+29, Get16BPPColor( FROMRGB( 107, 107, 57 ) ) );
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+37, iStartY, xp+38, yp+29, Get16BPPColor( FROMRGB( 222, 181, 115 ) ) );
 						
 			//pink one for bandaged.
-			iStartY = yp + 29 - 27*(pSoldier->stats.bLifeMax - pSoldier->bBleeding)/100;
+			iStartY = yp + 29 - 27*(pSoldier->vitals().maximumHealth() - pSoldier->vitals().bleeding())/100;
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+36, iStartY, xp+37, yp+29, Get16BPPColor( FROMRGB( 156, 57, 57 ) ) );
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+37, iStartY, xp+38, yp+29, Get16BPPColor( FROMRGB( 222, 132, 132 ) ) );
 						
 			//red one for actual health
-			iStartY = yp + 29 - 27*pSoldier->stats.bLife/100;
+			iStartY = yp + 29 - 27*pSoldier->vitals().health()/100;
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+36, iStartY, xp+37, yp+29, Get16BPPColor( FROMRGB( 107, 8, 8 ) ) );
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+37, iStartY, xp+38, yp+29, Get16BPPColor( FROMRGB( 206, 0, 0 ) ) );
 						
 			//BREATH BAR
-			iStartY = yp + 29 - 27*pSoldier->bBreathMax/100;
+			iStartY = yp + 29 - 27*pSoldier->vitals().maximumBreath()/100;
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+39, iStartY, xp+40, yp+29, Get16BPPColor( FROMRGB( 8, 8, 132 ) ) );
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+40, iStartY, xp+41, yp+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 

@@ -3191,7 +3191,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	}
 
 	// Flugente: ammotype can alter the damage dealt
-	INT16 sBreathLoss = (INT16)((iImpact * APBPConstants[BP_GET_WOUNDED] * (pTarget->bBreathMax * 100 - pTarget->sBreathRed)) / 10000);
+	INT16 sBreathLoss = (INT16)((iImpact * APBPConstants[BP_GET_WOUNDED] * (pTarget->vitals().maximumBreath() * 100 - pTarget->sBreathRed)) / 10000);
 	sBreathLoss *= AmmoTypes[ubAmmoType].dDamageModifierBreath;
 
 	// Send event for getting hit

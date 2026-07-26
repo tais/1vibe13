@@ -563,11 +563,9 @@ void STRUCT_Statistics::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->bDexterity = src.bDexterity;		// dexterity (hand coord) value
 	this->bWisdom = src.bWisdom;
 	this->bExpLevel = src.bExpLevel;		// general experience level
-	this->bLife = src.bLife;				// current life (hit points or health)
 	this->bAgility = src.bAgility;			// agility (speed) value
 	this->bStrength = src.bStrength;
 	this->bMechanical = src.bMechanical;
-	this->bLifeMax = src.bLifeMax;			// maximum life for this merc
 	this->bMedical = src.bMedical;
 	this->bMarksmanship = src.bMarksmanship;
 	this->bScientific = src.bScientific;
@@ -698,9 +696,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bInSector = src.bInSector;
 		this->bFlashPortraitFrame = src.bFlashPortraitFrame;
 		this->sFractLife = src.sFractLife;		// fraction of life pts (in hundreths)
-		this->bBleeding = src.bBleeding;		// blood loss control variable
-		this->bBreath = src.bBreath;			// current breath value
-		this->bBreathMax = src.bBreathMax;   // max breath, affected by fatigue/sleep
+		this->vitals().health() = src.bLife;
+		this->vitals().maximumHealth() = src.bLifeMax;
+		this->vitals().bleeding() = src.bBleeding;		// blood loss control variable
+		this->vitals().breath() = src.bBreath;			// current breath value
+		this->vitals().maximumBreath() = src.bBreathMax;   // max breath, affected by fatigue/sleep
 		this->bStealthMode = src.bStealthMode;
 
 		this->sBreathRed = src.sBreathRed;			// current breath value
@@ -1088,8 +1088,8 @@ UINT32 SOLDIERTYPE::GetChecksum( )
 	UINT32	uiChecksum = 1;
 	UINT32	uiLoop;
 
-	uiChecksum += (this->stats.bLife + 1);
-	uiChecksum *= (this->stats.bLifeMax + 1);
+	uiChecksum += (this->vitals().health() + 1);
+	uiChecksum *= (this->vitals().maximumHealth() + 1);
 	uiChecksum += (this->stats.bAgility + 1);
 	uiChecksum *= (this->stats.bDexterity + 1);
 	uiChecksum += (this->stats.bStrength + 1);
@@ -1129,6 +1129,7 @@ void SOLDIERTYPE::initialize( )
 	//memset( &drugs, 0, sizeof(STRUCT_Drugs) );
 	memset( &newdrugs, 0, sizeof(DRUGS) );
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
+	vitals().reset();
 	memset( &pathing, 0, sizeof(STRUCT_Pathing) );
 
 	// sevenfm:initialize additional data
@@ -1970,7 +1971,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 {
 	INT16 ubPoints, ubMaxAPs;
 	INT8  bBandage;
-	SoldierVitalsComponent soldierVitals = vitals();
+	SoldierVitalsComponent& soldierVitals = vitals();
 
 	// dead guys don't get any APs (they shouldn't be here asking for them!)
 	if ( !soldierVitals.alive() )
@@ -1985,7 +1986,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 	// round fractions of .5 up (that's why the +20 before the division!
 	//ubPoints = 5 + (((10 * EffectiveExpLevel( this ) +
 	//	3 * EffectiveAgility( this )   +
-	//	2 * this->stats.bLifeMax   +
+	//	2 * this->vitals().maximumHealth()   +
 	//	2 * EffectiveDexterity( this ) ) + 20) / 40);
 	ubPoints = 20 + (((10 * EffectiveExpLevel( this ) +
 		3 * EffectiveAgility( this, FALSE ) +
@@ -2319,7 +2320,7 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 			this->ChangeSoldierState( NINJA_SPINKICK, 0, FALSE );
 
 		}
-		else if ( !gGameExternalOptions.fEnhancedCloseCombatSystem && (pTSoldier->stats.bLife <= 30 || pTSoldier->bBreath <= 30) && ubTargetStance != ANIM_PRONE )
+		else if ( !gGameExternalOptions.fEnhancedCloseCombatSystem && (pTSoldier->vitals().health() <= 30 || pTSoldier->vitals().breath() <= 30) && ubTargetStance != ANIM_PRONE )
 		{
 			// Do finish!
 			this->ChangeSoldierState( NINJA_SPINKICK, 0, FALSE );
@@ -2438,7 +2439,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 		HandleSight( this, SIGHT_LOOK );
 
 		// Set some quote flags
-		if ( this->stats.bLife >= OKLIFE )
+		if ( this->vitals().health() >= OKLIFE )
 		{
 			this->flags.fDyingComment = FALSE;
 		}
@@ -2964,7 +2965,7 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 		// pSoldier->flags.fGettingHit = FALSE;
 
 		// ATE: if our guy, have 10% change of say damn, if still conscious...
-		if ( pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife >= OKLIFE )
+		if ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
 		{
 			if ( Random( 10 ) == 0 )
 			{
@@ -2975,7 +2976,7 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 
 	// CHECK IF WE HAVE FINSIHED A HIT WHILE DOWN
 	// OBLY DO THIS IF 1 ) We are dead already or 2 ) We are alive still
-	if ( (uiOldAnimFlags & ANIM_HITWHENDOWN) && ((pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) || pSoldier->stats.bLife != 0) )
+	if ( (uiOldAnimFlags & ANIM_HITWHENDOWN) && ((pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) || pSoldier->vitals().health() != 0) )
 	{
 		// 0verhaul:  Ditto
 		// Release attacker
@@ -2985,7 +2986,7 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 		//FREEUP GETTING HIT FLAG
 		// pSoldier->flags.fGettingHit = FALSE;
 
-		if ( pSoldier->stats.bLife == 0 && pSoldier->ubPreviousAttackerID != NOBODY ) // SANDRO added check
+		if ( pSoldier->vitals().health() == 0 && pSoldier->ubPreviousAttackerID != NOBODY ) // SANDRO added check
 		{
 			//ATE: Set previous attacker's value!
 			// This is so that the killer can say their killed quote....
@@ -3285,7 +3286,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 		// ATE: Don't raise/lower automatically if we are low on health,
 		// as our gun looks lowered anyway....
-		//if ( this->stats.bLife > INJURED_CHANGE_THREASHOLD )
+		//if ( this->vitals().health() > INJURED_CHANGE_THREASHOLD )
 		if ( !this->MercInWater( ) )
 		{
 			// Don't do some of this if we are a monster!
@@ -3389,7 +3390,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		}
 		///***ddd}
 
-		if ( this->usAnimState == WALKING && usNewState == STANDING && this->stats.bLife < INJURED_CHANGE_THREASHOLD && this->ubBodyType <= REGFEMALE && !this->MercInWater( ) )
+		if ( this->usAnimState == WALKING && usNewState == STANDING && this->vitals().health() < INJURED_CHANGE_THREASHOLD && this->ubBodyType <= REGFEMALE && !this->MercInWater( ) )
 		{
 			// Set new state to be animation to move to new stance
 			usNewState = END_HURT_WALKING;
@@ -3406,7 +3407,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		// SANDRO - removing unused code
 		/*if ( this->ubBodyType > REGFEMALE )
 		{
-		if ( this->stats.bLife < INJURED_CHANGE_THREASHOLD )
+		if ( this->vitals().health() < INJURED_CHANGE_THREASHOLD )
 		{
 		if ( usNewState == READY_RIFLE_STAND )
 		{
@@ -4904,7 +4905,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 					{
 						pEnemy = MercPtrs[cnt];
 						// if this guy is here and alive enough to be looking for us
-						if ( pEnemy->bActive && pEnemy->bInSector && (pEnemy->stats.bLife >= OKLIFE) )
+						if ( pEnemy->bActive && pEnemy->bInSector && (pEnemy->vitals().health() >= OKLIFE) )
 						{
 							// no points for sneaking by the neutrals & friendlies!!!
 							if ( !pEnemy->aiData.bNeutral && (this->bSide != pEnemy->bSide) && (pEnemy->ubBodyType != COW && pEnemy->ubBodyType != CROW) )
@@ -5822,7 +5823,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 			if ( PreRandom( 100 ) < uiChance )
 			{
 				// succumb to the drug!
-				sBreathLoss = (INT16)(this->bBreathMax * 100);
+				sBreathLoss = (INT16)(this->vitals().maximumBreath() * 100);
 			}
 
 		}
@@ -6090,12 +6091,12 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// sevenfm: player mercs should not die instantly
 	if (gGameExternalOptions.fReducedInstantDeath &&
 		this->flags.uiStatusFlags & SOLDIER_PC &&
-		this->stats.bLife >= OKLIFE &&
+		this->vitals().health() >= OKLIFE &&
 		ubSpecial != FIRE_WEAPON_HEAD_EXPLODE_SPECIAL &&
 		ubSpecial != FIRE_WEAPON_CHEST_EXPLODE_SPECIAL &&
 		Item[usWeaponIndex].usItemClass & (IC_GUN | IC_THROWING_KNIFE | IC_BLADE))
 	{
-		sDamage = __min(sDamage, this->stats.bLife - OKLIFE + 1 + sDamage / 10);
+		sDamage = __min(sDamage, this->vitals().health() - OKLIFE + 1 + sDamage / 10);
 	}
 
 	// DEDUCT LIFE
@@ -6148,7 +6149,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 
 	// PLAY RANDOM GETTING HIT SOUND
 	// ONLY IF WE ARE CONSCIOUS!
-	if ( this->stats.bLife >= CONSCIOUSNESS )
+	if ( this->vitals().health() >= CONSCIOUSNESS )
 	{
 		if ( this->ubBodyType == CROW )
 		{
@@ -6242,7 +6243,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	if ( (Item[usWeaponIndex].usItemClass & (IC_BLADE | IC_PUNCH)) && Item[this->inv[HANDPOS].usItem].usItemClass & (IC_NONE | IC_BLADE | IC_PUNCH) &&
 		 (this->usAnimState == PUNCH_BREATH || this->usAnimState == KNIFE_BREATH || this->usAnimState == NINJA_BREATH) && (gAnimControl[this->usAnimState].ubEndHeight == ANIM_STAND) )
 	{
-		if ( this->stats.bLife > 30 && this->bBreath > 25 )
+		if ( this->vitals().health() > 30 && this->vitals().breath() > 25 )
 		{
 			this->flags.bGoBackToAimAfterHit = GO_TO_HTH_BREATH_AFTER_HIT;
 		}
@@ -6268,7 +6269,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// IF COWERING, PLAY SPECIFIC GENERIC HIT STAND...
 	if ( this->flags.uiStatusFlags & SOLDIER_COWERING )
 	{
-		if ( this->stats.bLife == 0 || IS_MERC_BODY_TYPE( this ) )
+		if ( this->vitals().health() == 0 || IS_MERC_BODY_TYPE( this ) )
 		{
 			this->EVENT_InitNewSoldierAnim( GENERIC_HIT_STAND, 0, FALSE );
 		}
@@ -6320,7 +6321,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 					   // OK, do some code here to allow the fact that poor buddy can be thrown back if it's a big enough hit...
 					   this->EVENT_InitNewSoldierAnim( CRIPPLE_HIT, 0, FALSE );
 
-					   //this->stats.bLife = 0;
+					   //this->vitals().health() = 0;
 					   //this->EVENT_InitNewSoldierAnim( CRIPPLE_DIE_FLYBACK, 0 , FALSE );
 
 
@@ -6351,7 +6352,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	case KIDCIV:
 
 		// OK, if life is 0 and not set as dead ( this is a death hit... )
-		if ( !(this->flags.uiStatusFlags & SOLDIER_DEAD) && this->stats.bLife == 0 )
+		if ( !(this->flags.uiStatusFlags & SOLDIER_DEAD) && this->vitals().health() == 0 )
 		{
 			// Randomize death!
 			if ( Random( 2 ) )
@@ -6380,7 +6381,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	}
 
 	// Flugente: cryo death
-	if (this->stats.bLife <= 0 && this->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if (this->vitals().health() <= 0 && this->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
 	{
 		if ( gAnimControl[this->usAnimState].ubEndHeight == ANIM_STAND )
 			this->EVENT_InitNewSoldierAnim( CRYO_DEATH, 0, TRUE );
@@ -6694,7 +6695,7 @@ void SoldierGotHitExplosion( SOLDIERTYPE *pSoldier, UINT16 usWeaponIndex, INT16 
 
 	if ( gGameSettings.fOptions[TOPTION_BLOOD_N_GORE] )
 	{
-		if ( Explosive[Item[usWeaponIndex].ubClassIndex].ubRadius >= 3 && pSoldier->stats.bLife == 0 && gAnimControl[pSoldier->usAnimState].ubEndHeight != ANIM_PRONE )
+		if ( Explosive[Item[usWeaponIndex].ubClassIndex].ubRadius >= 3 && pSoldier->vitals().health() == 0 && gAnimControl[pSoldier->usAnimState].ubEndHeight != ANIM_PRONE )
 		{
 			if ( sRange >= 2 && sRange <= 4 )
 			{
@@ -7002,7 +7003,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	UINT8							fFlags = 0;
 
 	//shadooow: if collapsed and enough breath, get up first and wait for new input
-	if (this->bCollapsed && this->bBreath >= OKBREATH)
+	if (this->bCollapsed && this->vitals().breath() >= OKBREATH)
 	{
 		this->BeginSoldierGetup();
 		if(!this->bCollapsed) return FALSE;
@@ -7254,7 +7255,7 @@ void SOLDIERTYPE::SoldierGotoStationaryStance( void )
 		// IN deep water, tred!
 		this->EVENT_InitNewSoldierAnim( DEEP_WATER_TRED, 0, FALSE );
 	}
-	else if ( this->ubServicePartner != NOBODY && this->stats.bLife >= OKLIFE && this->bBreath > 0 )
+	else if ( this->ubServicePartner != NOBODY && this->vitals().health() >= OKLIFE && this->vitals().breath() > 0 )
 	{
 		if ( gAnimControl[this->usAnimState].ubEndHeight == ANIM_PRONE )
 		{
@@ -7743,7 +7744,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// Blood is not for the weak of heart, or mechanical
 		if ( !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ROBOT)) )
 		{
-			if ( this->bBleeding || this->stats.bLife < OKLIFE ) // is he bleeding or dying?
+			if ( this->vitals().bleeding() || this->vitals().health() < OKLIFE ) // is he bleeding or dying?
 			{
 				iBlood = CheckBleeding( this );	// check if he might lose another life point
 
@@ -7760,13 +7761,13 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 	}
 
 	// survived bleeding, but is he out of breath?
-	if ( this->stats.bLife && !this->bBreath && this->MercInWater( ) )
+	if ( this->vitals().health() && !this->vitals().breath() && this->MercInWater( ) )
 	{
 		// Drowning...
 	}
 
 	// if he is still alive (didn't bleed to death)
-	if ( this->stats.bLife )
+	if ( this->vitals().health() )
 	{
 		// reduce the effects of any residual shock from past injuries by half
 		this->aiData.bShock /= 2;
@@ -7843,11 +7844,11 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		UnusedAPsToBreath( this );
 
 		// Set flag back to normal, after reaching a certain statge
-		if ( this->bBreath > 80 )
+		if ( this->vitals().breath() > 80 )
 		{
 			this->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_LOW_BREATH);
 		}
-		if ( this->bBreath > 50 )
+		if ( this->vitals().breath() > 50 )
 		{
 			this->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_DROWNING);
 		}
@@ -8824,7 +8825,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 	case PRONE:
 	case STANDING:
 
-		pSoldier->sAniDelay = (pStatsSoldier->bBreath * 2) + (100 - pStatsSoldier->stats.bLife);
+		pSoldier->sAniDelay = (pStatsSoldier->vitals().breath() * 2) + (100 - pStatsSoldier->vitals().health());
 
 		// Limit it!
 		if ( pSoldier->sAniDelay < 40 )
@@ -8836,7 +8837,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 
 	case CROUCHING:
 
-		pSoldier->sAniDelay = (pStatsSoldier->bBreath * 2) + ((100 - pStatsSoldier->stats.bLife));
+		pSoldier->sAniDelay = (pStatsSoldier->vitals().breath() * 2) + ((100 - pStatsSoldier->vitals().health()));
 
 		// Limit it!
 		if ( pSoldier->sAniDelay < 40 )
@@ -8952,13 +8953,13 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 
 	if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 	{
-		bBreathDef = 50 - (pStatsSoldier->bBreath / 2);
+		bBreathDef = 50 - (pStatsSoldier->vitals().breath() / 2);
 
 		if ( bBreathDef > 30 )
 			bBreathDef = 30;
 
 		bAgilDef = 50 - (EffectiveAgility( pStatsSoldier, FALSE ) / 4);
-		bLifeDef = 50 - (pStatsSoldier->stats.bLife / 2);
+		bLifeDef = 50 - (pStatsSoldier->vitals().health() / 2);
 	}
 	else
 	{
@@ -9812,7 +9813,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 				fEnoughPlace = OkayToAddStructureToWorld( this->sGridNo, this->pathing.bLevel, &(pStructureFileRef->pDBStructureRef[gOneCDirection[this->ubDirection]]), this->ubID, FALSE, NOBODY );
 		}
 
-		if ( this->stats.bLife >= OKLIFE && this->bBreath >= OKBREATH && (this->bSleepDrugCounter == 0) && fEnoughPlace )
+		if ( this->vitals().health() >= OKLIFE && this->vitals().breath() >= OKBREATH && (this->bSleepDrugCounter == 0) && fEnoughPlace )
 		{
 			// get up you hoser!
 
@@ -9885,7 +9886,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 		if ( PreRandom( 100 ) < uiChance )
 		{
 			// succumb to the drug!
-			DeductPoints( this, 0, (INT16)(this->bBreathMax * 100) );
+			DeductPoints( this, 0, (INT16)(this->vitals().maximumBreath() * 100) );
 			SoldierCollapse( this );
 		}
 	}
@@ -9917,7 +9918,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 				}
 			}
 
-			if ( (ubReason == TAKE_DAMAGE_ELECTRICITY) && pSoldier->stats.bLife < OKLIFE )
+			if ( (ubReason == TAKE_DAMAGE_ELECTRICITY) && pSoldier->vitals().health() < OKLIFE )
 			{
 				pSoldier->flags.fInNonintAnim = FALSE;
 			}
@@ -9925,19 +9926,19 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 			// silversurfer: fix for the deadlock that could happen when the victim was running through a gas cloud that lead to his death.
 			// If he is near death the next check will make him collapse. If he is really dead then he won't move anywhere anyway
 			// so it should be safe to stop him here.
-			if ( pSoldier->stats.bLife < OKLIFE && !pSoldier->bCollapsed )
+			if ( pSoldier->vitals().health() < OKLIFE && !pSoldier->bCollapsed )
 			{
 				pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
 			}
 
 			// Check for < OKLIFE
-			if ( pSoldier->stats.bLife < OKLIFE && pSoldier->stats.bLife != 0 && !pSoldier->bCollapsed )
+			if ( pSoldier->vitals().health() < OKLIFE && pSoldier->vitals().health() != 0 && !pSoldier->bCollapsed )
 			{
 				SoldierCollapse( pSoldier );
 			}
 
 			// THis is for the die animation that will be happening....
-			if ( pSoldier->stats.bLife == 0 )
+			if ( pSoldier->vitals().health() == 0 )
 			{
 				pSoldier->flags.fDoingExternalDeath = TRUE;
 			}
@@ -9954,7 +9955,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 
 		if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN) || !pSoldier->bInSector )
 		{
-			if ( pSoldier->stats.bLife == 0 && !(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) )
+			if ( pSoldier->vitals().health() == 0 && !(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) )
 			{
 				StrategicHandlePlayerTeamMercDeath( pSoldier );
 
@@ -9974,7 +9975,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 	// 0verhaul:  This is also already handled by the animation transitions
 	// if ( ubReason == TAKE_DAMAGE_ELECTRICITY )
 	// {
-	//	if ( pSoldier->stats.bLife >= OKLIFE )
+	//	if ( pSoldier->vitals().health() >= OKLIFE )
 	//	{
 	//		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Freeing up attacker from electricity damage") );
 	//		ReleaseSoldiersAttacker( pSoldier );
@@ -10095,7 +10096,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	}
 	
 	// Deduct life!, Show damage if we want!
-	bOldLife = this->stats.bLife;
+	bOldLife = this->vitals().health();
 	
 	// OK, If we are a vehicle.... damage vehicle...( people inside... )
 	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
@@ -10138,7 +10139,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	if ( this->flags.uiStatusFlags & SOLDIER_NPC_SHOOTING )
 	{
 		// Almost kill but not quite.....
-		sLifeDeduct = (this->stats.bLife - 1);
+		sLifeDeduct = (this->vitals().health() - 1);
 		// Turn off
 		this->flags.uiStatusFlags &= (~SOLDIER_NPC_SHOOTING);
 	}
@@ -10153,7 +10154,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 #endif
 
 	// Calculate bandage
-	bBandage = this->stats.bLifeMax - this->stats.bLife - this->bBleeding;
+	bBandage = this->vitals().maximumHealth() - this->vitals().health() - this->vitals().bleeding();
 
 	if ( GetCurrentScreen() == MAP_SCREEN )
 	{
@@ -10237,7 +10238,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	// SANDRO - Doctor trait - need a variable holding the number of insta-healable hit points
 	if ( (IS_MERC_BODY_TYPE( this ) || IS_CIV_BODY_TYPE( this )) && (gGameOptions.fNewTraitSystem) )
 	{
-		if ( this->stats.bLife <= 0 )
+		if ( this->vitals().health() <= 0 )
 		{
 			// noone can help him now, he's gone
 			this->iHealableInjury = 0;
@@ -10247,8 +10248,8 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			// Otherwise add healable injury value - it's in hundredths for better precision
 			this->iHealableInjury += (sLifeDeduct * 100);
 			// check if we are not mysteriously beyond a limit - we cannot have more than life we actually lost
-			if ( this->iHealableInjury > ((this->stats.bLifeMax - this->stats.bLife) * 100) )
-				this->iHealableInjury = ((this->stats.bLifeMax - this->stats.bLife) * 100);
+			if ( this->iHealableInjury > ((this->vitals().maximumHealth() - this->vitals().health()) * 100) )
+				this->iHealableInjury = ((this->vitals().maximumHealth() - this->vitals().health()) * 100);
 		}
 	}
 	/////////////////////////////////////////////////////////////////////////////////////////////////
@@ -10258,7 +10259,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	if ( this->bSide != gbPlayerNum && !this->aiData.bNeutral && this->ubProfile == NO_PROFILE )
 	{
 		// ATE: Give them a chance to fall down...
-		if ( this->stats.bLife > 0 && this->stats.bLife < (OKLIFE - 1) )
+		if ( this->vitals().health() > 0 && this->vitals().health() < (OKLIFE - 1) )
 		{
 			// Are we taking damage from bleeding?
 			if ( ubReason == TAKE_DAMAGE_BLOODLOSS )
@@ -10267,21 +10268,21 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 				if ( Random( 3 ) == 0 || gTacticalStatus.Team[this->bTeam].bMenInSector == 1 )
 				{
 					// Kill!
-					this->stats.bLife = 0;
+					this->vitals().health() = 0;
 				}
 			}
 			else
 			{
 				// OK, see how far we are..
-				if ( this->stats.bLife < (OKLIFE - 3) )
+				if ( this->vitals().health() < (OKLIFE - 3) )
 				{
 					// Kill!
-					this->stats.bLife = 0;
+					this->vitals().health() = 0;
 				}
 			}
 		}
 	}
-	else if ( this->IsZombie( ) && this->stats.bLife > 0 && this->stats.bLife < OKLIFE )
+	else if ( this->IsZombie( ) && this->vitals().health() > 0 && this->vitals().health() < OKLIFE )
 	{
 		// a zombie doesn't automatically die, so he would normally stand up again after being hit. 
 		// We don't want that, because he is dying, so we manually skip that animation
@@ -10301,9 +10302,9 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	}
 
 	// Truncate life
-	if ( this->stats.bLife < 0 )
+	if ( this->vitals().health() < 0 )
 	{
-		this->stats.bLife = 0;
+		this->vitals().health() = 0;
 	}
 
 	// Flugente: note we received a fresh wound
@@ -10334,7 +10335,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		}
 
 		// possibly get traumatized if damage gets close to killing us (not if we're slowly bleeding)
-		if ( this->stats.bLife < OKLIFE )//&& ubReason != TAKE_DAMAGE_BLOODLOSS )
+		if ( this->vitals().health() < OKLIFE )//&& ubReason != TAKE_DAMAGE_BLOODLOSS )
 			HandlePossibleInfection( this, NULL, INFECTION_TYPE_TRAUMATIC );
 	}
 
@@ -10358,7 +10359,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			if ( sLifeDeduct > 0 )
 			{
 				// HTH does 1 pt bleeding per hit
-				this->bBleeding = this->bBleeding + 1;
+				this->vitals().bleeding() = this->vitals().bleeding() + 1;
 			}
 		}
 		else
@@ -10367,12 +10368,12 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			// by this, we can continue bleeding, and eventually bleeding
 			if ( sLifeDeduct < 0 )
 			{
-				INT8 oldBleeding = this->bBleeding;
-				this->bBleeding = min( this->bBleeding, this->stats.bLifeMax - this->stats.bLife );
+				INT8 oldBleeding = this->vitals().bleeding();
+				this->vitals().bleeding() = min( this->vitals().bleeding(), this->vitals().maximumHealth() - this->vitals().health() );
 			}
 			else
 			{
-				this->bBleeding = this->stats.bLifeMax - (this->stats.bLife + bBandage);
+				this->vitals().bleeding() = this->vitals().maximumHealth() - (this->vitals().health() + bBandage);
 			}
 		}
 
@@ -10566,7 +10567,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	//Set UI Flag for unconscious, if it's our own guy!
 	if ( this->bTeam == gbPlayerNum )
 	{
-		if ( this->stats.bLife < OKLIFE && this->stats.bLife > 0 && bOldLife >= OKLIFE )
+		if ( this->vitals().health() < OKLIFE && this->vitals().health() > 0 && bOldLife >= OKLIFE )
 		{
 			this->flags.fUIFirstTimeUNCON = TRUE;
 			fInterfacePanelDirty = DIRTYLEVEL2;
@@ -10613,7 +10614,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			StatChange( this, EXPERAMT, (UINT16)(5 * ubCombinedLoss), FROM_FAILURE );
 
 		// SANDRO - gain some exp towards max health if bleeding
-		if ( this->stats.bLifeMax < 100 && ubReason == TAKE_DAMAGE_BLOODLOSS && !(AM_A_ROBOT( this )) )
+		if ( this->vitals().maximumHealth() < 100 && ubReason == TAKE_DAMAGE_BLOODLOSS && !(AM_A_ROBOT( this )) )
 		{
 			StatChange( this, HEALTHAMT, (UINT16)(3 * ubCombinedLoss), FROM_FAILURE );
 		}
@@ -10626,7 +10627,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			{
 				this->bNumHitsThisTurn++;
 
-				if ( (this->bNumHitsThisTurn >= 3) && (this->stats.bLife - this->bOldLife > 20) )
+				if ( (this->bNumHitsThisTurn >= 3) && (this->vitals().health() - this->bOldLife > 20) )
 				{
 					if ( Random( 100 ) < (UINT16)((40 * (this->bNumHitsThisTurn - 2))) )
 					{
@@ -10652,12 +10653,12 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	HandleTakeDamageDeath( this, bOldLife, ubReason );
 
 	// Check if we are < unconscious, and shutup if so! also wipe sight
-	if ( this->stats.bLife < CONSCIOUSNESS )
+	if ( this->vitals().health() < CONSCIOUSNESS )
 	{
 		ShutupaYoFace( this->iFaceIndex );
 	}
 
-	if ( this->stats.bLife < OKLIFE )
+	if ( this->vitals().health() < OKLIFE )
 	{
 		DecayIndividualOpplist( this );
 	}
@@ -10667,7 +10668,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	if ( ubAttacker < NOBODY && ubAttacker->ubProfile == MORRIS_UB )	//MORRIS
 	{
 		//if the soldier is hurt, but not dead
-		if ( this->stats.bLife < bOldLife && this->stats.bLife > 0 )
+		if ( this->vitals().health() < bOldLife && this->vitals().health() > 0 )
 		{
 			//if he hasnt said his quote #1 before
 			if ( !(ubAttacker->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_THOUGHT_KILLED_YOU) )
@@ -10683,7 +10684,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		// else if morris is to say the quote, he hasnt said it yet and he just killed the person he WAS going to say it to
 		else if ( gJa25SaveStruct.fMorrisToSayHurtPlayerQuoteNextTurn &&
 				  gJa25SaveStruct.ubPlayerMorrisHurt == this->ubProfile &&
-				  this->stats.bLife <= 0 &&
+				  this->vitals().health() <= 0 &&
 				  !(ubAttacker->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_THOUGHT_KILLED_YOU) )
 		{
 			//said a flag so morris can say this quote next turn
@@ -11238,7 +11239,7 @@ BOOLEAN SOLDIERTYPE::CheckSoldierHitRoof( void )
 	// Default to true
 	BOOLEAN						fDoForwards = TRUE;
 
-	if ( this->stats.bLife >= OKLIFE )
+	if ( this->vitals().health() >= OKLIFE )
 	{
 		return(FALSE);
 	}
@@ -12277,13 +12278,13 @@ void SOLDIERTYPE::ReviveSoldier( void )
 {
 	INT16					sX, sY;
 
-	if ( this->stats.bLife < OKLIFE  && this->bActive )
+	if ( this->vitals().health() < OKLIFE  && this->bActive )
 	{
 		// If dead or unconscious, revive!
 		this->flags.uiStatusFlags &= (~SOLDIER_DEAD);
 
-		this->stats.bLife = this->stats.bLifeMax;
-		this->bBleeding = 0;
+		this->vitals().health() = this->vitals().maximumHealth();
+		this->vitals().bleeding() = 0;
 		this->iHealableInjury = 0; // added by SANDRO
 		this->ubDesiredHeight = ANIM_STAND;
 
@@ -12527,7 +12528,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 		// Is there an unconscious guy at gridno......
 		SoldierID ubTargetID = WhoIsThere2( sGridNo, this->bTargetLevel );
 
-		if ( ubTargetID != NOBODY && ((ubTargetID->stats.bLife < OKLIFE && ubTargetID->stats.bLife > 0) || (ubTargetID->bBreath < OKBREATH && ubTargetID->bCollapsed)) )
+		if ( ubTargetID != NOBODY && ((ubTargetID->vitals().health() < OKLIFE && ubTargetID->vitals().health() > 0) || (ubTargetID->vitals().breath() < OKBREATH && ubTargetID->bCollapsed)) )
 		{
 			this->aiData.uiPendingActionData4 = ubTargetID;
 
@@ -12809,8 +12810,8 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 			{
 				// Solution 1: zombie explodes, killing himself and eventually also killing his target
 				// Lower hitpoints, to ensure we will die in explosion (otherwise there might be multiple explosions or zombies not dying correctly...)
-				if ( stats.bLife > 2 )
-					stats.bLife = 2;
+				if ( vitals().health() > 2 )
+					vitals().health() = 2;
 				// Explosion of a Jar of RDX Crystals
 				IgniteExplosion( this->ubID, this->sX, this->sY, (INT16)(gpWorldLevelData[this->sGridNo].sHeight), this->sGridNo, 136, this->pathing.bLevel );
 			}
@@ -12823,10 +12824,10 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 					// Play sound
 					PlayJA2SampleFromFile( "Sounds\\zombie_swish1.wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 
-					INT8 oldlife = pTSoldier->stats.bLife;
+					INT8 oldlife = pTSoldier->vitals().health();
 
 					INT16 damage = (INT16)(5 + Random( 20 ));
-					if ( pTSoldier->stats.bLife - damage < 0 )
+					if ( pTSoldier->vitals().health() - damage < 0 )
 						damage = oldlife;
 
 					// We've got a problem if we kill someone outright without him collapsing properly...
@@ -12836,17 +12837,17 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 						damage -= (INT16)((5 + Random( 5 )));
 
 					INT16 breathdamage = (INT16)(500 + Random( 1500 ));
-					if ( pTSoldier->bBreath - breathdamage < 0 )
-						breathdamage = pTSoldier->bBreath;
+					if ( pTSoldier->vitals().breath() - breathdamage < 0 )
+						breathdamage = pTSoldier->vitals().breath();
 					
 					pTSoldier->SoldierTakeDamage( 0, damage, breathdamage, TAKE_DAMAGE_HANDTOHAND, this->ubID, pTSoldier->sGridNo, 0, TRUE );
 
-					if ( pTSoldier->stats.bLife == 0 )
+					if ( pTSoldier->vitals().health() == 0 )
 					{
 						// FINISH HIM!
 						HandleTakeDamageDeath( pTSoldier, oldlife, TAKE_DAMAGE_BLOODLOSS );
 					}
-					else if ( pTSoldier->stats.bLife < OKLIFE && !pTSoldier->bCollapsed )
+					else if ( pTSoldier->vitals().health() < OKLIFE && !pTSoldier->bCollapsed )
 					{
 						// let the target collapse...
 						SoldierCollapse( pTSoldier );
@@ -13196,10 +13197,10 @@ void SOLDIERTYPE::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection )
 				fRefused = TRUE;
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[ STR_REFUSE_FIRSTAID_FOR_CREATURE ] );
 				}
-				else if ( !pTSoldier->aiData.bNeutral && pTSoldier->stats.bLife >= OKLIFE && pTSoldier->bSide != this->bSide )
+				else if ( !pTSoldier->aiData.bNeutral && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->bSide != this->bSide )
 				*/
 				// Flugente: people we captured don't refuse to be bandaged
-				if ( !pTSoldier->aiData.bNeutral && pTSoldier->stats.bLife >= OKLIFE && pTSoldier->bSide != this->bSide && !(pTSoldier->usSoldierFlagMask & SOLDIER_POW) )
+				if ( !pTSoldier->aiData.bNeutral && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->bSide != this->bSide && !(pTSoldier->usSoldierFlagMask & SOLDIER_POW) )
 				{
 					fRefused = TRUE;
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[STR_REFUSE_FIRSTAID] );
@@ -13311,12 +13312,12 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 	BOOLEAN	fOnSurgery = FALSE;
 	INT8 bInitialBleeding;
 
-	if ( (pVictim->bBleeding < 1 && pVictim->stats.bLife >= OKLIFE) && !(pVictim->iHealableInjury > 0 && this->fDoingSurgery) )
+	if ( (pVictim->vitals().bleeding() < 1 && pVictim->vitals().health() >= OKLIFE) && !(pVictim->iHealableInjury > 0 && this->fDoingSurgery) )
 	{
 		return(0);		// nothing to do, shouldn't have even been called!
 	}
 
-	if ( pVictim->stats.bLife <= 0 )
+	if ( pVictim->vitals().health() <= 0 )
 	{
 		return(0);
 	}
@@ -13327,7 +13328,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 		AddOpinionEvent(pVictim->ubProfile, this->ubProfile, OPINIONEVENT_BANDAGED);
 	}
 
-	bInitialBleeding = pVictim->bBleeding;
+	bInitialBleeding = pVictim->vitals().bleeding();
 
 	// in case he has multiple kits in hand, limit influence of kit status to 100%!
 	if ( sStatus >= 100 )
@@ -13404,25 +13405,25 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 
 	// figure out how far below OKLIFE the victim is
 	// SANDRO - only if we are actually here to bandage the target
-	if ( pVictim->bBleeding )
+	if ( pVictim->vitals().bleeding() )
 	{
-		if ( pVictim->stats.bLife >= OKLIFE )
+		if ( pVictim->vitals().health() >= OKLIFE )
 		{
 			ubBelowOKlife = 0;
 		}
 		else
 		{
-			ubBelowOKlife = OKLIFE - pVictim->stats.bLife;
+			ubBelowOKlife = OKLIFE - pVictim->vitals().health();
 		}
 
 		// figure out how many healing pts we need to stop dying (2x cost)
 		uiDeficiency = (2 * ubBelowOKlife);
 
 		// if, after that, the patient will still be bleeding
-		if ( (pVictim->bBleeding - ubBelowOKlife) > 0 )
+		if ( (pVictim->vitals().bleeding() - ubBelowOKlife) > 0 )
 		{
 			// then add how many healing pts we need to stop bleeding (1x cost)
-			uiDeficiency += (pVictim->bBleeding - ubBelowOKlife);
+			uiDeficiency += (pVictim->vitals().bleeding() - ubBelowOKlife);
 		}
 		// On surgery, alter this by amount of life we can heal
 		if ( fOnSurgery )
@@ -13469,7 +13470,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 	// heal real life points first (if below OKLIFE) because we don't want the
 	// patient still DYING if bandages run out, or medic is disabled/distracted!
 	// NOTE: Dressing wounds for life below OKLIFE now costs 2 pts/life point!
-	if ( ubPtsLeft && pVictim->stats.bLife < OKLIFE )
+	if ( ubPtsLeft && pVictim->vitals().health() < OKLIFE )
 	{
 		// if we have enough points to bring him all the way to OKLIFE this turn
 		if ( ubPtsLeft >= (2 * ubBelowOKlife) )
@@ -13477,16 +13478,16 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 			// insta-healable injury check
 			if ( pVictim->iHealableInjury > 0 )
 			{
-				pVictim->iHealableInjury -= ((OKLIFE - pVictim->stats.bLife) * 100);
+				pVictim->iHealableInjury -= ((OKLIFE - pVictim->vitals().health()) * 100);
 				if ( pVictim->iHealableInjury < 0 )
 					pVictim->iHealableInjury = 0;
 			}
 
 			// raise life to OKLIFE
-			pVictim->stats.bLife = OKLIFE;
+			pVictim->vitals().health() = OKLIFE;
 
 			// reduce bleeding by the same number of life points healed up
-			pVictim->bBleeding -= ubBelowOKlife;
+			pVictim->vitals().bleeding() -= ubBelowOKlife;
 
 			// use up appropriate # of actual healing points
 			ubPtsLeft -= (2 * ubBelowOKlife);
@@ -13501,20 +13502,20 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 					pVictim->iHealableInjury = 0;
 			}
 
-			pVictim->stats.bLife += (ubPtsLeft / 2);
-			pVictim->bBleeding -= (ubPtsLeft / 2);
+			pVictim->vitals().health() += (ubPtsLeft / 2);
+			pVictim->vitals().bleeding() -= (ubPtsLeft / 2);
 
 			ubPtsLeft = ubPtsLeft % 2;	// if ptsLeft was odd, ptsLeft = 1
 		}
 
 		// this should never happen any more, but make sure bleeding not negative
-		if ( pVictim->bBleeding < 0 )
+		if ( pVictim->vitals().bleeding() < 0 )
 		{
-			pVictim->bBleeding = 0;
+			pVictim->vitals().bleeding() = 0;
 		}
 
 		// if this healing brought the patient out of the worst of it, cancel dying
-		if ( pVictim->stats.bLife >= OKLIFE )
+		if ( pVictim->vitals().health() >= OKLIFE )
 		{
 			//pVictim->dying = pVictim->dyingComment = FALSE;
 			//pVictim->shootOn = TRUE;
@@ -13557,7 +13558,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 			//	do surgery, have any extra benefit?  Plus, the medical back bonus can actually result in ubPtsLeft being HIGHER then it was before we healed the
 			//	victim, which makes no sense.
 			// keep the rest of the points to bandaging if neccessary
-			//if (pVictim->bBleeding > 0)
+			//if (pVictim->vitals().bleeding() > 0)
 			//{
 			ubPtsLeft = max( 0, (ubPtsLeft - (usLifeReturned / 100)) );
 			//	ubPtsLeft += (ubPtsLeft/2); // we use medical bag so add the bonus for that.
@@ -13602,18 +13603,18 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 		}
 
 		// some paranoya checks for sure
-		if ( (pVictim->stats.bLife + (usLifeReturned / 100)) <= pVictim->stats.bLifeMax )
+		if ( (pVictim->vitals().health() + (usLifeReturned / 100)) <= pVictim->vitals().maximumHealth() )
 		{
-			pVictim->stats.bLife += (usLifeReturned / 100);
-			if ( pVictim->bBleeding >= (usLifeReturned / 100) )
+			pVictim->vitals().health() += (usLifeReturned / 100);
+			if ( pVictim->vitals().bleeding() >= (usLifeReturned / 100) )
 			{
-				pVictim->bBleeding -= (usLifeReturned / 100);
+				pVictim->vitals().bleeding() -= (usLifeReturned / 100);
 				uiMedcost += (usLifeReturned / 200); // add medkit points cost for unbandaged part
 			}
 			else
 			{
-				pVictim->bBleeding = 0;
-				uiMedcost += max( 0, (((usLifeReturned / 100) - pVictim->bBleeding) / 2) ); // add medkit points cost for unbandaged part 
+				pVictim->vitals().bleeding() = 0;
+				uiMedcost += max( 0, (((usLifeReturned / 100) - pVictim->vitals().bleeding()) / 2) ); // add medkit points cost for unbandaged part
 			}
 
 			// display healing done
@@ -13624,25 +13625,25 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 		{
 			// display healing done
 			pVictim->flags.fDisplayDamage = TRUE;
-			pVictim->sDamage -= (pVictim->stats.bLifeMax - pVictim->stats.bLife);
+			pVictim->sDamage -= (pVictim->vitals().maximumHealth() - pVictim->vitals().health());
 
-			pVictim->stats.bLife = pVictim->stats.bLifeMax;
+			pVictim->vitals().health() = pVictim->vitals().maximumHealth();
 			pVictim->iHealableInjury = 0;
-			pVictim->bBleeding = 0;
+			pVictim->vitals().bleeding() = 0;
 		}
 
 		// Reduce max breath based on life returned
-		if ( (pVictim->bBreathMax - (((usLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100)) <= BREATHMAX_ABSOLUTE_MINIMUM )
+		if ( (pVictim->vitals().maximumBreath() - (((usLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100)) <= BREATHMAX_ABSOLUTE_MINIMUM )
 		{
-			pVictim->bBreathMax = BREATHMAX_ABSOLUTE_MINIMUM;
+			pVictim->vitals().maximumBreath() = BREATHMAX_ABSOLUTE_MINIMUM;
 		}
 		else
 		{
-			pVictim->bBreathMax -= (((usLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100);
+			pVictim->vitals().maximumBreath() -= (((usLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100);
 		}
 
-		if ( pVictim->iHealableInjury > ((pVictim->stats.bLifeMax - pVictim->stats.bLife) * 100) )
-			pVictim->iHealableInjury = ((pVictim->stats.bLifeMax - pVictim->stats.bLife) * 100);
+		if ( pVictim->iHealableInjury > ((pVictim->vitals().maximumHealth() - pVictim->vitals().health()) * 100) )
+			pVictim->iHealableInjury = ((pVictim->vitals().maximumHealth() - pVictim->vitals().health()) * 100);
 		else if ( pVictim->iHealableInjury < 0 )
 			pVictim->iHealableInjury = 0;
 
@@ -13652,18 +13653,18 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 
 	// if any healing points remain, apply that to any remaining bleeding (1/1)
 	// DON'T spend any APs/kit pts to cure bleeding until merc is no longer dying
-	//if ( ubPtsLeft && pVictim->bBleeding && !pVictim->dying)
-	if ( ubPtsLeft && pVictim->bBleeding )
+	//if ( ubPtsLeft && pVictim->vitals().bleeding() && !pVictim->dying)
+	if ( ubPtsLeft && pVictim->vitals().bleeding() )
 	{
 		// if we have enough points to bandage all remaining bleeding this turn
-		if ( ubPtsLeft >= pVictim->bBleeding )
+		if ( ubPtsLeft >= pVictim->vitals().bleeding() )
 		{
-			ubPtsLeft -= pVictim->bBleeding;
-			pVictim->bBleeding = 0;
+			ubPtsLeft -= pVictim->vitals().bleeding();
+			pVictim->vitals().bleeding() = 0;
 		}
 		else		// bandage what we can
 		{
-			pVictim->bBleeding -= ubPtsLeft;
+			pVictim->vitals().bleeding() -= ubPtsLeft;
 			ubPtsLeft = 0;
 		}
 
@@ -13672,7 +13673,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 
 	// if wound has been dressed enough so that bleeding won't occur, turn off
 	// the "warned about bleeding" flag so merc tells us about the next bleeding
-	if ( pVictim->bBleeding <= MIN_BLEEDING_THRESHOLD )
+	if ( pVictim->vitals().bleeding() <= MIN_BLEEDING_THRESHOLD )
 	{
 		pVictim->flags.fWarnedAboutBleeding = FALSE;
 	}
@@ -13721,7 +13722,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 	}
 
 	// merc records - bandaging
-	if ( bInitialBleeding > 1 && pVictim->bBleeding == 0 && this->ubProfile != NO_PROFILE )
+	if ( bInitialBleeding > 1 && pVictim->vitals().bleeding() == 0 && this->ubProfile != NO_PROFILE )
 		gMercProfiles[this->ubProfile].records.usMercsBandaged++;
 
 	if ( is_networked && pVictim->ubID > 19 )send_heal( pVictim );
@@ -13763,7 +13764,7 @@ void SOLDIERTYPE::InternalReceivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
 					else
 					{
 						// don't use end aid animation in autobandage
-						if ( pTSoldier->stats.bLife >= OKLIFE && pTSoldier->bBreath > 0 && fPlayEndAnim )
+						if ( pTSoldier->vitals().health() >= OKLIFE && pTSoldier->vitals().breath() > 0 && fPlayEndAnim )
 						{
 							if ( gAnimControl[pTSoldier->usAnimState].ubEndHeight == ANIM_PRONE )
 							{
@@ -13826,7 +13827,7 @@ void SOLDIERTYPE::InternalGivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
 		}
 		else
 		{
-			if ( this->stats.bLife >= OKLIFE && this->bBreath > 0 && fPlayEndAnim )
+			if ( this->vitals().health() >= OKLIFE && this->vitals().breath() > 0 && fPlayEndAnim )
 			{
 				// don't use end aid animation in autobandage
 				if ( gAnimControl[this->usAnimState].ubEndHeight == ANIM_PRONE )
@@ -14379,9 +14380,9 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 
 	// Check if we are out of breath!
 	// Only check if > 70
-	if ( this->bBreathMax > 70 )
+	if ( this->vitals().maximumBreath() > 70 )
 	{
-		if ( this->bBreath < 20 && !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_BREATH) &&
+		if ( this->vitals().breath() < 20 && !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_BREATH) &&
 			 gAnimControl[this->usAnimState].ubEndHeight == ANIM_STAND && !(this->ubServiceCount) ) // SANDRO - added check to not play this if on healing
 		{
 			// SANDRO - say our personality quote for being out of breath caused by heat 
@@ -14406,7 +14407,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 	}
 
 	// Check for drowing.....
-	//if ( this->bBreath < 10 && !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_DROWNING ) && this->bOverTerrainType == DEEP_WATER )
+	//if ( this->vitals().breath() < 10 && !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_DROWNING ) && this->bOverTerrainType == DEEP_WATER )
 	//{
 	// WARN!
 	//	TacticalCharacterDialogue( this, QUOTE_DROWNING );
@@ -14419,7 +14420,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 
 	//}
 
-	if ( this->bBreath == 0 && !this->bCollapsed && !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
+	if ( this->vitals().breath() == 0 && !this->bCollapsed && !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
 	{
 		if ( !(this->ubServiceCount) ) // added by SANDRO (we don't want to collapse when on surgery)
 		{
@@ -15164,10 +15165,10 @@ void	SOLDIERTYPE::InventoryExplosion( void )
 	}
 
 	// now damage our health
-	INT8 oldlife = stats.bLife;
+	INT8 oldlife = vitals().health();
 
 	INT16 damage = (INT16)(30 + Random( 20 ));
-	if ( stats.bLife - damage < 0 )
+	if ( vitals().health() - damage < 0 )
 		damage = oldlife;
 
 	// We've got a problem if we kill someone outright without him collapsing properly...
@@ -15177,20 +15178,20 @@ void	SOLDIERTYPE::InventoryExplosion( void )
 		damage -= (INT16)((5 + Random( 5 )));
 
 	INT16 breathdamage = (INT16)(500 + Random( 1500 ));
-	if ( bBreath - breathdamage < 0 )
-		breathdamage = bBreath;
+	if ( vitals().breath() - breathdamage < 0 )
+		breathdamage = vitals().breath();
 
 	// Play sound
 	PlayJA2SampleFromFile( "Sounds\\Explode1.wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 
 	SoldierTakeDamage( 0, damage, breathdamage, TAKE_DAMAGE_EXPLOSION, this->ubID, sGridNo, 0, TRUE );
 
-	if ( stats.bLife <= 0 )
+	if ( vitals().health() <= 0 )
 	{
 		// FINISH HIM!
 		HandleTakeDamageDeath( this, oldlife, TAKE_DAMAGE_BLOODLOSS );
 	}
-	else if ( stats.bLife < OKLIFE && !bCollapsed )
+	else if ( vitals().health() < OKLIFE && !bCollapsed )
 	{
 		// let the target collapse...
 		SoldierCollapse( this );
@@ -15205,7 +15206,7 @@ BOOLEAN		SOLDIERTYPE::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1, 
 		return(FALSE);
 
 	//  basic check if we are up to this task
-	if ( !this->bActive || !this->bInSector || this->stats.bLife < OKLIFE )
+	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE )
 		return(FALSE);
 
 	// this is odd - invalid GridNo... well, no feeding then
@@ -15947,7 +15948,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 			// exceptions: we are discovered if we are close and bleeding, or if we are drunk while dressed as a soldier
 			{
 				// if we are openly bleeding: not covert
-				if ( gSkillTraitValues.fCODetectIfBleeding && this->bBleeding > 0 )
+				if ( gSkillTraitValues.fCODetectIfBleeding && this->vitals().bleeding() > 0 )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BLEEDING], this->GetName( ) );
 					return FALSE;
@@ -15965,7 +15966,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 			// however, if we are dressed up as a civilian, we can get as close as we like, we won't be discovered
 			{
 				// if we are openly bleeding: not covert
-				if ( gSkillTraitValues.fCODetectIfBleeding && this->bBleeding > 0 )
+				if ( gSkillTraitValues.fCODetectIfBleeding && this->vitals().bleeding() > 0 )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BLEEDING], this->GetName( ) );
 					return FALSE;
@@ -16273,7 +16274,7 @@ void	SOLDIERTYPE::LooseDisguise( void )
 	for ( ; iLoop <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++iLoop )
 	{
 		pSoldier = iLoop;
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife > 0 )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 )
 		{
 			RecalculateOppCntsDueToNoLongerNeutral( pSoldier );
 		}
@@ -16446,7 +16447,7 @@ void		SOLDIERTYPE::SpySelfTest( )
 // can we process prisoners in this sector?
 BOOLEAN		SOLDIERTYPE::CanProcessPrisoners( )
 {
-	if ( stats.bLife < OKLIFE )
+	if ( vitals().health() < OKLIFE )
 		return FALSE;
 
 	// Is there a prison in this sector?
@@ -16483,14 +16484,14 @@ BOOLEAN		SOLDIERTYPE::CanProcessPrisoners( )
 
 UINT32		SOLDIERTYPE::GetSurrenderStrength( )
 {
-	if ( this->stats.bLife < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return 0;
 
 	UINT32 value = 100 + 10 * EffectiveExpLevel( this ) + EffectiveStrength( this, FALSE ) + 3 * EffectiveMarksmanship( this ) + EffectiveLeadership( this ) / 4;
 
 	ReducePointsForFatigue( this, &value );
 
-	value = (value * this->stats.bLife / this->stats.bLifeMax);
+	value = (value * this->vitals().health() / this->vitals().maximumHealth());
 
 	value = value * (5 + sqrt( (double)max( 1, this->aiData.bMorale ) )) / 15;
 
@@ -16607,7 +16608,7 @@ UINT8	SOLDIERTYPE::GetMultiTurnAction( )
 void	SOLDIERTYPE::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
 {
 	// check wether we can perform any action at all
-	if ( !this->bActive || !this->bInSector || this->stats.bLife < OKLIFE || TileIsOutOfBounds( asGridNo ) || this->bCollapsed )
+	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE || TileIsOutOfBounds( asGridNo ) || this->bCollapsed )
 		return;
 
 	// wether an action is possible or not depends on action itself (there are actions without a gridno)
@@ -16658,7 +16659,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 		return FALSE;
 
 	// check wether we can perform any action at all
-	if ( !this->bActive || !this->bInSector || this->stats.bLife < OKLIFE || TileIsOutOfBounds( this->sGridNo ) || this->bCollapsed )
+	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE || TileIsOutOfBounds( this->sGridNo ) || this->bCollapsed )
 	{
 		CancelMultiTurnAction( FALSE );
 		return FALSE;
@@ -17895,7 +17896,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 		++bExtraExpLevel;
 	
 	// if we are dead or dying, we cannot continue radio work
-	if ( this->stats.bLife < OKLIFE )
+	if ( this->vitals().health() < OKLIFE )
 		this->SwitchOffRadio( );
 
 	// if we are an enemy radio operator, and we are jamming frequencies, there is a slight chance that we set off remote-controlled bombs/defuses!
@@ -17930,7 +17931,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 			INT32 cnt = 0;
 			for (; cnt < TOTAL_SOLDIERS; pTeamSoldier++, cnt++)
 			{
-				if (pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->stats.bLife > 0)
+				if (pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() > 0)
 				{
 					if (!pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0))
 					{
@@ -19297,7 +19298,7 @@ BOOLEAN SOLDIERTYPE::IsSpotting( )
 
 BOOLEAN SOLDIERTYPE::CanSpot( INT32 sTargetGridNo )
 {
-	if ( this->stats.bLife < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return FALSE;
 
 	// additional checks if we want to know wether we can target a specific location
@@ -19420,7 +19421,7 @@ BOOLEAN		SOLDIERTYPE::AIDoctorFriend( )
 			}
 
 			// sevenfm: change target to stationary
-			if (pSoldier->stats.bLife >= OKLIFE && pSoldier->bBreath >= OKBREATH && !pSoldier->bCollapsed)
+			if (pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH && !pSoldier->bCollapsed)
 				pSoldier->SoldierGotoStationaryStance();
 
 			// AI medics always perform surgery
@@ -19429,7 +19430,7 @@ BOOLEAN		SOLDIERTYPE::AIDoctorFriend( )
 			UINT16 usKitPts = TotalPoints( &(this->inv[HANDPOS]) );
 
 			// note the current hp
-			INT8 oldlife = pSoldier->stats.bLife;
+			INT8 oldlife = pSoldier->vitals().health();
 
 			UINT16 uiPointsUsed = this->SoldierDressWound( pSoldier, usKitPts, usKitPts );
 
@@ -19437,7 +19438,7 @@ BOOLEAN		SOLDIERTYPE::AIDoctorFriend( )
 
 			// healing done will be displayed the next time the player sees this soldier
 			pSoldier->flags.fDisplayDamage = TRUE;
-			pSoldier->sDamage -= pSoldier->stats.bLife - oldlife;
+			pSoldier->sDamage -= pSoldier->vitals().health() - oldlife;
 
 			// alert both soldiers
 			this->aiData.bAlertStatus = max( this->aiData.bAlertStatus, STATUS_RED );
@@ -19477,7 +19478,7 @@ BOOLEAN		SOLDIERTYPE::AIDoctorSelf( )
 		UINT16 usKitPts = TotalPoints( &(this->inv[HANDPOS]) );
 
 		// note the current hp
-		INT8 oldlife = this->stats.bLife;
+		INT8 oldlife = this->vitals().health();
 
 		UINT16 uiPointsUsed = this->SoldierDressWound( this, usKitPts, usKitPts );
 
@@ -19485,7 +19486,7 @@ BOOLEAN		SOLDIERTYPE::AIDoctorSelf( )
 
 		// healing done will be displayed the next time the player sees this soldier
 		this->flags.fDisplayDamage = TRUE;
-		this->sDamage -= this->stats.bLife - oldlife;
+		this->sDamage -= this->vitals().health() - oldlife;
 
 		// alert ourself
 		this->aiData.bAlertStatus = max( this->aiData.bAlertStatus, STATUS_RED );
@@ -20049,7 +20050,7 @@ UINT16		SOLDIERTYPE::GetDiseaseDiagnosePoints()
 
 FLOAT		SOLDIERTYPE::GetBurialPoints( UINT16* apCorpses )
 {
-	if ( this->stats.bLife < OKLIFE || this->bSectorZ || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || this->bSectorZ || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0.0f;
 
 	if ( apCorpses )
@@ -20187,7 +20188,7 @@ INT8	SOLDIERTYPE::GetSleepBreathRegeneration( )
 	}
 
 	// if breath max is below the "really tired" threshold
-	if ( this->bBreathMax < BREATHMAX_PRETTY_TIRED )
+	if ( this->vitals().maximumBreath() < BREATHMAX_PRETTY_TIRED )
 	{
 		// real tired, rest rate is 50% higher (this is to prevent absurdly long sleep times for totally exhausted mercs)
 		bMaxBreathRegain = (UINT8)(bMaxBreathRegain * 3 / 2);
@@ -20291,7 +20292,7 @@ BOOLEAN	SOLDIERTYPE::IsCrouchedAgainstCoverFromDir( UINT8 aDirection )
 // Flugente: fortification
 FLOAT	SOLDIERTYPE::GetConstructionPoints( )
 {
-	if ( this->stats.bLife < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return 0;
 
 	UINT32 val = EffectiveStrength( this, FALSE );
@@ -20300,7 +20301,7 @@ FLOAT	SOLDIERTYPE::GetConstructionPoints( )
 	
 	FLOAT dval = val * (100 + this->GetBackgroundValue( BG_FORTIFY_ASSIGNMENT )) / 100.0f;
 
-	dval = (dval * this->stats.bLife / this->stats.bLifeMax);
+	dval = (dval * this->vitals().health() / this->vitals().maximumHealth());
 
 	dval *= GetAdministrationModifier();
 
@@ -20953,7 +20954,7 @@ extern UINT32 gCoolnessBySector[256];
 
 UINT8		SOLDIERTYPE::GetUncoverRisk()
 {
-	if ( this->stats.bLife < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0;
 
 	if ( !SPY_LOCATION(this->bAssignment) )
@@ -21001,7 +21002,7 @@ UINT8		SOLDIERTYPE::GetUncoverRisk()
 
 FLOAT		SOLDIERTYPE::GetIntelGain()
 {
-	if ( this->stats.bLife < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0.0f;
 
 	// if not on correct assignments, no gain
@@ -21105,7 +21106,7 @@ void		SOLDIERTYPE::DrugAutoUse()
 			{
 				if ( ( *drug_effects_it ).size > 0 )
 				{
-					if ( ( *drug_effects_it ).effect == DRUG_EFFECT_HP && this->bBleeding > 1 && ( *drug_effects_it ).size * ( *drug_effects_it ).duration * usable / 100 < this->bBleeding * 2 )
+					if ( ( *drug_effects_it ).effect == DRUG_EFFECT_HP && this->vitals().bleeding() > 1 && ( *drug_effects_it ).size * ( *drug_effects_it ).duration * usable / 100 < this->vitals().bleeding() * 2 )
 					{
 						ApplyConsumable( this, &( this->inv[bLoop] ), TRUE, FALSE );
 
@@ -21113,7 +21114,7 @@ void		SOLDIERTYPE::DrugAutoUse()
 
 						return;
 					}
-					else if ( ( *drug_effects_it ).effect == DRUG_EFFECT_BP && this->bBreath < 50 )
+					else if ( ( *drug_effects_it ).effect == DRUG_EFFECT_BP && this->vitals().breath() < 50 )
 					{
 						ApplyConsumable( this, &( this->inv[bLoop] ), TRUE, FALSE );
 
@@ -21231,11 +21232,11 @@ BOOLEAN		SOLDIERTYPE::IsValidBloodDonor()
 		return FALSE;
 
 	// not if wounded
-	if ( this->stats.bLife < this->stats.bLifeMax )
+	if ( this->vitals().health() < this->vitals().maximumHealth() )
 		return FALSE;
 
 	// not if doing so would drop us into coma
-	if ( this->stats.bLife - BLOODDONATION_AMOUNT < OKLIFE )
+	if ( this->vitals().health() - BLOODDONATION_AMOUNT < OKLIFE )
 		return FALSE;
 
 	// not if we have any KNOWN disease
@@ -21261,7 +21262,7 @@ BOOLEAN		SOLDIERTYPE::IsValidBloodDonor()
 
 UINT32		SOLDIERTYPE::GetAdministrationPoints()
 {
-	if ( this->stats.bLife < OKLIFE || this->bSectorZ || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || this->bSectorZ || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0;
 	
 	// if not on correct assignment, no gain
@@ -21345,7 +21346,7 @@ FLOAT		SOLDIERTYPE::GetAdministrationModifier()
 // Flugente:  those with the <scrounging> background occasionally steal money from the locals
 UINT8		SOLDIERTYPE::GetThiefStealMoneyChance()
 {
-	if ( this->stats.bLife < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0;
 	
 	UINT32 val = 1 * EffectiveAgility( this, FALSE ) + 8 * EffectiveDexterity( this, FALSE ) + 10 * EffectiveExpLevel( this, FALSE );
@@ -21393,7 +21394,7 @@ UINT8		SOLDIERTYPE::GetThiefStealMoneyChance()
 
 UINT8		SOLDIERTYPE::GetThiefEvadeDetectionChance()
 {
-	if ( this->stats.bLife < OKLIFE )
+	if ( this->vitals().health() < OKLIFE )
 		return 0;
 	
 	// the theoretical unboosted maximum is 1100, yet we treat it like 1000 - effectively you can boost stealth gear to give you a serious edge
@@ -21432,7 +21433,7 @@ BOOLEAN	SOLDIERTYPE::InPositionForTurncoatAttempt( SoldierID usID )
 		|| gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition )
 		return FALSE;
 
-	if ( this->stats.bLife < OKLIFE
+	if ( this->vitals().health() < OKLIFE
 		|| this->flags.fMercAsleep
 		|| this->bCollapsed
 		|| ( this->usSoldierFlagMask & SOLDIER_POW )
@@ -21445,7 +21446,7 @@ BOOLEAN	SOLDIERTYPE::InPositionForTurncoatAttempt( SoldierID usID )
 	if ( !pSoldier
 		|| pSoldier->bTeam != ENEMY_TEAM
 		|| pSoldier->ubProfile != NO_PROFILE
-		|| pSoldier->stats.bLife != pSoldier->stats.bLifeMax
+		|| pSoldier->vitals().health() != pSoldier->vitals().maximumHealth()
 		|| pSoldier->bCollapsed
 		|| ( pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
 		|| !SOLDIER_CLASS_ENEMY( pSoldier->ubSoldierClass )
@@ -21482,7 +21483,7 @@ UINT8		SOLDIERTYPE::GetTurncoatConvinctionChance( SoldierID usID, INT16 sApproac
 	if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ROBOT)
 		return 0;
 
-	if ( this->stats.bLife < OKLIFE )
+	if ( this->vitals().health() < OKLIFE )
 		return 0;
 
 	// determine effectiveness of merc	
@@ -21545,7 +21546,7 @@ UINT8		SOLDIERTYPE::GetTurncoatConvinctionChance( SoldierID usID, INT16 sApproac
 	case 2:
 	{
 		// determine whether the soldier is attracted to us in the first place (don't display this, otherwise people will want to set sexual orientation and whatnot)
-		INT32 stat_dependant_roll = ( 37 * EffectiveStrength( pSoldier, FALSE ) + 92 * EffectiveMedical( pSoldier ) + 51 * EffectiveDexterity( pSoldier, FALSE ) + 61 * pSoldier->stats.bLife ) % 100;
+		INT32 stat_dependant_roll = ( 37 * EffectiveStrength( pSoldier, FALSE ) + 92 * EffectiveMedical( pSoldier ) + 51 * EffectiveDexterity( pSoldier, FALSE ) + 61 * pSoldier->vitals().health() ) % 100;
 		bool samesexattraction = ( stat_dependant_roll < 8 );
 
 		bool female_player = ( this->ubBodyType == REGFEMALE );
@@ -21673,7 +21674,7 @@ void		SOLDIERTYPE::OrderAllTurnCoatToSwitchSides()
 
 UINT32		SOLDIERTYPE::GetExplorationPoints()
 {
-	if ( this->stats.bLife < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0;
 
 	// if not on correct assignment, no gain
@@ -21745,13 +21746,13 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 	INT32	iBlood = NOBLOOD;
 	BOOLEAN bleeder = FALSE;
 
-	if ( pSoldier->stats.bLife != 0 )
+	if ( pSoldier->vitals().health() != 0 )
 	{
 		bleeder = DoesMercHaveDisability( pSoldier, HEMOPHILIAC );
 
 		// if merc is hurt beyond the minimum required to bleed, or he's dying
 		// Flugente: or if they are a hemophiliac
-		if ( (pSoldier->bBleeding > MIN_BLEEDING_THRESHOLD) || pSoldier->stats.bLife < OKLIFE || bleeder )
+		if ( (pSoldier->vitals().bleeding() > MIN_BLEEDING_THRESHOLD) || pSoldier->vitals().health() < OKLIFE || bleeder )
 		{
 			// if he's NOT in the process of being bandaged or DOCTORed
 			if ( (pSoldier->ubServiceCount == 0) && (AnyDoctorWhoCanHealThisPatient( pSoldier, HEALABLE_EVER ) == NULL) )
@@ -21759,7 +21760,7 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 				// may drop blood whether or not any bleeding takes place this turn
 				if ( pSoldier->bTilesMoved < 1 )
 				{
-					iBlood = max(0, ((pSoldier->bBleeding - MIN_BLEEDING_THRESHOLD) / BLOODDIVISOR) ); // + pSoldier->dying;
+					iBlood = max(0, ((pSoldier->vitals().bleeding() - MIN_BLEEDING_THRESHOLD) / BLOODDIVISOR) ); // + pSoldier->dying;
 					if ( iBlood > MAXBLOODQUANTITY )
 					{
 						iBlood = MAXBLOODQUANTITY;
@@ -21789,22 +21790,22 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 				if ( pSoldier->dNextBleed <= 0 )
 				{
 					// first, calculate if soldier is bandaged
-					bBandaged = pSoldier->stats.bLifeMax - pSoldier->bBleeding - pSoldier->stats.bLife;
+					bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().bleeding() - pSoldier->vitals().health();
 
 					// as long as he's bandaged and not "dying"
-					if ( bBandaged && pSoldier->stats.bLife >= OKLIFE )
+					if ( bBandaged && pSoldier->vitals().health() >= OKLIFE )
 					{
 						// just bleeding through existing bandages
-						pSoldier->bBleeding++;
+						pSoldier->vitals().bleeding()++;
 
 						SoldierBleed( pSoldier, TRUE );
 					}
 					else	// soldier is either not bandaged at all or is dying
 					{
-						if ( pSoldier->stats.bLife < OKLIFE )		// if he's dying
+						if ( pSoldier->vitals().health() < OKLIFE )		// if he's dying
 						{
 							// if he's conscious, and he hasn't already, say his "dying quote"
-							if ( (pSoldier->stats.bLife >= CONSCIOUSNESS) && !pSoldier->flags.fDyingComment )
+							if ( (pSoldier->vitals().health() >= CONSCIOUSNESS) && !pSoldier->flags.fDyingComment )
 							{
 								TacticalCharacterDialogue( pSoldier, QUOTE_SERIOUSLY_WOUNDED );
 
@@ -21813,17 +21814,17 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 
 							// can't permit lifemax to ever bleed beneath OKLIFE, or that
 							// soldier might as well be dead!
-							if ( pSoldier->stats.bLifeMax >= OKLIFE )
+							if ( pSoldier->vitals().maximumHealth() >= OKLIFE )
 							{
 								// Flugente: reduce PERMANENT points of life only if through 'normal' bleeding, not by poisoning
 								// problem is that this function applies every bleeding cycle, while loosing points through natural restoration (too much poison in body) only happens every hour.
 								// so one might lose 1pt of life through poisoning at 8:00, and then lose 30 points of life PERMANTENLY in the following hour without dying
 								// We bypass this by only allowing PERMANTENT lifeloss if really bleeding
-								if ( pSoldier->bBleeding )
+								if ( pSoldier->vitals().bleeding() )
 								{
 									// bleeding while "dying" costs a PERMANENT point of life each time!
-									pSoldier->stats.bLifeMax--;
-									pSoldier->bBleeding = max( 0, pSoldier->bBleeding - 1 );
+									pSoldier->vitals().maximumHealth()--;
+									pSoldier->vitals().bleeding() = max( 0, pSoldier->vitals().bleeding() - 1 );
 									
 									if ( pSoldier->iHealableInjury >= 100 ) // added check for insta-healable injury - SANDRO
 										pSoldier->iHealableInjury -= 100;
@@ -21833,7 +21834,7 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 					}
 
 					// either way, a point of life (health) is lost because of bleeding
-					if ( pSoldier->bBleeding )
+					if ( pSoldier->vitals().bleeding() )
 					{
 						// This will also update the life bar
 						SoldierBleed( pSoldier, FALSE );
@@ -21848,7 +21849,7 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 					// if he's not dying (which includes him saying the dying quote just
 					// now), and he hasn't warned us that he's bleeding yet, he does so
 					// Also, not if they are being bandaged....
-					if ( (pSoldier->stats.bLife >= OKLIFE) && !pSoldier->flags.fDyingComment && !pSoldier->flags.fWarnedAboutBleeding && !gTacticalStatus.fAutoBandageMode && pSoldier->ubServiceCount == 0 )
+					if ( (pSoldier->vitals().health() >= OKLIFE) && !pSoldier->flags.fDyingComment && !pSoldier->flags.fWarnedAboutBleeding && !gTacticalStatus.fAutoBandageMode && pSoldier->ubServiceCount == 0 )
 					{
 						TacticalCharacterDialogue( pSoldier, QUOTE_STARTING_TO_BLEED );
 
@@ -22042,15 +22043,15 @@ FLOAT CalcSoldierNextBleed( SOLDIERTYPE *pSoldier )
 	//pSoldier->nextbleed = 2 + (pSoldier->life / (10 + pSoldier->tilesMoved));  // min = 2
 
 	// if bandaged, give 1/2 of the bandaged life points back into equation
-	INT8 bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
+	INT8 bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
 	FLOAT val = 1.0f;
 
 	// Flugente: hemophiliacs bleed a lot faster
 	if ( DoesMercHaveDisability( pSoldier, HEMOPHILIAC ) )
-		val += ((FLOAT)(pSoldier->stats.bLife) / (FLOAT)(30 + 2 * pSoldier->bTilesMoved));
+		val += ((FLOAT)(pSoldier->vitals().health()) / (FLOAT)(30 + 2 * pSoldier->bTilesMoved));
 	else
-		val += ((FLOAT)(pSoldier->stats.bLife + bBandaged / 2) / (FLOAT)(10 + pSoldier->bTilesMoved));
+		val += ((FLOAT)(pSoldier->vitals().health() + bBandaged / 2) / (FLOAT)(10 + pSoldier->bTilesMoved));
 
 	return val;
 }
@@ -22062,9 +22063,9 @@ FLOAT CalcSoldierNextUnmovingBleed( SOLDIERTYPE *pSoldier )
 	// calculate bleeding rate without the penalty for tiles moved
 
 	// if bandaged, give 1/2 of the bandaged life points back into equation
-	bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
+	bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
-	return((FLOAT)1 + (FLOAT)((pSoldier->stats.bLife + bBandaged / 2) / 10));  // min = 1
+	return((FLOAT)1 + (FLOAT)((pSoldier->vitals().health() + bBandaged / 2) / 10));  // min = 1
 }
 
 void HandlePlacingRoofMarker( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fSet, BOOLEAN fForce )
@@ -22163,7 +22164,7 @@ void SOLDIERTYPE::PositionSoldierLight( void )
 		return;
 	}
 
-	if ( this->stats.bLife < OKLIFE )
+	if ( this->vitals().health() < OKLIFE )
 	{
 		return;
 	}
@@ -22914,13 +22915,13 @@ void SOLDIERTYPE::EVENT_SoldierTakeBloodFromPerson( INT32 sGridNo, UINT8 ubDirec
 				// wound the donor
 				// we don't want the health loss taken to be healable by surgery (how would surgery restore that), so reset it afterwards
 				INT32 healableinjury_tmp = pSoldier->iHealableInjury;
-				INT8 bleeding_tmp = pSoldier->bBleeding;
+				INT8 bleeding_tmp = pSoldier->vitals().bleeding();
 
 				// we need to set attacker as NOBODY, otherwise this calls dialogue events. This can be justified since they 'volunteered' for this
 				pSoldier->SoldierTakeDamage( 0, BLOODDONATION_AMOUNT, 0, TAKE_DAMAGE_BLOODLOSS, NOBODY, sGridNo, 0, TRUE );
 
 				pSoldier->iHealableInjury = healableinjury_tmp;
-				pSoldier->bBleeding = bleeding_tmp;
+				pSoldier->vitals().bleeding() = bleeding_tmp;
 
 				DeductPoints( this, GetAPsToFillBloodbag( this, sGridNo ), APBPConstants[BP_FILLBLOODBAG], AFTERACTION_INTERRUPT );
 
@@ -23363,7 +23364,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[0] );
 				}
 				// not possible if this guy is incapitated
-				else if ( pTSoldier->bCollapsed || pTSoldier->bBreathCollapsed || pTSoldier->stats.bLife < OKLIFE )
+				else if ( pTSoldier->bCollapsed || pTSoldier->bBreathCollapsed || pTSoldier->vitals().health() < OKLIFE )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[1] );
 				}
@@ -23668,7 +23669,7 @@ BOOLEAN SOLDIERTYPE::ControllingRobot( void )
 	// Don't require this->bInSector here, it must work from mapscreen!
 
 	// are we in ok shape?
-	if ( this->stats.bLife < OKLIFE || (this->bTeam != gbPlayerNum) )
+	if ( this->vitals().health() < OKLIFE || (this->bTeam != gbPlayerNum) )
 	{
 		return(FALSE);
 	}
@@ -23798,7 +23799,7 @@ void SOLDIERTYPE::UpdateRobotControllerGivenController( void )
 void SOLDIERTYPE::HandleSoldierTakeDamageFeedback( void )
 {
 	// Do sound.....
-	// if ( this->stats.bLife >= CONSCIOUSNESS )
+	// if ( this->vitals().health() >= CONSCIOUSNESS )
 	{
 		// ATE: Limit how often we grunt...
 		if ( (GetJA2Clock( ) - this->uiTimeSinceLastBleedGrunt) > 1000 )
@@ -24026,7 +24027,7 @@ void DebugValidateSoldierData( )
 		{
 			// OK, first check for alive people
 			// Don't do this check if we are a vehicle...
-			if ( pSoldier->stats.bLife > 0 && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			if ( pSoldier->vitals().health() > 0 && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 			{
 				// Alive -- now check for proper group IDs
 				if ( pSoldier->ubGroupID == 0 && 
@@ -24162,7 +24163,7 @@ void EnableDisableSoldierLightEffects( BOOLEAN fEnableLights )
 	{
 		pSoldier = cnt;
 		//if the soldier is in the sector
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE )
 		{
 			//if we are to enable the lights
 			if ( fEnableLights )
@@ -24270,7 +24271,7 @@ void SOLDIERTYPE::BreakWindow(void)
 
 BOOLEAN SOLDIERTYPE::CanBreakWindow(void)
 {
-	if (this->stats.bLife >= OKLIFE &&
+	if (this->vitals().health() >= OKLIFE &&
 		!this->IsUnconscious() &&
 		IS_MERC_BODY_TYPE(this) &&
 		this->inv[HANDPOS].exists() &&
@@ -24555,7 +24556,7 @@ UINT8 GetSquadleadersCountInVicinity( SOLDIERTYPE * pSoldier, BOOLEAN fWithHighe
 		SOLDIERTYPE *pSquadLeader = cnt;
 		// Get active conscious soldier
 		if ( pSquadLeader != pSoldier && pSquadLeader->bActive && //MercPtrs[ cnt ]->aiData.bShock < 20 &&
-			 pSquadLeader->stats.bLife >= OKLIFE && HAS_SKILL_TRAIT( pSquadLeader, SQUADLEADER_NT ) )
+			 pSquadLeader->vitals().health() >= OKLIFE && HAS_SKILL_TRAIT( pSquadLeader, SQUADLEADER_NT ) )
 		{
 			// check if within distance
 			// if both have extended ear, the distance is bigger and they don't need to sea each other 
@@ -24594,7 +24595,7 @@ UINT8 GetSquadleadersCountInVicinity( SOLDIERTYPE * pSoldier, BOOLEAN fWithHighe
 			SOLDIERTYPE *pSquadLeader = cnt;
 			// Get active conscious soldier
 			if ( pSquadLeader != pSoldier && pSquadLeader->bActive && //MercPtrs[ cnt ]->aiData.bShock < 20 &&
-				 pSquadLeader->stats.bLife >= OKLIFE && HAS_SKILL_TRAIT( pSquadLeader, SQUADLEADER_NT ) )
+				 pSquadLeader->vitals().health() >= OKLIFE && HAS_SKILL_TRAIT( pSquadLeader, SQUADLEADER_NT ) )
 			{
 				// check if within distance
 				// Flugente: moved around arguments for speed reason
@@ -24703,19 +24704,19 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 					// as there are no ways to lost other stats in the current code
 				case DAMAGED_STAT_HEALTH:
 					sStat = sStatGainStrings[0]; // set string
-					pSoldier->stats.bLifeMax += usStatIncreasement;
-					pSoldier->stats.bLife += usStatIncreasement;
+					pSoldier->vitals().maximumHealth() += usStatIncreasement;
+					pSoldier->vitals().health() += usStatIncreasement;
 					pSoldier->iHealableInjury -= (usStatIncreasement * 100); // don't forget the healable injury
 					if ( pSoldier->iHealableInjury < 0 )
 						pSoldier->iHealableInjury = 0;
-					if ( pSoldier->stats.bLifeMax >= 100 || pSoldier->stats.bLife >= 100 ) // repair if going too far
+					if ( pSoldier->vitals().maximumHealth() >= 100 || pSoldier->vitals().health() >= 100 ) // repair if going too far
 					{
-						pSoldier->stats.bLifeMax = 100;
-						pSoldier->stats.bLife = 100;
+						pSoldier->vitals().maximumHealth() = 100;
+						pSoldier->vitals().health() = 100;
 						pSoldier->iHealableInjury = 0;
 						pSoldier->ubCriticalStatDamage[cnt] = 0;
 					}
-					gMercProfiles[pSoldier->ubProfile].bLifeMax = pSoldier->stats.bLifeMax; // update profile
+					gMercProfiles[pSoldier->ubProfile].bLifeMax = pSoldier->vitals().maximumHealth(); // update profile
 					break;
 				case DAMAGED_STAT_DEXTERITY:
 					sStat = sStatGainStrings[2]; // set string
@@ -24800,19 +24801,19 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 				bStatsReturned += usStatIncreasement; // keep value for feedback
 
 				sStat = sStatGainStrings[0]; // set string
-				pSoldier->stats.bLifeMax += usStatIncreasement;
-				pSoldier->stats.bLife += usStatIncreasement;
+				pSoldier->vitals().maximumHealth() += usStatIncreasement;
+				pSoldier->vitals().health() += usStatIncreasement;
 				pSoldier->iHealableInjury -= (usStatIncreasement * 100); // don't forget the healable injury
 				if ( pSoldier->iHealableInjury < 0 )
 					pSoldier->iHealableInjury = 0;
-				if ( pSoldier->stats.bLifeMax >= 100 || pSoldier->stats.bLife >= 100 ) // repair if going too far
+				if ( pSoldier->vitals().maximumHealth() >= 100 || pSoldier->vitals().health() >= 100 ) // repair if going too far
 				{
-					pSoldier->stats.bLifeMax = 100;
-					pSoldier->stats.bLife = 100;
+					pSoldier->vitals().maximumHealth() = 100;
+					pSoldier->vitals().health() = 100;
 					pSoldier->iHealableInjury = 0;
 					pSoldier->usStarveDamageHealth = 0;
 				}
-				gMercProfiles[pSoldier->ubProfile].bLifeMax = pSoldier->stats.bLifeMax; // update profile
+				gMercProfiles[pSoldier->ubProfile].bLifeMax = pSoldier->vitals().maximumHealth(); // update profile
 
 				// Throw a message if healed anything
 				if ( gSkillTraitValues.fDORepStShouldThrowMessage && pSoldier->bTeam != ENEMY_TEAM )
@@ -24925,9 +24926,9 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			pInterrupter = MercPtrs[uCnt];
 			if ( pInterrupter == NULL )
 				continue;			// not valid
-			if (pInterrupter->stats.bLife < OKLIFE || pInterrupter->bCollapsed || !pInterrupter->bActive || !pInterrupter->bInSector || pInterrupter->bActionPoints < 4)
+			if (pInterrupter->vitals().health() < OKLIFE || pInterrupter->bCollapsed || !pInterrupter->bActive || !pInterrupter->bInSector || pInterrupter->bActionPoints < 4)
 				continue;			// not active
-			if (pInterrupter->bBreath < OKBREATH && pInterrupter->bTeam != OUR_TEAM)
+			if (pInterrupter->vitals().breath() < OKBREATH && pInterrupter->bTeam != OUR_TEAM)
 				continue;			// BOB: prevent NPCs from getting interrupts when out of breath
 			if ( pSoldier->bTeam == pInterrupter->bTeam )
 				continue;			// same team
@@ -24971,20 +24972,20 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			// at full possible APs no adjustement (100% applies), +1% length per every 2% of APs down from full
 			uiReactionTime = (uiReactionTime * (100 + (50 - (50 * pInterrupter->bActionPoints / pInterrupter->CalcActionPoints( )))) / 100);
 			// adjust based on injuries
-			if ( pInterrupter->stats.bLife < pInterrupter->stats.bLifeMax )
+			if ( pInterrupter->vitals().health() < pInterrupter->vitals().maximumHealth() )
 			{
 				// OK, this looks a bit complicated..
 				// our HP lost minus half of the bandaged part gives us 2% longer reaction time per 1% of our health down from full health
 				// this penalty is however slightly reduced by our experience level
-				iInjuryPenalty = (200 * (pInterrupter->stats.bLifeMax - pInterrupter->stats.bLife + ((pInterrupter->stats.bLifeMax - pInterrupter->stats.bLife - pInterrupter->bBleeding) / 2))) / (pInterrupter->stats.bLifeMax);
+				iInjuryPenalty = (200 * (pInterrupter->vitals().maximumHealth() - pInterrupter->vitals().health() + ((pInterrupter->vitals().maximumHealth() - pInterrupter->vitals().health() - pInterrupter->vitals().bleeding()) / 2))) / (pInterrupter->vitals().maximumHealth());
 				uiReactionTime = (uiReactionTime * (100 + iInjuryPenalty * (100 - (3 * EffectiveExpLevel( pInterrupter ))) / 100) / 100);
 			}
 
 			// adjust by breath down
-			if ( pSoldier->bBreath < 100 )
+			if ( pSoldier->vitals().breath() < 100 )
 			{
 				// +1% per 2 points of breath down
-				uiReactionTime = (uiReactionTime * (100 + ((100 - pSoldier->bBreath) / 2)) / 100);
+				uiReactionTime = (uiReactionTime * (100 + ((100 - pSoldier->vitals().breath()) / 2)) / 100);
 			}
 
 			// adjust for getting aid, being in gas or being in shock
@@ -25055,7 +25056,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 							continue;			// not valid
 						if ( pTeammate->bTeam != pInterrupter->bTeam )
 							continue;			// little paranoya check here
-						if ( pTeammate->stats.bLife < OKLIFE || pTeammate->bCollapsed || !pTeammate->bActive || !pTeammate->bInSector || pTeammate->bActionPoints < 4 )
+						if ( pTeammate->vitals().health() < OKLIFE || pTeammate->bCollapsed || !pTeammate->bActive || !pTeammate->bInSector || pTeammate->bActionPoints < 4 )
 							continue;			// not active
 
 						// check if we haven't been added to the list already
@@ -25398,7 +25399,7 @@ BOOLEAN SectorJammed( )
 	for ( ; cnt < lastid; ++cnt )
 	{
 		pSoldier = cnt;
-		if ( pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && pSoldier->stats.bLife > 0 && pSoldier->IsJamming( ) )
+		if ( pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsJamming( ) )
 			return TRUE;
 	}
 
@@ -25414,7 +25415,7 @@ BOOLEAN PlayerTeamIsScanning( )
 	for ( ; cnt < lastid; ++cnt )
 	{
 		pSoldier = cnt;
-		if ( pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && pSoldier->stats.bLife > 0 && pSoldier->IsScanning( ) )
+		if ( pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsScanning( ) )
 			return TRUE;
 	}
 
@@ -25466,7 +25467,7 @@ UINT16	GridNoSpotterCTHBonus( SOLDIERTYPE* pSniper, INT32 sGridNo, INT8 bTeam )
 				ReducePointsForFatigue( pSoldier, &value );
 
 				// lowered effectivity if we're wounded
-				value = (value * pSoldier->stats.bLife / pSoldier->stats.bLifeMax);
+				value = (value * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth());
 
 				// effectivity of spotter and sniper working together in percent
 				UINT16 effectivity = 100;
@@ -25631,14 +25632,14 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 	UINT8 bBelowOKlife, bPtsLeft;
 	INT8 bInitialBleeding;
 
-	if ( pVictim->bBleeding < 1 && !fOnSurgery )
+	if ( pVictim->vitals().bleeding() < 1 && !fOnSurgery )
 		return 0;		// nothing to do, shouldn't have even been called!
-	if ( pVictim->stats.bLife == 0 )
+	if ( pVictim->vitals().health() == 0 )
 		return 0;
 	if ( fOnSurgery && pVictim->ubID == pSoldier->ubID ) // cannot make surgery on self
 		return 0;
 
-	bInitialBleeding = pVictim->bBleeding;
+	bInitialBleeding = pVictim->vitals().bleeding();
 
 	if ( !gGameOptions.fNewTraitSystem && fOnSurgery ) // cannot make surgery if not new traits
 		fOnSurgery = FALSE;
@@ -25688,18 +25689,18 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 	uiActual = uiPossible;		// start by assuming maximum possible
 
 	// figure out how far below OKLIFE the victim is
-	if ( pVictim->stats.bLife >= OKLIFE )
+	if ( pVictim->vitals().health() >= OKLIFE )
 		bBelowOKlife = 0;
 	else
-		bBelowOKlife = OKLIFE - pVictim->stats.bLife;
+		bBelowOKlife = OKLIFE - pVictim->vitals().health();
 
 	// figure out how many healing pts we need to stop dying (2x cost)
 	uiDeficiency = (2 * bBelowOKlife);
 
 	// if, after that, the patient will still be bleeding
-	if ( (pVictim->bBleeding - bBelowOKlife) > 0 )
+	if ( (pVictim->vitals().bleeding() - bBelowOKlife) > 0 )
 	{ // then add how many healing pts we need to stop bleeding (1x cost)
-		uiDeficiency += (pVictim->bBleeding - bBelowOKlife);
+		uiDeficiency += (pVictim->vitals().bleeding() - bBelowOKlife);
 	}
 	// On surgery, alter this by amount of life we can heal
 	if ( fOnSurgery )
@@ -25742,7 +25743,7 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 	// heal real life points first (if below OKLIFE) because we don't want the
 	// patient still DYING if bandages run out, or medic is disabled/distracted!
 	// NOTE: Dressing wounds for life below OKLIFE now costs 2 pts/life point!
-	if ( bPtsLeft && pVictim->stats.bLife < OKLIFE )
+	if ( bPtsLeft && pVictim->vitals().health() < OKLIFE )
 	{
 		// if we have enough points to bring him all the way to OKLIFE this turn
 		if ( bPtsLeft >= (2 * bBelowOKlife) )
@@ -25750,14 +25751,14 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 			// insta-healable injury check
 			if ( pVictim->iHealableInjury > 0 )
 			{
-				pVictim->iHealableInjury -= ((OKLIFE - pVictim->stats.bLife) * 100);
+				pVictim->iHealableInjury -= ((OKLIFE - pVictim->vitals().health()) * 100);
 				if ( pVictim->iHealableInjury < 0 )
 					pVictim->iHealableInjury = 0;
 			}
 			// raise life to OKLIFE
-			pVictim->stats.bLife = OKLIFE;
+			pVictim->vitals().health() = OKLIFE;
 			// reduce bleeding by the same number of life points healed up
-			pVictim->bBleeding -= bBelowOKlife;
+			pVictim->vitals().bleeding() -= bBelowOKlife;
 
 			// use up appropriate # of actual healing points
 			bPtsLeft -= (2 * bBelowOKlife);
@@ -25771,25 +25772,25 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 				if ( pVictim->iHealableInjury < 0 )
 					pVictim->iHealableInjury = 0;
 			}
-			pVictim->stats.bLife += (bPtsLeft / 2);
-			pVictim->bBleeding -= (bPtsLeft / 2);
+			pVictim->vitals().health() += (bPtsLeft / 2);
+			pVictim->vitals().bleeding() -= (bPtsLeft / 2);
 			
 			bPtsLeft = bPtsLeft % 2;	// if ptsLeft was odd, ptsLeft = 1
 		}
 
 		// this should never happen any more, but make sure bleeding not negative
-		if ( pVictim->bBleeding < 0 )
+		if ( pVictim->vitals().bleeding() < 0 )
 		{
-			pVictim->bBleeding = 0;
+			pVictim->vitals().bleeding() = 0;
 		}
 
 		// if this healing brought the patient out of the worst of it, cancel dying
-		if ( pVictim->stats.bLife >= OKLIFE )
+		if ( pVictim->vitals().health() >= OKLIFE )
 		{ // turn off merc QUOTE flags
 			pVictim->flags.fDyingComment = FALSE;
 		}
 
-		if ( pVictim->bBleeding <= MIN_BLEEDING_THRESHOLD )
+		if ( pVictim->vitals().bleeding() <= MIN_BLEEDING_THRESHOLD )
 		{
 			pVictim->flags.fWarnedAboutBleeding = FALSE;
 		}
@@ -25823,7 +25824,7 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 
 			pVictim->iHealableInjury = 0;
 			// keep the rest of the points to bandaging if neccessary
-			if ( pVictim->bBleeding > 0 )
+			if ( pVictim->vitals().bleeding() > 0 )
 			{
 				bPtsLeft = max( 0, (bPtsLeft - (iLifeReturned / 100)) );
 				bPtsLeft += (bPtsLeft / 2); // we use medical bag so add the bonus for that.
@@ -25858,18 +25859,18 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 		}
 
 		// some paranoya checks for sure
-		if ( (pVictim->stats.bLife + (iLifeReturned / 100)) <= pVictim->stats.bLifeMax )
+		if ( (pVictim->vitals().health() + (iLifeReturned / 100)) <= pVictim->vitals().maximumHealth() )
 		{
-			pVictim->stats.bLife += (iLifeReturned / 100);
-			if ( pVictim->bBleeding >= (iLifeReturned / 100) )
+			pVictim->vitals().health() += (iLifeReturned / 100);
+			if ( pVictim->vitals().bleeding() >= (iLifeReturned / 100) )
 			{
-				pVictim->bBleeding -= (iLifeReturned / 100);
+				pVictim->vitals().bleeding() -= (iLifeReturned / 100);
 				uiMedcost += (iLifeReturned / 200); // add medkit points cost for unbandaged part
 			}
 			else
 			{
-				pVictim->bBleeding = 0;
-				uiMedcost += max( 0, (((iLifeReturned / 100) - pVictim->bBleeding) / 2) ); // add medkit points cost for unbandaged part
+				pVictim->vitals().bleeding() = 0;
+				uiMedcost += max( 0, (((iLifeReturned / 100) - pVictim->vitals().bleeding()) / 2) ); // add medkit points cost for unbandaged part
 			}
 
 			// display healing done
@@ -25880,24 +25881,24 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 		{
 			// display healing done
 			pVictim->flags.fDisplayDamage = TRUE;
-			pVictim->sDamage -= (pVictim->stats.bLifeMax - pVictim->stats.bLife);
+			pVictim->sDamage -= (pVictim->vitals().maximumHealth() - pVictim->vitals().health());
 
-			pVictim->stats.bLife = pVictim->stats.bLifeMax;
+			pVictim->vitals().health() = pVictim->vitals().maximumHealth();
 			pVictim->iHealableInjury = 0;
-			pVictim->bBleeding = 0;
+			pVictim->vitals().bleeding() = 0;
 		}
 		// Reduce max breath based on life returned
-		if ( (pVictim->bBreathMax - (((iLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100)) <= BREATHMAX_ABSOLUTE_MINIMUM )
+		if ( (pVictim->vitals().maximumBreath() - (((iLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100)) <= BREATHMAX_ABSOLUTE_MINIMUM )
 		{
-			pVictim->bBreathMax = BREATHMAX_ABSOLUTE_MINIMUM;
+			pVictim->vitals().maximumBreath() = BREATHMAX_ABSOLUTE_MINIMUM;
 		}
 		else
 		{
-			pVictim->bBreathMax -= (((iLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100);
+			pVictim->vitals().maximumBreath() -= (((iLifeReturned / 100) * gSkillTraitValues.usDOSurgeryMaxBreathLoss) / 100);
 		}
 
-		if ( pVictim->iHealableInjury > ((pVictim->stats.bLifeMax - pVictim->stats.bLife) * 100) )
-			pVictim->iHealableInjury = ((pVictim->stats.bLifeMax - pVictim->stats.bLife) * 100);
+		if ( pVictim->iHealableInjury > ((pVictim->vitals().maximumHealth() - pVictim->vitals().health()) * 100) )
+			pVictim->iHealableInjury = ((pVictim->vitals().maximumHealth() - pVictim->vitals().health()) * 100);
 		else if ( pVictim->iHealableInjury < 0 )
 			pVictim->iHealableInjury = 0;
 
@@ -25907,18 +25908,18 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 
 	// if any healing points remain, apply that to any remaining bleeding (1/1)
 	// DON'T spend any APs/kit pts to cure bleeding until merc is no longer dying
-	//if ( bPtsLeft && pVictim->bBleeding && !pVictim->dying)
-	if ( bPtsLeft && pVictim->bBleeding )
+	//if ( bPtsLeft && pVictim->vitals().bleeding() && !pVictim->dying)
+	if ( bPtsLeft && pVictim->vitals().bleeding() )
 	{
 		// if we have enough points to bandage all remaining bleeding this turn
-		if ( bPtsLeft >= pVictim->bBleeding )
+		if ( bPtsLeft >= pVictim->vitals().bleeding() )
 		{
-			bPtsLeft -= pVictim->bBleeding;
-			pVictim->bBleeding = 0;
+			bPtsLeft -= pVictim->vitals().bleeding();
+			pVictim->vitals().bleeding() = 0;
 		}
 		else		// bandage what we can
 		{
-			pVictim->bBleeding -= bPtsLeft;
+			pVictim->vitals().bleeding() -= bPtsLeft;
 			bPtsLeft = 0;
 		}
 	}
@@ -25960,7 +25961,7 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 	}
 
 	// merc records - bandaging
-	if ( bInitialBleeding > 1 && pVictim->bBleeding == 0 && pSoldier->ubProfile != NO_PROFILE )
+	if ( bInitialBleeding > 1 && pVictim->vitals().bleeding() == 0 && pSoldier->ubProfile != NO_PROFILE )
 		gMercProfiles[pSoldier->ubProfile].records.usMercsBandaged++;
 
 	return uiMedcost;
@@ -25978,7 +25979,7 @@ void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget )
 		return;
 
 	// target must unharmed
-	if ( pTarget->bCollapsed || pTarget->bBreathCollapsed || pTarget->stats.bLife < pTarget->stats.bLifeMax )
+	if ( pTarget->bCollapsed || pTarget->bBreathCollapsed || pTarget->vitals().health() < pTarget->vitals().maximumHealth() )
 		return;
 
 	// target must be friendly
@@ -26273,7 +26274,7 @@ BOOLEAN SOLDIERTYPE::IsCowering(void)
 
 BOOLEAN SOLDIERTYPE::IsUnconscious(void)
 {
-	if (this->bCollapsed && this->bBreath < OKBREATH)
+	if (this->bCollapsed && this->vitals().breath() < OKBREATH)
 		return TRUE;
 
 	return FALSE;

@@ -10004,7 +10004,7 @@ BOOLEAN ApplyCanteen( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 	}
 	
 	// CJC Feb 9.  Canteens don't seem effective enough, so doubled return from them
-	DeductPoints( pSoldier, 0, (INT16)(2 * usPointsToUse * -(100 - pSoldier->bBreath)) );
+	DeductPoints( pSoldier, 0, (INT16)(2 * usPointsToUse * -(100 - pSoldier->vitals().breath())) );
 
 	return(TRUE);
 }
@@ -15371,7 +15371,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 {
 	OBJECTTYPE* pObjExtMag = NULL;
 
-	if ( !pObject || !(pObject->exists()) || !pSoldier || !pSoldier->bActive || !pSoldier->bInSector || pSoldier->stats.bLife < OKLIFE )
+	if ( !pObject || !(pObject->exists()) || !pSoldier || !pSoldier->bActive || !pSoldier->bInSector || pSoldier->vitals().health() < OKLIFE )
 		// how did we even get here?
 		return ( pObjExtMag );
 
@@ -15396,7 +15396,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 		{
 			pTeamSoldier = cnt;
 			// check if teamsoldier exists in this sector
-			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->stats.bLife < OKLIFE || pTeamSoldier->sSectorX != pSoldier->sSectorX || pTeamSoldier->sSectorY != pSoldier->sSectorY || pTeamSoldier->bSectorZ != pSoldier->bSectorZ )
+			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->vitals().health() < OKLIFE || pTeamSoldier->sSectorX != pSoldier->sSectorX || pTeamSoldier->sSectorY != pSoldier->sSectorY || pTeamSoldier->bSectorZ != pSoldier->bSectorZ )
 				continue;
 
 			// check if both soldiers are on the same level

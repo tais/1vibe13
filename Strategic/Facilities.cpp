@@ -358,7 +358,7 @@ void UpdateStrategicDetectionLevel( )
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->bSectorZ == 0  &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
@@ -500,7 +500,7 @@ void UpdateSkyriderCostModifier()
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->bSectorZ == 0  &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
@@ -563,7 +563,7 @@ void UpdateFacilityUsageCosts( )
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->bSectorZ == 0  &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
@@ -705,7 +705,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->bSectorZ == 0  &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
@@ -937,7 +937,7 @@ INT16 FacilityRiskResult( SOLDIERTYPE *pSoldier, UINT8 ubRiskType, UINT8 ubFacil
 	INT16 ubStrength = EffectiveStrength( pSoldier, FALSE );
 	INT16 ubAgility = EffectiveAgility( pSoldier, FALSE );
 	INT16 ubDexterity = EffectiveDexterity( pSoldier, FALSE );
-	UINT8 ubHealth = __min(pSoldier->stats.bLife, pSoldier->stats.bLifeMax);
+	UINT8 ubHealth = __min(pSoldier->vitals().health(), pSoldier->vitals().maximumHealth());
 	INT16 ubWisdom = EffectiveWisdom( pSoldier );
 	UINT8 ubLeadership = EffectiveLeadership( pSoldier );
 	UINT8 ubExplosives = EffectiveExplosive( pSoldier );
@@ -1113,7 +1113,7 @@ void HandleHourlyRisks()
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->bSectorZ == 0  &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			// Run this character's risks.
@@ -1410,10 +1410,10 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bLifeMax - 1))
-								Result = -1*(pSoldier->stats.bLifeMax - 1);
-							pSoldier->stats.bLifeMax += Result;
-							pSoldier->stats.bLife += Result;
+							if ( (-1*Result) > (pSoldier->vitals().maximumHealth() - 1))
+								Result = -1*(pSoldier->vitals().maximumHealth() - 1);
+							pSoldier->vitals().maximumHealth() += Result;
+							pSoldier->vitals().health() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_HEALTH ] -= Result;
@@ -1425,7 +1425,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->stats.bLifeMax;
+							gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1433,7 +1433,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 
 							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
-							if (pSoldier->stats.bLife < OKLIFE)
+							if (pSoldier->vitals().health() < OKLIFE)
 							{
 								HandleTakeDamageDeath( pSoldier, 0, TAKE_DAMAGE_BLOODLOSS );
 							}
@@ -1443,7 +1443,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							BuildStatChangeString( sString, pSoldier->GetName(), FALSE, Result, HEALTHAMT );
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
-							if (pSoldier->stats.bLife >= OKLIFE)
+							if (pSoldier->vitals().health() >= OKLIFE)
 							{
 								// Do Screen Message and stop time.
 								GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
@@ -1454,7 +1454,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 								StopTimeCompression();
 							}
-							else if(pSoldier->stats.bLife < OKLIFE && pSoldier->stats.bLife > 0)
+							else if(pSoldier->vitals().health() < OKLIFE && pSoldier->vitals().health() > 0)
 							{
 								// Soldier's health is driven very low. Automatically removed from duty.
 								// Do Screen Message and stop time.
@@ -1740,9 +1740,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// SANDRO - add to merc records - facility accidents counter
 							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
 
-							if (pSoldier->stats.bLife > 0)
+							if (pSoldier->vitals().health() > 0)
 							{
-								if (pSoldier->bBleeding > MIN_BLEEDING_THRESHOLD)
+								if (pSoldier->vitals().bleeding() > MIN_BLEEDING_THRESHOLD)
 								{
 									// Log message
 									GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
@@ -1788,8 +1788,8 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
 						break;
 					case RISK_FATIGUE:
-						pSoldier->bBreathMax = __min(100,__max(0, pSoldier->bBreathMax + Result));
-						pSoldier->bBreath = pSoldier->bBreathMax;
+						pSoldier->vitals().maximumBreath() = __min(100,__max(0, pSoldier->vitals().maximumBreath() + Result));
+						pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
 						// SANDRO - add to merc records - facility accidents counter
 						if ( Result < 0 )
 							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
@@ -1996,7 +1996,7 @@ INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 		// Is character truly valid?
 		if( pSoldier != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->bSectorZ == 0  && 
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			INT8 ubAssignmentType = GetSoldierFacilityAssignmentIndex( pSoldier );

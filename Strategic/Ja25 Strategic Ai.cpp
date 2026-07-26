@@ -2413,7 +2413,7 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 	cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID;
   for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; cnt++, pSoldier++)
 	{	
-		if( pSoldier->stats.bLife >= OKLIFE && pSoldier->bActive && pSoldier->bInSector )
+		if( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector )
 		{
 			// send soldier to centre of map, roughly
 			pSoldier->aiData.sNoiseGridno = sGridNoToGoto;
@@ -2719,7 +2719,7 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 				pSoldier->sSectorX == 8 &&
 				pSoldier->sSectorY == 8 &&
 				pSoldier->bSectorZ == 0 &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				!pSoldier->flags.fBetweenSectors )
 		{
 			//if the merc is either PGC, gaston, or stogie

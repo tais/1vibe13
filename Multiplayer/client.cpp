@@ -1766,7 +1766,7 @@ UINT8 numenemyLAN( UINT8 ubSectorX, UINT8 ubSectorY )
 	for ( cnt=120 ; cnt <= 155; cnt++ )
 	{
 		pSoldier = MercPtrs[cnt];
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife > 0 )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 )
 		{
 			if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != 0 ) )
 			{
@@ -5054,7 +5054,7 @@ BOOLEAN check_status (void)// any 'enemies' and clients left to fight ??
 		for( SoldierID cnt = gTacticalStatus.Team[ x ].bFirstID;cnt <= gTacticalStatus.Team[ x ].bLastID; ++cnt)
 		{
 			pSoldier = cnt;
-			if(pSoldier->stats.bLife >= OKLIFE && pSoldier->bActive && pSoldier->bInSector)
+			if(pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector)
 			{
 				soldiers++;
 			}
@@ -5145,7 +5145,7 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 		{
 			pSoldier->usLastUpdateTime = time;
 		}
-		if((time - (pSoldier->usLastUpdateTime)) > 2000 && pSoldier->stats.bLife!=0)
+		if((time - (pSoldier->usLastUpdateTime)) > 2000 && pSoldier->vitals().health()!=0)
 		{
 			pSoldier->usLastUpdateTime = time;
 
@@ -5158,11 +5158,11 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 			
 			SUpdateNetworkSoldier.sAtGridNo=pSoldier->sGridNo;
 			SUpdateNetworkSoldier.bActionPoints=pSoldier->bActionPoints;	// owner-authoritative AP, reconciled on copies (DeductPoints no longer spends AP on copies)
-			SUpdateNetworkSoldier.bBreath=pSoldier->bBreath;
+			SUpdateNetworkSoldier.bBreath=pSoldier->vitals().breath();
 			SUpdateNetworkSoldier.ubDirection=pSoldier->ubDirection;
 
-			SUpdateNetworkSoldier.bLife=pSoldier->stats.bLife;
-			SUpdateNetworkSoldier.bBleeding=pSoldier->bBleeding;
+			SUpdateNetworkSoldier.bLife=pSoldier->vitals().health();
+			SUpdateNetworkSoldier.bBleeding=pSoldier->vitals().bleeding();
 			SUpdateNetworkSoldier.ubNewStance= gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
 			
 			if((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE || ((gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_TURN_MESSAGE )&& is_server)) && IsJa2TacticalTurnBasedCombat())//update progress bar, not supporting coop yet...
@@ -5189,8 +5189,8 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
 	pSoldier->bActionPoints=SUpdateNetworkSoldier->bActionPoints;	// owner-authoritative AP; DeductPoints does not spend AP on remote copies
-	pSoldier->bBreath=SUpdateNetworkSoldier->bBreath;
-	pSoldier->stats.bLife=SUpdateNetworkSoldier->bLife;
+	pSoldier->vitals().breath()=SUpdateNetworkSoldier->bBreath;
+	pSoldier->vitals().health()=SUpdateNetworkSoldier->bLife;
 
 	INT16  sCellX, sCellY;
 	ConvertGridNoToCenterCellXY(SUpdateNetworkSoldier->sAtGridNo, &sCellX, &sCellY);
@@ -5209,7 +5209,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 		pSoldier->ChangeSoldierStance( SUpdateNetworkSoldier->ubNewStance );
 	}
 		
-	pSoldier->bBleeding=SUpdateNetworkSoldier->bBleeding;
+	pSoldier->vitals().bleeding()=SUpdateNetworkSoldier->bBleeding;
 
 	if( (SUpdateNetworkSoldier->usTactialTurnLimitCounter != 9999) && (gTacticalStatus.combatUI.ubTopMessageType != PLAYER_TURN_MESSAGE) && (gTacticalStatus.combatUI.ubTopMessageType != PLAYER_INTERRUPT_MESSAGE))
 	{
@@ -5498,7 +5498,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 				if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bTeam == iNetbTeam ) )
 				{
 					// KIll......
-					pTeamSoldier->SoldierTakeDamage( ANIM_CROUCH, pTeamSoldier->stats.bLife, 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
+					pTeamSoldier->SoldierTakeDamage( ANIM_CROUCH, pTeamSoldier->vitals().health(), 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
 				}
 			}
 		}
@@ -5702,8 +5702,8 @@ void send_heal (SOLDIERTYPE *pSoldier )
 {
 	heal data;
 	data.ubID=pSoldier->ubID;
-	data.bLife=pSoldier->stats.bLife;
-	data.bBleeding=pSoldier->bBleeding;
+	data.bLife=pSoldier->vitals().health();
+	data.bBleeding=pSoldier->vitals().bleeding();
 
 	client->RPC("sendHEAL",(const char*)&data, (int)sizeof(heal)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 }
@@ -5720,8 +5720,8 @@ void recieve_heal (RPCParameters *rpcParameters)
 	SOLDIERTYPE *pSoldier = SafeMerc( healed.i );
 	if ( pSoldier == NULL )
 		return;
-	pSoldier->bBleeding=data->bBleeding;
-	pSoldier->stats.bLife=data->bLife;
+	pSoldier->vitals().bleeding()=data->bBleeding;
+	pSoldier->vitals().health()=data->bLife;
 
 #ifdef BETAVERSION
 	ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, L"healing..." );

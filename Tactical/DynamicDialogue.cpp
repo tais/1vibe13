@@ -948,7 +948,7 @@ BOOLEAN DynamicOpinionTacticalCharacterDialogue( DynamicOpinionSpeechEvent& aEve
 #endif
 
 	// let's see what happens...
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 		return(FALSE);
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
