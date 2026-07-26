@@ -1854,7 +1854,7 @@ void RenderAutoResolve()
 					const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 					for ( ; id <= lastid; ++id )
 					{
-						SOLDIERTYPE *pSoldier = id;
+						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 						if ( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 						{ //Merc is active and alive, and not a vehicle or robot
@@ -5963,7 +5963,7 @@ void CheckForSoldiersWhoRetreatedIntoMilitiaHeldSectors()
 				const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 				for ( ; id <= lastid; ++id )
 				{
-					SOLDIERTYPE *pSoldier = id;
+					SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 					if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 					{

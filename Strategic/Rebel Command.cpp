@@ -59,6 +59,7 @@ Points of interest:
 
 */
 #include "Rebel Command.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 #include "ASD.h"
@@ -2170,7 +2171,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	std::vector<SOLDIERTYPE*> mercs;
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 	{
-		SOLDIERTYPE* pSoldier = i;
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if (pSoldier && pSoldier->bActive
 			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
@@ -2815,7 +2816,7 @@ void PrepareMission(INT8 index)
 	std::vector<SOLDIERTYPE*> mercs;
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 	{
-		SOLDIERTYPE* pSoldier = i;
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if (pSoldier && pSoldier->bActive
 			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
@@ -2980,7 +2981,7 @@ void PrepareMission(INT8 index)
 			{
 				for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 				{
-					SOLDIERTYPE* pSoldier = i;
+					SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 					if (pSoldier->ubProfile == evt.mercProfileId)
 					{
 						TakeSoldierOutOfVehicle(pSoldier);
@@ -4885,7 +4886,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 		BOOLEAN foundMerc = FALSE;
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* pSoldier = i;
+			const SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 			if (pSoldier->ubProfile == evt1.mercProfileId && pSoldier->bActive)
 			{
@@ -4956,7 +4957,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 				{
 					for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 					{
-						SOLDIERTYPE* pSoldier = i;
+						SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 						if (pSoldier->ubProfile == evt1.mercProfileId)
 						{
 							if (mission == RCAM_FORGE_TRANSPORT_ORDERS)
@@ -4983,7 +4984,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 			{
 				for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 				{
-					SOLDIERTYPE* pSoldier = i;
+					SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 					if (pSoldier->ubProfile == evt1.mercProfileId)
 					{
 						// mission failed! we tried, give some pity exp
@@ -5005,7 +5006,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 		{
 			for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 			{
-				SOLDIERTYPE* pSoldier = i;
+				SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 				if (pSoldier->ubProfile == evt1.mercProfileId)
 				{
 					// merc ready for reassignment

@@ -339,7 +339,7 @@ void EndCurrentContractRenewal( )
 
 void HandleMercIsWillingToRenew( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier = ubID;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	// We wish to lock interface
 	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,1,MAP_SCREEN,0,0,0 );
@@ -359,7 +359,7 @@ void HandleMercIsWillingToRenew( SoldierID ubID )
 
 void HandleMercIsNotWillingToRenew( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier = ubID;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	// We wish to lock interface
 	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,1,MAP_SCREEN,0,0,0 );
@@ -802,7 +802,7 @@ void HandleBuddiesReactionToFiringMerc(SOLDIERTYPE *pFiredSoldier, INT8 bMoraleE
 	// loop through all mercs to find buddies
 	for ( ; bMercID <= bLastTeamID; ++bMercID)
 	{
-		SOLDIERTYPE *pSoldier = bMercID;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(bMercID);
 		//if the merc is active, in Arulco, not POW and is a buddy
 		if ( WhichBuddy(pSoldier->ubProfile,pFiredSoldier->ubProfile) != (-1) &&
 			pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
@@ -1580,7 +1580,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 		if ( ubNumMercs > 0 )
 		{
 			ubChosenMerc = (UINT16)Random( ubNumMercs );
-			SOLDIERTYPE *pChosenSoldier = ubPotentialMercs[ubChosenMerc];
+			SOLDIERTYPE *pChosenSoldier = GetJa2SoldierRepository().resolve(ubPotentialMercs[ubChosenMerc]);
 
 			SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,1 ,MAP_SCREEN ,0 ,0 ,0 );
 			HandleImportantMercQuote( pChosenSoldier, QUOTE_CONTRACTS_OVER );

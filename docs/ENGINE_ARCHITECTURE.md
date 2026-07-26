@@ -767,7 +767,10 @@ the engine must not contain SDL types in its public domain model.
   `Menptr` records and `MercPtrs` slot table are visible only inside its
   compatibility implementation. Repository binding is independent from the
   tactical-entity directory binding, so legacy domains can depend on the
-  narrower storage adapter without importing runtime entity-host concerns.
+  narrower storage adapter without importing runtime entity-host concerns. Its
+  bound-repository gateway is an inline pointer load, and bounded resolution is
+  inline as well, so making lookups explicit does not introduce a function call
+  in hot strategic UI or simulation paths.
   Soldier
   creation, save/load, entity adoption/release, completed-state publication,
   and whole-record swaps now resolve or mutate records through this boundary.
@@ -775,10 +778,13 @@ the engine must not contain SDL types in its public domain model.
   replacement or relocation. Strategic code no longer names either backing
   array directly: its former raw-array and character-list pointer walks resolve
   each numeric slot independently and no longer assume contiguous
-  `SOLDIERTYPE` memory. Legacy implicit `SoldierID` conversions and tactical
-  gameplay readers migrate by domain in later cuts. The backing allocation,
-  numeric slots, save byte sequence, map records, Lua values, network packets,
-  and mod data remain unchanged.
+  `SOLDIERTYPE` memory. Strategic has also retired every implicit
+  `SoldierID`-to-pointer conversion: lookups name the repository explicitly,
+  and its targets compile with those legacy conversion operators deleted so a
+  regression fails at the call site. Tactical gameplay readers migrate by
+  domain in later cuts. The backing allocation, numeric slots, save byte
+  sequence, map records, Lua values, network packets, and mod data remain
+  unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves

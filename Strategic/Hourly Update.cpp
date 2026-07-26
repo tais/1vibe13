@@ -368,7 +368,7 @@ void HourlyLarryUpdate()
 
 	for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		if ( pSoldier && pSoldier->bActive && !pSoldier->flags.fMercAsleep && ( pSoldier->ubProfile == LARRY_NORMAL || pSoldier->ubProfile == LARRY_DRUNK || pSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) ) )
 		{
@@ -482,7 +482,7 @@ void HourlyLarryUpdate()
 					BOOLEAN fSnitchStoppedBehaviour = FALSE;
 					for( SoldierID id2 = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id2 <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id2 )
 					{					
-						pOtherSoldier = id2;
+						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
 						if( pOtherSoldier && !pOtherSoldier->flags.fBetweenSectors && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
 						{
@@ -613,7 +613,7 @@ void HourlySmokerUpdate( )
 
 	for ( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		if ( pSoldier && pSoldier->bActive && !pSoldier->flags.fMercAsleep )
 		{
@@ -645,7 +645,7 @@ void HourlyDisabilityUpdate( )
 
 	for ( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		if ( pSoldier && pSoldier->bActive )
 		{
@@ -662,7 +662,7 @@ void HourlyDisabilityUpdate( )
 					BOOLEAN fSnitchStoppedBehaviour = FALSE;
 					for ( SoldierID id2 = gTacticalStatus.Team[OUR_TEAM].bFirstID; id2 <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id2 )
 					{
-						pOtherSoldier = id2;
+						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
 						if ( pOtherSoldier && !pOtherSoldier->flags.fBetweenSectors && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
@@ -758,7 +758,7 @@ void HourlyStealUpdate()
 	
 	for( SoldierID cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
 		// merc must be alive, not travelling and awake. If he is in the currently loaded sector, we may not be in tactical (we would see an item suddenly disappearing) and not in combat
 		if ( pSoldier
@@ -792,7 +792,7 @@ void HourlyStealUpdate()
 			BOOLEAN fSnitchStoppedBehaviour = FALSE;
 			for ( SoldierID cnt2 = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt2 <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++cnt2 )
 			{
-				pOtherSoldier = cnt2;
+				pOtherSoldier = GetJa2SoldierRepository().resolve(cnt2);
 
 				// note - snitches stop others, but can scrounge themselves (if they have scrounging specifically set in background...)
 				if ( pOtherSoldier

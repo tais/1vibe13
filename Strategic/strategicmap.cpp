@@ -2376,7 +2376,7 @@ void RemoveMercsInSector( )
 	// ATE: only for OUR guys.. the rest is taken care of in TrashWorld() when a new sector is added...
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pSoldier->bActive )
 		{
 			pSoldier->RemoveSoldierFromGridNo( );
@@ -2659,9 +2659,9 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
-		if ( cnt->bActive )
+		if ( GetJa2SoldierRepository().resolve(cnt)->bActive )
 		{
-			if ( FindObj( cnt, CHALICE ) != ITEM_NOT_FOUND )
+			if ( FindObj( GetJa2SoldierRepository().resolve(cnt), CHALICE ) != ITEM_NOT_FOUND )
 			{
 				SetFactTrue( FACT_CHALICE_STOLEN );
 			}
@@ -2837,7 +2837,7 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 	{
 		for ( SoldierID i = gTacticalStatus.Team[CIV_TEAM].bFirstID; i <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++i )
 		{
-			SOLDIERTYPE *pSoldier = i;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if ( pSoldier->bActive && pSoldier->bInSector )
 			{
 				SetupProfileInsertionDataForSoldier( pSoldier );
@@ -3000,7 +3000,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 	{
 		for ( SoldierID cnt = 0; cnt < MAX_NUM_SOLDIERS; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			if ( gfRestoringEnemySoldiersFromTempFile &&
 				 cnt >= gTacticalStatus.Team[ENEMY_TEAM].bFirstID &&
 				 cnt <= gTacticalStatus.Team[CREATURE_TEAM].bLastID )
@@ -3728,7 +3728,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		// look for all mercs on the same team,
 		for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			// If we are controllable
 			if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->bAssignment == CurrentSquad( ) )
 			{
@@ -3749,7 +3749,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		// This guy should always be 1 ) selected and 2 ) close enough to exit sector to leave
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			pValidSoldier = gusSelectedSoldier;
+			pValidSoldier = GetJa2SoldierRepository().resolve(gusSelectedSoldier);
 			ubDirection = GetInsertionDataFromAdjacentMoveDirection( ubTacticalDirection, sAdditionalData );
 		}
 
@@ -3976,7 +3976,7 @@ void JumpIntoEscapedSector(UINT8 ubTacticalDirection)
 
 	for ( ; id <= lastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		// Are we not active in sector
 		if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->vitals().health() >= OKLIFE)
 		{
@@ -4635,7 +4635,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 	}
 
 	// anv: vehicles can't use inner exit grids
-	if ( bExitDirection == (-1) && gusSelectedSoldier->bAssignment == VEHICLE )
+	if ( bExitDirection == (-1) && GetJa2SoldierRepository().resolve(gusSelectedSoldier)->bAssignment == VEHICLE )
 	{
 		return FALSE;
 	}
@@ -4667,7 +4667,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// If we are controllable
 		if ( OK_CONTROLLABLE_MERC( pSoldier ) && (pSoldier->bAssignment == CurrentSquad( ) ||
 			(pSoldier->bAssignment == VEHICLE && pSoldier->iVehicleId != iHelicopterVehicleId && GetSoldierStructureForVehicle( pSoldier->iVehicleId )->bAssignment == CurrentSquad( ))) )
@@ -4750,12 +4750,12 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 	// If we are here, at least one guy is controllable in this sector, at least he can go!
 	if ( fAtLeastOneMercControllable )
 	{
-		ubPlayerControllableMercsInSquad = (UINT8)NumberOfPlayerControllableMercsInSquad( gusSelectedSoldier->bAssignment );
+		ubPlayerControllableMercsInSquad = (UINT8)NumberOfPlayerControllableMercsInSquad( GetJa2SoldierRepository().resolve(gusSelectedSoldier)->bAssignment );
 		if ( fAtLeastOneMercControllable <= ubPlayerControllableMercsInSquad )
 		{ //if the selected merc is an EPC and we can only leave with that merc, then prevent it
 			//as EPCs aren't allowed to leave by themselves.  Instead of restricting this in the
 			//exiting sector gui, we restrict it by explaining it with a message box.
-			if ( AM_AN_EPC( gusSelectedSoldier ) )
+			if ( AM_AN_EPC( GetJa2SoldierRepository().resolve(gusSelectedSoldier) ) )
 			{
 				if ( AM_A_ROBOT( pSoldier ) && !pSoldier->CanRobotBeControlled( ) )
 				{
@@ -4951,7 +4951,7 @@ BOOLEAN CanGoToTacticalInSector( INT16 sX, INT16 sY, UINT8 ubZ )
 	// look for all living, fighting mercs on player's team.  Robot and EPCs qualify!
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// ARM: now allows loading of sector with all mercs below OKLIFE as long as they're alive
 		if( ( pSoldier->bActive && pSoldier->vitals().health() ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 			( pSoldier->bAssignment != IN_TRANSIT ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
@@ -6280,7 +6280,7 @@ BOOLEAN HandleDefiniteUnloadingOfWorld( UINT8 ubUnloadCode )
 		//@@@Evaluate
 		for ( SoldierID i = gTacticalStatus.Team[CIV_TEAM].bFirstID; i <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++i )
 		{
-			SOLDIERTYPE *pSoldier = i;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if ( pSoldier->bActive && pSoldier->bInSector )
 			{
 				SetupProfileInsertionDataForSoldier( pSoldier );
@@ -6301,7 +6301,7 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 	//co-exist in the sector, then make them fight for control of the sector via autoresolve.
 	for ( SoldierID i = gTacticalStatus.Team[ENEMY_TEAM].bFirstID; i <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++i )
 	{
-		SOLDIERTYPE *pEnemy = i;
+		SOLDIERTYPE *pEnemy = GetJa2SoldierRepository().resolve(i);
 		if ( pEnemy->bActive && pEnemy->vitals().health() )
 		{
 			if ( pEnemy->sSectorX == pSectorX &&
@@ -6310,7 +6310,7 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 			{ //We have enemies, now look for militia!
 				for ( SoldierID j = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; j <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; ++j )
 				{
-					SOLDIERTYPE *pMilitia = j;
+					SOLDIERTYPE *pMilitia = GetJa2SoldierRepository().resolve(j);
 					if ( pMilitia->bActive && pMilitia->vitals().health() && pMilitia->bSide == OUR_TEAM )
 					{
 						if ( pMilitia->sSectorX == pSectorX &&
@@ -6378,7 +6378,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 		{
 			for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 			{ //If we have a live and valid soldier
-				SOLDIERTYPE *pSoldier = i;
+				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 				{
 					if ( pSoldier->sSectorX == gWorldSectorX &&
@@ -6396,7 +6396,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 	{	//Check and see if we have any live mercs in the sector.
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 		{ //If we have a live and valid soldier
-			SOLDIERTYPE *pSoldier = i;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 			{
 				if ( pSoldier->sSectorX == gWorldSectorX &&
@@ -7346,7 +7346,7 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 		SoldierID cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; ++cnt)
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			//if the soldier is active,
 			if ( pSoldier->bActive )
 			{
@@ -7383,7 +7383,7 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 			  ubNumEnemiesMoved < 3;
 			  ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			if ( pSoldier->bActive &&
 				 pSoldier->position().gridNo() != 15705 &&
 				 pSoldier->position().gridNo() != 15712 &&

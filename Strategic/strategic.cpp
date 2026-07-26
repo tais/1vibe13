@@ -1,4 +1,5 @@
 	#include "strategic.h"
+	#include "SoldierRepository.h"
 	#include "types.h"
 	#include "Squads.h"
 	#include "Assignments.h"
@@ -102,7 +103,7 @@ void HandleSoldierDeadComments( SOLDIERTYPE *pSoldier )
 	// see if this was the friend of a living merc
 	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive )
 		{
 			bBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pSoldier->ubProfile );

@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "SoldierRepository.h"
 	#include "Game Events.h"
 	#include "soundman.h"
 	#include "environment.h"
@@ -245,9 +246,9 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		{
 			// if the grunt is currently active, add to update box
 			SoldierID usID = pEvent->uiParam;
-			if ( usID != NOBODY && usID->bActive )
+			if ( usID != NOBODY && GetJa2SoldierRepository().resolve(usID)->bActive )
 			{
-				AddSoldierToWaitingListQueue( usID );
+				AddSoldierToWaitingListQueue( GetJa2SoldierRepository().resolve(usID) );
 			}
 		}
 			break;

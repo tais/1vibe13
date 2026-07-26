@@ -78,7 +78,7 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 		//add to the history log the fact that the merc died and the circumstances
 		if( pSoldier->ubAttackerID != NOBODY )
 		{
-			pKiller = pSoldier->ubAttackerID;
+			pKiller = GetJa2SoldierRepository().resolve(pSoldier->ubAttackerID);
 		}
 
 		// CJC Nov 11, 2002
@@ -134,7 +134,8 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 				gMercProfiles[ pSoldier->ubProfile ].ubSuspiciousDeath = VERY_SUSPICIOUS_DEATH;
 			}
 			// if killed by someone on our team, or while there weren't any opponents around
-			else if (pSoldier->ubAttackerID->bTeam == OUR_TEAM || !gTacticalStatus.fEnemyInSector )
+			else if ((pKiller && pKiller->bTeam == OUR_TEAM) ||
+				!gTacticalStatus.fEnemyInSector )
 			{
 				// cause insurance company to suspect fraud and investigate this claim
 				gMercProfiles[ pSoldier->ubProfile ].ubSuspiciousDeath = SUSPICIOUS_DEATH;
@@ -216,7 +217,7 @@ void MercDailyUpdate()
 	//loop though all the mercs
 	for ( ; id <= lastid; ++id)
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 		//if the merc is active
 		if ( ( pSoldier->bActive )&&( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != IN_TRANSIT ) )
 		{
@@ -364,7 +365,7 @@ void MercDailyUpdate()
 	//reset the counter
 	for ( id = 0; id <= lastid; ++id )
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 		//if the merc is active
 		if ( ( pSoldier->bActive )&&( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != IN_TRANSIT ) )
 		{
@@ -643,7 +644,7 @@ void HandleMercsAboutToLeave( SOLDIERTYPE *pMercList )
 // NOT AIM renewals....
 void MercsContractIsFinished( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier = ubID;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	//if the soldier was removed before getting into this function, return
 	if( !pSoldier->bActive )
@@ -695,7 +696,7 @@ void MercsContractIsFinished( SoldierID ubID )
 // ATE: Called for RPCs who should now complain about no pay...
 void RPCWhineAboutNoPay( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier = ubID;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	//if the soldier was removed before getting into this function, return
 	if( !pSoldier->bActive )
@@ -835,7 +836,7 @@ void UpdateBuddyAndHatedCounters( void )
 	//loop though all the mercs
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		pSoldier = bMercID;
+		pSoldier = GetJa2SoldierRepository().resolve(bMercID);
 		fSameGroupOnly = FALSE;
 
 		//if the merc is active and on a combat assignment
@@ -854,7 +855,7 @@ void UpdateBuddyAndHatedCounters( void )
 			bOtherID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 			for ( ; bOtherID <= bLastTeamID; ++bOtherID )
 			{
-				pOtherSoldier = bOtherID;
+				pOtherSoldier = GetJa2SoldierRepository().resolve(bOtherID);
 				// is this guy in the same sector and on active duty (or in the same moving group)
 
 				if (bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->bAssignment < ON_DUTY )
@@ -1178,7 +1179,7 @@ void HourlyCamouflageUpdate( void )
 	// loop through all mercs
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		pSoldier = bMercID;
+		pSoldier = GetJa2SoldierRepository().resolve(bMercID);
 		if ( pSoldier->bActive )
 		{
 			// SANDRO - new Ranger trait reduces camo degrading, which replaces camouflage trait

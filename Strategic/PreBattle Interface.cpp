@@ -661,7 +661,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	guiNumInvolved = 0;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = i;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
@@ -957,7 +957,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	{
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
-			SOLDIERTYPE *pSoldier = i;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 			{
 				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->ubProfile != NO_PROFILE )
@@ -1651,7 +1651,7 @@ void RenderPreBattleInterface()
 		y = TOP_Y + TOP_Y_TEXT_BUFFER - bListOffset;
 		for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id)
 		{
-			SOLDIERTYPE *pSoldier = id;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 			{
 				if( PlayerMercInvolvedInThisCombat( pSoldier ) )
@@ -1697,7 +1697,7 @@ void RenderPreBattleInterface()
 			y = TOP_Y + TOP_Y_TEXT_BUFFER + ubUninvolvedStartY + UNINVOLVED_RELEVANT_HEIGHT - bListOffset;
 			for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 			{
-				SOLDIERTYPE *pSoldier = id;
+				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 				{
 					if( !PlayerMercInvolvedInThisCombat(pSoldier) )
@@ -1892,7 +1892,7 @@ void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason )
 			// SANDRO - merc records - times retreated counter
 			for( SoldierID i = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; i <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++i )
 			{
-				SOLDIERTYPE *pSoldier = i;
+				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
 				{
 					if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->ubProfile != NO_PROFILE )
@@ -2635,7 +2635,7 @@ void CheckForRobotAndIfItsControlled( void )
 	// search for the robot on player's team
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = i;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive && pSoldier->vitals().health() && AM_A_ROBOT( pSoldier ))
 		{
 			// check whether it has a valid controller with it. This sets its ubRobotRemoteHolderID field.
@@ -2644,7 +2644,13 @@ void CheckForRobotAndIfItsControlled( void )
 			// if he has a controller, set controllers
 			if ( pSoldier->ubRobotRemoteHolderID != NOBODY )
 			{
-				pSoldier->ubRobotRemoteHolderID->UpdateRobotControllerGivenController( );
+				SOLDIERTYPE* controller =
+					GetJa2SoldierRepository().resolve(
+						pSoldier->ubRobotRemoteHolderID);
+				if (controller)
+				{
+					controller->UpdateRobotControllerGivenController( );
+				}
 			}
 
 			break;

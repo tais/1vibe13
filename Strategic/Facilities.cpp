@@ -7,6 +7,7 @@
 //////////////////////////////////////////////////////////////////
 
 #include "builddefines.h"
+#include "SoldierRepository.h"
 
 	#include "Campaign Types.h"
 	#include "Facilities.h"
@@ -353,7 +354,7 @@ void UpdateStrategicDetectionLevel( )
 	// Run through list of player-characters
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
@@ -495,7 +496,7 @@ void UpdateSkyriderCostModifier()
 
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
@@ -558,7 +559,7 @@ void UpdateFacilityUsageCosts( )
 
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
@@ -700,7 +701,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 	UINT8 ubCounter = 0;
 	while (gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
@@ -1108,7 +1109,7 @@ void HandleHourlyRisks()
 
 	while (gCharactersList[iCounter].fValid)
 	{
-		pSoldier = gCharactersList[ iCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
@@ -1991,7 +1992,7 @@ INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 	// Run through list of player-characters
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
 		if( pSoldier != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&

@@ -1244,7 +1244,7 @@ BOOLEAN IsAnythingAroundForSoldierToClean( SOLDIERTYPE * pSoldier )
 	for(SoldierID teamMember = gTacticalStatus.Team[gbPlayerNum].bFirstID; teamMember <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++teamMember) 
 	{
 		// Ignore self, mercs in other sectors, etc.
-		if (CanCharacterRepairAnotherSoldiersStuff(pSoldier, teamMember))
+		if (CanCharacterRepairAnotherSoldiersStuff(pSoldier, GetJa2SoldierRepository().resolve(teamMember)))
 		{
 
 			// Iterate over all pocket slots and add items in need of repair
@@ -1354,17 +1354,20 @@ BOOLEAN DoesCharacterHaveAnyItemsToRepair( SOLDIERTYPE *pSoldier, INT8 bHighestP
 	// if we wanna check for the items belonging to others in the sector
 	if ( bHighestPass != - 1 )
 	{
-		// now look for items to repair on other mercs
-		for( SoldierID OtherSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; OtherSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++OtherSoldier )
-		{
-			if ( CanCharacterRepairAnotherSoldiersStuff( pSoldier, OtherSoldier ) )
+			// now look for items to repair on other mercs
+			for( SoldierID OtherSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; OtherSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++OtherSoldier )
 			{
+				SOLDIERTYPE* other =
+					GetJa2SoldierRepository().resolve(OtherSoldier);
+				if ( other &&
+					CanCharacterRepairAnotherSoldiersStuff( pSoldier, other ) )
+				{
 				// okay, seems like a candidate!	Check if he has anything that needs unjamming or repairs
 				// CHRISL: Changed to dynamically determine max inventory locations.
 				for ( bPocket = HANDPOS; bPocket < NUM_INV_SLOTS; ++bPocket )
 				{
 					// the object a weapon? and jammed?
-					if ( ( Item[ OtherSoldier->inv[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( OtherSoldier->inv[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
+					if ( ( Item[ other->inv[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( other->inv[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
 					{
 						return( TRUE );
 					}
@@ -1372,7 +1375,7 @@ BOOLEAN DoesCharacterHaveAnyItemsToRepair( SOLDIERTYPE *pSoldier, INT8 bHighestP
 				// repair everyone's hands and armor slots first, then headgear, and pockets last
 				for ( ubPassType = REPAIR_HANDS_AND_ARMOR; ubPassType <= ( UINT8 ) bHighestPass; ubPassType++ )
 				{
-					if (FindRepairableItemOnOtherSoldier( pSoldier, OtherSoldier, ubPassType )) {
+					if (FindRepairableItemOnOtherSoldier( pSoldier, other, ubPassType )) {
 						return( TRUE );
 					}
 				}
@@ -2076,10 +2079,17 @@ INT8 CountMilitiaTrainersInSoldiersSector( SOLDIERTYPE * pSoldier, UINT8 ubMilit
 
 	for ( SoldierID OtherSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; OtherSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++OtherSoldier )
 	{
-		if ( pSoldier != OtherSoldier && OtherSoldier->bActive && OtherSoldier->vitals().health() >= OKLIFE && OtherSoldier->sSectorX == pSoldier->sSectorX && OtherSoldier->sSectorY == pSoldier->sSectorY && pSoldier->bSectorZ == OtherSoldier->bSectorZ )
+		SOLDIERTYPE* other =
+			GetJa2SoldierRepository().resolve(OtherSoldier);
+		if ( other && pSoldier != other && other->bActive &&
+			other->vitals().health() >= OKLIFE &&
+			other->sSectorX == pSoldier->sSectorX &&
+			other->sSectorY == pSoldier->sSectorY &&
+			pSoldier->bSectorZ == other->bSectorZ )
 		{
 			// Count depends on Militia Type requested
-			if (ubMilitiaType == TOWN_MILITIA && OtherSoldier->bAssignment == TRAIN_TOWN )
+			if (ubMilitiaType == TOWN_MILITIA &&
+				other->bAssignment == TRAIN_TOWN )
 			{
 				++bCount;
 			}
@@ -3121,7 +3131,7 @@ void VerifyTownTrainingIsPaidFor( void )
 			continue;
 		}
 
-		pSoldier = gCharactersList[ iCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 		if( pSoldier->bActive && ( pSoldier->bAssignment == TRAIN_TOWN ) )
 		{
@@ -3661,9 +3671,11 @@ static UINT32 CalculateAllGuardsValueInPrison( INT16 sMapX, INT16 sMapY, INT8 bZ
 	SoldierID lastid  = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
-		if( Soldier->bActive && ( Soldier->sSectorX == sMapX ) && ( Soldier->sSectorY == sMapY ) && ( Soldier->bSectorZ == bZ) )
+		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
+		if( guard && guard->bActive && ( guard->sSectorX == sMapX ) &&
+			( guard->sSectorY == sMapY ) && ( guard->bSectorZ == bZ) )
 		{
-			prisonguardvalue += CalculatePrisonGuardValue( Soldier );
+			prisonguardvalue += CalculatePrisonGuardValue( guard );
 		}
 	}
 
@@ -3682,9 +3694,12 @@ static UINT32 CalculateAllSnitchesGuardValueInPrison( INT16 sMapX, INT16 sMapY, 
 	SoldierID lastid  = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
-		if( Soldier->bActive && ( Soldier->sSectorX == sMapX ) && ( Soldier->sSectorY == sMapY ) && ( Soldier->bSectorZ == bZ) && Soldier->flags.fMercAsleep == FALSE )
+		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
+		if( guard && guard->bActive && ( guard->sSectorX == sMapX ) &&
+			( guard->sSectorY == sMapY ) && ( guard->bSectorZ == bZ) &&
+			guard->flags.fMercAsleep == FALSE )
 		{
-			prisonguardvalue += CalculateSnitchGuardValue(Soldier );
+			prisonguardvalue += CalculateSnitchGuardValue(guard);
 		}
 	}
 
@@ -3703,10 +3718,13 @@ static UINT32 CalculateAllGuardsNumberInPrison( INT16 sMapX, INT16 sMapY, INT8 b
 	SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
-		if( Soldier->bActive && ( Soldier->sSectorX == sMapX ) && ( Soldier->sSectorY == sMapY ) && ( Soldier->bSectorZ == bZ) && Soldier->flags.fMercAsleep == FALSE )
+		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
+		if( guard && guard->bActive && ( guard->sSectorX == sMapX ) &&
+			( guard->sSectorY == sMapY ) && ( guard->bSectorZ == bZ) &&
+			guard->flags.fMercAsleep == FALSE )
 		{
 			// anv: undercover snitches don't count as guards as they don't guard in traditional sense
-			if ( !(Soldier->bAssignment == FACILITY_PRISON_SNITCH) )
+			if ( !(guard->bAssignment == FACILITY_PRISON_SNITCH) )
 				++numprisonguards;
 		}
 	}
@@ -5498,9 +5516,9 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 			for(SoldierID teamMember = gTacticalStatus.Team[gbPlayerNum].bFirstID; teamMember <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++teamMember) 
 			{
 				// Ignore self, mercs in other sectors, etc.
-				if (CanCharacterRepairAnotherSoldiersStuff(pSoldier, teamMember))
+				if (CanCharacterRepairAnotherSoldiersStuff(pSoldier, GetJa2SoldierRepository().resolve(teamMember)))
 					// silversurfer: This function now needs the guy that does the repairs and the one that owns the stuff.
-					CollectCleanableItems(pSoldier, teamMember, itemsToClean);
+					CollectCleanableItems(pSoldier, GetJa2SoldierRepository().resolve(teamMember), itemsToClean);
 			}
 
 			while (!itemsToClean.empty() && ubCleaningPtsLeft > 0) 
@@ -5543,9 +5561,9 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 				for(SoldierID teamMember = gTacticalStatus.Team[gbPlayerNum].bFirstID; teamMember <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++teamMember) 
 				{
 					// Ignore self, mercs in other sectors, etc.
-					if (CanCharacterRepairAnotherSoldiersStuff(pSoldier, teamMember))
+					if (CanCharacterRepairAnotherSoldiersStuff(pSoldier, GetJa2SoldierRepository().resolve(teamMember)))
 						// silversurfer: This function now needs the guy that does the repairs and the one that owns the stuff.
-						CollectRepairableItems(pSoldier, teamMember, itemsToFix);
+						CollectRepairableItems(pSoldier, GetJa2SoldierRepository().resolve(teamMember), itemsToFix);
 				}
 
 				// Step through items, starting with the highest priority item
@@ -6735,11 +6753,15 @@ void HandleMilitiaCommand()
 	SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; soldier <= lastid; ++soldier)
 	{
-		if( soldier->bAssignment == FACILITY_STRATEGIC_MILITIA_MOVEMENT && soldier->flags.fMercAsleep == FALSE )
+		SOLDIERTYPE* commander =
+			GetJa2SoldierRepository().resolve(soldier);
+		if( commander &&
+			commander->bAssignment == FACILITY_STRATEGIC_MILITIA_MOVEMENT &&
+			commander->flags.fMercAsleep == FALSE )
 		{
 			// every commander gets a bit of leadership and wisdom
-			StatChange( soldier, LDRAMT,		2, TRUE );
-			StatChange( soldier, WISDOMAMT,	1, TRUE );
+			StatChange( commander, LDRAMT,		2, TRUE );
+			StatChange( commander, WISDOMAMT,	1, TRUE );
 		}
 	}
 }
@@ -6766,7 +6788,7 @@ void HandleSpyAssignments()
 	SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier )
 		{
 			if ( SPY_LOCATION( pSoldier->bAssignment ) )
@@ -6871,7 +6893,7 @@ static UINT16 GetNumberofAdministratableMercs( INT16 sX, INT16 sY )
 	SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier
 			&& !pSoldier->flags.fMercAsleep 
 			&& !pSoldier->bSectorZ
@@ -6909,7 +6931,7 @@ FLOAT GetAdministrationPercentage( INT16 sX, INT16 sY )
 		SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 		for ( ; id <= lastid; ++id )
 		{
-			SOLDIERTYPE *pSoldier = id;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 			if ( pSoldier && pSoldier->bAssignment == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 			{
 				// sum up the points for towns, if not a town, for sectors
@@ -6939,7 +6961,7 @@ void HandleAdministrationAssignments()
 	const SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->bAssignment == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			// sum up the points for towns, if not a town, for sectors
@@ -6986,7 +7008,7 @@ void HandleAdministrationAssignments()
 	id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	for ( ; id <= lastid; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->bAssignment == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
@@ -7032,7 +7054,7 @@ void HandleExplorationAssignments()
 	const SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->bAssignment == EXPLORATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			UINT32 pts = pSoldier->GetExplorationPoints();
@@ -7121,7 +7143,7 @@ void HandleMiniEventAssignments()
 
 	for ( ; id <= lastid; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		if ( pSoldier && pSoldier->bAssignment == ASSIGNMENT_MINIEVENT && EnoughTimeOnAssignment( pSoldier ) )
 		{
@@ -8829,7 +8851,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	const SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) && pSoldier->flags.fMercAsleep == FALSE )
 		{
 			if( ( pSoldier->bAssignment == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
@@ -9075,7 +9097,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		SoldierID id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 		for ( ; id <= lastid; ++id)
 		{
-			SOLDIERTYPE *pSoldier = id;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 			if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) && pSoldier->flags.fMercAsleep == FALSE )
 			{
 				if( ( pSoldier->bAssignment == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
@@ -9104,7 +9126,7 @@ void HandleTrainWorkers()
 	const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if( pSoldier->bActive && !pSoldier->bSectorZ && !pSoldier->flags.fMercAsleep )
 		{
 			if( ( pSoldier->bAssignment == TRAIN_WORKERS ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
@@ -9540,7 +9562,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 		const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 		for ( ; id <= lastid; ++id )
 		{
-			SOLDIERTYPE *pMedic = id;
+			SOLDIERTYPE *pMedic = GetJa2SoldierRepository().resolve(id);
 			if ( !(pMedic->bActive) || !(pMedic->bInSector) || ( pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pMedic->bAssignment == VEHICLE ) )
 			{
 				continue; // NEXT!!!
@@ -9671,7 +9693,12 @@ void CreateDestroyMouseRegionsForAssignmentMenu( void )
 			return;
 		}
 
-		if( ( gCharactersList[bSelectedAssignChar].usSolID->vitals().health() == 0 ) || ( gCharactersList[bSelectedAssignChar].usSolID->bAssignment == ASSIGNMENT_POW ) )
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(
+				gCharactersList[bSelectedAssignChar].usSolID);
+		if( selectedSoldier &&
+			( selectedSoldier->vitals().health() == 0 ||
+				selectedSoldier->bAssignment == ASSIGNMENT_POW ) )
 		{
 			// dead guy handle menu stuff
 			fShowRemoveMenu = fShowAssignmentMenu | fShowContractMenu;
@@ -11143,7 +11170,12 @@ void DetermineWhichAssignmentMenusCanBeShown( void )
 	CreateDestroyMouseRegionsForFacilityAssignmentMenu();
 
 	const auto selectedCharacter = gCharactersList[bSelectedInfoChar].usSolID;
-	if( selectedCharacter < NOBODY && ( (selectedCharacter->vitals().health() == 0 )||(selectedCharacter->bAssignment == ASSIGNMENT_POW ) ) && ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) ) )
+	SOLDIERTYPE* selectedSoldier =
+		GetJa2SoldierRepository().resolve(selectedCharacter);
+	if( selectedSoldier &&
+		( selectedSoldier->vitals().health() == 0 ||
+			selectedSoldier->bAssignment == ASSIGNMENT_POW ) &&
+		( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
 	{
 		// show basic assignment menu
 		ShowBox( ghRemoveMercAssignBox );
@@ -11625,7 +11657,7 @@ void CreateDestroyMouseRegionsForContractMenu( void )
 
 			return;
 		}
-		if( gCharactersList[bSelectedContractChar].usSolID->vitals().health() == 0 )
+		if( GetJa2SoldierRepository().resolve(gCharactersList[bSelectedContractChar].usSolID)->vitals().health() == 0 )
 		{
 
 			// dead guy handle menu stuff
@@ -12856,7 +12888,7 @@ void ContractMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
 	{
-		pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 	}
 	else
 	{
@@ -13819,7 +13851,7 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 		const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 		for ( ; id <= lastid; ++id )
 		{
-			SOLDIERTYPE *pMedic = id;
+			SOLDIERTYPE *pMedic = GetJa2SoldierRepository().resolve(id);
 			if ( !(pMedic->bActive) || !(pMedic->bInSector) || (pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE) || (pMedic->bAssignment == VEHICLE) )
 				continue; // is nowhere around!
 
@@ -18383,7 +18415,7 @@ BOOLEAN HandleSelectedMercsBeingPutAsleep( BOOLEAN fWakeUp, BOOLEAN fDisplayWarn
 		if( gCharactersList[ iCounter ].fValid )
 		{
 			// get the soldier pointer
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			if( pSoldier->bActive == FALSE )
 			{
@@ -18444,7 +18476,7 @@ BOOLEAN IsAnyOneOnPlayersTeamOnThisAssignment( INT8 bAssignment )
 	for( ; id <= lastid; ++id)
 	{
 		// get the current soldier
-		SOLDIERTYPE *pSoldier = id;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// active?
 		if( pSoldier->bActive == FALSE )
@@ -18486,7 +18518,7 @@ void BandageBleedingDyingPatientsBeingTreated( )
 	for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
 	{
 		// get the soldier
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// check if the soldier is currently active?
 		if( pSoldier->bActive == FALSE )
@@ -18766,7 +18798,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 	{
 		if( gCharactersList[ bSelectedAssignChar ].fValid == TRUE )
 		{
-			pSelectedSoldier = gCharactersList[ bSelectedAssignChar ].usSolID;
+			pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedAssignChar ].usSolID);
 		}
 	}
 
@@ -18778,9 +18810,9 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 		if( ( gCharactersList[ iCounter ].fValid ) &&
 				( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE ) &&
 				( iCounter != bSelectedAssignChar ) &&
-				!(gCharactersList[ iCounter ].usSolID->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				!(GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
-			pSoldier = gCharactersList[ iCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// assume it's NOT gonna work
 			fItWorked = FALSE;
@@ -19575,13 +19607,13 @@ SOLDIERTYPE *GetSelectedAssignSoldier( BOOLEAN fNullOK, BOOLEAN fReturnVehicleDr
 		if( ( bSelectedAssignChar >= 0 ) && ( bSelectedAssignChar < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS ) &&
 				( gCharactersList[ bSelectedAssignChar ].fValid ) )
 		{
-			pSoldier = gCharactersList[ bSelectedAssignChar ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedAssignChar ].usSolID);
 		}
 	}
 	else
 	{
 		// tactical version
-		pSoldier = gusUIFullTargetID;
+		pSoldier = GetJa2SoldierRepository().resolve(gusUIFullTargetID);
 	}
 
 	if ( !fNullOK )
@@ -19636,7 +19668,7 @@ void RepairItemsOnOthers( SOLDIERTYPE *pSoldier, UINT8 *pubRepairPtsLeft )
 		const SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 		for ( ; id <= lastid; ++id )
 		{
-			pOtherSoldier = id;
+			pOtherSoldier = GetJa2SoldierRepository().resolve(id);
 
 			// check character is valid, alive, same sector, not between, has inventory, etc.
 			if ( CanCharacterRepairAnotherSoldiersStuff( pSoldier, pOtherSoldier ) )
@@ -19658,7 +19690,7 @@ void RepairItemsOnOthers( SOLDIERTYPE *pSoldier, UINT8 *pubRepairPtsLeft )
 			const SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 			for ( ; id <= lastid; ++id )
 			{
-				pOtherSoldier = id;
+				pOtherSoldier = GetJa2SoldierRepository().resolve(id);
 
 				// check character is valid, alive, same sector, not between, has inventory, etc.
 				if ( CanCharacterRepairAnotherSoldiersStuff( pSoldier, pOtherSoldier ) )
@@ -20042,7 +20074,7 @@ BOOLEAN FindAnyAwakeTrainers( SOLDIERTYPE *pTrainee )
 
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pTrainer = gCharactersList[ ubCounter ].usSolID;
+		pTrainer = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 			
 		// Is trainer awake?
 		if (pTrainer->bAssignment == TRAIN_TEAMMATE && pTrainer->bTrainStat == pTrainee->bTrainStat && 
@@ -20078,7 +20110,7 @@ BOOLEAN FindAnyAwakeTrainees( SOLDIERTYPE *pTrainer )
 
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pTrainee = gCharactersList[ ubCounter ].usSolID;
+		pTrainee = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 			
 		// Is trainee awake?
 		if (pTrainee->bAssignment == TRAIN_BY_OTHER && pTrainee->bTrainStat == pTrainer->bTrainStat && 
@@ -21021,7 +21053,7 @@ INT8 CountFreeFacilitySlots( UINT8 sMapX, UINT8 sMapY, UINT8 ubFacilityType )
 		// Count number of people doing anything at this facility.
 		while(gCharactersList[ubCounter].fValid)
 		{
-			pSoldier = gCharactersList[ ubCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 			// Is character operating this facility?
 			if( (UINT8)pSoldier->sFacilityTypeOperated == ubFacilityType &&
@@ -21064,7 +21096,7 @@ INT8 CountFreeFacilityAssignmentSlots( UINT8 sMapX, UINT8 sMapY, UINT8 ubFacilit
 		// Count number of people doing this assignment at this facility.
 		while(gCharactersList[ubCounter].fValid)
 		{
-			pSoldier = gCharactersList[ ubCounter ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 			// Is character operating this facility?
 			if( (UINT8)pSoldier->sFacilityTypeOperated == ubFacilityType &&
@@ -21511,7 +21543,7 @@ void ResetAllExpensiveFacilityAssignments()
 
 	while(gCharactersList[ubCounter].fValid)
 	{
-		pSoldier = gCharactersList[ ubCounter ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character doing facility work?
 		INT8 ubAssignmentIndex = GetSoldierFacilityAssignmentIndex( pSoldier );
@@ -22868,7 +22900,7 @@ BOOLEAN MercStaffsMilitaryHQ()
 	SoldierID lastid  = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id);
 		if( pSoldier && pSoldier->bAssignment == FACILITY_STRATEGIC_MILITIA_MOVEMENT && pSoldier->flags.fMercAsleep == FALSE )
 		{
 			return TRUE;

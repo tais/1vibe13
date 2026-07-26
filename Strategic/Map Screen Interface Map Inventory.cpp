@@ -1,4 +1,5 @@
 	#include "Map Screen Interface Map Inventory.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Render Dirty.h"
 	#include "vobject.h"
@@ -679,10 +680,15 @@ BOOLEAN RenderItemInPoolSlot( INT32 iCurrentSlot, INT32 iFirstSlotOnPage )
 	//
 	// if the item is not reachable, or if the selected merc is not in the current sector
 	//
+	const SOLDIERTYPE* selectedSoldier = bSelectedInfoChar >= 0
+		? GetJa2SoldierRepository().resolve(
+			gCharactersList[ bSelectedInfoChar ].usSolID)
+		: nullptr;
 	if( !( pInventoryPoolList[ iCurrentSlot + iFirstSlotOnPage ].usFlags & WORLD_ITEM_REACHABLE ) ||
-			!(( gCharactersList[ bSelectedInfoChar ].usSolID->sSectorX == sSelMapX ) &&
-				( gCharactersList[ bSelectedInfoChar ].usSolID->sSectorY == sSelMapY ) &&
-				( gCharactersList[ bSelectedInfoChar ].usSolID->bSectorZ == iCurrentMapSectorZ )
+			!selectedSoldier ||
+			!(( selectedSoldier->sSectorX == sSelMapX ) &&
+				( selectedSoldier->sSectorY == sSelMapY ) &&
+				( selectedSoldier->bSectorZ == iCurrentMapSectorZ )
 			) )
 	{
 		//Shade the item, but only if it is an active item!
@@ -1367,7 +1373,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			bool fValidPointer = false;
 
 			//CHRISL: Try to update InSector value so we don't have to "activate" a sector
-			SOLDIERTYPE* pSelectedSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			const auto x = pSelectedSoldier->sSectorX;
 			const auto y = pSelectedSoldier->sSectorY;
 			const auto z = pSelectedSoldier->bSectorZ;
@@ -1597,7 +1603,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 
 		//if( fShowInventoryFlag )
 		{
-			SOLDIERTYPE* pSelectedSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 			// not in sector?
 			if( ( pSelectedSoldier->sSectorX != sSelMapX ) ||
@@ -1652,7 +1658,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 		// If we do not have an item in hand, start moving it
 		if ( gpItemPointer == NULL )
 		{
-			SOLDIERTYPE* pSelectedSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 
 			// Return if empty
@@ -1720,7 +1726,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else
 		{//we have an item on cursor
-			SOLDIERTYPE* pSelectedSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 			// if in battle inform player they will have to do this in tactical
 //			if( ( gTacticalStatus.fEnemyInSector ) ||( ( sSelMapX == gWorldSectorX ) && ( sSelMapY == gWorldSectorY ) && ( iCurrentMapSectorZ == gbWorldSectorZ ) && ( IsJa2TacticalCombatActive() ) ) )
@@ -2474,7 +2480,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 
 		if ( _KeyDown ( CTRL ))//MM: Pass item to selected merc.  Delete if none selected.
 		{
-			SOLDIERTYPE *pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 			bool placedAllObjects = false;
 
 			if(pSoldier->exists() == true)
@@ -2580,7 +2586,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 
 						if ( fShowInventoryFlag && bSelectedInfoChar >= 0 )
 						{
-							ReevaluateItemHatches( gCharactersList[ bSelectedInfoChar ].usSolID, FALSE );
+							ReevaluateItemHatches( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID), FALSE );
 							fTeamPanelDirty = TRUE;
 						}
 					}
@@ -2649,7 +2655,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 
 			if ( fShowInventoryFlag && bSelectedInfoChar >= 0 )
 			{
-				ReevaluateItemHatches( gCharactersList[ bSelectedInfoChar ].usSolID, FALSE );
+				ReevaluateItemHatches( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID), FALSE );
 				fTeamPanelDirty = TRUE;
 			}
 		}
@@ -3021,7 +3027,7 @@ void TemplateNameInputCallBack(UINT8 ubResult)
 {
 	if (ubResult == MSG_BOX_RETURN_OK && wcscmp(gszMsgBoxInputString, L"") > 0)
 	{
-		SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 		if (pSoldier)
 		{
 			WriteEquipmentTemplate(pSoldier, gszMsgBoxInputString);
@@ -3053,7 +3059,7 @@ void MapInventoryWriteEquipmentTemplate(GUI_BUTTON *btn, INT32 reason)
 	{
 		if ( btn->uiFlags & (BUTTON_CLICKED_ON) )
 		{
-			SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if ( pSoldier )
 			{
 				DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, szGearTemplateText[0], GetCurrentScreen(), MSG_BOX_FLAG_INPUTBOX, TemplateNameInputCallBack, NULL );
@@ -3078,7 +3084,7 @@ void MapInventoryReadEquipmentTemplate(GUI_BUTTON *btn, INT32 reason)
 	{
 		if ( btn->uiFlags & (BUTTON_CLICKED_ON) )
 		{
-			SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if ( pSoldier &&
 				 pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY && pSoldier->bSectorZ == iCurrentMapSectorZ &&
 				 !pSoldier->flags.fBetweenSectors )
@@ -3531,7 +3537,7 @@ void HandleButtonStatesWhileMapInventoryActive( void )
 	}
 
 	// Selected Merc is in sector? Or is in combat?
-	SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 	if( pSoldier->sSectorX != sSelMapX ||
 		pSoldier->sSectorY != sSelMapY || 
 		pSoldier->bSectorZ != iCurrentMapSectorZ ||
@@ -3647,7 +3653,7 @@ void HandleMouseInCompatableItemForMapSectorInventory( INT32 iCurrentSlot )
 	if( fShowInventoryFlag )
 	{
 		//Soldier inventory is shown, highlight those items
-		pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 		if( pSoldier )
 		{
 			if( HandleCompatibleAmmoUIForMapScreen( pSoldier, iCurrentSlot + ( iCurrentInventoryPoolPage * MAP_INVENTORY_POOL_SLOT_COUNT ), TRUE, FALSE ) )
@@ -4831,7 +4837,7 @@ void SortSectorInventoryAmmo(bool useBoxes)
 	OBJECTTYPE	newCrate;
 	int loopCount = 0;
 
-	SOLDIERTYPE * pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+	SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 	
 	AssertMsg( pSoldier != NULL, "Sector Inventory: Attempting ammo sort without valid selected soldier?" );
 
@@ -4973,7 +4979,7 @@ void SortSectorInventoryEjectAmmo()
 {
 	OBJECTTYPE gTempObject;
 	
-	SOLDIERTYPE * pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+	SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 	for ( UINT32 uiLoop = 0; uiLoop < pInventoryPoolList.size(); uiLoop++ ) //for all items in sector
 	{
@@ -5022,7 +5028,7 @@ void SortSectorInventoryEmptyLBE() {
 	// current item
 	WORLDITEM * pInventoryItem = NULL;
 
-	SOLDIERTYPE * pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+	SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 	for (UINT32 uiLoop = 0; uiLoop < pInventoryPoolList.size(); uiLoop++) //for all items in sector
 	{
@@ -5097,7 +5103,7 @@ void SortSectorInventorySeparateAttachments()
 	WORLDITEM * pInventoryItem = NULL;
 
 
-	SOLDIERTYPE * pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+	SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 	for (UINT32 uiLoop = 0; uiLoop < pInventoryPoolList.size(); uiLoop++) //for all items in sector
 	{
@@ -5170,7 +5176,7 @@ void SortSectorInventoryStackAndMerge(bool ammoOnly )
 {
 	OBJECTTYPE * StackObject;
 	
-	SOLDIERTYPE * pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+	SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 	for ( UINT32 uiLoop = 0; uiLoop < pInventoryPoolList.size(); uiLoop++ )
 	{

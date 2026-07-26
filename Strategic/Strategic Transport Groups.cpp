@@ -19,6 +19,7 @@ and the difficulty of the game.
 
 */
 #include "Strategic Transport Groups.h"
+#include "SoldierRepository.h"
 
 #include "ASD.h"
 #include "Assignments.h"
@@ -224,7 +225,7 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 	std::map<UINT8, MonitoredSectorState> monitoredTowns;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = i;
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if( pSoldier->bActive &&
 			pSoldier->vitals().health() >= OKLIFE &&
@@ -483,7 +484,7 @@ void UpdateTransportGroupInventory()
 		std::set<UINT8> playerCalibres;
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			SOLDIERTYPE *pSoldier = i;
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if (pSoldier->bActive && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
 			{
 				for (int j = 0 ; j < pSoldier->inv.size(); ++j)
@@ -604,7 +605,7 @@ void UpdateTransportGroupInventory()
 	std::map<UINT8, int> cachedGroupJeepCount;
 	for ( SoldierID slot = firstSlot; (slot <= lastSlot); ++slot)
 	{
-		SOLDIERTYPE* pSoldier = slot;
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(slot);
 
 		const std::map<UINT8, std::map<int, UINT16>>::iterator groupIter = transportGroupIdToSoldierMap.find(pSoldier->ubGroupID);
 		if (groupIter != transportGroupIdToSoldierMap.end())
@@ -1041,4 +1042,3 @@ const std::map<UINT8, TransportGroupSectorInfo> GetTransportGroupSectorInfo()
 }
 
 #undef TRANSPORT_GROUP_DEBUG
-

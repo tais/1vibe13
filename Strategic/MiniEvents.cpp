@@ -10,6 +10,7 @@ to call into.
 */
 
 #include "MiniEvents.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 #include "Assignments.h"
@@ -1080,7 +1081,7 @@ namespace MiniEventHelpers
 		INT8 z = 0;
 		for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* merc = i;
+			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
 			if (merc && merc->ubProfile == profileId)
 			{
 				x = merc->sSectorX;
@@ -1517,7 +1518,7 @@ void MiniEventsLua(UINT32 eventId)
 	// get all mercs eligible to get a mini event
 	for (SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++cnt)
 	{
-		SOLDIERTYPE* pSoldier = cnt;
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
 		if (pSoldier && pSoldier->bActive
 			&& pSoldier->vitals().health() > 0
@@ -1540,7 +1541,7 @@ void MiniEventsLua(UINT32 eventId)
 		f.TableOpen();
 		for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* merc = i;
+			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
 			if (merc && merc->bActive && merc->bAssignment != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->ubProfile].zNickname);
@@ -1559,7 +1560,7 @@ void MiniEventsLua(UINT32 eventId)
 		f.TableOpen();
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* merc = i;
+			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
 			if (merc && merc->bActive && merc->bAssignment != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->ubProfile].zNickname);

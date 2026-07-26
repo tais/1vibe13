@@ -1124,9 +1124,9 @@ void EnemyHeliSAMCheck( INT16 id )
 							if ( ubBestSAMOperatorID != NOBODY )
 							{
 								if ( fHit )
-									StatChange( ubBestSAMOperatorID, EXPERAMT, fDestroyed ? 30 : 10, TRUE );
+									StatChange( GetJa2SoldierRepository().resolve(ubBestSAMOperatorID), EXPERAMT, fDestroyed ? 30 : 10, TRUE );
 
-								StatChange( ubBestSAMOperatorID, MECHANAMT, 5, TRUE );
+								StatChange( GetJa2SoldierRepository().resolve(ubBestSAMOperatorID), MECHANAMT, 5, TRUE );
 							}
 						}
 					}

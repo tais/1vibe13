@@ -449,10 +449,19 @@ typedef struct SoldierID
 	// any ctor at all, so i can be a fully attacker-controlled 0..65535.
 	// Returning NULL for i >= TOTAL_SOLDIERS makes the lookup sound for every
 	// possible i, so every existing "pSoldier == NULL" guard becomes reliable.
+#if defined(JA2_STRATEGIC_EXPLICIT_SOLDIER_RESOLUTION)
+	// Strategic code must make the storage boundary visible at each lookup.
+	// Other legacy domains retain these conveniences until their own migration.
+	SOLDIERTYPE* operator->() = delete;
+	const SOLDIERTYPE* operator->() const = delete;
+	operator SOLDIERTYPE* () = delete;
+	operator const SOLDIERTYPE*() const = delete;
+#else
 	SOLDIERTYPE* operator->() { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
 	const SOLDIERTYPE* operator->() const { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
 	inline operator SOLDIERTYPE* () { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
 	inline operator const SOLDIERTYPE*() const { return i < TOTAL_SOLDIERS ? MercPtrs[i] : NULL; }
+#endif
 	inline SoldierID &operator++()
 	{
 		i++;

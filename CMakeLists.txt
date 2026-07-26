@@ -419,6 +419,13 @@ foreach(app IN LISTS ApplicationTargets)
         $<TARGET_OBJECTS:ja2_engine_legacy_adapters>)
     endif()
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
+    if(${lib} STREQUAL "Strategic")
+      # Strategic has completed its repository migration.  Compile its view of
+      # SoldierID without the legacy pointer conveniences so new code cannot
+      # bypass Ja2SoldierRepository accidentally.
+      target_compile_definitions(${game_library} PRIVATE
+        JA2_STRATEGIC_EXPLICIT_SOLDIER_RESOLUTION)
+    endif()
     target_link_libraries(${game_library} PUBLIC JA2::RuntimeAdapter)
 
 	# Cinematics.cpp is compiled as part of Utils and directly consumes both

@@ -2176,13 +2176,25 @@ foreach(required_repository_fragment IN ITEMS
     "Ja2SoldierRepository(Menptr, MercPtrs, TOTAL_SOLDIERS)"
     "SOLDIERTYPE* Ja2SoldierRepository::replace"
     "bool Ja2SoldierRepository::swapRecords"
-    "void BindJa2SoldierRepository"
-    "Ja2SoldierRepository& GetJa2SoldierRepository")
+    "void BindJa2SoldierRepository")
   string(FIND "${soldier_repository_contents}"
     "${required_repository_fragment}" required_repository_position)
   if(required_repository_position EQUAL -1)
     message(FATAL_ERROR
       "JA2 soldier repository no longer owns '${required_repository_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Ja2/SoldierRepository.h"
+  soldier_repository_header_contents)
+foreach(required_repository_gateway_fragment IN ITEMS
+    "static Ja2SoldierRepository* boundRepository_"
+    "inline Ja2SoldierRepository& GetJa2SoldierRepository")
+  string(FIND "${soldier_repository_header_contents}"
+    "${required_repository_gateway_fragment}"
+    required_repository_gateway_position)
+  if(required_repository_gateway_position EQUAL -1)
+    message(FATAL_ERROR
+      "JA2 soldier repository gateway lost '${required_repository_gateway_fragment}'")
   endif()
 endforeach()
 
@@ -2229,8 +2241,27 @@ foreach(source_file IN LISTS ja2_application_sources)
 endforeach()
 
 # Strategic simulation is the first legacy subsystem whose direct fixed-array
-# access is repository-backed. Keep both active code and dormant examples from
-# restoring named array access or contiguous soldier-pointer walks.
+# access and implicit SoldierID pointer conversions are repository-backed. Keep
+# both active code and dormant examples from restoring named array access or
+# contiguous soldier-pointer walks. The target-specific deleted operators make
+# every implicit conversion a compiler error, including patterns a regex cannot
+# identify reliably.
+file(READ "${SOURCE_ROOT}/CMakeLists.txt"
+  root_cmake_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead Types.h"
+  soldier_id_header_contents)
+string(FIND "${root_cmake_contents}"
+  "JA2_STRATEGIC_EXPLICIT_SOLDIER_RESOLUTION"
+  strategic_resolution_target_definition)
+string(FIND "${soldier_id_header_contents}"
+  "SOLDIERTYPE* operator->() = delete;"
+  strategic_resolution_deleted_operator)
+if(strategic_resolution_target_definition EQUAL -1 OR
+    strategic_resolution_deleted_operator EQUAL -1)
+  message(FATAL_ERROR
+    "Strategic SoldierID conversion compile-time ratchet is incomplete")
+endif()
+
 file(GLOB strategic_soldier_sources
   "${SOURCE_ROOT}/Strategic/*.cpp"
   "${SOURCE_ROOT}/Strategic/*.h")
