@@ -572,9 +572,11 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 {
 	SOLDIERTYPE Soldier;
 	SOLDIERTYPE *pTeamSoldier;
+	SOLDIERTYPE *pLiveSoldier = NULL;
 	BOOLEAN fGuyAvail = FALSE;
 	UINT16 bLastTeamID;
 	UINT8 ubVehicleID = 0;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 	
 	*pubID = NOBODY;
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("TacticalCreateSoldier"));
@@ -774,8 +776,9 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			// look for all mercs on the same team,
 			for ( ; cnt <= bLastTeamID; ++cnt )
 			{
-				pTeamSoldier = cnt;
-				if ( !pTeamSoldier->bActive )
+				pTeamSoldier =
+					soldiers.resolve(static_cast<UINT16>(cnt));
+				if ( pTeamSoldier && !pTeamSoldier->bActive )
 				{
 					fGuyAvail = TRUE;
 					break;
@@ -1181,10 +1184,13 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 		if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
-			// Copy into merc struct
-			*MercPtrs[ Soldier.ubID ] = Soldier;
+			// Commit the new record through the compatibility repository.
+			pLiveSoldier = soldiers.replace(
+				static_cast<UINT16>(Soldier.ubID), Soldier);
+			CHECKF( pLiveSoldier != NULL );
 			// Alrighty then, we are set to create the merc, stuff after here can fail!
-			CHECKF( Soldier.ubID->CreateSoldierCommon( Soldier.ubBodyType, Soldier.ubID, STANDING ) != FALSE );
+			CHECKF( pLiveSoldier->CreateSoldierCommon(
+				Soldier.ubBodyType, Soldier.ubID, STANDING ) != FALSE );
 		}
 	}
 	else
@@ -1205,30 +1211,31 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			Soldier.aiData.bNeutral = TRUE;
 		}
 
-		// Copy into merc struct
-		*MercPtrs[ Soldier.ubID ] = Soldier;
+		// Commit the restored record through the compatibility repository.
+		pLiveSoldier = soldiers.replace(
+			static_cast<UINT16>(Soldier.ubID), Soldier);
+		CHECKF( pLiveSoldier != NULL );
 
 		// Alrighty then, we are set to create the merc, stuff after here can fail!
-		CHECKF( MercPtrs[ Soldier.ubID ]->CreateSoldierCommon( Soldier.ubBodyType, Soldier.ubID, Menptr[ Soldier.ubID ].usAnimState ) != FALSE );
+		CHECKF( pLiveSoldier->CreateSoldierCommon(
+			Soldier.ubBodyType, Soldier.ubID,
+			pLiveSoldier->usAnimState ) != FALSE );
 
 		*pubID = Soldier.ubID;
 
-		// The soldiers animation frame gets reset, set
-//		Menptr[ Soldier.ubID ].usAniCode = pCreateStruct->pExistingSoldier->usAniCode;
-//		Menptr[ Soldier.ubID ].usAnimState = Soldier.usAnimState;
-//		Menptr[ Soldier.ubID ].usAniFrame = Soldier.usAniFrame;
 	}
-	
+
 	if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 	{
+		CHECKF( pLiveSoldier != NULL );
 		// Publish liveness only after the legacy pool object completed common
 		// construction. Failed creation still consumes the incarnation above,
 		// preserving the historical sequence and save compatibility.
-		(void)AdoptJa2TacticalEntity(*MercPtrs[Soldier.ubID]);
+		(void)AdoptJa2TacticalEntity(*pLiveSoldier);
 
 		if( pCreateStruct->fOnRoof && FlatRoofAboveGridNo( pCreateStruct->sInsertionGridNo ) )
 		{
-			MercPtrs[ Soldier.ubID ]->SetSoldierHeight( 58.0 );
+			pLiveSoldier->SetSoldierHeight( 58.0 );
 		}
 
 		//if we are loading DONT add men to team, because the number is restored in gTacticalStatus
@@ -1237,17 +1244,9 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			// Increment men in sector number!
 			AddManToTeam( Soldier.bTeam );
 
-			//Madd: pre-load launchers
-			//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"TacticalCreateSoldier: Load launcher");
-			//INT8 bSlot = FindObjClass(MercPtrs[ Soldier.ubID ],IC_LAUNCHER);
-			//if ( bSlot != NO_SLOT )
-			//{
-			//	INT8 lSlot = FindNonSmokeLaunchable(MercPtrs[ Soldier.ubID ], Item[MercPtrs[ Soldier.ubID ]->inv[bSlot].usItem].ubClassIndex);
-			//	AttachObject(MercPtrs[ Soldier.ubID ],&MercPtrs[ Soldier.ubID ]->inv[bSlot],&MercPtrs[ Soldier.ubID ]->inv[lSlot],FALSE);
-			//}
 		}
 
-		return MercPtrs[ Soldier.ubID ];
+		return pLiveSoldier;
 	}
 	else
 	{
@@ -3033,6 +3032,7 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 {
 	SoldierID i, iStart, iEnd;
 	SOLDIERTYPE *pSoldier;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 	//This code looks for a soldier of specified type that currently exists in tactical and
 	//returns the pointer to that soldier.	This is used when copying the exact status of
 	//all remaining enemy troops (or creatures) to finish the battle in autoresolve.	To
@@ -3050,15 +3050,19 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 	}
 	for( i = iStart; i <= iEnd; ++i )
 	{
-		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->position().gridNo()))
+		SOLDIERTYPE* source =
+			soldiers.resolve(static_cast<UINT16>(i));
+		if( source && source->bActive && source->bInSector &&
+			source->vitals().health() &&
+			!TileIsOutOfBounds(source->position().gridNo()))
 		{
-			if( i->ubSoldierClass == ubSoldierClass )
+			if( source->ubSoldierClass == ubSoldierClass )
 			{
 				//reserve this soldier
-				i->position().gridNo() = NOWHERE;
+				source->position().gridNo() = NOWHERE;
 
 				//Allocate and copy the soldier
-				pSoldier = new SOLDIERTYPE(*MercPtrs[i]); //(SOLDIERTYPE*)MemAlloc( SIZEOF_SOLDIERTYPE );
+				pSoldier = new SOLDIERTYPE(*source);
 				if( !pSoldier )
 					return NULL;
 
@@ -3350,6 +3354,7 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 {
 	SoldierID i, iStart, iEnd;
 	SOLDIERTYPE *pSoldier;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	// For description look original ReserveTacticalSoldierForAutoresolve()
 
@@ -3357,21 +3362,26 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 	iEnd = gTacticalStatus.Team[ MILITIA_TEAM ].bLastID;
 
 	for( i = iStart; i <= iEnd; ++i )
-	{		
-		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->position().gridNo()))
+	{
+		SOLDIERTYPE* source =
+			soldiers.resolve(static_cast<UINT16>(i));
+		if( source && source->bActive && source->bInSector &&
+			source->vitals().health() &&
+			!TileIsOutOfBounds(source->position().gridNo()))
 		{
-			if( i->ubSoldierClass == ubSoldierClass )
+			if( source->ubSoldierClass == ubSoldierClass )
 			{
 				//reserve this soldier
-				i->position().gridNo() = NOWHERE;
+				source->position().gridNo() = NOWHERE;
 
 				//Allocate and copy the soldier
-				pSoldier = new SOLDIERTYPE(*MercPtrs[i]); //(SOLDIERTYPE*)MemAlloc( SIZEOF_SOLDIERTYPE );
+				pSoldier = new SOLDIERTYPE(*source);
 				if( !pSoldier )
 					return NULL;
 
-				// the militia in autoresolve will drop their gear after combat. For this reason, there is no need for MercPtrs[i] to also drop it
-				MercPtrs[i]->usSoldierFlagMask |= SOLDIER_EQUIPMENT_DROPPED;
+				// The militia in autoresolve drops its copied gear after combat,
+				// so the live repository record must not drop it a second time.
+				source->usSoldierFlagMask |= SOLDIER_EQUIPMENT_DROPPED;
 
 				//Assign a bogus ID, then return it
 				pSoldier->ubID = NUM_PROFILES;
@@ -4346,12 +4356,15 @@ void OkayToUpgradeEliteToSpecialProfiledEnemy( SOLDIERCREATE_STRUCT *pp )
 void TrashAllSoldiers( )
 {
 	INT32		cnt;
-	SOLDIERTYPE *pSoldier;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	cnt = 0;
 
-	for ( pSoldier = MercPtrs[ cnt ]; cnt < MAX_NUM_SOLDIERS; pSoldier++, cnt++ )
+	for ( ; cnt < MAX_NUM_SOLDIERS &&
+		static_cast<std::size_t>(cnt) < soldiers.capacity(); cnt++ )
 	{
+		SOLDIERTYPE* pSoldier = soldiers.resolve(cnt);
+		if (!pSoldier) continue;
 		if ( pSoldier->bActive )
 		{
 			// Delete from world

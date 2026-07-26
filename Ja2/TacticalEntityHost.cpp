@@ -3,14 +3,20 @@
 #include <cstddef>
 
 #include "Animation Control.h"
-#include "Overhead.h"
 #include "Soldier Control.h"
 
 namespace
 {
+Ja2SoldierRepository& StandaloneRepository() noexcept
+{
+	static Ja2SoldierRepository repository;
+	return repository;
+}
+
 TacticalEntityDirectory& StandaloneDirectory() noexcept
 {
-	static TacticalEntityDirectory directory(TOTAL_SOLDIERS);
+	static TacticalEntityDirectory directory(
+		StandaloneRepository().capacity());
 	return directory;
 }
 
@@ -18,6 +24,12 @@ TacticalEntityDirectory*& BoundDirectory() noexcept
 {
 	static TacticalEntityDirectory* directory = &StandaloneDirectory();
 	return directory;
+}
+
+Ja2SoldierRepository*& BoundRepository() noexcept
+{
+	static Ja2SoldierRepository* repository = &StandaloneRepository();
+	return repository;
 }
 
 TacticalEntityId LegacyIdentity(const SOLDIERTYPE& soldier) noexcept
@@ -62,11 +74,14 @@ TacticalActorSnapshot LegacyState(
 }
 }
 
-void BindJa2TacticalEntityDirectory(TacticalEntityDirectory& directory) noexcept
+void BindJa2TacticalEntityDirectory(
+	TacticalEntityDirectory& directory,
+	Ja2SoldierRepository& soldiers) noexcept
 {
 	const std::uint32_t nextIncarnation =
 		BoundDirectory()->nextIncarnation();
 	BoundDirectory() = &directory;
+	BoundRepository() = &soldiers;
 	directory.restoreNextIncarnation(nextIncarnation);
 	RebuildJa2TacticalEntityDirectory();
 }
@@ -74,6 +89,11 @@ void BindJa2TacticalEntityDirectory(TacticalEntityDirectory& directory) noexcept
 TacticalEntityDirectory& GetJa2TacticalEntityDirectory() noexcept
 {
 	return *BoundDirectory();
+}
+
+Ja2SoldierRepository& GetJa2SoldierRepository() noexcept
+{
+	return *BoundRepository();
 }
 
 std::uint32_t IssueJa2TacticalEntityIncarnation() noexcept
@@ -95,8 +115,9 @@ void RestoreJa2TacticalEntityIncarnationSequence(
 bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept
 {
 	const TacticalEntityId entity = LegacyIdentity(soldier);
-	if (!entity.valid() || entity.slot >= TOTAL_SOLDIERS ||
-		MercPtrs[entity.slot] != &soldier || !soldier.bActive)
+	if (!entity.valid() ||
+		!BoundRepository()->contains(entity.slot, soldier) ||
+		!soldier.bActive)
 		return false;
 	if (!BoundDirectory()->activate(entity)) return false;
 	if (BoundDirectory()->publishState(LegacyState(soldier))) return true;
@@ -107,7 +128,7 @@ bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept
 bool ReleaseJa2TacticalEntity(const SOLDIERTYPE& soldier) noexcept
 {
 	const TacticalEntityId entity = LegacyIdentity(soldier);
-	if (entity.slot >= TOTAL_SOLDIERS || MercPtrs[entity.slot] != &soldier)
+	if (!BoundRepository()->contains(entity.slot, soldier))
 		return false;
 	return BoundDirectory()->release(entity);
 }
@@ -116,8 +137,9 @@ bool SynchronizeJa2TacticalEntityState(
 	const SOLDIERTYPE& soldier) noexcept
 {
 	const TacticalEntityId entity = LegacyIdentity(soldier);
-	if (!entity.valid() || entity.slot >= TOTAL_SOLDIERS ||
-		MercPtrs[entity.slot] != &soldier || !soldier.bActive ||
+	if (!entity.valid() ||
+		!BoundRepository()->contains(entity.slot, soldier) ||
+		!soldier.bActive ||
 		!BoundDirectory()->contains(entity))
 		return false;
 	return BoundDirectory()->publishState(LegacyState(soldier));
@@ -126,9 +148,10 @@ bool SynchronizeJa2TacticalEntityState(
 bool SynchronizeJa2TacticalEntityStates() noexcept
 {
 	std::size_t synchronized = 0;
-	for (std::uint16_t slot = 0; slot < TOTAL_SOLDIERS; ++slot)
+	for (std::size_t slot = 0;
+		slot < BoundRepository()->capacity(); ++slot)
 	{
-		const SOLDIERTYPE* soldier = MercPtrs[slot];
+		const SOLDIERTYPE* soldier = BoundRepository()->resolve(slot);
 		if (!soldier || !soldier->bActive)
 		{
 			if (BoundDirectory()->identity(slot).valid()) return false;
@@ -149,9 +172,10 @@ void ResetJa2TacticalEntityDirectory() noexcept
 void RebuildJa2TacticalEntityDirectory() noexcept
 {
 	ResetJa2TacticalEntityDirectory();
-	for (std::uint16_t slot = 0; slot < TOTAL_SOLDIERS; ++slot)
+	for (std::size_t slot = 0;
+		slot < BoundRepository()->capacity(); ++slot)
 	{
-		SOLDIERTYPE* soldier = MercPtrs[slot];
+		SOLDIERTYPE* soldier = BoundRepository()->resolve(slot);
 		if (soldier) (void)AdoptJa2TacticalEntity(*soldier);
 	}
 }
@@ -159,24 +183,16 @@ void RebuildJa2TacticalEntityDirectory() noexcept
 bool SwapJa2TacticalEntitySlots(
 	std::uint16_t firstSlot, std::uint16_t secondSlot)
 {
-	if (firstSlot >= TOTAL_SOLDIERS || secondSlot >= TOTAL_SOLDIERS ||
-		firstSlot == secondSlot)
-		return false;
-
-	SOLDIERTYPE first = Menptr[firstSlot];
-	Menptr[firstSlot] = Menptr[secondSlot];
-	Menptr[secondSlot] = first;
-	Menptr[firstSlot].ubID = SoldierID{firstSlot};
-	Menptr[secondSlot].ubID = SoldierID{secondSlot};
+	if (!BoundRepository()->swapRecords(firstSlot, secondSlot)) return false;
 	RebuildJa2TacticalEntityDirectory();
 	return true;
 }
 
 SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept
 {
-	if (!BoundDirectory()->contains(entity) || entity.slot >= TOTAL_SOLDIERS)
+	if (!BoundDirectory()->contains(entity))
 		return nullptr;
-	SOLDIERTYPE* soldier = MercPtrs[entity.slot];
+	SOLDIERTYPE* soldier = BoundRepository()->resolve(entity.slot);
 	if (!soldier || !soldier->bActive ||
 		static_cast<std::uint16_t>(soldier->ubID) != entity.slot ||
 		soldier->uiUniqueSoldierIdValue != entity.incarnation)

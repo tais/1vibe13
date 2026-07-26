@@ -99,7 +99,8 @@ GameContext& ComposeGameContext()
 	}();
 	(void)strategicGroupDirectoryBound;
 	static const bool tacticalEntityDirectoryBound = [&] {
-		BindJa2TacticalEntityDirectory(context.runtime().tacticalEntityDirectory());
+		BindJa2TacticalEntityDirectory(
+			context.runtime().tacticalEntityDirectory(), context.soldiers());
 		return true;
 	}();
 	(void)tacticalEntityDirectoryBound;

@@ -3316,6 +3316,9 @@ int main( int, char** )
 		       &compiledContext.runtime().simulationCommandExecutor() !=
 		           &NullSimulationCommandExecutor::instance(),
 		       "production composition binds one runtime-owned tactical command executor" );
+		CHECK( &compiledContext.soldiers() == &GetJa2SoldierRepository() &&
+		       compiledContext.soldiers().capacity() == TOTAL_SOLDIERS,
+		       "application composition owns the bound JA2 soldier repository" );
 		compiledContext.screenController().reset( 7 );
 		compiledContext.screenController().transitionTo(
 			9, []( UINT32 ) { return false; } );
@@ -7195,6 +7198,56 @@ int main( int, char** )
 
 	// --- hard asserts: the fully data-free managers ---
 	CHECK( InitializeMemoryManager(), "InitializeMemoryManager()" );
+
+	{
+		SOLDIERTYPE records[2];
+		SOLDIERTYPE* slots[2] = { nullptr, nullptr };
+		Ja2SoldierRepository repository(records, slots, 2);
+		CHECK( repository.capacity() == 2 &&
+		       repository.resolve(0) == nullptr &&
+		       repository.resolve(2) == nullptr,
+		       "soldier repository bounds unresolved legacy slots" );
+
+		repository.initializeSlots();
+		CHECK( repository.resolve(0) == &records[0] &&
+		       repository.resolve(1) == &records[1] &&
+		       !records[0].bActive && !records[1].bActive &&
+		       repository.contains(0, records[0]) &&
+		       !repository.contains(0, records[1]),
+		       "soldier repository establishes canonical fixed-slot bindings" );
+
+		SOLDIERTYPE source;
+		source.ubID = SoldierID{ static_cast<UINT16>( 1 ) };
+		source.bActive = TRUE;
+		source.position().gridNo() = 4321;
+		source.vitals().health() = 73;
+		source.runtime.pendingAction.pathSearchSourceGrid = 99;
+		SOLDIERTYPE* replaced = repository.replace(1, source);
+		CHECK( replaced == &records[1] &&
+		       records[1].position().gridNo() == 4321 &&
+		       records[1].vitals().health() == 73 &&
+		       records[1].runtime.pendingAction.pathSearchSourceGrid == 0 &&
+		       repository.replace(2, source) == nullptr,
+		       "soldier repository owns bounded whole-record replacement and clone reset semantics" );
+
+		slots[1] = &records[0];
+		CHECK( repository.replace(1, source) == nullptr,
+		       "soldier repository rejects a noncanonical compatibility slot" );
+		repository.initializeSlots();
+		records[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
+		records[0].position().gridNo() = 100;
+		records[1].ubID = SoldierID{ static_cast<UINT16>( 1 ) };
+		records[1].position().gridNo() = 200;
+		const bool swapped = repository.swapRecords(0, 1);
+		CHECK( swapped &&
+		       records[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
+		       records[1].ubID == SoldierID{ static_cast<UINT16>( 1 ) } &&
+		       records[0].position().gridNo() == 200 &&
+		       records[1].position().gridNo() == 100 &&
+		       !repository.swapRecords(0, 0) &&
+		       !repository.swapRecords(0, 2),
+		       "soldier repository relocates complete records while preserving slot identities" );
+	}
 
 	{
 		SOLDIERTYPE soldier;

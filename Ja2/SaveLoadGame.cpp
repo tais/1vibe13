@@ -2857,8 +2857,10 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		sSoldierCnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 
-		for ( pSoldier = MercPtrs[ sSoldierCnt ]; sSoldierCnt <= bLastTeamID; sSoldierCnt++,pSoldier++)
+		for ( ; sSoldierCnt <= bLastTeamID; sSoldierCnt++)
 		{
+			pSoldier = GetJa2SoldierRepository().resolve(sSoldierCnt);
+			if (!pSoldier) continue;
 			if( pSoldier->bActive )
 			{
 				if ( pSoldier->bAssignment != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
@@ -5597,14 +5599,15 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// CHRISL: To set camo faces correctly from the start
 	for( UINT16 cnt=0; cnt< CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS; cnt++)
 	{
-		if(MercPtrs[cnt]->ubID == cnt)
+		SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(cnt);
+		if(soldier && soldier->ubID == cnt)
 		{
 			// WANNE: We should only delete the face, if there was a camo we applied.
 			// This should fix the bug and crashes with missing faces
-			if (SetCamoFace( MercPtrs[cnt] ))
+			if (SetCamoFace( soldier ))
 			{
-				DeleteSoldierFace( MercPtrs[cnt] );// remove face
-				MercPtrs[cnt]->iFaceIndex = InitSoldierFace( MercPtrs[cnt] );// create new face
+				DeleteSoldierFace( soldier );// remove face
+				soldier->iFaceIndex = InitSoldierFace( soldier );// create new face
 			}
 		}
 	}
@@ -5840,7 +5843,8 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 			// correct bVehicleUnderRepairID for all mercs
 			for ( UINT16 ubID = 0; ubID < MAXMERCS; ++ubID )
 			{
-				Menptr[ubID].bVehicleUnderRepairID = -1;
+				GetJa2SoldierRepository().record(
+					ubID).bVehicleUnderRepairID = -1;
 			}
 		}
 
@@ -6116,12 +6120,14 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 	UINT32	uiNumBytesWritten=0;
 	UINT8		ubOne = 1;
 	UINT8		ubZero = 0;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	//Loop through all the soldier structs to save
 	for( cnt=0; cnt< TOTAL_SOLDIERS; ++cnt)
 	{
+		SOLDIERTYPE& soldier = soldiers.record(cnt);
 		//if the soldier isnt active, dont add them to the saved game file.
-		if( !Menptr[ cnt ].bActive )
+		if( !soldier.bActive )
 		{
 			// Save the byte specifing to NOT load the soldiers 
 			FileWrite( hFile, &ubZero, 1, &uiNumBytesWritten );
@@ -6140,7 +6146,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 			}
 
 			// Save the soldier structure
-			if ( !Menptr[ cnt ].Save(hFile) )
+			if ( !soldier.Save(hFile) )
 			{
 				return FALSE;
 			}
@@ -6156,7 +6162,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 			//do we have a 	KEY_ON_RING									*pKeyRing;
 			//
 
-			if( Menptr[ cnt ].pKeyRing != NULL )
+			if( soldier.pKeyRing != NULL )
 			{
 				// write to the file saying we have the ....
 				FileWrite( hFile, &ubOne, 1, &uiNumBytesWritten );
@@ -6166,7 +6172,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 				}
 
 				// Now save the ....
-				FileWrite( hFile, Menptr[ cnt ].pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesWritten );
+				FileWrite( hFile, soldier.pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesWritten );
 				if( uiNumBytesWritten != NUM_KEYS * sizeof( KEY_ON_RING ) )
 				{
 					return(FALSE);
@@ -6197,6 +6203,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 	UINT8		ubActive = 1;
 	UINT32		uiPercentage;
 	SOLDIERTYPE SavedSoldierInfo;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	//Loop through all the soldier and delete them all
 	for( cnt=0; cnt< TOTAL_SOLDIERS; ++cnt)
@@ -6254,6 +6261,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 
 			if( !TacticalCreateSoldier( &CreateStruct, &ubId ) )
 				return( FALSE );
+			SOLDIERTYPE& soldier = soldiers.record(cnt);
 
 			// Load the pMercPath
 			if( !LoadMercPathToSoldierStruct( hFile, ubId ) )
@@ -6274,15 +6282,15 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			{
 				// The save flag says this soldier had a keyring, but a recreated non-player
 				// soldier's pKeyRing is NULL -> FileRead into NULL would crash. Allocate it.
-				if ( Menptr[ cnt ].pKeyRing == NULL )
-					Menptr[ cnt ].pKeyRing = (KEY_ON_RING *) MemAlloc( NUM_KEYS * sizeof( KEY_ON_RING ) );
-				if ( Menptr[ cnt ].pKeyRing == NULL )
+				if ( soldier.pKeyRing == NULL )
+					soldier.pKeyRing = (KEY_ON_RING *) MemAlloc( NUM_KEYS * sizeof( KEY_ON_RING ) );
+				if ( soldier.pKeyRing == NULL )
 					return( FALSE );
 				// WANNE - BMP: Check -> We get an assert here!
 				// Now Load the ....
 				if( guiCurrentSaveGameVersion < MORE_LOCKS_AND_KEYS )
 				{
-					FileRead( hFile, Menptr[ cnt ].pKeyRing, NUM_KEYS_OLD * sizeof( KEY_ON_RING ), &uiNumBytesRead );
+					FileRead( hFile, soldier.pKeyRing, NUM_KEYS_OLD * sizeof( KEY_ON_RING ), &uiNumBytesRead );
 					if( uiNumBytesRead != NUM_KEYS_OLD * sizeof( KEY_ON_RING ) )
 					{
 						return(FALSE);
@@ -6290,7 +6298,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				}
 				else
 				{
-					FileRead( hFile, Menptr[ cnt ].pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesRead );
+					FileRead( hFile, soldier.pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesRead );
 					if( uiNumBytesRead != NUM_KEYS * sizeof( KEY_ON_RING ) )
 					{
 						return(FALSE);
@@ -6299,14 +6307,8 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			}
 			else
 			{
-				Assert( Menptr[ cnt ].pKeyRing == NULL );
+				Assert( soldier.pKeyRing == NULL );
 			}
-
-			//if the soldier is an IMP character
-			//if( Menptr[cnt].ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER && Menptr[cnt].bTeam == gbPlayerNum )
-			//{
-			//	ResetIMPCharactersEyesAndMouthOffsets( Menptr[ cnt ].ubProfile );
-			//}
 
 			if ( guiCurrentSaveGameVersion < 99 )
 			{
@@ -6314,15 +6316,15 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				if( guiCurrentSaveGameVersion < 83 )
 				{
 					//if the soldier is someone
-					if( Menptr[ cnt ].ubProfile != NO_PROFILE )
+					if( soldier.ubProfile != NO_PROFILE )
 					{
-						if( Menptr[cnt].ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+						if( soldier.ubWhatKindOfMercAmI == MERC_TYPE__MERC )
 						{
-							gMercProfiles[ Menptr[ cnt ].ubProfile ].uiTotalCostToDate = gMercProfiles[ Menptr[ cnt ].ubProfile ].sSalary * gMercProfiles[ Menptr[ cnt ].ubProfile ].iMercMercContractLength;
+							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * gMercProfiles[ soldier.ubProfile ].iMercMercContractLength;
 						}
 						else
 						{
-							gMercProfiles[ Menptr[ cnt ].ubProfile ].uiTotalCostToDate = gMercProfiles[ Menptr[ cnt ].ubProfile ].sSalary * Menptr[ cnt ].iTotalContractLength;
+							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * soldier.iTotalContractLength;
 						}
 					}
 				}
@@ -6331,16 +6333,16 @@ if( g_lang == i18n::Lang::de ) {
 				// Fix neutral flags
 				if ( guiCurrentSaveGameVersion < 94 )
 				{
-					if ( Menptr[ cnt].bTeam == OUR_TEAM && Menptr[ cnt ].aiData.bNeutral && Menptr[ cnt ].bAssignment != ASSIGNMENT_POW )
+					if ( soldier.bTeam == OUR_TEAM && soldier.aiData.bNeutral && soldier.bAssignment != ASSIGNMENT_POW )
 					{
 						// turn off neutral flag
-						Menptr[ cnt].aiData.bNeutral = FALSE;
+						soldier.aiData.bNeutral = FALSE;
 					}
 				}
 }
 
 				// JA2Gold: fix next-to-previous attacker value
-				Menptr[cnt].ubNextToPreviousAttackerID = NOBODY;
+				soldier.ubNextToPreviousAttackerID = NOBODY;
 			}
 		}
 	}
@@ -7201,23 +7203,25 @@ BOOLEAN CopySavedSoldierInfoToNewSoldier( SOLDIERTYPE *pDestSourceInfo, SOLDIERT
 BOOLEAN SetMercsInsertionGridNo( )
 {
 	UINT16 cnt=0;
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	// loop through all the mercs
 	for ( cnt=0; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
+		SOLDIERTYPE& soldier = soldiers.record(cnt);
 		//if the soldier is active
-		if( Menptr[ cnt ].bActive )
+		if( soldier.bActive )
 		{
-			if( !TileIsOutOfBounds(Menptr[ cnt ].position().gridNo()))
+			if( !TileIsOutOfBounds(soldier.position().gridNo()))
 			{
 				//set the insertion type to gridno
-				Menptr[ cnt ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+				soldier.ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 
 				//set the insertion gridno
-				Menptr[ cnt ].usStrategicInsertionData = Menptr[ cnt ].position().gridNo();
+				soldier.usStrategicInsertionData = soldier.position().gridNo();
 
 				//set the gridno
-				Menptr[ cnt ].position().gridNo() = NOWHERE;
+				soldier.position().gridNo() = NOWHERE;
 			}
 		}
 	}
@@ -7505,7 +7509,8 @@ void CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName
 BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID )
 {
 	UINT32	uiNumOfNodes=0;
-	PathStPtr	pTempPath = Menptr[ ubID ].pMercPath;
+	SOLDIERTYPE& soldier = GetJa2SoldierRepository().record(ubID);
+	PathStPtr	pTempPath = soldier.pMercPath;
 	UINT32	uiNumBytesWritten=0;
 
 	//loop through to get all the nodes
@@ -7523,7 +7528,7 @@ BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID )
 	}
 
 	//loop through all the nodes and add them
-	pTempPath = Menptr[ ubID ].pMercPath;
+	pTempPath = soldier.pMercPath;
 
 		//loop through nodes and save all the nodes
 	while( pTempPath )
@@ -7549,13 +7554,14 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 	PathStPtr	pTemp = NULL;
 	UINT32	uiNumBytesRead=0;
 	UINT32	cnt;
-	
+	SOLDIERTYPE& soldier = GetJa2SoldierRepository().record(ubID);
+
 	//The list SHOULD be empty at this point
 /*
 	//if there is nodes, loop through and delete them
-	if( Menptr[ ubID ].pMercPath )
+	if( soldier.pMercPath )
 	{
-		pTempPath = Menptr[ ubID ].pMercPath;
+		pTempPath = soldier.pMercPath;
 		while( pTempPath )
 		{
 			pTemp = pTempPath;
@@ -7565,7 +7571,7 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 			pTemp=NULL;
 		}
 
-		Menptr[ ubID ].pMercPath = NULL;
+		soldier.pMercPath = NULL;
 	}
 */
 
@@ -7619,9 +7625,9 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 	//move to beginning of list
 	pTempPath = MoveToBeginningOfPathList( pTempPath );
 
-	Menptr[ ubID ].pMercPath = pTempPath;
-	if( Menptr[ ubID ].pMercPath )
-		Menptr[ ubID ].pMercPath->pPrev = NULL;
+	soldier.pMercPath = pTempPath;
+	if( soldier.pMercPath )
+		soldier.pMercPath->pPrev = NULL;
 
 	return( TRUE );
 }
@@ -8836,8 +8842,9 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 		//loop through all the mercs on the players team to find the one that is not moving
 		for ( ; sSoldierCnt <= bLastTeamID; ++sSoldierCnt )
 		{
-			pSoldier = sSoldierCnt;
-			// test for !NULL (if initilization fails and MercPtrs contains 'NULL's)
+			pSoldier = GetJa2SoldierRepository().resolve(
+				static_cast<UINT16>(sSoldierCnt));
+			// Test for null if tactical slot initialization failed.
 			if( pSoldier && pSoldier->bActive )
 			{
 				if ( pSoldier->bAssignment != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)

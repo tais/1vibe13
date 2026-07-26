@@ -6,14 +6,19 @@
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 #include <Engine/Adapters/JA2/TacticalEntityDirectory.h>
 
+#include "SoldierRepository.h"
+
 class SOLDIERTYPE;
 
 // Composition gateways between the pointer-free runtime directory and JA2's
 // fixed SOLDIERTYPE/MercPtrs compatibility pool. The directory owns the
 // incarnation sequence and latest public actor projection directly; no
 // independently synchronized identity or package-facing state path remains.
-void BindJa2TacticalEntityDirectory(TacticalEntityDirectory& directory) noexcept;
+void BindJa2TacticalEntityDirectory(
+	TacticalEntityDirectory& directory,
+	Ja2SoldierRepository& soldiers) noexcept;
 TacticalEntityDirectory& GetJa2TacticalEntityDirectory() noexcept;
+Ja2SoldierRepository& GetJa2SoldierRepository() noexcept;
 
 std::uint32_t IssueJa2TacticalEntityIncarnation() noexcept;
 std::uint32_t NextJa2TacticalEntityIncarnation() noexcept;
