@@ -45,10 +45,15 @@ using namespace std;
 #include <vfs/Tools/vfs_parser_tools.h>
 #include <memory>
 #include <new>
+#include <utility>
 
 namespace
 {
 const UINT32 kReadBufferSize = 8192;
+const UINT32 kMaximumFileSearches = 20;
+
+typedef vfs::CVirtualFileSystem::Iterator FileSearchIterator;
+std::unique_ptr<FileSearchIterator> s_fileSearches[kMaximumFileSearches];
 
 // HWFILE is intentionally opaque outside FileMan. Keep the access mode and the
 // already-resolved VFS interface beside the underlying file instead of looking
@@ -113,6 +118,44 @@ void SynchronizeReadBuffer(FileHandle* handle)
 			vfs::IBaseFile::SD_CURRENT);
 	}
 	ClearReadBuffer(handle);
+}
+
+FileSearchIterator* GetFileSearch(INT32 handle)
+{
+	if(handle <= 0 ||
+		handle > static_cast<INT32>(kMaximumFileSearches))
+	{
+		return nullptr;
+	}
+	return s_fileSearches[handle - 1].get();
+}
+
+INT32 StoreFileSearch(std::unique_ptr<FileSearchIterator> iterator)
+{
+	for(UINT32 index = 0; index < kMaximumFileSearches; ++index)
+	{
+		if(!s_fileSearches[index])
+		{
+			s_fileSearches[index] = std::move(iterator);
+			return static_cast<INT32>(index + 1);
+		}
+	}
+	return -1;
+}
+
+void ReleaseFileSearch(INT32 handle)
+{
+	if(handle > 0 &&
+		handle <= static_cast<INT32>(kMaximumFileSearches))
+	{
+		s_fileSearches[handle - 1].reset();
+	}
+}
+
+void ReleaseAllFileSearches()
+{
+	for(UINT32 index = 0; index < kMaximumFileSearches; ++index)
+		s_fileSearches[index].reset();
 }
 
 HWFILE MakeReadHandle(vfs::tReadableFile* file)
@@ -186,22 +229,6 @@ DatabaseManagerHeaderStruct gFileDataBase;
 
 //FileSystem gfs;
 
-WIN32_FIND_DATA Win32FindInfo[20];
-BOOLEAN fFindInfoInUse[20] = {FALSE,FALSE,FALSE,FALSE,FALSE,
-															FALSE,FALSE,FALSE,FALSE,FALSE,
-															FALSE,FALSE,FALSE,FALSE,FALSE,
-															FALSE,FALSE,FALSE,FALSE,FALSE };
-HANDLE hFindInfoHandle[20] = {INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
-															INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE };
-
 //**************************************************************************
 //
 //				Function Prototypes
@@ -257,6 +284,7 @@ BOOLEAN	InitializeFileManager(	STR strIndexFilename )
 
 void ShutdownFileManager( void )
 {
+	ReleaseAllFileSearches();
 	if (!gFileManagerInitialized) return;
 	gFileManagerInitialized = false;
 	UnRegisterDebugTopic( TOPIC_FILE_MANAGER, "File Manager" );
@@ -1092,58 +1120,86 @@ BOOLEAN GetExecutableDirectory( STRING512 pcDirectory )
 	return true;
 }
 
-static vfs::CVirtualFileSystem::Iterator file_iter; 
+static BOOLEAN PopulateFileSearchResult(
+	FileSearchIterator& iterator, GETFILESTRUCT* result)
+{
+	if(!result || iterator.end())
+		return FALSE;
+
+	vfs::tReadableFile* file = iterator.value();
+	if(!file)
+		return FALSE;
+
+	const std::string name = file->getName().to_string();
+	snprintf(result->zFileName, sizeof(result->zFileName),
+		"%s", name.c_str());
+	result->zFileName[sizeof(result->zFileName) - 1] = '\0';
+	result->uiFileSize = file->getSize();
+	result->uiFileAttribs =
+		file->implementsWritable() ? FILE_IS_NORMAL : FILE_IS_READONLY;
+	return TRUE;
+}
+
 BOOLEAN GetFileFirst( const CHAR8 *pSpec, GETFILESTRUCT *pGFStruct )
 {
 	CHECKF( pSpec != NULL );
 	CHECKF( pGFStruct != NULL );
 
-	file_iter = getVFS()->begin(pSpec);
-	if(!file_iter.end())
-	{
-		vfs::Path const& path = file_iter.value()->getName();
-		std::string s = path.to_string();
-		::size_t size = s.length();
-		size = std::min< ::size_t>(size,260-1);
-		snprintf( pGFStruct->zFileName, size + 1, "%s", s.c_str());	// was sprintf(dst, s.c_str()): non-literal format + copied full string past the 260 cap (overflow)
-		pGFStruct->zFileName[size] = 0;
-		
-		pGFStruct->iFindHandle = 0;
-		pGFStruct->uiFileSize = file_iter.value()->getSize();
-		pGFStruct->uiFileAttribs = ( file_iter.value()->implementsWritable() ? FILE_IS_NORMAL : FILE_IS_READONLY );
+	pGFStruct->iFindHandle = -1;
+	std::unique_ptr<FileSearchIterator> iterator(
+		new (std::nothrow) FileSearchIterator(getVFS()->begin(pSpec)));
+	if(!iterator || iterator->end())
+		return FALSE;
 
-		return TRUE;
+	const INT32 handle = StoreFileSearch(std::move(iterator));
+	if(handle < 0)
+		return FALSE;
+
+	FileSearchIterator* stored = GetFileSearch(handle);
+	if(!stored || !PopulateFileSearchResult(*stored, pGFStruct))
+	{
+		ReleaseFileSearch(handle);
+		return FALSE;
 	}
-	return FALSE;
+
+	pGFStruct->iFindHandle = handle;
+	return TRUE;
 }
 
 BOOLEAN GetFileNext( GETFILESTRUCT *pGFStruct )
 {
-	if(!file_iter.end())
+	CHECKF( pGFStruct != NULL );
+
+	const INT32 handle = pGFStruct->iFindHandle;
+	FileSearchIterator* iterator = GetFileSearch(handle);
+	if(!iterator)
 	{
-		file_iter.next();
+		pGFStruct->iFindHandle = -1;
+		return FALSE;
 	}
-	if(!file_iter.end())
+
+	iterator->next();
+	if(iterator->end())
 	{
-		vfs::Path const& path = file_iter.value()->getName();
-		std::string s = path.to_string();
-		::size_t size = s.length();
-		size = std::min< ::size_t>(size,260-1);
-		snprintf( pGFStruct->zFileName, size + 1, "%s", s.c_str());	// was sprintf(dst, s.c_str()): non-literal format + copied full string past the 260 cap (overflow)
-		pGFStruct->zFileName[size] = 0;
+		ReleaseFileSearch(handle);
+		pGFStruct->iFindHandle = -1;
+		return FALSE;
+	}
 
-		pGFStruct->iFindHandle = 0;
-		pGFStruct->uiFileSize = file_iter.value()->getSize();
-		pGFStruct->uiFileAttribs = ( file_iter.value()->implementsWritable() ? FILE_IS_NORMAL : FILE_IS_READONLY );
-
+	if(PopulateFileSearchResult(*iterator, pGFStruct))
 		return TRUE;
-	}
+
+	ReleaseFileSearch(handle);
+	pGFStruct->iFindHandle = -1;
 	return FALSE;
 }
 
 void GetFileClose( GETFILESTRUCT *pGFStruct )
 {
-	file_iter = vfs::CVirtualFileSystem::Iterator();
+	if(!pGFStruct)
+		return;
+	ReleaseFileSearch(pGFStruct->iFindHandle);
+	pGFStruct->iFindHandle = -1;
 }
 
 

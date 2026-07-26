@@ -2241,9 +2241,9 @@ void CalculateOverrideStatus()
 				gubOverrideStatus = OVERWRITE;
 			ShowButton( iSummaryButton[ SUMMARY_OVERRIDE ] );
 			ButtonList[ iSummaryButton[ SUMMARY_OVERRIDE ] ]->uiFlags &= (~BUTTON_CLICKED_ON);
-			GetFileClose(&FileInfo);
 			DisableButton( iSummaryButton[ SUMMARY_SAVE ] );
 		}
+		GetFileClose(&FileInfo);
 		if( gfTempFile )
 			EnableButton( iSummaryButton[ SUMMARY_LOAD ] );
 	}
