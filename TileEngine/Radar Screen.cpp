@@ -703,7 +703,7 @@ void RenderRadarScreen( )
 						usLineColor = Get16BPPColor( gTacticalStatus.Team[ MILITIA_TEAM ].RadarColor );
 
 					// Render different color if an enemy and he's unconscious
-					if ( pSoldier->bTeam != gbPlayerNum && pSoldier->stats.bLife < OKLIFE )
+					if ( pSoldier->bTeam != gbPlayerNum && pSoldier->vitals().health() < OKLIFE )
 					{
 						usLineColor = Get16BPPColor( FROMRGB( 128, 128, 128 ) );
 					}

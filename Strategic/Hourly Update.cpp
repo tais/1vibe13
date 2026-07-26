@@ -653,7 +653,7 @@ void HourlyDisabilityUpdate( )
 			{
 				// don't do this if we are at low health, or in combat, or travelling, or a patient or doctor
 				// only do this if we are rather healed
-				if ( pSoldier->stats.bLife >= OKLIFE && pSoldier->stats.bLifeMax > 0 && (FLOAT)(pSoldier->stats.bLife) / (FLOAT)(pSoldier->stats.bLifeMax) > 0.9f 
+				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().maximumHealth() > 0 && (FLOAT)(pSoldier->vitals().health()) / (FLOAT)(pSoldier->vitals().maximumHealth()) > 0.9f
 					 && !pSoldier->flags.fBetweenSectors && !gTacticalStatus.fEnemyInSector
 					 && !IS_PATIENT( pSoldier->bAssignment ) && pSoldier->bAssignment != IN_TRANSIT )
 				{
@@ -702,11 +702,11 @@ void HourlyDisabilityUpdate( )
 					if ( !fSnitchStoppedBehaviour )
 					{
 						// take damage, but not bleeding damage (otherwise we'd constantly have to check in on this merc and manually bandage them, which is tedious)
-						INT8 oldbleeding = pSoldier->bBleeding;
+						INT8 oldbleeding = pSoldier->vitals().bleeding();
 
 						pSoldier->SoldierTakeDamage( 0, 1, 0, TAKE_DAMAGE_BLADE, pSoldier->ubID, NOWHERE, 0, FALSE );
 
-						pSoldier->bBleeding = oldbleeding;
+						pSoldier->vitals().bleeding() = oldbleeding;
 
 						// Flugente: dynamic opinions
 						if (gGameExternalOptions.fDynamicOpinions)
@@ -1231,7 +1231,7 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 	{
 		return;
 	}
-	if( !pSoldier->bActive || !pSoldier->stats.bLife )
+	if( !pSoldier->bActive || !pSoldier->vitals().health() )
 	{
 		return;
 	}

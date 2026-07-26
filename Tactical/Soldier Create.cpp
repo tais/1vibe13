@@ -254,8 +254,8 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	//but it does copy all the data from the previous function
 	//Copy over the data of the soldier.
 	this->ubProfile							= NO_PROFILE;
-	this->bLife									= Soldier.stats.bLife;
-	this->bLifeMax							= Soldier.stats.bLifeMax;
+	this->bLife									= Soldier.vitals().health();
+	this->bLifeMax							= Soldier.vitals().maximumHealth();
 	this->bAgility							= Soldier.stats.bAgility;
 	this->bDexterity						= Soldier.stats.bDexterity;
 	this->bExpLevel							= Soldier.stats.bExpLevel;
@@ -812,7 +812,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.ubDirection						= pCreateStruct->ubDirection;
 
 		Soldier.sInsertionGridNo				= pCreateStruct->sInsertionGridNo;
-		Soldier.bOldLife						= Soldier.stats.bLifeMax;
+		Soldier.bOldLife						= Soldier.vitals().maximumHealth();
 
 		// set custom side for civilian group
 		if (Soldier.bTeam == CIV_TEAM &&
@@ -852,12 +852,12 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 					UINT16 diseasemaxbreathreduction = Disease[0].usMaxBreath * magnitude;
 
-					Soldier.bBreathMax = min( Soldier.bBreathMax, 100 - diseasemaxbreathreduction );
-					Soldier.bBreath = min( Soldier.bBreath, Soldier.bBreathMax );
+					Soldier.vitals().maximumBreath() = min( Soldier.vitals().maximumBreath(), 100 - diseasemaxbreathreduction );
+					Soldier.vitals().breath() = min( Soldier.vitals().breath(), Soldier.vitals().maximumBreath() );
 
 					INT8 lifereduction = (6 * Disease[0].sLifeRegenHundreds) * (magnitude / 100.0f);
 
-					Soldier.stats.bLife = max( OKLIFE, min(100, Soldier.stats.bLife + lifereduction) );
+					Soldier.vitals().health() = max( OKLIFE, min(100, Soldier.vitals().health() + lifereduction) );
 				}
 			}
 		}
@@ -911,18 +911,18 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 						Soldier.stats.bAgility = (INT8)( 30 + Random( 26 ) ); //30 - 55
 						break;
 					case MANCIV:
-						Soldier.stats.bLife = Soldier.stats.bLifeMax = (INT8)( 35 + Random( 26 ) ); //35 - 60
+						Soldier.vitals().health() = Soldier.vitals().maximumHealth() = (INT8)( 35 + Random( 26 ) ); //35 - 60
 						break;
 					case MINICIV:
 					case DRESSCIV:
-						Soldier.stats.bLife = Soldier.stats.bLifeMax = (INT8)( 30 + Random( 16 ) ); //30 - 45
+						Soldier.vitals().health() = Soldier.vitals().maximumHealth() = (INT8)( 30 + Random( 16 ) ); //30 - 45
 						break;
 					case HATKIDCIV:
 					case KIDCIV:
-						Soldier.stats.bLife = Soldier.stats.bLifeMax = (INT8)( 20 + Random( 16 ) ); //20 - 35
+						Soldier.vitals().health() = Soldier.vitals().maximumHealth() = (INT8)( 20 + Random( 16 ) ); //20 - 35
 						break;
 					case CRIPPLECIV:
-						Soldier.stats.bLife = Soldier.stats.bLifeMax = (INT8)( 20 + Random( 26 ) ); //20 - 45
+						Soldier.vitals().health() = Soldier.vitals().maximumHealth() = (INT8)( 20 + Random( 26 ) ); //20 - 45
 						Soldier.stats.bAgility = (INT8)( 30 + Random( 16 ) ); // 30 - 45
 						break;
 				}
@@ -1289,8 +1289,8 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 
 	wcscpy( pSoldier->name, pProfile->zNickname );
 
-	pSoldier->stats.bLife 										= pProfile->bLife;
-	pSoldier->stats.bLifeMax									= pProfile->bLifeMax;
+	pSoldier->vitals().health() 										= pProfile->bLife;
+	pSoldier->vitals().maximumHealth()									= pProfile->bLifeMax;
 	pSoldier->stats.bAgility									= pProfile->bAgility;
 	pSoldier->stats.bLeadership								= pProfile->bLeadership;
 	pSoldier->stats.bDexterity								= pProfile->bDexterity;
@@ -1737,8 +1737,8 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->ubProfile							= NO_PROFILE;
 
 	// Randomize attributes
-	pSoldier->stats.bLife								= pCreateStruct->bLife;
-	pSoldier->stats.bLifeMax							= pCreateStruct->bLifeMax;
+	pSoldier->vitals().health()								= pCreateStruct->bLife;
+	pSoldier->vitals().maximumHealth()							= pCreateStruct->bLifeMax;
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	pSoldier->iHealableInjury = 0; 
 	pSoldier->stats.bAgility							= pCreateStruct->bAgility;
@@ -1781,7 +1781,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 			if ( gGameExternalOptions.fIndividualMilitia_ManageHealth )
 			{
 				// make sure militia has at least OKLIFE
-				pSoldier->stats.bLife = max( OKLIFE, (militia.healthratio / 100.0f) * pSoldier->stats.bLifeMax );
+				pSoldier->vitals().health() = max( OKLIFE, (militia.healthratio / 100.0f) * pSoldier->vitals().maximumHealth() );
 			}
 		}
 		else
@@ -2114,8 +2114,8 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->ubPendingDirection			= NO_PENDING_DIRECTION;
 	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
 	pSoldier->bLastRenderVisibleValue	= -1;
-	pSoldier->bBreath					= 99;
-	pSoldier->bBreathMax					= 100;
+	pSoldier->vitals().breath()					= 99;
+	pSoldier->vitals().maximumBreath()					= 100;
 	pSoldier->bActive					= TRUE;
 	pSoldier->flags.fShowLocator			= FALSE;
 	pSoldier->sLastTarget				= NOWHERE;
@@ -2888,8 +2888,8 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 
 		//Roll enemy's combat statistics, taking bExpLevel into account.
 		//Stat range is currently 49-100, slightly bell-curved around the bExpLevel
-		s->stats.bLifeMax				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bLife				= s->stats.bLifeMax;
+		s->vitals().maximumHealth()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->vitals().health()				= s->vitals().maximumHealth();
 		s->stats.bAgility				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 		s->stats.bDexterity			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 		s->stats.bMarksmanship	= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
@@ -2902,8 +2902,8 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 		s->aiData.bMorale				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	}
 	//Replace any soldier attributes with any static values in the detailed placement.
-	if( spp->bLife				!= -1 )			s->stats.bLife					= spp->bLife;
-	if( spp->bLifeMax			!= -1 )			s->stats.bLifeMax				= spp->bLifeMax;
+	if( spp->bLife				!= -1 )			s->vitals().health()					= spp->bLife;
+	if( spp->bLifeMax			!= -1 )			s->vitals().maximumHealth()				= spp->bLifeMax;
 	if( spp->bMarksmanship!= -1 )			s->stats.bMarksmanship	= spp->bMarksmanship;
 	if( spp->bStrength		!= -1 )			s->stats.bStrength			= spp->bStrength;
 	if( spp->bAgility			!= -1 )			s->stats.bAgility				= spp->bAgility;
@@ -2916,8 +2916,8 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 	if( spp->bMorale			!= -1 )			s->aiData.bMorale				= spp->bMorale;
 
 	//life can't exceed the life max.
-	if( s->stats.bLife > s->stats.bLifeMax )
-		s->stats.bLife = s->stats.bLifeMax;
+	if( s->vitals().health() > s->vitals().maximumHealth() )
+		s->vitals().health() = s->vitals().maximumHealth();
 
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	s->iHealableInjury = 0; 
@@ -2988,8 +2988,8 @@ void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bRelative
 
 	//Roll enemy's combat statistics, taking bExpLevel into account.
 	//Stat range is currently 49-100, slightly bell-curved around the bExpLevel
-	s->stats.bLifeMax				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bLife				= s->stats.bLifeMax;
+	s->vitals().maximumHealth()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->vitals().health()				= s->vitals().maximumHealth();
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	s->iHealableInjury = 0;
 	s->stats.bAgility				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
@@ -3050,7 +3050,7 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 	}
 	for( i = iStart; i <= iEnd; ++i )
 	{
-		if( i->bActive && i->bInSector && i->stats.bLife && !TileIsOutOfBounds(i->sGridNo))
+		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->sGridNo))
 		{
 			if( i->ubSoldierClass == ubSoldierClass )
 			{
@@ -3214,8 +3214,8 @@ SOLDIERTYPE* TacticalCreateEnemyTank()
 		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
 
 		// Flugente: why would a vehicle's armour depend on game progress? Always give them 100 HP
-		pSoldier->stats.bLifeMax = 100;
-		pSoldier->stats.bLife = pSoldier->stats.bLifeMax;
+		pSoldier->vitals().maximumHealth() = 100;
+		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 
 		RebelCommand::ApplyEnemyMechanicalUnitPenalties(pSoldier);
 	}
@@ -3256,8 +3256,8 @@ SOLDIERTYPE* TacticalCreateEnemyJeep( )
 		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
 
 		// Flugente: why would a vehicle's armour depend on game progress? Always give them 100 HP
-		pSoldier->stats.bLifeMax = 100;
-		pSoldier->stats.bLife = pSoldier->stats.bLifeMax;
+		pSoldier->vitals().maximumHealth() = 100;
+		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 
 		RebelCommand::ApplyEnemyMechanicalUnitPenalties(pSoldier);
 	}
@@ -3298,8 +3298,8 @@ SOLDIERTYPE* TacticalCreateEnemyRobot()
 		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
 		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
 
-		pSoldier->stats.bLifeMax = 80;
-		pSoldier->stats.bLife = pSoldier->stats.bLifeMax;
+		pSoldier->vitals().maximumHealth() = 80;
+		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 
 		RebelCommand::ApplyEnemyMechanicalUnitPenalties(pSoldier);
 	}
@@ -3358,7 +3358,7 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 
 	for( i = iStart; i <= iEnd; ++i )
 	{		
-		if( i->bActive && i->bInSector && i->stats.bLife && !TileIsOutOfBounds(i->sGridNo))
+		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->sGridNo))
 		{
 			if( i->ubSoldierClass == ubSoldierClass )
 			{
@@ -3640,7 +3640,7 @@ SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 	if ( pSoldier )
 	{
 		// set correct stats
-		pSoldier->stats.bLife = pSoldier->stats.bLifeMax = (INT8)( 70 + Random( 26 ) );
+		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth() = (INT8)( 70 + Random( 26 ) );
 		pSoldier->stats.bAgility = (INT8)( 70 + Random( 16 ) );
 				
 		// add assassin flag
@@ -3960,8 +3960,8 @@ void CreateDownedPilot( )
 	if ( pSoldier )
 	{
 		// a downed pilot might be wounded
-		pSoldier->stats.bLife = min( pSoldier->stats.bLifeMax, max( OKLIFE + 20, pSoldier->stats.bLife - 20 ) );
-		pSoldier->bBleeding = pSoldier->stats.bLifeMax - pSoldier->stats.bLife;
+		pSoldier->vitals().health() = min( pSoldier->vitals().maximumHealth(), max( OKLIFE + 20, pSoldier->vitals().health() - 20 ) );
+		pSoldier->vitals().bleeding() = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health();
 
 		AddSoldierToSector( pSoldier->ubID );
 		

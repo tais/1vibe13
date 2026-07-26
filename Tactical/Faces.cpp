@@ -785,7 +785,7 @@ void InternalSetAutoFaceActive( UINT32 uiDisplayBuffer, UINT32 uiRestoreBuffer, 
 	// Are we a soldier?
 	if ( pFace->ubSoldierID != NOBODY )
 	{
-		pFace->bOldSoldierLife = pFace->ubSoldierID->stats.bLife;
+		pFace->bOldSoldierLife = pFace->ubSoldierID->vitals().health();
 	}
 }
 
@@ -982,7 +982,7 @@ void BlinkAutoFace( INT32 iFaceIndex )
 		{
 			uiFaceShade = GetFaceShade(pFace->ubSoldierID, pFace, FALSE);
 
-			if ( ( pFace->ubSoldierID->stats.bLife < OKLIFE ) ||
+			if ( ( pFace->ubSoldierID->vitals().health() < OKLIFE ) ||
 					( pFace->ubSoldierID->flags.fMercAsleep == TRUE ) ||
 					( pFace->ubSoldierID->bAssignment == ASSIGNMENT_POW ) )
 			{
@@ -1120,7 +1120,7 @@ void HandleFaceHilights( FACETYPE *pFace, UINT32 uiBuffer, INT16 sFaceX, INT16 s
 	 {
 		 if ( pFace->ubSoldierID != NOBODY )
 		 {
-			 if ( pFace->ubSoldierID->stats.bLife >= OKLIFE )
+			 if ( pFace->ubSoldierID->vitals().health() >= OKLIFE )
 			 {
 				 // Lock buffer
 				 pDestBuf = LockVideoSurface( uiBuffer, &uiDestPitchBYTES );
@@ -1377,7 +1377,7 @@ UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 		}
 	}
 
-	if (pSoldier->stats.bLife < OKLIFE)
+	if (pSoldier->vitals().health() < OKLIFE)
 	{
 		return FLASH_PORTRAIT_DARKSHADE;
 	}
@@ -1666,7 +1666,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		UINT8 faceProfileId = gMercProfiles[pSoldier->ubProfile].ubFaceIndex;
 		BOOLEAN isIMP = gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP;
 
-		if (gGameSettings.fOptions[TOPTION_SHOW_TACTICAL_FACE_GEAR] && pSoldier->stats.bLife > 0 && !(pFace->uiFlags & FACE_BIGFACE))
+		if (gGameSettings.fOptions[TOPTION_SHOW_TACTICAL_FACE_GEAR] && pSoldier->vitals().health() > 0 && !(pFace->uiFlags & FACE_BIGFACE))
 		{
 			if (pSoldier->inv[HELMETPOS].usItem > 0)
 			{
@@ -1847,7 +1847,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			//------------------------------------end of tactical face gear-----------------------------
 		}
 
-		if ( (pSoldier->stats.bLife < CONSCIOUSNESS || pSoldier->flags.fDeadPanel ) )
+		if ( (pSoldier->vitals().health() < CONSCIOUSNESS || pSoldier->flags.fDeadPanel ) )
 		{
 			// Blit Closed eyes here!
 			BltVideoObjectFromIndex( uiRenderBuffer, pFace->uiVideoObject, 1, usEyesX, usEyesY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -1945,7 +1945,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		}
 	
 		// sevenfm: only show for alive soldiers, no face icons for big faces
-		if (pSoldier->stats.bLife > 0 && !(pFace->uiFlags & FACE_BIGFACE))
+		if (pSoldier->vitals().health() > 0 && !(pFace->uiFlags & FACE_BIGFACE))
 		{
 			// Check if a robot and is not controlled....
 			if (pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT)
@@ -2233,8 +2233,8 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 2;
 				fDoIcon_Assignment = TRUE;
 				// show current health / maximum health
-				sPtsAvailable = pSoldier->stats.bLife;
-				usMaximumPts = pSoldier->stats.bLifeMax;
+				sPtsAvailable = pSoldier->vitals().health();
+				usMaximumPts = pSoldier->vitals().maximumHealth();
 				fShowNumber = TRUE;
 				fShowMaximum = TRUE;
 				break;
@@ -2881,7 +2881,7 @@ void HandleAutoFaces( )
 			{
 				// Get Life now
 				pSoldier	= pFace->ubSoldierID;
-				bLife		= pSoldier->stats.bLife;
+				bLife		= pSoldier->vitals().health();
 				bInSector = pSoldier->bInSector;
 				bAPs		= pSoldier->bActionPoints;
 

@@ -1605,8 +1605,8 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		pNewSoldier = MercPtrs[ ubID ];
 
 		// Copy vital stats back!
-		pNewSoldier->stats.bLife													= pSoldier->stats.bLife;
-		pNewSoldier->stats.bLifeMax												= pSoldier->stats.bLifeMax;
+		pNewSoldier->vitals().health()													= pSoldier->vitals().health();
+		pNewSoldier->vitals().maximumHealth()												= pSoldier->vitals().maximumHealth();
 		pNewSoldier->stats.bAgility												= pSoldier->stats.bAgility;
 		pNewSoldier->stats.bLeadership										= pSoldier->stats.bLeadership;
 		pNewSoldier->stats.bDexterity											= pSoldier->stats.bDexterity;
@@ -2125,8 +2125,8 @@ void UpdateSoldierPointerDataIntoProfile( BOOLEAN fPlayerMercs )
 					pProfile = &( gMercProfiles[ pSoldier->ubProfile ] );
 
 					// Copy....
-					pProfile->bLife 										= pSoldier->stats.bLife;
-					pProfile->bLifeMax									= pSoldier->stats.bLifeMax;
+					pProfile->bLife 										= pSoldier->vitals().health();
+					pProfile->bLifeMax									= pSoldier->vitals().maximumHealth();
 					pProfile->bAgility									= pSoldier->stats.bAgility;
 					pProfile->bLeadership								= pSoldier->stats.bLeadership;
 					pProfile->bDexterity								= pSoldier->stats.bDexterity;
@@ -2728,7 +2728,7 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 			continue;
 		}
 		// Are we from our team an dalive?
-		if ( pTeammate->bTeam == pSoldier->bTeam && pTeammate->stats.bLife >= OKLIFE )
+		if ( pTeammate->bTeam == pSoldier->bTeam && pTeammate->vitals().health() >= OKLIFE )
 		{
 			// Are we close enough?
 			if (PythSpacesAway( pSoldier->sGridNo, pTeammate->sGridNo ) <= 20)

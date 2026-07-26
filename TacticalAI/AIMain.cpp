@@ -529,7 +529,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	}
 
 	// if this NPC is dying, bail
-	if (pSoldier->stats.bLife < OKLIFE || !pSoldier->bActive )
+	if (pSoldier->vitals().health() < OKLIFE || !pSoldier->bActive )
 	{
 		if ( pSoldier->bActive && pSoldier->flags.fMuzzleFlash )
 		{
@@ -1076,7 +1076,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 				}
 			}
 #endif						
-		if( ( ( pSoldier->bVisible != -1 && pSoldier->stats.bLife) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) ) && ( fInValidSoldier == FALSE ) )
+		if( ( ( pSoldier->bVisible != -1 && pSoldier->vitals().health()) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) ) && ( fInValidSoldier == FALSE ) )
 		{
 			// If we are on a roof, set flag for rendering...
 			if ( pSoldier->pathing.bLevel != 0 && ( IsJa2TacticalCombatActive() ) )
@@ -1193,7 +1193,7 @@ SoldierID GetMostThreateningOpponent( SOLDIERTYPE *pSoldier )
 		}
 
 		// if potential opponent is dead, skip him
-		if (!pTargetSoldier->stats.bLife)
+		if (!pTargetSoldier->vitals().health())
 		{
 			continue;
 		}
@@ -2683,8 +2683,8 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			break;
 
 		case AI_ACTION_STOP_MEDIC:
-			if (pSoldier->stats.bLife >= OKLIFE &&
-				pSoldier->bBreath > 0 &&
+			if (pSoldier->vitals().health() >= OKLIFE &&
+				pSoldier->vitals().breath() > 0 &&
 				!pSoldier->bCollapsed &&
 				pSoldier->IsGivingAid())
 			{
@@ -2867,7 +2867,7 @@ void ManChecksOnFriends(SOLDIERTYPE *pSoldier)
 		if (SoldierToSoldierLineOfSightTest(pSoldier, pFriend, TRUE, CALC_FROM_ALL_DIRS))
 		{
 			// if my friend is in battle or something is clearly happening there
-			if ((pFriend->aiData.bAlertStatus >= STATUS_RED) || pFriend->aiData.bUnderFire || (pFriend->stats.bLife < OKLIFE))
+			if ((pFriend->aiData.bAlertStatus >= STATUS_RED) || pFriend->aiData.bUnderFire || (pFriend->vitals().health() < OKLIFE))
 			{
 #ifdef DEBUGDECISIONS
 				STR16 tempstr;

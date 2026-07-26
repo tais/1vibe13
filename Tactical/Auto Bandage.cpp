@@ -309,7 +309,7 @@ static BOOLEAN CreateAutoBandageString( void )
 	SoldierID pSoldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	for ( ; pSoldier <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++pSoldier )
 	{
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE && !(pSoldier->bCollapsed) && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed) && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
 		{
 			ubDoctor[ubDoctors] = pSoldier->ubID;
 			++ubDoctors;
@@ -456,7 +456,7 @@ void AutoBandage( BOOLEAN fStart )
 				}
 
 				// ATE: Make everyone stand up!
-				if ( pSoldier->stats.bLife >= OKLIFE && !pSoldier->bCollapsed )
+				if ( pSoldier->vitals().health() >= OKLIFE && !pSoldier->bCollapsed )
 				{
 					if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_STAND )
 					{
@@ -1175,26 +1175,26 @@ BOOLEAN RenderSoldierSmallFaceForAutoBandagePanel( INT32 iIndex, INT16 sCurrentX
 	}
 
 	// is the merc alive?
-	if( !pSoldier->stats.bLife )
+	if( !pSoldier->vitals().health() )
 		return( FALSE );
 	
 	//yellow one for bleeding
-	iStartY = sCurrentYPosition + 29 - 27*pSoldier->stats.bLifeMax/100;
+	iStartY = sCurrentYPosition + 29 - 27*pSoldier->vitals().maximumHealth()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+36, iStartY, sCurrentXPosition+37, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 107, 107, 57 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+37, iStartY, sCurrentXPosition+38, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 222, 181, 115 ) ) );
 
 	//pink one for bandaged.
-	iStartY = sCurrentYPosition + 29 - 27*(pSoldier->stats.bLifeMax - pSoldier->bBleeding)/100;
+	iStartY = sCurrentYPosition + 29 - 27*(pSoldier->vitals().maximumHealth() - pSoldier->vitals().bleeding())/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+36, iStartY, sCurrentXPosition+37, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 156, 57, 57 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+37, iStartY, sCurrentXPosition+38, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 222, 132, 132 ) ) );
 		
 	//red one for actual health
-	iStartY = sCurrentYPosition + 29 - 27*pSoldier->stats.bLife/100;
+	iStartY = sCurrentYPosition + 29 - 27*pSoldier->vitals().health()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+36, iStartY, sCurrentXPosition+37, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 107, 8, 8 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+37, iStartY, sCurrentXPosition+38, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 206, 0, 0 ) ) );
 		
 	//BREATH BAR
-	iStartY = sCurrentYPosition + 29 - 27*pSoldier->bBreathMax/100;
+	iStartY = sCurrentYPosition + 29 - 27*pSoldier->vitals().maximumBreath()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+39, iStartY, sCurrentXPosition+40, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 8, 8, 132 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+40, iStartY, sCurrentXPosition+41, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
@@ -1223,7 +1223,7 @@ BOOLEAN RetreatBandagingPending()
 SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 {
 	// if this is a travelling, bleeding merc, can somebody who travels with him bandage him/her?
-	if ( pPatient && pPatient->bActive && pPatient->flags.fBetweenSectors && pPatient->bBleeding )
+	if ( pPatient && pPatient->bActive && pPatient->flags.fBetweenSectors && pPatient->vitals().bleeding() )
 	{
 		SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 		for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID )
@@ -1234,7 +1234,7 @@ SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 			if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && pSoldier->sSectorX == pPatient->sSectorX  && pSoldier->sSectorY == pPatient->sSectorY )
 			{
 				// find the best conscious doctor that has a medkit
-				if ( pSoldier->stats.bLife >= OKLIFE && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT )
+				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT )
 				{
 					return ID;
 				}
@@ -1273,10 +1273,10 @@ void HandleRetreatBandaging()
 		SOLDIERTYPE* pSoldier = ID;
 		// this requires mercs to travel and thus NOT be in a sector
 		// are we bleeding?
-		if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors &&  pSoldier->bBleeding )
+		if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors &&  pSoldier->vitals().bleeding() )
 		{
 			// if we are still conscious, try bandaging ourself
-			if ( pSoldier->stats.bLife >= OKLIFE )
+			if ( pSoldier->vitals().health() >= OKLIFE )
 			{
 				UINT32 counter = 0;
 				INT8 bSlot = -1;
@@ -1285,7 +1285,7 @@ void HandleRetreatBandaging()
 				OBJECTTYPE *pKit = NULL;
 				if ( pSoldier->stats.bMedical > 0 && (bSlot = FindObjClass( pSoldier, IC_MEDKIT )) != NO_SLOT )
 				{
-					while ( pSoldier->bBleeding )
+					while ( pSoldier->vitals().bleeding() )
 					{
 						pKit = &pSoldier->inv[bSlot];
 						usKitPts = TotalPoints( pKit );
@@ -1309,7 +1309,7 @@ void HandleRetreatBandaging()
 			}
 				
 			// if we are still bleeding, other mercs have to help us
-			if ( pSoldier->bBleeding && !needhelpinsector )
+			if ( pSoldier->vitals().bleeding() && !needhelpinsector )
 			{
 				needhelpinsector = TRUE;
 				sX = pSoldier->sSectorX;
@@ -1337,7 +1337,7 @@ void HandleRetreatBandaging()
 				// this requires mercs to travel and thus NOT be in a sector
 				// also we need to be in a specific sector
 				// treat bleeding people only
-				if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && sX == pSoldier->sSectorX  && sY == pSoldier->sSectorY && pSoldier->bBleeding )
+				if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && sX == pSoldier->sSectorX  && sY == pSoldier->sSectorY && pSoldier->vitals().bleeding() )
 				{
 					UINT32 counter = 0;
 					INT8 bSlot = -1;
@@ -1346,7 +1346,7 @@ void HandleRetreatBandaging()
 					OBJECTTYPE *pKit = NULL;
 					if ( pDoctor->stats.bMedical > 0 && (bSlot = FindObjClass( pDoctor, IC_MEDKIT )) != NO_SLOT )
 					{
-						while ( pSoldier->bBleeding )
+						while ( pSoldier->vitals().bleeding() )
 						{
 							pKit = &pDoctor->inv[bSlot];
 							usKitPts = TotalPoints( pKit );

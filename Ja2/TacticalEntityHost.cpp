@@ -53,10 +53,10 @@ TacticalActorSnapshot LegacyState(
 		soldier.usAnimState,
 		LegacyStance(soldier),
 		soldier.bActionPoints,
-		soldier.stats.bLife,
-		soldier.stats.bLifeMax,
-		soldier.bBreath,
-		soldier.bBreathMax,
+		soldier.vitals().health(),
+		soldier.vitals().maximumHealth(),
+		soldier.vitals().breath(),
+		soldier.vitals().maximumBreath(),
 		soldier.bActive != FALSE,
 		soldier.bInSector != FALSE};
 }

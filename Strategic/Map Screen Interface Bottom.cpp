@@ -1787,7 +1787,7 @@ BOOLEAN AnyUsableRealMercenariesOnTeam( void )
 	{
 		pSoldier = &Menptr[ iCounter ];
 
-		if( ( pSoldier->bActive ) && ( pSoldier->stats.bLife > 0 ) &&
+		if( ( pSoldier->bActive ) && ( pSoldier->vitals().health() > 0 ) &&
 				!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) &&
 				( pSoldier->bAssignment != ASSIGNMENT_POW ) &&
 				( pSoldier->bAssignment != ASSIGNMENT_DEAD ) &&

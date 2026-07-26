@@ -1361,7 +1361,7 @@ void HandleRottingCorpses( )
 		for ( SoldierID bLoop=gTacticalStatus.Team[ CIV_TEAM ].bFirstID; bLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++bLoop )
 		{
 			pSoldier = bLoop;
-			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->stats.bLife >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
+			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
 			{
 				if ( pSoldier->ubBodyType == CROW )
 				{
@@ -1452,7 +1452,7 @@ void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam )
 	{
 		pSoldier = cnt;
 		// ATE: Ok, lets check for some basic things here!		
-		if ( pSoldier->stats.bLife >= OKLIFE && !TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bActive && pSoldier->bInSector )
+		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bActive && pSoldier->bInSector )
 		{
 			// and we can trace a line of sight to his x,y coordinates?
 			// (taking into account we are definitely aware of this guy now)
@@ -2660,7 +2660,7 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 			{
 				pTeamSoldier = cnt;
 				// ATE: Ok, lets check for some basic things here!				
-				if ( pTeamSoldier->stats.bLife >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->sGridNo) && pTeamSoldier->bActive && pTeamSoldier->bInSector )
+				if ( pTeamSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->sGridNo) && pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
 					pTeamSoldier->bCorpseQuoteTolerance++;
 				}
@@ -3028,7 +3028,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		pNewSoldier->aiData.bOrders			= SEEKENEMY;
 		pNewSoldier->aiData.bAttitude		= AGGRESSIVE;
 
-		pNewSoldier->bBleeding				= 0;
+		pNewSoldier->vitals().bleeding()				= 0;
 
 		if (   !memcmp( pCorpse->name, TacticalStr[ CIV_TEAM_MINER_NAME ], sizeof(pCorpse->name) ) 
 			|| !memcmp( pCorpse->name, TacticalStr[ MILITIA_TEAM_MERC_NAME ], sizeof(pCorpse->name) )

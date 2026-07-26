@@ -925,7 +925,7 @@ void ValidatePlayersAreInOneGroupOnly()
 
 		pSoldier = i;
 
-		if( !pSoldier || !pSoldier->bActive || !pSoldier->stats.bLife || !pSoldier->ubGroupID )
+		if( !pSoldier || !pSoldier->bActive || !pSoldier->vitals().health() || !pSoldier->ubGroupID )
 		{ //non-existant, dead, or in no group (don't care, skip to next merc)
 			continue;
 		}

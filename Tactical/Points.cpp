@@ -986,20 +986,20 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		}
 
 		// Get new breath
-		bNewBreath = ( pSoldier->bBreathMax * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL] - pSoldier->sBreathRed )
+		bNewBreath = ( pSoldier->vitals().maximumBreath() * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL] - pSoldier->sBreathRed )
 					/ APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL];
 
 		// Snap: This should never happen...
-		if ( bNewBreath > pSoldier->bBreathMax )
+		if ( bNewBreath > pSoldier->vitals().maximumBreath() )
 		{
-			bNewBreath = pSoldier->bBreathMax;
+			bNewBreath = pSoldier->vitals().maximumBreath();
 		}
 		else if ( bNewBreath < 0 )
 		{
 			bNewBreath = 0;
 		}
 
-		pSoldier->bBreath = bNewBreath;
+		pSoldier->vitals().breath() = bNewBreath;
 	}
 
 	// UPDATE BAR
@@ -1020,7 +1020,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 			pOpponent = MercPtrs[ uCnt ];
 			if ( pOpponent == NULL)
 				continue;			// not here or not even breathing -> next!
-			if ( pOpponent->stats.bLife < OKLIFE || pOpponent->bCollapsed || !pOpponent->bActive )
+			if ( pOpponent->vitals().health() < OKLIFE || pOpponent->bCollapsed || !pOpponent->bActive )
 				continue;			// not here or not even breathing -> next!
 			if ( pSoldier->bTeam == pOpponent->bTeam )
 				continue;			// same team? -> next!
@@ -1148,12 +1148,12 @@ INT32 AdjustBreathPts( SOLDIERTYPE * pSoldier , INT32 iBPCost )
 
 
  // adjust breath factor for current breath deficiency
- sBreathFactor += (100 - pSoldier->bBreath);
+ sBreathFactor += (100 - pSoldier->vitals().breath());
 
  // adjust breath factor for current life deficiency (but add 1/2 bandaging)
- ubBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
- //sBreathFactor += (pSoldier->stats.bLifeMax - (pSoldier->stats.bLife + (ubBandaged / 2)));
- sBreathFactor += 100 * (pSoldier->stats.bLifeMax - (pSoldier->stats.bLife + (ubBandaged / 2))) / pSoldier->stats.bLifeMax;
+ ubBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
+ //sBreathFactor += (pSoldier->vitals().maximumHealth() - (pSoldier->vitals().health() + (ubBandaged / 2)));
+ sBreathFactor += 100 * (pSoldier->vitals().maximumHealth() - (pSoldier->vitals().health() + (ubBandaged / 2))) / pSoldier->vitals().maximumHealth();
 
  if ( pSoldier->stats.bStrength > 80 )
  {
@@ -1294,7 +1294,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 			sBreathChange += 3 * GetBPCostPer10APsForGunHolding( pSoldier ) / 10;
 
 			// if we are actually losing breath by holding a very heavy gun up, lower it if breath already at critical line
-			if ( sBreathChange > 0 && pSoldier->bBreath < OKBREATH )
+			if ( sBreathChange > 0 && pSoldier->vitals().breath() < OKBREATH )
 			{	
 				// ok, if this gun is rather heavy, and cost us at least 3 energy points per turn
 				if ( (GetBPCostPer10APsForGunHolding( pSoldier ) * 10) >= (300 * gGameExternalOptions.ubEnergyCostForWeaponWeight / 100) ) 
@@ -1405,7 +1405,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 				sBreathChange += sUnusedAPs * GetBPCostPer10APsForGunHolding( pSoldier ) / 10;
 
 				// if we are actually losing breath by holding a very heavy gun up, lower it if breath already at critical line
-				if ( sBreathChange > 0 && pSoldier->bBreath < OKBREATH )
+				if ( sBreathChange > 0 && pSoldier->vitals().breath() < OKBREATH )
 				{	
 					// ok, if this gun is rather heavy, and cost us at least 3 energy points per turn
 					if ( (GetBPCostPer10APsForGunHolding( pSoldier ) * 10) >= (300 * gGameExternalOptions.ubEnergyCostForWeaponWeight / 100) ) 
@@ -1528,7 +1528,7 @@ INT16 GetBreathPerAP( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	// Lalien: only for soldiers that are in loaded sector,
 	if ( IsJa2TacticalWorldLoaded() &&  pSoldier->bInSector && !pSoldier->bSectorZ )
 	{
-		if( sBreathPerAP < 0 && ( pSoldier->pathing.bLevel  || !FindStructure( pSoldier->sGridNo, STRUCTURE_ROOF )  )  && pSoldier->bBreath > 1)
+		if( sBreathPerAP < 0 && ( pSoldier->pathing.bLevel  || !FindStructure( pSoldier->sGridNo, STRUCTURE_ROOF )  )  && pSoldier->vitals().breath() > 1)
 		{
 			FLOAT weatherpenalty = gGameExternalOptions.dBreathGainReduction[SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather];
 			
@@ -3225,7 +3225,7 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	if( pSoldier->stats.bLife >= OKLIFE && !(pSoldier->bCollapsed && pSoldier->bBreath < OKBREATH) )
+	if( pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH) )
 	{
 		if( pSoldier->sGridNo != pSoldier->pathing.sFinalDestination || pSoldier->bGoodContPath	)
 		{

@@ -1923,7 +1923,7 @@ UINT8 FindBestMilitiaTrainingLeadershipInSector ( INT16 sMapX, INT16 sMapY, INT8
 	// HEADROCK HAM 3.3: Add search for best trainer in sector
 	for ( pCheckedTrainer = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt, ++pCheckedTrainer )
 	{
-		if  (pCheckedTrainer->bActive && pCheckedTrainer->stats.bLife >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->bAssignment == TRAIN_TOWN) )
+		if  (pCheckedTrainer->bActive && pCheckedTrainer->vitals().health() >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->bAssignment == TRAIN_TOWN) )
 		{
 			if (pCheckedTrainer->sSectorX == sMapX && pCheckedTrainer->sSectorY == sMapY && pCheckedTrainer->bSectorZ == bMapZ )
 			{

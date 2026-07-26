@@ -688,7 +688,7 @@ void HandleDialogue( )
 				if( !( gMercProfiles[ MORRIS_UB ].ubMiscFlags2 & PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE ) )
 				{
 					pMorris = FindSoldierByProfileID( MORRIS_UB, FALSE );
-					if ( pMorris && pMorris->stats.bLife >= OKLIFE )
+					if ( pMorris && pMorris->vitals().health() >= OKLIFE )
 					{
 						sPlayerGridNo = ClosestPC( pMorris, NULL );
 						if (sPlayerGridNo != NOWHERE )
@@ -1448,7 +1448,7 @@ BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteN
 	if ( pSoldier->ubProfile == NO_PROFILE )
 		return( FALSE );
 
-	if (pSoldier->stats.bLife < CONSCIOUSNESS )
+	if (pSoldier->vitals().health() < CONSCIOUSNESS )
 		return( FALSE );
 
 	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
@@ -1460,7 +1460,7 @@ BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteN
 	if ( (AM_A_ROBOT( pSoldier )) )
 		return( FALSE );
 
-	if (pSoldier->stats.bLife < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
+	if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
 		return( FALSE );
 
 	if( pSoldier->bAssignment == ASSIGNMENT_POW )
@@ -1485,7 +1485,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16
 
 	if ( uiFlag != DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND && uiData1 != BATTLE_SOUND_DIE1 )
 	{
-		if (pSoldier->stats.bLife < CONSCIOUSNESS )
+		if (pSoldier->vitals().health() < CONSCIOUSNESS )
 			return( FALSE );
 
 		if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
@@ -1507,7 +1507,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT
 
 	if ( uiFlag != DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND && uiData1 != BATTLE_SOUND_DIE1 )
 	{
-		if (pSoldier->stats.bLife < CONSCIOUSNESS )
+		if (pSoldier->vitals().health() < CONSCIOUSNESS )
 			return( FALSE );
 
 		if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
@@ -1521,7 +1521,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT
 			return( FALSE );
 		}
 
-		if (pSoldier->stats.bLife < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
+		if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
 		return( FALSE );
 
 		if( pSoldier->bAssignment == ASSIGNMENT_POW )
@@ -1561,13 +1561,13 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	{
 		return( FALSE );
 	}
-	if (pSoldier->stats.bLife < CONSCIOUSNESS )
+	if (pSoldier->vitals().health() < CONSCIOUSNESS )
 		return( FALSE );
 
 	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
 		return FALSE;
 
-	if (pSoldier->stats.bLife < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
+	if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
 		return( FALSE );
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
@@ -1657,13 +1657,13 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 	{
 		return( FALSE );
 	}
-	if (pSoldier->stats.bLife < CONSCIOUSNESS )
+	if (pSoldier->vitals().health() < CONSCIOUSNESS )
 		return( FALSE );
 
 	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
 		return FALSE;
 
-	if (pSoldier->stats.bLife < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
+	if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
 		return( FALSE );
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
@@ -1724,7 +1724,7 @@ BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UIN
 	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
 		return FALSE;
 
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 		return( FALSE );
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
@@ -1768,7 +1768,7 @@ void AdditionalTacticalCharacterDialogue_AllInSector(INT16 aSectorX, INT16 aSect
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
 		pSoldier = cnt;
-		if ( pSoldier->stats.bLife >= OKLIFE && pSoldier->bActive &&
+		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive &&
 			pSoldier->ubProfile != ausIgnoreProfile &&
 			pSoldier->sSectorX == aSectorX && pSoldier->sSectorY == aSectorY && pSoldier->bSectorZ == aSectorZ &&
 			pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != IN_TRANSIT && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND &&
@@ -2013,7 +2013,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 	if ( pSoldier != NULL )
 	{
 		// Check vital stats
-		if (pSoldier->stats.bLife < CONSCIOUSNESS )
+		if (pSoldier->vitals().health() < CONSCIOUSNESS )
 		{
 			return( FALSE );
 		}
@@ -2029,7 +2029,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 			return( FALSE );
 		}
 
-		if (pSoldier->stats.bLife < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
+		if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
 		{
 			return( FALSE );
 		}

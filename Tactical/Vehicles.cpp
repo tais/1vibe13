@@ -243,7 +243,7 @@ void SetVehicleValuesIntoSoldierType( SOLDIERTYPE *pVehicle )
 
 	// Init fuel!
 	pVehicle->sBreathRed = 10000;
-	pVehicle->bBreath	= 100;
+	pVehicle->vitals().breath()	= 100;
 
 	pVehicle->ubWhatKindOfMercAmI = MERC_TYPE__VEHICLE;
 }
@@ -931,7 +931,7 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 	if ( iId == iHelicopterVehicleId )
 	{
 		// and he's alive
-		if ( pSoldier->stats.bLife >= OKLIFE )
+		if ( pSoldier->vitals().health() >= OKLIFE )
 		{
 			// mark the sector as visited (flying around in the chopper doesn't, so this does it as soon as we get off it)
 			SetSectorFlag( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, SF_ALREADY_VISITED );
@@ -1385,14 +1385,14 @@ BOOLEAN InjurePersonInVehicle( INT32 iId, SOLDIERTYPE *pSoldier, UINT8 ubPointsO
 	}
 
 	// now check hpts of merc
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		// guy is dead, leave
 		return( FALSE );
 	}
 
 	// see if we will infact kill them
-	if( ubPointsOfDmg >= pSoldier->stats.bLife )
+	if( ubPointsOfDmg >= pSoldier->vitals().health() )
 	{
 		return( KillPersonInVehicle( iId, pSoldier ) );
 	}
@@ -1420,7 +1420,7 @@ BOOLEAN KillPersonInVehicle( INT32 iId, SOLDIERTYPE *pSoldier )
 	}
 
 	// now check hpts of merc
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		// guy is dead, leave
 		return( FALSE );
@@ -2077,19 +2077,19 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 	pSoldier = GetSoldierStructureForVehicle( ubID );
     Assert(pSoldier);
 
-	if ( sDmg > pSoldier->stats.bLife )
+	if ( sDmg > pSoldier->vitals().health() )
 	{
-		pSoldier->stats.bLife = 0;
+		pSoldier->vitals().health() = 0;
 	}
 	else
 	{
 		// Decrease Health
-		pSoldier->stats.bLife -= sDmg;
+		pSoldier->vitals().health() -= sDmg;
 	}
 
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 	{
-		pSoldier->stats.bLife = 0;
+		pSoldier->vitals().health() = 0;
 	}
 
 	//Show damage
@@ -2114,7 +2114,7 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 		}
 	}
 
-	if ( pSoldier->stats.bLife == 0 && !pVehicleList[ ubID ].fDestroyed )
+	if ( pSoldier->vitals().health() == 0 && !pVehicleList[ ubID ].fDestroyed )
 	{
 		pVehicleList[ ubID ].fDestroyed	= TRUE;
 
@@ -2163,7 +2163,7 @@ BOOLEAN DoesVehicleNeedAnyRepairs( INT32 iVehicleId )
 	// get the vehicle soldiertype
 	pVehicleSoldier = GetSoldierStructureForVehicle( iVehicleId );
 
-	if ( pVehicleSoldier->stats.bLife != pVehicleSoldier->stats.bLifeMax )
+	if ( pVehicleSoldier->vitals().health() != pVehicleSoldier->vitals().maximumHealth() )
 	{
 		return( TRUE );
 	}
@@ -2200,19 +2200,19 @@ INT8 RepairVehicle( INT32 iVehicleId, UINT8 ubRepairPtsLeft, BOOLEAN *pfNothingT
 		return( bRepairPtsUsed );
 	}
 
-	bOldLife = pVehicleSoldier->stats.bLife;
+	bOldLife = pVehicleSoldier->vitals().health();
 
 	// Repair
-	pVehicleSoldier->stats.bLife += ( ubRepairPtsLeft / VEHICLE_REPAIR_POINTS_DIVISOR );
+	pVehicleSoldier->vitals().health() += ( ubRepairPtsLeft / VEHICLE_REPAIR_POINTS_DIVISOR );
 
 	// Check
-	if ( pVehicleSoldier->stats.bLife > pVehicleSoldier->stats.bLifeMax )
+	if ( pVehicleSoldier->vitals().health() > pVehicleSoldier->vitals().maximumHealth() )
 	{
-		pVehicleSoldier->stats.bLife = pVehicleSoldier->stats.bLifeMax;
+		pVehicleSoldier->vitals().health() = pVehicleSoldier->vitals().maximumHealth();
 	}
 
 	// Calculate pts used;
-	bRepairPtsUsed = ( pVehicleSoldier->stats.bLife - bOldLife ) * VEHICLE_REPAIR_POINTS_DIVISOR;
+	bRepairPtsUsed = ( pVehicleSoldier->vitals().health() - bOldLife ) * VEHICLE_REPAIR_POINTS_DIVISOR;
 
 	// ARM: personally, I'd love to know where in Arulco the mechanic gets the PARTS to do this stuff, but hey, it's a game!
 	(*pfNothingToRepair) = !DoesVehicleNeedAnyRepairs( iVehicleId );
@@ -2875,7 +2875,7 @@ void AddVehicleFuelToSave( )
 		{
 		// Init fuel!
 		pVehicleSoldier->sBreathRed = 10000;
-		pVehicleSoldier->bBreath	= 100;
+		pVehicleSoldier->vitals().breath()	= 100;
 		}
 	}
 	}
@@ -2917,13 +2917,13 @@ BOOLEAN CanSoldierDriveVehicle( SOLDIERTYPE *pSoldier, INT32 iVehicleId, BOOLEAN
 	}
 
 	// too wounded to drive
-	if( pSoldier->stats.bLife < OKLIFE )
+	if( pSoldier->vitals().health() < OKLIFE )
 	{
 		return (FALSE);
 	}
 
 	// too tired to drive
-	if( pSoldier->bBreathMax <= BREATHMAX_ABSOLUTE_MINIMUM )
+	if( pSoldier->vitals().maximumBreath() <= BREATHMAX_ABSOLUTE_MINIMUM )
 	{
 		return (FALSE);
 	}

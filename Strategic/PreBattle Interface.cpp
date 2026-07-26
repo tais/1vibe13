@@ -661,7 +661,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = i;
-		if( pSoldier->bActive && pSoldier->stats.bLife && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+		if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
 			{
@@ -957,7 +957,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
 			SOLDIERTYPE *pSoldier = i;
-			if( pSoldier->bActive && pSoldier->stats.bLife && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 			{
 				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->ubProfile != NO_PROFILE )
 				{
@@ -1651,7 +1651,7 @@ void RenderPreBattleInterface()
 		for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id)
 		{
 			SOLDIERTYPE *pSoldier = id;
-			if( pSoldier->bActive && pSoldier->stats.bLife && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 			{
 				if( PlayerMercInvolvedInThisCombat( pSoldier ) )
 				{
@@ -1697,7 +1697,7 @@ void RenderPreBattleInterface()
 			for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 			{
 				SOLDIERTYPE *pSoldier = id;
-				if( pSoldier->bActive && pSoldier->stats.bLife && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 				{
 					if( !PlayerMercInvolvedInThisCombat(pSoldier) )
 					{
@@ -1892,7 +1892,7 @@ void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason )
 			for( SoldierID i = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; i <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++i )
 			{
 				SOLDIERTYPE *pSoldier = i;
-				if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE )
+				if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
 				{
 					if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->ubProfile != NO_PROFILE )
 						gMercProfiles[ pSoldier->ubProfile ].records.usBattlesRetreated++;
@@ -1949,38 +1949,38 @@ enum
 void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, CHAR16 *szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent )
 {
 	Assert( pSoldier );
-	*pubHPPercent = (UINT8)(pSoldier->stats.bLife * 100 / pSoldier->stats.bLifeMax);
-	*pubBPPercent = pSoldier->bBreath;
+	*pubHPPercent = (UINT8)(pSoldier->vitals().health() * 100 / pSoldier->vitals().maximumHealth());
+	*pubBPPercent = pSoldier->vitals().breath();
 	//Go from the worst condition to the best.
-	if( !pSoldier->stats.bLife )
+	if( !pSoldier->vitals().health() )
 	{ //0 life
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_DEAD ] );
 	}
-	else if( pSoldier->stats.bLife < OKLIFE && pSoldier->bBleeding )
+	else if( pSoldier->vitals().health() < OKLIFE && pSoldier->vitals().bleeding() )
 	{ //life less than OKLIFE and bleeding
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_DYING ] );
 	}
-	else if( pSoldier->bBreath < OKBREATH && pSoldier->bCollapsed )
+	else if( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
 	{ //breath less than OKBREATH
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_UNCONCIOUS ] );
 	}
-	else if( pSoldier->bBleeding > MIN_BLEEDING_THRESHOLD)
+	else if( pSoldier->vitals().bleeding() > MIN_BLEEDING_THRESHOLD)
 	{ //bleeding
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_BLEEDING ] );
 	}
-	else if( pSoldier->stats.bLife*100 < pSoldier->stats.bLifeMax*50 )
+	else if( pSoldier->vitals().health()*100 < pSoldier->vitals().maximumHealth()*50 )
 	{ //less than 50% life
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_WOUNDED ] );
 	}
-	else if( pSoldier->bBreath < 50 )
+	else if( pSoldier->vitals().breath() < 50 )
 	{ //breath less than half
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_FATIGUED ] );
 	}
-	else if( pSoldier->stats.bLife*100 < pSoldier->stats.bLifeMax*67 )
+	else if( pSoldier->vitals().health()*100 < pSoldier->vitals().maximumHealth()*67 )
 	{ //less than 67% life
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_FAIR ] );
 	}
-	else if( pSoldier->stats.bLife*100 < pSoldier->stats.bLifeMax*86 )
+	else if( pSoldier->vitals().health()*100 < pSoldier->vitals().maximumHealth()*86 )
 	{ //less than 86% life
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_GOOD ] );
 	}
@@ -2291,7 +2291,7 @@ void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles
 		// store ptr to next soldier in group, once removed from group, his info will get memfree'd!
 		pNextPlayer = pPlayer->next;
 
-		if ( pSoldier->bActive && pSoldier->stats.bLife && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but off-duty (includes mercs inside vehicles!)
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->bAssignment >= ON_DUTY ) )
@@ -2358,7 +2358,7 @@ void WakeUpAllMercsInSectorUnderAttack( void )
 	{
 		pSoldier = &( Menptr[ iCounter ] );
 
-		if ( pSoldier->bActive && pSoldier->stats.bLife && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but asleep
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->flags.fMercAsleep == TRUE ) )
@@ -2635,7 +2635,7 @@ void CheckForRobotAndIfItsControlled( void )
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = i;
-		if( pSoldier->bActive && pSoldier->stats.bLife && AM_A_ROBOT( pSoldier ))
+		if( pSoldier->bActive && pSoldier->vitals().health() && AM_A_ROBOT( pSoldier ))
 		{
 			// check whether it has a valid controller with it. This sets its ubRobotRemoteHolderID field.
 			pSoldier->UpdateRobotControllerGivenRobot( );

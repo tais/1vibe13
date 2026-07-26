@@ -108,7 +108,7 @@ BOOLEAN CheckNPCWounded( UINT8 ubProfileID, BOOLEAN fByPlayerOnly )
 
 	// is the NPC is wounded at all?
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );
-	if (pSoldier && pSoldier->stats.bLife < pSoldier->stats.bLifeMax)
+	if (pSoldier && pSoldier->vitals().health() < pSoldier->vitals().maximumHealth())
 	{
 		if (fByPlayerOnly)
 		{
@@ -139,7 +139,7 @@ BOOLEAN CheckNPCInOkayHealth( UINT8 ubProfileID )
 
 	// is the NPC at better than half health?
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );
-	if (pSoldier && pSoldier->stats.bLife > (pSoldier->stats.bLifeMax / 2) && pSoldier->stats.bLife > 30)
+	if (pSoldier && pSoldier->vitals().health() > (pSoldier->vitals().maximumHealth() / 2) && pSoldier->vitals().health() > 30)
 	{
 		return( TRUE );
 	}
@@ -155,7 +155,7 @@ BOOLEAN CheckNPCBleeding( UINT8 ubProfileID )
 
 	// the NPC is wounded...
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );
-	if (pSoldier && pSoldier->stats.bLife > 0 && pSoldier->bBleeding > 0)
+	if (pSoldier && pSoldier->vitals().health() > 0 && pSoldier->vitals().bleeding() > 0)
 	{
 		return( TRUE );
 	}
@@ -284,7 +284,7 @@ UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife > 0 && (pSoldier->stats.bLife < pSoldier->stats.bLifeMax || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL
+		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL
 			 && pSoldier->sSectorX == pNPC->sSectorX && pSoldier->sSectorY == pNPC->sSectorY && pSoldier->bSectorZ == pNPC->bSectorZ )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= HOSPITAL_PATIENT_DISTANCE)
@@ -316,7 +316,7 @@ UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife >= OKLIFE )
+		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= ubMaxDist)
 			{
@@ -498,7 +498,7 @@ INT8 NumMalesPresent( UINT8 ubProfileID )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife >= OKLIFE)
+		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
 		{
 			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile].bSex == MALE )
 			{
@@ -532,7 +532,7 @@ BOOLEAN FemalePresent( UINT8 ubProfileID )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife >= OKLIFE)
+		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
 		{
 			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile].bSex == FEMALE )
 			{
@@ -556,7 +556,7 @@ BOOLEAN CheckPlayerHasHead( void )
 	{
 		pSoldier = bLoop;
 
-		if ( pSoldier->bActive && pSoldier->stats.bLife > 0 )
+		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
 		{
 			if ( FindObjInObjRange( pSoldier, HEAD_2, HEAD_7 ) != NO_SLOT )
 			{
@@ -604,7 +604,7 @@ BOOLEAN AIMMercWithin( INT32 sGridNo, INT16 sDistance )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && (pSoldier->bTeam == gbPlayerNum) && (pSoldier->stats.bLife >= OKLIFE) && ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
+		if ( pSoldier && (pSoldier->bTeam == gbPlayerNum) && (pSoldier->vitals().health() >= OKLIFE) && ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= sDistance)
 			{
@@ -1816,7 +1816,7 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 	for ( SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 	{
 		SOLDIERTYPE *pSoldier = id;
-		if( pSoldier->bActive && pSoldier->stats.bLife >= CONSCIOUSNESS && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
+		if( pSoldier->bActive && pSoldier->vitals().health() >= CONSCIOUSNESS && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
 			pSoldier->sSectorX == sQuestSectorX && pSoldier->sSectorY == sQuestsSectorY && !pSoldier->flags.fBetweenSectors && pSoldier->bTeam == gbPlayerNum &&
 			pSoldier->bAssignment != IN_TRANSIT && pSoldier->bAssignment != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->ubProfile ].ubBodyType != 21 ) // != ROBOTNOWEAPON )
 		{

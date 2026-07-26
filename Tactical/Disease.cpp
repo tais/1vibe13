@@ -98,7 +98,7 @@ void HandleDisease()
 	// chance for infection due to proximity to other mercs
 	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
 	{
-		if ( pSoldier->bActive && pSoldier->stats.bLife > 0 )
+		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
 		{
 			// loop over all other soldiers and determine the chance that they will infect us
 			SOLDIERTYPE *pTeamSoldier = NULL;
@@ -109,7 +109,7 @@ void HandleDisease()
 			{
 				if ( pTeamSoldier->bActive && pTeamSoldier != pSoldier 
 					 && pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ
-					 && pTeamSoldier->stats.bLife > 0 )
+					 && pTeamSoldier->vitals().health() > 0 )
 				{
 					// infection chance gets modified depending on assignments
 					FLOAT modifier = 1.0f;

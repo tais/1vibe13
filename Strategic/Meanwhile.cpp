@@ -420,7 +420,7 @@ void CheckForMeanwhileOKStart( )
 			for (pSoldier = gCharactersList[uiCount].usSolID; gCharactersList[uiCount].fValid; uiCount++, pSoldier++)
 			{
 				if (pSoldier->sSectorX == gModSettings.ubMeanwhileInterrogatePOWSectorX && pSoldier->sSectorY == gModSettings.ubMeanwhileInterrogatePOWSectorY &&
-					pSoldier->bSectorZ == 0 && pSoldier->bAssignment == ASSIGNMENT_POW && pSoldier->stats.bLife > 0 && gMercProfiles[pSoldier->ubProfile].bMercStatus != MERC_FIRED_AS_A_POW)
+					pSoldier->bSectorZ == 0 && pSoldier->bAssignment == ASSIGNMENT_POW && pSoldier->vitals().health() > 0 && gMercProfiles[pSoldier->ubProfile].bMercStatus != MERC_FIRED_AS_A_POW)
 				{
 					fFoundSoldierToInterrogate = TRUE;
 					break;

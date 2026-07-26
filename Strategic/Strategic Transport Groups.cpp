@@ -227,7 +227,7 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 		SOLDIERTYPE *pSoldier = i;
 
 		if( pSoldier->bActive &&
-			pSoldier->stats.bLife >= OKLIFE &&
+			pSoldier->vitals().health() >= OKLIFE &&
 			(pSoldier->bAssignment < ON_DUTY || pSoldier->bAssignment == GATHERINTEL) &&
 			!pSoldier->flags.fMercAsleep)
 		{

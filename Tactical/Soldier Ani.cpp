@@ -179,7 +179,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			{
 				pSoldier->bBreathCollapsed = FALSE;
 			}
-			else if ( pSoldier->stats.bLife == 0 )
+			else if ( pSoldier->vitals().health() == 0 )
 			{
 				// Death takes precedence...
 				pSoldier->bBreathCollapsed = FALSE;
@@ -1223,7 +1223,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 465:
 
 				// CODE: SET GUY TO LIFE OF 0
-				pSoldier->stats.bLife = 0;
+				pSoldier->vitals().health() = 0;
 				break;
 
 			case 466:
@@ -1427,7 +1427,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					pSoldier->flags.bGoBackToAimAfterHit = NO_SPEC_STANCE_AFTER_HIT;
 
 					// CODE: HANDLE ANY RANDOM HIT VARIATIONS WE WISH TO DO.....
-					if ( pSoldier->stats.bLife >= OKLIFE && bGoBackToAimAfterHit)
+					if ( pSoldier->vitals().health() >= OKLIFE && bGoBackToAimAfterHit)
 					{
 						if ( bGoBackToAimAfterHit == GO_TO_AIM_AFTER_HIT )
 						{				
@@ -1571,7 +1571,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					if ( pSoldier->ubBodyType <= REGFEMALE && !pSoldier->IsRiotShieldEquipped( ) )
 					{
 						// Secondly, don't if we are going to collapse
-						if ( pSoldier->stats.bLife >= OKLIFE && pSoldier->bBreath > 0 && pSoldier->pathing.bLevel == 0 )
+						if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() > 0 && pSoldier->pathing.bLevel == 0 )
 						{
 							// Save old direction
 							pSoldier->aiData.uiPendingActionData1 = pSoldier->ubDirection;
@@ -1648,7 +1648,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				if ( pSoldier->ubBodyType <= REGFEMALE )
 				{
 					// Secondly, don't if we are going to collapse
-					//if ( pSoldier->stats.bLife >= OKLIFE && pSoldier->bBreath > 0 )
+					//if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() > 0 )
 					//{
 					///	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT ) )
 					//	{
@@ -1767,13 +1767,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// SANDRO - I've been here, messing with stuff...
 
 				// CODE: HANDLE RANDOM BREATH ANIMATION
-				//if ( pSoldier->stats.bLife > INJURED_CHANGE_THREASHOLD )
-				if ( pSoldier->stats.bLife >= OKLIFE )
+				//if ( pSoldier->vitals().health() > INJURED_CHANGE_THREASHOLD )
+				if ( pSoldier->vitals().health() >= OKLIFE )
 				{
 					// Increment time from last update
 					pSoldier->uiTimeOfLastRandomAction++;
 
-					if ( pSoldier->uiTimeOfLastRandomAction > TIME_FOR_RANDOM_ANIM_CHECK || pSoldier->stats.bLife < INJURED_CHANGE_THREASHOLD || GetDrunkLevel( pSoldier ) >= BORDERLINE )
+					if ( pSoldier->uiTimeOfLastRandomAction > TIME_FOR_RANDOM_ANIM_CHECK || pSoldier->vitals().health() < INJURED_CHANGE_THREASHOLD || GetDrunkLevel( pSoldier ) >= BORDERLINE )
 					{
 						pSoldier->uiTimeOfLastRandomAction = 0;
 
@@ -1827,13 +1827,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 											fStarving = TRUE;
 
 										// If it's an injured animation and we are not in the threashold....
-										if ( ( pAnimDef->ubFlags & RANDOM_ANIM_INJURED ) && pSoldier->stats.bLife >= INJURED_CHANGE_THREASHOLD && !fStarving )
+										if ( ( pAnimDef->ubFlags & RANDOM_ANIM_INJURED ) && pSoldier->vitals().health() >= INJURED_CHANGE_THREASHOLD && !fStarving )
 										{
 											continue;
 										}
 
 										// If we need to do an injured one, don't do any others...
-										if ( !( pAnimDef->ubFlags & RANDOM_ANIM_INJURED ) && (pSoldier->stats.bLife < INJURED_CHANGE_THREASHOLD || fStarving) )
+										if ( !( pAnimDef->ubFlags & RANDOM_ANIM_INJURED ) && (pSoldier->vitals().health() < INJURED_CHANGE_THREASHOLD || fStarving) )
 										{
 											continue;
 										}
@@ -2063,9 +2063,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									}
 
 									// SANDRO - Set goback to aim after hit flag
-									if (( Item[ pTSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_BLADE | IC_PUNCH | IC_NONE) ) && pTSoldier->stats.bLife > 30 && pTSoldier->bBreath > 25 && (gAnimControl[ pTSoldier->usAnimState ].ubEndHeight == ANIM_STAND) )
+									if (( Item[ pTSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_BLADE | IC_PUNCH | IC_NONE) ) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (gAnimControl[ pTSoldier->usAnimState ].ubEndHeight == ANIM_STAND) )
 									{
-										if ( pTSoldier->stats.bLife > 30 && pTSoldier->bBreath > 25 )
+										if ( pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 )
 										{
 											pTSoldier->flags.bGoBackToAimAfterHit = GO_TO_HTH_BREATH_AFTER_HIT;
 										}
@@ -2096,7 +2096,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									pTSoldier->ChangeSoldierState( DODGE_ONE, 0 , FALSE );
 
 									// SANDRO - after dodging melee attack go to apropriate stance
-									//if ( (gAnimControl[ pTSoldier->usAnimState ].ubHeight == ANIM_STAND) && pTSoldier->stats.bLife > 30 && pTSoldier->bBreath > 25 && (Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_PUNCH || Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_NONE))
+									//if ( (gAnimControl[ pTSoldier->usAnimState ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_PUNCH || Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_NONE))
 									//{
 									//	if ((((NUM_SKILL_TRAITS( pTSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
 									//		(HAS_SKILL_TRAIT( pTSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) &&
@@ -2110,7 +2110,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									//		pTSoldier->usPendingAnimation = PUNCH_BREATH ;
 									//	}
 									//}
-									//else if ( (gAnimControl[ pTSoldier->usAnimState ].ubHeight == ANIM_STAND) && pTSoldier->stats.bLife > 30 && pTSoldier->bBreath > 25 && (Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_BLADE))
+									//else if ( (gAnimControl[ pTSoldier->usAnimState ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_BLADE))
 									//{
 									//	//pTSoldier->usPendingAnimation = KNIFE_GOTOBREATH;
 									//	pTSoldier->usPendingAnimation = KNIFE_BREATH ;
@@ -2206,13 +2206,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: CHECK FOR UNCONSCIOUS OR DEATH
 				// IF 496 - GOTO PREVIOUS ANIMATION, OTHERWISE PAUSE ANIMATION
-				if ( pSoldier->stats.bLife == 0 )
+				if ( pSoldier->vitals().health() == 0 )
 				{
 
 					//HandleSoldierDeath( pSoldier );
 
 					// If guy is now dead, and we have not played death sound before, play
-					if ( pSoldier->stats.bLife == 0 && !pSoldier->flags.fDeadSoundPlayed	)
+					if ( pSoldier->vitals().health() == 0 && !pSoldier->flags.fDeadSoundPlayed	)
 					{
 						if ( pSoldier->usAnimState != JFK_HITDEATH )
 						{
@@ -2431,7 +2431,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						pSoldier->flags.bGoBackToAimAfterHit = NO_SPEC_STANCE_AFTER_HIT;
 
 						// CODE: HANDLE ANY RANDOM HIT VARIATIONS WE WISH TO DO.....
-						if ( pSoldier->stats.bLife >= OKLIFE && bGoBackToAimAfterHit )
+						if ( pSoldier->vitals().health() >= OKLIFE && bGoBackToAimAfterHit )
 						{
 							if ( bGoBackToAimAfterHit == GO_TO_AIM_AFTER_HIT )
 							{		
@@ -3908,7 +3908,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 	BOOLEAN fBuddyJustDead = FALSE;
 	*pfMadeCorpse = FALSE;
 
-	if ( pSoldier->stats.bLife == 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )	)
+	if ( pSoldier->vitals().health() == 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )	)
 	{
 		// Haydent/send death info
 		if (is_networked)
@@ -4117,7 +4117,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 							else
 							{
 								// if this enemy was attacking a freshly wounded merc, it is likely they posed a real threat - the merc will be thankful for saving their life
-								if (pSoldier->ubTargetID != NOBODY && pSoldier->ubTargetID->bBleeding > 10)
+								if (pSoldier->ubTargetID != NOBODY && pSoldier->ubTargetID->vitals().bleeding() > 10)
 								{
 									AddOpinionEvent(pSoldier->ubTargetID->ubProfile, ubAttacker->ubProfile, OPINIONEVENT_BATTLE_SAVIOUR);
 								}
@@ -4264,7 +4264,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 
 	}
 
-	if ( pSoldier->stats.bLife > 0 )
+	if ( pSoldier->vitals().health() > 0 )
 	{
 		// If we are here - something funny has heppende
 		// We either have played a death animation when we are not dead, or we are calling
@@ -4364,7 +4364,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 {
 	INT32					sNewGridNo;
 
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		// Cancel services here...
 		pSoldier->ReceivingSoldierCancelServices( );
@@ -4387,7 +4387,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 		case TANK_NE:
 		case COMBAT_JEEP:
 
-			pSoldier->stats.bLife = 0;
+			pSoldier->vitals().health() = 0;
 			break;
 		}
 
@@ -4414,7 +4414,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 		}
 
 		// If guy is now dead, play sound!
-		if ( pSoldier->stats.bLife == 0	)
+		if ( pSoldier->vitals().health() == 0	)
 		{
 #ifdef JA2UB
 //Ja25 No meanwhiles		
@@ -4574,7 +4574,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 
 BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier )
 {
-	if ( pSoldier->stats.bLife == 0 )
+	if ( pSoldier->vitals().health() == 0 )
 	{
 		pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
 		pSoldier->flags.fDeadSoundPlayed = TRUE;
@@ -4719,7 +4719,7 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 	}
 
 	// SANDRO: if we are holding up a very heavy gun, and can't do it anymore, lower it
-	if ( gGameExternalOptions.ubEnergyCostForWeaponWeight && pSoldier->bBreath < OKBREATH )
+	if ( gGameExternalOptions.ubEnergyCostForWeaponWeight && pSoldier->vitals().breath() < OKBREATH )
 	{		
 		// Check for breath collapse, though this should rarely happen
 		if ( pSoldier->CheckForBreathCollapse( ) )

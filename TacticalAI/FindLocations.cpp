@@ -1250,7 +1250,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
-		if (!pOpponent || (pOpponent->stats.bLife < OKLIFE))
+		if (!pOpponent || (pOpponent->vitals().health() < OKLIFE))
 		{
 			continue;			// next merc
 		}

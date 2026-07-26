@@ -114,7 +114,7 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 	pSoldier->flags.uiStatusFlags |= SOLDIER_DEAD;
 
 	// Set breath to 0!
-	pSoldier->bBreathMax = pSoldier->bBreath = 0;
+	pSoldier->vitals().maximumBreath() = pSoldier->vitals().breath() = 0;
 
 	// not asleep, DEAD!
 	pSoldier->flags.fMercAsleep = FALSE;
@@ -858,7 +858,7 @@ void MercComplainAboutEquipment( UINT8 ubProfile )
 	// Are we dead/ does merc still exist?
 	pSoldier = FindSoldierByProfileID( ubProfile, FALSE );
 
-	if ( pSoldier != NULL && pSoldier->stats.bLife >= OKLIFE )
+	if ( pSoldier != NULL && pSoldier->vitals().health() >= OKLIFE )
 	{
 		if ( pSoldier->flags.fMercAsleep != TRUE && pSoldier->bAssignment < ON_DUTY )
 		{

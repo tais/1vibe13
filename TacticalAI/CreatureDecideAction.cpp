@@ -127,7 +127,7 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 	for (ubReceiver = gTacticalStatus.Team[ pCaller->bTeam ].bFirstID; ubReceiver <= gTacticalStatus.Team[ pCaller->bTeam ].bLastID; ++ubReceiver )
 	{
 		pReceiver = ubReceiver;
-		if (pReceiver->bActive && pReceiver->bInSector && (pReceiver->stats.bLife >= OKLIFE) && (pReceiver != pCaller) && (pReceiver->aiData.bAlertStatus < STATUS_BLACK))
+		if (pReceiver->bActive && pReceiver->bInSector && (pReceiver->vitals().health() >= OKLIFE) && (pReceiver != pCaller) && (pReceiver->aiData.bAlertStatus < STATUS_BLACK))
 		{
 			if (pReceiver->ubBodyType != LARVAE_MONSTER && pReceiver->ubBodyType != INFANT_MONSTER && pReceiver->ubBodyType != QUEENMONSTER)
 			{
@@ -183,7 +183,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 
 		// this takes priority over water/gas checks, so that point patrol WILL work
 		// from island to island, and through gas covered areas, too
-		if ((pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->bBreath >= 50))
+		if ((pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->vitals().breath() >= 50))
 		{
 			if (PointPatrolAI(pSoldier))
 			{
@@ -198,7 +198,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 			}
 		}
 
-		if ((pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->bBreath >=50))
+		if ((pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->vitals().breath() >=50))
 		{
 			if (RandomPointPatrolAI(pSoldier))
 			{
@@ -239,7 +239,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in the way or in water
-	if ((pSoldier->bBreath < 75) /*&& !bInWater*/)
+	if ((pSoldier->vitals().breath() < 75) /*&& !bInWater*/)
 	{
 		// take a breather for gods sake!
 		pSoldier->aiData.usActionData = NOWHERE;
@@ -279,10 +279,10 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 		}
 
 		// reduce chance for any injury, less likely to wander around when hurt
-		iChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+		iChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 
 		// reduce chance if breath is down, less likely to wander around when tired
-		iChance -= (100 - pSoldier->bBreath);
+		iChance -= (100 - pSoldier->vitals().breath());
 
 		// if we're in water with land miles (> 25 tiles) away,
 		// OR if we roll under the chance calculated
@@ -346,10 +346,10 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 			}
 
 			// reduce chance for any injury, less likely to wander around when hurt
-			iChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+			iChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 
 			// reduce chance if breath is down
-			iChance -= (100 - pSoldier->bBreath);		 // very likely to wait when exhausted
+			iChance -= (100 - pSoldier->vitals().breath());		 // very likely to wait when exhausted
 
 			if ((INT16) PreRandom(100) < iChance)
 			{
@@ -521,7 +521,7 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ((pSoldier->bBreath < 25) /*&& !pSoldier->MercInWater() */ )
+	if ((pSoldier->vitals().breath() < 25) /*&& !pSoldier->MercInWater() */ )
 	{
 		// take a breather for gods sake!
 		pSoldier->aiData.usActionData = NOWHERE;
@@ -563,7 +563,7 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 		}
 
 		// reduce chance if breath is down, less likely to wander around when tired
-		iChance -= (100 - pSoldier->bBreath);
+		iChance -= (100 - pSoldier->vitals().breath());
 
 		if ((INT16) PreRandom(100) < iChance)
 		{
@@ -667,21 +667,21 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	{
 		if ((pSoldier->bActionPoints >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
 		{
-			if (pSoldier->stats.bLife < pSoldier->bOldLife)
+			if (pSoldier->vitals().health() < pSoldier->bOldLife)
 			{
 				// got injured, maybe call
-				if ((pSoldier->bOldLife == pSoldier->stats.bLifeMax) && (pSoldier->bOldLife - pSoldier->stats.bLife > 10))
+				if ((pSoldier->bOldLife == pSoldier->vitals().maximumHealth()) && (pSoldier->bOldLife - pSoldier->vitals().health() > 10))
 				{
 					// hurt for first time!
 					pSoldier->aiData.usActionData = CALL_CRIPPLED;
-					pSoldier->bOldLife = pSoldier->stats.bLife;	// don't want to call more than once
+					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
-				else if (pSoldier->stats.bLifeMax / pSoldier->stats.bLife > 2)
+				else if (pSoldier->vitals().maximumHealth() / pSoldier->vitals().health() > 2)
 				{
 					// crippled, 1/3 or less health!
 					pSoldier->aiData.usActionData = CALL_ATTACKED;
-					pSoldier->bOldLife = pSoldier->stats.bLife;	// don't want to call more than once
+					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
 			}
@@ -694,11 +694,11 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
  ////////////////////////////////////////////////////////////////////////
 
  // if our breath is running a bit low, and we're not in water or under fire
- if ((pSoldier->bBreath < 25) /*&& !bInWater*/ && !pSoldier->aiData.bUnderFire)
+ if ((pSoldier->vitals().breath() < 25) /*&& !bInWater*/ && !pSoldier->aiData.bUnderFire)
 	{
 #ifdef DEBUGDECISIONS
 	STR16 tempstr;
-	  sprintf(tempstr,"%s RESTS (STATUS RED), breath = %d",pSoldier->name,pSoldier->bBreath);
+	  sprintf(tempstr,"%s RESTS (STATUS RED), breath = %d",pSoldier->name,pSoldier->vitals().breath());
    AIPopMessage(tempstr);
 #endif
 
@@ -944,25 +944,25 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 	{
 		if ((pSoldier->bActionPoints >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
 		{
-			if (pSoldier->stats.bLife < pSoldier->bOldLife)
+			if (pSoldier->vitals().health() < pSoldier->bOldLife)
 			{
 				// got injured, maybe call
 				/*
 				// don't call when crippled and have target... save breath for attacking!
-				if ((pSoldier->bOldLife == pSoldier->stats.bLifeMax) && (pSoldier->bOldLife - pSoldier->stats.bLife > 10))
+				if ((pSoldier->bOldLife == pSoldier->vitals().maximumHealth()) && (pSoldier->bOldLife - pSoldier->vitals().health() > 10))
 				{
 					// hurt for first time!
 					pSoldier->aiData.usActionData = CALL_CRIPPLED;
-					pSoldier->bOldLife = pSoldier->stats.bLife;	// don't want to call more than once
+					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
 				else
 				*/
-				if (pSoldier->stats.bLifeMax / pSoldier->stats.bLife > 2)
+				if (pSoldier->vitals().maximumHealth() / pSoldier->vitals().health() > 2)
 				{
 					// crippled, 1/3 or less health!
 					pSoldier->aiData.usActionData = CALL_ATTACKED;
-					pSoldier->bOldLife = pSoldier->stats.bLife;	// don't want to call more than once
+					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
 			}
@@ -1011,7 +1011,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
  ////////////////////////////////////////////////////////////////////////////
 
  // if we're desperately short on breath (it's OK if we're in water, though!)
- if (bInGas || (pSoldier->bBreath < 5))
+ if (bInGas || (pSoldier->vitals().breath() < 5))
 	{
 	// if soldier has enough APs left to move at least 1 square's worth
 	if (ubCanMove)
@@ -1023,7 +1023,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 		{
 #ifdef DEBUGDECISIONS
 		STR16 tempstr;
-		  sprintf(tempstr,"%s - GASSED or LOW ON BREATH (%d), RUNNING AWAY to grid %d",pSoldier->name,pSoldier->bBreath,pSoldier->aiData.usActionData);
+		  sprintf(tempstr,"%s - GASSED or LOW ON BREATH (%d), RUNNING AWAY to grid %d",pSoldier->name,pSoldier->vitals().breath(),pSoldier->aiData.usActionData);
        AIPopMessage(tempstr);
 #endif
 
@@ -1157,7 +1157,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 						// if the selected opponent is not a threat (unconscious & !serviced)
 						// (usually, this means all the guys we see our unconscious, but, on
 						//	rare occasions, we may not be able to shoot a healthy guy, too)
-						if ((BestShot.ubOpponent->stats.bLife < OKLIFE) &&
+						if ((BestShot.ubOpponent->vitals().health() < OKLIFE) &&
 							!BestShot.ubOpponent->bService)
 						{
 							// if our attitude is NOT aggressive
@@ -1652,8 +1652,8 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 	else	// status didn't change
 	{
 		// if a guy on status GREEN or YELLOW is running low on breath
-		if (((pSoldier->aiData.bAlertStatus == STATUS_GREEN)	&& (pSoldier->bBreath < 75)) ||
-			((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) && (pSoldier->bBreath < 50)))
+		if (((pSoldier->aiData.bAlertStatus == STATUS_GREEN)	&& (pSoldier->vitals().breath() < 75)) ||
+			((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
 		{
 			// as long as he's not in water (standing on a bridge is OK)
 			if (!pSoldier->MercInWater())

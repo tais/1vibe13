@@ -177,8 +177,8 @@ namespace
 				soldier, command.soldierGrid, command.level) ||
 			!IsAtIssuedTacticalPosition(
 				target, command.targetGrid, command.level) ||
-			soldier.stats.bLife < OKLIFE ||
-			target.stats.bLife < OKLIFE ||
+			soldier.vitals().health() < OKLIFE ||
+			target.vitals().health() < OKLIFE ||
 			PythSpacesAway(soldier.sGridNo, target.sGridNo) != 1 ||
 			(!target.aiData.bNeutral && target.bSide != gbPlayerNum))
 			return false;

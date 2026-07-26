@@ -262,7 +262,7 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 	// if the food is more of a drink, we also restore breath points
 	if ( Food[foodtype].bDrinkPoints > Food[foodtype].bFoodPoints )
 	{
-		sBPAdjustment = 2 * usPointsToUse * -(100 - pSoldier->bBreath);
+		sBPAdjustment = 2 * usPointsToUse * -(100 - pSoldier->vitals().breath());
 	}
 
 	DeductPoints( pSoldier, 0, sBPAdjustment );
@@ -459,16 +459,16 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			if ( foodsituation == FOOD_STARVING )
 				numberofreduces += 1 + 2 * Random(2);
 
-			INT8 oldlife = pSoldier->stats.bLife;
+			INT8 oldlife = pSoldier->vitals().health();
 
-			pSoldier->stats.bLifeMax = max(2, pSoldier->stats.bLifeMax - numberofreduces);
-			pSoldier->stats.bLife = min(pSoldier->stats.bLife, pSoldier->stats.bLifeMax);
-			pSoldier->bBleeding = min(pSoldier->bBleeding, pSoldier->stats.bLifeMax);
+			pSoldier->vitals().maximumHealth() = max(2, pSoldier->vitals().maximumHealth() - numberofreduces);
+			pSoldier->vitals().health() = min(pSoldier->vitals().health(), pSoldier->vitals().maximumHealth());
+			pSoldier->vitals().bleeding() = min(pSoldier->vitals().bleeding(), pSoldier->vitals().maximumHealth());
 			
-			pSoldier->usStarveDamageHealth += oldlife - pSoldier->stats.bLifeMax;
+			pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->stats.bLifeMax;
+			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
 			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
 
 			if ( foodsituation < FOOD_NORMAL )
@@ -478,14 +478,14 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 
 			// if we fall below OKLIFE, we start bleeding...
 			// Reason for this is that 
-			if ( pSoldier->stats.bLife < OKLIFE )
+			if ( pSoldier->vitals().health() < OKLIFE )
 			{
-				pSoldier->bBleeding = max(1, pSoldier->stats.bLife - 1);
-				pSoldier->stats.bLife = 1;
+				pSoldier->vitals().bleeding() = max(1, pSoldier->vitals().health() - 1);
+				pSoldier->vitals().health() = 1;
 
 				// Update Profile
-				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->stats.bLifeMax;
-				pSoldier->usStarveDamageHealth += oldlife - pSoldier->stats.bLifeMax;
+				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
+				pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
 
 				return;
 			}
@@ -540,16 +540,16 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			if ( watersituation == FOOD_STARVING )
 				numberofreduces += 1 + 2 * Random(2);
 
-			INT8 oldlife = pSoldier->stats.bLife;
+			INT8 oldlife = pSoldier->vitals().health();
 
-			pSoldier->stats.bLifeMax = max(2, pSoldier->stats.bLifeMax - numberofreduces);
-			pSoldier->stats.bLife = min(pSoldier->stats.bLife, pSoldier->stats.bLifeMax);
-			pSoldier->bBleeding = min(pSoldier->bBleeding, pSoldier->stats.bLifeMax);
+			pSoldier->vitals().maximumHealth() = max(2, pSoldier->vitals().maximumHealth() - numberofreduces);
+			pSoldier->vitals().health() = min(pSoldier->vitals().health(), pSoldier->vitals().maximumHealth());
+			pSoldier->vitals().bleeding() = min(pSoldier->vitals().bleeding(), pSoldier->vitals().maximumHealth());
 			
-			pSoldier->usStarveDamageHealth += oldlife - pSoldier->stats.bLifeMax;
+			pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->stats.bLifeMax;
+			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
 			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
 			
 			if ( watersituation < FOOD_NORMAL )
@@ -559,14 +559,14 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 
 			// if we fall below OKLIFE, we start bleeding...
 			// Reason for this is that 
-			if ( pSoldier->stats.bLife < OKLIFE )
+			if ( pSoldier->vitals().health() < OKLIFE )
 			{
-				pSoldier->bBleeding = max(1, pSoldier->stats.bLife - 1);
-				pSoldier->stats.bLife = 1;
+				pSoldier->vitals().bleeding() = max(1, pSoldier->vitals().health() - 1);
+				pSoldier->vitals().health() = 1;
 
 				// Update Profile
-				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->stats.bLifeMax;
-				pSoldier->usStarveDamageHealth += oldlife - pSoldier->stats.bLifeMax;
+				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
+				pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
 
 				return;
 			}
@@ -616,7 +616,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// no eating if not able to!
-		if ( pSoldier->flags.fMercAsleep == TRUE || pSoldier->stats.bLife < OKLIFE )
+		if ( pSoldier->flags.fMercAsleep == TRUE || pSoldier->vitals().health() < OKLIFE )
 			return;
 
 		// In certain facilities, we can also eat
@@ -1157,7 +1157,7 @@ void DrinkFromWaterTap( SOLDIERTYPE* pSoldier )
 	if ( waterquality == WATER_POISONOUS )
 		HandlePossibleInfection( pSoldier, NULL, INFECTION_TYPE_BADWATER );
 	
-	INT32 bpadded = 100 * min( 20, 100 - pSoldier->bBreath );
+	INT32 bpadded = 100 * min( 20, 100 - pSoldier->vitals().breath() );
 
 	DeductPoints( pSoldier, 20, -bpadded );
 

@@ -3791,7 +3791,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		pSoldier->ubOppNum = pTargetSoldier->ubID;
 
 		// CHECK IF BUDDY KNOWS ABOUT US
-		if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->stats.bLife < OKLIFE || pTargetSoldier->bCollapsed )
+		if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed )
 		{
 			iHitChance = 100;
 			fSurpriseAttack = TRUE;
@@ -4048,7 +4048,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				// give bonus for surprise, but not so much as struggle would still occur
 				iHitChance = CalcChanceToSteal( pSoldier, pTargetSoldier, pSoldier->aiData.bAimTime ) + 20;
 			}
-			else if ( pTargetSoldier->stats.bLife < OKLIFE || pTargetSoldier->bCollapsed )
+			else if ( pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed )
 			{
 				iHitChance = 100;
 				fSoldierCollapsed = TRUE;
@@ -4061,8 +4061,8 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		else
 		{
 			// sevenfm: use sneak attack code
-			//if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->stats.bLife < OKLIFE || pTargetSoldier->bCollapsed )
-			if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK || pTargetSoldier->stats.bLife < OKLIFE || pTargetSoldier->bCollapsed)
+			//if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed )
+			if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed)
 			{
 				iHitChance = 100;
 			}
@@ -4655,7 +4655,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_HTH, pSoldier->ubID );
 
 				//INT16 sMinAPCost = MinAPsToAttack(pTargetSoldier, pSoldier->sGridNo, TRUE, 0, 0);
-				UINT8 ubCounterattackChance = EffectiveDexterity(pTargetSoldier, FALSE) * (100 + pTargetSoldier->bBreath) / 200;
+				UINT8 ubCounterattackChance = EffectiveDexterity(pTargetSoldier, FALSE) * (100 + pTargetSoldier->vitals().breath()) / 200;
 
 				// halve chance for counterattack if boxer was hit recently
 				if (pTargetSoldier->TakenLargeHit())
@@ -4695,9 +4695,9 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					pTargetSoldier->bAimMeleeLocation = AIM_SHOT_RANDOM;
 					if (gAnimControl[pSoldier->usAnimState].ubEndHeight > ANIM_PRONE)
 					{
-						if (Chance((6 + EffectiveDexterity(pTargetSoldier, FALSE) / 10 + 5 * NUM_SKILL_TRAITS(pTargetSoldier, MARTIAL_ARTS_NT)) * 100 / (100 + pSoldier->bBreath)))
+						if (Chance((6 + EffectiveDexterity(pTargetSoldier, FALSE) / 10 + 5 * NUM_SKILL_TRAITS(pTargetSoldier, MARTIAL_ARTS_NT)) * 100 / (100 + pSoldier->vitals().breath())))
 							pTargetSoldier->bAimMeleeLocation = AIM_SHOT_HEAD;
-						else if (Chance(pSoldier->bBreath * EffectiveWisdom(pTargetSoldier) / (100 + EffectiveDexterity(pTargetSoldier, FALSE))))
+						else if (Chance(pSoldier->vitals().breath() * EffectiveWisdom(pTargetSoldier) / (100 + EffectiveDexterity(pTargetSoldier, FALSE))))
 							pTargetSoldier->bAimMeleeLocation = AIM_SHOT_LEGS;
 						else
 							pTargetSoldier->bAimMeleeLocation = AIM_SHOT_TORSO;
@@ -7267,24 +7267,24 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		}
 	}
 	// IF CHANCE EXISTS, BUT SHOOTER IS INJURED
-	if ((iChance > 0) && (pSoldier->stats.bLife < pSoldier->stats.bLifeMax))
+	if ((iChance > 0) && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth()))
 	{
 		// if bandaged, give 1/2 of the bandaged life points back into equation
-		bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
+		bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
 		// injury penalty is based on % damage taken (max 2/3rds chance)
-		iPenalty = (iChance * 2 * (pSoldier->stats.bLifeMax - pSoldier->stats.bLife + (bBandaged / 2))) /
-						(3 * pSoldier->stats.bLifeMax);
+		iPenalty = (iChance * 2 * (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() + (bBandaged / 2))) /
+						(3 * pSoldier->vitals().maximumHealth());
 
 		// reduce injury penalty due to merc's experience level (he can take it!)
 		iChance -= (iPenalty * (100 - (10 * ( EffectiveExpLevel( pSoldier ) - 1)))) / 100;
 	}
 
 	// IF CHANCE EXISTS, BUT SHOOTER IS LOW ON BREATH
-	if ((iChance > 0) && (pSoldier->bBreath < 100))
+	if ((iChance > 0) && (pSoldier->vitals().breath() < 100))
 	{
 		// breath penalty is based on % breath missing (max 1/2 chance)
-		iPenalty = (iChance * (100 - pSoldier->bBreath)) / 200;
+		iPenalty = (iChance * (100 - pSoldier->vitals().breath())) / 200;
 		// reduce breath penalty due to merc's dexterity (he can compensate!)
 		iChance -= (iPenalty * (100 - ( EffectiveDexterity( pSoldier, FALSE ) - 10))) / 100;
 	}
@@ -7888,7 +7888,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 			return 0;
 
 		// set a flag if this was a headshot, unset if it wasn't. Thus we can determine if this was a headshot kill (only if life > 0, ignore if already dead)
-		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->stats.bLife > 0 )
+		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->vitals().health() > 0 )
 		{
 			if ( ubHitLocation == AIM_SHOT_HEAD  )
 				pTarget->usSoldierFlagMask |= SOLDIER_HEADSHOT;
@@ -8113,12 +8113,12 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 				// HEADROCK HAM 5.1: Using usAttackingWeapon
 				if ( PythSpacesAway( sOrigGridNo, pTarget->sGridNo ) <= ubDistMessy )
 				{
-					if (iImpactForCrits > MIN_DAMAGE_FOR_INSTANT_KILL && iImpactForCrits < pTarget->stats.bLife)
+					if (iImpactForCrits > MIN_DAMAGE_FOR_INSTANT_KILL && iImpactForCrits < pTarget->vitals().health())
 					{
 						// blow to the head is so deadly that it causes instant death;
 						// the target has more life than iImpact so we increase it
-						if( iImpact < pTarget->stats.bLife ) // Added check here to see the real impact in game if bigger than life - SANDRO
-							iImpact = pTarget->stats.bLife + Random( 10 );
+						if( iImpact < pTarget->vitals().health() ) // Added check here to see the real impact in game if bigger than life - SANDRO
+							iImpact = pTarget->vitals().health() + Random( 10 );
 						else
 							iImpact += Random( 10 );
 
@@ -8128,7 +8128,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					if (pubSpecial)
 					{
 						// is the blow deadly enough to cause a head explosion?
-						if ( iImpactForCrits >= pTarget->stats.bLife )
+						if ( iImpactForCrits >= pTarget->vitals().health() )
 						{
 							if (iImpactForCrits > MIN_DAMAGE_FOR_HEAD_EXPLOSION )
 							{
@@ -8167,12 +8167,12 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 				// HEADROCK HAM 5.1: Using usAttackingWeapon
 				if ( PythSpacesAway( sOrigGridNo, pTarget->sGridNo ) <= ubDistMessy )
 				{
-					if (iImpact > MIN_DAMAGE_FOR_INSTANT_KILL && iImpact < pTarget->stats.bLife)
+					if (iImpact > MIN_DAMAGE_FOR_INSTANT_KILL && iImpact < pTarget->vitals().health())
 					{
 						// blow to the chest is so deadly that it causes instant death;
 						// the target has more life than iImpact so we increase it
-						if( iImpact < pTarget->stats.bLife ) // Added check here to see the real impact in game if bigger than life - SANDRO
-							iImpact = pTarget->stats.bLife + Random( 10 );
+						if( iImpact < pTarget->vitals().health() ) // Added check here to see the real impact in game if bigger than life - SANDRO
+							iImpact = pTarget->vitals().health() + Random( 10 );
 						else
 							iImpact += Random( 10 );
 
@@ -8181,8 +8181,8 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					// special thing for hitting chest - allow cumulative damage to count
 					else if ( (iImpact + pTarget->sDamage) > (MIN_DAMAGE_FOR_BLOWN_AWAY + MIN_DAMAGE_FOR_INSTANT_KILL) )
 					{
-						if( iImpact < pTarget->stats.bLife ) // Added check here to see the real impact in game if bigger than life - SANDRO
-							iImpact = pTarget->stats.bLife + Random( 10 );
+						if( iImpact < pTarget->vitals().health() ) // Added check here to see the real impact in game if bigger than life - SANDRO
+							iImpact = pTarget->vitals().health() + Random( 10 );
 						else
 							iImpact += Random( 10 );
 
@@ -8192,7 +8192,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					// is the blow deadly enough to cause a chest explosion?
 					if (pubSpecial)
 					{
-						if (iImpact > MIN_DAMAGE_FOR_BLOWN_AWAY && iImpact >= pTarget->stats.bLife)
+						if (iImpact > MIN_DAMAGE_FOR_BLOWN_AWAY && iImpact >= pTarget->vitals().health())
 						{
 							*pubSpecial = FIRE_WEAPON_CHEST_EXPLODE_SPECIAL;
 						}
@@ -8236,8 +8236,8 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					if ( PreRandom( 100 ) < (UINT32)(sHitBy + 10 * NUM_SKILL_TRAITS( pFirer, THROWING_OT )) )
 					{
 						// instant death!
-						if( iImpact < pTarget->stats.bLife ) // Added check here to see the real impact in game if bigger than life - SANDRO
-							iImpact = pTarget->stats.bLife + Random( 10 );
+						if( iImpact < pTarget->vitals().health() ) // Added check here to see the real impact in game if bigger than life - SANDRO
+							iImpact = pTarget->vitals().health() + Random( 10 );
 						else
 							iImpact += Random( 10 );
 
@@ -8260,7 +8260,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 			}
 		}
 
-		if (iImpactForCrits > 0 && iImpactForCrits < pTarget->stats.bLife && !(pTarget->flags.uiStatusFlags & SOLDIER_MONSTER) && !(pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) && (!(gTacticalStatus.uiFlags & GODMODE) || pTarget->bTeam != OUR_TEAM))
+		if (iImpactForCrits > 0 && iImpactForCrits < pTarget->vitals().health() && !(pTarget->flags.uiStatusFlags & SOLDIER_MONSTER) && !(pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) && (!(gTacticalStatus.uiFlags & GODMODE) || pTarget->bTeam != OUR_TEAM))
 		{
 			UINT32 uiCritChance = 0;
 			if (fFragment)
@@ -8362,9 +8362,9 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 							// SANDRO - added a 20% chance to loose maximum health
 							if ( PreRandom( 5 ) == 0 )
 							{
-								if (bStatLoss >= (pTarget->stats.bLifeMax - OKLIFE))
+								if (bStatLoss >= (pTarget->vitals().maximumHealth() - OKLIFE))
 								{
-									bStatLoss = pTarget->stats.bLifeMax - OKLIFE - 1;
+									bStatLoss = pTarget->vitals().maximumHealth() - OKLIFE - 1;
 								}
 								if ( bStatLoss > iImpact)
 								{
@@ -8372,14 +8372,14 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								}
 								if ( bStatLoss > 0 )
 								{
-									pTarget->stats.bLifeMax -= bStatLoss;
-									pTarget->bBleeding -= bStatLoss;
+									pTarget->vitals().maximumHealth() -= bStatLoss;
+									pTarget->vitals().bleeding() -= bStatLoss;
 									// SANDRO - added this for healing lost stats feature
 									pTarget->ubCriticalStatDamage[DAMAGED_STAT_HEALTH] += bStatLoss;
 
 									if (pTarget->ubProfile != NO_PROFILE)
 									{
-										gMercProfiles[ pTarget->ubProfile ].bLifeMax = pTarget->stats.bLifeMax;
+										gMercProfiles[ pTarget->ubProfile ].bLifeMax = pTarget->vitals().maximumHealth();
 									}
 
 									if (pTarget->name[0] && pTarget->bVisible == TRUE)
@@ -8814,7 +8814,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 	if ( pTarget->IsZombie() )
 	{
 		// set a flag if this was a headshot, unset if it wasn't. Thus we can determine if this was a headshot kill (only if life > 0, ignore if already dead)
-		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->stats.bLife > 0 )
+		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->vitals().health() > 0 )
 		{
 			pTarget->usSoldierFlagMask |= SOLDIER_HEADSHOT;
 		}
@@ -8961,7 +8961,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	if ( pAttacker->bWeaponMode == WM_ATTACHED_BAYONET )
 		usInHand =  pAttacker->GetUsedWeaponNumber( &(pAttacker->inv[HANDPOS]) );
 
-	if ( (usInHand != CREATURE_QUEEN_TENTACLES ) && (pDefender->stats.bLife < OKLIFE || pDefender->bBreath < OKBREATH) )
+	if ( (usInHand != CREATURE_QUEEN_TENTACLES ) && (pDefender->vitals().health() < OKLIFE || pDefender->vitals().breath() < OKBREATH) )
 	{
 		// there is NO way to miss
 		return( 100 );
@@ -9079,17 +9079,17 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	//	iAttRating += AdjustChanceForProfile(pAttacker,pDefender);
 
 	// If attacker injured, reduce chance accordingly (by up to 2/3rds)
-	if ((iAttRating > 0) && (pAttacker->stats.bLife < pAttacker->stats.bLifeMax))
+	if ((iAttRating > 0) && (pAttacker->vitals().health() < pAttacker->vitals().maximumHealth()))
 	{
 		// if bandaged, give 1/2 of the bandaged life points back into equation
-		ubBandaged = pAttacker->stats.bLifeMax - pAttacker->stats.bLife - pAttacker->bBleeding;
+		ubBandaged = pAttacker->vitals().maximumHealth() - pAttacker->vitals().health() - pAttacker->vitals().bleeding();
 
-		iAttRating -= (2 * iAttRating * (pAttacker->stats.bLifeMax - pAttacker->stats.bLife + (ubBandaged / 2))) / (3 * pAttacker->stats.bLifeMax);
+		iAttRating -= (2 * iAttRating * (pAttacker->vitals().maximumHealth() - pAttacker->vitals().health() + (ubBandaged / 2))) / (3 * pAttacker->vitals().maximumHealth());
 	}
 
 	// If attacker tired, reduce chance accordingly (by up to 1/2)
-	if ((iAttRating > 0) && (pAttacker->bBreath < 100))
-		iAttRating -= (iAttRating * (100 - pAttacker->bBreath)) / 200;
+	if ((iAttRating > 0) && (pAttacker->vitals().breath() < 100))
+		iAttRating -= (iAttRating * (100 - pAttacker->vitals().breath())) / 200;
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - old/new traits
@@ -9259,17 +9259,17 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iDefRating -= (pDefender->aiData.bShock * AIM_PENALTY_PER_SHOCK);
 
 	// If defender injured, reduce chance accordingly (by up to 2/3rds)
-	if ((iDefRating > 0) && (pDefender->stats.bLife < pDefender->stats.bLifeMax))
+	if ((iDefRating > 0) && (pDefender->vitals().health() < pDefender->vitals().maximumHealth()))
 	{
 		// if bandaged, give 1/2 of the bandaged life points back into equation
-		ubBandaged = pDefender->stats.bLifeMax - pDefender->stats.bLife - pDefender->bBleeding;
+		ubBandaged = pDefender->vitals().maximumHealth() - pDefender->vitals().health() - pDefender->vitals().bleeding();
 
-		iDefRating -= (2 * iDefRating * (pDefender->stats.bLifeMax - pDefender->stats.bLife + (ubBandaged / 2))) / (3 * pDefender->stats.bLifeMax);
+		iDefRating -= (2 * iDefRating * (pDefender->vitals().maximumHealth() - pDefender->vitals().health() + (ubBandaged / 2))) / (3 * pDefender->vitals().maximumHealth());
 	}
 
 	// If defender tired, reduce chance accordingly (by up to 1/2)
-	if ((iDefRating > 0) && (pDefender->bBreath < 100))
-		iDefRating -= (iDefRating * (100 - pDefender->bBreath)) / 200;
+	if ((iDefRating > 0) && (pDefender->vitals().breath() < 100))
+		iDefRating -= (iDefRating * (100 - pDefender->vitals().breath())) / 200;
 
 	if ( usInHand == CREATURE_QUEEN_TENTACLES && (pDefender->ubBodyType == LARVAE_MONSTER || pDefender->ubBodyType == INFANT_MONSTER) )   // && binds tighter than || -> was protecting ALL infants regardless of weapon
 	{
@@ -9950,9 +9950,9 @@ INT32 CalcMaxTossRange( SOLDIERTYPE * pSoldier, UINT16 usItem, BOOLEAN fArmed, O
 			iRange = (INT32)( iRange * gItemSettings.fRangeModifierGrenade );
 
 		// adjust for thrower's remaining breath (lose up to 1/2 of range)
-		// sevenfm changed max breath value to pSoldier->bBreathMax
-		//iRange -= (iRange * (100 - pSoldier->bBreath)) / 200;
-		iRange -= (iRange * ( pSoldier->bBreathMax - pSoldier->bBreath)) / 200;
+		// sevenfm changed max breath value to pSoldier->vitals().maximumBreath()
+		//iRange -= (iRange * (100 - pSoldier->vitals().breath())) / 200;
+		iRange -= (iRange * ( pSoldier->vitals().maximumBreath() - pSoldier->vitals().breath())) / 200;
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 		// SANDRO - old/new traits
@@ -10228,14 +10228,14 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	}
 
 	// IF CHANCE EXISTS, BUT ATTACKER IS INJURED
-	if ((iChance > 0) && (pSoldier->stats.bLife < pSoldier->stats.bLifeMax))
+	if ((iChance > 0) && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth()))
 	{
 		// if bandaged, give 1/2 of the bandaged life points back into equation
-		bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
+		bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
 		// injury penalty is based on % damage taken (max 2/3rds iChance)
-		bPenalty = (2 * iChance * (pSoldier->stats.bLifeMax - pSoldier->stats.bLife + (bBandaged / 2))) /
-			 (3 * pSoldier->stats.bLifeMax);
+		bPenalty = (2 * iChance * (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() + (bBandaged / 2))) /
+			 (3 * pSoldier->vitals().maximumHealth());
 
 		// for mechanically-fired projectiles, reduce penalty in half
 		if ( Item[ usHandItem ].usItemClass == IC_LAUNCHER )
@@ -10248,10 +10248,10 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	}
 
 	// IF CHANCE EXISTS, BUT ATTACKER IS LOW ON BREATH
-	if ((iChance > 0) && (pSoldier->bBreath < 100))
+	if ((iChance > 0) && (pSoldier->vitals().breath() < 100))
 	{
 		// breath penalty is based on % breath missing (max 1/2 iChance)
-		bPenalty = (iChance * (100 - pSoldier->bBreath)) / 200;
+		bPenalty = (iChance * (100 - pSoldier->vitals().breath())) / 200;
 
 		// for mechanically-fired projectiles, reduce penalty in half
 		if ( Item[ usHandItem ].usItemClass == IC_LAUNCHER )
@@ -10487,7 +10487,7 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 			if ( pSoldier->ubID != pQueenSoldier->ubID )
 			{
 				// ATE: Ok, lets check for some basic things here!				
-				if ( pSoldier->stats.bLife >= OKLIFE && !TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bActive && pSoldier->bInSector )
+				if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bActive && pSoldier->bInSector )
 				{
 					UINT16 usRange = GetModifiedGunRange(CREATURE_QUEEN_TENTACLES);
 
@@ -11220,20 +11220,20 @@ FLOAT CalcNewChanceToHitBaseEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// INJURY
-	if (pSoldier->stats.bLife < pSoldier->stats.bLifeMax)
+	if (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth())
 	{
 		FLOAT fTempPenalty = gGameCTHConstants.BASE_INJURY;
 
 		// Bleeding damage is used as a percentage off the Max Life, giving a penalty of up to BASE_INJURY.
-		fBaseModifier += (FLOAT)(pSoldier->bBleeding * fTempPenalty) / pSoldier->stats.bLifeMax;
+		fBaseModifier += (FLOAT)(pSoldier->vitals().bleeding() * fTempPenalty) / pSoldier->vitals().maximumHealth();
 
 		// Bandage damage is used similarly, but is only 1/3 as bad.
-		INT8 bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
-		fBaseModifier += ((bBandaged * fTempPenalty) / pSoldier->stats.bLifeMax) / 3;
+		INT8 bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
+		fBaseModifier += ((bBandaged * fTempPenalty) / pSoldier->vitals().maximumHealth()) / 3;
 	}
 
 	// FATIGUE
-	fBaseModifier += (gGameCTHConstants.BASE_FATIGUE * (100 - pSoldier->bBreath)) / 100;
+	fBaseModifier += (gGameCTHConstants.BASE_FATIGUE * (100 - pSoldier->vitals().breath())) / 100;
 
 	// DRUNKNESS
 	INT8 iDrunkness = GetDrunkLevel(pSoldier);
@@ -11583,20 +11583,20 @@ FLOAT CalcNewChanceToHitAimEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 	
 	// INJURY
-	if (pSoldier->stats.bLife < pSoldier->stats.bLifeMax)
+	if (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth())
 	{
 		FLOAT fTempPenalty = gGameCTHConstants.AIM_INJURY;
 
 		// Bleeding damage is used as a percentage off the Max Life, giving a penalty of up to BASE_INJURY.
-		fAimModifier += (pSoldier->bBleeding * fTempPenalty) / pSoldier->stats.bLifeMax;
+		fAimModifier += (pSoldier->vitals().bleeding() * fTempPenalty) / pSoldier->vitals().maximumHealth();
 
 		// Bandage damage is used similarly, but is only 1/3 as bad.
-		INT8 bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
-		fAimModifier += ((bBandaged * fTempPenalty) / pSoldier->stats.bLifeMax) / 3;
+		INT8 bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
+		fAimModifier += ((bBandaged * fTempPenalty) / pSoldier->vitals().maximumHealth()) / 3;
 	}
 
 	// FATIGUE
-	fAimModifier += (gGameCTHConstants.AIM_FATIGUE * (100 - pSoldier->bBreath)) / 100;
+	fAimModifier += (gGameCTHConstants.AIM_FATIGUE * (100 - pSoldier->vitals().breath())) / 100;
 
 	// DRUNKNESS
 	INT8 iDrunkness = GetDrunkLevel(pSoldier);

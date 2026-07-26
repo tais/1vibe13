@@ -593,7 +593,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 			{
 				return( CIV_QUOTE__CIV_ENEMY_CAN_FIGHT); //40 
 			}
-			else if( pCiv->stats.bLife < pCiv->stats.bLifeMax )
+			else if( pCiv->vitals().health() < pCiv->vitals().maximumHealth() )
 			{
 				return( CIV_QUOTE__CIV_HURT ); //42
 			}
@@ -617,7 +617,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 		}
 
 		// Hurt?
-		else if ( pCiv->stats.bLife < 30 )
+		else if ( pCiv->vitals().health() < 30 )
 		{
 			return( CIV_QUOTE_ENEMY_HURT );
 		}
@@ -652,7 +652,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 			return( CIV_QUOTE_ENEMY_OFFER_SURRENDER );
 		}
 		// Hurt?
-		else if ( pCiv->stats.bLife < 30 )
+		else if ( pCiv->vitals().health() < 30 )
 		{
 			return( CIV_QUOTE_ENEMY_HURT );
 		}
@@ -1142,7 +1142,7 @@ void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID
 		return;
 	}
 	// only enemies that are able to speak at the moment can taunt
-	if ( pCiv->stats.bLife < OKLIFE || pCiv->bCollapsed || pCiv->bBreathCollapsed )
+	if ( pCiv->vitals().health() < OKLIFE || pCiv->bCollapsed || pCiv->bBreathCollapsed )
 	{
 		return;
 	}
@@ -1669,47 +1669,47 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		// energy, health
 		if( zTaunt[ i ].value[TAUNT_ENERGY_GT] != -1 )
 		{
-			if( pCiv->bBreath <= zTaunt[ i ].value[TAUNT_ENERGY_GT] )
+			if( pCiv->vitals().breath() <= zTaunt[ i ].value[TAUNT_ENERGY_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_ENERGY_LT] != -1 )
 		{
-			if( pCiv->bBreath >= zTaunt[ i ].value[TAUNT_ENERGY_LT] )
+			if( pCiv->vitals().breath() >= zTaunt[ i ].value[TAUNT_ENERGY_LT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_ENERGY_MAX_GT] != -1 )
 		{
-			if( pCiv->bBreathMax <= zTaunt[ i ].value[TAUNT_ENERGY_MAX_GT] )
+			if( pCiv->vitals().maximumBreath() <= zTaunt[ i ].value[TAUNT_ENERGY_MAX_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_ENERGY_MAX_LT] != -1 )
 		{
-			if( pCiv->bBreathMax >= zTaunt[ i ].value[TAUNT_ENERGY_MAX_LT] )
+			if( pCiv->vitals().maximumBreath() >= zTaunt[ i ].value[TAUNT_ENERGY_MAX_LT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_HEALTH_GT] != -1 )
 		{
-			if( pCiv->stats.bLife <= zTaunt[ i ].value[TAUNT_HEALTH_GT] )
+			if( pCiv->vitals().health() <= zTaunt[ i ].value[TAUNT_HEALTH_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_HEALTH_GT] != -1 )
 		{
-			if( pCiv->stats.bLife <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] )
+			if( pCiv->vitals().health() <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_HEALTH_LT] != -1 )
 		{
-			if( pCiv->stats.bLife >= zTaunt[ i ].value[TAUNT_HEALTH_LT] )
+			if( pCiv->vitals().health() >= zTaunt[ i ].value[TAUNT_HEALTH_LT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_HEALTH_MAX_GT] != -1 )
 		{
-			if( pCiv->stats.bLifeMax <= zTaunt[ i ].value[TAUNT_HEALTH_MAX_GT] )
+			if( pCiv->vitals().maximumHealth() <= zTaunt[ i ].value[TAUNT_HEALTH_MAX_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_HEALTH_MAX_LT] != -1 )
 		{
-			if( pCiv->stats.bLifeMax >= zTaunt[ i ].value[TAUNT_HEALTH_MAX_LT] )
+			if( pCiv->vitals().maximumHealth() >= zTaunt[ i ].value[TAUNT_HEALTH_MAX_LT] )
 				continue;
 		}
 		// morale
@@ -1850,47 +1850,47 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 			// target energy, health
 			if( zTaunt[ i ].value[TAUNT_TARGET_ENERGY_GT] != -1 )
 			{
-				if( pTarget->bBreath <= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_GT] )
+				if( pTarget->vitals().breath() <= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_ENERGY_LT] != -1 )
 			{
-				if( pTarget->bBreath >= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_LT] )
+				if( pTarget->vitals().breath() >= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_LT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_ENERGY_MAX_GT] != -1 )
 			{
-				if( pTarget->bBreathMax <= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_MAX_GT] )
+				if( pTarget->vitals().maximumBreath() <= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_MAX_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_ENERGY_MAX_LT] != -1 )
 			{
-				if( pTarget->bBreathMax >= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_MAX_LT] )
+				if( pTarget->vitals().maximumBreath() >= zTaunt[ i ].value[TAUNT_TARGET_ENERGY_MAX_LT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] != -1 )
 			{
-				if( pTarget->stats.bLife <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] )
+				if( pTarget->vitals().health() <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] != -1 )
 			{
-				if( pTarget->stats.bLife <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] )
+				if( pTarget->vitals().health() <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_HEALTH_LT] != -1 )
 			{
-				if( pTarget->stats.bLife >= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_LT] )
+				if( pTarget->vitals().health() >= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_LT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_HEALTH_MAX_GT] != -1 )
 			{
-				if( pTarget->stats.bLifeMax <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_MAX_GT] )
+				if( pTarget->vitals().maximumHealth() <= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_MAX_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_HEALTH_MAX_LT] != -1 )
 			{
-				if( pTarget->stats.bLifeMax >= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_MAX_LT] )
+				if( pTarget->vitals().maximumHealth() >= zTaunt[ i ].value[TAUNT_TARGET_HEALTH_MAX_LT] )
 					continue;
 			}
 			// morale
@@ -2176,7 +2176,7 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 		ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Soldier [%d] TauntType %d", pCiv->ubID, iTauntType);
 
 	// cannot taunt when dead or collapsed
-	if (pCiv->stats.bLife < OKLIFE || pCiv->bCollapsed || pCiv->bBreathCollapsed)
+	if (pCiv->vitals().health() < OKLIFE || pCiv->bCollapsed || pCiv->bBreathCollapsed)
 	{
 		if (gTauntsSettings.fTauntVoiceShowInfo)
 			ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Bad soldier state (dying or collapsed)");

@@ -1467,7 +1467,7 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 				for ( ; tcnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++tcnt )
 				{
 					tS = tcnt;
-					if ( tS->stats.bLife >= OKLIFE && tS->sGridNo != NOWHERE && tS->bInSector )
+					if ( tS->vitals().health() >= OKLIFE && tS->sGridNo != NOWHERE && tS->bInSector )
 					{
 						//loop through all the gridnos that we are interested in
 						for (sYOffset = -30; sYOffset <= 30; ++sYOffset)
@@ -1536,10 +1536,10 @@ UINT32 UIHandleTestHit( UI_EVENT *pUIEvent )
 
 		if ( _KeyDown( SHIFT ) )
 		{
-			pSoldier->bBreath -= 30;
+			pSoldier->vitals().breath() -= 30;
 
-			if ( pSoldier->bBreath < 0 )
-				pSoldier->bBreath = 0;
+			if ( pSoldier->vitals().breath() < 0 )
+				pSoldier->vitals().breath() = 0;
 
 			bDamage = 1;
 		}
@@ -1774,7 +1774,7 @@ UINT32 UIHandleMOnTerrain( UI_EVENT *pUIEvent )
 			// Check were we are
 			// CHECK IF WE CAN MOVE HERE
 			// THIS IS JUST A CRUDE TEST FOR NOW
-			if ( pSoldier->stats.bLife < OKLIFE )
+			if ( pSoldier->vitals().health() < OKLIFE )
 			{
 				// Show reg. cursor
 				// GO INTO IDLE MODE
@@ -3036,8 +3036,8 @@ void SurgeryRequesterCallback( UINT8 bExitValue )
 	{
 		gTacticalStatus.ubLastRequesterSurgeryTargetID = NOBODY;
 
-		if (!pTarget->bBleeding &&
-			pTarget->stats.bLife >= OKLIFE)
+		if (!pTarget->vitals().bleeding() &&
+			pTarget->vitals().health() >= OKLIFE)
 		{
 			ScreenMsg(
 				FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK,
@@ -3122,7 +3122,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 					INT32 healwithout_bloodbag = pTSoldier->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
 	
 					// Flugente: if we wouldn't really heal anything due to the wound being too small, tell us so
-					if ( !pTSoldier->bBleeding && healwithout_bloodbag <= 0 )
+					if ( !pTSoldier->vitals().bleeding() && healwithout_bloodbag <= 0 )
 					{
 						gRequesterCallbackContext.reset();
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[19], pTSoldier->GetName( ) );
@@ -3136,7 +3136,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 
 						if ( healwith_bloodbag > healwithout_bloodbag )
 						{
-							if ( pTSoldier->bBleeding )
+							if ( pTSoldier->vitals().bleeding() )
 								swprintf( zStr, New113Message[MSG113_DO_WE_WANT_SURGERY_FIRST_BLOODBAG], pTSoldier->GetName(), healwithout_bloodbag, healwith_bloodbag );
 							else
 								swprintf( zStr, New113Message[MSG113_DO_WE_WANT_SURGERY_BLOODBAG], pTSoldier->GetName(), healwithout_bloodbag, healwith_bloodbag );
@@ -3149,7 +3149,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 						}
 						else
 						{
-							if ( pTSoldier->bBleeding )
+							if ( pTSoldier->vitals().bleeding() )
 								swprintf( zStr, New113Message[MSG113_DO_WE_WANT_SURGERY_FIRST], pTSoldier->GetName(), healwithout_bloodbag );
 							else
 								swprintf( zStr, New113Message[MSG113_DO_WE_WANT_SURGERY], pTSoldier->GetName(), healwithout_bloodbag );
@@ -3602,7 +3602,7 @@ UINT32 UIHandleHCOnTerrain( UI_EVENT *pUIEvent )
 	}
 
 	// If we are out of breath, no cursor...
-	if ( pSoldier->bBreath < OKBREATH && pSoldier->bCollapsed )
+	if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
 	{
 		guiNewUICursor = INVALID_ACTION_UICURSOR;
 	}
@@ -3925,7 +3925,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	// Is this a valid stance for our position?
 	if ( !IsValidStance( pSoldier, bNewStance ) )
 	{
-		if ( pSoldier->bCollapsed && pSoldier->bBreath < OKBREATH )
+		if ( pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pSoldier->GetName() );
 		}
@@ -5071,20 +5071,20 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 		// SANDRO - doctor with medical bag trying to do the surgery
 		if ((NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) && ItemIsMedicalKit(pSoldier->inv[ HANDPOS ].usItem) && GetGameContext().options().fNewTraitSystem
-			&& (pTSoldier->stats.bLife != pTSoldier->stats.bLifeMax) && (pTSoldier->iHealableInjury >= 100))
+			&& (pTSoldier->vitals().health() != pTSoldier->vitals().maximumHealth()) && (pTSoldier->iHealableInjury >= 100))
 		{
 			// should come a question first if you really want to do the surgery
 			return( TRUE );
 		}
 		else
 		{
-			if ( pTSoldier->bBleeding == 0 && pTSoldier->stats.bLife != pTSoldier->stats.bLifeMax )
+			if ( pTSoldier->vitals().bleeding() == 0 && pTSoldier->vitals().health() != pTSoldier->vitals().maximumHealth() )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 19 ], pTSoldier->GetName() );
 				return( FALSE );
 			}
 
-			if ( pTSoldier->bBleeding == 0 && pTSoldier->stats.bLife >= OKLIFE )
+			if ( pTSoldier->vitals().bleeding() == 0 && pTSoldier->vitals().health() >= OKLIFE )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ CANNOT_NO_NEED_FIRST_AID_STR ], pTSoldier->GetName() );
 				return( FALSE );
@@ -5475,7 +5475,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 	// Make sure the merc is not collapsed!
 	if (!(IsValidStance(pSoldier, ANIM_CROUCH) || IsValidStance(pSoldier, ANIM_STAND)) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER )))
 	{
-		if ( pSoldier->bCollapsed && pSoldier->bBreath < OKBREATH )
+		if ( pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pSoldier->GetName() );
 		}
@@ -6462,7 +6462,7 @@ BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllow
 	}
 
 	// CHECK IF DEAD
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		return( FALSE );
 	}

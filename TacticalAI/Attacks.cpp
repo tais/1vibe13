@@ -229,7 +229,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		fReturnFire = FALSE;
 
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pOpponent || !pOpponent->stats.bLife)
+		if (!pOpponent || !pOpponent->vitals().health())
 			continue;			// next merc
 
 		if (!ValidOpponent(pSoldier, pOpponent))
@@ -330,8 +330,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 		// sevenfm: only try to suppress alive and conscious human targets
 		if (fSuppression &&
-			(pOpponent->stats.bLife < OKLIFE ||
-			pOpponent->bCollapsed && pOpponent->bBreath == 0 ||
+			(pOpponent->vitals().health() < OKLIFE ||
+			pOpponent->bCollapsed && pOpponent->vitals().breath() == 0 ||
 			pOpponent->IsCowering() ||
 			pOpponent->IsCowering() ||
 			pOpponent->IsZombie() ||
@@ -694,7 +694,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// sevenfm: dying, cowering or unconscious soldiers have very low priority
-		if( pOpponent->stats.bLife < OKLIFE || pOpponent->bCollapsed || pOpponent->bBreathCollapsed )
+		if( pOpponent->vitals().health() < OKLIFE || pOpponent->bCollapsed || pOpponent->bBreathCollapsed )
 		{
 			iAttackValue /= 4;
 		}
@@ -717,16 +717,16 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				// sevenfm: check that best opponent exists
 				if (pBestShot->ubOpponent != NOBODY &&
 					(pBestShot->ubOpponent->bCollapsed || pBestShot->ubOpponent->bBreathCollapsed) &&
-					pBestShot->ubOpponent->bBreath < OKBREATH
-					&& pBestShot->ubOpponent->bBreath < pOpponent->bBreath)
+					pBestShot->ubOpponent->vitals().breath() < OKBREATH
+					&& pBestShot->ubOpponent->vitals().breath() < pOpponent->vitals().breath())
 				{
 					iPercentBetter = PERCENT_TO_IGNORE_THREAT;
 				}
 
 				// sevenfm: if best opponent is dying and new opponent is ok, use new opponent
 				if (pBestShot->ubOpponent != NOBODY &&
-					pBestShot->ubOpponent->stats.bLife < OKLIFE &&
-					pOpponent->stats.bLife >= OKLIFE)
+					pBestShot->ubOpponent->vitals().health() < OKLIFE &&
+					pOpponent->vitals().health() >= OKLIFE)
 				{
 					iPercentBetter = PERCENT_TO_IGNORE_THREAT;
 				}
@@ -735,7 +735,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				// guy is conscious at all
 				if (iPercentBetter < -PERCENT_TO_IGNORE_THREAT &&
 					pBestShot->ubOpponent != NOBODY &&
-					pBestShot->ubOpponent->stats.bLife >= OKLIFE)
+					pBestShot->ubOpponent->vitals().health() >= OKLIFE)
 				{
 					// then stick with the older guy as the better target
 					continue;
@@ -753,8 +753,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 			// sevenfm: if new opponent is dying and best opponent is ok, ignore new opponent
 			if (pBestShot->ubOpponent != NOBODY &&
-				pBestShot->ubOpponent->stats.bLife >= OKLIFE &&
-				pOpponent->stats.bLife < OKLIFE)
+				pBestShot->ubOpponent->vitals().health() >= OKLIFE &&
+				pOpponent->vitals().health() < OKLIFE)
 			{
 				//DebugShot(pSoldier, String("new opponent is dying, best opponent is ok - skip"));
 				continue;
@@ -1051,7 +1051,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			continue; // next soldier
 		}
 
-		if (pFriend->stats.bLife == 0)
+		if (pFriend->vitals().health() == 0)
 		{
 			continue;
 		}
@@ -1088,7 +1088,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			continue;			// next soldier
 		}
 
-		if (!pOpponent->stats.bLife)
+		if (!pOpponent->vitals().health())
 		{
 			continue;			// next soldier
 		}
@@ -1155,7 +1155,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 
 		// don't use grenades against dying enemies
-		if (pOpponent->stats.bLife < OKLIFE && !pOpponent->IsZombie())
+		if (pOpponent->vitals().health() < OKLIFE && !pOpponent->IsZombie())
 		{
 			continue;
 		}
@@ -1493,7 +1493,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 						iTotalThreatValue += (iThreatValue * iEstDamage);
 
 						// only count opponents still standing worth shooting at (in range)
-						if (ubOpponentID[ubLoop2]->stats.bLife >= OKLIFE)
+						if (ubOpponentID[ubLoop2]->vitals().health() >= OKLIFE)
 						{
 							ubOppsInRange++;
 							if (usOppDist < 2)
@@ -1746,7 +1746,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pOpponent || !pOpponent->stats.bLife)
+		if (!pOpponent || !pOpponent->vitals().health())
 			continue;			// next merc
 
 		// if this man is neutral / on the same side, he's not an opponent
@@ -1917,7 +1917,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 				// guy is conscious at all
 				if (iPercentBetter < -PERCENT_TO_IGNORE_THREAT &&
 					pBestStab->ubOpponent != NOBODY &&
-					pBestStab->ubOpponent->stats.bLife >= OKLIFE)
+					pBestStab->ubOpponent->vitals().health() >= OKLIFE)
 				{
 					// then stick with the older guy as the better target
 					continue;
@@ -1973,7 +1973,7 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pOpponent || !pOpponent->stats.bLife)
+		if (!pOpponent || !pOpponent->vitals().health())
 			continue;			// next merc
 
 		// if this man is neutral / on the same side, he's not an opponent
@@ -2121,8 +2121,8 @@ UINT8 NumMercsCloseTo( INT32 sGridNo, UINT8 ubMaxDist )
 		pSoldier = MercSlots[ uiLoop ];
 
 		// sevenfm: count all teams except creatures
-		if (pSoldier && pSoldier->bTeam != CREATURE_TEAM && pSoldier->stats.bLife >= OKLIFE)
-		//if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->stats.bLife >= OKLIFE )
+		if (pSoldier && pSoldier->bTeam != CREATURE_TEAM && pSoldier->vitals().health() >= OKLIFE)
+		//if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= ubMaxDist)
 			{
@@ -2394,7 +2394,7 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 		iDamage += 15;
 	}
 
-	if ( pOpponent->bBreath < OKBREATH || AM_A_ROBOT( pOpponent ) )
+	if ( pOpponent->vitals().breath() < OKBREATH || AM_A_ROBOT( pOpponent ) )
 	{
 		// don't bother to count breath damage against people already down
 		iBreathDamage = 0;
@@ -3357,22 +3357,22 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 		}
 	}
 
-	if( pSoldier->stats.bLife < pSoldier->stats.bLifeMax )
+	if( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() )
 	{
-		sChance -= (pSoldier->stats.bLifeMax - pSoldier->stats.bLife);
+		sChance -= (pSoldier->vitals().maximumHealth() - pSoldier->vitals().health());
 	}
-	if( pSoldier->bBreath < pSoldier->bBreathMax )
+	if( pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() )
 	{
-		sChance -= ((pSoldier->bBreathMax - pSoldier->bBreath) / 2);
+		sChance -= ((pSoldier->vitals().maximumBreath() - pSoldier->vitals().breath()) / 2);
 	}
 
-	if( pOpponent->stats.bLife < pOpponent->stats.bLifeMax )
+	if( pOpponent->vitals().health() < pOpponent->vitals().maximumHealth() )
 	{
-		sChance += (pOpponent->stats.bLifeMax - pOpponent->stats.bLife);
+		sChance += (pOpponent->vitals().maximumHealth() - pOpponent->vitals().health());
 	}
-	if( pOpponent->bBreath < pOpponent->bBreathMax )
+	if( pOpponent->vitals().breath() < pOpponent->vitals().maximumBreath() )
 	{
-		sChance += ((pOpponent->bBreathMax - pOpponent->bBreath) / 2);
+		sChance += ((pOpponent->vitals().maximumBreath() - pOpponent->vitals().breath()) / 2);
 	}
 
 	if( pSoldier->bActionPoints > (GetAPsToStealItem( pSoldier, NULL, pOpponent->sGridNo ) +  (2 * ApsToPunch( pSoldier ))) )
@@ -3502,11 +3502,11 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 		if ( !pFriend || !pFriend->bActive || !pFriend->bInSector )
 			continue;
 
-		if (pFriend->stats.bLife == 0)
+		if (pFriend->vitals().health() == 0)
 			continue;
 
 		// dying or captured friends are 'helpless' anyway, we are willing to sacrifice them :-)
-		if ( uCheckFriends && pSoldier->bSide == pFriend->bSide && pFriend->stats.bLife >= OKLIFE && !(pFriend->usSoldierFlagMask & SOLDIER_POW) )
+		if ( uCheckFriends && pSoldier->bSide == pFriend->bSide && pFriend->vitals().health() >= OKLIFE && !(pFriend->usSoldierFlagMask & SOLDIER_POW) )
 		{
 			// active friend, remember where he is so that we DON'T blow him up!
 			// this includes US, since we don't want to blow OURSELVES up either
@@ -3911,10 +3911,10 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				if (pFriend &&
 					pFriend != pSoldier &&
 					pFriend->bActive &&
-					pFriend->stats.bLife >= OKLIFE &&
+					pFriend->vitals().health() >= OKLIFE &&
 					RangeChangeDesire(pFriend) <= 3 &&
 					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->lastFlankSpot) && PythSpacesAway(pFriend->sGridNo, pFriend->lastFlankSpot) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->sGridNo, pFriend->pathing.bLevel, pFriend->lastFlankSpot, pFriend->pathing.bLevel, TRUE, NO_DISTANCE_LIMIT) ||
-					pFriend->aiData.bUnderFire && (pFriend->IsCowering() || pFriend->TakenLargeHit() || pFriend->aiData.bUnderFire && pFriend->ShockLevelPercent() > 50 && pFriend->stats.bLife < pFriend->stats.bLifeMax * 3 / 4))
+					pFriend->aiData.bUnderFire && (pFriend->IsCowering() || pFriend->TakenLargeHit() || pFriend->aiData.bUnderFire && pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					)
 				{
 					sFriendSpot = pFriend->sGridNo;
@@ -3932,7 +3932,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 						//!SightCoverAtSpot(pFriend, sFriendSpot, FALSE) &&
 						//!AnyCoverAtSpot(pFriend, sFriendSpot) &&
 						(TileIsOutOfBounds(sClosestFriendSpot) || PythSpacesAway(sSpot, sFriendSpot) < PythSpacesAway(sSpot, sClosestFriendSpot)) &&
-						(pFriend->TakenLargeHit() || pFriend->ShockLevelPercent() > 50 && pFriend->stats.bLife < pFriend->stats.bLifeMax * 3 / 4))
+						(pFriend->TakenLargeHit() || pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					{
 						// check that we can toss grenade
 						CheckTossAt(pSoldier, pBestThrow, sFriendSpot, bFriendLevel, pFriend->ubID);

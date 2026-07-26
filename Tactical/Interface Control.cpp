@@ -1386,7 +1386,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 				sSuppressionY = ( sMercScreenY - sOffsetY );
 		}
 		// print current ubSuppressionPoints counter
-		if( gGameExternalOptions.ubShowSuppressionCountAlt && pSoldier->stats.bLife >= OKLIFE )
+		if( gGameExternalOptions.ubShowSuppressionCountAlt && pSoldier->vitals().health() >= OKLIFE )
 		{                               
 			if( pSoldier->ubSuppressionPoints >0 )
 			{
@@ -1469,7 +1469,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 			}
 
 			// do not show suppression info for dying soldier
-			if ( pSoldier->stats.bLife >= OKLIFE )
+			if ( pSoldier->vitals().health() >= OKLIFE )
 			{
 				// replace runtime.combatFeedback.lastSuppression count on screen
 				if( gGameExternalOptions.ubShowSuppressionCountAlt && gGameExternalOptions.ubShowSuppressionCount == 2 && pSoldier->runtime.combatFeedback.lastSuppression > 0 )

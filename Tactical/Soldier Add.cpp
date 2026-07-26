@@ -1151,9 +1151,9 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		// ATE: Make sure life of elliot is OK if from a meanwhile
 		if ( AreInMeanwhile() && pSoldier->ubProfile == ELLIOT )
 		{
-			if ( pSoldier->stats.bLife < OKLIFE )
+			if ( pSoldier->vitals().health() < OKLIFE )
 			{
-				pSoldier->stats.bLife = 25;
+				pSoldier->vitals().health() = 25;
 			}
 		}
 #endif
@@ -1737,7 +1737,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				}
 
 				// ATE: if we are below OK life, make them lie down!
-				if ( pSoldier->stats.bLife < OKLIFE )
+				if ( pSoldier->vitals().health() < OKLIFE )
 				{
 					SoldierInSectorIncompaciated( pSoldier, pSoldier->sInsertionGridNo );
 				}
@@ -1797,7 +1797,7 @@ BOOLEAN IsMercOnTeam(UINT8 ubMercID, BOOLEAN aAlreadyInCountry, BOOLEAN aAlive)
 			if ( aAlreadyInCountry && pTeamSoldier->bAssignment == IN_TRANSIT )
 				continue;
 
-			if ( aAlive && pTeamSoldier->stats.bLife <= 0 )
+			if ( aAlive && pTeamSoldier->vitals().health() <= 0 )
 				continue;
 
 			return( TRUE );

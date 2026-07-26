@@ -120,8 +120,8 @@ void ValidateEnemiesHaveWeapons()
 			// WDS DEBUG
 			// Uncommenting the following two lines will cause all the PLACED soldiers to instantly drop dead, 
 			// which is useful for debugging some things
-			//pSoldier->bBleeding = 10;
-			//pSoldier->stats.bLife = 1;
+			//pSoldier->vitals().bleeding() = 10;
+			//pSoldier->vitals().health() = 1;
 		}
 
 		// do message box and return
@@ -289,7 +289,7 @@ UINT16 NumPlayerTeamMembersInSector( INT16 sSectorX, INT16 sSectorY, INT8 sSecto
 		pTeamSoldier = bMercID;
 		// we test several conditions before we allow adding an opinion
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
-		if ( pTeamSoldier->bActive && !pTeamSoldier->flags.fBetweenSectors  && pTeamSoldier->stats.bLife > 0 && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
+		if ( pTeamSoldier->bActive && !pTeamSoldier->flags.fBetweenSectors  && pTeamSoldier->vitals().health() > 0 && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
 			 !(pTeamSoldier->bAssignment == IN_TRANSIT || pTeamSoldier->bAssignment == ASSIGNMENT_DEAD || pTeamSoldier->bAssignment == ASSIGNMENT_POW || pTeamSoldier->bAssignment == ASSIGNMENT_MINIEVENT || pTeamSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND) &&
 			 (pTeamSoldier->sSectorX == sSectorX && pTeamSoldier->sSectorY == sSectorY && pTeamSoldier->bSectorZ == sSectorZ) )
 		{
@@ -555,13 +555,13 @@ void EndTacticalBattleForEnemy()
 	for( SoldierID i = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; i <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = i;
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE )
+		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE )
 		{ //found one live militia, so look for any enemies/creatures.
 			// NOTE: this is relying on ENEMY_TEAM being immediately followed by CREATURE_TEAM
 			for( SoldierID j = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; j <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++j )
 			{
 				SOLDIERTYPE *pEnemy = j;
-				if( pEnemy->bActive && pEnemy->bInSector && pEnemy->stats.bLife >= OKLIFE )
+				if( pEnemy->bActive && pEnemy->bInSector && pEnemy->vitals().health() >= OKLIFE )
 				{ //confirmed at least one enemy here, so do the loyalty penalty.
 					HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_ABANDON_MILITIA, gWorldSectorX, gWorldSectorY, 0 );
 					break;
@@ -2134,7 +2134,7 @@ void NotifyPlayersOfNewEnemies()
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{ //find a merc that is aware.
 		pSoldier = i;
-		if( pSoldier->bInSector && pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bBreath >= OKBREATH )
+		if( pSoldier->bInSector && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH )
 		{
 			iSoldiers++;
 		}
@@ -2146,7 +2146,7 @@ void NotifyPlayersOfNewEnemies()
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{ //find a merc that is aware.
 			pSoldier = i;
-			if( pSoldier->bInSector && pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE )
+			if( pSoldier->bInSector && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
 			{
 				iSoldiers++;
 			}
@@ -2158,8 +2158,8 @@ void NotifyPlayersOfNewEnemies()
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{ //find a merc that is aware.
 			pSoldier = i;
-			if( pSoldier->bInSector && pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE &&
-				( ( pSoldier->bBreath >= OKBREATH ) || fIgnoreBreath ) )
+			if( pSoldier->bInSector && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE &&
+				( ( pSoldier->vitals().breath() >= OKBREATH ) || fIgnoreBreath ) )
 			{
 				if( !iChosenSoldier )
 				{
@@ -2893,7 +2893,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 	// If this is an EPC , just kill them...
 	if ( AM_AN_EPC( pSoldier ) || AM_A_ROBOT(pSoldier))
 	{
-		pSoldier->stats.bLife = 0;
+		pSoldier->vitals().health() = 0;
 		pSoldier->iHealableInjury = 0; // added by SANDRO
 		BOOLEAN fMadeCorpse;
 		HandleSoldierDeath( pSoldier, &fMadeCorpse );
@@ -3000,7 +3000,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		gStrategicStatus.ubNumCapturedForRescue++;
 
 		//Bandaging him would prevent him from dying (due to low HP)
-		pSoldier->bBleeding = 0;
+		pSoldier->vitals().bleeding() = 0;
 
 		// wake him up
 		if ( pSoldier->flags.fMercAsleep )
@@ -3010,19 +3010,19 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		}
 
 		//Set his life to 50% + or - 10 HP.
-		INT8 oldlife = pSoldier->stats.bLife;
-		pSoldier->stats.bLife = max(35, pSoldier->stats.bLifeMax / 2);
+		INT8 oldlife = pSoldier->vitals().health();
+		pSoldier->vitals().health() = max(35, pSoldier->vitals().maximumHealth() / 2);
 	
-		if ( pSoldier->stats.bLife >= 45 )
+		if ( pSoldier->vitals().health() >= 45 )
 		{
-			pSoldier->stats.bLife += (INT8)(10 - Random( 21 ) );
+			pSoldier->vitals().health() += (INT8)(10 - Random( 21 ) );
 		}
 		
 		// SANDRO - make the lost life insta-healable
-		pSoldier->iHealableInjury = ((pSoldier->stats.bLifeMax - pSoldier->stats.bLife) * 100);
+		pSoldier->iHealableInjury = ((pSoldier->vitals().maximumHealth() - pSoldier->vitals().health()) * 100);
 
 		// make him quite exhausted when found
-		pSoldier->bBreath = pSoldier->bBreathMax = 50;
+		pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath() = 50;
 		pSoldier->sBreathRed = 0;
 		pSoldier->flags.fMercCollapsedFlag = FALSE;
 
@@ -3062,7 +3062,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++i )
 	{
 		pSoldier = i;
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife )
+		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiData.bNeutral )
 			{
@@ -3079,7 +3079,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; i <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++i )
 	{
 		pSoldier = i;
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife )
+		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiData.bNeutral )
 			{
@@ -3090,7 +3090,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ CREATURE_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++i )
 	{
 		pSoldier = i;
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife )
+		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiData.bNeutral )
 			{
@@ -3101,7 +3101,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; i <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++i )
 	{
 		pSoldier = i;
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife )
+		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiData.bNeutral )
 			{

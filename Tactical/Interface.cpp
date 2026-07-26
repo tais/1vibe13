@@ -3544,32 +3544,32 @@ void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sW
 	}
 
 	// get amt bandaged
-	bBandage = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
+	bBandage = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 	
 	// NOW DO BLEEDING
-	if ( pSoldier->bBleeding )
+	if ( pSoldier->vitals().bleeding() )
 	{
-		dPercentage = (FLOAT)( pSoldier->bBleeding +	pSoldier->stats.bLife + bBandage )/ (FLOAT)100;
+		dPercentage = (FLOAT)( pSoldier->vitals().bleeding() +	pSoldier->vitals().health() + bBandage )/ (FLOAT)100;
 		dWidth			=	dPercentage * sWidth;
 		DrawBar( sXPos + 3, sYPos + 1, (INT32)dWidth, sHeight, COLOR_RED, Get16BPPColor( FROMRGB( 240,	240, 20	) ), pDestBuf );
 	}
 		
 	if( bBandage )
 	{
-		dPercentage = (FLOAT)( pSoldier->stats.bLife + bBandage ) / (FLOAT)100;
+		dPercentage = (FLOAT)( pSoldier->vitals().health() + bBandage ) / (FLOAT)100;
 		dWidth			=	dPercentage * sWidth;
 		DrawBar( sXPos + 3, sYPos + 1, (INT32)dWidth, sHeight, COLOR_RED, Get16BPPColor( FROMRGB( 222, 132, 132	) ), pDestBuf );
 	}
 		
-	dPercentage = (FLOAT)pSoldier->stats.bLife / (FLOAT)100;
+	dPercentage = (FLOAT)pSoldier->vitals().health() / (FLOAT)100;
 	dWidth			=	dPercentage * sWidth;
 	DrawBar( sXPos + 3, sYPos + 1, (INT32)dWidth, sHeight, COLOR_RED, Get16BPPColor( FROMRGB( 200, 0, 0	) ), pDestBuf );
 		
-	dPercentage = (FLOAT)( pSoldier->bBreathMax ) / (FLOAT)100;
+	dPercentage = (FLOAT)( pSoldier->vitals().maximumBreath() ) / (FLOAT)100;
 	dWidth			=	dPercentage * sWidth;
 	DrawBar( sXPos + 3, sYPos + 1 + interval, (INT32)dWidth, sHeight, COLOR_BLUE, Get16BPPColor( FROMRGB( 20, 20, 150	) ), pDestBuf );
 
-	dPercentage = (FLOAT)( pSoldier->bBreath ) / (FLOAT)100;
+	dPercentage = (FLOAT)( pSoldier->vitals().breath() ) / (FLOAT)100;
 	dWidth			=	dPercentage * sWidth;
 	DrawBar( sXPos + 3, sYPos + 1 + interval, (INT32)dWidth, sHeight, COLOR_BLUE, Get16BPPColor( FROMRGB( 100, 100, 220 ) ), pDestBuf );	
 
@@ -5241,7 +5241,7 @@ void InitPlayerUIBar( BOOLEAN fInterrupt )
 			// Are we active and in sector.....
 			if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
 			{
-				if ( pTeamSoldier->stats.bLife < OKLIFE )
+				if ( pTeamSoldier->vitals().health() < OKLIFE )
 				{
 					bNumNotOK++;
 				}
@@ -5312,7 +5312,7 @@ STR16 GetSoldierHealthString( SOLDIERTYPE *pSoldier )
 			return zHealthStr[ 7 ];
 
 		INT32 cnt, cntStart;
-		if( pSoldier->stats.bLife == pSoldier->stats.bLifeMax )
+		if( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() )
 		{
 			cntStart = 4;
 		}
@@ -5323,7 +5323,7 @@ STR16 GetSoldierHealthString( SOLDIERTYPE *pSoldier )
 		//Show health on others.........
 		for ( cnt = cntStart; cnt < 6; cnt ++ )
 		{
-			if ( pSoldier->stats.bLife < bHealthStrRanges[ cnt ] )
+			if ( pSoldier->vitals().health() < bHealthStrRanges[ cnt ] )
 			{
 				break;
 			}
@@ -6209,7 +6209,7 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 	// draw health
 	if(ubLines > 0)
 	{
-		dPercentage = (FLOAT)pSoldier->stats.bLife / (FLOAT) pSoldier->stats.bLifeMax;
+		dPercentage = (FLOAT)pSoldier->vitals().health() / (FLOAT) pSoldier->vitals().maximumHealth();
 		dWidth			=	dPercentage * iBarWidth;
 		dWidth = __min (dWidth, iBarWidth);
 		DrawBar( sX + 1, sY + 1, (INT32)dWidth, sHeight, COLOR_RED, Get16BPPColor( FROMRGB( 200, 0, 0	) ), pDestBuf );
@@ -6258,7 +6258,7 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 	// draw BP
 	if( ubLines > 4 )
 	{
-		dPercentage = (FLOAT)( pSoldier->bBreath ) / (FLOAT)( pSoldier->bBreathMax );
+		dPercentage = (FLOAT)( pSoldier->vitals().breath() ) / (FLOAT)( pSoldier->vitals().maximumBreath() );
 		dWidth = dPercentage * iBarWidth;
 		dWidth = __min (dWidth, iBarWidth);
 		DrawBar( sX+1, sY + 1 + 4*(sHeight+1), (INT32)dWidth, sHeight, COLOR_BLUE, Get16BPPColor( FROMRGB( 0, 0, 200 ) ), pDestBuf );

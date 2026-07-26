@@ -496,7 +496,7 @@ void HandleBestSightingPositionInRealtime( void )
 			for ( UINT32 uiL = 0; uiL < guiNumMercSlots; uiL++ )
 			{
 				SOLDIERTYPE* pE = MercSlots[ uiL ];
-				if ( pE && pE->bActive && pE->bInSector && pE->stats.bLife > 0
+				if ( pE && pE->bActive && pE->bInSector && pE->vitals().health() > 0
 				    && pE->bTeam != pSighter->bTeam
 				    && pSighter->aiData.bOppList[ pE->ubID ] == SEEN_CURRENTLY )
 				{
@@ -701,7 +701,7 @@ void AddToShouldBecomeHostileOrSayQuoteList( SoldierID ubID )
 
 	Assert( gubNumShouldBecomeHostileOrSayQuote < SHOULD_BECOME_HOSTILE_SIZE );
 
-	if ( ubID->stats.bLife < OKLIFE )
+	if ( ubID->vitals().health() < OKLIFE )
 	{
 		return;
 	}
@@ -869,7 +869,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 	if (ubSightFlags & SIGHT_LOOK)
 	{
 		// if this soldier's under our control and well enough to look
-		if (pSoldier->stats.bLife >= OKLIFE )
+		if (pSoldier->vitals().health() >= OKLIFE )
 		{
 		/*
 #ifdef RECORDOPPLIST
@@ -969,7 +969,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 		{
 			pThem = MercSlots[ uiLoop ];
 
-			if (pThem != NULL && pThem->stats.bLife >= OKLIFE)
+			if (pThem != NULL && pThem->vitals().health() >= OKLIFE)
 			{
 				// if this merc is on the same team as the target soldier
 				if (pThem->bTeam == pSoldier->bTeam)
@@ -1023,7 +1023,7 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 	for (iLoop = Status.team[Net.pnum].guystart,ourPtr = MercPtrs[iLoop]; iLoop < Status.team[Net.pnum].guyend; iLoop++,ourPtr++)
 	{
 		// if this merc is active, in this sector, and well enough to look
-		if (pSoldier->active && pSoldier->bInSector && (pSoldier->stats.bLife >= OKLIFE))
+		if (pSoldier->active && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE))
 		{
 			RadioSightings(pSoldier,ubAbout,pSoldier->bTeam);
 			pSoldier->bNewOppCnt = 0;
@@ -1042,7 +1042,7 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 	{
 		pSoldier = id;
 		// if this merc is active, in this sector, and well enough to look
-		if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->stats.bLife >= OKLIFE))
+		if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE))
 			// put him on our list, and increment the counter
 			radioMan[radioCnt++] = (INT16)id;
 	}
@@ -1098,7 +1098,7 @@ INT16 TeamNoLongerSeesMan( UINT8 ubTeam, SOLDIERTYPE *pOpponent, SoldierID ubExc
 			continue;	// skip him, he's no teammate at all!
 
 		// if this merc is not active, at base, on assignment, dead, unconscious
-		if ( !pMate->bActive || !pMate->bInSector || (pMate->stats.bLife < OKLIFE) )
+		if ( !pMate->bActive || !pMate->bInSector || (pMate->vitals().health() < OKLIFE) )
 			continue;	// next merc
 
 		// if this teammate currently sees this opponent
@@ -1233,7 +1233,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	}
 
 	// sevenfm: if soldier is unconscious, he can't see anything
-	if ( pSoldier->bCollapsed && pSoldier->bBreath == 0 )
+	if ( pSoldier->bCollapsed && pSoldier->vitals().breath() == 0 )
 	{
 		return( 0 );
 	}
@@ -1693,7 +1693,7 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 	{
 		pSoldier = MercSlots[uiLoop];
 
-		if ( pSoldier != NULL && pSoldier->stats.bLife >= OKLIFE )
+		if ( pSoldier != NULL && pSoldier->vitals().health() >= OKLIFE )
 		{
 			HandleSight( pSoldier, SIGHT_LOOK );	// no radio or interrupts yet
 		}
@@ -1797,7 +1797,7 @@ void ManLooksForOtherTeams(SOLDIERTYPE *pSoldier)
 	pOpponent = MercSlots[ uiLoop ];
 
 	// if this soldier is around and alive
-	if (pOpponent && pOpponent->stats.bLife)
+	if (pOpponent && pOpponent->vitals().health())
 	{
 	 // and if he's on another team...
 	 if (pSoldier->bTeam != pOpponent->bTeam)
@@ -1958,7 +1958,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 */
 
 	// if we're somehow looking while inactive, at base, dead or dying
-	if (!pSoldier->bActive || !pSoldier->bInSector || (pSoldier->stats.bLife < OKLIFE))
+	if (!pSoldier->bActive || !pSoldier->bInSector || (pSoldier->vitals().health() < OKLIFE))
 	{
 /*
 #ifdef BETAVERSION
@@ -1982,7 +1982,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 	}
 
 	// if we're somehow looking for a guy who is inactive, at base, or already dead 
-	if (!pOpponent->bActive || !pOpponent->bInSector || pOpponent->stats.bLife <= 0 || TileIsOutOfBounds(pOpponent->sGridNo))
+	if (!pOpponent->bActive || !pOpponent->bInSector || pOpponent->vitals().health() <= 0 || TileIsOutOfBounds(pOpponent->sGridNo))
 	{
 /*
 #ifdef BETAVERSION
@@ -2197,10 +2197,10 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 	if (pOpponent->ubID >= TOTAL_SOLDIERS)
 		return;
 	// if we're somehow looking while inactive, at base, dying or already dead
-	if (!pSoldier->bActive || !pSoldier->bInSector || (pSoldier->stats.bLife < OKLIFE))
+	if (!pSoldier->bActive || !pSoldier->bInSector || (pSoldier->vitals().health() < OKLIFE))
 		return;
 	// if we're somehow seeing a guy who is inactive, at base, or already dead
-	if (!pOpponent->bActive || !pOpponent->bInSector || pOpponent->stats.bLife <= 0)
+	if (!pOpponent->bActive || !pOpponent->bInSector || pOpponent->vitals().health() <= 0)
 		return;
 	// if we're somehow seeing a guy who is on the same team
 	if (pSoldier->bTeam == pOpponent->bTeam)
@@ -2216,7 +2216,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			pOpponent->usSoldierFlagMask |= SOLDIER_ENEMY_OBSERVEDTHISTURN;
 	}
 	// sevenfm: if soldier is unconscious, he can't see anybody
-	if ( pSoldier->bCollapsed && pSoldier->bBreath == 0 )
+	if ( pSoldier->bCollapsed && pSoldier->vitals().breath() == 0 )
 	{
 		return;
 	}
@@ -2698,7 +2698,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 				}
 				// require the enemy not to be dying if we are the sighter; in other words,
 				// always add for AI guys, and always add for people with life >= OKLIFE
-				else if ( !(pSoldier->bTeam == gbPlayerNum && pOpponent->stats.bLife < OKLIFE ) )
+				else if ( !(pSoldier->bTeam == gbPlayerNum && pOpponent->vitals().health() < OKLIFE ) )
 				{
 					ReevaluateBestSightingPosition( pSoldier, CalcInterruptDuelPts( pSoldier, pOpponent->ubID, TRUE ) );
 				}
@@ -2906,9 +2906,9 @@ void OtherTeamsLookForMan(SOLDIERTYPE *pOpponent)
 /* comm by ddd	
 	// if the guy we're looking for is NOT on our team AND is currently visible
 #ifdef WE_SEE_WHAT_MILITIA_SEES_AND_VICE_VERSA
-	if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->stats.bLife)
+	if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
 #else
-	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->stats.bLife)
+	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
 #endif
 	{
 		// assume he's no longer visible, until one of our mercs sees him again
@@ -2929,12 +2929,12 @@ else
 
 	if(gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa)
 	{	
-		if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->stats.bLife)
+		if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
 			pOpponent->bVisible = 0;
 	}
 	else
 	{
-	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->stats.bLife)
+	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
 		pOpponent->bVisible = 0;
 	}
 
@@ -2952,7 +2952,7 @@ else
 		pSoldier = MercSlots[ uiLoop ];
 
 		// if this merc is active, in this sector, and well enough to look
-		if (pSoldier != NULL && pSoldier->stats.bLife >= OKLIFE	&& (pSoldier->ubBodyType != LARVAE_MONSTER))
+		if (pSoldier != NULL && pSoldier->vitals().health() >= OKLIFE	&& (pSoldier->ubBodyType != LARVAE_MONSTER))
 		{
 			// if this merc is on the same team as the target soldier
 			if (pSoldier->bTeam == pOpponent->bTeam)
@@ -3173,7 +3173,7 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 		{
 			pSoldier = cnt;
 			// if this soldier is active, in this sector, and well enough to look
-			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->stats.bLife >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
+			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
 			{
 				// if soldier isn't aware of guynum, give him another chance to see
 				if (pSoldier->aiData.bOppList[ubID] == NOT_HEARD_OR_SEEN)
@@ -3230,7 +3230,7 @@ INT8 OurMaxPublicOpplist()
 		pSoldier = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pSoldier || !pSoldier->stats.bLife)
+		if (!pSoldier || !pSoldier->vitals().health())
 			continue;		// next merc
 
 		// if this man is NEUTRAL / on our side, he's not an opponent
@@ -3408,7 +3408,7 @@ void BetweenTurnsVisibilityAdjustments(void)
 	{
 		pSoldier = MercSlots[ cnt ];
 
-		if (pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife)
+		if (pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health())
 		{
 			BOOLEAN SEE_MENT = FALSE;
 
@@ -3731,7 +3731,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 
 
 		// make sure this merc is active, here & still alive (unconscious OK)
-		if (!pOpponent->bActive || !pOpponent->bInSector || !pOpponent->stats.bLife)
+		if (!pOpponent->bActive || !pOpponent->bInSector || !pOpponent->vitals().health())
 		{
 #ifdef TESTOPPLIST
 			DebugMsg( TOPIC_JA2OPPLIST, DBG_LEVEL_3,
@@ -3808,7 +3808,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 			// then alert them instead
 			if ( ubTeamToRadioTo != MILITIA_TEAM )
 			{
-				if (!gbShowEnemies && (pOpponent->stats.bLife >= OKLIFE))
+				if (!gbShowEnemies && (pOpponent->vitals().health() >= OKLIFE))
 				{
 					// if this enemy has not been publicly seen or heard recently
 					if (*pbPublOL == NOT_HEARD_OR_SEEN)
@@ -3839,7 +3839,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 						}
 						else
 						{
-							if ( MercPtrs[0]->stats.bLife < 10 )
+							if ( MercPtrs[0]->vitals().health() < 10 )
 							{
 								//int breakpoint = 0;
 							}
@@ -4017,25 +4017,25 @@ void DebugSoldierPage1( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Breath:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->bBreath );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->vitals().breath() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Life:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->stats.bLife );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->vitals().health() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"LifeMax:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->stats.bLifeMax );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->vitals().maximumHealth() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Bleeding:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->bBleeding );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->vitals().bleeding() );
 
 		ubLine = 2;
 
@@ -5366,8 +5366,8 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 	if (wornstealth > 0)
 		iStealthSkill += wornstealth / 2;
 
-	bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
-	bEffLife = pSoldier->stats.bLife + (bBandaged / 2);
+	bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
+	bEffLife = pSoldier->vitals().health() + (bBandaged / 2);
 
 	// IF "SNEAKER'S" "EFFECTIVE LIFE" IS AT LESS THAN 50
 	if (bEffLife < 50)
@@ -5377,10 +5377,10 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 	}
 
 	// if breath is below 50%
-	if (pSoldier->bBreath < 50)
+	if (pSoldier->vitals().breath() < 50)
 	{
 		// reduce effective stealth skill by up to 50%
-		iStealthSkill -= (iStealthSkill * (50 - pSoldier->bBreath)) / 100;
+		iStealthSkill -= (iStealthSkill * (50 - pSoldier->vitals().breath())) / 100;
 	}
 
 	// if sneaker is moving through water
@@ -5516,7 +5516,7 @@ UINT8 DoorOpeningNoise( SOLDIERTYPE *pSoldier )
 			// CHANGED BY SANDRO - LET'S MAKE THE STEALTH BASED ON AGILITY LIKE IT SHOULD BE
 			INT32 iStealthSkill = 20 + 4 * EffectiveExpLevel(pSoldier) + ((EffectiveAgility(pSoldier, FALSE) * 4) / 10); // 24-100
 
-			INT8 bEffLife = pSoldier->stats.bLife + ((pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding) / 2);
+			INT8 bEffLife = pSoldier->vitals().health() + ((pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding()) / 2);
 
 			// IF "SNEAKER'S" "EFFECTIVE LIFE" IS AT LESS THAN 50
 			if (bEffLife < 50)
@@ -5526,10 +5526,10 @@ UINT8 DoorOpeningNoise( SOLDIERTYPE *pSoldier )
 			}
 
 			// if breath is below 50%
-			if (pSoldier->bBreath < 50)
+			if (pSoldier->vitals().breath() < 50)
 			{
 				// reduce effective stealth skill by up to 50%
-				iStealthSkill -= (iStealthSkill * (50 - pSoldier->bBreath)) / 100;
+				iStealthSkill -= (iStealthSkill * (50 - pSoldier->vitals().breath())) / 100;
 			}
 
 			iStealthSkill = __max(iStealthSkill, 0);
@@ -5783,7 +5783,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 		}
 
 		// if he's out of life, and this isn't just his "dying scream" which is OK
-		if (!ubNoiseMaker->stats.bLife && (ubNoiseType != NOISE_SCREAM))
+		if (!ubNoiseMaker->vitals().health() && (ubNoiseType != NOISE_SCREAM))
 		{
 #ifdef BETAVERSION
 			NumMessage("ProcessNoise: ERROR - Noisemaker is lifeless, Guy #",ubNoiseMaker);
@@ -5930,7 +5930,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					bTellPlayer = TRUE;
 				}
 
-				if ( ubNoiseMaker->stats.bLife == 0 )
+				if ( ubNoiseMaker->vitals().health() == 0 )
 				{
 					// this guy is dead (just dying) so don't report to player
 					bTellPlayer = FALSE;
@@ -5951,7 +5951,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 		{
 			pSoldier = bLoop;
 			// if this "listener" is inactive, or in no condition to care
-			if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->flags.uiStatusFlags & SOLDIER_DEAD || (pSoldier->stats.bLife < OKLIFE) || pSoldier->ubBodyType == LARVAE_MONSTER)
+			if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->flags.uiStatusFlags & SOLDIER_DEAD || (pSoldier->vitals().health() < OKLIFE) || pSoldier->ubBodyType == LARVAE_MONSTER)
 			{
 				continue;			// skip him!
 			}
@@ -6615,7 +6615,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 					{
 						// require the enemy not to be dying if we are the sighter; in other words,
 						// always add for AI guys, and always add for people with life >= OKLIFE
-						if ( pSoldier->bTeam != gbPlayerNum || ubNoiseMaker->stats.bLife >= OKLIFE )
+						if ( pSoldier->bTeam != gbPlayerNum || ubNoiseMaker->vitals().health() >= OKLIFE )
 						{
 							ReevaluateBestSightingPosition( pSoldier, (UINT8) (ubPoints + (ubVolume / 2)) );
 						}
@@ -6891,7 +6891,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 	// 3) forget about known opponents who haven't been noticed in some time
 
 	// if soldier is unconscious, make sure his opplist is wiped out & bail out
-	if (pSoldier->stats.bLife < OKLIFE)
+	if (pSoldier->vitals().health() < OKLIFE)
 	{
 		memset(pSoldier->aiData.bOppList,NOT_HEARD_OR_SEEN,sizeof(pSoldier->aiData.bOppList));
 		pSoldier->aiData.bOppCnt = 0;
@@ -6931,7 +6931,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is active, here, and alive
-		if (pOpponent != NULL && pOpponent->stats.bLife)
+		if (pOpponent != NULL && pOpponent->vitals().health())
 		{
 			// if this merc is on the same team, he's no opponent, so skip him
 			if (pSoldier->bTeam == pOpponent->bTeam)
@@ -7006,7 +7006,7 @@ void DecayIndividualOpplist(SOLDIERTYPE *pSoldier)
 	// reduce all currently seen opponent's turn counters by 1 (towards 0)
 
 	// if soldier is unconscious, make sure his opplist is wiped out & bail out
-	if (pSoldier->stats.bLife < OKLIFE)
+	if (pSoldier->vitals().health() < OKLIFE)
 	{
 		// must make sure that public opplist is kept to match...
 		for (uiLoop = 0; uiLoop < MAX_NUM_SOLDIERS; ++uiLoop)
@@ -7029,7 +7029,7 @@ void DecayIndividualOpplist(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this merc is active, here, and alive
-		if (pOpponent != NULL && pOpponent->stats.bLife)
+		if (pOpponent != NULL && pOpponent->vitals().health())
 		{
 			// if this merc is on the same team, he's no opponent, so skip him
 			if (pSoldier->bTeam == pOpponent->bTeam)
@@ -7084,7 +7084,7 @@ void VerifyPublicOpplistDueToDeath(SOLDIERTYPE *pSoldier)
 		pOpponent = MercSlots[ uiLoop ];
 
 		// if this opponent is active, here, and alive
-		if (pOpponent != NULL && pOpponent->stats.bLife)
+		if (pOpponent != NULL && pOpponent->vitals().health())
 		{
 			// if this opponent is on the same team, he's no opponent, so skip him
 			if (pSoldier->bTeam == pOpponent->bTeam)
@@ -7107,7 +7107,7 @@ void VerifyPublicOpplistDueToDeath(SOLDIERTYPE *pSoldier)
 					pTeamMate = MercSlots[ uiTeamMateLoop ];
 
 					// if this teammate is active, here, and alive
-					if (pTeamMate != NULL && pTeamMate->stats.bLife)
+					if (pTeamMate != NULL && pTeamMate->vitals().health())
 					{
 						// if this opponent is NOT on the same team, then skip him
 						if (pTeamMate->bTeam != pSoldier->bTeam)
@@ -7176,7 +7176,7 @@ void DecayPublicOpplist(INT8 bTeam)
 		pSoldier = MercSlots[uiLoop];
 
 		// for every active, living soldier on ANOTHER team
-		if (pSoldier && pSoldier->stats.bLife && (pSoldier->bTeam != bTeam))
+		if (pSoldier && pSoldier->vitals().health() && (pSoldier->bTeam != bTeam))
 		{
 			// hang a pointer to the byte holding team's public opplist for this merc
 			pbPublOL = &gbPublicOpplist[bTeam][pSoldier->ubID];
@@ -7274,7 +7274,7 @@ void RecalculateOppCntsDueToNoLongerNeutral( SOLDIERTYPE * pSoldier )
 			pOpponent = MercSlots[uiLoop];
 
 			// for every active, living soldier on ANOTHER team
-			if (pOpponent && pOpponent->stats.bLife && !pOpponent->aiData.bNeutral && (pOpponent->bTeam != pSoldier->bTeam) && (!CONSIDERED_NEUTRAL( pOpponent, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->bSide != pOpponent->bSide)) )
+			if (pOpponent && pOpponent->vitals().health() && !pOpponent->aiData.bNeutral && (pOpponent->bTeam != pSoldier->bTeam) && (!CONSIDERED_NEUTRAL( pOpponent, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->bSide != pOpponent->bSide)) )
 			{
 				if ( pSoldier->aiData.bOppList[pOpponent->ubID] == SEEN_CURRENTLY )
 				{
@@ -7306,7 +7306,7 @@ void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier )
 			pOpponent = MercSlots[uiLoop];
 
 			// for every active, living soldier on ANOTHER team
-			if (pOpponent && pOpponent->stats.bLife && !pOpponent->aiData.bNeutral && (pOpponent->bTeam != pSoldier->bTeam) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->bSide != pOpponent->bSide) && pSoldier->RecognizeAsCombatant(pOpponent->ubID) )
+			if (pOpponent && pOpponent->vitals().health() && !pOpponent->aiData.bNeutral && (pOpponent->bTeam != pSoldier->bTeam) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->bSide != pOpponent->bSide) && pSoldier->RecognizeAsCombatant(pOpponent->ubID) )
 			{
 				if ( pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY )
 				{
@@ -7473,7 +7473,7 @@ void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier )
 
 		pSoldier = ubID;
 
-		if ( pSoldier->bActive && pSoldier->bInSector && (pSoldier != pDyingSoldier) && (pSoldier->stats.bLife >= OKLIFE) && (pSoldier->aiData.bAlertStatus < STATUS_RED ) )
+		if ( pSoldier->bActive && pSoldier->bInSector && (pSoldier != pDyingSoldier) && (pSoldier->vitals().health() >= OKLIFE) && (pSoldier->aiData.bAlertStatus < STATUS_RED ) )
 		{
 			// this guy might have seen the man die
 
@@ -7509,7 +7509,7 @@ BOOLEAN ArmyKnowsOfPlayersPresence( void )
 		{
 			pSoldier = ubID;
 
-			if ( pSoldier->bActive && pSoldier->bInSector && (pSoldier->stats.bLife >= OKLIFE) && (pSoldier->aiData.bAlertStatus >= STATUS_RED ) )
+			if ( pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && (pSoldier->aiData.bAlertStatus >= STATUS_RED ) )
 			{
 				return( TRUE );
 			}
@@ -7656,7 +7656,7 @@ void CommunicateWatchedLoc( SoldierID ubID, INT32 sGridNo, INT8 bLevel, UINT8 ub
 	for ( ubLoop = gTacticalStatus.Team[ bTeam ].bFirstID; ubLoop <= gTacticalStatus.Team[ bTeam ].bLastID; ++ubLoop )
 	{
 		SOLDIERTYPE *pSoldier = ubLoop;
-		if ( ubLoop == ubID || pSoldier->bActive == FALSE || pSoldier->bInSector == FALSE || pSoldier->stats.bLife < OKLIFE )
+		if ( ubLoop == ubID || pSoldier->bActive == FALSE || pSoldier->bInSector == FALSE || pSoldier->vitals().health() < OKLIFE )
 		{
 			continue;
 		}
@@ -7813,7 +7813,7 @@ void MakeBloodcatsHostile( void )
 	{
 		pSoldier = id;
 
-		if ( pSoldier->ubBodyType == BLOODCAT && pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife > 0 )
+		if ( pSoldier->ubBodyType == BLOODCAT && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 )
 		{
 			SetSoldierNonNeutral( pSoldier );
 			RecalculateOppCntsDueToNoLongerNeutral( pSoldier );

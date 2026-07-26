@@ -1558,8 +1558,8 @@ BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
 	{
 		return( FALSE );
 	}
-	if ( source->stats.bLife < OKLIFE ||
-		( source->bBreath < OKBREATH && source->bCollapsed ) )
+	if ( source->vitals().health() < OKLIFE ||
+		( source->vitals().breath() < OKBREATH && source->bCollapsed ) )
 	{
 		return( FALSE );
 	}
@@ -2090,7 +2090,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					pSoldier = cnt;
 					// Are we in this sector, On the current squad?
-					if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
+					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
 					{
 						gfTacticalTraversal = TRUE;
 						SetGroupSectorValue( gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ, pSoldier->ubGroupID );
@@ -2351,7 +2351,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					//MakeCivHostile(pSoldier);
 				}
-				if ( ( pSoldier->ubProfile != NO_PROFILE || pSoldier->IsAssassin() ) && pSoldier->stats.bLife >= OKLIFE )
+				if ( ( pSoldier->ubProfile != NO_PROFILE || pSoldier->IsAssassin() ) && pSoldier->vitals().health() >= OKLIFE )
 				{
 					// trigger quote!
 					//TriggerNPCWithIHateYouQuote( pSoldier->ubProfile );
@@ -2387,7 +2387,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					pSoldier = cnt;
 					// Are we in this sector, On the current squad?
-					if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bInSector )
+					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
 					{
 						gfTacticalTraversal = TRUE;
 						//DBrot: Grids
@@ -2498,7 +2498,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					DeleteTalkingMenu();
 					SetSoldierNeutral( pSoldier );
-					pSoldier->bBleeding = 0; // make sure he doesn't bleed now...
+					pSoldier->vitals().bleeding() = 0; // make sure he doesn't bleed now...
 					RecalculateOppCntsDueToBecomingNeutral( pSoldier );
 					if ( IsJa2TacticalCombatActive() )
 					{
@@ -3617,7 +3617,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						pSoldier->aiData.uiPendingActionData4 = APPROACH_DONE_PUNCH_2;
 					}
 
-					if ( pTarget && pTarget->bActive && pTarget->bInSector && pTarget->stats.bLife != 0 )
+					if ( pTarget && pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() != 0 )
 					{
 						pSoldier->aiData.bNextAction = AI_ACTION_KNIFE_MOVE;
 						pSoldier->aiData.usNextActionData = pTarget->sGridNo;
@@ -3715,14 +3715,14 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						// If we are elliot, we can't do unconocious guys....
 						if ( pSoldier->ubProfile == ELLIOT )
 						{
-							if ( pTarget->bActive && pTarget->bInSector && pTarget->stats.bLife >= OKLIFE )
+							if ( pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() >= OKLIFE )
 							{
 								fGoodTarget = TRUE;
 							}
 						}
 						else
 						{
-							if ( pTarget->bActive && pTarget->bInSector && pTarget->stats.bLife != 0 )
+							if ( pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() != 0 )
 							{
 								fGoodTarget = TRUE;
 							}
@@ -3946,7 +3946,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					{
 						pSoldier = cnt;
 						// Are we in this sector, On the current squad?
-						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife > 0 && (pSoldier->stats.bLife < pSoldier->stats.bLifeMax || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->sGridNo, pSoldier2->sGridNo ) < HOSPITAL_PATIENT_DISTANCE )
+						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->sGridNo, pSoldier2->sGridNo ) < HOSPITAL_PATIENT_DISTANCE )
 						{
 							SetSoldierAssignment( pSoldier, ASSIGNMENT_HOSPITAL, 0, 0, 0 );
 							TriggerNPCRecord( pSoldier->ubProfile, 2 );
@@ -4063,7 +4063,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( STEVE, FALSE ); // Steve Willis, 80
 				if (pSoldier)
 				{
-					if ( !pSoldier->bActive || !pSoldier->bInSector || !(pSoldier->bTeam == CIV_TEAM) || !(pSoldier->aiData.bNeutral) || (pSoldier->stats.bLife < OKLIFE) )
+					if ( !pSoldier->bActive || !pSoldier->bInSector || !(pSoldier->bTeam == CIV_TEAM) || !(pSoldier->aiData.bNeutral) || (pSoldier->vitals().health() < OKLIFE) )
 					{
 						pSoldier = NULL;
 					}
@@ -4072,7 +4072,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier2 = FindSoldierByProfileID( VINCE, FALSE ); // Vince, 69
 				if (pSoldier2)
 				{
-					if ( !pSoldier2->bActive || !pSoldier2->bInSector || !(pSoldier2->bTeam == CIV_TEAM) || !(pSoldier2->aiData.bNeutral) || (pSoldier2->stats.bLife < OKLIFE) )
+					if ( !pSoldier2->bActive || !pSoldier2->bInSector || !(pSoldier2->bTeam == CIV_TEAM) || !(pSoldier2->aiData.bNeutral) || (pSoldier2->vitals().health() < OKLIFE) )
 					{
 						pSoldier2 = NULL;
 					}
@@ -4218,7 +4218,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				break;
 			case NPC_ACTION_TRIGGER_MARY_OR_JOHN_RECORD_9:
 				pSoldier = FindSoldierByProfileID ( MARY, FALSE );
-				if ( pSoldier && pSoldier->stats.bLife >= OKLIFE )
+				if ( pSoldier && pSoldier->vitals().health() >= OKLIFE )
 				{
 					TriggerNPCRecord( MARY, 9 );
 				}
@@ -4229,7 +4229,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				break;
 			case NPC_ACTION_TRIGGER_MARY_OR_JOHN_RECORD_10:
 				pSoldier = FindSoldierByProfileID ( MARY, FALSE );
-				if ( pSoldier && pSoldier->stats.bLife >= OKLIFE )
+				if ( pSoldier && pSoldier->vitals().health() >= OKLIFE )
 				{
 					TriggerNPCRecord( MARY, 10 );
 				}
@@ -4637,7 +4637,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if ( pSoldier )
 				{
 					pSoldier->sBreathRed = 10000;
-					pSoldier->bBreath	= 100;
+					pSoldier->vitals().breath()	= 100;
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 50 ] );
 				}
 				break;
@@ -4704,7 +4704,7 @@ UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier )
 		return( 0 );
 	}
 
-	uiCost = 10 * ( pSoldier->stats.bLifeMax - pSoldier->stats.bLife );
+	uiCost = 10 * ( pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() );
 
 	for (UINT8 index = 0; index < NUM_DAMAGABLE_STATS; ++index)
 	{
@@ -4712,16 +4712,16 @@ UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier )
 		uiCost += (150 * pSoldier->ubCriticalStatDamage[index]);
 	}
 
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		// charge additional $25 for every point below OKLIFE he is
-		uiCost += ( 25 * ( OKLIFE - pSoldier->stats.bLife ) );
+		uiCost += ( 25 * ( OKLIFE - pSoldier->vitals().health() ) );
 	}
 	
 	// also charge $2 for each point of bleeding that must be stopped
-	if ( pSoldier->bBleeding > 0 )
+	if ( pSoldier->vitals().bleeding() > 0 )
 	{
-		uiCost += ( 2 * pSoldier->bBleeding );
+		uiCost += ( 2 * pSoldier->vitals().bleeding() );
 	}
 
 	if ( pSoldier->bHospitalPriceModifier == HOSPITAL_BREAK )
@@ -4767,9 +4767,9 @@ UINT32 CalcMedicalCost( UINT8 ubId )
 	for ( SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
 		pSoldier = cnt;
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife > 0 && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL )
 		{
-			if ( pSoldier->stats.bLife < pSoldier->stats.bLifeMax || NumberOfDamagedStats(pSoldier) > 0)
+			if ( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0)
 			{
 				if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= HOSPITAL_PATIENT_DISTANCE)
 				{
@@ -5049,7 +5049,7 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 				for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 				{
 					pSoldier = cnt;
-					if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE && pSoldier->bBreath >= OKBREATH )
+					if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH )
 					{
 						if (!pLier || (EffectiveWisdom( pSoldier ) + EffectiveLeadership( pSoldier ) > EffectiveWisdom( pLier ) + EffectiveLeadership( pSoldier ) ) )
 						{
@@ -5219,7 +5219,7 @@ void	DoneFadeInActionBasement( )
 	{
 		pSoldier = cnt;
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
 		{
 			break;
 		}
@@ -5816,7 +5816,7 @@ void HandleMercArrivesQuotesFromHeliCrashSequence()
 	// look for all mercs on the same team, 
 	for ( pSoldier = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; uiCnt++,pSoldier++)
 	{
-		if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bInSector )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
 		{
 			HandleMercArrivesQuotes( pSoldier );
 		}
@@ -5835,7 +5835,7 @@ void HandleRaulBlowingHimselfUp()
 	if( pSoldier )
 	{
 		//First lower his life, artificially
-		pSoldier->stats.bLife = 5;
+		pSoldier->vitals().health() = 5;
 
 		//blow himself up with, hmmm, lets say TNT.  :)
 		usItem = HAND_GRENADE;

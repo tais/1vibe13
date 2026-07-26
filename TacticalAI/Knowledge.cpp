@@ -39,7 +39,7 @@ void CallAvailableTeamEnemiesTo( INT32 sGridNo, INT8 bTeam )
 			for ( ; iLoop2 <= gTacticalStatus.Team[ bTeam ].bLastID; ++iLoop2 )
 			{
 				pSoldier = iLoop2;
-				if (pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE)
+				if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 				{
 					SetNewSituation( pSoldier );
 					WearGasMaskIfAvailable( pSoldier );
@@ -70,7 +70,7 @@ void CallAvailableKingpinMenTo( INT32 sGridNo )
 		for ( ; iLoop2 <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++iLoop2 )
 		{
 			pSoldier = iLoop2;
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE && pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP && pSoldier->ubProfile == NO_PROFILE)
+			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP && pSoldier->ubProfile == NO_PROFILE)
 			{
 				SetNewSituation( pSoldier );
 			}
@@ -89,7 +89,7 @@ void CallEldinTo( INT32 sGridNo )
 	{
 		// new situation for Eldin
 		pSoldier = FindSoldierByProfileID( ELDIN, FALSE );
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife >= OKLIFE && (pSoldier->aiData.bAlertStatus == STATUS_GREEN || pSoldier->aiData.ubNoiseVolume < (MAX_MISC_NOISE_DURATION / 2) ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && (pSoldier->aiData.bAlertStatus == STATUS_GREEN || pSoldier->aiData.ubNoiseVolume < (MAX_MISC_NOISE_DURATION / 2) ) )
 		{
 			if ( SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, 0, 0, TRUE ) )
 			{
@@ -156,7 +156,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 		pTemp = MercSlots[ uiLoop ];
 
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pTemp || !pTemp->stats.bLife)
+		if (!pTemp || !pTemp->vitals().health())
 			continue;			// next merc
 
 		// if this merc is neutral/on same side, he's not an opponent

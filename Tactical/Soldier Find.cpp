@@ -145,7 +145,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 		MercFlags	|=	NOINTERRUPT_MERC;
 	}
 
-	if ( pSoldier->stats.bLife < OKLIFE )
+	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		MercFlags	|=	UNCONSCIOUS_MERC;
 	}
@@ -153,7 +153,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
 		MercFlags |= UNCONSCIOUS_MERC;
 
-	if ( pSoldier->stats.bLife == 0 )
+	if ( pSoldier->vitals().health() == 0 )
 	{
 		MercFlags	|=	DEAD_MERC;
 	}
@@ -524,7 +524,7 @@ BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID )
 	}
 
 	// CHECK IF DEAD
-	if( pSoldier->stats.bLife == 0 )
+	if( pSoldier->vitals().health() == 0 )
 	{
 		//return( FALSE );
 	}

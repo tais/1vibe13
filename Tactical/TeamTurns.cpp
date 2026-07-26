@@ -146,7 +146,7 @@ BOOLEAN BloodcatsPresent( void )
 	{
 		pSoldier = iLoop;
 
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->stats.bLife > 0 && pSoldier->ubBodyType == BLOODCAT )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && pSoldier->ubBodyType == BLOODCAT )
 		{
 			return( TRUE );
 		}
@@ -194,7 +194,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 		//SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		//for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
 		//{
-		//	if ( pSoldier->bActive && pSoldier->stats.bLife > 0 )
+		//	if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
 		//	{
 		//		SBeginTurn.usSoldierID		= (UINT16)cnt;
 		//		AddGameEvent( S_BEGINTURN, 0, &SBeginTurn );
@@ -207,7 +207,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 			if ( gusSelectedSoldier != NOBODY )
 			{
 				// Check if this guy is able to be selected....
-				if ( gusSelectedSoldier->stats.bLife < OKLIFE )
+				if ( gusSelectedSoldier->vitals().health() < OKLIFE )
 				{
 					DebugMsg(TOPIC_JA2INTERRUPT,DBG_LEVEL_3,String("StartPlayerTeamTurn: SelectNextAvailSoldier"));
 					SelectNextAvailSoldier( gusSelectedSoldier );
@@ -395,7 +395,7 @@ void EndAITurn( void )
 				pSoldier->aiData.bMoved = TRUE;
 				// record old life value... for creature AI; the human AI might
 				// want to use this too at some point
-				pSoldier->bOldLife = pSoldier->stats.bLife;
+				pSoldier->bOldLife = pSoldier->vitals().health();
 			}
 		}
 
@@ -429,7 +429,7 @@ void EndAllAITurns( void )
 				pSoldier->flags.uiStatusFlags &= (~SOLDIER_UNDERAICONTROL);
 				// record old life value... for creature AI; the human AI might
 				// want to use this too at some point
-				pSoldier->bOldLife = pSoldier->stats.bLife;
+				pSoldier->bOldLife = pSoldier->vitals().health();
 			}
 		}
 
@@ -459,7 +459,7 @@ void EndTurnEvents( void )
 	for ( ; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 	{
 		pSoldier = id;
-		if ( pSoldier->bActive && pSoldier->stats.bLife > 0 )//&& !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pSoldier ) ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )//&& !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pSoldier ) ) )
 		{
 			// Flugente: update multi-turn actions
 			pSoldier->UpdateMultiTurnAction();
@@ -589,7 +589,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 			for ( ; id <= gTacticalStatus.Team[ ubTeam ].bLastID; ++id )
 			{
 				pSoldier = id;
-				if ( pSoldier->bActive && pSoldier->stats.bLife > 0)
+				if ( pSoldier->bActive && pSoldier->vitals().health() > 0)
 				{
 					// decay personal opplist, and refresh APs and BPs
 					pSoldier->EVENT_BeginMercTurn( FALSE, 0 );
@@ -1309,7 +1309,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			ClearIntList();
 
 			// Select soldier....
-			if ( MercPtrs[ ubInterruptedSoldier ]->stats.bLife < OKLIFE )
+			if ( MercPtrs[ ubInterruptedSoldier ]->vitals().health() < OKLIFE )
 			{
 				DebugMsg(TOPIC_JA2INTERRUPT,DBG_LEVEL_3,String("EndInterrupt: SelectNextAvailSoldier"));
 				SelectNextAvailSoldier( MercPtrs[ ubInterruptedSoldier ] );
@@ -1410,7 +1410,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			for ( ; id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++id )
 			{
 				pTempSoldier = id;
-				if ( pTempSoldier->bActive && pTempSoldier->bInSector && pTempSoldier->stats.bLife >= OKLIFE )
+				if ( pTempSoldier->bActive && pTempSoldier->bInSector && pTempSoldier->vitals().health() >= OKLIFE )
 				{
 					fFound = TRUE;
 					break;
@@ -1640,13 +1640,13 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	}
 
 	// soldiers at less than OKLIFE can't perform any actions
-	if (pSoldier->stats.bLife < OKLIFE)
+	if (pSoldier->vitals().health() < OKLIFE)
 	{
 		return(FALSE);
 	}
 
 	// soldiers out of breath are about to fall over, no interrupt
-	if (pSoldier->bBreath < OKBREATH || pSoldier->bCollapsed )
+	if (pSoldier->vitals().breath() < OKBREATH || pSoldier->bCollapsed )
 	{
 		return(FALSE);
 	}
@@ -2457,7 +2457,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 				{
 					pOpponent = ubOpp;
 					AssertNotNIL(pOpponent);
-					if ( pOpponent->bActive && pOpponent->bInSector && (pOpponent->stats.bLife >= OKLIFE) && (pOpponent->bBreath >= OKBREATH) && !(pOpponent->bCollapsed) )
+					if ( pOpponent->bActive && pOpponent->bInSector && (pOpponent->vitals().health() >= OKLIFE) && (pOpponent->vitals().breath() >= OKBREATH) && !(pOpponent->bCollapsed) )
 					{
 						if ( ubInterruptType == NOISEINTERRUPT )
 						{

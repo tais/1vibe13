@@ -6616,12 +6616,12 @@ BOOLEAN CanMercInteractWithSelectedShopkeeper( SOLDIERTYPE *pSoldier )
 	Assert( pShopkeeper->bActive );
 	Assert( pShopkeeper->bInSector );
 
-	if ( pShopkeeper->stats.bLife < OKLIFE )
+	if ( pShopkeeper->vitals().health() < OKLIFE )
 	{
 		return( FALSE );
 	}
 
-	if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->stats.bLife >= OKLIFE ) &&
+	if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= OKLIFE ) &&
 		!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 	{
 		sDestGridNo = pShopkeeper->sGridNo;

@@ -359,7 +359,7 @@ static void EliminateAllMercs()
 	{
 		for( i = 0; i < gpAR->ubEnemies; i++ )
 		{
-			if( gpEnemies[ i ].pSoldier->stats.bLife )
+			if( gpEnemies[ i ].pSoldier->vitals().health() )
 			{
 				pAttacker = &gpEnemies[ i ];
 				break;
@@ -369,10 +369,10 @@ static void EliminateAllMercs()
 		{
 			for( i = 0; i < gpAR->ubMercs; i++ )
 			{
-				if( gpMercs[ i ].pSoldier->stats.bLife )
+				if( gpMercs[ i ].pSoldier->vitals().health() )
 				{
 					iNum++;
-					gpMercs[ i ].pSoldier->stats.bLife = 1;
+					gpMercs[ i ].pSoldier->vitals().health() = 1;
 					gpMercs[ i ].usNextHit[0] = (UINT16)(250 * iNum);
 					gpMercs[ i ].usHitDamage[0] = 100;
 					gpMercs[ i ].pAttacker[0] = pAttacker;
@@ -389,12 +389,12 @@ static void EliminateAllFriendlies()
 	{
 		for( i = 0; i < gpAR->ubMercs; i++ )
 		{
-			gpMercs[ i ].pSoldier->stats.bLife = 0;
+			gpMercs[ i ].pSoldier->vitals().health() = 0;
 		}
 		gpAR->ubAliveMercs = 0;
 		for( i = 0; i < gpAR->ubCivs; i++ )
 		{
-			gpCivs[ i ].pSoldier->stats.bLife = 0;
+			gpCivs[ i ].pSoldier->vitals().health() = 0;
 		}
 		gpAR->ubAliveCivs = 0;
 	}
@@ -487,7 +487,7 @@ void EliminateAllEnemies( UINT8 ubSectorX, UINT8 ubSectorY )
 	{
 		for( i = 0; i < gpAR->ubEnemies; ++i )
 		{
-			gpEnemies[ i ].pSoldier->stats.bLife = 0;
+			gpEnemies[ i ].pSoldier->vitals().health() = 0;
 		}
 		gpAR->ubAliveEnemies = 0;
 	}
@@ -732,10 +732,10 @@ UINT32 AutoResolveScreenHandle()
 
 static void RefreshMerc( SOLDIERTYPE *pSoldier )
 {
-	pSoldier->stats.bLife = pSoldier->stats.bLifeMax;
-	pSoldier->bBleeding = 0;
+	pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
+	pSoldier->vitals().bleeding() = 0;
 	pSoldier->iHealableInjury = 0; // added by SANDRO
-	pSoldier->bBreath = pSoldier->bBreathMax = 100;
+	pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath() = 100;
 	pSoldier->sBreathRed = 0;
 	if( gpAR->pRobotCell)
 	{
@@ -1109,7 +1109,7 @@ void CalculateSoldierCells( BOOLEAN fReset )
 				MercCellMouseMoveCallback, MercCellMouseClickCallback );
 			if( fReset )
 				RefreshMerc( gpMercs[ index ].pSoldier );
-			if( !gpMercs[ index ].pSoldier->stats.bLife )
+			if( !gpMercs[ index ].pSoldier->vitals().health() )
 				gpAR->ubAliveMercs--;
 		}
 	}
@@ -1243,7 +1243,7 @@ void RenderSoldierCell( SOLDIERCELL *pCell )
 		BltVideoObjectFromIndex( FRAME_BUFFER, gpAR->iPanelImages, OTHER_PANEL, pCell->xp, pCell->yp, VO_BLT_SRCTRANSPARENCY, NULL );
 		x = 6;
 	}
-	if( !pCell->pSoldier->stats.bLife )
+	if( !pCell->pSoldier->vitals().health() )
 	{
 		SetObjectHandleShade( pCell->uiVObjectID, 0 );
 		
@@ -1277,7 +1277,7 @@ void RenderSoldierCell( SOLDIERCELL *pCell )
 		}
 	}
 
-	if( pCell->pSoldier->stats.bLife > 0 && pCell->pSoldier->stats.bLife < OKLIFE && !(pCell->uiFlags & (CELL_HITBYATTACKER|CELL_HITLASTFRAME|CELL_CREATURE)) )
+	if( pCell->pSoldier->vitals().health() > 0 && pCell->pSoldier->vitals().health() < OKLIFE && !(pCell->uiFlags & (CELL_HITBYATTACKER|CELL_HITLASTFRAME|CELL_CREATURE)) )
 	{ //Merc is unconcious (and not taking damage), so darken his portrait.
 		UINT8 *pDestBuf;
 		UINT32 uiDestPitchBYTES;
@@ -1322,26 +1322,26 @@ void RenderSoldierCellBars( SOLDIERCELL *pCell )
 {
 	INT32 iStartY;
 	//HEALTH BAR
-	if( !pCell->pSoldier->stats.bLife )
+	if( !pCell->pSoldier->vitals().health() )
 		return;
 
 	//yellow one for bleeding
-	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->stats.bLifeMax/100;
+	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->vitals().maximumHealth()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+37, iStartY, pCell->xp+38, pCell->yp+29, Get16BPPColor( FROMRGB( 107, 107, 57 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+38, iStartY, pCell->xp+39, pCell->yp+29, Get16BPPColor( FROMRGB( 222, 181, 115 ) ) );
 	
 	//pink one for bandaged.
-	iStartY = pCell->yp + 29 - 25*(pCell->pSoldier->stats.bLifeMax - pCell->pSoldier->bBleeding)/100;
+	iStartY = pCell->yp + 29 - 25*(pCell->pSoldier->vitals().maximumHealth() - pCell->pSoldier->vitals().bleeding())/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+37, iStartY, pCell->xp+38, pCell->yp+29, Get16BPPColor( FROMRGB( 156, 57, 57 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+38, iStartY, pCell->xp+39, pCell->yp+29, Get16BPPColor( FROMRGB( 222, 132, 132 ) ) );
 		
 	//red one for actual health
-	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->stats.bLife/100;
+	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->vitals().health()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+37, iStartY, pCell->xp+38, pCell->yp+29, Get16BPPColor( FROMRGB( 107, 8, 8 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+38, iStartY, pCell->xp+39, pCell->yp+29, Get16BPPColor( FROMRGB( 206, 0, 0 ) ) );
 
 	//BREATH BAR
-	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->bBreathMax/100;
+	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->vitals().maximumBreath()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+41, iStartY, pCell->xp+42, pCell->yp+29, Get16BPPColor( FROMRGB( 8, 8, 132 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+42, iStartY, pCell->xp+43, pCell->yp+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
@@ -1558,7 +1558,7 @@ static UINT32 AutoBandageMercs()
 	uiMaxPointsUsed = uiParallelPointsUsed = 0;
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
-		if( gpMercs[ i ].pSoldier->stats.bLife >= OKLIFE &&
+		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE &&
 			!gpMercs[ i ].pSoldier->bCollapsed &&
 				gpMercs[ i ].pSoldier->stats.bMedical > 0 &&
 				( bSlot = FindObjClass( gpMercs[ i ].pSoldier, IC_MEDKIT ) ) != NO_SLOT )
@@ -1567,7 +1567,7 @@ static UINT32 AutoBandageMercs()
 			//bandage self first!
 			uiCurrPointsUsed = 0;
 			cnt = 0;
-			while( gpMercs[ i ].pSoldier->bBleeding )
+			while( gpMercs[ i ].pSoldier->vitals().bleeding() )
 			{
 				pKit = &gpMercs[ i ].pSoldier->inv[ bSlot ];
 				usKitPts = TotalPoints( pKit );
@@ -1596,7 +1596,7 @@ static UINT32 AutoBandageMercs()
 	iBest = 0;
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
-		if( gpMercs[ i ].pSoldier->stats.bLife >= OKLIFE && !gpMercs[ i ].pSoldier->bCollapsed && gpMercs[ i ].pSoldier->stats.bMedical > 0 )
+		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE && !gpMercs[ i ].pSoldier->bCollapsed && gpMercs[ i ].pSoldier->stats.bMedical > 0 )
 		{
 			if( gpMercs[ i ].pSoldier->stats.bMedical > gpMercs[ iBest ].pSoldier->stats.bMedical )
 			{
@@ -1608,7 +1608,7 @@ static UINT32 AutoBandageMercs()
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
 		cnt = 0; // SANDRO - added safety check
-		while( gpMercs[ i ].pSoldier->bBleeding && gpMercs[ i ].pSoldier->stats.bLife )
+		while( gpMercs[ i ].pSoldier->vitals().bleeding() && gpMercs[ i ].pSoldier->vitals().health() )
 		{ //This merc needs medical attention
 			if( !pKit )
 			{
@@ -1855,7 +1855,7 @@ void RenderAutoResolve()
 					{
 						SOLDIERTYPE *pSoldier = id;
 
-						if ( pSoldier->bActive && pSoldier->stats.bLife && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
+						if ( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 						{ //Merc is active and alive, and not a vehicle or robot
 							if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
 							{
@@ -2492,7 +2492,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 		//	of the strategic event.
 		for( i = 0; i < gpAR->ubMercs; i++ )
 		{
-			if( gpMercs[ i ].pSoldier->bBleeding && gpMercs[ i ].pSoldier->stats.bLife )
+			if( gpMercs[ i ].pSoldier->vitals().bleeding() && gpMercs[ i ].pSoldier->vitals().health() )
 			{
 				// ARM: only one event is needed regardless of how many are bleeding
 				AddStrategicEvent( EVENT_BANDAGE_BLEEDING_MERCS, GetWorldTotalMin() + 1, 0 );
@@ -2514,7 +2514,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 				TacticalRemoveSoldierPointer( gpMercs[ i ].pSoldier, FALSE );
 			else
 			{ //Record finishing information for our mercs
-				if( !gpMercs[ i ].pSoldier->stats.bLife )
+				if( !gpMercs[ i ].pSoldier->vitals().health() )
 				{
 					StrategicHandlePlayerTeamMercDeath( gpMercs[ i ].pSoldier );
 
@@ -2569,7 +2569,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 		}
 		for( i = 0; i < gpAR->iNumMercFaces; i++ )
 		{
-			if( gpAR->ubBattleStatus == BATTLE_VICTORY && gpMercs[ i ].pSoldier->stats.bLife >= OKLIFE )
+			if( gpAR->ubBattleStatus == BATTLE_VICTORY && gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE )
 			{
 				if( gpMercs[ i ].pSoldier->ubGroupID != ubCurrentGroupID )
 				{
@@ -2629,7 +2629,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 			// Flugente: drop sector equipment
 			gpCivs[ i ].pSoldier->DropSectorEquipment();
 
-			if( fDeleteForGood && gpCivs[ i ].pSoldier->stats.bLife < OKLIFE/2 )
+			if( fDeleteForGood && gpCivs[ i ].pSoldier->vitals().health() < OKLIFE/2 )
 			{
 				// Flugente: individual militia
 				// we not only handle promotions here, but basically update this guy (if not already counted as dead)
@@ -2679,7 +2679,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 	{
 		if( gpEnemies[ i ].pSoldier )
 		{
-			if( fDeleteForGood && gpEnemies[ i ].pSoldier->stats.bLife < OKLIFE ) //if we are finished with battle and soldier is either dead or dying
+			if( fDeleteForGood && gpEnemies[ i ].pSoldier->vitals().health() < OKLIFE ) //if we are finished with battle and soldier is either dead or dying
 			{
 				TrackEnemiesKilled( ENEMY_KILLED_IN_AUTO_RESOLVE, gpEnemies[ i ].pSoldier->ubSoldierClass );	//add casualty to some statistic
 				if( ProcessLoyalty() )HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_ENEMY_KILLED, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
@@ -2871,7 +2871,7 @@ void DetermineBandageButtonState()
 	//Does anyone need bandaging?
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
-		if( gpMercs[ i ].pSoldier->bBleeding && gpMercs[ i ].pSoldier->stats.bLife )
+		if( gpMercs[ i ].pSoldier->vitals().bleeding() && gpMercs[ i ].pSoldier->vitals().health() )
 		{
 			fFound = TRUE;
 			break;
@@ -2888,7 +2888,7 @@ void DetermineBandageButtonState()
 	fFound = FALSE;
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
-		if( gpMercs[ i ].pSoldier->stats.bLife >= OKLIFE &&
+		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE &&
 			!gpMercs[ i ].pSoldier->bCollapsed &&
 				gpMercs[ i ].pSoldier->stats.bMedical > 0 )
 		{
@@ -3643,9 +3643,9 @@ void RenderSoldierCellHealth( SOLDIERCELL *pCell )
 	UnLockVideoSurface( gpAR->iInterfaceBuffer );
 	UnLockVideoSurface( FRAME_BUFFER );
 
-	if( pCell->pSoldier->stats.bLife )
+	if( pCell->pSoldier->vitals().health() )
 	{
-		if( pCell->pSoldier->stats.bLife == pCell->pSoldier->stats.bLifeMax )
+		if( pCell->pSoldier->vitals().health() == pCell->pSoldier->vitals().maximumHealth() )
 		{
 			cntStart = 4;
 		}
@@ -3655,7 +3655,7 @@ void RenderSoldierCellHealth( SOLDIERCELL *pCell )
 		}
 		for( cnt = cntStart; cnt < 6; cnt ++ )
 		{
-			if( pCell->pSoldier->stats.bLife < bHealthStrRanges[ cnt ] )
+			if( pCell->pSoldier->vitals().health() < bHealthStrRanges[ cnt ] )
 			{
 				break;
 			}
@@ -3674,11 +3674,11 @@ void RenderSoldierCellHealth( SOLDIERCELL *pCell )
 				usColor = FONT_GRAY1;
 				break;
 		}
-		if( cnt > 3 && pCell->pSoldier->stats.bLife != pCell->pSoldier->stats.bLifeMax )
+		if( cnt > 3 && pCell->pSoldier->vitals().health() != pCell->pSoldier->vitals().maximumHealth() )
 		{ //Merc has taken damage, even though his life if good.
 			usColor = FONT_YELLOW;
 		}
-		if( pCell->pSoldier->stats.bLife == pCell->pSoldier->stats.bLifeMax )
+		if( pCell->pSoldier->vitals().health() == pCell->pSoldier->vitals().maximumHealth() )
 			usColor = FONT_GRAY1;
 		pStr = zHealthStr[ cnt ];
 	}
@@ -3698,7 +3698,7 @@ void RenderSoldierCellHealth( SOLDIERCELL *pCell )
 	}
 	else if( pCell->uiFlags & CELL_RETREATING && gpAR->ubBattleStatus == BATTLE_IN_PROGRESS )
 	{
-		if( pCell->pSoldier->stats.bLife >= OKLIFE )
+		if( pCell->pSoldier->vitals().health() >= OKLIFE )
 		{ //Retreating is shared with the status string.	Alternate between the
 			//two every 450 milliseconds
 			if( GetJA2Clock() % 900 < 450 )
@@ -3711,7 +3711,7 @@ void RenderSoldierCellHealth( SOLDIERCELL *pCell )
 	}
 	else if( pCell->uiFlags & CELL_SHOWRETREATTEXT && gpAR->ubBattleStatus == BATTLE_IN_PROGRESS )
 	{
-		if( pCell->pSoldier->stats.bLife >= OKLIFE )
+		if( pCell->pSoldier->vitals().health() >= OKLIFE )
 		{
 			SetFontForeground( FONT_YELLOW );
 			swprintf( str, gpStrategicString[ STR_AR_MERC_RETREAT ] );
@@ -3877,7 +3877,7 @@ void CalculateAttackValues()
 	{
 		pCell = &gpMercs[ i ];
 		pSoldier = pCell->pSoldier;
-		if( !pSoldier->stats.bLife )
+		if( !pSoldier->vitals().health() )
 			continue;
 		pCell->usAttack =		pSoldier->stats.bStrength +
 												pSoldier->stats.bDexterity +
@@ -3891,11 +3891,11 @@ void CalculateAttackValues()
 			//A player with 600 attack will be augmented to 700
 			pCell->usAttack = (UINT16)(pCell->usAttack + (1000 - pCell->usAttack) / 4);
 		}
-		usBreathStrengthPercentage = 100 - ( 100 - pCell->pSoldier->bBreathMax ) / 3;
+		usBreathStrengthPercentage = 100 - ( 100 - pCell->pSoldier->vitals().maximumBreath() ) / 3;
 		pCell->usAttack =		pCell->usAttack * usBreathStrengthPercentage / 100;
 		pCell->usDefence =	pSoldier->stats.bAgility +
 												pSoldier->stats.bWisdom +
-												pSoldier->bBreathMax +
+												pSoldier->vitals().maximumBreath() +
 												pSoldier->stats.bMedical +
 												pSoldier->aiData.bMorale;
 		//100 team leadership adds a bonus of 10%,
@@ -3942,10 +3942,10 @@ void CalculateAttackValues()
 												pSoldier->stats.bWisdom +
 												pSoldier->stats.bMarksmanship +
 												pSoldier->aiData.bMorale;
-		pCell->usAttack =		pCell->usAttack * pSoldier->bBreath / 100;
+		pCell->usAttack =		pCell->usAttack * pSoldier->vitals().breath() / 100;
 		pCell->usDefence =	pSoldier->stats.bAgility +
 												pSoldier->stats.bWisdom +
-												pSoldier->bBreathMax +
+												pSoldier->vitals().maximumBreath() +
 												pSoldier->stats.bMedical +
 												pSoldier->aiData.bMorale;
 		//100 team leadership adds a bonus of 10%
@@ -4008,10 +4008,10 @@ void CalculateAttackValues()
 												pSoldier->stats.bWisdom +
 												pSoldier->stats.bMarksmanship +
 												pSoldier->aiData.bMorale;
-		pCell->usAttack =		pCell->usAttack * pSoldier->bBreath / 100;
+		pCell->usAttack =		pCell->usAttack * pSoldier->vitals().breath() / 100;
 		pCell->usDefence =	pSoldier->stats.bAgility +
 												pSoldier->stats.bWisdom +
-												pSoldier->bBreathMax +
+												pSoldier->vitals().maximumBreath() +
 												pSoldier->stats.bMedical +
 												pSoldier->aiData.bMorale;
 		//100 team leadership adds a bonus of 10%
@@ -4129,7 +4129,7 @@ static SOLDIERCELL* ChooseTarget( SOLDIERCELL *pAttacker )
 		while( iAvailableTargets )
 		{
 			pTarget = ( index < gpAR->ubMercs ) ? &gpMercs[ index ] : &gpCivs[ index - gpAR->ubMercs ];
-			if( !pTarget->pSoldier->stats.bLife || pTarget->uiFlags & CELL_RETREATED )
+			if( !pTarget->pSoldier->vitals().health() || pTarget->uiFlags & CELL_RETREATED )
 			{
 				index++;
 				iAvailableTargets--;
@@ -4160,7 +4160,7 @@ static SOLDIERCELL* ChooseTarget( SOLDIERCELL *pAttacker )
 		while( iAvailableTargets )
 		{
 			pTarget = &gpEnemies[ index ];
-			if( !pTarget->pSoldier->stats.bLife )
+			if( !pTarget->pSoldier->vitals().health() )
 			{
 				index++;
 				iAvailableTargets--;
@@ -4540,7 +4540,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 
 	if( sAttack < sDefence )
 	{
-		if( pTarget->pSoldier->stats.bLife >= OKLIFE || !PreRandom( 5 ) )
+		if( pTarget->pSoldier->vitals().health() >= OKLIFE || !PreRandom( 5 ) )
 		{
 			//Attacker misses -- use up a round of ammo.	If target is unconscious, then 80% chance of hitting.
 			pTarget->uiFlags |= CELL_DODGEDATTACK | CELL_DIRTY;
@@ -4742,7 +4742,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		OBJECTTYPE tempItem;
 
 		PlayAutoResolveSample( (UINT8)(BULLET_IMPACT_1+PreRandom(3)), RATE_11025, 50, 1, MIDDLEPAN );
-		if( !pTarget->pSoldier->stats.bLife )
+		if( !pTarget->pSoldier->vitals().health() )
 		{ //Soldier already dead (can't kill him again!)
 			return;
 		}
@@ -4801,7 +4801,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		if (iImpact < 0)
 			iImpact = 0;
 		
-		iNewLife = pTarget->pSoldier->stats.bLife - iImpact;
+		iNewLife = pTarget->pSoldier->vitals().health() - iImpact;
 
 		if( pAttacker->uiFlags & CELL_MERC )
 		{ 
@@ -4818,12 +4818,12 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 			// EXPERIENCE GAIN: Took some damage
 			StatChange( pTarget->pSoldier, EXPERAMT, ( UINT16 )( 5 * ( iImpact / 10 ) ), FALSE );
 		}
-		if( pTarget->pSoldier->stats.bLife >= CONSCIOUSNESS || pTarget->uiFlags & CELL_CREATURE )
+		if( pTarget->pSoldier->vitals().health() >= CONSCIOUSNESS || pTarget->uiFlags & CELL_CREATURE )
 		{
 			if( gpAR->fSound )
 				pTarget->pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
 		}
-		if( !(pTarget->uiFlags & CELL_CREATURE) && iNewLife < OKLIFE && pTarget->pSoldier->stats.bLife >= OKLIFE )
+		if( !(pTarget->uiFlags & CELL_CREATURE) && iNewLife < OKLIFE && pTarget->pSoldier->vitals().health() >= OKLIFE )
 		{
 			//the hit caused the merc to fall.	Play the falling sound
 			PlayAutoResolveSample( (UINT8)FALL_1, RATE_11025, 50, 1, MIDDLEPAN );
@@ -4930,25 +4930,25 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		// SANDRO - added the insta-healable value for doctor trait
 		else if ((IS_MERC_BODY_TYPE( pTarget->pSoldier ) || IS_CIV_BODY_TYPE( pTarget->pSoldier )) && ( gGameOptions.fNewTraitSystem ))
 		{
-			pTarget->pSoldier->iHealableInjury += ((pTarget->pSoldier->stats.bLife - iNewLife) * 100);
-			if (pTarget->pSoldier->iHealableInjury > ((pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->stats.bLife) * 100))
-				pTarget->pSoldier->iHealableInjury = ((pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->stats.bLife) * 100);
+			pTarget->pSoldier->iHealableInjury += ((pTarget->pSoldier->vitals().health() - iNewLife) * 100);
+			if (pTarget->pSoldier->iHealableInjury > ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100))
+				pTarget->pSoldier->iHealableInjury = ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100);
 		}
 		///////////////////////////////////////////////////////////////
 		//Adjust the soldiers stats based on the damage.
-		pTarget->pSoldier->stats.bLife = (INT8)max( iNewLife, 0 );
+		pTarget->pSoldier->vitals().health() = (INT8)max( iNewLife, 0 );
 		if( pTarget->uiFlags & CELL_MERC && gpAR->pRobotCell)
 		{
 			gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot( );
 		}
 		if( fKnife || fClaw )
 		{
-			if( pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->bBleeding - iImpact >= pTarget->pSoldier->stats.bLife )
-				pTarget->pSoldier->bBleeding += (INT8)iImpact;
+			if( pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().bleeding() - iImpact >= pTarget->pSoldier->vitals().health() )
+				pTarget->pSoldier->vitals().bleeding() += (INT8)iImpact;
 			else
-				pTarget->pSoldier->bBleeding = (INT8)(pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->stats.bLife);
+				pTarget->pSoldier->vitals().bleeding() = (INT8)(pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health());
 		}
-		if( !pTarget->pSoldier->stats.bLife )
+		if( !pTarget->pSoldier->vitals().health() )
 		{
 			// SANDRO - added check to erase insta-healable amount of HPs if dead
 			if (pTarget->pSoldier->iHealableInjury > 0)
@@ -4993,7 +4993,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 {
 	INT32 iNewLife;
 	SOLDIERCELL *pAttacker;
-	if( !pTarget->pSoldier->stats.bLife )
+	if( !pTarget->pSoldier->vitals().health() )
 	{ //Soldier already dead (can't kill him again!)
 		return;
 	}
@@ -5020,11 +5020,11 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 
 	if (gTacticalStatus.uiFlags & GODMODE && pTarget->pSoldier->bTeam == OUR_TEAM)
 	{
-		iNewLife = pTarget->pSoldier->stats.bLife;
+		iNewLife = pTarget->pSoldier->vitals().health();
 	}
 	else
 	{
-		iNewLife = pTarget->pSoldier->stats.bLife - pTarget->usHitDamage[index];
+		iNewLife = pTarget->pSoldier->vitals().health() - pTarget->usHitDamage[index];
 	}	
 	if( !pTarget->usHitDamage[index] )
 	{ //bullet missed -- play a ricochet sound.
@@ -5055,13 +5055,13 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 	else	
 		PlayAutoResolveSample( (UINT8)(BULLET_IMPACT_1+PreRandom(3)), RATE_11025, 50, 1, MIDDLEPAN );
 
-	if( pTarget->pSoldier->stats.bLife >= CONSCIOUSNESS )
+	if( pTarget->pSoldier->vitals().health() >= CONSCIOUSNESS )
 	{
 		if( gpAR->fSound )
 			pTarget->pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
 	}
 
-	if( iNewLife < OKLIFE && pTarget->pSoldier->stats.bLife >= OKLIFE )
+	if( iNewLife < OKLIFE && pTarget->pSoldier->vitals().health() >= OKLIFE )
 	{
 		//the hit caused the merc to fall.	Play the falling sound
 		PlayAutoResolveSample( (UINT8)FALL_1, RATE_11025, 50, 1, MIDDLEPAN );
@@ -5252,23 +5252,23 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 	// SANDRO - added the insta-healable value for doctor trait
 	else if ((IS_MERC_BODY_TYPE( pTarget->pSoldier ) || IS_CIV_BODY_TYPE( pTarget->pSoldier )) && ( gGameOptions.fNewTraitSystem ))
 	{
-		pTarget->pSoldier->iHealableInjury += ((pTarget->pSoldier->stats.bLife - iNewLife) * 100);
-		if (pTarget->pSoldier->iHealableInjury > ((pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->stats.bLife) * 100))
-			pTarget->pSoldier->iHealableInjury = ((pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->stats.bLife) * 100);
+		pTarget->pSoldier->iHealableInjury += ((pTarget->pSoldier->vitals().health() - iNewLife) * 100);
+		if (pTarget->pSoldier->iHealableInjury > ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100))
+			pTarget->pSoldier->iHealableInjury = ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100);
 	}
 	///////////////////////////////////////////////////////////////
 	//Adjust the soldiers stats based on the damage.
-	pTarget->pSoldier->stats.bLife = (INT8)max( iNewLife, 0 );
+	pTarget->pSoldier->vitals().health() = (INT8)max( iNewLife, 0 );
 	if( pTarget->uiFlags & CELL_MERC && gpAR->pRobotCell)
 	{
 		gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot( );
 	}
 
-	if( pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->bBleeding - pTarget->usHitDamage[index] >= pTarget->pSoldier->stats.bLife )
-		pTarget->pSoldier->bBleeding += (INT8)pTarget->usHitDamage[index];
+	if( pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().bleeding() - pTarget->usHitDamage[index] >= pTarget->pSoldier->vitals().health() )
+		pTarget->pSoldier->vitals().bleeding() += (INT8)pTarget->usHitDamage[index];
 	else
-		pTarget->pSoldier->bBleeding = (INT8)(pTarget->pSoldier->stats.bLifeMax - pTarget->pSoldier->stats.bLife);
-	if( !pTarget->pSoldier->stats.bLife )
+		pTarget->pSoldier->vitals().bleeding() = (INT8)(pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health());
+	if( !pTarget->pSoldier->vitals().health() )
 	{
 		// SANDRO - added check to erase insta-healable amount of HPs if dead
 		if (pTarget->pSoldier->iHealableInjury > 0)
@@ -5323,7 +5323,7 @@ BOOLEAN IsBattleOver()
 
 	for( i = 0; i < gpAR->ubMercs; ++i )
 	{
-		if( !(gpMercs[ i ].uiFlags & CELL_RETREATED) && gpMercs[ i ].pSoldier->stats.bLife )
+		if( !(gpMercs[ i ].uiFlags & CELL_RETREATED) && gpMercs[ i ].pSoldier->vitals().health() )
 		{
 			if( !(gpMercs[ i ].uiFlags & CELL_EPC) )
 			{
@@ -5340,7 +5340,7 @@ BOOLEAN IsBattleOver()
 
 	for ( i = 0; i < gpAR->ubCivs; ++i )
 	{
-		if ( !(gpCivs[i].uiFlags & CELL_RETREATED) && gpCivs[i].pSoldier->stats.bLife )
+		if ( !(gpCivs[i].uiFlags & CELL_RETREATED) && gpCivs[i].pSoldier->vitals().health() )
 		{
 			++iNumInvolvedMilitia;
 		}
@@ -5365,7 +5365,7 @@ BOOLEAN IsBattleOver()
 			{
 				//Robot is the only one left in battle, so instantly kill him.
 				pRobot->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-				pRobot->stats.bLife = 0;
+				pRobot->vitals().health() = 0;
 				gpAR->ubAliveMercs--;
 				iNumInvolvedMercs = 0;
 			}
@@ -5404,7 +5404,7 @@ BOOLEAN IsBattleOver()
 				if( gpMercs[ i ].uiFlags & CELL_EPC )
 				{
 					gpMercs[ i ].pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-					gpMercs[ i ].pSoldier->stats.bLife = 0;
+					gpMercs[ i ].pSoldier->vitals().health() = 0;
 					gpMercs[ i ].pSoldier->iHealableInjury = 0; // added by SANDRO
 					--gpAR->ubAliveMercs;
 				}
@@ -5413,7 +5413,7 @@ BOOLEAN IsBattleOver()
 
 		for( i = 0; i < gpAR->ubEnemies; ++i )
 		{
-			if( gpEnemies[ i ].pSoldier->stats.bLife )
+			if( gpEnemies[ i ].pSoldier->vitals().health() )
 			{
 				if ( GetEnemyEncounterCode() != CREATURE_ATTACK_CODE && 
 					GetEnemyEncounterCode() != BLOODCAT_ATTACK_CODE &&
@@ -5487,7 +5487,7 @@ BOOLEAN AttemptPlayerCapture()
 	iConciousEnemies = 0;
 	for( i = 0; i < gpAR->ubEnemies; i++ )
 	{
-		if( gpEnemies[ i ].pSoldier->stats.bLife >= OKLIFE )
+		if( gpEnemies[ i ].pSoldier->vitals().health() >= OKLIFE )
 		{
 			iConciousEnemies++;
 		}
@@ -5508,11 +5508,11 @@ BOOLEAN AttemptPlayerCapture()
 		{
 			return FALSE;
 		}
-		if( gpMercs[ i ].pSoldier->stats.bLife*100 > gpMercs[ i ].pSoldier->stats.bLifeMax*60 )
+		if( gpMercs[ i ].pSoldier->vitals().health()*100 > gpMercs[ i ].pSoldier->vitals().maximumHealth()*60 )
 		{
 			return FALSE;
 		}
-		if( gpMercs[ i ].pSoldier->stats.bLife >= OKLIFE )
+		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE )
 		{
 			fConcious = TRUE;
 		}
@@ -5776,9 +5776,9 @@ void ProcessBattleFrame()
 					}
 				}
 			}
-			if( pAttacker->pSoldier->stats.bLife < OKLIFE || pAttacker->uiFlags & CELL_RETREATED )
+			if( pAttacker->pSoldier->vitals().health() < OKLIFE || pAttacker->uiFlags & CELL_RETREATED )
 			{
-				if( !(pAttacker->uiFlags & CELL_CREATURE) || !pAttacker->pSoldier->stats.bLife )
+				if( !(pAttacker->uiFlags & CELL_CREATURE) || !pAttacker->pSoldier->vitals().health() )
 					continue; //can't attack if you are unconcious or not around (Or a live creature)
 			}
 			iTime = pAttacker->usNextAttack;
@@ -5964,7 +5964,7 @@ void CheckForSoldiersWhoRetreatedIntoMilitiaHeldSectors()
 				{
 					SOLDIERTYPE *pSoldier = id;
 
-					if( pSoldier->bActive && pSoldier->stats.bLife && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
+					if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 					{
 						//Merc is active and alive, and not a vehicle or robot
 						if ( (pSoldier->sSectorX == sX) && (pSoldier->sSectorY == sY) && (pSoldier->bSectorZ == 0) )
@@ -6011,7 +6011,7 @@ void AutoResolveMilitiaDropAndPromote()
 			// Flugente: drop sector equipment
 			gpCivs[i].pSoldier->DropSectorEquipment( );
 						
-			if ( gpCivs[i].pSoldier->stats.bLife < OKLIFE / 2 )
+			if ( gpCivs[i].pSoldier->vitals().health() < OKLIFE / 2 )
 			{
 				// Flugente: individual militia
 				// we not only handle promotions here, but basically update this guy
@@ -6036,7 +6036,7 @@ void AutoResolveMilitiaDropAndPromote()
 
 				StrategicRemoveMilitiaFromSector( gpCivs[i].pSoldier->sSectorX, gpCivs[i].pSoldier->sSectorY, ubCurrentRank, 1 );
 			}
-			else if ( gpCivs[i].pSoldier->stats.bLife >= OKLIFE / 2 )
+			else if ( gpCivs[i].pSoldier->vitals().health() >= OKLIFE / 2 )
 			{
 				// Flugente: take care of promotions and individual militia update
 				HandlePossibleMilitiaPromotion( gpCivs[i].pSoldier, TRUE );

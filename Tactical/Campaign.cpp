@@ -119,7 +119,7 @@ void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 
 	}
 
 	// no points earned while somebody is unconscious (for assist XPs, and such)
-	if ( pSoldier->stats.bLife < CONSCIOUSNESS )
+	if ( pSoldier->vitals().health() < CONSCIOUSNESS )
 		return;
 
 
@@ -548,7 +548,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 		switch( ubStat )
 		{
 		case HEALTHAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bLifeMax );
+			pbSoldierStatPtr = &( pSoldier->vitals().maximumHealth() );
 			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeHealthTime);
 			usIncreaseValue = HEALTH_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_HEALTH;
@@ -742,12 +742,12 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 			if (pSoldier != NULL)
 			{
 				// adjust current health by the same amount as max health
-				pSoldier->stats.bLife += sPtsChanged;
+				pSoldier->vitals().health() += sPtsChanged;
 
 				// don't let this kill a guy or knock him out!!!
-				if (pSoldier->stats.bLife < OKLIFE)
+				if (pSoldier->vitals().health() < OKLIFE)
 				{
-					pSoldier->stats.bLife = OKLIFE;
+					pSoldier->vitals().health() = OKLIFE;
 				}
 			}
 		}
@@ -867,7 +867,7 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 			return;
 
 		// delay increases while merc is dying
-		if (pSoldier->stats.bLife < OKLIFE)
+		if (pSoldier->vitals().health() < OKLIFE)
 			return;
 
 		// ignore POWs - shouldn't ever be getting this far
@@ -976,7 +976,7 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 			switch( ubStat )
 			{
 				case HEALTHAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bLifeMax );
+				pbSoldierStatPtr = &( pSoldier->vitals().maximumHealth() );
 				break;
 
 			case AGILAMT:
@@ -1851,7 +1851,7 @@ void AwardExperienceBonusToActiveSquad( UINT8 ubExpBonusType )
 				pSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 				++pSoldier)
 	{
-		if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->stats.bLife >= CONSCIOUSNESS ) &&
+		if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			StatChange( pSoldier, EXPERAMT, usXPs, FALSE );

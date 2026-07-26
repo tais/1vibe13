@@ -528,7 +528,7 @@ void EnterPersonnel( void )
 		// WANNE: Bugfix: Also show the roboter in ther personnel screen. This bug was introduced in revision 2498, when Many Mercenary was included.
 		//if ((pTeamSoldier->bActive) && 
 		//	!(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)  && 
-		//	/*(pTeamSoldier->stats.bLife > 0 ) && */  !AM_A_ROBOT(pTeamSoldier)  )		
+		//	/*(pTeamSoldier->vitals().health() > 0 ) && */  !AM_A_ROBOT(pTeamSoldier)  )
 
 		if ((pTeamSoldier->bActive) && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))				
 		{		
@@ -831,7 +831,7 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 
 	if (fCurrentTeamMode) 
 	{
-		if( MercPtrs[iSlot]->stats.bLife <= 0 ) 
+		if( MercPtrs[iSlot]->vitals().health() <= 0 )
 		{
 			hFaceHandle->pShades[ 0 ]		= Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
 			//set the red pallete to the face
@@ -1417,7 +1417,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				const INT16 change = pMercProfile->bLifeDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_HEALTH]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d/%d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax );
+				swprintf( sString, L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 			}
 			else
 			{
@@ -2469,7 +2469,7 @@ INT32 GetNumberOfMercsOnPlayersTeam( void )
 
 	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++, pTeamSoldier++)
 	{
-		if( ( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->stats.bLife > 0 ) )
+		if( ( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->vitals().health() > 0 ) )
 			iCounter++;
 	}
 
@@ -2557,7 +2557,7 @@ void DisplayPicturesOfCurrentTeam( void )
 		//Blt face to screen to
 		GetVideoObject(&hFaceHandle, guiFACE);
 
-		if (pSoldier->stats.bLife <= 0) {
+		if (pSoldier->vitals().health() <= 0) {
 			hFaceHandle->pShades[ 0 ] = Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
 			//set the red pallete to the face
 			SetObjectHandleShade( guiFACE, 0 );
@@ -2565,7 +2565,7 @@ void DisplayPicturesOfCurrentTeam( void )
 
 		BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,( INT16 ) ( SMALL_PORTRAIT_START_X+ ( (countOnScreen-1) % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( (countOnScreen-1) / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT ), VO_BLT_SRCTRANSPARENCY,NULL);
 
-		if (pSoldier->stats.bLife <= 0)	{
+		if (pSoldier->vitals().health() <= 0)	{
 			//if the merc is dead, display it
 			DrawTextToScreen(AimPopUpText[AIM_MEMBER_DEAD], ( INT16 ) ( SMALL_PORTRAIT_START_X+ ( (countOnScreen-1) % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( (countOnScreen-1) / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT + SMALL_PORT_HEIGHT / 2 ), SMALL_PORTRAIT_WIDTH_NO_BORDERS, FONT10ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
 		} // if
@@ -3125,7 +3125,7 @@ INT32 GetTotalDailyCostOfCurrentTeam( void )
 	{
 		pSoldier = MercPtrs[cnt];
 
-		if( ( pSoldier->bActive) && ( pSoldier->stats.bLife > 0 ) )
+		if( ( pSoldier->bActive) && ( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
 			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
@@ -3182,7 +3182,7 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 	{
 		pSoldier = MercPtrs[cnt];
 
-		if( ( pSoldier->bActive ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pSoldier->stats.bLife > 0 ) )
+		if( ( pSoldier->bActive ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
 			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
@@ -3252,7 +3252,7 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 	{
 		pSoldier = MercPtrs[cnt];
 
-		if( ( pSoldier->bActive) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pSoldier->stats.bLife > 0 ) )
+		if( ( pSoldier->bActive) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
 			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
@@ -3684,7 +3684,7 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 	// run through active soldiers
 	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
 	{
-		if( ( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->stats.bLife > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
+		if( ( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
 			switch( iStat )
 			{
@@ -3695,10 +3695,10 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 							continue;
 						}
 
-					if( pTeamSoldier->stats.bLifeMax >= iValue )
+					if( pTeamSoldier->vitals().maximumHealth() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bLifeMax;
+						iValue = pTeamSoldier->vitals().maximumHealth();
 					}
 				break;
 				case 1:
@@ -3806,7 +3806,7 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 	// run through active soldiers
 	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
 	{
-		if(( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->stats.bLife > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
+		if(( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
 
 			switch( iStat )
@@ -3819,10 +3819,10 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 						continue;
 					}
 
-					if( pTeamSoldier->stats.bLifeMax <= iValue )
+					if( pTeamSoldier->vitals().maximumHealth() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bLifeMax;
+						iValue = pTeamSoldier->vitals().maximumHealth();
 					}
 				break;
 				case 1:
@@ -3936,7 +3936,7 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 		// Only count stats of merc (not vehicles)
 		if ( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
-		if(( pTeamSoldier->bActive)&&( pTeamSoldier->stats.bLife > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
+		if(( pTeamSoldier->bActive)&&( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
 			switch( iStat )
 			{
@@ -3950,7 +3950,7 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 							continue;
 						}
 
-					iTotalStatValue += pTeamSoldier->stats.bLifeMax;
+					iTotalStatValue += pTeamSoldier->vitals().maximumHealth();
 
 				break;
 				case 1:
@@ -4309,7 +4309,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 0:
 				// health
 				if (fCurrentTeamMode) {
-						iStat = iId->stats.bLifeMax;
+						iStat = iId->vitals().maximumHealth();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLife;
 				}
@@ -4479,7 +4479,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 0:
 				// health
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bLifeMax;
+					iStat = iId->vitals().maximumHealth();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLife;
 				}
@@ -8343,7 +8343,7 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 		// Only count stats of merc (not vehicles)
 		if ( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
-			if( pTeamSoldier->bActive && pTeamSoldier->stats.bLife > 0 && pTeamSoldier->ubProfile != 0 )
+			if( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 && pTeamSoldier->ubProfile != 0 )
 			{
 				const STRUCT_Records &records = gMercProfiles[pTeamSoldier->ubProfile].records;
 

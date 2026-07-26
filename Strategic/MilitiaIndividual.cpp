@@ -275,9 +275,9 @@ void ApplyTacticalLifeRatioToMilitia()
 	{
 		SOLDIERTYPE *pSoldier = cnt;
 		MILITIA militia;
-		if ( pSoldier && pSoldier->bActive && pSoldier->stats.bLifeMax && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
 		{
-			militia.healthratio = 100.0f * pSoldier->stats.bLife / pSoldier->stats.bLifeMax;
+			militia.healthratio = 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth();
 
 			// while we're here, update kills and assists too
 			militia.AddKills( pSoldier->ubMilitiaKills, pSoldier->ubMilitiaAssists );
@@ -301,19 +301,19 @@ void ApplyMilitiaHealthRatioToTactical()
 	{
 		SOLDIERTYPE *pSoldier = cnt;
 		MILITIA militia;
-		if ( pSoldier && pSoldier->bActive && pSoldier->stats.bLifeMax && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
 		{
-			INT8 oldlife = pSoldier->stats.bLife;
+			INT8 oldlife = pSoldier->vitals().health();
 
-			FLOAT currenthealthratio = 100.0f * oldlife / pSoldier->stats.bLifeMax;
+			FLOAT currenthealthratio = 100.0f * oldlife / pSoldier->vitals().maximumHealth();
 
 			militia.healthratio = max( militia.healthratio, currenthealthratio );
 
-			pSoldier->stats.bLife = min( pSoldier->stats.bLifeMax, ( militia.healthratio / 100.0f ) * pSoldier->stats.bLifeMax );
+			pSoldier->vitals().health() = min( pSoldier->vitals().maximumHealth(), ( militia.healthratio / 100.0f ) * pSoldier->vitals().maximumHealth() );
 
 			// healing done will be displayed the next time the player sees this soldier
 			pSoldier->flags.fDisplayDamage = TRUE;
-			pSoldier->sDamage -= pSoldier->stats.bLife - oldlife;
+			pSoldier->sDamage -= pSoldier->vitals().health() - oldlife;
 
 			// while we're here, update kills and assists too
 			militia.AddKills( pSoldier->ubMilitiaKills, pSoldier->ubMilitiaAssists );
@@ -627,7 +627,7 @@ UINT32 CreateNewIndividualMilitiaFromSoldier( SOLDIERTYPE* pSoldier, UINT8 aOrig
 
 	newmilitia.flagmask = 0;
 
-	newmilitia.healthratio = 100.0f * pSoldier->stats.bLife / pSoldier->stats.bLifeMax;
+	newmilitia.healthratio = 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth();
 
 	newmilitia.kills = 0;
 	newmilitia.assists = 0;
@@ -913,15 +913,15 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 			if ( aAutoResolve )
 				report.id = max( 0, report.id - 1 );
 
-			if ( pSoldier->stats.bLife < OKLIFE )
+			if ( pSoldier->vitals().health() < OKLIFE )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_WOUNDED_COMA;
 
 			if ( pSoldier->ubMilitiaKills )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY;
 
-			if ( militia.healthratio - 100.0f * pSoldier->stats.bLife / pSoldier->stats.bLifeMax > 50 )
+			if ( militia.healthratio - 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth() > 50 )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_WOUNDED_HEAVY;
-			else if ( militia.healthratio - 100.0f * pSoldier->stats.bLife / pSoldier->stats.bLifeMax > 5 )
+			else if ( militia.healthratio - 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth() > 5 )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_WOUNDED_SMALL;
 
 			militia.history.push_back( report );
@@ -936,7 +936,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 			militia.history.push_back( report );
 		}
 
-		militia.healthratio = 100.0f * pSoldier->stats.bLife / pSoldier->stats.bLifeMax;
+		militia.healthratio = 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth();
 		militia.militiarank = SoldierClassToMilitiaRank( pSoldier->ubSoldierClass );
 
 		UpdateMilitia( militia );

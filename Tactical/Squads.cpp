@@ -555,7 +555,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 
 				RebuildSquad( ( INT8 )iCounterA );
 
-				if( pCharacter->stats.bLife == 0 )
+				if( pCharacter->vitals().health() == 0 )
 				{
 					AddDeadCharacterToSquadDeadGuys( pCharacter, iCounterA );
 				}
@@ -597,7 +597,7 @@ BOOLEAN RemoveCharacterFromASquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 			RemovePlayerFromGroup( SquadMovementGroups[ bSquadValue ], pCharacter );
 
 
-			if( pCharacter->stats.bLife == 0 )
+			if( pCharacter->vitals().health() == 0 )
 			{
 				AddDeadCharacterToSquadDeadGuys( pCharacter, iCounterA );
 			}
@@ -998,7 +998,7 @@ void ExamineCurrentSquadLights( void )
 	SoldierID usID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; usID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++usID)
 	{
-		if ( usID->bInSector && usID->stats.bLife >= OKLIFE )
+		if ( usID->bInSector && usID->vitals().health() >= OKLIFE )
 		{
 			usID->PositionSoldierLight(	);
 		}

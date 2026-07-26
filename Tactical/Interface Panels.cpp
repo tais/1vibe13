@@ -648,14 +648,14 @@ void CheckForDisabledForGiveItem( )
 	gfSMDisableForItems = TRUE;
 
 	// ATE: Is the current merc unconscious.....
-	if ( currentMerc->stats.bLife < OKLIFE && gpItemPointer != NULL )
+	if ( currentMerc->vitals().health() < OKLIFE && gpItemPointer != NULL )
 	{
 		// Go through each merc and see if there is one closeby....
 		cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
 			pSoldier = cnt;
-			if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) )
+			if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) )
 			{
 				sDist = PythSpacesAway( currentMerc->sGridNo, pSoldier->sGridNo );
 
@@ -695,7 +695,7 @@ void CheckForDisabledForGiveItem( )
 				if ( SoldierTo3DLocationLineOfSightTest( ubSrcSoldier, sDestGridNo,  bDestLevel, 3, TRUE, CALC_FROM_ALL_DIRS )  )
 				{
 					// UNCONSCIOUS GUYS ONLY 1 tile AWAY
-					if ( currentMerc->stats.bLife < CONSCIOUSNESS )
+					if ( currentMerc->vitals().health() < CONSCIOUSNESS )
 					{
 						if ( sDist <= PASSING_ITEM_DISTANCE_NOTOKLIFE )
 						{
@@ -781,7 +781,7 @@ void SetSMPanelCurrentMerc( SoldierID ubNewID )
 	}
 	else
 	{
-		if ( ( gpItemPointer != NULL || guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE || GetSMCurrentMerc()->stats.bLife < OKLIFE ) )
+		if ( ( gpItemPointer != NULL || guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE || GetSMCurrentMerc()->vitals().health() < OKLIFE ) )
 		{
 			CheckForDisabledForGiveItem( );
 		}
@@ -1095,7 +1095,7 @@ void UpdateSMPanel( )
 	}
 
 	// If not selected ( or dead ), disable/gray some buttons
-	if ( gusSelectedSoldier != GetSMCurrentMerc()->ubID || ( GetSMCurrentMerc()->stats.bLife < OKLIFE ) || (GetJa2TacticalCurrentTeam() != gbPlayerNum) || gfSMDisableForItems )
+	if ( gusSelectedSoldier != GetSMCurrentMerc()->ubID || ( GetSMCurrentMerc()->vitals().health() < OKLIFE ) || (GetJa2TacticalCurrentTeam() != gbPlayerNum) || gfSMDisableForItems )
 	{
 		DisableButton( iSMPanelButtons[ CLIMB_BUTTON ] );
 		DisableButton( iSMPanelButtons[ BURSTMODE_BUTTON ] );
@@ -2888,7 +2888,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			FindFontRightCoordinates(SM_MED_X, SM_MED_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			if ( GetSMCurrentMerc()->stats.bLife >= OKLIFE )
+			if ( GetSMCurrentMerc()->vitals().health() >= OKLIFE )
 			{
 				SetFontBackground( FONT_MCOLOR_BLACK );
 				SetFontForeground( STATS_TEXT_FONT_COLOR );
@@ -3023,16 +3023,16 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		/////////////////////////////////////////////////////////////////////////////////////////
 
 		// UPdate stats!
-		if ( GetSMCurrentMerc()->stats.bLife != 0 )
+		if ( GetSMCurrentMerc()->vitals().health() != 0 )
 		{
 		if ( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
-			swprintf( pStr, TacticalStr[ VEHICLE_VITAL_STATS_POPUPTEXT ], GetSMCurrentMerc()->stats.bLife, GetSMCurrentMerc()->stats.bLifeMax, GetSMCurrentMerc()->bBreath, GetSMCurrentMerc()->bBreathMax );
+			swprintf( pStr, TacticalStr[ VEHICLE_VITAL_STATS_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath() );
 			SetRegionFastHelpText( &(gSM_SELMERCBarsRegion), pStr );
 		}
 		else if ( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_ROBOT )
 		{
-			swprintf( pStr, gzLateLocalizedString[ 16 ], GetSMCurrentMerc()->stats.bLife, GetSMCurrentMerc()->stats.bLifeMax );
+			swprintf( pStr, gzLateLocalizedString[ 16 ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth() );
 			SetRegionFastHelpText( &(gTEAM_BarsRegions[ cnt ]), pStr );
 		}
 		else
@@ -3041,11 +3041,11 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			// Flugente: food info if food system is active
 			if ( UsingFoodSystem() && GetSMCurrentMerc()->ubProfile != ROBOT && !IsVehicle(GetSMCurrentMerc()) )
 			{
-				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], GetSMCurrentMerc()->stats.bLife, GetSMCurrentMerc()->stats.bLifeMax, GetSMCurrentMerc()->bBreath, GetSMCurrentMerc()->bBreathMax, pMoraleStr, (INT32)(100*(GetSMCurrentMerc()->bDrinkLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(GetSMCurrentMerc()->bFoodLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
+				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(GetSMCurrentMerc()->bDrinkLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(GetSMCurrentMerc()->bFoodLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 			}
 			else
 			{
-				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_POPUPTEXT ], GetSMCurrentMerc()->stats.bLife, GetSMCurrentMerc()->stats.bLifeMax, GetSMCurrentMerc()->bBreath, GetSMCurrentMerc()->bBreathMax, pMoraleStr );
+				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath(), pMoraleStr );
 			}
 
 			{
@@ -3145,7 +3145,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		// display AP
 		if ( !( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_DEAD ) )
 		{
-			if ( IsJa2TacticalTurnBasedCombat() && GetSMCurrentMerc()->stats.bLife >= OKLIFE )
+			if ( IsJa2TacticalTurnBasedCombat() && GetSMCurrentMerc()->vitals().health() >= OKLIFE )
 			{
 				SetFont( TINYFONT1 );
 				//if ( GetSMCurrentMerc()->sLastTarget != NOWHERE && !EnoughPoints( GetSMCurrentMerc(), MinAPsToAttack( GetSMCurrentMerc(), GetSMCurrentMerc()->sLastTarget, FALSE ), 0, FALSE ) || GetUIApsToDisplay( GetSMCurrentMerc() ) < 0 )
@@ -3251,7 +3251,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 
 void UpdateStatColor( UINT32 uiTimer, BOOLEAN fIncrease, BOOLEAN fDamaged, BOOLEAN fAugmented ) // SANDRO - added argument // Flugente - me too
 {
-	if ( GetSMCurrentMerc()->stats.bLife >= OKLIFE )
+	if ( GetSMCurrentMerc()->vitals().health() >= OKLIFE )
 	{
 		// SANDRO - if damaged stat we could regain, show in red until repaired
 		if( fDamaged )
@@ -3384,7 +3384,7 @@ void SMInvClickCamoCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		if ( gpItemPointer )
 		{
 			// We are doing this ourselve, continue
-			if ( GetSMCurrentMerc()->stats.bLife >= CONSCIOUSNESS )
+			if ( GetSMCurrentMerc()->vitals().health() >= CONSCIOUSNESS )
 			{
 				if ( ApplyConsumable( GetSMCurrentMerc(), gpItemPointer, FALSE, TRUE ) )
 				{
@@ -3465,11 +3465,11 @@ BOOLEAN UIHandleItemPlacement( UINT8 ubHandPos, UINT16 usOldItemIndex, UINT16 us
 		if ( fDeductPoints )
 		{
 			// Deduct points
-			if ( GetItemPointerSoldier()->stats.bLife >= CONSCIOUSNESS )
+			if ( GetItemPointerSoldier()->vitals().health() >= CONSCIOUSNESS )
 			{
 				DeductPoints( GetItemPointerSoldier(),	2, 0, UNTRIGGERED_INTERRUPT );
 			}
-			if ( GetSMCurrentMerc()->stats.bLife >= CONSCIOUSNESS )
+			if ( GetSMCurrentMerc()->vitals().health() >= CONSCIOUSNESS )
 			{
 				DeductPoints( GetSMCurrentMerc(),	2, 0, UNTRIGGERED_INTERRUPT );
 			}
@@ -3831,7 +3831,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				fDeductPoints = TRUE;
 
 				// First check points for src guy
-				if ( GetItemPointerSoldier()->stats.bLife >= CONSCIOUSNESS )
+				if ( GetItemPointerSoldier()->vitals().health() >= CONSCIOUSNESS )
 				{
 					if ( EnoughPoints( GetItemPointerSoldier(), 3, 0, TRUE ) )
 					{
@@ -3846,7 +3846,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				// Should we go on?
 				if ( fOKToGo )
 				{
-					if ( GetSMCurrentMerc()->stats.bLife >= CONSCIOUSNESS )
+					if ( GetSMCurrentMerc()->vitals().health() >= CONSCIOUSNESS )
 					{
 						if ( EnoughPoints( GetSMCurrentMerc(), 3, 0, TRUE ) )
 						{
@@ -4032,11 +4032,11 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if ( fDeductPoints )
 					{
 						// Deduct points
-						if ( GetItemPointerSoldier()->stats.bLife >= CONSCIOUSNESS )
+						if ( GetItemPointerSoldier()->vitals().health() >= CONSCIOUSNESS )
 						{
 							DeductPoints( GetItemPointerSoldier(),	2, 0 );
 						}
-						if ( GetSMCurrentMerc()->stats.bLife >= CONSCIOUSNESS )
+						if ( GetSMCurrentMerc()->vitals().health() >= CONSCIOUSNESS )
 						{
 							DeductPoints( GetSMCurrentMerc(),	2, 0 );
 						}
@@ -5501,7 +5501,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 					Assert (pVehicle != 0);
 
 					//OK, for each item, set dirty text if applicable!
-					swprintf( pStr, TacticalStr[ DRIVER_POPUPTEXT ], pVehicle->stats.bLife, pVehicle->stats.bLifeMax, pVehicle->bBreath, pVehicle->bBreathMax );
+					swprintf( pStr, TacticalStr[ DRIVER_POPUPTEXT ], pVehicle->vitals().health(), pVehicle->vitals().maximumHealth(), pVehicle->vitals().breath(), pVehicle->vitals().maximumBreath() );
 					SetRegionFastHelpText( &(gTEAM_FirstHandInv[ cnt ]), pStr );
 				}
 				// Add text for first hand popup
@@ -5609,16 +5609,16 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				// UPdate stats!
 				if ( fDirty == DIRTYLEVEL2 )
 				{
-					if ( pSoldier->stats.bLife != 0 )
+					if ( pSoldier->vitals().health() != 0 )
 					{
 						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 						{
-							 swprintf( pStr, TacticalStr[ VEHICLE_VITAL_STATS_POPUPTEXT ], pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax );
+							 swprintf( pStr, TacticalStr[ VEHICLE_VITAL_STATS_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath() );
 							 SetRegionFastHelpText( &(gTEAM_BarsRegions[ cnt ]), pStr );
 						}
 						else if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
 						{
-							 swprintf( pStr, gzLateLocalizedString[ 16 ], pSoldier->stats.bLife, pSoldier->stats.bLifeMax );
+							 swprintf( pStr, gzLateLocalizedString[ 16 ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 							 SetRegionFastHelpText( &(gTEAM_BarsRegions[ cnt ]), pStr );
 						}
 						else
@@ -5627,11 +5627,11 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 			
 							if ( UsingFoodSystem() && pSoldier->ubProfile != ROBOT && !IsVehicle(pSoldier) )
 							{
-								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pMoraleStr, (INT32)(100*(pSoldier->bDrinkLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(pSoldier->bFoodLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
+								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(pSoldier->bDrinkLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(pSoldier->bFoodLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 							}
 							else
 							{
-								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_POPUPTEXT ], pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pMoraleStr );
+								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pMoraleStr );
 							}
 
 							{
@@ -5743,7 +5743,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 							DrawMoraleUIBarEx( pSoldier, sTEAMMoraleXY[ posIndex ], sTEAMMoraleXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, TRUE, FRAME_BUFFER );
 					}
 
-					if ( IsJa2TacticalTurnBased() && pSoldier->stats.bLife >= OKLIFE )
+					if ( IsJa2TacticalTurnBased() && pSoldier->vitals().health() >= OKLIFE )
 					{
 						// Render APs
 						SetFont( TINYFONT1 );
@@ -5787,8 +5787,8 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				else
 				{
 					//Erase!
-					//DrawUIBar( pSoldier->bBreath, sTEAMBreathXY[ posIndex ], sTEAMBreathXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, DRAW_ERASE_BAR );
-					//DrawUIBar( pSoldier->stats.bLife, sTEAMLifeXY[ posIndex ], sTEAMLifeXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, DRAW_ERASE_BAR );
+					//DrawUIBar( pSoldier->vitals().breath(), sTEAMBreathXY[ posIndex ], sTEAMBreathXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, DRAW_ERASE_BAR );
+					//DrawUIBar( pSoldier->vitals().health(), sTEAMLifeXY[ posIndex ], sTEAMLifeXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, DRAW_ERASE_BAR );
 
 					// Erase APs
 					RestoreExternBackgroundRect( sTEAMApXY[ posIndex ], sTEAMApXY[ posIndex + 1 ], TM_AP_WIDTH+1, TM_AP_HEIGHT );
@@ -6343,7 +6343,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 
 
 	// ATE: No matter what we do... if below OKLIFE, just locate....
-	if ( ubID->stats.bLife < OKLIFE )
+	if ( ubID->vitals().health() < OKLIFE )
 	{
 		LocateSoldier( ubID, SETLOCATOR );
 		return;
@@ -6516,7 +6516,7 @@ void FinishAnySkullPanelAnimations( )
 	for ( ; cnt2 <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt2 )
 	{
 		pTeamSoldier = cnt2;
-		if ( pTeamSoldier->bActive && pTeamSoldier->stats.bLife == 0 )
+		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() == 0 )
 		{
 			if ( pTeamSoldier->flags.fUIdeadMerc || pTeamSoldier->flags.fClosePanelToDie )
 			{
@@ -7241,7 +7241,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fGoodForLessOKLife )
 			{
-				if ( pTeamSoldier->stats.bLife > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->bAssignment < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->bAssignment < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}
@@ -7301,7 +7301,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fGoodForLessOKLife )
 			{
-				if ( pTeamSoldier->stats.bLife > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->bAssignment < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->bAssignment < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}
@@ -7569,7 +7569,7 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				fDeductPoints = TRUE;
 
 				// First check points for src guy
-				if ( GetItemPointerSoldier()->stats.bLife >= CONSCIOUSNESS )
+				if ( GetItemPointerSoldier()->vitals().health() >= CONSCIOUSNESS )
 				{
 					if ( EnoughPoints( GetItemPointerSoldier(), 2, 0, TRUE ) )
 					{
@@ -7584,7 +7584,7 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				// Should we go on?
 				if ( fOKToGo )
 				{
-					if ( GetSMCurrentMerc()->stats.bLife >= CONSCIOUSNESS )
+					if ( GetSMCurrentMerc()->vitals().health() >= CONSCIOUSNESS )
 					{
 						if ( EnoughPoints( GetSMCurrentMerc(), 2, 0, TRUE ) )
 						{
@@ -7612,11 +7612,11 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( fDeductPoints )
 						{
 							// Deduct points
-							if ( GetItemPointerSoldier()->stats.bLife >= CONSCIOUSNESS )
+							if ( GetItemPointerSoldier()->vitals().health() >= CONSCIOUSNESS )
 							{
 								DeductPoints( GetItemPointerSoldier(),	2, 0, UNTRIGGERED_INTERRUPT );
 							}
-							if ( GetItemPopupSoldier()->stats.bLife >= CONSCIOUSNESS )
+							if ( GetItemPopupSoldier()->vitals().health() >= CONSCIOUSNESS )
 							{
 								DeductPoints( GetItemPopupSoldier(),	2, 0, UNTRIGGERED_INTERRUPT );
 							}
@@ -7655,11 +7655,11 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if ( fDeductPoints )
 					{
 						// Deduct points
-						if ( GetItemPointerSoldier() && GetItemPointerSoldier()->stats.bLife >= CONSCIOUSNESS )
+						if ( GetItemPointerSoldier() && GetItemPointerSoldier()->vitals().health() >= CONSCIOUSNESS )
 						{
 							DeductPoints( GetItemPointerSoldier(),	2, 0, UNTRIGGERED_INTERRUPT );
 						}
-						if ( GetSMCurrentMerc()->stats.bLife >= CONSCIOUSNESS )
+						if ( GetSMCurrentMerc()->vitals().health() >= CONSCIOUSNESS )
 						{
 							DeductPoints( GetSMCurrentMerc(),	2, 0, UNTRIGGERED_INTERRUPT );
 						}

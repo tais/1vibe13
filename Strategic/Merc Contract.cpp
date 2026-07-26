@@ -212,7 +212,7 @@ void BeginContractRenewalSequence( )
 
 			if ( pSoldier )
 			{
-				if( ( pSoldier->bActive == FALSE ) || ( pSoldier->stats.bLife == 0 ) || ( pSoldier->bAssignment == IN_TRANSIT ) ||( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+				if( ( pSoldier->bActive == FALSE ) || ( pSoldier->vitals().health() == 0 ) || ( pSoldier->bAssignment == IN_TRANSIT ) ||( pSoldier->bAssignment == ASSIGNMENT_POW ) )
 				{
 					// no
 					continue;
@@ -542,7 +542,7 @@ BOOLEAN WillMercRenew( SOLDIERTYPE	*pSoldier, BOOLEAN fSayQuote )
 		return( FALSE );
 
 	// Flugente: an unconscious merc can't say 'yes' to a contract renewal
-	if ( pSoldier->stats.bLife < CONSCIOUSNESS )
+	if ( pSoldier->vitals().health() < CONSCIOUSNESS )
 		return( FALSE );
 
 	// does the merc have another contract already lined up?
@@ -1027,7 +1027,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	ubHistoryCode = pSoldier->ubLeaveHistoryCode;
 
 	//if the soldier is DEAD
-	if( pSoldier->stats.bLife <= 0 )
+	if( pSoldier->vitals().health() <= 0 )
 	{
 		AddCharacterToDeadList( pSoldier );
 	}
@@ -1169,7 +1169,7 @@ void CalculateMedicalDepositRefund( SOLDIERTYPE *pSoldier )
 		return;
 
 	//if the merc is at full health, refund the full medical deposit
-	if( pSoldier->stats.bLife == pSoldier->stats.bLifeMax )
+	if( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() )
 	{
 		//add an entry in the finacial page for the FULL refund of the medical deposit
 		// use the medical deposit in pSoldier, not in profile, which goes up with leveling
@@ -1190,7 +1190,7 @@ void CalculateMedicalDepositRefund( SOLDIERTYPE *pSoldier )
 #endif
 	}
 	//else if the merc is a dead, refund NOTHING!!
-	else if( pSoldier->stats.bLife <= 0 )
+	else if( pSoldier->vitals().health() <= 0 )
 	{
 		//add an entry in the finacial page for NO refund of the medical deposit
 		//AddTransactionToPlayersBook( NO_MEDICAL_REFUND, pSoldier->ubProfile, GetWorldTotalMin(), 0 );
@@ -1212,7 +1212,7 @@ void CalculateMedicalDepositRefund( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// use the medical deposit in pSoldier, not in profile, which goes up with leveling
-		iRefundAmount = (INT32) ( ( pSoldier->stats.bLife / ( FLOAT ) pSoldier->stats.bLifeMax ) * pSoldier->usMedicalDeposit + 0.5 );
+		iRefundAmount = (INT32) ( ( pSoldier->vitals().health() / ( FLOAT ) pSoldier->vitals().maximumHealth() ) * pSoldier->usMedicalDeposit + 0.5 );
 
 		//add an entry in the finacial page for a PARTIAL refund of the medical deposit
 		AddTransactionToPlayersBook( PARTIAL_MEDICAL_REFUND, pSoldier->ubProfile, GetWorldTotalMin(), iRefundAmount );
@@ -1516,7 +1516,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 		pSoldier = &Menptr[ iCounter ];
 
 		// valid soldier?
-		if( ( pSoldier->bActive == FALSE ) || ( pSoldier->stats.bLife == 0 ) || ( pSoldier->bAssignment == IN_TRANSIT ) ||( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+		if( ( pSoldier->bActive == FALSE ) || ( pSoldier->vitals().health() == 0 ) || ( pSoldier->bAssignment == IN_TRANSIT ) ||( pSoldier->bAssignment == ASSIGNMENT_POW ) )
 		{
 			// no
 			continue;

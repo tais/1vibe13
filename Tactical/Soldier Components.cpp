@@ -3,17 +3,7 @@
 
 #include <algorithm>
 
-INT8& SoldierVitalsComponent::health() { return soldier_.stats.bLife; }
-const INT8& SoldierVitalsComponent::health() const { return soldier_.stats.bLife; }
-INT8& SoldierVitalsComponent::maximumHealth() { return soldier_.stats.bLifeMax; }
-const INT8& SoldierVitalsComponent::maximumHealth() const { return soldier_.stats.bLifeMax; }
-INT8& SoldierVitalsComponent::breath() { return soldier_.bBreath; }
-const INT8& SoldierVitalsComponent::breath() const { return soldier_.bBreath; }
-INT8& SoldierVitalsComponent::maximumBreath() { return soldier_.bBreathMax; }
-const INT8& SoldierVitalsComponent::maximumBreath() const { return soldier_.bBreathMax; }
-INT8& SoldierVitalsComponent::bleeding() { return soldier_.bBleeding; }
-const INT8& SoldierVitalsComponent::bleeding() const { return soldier_.bBleeding; }
-bool SoldierVitalsComponent::alive() const { return health() > 0; }
+bool SoldierVitalsComponent::alive() const noexcept { return health() > 0; }
 
 void SoldierVitalsComponent::applyLifeDeduction(INT16 lifeDeduction)
 {
@@ -25,6 +15,15 @@ void SoldierVitalsComponent::applyLifeDeduction(INT16 lifeDeduction)
 
 	health() -= lifeDeduction;
 	health() = std::min(health(), maximumHealth());
+}
+
+void SoldierVitalsComponent::reset() noexcept
+{
+	health_ = 0;
+	maximumHealth_ = 0;
+	breath_ = 0;
+	maximumBreath_ = 0;
+	bleeding_ = 0;
 }
 
 INT32& SoldierPositionComponent::gridNo() { return soldier_.sGridNo; }

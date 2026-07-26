@@ -246,11 +246,11 @@ namespace MiniEventHelpers
 		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, val](SOLDIERTYPE* merc) {
 			if (merc->ubProfile == profileId)
 			{
-				int newBreathValue = merc->bBreathMax + val;
+				int newBreathValue = merc->vitals().maximumBreath() + val;
 				newBreathValue = max(min(newBreathValue, 100), 0);
 
-				merc->bBreathMax = newBreathValue;
-				merc->bBreath = max(min(merc->bBreath, merc->bBreathMax), 0);
+				merc->vitals().maximumBreath() = newBreathValue;
+				merc->vitals().breath() = max(min(merc->vitals().breath(), merc->vitals().maximumBreath()), 0);
 			}
 		});
 
@@ -323,16 +323,16 @@ namespace MiniEventHelpers
 			switch (stat)
 			{
 			case STAT_LIFE:
-				amount = max(min(100 - merc->stats.bLifeMax, amount), -merc->stats.bLifeMax);
-				merc->stats.bLifeMax += amount;
-				merc->stats.bLife += amount;
+				amount = max(min(100 - merc->vitals().maximumHealth(), amount), -merc->vitals().maximumHealth());
+				merc->vitals().maximumHealth() += amount;
+				merc->vitals().health() += amount;
 				statId = HEALTHAMT;
 				merc->timeChanges.uiChangeHealthTime = GetJA2Clock();
 				
 				if (amount < 0)
 				{
 					merc->ubCriticalStatDamage[DAMAGED_STAT_HEALTH] -= amount;
-					gMercProfiles[merc->ubProfile].bLifeMax = merc->stats.bLifeMax;
+					gMercProfiles[merc->ubProfile].bLifeMax = merc->vitals().maximumHealth();
 					gMercProfiles[merc->ubProfile].bLife = min(gMercProfiles[merc->ubProfile].bLife, gMercProfiles[merc->ubProfile].bLifeMax);
 					merc->usValueGoneUp &= ~( HEALTH_INCREASE );
 				}
@@ -587,8 +587,8 @@ namespace MiniEventHelpers
 
 			if (vehicle)
 			{
-				vehicle->stats.bLife += val;
-				vehicle->stats.bLife = max(min(vehicle->stats.bLife, 100), 0);
+				vehicle->vitals().health() += val;
+				vehicle->vitals().health() = max(min(vehicle->vitals().health(), 100), 0);
 
 				lua_pushboolean(LS, true);
 				const MERCPROFILESTRUCT& mps = gMercProfiles[vehicle->ubProfile];
@@ -624,16 +624,16 @@ namespace MiniEventHelpers
 			switch (stat)
 			{
 			case STAT_LIFE:
-				if (loss >= merc->stats.bLifeMax)
+				if (loss >= merc->vitals().maximumHealth())
 				{
-					loss = merc->stats.bLifeMax - 1;
+					loss = merc->vitals().maximumHealth() - 1;
 				}
-				merc->stats.bLifeMax -= loss;
-				merc->stats.bLife = min(merc->stats.bLife, merc->stats.bLifeMax);
+				merc->vitals().maximumHealth() -= loss;
+				merc->vitals().health() = min(merc->vitals().health(), merc->vitals().maximumHealth());
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[merc->ubProfile].bLifeMax = merc->stats.bLifeMax;
+					gMercProfiles[merc->ubProfile].bLifeMax = merc->vitals().maximumHealth();
 					gMercProfiles[merc->ubProfile].bLife = min(gMercProfiles[merc->ubProfile].bLife, gMercProfiles[merc->ubProfile].bLifeMax);
 				}
 
@@ -820,23 +820,23 @@ namespace MiniEventHelpers
 			if (merc->ubProfile != profileId)
 				return;
 
-			int newLifeValue = merc->stats.bLife - amount;
-			newLifeValue = max(min(merc->stats.bLifeMax, newLifeValue), 0);
+			int newLifeValue = merc->vitals().health() - amount;
+			newLifeValue = max(min(merc->vitals().maximumHealth(), newLifeValue), 0);
 
-			merc->stats.bLife = newLifeValue;
+			merc->vitals().health() = newLifeValue;
 
 			if (merc->ubProfile != NO_PROFILE)
 			{
-				gMercProfiles[merc->ubProfile].bLife = merc->stats.bLife;
+				gMercProfiles[merc->ubProfile].bLife = merc->vitals().health();
 			}
 
-			if (merc->stats.bLife <= 0)
+			if (merc->vitals().health() <= 0)
 			{
 				HandleStrategicDeath(merc);
 			}
-			else if (merc->stats.bLife < 15)
+			else if (merc->vitals().health() < 15)
 			{
-				merc->stats.bLife = 15;
+				merc->vitals().health() = 15;
 			}
 		});
 
@@ -1105,8 +1105,8 @@ namespace MiniEventHelpers
 		{
 			if ((*iter)->ubProfile == profileId)
 			{
-				lua_pushinteger(LS, (*iter)->stats.bLife);
-				lua_pushinteger(LS, (*iter)->stats.bLifeMax);
+				lua_pushinteger(LS, (*iter)->vitals().health());
+				lua_pushinteger(LS, (*iter)->vitals().maximumHealth());
 				return 2;
 			}
 		}
@@ -1219,9 +1219,9 @@ namespace MiniEventHelpers
 					switch (stat)
 					{
 						case STAT_LIFE:
-							if ((*iter)->stats.bLifeMax > bestStat)
+							if ((*iter)->vitals().maximumHealth() > bestStat)
 							{
-								bestStat = (*iter)->stats.bLifeMax;
+								bestStat = (*iter)->vitals().maximumHealth();
 								bestSoldier = *iter;
 							}
 							break;
@@ -1344,7 +1344,7 @@ namespace MiniEventHelpers
 			RemoveCharacterFromSquads(merc);
 			merc->ubHoursRemainingOnMiniEvent = hoursOnMiniEvent;
 			merc->bSectorZ += MINI_EVENT_Z_OFFSET;
-			merc->bBleeding = 0;
+			merc->vitals().bleeding() = 0;
 			SetTimeOfAssignmentChangeForMerc(merc);
 			ChangeSoldiersAssignment(merc, ASSIGNMENT_MINIEVENT);
 			
@@ -1520,7 +1520,7 @@ void MiniEventsLua(UINT32 eventId)
 		SOLDIERTYPE* pSoldier = cnt;
 
 		if (pSoldier && pSoldier->bActive
-			&& pSoldier->stats.bLife > 0
+			&& pSoldier->vitals().health() > 0
 			&& pSoldier->bAssignment != IN_TRANSIT
 			&& pSoldier->bAssignment != ASSIGNMENT_POW
 			&& pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND

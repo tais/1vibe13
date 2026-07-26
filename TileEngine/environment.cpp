@@ -1128,12 +1128,12 @@ void HandleEnvironmentHazard( )
 		UINT32 uiCnt = 0;
 		for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt < TOTAL_SOLDIERS; ++uiCnt, ++pSoldier )
 		{
-			if ( pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->stats.bLife > 0 )
+			if ( pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->vitals().health() > 0 )
 			{
 				if ( TERRAIN_IS_WATER( pSoldier->bOverTerrainType ) && pSoldier->pathing.bLevel <= 0 )
 				{
 					// there is a chance to be attacked, it is increased if we have open wounds
-					UINT16 chancetobeattacked = 20 + pSoldier->bBleeding + 20 * TERRAIN_IS_DEEP_WATER( pSoldier->bOverTerrainType );
+					UINT16 chancetobeattacked = 20 + pSoldier->vitals().bleeding() + 20 * TERRAIN_IS_DEEP_WATER( pSoldier->bOverTerrainType );
 
 					if ( Chance( chancetobeattacked ) )
 					{

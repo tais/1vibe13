@@ -534,7 +534,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 	{
 		pSoldier = MercPtrs[ iCounter ];
 
-		if ( pSoldier->stats.bLife >= OKLIFE && pSoldier->bActive )
+		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive )
 		{
 			// if soldier is in this sector
 			if( SectorIsPartOfTown( bTownId, pSoldier->sSectorX, pSoldier->sSectorY ) == TRUE )
@@ -2126,7 +2126,7 @@ UINT32 PlayerStrength( void )
 			if ( pSoldier->bInSector || (pSoldier->flags.fBetweenSectors && SECTORX( pSoldier->ubPrevSectorID ) == gWorldSectorX && SECTORY( pSoldier->ubPrevSectorID ) == gWorldSectorY && (pSoldier->bSectorZ == gbWorldSectorZ)) )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath
-				uiStrength = pSoldier->stats.bLife * ( pSoldier->bBreathMax + 100 ) / 200;
+				uiStrength = pSoldier->vitals().health() * ( pSoldier->vitals().maximumBreath() + 100 ) / 200;
 				uiTotal += uiStrength;
 			}
 		}
@@ -2145,7 +2145,7 @@ UINT32 EnemyStrength( void )
 			if ( pSoldier->bActive && pSoldier->bInSector && !pSoldier->aiData.bNeutral )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath
-				uiStrength = pSoldier->stats.bLife * ( pSoldier->bBreathMax + 100 ) / 200;
+				uiStrength = pSoldier->vitals().health() * ( pSoldier->vitals().maximumBreath() + 100 ) / 200;
 				uiTotal += uiStrength;
 			}
 		}

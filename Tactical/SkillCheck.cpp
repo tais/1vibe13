@@ -24,19 +24,19 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 	// Effective strength is:
 	// 1/2 full strength
 	// plus 1/2 strength scaled according to how hurt we are
-	bBandaged = pSoldier->stats.bLifeMax - pSoldier->stats.bLife - pSoldier->bBleeding;
+	bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
 	if (pSoldier->stats.bStrength > 0)
 	{
 		if ( fTrainer )
 		{
 			iEffStrength = pSoldier->stats.bStrength / 2;
-			iEffStrength += ( pSoldier->stats.bStrength / 2) * (pSoldier->stats.bLife + bBandaged / 2) / (pSoldier->stats.bLifeMax);
+			iEffStrength += ( pSoldier->stats.bStrength / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
 		}
 		else
 		{
 			iEffStrength = ( pSoldier->stats.bStrength + pSoldier->bExtraStrength )/ 2;
-			iEffStrength += ( (pSoldier->stats.bStrength + pSoldier->bExtraStrength) / 2) * (pSoldier->stats.bLife + bBandaged / 2) / (pSoldier->stats.bLifeMax);
+			iEffStrength += ( (pSoldier->stats.bStrength + pSoldier->bExtraStrength) / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
 		}
 	}
 	else
@@ -305,12 +305,12 @@ UINT8 GetPenaltyForFatigue( SOLDIERTYPE *pSoldier )
 {
 	UINT8 ubPercentPenalty;
 
-	if			( pSoldier->bBreathMax >= 85 )	ubPercentPenalty =	0;
-	else if ( pSoldier->bBreathMax >= 70 )	ubPercentPenalty =	10;
-	else if ( pSoldier->bBreathMax >= 50 )	ubPercentPenalty =	25;
-	else if ( pSoldier->bBreathMax >= 30 )	ubPercentPenalty =	50;
-	else if ( pSoldier->bBreathMax >= 15 )	ubPercentPenalty =	75;
-	else if ( pSoldier->bBreathMax >	0 )	ubPercentPenalty =	90;
+	if			( pSoldier->vitals().maximumBreath() >= 85 )	ubPercentPenalty =	0;
+	else if ( pSoldier->vitals().maximumBreath() >= 70 )	ubPercentPenalty =	10;
+	else if ( pSoldier->vitals().maximumBreath() >= 50 )	ubPercentPenalty =	25;
+	else if ( pSoldier->vitals().maximumBreath() >= 30 )	ubPercentPenalty =	50;
+	else if ( pSoldier->vitals().maximumBreath() >= 15 )	ubPercentPenalty =	75;
+	else if ( pSoldier->vitals().maximumBreath() >	0 )	ubPercentPenalty =	90;
 	else																		ubPercentPenalty = 100;
 
 	return( ubPercentPenalty );
@@ -1041,7 +1041,7 @@ INT16 CalcTrapDetectLevel( SOLDIERTYPE * pSoldier, BOOLEAN fExamining )
 	}
 
 	// if substantially bleeding, or still in serious shock, randomly lower value
-	if ((pSoldier->bBleeding > 20) || (pSoldier->aiData.bShock > 1))
+	if ((pSoldier->vitals().bleeding() > 20) || (pSoldier->aiData.bShock > 1))
 	{
 		bDetectLevel -= (INT8) PreRandom(3);
 	}

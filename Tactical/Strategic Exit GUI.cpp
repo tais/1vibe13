@@ -226,7 +226,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		pSoldier = id;
 		if( !pSoldier->flags.fBetweenSectors &&
 				pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ &&
-				pSoldier->stats.bLife >= OKLIFE &&
+				pSoldier->vitals().health() >= OKLIFE &&
 				( pSoldier->bAssignment != gusSelectedSoldier->bAssignment || 
 				( pSoldier->bAssignment == VEHICLE && pSoldier->iVehicleId != gusSelectedSoldier->iVehicleId ) ) &&
 				pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != IN_TRANSIT && pSoldier->bAssignment != ASSIGNMENT_DEAD && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND
@@ -406,7 +406,7 @@ void DoneFadeOutWarpCallback( void )
 	{
 		pSoldier = cnt;
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->stats.bLife >= OKLIFE && pSoldier->bInSector )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
 		{
 			gfTacticalTraversal = TRUE;
 			SetGroupSectorValue( gsWarpWorldX, gsWarpWorldY, gbWarpWorldZ, pSoldier->ubGroupID );

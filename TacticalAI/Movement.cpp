@@ -1099,7 +1099,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 	for (ubLoop = 0,pOpponent = Menptr; ubLoop < MAXMERCS; ubLoop++,pOpponent++)
 	{
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pOpponent->bActive || !pOpponent->bInSector || !pOpponent->stats.bLife)
+		if (!pOpponent->bActive || !pOpponent->bInSector || !pOpponent->vitals().health())
 		{
 			continue;			// next merc
 		}

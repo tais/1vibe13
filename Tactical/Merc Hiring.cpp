@@ -642,7 +642,7 @@ BOOLEAN IsMercDead( UINT8 ubMercID )
 
 BOOLEAN IsTheSoldierAliveAndConcious( SOLDIERTYPE		*pSoldier )
 {
-	if( pSoldier->stats.bLife >= CONSCIOUSNESS )
+	if( pSoldier->vitals().health() >= CONSCIOUSNESS )
 		return(TRUE);
 	else
 		return(FALSE);

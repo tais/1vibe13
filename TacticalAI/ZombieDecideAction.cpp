@@ -52,7 +52,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Green Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	gubNPCPathCount = 0;
 
@@ -73,7 +73,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	// this takes priority over water/gas checks, so that point patrol WILL work
 	// from island to island, and through gas covered areas, too
-	if ((pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->bBreath >= 25))
+	if ((pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->vitals().breath() >= 25))
 	{
 		if (PointPatrolAI(pSoldier))
 		{
@@ -92,7 +92,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 	}
 
-	if ((pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->bBreath >=25))
+	if ((pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->vitals().breath() >=25))
 	{
 		if (RandomPointPatrolAI(pSoldier))
 		{
@@ -133,7 +133,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("ZombieDecideActionGreen: rest if running out of breath"));
 	// if our breath is running a bit low, and we're not in the way or in water
-	if ((pSoldier->bBreath < 25) && !bInWater)
+	if ((pSoldier->vitals().breath() < 25) && !bInWater)
 	{
 		// take a breather for gods sake!
 		// for realtime, AI will use a standard wait set outside of here
@@ -227,7 +227,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		iChance = 25 + pSoldier->aiData.bBypassToGreen;
 
 		// sevenfm: limit chance
-		iChance = iChance * pSoldier->bBreath / 100;
+		iChance = iChance * pSoldier->vitals().breath() / 100;
 
 		// if we're in water with land miles (> 25 tiles) away,
 		// OR if we roll under the chance calculated
@@ -398,7 +398,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Yellow Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	// determine the most important noise heard, and its relative value
 	sNoiseGridNo = MostImportantNoiseHeard(pSoldier,&iNoiseValue, &fClimb, &fReachable);
@@ -504,7 +504,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ((pSoldier->bBreath < 25) && !pSoldier->MercInWater())
+	if ((pSoldier->vitals().breath() < 25) && !pSoldier->MercInWater())
 	{
 		// take a breather for gods sake!
 		pSoldier->aiData.usActionData = NOWHERE;
@@ -580,7 +580,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Red Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	// if we have absolutely no action points, we can't do a thing under RED!
 	if (!pSoldier->bActionPoints)
@@ -608,7 +608,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_INFO, pSoldier, String("[crouch and rest]"));
 
 	// if our breath is running a bit low, and we're not in water or under fire
-	if ((pSoldier->bBreath < 25) && !bInWater && !pSoldier->aiData.bUnderFire)
+	if ((pSoldier->vitals().breath() < 25) && !bInWater && !pSoldier->aiData.bUnderFire)
 	{		
 		pSoldier->aiData.usActionData = NOWHERE;
 		return(AI_ACTION_NONE);
@@ -919,7 +919,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Black Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	ATTACKTYPE BestStab, BestAttack;
 	BOOLEAN fAllowCoverCheck = FALSE;
@@ -1392,8 +1392,8 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 	else	// status didn't change
 	{
 		// if a guy on status GREEN or YELLOW is running low on breath
-		if (((pSoldier->aiData.bAlertStatus == STATUS_GREEN)	&& (pSoldier->bBreath < 75)) ||
-			((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) && (pSoldier->bBreath < 50)))
+		if (((pSoldier->aiData.bAlertStatus == STATUS_GREEN)	&& (pSoldier->vitals().breath() < 75)) ||
+			((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
 		{
 			// as long as he's not in water (standing on a bridge is OK)
 			if (!pSoldier->MercInWater())
