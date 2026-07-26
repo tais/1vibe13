@@ -13,6 +13,7 @@
 	#include "Exit Grids.h"
 	#include "message.h"
 	#include "GameSettings.h"
+	#include "GameContext.h"
 	#include "Smell.h"
 
 //SB: make size of gpRevealedMap dependable from variable tactical map dimensions
@@ -26,11 +27,6 @@ BOOLEAN			gfApplyChangesToTempFile = FALSE;
 // 3200 bytes * 8 bits = 25600 map elements
 // BIGMAPS has now a theoretical limit of 2000 * 2000 = 4,000,000 map elements; 500k bytes
 UINT8				*gpRevealedMap;
-
-#ifdef JA2UB
-//Ja25
-void AddRemoveExitGridToUnloadedMapTempFile( UINT32 usGridNo, INT16 sSectorX, INT16 sSectorY, UINT8 ubSectorZ );
-#endif
 
 void RemoveSavedStructFromMap( INT32 uiMapIndex, UINT16 usIndex );
 void AddObjectFromMapTempFileToMap( INT32 uiMapIndex, UINT16 usIndex );
@@ -172,6 +168,25 @@ struct ltMMF
 typedef std::map<ModifiedMapFile::Key, ModifiedMapFile, ltMMF> ModifiedMapFileSet;
 ModifiedMapFileSet g_mapFileSet;
 BOOLEAN g_useSaveCache;
+
+using MapChangeType = CampaignMapChangeCode::Type;
+
+namespace
+{
+MapChangeType DecodeMapChangeType(UINT8 rawType)
+{
+	return CampaignMapChangeCode::decode(
+		GetGameContext().capabilities().campaign, rawType);
+}
+
+UINT8 EncodeMapChangeType(MapChangeType type)
+{
+	const UINT8 rawType = CampaignMapChangeCode::encode(
+		GetGameContext().capabilities().campaign, type);
+	Assert(rawType != CampaignMapChangeCode::InvalidRawType);
+	return rawType;
+}
+}
 
 static void ClearTempFileSets()
 {
@@ -335,13 +350,27 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 	//Get the size of the file
 	uiFileSize = FileGetSize( hFile );
 
+	if( uiFileSize == 0 )
+	{
+		FileClose( hFile );
+		FileDelete( zMapName );
+		ReSetSectorFlag( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, SF_MAP_MODIFICATIONS_TEMP_FILE_EXISTS );
+		return( TRUE );
+	}
+
+	if( uiFileSize % sizeof( MODIFY_MAP ) != 0 )
+	{
+		FileClose( hFile );
+		return( FALSE );
+	}
 
 	//Allocate memory for the buffer
 	pTempArrayOfMaps = (MODIFY_MAP *) MemAlloc( uiFileSize );
 	if( pTempArrayOfMaps == NULL )
 	{
 		Assert( 0 );
-		return( TRUE );
+		FileClose( hFile );
+		return( FALSE );
 	}
 
 	//Read the map temp file into a buffer
@@ -372,13 +401,14 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 		// gpWorldLevelData[WORLD_MAX] index throughout the dispatch below.
 		if ( pMap->usGridNo < 0 || pMap->usGridNo >= WORLD_MAX ) continue;
 
-		//Switch on the type that should either be added or removed from the map
-		switch( pMap->ubType )
+		// Decode the existing campaign-specific byte before applying its
+		// semantic map operation.
+		switch( DecodeMapChangeType( pMap->ubType ) )
 		{
 			//If we are adding to the map
-			case SLM_LAND:
+			case MapChangeType::Land:
 				break;
-			case SLM_OBJECT:
+			case MapChangeType::Object:
 				GetTileIndexFromTypeSubIndex( pMap->usImageType, pMap->usSubImageIndex, &usIndex );
 
 				AddObjectFromMapTempFileToMap( pMap->usGridNo, usIndex );
@@ -390,7 +420,7 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 				uiNumberOfElementsSavedBackToFile++;
 
 				break;
-			case SLM_STRUCT:
+			case MapChangeType::Struct:
 				GetTileIndexFromTypeSubIndex( pMap->usImageType, pMap->usSubImageIndex, &usIndex );
 
 				AddStructFromMapTempFileToMap( pMap->usGridNo, usIndex );
@@ -401,24 +431,24 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 				//Since the element is being saved back to the temp file, increment the #
 				uiNumberOfElementsSavedBackToFile++;
 				break;
-			case SLM_SHADOW:
+			case MapChangeType::Shadow:
 				break;
-			case SLM_MERC:
+			case MapChangeType::Merc:
 				break;
-			case SLM_ROOF:
+			case MapChangeType::Roof:
 				break;
-			case SLM_ONROOF:
+			case MapChangeType::OnRoof:
 				break;
-			case SLM_TOPMOST:
+			case MapChangeType::Topmost:
 				break;
 
 
 			//Remove objects out of the world
-			case SLM_REMOVE_LAND:
+			case MapChangeType::RemoveLand:
 				break;
-			case SLM_REMOVE_OBJECT:
+			case MapChangeType::RemoveObject:
 				break;
-			case SLM_REMOVE_STRUCT:
+			case MapChangeType::RemoveStruct:
 
 				// ATE: OK, dor doors, the usIndex can be varied, opened, closed, etc
 				// we MUSTR delete ANY door type on this gridno
@@ -440,11 +470,11 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 				//Since the element is being saved back to the temp file, increment the #
 				++uiNumberOfElementsSavedBackToFile;
 				break;
-			case SLM_REMOVE_SHADOW:
+			case MapChangeType::RemoveShadow:
 				break;
-			case SLM_REMOVE_MERC:
+			case MapChangeType::RemoveMerc:
 				break;
-			case SLM_REMOVE_ROOF:
+			case MapChangeType::RemoveRoof:
 				if ( pMap->usImageType >= FIRSTTEXTURE && pMap->usImageType <= WIREFRAMES )
 				{
 					RemoveAllRoofsOfTypeRange( pMap->usGridNo, FIRSTTEXTURE, WIREFRAMES );
@@ -462,7 +492,7 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 				//Since the element is being saved back to the temp file, increment the #
 				++uiNumberOfElementsSavedBackToFile;
 				break;
-			case SLM_REMOVE_ONROOF:
+			case MapChangeType::RemoveOnRoof:
 				if ( pMap->usImageType >= FIRSTTEXTURE && pMap->usImageType <= WIREFRAMES )
 				{
 					RemoveAllOnRoofsOfTypeRange( pMap->usGridNo, FIRSTTEXTURE, WIREFRAMES );
@@ -480,19 +510,19 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 				//Since the element is being saved back to the temp file, increment the #
 				++uiNumberOfElementsSavedBackToFile;
 				break;
-			case SLM_REMOVE_TOPMOST:
+			case MapChangeType::RemoveTopmost:
 				break;
 
 
-			case SLM_BLOOD_SMELL:
+			case MapChangeType::BloodSmell:
 				AddBloodOrSmellFromMapTempFileToMap( pMap );
 				break;
 
-			case SLM_DAMAGED_STRUCT:
+			case MapChangeType::DamagedStruct:
 				DamageStructsFromMapTempFile( pMap );
 				break;
 
-			case SLM_EXIT_GRIDS:
+			case MapChangeType::ExitGrid:
 				{
 					EXITGRID ExitGrid;
 					gfLoadingExitGrids = TRUE;
@@ -512,11 +542,11 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 				}
 				break;
 
-			case SLM_OPENABLE_STRUCT:
+			case MapChangeType::OpenableStruct:
 				SetOpenableStructStatusFromMapTempFile( pMap->usGridNo, (BOOLEAN)pMap->usImageType );
 				break;
 
-			case SLM_WINDOW_HIT:
+			case MapChangeType::WindowHit:
 				if ( ModifyWindowStatus( pMap->usGridNo ) )
 				{
 					// Save this struct back to the temp file
@@ -526,28 +556,29 @@ BOOLEAN LoadAllMapChangesFromMapTempFileAndApplyThem( )
 					uiNumberOfElementsSavedBackToFile++;
 				}
 				break;
-#ifdef JA2UB				
-			case SLM_REMOVE_EXIT_GRID:
+			case MapChangeType::RemoveExitGrid:
 				//Remove the exit grid
 				RemoveExitGridFromWorld( pMap->usGridNo );
 
 				// Save this struct back to the temp file
 				SaveModifiedMapStructToMapTempFile( pMap, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
+				++uiNumberOfElementsSavedBackToFile;
 				break;
-#endif
 // sevenfm
-			case SLM_MINE_PRESENT:
+			case MapChangeType::MinePresent:
 				AddMineFlagFromMapTempFileToMap( pMap );
 				break;
 
-			case SLM_REMOVE_MINE_PRESENT:
+			case MapChangeType::RemoveMinePresent:
 				RemoveMineFlagFromMap( pMap->usGridNo );
 				break;
 
-			case SLM_DECAL:
+			case MapChangeType::Decal:
 				AddDecalToStructsFromMapTempFile( pMap );
 				break;
 
+			case MapChangeType::None:
+			case MapChangeType::Unknown:
 			default:
 				AssertMsg( 0, "ERROR!	Map Type not in switch when loading map changes from temp file");
 				break;
@@ -601,7 +632,7 @@ void AddStructToMapTempFile( INT32 uiMapIndex, UINT16 usIndex )
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_STRUCT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::Struct );
 
 		SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	}
@@ -637,7 +668,7 @@ void AddObjectToMapTempFile( INT32 uiMapIndex, UINT16 usIndex )
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_OBJECT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::Object );
 
 		SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	}
@@ -672,7 +703,7 @@ void AddRemoveObjectToMapTempFile( INT32 uiMapIndex, UINT16 usIndex )
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_REMOVE_OBJECT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::RemoveObject );
 
 		SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	}
@@ -702,7 +733,7 @@ void RemoveStructFromMapTempFile( INT32 uiMapIndex, UINT16 usIndex )
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_REMOVE_STRUCT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::RemoveStruct );
 
 		SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	}
@@ -731,7 +762,7 @@ void RemoveRoofFromMapTempFile( INT32 uiMapIndex, UINT16 usIndex )
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_REMOVE_ROOF;
+		Map.ubType = EncodeMapChangeType( MapChangeType::RemoveRoof );
 
 		SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	}
@@ -760,7 +791,7 @@ void RemoveOnRoofFromMapTempFile( INT32 uiMapIndex, UINT16 usIndex )
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_REMOVE_ONROOF;
+		Map.ubType = EncodeMapChangeType( MapChangeType::RemoveOnRoof );
 
 		SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	}
@@ -785,7 +816,7 @@ void SaveMineFlagFromMapToTempFile()
 		{	
 			memset( &Map, 0, sizeof( MODIFY_MAP ) );
 			Map.usGridNo	= cnt;
-			Map.ubType			= SLM_MINE_PRESENT;
+			Map.ubType = EncodeMapChangeType( MapChangeType::MinePresent );
 			SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 		}
 	}
@@ -797,7 +828,7 @@ void RemoveMineFlagFromMapTempFile( INT32 usGridNo)
 
 	memset( &Map, 0, sizeof( MODIFY_MAP ) );
 	Map.usGridNo	= usGridNo;
-	Map.ubType			= SLM_REMOVE_MINE_PRESENT;
+	Map.ubType = EncodeMapChangeType( MapChangeType::RemoveMinePresent );
 	SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 }
 
@@ -829,7 +860,7 @@ void SaveBloodSmellAndRevealedStatesFromMapToTempFile()
 			Map.usSubImageIndex = gpWorldLevelData[cnt].ubSmellInfo;
 
 
-			Map.ubType			= SLM_BLOOD_SMELL;
+			Map.ubType = EncodeMapChangeType( MapChangeType::BloodSmell );
 
 			//Save the change to the map file
 			SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
@@ -867,7 +898,7 @@ void SaveBloodSmellAndRevealedStatesFromMapToTempFile()
 					Map.usSubImageIndex = pCurrent->ubHitPoints;
 
 
-					Map.ubType			= SLM_DAMAGED_STRUCT;
+					Map.ubType = EncodeMapChangeType( MapChangeType::DamagedStruct );
 					Map.ubExtra			= pCurrent->ubWallOrientation | ubLevel;
 
 					//Save the change to the map file
@@ -884,7 +915,7 @@ void SaveBloodSmellAndRevealedStatesFromMapToTempFile()
 
 					Map.usGridNo = cnt;
 					Map.usImageType = StructureFlagToType( pCurrent->fFlags );
-					Map.ubType = SLM_DECAL;
+					Map.ubType = EncodeMapChangeType( MapChangeType::Decal );
 					Map.ubExtra = pCurrent->ubWallOrientation | ubLevel | STRUCTURE_DECALFLAG_BLOOD;
 
 					//Save the change to the map file
@@ -1177,7 +1208,7 @@ void AddStructToUnLoadedMapTempFile( INT32 uiMapIndex, UINT16 usIndex, INT16 sSe
 		Map.usSubImageIndex = usSubIndex;
 
 
-		Map.ubType = SLM_STRUCT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::Struct );
 
 		SaveModifiedMapStructToMapTempFile( &Map, sSectorX, sSectorY, ubSectorZ );
 	}
@@ -1203,7 +1234,7 @@ void AddObjectToUnLoadedMapTempFile( INT32 uiMapIndex, UINT16 usIndex, INT16 sSe
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_OBJECT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::Object );
 
 		SaveModifiedMapStructToMapTempFile( &Map, sSectorX, sSectorY, ubSectorZ );
 	}
@@ -1230,7 +1261,7 @@ void RemoveStructFromUnLoadedMapTempFile( INT32 uiMapIndex, UINT16 usIndex, INT1
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_REMOVE_STRUCT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::RemoveStruct );
 
 		SaveModifiedMapStructToMapTempFile( &Map, sSectorX, sSectorY, ubSectorZ );
 	}
@@ -1257,7 +1288,7 @@ void AddRemoveObjectToUnLoadedMapTempFile( INT32 uiMapIndex, UINT16 usIndex, INT
 		Map.usImageType = (UINT16)uiType;
 		Map.usSubImageIndex = usSubIndex;
 
-		Map.ubType = SLM_REMOVE_OBJECT;
+		Map.ubType = EncodeMapChangeType( MapChangeType::RemoveObject );
 
 		SaveModifiedMapStructToMapTempFile( &Map, sSectorX, sSectorY, ubSectorZ );
 	}
@@ -1287,7 +1318,7 @@ void AddExitGridToMapTempFile( INT32 usGridNo, EXITGRID *pExitGrid, INT16 sSecto
 	Map.usHiExitGridNo = pExitGrid->usGridNo >> 16;//dnl ch86 260214
 
 	Map.ubExtra		= pExitGrid->ubGotoSectorZ;
-	Map.ubType		= SLM_EXIT_GRIDS;
+	Map.ubType = EncodeMapChangeType( MapChangeType::ExitGrid );
 
 	SaveModifiedMapStructToMapTempFile( &Map, sSectorX, sSectorY, ubSectorZ );
 }
@@ -1394,7 +1425,7 @@ void AddOpenableStructStatusToMapTempFile( INT32 uiMapIndex, BOOLEAN fOpened )
 	Map.usGridNo = uiMapIndex;
 	Map.usImageType = fOpened;
 
-	Map.ubType = SLM_OPENABLE_STRUCT;
+	Map.ubType = EncodeMapChangeType( MapChangeType::OpenableStruct );
 
 	SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 }
@@ -1406,7 +1437,7 @@ void AddWindowHitToMapTempFile( INT32 uiMapIndex )
 	memset( &Map, 0, sizeof( MODIFY_MAP ) );
 
 	Map.usGridNo = uiMapIndex;
-	Map.ubType = SLM_WINDOW_HIT;
+	Map.ubType = EncodeMapChangeType( MapChangeType::WindowHit );
 
 	SaveModifiedMapStructToMapTempFile( &Map, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 }
@@ -1558,7 +1589,7 @@ BOOLEAN ChangeStatusOfOpenableStructInUnloadedSector( UINT16 usSectorX, UINT16 u
 		pMap = &pTempArrayOfMaps[ cnt ];
 
 		//if this element is of the same type
-		if( pMap->ubType == SLM_OPENABLE_STRUCT )
+		if( DecodeMapChangeType( pMap->ubType ) == MapChangeType::OpenableStruct )
 		{
 			//if its on the same gridno
 			if( pMap->usGridNo == usGridNo )
@@ -1596,11 +1627,13 @@ BOOLEAN ChangeStatusOfOpenableStructInUnloadedSector( UINT16 usSectorX, UINT16 u
 	return( TRUE );
 }
 
-#ifdef JA2UB
 //JA25
 void AddRemoveExitGridToUnloadedMapTempFile( UINT32 usGridNo, INT16 sSectorX, INT16 sSectorY, UINT8 ubSectorZ )
 {
 	MODIFY_MAP Map;
+
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
 
 	if( !gfApplyChangesToTempFile )
 	{
@@ -1615,8 +1648,7 @@ void AddRemoveExitGridToUnloadedMapTempFile( UINT32 usGridNo, INT16 sSectorX, IN
 
 	Map.usGridNo = usGridNo;
 
-	Map.ubType		= SLM_REMOVE_EXIT_GRID;
+	Map.ubType = EncodeMapChangeType( MapChangeType::RemoveExitGrid );
 
 	SaveModifiedMapStructToMapTempFile( &Map, sSectorX, sSectorY, ubSectorZ );
 }
-#endif

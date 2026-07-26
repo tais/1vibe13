@@ -35,6 +35,11 @@
 #include "Interface Control.h"		// added by Flugente for DrawExplosionWarning(...)
 #include "SkillMenu.h"
 #include "TacticalWorldAdapter.h"
+#include "GameContext.h"
+#include "Ja25_Tactical.h"
+#include "Ja25 Strategic Ai.h"
+#include "Dialogue Control.h"
+#include "ub_config.h"
 
 #include "Soldier macros.h"
 #include "connect.h"
@@ -43,16 +48,6 @@
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
 #include "Item Statistics.h"
-
-
-#ifdef JA2UB
-#include "interface Dialogue.h"
-
-#include "Ja25_Tactical.h"
-#include "Ja25 Strategic Ai.h"
-#include "Dialogue Control.h"
-#include "ub_config.h"
-#endif
 
 
 //forward declarations of common classes to eliminate includes
@@ -80,9 +75,7 @@ extern	void AddToShouldBecomeHostileOrSayQuoteList( UINT16 ubID );
 extern void RecompileLocalMovementCostsForWall( INT32 sGridNo, UINT8 ubOrientation );
 void FatigueCharacter( SOLDIERTYPE *pSoldier );
 
-#ifdef JA2UB
 void HandleSeeingFortifiedDoor( UINT32 sGridNo );//Ja25 UB
-#endif
 
 #define NO_ALT_SOUND -1
 
@@ -195,7 +188,6 @@ void RecountExplosions( void );
 void GenerateExplosionFromExplosionPointer( EXPLOSIONTYPE *pExplosion );
 void HandleBuldingDestruction( INT32 sGridNo, SoldierID ubOwner );
 
-#ifdef JA2UB
 //JA25 UB
 void HavePersonAtGridnoStop( UINT32 sGridNo );
 BOOLEAN ShouldThePlayerStopWhenWalkingOnBiggensActionItem( UINT8 ubRecordNum );
@@ -204,7 +196,6 @@ BOOLEAN IsFanGraphicInSectorAtThisGridNo( UINT32 sGridNo );
 void HandleExplosionsInTunnelSector( UINT32 sGridNo );
 void HandleSwitchToOpenFortifiedDoor( UINT32 sGridNo );
 void HandleSeeingPowerGenFan( UINT32 sGridNo );
-#endif
 
 // Flugente: for roof destruction
 extern UINT8 gubMaterialArmour[];
@@ -691,19 +682,16 @@ INT8 ExplosiveDamageStructureAtGridNo( STRUCTURE * pCurrent, STRUCTURE **ppNextC
 		ChangeO3SectorStatue( TRUE );
 		return( 1 );
 	}
-#ifdef JA2UB	
-	//JA25 UB
-	//should we replace the mine entrance graphic
-	if( IsMineEntranceInSectorI13AtThisGridNo( sGridNo ) && ubOwner == NOBODY )
+	if( GetGameContext().capabilities().isUnfinishedBusiness() )
 	{
-		//Yup, replace it
-		ReplaceMineEntranceGraphicWithCollapsedEntrance();
-	}
+		// Replace the UB mine entrance when its scripted explosion fires.
+		if( IsMineEntranceInSectorI13AtThisGridNo( sGridNo ) && ubOwner == NOBODY )
+		{
+			ReplaceMineEntranceGraphicWithCollapsedEntrance();
+		}
 
-	//ja25 ub
-	//Handle Explosions in the tunnel sectors
-	HandleExplosionsInTunnelSector( sGridNo );
-#endif
+		HandleExplosionsInTunnelSector( sGridNo );
+	}
 	
 	// Get xy
 	ConvertGridNoToCenterCellXY(sGridNo, &sX, &sY);
@@ -734,14 +722,11 @@ INT8 ExplosiveDamageStructureAtGridNo( STRUCTURE * pCurrent, STRUCTURE **ppNextC
 		// Damage structure!
 		if ( ( bDamageReturnVal = DamageStructure( pCurrent, (UINT8)sWoundAmt, STRUCTURE_DAMAGE_EXPLOSION, sGridNo, sX, sY, NOBODY ) ) != 0 )
 		{
-#ifdef JA2UB			
-			//Ja25 ub
-			//are we exploding the Fan in the power gen facility
-			if( IsFanGraphicInSectorAtThisGridNo( sGridNo ) )
+			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			    IsFanGraphicInSectorAtThisGridNo( sGridNo ) )
 			{
 				HandleDestructionOfPowerGenFan();
 			}
-#endif
 			pBase = FindBaseStructure( pCurrent );
 
 			sBaseGridNo = pBase->sGridNo;
@@ -3714,10 +3699,10 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 		PlayJA2Sample( KLAXON_ALARM, RATE_11025, SoundVolume( MIDVOLUME, sGridNo ), 5, SoundDir( sGridNo ) );
 		CallEldinTo( sGridNo );
 		break;
-#ifdef JA2UB
 		case ACTION_ITEM_BIGGENS_BOMBS:
 
-			if( ShouldThePlayerStopWhenWalkingOnBiggensActionItem( 17 ) )
+			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			    ShouldThePlayerStopWhenWalkingOnBiggensActionItem( 17 ) )
 			{
 				HavePersonAtGridnoStop( sGridNo );
 
@@ -3728,7 +3713,8 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			break;
 		case ACTION_ITEM_BIGGENS_WARNING:
 			
-			if( ShouldThePlayerStopWhenWalkingOnBiggensActionItem( 16 ) )
+			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			    ShouldThePlayerStopWhenWalkingOnBiggensActionItem( 16 ) )
 			{
 				HavePersonAtGridnoStop( sGridNo );
 
@@ -3739,28 +3725,35 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			break;
 
 		case ACTION_ITEM_SEE_FORTIFIED_DOOR:
-			HandleSeeingFortifiedDoor( sGridNo );
+			if( GetGameContext().capabilities().isUnfinishedBusiness() )
+				HandleSeeingFortifiedDoor( sGridNo );
 			break;
 
 		case ACTION_ITEM_OPEN_FORTIFED_DOOR:
-			HandleSwitchToOpenFortifiedDoor( sGridNo );
+			if( GetGameContext().capabilities().isUnfinishedBusiness() )
+				HandleSwitchToOpenFortifiedDoor( sGridNo );
 			break;
 
 		case ACTION_ITEM_SEE_POWER_GEN_FAN:
 			
 			//if the player is in the power plant J13
-			if( gWorldSectorX == gGameUBOptions.SectorFanX && gWorldSectorY == gGameUBOptions.SectorFanY && gbWorldSectorZ == gGameUBOptions.SectorFanZ )
+			if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			    gWorldSectorX == gGameUBOptions.SectorFanX &&
+			    gWorldSectorY == gGameUBOptions.SectorFanY &&
+			    gbWorldSectorZ == gGameUBOptions.SectorFanZ )
 			{
 				HandleSeeingPowerGenFan( sGridNo );
 			}
-			else if( gWorldSectorX == gGameUBOptions.SectorLaunchMisslesX && gWorldSectorY == gGameUBOptions.SectorLaunchMisslesY && gbWorldSectorZ == gGameUBOptions.SectorLaunchMisslesZ ) //L15-3
+			else if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+			         gWorldSectorX == gGameUBOptions.SectorLaunchMisslesX &&
+			         gWorldSectorY == gGameUBOptions.SectorLaunchMisslesY &&
+			         gbWorldSectorZ == gGameUBOptions.SectorLaunchMisslesZ ) //L15-3
 			{
 				//The player is hitting the switch to launch the missles
 				HandlePlayerHittingSwitchToLaunchMissles();
 			}
 			
 			break;
-#endif
 	default:
 		// error message here
 #ifdef JA2BETAVERSION
@@ -5634,12 +5627,13 @@ void FireFragmentsTrapGun( SOLDIERTYPE* pThrower, INT32 gridno, INT16 sZ, OBJECT
 	}
 }
 
-#ifdef JA2UB
-
 //-- UB
 
 void HavePersonAtGridnoStop( UINT32 sGridNo )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	//Sewe if there is a person at the gridno
 	SoldierID ubID = WhoIsThere2( sGridNo, 0 );
 
@@ -5656,6 +5650,9 @@ void HavePersonAtGridnoStop( UINT32 sGridNo )
 //JA25 UB
 BOOLEAN ShouldThePlayerStopWhenWalkingOnBiggensActionItem( UINT8 ubRecordNum )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return( FALSE );
+
 	SOLDIERTYPE *pSoldier=NULL;
 
 	pSoldier = FindSoldierByProfileID( BIGGENS_UB, TRUE ); //BIGGENS
@@ -5674,6 +5671,9 @@ BOOLEAN ShouldThePlayerStopWhenWalkingOnBiggensActionItem( UINT8 ubRecordNum )
 // This function checks if we should replace the fan graphic
 BOOLEAN IsFanGraphicInSectorAtThisGridNo( UINT32 sGridNo )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return( FALSE );
+
 	// First check current sector...... J13-0
 	if( gWorldSectorX == gGameUBOptions.SectorFanX && gWorldSectorY == gGameUBOptions.SectorFanY && gbWorldSectorZ == gGameUBOptions.SectorFanZ )
 	{
@@ -5707,6 +5707,9 @@ BOOLEAN IsFanGraphicInSectorAtThisGridNo( UINT32 sGridNo )
 
 void HandleDestructionOfPowerGenFan()
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	UINT8 ubShadeLevel=0;
 
 	//if we have already destroyed the fan
@@ -5761,6 +5764,9 @@ void HandleDestructionOfPowerGenFan()
 
 void HandleExplosionsInTunnelSector( UINT32 sGridNo )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	//if this isnt the tunnel sectors J14-1 and K14-1
 	if( !( gWorldSectorX == gGameUBOptions.ExitForFanToPowerGenSectorX && ( gWorldSectorY == gGameUBOptions.ExitForFanToPowerGenSectorY || gWorldSectorY == gGameUBOptions.SectorOpenGateInTunnelY ) && gbWorldSectorZ == 1 ) )
 	{
@@ -5775,6 +5781,9 @@ void HandleExplosionsInTunnelSector( UINT32 sGridNo )
 
 void HandleSeeingFortifiedDoor( UINT32 sGridNo )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	//if this isnt the First level of the complex K15-1
 	if( !( gWorldSectorX == gGameUBOptions.SectorDoorInTunnelX && gWorldSectorY == gGameUBOptions.SectorDoorInTunnelY && gbWorldSectorZ == gGameUBOptions.SectorDoorInTunnelZ ) )
 	{
@@ -5812,6 +5821,9 @@ void HandleSeeingFortifiedDoor( UINT32 sGridNo )
 
 void HandleSwitchToOpenFortifiedDoor( UINT32 sGridNo )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	//if the door is already opened
 	if( gJa25SaveStruct.ubStatusOfFortifiedDoor == FD__OPEN )
 	{
@@ -5831,6 +5843,9 @@ void HandleSwitchToOpenFortifiedDoor( UINT32 sGridNo )
 
 void HandleSeeingPowerGenFan( UINT32 sGridNo )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	SoldierID ubPerson;
 	BOOLEAN fFanIsStopped;
 	BOOLEAN	fFanHasBeenStopped;
@@ -5904,8 +5919,6 @@ void HandleSeeingPowerGenFan( UINT32 sGridNo )
 		SetJa25GeneralFlag( JA_GF__PLAYER_SEEN_FAN_BEFORE );
 	}
 }
-#endif
-
 void HandleBuddyExplosions(SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, INT32 sGridNo, UINT16 usItem, BOOLEAN fLocate, INT8 bLevel, UINT8 ubDirection )
 {
 	// Flugente: Items can have secondary explosions

@@ -870,6 +870,12 @@ the engine must not contain SDL types in its public domain model.
   emitted together, while compile-time-checked aliases preserve their shared
   legacy event and soldier-quote bits. Quote IDs, speech paths, profile slots,
   and campaign data formats remain unchanged.
+- Map-temp changes are decoded and encoded against the active runtime campaign.
+  This preserves the legacy collision where raw type 22 means an Arulco mine
+  flag but a UB exit-grid removal, including each campaign's shifted mine and
+  decal records. UB mine-collapse, fan, tunnel, fortified-door, and scripted
+  explosion hooks are emitted in every host and selected through
+  `GameCapabilities`; existing map-temp bytes and content files are unchanged.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

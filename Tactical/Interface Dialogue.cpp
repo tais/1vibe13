@@ -5679,6 +5679,9 @@ BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo )
 }
 void HaveBiggensDetonatingExplosivesByTheMine()
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	SOLDIERTYPE *pSoldier = NULL;
 	SoldierID	ubID = NOBODY;
 
@@ -5691,9 +5694,11 @@ void HaveBiggensDetonatingExplosivesByTheMine()
 	SetOffBombsByFrequency( ubID, FIRST_MAP_PLACED_FREQUENCY + 1 );
 }
 
-#ifdef JA2UB
 void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	UINT16									usTileIndex;
 	UINT32 usGridNo = gGameUBOptions.MineGridnoAddStructToHead; //12745;
 
@@ -5778,7 +5783,6 @@ void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 	// Turn off permenant changes....
 	ApplyMapChangesToMapTempFile( FALSE );
 }
-#endif
 
 void HandleCannotAffordNpcMsgBox()
 {
