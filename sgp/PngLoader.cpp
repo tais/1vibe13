@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include <Engine/Adapters/Legacy/LegacyVfsFile.h>
 
 #include "PngLoader.h"
 #include "FileMan.h"
@@ -19,6 +20,8 @@ namespace png
 {
 #	include <png.h>
 }
+
+#include <limits>
 
 #include "sgp_auto_memory.h"
 
@@ -43,10 +46,42 @@ void Load32bppPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info)
 void LoadPalettedPNGImage(HIMAGE hImage, png::png_bytepp rows, const PngMeta& info);
 
 
+struct PngReadSource
+{
+	bool read(png::png_bytep data, png::png_size_t length)
+	{
+		if(length > std::numeric_limits<UINT32>::max())
+		{
+			return false;
+		}
+		if(legacyFile)
+		{
+			UINT32 bytesRead = 0;
+			return FileRead(legacyFile, data, static_cast<UINT32>(length),
+				&bytesRead) && bytesRead == length;
+		}
+		return archiveFile &&
+			archiveFile->read(reinterpret_cast<vfs::Byte*>(data), length) ==
+				length;
+	}
+
+	HWFILE legacyFile = 0;
+	vfs::tReadableFile* archiveFile = NULL;
+};
+
 void user_read_data(png::png_structp png_ptr, png::png_bytep data, png::png_size_t length)
 {
-	SGP_TRYCATCH_RETHROW( static_cast<vfs::tReadableFile*>(png_get_io_ptr(png_ptr))->read((vfs::Byte*)data,length),
-		L"error during png file reading");
+	try
+	{
+		PngReadSource* source =
+			static_cast<PngReadSource*>(png_get_io_ptr(png_ptr));
+		SGP_THROW_IFFALSE(source && source->read(data, length),
+			L"short or failed PNG read");
+	}
+	catch(std::exception& ex)
+	{
+		SGP_RETHROW(L"error during png file reading", ex);
+	}
 }
 
 /*******************************************************************************/
@@ -451,7 +486,6 @@ bool IndexedSTIImage::readAppDataFromXMLFile(HIMAGE hImage, vfs::tReadableFile* 
 
 		SGP_THROW_IFFALSE(uiSize == oFile->read(&vBuffer[0],uiSize), L"Could not read XML file");
 		vBuffer[uiSize] = 0;
-		oFile->close();
 	}
 	catch(std::exception& ex)
 	{
@@ -566,18 +600,19 @@ bool IndexedSTIImage::writeToHIMAGE(HIMAGE pImage)
 class LoadPngFile
 {
 public:
-	LoadPngFile(vfs::Path const& sFile)
-		: _file(NULL), _struct(NULL), _info(NULL), _row_ptr(NULL)
+	LoadPngFile(const CHAR8* file)
+		: _struct(NULL), _info(NULL), _row_ptr(NULL)
 	{
-		// Open and read in the file
-		vfs::COpenReadFile oFile(sFile);
-		_file = &oFile.file();
-		oFile.release();
+		_source.legacyFile = FileOpen(const_cast<CHAR8*>(file),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		SGP_THROW_IFFALSE(_source.legacyFile,
+			L"could not open PNG through FileMan");
 	}
 	LoadPngFile(vfs::tReadableFile* pFile)
-		: _file(pFile), _struct(NULL), _info(NULL), _row_ptr(NULL)
+		: _struct(NULL), _info(NULL), _row_ptr(NULL)
 	{
-		SGP_THROW_IFFALSE(_file, L"file pointer is NULL");
+		_source.archiveFile = pFile;
+		SGP_THROW_IFFALSE(_source.archiveFile, L"file pointer is NULL");
 	}
 	bool Load()
 	{
@@ -606,7 +641,7 @@ public:
 		}
 		
 		// push file handle
-		png_set_read_fn(_struct, _file, user_read_data);
+		png_set_read_fn(_struct, &_source, user_read_data);
 
 		int png_transforms = PNG_TRANSFORM_IDENTITY;
 		png_read_png(_struct, _info, png_transforms, NULL);
@@ -619,10 +654,6 @@ public:
 	}
 	~LoadPngFile()
 	{
-		if(_file)
-		{
-			_file->close();
-		}
 		if(_struct && _info)
 		{
 			png_destroy_info_struct(_struct, &_info);
@@ -631,6 +662,16 @@ public:
 		if(_struct)
 		{
 			png_destroy_read_struct(&_struct, (png::png_infopp)_info, (png::png_infopp)NULL);
+		}
+		if(_source.legacyFile)
+		{
+			try
+			{
+				FileClose(_source.legacyFile);
+			}
+			catch(...)
+			{
+			}
 		}
 		//if(_row_ptr)
 		//{
@@ -661,11 +702,10 @@ public:
 		return m;
 	}
 private:
-	vfs::tReadableFile* _file;
 	png::png_structp	_struct;
 	png::png_infop		_info;
 	png::png_bytepp		_row_ptr;
-	png::png_bytep		_data;
+	PngReadSource		_source;
 };
 
 bool LoadPNGFileToImage(HIMAGE hImage, UINT16 fContents)
@@ -705,15 +745,30 @@ bool LoadPNGFileToImage(HIMAGE hImage, UINT16 fContents)
 
 bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 {
-	if(!getVFS()->fileExists(hImage->ImageFile))
+	std::vector<std::uint8_t> archiveBytes;
+	if(LegacyVfsReadAll(hImage->ImageFile,
+		std::numeric_limits<UINT32>::max(), archiveBytes) !=
+			LegacyVfsReadResult::Success)
 	{
 		return false;
 	}
 	vfs::CBufferFile oBuffer("");
-
-	vfs::COpenReadFile oFile(hImage->ImageFile);
-	SGP_TRYCATCH_RETHROW(oBuffer.copyToBuffer(oFile.file()), L"Could not copy file to buffer");
-	oBuffer.close();
+	if(!archiveBytes.empty())
+	{
+		try
+		{
+			SGP_THROW_IFFALSE(
+				oBuffer.write(
+					reinterpret_cast<const vfs::Byte*>(archiveBytes.data()),
+					archiveBytes.size()) == archiveBytes.size(),
+				L"short JPC buffer write");
+		}
+		catch(std::exception& ex)
+		{
+			SGP_RETHROW(L"Could not copy file to buffer", ex);
+		}
+	}
+	oBuffer.setReadPosition(0);
 
 	//vfs::CUncompressed7zLibrary oLib(&oFile.file(),"");
 	vfs::ObjBlockAllocator<vfs::CLibFile> allocator(128);
@@ -808,7 +863,7 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 		{
 			std::wstringstream wss;
 			wss << L"Loading PNG image from file '"
-				<< oFile->getPath().c_wcs()
+				<< vfs::String::as_utf16(hImage->ImageFile)
 				<< L"' failed";
 			SGP_RETHROW(wss.str().c_str(), ex);
 		}
@@ -856,7 +911,9 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 					else
 					{
 						std::wstringstream wss;
-						wss << L"PNG file '" << (*fit)->getName()() << L" @ " << oFile->getPath()() << L"' is not a paletted image";
+						wss << L"PNG file '" << (*fit)->getName()() << L" @ "
+							<< vfs::String::as_utf16(hImage->ImageFile)
+							<< L"' is not a paletted image";
 						SGP_THROW(wss.str().c_str());
 					}
 				}
@@ -864,7 +921,9 @@ bool LoadJPCFileToImage(HIMAGE hImage, UINT16 fContents)
 			catch(std::exception& ex)
 			{
 				std::wstringstream wss;
-				wss << L"Loading PNG image [" << findex << L"] from file '"	<< oFile->getPath().c_wcs() << L"' failed";
+				wss << L"Loading PNG image [" << findex << L"] from file '"
+					<< vfs::String::as_utf16(hImage->ImageFile)
+					<< L"' failed";
 				SGP_RETHROW(wss.str().c_str(), ex);
 			}
 		}
