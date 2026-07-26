@@ -1204,6 +1204,138 @@ int main()
 		"write-handle seeks preserve overwrite and size semantics");
 	if (file) FileClose(file);
 
+	HWFILE firstReader = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	HWFILE secondReader = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	UINT8 firstReaderPrefix[2] = {};
+	UINT8 secondReaderPrefix[3] = {};
+	UINT32 firstReaderCount = 0;
+	UINT32 secondReaderCount = 0;
+	const bool firstReaderAdvanced =
+		FileRead(firstReader, firstReaderPrefix, sizeof(firstReaderPrefix),
+			&firstReaderCount) != FALSE;
+	const bool secondReaderAdvanced =
+		FileRead(secondReader, secondReaderPrefix, sizeof(secondReaderPrefix),
+			&secondReaderCount) != FALSE;
+	Check(firstReader && secondReader && firstReader != secondReader &&
+		firstReaderAdvanced && secondReaderAdvanced &&
+		firstReaderCount == sizeof(firstReaderPrefix) &&
+		secondReaderCount == sizeof(secondReaderPrefix) &&
+		std::equal(firstReaderPrefix,
+			firstReaderPrefix + sizeof(firstReaderPrefix), "ab") &&
+		std::equal(secondReaderPrefix,
+			secondReaderPrefix + sizeof(secondReaderPrefix), "abZ") &&
+		FileGetPos(firstReader) == 2 && FileGetPos(secondReader) == 3,
+		"separate read handles keep independent buffered cursors");
+	if (firstReader) FileClose(firstReader);
+	UINT8 secondReaderContinuation[2] = {};
+	UINT32 secondReaderContinuationCount = 0;
+	Check(secondReader &&
+		FileSeek(secondReader, 3, FILE_SEEK_FROM_START) &&
+		FileRead(secondReader, secondReaderContinuation,
+			sizeof(secondReaderContinuation),
+			&secondReaderContinuationCount) &&
+		secondReaderContinuationCount ==
+			sizeof(secondReaderContinuation) &&
+		std::equal(secondReaderContinuation,
+			secondReaderContinuation +
+				sizeof(secondReaderContinuation), "de") &&
+		FileGetPos(secondReader) == 5,
+		"closing one read handle leaves another native stream usable");
+
+	HWFILE thirdReader = FileOpen(handleContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	UINT8 thirdReaderPrefix = 0;
+	UINT32 thirdReaderCount = 0;
+	UINT8 interleavedSeek[2] = {};
+	UINT32 interleavedSeekCount = 0;
+	Check(thirdReader &&
+		FileRead(thirdReader, &thirdReaderPrefix, 1,
+			&thirdReaderCount) &&
+		thirdReaderPrefix == 'a' && thirdReaderCount == 1 &&
+		FileSeek(secondReader, 1, FILE_SEEK_FROM_START) &&
+		FileRead(secondReader, interleavedSeek,
+			sizeof(interleavedSeek), &interleavedSeekCount) &&
+		std::equal(interleavedSeek,
+			interleavedSeek + sizeof(interleavedSeek), "bZ") &&
+		FileGetPos(secondReader) == 3 &&
+		FileGetPos(thirdReader) == 1,
+			"interleaved seeks do not move another handle's logical cursor");
+	if (secondReader) FileClose(secondReader);
+	HWFILE incompatibleWriter = FileOpen(handleContract,
+		FILE_ACCESS_WRITE | FILE_OPEN_EXISTING);
+	Check(incompatibleWriter == 0,
+		"an active read lifetime rejects an incompatible writer");
+	if (incompatibleWriter) FileClose(incompatibleWriter);
+	UINT8 loadedBesideReader[6] = {};
+	UINT32 loadedBesideReaderCount = 0;
+	Check(FileLoad(handleContract, loadedBesideReader,
+			sizeof(loadedBesideReader), &loadedBesideReaderCount) &&
+		loadedBesideReaderCount == sizeof(loadedBesideReader) &&
+		std::equal(loadedBesideReader,
+			loadedBesideReader + sizeof(loadedBesideReader), "abZdef") &&
+		FileGetPos(thirdReader) == 1,
+		"whole-file loads borrow the stream without disturbing a live handle");
+	UINT8 thirdReaderSuffix[3] = {};
+	UINT32 thirdReaderSuffixCount = 0;
+	Check(thirdReader &&
+		FileSeek(thirdReader, 3, FILE_SEEK_FROM_START) &&
+		FileRead(thirdReader, thirdReaderSuffix,
+			sizeof(thirdReaderSuffix), &thirdReaderSuffixCount) &&
+		std::equal(thirdReaderSuffix,
+			thirdReaderSuffix + sizeof(thirdReaderSuffix), "def"),
+		"the final read handle survives every sibling close");
+	if (thirdReader) FileClose(thirdReader);
+
+	char parallelWriteContract[] = "parallel-write-contract.bin";
+	file = FileOpen(parallelWriteContract,
+		FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+	Check(Write(file, "abcdef"),
+		"parallel-write fixture starts with exact content");
+	if (file) FileClose(file);
+	HWFILE firstWriter = FileOpen(parallelWriteContract,
+		FILE_ACCESS_WRITE | FILE_OPEN_EXISTING);
+	HWFILE secondWriter = FileOpen(parallelWriteContract,
+		FILE_ACCESS_WRITE | FILE_OPEN_EXISTING);
+	const UINT8 firstReplacement = 'X';
+	const UINT8 secondReplacement = 'Y';
+	UINT32 firstReplacementCount = 0;
+	UINT32 secondReplacementCount = 0;
+	const bool parallelWrites =
+		firstWriter && secondWriter &&
+		FileWrite(firstWriter, &firstReplacement, 1,
+			&firstReplacementCount) &&
+		FileSeek(secondWriter, 5, FILE_SEEK_FROM_START) &&
+		FileWrite(secondWriter, &secondReplacement, 1,
+			&secondReplacementCount);
+	Check(parallelWrites &&
+		firstReplacementCount == 1 && secondReplacementCount == 1 &&
+		FileGetPos(firstWriter) == 1 &&
+		FileGetPos(secondWriter) == 6,
+		"separate write handles keep independent overwrite cursors");
+	HWFILE incompatibleReader = FileOpen(parallelWriteContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	HWFILE destructiveWriter = FileOpen(parallelWriteContract,
+		FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+	Check(incompatibleReader == 0 && destructiveWriter == 0,
+		"active writes reject incompatible reads and destructive reopen");
+	if (incompatibleReader) FileClose(incompatibleReader);
+	if (destructiveWriter) FileClose(destructiveWriter);
+	if (firstWriter) FileClose(firstWriter);
+	const UINT8 thirdReplacement = 'Q';
+	UINT32 thirdReplacementCount = 0;
+	Check(secondWriter &&
+		FileSeek(secondWriter, 2, FILE_SEEK_FROM_START) &&
+		FileWrite(secondWriter, &thirdReplacement, 1,
+			&thirdReplacementCount) &&
+		thirdReplacementCount == 1,
+		"closing one write handle leaves its sibling usable");
+	if (secondWriter) FileClose(secondWriter);
+	Check(ReadFile(parallelWriteContract) ==
+		std::vector<UINT8>({'X', 'b', 'Q', 'd', 'e', 'Y'}),
+		"independent writes commit at their own logical positions");
+
 	file = FileOpen(handleContract, FILE_ACCESS_READ | FILE_OPEN_EXISTING);
 	UINT32 rejectedWriteCount = 77;
 	const UINT8 rejectedWriteByte = '!';
@@ -1270,6 +1402,28 @@ int main()
 		"cached byte reads hand their logical position to line reads");
 	if (file) FileClose(file);
 
+	HWFILE firstLineReader = FileOpen(lineContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	HWFILE secondLineReader = FileOpen(lineContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	std::string firstLine;
+	std::string secondLine;
+	Check(firstLineReader && secondLineReader &&
+		FileReadLine(firstLineReader, &firstLine) && firstLine == "one" &&
+		FileReadLine(secondLineReader, &secondLine) && secondLine == "one" &&
+		FileGetPos(firstLineReader) == 5 &&
+		FileGetPos(secondLineReader) == 5 &&
+		FileReadLine(firstLineReader, &firstLine) && firstLine == "two" &&
+		FileGetPos(firstLineReader) == 9 &&
+		FileGetPos(secondLineReader) == 5,
+		"parallel line readers keep independent logical cursors");
+	if (firstLineReader) FileClose(firstLineReader);
+	Check(secondLineReader &&
+		FileReadLine(secondLineReader, &secondLine) && secondLine == "two" &&
+		FileGetPos(secondLineReader) == 9,
+		"closing one line reader leaves its sibling stream usable");
+	if (secondLineReader) FileClose(secondLineReader);
+
 	char saveReaderContract[] = "save-reader-contract.bin";
 	std::vector<UINT8> savePayload(9000);
 	for (std::size_t index = 0; index < savePayload.size(); ++index)
@@ -1284,6 +1438,41 @@ int main()
 		savePayloadWritten == savePayload.size(),
 		"save-reader fixture writes through the legacy file handle");
 	if (file) FileClose(file);
+
+	HWFILE firstBlockReader = FileOpen(saveReaderContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	HWFILE secondBlockReader = FileOpen(saveReaderContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	std::vector<UINT8> firstBlockPrefix(8191);
+	UINT32 firstBlockPrefixRead = 0;
+	UINT8 secondBlockPrefix[7] = {};
+	UINT32 secondBlockPrefixRead = 0;
+	UINT8 firstBlockBoundary[4] = {};
+	UINT32 firstBlockBoundaryRead = 0;
+	Check(firstBlockReader && secondBlockReader &&
+		FileRead(firstBlockReader, firstBlockPrefix.data(),
+			static_cast<UINT32>(firstBlockPrefix.size()),
+			&firstBlockPrefixRead) &&
+		firstBlockPrefixRead == firstBlockPrefix.size() &&
+		std::equal(firstBlockPrefix.begin(), firstBlockPrefix.end(),
+			savePayload.begin()) &&
+		FileRead(secondBlockReader, secondBlockPrefix,
+			sizeof(secondBlockPrefix), &secondBlockPrefixRead) &&
+		secondBlockPrefixRead == sizeof(secondBlockPrefix) &&
+		std::equal(secondBlockPrefix,
+			secondBlockPrefix + sizeof(secondBlockPrefix),
+			savePayload.begin()) &&
+		FileRead(firstBlockReader, firstBlockBoundary,
+			sizeof(firstBlockBoundary), &firstBlockBoundaryRead) &&
+		firstBlockBoundaryRead == sizeof(firstBlockBoundary) &&
+		std::equal(firstBlockBoundary,
+			firstBlockBoundary + sizeof(firstBlockBoundary),
+			savePayload.begin() + 8191) &&
+		FileGetPos(firstBlockReader) == 8195 &&
+		FileGetPos(secondBlockReader) == 7,
+		"interleaved read handles preserve data across cache boundaries");
+	if (firstBlockReader) FileClose(firstBlockReader);
+	if (secondBlockReader) FileClose(secondBlockReader);
 
 	file = FileOpen(saveReaderContract,
 		FILE_ACCESS_READ | FILE_OPEN_EXISTING);

@@ -43,8 +43,11 @@ using namespace std;
 
 #include <vfs/Core/vfs_file_raii.h>
 #include <vfs/Tools/vfs_parser_tools.h>
+#include <limits>
 #include <memory>
+#include <mutex>
 #include <new>
+#include <unordered_map>
 #include <utility>
 
 namespace
@@ -55,23 +58,156 @@ const UINT32 kMaximumFileSearches = 20;
 typedef vfs::CVirtualFileSystem::Iterator FileSearchIterator;
 std::unique_ptr<FileSearchIterator> s_fileSearches[kMaximumFileSearches];
 
-// HWFILE is intentionally opaque outside FileMan. Keep the access mode and the
-// already-resolved VFS interface beside the underlying file instead of looking
-// them up in a process-global std::map for every scalar save/load operation.
-// Write-capable VFS files also implement IReadable, so storing the interface
-// selected by FileOpen is what preserves the legacy read/write separation.
-struct FileHandle
+enum class FileAccessMode
 {
-	FileHandle(vfs::IBaseFile* base, vfs::tReadableFile* read,
-		vfs::tWritableFile* write)
-		: file(base), reader(read), writer(write),
-		  readBufferPos(0), readBufferLen(0)
+	Read,
+	Write
+};
+
+// A bfVFS file object owns one native cursor. Multiple calls to openRead()
+// return that same cursor, and close() from either caller closes it for all
+// callers. Keep one shared native lifetime per VFS object while every public
+// FileMan handle below owns its own logical cursor and read-ahead buffer.
+struct OpenFileState
+{
+	OpenFileState(vfs::IBaseFile* base, vfs::tReadableFile* read,
+		vfs::tWritableFile* write, FileAccessMode access) noexcept
+		: file(base), reader(read), writer(write), mode(access)
 	{
+	}
+
+	void Close() noexcept
+	{
+		if(!file)
+			return;
+		vfs::IBaseFile* closingFile = file;
+		file = nullptr;
+		reader = nullptr;
+		writer = nullptr;
+		try
+		{
+			closingFile->close();
+		}
+		catch(std::exception& ex)
+		{
+			try { SGP_ERROR(ex.what()); } catch(...) {}
+		}
+		catch(...)
+		{
+			try
+			{
+				SGP_ERROR("Caught undefined exception while closing file");
+			}
+			catch(...)
+			{
+			}
+		}
+	}
+
+	~OpenFileState() noexcept
+	{
+		Close();
 	}
 
 	vfs::IBaseFile* file;
 	vfs::tReadableFile* reader;
 	vfs::tWritableFile* writer;
+	FileAccessMode mode;
+	std::mutex ioMutex;
+};
+
+std::mutex s_openFileStatesMutex;
+std::unordered_map<vfs::IBaseFile*, std::weak_ptr<OpenFileState>>
+	s_openFileStates;
+
+// The registry mutex must be held while resolving or pruning an entry.
+std::shared_ptr<OpenFileState> OpenFileStateFor(vfs::IBaseFile* file)
+{
+	const auto found = s_openFileStates.find(file);
+	if(found == s_openFileStates.end())
+		return {};
+
+	std::shared_ptr<OpenFileState> state = found->second.lock();
+	if(!state)
+	{
+		s_openFileStates.erase(found);
+		return {};
+	}
+	return state;
+}
+
+std::shared_ptr<OpenFileState> AcquireReadFileState(
+	vfs::tReadableFile* file)
+{
+	if(!file)
+		return {};
+
+	std::lock_guard<std::mutex> lock(s_openFileStatesMutex);
+	if(std::shared_ptr<OpenFileState> existing = OpenFileStateFor(file))
+	{
+		return existing->mode == FileAccessMode::Read
+			? existing : std::shared_ptr<OpenFileState>();
+	}
+
+	vfs::COpenReadFile opened(file);
+	std::shared_ptr<OpenFileState> state = std::make_shared<OpenFileState>(
+		file, file, nullptr, FileAccessMode::Read);
+	s_openFileStates[file] = state;
+	opened.release();
+	return state;
+}
+
+std::shared_ptr<OpenFileState> AcquireWriteFileState(
+	const vfs::Path& path, bool create, bool truncate)
+{
+	std::lock_guard<std::mutex> lock(s_openFileStatesMutex);
+	vfs::IBaseFile* file = getVFS()->getFile(
+		path, vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
+	if(file)
+	{
+		if(std::shared_ptr<OpenFileState> existing =
+			OpenFileStateFor(file))
+		{
+			if(existing->mode != FileAccessMode::Write)
+				return {};
+			// Truncating underneath another live logical handle would silently
+			// invalidate that handle's position and buffered expectations.
+			return truncate ? std::shared_ptr<OpenFileState>() : existing;
+		}
+	}
+
+	vfs::COpenWriteFile opened(path, create, truncate,
+		vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
+	vfs::tWritableFile* writer = &opened.file();
+	file = writer;
+	std::shared_ptr<OpenFileState> state = std::make_shared<OpenFileState>(
+		file, nullptr, writer, FileAccessMode::Write);
+	s_openFileStates[file] = state;
+	opened.release();
+	return state;
+}
+
+// HWFILE is intentionally opaque outside FileMan. Resolve its VFS interface
+// once at open time; hot reads and writes retain direct pointers while their
+// shared state serializes the one native VFS cursor.
+struct FileHandle
+{
+	explicit FileHandle(std::shared_ptr<OpenFileState> openState) noexcept
+		: state(std::move(openState)),
+		  file(state ? state->file : nullptr),
+		  reader(state ? state->reader : nullptr),
+		  writer(state ? state->writer : nullptr),
+		  position(0),
+		  readBufferPos(0), readBufferLen(0)
+	{
+	}
+	~FileHandle() noexcept;
+
+	std::shared_ptr<OpenFileState> state;
+	vfs::IBaseFile* file;
+	vfs::tReadableFile* reader;
+	vfs::tWritableFile* writer;
+	vfs::size_t position;
 	// Windows VFS reads map directly to ReadFile. Cache small legacy reads on
 	// the handle so scalar save fields share one native I/O block across reader
 	// objects while FileGetPos/FileSeek continue to expose a logical position.
@@ -79,6 +215,38 @@ struct FileHandle
 	UINT32 readBufferPos;
 	UINT32 readBufferLen;
 };
+
+void ReleaseOpenFileState(
+	std::shared_ptr<OpenFileState>& state) noexcept
+{
+	if(!state)
+		return;
+
+	try
+	{
+		std::lock_guard<std::mutex> lock(s_openFileStatesMutex);
+		if(state.use_count() == 1)
+		{
+			vfs::IBaseFile* file = state->file;
+			state->Close();
+			if(file)
+				s_openFileStates.erase(file);
+		}
+		state.reset();
+	}
+	catch(...)
+	{
+		// Destructors must not leak a close failure into legacy callers.
+		state.reset();
+	}
+}
+
+FileHandle::~FileHandle() noexcept
+{
+	// Drop the final owner while the registry is locked, so a concurrent open
+	// cannot attach to the native stream between its last close and destruction.
+	ReleaseOpenFileState(state);
+}
 
 FileHandle* GetFileHandle(HWFILE handle)
 {
@@ -110,14 +278,57 @@ bool EnsureReadBuffer(FileHandle* handle)
 
 void SynchronizeReadBuffer(FileHandle* handle)
 {
-	const UINT32 unread = GetBufferedBytes(handle);
-	if (unread != 0 && handle->reader)
+	ClearReadBuffer(handle);
+}
+
+bool PositionNativeCursor(FileHandle* handle)
+{
+	if(!handle || !handle->state ||
+		handle->position > static_cast<vfs::size_t>(
+			std::numeric_limits<vfs::offset_t>::max()))
+	{
+		return false;
+	}
+
+	const vfs::offset_t position =
+		static_cast<vfs::offset_t>(handle->position);
+	if(handle->reader)
 	{
 		handle->reader->setReadPosition(
-			-static_cast<vfs::offset_t>(unread),
-			vfs::IBaseFile::SD_CURRENT);
+			position, vfs::IBaseFile::SD_BEGIN);
+		return true;
 	}
-	ClearReadBuffer(handle);
+	if(handle->writer)
+	{
+		handle->writer->setWritePosition(
+			position, vfs::IBaseFile::SD_BEGIN);
+		return true;
+	}
+	return false;
+}
+
+vfs::size_t ReadNative(FileHandle* handle, void* destination,
+	vfs::size_t bytes)
+{
+	if(!handle || !handle->state || !handle->reader)
+		return 0;
+	std::lock_guard<std::mutex> lock(handle->state->ioMutex);
+	if(!PositionNativeCursor(handle))
+		return 0;
+	return handle->reader->read(
+		static_cast<vfs::Byte*>(destination), bytes);
+}
+
+vfs::size_t WriteNative(FileHandle* handle, const void* source,
+	vfs::size_t bytes)
+{
+	if(!handle || !handle->state || !handle->writer)
+		return 0;
+	std::lock_guard<std::mutex> lock(handle->state->ioMutex);
+	if(!PositionNativeCursor(handle))
+		return 0;
+	return handle->writer->write(
+		static_cast<const vfs::Byte*>(source), bytes);
 }
 
 FileSearchIterator* GetFileSearch(INT32 handle)
@@ -158,21 +369,14 @@ void ReleaseAllFileSearches()
 		s_fileSearches[index].reset();
 }
 
-HWFILE MakeReadHandle(vfs::tReadableFile* file)
+HWFILE MakeFileHandle(std::shared_ptr<OpenFileState> state)
 {
-	if(!file)
+	if(!state)
 		return 0;
 	FileHandle* handle =
-		new (std::nothrow) FileHandle(file, file, nullptr);
-	return reinterpret_cast<HWFILE>(handle);
-}
-
-HWFILE MakeWriteHandle(vfs::tWritableFile* file)
-{
-	if(!file)
-		return 0;
-	FileHandle* handle =
-		new (std::nothrow) FileHandle(file, nullptr, file);
+		new (std::nothrow) FileHandle(std::move(state));
+	if(!handle)
+		ReleaseOpenFileState(state);
 	return reinterpret_cast<HWFILE>(handle);
 }
 }
@@ -453,7 +657,6 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 	}
 
 	vfs::Path path(strFilename);
-	vfs::IBaseFile *pFile = NULL;
 	try
 	{
 		if(access == FILE_ACCESS_WRITE)
@@ -475,18 +678,8 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 				effectiveDisposition == FILE_OPEN_ALWAYS;
 			const bool truncate = effectiveDisposition == FILE_CREATE_ALWAYS ||
 				effectiveDisposition == FILE_TRUNCATE_EXISTING;
-			// 'vfs::CVirtualFile::SF_TOP' should be enough, but if for some strange reason
-			// file creation fails, we will stop at a writable profile
-			// and won't unintentionally mess up a file from another profile
-			vfs::COpenWriteFile open_w( path, create, truncate,
-				vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
-			pFile = &open_w.file();
-			const HWFILE handle =
-				MakeWriteHandle(vfs::tWritableFile::cast(pFile));
-			if(handle == 0)
-				return 0;
-			open_w.release();
-			return handle;
+			return MakeFileHandle(
+				AcquireWriteFileState(path, create, truncate));
 		}
 		else
 		{
@@ -500,25 +693,15 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 				return 0;
 			if(strProfilename && strProfilename[0])
 			{
-				vfs::COpenReadFile open_r(vfs::tReadableFile::cast(getVFS()->getFile(path, strProfilename)));
-				pFile = &open_r.file();
-				const HWFILE handle =
-					MakeReadHandle(vfs::tReadableFile::cast(pFile));
-				if(handle == 0)
-					return 0;
-				open_r.release();
-				return handle;
+				return MakeFileHandle(AcquireReadFileState(
+					vfs::tReadableFile::cast(
+						getVFS()->getFile(path, strProfilename))));
 			}
 			else
 			{
-				vfs::COpenReadFile open_r(path, vfs::CVirtualFile::SF_TOP);
-				pFile = &open_r.file();
-				const HWFILE handle =
-					MakeReadHandle(vfs::tReadableFile::cast(pFile));
-				if(handle == 0)
-					return 0;
-				open_r.release();
-				return handle;
+				return MakeFileHandle(AcquireReadFileState(
+					getVFS()->getReadFile(
+						path, vfs::CVirtualFile::SF_TOP)));
 			}
 		}
 	}
@@ -552,11 +735,7 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 //**************************************************************************
 void FileClose( HWFILE hFile )
 {
-	std::unique_ptr<FileHandle> handle(GetFileHandle(hFile));
-	if(handle && handle->file)
-	{
-		handle->file->close();
-	}
+	delete GetFileHandle(hFile);
 }
 
 //**************************************************************************
@@ -637,6 +816,7 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 							take);
 						handle->readBufferPos += take;
 						totalRead += take;
+						handle->position += take;
 						continue;
 					}
 
@@ -645,16 +825,16 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 					if(remaining >= kReadBufferSize ||
 						!EnsureReadBuffer(handle))
 					{
-						totalRead += static_cast<UINT32>(pRF->read(
-							reinterpret_cast<vfs::Byte*>(
-								destination + totalRead),
-							remaining));
+						const UINT32 read = static_cast<UINT32>(
+							ReadNative(handle, destination + totalRead,
+								remaining));
+						totalRead += read;
+						handle->position += read;
 						break;
 					}
 
 					handle->readBufferLen = static_cast<UINT32>(
-						pRF->read(reinterpret_cast<vfs::Byte*>(
-								handle->readBuffer.get()),
+						ReadNative(handle, handle->readBuffer.get(),
 							kReadBufferSize));
 					if(handle->readBufferLen == 0)
 						break;
@@ -662,7 +842,6 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 			}
 			catch(std::exception& ex)
 			{
-				pRF->close();
 				SGP_RETHROW(L"", ex);
 			}
 
@@ -704,10 +883,14 @@ BOOLEAN FileReadLine( HWFILE hFile, std::string* pDest )
 			return FALSE;
 
 		vfs::tReadableFile *pRF = handle->reader;
-		if ( pRF )
+		if ( pRF && handle->state )
 		{
+			std::lock_guard<std::mutex> lock(handle->state->ioMutex);
+			if(!PositionNativeCursor(handle))
+				return FALSE;
 			vfs::CReadLine rl( *pRF, false );
 			rl.getLine( *pDest );
+			handle->position = pRF->getReadPosition();
 			return TRUE;
 		}
 	}
@@ -757,11 +940,12 @@ BOOLEAN FileWrite( HWFILE hFile, const void *pDest, UINT32 uiBytesToWrite, UINT3
 			UINT32 uiBytesWritten;
 			try
 			{
-				uiBytesWritten = pWF->write((vfs::Byte*)pDest, uiBytesToWrite);
+				uiBytesWritten = static_cast<UINT32>(
+					WriteNative(handle, pDest, uiBytesToWrite));
+				handle->position += uiBytesWritten;
 			}
 			catch(std::exception& ex)
 			{
-				pWF->close();
 				SGP_RETHROW(L"", ex);
 			}
 
@@ -802,25 +986,29 @@ BOOLEAN FileWrite( HWFILE hFile, const void *pDest, UINT32 uiBytesToWrite, UINT3
 
 BOOLEAN FileLoad( STR strFilename, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiBytesRead )
 {
-	vfs::tReadableFile *pFile = getVFS()->getReadFile(vfs::Path(strFilename));
-	vfs::COpenReadFile rfile(pFile);
-	if(pFile)
+	HWFILE file = FileOpen(strFilename,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	if(!file)
 	{
-		UINT32 uiNumBytesRead;
-		SGP_TRYCATCH_RETHROW(uiNumBytesRead = pFile->read((vfs::Byte*)pDest,uiBytesToRead), L"");
-
-		if (uiBytesToRead != uiNumBytesRead)
-		{
-			return FALSE;
-		}
-		if ( puiBytesRead )
-		{
-			*puiBytesRead = uiNumBytesRead;
-		}
-		CHECKF( uiNumBytesRead == uiBytesToRead );
-		return TRUE;
+		if(puiBytesRead)
+			*puiBytesRead = 0;
+		if(pDest)
+			memset(pDest, 0, uiBytesToRead);
+		return FALSE;
 	}
-	return FALSE;
+
+	try
+	{
+		const BOOLEAN loaded =
+			FileRead(file, pDest, uiBytesToRead, puiBytesRead);
+		FileClose(file);
+		return loaded;
+	}
+	catch(...)
+	{
+		FileClose(file);
+		throw;
+	}
 }
 
 //**************************************************************************
@@ -893,84 +1081,80 @@ BOOLEAN FilePrintf( HWFILE hFile, STR8	strFormatted, ... )
 
 BOOLEAN FileSeek( HWFILE hFile, UINT32 uiDistance, UINT8 uiHow )
 {
-	INT32 iDistance = (INT32)uiDistance;
-
 	FileHandle* handle = GetFileHandle(hFile);
-	if(handle)
+	if(!handle || !handle->state)
+		return FALSE;
+
+	const INT32 distance = static_cast<INT32>(uiDistance);
+	if(handle->reader && uiHow == FILE_SEEK_FROM_CURRENT)
 	{
-		vfs::IBaseFile::ESeekDir eSD;
-		if ( uiHow == FILE_SEEK_FROM_START )
+		const INT64 bufferedTarget =
+			static_cast<INT64>(handle->readBufferPos) +
+			static_cast<INT64>(distance);
+		if(bufferedTarget >= 0 &&
+			bufferedTarget <= static_cast<INT64>(handle->readBufferLen))
 		{
-			eSD = vfs::IBaseFile::SD_BEGIN;
-		}
-		else if ( uiHow == FILE_SEEK_FROM_END )
-		{
-			eSD = vfs::IBaseFile::SD_END;
-			if( iDistance > 0 )
-			{
-				iDistance = -(iDistance);
-			}
-		}
-		else
-		{
-			eSD = vfs::IBaseFile::SD_CURRENT;
-		}
-
-		if(handle->writer)
-		{
-			vfs::tWritableFile *pWF = handle->writer;
-			if(pWF)
-			{
-				SGP_TRYCATCH_RETHROW(pWF->setWritePosition(iDistance, eSD), L"");
-				return TRUE;
-			}
-		}
-		else if(handle->reader)
-		{
-			vfs::tReadableFile *pRF = handle->reader;
-			if(pRF)
-			{
-				if(eSD == vfs::IBaseFile::SD_CURRENT)
-				{
-					const INT64 bufferedTarget =
-						static_cast<INT64>(handle->readBufferPos) +
-						static_cast<INT64>(iDistance);
-					if(bufferedTarget >= 0 &&
-						bufferedTarget <=
-							static_cast<INT64>(handle->readBufferLen))
-					{
-						handle->readBufferPos =
-							static_cast<UINT32>(bufferedTarget);
-						return TRUE;
-					}
-
-					const vfs::size_t physicalPosition =
-						pRF->getReadPosition();
-					const UINT32 unread = GetBufferedBytes(handle);
-					if(physicalPosition < unread)
-						return FALSE;
-					const INT64 logicalPosition =
-						static_cast<INT64>(physicalPosition - unread);
-					const INT64 targetPosition =
-						logicalPosition + static_cast<INT64>(iDistance);
-					if(targetPosition < 0)
-						return FALSE;
-					SGP_TRYCATCH_RETHROW(
-						pRF->setReadPosition(
-							static_cast<vfs::size_t>(targetPosition)),
-						L"");
-				}
-				else
-				{
-					SGP_TRYCATCH_RETHROW(
-						pRF->setReadPosition(iDistance, eSD), L"");
-				}
-				ClearReadBuffer(handle);
-				return TRUE;
-			}
+			handle->readBufferPos = static_cast<UINT32>(bufferedTarget);
+			handle->position = static_cast<vfs::size_t>(
+				static_cast<INT64>(handle->position) + distance);
+			return TRUE;
 		}
 	}
-	return FALSE;
+
+	std::lock_guard<std::mutex> lock(handle->state->ioMutex);
+	INT64 target = 0;
+	if(uiHow == FILE_SEEK_FROM_START)
+	{
+		target = distance;
+	}
+	else if(uiHow == FILE_SEEK_FROM_END)
+	{
+		const vfs::size_t size = handle->file->getSize();
+		if(size > static_cast<vfs::size_t>(
+			std::numeric_limits<INT64>::max()))
+		{
+			return FALSE;
+		}
+		const INT64 endDistance =
+			distance > 0 ? -static_cast<INT64>(distance) : distance;
+		target = static_cast<INT64>(size) + endDistance;
+	}
+	else
+	{
+		if(handle->position > static_cast<vfs::size_t>(
+			std::numeric_limits<INT64>::max()))
+		{
+			return FALSE;
+		}
+		target = static_cast<INT64>(handle->position) + distance;
+	}
+
+	if(target < 0 ||
+		static_cast<UINT64>(target) >
+			static_cast<UINT64>(
+				std::numeric_limits<vfs::offset_t>::max()))
+	{
+		return FALSE;
+	}
+
+	const vfs::size_t previous = handle->position;
+	handle->position = static_cast<vfs::size_t>(target);
+	try
+	{
+		if(!PositionNativeCursor(handle))
+		{
+			handle->position = previous;
+			return FALSE;
+		}
+	}
+	catch(...)
+	{
+		handle->position = previous;
+		throw;
+	}
+
+	ClearReadBuffer(handle);
+	return TRUE;
 }
 
 //**************************************************************************
@@ -999,29 +1183,13 @@ BOOLEAN FileSeek( HWFILE hFile, UINT32 uiDistance, UINT8 uiHow )
 INT32 FileGetPos( HWFILE hFile )
 {
 	FileHandle* handle = GetFileHandle(hFile);
-	if(handle && handle->writer)
+	if(!handle || (!handle->reader && !handle->writer) ||
+		handle->position > static_cast<vfs::size_t>(
+			std::numeric_limits<INT32>::max()))
 	{
-		vfs::tWritableFile *pWF = handle->writer;
-		if(pWF)
-		{
-			return pWF->getWritePosition();
-		}
+		return BAD_INDEX;
 	}
-	else if(handle && handle->reader)
-	{
-		vfs::tReadableFile *pRF = handle->reader;
-		if(pRF)
-		{
-			const vfs::size_t physicalPosition =
-				pRF->getReadPosition();
-			const UINT32 unread = GetBufferedBytes(handle);
-			if(physicalPosition < unread)
-				return BAD_INDEX;
-			return static_cast<INT32>(physicalPosition - unread);
-		}
-	}
-
-	return BAD_INDEX;
+	return static_cast<INT32>(handle->position);
 }
 
 //**************************************************************************
@@ -1050,9 +1218,13 @@ INT32 FileGetPos( HWFILE hFile )
 UINT32 FileGetSize( HWFILE hFile )
 {
 	FileHandle* handle = GetFileHandle(hFile);
-	if(handle && handle->file)
+	if(handle && handle->file && handle->state)
 	{
-		return handle->file->getSize();
+		std::lock_guard<std::mutex> lock(handle->state->ioMutex);
+		const vfs::size_t size = handle->file->getSize();
+		return size <= std::numeric_limits<UINT32>::max()
+			? static_cast<UINT32>(size)
+			: 0;
 	}
 	return 0;
 }
@@ -1206,32 +1378,12 @@ void GetFileClose( GETFILESTRUCT *pGFStruct )
 //returns true if at end of file, else false
 BOOLEAN	FileCheckEndOfFile( HWFILE hFile )
 {
-	vfs::size_t current_position, max_position;
 	FileHandle* handle = GetFileHandle(hFile);
-
-	if(handle && handle->writer)
+	if(handle && handle->file && handle->state &&
+		(handle->reader || handle->writer))
 	{
-		vfs::tWritableFile *pWF = handle->writer;
-		if(pWF)
-		{
-			current_position = pWF->getWritePosition();
-			max_position = pWF->getSize();
-			return current_position >= max_position;
-		}
-	}
-	else if(handle && handle->reader)
-	{
-		vfs::tReadableFile *pRF = handle->reader;
-		if(pRF)
-		{
-			current_position = pRF->getReadPosition();
-			const UINT32 unread = GetBufferedBytes(handle);
-			if(current_position < unread)
-				return FALSE;
-			current_position -= unread;
-			max_position = pRF->getSize();
-			return current_position >= max_position;
-		}
+		std::lock_guard<std::mutex> lock(handle->state->ioMutex);
+		return handle->position >= handle->file->getSize();
 	}
 	return FALSE;
 }
