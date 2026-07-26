@@ -351,7 +351,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			// sevenfm: ubSuppressionPoints always show 0 because this value is cleared after each attack
 			// changed this to ubLastSuppression - it stores suppression points from last attack
 			if ( gGameExternalOptions.fEnableSoldierTooltipSuppressionPoints )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_SUPPRESION], pStrInfo, pSoldier->ubLastSuppression );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_SUPPRESION], pStrInfo, pSoldier->runtime.combatFeedback.lastSuppression );
 			// sevenfm: show additional suppression info
 			if ( gGameExternalOptions.fEnableSoldierTooltipSuppressionInfo )
 			{				 

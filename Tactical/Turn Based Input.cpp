@@ -8934,9 +8934,9 @@ void HandleTacticalStoreInvItem( void )
 		return;
 	}
 
-	if( pSoldier->usQuickItemId == pSoldier->inv[HANDPOS].usItem &&
-		( CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], pSoldier->ubQuickItemSlot, FALSE) && !pSoldier->inv[pSoldier->ubQuickItemSlot].exists() ) )
-		ubStoreSlot = pSoldier->ubQuickItemSlot;
+	if( pSoldier->runtime.quickItem.itemId == pSoldier->inv[HANDPOS].usItem &&
+		( CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], pSoldier->runtime.quickItem.slot, FALSE) && !pSoldier->inv[pSoldier->runtime.quickItem.slot].exists() ) )
+		ubStoreSlot = pSoldier->runtime.quickItem.slot;
 
 	// find slot to store HANDPOS in
 	for(UINT8 i = GUNSLINGPOCKPOS; i < NUM_INV_SLOTS && ubStoreSlot == 0; ++i)
@@ -9038,8 +9038,8 @@ void HandleTacticalTakeInvItem( INT32 iType )
 	}
 
 	// remember item slot and id
-	pSoldier->usQuickItemId = pSoldier->inv[ubItemSlot].usItem;
-	pSoldier->ubQuickItemSlot = ubItemSlot; 	
+	pSoldier->runtime.quickItem.itemId = pSoldier->inv[ubItemSlot].usItem;
+	pSoldier->runtime.quickItem.slot = ubItemSlot;
 
 	if ( UsingInventoryCostsAPSystem() )
 	{		

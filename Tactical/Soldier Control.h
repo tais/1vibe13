@@ -21,7 +21,6 @@
 #include "GameSettings.h"	// added by Flugente
 #include "Disease.h"		// added by Flugente
 #include "Soldier Components.h"
-#include <functional>
 
 #define PTR_CIVILIAN	(pSoldier->bTeam == CIV_TEAM)
 #define PTR_CROUCHED	(gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_CROUCH)
@@ -1621,35 +1620,9 @@ public:
 	STRUCT_Statistics		stats;
 	STRUCT_Pathing			pathing;
 
-	// Debugging data - not saved
-	INT32	sPlotSrcGrid;
-
-	// Runtime-only incarnation for a pending entity or world-item target.
-	// Legacy pending-action fields retain the target slot/grid; this prevents
-	// delayed completion from following a slot after it has been reused.
-	UINT32	uiPendingActionTargetIncarnation;
-	//std::vector<UINT32>	CTH;
-
-	// sevenfm: remember suppression points, shock from last attack
-	// these counters are used only for showing suppression values above soldier (similar to damage counter)
-	// these values are not saved
-	UINT8	ubLastShock;
-	UINT8	ubLastSuppression;
-	UINT8	ubLastAP;
-	UINT8	ubLastMorale;
-	UINT8	ubLastShockFromHit;
-	UINT8	ubLastAPFromHit;
-	UINT8	ubLastMoraleFromHit;
-	UINT8	iLastBulletImpact;
-	UINT8	iLastArmourProtection;
-	
-	UINT16	usQuickItemId;
-	UINT8	ubQuickItemSlot;
-
-	UINT16	usGrenadeItem;
-
-	// anv: resolve damage with delay, e.g. damage applied mid movement that would cause issues with world data if applied immediately
-	std::function<void()> delayedDamageFunction;
+	// Runtime-only state is grouped by behavior and reset as one boundary. It is
+	// deliberately outside the serialized POD and sub-structure field lists.
+	SoldierRuntimeComponents runtime;
 
 public:
 	// CREATION FUNCTIONS
