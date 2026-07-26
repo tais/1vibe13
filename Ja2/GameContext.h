@@ -4,6 +4,7 @@
 #include "CampaignSimulationHost.h"
 #include "GameSettings.h"
 #include "GameCapabilities.h"
+#include "SoldierRepository.h"
 #include <string>
 #include <utility>
 #include <Engine/Adapters/JA2/EngineRuntime.h>
@@ -37,6 +38,8 @@ public:
 	GAME_OPTIONS& options() { return options_; }
 	const GAME_OPTIONS& options() const { return options_; }
 	const GameCapabilities& capabilities() const { return capabilities_; }
+	Ja2SoldierRepository& soldiers() { return soldiers_; }
+	const Ja2SoldierRepository& soldiers() const { return soldiers_; }
 	EngineRuntime<UINT32>& runtime() { return runtime_; }
 	const EngineRuntime<UINT32>& runtime() const { return runtime_; }
 	EngineServices& services() { return runtime_.services(); }
@@ -227,6 +230,7 @@ private:
 	GAME_SETTINGS& settings_;
 	GAME_OPTIONS& options_;
 	GameCapabilities capabilities_;
+	Ja2SoldierRepository soldiers_;
 	EngineRuntime<UINT32> runtime_;
 	CampaignSimulationHost campaignSimulation_;
 	bool campaignSimulationRegistered_ = false;

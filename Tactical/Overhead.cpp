@@ -649,12 +649,12 @@ BOOLEAN InitOverhead( )
 
     ResetJa2TacticalEntityDirectory();
     ResetTacticalInventoryUiActorContexts();
+    Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
+    soldiers.initializeSlots();
 
     // Set pointers list
-    for( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
+    for( cnt = 0; cnt < soldiers.capacity(); cnt++ )
     {
-        MercPtrs[ cnt ] = &Menptr[ cnt ];
-        MercPtrs[ cnt ]->bActive = FALSE;
         // Zero out merc slots!
         MercSlots[cnt] = NULL;
     }
@@ -793,14 +793,16 @@ BOOLEAN ShutdownOverhead( )
 {
     UINT32 cnt;
     ShutdownLua( );
+    Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
     // Delete any soldiers which have been created!
-    for( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
+    for( cnt = 0; cnt < soldiers.capacity(); cnt++ )
     {
-        if( MercPtrs[ cnt ] != NULL )
+        SOLDIERTYPE* soldier = soldiers.resolve(cnt);
+        if( soldier != NULL )
         {
-            if ( MercPtrs[ cnt ]->bActive )
+            if ( soldier->bActive )
             {
-                MercPtrs[ cnt ]->DeleteSoldier( );
+                soldier->DeleteSoldier( );
             }
         }
     }
@@ -816,12 +818,15 @@ BOOLEAN GetSoldier( SOLDIERTYPE **ppSoldier, SoldierID usSoldierIndex )
         // Set debug message
         return( FALSE );
     }
+    SOLDIERTYPE* soldier =
+        GetJa2SoldierRepository().resolve(
+            static_cast<UINT16>(usSoldierIndex));
     // Check if a guy exists here
     // Does another soldier exist here?
-    if ( usSoldierIndex->bActive )
+    if ( soldier && soldier->bActive )
     {
         // Set Existing guy
-        *ppSoldier = usSoldierIndex;
+        *ppSoldier = soldier;
         return( TRUE);
     }
     else
