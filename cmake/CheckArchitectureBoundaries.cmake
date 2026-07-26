@@ -256,11 +256,18 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/Intro.cpp"
   "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
   "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
+  "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  "${SOURCE_ROOT}/Ja2/SaveLoadScreen.cpp"
+  "${SOURCE_ROOT}/Ja2/ub_config.cpp"
+  "${SOURCE_ROOT}/Ja2/ub_config.h"
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapChangeCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
+  "${SOURCE_ROOT}/Strategic/Campaign Init.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Types.h"
+  "${SOURCE_ROOT}/Strategic/Game Init.cpp"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
+  "${SOURCE_ROOT}/Strategic/LuaInitNPCs.h"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
   "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
@@ -276,6 +283,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/Merc Hiring.h"
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  "${SOURCE_ROOT}/Tactical/Tactical Save.cpp"
   "${SOURCE_ROOT}/Tactical/Tactical Turns.cpp"
   "${SOURCE_ROOT}/Tactical/opplist.cpp"
   "${SOURCE_ROOT}/Tactical/opplist.h"
@@ -296,6 +304,89 @@ foreach(runtime_campaign_file IN LISTS
       "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
   endif()
 endforeach()
+
+# Save/load and process-lifetime campaign bootstrap now use one compiled
+# representation. Every host emits the JA25 persistence sections and the
+# runtime campaign decides which restored state and startup hooks take effect.
+# The support implementations below must likewise remain linkable from an
+# ordinary JA2 host; the three-host build matrix proves that linkage while
+# these named fragments prevent accidental replacement with stubs.
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  runtime_campaign_save_contents)
+foreach(required_runtime_save_fragment IN ITEMS
+    "SaveJa25SaveInfoToSaveGame"
+    "SaveJa25TacticalInfoToSaveGame"
+    "LoadJa25SaveInfoFromSavedGame"
+    "LoadJa25TacticalInfoFromSavedGame"
+    "gGameUBOptions.LaptopQuestEnabled = sGeneralInfo.sLaptopQuestEnabled"
+    "gGameUBOptions.fTexAndJohn = sGeneralInfo.sTEX_AND_JOHN"
+    "gGameUBOptions.fRandomManuelText = sGeneralInfo.sRandom_Manuel_Text"
+    "gGameUBOptions.EventAttackInitialSectorIfPlayerStillThere ="
+    "gGameUBOptions.HandleAddingEnemiesToTunnelMaps ="
+    "JA2_EMAIL_MERC_INTRO")
+  string(FIND "${runtime_campaign_save_contents}"
+    "${required_runtime_save_fragment}" runtime_save_fragment_position)
+  if(runtime_save_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign persistence lost its common runtime-selected schema; missing '${required_runtime_save_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Game Init.cpp"
+  runtime_campaign_bootstrap_contents)
+foreach(required_runtime_bootstrap_fragment IN ITEMS
+    "bool IsUnfinishedBusinessCampaign()"
+    "InitCustomStrategicLayer"
+    "InitJa25StrategicAi"
+    "InitTownLoyalty"
+    "InitializeHeliGridnoAndTime"
+    "InitJerryMiloInfo")
+  string(FIND "${runtime_campaign_bootstrap_contents}"
+    "${required_runtime_bootstrap_fragment}" runtime_bootstrap_fragment_position)
+  if(runtime_bootstrap_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic startup bypassed runtime campaign selection; missing '${required_runtime_bootstrap_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement Costs.cpp"
+  runtime_campaign_movement_cost_contents)
+foreach(required_runtime_movement_cost_fragment IN ITEMS
+    "const bool useBuiltInUbMovementCosts"
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "void AddCustomMap("
+    "void MakeBadSectorListFromMapsOnHardDrive("
+    "void UpdateCustomMapMovementCosts()")
+  string(FIND "${runtime_campaign_movement_cost_contents}"
+    "${required_runtime_movement_cost_fragment}" runtime_movement_cost_fragment_position)
+  if(runtime_movement_cost_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign movement-cost support is no longer available through runtime selection; missing '${required_runtime_movement_cost_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/LuaInitNPCs.cpp"
+  runtime_campaign_lua_bootstrap_contents)
+foreach(required_runtime_lua_bootstrap_fragment IN ITEMS
+    "BOOLEAN LetLuaMakeBadSectorListFromMapsOnHardDrive("
+    "BOOLEAN LuaInitStrategicLayer(")
+  string(FIND "${runtime_campaign_lua_bootstrap_contents}"
+    "${required_runtime_lua_bootstrap_fragment}" runtime_lua_bootstrap_fragment_position)
+  if(runtime_lua_bootstrap_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign Lua bootstrap implementation is unavailable to common hosts; missing '${required_runtime_lua_bootstrap_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
+  runtime_campaign_map_validation_contents)
+string(FIND "${runtime_campaign_map_validation_contents}"
+  "void SetUpValidCampaignSectors( void )"
+  runtime_campaign_map_validation_position)
+if(runtime_campaign_map_validation_position EQUAL -1)
+  message(FATAL_ERROR
+    "Runtime campaign map validation lost its common implementation")
+endif()
 
 # Sector state and entry/exit behavior are now one runtime-selected campaign
 # seam. The shared fields intentionally use one pre-release save layout; a

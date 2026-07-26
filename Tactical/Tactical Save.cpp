@@ -36,11 +36,8 @@
 	#include "screenids.h"
 	#include "Queen Command.h"
 	#include "Map Screen Interface Map Inventory.h"
-
-#ifdef JA2UB
-#else
+#include "GameContext.h"
 #include "Meanwhile.h"
-#endif // JA2UB
 
 
 BOOLEAN gfWasInMeanwhile = FALSE;
@@ -1000,15 +997,12 @@ BOOLEAN SaveCurrentSectorsInformationToTempItemFile( )
 		gfWasInMeanwhile = FALSE;
 		return TRUE;
 	}
-#ifdef JA2UB
-//Ja25v No meanwhiles
-#else
-	else if( AreInMeanwhile() )
+	else if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+		AreInMeanwhile() )
 	{
 		gfInMeanwhile = FALSE;
 		fShouldBeInMeanwhile = TRUE;
 	}
-#endif
 	//If we havent been to tactical yet
 	if( ( gWorldSectorX == 0 ) && ( gWorldSectorY == 0 ) )
 	{
@@ -1115,14 +1109,10 @@ BOOLEAN SaveCurrentSectorsInformationToTempItemFile( )
 
 	EnableModifiedFileSetCache(cacheResetValue);
 
-#ifdef JA2UB
-//Ja25 no meanwhile
-#else
 	if( fShouldBeInMeanwhile )
 	{
 		gfInMeanwhile = TRUE;
 	}
-#endif
 	return( TRUE );
 }
 
@@ -1275,10 +1265,8 @@ BOOLEAN LoadCurrentSectorsInformationFromTempItemsFile()
 	//
 	// Load in the sectors ITems
 	//
-#ifdef JA2UB
-//Ja25v no meanwhiles
-#else
-	if( AreInMeanwhile() )
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+		AreInMeanwhile() )
 	{ //There will never be a temp file for the meanwhile scene, so return TRUE.  However,
 		//set a flag to not save it either!
 		gfWasInMeanwhile = TRUE;
@@ -1297,7 +1285,6 @@ BOOLEAN LoadCurrentSectorsInformationFromTempItemsFile()
 		}
 		return TRUE;
 	}
-#endif
 	//if we are in an above ground sector
 
 	//If there is a map modifications file, load the data from the temp file

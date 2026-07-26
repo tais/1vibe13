@@ -236,10 +236,7 @@ typedef struct
 
 extern GAME_UB_OPTIONS gGameUBOptions; 
 
-#ifdef JA2UB
 extern void RandomAddEnemy( UINT8 SectorX, UINT8 SectorY, UINT8 Level );
 extern void RandomStats ();
-#endif
 
-extern void RandomStats ();
 #endif

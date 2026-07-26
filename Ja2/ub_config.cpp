@@ -48,11 +48,9 @@
 	#include "Text.h"
 	#include "GameSettings.h"
 
-#ifdef JA2UB
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
 #include "Ja25Update.h"
-#endif
 
 #include "GameInitOptionsScreen.h"
 
@@ -72,13 +70,9 @@ GAME_UB_OPTIONS gGameUBOptions;
 
 void LoadGameUBOptions();
 
-#ifdef JA2UB
 void RandomAddEnemy( UINT8 SectorX, UINT8 SectorY, UINT8 Level );
-#endif
 
 void RandomStats ();
-
-#ifdef JA2UB
 
 void RandomAddEnemy( UINT8 SectorX, UINT8 SectorY, UINT8 Level )
 {
@@ -174,16 +168,12 @@ void RandomAddEnemy( UINT8 SectorX, UINT8 SectorY, UINT8 Level )
 	}
 }
 
-#endif
-
 void LoadGameUBOptions()
 {
-#ifdef JA2UB
 	JA2_5_START_SECTOR_X = gGameExternalOptions.ubDefaultArrivalSectorX;
 	JA2_5_START_SECTOR_Y = gGameExternalOptions.ubDefaultArrivalSectorY;
-#endif
 
-	gGameUBOptions.LOCATEGRIDNO  = gGameExternalOptions.iInitialMercArrivalLocation;			
+	gGameUBOptions.LOCATEGRIDNO  = gGameExternalOptions.iInitialMercArrivalLocation;
 	gGameUBOptions.LOCATEGRIDNO2 = 0;
 
 	CIniReader iniReader(GAME_UB_OPTIONS_FILE);
@@ -410,7 +400,6 @@ void LoadGameUBOptions()
 	// -----------------------
 	// Weapon
 	// -----------------------
-	#ifdef JA2UB
 	gGameUBOptions.ubTEX_MOVIE_ATTACK_CLYDESDALES = iniReader.ReadInteger("Unfinished Business Items","TEX_MOVIE_ATTACK_CLYDESDALES", 1356);
 	gGameUBOptions.ubTEX_MOVIE_WILD_EAST = iniReader.ReadInteger("Unfinished Business Items","TEX_MOVIE_WILD_EAST", 1357);
 	gGameUBOptions.ubTEX_MOVIE_HAVE_HONDA = iniReader.ReadInteger("Unfinished Business Items","TEX_MOVIE_HAVE_HONDA", 1358);
@@ -452,5 +441,4 @@ void LoadGameUBOptions()
 	gGameUBOptions.ubRUDY_UB = iniReader.ReadInteger("Unfinished Business Profiles","RUDY", 77);
 	
 
-	#endif
 }

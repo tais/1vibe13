@@ -10,24 +10,18 @@
 	#include "Tactical Save.h"
 #include "Map Screen Interface Map.h"
 
-#ifdef JA2UB
-#include "Ja25Update.h"
 #include "message.h"
 #include "strategicmap.h"
-#include "Map Screen Interface Map.h"
-#include "Strategic Movement.h"
-//#include "Summary Info.h"
 #include "ub_config.h"
-#endif
+#include "GameContext.h"
 
 extern BOOLEAN sBadSectorsList[ WORLD_MAP_X ][ WORLD_MAP_X ];
 
-#ifdef JA2UB
 extern void UpdateCustomMapMovementCosts(); // ja25 UB
 extern void MakeBadSectorListFromMapsOnHardDrive( BOOLEAN fDisplayMessages ); // ja25 UB
 extern void AddCustomMap( INT32 iRow, INT32 iCol, BOOLEAN fDisplayMessages, BOOLEAN fMessageIfNotExist ); //ja25 UB
 extern UNDERGROUND_SECTORINFO* NewUndergroundNode( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ );
-#endif
+extern void SetUpValidCampaignSectors( void );
 
 typedef enum
 {
@@ -3371,7 +3365,6 @@ void InitStrategicRowP()
 	pSector->ubTraversability[ THROUGH_STRATEGIC_MOVE ] = EDGEOFWORLD;
 }
 */
-#ifdef JA2UB
 void InitStrategicRowA()
 {
 	SECTORINFO *pSector;
@@ -5516,42 +5509,40 @@ void InitStrategicRowP()
 	pSector->ubTraversability[ WEST_STRATEGIC_MOVE ]		= EDGEOFWORLD;
 	pSector->ubTraversability[ THROUGH_STRATEGIC_MOVE ] = EDGEOFWORLD;
 }
-#endif
 
 BOOLEAN InitStrategicMovementCosts()
 {
 	char fileName[MAX_PATH];
-#ifdef JA2UB
-if ( gGameUBOptions.StrategicMovementCostsXML == TRUE )
+	const bool useBuiltInUbMovementCosts =
+		GetGameContext().capabilities().isUnfinishedBusiness() &&
+		gGameUBOptions.StrategicMovementCostsXML != TRUE;
+
+	if ( !useBuiltInUbMovementCosts )
 	{
-#endif
-	// need to be here
-	strcpy(fileName, TABLEDATA_DIRECTORY);
-	strcat(fileName, MOVEMENTCOSTFILENAME);
-	if(!ReadInStrategicMovementCosts(fileName))
-		return FALSE;
-#ifdef JA2UB
+		strcpy(fileName, TABLEDATA_DIRECTORY);
+		strcat(fileName, MOVEMENTCOSTFILENAME);
+		if(!ReadInStrategicMovementCosts(fileName))
+			return FALSE;
 	}
 	else
 	{
-	InitStrategicRowA();
-	InitStrategicRowB();
-	InitStrategicRowC();
-	InitStrategicRowD();
-	InitStrategicRowE();
-	InitStrategicRowF();
-	InitStrategicRowG();
-	InitStrategicRowH();
-	InitStrategicRowI();
-	InitStrategicRowJ();
-	InitStrategicRowK();
-	InitStrategicRowL();
-	InitStrategicRowM();
-	InitStrategicRowN();
-	InitStrategicRowO();
-	InitStrategicRowP();
+		InitStrategicRowA();
+		InitStrategicRowB();
+		InitStrategicRowC();
+		InitStrategicRowD();
+		InitStrategicRowE();
+		InitStrategicRowF();
+		InitStrategicRowG();
+		InitStrategicRowH();
+		InitStrategicRowI();
+		InitStrategicRowJ();
+		InitStrategicRowK();
+		InitStrategicRowL();
+		InitStrategicRowM();
+		InitStrategicRowN();
+		InitStrategicRowO();
+		InitStrategicRowP();
 	}
-#endif	
 	//WriteInStrategicMovementCosts("TABLEDATA\\~MovementCosts.xml");
 
 
@@ -5605,18 +5596,16 @@ if ( gGameUBOptions.StrategicMovementCostsXML == TRUE )
 	}
 	#endif
 	
-	#ifdef JA2UB
-	if ( gGameUBOptions.MakeStrategicMovementCosts == TRUE )
+	if ( GetGameContext().capabilities().isUnfinishedBusiness() &&
+		 gGameUBOptions.MakeStrategicMovementCosts == TRUE )
 		UpdateCustomMapMovementCosts(); //Ja25 UB
 	//MakeBadSectorListFromMapsOnHardDrive( TRUE ); //ja25 UB
-	#endif
 	
 
 
 	return( TRUE );
 }
 
-#ifdef JA2UB
 void AddCustomMap( INT32 iRow, INT32 iCol, BOOLEAN fDisplayMessages, BOOLEAN fMessageIfNotExist ) //ja25 UB
 {
 	CHAR8			zMapName[200];
@@ -6181,4 +6170,3 @@ void UpdateCustomMapMovementCosts()
 		}
 	}
 }
-#endif

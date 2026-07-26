@@ -1943,7 +1943,6 @@ static int l_ReStartingGame(lua_State* L)
 	return 0;
 }
 
-#ifdef JA2UB
 BOOLEAN LetLuaMakeBadSectorListFromMapsOnHardDrive(UINT8 Init)
 {
 	const char* filename = "scripts\\MakeMapsOnHardDrive.lua";
@@ -1981,7 +1980,6 @@ BOOLEAN LuaInitStrategicLayer(UINT8 Init)
 
 	return true;
 }
-#endif
 
 static int l_SetHandleGlobalLoyaltyEvent(lua_State* L)
 {

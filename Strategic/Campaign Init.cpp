@@ -20,6 +20,7 @@
 #include "UndergroundInit.h"
 
 #include "GameInitOptionsScreen.h"
+#include "GameContext.h"
 
 extern BOOLEAN InitStrategicMovementCosts();
 void InitKnowFacilitiesFlags( );
@@ -534,14 +535,13 @@ void InitNewCampaign()
 	//InitKnowFacilitiesFlags( );
 
 	BuildUndergroundSectorInfoList();
-#ifdef JA2UB
-// no UB
-#else
-	if (!is_networked)
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+		 !is_networked )
+	{
 		// allow overhead view of omerta A9 on game onset
 		// HEADROCK HAM 3.5: Externalized.
 		SetSectorFlag( gGameExternalOptions.ubDefaultArrivalSectorX, gGameExternalOptions.ubDefaultArrivalSectorY, startingZ, SF_ALREADY_VISITED ); //hayden
-#endif
+	}
 
 	// Flugente: init special AI
 	InitASD();

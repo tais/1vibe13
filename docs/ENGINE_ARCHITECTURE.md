@@ -886,6 +886,19 @@ the engine must not contain SDL types in its public domain model.
   version. UB tunnel placement is bounded by its actual destination arrays,
   and complex-map fallback placement makes one finite pass over distinct
   enemies, eliminating two legacy out-of-bounds/hang paths.
+- Save/load and strategic bootstrap now follow that same runtime campaign
+  identity. Every host writes and reads the JA25 strategic and tactical
+  sections plus one common `GENERAL_SAVE_INFO` layout; only the active
+  campaign applies UB-specific values after decoding. This intentionally
+  replaces the pre-release host-specific stream rather than adding another
+  compatibility version. The loader now also restores five UB options that
+  were previously written but silently discarded: the laptop quest, Tex/John,
+  random Manuel text, initial-sector attack, and tunnel-enemy switches.
+  Strategic startup, new-campaign initialization, meanwhile temp-sector
+  handling, custom-map validation, built-in UB movement costs, and Lua/Jerry/
+  helicopter hooks select from `GameCapabilities`. Their implementations are
+  linked into JA2, UB, and editor hosts. Existing maps, XML, Lua, dialogue,
+  artwork, archives, and package overlays remain unchanged.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

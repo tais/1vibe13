@@ -55,15 +55,15 @@
 	#include "Rebel Command.h"
 	#include "World Items.h"
 	#include "TacticalWorldAdapter.h"
+#include "GameContext.h"
 
 #include "connect.h"
 #include "XML.h"
 #include "mercs.h"
 #include "aim.h"
-#ifdef JA2UB
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
-#endif
+#include "ub_config.h"
 
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
@@ -97,13 +97,15 @@ UINT8 gubCheatLevel = STARTING_CHEAT_LEVEL;
 
 UINT8			gubScreenCount=0;
 
-#ifdef JA2UB
 static void InitCustomStrategicLayer ( void )
 {
 	LetLuaGameInit(2); //load custom InitStrategicLayer
 }
 
-#endif
+static bool IsUnfinishedBusinessCampaign()
+{
+	return GetGameContext().capabilities().isUnfinishedBusiness();
+}
 
 static void InitNPCs( void )
 {		
@@ -435,29 +437,21 @@ void InitStrategicLayer( void )
 	// Init vehicles
 	InitAllVehicles( );
 	
-	#ifdef JA2UB
-	InitCustomStrategicLayer ( );
-	#endif
-
-#ifdef JA2UB	
-	//Ja25 UB
-	InitJerryQuotes();	
-	if ( gGameUBOptions.JerryQuotes == TRUE )
+	if ( IsUnfinishedBusinessCampaign() )
 	{
-		HandleJerryMiloQuotes( TRUE ); //AA
+		InitCustomStrategicLayer();
+		InitJerryQuotes();
+		if ( gGameUBOptions.JerryQuotes == TRUE )
+		{
+			HandleJerryMiloQuotes( TRUE );
+		}
+		InitJa25StrategicAi();
 	}
-	
-	InitJa25StrategicAi( );
-#endif
 
-	
-#ifdef JA2UB
-	////if ( gGameUBOptions.InitTownLoyalty_UB == TRUE )
-		//InitTownLoyalty(); //Ja25 no loyalty
-#else
-		// init town loyalty
-		InitTownLoyalty(); //Ja25 no loyalty
-#endif
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		InitTownLoyalty();
+	}
 	// init the mine management system
 	InitializeMines();
 	// initialize map screen flags
@@ -488,9 +482,10 @@ void InitStrategicLayer( void )
 	// Flugente: set up VIP locations
 	InitVIPSectors();
 
-#ifdef JA2UB
-	LuaInitStrategicLayer(0); //JA25 UB InitStrategicLayer.lua 
-#endif
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		LuaInitStrategicLayer(0);
+	}
 
 	// reset time compression mode to X0 (this will also pause it)
 	SetGameTimeCompressionLevel( TIME_COMPRESS_X0 );
@@ -512,15 +507,6 @@ void ShutdownStrategicLayer()
 	RemoveAllGroups();
 	TrashUndergroundSectorInfo();
 
-#ifdef JA2UB
-//Ja25 No creatures
-//Ja25 No strategic ai
-#else
-	DeleteCreatureDirectives(); 
-
-	KillStrategicAI();
-	
-#endif
 	DeleteCreatureDirectives();
 	KillStrategicAI();
 	ClearTacticalMessageQueue();
@@ -552,16 +538,14 @@ BOOLEAN InitNewGame( BOOLEAN fReset )
 
 	gGameExternalOptions.gfAllowReinforcements = zDiffSetting[gGameOptions.ubDifficultyLevel].bAllowReinforcements;
 	
-#ifdef JA2UB
-//Ja25 no meanwhiles
-#else
-	// reset meanwhile flags
-	uiMeanWhileFlags = 0;
-#endif
-
-#ifdef JA2UB
-fFirstTimeInMapScreen = TRUE;
-#endif
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		fFirstTimeInMapScreen = TRUE;
+	}
+	else
+	{
+		uiMeanWhileFlags = 0;
+	}
 
 
 	// Reset the selected soldier
@@ -604,12 +588,11 @@ fFirstTimeInMapScreen = TRUE;
 	{
 		//Init all the arms dealers inventory
 		InitAllArmsDealers();
-#ifdef JA2UB		
-		if ( gGameUBOptions.fBobbyRSite == TRUE )
-		InitBobbyRayInventory();  //Ja25 UB
-#else
-		InitBobbyRayInventory();  
-#endif
+		if ( !IsUnfinishedBusinessCampaign() ||
+			 gGameUBOptions.fBobbyRSite == TRUE )
+		{
+			InitBobbyRayInventory();
+		}
 	}
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"InitNewGame: clearing messages");
@@ -716,36 +699,31 @@ fFirstTimeInMapScreen = TRUE;
 		ClearAllWorldItems();
 
 #ifdef LUA_GAME_INIT_NEW_GAME
-		
+
 		LetLuaGameInit(0);
 
-		#ifdef JA2UB
-		InitCustomStrategicLayer ( );
-		#endif
-#else
-		#ifdef JA2UB
-
-		#else
-		INT32		iStartingCash;
-
-		// Setup two new messages!
-		AddPreReadEmail(OLD_ENRICO_1,OLD_ENRICO_1_LENGTH,MAIL_ENRICO,  GetWorldTotalMin() );
-		AddPreReadEmail(OLD_ENRICO_2,OLD_ENRICO_2_LENGTH,MAIL_ENRICO,  GetWorldTotalMin() );
-		AddPreReadEmail(RIS_REPORT,RIS_REPORT_LENGTH,RIS_EMAIL,  GetWorldTotalMin() );
-		AddPreReadEmail(OLD_ENRICO_3,OLD_ENRICO_3_LENGTH,MAIL_ENRICO,  GetWorldTotalMin() );
-		AddEmail(IMP_EMAIL_INTRO,IMP_EMAIL_INTRO_LENGTH,CHAR_PROFILE_SITE,  GetWorldTotalMin(), -1, -1);
-		//AddEmail(ENRICO_CONGRATS,ENRICO_CONGRATS_LENGTH,MAIL_ENRICO, GetWorldTotalMin() );
-		if(gGameExternalOptions.fMercDayOne)
+		if ( IsUnfinishedBusinessCampaign() )
 		{
-			AddEmail(MERC_INTRO, MERC_INTRO_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin( ), -1, 1 );
+			InitCustomStrategicLayer();
 		}
+#else
+		if ( !IsUnfinishedBusinessCampaign() )
+		{
+			AddPreReadEmail(OLD_ENRICO_1,OLD_ENRICO_1_LENGTH,MAIL_ENRICO,  GetWorldTotalMin() );
+			AddPreReadEmail(OLD_ENRICO_2,OLD_ENRICO_2_LENGTH,MAIL_ENRICO,  GetWorldTotalMin() );
+			AddPreReadEmail(RIS_REPORT,RIS_REPORT_LENGTH,RIS_EMAIL,  GetWorldTotalMin() );
+			AddPreReadEmail(OLD_ENRICO_3,OLD_ENRICO_3_LENGTH,MAIL_ENRICO,  GetWorldTotalMin() );
+			AddEmail(IMP_EMAIL_INTRO,IMP_EMAIL_INTRO_LENGTH,CHAR_PROFILE_SITE,  GetWorldTotalMin(), -1, -1);
+			if(gGameExternalOptions.fMercDayOne)
+			{
+				AddEmail(MERC_INTRO, MERC_INTRO_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin( ), -1, 1 );
+			}
 
-		// ATE: Set starting cash....
-		iStartingCash = zDiffSetting[gGameOptions.ubDifficultyLevel].iStartingCash;
-		
-		// Setup initial money
- 		AddTransactionToPlayersBook( ANONYMOUS_DEPOSIT, 0, GetWorldTotalMin(), iStartingCash );
-		#endif
+			const INT32 iStartingCash =
+				zDiffSetting[gGameOptions.ubDifficultyLevel].iStartingCash;
+			AddTransactionToPlayersBook(
+				ANONYMOUS_DEPOSIT, 0, GetWorldTotalMin(), iStartingCash );
+		}
 #endif
 	
 		UINT32	uiDaysTimeMercSiteAvailable = Random( 2 ) + 1;
@@ -792,21 +770,14 @@ fFirstTimeInMapScreen = TRUE;
 
 		gubScreenCount = 1;
 
-#ifdef JA2UB		
-		//ja25 ub
-		//Init the initial hweli crash sequence variable
-		if ( gGameUBOptions.InGameHeli == FALSE )
-		InitializeHeliGridnoAndTime( FALSE );
-	
-		//If tex is in the game ( John is NOT in the game )
-		//if( gJa25SaveStruct.fJohnKulbaIsInGame == FALSE )
-		//{
-			//make sure Betty offers his videos for sale
-			//AddTexsVideosToBettysInventory();
-		//}
-
-		InitJerryMiloInfo(); //JA25 UB
-#endif
+		if ( IsUnfinishedBusinessCampaign() )
+		{
+			if ( gGameUBOptions.InGameHeli == FALSE )
+			{
+				InitializeHeliGridnoAndTime( FALSE );
+			}
+			InitJerryMiloInfo();
+		}
 
 		//Set the fact the game is in progress
 		gTacticalStatus.fHasAGameBeenStarted = TRUE;

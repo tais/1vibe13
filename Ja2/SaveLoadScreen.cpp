@@ -34,12 +34,10 @@
 #include "connect.h"
 
 #include "FileMan.h"
+#include "GameContext.h"
+#include "LuaInitNPCs.h"
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_file_raii.h>
-
-#ifdef JA2UB
-#include "LuaInitNPCs.h"
-#endif
 
 BOOLEAN gfSchedulesHosed = FALSE;
 extern UINT32 guiBrokenSaveGameVersion;
@@ -273,9 +271,7 @@ void		ClearSelectedSaveSlot();
 void		MoveSelectionUpOrDown( BOOLEAN fUp );
 void		SaveGameToSlotNum();
 void		StartFadeOutForSaveLoadScreen();
-#ifdef JA2UB
 extern void MakeBadSectorListFromMapsOnHardDrive( BOOLEAN fDisplayMessages ); // ja25 UB
-#endif
 
 //////////////////////////////////////////////////////
 //
@@ -2537,16 +2533,11 @@ void DoneFadeOutForSaveLoadScreen( void )
 				PauseTime( FALSE );
 				FadeInGameScreen( );
 			}
-#ifdef JA2UB			
-			//JA25 UB
-			// ATE: Validate any new maps...
-			// OK, if we're a camapign, check for new maps
-			//if ( !InDefaultCampaign( ) )
-			//{
-			MakeBadSectorListFromMapsOnHardDrive( TRUE );
-			LetLuaMakeBadSectorListFromMapsOnHardDrive( 0 );
-			//}
-#endif
+			if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				MakeBadSectorListFromMapsOnHardDrive( TRUE );
+				LetLuaMakeBadSectorListFromMapsOnHardDrive( 0 );
+			}
 			
 		#ifdef JA2BETAVERSION
 		}
