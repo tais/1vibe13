@@ -1073,6 +1073,62 @@ int main()
 	Check(file == 0, "unsupported read/write handles fail explicitly");
 	if (file) FileClose(file);
 
+	char handleContract[] = "file-handle-contract.bin";
+	file = FileOpen(handleContract, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+	UINT8 rejectedReadByte = 0xA5;
+	UINT32 rejectedReadCount = 99;
+	std::string rejectedLine = "unchanged";
+	Check(file && FileGetPos(file) == 0 && FileGetSize(file) == 0 &&
+		FileCheckEndOfFile(file),
+		"write handles expose their initial position, size, and EOF");
+	Check(!FileRead(file, &rejectedReadByte, 1, &rejectedReadCount) &&
+		rejectedReadByte == 0 && rejectedReadCount == 0 &&
+		!FileReadLine(file, &rejectedLine) && rejectedLine == "unchanged",
+		"write handles reject reads without leaking stale destination data");
+	Check(Write(file, "abcdef") && FileGetPos(file) == 6 &&
+		FileGetSize(file) == 6 && FileCheckEndOfFile(file),
+		"write handles update position, size, and EOF");
+	Check(FileSeek(file, 2, FILE_SEEK_FROM_START) &&
+		FileGetPos(file) == 2 && !FileCheckEndOfFile(file) &&
+		Write(file, "Z") && FileGetPos(file) == 3 && FileGetSize(file) == 6,
+		"write-handle seeks preserve overwrite and size semantics");
+	if (file) FileClose(file);
+
+	file = FileOpen(handleContract, FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	UINT32 rejectedWriteCount = 77;
+	const UINT8 rejectedWriteByte = '!';
+	Check(file && FileGetPos(file) == 0 && FileGetSize(file) == 6 &&
+		!FileCheckEndOfFile(file),
+		"read handles expose their initial position, size, and EOF");
+	Check(!FileWrite(file, &rejectedWriteByte, 1, &rejectedWriteCount) &&
+		rejectedWriteCount == 77,
+		"read handles reject writes without reporting phantom output");
+	UINT8 prefix[2] = {};
+	UINT32 prefixRead = 0;
+	Check(FileRead(file, prefix, sizeof(prefix), &prefixRead) &&
+		prefixRead == sizeof(prefix) && prefix[0] == 'a' && prefix[1] == 'b' &&
+		FileGetPos(file) == 2,
+		"read handles advance their typed read position");
+	UINT8 shortRead[8];
+	std::memset(shortRead, 0xA5, sizeof(shortRead));
+	UINT32 shortReadCount = 99;
+	Check(FileSeek(file, 1, FILE_SEEK_FROM_CURRENT) &&
+		!FileRead(file, shortRead, sizeof(shortRead), &shortReadCount) &&
+		shortReadCount == 3 && shortRead[0] == 'd' && shortRead[1] == 'e' &&
+		shortRead[2] == 'f' &&
+		std::all_of(shortRead + 3, shortRead + sizeof(shortRead),
+			[](UINT8 value) { return value == 0; }) &&
+		FileGetPos(file) == 6 && FileCheckEndOfFile(file),
+		"short reads report progress, zero the unread tail, and reach EOF");
+	UINT8 suffix[2] = {};
+	UINT32 suffixRead = 0;
+	Check(FileSeek(file, 2, FILE_SEEK_FROM_END) &&
+		FileRead(file, suffix, sizeof(suffix), &suffixRead) &&
+		suffixRead == sizeof(suffix) && suffix[0] == 'e' && suffix[1] == 'f' &&
+		FileCheckEndOfFile(file),
+		"read-handle end-relative seeks preserve legacy semantics");
+	if (file) FileClose(file);
+
 	ByteStorage& storage = GetPlatformByteStorage();
 	const std::vector<std::uint8_t> longPayload = { 1, 2, 3, 4, 5, 6 };
 	const std::vector<std::uint8_t> shortPayload = { 9, 8 };

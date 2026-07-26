@@ -583,10 +583,13 @@ vfs::size_t vfs::TFile<T>::getSize()
 	}
 	return size;
 #else
-	// if file was alredy opened, keep it open, otherwise close it
-	bool closeAtExit = !m_isOpen_read;
+	// A writable CFile uses the same native stream as its readable base.
+	// Testing only m_isOpen_read here used to replace an active write stream
+	// with a temporary read stream, leak it, and then close the whole file.
+	// Match the Windows path: any valid native stream is already open.
+	bool closeAtExit = (m_file == NULL);
 
-	VFS_THROW_IFF( m_isOpen_read || this->openRead(), ERROR_FILE(L"could not open file") )
+	VFS_THROW_IFF( m_file || this->openRead(), ERROR_FILE(L"could not open file") )
 
 	// save current position 
 	long int current_position = ftell(m_file);
