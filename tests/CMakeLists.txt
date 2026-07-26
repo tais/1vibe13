@@ -21,6 +21,14 @@ add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)
 target_link_libraries(ja2_runtime_adapter_tests PRIVATE JA2::RuntimeAdapter)
 add_test(NAME ja2_runtime_adapter COMMAND ja2_runtime_adapter_tests)
 
+# Legacy map-temp action bytes overlap between campaign data sets. This tiny
+# data-free test keeps their runtime codec independent from the full game host.
+add_executable(campaign_map_change_code_tests
+  campaign_map_change_code_tests.cpp)
+target_include_directories(campaign_map_change_code_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_map_change_codes COMMAND campaign_map_change_code_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.

@@ -3999,14 +3999,17 @@ INT8 ConsiderCivilianQuotes( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, BOO
 	return( -1 );
 }
 
-#ifdef JA2UB
-//UB
-
 BOOLEAN HasNpcSaidQuoteBefore( UINT8 ubNPC, UINT8 ubRecord )
 {
+	if( ubNPC >= NUM_PROFILES ||
+	    ubRecord >= NUM_NPC_QUOTE_RECORDS ||
+	    gpNPCQuoteInfoArray[ ubNPC ] == NULL )
+	{
+		return( FALSE );
+	}
+
 	if( CHECK_FLAG( gpNPCQuoteInfoArray[ ubNPC ][ ubRecord ].fFlags, QUOTE_FLAG_SAID ) )
 		return( TRUE );
 	else
 		return( FALSE );
 }
-#endif

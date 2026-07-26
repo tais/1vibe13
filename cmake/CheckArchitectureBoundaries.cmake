@@ -257,21 +257,29 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
   "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
+  "${SOURCE_ROOT}/Ja2/CampaignMapChangeCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
   "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
+  "${SOURCE_ROOT}/Tactical/Action Items.h"
   "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
   "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
   "${SOURCE_ROOT}/Tactical/End Game.cpp"
   "${SOURCE_ROOT}/Tactical/End Game.h"
   "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/Soldier Control.h"
   "${SOURCE_ROOT}/Tactical/opplist.cpp"
   "${SOURCE_ROOT}/Tactical/opplist.h"
-  "${SOURCE_ROOT}/Tactical/interface Dialogue.h")
+  "${SOURCE_ROOT}/Tactical/interface Dialogue.h"
+  "${SOURCE_ROOT}/TacticalAI/NPC.h"
+  "${SOURCE_ROOT}/TileEngine/Explosion Control.cpp"
+  "${SOURCE_ROOT}/TileEngine/Explosion Control.h"
+  "${SOURCE_ROOT}/TileEngine/SaveLoadMap.cpp"
+  "${SOURCE_ROOT}/TileEngine/SaveLoadMap.h")
 foreach(runtime_campaign_file IN LISTS
     runtime_campaign_implementation_files runtime_campaign_selection_files)
   file(READ "${runtime_campaign_file}" runtime_campaign_contents)
@@ -317,6 +325,95 @@ foreach(required_runtime_profile_fragment IN ITEMS
   if(runtime_profile_fragment_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign profile-code decoding lost runtime compatibility; missing '${required_runtime_profile_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/CampaignMapChangeCodes.h"
+  runtime_campaign_map_change_code_contents)
+foreach(required_runtime_map_change_code_fragment IN ITEMS
+    "constexpr Type decode("
+    "constexpr std::uint8_t encode("
+    "ArulcoMinePresent = 22"
+    "ArulcoRemoveMinePresent = 23"
+    "ArulcoDecal = 24"
+    "UnfinishedBusinessRemoveExitGrid = 22"
+    "UnfinishedBusinessMinePresent = 23"
+    "UnfinishedBusinessRemoveMinePresent = 24"
+    "UnfinishedBusinessDecal = 25"
+    "decode(GameCampaign::Arulco, 22)"
+    "decode(GameCampaign::UnfinishedBusiness, 22)")
+  string(FIND "${runtime_campaign_map_change_code_contents}"
+    "${required_runtime_map_change_code_fragment}" runtime_map_change_code_fragment_position)
+  if(runtime_map_change_code_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign map-change decoding lost legacy compatibility; missing '${required_runtime_map_change_code_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TileEngine/SaveLoadMap.cpp"
+  runtime_campaign_map_change_io_contents)
+foreach(required_runtime_map_change_io_fragment IN ITEMS
+    "CampaignMapChangeCode::decode("
+    "CampaignMapChangeCode::encode("
+    "GetGameContext().capabilities().campaign"
+    "MapChangeType::RemoveExitGrid"
+    "MapChangeType::MinePresent"
+    "AddRemoveExitGridToUnloadedMapTempFile"
+    "uiFileSize % sizeof( MODIFY_MAP )"
+    "uiNumberOfElementsSavedBackToFile")
+  string(FIND "${runtime_campaign_map_change_io_contents}"
+    "${required_runtime_map_change_io_fragment}" runtime_map_change_io_fragment_position)
+  if(runtime_map_change_io_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Map-temp I/O lost runtime campaign decoding; missing '${required_runtime_map_change_io_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TileEngine/Explosion Control.cpp"
+  runtime_campaign_explosion_contents)
+foreach(required_runtime_explosion_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "ReplaceMineEntranceGraphicWithCollapsedEntrance"
+    "HandleDestructionOfPowerGenFan"
+    "HandleExplosionsInTunnelSector"
+    "ACTION_ITEM_BIGGENS_BOMBS"
+    "ACTION_ITEM_SEE_FORTIFIED_DOOR"
+    "ACTION_ITEM_SEE_POWER_GEN_FAN")
+  string(FIND "${runtime_campaign_explosion_contents}"
+    "${required_runtime_explosion_fragment}" runtime_explosion_fragment_position)
+  if(runtime_explosion_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical explosion hooks lost runtime campaign selection; missing '${required_runtime_explosion_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Action Items.h"
+  runtime_campaign_action_item_contents)
+foreach(required_runtime_action_item_fragment IN ITEMS
+    "ACTION_ITEM_BIGGENS_BOMBS"
+    "ACTION_ITEM_SEE_POWER_GEN_FAN"
+    "static_assert(ACTION_ITEM_BIGGENS_BOMBS == 25)"
+    "static_assert(ACTION_ITEM_NEW == 244)")
+  string(FIND "${runtime_campaign_action_item_contents}"
+    "${required_runtime_action_item_fragment}" runtime_action_item_fragment_position)
+  if(runtime_action_item_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Shared action-item vocabulary lost numeric compatibility; missing '${required_runtime_action_item_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TacticalAI/NPC.cpp"
+  runtime_campaign_npc_quote_contents)
+foreach(required_runtime_npc_quote_fragment IN ITEMS
+    "BOOLEAN HasNpcSaidQuoteBefore("
+    "ubNPC >= NUM_PROFILES"
+    "ubRecord >= NUM_NPC_QUOTE_RECORDS"
+    "gpNPCQuoteInfoArray[ ubNPC ] == NULL")
+  string(FIND "${runtime_campaign_npc_quote_contents}"
+    "${required_runtime_npc_quote_fragment}" runtime_npc_quote_fragment_position)
+  if(runtime_npc_quote_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Shared NPC quote lookup lost bounds validation; missing '${required_runtime_npc_quote_fragment}'")
   endif()
 endforeach()
 

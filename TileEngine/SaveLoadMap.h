@@ -3,54 +3,46 @@
 
 #include "worlddef.h"
 #include "Exit Grids.h"
+#include "CampaignMapChangeCodes.h"
 
-//Used for the ubType in the MODIFY_MAP struct	
-enum
-{
-	SLM_NONE,
-
-	//Adding a map graphic
-	SLM_LAND,
-	SLM_OBJECT,
-	SLM_STRUCT,
-	SLM_SHADOW,
-	SLM_MERC,										//Should never be used
-	SLM_ROOF,
-	SLM_ONROOF,
-	SLM_TOPMOST,								//Should never be used
-
-	// For Removing
-	SLM_REMOVE_LAND,
-	SLM_REMOVE_OBJECT,
-	SLM_REMOVE_STRUCT,
-	SLM_REMOVE_SHADOW,
-	SLM_REMOVE_MERC,										//Should never be used
-	SLM_REMOVE_ROOF,
-	SLM_REMOVE_ONROOF,
-	SLM_REMOVE_TOPMOST,								//Should never be used
-
-	//Smell, or Blood is used
-	SLM_BLOOD_SMELL,
-
-	// Damage a particular struct
-	SLM_DAMAGED_STRUCT,
-
-	//Exit Grids
-	SLM_EXIT_GRIDS,
-
-	// State of Openable structs
-	SLM_OPENABLE_STRUCT,
-
-	// Modify window graphic & structure 
-	SLM_WINDOW_HIT,
-#ifdef JA2UB	
-	SLM_REMOVE_EXIT_GRID,
-#endif
-	// sevenfm
-	SLM_MINE_PRESENT,
-	SLM_REMOVE_MINE_PRESENT,	// silversurfer: we need this to get rid of the mine flag otherwise any tile that ever had a mine on it will forever be flagged with MAPELEMENT_PLAYER_MINE_PRESENT
-	SLM_DECAL,					// Flugente: add decals
-};
+// Common legacy raw values remain source-compatible. The campaign-specific
+// tail is deliberately qualified because its numeric slots overlap.
+inline constexpr UINT8 SLM_NONE = 0;
+inline constexpr UINT8 SLM_LAND = 1;
+inline constexpr UINT8 SLM_OBJECT = 2;
+inline constexpr UINT8 SLM_STRUCT = 3;
+inline constexpr UINT8 SLM_SHADOW = 4;
+inline constexpr UINT8 SLM_MERC = 5;
+inline constexpr UINT8 SLM_ROOF = 6;
+inline constexpr UINT8 SLM_ONROOF = 7;
+inline constexpr UINT8 SLM_TOPMOST = 8;
+inline constexpr UINT8 SLM_REMOVE_LAND = 9;
+inline constexpr UINT8 SLM_REMOVE_OBJECT = 10;
+inline constexpr UINT8 SLM_REMOVE_STRUCT = 11;
+inline constexpr UINT8 SLM_REMOVE_SHADOW = 12;
+inline constexpr UINT8 SLM_REMOVE_MERC = 13;
+inline constexpr UINT8 SLM_REMOVE_ROOF = 14;
+inline constexpr UINT8 SLM_REMOVE_ONROOF = 15;
+inline constexpr UINT8 SLM_REMOVE_TOPMOST = 16;
+inline constexpr UINT8 SLM_BLOOD_SMELL = 17;
+inline constexpr UINT8 SLM_DAMAGED_STRUCT = 18;
+inline constexpr UINT8 SLM_EXIT_GRIDS = 19;
+inline constexpr UINT8 SLM_OPENABLE_STRUCT = 20;
+inline constexpr UINT8 SLM_WINDOW_HIT = 21;
+inline constexpr UINT8 SLM_ARULCO_MINE_PRESENT =
+	CampaignMapChangeCode::ArulcoMinePresent;
+inline constexpr UINT8 SLM_ARULCO_REMOVE_MINE_PRESENT =
+	CampaignMapChangeCode::ArulcoRemoveMinePresent;
+inline constexpr UINT8 SLM_ARULCO_DECAL =
+	CampaignMapChangeCode::ArulcoDecal;
+inline constexpr UINT8 SLM_UB_REMOVE_EXIT_GRID =
+	CampaignMapChangeCode::UnfinishedBusinessRemoveExitGrid;
+inline constexpr UINT8 SLM_UB_MINE_PRESENT =
+	CampaignMapChangeCode::UnfinishedBusinessMinePresent;
+inline constexpr UINT8 SLM_UB_REMOVE_MINE_PRESENT =
+	CampaignMapChangeCode::UnfinishedBusinessRemoveMinePresent;
+inline constexpr UINT8 SLM_UB_DECAL =
+	CampaignMapChangeCode::UnfinishedBusinessDecal;
 
 typedef struct//dnl ch86 250214
 {
@@ -121,9 +113,7 @@ void AddWindowHitToMapTempFile( INT32 uiMapIndex );
 
 BOOLEAN ChangeStatusOfOpenableStructInUnloadedSector( UINT16 usSectorX, UINT16 usSectorY, INT8 bSectorZ, INT32 usGridNo, BOOLEAN fChangeToOpen );
 
-#ifdef JA2UB
 //ja25 ub
 void AddRemoveExitGridToUnloadedMapTempFile( UINT32 usGridNo, INT16 sSectorX, INT16 sSectorY, UINT8 ubSectorZ );
-#endif
 
 #endif
