@@ -61,8 +61,7 @@ typedef unsigned short	HNDL;
 typedef UINT8			BYTE;
 typedef CHAR8			STRING512[512];
 // HWFILE has historically been UINT32, but FileMan now stores an opaque
-// pointer-width handle in it. Widen to uintptr_t to stop the cast from
-// truncating real pointers on modern targets. The legacy bit-packed
+// pointer-width generation token in it. The legacy bit-packed
 // LibraryDataBase usage (lower 22 bits = file id, rest = library id)
 // continues to work since uintptr_t is also an integer type.
 typedef uintptr_t		HWFILE;
