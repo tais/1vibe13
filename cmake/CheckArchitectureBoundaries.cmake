@@ -1843,6 +1843,105 @@ if(NOT legacy_plot_source_grid_occurrence_count EQUAL 1)
     "sPlotSrcGrid must exist only in the v101 compatibility record; current runtime path scratch belongs to SoldierRuntimeComponents")
 endif()
 
+# Serialized soldier vitals have completed the next storage cut. Their
+# historical byte positions remain in the explicit field serializer, but the
+# live values must have exactly one in-memory owner: SoldierVitalsComponent.
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_Statistics//last edited at version 102"
+  current_soldier_stats_begin)
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_Pathing//last edited at version 102"
+  current_soldier_stats_end)
+string(FIND "${soldier_control_header_contents}"
+  "class SOLDIERTYPE//last edited at version 102"
+  current_soldier_begin)
+string(FIND "${soldier_control_header_contents}"
+  "#define SIZEOF_SOLDIERTYPE_POD"
+  current_soldier_end)
+if(current_soldier_stats_begin EQUAL -1 OR
+   current_soldier_stats_end EQUAL -1 OR
+   current_soldier_begin EQUAL -1 OR
+   current_soldier_end EQUAL -1)
+  message(FATAL_ERROR
+    "Could not locate current soldier/statistics declarations for the vitals ownership check")
+endif()
+math(EXPR current_soldier_stats_length
+  "${current_soldier_stats_end} - ${current_soldier_stats_begin}")
+math(EXPR current_soldier_length
+  "${current_soldier_end} - ${current_soldier_begin}")
+string(SUBSTRING "${soldier_control_header_contents}"
+  ${current_soldier_stats_begin} ${current_soldier_stats_length}
+  current_soldier_stats_contents)
+string(SUBSTRING "${soldier_control_header_contents}"
+  ${current_soldier_begin} ${current_soldier_length}
+  current_soldier_contents)
+
+foreach(retired_stat_field IN ITEMS bLife bLifeMax)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|UINT8)[ \t]+${retired_stat_field}[ \t]*;"
+    retired_current_soldier_stat
+    "${current_soldier_stats_contents}")
+  if(retired_current_soldier_stat)
+    message(FATAL_ERROR
+      "Retired STRUCT_Statistics field '${retired_stat_field}' returned; canonical health belongs to SoldierVitalsComponent")
+  endif()
+endforeach()
+foreach(retired_vital_field IN ITEMS bBleeding bBreath bBreathMax)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|UINT8)[ \t]+${retired_vital_field}[ \t]*;"
+    retired_current_soldier_vital
+    "${current_soldier_contents}")
+  if(retired_current_soldier_vital)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE vital '${retired_vital_field}' returned; canonical vitals belong to SoldierVitalsComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "SoldierVitalsComponent[ \t\r\n]+vitals_[ \t]*;"
+  soldier_vitals_owner
+  "${current_soldier_contents}")
+if(NOT soldier_vitals_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierVitalsComponent")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
+  soldier_components_header_contents)
+foreach(owned_vital_field IN ITEMS
+  health
+  maximumHealth
+  breath
+  maximumBreath
+  bleeding)
+  string(REGEX MATCH
+    "INT8[ \t]+${owned_vital_field}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_vital
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_vital)
+    message(FATAL_ERROR
+      "SoldierVitalsComponent no longer owns '${owned_vital_field}_'; do not recreate a compatibility facade")
+  endif()
+endforeach()
+
+# Preserve the established save byte order independently of the new in-memory
+# layout: bleeding/breath/max-breath remain in the POD field list, while
+# health/max-health remain immediately after experience level in XferStats.
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  save_load_game_contents)
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.vitals\\(\\)\\.bleeding\\(\\)\\);[ \t]*ar\\.i8\\(s\\.vitals\\(\\)\\.breath\\(\\)\\);[ \t]*ar\\.i8\\(s\\.vitals\\(\\)\\.maximumBreath\\(\\)\\);"
+  serialized_soldier_breath_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bExpLevel\\);[ \t]*ar\\.i8\\(vitals\\.health\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.maximumHealth\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bStrength\\);"
+  serialized_soldier_health_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_breath_order OR
+   NOT serialized_soldier_health_order)
+  message(FATAL_ERROR
+    "Soldier vitals moved in the portable save schema; keep their established byte order while storage evolves")
+endif()
+
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The
 # former current-team and pending-combat fields no longer exist in
 # TacticalStatusType, and the TURNBASED/INCOMBAT bits are composed only at

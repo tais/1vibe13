@@ -84,7 +84,9 @@
 #include "sdl_input.h"
 #include "english.h"
 #include "GameContext.h"
+#include "GameVersion.h"
 #include "gameloop.h"
+#include "SaveLoadGame.h"
 #include "CampaignClockAdapter.h"
 #include "CampaignEventAdapter.h"
 #include "CampaignPackage.h"
@@ -4725,10 +4727,10 @@ int main( int, char** )
 		const UINT8 previousDirection = Menptr[0].ubDirection;
 		const UINT16 previousAnimation = Menptr[0].usAnimState;
 		const INT16 previousActionPoints = Menptr[0].bActionPoints;
-		const INT8 previousLife = Menptr[0].stats.bLife;
-		const INT8 previousMaximumLife = Menptr[0].stats.bLifeMax;
-		const INT8 previousBreath = Menptr[0].bBreath;
-		const INT8 previousMaximumBreath = Menptr[0].bBreathMax;
+		const INT8 previousLife = Menptr[0].vitals().health();
+		const INT8 previousMaximumLife = Menptr[0].vitals().maximumHealth();
+		const INT8 previousBreath = Menptr[0].vitals().breath();
+		const INT8 previousMaximumBreath = Menptr[0].vitals().maximumBreath();
 		const TacticalWorldSession::Snapshot previousWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
 		const UINT32 previousTacticalProjectionFlags =
@@ -4746,10 +4748,10 @@ int main( int, char** )
 		Menptr[0].ubDirection = 3;
 		Menptr[0].usAnimState = STANDING;
 		Menptr[0].bActionPoints = 72;
-		Menptr[0].stats.bLife = 76;
-		Menptr[0].stats.bLifeMax = 80;
-		Menptr[0].bBreath = 64;
-		Menptr[0].bBreathMax = 90;
+		Menptr[0].vitals().health() = 76;
+		Menptr[0].vitals().maximumHealth() = 80;
+		Menptr[0].vitals().breath() = 64;
+		Menptr[0].vitals().maximumBreath() = 90;
 		const bool worldActorAdopted = AdoptJa2TacticalEntity( Menptr[0] );
 		const TacticalActorSnapshot* adoptedWorldActorState =
 			compiledContext.runtime().tacticalEntityDirectory().state(
@@ -5148,7 +5150,7 @@ int main( int, char** )
 		NotifyJa2TacticalTeamTurnBegan(
 			CaptureJa2TacticalWorld().worldGeneration );
 		Menptr[0].sGridNo = 346;
-		Menptr[0].stats.bLife = 75;
+		Menptr[0].vitals().health() = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5462,7 +5464,7 @@ int main( int, char** )
 		       MercPtrs[0] == &Menptr[0] &&
 		       Menptr[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
 		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].sGridNo == 348 &&
-		       Menptr[0].stats.bLife == 75,
+		       Menptr[0].vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		(void)ReleaseJa2TacticalEntity( Menptr[0] );
 		Menptr[0].bActive = previousActive;
@@ -5476,10 +5478,10 @@ int main( int, char** )
 		Menptr[0].ubDirection = previousDirection;
 		Menptr[0].usAnimState = previousAnimation;
 		Menptr[0].bActionPoints = previousActionPoints;
-		Menptr[0].stats.bLife = previousLife;
-		Menptr[0].stats.bLifeMax = previousMaximumLife;
-		Menptr[0].bBreath = previousBreath;
-		Menptr[0].bBreathMax = previousMaximumBreath;
+		Menptr[0].vitals().health() = previousLife;
+		Menptr[0].vitals().maximumHealth() = previousMaximumLife;
+		Menptr[0].vitals().breath() = previousBreath;
+		Menptr[0].vitals().maximumBreath() = previousMaximumBreath;
 		MercPtrs[0] = previousSlot;
 		if ( previousWorldEntity.valid() && previousSlot )
 			(void)AdoptJa2TacticalEntity( *previousSlot );
@@ -7196,15 +7198,18 @@ int main( int, char** )
 
 	{
 		SOLDIERTYPE soldier;
-		SoldierVitalsComponent vitals = soldier.vitals();
+		SoldierVitalsComponent& vitals = soldier.vitals();
 		vitals.maximumHealth() = 90;
 		vitals.health() = 75;
 		vitals.breath() = 60;
 		SoldierPositionComponent position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
-		CHECK( vitals.alive() && soldier.stats.bLife == 75 && soldier.bBreath == 60,
-		       "soldier vitals component aliases the compatible serialized fields" );
+		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
+		       "soldier vitals component owns the canonical serialized fields" );
+		const SOLDIERTYPE& constSoldier = soldier;
+		CHECK( constSoldier.vitals().health() == 75 && constSoldier.vitals().maximumHealth() == 90,
+		       "const soldier access reads the canonical vitals component" );
 		CHECK( soldier.sGridNo == 1234 && soldier.pathing.bLevel == 1,
 		       "soldier position component aliases the compatible serialized fields" );
 		vitals.maximumHealth() = 80;
@@ -7217,6 +7222,25 @@ int main( int, char** )
 		vitals.applyLifeDeduction( 100 );
 		CHECK( !vitals.alive() && vitals.health() == 0,
 		       "soldier vitals component clamps lethal damage to zero" );
+		vitals.health() = 42;
+		vitals.maximumHealth() = 84;
+		vitals.breath() = 63;
+		vitals.maximumBreath() = 91;
+		vitals.bleeding() = 7;
+		SOLDIERTYPE copiedSoldier = soldier;
+		CHECK( copiedSoldier.vitals().health() == 42 &&
+		       copiedSoldier.vitals().maximumHealth() == 84 &&
+		       copiedSoldier.vitals().breath() == 63 &&
+		       copiedSoldier.vitals().maximumBreath() == 91 &&
+		       copiedSoldier.vitals().bleeding() == 7,
+		       "soldier copies retain their owned persistent vitals" );
+		copiedSoldier.initialize();
+		CHECK( copiedSoldier.vitals().health() == 0 &&
+		       copiedSoldier.vitals().maximumHealth() == 0 &&
+		       copiedSoldier.vitals().breath() == 0 &&
+		       copiedSoldier.vitals().maximumBreath() == 0 &&
+		       copiedSoldier.vitals().bleeding() == 0,
+		       "soldier initialization resets the complete vitals domain" );
 	}
 
 	{
@@ -7313,6 +7337,44 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+	{
+		const std::string path = "soldier_vitals_roundtrip_test.bin";
+		const UINT32 previousSaveVersion = guiCurrentSaveGameVersion;
+		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
+
+		SOLDIERTYPE savedSoldier;
+		savedSoldier.stats.bExpLevel = 6;
+		savedSoldier.stats.bStrength = 77;
+		savedSoldier.vitals().health() = 71;
+		savedSoldier.vitals().maximumHealth() = 89;
+		savedSoldier.vitals().breath() = 62;
+		savedSoldier.vitals().maximumBreath() = 94;
+		savedSoldier.vitals().bleeding() = 11;
+
+		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
+		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
+		const bool saved = output && savedSoldier.Save( output );
+		if ( output ) FileClose( output );
+
+		SOLDIERTYPE loadedSoldier;
+		HWFILE input = FileOpen( const_cast<char*>( path.c_str() ),
+		                         FILE_ACCESS_READ | FILE_OPEN_EXISTING );
+		const bool loaded = input && loadedSoldier.Load( input );
+		if ( input ) FileClose( input );
+		FileDelete( const_cast<char*>( path.c_str() ) );
+		guiCurrentSaveGameVersion = previousSaveVersion;
+
+		CHECK( saved && loaded &&
+		       loadedSoldier.stats.bExpLevel == 6 &&
+		       loadedSoldier.stats.bStrength == 77 &&
+		       loadedSoldier.vitals().health() == 71 &&
+		       loadedSoldier.vitals().maximumHealth() == 89 &&
+		       loadedSoldier.vitals().breath() == 62 &&
+		       loadedSoldier.vitals().maximumBreath() == 94 &&
+		       loadedSoldier.vitals().bleeding() == 11,
+		       "soldier save/load round-trips component-owned vitals through the established schema" );
+	}
 
 	{
 		auto mountReadOnlyDirectory = []( const std::string& profileName,
