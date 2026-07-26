@@ -73,7 +73,19 @@ void SaveWriter::skip(UINT32 n)
 
 void SaveReader::raw(void* p, UINT32 n)
 {
-	if (!ok || n == 0) return;
+	if (n == 0) return;
+	if (!p)
+	{
+		ok = false;
+		return;
+	}
+
+	if (!ok)
+	{
+		std::memset(p, 0, n);
+		return;
+	}
+
 	UINT32 got = 0;
 	if (!FileRead(hFile, p, n, &got) || got != n) ok = false;
 }
@@ -94,7 +106,7 @@ UINT32 SaveReader::u32()
 
 UINT64 SaveReader::u64()
 {
-	UINT8 b[8]; raw(b, 8);
+	UINT8 b[8] = {0,0,0,0,0,0,0,0}; raw(b, 8);
 	UINT64 v = 0;
 	for (int i = 0; i < 8; ++i) v |= (UINT64)b[i] << (8 * i);
 	return v;
@@ -113,6 +125,12 @@ void SaveReader::bytes(void* p, UINT32 n) { raw(p, n); }
 
 void SaveReader::skip(UINT32 n)
 {
-	UINT8 dump;
-	for (UINT32 i = 0; i < n; ++i) raw(&dump, 1);
+	UINT8 discarded[256];
+	while (ok && n > 0)
+	{
+		const UINT32 take =
+			(n < sizeof(discarded)) ? n : sizeof(discarded);
+		raw(discarded, take);
+		n -= take;
+	}
 }

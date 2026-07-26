@@ -37,6 +37,7 @@
 #include "Music Control.h"
 #include "Map Screen Helicopter.h"
 #include "Render Dirty.h"
+#include "SaveSerializer.h"
 #include "worlddef.h"
 #include "Tile Animation.h"
 #include "Tile Surface.h"
@@ -1109,11 +1110,21 @@ int main()
 		prefixRead == sizeof(prefix) && prefix[0] == 'a' && prefix[1] == 'b' &&
 		FileGetPos(file) == 2,
 		"read handles advance their typed read position");
+	Check(FileSeek(file, static_cast<UINT32>(-1),
+			FILE_SEEK_FROM_CURRENT) &&
+		FileGetPos(file) == 1 &&
+		FileSeek(file, 2, FILE_SEEK_FROM_CURRENT) &&
+		FileGetPos(file) == 3,
+		"read handles seek backward and forward inside cached data");
+	Check(FileSeek(file, 10, FILE_SEEK_FROM_CURRENT) &&
+		FileGetPos(file) == 13 && FileCheckEndOfFile(file) &&
+		FileSeek(file, 3, FILE_SEEK_FROM_START) &&
+		FileGetPos(file) == 3 && !FileCheckEndOfFile(file),
+		"read handles preserve logical current seeks beyond cached data");
 	UINT8 shortRead[8];
 	std::memset(shortRead, 0xA5, sizeof(shortRead));
 	UINT32 shortReadCount = 99;
-	Check(FileSeek(file, 1, FILE_SEEK_FROM_CURRENT) &&
-		!FileRead(file, shortRead, sizeof(shortRead), &shortReadCount) &&
+	Check(!FileRead(file, shortRead, sizeof(shortRead), &shortReadCount) &&
 		shortReadCount == 3 && shortRead[0] == 'd' && shortRead[1] == 'e' &&
 		shortRead[2] == 'f' &&
 		std::all_of(shortRead + 3, shortRead + sizeof(shortRead),
@@ -1127,6 +1138,125 @@ int main()
 		suffixRead == sizeof(suffix) && suffix[0] == 'e' && suffix[1] == 'f' &&
 		FileCheckEndOfFile(file),
 		"read-handle end-relative seeks preserve legacy semantics");
+	if (file) FileClose(file);
+
+	char lineContract[] = "file-line-contract.txt";
+	file = FileOpen(lineContract, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+	Check(Write(file, "one\r\ntwo\n"),
+		"line-reader fixture writes through the legacy file handle");
+	if (file) FileClose(file);
+
+	file = FileOpen(lineContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	UINT8 linePrefix = 0;
+	UINT32 linePrefixRead = 0;
+	std::string cachedLine;
+	Check(file &&
+		FileRead(file, &linePrefix, 1, &linePrefixRead) &&
+		linePrefixRead == 1 && linePrefix == 'o' &&
+		FileReadLine(file, &cachedLine) && cachedLine == "ne" &&
+		FileGetPos(file) == 5 &&
+		FileReadLine(file, &cachedLine) && cachedLine == "two" &&
+		FileGetPos(file) == 9 && FileCheckEndOfFile(file),
+		"cached byte reads hand their logical position to line reads");
+	if (file) FileClose(file);
+
+	char saveReaderContract[] = "save-reader-contract.bin";
+	std::vector<UINT8> savePayload(9000);
+	for (std::size_t index = 0; index < savePayload.size(); ++index)
+		savePayload[index] = static_cast<UINT8>(index & 0xFF);
+	file = FileOpen(saveReaderContract,
+		FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+	UINT32 savePayloadWritten = 0;
+	Check(file &&
+		FileWrite(file, savePayload.data(),
+			static_cast<UINT32>(savePayload.size()),
+			&savePayloadWritten) &&
+		savePayloadWritten == savePayload.size(),
+		"save-reader fixture writes through the legacy file handle");
+	if (file) FileClose(file);
+
+	file = FileOpen(saveReaderContract,
+		FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+	{
+		SaveReader reader(file);
+		const UINT16 prefix = reader.u16();
+		Check(prefix == 0x0100 && reader.good() &&
+			FileGetPos(file) == 2,
+			"cached save reads expose their logical file position");
+
+		UINT8 nestedBytes[3] = {};
+		UINT32 nestedRead = 0;
+		Check(FileRead(file, nestedBytes, sizeof(nestedBytes), &nestedRead) &&
+			nestedRead == sizeof(nestedBytes) &&
+			nestedBytes[0] == 2 && nestedBytes[1] == 3 &&
+			nestedBytes[2] == 4 &&
+			reader.u8() == 5 && reader.good() &&
+			FileGetPos(file) == 6,
+			"buffered save reads interoperate with nested legacy loaders");
+	}
+
+	Check(FileSeek(file, 0, FILE_SEEK_FROM_START),
+		"save-reader fixture rewinds");
+	{
+		SaveReader reader(file);
+		Check(reader.u32() == 0x03020100u,
+			"buffered save reads preserve little-endian scalar decoding");
+	}
+	Check(FileGetPos(file) == 4,
+		"the read cache preserves position across save-reader lifetimes");
+
+	Check(FileSeek(file, 4, FILE_SEEK_FROM_END),
+		"save-reader fixture seeks to an exact final scalar");
+	{
+		SaveReader reader(file);
+		Check(reader.u32() == 0x27262524u && reader.good() &&
+			FileGetPos(file) == static_cast<INT32>(savePayload.size()),
+			"a short final prefetch succeeds when it satisfies the logical read");
+	}
+
+	Check(FileSeek(file, 0, FILE_SEEK_FROM_START),
+		"save-reader fixture rewinds for a multi-block read");
+	std::vector<UINT8> loadedSavePayload(savePayload.size(), 0);
+	{
+		SaveReader reader(file);
+		for (std::size_t offset = 0; offset < loadedSavePayload.size();)
+		{
+			const UINT32 chunk = static_cast<UINT32>(
+				std::min<std::size_t>(7,
+					loadedSavePayload.size() - offset));
+			reader.bytes(loadedSavePayload.data() + offset, chunk);
+			offset += chunk;
+		}
+		Check(reader.good() && loadedSavePayload == savePayload &&
+			FileGetPos(file) == static_cast<INT32>(savePayload.size()),
+			"cached save reads preserve exact data across block boundaries");
+	}
+
+	Check(FileSeek(file, 0, FILE_SEEK_FROM_START),
+		"save-reader fixture rewinds for a buffered skip");
+	{
+		SaveReader reader(file);
+		reader.skip(8500);
+		Check(reader.u8() == static_cast<UINT8>(8500 & 0xFF) &&
+			reader.good() && FileGetPos(file) == 8501,
+			"buffered save skips cross block boundaries without scalar I/O");
+	}
+
+	Check(FileSeek(file, 2, FILE_SEEK_FROM_END),
+		"save-reader fixture seeks to a truncated scalar");
+	{
+		SaveReader reader(file);
+		const UINT64 truncatedValue = reader.u64();
+		UINT8 staleBytes[4];
+		std::memset(staleBytes, 0xA5, sizeof(staleBytes));
+		reader.bytes(staleBytes, sizeof(staleBytes));
+		Check(truncatedValue == 0x2726u && !reader.good() &&
+			std::all_of(staleBytes, staleBytes + sizeof(staleBytes),
+				[](UINT8 value) { return value == 0; }) &&
+			FileGetPos(file) == static_cast<INT32>(savePayload.size()),
+			"truncated buffered reads fail safely with deterministic zero tails");
+	}
 	if (file) FileClose(file);
 
 	ByteStorage& storage = GetPlatformByteStorage();
