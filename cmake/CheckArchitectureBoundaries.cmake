@@ -259,10 +259,13 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapChangeCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
+  "${SOURCE_ROOT}/Strategic/Campaign Types.h"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
   "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
+  "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
+  "${SOURCE_ROOT}/Strategic/strategicmap.h"
   "${SOURCE_ROOT}/Tactical/Action Items.h"
   "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
   "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
@@ -270,8 +273,10 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/End Game.h"
   "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/Merc Hiring.h"
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  "${SOURCE_ROOT}/Tactical/Tactical Turns.cpp"
   "${SOURCE_ROOT}/Tactical/opplist.cpp"
   "${SOURCE_ROOT}/Tactical/opplist.h"
   "${SOURCE_ROOT}/Tactical/interface Dialogue.h"
@@ -289,6 +294,102 @@ foreach(runtime_campaign_file IN LISTS
   if(compiled_campaign_identity)
     message(FATAL_ERROR
       "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
+  endif()
+endforeach()
+
+# Sector state and entry/exit behavior are now one runtime-selected campaign
+# seam. The shared fields intentionally use one pre-release save layout; a
+# build-target guard must not quietly remove their representation or behavior.
+file(READ "${SOURCE_ROOT}/Strategic/Campaign Types.h"
+  runtime_campaign_sector_type_contents)
+foreach(required_runtime_sector_type_fragment IN ITEMS
+    "SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR"
+    "FINAL_COMPLEX,"
+    "fValidSector;"
+    "fCustomSector;"
+    "fCampaignSector;")
+  string(FIND "${runtime_campaign_sector_type_contents}"
+    "${required_runtime_sector_type_fragment}" runtime_sector_type_fragment_position)
+  if(runtime_sector_type_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic sector state lost common campaign metadata; missing '${required_runtime_sector_type_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
+  runtime_campaign_sector_serializer_contents)
+foreach(required_runtime_sector_serializer_fragment IN ITEMS
+    "ar.boolean(s.fCustomSector)"
+    "ar.boolean(s.fCampaignSector)")
+  string(FIND "${runtime_campaign_sector_serializer_contents}"
+    "${required_runtime_sector_serializer_fragment}" runtime_sector_serializer_fragment_position)
+  if(runtime_sector_serializer_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Underground sector persistence lost common campaign metadata; missing '${required_runtime_sector_serializer_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/email.h"
+  runtime_campaign_sector_email_contents)
+foreach(required_runtime_sector_email_fragment IN ITEMS
+    "JA25_EMAIL_MIGUEL_SORRY = 25"
+    "JA25_EMAIL_MIGUEL_MANUEL = 28"
+    "JA25_EMAIL_MIGUEL_SICK = 32"
+    "JA25_EMAIL_PILOT_FOUND = 42"
+    "JA25_MAIL_MIGUEL = 51")
+  string(FIND "${runtime_campaign_sector_email_contents}"
+    "${required_runtime_sector_email_fragment}" runtime_sector_email_fragment_position)
+  if(runtime_sector_email_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "JA25 sector email identity lost its stable campaign-qualified value; missing '${required_runtime_sector_email_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
+  runtime_campaign_strategic_sector_contents)
+foreach(required_runtime_strategic_sector_fragment IN ITEMS
+    "bool IsUnfinishedBusinessCampaign()"
+    "HandlePlayerTeamQuotesWhenEnteringSector("
+    "HandleEmailBeingSentWhenEnteringSector("
+    "HandleSectorSpecificModificatioToMap("
+    "HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap("
+    "JA25_EMAIL_MIGUEL_SORRY"
+    "while ( ubIndex < sizeof(sGridNos) / sizeof(sGridNos[0])")
+  string(FIND "${runtime_campaign_strategic_sector_contents}"
+    "${required_runtime_strategic_sector_fragment}" runtime_strategic_sector_fragment_position)
+  if(runtime_strategic_sector_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic sector behavior bypassed runtime campaign selection; missing '${required_runtime_strategic_sector_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp"
+  runtime_campaign_arrival_contents)
+foreach(required_runtime_arrival_fragment IN ITEMS
+    "void UpdateJerryMiloInInitialSector()"
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "if ( pSoldier == NULL )")
+  string(FIND "${runtime_campaign_arrival_contents}"
+    "${required_runtime_arrival_fragment}" runtime_arrival_fragment_position)
+  if(runtime_arrival_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "UB arrival behavior lost its runtime-selected safe entry point; missing '${required_runtime_arrival_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Tactical Turns.cpp"
+  runtime_campaign_rpc_description_contents)
+foreach(required_runtime_rpc_description_fragment IN ITEMS
+    "void HandleRPCDescription("
+    "CampaignProfileCode::Role::Ira"
+    "CampaignProfileCode::Role::Miguel"
+    "CampaignProfileCode::Role::Carlos"
+    "CampaignProfileCode::Role::Dimitri")
+  string(FIND "${runtime_campaign_rpc_description_contents}"
+    "${required_runtime_rpc_description_fragment}" runtime_rpc_description_fragment_position)
+  if(runtime_rpc_description_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "RPC sector descriptions lost runtime campaign profile resolution; missing '${required_runtime_rpc_description_fragment}'")
   endif()
 endforeach()
 

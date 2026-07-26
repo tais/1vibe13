@@ -92,9 +92,7 @@ enum //strategic values for each sector
 #define SF_SKYRIDER_NOTICED_ENEMIES_HERE			0x00000400
 #define SF_HAVE_USED_GUIDE_QUOTE					0x00000800
 
-#ifdef JA2UB
 #define	SF_HAVE_SAID_PLAYER_QUOTE_NEW_SECTOR		0x00001000
-#endif
 
 #define SF_ASSIGN_NOTICED_ENEMIES_HERE				0x00002000		// Flugente: flag deleted after 1 hour, info from assigment: enemies were found
 #define SF_ASSIGN_NOTICED_ENEMIES_KNOW_NUMBER		0x00004000		// Flugente: flag deleted after 1 hour, info from assigment: enemies were found, and we know their number
@@ -436,15 +434,14 @@ enum
 	SHELTER,
 	ABANDONED_MINE,
 
-#ifdef JA2UB	
-//Ja25: New
+	// Unfinished Business terrain vocabulary. These IDs are campaign data, so
+	// every host keeps the same complete enum and selects its campaign at runtime.
 	FINAL_COMPLEX,
 	GUARD_POST_TYPE,
 	CRASH_SITE_TYPE,
 	POWER_PLANT_TYPE,
 	MOUNTAINS_TYPE,
 	UNKNOWN_TYPE,
-#endif
 
 	NUM_TRAVTERRAIN_TYPES
 };
@@ -537,13 +534,13 @@ typedef struct SECTORINFO
 	UINT8	bFiller3;
 
 	UINT32	uiNumberOfWorldItemsInTempFileThatCanBeSeenByPlayer;
-#ifdef JA2UB
-	BOOLEAN	fValidSector; //ja25 UB
+	// Campaign-map metadata is part of the common sector state. Arulco leaves
+	// these false; Unfinished Business and custom campaigns can opt sectors in.
+	BOOLEAN	fValidSector;
 	BOOLEAN	fCustomSector;
 	BOOLEAN	fCampaignSector;
-#endif
-	
-	UINT8	uiNumberOfPrisonersOfWar[PRISONER_MAX];	
+
+	UINT8	uiNumberOfPrisonersOfWar[PRISONER_MAX];
 	UINT8	uiInterrogationHundredsLeft[PRISONER_MAX];
 
 	UINT32	uiTimeAIArtillerywasOrdered;			// Flugente: updated every time an artillery strike is ordered from the militia
@@ -614,11 +611,9 @@ typedef struct UNDERGROUND_SECTORINFO
 	UINT8	ubMusicMode, ubUnsed;
 
 	UINT32	uiNumberOfWorldItemsInTempFileThatCanBeSeenByPlayer;
-#ifdef JA2UB	
 	BOOLEAN	fCustomSector;
 	BOOLEAN	fCampaignSector;
-#endif
-	
+
 	UINT16	uiNumberOfPrisonersOfWar[PRISONER_MAX];
 
 	UINT16	ubNumTanks;

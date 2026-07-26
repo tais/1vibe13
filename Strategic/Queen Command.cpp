@@ -2673,9 +2673,7 @@ template<class Ar> static void XferUndergroundSector( Ar& ar, UNDERGROUND_SECTOR
 	ar.u16(s.ubElitesInBattle); ar.u16(s.ubTroopsInBattle); ar.u16(s.ubAdminsInBattle); ar.u16(s.ubCreaturesInBattle);
 	ar.u8 (s.ubMusicMode); ar.u8(s.ubUnsed);
 	ar.u32(s.uiNumberOfWorldItemsInTempFileThatCanBeSeenByPlayer);
-#ifdef JA2UB
 	ar.boolean(s.fCustomSector); ar.boolean(s.fCampaignSector);
-#endif
 	for (i = 0; i < PRISONER_MAX; ++i) ar.u16(s.uiNumberOfPrisonersOfWar[i]);
 	ar.u16(s.ubNumTanks); ar.u16(s.ubTanksInBattle);
 	ar.f32(s.dFortification_MaxPossible); ar.f32(s.dFortification_UnappliedProgress);

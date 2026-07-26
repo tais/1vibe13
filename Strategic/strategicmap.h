@@ -181,12 +181,8 @@ void ResetAdjacentStrategicGroupContext( void );
 void PrepareLoadedSector();
 
 
-#ifdef JA2UB
-// no JA2 UB
-#else
 // handle for slay...no better place to really put this stuff
 void HandleSlayDailyEvent( void );
-#endif
 
 void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bNewSectorZ );
 
@@ -236,12 +232,9 @@ extern INT8 gbMilitiaPromotions;
 
 void 	BeginLoadScreen();
 
-#ifdef JA2UB
-//ja25 UB
 void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLoadingSavedGame );
 
 void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLaptopJustGotFixed );
-#endif
 
 // Flugente: militia movement: can we order militia reinforcements from( sSrcMapX, sSrcMapY ) to( sMapX, sMapY ) ?
 BOOLEAN CanRequestMilitiaReinforcements( INT16 sMapX, INT16 sMapY, INT16 sSrcMapX, INT16 sSrcMapY );

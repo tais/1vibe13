@@ -35,10 +35,10 @@
 	#include "Quests.h"
 	#include "GameSettings.h"
 	#include "DynamicDialogue.h"// added by Flugente
+#include "GameContext.h"
 #include "connect.h"
 #include "Map Information.h"
 
-#ifdef JA2UB
 #include "Soldier Control.h"
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
@@ -47,10 +47,7 @@
 #include "opplist.h"
 #include "Ja25Update.h"
 #include "ub_config.h"
-#else
-	// anv: for Kulba's odyssey
-	#include "email.h"
-#endif
+#include "email.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -76,7 +73,6 @@ INT16 gsMercArriveSectorY = gGameExternalOptions.ubDefaultArrivalSectorY;
 
 void CheckForValidArrivalSector( );
 
-#ifdef JA2UB
 void AddItemToMerc( UINT8 ubNewMerc, INT16 sItemType );
 
 #define	NUM_INITIAL_GRIDNOS_FOR_HELI_CRASH		7
@@ -106,7 +102,6 @@ INT16	gsInitialHeliRandomTimes[ NUM_INITIAL_GRIDNOS_FOR_HELI_CRASH ] =
 
 UINT32		GetInitialHeliGridNo( );
 UINT16	GetInitialHeliRandomTime();
-#endif
 INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 {
 	SOLDIERTYPE	*pSoldier;
@@ -918,7 +913,6 @@ void CheckForValidArrivalSector( )
 
 	}
 }
-#ifdef JA2UB
 UINT32	GetInitialHeliGridNo( )
 {
 	UINT8	ubCnt;
@@ -966,6 +960,11 @@ UINT16	GetInitialHeliRandomTime()
 
 void InitializeHeliGridnoAndTime( BOOLEAN fLoading )
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	Assert( NUM_INITIAL_GRIDNOS_FOR_HELI_CRASH == 7 );
 
 	if( !fLoading )
@@ -992,6 +991,11 @@ void InitializeHeliGridnoAndTime( BOOLEAN fLoading )
 
 void InitJerryMiloInfo()
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
  if ( gGameUBOptions.InJerry == TRUE )
 {
   //  return; //AA
@@ -1019,6 +1023,11 @@ if ( gGameUBOptions.InGameHeliCrash == TRUE )
 
 void UpdateJerryMiloInInitialSector()
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	SOLDIERTYPE *pSoldier = NULL;
 	SOLDIERTYPE *pJerrySoldier = NULL;
 
@@ -1043,6 +1052,7 @@ void UpdateJerryMiloInInitialSector()
 			if ( pSoldier == NULL )
 			{
 				Assert( 0 );
+				return;
 			}
 
 		}
@@ -1062,8 +1072,8 @@ void UpdateJerryMiloInInitialSector()
 			pSoldier->fWaitingToGetupFromJA25Start = TRUE;
 			pSoldier->fIgnoreGetupFromCollapseCheck = TRUE;
 
-			//pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO; //to by³o wy³¹czone
-			//pSoldier->usStrategicInsertionData = GetInitialHeliGridNo( ); //to by³o wy³¹czone
+			//pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO; // was disabled
+			//pSoldier->usStrategicInsertionData = GetInitialHeliGridNo( ); // was disabled
 
 			RESETTIMECOUNTER( pSoldier->GetupFromJA25StartCounter, gsInitialHeliRandomTimes[6] + 800 + Random( 400 ) );
 
@@ -1114,7 +1124,6 @@ void AddItemToMerc( UINT8 ubNewMerc, INT16 sItemType )
 				fReturn=TRUE;
 			}
 	Assert( fReturn );
-	
+
 
 }
-#endif

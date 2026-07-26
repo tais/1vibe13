@@ -13,24 +13,17 @@
 	#include "LightEffects.h"
 	#include "Soldier macros.h"
 	#include "Explosion Control.h"
-#include "Reinforcement.h"
-
-#ifdef JA2UB
-#else
+#include "CampaignProfileCodes.h"
+#include "GameContext.h"
 #include "strategicmap.h"
 #include "random.h"
-#endif // JA2UB
+#include "Reinforcement.h"
 
 
 extern void DecayPublicOpplist( INT8 bTeam );
 
 //not in overhead.h!
 extern UINT16 NumEnemyInSector();
-
-#ifdef JA2UB
-
-//no uB
-#else
 
 void HandleRPCDescription(	)
 {
@@ -105,10 +98,20 @@ void HandleRPCDescription(	)
 						pTeamSoldier->bSectorZ == gbWorldSectorZ &&
 						!pTeamSoldier->flags.fBetweenSectors )
 					{
-						if ( pTeamSoldier->ubProfile == IRA ||
-							pTeamSoldier->ubProfile == MIGUEL ||
-							pTeamSoldier->ubProfile == CARLOS ||
-							pTeamSoldier->ubProfile == DIMITRI )
+						const GameCampaign campaign =
+							GetGameContext().capabilities().campaign;
+						if ( CampaignProfileCode::matches(
+								 campaign, CampaignProfileCode::Role::Ira,
+								 pTeamSoldier->ubProfile) ||
+							 CampaignProfileCode::matches(
+								 campaign, CampaignProfileCode::Role::Miguel,
+								 pTeamSoldier->ubProfile) ||
+							 CampaignProfileCode::matches(
+								 campaign, CampaignProfileCode::Role::Carlos,
+								 pTeamSoldier->ubProfile) ||
+							 CampaignProfileCode::matches(
+								 campaign, CampaignProfileCode::Role::Dimitri,
+								 pTeamSoldier->ubProfile) )
 						{
 							ubMercsInSector[ubNumMercs] = (UINT16)cnt2;
 							++ubNumMercs;
@@ -145,7 +148,6 @@ void HandleRPCDescription(	)
 		}
 	}
 }
-#endif
 
 void HandleTacticalEndTurn( )
 {
@@ -287,11 +289,10 @@ void HandleTacticalEndTurn( )
 			}
 		}
 	}
-#ifdef JA2UB
-//	HandleRPCDescription( );
-#else
-	HandleRPCDescription( );
-#endif
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		HandleRPCDescription( );
+	}
 
 	// Flugente: Cool down/decay all items not in a soldier's inventory
 	CoolDownWorldItems();

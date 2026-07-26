@@ -86,6 +86,8 @@
 #include "Explosion Control.h"
 #include "Auto Resolve.h"
 #include "Cursors.h"
+#include "GameContext.h"
+#include "CampaignProfileCodes.h"
 #include "GameVersion.h"
 #include "StrategicGroupHost.h"
 #include "TacticalWorldAdapter.h"
@@ -96,7 +98,6 @@
 #include "GameInitOptionsScreen.h"
 #include "Map Screen Interface Bottom.h"
 
-#ifdef JA2UB
 #include "interface Dialogue.h"
 #include "SaveLoadGame.h"
 #include "email.h"
@@ -109,7 +110,6 @@
 #include "Strategic AI.h"
 #include "ub_config.h"
 #include "Luaglobal.h"
-#endif
 
 #include "connect.h" //hayden added alot ""'s to get around client spawing random/different placed AI
 #include "SaveLoadGame.h"
@@ -174,6 +174,11 @@ SoldierID	gbPotentiallyAbandonedEPCSlotID = NOBODY;
 namespace
 {
 Ja2StrategicGroupReference gAdjacentGroup;
+
+bool IsUnfinishedBusinessCampaign()
+{
+	return GetGameContext().capabilities().isUnfinishedBusiness();
+}
 }
 
 void ResetAdjacentStrategicGroupContext( void )
@@ -337,8 +342,6 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection );
 INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UINT32 *puiNumAttempts );
 
 
-//JA25UB
-#ifdef JA2UB
 void HandleQuestCodeOnSectorExit( INT16 sOldSectorX, INT16 sOldSectorY, INT8 bOldSectorZ );
 void HandlePotentialMoraleHitForSkimmingSectors( GROUP *pGroup );
 void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ );
@@ -357,7 +360,6 @@ void HandleFirstPartOfTunnelFanSound( );
 void HandlePowerGenFanSoundModification( );
 BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridNo );
 void		HandleMovingEnemiesOntoRoofs( );
-#endif
 
 void HandleQuestCodeOnSectorExit( INT16 sOldSectorX, INT16 sOldSectorY, INT8 bOldSectorZ );
 void HandlePotentialMoraleHitForSkimmingSectors( GROUP *pGroup );
@@ -1477,12 +1479,9 @@ void BeginLoadScreen( void )
 
 	SetCurrentCursorFromDatabase( VIDEO_NO_CURSOR );
 
-#ifdef JA2UB
-	if ( GetCurrentScreen() == MAP_SCREEN && !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
-#else
-	//Ja25: No meanwhiles
-	if ( GetCurrentScreen() == MAP_SCREEN && !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) && !AreInMeanwhile( ) )
-#endif
+	if ( GetCurrentScreen() == MAP_SCREEN &&
+		 !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) &&
+		 (IsUnfinishedBusinessCampaign() || !AreInMeanwhile( )) )
 	{
 		if ( !gGameExternalOptions.fDisableStrategicTransition )
 		{
@@ -1882,18 +1881,16 @@ void GetMapFileName( INT16 sMapX, INT16 sMapY, INT8 bSectorZ,
 		}
 	}
 
-#ifdef JA2UB
-	/* Ja25: No meanwhiles */
-#else
 	// If we are in a meanwhile...
-	if ( AreInMeanwhile( ) && sMapX == gModSettings.ubMeanwhilePalaceSectorX && sMapY == gModSettings.ubMeanwhilePalaceSectorY && !bSectorZ ) //GetMeanwhileID() != INTERROGATION ), (3, 16)
+	if ( !IsUnfinishedBusinessCampaign() && AreInMeanwhile( ) &&
+		 sMapX == gModSettings.ubMeanwhilePalaceSectorX &&
+		 sMapY == gModSettings.ubMeanwhilePalaceSectorY && !bSectorZ )
 	{
 		if ( fAddAlternateMapLetter )
 		{
 			strcat( bExtensionString, "_m" );
 		}
 	}
-#endif
 
 	// This is the string to return, but...
 	snprintf( bString, stringCapacity, "%s%s%s.DAT", pVertStrings[sMapY], pHortStrings[sMapX], bExtensionString );
@@ -2018,12 +2015,11 @@ void HandleRPCDescriptionOfSector( INT16 sSectorX, INT16 sSectorY, INT16 sSector
 	// Flugente: set this flag in any case
 	SetSectorFlag( sSectorX, sSectorY, (UINT8)sSectorZ, SF_HAVE_USED_GUIDE_QUOTE );
 		
-	// Handle guide description ( will be needed if a SAM one )
-#ifdef JA2UB
-	//UB
-#else
-	HandleRPCDescription( );
-#endif
+	// Handle guide description (will be needed if a SAM one).
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		HandleRPCDescription( );
+	}
 }
 
 
@@ -2164,15 +2160,13 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 	{
 		StopAnyCurrentlyTalkingSpeech( );
 
-#ifdef JA2UB
-		/*  Ja25 no creatures  */
-#else			
-		if ( gWorldSectorX == gCreaturesSettings.ubCrepitusFeedingSectorX && gWorldSectorY == gCreaturesSettings.ubCrepitusFeedingSectorY
+		if ( !IsUnfinishedBusinessCampaign() &&
+			 gWorldSectorX == gCreaturesSettings.ubCrepitusFeedingSectorX &&
+			 gWorldSectorY == gCreaturesSettings.ubCrepitusFeedingSectorY
 			 && gbWorldSectorZ == gCreaturesSettings.ubCrepitusFeedingSectorZ ) // (9, 10, 2)
 		{
 			InitCreatureQuest( ); //Ignored if already active.
 		}
-#endif
 	}
 
 	//Stop playing any music -- will fade out.
@@ -2231,10 +2225,11 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 
 		// Check for helicopter being on the ground in this sector...
 		HandleHelicopterOnGroundSkyriderProfile( );
-#ifdef JA2UB			
-		//Check to see if we should add Manuel to this sector, if so add him
-		ShouldNpcBeAddedToSector( gWorldSectorX, gWorldSectorY, bMapZ );
-#endif		
+		if ( IsUnfinishedBusinessCampaign() )
+		{
+			// Check to see if campaign NPCs should be added to this sector.
+			ShouldNpcBeAddedToSector( gWorldSectorX, gWorldSectorY, bMapZ );
+		}
 	}
 
 	//Load and enter the new sector
@@ -2290,22 +2285,24 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 				SetMusicMode( MUSIC_TACTICAL_NOTHING );
 		}
 
-#ifdef JA2UB			
-		// Say a quote from a merc who has new lines for the sector ( if any )
-		HandlePlayerTeamQuotesWhenEnteringSector( sMapX, sMapY, bMapZ );
-#else
-		// ATE: Check what sector we are in, to show description if we have an RPC.....
-		HandleRPCDescriptionOfSector( sMapX, sMapY, bMapZ );
-#endif
+		if ( IsUnfinishedBusinessCampaign() )
+		{
+			// Say a quote from a merc who has new lines for the sector (if any).
+			HandlePlayerTeamQuotesWhenEnteringSector( sMapX, sMapY, bMapZ );
+		}
+		else
+		{
+			// Show the Arulco sector description if an RPC can provide one.
+			HandleRPCDescriptionOfSector( sMapX, sMapY, bMapZ );
+		}
 
 
 		// ATE: Set Flag for being visited...
 		SetSectorFlag( sMapX, sMapY, bMapZ, SF_HAS_ENTERED_TACTICAL );
-#ifdef JA2UB			
-		//ja2ub
-		// If any emails should be sent from this sector
-		HandleEmailBeingSentWhenEnteringSector( sMapX, sMapY, bMapZ, FALSE );
-#endif
+		if ( IsUnfinishedBusinessCampaign() )
+		{
+			HandleEmailBeingSentWhenEnteringSector( sMapX, sMapY, bMapZ, FALSE );
+		}
 
 		// ATE; Reset some flags for creature sayings....
 		gTacticalStatus.fSaidCreatureFlavourQuote = FALSE;
@@ -2318,10 +2315,10 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 		gTacticalStatus.fGoodToAllowCrows = FALSE;
 		gTacticalStatus.fHasEnteredCombatModeSinceEntering = FALSE;
 		gTacticalStatus.fDontAddNewCrows = FALSE;
-#ifdef JA2UB			
-		//Call this function, if Jerry doesnt need to be added, it will return
-		UpdateJerryMiloInInitialSector( );
-#endif
+		if ( IsUnfinishedBusinessCampaign() )
+		{
+			UpdateJerryMiloInInitialSector( );
+		}
 		// Adjust delay for tense quote
 		gTacticalStatus.sCreatureTenseQuoteDelay = (INT16)(10 + Random( 20 ));
 
@@ -2392,11 +2389,7 @@ void PrepareLoadedSector( )
 	BOOLEAN fEnemyPresenceInThisSector = FALSE;
 	BOOLEAN fAddCivs = TRUE;
 	INT8 bMineIndex = -1;
-#ifdef JA2UB
-	//Ja25 No meanwhiles
-#else
-	if ( AreInMeanwhile( ) == FALSE )
-#endif
+	if ( IsUnfinishedBusinessCampaign() || AreInMeanwhile( ) == FALSE )
 	{
 		if ( gbWorldSectorZ == 0 )
 		{
@@ -2425,11 +2418,7 @@ void PrepareLoadedSector( )
 	if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
 	{
 
-#ifdef JA2UB
-		//Ja25 No meanwhiles
-#else
-		if ( !AreReloadingFromMeanwhile( ) )
-#endif
+		if ( IsUnfinishedBusinessCampaign() || !AreReloadingFromMeanwhile( ) )
 		{
 			SetPendingNewScreen( GAME_SCREEN );
 
@@ -2552,11 +2541,8 @@ void PrepareLoadedSector( )
 		{
 			AddProfilesNotUsingProfileInsertionData( );
 		}
-#ifdef JA2UB
-		//Ja25 No meanwhiles
-#else
-		if ( !AreInMeanwhile( ) || GetMeanwhileID( ) == INTERROGATION )
-#endif
+		if ( IsUnfinishedBusinessCampaign() ||
+			 !AreInMeanwhile( ) || GetMeanwhileID( ) == INTERROGATION )
 		{
 			if ( is_networked )
 			{
@@ -2623,12 +2609,12 @@ void PrepareLoadedSector( )
 
 	ScreenMsg( FONT_YELLOW, MSG_DEBUG, L"Current Time is: %d", GetWorldTotalMin( ) );
 
-#ifdef JA2UB	
-	HandleSectorSpecificModificatioToMap( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, FALSE );
-
-	//If there needs to be modifications done to the enemy exp levels...
-	HandleJa25EnemyExpLevelModifier( );
-#endif
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		HandleSectorSpecificModificatioToMap(
+			gWorldSectorX, gWorldSectorY, gbWorldSectorZ, FALSE );
+		HandleJa25EnemyExpLevelModifier( );
+	}
 
 	AllTeamsLookForAll( TRUE );
 }
@@ -2746,10 +2732,7 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 
 void HandleQuestCodeOnSectorExit( INT16 sOldSectorX, INT16 sOldSectorY, INT8 bOldSectorZ )
 {
-
-#ifdef JA2UB
 	SOLDIERTYPE *pSoldier = NULL;
-#endif
 
 #ifdef LUA_HANDLE_QUEST_CODE_ON_SECTOR
 
@@ -2768,57 +2751,56 @@ void HandleQuestCodeOnSectorExit( INT16 sOldSectorX, INT16 sOldSectorY, INT8 bOl
 		gMercProfiles[CONRAD].sSectorX = 0;
 		gMercProfiles[CONRAD].sSectorY = 0;
 	}
-#ifdef JA2UB	
-	//JA25 UB
-	if ( sOldSectorX == 7 && sOldSectorY == MAP_ROW_H && bOldSectorZ == 0 )
+	if ( IsUnfinishedBusinessCampaign() )
 	{
-		// remove Jerry from the map
-		gMercProfiles[JERRY_MILO_UB].sSectorX = 0;
-		gMercProfiles[JERRY_MILO_UB].sSectorY = 0;
-	}
-
-	//if the player is leaving a sector with  Tex in it
-	if ( sOldSectorX == gMercProfiles[TEX_UB].sSectorX && sOldSectorY == gMercProfiles[TEX_UB].sSectorY && bOldSectorZ == 0 && gMercProfiles[TEX_UB].ubLastDateSpokenTo != 0 )
-	{
-		pSoldier = FindSoldierByProfileID( TEX_UB, TRUE );
-
-		//if the npc isnt on the players team AND the player has never spoken to them
-		if ( pSoldier == NULL && gMercProfiles[TEX_UB].ubLastDateSpokenTo != 0 )
+		// Unfinished Business campaign NPC departure handling.
+		if ( sOldSectorX == 7 && sOldSectorY == MAP_ROW_H && bOldSectorZ == 0 )
 		{
-			// remove Tex from the map
-			gMercProfiles[TEX_UB].sSectorX = 0;
-			gMercProfiles[TEX_UB].sSectorY = 0;
+			gMercProfiles[JERRY_MILO_UB].sSectorX = 0;
+			gMercProfiles[JERRY_MILO_UB].sSectorY = 0;
+		}
+
+		//if the player is leaving a sector with Tex in it
+		if ( sOldSectorX == gMercProfiles[TEX_UB].sSectorX &&
+			 sOldSectorY == gMercProfiles[TEX_UB].sSectorY && bOldSectorZ == 0 &&
+			 gMercProfiles[TEX_UB].ubLastDateSpokenTo != 0 )
+		{
+			pSoldier = FindSoldierByProfileID( TEX_UB, TRUE );
+
+			if ( pSoldier == NULL )
+			{
+				gMercProfiles[TEX_UB].sSectorX = 0;
+				gMercProfiles[TEX_UB].sSectorY = 0;
+			}
+		}
+
+		//if the player is leaving a sector with John Kulba in it
+		if ( sOldSectorX == gMercProfiles[JOHN_K_UB].sSectorX &&
+			 sOldSectorY == gMercProfiles[JOHN_K_UB].sSectorY && bOldSectorZ == 0 &&
+			 gMercProfiles[JOHN_K_UB].ubLastDateSpokenTo != 0 )
+		{
+			pSoldier = FindSoldierByProfileID( JOHN_K_UB, TRUE );
+
+			if ( pSoldier == NULL )
+			{
+				gMercProfiles[JOHN_K_UB].sSectorX = 0;
+				gMercProfiles[JOHN_K_UB].sSectorY = 0;
+			}
+		}
+
+		//if the player is leaving a sector with Manuel in it
+		if ( sOldSectorX == gMercProfiles[MANUEL_UB].sSectorX &&
+			 sOldSectorY == gMercProfiles[MANUEL_UB].sSectorY && bOldSectorZ == 0 )
+		{
+			pSoldier = FindSoldierByProfileID( MANUEL_UB, TRUE );
+
+			if ( pSoldier == NULL && gMercProfiles[MANUEL_UB].ubLastDateSpokenTo != 0 )
+			{
+				gMercProfiles[MANUEL_UB].sSectorX = 0;
+				gMercProfiles[MANUEL_UB].sSectorY = 0;
+			}
 		}
 	}
-
-	//if the player is leaving a sector with  John kulba in it
-	if ( sOldSectorX == gMercProfiles[JOHN_K_UB].sSectorX && sOldSectorY == gMercProfiles[JOHN_K_UB].sSectorY && bOldSectorZ == 0 && gMercProfiles[JOHN_K_UB].ubLastDateSpokenTo != 0 )
-	{
-		pSoldier = FindSoldierByProfileID( JOHN_K_UB, TRUE );
-
-		//if the npc isnt on the players team AND the player has never spoken to them
-		if ( pSoldier == NULL && gMercProfiles[JOHN_K_UB].ubLastDateSpokenTo != 0 )
-		{
-			// remove Tex from the map
-			gMercProfiles[JOHN_K_UB].sSectorX = 0;
-			gMercProfiles[JOHN_K_UB].sSectorY = 0;
-		}
-	}
-
-	//if the player is leaving a sector with  Manuel in it
-	if ( sOldSectorX == gMercProfiles[MANUEL_UB].sSectorX && sOldSectorY == gMercProfiles[MANUEL_UB].sSectorY && bOldSectorZ == 0 )
-	{
-		pSoldier = FindSoldierByProfileID( MANUEL_UB, TRUE );
-
-		//if the npc isnt on the players team AND the player has never spoken to them
-		if ( pSoldier == NULL && gMercProfiles[MANUEL_UB].ubLastDateSpokenTo != 0 )
-		{
-			// remove Manuel from the map
-			gMercProfiles[MANUEL_UB].sSectorX = 0;
-			gMercProfiles[MANUEL_UB].sSectorY = 0;
-		}
-	}
-#endif
 	if ( sOldSectorX == gModSettings.ubHospitalSectorX && sOldSectorY == gModSettings.ubHospitalSectorY && bOldSectorZ == gModSettings.ubHospitalSectorZ )
 	{
 		CheckForMissingHospitalSupplies( );
@@ -2880,20 +2862,14 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		memset( &(gTacticalStatus.bNumFoughtInBattle), 0, MAXTEAMS );
 	}
 
-#ifdef JA2UB
-	//Ja25 No meanwhiles
-	// But DO check if powergen fan sound needs to be restarted
-	extern UINT32  SECTOR_FAN_X;
-	extern UINT32  SECTOR_FAN_Y;
-	extern UINT32  SECTOR_FAN_Z;
-
-	if (gWorldSectorX == SECTOR_FAN_X && gWorldSectorY == SECTOR_FAN_Y && gbWorldSectorZ == SECTOR_FAN_Z)
+	if ( IsUnfinishedBusinessCampaign() &&
+		 gWorldSectorX == static_cast<INT16>(gGameUBOptions.SectorFanX) &&
+		 gWorldSectorY == static_cast<INT16>(gGameUBOptions.SectorFanY) &&
+		 gbWorldSectorZ == static_cast<INT8>(gGameUBOptions.SectorFanZ) )
 	{
 		HandlePowerGenFanSoundModification();
 	}
-#else
-	if ( AreInMeanwhile( ) == FALSE )
-#endif
+	if ( IsUnfinishedBusinessCampaign() || AreInMeanwhile( ) == FALSE )
 	{
 		SetSectorFlag( sSectorX, sSectorY, bSectorZ, SF_ALREADY_VISITED );
 	}
@@ -3112,10 +3088,11 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 							}
 
 							// ATE: Call actions based on what POW we are on...
-							#ifndef JA2UB
-							HandlePOWQuestState(Q_END, QUEST_HELD_IN_ALMA, sSectorX, sSectorY, bSectorZ);
-							HandlePOWQuestState(Q_END, QUEST_HELD_IN_TIXA, sSectorX, sSectorY, bSectorZ);
-							#endif
+							if ( !IsUnfinishedBusinessCampaign() )
+							{
+								HandlePOWQuestState(Q_END, QUEST_HELD_IN_ALMA, sSectorX, sSectorY, bSectorZ);
+								HandlePOWQuestState(Q_END, QUEST_HELD_IN_TIXA, sSectorX, sSectorY, bSectorZ);
+							}
 						}
 					}
 				}
@@ -3279,22 +3256,25 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 				break;
 
 			case INSERTION_CODE_ARRIVING_GAME:
-#ifdef JA2UB
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->sInsertionGridNo = gGameUBOptions.LOCATEGRIDNO;
-#else
-				extern BOOLEAN gfFirstHeliRun;
-				if (gfFirstHeliRun)
+				if ( IsUnfinishedBusinessCampaign() )
 				{
 					pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-					pSoldier->sInsertionGridNo = gGameExternalOptions.iInitialMercArrivalLocation;
+					pSoldier->sInsertionGridNo = gGameUBOptions.LOCATEGRIDNO;
 				}
 				else
 				{
-					pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
-					pSoldier->sInsertionGridNo = gMapInformation.sCenterGridNo;
+					extern BOOLEAN gfFirstHeliRun;
+					if (gfFirstHeliRun)
+					{
+						pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+						pSoldier->sInsertionGridNo = gGameExternalOptions.iInitialMercArrivalLocation;
+					}
+					else
+					{
+						pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+						pSoldier->sInsertionGridNo = gMapInformation.sCenterGridNo;
+					}
 				}
-#endif
 				break;
 			case INSERTION_CODE_CHOPPER:
 				// Try another location and walk into map
@@ -4864,12 +4844,12 @@ void SetupNewStrategicGame( )
 		}
 	}
 
-#ifdef JA2UB	
-	//Ja25
-	// Make the initial sector free of enemies
-	StrategicMap[CALCULATE_STRATEGIC_INDEX( JA2_5_START_SECTOR_X, JA2_5_START_SECTOR_Y )].fEnemyControlled = FALSE;
-
-#endif
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		// Make the Unfinished Business arrival sector free of enemies.
+		StrategicMap[CALCULATE_STRATEGIC_INDEX(
+			JA2_5_START_SECTOR_X, JA2_5_START_SECTOR_Y )].fEnemyControlled = FALSE;
+	}
 
 	//Initialize the game time
 	InitNewGameClock( );
@@ -4890,22 +4870,14 @@ void SetupNewStrategicGame( )
 	// Flugente: plan when to conduct raids on player sectors
 	AddEveryDayStrategicEvent( EVENT_DAILY_RAID_EVENTS, ENRICO_MAIL_TIME, 0 );
 
-#ifdef JA2UB
-	//Ja25:  No insurance for mercs
-	//JA25: There is no mines
-	//Ja25 no town opinions
-#else	
-	//Daily update of insured mercs
-	AddEveryDayStrategicEvent( EVENT_HANDLE_INSURED_MERCS, INSURANCE_UPDATE_TIME, 0 );
-	//Daily update of mercs
-	AddEveryDayStrategicEvent( EVENT_MERC_DAILY_UPDATE, 0, 0 );
-	// Daily mine production processing events
-	AddEveryDayStrategicEvent( EVENT_SETUP_MINE_INCOME, 0, 0 );
-	// Daily merc reputation processing events
-	AddEveryDayStrategicEvent( EVENT_SETUP_TOWN_OPINION, 0, 0 );
-	// Daily checks for E-mail from Enrico
-	AddEveryDayStrategicEvent( EVENT_ENRICO_MAIL, ENRICO_MAIL_TIME, 0 );
-#endif
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		AddEveryDayStrategicEvent( EVENT_HANDLE_INSURED_MERCS, INSURANCE_UPDATE_TIME, 0 );
+		AddEveryDayStrategicEvent( EVENT_MERC_DAILY_UPDATE, 0, 0 );
+		AddEveryDayStrategicEvent( EVENT_SETUP_MINE_INCOME, 0, 0 );
+		AddEveryDayStrategicEvent( EVENT_SETUP_TOWN_OPINION, 0, 0 );
+		AddEveryDayStrategicEvent( EVENT_ENRICO_MAIL, ENRICO_MAIL_TIME, 0 );
+	}
 
 	//	if ( gGameOptions.fAirStrikes )
 	//	{
@@ -6144,16 +6116,18 @@ void GetLoadedSectorString( CHAR16 *pString )
 	}
 }
 
-#ifdef JA2UB
-// no UB
-#else
 void HandleSlayDailyEvent( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		return;
+	}
 
-	// grab slay
-	pSoldier = FindSoldierByProfileID( 64, TRUE );
-
+	SOLDIERTYPE *pSoldier = FindSoldierByProfileID(
+		CampaignProfileCode::profile(
+			GetGameContext().capabilities().campaign,
+			CampaignProfileCode::Role::Slay),
+		TRUE );
 	if ( pSoldier == NULL )
 	{
 		return;
@@ -6175,7 +6149,6 @@ void HandleSlayDailyEvent( void )
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP, 0, 0 );
 	}
 }
-#endif
 
 BOOLEAN IsSectorDesert( INT16 sSectorX, INT16 sSectorY )
 {
@@ -6726,11 +6699,6 @@ bool IsEscapeDirectionValid(WorldDirections pbDirection)
 	return isValid;
 }
 
-#ifdef JA2UB
-
-
-//------------ub
-
 typedef struct
 {
 	INT16	sSectorID;
@@ -6740,6 +6708,11 @@ typedef struct
 
 void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 {
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		return;
+	}
+
 	UINT32		uiCnt;
 	UINT8		usNumValidMercs = 0;
 	INT32		iSectorID = SECTOR( sSectorX, sSectorY );
@@ -6952,6 +6925,11 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 
 void HandlePlayerQuotesWhenEnteringFirstTunnelSector( )
 {
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		return;
+	}
+
 	//if the player got through using the timed method
 	if ( gJa25SaveStruct.ubHowPlayerGotThroughFan == PG__PLAYER_STOPPED_FAN_TO_GET_THROUGH )
 	{
@@ -6995,6 +6973,11 @@ void HandlePlayerQuotesWhenEnteringFirstTunnelSector( )
 
 void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLaptopJustGotFixed )
 {
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		return;
+	}
+
 	SOLDIERTYPE *pSoldier = NULL;
 
 	//
@@ -7025,12 +7008,12 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 				if ( pSoldier == NULL || gMercProfiles[MANUEL_UB].bMercStatus == MERC_IS_DEAD ) //MANUEL
 				{
 					//email 8a
-					AddEmail( EMAIL_MIGUELSORRY, EMAIL_MIGUELSORRY_LENGTH, MAIL_MIGUEL, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
+					AddEmail( JA25_EMAIL_MIGUEL_SORRY, JA25_EMAIL_MIGUEL_SORRY_LENGTH, JA25_MAIL_MIGUEL, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
 				}
 				else
 				{
 					//email 8b
-					AddEmail( EMAIL_MIGUELMANUEL, EMAIL_MIGUELMANUEL_LENGTH, MAIL_MIGUEL, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
+					AddEmail( JA25_EMAIL_MIGUEL_MANUEL, JA25_EMAIL_MIGUEL_MANUEL_LENGTH, JA25_MAIL_MIGUEL, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
 				}
 
 				//Remeber we sent it
@@ -7045,7 +7028,7 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 			//and we havent sent it before
 			if ( !(gJa25SaveStruct.ubEmailFromSectorFlag & SECTOR_EMAIL__POWER_GEN) )
 			{
-				AddEmail( EMAIL_MIGUELSICK, EMAIL_MIGUELSICK_LENGTH, MAIL_MIGUEL, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
+				AddEmail( JA25_EMAIL_MIGUEL_SICK, JA25_EMAIL_MIGUEL_SICK_LENGTH, JA25_MAIL_MIGUEL, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
 
 				//Remeber we sent it
 				gJa25SaveStruct.ubEmailFromSectorFlag |= SECTOR_EMAIL__POWER_GEN;
@@ -7064,7 +7047,7 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 			//If Jerry isnt dead
 			if ( gMercProfiles[JERRY_MILO_UB].bMercStatus != MERC_IS_DEAD ) //JERRY
 			{
-				AddEmail( EMAIL_PILOTFOUND, EMAIL_PILOTFOUND_LENGTH, MAIL_ENRICO, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
+				AddEmail( JA25_EMAIL_PILOT_FOUND, JA25_EMAIL_PILOT_FOUND_LENGTH, MAIL_ENRICO, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT );
 			}
 
 			//Remeber we sent it
@@ -7077,6 +7060,11 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 
 void ShouldNpcBeAddedToSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		return;
+	}
+
 	//if Manuel has never been added before
 	if ( !(gJa25SaveStruct.fNpcHasBeenAdded & SECTOR_ADDED_NPC__MANUEL) )
 	{
@@ -7139,19 +7127,14 @@ void ShouldNpcBeAddedToSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 
 void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		return;
+	}
+
 	//if this is the power gen map J13
 	if( sMapX == gGameUBOptions.SectorFanX && sMapY == gGameUBOptions.SectorFanY && bMapZ == gGameUBOptions.SectorFanZ )
 	{
-		BOOLEAN fGoingToTunnelSector = FALSE;
-
-		//if we are going to the first sector if the tunnel J14-1
-		if( gWorldSectorX == gGameUBOptions.ExitForFanToPowerGenSectorX &&
-				gWorldSectorY == gGameUBOptions.ExitForFanToPowerGenSectorY &&
-				gbWorldSectorZ == gGameUBOptions.ExitForFanToPowerGenSectorZ )
-		{
-			fGoingToTunnelSector = TRUE;
-		}
-
 		switch ( gJa25SaveStruct.ubStateOfFanInPowerGenSector )
 		{
 		case PGF__RUNNING_NORMALLY:
@@ -7180,6 +7163,11 @@ void HandleSectorSpecificUnLoadingOfMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 
 void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLoadingSavedGame )
 {
+	if ( !IsUnfinishedBusinessCampaign() )
+	{
+		return;
+	}
+
 	//	SOLDIERTYPE *pSoldier=NULL;
 	//	INT32				iCash=0;
 
@@ -7384,37 +7372,24 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 			}
 		}
 
-		while ( ubNumEnemiesMoved < 3 )
+		// Fill any missing scripted positions with distinct active enemies. The
+		// legacy retry loop never terminated when fewer than three candidates
+		// existed and could move the same soldier up to three times in one pass.
+		const INT32 fallbackGridNos[] = { 15706, 15713, 15234 };
+		for ( SoldierID cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
+			  cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID &&
+			  ubNumEnemiesMoved < 3;
+			  ++cnt )
 		{
-			cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
-			for ( ; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; ++cnt )
+			pSoldier = cnt;
+			if ( pSoldier->bActive &&
+				 pSoldier->sGridNo != 15705 &&
+				 pSoldier->sGridNo != 15712 &&
+				 pSoldier->sGridNo != 15233 )
 			{
-				pSoldier = cnt;
-				//if the soldier is active,
-				if ( pSoldier->bActive  && pSoldier->sGridNo != 15705 && pSoldier->sGridNo != 15712 && pSoldier->sGridNo != 15233 )
-				{
-					//
-					// move the soldier to the modified location
-					//
-
-					if ( ubNumEnemiesMoved == 0 )
-					{
-						pSoldier->SetSoldierGridNo( 15706, TRUE );
-						ubNumEnemiesMoved++;
-					}
-
-					if ( ubNumEnemiesMoved == 1 )
-					{
-						pSoldier->SetSoldierGridNo( 15713, TRUE );
-						ubNumEnemiesMoved++;
-					}
-
-					if ( ubNumEnemiesMoved == 2 )
-					{
-						pSoldier->SetSoldierGridNo( 15234, TRUE );
-						ubNumEnemiesMoved++;
-					}
-				}
+				pSoldier->SetSoldierGridNo(
+					fallbackGridNos[ubNumEnemiesMoved], TRUE );
+				++ubNumEnemiesMoved;
 			}
 		}
 
@@ -7486,7 +7461,6 @@ void HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( )
 	SOLDIERTYPE *pSoldier = NULL;
 	UINT8	ubIndex = 0;
 	UINT32 cnt;
-	BOOLEAN	fDone = FALSE;
 	INT16							sXPos, sYPos;
 	UINT32 sGridNos[27] = {18200, 18360, 18520,
 		18199, 18359, 18519,
@@ -7511,30 +7485,21 @@ void HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( )
 		//if the soldier is active,
 		if ( pSoldier->bActive )
 		{
-			fDone = FALSE;
-			while ( !fDone )
+			while ( ubIndex < sizeof(sGridNos) / sizeof(sGridNos[0]) &&
+				WhoIsThere2( sGridNos[ubIndex], 0 ) != NOBODY )
 			{
-				//if there is no one in the gridno
-				if ( WhoIsThere2( sGridNos[ubIndex], 0 ) == NOBODY )
-				{
-					// move the soldier to the modified location
-					ConvertGridNoToCenterCellXY( sGridNos[ubIndex], &sXPos, &sYPos );
-					pSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
-					//					SetSoldierGridNo( pSoldier, sGridNos[ ubIndex ], TRUE );
-					ubIndex++;
-					fDone = TRUE;
-				}
-				else
-				{
-					ubIndex++;
-				}
-
-				if ( ubIndex >= 27 )
-				{
-					Assert( 0 );
-					return;
-				}
+				ubIndex++;
 			}
+
+			if ( ubIndex >= sizeof(sGridNos) / sizeof(sGridNos[0]) )
+			{
+				Assert( 0 );
+				return;
+			}
+
+			ConvertGridNoToCenterCellXY( sGridNos[ubIndex], &sXPos, &sYPos );
+			pSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
+			ubIndex++;
 		}
 	}
 }
@@ -7543,7 +7508,6 @@ void HandleMovingEnemiesCloseToEntranceInSecondTunnelMap( )
 {
 	SOLDIERTYPE *pSoldier = NULL;
 	UINT8	ubIndex = 0;
-	BOOLEAN	fDone = FALSE;
 	UINT32 cnt;
 	INT16							sXPos, sYPos;
 	UINT32 sGridNos[30] = {4900, 4901, 4902, 4903, 4904,
@@ -7566,30 +7530,21 @@ void HandleMovingEnemiesCloseToEntranceInSecondTunnelMap( )
 		//if the soldier is active,
 		if ( pSoldier->bActive )
 		{
-			fDone = FALSE;
-			while ( !fDone )
+			while ( ubIndex < sizeof(sGridNos) / sizeof(sGridNos[0]) &&
+				WhoIsThere2( sGridNos[ubIndex], 0 ) != NOBODY )
 			{
-				//if there is no one in the gridno
-				if ( WhoIsThere2( sGridNos[ubIndex], 0 ) == NOBODY )
-				{
-					// move the soldier to the modified location
-					ConvertGridNoToCenterCellXY( sGridNos[ubIndex], &sXPos, &sYPos );
-					pSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
-					//					SetSoldierGridNo( pSoldier, sGridNos[ ubIndex ], TRUE );
-					ubIndex++;
-					fDone = TRUE;
-				}
-				else
-				{
-					ubIndex++;
-				}
-
-				if ( ubIndex >= 26 )
-				{
-					Assert( 0 );
-					return;
-				}
+				ubIndex++;
 			}
+
+			if ( ubIndex >= sizeof(sGridNos) / sizeof(sGridNos[0]) )
+			{
+				Assert( 0 );
+				return;
+			}
+
+			ConvertGridNoToCenterCellXY( sGridNos[ubIndex], &sXPos, &sYPos );
+			pSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
+			ubIndex++;
 		}
 	}
 }
@@ -7708,7 +7663,6 @@ BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridN
 
 	return(FALSE);
 }
-#endif
 
 // Flugente: militia movement: can we order militia reinforcements from( sSrcMapX, sSrcMapY ) to( sMapX, sMapY ) ?
 BOOLEAN CanRequestMilitiaReinforcements( INT16 sMapX, INT16 sMapY, INT16 sSrcMapX, INT16 sSrcMapY )
