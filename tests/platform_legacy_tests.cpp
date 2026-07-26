@@ -10,9 +10,11 @@
 #include <filesystem>
 #include <limits>
 #include <new>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <Engine/Adapters/Legacy/PlatformAssets.h>
@@ -56,6 +58,7 @@
 #include "vobject_blitters.h"
 #include "vsurface.h"
 
+#include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
 
 // The application shell normally owns these. This focused executable links
@@ -1029,6 +1032,112 @@ int main()
 	Check(vfs_init::initVirtualFileSystem(config), "writable VFS profile initializes");
 	Check(InitializeMemoryManager(), "memory manager initializes");
 	Check(InitializeFileManager(NULL), "FileMan initializes");
+
+	const char* const searchFixtureNames[] = {
+		"find-alpha-one.dat",
+		"find-alpha-two.dat",
+		"find-beta-one.dat",
+		"find-beta-two.dat"};
+	bool searchFixturesWritten = true;
+	for (const char* fixtureName : searchFixtureNames)
+	{
+		HWFILE fixture = FileOpen(const_cast<char*>(fixtureName),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		searchFixturesWritten =
+			Write(fixture, "x") && searchFixturesWritten;
+		if (fixture) FileClose(fixture);
+	}
+	Check(searchFixturesWritten,
+		"file-search fixtures write through the legacy file handle");
+
+	GETFILESTRUCT alphaSearch{};
+	GETFILESTRUCT betaSearch{};
+	bool alphaActive =
+		GetFileFirst("find-alpha-*.dat", &alphaSearch) != FALSE;
+	bool betaActive =
+		GetFileFirst("find-beta-*.dat", &betaSearch) != FALSE;
+	const bool distinctSearchHandles =
+		alphaActive && betaActive &&
+		alphaSearch.iFindHandle > 0 &&
+		betaSearch.iFindHandle > 0 &&
+		alphaSearch.iFindHandle != betaSearch.iFindHandle;
+	std::set<std::string> alphaFiles;
+	std::set<std::string> betaFiles;
+	if (alphaActive) alphaFiles.insert(alphaSearch.zFileName);
+	if (betaActive) betaFiles.insert(betaSearch.zFileName);
+	while (alphaActive || betaActive)
+	{
+		if (alphaActive)
+		{
+			alphaActive = GetFileNext(&alphaSearch) != FALSE;
+			if (alphaActive) alphaFiles.insert(alphaSearch.zFileName);
+		}
+		if (betaActive)
+		{
+			betaActive = GetFileNext(&betaSearch) != FALSE;
+			if (betaActive) betaFiles.insert(betaSearch.zFileName);
+		}
+	}
+	const std::set<std::string> expectedAlphaFiles{
+		"find-alpha-one.dat", "find-alpha-two.dat"};
+	const std::set<std::string> expectedBetaFiles{
+		"find-beta-one.dat", "find-beta-two.dat"};
+	Check(distinctSearchHandles &&
+		alphaFiles == expectedAlphaFiles &&
+		betaFiles == expectedBetaFiles &&
+		alphaSearch.iFindHandle == -1 &&
+		betaSearch.iFindHandle == -1,
+		"legacy file searches enumerate independently when interleaved");
+	GetFileClose(&alphaSearch);
+	GetFileClose(&betaSearch);
+
+	GETFILESTRUCT continuingSearch{};
+	GETFILESTRUCT closedSearch{};
+	const bool parallelSearchesStarted =
+		GetFileFirst("find-alpha-*.dat", &continuingSearch) &&
+		GetFileFirst("find-beta-*.dat", &closedSearch);
+	const std::string continuingFirst =
+		parallelSearchesStarted ? continuingSearch.zFileName : "";
+	GetFileClose(&closedSearch);
+	const bool continuingAdvanced =
+		parallelSearchesStarted &&
+		GetFileNext(&continuingSearch) &&
+		continuingFirst != continuingSearch.zFileName;
+	Check(continuingAdvanced && closedSearch.iFindHandle == -1,
+		"closing one legacy file search leaves another search active");
+	GetFileClose(&continuingSearch);
+
+	vfs::CVirtualFileSystem::Iterator originalIterator =
+		getVFS()->begin("find-alpha-*.dat");
+	const bool iteratorStarted = !originalIterator.end();
+	vfs::CVirtualFileSystem::Iterator copiedIterator(originalIterator);
+	vfs::tReadableFile* const firstIteratorValue =
+		iteratorStarted ? originalIterator.value() : nullptr;
+	if (iteratorStarted) originalIterator.next();
+	const bool copyKeptFirstPosition =
+		!copiedIterator.end() &&
+		copiedIterator.value() == firstIteratorValue;
+	if (!copiedIterator.end()) copiedIterator.next();
+	const bool copiesAdvanceIndependently =
+		!originalIterator.end() && !copiedIterator.end() &&
+		originalIterator.value() == copiedIterator.value();
+
+	vfs::CVirtualFileSystem::Iterator assignedIterator =
+		getVFS()->begin("find-beta-*.dat");
+	assignedIterator = originalIterator;
+	if (!originalIterator.end()) originalIterator.next();
+	const bool assignmentClonedPosition =
+		originalIterator.end() && !assignedIterator.end();
+	vfs::CVirtualFileSystem::Iterator movedIterator(
+		std::move(assignedIterator));
+	vfs::CVirtualFileSystem::Iterator moveAssignedIterator =
+		getVFS()->begin("find-beta-*.dat");
+	moveAssignedIterator = std::move(movedIterator);
+	Check(iteratorStarted && copyKeptFirstPosition &&
+		copiesAdvanceIndependently && assignmentClonedPosition &&
+		assignedIterator.end() && movedIterator.end() &&
+		!moveAssignedIterator.end(),
+		"VFS iterators own copied and moved traversal state safely");
 
 	char record[] = "record.bin";
 	HWFILE file = FileOpen(record, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);

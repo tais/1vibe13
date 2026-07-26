@@ -442,6 +442,7 @@ UINT32 LoadSaveScreenHandle(void)
 				else
 					swprintf( str, L" Delete file %s? ", gzFilename );
 				gfDeleteFile = TRUE;
+				GetFileClose(&FileInfo);
 				CreateMessageBox( str );
 			}
 			return LOADSAVE_SCREEN;

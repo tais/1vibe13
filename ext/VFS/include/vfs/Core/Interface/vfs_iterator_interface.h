@@ -49,17 +49,42 @@ namespace vfs
 				_obj = _iter_impl->value();
 			}
 		}
+		TIterator(TIterator const& t)
+			: _obj(t._obj),
+			  _iter_impl(t._iter_impl ? t._iter_impl->clone() : NULL)
+		{
+		}
+		TIterator(TIterator&& t) noexcept
+			: _obj(t._obj), _iter_impl(t._iter_impl)
+		{
+			t._obj = NULL;
+			t._iter_impl = NULL;
+		}
 		~TIterator()
 		{
 			if(_iter_impl) delete _iter_impl;
 		};
 		TIterator& operator=(TIterator const& t)
 		{
-			_obj = t._obj;
-			_iter_impl = NULL;
-			if(t._iter_impl)
+			if(this != &t)
 			{
-				_iter_impl = t._iter_impl->clone();
+				IImplementation* replacement =
+					t._iter_impl ? t._iter_impl->clone() : NULL;
+				if(_iter_impl) delete _iter_impl;
+				_obj = t._obj;
+				_iter_impl = replacement;
+			}
+			return *this;
+		}
+		TIterator& operator=(TIterator&& t) noexcept
+		{
+			if(this != &t)
+			{
+				if(_iter_impl) delete _iter_impl;
+				_obj = t._obj;
+				_iter_impl = t._iter_impl;
+				t._obj = NULL;
+				t._iter_impl = NULL;
 			}
 			return *this;
 		}
