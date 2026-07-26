@@ -762,6 +762,16 @@ the engine must not contain SDL types in its public domain model.
   animation tables as a parallel package-facing state path. The former exported
   incarnation counter has been deleted; pre-composition allocations transfer
   the fallback directory's sequence directly when `EngineRuntime` is bound.
+- `Ja2SoldierRepository` is the application-owned live-storage seam paired with
+  that directory. `GameContext` owns the repository; the existing fixed
+  `Menptr` records and `MercPtrs` slot table are visible only inside its
+  compatibility implementation from the JA2 application layer. Soldier
+  creation, save/load, entity adoption/release, completed-state publication,
+  and whole-record swaps now resolve or mutate records through this boundary.
+  The repository validates slot bounds and canonical record bindings before
+  replacement or relocation. Tactical gameplay readers migrate by domain in
+  later cuts; the backing allocation, numeric slots, save byte sequence, map
+  records, Lua values, network packets, and mod data remain unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves

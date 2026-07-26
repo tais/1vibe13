@@ -2165,6 +2165,83 @@ foreach(required_actor_projection_fragment IN ITEMS
   endif()
 endforeach()
 
+# The application composition root now owns the only repository object exposed
+# to JA2 systems. Menptr/MercPtrs remain the repository implementation's
+# compatibility backing store, not an application-wide lookup API.
+set(soldier_repository_source
+  "${SOURCE_ROOT}/Ja2/SoldierRepository.cpp")
+file(READ "${soldier_repository_source}"
+  soldier_repository_contents)
+foreach(required_repository_fragment IN ITEMS
+    "Ja2SoldierRepository(Menptr, MercPtrs, TOTAL_SOLDIERS)"
+    "SOLDIERTYPE* Ja2SoldierRepository::replace"
+    "bool Ja2SoldierRepository::swapRecords")
+  string(FIND "${soldier_repository_contents}"
+    "${required_repository_fragment}" required_repository_position)
+  if(required_repository_position EQUAL -1)
+    message(FATAL_ERROR
+      "JA2 soldier repository no longer owns '${required_repository_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/GameContext.h"
+  game_context_header_contents)
+string(FIND "${game_context_header_contents}"
+  "Ja2SoldierRepository soldiers_;"
+  game_context_soldier_repository_owner)
+if(game_context_soldier_repository_owner EQUAL -1)
+  message(FATAL_ERROR
+    "GameContext must own the JA2 soldier repository")
+endif()
+
+file(GLOB ja2_application_sources
+  "${SOURCE_ROOT}/Ja2/*.cpp")
+foreach(source_file IN LISTS ja2_application_sources)
+  if("${source_file}" STREQUAL "${soldier_repository_source}")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
+    direct_ja2_soldier_pool_access "${contents}")
+  if(direct_ja2_soldier_pool_access)
+    message(FATAL_ERROR
+      "JA2 application code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  soldier_creation_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
+  direct_soldier_creation_pool_access
+  "${soldier_creation_contents}")
+if(direct_soldier_creation_pool_access)
+  message(FATAL_ERROR
+    "Soldier creation bypasses Ja2SoldierRepository")
+endif()
+string(FIND "${soldier_creation_contents}"
+  "soldiers.replace("
+  repository_soldier_creation)
+if(repository_soldier_creation EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier creation no longer commits complete records through Ja2SoldierRepository")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  tactical_overhead_contents)
+foreach(required_overhead_repository_fragment IN ITEMS
+    "soldiers.initializeSlots()"
+    "soldiers.resolve(cnt)")
+  string(FIND "${tactical_overhead_contents}"
+    "${required_overhead_repository_fragment}"
+    required_overhead_repository_position)
+  if(required_overhead_repository_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical overhead lifecycle bypasses Ja2SoldierRepository; missing '${required_overhead_repository_fragment}'")
+  endif()
+endforeach()
+
 string(FIND "${simulation_command_contents}"
   "SynchronizeExecutedCommandActors(command)"
   executed_actor_state_position)
@@ -2174,16 +2251,16 @@ if(executed_actor_state_position EQUAL -1)
 endif()
 
 # Whole SOLDIERTYPE record relocation changes which incarnation occupies a
-# legacy pool slot. Keep those rare mutations in the entity host so the
-# runtime directory is rebuilt atomically with the compatibility pool.
-set(entity_pool_owner "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp")
+# legacy pool slot. Keep those rare mutations in the repository and let the
+# entity host rebuild the runtime directory atomically after a repository swap.
+set(entity_pool_owner "${SOURCE_ROOT}/Ja2/SoldierRepository.cpp")
 foreach(source_file IN LISTS world_state_files)
   if("${source_file}" STREQUAL "${entity_pool_owner}")
     continue()
   endif()
   file(READ "${source_file}" contents)
   string(REGEX MATCH
-    "Menptr[ \t\r\n]*\\[[^\\]]+\\][ \t\r\n]*=[^=]"
+    "Menptr[ \t\r\n]*\\[[^\\]]+\\][ \t\r\n]*=[^=]|\\*[ \t\r\n]*MercPtrs[ \t\r\n]*\\[[^\\]]+\\][ \t\r\n]*=[^=]"
     entity_pool_record_write "${contents}")
   if(entity_pool_record_write)
     message(FATAL_ERROR
