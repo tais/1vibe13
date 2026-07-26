@@ -1,4 +1,5 @@
 	#include "mapscreen.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include <stdarg.h>
@@ -3246,7 +3247,9 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 /*
 	// life insurance
-	sgp_swprintf(sString, 32,L"%d", Menptr[ gCharactersList[ sCharNumber ].usSolID ].usLifeInsuranceAmount );
+	sgp_swprintf(sString, 32,L"%d",
+		GetJa2SoldierRepository().record(
+			gCharactersList[ sCharNumber ].usSolID ).usLifeInsuranceAmount );
 	InsertCommasForDollarFigure( sString );
 	InsertDollarSignInToString( sString );
 	FindFontRightCoordinates(CHAR_LIFE_INSUR_X, CHAR_LIFE_INSUR_Y, CHAR_LIFE_INSUR_WID, CHAR_LIFE_INSUR_HEI, sString, CHAR_FONT, &usX, &usY);
@@ -4003,11 +4006,12 @@ void LoadCharacters( void )
 	SOLDIERTYPE *pSoldier, *pTeamSoldier;
 	INT32 cnt=0;
 
-	pSoldier = MercPtrs[ 0 ];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// fills array with pressence of player controlled characters
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if(pTeamSoldier->bActive)
 		{
 			AddCharacter( pTeamSoldier );
@@ -11782,7 +11786,9 @@ void TeamListDestinationRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 				RememberPreviousPathForAllSelectedChars();
 
 				// check each person in this mvt group, if any bleeding, have them complain
-				//CheckMembersOfMvtGroupAndComplainAboutBleeding( &( Menptr[ gCharactersList[ bSelectedDestChar ].usSolID ] ) );
+				//CheckMembersOfMvtGroupAndComplainAboutBleeding(
+				//	GetJa2SoldierRepository().resolve(
+				//		gCharactersList[ bSelectedDestChar ].usSolID ) );
 
 				// highlight
 				giDestHighLine = iValue + FIRSTmercTOdisplay;
@@ -13392,7 +13398,8 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 				/*CHRISL: I don't understand why we're using bSelectedDestChar to generate the ppMovePath but iCounter to
 					generate ubGroupId.  For vehicles, we use the iVhicleId to generate both.  Shouldn't we be using the
 					same system here?  Meaning, shouldn't ppMovePath be generated with the soldier indicated with iCounter?*/
-				//ppMovePath = &( Menptr[gCharactersList[ bSelectedDestChar ].usSolID].pMercPath );
+				//ppMovePath = &( GetJa2SoldierRepository().record(
+				//	gCharactersList[ bSelectedDestChar ].usSolID ).pMercPath );
 				ppMovePath = &( pSoldier->pMercPath );
 				ubGroupId = pSoldier->ubGroupID;
 			}
@@ -16338,7 +16345,9 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 		ChangeSelectedInfoChar( ubSelectedMercIndex[ ubChosenMerc ], FALSE );
 
 		ubSelectedMercID[ ubChosenMerc ]->DoMercBattleSound( BATTLE_SOUND_OK1 );
-		//TacticalCharacterDialogue( MercPtrs[ ubSelectedMercID[ ubChosenMerc ] ], ubQuoteNum );
+		//TacticalCharacterDialogue(
+		//	GetJa2SoldierRepository().resolve(
+		//		ubSelectedMercID[ ubChosenMerc ] ), ubQuoteNum );
 	}
 }
 
@@ -16938,7 +16947,8 @@ void RestorePreviousPaths( void )
 			//if ( fSelectedListOfMercsForMapScreen[iCounter] == TRUE )
 			if ( gMilitiaPath[gMilitiaGroupId].sGroupid > -1 )
 			{
-				//pSoldier = MercPtrs[gCharactersList[iCounter].usSolID];
+				//pSoldier = GetJa2SoldierRepository().resolve(
+				//	gCharactersList[iCounter].usSolID);
 
 				//if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 				{

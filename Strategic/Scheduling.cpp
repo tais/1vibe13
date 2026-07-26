@@ -1,4 +1,5 @@
 	#include "FileMan.h"
+#include "SoldierRepository.h"
 	#include "types.h"
 	#include "Scheduling.h"
 
@@ -1402,7 +1403,7 @@ void ReconnectSchedules( void )
 
 	for ( uiLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
-		pSoldier = MercPtrs[ uiLoop ];
+		pSoldier = GetJa2SoldierRepository().resolve(uiLoop);
 		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->ubScheduleID != 0 )
 		{
 			pSchedule = GetSchedule( pSoldier->ubScheduleID );
@@ -1462,7 +1463,7 @@ void SecureSleepSpot( SOLDIERTYPE * pSoldier, UINT32 usSleepSpot )
 	// start after this soldier's ID so we don't duplicate work done in previous passes
 	for ( uiLoop = pSoldier->ubID + 1; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
-		pSoldier2 = MercPtrs[uiLoop];
+		pSoldier2 = GetJa2SoldierRepository().resolve(uiLoop);
 		if ( pSoldier2->bActive && pSoldier2->bInSector && pSoldier2->ubScheduleID != 0 )
 		{
 			pSchedule = GetSchedule( pSoldier2->ubScheduleID );
@@ -1497,7 +1498,7 @@ void SecureSleepSpots( void )
 
 	for ( uiLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
-		pSoldier = MercPtrs[ uiLoop ];
+		pSoldier = GetJa2SoldierRepository().resolve(uiLoop);
 		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->ubScheduleID != 0 )
 		{
 			pSchedule = GetSchedule( pSoldier->ubScheduleID );

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdlib.h>
 	#include "Strategic Movement.h"
@@ -1153,7 +1154,8 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 
 			ubChosenMerc = (UINT16)Random( ubNumMercs );
 
-			pSoldier = MercPtrs[ ubMercsInGroup[ ubChosenMerc ] ];
+			pSoldier = GetJa2SoldierRepository().resolve(
+				ubMercsInGroup[ ubChosenMerc ] );
 			if( gfTacticalTraversal )
 			{
 				CaptureTacticalTraversalChosenSoldier( pSoldier );
@@ -1185,7 +1187,8 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 
 		ubChosenMerc = (UINT16)Random( ubNumMercs );
 
-		pSoldier = MercPtrs[ ubMercsInGroup[ ubChosenMerc ] ];
+		pSoldier = GetJa2SoldierRepository().resolve(
+			ubMercsInGroup[ ubChosenMerc ] );
 
 		HandleImportantPBIQuote( pSoldier, pInitiatingBattleGroup );
 		InterruptTime();
@@ -2357,8 +2360,9 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 		UINT16 uiCnt = 0;
 		SOLDIERTYPE* pSoldier = NULL;
 
-		for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
+			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
 			{
 				if ( ( pSoldier->sSectorX == ubSectorX ) && ( pSoldier->sSectorY == ubSectorY ) && ( pSoldier->bSectorZ - 10 == ubSectorZ ) )
@@ -5880,22 +5884,6 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 			fScoutPresent = TRUE;
 		}
 	}
-
-	/*
-	for( i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; i++ )
-	{
-		if( MercPtrs[ i ]->bActive && MercPtrs[ i ]->vitals().health() && !(MercPtrs[ i ]->flags.uiStatusFlags & SOLDIER_VEHICLE) )
-		{
-			if ( MercPtrs[ i ]->sSectorX == ubSectorNumX && MercPtrs[ i ]->sSectorY == ubSectorNumY && MercPtrs[ i ]->bAssignment != ASSIGNMENT_POW && MercPtrs[ i ]->vitals().health() >= OKLIFE )
-			{
-				if( HAS_SKILL_TRAIT( MercPtrs[ i ], SCOUTING_NT ))
-				{
-					fScoutPresent = TRUE;
-				}
-			}
-		}
-	}
-	*/
 
 	return ( fScoutPresent );
 }

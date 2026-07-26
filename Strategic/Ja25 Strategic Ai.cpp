@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 	#include "strategicmap.h"
@@ -352,11 +353,12 @@ BOOLEAN	AreAnyPlayerMercsStillInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSe
 
 	for( iCnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; iCnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; iCnt++ )
 	{
-		if( MercPtrs[ iCnt ]->bActive )
+		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(iCnt);
+		if( pSoldier->bActive )
 		{
-			if( MercPtrs[ iCnt ]->sSectorX == sSectorX &&
-					MercPtrs[ iCnt ]->sSectorY == sSectorY &&
-					MercPtrs[ iCnt ]->bSectorZ == bSectorZ )
+			if( pSoldier->sSectorX == sSectorX &&
+					pSoldier->sSectorY == sSectorY &&
+					pSoldier->bSectorZ == bSectorZ )
 			{
 				return( TRUE );
 			}
@@ -2411,8 +2413,9 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 	}
 
 	cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID;
-  for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; cnt++, pSoldier++)
+  for ( ; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; cnt++)
 	{	
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector )
 		{
 			// send soldier to centre of map, roughly
@@ -2457,7 +2460,7 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 
 				if( bID != -1 )
 				{
-					sGridNo = Menptr[ bID ].position().gridNo();
+					sGridNo = GetJa2SoldierRepository().record(bID).position().gridNo();
 				}
 			}
 
@@ -2512,8 +2515,9 @@ BOOLEAN AreAllPlayerMercTraversingBetweenSectors()
 	GROUP *pGroup=0;
 
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-  for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++, pSoldier++)
+  for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
 	{	
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
 			pGroup = GetGroup( pSoldier->ubGroupID );
@@ -2712,8 +2716,9 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 
 	//Check to see if Gaston, Stogie or the PGC is on the team
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
 	{    
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the merc is alive, in this sector, etc...
 		if( pSoldier->bActive	&&
 				pSoldier->sSectorX == 8 &&
@@ -2738,7 +2743,10 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 		return;
 	}
 
-	TacticalCharacterDialogue( &Menptr[ ubMercArray[ Random( ubNumMercs ) ] ], QUOTE_LAME_REFUSAL );
+	TacticalCharacterDialogue(
+		GetJa2SoldierRepository().resolve(
+			ubMercArray[ Random( ubNumMercs ) ] ),
+		QUOTE_LAME_REFUSAL );
 }
 
 void FixEnemyCounterInSectorBug()

@@ -1,4 +1,5 @@
 #include <iostream>
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include <sstream>
 
@@ -8712,8 +8713,9 @@ static int l_FindSoldierByProfileID(lua_State* L)
 	{
 		UINT8 ubTargetNPC = lua_tointeger(L, 1);
 
-		for (ubLoop = 0, pSoldier = MercPtrs[0]; ubLoop < ubLoopLimit; ubLoop++, pSoldier++)
+		for (ubLoop = 0; ubLoop < ubLoopLimit; ubLoop++)
 		{
+			pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 			if (pSoldier->bActive && pSoldier->ubProfile == ubTargetNPC)
 			{
 				foundProfileID = pSoldier->ubProfile;
@@ -8739,8 +8741,9 @@ static int l_FindSoldierByProfileIDBool(lua_State* L)
 
 		ubLoopLimit = MAX_NUM_SOLDIERS;
 
-		for (ubLoop = 0, pSoldier = MercPtrs[0]; ubLoop < ubLoopLimit; ubLoop++, pSoldier++)
+		for (ubLoop = 0; ubLoop < ubLoopLimit; ubLoop++)
 		{
+			pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 			if (pSoldier->bActive && pSoldier->ubProfile == ubTargetNPC)
 			{
 				ProfBool = TRUE;
@@ -11494,7 +11497,7 @@ static int l_GiveExp(lua_State* L)
 
 		if (ubID != NOBODY && ubStat >= FIRST_CHANGEABLE_STAT && ubStat <= LAST_CHANGEABLE_STAT)
 		{
-			StatChange(MercPtrs[ubID], ubStat, usNumChances, FROM_SUCCESS);
+			StatChange(GetJa2SoldierRepository().resolve(ubID), ubStat, usNumChances, FROM_SUCCESS);
 		}
 	}
 
@@ -11584,7 +11587,7 @@ static int l_SoldierSpendMoney(lua_State* L)
 		UINT16 usId = lua_tointeger(L, 1);
 		UINT32 amount = lua_tointeger(L, 2);
 
-		lua_pushinteger(L, SpendMoney(MercPtrs[usId], amount));
+		lua_pushinteger(L, SpendMoney(GetJa2SoldierRepository().resolve(usId), amount));
 	}
 
 	return 1;

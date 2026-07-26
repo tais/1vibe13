@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "SoldierRepository.h"
 	#include "strategic town reputation.h"
 	#include "soldier profile type.h"
 	#include "Soldier Profile.h"
@@ -200,7 +201,7 @@ void HandleSpreadOfTownsOpinionForCurrentMercs( void )
 	// run through all mercs on players current team
 	for(iCounter = 0; iCounter < iNumberOnPlayersTeam; iCounter++ )
 	{
-		HandleSpreadOfTownOpinionForMercForSoldier( MercPtrs[ iCounter ] );
+		HandleSpreadOfTownOpinionForMercForSoldier( GetJa2SoldierRepository().resolve(iCounter) );
 	}
 
 	return;

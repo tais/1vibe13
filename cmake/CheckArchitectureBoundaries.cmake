@@ -2175,7 +2175,9 @@ file(READ "${soldier_repository_source}"
 foreach(required_repository_fragment IN ITEMS
     "Ja2SoldierRepository(Menptr, MercPtrs, TOTAL_SOLDIERS)"
     "SOLDIERTYPE* Ja2SoldierRepository::replace"
-    "bool Ja2SoldierRepository::swapRecords")
+    "bool Ja2SoldierRepository::swapRecords"
+    "void BindJa2SoldierRepository"
+    "Ja2SoldierRepository& GetJa2SoldierRepository")
   string(FIND "${soldier_repository_contents}"
     "${required_repository_fragment}" required_repository_position)
   if(required_repository_position EQUAL -1)
@@ -2183,6 +2185,22 @@ foreach(required_repository_fragment IN ITEMS
       "JA2 soldier repository no longer owns '${required_repository_fragment}'")
   endif()
 endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/GameContext.cpp"
+  game_context_source_contents)
+string(FIND "${game_context_source_contents}"
+  "BindJa2SoldierRepository(context.soldiers())"
+  game_context_soldier_repository_binding)
+string(FIND "${game_context_source_contents}"
+  "BindJa2TacticalEntityDirectory("
+  game_context_tactical_directory_binding)
+if(game_context_soldier_repository_binding EQUAL -1 OR
+    game_context_tactical_directory_binding EQUAL -1 OR
+    game_context_soldier_repository_binding GREATER
+      game_context_tactical_directory_binding)
+  message(FATAL_ERROR
+    "GameContext must bind the soldier repository before rebuilding the tactical entity directory")
+endif()
 
 file(READ "${SOURCE_ROOT}/Ja2/GameContext.h"
   game_context_header_contents)
@@ -2207,6 +2225,30 @@ foreach(source_file IN LISTS ja2_application_sources)
   if(direct_ja2_soldier_pool_access)
     message(FATAL_ERROR
       "JA2 application code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
+  endif()
+endforeach()
+
+# Strategic simulation is the first legacy subsystem whose direct fixed-array
+# access is repository-backed. Keep both active code and dormant examples from
+# restoring named array access or contiguous soldier-pointer walks.
+file(GLOB strategic_soldier_sources
+  "${SOURCE_ROOT}/Strategic/*.cpp"
+  "${SOURCE_ROOT}/Strategic/*.h")
+foreach(source_file IN LISTS strategic_soldier_sources)
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
+    direct_strategic_soldier_pool_access "${contents}")
+  if(direct_strategic_soldier_pool_access)
+    message(FATAL_ERROR
+      "Strategic code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
+  endif()
+  string(REGEX MATCH
+    "(p(Soldier|TeamSoldier|Trainer|Student|Snitch|CheckedTrainer)[ \t]*\\+\\+|\\+\\+[ \t]*p(Soldier|TeamSoldier|Trainer|Student|Snitch|CheckedTrainer))"
+    contiguous_strategic_soldier_walk "${contents}")
+  if(contiguous_strategic_soldier_walk)
+    message(FATAL_ERROR
+      "Strategic code increments a soldier pointer in ${source_file}; traverse numeric slots through GetJa2SoldierRepository")
   endif()
 endforeach()
 
@@ -2264,7 +2306,7 @@ foreach(source_file IN LISTS world_state_files)
     entity_pool_record_write "${contents}")
   if(entity_pool_record_write)
     message(FATAL_ERROR
-      "Production code relocates a complete tactical-entity pool record in ${source_file}; route the swap through TacticalEntityHost")
+      "Production code relocates a complete tactical-entity pool record in ${source_file}; route the mutation through Ja2SoldierRepository and rebuild through TacticalEntityHost")
   endif()
 endforeach()
 

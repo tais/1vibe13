@@ -1,4 +1,5 @@
 	#include "Assignments.h"
+#include "SoldierRepository.h"
 	#include "Strategic Town Loyalty.h"
 	#include "Strategic Merc Handler.h"
 	#include "Strategic Mines.h"
@@ -1092,8 +1093,9 @@ void HourlyFactoryUpdate()
 							bool isstaffed_andawake = false;
 							SOLDIERTYPE *pSoldier = NULL;
 							UINT32 uiCnt = 0;
-							for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+							for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 							{
+								pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 								if ( pSoldier->bActive && ( pSoldier->sSectorX == SECTORX( sector ) ) && ( pSoldier->sSectorY == SECTORY( sector ) ) && ( pSoldier->bSectorZ == 0 ) )
 								{
 									if ( pSoldier->sFacilityTypeOperated == cnt )
@@ -1278,12 +1280,16 @@ void HourlyHelicopterRepair()
 
 void HourlyGatheringInformation()
 {
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 	SOLDIERTYPE *pSoldier;
 	INT32 cnt=0;
+	const INT8 bLastTeamID =
+		gTacticalStatus.Team[ soldiers.resolve( cnt )->bTeam ].bLastID;
 
 	// go through list of characters, find all snicthes gathering info
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pSoldier++)
+	for ( ; cnt <= bLastTeamID; ++cnt )
 	{
+		pSoldier = soldiers.resolve( cnt );
 		if( ( pSoldier->bActive ) && ( pSoldier->bAssignment == SNITCH_GATHER_RUMOURS || pSoldier->bAssignment == FACILITY_GATHER_RUMOURS ) )
 		{
 			HandleGatheringInformationBySoldier( pSoldier );

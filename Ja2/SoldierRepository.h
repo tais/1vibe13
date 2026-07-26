@@ -22,8 +22,14 @@ public:
 
 	SOLDIERTYPE& record(std::size_t slot) noexcept;
 	const SOLDIERTYPE& record(std::size_t slot) const noexcept;
-	SOLDIERTYPE* resolve(std::size_t slot) noexcept;
-	const SOLDIERTYPE* resolve(std::size_t slot) const noexcept;
+	SOLDIERTYPE* resolve(std::size_t slot) noexcept
+	{
+		return slot < capacity_ ? slots_[slot] : nullptr;
+	}
+	const SOLDIERTYPE* resolve(std::size_t slot) const noexcept
+	{
+		return slot < capacity_ ? slots_[slot] : nullptr;
+	}
 	bool contains(std::size_t slot, const SOLDIERTYPE& soldier) const noexcept;
 
 	// Restores the established one-record-per-slot compatibility layout.
@@ -43,5 +49,11 @@ private:
 	SOLDIERTYPE** slots_ = nullptr;
 	std::size_t capacity_ = 0;
 };
+
+// Composition gateway used while legacy application subsystems migrate away
+// from the fixed global arrays. Before GameContext composition it resolves to
+// a repository over the same compatibility backing store.
+void BindJa2SoldierRepository(Ja2SoldierRepository& repository) noexcept;
+Ja2SoldierRepository& GetJa2SoldierRepository() noexcept;
 
 #endif

@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "SoldierRepository.h"
 
 	#include "Strategic Merc Handler.h"
 	#include "history.h"
@@ -592,72 +593,6 @@ void MercDailyUpdate()
 	HandleDiseaseDailyRefresh();
 }
 
-/*
-void BuildMercQuitList( SOLDIERTYPE *pMercList )
-{
-	// go through list of mercs on players team, fill pMercList sorted from most recent leave time, to furthest leave time
-
-	INT32		cnt;
-	INT8		bLastTeamID;
-	SOLDIERTYPE		*pSoldier;
-	INT32 iCounter = 0;
-
-	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-	bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
-
-	//loop though all the mercs
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= bLastTeamID; cnt++,pSoldier++, iCounter++ )
-	{
-		if ( pSoldier->bActive )
-		{
-			// copy to list
-			pMercList[ iCounter ] = pSoldier;
-		}
-	}
-
-	// now sort based on departure time..simple bubble sort
-	for( cnt = 0; cnt <=iCounter; cnt++ )
-	{
-		for( cntB = 0; cntB <=iCounter; cntB++ )
-		{
-			if( MercPtrs[ cntB ]->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
-			{
-				//if the players account status is invalid
-				if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_INVALID )
-				{
-					//if the soldier is alive anc concious
-					if( IsTheSoldierAliveAndConcious( MercPtrs[ cntB ] ) )
-					{
-						// swap
-						pSoldier =	MercPtrs[ cntB ];
-						MercPtrs[ cntB ] =	MercPtrs[ cnt ];
-						MercPtrs[ cnt ] = pSoldier;
-					}
-				}
-			}
-			else if(	MercPtrs[ cntB ]->ubWhatKindOfMercAmI == MERC_TYPE__AIM )
-			{
-				if( MercPtrs[ cntB ]->iEndofContractTime < MercPtrs[ cnt ]->iEndofContractTime )
-				{
-					// swap
-					pSoldier =	MercPtrs[ cntB ];
-					MercPtrs[ cntB ] =	MercPtrs[ cnt ];
-					MercPtrs[ cnt ] = pSoldier;
-				}
-			}
-			else
-			{
-				// not a hirable guy, move to the botton
-				pSoldier =	MercPtrs[ cnt ];
-				MercPtrs[ cnt ] =	MercPtrs[ cntB ];
-				MercPtrs[ cntB ] = pSoldier;
-			}
-		}
-	}
-
-	return;
-}
-*/
 /*
 void HandleMercsAboutToLeave( SOLDIERTYPE *pMercList )
 {

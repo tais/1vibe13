@@ -26,6 +26,7 @@
 #include "SaveLoadGame.h"
 #include "GameContext.h"
 #include "RuntimeSaveState.h"
+#include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 #include "Tactical Save.h"
 #include "Squads.h"

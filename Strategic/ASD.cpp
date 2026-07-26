@@ -4,6 +4,7 @@
 */
 
 #include <math.h>
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "ASD.h"
 #include "strategic.h"
@@ -1163,8 +1164,9 @@ void EnemyHeliMANPADSCheck( INT16 id )
 		UINT16 uiCnt = 0;
 		SOLDIERTYPE* pSoldier = NULL;
 
-		for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
+			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !pSoldier->bSectorZ &&
 				 (pSoldier->sSectorX == heli_x && pSoldier->sSectorY == heli_y) ||
 				 (pSoldier->sSectorX == heli_x + 1 && pSoldier->sSectorY == heli_y) ||

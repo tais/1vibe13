@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "SoldierRepository.h"
 	#include <stdio.h>
 	#include "PreBattle Interface.h"
 	#include "Button System.h"
@@ -2356,7 +2357,7 @@ void WakeUpAllMercsInSectorUnderAttack( void )
 	// any mercs not on duty should be added to the first avail squad
 	for( iCounter = 0; iCounter < iNumberOfMercsOnTeam; iCounter++ )
 	{
-		pSoldier = &( Menptr[ iCounter ] );
+		pSoldier = &( GetJa2SoldierRepository().record(iCounter) );
 
 		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
