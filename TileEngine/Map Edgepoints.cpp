@@ -1468,20 +1468,20 @@ BOOLEAN VerifyEdgepoint( SOLDIERTYPE * pSoldier, INT32 sEdgepoint )
 	INT32 sGridNo;
 	INT8		bDirection;
 
-	pSoldier->sGridNo = sEdgepoint;
+	pSoldier->position().gridNo() = sEdgepoint;
 
 	iSearchRange = EDGE_OF_MAP_SEARCH;
 
 	// determine maximum horizontal limits
-	sMaxLeft	= min( iSearchRange, (pSoldier->sGridNo % MAXCOL));
+	sMaxLeft	= min( iSearchRange, (pSoldier->position().gridNo() % MAXCOL));
 	//NumMessage("sMaxLeft = ",sMaxLeft);
-	sMaxRight = min( iSearchRange, MAXCOL - ((pSoldier->sGridNo % MAXCOL) + 1));
+	sMaxRight = min( iSearchRange, MAXCOL - ((pSoldier->position().gridNo() % MAXCOL) + 1));
 	//NumMessage("sMaxRight = ",sMaxRight);
 
 	// determine maximum vertical limits
-	sMaxUp	= min( iSearchRange, (pSoldier->sGridNo / MAXROW));
+	sMaxUp	= min( iSearchRange, (pSoldier->position().gridNo() / MAXROW));
 	//NumMessage("sMaxUp = ",sMaxUp);
-	sMaxDown = min( iSearchRange, MAXROW - ((pSoldier->sGridNo / MAXROW) + 1));
+	sMaxDown = min( iSearchRange, MAXROW - ((pSoldier->position().gridNo() / MAXROW) + 1));
 
 	// Call FindBestPath to set flags in all locations that we can
 	// walk into within range.	We have to set some things up first...
@@ -1499,7 +1499,7 @@ BOOLEAN VerifyEdgepoint( SOLDIERTYPE * pSoldier, INT32 sEdgepoint )
 		}
 	}
 
-	FindBestPath( pSoldier, GRIDSIZE, pSoldier->pathing.bLevel, WALKING, COPYREACHABLE, PATH_THROUGH_PEOPLE );//dnl ch50 071009
+	FindBestPath( pSoldier, GRIDSIZE, pSoldier->position().level(), WALKING, COPYREACHABLE, PATH_THROUGH_PEOPLE );//dnl ch50 071009
 
 	// Turn off the "reachable" flag for the current location
 	// so we don't consider it
@@ -1536,7 +1536,7 @@ BOOLEAN EdgepointsClose( SOLDIERTYPE *pSoldier, INT32 sEdgepoint1, INT32 sEdgepo
 	INT16		sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
 	INT32 sGridNo;
 
-	pSoldier->sGridNo = sEdgepoint1;
+	pSoldier->position().gridNo() = sEdgepoint1;
 
 	if( gWorldSectorX == 14 && gWorldSectorY == 9 && !gbWorldSectorZ )
 	{ //BRUTAL CODE	-- special case map.
@@ -1548,15 +1548,15 @@ BOOLEAN EdgepointsClose( SOLDIERTYPE *pSoldier, INT32 sEdgepoint1, INT32 sEdgepo
 	}
 
 	// determine maximum horizontal limits
-	sMaxLeft	= min( iSearchRange, (pSoldier->sGridNo % MAXCOL));
+	sMaxLeft	= min( iSearchRange, (pSoldier->position().gridNo() % MAXCOL));
 	//NumMessage("sMaxLeft = ",sMaxLeft);
-	sMaxRight = min( iSearchRange, MAXCOL - ((pSoldier->sGridNo % MAXCOL) + 1));
+	sMaxRight = min( iSearchRange, MAXCOL - ((pSoldier->position().gridNo() % MAXCOL) + 1));
 	//NumMessage("sMaxRight = ",sMaxRight);
 
 	// determine maximum vertical limits
-	sMaxUp	= min( iSearchRange, (pSoldier->sGridNo / MAXROW));
+	sMaxUp	= min( iSearchRange, (pSoldier->position().gridNo() / MAXROW));
 	//NumMessage("sMaxUp = ",sMaxUp);
-	sMaxDown = min( iSearchRange, MAXROW - ((pSoldier->sGridNo / MAXROW) + 1));
+	sMaxDown = min( iSearchRange, MAXROW - ((pSoldier->position().gridNo() / MAXROW) + 1));
 
 	// Call FindBestPath to set flags in all locations that we can
 	// walk into within range.	We have to set some things up first...
@@ -1574,7 +1574,7 @@ BOOLEAN EdgepointsClose( SOLDIERTYPE *pSoldier, INT32 sEdgepoint1, INT32 sEdgepo
 		}
 	}
 
-	if( FindBestPath( pSoldier, sEdgepoint2, pSoldier->pathing.bLevel, WALKING, COPYREACHABLE, PATH_THROUGH_PEOPLE ) )
+	if( FindBestPath( pSoldier, sEdgepoint2, pSoldier->position().level(), WALKING, COPYREACHABLE, PATH_THROUGH_PEOPLE ) )
 	{
 		return TRUE;
 	}
@@ -1592,7 +1592,7 @@ UINT8 CalcMapEdgepointClassInsertionCode( INT32 sGridNo )
 	BOOLEAN		fPrimaryValid = FALSE, fSecondaryValid = FALSE;
 
 	Soldier.bTeam = 1;
-	Soldier.sGridNo = sGridNo;
+	Soldier.position().gridNo() = sGridNo;
 
 	if( gMapInformation.sIsolatedGridNo == -1 )
 	{ //If the map has no isolated area, then all edgepoints are primary.

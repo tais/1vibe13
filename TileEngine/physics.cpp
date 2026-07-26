@@ -559,7 +559,7 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 
 							pSoldier = pObject->ubLastTargetTakenDamage;
 
-							bLevel = pSoldier->pathing.bLevel;
+							bLevel = pSoldier->position().level();
 						}
 
 						// ATE; If an armed object, don't add....
@@ -616,7 +616,7 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 					break;
 				}
 
-				PlayJA2Sample( CATCH_OBJECT, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+				PlayJA2Sample( CATCH_OBJECT, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 			}
 		}
@@ -1888,9 +1888,9 @@ FLOAT CalculateLaunchItemAngle( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubHe
 	real				dAngle;
 	INT16				sSrcX, sSrcY;
 
-	ConvertGridNoToCenterCellXY( pSoldier->sGridNo, &sSrcX, &sSrcY );
+	ConvertGridNoToCenterCellXY( pSoldier->position().gridNo(), &sSrcX, &sSrcY );
 
-	dAngle = FindBestAngleForTrajectory( pSoldier->sGridNo, sGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->pathing.bLevel ), ubHeight, dForce, pItem, psGridNo );
+	dAngle = FindBestAngleForTrajectory( pSoldier->position().gridNo(), sGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() ), ubHeight, dForce, pItem, psGridNo );
 
 	// new we have defaut angle value...
 	return( dAngle );
@@ -1914,7 +1914,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 
 	// Start with default degrees/ force
 	dDegrees = OUTDOORS_START_ANGLE;
-	sStartZ	= GET_SOLDIER_THROW_HEIGHT( pSoldier->pathing.bLevel );
+	sStartZ	= GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() );
 
 	// Are we armed, and are we throwing a LAUNCHABLE?
 
@@ -1941,7 +1941,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 	if ( fArmed && (ItemIsMortar(usLauncher) || ItemIsMortar(pItem->usItem)) )
 	{
 		// Start at 0....
-		sStartZ = ( pSoldier->pathing.bLevel * 256 );
+		sStartZ = ( pSoldier->position().level() * 256 );
 		fMortar = TRUE;
 		sMinRange = MIN_MORTAR_RANGE;
 		//fLauncher = TRUE;
@@ -1977,7 +1977,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 		fIndoors = TRUE;
 	}
 
-	if ( ( IsRoofPresentAtGridNo( pSoldier->sGridNo ) ) && pSoldier->pathing.bLevel == 0 )
+	if ( ( IsRoofPresentAtGridNo( pSoldier->position().gridNo() ) ) && pSoldier->position().level() == 0 )
 	{
 		// Adjust angle....
 		dDegrees = INDOORS_START_ANGLE;
@@ -2002,11 +2002,11 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 		// sometimes SoldierToLocationWindowTest returns same value as pSoldier->sGridNo
 		// this leads to fault in FindBestAngleForTrajectory function and it subroutines loops
 		// supplied by invalid data
-		if ( pSoldier->sGridNo == sInterGridNo )
+		if ( pSoldier->position().gridNo() == sInterGridNo )
 		{
 			// bad news - i can't throw item at myself
 			// so use dir incrementer
-			UINT8	ubDir = GetDirectionFromCenterCellXYGridNo(pSoldier->sGridNo, sGridNo);
+			UINT8	ubDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sGridNo);
 			sInterGridNo += DirIncrementer[ubDir];
 		}
 	}
@@ -2026,7 +2026,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 	if ( !fLauncher )
 	{
 		// Find force for basic
-		FindBestForceForTrajectory( pSoldier->sGridNo, sGridNo, sStartZ, sEndZ, dDegrees, pItem, psFinalGridNo, &dMagForce );
+		FindBestForceForTrajectory( pSoldier->position().gridNo(), sGridNo, sStartZ, sEndZ, dDegrees, pItem, psFinalGridNo, &dMagForce );
 
 		// Adjust due to max range....
 		dMaxForce = CalculateSoldierMaxForce(pSoldier, dDegrees, pItem, fArmed, sGridNo, ubLevel);
@@ -2056,7 +2056,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 		if ( fThroughIntermediateGridNo )
 		{
 			// Given this power, now try and go through this window....
-			dDegrees = FindBestAngleForTrajectory( pSoldier->sGridNo, sInterGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->pathing.bLevel ), 150, dMagForce, pItem, psFinalGridNo );
+			dDegrees = FindBestAngleForTrajectory( pSoldier->position().gridNo(), sInterGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() ), 150, dMagForce, pItem, psFinalGridNo );
 		}
 	}
 	else
@@ -2069,7 +2069,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 			dMagForce		=	(float)( dMagForce * 1.25 );
 		}
 
-		FindTrajectory( pSoldier->sGridNo, sGridNo, sStartZ, sEndZ, dMagForce, dDegrees, pItem, psFinalGridNo );
+		FindTrajectory( pSoldier->position().gridNo(), sGridNo, sStartZ, sEndZ, dMagForce, dDegrees, pItem, psFinalGridNo );
 
 		if ( ubLevel == 1 && !fThroughIntermediateGridNo )
 		{
@@ -2079,7 +2079,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 				dMagForce		=	(float)( dMagForce * 0.85 );
 
 				// Yep, try to get angle...
-				dNewDegrees = FindBestAngleForTrajectory( pSoldier->sGridNo, sGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->pathing.bLevel ), 150, dMagForce, pItem, psFinalGridNo );
+				dNewDegrees = FindBestAngleForTrajectory( pSoldier->position().gridNo(), sGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() ), 150, dMagForce, pItem, psFinalGridNo );
 
 				if ( dNewDegrees != 0 )
 				{
@@ -2090,7 +2090,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 
 		if ( fThroughIntermediateGridNo )
 		{
-			dDegrees = FindBestAngleForTrajectory( pSoldier->sGridNo, sInterGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->pathing.bLevel ), 150, dMagForce, pItem, psFinalGridNo );
+			dDegrees = FindBestAngleForTrajectory( pSoldier->position().gridNo(), sInterGridNo, GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() ), 150, dMagForce, pItem, psFinalGridNo );
 		}
 	}
 
@@ -2108,20 +2108,20 @@ BOOLEAN GrenadeRollingPossible(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 *sXPo
 		{
 			return FALSE;
 		}
-		INT32 sTestGridNo = NewGridNo(pSoldier->sGridNo, DirectionInc(ubDirection));
+		INT32 sTestGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(ubDirection));
 
-		if (gubWorldMovementCosts[sTestGridNo][ubDirection][pSoldier->pathing.bLevel] == TRAVELCOST_WALL)
+		if (gubWorldMovementCosts[sTestGridNo][ubDirection][pSoldier->position().level()] == TRAVELCOST_WALL)
 		{
 			BOOLEAN obstacle = FALSE;
 			INT16 newDir = (ubDirection != 2 && ubDirection != 6) ? EAST : SOUTH;
-			INT32 newLoc = NewGridNo(pSoldier->sGridNo, DirectionInc(newDir));
+			INT32 newLoc = NewGridNo(pSoldier->position().gridNo(), DirectionInc(newDir));
 			STRUCTURE *pStruct;
 			pStruct = gpWorldLevelData[newLoc].pStructureHead;
 			while (pStruct)
 			{
 				if ((pStruct->fFlags & STRUCTURE_ANYDOOR) && (pStruct->fFlags & STRUCTURE_OPEN))
 				{
-					if (gubWorldMovementCosts[newLoc][newDir][pSoldier->pathing.bLevel] >= 220)//doors are opened in a way they make an obstacle
+					if (gubWorldMovementCosts[newLoc][newDir][pSoldier->position().level()] >= 220)//doors are opened in a way they make an obstacle
 						return FALSE;
 					ConvertGridNoToCenterCellXY(newLoc, sXPos, sYPos);
 					return TRUE;
@@ -2150,13 +2150,13 @@ BOOLEAN GrenadeRollingPossible(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 *sXPo
 			}
 			obstacle = FALSE;
 			newDir = (ubDirection != 2 && ubDirection != 6) ? WEST : NORTH;
-			newLoc = NewGridNo(pSoldier->sGridNo, DirectionInc(newDir));
+			newLoc = NewGridNo(pSoldier->position().gridNo(), DirectionInc(newDir));
 			pStruct = gpWorldLevelData[newLoc].pStructureHead;
 			while (pStruct)
 			{
 				if ((pStruct->fFlags & STRUCTURE_ANYDOOR) && (pStruct->fFlags & STRUCTURE_OPEN))
 				{
-					if (gubWorldMovementCosts[newLoc][newDir][pSoldier->pathing.bLevel] >= 220)//doors are opened in a way they make an obstacle
+					if (gubWorldMovementCosts[newLoc][newDir][pSoldier->position().level()] >= 220)//doors are opened in a way they make an obstacle
 						return FALSE;
 					ConvertGridNoToCenterCellXY(newLoc, sXPos, sYPos);
 					return TRUE;
@@ -2197,7 +2197,7 @@ BOOLEAN CalculateLaunchItemChanceToGetThrough( SOLDIERTYPE *pSoldier, OBJECTTYPE
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CalculateLaunchItemChanceToGetThrough");
 
-	if ( pSoldier->sGridNo == sGridNo )
+	if ( pSoldier->position().gridNo() == sGridNo )
 	{
 		printf("Warning! Soldier #%d attempted to launch item at himself\n", pSoldier->ubID.i);
 		return FALSE;
@@ -2207,7 +2207,7 @@ BOOLEAN CalculateLaunchItemChanceToGetThrough( SOLDIERTYPE *pSoldier, OBJECTTYPE
 
 	// Get XY from gridno
 	ConvertGridNoToCenterCellXY( sGridNo, &sDestX, &sDestY );
-	ConvertGridNoToCenterCellXY( pSoldier->sGridNo, &sSrcX, &sSrcY );
+	ConvertGridNoToCenterCellXY( pSoldier->position().gridNo(), &sSrcX, &sSrcY );
 
 	if (GrenadeRollingPossible(pSoldier, sGridNo, &sSrcX, &sSrcY))
 	{
@@ -2217,7 +2217,7 @@ BOOLEAN CalculateLaunchItemChanceToGetThrough( SOLDIERTYPE *pSoldier, OBJECTTYPE
 	// Set position
 	vPosition.x = sSrcX;
 	vPosition.y = sSrcY;
-	vPosition.z = GET_SOLDIER_THROW_HEIGHT( pSoldier->pathing.bLevel );
+	vPosition.z = GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() );
 
 	// OK, get direction normal
 	vDirNormal.x = (float)(sDestX - sSrcX);
@@ -2368,7 +2368,7 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 
 	// Get XY from gridno
 	ConvertGridNoToCenterCellXY( sGridNo, &sDestX, &sDestY );
-	ConvertGridNoToCenterCellXY( pSoldier->sGridNo, &sSrcX, &sSrcY );
+	ConvertGridNoToCenterCellXY( pSoldier->position().gridNo(), &sSrcX, &sSrcY );
 
 	if (GrenadeRollingPossible(pSoldier, sGridNo, &sSrcX, &sSrcY))
 	{
@@ -2401,7 +2401,7 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 	pSoldier->pThrowParams->dY = (float)sSrcY;
 
 
-	sStartZ = GET_SOLDIER_THROW_HEIGHT( pSoldier->pathing.bLevel );
+	sStartZ = GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() );
 
 	//MM: Again, this only works if the launchers are all the same
 	//usLauncher = GetLauncherFromLaunchable( pItem->usItem );
@@ -2427,7 +2427,7 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 	if ( fArmed && ItemIsMortar(usLauncher))
 	{
 		// Start at 0....
-		sStartZ = ( pSoldier->pathing.bLevel * 256 ) + 50;
+		sStartZ = ( pSoldier->position().level() * 256 ) + 50;
 	}
 
 	pSoldier->pThrowParams->dZ = (float)sStartZ;
@@ -2497,7 +2497,7 @@ void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID )
 
 				sBreath = 0;
 
-				pSoldier->EVENT_SoldierGotHit( NOTHING, sDamage, sBreath, pSoldier->ubDirection, 0, pObject->ubOwner, FIRE_WEAPON_TOSSED_OBJECT_SPECIAL, 0, 0, NOWHERE );
+				pSoldier->EVENT_SoldierGotHit( NOTHING, sDamage, sBreath, pSoldier->position().direction(), 0, pObject->ubOwner, FIRE_WEAPON_TOSSED_OBJECT_SPECIAL, 0, 0, NOWHERE );
 
 				pObject->ubLastTargetTakenDamage = usStructureID;
 			}
@@ -2520,7 +2520,7 @@ BOOLEAN CheckForCatchObject( REAL_OBJECT *pObject )
 
 			// Is it a guy?
 			// Are we close to this guy?
-			uiSpacesAway = PythSpacesAway( pObject->sGridNo, pSoldier->sGridNo );
+			uiSpacesAway = PythSpacesAway( pObject->sGridNo, pSoldier->position().gridNo() );
 
 			if ( uiSpacesAway < 4 && !pObject->fAttemptedCatch )
 			{
@@ -2612,7 +2612,7 @@ BOOLEAN DoCatchObject( REAL_OBJECT *pObject )
 		break;
 	}
 
-	PlayJA2Sample( CATCH_OBJECT, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+	PlayJA2Sample( CATCH_OBJECT, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 	pObject->fCatchAnimOn = FALSE;
 

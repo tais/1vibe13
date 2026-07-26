@@ -759,7 +759,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																	}
 																	else
 																	{
-																		//if ( FindBestPath( pSoldier, sMapPos, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, NO_COPYROUTE, 0 ) == 0 )
+																		//if ( FindBestPath( pSoldier, sMapPos, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 ) == 0 )
 																		if (gsCurrentActionPoints == 0 && !gfUIAllMoveOn && !gTacticalStatus.fAtLeastOneGuyOnMultiSelect )
 																		{
 																			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NO_PATH ] );
@@ -2078,7 +2078,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 
                     if ( GetSoldier( &lSoldier, gusSelectedSoldier ) )
 					{
-						if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
+						if ( FindWindowJumpDirection( lSoldier, lSoldier->position().gridNo(), lSoldier->position().direction(), &bDirection ) )
 						{
 							TryDispatchTraverseObstacleCommandNow(
 								*lSoldier,
@@ -2121,7 +2121,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 							*pjSoldier,
 							TacticalTraversalKind::ClimbUpRoof );
 
-					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
+					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 						TryDispatchTraverseObstacleCommandNow(
 							*pjSoldier,
 							TacticalTraversalKind::JumpFence );
@@ -2183,7 +2183,7 @@ void HandleRTJump( void )
 				*pjSoldier,
 				TacticalTraversalKind::ClimbUpRoof );
 
-		if ( FindFenceJumpDirection( pjSoldier, pjSoldier->sGridNo, pjSoldier->ubDirection, &bDirection ) )
+		if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 			TryDispatchTraverseObstacleCommandNow(
 				*pjSoldier,
 				TacticalTraversalKind::JumpFence );
@@ -2198,7 +2198,7 @@ void HandleRTJumpThroughWindow( void )
 
         if ( GetSoldier( &lSoldier, gusSelectedSoldier ) )
 		{
-			if ( FindWindowJumpDirection( lSoldier, lSoldier->sGridNo, lSoldier->ubDirection, &bDirection ) )
+			if ( FindWindowJumpDirection( lSoldier, lSoldier->position().gridNo(), lSoldier->position().direction(), &bDirection ) )
 			{
 				TryDispatchTraverseObstacleCommandNow(
 					*lSoldier,

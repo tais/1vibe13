@@ -1941,7 +1941,7 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector &&
 				pSoldier->sSectorX == SECTOR_LAUNCH_MISSLES_X && pSoldier->sSectorY == SECTOR_LAUNCH_MISSLES_Y && pSoldier->bSectorZ == SECTOR_LAUNCH_MISSLES_Z )
 		{
-			if( PythSpacesAway( pSoldier->sGridNo, SWITCHTOLAUNCHMISSLES_GRIDNO1 ) < PythSpacesAway( pSoldier->sGridNo, SWITCHTOLAUNCHMISSLES_GRIDNO2 ) )
+			if( PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO1 ) < PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO2 ) )
 				pSoldier->EVENT_InternalGetNewSoldierPath( SWITCHTOLAUNCHMISSLES_GRIDNO1, RUNNING, TRUE, TRUE );
 			else
 				pSoldier->EVENT_InternalGetNewSoldierPath( SWITCHTOLAUNCHMISSLES_GRIDNO2, RUNNING, TRUE, TRUE );

@@ -876,7 +876,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_LEAVESECTOR:
-			sGridNo = FindNearestEdgePoint( pSoldier->sGridNo );
+			sGridNo = FindNearestEdgePoint( pSoldier->position().gridNo() );
 			BumpAnyExistingMerc( sGridNo );
 			ConvertGridNoToCellXY( sGridNo, &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );

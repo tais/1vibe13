@@ -1942,6 +1942,84 @@ if(NOT serialized_soldier_breath_order OR
     "Soldier vitals moved in the portable save schema; keep their established byte order while storage evolves")
 endif()
 
+# Current tactical grid, elevation, and facing have completed the same storage
+# cut. STRUCT_Pathing retains route state only; SOLDIERTYPE privately owns one
+# independent SoldierPositionComponent.
+math(EXPR current_soldier_pathing_length
+  "${current_soldier_begin} - ${current_soldier_stats_end}")
+string(SUBSTRING "${soldier_control_header_contents}"
+  ${current_soldier_stats_end} ${current_soldier_pathing_length}
+  current_soldier_pathing_contents)
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*(INT8|UINT8)[ \t]+bLevel[ \t]*;"
+  retired_current_pathing_level
+  "${current_soldier_pathing_contents}")
+if(retired_current_pathing_level)
+  message(FATAL_ERROR
+    "Retired STRUCT_Pathing field 'bLevel' returned; canonical elevation belongs to SoldierPositionComponent")
+endif()
+
+foreach(retired_position_field IN ITEMS sGridNo ubDirection)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT32|UINT8)[ \t]+${retired_position_field}[ \t]*;"
+    retired_current_soldier_position
+    "${current_soldier_contents}")
+  if(retired_current_soldier_position)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE position field '${retired_position_field}' returned; canonical location belongs to SoldierPositionComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "SoldierPositionComponent[ \t\r\n]+position_[ \t]*;"
+  soldier_position_owner
+  "${current_soldier_contents}")
+if(NOT soldier_position_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierPositionComponent")
+endif()
+
+foreach(owned_position_field IN ITEMS
+  "INT32;gridNo"
+  "INT8;level"
+  "UINT8;direction")
+  string(REPLACE ";" ";" owned_position_parts "${owned_position_field}")
+  list(GET owned_position_parts 0 owned_position_type)
+  list(GET owned_position_parts 1 owned_position_name)
+  string(REGEX MATCH
+    "${owned_position_type}[ \t]+${owned_position_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_position
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_position)
+    message(FATAL_ERROR
+      "SoldierPositionComponent no longer owns '${owned_position_name}_'; do not recreate a SOLDIERTYPE compatibility facade")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "SOLDIERTYPE[ \t]*&[ \t]*soldier_"
+  soldier_position_back_reference
+  "${soldier_components_header_contents}")
+if(soldier_position_back_reference)
+  message(FATAL_ERROR
+    "SoldierPositionComponent must own its values independently; do not restore a SOLDIERTYPE back-reference facade")
+endif()
+
+# Preserve all three established save positions: grid/facing remain after the
+# initial grid in the POD list, and elevation remains between the pathing
+# destination and stopped fields.
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.sInitialGridNo\\);[ \t]*ar\\.i32\\(s\\.position\\(\\)\\.gridNo\\(\\)\\);[ \t]*ar\\.u8\\(s\\.position\\(\\)\\.direction\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.sHeightAdjustment\\);"
+  serialized_soldier_grid_direction_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(p\\.sDestination\\);[ \t]*ar\\.i32\\(p\\.sFinalDestination\\);[ \t\r\n]*ar\\.i8\\(soldier\\.position\\(\\)\\.level\\(\\)\\);[ \t]*ar\\.i8\\(p\\.bStopped\\);"
+  serialized_soldier_level_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_grid_direction_order OR
+   NOT serialized_soldier_level_order)
+  message(FATAL_ERROR
+    "Soldier position moved in the portable save schema; keep grid, elevation, and facing in their established byte order")
+endif()
+
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The
 # former current-team and pending-combat fields no longer exist in
 # TacticalStatusType, and the TURNBASED/INCOMBAT bits are composed only at

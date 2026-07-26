@@ -311,7 +311,7 @@ void SetUpInterface( )
 	{
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			if ( gusSelectedSoldier->sGridNo != gsUIHandleShowMoveGridLocation )
+			if ( gusSelectedSoldier->position().gridNo() != gsUIHandleShowMoveGridLocation )
 			{
 				if ( gfUIHandleShowMoveGrid == 2 )
 				{
@@ -961,7 +961,7 @@ void RenderTopmostTacticalInterface( )
 			if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 			{
 				// Check if we are over an item pool
-				if ( GetItemPool( gfUIOverItemPoolGridNo, &pItemPool, pSoldier->pathing.bLevel ) )
+				if ( GetItemPool( gfUIOverItemPoolGridNo, &pItemPool, pSoldier->position().level() ) )
 				{
 					STRUCTURE					*pStructure = NULL;
 					INT32 sIntTileGridNo;
@@ -989,7 +989,7 @@ void RenderTopmostTacticalInterface( )
 					INT8 bCheckLevel;
 
 					// ATE: Allow to see list if a different level....
-					if ( pSoldier->pathing.bLevel == 0 )
+					if ( pSoldier->position().level() == 0 )
 					{
 						bCheckLevel = 1;
 					}
@@ -1343,7 +1343,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 		gGameExternalOptions.ubShowMoraleCount == 2 )
 		printSuppression = TRUE;
 
-	if (!TileIsOutOfBounds(pSoldier->sGridNo) && pSoldier->bVisible != -1 )
+	if (!TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bVisible != -1 )
 	{
 		GetSoldierScreenPos( pSoldier, &sMercScreenX, &sMercScreenY );
 		GetSoldierAnimOffsets( pSoldier, &sOffsetX, &sOffsetY );

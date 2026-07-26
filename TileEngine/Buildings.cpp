@@ -148,8 +148,8 @@ BUILDING * GenerateBuilding( INT32 sDesiredSpot )
 		SOLDIERTYPE 	FakeSoldier;
 		INT32			iLoopCount = 0;
 
-		FakeSoldier.sGridNo = sDesiredSpot;
-		FakeSoldier.pathing.bLevel = 1;
+		FakeSoldier.position().gridNo() = sDesiredSpot;
+		FakeSoldier.position().level() = 1;
 		FakeSoldier.bTeam = 1;
 
 		// Set reachable
@@ -484,7 +484,7 @@ INT32 FindClosestClimbPoint( SOLDIERTYPE *pSoldier, INT32 sStartGridNo, INT32 sD
 						if (gpWorldLevelData[sTestGridNo].ubExtFlags[0] & MAPELEMENT_EXT_CLIMBPOINT)
 						{
 							// Found a matching climb point
-							if ((WhoIsThere2(sTestGridNo, 0) == NOBODY || sTestGridNo == pSoldier->sGridNo)
+							if ((WhoIsThere2(sTestGridNo, 0) == NOBODY || sTestGridNo == pSoldier->position().gridNo())
 								&& (WhoIsThere2(sGridNo, 1) == NOBODY) &&
 								(!pSoldier || !InGas(pSoldier, sTestGridNo)))
 							{
@@ -508,7 +508,7 @@ INT32 FindClosestClimbPoint( SOLDIERTYPE *pSoldier, INT32 sStartGridNo, INT32 sD
 						{
 							// Found a matching climb point
 							if ((WhoIsThere2(sTestGridNo, 0) == NOBODY) &&
-								(WhoIsThere2(sGridNo, 1) == NOBODY || sGridNo == pSoldier->sGridNo) &&
+								(WhoIsThere2(sGridNo, 1) == NOBODY || sGridNo == pSoldier->position().gridNo()) &&
 								(!pSoldier || !InGas(pSoldier, sTestGridNo)))
 							{
 								// And it's open
@@ -547,7 +547,7 @@ INT32 FindClosestClimbPoint( SOLDIERTYPE *pSoldier, INT32 sStartGridNo, INT32 sD
 				(WhoIsThere2(pBuilding->sDownClimbSpots[ubLoop], 1) == NOBODY ||
 					WhoIsThere2(pBuilding->sDownClimbSpots[ubLoop], 1) == pSoldier->ubID) &&
 				!InGas(pSoldier, psClimbSpots[ubLoop]) &&
-				!Water(psClimbSpots[ubLoop], pSoldier->pathing.bLevel))
+				!Water(psClimbSpots[ubLoop], pSoldier->position().level()))
 			{
 				sDistance = PythSpacesAway(sStartGridNo, psClimbSpots[ubLoop]);
 				if (sDistance < sClosestDistance)

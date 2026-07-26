@@ -506,10 +506,10 @@ void BeginTeamTurn( UINT8 ubTeam )
 		{
 			SOLDIERTYPE* pStop = MercPtrs[ id ];
 			if ( pStop && pStop->bActive && pStop->bInSector && pStop->bTeam >= LAN_TEAM_ONE
-				&& pStop->sGridNo >= 0 && pStop->sGridNo < WORLD_MAX
+				&& pStop->position().gridNo() >= 0 && pStop->position().gridNo() < WORLD_MAX
 				&& ( gAnimControl[ pStop->usAnimState ].uiFlags & ANIM_MOVING ) )
 			{
-				pStop->EVENT_StopMerc( pStop->sGridNo, pStop->ubDirection );
+				pStop->EVENT_StopMerc( pStop->position().gridNo(), pStop->position().direction() );
 			}
 		}
 	}
@@ -922,7 +922,7 @@ void StartInterrupt( void )
 					pTempSoldier = Squad[ iSquad ][ iCounter ];
 					if ( pTempSoldier && pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved )
 					{
-						INT16 ubMinAPcost = MinAPsToAttack(pSoldier,pInterruptedSoldier->sGridNo,ADDTURNCOST, 0);
+						INT16 ubMinAPcost = MinAPsToAttack(pSoldier,pInterruptedSoldier->position().gridNo(),ADDTURNCOST, 0);
 						// if we don't have enough APs left to shoot even a snap-shot at this guy
 						if (ubMinAPcost < pSoldier->bActionPoints)
 						{
@@ -1330,7 +1330,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 					// Continue
 					gusSelectedSoldier->AdjustNoAPToFinishMove( FALSE );
 
-					if ( gusSelectedSoldier->sGridNo != gusSelectedSoldier->pathing.sFinalDestination )
+					if ( gusSelectedSoldier->position().gridNo() != gusSelectedSoldier->pathing.sFinalDestination )
 					{
 						gusSelectedSoldier->EVENT_GetNewSoldierPath( gusSelectedSoldier->pathing.sFinalDestination, gusSelectedSoldier->usUIMovementMode );
 					}
@@ -1774,7 +1774,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 			if ( gOppositeDirection[ pSoldier->pathing.bDesiredDirection ] == bDir )
 			{
 				// directly behind; allow interrupts only within # of tiles equal to level
-				if ( PythSpacesAway( pSoldier->sGridNo, pOpponent->sGridNo ) > EffectiveExpLevel( pSoldier ) )
+				if ( PythSpacesAway( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) > EffectiveExpLevel( pSoldier ) )
 				{
 					return( FALSE );
 				}
@@ -1886,7 +1886,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	if (fUseWatchSpots && !(pSoldier->usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS))
 	{
 		// if this is a previously noted spot of enemies, give bonus points!
-		iPoints += GetWatchedLocPoints( pSoldier->ubID, ubOpponentID->sGridNo, ubOpponentID->pathing.bLevel );
+		iPoints += GetWatchedLocPoints( pSoldier->ubID, ubOpponentID->position().gridNo(), ubOpponentID->position().level() );
 	}
 
 	// LOSE one point for each 2 additional opponents he currently sees, above 2
@@ -1915,7 +1915,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	// if soldier is still in shock from recent injuries, that penalizes him
 	iPoints -= pSoldier->aiData.bShock;
 
-	ubDistance = (UINT8) PythSpacesAway( pSoldier->sGridNo, ubOpponentID->sGridNo );
+	ubDistance = (UINT8) PythSpacesAway( pSoldier->position().gridNo(), ubOpponentID->position().gridNo() );
 
 	// if we are in combat mode - thus doing an interrupt rather than determine who gets first turn -
 	// then give bonus
@@ -1960,7 +1960,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	{
 		if ( HAS_SKILL_TRAIT( pSoldier, NIGHT_OPS_NT ) )
 		{
-			bLightLevel = LightTrueLevel(pSoldier->sGridNo, pSoldier->pathing.bLevel);
+			bLightLevel = LightTrueLevel(pSoldier->position().gridNo(), pSoldier->position().level());
 			if (bLightLevel > NORMAL_LIGHTLEVEL_DAY + 3)
 			{
 				// it's dark, give a bonus for interrupts
@@ -1981,10 +1981,10 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 			{
 				// if target is in focus, increase interrupt chance, otherwise lower it
 				// radius depends on range
-				INT16 range = PythSpacesAway( pSoldier->sFocusGridNo, pSoldier->sGridNo );
+				INT16 range = PythSpacesAway( pSoldier->sFocusGridNo, pSoldier->position().gridNo() );
 				INT16 radius = gSkillTraitValues.ubSNFocusRadius * range / 20;
 
-				INT16 range_opponent = PythSpacesAway( pSoldier->sFocusGridNo, ubOpponentID->sGridNo );
+				INT16 range_opponent = PythSpacesAway( pSoldier->sFocusGridNo, ubOpponentID->position().gridNo() );
 
 				if ( range_opponent <= radius )
 					iPoints += gSkillTraitValues.sSNFocusInterruptBonus;
@@ -2002,7 +2002,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	{
 		if ( HAS_SKILL_TRAIT( pSoldier, NIGHTOPS_OT ) )
 		{
-			bLightLevel = LightTrueLevel(pSoldier->sGridNo, pSoldier->pathing.bLevel);
+			bLightLevel = LightTrueLevel(pSoldier->position().gridNo(), pSoldier->position().level());
 			if (bLightLevel > NORMAL_LIGHTLEVEL_DAY + 3)
 			{
 				// it's dark, give a bonus for interrupts
@@ -2462,7 +2462,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 						if ( ubInterruptType == NOISEINTERRUPT )
 						{
 							// don't grant noise interrupts at greater than max. visible distance
-							if ( PythSpacesAway( pSoldier->sGridNo, pOpponent->sGridNo ) > MaxNormalDistanceVisible() )
+							if ( PythSpacesAway( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) > MaxNormalDistanceVisible() )
 							{
 								pOpponent->aiData.bInterruptDuelPts = NO_INTERRUPT;
 

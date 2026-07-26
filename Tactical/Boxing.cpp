@@ -54,7 +54,7 @@ void ExitBoxing( void )
 
 			if ( pSoldier != NULL )
 			{
-				if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ) && InARoom( pSoldier->sGridNo, &usRoom ) && usRoom == BOXING_RING )
+				if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ) && InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom == BOXING_RING )
 				{
 					if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
 					{
@@ -149,7 +149,7 @@ void BoxingPlayerDisqualified( SOLDIERTYPE * pOffender, INT8 bReason )
 {
 	if (bReason == BOXER_OUT_OF_RING || bReason == NON_BOXER_IN_RING)
 	{
-		pOffender->EVENT_StopMerc( pOffender->sGridNo, pOffender->ubDirection );
+		pOffender->EVENT_StopMerc( pOffender->position().gridNo(), pOffender->position().direction() );
 	}
 	SetBoxingState( DISQUALIFIED );
 	TriggerNPCRecord( DARREN, 21 );
@@ -199,7 +199,7 @@ UINT8 CountPeopleInBoxingRing( void )
 
 		if ( pSoldier != NULL )
 		{
-			if ( InARoom( pSoldier->sGridNo, &usRoom ) && usRoom == BOXING_RING)
+			if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom == BOXING_RING)
 			{
 				++ubTotalInRing;
 			}
@@ -226,7 +226,7 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 
 		if ( pSoldier != NULL )
 		{
-			if ( InARoom( pSoldier->sGridNo, &usRoom ) && usRoom == BOXING_RING)
+			if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom == BOXING_RING)
 			{
 				if ( ubTotalInRing < 2 )
 				{
@@ -509,7 +509,7 @@ void BoxingMovementCheck( SOLDIERTYPE * pSoldier )
 	//UINT8 ubRoom;
 	UINT16	usRoom;
 
-	if ( InARoom( pSoldier->sGridNo, &usRoom ) && usRoom == BOXING_RING)
+	if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom == BOXING_RING)
 	{
 		// someone moving in/into the ring
 		CountPeopleInBoxingRingAndDoActions();

@@ -1637,12 +1637,13 @@ template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
 	for (i = 0; i < 30; ++i) ar.u8(s.ubSkillTraits[i]);
 }
 
-template<class Ar> static void XferPathing( Ar& ar, STRUCT_Pathing& p )
+template<class Ar> static void XferPathing( Ar& ar, SOLDIERTYPE& soldier )
 {
+	STRUCT_Pathing& p = soldier.pathing;
 	int i;
 	ar.i8(p.bDesiredDirection); ar.i16(p.sDestXPos); ar.i16(p.sDestYPos);
 	ar.i32(p.sDestination); ar.i32(p.sFinalDestination);
-	ar.i8(p.bLevel); ar.i8(p.bStopped); ar.i8(p.bNeedToLook);
+	ar.i8(soldier.position().level()); ar.i8(p.bStopped); ar.i8(p.bNeedToLook);
 	for (i = 0; i < MAX_PATH_LIST_SIZE; ++i) ar.u16(p.usPathingData[i]);
 	ar.u16(p.usPathDataSize); ar.u16(p.usPathIndex);
 	ar.i32(p.sBlackList); ar.i8(p.bPathStored);
@@ -1665,7 +1666,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(s.ubCriticalStatDamage[i]);
 	ar.u8(s.ubGroupID); ar.u8(s.ubMovementNoiseHeard);
 	ar.f32(s.dXPos); ar.f32(s.dYPos); ar.i16(s.sOldXPos); ar.i16(s.sOldYPos);
-	ar.i32(s.sInitialGridNo); ar.i32(s.sGridNo); ar.u8(s.ubDirection);
+	ar.i32(s.sInitialGridNo); ar.i32(s.position().gridNo()); ar.u8(s.position().direction());
 	ar.i16(s.sHeightAdjustment); ar.i16(s.sDesiredHeight); ar.i32(s.sTempNewGridNo); ar.i16(s.sRoomNo);
 	ar.i8(s.bOverTerrainType); ar.i8(s.bOldOverTerrainType); ar.i8(s.bCollapsed); ar.i8(s.bBreathCollapsed);
 	ar.u8(s.ubDesiredHeight); ar.u16(s.usPendingAnimation); ar.u8(s.ubPendingStanceChange); ar.u16(s.usAnimState);
@@ -1817,7 +1818,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 	XferTimeCounters(ar, this->timeCounters);
 	XferDrugs(ar, this->newdrugs);
 	XferStats(ar, *this);
-	XferPathing(ar, this->pathing);
+	XferPathing(ar, *this);
 	return wr.good() ? TRUE : FALSE;
 }
 
@@ -1872,7 +1873,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		XferTimeCounters(ar, this->timeCounters);
 		XferDrugs(ar, this->newdrugs);
 		XferStats(ar, *this);
-		XferPathing(ar, this->pathing);
+		XferPathing(ar, *this);
 		if (!rd.good()) return(FALSE);
 
 		// check checksum
@@ -7207,16 +7208,16 @@ BOOLEAN SetMercsInsertionGridNo( )
 		//if the soldier is active
 		if( Menptr[ cnt ].bActive )
 		{
-			if( !TileIsOutOfBounds(Menptr[ cnt ].sGridNo))
+			if( !TileIsOutOfBounds(Menptr[ cnt ].position().gridNo()))
 			{
 				//set the insertion type to gridno
 				Menptr[ cnt ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 
 				//set the insertion gridno
-				Menptr[ cnt ].usStrategicInsertionData = Menptr[ cnt ].sGridNo;
+				Menptr[ cnt ].usStrategicInsertionData = Menptr[ cnt ].position().gridNo();
 
 				//set the gridno
-				Menptr[ cnt ].sGridNo = NOWHERE;
+				Menptr[ cnt ].position().gridNo() = NOWHERE;
 			}
 		}
 	}

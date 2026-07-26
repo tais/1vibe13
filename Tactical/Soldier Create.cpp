@@ -279,10 +279,10 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->bSectorZ							= Soldier.bSectorZ;
 	this->ubSoldierClass				= Soldier.ubSoldierClass;
 	this->bTeam									= Soldier.bTeam;
-	this->ubDirection						= Soldier.ubDirection;
+	this->ubDirection						= Soldier.position().direction();
 
-	this->fOnRoof								= Soldier.pathing.bLevel;
-	this->sInsertionGridNo			= Soldier.sGridNo;
+	this->fOnRoof								= Soldier.position().level();
+	this->sInsertionGridNo			= Soldier.position().gridNo();
 
 	swprintf( this->name, Soldier.name );
 
@@ -809,7 +809,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.ubInsertionDirection			= pCreateStruct->ubDirection;
 		Soldier.pathing.bDesiredDirection		= pCreateStruct->ubDirection;
 		Soldier.aiData.bDominantDir				= pCreateStruct->ubDirection;
-		Soldier.ubDirection						= pCreateStruct->ubDirection;
+		Soldier.position().direction()						= pCreateStruct->ubDirection;
 
 		Soldier.sInsertionGridNo				= pCreateStruct->sInsertionGridNo;
 		Soldier.bOldLife						= Soldier.vitals().maximumHealth();
@@ -1324,7 +1324,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 
 	pSoldier->aiData.bOrders								= pCreateStruct->bOrders;
 	pSoldier->aiData.bAttitude							= pCreateStruct->bAttitude;
-	pSoldier->ubDirection						= pCreateStruct->ubDirection;
+	pSoldier->position().direction()						= pCreateStruct->ubDirection;
 	pSoldier->aiData.bPatrolCnt						= pCreateStruct->bPatrolCnt;
 	memcpy( pSoldier->aiData.sPatrolGrid, pCreateStruct->sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
 
@@ -2106,7 +2106,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->ubDesiredHeight			= NO_DESIRED_HEIGHT;
 	pSoldier->bViewRange					= NORMAL_VIEW_RANGE;
 	pSoldier->bInSector					= FALSE;
-	pSoldier->sGridNo					= NOWHERE;
+	pSoldier->position().gridNo()					= NOWHERE;
 	pSoldier->iMuzFlash					= -1;
 	pSoldier->usPendingAnimation			= NO_PENDING_ANIMATION;
 	pSoldier->usPendingAnimation2		= NO_PENDING_ANIMATION;
@@ -3050,12 +3050,12 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 	}
 	for( i = iStart; i <= iEnd; ++i )
 	{
-		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->sGridNo))
+		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->position().gridNo()))
 		{
 			if( i->ubSoldierClass == ubSoldierClass )
 			{
 				//reserve this soldier
-				i->sGridNo = NOWHERE;
+				i->position().gridNo() = NOWHERE;
 
 				//Allocate and copy the soldier
 				pSoldier = new SOLDIERTYPE(*MercPtrs[i]); //(SOLDIERTYPE*)MemAlloc( SIZEOF_SOLDIERTYPE );
@@ -3358,12 +3358,12 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 
 	for( i = iStart; i <= iEnd; ++i )
 	{		
-		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->sGridNo))
+		if( i->bActive && i->bInSector && i->vitals().health() && !TileIsOutOfBounds(i->position().gridNo()))
 		{
 			if( i->ubSoldierClass == ubSoldierClass )
 			{
 				//reserve this soldier
-				i->sGridNo = NOWHERE;
+				i->position().gridNo() = NOWHERE;
 
 				//Allocate and copy the soldier
 				pSoldier = new SOLDIERTYPE(*MercPtrs[i]); //(SOLDIERTYPE*)MemAlloc( SIZEOF_SOLDIERTYPE );

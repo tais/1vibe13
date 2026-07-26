@@ -158,7 +158,7 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 	// Calculate target gridno!
 	if ( gfUIFullTargetFound )
 	{
-		sTargetGridNo = gusUIFullTargetID->sGridNo;
+		sTargetGridNo = gusUIFullTargetID->position().gridNo();
 	}
 	else
 	{
@@ -178,10 +178,10 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 		case KNIFECURS:
 			//Madd: quick hack to make wirecutter cursor appear when using a knife that can cut through wire
 			// sevenfm: check that not using bayonet attached to the gun
-			//if ( Item[ubItemIndex].wirecutters && IsCuttableWireFenceAtGridNo( sTargetGridNo ) && pSoldier->pathing.bLevel == 0 )
+			//if ( Item[ubItemIndex].wirecutters && IsCuttableWireFenceAtGridNo( sTargetGridNo ) && pSoldier->position().level() == 0 )
 			if (ItemIsWirecutters(ubItemIndex) &&
 				IsCuttableWireFenceAtGridNo( sTargetGridNo ) &&
-				pSoldier->pathing.bLevel == 0 &&
+				pSoldier->position().level() == 0 &&
 				pSoldier->bWeaponMode != WM_ATTACHED_BAYONET)
 			{
 				ubCursorID = GOOD_WIRECUTTER_UICURSOR;
@@ -671,12 +671,12 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 						gfUICtHBar = TRUE;
 						gbCtHBurstCount = 0;
 						gCTHDisplay.MuzzleSwayPercentage = (gCTHDisplay.MuzzleSwayPercentage + uiHitChance)/2;
-						gCTHDisplay.iShooterGridNo = pSoldier->sGridNo;
+						gCTHDisplay.iShooterGridNo = pSoldier->position().gridNo();
 						gCTHDisplay.iTargetGridNo = usMapPos;
 						
 						// Calculate distance to target
 						INT16 sX, sY, sXMap, sYMap;
-						ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+						ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 						ConvertGridNoToCenterCellXY(usMapPos, &sXMap, &sYMap);
 
 						FLOAT dDeltaX = (FLOAT)( sX - sXMap );
@@ -777,7 +777,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 						// CTH for the first bullet is entered into this array, and later displayed
 						gCTHDisplay.MuzzleSwayPercentage = (gCTHDisplay.MuzzleSwayPercentage + uiHitChance)/2;
-						gCTHDisplay.iShooterGridNo = pSoldier->sGridNo;
+						gCTHDisplay.iShooterGridNo = pSoldier->position().gridNo();
 						gCTHDisplay.iTargetGridNo = usMapPos;
 
 						// Flag to tell the program to draw two CTH bars.
@@ -786,7 +786,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 						// Calculate distance to target
 						INT16 sX, sY, sXMap, sYMap;
-						ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+						ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 						ConvertGridNoToCenterCellXY(usMapPos, &sXMap, &sYMap);
 
 						FLOAT dDeltaX = (FLOAT)(sX - sXMap);
@@ -887,12 +887,12 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 					// CTH for the first bullet is entered into this array, and later displayed
 					gCTHDisplay.MuzzleSwayPercentage = (gCTHDisplay.MuzzleSwayPercentage + uiHitChance)/2;
-					gCTHDisplay.iShooterGridNo = pSoldier->sGridNo;
+					gCTHDisplay.iShooterGridNo = pSoldier->position().gridNo();
 					gCTHDisplay.iTargetGridNo = usMapPos;
 
 					// Calculate distance to target
 					INT16 sX, sY, sXMap, sYMap;
-					ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+					ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 					ConvertGridNoToCenterCellXY(usMapPos, &sXMap, &sYMap);
 
 					FLOAT dDeltaX = (FLOAT)(sX - sXMap);
@@ -1675,7 +1675,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 	INT8							bFutureAim;
 	BOOLEAN						fEnoughPoints = TRUE;
 
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return KNIFE_REG_UICURSOR;
 	}
@@ -1812,7 +1812,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 	INT8							bFutureAim;
 	BOOLEAN						fEnoughPoints = TRUE;
 
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return ACTION_PUNCH_GRAY;
 	}
@@ -1939,7 +1939,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 UINT8 HandleAidCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return ACTION_FIRSTAID_GRAY;
 	}
@@ -2050,7 +2050,7 @@ UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEA
 	if ( fRecalc )
 	{
 		// Calculate chance to throw here.....
-		if ( sGridNo == pSoldier->sGridNo )
+		if ( sGridNo == pSoldier->position().gridNo() )
 		{
 			fBadCTGH = FALSE;
 		}
@@ -2116,7 +2116,7 @@ UINT8 HandleWirecutterCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCur
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_WIREFENCE );
 
 	// Are we over a cuttable fence?
-	if ( IsCuttableWireFenceAtGridNo( sGridNo ) && pSoldier->pathing.bLevel == 0 )
+	if ( IsCuttableWireFenceAtGridNo( sGridNo ) && pSoldier->position().level() == 0 )
 	{
 		return( GOOD_WIRECUTTER_UICURSOR );
 	}
@@ -2137,7 +2137,7 @@ UINT8 HandleRepairCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_REPAIR );
 
 	// Are we over a cuttable fence?
-	if ( IsRepairableStructAtGridNo( sGridNo, NULL ) && pSoldier->pathing.bLevel == 0 )
+	if ( IsRepairableStructAtGridNo( sGridNo, NULL ) && pSoldier->position().level() == 0 )
 	{
 		return( GOOD_REPAIR_UICURSOR );
 	}
@@ -2151,7 +2151,7 @@ UINT8 HandleRefuelCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_REFUEL );
 
 	// Are we over a cuttable fence?
-	if ( IsRefuelableStructAtGridNo( sGridNo, NULL ) && pSoldier->pathing.bLevel == 0 )
+	if ( IsRefuelableStructAtGridNo( sGridNo, NULL ) && pSoldier->position().level() == 0 )
 	{
 		return( REFUEL_RED_UICURSOR );
 	}
@@ -2162,7 +2162,7 @@ UINT8 HandleRefuelCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 
 UINT8 HandleJarCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return BAD_JAR_UICURSOR;
 	}
@@ -2170,7 +2170,7 @@ UINT8 HandleJarCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlag
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_JAR );
 
 	// Are we over a cuttable fence?
-	if ( IsCorpseAtGridNo( sGridNo, pSoldier->pathing.bLevel ) )
+	if ( IsCorpseAtGridNo( sGridNo, pSoldier->position().level() ) )
 	{
 		return( GOOD_JAR_UICURSOR );
 	}
@@ -2185,7 +2185,7 @@ UINT8 HandleTinCanCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 	INT32 sIntTileGridNo;
 	LEVELNODE					*pIntTile;
 
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return PLACE_TINCAN_RED_UICURSOR;
 	}
@@ -2252,7 +2252,7 @@ UINT8 HandleCameraCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 
 UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return BLOODBAG_RED_UICURSOR;
 	}
@@ -2262,7 +2262,7 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 	if ( HasItemFlag( ( &( pSoldier->inv[HANDPOS] ) )->usItem, EMPTY_BLOOD_BAG ) )
 	{
 		// is there a person here?
-		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->pathing.bLevel );
+		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
 			if ( usSoldierIndex != pSoldier->ubID && usSoldierIndex->IsValidBloodDonor() )
@@ -2275,7 +2275,7 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 
 UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return SPLINT_RED_UICURSOR;
 	}
@@ -2297,7 +2297,7 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 		}
 
 		// is there a person here?
-		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->pathing.bLevel );
+		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
 			if ( usSoldierIndex != pSoldier->ubID && usSoldierIndex->CanReceiveSplint() )
@@ -2310,7 +2310,7 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 
 UINT8 HandleBombCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return PLACE_BOMB_GREY_UICURSOR;
 	}
@@ -2343,14 +2343,14 @@ UINT8 HandleBombCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated
 
 UINT8 HandleFortificationCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return FORTIFICATION_RED_UICURSOR;
 	}
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_FORTIFICATION );
 
-	if ( pSoldier->pathing.bLevel != 0 )
+	if ( pSoldier->position().level() != 0 )
 		return( FORTIFICATION_RED_UICURSOR );
 	
 	if ( IsFortificationPossibleAtGridNo( sGridNo ) && IsStructureConstructItem( pSoldier->inv[HANDPOS].usItem, sGridNo, pSoldier ) )
@@ -2372,7 +2372,7 @@ UINT8 HandleFortificationCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 ui
 
 UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return HANDCUFF_RED_UICURSOR;
 	}
@@ -2383,7 +2383,7 @@ UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	if ( HasItemFlag( (&(pSoldier->inv[HANDPOS]))->usItem, HANDCUFFS ) )
 	{
 		// is there a person here?
-		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->pathing.bLevel );
+		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if (usSoldierIndex != NOBODY && usSoldierIndex->bVisible >= 0 && usSoldierIndex->CanBeCaptured())
 		{
 			return( HANDCUFF_GREY_UICURSOR );
@@ -2395,7 +2395,7 @@ UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 
 UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags)
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return APPLYITEM_RED_UICURSOR;
 	}
@@ -2405,7 +2405,7 @@ UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	if (ItemCanBeAppliedToOthers((&(pSoldier->inv[HANDPOS]))->usItem))
 	{
 		// is there a person here?
-		SoldierID ubPerson = WhoIsThere2(sGridNo, pSoldier->pathing.bLevel);
+		SoldierID ubPerson = WhoIsThere2(sGridNo, pSoldier->position().level());
 		if (ubPerson != NOBODY && ubPerson->bVisible >= 0)
 		{
 			return(APPLYITEM_GREY_UICURSOR);
@@ -2417,7 +2417,7 @@ UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 
 UINT8 HandleHackCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
-	if (pSoldier->pathing.bLevel != gsInterfaceLevel)
+	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
 		return NO_UICURSOR;
 	}
@@ -2425,8 +2425,8 @@ UINT8 HandleHackCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFla
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_INTERACTIVEACTION );
 
 	UINT16 structindex;
-	UINT16 possibleaction = InteractiveActionPossibleAtGridNo( sGridNo, pSoldier->pathing.bLevel, structindex );
-	UINT16 skill = pSoldier->GetInteractiveActionSkill( sGridNo, pSoldier->pathing.bLevel, possibleaction );
+	UINT16 possibleaction = InteractiveActionPossibleAtGridNo( sGridNo, pSoldier->position().level(), structindex );
+	UINT16 skill = pSoldier->GetInteractiveActionSkill( sGridNo, pSoldier->position().level(), possibleaction );
 
 	if ( possibleaction == INTERACTIVE_STRUCTURE_HACKABLE )
 		return skill ? HACK_GREY_UICURSOR : HACK_RED_UICURSOR;
@@ -2582,7 +2582,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
 	{
-		usMapPos = gusUIFullTargetID->sGridNo;
+		usMapPos = gusUIFullTargetID->position().gridNo();
 	}
 
 
@@ -2609,8 +2609,8 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					{
 						// Get target soldier, if one exists
 						pTSoldier = gusUIFullTargetID;
-						sGridNo = pTSoldier->sGridNo;
-						bTargetLevel = pSoldier->pathing.bLevel;
+						sGridNo = pTSoldier->position().gridNo();
+						bTargetLevel = pSoldier->position().level();
 
 						if ( !HandleCheckForBadChangeToGetThrough( pSoldier, pTSoldier, sGridNo , bTargetLevel ) )
 						{
@@ -2727,8 +2727,8 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 				{
 					// Get target soldier, if one exists
 					pTSoldier = gusUIFullTargetID;
-					sGridNo = pTSoldier->sGridNo;
-					bTargetLevel = pSoldier->pathing.bLevel;
+					sGridNo = pTSoldier->position().gridNo();
+					bTargetLevel = pSoldier->position().level();
 
 					if ( !HandleCheckForBadChangeToGetThrough( pSoldier, pTSoldier, sGridNo , bTargetLevel ) )
 					{
@@ -3005,7 +3005,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 		GetMouseMapPos( &usMapPos );
 
 		UINT16 structindex;
-		UINT16 possibleaction = InteractiveActionPossibleAtGridNo( usMapPos, pSoldier->pathing.bLevel, structindex );
+		UINT16 possibleaction = InteractiveActionPossibleAtGridNo( usMapPos, pSoldier->position().level(), structindex );
 		if ( possibleaction > INTERACTIVE_STRUCTURE_NO_ACTION )
 			ubCursor = INTERACTIVEACTIONCURS;
 	}
@@ -3021,7 +3021,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 			if ( GetMouseMapPos( &usMapPos ) )
 			{
 				// is there a person here?
-				SoldierID ubPerson = WhoIsThere2(usMapPos, pSoldier->pathing.bLevel);
+				SoldierID ubPerson = WhoIsThere2(usMapPos, pSoldier->position().level());
 				if (ubPerson != NOBODY && ubPerson->bVisible >= 0)
 				{
 					ubCursor = APPLYITEMCURS;
@@ -3036,7 +3036,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 		
 	// WANNE.WATER: Allow shooting if we are on a "water" tile, but on level > 0
 	// Now check our terrain to see if we cannot do the action now...
-	if ( WaterTooDeepForAttacks( pSoldier->sGridNo, pSoldier->pathing.bLevel) && pSoldier->pathing.bLevel == 0 )
+	if ( WaterTooDeepForAttacks( pSoldier->position().gridNo(), pSoldier->position().level()) && pSoldier->position().level() == 0 )
 	{
 		ubCursor = INVALIDCURS;
 	}
@@ -3180,7 +3180,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 			// warn if bad chance to get through
 			if ( gfUIFullTargetFound &&
 				!HandleCheckForBadChangeToGetThrough( pSoldier, gusUIFullTargetID,
-							gusUIFullTargetID->sGridNo , gusUIFullTargetID->pathing.bLevel ) )
+							gusUIFullTargetID->sGridNo , gusUIFullTargetID->position().level() ) )
 			{
 				return;
 			}
@@ -3443,7 +3443,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 					// Get target soldier, if one exists
 					pTSoldier = gusUIFullTargetID;
 					sGridNo = pTSoldier->sGridNo;
-					bTargetLevel = pSoldier->pathing.bLevel;
+					bTargetLevel = pSoldier->position().level();
 
 					if ( !HandleCheckForBadChangeToGetThrough( pSoldier, pTSoldier, sGridNo , bTargetLevel ) )
 						return;
@@ -3607,7 +3607,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
-		sMapPos = gusUIFullTargetID->sGridNo;
+		sMapPos = gusUIFullTargetID->position().gridNo();
 	
 	int aimlevelchange = 1;
 	int maxAimCanAfford = 0;
@@ -3681,8 +3681,8 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 					{
 						// Get target soldier, if one exists
 						pTSoldier = gusUIFullTargetID;
-						sGridNo = pTSoldier->sGridNo;
-						bTargetLevel = pSoldier->pathing.bLevel;
+						sGridNo = pTSoldier->position().gridNo();
+						bTargetLevel = pSoldier->position().level();
 
 						if ( !HandleCheckForBadChangeToGetThrough( pSoldier, pTSoldier, sGridNo , bTargetLevel ) )
 						{
@@ -3835,7 +3835,7 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
 	{
-		sMapPos = gusUIFullTargetID->sGridNo;
+		sMapPos = gusUIFullTargetID->position().gridNo();
 	}
 
 
@@ -3908,8 +3908,8 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 				{
 					// Get target soldier, if one exists
 					pTSoldier = gusUIFullTargetID;
-					sGridNo = pTSoldier->sGridNo;
-					bTargetLevel = pSoldier->pathing.bLevel;
+					sGridNo = pTSoldier->position().gridNo();
+					bTargetLevel = pSoldier->position().level();
 
 					if ( !HandleCheckForBadChangeToGetThrough( pSoldier, pTSoldier, sGridNo , bTargetLevel ) )
 						return;

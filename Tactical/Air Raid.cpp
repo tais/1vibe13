@@ -283,7 +283,7 @@ BOOLEAN BeginAirRaid( )
 
 		gpRaidSoldier = MercPtrs[ MAX_NUM_SOLDIERS - 1 ];
 		gpRaidSoldier->initialize();
-		gpRaidSoldier->pathing.bLevel = 0;
+		gpRaidSoldier->position().level() = 0;
 		gpRaidSoldier->bTeam = 1;
 		gpRaidSoldier->bSide = 1;
 		gpRaidSoldier->ubID	= MAX_NUM_SOLDIERS - 1;
@@ -336,7 +336,7 @@ static INT32 PickLocationNearAnyMercInSector( )
 		ubChosenMerc = (UINT16)Random( ubNumMercs );
 
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickLocationNearAnyMercInSector: chosen guy = %d",ubChosenMerc));
-		return( MercPtrs[ ubMercsInSector[ ubChosenMerc ] ]->sGridNo );
+		return( MercPtrs[ ubMercsInSector[ ubChosenMerc ] ]->position().gridNo() );
 	}
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickLocationNearAnyMercInSector: no target"));
@@ -775,7 +775,7 @@ static void DoDive(	)
 
 			// Figure gridno....
 			sGridNo = GETWORLDINDEXFROMWORLDCOORDS( gsDiveY, gsDiveX );
-			gpRaidSoldier->sGridNo = sGridNo;
+			gpRaidSoldier->position().gridNo() = sGridNo;
 
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DoDive: figure out grid number, sgridno = %d, soldgridno = %d", sGridNo, sOldGridNo));
 			if ( sOldGridNo != sGridNo )
@@ -834,7 +834,7 @@ static void DoDive(	)
 				gpRaidSoldier->sX			= sX;
 				gpRaidSoldier->dYPos	= sY;
 				gpRaidSoldier->sY			= sY;
-				gpRaidSoldier->sGridNo = GETWORLDINDEXFROMWORLDCOORDS( sY, sX );
+				gpRaidSoldier->position().gridNo() = GETWORLDINDEXFROMWORLDCOORDS( sY, sX );
 
 				// Get target.....
 				sStrafeX = (INT16)( sX + dDeltaXPos );
@@ -946,7 +946,7 @@ static void DoBombing(	)
 
 			// Figure gridno....
 			sGridNo = GETWORLDINDEXFROMWORLDCOORDS( gsDiveY, gsDiveX );
-			gpRaidSoldier->sGridNo = sGridNo;
+			gpRaidSoldier->position().gridNo() = sGridNo;
 
 			if ( sOldGridNo != sGridNo )
 			{
@@ -1334,7 +1334,7 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 
 //	if( gpRaidSoldier )
 //	{
-//		sAirRaidSaveStruct.bLevel = gpRaidSoldier->pathing.bLevel;
+//		sAirRaidSaveStruct.bLevel = gpRaidSoldier->position().level();
 //		sAirRaidSaveStruct.bTeam = gpRaidSoldier->bTeam;
 //		sAirRaidSaveStruct.bSide = gpRaidSoldier->bSide;
 //		sAirRaidSaveStruct.ubAttackerID = gpRaidSoldier->ubAttackerID;
@@ -1411,7 +1411,7 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 	{
 		gpRaidSoldier = sAirRaidSaveStruct.sRaidSoldierID;
 
-		gpRaidSoldier->pathing.bLevel = sAirRaidSaveStruct.bLevel;
+		gpRaidSoldier->position().level() = sAirRaidSaveStruct.bLevel;
 		gpRaidSoldier->bTeam = sAirRaidSaveStruct.bTeam;
 		gpRaidSoldier->bSide = sAirRaidSaveStruct.bSide;
 		gpRaidSoldier->ubAttackerID = sAirRaidSaveStruct.ubAttackerID;
@@ -1420,7 +1420,7 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 		gpRaidSoldier->dYPos = sAirRaidSaveStruct.dYPos;
 		gpRaidSoldier->sX = sAirRaidSaveStruct.sX;
 		gpRaidSoldier->sY = sAirRaidSaveStruct.sY;
-		gpRaidSoldier->sGridNo = sAirRaidSaveStruct.sGridNo;
+		gpRaidSoldier->position().gridNo() = sAirRaidSaveStruct.sGridNo;
 	}
 	else
 		gpRaidSoldier = NULL;

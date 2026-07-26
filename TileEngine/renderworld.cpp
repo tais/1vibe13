@@ -1315,16 +1315,16 @@ static void ShowRiotShield( SOLDIERTYPE* pSoldier, PIXEL *pBuffer, UINT32 uiDest
 
 		// Get screen pos of gridno......
 		INT16					sScreenX, sScreenY;
-		GetGridNoScreenXY(pSoldier->sGridNo, &sScreenX, &sScreenY);
+		GetGridNoScreenXY(pSoldier->position().gridNo(), &sScreenX, &sScreenY);
 
 		// take height level into account
-		if ( pSoldier->pathing.bLevel == 1 )
+		if ( pSoldier->position().level() == 1 )
 			sScreenY -= 50;
 
 		// try to keep the shield 'moving' alongside the soldier. This won't work perfectly, but it's better than nothing		
 		INT16 base_x = 0;
 		INT16 base_y = 0;
-		ConvertGridNoToCenterCellXY( pSoldier->sGridNo, &base_x, &base_y );
+		ConvertGridNoToCenterCellXY( pSoldier->position().gridNo(), &base_x, &base_y );
 
 		INT16 dx = pSoldier->sX - base_x;
 		INT16 dy = pSoldier->sY - base_y;
@@ -1359,7 +1359,7 @@ static void ShowRiotShield( SOLDIERTYPE* pSoldier, PIXEL *pBuffer, UINT32 uiDest
 			usZValue, hSrcVObject,
 			sScreenX - 20 + offset_x,
 			sScreenY - 60 + offset_y,
-			offset * 8 + pSoldier->ubDirection,
+			offset * 8 + pSoldier->position().direction(),
 			FALSE, &gClippingRect);
 	}
 }
@@ -1759,7 +1759,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 	PIXEL * pShadeTable;
 	// Shade guy always lighter than scene default!
 	{
-		const auto GridNo = pSoldier->sGridNo;
+		const auto GridNo = pSoldier->position().gridNo();
 		if (GridNo == NOWHERE)
 		{
 			pShadeTable = pPaletteTable->pCurrentShade = pPaletteTable->pShades[DEFAULT_SHADE_LEVEL];
@@ -1767,7 +1767,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 		}
 		UINT8 ubShadeLevel = gpWorldLevelData[GridNo].pLandHead->ubShadeLevel;
 		// If merc is on a roof, shade according to roof brightness
-		if (pSoldier->pathing.bLevel > 0 && gpWorldLevelData[GridNo].pRoofHead != NULL)
+		if (pSoldier->position().level() > 0 && gpWorldLevelData[GridNo].pRoofHead != NULL)
 		{
 			ubShadeLevel = gpWorldLevelData[GridNo].pRoofHead->ubShadeLevel;
 		}
@@ -1822,7 +1822,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 				}
 			}
 			PIXEL ** pShadeStart;
-			if (pSoldier->pathing.bLevel == 0)
+			if (pSoldier->position().level() == 0)
 			{
 				pShadeStart = (PIXEL **) & (pPaletteTable->pGlowShades[0]);
 			}
@@ -2697,7 +2697,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 									}
 
 									// If we are at a higher level, no not do anything unless we are at the highmerc stage
-									if (pSoldier->pathing.bLevel > 0)
+									if (pSoldier->position().level() > 0)
 									{
 										pNode = pNode->pNext;
 										continue;
@@ -2714,7 +2714,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 									}
 
 									// If we are at a lower level, no not do anything unless we are at the highmerc stage
-									if (pSoldier->pathing.bLevel == 0)
+									if (pSoldier->position().level() == 0)
 									{
 										pNode = pNode->pNext;
 										continue;
@@ -2728,7 +2728,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 									if (!(pSoldier->flags.uiStatusFlags & (SOLDIER_MULTITILE_Z | SOLDIER_Z)))
 									{
 										// If we are at a low level, no not do anything unless we are at the merc stage
-										if (pSoldier->pathing.bLevel == 0)
+										if (pSoldier->position().level() == 0)
 										{
 											pNode = pNode->pNext;
 											continue;
@@ -2750,7 +2750,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 											}
 											else
 											{
-												sMultiTransShadowZBlitterIndex = gOneCDirection[pSoldier->ubDirection];
+												sMultiTransShadowZBlitterIndex = gOneCDirection[pSoldier->position().direction()];
 											}
 										}
 										else
@@ -3544,9 +3544,9 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 												// Flugente: draw riot shield UNDER the soldier
 												if ( pSoldier &&
 													pSoldier->bVisible != -1 &&
-													( pSoldier->ubDirection == NORTH ||
-														pSoldier->ubDirection == NORTHWEST ||
-														pSoldier->ubDirection == WEST )
+													( pSoldier->position().direction() == NORTH ||
+														pSoldier->position().direction() == NORTHWEST ||
+														pSoldier->position().direction() == WEST )
 													&& pSoldier->IsRiotShieldEquipped() )
 												{
 													ShowRiotShield( pSoldier, (PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel );
@@ -3620,11 +3620,11 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 												// Flugente: draw riot shield OVER the soldier
 												if ( pSoldier &&
 													pSoldier->bVisible != -1 &&
-													( pSoldier->ubDirection == EAST ||
-														pSoldier->ubDirection == SOUTHEAST ||
-														pSoldier->ubDirection == SOUTH ||
-														pSoldier->ubDirection == SOUTHWEST ||
-														pSoldier->ubDirection == NORTHEAST )
+													( pSoldier->position().direction() == EAST ||
+														pSoldier->position().direction() == SOUTHEAST ||
+														pSoldier->position().direction() == SOUTH ||
+														pSoldier->position().direction() == SOUTHWEST ||
+														pSoldier->position().direction() == NORTHEAST )
 													&& pSoldier->IsRiotShieldEquipped() )
 												{
 													ShowRiotShield( pSoldier, (PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel );

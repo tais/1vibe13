@@ -895,7 +895,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	}
 
 	//Get the range to the target location
-	usRange = GetRangeInCellCoordsFromGridNoDiff(pSoldier->sGridNo, sTargetGridNo);
+	usRange = GetRangeInCellCoordsFromGridNoDiff(pSoldier->position().gridNo(), sTargetGridNo);
 	UINT8 ubItemCursor = GetActionModeCursor(pSoldier);
 	UINT32 uiHitChance = 0;
 	UINT16 usGunRange = 0;
@@ -1151,7 +1151,7 @@ void CalculateMines()
 			return;
 	}
 
-	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->sGridNo;
+	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
 
 	for ( auto& cell : gCoverViewArea )
 	{
@@ -1383,7 +1383,7 @@ void CalculateTraitRange()
 			return;
 	}
 
-	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->sGridNo;
+	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
 
 
 	for ( auto& cell : gCoverViewArea )
@@ -1493,7 +1493,7 @@ void CalculateTrackerRange()
 
 
 	const UINT16 range = gSkillTraitValues.usSVTrackerMaxRange * trackerskill;
-	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->sGridNo;
+	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
 
 	for ( auto& cell : gCoverViewArea )
 	{
@@ -1649,7 +1649,7 @@ void CalculateWeapondata()
 		return;
 
 	const BOOLEAN guninhand = WeaponInHand(pSoldier);
-	const INT32 sSelectedSoldierGridNo = gusSelectedSoldier->sGridNo;
+	const INT32 sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
 
 	if ( TileIsOutOfBounds(sSelectedSoldierGridNo) )
 		return;
@@ -1751,7 +1751,7 @@ void CalculateWeapondata()
 			bOverlayType = MIN_COVER;
 		else
 		{
-			if ( GetDirectionToGridNoFromGridNo(sSelectedSoldierGridNo, sGridNo) != pSoldier->ubDirection )
+			if ( GetDirectionToGridNoFromGridNo(sSelectedSoldierGridNo, sGridNo) != pSoldier->position().direction() )
 				continue;
 
 			if ( guninhand && gunrange > 0 && PythSpacesAway(sSelectedSoldierGridNo, sGridNo) <= gunrange )

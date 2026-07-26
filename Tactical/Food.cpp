@@ -1194,7 +1194,7 @@ void DrinkFromWaterTap( SOLDIERTYPE* pSoldier )
 	// play water sound
 	if ( pSoldier->bTeam == gbPlayerNum && gGameExternalOptions.fFoodEatingSounds )
 	{
-		PlayJA2SampleFromFile( "Sounds\\watertap.wav", RATE_11025, SoundVolume( MIDVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+		PlayJA2SampleFromFile( "Sounds\\watertap.wav", RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 	}
 
 	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szInteractiveActionText[8], pSoldier->GetName( ) );

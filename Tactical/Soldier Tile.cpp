@@ -48,11 +48,11 @@ void OutputDebugInfoForTurnBasedNextTileWaiting( SOLDIERTYPE * pSoldier )
 		INT32	usTemp = NOWHERE;
 		INT32	usNewGridNo;
 
-		usNewGridNo = NewGridNo( pSoldier->sGridNo, DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) );
+		usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) );
 
 		// provide more info!!
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("	Soldier path size %d, index %d", pSoldier->pathing.usPathDataSize, pSoldier->pathing.usPathIndex ) );
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("	Who is at blocked gridno: %d", WhoIsThere2( usNewGridNo, pSoldier->pathing.bLevel ) ) );
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("	Who is at blocked gridno: %d", WhoIsThere2( usNewGridNo, pSoldier->position().level() ) ) );
 
 		for ( uiLoop = 0; uiLoop < pSoldier->pathing.usPathDataSize; uiLoop++ )
 		{
@@ -90,7 +90,7 @@ void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, INT8 bVal
 
 	// ATE: Now update realtime movement speed....
 	// check if guy exists here...
-	SoldierID ubPerson = WhoIsThere2( sCauseGridNo, pSoldier->pathing.bLevel );
+	SoldierID ubPerson = WhoIsThere2( sCauseGridNo, pSoldier->position().level() );
 
 	// There may not be anybody there, but it's reserved by them!
 	if ( ( gpWorldLevelData[ sCauseGridNo ].uiFlags & MAPELEMENT_MOVEMENT_RESERVED ) )
@@ -122,7 +122,7 @@ void SetFinalTile( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 	//	pSoldier->ubWaitActionToDo = 0;
 	//	gbNumMercsUntilWaitingOver--;
 	//}
-	pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
+	pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
 
 	#ifdef JA2BETAVERSION
 		if ( IsJa2TacticalCombatActive() )
@@ -136,7 +136,7 @@ void SetFinalTile( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->name );
 	}
 
-	pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+	pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 }
 
@@ -224,7 +224,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 				// Are we only temporarily blocked?
 				// Check if our final destination is = our gridno
-				if ( ( ubPerson->pathing.sFinalDestination == ubPerson->sGridNo )	)
+				if ( ( ubPerson->pathing.sFinalDestination == ubPerson->position().gridNo() )	)
 				{
 					return( MOVE_TILE_STATIONARY_BLOCKED );
 				}
@@ -237,7 +237,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 						// OK, try and get a path around buddy....
 						// We have to temporarily make buddy stopped...
 						sTempDestGridNo = ubPerson->pathing.sFinalDestination;
-						ubPerson->pathing.sFinalDestination = ubPerson->sGridNo;
+						ubPerson->pathing.sFinalDestination = ubPerson->position().gridNo();
 
 						if ( PlotPath( pSoldier, pSoldier->pathing.sFinalDestination, NO_COPYROUTE, NO_PLOT, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints ) )
 						{
@@ -249,9 +249,9 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 							pSoldier->flags.fBlockedByAnotherMerc = FALSE;
 
 							// Is the next tile blocked too?
-							sNewGridNo = NewGridNo( pSoldier->sGridNo, DirectionInc( (UINT8)guiPathingData[ 0 ] ) );
+							sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)guiPathingData[ 0 ] ) );
 
-							return( TileIsClear( pSoldier, (UINT8)guiPathingData[ 0 ], sNewGridNo, pSoldier->pathing.bLevel ) );
+							return( TileIsClear( pSoldier, (UINT8)guiPathingData[ 0 ], sNewGridNo, pSoldier->position().level() ) );
 						}
 						else
 						{
@@ -260,7 +260,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 								if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE ) )
 								{
 									// Is the next movement cost for a door?
-									if ( DoorTravelCost( pSoldier, sGridNo, gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->pathing.bLevel ], (BOOLEAN)( pSoldier->bTeam == gbPlayerNum ), NULL ) == TRAVELCOST_DOOR )
+									if ( DoorTravelCost( pSoldier, sGridNo, gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->position().level() ], (BOOLEAN)( pSoldier->bTeam == gbPlayerNum ), NULL ) == TRAVELCOST_DOOR )
 									{
 										fSwapInDoor = TRUE;
 									}
@@ -299,7 +299,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 					return( MOVE_TILE_STATIONARY_BLOCKED );
 				}
-				if ( ubPerson->sGridNo == ubPerson->pathing.sFinalDestination )
+				if ( ubPerson->position().gridNo() == ubPerson->pathing.sFinalDestination )
 				{
 					return( MOVE_TILE_STATIONARY_BLOCKED );
 				}
@@ -317,13 +317,13 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 	}
 
 	// Are we clear of structs?
-	if ( !NewOKDestination( pSoldier, sGridNo, FALSE, pSoldier->pathing.bLevel ) )
+	if ( !NewOKDestination( pSoldier, sGridNo, FALSE, pSoldier->position().level() ) )
 	{
 			// ATE: Fence cost is an exclusiuon here....
-			if ( gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->pathing.bLevel ] != TRAVELCOST_FENCE )
+			if ( gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->position().level() ] != TRAVELCOST_FENCE )
 			{
 				// ATE: HIdden structs - we do something here... reveal it!
-				if ( gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->pathing.bLevel ] == TRAVELCOST_HIDDENOBSTACLE )
+				if ( gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->position().level() ] == TRAVELCOST_HIDDENOBSTACLE )
 				{
 					gpWorldLevelData[ sGridNo ].uiFlags|=MAPELEMENT_REVEALED;
 					gpWorldLevelData[ sGridNo ].uiFlags|=MAPELEMENT_REDRAW;
@@ -367,7 +367,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 	}
 
 	{
-		bBlocked = TileIsClear( pSoldier, bDirection, sGridNo, pSoldier->pathing.bLevel );
+		bBlocked = TileIsClear( pSoldier, bDirection, sGridNo, pSoldier->position().level() );
 
 		// Check if we are blocked...
 		if ( bBlocked != MOVE_TILE_CLEAR )
@@ -377,7 +377,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 			if ( sGridNo == sFinalDestTile && pSoldier->ubWaitActionToDo == 0 && (pSoldier->bTeam == gbPlayerNum || TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination)) )
 			{
 				// Yah, well too bad, stop here.
-				SetFinalTile( pSoldier, pSoldier->sGridNo, FALSE );
+				SetFinalTile( pSoldier, pSoldier->position().gridNo(), FALSE );
 
 				return( FALSE );
 			}
@@ -396,7 +396,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 							OutputDebugInfoForTurnBasedNextTileWaiting( pSoldier );
 						}
 					#endif
-					pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 					// Restore...
 					pSoldier->pathing.sFinalDestination = sOldFinalDest;
 
@@ -418,7 +418,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 							OutputDebugInfoForTurnBasedNextTileWaiting( pSoldier );
 						}
 					#endif
-					pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 					// Restore...
 					pSoldier->pathing.sFinalDestination = sOldFinalDest;
 
@@ -441,7 +441,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 
 			// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
 			// This should fix "problems" for special modified maps
-			if ( TERRAIN_IS_WATER( bOverTerrainType) && pSoldier->pathing.bLevel > 0 )
+			if ( TERRAIN_IS_WATER( bOverTerrainType) && pSoldier->position().level() > 0 )
 				bOverTerrainType = FLAT_GROUND;
 
 			// Check if we are going into water!
@@ -497,9 +497,9 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 			}
 
 			// Get direction from gridno...
-			bCauseDirection = (INT8)GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, pSoldier->sDelayedMovementCauseGridNo );
+			bCauseDirection = (INT8)GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldier->sDelayedMovementCauseGridNo );
 
-			bBlocked = TileIsClear( pSoldier, bCauseDirection, pSoldier->sDelayedMovementCauseGridNo, pSoldier->pathing.bLevel );
+			bBlocked = TileIsClear( pSoldier, bCauseDirection, pSoldier->sDelayedMovementCauseGridNo, pSoldier->position().level() );
 
 			// If we are waiting for a temp blockage.... continue to wait
 			if ( pSoldier->flags.fDelayedMovement >= 100 &&	bBlocked == MOVE_TILE_TEMP_BLOCKED )
@@ -511,7 +511,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				if ( pSoldier->flags.fDelayedMovement > 120 )
 				{
 					// Quit...
-					SetFinalTile( pSoldier, pSoldier->sGridNo, TRUE );
+					SetFinalTile( pSoldier, pSoldier->position().gridNo(), TRUE );
 					pSoldier->flags.fDelayedMovement = FALSE;
 				}
 				gfPlotPathToExitGrid = FALSE;
@@ -546,7 +546,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 					// on last lap of scripted move, make sure we get to final dest
 					sCheckGridNo = pSoldier->sAbsoluteFinalDestination;
 				}
-				else if (!NewOKDestination( pSoldier, pSoldier->pathing.sFinalDestination, TRUE, pSoldier->pathing.bLevel ))
+				else if (!NewOKDestination( pSoldier, pSoldier->pathing.sFinalDestination, TRUE, pSoldier->position().level() ))
 				{
 					if ( pSoldier->flags.fDelayedMovement >= 150 )
 					{
@@ -576,26 +576,26 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 					sCheckGridNo = pSoldier->pathing.sFinalDestination;
 				}
 
-				sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, NO_COPYROUTE, fFlags );
+				sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, fFlags );
 
 				// Can we get there
 				if ( sCost > 0 )
 				{
 					// Is the next tile blocked too?
-					sNewGridNo = NewGridNo( pSoldier->sGridNo, DirectionInc( (UINT8)guiPathingData[ 0 ] ) );
+					sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)guiPathingData[ 0 ] ) );
 
-					bPathBlocked = TileIsClear( pSoldier, (UINT8)guiPathingData[ 0 ], sNewGridNo, pSoldier->pathing.bLevel );
+					bPathBlocked = TileIsClear( pSoldier, (UINT8)guiPathingData[ 0 ], sNewGridNo, pSoldier->position().level() );
 
 					if ( bPathBlocked == MOVE_TILE_STATIONARY_BLOCKED )
 					{
 						// Try to path around everyone except dest person
 
-						sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST );
+						sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST );
 
 						// Is the next tile in this new path blocked too?
-						sNewGridNo = NewGridNo( pSoldier->sGridNo, DirectionInc( (UINT8)guiPathingData[ 0 ] ) );
+						sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)guiPathingData[ 0 ] ) );
 
-						bPathBlocked = TileIsClear( pSoldier, (UINT8)guiPathingData[ 0 ], sNewGridNo, pSoldier->pathing.bLevel );
+						bPathBlocked = TileIsClear( pSoldier, (UINT8)guiPathingData[ 0 ], sNewGridNo, pSoldier->position().level() );
 
 						// now working with a path which does not go through people
 						pSoldier->ubDelayedMovementFlags &= (~DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE);
@@ -637,7 +637,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				if (pSoldier->flags.fDelayedMovement == 3 && (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) || gTacticalStatus.fAutoBandageMode) )
 				{
 					// with person who is in the way?
-					ubPerson = WhoIsThere2( pSoldier->sDelayedMovementCauseGridNo, pSoldier->pathing.bLevel );
+					ubPerson = WhoIsThere2( pSoldier->sDelayedMovementCauseGridNo, pSoldier->position().level() );
 
 					// if either on a mission from god, or two AI guys not on stationary...
 					if ( ubPerson != NOBODY && ( pSoldier->ubQuoteRecord != 0 || ( pSoldier->bTeam != gbPlayerNum && pSoldier->aiData.bOrders != STATIONARY && ubPerson->bTeam != gbPlayerNum && ubPerson->aiData.bOrders != STATIONARY ) || (pSoldier->bTeam == gbPlayerNum && gTacticalStatus.fAutoBandageMode && !(ubPerson->bTeam == CIV_TEAM && ubPerson->aiData.bOrders == STATIONARY ) ) ) )
@@ -657,12 +657,12 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 						// We must calculate the path here so that we can give it the "through people" parameter						
 						if ( gTacticalStatus.fAutoBandageMode && TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
 						{
-							FindBestPath( pSoldier, pSoldier->pathing.sFinalDestination, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, COPYROUTE, PATH_THROUGH_PEOPLE );
+							FindBestPath( pSoldier, pSoldier->pathing.sFinalDestination, pSoldier->position().level(), pSoldier->usUIMovementMode, COPYROUTE, PATH_THROUGH_PEOPLE );
 						}						
-						else if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) && !FindBestPath( pSoldier, pSoldier->sAbsoluteFinalDestination, pSoldier->pathing.bLevel, pSoldier->usUIMovementMode, COPYROUTE, PATH_THROUGH_PEOPLE ) )
+						else if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) && !FindBestPath( pSoldier, pSoldier->sAbsoluteFinalDestination, pSoldier->position().level(), pSoldier->usUIMovementMode, COPYROUTE, PATH_THROUGH_PEOPLE ) )
 						{
 							// check to see if we're there now!
-							if ( pSoldier->sGridNo == pSoldier->sAbsoluteFinalDestination )
+							if ( pSoldier->position().gridNo() == pSoldier->sAbsoluteFinalDestination )
 							{
 								NPCReachedDestination( pSoldier, FALSE );
 								pSoldier->aiData.bNextAction = AI_ACTION_WAIT;
@@ -682,10 +682,10 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				// Are we close enough to give up? ( and are a pc )
 				if ( pSoldier->flags.fDelayedMovement > 20 && pSoldier->flags.fDelayedMovement != 150)
 				{
-					if ( PythSpacesAway( pSoldier->sGridNo, pSoldier->pathing.sFinalDestination ) < 5 && pSoldier->bTeam == gbPlayerNum )
+					if ( PythSpacesAway( pSoldier->position().gridNo(), pSoldier->pathing.sFinalDestination ) < 5 && pSoldier->bTeam == gbPlayerNum )
 					{
 						// Quit...
-						SetFinalTile( pSoldier, pSoldier->sGridNo, FALSE );
+						SetFinalTile( pSoldier, pSoldier->position().gridNo(), FALSE );
 						pSoldier->flags.fDelayedMovement = FALSE;
 					}
 				}
@@ -693,10 +693,10 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				// Are we close enough to give up? ( and are a pc )
 				if ( pSoldier->flags.fDelayedMovement > 170 )
 				{
-					if ( PythSpacesAway( pSoldier->sGridNo, pSoldier->pathing.sFinalDestination ) < 5 && pSoldier->bTeam == gbPlayerNum )
+					if ( PythSpacesAway( pSoldier->position().gridNo(), pSoldier->pathing.sFinalDestination ) < 5 && pSoldier->bTeam == gbPlayerNum )
 					{
 						// Quit...
-						SetFinalTile( pSoldier, pSoldier->sGridNo, FALSE );
+						SetFinalTile( pSoldier, pSoldier->position().gridNo(), FALSE );
 						pSoldier->flags.fDelayedMovement = FALSE;
 					}
 				}
@@ -724,7 +724,7 @@ BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce )
 		pSoldier->pathing.sFinalDestination = sGridNo;
 
 		// Make call to FOV to update items...
-		RevealRoofsAndItems(pSoldier, TRUE, TRUE, pSoldier->pathing.bLevel, TRUE );
+		RevealRoofsAndItems(pSoldier, TRUE, TRUE, pSoldier->position().level(), TRUE );
 
 		// Handle sight!
 		HandleSight(pSoldier,SIGHT_LOOK | SIGHT_RADIO);
@@ -733,7 +733,7 @@ BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce )
 		pSoldier->GivingSoldierCancelServices( );
 
 		// Change light....
-		if ( pSoldier->pathing.bLevel == 0 )
+		if ( pSoldier->position().level() == 0 )
 		{
 			if(pSoldier->iLight!=(-1))
 				LightSpriteRoofStatus(pSoldier->iLight, FALSE );
@@ -760,8 +760,8 @@ BOOLEAN SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 )
 	}
 
 	// OK, save positions...
-	sGridNo1 = pSoldier1->sGridNo;
-	sGridNo2 = pSoldier2->sGridNo;
+	sGridNo1 = pSoldier1->position().gridNo();
+	sGridNo2 = pSoldier2->position().gridNo();
 
 	// OK, remove each.....
 	pSoldier1->RemoveSoldierFromGridNo( );
@@ -807,7 +807,7 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 		if( pSoldier2->aiData.bNeutral && pSoldier2->vitals().health() >= OKLIFE &&
 			pSoldier2->ubCivilianGroup != HICKS_CIV_GROUP &&
 			( ( pSoldier2->aiData.bOrders != STATIONARY || pSoldier2->bTeam == MILITIA_TEAM ) ||
-			( !TileIsOutOfBounds(pSoldier2->sAbsoluteFinalDestination) && pSoldier2->sAbsoluteFinalDestination != pSoldier2->sGridNo ) )
+			( !TileIsOutOfBounds(pSoldier2->sAbsoluteFinalDestination) && pSoldier2->sAbsoluteFinalDestination != pSoldier2->position().gridNo() ) )
 		)
 			return( TRUE );
 

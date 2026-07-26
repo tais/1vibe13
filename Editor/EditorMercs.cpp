@@ -923,7 +923,7 @@ INT32 IsMercHere( INT32 iMapIndex )
 	{
 		if ( GetSoldier( &pSoldier, (INT16)IDNumber ) )
 		{
-			if ( pSoldier->sGridNo == iMapIndex )
+			if ( pSoldier->position().gridNo() == iMapIndex )
 			{
 				fSoldierFound = TRUE;
 				RetIDNumber = IDNumber;
@@ -1379,7 +1379,7 @@ void DisplayWayPoints(void)
 		{
 			// Shown it on screen!
 			SetFont(TINYFONT1);
-			if( pSoldier->pathing.bLevel == 1 )
+			if( pSoldier->position().level() == 1 )
 			{
 				SetFontBackground( FONT_LTBLUE );
 				sScreenY -= 68;
@@ -1407,7 +1407,7 @@ void CreateEditMercWindow( void )
 
 
 	GetSoldier( &pSoldier, (INT16)gsSelectedMercID );
-	iEditMercLocation = (INT32)pSoldier->sGridNo;
+	iEditMercLocation = (INT32)pSoldier->position().gridNo();
 	gpWorldLevelData[ iEditMercLocation ].pObjectHead->ubShadeLevel = DEFAULT_SHADE_LEVEL;
 
 	iEditMercBkgrndArea = CreateHotSpot((INT16)iXPos, (INT16)iYPos, (INT16)iWidth, (INT16)iHeight, MSYS_PRIORITY_NORMAL, DEFAULT_MOVE_CALLBACK, EditMercBkgrndCallback );
@@ -1715,7 +1715,7 @@ void IndicateSelectedMerc( INT16 sID )
 	}
 	//if we made it this far, then we have a new merc cursor indicator to draw.
 	if( gpSelected && gpSelected->pSoldier )//dnl ch75 261013
-		gsSelectedMercGridNo = gpSelected->pSoldier->sGridNo;
+		gsSelectedMercGridNo = gpSelected->pSoldier->position().gridNo();
 	else
 	{
 		SetMercEditability( TRUE );
@@ -1766,7 +1766,7 @@ void IndicateSelectedMerc( INT16 sID )
 	//assigns the soldier with the same orders/attitude.
 	SetMercOrders( gpSelected->pSoldier->aiData.bOrders );
 	SetMercAttitude( gpSelected->pSoldier->aiData.bAttitude );
-	SetMercDirection( gpSelected->pSoldier->ubDirection );
+	SetMercDirection( gpSelected->pSoldier->position().direction() );
 	if( gpSelected->pBasicPlacement->fPriorityExistance )
 		ClickEditorButton( MERCS_PRIORITYEXISTANCE_CHECKBOX );
 	else

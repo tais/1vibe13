@@ -1557,10 +1557,10 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	// Flugente: do we have a riot shield equipped?
 	if ( pSoldier->IsRiotShieldEquipped( ) )
 	{
-		UINT8 attackdir_inverse = GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, sBombGridNo );
+		UINT8 attackdir_inverse = GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sBombGridNo );
 
 		// if the shield faces the direction of the attack, block it
-		if ( attackdir_inverse == pSoldier->ubDirection || attackdir_inverse == gOneCCDirection[pSoldier->ubDirection] || attackdir_inverse == gOneCDirection[pSoldier->ubDirection] )
+		if ( attackdir_inverse == pSoldier->position().direction() || attackdir_inverse == gOneCCDirection[pSoldier->position().direction()] || attackdir_inverse == gOneCDirection[pSoldier->position().direction()] )
 		{
 			INT32 damage = sWoundAmt;
 			INT32 breathdamage = sBreathAmt;
@@ -3288,7 +3288,7 @@ BOOLEAN HookerInRoom( UINT16 usRoom )
 
 		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiData.bNeutral && pSoldier->ubBodyType == MINICIV )
 		{
-			if ( InARoom( pSoldier->sGridNo, &usTempRoom ) && usTempRoom == usRoom )
+			if ( InARoom( pSoldier->position().gridNo(), &usTempRoom ) && usTempRoom == usRoom )
 			{
 				return( TRUE );
 			}
@@ -3617,7 +3617,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 					{
 
 						// stop the merc...
-						MercPtrs[ ubID ]->EVENT_StopMerc( MercPtrs[ ubID ]->sGridNo, MercPtrs[ ubID ]->ubDirection );
+						MercPtrs[ ubID ]->EVENT_StopMerc( MercPtrs[ ubID ]->position().gridNo(), MercPtrs[ ubID ]->position().direction() );
 
 						switch( sGridNo )
 						{
@@ -4309,7 +4309,7 @@ void HandleExplosionQueue( void )
 				pTeamSoldier = ubLoop;
 				if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
-					RevealRoofsAndItems( pTeamSoldier, TRUE, FALSE, pTeamSoldier->pathing.bLevel, FALSE );
+					RevealRoofsAndItems( pTeamSoldier, TRUE, FALSE, pTeamSoldier->position().level(), FALSE );
 				}
 			}
 
@@ -4373,7 +4373,7 @@ void HandleExplosionWarningAnimations( )
 
 							if ( (*pObj)[0]->data.misc.bDetonatorType == BOMB_TIMED && (*pObj)[0]->data.misc.bDelay )
 							{
-								DrawExplosionWarning( pSoldier->sGridNo, pSoldier->pathing.bLevel, (*pObj)[0]->data.misc.bDelay );
+								DrawExplosionWarning( pSoldier->position().gridNo(), pSoldier->position().level(), (*pObj)[0]->data.misc.bDelay );
 
 								break;
 							}
@@ -4402,10 +4402,10 @@ void HandleExplosionWarningAnimations( )
 				if (pSoldier->CanUseSkill(SKILLS_FOCUS, FALSE, pSoldier->sFocusGridNo))
 				{
 					// radius depends on range
-					INT16 range = PythSpacesAway(pSoldier->sFocusGridNo, pSoldier->sGridNo);
+					INT16 range = PythSpacesAway(pSoldier->sFocusGridNo, pSoldier->position().gridNo());
 					INT16 radius = gSkillTraitValues.ubSNFocusRadius * range / 20;
 
-					DrawTraitRadius(pSoldier->sFocusGridNo, pSoldier->pathing.bLevel, sqrt(0.5) * (20 + 40 * radius), 8, usBlue);
+					DrawTraitRadius(pSoldier->sFocusGridNo, pSoldier->position().level(), sqrt(0.5) * (20 + 40 * radius), 8, usBlue);
 				}
 				else
 				{
@@ -4423,7 +4423,7 @@ void HandleExplosionWarningAnimations( )
 				UINT16 structurenumber;
 				UINT8 hitpoints;
 				UINT8 decalflag;
-				INT8 bLevel = pSoldier->pathing.bLevel;
+				INT8 bLevel = pSoldier->position().level();
 				UINT16 usRoomNo;
 
 				for (INT32 sSpot = 0; sSpot < WORLD_MAX; sSpot++)
@@ -4450,11 +4450,11 @@ void HandleExplosionWarningAnimations( )
 							{
 								if (ubID != pSoldier->ubID &&
 									ubID != NOBODY &&
-									ubID->sGridNo == sSpot &&
+									ubID->position().gridNo() == sSpot &&
 									ubID->bVisible == TRUE &&
-									ubID->pathing.bLevel == bLevel &&
+									ubID->position().level() == bLevel &&
 									gAnimControl[ubID->usAnimState].ubEndHeight == ANIM_PRONE &&
-									!Water(ubID->sGridNo, ubID->pathing.bLevel) &&
+									!Water(ubID->position().gridNo(), ubID->position().level()) &&
 									pSoldier->ubBodyType <= REGFEMALE &&
 									(ubID->bTeam == pSoldier->bTeam || ubID->IsUnconscious() || ubID->vitals().health() < OKLIFE))
 								{
@@ -4473,7 +4473,7 @@ void HandleExplosionWarningAnimations( )
 
 								if (pCorpse &&
 									pCorpse->fActivated &&
-									pCorpse->def.bLevel == pSoldier->pathing.bLevel &&
+									pCorpse->def.bLevel == pSoldier->position().level() &&
 									pCorpse->def.bVisible == TRUE &&
 									sSpot == pCorpse->def.sGridNo &&
 									pCorpse->def.ubBodyType < COW &&
@@ -4659,7 +4659,7 @@ void DecayBombTimers( void )
 								}
 
 								// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-								IgniteExplosion( gubPersonToSetOffExplosions, pSoldier->sX, pSoldier->sY, (INT16) (gpWorldLevelData[pSoldier->sGridNo].sHeight), pSoldier->sGridNo, pObj->usItem, pSoldier->pathing.bLevel, pSoldier->ubDirection, pObj );
+								IgniteExplosion( gubPersonToSetOffExplosions, pSoldier->sX, pSoldier->sY, (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pObj->usItem, pSoldier->position().level(), pSoldier->position().direction(), pObj );
 
 								DeleteObj( pObj );
 							}
@@ -4820,7 +4820,7 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 									gubPersonToSetOffExplosions = ubID;
 
 									// ignite explosions manually - this item is not in the WorldBobms-structure, so we can't add it to the queue
-									IgniteExplosion( ubID, pSoldier->sX, pSoldier->sY, (INT16) (gpWorldLevelData[pSoldier->sGridNo].sHeight), pSoldier->sGridNo, pObj->usItem, pSoldier->pathing.bLevel, pSoldier->ubDirection, pObj );
+									IgniteExplosion( ubID, pSoldier->sX, pSoldier->sY, (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pObj->usItem, pSoldier->position().level(), pSoldier->position().direction(), pObj );
 
 									DeleteObj( pObj );
 								}
@@ -5422,7 +5422,7 @@ UINT8 DetermineFlashbangEffect( SOLDIERTYPE *pSoldier, INT8 ubExplosionDir, BOOL
 	INT8 bNumTurns;
 	UINT16 usHeadItem1, usHeadItem2;
 
-	bNumTurns	= FindNumTurnsBetweenDirs(pSoldier->ubDirection, ubExplosionDir);
+	bNumTurns	= FindNumTurnsBetweenDirs(pSoldier->position().direction(), ubExplosionDir);
 	usHeadItem1 = pSoldier->inv[ HEAD1POS ].usItem;
 	usHeadItem2 = pSoldier->inv[ HEAD2POS ].usItem;
 
@@ -5643,7 +5643,7 @@ void HavePersonAtGridnoStop( UINT32 sGridNo )
 		SOLDIERTYPE *pSoldier = ubID;
 
 		//Stop the merc
-		pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+		pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 	}
 }
 
@@ -5896,9 +5896,9 @@ void HandleSeeingPowerGenFan( UINT32 sGridNo )
 					INT16 sDistanceAway;
 
 					// if the soldier isnt that far away AND he is qualified merc
-					sDistanceAway = PythSpacesAway( pSoldier->sGridNo, pOtherSoldier->sGridNo );
+					sDistanceAway = PythSpacesAway( pSoldier->position().gridNo(), pOtherSoldier->position().gridNo() );
 
-					if( sDistanceAway <= 5 && ( !InARoom( pOtherSoldier->sGridNo, NULL ) || pOtherSoldier->pathing.bLevel ) &&
+					if( sDistanceAway <= 5 && ( !InARoom( pOtherSoldier->position().gridNo(), NULL ) || pOtherSoldier->position().level() ) &&
 						( ( IsSoldierQualifiedMerc( pOtherSoldier ) && fFanIsStopped ) ||
 							( IsSoldierQualifiedMercForSeeingPowerGenFan( pOtherSoldier ) ) ) )
 					{
@@ -6098,7 +6098,7 @@ void SoldierDropThroughRoof( SOLDIERTYPE* pSoldier, INT32 sGridNo )
 
 	pSoldier->SetSoldierHeight( 0.0 );
 	TeleportSoldier( pSoldier, sGridNo, TRUE );
-	pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+	pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 	// if we play the animation of falling roof tiles over this, it will look like the merc fell really painful (there's even blood)
 	SoldierCollapse( pSoldier );
@@ -6302,7 +6302,7 @@ void RoofDestruction( INT32 sGridNo, BOOLEAN fWithExplosion )
 	{
 		pSoldier = ubId;
 
-		pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+		pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 		// if we play the animation of falling roof tiles over this, it will look like the merc fell really painful (there's even blood)
 		SoldierCollapse( pSoldier );

@@ -7887,7 +7887,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 									{
 										if(pSoldier->inv[i].exists() == true)
 										{
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->sGridNo, pSoldier->pathing.bLevel);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
 											DeleteObj(&pSoldier->inv[i]);
 										}
 									}
@@ -7896,7 +7896,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 									{
 										if(pSoldier->inv[i].exists() == true)
 										{
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->sGridNo, pSoldier->pathing.bLevel);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
 											DeleteObj(&pSoldier->inv[i]);
 										}
 									}
@@ -7915,7 +7915,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 									{
 										if(pSoldier->inv[i].exists() == true)
 										{
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->sGridNo, pSoldier->pathing.bLevel);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
 											DeleteObj(&pSoldier->inv[i]);
 										}
 									}
@@ -8514,7 +8514,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 											if ( HandleNailsVestFetish( pSoldier, i, NOTHING ) )
 												continue;
 
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->sGridNo, pSoldier->pathing.bLevel);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
 											DeleteObj(&pSoldier->inv[i]);
 										}
 									}
@@ -10197,7 +10197,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 			MAPBeginItemPointer( pSoldier, (UINT8)uiHandPos );
 
 			// remember which gridno the object came from
-			sObjectSourceGridNo = pSoldier->sGridNo;
+			sObjectSourceGridNo = pSoldier->position().gridNo();
 
 			HandleTacticalEffectsOfEquipmentChange( pSoldier, uiHandPos, usOldItemIndex, NOTHING );
 
@@ -10399,7 +10399,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					HandleCompatibleAmmoUI(pSoldier, NO_SLOT, FALSE);
 					gfCheckForMouseOverItem = TRUE;
 					// remember which gridno the object came from
-					sObjectSourceGridNo = pSoldier->sGridNo;
+					sObjectSourceGridNo = pSoldier->position().gridNo();
 					// and who owned it last
 					(void)SetItemPointerSoldier(pSoldier);
 
@@ -10560,7 +10560,7 @@ void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 		if ( gItemPointer.exists() == true )
 		{
 			SoldierHandleDropItem (pSoldier);
-//			AddItemToPool( pSoldier->sGridNo, &gItemPointer, 1, pSoldier->pathing.bLevel, WORLD_ITEM_REACHABLE, -1 );
+//			AddItemToPool( pSoldier->sGridNo, &gItemPointer, 1, pSoldier->position().level(), WORLD_ITEM_REACHABLE, -1 );
 //			InternalMAPBeginItemPointer( pSoldier );
 		}
 		return;

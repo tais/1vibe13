@@ -1127,7 +1127,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
 							// Attack !!!
@@ -1135,7 +1135,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							pTMilitiaSoldier->aiData.bAttitude = AGGRESSIVE;
 							pTMilitiaSoldier->usUIMovementMode = RUNNING;
 
-							MakeNoise( pSoldier->ubID, pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->bOverTerrainType, ubVolume, NOISE_SCREAM);
+							MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_SCREAM);
 						}
 
 						DeductPoints( pSoldier, APBPConstants[AP_TALK], 0 );
@@ -1159,7 +1159,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
 							//Hold Position !!!
@@ -1189,7 +1189,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
 							INT16 sActionGridNo;
@@ -1218,7 +1218,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTMilitiaSoldier->aiData.ubPendingActionAnimCount = 0;
 							}
 
-							if ( pTMilitiaSoldier->sGridNo != sActionGridNo )
+							if ( pTMilitiaSoldier->position().gridNo() != sActionGridNo )
 							{
 								SendGetNewSoldierPathEvent( pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->usUIMovementMode );
 							}
@@ -1245,14 +1245,14 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
 							INT32 sActionGridNo, sGridNo, sAdjustedGridNo;
 							UINT8	ubDirection;
 
 							// OK, find an adjacent gridno....
-							sGridNo = pSoldier->sGridNo;
+							sGridNo = pSoldier->position().gridNo();
 
 							// See if we can get there
 							sActionGridNo = FindAdjacentGridEx(pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE);
@@ -1260,13 +1260,13 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							{
 								// SEND PENDING ACTION
 								//pTMilitiaSoldier->ubPendingAction = MERC_STEAL;
-								pTMilitiaSoldier->aiData.sPendingActionData2 = pSoldier->sGridNo;
+								pTMilitiaSoldier->aiData.sPendingActionData2 = pSoldier->position().gridNo();
 								//pTMilitiaSoldier->bPendingActionData3  = ubDirection;
 								pTMilitiaSoldier->aiData.ubPendingActionAnimCount = 0;
 								pTMilitiaSoldier->usUIMovementMode = RUNNING;
 
 								// CHECK IF WE ARE AT THIS GRIDNO NOW
-								if (pTMilitiaSoldier->sGridNo != sActionGridNo)
+								if (pTMilitiaSoldier->position().gridNo() != sActionGridNo)
 								{
 									// WALK UP TO DEST FIRST
 									SendGetNewSoldierPathEvent(pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->usUIMovementMode);
@@ -1295,10 +1295,10 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
-							if (pTMilitiaSoldier->InternalIsValidStance(pTMilitiaSoldier->ubDirection, ANIM_PRONE))
+							if (pTMilitiaSoldier->InternalIsValidStance(pTMilitiaSoldier->position().direction(), ANIM_PRONE))
 							{
 								SendChangeSoldierStanceEvent( pTMilitiaSoldier, ANIM_PRONE );
 							}
@@ -1325,10 +1325,10 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ((pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE))
 						{
 							// sevenfm: stop any AI
-							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
-							if (pTMilitiaSoldier->InternalIsValidStance(pTMilitiaSoldier->ubDirection, ANIM_CROUCH))
+							if (pTMilitiaSoldier->InternalIsValidStance(pTMilitiaSoldier->position().direction(), ANIM_CROUCH))
 							{
 								SendChangeSoldierStanceEvent(pTMilitiaSoldier, ANIM_CROUCH);
 							}
@@ -1355,7 +1355,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
 							INT16 sActionGridNo;
@@ -1371,7 +1371,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTMilitiaSoldier->usUIMovementMode = RUNNING;
 
 								// CHECK IF WE ARE AT THIS GRIDNO NOW
-								if ( pTMilitiaSoldier->sGridNo != sActionGridNo )
+								if ( pTMilitiaSoldier->position().gridNo() != sActionGridNo )
 								{
 									SendGetNewSoldierPathEvent( pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->usUIMovementMode );
 								}
@@ -1397,7 +1397,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					if (!(IsJa2TacticalTurnBasedCombat()))
 					{
 						// sevenfm: stop any AI
-						pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);
+						pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
 						CancelAIAction(pTMilitiaSoldier, TRUE);
 
 						DeductPoints(pSoldier, APBPConstants[AP_TALK], 0);
@@ -1429,7 +1429,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								pTeamSoldier->aiData.bOrders = SEEKENEMY;
@@ -1467,7 +1467,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								pTeamSoldier->aiData.bOrders = STATIONARY;
@@ -1505,7 +1505,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								pTeamSoldier->aiData.bOrders = FARPATROL;
@@ -1532,7 +1532,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 									pTeamSoldier->aiData.ubPendingActionAnimCount = 0;
 								}
 
-								if ( pTeamSoldier->sGridNo != sActionGridNo )
+								if ( pTeamSoldier->position().gridNo() != sActionGridNo )
 								{
 									SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode );
 								}
@@ -1570,24 +1570,24 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								// OK, find an adjacent gridno....
-								sGridNo = pSoldier->sGridNo;
+								sGridNo = pSoldier->position().gridNo();
 
 								// See if we can get there
 								sActionGridNo = FindAdjacentGridEx(pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE);
 								if (sActionGridNo != -1)
 								{
 									// SEND PENDING ACTION
-									pTeamSoldier->aiData.sPendingActionData2 = pSoldier->sGridNo;
+									pTeamSoldier->aiData.sPendingActionData2 = pSoldier->position().gridNo();
 									//pTeamSoldier->bPendingActionData3  = ubDirection;
 									pTeamSoldier->aiData.ubPendingActionAnimCount = 0;
 									pTeamSoldier->usUIMovementMode = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
-									if (pTeamSoldier->sGridNo != sActionGridNo)
+									if (pTeamSoldier->position().gridNo() != sActionGridNo)
 									{
 										// WALK UP TO DEST FIRST
 										SendGetNewSoldierPathEvent(pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode);
@@ -1627,7 +1627,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								// See if we can get there
@@ -1641,7 +1641,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 									pTeamSoldier->usUIMovementMode = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
-									if ( pTeamSoldier->sGridNo != sActionGridNo )
+									if ( pTeamSoldier->position().gridNo() != sActionGridNo )
 									{
 										// WALK UP TO DEST FIRST
 										SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode );
@@ -1680,10 +1680,10 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
-								if (pTeamSoldier->InternalIsValidStance(pTeamSoldier->ubDirection, ANIM_PRONE))
+								if (pTeamSoldier->InternalIsValidStance(pTeamSoldier->position().direction(), ANIM_PRONE))
 								{
 									SendChangeSoldierStanceEvent( pTeamSoldier, ANIM_PRONE );
 								}
@@ -1719,10 +1719,10 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
-								if (pTeamSoldier->InternalIsValidStance(pTeamSoldier->ubDirection, ANIM_CROUCH))
+								if (pTeamSoldier->InternalIsValidStance(pTeamSoldier->position().direction(), ANIM_CROUCH))
 								{
 									SendChangeSoldierStanceEvent(pTeamSoldier, ANIM_CROUCH);
 								}								
@@ -1760,7 +1760,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->sGridNo, pTeamSoldier->ubDirection);
+								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								// See if we can get there
@@ -1775,7 +1775,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 									pTeamSoldier->usUIMovementMode = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
-									if ( pTeamSoldier->sGridNo != sActionGridNo )
+									if ( pTeamSoldier->position().gridNo() != sActionGridNo )
 									{
 										// WALK UP TO DEST FIRST
 										SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode );

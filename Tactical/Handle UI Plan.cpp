@@ -110,7 +110,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				bDirection = (INT8)gpUIPlannedSoldier->pathing.usPathingData[ gpUIPlannedSoldier->pathing.usPathDataSize - 1 ];
 
 				// Set direction
-				pPlanSoldier->ubDirection = bDirection;
+				pPlanSoldier->position().direction() = bDirection;
 				pPlanSoldier->pathing.bDesiredDirection = bDirection;
 
 				// Set walking animation
@@ -176,7 +176,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					}
 
 					pPlanSoldier->EVENT_SetSoldierPosition( gpUIPlannedSoldier->dXPos, gpUIPlannedSoldier->dYPos );
-					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) gpUIPlannedSoldier->sGridNo );
+					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) gpUIPlannedSoldier->position().gridNo() );
 					pPlanSoldier->bVisible = 1;
 					pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;
 
@@ -189,7 +189,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					bDirection = (INT8)gpUIPlannedSoldier->pathing.usPathingData[ gpUIPlannedSoldier->pathing.usPathDataSize - 1 ];
 
 					// Set direction
-					pPlanSoldier->ubDirection = bDirection;
+					pPlanSoldier->position().direction() = bDirection;
 					pPlanSoldier->pathing.bDesiredDirection = bDirection;
 
 					// Set walking animation
@@ -215,7 +215,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 			bDirection = GetDirectionFromGridNo( sGridNo, gpUIPlannedSoldier );
 
 			// Set direction
-			gpUIPlannedSoldier->ubDirection = bDirection;
+			gpUIPlannedSoldier->position().direction() = bDirection;
 			gpUIPlannedSoldier->pathing.bDesiredDirection = bDirection;
 
 			// Set to shooting animation

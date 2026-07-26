@@ -302,7 +302,7 @@ INT32 FindGridNoFromSweetSpotCloseToExitGrid( SOLDIERTYPE *pSoldier, INT32 sSwee
 	{
 		for( cnt2 = sLeft; cnt2 <= sRight; cnt2++ )
 		{
-			sGridNo = pSoldier->sGridNo + (WORLD_COLS * cnt1) + cnt2;
+			sGridNo = pSoldier->position().gridNo() + (WORLD_COLS * cnt1) + cnt2;
 			if ( sGridNo >= 0 && sGridNo < WORLD_MAX )
 			{
 				gpWorldLevelData[ sGridNo ].uiFlags &= (~MAPELEMENT_REACHABLE);
@@ -320,25 +320,25 @@ INT32 FindGridNoFromSweetSpotCloseToExitGrid( SOLDIERTYPE *pSoldier, INT32 sSwee
 
 	for( cnt1 = sBottom; cnt1 <= sTop; cnt1++ )
 	{
-		leftmost = ( ( pSoldier->sGridNo + ( WORLD_COLS * cnt1 ) )/ WORLD_COLS ) * WORLD_COLS;
+		leftmost = ( ( pSoldier->position().gridNo() + ( WORLD_COLS * cnt1 ) )/ WORLD_COLS ) * WORLD_COLS;
 
 		for( cnt2 = sLeft; cnt2 <= sRight; cnt2++ )
 		{
-			sGridNo = pSoldier->sGridNo + ( WORLD_COLS * cnt1 ) + cnt2;
+			sGridNo = pSoldier->position().gridNo() + ( WORLD_COLS * cnt1 ) + cnt2;
 			if ( sGridNo >=0 && sGridNo < WORLD_MAX && sGridNo >= leftmost && sGridNo < ( leftmost + WORLD_COLS ) &&
 				gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_REACHABLE )
 			{
 				// Go on sweet stop
 				// ATE: Added this check because for all intensive purposes, cavewalls will be not an OKDEST
 				// but we want thenm too...
-				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->pathing.bLevel ) )
+				if ( NewOKDestination( pSoldier, sGridNo, TRUE, pSoldier->position().level() ) )
 				{
 					if ( GetExitGrid( sGridNo, &ExitGrid ) )
 					{
 						// Is it the same exitgrid?
 						if ( ExitGrid.ubGotoSectorX == ubGotoSectorX && ExitGrid.ubGotoSectorY == ubGotoSectorY && ExitGrid.ubGotoSectorZ == ubGotoSectorZ )
 						{
-							uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+							uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
 							if ( uiRange < uiLowestRange )
 							{

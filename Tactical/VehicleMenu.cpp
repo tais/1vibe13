@@ -192,7 +192,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 			if ( EnoughPoints( pCurrentSoldier, sAPCost, 0, TRUE ) )
 			{
 				const SimulationCommandDispatchResult vehicleEntry =
-					pCurrentSoldier->sGridNo != sActionGridNo
+					pCurrentSoldier->position().gridNo() != sActionGridNo
 						? TryDispatchApproachVehicleCommandNow(
 							*pCurrentSoldier,
 							*pCurrentVehicle,

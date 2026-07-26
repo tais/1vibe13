@@ -2994,7 +2994,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		AddWorldItemsToUnLoadedSector( pSoldier->sSectorX, pSoldier->sSectorY, 0, itemdropoffgridno, pWorldItem.size(), pWorldItem, FALSE );
 
 		// put him on the floor!!
-		pSoldier->pathing.bLevel = 0;
+		pSoldier->position().level() = 0;
 		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 
 		gStrategicStatus.ubNumCapturedForRescue++;

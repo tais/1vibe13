@@ -1677,7 +1677,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			{
 				// notify
 
-				sDistanceFromObject = PythSpacesAway( sObjectSourceGridNo, pSelectedSoldier->sGridNo);
+				sDistanceFromObject = PythSpacesAway( sObjectSourceGridNo, pSelectedSoldier->position().gridNo());
 
 			/*	if( sDistanceFromObject > MAX_DISTANCE_TO_PICKUP_ITEM )
 				{
@@ -1759,8 +1759,8 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 					// is this sector loaded?
 					if (GetItemPointerSoldier() && (GetItemPointerSoldier()->sSectorX == gWorldSectorX) && (GetItemPointerSoldier()->sSectorY == gWorldSectorY) && (GetItemPointerSoldier()->bSectorZ == gbWorldSectorZ))
 					{
-						sGridNo = GetItemPointerSoldier()->sGridNo;
-						bLevel = GetItemPointerSoldier()->pathing.bLevel;
+						sGridNo = GetItemPointerSoldier()->position().gridNo();
+						bLevel = GetItemPointerSoldier()->position().level();
 					}
 					// set a grid no for item from mercs with invalid grid no in sector inventory, e.g. merc arriving in sector with a different tactical map loaded
 					if (sGridNo != 0)

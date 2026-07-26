@@ -223,7 +223,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 				// If we want same level, skip if buggy's not on the same level!
 				if ( uiFlags & FIND_SOLDIER_SAMELEVEL )
 				{
-					if ( pSoldier->pathing.bLevel != (UINT8)( uiFlags >> 16 ) )
+					if ( pSoldier->position().level() != (UINT8)( uiFlags >> 16 ) )
 					{
 						continue;
 					}
@@ -273,7 +273,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 						fInScreenRect = TRUE;
 					}
 
-					if ( pSoldier->sGridNo == sGridNo )
+					if ( pSoldier->position().gridNo() == sGridNo )
 					{
 						fInGridNo			= TRUE;
 					}
@@ -328,7 +328,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 						}
 
 						// If thgis is from a gridno, use mouse pos!
-						if ( pSoldier->sGridNo == sGridNo )
+						if ( pSoldier->position().gridNo() == sGridNo )
 						{
 
 						}
@@ -394,7 +394,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 					// Selective means don't give out enemy mercs if they are not visible
 
 					///&& !NewOKDestination( pSoldier, sGridNo, TRUE, (INT8)gsInterfaceLevel )
-					if ( pSoldier->sGridNo == sGridNo && !NewOKDestination( pSoldier, sGridNo, TRUE, (INT8)gsInterfaceLevel ) )
+					if ( pSoldier->position().gridNo() == sGridNo && !NewOKDestination( pSoldier, sGridNo, TRUE, (INT8)gsInterfaceLevel ) )
 					{
 						// Set it!
 						ubBestMerc = pSoldier->ubID;
@@ -664,7 +664,7 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 
 		// dead/removed soldiers can carry sGridNo == NOWHERE (or garbage) -- indexing
 		// gpWorldLevelData with it reads far out of bounds (wipeout-cascade crash)
-		if ( pSoldier->sGridNo < 0 || pSoldier->sGridNo >= WORLD_MAX )
+		if ( pSoldier->position().gridNo() < 0 || pSoldier->position().gridNo() >= WORLD_MAX )
 		{
 			*psScreenX = 0;
 			*psScreenY = 0;
@@ -685,7 +685,7 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 		// Adjust starting screen coordinates
 		sMercScreenX	-= gsRenderWorldOffsetX;
 		sMercScreenY	-= gsRenderWorldOffsetY;
-		sMercScreenY	-= gpWorldLevelData[ pSoldier->sGridNo ].sHeight;
+		sMercScreenY	-= gpWorldLevelData[ pSoldier->position().gridNo() ].sHeight;
 
 		// Adjust for render height
 		sMercScreenY += gsRenderHeight;
@@ -722,7 +722,7 @@ void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *ps
 
 		// dead/removed soldiers can carry sGridNo == NOWHERE (or garbage) -- indexing
 		// gpWorldLevelData with it reads far out of bounds (wipeout-cascade crash)
-		if ( pSoldier->sGridNo < 0 || pSoldier->sGridNo >= WORLD_MAX )
+		if ( pSoldier->position().gridNo() < 0 || pSoldier->position().gridNo() >= WORLD_MAX )
 		{
 			*psScreenX = 0;
 			*psScreenY = 0;
@@ -744,7 +744,7 @@ void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *ps
 
 		// Adjust for render height
 		sMercScreenY += gsRenderHeight;
-		sMercScreenY	-= gpWorldLevelData[ pSoldier->sGridNo ].sHeight;
+		sMercScreenY	-= gpWorldLevelData[ pSoldier->position().gridNo() ].sHeight;
 
 		sMercScreenY -= pSoldier->sHeightAdjustment;
 
@@ -783,13 +783,13 @@ BOOLEAN GridNoOnScreen( INT32 sGridNo )
 
 BOOLEAN SoldierOnScreen( SoldierID usID )
 {
-	return( GridNoOnScreen( usID->sGridNo ) );
+	return( GridNoOnScreen( usID->position().gridNo() ) );
 }
 
 
 BOOLEAN SoldierOnVisibleWorldTile( SOLDIERTYPE *pSoldier )
 {
-	return( GridNoOnVisibleWorldTile( pSoldier->sGridNo ) );
+	return( GridNoOnVisibleWorldTile( pSoldier->position().gridNo() ) );
 }
 
 
@@ -949,20 +949,20 @@ BOOLEAN FindRelativeSoldierPosition( SOLDIERTYPE *pSoldier, UINT16 *usFlags, INT
 
 						// Flugente: we measure the distance of the bullet's location to the location of the soldier, and to the 2 gridnos his head and leg occupy
 						// From this we can decide what body part was hit
-						ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+						ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 						FLOAT bodycenterX = (FLOAT) sX;
 						FLOAT bodycenterY = (FLOAT) sY;
 
 						FLOAT difftobodycenter = sqrt( (bodycenterX - sWorldX) * (bodycenterX - sWorldX) + (bodycenterY - sWorldY) * (bodycenterY - sWorldY) );
 						
-						INT32 viewdirectiongridno = NewGridNo( pSoldier->sGridNo, DirectionInc( pSoldier->ubDirection ) );
+						INT32 viewdirectiongridno = NewGridNo( pSoldier->position().gridNo(), DirectionInc( pSoldier->position().direction() ) );
 						ConvertGridNoToCenterCellXY(viewdirectiongridno, &sX, &sY);
 						FLOAT nextgridnocenterX = (FLOAT) sX;
 						FLOAT nextgridnocenterY = (FLOAT) sY;
 
 						FLOAT difftonextgridno = sqrt( (nextgridnocenterX - sWorldX) * (nextgridnocenterX - sWorldX) + (nextgridnocenterY - sWorldY) * (nextgridnocenterY - sWorldY) );
 						
-						INT32 oppositeviewdirectiongridno = NewGridNo( pSoldier->sGridNo, DirectionInc( gOppositeDirection[pSoldier->ubDirection] ) );
+						INT32 oppositeviewdirectiongridno = NewGridNo( pSoldier->position().gridNo(), DirectionInc( gOppositeDirection[pSoldier->position().direction()] ) );
 						ConvertGridNoToCenterCellXY(oppositeviewdirectiongridno, &sX, &sY);
 						FLOAT oppositenextgridnocenterX = (FLOAT) sX;
 						FLOAT oppositenextgridnocenterY = (FLOAT) sY;
@@ -1009,7 +1009,7 @@ SoldierID QuickFindSoldier( INT32 sGridNo )
 
 		if ( pSoldier != NULL )
 		{
-			if ( pSoldier->sGridNo == sGridNo && pSoldier->bVisible != -1 )
+			if ( pSoldier->position().gridNo() == sGridNo && pSoldier->bVisible != -1 )
 			{
 				return( cnt );
 			}

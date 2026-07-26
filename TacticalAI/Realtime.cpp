@@ -37,7 +37,7 @@ UINT16 RealtimeDelay( SOLDIERTYPE * pSoldier )
 			//UINT8		ubRoom;
 			UINT16 usRoom;
 
-			if ( InARoom( pSoldier->sGridNo, &usRoom ) && IN_BROTHEL( usRoom ) )
+			if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && IN_BROTHEL( usRoom ) )
 			{
 				return( (UINT16) (REALTIME_AI_DELAY / 3) );
 			}
@@ -139,7 +139,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 					{
 						pSoldier->aiData.bAction = AI_ACTION_NONE;
 					}
-					if ( pSoldier->sGridNo == pSoldier->aiData.usNextActionData )
+					if ( pSoldier->position().gridNo() == pSoldier->aiData.usNextActionData )
 					{
 						// no need to walk after this
 						pSoldier->aiData.bNextAction = AI_ACTION_NONE;
@@ -229,7 +229,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 					//UINT8		ubRoom;
 					UINT16 usRoom;
 
-					if ( InARoom( pSoldier->sGridNo, &usRoom ) && IN_BROTHEL( usRoom ) )
+					if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && IN_BROTHEL( usRoom ) )
 					{
 						pSoldier->aiData.usActionData /= 3;
 					}

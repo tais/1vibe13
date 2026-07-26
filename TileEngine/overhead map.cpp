@@ -387,7 +387,7 @@ void DisplayMercNameInOverhead(SOLDIERTYPE* pSoldier)
 		return;
 
 	sWorldScreenX = gsStartRestrictedX + (sWorldScreenX/5) + 5;
-	sWorldScreenY = gsStartRestrictedY + (sWorldScreenY/5) + (pSoldier->sHeightAdjustment/5) + (gpWorldLevelData[pSoldier->sGridNo].sHeight/5) - 8;
+	sWorldScreenY = gsStartRestrictedY + (sWorldScreenY/5) + (pSoldier->sHeightAdjustment/5) + (gpWorldLevelData[pSoldier->position().gridNo()].sHeight/5) - 8;
 
 	sWorldScreenY += (gsRenderHeight/5);
 
@@ -1421,7 +1421,7 @@ void RenderOverheadOverlays()
 			continue;
 		//Soldier is here.	Calculate his screen position based on his current gridno.
 
-		if(!GetOverheadScreenXYFromGridNo(pSoldier->sGridNo, &sX, &sY))//dnl ch45 041009
+		if(!GetOverheadScreenXYFromGridNo(pSoldier->position().gridNo(), &sX, &sY))//dnl ch45 041009
 			continue;
 		
 		//DBrot: mark his general area as hostile
@@ -1477,12 +1477,12 @@ void RenderOverheadOverlays()
 
 		}
 		
-		if (TileIsOutOfBounds(pSoldier->sGridNo))
+		if (TileIsOutOfBounds(pSoldier->position().gridNo()))
 		{
 			continue;
 		}
 
-		sY -= ( GetOffsetLandHeight( pSoldier->sGridNo ) /5);
+		sY -= ( GetOffsetLandHeight( pSoldier->position().gridNo() ) /5);
 
 		// Adjust for height...
 		sY -= ( pSoldier->sHeightAdjustment / 5 );

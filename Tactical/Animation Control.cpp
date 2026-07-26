@@ -4112,7 +4112,7 @@ BOOLEAN SetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	// Add structure info!
 	if ( pSoldier->pLevelNode != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE ) )
 	{
-		AddMercStructureInfoFromAnimSurface( pSoldier->sGridNo, pSoldier, usAnimSurface, usAnimState );
+		AddMercStructureInfoFromAnimSurface( pSoldier->position().gridNo(), pSoldier, usAnimSurface, usAnimState );
 	}
 
 	// Set
@@ -4207,7 +4207,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 
 		// Assume a target gridno is here.... get direction...
 		// ATE: use +2 in gridno because here head is far from body
-		bDir = (INT8)GetDirectionToGridNoFromGridNo( (INT16)( pSoldier->sGridNo + 2 ), pSoldier->sTargetGridNo );
+		bDir = (INT8)GetDirectionToGridNoFromGridNo( (INT16)( pSoldier->position().gridNo() + 2 ), pSoldier->sTargetGridNo );
 
 		return( gusQueenMonsterSpitAnimPerDir[ bDir ] );
 	}

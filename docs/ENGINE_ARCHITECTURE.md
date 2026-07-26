@@ -933,8 +933,13 @@ the engine must not contain SDL types in its public domain model.
   have one private `SoldierVitalsComponent` owner as well. Zero-cost reference
   accessors preserve hot-path mutation semantics, while the portable field
   serializer emits those values in their established save byte positions.
-  Position remains a compatibility view and is the next serialized storage
-  domain to migrate.
+  Current tactical grid, elevation, and facing likewise have one private
+  `SoldierPositionComponent` owner rather than fields split between
+  `SOLDIERTYPE` and its pathing record. The component is independent of the
+  legacy soldier declaration; old-save conversion and the explicit serializer
+  still emit each value at its established byte position. Map placements, Lua
+  values, multiplayer packets, and content formats retain their existing
+  schemas.
 
 ## Compatibility policy
 

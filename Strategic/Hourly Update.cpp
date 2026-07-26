@@ -866,7 +866,7 @@ void HourlyStealUpdate()
 					// drop money in the sector itself
 					if ( ( gWorldSectorX == pSoldier->sSectorX ) && ( gWorldSectorY == pSoldier->sSectorY ) && ( gbWorldSectorZ == sectorz ) )
 					{
-						AddItemToPool( pSoldier->sGridNo, &gTempObject, 1, pSoldier->pathing.bLevel, ( WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE ), 0 );
+						AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), ( WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE ), 0 );
 					}
 					else
 					{

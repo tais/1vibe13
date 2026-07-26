@@ -589,7 +589,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			SelectSoldier( pVehicleSoldier->ubID, FALSE, TRUE );
 		}
 
-		PlayJA2Sample( pVehicleList[ pVehicleSoldier->bVehicleID ].iOutOfSound, RATE_11025, SoundVolume( HIGHVOLUME, pVehicleSoldier->sGridNo ), 1, SoundDir( pVehicleSoldier->sGridNo ) );
+		PlayJA2Sample( pVehicleList[ pVehicleSoldier->bVehicleID ].iOutOfSound, RATE_11025, SoundVolume( HIGHVOLUME, pVehicleSoldier->position().gridNo() ), 1, SoundDir( pVehicleSoldier->position().gridNo() ) );
 	}
 
 
@@ -715,7 +715,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 				UpdateAllVehiclePassengersGridNo( pVehicleSoldier );
 
 				// Stop from any movement.....
-				pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 				// can't call SetCurrentSquad OR SelectSoldier in mapscreen, that will initialize interface panels!!!
 				if ( pSoldier->bTeam == gbPlayerNum && GetCurrentScreen() == GAME_SCREEN )
@@ -891,7 +891,7 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 					CancelPathForVehicle( &( pVehicleList[ iId ] ), FALSE );
 				}
 
-				pVehicleSoldier->EVENT_StopMerc( pVehicleSoldier->sGridNo, pVehicleSoldier->ubDirection );
+				pVehicleSoldier->EVENT_StopMerc( pVehicleSoldier->position().gridNo(), pVehicleSoldier->position().direction() );
 
 				// if the vehicle was abandoned between sectors
 				if ( pVehicleList[ iId ].fBetweenSectors )
@@ -1829,13 +1829,13 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 
 		// Add to sector....
 		INT16 sX, sY;
-		ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
+		ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
 		pSoldier->EVENT_SetSoldierPosition( sX, sY );
 
 		// anv: since now they can shoot it's important to set passenger to proper stance
 		// namely, back to standing, because we set them to crouching when entering
 		SendChangeSoldierStanceEvent( pSoldier, ANIM_STAND );
-		pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->ubDirection );
+		pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 
 		// Update visiblity.....
 		HandleSight(pSoldier,SIGHT_LOOK | SIGHT_RADIO );
@@ -1871,7 +1871,7 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 
 		}
 
-		PlayJA2Sample( pVehicleList[ pVehicle->bVehicleID ].iOutOfSound, RATE_11025, SoundVolume( HIGHVOLUME, pVehicle->sGridNo ), 1, SoundDir( pVehicle->sGridNo ) );		return( TRUE );
+		PlayJA2Sample( pVehicleList[ pVehicle->bVehicleID ].iOutOfSound, RATE_11025, SoundVolume( HIGHVOLUME, pVehicle->position().gridNo() ), 1, SoundDir( pVehicle->position().gridNo() ) );		return( TRUE );
 	}
 
 	return( FALSE );
@@ -2627,7 +2627,7 @@ void UpdateAllVehiclePassengersGridNo( SOLDIERTYPE *pSoldier )
 					bDiagonalY = -1;
 			}
 
-			switch( pSoldier->ubDirection )
+			switch( pSoldier->position().direction() )
 			{
 				case 0:
 					dYOffset = -10 * ( bOffsetY + bDiagonalY );

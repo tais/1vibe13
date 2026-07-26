@@ -1130,7 +1130,7 @@ void HandleEnvironmentHazard( )
 		{
 			if ( pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->vitals().health() > 0 )
 			{
-				if ( TERRAIN_IS_WATER( pSoldier->bOverTerrainType ) && pSoldier->pathing.bLevel <= 0 )
+				if ( TERRAIN_IS_WATER( pSoldier->bOverTerrainType ) && pSoldier->position().level() <= 0 )
 				{
 					// there is a chance to be attacked, it is increased if we have open wounds
 					UINT16 chancetobeattacked = 20 + pSoldier->vitals().bleeding() + 20 * TERRAIN_IS_DEEP_WATER( pSoldier->bOverTerrainType );
@@ -1149,7 +1149,7 @@ void HandleEnvironmentHazard( )
 						{
 							INT16 damage = 10 + Random( 11 );
 
-							pSoldier->EVENT_SoldierGotHit(47, damage, damage * 100, pSoldier->ubDirection, 0, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_LEGS, 0, pSoldier->sGridNo);
+							pSoldier->EVENT_SoldierGotHit(47, damage, damage * 100, pSoldier->position().direction(), 0, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_LEGS, 0, pSoldier->position().gridNo());
 
 							// if this is a swamp, handle possible extra infection
 							if ( ubTraverseType == SWAMP || ubTraverseType == SWAMP_ROAD )
@@ -1163,11 +1163,11 @@ void HandleEnvironmentHazard( )
 						// in any case, play animation and lose APs
 						DeductPoints( pSoldier, 20, 200, DISABLED_INTERRUPT );
 
-						AddSnakeAmim( pSoldier->sGridNo, Random( NUM_WORLD_DIRECTIONS ) );
+						AddSnakeAmim( pSoldier->position().gridNo(), Random( NUM_WORLD_DIRECTIONS ) );
 
 						if ( !soundplayed )
 						{
-							PlayJA2SampleFromFile( (STR8)(Chance( 50 ) ? "Sounds\\WATERSNAKE_ATTACK_01.WAV" : "Sounds\\WATERSNAKE_ATTACK_02.WAV"), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+							PlayJA2SampleFromFile( (STR8)(Chance( 50 ) ? "Sounds\\WATERSNAKE_ATTACK_01.WAV" : "Sounds\\WATERSNAKE_ATTACK_02.WAV"), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 							soundplayed = TRUE;
 						}

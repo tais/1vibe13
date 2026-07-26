@@ -165,7 +165,7 @@ namespace
 		std::int32_t grid,
 		std::int8_t level) noexcept
 	{
-		return soldier.sGridNo == grid && soldier.pathing.bLevel == level;
+		return soldier.position().gridNo() == grid && soldier.position().level() == level;
 	}
 
 	bool CanExecutePositionExchange(
@@ -179,7 +179,7 @@ namespace
 				target, command.targetGrid, command.level) ||
 			soldier.vitals().health() < OKLIFE ||
 			target.vitals().health() < OKLIFE ||
-			PythSpacesAway(soldier.sGridNo, target.sGridNo) != 1 ||
+			PythSpacesAway(soldier.position().gridNo(), target.position().gridNo()) != 1 ||
 			(!target.aiData.bNeutral && target.bSide != gbPlayerNum))
 			return false;
 		return CanExchangePlaces(&soldier, &target, FALSE) == TRUE;
@@ -262,7 +262,7 @@ namespace
 			grid == soldier.aiData.uiPendingActionData4 &&
 			level == soldier.aiData.bPendingActionData3 &&
 			item->sGridNo == grid &&
-			item->ubLevel == soldier.pathing.bLevel &&
+			item->ubLevel == soldier.position().level() &&
 			(level == ITEM_IGNORE_Z_LEVEL ||
 				item->bRenderZHeightAboveLevel == level);
 	}
@@ -458,7 +458,7 @@ namespace
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
 				soldier->flags.fDelayedMovement = FALSE;
-				soldier->pathing.sFinalDestination = soldier->sGridNo;
+				soldier->pathing.sFinalDestination = soldier->position().gridNo();
 				soldier->StopSoldier();
 				return CommandDisposition::Applied;
 			}
@@ -473,12 +473,12 @@ namespace
 					value.positionX, value.positionY, FALSE, FALSE, FALSE);
 				soldier->EVENT_SetSoldierDirection(value.direction);
 				if (value.stop && soldier->bTeam >= LAN_TEAM_ONE &&
-					soldier->sGridNo >= 0 &&
-					soldier->sGridNo < WORLD_MAX &&
+					soldier->position().gridNo() >= 0 &&
+					soldier->position().gridNo() < WORLD_MAX &&
 					(gAnimControl[soldier->usAnimState].uiFlags &
 						ANIM_MOVING) != 0)
 					soldier->EVENT_StopMerc(
-						soldier->sGridNo, soldier->ubDirection);
+						soldier->position().gridNo(), soldier->position().direction());
 				soldier->AdjustNoAPToFinishMove(
 					value.stop ? TRUE : FALSE);
 				soldier->flags.bTurningFromPronePosition = FALSE;
@@ -748,7 +748,7 @@ namespace
 					WORLDITEM* item =
 						ResolveJa2TacticalWorldItem(value.item);
 					if (!item || item->sGridNo != value.grid ||
-						item->ubLevel != soldier->pathing.bLevel ||
+						item->ubLevel != soldier->position().level() ||
 						item->bRenderZHeightAboveLevel !=
 							value.renderHeight)
 						return CommandDisposition::Discard;
@@ -2275,10 +2275,10 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 
 	const INT32 rawDirection = soldier.aiData.bPendingActionData3;
 	if (!target ||
-		target->sGridNo != soldier.aiData.sPendingActionData2 ||
-		target->pathing.bLevel != soldier.bTargetLevel ||
-		soldier.pathing.bLevel != target->pathing.bLevel ||
-		PythSpacesAway(soldier.sGridNo, target->sGridNo) != 1 ||
+		target->position().gridNo() != soldier.aiData.sPendingActionData2 ||
+		target->position().level() != soldier.bTargetLevel ||
+		soldier.position().level() != target->position().level() ||
+		PythSpacesAway(soldier.position().gridNo(), target->position().gridNo()) != 1 ||
 		rawDirection < 0 ||
 		!IsValidTacticalDirection(
 			static_cast<std::uint8_t>(rawDirection)))
@@ -2325,10 +2325,10 @@ SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
 	soldier.aiData.uiPendingActionData4 = 0;
 	soldier.runtime.pendingAction.targetIncarnation = 0;
 
-	if (!target || target->sGridNo != targetGrid ||
-		target->pathing.bLevel != targetLevel ||
-		soldier.pathing.bLevel != target->pathing.bLevel ||
-		PythSpacesAway(soldier.sGridNo, target->sGridNo) != 1)
+	if (!target || target->position().gridNo() != targetGrid ||
+		target->position().level() != targetLevel ||
+		soldier.position().level() != target->position().level() ||
+		PythSpacesAway(soldier.position().gridNo(), target->position().gridNo()) != 1)
 	{
 		UnSetUIBusy(soldier.ubID);
 		return nullptr;

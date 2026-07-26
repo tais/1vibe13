@@ -5,8 +5,6 @@
 
 #include <functional>
 
-class SOLDIERTYPE;
-
 // Canonical soldier vitals storage. Reference accessors keep legacy mutation
 // sites zero-cost while the state itself has one owner and reset boundary.
 class SoldierVitalsComponent
@@ -35,20 +33,25 @@ private:
 	INT8 bleeding_ = 0;
 };
 
+// Canonical current tactical location storage. Persistent adapters serialize
+// these values at their established schema positions; the component itself is
+// independent of the legacy SOLDIERTYPE declaration.
 class SoldierPositionComponent
 {
 public:
-	explicit SoldierPositionComponent(SOLDIERTYPE& soldier) : soldier_(soldier) {}
+	INT32& gridNo() noexcept { return gridNo_; }
+	const INT32& gridNo() const noexcept { return gridNo_; }
+	INT8& level() noexcept { return level_; }
+	const INT8& level() const noexcept { return level_; }
+	UINT8& direction() noexcept { return direction_; }
+	const UINT8& direction() const noexcept { return direction_; }
 
-	INT32& gridNo();
-	const INT32& gridNo() const;
-	INT8& level();
-	const INT8& level() const;
-	UINT8& direction();
-	const UINT8& direction() const;
+	void reset() noexcept;
 
 private:
-	SOLDIERTYPE& soldier_;
+	INT32 gridNo_ = 0;
+	INT8 level_ = 0;
+	UINT8 direction_ = 0;
 };
 
 struct SoldierPendingActionRuntimeState

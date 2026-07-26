@@ -86,7 +86,7 @@ void MakeClosestEnemyChosenOne()
 			continue;	// next soldier
 		}
 
-		if ( pSoldier->pathing.bLevel != 0 )
+		if ( pSoldier->position().level() != 0 )
 		{
 			// screw having guys on the roof go for panic triggers!
 			continue;	// next soldier
@@ -127,7 +127,7 @@ void MakeClosestEnemyChosenOne()
 		// ok, this enemy appears to be eligible
 
 		// FindAdjacentGrid set HandGrid for us.	If we aren't at that spot already
-		if (pSoldier->sGridNo != sPanicTriggerGridNo)
+		if (pSoldier->position().gridNo() != sPanicTriggerGridNo)
 		{
 			// get the AP cost for this enemy to go to target position
 			sPathCost = PlotPath( pSoldier, sPanicTriggerGridNo, FALSE, FALSE, FALSE, WALKING, FALSE, FALSE, 0);
@@ -141,7 +141,7 @@ void MakeClosestEnemyChosenOne()
 		pSoldier->flags.bHasKeys = (pSoldier->flags.bHasKeys >> 1 );
 
 		// if he can get there (or is already there!)
-		if (sPathCost || (pSoldier->sGridNo == sPanicTriggerGridNo))
+		if (sPathCost || (pSoldier->position().gridNo() == sPanicTriggerGridNo))
 		{
 			if (sPathCost < sShortestPath)
 			{
@@ -191,7 +191,7 @@ void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
 		return;
 	}
 
-	if ( pSoldier->pathing.bLevel != 0 )
+	if ( pSoldier->position().level() != 0 )
 	{
 		// screw having guys on the roof go for panic triggers!
 		return;
@@ -219,7 +219,7 @@ void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
 
 	// if he can't get to a spot where he could get at the panic trigger
 	iAPCost = APBPConstants[AP_PULL_TRIGGER];
-	if (pSoldier->sGridNo != sPanicTriggerGridNo)
+	if (pSoldier->position().gridNo() != sPanicTriggerGridNo)
 	{
 		iPathCost = PlotPath( pSoldier, sPanicTriggerGridNo, FALSE, FALSE, FALSE, RUNNING, FALSE, FALSE, 0);
 		if (iPathCost == 0)
@@ -314,7 +314,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 			DebugAI(AI_MSG_TOPIC, pSoldier, String("closest panic trigger %d, spot %d", bPanicTrigger, sPanicTriggerGridNo));
 
 			// if not standing on the panic trigger
-			if (pSoldier->sGridNo != sPanicTriggerGridNo)
+			if (pSoldier->position().gridNo() != sPanicTriggerGridNo)
 			{
 				// determine whether we can still get there
 				//iPathCost = PlotPath( pSoldier, sPanicTriggerGridNo, FALSE, FALSE, FALSE, RUNNING, FALSE, FALSE, 0);
@@ -352,7 +352,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 				*/
 
 				// if we are at that spot now
-				if (pSoldier->sGridNo == sPanicTriggerGridNo)
+				if (pSoldier->position().gridNo() == sPanicTriggerGridNo)
 				{
 					DebugAI(AI_MSG_TOPIC, pSoldier, String("we are at the spot, activate the trigger!"));
 					////////////////////////////////////////////////////////////////
@@ -477,7 +477,7 @@ INT8 ClosestPanicTrigger( SOLDIERTYPE * pSoldier )
 				}
 			}
 
-			sDistance = PythSpacesAway( pSoldier->sGridNo, gTacticalStatus.sPanicTriggerGridNo[ bLoop ] );
+			sDistance = PythSpacesAway( pSoldier->position().gridNo(), gTacticalStatus.sPanicTriggerGridNo[ bLoop ] );
 			if (sDistance < sClosestDistance)
 			{
 				sClosestDistance = sDistance;
@@ -544,7 +544,7 @@ INT8 HeadForTheStairCase( SOLDIERTYPE * pSoldier )
 		return( AI_ACTION_NONE );
 	}
 
-	if ( PythSpacesAway( pSoldier->sGridNo, STAIRCASE_GRIDNO ) < 2 )
+	if ( PythSpacesAway( pSoldier->position().gridNo(), STAIRCASE_GRIDNO ) < 2 )
 	{
 		return( AI_ACTION_TRAVERSE_DOWN );
 	}

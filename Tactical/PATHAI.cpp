@@ -199,7 +199,7 @@ static path_t * pClosedHead;
 		pNew = pathQ + (queRequests);\
 		queRequests++;\
 		memset( pNew->pNext, 0, sizeof( path_t *) * ABSMAX_SKIPLIST_LEVEL );\
-		pNew->pathing.bLevel = RandomSkipListLevel();\
+		pNew->position().level() = RandomSkipListLevel();\
 	}\
 	else if (iClosedListSize > 0)\
 	{\
@@ -209,7 +209,7 @@ static path_t * pClosedHead;
 		iClosedListSize--;\
 		queRequests++;\
 		memset( pNew->pNext, 0, sizeof( path_t *) * ABSMAX_SKIPLIST_LEVEL );\
-		pNew->pathing.bLevel = RandomSkipListLevel();\
+		pNew->position().level() = RandomSkipListLevel();\
 	}\
 	else\
 	{\
@@ -233,7 +233,7 @@ static path_t * pClosedHead;
 	{\
 		pNew = pathQ + (queRequests);\
 		queRequests++;\
-		pNew->pathing.bLevel = RandomSkipListLevel();\
+		pNew->position().level() = RandomSkipListLevel();\
 	}\
 	else if (iClosedListSize > 0)\
 	{\
@@ -242,7 +242,7 @@ static path_t * pClosedHead;
 		iClosedListSize--;\
 		queRequests++;\
 		memset( pNew->pNext, 0, sizeof( path_t *) * ABSMAX_SKIPLIST_LEVEL );\
-		pNew->pathing.bLevel = RandomSkipListLevel();\
+		pNew->position().level() = RandomSkipListLevel();\
 	}\
 	else\
 	{\
@@ -268,7 +268,7 @@ static path_t * pClosedHead;
 		pNew = pathQ + (queRequests);\
 		queRequests++;\
 		memset( pNew->pNext, 0, sizeof( path_t *) * ABSMAX_SKIPLIST_LEVEL );\
-		pNew->pathing.bLevel = RandomSkipListLevel();\
+		pNew->position().level() = RandomSkipListLevel();\
 	}\
 	else if (iClosedListSize > 0)\
 	{\
@@ -278,7 +278,7 @@ static path_t * pClosedHead;
 		iClosedListSize--;\
 		queRequests++;\
 		memset( pNew->pNext, 0, sizeof( path_t *) * ABSMAX_SKIPLIST_LEVEL );\
-		pNew->pathing.bLevel = RandomSkipListLevel();\
+		pNew->position().level() = RandomSkipListLevel();\
 	}\
 	else\
 	{\
@@ -321,7 +321,7 @@ static path_t * pClosedHead;
 		pUpdate[iCurrLevel] = pCurr;\
 	}\
 	pCurr = pCurr->pNext[0];\
-	for (iCurrLevel = 0; iCurrLevel < pNew->pathing.bLevel; iCurrLevel++)\
+	for (iCurrLevel = 0; iCurrLevel < pNew->position().level(); iCurrLevel++)\
 	{\
 		if (!(pUpdate[iCurrLevel]))\
 		{\
@@ -337,7 +337,7 @@ static path_t * pClosedHead;
 		pNext = pQueueHead->pNext[bSkipListLevel - 1];\
 		while( pNext )\
 		{\
-			if (pNext->pathing.bLevel > bSkipListLevel)\
+			if (pNext->position().level() > bSkipListLevel)\
 			{\
 				pCurr->pNext[bSkipListLevel] = pNext;\
 				pCurr = pNext;\
@@ -615,7 +615,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	// Set the distance for this calc
 	this->gubNPCDistLimitSq = (int) gubNPCDistLimit * (int) gubNPCDistLimit;
 
-	StartNode = pSoldier->sGridNo;
+	StartNode = pSoldier->position().gridNo();
 	DestNode = dest;
 	fFlags |= gubGlobalPathFlags;	
 
@@ -633,7 +633,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 		#endif
 		return( 0 );
 	}
-	else if (pSoldier->pathing.bLevel != onRooftop) 
+	else if (pSoldier->position().level() != onRooftop)
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "ASTAR: path failed, different level" ) );
 		// pathing to a different level... bzzzt!
@@ -705,7 +705,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	
 	if (!TileIsOutOfBounds(DestNode))
 	{
-		if (DestNode == pSoldier->sGridNo) 
+		if (DestNode == pSoldier->position().gridNo())
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "ASTAR: path failed, dest is start" ) );
 			return( 0 );
@@ -1060,7 +1060,7 @@ void AStarPathfinder::ExecuteAStarLogic()
 		INT32 parent = GetAStarParent(ParentNode);
 		if (parent == -1) 
 		{
-			lastDir = pSoldier->ubDirection;
+			lastDir = pSoldier->position().direction();
 		}
 		else if ( GetLoopState(parent) == false )
 		{
@@ -1131,15 +1131,15 @@ void AStarPathfinder::ExecuteAStarLogic()
 		}
 
 		//ddd: window. we can forbid standing on tiles with windows
-		//if (gubWorldMovementCosts[CurrentNode][direction][pSoldier->pathing.bLevel] == TRAVELCOST_JUMPABLEWINDOW)
+		//if (gubWorldMovementCosts[CurrentNode][direction][pSoldier->position().level()] == TRAVELCOST_JUMPABLEWINDOW)
 		//	continue;
 
 
-		if (gubWorldMovementCosts[CurrentNode][direction][pSoldier->pathing.bLevel] == TRAVELCOST_FENCE)
+		if (gubWorldMovementCosts[CurrentNode][direction][pSoldier->position().level()] == TRAVELCOST_FENCE)
 		{
 			SetAStarStatus(CurrentNode, AStar_Closed);
 			CurrentNode = CurrentNode + dirDelta[direction];
-			if (!NewOKDestination( pSoldier, CurrentNode, fPathAroundPeople, pSoldier->pathing.bLevel))
+			if (!NewOKDestination( pSoldier, CurrentNode, fPathAroundPeople, pSoldier->position().level()))
 			{
 				continue;
 			}
@@ -1687,23 +1687,23 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 	// HATE IT, THEN CHANGE ChanceToGetThrough() TO WORK FROM A GRIDNO TO GRIDNO
 
 	// this is theoretical, and I'm not actually at sMyGridNo right now
-	sMyRealGridNo = pMe->sGridNo;		// remember where I REALLY am
+	sMyRealGridNo = pMe->position().gridNo();		// remember where I REALLY am
 	dMyX = pMe->dXPos;
 	dMyY = pMe->dYPos;
 
-	pMe->sGridNo = sMyGridNo;				// but pretend I'm standing at sMyGridNo
+	pMe->position().gridNo() = sMyGridNo;				// but pretend I'm standing at sMyGridNo
 	ConvertGridNoToCenterCellXY( sMyGridNo, &sTempX, &sTempY );
 	pMe->dXPos = (FLOAT) sTempX;
 	pMe->dYPos = (FLOAT) sTempY;
 
 	// if this is theoretical, and he's not actually at hisGrid right now
-	if (pHim->sGridNo != sHisGridNo)
+	if (pHim->position().gridNo() != sHisGridNo)
 	{
-		sHisRealGridNo = pHim->sGridNo;		// remember where he REALLY is
+		sHisRealGridNo = pHim->position().gridNo();		// remember where he REALLY is
 		dHisX = pHim->dXPos;
 		dHisY = pHim->dYPos;
 
-		pHim->sGridNo = sHisGridNo;			// but pretend he's standing at sHisGridNo
+		pHim->position().gridNo() = sHisGridNo;			// but pretend he's standing at sHisGridNo
 		ConvertGridNoToCenterCellXY( sHisGridNo, &sTempX, &sTempY );
 		pHim->dXPos = (FLOAT) sTempX;
 		pHim->dYPos = (FLOAT) sTempY;
@@ -1717,7 +1717,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 	else
 	{
 		// optimistically assume we'll be behind the best cover available at this spot
-		bHisActualCTGT = CalcWorstCTGTForPosition( pHim, pMe->ubID, sMyGridNo, pMe->pathing.bLevel, iMyAPsLeft );
+		bHisActualCTGT = CalcWorstCTGTForPosition( pHim, pMe->ubID, sMyGridNo, pMe->position().level(), iMyAPsLeft );
 	}
 
 	// normally, that will be the cover I'll use, unless worst case over-rides it
@@ -1730,13 +1730,13 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 		// because calculating worst case is about to play with it in a big way!
 		if (TileIsOutOfBounds(sHisRealGridNo))
 		{
-			sHisRealGridNo = pHim->sGridNo;		// remember where he REALLY is
+			sHisRealGridNo = pHim->position().gridNo();		// remember where he REALLY is
 			dHisX = pHim->dXPos;
 			dHisY = pHim->dYPos;
 		}
 
 		// calculate where my cover is worst if opponent moves just 1 tile over
-		bHisBestCTGT = CalcBestCTGT(pHim, pMe->ubID, sMyGridNo, pMe->pathing.bLevel, iMyAPsLeft);
+		bHisBestCTGT = CalcBestCTGT(pHim, pMe->ubID, sMyGridNo, pMe->position().level(), iMyAPsLeft);
 
 		// if he can actually improve his CTGT by moving to a nearby gridno
 		if (bHisBestCTGT > bHisActualCTGT)
@@ -1755,9 +1755,9 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 	else
 	{
 		// put him at sHisGridNo if necessary!
-		if (pHim->sGridNo != sHisGridNo )
+		if (pHim->position().gridNo() != sHisGridNo )
 		{
-			pHim->sGridNo = sHisGridNo;
+			pHim->position().gridNo() = sHisGridNo;
 			ConvertGridNoToCenterCellXY( sHisGridNo, &sTempX, &sTempY );
 			pHim->dXPos = (FLOAT) sTempX;
 			pHim->dYPos = (FLOAT) sTempY;
@@ -1765,7 +1765,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 
 		// let's not assume anything about the stance the enemy might take, so take an average
 		// value... no cover give a higher value than partial cover
-		bMyCTGT = CalcAverageCTGTForPosition( pMe, pHim->ubID, sHisGridNo, pHim->pathing.bLevel, iMyAPsLeft );
+		bMyCTGT = CalcAverageCTGTForPosition( pMe, pHim->ubID, sHisGridNo, pHim->position().level(), iMyAPsLeft );
 
 		// since NPCs are too dumb to shoot "blind", ie. at opponents that they
 		// themselves can't see (mercs can, using another as a spotter!), if the
@@ -1777,13 +1777,13 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 	}
 
 	// UNDO ANY TEMPORARY "DAMAGE" DONE ABOVE
-	pMe->sGridNo = sMyRealGridNo;		// put me back where I belong!
+	pMe->position().gridNo() = sMyRealGridNo;		// put me back where I belong!
 	pMe->dXPos = dMyX;						// also change the 'x'
 	pMe->dYPos = dMyY;						// and the 'y'
 
 	if (!TileIsOutOfBounds(sHisRealGridNo))
 	{
-		pHim->sGridNo = sHisRealGridNo;		// put HIM back where HE belongs!
+		pHim->position().gridNo() = sHisRealGridNo;		// put HIM back where HE belongs!
 		pHim->dXPos = dHisX;					// also change the 'x'
 		pHim->dYPos = dHisY;					// and the 'y'
 	}
@@ -2056,7 +2056,7 @@ bool AStarPathfinder::WantToTraverse()
 		// don't walk over corpses. TODO: only avoid in 80% ?
 		if ( ( IsJa2TacticalTurnBasedCombat() )
 				&& pSoldier->bTeam == ENEMY_TEAM 
-				//&& IsCorpseAtGridNo( CurrentNode, pSoldier->pathing.bLevel ) 
+				//&& IsCorpseAtGridNo( CurrentNode, pSoldier->position().level() )
 				&& gubIsCorpseThere[CurrentNode]
 				)
 			return false;
@@ -2083,7 +2083,7 @@ bool AStarPathfinder::WantToTraverse()
 				{		
 					if ( tS->vitals().health() >= OKLIFE && tS->sGridNo != NOWHERE && tS->bInSector )
 						if ( SoldierTo3DLocationLineOfSightTest(
-							tS, tS->sGridNo, pSoldier->pathing.bLevel, 3, 
+							tS, tS->sGridNo, pSoldier->position().level(), 3,
 							TRUE, CALC_FROM_WANTED_DIR ))
 						{
 							//if( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE  )
@@ -2105,7 +2105,7 @@ bool AStarPathfinder::IsSomeoneInTheWay()
 	if (fPathAroundPeople && ( (CurrentNode != DestNode) || fCopyReachable) )
 	{
 		// ATE: ONLY cancel if they are moving.....
-		UINT16 ubMerc = WhoIsThere2( CurrentNode, pSoldier->pathing.bLevel);
+		UINT16 ubMerc = WhoIsThere2( CurrentNode, pSoldier->position().level());
 		if ( ubMerc < NOBODY && ubMerc != pSoldier->ubID )
 		{
 			// Check for movement....
@@ -2213,7 +2213,7 @@ void ShutDownPathAI(void)
 ////////////////////////////////////////////////////////////////////////
 INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags )
 {
-	s->runtime.pendingAction.pathSearchSourceGrid = s->sGridNo;
+	s->runtime.pendingAction.pathSearchSourceGrid = s->position().gridNo();
 
 	if (gGameSettings.fOptions[TOPTION_ALT_PATHFINDING])
 	{
@@ -2309,7 +2309,7 @@ INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMov
 
 	fVehicle = FALSE;
 	iOriginationX = iOriginationY = 0;
-	iOrigination = s->sGridNo;
+	iOrigination = s->position().gridNo();
 /*
 //dnl??? ch53 111009
 if(!GridNoOnVisibleWorldTile(iOrigination))
@@ -2347,7 +2347,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 		#endif
 		return( 0 );
 	}
-	else if (s->pathing.bLevel != bLevel)
+	else if (s->position().level() != bLevel)
 	{
 		// pathing to a different level... bzzzt!
 		return( 0 );
@@ -2395,7 +2395,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 	fCloseGoodEnough = ( (fFlags & PATH_CLOSE_GOOD_ENOUGH) != 0);
 	if ( fCloseGoodEnough )
 	{
-		sClosePathLimit = __min( PythSpacesAway( s->sGridNo, sDestination ) - 1,  PATH_CLOSE_RADIUS );
+		sClosePathLimit = __min( PythSpacesAway( s->position().gridNo(), sDestination ) - 1,  PATH_CLOSE_RADIUS );
 		if ( sClosePathLimit <= 0 )
 		{
 			return( 0 );
@@ -2456,7 +2456,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			return( FALSE );
 		}
 
-		if (sDestination == s->sGridNo)
+		if (sDestination == s->position().gridNo())
 		{
 			return( FALSE );
 		}
@@ -2753,7 +2753,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 		{
 			if (trailTreeNdx < 2)
 			{
-				iLastDir = s->ubDirection;
+				iLastDir = s->position().direction();
 			}
 			else if ( trailTree[pCurrPtr->sPathNdx].fFlags & STEP_BACKWARDS )
 			{
@@ -2906,7 +2906,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 				s->ubProfile == NO_PROFILE &&
 				s->aiData.bOrders != SEEKENEMY &&
 				DeepWater(newLoc, bLevel) &&
-				!DeepWater(s->sGridNo, bLevel) &&
+				!DeepWater(s->position().gridNo(), bLevel) &&
 				!FindNotDeepWaterNearby(newLoc, bLevel))
 			{
 				goto NEXTDIR;
@@ -2915,7 +2915,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			// sevenfm: skip gas if not in gas already
 			if ((!(s->flags.uiStatusFlags & SOLDIER_PC) || gTacticalStatus.fAutoBandageMode || s->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL) &&
 				InGasSpot(s, newLoc, bLevel) &&
-				!InGasSpot(s, s->sGridNo, bLevel))
+				!InGasSpot(s, s->position().gridNo(), bLevel))
 			{
 				goto NEXTDIR;
 			}
@@ -3191,7 +3191,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			if (fPathAroundPeople && ( (newLoc != iDestination) || fCopyReachable) )
 			{
 				// ATE: ONLY cancel if they are moving.....
-				ubMerc = WhoIsThere2( newLoc, s->pathing.bLevel);
+				ubMerc = WhoIsThere2( newLoc, s->position().level());
 
 				// sevenfm: for player mercs, ignore invisible opponents
 				if (ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID && 
@@ -4008,8 +4008,8 @@ void GlobalReachableTest( INT32 sStartGridNo )
 	// WDS - Clean up inventory handling
 	//memset( &s, 0, SIZEOF_SOLDIERTYPE );
 	s.initialize();
-	s.sGridNo = sStartGridNo;
-	s.pathing.bLevel = 0;
+	s.position().gridNo() = sStartGridNo;
+	s.position().level() = 0;
 	s.bTeam = 1;
 
 	//reset the flag for gridno's
@@ -4033,16 +4033,16 @@ void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius )
 	// WDS - Clean up inventory handling
 	//memset( &s, 0, SIZEOF_SOLDIERTYPE );
 	s.initialize();
-	s.sGridNo = sStartGridNo;
+	s.position().gridNo() = sStartGridNo;
 
 	//if we are moving on the gorund level
 	if( gsInterfaceLevel == I_ROOF_LEVEL )
 	{
-		s.pathing.bLevel = 1;
+		s.position().level() = 1;
 	}
 	else
 	{
-		s.pathing.bLevel = 0;
+		s.position().level() = 0;
 	}
 
 	s.bTeam = OUR_TEAM;
@@ -4063,7 +4063,7 @@ void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius )
 	// set the dist limit
 	gubNPCDistLimit = bRadius;
 	// make the function call
-	FindBestPath( &s, GRIDSIZE, s.pathing.bLevel, WALKING, COPYREACHABLE, PATH_THROUGH_PEOPLE );//dnl ch50 071009
+	FindBestPath( &s, GRIDSIZE, s.position().level(), WALKING, COPYREACHABLE, PATH_THROUGH_PEOPLE );//dnl ch50 071009
 	// reset dist limit
 	gubNPCDistLimit = 0;
 }
@@ -4076,8 +4076,8 @@ void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 )
 	// WDS - Clean up inventory handling
 	//memset( &s, 0, SIZEOF_SOLDIERTYPE );
 	s.initialize();
-	s.sGridNo = sStartGridNo1;
-	s.pathing.bLevel = 0;
+	s.position().gridNo() = sStartGridNo1;
+	s.position().level() = 0;
 	s.bTeam = 1;
 
 	//reset the flag for gridno's
@@ -4091,7 +4091,7 @@ void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 )
 	
 	if (!TileIsOutOfBounds(sStartGridNo2))
 	{
-		s.sGridNo = sStartGridNo2;
+		s.position().gridNo() = sStartGridNo2;
 		FindBestPath( &s, GRIDSIZE, 0, WALKING, COPYREACHABLE, PATH_THROUGH_PEOPLE );//dnl ch50 071009
 	}
 	RestorePathAIToDefaults();
@@ -4105,8 +4105,8 @@ void RoofReachableTest( INT32 sStartGridNo, UINT8 ubBuildingID )
 	// WDS - Clean up inventory handling
 	//memset( &s, 0, SIZEOF_SOLDIERTYPE );
 	s.initialize();
-	s.sGridNo = sStartGridNo;
-	s.pathing.bLevel = 1;
+	s.position().gridNo() = sStartGridNo;
+	s.position().level() = 1;
 	s.bTeam = 1;
 
 	// clearing flags
@@ -4219,7 +4219,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 	}
 
 	gusAPtsToMove = 0;
-	sTempGrid = pSold->sGridNo;
+	sTempGrid = pSold->position().gridNo();
 
 	sFootOrderIndex = 0;
 
@@ -4232,7 +4232,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 
 	// For now, use known hight adjustment
 	// sevenfm: ignore person at destination if we are estimating path cost
-	if ( gfRecalculatingExistingPathCost || FindBestPath( pSold, sDestGridNo, pSold->pathing.bLevel, usMovementMode, bCopyRoute, gfEstimatePath ? PATH_IGNORE_PERSON_AT_DEST : 0 ) )
+	if ( gfRecalculatingExistingPathCost || FindBestPath( pSold, sDestGridNo, pSold->position().level(), usMovementMode, bCopyRoute, gfEstimatePath ? PATH_IGNORE_PERSON_AT_DEST : 0 ) )
 	{
 		// if soldier would be STARTING to run then he pays a penalty since it takes time to
 		// run full speed
@@ -4252,7 +4252,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 		sPoints = sPoints + MinAPsToStartMovement( pSold, usMovementMode );
 
 		// We should reduce points for starting to run if first tile is a fence...
-		sTestGridNo  = NewGridNo(pSold->sGridNo, DirectionInc( (UINT8)guiPathingData[0]));
+		sTestGridNo  = NewGridNo(pSold->position().gridNo(), DirectionInc( (UINT8)guiPathingData[0]));
 
 		// WANNE: Quickfix for wrong pathing data (direction). This fixes crash that could rarly occur
 		if ((UINT8)guiPathingData[0] > 7)
@@ -4260,7 +4260,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 			guiPathingData[0] = 0;
 		}
 
-		if ( gubWorldMovementCosts[ sTestGridNo ][ guiPathingData[0] ][ pSold->pathing.bLevel] == TRAVELCOST_FENCE )
+		if ( gubWorldMovementCosts[ sTestGridNo ][ guiPathingData[0] ][ pSold->position().level()] == TRAVELCOST_FENCE )
 		{
 			if ( usMovementMode == RUNNING && pSold->usAnimState != RUNNING )
 			{
@@ -4324,7 +4324,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 			sTempGrid  = NewGridNo(sTempGrid, DirectionInc( (UINT8)guiPathingData[iCnt]));
 			gfPlotPathEndDirection = GetDirectionToGridNoFromGridNo(sOldGrid, sTempGrid);
 			// Get switch value...
-			sSwitchValue = gubWorldMovementCosts[ sTempGrid ][ (INT8)guiPathingData[iCnt] ][ pSold->pathing.bLevel];
+			sSwitchValue = gubWorldMovementCosts[ sTempGrid ][ (INT8)guiPathingData[iCnt] ][ pSold->position().level()];
 
 			usMovementModeToUseForAPs = usMovementMode;
 
@@ -4332,7 +4332,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 			// This should fix "problems" for special modified maps
 			UINT8 ubTerrainID = gpWorldLevelData[ sTempGrid ].ubTerrainID;
 
-			if ( TERRAIN_IS_WATER( ubTerrainID) && pSold->pathing.bLevel > 0 )
+			if ( TERRAIN_IS_WATER( ubTerrainID) && pSold->position().level() > 0 )
 				ubTerrainID = FLAT_GROUND;
 
 			// ATE - MAKE MOVEMENT ALWAYS WALK IF IN WATER
@@ -4349,7 +4349,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 			usMovementModeBefore = usMovementModeToUseForAPs;
 			
 			// get the tile cost for that tile based on WALKING
-			sTileCost = TerrainActionPoints( pSold, sTempGrid, (INT8)guiPathingData[iCnt], pSold->pathing.bLevel );
+			sTileCost = TerrainActionPoints( pSold, sTempGrid, (INT8)guiPathingData[iCnt], pSold->position().level() );
 
 			if ( bIgnoreNextCost )
 			{
@@ -4759,7 +4759,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					}
 					*/
 
-					if ( pSold->pathing.bLevel == 0 )
+					if ( pSold->position().level() == 0 )
 					{
 						pNode = AddObjectToTail(sTempGrid, usTileIndex );
 						pNode->ubShadeLevel=DEFAULT_SHADE_LEVEL;
@@ -4803,7 +4803,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 
 
 
-					if ( pSold->pathing.bLevel == 0 )
+					if ( pSold->position().level() == 0 )
 					{
 						pNode = AddObjectToTail(sTempGrid, usTileIndex );
 						pNode->ubShadeLevel=DEFAULT_SHADE_LEVEL;
@@ -4846,7 +4846,7 @@ INT32 UIPlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 	}
 
 	// If we are on the same level as the interface level, continue, else return
-	if ( pSold->pathing.bLevel != gsInterfaceLevel )
+	if ( pSold->position().level() != gsInterfaceLevel )
 	{
 		return( 0 );
 	}

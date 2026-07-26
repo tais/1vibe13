@@ -328,7 +328,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	}
 
 	// Return if this guy has no gridno, has bad life, etc	
-	if(TileIsOutOfBounds(pSoldier->sGridNo) || !pSoldier->bInSector || pSoldier->vitals().health() < OKLIFE )
+	if(TileIsOutOfBounds(pSoldier->position().gridNo()) || !pSoldier->bInSector || pSoldier->vitals().health() < OKLIFE )
 	{
 		return;
 	}
@@ -354,7 +354,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	MercLooksForDoors( pSoldier, TRUE );
 
 
-	dir = pSoldier->ubDirection;
+	dir = pSoldier->position().direction();
 
 	//NumMessage("good old reveal",dir);
 
@@ -371,7 +371,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 		range = (UINT8)( (range * (100 + pSoldier->GetSightRangeBonus()) ) / 100);
 
 		// balance item viewing range between normal and the limit set by opplist-type functions -- CJC
-		range = (AdjustMaxSightRangeForEnvEffects( pSoldier, LightTrueLevel( pSoldier->sGridNo, pSoldier->pathing.bLevel), range ) + range) / 2;
+		range = (AdjustMaxSightRangeForEnvEffects( pSoldier, LightTrueLevel( pSoldier->position().gridNo(), pSoldier->position().level()), range ) + range) / 2;
 	}
 
 
@@ -382,7 +382,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 
 	// create gridno increment for NOVIEW - in other words, no increment!
 	Inc[5] = 0;
-	Dir[5] = pSoldier->ubDirection;
+	Dir[5] = pSoldier->position().direction();
 
 	if (dir % 2 == 1)	/* even numbers use ViewPath2 */
 		Path2 = TRUE;
@@ -401,7 +401,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 
 	for (maincnt = 0; maincnt < MAXVIEWPATHS; maincnt++)
 	{
-		marker = pSoldier->sGridNo;
+		marker = pSoldier->position().gridNo();
 		Blocking = FALSE;
 		twoMoreTiles = FALSE;
 		tilesLeftToSee = 99;

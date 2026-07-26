@@ -129,7 +129,7 @@ void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier)
 				gTempObject.MoveThisObjectTo(pSoldier->inv[bPayloadPocket], 1);
 		}
 		else
-			AddItemToPool(pSoldier->sGridNo, &gTempObject, 0, pSoldier->pathing.bLevel, WORLD_ITEM_DROPPED_FROM_ENEMY, -1);
+			AddItemToPool(pSoldier->position().gridNo(), &gTempObject, 0, pSoldier->position().level(), WORLD_ITEM_DROPPED_FROM_ENEMY, -1);
 	}
 }
 
@@ -295,8 +295,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		else
 		{
 			// we know exact enemy location
-			sTarget = pOpponent->sGridNo;
-			bLevel = pOpponent->pathing.bLevel;
+			sTarget = pOpponent->position().gridNo();
+			bLevel = pOpponent->position().level();
 		}
 
 		// safety check
@@ -345,7 +345,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 			//!SoldierToSoldierLineOfSightTest(pSoldier, pOpponent, TRUE, CALC_FROM_ALL_DIRS) &&
 			!LOS_Raised(pSoldier, pOpponent, CALC_FROM_ALL_DIRS) &&
 			!SoldierToVirtualSoldierLineOfSightTest(pSoldier, sTarget, bLevel, ANIM_STAND, TRUE, NO_DISTANCE_LIMIT) &&
-			!LocationToLocationLineOfSightTest(pSoldier->sGridNo, pSoldier->pathing.bLevel, sTarget, bLevel, TRUE, NO_DISTANCE_LIMIT) &&
+			!LocationToLocationLineOfSightTest(pSoldier->position().gridNo(), pSoldier->position().level(), sTarget, bLevel, TRUE, NO_DISTANCE_LIMIT) &&
 			!fReturnFire &&
 			!(InARoom(sTarget, NULL) && bLevel == 0 && Weapon[pSoldier->usAttackingWeapon].ubWeaponType == GUN_LMG) &&	// bPublicKnowledge == SEEN_CURRENTLY && 
 			!(InARoom(sTarget, NULL) && bLevel == 0 && TeamPercentKilled(pSoldier->bTeam) > (100 - 20 * SoldierDifficultyLevel(pSoldier))) )
@@ -354,7 +354,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 #ifdef DEBUGATTACKS
-		DebugAI( String( "%s sees %s at gridno %d\n",pSoldier->GetName(),ExtMen[pOpponent->ubID].GetName(),pOpponent->sGridNo ) );
+		DebugAI( String( "%s sees %s at gridno %d\n",pSoldier->GetName(),ExtMen[pOpponent->ubID].GetName(),pOpponent->position().gridNo() ) );
 #endif
 		sMinAPcost = MinAPsToAttack(pSoldier, sTarget, DONTADDTURNCOST, 0);
 		// later will be decide if shoot is possible this here is just best guess so ignore turnover
@@ -394,7 +394,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				INT8			bDir;
 
 				// must make sure that structure data can be added in the direction of the target
-				bDir = (INT8)GetDirectionToGridNoFromGridNo(pSoldier->sGridNo, sTarget);
+				bDir = (INT8)GetDirectionToGridNoFromGridNo(pSoldier->position().gridNo(), sTarget);
 
 				// ATE: Only if we have a levelnode...
 				if ( pSoldier->pLevelNode != NULL && pSoldier->pLevelNode->pStructureData != NULL )
@@ -406,7 +406,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					usStructureID = INVALID_STRUCTURE_ID;
 				}
 
-				if ( ! OkayToAddStructureToWorld( pSoldier->sGridNo, pSoldier->pathing.bLevel, &(pStructureFileRef->pDBStructureRef[ gOneCDirection[ bDir ] ]), usStructureID ) )
+				if ( ! OkayToAddStructureToWorld( pSoldier->position().gridNo(), pSoldier->position().level(), &(pStructureFileRef->pDBStructureRef[ gOneCDirection[ bDir ] ]), usStructureID ) )
 				{
 					// can't turn in that dir.... next opponent
 					continue;
@@ -443,7 +443,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				ubStance = ANIM_STAND;
 				// sevenfm: take into account direction when checking stance
 				// sevenfm: shoot heavy guns in standing stance only when using hip fire
-				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->sGridNo, sTarget), ubStance) &&
+				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTarget), ubStance) &&
 					(pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD || !Weapon[pSoldier->usAttackingWeapon].HeavyGun || !ItemIsTwoHanded(pSoldier->usAttackingWeapon) || !gGameExternalOptions.ubAllowAlternativeWeaponHolding))
 				{
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
@@ -516,7 +516,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				// --------- Crouched ---------
 				ubStance = ANIM_CROUCH;
 				// sevenfm: take into account direction
-				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->sGridNo, sTarget), ubStance))
+				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTarget), ubStance))
 				{
 					// change stance then turn
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
@@ -580,7 +580,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				}
 
 				// no prone stance if we have to change direction and stance at the same time
-				if (pSoldier->ubDirection != AIDirection(pSoldier->sGridNo, sTarget) &&
+				if (pSoldier->position().direction() != AIDirection(pSoldier->position().gridNo(), sTarget) &&
 					gAnimControl[pSoldier->usAnimState].ubEndHeight > ANIM_PRONE)
 				{
 					continue;
@@ -588,7 +588,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 				// --------- Prone ---------
 				ubStance = ANIM_PRONE;
-				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->sGridNo, sTarget), ubStance))
+				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTarget), ubStance))
 				{
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
 					if (sStanceAPcost)
@@ -658,11 +658,11 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 		// really limit knife throwing so it doesn't look wrong
 		if (Item[pSoldier->usAttackingWeapon].usItemClass == IC_THROWING_KNIFE &&
-			(ubChanceToReallyHit < 25 || (PythSpacesAway(pSoldier->sGridNo, sTarget) > CalcMaxTossRange(pSoldier, pSoldier->usAttackingWeapon, FALSE))))// Madd / 2 ) ) ) //dnl ch69 160913 was ubChanceToReallyHit < 30
+			(ubChanceToReallyHit < 25 || (PythSpacesAway(pSoldier->position().gridNo(), sTarget) > CalcMaxTossRange(pSoldier, pSoldier->usAttackingWeapon, FALSE))))// Madd / 2 ) ) ) //dnl ch69 160913 was ubChanceToReallyHit < 30
 			continue; // don't bother... next opponent
 
 		// calculate this opponent's threat value (factor in my cover from him)
-		iThreatValue = CalcManThreatValue(pOpponent, pSoldier->sGridNo, TRUE, pSoldier);
+		iThreatValue = CalcManThreatValue(pOpponent, pSoldier->position().gridNo(), TRUE, pSoldier);
 
 		// estimate the damage this shot would do to this opponent
 		iEstDamage = EstimateShotDamage(pSoldier, pOpponent, sBestChanceToHit);
@@ -901,7 +901,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			return;	// no shells, can't fire the MORTAR
 		}
 		// sevenfm: don't use mortar in building or underground
-		if (IsRoofPresentAtGridNo(pSoldier->sGridNo) && pSoldier->pathing.bLevel == 0 || gfCaves || gfBasement)
+		if (IsRoofPresentAtGridNo(pSoldier->position().gridNo()) && pSoldier->position().level() == 0 || gfCaves || gfBasement)
 			return;
 
 		if (pSoldier->bBlindedCounter > 0)
@@ -1070,8 +1070,8 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 		// active friend, remember where he is so that we DON'T blow him up!
 		// this includes US, since we don't want to blow OURSELVES up either
-		sFriendTile[ubFriendCnt] = pFriend->sGridNo;
-		bFriendLevel[ubFriendCnt] = pFriend->pathing.bLevel;
+		sFriendTile[ubFriendCnt] = pFriend->position().gridNo();
+		bFriendLevel[ubFriendCnt] = pFriend->position().level();
 		ubFriendCnt++;
 	}
 
@@ -1175,7 +1175,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		// don't use flare if soldier is in light
 		if (usGrenade != NOTHING &&
 			ItemIsFlare(usGrenade) &&
-			InLightAtNight(pOpponent->sGridNo, pOpponent->pathing.bLevel))
+			InLightAtNight(pOpponent->position().gridNo(), pOpponent->position().level()))
 		{
 			continue;
 		}
@@ -1183,7 +1183,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		// don't use flares against opponents on roof
 		if (usGrenade != NOTHING &&
 			ItemIsFlare(usGrenade) &&
-			pOpponent->pathing.bLevel > 0)
+			pOpponent->position().level() > 0)
 		{
 			continue;
 		}
@@ -1195,8 +1195,8 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				bPublicKnowledge == SEEN_CURRENTLY)
 			{
 				//DebugShot( pSoldier, String("opponent is seen currently, use exact location"));
-				sOpponentTile[ubOpponentCnt] = pOpponent->sGridNo;
-				bOpponentLevel[ubOpponentCnt] = pOpponent->pathing.bLevel;
+				sOpponentTile[ubOpponentCnt] = pOpponent->position().gridNo();
+				bOpponentLevel[ubOpponentCnt] = pOpponent->position().level();
 			}
 			else if ((bKnowledge == SEEN_THIS_TURN || bKnowledge == SEEN_LAST_TURN || bKnowledge == HEARD_THIS_TURN || bKnowledge == HEARD_LAST_TURN || bKnowledge == HEARD_2_TURNS_AGO) &&
 				//(AICheckIsSniper(pOpponent) || AICheckIsMortarOperator(pOpponent) || AICheckIsRadioOperator(pOpponent) || TeamHighPercentKilled(pSoldier->bTeam) || fSectorCurFew || fSectorAttack) &&
@@ -1215,8 +1215,8 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			if (bPersonalKnowledge == SEEN_CURRENTLY || bPublicKnowledge == SEEN_CURRENTLY)
 			{
 				// active KNOWN opponent, remember where he is so that we DO blow him up!
-				sOpponentTile[ubOpponentCnt] = pOpponent->sGridNo;
-				bOpponentLevel[ubOpponentCnt] = pOpponent->pathing.bLevel;
+				sOpponentTile[ubOpponentCnt] = pOpponent->position().gridNo();
+				bOpponentLevel[ubOpponentCnt] = pOpponent->position().level();
 			}
 			// check if opponent is in a building and was seen/heard recently
 			else if (pSoldier->bTeam == ENEMY_TEAM &&
@@ -1237,8 +1237,8 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			if (bPersonalKnowledge == SEEN_CURRENTLY || bPublicKnowledge == SEEN_CURRENTLY)
 			{
 				// active KNOWN opponent, remember where he is so that we DO blow him up!
-				sOpponentTile[ubOpponentCnt] = pOpponent->sGridNo;
-				bOpponentLevel[ubOpponentCnt] = pOpponent->pathing.bLevel;
+				sOpponentTile[ubOpponentCnt] = pOpponent->position().gridNo();
+				bOpponentLevel[ubOpponentCnt] = pOpponent->position().level();
 			}
 			else if ((bKnowledge == SEEN_THIS_TURN || bKnowledge == SEEN_LAST_TURN || bKnowledge == HEARD_THIS_TURN || bKnowledge == HEARD_LAST_TURN || bKnowledge == HEARD_2_TURNS_AGO) &&
 				!TileIsOutOfBounds(KnownLocation(pSoldier, pOpponent->ubID)))
@@ -1257,12 +1257,12 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			if (bPersonalKnowledge == SEEN_CURRENTLY || bPublicKnowledge == SEEN_CURRENTLY)
 			{
 				// active KNOWN opponent, remember where he is so that we DO blow him up!
-				sOpponentTile[ubOpponentCnt] = pOpponent->sGridNo;
-				bOpponentLevel[ubOpponentCnt] = pOpponent->pathing.bLevel;
+				sOpponentTile[ubOpponentCnt] = pOpponent->position().gridNo();
+				bOpponentLevel[ubOpponentCnt] = pOpponent->position().level();
 			}
 			else if ((bKnowledge == SEEN_THIS_TURN || bKnowledge == SEEN_LAST_TURN || bKnowledge == HEARD_THIS_TURN || bKnowledge == HEARD_LAST_TURN) &&
 				!TileIsOutOfBounds(KnownLocation(pSoldier, pOpponent->ubID)) &&
-				CloseEnoughForGrenadeToss(pOpponent->sGridNo, KnownLocation(pSoldier, pOpponent->ubID)) &&
+				CloseEnoughForGrenadeToss(pOpponent->position().gridNo(), KnownLocation(pSoldier, pOpponent->ubID)) &&
 				(usGrenade != NOTHING && ItemIsFlare(usGrenade) || pSoldier->aiData.bUnderFire || pSoldier->aiData.bShock))
 			{
 				sOpponentTile[ubOpponentCnt] = KnownLocation(pSoldier, pOpponent->ubID);
@@ -1278,7 +1278,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		ubOpponentID[ubOpponentCnt] = pOpponent->ubID;
 
 		// remember how relatively dangerous this opponent is (ignore my cover)
-		iOppThreatValue[ubOpponentCnt] = CalcManThreatValue(pOpponent,pSoldier->sGridNo,FALSE,pSoldier);
+		iOppThreatValue[ubOpponentCnt] = CalcManThreatValue(pOpponent,pSoldier->position().gridNo(),FALSE,pSoldier);
 
 		ubOpponentCnt++;
 	}
@@ -1318,10 +1318,10 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	// don't spare when soldier is under attack or too many killed
 	if (pSoldier->aiData.bUnderFire ||
 		TeamHighPercentKilled(pSoldier->bTeam) ||
-		CountTeamUnderAttack(pSoldier->bTeam, pSoldier->sGridNo, TACTICAL_RANGE / 2) > 0 ||
+		CountTeamUnderAttack(pSoldier->bTeam, pSoldier->position().gridNo(), TACTICAL_RANGE / 2) > 0 ||
 		pSoldier->aiData.bOrders == STATIONARY ||
 		pSoldier->aiData.bOrders == SNIPER ||
-		pSoldier->pathing.bLevel > 0 && pSoldier->aiData.bAlertStatus == STATUS_RED && fHandGrenade)
+		pSoldier->position().level() > 0 && pSoldier->aiData.bAlertStatus == STATUS_RED && fHandGrenade)
 	{
 		fSpare = FALSE;
 	}
@@ -1393,7 +1393,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					continue;
 				}
 
-				if ( PythSpacesAway( pSoldier->sGridNo, sGridNo ) > iTossRange )
+				if ( PythSpacesAway( pSoldier->position().gridNo(), sGridNo ) > iTossRange )
 				{
 					// can't throw there!
 					continue;
@@ -1611,7 +1611,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					// calculate the maximum possible aiming time
 					ubMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sGridNo, pSoldier->bActionPoints - sMinAPcost);//dnl ch63 250813
 					sRawAPCost = MinAPsToShootOrStab(pSoldier, sGridNo, ubMaxPossibleAimTime, FALSE);
-					ubChanceToHit = (UINT8)AICalcChanceToHitGun(pSoldier, sGridNo, ubMaxPossibleAimTime, AIM_SHOT_TORSO, pOpponent->pathing.bLevel, STANDING);//dnl ch59 130813
+					ubChanceToHit = (UINT8)AICalcChanceToHitGun(pSoldier, sGridNo, ubMaxPossibleAimTime, AIM_SHOT_TORSO, pOpponent->position().level(), STANDING);//dnl ch59 130813
 				}
 				else
 				{
@@ -1652,9 +1652,9 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				iAttackValue = (iHitRate * ubChanceToReallyHit * iTotalThreatValue) / 1000;
 				
 				// modify smoke attack value depending on range
-				if (usGrenade && Explosive[Item[usGrenade].ubClassIndex].ubType == EXPLOSV_SMOKE && PythSpacesAway(pSoldier->sGridNo, sGridNo) < (INT16)TACTICAL_RANGE)
+				if (usGrenade && Explosive[Item[usGrenade].ubClassIndex].ubType == EXPLOSV_SMOKE && PythSpacesAway(pSoldier->position().gridNo(), sGridNo) < (INT16)TACTICAL_RANGE)
 				{
-					iAttackValue = iAttackValue * PythSpacesAway(pSoldier->sGridNo, sGridNo) / TACTICAL_RANGE;
+					iAttackValue = iAttackValue * PythSpacesAway(pSoldier->position().gridNo(), sGridNo) / TACTICAL_RANGE;
 				}
 
 				// unlike SHOOTing and STABbing, find strictly the highest attackValue
@@ -1758,7 +1758,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 			continue;			// next merc
 
 		// if this opponent is not on the same level
-		if (pSoldier->pathing.bLevel != pOpponent->pathing.bLevel)
+		if (pSoldier->position().level() != pOpponent->position().level())
 			continue;			// next merc
 
 		// silversurfer: ignore empty vehicles
@@ -1778,7 +1778,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 #endif
 
 		// calculate minimum action points required to stab at this opponent
-		ubMinAPCost = CalcTotalAPsToAttack( pSoldier,pOpponent->sGridNo,ADDTURNCOST, 0 );
+		ubMinAPCost = CalcTotalAPsToAttack( pSoldier,pOpponent->position().gridNo(),ADDTURNCOST, 0 );
 
 		//ubMinAPCost = MinAPsToAttack(pSoldier,pOpponent->sGridNo,ADDTURNCOST);
 		//NumMessage("MinAPcost to stab this opponent = ",ubMinAPCost);
@@ -1808,7 +1808,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 		// calc next attack's minimum stabbing cost (excludes movement & turning)
 		//ubRawAPCost = MinAPsToShootOrStab(pSoldier,pOpponent->sGridNo, FALSE) - APBPConstants[AP_CHANGE_TARGET];
-		ubRawAPCost = MinAPsToAttack(pSoldier,pOpponent->sGridNo, FALSE,0) - APBPConstants[AP_CHANGE_TARGET];
+		ubRawAPCost = MinAPsToAttack(pSoldier,pOpponent->position().gridNo(), FALSE,0) - APBPConstants[AP_CHANGE_TARGET];
 		//NumMessage("ubRawAPCost to stab this opponent = ",ubRawAPCost);
 
 
@@ -1819,7 +1819,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 		if (pOpponent->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY)
 		{
 			// and he's only one space away from attacker
-			if (SpacesAway(pSoldier->sGridNo,pOpponent->sGridNo) == 1)
+			if (SpacesAway(pSoldier->position().gridNo(),pOpponent->position().gridNo()) == 1)
 			{
 				fSurpriseStab = TRUE;	// we got 'im lined up where we want 'im!
 			}
@@ -1830,7 +1830,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 		// calculate the maximum possible aiming time
 		// HEADROCK HAM 4: Required for new Aiming Level Limits function
-		ubMaxPossibleAimTime = min(AllowedAimingLevels(pSoldier, pOpponent->sGridNo),pSoldier->bActionPoints - ubMinAPCost);
+		ubMaxPossibleAimTime = min(AllowedAimingLevels(pSoldier, pOpponent->position().gridNo()),pSoldier->bActionPoints - ubMinAPCost);
 		//NumMessage("Max Possible Aim Time = ",ubMaxPossibleAimTime);
 
 		// consider the various aiming times
@@ -1887,7 +1887,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 		// calculate this opponent's threat value
 		// NOTE: ignore my cover!	By the time I run beside him I won't have any!
-		iThreatValue = CalcManThreatValue(pOpponent,pSoldier->sGridNo,FALSE,pSoldier);
+		iThreatValue = CalcManThreatValue(pOpponent,pSoldier->position().gridNo(),FALSE,pSoldier);
 
 		// estimate the damage this stab would do to this opponent
 		iEstDamage = EstimateStabDamage(pSoldier,pOpponent,ubBestChanceToHit, fBladeAttack );
@@ -1940,8 +1940,8 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 			pBestStab->ubOpponent			= pOpponent->ubID;
 			pBestStab->ubAimTime				= ubBestAimTime;
 			pBestStab->ubChanceToReallyHit  = ubChanceToReallyHit;
-			pBestStab->sTarget				= pOpponent->sGridNo;
-			pBestStab->bTargetLevel			= pOpponent->pathing.bLevel;
+			pBestStab->sTarget				= pOpponent->position().gridNo();
+			pBestStab->bTargetLevel			= pOpponent->position().level();
 			pBestStab->iAttackValue			= iAttackValue;
 			pBestStab->ubAPCost				= ubMinAPCost + ubBestAimTime;
 		}
@@ -1985,12 +1985,12 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 			continue;			// next merc
 
 		// if this opponent is not on the same level
-		if (pSoldier->pathing.bLevel != pOpponent->pathing.bLevel)
+		if (pSoldier->position().level() != pOpponent->position().level())
 			continue;			// next merc
 
 		UINT16 usRange = GetModifiedGunRange(CREATURE_QUEEN_TENTACLES);
 		// if this opponent is outside the range of our tentacles
-		if ( GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, pOpponent->sGridNo ) > usRange )
+		if ( GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) > usRange )
 		{
 			continue; // next merc
 		}
@@ -2000,14 +2000,14 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 #endif
 
 		// calculate minimum action points required to stab at this opponent
-		ubMinAPCost = CalcTotalAPsToAttack( pSoldier,pOpponent->sGridNo,ADDTURNCOST, 0 );
+		ubMinAPCost = CalcTotalAPsToAttack( pSoldier,pOpponent->position().gridNo(),ADDTURNCOST, 0 );
 		//ubMinAPCost = MinAPsToAttack(pSoldier,pOpponent->sGridNo,ADDTURNCOST);
 		//NumMessage("MinAPcost to stab this opponent = ",ubMinAPCost);
 
 
 		// calc next attack's minimum stabbing cost (excludes movement & turning)
 		//ubRawAPCost = MinAPsToShootOrStab(pSoldier,pOpponent->sGridNo, FALSE) - APBPConstants[AP_CHANGE_TARGET];
-		ubRawAPCost = MinAPsToAttack(pSoldier,pOpponent->sGridNo, FALSE,0) - APBPConstants[AP_CHANGE_TARGET];
+		ubRawAPCost = MinAPsToAttack(pSoldier,pOpponent->position().gridNo(), FALSE,0) - APBPConstants[AP_CHANGE_TARGET];
 		//NumMessage("ubRawAPCost to stab this opponent = ",ubRawAPCost);
 
 		// determine if this is a surprise stab (for tentacles, enemy must not see us, no dist limit)
@@ -2073,7 +2073,7 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 
 		// calculate this opponent's threat value
 		// NOTE: ignore my cover!	By the time I run beside him I won't have any!
-		iThreatValue = CalcManThreatValue(pOpponent,pSoldier->sGridNo,FALSE,pSoldier);
+		iThreatValue = CalcManThreatValue(pOpponent,pSoldier->position().gridNo(),FALSE,pSoldier);
 
 		// estimate the damage this stab would do to this opponent
 		iEstDamage = EstimateStabDamage(pSoldier,pOpponent,ubBestChanceToHit, TRUE );
@@ -2098,8 +2098,8 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 			pBestStab->ubOpponent			= pOpponent->ubID;
 			pBestStab->ubAimTime			= ubBestAimTime;
 			pBestStab->ubChanceToReallyHit = ubChanceToReallyHit;
-			pBestStab->sTarget			 = pOpponent->sGridNo;
-			pBestStab->bTargetLevel		= pOpponent->pathing.bLevel;
+			pBestStab->sTarget			 = pOpponent->position().gridNo();
+			pBestStab->bTargetLevel		= pOpponent->position().level();
 
 			// ADD this target's attack value to our TOTAL...
 			pBestStab->iAttackValue				+= iAttackValue;
@@ -2124,7 +2124,7 @@ UINT8 NumMercsCloseTo( INT32 sGridNo, UINT8 ubMaxDist )
 		if (pSoldier && pSoldier->bTeam != CREATURE_TEAM && pSoldier->vitals().health() >= OKLIFE)
 		//if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
 		{
-			if (PythSpacesAway( sGridNo, pSoldier->sGridNo ) <= ubMaxDist)
+			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= ubMaxDist)
 			{
 				bNumber++;
 			}
@@ -2168,7 +2168,7 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 
 	// calculate distance to target, obtain his gun's maximum range rating
 
-	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, pOpponent->sGridNo );
+	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), pOpponent->position().gridNo() );
 	// SANDRO - added specific range calculation
 	if ( Item[ usItem ].usItemClass & IC_GUN )
 		iMaxRange = GunRange( pObj, pSoldier );
@@ -2262,13 +2262,13 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 		{
 			// explosive damage is 100-200% that of the rated, so multiply by 3/2s here
 		case CREATURE_QUEEN_SPIT: //TODO: Madd - remove the hardcoding here
-			iDamage += ( 3 * Explosive[ Item[ LARGE_CREATURE_GAS ].ubClassIndex ].ubDamage * NumMercsCloseTo( pOpponent->sGridNo, (UINT8)Explosive[ Item[ LARGE_CREATURE_GAS ].ubClassIndex ].ubRadius ) ) / 2;
+			iDamage += ( 3 * Explosive[ Item[ LARGE_CREATURE_GAS ].ubClassIndex ].ubDamage * NumMercsCloseTo( pOpponent->position().gridNo(), (UINT8)Explosive[ Item[ LARGE_CREATURE_GAS ].ubClassIndex ].ubRadius ) ) / 2;
 			break;
 		case CREATURE_OLD_MALE_SPIT:
-			iDamage += ( 3 * Explosive[ Item[ SMALL_CREATURE_GAS ].ubClassIndex ].ubDamage * NumMercsCloseTo( pOpponent->sGridNo, (UINT8)Explosive[ Item[ SMALL_CREATURE_GAS ].ubClassIndex	].ubRadius ) ) / 2;
+			iDamage += ( 3 * Explosive[ Item[ SMALL_CREATURE_GAS ].ubClassIndex ].ubDamage * NumMercsCloseTo( pOpponent->position().gridNo(), (UINT8)Explosive[ Item[ SMALL_CREATURE_GAS ].ubClassIndex	].ubRadius ) ) / 2;
 			break;
 		default:
-			iDamage += ( 3 * Explosive[ Item[ VERY_SMALL_CREATURE_GAS ].ubClassIndex ].ubDamage * NumMercsCloseTo( pOpponent->sGridNo, (UINT8)Explosive[ Item[ VERY_SMALL_CREATURE_GAS ].ubClassIndex	].ubRadius ) ) / 2;
+			iDamage += ( 3 * Explosive[ Item[ VERY_SMALL_CREATURE_GAS ].ubClassIndex ].ubDamage * NumMercsCloseTo( pOpponent->position().gridNo(), (UINT8)Explosive[ Item[ VERY_SMALL_CREATURE_GAS ].ubClassIndex	].ubRadius ) ) / 2;
 			break;
 		}
 	}
@@ -2335,7 +2335,7 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 	// JA2Gold: added
 	if (ItemIsFlare(pSoldier->inv[ubItemPos].usItem))
 	{
-		return( 5 * ( LightTrueLevel( pOpponent->sGridNo, pOpponent->pathing.bLevel ) - NORMAL_LIGHTLEVEL_DAY ) );
+		return( 5 * ( LightTrueLevel( pOpponent->position().gridNo(), pOpponent->position().level() ) - NORMAL_LIGHTLEVEL_DAY ) );
 	}
 
 
@@ -2632,7 +2632,7 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 		}
 		////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-		PlayJA2Sample( Weapon[ Item[pObj->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+		PlayJA2Sample( Weapon[ Item[pObj->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 
 		if ( pSoldier->IsValidSecondHandShot( ) )
@@ -2642,7 +2642,7 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 			if ((*pObj2)[0]->data.gun.ubGunShotsLeft && !((*pObj2)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
 			{
 				(*pObj2)[0]->data.gun.ubGunState |= GS_CARTRIDGE_IN_CHAMBER;
-				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 			}
 		}
 
@@ -2685,7 +2685,7 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 				}
 				////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+				PlayJA2Sample( Weapon[ Item[pObj2->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 				return TRUE;
 			}
@@ -2895,7 +2895,7 @@ INT8 CountAdjacentSpreadTargets( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT
 	}
 	bTargets = 1;
 
-	bDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, sFirstTarget );
+	bDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sFirstTarget );
 
 	for ( bDirLoop = 0; bDirLoop < NUM_WORLD_DIRECTIONS; ++bDirLoop )
 	{
@@ -3024,7 +3024,7 @@ INT16 CalcSpreadBurst( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT8 bTargetL
 	bTargets = 1;
 	bAdjacents = CountAdjacentSpreadTargets( pSoldier, sFirstTarget, bTargetLevel );
 
-	bDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->sGridNo, sFirstTarget );
+	bDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sFirstTarget );
 
 	for ( bDirLoop = 0; bDirLoop < NUM_WORLD_DIRECTIONS; ++bDirLoop )
 	{
@@ -3289,7 +3289,7 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 		return( FALSE );
 	}
 	pSoldier->usUIMovementMode = RUNNING;
-	if( pSoldier->bActionPoints < GetAPsToStealItem( pSoldier, NULL, pOpponent->sGridNo ) )
+	if( pSoldier->bActionPoints < GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) )
 	{
 		return( FALSE );
 	}
@@ -3375,11 +3375,11 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 		sChance += ((pOpponent->vitals().maximumBreath() - pOpponent->vitals().breath()) / 2);
 	}
 
-	if( pSoldier->bActionPoints > (GetAPsToStealItem( pSoldier, NULL, pOpponent->sGridNo ) +  (2 * ApsToPunch( pSoldier ))) )
+	if( pSoldier->bActionPoints > (GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) +  (2 * ApsToPunch( pSoldier ))) )
 	{
 		sChance += 35;
 	}
-	else if ( pSoldier->bActionPoints > (GetAPsToStealItem( pSoldier, NULL, pOpponent->sGridNo ) +  ApsToPunch( pSoldier )) )
+	else if ( pSoldier->bActionPoints > (GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) +  ApsToPunch( pSoldier )) )
 	{
 		sChance += 20;
 	}
@@ -3510,7 +3510,7 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 		{
 			// active friend, remember where he is so that we DON'T blow him up!
 			// this includes US, since we don't want to blow OURSELVES up either
-			sFriendTile[ubFriendCnt] = pFriend->sGridNo;
+			sFriendTile[ubFriendCnt] = pFriend->position().gridNo();
 			ubFriendCnt++;
 		}
 		else
@@ -3518,7 +3518,7 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 			// if an enemy fulfills taboo, we will remember his tile and be careful not to ever hit it!
 			if ( taboo(pFriend) )
 			{
-				sTabooTile[ubTabooCnt] = pFriend->sGridNo;
+				sTabooTile[ubTabooCnt] = pFriend->position().gridNo();
 				++ubTabooCnt;
 				continue;
 			}
@@ -3537,12 +3537,12 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 			if ( bPersOL == SEEN_CURRENTLY || bPublOL == SEEN_CURRENTLY )
 			{
 				// active KNOWN opponent, remember where he is so that we DO blow him up!
-				sOpponentTile[ubOpponentCnt] = pFriend->sGridNo;
+				sOpponentTile[ubOpponentCnt] = pFriend->position().gridNo();
 			}
 			else if ( bPersOL == SEEN_LAST_TURN || bPersOL == HEARD_LAST_TURN )
 			{
 				// cheat; only allow throw if person is REALLY within 2 tiles of where last seen
-				if ( SpacesAway( pFriend->sGridNo, gsLastKnownOppLoc[ pSoldier->ubID ][ pFriend->ubID ] ) < 3 )
+				if ( SpacesAway( pFriend->position().gridNo(), gsLastKnownOppLoc[ pSoldier->ubID ][ pFriend->ubID ] ) < 3 )
 				{
 					sOpponentTile[ubOpponentCnt] = gsLastKnownOppLoc[ pSoldier->ubID ][ pFriend->ubID ];
 				}
@@ -3715,17 +3715,17 @@ BOOLEAN GetFarthestOpponent(SOLDIERTYPE *pSoldier, SoldierID *puID, INT16 sRange
 		}
 
 		// since we're dealing with seen people, use exact gridnos
-		sGridNo = pOpp->sGridNo;
+		sGridNo = pOpp->position().gridNo();
 
 		// if we are standing at that gridno(!, obviously our info is old...)
-		if (sGridNo == pSoldier->sGridNo)
+		if (sGridNo == pSoldier->position().gridNo())
 		{
 			continue;			// next merc
 		}
 
 		// I hope this will be good enough; otherwise we need a fractional/world-units-based 2D distance function
 		//sRange = PythSpacesAway( pSoldier->sGridNo, sGridNo);
-		iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->sGridNo, sGridNo );
+		iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
 		if (iRange > sRange)
 		{
@@ -3785,13 +3785,13 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 
 		// get the minimum cost to attack with this tossable item
-		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->sGridNo, DONTADDTURNCOST, 0);
+		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->position().gridNo(), DONTADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
 		if (pSoldier->bActionPoints >= ubMinAPcost)
 		{
-			INT32 sSpot = pSoldier->sGridNo;
-			INT8	 bLevel = pSoldier->pathing.bLevel;
+			INT32 sSpot = pSoldier->position().gridNo();
+			INT8	 bLevel = pSoldier->position().level();
 
 			INT32 sTargetSpot = NOWHERE;
 			INT8	 bTargetLevel = bLevel;
@@ -3800,9 +3800,9 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			SoldierID ubClosestThreatID = pSoldier->ubPreviousAttackerID;
 
 			// try to find good spot for smoke
-			if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->sGridNo))
+			if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->position().gridNo()))
 			{
-				sClosestThreat = ubClosestThreatID->sGridNo;
+				sClosestThreat = ubClosestThreatID->position().gridNo();
 
 				sTargetSpot = FindTossSpotInDirection(sSpot, bLevel, sClosestThreat, TRUE, TRUE);
 			}
@@ -3811,9 +3811,9 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			{
 				ubClosestThreatID = ClosestSeenThreatID(pSoldier, uiThreatCnt, SEEN_LAST_TURN);
 
-				if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->sGridNo))
+				if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->position().gridNo()))
 				{
-					sClosestThreat = ubClosestThreatID->sGridNo;
+					sClosestThreat = ubClosestThreatID->position().gridNo();
 
 					sTargetSpot = FindTossSpotInDirection(sSpot, bLevel, sClosestThreat, TRUE, TRUE);
 				}
@@ -3823,9 +3823,9 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			{
 				ubClosestThreatID = ClosestKnownThreatID(pSoldier, uiThreatCnt);
 
-				if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->sGridNo))
+				if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->position().gridNo()))
 				{
-					sClosestThreat = ubClosestThreatID->sGridNo;
+					sClosestThreat = ubClosestThreatID->position().gridNo();
 
 					sTargetSpot = FindTossSpotInDirection(sSpot, bLevel, sClosestThreat, TRUE, TRUE);
 				}
@@ -3878,13 +3878,13 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 
 		// get the minimum cost to attack with this tossable item
-		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->sGridNo, DONTADDTURNCOST, 0);
+		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->position().gridNo(), DONTADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
 		if (pSoldier->bActionPoints >= ubMinAPcost)
 		{
-			INT32	sSpot = pSoldier->sGridNo;
-			INT8	bLevel = pSoldier->pathing.bLevel;
+			INT32	sSpot = pSoldier->position().gridNo();
+			INT8	bLevel = pSoldier->position().level();
 
 			// check all friends
 			SOLDIERTYPE *pFriend;
@@ -3913,12 +3913,12 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					pFriend->bActive &&
 					pFriend->vitals().health() >= OKLIFE &&
 					RangeChangeDesire(pFriend) <= 3 &&
-					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->lastFlankSpot) && PythSpacesAway(pFriend->sGridNo, pFriend->lastFlankSpot) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->sGridNo, pFriend->pathing.bLevel, pFriend->lastFlankSpot, pFriend->pathing.bLevel, TRUE, NO_DISTANCE_LIMIT) ||
+					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->lastFlankSpot) && PythSpacesAway(pFriend->position().gridNo(), pFriend->lastFlankSpot) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->position().gridNo(), pFriend->position().level(), pFriend->lastFlankSpot, pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT) ||
 					pFriend->aiData.bUnderFire && (pFriend->IsCowering() || pFriend->TakenLargeHit() || pFriend->aiData.bUnderFire && pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					)
 				{
-					sFriendSpot = pFriend->sGridNo;
-					bFriendLevel = pFriend->pathing.bLevel;
+					sFriendSpot = pFriend->position().gridNo();
+					bFriendLevel = pFriend->position().level();
 					sClosestOpponent = ClosestKnownOpponent(pFriend, NULL, NULL);
 
 					if (PythSpacesAway(sSpot, sFriendSpot) <= (INT16)TACTICAL_RANGE &&
@@ -4039,7 +4039,7 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 	// maybe try to stand up for better range
 	if (ubChanceToReallyHit == 0 &&
 		gAnimControl[pSoldier->usAnimState].ubEndHeight < ANIM_STAND &&
-		pSoldier->InternalIsValidStance(AIDirection(pSoldier->sGridNo, sTargetSpot), ANIM_STAND) &&
+		pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTargetSpot), ANIM_STAND) &&
 		pSoldier->bActionPoints >= ubAPCost + GetAPsToChangeStance(pSoldier, ANIM_STAND))
 	{
 		pSoldier->usAnimState = STANDING;
@@ -4217,7 +4217,7 @@ void CheckTossGrenadeAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTa
 		}
 
 		// get the minimum cost to attack with this tossable item
-		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->sGridNo, DONTADDTURNCOST, 0);
+		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->position().gridNo(), DONTADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
 		if (pSoldier->bActionPoints >= ubMinAPcost)

@@ -2022,7 +2022,7 @@ UINT32 MiniGame_Handle_Pong()
 					if ( pSoldier )
 					{
 						swprintf( player1name, pSoldier->GetName( ) );
-						player1gridno = pSoldier->sGridNo;
+						player1gridno = pSoldier->position().gridNo();
 					}
 				}
 
@@ -2032,7 +2032,7 @@ UINT32 MiniGame_Handle_Pong()
 					// everybody other merc in the same sector gets annoyed
 					if ( bMercID != gusSelectedSoldier && pSoldier->bActive && pSoldier->bInSector )
 					{						
-						if ( PythSpacesAway( player1gridno, pSoldier->sGridNo ) < 6 )
+						if ( PythSpacesAway( player1gridno, pSoldier->position().gridNo() ) < 6 )
 						{
 							if ( !foundplayer_2 )
 							{

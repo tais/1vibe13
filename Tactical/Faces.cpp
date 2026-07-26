@@ -2894,7 +2894,7 @@ void HandleAutoFaces( )
 					pFace->uiFlags &= ( ~FACE_SHOW_WHITE_HILIGHT );
 				}
 				
-				if ( pSoldier->sGridNo != pSoldier->pathing.sFinalDestination && !TileIsOutOfBounds(pSoldier->sGridNo))
+				if ( pSoldier->position().gridNo() != pSoldier->pathing.sFinalDestination && !TileIsOutOfBounds(pSoldier->position().gridNo()))
 				{
 					pFace->uiFlags |= FACE_SHOW_MOVING_HILIGHT;
 				}
