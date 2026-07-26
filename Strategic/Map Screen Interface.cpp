@@ -1,4 +1,5 @@
 #include "Map Screen Interface.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Map Screen Interface Map.h"
 	#include "Render Dirty.h"
@@ -1148,7 +1149,8 @@ void ActivateSoldierPopup( SOLDIERTYPE *pSoldier, UINT8 ubPopupType, INT16 xp, I
 		if( gCharactersList[ bCounter ].fValid == TRUE )
 		{
 			// is this guy the passed soldier?
-			if( pSoldier == &( Menptr[ gCharactersList[ bCounter ].usSolID ] ) )
+			if( pSoldier == GetJa2SoldierRepository().resolve(
+					gCharactersList[ bCounter ].usSolID ) )
 			{
 				bCharacter = bCounter;
 				break;

@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "SoldierRepository.h"
 	#include "worlddef.h"
 	#include <DEBUG.H>
 	#include "strategic.h"
@@ -1559,11 +1560,12 @@ void MoveTeamOnFoot( void )
 	INT32 cnt=0;
 
 	// set psoldier as first in merc ptrs
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, move characters
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pTeamSoldier->bActive )
 		{
 			MoveCharacterOnPath( pTeamSoldier );

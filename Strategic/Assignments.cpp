@@ -1,4 +1,5 @@
 #include "Assignments.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "strategic.h"
 #include "Items.h"
@@ -739,11 +740,12 @@ void BuildSectorsWithSoldiersList( void )
 	SOLDIERTYPE *pSoldier, *pTeamSoldier;
 	INT32 cnt=0;
 
-	pSoldier = MercPtrs[ 0 ];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// fills array with pressence of player controlled characters
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if(pTeamSoldier->bActive && pTeamSoldier->bSectorZ < 4)
 		{
 			fSectorsWithSoldiers[ CALCULATE_STRATEGIC_INDEX(pTeamSoldier->sSectorX, pTeamSoldier->sSectorY ) ][ pTeamSoldier->bSectorZ ] = TRUE;
@@ -1248,7 +1250,7 @@ BOOLEAN IsAnythingAroundForSoldierToClean( SOLDIERTYPE * pSoldier )
 			// Iterate over all pocket slots and add items in need of repair
 			for (UINT8 pocketIndex = HANDPOS; pocketIndex < NUM_INV_SLOTS; ++pocketIndex)
 			{
-				const OBJECTTYPE* pObj = &(const_cast<SOLDIERTYPE *>(MercPtrs[teamMember])->inv[pocketIndex]);
+				const OBJECTTYPE* pObj = &(const_cast<SOLDIERTYPE *>(GetJa2SoldierRepository().resolve(teamMember))->inv[pocketIndex]);
 				if(pObj == NULL || pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING)
 					continue;
 
@@ -3146,11 +3148,12 @@ UINT8 FindNumberInSectorWithAssignment( INT16 sX, INT16 sY, INT8 bAssignment )
 	INT8 bNumberOfPeople = 0;
 
 	// set psoldier as first in merc ptrs
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
 			if( ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) &&( pTeamSoldier->bAssignment == bAssignment ) )
@@ -3168,14 +3171,15 @@ UINT8 FindNumberInSectorWithAssignment( INT16 sX, INT16 sY, INT8 bAssignment )
 UINT8 GetNumberThatCanBeDoctored( SOLDIERTYPE *pDoctor, BOOLEAN fThisHour, BOOLEAN fSkipKitCheck, BOOLEAN fSkipSkillCheck, BOOLEAN fCheckForSurgery )
 {
 	int cnt;
-	SOLDIERTYPE *pSoldier = MercPtrs[0], *pTeamSoldier = NULL;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(0), *pTeamSoldier = NULL;
 	UINT8 ubNumberOfPeople = 0;
 
 	AssertNotNIL(pDoctor);
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0, pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt, ++pTeamSoldier)
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
 			if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, fThisHour, fSkipKitCheck, fSkipSkillCheck, fCheckForSurgery ) )
@@ -3192,13 +3196,14 @@ UINT8 GetNumberThatCanBeDoctored( SOLDIERTYPE *pDoctor, BOOLEAN fThisHour, BOOLE
 static SOLDIERTYPE* GetPatientThatCanBeDoctored( SOLDIERTYPE *pDoctor, BOOLEAN fThisHour, BOOLEAN fSkipKitCheck, BOOLEAN fSkipSkillCheck, BOOLEAN fCheckForSurgery )
 {
 	int cnt;
-	SOLDIERTYPE *pSoldier = MercPtrs[0], *pTeamSoldier = NULL;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(0), *pTeamSoldier = NULL;
 
 	AssertNotNIL( pDoctor );
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0, pTeamSoldier = MercPtrs[cnt]; cnt <= gTacticalStatus.Team[pSoldier->bTeam].bLastID; ++cnt, ++pTeamSoldier )
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[pSoldier->bTeam].bLastID; ++cnt )
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pTeamSoldier->bActive )
 		{
 			if ( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, fThisHour, fSkipKitCheck, fSkipSkillCheck, fCheckForSurgery ) )
@@ -3214,14 +3219,15 @@ static SOLDIERTYPE* GetPatientThatCanBeDoctored( SOLDIERTYPE *pDoctor, BOOLEAN f
 SOLDIERTYPE *AnyDoctorWhoCanHealThisPatient( SOLDIERTYPE *pPatient, BOOLEAN fThisHour )
 {
 	int cnt;
-	SOLDIERTYPE *pSoldier = MercPtrs[0], *pTeamSoldier = NULL;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(0), *pTeamSoldier = NULL;
 
 	AssertNotNIL(pPatient);
 	AssertNotNIL(pSoldier);
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0, pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt,pTeamSoldier++)
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// doctor?
 		if( pTeamSoldier->bActive && IS_DOCTOR(pTeamSoldier->bAssignment) )
 		{
@@ -3797,8 +3803,9 @@ FLOAT GetBestSAMOperatorCTH_Player( INT16 sSectorX, INT16 sSectorY, INT16 sSecto
 	UINT16 uiCnt = 0;
 	SOLDIERTYPE* pSoldier = NULL;
 
-	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && (pSoldier->sSectorX == sSectorX) && (pSoldier->sSectorY == sSectorY) && (pSoldier->bSectorZ == sSectorZ) )
 		{
 			INT16 personal_bestsamcth = 70.0f +
@@ -4117,13 +4124,14 @@ void HandleDoctorsInSector( INT16 sX, INT16 sY, INT8 bZ )
 	INT32 cnt=0;
 
 	// set psoldier as first in merc ptrs
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// will handle doctor/patient relationship in sector
 
 	// go through list of characters, find all doctors in sector
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt, pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if(pTeamSoldier->bActive)
 		{
 			if( ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) && ( pTeamSoldier->bSectorZ == bZ ) )
@@ -4150,13 +4158,14 @@ void HandleDoctorMilitia()
 	INT32 cnt = 0;
 
 	// set psoldier as first in merc ptrs
-	SOLDIERTYPE* pSoldier = MercPtrs[0];
+	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// will handle doctor/patient relationship in sector
 
 	// go through list of characters, find all doctors in sector
-	for ( pSoldier = MercPtrs[cnt]; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt, ++pSoldier )
+	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pSoldier && pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->bAssignment == DOCTOR_MILITIA && !( pSoldier->flags.fMercAsleep ) )
 		{
 			// character is in sector, check if can doctor, if so...heal people
@@ -4207,10 +4216,11 @@ void UpdatePatientsWhoAreDoneHealing( void )
 	BOOLEAN fHasDamagedStat = FALSE; // added by SANDRO
 
 	// set as first in list
-	pTeamSoldier = MercPtrs[0];
+	pTeamSoldier = GetJa2SoldierRepository().resolve(0);
 
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt, pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// active soldier?
 		if( pTeamSoldier->bActive )
 		{
@@ -4247,7 +4257,7 @@ void HealCharacters( SOLDIERTYPE *pDoctor, INT16 sX, INT16 sY, INT8 bZ )
 	UINT16 usEvenHealingAmount = 0;
 	UINT16 usMax =0;
 	UINT8 ubTotalNumberOfPatients = 0;
-	SOLDIERTYPE *pSoldier = MercPtrs[0], *pTeamSoldier = NULL, *pWorstHurtSoldier = NULL;
+	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(0), *pTeamSoldier = NULL, *pWorstHurtSoldier = NULL;
 	INT32 cnt = 0;
 	UINT16 usOldLeftOvers = 0;
 
@@ -4265,8 +4275,9 @@ void HealCharacters( SOLDIERTYPE *pDoctor, INT16 sX, INT16 sY, INT8 bZ )
 		usEvenHealingAmount = usRemainingHealingPts / ubTotalNumberOfPatients;
 
 		// heal each of the healable mercs by this equal amount
-		for ( cnt = 0, pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt, pTeamSoldier++)
+		for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 		{
+			pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 			if( pTeamSoldier->bActive )
 			{
 				if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, HEALABLE_THIS_HOUR, FALSE, FALSE, FALSE ) == TRUE )
@@ -4288,8 +4299,9 @@ void HealCharacters( SOLDIERTYPE *pDoctor, INT16 sX, INT16 sY, INT8 bZ )
 				// find the worst hurt patient
 				pWorstHurtSoldier = NULL;
 
-				for ( cnt = 0, pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt, pTeamSoldier++)
+				for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 				{
+					pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 					if( pTeamSoldier->bActive )
 					{
 						if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, HEALABLE_THIS_HOUR, FALSE, FALSE, FALSE ) == TRUE )
@@ -4380,7 +4392,7 @@ BOOLEAN IsSoldierCloseEnoughToADoctor( SOLDIERTYPE *pPatient )
 
 	for( iCounter = 0; iCounter < CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( pSoldier->bActive )
 		{
@@ -4751,11 +4763,12 @@ void CheckForAndHandleHospitalPatients( void )
 	}
 
 	// set pSoldier as first in merc ptrs
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt, pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
 			if ( pTeamSoldier->bAssignment == ASSIGNMENT_HOSPITAL )
@@ -4776,13 +4789,14 @@ void HandleRepairmenInSector( INT16 sX, INT16 sY, INT8 bZ )
 	INT32 cnt=0;
 
 	// set psoldier as first in merc ptrs
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// will handle repairman/client relationship in sector
 
 	// go through list of characters, find all repairmen in sector
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt, pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
 			if( ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) && ( pTeamSoldier->bSectorZ == bZ) )
@@ -6055,8 +6069,9 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		sBestTrainingPts = -1;
 
 		// search team for active instructors in this sector
-		for ( uiCnt = 0, pTrainer = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt, pTrainer++)
+		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 		{
+			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 			if( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ) )
 			{
 				// if he's training teammates in this stat
@@ -6077,8 +6092,9 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	}
 
 	// now search team for active self-trainers in this sector
-	for ( uiCnt = 0, pStudent = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt, pStudent++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
+		pStudent = GetJa2SoldierRepository().resolve(uiCnt);
 		// see if this merc is active and in the same sector
 		if( ( pStudent->bActive) && ( pStudent->sSectorX == sMapX ) && ( pStudent->sSectorY == sMapY ) && ( pStudent->bSectorZ == bZ ) )
 		{
@@ -6148,8 +6164,9 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		ubTownTrainers = 0;
 
 		// build list of all the town trainers in this sector and their training pts
-		for ( uiCnt = 0, pTrainer = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt,pTrainer++)
+		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 		{
+			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 			if( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ ) )
 			{
 				if( ( pTrainer->bAssignment == TRAIN_TOWN ) && ( EnoughTimeOnAssignment( pTrainer ) )	&& ( pTrainer->flags.fMercAsleep == FALSE ) )
@@ -6200,8 +6217,9 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	if ( gGameExternalOptions.fIndividualMilitia )
 	{
 		FLOAT drillpoints = 0;
-		for ( uiCnt = 0, pTrainer = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pTrainer )
+		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
+			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 			if ( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ ) )
 			{
 				if ( pTrainer->bAssignment == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
@@ -6237,8 +6255,9 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 
 			if ( drillpoints_used > 0 )
 			{
-				for ( uiCnt = 0, pTrainer = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pTrainer )
+				for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 				{
+					pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 					if ( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ ) )
 					{
 						if ( pTrainer->bAssignment == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
@@ -6275,8 +6294,9 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 
 	// we will count the number of radio operators in this sector that have scanned successfully this hour. The higher this number, the higher the chance to detect enemy patrols!
 	// search team for radio operators in this sector that performed this assignemnt successfully
-	for ( uiCnt = 0, pSoldier = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt, pSoldier++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
 		{
 			if( ( pSoldier->bAssignment == RADIO_SCAN ) && ( EnoughTimeOnAssignment( pSoldier ) ) && ( pSoldier->flags.fMercAsleep == FALSE ) )
@@ -6348,8 +6368,9 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	}
 
 	// award experience to all radio operators
-	for ( uiCnt = 0, pSoldier = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt, pSoldier++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
 		{
 			if ( !pSoldier->flags.fMercAsleep && (pSoldier->bAssignment == RADIO_SCAN) && EnoughTimeOnAssignment( pSoldier ) )
@@ -6384,8 +6405,9 @@ void HandleDiseaseDiagnosis()
 	// depending on his skills how far an infection has gotten, the infection will be made public, giving us more time to cure it
 	SOLDIERTYPE *pSoldier = NULL;
 	UINT32 uiCnt = 0;
-	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[MercPtrs[0]->bTeam].bLastID; ++uiCnt, pSoldier++ )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[GetJa2SoldierRepository().resolve(0)->bTeam].bLastID; ++uiCnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if ( pSoldier->bActive && pSoldier->bAssignment == DISEASE_DIAGNOSE && CanCharacterDiagnoseDisease( pSoldier ) && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			// determine our skill at detecting disease
@@ -6394,8 +6416,9 @@ void HandleDiseaseDiagnosis()
 			// loop over all other soldiers and determine the chance that they will infect us
 			SOLDIERTYPE *pTeamSoldier = NULL;
 			UINT32 uiCnt2 = 0;
-			for ( uiCnt2 = 0, pTeamSoldier = MercPtrs[uiCnt2]; uiCnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt2, ++pTeamSoldier )
+			for ( uiCnt2 = 0; uiCnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt2 )
 			{
+				pTeamSoldier = GetJa2SoldierRepository().resolve(uiCnt2);
 				if ( pTeamSoldier->bActive 
 						&& pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ )
 				{
@@ -6497,8 +6520,9 @@ void HandleStrategicDiseaseAndBurial()
 
 					SOLDIERTYPE *pSoldier = NULL;
 					UINT32 uiCnt = 0;
-					for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+					for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 					{
+						pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 						if ( pSoldier->bActive && pSoldier->bAssignment == BURIAL && !pSoldier->flags.fMercAsleep &&
 							pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && !pSoldier->bSectorZ && EnoughTimeOnAssignment( pSoldier ) )
 						{
@@ -6629,8 +6653,9 @@ void HandleStrategicDiseaseAndBurial()
 					// if we removed corpses, award experience to the undertakers
 					if ( corpsesremoved_burial )
 					{
-						for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+						for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 						{
+							pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 							if ( pSoldier->bActive && pSoldier->bAssignment == BURIAL && !pSoldier->flags.fMercAsleep &&
 								pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && !pSoldier->bSectorZ && EnoughTimeOnAssignment( pSoldier ) )
 							{
@@ -6656,8 +6681,9 @@ void HandleStrategicDiseaseAndBurial()
 	// mercs remove strategic disease
 	SOLDIERTYPE *pSoldier = NULL;
 	UINT32 uiCnt = 0;
-	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if ( pSoldier->bActive && pSoldier->bAssignment == DISEASE_DOCTOR_SECTOR && !pSoldier->bSectorZ &&
 			!pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) && CanCharacterTreatSectorDisease( pSoldier ) )
 		{
@@ -6811,7 +6837,7 @@ void HandleSpyAssignments()
 		INT8 bNewSquad = GetFirstEmptySquad();
 		if ( bNewSquad >= 0 )
 		{
-			SOLDIERTYPE* pSoldier = MercPtrs[usIdOfUncoveredMerc];
+			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(usIdOfUncoveredMerc);
 
 			pSoldier->usSoldierFlagMask2 |= (SOLDIER_CONCEALINSERTION|SOLDIER_CONCEALINSERTION_DISCOVERED);
 
@@ -7132,8 +7158,9 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 
 	// we will count the number of snitches in this sector that have spread propaganda successfully this hour. The higher this number, the higher loyalty increase!
 	// search team for snitches in this sector that performed this assignemnt successfully
-	for ( uiCnt = 0, pSnitch = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; uiCnt++, pSnitch++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; uiCnt++)
 	{
+		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
 		if( ( pSnitch->bActive && pSnitch->flags.fMercAsleep == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->bAssignment == SNITCH_SPREAD_PROPAGANDA || pSnitch->bAssignment == FACILITY_SPREAD_PROPAGANDA || pSnitch->bAssignment == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
 			( ( pSnitch->sSectorX == sMapX && pSnitch->sSectorY == sMapY && pSnitch->bSectorZ == bZ ) || pSnitch->bAssignment == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
@@ -7161,8 +7188,9 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	IncrementTownLoyalty( ubTownId, uiPropagandaEffect );
 
 	// award experience to all snitches
-	for ( uiCnt = 0, pSnitch = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt, pSnitch++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
+		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSnitch->bActive && ( pSnitch->sSectorX == sMapX ) && ( pSnitch->sSectorY == sMapY ) && ( pSnitch->bSectorZ == bZ) )
 		{
 			if( ( pSnitch->bAssignment == SNITCH_SPREAD_PROPAGANDA ) && ( EnoughTimeOnAssignment( pSnitch ) ) && ( pSnitch->flags.fMercAsleep == FALSE ) )
@@ -7183,8 +7211,9 @@ UINT32 HandlePropagandaBlockingBadNewsInTown( INT8 bTownId, UINT32 uiLoyaltyDecr
 	UINT32 uiNewLoyaltyDecrease = uiLoyaltyDecrease;
 
 	// search team for snitches in this sector that performed this assignment successfully
-	for ( uiCnt = 0, pSnitch = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt, pSnitch++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
+		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
 		if( ( pSnitch->bActive && pSnitch->flags.fMercAsleep == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->bAssignment == SNITCH_SPREAD_PROPAGANDA || pSnitch->bAssignment == FACILITY_SPREAD_PROPAGANDA || pSnitch->bAssignment == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
 			( GetTownIdForSector( pSnitch->sSectorX, pSnitch->sSectorY ) == bTownId || pSnitch->bAssignment == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
@@ -7794,8 +7823,9 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 	sBestTrainingPts = -1;
 
 	// search team for active instructors in this sector
-	for ( uiCnt = 0, pTrainer = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ MercPtrs[0]->bTeam ].bLastID; ++uiCnt, pTrainer++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
+		pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pTrainer->bActive && ( pTrainer->sSectorX == pSoldier->sSectorX ) && ( pTrainer->sSectorY == pSoldier->sSectorY ) && ( pTrainer->bSectorZ == pSoldier->bSectorZ) )
 		{
 			// if he's training teammates in this stat
@@ -8208,8 +8238,9 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	// count any interrogators found here, and sum up their interrogation values
 	SOLDIERTYPE *pSoldier = NULL;
 	UINT32 uiCnt = 0;
-	for ( uiCnt = 0, pSoldier = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt, ++pSoldier)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt)
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
 		{
 			if ( !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
@@ -8338,8 +8369,9 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	FLOAT expratio = totalexp / sum_points;
 
 	// award experience
-	for ( uiCnt = 0, pSoldier = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt, ++pSoldier)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt)
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
 		{
 			if ( !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
@@ -8438,7 +8470,7 @@ void BuildIntelInfoArray()
 		{
 			int ubID = i - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() );
 
-			SOLDIERTYPE *pSoldier = MercPtrs[ubID];
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 			// if this is a POW, and we don't know their location, we can use that
 			if ( pSoldier && pSoldier->bAssignment == ASSIGNMENT_POW && !( pSoldier->usSoldierFlagMask2 & SOLDIER_MERC_POW_LOCATIONKNOWN ) )
@@ -8624,7 +8656,7 @@ void BuyIntelInfo( int aInfoNumber )
 	{
 		int ubID = aInfoNumber - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() );
 
-		SOLDIERTYPE *pSoldier = MercPtrs[ubID];
+		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 		if ( pSoldier && pSoldier->bAssignment == ASSIGNMENT_POW )
 			pSoldier->usSoldierFlagMask2 |= SOLDIER_MERC_POW_LOCATIONKNOWN;
@@ -9124,8 +9156,9 @@ void HandleFortification()
 	SOLDIERTYPE* pSoldier = NULL;
 	UINT16 uiCnt = 0;
 
-	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if ( pSoldier->bActive && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			if ( (pSoldier->bAssignment == FORTIFICATION) && CanCharacterFortify( pSoldier ) )
@@ -9409,11 +9442,12 @@ void HandleNaturalHealing( void )
 	INT32 cnt=0;
 
 	// set psoldier as first in merc ptrs
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
 			// mechanical members don't regenerate!
@@ -16401,7 +16435,7 @@ void HandleRestFatigueAndSleepStatus( void )
 	// run through all player characters and handle their rest, fatigue, and going to sleep
 	for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( pSoldier->bActive )
 		{
@@ -16550,7 +16584,7 @@ void HandleRestFatigueAndSleepStatus( void )
 	// now handle waking (needs seperate list queue, that's why it has its own loop)
 	for( iCounter = 0; iCounter < iNumberOnTeam; iCounter++ )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( pSoldier->bActive )
 		{
@@ -16695,11 +16729,12 @@ SOLDIERTYPE * GetRobotSoldier( void )
 	INT32 cnt=0;
 
 	// set pSoldier as first in merc ptrs
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
 			if( AM_A_ROBOT( pTeamSoldier ) )
@@ -18027,7 +18062,7 @@ void ReportTrainersTraineesWithoutPartners( void )
 	// check for each instructor
 	for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 	{
-		pTeamSoldier = &Menptr[ iCounter ];
+		pTeamSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( ( pTeamSoldier->bAssignment == TRAIN_TEAMMATE ) && ( pTeamSoldier->vitals().health() > 0 ) )
 		{
@@ -18041,7 +18076,7 @@ void ReportTrainersTraineesWithoutPartners( void )
 	// check each trainee
 	for( iCounter = 0; iCounter < iNumberOnTeam; iCounter++ )
 	{
-		pTeamSoldier = &Menptr[ iCounter ];
+		pTeamSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( ( pTeamSoldier->bAssignment == TRAIN_BY_OTHER ) && ( pTeamSoldier->vitals().health() > 0 ) )
 		{
@@ -18541,7 +18576,7 @@ void ReEvaluateEveryonesNothingToDo( BOOLEAN aDoExtensiveCheck )
 
 	for( iCounter = 0; iCounter <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++iCounter )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( pSoldier->bActive )
 		{
@@ -19198,7 +19233,7 @@ BOOLEAN ValidTrainingPartnerInSameSectorOnAssignmentFound( SOLDIERTYPE *pTargetS
 
 	for( iCounter = 0; iCounter <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++iCounter )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if ( pSoldier->bActive )
 		{
@@ -19745,7 +19780,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 	// Check to see if all other trainees of the same stat are also asleep
 	for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 	{
-		pOtherTrainee = &Menptr[ iCounter ];
+		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->bAssignment == TRAIN_BY_OTHER && pOtherTrainee->bTrainStat == pThisTrainee->bTrainStat && 
 			pOtherTrainee->sSectorX == sMapX && pOtherTrainee->sSectorY == sMapY && pOtherTrainee->bSectorZ == sMapZ &&			
 			pOtherTrainee->bActive && !pOtherTrainee->flags.fMercAsleep )
@@ -19761,7 +19796,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 		// Look for trainers of that stat, in the same sector
 		for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 		{
-			pTrainer = &Menptr[ iCounter ];
+			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->bAssignment == TRAIN_TEAMMATE && pTrainer->bTrainStat == pThisTrainee->bTrainStat && 
 				pTrainer->sSectorX == sMapX && pTrainer->sSectorY == sMapY && pTrainer->bSectorZ == sMapZ &&	
 				pTrainer->bActive && !pTrainer->flags.fMercAsleep )
@@ -19819,7 +19854,7 @@ BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer)
 
 	for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 	{
-		pTrainee = &Menptr[ iCounter ];
+		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->bAssignment == TRAIN_BY_OTHER && pTrainee->bTrainStat == pTrainer->bTrainStat && 
 			pTrainee->sSectorX == sMapX && pTrainee->sSectorY == sMapY && pTrainee->bSectorZ == sMapZ &&
 			pTrainee->bActive && !pTrainee->flags.fMercAsleep )
@@ -19868,7 +19903,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 	// Check to see if all other trainees of the same stat are also asleep
 	for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 	{
-		pOtherTrainee = &Menptr[ iCounter ];
+		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->bAssignment == TRAIN_BY_OTHER && pOtherTrainee->bTrainStat == pThisTrainee->bTrainStat && 
 			pOtherTrainee->sSectorX == sMapX && pOtherTrainee->sSectorY == sMapY && pOtherTrainee->bSectorZ == sMapZ &&			
 			pOtherTrainee->bActive && pOtherTrainee->flags.fMercAsleep )
@@ -19884,7 +19919,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 		// Look for trainers of that stat, in the same sector
 		for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 		{
-			pTrainer = &Menptr[ iCounter ];
+			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->bAssignment == TRAIN_TEAMMATE && pTrainer->bTrainStat == pThisTrainee->bTrainStat && 
 				pTrainer->sSectorX == sMapX && pTrainer->sSectorY == sMapY && pTrainer->bSectorZ == sMapZ &&	
 				pTrainer->bActive && pTrainer->flags.fMercAsleep )
@@ -19933,7 +19968,7 @@ BOOLEAN SetTraineesWakeWhenTrainerWakes( SOLDIERTYPE *pTrainer)
 
 	for( iCounter = 0; iCounter < iNumberOnTeam; ++iCounter )
 	{
-		pTrainee = &Menptr[ iCounter ];
+		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->bAssignment == TRAIN_BY_OTHER && pTrainee->bTrainStat == pTrainer->bTrainStat && 
 			pTrainee->sSectorX == sMapX && pTrainee->sSectorY == sMapY && pTrainee->bSectorZ == sMapZ &&
 			pTrainee->bActive && pTrainee->flags.fMercAsleep )
@@ -22278,8 +22313,9 @@ INT16 MakeAutomaticSurgeryOnAllPatients( SOLDIERTYPE * pDoctor )
 	AssertNotNIL(pDoctor);
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0, pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pDoctor->bTeam ].bLastID; ++cnt, pTeamSoldier++)
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pDoctor->bTeam ].bLastID; ++cnt)
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, HEALABLE_EVER, FALSE, FALSE, TRUE ) == TRUE )
 		{
 			if( MakeAutomaticSurgery( pTeamSoldier, pDoctor ) == TRUE )
@@ -22349,8 +22385,9 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 	UINT8 usTrainerEffectiveLeadership = 0;
 
 	// First, get total leadership value of all trainers
-	for ( pTrainer = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt, pTrainer++)
+	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 	{
+		pTrainer = GetJa2SoldierRepository().resolve(cnt);
 		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ &&	pTrainer->bAssignment == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );
@@ -22392,8 +22429,9 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 
 	// Now we have to run again and percentually award points towards militia trained
 	cnt = 0;
-	for ( pTrainer = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt, pTrainer++)
+	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 	{
+		pTrainer = GetJa2SoldierRepository().resolve(cnt);
 		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ && pTrainer->bAssignment == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );

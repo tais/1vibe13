@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "SoldierRepository.h"
 
 	#include "types.h"
 	#include "Merc Contract.h"
@@ -1502,7 +1503,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 	// previous call accumulate and eventually write past the fixed-size ContractRenewalList
 	ubNumContractRenewals = 0;
 
-	pSoldier = &Menptr[ 0 ];
+	pSoldier = &GetJa2SoldierRepository().record(0);
 	iNumberOnTeam =gTacticalStatus.Team[ OUR_TEAM ].bLastID;
 
 	// run through list of grunts whoose contract are up in the next 2 hours
@@ -1513,7 +1514,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 	// if they are the only one here....
 	for( iCounter = 0; iCounter < iNumberOnTeam; iCounter++ )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		// valid soldier?
 		if( ( pSoldier->bActive == FALSE ) || ( pSoldier->vitals().health() == 0 ) || ( pSoldier->bAssignment == IN_TRANSIT ) ||( pSoldier->bAssignment == ASSIGNMENT_POW ) )

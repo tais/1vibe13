@@ -1,4 +1,5 @@
 	#include "Font.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Font Control.h"
 	#include "mapscreen.h"
@@ -5149,8 +5150,9 @@ UINT8 NumFriendlyInSector( INT16 sX, INT16 sY, INT8 bZ )
 
 	// Check if the battle is won!
 	// Loop through all mercs and make go
-	for ( pTeamSoldier = Menptr, cnt = 0; cnt < TOTAL_SOLDIERS; pTeamSoldier++, cnt++ )
+	for ( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve( cnt );
 		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
 		{
 			if ( (pTeamSoldier->bSide == gbPlayerNum ) && ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) && ( pTeamSoldier->bSectorZ == bZ ) )

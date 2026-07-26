@@ -111,6 +111,7 @@
 #include "Luaglobal.h"
 #include "LuaInitNPCs.h"
 #include "Vehicles.h"
+#include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 #include "Simulation Commands.h"
 #include "XML.h"

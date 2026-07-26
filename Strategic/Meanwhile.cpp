@@ -25,7 +25,8 @@
 	#include "Interface.h"
 	#include "Game Events.h"
 	#include "GameSettings.h"
-	#include "TacticalWorldAdapter.h"
+#include "SoldierRepository.h"
+#include "TacticalWorldAdapter.h"
 	#include "Strategic AI.h"
 	#include "interface Dialogue.h"
 	#include "Quests.h"
@@ -417,8 +418,10 @@ void CheckForMeanwhileOKStart( )
 			SOLDIERTYPE *pSoldier;
 			BOOLEAN fFoundSoldierToInterrogate = FALSE;
 			UINT32 uiCount = 0;
-			for (pSoldier = gCharactersList[uiCount].usSolID; gCharactersList[uiCount].fValid; uiCount++, pSoldier++)
+			for ( ; gCharactersList[uiCount].fValid; ++uiCount )
 			{
+				pSoldier = GetJa2SoldierRepository().resolve(
+					gCharactersList[uiCount].usSolID);
 				if (pSoldier->sSectorX == gModSettings.ubMeanwhileInterrogatePOWSectorX && pSoldier->sSectorY == gModSettings.ubMeanwhileInterrogatePOWSectorY &&
 					pSoldier->bSectorZ == 0 && pSoldier->bAssignment == ASSIGNMENT_POW && pSoldier->vitals().health() > 0 && gMercProfiles[pSoldier->ubProfile].bMercStatus != MERC_FIRED_AS_A_POW)
 				{

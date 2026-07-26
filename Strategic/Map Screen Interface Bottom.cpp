@@ -1,4 +1,5 @@
 	#include "Map Screen Interface Bottom.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Map Screen Interface Border.h"
 	#include "types.h"
@@ -1785,7 +1786,7 @@ BOOLEAN AnyUsableRealMercenariesOnTeam( void )
 	// get number of mercs on team who are not vehicles or robot, POWs or EPCs
 	for( iCounter = 0; iCounter < iNumberOnTeam; iCounter++ )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( ( pSoldier->bActive ) && ( pSoldier->vitals().health() > 0 ) &&
 				!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) &&

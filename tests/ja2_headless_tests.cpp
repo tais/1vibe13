@@ -7216,6 +7216,16 @@ int main( int, char** )
 		       !repository.contains(0, records[1]),
 		       "soldier repository establishes canonical fixed-slot bindings" );
 
+		Ja2SoldierRepository& productionRepository =
+			GetJa2SoldierRepository();
+		BindJa2SoldierRepository(repository);
+		const bool isolatedRepositoryBound =
+			&GetJa2SoldierRepository() == &repository;
+		BindJa2SoldierRepository(productionRepository);
+		CHECK( isolatedRepositoryBound &&
+		       &GetJa2SoldierRepository() == &productionRepository,
+		       "soldier repository binding is independent and restores the composed application owner" );
+
 		SOLDIERTYPE source;
 		source.ubID = SoldierID{ static_cast<UINT16>( 1 ) };
 		source.bActive = TRUE;

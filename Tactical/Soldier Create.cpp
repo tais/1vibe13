@@ -41,6 +41,7 @@
 	#include "Soldier macros.h"		// added by Flugente
 	#include "MilitiaIndividual.h"	// added by Flugente
 	#include "Rebel Command.h"
+#include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 #include "connect.h"
 #include "message.h"

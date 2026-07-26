@@ -1,6 +1,7 @@
 //Queen Command.c
 
 	#include "Queen Command.h"
+#include "SoldierRepository.h"
 	#include "SaveSerializer.h"
 	#include "Overhead Types.h"
 	#include "strategicmap.h"
@@ -1026,7 +1027,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 
 			for (unsigned slot = firstSlot;	(slot <= lastSlot) && num && sNumSlots;	++slot)
 			{
-				pSoldier = &Menptr[ slot ];
+				pSoldier = &GetJa2SoldierRepository().record(slot);
 
 				// Skip inactive and already grouped soldiers
 				if (!pSoldier->bActive || pSoldier->ubGroupID)

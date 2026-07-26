@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "SoldierRepository.h"
 
 	#include "Strategic Town Loyalty.h"
 	#include "strategicmap.h"
@@ -532,7 +533,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 	// run through list of grunts on team
 	for (iCounter = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; iCounter <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; iCounter++ )
 	{
-		pSoldier = MercPtrs[ iCounter ];
+		pSoldier = GetJa2SoldierRepository().resolve(iCounter);
 
 		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive )
 		{

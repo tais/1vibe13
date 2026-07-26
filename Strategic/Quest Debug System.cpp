@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "SoldierRepository.h"
 
 	#include	"types.h"
 	#include	"Quest Debug System.h"
@@ -3284,13 +3285,15 @@ void BtnQuestDebugAllOrSectorNPCToggleCallback( GUI_BUTTON *btn, INT32 reason )
 
 void AddNPCsInSectorToArray()
 {
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 	SOLDIERTYPE *pSoldier;
 	UINT16 cnt,i;
 
 	//Setup array of merc who are in the current sector
 	i=0;
-	for ( pSoldier = Menptr, cnt = 0; cnt < TOTAL_SOLDIERS; ++pSoldier, ++cnt )
+	for ( cnt = 0; cnt < TOTAL_SOLDIERS; ++cnt )
 	{
+		pSoldier = soldiers.resolve( cnt );
 		if ( ( pSoldier != NULL ) && pSoldier->bActive )
 		{
 			//if soldier is a NPC, add him to the local NPC array
@@ -3662,14 +3665,17 @@ void IncrementActiveDropDownBox( INT16 sIncrementValue )
 
 SoldierID IsMercInTheSector( UINT8 ubMercProfileID )
 {
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 	UINT16 cnt;
 	for ( cnt=0; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
+		SOLDIERTYPE& soldier = soldiers.record( cnt );
+
 		//if the merc is active
-		if( Menptr[ cnt ].ubProfile == ubMercProfileID )
+		if( soldier.ubProfile == ubMercProfileID )
 		{
-			if( Menptr[ cnt ].bActive )
-				return( Menptr[ cnt ].ubID );
+			if( soldier.bActive )
+				return( soldier.ubID );
 		}
 	}
 
@@ -3679,14 +3685,17 @@ SoldierID IsMercInTheSector( UINT8 ubMercProfileID )
 
 void RefreshAllNPCInventory()
 {
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 	UINT16	usCnt;
 	UINT16	usItemCnt;
 	UINT16	usItem;
 
 	for ( usCnt=0; usCnt < TOTAL_SOLDIERS; ++usCnt )
 	{
+		SOLDIERTYPE& soldier = soldiers.record( usCnt );
+
 		//if the is active
-		if( Menptr[ usCnt ].bActive == 1 )
+		if( soldier.bActive == 1 )
 		{
 			//is the merc a rpc or npc
 			if ( gMercProfiles[usCnt].Type == PROFILETYPE_RPC ||
@@ -3694,20 +3703,20 @@ void RefreshAllNPCInventory()
 				gMercProfiles[usCnt].Type == PROFILETYPE_VEHICLE )
 			{
 				//refresh the mercs inventory
-				UINT16 invsize = Menptr[ usCnt ].inv.size();
+				UINT16 invsize = soldier.inv.size();
 				for ( usItemCnt = 0; usItemCnt< invsize; ++usItemCnt )
 				{
-					if ( gMercProfiles[ Menptr[ usCnt ].ubProfile ].inv[ usItemCnt ] != NOTHING )
+					if ( gMercProfiles[ soldier.ubProfile ].inv[ usItemCnt ] != NOTHING )
 					{
 						//get the item
-						usItem = gMercProfiles[ Menptr[ usCnt ].ubProfile ].inv[ usItemCnt ];
+						usItem = gMercProfiles[ soldier.ubProfile ].inv[ usItemCnt ];
 
 						//Create the object
-						CreateItem( usItem, 100, &Menptr[ usCnt ].inv[ usItemCnt ] );
+						CreateItem( usItem, 100, &soldier.inv[ usItemCnt ] );
 					}
 					else {
 						//null out the items in the npc inventory
-						DeleteObj(&Menptr[ usCnt ].inv[ usItemCnt ]);
+						DeleteObj(&soldier.inv[ usItemCnt ]);
 					}
 				}
 			}

@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "SoldierRepository.h"
 #include <stdio.h>
 #include "types.h"
 #include "Auto Resolve.h"
@@ -3737,7 +3738,7 @@ static UINT8 GetUnusedMercProfileID()
 		for( i = 0; i < 19; i++ )
 		{
 			fUnique = TRUE;
-			if( Menptr[ i ].ubProfile == ubRandom )
+			if( GetJa2SoldierRepository().record(i).ubProfile == ubRandom )
 			{
 				fUnique = FALSE;
 				break;

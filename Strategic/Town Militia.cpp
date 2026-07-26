@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 	#include "Town Militia.h"
@@ -1790,7 +1791,7 @@ void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitia
 	
 	for( INT32 iCounter = 0; iCounter <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++iCounter )
 	{
-		pSoldier = &Menptr[ iCounter ];
+		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		if( pSoldier->bActive )
 		{
@@ -1921,8 +1922,9 @@ UINT8 FindBestMilitiaTrainingLeadershipInSector ( INT16 sMapX, INT16 sMapY, INT8
 	UINT8 ubBestLeadership = 0;
 
 	// HEADROCK HAM 3.3: Add search for best trainer in sector
-	for ( pCheckedTrainer = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt, ++pCheckedTrainer )
+	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
+		pCheckedTrainer = GetJa2SoldierRepository().resolve(cnt);
 		if  (pCheckedTrainer->bActive && pCheckedTrainer->vitals().health() >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->bAssignment == TRAIN_TOWN) )
 		{
 			if (pCheckedTrainer->sSectorX == sMapX && pCheckedTrainer->sSectorY == sMapY && pCheckedTrainer->bSectorZ == bMapZ )

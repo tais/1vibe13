@@ -5,6 +5,21 @@
 #include "Overhead.h"
 #include "Soldier Control.h"
 
+namespace
+{
+Ja2SoldierRepository& StandaloneRepository() noexcept
+{
+	static Ja2SoldierRepository repository;
+	return repository;
+}
+
+Ja2SoldierRepository*& BoundRepository() noexcept
+{
+	static Ja2SoldierRepository* repository = &StandaloneRepository();
+	return repository;
+}
+}
+
 Ja2SoldierRepository::Ja2SoldierRepository() noexcept
 	: Ja2SoldierRepository(Menptr, MercPtrs, TOTAL_SOLDIERS)
 {
@@ -29,17 +44,6 @@ const SOLDIERTYPE& Ja2SoldierRepository::record(
 {
 	assert(slot < capacity_);
 	return records_[slot];
-}
-
-SOLDIERTYPE* Ja2SoldierRepository::resolve(std::size_t slot) noexcept
-{
-	return slot < capacity_ ? slots_[slot] : nullptr;
-}
-
-const SOLDIERTYPE* Ja2SoldierRepository::resolve(
-	std::size_t slot) const noexcept
-{
-	return slot < capacity_ ? slots_[slot] : nullptr;
 }
 
 bool Ja2SoldierRepository::contains(
@@ -85,4 +89,15 @@ bool Ja2SoldierRepository::hasCanonicalBinding(
 	std::size_t slot) const noexcept
 {
 	return slot < capacity_ && slots_[slot] == &records_[slot];
+}
+
+void BindJa2SoldierRepository(
+	Ja2SoldierRepository& repository) noexcept
+{
+	BoundRepository() = &repository;
+}
+
+Ja2SoldierRepository& GetJa2SoldierRepository() noexcept
+{
+	return *BoundRepository();
 }

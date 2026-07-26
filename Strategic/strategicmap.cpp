@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 #include "builddefines.h"
@@ -2079,7 +2080,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//	GridNo = NOWHERE, which causes this assertion to fail
 			//CHRISL: There's also an issue with vehicles.  Soldiers in any vehicle are considered to be in sGridNo = NOWHERE
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
-			SOLDIERTYPE *pSoldier = MercPtrs[i];
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 
 			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->bAssignment != VEHICLE && !SPY_LOCATION(pSoldier->bAssignment) && pSoldier->bAssignment != ASSIGNMENT_POW)
 			{
@@ -2131,7 +2132,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//	GridNo = NOWHERE, which causes this assertion to fail
 			//CHRISL: There's also an issue with vehicles.  Soldiers in any vehicle are considered to be in sGridNo = NOWHERE
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
-			SOLDIERTYPE *pSoldier = MercPtrs[i];
+			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->bAssignment != VEHICLE && pSoldier->bAssignment != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->bActive || !pSoldier->bInSector || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
@@ -6460,7 +6461,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 		//Yes, this is and looks like a hack.  The conditions of this if statement doesn't work inside
 		//TrashWorld() or more specifically, TacticalRemoveSoldier() from within TrashWorld().  Because
 		//we are in the autoresolve screen, soldiers are internally created different (from pointers instead of
-		//the MercPtrs[]).  It keys on the fact that we are in the autoresolve screen.  So, by switching the
+		//the legacy soldier slot table). It keys on the fact that we are in the autoresolve screen. So, by switching the
 		//screen, it'll delete the soldiers in the loaded world properly, then later on, once autoresolve is
 		//complete, it'll delete the autoresolve soldiers properly.  As you can now see, the above if conditions
 		//don't change throughout this whole process which makes it necessary to do it this way.
@@ -6946,15 +6947,15 @@ void HandlePlayerQuotesWhenEnteringFirstTunnelSector( )
 		//if not all the players made it through
 		if ( ubNumPlayersInSector < ubNumPlayersOnTeam )
 		{
-			//			TacticalCharacterDialogue( &Menptr[ ubID ], QUOTE_CONTRACTS_OVER );
-			DelayedMercQuote( Menptr[bID].ubProfile, QUOTE_CONTRACTS_OVER, GetWorldTotalSeconds( ) + DELAY_FOR_PLAYER_DESC_OF_SECTOR );
+			//			TacticalCharacterDialogue( &GetJa2SoldierRepository().record(ubID), QUOTE_CONTRACTS_OVER );
+			DelayedMercQuote( GetJa2SoldierRepository().record(bID).ubProfile, QUOTE_CONTRACTS_OVER, GetWorldTotalSeconds( ) + DELAY_FOR_PLAYER_DESC_OF_SECTOR );
 		}
 
 		//if ALL mercs made it through
 		else if ( ubNumPlayersInSector == ubNumPlayersOnTeam )
 		{
-			DelayedMercQuote( Menptr[bID].ubProfile, QUOTE_CONTRACT_ACCEPTANCE, GetWorldTotalSeconds( ) + DELAY_FOR_PLAYER_DESC_OF_SECTOR );
-			//			TacticalCharacterDialogue( &Menptr[ ubID ], QUOTE_CONTRACT_ACCEPTANCE );
+			DelayedMercQuote( GetJa2SoldierRepository().record(bID).ubProfile, QUOTE_CONTRACT_ACCEPTANCE, GetWorldTotalSeconds( ) + DELAY_FOR_PLAYER_DESC_OF_SECTOR );
+			//			TacticalCharacterDialogue( &GetJa2SoldierRepository().record(ubID), QUOTE_CONTRACT_ACCEPTANCE );
 		}
 	}
 	/*else if ( gJa25SaveStruct.ubHowPlayerGotThroughFan == PG__PLAYER_BLEW_UP_FAN_TO_GET_THROUGH )
@@ -6963,7 +6964,7 @@ void HandlePlayerQuotesWhenEnteringFirstTunnelSector( )
 		//Get a random qualified merc to say the quote
 		ubID = RandomSoldierIdFromNewMercsOnPlayerTeam();
 
-		DelayedMercQuote( Menptr[ ubID ].ubProfile, QUOTE_ACCEPT_CONTRACT_RENEWAL, GetWorldTotalSeconds() + DELAY_FOR_PLAYER_DESC_OF_SECTOR );
+		DelayedMercQuote( GetJa2SoldierRepository().record(ubID).ubProfile, QUOTE_ACCEPT_CONTRACT_RENEWAL, GetWorldTotalSeconds() + DELAY_FOR_PLAYER_DESC_OF_SECTOR );
 	}*/
 	else
 	{
@@ -7310,8 +7311,9 @@ SOLDIERTYPE *pSoldier=NULL;
 cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 
 // Loop through the list and move some of the enemies
-for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++, pSoldier++)
+for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
 {
+	pSoldier = GetJa2SoldierRepository().resolve(cnt);
 //if the soldier is active,
 if( pSoldier->bActive && pSoldier->bInSector )
 {
@@ -7480,8 +7482,9 @@ void HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( )
 
 	// Loop through the list and move some of the enemies
 	cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
-	for ( pSoldier = MercPtrs[cnt]; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++, pSoldier++ )
+	for ( ; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++ )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the soldier is active,
 		if ( pSoldier->bActive )
 		{
@@ -7525,8 +7528,9 @@ void HandleMovingEnemiesCloseToEntranceInSecondTunnelMap( )
 
 	// Loop through the list and move some of the enemies
 	cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
-	for ( pSoldier = MercPtrs[cnt]; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++, pSoldier++ )
+	for ( ; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++ )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the soldier is active,
 		if ( pSoldier->bActive )
 		{
@@ -7645,8 +7649,9 @@ BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridN
 	INT16				sXPos, sYPos;
 
 	cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
-	for ( pSoldier = MercPtrs[cnt]; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++, pSoldier++ )
+	for ( ; cnt <= gTacticalStatus.Team[ENEMY_TEAM].bLastID; cnt++ )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector &&
 			 pSoldier->position().gridNo() == sSourceGridNo )
 		{
@@ -7713,11 +7718,13 @@ UINT8 tryToRecoverSquadsAndMovementGroups(SOLDIERTYPE* pCharacter) {
 		if (pCharacter->bAssignment < ON_DUTY && SquadIsEmpty(pCharacter->bAssignment)) 
 		{ // assignment says we're in a squad but that squad is empty!			
 			int squadWeThinkWeAreIn = pCharacter->bAssignment;
+			Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 			for (int i = 0; i < MAXMERCS; i++) {
-				if (Menptr[i].bActive && Menptr[i].bTeam == pCharacter->bTeam && Menptr[i].bAssignment == squadWeThinkWeAreIn) 
+				SOLDIERTYPE& soldier = soldiers.record(i);
+				if (soldier.bActive && soldier.bTeam == pCharacter->bTeam && soldier.bAssignment == squadWeThinkWeAreIn)
 				{ // reassign everyone who's supposed to be in the bogus squad
-					AddCharacterToAnySquad(&Menptr[i]); 
+					AddCharacterToAnySquad(&soldier);
 				}
 			}
 		}

@@ -53,7 +53,7 @@ typedef struct WAYPOINT
 typedef struct PLAYERGROUP
 {
 	UINT8		ubProfileID;						//SAVE THIS VALUE ONLY.	The others are temp (for quick access)
-	SoldierID	ubID;										//index in the Menptr array
+	SoldierID	ubID;										//repository slot
 	SOLDIERTYPE *pSoldier;				//direct access to the soldier pointer
 	UINT8		bFlags;									//flags referring to individual player soldiers
 	struct PLAYERGROUP *next;			//next player in list
