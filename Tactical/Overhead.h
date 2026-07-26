@@ -72,7 +72,6 @@ struct TacticalStatusType
 {
     UINT32                  uiFlags;
     TacticalTeamType        Team[ MAXTEAMS ];
-    UINT8                   ubCurrentTeam;
     INT32                   sSlideTarget;
     INT16                   sSlideReason_UNUSED;
     UINT32                  uiTimeSinceMercAIStart;
@@ -103,7 +102,6 @@ struct TacticalStatusType
     SoldierID               ubEnemySightingOnTheirTurnPlayerID;
     BOOLEAN                 fEnemySightingOnTheirTurn;
     BOOLEAN                 fAutoBandageMode;
-    UINT8                   ubAttackBusyCount;
     INT8                    bNumEnemiesFoughtInBattleUnused;
     UINT16                  ubEngagedInConvFromActionMercID;
     UINT16                  usTactialTurnLimitCounter;

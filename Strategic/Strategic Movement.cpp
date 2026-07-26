@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdlib.h>
 	#include "Strategic Movement.h"
 	#include "SaveSerializer.h"
@@ -1721,7 +1722,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 		if ( gWorldSectorX == pGroup->ubSectorX && gWorldSectorY == pGroup->ubSectorY && !gbWorldSectorZ )
 		{
 			// if there is a fight going on in the sector where the group currently is, then we do not move them - erase the group instead
-			if ( gTacticalStatus.uiFlags & INCOMBAT )
+			if ( IsJa2TacticalCombatActive() )
 			{
 				// once militia have arrived, move them from the group to the sector
 				DissolveMilitiaGroup( pGroup->ubGroupID );

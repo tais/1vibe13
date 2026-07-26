@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 #include "types.h"
 	#include "ShopKeeper Interface.h"
 	#include "Utilities.h"
@@ -769,7 +770,7 @@ BOOLEAN EnterShopKeeperInterface()
 	{
 		//so now we know we are too far away to trade, so instead of just quitting,
 		//either post a message or run to the guy like HandleTalkInit does
-		if( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if( IsJa2TacticalTurnBasedCombat() )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, L"Unable to interact with shopkeeper during combat" );
 			return( FALSE );

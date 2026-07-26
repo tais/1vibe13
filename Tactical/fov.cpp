@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "worlddef.h"
 	#include "Render Fun.h"
@@ -713,7 +714,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 									// WANNE: Should we pause when item was found in tactical?
 									bool enableItemSpottingAction = true;
 
-									if ( !is_networked && gGameExternalOptions.fItemSpottedNoTalk && gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT)
+									if ( !is_networked && gGameExternalOptions.fItemSpottedNoTalk && IsJa2TacticalTurnBasedCombat())
 										enableItemSpottingAction = false;
 
 									if (enableItemSpottingAction)
@@ -729,7 +730,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 
 											// Hault soldier
 											// ATE: Only if in combat...
-											if ( gTacticalStatus.uiFlags & INCOMBAT )
+											if ( IsJa2TacticalCombatActive() )
 											{
 												pSoldier->HaultSoldierFromSighting( FALSE );
 											}
@@ -743,7 +744,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 											{
 												gTacticalStatus.fLockItemLocators = TRUE;
 
-												if ( gTacticalStatus.ubAttackBusyCount > 0 && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+												if ( GetJa2PendingTacticalCombatActions() > 0 && ( IsJa2TacticalCombatActive() ) )
 												{
 													gTacticalStatus.fItemsSeenOnAttack = TRUE;
 													gTacticalStatus.ubItemsSeenOnAttackSoldier = pSoldier->ubID;

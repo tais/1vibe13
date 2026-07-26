@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 
 	#include "Ambient Control.h"
 	#include "Sound Control.h"
@@ -494,7 +495,7 @@ void SetSSA(void)
 	}
 
 	// determine combat state
-	if( gTacticalStatus.uiFlags & INCOMBAT)// || NumCapableEnemyInSector( ) || HostileZombiesPresent() )
+	if( IsJa2TacticalCombatActive())// || NumCapableEnemyInSector( ) || HostileZombiesPresent() )
 	{
 		fCombat = TRUE;
 	}

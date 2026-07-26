@@ -1,4 +1,5 @@
 	#include "Map Screen Interface Map Inventory.h"
+#include "TacticalWorldAdapter.h"
 	#include "Render Dirty.h"
 	#include "vobject.h"
 	#include "WCheck.h"
@@ -1659,7 +1660,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 				return;
 
 			// if in battle inform player they will have to do this in tactical
-//			if( ( ( gTacticalStatus.fEnemyInSector ) ||( ( sSelMapX == gWorldSectorX ) && ( sSelMapY == gWorldSectorY ) && ( iCurrentMapSectorZ == gbWorldSectorZ ) && ( gTacticalStatus.uiFlags & INCOMBAT ) ) ) )
+//			if( ( ( gTacticalStatus.fEnemyInSector ) ||( ( sSelMapX == gWorldSectorX ) && ( sSelMapY == gWorldSectorY ) && ( iCurrentMapSectorZ == gbWorldSectorZ ) && ( IsJa2TacticalCombatActive() ) ) ) )
 			if( !CanPlayerUseSectorInventory(pSelectedSoldier) )
 			{
 				DoMapMessageBox( MSG_BOX_BASIC_STYLE, pMapInventoryErrorString[ 3 ], MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
@@ -1722,7 +1723,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			SOLDIERTYPE* pSelectedSoldier = gCharactersList[bSelectedInfoChar].usSolID;
 
 			// if in battle inform player they will have to do this in tactical
-//			if( ( gTacticalStatus.fEnemyInSector ) ||( ( sSelMapX == gWorldSectorX ) && ( sSelMapY == gWorldSectorY ) && ( iCurrentMapSectorZ == gbWorldSectorZ ) && ( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+//			if( ( gTacticalStatus.fEnemyInSector ) ||( ( sSelMapX == gWorldSectorX ) && ( sSelMapY == gWorldSectorY ) && ( iCurrentMapSectorZ == gbWorldSectorZ ) && ( IsJa2TacticalCombatActive() ) ) )
 			if( !CanPlayerUseSectorInventory(pSelectedSoldier) )
 			{
 				DoMapMessageBox( MSG_BOX_BASIC_STYLE, pMapInventoryErrorString[ 4 ], MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
@@ -3082,7 +3083,7 @@ void MapInventoryReadEquipmentTemplate(GUI_BUTTON *btn, INT32 reason)
 				 pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY && pSoldier->bSectorZ == iCurrentMapSectorZ &&
 				 !pSoldier->flags.fBetweenSectors )
 			{
-				if ( (gTacticalStatus.uiFlags & INCOMBAT || gTacticalStatus.fEnemyInSector) )
+				if ( (IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector) )
 				{
 					DoScreenIndependantMessageBox( szGearTemplateText[1], MSG_BOX_FLAG_OK, NULL );
 				}

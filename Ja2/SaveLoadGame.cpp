@@ -1,4 +1,5 @@
 #include "types.h"
+#include "TacticalWorldAdapter.h"
 #include "Soldier Profile.h"
 #include "FileMan.h"
 #include "SaveSerializer.h"
@@ -26,7 +27,6 @@
 #include "GameContext.h"
 #include "RuntimeSaveState.h"
 #include "TacticalEntityHost.h"
-#include "TacticalWorldAdapter.h"
 #include "Tactical Save.h"
 #include "Squads.h"
 #include "environment.h"
@@ -5721,7 +5721,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	uiRelStartPerc = uiRelEndPerc;
 
 	//if the UI was locked in the saved game file
-	if( gTacticalStatus.ubAttackBusyCount > 1 )
+	if( GetJa2PendingTacticalCombatActions() > 1 )
 	{
 		//Lock the ui
 		SetUIBusy( gusSelectedSoldier );
@@ -5775,7 +5775,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		InitShutDownMapTempFileTest( FALSE, "LoadMapTempFile", ubSavedGameID );
 	#endif
 
-	if ( (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( (IsJa2TacticalCombatActive()) )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Setting attack busy count to 0 from load" ) );
 #ifdef DEBUG_ATTACKBUSY
@@ -5932,7 +5932,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// reset once-per-convo records for everyone in the loaded sector
 	ResetOncePerConvoRecordsForAllNPCsInLoadedSector();
 
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalCombatActive()) )
 	{
 		// fix lingering attack busy count problem on loading saved game by resetting a.b.c
 		// if we're not in combat.
@@ -6882,12 +6882,20 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 // scalar-only TacticalTeamType Team[] stays a byte block (deterministic
 // layout on our targets). Replaces the legacy raw-blob save / ReadFieldByField
 // load pair.
-template<class Ar> static void XferTacticalStatus( Ar& ar, TacticalStatusType& s )
+struct TacticalTurnPersistenceFields
+{
+	UINT32 flags = 0;
+	UINT8 currentTeam = 0;
+	UINT8 pendingCombatActions = 0;
+};
+
+template<class Ar> static void XferTacticalStatus(
+	Ar& ar, TacticalStatusType& s, TacticalTurnPersistenceFields& turn )
 {
 	int i;
-	ar.u32(s.uiFlags);
+	ar.u32(turn.flags);
 	ar.bytes(&s.Team, sizeof(s.Team));
-	ar.u8 (s.ubCurrentTeam);
+	ar.u8 (turn.currentTeam);
 	ar.i32(s.sSlideTarget);
 	ar.i16(s.sSlideReason_UNUSED);
 	ar.u32(s.uiTimeSinceMercAIStart);
@@ -6918,7 +6926,7 @@ template<class Ar> static void XferTacticalStatus( Ar& ar, TacticalStatusType& s
 	ar.u16(s.ubEnemySightingOnTheirTurnPlayerID.i);
 	ar.boolean(s.fEnemySightingOnTheirTurn);
 	ar.boolean(s.fAutoBandageMode);
-	ar.u8 (s.ubAttackBusyCount);
+	ar.u8 (turn.pendingCombatActions);
 	ar.i8 (s.bNumEnemiesFoughtInBattleUnused);
 	ar.u16(s.ubEngagedInConvFromActionMercID);
 	ar.u16(s.usTactialTurnLimitCounter);
@@ -6995,9 +7003,13 @@ BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 
 	//write the gTacticalStatus to the saved game file (portable v2)
 	{
+		TacticalTurnPersistenceFields turn{
+			CaptureJa2TacticalStatusFlags(),
+			GetJa2TacticalCurrentTeam(),
+			CaptureJa2SerializedPendingCombatActions()};
 		SaveWriter w(hFile);
 		SaveFieldWriter ar(w);
-		XferTacticalStatus(ar, gTacticalStatus);
+		XferTacticalStatus(ar, gTacticalStatus, turn);
 		if( !w.good() )
 		{
 			return(FALSE);
@@ -7050,15 +7062,17 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 	INT8 loadedSectorZ = -1;
 
 	//Read the gTacticalStatus from the saved game file (portable v2)
+	TacticalTurnPersistenceFields turn;
 	{
 		SaveReader r(hFile);
 		SaveFieldReader ar(r);
-		XferTacticalStatus(ar, gTacticalStatus);
+		XferTacticalStatus(ar, gTacticalStatus, turn);
 		if( !r.good() ) {
 			return(FALSE);
 		}
 	}
-	ImportJa2TacticalTurnState();
+	RestoreJa2TacticalTurnState(
+		turn.flags, turn.currentTeam, turn.pendingCombatActions);
 
 //	for (unsigned idx=0; idx <= MAXTEAMS; ++idx) {
 //		gTacticalStatus.Team[idx] = savedTeamSettings[idx];

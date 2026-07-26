@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include "stdlib.h"
 #include "DEBUG.H"
@@ -63,7 +64,6 @@
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
-#include "TacticalWorldAdapter.h"
 #include "english.h"
 #include "random.h"
 #include "Map Screen Interface.h"
@@ -1511,7 +1511,7 @@ void GetPolledKeyboardInput( UINT32 *puiNewEvent )
 	}
 
 	// Check realtime input!
-	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 	{
 		//if ( _KeyDown( CAPS )	) //&& !fShifted )
 		//{
@@ -1857,9 +1857,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 		{
 			if( InputEvent.usKeyState & ALT_DOWN )
 			{
-				if (gTacticalStatus.ubCurrentTeam != 0)
+				if (GetJa2TacticalCurrentTeam() != 0)
 				{
-					if( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+					if( IsJa2TacticalTurnBasedCombat() )
 					{
 						EndTurn( 1 );
 					}
@@ -2015,10 +2015,10 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 			}
 		}
 
-		if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( IsJa2TacticalTurnBasedCombat() )
 		{
 			{
-				if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum )
+				if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
 				{
 					if ( CHEATER_CHEAT_LEVEL( ) )
 					{
@@ -2856,7 +2856,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 					// ATE: This key will select everybody in the sector
 					// Buggler: Disabled check for all merc display cover in turnbased mode
-					//if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+					//if ( !(IsJa2TacticalCombatActive()) )
 					//{
 						HandleTBSelectAllMercs();
 					//}
@@ -3375,9 +3375,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				break;
 
 			case 'd':
-				if( gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT )
+				if( IsJa2TacticalTurnBasedCombat() )
 				{
-					if( gTacticalStatus.ubCurrentTeam == gbPlayerNum )
+					if( GetJa2TacticalCurrentTeam() == gbPlayerNum )
 					{
 						// nothing in hand and the Done button for whichever panel we're in must be enabled
 						if ( ( gpItemPointer == NULL ) && !gfDisableTacticalPanelButtons &&
@@ -3424,7 +3424,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				// sevenfm: press 'd' in realtime to start turnbased
 				else	
 				{
-					if ( (gTacticalStatus.uiFlags & INCOMBAT) || (NumEnemyInSector() != 0) )
+					if ( (IsJa2TacticalCombatActive()) || (NumEnemyInSector() != 0) )
 					{
 						EnterCombatMode( OUR_TEAM );
 					}
@@ -4896,7 +4896,7 @@ BOOLEAN HandleCheckForExitArrowsInput( BOOLEAN fAdjustConfirm )
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, str );
 			gubLoneMercAttemptingToAbandonEPCs = FALSE;
 		}
-		else if( !gGameExternalOptions.fGridExitInTurnBased && ( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		else if( !gGameExternalOptions.fGridExitInTurnBased && IsJa2TacticalTurnBasedCombat() )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ CANNOT_LEAVE_IN_TURN_MODE_STR ] );
 		}			
@@ -5042,7 +5042,7 @@ void MakeSelectedSoldierTired()
 
 void ToggleRealTime( UINT32 *puiNewEvent )
 {
-	if ( gTacticalStatus.uiFlags & TURNBASED )
+	if ( IsJa2TacticalTurnBased() )
 	{
 		// Change to real-time
 		SetJa2TacticalTurnBasedMode( false );
@@ -5325,7 +5325,7 @@ void TogglePlanningMode()
 	SOLDIERTYPE *pSoldier;
 	INT32 usMapPos;
 	// DO ONLY IN TURNED BASED!
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		// CANCEL FROM PLANNING MODE!
 		if ( InUIPlanMode( ) )
@@ -6123,8 +6123,7 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 								sIntTileGridNo, bZLevel,
 								TacticalWorldItemPickupKind::SpecificItem );
 						if ( pickup &&
-							!( ( gTacticalStatus.uiFlags & INCOMBAT ) &&
-								( gTacticalStatus.uiFlags & TURNBASED ) ) )
+							!( IsJa2TacticalTurnBasedCombat() ) )
 						{
 							BeginDisplayTimedCursor( OKHANDCURSOR_UICURSOR, 300 );
 						}
@@ -6382,7 +6381,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 	// If we have multiple guys selected, make all change stance!
 	SOLDIERTYPE *		pSoldier;
 
-	if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && !( IsJa2TacticalCombatActive() ) )
 	{
 		// OK, loop through all guys who are 'multi-selected' and
 		// check if our currently selected guy is amoung the
@@ -6509,7 +6508,7 @@ void HandleStealthChangeFromUIKeys(	)
 	// If we have multiple guys selected, make all change stance!
 	SOLDIERTYPE *		pSoldier;
 
-	if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && !( IsJa2TacticalCombatActive() ) )
 	{
 		// OK, loop through all guys who are 'multi-selected' and
 		// check if our currently selected guy is amoung the
@@ -7793,7 +7792,7 @@ void HandleTBSelectAllMercs( void )
 
 void HandleTBCycleThroughKnownEnemies( void )
 {
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 	//	if ( (InputEvent.usEvent == KEY_DOWN ) && InputEvent.usParam == ENTER	)
 			CycleThroughKnownEnemies( );
@@ -7802,7 +7801,7 @@ void HandleTBCycleThroughKnownEnemies( void )
 
 void HandleTBCycleThroughKnownEnemiesBackward( void )
 {
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 	//	if ( (InputEvent.usEvent == KEY_DOWN ) && InputEvent.usParam == ENTER	)
 			CycleThroughKnownEnemies( TRUE );
@@ -7946,7 +7945,7 @@ void HandleTBEnterTurnbased( void )
 		{
 			BOOLEAN fSneakingInRealTime = true;
 
-			if( gTacticalStatus.uiFlags & INCOMBAT )
+			if( IsJa2TacticalCombatActive() )
 			{	// Don't allow this in combat
 				if (!gGameExternalOptions.fQuietRealTimeSneak)
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_RTM_IN_COMBAT_ALREADY]);
@@ -8220,7 +8219,7 @@ void HandleTBReloadAll( void )
 			{
 				if ( (Item[pTeamSoldier->inv[HANDPOS].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
 				{
-					if ( (gTacticalStatus.uiFlags & INCOMBAT) )
+					if ( (IsJa2TacticalCombatActive()) )
 					{
 						// Flugente: check for underbarrel weapons and use that object if necessary
 						pGun = pTeamSoldier->GetUsedWeapon( &(pTeamSoldier->inv[HANDPOS]) );
@@ -8848,7 +8847,7 @@ void HandleTacticalTransformItem(void)
 
 	if (FindTransformation(usItem, &pTransformation, TRUE))
 	{
-		if (pTransformation->usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED)
+		if (pTransformation->usAPCost > 0 && IsJa2TacticalTurnBasedCombat())
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s (%d AP)", pTransformation->szMenuRowText, pTransformation->usAPCost);
 		else
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
@@ -9235,7 +9234,7 @@ void HandleTacticalTransformScope(void)
 				pTransformation->usResult[0] != 0 &&
 				Item[usItem].scopemagfactor != Item[pTransformation->usResult[0]].scopemagfactor)
 			{
-				if (pTransformation->usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED)
+				if (pTransformation->usAPCost > 0 && IsJa2TacticalTurnBasedCombat())
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s (%d AP)", pTransformation->szMenuRowText, pTransformation->usAPCost);
 				else
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
@@ -9299,7 +9298,7 @@ void HandleTacticalTransformLaser(void)
 				pTransformation->usResult[0] != 0 &&
 				Item[usItem].bestlaserrange != Item[pTransformation->usResult[0]].bestlaserrange)
 			{
-				if (pTransformation->usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED)
+				if (pTransformation->usAPCost > 0 && IsJa2TacticalTurnBasedCombat())
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s (%d AP)", pTransformation->szMenuRowText, pTransformation->usAPCost);
 				else
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
@@ -9349,7 +9348,7 @@ void HandleTacticalTransformStock(void)
 	// check if can transform item
 	if (FindStockTransformation(usItem, &pTransformation))
 	{
-		if (pTransformation->usAPCost > 0 && (gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED))
+		if (pTransformation->usAPCost > 0 && (IsJa2TacticalTurnBasedCombat()))
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s (%d AP)", pTransformation->szMenuRowText, pTransformation->usAPCost);
 		else
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
@@ -9382,7 +9381,7 @@ void HandleTacticalTransformStock(void)
 			if (FindStockTransformation(usItem, &pTransformation) &&
 				pTransformation->usResult[0] != 0)
 			{
-				if (pTransformation->usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED)
+				if (pTransformation->usAPCost > 0 && IsJa2TacticalTurnBasedCombat())
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s (%d AP)", pTransformation->szMenuRowText, pTransformation->usAPCost);
 				else
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
@@ -9432,7 +9431,7 @@ void HandleTacticalTransformFlashlight(void)
 	// first try a transformation of item
 	if (FindFlashlightTransformation(usItem, &pTransformation))
 	{
-		if (pTransformation->usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED)
+		if (pTransformation->usAPCost > 0 && IsJa2TacticalTurnBasedCombat())
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s (%d AP)", pTransformation->szMenuRowText, pTransformation->usAPCost);
 		else
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
@@ -9465,7 +9464,7 @@ void HandleTacticalTransformFlashlight(void)
 			// check flashlight transformation
 			if (FindFlashlightTransformation(usItem, &pTransformation))
 			{
-				if (pTransformation->usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED)
+				if (pTransformation->usAPCost > 0 && IsJa2TacticalTurnBasedCombat())
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s (%d AP)", pTransformation->szMenuRowText, pTransformation->usAPCost);
 				else
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
@@ -9650,7 +9649,7 @@ void HandleTBSkillsMenu(void)
 
 BOOLEAN CheckAutoBandage(void)
 {
-	if (!(gTacticalStatus.uiFlags & INCOMBAT) && NumEnemyInSector() == 0 && DialogueQueueIsEmpty())
+	if (!(IsJa2TacticalCombatActive()) && NumEnemyInSector() == 0 && DialogueQueueIsEmpty())
 	{
 		return TRUE;
 	}

@@ -1,4 +1,5 @@
 #include <Button System.h>
+#include "TacticalWorldAdapter.h"
 #include "Animation Control.h"
 #include "Soldier Find.h"
 #include "Timer Control.h"
@@ -1632,7 +1633,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 //	UINT32		uiType;
 //	//SECTORINFO	*pSector;
 //
-//	/*if( (gTacticalStatus.uiFlags & INCOMBAT) && (gTacticalStatus.uiFlags & TURNBASED) )
+//	/*if( IsJa2TacticalTurnBasedCombat() )
 //	{
 //		return;
 //	}

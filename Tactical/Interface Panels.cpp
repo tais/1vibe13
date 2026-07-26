@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
 	#include "himage.h"
@@ -1023,7 +1024,7 @@ void UpdateSMPanel( )
 		}
 	}
 
-	if ( (gTacticalStatus.ubCurrentTeam != gbPlayerNum) || (gTacticalStatus.uiFlags & REALTIME ) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( (GetJa2TacticalCurrentTeam() != gbPlayerNum) || (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) )
 	{
 		DisableButton( iSMPanelButtons[ SM_DONE_BUTTON ] );
 	}
@@ -1094,7 +1095,7 @@ void UpdateSMPanel( )
 	}
 
 	// If not selected ( or dead ), disable/gray some buttons
-	if ( gusSelectedSoldier != GetSMCurrentMerc()->ubID || ( GetSMCurrentMerc()->stats.bLife < OKLIFE ) || (gTacticalStatus.ubCurrentTeam != gbPlayerNum) || gfSMDisableForItems )
+	if ( gusSelectedSoldier != GetSMCurrentMerc()->ubID || ( GetSMCurrentMerc()->stats.bLife < OKLIFE ) || (GetJa2TacticalCurrentTeam() != gbPlayerNum) || gfSMDisableForItems )
 	{
 		DisableButton( iSMPanelButtons[ CLIMB_BUTTON ] );
 		DisableButton( iSMPanelButtons[ BURSTMODE_BUTTON ] );
@@ -2597,7 +2598,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			}
 			else
 			{
-				if ( gusSelectedSoldier == GetSMCurrentMerc()->ubID && gTacticalStatus.ubCurrentTeam == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
+				if ( gusSelectedSoldier == GetSMCurrentMerc()->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
 				{
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiSMObjects, 0, SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, VO_BLT_SRCTRANSPARENCY, NULL );
 					RestoreExternBackgroundRect( SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, SM_SELMERC_PLATE_WIDTH , SM_SELMERC_PLATE_HEIGHT );
@@ -2633,7 +2634,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			}
 			else
 			{
-				if ( gusSelectedSoldier == GetSMCurrentMerc()->ubID && gTacticalStatus.ubCurrentTeam == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
+				if ( gusSelectedSoldier == GetSMCurrentMerc()->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
 				{
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiSMObjects, 0, SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, VO_BLT_SRCTRANSPARENCY, NULL );
 					RestoreExternBackgroundRect( SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, SM_SELMERC_PLATE_WIDTH , SM_SELMERC_PLATE_HEIGHT );
@@ -3144,7 +3145,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		// display AP
 		if ( !( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_DEAD ) )
 		{
-			if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT ) && GetSMCurrentMerc()->stats.bLife >= OKLIFE )
+			if ( IsJa2TacticalTurnBasedCombat() && GetSMCurrentMerc()->stats.bLife >= OKLIFE )
 			{
 				SetFont( TINYFONT1 );
 				//if ( GetSMCurrentMerc()->sLastTarget != NOWHERE && !EnoughPoints( GetSMCurrentMerc(), MinAPsToAttack( GetSMCurrentMerc(), GetSMCurrentMerc()->sLastTarget, FALSE ), 0, FALSE ) || GetUIApsToDisplay( GetSMCurrentMerc() ) < 0 )
@@ -3576,7 +3577,7 @@ UINT16 uiOIVSlotType[NUM_INV_SLOTS] = {
 
 UINT16 GetInvMovementCost(OBJECTTYPE* pObj, INT16 old_pos, INT16 new_pos)
 {
-	if (!(gTacticalStatus.uiFlags & INCOMBAT) || //Not in combat
+	if (!(IsJa2TacticalCombatActive()) || //Not in combat
 		(old_pos == -1 || new_pos == -1)||	//Either position is invalid
 		(old_pos == new_pos))				//Old position same as new position
 		return 0;
@@ -3704,7 +3705,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	//else if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP && fLeftDown )
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->flags.ZipperFlag) || (GetSMCurrentMerc()->flags.ZipperFlag && gAnimControl[GetSMCurrentMerc()->usAnimState].ubEndHeight == ANIM_STAND)) && (gTacticalStatus.uiFlags & INCOMBAT) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->flags.ZipperFlag) || (GetSMCurrentMerc()->flags.ZipperFlag && gAnimControl[GetSMCurrentMerc()->usAnimState].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
@@ -3884,7 +3885,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 							for (UINT8 i = 0; i<cnt;i++)
 							{
-								if ((gTacticalStatus.uiFlags & INCOMBAT))
+								if ((IsJa2TacticalCombatActive()))
 								{
 									// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
 									usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, GetSMCurrentMerc()->inv[uiHandPos].usItem, GetSMCurrentMerc());
@@ -4158,7 +4159,7 @@ BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 		sAPCost = (INT16)(sAPCost * (100 - gSkillTraitValues.ubAMWorkBackpackAPsReduction) / 100.0f + 0.5f);
 
 	//Are we currently in combat?
-	if(gTacticalStatus.uiFlags & INCOMBAT)
+	if(IsJa2TacticalCombatActive())
 	{
 		// If we have fewer base points then the default cost to unzip a pack, use all remaining points instead
 		if(pSoldier->bInitialActionPoints < sAPCost)
@@ -4210,7 +4211,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 	}
 	
 	// Are we currently in combat?
-	if((gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.fEnemyInSector))
+	if((IsJa2TacticalCombatActive()) || (gTacticalStatus.fEnemyInSector))
 	{
 		// If we're standing over the backpack that we're trying to pick up, reset the ap cost to 0
 		if(!newStatus) {
@@ -4234,7 +4235,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 									//sAPCost = 0;
 									break;
 								}
-								else if(iRange < 26 && !(gTacticalStatus.uiFlags & INCOMBAT))	// should mean anything within 2 diagonal tiles while not in combat
+								else if(iRange < 26 && !(IsJa2TacticalCombatActive()))	// should mean anything within 2 diagonal tiles while not in combat
 								{
 									// just break because we want to allow this with no changes
 									break;
@@ -4621,7 +4622,7 @@ void BtnZipperCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 		//Are we in combat, do we have a backpack on and is the pack closed? Open it
-		if((gTacticalStatus.uiFlags & INCOMBAT) && GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->flags.ZipperFlag)
+		if((IsJa2TacticalCombatActive()) && GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->flags.ZipperFlag)
 		{
 			ChangeZipperStatus(GetSMCurrentMerc(), TRUE);
 		}
@@ -4631,7 +4632,7 @@ void BtnZipperCallback(GUI_BUTTON *btn,INT32 reason)
 			ChangeZipperStatus(GetSMCurrentMerc(), FALSE);
 		}
 		//Are we not in combat?
-		else if(!(gTacticalStatus.uiFlags & INCOMBAT))
+		else if(!(IsJa2TacticalCombatActive()))
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_ZIPPER_COMBAT] );
 		}
@@ -5479,7 +5480,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				//RestoreExternBackgroundRect( (INT16)(sTEAMAPPanelXY[ posIndex ]), (INT16)(sTEAMAPPanelXY[ posIndex + 1 ]), TM_APPANEL_WIDTH, TM_APPANEL_HEIGHT );
 				//InvalidateRegion( (INT16)(sTEAMAPPanelXY[ posIndex ]), (INT16)(sTEAMAPPanelXY[ posIndex + 1 ]), (INT16)(sTEAMAPPanelXY[ posIndex ] + TM_APPANEL_WIDTH), (INT16)(sTEAMAPPanelXY[ posIndex + 1 ] + TM_APPANEL_HEIGHT ) );
 
-				if ( gTacticalStatus.ubCurrentTeam != OUR_TEAM || INTERRUPT_QUEUED )
+				if ( GetJa2TacticalCurrentTeam() != OUR_TEAM || INTERRUPT_QUEUED )
 				{
 					// Hatch out...
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiTEAMObjects, 1, sTEAMFaceHighlXY[ posIndex ], sTEAMFaceHighlXY[ posIndex + 1 ], VO_BLT_SRCTRANSPARENCY, NULL );
@@ -5527,7 +5528,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				}
 
 				// Render Selected guy if selected
-				if ( gusSelectedSoldier == pSoldier->ubID && gTacticalStatus.ubCurrentTeam == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
+				if ( gusSelectedSoldier == pSoldier->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
 				{
 					//if(gbPixelDepth==16)
 					//{
@@ -5539,7 +5540,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 						//RestoreExternBackgroundRect( (INT16)(sTEAMFacesXY[ posIndex ] + TM_FACEPLATE_OFFSET_X), (INT16)(sTEAMFacesXY[ posIndex + 1 ] + TM_FACEPLATE_OFFSET_Y ), TM_FACEPLATE_WIDTH, TM_FACEPLATE_HEIGHT );
 					//}
 				}
-				else if ( gTacticalStatus.ubCurrentTeam != OUR_TEAM || !OK_INTERRUPT_MERC( pSoldier ) )
+				else if ( GetJa2TacticalCurrentTeam() != OUR_TEAM || !OK_INTERRUPT_MERC( pSoldier ) )
 				{
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiTEAMObjects, 1, sTEAMFaceHighlXY[ posIndex ], sTEAMFaceHighlXY[ posIndex + 1 ], VO_BLT_SRCTRANSPARENCY, NULL );
 					RestoreExternBackgroundRect( sTEAMFaceHighlXY[ posIndex ], sTEAMFaceHighlXY[ posIndex + 1 ], TM_FACEHIGHTL_WIDTH, TM_FACEHIGHTL_HEIGHT );
@@ -5742,7 +5743,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 							DrawMoraleUIBarEx( pSoldier, sTEAMMoraleXY[ posIndex ], sTEAMMoraleXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, TRUE, FRAME_BUFFER );
 					}
 
-					if ( gTacticalStatus.uiFlags & TURNBASED && pSoldier->stats.bLife >= OKLIFE )
+					if ( IsJa2TacticalTurnBased() && pSoldier->stats.bLife >= OKLIFE )
 					{
 						// Render APs
 						SetFont( TINYFONT1 );
@@ -5776,7 +5777,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 						}
 						RestoreExternBackgroundRect( sTEAMApXY[ posIndex ], sTEAMApXY[ posIndex + 1 ], TM_AP_WIDTH+1, TM_AP_HEIGHT );
 
-						if (gTacticalStatus.uiFlags & INCOMBAT )
+						if (IsJa2TacticalCombatActive() )
 						{
 							VarFindFontCenterCoordinates( sTEAMApXY[ posIndex ], sTEAMApXY[ posIndex + 1], TM_AP_WIDTH, TM_AP_HEIGHT, TINYFONT1, &sFontX, &sFontY, L"%d", GetUIApsToDisplay( pSoldier ) );
 							mprintf( sFontX, sTEAMApXY[ posIndex + 1], L"%d", GetUIApsToDisplay( pSoldier ) );
@@ -5975,7 +5976,7 @@ void UpdateTEAMPanel( )
 #ifdef JA2EDITOR
 	DisableButton( iTEAMPanelButtons[ TEAM_DONE_BUTTON ] );
 #else
-	if ( (gTacticalStatus.ubCurrentTeam != gbPlayerNum) || (gTacticalStatus.uiFlags & REALTIME ) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( (GetJa2TacticalCurrentTeam() != gbPlayerNum) || (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) )
 	{
 		DisableButton( iTEAMPanelButtons[ TEAM_DONE_BUTTON ] );
 	}
@@ -6266,7 +6267,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					else
 					{
 						// HEADROCK HAM 3.5: Shift-Click a merc's face will add him to the current selection.
-						if (!(gTacticalStatus.uiFlags & INCOMBAT) && _KeyDown( SHIFT ) )
+						if (!(IsJa2TacticalCombatActive()) && _KeyDown( SHIFT ) )
 						{
 							if ( ! (ubSoldierID->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
 							{

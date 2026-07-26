@@ -1,4 +1,5 @@
 	#include "Vehicles.h"
+#include "TacticalWorldAdapter.h"
 	#include "SaveLoadGame.h"
 	#include "SaveSerializer.h"
 	#include "Strategic Pathing.h"
@@ -1729,7 +1730,7 @@ BOOLEAN EnterVehicle( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubSeat
 
 			INT16	sAPCost = APBPConstants[AP_ENTER_VEHICLE];
 			//Are we currently in combat?
-			if(gTacticalStatus.uiFlags & INCOMBAT)
+			if(IsJa2TacticalCombatActive())
 			{
 				if(EnoughPoints(pSoldier, sAPCost, 0, TRUE))
 					DeductPoints(pSoldier, sAPCost, 0);
@@ -1795,7 +1796,7 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 
 	INT16	sAPCost = APBPConstants[AP_EXIT_VEHICLE];
 	//Are we currently in combat?
-	if(gTacticalStatus.uiFlags & INCOMBAT)
+	if(IsJa2TacticalCombatActive())
 	{
 		if(EnoughPoints(pSoldier, sAPCost, 0, TRUE))
 			DeductPoints(pSoldier, sAPCost, 0);
@@ -1900,7 +1901,7 @@ BOOLEAN ChangeVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 u
 			INT16	sAPCost = APBPConstants[AP_CHANGE_SEAT_VEHICLE];
 
 			//Are we currently in combat?
-			if(gTacticalStatus.uiFlags & INCOMBAT)
+			if(IsJa2TacticalCombatActive())
 			{
 				if( gNewVehicle[pVehicleList[ pVehicle->bVehicleID ].ubVehicleType].VehicleSeats[bCurrentSeatIndex].ubCompartment !=
 					gNewVehicle[pVehicleList[ pVehicle->bVehicleID ].ubVehicleType].VehicleSeats[ubSeatIndex].ubCompartment )
@@ -1967,7 +1968,7 @@ BOOLEAN SwapVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubS
 			INT16	sAPCost = APBPConstants[AP_CHANGE_SEAT_VEHICLE];
 
 			//Are we currently in combat?
-			if(gTacticalStatus.uiFlags & INCOMBAT)
+			if(IsJa2TacticalCombatActive())
 			{
 				if( gNewVehicle[pVehicleList[ pVehicle->bVehicleID ].ubVehicleType].VehicleSeats[bCurrentSeatIndex].ubCompartment !=
 					gNewVehicle[pVehicleList[ pVehicle->bVehicleID ].ubVehicleType].VehicleSeats[ubSeatIndex].ubCompartment )

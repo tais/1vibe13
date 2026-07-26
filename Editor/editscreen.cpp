@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 
 #ifdef JA2EDITOR
 
@@ -68,7 +69,6 @@
 	#include "Music Control.h"
 	#include "Soldier Profile.h"
 	#include "GameSettings.h"
-	#include "TacticalWorldAdapter.h"
 	#include "Summary Info.h"
 	#include "connect.h"//dnl
 	#include "Cursors.h"//dnl ch2 210909
@@ -346,7 +346,8 @@ BOOLEAN EditModeInit( void )
 
 	//essentially, we are turning the game off so the game doesn't process in conjunction with the
 	//editor.
-	guiSaveTacticalStatusFlags = (gTacticalStatus.uiFlags & ~DEMOMODE);
+	guiSaveTacticalStatusFlags =
+		(CaptureJa2TacticalStatusFlags() & ~DEMOMODE);
 	gTacticalStatus.uiFlags &= ~REALTIME;
 	gTacticalStatus.uiFlags |= SHOW_ALL_ITEMS;
 	SetJa2TacticalTurnBasedMode( true );
@@ -502,8 +503,8 @@ BOOLEAN EditModeShutdown( void )
 	CreateMouseRegionForPauseOfClock( INTERFACE_CLOCK_X, INTERFACE_CLOCK_Y );
 
 	iOldTaskMode = iCurrentTaskbar;
-	RestoreJa2TacticalTurnMirrors(
-		guiSaveTacticalStatusFlags, gTacticalStatus.ubCurrentTeam );
+	RestoreJa2TacticalTurnState(
+		guiSaveTacticalStatusFlags, GetJa2TacticalCurrentTeam() );
 
 	RemoveLightPositionHandles( );
 

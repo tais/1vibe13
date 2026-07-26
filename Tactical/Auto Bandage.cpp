@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Overhead.h"
 	#include "MessageBoxScreen.h"
 	#include "screenids.h"
@@ -88,7 +89,7 @@ void BeginAutoBandage( )
 	BOOLEAN fFoundAMedKit = FALSE;
 	
 	// If we are in combat, we con't...
-	if ( (gTacticalStatus.uiFlags & INCOMBAT) || (NumEnemyInSector() != 0) )
+	if ( (IsJa2TacticalCombatActive()) || (NumEnemyInSector() != 0) )
 	{
 		DoMessageBox( MSG_BOX_BASIC_STYLE, Message[ STR_SECTOR_NOT_CLEARED ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );
 		return;
@@ -205,7 +206,7 @@ void SetAutoBandagePending( BOOLEAN fSet )
 void ShouldBeginAutoBandage( )
 {
 	// If we are in combat, we con't...
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 	{
 		return;
 	}

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "DEBUG.H"
 	#include "Overhead Types.h"
@@ -100,7 +101,7 @@ void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 
 	// MP: no stat practice outside combat -- realtime jogging, lobby assignments,
 	// travel awards and other passive trainers would level mercs mid-match.
 	// Deliberate in-combat skill use (shooting, kills, aid, locks, ...) still counts.
-	if ( is_networked && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( is_networked && !( IsJa2TacticalCombatActive() ) )
 		return;
 
 	// ignore anything without a profile
@@ -850,7 +851,7 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 	if ( pSoldier != NULL )
 	{
 		// ATE: if in the midst of an attack, if in the field, delay all stat changes until the check made after the 'attack'...
-		if ( ( gTacticalStatus.ubAttackBusyCount > 0 ) && pSoldier->bInSector && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( GetJa2PendingTacticalCombatActions() > 0 ) && pSoldier->bInSector && ( IsJa2TacticalCombatActive() ) )
 			return;
 
 		// ignore non-player soldiers

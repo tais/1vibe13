@@ -8,6 +8,7 @@
 	Date			:		1997-NOV
 */
 	#include <stdio.h>
+#include "TacticalWorldAdapter.h"
 	#include "stdlib.h"
 	#include "DEBUG.H"
 	#include "MemMan.h"
@@ -657,7 +658,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	fCheckedBehind = FALSE;
 	fGoingThroughDoor = FALSE;
 
-	fTurnBased = ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) );
+	fTurnBased = ( IsJa2TacticalTurnBasedCombat() );
 	fPathingForPlayer = ( (pSoldier->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(pSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL) );
 	fNonSwimmer = !( IS_MERC_BODY_TYPE( pSoldier ) );
 	fPathAroundPeople = ( (fFlags & PATH_THROUGH_PEOPLE) == 0 );
@@ -2053,7 +2054,7 @@ bool AStarPathfinder::WantToTraverse()
 	if(gGameExternalOptions.bNewTacticalAIBehavior)
 	{
 		// don't walk over corpses. TODO: only avoid in 80% ?
-		if ( ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( ( IsJa2TacticalTurnBasedCombat() )
 				&& pSoldier->bTeam == ENEMY_TEAM 
 				//&& IsCorpseAtGridNo( CurrentNode, pSoldier->pathing.bLevel ) 
 				&& gubIsCorpseThere[CurrentNode]
@@ -2061,7 +2062,7 @@ bool AStarPathfinder::WantToTraverse()
 			return false;
 
 		//from NightOps // elite AI will not walk on illuminated tiles, which are seen by the enemy
-		if( ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if( ( IsJa2TacticalTurnBasedCombat() )
 			&& pSoldier->bTeam == ENEMY_TEAM && pSoldier->ubProfile == NO_PROFILE 
 			&& pSoldier->aiData.bAction != AI_ACTION_LEAVE_WATER_GAS
 			//&& (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE 
@@ -2357,7 +2358,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 		fFlags |= gubGlobalPathFlags;
 	}
 
-	fTurnBased = ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) );
+	fTurnBased = ( IsJa2TacticalTurnBasedCombat() );
 
 	fPathingForPlayer = ( (s->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(s->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL) );
 
@@ -4550,7 +4551,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 
 			// THIS NEXT SECTION ONLY NEEDS TO HAPPEN FOR CURSOR UI FEEDBACK, NOT ACTUAL COSTING
 
-			if (bPlot && ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) ) ) // OR USER OPTION ON... ***)
+			if (bPlot && ( IsJa2TacticalTurnBasedCombat() ) ) // OR USER OPTION ON... ***)
 			{
 				// ATE; TODO: Put stuff in here to allow for fact of costs other than movement ( jump fence, open door )
 
@@ -4675,7 +4676,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 
 			}
 
-			//if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) ) // OR USER OPTION "show paths" ON... ***
+			//if ( IsJa2TacticalTurnBasedCombat() ) // OR USER OPTION "show paths" ON... ***
 			{
 				if (bPlot && ((iCnt < (iLastGrid-1)) || (iCnt < iLastGrid && bStayOn)))
 				{
@@ -4733,7 +4734,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					GetTileIndexFromTypeSubIndex( FOOTPRINTS, (UINT16)usTileNum, &usTileIndex );
 
 					// Adjust based on what mode we are in...
-					if ( (gTacticalStatus.uiFlags & REALTIME ) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+					if ( (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) )
 					{
 						// find out which color we're using
 						usTileIndex = usTileIndex + sFootOrder[ 4 ];
@@ -4789,7 +4790,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					GetTileIndexFromTypeSubIndex( FOOTPRINTS, (UINT16)usTileNum, &usTileIndex );
 
 					// Adjust based on what mode we are in...
-					if ( (gTacticalStatus.uiFlags & REALTIME ) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+					if ( (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) )
 					{
 						// find out which color we're using
 						usTileIndex = usTileIndex + sFootOrder[ 4 ];

@@ -4,6 +4,7 @@
 */
 
 #include <math.h>
+#include "TacticalWorldAdapter.h"
 #include "ASD.h"
 #include "strategic.h"
 #include "Text.h"
@@ -631,7 +632,7 @@ void ENEMY_HELI::Destroy( )
 		{
 			// it is possible that we shoot down a helicopter while in a fight. In this case, adding soldiers to a sector would either cause a second battle or a state where a fight should start but doesn't
 			// both is bad, so we simply don't add soldiers in that case. The player will hardly notice, as there is only a chance that soldiers survive anyway
-			if ( !gTacticalStatus.fEnemyInSector && !(gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( !gTacticalStatus.fEnemyInSector && !(IsJa2TacticalCombatActive()) )
 			{
 				// chance that they survived at all
 				if ( Chance( 75 ) )
@@ -994,7 +995,7 @@ void UpdateEnemyHeli( INT16 id )
 		if ( heli.flagmask & ENEMYHELI_ORDER_DROPTROOPS && heli.sector_current == heli.sector_destination )
 		{
 			// for now, we park if there is an ongoing battle here
-			if ( gTacticalStatus.fEnemyInSector || (gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( gTacticalStatus.fEnemyInSector || (IsJa2TacticalCombatActive()) )
 			{
 				AddStrategicEvent( EVENT_ENEMY_HELI_UPDATE, GetWorldTotalMin( ) + gEnemyHeliTravelTimePerSector, id );
 

@@ -1,4 +1,5 @@
 	#include <string.h>
+#include "TacticalWorldAdapter.h"
 	#include "SaveSerializer.h"
 	#include "worlddef.h"
 	#include <Isometric Utils.h>
@@ -12,7 +13,6 @@
 	#include "GameSettings.h"
 	#include "FileMan.h"
 	#include "lighting.h"
-	#include "TacticalWorldAdapter.h"
 
 // Defines
 // HEADROCK HAM 5: Increasing... with the hope of making spectacular fragmenting explosives.
@@ -95,7 +95,7 @@ INT32	CreateBullet( SoldierID ubFirerID, BOOLEAN fFake, UINT16 usFlags,UINT16 fr
 		{
 			BeginJa2TacticalCombatAction();
 		}
-		DebugAttackBusy( String( "Creating a new bullet for %d.	ABC now %d\n", ubFirerID, gTacticalStatus.ubAttackBusyCount) );
+		DebugAttackBusy( String( "Creating a new bullet for %d.	ABC now %d\n", ubFirerID, GetJa2PendingTacticalCombatActions()) );
 	}
 
 	//afp-start each bullet carry its tail
@@ -243,7 +243,7 @@ void LocateBullet( INT32 iBulletIndex )
 				gBullets[ iBulletIndex ].fLocated = TRUE;
 
 				//Only if we are in turnbased and noncombat
-				if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+				if ( IsJa2TacticalTurnBasedCombat() )
 				{
 					  LocateGridNo( gBullets[ iBulletIndex ].sGridNo );
 				}

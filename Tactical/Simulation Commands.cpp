@@ -1,4 +1,5 @@
 #include "Simulation Commands.h"
+#include "TacticalWorldAdapter.h"
 
 #include <array>
 #include <stdexcept>
@@ -60,10 +61,9 @@ namespace
 
 	bool HasEndTurnExecutionContext() noexcept
 	{
-		constexpr UINT32 RequiredFlags = TURNBASED | INCOMBAT;
 		return IsJa2TacticalWorldLoaded() &&
-			(gTacticalStatus.uiFlags & RequiredFlags) == RequiredFlags &&
-			gTacticalStatus.ubCurrentTeam < MAXTEAMS;
+			IsJa2TacticalTurnBasedCombat() &&
+			GetJa2TacticalCurrentTeam() < MAXTEAMS;
 	}
 
 	SOLDIERTYPE* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
@@ -312,7 +312,7 @@ namespace
 					}
 					const bool realtimeStanceChange =
 						(gTacticalStatus.uiFlags & REALTIME) != 0 ||
-						(gTacticalStatus.uiFlags & INCOMBAT) == 0;
+						(IsJa2TacticalCombatActive()) == 0;
 					if (realtimeStanceChange &&
 						(gAnimControl[soldier->usAnimState].uiFlags &
 							ANIM_STATIONARY) == 0)

@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include <chrono>   // scroll-cost instrumentation (perf v3 #6): RenderWorld timing
 #include "sgp.h"
@@ -561,7 +562,7 @@ UINT32	MainGameScreenHandle(void)
 		{
 			if ( (( GetJA2Clock( ) - gTacticalStatus.uiTimeSinceDemoOn ) > 3000) || is_client)//unpause straight away if in MP
 			{
-				if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum )
+				if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
 				{
 					gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID->AdjustNoAPToFinishMove( FALSE );
 				}
@@ -726,7 +727,7 @@ UINT32	MainGameScreenHandle(void)
 
 
 	// ATE: CHRIS_C LOOK HERE FOR GETTING AI CONSTANTLY GOING
-	//if ( gTacticalStatus.uiFlags & TURNBASED )
+	//if ( IsJa2TacticalTurnBased() )
 	//{
 	//	if ( !(gTacticalStatus.uiFlags & ENEMYS_TURN) )
 	//	{
@@ -886,8 +887,8 @@ UINT32	MainGameScreenHandle(void)
 		SetFontBackground( FONT_MCOLOR_BLACK );
 		SetFontForeground( FONT_MCOLOR_LTGREEN );
 
-		mprintf( 0, 15, L"Attacker Busy Count: %d", gTacticalStatus.ubAttackBusyCount );
-		gprintfdirty( 0, 15, L"Attacker Busy Count: %d", gTacticalStatus.ubAttackBusyCount );
+		mprintf( 0, 15, L"Attacker Busy Count: %d", GetJa2PendingTacticalCombatActions() );
+		gprintfdirty( 0, 15, L"Attacker Busy Count: %d", GetJa2PendingTacticalCombatActions() );
 
 		curr = gpScheduleList;
 		iSchedules = 0;

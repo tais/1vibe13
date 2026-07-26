@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 ///////////////////////////
 // C file include here
 #include "Render Z.h"
@@ -1802,7 +1803,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			}
 			INT8 bGlowShadeOffset;
 			bGlowShadeOffset = 0;
-			if (gTacticalStatus.ubCurrentTeam == gbPlayerNum)
+			if (GetJa2TacticalCurrentTeam() == gbPlayerNum)
 			{
 				// Shade differently depending on visiblity
 				if (pSoldier->bLastRenderVisibleValue == 0)
@@ -1851,7 +1852,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			{
 				// OK,not highlighted, but maybe we are in enemy's turn and they have the baton
 				// AI's turn?
-				if (gTacticalStatus.ubCurrentTeam != OUR_TEAM)
+				if (GetJa2TacticalCurrentTeam() != OUR_TEAM)
 				{
 					// Do he have baton?
 					if ((pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL))

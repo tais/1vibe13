@@ -1,4 +1,5 @@
 #include "sgp.h"
+#include "TacticalWorldAdapter.h"
 #include "ai.h"
 #include "Isometric Utils.h"
 #include "Overhead.h"
@@ -14,7 +15,6 @@
 #include "worldman.h"
 #include "PATHAI.H"
 #include "Points.h"
-#include "TacticalWorldAdapter.h"
 #include "Weapons.h"
 #include "Items.h"
 #include "Handle Items.h"
@@ -440,13 +440,13 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 	}
 	// determine what sort of AI to use
-    //gfTurnBasedAI = (bool)( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) );
-    gfTurnBasedAI = ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) );
+    //gfTurnBasedAI = (bool)( IsJa2TacticalTurnBasedCombat() );
+    gfTurnBasedAI = ( IsJa2TacticalTurnBasedCombat() );
 
 	// If TURN BASED and NOT NPC's turn, or realtime and not our chance to think, bail...
 	if (gfTurnBasedAI)
 	{
-		if ( (pSoldier->bTeam != OUR_TEAM) && gTacticalStatus.ubCurrentTeam == gbPlayerNum )
+		if ( (pSoldier->bTeam != OUR_TEAM) && GetJa2TacticalCurrentTeam() == gbPlayerNum )
 		{
 			return;
 		}
@@ -458,7 +458,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 			return;
 		}
 
-		if ( pSoldier->bTeam != gTacticalStatus.ubCurrentTeam )
+		if ( pSoldier->bTeam != GetJa2TacticalCurrentTeam() )
 		{
 #ifdef JA2BETAVERSION
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_ERROR, L"Turning off AI flag for %d because trying to act out of turn", pSoldier->ubID );
@@ -621,7 +621,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 	// in the unlikely situation (Sgt Krott et al) that we have a quote trigger going on
 	// during turnbased, don't do any AI
-	if ( pSoldier->ubProfile != NO_PROFILE && (pSoldier->ubProfile == SERGEANT || pSoldier->ubProfile == MIKE || pSoldier->ubProfile == JOE) && (gTacticalStatus.uiFlags & INCOMBAT) && (gfInTalkPanel || gfWaitingForTriggerTimer || !DialogueQueueIsEmpty() ) )
+	if ( pSoldier->ubProfile != NO_PROFILE && (pSoldier->ubProfile == SERGEANT || pSoldier->ubProfile == MIKE || pSoldier->ubProfile == JOE) && (IsJa2TacticalCombatActive()) && (gfInTalkPanel || gfWaitingForTriggerTimer || !DialogueQueueIsEmpty() ) )
 	{
 		return;
 	}
@@ -634,7 +634,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 		// if this happens during an attack then do nothing... wait for the A.B.C.
 		// to be reduced to 0 first -- CJC December 13th
-		if ( gTacticalStatus.ubAttackBusyCount > 0 )
+		if ( GetJa2PendingTacticalCombatActions() > 0 )
 		{
 			fProcessNewSituation = FALSE;
 		}
@@ -708,7 +708,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 #ifdef JA2TESTVERSION
 			// display deadlock message
 			gfUIInDeadlock = TRUE;
-			DebugAI(  String("DEADLOCK soldier %d action %s ABC %d", pSoldier->ubID.i, gzActionStr[pSoldier->aiData.bAction], gTacticalStatus.ubAttackBusyCount ) );
+			DebugAI(  String("DEADLOCK soldier %d action %s ABC %d", pSoldier->ubID.i, gzActionStr[pSoldier->aiData.bAction], GetJa2PendingTacticalCombatActions() ) );
 #else
 
 			// If we are in beta version, also report message!
@@ -727,7 +727,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 	// We STILL do not want to issue new orders while an attack busy situation is going on.  This can happen, for example,
 	// when a gun is fired in real-time and an enemy sees it.  Delay the AI until that action is done.
-	if ( gTacticalStatus.ubAttackBusyCount > 0 )
+	if ( GetJa2PendingTacticalCombatActions() > 0 )
 	{
 		return;
 	}
@@ -923,7 +923,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 			}
 		}
 
-		if ( gTacticalStatus.uiFlags & SHOW_ALL_ROOFS && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( gTacticalStatus.uiFlags & SHOW_ALL_ROOFS && ( IsJa2TacticalCombatActive() ) )
 		{
 			SetRenderFlags( RENDER_FLAG_FULL );
 			gTacticalStatus.uiFlags &= (~SHOW_ALL_ROOFS );
@@ -1062,7 +1062,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 
 	// Locate to soldier
 	// If we are not in an interrupt situation!
-	if ( (( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.uiFlags & INCOMBAT )) && gubOutOfTurnPersons == 0 )
+	if ( (IsJa2TacticalTurnBasedCombat()) && gubOutOfTurnPersons == 0 )
 	{
 #ifdef JA2UB	
 			//JA25 UB
@@ -1079,7 +1079,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 		if( ( ( pSoldier->bVisible != -1 && pSoldier->stats.bLife) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) ) && ( fInValidSoldier == FALSE ) )
 		{
 			// If we are on a roof, set flag for rendering...
-			if ( pSoldier->pathing.bLevel != 0 && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( pSoldier->pathing.bLevel != 0 && ( IsJa2TacticalCombatActive() ) )
 			{
 				gTacticalStatus.uiFlags |= SHOW_ALL_ROOFS;
 				SetRenderFlags( RENDER_FLAG_FULL );
@@ -1342,10 +1342,11 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 #endif
 		}
 
-		// If doing an attack, reset attack busy count and # of bullets
-		//if ( gTacticalStatus.ubAttackBusyCount )
+		// Historical recovery experiment: resetting pending combat work here
+		// would hide a lifecycle bug, so the runtime owner is left untouched.
+		//if ( GetJa2PendingTacticalCombatActions() )
 		//{
-		//	gTacticalStatus.ubAttackBusyCount = 0;
+		//	ResetJa2TacticalCombatActions();
 		//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Setting attack busy count to 0 due to Action Done" ) );
 		//	pSoldier->bBulletsLeft = 0;
 		//}
@@ -1439,7 +1440,7 @@ void NPCDoesAct(SOLDIERTYPE *pSoldier)
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"NPCDoesAct");
 
 	// if the action is visible and we're in a hidden turnbased mode, go to turnbased
-	if (gTacticalStatus.uiFlags & TURNBASED && !(gTacticalStatus.uiFlags & INCOMBAT) && (pSoldier->aiData.bAction == AI_ACTION_FIRE_GUN || pSoldier->aiData.bAction == AI_ACTION_TOSS_PROJECTILE || pSoldier->aiData.bAction == AI_ACTION_KNIFE_MOVE || pSoldier->aiData.bAction == AI_ACTION_KNIFE_STAB || pSoldier->aiData.bAction == AI_ACTION_THROW_KNIFE) )
+	if (IsJa2TacticalTurnBased() && !(IsJa2TacticalCombatActive()) && (pSoldier->aiData.bAction == AI_ACTION_FIRE_GUN || pSoldier->aiData.bAction == AI_ACTION_TOSS_PROJECTILE || pSoldier->aiData.bAction == AI_ACTION_KNIFE_MOVE || pSoldier->aiData.bAction == AI_ACTION_KNIFE_STAB || pSoldier->aiData.bAction == AI_ACTION_THROW_KNIFE) )
 	{
 		DisplayHiddenTurnbased( pSoldier );
 	}
@@ -2078,7 +2079,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // Randomly do growl...
             if ( pSoldier->ubBodyType == BLOODCAT )
             {
-                if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+                if ( ( IsJa2TacticalCombatActive() ) )
                 {
                     if ( Random( 2 ) == 0 )
                     {
@@ -2096,7 +2097,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // optimization - Ian (if up-to-date path is known, do not check again)
             if (!pSoldier->pathing.bPathStored)
             {			
-                if ( (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) || gTacticalStatus.fAutoBandageMode) && !(gTacticalStatus.uiFlags & INCOMBAT) )
+                if ( (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) || gTacticalStatus.fAutoBandageMode) && !(IsJa2TacticalCombatActive()) )
                 {
                     // NPC system move, allow path through
                     if (LegalNPCDestination(pSoldier,pSoldier->aiData.usActionData,ENSURE_PATH,WATEROK, PATH_THROUGH_PEOPLE ))
@@ -2118,7 +2119,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 if ( !pSoldier->pathing.bPathStored )
                 {
                     // Check if we were told to move by NPC stuff				
-                    if ( !TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) && !(gTacticalStatus.uiFlags & INCOMBAT) )
+                    if ( !TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) && !(IsJa2TacticalCombatActive()) )
                     {
                         //ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_ERROR, L"AI %s failed to get path for dialogue-related move!", pSoldier->name );
 
@@ -2911,12 +2912,12 @@ void SetNewSituation( SOLDIERTYPE * pSoldier )
             // 0verhaul:  Let's see if we can do without this.
             pSoldier->aiData.bNewSituation = IS_NEW_SITUATION;
 
-			if ( gTacticalStatus.ubAttackBusyCount != 0 )
+			if ( GetJa2PendingTacticalCombatActions() != 0 )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("BBBBBB bNewSituation is set for %d when ABC !=0.", pSoldier->ubID ) );
 			}
 
-			if ( !(gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.uiFlags & REALTIME) )
+			if ( !(IsJa2TacticalCombatActive()) || (gTacticalStatus.uiFlags & REALTIME) )
 			{
 				// reset delay if necessary!
 				RESETTIMECOUNTER( pSoldier->timeCounters.AICounter, Random( 1000 ) );

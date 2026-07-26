@@ -1801,63 +1801,37 @@ foreach(source_file IN LISTS world_state_declaration_files)
   endforeach()
 endforeach()
 
-# Loaded-world turn identity is owned by TacticalWorldSession. The old
-# gTacticalStatus fields remain readable, but mode/team writers must publish
-# through TacticalWorldAdapter so package snapshots cannot observe split state.
+# Loaded-world turn state is owned exclusively by TacticalWorldSession. The
+# former current-team and pending-combat fields no longer exist in
+# TacticalStatusType, and the TURNBASED/INCOMBAT bits are composed only at
+# persistence/editor compatibility boundaries. Gameplay must read the session
+# accessors rather than recreating a second state path through uiFlags.
 set(tactical_turn_owner "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp")
-foreach(source_file IN LISTS world_state_files)
-  if("${source_file}" STREQUAL "${tactical_turn_owner}")
-    continue()
-  endif()
-  file(READ "${source_file}" contents)
-  string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubCurrentTeam[ \t\r\n]*(\\+\\+|--|[+*/%&|^-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubCurrentTeam([^A-Za-z0-9_]|$)"
-    tactical_team_write "${contents}")
-  if(tactical_team_write)
-    message(FATAL_ERROR
-      "Production code writes the tactical current-team mirror in ${source_file}; route the transition through TacticalWorldAdapter")
-  endif()
-  string(REGEX MATCH
-    "(^|[^&])&[ \t\r\n]*gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubCurrentTeam([^A-Za-z0-9_]|$)"
-    tactical_team_address_escape "${contents}")
-  if(tactical_team_address_escape)
-    message(FATAL_ERROR
-      "Production code passes the tactical current-team mirror by address in ${source_file}; stage a value and route writes through TacticalWorldAdapter")
-  endif()
-  string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*uiFlags[ \t\r\n]*(=[^=]|[|&^]=[^;\r\n]*(TURNBASED|INCOMBAT))"
-    tactical_mode_write "${contents}")
-  if(tactical_mode_write)
-    message(FATAL_ERROR
-      "Production code writes the tactical turn/combat-mode mirror in ${source_file}; route the transition through TacticalWorldAdapter")
-  endif()
-endforeach()
-
-# Pending tactical combat work is owned by the same session. The historical
-# attack-busy byte remains in TacticalStatusType solely as a save-compatible,
-# bounded read mirror; production lifecycle writers must use the adapter so it
-# cannot wrap or diverge from the engine state.
+set(retired_tactical_turn_fields
+  ubCurrentTeam
+  ubAttackBusyCount)
 foreach(source_file IN LISTS world_state_declaration_files)
-  if("${source_file}" STREQUAL "${tactical_turn_owner}")
-    continue()
-  endif()
   file(READ "${source_file}" contents)
   string(REGEX REPLACE "//[^\r\n]*" ""
-    tactical_combat_action_executable "${contents}")
-  string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubAttackBusyCount[ \t\r\n]*(\\+\\+|--|[+*/%&|^-]?=[^=])|(^|[^A-Za-z0-9_])(\\+\\+|--)[ \t\r\n]*gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubAttackBusyCount([^A-Za-z0-9_]|$)"
-    tactical_combat_action_write "${tactical_combat_action_executable}")
-  if(tactical_combat_action_write)
-    message(FATAL_ERROR
-      "Production code writes the tactical pending-combat mirror in ${source_file}; route the lifecycle through TacticalWorldAdapter")
-  endif()
-  string(REGEX MATCH
-    "(^|[^&])&[ \t\r\n]*gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*ubAttackBusyCount([^A-Za-z0-9_]|$)"
-    tactical_combat_action_address_escape
-    "${tactical_combat_action_executable}")
-  if(tactical_combat_action_address_escape)
-    message(FATAL_ERROR
-      "Production code passes the tactical pending-combat mirror by address in ${source_file}; stage a value and route writes through TacticalWorldAdapter")
+    tactical_turn_executable "${contents}")
+  foreach(retired_field IN LISTS retired_tactical_turn_fields)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_field}([^A-Za-z0-9_]|$)"
+      retired_tactical_turn_field "${tactical_turn_executable}")
+    if(retired_tactical_turn_field)
+      message(FATAL_ERROR
+        "Retired tactical-turn field '${retired_field}' returned in ${source_file}; use TacticalWorldSession through TacticalWorldAdapter")
+    endif()
+  endforeach()
+
+  if(NOT "${source_file}" STREQUAL "${tactical_turn_owner}")
+    string(REGEX MATCH
+      "gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*uiFlags[ \t\r\n]*[&|^=]+[ \t\r\n]*(~[ \t\r\n]*)?(\\([^;\r\n]*(TURNBASED|INCOMBAT)|(TURNBASED|INCOMBAT))|(TURNBASED|INCOMBAT)[^;\r\n]*[&|^=]+[ \t\r\n]*gTacticalStatus[ \t\r\n]*\\.[ \t\r\n]*uiFlags"
+      tactical_turn_flag_access "${tactical_turn_executable}")
+    if(tactical_turn_flag_access)
+      message(FATAL_ERROR
+        "Production code reads or writes retired tactical turn/combat uiFlags in ${source_file}; use TacticalWorldAdapter accessors")
+    endif()
   endif()
 endforeach()
 

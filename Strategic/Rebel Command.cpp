@@ -59,6 +59,7 @@ Points of interest:
 
 */
 #include "Rebel Command.h"
+#include "TacticalWorldAdapter.h"
 
 #include "ASD.h"
 #include "Button System.h"
@@ -2624,7 +2625,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 		canStartMission = FALSE;
 		swprintf(sText, szRebelCommandText[RCT_MISSION_CANT_USE_REBEL_AGENT]);
 	}
-	else if ((gTacticalStatus.uiFlags & INCOMBAT) || gTacticalStatus.fEnemyInSector)
+	else if ((IsJa2TacticalCombatActive()) || gTacticalStatus.fEnemyInSector)
 	{
 		canStartMission = FALSE;
 		swprintf(sText, szRebelCommandText[RCT_MISSION_CANT_START_BATTLE_IN_PROGRESS]);

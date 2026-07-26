@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalWorldAdapter.h"
 #include <wchar.h>
 #include <cmath>
 #include <cstdio>
@@ -74,7 +75,6 @@
 #include "TeamTurns.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
-#include "TacticalWorldAdapter.h"
 #include <cstdint>
 #include "Map Screen Interface.h"	// added by Flugente for SquadNames
 #include "Keys.h"	// added by silversurfer for door handling from the side
@@ -565,7 +565,7 @@ void PreventFromTheFreezingBug(SOLDIERTYPE* pSoldier)
 {
 	gfUIInterfaceSetBusy = FALSE;
 	UnSetUIBusy( pSoldier->ubID );
-	//	gTacticalStatus.ubAttackBusyCount = 0; // 0verhaul:	I know commenting this may not be a good idea, but then neither is this kludgy routine.
+	// ResetJa2TacticalCombatActions(); // Disabled: UI recovery must not discard live combat work.
 	guiPendingOverrideEvent = LU_ENDUILOCK;
 	UIHandleLUIEndLock( NULL );
 }
@@ -663,7 +663,7 @@ UINT32	HandleTacticalUI( void )
 
 		// SWITCH ON INPUT GATHERING, DEPENDING ON MODE
 		// IF WE ARE NOT IN COMBAT OR IN REALTIME COMBAT
-		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 		{
 			// FROM MOUSE POSITION
 			GetRTMousePositionInput( &uiNewEvent );
@@ -819,7 +819,7 @@ UINT32	HandleTacticalUI( void )
 	}
 
 	// Donot display APs if not in combat
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT ) || (gTacticalStatus.uiFlags & REALTIME ) )
+	if ( !(IsJa2TacticalCombatActive() ) || (gTacticalStatus.uiFlags & REALTIME ) )
 	{
 		gfUIDisplayActionPoints = FALSE;
 	}
@@ -1068,7 +1068,7 @@ void SetUIMouseCursor( )
 
 						if ( fOkForExit )
 						{
-							if ( gGameExternalOptions.fGridExitInTurnBased || ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+							if ( gGameExternalOptions.fGridExitInTurnBased || ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 							{
 								if ( gfUIConfirmExitArrows )
 								{
@@ -1416,7 +1416,7 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 		////ddd enemy turn optimization
 		if (GetGameContext().settings().fOptions[TOPTION_ALT_PATHFINDING])
 		{
-			if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT ) )	
+			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				// Clear only the live map (WORLD_MAX), not the MAX_ALLOWED_WORLD_MAX (4M) array
 				// ceiling -- this cleared 24MB every turn-end where ~0.9MB is touched.
@@ -1555,7 +1555,7 @@ UINT32 UIHandleTestHit( UI_EVENT *pUIEvent )
 			}
 		}
 
-		// gTacticalStatus.ubAttackBusyCount++;
+		// GetJa2PendingTacticalCombatActions()++;
 		DebugAttackBusy( "Testing a hit.\n" );
 		pSoldier->EVENT_SoldierGotHit( 1, bDamage, 10, pSoldier->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pSoldier->bAimShotLocation, 0, NOWHERE );
 		// callahan update end - put everything as it was
@@ -2034,7 +2034,7 @@ UINT32 UIHandleAOnTerrain( UI_EVENT *pUIEvent )
 		UIHandleOnMerc( FALSE );
 
 		// If we are in realtime, and in a stationary animation, follow!
-		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 		{
 			if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY && pSoldier->aiData.ubPendingAction == NO_PENDING_ACTION )
 			{
@@ -2157,7 +2157,7 @@ UINT32 UIHandleCWait( UI_EVENT *pUIEvent )
 		SetConfirmMovementModeCursor( pSoldier, FALSE );
 
 		// If we are not in combat, draw path here!
-		if ( (gTacticalStatus.uiFlags & REALTIME ) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) )
 		{
 			//DrawUIMovementPath( pSoldier, sMapPos,	0 );
 			fSetCursor =  HandleUIMovementCursor( pSoldier, uiCursorFlags, usMapPos, 0 );
@@ -2232,7 +2232,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
 					}
 
-					//if ( !( gTacticalStatus.uiFlags & INCOMBAT ) && ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
+					//if ( !( IsJa2TacticalCombatActive() ) && ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
 					//{
 					//	pSoldier->sRTPendingMovementGridNo = sMapPos;
 					//	pSoldier->usRTPendingMovementAnim	= pSoldier->usUIMovementMode;
@@ -2288,20 +2288,20 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				if((UsingNewInventorySystem() == true))
 				{
 					// CHRISL: If we're in combat and zipper is active, don't allow movement
-					if((gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->flags.ZipperFlag)
+					if((IsJa2TacticalCombatActive()) && pSoldier->flags.ZipperFlag)
 					{
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_ZIPPER_NO_MOVE] );
 						return( GAME_SCREEN );
 					}
 					// CHRISL: If we're not in combat but the zipper is active and we're moving, deactivate the zipper
-					if(!(gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->flags.ZipperFlag)
+					if(!(IsJa2TacticalCombatActive()) && pSoldier->flags.ZipperFlag)
 					{
 						pSoldier->flags.ZipperFlag=FALSE;
 						RenderBackpackButtons(ACTIVATE_BUTTON);
 					}
 				}
 				// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
-				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 				{
 					pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
 				}
@@ -2409,7 +2409,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					}
 				}
 
-				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 				{
 					// RESET MOVE FAST FLAG
 					SetConfirmMovementModeCursor( pSoldier, TRUE );
@@ -2422,7 +2422,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					//StartLooseCursor( sMapPos, 0 );
 				}
 
-				if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && pIntTile == NULL && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && pIntTile == NULL && !( IsJa2TacticalCombatActive() ) )
 				{
 					if ( HandleMultiSelectionMove( sDestGridNo ) )
 						SetUIBusy( pSoldier->ubID );
@@ -2834,7 +2834,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 	OBJECTTYPE* pObj = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
 	usItem  = pSoldier->GetUsedWeaponNumber(&pSoldier->inv[HANDPOS]);
 
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) && pTargetSoldier && Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass & IC_WEAPON )
+	if ( !(IsJa2TacticalCombatActive()) && pTargetSoldier && Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass & IC_WEAPON )
 	{
 		if ( NPCFirstDraw( pSoldier, pTargetSoldier ) )
 		{
@@ -2870,7 +2870,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 	}
 
 	// In realtime mode we cannot aim. Assume that max allowed aiming levels will be used.
-	if ( gTacticalStatus.uiFlags & REALTIME || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( gTacticalStatus.uiFlags & REALTIME || !( IsJa2TacticalCombatActive() ) )
 		pSoldier->aiData.bAimTime = AllowedAimingLevels(pSoldier, sGridNo);
 	else
 		// Set aim time to one in UI
@@ -2920,7 +2920,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 
 	// Cannot be fire if we are already in a fire animation....
 	// this is to stop the shooting trigger/happy duded from contiously pressing fire...
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalCombatActive()) )
 	{
 		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIRE )
 		{
@@ -2929,7 +2929,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 	}
 
 	// If in turn-based mode - return to movement
-	if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( IsJa2TacticalCombatActive() ) )
 	{
 		// Reset some flags for cont move...
 		pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
@@ -2961,7 +2961,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 		}
 	}
 
-	if ( gTacticalStatus.uiFlags & TURNBASED && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( IsJa2TacticalTurnBased() && !( IsJa2TacticalCombatActive() ) )
 	{
 		HandleUICursorRTFeedback( pSoldier );
 	}
@@ -3186,7 +3186,7 @@ UINT32 UIHandleAEndAction( UI_EVENT *pUIEvent )
 
 	if ( GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
-		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 		{
 			if ( gUITargetReady )
 			{
@@ -3950,7 +3950,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	}
 
 	// IF turn-based - adjust stance now!
-	if ( gTacticalStatus.uiFlags & TURNBASED && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		pSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
 
@@ -3983,7 +3983,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	}
 
 	// If realtime- change walking animation!
-	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 	{
 		if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
 			return;
@@ -4125,7 +4125,7 @@ BOOLEAN HandleUIMovementCursor( SOLDIERTYPE *pSoldier, UINT32 uiCursorFlags, INT
 	}
 
 	// Check if we're stationary
-	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) || ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove ) || pSoldier->ubID >= MAX_NUM_SOLDIERS )
+	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) || ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove ) || pSoldier->ubID >= MAX_NUM_SOLDIERS )
 	{
 		// If we are targeting a merc for some reason, don't go thorugh normal channels if we are on someone now
 		if ( uiFlags == MOVEUI_TARGET_MERCS || uiFlags == MOVEUI_TARGET_MERCSFORAID )
@@ -4223,7 +4223,7 @@ BOOLEAN HandleUIMovementCursor( SOLDIERTYPE *pSoldier, UINT32 uiCursorFlags, INT
 			// ONLY IF GFPLOT NEW MOVEMENT IS FALSE!
 			if ( !gfPlotNewMovement )
 			{
-				if ( gsCurrentActionPoints < 0 || ( (gTacticalStatus.uiFlags & REALTIME) || !(gTacticalStatus.uiFlags & INCOMBAT ) ) )
+				if ( gsCurrentActionPoints < 0 || ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive() ) ) )
 				{
 					gfUIDisplayActionPoints = FALSE;
 				}
@@ -4308,7 +4308,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 	BOOLEAN						fPlot;
 	UINT16							ubMercID;
 
-	if ( (gTacticalStatus.uiFlags & INCOMBAT ) && ( gTacticalStatus.uiFlags & TURNBASED ) || _KeyDown( SHIFT ) )
+	if ( IsJa2TacticalTurnBasedCombat() || _KeyDown( SHIFT ) )
 	{
 		fPlot = PLOT;
 	}
@@ -5212,7 +5212,7 @@ void SetUIbasedOnStance( SOLDIERTYPE *pSoldier, INT8 bNewStance )
 
 void SetMovementModeCursor( SOLDIERTYPE *pSoldier )
 {
-	if ( gTacticalStatus.uiFlags & TURNBASED && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		if ( ( OK_ENTERABLE_VEHICLE( pSoldier ) ) )
 		{
@@ -5251,7 +5251,7 @@ void SetMovementModeCursor( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 	{
 		if ( gfUIAllMoveOn )
 		{
@@ -5276,7 +5276,7 @@ void SetMovementModeCursor( SOLDIERTYPE *pSoldier )
 
 void SetConfirmMovementModeCursor( SOLDIERTYPE *pSoldier, BOOLEAN fFromMove )
 {
-	if ( gTacticalStatus.uiFlags & TURNBASED && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		if ( gfUIAllMoveOn )
 		{
@@ -5350,7 +5350,7 @@ void SetConfirmMovementModeCursor( SOLDIERTYPE *pSoldier, BOOLEAN fFromMove )
 		}
 	}
 
-	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 	{
 		if ( gfUIAllMoveOn )
 		{
@@ -5606,7 +5606,7 @@ UINT32 UIHandleLCLook( UI_EVENT *pUIEvent )
 		return( GAME_SCREEN );
 	}
 
-	if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( gTacticalStatus.fAtLeastOneGuyOnMultiSelect && !( IsJa2TacticalCombatActive() ) )
 	{
 		// OK, loop through all guys who are 'multi-selected' and
 		cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
@@ -5734,7 +5734,7 @@ UINT32 UIHandleTOnTerrain( UI_EVENT *pUIEvent )
 		gfUIDisplayActionPointsInvalid = TRUE;
 	}
 
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		if ( gfUIFullTargetFound )
 		{
@@ -5970,7 +5970,7 @@ void EndMultiSoldierSelection( BOOLEAN fAcknowledge )
 
 BOOLEAN StopRubberBandedMercFromMoving(void)
 {
-	if ( !gTacticalStatus.fAtLeastOneGuyOnMultiSelect || ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !gTacticalStatus.fAtLeastOneGuyOnMultiSelect || ( IsJa2TacticalCombatActive() ) )
 	{
 		return FALSE;
 	}
@@ -6523,7 +6523,7 @@ BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllow
 	// Do some checks common to all..
 	if ( fValidGuy )
 	{
-		if ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) && !(gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) && !(IsJa2TacticalCombatActive() ) )
 		{
 			return( FALSE );
 		}
@@ -6694,7 +6694,7 @@ BOOLEAN HandleTalkInit(	)
 
 			if ( ( uiRange > commandRange ) && ( !CheckIfRadioIsEquipped() ) ) //lal
 			{
-				if( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+				if( IsJa2TacticalTurnBasedCombat() )
 				{
 					return( FALSE );
 				}
@@ -6776,7 +6776,7 @@ BOOLEAN HandleTalkInit(	)
 
 void SetUIBusy( SoldierID ubID )
 {
-	if ( (gTacticalStatus.uiFlags & INCOMBAT ) && ( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.ubCurrentTeam == gbPlayerNum ) )
+	if ( IsJa2TacticalTurnBasedCombat() && ( GetJa2TacticalCurrentTeam() == gbPlayerNum ) )
 	{
 		if ( gusSelectedSoldier == ubID )
 		{
@@ -6788,12 +6788,12 @@ void SetUIBusy( SoldierID ubID )
 
 void UnSetUIBusy( SoldierID ubID )
 {
-	if ( gfUserTurnRegionActive && (gTacticalStatus.uiFlags & INCOMBAT ) && ( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.ubCurrentTeam == gbPlayerNum ) )
+	if ( gfUserTurnRegionActive && IsJa2TacticalTurnBasedCombat() && ( GetJa2TacticalCurrentTeam() == gbPlayerNum ) )
 	{
 		{
 			if ( !gTacticalStatus.fUnLockUIAfterHiddenInterrupt )
 			{
-				if ( gusSelectedSoldier == ubID && (gTacticalStatus.ubCurrentTeam == OUR_TEAM || !is_networked))// now that mp 
+				if ( gusSelectedSoldier == ubID && (GetJa2TacticalCurrentTeam() == OUR_TEAM || !is_networked))// now that mp
 				{
 					guiPendingOverrideEvent	= LA_ENDUIOUTURNLOCK;
 					HandleTacticalUI( );
@@ -6918,7 +6918,7 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 				}
 
 				//Set UI CURSOR
-				if ( fUseOKCursor || ( ( gTacticalStatus.uiFlags & INCOMBAT ) && ( gTacticalStatus.uiFlags & TURNBASED ) ) )
+				if ( fUseOKCursor || ( IsJa2TacticalTurnBasedCombat() ) )
 				{
 					guiNewUICursor = OKHANDCURSOR_UICURSOR;
 				}
@@ -7003,7 +7003,7 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 				}
 
 				//Set UI CURSOR
-				if ( fUseOKCursor || ( ( gTacticalStatus.uiFlags & INCOMBAT ) && ( gTacticalStatus.uiFlags & TURNBASED ) ) )
+				if ( fUseOKCursor || ( IsJa2TacticalTurnBasedCombat() ) )
 				{
 					guiNewUICursor = OKHANDCURSOR_UICURSOR;
 				}

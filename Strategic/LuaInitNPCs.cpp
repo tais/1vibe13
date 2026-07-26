@@ -1,4 +1,5 @@
 #include <iostream>
+#include "TacticalWorldAdapter.h"
 #include <sstream>
 
 #include "Lua Interpreter.h"
@@ -6526,7 +6527,7 @@ static int l_ACTION_ITEM_SEX(lua_State* L)
 	{
 		sGridNo = lua_tointeger(L, 1);
 
-		if (!(gTacticalStatus.uiFlags & INCOMBAT))
+		if (!(IsJa2TacticalCombatActive()))
 		{
 			SoldierID	soldier;
 			OBJECTTYPE DoorCloser;
@@ -7022,7 +7023,7 @@ static int l_EnterShopKeeperInterfaceScreen(lua_State* L)
 static int l_CheckCombatMode(lua_State* L)
 {
 	UINT8  n = lua_gettop(L);
-	BOOLEAN Bool = (gTacticalStatus.uiFlags & INCOMBAT);
+	BOOLEAN Bool = (IsJa2TacticalCombatActive());
 
 	lua_pushboolean(L, Bool);
 
@@ -7047,7 +7048,7 @@ static int l_SetEnterCombatMode(lua_State* L)
 			if (pGoon->ubCivilianGroup == group && pGoon->bActive && pGoon->bInSector && pGoon->stats.bLife >= OKLIFE && pGoon->aiData.bOppList[ubID] == SEEN_CURRENTLY)
 			{
 				MakeCivHostile(pGoon);
-				if (!(gTacticalStatus.uiFlags & INCOMBAT))
+				if (!(IsJa2TacticalCombatActive()))
 				{
 					EnterCombatMode(pGoon->bTeam);
 				}
@@ -7060,7 +7061,7 @@ static int l_SetEnterCombatMode(lua_State* L)
 
 static int l_SetEnterCombatModeTeam(lua_State* L)
 {
-	if (!(gTacticalStatus.uiFlags & INCOMBAT) && lua_gettop(L) >= 1)
+	if (!(IsJa2TacticalCombatActive()) && lua_gettop(L) >= 1)
 	{
 		UINT8 Team = lua_tointeger(L, 1);
 
@@ -8828,7 +8829,7 @@ static int l_MakeHostile(lua_State* L)
 				MakeCivHostile(pSoldier);
 			}
 			DeleteTalkingMenu();
-			if (!(gTacticalStatus.uiFlags & INCOMBAT))
+			if (!(IsJa2TacticalCombatActive()))
 			{
 				EnterCombatMode(pSoldier->bTeam);
 			}

@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include "types.h"
 #include "Civ Quotes.h"
@@ -708,7 +709,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// ATE: Cowering people take precedence....
-	if ( ( pCiv->flags.uiStatusFlags & SOLDIER_COWERING ) || ( pCiv->bTeam == CIV_TEAM && ( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+	if ( ( pCiv->flags.uiStatusFlags & SOLDIER_COWERING ) || ( pCiv->bTeam == CIV_TEAM && ( IsJa2TacticalCombatActive() ) ) )
 	{
 		if ( ubCivType == CIV_TYPE_ADULT )
 		{

@@ -1,4 +1,5 @@
 	#include "Player Command.h"
+#include "TacticalWorldAdapter.h"
 	#include "Queen Command.h"
 	#include "Campaign Types.h"
 	#include "strategic.h"
@@ -591,7 +592,7 @@ BOOLEAN IsTheSectorPerceivedToBeUnderEnemyControl( INT16 sMapX, INT16 sMapY, INT
 {
 
 	// are we in battle in this sector?
-	if( ( sMapX == gWorldSectorX ) && ( sMapY == gWorldSectorY ) && ( bMapZ == gbWorldSectorZ ) && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if( ( sMapX == gWorldSectorX ) && ( sMapY == gWorldSectorY ) && ( bMapZ == gbWorldSectorZ ) && ( IsJa2TacticalCombatActive() ) )
 	{
 		return( TRUE );
 	}

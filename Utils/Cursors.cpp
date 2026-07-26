@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <wchar.h>
 	#include "sgp.h"
 	#include "Cursors.h"
@@ -1755,7 +1756,7 @@ void DrawMouseText( )
 	}
 	
 
-	//if ( ( ( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+	//if ( ( IsJa2TacticalTurnBasedCombat() ) )
 	{
 		// HEADROCK HAM 4: Added condition - the AP cost will no longer be displayed in the center when
 		// aiming a weapon. It will instead by displayed on the new NCTH Indicator.

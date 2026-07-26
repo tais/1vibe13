@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 
 	#include "DEBUG.H"
 	#include "Animation Control.h"
@@ -212,7 +213,7 @@ void DecayLightEffects( UINT32 uiTime )
 
 			// Do things differently for combat /vs realtime
 			// always try to update during combat
-			if ( gTacticalStatus.uiFlags & INCOMBAT )
+			if ( IsJa2TacticalCombatActive() )
 			{
 				fUpdate = TRUE;
 			}

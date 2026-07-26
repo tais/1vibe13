@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Soldier Profile.h"
 	#include "Food.h"
 	#include "Items.h"
@@ -379,7 +380,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 	}
 	else if ( pSoldier->bAssignment > ON_DUTY )
 		activitymodifier = gGameExternalOptions.sFoodDigestionAssignment;
-	else if ( (gTacticalStatus.uiFlags & INCOMBAT) )
+	else if ( (IsJa2TacticalCombatActive()) )
 		activitymodifier = gGameExternalOptions.sFoodDigestionCombat;
 		
 	// for some odd reason, the time isn't even needed here, so we just use 0 :-)
@@ -802,7 +803,7 @@ void SectorFillCanteens( void )
 {
 	// no functionality if not in tactical or in combat, or nobody is here
 	// can be called from a messagebox, thus the check for MSG_BOX_SCREEN
-	if ( (GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN) || (gTacticalStatus.uiFlags & INCOMBAT) || gTacticalStatus.fEnemyInSector || gusSelectedSoldier == NOBODY )
+	if ( (GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN) || (IsJa2TacticalCombatActive()) || gTacticalStatus.fEnemyInSector || gusSelectedSoldier == NOBODY )
 		return;
 
 	// determine if there are any patches of water in this sector.
@@ -1059,7 +1060,7 @@ OBJECTTYPE* GetUsableWaterDrumInSector( void )
 void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier)
 {
 	// no functionality if in combat, invalid/travelling/asleep/non-profile soldier
-	if ( (gTacticalStatus.uiFlags & INCOMBAT) || !pSoldier || !pSoldier->bActive || pSoldier->flags.fMercAsleep || pSoldier->ubProfile == NO_PROFILE )
+	if ( (IsJa2TacticalCombatActive()) || !pSoldier || !pSoldier->bActive || pSoldier->flags.fMercAsleep || pSoldier->ubProfile == NO_PROFILE )
 		return;
 
 	// determine if there are any patches of water in this sector.

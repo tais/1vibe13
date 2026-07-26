@@ -1,4 +1,5 @@
 	#include	"types.h"
+#include "TacticalWorldAdapter.h"
 	#include	"GameSettings.h"
 	#include	"GameContext.h"
 	#include	"FileMan.h"
@@ -4747,7 +4748,7 @@ BOOLEAN	CanGameBeSaved()
 	if( gGameOptions.fIronManMode )
 	{
 		//if we are in turn based combat
-		if( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && gGameOptions.ubIronManMode < 3 )
+		if( IsJa2TacticalTurnBasedCombat() && gGameOptions.ubIronManMode < 3 )
 		{
 			//no save for you
 			return( FALSE );

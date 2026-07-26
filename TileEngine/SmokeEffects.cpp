@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 
 	#include <stdio.h>
 	#include <string.h>
@@ -728,7 +729,7 @@ void DecaySmokeEffects( UINT32 uiTime )
 
 			// Do things differently for combat /vs realtime
 			// always try to update during combat
-			if (gTacticalStatus.uiFlags & INCOMBAT )
+			if (IsJa2TacticalCombatActive() )
 			{
 				fUpdate = TRUE;
 			}

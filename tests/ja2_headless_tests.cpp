@@ -15,6 +15,7 @@
 
 #define SDL_MAIN_HANDLED   // this file owns main(), not SDL
 #include <SDL3/SDL.h>
+#include "TacticalWorldAdapter.h"
 
 #include <algorithm>
 #include <chrono>
@@ -97,7 +98,6 @@
 #include "TacticalEntityHost.h"
 #include "TacticalInventoryUiHost.h"
 #include "TacticalWorldItemHost.h"
-#include "TacticalWorldAdapter.h"
 #include "TacticalWorldObserverHost.h"
 #include "interface Dialogue.h"
 #include "Merc Contract.h"
@@ -3815,9 +3815,9 @@ int main( int, char** )
 		       commandHostExecutedState->animation == commandHostActor.usAnimState,
 		       "structured commands execute and commit the resulting public actor state through one path" );
 
-		const UINT32 stanceFlags = gTacticalStatus.uiFlags;
-		const UINT8 stanceTeam = gTacticalStatus.ubCurrentTeam;
-		RestoreJa2TacticalTurnMirrors(ACTIVE | REALTIME, stanceTeam);
+		const UINT32 stanceFlags = CaptureJa2TacticalStatusFlags();
+		const UINT8 stanceTeam = GetJa2TacticalCurrentTeam();
+		RestoreJa2TacticalTurnState(ACTIVE | REALTIME, stanceTeam);
 		commandHostActor.usAnimState = WALKING;
 		commandHostActor.ubDesiredHeight = ANIM_STAND;
 		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
@@ -3873,7 +3873,7 @@ int main( int, char** )
 		commandHostActor.AnimCache = previousAnimationCache;
 		commandHostActor.usAnimSurface = previousAnimationSurface;
 		movingStanceSurfaceState = previousMovingStanceSurfaceState;
-		RestoreJa2TacticalTurnMirrors(stanceFlags, stanceTeam);
+		RestoreJa2TacticalTurnState(stanceFlags, stanceTeam);
 		commandHostActor.usAnimState = STANDING;
 		commandHostActor.ubDesiredHeight = NO_DESIRED_HEIGHT;
 		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
@@ -4731,8 +4731,9 @@ int main( int, char** )
 		const INT8 previousMaximumBreath = Menptr[0].bBreathMax;
 		const TacticalWorldSession::Snapshot previousWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
-		const UINT32 previousTacticalProjectionFlags = gTacticalStatus.uiFlags;
-		const UINT8 previousTacticalProjectionTeam = gTacticalStatus.ubCurrentTeam;
+		const UINT32 previousTacticalProjectionFlags =
+			CaptureJa2TacticalStatusFlags();
+		const UINT8 previousTacticalProjectionTeam = GetJa2TacticalCurrentTeam();
 		MercPtrs[0] = &Menptr[0];
 		Menptr[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
 		Menptr[0].uiUniqueSoldierIdValue = 701;
@@ -4953,10 +4954,10 @@ int main( int, char** )
 		       gWorldSectorX == 13 && gWorldSectorY == 4 && gbWorldSectorZ == 2,
 		       "committing a world load retains one session-owned identity and coordinate view" );
 
-		RestoreJa2TacticalTurnMirrors( ACTIVE | TURNBASED, 4 );
+		RestoreJa2TacticalTurnState( ACTIVE | TURNBASED, 4, 0 );
 		CHECK( CaptureJa2TacticalWorld().turn ==
 		           ( TacticalWorldSession::Snapshot::Turn{ true, false, 4 } ),
-		       "legacy tactical-turn import initializes the runtime-owned turn projection" );
+		       "tactical-turn restore initializes the runtime-owned state" );
 		ResetJa2TacticalCombatActions();
 		const bool firstCombatActionAccepted =
 			BeginJa2TacticalCombatAction();
@@ -4967,9 +4968,8 @@ int main( int, char** )
 		CHECK( firstCombatActionAccepted && secondCombatActionAccepted &&
 		       combatActionCompleted &&
 		       CaptureJa2TacticalWorld().turn.pendingCombatActions == 1 &&
-		       GetJa2PendingTacticalCombatActions() == 1 &&
-		       gTacticalStatus.ubAttackBusyCount == 1,
-		       "combat-action gateways keep runtime ownership and the legacy save mirror exact" );
+		       GetJa2PendingTacticalCombatActions() == 1,
+		       "combat-action gateways update the runtime owner" );
 		bool wideCombatActionCountAccepted = true;
 		for ( std::uint32_t pending = 1; pending < 256; ++pending )
 			wideCombatActionCountAccepted =
@@ -4977,12 +4977,11 @@ int main( int, char** )
 				wideCombatActionCountAccepted;
 		CHECK( wideCombatActionCountAccepted &&
 		       GetJa2PendingTacticalCombatActions() == 256 &&
-		       gTacticalStatus.ubAttackBusyCount == 255,
-		       "the engine retains overlapping combat work beyond the bounded legacy projection" );
+		       CaptureJa2SerializedPendingCombatActions() == 255,
+		       "the engine retains overlapping combat work beyond the serialized byte" );
 		ResetJa2TacticalCombatActions();
 		CHECK( BeginJa2TacticalCombatAction() &&
-		       GetJa2PendingTacticalCombatActions() == 1 &&
-		       gTacticalStatus.ubAttackBusyCount == 1,
+		       GetJa2PendingTacticalCombatActions() == 1,
 		       "combat-action reset republishes one coherent idle boundary" );
 		SetJa2TacticalCombatMode( true );
 		SetJa2TacticalTurnBasedMode( false );
@@ -4991,19 +4990,22 @@ int main( int, char** )
 		CHECK( CaptureJa2TacticalWorld().turn ==
 		           ( TacticalWorldSession::Snapshot::Turn{ false, true, 6, 1 } ) &&
 		       ( gTacticalStatus.uiFlags & ACTIVE ) != 0 &&
-		       ( gTacticalStatus.uiFlags & TURNBASED ) == 0 &&
-		       ( gTacticalStatus.uiFlags & INCOMBAT ) != 0 &&
-		       gTacticalStatus.ubCurrentTeam == 6 &&
-		       gTacticalStatus.ubAttackBusyCount == 1,
-		       "turn gateways preserve unrelated tactical flags while publishing exact mirrors" );
+		       ( gTacticalStatus.uiFlags & (TURNBASED | INCOMBAT) ) == 0 &&
+		       !IsJa2TacticalTurnBased() &&
+		       IsJa2TacticalCombatActive() &&
+		       GetJa2TacticalCurrentTeam() == 6 &&
+		       GetJa2PendingTacticalCombatActions() == 1,
+		       "turn gateways preserve unrelated tactical flags without live mirrors" );
 
-		gTacticalStatus.uiFlags = ACTIVE | TURNBASED | INCOMBAT;
-		gTacticalStatus.ubCurrentTeam = 2;
-		gTacticalStatus.ubAttackBusyCount = 7;
-		ImportJa2TacticalTurnState();
+		RestoreJa2TacticalTurnState(
+			ACTIVE | TURNBASED | INCOMBAT, 2, 7 );
 		CHECK( CaptureJa2TacticalWorld().turn ==
-		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 2, 7 } ),
-		       "save/bootstrap import converges legacy tactical battle values into the session" );
+		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 2, 7 } ) &&
+		       ( CaptureJa2TacticalStatusFlags() &
+		           (TURNBASED | INCOMBAT) ) ==
+		           (TURNBASED | INCOMBAT) &&
+		       ( gTacticalStatus.uiFlags & (TURNBASED | INCOMBAT) ) == 0,
+		       "save/bootstrap restoration publishes tactical battle values into the session" );
 
 		TacticalWorldSession::Snapshot restoredProjectionState;
 		restoredProjectionState.sector = { 8, 7, 1 };
@@ -5020,11 +5022,11 @@ int main( int, char** )
 		       CaptureJa2TacticalWorld().turn == restoredProjectionState.turn &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1 &&
 		       ( gTacticalStatus.uiFlags & ACTIVE ) != 0 &&
-		       ( gTacticalStatus.uiFlags & TURNBASED ) != 0 &&
-		       ( gTacticalStatus.uiFlags & INCOMBAT ) == 0 &&
-		       gTacticalStatus.ubCurrentTeam == 3 &&
-		       gTacticalStatus.ubAttackBusyCount == 4,
-		       "session restore republishes coordinate and battle projections as one boundary" );
+		       IsJa2TacticalTurnBased() &&
+		       !IsJa2TacticalCombatActive() &&
+		       GetJa2TacticalCurrentTeam() == 3 &&
+		       GetJa2PendingTacticalCombatActions() == 4,
+		       "session restore republishes coordinate and battle state as one boundary" );
 		NotifyJa2TacticalTeamTurnBegan( 77 );
 		CHECK( CaptureJa2TacticalWorld().turnSerial == 12 &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
@@ -5034,7 +5036,7 @@ int main( int, char** )
 		       CaptureJa2TacticalWorld().worldGeneration == 78 &&
 		       CaptureJa2TacticalWorld().turnSerial == 1 &&
 		       CaptureJa2TacticalWorld().turn.pendingCombatActions == 0 &&
-		       gTacticalStatus.ubAttackBusyCount == 0 &&
+		       GetJa2PendingTacticalCombatActions() == 0 &&
 		       gWorldSectorX == 8 && gWorldSectorY == 7 && gbWorldSectorZ == 1,
 		       "world lifecycle publication resets turn identity and pending work without splitting coordinates" );
 		NotifyJa2TacticalWorldUnloaded();
@@ -5044,7 +5046,7 @@ int main( int, char** )
 		       "world unload retires identity while retaining the selected-sector projection" );
 
 		RestoreJa2TacticalWorldSession( previousWorldSession );
-		RestoreJa2TacticalTurnMirrors(
+		RestoreJa2TacticalTurnState(
 			previousTacticalProjectionFlags, previousTacticalProjectionTeam );
 		CHECK( CaptureJa2TacticalWorld().sector == previousWorldSession.sector &&
 		       CaptureJa2TacticalWorld().loaded == previousWorldSession.loaded &&
@@ -5065,10 +5067,9 @@ int main( int, char** )
 			compiledContext.runtime().tacticalWorldSession().snapshot().turn;
 		CHECK( ownedTacticalTurn ==
 		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 1 } ) &&
-		       ( gTacticalStatus.uiFlags & TURNBASED ) != 0 &&
-		       ( gTacticalStatus.uiFlags & INCOMBAT ) != 0 &&
-		       gTacticalStatus.ubCurrentTeam == 1,
-		       "tactical mode and current team are runtime-owned with exact legacy mirrors" );
+		       IsJa2TacticalTurnBasedCombat() &&
+		       GetJa2TacticalCurrentTeam() == 1,
+		       "tactical mode and current team are read from the runtime owner" );
 		Ja2TacticalWorldAdapter turnIdentityFixture( 0 );
 		turnIdentityFixture.onWorldLoaded( 23 );
 		const Ja2TacticalTurnIdentity loadedTurnIdentity =

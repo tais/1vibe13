@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Game Clock.h"
 	#include "Timer Control.h"
 	#include "Overhead.h"
@@ -64,7 +65,7 @@ void HandleRPCDescription(	)
 	}
 
 	// ATE; Don't do in combat
-	if ( ( gTacticalStatus.uiFlags & INCOMBAT ) && !fSAMSite )
+	if ( ( IsJa2TacticalCombatActive() ) && !fSAMSite )
 	{
 		return;
 	}
@@ -230,7 +231,7 @@ void HandleTacticalEndTurn( )
 
 
 	// First exit if we are not in realtime combat or realtime noncombat
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 
 		BeginLoggingForBleedMeToos( TRUE );

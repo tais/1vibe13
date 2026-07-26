@@ -1,4 +1,5 @@
 #include "Map Screen Interface.h"
+#include "TacticalWorldAdapter.h"
 	#include "Map Screen Interface Map.h"
 	#include "Render Dirty.h"
 	#include "Font Control.h"
@@ -6474,7 +6475,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 					( pSoldier->bSectorZ == gbWorldSectorZ ) )
 			{
 				// in combat?
-				if( gTacticalStatus.uiFlags & INCOMBAT )
+				if( IsJa2TacticalCombatActive() )
 				{
 					*pbErrorNumber = 11;
 					return( FALSE );

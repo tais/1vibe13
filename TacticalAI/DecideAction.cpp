@@ -1,4 +1,5 @@
 #include "ai.h"
+#include "TacticalWorldAdapter.h"
 #include "AIInternals.h"
 #include "Isometric Utils.h"
 #include "Points.h"
@@ -906,7 +907,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 //ddd{
 	if( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && gGameExternalOptions.bNewTacticalAIBehavior && pSoldier->bTeam == ENEMY_TEAM )
 	{
-		if ( !(gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( !IsJa2TacticalTurnBased() && IsJa2TacticalCombatActive() )
 		{
 			INT32				cnt;
 			ROTTING_CORPSE *	pCorpse;
@@ -7515,7 +7516,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 	//ddd{
 	if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && gGameExternalOptions.bNewTacticalAIBehavior && pSoldier->bTeam == ENEMY_TEAM )
 	{
-		if ( !(gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( !IsJa2TacticalTurnBased() && IsJa2TacticalCombatActive() )
 		{
 			INT32				cnt;
 			ROTTING_CORPSE *	pCorpse;
@@ -10365,7 +10366,7 @@ void LogDecideInfo(SOLDIERTYPE *pSoldier)
 		return;
 
 	DebugAI(AI_MSG_INFO, pSoldier, String("Turn num %d aware %d", guiTurnCnt, gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition));
-	DebugAI(AI_MSG_INFO, pSoldier, String("current team %d interrupt occurred %d", gTacticalStatus.ubCurrentTeam, gTacticalStatus.fInterruptOccurred));
+	DebugAI(AI_MSG_INFO, pSoldier, String("current team %d interrupt occurred %d", GetJa2TacticalCurrentTeam(), gTacticalStatus.fInterruptOccurred));
 	DebugAI(AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d Morale %d", pSoldier->stats.bLife, pSoldier->stats.bLifeMax, pSoldier->bBreath, pSoldier->bBreathMax, pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale, pSoldier->aiData.bMorale));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Spot %d level %d opponents %d", pSoldier->sGridNo, pSoldier->pathing.bLevel, pSoldier->aiData.bOppCnt));
