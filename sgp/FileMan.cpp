@@ -43,20 +43,44 @@ using namespace std;
 
 #include <vfs/Core/vfs_file_raii.h>
 #include <vfs/Tools/vfs_parser_tools.h>
-#include <map>
+#include <memory>
+#include <new>
 
-struct SOperation
+namespace
 {
-	enum EOperation
-	{
-		UNKNOWN, READ, WRITE,
-	};
-	EOperation op;
-	SOperation() : op(UNKNOWN) {};
+// HWFILE is intentionally opaque outside FileMan. Keep the access mode and the
+// already-resolved VFS interface beside the underlying file instead of looking
+// them up in a process-global std::map for every scalar save/load operation.
+// Write-capable VFS files also implement IReadable, so storing the interface
+// selected by FileOpen is what preserves the legacy read/write separation.
+struct FileHandle
+{
+	vfs::IBaseFile* file;
+	vfs::tReadableFile* reader;
+	vfs::tWritableFile* writer;
 };
 
-typedef std::map<vfs::IBaseFile*, SOperation> tFILEMAP;
-static tFILEMAP s_mapFiles;
+FileHandle* GetFileHandle(HWFILE handle)
+{
+	return reinterpret_cast<FileHandle*>(handle);
+}
+
+HWFILE MakeReadHandle(vfs::tReadableFile* file)
+{
+	if(!file)
+		return 0;
+	FileHandle* handle = new (std::nothrow) FileHandle{file, file, nullptr};
+	return reinterpret_cast<HWFILE>(handle);
+}
+
+HWFILE MakeWriteHandle(vfs::tWritableFile* file)
+{
+	if(!file)
+		return 0;
+	FileHandle* handle = new (std::nothrow) FileHandle{file, nullptr, file};
+	return reinterpret_cast<HWFILE>(handle);
+}
+}
 
 //**************************************************************************
 //
@@ -377,9 +401,12 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 			vfs::COpenWriteFile open_w( path, create, truncate,
 				vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
 			pFile = &open_w.file();
-			s_mapFiles[pFile].op = SOperation::WRITE;
+			const HWFILE handle =
+				MakeWriteHandle(vfs::tWritableFile::cast(pFile));
+			if(handle == 0)
+				return 0;
 			open_w.release();
-			return (HWFILE)(uintptr_t)pFile;
+			return handle;
 		}
 		else
 		{
@@ -395,17 +422,24 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 			{
 				vfs::COpenReadFile open_r(vfs::tReadableFile::cast(getVFS()->getFile(path, strProfilename)));
 				pFile = &open_r.file();
-				s_mapFiles[pFile].op = SOperation::READ;
+				const HWFILE handle =
+					MakeReadHandle(vfs::tReadableFile::cast(pFile));
+				if(handle == 0)
+					return 0;
 				open_r.release();
+				return handle;
 			}
 			else
 			{
 				vfs::COpenReadFile open_r(path, vfs::CVirtualFile::SF_TOP);
 				pFile = &open_r.file();
-				s_mapFiles[pFile].op = SOperation::READ;
+				const HWFILE handle =
+					MakeReadHandle(vfs::tReadableFile::cast(pFile));
+				if(handle == 0)
+					return 0;
 				open_r.release();
+				return handle;
 			}
-			return (HWFILE)(uintptr_t)pFile;
 		}
 	}
 	// sometimes a file is supposed to opened that does not exist (not tested with FileExists())
@@ -413,7 +447,7 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 	// instead we catch it (any exception, not just CBasicException) here and return 0
 	catch(vfs::Exception& ex) { SGP_ERROR(ex.what()); }
 	catch(...)
-	{ 
+	{
 		SGP_ERROR( "Caught undefined exception" );
 	}
 	return 0;
@@ -438,11 +472,10 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 //**************************************************************************
 void FileClose( HWFILE hFile )
 {
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
-	if(pFile)
+	std::unique_ptr<FileHandle> handle(GetFileHandle(hFile));
+	if(handle && handle->file)
 	{
-		pFile->close();
-		s_mapFiles.erase(pFile);
+		handle->file->close();
 	}
 }
 
@@ -498,10 +531,10 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 #ifdef JA2TESTVERSION
 	TimeCounter timer;
 #endif
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
-	if(pFile && (s_mapFiles[pFile].op == SOperation::READ))
+	FileHandle* handle = GetFileHandle(hFile);
+	if(handle && handle->reader)
 	{
-		vfs::tReadableFile *pRF = vfs::tReadableFile::cast(pFile);
+		vfs::tReadableFile *pRF = handle->reader;
 		if(pRF)
 		{
 			UINT32 uiBytesRead = 0;
@@ -542,10 +575,11 @@ BOOLEAN FileRead( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiByte
 
 BOOLEAN FileReadLine( HWFILE hFile, std::string* pDest )
 {
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
-	if ( pFile && FileCheckEndOfFile( hFile ) == FALSE && (s_mapFiles[pFile].op == SOperation::READ) )
+	FileHandle* handle = GetFileHandle(hFile);
+	if ( handle && handle->reader &&
+		FileCheckEndOfFile( hFile ) == FALSE )
 	{
-		vfs::tReadableFile *pRF = vfs::tReadableFile::cast( pFile );
+		vfs::tReadableFile *pRF = handle->reader;
 		if ( pRF && pDest )
 		{
 			vfs::CReadLine rl( *pRF, false );
@@ -590,10 +624,10 @@ BOOLEAN FileWrite( HWFILE hFile, const void *pDest, UINT32 uiBytesToWrite, UINT3
 		if (puiBytesWritten) *puiBytesWritten = 0;
 		return(TRUE);
 	}
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
-	if(pFile && (s_mapFiles[pFile].op == SOperation::WRITE))
+	FileHandle* handle = GetFileHandle(hFile);
+	if(handle && handle->writer)
 	{
-		vfs::tWritableFile *pWF = vfs::tWritableFile::cast(pFile);
+		vfs::tWritableFile *pWF = handle->writer;
 		if(pWF)
 		{
 			UINT32 uiBytesWritten;
@@ -737,8 +771,8 @@ BOOLEAN FileSeek( HWFILE hFile, UINT32 uiDistance, UINT8 uiHow )
 {
 	INT32 iDistance = (INT32)uiDistance;
 
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
-	if(pFile)
+	FileHandle* handle = GetFileHandle(hFile);
+	if(handle)
 	{
 		vfs::IBaseFile::ESeekDir eSD;
 		if ( uiHow == FILE_SEEK_FROM_START )
@@ -758,27 +792,23 @@ BOOLEAN FileSeek( HWFILE hFile, UINT32 uiDistance, UINT8 uiHow )
 			eSD = vfs::IBaseFile::SD_CURRENT;
 		}
 
-		if(s_mapFiles[pFile].op == SOperation::WRITE)
+		if(handle->writer)
 		{
-			vfs::tWritableFile *pWF = vfs::tWritableFile::cast(pFile);
+			vfs::tWritableFile *pWF = handle->writer;
 			if(pWF)
 			{
 				SGP_TRYCATCH_RETHROW(pWF->setWritePosition(iDistance, eSD), L"");
 				return TRUE;
 			}
 		}
-		else if(s_mapFiles[pFile].op == SOperation::READ)
+		else if(handle->reader)
 		{
-			vfs::tReadableFile *pRF = vfs::tReadableFile::cast(pFile);
+			vfs::tReadableFile *pRF = handle->reader;
 			if(pRF)
 			{
 				SGP_TRYCATCH_RETHROW(pRF->setReadPosition(iDistance, eSD), L"");
 				return TRUE;
 			}
-		}
-		else
-		{
-			SGP_THROW(L"unknown operation");
 		}
 	}
 	return FALSE;
@@ -809,18 +839,18 @@ BOOLEAN FileSeek( HWFILE hFile, UINT32 uiDistance, UINT8 uiHow )
 
 INT32 FileGetPos( HWFILE hFile )
 {
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
-	if(pFile && (s_mapFiles[pFile].op == SOperation::WRITE))
+	FileHandle* handle = GetFileHandle(hFile);
+	if(handle && handle->writer)
 	{
-		vfs::tWritableFile *pWF = vfs::tWritableFile::cast(pFile);
+		vfs::tWritableFile *pWF = handle->writer;
 		if(pWF)
 		{
 			return pWF->getWritePosition();
 		}
 	}
-	else if(pFile && (s_mapFiles[pFile].op == SOperation::READ))
+	else if(handle && handle->reader)
 	{
-		vfs::tReadableFile *pRF = vfs::tReadableFile::cast(pFile);
+		vfs::tReadableFile *pRF = handle->reader;
 		if(pRF)
 		{
 			return pRF->getReadPosition();
@@ -855,10 +885,10 @@ INT32 FileGetPos( HWFILE hFile )
 
 UINT32 FileGetSize( HWFILE hFile )
 {
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
-	if(pFile)
+	FileHandle* handle = GetFileHandle(hFile);
+	if(handle && handle->file)
 	{
-		return pFile->getSize();
+		return handle->file->getSize();
 	}
 	return 0;
 }
@@ -985,11 +1015,11 @@ void GetFileClose( GETFILESTRUCT *pGFStruct )
 BOOLEAN	FileCheckEndOfFile( HWFILE hFile )
 {
 	vfs::size_t current_position, max_position;
-	vfs::IBaseFile *pFile = (vfs::IBaseFile*)hFile;
+	FileHandle* handle = GetFileHandle(hFile);
 
-	if(pFile && (s_mapFiles[pFile].op == SOperation::WRITE))
+	if(handle && handle->writer)
 	{
-		vfs::tWritableFile *pWF = vfs::tWritableFile::cast(pFile);
+		vfs::tWritableFile *pWF = handle->writer;
 		if(pWF)
 		{
 			current_position = pWF->getWritePosition();
@@ -997,9 +1027,9 @@ BOOLEAN	FileCheckEndOfFile( HWFILE hFile )
 			return current_position >= max_position;
 		}
 	}
-	else if(pFile && (s_mapFiles[pFile].op == SOperation::READ))
+	else if(handle && handle->reader)
 	{
-		vfs::tReadableFile *pRF = vfs::tReadableFile::cast(pFile);
+		vfs::tReadableFile *pRF = handle->reader;
 		if(pRF)
 		{
 			current_position = pRF->getReadPosition();
