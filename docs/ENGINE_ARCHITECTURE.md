@@ -914,6 +914,12 @@ the engine must not contain SDL types in its public domain model.
   checked email and sender IDs preserve both campaigns' existing `Email.edt`
   records. Quest numbers, maps, XML, Lua, dialogue, archives, and other content
   formats remain unchanged.
+- The laptop composition/router is likewise campaign-neutral. Startup and
+  shutdown, Bobby Ray and insurance availability, MERC account-page dispatch,
+  UB custom-map handoff, bookmarks, broken-web routing, and page loading now
+  use runtime campaign capabilities and established UB options. The page
+  implementations and all laptop text, email, image, and XML data retain their
+  existing formats and paths.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

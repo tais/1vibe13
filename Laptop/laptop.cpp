@@ -108,6 +108,32 @@ class SOLDIERTYPE;
 
 BOOLEAN gfProcessCustomMaps  = FALSE; //ja25 UB
 
+namespace
+{
+bool IsUnfinishedBusinessLaptop()
+{
+	return GetGameContext().capabilities().isUnfinishedBusiness();
+}
+
+bool IsLaptopInsuranceEnabled()
+{
+	return !IsUnfinishedBusinessLaptop() ||
+		gGameUBOptions.LaptopLinkInsurance == TRUE;
+}
+
+bool AreMercAccountPagesEnabled()
+{
+	return !IsUnfinishedBusinessLaptop();
+}
+
+bool IsCampaignWebAvailable()
+{
+	return !IsUnfinishedBusinessLaptop() ||
+		gGameUBOptions.LaptopQuestEnabled != TRUE ||
+		gubQuest[ QUEST_FIX_LAPTOP ] != QUESTINPROGRESS;
+}
+}
+
 // icons text id's
 enum{
 	MAIL=0,
@@ -722,12 +748,13 @@ UINT32 LaptopScreenInit()
 	//reset the flag that enables the 'just hired merc' popup
 	LaptopSaveInfo.sLastHiredMerc.fHaveDisplayedPopUpInLaptop = FALSE;
 
-#ifdef JA2UB	
-	//JA25 UB
-	//Set the internet as WORKING
-	if ( gGameUBOptions.LaptopQuestEnabled == TRUE )
-	gubQuest[ QUEST_FIX_LAPTOP ] = QUESTNOTSTARTED;
-#endif
+	// Unfinished Business starts with a working laptop; its quest can break the
+	// web later.
+	if( IsUnfinishedBusinessLaptop() &&
+		gGameUBOptions.LaptopQuestEnabled == TRUE )
+	{
+		gubQuest[ QUEST_FIX_LAPTOP ] = QUESTNOTSTARTED;
+	}
 
 	//Initialize all vars
 	guiCurrentLaptopMode = LAPTOP_MODE_EMAIL;
@@ -759,17 +786,11 @@ UINT32 LaptopScreenInit()
 	GameInitEmail();
 	GameInitCharProfile();
 	GameInitFlorist();
-#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+	if( IsLaptopInsuranceEnabled() )
 	{
-	GameInitInsurance();
-	GameInitInsuranceContract();
+		GameInitInsurance();
+		GameInitInsuranceContract();
 	}
-//JA25:	
-#else
-	GameInitInsurance();
-	GameInitInsuranceContract();
-#endif
 	GameInitFuneral();
 	GameInitSirTech();
 	GameInitFiles();
@@ -795,9 +816,10 @@ UINT32 LaptopScreenInit()
 	gfAtLeastOneMercWasHired = FALSE;
 
 	//No longer inits the laptop screens, now InitLaptopAndLaptopScreens() does
-#ifdef JA2UB	
-	InitJa25SaveStruct();
-#endif
+	if( IsUnfinishedBusinessLaptop() )
+	{
+		InitJa25SaveStruct();
+	}
 	return( 1 );
 }
 
@@ -811,13 +833,11 @@ BOOLEAN InitLaptopAndLaptopScreens()
 	//Reset the flag so we can create a new IMP character
 	LaptopSaveInfo.fIMPCompletedFlag = FALSE;
 
-	//Reset the flag so that BOBBYR's isnt available at the begining of the game
-	#ifdef JA2UB
-	if ( gGameUBOptions.fBobbyRSite == TRUE )
-	LaptopSaveInfo.fBobbyRSiteCanBeAccessed = TRUE;
-	else
-	#endif
-	LaptopSaveInfo.fBobbyRSiteCanBeAccessed = FALSE;
+	// Bobby Ray starts available only when the active UB configuration enables
+	// it. Arulco retains its existing locked-at-start behavior.
+	LaptopSaveInfo.fBobbyRSiteCanBeAccessed =
+		IsUnfinishedBusinessLaptop() &&
+		gGameUBOptions.fBobbyRSite == TRUE;
 
 	//Reset Kulbas' saving date and possible missed flights
 	LaptopSaveInfo.bJohnEscorted = FALSE;
@@ -849,13 +869,10 @@ DrawLapTopText()
 //This is only called once at game shutdown.
 UINT32 LaptopScreenShutdown()
 {
-#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+	if( IsLaptopInsuranceEnabled() )
+	{
 		InsuranceContractEndGameShutDown();
-//JA25:	
-#else
-	InsuranceContractEndGameShutDown();
-#endif
+	}
 	BobbyRayMailOrderEndGameShutDown();
 	ShutDownEmailList();
 
@@ -1027,10 +1044,10 @@ INT32 EnterLaptop()
 	gfShowBookmarks=FALSE;
 	LoadBookmark( );
 	
-#ifdef JA2UB		
-	//JA25 UB
-	SetBookMark(MERC_BOOKMARK);
-#endif
+	if( IsUnfinishedBusinessLaptop() )
+	{
+		SetBookMark(MERC_BOOKMARK);
+	}
 
 	if ( !is_networked )
 	{
@@ -1317,18 +1334,16 @@ void RenderLaptop()
 			RenderMercsFiles();
 			break;
 		case LAPTOP_MODE_MERC_ACCOUNT:
-#ifdef JA2UB
-//Ja25
-#else
-			RenderMercsAccount();
-#endif
+			if( AreMercAccountPagesEnabled() )
+			{
+				RenderMercsAccount();
+			}
 			break;
 		case LAPTOP_MODE_MERC_NO_ACCOUNT:
-#ifdef JA2UB
-//Ja25
-#else
-			RenderMercsNoAccount();
-#endif
+			if( AreMercAccountPagesEnabled() )
+			{
+				RenderMercsNoAccount();
+			}
 			break;
 
 		case LAPTOP_MODE_BOBBY_R:
@@ -1370,43 +1385,31 @@ void RenderLaptop()
 			break;
 
 		case LAPTOP_MODE_INSURANCE:
-#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-		RenderInsurance();
-//JA25:		//	Assert( 0 );
-#else
-			RenderInsurance();
-#endif
+			if( IsLaptopInsuranceEnabled() )
+			{
+				RenderInsurance();
+			}
 			break;
 
 		case LAPTOP_MODE_INSURANCE_INFO:
-#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-		RenderInsuranceInfo();
-//JA25:			//	Assert( 0 );
-#else
-			RenderInsuranceInfo();
-#endif
+			if( IsLaptopInsuranceEnabled() )
+			{
+				RenderInsuranceInfo();
+			}
 			break;
 
 		case LAPTOP_MODE_INSURANCE_CONTRACT:
-#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-		RenderInsuranceContract();
-//JA25:
-#else
-			RenderInsuranceContract();
-#endif
+			if( IsLaptopInsuranceEnabled() )
+			{
+				RenderInsuranceContract();
+			}
 			break;
 
 		case LAPTOP_MODE_INSURANCE_COMMENTS:
-#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-		RenderInsuranceComments();
-//JA25:			//	Assert( 0 );
-#else
-			RenderInsuranceComments();
-#endif
+			if( IsLaptopInsuranceEnabled() )
+			{
+				RenderInsuranceComments();
+			}
 			break;
 
 		case LAPTOP_MODE_FUNERAL:
@@ -1815,18 +1818,16 @@ void EnterNewLaptopMode()
 			EnterMercsFiles();
 			break;
 		case LAPTOP_MODE_MERC_ACCOUNT:
-#ifdef JA2UB
-//Ja25
-#else
-			EnterMercsAccount();
-#endif
+			if( AreMercAccountPagesEnabled() )
+			{
+				EnterMercsAccount();
+			}
 			break;
 		case LAPTOP_MODE_MERC_NO_ACCOUNT:
-#ifdef JA2UB
-//Ja25
-#else
-			EnterMercsNoAccount();
-#endif
+			if( AreMercAccountPagesEnabled() )
+			{
+				EnterMercsNoAccount();
+			}
 			break;
 
 		case LAPTOP_MODE_BOBBY_R:
@@ -1866,37 +1867,30 @@ void EnterNewLaptopMode()
 		case LAPTOP_MODE_FLORIST_CARD_GALLERY:
 			EnterFloristCards();
 			break;
-#ifdef JA2UB
 		case LAPTOP_MODE_INSURANCE:
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				EnterInsurance();
+			}
 			break;
 		case LAPTOP_MODE_INSURANCE_INFO:
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				EnterInsuranceInfo();
+			}
 			break;
 		case LAPTOP_MODE_INSURANCE_CONTRACT:
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				EnterInsuranceContract();
+			}
 			break;
 		case LAPTOP_MODE_INSURANCE_COMMENTS:
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				EnterInsuranceComments();
+			}
 			break;
-#else
-		case LAPTOP_MODE_INSURANCE:
-			EnterInsurance();
-			break;
-		case LAPTOP_MODE_INSURANCE_INFO:
-			EnterInsuranceInfo();
-			break;
-		case LAPTOP_MODE_INSURANCE_CONTRACT:
-			EnterInsuranceContract();
-			break;
-		case LAPTOP_MODE_INSURANCE_COMMENTS:
-			EnterInsuranceComments();
-			break;
-#endif
 		case LAPTOP_MODE_FUNERAL:
 			EnterFuneral();
 			break;
@@ -2101,21 +2095,18 @@ void HandleLapTopHandles()
 		case LAPTOP_MODE_MERC_FILES:
 			HandleMercsFiles();
 			break;
-#ifdef JA2UB
 		case LAPTOP_MODE_MERC_ACCOUNT:
-//Ja25						HandleMercsAccount();
+			if( AreMercAccountPagesEnabled() )
+			{
+				HandleMercsAccount();
+			}
 			break;
 		case LAPTOP_MODE_MERC_NO_ACCOUNT:
-//Ja25						HandleMercsNoAccount();
+			if( AreMercAccountPagesEnabled() )
+			{
+				HandleMercsNoAccount();
+			}
 			break;
-#else
-		case LAPTOP_MODE_MERC_ACCOUNT:
-			HandleMercsAccount();
-			break;
-		case LAPTOP_MODE_MERC_NO_ACCOUNT:
-			HandleMercsNoAccount();
-			break;
-#endif
 
 		case LAPTOP_MODE_BOBBY_R:
 			HandleBobbyR();
@@ -2155,46 +2146,33 @@ void HandleLapTopHandles()
 		case LAPTOP_MODE_FLORIST_CARD_GALLERY:
 			HandleFloristCards();
 			break;
-#ifdef JA2UB
 		case LAPTOP_MODE_INSURANCE:
-		//	Assert( 0 );
-		if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-			HandleInsurance();
+			if( IsLaptopInsuranceEnabled() )
+			{
+				HandleInsurance();
+			}
 			break;
 
 		case LAPTOP_MODE_INSURANCE_INFO:
-		//	Assert( 0 );
-		if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-			HandleInsuranceInfo();
+			if( IsLaptopInsuranceEnabled() )
+			{
+				HandleInsuranceInfo();
+			}
 			break;
 
 		case LAPTOP_MODE_INSURANCE_CONTRACT:
-		if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-			HandleInsuranceContract();
+			if( IsLaptopInsuranceEnabled() )
+			{
+				HandleInsuranceContract();
+			}
 			break;
 			
 		case LAPTOP_MODE_INSURANCE_COMMENTS:
-		//	Assert( 0 );
-		if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-			HandleInsuranceComments();
+			if( IsLaptopInsuranceEnabled() )
+			{
+				HandleInsuranceComments();
+			}
 			break;
-#else
-		case LAPTOP_MODE_INSURANCE:
-			HandleInsurance();
-			break;
-
-		case LAPTOP_MODE_INSURANCE_INFO:
-			HandleInsuranceInfo();
-			break;
-
-		case LAPTOP_MODE_INSURANCE_CONTRACT:
-			HandleInsuranceContract();
-			break;
-		case LAPTOP_MODE_INSURANCE_COMMENTS:
-			HandleInsuranceComments();
-			break;
-
-#endif
 		case LAPTOP_MODE_FUNERAL:
 			HandleFuneral();
 			break;
@@ -2713,21 +2691,18 @@ UINT32 ExitLaptopMode(UINT32 uiMode)
 		case LAPTOP_MODE_MERC_FILES:
 			ExitMercsFiles();
 			break;
-#ifdef JA2UB
 		case LAPTOP_MODE_MERC_ACCOUNT:
-//Ja25						ExitMercsAccount();
+			if( AreMercAccountPagesEnabled() )
+			{
+				ExitMercsAccount();
+			}
 			break;
 		case LAPTOP_MODE_MERC_NO_ACCOUNT:
-//Ja25			ExitMercsNoAccount();
+			if( AreMercAccountPagesEnabled() )
+			{
+				ExitMercsNoAccount();
+			}
 			break;
-#else
-		case LAPTOP_MODE_MERC_ACCOUNT:
-			ExitMercsAccount();
-			break;
-		case LAPTOP_MODE_MERC_NO_ACCOUNT:
-			ExitMercsNoAccount();
-			break;
-#endif
 
 		case LAPTOP_MODE_BOBBY_R:
 			ExitBobbyR();
@@ -2767,45 +2742,33 @@ UINT32 ExitLaptopMode(UINT32 uiMode)
 		case LAPTOP_MODE_FLORIST_CARD_GALLERY:
 			ExitFloristCards();
 			break;
-#ifdef JA2UB			
 		case LAPTOP_MODE_INSURANCE:
-		//	Assert( 0 );
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				ExitInsurance();
+			}
 			break;
 
 		case LAPTOP_MODE_INSURANCE_INFO:
-		//	Assert( 0 );
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				ExitInsuranceInfo();
+			}
 			break;
 
 		case LAPTOP_MODE_INSURANCE_CONTRACT:
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				ExitInsuranceContract();
+			}
 			break;
 			
 		case LAPTOP_MODE_INSURANCE_COMMENTS:
-		//	Assert( 0 );
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				ExitInsuranceComments();
+			}
 			break;
-#else
-		case LAPTOP_MODE_INSURANCE:
-			ExitInsurance();
-			break;
-
-		case LAPTOP_MODE_INSURANCE_INFO:
-			ExitInsuranceInfo();
-			break;
-
-		case LAPTOP_MODE_INSURANCE_CONTRACT:
-			ExitInsuranceContract();
-			break;
-		case LAPTOP_MODE_INSURANCE_COMMENTS:
-			ExitInsuranceComments();
-			break;
-#endif
 		case LAPTOP_MODE_FUNERAL:
 			ExitFuneral();
 			break;
@@ -3116,11 +3079,12 @@ BOOLEAN LeaveLapTopScreen( void )
 				fExitingLaptopFlag = TRUE;
 				InitNewGame( FALSE );
 				gfDontStartTransitionFromLaptop = TRUE;
-#ifdef JA2UB				
-				//Ja25 UB
-				// ATE: Set flag to look for custom maps
-				gfProcessCustomMaps = TRUE;
-#endif
+				if( IsUnfinishedBusinessLaptop() )
+				{
+					// Scan for UB custom maps after leaving the initial
+					// laptop session.
+					gfProcessCustomMaps = TRUE;
+				}
 				return( TRUE );
 			}
 		}
@@ -4264,11 +4228,17 @@ void BookmarkCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 
 void GoToWebPage(INT32 iPageId )
 {
-#ifdef JA2UB
-	//if the laptop is broken
-	if( (gubQuest[ QUEST_FIX_LAPTOP ] != QUESTINPROGRESS) || (gGameUBOptions.LaptopQuestEnabled != TRUE) )
-{
-#endif
+	if( !IsCampaignWebAvailable() )
+	{
+		guiCurrentWWWMode = LAPTOP_MODE_BROKEN_LINK;
+		guiCurrentLaptopMode = LAPTOP_MODE_BROKEN_LINK;
+		fLoadPendingFlag = TRUE;
+		fFastLoadFlag = FALSE;
+		gfShowBookmarks = FALSE;
+		fReDrawScreenFlag = TRUE;
+		return;
+	}
+
 	switch(iPageId)
 	{
 		case AIM_BOOKMARK:
@@ -4631,20 +4601,6 @@ void GoToWebPage(INT32 iPageId )
 		break;
 	}
 
-#ifdef JA2UB	
-	}
-	//the web is not working
-	else
-	{
-		guiCurrentWWWMode = LAPTOP_MODE_BROKEN_LINK;
-		guiCurrentLaptopMode = LAPTOP_MODE_BROKEN_LINK;
-
-		// slow load
-		fLoadPendingFlag = TRUE;
-		fFastLoadFlag =  FALSE;
-	}
-#endif
-
 	gfShowBookmarks=FALSE;
 	fReDrawScreenFlag=TRUE;
 	return;
@@ -4730,14 +4686,12 @@ BOOLEAN DisplayLoadPending( void )
 		}
 		
 		iLoadTime = iUnitTime * 30;
-#ifdef JA2UB		
 		//if the site we are going to is the web poage not found page
 		if( guiCurrentLaptopMode == LAPTOP_MODE_BROKEN_LINK )
 		{
 			iLoadTime=1;
 			iUnitTime=1;
 		}
-#endif
 	}
 
 
@@ -5018,12 +4972,10 @@ void EnterLaptopInitLaptopPages()
 	EnterInitAimPolicies();
 	EnterInitAimHistory();
 	EnterInitFloristGallery();
-#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+	if( IsLaptopInsuranceEnabled() )
+	{
 		EnterInitInsuranceInfo();
-#else
-	EnterInitInsuranceInfo();
-#endif
+	}
 	EnterInitBobbyRayOrder();
 	EnterInitMercSite();
 
@@ -6401,12 +6353,10 @@ void HandleKeyBoardShortCutsForLapTop( UINT16 usEvent, UINT32 usParam, UINT16 us
 			SetBookMark( MERC_BOOKMARK );
 			SetBookMark( FUNERAL_BOOKMARK );
 			SetBookMark( FLORIST_BOOKMARK );
-#ifdef JA2UB
-			if (gGameUBOptions.LaptopLinkInsurance == TRUE )
+			if( IsLaptopInsuranceEnabled() )
+			{
 				SetBookMark( INSURANCE_BOOKMARK );
-#else
-			SetBookMark( INSURANCE_BOOKMARK );
-#endif
+			}
 			SetBookMark( CAMPAIGNHISTORY_BOOKMARK );
 			SetBookMark( MERCCOMPARE_BOOKMARK );
 			SetBookMark( WHO_BOOKMARK );

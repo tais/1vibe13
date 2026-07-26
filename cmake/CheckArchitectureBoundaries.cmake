@@ -263,6 +263,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapChangeCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
+  "${SOURCE_ROOT}/Laptop/laptop.cpp"
+  "${SOURCE_ROOT}/Laptop/laptop.h"
   "${SOURCE_ROOT}/Strategic/Campaign Init.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Types.h"
   "${SOURCE_ROOT}/Strategic/Game Init.cpp"
@@ -433,6 +435,10 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Laptop/laptop.cpp"
   runtime_campaign_laptop_recovery_contents)
 foreach(required_runtime_laptop_recovery_fragment IN ITEMS
+    "IsLaptopInsuranceEnabled"
+    "AreMercAccountPagesEnabled"
+    "IsCampaignWebAvailable"
+    "InitJa25SaveStruct"
     "JA2_EMAIL_IMP_AGAIN"
     "JA25_EMAIL_IMP_AGAIN"
     "ShouldImpReminderEmailBeSentWhenLaptopBackOnline"
