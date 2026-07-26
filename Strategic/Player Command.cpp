@@ -13,6 +13,7 @@
 	#include "Game Clock.h"
 	#include "Meanwhile.h"
 	#include "email.h"
+	#include "GameContext.h"
 	#include "GameSettings.h"
 	#include "Strategic Status.h"
 	#include "Strategic AI.h"
@@ -199,16 +200,13 @@ BOOLEAN SetThisSectorAsPlayerControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, B
 	BOOLEAN fWasEnemyControlled = FALSE;
 	INT8 bTownId = 0;
 	UINT8 ubSectorID;
+	const bool isUnfinishedBusiness =
+		GetGameContext().capabilities().isUnfinishedBusiness();
 
-#ifdef JA2UB
-//Ja25: No meanwhiles
-#else
-	if( AreInMeanwhile( ) )
+	if( !isUnfinishedBusiness && AreInMeanwhile( ) )
 	{
 		return FALSE;
 	}
-#endif
-
 
 	if( bMapZ == 0 )
 	{
@@ -246,11 +244,13 @@ BOOLEAN SetThisSectorAsPlayerControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, B
 			//If the player has been to Bobbyr when it was down, and we havent already sent email, send him an email
 			if( LaptopSaveInfo.ubHaveBeenToBobbyRaysAtLeastOnceWhileUnderConstruction == BOBBYR_BEEN_TO_SITE_ONCE &&	LaptopSaveInfo.ubHaveBeenToBobbyRaysAtLeastOnceWhileUnderConstruction != BOBBYR_ALREADY_SENT_EMAIL )
 			{
-#ifdef JA2UB
-// no UB
-#else
-				AddEmail(BOBBYR_NOW_OPEN, BOBBYR_NOW_OPEN_LENGTH, BOBBY_R, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_BR_VISITEDSITE);
-#endif
+				if ( !isUnfinishedBusiness )
+				{
+					AddEmail(JA2_EMAIL_BOBBYR_NOW_OPEN,
+						JA2_EMAIL_BOBBYR_NOW_OPEN_LENGTH, BOBBY_R,
+						GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT,
+						XML_BR_VISITEDSITE);
+				}
 				LaptopSaveInfo.ubHaveBeenToBobbyRaysAtLeastOnceWhileUnderConstruction = BOBBYR_ALREADY_SENT_EMAIL;
 			}
 		}
@@ -295,11 +295,10 @@ BOOLEAN SetThisSectorAsPlayerControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, B
 						// single sector towns does not give global loyalty bonus
 						if( GetTownSectorSize( bTownId ) != 1 )
 						{
-#ifdef JA2UB
-//Ja25:	no loyalty
-#else
-						HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_GAIN_TOWN_SECTOR, sMapX, sMapY, bMapZ );
-#endif
+							if ( !isUnfinishedBusiness )
+							{
+								HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_GAIN_TOWN_SECTOR, sMapX, sMapY, bMapZ );
+							}
 						}
 					// liberation by definition requires that the place was enemy controlled in the first place
 					CheckIfEntireTownHasBeenLiberated( bTownId, sMapX, sMapY );
@@ -313,11 +312,10 @@ BOOLEAN SetThisSectorAsPlayerControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, B
 				if ( GetTotalLeftInMine( GetMineIndexForSector( sMapX, sMapY ) ) > 0)
 				{
 					HandleMoraleEvent( NULL, MORALE_MINE_LIBERATED, sMapX, sMapY, bMapZ );
-#ifdef JA2UB
-// Ja25:	no loyalty
-#else
-					HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_GAIN_MINE, sMapX, sMapY, bMapZ );
-#endif
+					if ( !isUnfinishedBusiness )
+					{
+						HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_GAIN_MINE, sMapX, sMapY, bMapZ );
+					}
 				}
 			}
 
@@ -327,19 +325,17 @@ BOOLEAN SetThisSectorAsPlayerControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, B
 				if ( 1 /*!GetSectorFlagStatus( sMapX, sMapY, bMapZ, SF_SECTOR_HAS_BEEN_LIBERATED_ONCE ) */)
 				{
 					// SAM site liberated for first time, schedule meanwhile
-#ifdef JA2UB
-//JA25 No meanwhiles
-#else
-					HandleMeanWhileEventPostingForSAMLiberation( GetSAMIdFromSector( sMapX, sMapY, bMapZ ) );
-#endif
+					if ( !isUnfinishedBusiness )
+					{
+						HandleMeanWhileEventPostingForSAMLiberation( GetSAMIdFromSector( sMapX, sMapY, bMapZ ) );
+					}
 				}
 
 				HandleMoraleEvent( NULL, MORALE_SAM_SITE_LIBERATED, sMapX, sMapY, bMapZ );
-#ifdef JA2UB
-// Ja25:	no loyalty
-#else
-				HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_GAIN_SAM, sMapX, sMapY, bMapZ );
-#endif
+				if ( !isUnfinishedBusiness )
+				{
+					HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_GAIN_SAM, sMapX, sMapY, bMapZ );
+				}
 				UpdateAirspaceControl( );
 				// if Skyrider has been delivered to chopper, and already mentioned Drassen SAM site, but not used this quote yet
 				if ( IsHelicopterPilotAvailable( ) && ( guiHelicopterSkyriderTalkState >= 1 ) && ( !gfSkyriderSaidCongratsOnTakingSAM ) )
@@ -368,35 +364,27 @@ BOOLEAN SetThisSectorAsPlayerControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, B
 				( sMapY >= gModSettings.ubMeanwhileMedunaOutskirtsColMinY && sMapY <= gModSettings.ubMeanwhileMedunaOutskirtsColMaxY ) ) ) ) //col y range
 			{
 
-#ifdef JA2UB
-//Ja25 No meanwhiles
-#else
-				HandleOutskirtsOfMedunaMeanwhileScene();
-#endif
+				if ( !isUnfinishedBusiness )
+				{
+					HandleOutskirtsOfMedunaMeanwhileScene();
+				}
 
 			}
 		}
-#ifdef JA2UB
-//Ja25 No strategic ai
-#else
-		if( fContested )
+		if( !isUnfinishedBusiness && fContested )
 		{
 			StrategicHandleQueenLosingControlOfSector( (UINT8)sMapX, (UINT8)sMapY, (UINT8)bMapZ );
 		}
-#endif
 	}
 	else
 	{
-#ifdef JA2UB
-//Ja25 No strategic ai
-#else
 
-		if( sMapX == gModSettings.ubQueenBasementSectorX && sMapY == gModSettings.ubQueenBasementSectorY 
+		if( !isUnfinishedBusiness &&
+			sMapX == gModSettings.ubQueenBasementSectorX && sMapY == gModSettings.ubQueenBasementSectorY
 			&& bMapZ == gModSettings.ubQueenBasementSectorZ && !SectorInfo[SECTOR(sMapX, sMapY)].fSurfaceWasEverPlayerControlled)
 		{ //Basement sector
 			gfUseAlternateQueenPosition = TRUE;
 		}
-#endif
 	}
 
 	// also set fact the player knows they own it
@@ -451,6 +439,8 @@ BOOLEAN SetThisSectorAsEnemyControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BO
 	BOOLEAN fWasPlayerControlled = FALSE;
 	INT8 bTownId = 0;
 	UINT8 ubSectorID;
+	const bool isUnfinishedBusiness =
+		GetGameContext().capabilities().isUnfinishedBusiness();
 
 	//KM : August 6, 1999 Patch fix
 	//	 This check was added because this function gets called when player mercs retreat from an unresolved
@@ -520,11 +510,12 @@ BOOLEAN SetThisSectorAsEnemyControlled( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BO
 				UpdateRefuelSiteAvailability( );
 			}
 
-			#ifndef JA2UB
-			HandlePOWQuestState(Q_RESET, QUEST_INTERROGATION, sMapX, sMapY, bMapZ);
-			HandlePOWQuestState(Q_RESET, QUEST_HELD_IN_ALMA, sMapX, sMapY, bMapZ);
-			HandlePOWQuestState(Q_RESET, QUEST_HELD_IN_TIXA, sMapX, sMapY, bMapZ);
-			#endif
+			if ( !isUnfinishedBusiness )
+			{
+				HandlePOWQuestState(Q_RESET, QUEST_INTERROGATION, sMapX, sMapY, bMapZ);
+				HandlePOWQuestState(Q_RESET, QUEST_HELD_IN_ALMA, sMapX, sMapY, bMapZ);
+				HandlePOWQuestState(Q_RESET, QUEST_HELD_IN_TIXA, sMapX, sMapY, bMapZ);
+			}
 			// Flugente: reduce workforce
 			SectorInfo[SECTOR( sMapX, sMapY )].usWorkers = SectorInfo[SECTOR( sMapX, sMapY )].usWorkers * gGameExternalOptions.dInitialWorkerRate;
 

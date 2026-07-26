@@ -41,6 +41,7 @@
 	#include "Inventory Choosing.h"
 	#include "Map Screen Interface Border.h"
 	#include "Auto Resolve.h"
+	#include "GameContext.h"
 	#include "GameSettings.h"
 	#include "Quests.h"
 	#include "Interface.h"		// added by Flugente for zBackground
@@ -53,14 +54,6 @@
 	#include "StrategicGroupHost.h"
 
 #include "MilitiaSquads.h"
-
-#ifdef JA2UB
-#include "Ja25Update.h"
-#include "Ja25 Strategic Ai.h"
-//#include "Map Screen Interface Map.h"
-
-//extern JA25_SECTOR_AI	*gJa25AiSectorStruct;
-#endif
 
 #include "GameInitOptionsScreen.h"
 
@@ -1793,12 +1786,13 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 
 	// if this group arrival would cause a simultaneous combat, then delay it!
 	// we can't have more that one battle at a time.
+	const bool isArulcoMeanwhile =
+		!GetGameContext().capabilities().isUnfinishedBusiness() &&
+		AreInMeanwhile();
 	if( fExceptionQueue
 		|| ((fCheckForBattle && (gTacticalStatus.fEnemyInSector || HostileCiviliansPresent() || HostileBloodcatsPresent())) // if there is an active battle
 		&& (pGroup->ubNextX != gWorldSectorX || pGroup->ubNextY != gWorldSectorY || gbWorldSectorZ > 0)) // and the group is arriving at a different sector
-#ifndef JA2UB
-		|| AreInMeanwhile()
-#endif
+		|| isArulcoMeanwhile
 		)
 	{
 		if (((pGroup->usGroupTeam == OUR_TEAM || pGroup->usGroupTeam == MILITIA_TEAM) && NumHostilesInSector(pGroup->ubNextX, pGroup->ubNextY, pGroup->ubSectorZ) > 0) // if a friendly movement group will arrive at an enemy sector
@@ -1807,14 +1801,12 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			//QUEUE BATTLE!
 			//Delay arrival by a random value ranging from 3-5 minutes, so it doesn't get the player
 			//too suspicious after it happens to him a few times, which, by the way, is a rare occurrence.
-#ifndef JA2UB
-			if( AreInMeanwhile() )
+			if( isArulcoMeanwhile )
 			{
 				pGroup->uiArrivalTime ++; //tack on only 1 minute if we are in a meanwhile scene. This effectively
 										//prevents any battle from occurring while inside a meanwhile scene.
 			}
 			else
-#endif
 			{
 				pGroup->uiArrivalTime += Random(3) + 3;
 			}
@@ -1905,19 +1897,16 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 					if ( gfIconTown[ bTownId ] == TRUE )
 						gfDrawHiddenTown[ bTownId ] = TRUE;
 				}
-		#ifdef JA2UB
-		//Ja25:	No tixa, orta or sam site
-		#else
 			/*
 			if( bTownId == TIXA )
 				SetTixaAsFound();
 			else if( bTownId == ORTA )
 				SetOrtaAsFound();
-			else 
+			else
 			*/
-			if( IsThisSectorASAMSector( pGroup->ubSectorX, pGroup->ubSectorY, 0 ) )
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+				IsThisSectorASAMSector( pGroup->ubSectorX, pGroup->ubSectorY, 0 ) )
 				SetSAMSiteAsFound( GetSAMIdFromSector( pGroup->ubSectorX, pGroup->ubSectorY, 0 ) );
-		#endif
 		}
 
 		if( pGroup->ubSectorX < pGroup->ubPrevX )
@@ -2250,41 +2239,6 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			ResetMilitia( );
 		}
 	}
-	
-#ifdef JA2UB
-/*
-//if the enemy group is at its final destination
-	if( pGroup->usGroupTeam != OUR_TEAM && GroupAtFinalDestination( pGroup ) )
-	{
-		// Check to see if this is an AI sector
-		INT16 sJa25SaiSectorValue = GetJA25SectorID( pGroup->ubSectorX, pGroup->ubSectorY, pGroup->ubSectorZ );
-
-		if ( sJa25SaiSectorValue != -1 )
-		{
-			// If we were told to attack, reset flag
-			if ( gJa25AiSectorStruct[ sJa25SaiSectorValue ].fEnemyEnrouteToAttack )
-			{
-				gJa25AiSectorStruct[ sJa25SaiSectorValue ].fEnemyEnrouteToAttack = FALSE;
-			}
-		}
-
-*/
-		//add the enemies to the sector
-/*
-		SectorInfo[ SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ) ].ubNumAdmins += pGroup->pEnemyGroup->ubNumAdmins;
-		SectorInfo[ SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ) ].ubNumTroops += pGroup->pEnemyGroup->ubNumTroops;
-		SectorInfo[ SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ) ].ubNumElites += pGroup->pEnemyGroup->ubNumElites;
-		if( fBattleGoingToStart )
-		{
-			SectorInfo[ SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ) ].ubAdminsInBattle = pGroup->pEnemyGroup->ubNumAdmins;
-			SectorInfo[ SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ) ].ubTroopsInBattle = pGroup->pEnemyGroup->ubNumTroops;
-			SectorInfo[ SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ) ].ubElitesInBattle = pGroup->pEnemyGroup->ubNumElites;
-		}
-*/
-	//}
-	
-#endif
-	
 	gfWaitingForInput = FALSE;
 }
 
@@ -2294,15 +2248,12 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 void HandleNonCombatGroupArrival( GROUP *pGroup, BOOLEAN fMainGroup, BOOLEAN fNeverLeft )
 {
 	// if any mercs are actually in the group
-	
-#ifdef JA2UB
-	//Ja25 No strategic ai
-#else
-	if( StrategicAILookForAdjacentGroups( pGroup ) )
+
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+		StrategicAILookForAdjacentGroups( pGroup ) )
 	{ //The routine actually just deleted the enemy group (player's don't get deleted), so we are done!
 		return;
 	}
-#endif
 
 	if ( pGroup->usGroupTeam == OUR_TEAM )
 	{
@@ -3004,11 +2955,10 @@ void RemovePGroup( GROUP *pGroup )
 	}
 	else
 	{
-		#ifdef JA2UB
-		//Ja25 No strategic ai
-		#else
-		RemoveGroupFromStrategicAILists( pGroup->ubGroupID );
-		#endif
+		if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		{
+			RemoveGroupFromStrategicAILists( pGroup->ubGroupID );
+		}
 		MemFree( pGroup->pEnemyGroup );
 	}
 
@@ -4812,10 +4762,11 @@ void ResetMovementForNonPlayerGroup( GROUP *pGroup )
 
 	if( !pGroup->fBetweenSectors || !pGroup->ubNextX || !pGroup->ubNextY )
 	{ //Reset the group's assignment by moving it to the group's original sector as it's pending group.
-	
-#ifdef JA2UB
-		//Ja25 No strategic ai
-#else
+		if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+		{
+			return;
+		}
+
 		// Flugente: instead of just running back to their original sector, enemy patrols on pursuit should follow player groups
 		// first, determine whether there are any player groups nearby
 		BOOLEAN sucess = FALSE;
@@ -4859,7 +4810,6 @@ void ResetMovementForNonPlayerGroup( GROUP *pGroup )
 		{
 			RepollSAIGroup( pGroup );
 		}
-#endif
 
 		return;
 	}
@@ -5255,11 +5205,11 @@ void RandomizePatrolGroupLocation( GROUP *pGroup )
 //roll the dice to see if this will become an ambush random encounter.
 BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 {
+	if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return FALSE;
+	}
 
-#ifdef JA2UB
-	//Ja25: No BLoodcat ambushes
-	return( FALSE );
-#else
 	SECTORINFO *pSector;
 	INT32 iHoursElapsed;
 	UINT8 ubSectorID;
@@ -5448,9 +5398,8 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 	{
 		// No special bloodcat encounter. This ALWAYS happens in STATIC PLACEMENT sectors.
 		SetEnemyEncounterCode( NO_ENCOUNTER_CODE );
-		return FALSE;
-	}
-#endif
+			return FALSE;
+		}
 }
 
 void NotifyPlayerOfBloodcatBattle( UINT8 ubSectorX, UINT8 ubSectorY )
@@ -5654,13 +5603,12 @@ BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )
 
 	// get the strategic sector value
 	sStrategicSector = CALCULATE_STRATEGIC_INDEX(sSectorX, sSectorY);
-#ifdef JA2UB	
-	// ATE: if this is a custom map, return Ja25 UB
-	if ( SectorInfo[ SECTOR( sSectorY, sSectorX ) ].fCustomSector )
+	// ATE: custom UB maps do not use the standard wilderness prompt.
+	if ( GetGameContext().capabilities().isUnfinishedBusiness() &&
+		SectorInfo[ SECTOR( sSectorY, sSectorX ) ].fCustomSector )
 	{
 		return( FALSE );
 	}
-#endif
 	// skip towns/pseudo-towns (anything that shows up on the map as being special)
 	if( StrategicMap[ sStrategicSector ].bNameId != BLANK_SECTOR )
 	{

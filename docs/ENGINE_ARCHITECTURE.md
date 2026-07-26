@@ -899,6 +899,13 @@ the engine must not contain SDL types in its public domain model.
   helicopter hooks select from `GameCapabilities`. Their implementations are
   linked into JA2, UB, and editor hosts. Existing maps, XML, Lua, dialogue,
   artwork, archives, and package overlays remain unchanged.
+- Strategic ownership and group-movement rules now use the selected campaign
+  rather than the executable that compiled them. Hourly Slay/helicopter work,
+  Bobby Ray's opening mail, loyalty and meanwhile reactions, queen/POW hooks,
+  strategic-AI group bookkeeping, SAM discovery, bloodcat ambushes, and UB
+  custom-sector prompts are emitted in every host and gated by
+  `GameCapabilities`. The campaign-qualified Bobby Ray offset preserves the
+  existing Arulco `Email.edt`; no strategic or content data format changed.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized
