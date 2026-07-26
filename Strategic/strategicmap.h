@@ -234,9 +234,9 @@ extern INT8 gbGreenToRegPromotions;
 extern INT8 gbRegToElitePromotions;
 extern INT8 gbMilitiaPromotions;
 
-#ifdef JA2UB
 void 	BeginLoadScreen();
 
+#ifdef JA2UB
 //ja25 UB
 void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ, BOOLEAN fLoadingSavedGame );
 

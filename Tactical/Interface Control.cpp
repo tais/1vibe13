@@ -40,13 +40,11 @@
 	#include "Map Screen Interface.h"
 	#include "Civ Quotes.h"
 	#include "GameSettings.h"
-	#include "Explosion Control.h"		// added by Flugente
+#include "Explosion Control.h"		// added by Flugente
 
 #include "Text.h"
-
-#ifdef JA2UB
 #include "Dialogue Control.h"
-#endif
+#include "GameContext.h"
 
 /*	I deleted here declaration of clock coords for tactical screen i will declare them
  *	in functions that Initialize coord for SMPanet and TEAMPanel
@@ -1180,9 +1178,10 @@ void EraseInterfaceMenus( BOOLEAN fIgnoreUIUnLock )
 	PopDownMovementMenu( );
 	PopDownOpenDoorMenu( );
 	DeleteTalkingMenu( );
-#ifdef JA2UB
-	RemoveJerryMiloBrokenLaptopOverlay();
-#endif
+	if ( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		RemoveJerryMiloBrokenLaptopOverlay();
+	}
 }
 
 

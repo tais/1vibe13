@@ -259,9 +259,18 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
   "${SOURCE_ROOT}/Strategic/Game Event Hook.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
+  "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
+  "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
   "${SOURCE_ROOT}/Tactical/End Game.cpp"
   "${SOURCE_ROOT}/Tactical/End Game.h"
+  "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  "${SOURCE_ROOT}/Tactical/opplist.cpp"
+  "${SOURCE_ROOT}/Tactical/opplist.h"
   "${SOURCE_ROOT}/Tactical/interface Dialogue.h")
 foreach(runtime_campaign_file IN LISTS
     runtime_campaign_implementation_files runtime_campaign_selection_files)
@@ -364,6 +373,12 @@ file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
   runtime_campaign_dialogue_event_contents)
 foreach(required_runtime_dialogue_event_fragment IN ITEMS
     "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "DIALOGUE_SPECIAL_EVENT_JERRY_MILO"
+    "HandleInterfaceMessageForContinuingTrainingMilitia"
+    "gfMorrisShouldSayHi"
+    "gfMikeShouldSayHi"
+    "CampaignProfileCode::Role::Ira"
+    "RemoveJerryMiloBrokenLaptopOverlay"
     "JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH"
     "JA25_MULTIPURPOSE_EVENT_TEAM_MEMBERS_DONE_TALKING"
     "JA2_MULTIPURPOSE_EVENT_DONE_KILLING_DEIDRANNA"
@@ -373,6 +388,84 @@ foreach(required_runtime_dialogue_event_fragment IN ITEMS
   if(runtime_dialogue_event_fragment_position EQUAL -1)
     message(FATAL_ERROR
       "Campaign dialogue-event flow lost runtime selection; missing '${required_runtime_dialogue_event_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
+  runtime_campaign_map_exit_contents)
+foreach(required_runtime_map_exit_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "MAP_EXIT_TO_INTRO_SCREEN"
+    "MAP_EXIT_TO_MAINMENU"
+    "WillJerryMiloAllowThePlayerToCompressTimeAtBeginingOfGame"
+    "BeginLoadScreen")
+  string(FIND "${runtime_campaign_map_exit_contents}"
+    "${required_runtime_map_exit_fragment}" runtime_map_exit_fragment_position)
+  if(runtime_map_exit_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Map-screen campaign flow lost runtime selection; missing '${required_runtime_map_exit_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
+  runtime_campaign_map_quote_contents)
+foreach(required_runtime_map_quote_fragment IN ITEMS
+    "JerryMiloTalk("
+    "WillJerryMiloAllowThePlayerToCompressTimeAtBeginingOfGame"
+    "HandleJerryMiloQuotes("
+    "HasJerryAlreadySaidTheMapScreenIntroSequence")
+  string(FIND "${runtime_campaign_map_quote_contents}"
+    "${required_runtime_map_quote_fragment}" runtime_map_quote_fragment_position)
+  if(runtime_map_quote_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Jerry map-screen quote flow lost campaign-neutral emission; missing '${required_runtime_map_quote_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/opplist.cpp"
+  runtime_campaign_sighting_contents)
+foreach(required_runtime_sighting_fragment IN ITEMS
+    "GetGameContext().capabilities().isUnfinishedBusiness()"
+    "CampaignProfileCode::Role::Slay"
+    "gfMorrisShouldSayHi"
+    "gfMikeShouldSayHi"
+    "SOLDIER_QUOTE_SAID_EXT_MORRIS"
+    "SOLDIER_QUOTE_SAID_EXT_MIKE")
+  string(FIND "${runtime_campaign_sighting_contents}"
+    "${required_runtime_sighting_fragment}" runtime_sighting_fragment_position)
+  if(runtime_sighting_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical sighting flow lost runtime campaign selection; missing '${required_runtime_sighting_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
+  runtime_campaign_dialogue_alias_contents)
+foreach(required_runtime_dialogue_alias_fragment IN ITEMS
+    "DIALOGUE_SPECIAL_EVENT_JERRY_MILO"
+    "DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA"
+    "DIALOGUE_SPECIAL_EVENT_JERRY_MILO =="
+    "DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA);")
+  string(FIND "${runtime_campaign_dialogue_alias_contents}"
+    "${required_runtime_dialogue_alias_fragment}" runtime_dialogue_alias_fragment_position)
+  if(runtime_dialogue_alias_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Shared campaign dialogue-event aliases lost compatibility; missing '${required_runtime_dialogue_alias_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  runtime_campaign_quote_alias_contents)
+foreach(required_runtime_quote_alias_fragment IN ITEMS
+    "SOLDIER_QUOTE_SAID_EXT_MORRIS"
+    "SOLDIER_QUOTE_SAID_EXT_MIKE"
+    "SOLDIER_QUOTE_SAID_EXT_MORRIS =="
+    "SOLDIER_QUOTE_SAID_EXT_MIKE);")
+  string(FIND "${runtime_campaign_quote_alias_contents}"
+    "${required_runtime_quote_alias_fragment}" runtime_quote_alias_fragment_position)
+  if(runtime_quote_alias_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Shared campaign soldier-quote aliases lost compatibility; missing '${required_runtime_quote_alias_fragment}'")
   endif()
 endforeach()
 

@@ -5570,10 +5570,11 @@ void HandleSpecificQuoteWhenLeavingNpcTalkMenu()
 	SetFactTrue( FACT_MERC_SAY_QUOTE_WHEN_TALK_MENU_CLOSES );
 }
 
-#ifdef JA2UB
-
 void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileID, UINT32 uiQuoteNum )
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	UINT8		usNumMercsPresent;
 	SoldierID	SoldierIdArray[NUM_MERCS_WITH_NEW_QUOTES];
 	SoldierID	ValidSoldierIdArray[NUM_MERCS_WITH_NEW_QUOTES] = {0};
@@ -5623,6 +5624,9 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 
 void CheckForValidQuotesWhenLeavingDealer( UINT8 ubProfile )
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return;
+
 	//if the user is going to the dealer
 	if( gTalkPanel.bCurSelect != -1 && ubTalkMenuApproachIDs[ gTalkPanel.bCurSelect ] == APPROACH_BUYSELL )
 	{
@@ -5658,6 +5662,9 @@ void CheckForValidQuotesWhenLeavingDealer( UINT8 ubProfile )
 // This function checks if we should replace the mine entrance graphic
 BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo )
 {
+	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+		return( FALSE );
+
 	// First check current sector...... I13
 	if( gWorldSectorX == gGameUBOptions.MineSectorX && gWorldSectorY == gGameUBOptions.MineSectorY && gbWorldSectorZ == gGameUBOptions.MineSectorZ )
 	{
@@ -5670,9 +5677,6 @@ BOOLEAN IsMineEntranceInSectorI13AtThisGridNo( UINT32 sGridNo )
 
 	return( FALSE );
 }
-
-#endif
-
 void HaveBiggensDetonatingExplosivesByTheMine()
 {
 	SOLDIERTYPE *pSoldier = NULL;
@@ -5688,7 +5692,6 @@ void HaveBiggensDetonatingExplosivesByTheMine()
 }
 
 #ifdef JA2UB
-
 void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 {
 	UINT16									usTileIndex;
@@ -5775,7 +5778,6 @@ void ReplaceMineEntranceGraphicWithCollapsedEntrance()
 	// Turn off permenant changes....
 	ApplyMapChangesToMapTempFile( FALSE );
 }
-
 #endif
 
 void HandleCannotAffordNpcMsgBox()

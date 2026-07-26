@@ -88,10 +88,7 @@ extern INT8 gfKnowAboutOpponents;
 
 extern BOOLEAN	gfPlayerTeamSawJoey;
 extern BOOLEAN	gfMikeShouldSayHi;
-
-#ifdef JA2UB
 extern BOOLEAN   gfMorrisShouldSayHi; // JA25 UB
-#endif
 
 extern INT32			gsWatchedLoc[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
 extern INT8				gbWatchedLocLevel[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
@@ -171,9 +168,7 @@ void AddToShouldBecomeHostileOrSayQuoteList( SoldierID ubID );
 BOOLEAN SoldierHasLimitedVision(SOLDIERTYPE * pSoldier);
 
 
-#ifdef JA2UB
 INT32 MaxDistanceVisible( void );
-#endif
 
 // HEADROCK HAM 3.6: Moved here from cpp
 void MakeBloodcatsHostile( void );

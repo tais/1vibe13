@@ -167,10 +167,8 @@ enum DialogQuoteIDs
 	QUOTE_HATED_2_ON_TEAM_LONGTIMETOHATE,		// AIM: played when we refuse to be hired because hated 2 is present and bHatedTime >= 24 (else play QUOTE_HATED_2_ON_TEAM)
 	QUOTE_MERC_LEAVING_ALSUCO_SOON,				// tell player that contract will be over soon and we don't want to renew
 	QUOTE_MERC_GONE_UP_IN_PRICE,				// during contract renegotiation, inform the player of increased salary
-#ifdef JA2UB
 	QUOTE_ENTER_SECTOR_WITH_FAN_1,				// special JA2UB dialogue about fan
 	QUOTE_ENTER_SECTOR_WITH_FAN_2,				// special JA2UB dialogue about fan
-#endif
 
 	QUOTE_AIM_BUDDY_3_KILLED = 119,				// AIM: buddy 3 died
 
@@ -236,6 +234,9 @@ enum DialogQuoteIDs
 
 #define			DIALOGUE_SPECIAL_EVENT_JERRY_MILO								  0x00002000
 #define			DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA	0x00002000
+static_assert(
+	DIALOGUE_SPECIAL_EVENT_JERRY_MILO ==
+	DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA);
 
 #define			DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING						0x00004000
 #define			DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE								0x00008000
@@ -274,12 +275,10 @@ static_assert(
 #define			MULTIPURPOSE_SPECIAL_EVENT_SNITCH_DIALOGUE				0x00000004
 #define			MULTIPURPOSE_SPECIAL_EVENT_ADDITIONAL_DIALOGUE			0x00000008
 
-#ifdef JA2UB
 enum{
      JERRY_MELO_FACE = 6,
      NUMBER_OF_EXTERNAL_NPC_FACES,
 };
-#endif
 
 enum{
 	SKYRIDER_EXTERNAL_FACE =0,
@@ -300,10 +299,8 @@ enum{
 	UPDATE_BOX_REASON_SHOW_BOX,
 };
 
-#ifdef JA2UB
 extern UINT32 uiExternalStaticNPCFacesUB[ ];
 extern UINT32 uiExternalFaceProfileIdsUB[ ];
-#endif
 
 //extern UINT32 uiExternalStaticNPCFaces[ ];
 extern std::vector<UINT32> uiExternalStaticNPCFaces;
@@ -489,8 +486,6 @@ void UnPauseDialogueQueue( void );
 
 void SetExternMapscreenSpeechPanelXY( INT16 sXPos, INT16 sYPos );
 
-#ifdef JA2UB
 void RemoveJerryMiloBrokenLaptopOverlay();
-#endif
 
 #endif
