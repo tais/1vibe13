@@ -83,6 +83,18 @@ add_test(
     -DSOURCE_ROOT=${CMAKE_SOURCE_DIR}
     -P ${CMAKE_SOURCE_DIR}/cmake/CheckArchitectureBoundaries.cmake)
 
+# Keep the explicitly inventoried legacy campaign-preprocessor tail from
+# growing between larger runtime-selection migrations. The dedicated lint
+# workflow always runs this; expose it through CTest as well when the local
+# build environment has Python.
+find_package(Python3 QUIET COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(
+    NAME campaign_compile_guards
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/tools/lint_campaign_compile_guards.py)
+endif()
+
 # Standalone multiplayer coordinator/relay server (no game engine).
 # Speaks the same netshim wire protocol as the game's MP client, so stock clients
 # connect unchanged. Built only when explicitly requested.
