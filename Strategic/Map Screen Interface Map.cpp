@@ -587,9 +587,7 @@ void DrawIconL( INT32 MAP_GRID_X2, INT32 MAP_GRID_Y2, INT32 i ); //Legion
 UINT32	guiIcon2[256];
 ICON_FILE gHiddenIcon[ 256 ];
 
-#ifdef JA2UB
 void SetUpValidCampaignSectors( void );
-#endif
 
 BOOLEAN LoadHiddenTownFromLoadGameFile( HWFILE hFile );
 BOOLEAN SaveHiddenTownToSaveGameFile( HWFILE hFile );
@@ -7910,7 +7908,6 @@ void MilitiaDisbandYesNoBoxCallback( UINT8 bExitValue )
 }
 }
 
-#ifdef JA2UB
 void SetUpValidCampaignSectors( void )
 {
 /*
@@ -8007,7 +8004,6 @@ INT32			iRow, iCol;
 
 
 }
-#endif
 
 BOOLEAN SaveHiddenTownToSaveGameFile( HWFILE hFile )
 {

@@ -123,14 +123,17 @@
 /////////////////////////////////////////////////////
 #include <language.hpp>
 
-#ifdef JA2UB
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
 #include "ub_config.h"
 #include "Ja25Update.h"
 
 extern void MakeBadSectorListFromMapsOnHardDrive( BOOLEAN fDisplayMessages ); // ja25 UB
-#endif
+
+static bool IsUnfinishedBusinessCampaign()
+{
+	return GetGameContext().capabilities().isUnfinishedBusiness();
+}
 
 void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *pbSectorZ );
 extern void NextLoopCheckForEnoughFreeHardDriveSpace();
@@ -405,8 +408,8 @@ typedef struct
 	
 	UINT32 	sMercArrivalGridNo;
 
-//JA25 UB
-#ifdef JA2UB
+	// Runtime-selected JA25 state. Every host keeps one general-save schema so
+	// campaign selection can no longer alter the bytes that follow this point.
 	INT8		fMorrisShouldSayHi;
 	BOOLEAN		fFirstTimeInGameHeliCrash;
 	UINT32	sINITIALHELIGRIDNO[ 7 ];
@@ -442,8 +445,6 @@ typedef struct
 	BOOLEAN ubFiller2[255];
 	UINT32 ubFiller3[255];
 	INT8 ubFiller4[255];
-	
-#endif
 
 	// Flugente: was mobile restriction, now it's just a filler
 	UINT8		ubFiller1[256];
@@ -3484,8 +3485,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		goto FAILED_TO_SAVE;
 	}
 	
-#ifdef JA2UB	
-	//save Ja25 info
+	// Keep one save stream layout for every runtime campaign.
 	if( !SaveJa25SaveInfoToSaveGame( hFile ) )
 	{
 		ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR, L"Ja25 Save info Struct");
@@ -3498,7 +3498,6 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		ScreenMsg( FONT_MCOLOR_WHITE, MSG_ERROR, L"Ja25 Tactical info");
 		goto FAILED_TO_SAVE;
 	}
-#endif
 	//New profiles by Jazz
 	if( !SaveNewMercsToSaveGameFile( hFile ) )
 	{
@@ -3875,11 +3874,11 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	//Empty the dialogue Queue cause someone could still have a quote in waiting
 	EmptyDialogueQueue( );
 
-#ifdef JA2UB	
 	//Reset Jerry Quotes  JA25UB
-	if ( gGameUBOptions.JerryQuotes == TRUE )
-	HandleJerryMiloQuotes( TRUE );
-#endif
+	if ( IsUnfinishedBusinessCampaign() && gGameUBOptions.JerryQuotes == TRUE )
+	{
+		HandleJerryMiloQuotes( TRUE );
+	}
 
 	//If there is someone talking, stop them
 	StopAnyCurrentlyTalkingSpeech( );
@@ -4098,10 +4097,8 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		gfUseAlternateMap = TRUE;
 	}
 
-#ifdef JA2UB	
 	//Re-init the heli gridnos and time..
 	InitializeHeliGridnoAndTime( TRUE );
-#endif
 
 	for (int x = 0; x < 256; ++x) {
 		gEnemyPreservedTempFileVersion[x] = guiCurrentSaveGameVersion;
@@ -4357,17 +4354,11 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	LoadGameFilePosition( FileGetPos( hFile ), "Strategic Supply" );
 #endif*/
 
-#ifdef JA2UB			
-			//JA25 UB
-			// ATE: Validate any new maps...
-			// OK, if we're a camapign, check for new maps
-			//if ( !InDefaultCampaign( ) )
-			//{
+	if ( IsUnfinishedBusinessCampaign() )
+	{
 			MakeBadSectorListFromMapsOnHardDrive( TRUE );
 			LetLuaMakeBadSectorListFromMapsOnHardDrive( 0 );
-
-			//}
-#endif
+	}
 
 #if LOADSAVEGAME_LOGTIME
 	TimingLog("LoadStrategicInfoFromSavedFile", 6);
@@ -5211,40 +5202,35 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 
 
 
-#ifdef JA2UB	
-
-	uiRelEndPerc += 1;
-	SetRelativeStartAndEndPercentage( 0, uiRelStartPerc, uiRelEndPerc, L"Ja25 Tactical info" );
-	RenderProgressBar( 0, 100 );
-	uiRelStartPerc = uiRelEndPerc;	
-
-		if ( !LoadJa25SaveInfoFromSavedGame( hFile ) )
-		{
-			FileClose( hFile );
-			return( FALSE );
-		}
-
-		#ifdef JA2BETAVERSION
-			LoadGameFilePosition( FileGetPos( hFile ), "Ja25 Tactical info" );
-		#endif
-		
 	uiRelEndPerc += 1;
 	SetRelativeStartAndEndPercentage( 0, uiRelStartPerc, uiRelEndPerc, L"Ja25 Save info Struct" );
 	RenderProgressBar( 0, 100 );
 	uiRelStartPerc = uiRelEndPerc;
-	
 
-		if ( !LoadJa25TacticalInfoFromSavedGame( hFile ) )
-		{
-			FileClose( hFile );
-			return( FALSE );
-		}
+	if ( !LoadJa25SaveInfoFromSavedGame( hFile ) )
+	{
+		FileClose( hFile );
+		return( FALSE );
+	}
 
-		#ifdef JA2BETAVERSION
-			LoadGameFilePosition( FileGetPos( hFile ), "Ja25 Save info Struct" );
-		#endif
+	#ifdef JA2BETAVERSION
+		LoadGameFilePosition( FileGetPos( hFile ), "Ja25 Save info Struct" );
+	#endif
 
-#endif
+	uiRelEndPerc += 1;
+	SetRelativeStartAndEndPercentage( 0, uiRelStartPerc, uiRelEndPerc, L"Ja25 Tactical info" );
+	RenderProgressBar( 0, 100 );
+	uiRelStartPerc = uiRelEndPerc;
+
+	if ( !LoadJa25TacticalInfoFromSavedGame( hFile ) )
+	{
+		FileClose( hFile );
+		return( FALSE );
+	}
+
+	#ifdef JA2BETAVERSION
+		LoadGameFilePosition( FileGetPos( hFile ), "Ja25 Tactical info" );
+	#endif
 
 	uiRelEndPerc += 1;
 	SetRelativeStartAndEndPercentage( 0, uiRelStartPerc, uiRelEndPerc, L"Load New Mercs Prfiles..." );
@@ -5594,14 +5580,12 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 				pEmail=pEmail->Next;
 			}
 		}
-#ifdef JA2UB
-
-#else
-		if ( !fBookMark && !fEmail )
+		if ( !IsUnfinishedBusinessCampaign() && !fBookMark && !fEmail )
 		{
-			AddEmail(MERC_INTRO, MERC_INTRO_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_INTRO);
+			AddEmail(JA2_EMAIL_MERC_INTRO, JA2_EMAIL_MERC_INTRO_LENGTH,
+				SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1,
+				TYPE_EMAIL_EMAIL_EDT, XML_SPECK_INTRO);
 		}
-#endif
 	}
 
 	// WANNE: I disabled that for now, because I am not sure if this works like intended
@@ -7953,11 +7937,9 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	// HEADROCK HAM 3.6: Save new global variable for militia upkeep
 	sGeneralInfo.uiTotalUpkeepForMilitia = guiTotalUpkeepForMilitia;
 
-#ifdef JA2UB
-	//ja25 UB
+	// Runtime campaign state occupies a stable slot in every host.
 	sGeneralInfo.fMorrisShouldSayHi					= gfMorrisShouldSayHi;
 	sGeneralInfo.fFirstTimeInGameHeliCrash			= gfFirstTimeInGameHeliCrash;
-#endif
 		
 	for (int i=0;i<500;++i)
 	{
@@ -7966,7 +7948,6 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	
 	sGeneralInfo.sMercArrivalGridNo	= gGameExternalOptions.iInitialMercArrivalLocation;
 	
-#ifdef JA2UB		
 	sGeneralInfo.sINITIALHELIGRIDNO[ 0 ] = gGameUBOptions.InitialHeliGridNo[ 0 ];//14947;
 	sGeneralInfo.sINITIALHELIGRIDNO[ 1 ] = gGameUBOptions.InitialHeliGridNo[ 1 ];//15584;//16067;
 	sGeneralInfo.sINITIALHELIGRIDNO[ 2 ] = gGameUBOptions.InitialHeliGridNo[ 2 ];//15754;
@@ -8000,10 +7981,8 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	sGeneralInfo.sLaptopLinkInsurance		= gGameUBOptions.LaptopLinkInsurance;
 	sGeneralInfo.sLaptopLinkFuneral			= gGameUBOptions.LaptopLinkFuneral;
 	sGeneralInfo.sLaptopLinkBobby			= gGameUBOptions.LaptopLinkBobby;
-	
-#endif
 
-	//Setup the 
+	//Setup the
 	//Save the current music mode
 	FileWrite( hFile, &sGeneralInfo, sizeof( GENERAL_SAVE_INFO ), &uiNumBytesWritten );
 	if( uiNumBytesWritten != sizeof( GENERAL_SAVE_INFO ) )
@@ -8198,8 +8177,6 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.uiTotalUpkeepForMilitia, sizeof(sGeneralInfo.uiTotalUpkeepForMilitia), sizeof(UINT32), numBytesRead);
 	
 	numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.sMercArrivalGridNo, sizeof(sGeneralInfo.sMercArrivalGridNo), sizeof(UINT32), numBytesRead);
-#ifdef JA2UB
-	//ja25 UB
 	numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.fMorrisShouldSayHi, sizeof(sGeneralInfo.fMorrisShouldSayHi), sizeof(INT8), numBytesRead);
 	numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.fFirstTimeInGameHeliCrash, sizeof(sGeneralInfo.fFirstTimeInGameHeliCrash), sizeof(BOOLEAN), numBytesRead);
 
@@ -8235,8 +8212,6 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.ubFiller2, sizeof(sGeneralInfo.ubFiller2), sizeof(BOOLEAN), numBytesRead);
 	numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.ubFiller3, sizeof(sGeneralInfo.ubFiller3), sizeof(UINT32), numBytesRead);
 	numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.ubFiller4, sizeof(sGeneralInfo.ubFiller4), sizeof(INT8), numBytesRead);
-
-#endif	
 	if ( guiCurrentSaveGameVersion >= NEW_GENERAL_SAVE_INFO_DATA )
 	{
 		numBytesRead = ReadFieldByField(hFile, &sGeneralInfo.ubFiller1, sizeof( sGeneralInfo.ubFiller1 ), sizeof( UINT8 ), numBytesRead );
@@ -8497,10 +8472,11 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	gGameExternalOptions.ubDefaultArrivalSectorX = (UINT8)gsMercArriveSectorX;
 	gGameExternalOptions.ubDefaultArrivalSectorY = (UINT8)gsMercArriveSectorY;
 	
-#ifdef JA2UB
-	JA2_5_START_SECTOR_X = gGameExternalOptions.ubDefaultArrivalSectorX;
-	JA2_5_START_SECTOR_Y = gGameExternalOptions.ubDefaultArrivalSectorY;
-#endif
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		JA2_5_START_SECTOR_X = gGameExternalOptions.ubDefaultArrivalSectorX;
+		JA2_5_START_SECTOR_Y = gGameExternalOptions.ubDefaultArrivalSectorY;
+	}
 
 	gfCreatureMeanwhileScenePlayed = sGeneralInfo.fCreatureMeanwhileScenePlayed;
 
@@ -8539,47 +8515,52 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	// HEADROCK HAM 3.6: Load new global variable for militia upkeep
 	guiTotalUpkeepForMilitia = sGeneralInfo.uiTotalUpkeepForMilitia;
 
-#ifdef JA2UB	
-	//JA25 UB
-	gfMorrisShouldSayHi					= sGeneralInfo.fMorrisShouldSayHi;
-	gfFirstTimeInGameHeliCrash			= sGeneralInfo.fFirstTimeInGameHeliCrash;
-#endif
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		gfMorrisShouldSayHi = sGeneralInfo.fMorrisShouldSayHi;
+		gfFirstTimeInGameHeliCrash = sGeneralInfo.fFirstTimeInGameHeliCrash;
+	}
 	
 	for (int i=0;i<500;++i)
 	{
 		zHiddenNames[i].Hidden = !sGeneralInfo.HiddenNames[i];
 	}
 		
-#ifdef JA2UB
-	gGameUBOptions.InitialHeliGridNo[ 0 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 0 ];//14947;
-	gGameUBOptions.InitialHeliGridNo[ 1 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 1 ];//15584;//16067;
-	gGameUBOptions.InitialHeliGridNo[ 2 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 2 ];//15754;
-	gGameUBOptions.InitialHeliGridNo[ 3 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 3 ];//16232;
-	gGameUBOptions.InitialHeliGridNo[ 4 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 4 ];//16067;
-	gGameUBOptions.InitialHeliGridNo[ 5 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 5 ];//16230;
-	gGameUBOptions.InitialHeliGridNo[ 6 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 6 ];//15272;
-	
-	gGameUBOptions.LOCATEGRIDNO				= sGeneralInfo.sLOCATEGRIDNO;
-	gGameUBOptions.LOCATEGRIDNO2			= sGeneralInfo.sLOCATEGRIDNO2;
-	gGameUBOptions.InGameHeliCrash			= sGeneralInfo.sInGameHeliCrash;
-	gGameUBOptions.JerryGridNo				= sGeneralInfo.sJerryGridNo;
-	gGameUBOptions.JerryQuotes				= sGeneralInfo.sJerryQuotes;
-	gGameUBOptions.InJerry					= sGeneralInfo.sInJerry;
-	gGameUBOptions.InGameHeli				= sGeneralInfo.sInGameHeli;
-	gGameUBOptions.pJA2UB					= sGeneralInfo.spJA2UB;
-	
-	gGameUBOptions.fDeadMerc 				= sGeneralInfo.sfDeadMerc;
-	
-	gGameUBOptions.ubEndDefaultSectorX 		= sGeneralInfo.subEndDefaultSectorX;
-	gGameUBOptions.ubEndDefaultSectorY 		= sGeneralInfo.subEndDefaultSectorY;
-	gGameUBOptions.ubEndDefaultSectorZ 		= sGeneralInfo.subEndDefaultSectorZ;
-	
-	gGameUBOptions.TestUB 					= sGeneralInfo.sTestUB;
-	
-	gGameUBOptions.LaptopLinkInsurance 		= sGeneralInfo.sLaptopLinkInsurance;
-	gGameUBOptions.LaptopLinkFuneral 		= sGeneralInfo.sLaptopLinkFuneral;
-	gGameUBOptions.LaptopLinkBobby 			= sGeneralInfo.sLaptopLinkBobby;
-#endif
+	if ( IsUnfinishedBusinessCampaign() )
+	{
+		gGameUBOptions.InitialHeliGridNo[ 0 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 0 ];//14947;
+		gGameUBOptions.InitialHeliGridNo[ 1 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 1 ];//15584;//16067;
+		gGameUBOptions.InitialHeliGridNo[ 2 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 2 ];//15754;
+		gGameUBOptions.InitialHeliGridNo[ 3 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 3 ];//16232;
+		gGameUBOptions.InitialHeliGridNo[ 4 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 4 ];//16067;
+		gGameUBOptions.InitialHeliGridNo[ 5 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 5 ];//16230;
+		gGameUBOptions.InitialHeliGridNo[ 6 ] = sGeneralInfo.sINITIALHELIGRIDNO[ 6 ];//15272;
+
+		gGameUBOptions.LOCATEGRIDNO = sGeneralInfo.sLOCATEGRIDNO;
+		gGameUBOptions.LOCATEGRIDNO2 = sGeneralInfo.sLOCATEGRIDNO2;
+		gGameUBOptions.InGameHeliCrash = sGeneralInfo.sInGameHeliCrash;
+		gGameUBOptions.JerryGridNo = sGeneralInfo.sJerryGridNo;
+		gGameUBOptions.JerryQuotes = sGeneralInfo.sJerryQuotes;
+		gGameUBOptions.InJerry = sGeneralInfo.sInJerry;
+		gGameUBOptions.LaptopQuestEnabled = sGeneralInfo.sLaptopQuestEnabled;
+		gGameUBOptions.fTexAndJohn = sGeneralInfo.sTEX_AND_JOHN;
+		gGameUBOptions.fRandomManuelText = sGeneralInfo.sRandom_Manuel_Text;
+		gGameUBOptions.EventAttackInitialSectorIfPlayerStillThere =
+			sGeneralInfo.sEVENT_ATTACK_INITIAL_SECTOR_IF_PLAYER_STILL_THERE_UB;
+		gGameUBOptions.HandleAddingEnemiesToTunnelMaps =
+			sGeneralInfo.sHandleAddingEnemiesToTunnelMaps_UB;
+		gGameUBOptions.InGameHeli = sGeneralInfo.sInGameHeli;
+		gGameUBOptions.pJA2UB = sGeneralInfo.spJA2UB;
+
+		gGameUBOptions.fDeadMerc = sGeneralInfo.sfDeadMerc;
+		gGameUBOptions.ubEndDefaultSectorX = sGeneralInfo.subEndDefaultSectorX;
+		gGameUBOptions.ubEndDefaultSectorY = sGeneralInfo.subEndDefaultSectorY;
+		gGameUBOptions.ubEndDefaultSectorZ = sGeneralInfo.subEndDefaultSectorZ;
+		gGameUBOptions.TestUB = sGeneralInfo.sTestUB;
+		gGameUBOptions.LaptopLinkInsurance = sGeneralInfo.sLaptopLinkInsurance;
+		gGameUBOptions.LaptopLinkFuneral = sGeneralInfo.sLaptopLinkFuneral;
+		gGameUBOptions.LaptopLinkBobby = sGeneralInfo.sLaptopLinkBobby;
+	}
 	
 	if ( gGameExternalOptions.fShowCamouflageFaces ) 
 	{
